@@ -1,0 +1,62 @@
+# -*- coding: utf-8 -*-
+"""项目工作阶段的唯一目录口径。用户可见文件只写入这里，禁止回写旧英文目录。"""
+from pathlib import Path
+
+STAGES = {
+    'script': '01剧本准备',
+    'structure': '02剧本结构',
+    'storyboard': '03初步分镜',
+    'assets': '04资产管理',
+    'continuity': '05连贯性清单',
+    'final': '06分镜定稿',
+    'frames': '07首帧管理',
+    'previs': '08白模预演',
+    'video': '09视频生成',
+    'audio': '10配音与字幕',
+    'editing': '11后期剪辑',
+    'delivery': '12质检交付',
+}
+
+
+def stage(project, key):
+    """给定项目与阶段键，返回唯一的用户可见目录。"""
+    return Path(project) / STAGES[key]
+
+
+def writing(project):
+    return stage(project, 'script')
+
+
+def structure(project):
+    return stage(project, 'structure')
+
+
+def storyboard(project):
+    return stage(project, 'storyboard')
+
+
+def assets(project):
+    return stage(project, 'assets')
+
+
+def audio(project):
+    return stage(project, 'audio') / '音频'
+
+
+def subtitles(project):
+    return stage(project, 'audio') / '字幕'
+
+
+def editing(project):
+    """后期剪辑阶段的唯一用户可见目录。"""
+    return stage(project, 'editing')
+
+
+def delivery(project):
+    """质检交付阶段的唯一用户可见目录。"""
+    return stage(project, 'delivery')
+
+
+def exports(project):
+    """自动粗剪和 QC 的可交付输出，归属最终交付阶段。"""
+    return delivery(project) / '导出成片'

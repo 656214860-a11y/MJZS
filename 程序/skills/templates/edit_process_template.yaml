@@ -1,0 +1,21 @@
+name: 后期剪辑处理
+stage_id: "edit"
+process_id: "09_edit"
+steps:
+  - index: 1
+    name: 收集媒体素材
+    action: collect_media
+    needs_confirmation: false
+  - index: 2
+    name: 建立剪辑时间线
+    action: build_edit_timeline
+    needs_confirmation: false
+  - index: 3
+    name: 渲染成片
+    action: render_edit
+    needs_confirmation: true
+    question: "剪辑时间线已生成，是否开始渲染成片？"
+  - index: 4
+    name: 写入 edit_manifest.json
+    action: write_edit_manifest
+    needs_confirmation: false

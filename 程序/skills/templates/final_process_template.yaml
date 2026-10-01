@@ -1,0 +1,21 @@
+name: 分镜定稿处理
+stage_id: "final"
+process_id: "04_final"
+steps:
+  - index: 1
+    name: 审查初步分镜
+    action: review_storyboard
+    needs_confirmation: false
+  - index: 2
+    name: 核验资产引用
+    action: verify_assets
+    needs_confirmation: false
+  - index: 3
+    name: 生成定稿分镜
+    action: generate_final_storyboard
+    needs_confirmation: true
+    question: "分镜与资产已核验，是否生成分镜定稿？"
+  - index: 4
+    name: 写入 storyboard_final.json
+    action: write_final_storyboard
+    needs_confirmation: false

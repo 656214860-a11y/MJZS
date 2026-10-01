@@ -1,0 +1,21 @@
+name: 剧本处理
+stage_id: "script"
+process_id: "00_script"
+steps:
+  - index: 1
+    name: 读取剧本素材
+    action: read_script
+    needs_confirmation: false
+  - index: 2
+    name: 分析故事结构
+    action: analyse_story_structure
+    needs_confirmation: false
+  - index: 3
+    name: 生成剧本草稿
+    action: generate_script_draft
+    needs_confirmation: true
+    question: "剧本素材已分析，是否生成剧本草稿？"
+  - index: 4
+    name: 写入 script_draft.json
+    action: write_script_draft
+    needs_confirmation: false

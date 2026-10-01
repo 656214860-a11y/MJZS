@@ -1,0 +1,21 @@
+name: 白模预演处理
+stage_id: "previs"
+process_id: "06_previs"
+steps:
+  - index: 1
+    name: 读取首帧
+    action: load_keyframes
+    needs_confirmation: false
+  - index: 2
+    name: 组装预演时间线
+    action: assemble_previs_timeline
+    needs_confirmation: false
+  - index: 3
+    name: 渲染白模预演
+    action: render_previs
+    needs_confirmation: true
+    question: "白模预演时间线已生成，是否开始渲染？"
+  - index: 4
+    name: 写入 previs_manifest.json
+    action: write_previs_manifest
+    needs_confirmation: false

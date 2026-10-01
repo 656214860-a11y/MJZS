@@ -1,0 +1,39 @@
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from agent.core import read, save
+from local_video_settings_service import save_local_video_settings
+
+
+class LocalVideoSettingsServiceTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.project = Path(self.temp.name) / 'project'
+        self.project.mkdir()
+        self.config = self.project / 'config.json'
+        save(self.config, {'video_backend': 'wan', 'keep': 'value'})
+        self.source = self.project / 'chosen.json'
+        self.source.write_text('{"1": {}}', encoding='utf-8')
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_publishes_hashed_workflow_and_config(self):
+        updated = save_local_video_settings(self.project, read(self.config), {'workflow': str(self.source), 'url': 'http://127.0.0.1:8189'})
+        target = Path(updated['local_video']['workflow'])
+        self.assertEqual(target.read_bytes(), self.source.read_bytes())
+        self.assertEqual(read(self.config), updated)
+        self.assertEqual(updated['video_backend'], 'comfy')
+
+    def test_config_failure_restores_replaced_workflow_and_config(self):
+        first = save_local_video_settings(self.project, read(self.config), {'workflow': str(self.source)})
+        target = Path(first['local_video']['workflow'])
+        old_target, old_config = target.read_bytes(), self.config.read_bytes()
+        self.source.write_text('{"2": {}}', encoding='utf-8')
+        with patch('local_video_settings_service.save', side_effect=OSError('config failed')):
+            with self.assertRaisesRegex(OSError, 'config failed'):
+                save_local_video_settings(self.project, read(self.config), {'workflow': str(self.source)})
+        self.assertEqual(self.config.read_bytes(), old_config)
+        self.assertEqual(target.read_bytes(), old_target)

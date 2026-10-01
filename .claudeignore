@@ -1,0 +1,23 @@
+# 依赖目录——最大的 token 黑洞
+node_modules/
+
+# 构建产物
+dist/
+build/
+.next/
+
+# 锁文件（动辄几万行）
+*.lock
+package-lock.json
+
+# 日志和缓存
+*.log
+.cache/
+.temp/
+
+# 资源文件（模型读了也没用）
+*.png
+*.jpg
+*.svg
+*.woff
+*.woff2

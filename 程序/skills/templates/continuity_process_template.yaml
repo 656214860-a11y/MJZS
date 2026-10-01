@@ -1,0 +1,21 @@
+name: 连贯性处理
+stage_id: "continuity"
+process_id: "03_continuity"
+steps:
+  - index: 1
+    name: 读取分镜和资产
+    action: load_storyboard_and_assets
+    needs_confirmation: false
+  - index: 2
+    name: 检查角色连贯性
+    action: check_character_continuity
+    needs_confirmation: false
+  - index: 3
+    name: 修复连贯性问题
+    action: repair_continuity_issues
+    needs_confirmation: true
+    question: "检测到 {count} 项连贯性问题，是否生成修复建议？"
+  - index: 4
+    name: 写入 continuity_checklist.json
+    action: write_continuity_checklist
+    needs_confirmation: false

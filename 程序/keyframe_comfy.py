@@ -1,0 +1,772 @@
+"""In-app first-frame production: local ComfyUI (FLUX Klein) or the Seedream 5.0 API."""
+import queue
+import threading
+from pathlib import Path
+from file_cache import remove_temporary_file
+import tkinter as tk
+from tkinter import ttk, messagebox
+
+from agent.core import read, save, save_bytes
+from platform_tools import open_path
+import ui_plugin_registry
+from responsive_ui import FlowBar, CHECK_COLUMN_WIDTH, configure_check_column, refresh_check_heading, scroll_form
+from storyboard_paths import media_root
+from keyframe_batch import frame_prompt
+from production_model_contract import (LOCAL_KEYFRAME_MODEL,
+                                       SEEDREAM_KEYFRAME_MODEL,
+                                       KEYFRAME_MODELS)
+
+CONFIG_FILE = Path(__file__).with_name('batch_frames_tool') / 'config.json'
+# Compatibility exports for callers and existing project extensions.
+LOCAL_MODEL = LOCAL_KEYFRAME_MODEL
+SEEDREAM = SEEDREAM_KEYFRAME_MODEL
+MODELS = KEYFRAME_MODELS
+ASPECTS = ('9:16', '16:9', '1:1')
+FORMATS = ('横屏 768×432', '竖屏 432×768')
+STAGE = 'assets'
+DEFAULTS = {'url': 'http://127.0.0.1:8188', 'model': '', 'text_encoder': '', 'vae': '', 'width': 768, 'height': 432}
+
+
+def engine():
+    """Reuse the standalone batch engine so graph, records and retries stay in one place."""
+    from batch_frames_tool import batch_frames
+    return batch_frames
+
+
+def saved_settings():
+    data = read(CONFIG_FILE) if CONFIG_FILE.is_file() else {}
+    return dict(data) if isinstance(data, dict) else {}
+
+
+def missing_settings(values):
+    """返回本地 ComfyUI 自动首帧所必需的未配置字段。"""
+    return [key for key in ('url', 'model', 'text_encoder', 'vae') if not str(values.get(key, '')).strip()]
+
+
+def initial_settings():
+    settings = dict(DEFAULTS)
+    settings.update({key: value for key, value in saved_settings().items() if key in settings})
+    return settings
+
+
+def write_settings(values):
+    """Persist only the shared interface fields; other keys stay untouched for the standalone tool."""
+    data = saved_settings()
+    data.update({key: value for key, value in values.items() if key not in ('shot_ids', 'model_name')})
+    save(CONFIG_FILE, data)
+    return data
+
+
+def current_model(project):
+    """「首帧制作」窗口这会儿用的首帧模型（第 46 期第 7 条）。
+
+    用户要的是「把『生成模型与接口』下拉框里的模型搬到阶段配置 → 模型」，所以这份清单不再各存
+    一份：挑中的那一档就写在项目的 skill_config.json（阶段 id＝keyframe）里，页面上的勾选框、
+    这里、以及阶段配置面板读到的都是同一格；「自动」与认不出来的值一律按本地 FLUX 显示。
+
+    升级上来的老项目里 ui_settings.json 存过的那一档仍然兜底：阶段配置还没挑过生产模型时按它
+    显示，看到的还是原来那个模型（换过 Agent 引擎的人不会突然回到本地）；挑过就以阶段配置为准。
+    """
+    from keyframe_model_service import current_model as resolve
+    return resolve(project)
+
+
+def format_of(width, height):
+    return FORMATS[1] if int(width) < int(height) else FORMATS[0]
+
+
+def pending_shots(shots, base):
+    """Shots without a usable first frame; existing and deleted shots are never produced here."""
+    base = Path(base).resolve()
+    result = []
+    for shot in shots if isinstance(shots, list) else []:
+        if not isinstance(shot, dict) or not shot.get('id') or not shot.get('frame'):
+            continue
+        path = (base / shot['frame']).resolve()
+        if shot.get('frame_deleted') or not path.is_relative_to(base) or path.is_file():
+            continue
+        result.append(shot)
+    return result
+
+
+def reference_count(shot):
+    try:
+        from asset_context import references
+        return len({value for _, value in references(shot)})
+    except Exception:
+        return 0
+
+
+def check_shot(source, shot):
+    """Return (prompt, images) for one shot, raising the same errors the engines report."""
+    from batch_frames_tool.batch_frames import load_assets, shot_inputs
+    return shot_inputs(shot, media_root(source), load_assets(source))
+
+
+def run_seedream(source, shots, options, log, stop=None):
+    """Generate first frames through the user's Volcengine Seedream API, one shot at a time."""
+    from seedream_api import UNSETTLED, load_profile, request_image
+    from native_asset_codec import seedream_payload as _seedream_payload, to_png as _to_png
+    from importlib import import_module
+    keyframe_import = import_module('keyframe_import')
+    register, fingerprint = keyframe_import.register, keyframe_import.fingerprint
+    source = Path(source).resolve(); base = media_root(source).resolve()
+    profile = load_profile(options.get('seedream_profile', ''))
+    from asset_contract import resolve_aspect_ratio
+    aspect = resolve_aspect_ratio(options.get('workflow_lock'), options.get('aspect_ratio'), '9:16')
+    folder = source.parent / '首帧任务'; folder.mkdir(parents=True, exist_ok=True)
+    done = []; failed = []; blocked = []
+    for index, shot in enumerate(shots, 1):
+        sid = shot['id']
+        if stop is not None and stop.is_set():
+            log('已停止 Seedream 首帧生成；已完成的镜头保留。'); break
+        episode = read(source)
+        current = next((item for item in episode.get('shots', []) if item.get('id') == sid), None)
+        record_file = folder / ('seedream_' + sid + '.json')
+        record = read(record_file) if record_file.is_file() else {}
+        if current is None:
+            log(sid + '：镜头已删除，跳过'); continue
+        if record.get('state') == 'completed' and current.get('frame') and not current.get('frame_deleted'):
+            path = (base / current['frame']).resolve()
+            if path.is_relative_to(base) and path.is_file():
+                log(sid + '：已有首帧，跳过'); continue
+        if record.get('state') in UNSETTLED:
+            # 上次请求没拿到响应：可能已经扣费，绝不自动重复提交。首帧其实已登记就补齐记录，
+            # 否则跳过本镜并提示先核实，不再像以前那样直接中断整批生成。
+            path = (base / current['frame']).resolve() if current.get('frame') else None
+            if path and not current.get('frame_deleted') and path.is_relative_to(base) and path.is_file():
+                save(record_file, {'state': 'completed', 'model': profile['model'], 'shot_id': sid, 'file': str(path), 'note': '按已登记首帧补齐记录'})
+                log(sid + '：首帧已登记，补齐记录，未重复提交'); continue
+            blocked.append(sid + '（记录 ' + record_file.name + '）')
+            log(sid + '：上次请求结果不确定，未重复提交；请先在火山控制台核实，记录：' + str(record_file)); continue
+        log(f'{index}/{len(shots)} · {sid}：正在调用 Seedream 5.0 API 生成…')
+        try:
+            prompt, images = check_shot(source, current)
+        except ValueError as exc:
+            failed.append(sid + '：' + str(exc)); log(sid + '：' + str(exc)); continue
+        if len(images) > 10:
+            failed.append(sid + '：参考图超过 10 张'); log(sid + '：参考图超过 10 张，Seedream 每项最多 10 张'); continue
+        payload = _seedream_payload(profile['model'], prompt, aspect, images)
+        save(record_file, {'state': 'sending', 'model': profile['model'], 'shot_id': sid})
+        try:
+            raw = request_image(profile, payload)
+        except Exception as exc:
+            save(record_file, {'state': 'uncertain', 'model': profile['model'], 'shot_id': sid, 'error': str(exc)})
+            failed.append(sid + '：' + str(exc)); log(sid + '：' + str(exc)); continue
+        temp = folder / (sid + '_seedream.png')
+        try:
+            save_bytes(temp, _to_png(raw))
+            dest = register(source, {'shot_id': sid, 'shot_signature': fingerprint(current), 'output': sid + '.png'}, temp)
+        except Exception as exc:
+            save(record_file, {'state': 'failed', 'model': profile['model'], 'shot_id': sid, 'error': str(exc)})
+            failed.append(sid + '：' + str(exc)); log(sid + '：' + str(exc)); continue
+        finally:
+            remove_temporary_file(temp)
+        save(record_file, {'state': 'completed', 'model': profile['model'], 'shot_id': sid, 'file': str(dest)})
+        done.append(sid); log(sid + '：已保存并关联 ' + dest.name)
+    message = f'Seedream 已生成并导入 {len(done)}/{len(shots)} 镜。'
+    if failed:
+        message += ' 未完成：' + '；'.join(failed)
+    if blocked:
+        message += ' 未完成（结果待核实，未重复提交）：' + '；'.join(blocked)
+    return message
+
+
+def auto_batch(source, log, stop=None):
+    """无人值守首帧批次（本地 ComfyUI，免费后端）：沿用「首帧制作」窗口里保存的连接与模型设置。
+
+    只处理缺首帧的镜头；缺参考图、已有首帧的镜头由批次逐镜跳过并写明原因；任务记录可断点续跑，
+    中断或停止后下次继续查询已提交任务，不会重复提交。返回结果摘要文本。
+    """
+    source = Path(source).resolve()
+    values = {key: value for key, value in saved_settings().items() if key not in ('shot_ids', 'shot_id')}
+    missing = missing_settings(values)
+    if missing:
+        raise ValueError('请先在「首帧制作」窗口保存本地 ComfyUI 设置后再自动补首帧：缺少 ' + '、'.join(missing))
+    stop = stop if stop is not None else threading.Event()
+    # Keep the UI-facing facade here: it is also the single integration seam
+    # for native startup/probing and can be safely replaced by tests.
+    from importlib import import_module
+    native_apps = import_module('native_apps')
+    try:
+        native_apps.wait_comfy(values['url'], log, timeout=5)
+    except ValueError:
+        log('本地 ComfyUI 未运行，正在启动…')
+        native_apps.open_comfy()          # 未配置程序时给出明确错误，不静默失败
+        native_apps.wait_comfy(values['url'], log, timeout=120)
+    before = [shot['id'] for shot in pending_shots(read(source).get('shots'), media_root(source))]
+    engine().run(source, values, log, stop)
+    still = [shot['id'] for shot in pending_shots(read(source).get('shots'), media_root(source)) if shot['id'] in before]
+    summary = f'无人值守首帧批次结束：处理 {len(before)} 镜，已生成 {len(before) - len(still)} 镜'
+    return summary + (f'，仍未完成 {len(still)} 镜（明细见 首帧任务 记录）' if still else '')
+
+
+def show(app, source, initial=None):
+    source = Path(source).resolve()
+    batch = engine()
+    episode = read(source)
+    base = media_root(source).resolve()
+    project = Path(app.root).resolve()
+    settings = initial_settings()
+    prefs_file = project / 'ui_settings.json'
+    prefs = read(prefs_file) if prefs_file.is_file() else {}
+    saved = prefs.get('frame_production', {}) if isinstance(prefs.get('frame_production', {}), dict) else {}
+    try:
+        scope = '生成范围：' + str(episode.get('episode_id') or source.stem) + '（' + source.relative_to(project).as_posix() + '）'
+    except ValueError:
+        scope = '生成范围：' + str(episode.get('episode_id') or source.stem)
+    win = tk.Toplevel(app.win)
+    win.withdraw()
+    win.title('首帧制作 · ' + str(episode.get('episode_id') or source.stem))
+    win.geometry('900x760')
+    win.minsize(760, 560)
+    win.transient(app.win)
+    footer = ttk.Frame(win)
+    footer.pack(side='bottom', fill='x')
+    viewport = ttk.Frame(win)
+    viewport.pack(side='top', fill='both', expand=True)
+    view = scroll_form(viewport, bg='#f3f6fa')
+    form = view.form                      # 滚动表单区与批量资产共用一份实现
+
+    ttk.Label(form, text='勾选镜头 → 开始逐镜生成 → 按镜头编号自动导入', font=('Microsoft YaHei UI', 12, 'bold')).pack(anchor='w', padx=14, pady=12)
+    ttk.Label(form, text=scope + '；只处理尚未有首帧的镜头。').pack(anchor='w', padx=14)
+    ttk.Label(form, text='提示词沿用镜头 JSON 的 frame_prompt，参考图沿用资产图片；缺少参考图或提示词的镜头会被列出并跳过。', style='Muted.TLabel').pack(anchor='w', padx=14, pady=4)
+    table = ttk.Treeview(form, columns=('shot', 'title', 'references', 'prompt'), show='tree headings', height=6, selectmode='extended')
+    configure_check_column(table)
+    for key, label, width in [('shot', '镜头号', 130), ('title', '内容', 150), ('references', '参考图', 70), ('prompt', '首帧提示词', 430)]:
+        table.heading(key, text=label)
+        table.column(key, width=width, minwidth=50, stretch=False)
+    table.column('shot', anchor='w')
+
+    def fit_columns(width=None):
+        from tkinter import font as tkfont
+        style = ttk.Style(win)
+        body = tkfont.Font(root=win, font=style.lookup('Treeview', 'font') or 'TkDefaultFont')
+        heading = tkfont.Font(root=win, font=style.lookup('Treeview.Heading', 'font') or 'TkHeadingFont')
+        items = table.get_children()
+        def measure(label, key, low, high):
+            widest = max([heading.measure(label)] + [body.measure(str(table.set(item, key))) for item in items])
+            return min(high, max(low, widest + 20))
+        shot_width = measure('镜头号', 'shot', 110, 210)
+        title_width = measure('内容', 'title', 100, 240)
+        ref_width = measure('参考图', 'references', 72, 120)
+        available = max(1, (width or table.winfo_width()) - 4)
+        table.column('shot', width=shot_width)
+        table.column('title', width=title_width)
+        table.column('references', width=ref_width)
+        table.column('prompt', width=max(180, available - CHECK_COLUMN_WIDTH - shot_width - title_width - ref_width))
+
+    table.bind('<Configure>', lambda event: fit_columns(event.width), add='+')
+    table.pack(fill='x', padx=14)
+    status = tk.StringVar()
+    ttk.Label(form, textvariable=status, wraplength=830, justify='left').pack(anchor='w', padx=14, pady=6)
+    rows = {shot['id']: shot for shot in pending_shots(episode.get('shots'), base)}
+    excluded = set()
+    if initial is not None:
+        wanted = {str(value) for value in initial}
+        excluded = {sid for sid in rows if sid not in wanted}
+
+    def pending():
+        return [shot for shot in rows.values() if shot['id'] not in excluded]
+
+    def reload_rows():
+        nonlocal episode, rows
+        episode = read(source)
+        rows = {shot['id']: shot for shot in pending_shots(episode.get('shots'), base)}
+
+    def refresh(keep=True):
+        position = table.yview()[0] if keep else 0
+        selected = table.selection()
+        focused = table.focus()
+        table.delete(*table.get_children())
+        for shot in rows.values():
+            table.insert('', 'end', iid=shot['id'], text='',
+                         image=app.win._tick_images[0 if shot['id'] in excluded else 1],
+                         values=(shot['id'], shot.get('title', ''), str(reference_count(shot)) + ' 个',
+                                 frame_prompt(shot).replace('\n', ' ') or '待补齐首帧提示词'))
+        ids = list(rows)
+        refresh_check_heading(table, app.win._tick_images, lambda sid: sid not in excluded)
+        table.selection_set([sid for sid in selected if table.exists(sid)])
+        if table.exists(focused):
+            table.focus(focused)
+        table.configure(height=max(2, min(6, len(ids))))
+        fit_columns()
+        table.yview_moveto(position)
+        incomplete = [sid for sid, shot in rows.items() if not frame_prompt(shot).strip() or not reference_count(shot)]
+        note = f'已勾选 {len(pending())} / {len(ids)} 镜'
+        if incomplete:
+            note += '；' + str(len(incomplete)) + ' 镜需补齐参考图或首帧提示词：' + '、'.join(incomplete[:8]) + ('…' if len(incomplete) > 8 else '')
+        status.set(note)
+
+    def toggle(sids):
+        for sid in sids:
+            if sid in excluded:
+                excluded.remove(sid)
+            else:
+                excluded.add(sid)
+        refresh()
+
+    def click_check(event):
+        sid = table.identify_row(event.y)
+        if sid and table.identify_region(event.x, event.y) in ('tree', 'cell'):
+            table.selection_set(sid)
+            table.focus(sid)
+            toggle([sid])
+            return 'break'
+
+    def space_check(event):
+        toggle(table.selection())
+        return 'break'
+
+    def select_checks(value):
+        ids = list(rows)
+        if value:
+            excluded.difference_update(ids)
+        else:
+            excluded.update(ids)
+        refresh()
+
+    def toggle_all():
+        ids = list(rows)
+        if not ids:
+            return
+        # 表头勾选框要「全选 ↔ 全部取消」：此前传的是当前状态，点表头只会全部取消，永远勾不上。
+        select_checks(not all(sid not in excluded for sid in ids))
+
+    table.heading('#0', command=toggle_all)
+    table.bind('<Button-1>', click_check)
+    table.bind('<space>', space_check)
+    model = tk.StringVar(value=current_model(project))
+    choices = {}
+    # 统筹制作锁只给默认初值；用户已保存的首帧偏好仍是第二优先级。
+    from asset_contract import resolve_aspect_ratio
+    try:
+        import stage_config
+        locked = stage_config.workflow_lock(project)
+    except Exception:
+        locked = {}
+    preferred = saved.get('aspect_ratio') if saved.get('aspect_ratio') in ASPECTS else ''
+    aspect = tk.StringVar(value=resolve_aspect_ratio(locked, preferred, '9:16'))
+    ratio = tk.StringVar(value=format_of(settings['width'], settings['height']))
+    url = tk.StringVar(value=settings['url'])
+    model_name = tk.StringVar(value=settings['model'])
+    encoder = tk.StringVar(value=settings['text_encoder'])
+    vae = tk.StringVar(value=settings['vae'])
+    busy = False
+    stop = threading.Event()
+    events = queue.Queue()
+    closed = [False]
+    poll_id = None
+    agent_stamp = [0]
+    model_box = ttk.LabelFrame(form, text='生成模型与接口', padding=8)
+    model_box.pack(fill='x', padx=14, pady=6)
+    model_box.columnconfigure(1, weight=1)
+    # 第 46 期第 7 条：这一格原来是一个「模型」下拉框（本地 ComfyUI／Seedream／首帧 Agent 引擎
+    # 三条模型都摆在这儿，与阶段配置的模型下拉重复）。现在只剩只读的一行——挑模型的地方只有
+    # 阶段配置那一处，右边留一颗「阶段配置」就地打开它（与页面上那颗按钮同一个面板）。
+    ttk.Label(model_box, text='模型').grid(row=0, column=0, sticky='w', padx=(0, 6))
+    selector = ttk.Label(model_box, textvariable=model, anchor='w')
+    selector.grid(row=0, column=1, sticky='w')
+    ttk.Label(model_box, text='画幅').grid(row=0, column=2, padx=(12, 4))
+    shape = ttk.Combobox(model_box, textvariable=aspect, values=list(ASPECTS), state='disabled', width=8)
+    shape.grid(row=0, column=3, padx=4)
+    hint = tk.StringVar()
+    ttk.Label(model_box, textvariable=hint, wraplength=800, justify='left').grid(row=1, column=0, columnspan=4, sticky='w', pady=8)
+    account = ttk.Button(model_box, text='火山 API 设置')
+    account.grid(row=2, column=0, sticky='w')
+    skill_button = ttk.Button(model_box, text='Skill 调用设置')
+    skill_button.grid(row=2, column=1, sticky='w')
+    stage_button = ttk.Button(model_box, text='阶段配置', style='Compact.TButton',
+                              command=lambda: app.safe(open_stage_config))
+    stage_button.grid(row=2, column=2, sticky='w', padx=6)
+
+    def build_choices():
+        """把「阶段配置 → 模型」里挑的那一档翻成 (种类, 引擎)：本地 ComfyUI／Seedream／首帧 Agent。
+
+        第 46 期第 7 条：选项清单仍在这里算（它要读工作流设置里每个引擎当前的模型名），但不再喂给
+        本窗口的下拉框——显示的模型就是阶段配置里那一格；认不出来（比如那一格挑的是给 SKILL 编排
+        用的模型池条目）时按本地 ComfyUI 走。
+        """
+        from importlib import import_module
+        settings = import_module('workflow_settings')
+        cfg = settings.load(project, STAGE)
+        items = {LOCAL_MODEL: ('local', None), SEEDREAM: ('cloud', None)}
+        for engine_name, display in settings.ENGINES.items():
+            name = cfg['profiles'][engine_name].get('model', '').strip() or display
+            while name in items:
+                name += ' · ' + display
+            items[name] = ('agent', engine_name)
+        choices.clear(); choices.update(items)
+        chosen = current_model(project)
+        if chosen not in choices:
+            chosen = LOCAL_MODEL
+        model.set(chosen)
+        try:
+            agent_stamp[0] = settings.settings_path(project).stat().st_mtime_ns
+        except OSError:
+            agent_stamp[0] = 0
+        return cfg
+
+    def kind():
+        return choices.get(model.get(), ('local', None))[0]
+
+    def engine_of():
+        return choices.get(model.get(), (None, None))[1]
+    local_box = ttk.LabelFrame(form, text='ComfyUI 连接与模型接口', padding=8)
+    local_box.columnconfigure(1, weight=1)
+    ttk.Label(local_box, text='图片格式').grid(row=0, column=0, sticky='w', padx=4, pady=2)
+    ttk.Combobox(local_box, textvariable=ratio, values=list(FORMATS), state='readonly', width=16).grid(row=0, column=1, sticky='w', padx=4)
+    fields = {}
+    for index, (key, label, variable) in enumerate(
+            [('url', '本机地址', url), ('model', '图像模型', model_name), ('text_encoder', '文本编码器', encoder), ('vae', 'VAE', vae)], start=1):
+        ttk.Label(local_box, text=label).grid(row=index, column=0, sticky='w', padx=4, pady=2)
+        field = ttk.Entry(local_box, textvariable=variable) if key == 'url' else ttk.Combobox(local_box, textvariable=variable)
+        field.grid(row=index, column=1, sticky='ew', padx=4)
+        fields[key] = field
+    ttk.Button(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=1, column=2, padx=6)
+    ttk.Button(local_box, text='启动并检测', command=lambda: app.safe(detect)).grid(row=2, column=2, padx=6)
+    ttk.Button(local_box, text='删除模型', command=lambda: app.safe(delete_model)).grid(row=3, column=2, padx=6)
+    log = tk.Text(form, height=7, wrap='word', state='disabled', bg='#ffffff', fg='#243247', font=('Microsoft YaHei UI', 10), padx=10, pady=8)
+    log.pack(fill='both', expand=True, padx=14, pady=6)
+
+    def log_lines(text):
+        log.configure(state='normal')
+        log.insert('end', str(text) + '\n')
+        log.see('end')
+        log.configure(state='disabled')
+
+    def log_clear():
+        log.configure(state='normal')
+        log.delete('1.0', 'end')
+        log.configure(state='disabled')
+
+    def save_prefs():
+        data = read(prefs_file) if prefs_file.is_file() else {}
+        if not isinstance(data, dict):
+            data = {}
+        data['frame_production'] = {'aspect_ratio': aspect.get()}
+        save(prefs_file, data)
+
+    def update_model_ui(*_):
+        current = kind()
+        if current != 'local':
+            if local_box.winfo_manager():
+                local_box.pack_forget()
+        elif not local_box.winfo_manager():
+            local_box.pack(fill='x', padx=14, pady=6, after=model_box)
+        shape.configure(state='readonly' if current == 'cloud' else 'disabled')
+        if current == 'cloud':
+            account.grid()
+            try:
+                from seedream_api import public_profile
+                hint.set('使用您自己的火山方舟 API Key，费用计入火山账户；当前模型：' + public_profile()['model'])
+            except ValueError:
+                hint.set('使用您自己的火山方舟 API Key，费用计入火山账户；请先在“火山 API 设置”保存模型 ID 和 API Key。')
+        else:
+            account.grid_remove()
+            if current == 'agent':
+                from importlib import import_module
+                cfg = import_module('workflow_settings').load(project, STAGE)
+                agent_label = import_module('workflow_agents').label
+                hint.set('交给首帧 Agent 逐镜生成，Skill 用“Skill 调用设置”切换；当前：'
+                         + agent_label(cfg['profiles'][engine_of()], STAGE, engine_of(), '首帧制作'))
+            else:
+                hint.set('本地运行，无需登录；提示词与参考图提交本机 ComfyUI，按“图片格式”的像素尺寸生成。')
+        if current == 'agent':
+            skill_button.grid()
+        else:
+            skill_button.grid_remove()
+
+    def choose_account():
+        from seedream_settings import show as seedream_show
+        seedream_show(win, on_saved=update_model_ui)
+    account.configure(command=lambda: app.safe(choose_account))
+
+    def open_stage_config():
+        """去「阶段配置 → 模型」挑首帧模型（与页面上那颗按钮同一个面板）。"""
+        ui_plugin_registry.module('skill_panel').show(app, 'keyframe')
+
+    def open_agent_settings():
+        app.flow_settings(STAGE, '首帧制作')
+        build_choices()
+        update_model_ui()
+    skill_button.configure(command=lambda: app.safe(open_agent_settings))
+
+    def remember_engine(*_):
+        """阶段配置里挑的是某个 Agent 引擎时，把它写回这一流程当前的引擎档。
+
+        第 46 期第 7 条：模型从下拉框搬进阶段配置之后，这里改成「打开窗口就对齐一次」——
+        页面、Skill 设置窗口与制作窗口看到的是同一个引擎。
+        """
+        if kind() != 'agent':
+            return
+        from importlib import import_module
+        engine = engine_of(); cfg = import_module('workflow_settings').load(project, STAGE)
+        choose_agent = import_module('workflow_agents').choose
+        if engine and engine != cfg['engine']:
+            choose_agent(project, STAGE, (engine, cfg['profiles'][engine]['skill']))
+            app.status.set('已切换首帧 Agent 模型：' + model.get())
+
+    def options():
+        values = {'url': url.get().strip().rstrip('/'), 'model': model_name.get().strip(), 'text_encoder': encoder.get().strip(),
+                  'vae': vae.get().strip(), 'width': 432 if ratio.get().startswith('竖') else 768,
+                  'height': 768 if ratio.get().startswith('竖') else 432, 'shot_ids': [shot['id'] for shot in pending()]}
+        # 第 46 期第 7 条：上面 values['model'] 是本地 ComfyUI 的图像模型，跟「阶段配置」里
+        # 那个生产模型不是一回事，所以这里不再把 model 当「模型名」传下去。
+        values['aspect_ratio'] = aspect.get()
+        values['workflow_lock'] = locked
+        return values
+
+    def check_values():
+        shots = pending()
+        if not shots:
+            raise ValueError('请至少勾选一个待生成首帧的镜头')
+        current = kind()
+        if current == 'agent':
+            return {'shots': shots, 'model': model.get(), 'engine': engine_of()}
+        if current == 'cloud':
+            from seedream_api import load_profile
+            profile = load_profile()
+            return {'shots': shots, 'model': SEEDREAM, 'aspect_ratio': aspect.get(),
+                    'workflow_lock': locked, 'seedream_profile': profile['profile_id']}
+        values = options()
+        if not all((values['model'], values['text_encoder'], values['vae'])):
+            raise ValueError('请先填写或检测图像模型、文本编码器和 VAE 名称')
+        return {'shots': shots, 'model': LOCAL_MODEL, 'batch': values}
+
+    def save_api():
+        values = options()
+        batch.Client(values['url'])
+        if not all((values['model'], values['text_encoder'], values['vae'])):
+            raise ValueError('请填写图像模型、文本编码器和 VAE 名称')
+        write_settings(values)
+        status.set('API 设置已保存，下次打开自动填回。')
+
+    def delete_model():
+        if busy:
+            raise ValueError('请等待当前批次结束后再删除模型配置')
+        name = model_name.get().strip()
+        if not name:
+            raise ValueError('请先填写或选择要删除的模型')
+        if not messagebox.askyesno('删除模型', '删除模型配置 ' + name + '？\n只移除助手中的填写，不删除本地模型文件和已生成首帧。', parent=win):
+            return
+        model_name.set('')
+        write_settings(options())
+        fields['model'].configure(values=[value for value in fields['model']['values'] if value != name])
+        status.set('模型配置已删除并保存，本地模型文件保留。')
+
+    def detect():
+        if busy:
+            raise ValueError('请等待当前批次结束后再检测模型')
+        values = options()
+        client = batch.Client(values['url'])
+        if not app.launch_comfy():
+            return
+        def load():
+            info = client.request('/object_info')
+            def names(kind, field):
+                spec = info.get(kind, {}).get('input', {}).get('required', {}).get(field)
+                if not isinstance(spec, list) or not spec:
+                    return []
+                return list(spec[0]) if isinstance(spec[0], list) else list(spec[1].get('options', []))
+            return {key: names(*target) for key, target in
+                    (('model', ('UNETLoader', 'unet_name')), ('text_encoder', ('CLIPLoader', 'clip_name')), ('vae', ('VAELoader', 'vae_name')))}
+        def done(found):
+            if not win.winfo_exists():
+                return
+            variables = {'model': model_name, 'text_encoder': encoder, 'vae': vae}
+            for key, values_list in found.items():
+                fields[key].configure(values=values_list)
+                if not variables[key].get().strip() and len(values_list) == 1:
+                    variables[key].set(values_list[0])
+            status.set('检测到 图像模型 %d 个 / 文本编码器 %d 个 / VAE %d 个，请核对后保存。' % (len(found['model']), len(found['text_encoder']), len(found['vae'])))
+        app.async_(load, done)
+
+    def preflight_check():
+        """只检查本地参考资产与首帧提示词，不再检查模型。
+
+        旧版顺带连 ComfyUI 查模型清单：那次查询走后台线程并占用 app.worker，
+        ComfyUI 无响应时最长等到 30 秒超时，期间所有按钮都提示「当前操作尚未结束」，
+        整个程序看起来就是卡死。参考资产检查只读本地文件，因此直接同步执行。
+        """
+        if busy:
+            raise ValueError('请等待当前批次结束后再检查')
+        shots = pending()
+        if not shots:
+            raise ValueError('请至少勾选一个待生成首帧的镜头')
+        ready = []; skipped = []
+        for shot in shots:
+            try:
+                check_shot(source, shot); ready.append(shot)
+            except (ValueError, OSError) as exc:
+                skipped.append(shot['id'] + '：' + str(exc))
+        log_lines('参考资产检查完成：可生成 %d 镜，跳过 %d 镜。' % (len(ready), len(skipped)))
+        for item in skipped:
+            log_lines(item)
+        status.set('参考资产检查完成：可生成 %d 镜，跳过 %d 镜。' % (len(ready), len(skipped)))
+
+    shape.bind('<<ComboboxSelected>>', lambda event: (save_prefs(), update_model_ui()))
+
+    def stop_request():
+        stop.set()
+        status.set('已请求停止后续镜头；当前镜头完成后不再提交。')
+
+    def close():
+        if busy:
+            stop.set()
+            messagebox.showinfo('正在停止', '已请求停止后续镜头，当前镜头跑完就停。\n任务编号已保留，下次可以继续查询。', parent=win)
+            return
+        win.destroy()
+
+    def buttons():
+        start_button.configure(state='disabled' if busy else 'normal')
+        halt.configure(state='normal' if busy else 'disabled')
+        check_button.configure(state='disabled' if busy else 'normal')
+
+    def launch_agent(shots):
+        """Agent 引擎不在本窗口生成：登记批次后交给桌面 Agent 窗口，完成后自动导入。"""
+        from importlib import import_module
+        launch = import_module('keyframe_import').launch
+        if launch(app, source, shot_ids=[shot['id'] for shot in shots]) is False:
+            status.set('已保留上次未完成的首帧任务，本次未重复提交。')
+            return
+        log_lines('已在 Agent 窗口提交 ' + str(len(shots)) + ' 镜；完成后会自动导入并刷新列表。')
+        status.set('已在 Agent 窗口提交首帧任务。')
+
+    def publish(shots):
+        """把弹窗里最终的勾选回写页面：页面、下拉框与弹窗三个入口共用同一份勾选状态。"""
+        hook = getattr(app, 'frame_checks_apply', None)
+        if hook is None:
+            return
+        try:
+            hook(source, [shot['id'] for shot in shots])
+        except Exception:
+            pass
+
+    def start():
+        nonlocal busy
+        if busy:
+            return
+        checked = check_values()
+        publish(checked['shots'])
+        save_prefs()
+        if checked.get('engine'):
+            log_clear()
+            log_lines('首帧 Agent · ' + model.get() + ' · 共 ' + str(len(checked['shots'])) + ' 镜')
+            launch_agent(checked['shots'])
+            return
+        if checked['model'] == SEEDREAM:
+            log_clear()
+            log_lines('Seedream 5.0 Pro · 共 ' + str(len(checked['shots'])) + ' 镜')
+            from seedream_settings import confirm_unsettled
+            confirmed = confirm_unsettled(win, source.parent / '首帧任务', [shot['id'] for shot in checked['shots']], '镜头')
+            if confirmed:
+                log_lines('已在火山控制台核实，重新生成：' + '、'.join(confirmed))
+        else:
+            values = checked['batch']
+            write_settings(values)
+            if not app.launch_comfy(silent=True):     # 第 62 期任务 8：静默拉起，不弹选择框
+                return
+            log_clear()
+            log_lines('本地 ComfyUI · ' + str(len(values['shot_ids'])) + ' 镜')
+        busy = True
+        stop.clear()
+        buttons()
+        def work():
+            try:
+                if checked['model'] == SEEDREAM:
+                    events.put(run_seedream(source, checked['shots'], checked, events.put, stop))
+                else:
+                    batch.run(source, checked['batch'], events.put, stop)
+            except Exception as exc:
+                events.put('未完成：' + str(exc))
+            finally:
+                events.put(None)
+        threading.Thread(target=work, daemon=True).start()
+
+    def records():
+        folder = source.parent / '首帧任务'
+        folder.mkdir(exist_ok=True)
+        open_path(folder)
+
+    # 第 46 期第 7 条：模型由阶段配置决定，所以窗口一开就把该引擎档对齐一次（原来靠选下拉框触发）。
+    try:
+        remember_engine()
+    except Exception:
+        pass
+    bar = FlowBar(footer)
+    bar.pack(fill='x', padx=14, pady=8)
+    start_button = ttk.Button(bar, text='开始逐镜生成', style='Primary.TButton', command=lambda: app.safe(start))
+    start_button.pack(side='left')
+    halt = ttk.Button(bar, text='停止后续镜头', command=stop_request)
+    halt.pack(side='left', padx=6)
+    check_button = ttk.Button(bar, text='检查参考资产', command=lambda: app.safe(preflight_check))
+    check_button.pack(side='left', padx=6)
+    ttk.Button(bar, text='生成记录', command=records).pack(side='left', padx=6)
+    ttk.Button(bar, text='关闭', command=lambda: app.safe(close)).pack(side='left', padx=6)
+
+    def poll():
+        nonlocal busy, poll_id
+        if closed[0] or not win.winfo_exists():
+            return
+        finished = False
+        while True:
+            try:
+                value = events.get_nowait()
+            except queue.Empty:
+                break
+            if value is None:
+                finished = True
+                continue
+            log_lines(value)
+            status.set(str(value))
+            poll.last = str(value)
+        try:
+            from importlib import import_module
+            stamp = import_module('workflow_settings').settings_path(project).stat().st_mtime_ns
+        except OSError:
+            stamp = 0
+        if stamp != agent_stamp[0]:
+            build_choices()
+            update_model_ui()
+        if finished:
+            busy = False
+            buttons()
+            reload_rows()
+            refresh(keep=False)
+            # 第 47 期第 5 条：这一批首帧收了尾，三虎说一句（末尾那一句就是结局）。
+            last = getattr(poll, 'last', '')
+            poll.last = ''
+            from importlib import import_module
+            import_module('pet_ui').report_done(app, 'keyframe', last)
+            try:
+                if app.win.winfo_exists() and Path(app.current_frame_json()).resolve() == source:
+                    app.show_stage('keyframe')
+            except Exception:
+                pass
+        poll_id = win.after(250, poll)
+
+    def stop_poll(event=None):
+        nonlocal poll_id
+        if event is not None and event.widget is not win:
+            return
+        closed[0] = True
+        if poll_id is not None:
+            try:
+                win.after_cancel(poll_id)
+            except Exception:
+                pass
+            poll_id = None
+
+    win.bind('<Destroy>', stop_poll, add='+')
+    win.protocol('WM_DELETE_WINDOW', lambda: app.safe(close))
+    refresh()
+    build_choices()
+    update_model_ui()
+    view.bind_wheel()
+    buttons()
+    win.update_idletasks()
+    win.geometry('+' + str(app.win.winfo_rootx() + 40) + '+' + str(app.win.winfo_rooty() + 40))
+    win.deiconify()
+    poll()
+    return win

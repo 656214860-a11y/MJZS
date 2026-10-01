@@ -1,0 +1,21 @@
+name: 配音与字幕处理
+stage_id: "audio"
+process_id: "08_audio"
+steps:
+  - index: 1
+    name: 读取视频时间线
+    action: read_video_timeline
+    needs_confirmation: false
+  - index: 2
+    name: 准备音频方案
+    action: prepare_audio_plan
+    needs_confirmation: false
+  - index: 3
+    name: 生成配音与字幕
+    action: generate_audio_tracks
+    needs_confirmation: true
+    question: "音频方案已生成，是否开始制作配音与字幕？"
+  - index: 4
+    name: 写入 audio_manifest.json
+    action: write_audio_manifest
+    needs_confirmation: false

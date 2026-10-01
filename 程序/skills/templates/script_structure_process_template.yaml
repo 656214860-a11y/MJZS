@@ -1,0 +1,30 @@
+name: 剧本结构处理
+stage_id: "script_structure"
+process_id: "01_script_structure"
+input_path: "writing/script_raw.md"
+output_path: "writing/script.md"
+steps:
+  - index: 1
+    name: 读取剧本原稿
+    action: read_script_raw
+    needs_confirmation: false
+  - index: 2
+    name: Writer 提取结构化要素
+    action: writer_extract_structure
+    needs_confirmation: false
+  - index: 3
+    name: Editor 审校完整性与一致性
+    action: editor_review_structure
+    needs_confirmation: false
+  - index: 4
+    name: Writer 根据反馈修正
+    action: writer_revise_structure
+    needs_confirmation: false
+  - index: 5
+    name: Editor 复审
+    action: editor_final_review
+    needs_confirmation: false
+  - index: 6
+    name: 写入 script.md
+    action: write_structured_script
+    needs_confirmation: false

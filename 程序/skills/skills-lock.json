@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "storyboard-image-prompts": {
+      "source": "../../..",
+      "sourceType": "local",
+      "computedHash": "a5c24b05bb9b23190f3ae2e1a463c9315c06aee9025292f9e9b19144f044dcf6"
+    }
+  }
+}

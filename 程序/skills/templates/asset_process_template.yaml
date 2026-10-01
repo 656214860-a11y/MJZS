@@ -1,0 +1,21 @@
+name: 资产处理
+stage_id: "assets"
+process_id: "02_assets"
+steps:
+  - index: 1
+    name: 扫描资产目录
+    action: scan_assets
+    needs_confirmation: false
+  - index: 2
+    name: 检查正典板
+    action: check_canonical_boards
+    needs_confirmation: false
+  - index: 3
+    name: 生成缺失的正典板
+    action: generate_canonical_boards
+    needs_confirmation: true
+    question: "检测到 {count} 个角色缺少正典板，是否生成？"
+  - index: 4
+    name: 写入 asset_manifest.json
+    action: write_asset_manifest
+    needs_confirmation: false

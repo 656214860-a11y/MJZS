@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "漫剧助手结构化资产清单",
+  "type": "object",
+  "patternProperties": {
+    "^(CHAR|LOC|PROP)_[0-9]{3,}$": {
+      "type": "object",
+      "required": [
+        "name",
+        "description",
+        "image_prompt",
+        "negative_prompt",
+        "used_in",
+        "prompt_stage",
+        "appearance_locked"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "image_prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "negative_prompt": {
+          "type": "string"
+        },
+        "used_in": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "prompt_stage": {
+          "enum": [
+            "writing",
+            "storyboard"
+          ]
+        },
+        "appearance_locked": {
+          "type": "boolean"
+        },
+        "requires_asset": {
+          "type": "boolean",
+          "description": "道具或角色是否需要独立参考资产；普通道具、背景/不露脸/一次性角色为false，仅保留历史记录"
+        },
+        "prop_importance": {
+          "enum": ["key", "ordinary"]
+        },
+        "character_importance": {
+          "enum": ["key", "background", "extra", "non_face"],
+          "description": "角色是否需要独立参考资产；背景/不露脸/一次性角色不建档"
+        },
+        "asset_reason": {
+          "type": "string",
+          "description": "关键道具必须独立制作的剧情理由"
+        },
+        "prompt_source": {
+          "type": "string"
+        },
+        "reference_images": {
+          "type": "array",
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "用户参考图，相对资产库目录的实际图片路径；生成时与image_prompt一起使用"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

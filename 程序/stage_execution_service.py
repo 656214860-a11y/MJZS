@@ -1,0 +1,341 @@
+"""阶段执行所需的编排器与上下文，不依赖配置面板。"""
+import json
+from pathlib import Path
+
+import file_cache
+import model_pool
+import model_router
+import skill_budget
+import skill_orchestrator
+import stage_config
+import stage_models
+from project_context import ProjectContext
+from stage_path_service import write_dir
+
+
+def program_of(desktop):
+    return getattr(desktop, 'app', None) or None
+
+
+def project_context(project, *, settings_snapshot=None, cache=None):
+    """由 L3 装配项目根、阶段路径、设置快照和缓存给 L2 服务。"""
+    root = Path(project)
+    return ProjectContext.snapshot(
+        root, lambda stage: write_dir(root, stage), settings_snapshot,
+        file_cache if cache is None else cache)
+
+
+def import_delivery_master(project, source, *, settings_snapshot=None, cache=None):
+    """交付成片导入编排：L3 负责上下文和发布器注入。"""
+    from delivery_import_service import import_final_master
+    return import_final_master(
+        project_context(project, settings_snapshot=settings_snapshot, cache=cache), source,
+        publish=publish_stage_bytes)
+
+
+def import_stage_audio(project, source):
+    """音频导入编排：L3 注入唯一二进制发布器。"""
+    from audio_import_service import import_audio
+    return import_audio(project, source, publish=publish_stage_bytes)
+
+
+def export_stage_srt(project, episode):
+    """字幕导出编排：L3 注入统一文本阶段发布器。"""
+    from subtitle_export_service import export_srt
+    return export_srt(project, episode, publish=publish_stage_text)
+
+
+def export_stage_dialogue_script(project, episode, assets):
+    """对白脚本导出编排：L3 注入统一文本阶段发布器。"""
+    from subtitle_export_service import export_dialogue_script
+    return export_dialogue_script(project, episode, assets, publish=publish_stage_text)
+
+
+def reply_to_writing(project, creative, progress=None, cancelled=None, stream=None):
+    """剧本模型调用编排：为所有可见剧本成果注入统一发布器。"""
+    from writing_api import reply
+    return reply(project, creative, progress=progress, cancelled=cancelled, stream=stream,
+                 publish=publish_stage_text)
+
+
+def archive_idea_attachments(project, paths, now=None):
+    """剧本准备附档归档编排：L3 注入统一文本阶段发布器。"""
+    from idea_attachments import store
+
+    def publish_attachment(target, text):
+        return publish_stage_text(
+            target, text, lambda value: bool(value.strip()), lambda _target: None)
+
+    return store(project, paths, now=now, publish=publish_attachment)
+
+
+def save_stage_editing_checklist(project, text):
+    """剪辑清单保存编排：保留用户清空清单的既有语义。"""
+    from edit_service import save_editing_checklist
+
+    def publish_checklist(target, value):
+        return publish_stage_text(
+            target, value, lambda _value: True, lambda _target: None, allow_empty=True)
+
+    return save_editing_checklist(project, text, publish=publish_checklist)
+
+
+def publish_handoff_bundle(project, name, artifacts, *, auto=False):
+    """交接包发布编排：L3 负责目录切换、字节发布与旧自动包回收。"""
+    root = Path(project).resolve()
+    edit_dir = write_dir(root, 'edit')
+    final = edit_dir / str(name)
+    if final.parent != edit_dir:
+        raise ValueError('交接包目标越界。')
+    if auto and final.exists() and not (final / '交接包标记.json').is_file():
+        raise ValueError('已有同名目录且不是自动生成的交接包，请先改名或移走：' + str(final))
+    staging = edit_dir / '自动交接包.生成中'
+    output = staging if auto else final
+    if auto and staging.exists():
+        from storage_maintenance import recycle_paths
+        recycle_paths(root, [staging], '清理未完成自动交接包')
+    payload = {}
+    for item in artifacts:
+        filename = str(item['name'])
+        target = output / filename
+        if target.parent != output:
+            raise ValueError('交接包文件名越界。')
+        data = item.get('data')
+        if data is None:
+            data = Path(item['source']).read_bytes()
+        payload[target] = bytes(data)
+    publish_stage_bundle(payload, lambda _items: True, lambda: None)
+    if auto:
+        if final.exists():
+            from storage_maintenance import recycle_paths
+            if not recycle_paths(root, [final], '更新自动交接包'):
+                raise ValueError('旧自动交接包未能移入回收站，已保留原包')
+        staging.replace(final)
+    return final
+
+
+def publish_writing_preparation(project, name, artifacts):
+    """剧本准备工作区发布编排：L3 定位阶段目录并原子发布完整成果包。"""
+    root = Path(project).resolve()
+    script_dir = write_dir(root, 'script')
+    output = script_dir / str(name)
+    if output.parent != script_dir:
+        raise ValueError('剧本准备工作区目标越界。')
+    payload = {}
+    for item in artifacts:
+        target = output / str(item['name'])
+        if not target.is_relative_to(output):
+            raise ValueError('剧本准备工作区文件名越界。')
+        data = item.get('data')
+        if data is None:
+            data = Path(item['source']).read_bytes()
+        payload[target] = bytes(data)
+    publish_stage_bundle(payload, lambda _items: True, lambda: None)
+    return output
+
+
+def publish_idea_creative(project, artifacts):
+    """创意文件发布编排：L3 定位剧本阶段并原子发布分类成果。"""
+    root = Path(project).resolve()
+    script_dir = write_dir(root, 'script')
+    payload = {}
+    published = {}
+    directories = set()
+    for item in artifacts:
+        name = str(item['name']).replace('\\', '/')
+        target = script_dir.joinpath(*name.split('/'))
+        try:
+            target.resolve().relative_to(script_dir.resolve())
+        except (OSError, ValueError) as exc:
+            raise ValueError('创意文件目标越界。') from exc
+        data = item.get('data')
+        if data is None:
+            data = Path(item['source']).read_bytes()
+        payload[target] = bytes(data)
+        published[name] = target
+        for directory in item.get('directories', ()):
+            folder = script_dir.joinpath(*str(directory).replace('\\', '/').split('/'))
+            try:
+                folder.resolve().relative_to(script_dir.resolve())
+            except (OSError, ValueError) as exc:
+                raise ValueError('创意分类目录越界。') from exc
+            directories.add(folder)
+    publish_stage_bundle(payload, lambda _items: True, lambda: None)
+    for folder in directories:
+        folder.mkdir(parents=True, exist_ok=True)
+    return published
+
+
+def publish_keyframe_episode(target, episode):
+    """由 L3 原子发布首帧索引 JSON，供首帧生命周期服务注入。"""
+    return publish_stage_text(
+        target, json.dumps(episode, ensure_ascii=False, indent=2),
+        lambda value: isinstance(json.loads(value), dict), lambda _target: None)
+
+
+def delete_stage_keyframe(base, source, episode, shot):
+    """首帧删除编排：L3 注入索引发布器。"""
+    from keyframe_lifecycle_service import delete_keyframe
+    return delete_keyframe(base, source, episode, shot, publish=publish_keyframe_episode)
+
+
+def restore_stage_keyframe(base, source, episode, shot):
+    """首帧恢复编排：L3 注入索引发布器。"""
+    from keyframe_lifecycle_service import restore_keyframe
+    return restore_keyframe(base, source, episode, shot, publish=publish_keyframe_episode)
+
+
+def replace_stage_keyframe(base, source, episode, shot, data):
+    """首帧替换编排：L3 注入图片与索引两个原子发布器。"""
+    from keyframe_lifecycle_service import replace_keyframe
+    return replace_keyframe(
+        base, source, episode, shot, data, publish=publish_stage_bytes,
+        publish_episode=publish_keyframe_episode)
+
+
+def save_automatic_assemble_marker(project, digest, master, completed_at):
+    """自动粗剪完成标记：L3 定位阶段目录并注入原子发布器。"""
+    from edit_service import AUTOMATIC_ASSEMBLE_MARKER_NAME, save_automatic_assemble_marker as save_marker
+    target = write_dir(Path(project), 'edit') / AUTOMATIC_ASSEMBLE_MARKER_NAME
+
+    def publish_marker(path, payload):
+        return publish_stage_text(
+            path, json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            lambda text: isinstance(json.loads(text), dict), lambda _target: None)
+
+    return save_marker(target, digest, master, completed_at, publish=publish_marker)
+
+
+def save_automatic_handoff_marker(project, digest, folder, shot_count):
+    """自动交接完成标记：L3 定位阶段目录并注入原子发布器。"""
+    from handoff_service import AUTOMATIC_HANDOFF_MARKER_NAME, save_automatic_handoff_marker as save_marker
+    target = write_dir(Path(project), 'edit') / AUTOMATIC_HANDOFF_MARKER_NAME
+
+    def publish_marker(path, payload):
+        return publish_stage_text(
+            path, json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            lambda text: isinstance(json.loads(text), dict), lambda _target: None)
+
+    return save_marker(target, digest, folder, shot_count, publish=publish_marker)
+
+
+def _model_ids(desktop, stage):
+    pet = getattr(desktop, 'pet', None)
+    getter = getattr(pet, 'agent_model_records', None)
+    try:
+        records = getter() if callable(getter) else model_pool.pool(program=program_of(desktop))
+    except Exception:
+        records = {}
+    ids = {item[0] for item in model_pool.options(records, with_auto=True)}
+    ids.update(value for value, _label in stage_models.production_choices(stage, getattr(desktop, 'root', None)))
+    return ids
+
+
+def build_orchestrator(desktop, project):
+    errors = getattr(desktop, 'errors', None)
+    if not isinstance(errors, list): errors = []
+    return skill_orchestrator.default_orchestrator(
+        bus=getattr(desktop, 'bus', None), errors=errors, project=project,
+        router=model_router.ModelRouter(budget=skill_budget.for_project(project), program=program_of(desktop)))
+
+
+def stage_context(desktop, stage, function=None, extra=None):
+    project = getattr(desktop, 'root', None)
+    context = {'project': str(project) if project else '', 'stage': stage, 'function': function,
+               'globalModel': stage_config.global_model(program_of(desktop))}
+    if project and stage:
+        try: chosen = stage_config.get(project, stage)['model']
+        except Exception: chosen = ''
+        if chosen and chosen != model_router.AUTO and chosen not in _model_ids(desktop, stage): chosen = ''
+        context['projectModel'] = chosen
+    if extra: context.update({key: value for key, value in extra.items() if value is not None})
+    return context
+
+
+def publish_stage_text(target, text, validate, update_index, encoding='utf-8', *, allow_empty=False):
+    """按“校验 → 原子发布 → 索引更新”发布单份阶段文本成果。
+
+    ``validate`` 和 ``update_index`` 都是调用方所属阶段的既有契约：前者必须在正式
+    文件出现前拒绝不合格内容，后者只会在发布成功后执行。默认拒绝空正文；仅明确允许
+    用户清空维护清单的 L3 编排入口可传 ``allow_empty=True``，L2 不得自行放宽。索引
+    更新失败时恢复本次发布前的成果，并抛出异常；调用方因此不会取得成功返回值，也不得
+    据此标记阶段完成。
+    """
+    if not callable(validate):
+        raise TypeError('阶段成果发布需要内容校验器。')
+    if not callable(update_index):
+        raise TypeError('阶段成果发布需要索引更新器。')
+    target = Path(target)
+    value = str(text)
+    if not value.strip() and not allow_empty:
+        raise ValueError('阶段成果正文不能为空，未发布成果。')
+    verdict = validate(value)
+    if verdict is False:
+        raise ValueError('阶段成果内容校验未通过，未发布成果。')
+
+    from agent.core import restore_bytes, save_text
+    previous = target.read_bytes() if target.is_file() else None
+    save_text(target, value, encoding=encoding)
+    try:
+        update_index(target)
+    except Exception:
+        restore_bytes(target, previous)
+        raise
+    return target
+
+
+def publish_stage_bytes(target, data, validate, update_index):
+    """按文本成果同一编排契约发布二进制阶段成果。"""
+    if not callable(validate):
+        raise TypeError('阶段成果发布需要内容校验器。')
+    if not callable(update_index):
+        raise TypeError('阶段成果发布需要索引更新器。')
+    if not isinstance(data, (bytes, bytearray, memoryview)):
+        raise TypeError('二进制阶段成果必须是 bytes、bytearray 或 memoryview。')
+    target = Path(target)
+    value = bytes(data)
+    if not value:
+        raise ValueError('阶段成果二进制内容不能为空，未发布成果。')
+    verdict = validate(value)
+    if verdict is False:
+        raise ValueError('阶段成果内容校验未通过，未发布成果。')
+
+    from agent.core import restore_bytes, save_bytes
+    previous = target.read_bytes() if target.is_file() else None
+    save_bytes(target, value)
+    try:
+        update_index(target)
+    except Exception:
+        restore_bytes(target, previous)
+        raise
+    return target
+
+
+def publish_stage_bundle(artifacts, validate, update_index):
+    """原子发布多份关联成果；任一写入或索引失败均恢复整包旧版本。"""
+    if not callable(validate):
+        raise TypeError('阶段成果发布需要内容校验器。')
+    if not callable(update_index):
+        raise TypeError('阶段成果发布需要索引更新器。')
+    items = tuple((Path(path), bytes(data)) for path, data in artifacts.items())
+    if not items:
+        raise ValueError('阶段成果包不能为空，未发布成果。')
+    if len({path for path, _data in items}) != len(items):
+        raise ValueError('阶段成果包包含重复目标，未发布成果。')
+    if any(not data for _path, data in items):
+        raise ValueError('阶段成果包包含空内容，未发布成果。')
+    verdict = validate(items)
+    if verdict is False:
+        raise ValueError('阶段成果包内容校验未通过，未发布成果。')
+
+    from agent.core import restore_bytes, save_bytes
+    previous = {path: path.read_bytes() if path.is_file() else None for path, _data in items}
+    try:
+        for path, data in items:
+            save_bytes(path, data)
+        update_index()
+    except Exception:
+        for path, _data in reversed(items):
+            restore_bytes(path, previous[path])
+        raise
+    return tuple(path for path, _data in items)

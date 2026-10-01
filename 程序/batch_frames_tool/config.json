@@ -1,0 +1,8 @@
+{
+  "url": "http://127.0.0.1:8188",
+  "model": "flux-2-klein-4b-fp8.safetensors",
+  "text_encoder": "qwen_3_4b.safetensors",
+  "vae": "flux2-vae.safetensors",
+  "width": 768,
+  "height": 432
+}

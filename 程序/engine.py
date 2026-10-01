@@ -1,0 +1,474 @@
+"""Local production state machine. No API calls during construction/import."""
+import json
+import os
+import time
+import uuid
+from contextlib import contextmanager
+from pathlib import Path
+from storyboard_paths import media_root, is_cloud_workspace
+from agent.core import read, save, save_text, fingerprint, file_hash, download, command, replace, temporary_path
+from agent.wan import WanAdapter, ArkRejected
+from agent.media import check, probe
+import project_settings
+from project_naming import dated_path
+from legacy_compat import resolved_storyboard_alias
+
+def approved_versions(versions):
+    """已下载＋技术质检通过＋已验收的版本；自动粗剪、手动拼装与交接包共用同一口径。"""
+    return [v for v in versions or [] if v.get('review')=='pass' and v.get('state')=='downloaded' and v.get('qc_pass')]
+
+def episode_file_of(project,cfg,episode_file=None):
+    """第 45 期：工作集里那份镜头 JSON 到底在哪一份——配置、改名映射、定稿目录挨个找。
+
+    用户报的「ERRNO 2: 无法打开项目」就出在这里：老项目 config 里的 episode_dir 写的是
+    storyboard/分镜拆分，而那份 episode.json 早被规范化挪进了 定稿_…／EP00X_分镜定稿_… 子目录
+    （新位置就记在 分镜拆分/文件路径映射.json 里，见 storyboard_storage.resolved_alias）。
+    这里原来自顾自读 episode_dir/episode.json，一读不到就抛 [Errno 2]，整个项目都打不开——
+    先按映射表认名字，再按定稿目录兜底，最后才把「找不到的那条路」交给上层报清楚。
+    """
+    project=Path(project).resolve()
+    from project_stages import storyboard
+    # 配置文件里的相对路径必须相对于项目解析。此前 ``storyboard/…`` 会被
+    # 错当成进程工作目录下的路径，迁移前项目即使文件仍在也会被判为丢失。
+    def _project_path(value):
+        path=Path(value)
+        return path if path.is_absolute() else project/path
+
+    declared=_project_path(cfg.get('episode_dir')) if cfg.get('episode_dir') else storyboard(project)/'分镜拆分'
+    explicit=_project_path(episode_file) if episode_file else (_project_path(cfg['episode_file']) if cfg.get('episode_file') else None)
+    wanted=explicit if explicit is not None else declared/'episode.json'
+    # 1) 配置／调用方明写的那一份（改名挪走了也认映射表）
+    if explicit is not None:
+        path=resolved_storyboard_alias(project,explicit)
+        if path.is_file():return path
+    # 2) 老布局：episode_dir 里就摆着 episode.json
+    elif (declared/'episode.json').is_file():
+        return (declared/'episode.json').resolve()
+    # 3) 认「当前分镜」那一份（ui_settings.json 的 frame_json）：第 03／04／07 页看的正是它，
+    #    工作集跟着它走，几页之间才不会各说各的。
+    if episode_file is None:
+        current=current_episode(project)
+        if current is not None:return current
+    # 4) 配置那条路被规范化挪进定稿目录了：按映射表认领新位置（用户报的 ERRNO 2 就出在这一步之前）
+    path=resolved_storyboard_alias(project,wanted)
+    if path.is_file():return path
+    # 5) 最后的兜底：定稿目录里最新那份 episode.json。编号阶段是新布局；
+    #    ``storyboard`` 是迁移前项目的只读兼容入口，不能让它阻断老项目打开。
+    try:
+        roots=[storyboard(project)/'分镜拆分', project/'storyboard'/'分镜拆分']
+        found=[p for root in roots for p in root.glob('*/episode.json') if p.is_file()]
+    except OSError:
+        found=[]
+    if found:return max(found,key=lambda p:p.stat().st_mtime)
+    return path
+
+
+def current_episode(project):
+    """ui_settings.json 里那份「当前分镜」（frame_json）：读得出来、文件还在才认。"""
+    try:
+        prefs=read(Path(project)/'ui_settings.json')
+    except (OSError,ValueError):
+        return None
+    value=prefs.get('frame_json') if isinstance(prefs,dict) else None
+    if not value:return None
+    path=resolved_storyboard_alias(project,Path(value))
+    return path if path.is_file() else None
+
+
+class Studio:
+    def __init__(self, root, factory=WanAdapter,episode_file=None):
+        self.root=Path(root).resolve()
+        self.factory=factory
+        try:
+            cfg=read(self.root/'config.json')
+        except (OSError,ValueError) as exc:
+            raise ValueError('项目配置文件 config.json 无法读取：'+str(exc)) from None
+        if not isinstance(cfg,dict):
+            raise ValueError('项目配置文件 config.json 顶层必须为对象')
+        self.cfg=cfg
+        # 第 45 期：镜头 JSON 与它所在的目录一起定下来（改名映射、定稿目录都算数）。目录原来是从
+        # config 里单读的，与真正那份 JSON 一脱节就报「[Errno 2] 无法打开项目」；现在以找到的文件
+        # 为准。显式传了 episode_file（切工作集那条路，见 desktop.align_studio）就只换内存指针。
+        self.episode_path=episode_file_of(self.root,cfg,episode_file)
+        self.episode_dir=self.episode_path.parent
+        if not self.episode_path.is_file():
+            raise ValueError('项目里找不到镜头 JSON（episode.json）：'+str(self.episode_path)
+                             +'；请在第 2 步重新采用一份分镜 JSON 后再进入后续步骤。')
+        if episode_file is None:self.remember_episode()
+        self.media_dir=media_root(self.episode_path)
+        self.episode=read(self.episode_path)
+        self.db=self.root/'data/state.json'
+        self.db.parent.mkdir(exist_ok=True)
+        if not self.db.exists():
+            save(self.db, {'schema':1,'shots':{s['id']:[] for s in self.episode['shots']}})
+        self.validate()
+
+    def remember_episode(self):
+        """第 45 期：把找到的那份镜头 JSON 写回项目配置，下一趟不必再满世界找。
+
+        只在「配置里的指针确实不对」时写（对的就一个字节都不动），写不动也不影响这次打开——
+        它省的是下一次启动的时间与一次误报的机会（见 episode_file_of）。
+        """
+        wanted={'episode_file':str(self.episode_path),'episode_dir':str(self.episode_path.parent)}
+        def same(key,value):
+            raw=self.cfg.get(key)
+            if not raw:return False
+            path=Path(raw)
+            if not path.is_absolute():path=self.root/path      # 配置里写相对项目根的路径也算数
+            try:return path.resolve()==Path(value).resolve()
+            except (OSError,ValueError):return False
+        if all(same(key,value) for key,value in wanted.items()):return False
+        try:
+            save(self.root/'config.json',{**self.cfg,**wanted})
+        except OSError:
+            return False
+        self.cfg={**self.cfg,**wanted}
+        return True
+
+    def validate(self):
+        ids=[s['id'] for s in self.episode['shots']]
+        if len(ids)!=len(set(ids)) or not ids:
+            raise ValueError('镜头编号重复或为空')
+        reserve=self.cfg.get('reserve_seconds',0);budget=self.cfg.get('budget_seconds',0)
+        if not 0<=reserve<=budget:
+            raise ValueError('备用秒数必须在预算范围内')
+        for shot in self.episode['shots']:
+            if not 2<=shot['duration']<=15: raise ValueError('万相镜头时长须为2–15秒')
+            if not shot['video_prompt'].strip(): raise ValueError('视频提示词为空')
+            self.frame(shot,required=False)
+
+    def frame(self, shot, required=True):
+        path=(self.media_dir/shot['frame']).resolve()
+        if not path.is_relative_to(self.media_dir):
+            raise ValueError('首帧路径超出素材目录，已阻止访问：'+shot['id'])
+        if required and (shot.get('frame_deleted') or not path.is_file()):
+            raise ValueError(shot['id']+' 尚未生成／导入首帧，请到第05步选择此镜头，生成或导入图片后再制作视频。')
+        return path
+
+    @contextmanager
+    def lock(self):
+        # Windows releases this byte lock even when the process crashes.
+        path=self.root/'data/operation.lock'
+        with path.open('a+b') as f:
+            if path.stat().st_size==0: f.write(b'0'); f.flush()
+            f.seek(0)
+            import msvcrt
+            try: msvcrt.locking(f.fileno(),msvcrt.LK_NBLCK,1)
+            except OSError: raise ValueError('另一操作正在运行，请稍后再试') from None
+            try: yield
+            finally:
+                f.seek(0); msvcrt.locking(f.fileno(),msvcrt.LK_UNLCK,1)
+
+    def state(self):
+        try:
+            state=read(self.db)
+        except (OSError,ValueError):
+            state={}
+        if not isinstance(state,dict) or not isinstance(state.get('shots'),dict):
+            state={'schema':1,'shots':{}}
+        for shot in self.episode['shots']:state['shots'].setdefault(shot['id'],[])
+        return state
+    def shot(self,sid):
+        for s in self.episode['shots']:
+            if s['id']==sid:return s
+        raise ValueError('镜头不存在：'+str(sid))
+    def shot_folder(self,sid):
+        import re
+        if not re.fullmatch(r'[A-Za-z0-9_-]+',sid):raise ValueError('镜头编号不能包含路径字符')
+        if is_cloud_workspace(self.root):return self.root.parent/'镜头'/sid
+        return self.root/'data'/sid
+    def task_folder(self,sid,version):
+        if version.get('output_dir'):return (self.root/version['output_dir']).resolve()
+        return self.root/'data'/sid/f"v{version['version']:03}"
+    def publish_downloaded_video(self,state,sid,version,dest,report=None,qc_error=None):
+        """视频完整落盘后，再发布 QC 与可见成果索引。"""
+        dest=Path(dest).resolve()
+        if not dest.is_file() or not dest.is_relative_to(self.root):raise ValueError('视频成果尚未安全落盘')
+        folder=self.task_folder(sid,version)
+        if report is not None:save(folder/'qc.json',report)
+        version.update(state='downloaded',file=os.path.relpath(dest,self.root),sha256=file_hash(dest),
+                       qc_pass=bool(report is not None and not report.get('errors')),downloaded_at=time.time())
+        if qc_error is not None:version['qc_error']=str(qc_error)
+        version['finished_at']=time.time()
+        save(self.db,state)
+        return version
+    def cloud_index(self):
+        if not is_cloud_workspace(self.root):return
+        grouped={}
+        for db in self.root.parent.glob('*/data/state.json'):
+            cfgfile=db.parent.parent/'config.json'
+            if not cfgfile.is_file():continue
+            cfg=read(cfgfile);session=db.parent.parent
+            for sid,versions in read(db).get('shots',{}).items():
+                for version in versions:
+                    folder=(session/version['output_dir']).resolve() if version.get('output_dir') else session/'data'/sid/f"v{version['version']:03}"
+                    grouped.setdefault(sid,[]).append(f"- {cfg.get('model','模型')} · v{version['version']:03} · {version.get('state','')}\n  目录：{folder}\n")
+        for sid,lines in grouped.items():
+            folder=self.shot_folder(sid);folder.mkdir(parents=True,exist_ok=True)
+            save_text(folder/'历史任务索引.txt', '\n'.join(lines))
+    def used(self,state=None):
+        return sum(v.get('seconds',0) for vv in (state or self.state())['shots'].values() for v in vv if v.get('charged',True))
+    def remaining(self):
+        return max(0,self.cfg.get('budget_seconds',0)-self.cfg.get('reserve_seconds',0)-self.used())
+
+    def client(self):
+        from api_endpoints import configured_key
+        configured_key(self.cfg)
+        return self.factory(self.cfg)
+
+    def submit(self,sid):
+        from api_models import ensure_cloud_model
+        ensure_cloud_model(self.root,self.cfg)
+        from importlib import import_module
+        # 第 8 轮：勾了「白模 · 上传」时它返回那份参考视频的描述（接不上就当场抛）；不勾返回 None。
+        white=import_module('white_model').validate_video_submission(self,sid)
+        with self.lock():
+            if not self.cfg['live_enabled']: raise ValueError('当前为离线模式；请在设置中开启联网操作')
+            st=self.state(); versions=st['shots'][sid]; shot=self.shot(sid)
+            if any(v.get('state')=='downloaded' for v in versions):
+                raise ValueError('此镜头视频已就绪，不重复提交')
+            if versions and versions[-1]['state'] not in ('downloaded','failed','rejected'):
+                raise ValueError('此镜头已有未完成或结果不确定的任务，只能查询或恢复编号')
+            if versions and versions[-1]['state'] not in ('failed','rejected') and versions[-1].get('review')!='revise':
+                raise ValueError('重做前请先标记“需修改”；旧版本会保留')
+            if shot['duration']>self.remaining(): raise ValueError('超过可用制作秒数；备用额度不会自动动用')
+            command([self.cfg['ffmpeg'],'-version']); command([self.cfg['ffprobe'],'-version'])
+            from agent.shot_assets import prepare
+            shot=prepare(self.episode_path,shot,self.cfg,white=white)
+            client=self.client(); payload=client.payload(shot,self.frame(shot))
+            v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':True,
+               'signature':fingerprint(payload),'review':'pending','created':time.time(),'local_request':uuid.uuid4().hex}
+            v['generate_audio']=bool(shot.get('generate_audio',True))
+            if is_cloud_workspace(self.root):
+                import re
+                model=re.sub(r'[^A-Za-z0-9_-]','_',self.cfg['model'])
+                target=self.shot_folder(sid)/(model+'_'+self.root.name)/f"v{v['version']:03}"
+                v['output_dir']=os.path.relpath(target,self.root)
+            versions.append(v); save(self.db,st) # Reserve before network; ambiguous requests stay reserved.
+            folder=self.task_folder(sid,v)
+            folder.mkdir(parents=True,exist_ok=True)
+            def redact(value):
+                if isinstance(value,dict):return {k:redact(v) for k,v in value.items()}
+                if isinstance(value,list):return [redact(v) for v in value]
+                if isinstance(value,str) and value.startswith(('data:image/','data:video/')):
+                    import hashlib,base64
+                    return 'sha256:'+hashlib.sha256(base64.b64decode(value.split(',',1)[1])).hexdigest()
+                return value
+            preview=redact(payload)
+            save(folder/'request.json',preview)
+            save(folder/'assets_manifest.json',{'mode':shot['_reference_mode'],'assets':shot['_asset_references'],
+                                               'white_model_reference':shot.get('_white_model_reference')})
+            save_text(folder/'实际提交提示词.txt', shot['video_prompt'])
+            try:
+                v['task_id']=client.submit(shot,self.frame(shot),v['local_request'])
+                save(folder/'task_receipt.json',{'shot':sid,'version':v['version'],'local_request':v['local_request'],'task_id':v['task_id']})
+                v['state']='queued';v['submitted_at']=time.time()
+            except ArkRejected as e:
+                # A server error can occur after task creation; keep its reservation.
+                uncertain='HTTP 5' in str(e)
+                v.update(state='unknown' if uncertain else 'rejected',charged=uncertain,error=str(e)); save(self.db,st); raise
+            except Exception:
+                v.update(state='unknown',error='提交连接中断；任务可能已创建，不自动重发')
+                save(self.db,st); raise RuntimeError(v['error']) from None
+            save(self.db,st)
+            return '已提交 '+sid+'；已保存任务编号，自动跟踪并下载。'
+
+    def poll(self,sid):
+        with self.lock():
+            if not self.cfg['live_enabled']: raise ValueError('离线模式下不查询云端')
+            st=self.state(); vs=st['shots'][sid]
+            if not vs: raise ValueError('镜头尚未提交')
+            v=vs[-1]
+            if v['state']=='downloaded' and v.get('file') and (self.root/v['file']).is_file():return '已下载：'+str(self.root/v['file'])
+            if not v.get('task_id'):
+                receipt=self.task_folder(sid,v)/'task_receipt.json'
+                if receipt.is_file():
+                    info=read(receipt)
+                    if info.get('shot')==sid and info.get('local_request')==v.get('local_request') and info.get('task_id'):
+                        v.update(task_id=info['task_id'],state='queued');save(self.db,st)
+            if not v.get('task_id'):raise ValueError('提交中断，没拿到任务编号。请去服务商控制台核对，用「恢复任务编号」找回。')
+            client=self.client()
+            try: result=client.poll(v['task_id'])
+            except Exception: raise RuntimeError('查询连接中断；编号已保留，下次继续查询即可') from None
+            observed=time.time();v['last_checked_at']=observed
+            if result['status']=='running':v.setdefault('running_observed_at',observed)
+            if result['status']=='succeeded':v.setdefault('succeeded_observed_at',observed)
+            for field in ('provider_created_at','provider_updated_at'):
+                if isinstance(result.get(field),(int,float)):v[field]=result[field]
+            v.update(state=result['status'],usage=result.get('usage'),error_code=result.get('error_code'))
+            save(self.db,st)
+            if v['state']=='failed': return '云端失败，保守保留预算占用；请核对账单。'
+            if v['state']!='succeeded': return sid+' · 云端状态：'+{'queued':'排队中','running':'生成中'}.get(v['state'],v['state'])
+            folder=self.task_folder(sid,v); folder.mkdir(parents=True,exist_ok=True)
+            dest=folder/f'{sid}.mp4';v['download_started_at']=time.time();save(self.db,st)
+            url=result.get('url')
+            try:
+                if hasattr(client,'download_video'):client.download_video(v['task_id'],dest)
+                elif not url:raise ValueError('服务商没有返回视频地址')
+                else:download(url,dest)
+            except ValueError:raise RuntimeError('云端任务已成功但没有返回视频地址；请在服务商控制台核对并手动下载，不要重复提交') from None
+            except Exception: raise RuntimeError('下载中断；任务已成功，再次查询可续取，不会重新生成') from None
+            try:
+                report=check(dest,v['seconds'],{**self.cfg,'require_audio':v.get('generate_audio',True)})
+                command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',dest,'-f','null','-'])
+                if not report['errors'] and project_settings.auto_review(self.root):
+                    # 无人值守：技术质检通过即验收，让下载→质检→验收→剪辑可以连续跑完。
+                    v.update(review='pass',review_note='无人值守自动验收：技术质检通过')
+            except Exception as e:
+                self.publish_downloaded_video(st,sid,v,dest,qc_error=e)
+                return '视频已下载：'+str(dest)+'；质检未完成，请检查FFmpeg设置后再验收。'
+            self.publish_downloaded_video(st,sid,v,dest,report)
+            total=int(v['finished_at']-v.get('created',v['finished_at']))
+            if not v['qc_pass']:note='；'.join(report['errors'])
+            elif v.get('review')=='pass':note='技术检查通过，已按自动验收设置通过'
+            else:note='技术检查通过，等您验收'
+            return f'已下载（总耗时 {total//60}分{total%60:02}秒）：'+str(dest)+'；'+note
+
+    def review(self,sid,value,note):
+        with self.lock():
+            st=self.state(); vs=st['shots'][sid]
+            if not vs: raise ValueError('没有可验收的版本')
+            v=vs[-1]
+            if value=='pass' and (v['state']!='downloaded' or not v.get('qc_pass')): raise ValueError('仅下载且技术合格的版本可通过')
+            if value not in ('pass','revise'): raise ValueError('无效验收值')
+            v.update(review=value,review_note=note); save(self.db,st)
+
+    def review_many(self,shot_ids,value,note=''):
+        """按镜头批量验收：逐镜汇总结果，单镜不合格只跳过，不中断整批。"""
+        ids=list(shot_ids)
+        if not ids: raise ValueError('请先勾选要验收的镜头')
+        passed=[];skipped=[]
+        for sid in ids:
+            try:
+                self.review(sid,value,note);passed.append(sid)
+            except (ValueError,RuntimeError,KeyError) as exc:
+                skipped.append(str(sid)+'：'+str(exc))
+        text=('已通过 ' if value=='pass' else '已标记需修改 ')+str(len(passed))+'/'+str(len(ids))+' 镜'
+        if skipped:text+='；跳过 '+'；'.join(skipped)
+        return text
+
+    def attach(self,sid,task_id):
+        import re
+        if not re.fullmatch(r'[A-Za-z0-9_-]{10,200}',task_id): raise ValueError('任务编号格式不正确')
+        with self.lock():
+            st=self.state(); vs=st['shots'][sid]
+            if not vs or vs[-1].get('task_id') or vs[-1]['state'] not in ('unknown','submitting'):
+                raise ValueError('只恢复无编号、结果不确定的提交')
+            if any(v.get('task_id')==task_id for vv in st['shots'].values() for v in vv): raise ValueError('编号已属于其他版本')
+            vs[-1].update(task_id=task_id,state='queued',review_note='您在控制台手动恢复；请核实镜头内容')
+            save(self.db,st)
+
+    def auto_edit_ready(self):
+        """无人值守粗剪的前置检查：返回 (成片指纹, 已就绪版本清单)。
+
+        只有本集每个未删除镜头都有「已下载＋技术质检通过＋已验收」且文件与验收指纹一致的版本，
+        才给出指纹；否则返回 (None, 未就绪原因列表)，由调用方决定何时再试。
+        """
+        st=self.state();rows=[];waiting=[]
+        for shot in self.episode['shots']:
+            if shot.get('video_deleted'):continue
+            approved=approved_versions(st['shots'].get(shot['id']))
+            if not approved:
+                waiting.append(shot['id']+' 尚未验收');continue
+            v=approved[-1];path=self.root/v['file']
+            if not path.is_file():
+                waiting.append(shot['id']+' 视频文件缺失');continue
+            try:
+                if file_hash(path)!=v['sha256']:
+                    waiting.append(shot['id']+' 视频已被替换，需重新验收');continue
+            except OSError:
+                waiting.append(shot['id']+' 视频无法读取');continue
+            rows.append({'shot':shot['id'],'version':v['version'],'sha256':v['sha256']})
+        if waiting:return None,waiting
+        if not rows:return None,['本集没有可剪辑的镜头']
+        return fingerprint(rows),rows
+
+    def assemble(self,shot_ids=None,skip_unready=False,report=None):
+        """拼装成片。skip_unready=True：跳过未验收／文件缺失的镜头，只在没有任何可用镜头时报错；
+        report 传入 dict 时会写入 skipped（未就绪镜头与原因），供界面提示。"""
+        with self.lock():
+            st=self.state(); chosen=[];skipped=[]
+            selected=set(shot_ids) if shot_ids is not None else None
+            available={s['id'] for s in self.episode['shots'] if not s.get('video_deleted')}
+            if selected is not None and (not selected or selected-available):raise ValueError('勾选镜头为空或已失效，请重新选择')
+            for shot in self.episode['shots']:
+                if shot.get('video_deleted') or (selected is not None and shot['id'] not in selected):continue
+                approved=approved_versions(st['shots'].get(shot['id']))
+                if not approved:
+                    if not skip_unready: raise ValueError(shot['id']+'缺少已下载、质检及验收通过的视频，请先验收或取消勾选')
+                    skipped.append(shot['id']+' 缺少已下载、质检及验收通过的视频');continue
+                v=approved[-1]; path=self.root/v['file']
+                if not path.is_file():
+                    if not skip_unready: raise ValueError(shot['id']+'的视频文件缺失，请重新生成或取消勾选')
+                    skipped.append(shot['id']+' 的视频文件缺失');continue
+                if file_hash(path)!=v['sha256']:
+                    if not skip_unready: raise ValueError('视频已被替换，请重新验收')
+                    skipped.append(shot['id']+' 的视频已被替换，需重新验收');continue
+                chosen.append((shot,v,path))
+            if report is not None:report['skipped']=skipped
+            if not chosen:
+                if skipped:raise ValueError('没有可剪辑的镜头；'+'；'.join(skipped))
+                raise ValueError('没有可剪辑的镜头')
+            shot_names=[shot['id'] for shot,_,_ in chosen]
+            full_name='_'.join(shot_names)
+            # Keep paths short on Windows; the manifest below records every shot.
+            label=full_name if len(full_name)<=100 else '_'.join(shot_names[:5])+f'_等{len(shot_names)}镜'
+            from project_stages import exports
+            parent=exports(self.root);parent.mkdir(parents=True,exist_ok=True)
+            out=dated_path(parent,label)
+            out.mkdir()
+        return self._encode(chosen,out)
+
+    def publish_edit_bundle(self, out, master, report, chosen):
+        """成片完整发布后，再登记与其绑定的质检报告和剪辑清单。"""
+        out = Path(out).resolve()
+        master = Path(master).resolve()
+        if not master.is_file() or not master.is_relative_to(out):
+            raise ValueError('成片尚未安全发布，不能登记剪辑成果')
+        save(out/'qc.json', report)
+        save(out/'edit_manifest.json', [
+            {'shot': shot['id'], 'version': version['version'], 'sha256': version['sha256']}
+            for shot, version, _ in chosen
+        ])
+
+    def _encode(self,chosen,out):
+        # 编码放在项目锁之外：ffmpeg 可能持续几分钟，占着锁会让同时进行的下载／验收全部报「另一操作正在运行」。
+        listing=[]
+        for shot,v,path in chosen:
+            dest=out/(shot['id']+'.mp4')
+            vf='scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p'
+            if shot.get('post_overlay'):
+                import shutil
+                font_source='C:/Windows/Fonts/msyh.ttc'
+                if Path(font_source).is_file():
+                    shutil.copyfile(font_source,out/'font.ttc')
+                    save_text(out/'label.txt', shot['post_overlay'])
+                    vf+=',drawtext=fontfile=font.ttc:textfile=label.txt:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.6:x=30:y=30'
+            from agent.media import probe
+            streams=probe(path,self.cfg).get('streams',[])
+            has_audio=any(stream.get('codec_type')=='audio' for stream in streams)
+            args=[self.cfg['ffmpeg'],'-y','-v','error','-i',path]
+            if not has_audio:args+=['-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=48000']
+            args+=['-map','0:v:0','-map','0:a:0' if has_audio else '1:a:0','-vf',vf]
+            if has_audio:args+=['-af','loudnorm=I=-16:TP=-1.5:LRA=11']
+            else:args+=['-shortest']
+            args+=['-ar','48000','-ac','2','-c:v','libx264','-preset','fast','-crf','20','-c:a','aac',dest]
+            command(args,cwd=out)
+            if not has_audio:
+                save(out/(shot['id']+'_音轨说明.json'),{'shot':shot['id'],'source_has_audio':False,'action':'补齐静音音轨，仅用于拼接，不生成对白或音效'})
+            listing.append("file '"+dest.name+"'")
+        save_text(out/'concat.txt', '\n'.join(listing))
+        master=out/('MASTER.mp4')
+        pending_master=temporary_path(master, '.partial.mp4')
+        try:
+            command([self.cfg['ffmpeg'],'-v','error','-f','concat','-safe','1','-i','concat.txt','-c','copy','-movflags','+faststart',pending_master],cwd=out)
+            command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',pending_master,'-f','null','-'])
+            report=check(pending_master,sum(s['duration'] for s,_,_ in chosen),self.cfg)
+            replace(pending_master, master)
+        finally:
+            if pending_master.exists():
+                from file_cache import remove_temporary_file
+                remove_temporary_file(pending_master)
+        self.publish_edit_bundle(out, master, report, chosen)
+        if report['errors']: raise ValueError('成片技术检查未通过，报告已保存')
+        return str(master)

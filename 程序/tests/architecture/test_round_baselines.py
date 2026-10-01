@@ -1,0 +1,51 @@
+"""轮次接续与最低验证基线不得因文档或测试迁移而倒退。"""
+from __future__ import annotations
+
+import re
+import unittest
+
+import smoke_test
+from tests.architecture._scan import ROOT
+
+
+STATUS = ROOT / 'project_status.md'
+RESULT_PATTERN = re.compile(r'tasks_round_(\d+)_result\.md$')
+INVALID_TYPE_HEADING = re.compile(r'结构治理执行(?:轮)?|修复/结构治理轮|整理轮（结构治理执行）')
+
+
+def _latest_result_number() -> int:
+    numbers = [int(match.group(1)) for path in (ROOT / 'tasks_round').glob('tasks_round_*_result.md')
+               if (match := RESULT_PATTERN.search(path.name))]
+    if not numbers:
+        raise AssertionError('tasks_round 中没有结果报告')
+    return max(numbers)
+
+
+class RoundBaselineTests(unittest.TestCase):
+    def test_round_number_continuous(self) -> None:
+        """AGENTS 2.5 规则 27：状态轮次必须紧接最新结果报告。"""
+        text = STATUS.read_text(encoding='utf-8')
+        matched = re.search(r'当前轮次：(\d+)', text)
+        self.assertIsNotNone(matched, 'project_status.md 缺少当前轮次')
+        self.assertEqual(int(matched.group(1)), _latest_result_number() + 1)
+
+    def test_baseline_unchanged(self) -> None:
+        """AGENTS 2.5 规则 29：默认冒烟 8 项，架构门禁不低于历史 14 项。"""
+        self.assertEqual(len(smoke_test.ROUND_CHECKS[smoke_test.ROUND]), 8,
+                         '默认冒烟基线必须保持 8/8')
+        architecture_files = list((ROOT / 'tests' / 'architecture').glob('test_*.py'))
+        self.assertGreaterEqual(len(architecture_files), 14,
+                                '架构门禁不得低于历史 14/14 基线')
+
+    def test_execution_is_not_an_independent_round_type(self) -> None:
+        """AGENTS 3.3：执行仅可作为结构治理轮的子场景。"""
+        headings = [
+            f'{path}: {path.read_text(encoding="utf-8").splitlines()[0]}'
+            for path in (ROOT / 'tasks_round').glob('tasks_round_*_result.md')
+        ]
+        for line in STATUS.read_text(encoding='utf-8').splitlines():
+            matched = re.match(r'- R\d+ ([^：]+)：', line)
+            if matched:
+                headings.append(f'{STATUS}: {matched.group(1)}')
+        invalid = [heading for heading in headings if INVALID_TYPE_HEADING.search(heading)]
+        self.assertEqual(invalid, [], '轮次标题或状态摘要不得把“执行”写成独立轮次类型')

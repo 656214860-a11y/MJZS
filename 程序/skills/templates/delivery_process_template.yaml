@@ -1,0 +1,21 @@
+name: 交付处理
+stage_id: "delivery"
+process_id: "10_delivery"
+steps:
+  - index: 1
+    name: 核验交付物
+    action: verify_deliverables
+    needs_confirmation: false
+  - index: 2
+    name: 打包交付文件
+    action: package_delivery
+    needs_confirmation: false
+  - index: 3
+    name: 生成交付报告
+    action: generate_delivery_report
+    needs_confirmation: true
+    question: "交付文件已核验，是否生成交付报告？"
+  - index: 4
+    name: 写入 delivery_manifest.json
+    action: write_delivery_manifest
+    needs_confirmation: false

@@ -1,0 +1,20 @@
+内容已并入 references/03-script-draft.md（内嵌 HOLLMWOOD 四步初稿引擎）
+
+方案A：以 screenplay-production-line 为主，HOLLMWOOD 降级为“岗位3的内部实现”
+岗位1·拆书编剧
+   ↓
+岗位2·分集大纲+钩子 → Gate A
+   ↓
+岗位3·脚本编剧初稿
+   └─ 内部调用 HOLLMWOOD（导演→编剧→编辑→演员）
+      作为“初稿生成引擎”
+   ↓
+岗位4·台词润色
+   ↓
+岗位5·节奏编审
+   ↓
+岗位6·逻辑编审
+   ↓
+岗位7·合规审读
+   ↓
+岗位8·总编终审 → Gate B

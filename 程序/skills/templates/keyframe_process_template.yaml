@@ -1,0 +1,21 @@
+name: 首帧处理
+stage_id: "keyframe"
+process_id: "05_keyframe"
+steps:
+  - index: 1
+    name: 读取定稿分镜
+    action: load_final_storyboard
+    needs_confirmation: false
+  - index: 2
+    name: 准备首帧提示词
+    action: prepare_keyframe_prompts
+    needs_confirmation: false
+  - index: 3
+    name: 生成首帧
+    action: generate_keyframes
+    needs_confirmation: true
+    question: "已准备 {count} 个镜头的首帧提示词，是否生成首帧？"
+  - index: 4
+    name: 写入 keyframe_manifest.json
+    action: write_keyframe_manifest
+    needs_confirmation: false

@@ -1,0 +1,54 @@
+"""Broadcaster 回归测试。"""
+import tempfile
+import unittest
+from pathlib import Path
+
+from broadcaster import Broadcaster
+import pet_bus
+import pet_ui
+
+
+class BroadcasterTests(unittest.TestCase):
+    def test_broadcast_creates_utf8_timestamped_log(self):
+        with tempfile.TemporaryDirectory() as directory:
+            log_path = Path(directory) / "nested" / "sanhu_progress.log"
+            message = Broadcaster.stage(3, "资产管理")
+            result = Broadcaster(str(log_path)).broadcast(message)
+
+            expected = Broadcaster.stage(3, "资产管理")
+            self.assertEqual(result, expected)
+            line = log_path.read_text(encoding="utf-8").strip()
+            self.assertTrue(line.endswith(" " + expected))
+
+    def test_broadcast_rejects_message_without_prefix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, "规定前缀"):
+                Broadcaster(str(Path(directory) / "sanhu_progress.log")).broadcast("资产管理")
+
+    def test_step_and_fixed_prefixes_are_valid(self):
+        with tempfile.TemporaryDirectory() as directory:
+            broadcaster = Broadcaster(str(Path(directory) / "sanhu_progress.log"))
+            self.assertEqual(broadcaster.step(2, 4, "生成正典板"), "【步骤 2/4】生成正典板")
+            for message in ("【门禁】上游输出完整，通过", "【警告】资产 CHR-05 正典板缺失",
+                            "【阻塞】上游JSON不完整", "【完成】资产管理已完成",
+                            "【恢复】检测到中断，从步骤 3 继续", "【下一阶段】连贯性清单",
+                            "【模式】已切换到全自动模式"):
+                self.assertEqual(broadcaster.broadcast(message), message)
+
+    def test_pet_output_is_prefixed_and_recorded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            pet = pet_ui.Pet.__new__(pet_ui.Pet)
+            pet.errors = []
+            pet.snapshot = lambda: {'stage': 'assets'}
+            log_path = Path(directory) / 'sanhu_progress.log'
+            pet.broadcaster = Broadcaster(str(log_path))
+
+            message = pet._record_output('资产管理正在处理')
+
+            expected = Broadcaster.stage(pet_bus.STAGES.index('assets') + 1, '资产管理正在处理')
+            self.assertEqual(message, expected)
+            self.assertIn(message, log_path.read_text(encoding='utf-8'))
+
+
+if __name__ == "__main__":
+    unittest.main()

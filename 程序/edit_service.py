@@ -1,0 +1,35 @@
+"""无人值守自动粗剪的无界面派发决策。"""
+from pathlib import Path
+
+
+CHECKLIST_NAME = '剪辑优化清单.md'
+AUTOMATIC_ASSEMBLE_MARKER_NAME = '自动粗剪.json'
+
+
+def save_editing_checklist(project, text, *, publish=None):
+    """发布用户维护的剪辑优化清单；正式发布器必须由 L3 注入。"""
+    if not callable(publish):
+        raise TypeError('剪辑优化清单需要由 L3 注入发布器。')
+    from project_stages import editing
+    target = editing(project) / CHECKLIST_NAME
+    return publish(target, str(text or ''))
+
+
+def save_automatic_assemble_marker(target, digest, master, completed_at, *, publish):
+    """登记一次已完成的自动粗剪；正式发布器必须由 L3 注入。"""
+    if not callable(publish):
+        raise TypeError('自动粗剪标记需要由 L3 注入发布器。')
+    target = Path(target)
+    publish(target, {'digest': digest, 'master': str(master), 'at': completed_at})
+    return target
+
+
+def automatic_assemble_decision(signature, digest, previous_signature, completed_marker):
+    """决定自动粗剪应等待、跳过已完成成果，还是启动一次拼接。"""
+    if signature == previous_signature:
+        return {'action': 'skip', 'signature': signature}
+    if digest is None:
+        return {'action': 'wait', 'signature': signature}
+    if isinstance(completed_marker, dict) and completed_marker.get('digest') == digest:
+        return {'action': 'complete', 'signature': signature}
+    return {'action': 'dispatch', 'signature': signature}

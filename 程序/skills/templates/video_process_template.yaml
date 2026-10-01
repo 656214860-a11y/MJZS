@@ -1,0 +1,21 @@
+name: 视频处理
+stage_id: "video"
+process_id: "07_video"
+steps:
+  - index: 1
+    name: 读取白模预演
+    action: load_previs
+    needs_confirmation: false
+  - index: 2
+    name: 准备视频提示词
+    action: prepare_video_prompts
+    needs_confirmation: false
+  - index: 3
+    name: 生成视频片段
+    action: generate_video_clips
+    needs_confirmation: true
+    question: "已准备 {count} 个视频片段任务，是否开始生成？"
+  - index: 4
+    name: 写入 video_manifest.json
+    action: write_video_manifest
+    needs_confirmation: false
