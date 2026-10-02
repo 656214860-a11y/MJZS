@@ -4,7 +4,6 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from agent.core import save
 from file_cache import read_json, remove_temporary_file
 from project_naming import dated_path
 
@@ -23,10 +22,12 @@ def read_record(root):
         result.setdefault('project_file', result.pop('preview'))
     return result
 
-def write_record(root, data): save(root / '预演记录.json', data)
+def write_record(root, data, *, publish):
+    """发布预演记录；正式写入能力由 L3 显式注入。"""
+    return publish(Path(root) / '预演记录.json', data)
 
 
-def import_previs_media(root, sid, source):
+def import_previs_media(root, sid, source, *, publish):
     """受控发布用户选定的白模视频或工程，源文件始终保留。"""
     root = Path(root).resolve()
     if not sid or Path(sid).name != sid or sid in ('.', '..'):
@@ -49,7 +50,7 @@ def import_previs_media(root, sid, source):
         key = 'preview' if source.suffix.lower() in ('.mp4', '.webm', '.mov') else 'project_file'
         saved.update(shot_id=sid, updated_at=datetime.now().isoformat(timespec='seconds'))
         saved[key] = str(target)
-        write_record(root, saved)
+        write_record(root, saved, publish=publish)
         return target
     except Exception:
         remove_temporary_file(target)
@@ -58,12 +59,12 @@ def import_previs_media(root, sid, source):
         remove_temporary_file(temporary)
 
 
-def save_previs_notes(root, sid, notes):
+def save_previs_notes(root, sid, notes, *, publish):
     """保存白模备注；UI 只提供编辑器内容。"""
     data = read_record(root)
     data.update({'shot_id': sid, 'notes': notes,
                  'updated_at': datetime.now().isoformat(timespec='seconds')})
-    write_record(root, data)
+    write_record(root, data, publish=publish)
 
 def find_blender(refresh=False):
     if _BLENDER_CACHE and not refresh: return _BLENDER_CACHE[0]

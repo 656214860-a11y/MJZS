@@ -17,7 +17,7 @@ class AssetBatchSettingsServiceTests(unittest.TestCase):
 
     def test_save_settings_preserves_unrelated_preferences_and_restores_model(self):
         saved = save_settings(self.root, {'model': 'new.safetensors'},
-                              {'CHAR': True, 'PROP': False}, 'old-id')
+                              {'CHAR': True, 'PROP': False}, 'old-id', publish=save)
         self.assertEqual(saved['model'], 'new.safetensors')
         self.assertEqual(saved['deleted_models'], [])
         self.assertTrue(saved['CHAR'])
@@ -27,7 +27,7 @@ class AssetBatchSettingsServiceTests(unittest.TestCase):
         self.assertEqual(persisted['asset_batch']['quality'], 'low')
 
     def test_remove_model_keeps_unrelated_settings_and_deduplicates_identity(self):
-        saved = remove_model(self.root, 'http://127.0.0.1:8189/', 'old.safetensors', 'old-id')
+        saved = remove_model(self.root, 'http://127.0.0.1:8189/', 'old.safetensors', 'old-id', publish=save)
         self.assertEqual(saved['model'], '')
         self.assertEqual(saved['deleted_models'], ['old-id'])
         self.assertEqual(read(self.root / 'ui_settings.json')['asset_batch']['quality'], 'low')

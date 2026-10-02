@@ -21,7 +21,7 @@ from asset_batch_service import (
 from asset_auto_batch_service import auto_batch as _auto_batch
 from asset_batch_state_service import ledger_path, uncertain_assets, prune_raw_outputs, ready_asset_ids
 from asset_batch_selection_service import all_selected, scope_label, set_selection, toggle_excluded
-from asset_batch_settings_service import remove_model, save_settings
+from stage_execution_service import remove_asset_batch_model as remove_model, save_asset_batch_settings as save_settings
 
 
 def release_uncertain(project, ids):

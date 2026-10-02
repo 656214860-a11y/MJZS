@@ -24,7 +24,7 @@ _register(3, "stage_flow", "stage_exec", "stage_parallel", "stage_config", "stag
           "skill_orchestrator", "skill_registry", "workflow", "workflow_tasks",
           "agent_dispatch", "engine", "integrations", "project_storage", "stage_contract_report", "stage_execution_service", "desktop_startup_service", "desktop_automation_service", "idea_chat_controller",
           "writing_api", "script_skill_report", "storyboard_plan_service", "storyboard_final", "storyboard_final_controller", "storyboard_page_controller", "keyframe_page_controller", "storyboard_selection", "storyboard_catalog", "asset_batch_controller", "asset_page_controller", "editing_page_controller",
-          "previs_automation", "previs_batch_service", "previs_monitor", "asset_auto_batch_service", "asset_batch_execution", "stage_completion_service")
+          "previs_automation", "previs_batch_service", "previs_monitor", "asset_auto_batch_service", "asset_batch_execution", "stage_completion_service", "white_model_persistence_controller")
 _register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geometry", "pet_cloud_shape", "pet_cloud_tail", "responsive_ui", "ui_theme", "ui_widgets", "ui_dialogs", "ui_shortcuts", "ui_icons", "cell_hover", "prompt_window", "asset_detail_ui", "asset_detail", "asset_batch", "native_assets", "storyboard_files", "storyboard_table_ui", "cloud_video", "local_video", "local_previs", "previs_progress", "white_model", "skill_panel", "app")
 _register(5, "app_shortcut")
 

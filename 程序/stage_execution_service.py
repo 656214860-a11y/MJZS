@@ -6,7 +6,6 @@ import file_cache
 import model_pool
 import model_router
 import skill_budget
-import skill_orchestrator
 import stage_config
 import stage_models
 from project_context import ProjectContext
@@ -148,6 +147,24 @@ def release_uncertain_asset_batch(project, ids):
     """L3 为确认后的资产批次未知提交记录提供唯一放开入口。"""
     from asset_batch_state_service import release_uncertain
     return release_uncertain(project, ids, publish=asset_batch_gateway()['publish_json'])
+
+
+def asset_batch_settings_gateway():
+    """L3 为资产批量设置服务注入唯一的项目设置发布器。"""
+    from agent.core import save
+    return {'publish_json': save}
+
+
+def save_asset_batch_settings(project, options, categories=None, restored_model_id=None):
+    from asset_batch_settings_service import save_settings
+    return save_settings(project, options, categories, restored_model_id,
+                         publish=asset_batch_settings_gateway()['publish_json'])
+
+
+def remove_asset_batch_model(project, url, model, model_id):
+    from asset_batch_settings_service import remove_model
+    return remove_model(project, url, model, model_id,
+                        publish=asset_batch_settings_gateway()['publish_json'])
 
 
 def asset_detail_gateway():
@@ -491,6 +508,7 @@ def _model_ids(desktop, stage):
 
 
 def build_orchestrator(desktop, project):
+    import skill_orchestrator
     errors = getattr(desktop, 'errors', None)
     if not isinstance(errors, list): errors = []
     return skill_orchestrator.default_orchestrator(

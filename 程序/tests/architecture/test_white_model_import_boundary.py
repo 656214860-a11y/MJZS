@@ -13,7 +13,8 @@ class WhiteModelImportBoundaryTests(unittest.TestCase):
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'import_media')
         text = ast.get_source_segment(source, method)
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)
-                 and getattr(node.func, 'attr', '') == 'import_previs_media']
+                 and isinstance(node.func, ast.Name) and node.func.id == 'import_media']
         self.assertEqual(len(calls), 1)
+        self.assertTrue(any(keyword.arg == 'importer' for keyword in calls[0].keywords))
         self.assertNotIn('copy2', text)
         self.assertNotIn('write_record(', text)

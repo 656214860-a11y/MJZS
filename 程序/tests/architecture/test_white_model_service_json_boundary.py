@@ -18,6 +18,17 @@ class WhiteModelServiceJsonBoundaryTests(unittest.TestCase):
         self.assertTrue(any(node.func.id == 'read_json' for node in calls))
         self.assertFalse(any(node.func.id == 'loads' for node in calls))
 
+    def test_record_publication_is_injected_not_imported(self):
+        source = Path(__file__).resolve().parents[2] / 'white_model_service.py'
+        tree = ast.parse(source.read_text(encoding='utf-8'))
+        imports = [node for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)]
+        self.assertFalse(any(node.module == 'agent.core' for node in imports))
+        method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+                      and node.name == 'write_record')
+        calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)]
+        self.assertTrue(any(isinstance(node.func, ast.Name) and node.func.id == 'publish'
+                            for node in calls))
+
 
 if __name__ == '__main__':
     unittest.main()

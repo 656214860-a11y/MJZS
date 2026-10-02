@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-10-02｜权威位置：`D:\漫剧制作助手\程序\project_status.md`｜当前轮次：811 待确认（R811 可复现性与自动协作基座已验收；下一项按路线图或用户指令确定。）
+更新：2026-10-02｜权威位置：`D:\漫剧制作助手\程序\project_status.md`｜当前轮次：813 待确认（R812 架构统一第 3 项首批已验收；下一轮从待迁移清单继续。）
 
 ## 新对话接续协议
 
@@ -12,6 +12,8 @@
 6. 架构统一待办见 `维护记录/架构统一路线图_v2.md`，第 3、4 项基数见 `维护记录/架构统一基数.json`；UI 统一待办见 `维护记录/UI统一入口路线图_v1.md`。
 
 ## 当前能力
+
+- R812 结构治理轮（架构统一第 3 项首批，**已验收**）：`white_model_service.write_record()`、`asset_batch_settings_service.remove_model()`／`save_settings()` 的正式 JSON 发布均改为由 L3 注入；白模使用独立 `white_model_persistence_controller` 避免静态循环，资产批量设置使用 `stage_execution_service`。L4 入口仅委托 L3，读取、媒体复制、记录格式与失败语义不变。第 3 项 pending 由 14 降至 11；专项 69 条／0 红、默认冒烟 8/8、架构门禁 178/178。详见 `tasks_round/tasks_round_812_result.md`。
 
 - R811 工程基础设施整理轮（**已验收**）：轮次史已入库，worktree 可取得 664 份 `tasks_round/*.md`；任务队列、原子租约认领器和轮次机械门禁已入库。T2 诊断确认注册表为 73，`.qwen` 悬挂包装链接是环境差异；T3 定位到 `tests/test_skills.py:1400–1401` 的候选路径断言。C 线 UI 路线图已校正，密钥流报告探针已脱敏，SKILL 映射草案待产品负责人裁定。详见 `tasks_round/tasks_round_811_result.md`。
 

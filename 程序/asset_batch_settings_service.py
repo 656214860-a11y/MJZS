@@ -1,7 +1,6 @@
 """Asset-batch preference updates shared by the interactive UI paths."""
 from pathlib import Path
 
-from agent.core import save
 from project_settings import read_prefs
 
 
@@ -10,7 +9,7 @@ def _saved_settings(prefs):
     return dict(saved) if isinstance(saved, dict) else {}
 
 
-def save_settings(project, options, categories=None, restored_model_id=None):
+def save_settings(project, options, categories=None, restored_model_id=None, *, publish):
     """Merge validated batch settings without overwriting unrelated project prefs."""
     if not isinstance(options, dict):
         raise ValueError('资产批量设置必须为对象')
@@ -29,11 +28,11 @@ def save_settings(project, options, categories=None, restored_model_id=None):
         deleted = [item for item in deleted if item != restored_model_id]
     updated['deleted_models'] = deleted
     prefs['asset_batch'] = updated
-    save(path, prefs)
+    publish(path, prefs)
     return updated
 
 
-def remove_model(project, url, model, model_id):
+def remove_model(project, url, model, model_id, *, publish):
     """Hide one detected model while keeping its local ComfyUI file untouched."""
     path = Path(project) / 'ui_settings.json'
     prefs = read_prefs(path)
@@ -45,5 +44,5 @@ def remove_model(project, url, model, model_id):
     if (str(updated.get('url', '')).rstrip('/') == str(url).strip().rstrip('/')) and updated.get('model') == model:
         updated['model'] = ''
     prefs['asset_batch'] = updated
-    save(path, prefs)
+    publish(path, prefs)
     return updated

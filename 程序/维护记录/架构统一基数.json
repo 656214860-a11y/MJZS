@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 14,
+    "count": 11,
         "baseline_pending": 66,
         "items": [
             {
@@ -314,20 +314,20 @@
             {
                 "file": "white_model_service.py",
                 "point": "write_record",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R812：白模预演记录发布改由 L3 white_model_gateway 注入。"
             },
             {
                 "file": "asset_batch_settings_service.py",
                 "point": "remove_model",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R812：资产批量设置模型删除发布改由 L3 asset_batch_settings_gateway 注入。"
             },
             {
                 "file": "asset_batch_settings_service.py",
                 "point": "save_settings",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R812：资产批量设置保存发布改由 L3 asset_batch_settings_gateway 注入。"
             },
             {
                 "file": "asset_plan.py",
@@ -1011,19 +1011,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "432",
+                "point": "449",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "463",
+                "point": "480",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "476",
+                "point": "493",
                 "disposition": "pending",
                 "reason": ""
             },

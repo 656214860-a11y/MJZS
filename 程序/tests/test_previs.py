@@ -283,24 +283,26 @@ class ReadRecordTests(unittest.TestCase):
 
 class ImportPrevisMediaTests(unittest.TestCase):
     def test_service_copies_video_and_updates_record(self):
+        from agent.core import save
         from white_model_service import import_previs_media, read_record
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
             source = base / 'source.mp4'
             source.write_bytes(b'preview')
-            target = import_previs_media(base / 'shot', 'SH001', source)
+            target = import_previs_media(base / 'shot', 'SH001', source, publish=save)
             self.assertEqual(target.read_bytes(), b'preview')
             self.assertEqual(read_record(base / 'shot')['preview'], str(target))
             self.assertTrue(source.exists())
 
     def test_service_rejects_empty_media_without_publication(self):
+        from agent.core import save
         from white_model_service import import_previs_media
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
             source = base / 'empty.mp4'
             source.touch()
             with self.assertRaisesRegex(ValueError, '为空'):
-                import_previs_media(base / 'shot', 'SH001', source)
+                import_previs_media(base / 'shot', 'SH001', source, publish=save)
             self.assertFalse((base / 'shot').exists())
 
     def test_ready_false_on_corrupt_record(self):
