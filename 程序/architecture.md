@@ -73,6 +73,8 @@
 
 R806 将三虎增量自检账本纳入 L3 发布边界：`pet_test_service.record()` 不再自行发布项目 JSON，`stage_execution_service.poll_pet_test_check()` 通过 `pet_test_gateway()` 注入原子发布器；`pet_ui` 只经 `stage_handler_registry.start()` 启动并由 L3 轮询。重复次数、失败用例脱敏摘要与失败时不落账本的语义不变。
 
+R808 将定稿分镜编辑发布纳入 L3 发布边界：`storyboard_edit_service.save_edited_json()` 仅接收注入的 JSON 发布器，`storyboard_final_controller` 只委托 `stage_execution_service.save_edited_stage_storyboard()`，并由 `storyboard_edit_gateway()` 装配。路径格式校验、原子失败不覆盖旧文件与返回路径语义不变。
+
 R807 将白模预演进度发布纳入 L3 发布边界：`previs_progress_service.publish()` 与 Blender 回调安装仅接收注入的文本发布器，`stage_execution_service` 通过 `previs_progress_gateway()` 装配，宿主兼容门面仍以原有 `publish()`／`install_blender_progress()` 名称委托 L3。进度 JSON 字段、原子发布与真实帧数回调时序不变。
 
 R805 将三虎优化账本纳入 L3 发布边界：`pet_performance_service.record()` 不再自行发布项目 JSON，`stage_execution_service.poll_pet_performance_check()` 通过 `pet_performance_gateway()` 注入原子发布器；`pet_ui` 只委托 L3 启动与轮询。离线基准脚本、阈值比较、摘要格式与失败时不落账本的语义不变。

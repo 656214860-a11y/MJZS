@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from file_cache import read_json, read_text
-from storyboard_edit_service import save_edited_json
+from stage_execution_service import save_edited_stage_storyboard
 from storyboard_selection import remember_final_view
 from storyboard_storage import resolved_alias
 
@@ -92,7 +92,7 @@ class FinalStoryboardController:
             data = json.loads(text)
         except ValueError as exc:
             raise ValueError('改完的文字不是一份合法 JSON：' + str(exc)) from exc
-        save_edited_json(path, data)
+        save_edited_stage_storyboard(path, data)
         return self.load(path)
 
     def set_navigation(self, data) -> tuple[str, ...]:

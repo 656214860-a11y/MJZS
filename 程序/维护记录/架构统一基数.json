@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 16,
+    "count": 15,
         "baseline_pending": 66,
         "items": [
             {
@@ -278,8 +278,8 @@
             {
                 "file": "storyboard_edit_service.py",
                 "point": "save_edited_json",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R808：定稿分镜编辑发布改由 L3 storyboard_edit_gateway 注入。"
             },
             {
                 "file": "storyboard_lifecycle.py",
@@ -1011,19 +1011,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "419",
-                "disposition": "pending",
-                "reason": ""
-            },
-            {
-                "file": "stage_execution_service.py",
-                "point": "450",
+                "point": "432",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
                 "point": "463",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "stage_execution_service.py",
+                "point": "476",
                 "disposition": "pending",
                 "reason": ""
             },

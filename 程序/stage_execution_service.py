@@ -278,6 +278,19 @@ def install_stage_previs_progress(path, shot_id):
                                     publish_text=previs_progress_gateway()['publish_text'])
 
 
+def storyboard_edit_gateway():
+    """L3 为定稿分镜编辑服务注入唯一的 JSON 发布器。"""
+    from agent.core import save
+    return {'publish_json': save}
+
+
+def save_edited_stage_storyboard(path, data):
+    """保存已校验的定稿分镜；L3 保持正式发布器唯一装配点。"""
+    from storyboard_edit_service import save_edited_json
+    return save_edited_json(path, data,
+                            publish=storyboard_edit_gateway()['publish_json'])
+
+
 def storyboard_gateway():
     from agent.core import save, save_bytes
     from file_cache import remove_temporary_file
