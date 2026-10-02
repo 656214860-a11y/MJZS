@@ -31,7 +31,7 @@ from idea_chat_controller import IdeaChatController
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
-from ui_widgets import (BaseDialog, BusyState, ContextMenu, FormDialog, NotificationDispatcher,
+from ui_widgets import (BaseDialog, BusyState, ContextMenu, DataTable, FormDialog, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
@@ -5044,18 +5044,15 @@ class Desktop:
             """
             frame=ttk.LabelFrame(self.content,text=title,padding=4)
             frame.pack(fill='both',expand=True,pady=(4,0))
-            tree=ttk.Treeview(frame,columns=[key for key,_label,_width in columns],show='headings',
-                              height=height,selectmode='browse')
+            table=DataTable(frame,columns=columns,show='headings',height=height,
+                            selectmode='browse',empty_text='暂无'+title)
+            tree=table.tree
             last=columns[-1][0]
             for key,label,width in columns:
                 tree.heading(key,text=label)
                 tree.column(key,width=width,minwidth=60,stretch=key==last)
             for row in rows:tree.insert('','end',values=row)
-            scroll=ttk.Scrollbar(frame,orient='vertical',command=tree.yview)
-            scroll.pack(side='right',fill='y');tree.configure(yscrollcommand=scroll.set)
-            bottom=ttk.Scrollbar(frame,orient='horizontal',command=tree.xview)
-            bottom.pack(side='bottom',fill='x');tree.configure(xscrollcommand=bottom.set)
-            tree.pack(side='left',fill='both',expand=True)
+            table.pack(fill='both',expand=True)
             if detail:
                 def open_detail(event,tree=tree,column_name=detail,heading=title):
                     row=tree.identify_row(event.y);column=tree.identify_column(event.x)
@@ -5404,7 +5401,13 @@ class Desktop:
         # 行高得跟着放大——单给这张表一个样式，别的内容框照旧 34。
         # 第 53 期第 3 条：「名称」那一列不再摆图（用户判它与「导入图片」重复），只留文字；
         # 行高与样式照旧——「导入图片」那一列还要放。
-        table=ttk.Treeview(table_box,columns=('id','name','status','references','note','prompt'),show='tree headings',height=7,style='Asset.Treeview')
+        asset_columns=[('id','资产编号',130),('name','名称',230),('status','资产图片',96),
+                       ('references','参考图（类目）',190),('note','外观要求',230),
+                       ('prompt','资产提示词',360)]
+        table_shell=DataTable(table_box,columns=asset_columns,show='tree headings',height=7,
+                              style='Asset.Treeview',empty_text='暂无资产',
+                              auto_hide_scrollbars=True)
+        table=table_shell.tree
         fit_row_height(table,THUMB_SIZE,style='Asset.Treeview')   # 第 58 期第 2 条：行高跟着 72 像素的缩略图
         configure_check_column(table)
         # 第 52 期第 3 条：两列改名（「名称(点击修改)」→「名称」、「导入状态(点击查看)」→「导入图片」）。
@@ -5413,19 +5416,11 @@ class Desktop:
         # 第 55 期第 6 条：「参考图」这一栏改成「参考图（类目）」：格子里写的不再只是张数，
         # 而是「几张 · 按类目各几张」——角色／场景／道具各有自己的类目（见 ROLE_GROUPS）。
         # 第 57 期第 6 条：这一栏改名「资产图片」（原来叫「导入图片」，与它上面那一行按钮同名）。
-        for col,title,width in [('id','资产编号',130),('name','名称',230),('status','资产图片',96),('references','参考图（类目）',190),('note','外观要求',230),('prompt','资产提示词',360)]:
+        for col,title,width in asset_columns:
             table.heading(col,text=title);table.column(col,width=width,minwidth=80,stretch=col in ('note','prompt'))
         auto_columns(table)
         table.tag_configure('completed',background=COLORS['border_default'],foreground=COLORS['success'])
-        table.grid(row=0,column=0,sticky='nsew')
-        scroll=ttk.Scrollbar(table_box,orient='vertical',command=table.yview);scroll.grid(row=0,column=1,sticky='ns')
-        horizontal=ttk.Scrollbar(table_box,orient='horizontal',command=table.xview);horizontal.grid(row=1,column=0,sticky='ew')
-        def scroll_state(bar,first,last):
-            bar.set(first,last)
-            if float(first)<=0 and float(last)>=1:bar.grid_remove()
-            else:bar.grid()
-        table.configure(yscrollcommand=lambda first,last:scroll_state(scroll,first,last),
-                        xscrollcommand=lambda first,last:scroll_state(horizontal,first,last))
+        table_shell.grid(row=0,column=0,sticky='nsew')
         from responsive_ui import auto_height
         auto_height(table, table_box, row_height=ASSET_ROW_HEIGHT)      # 行高了，按 80 算，别再按 34
         self.asset_table=table          # 第 46 期第 2 条：两行按钮要问「选中／勾选了哪几行」

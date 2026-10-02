@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-10-02｜权威位置：`D:\漫剧制作助手\程序\project_status.md`｜当前轮次：813 待确认（R812 架构统一第 3 项首批已验收；下一轮从待迁移清单继续。）
+更新：2026-10-02｜权威位置：`D:\漫剧制作助手\程序\project_status.md`｜当前轮次：814 待确认（R813 已补正 R810 收口历史记录；下一轮从架构待迁移清单继续。）
 
 ## 新对话接续协议
 
@@ -12,6 +12,8 @@
 6. 架构统一待办见 `维护记录/架构统一路线图_v2.md`，第 3、4 项基数见 `维护记录/架构统一基数.json`；UI 统一待办见 `维护记录/UI统一入口路线图_v1.md`。
 
 ## 当前能力
+
+- R813 文档补正轮（**已验收**）：补全 R810 结果中 `8f2c24d` WIP 保留、AGENTS 门禁 +2 合法登记及候选路径断言未弱化的可审计说明；确认 R810 提交标题的历史预期数与实测 177/177 不一致，仅更正记录、不重写历史。详见 `tasks_round/tasks_round_813_result.md`。
 
 - R812 结构治理轮（架构统一第 3 项首批，**已验收**）：`white_model_service.write_record()`、`asset_batch_settings_service.remove_model()`／`save_settings()` 的正式 JSON 发布均改为由 L3 注入；白模使用独立 `white_model_persistence_controller` 避免静态循环，资产批量设置使用 `stage_execution_service`。L4 入口仅委托 L3，读取、媒体复制、记录格式与失败语义不变。第 3 项 pending 由 14 降至 11；专项 69 条／0 红、默认冒烟 8/8、架构门禁 178/178。详见 `tasks_round/tasks_round_812_result.md`。
 

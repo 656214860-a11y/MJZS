@@ -132,7 +132,8 @@ class DataTable(ttk.Frame):
     """统一的可滚动表格壳；页面只提供列、数据和领域内的单元格行为。"""
 
     def __init__(self, master, *, columns, height=4, selectmode="browse",
-                 show="headings", empty_text="暂无数据", on_select=None, **kwargs):
+                 show="headings", empty_text="暂无数据", on_select=None,
+                 auto_hide_scrollbars=False, **kwargs):
         setup_styles(master)
         # 表格壳只负责表格本身，不能成为业务页的一张额外 Card；
         # 页面已有 Card 时保留其原有信息层级和间距。
@@ -140,16 +141,21 @@ class DataTable(ttk.Frame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self._sort_descending = {}
+        tree_style = kwargs.pop("style", "Tokens.DataTable.Treeview")
         self.tree = ttk.Treeview(
             self, columns=[column[0] for column in columns], show=show,
-            height=height, selectmode=selectmode, style="Tokens.DataTable.Treeview",
+            height=height, selectmode=selectmode, style=tree_style,
             **kwargs)
         self.vertical_scrollbar = ttk.Scrollbar(self, orient="vertical",
                                                 command=self.tree.yview)
         self.horizontal_scrollbar = ttk.Scrollbar(self, orient="horizontal",
                                                   command=self.tree.xview)
-        self.tree.configure(yscrollcommand=self.vertical_scrollbar.set,
-                            xscrollcommand=self.horizontal_scrollbar.set)
+        self._auto_hide_scrollbars = auto_hide_scrollbars
+        self.tree.configure(
+            yscrollcommand=lambda first, last: self._scroll_state(
+                self.vertical_scrollbar, first, last),
+            xscrollcommand=lambda first, last: self._scroll_state(
+                self.horizontal_scrollbar, first, last))
         self.tree.grid(row=0, column=0, sticky="nsew")
         self.vertical_scrollbar.grid(row=0, column=1, sticky="ns")
         self.horizontal_scrollbar.grid(row=1, column=0, sticky="ew")
@@ -180,6 +186,15 @@ class DataTable(ttk.Frame):
             self.empty_label.grid_remove()
         else:
             self.empty_label.grid()
+
+    def _scroll_state(self, scrollbar, first, last):
+        scrollbar.set(first, last)
+        if not self._auto_hide_scrollbars:
+            return
+        if float(first) <= 0 and float(last) >= 1:
+            scrollbar.grid_remove()
+        else:
+            scrollbar.grid()
 
     def sort_by(self, column):
         """按显示文本排序；领域页可覆写 heading 命令实现专用排序。"""
