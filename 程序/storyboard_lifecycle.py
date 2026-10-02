@@ -1,7 +1,7 @@
 """Retire verified working JSONs only after a final and its assets are saved."""
 from pathlib import Path
 import copy,hashlib
-from agent.core import read,save,fingerprint,file_hash
+from agent.core import read,fingerprint,file_hash
 from storyboard_storage import _references,ALIAS_FILE,resolved_alias
 from storyboard_paths import media_root
 
@@ -45,7 +45,8 @@ def signature(episode,assets,base):
     return fingerprint({'episode':episode,'assets':assets})
 
 
-def retire(project,source,target,expected):
+def retire(project,source,target,expected,publish=None):
+    if not callable(publish):raise TypeError('分镜退役需要 L3 别名发布器。')
     project=Path(project).resolve();source=_safe(project,source);target=_safe(project,target,working=False)
     if source==target:return
     if not target.is_file():raise ValueError('定稿未保存，原稿已保留')
@@ -58,7 +59,7 @@ def retire(project,source,target,expected):
     if not isinstance(aliases,dict):aliases={}
     old=source.relative_to(project).as_posix();new=target.relative_to(project).as_posix()
     aliases={key:(new if value==old else value) for key,value in aliases.items()}
-    aliases[old]=new;save(file,aliases)
+    aliases[old]=new;publish(file,aliases)
     if hashlib.sha256(source.read_bytes()).hexdigest()!=expected:raise ValueError('原稿正在写入，已保留')
     # 定稿已验证、别名也已更新；工作原稿必须走统一回收站，失败时保留原稿。
     from storage_maintenance import recycle_paths

@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 15,
+    "count": 14,
         "baseline_pending": 66,
         "items": [
             {
@@ -284,8 +284,8 @@
             {
                 "file": "storyboard_lifecycle.py",
                 "point": "retire",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R809：定稿退役别名发布改由 L3 storyboard_lifecycle_gateway 注入。"
             },
             {
                 "file": "tts_api.py",
@@ -1071,13 +1071,13 @@
             },
             {
                 "file": "storyboard_final_controller.py",
-                "point": "92",
+                "point": "111",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "storyboard_final.py",
-                "point": "159",
+                "point": "160",
                 "disposition": "pending",
                 "reason": ""
             },
