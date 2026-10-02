@@ -7,11 +7,11 @@ capabilities: []
 preferredModels: []
 fallbackModels: []
 tools: [whitemodel.buildScene, whitemodel.placeActors, whitemodel.setCamera]
-dependsOn: [storyboard-shot-generation]
+dependsOn: [pipeline-storyboard-final]
 conflictsWith: []
 parallelizable: false
 paid: false
-input: [shotChain, sceneList, characterProfiles]
+input: [adoptedStoryboard, assetManifest]
 output: [sceneJson, whiteModelVideo]
 constraints: [空间关系准确, 走位路径合理, 人物朝向明确]
 feedback:
@@ -37,7 +37,7 @@ examples:
 - 分镜里空间复杂（多人、多房间）时先跑白模，比直接出图便宜得多。
 
 ### 输入／输出
-- 输入：镜头链、场景清单、人物外形与身高设定。
+- 输入：已采用分镜、资产清单。
 - 输出：场景 JSON（体块／替身／相机）与白模预览视频。
 
 ### 用到的工具

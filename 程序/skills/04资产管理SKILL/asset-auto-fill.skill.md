@@ -7,7 +7,7 @@ capabilities: [vision]
 preferredModels: [qwen-max, gpt-4o]
 fallbackModels: [deepseek-v4-pro]
 tools: [asset.startAutoFill, asset.retry, asset.pause, asset.resume, asset.importAssets]
-dependsOn: [asset-search, asset-rank, asset-dedupe, asset-copyright-filter, asset-candidate-wall]
+dependsOn: []
 conflictsWith: []
 parallelizable: true
 paid: false
@@ -25,14 +25,14 @@ examples:
 
 ## 说明
 ### 这个 SKILL 干什么
-补资产这一步的「无人值守」档：按缺口自动跑一轮「搜索 → 排序 → 去重 → 版权过滤 → 候选墙」，
+补资产这一步是「无人值守」档的编排入口：按缺口启动一轮候选处理与入库，
 把缺参考图的人物与场景补齐，或生成可直接用的资产图。
 
 ### 具体做五步
 1. 算出缺口：资产表里还没有可用参考图（或已失效）的条目。
 2. 按条目类型决定做法：写实素材走搜索，原创形象走生图。
 3. 检索或生图，拿到候选（搜索走本地ComfyUI或线上接口，取决于页面上选的生图模型）。
-4. 版权过滤 ＋ 去重 ＋ 相似度排序，留下最像的几条。
+4. 把候选交给版权过滤、去重和相似度排序，留下最像的几条。
 5. 半自动档只铺候选墙等你点头；全自动档按阈值直接入库并记来源。
 
 ### 什么时候用它

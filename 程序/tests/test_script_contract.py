@@ -386,9 +386,9 @@ class MergeTests(unittest.TestCase):
             self.assertIsNotNone(registry.getById(skill), skill)
         script_names = {skill.name for skill in registry.getByStage("script")}
         structure_names = {skill.name for skill in registry.getByStage("script_structure")}
-        self.assertTrue({"script-dialogue-polish", "script-emotion-curve"} <= script_names)
-        self.assertTrue({"script-character-extraction", "script-structured-generation",
-                         "script-worldbuilding"} <= structure_names)
+        self.assertIn("script-emotion-curve", script_names)
+        self.assertTrue({"script-character-extraction", "script-dialogue-polish",
+                         "script-structured-generation", "script-worldbuilding"} <= structure_names)
 
     def test_the_human_readable_landing_is_a_declared_doc(self):
         import stage_layout

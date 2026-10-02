@@ -11,7 +11,7 @@ dependsOn: [pipeline-storyboard-draft]
 conflictsWith: []
 parallelizable: false
 paid: false
-input: [storyboardDraft, assetRequirements, manifests]
+input: [storyboardDraft, assetRequirements, characterManifest, sceneManifest, propManifest, sceneBreakdown, emotionCurve]
 output: [assetManifest, canonBoard, anchors]
 constraints: [资产由剧本与分镜事实导出, 记录版本与来源, 不覆盖已确认资产]
 feedback:

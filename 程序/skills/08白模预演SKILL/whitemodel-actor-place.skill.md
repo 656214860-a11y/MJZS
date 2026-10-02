@@ -11,7 +11,7 @@ dependsOn: [whitemodel-scene-build]
 conflictsWith: []
 parallelizable: true
 paid: false
-input: [sceneJson, shotChain]
+input: [sceneJson, adoptedStoryboard]
 output: [blockingPlan]
 constraints: [站位不穿模, 视线方向明确, 与分镜一致]
 feedback:
@@ -39,7 +39,7 @@ examples:
 - 预演看下来发现有人挡住了主角。
 
 ### 输入／输出
-- 输入：场景工程、镜头链。
+- 输入：场景工程、已采用分镜。
 - 输出：站位与走位方案（含间距检查结果）。
 
 ### 用到的工具

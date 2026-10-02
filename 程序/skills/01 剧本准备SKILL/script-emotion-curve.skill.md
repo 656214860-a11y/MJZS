@@ -7,11 +7,11 @@ capabilities: [reasoning, structured-output]
 preferredModels: [gpt-4o, qwen-max]
 fallbackModels: [deepseek-v4-pro]
 tools: [script.validate, script.save]
-dependsOn: [script-structured-generation]
+dependsOn: []
 conflictsWith: []
 parallelizable: true
 paid: false
-input: [structuredScript]
+input: [scriptRaw]
 output: [emotionCurve, beatSheet]
 constraints: [每场标强度, 曲线与钩子对齐, 不改台词]
 feedback:
@@ -39,7 +39,7 @@ examples:
 - 某几场看起来「闷」，要定位是哪一段没有起伏。
 
 ### 输入／输出
-- 输入：结构化剧本。
+- 输入：本阶段自然剧本的场次。
 - 输出：情绪曲线（每场强度 ＋ 理由）、节拍表（起承转合与钩子位置）。
 - 落盘：output/emotion_curve.json（每场一条，编号 EC_###，强度 1～10）。
 

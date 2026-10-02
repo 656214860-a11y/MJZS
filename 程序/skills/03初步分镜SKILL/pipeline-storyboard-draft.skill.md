@@ -11,8 +11,8 @@ dependsOn: [pipeline-script-structure]
 conflictsWith: []
 parallelizable: false
 paid: false
-input: [structuredScript, manifests]
-output: [storyboardDraft, assetRequirements]
+input: [structuredScript, characterManifest, sceneManifest, propManifest]
+output: [storyboardDraft, assetRequirements, sceneBreakdown]
 constraints: [镜头必须对应剧本事实, 标明场次与镜头号, 不生成最终视频提示词]
 feedback:
   - onProgress: 更新初步分镜进度
@@ -24,4 +24,4 @@ examples:
 
 ## 阶段职责
 
-使用已结构化的剧情事实拆场和拆镜，输出尚未采用的分镜初稿及资产需求，供资产阶段冻结正典。
+使用已结构化的剧情事实拆场和拆镜，输出尚未采用的分镜初稿及资产需求，供资产阶段冻结正典。场次拆分产物 `scene_breakdown.json` 按契约落剧本阶段区。

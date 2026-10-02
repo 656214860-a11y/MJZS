@@ -2,7 +2,7 @@
 name: script-dialogue-polish
 displayName: 台词润色
 description: 把剧本对白改成口语、可念、有节奏的台词，并给出逐条改动说明
-stage: 剧本准备
+stage: 剧本结构
 capabilities: [creative-writing, structured-output]
 preferredModels: [qwen-max]
 fallbackModels: [deepseek-v4-pro]
@@ -35,7 +35,7 @@ examples:
 4. 记改动：每条改动写「原句 → 新句 ＋ 为什么」，方便你逐条回退。
 
 ### 什么时候用它
-- 剧本准备页跑完「结构化剧本生成」之后，想再顺一遍台词。
+- 剧本结构阶段跑完「结构化剧本生成」之后，想再顺一遍台词。
 - 配音前台词念不顺、时长超出预算时要压缩对白。
 
 ### 输入／输出
@@ -45,7 +45,7 @@ examples:
   script-structured-generation 的「台词那一段」的子步骤。
 
 ### 用到的工具
-- `script.generate`：01 剧本准备 → 剧本创作（改完的台词写回剧本）
+- `script.generate`：02 剧本结构 → 剧本创作（改完的台词写回剧本）
 - `script.validate`：剧本契约校验：改完仍要过字段校验
 
 ### 约束与验收

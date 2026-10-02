@@ -12,7 +12,7 @@ conflictsWith: []
 parallelizable: false
 paid: false
 input: [scriptRaw, creativeBrief]
-output: [structuredScript, manifests]
+output: [structuredScript, characterManifest, sceneManifest, propManifest]
 constraints: [保留原始剧情事实, 提取角色场景道具, 不修改原始剧本]
 feedback:
   - onProgress: 更新剧本整理进度
@@ -24,4 +24,4 @@ examples:
 
 ## 阶段职责
 
-承接剧本准备产物，按剧本契约生成结构化正文及五类清单，作为分镜和资产的共同事实来源。
+承接剧本准备产物，按剧本契约生成结构化正文与角色／场景／道具三类清单，作为分镜和资产的共同事实来源。情绪曲线在剧本准备阶段产出，场次拆分在初步分镜阶段产出。

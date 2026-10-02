@@ -1,17 +1,17 @@
 ---
 name: video-audio-sync-precheck
 displayName: 音画同步预检
-description: 在剪辑之前先量一遍画面与声音的偏移，超阈值的镜头列出来
-stage: 视频生成
+description: 剪辑合成前量一遍画面与声音的偏移，超阈值的镜头列出来
+stage: 后期剪辑
 capabilities: [vision, reasoning]
 preferredModels: [qwen-max, gpt-4o]
 fallbackModels: [deepseek-v4-pro]
 tools: [subtitle.syncCheck, video.qualityCheck]
-dependsOn: [video-quality-check]
+dependsOn: [video-quality-check, subtitle-auto-align]
 conflictsWith: []
 parallelizable: true
 paid: false
-input: [videoIds, audioTracks]
+input: [videoClips, audioTracks, subtitles]
 output: [syncReport]
 constraints: [偏移超阈值就报, 不自动裁剪, 结果可追溯]
 feedback:
@@ -25,7 +25,7 @@ examples:
 
 ## 说明
 ### 这个 SKILL 干什么
-成片之前先量一遍：画面里的动作与声音的落点差了几帧。差得多的镜头列成一份单子，剪辑那
+剪辑合成前先量一遍：画面里的动作与声音的落点差了几帧。差得多的镜头列成一份单子，剪辑
 一步照单子微调，而不是等成片出来才发现口型对不上。
 
 ### 具体做四件事
@@ -35,7 +35,7 @@ examples:
 4. 出报告：逐镜写明偏移量与参考时刻，附上建议的处理。
 
 ### 什么时候用它
-- 视频都下载回来了，进剪辑之前先过一遍。
+- 视频、音轨和字幕就绪后，进剪辑合成之前先过一遍。
 - 成片看着口型不对，回头定位是哪几镜。
 
 ### 输入／输出
@@ -44,7 +44,7 @@ examples:
 
 ### 用到的工具
 - `subtitle.syncCheck`：字幕落在本镜时长内、串行不重叠
-- `video.qualityCheck`：08 视频生成 → 视频质检：时长／音轨／分辨率
+- `video.qualityCheck`：视频生成 → 视频质检：时长／音轨／分辨率
 
 ### 约束与验收
 - 只报不改：不自动裁剪、不自动拉伸，改由剪辑那一步做。

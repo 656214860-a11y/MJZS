@@ -12,7 +12,7 @@ conflictsWith: []
 parallelizable: false
 paid: false
 input: [creativeBrief, modelLock, aspectRatio]
-output: [scriptRaw, creativeBrief]
+output: [scriptRaw, creativeBrief, emotionCurve]
 constraints: [确认模型与画幅前不启动, 不覆盖已确认剧本, 产物通过剧本契约]
 feedback:
   - onProgress: 更新剧本准备进度
@@ -25,4 +25,4 @@ examples:
 ## 阶段职责
 
 来自 `00全流程SKILL` 的创作锁与剧本门控：先确认模型、画幅和交付形态，再形成可审阅的自然剧本。
-只发布确认后的简报和原稿，不替下游生成分镜、资产或媒体。
+只发布确认后的简报和原稿；情绪曲线（`emotion_curve.json`）也在本阶段产出，不替下游生成分镜、资产或媒体。

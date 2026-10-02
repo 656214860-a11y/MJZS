@@ -11,7 +11,7 @@ dependsOn: [whitemodel-scene-build]
 conflictsWith: []
 parallelizable: true
 paid: false
-input: [sceneJson, shotChain]
+input: [sceneJson, adoptedStoryboard]
 output: [previewVideo, motionData, rhythmReport]
 constraints: [运镜路径平滑, 动作关键帧完整, 节奏与分镜匹配]
 feedback:
@@ -38,7 +38,7 @@ examples:
 - 成片觉得「节奏不对」时，回白模里量一遍再做取舍。
 
 ### 输入／输出
-- 输入：场景 JSON、镜头链。
+- 输入：场景 JSON、已采用分镜。
 - 输出：预演视频、运镜与动作数据、节奏报告。
 
 ### 用到的工具

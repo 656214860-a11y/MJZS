@@ -27,7 +27,7 @@ examples:
 对不上就写清冻结值、现值与是哪一号角色／哪个状态，结论写进 continuity_ledger.json 的 drift。
 
 ### 具体做三件事
-1. 读回 03_continuity/output/continuity_ledger.json；没有台账就先按当前分镜与资产算一份。
+1. 读回连贯性清单阶段产物 `continuity_ledger.json`（路径由阶段布局解析）；没有台账就先按当前分镜与资产算一份。
 2. 逐条比角色锚点（带服装状态覆盖）：字符串不同就是漂移。
 3. 漂移进待办（门禁 G-09），并在「04 连贯性清单」页面上写成一行看得懂的结论。
 

@@ -362,9 +362,9 @@ ROUND_CHECKS = {
          'msg': '唯一归属者只有这一处口径'},
         {'kind': 'keyword', 'path': r'程序\tests\test_script_contract.py', 'keyword': 'class MergeTests',
          'msg': '本轮那组收口自检挂在剧本契约用例里'},
-        {'kind': 'keyword', 'path': r'程序\skills\script-structured-generation.skill.md',
+        {'kind': 'keyword', 'path': r'程序\skills\02 剧本整理SKILL\script-structured-generation.skill.md',
          'keyword': 'script-dialogue-polish', 'msg': '归属者的说明里写清了台词那一段的子步骤'},
-        {'kind': 'keyword', 'path': r'程序\skills\script-structured-generation.skill.md',
+        {'kind': 'keyword', 'path': r'程序\skills\02 剧本整理SKILL\script-structured-generation.skill.md',
          'keyword': 'script-worldbuilding', 'msg': '归属者的说明里写清了设定那一段的子步骤'},
         # 专项④：弹窗的最小化／最大化键位已删（删除用例：absent）
         {'kind': 'absent', 'path': r'程序\ui_theme.py', 'keyword': 'window_buttons',

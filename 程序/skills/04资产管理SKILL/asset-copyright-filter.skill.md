@@ -7,7 +7,7 @@ capabilities: []
 preferredModels: []
 fallbackModels: []
 tools: [asset.copyrightFilter]
-dependsOn: [asset-search]
+dependsOn: [asset-auto-fill]
 conflictsWith: []
 parallelizable: true
 paid: false

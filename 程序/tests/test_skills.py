@@ -128,28 +128,16 @@ class RegistryTests(unittest.TestCase):
         self.assertEqual(reg.count(), 73)
         self.assertEqual(len(reg.stages()), 12)
         for stage in pet_bus.STAGES:
-            expected = (8 if stage == 'script' else 4 if stage == 'script_structure'
+            expected = (7 if stage == 'script' else 5 if stage == 'script_structure'
                         else 7 if stage == 'previs' else 6)
             self.assertEqual(len(reg.getByStage(stage)), expected, stage)
 
     def test_pipeline_stage_skills_are_recursively_discovered_with_strong_dependencies(self):
         """阶段专属文件在子目录中发现，依赖只能指向已登记的上游管线 SKILL。"""
+        from architecture.test_pipeline_stage_io_contract import PIPELINE_DEPENDENCIES
         reg = skill_registry.default_registry()
-        expected = {
-            'pipeline-script-preparation': [],
-            'pipeline-script-structure': ['pipeline-script-preparation'],
-            'pipeline-storyboard-draft': ['pipeline-script-structure'],
-            'pipeline-assets': ['pipeline-storyboard-draft'],
-            'pipeline-continuity': ['pipeline-assets'],
-            'pipeline-storyboard-final': ['pipeline-continuity'],
-            'pipeline-keyframe': ['pipeline-storyboard-final'],
-            'pipeline-previs': ['pipeline-keyframe'],
-            'pipeline-video-generation': ['pipeline-previs'],
-            'pipeline-audio-subtitle': ['pipeline-video-generation'],
-            'pipeline-editing': ['pipeline-video-generation', 'pipeline-audio-subtitle'],
-            'pipeline-delivery': ['pipeline-editing'],
-        }
-        self.assertEqual({name: reg.getById(name).dependsOn for name in expected}, expected)
+        self.assertEqual({name: reg.getById(name).dependsOn for name in PIPELINE_DEPENDENCIES},
+                         PIPELINE_DEPENDENCIES)
         self.assertTrue(all(len(reg.getByStage(stage)) >= 1 for stage in pet_bus.STAGES))
 
     def test_registry_is_clean(self):
