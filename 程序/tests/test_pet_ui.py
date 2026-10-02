@@ -1509,13 +1509,32 @@ class PetTextSeamTests(unittest.TestCase):
 
     def buttons_of(self, win):
         from tkinter import ttk
-        return [w for w in win.winfo_children() if isinstance(w, ttk.Button)]
+        # BaseDialog 把正文与统一动作栏分层；宠物仍复用同一个提示窗，控件不再是
+        # Toplevel 的直接子项。按窗口后代取控件，断言的是用户可见内容而非布局实现。
+        found = []
+        def walk(widget):
+            for child in widget.winfo_children():
+                if isinstance(child, ttk.Button):
+                    found.append(child)
+                walk(child)
+        walk(win)
+        return found
+
+    def text_boxes_of(self, win):
+        found = []
+        def walk(widget):
+            for child in widget.winfo_children():
+                if isinstance(child, self.tk.Text):
+                    found.append(child)
+                walk(child)
+        walk(win)
+        return found
 
     def test_the_text_window_shows_what_it_was_given(self):
         self.d.pet_show_text("待确认详情", "第一行\n第二行", "已复制")
         self.win.update()
         popup = self.popup()
-        boxes = [w for w in popup.winfo_children() if isinstance(w, self.tk.Text)]
+        boxes = self.text_boxes_of(popup)
         self.assertEqual(boxes[0].get("1.0", "end-1c"), "第一行\n第二行")
         self.assertEqual([str(button.cget("text")) for button in self.buttons_of(popup)], ["复制详情"])
 

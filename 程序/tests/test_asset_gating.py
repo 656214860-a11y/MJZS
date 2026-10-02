@@ -306,7 +306,20 @@ class AssetPageContentTests(_TkHarness):
             self.addCleanup(setattr, asset_thumbs, "thumbnail", real)
             d, _win = self.open_assets(proj)
             table = d.asset_table
-            self.assertEqual(len(table.get_children()), 31, "先得真有 30 个角色 + 1 个共用场景")
+            # 首帧只同步插入三屏余量；整库行由下一帧继续补齐。这里测的是“打开页只
+            # 解可视区图片”，不能再把性能契约倒逼回一次性插完 31 行。
+            from desktop import ASSET_FIRST_ROWS
+            self.assertEqual(len(table.get_children()), ASSET_FIRST_ROWS,
+                             "首帧只建渐进加载的首批资产行")
+            # 覆盖层只能在 Treeview 已映射、能取到 bbox 后落图；整套并跑时窗口管理器
+            # 可能比首次 update 晚一拍。等这一份已注册的首帧刷新完成，而不是把空标签误判为
+            # 「没有为可视区解图」。
+            import time
+            deadline = time.monotonic() + 5.0
+            while not table.cell_images.labels and time.monotonic() < deadline:
+                _win.update(); _win.update_idletasks()
+                table.cell_images.refresh()
+                time.sleep(0.02)
             self.assertTrue(table.cell_images.labels, "可视区那几行要真盖上缩略图，用例才不是空跑")
             self.assertLessEqual(len(set(decoded)), 12,
                                  "解了 %d 张：只该解可视区那几行，不是整库 30 项" % len(set(decoded)))
