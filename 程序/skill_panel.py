@@ -82,15 +82,30 @@ def skill_order(name):
 # 面板里——入口只留一处（标题栏的「阶段配置」），接口本身一个都不少：编排模型的「调用设置」、
 # 线上视频 API、配音接口，都在下面这一行里点得到。
 def markdown_document(path):
-    """读取配置项对应的说明文件，优先 SKILL 文件，缺失时回退同目录 README。"""
+    """读取配置项说明：优先同目录 README，缺失时才读取 SKILL。"""
     source = Path(path) if path else None
     if source is None:
         return ''
-    candidates = [source]
-    if source.name.lower() != 'skill.md':
-        candidates.append(source.parent / 'SKILL.md')
-    candidates.append(source.parent / 'README.md')
+
+    def sibling(name):
+        """按大小写无关的文件名寻找说明，兼容 readme.MD 等写法。"""
+        try:
+            return next((item for item in source.parent.iterdir()
+                         if item.is_file() and item.name.casefold() == name), None)
+        except OSError:
+            return None
+
+    readme = sibling('readme.md')
+    skill = sibling('skill.md')
+    candidates = [readme, skill, source]
+    seen = set()
     for candidate in candidates:
+        if candidate is None:
+            continue
+        marker = str(candidate).casefold()
+        if marker in seen:
+            continue
+        seen.add(marker)
         try:
             content = candidate.read_text(encoding='utf-8-sig').strip()
         except OSError:
@@ -122,7 +137,7 @@ def external_package_api_hint(skills, model_id):
 
 
 def workflow_note_text(label, path):
-    """读取工作流的 SKILL.md；仅在它不可用时展示同目录 README.md。"""
+    """读取工作流说明：README.md 优先，缺失时回退 SKILL.md。"""
     content = markdown_document(path)
     return label + ('\n\n' + content if content else '\n\n未找到该工作流的说明文件。')
 
@@ -201,10 +216,14 @@ def flow_skill_display(skill):
 
 
 def chinese_skill_display(label):
-    """阶段配置面板只向用户显示中文 SKILL 名；内部标签和路径保持原样。"""
-    text = re.sub(r'[A-Za-z][A-Za-z0-9._/-]*', '', str(label or ''))
-    text = re.sub(r'\s+', ' ', text).strip(' ·-_/:')
+    """阶段配置面板只向用户显示中文名称，不泄露路径或装饰符号。"""
+    text = ''.join(char for char in str(label or '') if '\u4e00' <= char <= '\u9fff')
     return text or '自定义技能'
+
+
+def skill_checkbox_label(path):
+    """勾选框只显示该 SKILL 文件名的纯中文部分。"""
+    return chinese_skill_display(Path(str(path or '')).name)
 
 
 def flow_skill_match(text, flow, current=()):
@@ -959,8 +978,8 @@ class Panel(ttk.Frame):
         for item in self.skills:
             var = tk.BooleanVar(value=True)
             self.vars[item.name] = var
-            shown = chinese_skill_display(item.displayName or item.name)
-            box = ttk.Checkbutton(self.flow_skill_row, text=self.skill_label(shown), width=28,
+            shown = skill_checkbox_label(item.path)
+            box = ttk.Checkbutton(self.flow_skill_row, text=shown, width=28,
                                   variable=var, command=self.save_and_refresh_notes)
             box._skill_full_name = shown
             box._skill_path = self.resolved_skill_path(item.path)

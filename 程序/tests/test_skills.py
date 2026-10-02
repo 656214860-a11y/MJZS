@@ -1259,6 +1259,9 @@ class PanelTests(unittest.TestCase):
     def test_the_panel_shows_the_skill_markdown(self):
         """说明目录沿用勾选列表的注册表顺序，并显示对应 Markdown 文件原文。"""
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        self.assertEqual([box.cget('text') for box in panel.registered_boxes.values()],
+                         [skill_panel.skill_checkbox_label(item.path) for item in panel.skills],
+                         '勾选框只能显示对应文件名的纯中文部分，不能带显示名、路径或符号')
         expected = [skill_panel.chinese_skill_display(item.displayName or item.name)
                     for item in panel.skills]
         self.assertEqual(list(panel.note_list.get(0, 'end')), expected,
@@ -1303,12 +1306,20 @@ class PanelTests(unittest.TestCase):
         self.assertIn('## 说明', text, '正文（frontmatter 之后的 MD）要带上')
         self.assertEqual(skill_panel.note_text(None), '')
 
-    def test_markdown_document_falls_back_to_sibling_readme(self):
-        """自定义工作流若暂未提供 SKILL.md，说明区仍可展示它的 README.md。"""
+    def test_markdown_document_prefers_case_insensitive_sibling_readme(self):
+        """README（任意大小写）始终优先于同目录 SKILL.md。"""
         with tempfile.TemporaryDirectory() as folder:
-            missing_skill = Path(folder) / 'SKILL.md'
-            (Path(folder) / 'README.md').write_text('# 自定义说明\n\n内容', encoding='utf-8')
-            self.assertEqual(skill_panel.markdown_document(missing_skill), '# 自定义说明\n\n内容')
+            skill = Path(folder) / 'SKILL.md'
+            skill.write_text('# SKILL 说明', encoding='utf-8')
+            (Path(folder) / 'readme.MD').write_text('# README 说明\n\n内容', encoding='utf-8')
+            self.assertEqual(skill_panel.markdown_document(skill), '# README 说明\n\n内容')
+
+    def test_markdown_document_falls_back_to_sibling_skill(self):
+        """README 缺失时，说明区回退到同目录 SKILL.md。"""
+        with tempfile.TemporaryDirectory() as folder:
+            skill = Path(folder) / 'SKILL.md'
+            skill.write_text('# SKILL 说明', encoding='utf-8')
+            self.assertEqual(skill_panel.markdown_document(skill), '# SKILL 说明')
 
     def test_the_panel_keeps_the_interfaces(self):
         """第 29 期第 1／4 条：页面上重复的入口并进面板，但接口本身一个都不少。
@@ -1472,7 +1483,9 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(skill_panel.chinese_skill_display('Drama 分镜'), '分镜')
         self.assertEqual(skill_panel.chinese_skill_display('TTS 配音合成'), '配音合成')
         self.assertEqual(skill_panel.chinese_skill_display('我的分镜/SKILL.md'), '我的分镜')
+        self.assertEqual(skill_panel.chinese_skill_display('【我的-分镜】 01'), '我的分镜')
         self.assertEqual(skill_panel.chinese_skill_display('custom-skill'), '自定义技能')
+        self.assertEqual(skill_panel.skill_checkbox_label('D:/任意/目录/【我的-分镜】.skill.md'), '我的分镜')
 
     def test_note_selection_focuses_the_matching_skill_checkbox(self):
         """点击左侧说明目录时，对应顶部勾选框成为焦点。"""
