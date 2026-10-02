@@ -8,6 +8,11 @@
     {"id": "B-ghost-entry", "title": "B线：主界面幽灵条目处置", "lane": "diagnostic", "status": "pending", "owner": "", "lease_until": "", "note": "P2a 诊断结论待主线排期"},
     {"id": "B-rename-claim", "title": "B线：改名项目认领链", "lane": "diagnostic", "status": "pending", "owner": "", "lease_until": "", "note": "P2b 修复已进入主线，保留验收项"},
     {"id": "B-ui-coverage", "title": "B线：UI 覆盖率迁移清单", "lane": "diagnostic", "status": "pending", "owner": "", "lease_until": "", "note": "P2c 候选需逐项语义裁定"},
-    {"id": "B-facade-callers", "title": "B线：兼容门面调用方盘点", "lane": "diagnostic", "status": "pending", "owner": "", "lease_until": "", "note": "2027-03-31 前保持观测"}
+    {"id": "B-facade-callers", "title": "B线：兼容门面调用方盘点", "lane": "diagnostic", "status": "pending", "owner": "", "lease_until": "", "note": "2027-03-31 前保持观测"},
+    {"id": "R815-startup-registry", "title": "项目登记空壳导致启动崩溃（含 refresh_registry 同类点）", "lane": "main", "status": "pending", "owner": "", "lease_until": "", "note": "根因已实测复现；补丁见 bca9_projects_registry.patch；当前 test_desktop_startup_perf 6 红"},
+    {"id": "R814A-l3-l4-import", "title": "R814 在途：stage_exec/stage_models 反向 import ui_widgets", "lane": "main", "status": "pending", "owner": "", "lease_until": "", "note": "结构治理轮·执行；越层须消失不得登记台账"},
+    {"id": "R814B-skill-injection", "title": "R814 在途：SKILL 定向 00 包章节注入", "lane": "main", "status": "pending", "owner": "", "lease_until": "", "note": "功能轮；新门禁 test_skill_reference_injection"},
+    {"id": "B1-datatable-stash", "title": "stash@{0} DataTable B1 半成品判决（继续或丢弃）", "lane": "main", "status": "pending", "owner": "", "lease_until": "", "note": "自述新边界断言红；与 R814C 争抢 ui_widgets.py"},
+    {"id": "repo-hygiene", "title": "仓库卫生：5 条已合并 codex 分支、d2cc 僵尸 worktree、r811-infra/b-docs 判决、.gitignore 加 .rNNN_*", "lane": "main", "status": "pending", "owner": "", "lease_until": "", "note": "R810 173/177 数字不一致源头在 r811-infra"}
   ]
 }

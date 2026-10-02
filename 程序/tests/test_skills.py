@@ -127,10 +127,14 @@ class RegistryTests(unittest.TestCase):
         reg.scan(force=True)
         self.assertEqual(reg.count(), 73)
         self.assertEqual(len(reg.stages()), 12)
+        expected_by_stage = {
+            'script': 7, 'script_structure': 5, 'storyboard': 6, 'assets': 6,
+            'continuity': 6, 'final': 6, 'keyframe': 6, 'previs': 7,
+            'video': 5, 'audio': 6, 'edit': 7, 'delivery': 6,
+        }
+        self.assertEqual(set(expected_by_stage), set(pet_bus.STAGES))
         for stage in pet_bus.STAGES:
-            expected = (7 if stage == 'script' else 5 if stage == 'script_structure'
-                        else 7 if stage == 'previs' else 6)
-            self.assertEqual(len(reg.getByStage(stage)), expected, stage)
+            self.assertEqual(len(reg.getByStage(stage)), expected_by_stage[stage], stage)
 
     def test_pipeline_stage_skills_are_recursively_discovered_with_strong_dependencies(self):
         """阶段专属文件在子目录中发现，依赖只能指向已登记的上游管线 SKILL。"""
