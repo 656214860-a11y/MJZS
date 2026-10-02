@@ -33,6 +33,8 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+from file_cache import read_json
+
 ENGINES = {'codex': 'ChatGPT / Codex', 'qwen': 'Qwen Code（阿里云）', 'claude': 'Claude Code'}
 # -p 那一次的判据按引擎分（见 workflow_engines.run_background 的两支）：
 #   claude：标准输出就是一份 JSON，程序读 result／is_error／permission_denials 三个字段；
@@ -266,7 +268,7 @@ def record(row, path=None):
     data = {}
     if target.is_file():
         try:
-            loaded = json.loads(target.read_text(encoding='utf-8-sig'))
+            loaded = read_json(target)
         except (OSError, ValueError):
             loaded = {}
         if isinstance(loaded, dict):

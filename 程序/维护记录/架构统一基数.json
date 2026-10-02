@@ -766,7 +766,7 @@
         ]
     },
     "\u7b2c\u56db\u9879": {
-    "count": 16,
+    "count": 14,
         "baseline_pending": 35,
         "items": [
             {
@@ -897,15 +897,15 @@
             },
             {
                 "file": "engine_probe.py",
-                "point": "161",
-                "disposition": "pending",
-                "reason": ""
+                "point": "163",
+                "disposition": "exempt",
+                "reason": "R827：外部 CLI 标准输出 JSON 解析，非文件读取。"
             },
             {
                 "file": "engine_probe.py",
                 "point": "269",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R827：引擎真机验证台账读取收口至 file_cache.read_json。"
             },
             {
                 "file": "file_cache.py",
