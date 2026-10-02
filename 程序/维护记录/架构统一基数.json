@@ -766,7 +766,7 @@
         ]
     },
     "\u7b2c\u56db\u9879": {
-    "count": 18,
+    "count": 16,
         "baseline_pending": 35,
         "items": [
             {
@@ -886,14 +886,14 @@
             {
                 "file": "continuity_ledger.py",
                 "point": "323",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R826：发布后复核的 JSON 往返复制改用标准深拷贝。"
             },
             {
                 "file": "continuity_ledger.py",
                 "point": "347",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R826：连贯性台账读取收口至 file_cache.read_json。"
             },
             {
                 "file": "engine_probe.py",

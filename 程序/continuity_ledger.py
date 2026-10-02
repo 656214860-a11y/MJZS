@@ -13,12 +13,13 @@ Agent 的定位（附件）：只做检查与裁决，不做内容生成；锚�
 第 62 期任务 11：它已是独立的一步（侧栏「04 连贯性清单」，资产管理之后、分镜定稿之前），
 不再折在资产页底部；目录与契约照旧（03_continuity/），产物照旧落盘。
 """
-import json
 import re
+from copy import deepcopy
 from pathlib import Path
 
 from asset_contract import KIND_OF, merged_anchor, state_variants
-from agent.core import read as read_json, restore_bytes, save, save_text
+from agent.core import restore_bytes, save, save_text
+from file_cache import read_json
 from shot_batches import TRIPLET, batches, normalize, triplet
 
 # 附件里给的 Agent Prompt 模板（逐字照抄，程序直接复用这一句）。
@@ -320,7 +321,7 @@ def publish_bundle(project, ledger):
     try:
         for path, writer, content in targets:
             writer(path, content)
-        normalized_ledger = json.loads(json.dumps(ledger, ensure_ascii=False))
+        normalized_ledger = deepcopy(ledger)
         if (read_json(file) != normalized_ledger or (paths['docs'] / LEDGER_DOC).read_text(encoding='utf-8') != markdown(ledger)
                 or read_json(stage_layout.anchors_path(project)) != _anchor_library(ledger)
                 or read_json(stage_layout.triplets_path(project)) != _triplet_rows(ledger)):
@@ -344,7 +345,7 @@ def read(project):
     if not file.is_file():
         return {}
     try:
-        data = json.loads(file.read_text(encoding='utf-8'))
+        data = read_json(file)
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
