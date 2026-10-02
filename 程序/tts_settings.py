@@ -86,7 +86,8 @@ def show(parent, on_saved=None):
             speeds = _json.loads(speeds_text) if speeds_text else {}
             if not isinstance(speeds, dict):
                 raise ValueError("角色语速映射必须为 JSON 对象")
-            api.save_key(values["base_url"].get(), values["model"].get(), values["voice"].get(), values["api_key"].get(), voices, speeds)
+            from stage_execution_service import save_tts_key
+            save_tts_key(values["base_url"].get(), values["model"].get(), values["voice"].get(), values["api_key"].get(), voices, speeds)
             if on_saved:
                 on_saved()
             win.destroy()

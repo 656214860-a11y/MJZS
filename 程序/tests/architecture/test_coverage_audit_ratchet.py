@@ -13,6 +13,9 @@ P21={'platform_tools','native_apps','app_shortcut','codex_paste','codex_tasks','
 E25={'stage.executing','stage.failed','stage.retrying','stage.paused','script.completed','budget.warning','budget.exceeded','notify.aggregate','intent.command'}
 # 26 白名单：唯一模型池、路由与供应商适配器。
 P26={'model_pool','model_router','qwen_adapter','comfy_service','cloud_assets','cloud_video'}
+# 24 白名单：两份注册表是产品插件入口；clipboard_lock 仅在非 Windows 条件分支加载 Unix
+# 标准库 fcntl，属于跨平台锁实现而非产品动态插件，不能把它记作未登记业务动态导入。
+P24={'ui_plugin_registry','stage_handler_registry','clipboard_lock'}
 def dot(n):
     if isinstance(n,ast.Name): return n.id
     if isinstance(n,ast.Attribute):
@@ -24,7 +27,7 @@ def scan(kind, paths=None):
         for n in ast.walk(tree):
             if not isinstance(n,ast.Call): continue
             name,mod=dot(n.func),p.stem
-            hit=(kind=='21' and name in {'subprocess.run','subprocess.Popen','os.startfile'} and mod not in P21) or (kind=='22' and name in {'os.remove','os.unlink','shutil.rmtree'} and mod not in {'storage_maintenance','file_cache','asset_batch_lifecycle','storyboard_lifecycle'}) or (kind=='24' and name in {'__import__','import_module','importlib.import_module'} and mod not in {'ui_plugin_registry','stage_handler_registry'}) or (kind=='25' and name in {'pet_bus.emit_safe','self._emit','pet._emit'} and n.args and isinstance(n.args[0],ast.Constant) and n.args[0].value not in E25) or (kind=='26' and name in {'requests.get','requests.post','urllib.request.urlopen'} and mod not in P26)
+            hit=(kind=='21' and name in {'subprocess.run','subprocess.Popen','os.startfile'} and mod not in P21) or (kind=='22' and name in {'os.remove','os.unlink','shutil.rmtree'} and mod not in {'storage_maintenance','file_cache','asset_batch_lifecycle','storyboard_lifecycle'}) or (kind=='24' and name in {'__import__','import_module','importlib.import_module'} and mod not in P24) or (kind=='25' and name in {'pet_bus.emit_safe','self._emit','pet._emit'} and n.args and isinstance(n.args[0],ast.Constant) and n.args[0].value not in E25) or (kind=='26' and name in {'requests.get','requests.post','urllib.request.urlopen'} and mod not in P26)
             if hit: out.add(f'{p.name}:{n.lineno}')
     return out
 class CoverageAuditCanaryTests(unittest.TestCase):

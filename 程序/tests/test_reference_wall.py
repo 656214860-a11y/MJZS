@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 """候选图墙自检：默认勾选、阈值、图墙行内容与「确认入库」交出的那批候选。运行：python test_reference_wall.py"""
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import base64, json, os, sys, tempfile, unittest
 from pathlib import Path
 
@@ -113,7 +121,7 @@ class WallDialogTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.win = self.tk.Tk(); self.win.withdraw()

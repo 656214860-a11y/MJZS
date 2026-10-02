@@ -5,6 +5,14 @@
 - 「文本框内鼠标滑动，提高文字下滑速度」——一格滚轮滚 9 行（原来 3 行）；
 - 「用户如有改动文字，自动弹窗提醒用户是否保存」——改完字停一会儿、或焦点离开这个框时问一句。
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, sys, tempfile, time, unittest
 from pathlib import Path
 
@@ -57,7 +65,7 @@ class FinalViewerCase(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.project, self.source = make_project(self.tmp.name)
@@ -202,9 +210,11 @@ class SaveReminderTests(FinalViewerCase):
         分镜」。现在落盘前先按别名表认一次真路径。
         """
         import storyboard_storage
+        from stage_execution_service import storyboard_gateway
         stamp = time.time()
         os.utime(self.source, (stamp, stamp))       # 这一份放旧了，维护才有权整理它
-        moved = storyboard_storage.normalize(self.project, min_age=0)
+        moved = storyboard_storage.normalize(self.project, min_age=0,
+                                             gateway=storyboard_gateway())
         self.assertTrue(moved, "这一下确实把工作稿改成了规范名")
         live = self.saved_path()
         self.assertNotEqual(live, self.source, "旧名字已经不在盘上了")

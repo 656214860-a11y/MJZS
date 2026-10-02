@@ -169,8 +169,8 @@ def settings_window(desktop):
                 if cfgpath.is_relative_to((project/'cloud_video').resolve()) and cfgpath.is_file():
                     cfg=read(cfgpath);reset=identity(cfg.get('base_url',''),cfg.get('model',''),cfg.get('cloud_provider','wan'))==key
                     if reset:updated.pop('cloud_video_workspace',None)
-            from cloud_video_service import publish_workspace_preference
-            publish_workspace_preference(prefs_path, updated)
+            from stage_execution_service import publish_cloud_video_workspace_preference
+            publish_cloud_video_workspace_preference(prefs_path, updated)
             for value in drafts.values():
                 if value.get('base','').rstrip('/')==base and value.get('model')==model:value['model']=''
             for value in initial_records.values():
@@ -216,8 +216,8 @@ def settings_window(desktop):
             cfg.pop('project_dir',None)
             saved_prefs=read(prefs_path) if prefs_path.is_file() else {}
             saved_prefs['cloud_deleted_models']=[k for k in saved_prefs.get('cloud_deleted_models',[]) if k!=identity(base,model,kind)]
-            from cloud_video_service import publish_session_config
-            publish_session_config(config_path, cfg, prefs_path, saved_prefs)
+            from stage_execution_service import publish_cloud_video_session_config
+            publish_cloud_video_session_config(config_path, cfg, prefs_path, saved_prefs)
             if origin_video is not None and origin_video.root.resolve()==folder.resolve():
                 origin_video.studio.cfg=cfg
                 if desktop.video is origin_video:
@@ -286,6 +286,6 @@ def align_source(desktop,folder):
     cfg.update(episode_file=str(source),episode_dir=str(source.parent))
     prefs_path=desktop.root/'ui_settings.json';prefs=read(prefs_path) if prefs_path.is_file() else {}
     prefs['cloud_video_workspace']=target.relative_to(desktop.root).as_posix()
-    from cloud_video_service import publish_session_config
-    publish_session_config(target/'config.json', cfg, prefs_path, prefs)
+    from stage_execution_service import publish_cloud_video_session_config
+    publish_cloud_video_session_config(target/'config.json', cfg, prefs_path, prefs)
     return target

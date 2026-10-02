@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 """短生命周期 Tk 首帧回归：启动不能再被嵌套 idle spin 卡住。"""
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import os
 import sys
 import tempfile
@@ -12,12 +20,17 @@ from unittest import mock
 
 HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE))
+TESTS = Path(__file__).resolve().parent
+sys.path.insert(0, str(TESTS))
 os.chdir(HERE)
 
 import tkinter as tk
 
 from desktop import Desktop, PAGES
 import skill_registry
+from performance_contract import (AUTO_RESUME_TO_SCRIPT_SECONDS,
+                                  CHAT_FIRST_TEXT_SECONDS, FIRST_DAY_SELECTOR_SECONDS,
+                                  FIRST_EVENT_LOOP_SECONDS, STARTUP_RECURSIVE_SCAN_COUNT)
 
 
 class DesktopStartupPerfTests(unittest.TestCase):
@@ -69,11 +82,42 @@ class DesktopStartupPerfTests(unittest.TestCase):
         window.after = traced_after
         return measurements
 
+    def test_first_day_selector_never_leaves_a_child_widget_holding_grab(self):
+        """R772：真实首日启动期间 grab 只能属于 Toplevel，不能是其子控件。"""
+        try:
+            window = tk.Tk()
+        except tk.TclError as exc:
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
+        desktop = None
+        try:
+            with tempfile.TemporaryDirectory(prefix='desktop-grab-safety-') as temporary:
+                app, _project = self._startup_app(temporary, remembered=False)
+                desktop = Desktop(window, root=app)
+                deadline = time.perf_counter() + 1.2
+                saw_selector = False
+                while time.perf_counter() < deadline:
+                    window.update()
+                    holder = window.grab_current()
+                    self.assertTrue(holder is None or isinstance(holder, tk.Toplevel),
+                                    '启动期间 grab 不得落到 Label／Frame／Button 等子控件')
+                    saw_selector = saw_selector or any(
+                        isinstance(child, tk.Toplevel) and child.winfo_viewable()
+                        for child in window.winfo_children())
+                    time.sleep(.005)
+                self.assertTrue(saw_selector, '首日分支须实际打开项目选择弹窗')
+        finally:
+            if desktop is not None:
+                desktop.cancel_timers()
+            try:
+                window.destroy()
+            except tk.TclError:
+                pass
+
     def test_empty_project_first_paint_is_bounded(self):
         try:
             window = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest('Tk display unavailable: ' + str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-first-paint-') as temporary:
@@ -98,7 +142,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         try:
             window = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest('Tk display unavailable: ' + str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-first-event-loop-') as temporary:
@@ -107,7 +151,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 desktop = Desktop(window, root=app)
                 window.update_idletasks()
                 window.update()
-                self.assertLessEqual(time.perf_counter() - started, 2.6)
+                self.assertLessEqual(time.perf_counter() - started, FIRST_EVENT_LOOP_SECONDS)
         finally:
             if desktop is not None:
                 desktop.cancel_timers()
@@ -121,7 +165,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         try:
             window = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest('Tk display unavailable: ' + str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-first-day-choice-') as temporary:
@@ -135,13 +179,13 @@ class DesktopStartupPerfTests(unittest.TestCase):
                                   if isinstance(child, tk.Toplevel)), None)
                     return popup is not None and popup.winfo_viewable()
                 self.assertTrue(self._pump_until(window, selector_is_visible,
-                                                  started + 1.0),
+                                                  started + FIRST_DAY_SELECTOR_SECONDS),
                                 '首日项目选择框须在启动后 1 秒内可见')
                 selected_at = time.perf_counter()
                 self.assertTrue(desktop.open_project_or_cleanup(project))
                 self.assertEqual(desktop.page_index, 0)
                 self.assertEqual(desktop.title.cget('text'), PAGES[0])
-                self.assertLessEqual(time.perf_counter() - selected_at, 1.0)
+                self.assertLessEqual(time.perf_counter() - selected_at, FIRST_DAY_SELECTOR_SECONDS)
                 popup.destroy()
         finally:
             if desktop is not None:
@@ -156,7 +200,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         try:
             window = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest('Tk display unavailable: ' + str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-same-day-choice-') as temporary:
@@ -167,7 +211,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                     window,
                     lambda: (desktop.page_index == 0
                              and desktop.title.cget('text') == PAGES[0]),
-                    started + 1.0),
+                    started + AUTO_RESUME_TO_SCRIPT_SECONDS),
                     '同日自动续开不得在“我的项目”停留超过 1 秒')
         finally:
             if desktop is not None:
@@ -182,7 +226,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         try:
             window = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest('Tk display unavailable: ' + str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-startup-no-recurse-') as temporary:
@@ -208,8 +252,8 @@ class DesktopStartupPerfTests(unittest.TestCase):
                         lambda: (desktop.page_index == 0
                                  and desktop.title.cget('text') == PAGES[0]),
                         time.perf_counter() + 1.5))
-                self.assertEqual(len(recursive_glob), 0)
-                self.assertEqual(len(recursive_walk), 0)
+                self.assertEqual(len(recursive_glob), STARTUP_RECURSIVE_SCAN_COUNT)
+                self.assertEqual(len(recursive_walk), STARTUP_RECURSIVE_SCAN_COUNT)
         finally:
             if desktop is not None:
                 desktop.cancel_timers()
@@ -222,7 +266,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         try:
             window = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest('Tk display unavailable: ' + str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-real-project-') as temporary:
@@ -276,7 +320,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         try:
             window = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest('Tk display unavailable: ' + str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-startup-tick-') as temporary:
@@ -317,7 +361,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         try:
             window = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest('Tk display unavailable: ' + str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-chat-visible-') as temporary:
@@ -334,13 +378,13 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 with mock.patch.object(desktop, 'idea_chat_model', side_effect=lambda: (time.sleep(.35), 'probe')[1]):
                     started = time.perf_counter()
                     desktop.show_conversation()
-                    while time.perf_counter() - started < 1.5:
+                while time.perf_counter() - started < CHAT_FIRST_TEXT_SECONDS:
                         window.update()
                         if str(desktop.idea_log.get('1.0', 'end-1c')).strip():
                             break
                         time.sleep(.01)
                 self.assertTrue(str(desktop.idea_log.get('1.0', 'end-1c')).strip())
-                self.assertLessEqual(time.perf_counter() - started, 1.5)
+                self.assertLessEqual(time.perf_counter() - started, CHAT_FIRST_TEXT_SECONDS)
         finally:
             if desktop is not None:
                 desktop.cancel_timers()
@@ -354,7 +398,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         try:
             window = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest('Tk display unavailable: ' + str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-registry-count-') as temporary:
@@ -389,7 +433,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         try:
             window = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest('Tk display unavailable: ' + str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-model-key-') as temporary:

@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 """CheckboxColumn 公共勾选组件回归。运行：python test_checkbox_column.py"""
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import os, sys, unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE); os.chdir(HERE)
@@ -16,7 +24,7 @@ class CheckboxColumnTests(unittest.TestCase):
 
     def test_toggle_and_toggle_all(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         from responsive_ui import CheckboxColumn, configure_check_column
         win = self.tk.Tk(); win.withdraw()
@@ -45,7 +53,7 @@ class CheckboxColumnTests(unittest.TestCase):
     def test_content_box_click_rules(self):
         """文本格单击勾选/再点取消；带链接的格子先勾选再打开，已勾选时只打开不取消。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         from responsive_ui import CheckboxColumn, bind_row_toggle, configure_check_column
         from cell_hover import CellHover

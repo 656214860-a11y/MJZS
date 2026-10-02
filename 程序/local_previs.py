@@ -169,7 +169,8 @@ def show(desktop):
             rows,how=adjust_targets()
             if not rows:raise ValueError('请先点击一个镜头')
             # 勾选了几行就一起改：原来只改高亮那一行，勾了 3 镜却只动 1 镜，页面上看不出区别。
-            for sid in rows:previs_routing.set_override(project,source,sid,choices[chosen_level.get()])
+            from stage_execution_service import save_stage_previs_override
+            for sid in rows:save_stage_previs_override(project,source,sid,choices[chosen_level.get()])
             decisions=previs_routing.entries(project,source)
             if len(rows)>1:reason.set('已把 %d 个镜头设为「%s」%s'%(len(rows),chosen_level.get(),work_hint(rows,how)))
             show_decision();refresh()
@@ -190,7 +191,8 @@ def show(desktop):
             # 路由模块只负责分流；页面在需要复杂镜头时延迟取得自动制作执行器，
             # 避免 ``previs_routing <-> previs_automation`` 的服务层循环依赖。
             agent_start=ui_plugin_registry.module('previs_automation').start
-            groups=previs_routing.dispatch(project,source,ids,state,monitor=True,start_complex=agent_start)
+            from stage_execution_service import dispatch_stage_previs
+            groups=dispatch_stage_previs(project,source,ids,state,monitor=True,start_complex=agent_start)
             if groups['medium']:online_window(desktop,source,groups['medium'])
             refresh()
         except Exception as exc:messagebox.showerror('白模预演',str(exc),parent=desktop.win)

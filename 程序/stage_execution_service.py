@@ -69,6 +69,151 @@ def archive_idea_attachments(project, paths, now=None):
     return store(project, paths, now=now, publish=publish_attachment)
 
 
+def idea_chat_gateway():
+    """为 ``idea_chat`` 注入缓存读取与原子发布；L2 不可自行落盘。"""
+    from agent.core import save, save_text
+    return {
+        'read_json': file_cache.read_json,
+        'publish_json': save,
+        'publish_text': save_text,
+    }
+
+
+def asset_batch_gateway():
+    """L3 为资产批处理服务装配唯一的正式读写入口。"""
+    import shutil
+    from agent.core import file_hash, save, save_bytes
+    return {'read_json': file_cache.read_json, 'publish_json': save,
+            'publish_bytes': save_bytes, 'file_hash': file_hash,
+            'copy_file': shutil.copy2,
+             'replace_file': lambda source, target: Path(source).replace(target)}
+
+
+def tts_gateway():
+    """L3 为 TTS 服务装配唯一的正式发布器；L2 不可自行写设置或阶段成果。"""
+    from agent.core import save, save_bytes
+    return {'publish_json': save, 'publish_bytes': save_bytes}
+
+
+def save_tts_key(base_url, model, voice, key, voices=None, speeds=None):
+    from tts_api import save_key
+    return save_key(base_url, model, voice, key, voices, speeds, gateway=tts_gateway())
+
+
+def publish_tts_full_track(project, signature, raw):
+    from tts_api import publish_full_track
+    return publish_full_track(project, signature, raw, gateway=tts_gateway())
+
+
+def run_tts_lines(lines, folder, generate=None, report=None, stop=None):
+    from tts_api import run_lines
+    return run_lines(lines, folder, generate, report, stop, gateway=tts_gateway())
+
+
+def cloud_video_gateway():
+    """L3 为云视频配置服务装配唯一的正式 JSON 发布器。"""
+    from agent.core import save
+    return {'publish_json': save}
+
+
+def publish_cloud_video_session_config(config_path, config, prefs_path, prefs):
+    from cloud_video_service import publish_session_config
+    return publish_session_config(config_path, config, prefs_path, prefs, gateway=cloud_video_gateway())
+
+
+def publish_cloud_video_workspace_preference(prefs_path, prefs):
+    from cloud_video_service import publish_workspace_preference
+    return publish_workspace_preference(prefs_path, prefs, gateway=cloud_video_gateway())
+
+
+def publish_cloud_video_studio_config(config_path, config):
+    from cloud_video_service import publish_studio_config
+    return publish_studio_config(config_path, config, gateway=cloud_video_gateway())
+
+
+def video_lifecycle_gateway():
+    """L3 向视频生命周期服务注入唯一 JSON 发布器。"""
+    from agent.core import save
+    return {'publish_json': save}
+
+
+def confirm_gates_gateway():
+    """L3 为确认门禁注入唯一的正式 JSON 发布器。"""
+    from agent.core import save
+    return {'publish_json': save}
+
+
+def record_stage_confirmation(project, key, choice='', by='human'):
+    """记录确认门禁；L4 不得自行装配或直写确认账本。"""
+    from confirm_gates import record
+    return record(project, key, choice, by=by,
+                  publish=confirm_gates_gateway()['publish_json'])
+
+
+def forget_stage_confirmation(project, key):
+    """撤销确认门禁；保持与记录入口相同的 L3 发布边界。"""
+    from confirm_gates import forget
+    return forget(project, key, publish=confirm_gates_gateway()['publish_json'])
+
+
+def previs_routing_gateway():
+    """L3 为白模分流策略注入唯一的正式 JSON 发布器。"""
+    from agent.core import save
+    return {'publish_json': save}
+
+
+def save_stage_previs_override(project, source, shot_id, value):
+    """保存白模复杂度人工覆写；L4 只委托 L3。"""
+    from previs_routing import set_override
+    return set_override(project, source, shot_id, value,
+                        publish=previs_routing_gateway()['publish_json'])
+
+
+def dispatch_stage_previs(project, source, shot_ids, state, monitor=False, start_complex=None):
+    """发布白模分流记录；执行器仍由调用方注入，路由落盘只经 L3。"""
+    from previs_routing import dispatch
+    return dispatch(project, source, shot_ids, state, monitor=monitor,
+                    start_complex=start_complex,
+                    publish=previs_routing_gateway()['publish_json'])
+
+
+def storyboard_gateway():
+    from agent.core import save, save_bytes
+    from file_cache import remove_temporary_file
+    from agent.core import save_bytes_new
+    from storage_maintenance import recycle_paths
+    return {'publish_json': save, 'publish_bytes': save_bytes, 'publish_bytes_new': save_bytes_new,
+            'recycle_paths': recycle_paths,
+            'remove_temporary_file': remove_temporary_file}
+
+
+def publish_final_storyboard_bundle(episodefile, assetfile, episode, assets, validate):
+    from storyboard_storage import publish_final_bundle
+    return publish_final_bundle(episodefile, assetfile, episode, assets, validate,
+                                gateway=storyboard_gateway())
+
+
+def normalize_storyboard_for_desktop(desktop):
+    from storyboard_storage import normalize_for_desktop
+    return normalize_for_desktop(desktop, gateway=storyboard_gateway())
+
+
+def mark_stage_video_deleted(source, sid, versions):
+    from video_lifecycle_service import mark_video_deleted
+    return mark_video_deleted(source, sid, versions, gateway=video_lifecycle_gateway())
+
+
+def save_stage_video_options(source, sid, selected, generate_audio, is_local):
+    from video_lifecycle_service import save_video_options
+    return save_video_options(source, sid, selected, generate_audio, is_local,
+                              gateway=video_lifecycle_gateway())
+
+
+def save_stage_white_model_upload(source, sid, enabled):
+    from video_lifecycle_service import save_white_model_upload
+    return save_white_model_upload(source, sid, enabled, gateway=video_lifecycle_gateway())
+
+
 def save_stage_editing_checklist(project, text):
     """剪辑清单保存编排：保留用户清空清单的既有语义。"""
     from edit_service import save_editing_checklist
@@ -339,3 +484,22 @@ def publish_stage_bundle(artifacts, validate, update_index):
             restore_bytes(path, previous[path])
         raise
     return tuple(path for path, _data in items)
+
+
+def project_registry_gateway():
+    """为 ``projects`` 注入唯一的读取、发布及回滚边界。
+
+    项目登记是 L2 业务规则；它不能自行导入底层读写或复制原语。这个小型
+    网关由 L3 装配，保留原有缓存读取、原子发布与复制元数据语义。
+    """
+    from agent.core import restore_bytes, save, save_bytes
+    from shutil import copy2, copytree
+    return {
+        'read_json': file_cache.read_json,
+        'read_bytes': lambda path: Path(path).read_bytes(),
+        'publish_json': save,
+        'publish_bytes': save_bytes,
+        'restore_bytes': restore_bytes,
+        'copy_file': copy2,
+        'copy_tree': copytree,
+    }

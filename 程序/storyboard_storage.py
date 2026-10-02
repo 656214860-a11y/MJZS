@@ -1,29 +1,40 @@
 """Normalize working storyboard filenames and coalesce only equal JSON documents."""
 import hashlib,json,os,re,time
 from pathlib import Path
-from agent.core import read,save,save_bytes,save_bytes_new
+from agent.core import read
 from project_stages import storyboard
 from storage_maintenance import recycle_paths
 
 ALIAS_FILE='文件路径映射.json'
 
 
-def publish_final_bundle(episodefile, assetfile, episode, assets, validate):
+def _require_gateway(gateway, *operations):
+    if not isinstance(gateway, dict):
+        raise TypeError('分镜发布必须由 L3 注入 gateway')
+    missing = [name for name in operations if not callable(gateway.get(name))]
+    if missing:
+        raise TypeError('分镜 gateway 缺少：' + '、'.join(missing))
+    return gateway
+
+
+def publish_final_bundle(episodefile, assetfile, episode, assets, validate, *, gateway=None):
     """原子发布定稿双索引；校验失败时恢复本次之前的 JSON。"""
+    gateway = _require_gateway(gateway, 'publish_json', 'publish_bytes', 'remove_temporary_file')
+    publish_json, publish_bytes = gateway['publish_json'], gateway['publish_bytes']
     episodefile, assetfile = Path(episodefile), Path(assetfile)
     old_episode = episodefile.read_bytes() if episodefile.is_file() else None
     old_assets = assetfile.read_bytes() if assetfile.is_file() else None
     try:
-        save(assetfile, assets)
-        save(episodefile, episode)
+        publish_json(assetfile, assets)
+        publish_json(episodefile, episode)
         validate(read(episodefile), read(assetfile))
     except Exception:
         from file_cache import remove_temporary_file
         for file, raw in ((episodefile, old_episode), (assetfile, old_assets)):
             if raw is not None:
-                save_bytes(file, raw)
+                publish_bytes(file, raw)
             elif file.is_file():
-                remove_temporary_file(file)
+                gateway['remove_temporary_file'](file)
         raise
 
 
@@ -61,7 +72,11 @@ def resolved_alias(project,path):
         if dest.is_relative_to(project) and dest.is_file():return dest
     return path
 
-def _references(project,mapping):
+def _references(project,mapping, gateway=None):
+    """兼容既有定稿退役链；新整理链必须由 L3 显式传入网关。"""
+    if gateway is None:
+        from agent.core import save
+        gateway = {'publish_json': save}
     def replace(value):
         if isinstance(value,dict):return {k:replace(v) for k,v in value.items()}
         if isinstance(value,list):return [replace(v) for v in value]
@@ -91,9 +106,10 @@ def _references(project,mapping):
                 from project_stages import assets
                 updated['asset_library_dir']=str(assets(project))
             updated['episode_dir']=str((project/updated['episode_file']).resolve().parent)
-        if updated!=original:save(config,updated)
+        if updated!=original:gateway['publish_json'](config,updated)
 
-def normalize(project,min_age=3):
+def normalize(project,min_age=3, *, gateway=None):
+    gateway = _require_gateway(gateway, 'publish_json', 'publish_bytes_new', 'recycle_paths')
     project=Path(project).resolve();changed=[];now=time.time()
     for root in working_roots(project):
         if not root.is_dir() or root.is_symlink() or root.is_junction() or not root.resolve().is_relative_to(project):continue
@@ -123,17 +139,17 @@ def normalize(project,min_age=3):
             try:
                 if not target.exists():
                     if snapshot(source)[1]!=digest:continue
-                    save_bytes_new(target,snap[2])
+                    gateway['publish_bytes_new'](target,snap[2])
                     os.utime(target,ns=(snap[3].st_atime_ns,snap[3].st_mtime_ns))
                 if snapshot(target)[1]!=digest:continue
                 duplicates=[p for p,s in files if p!=target and snapshot(p)[1]==digest]
                 mapping={p.resolve():target.resolve() for p in duplicates}
                 if not mapping:continue
-                _references(project,mapping)
+                _references(project,mapping,gateway)
                 for old,new in mapping.items():aliases[old.relative_to(project).as_posix()]=new.relative_to(project).as_posix()
-                save(alias_file,aliases)
+                gateway['publish_json'](alias_file,aliases)
                 # Duplicate work files are user-visible: preserve them in the project recycle batch.
-                moved=recycle_paths(project, duplicates, '合并重复分镜')
+                moved=gateway['recycle_paths'](project, duplicates, '合并重复分镜')
                 moved_sources={item['source'] for item in moved}
                 for old in duplicates:
                     if old.resolve().relative_to(project).as_posix() in moved_sources:
@@ -161,10 +177,10 @@ def unique_entries(entries,project):
     return sorted(result,key=lambda e:(e['created'],str(e['path'])),reverse=True)
 
 
-def normalize_for_desktop(desktop):
+def normalize_for_desktop(desktop, *, gateway=None):
     videos=list(getattr(desktop,'video_sessions',{}).values())
     if getattr(desktop,'worker',False) or any(getattr(v,'busy',False) for v in videos):return []
-    changed=normalize(desktop.root)
+    changed=normalize(desktop.root, gateway=gateway)
     mapping={Path(old).resolve():Path(new).resolve() for old,new in changed}
     studios=[getattr(desktop,'studio',None)]+[getattr(v,'studio',None) for v in videos]
     for studio in studios:

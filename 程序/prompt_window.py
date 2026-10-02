@@ -7,6 +7,19 @@
 """
 import tkinter as tk
 from tkinter import ttk,messagebox
+import re
+
+from clipboard_lock import hold as hold_clipboard
+
+
+_SECRET_VALUE = re.compile(r"(?i)(\b(?:api[_-]?key|secret|token|password)\s*[=:]\s*)([^\s,;]+)|\bsk-[A-Za-z0-9_-]{8,}")
+
+
+def copy_preview(text, limit=40):
+    """供状态栏使用的复制回执，绝不把疑似凭据回显到 UI。"""
+    value = str(text or "").replace("\n", " ").strip()
+    value = _SECRET_VALUE.sub(lambda match: (match.group(1) or "") + "***", value)
+    return value[:max(0, int(limit))]
 
 
 def copy_text(owner,text):
@@ -15,10 +28,13 @@ def copy_text(owner,text):
     全程序只有这一处写剪贴板（提示词窗口与 Codex 任务文本都走它）：复制行为不再各写一份，
     历史上正是各写一份才出现「一个窗口复制后关、另一个不关」以及「复制失败没人处理」。
     """
-    try:
-        owner.clipboard_clear();owner.clipboard_append(text);owner.update_idletasks()
-    except tk.TclError as exc:
-        return str(exc)
+    with hold_clipboard() as acquired:
+        if not acquired:
+            return '剪贴板暂时被占用，请稍后重试'
+        try:
+            owner.clipboard_clear();owner.clipboard_append(str(text));owner.update_idletasks()
+        except tk.TclError as exc:
+            return str(exc)
     return ''
 
 

@@ -52,6 +52,16 @@ SCRIPT_RAW_AUTO_SAVE_MIN_CHARS = 800
 EMPTY_RESPONSE_LOG = Path(__file__).resolve().parent / 'logs' / 'claude_empty_response.log'
 
 
+def idea_chat_gateway():
+    """L3 直接 API 编排为创意聊天注入正式读写入口。"""
+    from agent.core import save, save_text
+    return {
+        'read_json': read_json,
+        'publish_json': save,
+        'publish_text': save_text,
+    }
+
+
 def _record_model_diagnostic(project, result, purpose='chat'):
     """保存无正文/协议诊断的安全元数据，绝不把对话或推理正文写入日志。"""
     try:
@@ -339,7 +349,8 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     task = script_prompt(root, None, 'writing', creative_text=creative)
     if brief is not None:
         task += '\n\n<brief_complete>\n' + json.dumps(brief, ensure_ascii=False, indent=2) + '\n</brief_complete>'
-    history = _recent_chat_history(idea_chat.load(root, model=model_label(root)))
+    history = _recent_chat_history(idea_chat.load(
+        root, model=model_label(root), gateway=idea_chat_gateway()))
     if history:
         task += '\n\n以下为本次对话之前已确认的信息：\n' + history
     system = (workflow_settings.skill_prompt(settings)

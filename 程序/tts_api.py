@@ -6,7 +6,7 @@ import math
 import os
 import re
 from pathlib import Path
-from agent.core import read_json, save, save_bytes
+from agent.core import read_json
 from urllib.parse import urlparse
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要请求语音接口时用得到——都改成函数内 import。
@@ -28,8 +28,18 @@ def read_settings():
     return {**defaults, **data} if isinstance(data, dict) else defaults
 
 
-def write_settings(data):
-    save(settings_path(), data)                 # 原子写只有 agent.core.save 一份
+def _require_gateway(gateway, *operations):
+    """L2 不自行落盘：发布器必须由 L3 明确注入。"""
+    if not isinstance(gateway, dict):
+        raise TypeError("TTS 发布必须由 L3 注入 gateway")
+    missing = [name for name in operations if not callable(gateway.get(name))]
+    if missing:
+        raise TypeError("TTS gateway 缺少：" + "、".join(missing))
+    return gateway
+
+
+def write_settings(data, *, gateway=None):
+    _require_gateway(gateway, "publish_json")["publish_json"](settings_path(), data)
 
 
 def validate(base_url, model, voice, key):
@@ -61,7 +71,7 @@ def payload(text, model, voice, speed=1.0):
     return {"model": model, "input": text, "voice": voice, "speed": speed}
 
 
-def save_key(base_url, model, voice, key, voices=None, speeds=None):
+def save_key(base_url, model, voice, key, voices=None, speeds=None, *, gateway=None):
     """第 65 期任务 1：密钥写进统一那份 .env；这个设置文件里不再留密钥。"""
     value = validate(base_url, model, voice, key)
     data = read_settings()
@@ -78,7 +88,7 @@ def save_key(base_url, model, voice, key, voices=None, speeds=None):
         data["speeds"] = {k: coerce_speed(v) for k, v in speeds.items()}
     import model_pool
     model_pool.save_named_key(KEY_ENV, secret)
-    write_settings(data)
+    write_settings(data, gateway=gateway)
 
 
 def unified_key():
@@ -156,14 +166,15 @@ def reusable_full_track(project, signature):
     return None
 
 
-def publish_full_track(project, signature, raw):
+def publish_full_track(project, signature, raw, *, gateway=None):
     """Publish complete audio before its idempotence marker, preserving media on marker failure."""
     from project_stages import audio
     folder = audio(project)
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / ('配音_' + os.urandom(3).hex() + '.mp3')
-    save_bytes(path, raw)
-    save(folder / '整段配音.json', {'signature': signature, 'file': str(path)})
+    publish = _require_gateway(gateway, "publish_json", "publish_bytes")
+    publish["publish_bytes"](path, raw)
+    publish["publish_json"](folder / '整段配音.json', {'signature': signature, 'file': str(path)})
     return path
 
 
@@ -172,8 +183,8 @@ def batch_signature(lines):
     return hashlib.sha256(json.dumps(lines, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
 
 
-def _save(path, data):
-    save(path, data)                            # 原子写只有 agent.core.save 一份
+def _save(path, data, *, gateway=None):
+    _require_gateway(gateway, "publish_json")["publish_json"](path, data)
 
 
 def resume_folder(root, lines):
@@ -201,17 +212,18 @@ def line_done(manifest, index, line, folder):
     return bool(same and previous.get("state") == "ok" and previous.get("file") and (Path(folder) / previous["file"]).is_file())
 
 
-def publish_line(folder, manifest, index, line, raw):
+def publish_line(folder, manifest, index, line, raw, *, gateway=None):
     """原子发布单句音频后，再把它登记进可续跑时间轴。"""
     folder = Path(folder)
     name = line_name(index, line)
-    save_bytes(folder / name, raw)
+    publish = _require_gateway(gateway, "publish_json", "publish_bytes")
+    publish["publish_bytes"](folder / name, raw)
     entry = {**line, "file": name, "state": "ok"}
     if index <= len(manifest):
         manifest[index - 1] = entry
     else:
         manifest.append(entry)
-    _save(folder / "时间轴.json", manifest)
+    _save(folder / "时间轴.json", manifest, gateway=publish)
     return entry
 
 
@@ -224,18 +236,19 @@ def pending_lines(lines, folder):
     return [index for index, line in enumerate(lines, 1) if not line_done(manifest, index, line, folder)]
 
 
-def run_lines(lines, folder, generate=None, report=None, stop=None):
+def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=None):
     """逐句合成到 folder：每句完成后立即写清单，已成功的句子直接沿用。
 
     中断或报错后再次运行会接续同一批次，只补做缺的句子，不重复扣费。
     返回 (成功数, 沿用数, 失败数)。
     """
+    publish = _require_gateway(gateway, "publish_json", "publish_bytes")
     folder = Path(folder); folder.mkdir(parents=True, exist_ok=True)
     generate = generate or synthesize
     manifest = read_json(folder / "时间轴.json")
     if not isinstance(manifest, list):
         manifest = []
-    _save(folder / "批次.json", {"signature": batch_signature(lines), "lines": len(lines)})
+    _save(folder / "批次.json", {"signature": batch_signature(lines), "lines": len(lines)}, gateway=publish)
     ok = reused = failed = 0
     for index, line in enumerate(lines, 1):
         if stop is not None and stop.is_set():
@@ -250,7 +263,7 @@ def run_lines(lines, folder, generate=None, report=None, stop=None):
         name = line_name(index, line)
         try:
             raw = generate(line.get("text", ""), speed=line.get("speed", 1.0), voice=line.get("voice") or None)
-            entry = publish_line(folder, manifest, index, line, raw)
+            entry = publish_line(folder, manifest, index, line, raw, gateway=publish)
             ok += 1
         except Exception as exc:
             entry = {**line, "file": "", "state": "failed", "error": str(exc)}
@@ -259,10 +272,10 @@ def run_lines(lines, folder, generate=None, report=None, stop=None):
                 manifest[index - 1] = entry
             else:
                 manifest.append(entry)
-            _save(folder / "时间轴.json", manifest)
+            _save(folder / "时间轴.json", manifest, gateway=publish)
         if report:
             report(f'{index}/{len(lines)} · {line.get("shot_id")}：' + ("已生成 " + name if entry["state"] == "ok" else "失败：" + str(entry.get("error", ""))))
-    _save(folder / "时间轴.json", manifest)
+    _save(folder / "时间轴.json", manifest, gateway=publish)
     return ok, reused, failed
 
 

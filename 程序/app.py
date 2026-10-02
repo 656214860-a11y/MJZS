@@ -569,9 +569,9 @@ class App:
             if self.busy:raise ValueError('当前正在提交，请完成后再修改白模选项')
             assert_prompt_editable(self,sid)
             if var.get() and not self.white_model_ready(sid):raise ValueError('白模待制作，请先到第06步生成白模视频，再刷新白模')
-            from video_lifecycle_service import save_white_model_upload
+            from stage_execution_service import save_stage_white_model_upload
             with self.studio.lock():
-                self.studio.episode=save_white_model_upload(self.studio.episode_path,sid,var.get())
+                self.studio.episode=save_stage_white_model_upload(self.studio.episode_path,sid,var.get())
         except Exception as exc:
             var.set(previous);messagebox.showerror('白模上传',str(exc),parent=self.window)
     def layout_white_cells(self):
@@ -595,7 +595,7 @@ class App:
             x,y,w,h=bbox;check.place(x=x+2,y=y+1,width=w-4,height=h-2)
     def writing_setup(self):
         from writing import STAGES,prepare
-        from stage_execution_service import publish_writing_preparation
+        from stage_execution_service import publish_writing_preparation,project_registry_gateway
         win=tk.Toplevel(self.window);win.attributes('-alpha',0);win.title('剧本准备 · 五阶段编剧技能');win.geometry('780x540')
         ttk.Label(win,text='填写创意或粘贴已有剧本：').pack(anchor='w',padx=12,pady=6)
         brief=tk.Text(win,height=15,wrap='word');brief.pack(fill='both',expand=True,padx=12)
@@ -639,6 +639,7 @@ class App:
     def import_json(self):
         from writing import validate_episode,import_project
         from agent.core import read
+        from stage_execution_service import project_registry_gateway
         file=filedialog.askopenfilename(title='选择编剧输出的镜头JSON',filetypes=[('镜头JSON','*.json')],parent=self.window)
         if not file:return
         source=Path(file);af=source.parent/'assets.json'
@@ -647,7 +648,7 @@ class App:
         details=f"校验通过：{report['shot_count']}镜，共{report['total_seconds']}秒。\n"+'\n'.join(report['warnings'])
         details+='\n将建立独立项目，预算0秒、默认离线，不覆盖当前任务。'
         if messagebox.askyesno('导入预览',details+'\n创建新项目？',parent=self.window):
-            folder,report=import_project(self.root,file);open_path(folder)
+            folder,report=import_project(self.root,file,gateway=project_registry_gateway());open_path(folder)
             self.write('新项目已创建：'+str(folder))
             messagebox.showinfo('导入完成','新项目已加入漫剧助手，在“我的项目”中选择即可。\n缺失首帧可在首帧管理补齐。',parent=self.window)
     def sid(self):
@@ -736,8 +737,8 @@ class App:
         if ask and not messagebox.askyesno('删除本地视频镜头',sid+' 将从本地视频列表及自动剪辑中移除。\n首帧、历史视频和任务记录保留。是否删除？',parent=self.window,default='no'):return False
         with self.studio.lock():
             versions=self.studio.state()['shots'].get(sid,[])
-            from video_lifecycle_service import mark_video_deleted
-            self.studio.episode=mark_video_deleted(self.studio.episode_path,sid,versions)
+            from stage_execution_service import mark_stage_video_deleted
+            self.studio.episode=mark_stage_video_deleted(self.studio.episode_path,sid,versions)
         if rebuild:
             self.refresh();self.prompt.delete('1.0','end');self.note.delete(0,'end');self.fit_prompt_height()
             self.write(sid+' 已从本地视频制作中删除，历史素材保留。')
@@ -1084,12 +1085,12 @@ class App:
         sid=sid or self.sid()
         assert_prompt_editable(self,sid)
         selected=[aid for aid,value in self.asset_choices_for(sid).items() if value.get()]
-        from video_lifecycle_service import save_video_options
+        from stage_execution_service import save_stage_video_options
         if isinstance(self.studio,LocalStudio):
-            self.studio.episode=save_video_options(self.studio.episode_path,sid,selected,
+            self.studio.episode=save_stage_video_options(self.studio.episode_path,sid,selected,
                                                     self.generate_audio.get(),True)
         else:
-            self.studio.episode=save_video_options(self.studio.episode_path,sid,selected,
+            self.studio.episode=save_stage_video_options(self.studio.episode_path,sid,selected,
                                                     self.generate_audio.get(),False)
             self.upload_assets.set(bool(selected))
         self.refresh_asset_cell(sid)
@@ -1313,8 +1314,8 @@ class App:
                 cfg['live_enabled']=live.get()
                 from agent.wan import WanAdapter
                 WanAdapter(cfg) # Reject arbitrary credential destinations before saving.
-                from cloud_video_service import publish_studio_config
-                publish_studio_config(self.root/'config.json',cfg);self.studio.cfg=cfg;win.destroy();self.refresh()
+                from stage_execution_service import publish_cloud_video_studio_config
+                publish_cloud_video_studio_config(self.root/'config.json',cfg);self.studio.cfg=cfg;win.destroy();self.refresh()
             except Exception as e:messagebox.showerror('无法保存',str(e),parent=self.window)
         PrimaryButton(win,text='保存',command=commit).grid(row=len(labels)+1,column=1,pady=SPACING['md'])
     def open_assembled(self):

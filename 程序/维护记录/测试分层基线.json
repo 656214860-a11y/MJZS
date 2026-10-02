@@ -1,0 +1,39 @@
+{
+ "architecture": {
+  "elapsed_seconds": 37.66,
+  "failed_modules": [],
+  "test_count": 163,
+  "unit_count": 81,
+  "updated_at": "2026-10-02T16:00:00"
+ },
+ "gui": {
+  "elapsed_seconds": 508.783,
+  "failed_modules": [],
+  "test_count": 1625,
+  "unit_count": 244,
+  "updated_at": "2026-09-27T11:49:34"
+ },
+ "gui-e2e": {
+  "elapsed_seconds": 261.696,
+  "failed_modules": [],
+  "test_count": 662,
+  "unit_count": 103,
+  "updated_at": "2026-09-28T15:49:20"
+ },
+ "gui-short": {
+  "elapsed_seconds": 300.365,
+  "failed_modules": [],
+  "test_count": 1079,
+  "unit_count": 155,
+  "updated_at": "2026-10-01T04:01:41"
+ },
+ "last_full_safe_all_at": "2026-10-02",
+ "last_full_safe_all_round": 795,
+ "service": {
+  "elapsed_seconds": 24.89,
+  "failed_modules": [],
+  "test_count": 1483,
+  "unit_count": 241,
+  "updated_at": "2026-09-28T16:26:54"
+ }
+}

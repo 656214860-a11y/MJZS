@@ -11,6 +11,14 @@
 这里只建最小的假桌面（贴片真正用到的那几个容器），另加一条真 Desktop 的接缝用例验齿轮真的
 挂在左上角那一行上。运行：python test_pet_settings.py
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json
 import os
 import sys
@@ -136,7 +144,7 @@ class SettingsCase(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         self.win = self.tk.Tk()
         self.win.withdraw()
         self.tmp = tempfile.TemporaryDirectory()
@@ -725,7 +733,7 @@ class DesktopGearSeamTests(unittest.TestCase):
 
     def build(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         win = self.tk.Tk()
         win.withdraw()
         from desktop import Desktop

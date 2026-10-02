@@ -7,6 +7,14 @@
 界面这一份管接线（提交时确实问了模型、模型不回话时怎么说、手动制作剧本读的是模型写的那一份）。
 界面用例跑真 Tk，但工作线程那一步改成当场跑（自检里不真开线程）。
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, queue, sys, tempfile, time, unittest
 from tkinter import ttk
 from types import SimpleNamespace
@@ -17,12 +25,33 @@ HERE = str(Path(__file__).resolve().parents[1])
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-import idea_chat
+import idea_chat as _idea_chat
 import script_contract
-from stage_execution_service import publish_idea_creative
+from stage_execution_service import idea_chat_gateway, publish_idea_creative
 from desktop import Desktop, PAGE
 from project_stages import writing as writing_dir
 from tests.test_ui_edges import make_minimal_project
+
+
+class _InjectedIdeaChat:
+    """测试也经 L3 网关注入，保留 L2 的“无注入即拒绝”契约。"""
+    _operations = frozenset({
+        'append', 'load', 'remove', 'repair_internal_replies', 'replace',
+        'restore_latest_removed', 'receive_brief', 'save_brief_creation', 'save_rows',
+        'latest_text',
+    })
+
+    def __getattr__(self, name):
+        value = getattr(_idea_chat, name)
+        if name not in self._operations:
+            return value
+        def invoke(*args, **kwargs):
+            kwargs.setdefault('gateway', idea_chat_gateway())
+            return value(*args, **kwargs)
+        return invoke
+
+
+idea_chat = _InjectedIdeaChat()
 
 
 class FakeClient:
@@ -45,6 +74,11 @@ class FakeClient:
 
 class SavingTests(unittest.TestCase):
     """落盘口径：对话记录与模型输出的创意文件。"""
+
+    def test_chat_storage_rejects_an_uninjected_gateway(self):
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaisesRegex(TypeError, 'L3 注入'):
+                _idea_chat.append(td, 'user', '不得绕过网关')
 
     def test_history_cache_returns_copies_and_invalidates_external_changes(self):
         with tempfile.TemporaryDirectory() as td:
@@ -409,7 +443,7 @@ class _Harness(unittest.TestCase):
 
     def desktop(self, proj):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -641,7 +675,6 @@ class SendMessageTests(_Harness):
     def test_refresh_is_next_to_interrupt_and_repairs_old_claude_blocks(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
-            import idea_chat
             d, win = self.desktop(proj)
             model = d.idea_chat_model()
             idea_chat.append(proj, 'user', '请写第一集', model=model)
@@ -738,7 +771,7 @@ class SendMessageTests(_Harness):
             source.write_text('主要角色：林默\n题材类型：都市悬疑\n篇幅：12集', encoding='utf-8')
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            with patch('desktop.filedialog.askopenfilenames', return_value=(str(source),)):
+            with patch('ui_dialogs.filedialog.askopenfilenames', return_value=(str(source),)):
                 selected=d.choose_idea_attachments()
             self.assertEqual(selected, ())
             deadline=time.monotonic()+2

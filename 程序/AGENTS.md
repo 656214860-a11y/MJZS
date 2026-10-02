@@ -66,7 +66,7 @@
 | 阶段路径   | `stage_path_service.write_dir()` / `read_dirs()`                                                   |
 | 阶段完成核验 | `stage_completion_service`                                                                         |
 | 回收服务   | `storage_maintenance.recycle_paths()`                                                              |
-| UI 组件与弹窗 | `ui_widgets`（组件与全局 Style）／`ui_tokens`（视觉 token）                                      |
+| UI 组件与弹窗 | `ui_widgets`（组件与全局 Style）／`ui_tokens`（视觉 token）／`ui_shortcuts`（快捷键登记）          |
 | L2 写服务结果 | **试点，第 1 项暂停**：目前仅 `delivery_import_service`、`keyframe_lifecycle_service` 采用 `service_contract` 四字段结果；其余 35 个 L2 模块为待迁移豁免，沿用各自既有返回约定。新增 L2 写服务不得引入第三种返回形状（如 `(ok, msg)` 元组），也不得自行采用 `ServiceResult`；解冻见 `维护记录/架构统一路线图_v2.md` 第 1 项。 |
 | 项目操作上下文 | **试点，第 2 项暂停**：仅 `delivery_import_service` 消费由 `stage_execution_service.project_context()` 构造的 `project_context.ProjectContext`；其余 36 个 L2 模块未接入，沿用既有上下文约定。解冻见 `维护记录/架构统一路线图_v2.md` 第 2 项。 |
 | 阶段成果发布器 | `stage_execution_service.publish_stage_text()`／`publish_stage_bytes()`／`publish_stage_bundle()`；L2 写服务只能接收 L3 注入的发布器，音频导入经 `import_stage_audio()`、自动粗剪完成标记经 `save_automatic_assemble_marker()`、自动交接完成标记经 `save_automatic_handoff_marker()`、首帧删除／恢复／替换经 `delete_stage_keyframe()`／`restore_stage_keyframe()`／`replace_stage_keyframe()` 注入 |
@@ -186,9 +186,9 @@
 
 ## 2.6 Git 提交门禁
 
-35. Codex 完成任何改动后，禁止自动 `git commit`。
-36. 每轮结束时，Codex 只输出：修改的文件列表、建议的 commit message、简要 diff 摘要。
-37. 只有用户明确说“提交”“commit”“可以入库”时，Codex 才执行 `git add` + `git commit`。
+35. 每轮通过基线、写完结果文件且凭据形态扫描未命中后，执行一次收尾 `git add` + `git commit`；不得把私有数据、日志或用户项目内容纳入暂存区。
+36. 收尾提交信息以轮次号开头，例如 `R745: 说明`；仅在 `[TASK_FAILED]` 时可保留诊断性提交，且必须以 `R745-FAIL:` 开头。
+37. 提交前必须检查 `git status` 与暂存清单；命中凭据形态或受忽略运行路径即拒绝提交，并在结果文件记录阻断原因。
 38. 禁止 `git push`，除非用户明确要求。
 39. 用户要求回滚时，Codex 优先用 `git revert` 保留历史，而非 `git reset --hard`。
 40. 每轮结果文件 `tasks_round_N_result.md` 中记录本轮是否已提交，以及 commit hash（若已提交）。
@@ -369,21 +369,21 @@
 不再按轮次自动触发完整自检：Tk UI 全量回归耗时长、会创建大量界面，
 不适合作为日常开发门禁。
 
-当前验证基线：默认 `smoke_test.py` 为 8/8，已验证的 `smoke_test.py --architecture` 为 101/101（历史下限 14/14），全量安全自检为 3,230 条（R501 修复轮（含全量基线验证），855.9 秒、0 个失败文件）。R501 已补齐发行包默认创意示例的 `故事集数`，使其重新满足 `IDEA_FIELDS` 契约；续接时仍须在改动后运行受影响验证与默认冒烟。基线应随验证/基线轮复核，不能以历史数字替代本轮验收。
+当前验证基线：默认 `smoke_test.py` 为 8/8，已验证的 `smoke_test.py --architecture` 为 163/163（历史下限 14/14），全量安全自检为 3,583 条（R795 性能/资源修复轮，956.8 秒、0 个失败文件）。续接时仍须在改动后运行受影响验证与默认冒烟。基线应随验证/基线轮复核，不能以历史数字替代本轮验收。
 
 当前架构门禁清单（`tests/architecture/`）：清单如下；总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。
 
 - 分层与一致性：`test_agents_md.py`、`test_layers.py`、`test_no_circular_import.py`、`test_path_authority.py`、`test_stage_paths.py`、`test_storyboard_edit_boundary.py`、`test_storyboard_final_selection_boundary.py`。
-- 写入与删除边界：`test_atomic_write_boundary.py`、`test_asset_batch_ledger_boundary.py`、`test_asset_batch_settings_boundary.py`、`test_asset_detail_binding_boundary.py`、`test_asset_image_import_boundary.py`、`test_asset_plan_publication_boundary.py`、`test_asset_rename_boundary.py`、`test_asset_image_removal_boundary.py`、`test_asset_image_restore_boundary.py`、`test_audio_import_boundary.py`、`test_cloud_video_settings_boundary.py`、`test_continuity_publication_boundary.py`、`test_delivery_import_boundary.py`、`test_desktop_settings_boundary.py`、`test_edit_publication_boundary.py`、`test_final_bundle_boundary.py`、`test_handoff_publication_boundary.py`、`test_keyframe_delete_boundary.py`、`test_keyframe_restore_boundary.py`、`test_keyframe_replace_boundary.py`、`test_keyframe_reference_publication_boundary.py`、`test_legacy_adoption_boundary.py`、`test_local_video_settings_boundary.py`、`test_manual_creative_publication_boundary.py`、`test_stage_workspace_boundary.py`、`test_structured_script_write_boundary.py`、`test_tts_publication_boundary.py`、`test_video_delete_boundary.py`、`test_video_options_boundary.py`、`test_video_prompt_publication_boundary.py`、`test_video_publication_boundary.py`、`test_white_model_import_boundary.py`、`test_writing_preparation_path_boundary.py`、`test_deletion_gateway.py`、`test_remove_authority.py`、`test_recycle_service.py`。
+- 写入与删除边界：`test_atomic_write_boundary.py`、`test_asset_batch_ledger_boundary.py`、`test_asset_batch_settings_boundary.py`、`test_asset_detail_binding_boundary.py`、`test_asset_image_import_boundary.py`、`test_asset_plan_publication_boundary.py`、`test_asset_rename_boundary.py`、`test_asset_image_removal_boundary.py`、`test_asset_image_restore_boundary.py`、`test_audio_import_boundary.py`、`test_cloud_video_settings_boundary.py`、`test_continuity_publication_boundary.py`、`test_delivery_import_boundary.py`、`test_desktop_settings_boundary.py`、`test_edit_publication_boundary.py`、`test_final_bundle_boundary.py`、`test_handoff_publication_boundary.py`、`test_keyframe_delete_boundary.py`、`test_keyframe_restore_boundary.py`、`test_keyframe_replace_boundary.py`、`test_keyframe_reference_publication_boundary.py`、`test_legacy_adoption_boundary.py`、`test_local_video_settings_boundary.py`、`test_manual_creative_publication_boundary.py`、`test_previs_routing_publication_boundary.py`、`test_stage_workspace_boundary.py`、`test_structured_script_write_boundary.py`、`test_tts_publication_boundary.py`、`test_video_delete_boundary.py`、`test_video_options_boundary.py`、`test_video_prompt_publication_boundary.py`、`test_video_publication_boundary.py`、`test_white_model_import_boundary.py`、`test_writing_preparation_path_boundary.py`、`test_deletion_gateway.py`、`test_remove_authority.py`、`test_recycle_service.py`。
 - 剧本重命名边界：`test_script_rename_boundary.py`。
 - 阶段/UI 契约：`test_dynamic_import_registry.py`、`test_stage_command_contract.py`、`test_completion_gate.py`。
 - 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_migrated_ui_boundaries.py`。
 - 体验与布局：`test_responsive_layout_contract.py`。
 - 启动预算：`test_startup_budget.py`。
 - 历史兼容门面：`test_legacy_facade_manifest.py`。
-- 轮次与基线：`test_round_baselines.py`。
+- 轮次与基线／测试卫生：`test_round_baselines.py`、`test_skip_hygiene.py`。
 - 覆盖率审计棘轮：`test_coverage_audit_ratchet.py`。
-- JSON／服务／统筹补充：`test_confirm_gates_json_boundary.py`、`test_dialog_boundary.py`、`test_idea_attachment_publication_boundary.py`、`test_json_io_boundary.py`、`test_keyframe_batch_json_boundary.py`、`test_local_previs_json_boundary.py`、`test_previs_automation_json_boundary.py`、`test_previs_batch_json_boundary.py`、`test_previs_monitor_json_boundary.py`、`test_project_context_boundary.py`、`test_service_return_contract.py`、`test_skill_orchestrator_json_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_text_component_boundary.py`、`test_unification_ratchet.py`、`test_video_navigation_json_boundary.py`、`test_white_model_json_boundary.py`、`test_white_model_service_json_boundary.py`、`test_workflow_settings_json_boundary.py`、`test_writing_api_json_boundary.py`、`test_writing_publication_boundary.py`。
+- JSON／服务／统筹补充：`test_confirm_gates_json_boundary.py`、`test_context_menu_boundary.py`、`test_data_table_boundary.py`、`test_dialog_boundary.py`、`test_file_dialog_boundary.py`、`test_idea_attachment_publication_boundary.py`、`test_input_boundary.py`、`test_json_io_boundary.py`、`test_keyframe_batch_json_boundary.py`、`test_local_previs_json_boundary.py`、`test_notification_boundary.py`、`test_previs_automation_json_boundary.py`、`test_previs_batch_json_boundary.py`、`test_previs_monitor_json_boundary.py`、`test_project_context_boundary.py`、`test_service_return_contract.py`、`test_shortcut_registry_boundary.py`、`test_skill_orchestrator_json_boundary.py`、`test_stage_display_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_text_component_boundary.py`、`test_tooltip_boundary.py`、`test_ui_icons_boundary.py`、`test_scrollbar_theme_boundary.py`、`test_copy_entry_boundary.py`、`test_unification_ratchet.py`、`test_video_navigation_json_boundary.py`、`test_white_model_json_boundary.py`、`test_white_model_service_json_boundary.py`、`test_workflow_settings_json_boundary.py`、`test_writing_api_json_boundary.py`、`test_writing_publication_boundary.py`。
 
 新增或删除架构测试时，必须在同一轮更新以上清单、架构基线和结果报告；不得只更新测试而遗漏本入口说明。
 
@@ -408,6 +408,7 @@
    - 本轮是功能轮还是整理轮？
    - 测试跑了吗？三个基线过了吗？
    - project_status.md 的欠账少了吗？
+4. 结果文件写完、三个基线达标且凭据形态扫描未命中后，收尾提交一次：成功轮使用 `RN: …`，失败轮仅可使用 `RN-FAIL: …`；`升级备份/` 与 `.bak_*` 保留为历史证据，Git 承担后续回滚，今后不再新增 `.bak_*`。
 
 ---
 

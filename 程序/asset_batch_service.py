@@ -1,14 +1,21 @@
 """Asset-batch domain operations shared by local and Skill-backed production."""
 import re
-import shutil
 import threading
 import uuid
 from pathlib import Path
 
-from agent.core import read, save, save_bytes
+from file_cache import read_json
 
 KINDS = {'CHAR': ('characters', '角色'), 'LOC': ('scenes', '场景'),
          'PROP': ('props', '道具')}
+
+
+def _require_gateway(gateway):
+    """正式资产索引只允许经 L3 注入的缓存读取与原子发布。"""
+    required = ('read_json', 'publish_json', 'publish_bytes', 'file_hash', 'copy_file', 'replace_file')
+    if not isinstance(gateway, dict) or any(not callable(gateway.get(name)) for name in required):
+        raise TypeError('资产批处理读写需要由 L3 注入发布与读取网关。')
+    return gateway
 
 
 def asset_prompt(asset, kind):
@@ -21,7 +28,8 @@ def asset_prompt(asset, kind):
     return display_prompt(asset) + ('\n\n' + reference if reference else '')
 
 
-def register_image(base, aid, asset, image):
+def register_image(base, aid, asset, image, *, gateway=None):
+    gateway = _require_gateway(gateway)
     base = Path(base).resolve()
     prefix = aid.split('_')[0]
     if not re.fullmatch(r'(CHAR|LOC|PROP)_\d{3,}', aid):
@@ -32,7 +40,7 @@ def register_image(base, aid, asset, image):
     if not raw.startswith(b'\x89PNG\r\n\x1a\n'):
         raise ValueError('生成结果不是PNG图片')
     registry_file = base / 'assets.json'
-    registry = read(registry_file) if registry_file.exists() else {}
+    registry = gateway['read_json'](registry_file) if registry_file.exists() else {}
     if not isinstance(registry, dict):
         registry = {}
     existing = registry.get(aid, {})
@@ -41,7 +49,7 @@ def register_image(base, aid, asset, image):
         if old.is_relative_to(base) and old.is_file():
             return '已有图片，跳过登记'
     planfile = base / 'assets/资产清单/assets.json'
-    plan = read(planfile)
+    plan = gateway['read_json'](planfile)
     if not isinstance(plan, dict):
         raise ValueError('资产清单 assets.json 顶层必须为对象')
     current = plan.get(aid)
@@ -56,16 +64,17 @@ def register_image(base, aid, asset, image):
     folder.mkdir(parents=True, exist_ok=True)
     dest = folder / (aid + '_' + name + '_' + uuid.uuid4().hex[:8] + '.png')
     # 成果先经原子替换落盘，随后才更新资产索引；UI 刷新或进程中断不会读到半张 PNG。
-    save_bytes(dest, raw)
+    gateway['publish_bytes'](dest, raw)
     registry[aid] = {**{k: v for k, v in asset.items() if k not in ('status', 'image') and not k.startswith('_')},
                      **existing, 'name': asset.get('name', aid),
                      'image': dest.relative_to(base).as_posix()}
-    save(registry_file, registry)
+    gateway['publish_json'](registry_file, registry)
     return '已生成并导入'
 
 
-def import_asset_image(base, project_root, aid, source, requirements):
+def import_asset_image(base, project_root, aid, source, requirements, *, gateway=None):
     """Import a user-selected asset image and publish its registry pointer safely."""
+    gateway = _require_gateway(gateway)
     base = Path(base).resolve()
     project_root = Path(project_root).resolve()
     aid = str(aid or '').strip()
@@ -80,7 +89,7 @@ def import_asset_image(base, project_root, aid, source, requirements):
         raise ValueError('请选择 PNG、JPG、JPEG 或 WEBP 图片')
     kind = KINDS[match.group(1)][0]
     registry_file = base / 'assets.json'
-    registry = read(registry_file)
+    registry = gateway['read_json'](registry_file)
     if not isinstance(registry, dict):
         raise ValueError('资产登记表格式错误')
     requirements = requirements if isinstance(requirements, dict) else {}
@@ -94,26 +103,25 @@ def import_asset_image(base, project_root, aid, source, requirements):
     dest = (folder / (aid + suffix)).resolve()
     if renamed != source and renamed.exists() and renamed != dest:
         raise ValueError('原图目录已有同名文件：' + str(renamed) + '。请先移走该文件后再导入。')
-    from agent.core import file_hash
-    original_hash = file_hash(source)
+    original_hash = gateway['file_hash'](source)
     old_dest = dest.read_bytes() if dest.is_file() else None
     old_registry = registry_file.read_bytes()
     temporary = dest.with_name(dest.stem + '_' + uuid.uuid4().hex + '.importing')
     try:
         if source != dest:
             folder.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, temporary)
-            if file_hash(temporary) != original_hash:
+            gateway['copy_file'](source, temporary)
+            if gateway['file_hash'](temporary) != original_hash:
                 raise ValueError('图片复制校验失败，原图已保留')
             if dest.exists():
                 backup = folder / '历史版本'
                 backup.mkdir(exist_ok=True)
-                shutil.copy2(dest, backup / (dest.stem + '_' + uuid.uuid4().hex[:8] + dest.suffix))
-            temporary.replace(dest)
+                gateway['copy_file'](dest, backup / (dest.stem + '_' + uuid.uuid4().hex[:8] + dest.suffix))
+            gateway['replace_file'](temporary, dest)
         updated = dict(registry)
         updated[aid] = {'name': name, 'image': dest.relative_to(base).as_posix(),
                         'description': requirement.get('description', name)}
-        save(registry_file, updated)
+        gateway['publish_json'](registry_file, updated)
     except Exception:
         if old_dest is None:
             if dest.is_file():
@@ -121,9 +129,9 @@ def import_asset_image(base, project_root, aid, source, requirements):
                 if not recycle_paths(project_root, (dest,), '资产导入索引失败回收'):
                     raise OSError('资产索引发布失败，且新导入图片未能安全回收')
         else:
-            save_bytes(dest, old_dest)
+            gateway['publish_bytes'](dest, old_dest)
         if registry_file.read_bytes() != old_registry:
-            save_bytes(registry_file, old_registry)
+            gateway['publish_bytes'](registry_file, old_registry)
         raise
     finally:
         if temporary.exists():
@@ -132,7 +140,7 @@ def import_asset_image(base, project_root, aid, source, requirements):
     result = '已登记 ' + aid + ' · 图片已按资产编号命名'
     if source != renamed:
         try:
-            if file_hash(source) != original_hash:
+            if gateway['file_hash'](source) != original_hash:
                 raise ValueError('原图在导入时被修改')
             if renamed == dest:
                 from storage_maintenance import recycle_paths
@@ -147,8 +155,9 @@ def import_asset_image(base, project_root, aid, source, requirements):
     return kind, result
 
 
-def rename_asset(base, aid, old_name, new_name):
+def rename_asset(base, aid, old_name, new_name, *, gateway=None):
     """Rename an asset in its plan and registered-image index as one recoverable change."""
+    gateway = _require_gateway(gateway)
     base = Path(base).resolve()
     aid = str(aid or '').strip()
     name = str(new_name or '').strip()
@@ -158,10 +167,10 @@ def rename_asset(base, aid, old_name, new_name):
         raise ValueError('资产名称不能为空')
     plan_file = base / 'assets/资产清单/assets.json'
     registry_file = base / 'assets.json'
-    plan = read(plan_file)
+    plan = gateway['read_json'](plan_file)
     if not isinstance(plan, dict):
         raise ValueError('资产清单 assets.json 顶层必须为对象')
-    registry = read(registry_file) if registry_file.is_file() else {}
+    registry = gateway['read_json'](registry_file) if registry_file.is_file() else {}
     if not isinstance(registry, dict):
         registry = {}
     plan_entry = dict(plan.get(aid, {}))
@@ -177,22 +186,23 @@ def rename_asset(base, aid, old_name, new_name):
     previous = ((plan_file, plan_file.read_bytes()),
                 (registry_file, registry_file.read_bytes() if registry_file.is_file() else None))
     try:
-        save(plan_file, updated_plan)
+        gateway['publish_json'](plan_file, updated_plan)
         if aid in updated_registry:
-            save(registry_file, updated_registry)
+            gateway['publish_json'](registry_file, updated_registry)
     except Exception:
         for path, raw in previous:
             if raw is not None:
-                save_bytes(path, raw)
+                gateway['publish_bytes'](path, raw)
         raise
     return plan_entry
 
 
-def remove_asset_image(base, aid):
+def remove_asset_image(base, aid, *, gateway=None):
     """Recycle one registered asset image, then clear its index with recovery on failure."""
+    gateway = _require_gateway(gateway)
     base = Path(base).resolve()
     assets_file = base / 'assets.json'
-    assets = read(assets_file)
+    assets = gateway['read_json'](assets_file)
     if not isinstance(assets, dict):
         raise ValueError('资产登记表格式错误')
     entry = assets.get(aid, {})
@@ -210,7 +220,7 @@ def remove_asset_image(base, aid):
     updated = dict(assets)
     updated[aid] = {key: value for key, value in entry.items() if key != 'image'}
     try:
-        save(assets_file, updated)
+        gateway['publish_json'](assets_file, updated)
     except Exception as exc:
         try:
             restore_latest_recycled_path(base, path)
@@ -220,11 +230,12 @@ def remove_asset_image(base, aid):
     return path
 
 
-def restore_asset_image(base, aid):
+def restore_asset_image(base, aid, *, gateway=None):
     """Restore one asset image and register it, recycling it again if indexing fails."""
+    gateway = _require_gateway(gateway)
     base = Path(base).resolve()
     assets_file = base / 'assets.json'
-    assets = read(assets_file)
+    assets = gateway['read_json'](assets_file)
     if not isinstance(assets, dict):
         raise ValueError('资产登记表格式错误')
     entry = assets.get(aid, {})
@@ -247,7 +258,7 @@ def restore_asset_image(base, aid):
         dest = restored[0]
         updated = dict(assets)
         updated[aid] = {**entry, 'image': dest.relative_to(base).as_posix()}
-        save(assets_file, updated)
+        gateway['publish_json'](assets_file, updated)
     except Exception as exc:
         if restored:
             try:
@@ -262,7 +273,7 @@ def image_ready(base, aid, registry=None):
     base = Path(base).resolve()
     if registry is None:
         file = base / 'assets.json'
-        registry = read(file) if file.is_file() else {}
+        registry = read_json(file) if file.is_file() else {}
     asset = registry.get(aid, {}) if isinstance(registry, dict) else {}
     path = (base / asset.get('image', '')).resolve()
     return bool(asset.get('image') and path.is_relative_to(base) and path.is_file())
@@ -272,7 +283,7 @@ def batch_complete(base, aids):
     """Whether all requested assets are registered and present on disk."""
     base = Path(base).resolve()
     file = base / 'assets.json'
-    registry = read(file) if file.is_file() else {}
+    registry = read_json(file) if file.is_file() else {}
     return all(image_ready(base, aid, registry=registry) for aid in aids)
 
 

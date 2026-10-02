@@ -17,7 +17,6 @@
 """
 from pathlib import Path
 
-from agent.core import save
 from file_cache import read_json
 from asset_contract import missing_ids
 from asset_contract import normalize as normalize_asset
@@ -292,23 +291,21 @@ def confirmations(project):
     return out if isinstance(out, dict) else {}
 
 
-def record(project, key, choice='', by=HUMAN):
-    """记一次人工确认（原子写，目录缺了就补）。"""
+def record(project, key, choice='', by=HUMAN, *, publish):
+    """记一次人工确认；正式发布器必须由 L3 注入。"""
     path = confirm_path(project)
     data = {'version': 1, 'confirmed': dict(confirmations(project))}
     data['confirmed'][str(key)] = {'choice': str(choice), 'by': str(by)}
-    path.parent.mkdir(parents=True, exist_ok=True)
-    save(path, data)
+    publish(path, data)
     return path
 
 
-def forget(project, key):
-    """忘掉一次确认（改主意时用）。"""
+def forget(project, key, *, publish):
+    """忘掉一次确认；正式发布器必须由 L3 注入。"""
     path = confirm_path(project)
     data = {'version': 1, 'confirmed': dict(confirmations(project))}
     data['confirmed'].pop(str(key), None)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    save(path, data)
+    publish(path, data)
     return path
 
 
@@ -343,6 +340,9 @@ def run(gate_id, project='', shots=None, assets=None, ledger=None):
         items = tuple(_ASKS[row['ask']](shots=shots, assets=assets, ledger=ledger))
         result['ask'] = pending(project, items) if project else items
         result['passed'] = not result['ask']
+    # 诊断只保留最后一次结果，不写项目目录，也不参与门禁判定。
+    import diagnostic_capture
+    diagnostic_capture.record_gate_result(row['id'], 'passed' if result['passed'] else 'blocked')
     return result
 
 

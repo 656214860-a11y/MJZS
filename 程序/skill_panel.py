@@ -33,7 +33,7 @@ from pet_bus import STAGE_NAMES, read_json
 from storage_maintenance import recycle_paths
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import (DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
-                        SecondaryButton)
+                        SecondaryButton, Tooltip)
 
 TITLE = '阶段配置'
 _LIVE = []            # 还开着的面板：模型池变了一次就把它们的下拉框都刷一遍（不用重开窗口）
@@ -989,9 +989,8 @@ class Panel(ttk.Frame):
         """登记一项列表勾选控件，并为被截断的名称保留悬停全文。"""
         self.skill_controls.append(widget)
         full = getattr(widget, '_skill_full_name', '')
-        if full:
-            widget.bind('<Enter>', lambda event, text=full: self.show_skill_tip(event, text), add='+')
-            widget.bind('<Leave>', lambda event: self.hide_skill_tip(), add='+')
+        if full and len(str(full)) > 26:
+            Tooltip(widget, full)
         self.schedule_skill_layout()
         return widget
 
@@ -1004,23 +1003,6 @@ class Panel(ttk.Frame):
     def uses_skill_scrollbar(count):
         """超过十项时切换为单列滚动列表，避免把最后一项挤出页面。"""
         return count > 10
-
-    def show_skill_tip(self, event, text):
-        if len(str(text)) <= 26:
-            return None
-        self.hide_skill_tip()
-        tip = tk.Toplevel(self); tip.overrideredirect(True)
-        ttk.Label(tip, text=text, padding=SPACING['xs']).pack()
-        tip.geometry('+%d+%d' % (event.x_root + 10, event.y_root + 10))
-        self._skill_tip = tip
-        return tip
-
-    def hide_skill_tip(self):
-        tip = getattr(self, '_skill_tip', None)
-        if tip is not None:
-            try: tip.destroy()
-            except tk.TclError: pass
-        self._skill_tip = None
 
     def schedule_skill_layout(self, _event=None):
         """固定列布局不依赖容器宽度，创建控件后立即排入本区域。"""

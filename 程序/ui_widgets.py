@@ -1,12 +1,20 @@
 """遵循 ui_components.md 的 Tk 组件入口。"""
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
 from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_FIELD_BACKGROUND,
                        COMBOBOX_FONT, COMBOBOX_FOREGROUND, COMBOBOX_PADDING,
                        COMBOBOX_WIDTH, FONTS, SPACING, TEXT_DESC, TEXT_HINT,
                        TEXT_PROGRESS, DIALOG_ACTION_GAP, DIALOG_ACTION_HEIGHT,
-                       DIALOG_CONTENT_PADDING, DIALOG_TITLE_FONT)
+                       DIALOG_CONTENT_PADDING, DIALOG_TITLE_FONT,
+                       TOOLTIP_BACKGROUND, TOOLTIP_BORDER, TOOLTIP_BORDER_WIDTH, TOOLTIP_DELAY_MS,
+                       TOOLTIP_FONT, TOOLTIP_FOREGROUND, TOOLTIP_OFFSET,
+                       TOOLTIP_PADDING,
+                       TABLE_EMPTY_PADDING, TABLE_HEADER_FONT, TABLE_ROW_FONT,
+                       TABLE_ROW_HEIGHT, INPUT_BACKGROUND, INPUT_BORDER,
+                       INPUT_BORDER_WIDTH, INPUT_ERROR_BORDER, INPUT_FONT,
+                       INPUT_FOREGROUND, INPUT_PADDING_X, INPUT_PADDING_Y,
+                       INPUT_PLACEHOLDER_FOREGROUND)
 
 
 def setup_styles(root):
@@ -69,6 +77,26 @@ def setup_styles(root):
                     foreground=COLORS["text_primary"])
     style.configure("Tokens.Dialog.Title.TLabel", font=DIALOG_TITLE_FONT,
                     foreground=COLORS["text_primary"])
+    style.configure("Tokens.DataTable.Treeview", font=TABLE_ROW_FONT,
+                    rowheight=TABLE_ROW_HEIGHT,
+                    background=COLORS["background_card"],
+                    fieldbackground=COLORS["background_card"],
+                    foreground=COLORS["text_primary"])
+    style.configure("Tokens.DataTable.Treeview.Heading", font=TABLE_HEADER_FONT,
+                    foreground=COLORS["text_primary"])
+    input_options = {
+        "font": INPUT_FONT,
+        "foreground": INPUT_FOREGROUND,
+        "fieldbackground": INPUT_BACKGROUND,
+        "background": INPUT_BACKGROUND,
+        "bordercolor": INPUT_BORDER,
+        "padding": (INPUT_PADDING_X, INPUT_PADDING_Y),
+    }
+    style.configure("Tokens.LineInput.TEntry", **input_options)
+    placeholder_options = dict(input_options, foreground=INPUT_PLACEHOLDER_FOREGROUND)
+    style.configure("Tokens.LineInput.Placeholder.TEntry", **placeholder_options)
+    error_options = dict(input_options, bordercolor=INPUT_ERROR_BORDER)
+    style.configure("Tokens.LineInput.Error.TEntry", **error_options)
 
     # TCombobox 的唯一权威样式入口：所有页面与弹窗共用，不在业务页复制视觉参数。
     combo_options = {
@@ -100,9 +128,302 @@ def setup_styles(root):
     root.option_add("*TCombobox.width", COMBOBOX_WIDTH)
 
 
+class DataTable(ttk.Frame):
+    """统一的可滚动表格壳；页面只提供列、数据和领域内的单元格行为。"""
+
+    def __init__(self, master, *, columns, height=4, selectmode="browse",
+                 show="headings", empty_text="暂无数据", on_select=None, **kwargs):
+        setup_styles(master)
+        # 表格壳只负责表格本身，不能成为业务页的一张额外 Card；
+        # 页面已有 Card 时保留其原有信息层级和间距。
+        super().__init__(master)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self._sort_descending = {}
+        self.tree = ttk.Treeview(
+            self, columns=[column[0] for column in columns], show=show,
+            height=height, selectmode=selectmode, style="Tokens.DataTable.Treeview",
+            **kwargs)
+        self.vertical_scrollbar = ttk.Scrollbar(self, orient="vertical",
+                                                command=self.tree.yview)
+        self.horizontal_scrollbar = ttk.Scrollbar(self, orient="horizontal",
+                                                  command=self.tree.xview)
+        self.tree.configure(yscrollcommand=self.vertical_scrollbar.set,
+                            xscrollcommand=self.horizontal_scrollbar.set)
+        self.tree.grid(row=0, column=0, sticky="nsew")
+        self.vertical_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.horizontal_scrollbar.grid(row=1, column=0, sticky="ew")
+        self.empty_label = ttk.Label(self, text=empty_text, style="Muted.TLabel",
+                                     padding=TABLE_EMPTY_PADDING)
+        self.empty_label.grid(row=0, column=0, sticky="nsew")
+        self.empty_label.lift()
+        for name, label, width in columns:
+            self.tree.heading(name, text=label,
+                              command=lambda column=name: self.sort_by(column))
+            self.tree.column(name, width=width, minwidth=0, stretch=True)
+        self.tree.bind("<<TreeviewSelect>>", self._selected, add="+")
+        self.tree.bind("<Map>", lambda _event: self.refresh_empty_state(), add="+")
+        # 兼容仍接收 Treeview 的页面 API，同时让填表函数能刷新统一空态。
+        self.tree._data_table = self
+        self._on_select = on_select
+        self.refresh_empty_state()
+
+    def _selected(self, _event=None):
+        if self._on_select is not None:
+            self._on_select(self.selected_items())
+
+    def selected_items(self):
+        return self.tree.selection()
+
+    def refresh_empty_state(self):
+        if self.tree.get_children():
+            self.empty_label.grid_remove()
+        else:
+            self.empty_label.grid()
+
+    def sort_by(self, column):
+        """按显示文本排序；领域页可覆写 heading 命令实现专用排序。"""
+        descending = self._sort_descending.get(column, False)
+        rows = [(str(self.tree.set(item, column)), item)
+                for item in self.tree.get_children("")]
+        rows.sort(key=lambda row: row[0], reverse=descending)
+        for index, (_value, item) in enumerate(rows):
+            self.tree.move(item, "", index)
+        self._sort_descending[column] = not descending
+
+
+class LineInput(ttk.Entry):
+    """单行文本入口，统一占位、只读和错误态而不改变 Entry 的取值语义。"""
+
+    NORMAL_STYLE = "Tokens.LineInput.TEntry"
+    PLACEHOLDER_STYLE = "Tokens.LineInput.Placeholder.TEntry"
+    ERROR_STYLE = "Tokens.LineInput.Error.TEntry"
+
+    def __init__(self, master=None, *, placeholder="", **kwargs):
+        _styles(master)
+        kwargs.setdefault("style", self.NORMAL_STYLE)
+        super().__init__(master, **kwargs)
+        self._placeholder = placeholder
+        self._placeholder_active = False
+        self.error_message = None
+        self.bind("<FocusIn>", self._remove_placeholder, add="+")
+        self.bind("<FocusOut>", self._restore_placeholder, add="+")
+        self._restore_placeholder()
+
+    def _set_style(self):
+        if self.error_message:
+            self.configure(style=self.ERROR_STYLE)
+        elif self._placeholder_active:
+            self.configure(style=self.PLACEHOLDER_STYLE)
+        else:
+            self.configure(style=self.NORMAL_STYLE)
+
+    def _remove_placeholder(self, _event=None):
+        if self._placeholder_active:
+            super().delete(0, "end")
+            self._placeholder_active = False
+            self._set_style()
+
+    def _restore_placeholder(self, _event=None):
+        if (self._placeholder and not self._placeholder_active and not super().get()
+                and "readonly" not in self.state() and "disabled" not in self.state()):
+            super().insert(0, self._placeholder)
+            self._placeholder_active = True
+            self._set_style()
+
+    def get(self):
+        return "" if self._placeholder_active else super().get()
+
+    def insert(self, index, string):
+        self._remove_placeholder()
+        return super().insert(index, string)
+
+    def delete(self, first, last=None):
+        self._remove_placeholder()
+        return super().delete(first) if last is None else super().delete(first, last)
+
+    def set_error(self, message=""):
+        self.error_message = message or "输入有误"
+        self._set_style()
+
+    def clear_error(self):
+        self.error_message = None
+        self._set_style()
+
+    def set_readonly(self, readonly=True):
+        self.state(["readonly"] if readonly else ["!readonly"])
+        if not readonly:
+            self._restore_placeholder()
+
+
+class TextArea(tk.Text):
+    """多行文本入口，统一视觉、占位、只读和错误态。"""
+
+    def __init__(self, master=None, *, placeholder="", **kwargs):
+        _styles(master)
+        options = {
+            "bg": INPUT_BACKGROUND,
+            "fg": INPUT_FOREGROUND,
+            "insertbackground": COLORS["primary"],
+            "font": INPUT_FONT,
+            "relief": "solid",
+            "bd": INPUT_BORDER_WIDTH,
+            "highlightthickness": INPUT_BORDER_WIDTH,
+            "highlightbackground": INPUT_BORDER,
+            "highlightcolor": INPUT_BORDER,
+            "padx": INPUT_PADDING_X,
+            "pady": INPUT_PADDING_Y,
+        }
+        options.update(kwargs)
+        super().__init__(master, **options)
+        self._placeholder = placeholder
+        self._placeholder_active = False
+        self.error_message = None
+        self.bind("<FocusIn>", self._remove_placeholder, add="+")
+        self.bind("<FocusOut>", self._restore_placeholder, add="+")
+        self._restore_placeholder()
+
+    def _remove_placeholder(self, _event=None):
+        if self._placeholder_active:
+            super().delete("1.0", "end")
+            self._placeholder_active = False
+            self.configure(fg=INPUT_FOREGROUND)
+
+    def _restore_placeholder(self, _event=None):
+        if (self._placeholder and not self._placeholder_active
+                and not super().get("1.0", "end-1c")
+                and str(self.cget("state")) == "normal"):
+            super().insert("1.0", self._placeholder)
+            self._placeholder_active = True
+            self.configure(fg=INPUT_PLACEHOLDER_FOREGROUND)
+
+    def get(self, index1="1.0", index2=None):
+        if self._placeholder_active:
+            return ""
+        return super().get(index1, index2) if index2 is not None else super().get(index1)
+
+    def insert(self, index, chars, *tags):
+        self._remove_placeholder()
+        return super().insert(index, chars, *tags)
+
+    def set_error(self, message=""):
+        self.error_message = message or "输入有误"
+        self.configure(highlightbackground=INPUT_ERROR_BORDER,
+                       highlightcolor=INPUT_ERROR_BORDER)
+
+    def clear_error(self):
+        self.error_message = None
+        self.configure(highlightbackground=INPUT_BORDER,
+                       highlightcolor=INPUT_BORDER)
+
+    def set_readonly(self, readonly=True):
+        self.configure(state="disabled" if readonly else "normal")
+        if not readonly:
+            self._restore_placeholder()
+
+
 def _styles(master):
     """Backward-compatible private alias for component construction."""
     setup_styles(master)
+
+
+class NotificationDispatcher:
+    """UI 唯一通知分发器：先落状态栏，必要时再复用系统确认框。
+
+    它不拥有业务文案，也不记录日志；调用方仍决定消息、严重级别和是否需要
+    模态确认。这样页面不必各自拼装“状态栏 + messagebox”的两条反馈路径。
+    """
+
+    _DIALOGS = {
+        "error": "showerror",
+        "warning": "showwarning",
+        "success": "showinfo",
+        "info": "showinfo",
+    }
+
+    def __init__(self, status, parent=None, dialogs=messagebox):
+        self.status = status
+        self.parent = parent
+        self.dialogs = dialogs
+
+    def notify(self, message, *, level="info", title=None, modal=False):
+        """显示一条可行动提示，并返回标准化后的原文。"""
+        if level not in self._DIALOGS:
+            raise ValueError("未知通知级别：%s" % level)
+        text = " ".join(str(message or "").split())
+        if not text:
+            return ""
+        setter = getattr(self.status, "set", None)
+        if callable(setter):
+            setter(text)
+        if modal:
+            dialog = getattr(self.dialogs, self._DIALOGS[level])
+            dialog(title or "操作提示", text, parent=self.parent)
+        return text
+
+    def error(self, message, *, title="操作提示", modal=True):
+        return self.notify(message, level="error", title=title, modal=modal)
+
+    def warning(self, message, *, title="操作提示", modal=False):
+        return self.notify(message, level="warning", title=title, modal=modal)
+
+    def success(self, message, *, title="操作完成", modal=False):
+        return self.notify(message, level="success", title=title, modal=modal)
+
+
+class BusyState:
+    """共享主任务的忙碌／加载态，不拥有后台任务或取消语义。"""
+
+    def __init__(self, status, progress=None):
+        self.status = status
+        self.progress = progress
+        self.busy = False
+        self._controls = ()
+
+    def set_busy(self, busy, *, message=None, controls=(), progress=True, progress_interval=15):
+        """成对切换状态、进度条与可选控件；重复调用安全。"""
+        if busy:
+            self.busy = True
+            self._controls = tuple(controls)
+            for control in self._controls:
+                control.state(['disabled'])
+            if progress and self.progress is not None:
+                self.progress.start(progress_interval)
+            if message and callable(getattr(self.status, 'set', None)):
+                self.status.set(message)
+            return True
+        if self.progress is not None:
+            self.progress.stop()
+        for control in self._controls:
+            control.state(['!disabled'])
+        self._controls = ()
+        self.busy = False
+        return False
+
+
+class ContextMenu:
+    """右键菜单的唯一构建、定位和抓取释放入口。"""
+
+    def __init__(self, owner, menu_factory=tk.Menu):
+        self.menu = menu_factory(owner, tearoff=False)
+
+    def command(self, label, command):
+        self.menu.add_command(label=label, command=command)
+        return self
+
+    def separator(self):
+        self.menu.add_separator()
+        return self
+
+    def popup(self, event):
+        try:
+            self.menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            try:
+                self.menu.grab_release()
+            except tk.TclError:
+                pass
+        return 'break'
 
 
 class PrimaryButton(ttk.Button):
@@ -136,6 +457,7 @@ class BaseDialog(tk.Toplevel):
         _styles(self)
         self._closed = False
         self._modal = modal
+        self._owns_grab = False
         self._on_close = on_close
         self.title(title)
         self.transient(parent)
@@ -160,6 +482,7 @@ class BaseDialog(tk.Toplevel):
         self.protocol("WM_DELETE_WINDOW", self.close)
         if modal:
             self.grab_set()
+            self._owns_grab = True
         self._focus_after = self.after_idle(self._focus_first_interactive)
 
     def _on_escape(self, _event=None):
@@ -202,11 +525,20 @@ class BaseDialog(tk.Toplevel):
             self.after_cancel(self._focus_after)
         except (AttributeError, tk.TclError):
             pass
-        try:
-            if self._modal and self.grab_current() == self:
+        if self._owns_grab:
+            # Tk 的 grab_release 只会释放调用它的窗口；若此窗口的后代
+            # （或后来打开的模态窗）成为当前 grab，则从当前持有者释放，
+            # 避免 close 后遗留一个无主输入锁。重复 close 仍由 _closed
+            # 保持幂等。
+            try:
+                holder=self.grab_current()
+                if holder is not None:
+                    holder.grab_release()
                 self.grab_release()
-        except tk.TclError:
-            pass
+            except tk.TclError:
+                pass
+            finally:
+                self._owns_grab = False
         try:
             self.destroy()
         finally:
@@ -251,6 +583,94 @@ class ConfirmDialog(BaseDialog):
         if self.result is None:
             self.result = False
         super().close()
+
+
+class Tooltip:
+    """统一的短说明浮层，鼠标和键盘焦点都可触发且不会取得输入 grab。"""
+
+    def __init__(self, widget, text, *, delay_ms=TOOLTIP_DELAY_MS):
+        self.widget = widget
+        self.text = str(text or "")
+        self.delay_ms = delay_ms
+        self._job = None
+        self._window = None
+        self._position = None
+        widget.bind("<Enter>", self._schedule_from_pointer, add="+")
+        widget.bind("<Leave>", self.hide, add="+")
+        widget.bind("<FocusIn>", self._schedule_from_focus, add="+")
+        widget.bind("<FocusOut>", self.hide, add="+")
+        widget.bind("<Destroy>", self._on_widget_destroyed, add="+")
+
+    def _schedule_from_pointer(self, event):
+        self._position = (event.x_root + TOOLTIP_OFFSET,
+                          event.y_root + TOOLTIP_OFFSET)
+        self.schedule()
+
+    def _schedule_from_focus(self, _event=None):
+        try:
+            self._position = (self.widget.winfo_rootx() + TOOLTIP_OFFSET,
+                              self.widget.winfo_rooty() + self.widget.winfo_height()
+                              + TOOLTIP_OFFSET)
+        except tk.TclError:
+            return
+        self.schedule()
+
+    def schedule(self):
+        """延迟显示；重复进入只保留最新的一次回调。"""
+        if not self.text:
+            return
+        self._cancel_job()
+        try:
+            self._job = self.widget.after(self.delay_ms, self.show)
+        except tk.TclError:
+            self._job = None
+
+    def show(self):
+        self._job = None
+        if self._window is not None or not self.text:
+            return self._window
+        try:
+            if not self.widget.winfo_exists():
+                return None
+            tip = tk.Toplevel(self.widget)
+            tip.overrideredirect(True)
+            tip.configure(background=TOOLTIP_BORDER)
+            label = tk.Label(tip, text=self.text, font=TOOLTIP_FONT,
+                             fg=TOOLTIP_FOREGROUND, bg=TOOLTIP_BACKGROUND,
+                             padx=TOOLTIP_PADDING[0], pady=TOOLTIP_PADDING[1])
+            label.pack(padx=TOOLTIP_BORDER_WIDTH, pady=TOOLTIP_BORDER_WIDTH)
+            x, y = self._position or (self.widget.winfo_rootx() + TOOLTIP_OFFSET,
+                                      self.widget.winfo_rooty() + TOOLTIP_OFFSET)
+            tip.geometry("+%d+%d" % (x, y))
+            self._window = tip
+            return tip
+        except tk.TclError:
+            try:
+                tip.destroy()
+            except (UnboundLocalError, tk.TclError):
+                pass
+            return None
+
+    def _cancel_job(self):
+        if self._job is None:
+            return
+        try:
+            self.widget.after_cancel(self._job)
+        except tk.TclError:
+            pass
+        self._job = None
+
+    def hide(self, _event=None):
+        self._cancel_job()
+        tip, self._window = self._window, None
+        if tip is not None:
+            try:
+                tip.destroy()
+            except tk.TclError:
+                pass
+
+    def _on_widget_destroyed(self, _event=None):
+        self.hide()
 
 
 class _TextLabel(ttk.Label):

@@ -153,14 +153,14 @@ def finalize(project,episode_dir,source):
     validate_episode(episode,output_base,assets)
     episodefile=dest/'episode.json';assetfile=dest/'assets.json'
     try:
-        from storyboard_storage import publish_final_bundle
+        from stage_execution_service import publish_final_storyboard_bundle
         from stage_execution_service import publish_stage_text
         def validate_episode_text(value):
             validate_episode(json.loads(value), output_base, assets)
             return True
         publish_stage_text(
             episodefile, json.dumps(episode, ensure_ascii=False, indent=2), validate_episode_text,
-            lambda _published: publish_final_bundle(
+            lambda _published: publish_final_storyboard_bundle(
                 episodefile, assetfile, episode, assets,
                 lambda saved_episode, saved_assets: validate_episode(saved_episode, output_base, saved_assets)),
         )

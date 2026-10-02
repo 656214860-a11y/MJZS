@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 """核心逻辑自检（纯逻辑，不依赖网络与外部工具）。运行：python test_core.py"""
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, sys, tempfile, unittest
 from unittest import mock
 from pathlib import Path
@@ -10,6 +18,7 @@ os.chdir(HERE)
 
 import writing
 import projects as projects_mod
+from stage_execution_service import project_registry_gateway
 import engine as engine_mod
 import storyboard_files as sf
 import storyboard_storage as sstorage
@@ -413,7 +422,7 @@ class ProjectsEngineTests(unittest.TestCase):
             t = Path(td); app = t / "app"; app.mkdir()
             (app / "config.json").write_text(json.dumps({"downloads_root": str(t / "downloads")}), encoding="utf-8")
             (app / "projects.json").write_text(json.dumps({"active": None, "projects": []}), encoding="utf-8")
-            P = projects_mod.Projects(app)
+            P = projects_mod.Projects(app, gateway=project_registry_gateway())
             p = P.create("测试项目")
             self.assertRegex(p.name, r'^测试项目_\d{8}(?:_\d+)?$')
             self.assertTrue((p / "config.json").is_file())
@@ -446,7 +455,7 @@ class ProjectsEngineTests(unittest.TestCase):
             t = Path(td); app = t / "app"; app.mkdir()
             (app / "config.json").write_text(json.dumps({"downloads_root": str(t / "downloads")}), encoding="utf-8")
             (app / "projects.json").write_text("[]", encoding="utf-8")
-            P = projects_mod.Projects(app)
+            P = projects_mod.Projects(app, gateway=project_registry_gateway())
             self.assertEqual(P.info.get("projects"), [])
             self.assertEqual(P.info.get("active"), None)
 
@@ -812,7 +821,7 @@ class ProjectsDeleteTests(unittest.TestCase):
         t = Path(td); app = t / "app"; app.mkdir()
         (app / "config.json").write_text(json.dumps({"downloads_root": str(t / "downloads")}), encoding="utf-8")
         (app / "projects.json").write_text(json.dumps({"active": None, "projects": []}), encoding="utf-8")
-        return projects_mod.Projects(app)
+        return projects_mod.Projects(app, gateway=project_registry_gateway())
 
     def test_deletion_target_registered(self):
         with tempfile.TemporaryDirectory() as td:
@@ -853,7 +862,7 @@ class ProjectsDeleteTests(unittest.TestCase):
             try:
                 os.symlink(outside, link, target_is_directory=True)
             except (OSError, NotImplementedError):
-                self.skipTest("当前环境不允许创建目录链接")
+                self.skipTest(PLATFORM_DIRECTORY_LINK)
             P.delete(str(project))
             self.assertFalse(project.exists())
             self.assertTrue(keep.exists(), "只删除项目内的链接节点，绝不删除链接目标")
@@ -905,7 +914,7 @@ class ValidateProfileTests(unittest.TestCase):
         from workflow_settings import validate_stage_profile, preset_skill
         skill = preset_skill("create-blender-story-video")
         if not skill.is_file():
-            self.skipTest("bundled skill not present")
+            self.skipTest(REQUIRES_BUNDLED_SKILL)
         with self.assertRaises(ValueError):
             validate_stage_profile({"program": "", "model": "", "skill": str(skill), "instructions": ""}, "storyboard")
 
@@ -996,7 +1005,7 @@ class ValidateProfileTests(unittest.TestCase):
     def test_preset_label_round_trips_through_preset_folder(self):
         skill = ws.preset_skill("short-drama-storyboard")
         if not skill.is_file():
-            self.skipTest("bundled skill not present")
+            self.skipTest(REQUIRES_BUNDLED_SKILL)
         self.assertEqual(ws.preset_folder(str(skill)), "short-drama-storyboard")
         self.assertEqual(ws.preset_label(str(skill)), "Drama 分镜")
 

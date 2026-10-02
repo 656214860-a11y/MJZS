@@ -461,8 +461,8 @@ def show_final(desktop):
         load_content(path)
 
     def refresh():
-        from storyboard_storage import normalize_for_desktop
-        normalize_for_desktop(desktop)
+        from stage_execution_service import normalize_storyboard_for_desktop
+        normalize_storyboard_for_desktop(desktop)
         entries=[e for e in catalog(project,'storyboard') if e['path'].suffix.lower()=='.json' and e.get('done')]
         tree.configure(height=max(2,min(12,len(entries))))
         previous=tree.selection();prefs=_prefs(prefs_file)
@@ -560,8 +560,8 @@ def show(desktop):
 
     def apply_catalogs(catalogs, automatic=False):
         nonlocal loaded,completed_scripts
-        from storyboard_storage import normalize_for_desktop
-        normalize_for_desktop(desktop)
+        from stage_execution_service import normalize_storyboard_for_desktop
+        normalize_storyboard_for_desktop(desktop)
         if automatic:
             for kind,tree in tables.items():
                 available={str(entry['path']) for entry in catalogs[kind]}

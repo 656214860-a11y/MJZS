@@ -1,13 +1,16 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock
 
 import asset_batch_service
 from agent.core import read, save
+from stage_execution_service import asset_batch_gateway
 
 
 class AssetRenameServiceTests(unittest.TestCase):
+    def gateway(self):
+        return asset_batch_gateway()
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
@@ -19,7 +22,7 @@ class AssetRenameServiceTests(unittest.TestCase):
         save(self.registry, {'CHAR_001': {'name': '旧名', 'image': 'assets/characters/a.png'}})
 
     def test_rename_updates_plan_alias_and_registered_index(self):
-        row = asset_batch_service.rename_asset(self.base, 'CHAR_001', '旧名', '新名')
+        row = asset_batch_service.rename_asset(self.base, 'CHAR_001', '旧名', '新名', gateway=self.gateway())
         self.assertEqual(row['name'], '新名')
         self.assertEqual(row['aliases'], ['更早名称', '旧名'])
         self.assertEqual(read(self.plan)['CHAR_001']['name'], '新名')
@@ -28,7 +31,7 @@ class AssetRenameServiceTests(unittest.TestCase):
     def test_second_write_failure_restores_both_documents(self):
         before_plan = self.plan.read_bytes()
         before_registry = self.registry.read_bytes()
-        real_save = asset_batch_service.save
+        real_save = self.gateway()['publish_json']
         calls = 0
 
         def fail_second(path, value):
@@ -38,8 +41,9 @@ class AssetRenameServiceTests(unittest.TestCase):
                 raise OSError('磁盘不可用')
             real_save(path, value)
 
-        with patch.object(asset_batch_service, 'save', side_effect=fail_second):
-            with self.assertRaisesRegex(OSError, '磁盘不可用'):
-                asset_batch_service.rename_asset(self.base, 'CHAR_001', '旧名', '新名')
+        gateway = self.gateway()
+        gateway['publish_json'] = Mock(side_effect=fail_second)
+        with self.assertRaisesRegex(OSError, '磁盘不可用'):
+            asset_batch_service.rename_asset(self.base, 'CHAR_001', '旧名', '新名', gateway=gateway)
         self.assertEqual(self.plan.read_bytes(), before_plan)
         self.assertEqual(self.registry.read_bytes(), before_registry)

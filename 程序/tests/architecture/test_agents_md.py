@@ -14,6 +14,7 @@ from tests.architecture.test_remove_authority import _WHITELIST as REMOVE_AUTHOR
 AGENTS = ROOT / 'AGENTS.md'
 PROJECT_MAP = ROOT / 'PROJECT_MAP.md'
 ARCHITECTURE = ROOT / 'architecture.md'
+GITIGNORE = ROOT.parent / '.gitignore'
 
 
 def _read(path: Path) -> str:
@@ -101,3 +102,15 @@ class AgentsMdConsistencyTests(unittest.TestCase):
         actual = {path.name for path in (ROOT / 'tests' / 'architecture').glob('test_*.py')}
         self.assertEqual(documented, actual,
                          'AGENTS 架构门禁清单必须与实际测试文件集合完全相等')
+
+    def test_gitignore_covers_runtime_and_secret_boundaries(self) -> None:
+        """版本控制兼容轮：必排除项缺一即红，防止用户数据或凭据进入暂存区。"""
+        patterns = {line.strip() for line in _read(GITIGNORE).splitlines()
+                    if line.strip() and not line.lstrip().startswith('#')}
+        required = {
+       '/程序/private/', '/程序/logs/', '/程序/data/', '**/__pycache__/',
+       '**/*.py[cod]', '/程序/pycache/', '**/工作流任务/', '**/回收站/', '/升级备份/',
+            '**/*.bak_*', '/程序/配置/宠物/', '/程序/projects.json',
+            '/程序/desktop_settings.json', '/程序/config.json', '**/.env', '**/*.dpapi',
+        }
+        self.assertTrue(required <= patterns, required - patterns)

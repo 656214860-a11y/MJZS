@@ -12,8 +12,13 @@ class VideoDeleteBoundaryTests(unittest.TestCase):
                       and node.name == 'delete_video_shot')
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)]
         self.assertEqual(1, sum(isinstance(node.func, ast.Name)
-                                and node.func.id == 'mark_video_deleted' for node in calls))
+                                and node.func.id == 'mark_stage_video_deleted' for node in calls))
         prohibited = {'read', 'save', 'save_bytes', 'write_text', 'write_bytes', 'copy2',
                       'remove_temporary_file'}
         self.assertFalse(any(isinstance(node.func, ast.Name) and node.func.id in prohibited
                              for node in calls))
+
+    def test_lifecycle_service_requires_l3_gateway_for_publication(self):
+        source = (ROOT / 'video_lifecycle_service.py').read_text(encoding='utf-8')
+        self.assertIn('def _require_gateway', source)
+        self.assertNotIn('from agent.core import read, save', source)

@@ -29,7 +29,10 @@ from desktop_startup_service import DesktopStartupController
 from desktop_automation_service import DesktopAutomationScheduler
 from idea_chat_controller import IdeaChatController
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import BaseDialog, FormDialog, PrimaryButton, SecondaryButton, setup_styles
+from ui_dialogs import FileDialog
+from ui_shortcuts import ShortcutRegistry
+from ui_widgets import (BaseDialog, BusyState, ContextMenu, FormDialog, NotificationDispatcher,
+                        PrimaryButton, SecondaryButton, TextArea, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
 
@@ -215,9 +218,12 @@ def _prefs(path):
     return read_prefs(path)
 
 
-PAGES=['01  剧本准备','02  剧本整理','03  初步分镜','04  资产管理','05  连贯性清单','06  分镜定稿','07  首帧管理','08  白模预演','09  视频生成','10  配音与字幕','11  后期剪辑','12  质检与交付','13  参考网站']
+import pet_bus
+# 制作页名称只从 pet_bus.STAGES／STAGE_NAMES 生成；「参考网站」是唯一非阶段工具页。
+PAGES = [f'{index:02d}  {pet_bus.stage_name(stage)}'
+         for index, stage in enumerate(pet_bus.STAGES, start=1)] + ['13  参考网站']
 # 页面序号一律由阶段表推出来（PAGES 与 pet_bus.STAGES 一一对应），
-# 代码里不再写死数字——再加一个阶段时只改 pet_bus.STAGES 与这份 PAGES。
+# 再加一个阶段时只改 pet_bus.STAGES／STAGE_NAMES。
 import pet_state
 PAGE=pet_state.PAGE_OF
 PAGE_SITES=len(PAGES)-1          # 「参考网站」是工具页，不进状态机
@@ -252,7 +258,9 @@ from app_metadata import VERSION
 
 class Desktop:
     def __init__(self,win,root=ROOT):
-        self.win=win;self.app=Path(root);self.projects=Projects(root);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self.hollmwood_progress=queue.Queue();self._stream_text='';self._async_ticket=0;self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self._hollmwood_poll_id=None;self.video=None
+        self._diagnostic_start=time.perf_counter()
+        from stage_execution_service import project_registry_gateway
+        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway());self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self.hollmwood_progress=queue.Queue();self._stream_text='';self._async_ticket=0;self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self._hollmwood_poll_id=None;self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0
         win._desktop_first_paint_complete=False
         win._desktop_loading_project=False
@@ -351,6 +359,13 @@ class Desktop:
         # 汇总在这里，避免空的角色栏与状态栏上下各占一行。
         self.hollmwood_role_status=tk.StringVar(value='')
         self.status=tk.StringVar(value='就绪 · 所有项目共用一份程序')
+        self.notifier=NotificationDispatcher(self.status, parent=win)
+        self.file_dialog=FileDialog(win, notifier=self.notifier)
+        self.shortcuts=ShortcutRegistry()
+        self.busy_state=BusyState(self.status, self.progress)
+        # ui_theme 的窗口定位失败只做恢复，不另建反馈链；状态栏建好后把
+        # 既有可见提示入口交给根窗口。
+        win._drama_place_notice=self.status.set
         self.banner_status=tk.StringVar(value='')
         def refresh_banner(*_unused):
             role=self.hollmwood_role_status.get().strip()
@@ -376,6 +391,9 @@ class Desktop:
         self._destroy_cleanup_done=False
         self.reload()
         self.show(0)
+        # 只记录启动壳完成耗时；采集不遍历项目目录，也不参与启动决策。
+        import diagnostic_capture
+        diagnostic_capture.record_startup_timing('desktop_shell_ready', (time.perf_counter()-self._diagnostic_start)*1000)
         self.shutting_down=False
         self._tick_id=None
         self._startup_tick_paused=True
@@ -451,6 +469,17 @@ class Desktop:
     @idea_attachment_paths.setter
     def idea_attachment_paths(self, paths):
         self.idea_chat_controller.replace_attachments(paths)
+
+    def idea_chat_gateway(self):
+        """L4 通过 L3 取得创意聊天的受控读写入口。"""
+        from stage_execution_service import idea_chat_gateway
+        return idea_chat_gateway()
+
+    @staticmethod
+    def asset_batch_gateway():
+        """L4 只装配资产批处理的 L3 读写入口。"""
+        from stage_execution_service import asset_batch_gateway
+        return asset_batch_gateway()
 
     def _initialize_automation_state(self):
         """建立各阶段自动队列的完整初始契约，避免 UI 构造中遗漏状态。"""
@@ -835,10 +864,9 @@ class Desktop:
         try:text=box.get('sel.first','sel.last')
         except tk.TclError:return 'break'
         if not text:return 'break'
-        try:
-            box.clipboard_clear();box.clipboard_append(text);box.update_idletasks()
-            self.status.set('已复制选中文字')
-        except tk.TclError:pass
+        from prompt_window import copy_text
+        reason=copy_text(box,text)
+        self.status.set('复制失败：'+reason if reason else '已复制选中文字')
         return 'break'
     def notice_selected_bubble_text(self,event):
         """长按拖选到消息正文后给出明确复制提示；不改动 Tk 原生蓝色选区。"""
@@ -886,34 +914,34 @@ class Desktop:
         if index == 'example':
             text=self.idea_example()
             if not text:return None
-            try:
-                self.idea_log.clipboard_clear();self.idea_log.clipboard_append(text)
-                self.idea_log.update_idletasks();self.status.set('已复制软件示例')
-            except tk.TclError:return None
+            from prompt_window import copy_text
+            reason=copy_text(self.idea_log,text)
+            self.status.set('复制失败：'+reason if reason else '已复制软件示例')
+            if reason:return None
             return text
         import idea_chat
-        rows=idea_chat.load(self.root,model=self.idea_chat_model())
+        rows=idea_chat.load(self.root,model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
         if not 0<=index<len(rows):return None
         text=str(rows[index].get('text') or '')
         if not text:return None
-        try:
-            self.idea_log.clipboard_clear();self.idea_log.clipboard_append(text)
-            self.idea_log.update_idletasks();self.status.set('已复制整条信息')
-        except tk.TclError:return None
+        from prompt_window import copy_text
+        reason=copy_text(self.idea_log,text)
+        self.status.set('复制失败：'+reason if reason else '已复制整条信息')
+        if reason:return None
         return text
     def delete_bubble_message(self,index):
         """右键“删除整条信息”：移出当前对话，并保留最近删除恢复记录。"""
         import idea_chat
         model=self.idea_chat_model()
-        rows=idea_chat.load(self.root,model=model)
+        rows=idea_chat.load(self.root,model=model,gateway=self.idea_chat_gateway())
         if not 0<=index<len(rows):return None
-        idea_chat.remove(self.root,index,model=model)
+        idea_chat.remove(self.root,index,model=model,gateway=self.idea_chat_gateway())
         self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
         return index
     def restore_latest_bubble_message(self):
         """恢复当前模型聊天页最近删除的一条完整消息。"""
         import idea_chat
-        row=idea_chat.restore_latest_removed(self.root,model=self.idea_chat_model())
+        row=idea_chat.restore_latest_removed(self.root,model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
         self.show_conversation();self.status.set('已恢复最近删除的整条信息')
         return row
     def open_bubble_menu(self,event):
@@ -922,19 +950,15 @@ class Desktop:
         target=self.bubble_target_at(event.widget,event)
         if target is None:return None
         index,_name=target
-        menu=tk.Menu(event.widget,tearoff=False)
+        menu=ContextMenu(event.widget)
         if index == 'example':
-            menu.add_command(label='复制软件示例',command=lambda:self.copy_bubble_message('example'))
+            menu.command('复制软件示例',lambda:self.copy_bubble_message('example'))
         else:
-            menu.add_command(label='复制整条信息',command=lambda i=index:self.copy_bubble_message(i))
-            menu.add_command(label='删除整条信息',command=lambda i=index:self.delete_bubble_message(i))
-            menu.add_command(label='恢复最近删除的信息',command=self.restore_latest_bubble_message)
+            menu.command('复制整条信息',lambda i=index:self.copy_bubble_message(i))
+            menu.command('删除整条信息',lambda i=index:self.delete_bubble_message(i))
+            menu.command('恢复最近删除的信息',self.restore_latest_bubble_message)
         self._bubble_menu=menu
-        try:menu.tk_popup(event.x_root,event.y_root)
-        finally:
-            try:menu.grab_release()
-            except tk.TclError:pass
-        return 'break'
+        return menu.popup(event)
     def open_idea_paste_menu(self,event):
         """输入框右键时，仅在剪贴板有文字时给出粘贴入口。"""
         box=event.widget
@@ -972,7 +996,7 @@ class Desktop:
             widget.pack_forget()
     def choose_idea_attachments(self):
         """选择文本附档；入库、DOCX 解析和校验均在后台进行。"""
-        paths=filedialog.askopenfilenames(
+        paths=self.file_dialog.open_files(
             title='选择要提交给模型的文本附档', parent=self.win,
             filetypes=[('文本、Markdown 与 Word', '*.txt *.md *.markdown *.docx *.json *.csv *.yaml *.yml *.log'),
                        ('所有文件', '*.*')])
@@ -1073,7 +1097,7 @@ class Desktop:
         if index == 'example':
             rows=[]
         else:
-            rows=idea_chat.load(self.root,model=self.idea_chat_model())
+            rows=idea_chat.load(self.root,model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
             if not isinstance(index,int) or not 0<=index<len(rows):
                 raise ValueError('这条对话已不存在，请刷新后重试')
         # 折叠的长消息进入编辑时先还原全文，避免只修改预览那几行。
@@ -1119,8 +1143,8 @@ class Desktop:
             return 'break'
         import idea_chat
         model=self.idea_chat_model()
-        if value:idea_chat.replace(self.root,edit['index'],value,model=model);notice='已修改这条对话'
-        else:idea_chat.remove(self.root,edit['index'],model=model);notice='已删除这条对话'
+        if value:idea_chat.replace(self.root,edit['index'],value,model=model,gateway=self.idea_chat_gateway());notice='已修改这条对话'
+        else:idea_chat.remove(self.root,edit['index'],model=model,gateway=self.idea_chat_gateway());notice='已删除这条对话'
         self.show_conversation()
         self.status.set(notice)
         return 'break'
@@ -1279,7 +1303,7 @@ class Desktop:
             # 可见内容。键回来后 resume 按现有页面代次完整重绘真实历史。
             resolving_model=True
         model=cached[1] if root and isinstance(cached,tuple) else ''
-        rows=idea_chat.load(root,model=model) if root and not resolving_model else []
+        rows=idea_chat.load(root,model=model,gateway=self.idea_chat_gateway()) if root and not resolving_model else []
         box.configure(state='normal')
         self._bubble_rows=[];self._bubble_full={};self._bubble_width=int(box.winfo_width() or 0)
         for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
@@ -1400,8 +1424,7 @@ class Desktop:
             label_column *= 2
             ttk.Label(form, text=label + '：', width=9, anchor='e').grid(
                 row=row, column=label_column, sticky='e', padx=(0, SPACING['sm']), pady=SPACING['xs'])
-            editor = tk.Text(form, height=1, width=20, wrap='word',
-                             font=FONTS['body'], relief='solid', bd=1, padx=SPACING['sm'], pady=SPACING['xs'])
+            editor = TextArea(form, height=1, width=20, wrap='word')
             editor.insert('1.0', values.get(label, ''))
             editor.grid(row=row, column=label_column + 1, sticky='ew', padx=(0, SPACING['md']), pady=SPACING['xs'])
             editors[label] = editor
@@ -1426,8 +1449,7 @@ class Desktop:
             row = detail_start + offset + 1
             ttk.Label(form, text=label + '：', width=9, anchor='ne').grid(
                 row=row, column=0, sticky='ne', padx=(0, SPACING['sm']), pady=SPACING['xs'])
-            editor = tk.Text(form, height=2, width=56, wrap='word',
-                             font=FONTS['body'], relief='solid', bd=1, padx=SPACING['sm'], pady=SPACING['xs'])
+            editor = TextArea(form, height=2, width=56, wrap='word')
             editor.insert('1.0', values.get(label, ''))
             editor.grid(row=row, column=1, columnspan=3, sticky='ew', padx=(0, SPACING['md']), pady=SPACING['xs'])
             editors[label] = editor
@@ -1453,7 +1475,7 @@ class Desktop:
         def save_and_send():
             submitted = {label: (editor.get().strip() if isinstance(editor, ttk.Combobox)
                                 else editor.get('1.0', 'end-1c').strip()) for label, editor in editors.items()}
-            _path, text = idea_chat.save_brief_creation(self.root, submitted)
+            _path, text = idea_chat.save_brief_creation(self.root, submitted, gateway=self.idea_chat_gateway())
             box = getattr(self, 'idea_input', None)
             if box is not None and box.winfo_exists():
                 box.delete('1.0', 'end'); box.insert('1.0', text)
@@ -1485,7 +1507,7 @@ class Desktop:
         workflow_config = stage_config.current_workflow(self.root)
         preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
         brief = idea_chat.receive_brief(self.root, submission, workflow=workflow_config,
-                                        lock_definitions=preset.get('locks', ()))
+                                        lock_definitions=preset.get('locks', ()), gateway=self.idea_chat_gateway())
         if brief.get('workflow_projection') is not None:
             stage_config.put_workflow(self.root, brief['workflow_projection'])
         if direct_model:
@@ -1502,14 +1524,14 @@ class Desktop:
                 except Exception:
                     self.idea_chat_controller.rollback_sent()
                     raise
-        idea_chat.append(self.root,'user',visible_value,model=model)
+        idea_chat.append(self.root,'user',visible_value,model=model,gateway=self.idea_chat_gateway())
         box.delete('1.0','end')
         self.discard_idea_draft()
         self.idea_attachment_paths=()
         self.update_idea_attachment_status()
         self.show_conversation()
         if brief['missing']:
-            idea_chat.append(self.root, 'assistant', brief['followup'], model=model)
+            idea_chat.append(self.root, 'assistant', brief['followup'], model=model,gateway=self.idea_chat_gateway())
             self.show_conversation()
             self.status.set('已保存创意草稿；请补充缺少的信息后再发送。')
             self.open_brief_creation_form(value)
@@ -1554,7 +1576,7 @@ class Desktop:
                 if not reply:
                     messagebox.showerror('模型调用失败',idea_chat.why_empty(result),parent=self.win)
                     self.status.set(idea_chat.why_empty(result));return
-                idea_chat.append(self.root,'assistant',reply,model=model)
+                idea_chat.append(self.root,'assistant',reply,model=model,gateway=self.idea_chat_gateway())
                 self.show_conversation();self.update_script_download_button()
                 if result.get('script_raw_path'):
                     four_roles = result.get('hollmwood_enabled', True)
@@ -1673,7 +1695,7 @@ class Desktop:
         """刷新剧本聊天和文件表；旧 Claude 思考块会先清洗，必要时仅重发一次正文请求。"""
         import idea_chat
         import writing_api
-        repaired = idea_chat.repair_internal_replies(self.root, model=self.idea_chat_model())
+        repaired = idea_chat.repair_internal_replies(self.root, model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
         self.show_conversation()
         refresh = getattr(self, 'refresh_script_list', None)
         if callable(refresh):
@@ -1704,7 +1726,7 @@ class Desktop:
             if not reply:
                 messagebox.showerror('模型调用失败', idea_chat.why_empty(result), parent=self.win)
                 self.status.set(idea_chat.why_empty(result));return
-            idea_chat.append(self.root, 'assistant', reply, model=model)
+            idea_chat.append(self.root, 'assistant', reply, model=model,gateway=self.idea_chat_gateway())
             self.show_conversation();self.update_script_download_button()
             self.status.set('已恢复并刷新 ' + model + ' 的正文；完整剧本可下载保存。')
         from stage_execution_service import reply_to_writing
@@ -1747,13 +1769,13 @@ class Desktop:
         import idea_chat
         button=getattr(self,'idea_download',None)
         if button is None or not button.winfo_exists():return False
-        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.root))
+        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.root,gateway=self.idea_chat_gateway()))
         button.state(['!disabled'] if ready else ['disabled'])
         return ready
     def download_script(self):
         """用户明确下载剧本文档后，才通知三虎询问是否进入分镜阶段。"""
         import idea_chat
-        reply=idea_chat.latest_text(self.root)
+        reply=idea_chat.latest_text(self.root,gateway=self.idea_chat_gateway())
         if not idea_chat.looks_like_script(reply):raise ValueError('请先让模型生成完整剧本，再下载。')
         provider, model = idea_chat.storage_identity(self.idea_chat_model())
         from stage_execution_service import publish_idea_creative
@@ -1794,15 +1816,40 @@ class Desktop:
         try:
             if self.worker:raise ValueError('当前操作尚未结束，请稍后')
             return fn()
-        except Exception as e:messagebox.showerror('操作提示',str(e),parent=self.win)
+        except Exception as e:
+            import diagnostic_capture
+            diagnostic_capture.record_degradation(
+                e, page=PAGES[getattr(self,'page_index',0)],
+                project=str(getattr(self,'root', '') or ''),
+                automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
+            self.notifier.error(str(e))
+
+    def export_diagnostics_package(self):
+        """唯一的用户诊断包动作：先透明说明白名单，再让用户选择保存位置。"""
+        import diagnostic_capture
+        entries=diagnostic_capture.preview()
+        detail='\n'.join(entries) if entries else '当前没有可导出的诊断记录（仍会导出清单）。'
+        if not messagebox.askokcancel('导出诊断包', '将仅包含以下脱敏程序日志（不会包含项目文件、private、.env 或凭据）：\n\n'+detail, parent=self.win):
+            return None
+        target=filedialog.asksaveasfilename(parent=self.win, title='保存诊断包', defaultextension='.zip', filetypes=[('诊断包','*.zip')])
+        if not target:return None
+        result=diagnostic_capture.export(target)
+        self.status.set('诊断包已导出：'+str(result))
+        return result
     def async_(self,fn,done=None,show_progress=True,label=None):
         self._async_ticket+=1;ticket=self._async_ticket
         self.worker=True
-        if show_progress:self.progress.start(15)
-        self.status.set(label or '正在处理… 界面保持响应')
+        self.busy_state.set_busy(True, message=label or '正在处理… 界面保持响应',
+                                 progress=show_progress)
         def run():
             try:self.q.put((ticket,True,fn(),done))
-            except Exception as e:self.q.put((ticket,False,str(e),None))
+            except Exception as e:
+                import diagnostic_capture
+                diagnostic_capture.record_degradation(
+                    e, page=PAGES[getattr(self,'page_index',0)],
+                    project=str(getattr(self,'root', '') or ''),
+                    automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
+                self.q.put((ticket,False,str(e),None))
         threading.Thread(target=run,daemon=True).start()
         self._schedule_async_result_poll(ticket)
         return ticket
@@ -2279,7 +2326,7 @@ class Desktop:
         try:
             ticket,ok,value,done=self.q.get_nowait()
             if ticket!=self._async_ticket:return
-            self.worker=False;self.progress.stop()
+            self.worker=False;self.busy_state.set_busy(False)
             if ok and done:done(value)
             elif ok:self.status.set(str(value))
             elif not ok:
@@ -3467,7 +3514,7 @@ class Desktop:
             return
         def work():
             from asset_generated_import_service import import_pending_generated
-            imported=import_pending_generated(self.root,self.asset_base())
+            imported=import_pending_generated(self.root,self.asset_base(),gateway=self.asset_batch_gateway())
             return ('已自动导入生成资产图：'+'、'.join(imported)) if imported else '生成资产检查完成'
         try:self.async_(work)
         except Exception as exc:
@@ -3629,6 +3676,7 @@ class Desktop:
         self.button(self.content,'进入选中的项目 →',enter)
         self.button(self.content,'＋ 创建新项目',self.new)
         self.button(self.content,'恢复回收站内容…',self.open_recycle_recovery)
+        self.button(self.content,'导出诊断包…',self.export_diagnostics_package)
     def set_project_status(self,item,status):
         self.projects.set_status(item['path'],status);self.reload()
         if self.root:self.list.selection_set(str(self.root))
@@ -3725,9 +3773,9 @@ class Desktop:
             if self.video_mode in ('cloud','local'):
                 self.video_mode_picked=True
                 if prefs_path and prefs.get('last_video_mode')!=self.video_mode:
-                    from cloud_video_service import publish_workspace_preference
+                    from stage_execution_service import publish_cloud_video_workspace_preference
                     prefs['last_video_mode']=self.video_mode
-                    publish_workspace_preference(prefs_path,prefs)
+                    publish_cloud_video_workspace_preference(prefs_path,prefs)
         else:self.video_mode=None
         if self.video:
             self.video.window.pack_forget()
@@ -3969,8 +4017,8 @@ class Desktop:
         # 先让 Text 用当前布局命中鼠标位置，再在空闲时重算高度；同步重排会让选区偏到上一行。
         box.bind('<Button-1>',lambda event:box.after_idle(refit_talk),add='+')
         # 常态下可长按拖选并 Ctrl+C；单击进入编辑后，写入边界只限这条气泡的正文。
-        box.bind('<Control-c>',self.copy_selected_bubble_text,add='+')
-        box.bind('<Control-C>',self.copy_selected_bubble_text,add='+')
+        self.shortcuts.bind(box, ('<Control-c>', '<Control-C>'), self.copy_selected_bubble_text,
+                            scope='剧本准备·聊天记录', name='复制选中气泡文本')
         box.bind('<Button-3>',self.open_bubble_menu,add='+')
         box.bind('<ButtonPress-1>',self.guard_bubble_edit_pointer,add='+')
         box.bind('<B1-Motion>',self.guard_bubble_edit_pointer,add='+')
@@ -4927,9 +4975,9 @@ class Desktop:
 
         第 61 期 v0.8：全程序只有 prompt_window.copy_text 写剪贴板（既有规矩），这里只转调一次。
         """
-        from prompt_window import copy_text as write_clipboard
+        from prompt_window import copy_preview,copy_text as write_clipboard
         reason=write_clipboard(self.win,str(text))
-        self.status.set('复制失败：'+reason if reason else '已复制：'+str(text)[:40])
+        self.status.set('复制失败：'+reason if reason else '已复制：'+copy_preview(text))
         return reason
     def continuity_ledger_data(self):
         """现场算一份连贯性台账：读当前分镜 JSON ＋ 这一集的资产清单（第 61 期 v0.8 任务 7）。"""
@@ -5072,9 +5120,9 @@ class Desktop:
         现在与资产详情页走同一条写入路径（confirm_gates.apply_choice）。
         """
         from asset_plan import apply_gate_choice
-        from confirm_gates import record
+        from stage_execution_service import record_stage_confirmation
         apply_gate_choice(self.root,key,choice)
-        path=record(self.root,key,choice)
+        path=record_stage_confirmation(self.root,key,choice)
         if again:again()                      # 先重建页面（重建会重置状态栏），再写状态栏
         self.status.set('已确认：'+str(choice))
         return path
@@ -5105,7 +5153,8 @@ class Desktop:
         """
         import stage_flow
         from asset_plan import apply_gate_choice
-        from confirm_gates import AUTO, record
+        from confirm_gates import AUTO
+        from stage_execution_service import record_stage_confirmation
         if self.gate_level() not in stage_flow.AUTO_LEVELS:return 0
         done=0
         for item in self.pending_gate_asks():
@@ -5117,7 +5166,7 @@ class Desktop:
             # 写资产清单或确认账本失败不能伪装成“这条已经处理过”。交给外层
             # _poll_auto_due 的节流与可见错误反馈，下一拍才会重试。
             apply_gate_choice(self.root,key,choice)
-            record(self.root,key,choice,by=AUTO)
+            record_stage_confirmation(self.root,key,choice,by=AUTO)
             done+=1
         if done:
             text='已按推荐处理 %d 条待办：锚点、正典板与连贯性裁决。'%done
@@ -5202,7 +5251,7 @@ class Desktop:
         SecondaryButton(imgs,text='资产目录',command=lambda:self.safe(open_library)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         try:
             from asset_generated_import_service import import_pending_generated
-            imported=import_pending_generated(self.root, self.asset_base(), self.status.set)
+            imported=import_pending_generated(self.root, self.asset_base(), self.status.set, gateway=self.asset_batch_gateway())
             if imported:self.status.set('已自动导入生成资产图：'+'、'.join(imported))
         except Exception as exc:
             self.note('生成图自动导入暂缓：'+str(exc))
@@ -5483,17 +5532,33 @@ class Desktop:
         # 第 53 期第 3 条：只盖 #3 一列——「名称」那一列退回原来写的文字（两列同时摆同一张
         # 图是重复，用户点名删掉「名称」列的那个图片）。
         # 没缩略图（还没导入、图不在、Tk 不认这个格式）就不盖，那一格退回原来写的文字。
+        # 同一资产在本页生命周期内的缩略图（或后台占位图）是稳定的；CellImages 会在滚动时
+        # 多次询问同一行，不能每一帧重复 stat／缓存查询。页面重建会自然丢弃这份映射；后台
+        # 完成时会原位填充占位图，因此不需要为等待结果再重复读取。
+        thumb_values={}
         def thumb_value(aid,column):
             # 第 54 期第 3 条：图与格子里的字只留一样——文字那一边在建行时就清空了，这里只管盖图。
+            if aid in thumb_values:
+                return thumb_values[aid]
             image=asset_thumb(aid)
-            return None if image is None else (image,'')
+            value=None if image is None else (image,'')
+            thumb_values[aid]=value
+            return value
         def row_background(aid):
             return COLORS['border_default'] if (registry.get(aid) or {}).get('status')=='已导入' else COLORS['background_card']
         # 第 57 期第 5 条：鼠标停在这一格上就在旁边弹一张大图（够看清人物与背景）。
         table.cell_images=CellImages(table,('#3',),thumb_value,hover=table.cell_hover,background=row_background,
-                                     zoom=lambda aid,column:asset_thumb(aid,cell_hover.ZOOM_SIZE))
+                                     zoom=lambda aid,column:asset_thumb(aid,cell_hover.ZOOM_SIZE),
+                                     # 250ms 高于重列表单帧的正常绘制抖动：连续滚动期间不反复取图，
+                                     # 停稳后才对齐新可见区，防抖不会再退化成逐帧刷新。
+                                     view_refresh_delay=250)
         # 第 55 期第 1 条：「视图变了就重排」已经收进盖图那一层自己（watch_view：滚动条动了、
         # 列宽变了、内容框改了尺寸都算），这儿不必再往那两条回调末尾补一次重排。
+        # 首帧必须在同步建好几何后就盖上可视区缩略图：只靠 after_idle 时，整套回归并发较高
+        # 时可能在调用方第一次 update 前仍拿不到 bbox，造成已导入资产短暂空白。这里只推进
+        # 当前表的布局闲置任务，不进入事件循环；后续滚动仍由 CellImages 的 250ms 防抖处理。
+        table.cell_images.schedule_initial_refresh()
+        table.update_idletasks()
         table.cell_images.refresh()
         refresh_buttons()
         # 第 72 期（Round 3）：剩下的行按帧补上，补完再重排一次缩略图那一层。
@@ -5658,7 +5723,7 @@ class Desktop:
                 parent=self.win,default='no'):
             return False
         from asset_batch_service import remove_asset_image
-        remove_asset_image(base,aid)
+        remove_asset_image(base,aid,gateway=Desktop.asset_batch_gateway())
         if ask:
             self.show(2)
             self.status.set(aid+' 已导入图片已删除，恢复为待导入。')
@@ -5707,7 +5772,7 @@ class Desktop:
                 f'恢复 {aid} 的最近删除图片？',parent=self.win,default='no'):
             return False
         from asset_batch_service import restore_asset_image
-        restore_asset_image(base,aid)
+        restore_asset_image(base,aid,gateway=Desktop.asset_batch_gateway())
         self.show(PAGE['assets'])
         self.status.set(aid+' 的资产图片已从项目回收站恢复。')
         return True
@@ -5720,7 +5785,7 @@ class Desktop:
         name=name.strip()
         if not name:raise ValueError('资产名称不能为空')
         from asset_batch_service import rename_asset as _rename_asset
-        _rename_asset(self.asset_base(),aid,old,name)
+        _rename_asset(self.asset_base(),aid,old,name,gateway=Desktop.asset_batch_gateway())
         if refresh:self.show(2)
         self.status.set('名称已保存')
     def final_storyboard(self):
@@ -5787,7 +5852,7 @@ class Desktop:
         aid=selected or simpledialog.askstring('资产编号','例如 CHAR_001 / LOC_001 / PROP_001',parent=self.win)
         if not aid:return
         from asset_batch_service import import_asset_image
-        kind,result=import_asset_image(self.asset_base(),self.root,aid,p,self.asset_requirements())
+        kind,result=import_asset_image(self.asset_base(),self.root,aid,p,self.asset_requirements(),gateway=Desktop.asset_batch_gateway())
         self.asset_kind=kind;self.show(PAGE['assets']);self.status.set(result)
     # 第 50 期第 1 条：原来那颗「选择镜头 JSON」删掉——首帧页看的永远是「当前分镜」，
     # 也就是第 02 步采用的那一份（自动认领见 current_frame_json），不用在这儿再挑一遍。
@@ -6186,8 +6251,8 @@ class Desktop:
             folder=Path(folder).resolve()
             if not folder.is_relative_to((self.root/'cloud_video').resolve()):raise ValueError('云端任务目录不在当前项目内')
             prefs['cloud_video_workspace']=folder.relative_to(self.root.resolve()).as_posix()
-        from cloud_video_service import publish_workspace_preference
-        publish_workspace_preference(path,prefs)
+        from stage_execution_service import publish_cloud_video_workspace_preference
+        publish_cloud_video_workspace_preference(path,prefs)
         if navigate:self.show(PAGE['video'],video_mode='cloud' if folder is not None else 'local')
     def video_home(self):
         """07 步还没选生成方式时的落地页（第 26 期第 3 条）。
@@ -6326,7 +6391,8 @@ class Desktop:
             self.status.set('配音台词与音色都没变，沿用已有配音：'+str(previous)+'（未重复扣费）');return
         def work():
             raw=tts_api.synthesize(script)
-            p=tts_api.publish_full_track(self.root,signature,raw)
+            from stage_execution_service import publish_tts_full_track
+            p=publish_tts_full_track(self.root,signature,raw)
             note='配音已生成：'+str(p)
             if estimated:note+='（时间轴为草稿均分，建议在剪映中听校）'
             return note
@@ -6352,7 +6418,8 @@ class Desktop:
         if not messagebox.askyesno('逐句配音（付费）',tip+'\n\n继续提交？',parent=self.win):
             self.status.set('已取消逐句配音：未提交任何句子，也没有产生费用');return
         def work():
-            ok,reused,failed=tts_api.run_lines(lines,out)
+            from stage_execution_service import run_tts_lines
+            ok,reused,failed=run_tts_lines(lines,out)
             note=f'逐句配音完成：成功 {ok}/{len(lines)}，失败 {failed}'
             if reused:note+=f'（沿用已生成 {reused} 句，未重复扣费）'
             if resumed:note+='；已接续上次未完成的批次'

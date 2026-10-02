@@ -1,9 +1,9 @@
 """One application, isolated data-only projects."""
-import shutil, uuid, re, time, copy, os
+import uuid, re, time, copy, os
 from datetime import datetime
 from pathlib import Path
 from storyboard_paths import media_root
-from agent.core import read, save, file_hash, save_bytes, restore_bytes
+from agent.core import file_hash
 from episode_contract import validate_episode, relative
 import project_stages
 from storage_maintenance import remove_project_link_node
@@ -72,43 +72,54 @@ def is_missing_storyboard_open_error(error):
     return '项目里找不到镜头 JSON' in str(error)
 
 class Projects:
-    def __init__(self, app):
-        self.app=Path(app); self.registry=self.app/'projects.json'
-        cfg=read(self.app/'config.json') if (self.app/'config.json').is_file() else {}
+    def __init__(self, app, *, gateway=None):
+        self.app=Path(app); self.registry=self.app/'projects.json'; self.gateway=gateway
+        self._require_gateway()
+        cfg=self._read_json(self.app/'config.json') if (self.app/'config.json').is_file() else {}
         if not isinstance(cfg,dict):cfg={}
         self.downloads=Path(cfg.get('downloads_root','D:/漫剧下载'))
         self.base=self.downloads/'项目'; self.base.mkdir(parents=True,exist_ok=True)
         if not self.registry.exists(): self.migrate()
-        info=read(self.registry)
+        info=self._read_json(self.registry)
         self.info=info if isinstance(info,dict) else {'active':None,'projects':[]}
+
+    def _require_gateway(self):
+        """L2 项目服务没有注入读写边界时，拒绝一切项目操作。"""
+        required=('read_json','read_bytes','publish_json','publish_bytes','restore_bytes','copy_file','copy_tree')
+        if not isinstance(self.gateway,dict) or any(not callable(self.gateway.get(name)) for name in required):
+            raise TypeError('项目操作需要由 L3 注入项目登记读写网关。')
+        self._read_json=self.gateway['read_json'];self._read_bytes=self.gateway['read_bytes']
+        self._publish_json=self.gateway['publish_json'];self._publish_bytes=self.gateway['publish_bytes']
+        self._restore_bytes=self.gateway['restore_bytes'];self._copy_file=self.gateway['copy_file'];self._copy_tree=self.gateway['copy_tree']
+
     def migrate(self):
         config_path=self.app/'config.json'
-        cfg=read(config_path) if config_path.is_file() else {}
+        cfg=self._read_json(config_path) if config_path.is_file() else {}
         if not isinstance(cfg,dict):cfg={}
         src=Path(cfg.get('episode_dir',self.app/'episode'))
         # 新安装或测试沙箱没有旧版 episode 时，不应因为一次迁移探测阻断程序启动。
         # 保留空注册表；用户随后可通过“新建项目/打开项目”进入正常流程。
         if not (src/'episode.json').is_file():
-            save(self.registry,{'active':None,'projects':[]})
+            self._publish_json(self.registry,{'active':None,'projects':[]})
             return
-        ep=read(src/'episode.json'); title=str(ep.get('title') or '项目')
+        ep=self._read_json(src/'episode.json'); title=str(ep.get('title') or '项目')
         slug=re.sub(r'[<>:"/\\|?*\x00-\x1f]','_',title)[:50].rstrip('. ')
         dst=self.base/(slug+'_EP001_'+uuid.uuid4().hex[:6])
-        dst.mkdir(); shutil.copytree(src,project_stages.storyboard(dst)/'分镜拆分')
+        dst.mkdir(); self._copy_tree(src,project_stages.storyboard(dst)/'分镜拆分')
         for name,target in (('data',dst/'data'),('exports',project_stages.exports(dst))):
             if (self.app/name).exists():
                 target.parent.mkdir(parents=True,exist_ok=True)
-                shutil.copytree(self.app/name,target,ignore=shutil.ignore_patterns('operation.lock'))
+                self._copy_tree(self.app/name,target,ignore=lambda _folder, names: {'operation.lock'} & set(names))
                 for p in (self.app/name).rglob('*'):
                     if p.is_file() and p.name!='operation.lock' and file_hash(p)!=file_hash(target/p.relative_to(self.app/name)):
                         raise ValueError('迁移校验失败，原文件仍保留')
         cfg['episode_dir']=str(project_stages.storyboard(dst)/'分镜拆分');cfg['assets_root']=str(self.base)
         credentials=self.app/'private'
         if not Path(cfg.get('project_dir','.')).exists() and (credentials/'.env').exists():cfg['project_dir']=str(credentials)
-        save(dst/'config.json',cfg); self.organize(dst)
-        save(self.registry,{'active':str(dst),'projects':[{'name':title,'path':str(dst)}]})
+        self._publish_json(dst/'config.json',cfg); self.organize(dst)
+        self._publish_json(self.registry,{'active':str(dst),'projects':[{'name':title,'path':str(dst)}]})
     def organize(self,root):
-        root=Path(root); base=project_stages.assets(root); assets=read(base/'assets.json') if (base/'assets.json').exists() else {}
+        root=Path(root); base=project_stages.assets(root); assets=self._read_json(base/'assets.json') if (base/'assets.json').exists() else {}
         if not isinstance(assets,dict):assets={}
         for kind in ('characters','scenes','props'): (base/'assets'/kind).mkdir(parents=True,exist_ok=True)
         for aid,a in assets.items():
@@ -118,9 +129,9 @@ class Projects:
             # An entire shot used as a region reference must not be relabeled a portrait.
             if a.get('reference_region'):continue
             dest=base/'assets'/('scenes' if aid.startswith('LOC') else ('props' if aid.startswith('PROP') else 'characters'))/(aid+p.suffix)
-            if p!=dest.resolve():shutil.copy2(p,dest)
+            if p!=dest.resolve():self._copy_file(p,dest)
             a['image']=dest.relative_to(base).as_posix()
-        save(base/'assets.json',assets)
+        self._publish_json(base/'assets.json',assets)
         for name in project_stages.STAGES.values(): (root/name).mkdir(exist_ok=True)
         project_stages.audio(root).mkdir(parents=True,exist_ok=True)
         project_stages.subtitles(root).mkdir(parents=True,exist_ok=True)
@@ -171,18 +182,17 @@ class Projects:
                 if child.is_dir():changed_json(child/'config.json',rewrite_config)
         return writes
 
-    @staticmethod
-    def _write_transaction(writes):
+    def _write_transaction(self,writes):
         """逐文件原子发布；任一失败以原字节回滚，留下的内容与开始前一致。"""
-        previous=[(path,path.read_bytes() if path.exists() else None) for path,_ in writes]
+        previous=[(path,self._read_bytes(path) if path.exists() else None) for path,_ in writes]
         committed=[]
         try:
             for path,content in writes:
-                save_bytes(path,content);committed.append(path)
+                self._publish_bytes(path,content);committed.append(path)
         except Exception:
             rollback_error=None
             for path,before in reversed(previous):
-                try:restore_bytes(path,before)
+                try:self._restore_bytes(path,before)
                 except Exception as exc:rollback_error=exc
             if rollback_error:raise RuntimeError('项目登记同步失败，且回滚失败') from rollback_error
             raise
@@ -227,7 +237,7 @@ class Projects:
         stamp=datetime.fromtimestamp(candidate.stat().st_mtime)
         info['projects'].append({'name':_slug(candidate),'path':str(candidate),
                                  'created_at':datetime.combine(stamp.date(),datetime.min.time()).timestamp()})
-        save(self.registry,info);self.info=info
+        self._publish_json(self.registry,info);self.info=info
         return str(candidate)
 
     def clear_missing_registration(self,path):
@@ -237,15 +247,15 @@ class Projects:
         info=copy.deepcopy(self.info)
         info['projects']=[x for x in info['projects'] if x.get('path')!=path]
         if info.get('active')==path:info['active']=info['projects'][0]['path'] if info['projects'] else None
-        save(self.registry,info);self.info=info
+        self._publish_json(self.registry,info);self.info=info
     def set_status(self,path,status):
         if status not in ('making','completed'):raise ValueError('无效的项目状态')
         item=next((p for p in self.info['projects'] if p['path']==path),None)
         if item is None:raise ValueError('项目未登记')
-        item['status']=status;save(self.registry,self.info)
+        item['status']=status;self._publish_json(self.registry,self.info)
     def activate(self,path):
         if path not in [x['path'] for x in self.info['projects']]:raise ValueError('项目未登记')
-        self.info['active']=path;save(self.registry,self.info)
+        self.info['active']=path;self._publish_json(self.registry,self.info)
     def deletion_target(self,path):
         if path not in [x['path'] for x in self.info['projects']]:raise ValueError('项目未登记，不能删除')
         raw=Path(path);target=raw.resolve();base=self.base.resolve()
@@ -287,7 +297,7 @@ class Projects:
             raise ValueError('项目未能安全移入回收站，项目入口已保留。')
         self.info['projects']=[x for x in self.info['projects'] if x['path']!=path]
         if self.info['active']==path:self.info['active']=self.info['projects'][0]['path'] if self.info['projects'] else None
-        save(self.registry,self.info)
+        self._publish_json(self.registry,self.info)
     def unlink_registered_project(self,path):
         """只移除登记项目自身的目录链接，绝不递归进入它指向的真实目录。"""
         if path not in [x['path'] for x in self.info['projects']]:raise ValueError('项目未登记，不能删除')
@@ -302,14 +312,14 @@ class Projects:
         if raw.exists() or raw.is_symlink():raise ValueError('项目链接未能删除，项目入口已保留。')
         self.info['projects']=[x for x in self.info['projects'] if x['path']!=path]
         if self.info['active']==path:self.info['active']=self.info['projects'][0]['path'] if self.info['projects'] else None
-        save(self.registry,self.info)
+        self._publish_json(self.registry,self.info)
     def create(self,name,source=None):
         name=name.strip()
         if not name:raise ValueError('请填写项目名称')
         active=self.info.get('active')
         config_path=(Path(active) if active else self.app)/'config.json'
         if not config_path.is_file():config_path=self.app/'config.json'
-        cfg=read(config_path)
+        cfg=self._read_json(config_path)
         if not isinstance(cfg,dict):cfg={}
         slug=re.sub(r'[<>:"/\\|?*\x00-\x1f]','_',name)[:50].rstrip('. ')
         # 项目目录只展示创建日期；当天重名项目使用序号，既不覆盖也不把具体时间露给用户。
@@ -323,21 +333,21 @@ class Projects:
         base=project_stages.assets(dst);(project_stages.stage(dst,'frames')/'frames').mkdir(parents=True)
         assets={}
         if source:
-            source=Path(source);ep=read(source)
-            af=source.parent/'assets.json';assets=read(af) if af.exists() else None
+            source=Path(source);ep=self._read_json(source)
+            af=source.parent/'assets.json';assets=self._read_json(af) if af.exists() else None
             validate_episode(ep,media_root(source),assets)
             for s in ep['shots']:
                 p=(media_root(source)/relative(s['frame'])).resolve()
-                if p.is_file():d=project_stages.stage(dst,'frames')/relative(s['frame']);d.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,d)
+                if p.is_file():d=project_stages.stage(dst,'frames')/relative(s['frame']);d.parent.mkdir(parents=True,exist_ok=True);self._copy_file(p,d)
             for a in (assets or {}).values():
                 if not a.get('image'):continue
                 rel=relative(a['image']);p=(source.parent/rel).resolve()
                 if not p.is_relative_to(source.parent.resolve()):raise ValueError('资产路径越界')
-                if p.is_file():d=base/rel;d.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,d)
+                if p.is_file():d=base/rel;d.parent.mkdir(parents=True,exist_ok=True);self._copy_file(p,d)
         else:
             ep={'episode_id':'EP001','title':name,'shots':[{'id':'SH001','title':'待编写','duration':5,'characters':['CHAR_001'],'location':'LOC_001','frame':'frames/SH001.png','video_prompt':'待填写镜头画面、动作和对白','dialogue':[]}]}
-        save(story/'episode.json',ep);save(base/'assets.json',assets or {})
+        self._publish_json(story/'episode.json',ep);self._publish_json(base/'assets.json',assets or {})
         cfg.update(episode_dir=str(story),episode_file=str(story/'episode.json'),asset_library_dir='04资产管理',live_enabled=False,budget_seconds=0,reserve_seconds=0,video_backend='comfy')
-        save(dst/'config.json',cfg);self.organize(dst)
-        self.info['projects'].append({'name':name,'path':str(dst),'created_at':datetime.now().timestamp()});self.info['active']=str(dst);save(self.registry,self.info)
+        self._publish_json(dst/'config.json',cfg);self.organize(dst)
+        self.info['projects'].append({'name':name,'path':str(dst),'created_at':datetime.now().timestamp()});self.info['active']=str(dst);self._publish_json(self.registry,self.info)
         return dst

@@ -12,7 +12,7 @@ def _register(layer: int, *names: str) -> None:
 _register(0, "pet_bus", "script_contract", "script_manifest_contract", "asset_contract", "episode_contract", "service_contract", "project_context", "stage_layout", "stage_path_service", "storyboard_paths", "project_stages",
           "prompt_templates", "shot_batches", "continuity_ledger", "production_model_contract", "app_metadata")
 _register(1, "model_pool", "model_secrets", "pet_llm", "file_cache", "hash_backend",
-          "storage_maintenance", "log_maintenance", "line_endings", "app_icon", "workflow_process_registry", "platform_tools", "script_text_reader", "native_asset_codec", "comfy_runtime", "ui_tokens")
+          "storage_maintenance", "log_maintenance", "diagnostic_capture", "line_endings", "app_icon", "workflow_process_registry", "platform_tools", "script_text_reader", "native_asset_codec", "comfy_runtime", "ui_tokens")
 _register(2, "writing_files", "writing_roles", "writing_workflow", "idea_chat", "idea_attachments",
           "storyboard_lifecycle", "storyboard_catalog_service",
           "storyboard_edit_service",
@@ -25,7 +25,7 @@ _register(3, "stage_flow", "stage_exec", "stage_parallel", "stage_config", "stag
           "agent_dispatch", "engine", "integrations", "project_storage", "stage_contract_report", "stage_execution_service", "desktop_startup_service", "desktop_automation_service", "idea_chat_controller",
           "writing_api", "script_skill_report", "storyboard_plan_service", "storyboard_final", "storyboard_final_controller", "storyboard_page_controller", "keyframe_page_controller", "storyboard_selection", "storyboard_catalog", "asset_batch_controller", "asset_page_controller", "editing_page_controller",
           "previs_automation", "previs_batch_service", "previs_monitor", "asset_auto_batch_service", "asset_batch_execution", "stage_completion_service")
-_register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geometry", "pet_cloud_shape", "pet_cloud_tail", "responsive_ui", "ui_theme", "ui_widgets", "cell_hover", "prompt_window", "asset_detail_ui", "asset_detail", "asset_batch", "native_assets", "storyboard_files", "storyboard_table_ui", "cloud_video", "local_video", "local_previs", "previs_progress", "white_model", "skill_panel", "app")
+_register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geometry", "pet_cloud_shape", "pet_cloud_tail", "responsive_ui", "ui_theme", "ui_widgets", "ui_dialogs", "ui_shortcuts", "ui_icons", "cell_hover", "prompt_window", "asset_detail_ui", "asset_detail", "asset_batch", "native_assets", "storyboard_files", "storyboard_table_ui", "cloud_video", "local_video", "local_previs", "previs_progress", "white_model", "skill_panel", "app")
 _register(5, "app_shortcut")
 
 # R741：顶层运行期模块必须逐一入表。层级按实际静态依赖和职责判断，不能以名称后缀代替。

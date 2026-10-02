@@ -9,6 +9,7 @@ from unittest.mock import patch
 import project_stages
 import projects as projects_mod
 from projects import Projects, reconcile_missing
+from stage_execution_service import project_registry_gateway
 
 
 def dump(path,data):
@@ -21,7 +22,7 @@ class RenameReconcileTests(unittest.TestCase):
         app=Path(folder)/'程序';base=Path(folder)/'库'/'项目';base.mkdir(parents=True)
         dump(app/'config.json',{'downloads_root':str(Path(folder)/'库')})
         dump(app/'projects.json',{'active':str(base/old),'projects':[{'name':'故事','path':str(base/old),'created_at':1,'status':'making'}]})
-        return Projects(app),base
+        return Projects(app,gateway=project_registry_gateway()),base
 
     def renamed(self,base,name='新故事_20261001',old=None):
         item=base/name;story=project_stages.storyboard(item)/'分镜拆分'
@@ -68,13 +69,13 @@ class RenameReconcileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             service,base=self.make_service(td);old=service.info['active'];new=self.renamed(base,old=old)
             before_registry=service.registry.read_bytes();before_config=(new/'config.json').read_bytes()
-            original=projects_mod.save_bytes;calls=[]
+            gateway=project_registry_gateway();original=gateway['publish_bytes'];calls=[]
             def fail_second(path,data):
                 calls.append(path)
                 if len(calls)==2:raise PermissionError('locked')
                 return original(path,data)
-            with patch.object(projects_mod,'save_bytes',side_effect=fail_second):
-                with self.assertRaises(PermissionError):service.claim_reconciled(old,new)
+            gateway['publish_bytes']=fail_second;service.gateway=gateway;service._require_gateway()
+            with self.assertRaises(PermissionError):service.claim_reconciled(old,new)
             self.assertEqual(service.registry.read_bytes(),before_registry)
             self.assertEqual((new/'config.json').read_bytes(),before_config)
 

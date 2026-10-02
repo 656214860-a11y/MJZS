@@ -170,7 +170,7 @@ class ManualButtonTests(PageHelpers):
         import previs_routing
         seen = []
         original = previs_routing.dispatch
-        previs_routing.dispatch = lambda project, source, ids, state, monitor=False, start_complex=None: (
+        previs_routing.dispatch = lambda project, source, ids, state, monitor=False, start_complex=None, *, publish: (
             seen.append(list(ids)) or {"medium": []})
         self.addCleanup(setattr, previs_routing, "dispatch", original)
         with tempfile.TemporaryDirectory() as td:

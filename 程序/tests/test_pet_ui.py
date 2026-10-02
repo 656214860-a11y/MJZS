@@ -2,6 +2,14 @@
 """宠物贴片自检：右上角几何与随窗移动、动画帧与帧率、气泡一键操作、面板数字与状态机一致，
 以及三个接缝（自动任务队列 / 状态栏 / 页面按钮）只上报不改原逻辑。
 第 6 期再加：日报／周报的数据与落盘、独立窗开关与常驻、开机自启（假注册表，不碰真注册表）。运行：python test_pet_ui.py"""
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import datetime, json, os, re, sys, tempfile, time, unittest
 from pathlib import Path
 
@@ -123,7 +131,7 @@ class PetTestCase(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         self.win = self.tk.Tk()
         self.win.withdraw()
         self.tmp = tempfile.TemporaryDirectory()
@@ -897,7 +905,7 @@ class DesktopSeamTests(unittest.TestCase):
 
     def test_desktop_carries_the_pet_and_wrapped_seams(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win = self.tk.Tk(); win.withdraw()
         try:
             from desktop import Desktop
@@ -936,7 +944,7 @@ class DesktopSeamTests(unittest.TestCase):
         RuntimeError: main thread is not in main loop，这才是卡死链条上真正频繁的那一环。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import threading
         from tkinter import font as tkfont
         import desktop as desktop_module
@@ -975,7 +983,7 @@ class DesktopSeamTests(unittest.TestCase):
 
     def test_tick_once_drains_into_the_bus(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win = self.tk.Tk(); win.withdraw()
         try:
             from desktop import Desktop
@@ -990,7 +998,7 @@ class DesktopSeamTests(unittest.TestCase):
 
     def test_button_seam_reports_the_label(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win = self.tk.Tk(); win.withdraw()
         try:
             from desktop import Desktop
@@ -1311,7 +1319,7 @@ class FrameBatchSeamTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from desktop import Desktop
         self.win = self.tk.Tk()
         self.win.withdraw()
@@ -1481,7 +1489,7 @@ class PetTextSeamTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         # 这一条只看「宠物的详情窗口」，与项目无关：把打开项目那一步挡住。
         # 不挡的话，win.update() 会真的去开本机项目、把无人值守资产那一批跑起来，
         # 状态栏就不再是这一个用例说了算（与本仓库另外 140 处同一条隔离）。
@@ -1939,6 +1947,7 @@ class CloudTests(PetTestCase):
 
     def test_an_open_cloud_is_kept_by_a_broadcast_and_the_timer_moves_back(self):
         cloud = self.cloud()
+        cloud._pointer_inside = lambda: False
         cloud.show(pinned=True, hold=50)
         self.pet.broadcast('插播一句')
         self.assertTrue(cloud.visible, '开着的时候插一句话不该把云收掉')
@@ -3681,7 +3690,7 @@ class DesktopPetSeamTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from desktop import Desktop
         self.win = self.tk.Tk()
         self.win.withdraw()

@@ -206,6 +206,63 @@ class NoPopupKeyTests(unittest.TestCase):
         self.assertEqual(leftovers, [], '第 8 轮起不该再有这些名字')
 
 
+class PopupGrabSafetyTests(unittest.TestCase):
+    """R772：Map 子事件和失败定位都不能留下隐形输入锁。"""
+
+    def setUp(self):
+        self.win = tk.Tk()
+        self.win.geometry('420x300+40+40')
+        self.addCleanup(self.quietly, self.win.destroy)
+        ui_theme.apply(self.win)
+        ui_theme.install_window_placement(self.win)
+        self.pump(60)
+
+    @staticmethod
+    def quietly(function, *args):
+        try:
+            function(*args)
+        except tk.TclError:
+            pass
+
+    def pump(self, milliseconds=80):
+        self.win.update_idletasks()
+        self.win.update()
+        self.win.after(milliseconds, self.win.quit)
+        self.win.mainloop()
+
+    def test_child_map_cannot_take_popup_grab(self):
+        popup = tk.Toplevel(self.win)
+        self.addCleanup(self.quietly, popup.destroy)
+        frame = ttk.Frame(popup)
+        frame.pack()
+        ttk.Label(frame, text='子控件').pack()
+        ttk.Button(frame, text='按钮').pack()
+        self.pump(120)
+        holder = self.win.grab_current()
+        self.assertIn(holder, (None, popup), '子控件 Map 不得抢走全局输入 grab')
+
+    def test_withdrawn_popup_releases_its_grab(self):
+        popup = tk.Toplevel(self.win)
+        self.addCleanup(self.quietly, popup.destroy)
+        ttk.Label(popup, text='复用窗口').pack()
+        self.pump(120)
+        popup.withdraw()
+        self.pump(60)
+        self.assertIsNone(self.win.grab_current(), '隐形窗口不得继续持有 grab')
+
+    def test_place_error_restores_visibility_releases_grab_and_notifies(self):
+        notices = []
+        self.win._drama_place_notice = notices.append
+        popup = tk.Toplevel(self.win)
+        self.addCleanup(self.quietly, popup.destroy)
+        popup.transient = lambda _parent: (_ for _ in ()).throw(tk.TclError('parent destroyed'))
+        ttk.Label(popup, text='故障注入').pack()
+        self.pump(120)
+        self.assertEqual(float(popup.attributes('-alpha')), 1.0)
+        self.assertIsNone(self.win.grab_current())
+        self.assertTrue(notices)
+
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

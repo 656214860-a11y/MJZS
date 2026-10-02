@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 """自动列宽测量缓存回归：窗口缩放/每次刷新不再重复量同一批文字，且列宽结果不变。运行：python test_column_fit.py"""
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import os, sys, unittest
 from unittest import mock
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -102,7 +110,7 @@ class ColumnFitTests(unittest.TestCase):
         try:
             import tkinter as tk
         except Exception:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import responsive_ui, storyboard_files
         self.ui, self.sf = responsive_ui, storyboard_files

@@ -7,6 +7,14 @@
 状态变体折叠／展开、状态变体新增、锁定／解锁）＋ 数据一致性 ＋ 端到端 ＋ 回归，逐项跑真界面
 （Tk），断言全在临时项目里，绝不碰真安装目录。
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, sys, tempfile, unittest
 from pathlib import Path
 from unittest import mock
@@ -70,7 +78,7 @@ class _Harness(unittest.TestCase):
 
     def desktop(self, proj):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -228,7 +236,8 @@ class AnchorTests(_Harness):
             d, _win = self.desktop(proj)
             registry = d.asset_requirements()
             self.assertEqual(len(confirm_gates.run("G-05", project=proj, assets=registry)["ask"]), 3)
-            confirm_gates.record(proj, "anchor:CHAR_001", "黑短发、杏眼、米色针织衫")
+            from stage_execution_service import record_stage_confirmation
+            record_stage_confirmation(proj, "anchor:CHAR_001", "黑短发、杏眼、米色针织衫")
             apply_gate_choice(proj, "anchor:CHAR_001", "黑短发、杏眼、米色针织衫")
             asked = confirm_gates.run("G-05", project=proj, assets=d.asset_requirements())["ask"]
             self.assertNotIn("anchor:CHAR_001", [item["key"] for item in asked])
@@ -369,7 +378,8 @@ class EndToEndTests(_Harness):
             proj = project_with(td)
             d, win = self.desktop(proj)
             for aid in ("CHAR_001", "CHAR_002", "CHAR_003"):
-                confirm_gates.record(proj, "anchor:" + aid, aid + " 的定稿锚点")
+                from stage_execution_service import record_stage_confirmation
+                record_stage_confirmation(proj, "anchor:" + aid, aid + " 的定稿锚点")
                 apply_gate_choice(proj, "anchor:" + aid, aid + " 的定稿锚点")
                 apply_gate_choice(proj, "canon:" + aid, aid + " 的正典板方案一")
                 with mock.patch.object(asset_detail.simpledialog, "askstring",

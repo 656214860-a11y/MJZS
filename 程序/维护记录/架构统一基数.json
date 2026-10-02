@@ -1,0 +1,1410 @@
+{
+    "\u7b2c\u4e00\u9879": {
+        "status": "paused",
+        "decided_at": "2026-10-01",
+        "adopters": [
+            "delivery_import_service",
+            "keyframe_lifecycle_service"
+        ],
+        "exempt_count": 35,
+        "exempt_items": [
+            "asset_batch_lifecycle",
+            "asset_batch_selection_service",
+            "asset_batch_service",
+            "asset_batch_state_service",
+            "asset_context",
+            "asset_detail_service",
+            "asset_gating",
+            "asset_generated_import_service",
+            "cloud_video_service",
+            "confirm_gates",
+            "edit_service",
+            "final_service",
+            "handoff_service",
+            "idea_attachments",
+            "idea_chat",
+            "keyframe",
+            "keyframe_api",
+            "keyframe_batch",
+            "local_video_settings_service",
+            "pet_performance_service",
+            "pet_test_service",
+            "previs",
+            "previs_progress_service",
+            "previs_routing",
+            "storyboard_adoption_service",
+            "storyboard_catalog_service",
+            "storyboard_edit_service",
+            "storyboard_lifecycle",
+            "storyboard_source_service",
+            "subtitle_timing",
+            "tts_api",
+            "white_model_service",
+            "writing_files",
+            "writing_roles",
+            "writing_workflow"
+        ]
+    },
+    "\u7b2c\u4e8c\u9879": {
+        "status": "paused",
+        "decided_at": "2026-10-01",
+        "adopters": [
+            "delivery_import_service"
+        ],
+        "exempt_count": 36,
+        "exempt_items": [
+            "asset_batch_lifecycle",
+            "asset_batch_selection_service",
+            "asset_batch_service",
+            "asset_batch_state_service",
+            "asset_context",
+            "asset_detail_service",
+            "asset_gating",
+            "asset_generated_import_service",
+            "cloud_video_service",
+            "confirm_gates",
+            "edit_service",
+            "final_service",
+            "handoff_service",
+            "idea_attachments",
+            "idea_chat",
+            "keyframe",
+            "keyframe_api",
+            "keyframe_batch",
+            "keyframe_lifecycle_service",
+            "local_video_settings_service",
+            "pet_performance_service",
+            "pet_test_service",
+            "previs",
+            "previs_progress_service",
+            "previs_routing",
+            "storyboard_adoption_service",
+            "storyboard_catalog_service",
+            "storyboard_edit_service",
+            "storyboard_lifecycle",
+            "storyboard_source_service",
+            "subtitle_timing",
+            "tts_api",
+            "white_model_service",
+            "writing_files",
+            "writing_roles",
+            "writing_workflow"
+        ]
+    },
+    "\u7b2c\u4e09\u9879": {
+    "count": 24,
+        "baseline_pending": 66,
+        "items": [
+            {
+                "file": "asset_batch_lifecycle.py",
+                "point": "attach",
+                "disposition": "migrated",
+                "reason": "R791\uff1a\u6279\u6b21\u6d3e\u53d1\u72b6\u6001\u53d1\u5e03\u6539\u7531 L3 asset_batch_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "asset_batch_lifecycle.py",
+                "point": "fail",
+                "disposition": "migrated",
+                "reason": "R791\uff1a\u6279\u6b21\u5931\u8d25\u72b6\u6001\u53d1\u5e03\u6539\u7531 L3 asset_batch_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "asset_batch_lifecycle.py",
+                "point": "prepare",
+                "disposition": "migrated",
+                "reason": "R791\uff1a\u6279\u6b21\u51c6\u5907\u72b6\u6001\u53d1\u5e03\u6539\u7531 L3 asset_batch_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "asset_batch_lifecycle.py",
+                "point": "reconcile",
+                "disposition": "migrated",
+                "reason": "R791\uff1a\u6279\u6b21\u6e05\u5355\u8bfb\u53d6\u4e0e\u4fee\u6b63\u53d1\u5e03\u6539\u7531 L3 asset_batch_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "point": "import_asset_image",
+                "disposition": "migrated",
+                "reason": "R791\uff1a\u5bfc\u5165\u56fe\u7247\u4e0e\u767b\u8bb0\u8868\u53d1\u5e03\u6539\u7531 L3 asset_batch_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "point": "register_image",
+                "disposition": "migrated",
+                "reason": "R791\uff1a\u751f\u6210\u56fe\u7247\u4e0e\u8d44\u4ea7\u7d22\u5f15\u53d1\u5e03\u6539\u7531 L3 asset_batch_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "point": "remove_asset_image",
+                "disposition": "migrated",
+                "reason": "R791\uff1a\u5220\u9664\u540e\u8d44\u4ea7\u7d22\u5f15\u53d1\u5e03\u6539\u7531 L3 asset_batch_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "point": "rename_asset",
+                "disposition": "migrated",
+                "reason": "R791\uff1a\u8d44\u4ea7\u540d\u79f0\u53cc\u8868\u4e8b\u52a1\u53d1\u5e03\u6539\u7531 L3 asset_batch_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "point": "restore_asset_image",
+                "disposition": "migrated",
+                "reason": "R791\uff1a\u6062\u590d\u540e\u8d44\u4ea7\u7d22\u5f15\u53d1\u5e03\u6539\u7531 L3 asset_batch_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "asset_batch_state_service.py",
+                "point": "save_ledger",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "asset_detail_service.py",
+                "point": "_publish",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "asset_generated_import_service.py",
+                "point": "import_pending_generated",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "cloud_video_service.py",
+                "point": "publish_session_config",
+                "disposition": "migrated",
+                "reason": "R792\uff1a\u4f1a\u8bdd\u914d\u7f6e\u53cc\u5199\u6539\u7531 L3 cloud_video_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "cloud_video_service.py",
+                "point": "publish_studio_config",
+                "disposition": "migrated",
+                "reason": "R792\uff1a\u5de5\u4f5c\u5ba4\u914d\u7f6e\u53d1\u5e03\u6539\u7531 L3 cloud_video_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "cloud_video_service.py",
+                "point": "publish_workspace_preference",
+                "disposition": "migrated",
+                "reason": "R792\uff1a\u5de5\u4f5c\u533a\u504f\u597d\u53d1\u5e03\u6539\u7531 L3 cloud_video_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "confirm_gates.py",
+                "point": "forget",
+                "disposition": "migrated",
+                "reason": "R794：撤销确认账本改由 L3 confirm_gates_gateway 注入正式发布器。"
+            },
+            {
+                "file": "confirm_gates.py",
+                "point": "record",
+                "disposition": "migrated",
+                "reason": "R794：记录确认账本改由 L3 confirm_gates_gateway 注入正式发布器。"
+            },
+            {
+                "file": "delivery_import_service.py",
+                "point": "import_final_master",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "idea_chat.py",
+                "point": "_append_raw_brief",
+                "disposition": "migrated",
+                "reason": "R790\uff1a\u7b80\u62a5\u6587\u672c\u53d1\u5e03\u6539\u7531 L3 idea_chat_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "idea_chat.py",
+                "point": "receive_brief",
+                "disposition": "migrated",
+                "reason": "R790\uff1a\u7b80\u62a5 JSON\uff0f\u6587\u672c\u53d1\u5e03\u6539\u7531 L3 idea_chat_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "idea_chat.py",
+                "point": "remove",
+                "disposition": "migrated",
+                "reason": "R790\uff1a\u56de\u6536\u8bb0\u5f55\u53d1\u5e03\u6539\u7531 L3 idea_chat_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "idea_chat.py",
+                "point": "restore_latest_removed",
+                "disposition": "migrated",
+                "reason": "R790\uff1a\u6062\u590d\u8bb0\u5f55\u53d1\u5e03\u6539\u7531 L3 idea_chat_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "idea_chat.py",
+                "point": "save_brief_creation",
+                "disposition": "migrated",
+                "reason": "R790\uff1a\u8868\u5355\u7b80\u62a5\u53d1\u5e03\u6539\u7531 L3 idea_chat_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "idea_chat.py",
+                "point": "save_rows",
+                "disposition": "migrated",
+                "reason": "R790\uff1a\u5bf9\u8bdd JSON \u53d1\u5e03\u6539\u7531 L3 idea_chat_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "local_video_settings_service.py",
+                "point": "save_local_video_settings",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "pet_performance_service.py",
+                "point": "record",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "pet_test_service.py",
+                "point": "record",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "previs_progress_service.py",
+                "point": "publish",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "previs_routing.py",
+                "point": "dispatch",
+                "disposition": "migrated",
+                "reason": "R794：白模分流记录改由 L3 previs_routing_gateway 注入正式发布器。"
+            },
+            {
+                "file": "previs_routing.py",
+                "point": "set_override",
+                "disposition": "migrated",
+                "reason": "R794：复杂度覆写改由 L3 previs_routing_gateway 注入正式发布器。"
+            },
+            {
+                "file": "storyboard_edit_service.py",
+                "point": "save_edited_json",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "storyboard_lifecycle.py",
+                "point": "retire",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "tts_api.py",
+                "point": "_save",
+                "disposition": "migrated",
+                "reason": "R792\uff1a\u9010\u53e5\u6e05\u5355\u53d1\u5e03\u6539\u7531 L3 tts_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "tts_api.py",
+                "point": "publish_full_track",
+                "disposition": "migrated",
+                "reason": "R792\uff1a\u6574\u6bb5\u97f3\u9891\u4e0e\u6807\u8bb0\u53d1\u5e03\u6539\u7531 L3 tts_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "tts_api.py",
+                "point": "publish_line",
+                "disposition": "migrated",
+                "reason": "R792\uff1a\u5355\u53e5\u97f3\u9891\u4e0e\u65f6\u95f4\u8f74\u53d1\u5e03\u6539\u7531 L3 tts_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "tts_api.py",
+                "point": "write_settings",
+                "disposition": "migrated",
+                "reason": "R792\uff1a\u672c\u673a TTS \u8bbe\u7f6e\u53d1\u5e03\u6539\u7531 L3 tts_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "white_model_service.py",
+                "point": "write_record",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "asset_batch_settings_service.py",
+                "point": "remove_model",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "asset_batch_settings_service.py",
+                "point": "save_settings",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "asset_plan.py",
+                "point": "publish_plan_bundle",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "asset_plan.py",
+                "point": "update_planned",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "asset_resume.py",
+                "point": "note_round",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "desktop_settings_service.py",
+                "point": "publish_desktop_settings",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "hollmwood_roles.py",
+                "point": "_write_log",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "legacy_adoption_service.py",
+                "point": "record_legacy_adoption",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "projects.py",
+                "point": "_write_transaction",
+                "disposition": "migrated",
+                "reason": "R771\uff1a\u4e8b\u52a1\u53d1\u5e03\u4e0e\u56de\u6eda\u6539\u7531 L3 project_registry_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "projects.py",
+                "point": "activate",
+                "disposition": "migrated",
+                "reason": "R771\uff1a\u9879\u76ee\u767b\u8bb0\u53d1\u5e03\u6539\u7531 L3 project_registry_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "projects.py",
+                "point": "clear_missing_registration",
+                "disposition": "migrated",
+                "reason": "R771\uff1a\u9879\u76ee\u767b\u8bb0\u53d1\u5e03\u6539\u7531 L3 project_registry_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "projects.py",
+                "point": "create",
+                "disposition": "migrated",
+                "reason": "R771\uff1a\u9879\u76ee\u914d\u7f6e\u3001\u7d22\u5f15\u4e0e\u5a92\u4f53\u590d\u5236\u6539\u7531 L3 project_registry_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "projects.py",
+                "point": "delete",
+                "disposition": "migrated",
+                "reason": "R771\uff1a\u9879\u76ee\u767b\u8bb0\u53d1\u5e03\u6539\u7531 L3 project_registry_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "projects.py",
+                "point": "migrate",
+                "disposition": "migrated",
+                "reason": "R771\uff1a\u8fc1\u79fb\u8bfb\u53d6\u3001\u53d1\u5e03\u4e0e\u590d\u5236\u6539\u7531 L3 project_registry_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "projects.py",
+                "point": "organize",
+                "disposition": "migrated",
+                "reason": "R771\uff1a\u8d44\u4ea7\u8bfb\u53d6\u3001\u53d1\u5e03\u4e0e\u590d\u5236\u6539\u7531 L3 project_registry_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "projects.py",
+                "point": "register_discovered_project",
+                "disposition": "migrated",
+                "reason": "R771\uff1a\u9879\u76ee\u767b\u8bb0\u53d1\u5e03\u6539\u7531 L3 project_registry_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "projects.py",
+                "point": "set_status",
+                "disposition": "migrated",
+                "reason": "R771\uff1a\u9879\u76ee\u767b\u8bb0\u53d1\u5e03\u6539\u7531 L3 project_registry_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "projects.py",
+                "point": "unlink_registered_project",
+                "disposition": "migrated",
+                "reason": "R771\uff1a\u9879\u76ee\u767b\u8bb0\u53d1\u5e03\u6539\u7531 L3 project_registry_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "storyboard_storage.py",
+                "point": "_references",
+                "disposition": "migrated",
+                "reason": "R793\uff1a\u5206\u955c\u5f15\u7528\u6e05\u5355\u53d1\u5e03\u6539\u7531 L3 storyboard_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "storyboard_storage.py",
+                "point": "normalize",
+                "disposition": "migrated",
+                "reason": "R793\uff1a\u5206\u955c\u6574\u7406\u7684\u53d1\u5e03\u3001\u56de\u6536\u4e0e\u7f13\u5b58\u5931\u6548\u6539\u7531 L3 storyboard_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "storyboard_storage.py",
+                "point": "publish_final_bundle",
+                "disposition": "migrated",
+                "reason": "R793\uff1a\u5b9a\u7a3f\u5206\u955c\u8d44\u4ea7\u4e0e\u6e05\u5355\u53d1\u5e03\u6539\u7531 L3 storyboard_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "subtitle_export_service.py",
+                "point": "publish_srt_text",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "video_lifecycle_service.py",
+                "point": "mark_video_deleted",
+                "disposition": "migrated",
+                "reason": "R793\uff1a\u89c6\u9891\u5220\u9664\u7d22\u5f15\u53d1\u5e03\u6539\u7531 L3 video_lifecycle_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "video_lifecycle_service.py",
+                "point": "save_video_options",
+                "disposition": "migrated",
+                "reason": "R793\uff1a\u89c6\u9891\u9009\u9879\u53d1\u5e03\u6539\u7531 L3 video_lifecycle_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "video_lifecycle_service.py",
+                "point": "save_white_model_upload",
+                "disposition": "migrated",
+                "reason": "R793\uff1a\u767d\u6a21\u4e0a\u4f20\u8bb0\u5f55\u53d1\u5e03\u6539\u7531 L3 video_lifecycle_gateway \u6ce8\u5165\u3002"
+            },
+            {
+                "file": "video_prompt_publication.py",
+                "point": "_publish_legacy_bundle",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "video_prompt_publication.py",
+                "point": "stage_import",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "workflow_context.py",
+                "point": "instruction",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "writing.py",
+                "point": "import_project",
+                "disposition": "pending",
+                "reason": ""
+            }
+        ]
+    },
+    "\u5c42\u7ea7": {
+        "count": 38,
+        "baseline_exempt": 38,
+        "items": [
+            {
+                "file": "asset_auto_batch_service.py",
+                "importer": "asset_auto_batch_service",
+                "imported": "cloud_assets",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_batch_execution.py",
+                "importer": "asset_batch_execution",
+                "imported": "asset_prompt_rules",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_batch_execution.py",
+                "importer": "asset_batch_execution",
+                "imported": "asset_reference_images",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_batch_execution.py",
+                "importer": "asset_batch_execution",
+                "imported": "cloud_assets",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "importer": "asset_batch_service",
+                "imported": "asset_prompt_rules",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "importer": "asset_batch_service",
+                "imported": "asset_reference_images",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "importer": "asset_batch_service",
+                "imported": "asset_reference_prompts",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "importer": "asset_batch_service",
+                "imported": "cloud_assets",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "importer": "asset_batch_service",
+                "imported": "project_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_batch_service.py",
+                "importer": "asset_batch_service",
+                "imported": "stage_model_value",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_batch_settings_service.py",
+                "importer": "asset_batch_settings_service",
+                "imported": "project_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "asset_plan.py",
+                "importer": "asset_plan",
+                "imported": "asset_reference_prompts",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "confirm_gates.py",
+                "importer": "confirm_gates",
+                "imported": "legacy_compat",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "engine.py",
+                "importer": "engine",
+                "imported": "legacy_compat",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "engine.py",
+                "importer": "engine",
+                "imported": "project_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "engine_probe.py",
+                "importer": "engine_probe",
+                "imported": "workflow_engines",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "idea_chat.py",
+                "importer": "idea_chat",
+                "imported": "legacy_compat",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "idea_chat.py",
+                "importer": "idea_chat",
+                "imported": "pet_agent",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "native_apps.py",
+                "importer": "native_apps",
+                "imported": "integrations",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "native_apps.py",
+                "importer": "native_apps",
+                "imported": "white_model",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "previs_automation.py",
+                "importer": "previs_automation",
+                "imported": "qwen_setup",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "previs_automation.py",
+                "importer": "previs_automation",
+                "imported": "workflow_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "previs_batch_service.py",
+                "importer": "previs_batch_service",
+                "imported": "workflow_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "script_contract.py",
+                "importer": "script_contract",
+                "imported": "artifact_lineage",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "skill_orchestrator.py",
+                "importer": "skill_orchestrator",
+                "imported": "skill_tools",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "stage_flow.py",
+                "importer": "stage_flow",
+                "imported": "pet_state",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "stage_handler_registry.py",
+                "importer": "stage_handler_registry",
+                "imported": "workflow_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "stage_models.py",
+                "importer": "stage_models",
+                "imported": "cloud_assets",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "stage_models.py",
+                "importer": "stage_models",
+                "imported": "ui_plugin_registry",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "stage_parallel.py",
+                "importer": "stage_parallel",
+                "imported": "keyframe_comfy",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "stage_parallel.py",
+                "importer": "stage_parallel",
+                "imported": "pet_state",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "storyboard_adoption_contract.py",
+                "importer": "storyboard_adoption_contract",
+                "imported": "project_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "storyboard_selection.py",
+                "importer": "storyboard_selection",
+                "imported": "project_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "workflow_engines.py",
+                "importer": "workflow_engines",
+                "imported": "qwen_adapter",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "workflow_engines.py",
+                "importer": "workflow_engines",
+                "imported": "workflow_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "workflow_tasks.py",
+                "importer": "workflow_tasks",
+                "imported": "asset_prompt_rules",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "workflow_tasks.py",
+                "importer": "workflow_tasks",
+                "imported": "workflow_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "writing_api.py",
+                "importer": "writing_api",
+                "imported": "workflow_settings",
+                "disposition": "exempt",
+                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            }
+        ]
+    },
+    "\u7b2c\u56db\u9879": {
+        "count": 21,
+        "baseline_pending": 35,
+        "items": [
+            {
+                "file": "agent/core.py",
+                "point": "13",
+                "disposition": "exempt",
+                "reason": "\u5199\u5165\u6743\u5a01\u81ea\u8eab"
+            },
+            {
+                "file": "agent/core.py",
+                "point": "164",
+                "disposition": "exempt",
+                "reason": "\u5199\u5165\u6743\u5a01\u81ea\u8eab"
+            },
+            {
+                "file": "agent/media.py",
+                "point": "46",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "agent/prompt_optimizer.py",
+                "point": "172",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "agent/volcengine.py",
+                "point": "74",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "agent/wan.py",
+                "point": "49",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "asset_reference_search.py",
+                "point": "214",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "asset_reference_search.py",
+                "point": "216",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "asset_thumbs.py",
+                "point": "574",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "batch_frames_tool/batch_frames.py",
+                "point": "13",
+                "disposition": "exempt",
+                "reason": "\u72ec\u7acb\u6279\u5e27\u5de5\u5177\u7684\u672c\u5730\u914d\u7f6e\u8bfb\u5199\uff0c\u975e\u8fd0\u884c\u671f L2"
+            },
+            {
+                "file": "batch_frames_tool/batch_frames.py",
+                "point": "77",
+                "disposition": "exempt",
+                "reason": "\u72ec\u7acb\u6279\u5e27\u5de5\u5177\u7684\u672c\u5730\u914d\u7f6e\u8bfb\u5199\uff0c\u975e\u8fd0\u884c\u671f L2"
+            },
+            {
+                "file": "blender_previs_template.py",
+                "point": "64",
+                "disposition": "exempt",
+                "reason": "Blender \u6a21\u677f\u751f\u6210\u811a\u672c\uff0c\u975e\u8fd0\u884c\u671f L2"
+            },
+            {
+                "file": "codex_paste.py",
+                "point": "23",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "codex_tasks.py",
+                "point": "47",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "comfy_runtime.py",
+                "point": "24",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "comfy_service.py",
+                "point": "20",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "comfy_service.py",
+                "point": "56",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "console_submit.py",
+                "point": "17",
+                "disposition": "exempt",
+                "reason": "\u7f51\u7edc\u54cd\u5e94\u89e3\u6790"
+            },
+            {
+                "file": "console_submit.py",
+                "point": "70",
+                "disposition": "exempt",
+                "reason": "\u7f51\u7edc\u54cd\u5e94\u89e3\u6790"
+            },
+            {
+                "file": "continuity_ledger.py",
+                "point": "323",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "continuity_ledger.py",
+                "point": "347",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "engine_probe.py",
+                "point": "161",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "engine_probe.py",
+                "point": "269",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "file_cache.py",
+                "point": "53",
+                "disposition": "exempt",
+                "reason": "\u7f13\u5b58\u6743\u5a01\u81ea\u8eab"
+            },
+            {
+                "file": "idea_chat.py",
+                "point": "135",
+                "disposition": "migrated",
+                "reason": "R790\uff1a\u804a\u5929 JSON \u8bfb\u53d6\u6539\u7531 L3 idea_chat_gateway \u6ce8\u5165 file_cache\u3002"
+            },
+            {
+                "file": "idea_chat.py",
+                "point": "330",
+                "disposition": "migrated",
+                "reason": "R790\uff1a\u5220\u9664\u8bb0\u5f55\u8bfb\u53d6\u6539\u7531 L3 idea_chat_gateway \u6ce8\u5165 file_cache\u3002"
+            },
+            {
+                "file": "idea_chat.py",
+                "point": "345",
+                "disposition": "migrated",
+                "reason": "R790\uff1a\u6062\u590d\u8bb0\u5f55\u8bfb\u53d6\u6539\u7531 L3 idea_chat_gateway \u6ce8\u5165 file_cache\u3002"
+            },
+            {
+                "file": "model_pool.py",
+                "point": "541",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "model_pool.py",
+                "point": "577",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "pet_agent.py",
+                "point": "338",
+                "disposition": "exempt",
+                "reason": "\u7f51\u7edc\u54cd\u5e94\u89e3\u6790"
+            },
+            {
+                "file": "previs_automation.py",
+                "point": "20",
+                "disposition": "exempt",
+                "reason": "\u7f51\u7edc\u54cd\u5e94\u89e3\u6790"
+            },
+            {
+                "file": "qwen_adapter.py",
+                "point": "141",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790"
+            },
+            {
+                "file": "qwen_setup.py",
+                "point": "46",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "script_contract.py",
+                "point": "1068",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "scripts/migrate_workflow_presets.py",
+                "point": "17",
+                "disposition": "exempt",
+                "reason": "\u4e00\u6b21\u6027\u8fc1\u79fb\u811a\u672c\uff0c\u975e\u8fd0\u884c\u671f L2"
+            },
+            {
+                "file": "scripts/migrate_workflow_presets.py",
+                "point": "42",
+                "disposition": "exempt",
+                "reason": "\u4e00\u6b21\u6027\u8fc1\u79fb\u811a\u672c\uff0c\u975e\u8fd0\u884c\u671f L2"
+            },
+            {
+                "file": "seedream_api.py",
+                "point": "155",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "seedream_api.py",
+                "point": "167",
+                "disposition": "exempt",
+                "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
+            },
+            {
+                "file": "shot_numbering.py",
+                "point": "30",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "smoke_test.py",
+                "point": "114",
+                "disposition": "exempt",
+                "reason": "\u6d4b\u8bd5\u57fa\u5efa"
+            },
+            {
+                "file": "stage_execution_service.py",
+                "point": "318",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "stage_execution_service.py",
+                "point": "349",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "stage_execution_service.py",
+                "point": "362",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "stage_parallel.py",
+                "point": "450",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "storage_maintenance.py",
+                "point": "12",
+                "disposition": "exempt",
+                "reason": "\u5220\u9664\uff0f\u56de\u6536\u6743\u5a01\u81ea\u8eab\u7684\u914d\u7f6e\u8bfb\u5199\uff0c\u8f6c file_cache \u4f1a\u81ea\u5f15\u7528"
+            },
+            {
+                "file": "storage_maintenance.py",
+                "point": "58",
+                "disposition": "exempt",
+                "reason": "\u5220\u9664\uff0f\u56de\u6536\u6743\u5a01\u81ea\u8eab\u7684\u56de\u6536\u6e05\u5355\u8bfb\u5199\uff0c\u8f6c file_cache \u4f1a\u81ea\u5f15\u7528"
+            },
+            {
+                "file": "storage_maintenance.py",
+                "point": "81",
+                "disposition": "exempt",
+                "reason": "\u5220\u9664\uff0f\u56de\u6536\u6743\u5a01\u81ea\u8eab\u7684\u6062\u590d\u6e05\u5355\u8bfb\u5199\uff0c\u8f6c file_cache \u4f1a\u81ea\u5f15\u7528"
+            },
+            {
+                "file": "storage_maintenance.py",
+                "point": "138",
+                "disposition": "exempt",
+                "reason": "\u5220\u9664\uff0f\u56de\u6536\u6743\u5a01\u81ea\u8eab\u7684\u6062\u590d\u6e05\u5355\u8bfb\u5199\uff0c\u8f6c file_cache \u4f1a\u81ea\u5f15\u7528"
+            },
+            {
+                "file": "storage_maintenance.py",
+                "point": "159",
+                "disposition": "exempt",
+                "reason": "\u5220\u9664\uff0f\u56de\u6536\u6743\u5a01\u81ea\u8eab\u7684\u6062\u590d\u6e05\u5355\u8bfb\u5199\uff0c\u8f6c file_cache \u4f1a\u81ea\u5f15\u7528"
+            },
+            {
+                "file": "storage_maintenance.py",
+                "point": "261",
+                "disposition": "exempt",
+                "reason": "\u5220\u9664\uff0f\u56de\u6536\u6743\u5a01\u81ea\u8eab\u7684\u72b6\u6001\u6e05\u5355\u8bfb\u5199\uff0c\u8f6c file_cache \u4f1a\u81ea\u5f15\u7528"
+            },
+            {
+                "file": "storyboard_final_controller.py",
+                "point": "92",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "storyboard_final.py",
+                "point": "159",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "storyboard_storage.py",
+                "point": "49",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "video_prompt_results.py",
+                "point": "14",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "video_prompt_results.py",
+                "point": "20",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "video_prompt_results.py",
+                "point": "31",
+                "disposition": "pending",
+                "reason": ""
+            },
+            {
+                "file": "workflow_engines.py",
+                "point": "132",
+                "disposition": "exempt",
+                "reason": "\u7f51\u7edc\u54cd\u5e94\u89e3\u6790"
+            },
+            {
+                "file": "skills/08\u767d\u6a21\u9884\u6f14SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
+                "point": "70",
+                "disposition": "exempt",
+                "reason": "SKILL \u81ea\u5e26\u811a\u672c"
+            },
+            {
+                "file": "skills/08\u767d\u6a21\u9884\u6f14SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
+                "point": "468",
+                "disposition": "exempt",
+                "reason": "SKILL \u81ea\u5e26\u811a\u672c"
+            },
+            {
+                "file": "skills/imagegen/scripts/image_gen.py",
+                "point": "471",
+                "disposition": "exempt",
+                "reason": "SKILL \u81ea\u5e26\u811a\u672c"
+            },
+            {
+                "file": "skills/short-drama-storyboard/scripts/storyboard_check.py",
+                "point": "146",
+                "disposition": "exempt",
+                "reason": "SKILL \u81ea\u5e26\u811a\u672c"
+            },
+            {
+                "file": "skills/short-drama-storyboard/scripts/storyboard_check.py",
+                "point": "168",
+                "disposition": "exempt",
+                "reason": "SKILL \u81ea\u5e26\u811a\u672c"
+            },
+            {
+                "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
+                "point": "136",
+                "disposition": "exempt",
+                "reason": "SKILL \u81ea\u5e26\u811a\u672c"
+            },
+            {
+                "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
+                "point": "160",
+                "disposition": "exempt",
+                "reason": "SKILL \u81ea\u5e26\u811a\u672c"
+            },
+            {
+                "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
+                "point": "167",
+                "disposition": "exempt",
+                "reason": "SKILL \u81ea\u5e26\u811a\u672c"
+            },
+            {
+                "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
+                "point": "190",
+                "disposition": "exempt",
+                "reason": "SKILL \u81ea\u5e26\u811a\u672c"
+            }
+        ]
+    },
+    "\u8986\u76d6\u7387\u5ba1\u8ba121": {
+        "count": 9,
+        "baseline_pending": 9,
+        "items": [
+            {
+                "file": "api_endpoints.py",
+                "point": "47",
+                "disposition": "pending",
+                "reason": "\u6b63\u5f0f\u7f51\u7edc\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u662f\u5426\u5e94\u7ecf platform_tools"
+            },
+            {
+                "file": "asset_thumbs.py",
+                "point": "505",
+                "disposition": "pending",
+                "reason": "\u6b63\u5f0f\u5e73\u53f0\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u9002\u914d\u8fb9\u754c"
+            },
+            {
+                "file": "log_maintenance.py",
+                "point": "120",
+                "disposition": "pending",
+                "reason": "\u7ef4\u62a4\u670d\u52a1\u76f4\u63a5\u8fdb\u7a0b\u8c03\u7528\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "model_pool.py",
+                "point": "538",
+                "disposition": "pending",
+                "reason": "\u6a21\u578b\u8bf7\u6c42\u5e73\u53f0\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u8def\u7531\u8fb9\u754c"
+            },
+            {
+                "file": "model_pool.py",
+                "point": "566",
+                "disposition": "pending",
+                "reason": "\u6a21\u578b\u8bf7\u6c42\u5e73\u53f0\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u8def\u7531\u8fb9\u754c"
+            },
+            {
+                "file": "native_asset_codec.py",
+                "point": "33",
+                "disposition": "pending",
+                "reason": "\u539f\u751f\u8d44\u6e90\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u5e73\u53f0\u9002\u914d\u8fb9\u754c"
+            },
+            {
+                "file": "pet_test_service.py",
+                "point": "72",
+                "disposition": "pending",
+                "reason": "\u670d\u52a1\u8fdb\u7a0b\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u662f\u5426\u6b63\u5f0f\u8d44\u6e90\u76ee\u6807"
+            },
+            {
+                "file": "stage_layout.py",
+                "point": "411",
+                "disposition": "pending",
+                "reason": "\u9636\u6bb5\u5e03\u5c40\u5e73\u53f0\u8c03\u7528\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            },
+            {
+                "file": "storage_maintenance.py",
+                "point": "22",
+                "disposition": "pending",
+                "reason": "\u56de\u6536\u670d\u52a1\u5e73\u53f0\u8c03\u7528\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            }
+        ]
+    },
+    "\u8986\u76d6\u7387\u5ba1\u8ba124": {
+        "count": 27,
+        "baseline_pending": 27,
+        "items": [
+            {
+                "file": "asset_auto_batch_service.py",
+                "point": "26",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "asset_skill_batch.py",
+                "point": "46",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "codex_tasks.py",
+                "point": "134",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "engine.py",
+                "point": "224",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_batch.py",
+                "point": "86",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_comfy.py",
+                "point": "111",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_comfy.py",
+                "point": "190",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_comfy.py",
+                "point": "391",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_comfy.py",
+                "point": "469",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_comfy.py",
+                "point": "470",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_comfy.py",
+                "point": "504",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_comfy.py",
+                "point": "505",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_comfy.py",
+                "point": "629",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_comfy.py",
+                "point": "726",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_comfy.py",
+                "point": "741",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "keyframe_model_service.py",
+                "point": "14",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "local_video.py",
+                "point": "209",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "qwen_setup.py",
+                "point": "170",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "script_contract.py",
+                "point": "1098",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "script_contract.py",
+                "point": "1104",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "script_contract.py",
+                "point": "1136",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "stage_models.py",
+                "point": "41",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "storyboard_adoption_contract.py",
+                "point": "33",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "white_model.py",
+                "point": "176",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "white_model.py",
+                "point": "24",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "workflow_settings.py",
+                "point": "585",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            },
+            {
+                "file": "workflow_settings.py",
+                "point": "590",
+                "disposition": "pending",
+                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+            }
+        ]
+    },
+    "\u8986\u76d6\u7387\u5ba1\u8ba126": {
+        "count": 1,
+        "baseline_pending": 1,
+        "items": [
+            {
+                "file": "api_endpoints.py",
+                "point": "47",
+                "disposition": "pending",
+                "reason": "\u6a21\u578b\u8def\u7531\u5916\u7684\u6b63\u5f0f\u7f51\u7edc\u8c03\u7528\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
+            }
+        ]
+    }
+}

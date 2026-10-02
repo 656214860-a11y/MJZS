@@ -5,6 +5,14 @@
 接线这一类改动最容易「模块写好了却没接上」：这里既跑真界面（折叠区真的能展开、真的落盘），
 也用一条源码锁钉住 load()／finalize() 里那两行调用。断言全在临时项目里，绝不碰真安装目录。
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, sys, tempfile, unittest
 from unittest import mock
 from pathlib import Path
@@ -33,7 +41,7 @@ class _Harness(unittest.TestCase):
 
     def desktop(self, proj):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None

@@ -443,7 +443,7 @@ class CellImages:
     """
 
     def __init__(self, tree, columns, provider, hover=None, background='#ffffff', forward=None, plain=None,
-                 zoom=None):
+                 zoom=None, view_refresh_delay=0):
         self.tree = tree
         self.columns = tuple(columns)
         self.provider = provider                 # (row, column) → (image, text) 或 None
@@ -461,16 +461,78 @@ class CellImages:
         self.zoom_pending = None
         self.zoom_watch = None                   # 第 60 期第 5 条：盯着指针的那个定时器
         self.zoom_at = None                      # 上一次看到的指针（没动过就不必再判一遍）
+        self.view_refresh_delay = max(0, int(view_refresh_delay or 0))
+        self._view_refresh_id = None
+        self._initial_refresh_id = None
+        self._initial_map_bind = None
+        self._initial_mapped = False
         # `after` 归整套 Tcl 解释器管理。根窗口直接销毁时，子 Treeview 的 <Destroy>
         # 绑定可能已来不及撤掉 Python 命令；同时监听顶层窗口，先于子控件销毁取消它。
         self._zoom_owner = tree.winfo_toplevel()
         if self.plain is not None:
             self.plain.cover(*self.columns)
-        watch_view(tree, self.refresh)           # 第 55 期第 1 条：视图一变就跟着重排
+        # 视图滚动时，留在可视区的格子仍是同一张图层；只需重摆位置，不必再问一次
+        # provider（资产缩略图会因此重复 stat／缓存查询）。显式 refresh() 仍全量重读，
+        # 以便调用方在文件或数据变更后立即撤掉／替换覆盖层。
+        callback = self._schedule_view_refresh if self.view_refresh_delay else \
+            (lambda: self.refresh(reuse_existing=True))
+        watch_view(tree, callback)
         tree.bind('<Destroy>', self.destroy, add='+')
         # 顶层销毁时 Tk 会先依次销毁它的子控件；不把 event 原样转发，确保
         # 放大图 Label 先收到销毁事件时也能立即撤掉悬挂的 watcher。
         self._zoom_owner.bind('<Destroy>', lambda event: self.destroy(), add='+')
+
+    def _schedule_view_refresh(self):
+        """连续滚动时合并图片覆盖层重排；表格本体不等待这份装饰层。"""
+        if self._view_refresh_id is not None:
+            try:
+                self.tree.after_cancel(self._view_refresh_id)
+            except Exception:
+                pass
+            self._view_refresh_id = None
+
+        def run():
+            self._view_refresh_id = None
+            self.refresh(reuse_existing=True)
+
+        try:
+            self._view_refresh_id = self.tree.after(self.view_refresh_delay, run)
+        except Exception:
+            self._view_refresh_id = None
+
+    def schedule_initial_refresh(self):
+        """首帧映射完成后补一次覆盖层刷新，避免未取得 bbox 时留下空白。"""
+        if self._initial_mapped or self._initial_refresh_id is not None:
+            return self._initial_refresh_id
+
+        def mapped(event):
+            if event.widget is not self.tree or self._initial_mapped:
+                return None
+            self._initial_mapped = True
+            if self._initial_refresh_id is not None:
+                try:
+                    self.tree.after_cancel(self._initial_refresh_id)
+                except Exception:
+                    pass
+                self._initial_refresh_id = None
+            self.refresh()
+            return None
+
+        try:
+            self._initial_map_bind = self.tree.bind('<Map>', mapped, add='+')
+        except Exception:
+            self._initial_map_bind = None
+
+        def run():
+            self._initial_refresh_id = None
+            if not self._initial_mapped:
+                self.refresh()
+
+        try:
+            self._initial_refresh_id = self.tree.after_idle(run)
+        except Exception:
+            self._initial_refresh_id = None
+        return self._initial_refresh_id
 
     # ── 格子里的文字（第 55 期第 3 条）：盖上收走、撤掉写回 ─────────────────
     def text_at(self, row, column):
@@ -815,6 +877,14 @@ class CellImages:
         每次重排就只碰十几行（实测 999 行的表从 1001 次 bbox 降到 8 次）。
         候选段一个都没验出来时退回老做法（整表扫一遍）：宁可慢一拍，也不许「一格都不盖」。
         """
+        return tuple(row for row, _bounds in self.visible_layout())
+
+    def visible_layout(self):
+        """返回同屏行及各列的格子坐标。
+
+        ttk.Treeview 的行高固定。滚动时先问一个锚点格，再由行高推导其余可见行，避免每帧为
+        每一行、每一列重复 Tcl ``bbox`` 往返；遇到无法取得锚点的非标准布局则回退精确查询。
+        """
         tree = self.tree
         children = tree.get_children()
         if not children:
@@ -822,43 +892,91 @@ class CellImages:
         try:
             first, last = tree.yview()
         except Exception:
-            return tuple(children)
+            return self._exact_visible_layout(tuple(children))
         total = len(children)
         start = int(first * total)
         span = int((last - first) * total) + 3
-        rows = children[max(0, start - 1):start + span]
-        visible = ()
-        for column in (*self.columns, '#0'):
-            visible = tuple(row for row in rows if tree.bbox(row, column))
-            if visible:
+        rows = tuple(children[max(0, start - 1):start + span])
+        columns = self.columns or ('#0',)
+        anchor_index = None
+        anchor_bounds = None
+        for index, row in enumerate(rows):
+            bounds = tree.bbox(row, columns[0])
+            if bounds:
+                anchor_index, anchor_bounds = index, bounds
                 break
-        return visible or tuple(children)
+        if anchor_bounds is None:
+            return self._exact_visible_layout(rows or tuple(children))
+        column_bounds = {columns[0]: anchor_bounds}
+        for column in columns[1:]:
+            bounds = tree.bbox(rows[anchor_index], column)
+            if not bounds:
+                return self._exact_visible_layout(rows)
+            column_bounds[column] = bounds
+        row_height = int(anchor_bounds[3])
+        if row_height <= 0:
+            return self._exact_visible_layout(rows)
+        limit = int(tree.winfo_height())
+        layout = []
+        for offset, row in enumerate(rows[anchor_index:]):
+            delta = offset * row_height
+            bounds = {column: (box[0], box[1] + delta, box[2], box[3])
+                      for column, box in column_bounds.items()}
+            if bounds[columns[0]][1] >= limit:
+                break
+            layout.append((row, bounds))
+        return tuple(layout)
 
-    def refresh(self, event=None):
+    def _exact_visible_layout(self, rows):
+        """非标准 Treeview 的保守回退：逐格询问，正确性优先于少见路径的性能。"""
+        layout = []
+        for row in rows:
+            bounds = {column: self.tree.bbox(row, column) for column in self.columns}
+            if any(bounds.values()):
+                layout.append((row, bounds))
+        return tuple(layout)
+
+    def refresh(self, event=None, *, reuse_existing=False):
         """把可见行重排一遍：该盖的盖上、不该盖的撤掉；返回这次盖住的那几格。"""
         if not self.tree.winfo_exists():
             return set()
         if self.zoom_key is not None:
             self.zoom_hide()                     # 第 57 期第 5 条：格子挪了，放大图那一份跟着作废
         covered = set()
-        for row in self.visible_rows():
+        for row, row_bounds in self.visible_layout():
             background = self.background(row) if callable(self.background) else self.background
             for column in self.columns:
-                bounds = self.tree.bbox(row, column)
-                value = self.provider(row, column) if bounds else None
+                bounds = row_bounds.get(column)
+                key = (row, column)
+                label = self.labels.get(key)
+                reused = False
+                if reuse_existing and bounds and label is not None:
+                    try:
+                        if label.winfo_exists():
+                            value = (label.cget('image'), label.cget('text'))
+                            reused = True
+                        else:
+                            value = None
+                    except Exception:
+                        value = None
+                else:
+                    value = self.provider(row, column) if bounds else None
                 if value is None:
-                    self.hide((row, column))
+                    self.hide(key)
                     continue
                 image, text = value
-                label = self.label_for((row, column))
-                label.configure(image=image, text=text or '',
-                                compound='left' if text else 'none',
-                                anchor='w' if text else 'center',
-                                background=background)
+                label = self.label_for(key)
+                if not reused:
+                    label.configure(image=image, text=text or '',
+                                    compound='left' if text else 'none',
+                                    anchor='w' if text else 'center',
+                                    background=background)
                 label.place(x=bounds[0], y=bounds[1], width=bounds[2], height=bounds[3])
-                label.lift()
-                covered.add((row, column))
-                self.blank(row, column)
+                if not reused:
+                    label.lift()
+                covered.add(key)
+                if not reused:
+                    self.blank(row, column)
         for key in list(self.labels):
             if key not in covered:
                 self.hide(key)
@@ -873,6 +991,18 @@ class CellImages:
     def destroy(self, event=None):
         if event is not None and getattr(event, 'widget', None) not in (self.tree, self._zoom_owner):
             return
+        if self._view_refresh_id is not None:
+            try:
+                self.tree.after_cancel(self._view_refresh_id)
+            except Exception:
+                pass
+            self._view_refresh_id = None
+        if self._initial_refresh_id is not None:
+            try:
+                self.tree.after_cancel(self._initial_refresh_id)
+            except Exception:
+                pass
+            self._initial_refresh_id = None
         self.zoom_hide()
         if self.zoom_label is not None:
             try:

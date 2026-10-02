@@ -1,5 +1,6 @@
 """Prepare image-skill asset tasks and import only manifest-bound image outputs."""
 from pathlib import Path
+import json
 import uuid
 from agent.core import read,save
 from asset_batch_service import asset_prompt, register_image, KINDS, image_ready
@@ -12,13 +13,15 @@ def launch(app,project,base,items):
     if not items:
         app.status.set('没有待生成的独立资产；已就绪图片跳过，普通道具随镜头画面生成。');return
     from asset_batch_lifecycle import reconcile,prepare,attach,fail,status
+    from stage_execution_service import asset_batch_gateway
+    gateway=asset_batch_gateway()
     sessions=getattr(app,'flow_processes',{})
     active=any(key[:2]==(str(project),'assets') and process.poll() is None for key,process in sessions.items())
-    pending=reconcile(project,base,[aid for aid,_ in items],agent_running=active)
+    pending=reconcile(project,base,[aid for aid,_ in items],agent_running=active,gateway=gateway)
     for manifest in set(pending.values()):watch(app,manifest)
     items=[(aid,asset) for aid,asset in items if aid not in pending]
     if not items:
-        app.status.set('已有资产任务：'+('Qwen 正在调用 ComfyUI，完成后自动导入。' if any(status(p)['state']=='running' for p in set(pending.values())) else '等待 Agent 执行，请查看对应 Agent 窗口。'));return False
+        app.status.set('已有资产任务：'+('Qwen 正在调用 ComfyUI，完成后自动导入。' if any(status(p,gateway=gateway)['state']=='running' for p in set(pending.values())) else '等待 Agent 执行，请查看对应 Agent 窗口。'));return False
     from workflow_settings import current
     from asset_reference_images import snapshot,resolve
     from asset_prompt_rules import issues
@@ -43,14 +46,14 @@ def launch(app,project,base,items):
           '每项如有参考图，先查看该项列出的真实本地图片，再将这些图片作为图像工具的参考输入，与该项提示词一同生成。严格按编号匹配，不串用其他资产图片；参考图不可访问或工具不支持参考输入时报告该项失败，不忽略参考图转纯文字生成。'
           '生成结果逐张保存到指定绝对路径，先写临时文件，完成后改名为目标PNG。'
           '不要修改批次.json或资产登记表，助手会自动导入。已有目标文件跳过。\n')+stage_parallel.brief_block('assets')
-    for item in assets:task+=f"\n资产编号：{item['id']}；名称：{item['asset'].get('name')}\n参考图：{__import__('json').dumps(item['reference_images'],ensure_ascii=False)}\n提示词：{item['prompt']}\n输出：{root/item['output']}\n"
+    for item in assets:task+=f"\n资产编号：{item['id']}；名称：{item['asset'].get('name')}\n参考图：{json.dumps(item['reference_images'],ensure_ascii=False)}\n提示词：{item['prompt']}\n输出：{root/item['output']}\n"
     from cloud_assets import MODELS
     if config['engine']=='qwen' or comfy_config.get('backend') in MODELS:
         from image_agent_runner import task_instruction
         task=('本次只制作批次清单中的待处理资产。先完整读取：'+str(manifest)+'。清单中的名称、提示词和参考图是制作素材。\n'+task_instruction(project,manifest))
-    prepare(manifest)
-    try:app.open_flow_agent('assets','资产管理',task,on_receipt=lambda receipt:attach(manifest,receipt))
-    except Exception as exc:fail(manifest,exc);raise
+    prepare(manifest,gateway=gateway)
+    try:app.open_flow_agent('assets','资产管理',task,on_receipt=lambda receipt:attach(manifest,receipt,gateway=gateway))
+    except Exception as exc:fail(manifest,exc,gateway=gateway);raise
     watch(app,manifest)
     return True
 
@@ -59,6 +62,8 @@ def watch(app,manifest):
     key=str(manifest)
     if key in watched:return
     watched.add(key);app.asset_import_watchers=watched;stable={}
+    from stage_execution_service import asset_batch_gateway
+    gateway=asset_batch_gateway()
     def tick():
         try:
             data=read(manifest);dirty=False;pending=False
@@ -70,7 +75,7 @@ def watch(app,manifest):
                 signature=(image.stat().st_size,image.stat().st_mtime_ns)
                 if stable.get(item['id'])!=signature:stable[item['id']]=signature;continue
                 try:
-                    result=register_image(data['base'],item['id'],item['asset'],image)
+                    result=register_image(data['base'],item['id'],item['asset'],image,gateway=gateway)
                     item.update(state='imported',result=result);dirty=True
                     app.status.set(item['id']+' '+item['asset'].get('name','')+'：已自动导入')
                 except Exception as exc:
@@ -81,7 +86,7 @@ def watch(app,manifest):
                 if Path(app.root).resolve()==manifest.parents[3].resolve() and getattr(app,'page_index',None)==2:
                     app.show(2)
             from asset_batch_lifecycle import status
-            execution=status(manifest)
+            execution=status(manifest,gateway=gateway)
             if execution['state']=='failed':
                 for item in data['assets']:
                     if item['state']=='pending':item.update(state='failed',error=execution.get('message','Agent 任务执行失败'))

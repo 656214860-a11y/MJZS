@@ -6,6 +6,14 @@ Tkinter 销毁窗口时会删除 after 回调对应的 Tcl 命令，却不取消
 invalid command name "…poll" ("after" script)。
 运行：python test_timers.py
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, sys, tempfile, time, unittest
 from pathlib import Path
 
@@ -54,7 +62,7 @@ class WindowTimerTests(unittest.TestCase):
 
     def test_stop_removes_pending_timer(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win = self.root()
         popup = self.tk.Toplevel(win)
         stop = tk_timers.repeat(popup, 5000, lambda: None)
@@ -65,7 +73,7 @@ class WindowTimerTests(unittest.TestCase):
 
     def test_repeat_keeps_firing_until_window_destroyed(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win = self.root()
         popup = self.tk.Toplevel(win)
         hits = []
@@ -85,7 +93,7 @@ class WindowTimerTests(unittest.TestCase):
     def test_batch_window_cancels_its_timer_on_close(self):
         """资产批量窗口关掉后，它的 250 毫秒轮询定时器必须一起取消。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -120,7 +128,7 @@ class WindowTimerTests(unittest.TestCase):
         """install_window_placement 在主窗口排了一次 after_idle(place)；窗口在 idle 到期前被销毁时
         必须一起取消，否则控制台报 invalid command name "…<lambda>" ("after" script)。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import ui_theme
         win = self.root()
         ui_theme.install_window_placement(win)
@@ -176,7 +184,7 @@ class ChangeWatcherTests(unittest.TestCase):
 
     def test_refreshes_after_two_equal_observations(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win = self.root(); popup = self.tk.Toplevel(win)
         state = {"value": 1}; hits = []
         tk_timers.watch_changes(popup, lambda: state["value"], lambda: hits.append(state["value"]), interval=20)
@@ -190,7 +198,7 @@ class ChangeWatcherTests(unittest.TestCase):
 
     def test_declined_refresh_keeps_retrying(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win = self.root(); popup = self.tk.Toplevel(win)
         state = {"value": 1}; calls = []
 
@@ -205,7 +213,7 @@ class ChangeWatcherTests(unittest.TestCase):
 
     def test_stops_when_window_destroyed(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win = self.root(); popup = self.tk.Toplevel(win)
         state = {"value": 1}; hits = []
         tk_timers.watch_changes(popup, lambda: state["value"], lambda: hits.append(1), interval=20)
@@ -220,7 +228,7 @@ class ChangeWatcherTests(unittest.TestCase):
 
     def test_page_watchers_delegate_to_shared_helper(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import keyframe_import, storyboard_files
         seen = []
         original_sync = tk_timers.watch_changes

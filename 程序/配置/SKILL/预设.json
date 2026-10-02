@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "stages": {
+    "assets": {
+      "资产本地模型": {
+        "model": "本地 FLUX.2 Klein / 自定义工作流",
+        "skills": [
+          "asset-auto-fill"
+        ]
+      }
+    },
+    "script": {
+      "最强编剧模型": {
+        "model": "claude-opus-5.5",
+        "skills": []
+      },
+      "测试模型": {
+        "model": "deepseek-v4-flash",
+        "skills": [
+          "screenplay-production-line"
+        ]
+      }
+    }
+  }
+}

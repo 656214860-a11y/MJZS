@@ -13,6 +13,14 @@
 
 运行：python test_row_targets.py
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, sys, tempfile, time, unittest
 from pathlib import Path
 
@@ -206,7 +214,7 @@ class PageHelpers(unittest.TestCase):
 
     def page(self, td, frames=False):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import tkinter as tk
         import desktop as desktop_module
         from desktop import Desktop
@@ -285,7 +293,7 @@ class PrevisPageTests(PageHelpers):
             seen = []
             original = previs_routing.dispatch
             # 要在 show() 以前换掉：页面 show 的那一下就把这个名字绑进闭包了。
-            previs_routing.dispatch = lambda project, source, ids, state, monitor=False, start_complex=None: (
+            previs_routing.dispatch = lambda project, source, ids, state, monitor=False, start_complex=None, *, publish: (
                 seen.append((list(ids), monitor)) or {"medium": []})
             self.addCleanup(setattr, previs_routing, "dispatch", original)
             d, win, proj = self.page(td)

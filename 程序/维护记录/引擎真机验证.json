@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "updated": "2026-09-24T14:58:33",
+  "engines": {
+    "claude": {
+      "engine": "claude",
+      "at": "2026-09-24T14:58:33",
+      "located": null,
+      "tried": [
+        "PATH 上的 claude.exe",
+        "C:\\Users\\LAIBIAO\\.local\\bin\\claude.exe"
+      ],
+      "version": null,
+      "help_code": null,
+      "flags": {},
+      "missing": [],
+      "session_switches": [
+        "--session-id",
+        "--resume",
+        "--name"
+      ],
+      "one_shot": {},
+      "ran": false,
+      "switches": [
+        "-p",
+        "--output-format",
+        "--permission-mode",
+        "--add-dir"
+      ],
+      "model": "",
+      "argv": [
+        "claude.exe",
+        "-p",
+        "--output-format",
+        "json",
+        "--permission-mode",
+        "auto",
+        "--add-dir",
+        "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\engine_probe_x665q_ob"
+      ],
+      "verdict": "not-installed"
+    },
+    "codex": {
+      "engine": "codex",
+      "at": "2026-09-24T03:28:04",
+      "located": "C:\\Users\\LAIBIAO\\AppData\\Local\\OpenAI\\Codex\\bin\\8e5b6932251c2c1c\\codex.exe",
+      "tried": [
+        "PATH 上的 codex.exe"
+      ],
+      "version": "codex-cli 0.153.4",
+      "help_code": 0,
+      "flags": {
+        "--skip-git-repo-check": true,
+        "--sandbox": true,
+        "--cd": true,
+        "--add-dir": true,
+        "--color": true,
+        "-o": true
+      },
+      "missing": [],
+      "session_switches": [],
+      "one_shot": {
+        "ok": true,
+        "code": 0,
+        "kind": "report",
+        "keys": [],
+        "missing": [],
+        "note": "",
+        "reply": "收到"
+      },
+      "ran": true,
+      "switches": [
+        "--skip-git-repo-check",
+        "--sandbox",
+        "--cd",
+        "--add-dir",
+        "--color",
+        "-o"
+      ],
+      "model": "",
+      "argv": [
+        "C:\\Users\\LAIBIAO\\AppData\\Local\\OpenAI\\Codex\\bin\\8e5b6932251c2c1c\\codex.exe",
+        "exec",
+        "--skip-git-repo-check",
+        "--sandbox",
+        "workspace-write",
+        "--cd",
+        "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\engine_probe_9ud4h985",
+        "--add-dir",
+        "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\engine_probe_9ud4h985",
+        "--color",
+        "never",
+        "-o",
+        "C:\\Users\\LAIBIAO\\AppData\\Local\\Temp\\engine_probe_9ud4h985\\report.md",
+        "-"
+      ],
+      "help_argv": [
+        "C:\\Users\\LAIBIAO\\AppData\\Local\\OpenAI\\Codex\\bin\\8e5b6932251c2c1c\\codex.exe",
+        "exec",
+        "--help"
+      ],
+      "verdict": "verified"
+    }
+  }
+}

@@ -31,11 +31,48 @@ COMBOBOX_FIELD_BACKGROUND = COLORS["background_card"]
 COMBOBOX_FOREGROUND = COLORS["text_primary"]
 COMBOBOX_ARROW_COLOR = COLORS["text_secondary"]
 
+# 输入框的视觉与状态只由 ui_widgets.LineInput / TextArea 消费；页面只传内容、
+# 宽高与领域校验，不能重新拼字体、颜色、边框或占位态。
+INPUT_FONT = FONTS["body"]
+INPUT_FOREGROUND = COLORS["text_primary"]
+INPUT_PLACEHOLDER_FOREGROUND = COLORS["text_secondary"]
+INPUT_BACKGROUND = COLORS["background_card"]
+INPUT_BORDER = COLORS["border_default"]
+INPUT_ERROR_BORDER = COLORS["danger"]
+INPUT_PADDING_X = SPACING["md"]
+INPUT_PADDING_Y = SPACING["sm"]
+INPUT_BORDER_WIDTH = 1
+
 # 弹窗视觉规格只由 ui_widgets 的 BaseDialog 系列消费；业务页不得另行设置标题、内容区或按钮区样式。
 DIALOG_TITLE_FONT = FONTS["title"]
 DIALOG_CONTENT_PADDING = SPACING["lg"]
 DIALOG_ACTION_HEIGHT = SPACING["xl"]
 DIALOG_ACTION_GAP = SPACING["sm"]
+
+# Tooltip 的出现节奏和视觉只由 ui_widgets.Tooltip 消费；页面只提供说明文本，
+# 不得各自创建无边框窗口或复制 Enter/Leave 的延迟与销毁逻辑。
+TOOLTIP_DELAY_MS = 400
+TOOLTIP_OFFSET = SPACING["sm"]
+TOOLTIP_PADDING = (SPACING["sm"], SPACING["xs"])
+TOOLTIP_FONT = FONTS["caption"]
+TOOLTIP_FOREGROUND = COLORS["text_primary"]
+TOOLTIP_BACKGROUND = COLORS["background_card"]
+TOOLTIP_BORDER = COLORS["border_default"]
+TOOLTIP_BORDER_WIDTH = 1
+
+# TScrollbar 的视觉只由 ui_theme.apply() 消费；页面只建立标准 ttk.Scrollbar。
+SCROLLBAR_THUMB = "#C6D2E1"
+SCROLLBAR_THUMB_ACTIVE = "#9FB4CC"
+SCROLLBAR_TROUGH = COLORS["background_primary"]
+SCROLLBAR_ARROW = "#52677F"
+SCROLLBAR_BORDER_WIDTH = 0
+
+# 表格视觉规格只由 ui_widgets.DataTable 消费；业务页只给列定义与数据，
+# 不得各自复制 Treeview 样式、滚动条或空态。
+TABLE_HEADER_FONT = FONTS["body"]
+TABLE_ROW_FONT = FONTS["body"]
+TABLE_ROW_HEIGHT = SPACING["xl"]
+TABLE_EMPTY_PADDING = SPACING["lg"]
 
 # 三类用户可见文字只在 ui_widgets 的文字组件中消费；页面不再各自拼字体、颜色和折行规格。
 TEXT_HINT = {

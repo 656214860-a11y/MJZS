@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 """视频页切换镜头时的提示词自动保存回归。运行：python test_video_ui.py"""
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, sys, tempfile, unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -46,7 +54,7 @@ class FlushPromptTests(unittest.TestCase):
 
     def make_app(self, td):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         proj = make_project(td)
         win = self.tk.Tk(); win.withdraw()
         from ui_theme import apply as _apply
@@ -119,7 +127,7 @@ class ActionButtonStateTests(unittest.TestCase):
 
     def make_app(self, td):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         proj = make_project(td)
         win = self.tk.Tk(); win.withdraw()
         from ui_theme import apply as _apply
@@ -216,7 +224,7 @@ class AutoSubmitTests(unittest.TestCase):
 
     def make_app(self, td, auto=False):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         proj = make_project(td)
         # 自动提交只对云端后端生效（本地 ComfyUI 不弹确认框），所以这里先切成联网＋万相。
         cfg = json.loads((proj / "config.json").read_text(encoding="utf-8"))
@@ -363,7 +371,7 @@ class AssetCheckTableTests(unittest.TestCase):
 
     def make_app(self, td, cloud=True, select=True):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         proj = make_project(td)
         cfg = json.loads((proj / "config.json").read_text(encoding="utf-8"))
         if cloud:
@@ -632,7 +640,7 @@ class FooterLayoutTests(unittest.TestCase):
 
     def make_app(self, td, prompt_stage=None):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         proj = make_project(td)
         cfg = json.loads((proj / "config.json").read_text(encoding="utf-8"))
         cfg.update(live_enabled=True, video_backend="wan", cloud_provider="wan")
@@ -786,7 +794,7 @@ class SharedProgressLineTests(unittest.TestCase):
 
     def make_app(self, td, cloud):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         proj = make_project(td)
         cfg = json.loads((proj / "config.json").read_text(encoding="utf-8"))
         if cloud:
@@ -913,7 +921,7 @@ class VideoHomePageTests(unittest.TestCase):
 
     def test_the_choose_page_hides_the_storyboard_picker(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -969,7 +977,7 @@ class VideoHomeLeadTests(unittest.TestCase):
 
     def test_the_lead_line_binds_the_cloud_phrase_together(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -1042,7 +1050,7 @@ class VideoEntryTests(unittest.TestCase):
 
     def test_the_first_click_shows_the_choose_page(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         with tempfile.TemporaryDirectory() as td:
             d, win, proj = self.page(td)
@@ -1054,7 +1062,7 @@ class VideoEntryTests(unittest.TestCase):
 
     def test_the_next_click_goes_straight_back_to_the_chosen_side(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         with tempfile.TemporaryDirectory() as td:
             d, win, proj = self.page(td)
@@ -1068,7 +1076,7 @@ class VideoEntryTests(unittest.TestCase):
 
     def test_the_way_back_to_the_choose_page_still_works(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         with tempfile.TemporaryDirectory() as td:
             d, win, proj = self.page(td)
@@ -1084,7 +1092,7 @@ class VideoEntryTests(unittest.TestCase):
     def test_a_fresh_start_still_asks_first(self):
         """上次记着「线上」也一样：新的一次启动，第一次点还是要先问选哪一侧。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, win, proj = self.page(td)
             prefs = self.prefs(proj)
@@ -1096,7 +1104,7 @@ class VideoEntryTests(unittest.TestCase):
     def test_manual_prompt_stage_config_opens_prompt_render_stage(self):
         """线上/本地共用工作台的提示词按钮必须配置分镜定稿，而非初步分镜。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import skill_panel
         with tempfile.TemporaryDirectory() as td:
             d, win, _proj = self.page(td)
@@ -1162,7 +1170,7 @@ class PromptBoxHeightTests(unittest.TestCase):
 
     def test_an_empty_box_only_keeps_the_minimum(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, win = self.page(td)
             self.assertEqual(int(d.video.prompt.cget("height")), 3,
@@ -1170,7 +1178,7 @@ class PromptBoxHeightTests(unittest.TestCase):
 
     def test_more_words_make_a_taller_box(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, win = self.page(td)
             short = self.write(d, win, "推近，主角回头")
@@ -1180,7 +1188,7 @@ class PromptBoxHeightTests(unittest.TestCase):
 
     def test_a_very_long_prompt_stops_at_the_backstop(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, win = self.page(td)
             rows = self.write(d, win, "推近，主角回头，灯光扫过脸" * 300)
@@ -1190,7 +1198,7 @@ class PromptBoxHeightTests(unittest.TestCase):
     def test_the_whole_prompt_shows_without_an_inner_scrollbar(self):
         """第 58 期第 1 条：提示词有多少就摆多少行，不在框里面留滚动条。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, win = self.page(td)
             rows = self.write(d, win, "\n".join("镜头 %d：主角沿走廊往前走" % i for i in range(1, 15)))
@@ -1199,7 +1207,7 @@ class PromptBoxHeightTests(unittest.TestCase):
     def test_the_log_grows_with_its_content(self):
         """第 58 期第 1 条：动态日志跟着日志内容长高（地方够的时候）。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, win = self.page(td)
             v = d.video
@@ -1219,7 +1227,7 @@ class PromptBoxHeightTests(unittest.TestCase):
     def test_the_log_yields_to_the_prompt(self):
         """第 58 期第 1 条：地方先给提示词；提示词一长，日志就退回最小那几行。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, win = self.page(td)
             v = d.video
@@ -1235,7 +1243,7 @@ class PromptBoxHeightTests(unittest.TestCase):
 
     def test_clearing_it_shrinks_back(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, win = self.page(td)
             self.write(d, win, "推近" * 2000)
@@ -1244,7 +1252,7 @@ class PromptBoxHeightTests(unittest.TestCase):
     def test_switching_shots_refits_the_box(self):
         """列表里换个镜头会把提示词整段换掉，高度也得跟着换。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         source = (Path(PROGRAM) / "app.py").read_text(encoding="utf-8")
         self.assertIn("def fit_prompt_height(self):", source)
         self.assertIn("self.prompt.bind('<<Modified>>',self.prompt_edited)", source)
@@ -1265,7 +1273,7 @@ class PromptAgentLabelTests(unittest.TestCase):
             from tkinter import ttk
             from app import App
         except Exception:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             win = tk.Tk(); win.withdraw()
@@ -1291,7 +1299,7 @@ class PromptAgentLabelTests(unittest.TestCase):
             from tkinter import ttk
             from app import App
         except Exception:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             win = tk.Tk(); win.withdraw()
@@ -1317,7 +1325,7 @@ class WritingSheetExampleTests(unittest.TestCase):
             import tkinter as tk
             from app import App
         except Exception:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         proj = make_project(self.tmp.name)

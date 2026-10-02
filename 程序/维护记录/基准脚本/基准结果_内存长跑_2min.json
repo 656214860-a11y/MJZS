@@ -1,0 +1,53 @@
+{
+ "minutes": 2.66,
+ "sample_seconds": 30.0,
+ "assets": 300,
+ "rounds": 13,
+ "samples": [
+  {
+   "minute": 0.1,
+   "rss_mb": 51.9,
+   "pagefile_mb": 36.3,
+   "widgets": 86,
+   "thumbs_cached": 6,
+   "thumbs_pending": 0,
+   "rounds": 1
+  },
+  {
+   "minute": 0.67,
+   "rss_mb": 71.2,
+   "pagefile_mb": 47.7,
+   "widgets": 86,
+   "thumbs_cached": 6,
+   "thumbs_pending": 0,
+   "rounds": 7
+  },
+  {
+   "minute": 1.2,
+   "rss_mb": 76.6,
+   "pagefile_mb": 52.9,
+   "widgets": 86,
+   "thumbs_cached": 6,
+   "thumbs_pending": 0,
+   "rounds": 12
+  },
+  {
+   "minute": 2.66,
+   "rss_mb": 76.8,
+   "pagefile_mb": 52.7,
+   "widgets": 86,
+   "thumbs_cached": 6,
+   "thumbs_pending": 0,
+   "rounds": 13
+  }
+ ],
+ "head_avg_mb": 61.5,
+ "mid_avg_mb": 76.6,
+ "tail_avg_mb": 76.8,
+ "peak_mb": 76.8,
+ "peak_minute": 2.66,
+ "delta_mb": 0.2,
+ "slope_mb_per_min": 0.0,
+ "widget_growth": 0,
+ "verdict": "收敛：热身 61.5 → 中段 76.6 → 收尾 76.8 MB（中段到收尾 Δ0.2），后半程斜率 0.000 MB/分钟，控件数 86→86；峰值 76.8 MB（第 2.7 分钟）——没有长跑泄漏"
+}

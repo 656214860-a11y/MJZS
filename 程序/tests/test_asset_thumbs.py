@@ -9,6 +9,14 @@ Round 1 起多两条路：磁盘缓存（private/缩略图）与后台解码进�
 
 运行：python test_asset_thumbs.py
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import os, struct, sys, tempfile, time, unittest, zlib
 from pathlib import Path
 
@@ -120,7 +128,7 @@ class ThumbnailTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         self.win = self.tk.Tk(); self.win.withdraw()
         self.addCleanup(self.win.destroy)
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
@@ -131,6 +139,39 @@ class ThumbnailTests(unittest.TestCase):
         asset_thumbs.forget()
         asset_thumbs.reset_worker()                         # 换了缓存目录，后台进程按新的起
         self.addCleanup(setattr, asset_thumbs, "CACHE_ROOT", original)
+
+    def test_result_poll_checks_a_bounded_batch_of_pending_jobs(self):
+        """长列表滚动时，单个 Tk tick 不能为全部待处理缩略图反复做磁盘检查。"""
+        old_limit = asset_thumbs.RESULTS_PER_TICK
+        old_load = asset_thumbs._load_cached
+        old_worker = asset_thumbs._WORKER
+        old_cursor = asset_thumbs._PENDING_CURSOR
+        self.addCleanup(setattr, asset_thumbs, "RESULTS_PER_TICK", old_limit)
+        self.addCleanup(setattr, asset_thumbs, "_load_cached", old_load)
+        self.addCleanup(setattr, asset_thumbs, "_WORKER", old_worker)
+        self.addCleanup(setattr, asset_thumbs, "_PENDING_CURSOR", old_cursor)
+        asset_thumbs.forget()
+        asset_thumbs.RESULTS_PER_TICK = 2
+        calls = []
+
+        class Worker:
+            def poll(self):
+                return None
+
+        asset_thumbs._WORKER = Worker()
+        for token in ("one", "two", "three"):
+            asset_thumbs._PENDING[token] = {
+                "master": self.win, "path": self.root / (token + ".png"),
+                "size": 36, "stamp": 1, "key": ("root", token), "at": time.monotonic(),
+            }
+
+        def miss(master, token):
+            calls.append(token)
+            return "miss", None
+
+        asset_thumbs._load_cached = miss
+        asset_thumbs.update(self.win)
+        self.assertEqual(len(calls), 2, "一次结果轮询只允许检查固定上限的 pending 项")
         self.addCleanup(asset_thumbs.forget)
         self.addCleanup(asset_thumbs.reset_worker)
 

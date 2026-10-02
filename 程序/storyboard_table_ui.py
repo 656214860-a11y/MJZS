@@ -1,6 +1,6 @@
 """Tk table adapters shared by storyboard picker pages."""
 from datetime import datetime
-from tkinter import ttk
+from ui_widgets import DataTable
 
 from responsive_ui import (
     CHECK_COLUMN_WIDTH, VIEW_PAD, auto_columns, auto_height, cached_fonts,
@@ -11,18 +11,15 @@ from storyboard_catalog_service import content_preview, has_synced_assets
 
 
 def file_table(parent, height=4, selectmode='browse', first_label='文件 / 内容', status_label=None):
-    area=ttk.Frame(parent);area.pack(fill='both',expand=True);area.columnconfigure(0,weight=1);area.rowconfigure(0,weight=1)
     columns=[('file',first_label,240)]
     if status_label:columns.append(('status',status_label,90))
     columns+= [('content','文件内容(点击查看)',240),('time','创建时间',90),('location','项目内位置',160)]
-    tree=ttk.Treeview(area,columns=[c[0] for c in columns],show='tree headings',height=height,selectmode=selectmode)
+    area=DataTable(parent,columns=columns,show='tree headings',height=height,selectmode=selectmode)
+    area.pack(fill='both',expand=True)
+    tree=area.tree
     configure_check_column(tree)
     for col,label,width in columns:
         tree.heading(col,text=label);tree.column(col,width=width,minwidth=60,stretch=True)
-    tree.grid(row=0,column=0,sticky='nsew')
-    scroll=ttk.Scrollbar(area,orient='vertical',command=tree.yview);scroll.grid(row=0,column=1,sticky='ns');tree.configure(yscrollcommand=scroll.set)
-    horizontal=ttk.Scrollbar(area,orient='horizontal',command=tree.xview)
-    horizontal.grid(row=1,column=0,sticky='ew');tree.configure(xscrollcommand=horizontal.set)
     if selectmode=='extended':
         def select_all(event=None):
             tree.selection_set(tree.get_children());return 'break'
@@ -88,3 +85,5 @@ def insert_entries(tree, project, entries, status_of=None, with_sync=False):
         tree.insert('','end',iid=str(path),text='',values=[row.get(column,'') for column in columns],
                     tags=('completed',) if with_sync and synced else ())
     (fit_final_columns if with_sync else fit_file_columns)(tree)
+    table=getattr(tree,'_data_table',None)
+    if table is not None:table.refresh_empty_state()

@@ -2,7 +2,7 @@
 import re
 from pathlib import Path
 
-from agent.core import read, save
+from agent.core import read
 from project_naming import dated_path
 
 PROVIDERS={
@@ -13,19 +13,27 @@ PROVIDERS={
 }
 
 
-def publish_session_config(config_path, config, prefs_path, prefs):
+def _require_gateway(gateway):
+    """L2 的会话配置发布只能使用 L3 注入的正式发布器。"""
+    if not isinstance(gateway, dict) or not callable(gateway.get("publish_json")):
+        raise TypeError("云视频配置发布必须由 L3 注入 gateway")
+    return gateway
+
+
+def publish_session_config(config_path, config, prefs_path, prefs, *, gateway=None):
     """发布已校验的云视频会话配置及项目工作区偏好。"""
-    save(Path(config_path), config)
-    save(Path(prefs_path), prefs)
+    publish = _require_gateway(gateway)["publish_json"]
+    publish(Path(config_path), config)
+    publish(Path(prefs_path), prefs)
 
 
-def publish_workspace_preference(prefs_path, prefs):
+def publish_workspace_preference(prefs_path, prefs, *, gateway=None):
     """发布云视频当前工作区偏好；调用者负责完成路径边界校验。"""
-    save(Path(prefs_path), prefs)
+    _require_gateway(gateway)["publish_json"](Path(prefs_path), prefs)
 
-def publish_studio_config(config_path, config):
+def publish_studio_config(config_path, config, *, gateway=None):
     """发布已由云视频设置页校验过的工作室会话配置。"""
-    save(Path(config_path), config)
+    _require_gateway(gateway)["publish_json"](Path(config_path), config)
 
 def provider_label(config, providers):
     kind=config.get('cloud_provider','wan');url=config.get('base_url','').rstrip('/')

@@ -5,6 +5,14 @@
 （「用户保存后可以新增接口」）；下次打开这一页，保存过的接口直接能在下拉里选到，选回来
 三格（地址／模型／密钥）连同它自己的密钥一起回填。运行：python test_mcp_settings.py
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json
 import os
 import sys
@@ -48,7 +56,7 @@ class SettingsCase(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.config = Path(self.tmp.name) / "prompt_optimizer.json"

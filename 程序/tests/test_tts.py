@@ -15,6 +15,11 @@ os.chdir(HERE)
 import tts_api
 
 
+def _gateway():
+    from agent.core import save, save_bytes
+    return {"publish_json": save, "publish_bytes": save_bytes}
+
+
 class TtsValidateTests(unittest.TestCase):
     def test_valid(self):
         v = tts_api.validate("https://api.openai.com/v1", "tts-1", "alloy", "sk-abc")
@@ -113,11 +118,16 @@ class TtsLengthGuardTests(unittest.TestCase):
 
 
 class TtsFullTrackPublicationTests(unittest.TestCase):
+    def test_publish_requires_l3_gateway(self):
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaisesRegex(TypeError, "L3"):
+                tts_api.publish_full_track(Path(td), 'same-script', b'audio bytes')
+
     def test_publishes_audio_then_idempotence_marker_and_reuses_it(self):
         with tempfile.TemporaryDirectory() as td:
             project = Path(td)
             with patch('tts_api.os.urandom', return_value=b'abc'):
-                path = tts_api.publish_full_track(project, 'same-script', b'audio bytes')
+                path = tts_api.publish_full_track(project, 'same-script', b'audio bytes', gateway=_gateway())
             self.assertEqual(path.read_bytes(), b'audio bytes')
             self.assertEqual(tts_api.reusable_full_track(project, 'same-script'), path)
             self.assertIsNone(tts_api.reusable_full_track(project, 'changed-script'))
@@ -125,10 +135,11 @@ class TtsFullTrackPublicationTests(unittest.TestCase):
     def test_failed_marker_publish_keeps_completed_audio_without_reuse_marker(self):
         with tempfile.TemporaryDirectory() as td:
             project = Path(td)
-            with patch('tts_api.os.urandom', return_value=b'abc'), \
-                 patch.object(tts_api, 'save', side_effect=OSError('磁盘已满')):
+            gateway = _gateway()
+            gateway['publish_json'] = lambda *_args: (_ for _ in ()).throw(OSError('磁盘已满'))
+            with patch('tts_api.os.urandom', return_value=b'abc'):
                 with self.assertRaisesRegex(OSError, '磁盘已满'):
-                    tts_api.publish_full_track(project, 'same-script', b'audio bytes')
+                    tts_api.publish_full_track(project, 'same-script', b'audio bytes', gateway=gateway)
             audio_dir = project / '10配音与字幕' / '音频'
             self.assertEqual((audio_dir / '配音_616263.mp3').read_bytes(), b'audio bytes')
             self.assertFalse((audio_dir / '整段配音.json').exists())
@@ -176,7 +187,7 @@ class TtsLoadKeyTests(unittest.TestCase):
             path = Path(td) / "tts_settings.json"
             with patch.object(tts_api, "settings_path", return_value=path), \
                  patch("model_pool.save_named_key", lambda name, value: seen.append((name, value))):
-                tts_api.save_key("https://api.openai.com/v1", "tts-1", "alloy", "sk-tts")
+                tts_api.save_key("https://api.openai.com/v1", "tts-1", "alloy", "sk-tts", gateway=_gateway())
             stored = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(seen, [(tts_api.KEY_ENV, "sk-tts")])
         self.assertNotIn("encrypted_key", stored)
@@ -252,7 +263,12 @@ class TtsBatchResumeTests(unittest.TestCase):
 
     def test_line_name_keeps_original_format(self):
         self.assertEqual(tts_api.line_name(2, {"shot_id": "SH002", "name": "旁白/角色", "start": 1.5}),
-                         "002_SH002_旁白_角色_1.5s.mp3")
+                          "002_SH002_旁白_角色_1.5s.mp3")
+
+    def test_batch_publication_requires_l3_gateway(self):
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaisesRegex(TypeError, "L3"):
+                tts_api.run_lines(self.lines(1), Path(td), generate=lambda *_args, **_kwargs: b'audio')
 
     def test_fresh_run_writes_manifest_and_counts(self):
         calls = []
@@ -260,7 +276,7 @@ class TtsBatchResumeTests(unittest.TestCase):
             calls.append(text); return b"audio:" + text.encode()
         with tempfile.TemporaryDirectory() as td:
             folder = Path(td)
-            self.assertEqual(tts_api.run_lines(self.lines(3), folder, generate=generate), (3, 0, 0))
+            self.assertEqual(tts_api.run_lines(self.lines(3), folder, generate=generate, gateway=_gateway()), (3, 0, 0))
             self.assertEqual(len(calls), 3)
             manifest = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))
             self.assertEqual([item["state"] for item in manifest], ["ok"] * 3)
@@ -271,8 +287,8 @@ class TtsBatchResumeTests(unittest.TestCase):
             folder = Path(td); manifest = [{"state": "old"}]
             old = folder / "时间轴.json"; old.write_text(json.dumps(manifest), encoding="utf-8")
             line = self.lines(1)[0]
-            with patch.object(tts_api, "_save", side_effect=OSError("磁盘已满")):
-                with self.assertRaises(OSError): tts_api.publish_line(folder, manifest, 1, line, b"audio")
+            gateway = _gateway(); gateway['publish_json'] = lambda *_args: (_ for _ in ()).throw(OSError("磁盘已满"))
+            with self.assertRaises(OSError): tts_api.publish_line(folder, manifest, 1, line, b"audio", gateway=gateway)
             self.assertEqual(json.loads(old.read_text(encoding="utf-8")), [{"state": "old"}])
             self.assertTrue((folder / tts_api.line_name(1, line)).is_file())
 
@@ -285,12 +301,12 @@ class TtsBatchResumeTests(unittest.TestCase):
             return b"audio"
         with tempfile.TemporaryDirectory() as td:
             folder = Path(td)
-            self.assertEqual(tts_api.run_lines(self.lines(3), folder, generate=flaky), (2, 0, 1))
+            self.assertEqual(tts_api.run_lines(self.lines(3), folder, generate=flaky, gateway=_gateway()), (2, 0, 1))
             self.assertEqual(len(calls), 3)
             calls.clear()
             def generate(text, speed=1.0, voice=None):
                 calls.append(text); return b"audio"
-            self.assertEqual(tts_api.run_lines(self.lines(3), folder, generate=generate), (3, 2, 0))
+            self.assertEqual(tts_api.run_lines(self.lines(3), folder, generate=generate, gateway=_gateway()), (3, 2, 0))
             self.assertEqual(calls, ["第2句"])
             manifest = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))
             self.assertEqual([item["state"] for item in manifest], ["ok", "ok", "ok"])
@@ -298,7 +314,7 @@ class TtsBatchResumeTests(unittest.TestCase):
     def test_resume_folder_matches_only_same_content(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "配音分句"; folder = root / "20260101_000000"
-            tts_api.run_lines(self.lines(2), folder, generate=lambda *a, **k: b"audio")
+            tts_api.run_lines(self.lines(2), folder, generate=lambda *a, **k: b"audio", gateway=_gateway())
             self.assertEqual(tts_api.resume_folder(root, self.lines(2)), folder)
             changed = self.lines(2); changed[1]["text"] = "改过的台词"
             self.assertIsNone(tts_api.resume_folder(root, changed))
@@ -312,12 +328,12 @@ class TtsBatchResumeTests(unittest.TestCase):
             folder = Path(td); stop = threading.Event(); calls = []
             def generate(text, speed=1.0, voice=None):
                 calls.append(text); stop.set(); return b"audio"
-            self.assertEqual(tts_api.run_lines(self.lines(3), folder, generate=generate, stop=stop), (1, 0, 0))
+            self.assertEqual(tts_api.run_lines(self.lines(3), folder, generate=generate, stop=stop, gateway=_gateway()), (1, 0, 0))
             self.assertEqual(len(calls), 1)
             calls.clear()
             def again(text, speed=1.0, voice=None):
                 calls.append(text); return b"audio"
-            self.assertEqual(tts_api.run_lines(self.lines(3), folder, generate=again), (3, 1, 0))
+            self.assertEqual(tts_api.run_lines(self.lines(3), folder, generate=again, gateway=_gateway()), (3, 1, 0))
             self.assertEqual(len(calls), 2)
 
     def test_pending_lines_previews_exactly_what_will_be_paid(self):
@@ -331,18 +347,18 @@ class TtsBatchResumeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             folder = Path(td)
             self.assertEqual(tts_api.pending_lines(self.lines(3), folder), [1, 2, 3])   # 全新批次：三句都要付
-            tts_api.run_lines(self.lines(3), folder, generate=lambda *a, **k: b"audio")
+            tts_api.run_lines(self.lines(3), folder, generate=lambda *a, **k: b"audio", gateway=_gateway())
             self.assertEqual(tts_api.pending_lines(self.lines(3), folder), [])          # 全部已有成品：零费用
             changed = self.lines(3); changed[0]["text"] = "改过的台词"
             self.assertEqual(tts_api.pending_lines(changed, folder), [1])               # 只有改过的那句要重做
             half = Path(td) / "半成品"
-            tts_api.run_lines(self.lines(3), half, generate=flaky)
+            tts_api.run_lines(self.lines(3), half, generate=flaky, gateway=_gateway())
             self.assertEqual(calls, ["第1句", "第2句", "第3句"])
             calls.clear()
             def again(text, speed=1.0, voice=None):
                 calls.append(text); return b"audio"
             preview = tts_api.pending_lines(self.lines(3), half)
-            tts_api.run_lines(self.lines(3), half, generate=again)
+            tts_api.run_lines(self.lines(3), half, generate=again, gateway=_gateway())
             self.assertEqual(preview, [2])                                              # 预览指向失败那一句
             self.assertEqual([self.lines(3)[index - 1]["text"] for index in preview], calls)
 

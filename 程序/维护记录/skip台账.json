@@ -1,0 +1,1904 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "file": "tests/test_app_icon.py",
+      "test": "WindowTests.test_apply_hands_the_icon_to_a_real_window",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_detail.py",
+      "test": "_Harness.desktop",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_gating.py",
+      "test": "_TkHarness.desktop",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_gating.py",
+      "test": "AssetPageContentTests.test_the_columns_and_the_reference_categories",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_gating.py",
+      "test": "AssetPageContentTests.test_the_reference_window_reads_the_same_list_as_the_column",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_gating.py",
+      "test": "AssetPageContentTests.test_only_the_visible_rows_decode_a_picture",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_gating.py",
+      "test": "AssetCellDeleteTests.test_the_reference_column_deletes_the_reference_only",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_gating.py",
+      "test": "AssetCellDeleteTests.test_another_column_deletes_the_asset_image_only",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_gating.py",
+      "test": "AssetCellDeleteTests.test_deleted_asset_image_restores_from_recycle_service",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_gating.py",
+      "test": "NativeAssetsGatingTests.attach",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_gating.py",
+      "test": "NativeAssetsGatingTests.test_kill_comfy_runs_off_the_ui_thread",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_thumbs.py",
+      "test": "ThumbnailTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellHoverRightClickTests.test_the_delete_of_a_hovered_row_still_targets_the_right_clicked_row",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellHoverRightClickTests.test_the_checkbox_column_opens_no_menu",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellHoverRightClickTests.test_a_right_click_on_a_plain_cell_opens_nothing",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "ReferenceRowMenuTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "ReferenceViewThumbTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellImagesTests.test_only_the_rows_with_a_picture_get_a_label",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellImagesTests.test_the_cover_does_not_highlight_and_the_double_click_opens",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellImagesTests.test_covering_a_cell_takes_its_text_and_gives_it_back",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellImagesTests.test_scrolling_and_resizing_drag_the_cover_along",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellImagesTests.test_the_zoom_hugs_the_top_right_of_the_pointer",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellImagesTests.test_the_zoom_lends_an_ear_to_its_own_leave_and_to_the_watchdog",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellImagesTests.test_the_menu_on_the_zoom_points_at_the_cell_it_came_from",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellImagesTests.test_a_row_without_a_picture_gets_no_label",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_checkbox_column.py",
+      "test": "CheckboxColumnTests.test_toggle_and_toggle_all",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_checkbox_column.py",
+      "test": "CheckboxColumnTests.test_content_box_click_rules",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cloud_video.py",
+      "test": "KeyEntryPrivacyTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_column_fit.py",
+      "test": "ColumnFitTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_core.py",
+      "test": "ProjectsDeleteTests.test_delete_removes_internal_directory_link_without_touching_its_target",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_DIRECTORY_LINK",
+      "reason": "当前环境不支持目录链接；支持目录链接时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_core.py",
+      "test": "ValidateProfileTests.test_stage_profile_wrong_preset_rejected",
+      "ordinal": 1,
+      "kind": "需实机复验",
+      "reason_constant": "REQUIRES_BUNDLED_SKILL",
+      "reason": "发行包未包含受测 bundled skill；打包产物具备该技能后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_core.py",
+      "test": "ValidateProfileTests.test_preset_label_round_trips_through_preset_folder",
+      "ordinal": 1,
+      "kind": "需实机复验",
+      "reason_constant": "REQUIRES_BUNDLED_SKILL",
+      "reason": "发行包未包含受测 bundled skill；打包产物具备该技能后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_first_day_selector_never_leaves_a_child_widget_holding_grab",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_empty_project_first_paint_is_bounded",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_first_event_loop_is_bounded",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_first_day_selector_is_visible_and_selection_enters_script_within_bound",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_same_day_auto_resume_leaves_project_page_within_bound",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_startup_path_does_not_recurse_directories",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_real_project_page_callback_is_interactive",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_startup_script_guard_does_not_leave_tick_paused_after_page_switch",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_real_project_chat_shows_independent_content_before_model_key",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_real_project_startup_does_not_repeat_registry_file_keys",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_idea_chat_model_cold_lookup_is_bounded",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_final_viewer.py",
+      "test": "FinalViewerCase.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_frame_sources.py",
+      "test": "FrameSourceTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_idea_chat.py",
+      "test": "_Harness.desktop",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_keyframe_comfy.py",
+      "test": "DialogTests.test_dialog_lists_only_shots_without_frames",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_keyframe_comfy.py",
+      "test": "DialogTests.test_dialog_controls_and_click_toggle",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_keyframe_comfy.py",
+      "test": "DialogTests.test_header_checkbox_selects_and_clears_all",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_keyframe_comfy.py",
+      "test": "DialogTests.test_reference_check_stays_local",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_keyframe_comfy.py",
+      "test": "DialogTests.test_merged_selector_runs_first_frame_agent",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_keyframe_comfy.py",
+      "test": "ResubmitTests.test_confirm_abandons_old_task_and_resubmits",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_keyframe_comfy.py",
+      "test": "ResubmitTests.test_declining_keeps_old_task",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_manual_plan.py",
+      "test": "PlanWindowTests.test_popup_jobs_are_cancelled_when_the_window_closes",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_manual_plan.py",
+      "test": "PlanWindowTests.test_the_window_has_three_buttons_and_no_folds",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_manual_plan.py",
+      "test": "PlanWindowTests.test_the_default_lines_stay_within_four",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_manual_plan.py",
+      "test": "PlanWindowTests.test_the_run_button_is_greyed_when_a_dependency_failed",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_manual_plan.py",
+      "test": "PlanWindowTests.test_direct_run_is_enabled_when_nothing_is_wrong",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_manual_plan.py",
+      "test": "PlanWindowTests.test_modify_config_returns_the_configure_choice",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_manual_plan.py",
+      "test": "PanelTests.test_the_execute_button_is_gone",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_manual_plan.py",
+      "test": "PanelTests.test_the_skill_notes_are_untouched",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_manual_plan.py",
+      "test": "ExecPageTests.test_the_page_shows_the_failures_and_can_retry_them",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_mcp_settings.py",
+      "test": "SettingsCase.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_perf_baseline.py",
+      "test": "PerfBaseline.desktop",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_perf_baseline.py",
+      "test": "PerfBaseline.test_cold_start_reaches_the_first_frame",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_perf_baseline.py",
+      "test": "PerfBaseline.test_project_home_is_laid_out_before_project_choice_callback",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_perf_baseline.py",
+      "test": "PerfBaseline.test_the_thumbnail_stays_off_the_interface_thread",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_perf_baseline.py",
+      "test": "PerfBaseline.test_memory_stays_bounded_after_every_page",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WORKING_SET",
+      "reason": "当前系统无法读取工作集；支持该系统接口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_pet_settings.py",
+      "test": "SettingsCase.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_pet_settings.py",
+      "test": "DesktopGearSeamTests.build",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_pet_ui.py",
+      "test": "PetTestCase.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_pet_ui.py",
+      "test": "DesktopSeamTests.test_desktop_carries_the_pet_and_wrapped_seams",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_pet_ui.py",
+      "test": "DesktopSeamTests.test_tk_gc_guard_skips_worker_threads",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_pet_ui.py",
+      "test": "DesktopSeamTests.test_tick_once_drains_into_the_bus",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_pet_ui.py",
+      "test": "DesktopSeamTests.test_button_seam_reports_the_label",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_pet_ui.py",
+      "test": "FrameBatchSeamTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_pet_ui.py",
+      "test": "PetTextSeamTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_pet_ui.py",
+      "test": "DesktopPetSeamTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_reference_wall.py",
+      "test": "WallDialogTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_row_targets.py",
+      "test": "PageHelpers.page",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_skills.py",
+      "test": "PanelTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_skills.py",
+      "test": "PetIntegrationTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_skills.py",
+      "test": "GeneratorTests.run_generator",
+      "ordinal": 1,
+      "kind": "缺外部程序",
+      "reason_constant": "MISSING_NODE",
+      "reason": "当前机器未安装 node；安装 node 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_stage_layout.py",
+      "test": "LegacyTests.test_a_legacy_folder_is_linked_into_its_stage",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_DIRECTORY_LINK",
+      "reason": "当前环境不支持目录链接；支持目录链接时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_stage_layout.py",
+      "test": "LegacyTests.test_a_link_is_never_a_legacy_source",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_DIRECTORY_LINK",
+      "reason": "当前环境不支持目录链接；支持目录链接时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_stage_wiring.py",
+      "test": "_Harness.desktop",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_timers.py",
+      "test": "WindowTimerTests.test_stop_removes_pending_timer",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_timers.py",
+      "test": "WindowTimerTests.test_repeat_keeps_firing_until_window_destroyed",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_timers.py",
+      "test": "WindowTimerTests.test_batch_window_cancels_its_timer_on_close",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_timers.py",
+      "test": "WindowTimerTests.test_window_placement_idle_job_is_cancelled_on_close",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_timers.py",
+      "test": "ChangeWatcherTests.test_refreshes_after_two_equal_observations",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_timers.py",
+      "test": "ChangeWatcherTests.test_declined_refresh_keeps_retrying",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_timers.py",
+      "test": "ChangeWatcherTests.test_stops_when_window_destroyed",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_timers.py",
+      "test": "ChangeWatcherTests.test_page_watchers_delegate_to_shared_helper",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_token_saver.py",
+      "test": "TokenPageTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_all_pages_build_without_storyboard",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_editing_actions_disabled_without_downloads",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_all_pages_build_with_storyboard",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_all_pages_build_with_populated_project",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_audio_actions_disabled_without_dialogue",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_final_storyboard_split_viewer",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_script_box_above_storyboard_json_box",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_step2_rows_hug_their_content_boxes",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_previs_actions_follow_the_default_selection",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_file_table_click_rules",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_launch_comfy_does_not_block_on_a_starting_service",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_launch_comfy_is_silent_in_the_production_chain",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_frame_page_batch_row_moved_below_table",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_page_level_model_and_skill_entries_are_gone",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_unattended_switch_is_not_rendered_by_the_page",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_writing_page_first_line_and_removed_labels",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_the_brief_example_never_lands_in_the_project",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_the_writing_page_gives_the_brief_more_room",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_the_writing_page_wraps_the_box_with_buttons",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_script_structure_page_shows_source_and_output_in_separate_boxes",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_frame_checks_follow_the_frame_state",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_final_page_nav_rows_and_headers",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_final_page_nav_rows_and_headers",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_final_page_marks_the_synced_final",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_storyboard_switch_never_inflates_the_footer_row",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_source_selector_wheel_does_not_switch_episode",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_source_selector_display_snaps_back_when_switch_is_blocked",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_frame_prompt_window_copies_and_closes",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_frame_prompt_window_disables_copy_when_empty",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_asset_prompt_window_copies_and_closes",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_the_asset_table_shows_thumbnails_only_in_the_import_column",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_the_video_table_highlights_the_asset_and_frame_columns",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_the_video_table_shows_the_first_frame_thumbnail",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_the_previs_table_highlights_every_cell",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_the_frame_table_shows_thumbnails_in_the_file_column",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_the_final_table_columns_follow_the_window",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_readonly_combobox_ignores_mouse_wheel",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_open_combobox_wheel_scrolls_list_without_rebuild",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_source_selector_skips_rebuild_for_same_choice",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_sanhu_auto_mode_persists_and_polls_auto_adopt",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_startup_reconciliation_pulls_the_working_episode_back",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_sanhu_auto_mode_assembles_once_per_approval",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_sanhu_auto_mode_persists_and_polls_handoff",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_renumber_shots_button_fixes_script_order",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_page_build_failure_reports_instead_of_blank_page",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_handoff_prefers_approved_take",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_readiness_check_is_shared_between_auto_edit_and_handoff",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_auto_keyframe_sanhu_mode_persists_and_polls",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_auto_previs_sanhu_mode_dispatches_complex_once",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_auto_previs_waits_for_first_frame_stage",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_final_storyboard_hint_points_to_step04",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_auto_asset_sanhu_mode_persists_and_polls",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_unattended_asset_batch_retries_when_nothing_landed",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_pet_storyboard_batch_dispatches_the_selected_scripts",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_studio_follows_selected_storyboard",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_auto_video_sanhu_mode_persists_and_polls",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_per_line_tts_asks_before_paying",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_whole_script_tts_reuses_unchanged_audio",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_auto_final_switch_generates_final_and_retires_working_json",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_final_page_offers_visible_retry_for_unsynced_storyboard",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_asset_resume_ledger_carries_the_backoff_across_restart",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_unattended_chain_runs_asset_final_keyframe_in_order",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_downstream_keyframe_never_runs_ahead_of_a_ready_final_step",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_unattended_chain_runs_video_edit_handoff_in_order",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_unattended_polls_yield_while_finalizing",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_unattended_pipeline_runs_end_to_end_without_clicks",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_chain_kick_skips_steps_in_failure_backoff",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_auto_final_waits_for_running_keyframe_batch",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_table_hover_clears_when_wheel_scrolls",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_same_page_rebuild_keeps_scroll_offset",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "UiEdgeTests.test_restored_main_window_recomputes_page_scroll_before_wheel",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "RowHeightTests.test_the_height_reads_the_widget_font",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "RowHeightTests.test_fit_row_height_sets_the_style",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "BatchContinuationTests.test_storyboard_agent_continues_past_made_scripts",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "BatchContinuationTests.test_asset_batch_asks_before_remaking_finished_assets",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "BatchContinuationTests.test_asset_batch_remakes_the_ones_the_user_confirmed",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "BatchContinuationTests.test_asset_batch_still_starts_for_the_unfinished_ones",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "BatchContinuationTests.test_the_manual_asset_button_is_grey_when_everything_is_made",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "BatchContinuationTests.test_adopt_skips_adopted_without_confirm",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "WorkerThreadSafetyTests.test_seedream_probe_reports_reachable",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "WorkerThreadSafetyTests.test_tts_probe_reports_connection_failure",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "StageConfigEntryTests.test_every_page_opens_its_own_panel",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "BriefTintTests.build",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "ContentBoxFitTests.build",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "TalkBoxFitTests.build",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "StoryboardRowLayoutTests.test_the_action_row_stays_inside_the_visible_canvas",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "PageHintTests.test_notes_are_green_and_same_page_duplicates_are_reused",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_edges.py",
+      "test": "PageHintTests.test_asset_sync_failure_stays_silent_outside_assets",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_widgets_dialogs.py",
+      "test": "DialogWidgetTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "FlushPromptTests.make_app",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "ActionButtonStateTests.make_app",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "AutoSubmitTests.make_app",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "AssetCheckTableTests.make_app",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "FooterLayoutTests.make_app",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "SharedProgressLineTests.make_app",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "VideoHomePageTests.test_the_choose_page_hides_the_storyboard_picker",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "VideoHomeLeadTests.test_the_lead_line_binds_the_cloud_phrase_together",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "VideoEntryTests.test_the_first_click_shows_the_choose_page",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "VideoEntryTests.test_the_next_click_goes_straight_back_to_the_chosen_side",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "VideoEntryTests.test_the_way_back_to_the_choose_page_still_works",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "VideoEntryTests.test_a_fresh_start_still_asks_first",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "VideoEntryTests.test_manual_prompt_stage_config_opens_prompt_render_stage",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "PromptBoxHeightTests.test_an_empty_box_only_keeps_the_minimum",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "PromptBoxHeightTests.test_more_words_make_a_taller_box",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "PromptBoxHeightTests.test_a_very_long_prompt_stops_at_the_backstop",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "PromptBoxHeightTests.test_the_whole_prompt_shows_without_an_inner_scrollbar",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "PromptBoxHeightTests.test_the_log_grows_with_its_content",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "PromptBoxHeightTests.test_the_log_yields_to_the_prompt",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "PromptBoxHeightTests.test_clearing_it_shrinks_back",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "PromptBoxHeightTests.test_switching_shots_refits_the_box",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "PromptAgentLabelTests.test_the_button_is_named_generation_now",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "PromptAgentLabelTests.test_the_optimize_button_is_highlighted",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_video_ui.py",
+      "test": "WritingSheetExampleTests.sheet",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    }
+  ,{
+      "file": "tests/test_ui_widgets_table.py",
+      "test": "DataTableTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_widgets_inputs.py",
+      "test": "InputWidgetTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cell_menu.py",
+      "test": "CellImagesTests.test_view_refresh_reuses_existing_cover_but_explicit_refresh_rechecks",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    }
+  ]
+}

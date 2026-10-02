@@ -109,16 +109,12 @@ def confirm_rows(desktop,project=None):
 
 
 def show_back(desktop):
+    from ui_icons import IconLoader
     box=getattr(desktop,'video_back',None)
     if box is None:
         box=ttk.Frame(desktop.title_row,width=76,height=52)
         box.pack_propagate(False)
-        icon=tk.PhotoImage(master=box,width=48,height=32)
-        # A centered 36 x 28 arrow, independent of symbol-font metrics.
-        for y in range(2,30):
-            x=6+abs(15.5-y)
-            icon.put('#ffffff',to=(int(x),y,int(x)+6,y+1))
-        icon.put('#ffffff',to=(9,13,42,19))
+        icon=IconLoader.return_arrow(box)
         button=tk.Button(box,text='返回生成方式',image=icon,anchor='center',
             background='#3564a8',foreground='#ffffff',activebackground='#294b75',
             relief='flat',borderwidth=0,highlightthickness=2,highlightbackground='#3564a8',

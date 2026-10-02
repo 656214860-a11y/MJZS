@@ -46,10 +46,16 @@ def pending_generated(project, base):
     from asset_generated_import_service import pending_generated as _pending_generated
     return _pending_generated(project, base)
 
+def _asset_batch_gateway():
+    """L4 facade supplies the only L3 gateway accepted by the asset service."""
+    from stage_execution_service import asset_batch_gateway
+    return asset_batch_gateway()
+
+
 def import_pending_generated(project, base, report=None):
     """扫描生成目录，把尚未登记的资产图片自动导入资产库（JPEG 自动转 PNG）。"""
     from asset_generated_import_service import import_pending_generated as _import_pending_generated
-    return _import_pending_generated(project, base, report)
+    return _import_pending_generated(project, base, report, gateway=_asset_batch_gateway())
 
 
 def cleanup_batches(folder, days=7):
@@ -68,6 +74,7 @@ def _run_seedream_direct(project, base, items, options, report, stop=None):
     from asset_reference_images import resolve, reference_instruction
     from asset_reference_prompts import display_prompt
     from asset_batch_service import register_image
+    gateway=_asset_batch_gateway()
     profile=load_profile(options.get('seedream_profile',''))
     from asset_context import generated_dir
     folder=generated_dir(base)
@@ -97,7 +104,7 @@ def _run_seedream_direct(project, base, items, options, report, stop=None):
         if old.get('state')=='failed' and cands:
             try:
                 tmp=folder/(aid+'_recover.png');save_bytes(tmp,_to_png(cands[0].read_bytes()))
-                result=register_image(base,aid,asset,tmp)
+                result=register_image(base,aid,asset,tmp,gateway=gateway)
                 remove_temporary_file(tmp)
                 save(record,{'state':'completed','model':profile['model'],'aid':aid})
                 done.append(aid);report(aid+'：'+result+'（已恢复，未重复扣费）');continue
@@ -115,7 +122,7 @@ def _run_seedream_direct(project, base, items, options, report, stop=None):
             save(record,{'state':'failed','model':profile['model'],'aid':aid,'error':str(exc)})
             failed.append(aid+'：'+str(exc));report(aid+'：'+str(exc));continue
         try:
-            result=register_image(base,aid,asset,dest)
+            result=register_image(base,aid,asset,dest,gateway=gateway)
         except (ValueError,OSError) as exc:
             save(record,{'state':'failed','model':profile['model'],'aid':aid,'error':str(exc)})
             failed.append(aid+'：'+str(exc));report(aid+'：'+str(exc));continue
@@ -169,6 +176,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
     from asset_reference_prompts import display_prompt
     from batch_frames_tool.batch_frames import Client
     from native_apps import wait_comfy
+    gateway=_asset_batch_gateway()
     project, base = Path(project), Path(base).resolve()
     items = [(aid, snapshot(base,asset)) for aid,asset in items if not image_ready(base,aid)]
     if not items:return '所选资产均已导入，无需重复生成。'
@@ -265,7 +273,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
             try:
                 raw=client.request('/view?'+urlencode({k:file[k] for k in ('filename','subfolder','type')}),raw=True)
                 dest=gen/(state['id']+'_'+aid+'.png');save_bytes(dest,raw)
-                result=register_image(base,aid,state['assets'][aid],dest)
+                result=register_image(base,aid,state['assets'][aid],dest,gateway=gateway)
                 state['imported'].append(aid);save(record,state);report(aid+'：'+result)
             except (ValueError,OSError) as exc:import_errors[aid]=str(exc)
         state.update(state='import_pending' if job['state']=='completed' and import_errors else job['state'],error=job.get('error',''));save(record,state)

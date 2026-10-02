@@ -9,6 +9,14 @@
 
 运行：python test_manual_plan.py
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, sys, tempfile, unittest
 from pathlib import Path
 
@@ -147,7 +155,7 @@ class PlanWindowTests(unittest.TestCase):
     def test_popup_jobs_are_cancelled_when_the_window_closes(self):
         """快速关闭精简窗时，延迟的点活／取消置顶回调不能遗留给 Tcl。"""
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         root = self.tk.Tk(); root.withdraw()
         self.addCleanup(lambda: root.winfo_exists() and root.destroy())
         popup = self.tk.Toplevel(root)
@@ -185,7 +193,7 @@ class PlanWindowTests(unittest.TestCase):
     def test_the_window_has_three_buttons_and_no_folds(self):
         """第 55 期第 4 条：三个「查看…详情」折叠项按用户要求删掉，只剩三颗按钮。"""
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             choice, seen = self.open_plan(project(td), '取消')
             self.assertEqual(seen['windows'], 1, '只冒这一扇窗')
@@ -197,7 +205,7 @@ class PlanWindowTests(unittest.TestCase):
 
     def test_the_default_lines_stay_within_four(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             _, seen = self.open_plan(project(td), '取消')
             heads = [text for text in seen['texts']
@@ -208,7 +216,7 @@ class PlanWindowTests(unittest.TestCase):
 
     def test_the_run_button_is_greyed_when_a_dependency_failed(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = project(td, {'stages': {'final': {'state': 'failed'}}})
             # 置灰的按钮点不动，所以按「取消」收场，只看那颗按钮的状态。
@@ -219,7 +227,7 @@ class PlanWindowTests(unittest.TestCase):
 
     def test_direct_run_is_enabled_when_nothing_is_wrong(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             choice, seen = self.open_plan(project(td), '直接执行')
             self.assertEqual(seen['state'], 'normal')
@@ -227,7 +235,7 @@ class PlanWindowTests(unittest.TestCase):
 
     def test_modify_config_returns_the_configure_choice(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             choice, _ = self.open_plan(project(td), '修改配置')
             self.assertEqual(choice, 'configure')
@@ -318,7 +326,7 @@ class PanelTests(unittest.TestCase):
 
     def test_the_execute_button_is_gone(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             win, panel = self.build(project(td))
             texts = widget_texts(panel.winfo_toplevel())
@@ -333,7 +341,7 @@ class PanelTests(unittest.TestCase):
 
     def test_the_skill_notes_are_untouched(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             win, panel = self.build(project(td))
             self.assertIsNotNone(panel.note_list, '「SKILL 说明」那一栏还在')
@@ -376,7 +384,7 @@ class ExecPageTests(unittest.TestCase):
 
     def test_the_page_shows_the_failures_and_can_retry_them(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         import skill_orchestrator as so
         import stage_exec
         calls = []

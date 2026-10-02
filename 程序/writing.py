@@ -83,15 +83,17 @@ JSON仅为制作计划，不自动提交视频。
     ))
     return publish(root, folder_name, artifacts)
 
-def import_project(root,json_file):
+def import_project(root,json_file,*,gateway=None):
     """Create a data-only project; reuse the one installed application and skills."""
     from projects import Projects
+    if not isinstance(gateway,dict):
+        raise TypeError('项目导入需要由 L3 注入项目登记读写网关。')
     app=Path(__file__).resolve().parent
     source=Path(json_file).resolve()
     ep=read(source)
     own_assets=source.parent/'assets.json'
     assets=read(own_assets) if own_assets.exists() else None
     report=validate_episode(ep,media_root(source),assets)
-    target=Projects(app).create(ep.get('title') or source.stem,source=source)
+    target=Projects(app,gateway=gateway).create(ep.get('title') or source.stem,source=source)
     save(target/'import_report.json',report)
     return target,report

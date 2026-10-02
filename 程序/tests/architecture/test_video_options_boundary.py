@@ -12,7 +12,7 @@ class VideoOptionsBoundaryTests(unittest.TestCase):
                       and node.name == 'save_options')
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)]
         self.assertEqual(2, sum(isinstance(node.func, ast.Name)
-                                and node.func.id == 'save_video_options' for node in calls))
+                                and node.func.id == 'save_stage_video_options' for node in calls))
         prohibited = {'read', 'save', 'save_bytes', 'write_text', 'write_bytes', 'copy2',
                       'remove_temporary_file'}
         self.assertFalse(any(isinstance(node.func, ast.Name) and node.func.id in prohibited
@@ -25,7 +25,7 @@ class VideoOptionsBoundaryTests(unittest.TestCase):
                       and node.name == 'set_white_upload')
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)]
         self.assertEqual(1, sum(isinstance(node.func, ast.Name)
-                                and node.func.id == 'save_white_model_upload' for node in calls))
+                                and node.func.id == 'save_stage_white_model_upload' for node in calls))
         prohibited = {'read', 'save', 'save_bytes', 'write_text', 'write_bytes', 'copy2',
                       'remove_temporary_file'}
         self.assertFalse(any(isinstance(node.func, ast.Name) and node.func.id in prohibited

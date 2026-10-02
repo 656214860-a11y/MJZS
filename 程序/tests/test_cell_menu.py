@@ -3,6 +3,14 @@
 
 运行：python test_cell_menu.py
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import base64, json, os, sys, tempfile, unittest
 from pathlib import Path
 
@@ -194,7 +202,7 @@ class CellHoverRightClickTests(unittest.TestCase):
 
     def test_the_delete_of_a_hovered_row_still_targets_the_right_clicked_row(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win, tree, seen = self.build()
         # 先把鼠标停在 A 上（A 变成「高亮」那一行），再去右键 B。
         x, y = self.cell(tree, "A", "#2")
@@ -210,7 +218,7 @@ class CellHoverRightClickTests(unittest.TestCase):
     def test_the_checkbox_column_opens_no_menu(self):
         """第 52 期第 2 条：勾选列（#0）右键不弹菜单，带链接的格子照旧两项都有。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win, tree, seen = self.build()
         x, y = self.cell(tree, "A", "#0")
         tree.event_generate("<Button-3>", x=x, y=y); win.update()
@@ -226,7 +234,7 @@ class CellHoverRightClickTests(unittest.TestCase):
     def test_a_right_click_on_a_plain_cell_opens_nothing(self):
         """第 52 期第 2 条：纯文字格（没链接）右键不弹——原来还会兜底到 menu_column 那一格。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win, tree, seen = self.build()
         x, y = self.cell(tree, "B", "#1")
         tree.event_generate("<Button-3>", x=x, y=y); win.update()
@@ -551,7 +559,7 @@ class ReferenceRowMenuTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.made = []
 
@@ -600,7 +608,7 @@ class ReferenceViewThumbTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.opener = []
 
@@ -841,7 +849,7 @@ class CellImagesTests(unittest.TestCase):
 
     def test_only_the_rows_with_a_picture_get_a_label(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win, tree, _seen = self.build()
         covered = tree.cell_images.refresh()
         self.assertEqual(covered, {("A", "#1"), ("A", "#2")}, "只有 A 那一行有图")
@@ -854,7 +862,7 @@ class CellImagesTests(unittest.TestCase):
         """第 55 期第 2 条：盖着缩略图的格子不再走高亮（原来两层叠在同一格上互相顶掉，
         用户判它显示不对）；第 64 期任务 12：单击只点亮这一行、双击打开这一格的文件。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win, tree, seen = self.build()
         tree.cell_images.refresh()
         label = tree.cell_images.labels[("A", "#1")]
@@ -876,7 +884,7 @@ class CellImagesTests(unittest.TestCase):
     def test_covering_a_cell_takes_its_text_and_gives_it_back(self):
         """第 55 期第 3 条：图上那格不再写字——文字由盖图这一层收着，撤掉图再写回去。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win, tree, _seen = self.build()
         tree.cell_images.refresh(); win.update()
         self.assertEqual(str(tree.set("A", "#1")), "", "盖上的那一格不再写字（值在图上）")
@@ -888,6 +896,27 @@ class CellImagesTests(unittest.TestCase):
         self.assertEqual(str(tree.set("A", "#1")), "A", "撤掉图，格子里的文字原样写回")
         self.assertEqual(tree.cell_images.texts, {}, "收着的文字交回去了，不留残留")
 
+    def test_view_refresh_reuses_existing_cover_but_explicit_refresh_rechecks(self):
+        """滚动只重摆已在屏内的图层；调用方显式刷新仍必须重新询问 provider。"""
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        win, tree, _seen = self.build()
+        calls = [0]
+        original = tree.cell_images.provider
+
+        def provider(row, column):
+            calls[0] += 1
+            return original(row, column)
+
+        tree.cell_images.provider = provider
+        tree.cell_images.refresh(); win.update()
+        initial = calls[0]
+        tree.cell_images.refresh(reuse_existing=True); win.update()
+        self.assertEqual(calls[0], initial + 2,
+                         "只应读取尚未覆盖的 B 行两个格；A 行既有图层只需重摆")
+        tree.cell_images.refresh(); win.update()
+        self.assertGreater(calls[0], initial, "显式刷新用于数据变更，必须仍重新读取 provider")
+
     def test_scrolling_and_resizing_drag_the_cover_along(self):
         """第 55 期第 1 条：格子向左走了（横向滚动）或列宽变了，缩略图得跟着走。
 
@@ -895,7 +924,7 @@ class CellImagesTests(unittest.TestCase):
         而列宽变化连事件都没有——用户看到的就是「格子走了、缩略图还钉在原处」。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         from cell_hover import CellHover, CellImages
         win = self.tk.Tk(); win.geometry("420x220+30+30"); win.deiconify()
@@ -942,7 +971,7 @@ class CellImagesTests(unittest.TestCase):
         （`winfo_pointerxy` 换成固定点），真鼠标在哪一台机器上都不一样。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         from cell_hover import CellHover, CellImages, ZOOM_NEAR
         win = self.tk.Tk(); win.geometry("520x300+40+40"); win.deiconify()
@@ -1003,7 +1032,7 @@ class CellImagesTests(unittest.TestCase):
         一冒出来最容易撞上：置顶窗压在指针上，鼠标先落到放大图上）。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time
         win, tree, _seen = self.zoom_build()
         left0, top0 = win.winfo_rootx(), win.winfo_rooty()
@@ -1030,7 +1059,7 @@ class CellImagesTests(unittest.TestCase):
     def test_the_menu_on_the_zoom_points_at_the_cell_it_came_from(self):
         """第 60 期第 3 条：放大图压在别的格子上时，右键也要能对着「来路那一格」查看。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import cell_hover
         win, tree, seen = self.zoom_build()
         left0, top0 = win.winfo_rootx(), win.winfo_rooty()
@@ -1049,7 +1078,7 @@ class CellImagesTests(unittest.TestCase):
 
     def test_a_row_without_a_picture_gets_no_label(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win, tree, _seen = self.build(covers=())
         self.assertEqual(tree.cell_images.refresh(), set())
         self.assertEqual(tree.cell_images.labels, {})

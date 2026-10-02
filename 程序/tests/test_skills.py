@@ -6,6 +6,14 @@ create-skill.js 生成器。运行：python -B test_skills.py
 与 **11 个阶段都有统一的模型 + SKILL 面板**；另外每一条集成都要求「出问题只记一笔，不许把手
 上的活带崩」。
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json
 import os
 import shutil
@@ -869,7 +877,7 @@ class PanelTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         self.win = self.tk.Tk()
         self.win.withdraw()
         self.addCleanup(self.win.destroy)
@@ -1756,7 +1764,7 @@ class PetIntegrationTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         from test_pet_ui import FakeDesktop
         self.win = self.tk.Tk()
         self.win.withdraw()
@@ -1845,7 +1853,7 @@ class PetIntegrationTests(unittest.TestCase):
 class GeneratorTests(unittest.TestCase):
     def run_generator(self, args, stdin=None):
         if NODE is None:
-            self.skipTest('本机没有 node')
+            self.skipTest(MISSING_NODE)
         # 第 63 期：生成器缺参数时会问一句（readline 等一行）。原来 input=None 表示「继承调用方的
         # stdin」，整跑从后台起来时那根管子一直不关，它就死等 90 秒——同一份代码前台跑绿、后台跑红。
         # 这里统一喂空串：等于「把 stdin 合上」，生成器拿到 EOF 就用默认值往下走。

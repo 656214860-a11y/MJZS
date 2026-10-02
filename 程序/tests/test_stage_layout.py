@@ -6,6 +6,14 @@ docs／skills／logs ＋ README.md」七件套；③ README 就是那一阶段�
 ④ 老目录只做对照（legacy_map）与归位（adopt_legacy：只建目录联接，绝不搬动、绝不删除）。
 断言全用临时目录，绝不碰真安装目录。
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import os, sys, tempfile, unittest
 from pathlib import Path
 
@@ -163,7 +171,7 @@ class LegacyTests(unittest.TestCase):
             result = stage_layout.adopt_legacy(proj)
             link = proj / "01剧本准备" / "writing"
             if link not in result["made"]:
-                self.skipTest("这台机器建不了目录联接")
+                self.skipTest(PLATFORM_DIRECTORY_LINK)
             self.assertTrue(link.is_symlink() or link.is_junction(), "落脚点是一条约接")
             self.assertEqual((link / "创意_1" / "创意与剧本.md").read_text(encoding="utf-8"), "原稿",
                              "从阶段目录里照样读得到老目录那份文件")
@@ -215,7 +223,7 @@ class LegacyTests(unittest.TestCase):
             real = Path(td) / "真身"
             real.mkdir()
             if not stage_layout.link_dir(real, proj / "writing"):
-                self.skipTest("这台机器建不了目录联接")
+                self.skipTest(PLATFORM_DIRECTORY_LINK)
             stage_layout.ensure(proj)
             self.assertEqual(stage_layout.adopt_legacy(proj)["made"], [])
 

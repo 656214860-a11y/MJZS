@@ -96,6 +96,24 @@ def _project_config_write_fallbacks():
     return found
 
 
+def _projects_direct_storage_calls():
+    """已迁移的 projects 不能退回 L2 自行读写、回滚或复制。"""
+    path = ROOT / 'projects.py'
+    tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+    forbidden_names = {'read', 'save', 'save_bytes', 'restore_bytes'}
+    forbidden_attrs = {'read_bytes', 'read_text', 'write_bytes', 'write_text', 'copy2', 'copytree'}
+    found = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == 'agent.core':
+            found.update(alias.name for alias in node.names if alias.name in forbidden_names)
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in forbidden_names:
+                found.add(node.func.id)
+            if isinstance(node.func, ast.Attribute) and node.func.attr in forbidden_attrs:
+                found.add(node.func.attr)
+    return found
+
+
 def _point_exists(item):
     path = ROOT / item['file']
     if not path.is_file():
@@ -135,3 +153,6 @@ class UnificationRatchetTests(unittest.TestCase):
 
     def test_bare_json_load_debt_is_a_nonincreasing_subset(self):
         self._assert_ratchet('第四项', _bare_json_loads())
+
+    def test_migrated_projects_cannot_bypass_its_injected_gateway(self):
+        self.assertEqual(_projects_direct_storage_calls(), set())

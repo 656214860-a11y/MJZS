@@ -17,7 +17,6 @@ import re
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
-from agent.core import save, save_text
 
 FOLDER = '创意对话'
 CHAT_NAME = '对话.json'
@@ -36,6 +35,14 @@ SCRIPT_MIN = 300
 PROJECT_CONTENT_MARKS = ('项目设定', '人物设定', '世界观', '需求梳理', '项目大纲', '大纲', '纲要', '分集', '剧本', '场景', '镜头', '台词')
 _HISTORY_CACHE_LIMIT = 16
 _history_cache = OrderedDict()
+
+
+def _require_gateway(gateway):
+    """创意聊天的正式读写只能由 L3 注入，避免 L2 自行落盘。"""
+    required = ('read_json', 'publish_json', 'publish_text')
+    if not isinstance(gateway, dict) or any(not callable(gateway.get(name)) for name in required):
+        raise TypeError('创意聊天读写需要由 L3 注入发布与读取网关。')
+    return gateway
 
 
 def folder(root):
@@ -118,7 +125,7 @@ def _numbered_path(parent, name, suffix=''):
     return candidate
 
 
-def _read_rows(path):
+def _read_rows(path, gateway):
     """读取单个历史文件；以 mtime/大小失效的内存缓存避免重复 JSON 解析。"""
     path = Path(path)
     try:
@@ -132,7 +139,7 @@ def _read_rows(path):
         _history_cache.move_to_end(path)
         return [dict(row) for row in cached[1]]
     try:
-        data = json.loads(path.read_text(encoding='utf-8'))
+        data = gateway['read_json'](path)
     except (OSError, ValueError):
         return []
     rows = data.get('messages') if isinstance(data, dict) else data
@@ -146,18 +153,19 @@ def _read_rows(path):
     return [dict(row) for row in rows]
 
 
-def _all_rows(root, model=None, provider=''):
+def _all_rows(root, model=None, provider='', *, gateway=None):
     """读取聊天记录；指定模型时优先 Provider/模型目录并兼容导入旧统一记录。"""
+    gateway = _require_gateway(gateway)
     key = str(model or '').strip()
     if not key:
-        rows = _read_rows(history_path(root))
+        rows = _read_rows(history_path(root), gateway)
         from project_stages import writing
         base = writing(root)
         if base.is_dir():
             for path in base.glob('*/*/' + FOLDER + '/' + CHAT_NAME):
                 if path == history_path(root):
                     continue
-                rows.extend(_read_rows(path))
+                rows.extend(_read_rows(path, gateway))
         # 兼容导入期间旧统一文件和新模型文件可能短暂都含同一行；按完整记录
         # 去重，避免聊天框把一条消息显示两次。
         unique = []
@@ -169,12 +177,12 @@ def _all_rows(root, model=None, provider=''):
                 unique.append(row)
         return unique
     current = model_history_path(root, key, provider=provider)
-    rows = _read_rows(current)
+    rows = _read_rows(current, gateway)
     if rows:
         return rows
     # 历史版本把所有模型写进一份根目录 JSON；首次切到模型页时只导入它自己的
     # 记录，避免不同 Provider 的聊天页再度串线。
-    legacy = _read_rows(history_path(root))
+    legacy = _read_rows(history_path(root), gateway)
     selected = [row for row in legacy if str(row.get('model') or '').strip() == key]
     if not selected and legacy and not any(str(row.get('model') or '').strip() for row in legacy):
         selected = legacy
@@ -184,15 +192,15 @@ def _all_rows(root, model=None, provider=''):
         selected_fingerprints = {json.dumps(row, ensure_ascii=False, sort_keys=True) for row in selected}
         remaining = [row for row in legacy
                      if json.dumps(row, ensure_ascii=False, sort_keys=True) not in selected_fingerprints]
-        save_rows(root, selected, model=key, provider=provider)
+        save_rows(root, selected, model=key, provider=provider, gateway=gateway)
         if remaining != legacy:
-            save_rows(root, remaining)
+            save_rows(root, remaining, gateway=gateway)
     return selected
 
 
-def load(root, model=None):
+def load(root, model=None, *, gateway=None):
     """读取对话；指定模型时只返回该模型自己的聊天页。"""
-    rows = _all_rows(root, model=model)
+    rows = _all_rows(root, model=model, gateway=gateway)
     key = str(model or '').strip()
     if not key:
         return rows
@@ -206,14 +214,14 @@ def load(root, model=None):
     return []
 
 
-def append(root, role, text, at=None, model=None):
+def append(root, role, text, at=None, model=None, *, gateway=None):
     """记一轮对话（读回来再追加，原子写：写坏一次不会把整段对话丢掉）。"""
-    rows = _all_rows(root, model=model)
+    rows = _all_rows(root, model=model, gateway=gateway)
     row = {'role': str(role), 'text': str(text), 'at': _stamp(at)}
     if str(model or '').strip():
         row['model'] = str(model).strip()
     rows.append(row)
-    return save_rows(root, rows, model=model)
+    return save_rows(root, rows, model=model, gateway=gateway)
 
 
 def _visible_claude_text(value):
@@ -241,9 +249,9 @@ def _visible_claude_text(value):
     return '\n'.join(visible), internal
 
 
-def repair_internal_replies(root, model=None):
+def repair_internal_replies(root, model=None, *, gateway=None):
     """清理历史中的 Claude 内部块，并返回最后一条可安全补发的用户创意。"""
-    rows = _all_rows(root, model=model)
+    rows = _all_rows(root, model=model, gateway=gateway)
     key = str(model or '').strip()
     selected = set(_row_indexes(rows, key))
     repaired = []
@@ -271,14 +279,15 @@ def repair_internal_replies(root, model=None):
             # 只有思考块时不能伪造正文：移除乱码，再由界面按用户明确点击“刷新”补发一次。
             retry_creative = latest_user
     if changed:
-        save_rows(root, repaired, model=model)
+        save_rows(root, repaired, model=model, gateway=gateway)
     return {'changed': changed, 'retry_creative': retry_creative}
 
 
-def save_rows(root, rows, model=None, provider=''):
+def save_rows(root, rows, model=None, provider='', *, gateway=None):
     """原子保存完整对话；编辑、删除和追加共用这一条落盘路径。"""
+    gateway = _require_gateway(gateway)
     path = model_history_path(root, model, provider=provider) if str(model or '').strip() else history_path(root)
-    save(path, {'version': 1, 'messages': rows})
+    gateway['publish_json'](path, {'version': 1, 'messages': rows})
     try:
         stat = path.stat()
         clean = tuple(dict(row) for row in rows if isinstance(row, dict) and str(row.get('text') or '').strip())
@@ -304,9 +313,9 @@ def _row_indexes(rows, model=None):
     return []
 
 
-def replace(root, index, text, model=None):
+def replace(root, index, text, model=None, *, gateway=None):
     """修改指定消息，不允许把对话改成空白。"""
-    rows = _all_rows(root, model=model)
+    rows = _all_rows(root, model=model, gateway=gateway)
     indexes = _row_indexes(rows, model)
     if not isinstance(index, int) or not 0 <= index < len(indexes):
         raise ValueError('这条对话已不存在，请刷新后重试')
@@ -314,12 +323,13 @@ def replace(root, index, text, model=None):
     if not value:
         raise ValueError('对话内容不能为空')
     rows[indexes[index]]['text'] = value
-    return save_rows(root, rows, model=model)
+    return save_rows(root, rows, model=model, gateway=gateway)
 
 
-def remove(root, index, model=None):
+def remove(root, index, model=None, *, gateway=None):
     """移除指定消息，并保留可恢复记录；调用方负责向用户确认。"""
-    rows = _all_rows(root, model=model)
+    gateway = _require_gateway(gateway)
+    rows = _all_rows(root, model=model, gateway=gateway)
     indexes = _row_indexes(rows, model)
     if not isinstance(index, int) or not 0 <= index < len(indexes):
         raise ValueError('这条对话已不存在，请刷新后重试')
@@ -327,22 +337,23 @@ def remove(root, index, model=None):
     removed = rows.pop(original_index)
     trash = deleted_history_path(root, model=model)
     try:
-        history = json.loads(trash.read_text(encoding='utf-8')) if trash.is_file() else {}
+        history = gateway['read_json'](trash) if trash.is_file() else {}
     except (OSError, ValueError):
         history = {}
     records = history.get('messages') if isinstance(history, dict) else []
     records = records if isinstance(records, list) else []
     records.append({'row': removed, 'index': original_index,
                     'model': str(model or '').strip(), 'deleted_at': _stamp()})
-    save(trash, {'version': 1, 'messages': records[-100:]})
-    return save_rows(root, rows, model=model)
+    gateway['publish_json'](trash, {'version': 1, 'messages': records[-100:]})
+    return save_rows(root, rows, model=model, gateway=gateway)
 
 
-def restore_latest_removed(root, model=None):
+def restore_latest_removed(root, model=None, *, gateway=None):
     """恢复当前会话最近删除的一条消息，其他模型的删除记录不相互串入。"""
+    gateway = _require_gateway(gateway)
     trash = deleted_history_path(root, model=model)
     try:
-        history = json.loads(trash.read_text(encoding='utf-8')) if trash.is_file() else {}
+        history = gateway['read_json'](trash) if trash.is_file() else {}
     except (OSError, ValueError) as exc:
         raise ValueError('没有可恢复的对话删除记录') from exc
     records = history.get('messages') if isinstance(history, dict) else []
@@ -355,11 +366,11 @@ def restore_latest_removed(root, model=None):
     if not choices:
         raise ValueError('没有可恢复的对话删除记录')
     record = records.pop(choices[-1])
-    rows = _all_rows(root, model=model)
+    rows = _all_rows(root, model=model, gateway=gateway)
     position = min(max(0, int(record.get('index', len(rows)))), len(rows))
     rows.insert(position, record['row'])
-    save(trash, {'version': 1, 'messages': records})
-    save_rows(root, rows, model=model)
+    gateway['publish_json'](trash, {'version': 1, 'messages': records})
+    save_rows(root, rows, model=model, gateway=gateway)
     return record['row']
 
 
@@ -513,8 +524,9 @@ def _brief_fields(raw):
     return normalize_brief(fields)
 
 
-def _append_raw_brief(root, text):
+def _append_raw_brief(root, text, *, gateway=None):
     """把多轮补充汇总为一个原始简报，供完整性检查读取。"""
+    gateway = _require_gateway(gateway)
     path = brief_raw_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     value = str(text or '').strip()
@@ -524,7 +536,7 @@ def _append_raw_brief(root, text):
         old = legacy_brief_raw_path(root)
         previous = old.read_text(encoding='utf-8') if old.is_file() else ''
     if value and value not in previous:
-        save_text(path, previous.rstrip() + ('\n\n' if previous.strip() else '') + value + '\n')
+        gateway['publish_text'](path, previous.rstrip() + ('\n\n' if previous.strip() else '') + value + '\n')
     return path
 
 
@@ -564,19 +576,19 @@ def brief_creation_values(root, extra_text=''):
     return values
 
 
-def save_brief_creation(root, values):
+def save_brief_creation(root, values, *, gateway=None):
     """保存表格内容到唯一简报文件，并返回可直接发送的文本。"""
     text = format_brief_creation(values)
     path = brief_raw_path(root)
-    save_text(path, text)
+    _require_gateway(gateway)['publish_text'](path, text)
     return path, text
 
 
-def _brief_source_text(root, raw):
+def _brief_source_text(root, raw, *, gateway=None):
     """合并项目内用户已发送的对话，供简报完整性检查复用。"""
     sources = [str(raw or '').strip()]
     seen = {source for source in sources if source}
-    for row in _all_rows(root):
+    for row in _all_rows(root, gateway=gateway):
         if str(row.get('role') or '').strip() != 'user':
             continue
         value = str(row.get('text') or '').strip()
@@ -596,14 +608,15 @@ def brief_followup(fields):
     return '为了开始创作，请一次补充以下信息：' + labels + '。已提供的内容无需重复。'
 
 
-def receive_brief(root, text, workflow=None, lock_definitions=()):
+def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=None):
     """接收用户创意，落盘原始简报；满足必填项时才生成 brief_complete.json。"""
     value = str(text or '').strip()
     if not value:
         raise ValueError('请先输入创意')
-    raw_path = _append_raw_brief(root, value)
+    gateway = _require_gateway(gateway)
+    raw_path = _append_raw_brief(root, value, gateway=gateway)
     raw = raw_path.read_text(encoding='utf-8')
-    fields = _brief_fields(_brief_source_text(root, raw))
+    fields = _brief_fields(_brief_source_text(root, raw, gateway=gateway))
     workflow = dict(workflow or {})
     selected_locks = {item['key']: _brief_value(raw, (item['label'],))
                       for item in lock_definitions}
@@ -627,7 +640,7 @@ def receive_brief(root, text, workflow=None, lock_definitions=()):
         namespaces[name] = locks
         workflow['lock'] = namespaces
     path = brief_complete_path(root)
-    save(path, document)
+    gateway['publish_json'](path, document)
     result['complete_path'] = path
     # L2 只形成投影数据；L4 调用方经 stage_config 的原子写入口落盘，避免领域服务反向依赖阶段编排层。
     result['workflow_projection'] = workflow if name else None
@@ -777,9 +790,9 @@ def looks_like_script(text):
     return sum(1 for mark in SCRIPT_MARKS if mark in value) >= 2
 
 
-def latest_text(root):
+def latest_text(root, *, gateway=None):
     """最近一条模型的回复正文（定稿时保存的就是它）；没有就是空串。"""
-    for row in reversed(load(root)):
+    for row in reversed(load(root, gateway=gateway)):
         if str(row.get('role')) != 'user':
             return str(row.get('text') or '').strip()
     return ''

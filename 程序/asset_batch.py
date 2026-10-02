@@ -67,7 +67,8 @@ def asset_prompt(asset,kind):
 
 
 def register_image(base,aid,asset,image):
-    return _register_image(base,aid,asset,image)
+    from stage_execution_service import asset_batch_gateway
+    return _register_image(base,aid,asset,image,gateway=asset_batch_gateway())
 
 def image_ready(base,aid,registry=None):
     return _image_ready(base,aid,registry)

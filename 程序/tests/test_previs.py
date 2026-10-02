@@ -160,27 +160,29 @@ class OverrideTests(unittest.TestCase):
         return proj, source
 
     def test_override_applied(self):
-        from previs_routing import set_override, entries
+        from previs_routing import entries
+        from stage_execution_service import save_stage_previs_override
         with tempfile.TemporaryDirectory() as td:
             proj, source = self.make(td)
-            set_override(proj, source, "SH001", "complex")
+            save_stage_previs_override(proj, source, "SH001", "complex")
             self.assertEqual(entries(proj, source)["SH001"]["level"], "complex")
 
     def test_auto_removes_override(self):
-        from previs_routing import set_override, entries
+        from previs_routing import entries
+        from stage_execution_service import save_stage_previs_override
         with tempfile.TemporaryDirectory() as td:
             proj, source = self.make(td)
-            set_override(proj, source, "SH001", "complex")
-            set_override(proj, source, "SH001", "auto")
+            save_stage_previs_override(proj, source, "SH001", "complex")
+            save_stage_previs_override(proj, source, "SH001", "auto")
             # 原动作是“站着说话”→ simple
             self.assertEqual(entries(proj, source)["SH001"]["level"], "simple")
 
     def test_invalid_value_rejected(self):
-        from previs_routing import set_override
+        from stage_execution_service import save_stage_previs_override
         with tempfile.TemporaryDirectory() as td:
             proj, source = self.make(td)
             with self.assertRaises(ValueError):
-                set_override(proj, source, "SH001", "bad")
+                save_stage_previs_override(proj, source, "SH001", "bad")
 
 
 class ShotDirectoryTests(unittest.TestCase):

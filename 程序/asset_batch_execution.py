@@ -85,6 +85,8 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
     """Generate and register one image per eligible asset without UI access."""
     from cloud_assets import LOCAL, MODELS, validate as validate_cloud, graph as cloud_graph, get_key
     from prop_assets import requires_asset
+    from stage_execution_service import asset_batch_gateway
+    gateway = asset_batch_gateway()
     items = eligible_items(base, items, requires_asset)
     if not items:
         return '没有需要独立生成的资产；普通道具随镜头画面生成。'
@@ -122,7 +124,7 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
                 state[aid].update(state='queued', record=str(record)); save_ledger(project, state)
             files = collect_result(client, project, record)
             if len(files) != 1: raise ValueError('工作流输出了多张图片，已保留，请手动选择登记；批量流程要求每个资产只输出一张图')
-            result = register_image(base, aid, asset, files[0]); state[aid].update(state='imported', result=result); save_ledger(project, state)
+            result = register_image(base, aid, asset, files[0], gateway=gateway); state[aid].update(state='imported', result=result); save_ledger(project, state)
             success += 1; events.put(aid + '：' + result)
         except Exception as exc:
             failed += 1; events.put(aid + '：' + str(exc))

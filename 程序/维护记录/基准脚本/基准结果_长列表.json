@@ -1,0 +1,16 @@
+{
+ "300": {
+  "cold_ms": 1184.5,
+  "warm_ms": 538.6,
+  "treeview_rows": 300,
+  "scroll_avg_ms": 48.44,
+  "scroll_max_ms": 228.68
+ },
+ "1000": {
+  "cold_ms": 709.6,
+  "warm_ms": 827.6,
+  "treeview_rows": 999,
+  "scroll_avg_ms": 64.46,
+  "scroll_max_ms": 107.95
+ }
+}

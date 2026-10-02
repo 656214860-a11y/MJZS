@@ -1,0 +1,19 @@
+{
+ "mode": "start",
+ "start": {
+  "import_tkinter_ms": 13.8,
+  "import_desktop_ms": 77.0,
+  "import_asset_thumbs_ms": 0.0,
+  "imports_total_ms": 90.9,
+  "desktop_ctor_ms": 345.3,
+  "first_frame_ms": 212.2,
+  "ready_total_ms": 715.2
+ },
+ "pages": {},
+ "thumbs": {},
+ "memory": {
+  "after_import_mb": 30.0,
+  "after_start_mb": 45.1
+ },
+ "list": {}
+}

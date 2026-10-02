@@ -62,6 +62,20 @@
 | `combobox.arrow.color` | `color.text.secondary` | 下拉箭头；主题不支持时安全回退系统箭头 |
 | `combobox.list.selection` | `color.primary` + `color.background.card` | 弹出列表选中项前景／背景 |
 
+## 输入框（LineInput／TextArea）
+
+单行输入必须使用 `ui_widgets.LineInput`，多行输入必须使用 `ui_widgets.TextArea`。组件统一占位文字、只读态和错误边框；页面仅提供字段内容、尺寸和领域校验，不得重写视觉参数。
+
+| Token | 值 | 用途 |
+| --- | --- | --- |
+| `input.font` | `font.body` | 单行与多行正文 |
+| `input.foreground` | `color.text.primary` | 正常输入文字 |
+| `input.placeholder.foreground` | `color.text.secondary` | 占位文字 |
+| `input.background` | `color.background.card` | 输入区底色 |
+| `input.border` | `color.border.default` | 默认 1px 边框 |
+| `input.error.border` | `color.danger` | 校验失败边框 |
+| `input.padding` | `space.md` × `space.sm` | 水平／垂直内边距 |
+
 ## 文字层级
 
 三类辅助文字只能由 `ui_widgets.HintLabel`、`DescriptionBlock`、`ProgressLabel` 构建。Tk 的 Label 没有独立行距属性，`*.linespace` 以组件统一的垂直内边距表达；页面不得自行覆写字体、颜色、折行或内边距。
@@ -82,6 +96,29 @@
 | `dialog.content.padding` | `space.lg` | 标题、内容区的水平留白与内容区内边距 |
 | `dialog.action.height` | `space.xl` | 底部按钮区最小高度 |
 | `dialog.action.gap` | `space.sm` | 按钮之间的间距 |
+
+## 通知
+
+通知的严重级别复用既有 `color.danger`、`color.warning`、`color.success` 语义；`NotificationDispatcher` 负责将业务消息投递到既有状态栏，并只在调用方明确要求时复用系统模态提示。通知组件不新增另一套颜色或窗口 token。
+
+## Tooltip
+
+Tooltip 仅由 `ui_widgets.Tooltip` 建立；页面不得自行创建无边框 `Toplevel` 或复制鼠标进入／离开的延迟销毁逻辑。它用 `font.assistive`、`color.text.primary`、`color.background.card` 与 `color.border.default`，内容留白为 `space.sm` × `space.xs`，相对控件偏移为 `space.sm`。显示延迟统一为 400ms；鼠标悬停和键盘焦点进入均可触发，离开、失焦或控件销毁必须取消等待并销毁浮层。
+
+## 表格（DataTable）
+
+业务页通过 `ui_widgets.DataTable` 建立新表格；它统一列标题、滚动条、选择回调、按列排序和空态，页面只提供列定义、数据与领域单元格行为。
+
+### 滚动条
+
+标准 `ttk.Scrollbar` 的轨道、滑块、箭头和悬停色仅由 `ui_theme.apply()` 读取 `ui_tokens.py` 的 `SCROLLBAR_*` token 设置；业务页面不得为单个滚动条内联颜色、边框或另建 Style。横向和纵向使用同一视觉与 active 反馈。
+
+| Token | 值 | 用途 |
+| --- | --- | --- |
+| `table.header.font` | `font.body` | 列标题 |
+| `table.row.font` | `font.body` | 数据行 |
+| `table.row.height` | `space.xl` | 默认行高 |
+| `table.empty.padding` | `space.lg` | 空态留白 |
 
 ## 强制规则
 

@@ -12,6 +12,14 @@
 另加两组「接上了没有」的用例：真发请求那一路（model_router／model_pool）与设置页那一格。
 运行：python test_token_saver.py
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json
 import os
 import sys
@@ -641,7 +649,7 @@ class TokenPageTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         self.win = self.tk.Tk()
         self.win.withdraw()
         self.addCleanup(self.win.destroy)

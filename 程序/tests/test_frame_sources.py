@@ -3,6 +3,14 @@
 
 用户原话：「全部页面->选择分镜的下拉框->『全部分镜』功能无法正确显示全部内容」。
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, sys, tempfile, time, unittest
 from pathlib import Path
 
@@ -60,7 +68,7 @@ class FrameSourceTests(unittest.TestCase):
 
     def setUp(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.win = self.tk.Tk()

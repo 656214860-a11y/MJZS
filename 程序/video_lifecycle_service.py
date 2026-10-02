@@ -1,18 +1,26 @@
 """Transactional persistence for user-visible local-video lifecycle actions."""
 from pathlib import Path
 
-from agent.core import read, save
+from agent.core import read
 
 
 UNCERTAIN_STATES = frozenset(('queued', 'running', 'submitting', 'unknown', 'succeeded'))
 
 
-def mark_video_deleted(source, sid, versions):
+def _require_gateway(gateway):
+    """L2 只接受 L3 注入的原子发布器。"""
+    if not isinstance(gateway, dict) or not callable(gateway.get('publish_json')):
+        raise TypeError('视频生命周期发布必须由 L3 注入 gateway')
+    return gateway['publish_json']
+
+
+def mark_video_deleted(source, sid, versions, *, gateway=None):
     """Mark one video shot deleted after its jobs are known settled.
 
     Historical files and task records remain untouched.  If publishing the episode
     fails, the caller's in-memory record is restored before the error is raised.
     """
+    publish_json = _require_gateway(gateway)
     source = Path(source).resolve()
     sid = str(sid or '').strip()
     if not sid:
@@ -26,7 +34,7 @@ def mark_video_deleted(source, sid, versions):
     previous = dict(shot)
     try:
         shot['video_deleted'] = True
-        save(source, episode)
+        publish_json(source, episode)
     except Exception:
         shot.clear()
         shot.update(previous)
@@ -34,12 +42,13 @@ def mark_video_deleted(source, sid, versions):
     return episode
 
 
-def save_video_options(source, sid, selected, generate_audio, is_local):
+def save_video_options(source, sid, selected, generate_audio, is_local, *, gateway=None):
     """Persist one shot's asset and audio options without submitting or uploading.
 
     The UI owns controls and refreshes; this service owns the episode mutation and
     atomic publish.  A failed publish restores the loaded record before propagating.
     """
+    publish_json = _require_gateway(gateway)
     source = Path(source).resolve()
     sid = str(sid or '').strip()
     if not sid:
@@ -57,7 +66,7 @@ def save_video_options(source, sid, selected, generate_audio, is_local):
         else:
             shot.update(upload_assets=bool(selected), generate_audio=bool(generate_audio),
                         upload_asset_ids=selected, checkbox_defaults_version=1)
-        save(source, episode)
+        publish_json(source, episode)
     except Exception:
         shot.clear()
         shot.update(previous)
@@ -65,13 +74,14 @@ def save_video_options(source, sid, selected, generate_audio, is_local):
     return episode
 
 
-def save_white_model_upload(source, sid, enabled):
+def save_white_model_upload(source, sid, enabled, *, gateway=None):
     """Persist one shot's white-model upload choice without uploading media.
 
     The UI remains responsible for readiness and submission guards.  This service
     owns the episode mutation and restores the loaded record when atomic publish
     fails.
     """
+    publish_json = _require_gateway(gateway)
     source = Path(source).resolve()
     sid = str(sid or '').strip()
     if not sid:
@@ -83,7 +93,7 @@ def save_white_model_upload(source, sid, enabled):
     previous = dict(shot)
     try:
         shot['upload_white_model'] = bool(enabled)
-        save(source, episode)
+        publish_json(source, episode)
     except Exception:
         shot.clear()
         shot.update(previous)

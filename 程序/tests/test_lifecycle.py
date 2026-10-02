@@ -6,9 +6,12 @@ import unittest
 from pathlib import Path
 
 from asset_batch_lifecycle import prepare, status
+from stage_execution_service import asset_batch_gateway
 
 
 class LifecycleStatusTests(unittest.TestCase):
+    def gateway(self):
+        return asset_batch_gateway()
     def make_manifest(self, td):
         manifest = Path(td) / "批次" / "批次.json"
         manifest.parent.mkdir(parents=True)
@@ -17,33 +20,38 @@ class LifecycleStatusTests(unittest.TestCase):
 
     def test_legacy_when_no_state(self):
         with tempfile.TemporaryDirectory() as td:
-            self.assertEqual(status(self.make_manifest(td))["state"], "legacy")
+            self.assertEqual(status(self.make_manifest(td), gateway=self.gateway())["state"], "legacy")
+
+    def test_formal_state_access_rejects_missing_l3_gateway(self):
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaisesRegex(TypeError, 'L3'):
+                status(self.make_manifest(td))
 
     def test_execution_state_wins(self):
         with tempfile.TemporaryDirectory() as td:
             manifest = self.make_manifest(td)
             (manifest.parent / "执行状态.json").write_text(json.dumps({"state": "complete"}), encoding="utf-8")
-            self.assertEqual(status(manifest)["state"], "complete")
+            self.assertEqual(status(manifest, gateway=self.gateway())["state"], "complete")
 
     def test_dispatch_failed_after_timeout(self):
         import time
         with tempfile.TemporaryDirectory() as td:
             manifest = self.make_manifest(td)
-            prepare(manifest)
+            prepare(manifest, gateway=self.gateway())
             dispatch = manifest.parent / "派发状态.json"
             data = json.loads(dispatch.read_text(encoding="utf-8"))
             data["created"] = time.time() - 400
             dispatch.write_text(json.dumps(data), encoding="utf-8")
-            self.assertEqual(status(manifest)["state"], "failed")
+            self.assertEqual(status(manifest, gateway=self.gateway())["state"], "failed")
 
     def test_corrupt_execution_state_returns_legacy(self):
         with tempfile.TemporaryDirectory() as td:
             manifest = self.make_manifest(td)
             (manifest.parent / "执行状态.json").write_text("[]", encoding="utf-8")
-            self.assertEqual(status(manifest)["state"], "legacy")
+            self.assertEqual(status(manifest, gateway=self.gateway())["state"], "legacy")
 
     def test_corrupt_dispatch_state_returns_legacy(self):
         with tempfile.TemporaryDirectory() as td:
             manifest = self.make_manifest(td)
             (manifest.parent / "派发状态.json").write_text("[]", encoding="utf-8")
-            self.assertEqual(status(manifest)["state"], "legacy")
+            self.assertEqual(status(manifest, gateway=self.gateway())["state"], "legacy")

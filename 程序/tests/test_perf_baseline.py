@@ -17,6 +17,14 @@
 
 跑法：`python test_perf_baseline.py`，或者跟着全量自检一起跑。
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import ctypes
 import ctypes.wintypes
 import inspect
@@ -36,11 +44,15 @@ HERE = Path(__file__).resolve().parent
 PROGRAM = HERE.parent
 if str(PROGRAM) not in sys.path:
     sys.path.insert(0, str(PROGRAM))
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
 os.chdir(PROGRAM)
 
 from project_stages import storyboard as storyboard_stage
+from performance_contract import (LONG_LIST_SCROLL_MEDIAN_MS, MEMORY_DELTA_MB,
+                                  STARTUP_FIRST_FRAME_MS)
 
-FIRST_FRAME_LIMIT = 1500.0     # 冷启动：Desktop 构造 ＋ 首帧（ms）
+FIRST_FRAME_LIMIT = STARTUP_FIRST_FRAME_MS  # 冷启动：Desktop 构造 ＋ 首帧（ms）
 PAGE_OPEN_LIMIT = 1200.0       # 300 项资产页打开：墙上时间的**参考线**（只打印，不判）
 PAGE_OPEN_CPU_RATIO = 10.0      # 300 项资产页打开：CPU 时间除以参考活的上限（判这一条）
 # 这台机器上踩过的两个坑（第 72 期）：
@@ -53,12 +65,12 @@ SCROLL_FRAME_LIMIT = 120.0     # 300 行滚动：最干净那一档帧的成本�
                                # （维护记录里给的是 45 ms；同一份代码本机安静时 p10 = 33～39 ms、
                                #  别的程序抢机器时 72～83 ms——卡 45 会随机红，所以这里留 3 倍余量拦灾难，
                                #  真正拦「重排又退回整表扫」的是下面那条确定性的格子数）
-SCROLL_FRAME_CEILING = 150.0   # 300 行滚动：中位数上限（这台机器偶发上百毫秒的尖峰，卡它只为拦灾难）
+SCROLL_FRAME_CEILING = LONG_LIST_SCROLL_MEDIAN_MS  # 300 行滚动中位数灾难线，见共享口径
 RESIZE_CELLS_LIMIT = 200       # 每帧重排碰的格子数（确定性门禁，第 72 期新增的那条）
 RESIZE_MS_LIMIT = 10.0         # 每帧重排本身花的时间（ms；改后 0.7～1.4 ms，改前 300 行 4.3 ms）
 THUMB_LIMIT = 25.0             # 缩略图：界面线程每张（ms）
 THUMB_DISK_LIMIT = 20.0        # 缩略图：磁盘缓存命中每张（ms）
-MEMORY_LIMIT = 30.0            # 工作集增量（MB）
+MEMORY_LIMIT = MEMORY_DELTA_MB # 工作集增量（MB）
 
 
 def png(width, height, phase=0):
@@ -177,7 +189,7 @@ class PerfBaseline(unittest.TestCase):
     def desktop(self, td, count=300):
         """按真项目开一个 Desktop；用完自己收拾干净。"""
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         self.no_project_dialog()
         proj = big_project(td, count)
         from desktop import Desktop
@@ -208,7 +220,7 @@ class PerfBaseline(unittest.TestCase):
     def test_cold_start_reaches_the_first_frame(self):
         """冷启动到首帧：Desktop 构造（建第一页）＋ 一次 update。"""
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         self.no_project_dialog()
         from desktop import Desktop
         win = self.tk.Tk()
@@ -224,7 +236,7 @@ class PerfBaseline(unittest.TestCase):
     def test_project_home_is_laid_out_before_project_choice_callback(self):
         """未选项目的首屏不能只剩状态栏：项目树必须取得可见画布高度。"""
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         self.no_project_dialog()
         from desktop import Desktop
         win = self.tk.Tk()
@@ -355,7 +367,7 @@ class PerfBaseline(unittest.TestCase):
     def test_the_thumbnail_stays_off_the_interface_thread(self):
         """界面线程每张只登记任务；命中磁盘缓存后一张要秒回。"""
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         import asset_thumbs
         win = self.tk.Tk()
         win.withdraw()
@@ -401,7 +413,7 @@ class PerfBaseline(unittest.TestCase):
         """11 页全开一遍 ＋ 300 项资产页：工作集增量要有限。"""
         before = rss_mb()
         if before < 0:
-            self.skipTest('读不到工作集（不是 Windows 或接口不可用）')
+            self.skipTest(PLATFORM_WORKING_SET)
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
             d, proj, win = self.desktop(td)
             for index in range(11):
@@ -418,7 +430,5 @@ class PerfBaseline(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
-
-
 
 

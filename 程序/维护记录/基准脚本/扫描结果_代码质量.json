@@ -1,0 +1,396 @@
+{
+ "files": {
+  "count": 167,
+  "lines": 61982,
+  "over_500": [
+   [
+    5432,
+    "test_pet_ui.py"
+   ],
+   [
+    4325,
+    "test_ui_edges.py"
+   ],
+   [
+    3766,
+    "pet_ui.py"
+   ],
+   [
+    3123,
+    "desktop.py"
+   ],
+   [
+    2012,
+    "pet_cloud.py"
+   ],
+   [
+    1416,
+    "app.py"
+   ],
+   [
+    1361,
+    "test_video_ui.py"
+   ],
+   [
+    1236,
+    "test_skills.py"
+   ],
+   [
+    1037,
+    "pet_agent.py"
+   ],
+   [
+    984,
+    "skill_panel.py"
+   ],
+   [
+    950,
+    "test_cell_menu.py"
+   ],
+   [
+    888,
+    "storyboard_files.py"
+   ],
+   [
+    757,
+    "keyframe_comfy.py"
+   ],
+   [
+    725,
+    "cell_hover.py"
+   ],
+   [
+    697,
+    "test_assets.py"
+   ],
+   [
+    691,
+    "test_pet_settings.py"
+   ],
+   [
+    645,
+    "test_core.py"
+   ],
+   [
+    633,
+    "responsive_ui.py"
+   ],
+   [
+    606,
+    "test_pet_agent.py"
+   ],
+   [
+    563,
+    "asset_reference_images.py"
+   ],
+   [
+    562,
+    "test_asset_gating.py"
+   ],
+   [
+    562,
+    "asset_batch.py"
+   ],
+   [
+    528,
+    "test_pet_report.py"
+   ],
+   [
+    526,
+    "pet_report.py"
+   ],
+   [
+    507,
+    "model_router.py"
+   ]
+  ],
+  "prod_over_500": [
+   [
+    3766,
+    "pet_ui.py"
+   ],
+   [
+    3123,
+    "desktop.py"
+   ],
+   [
+    2012,
+    "pet_cloud.py"
+   ],
+   [
+    1416,
+    "app.py"
+   ],
+   [
+    1037,
+    "pet_agent.py"
+   ],
+   [
+    984,
+    "skill_panel.py"
+   ],
+   [
+    888,
+    "storyboard_files.py"
+   ],
+   [
+    757,
+    "keyframe_comfy.py"
+   ],
+   [
+    725,
+    "cell_hover.py"
+   ],
+   [
+    633,
+    "responsive_ui.py"
+   ],
+   [
+    563,
+    "asset_reference_images.py"
+   ],
+   [
+    562,
+    "asset_batch.py"
+   ],
+   [
+    526,
+    "pet_report.py"
+   ],
+   [
+    507,
+    "model_router.py"
+   ]
+  ],
+  "top": [
+   [
+    5432,
+    "test_pet_ui.py"
+   ],
+   [
+    4325,
+    "test_ui_edges.py"
+   ],
+   [
+    3766,
+    "pet_ui.py"
+   ],
+   [
+    3123,
+    "desktop.py"
+   ],
+   [
+    2012,
+    "pet_cloud.py"
+   ],
+   [
+    1416,
+    "app.py"
+   ],
+   [
+    1361,
+    "test_video_ui.py"
+   ],
+   [
+    1236,
+    "test_skills.py"
+   ],
+   [
+    1037,
+    "pet_agent.py"
+   ],
+   [
+    984,
+    "skill_panel.py"
+   ],
+   [
+    950,
+    "test_cell_menu.py"
+   ],
+   [
+    888,
+    "storyboard_files.py"
+   ]
+  ]
+ },
+ "unused_imports": [
+  [
+   "app_shortcut.py",
+   "wintypes",
+   "line 149"
+  ],
+  [
+   "skill_tools.py",
+   "read_json",
+   "line 18"
+  ],
+  [
+   "skill_tools.py",
+   "LICENSES",
+   "line 115"
+  ],
+  [
+   "stage_exec.py",
+   "Path",
+   "line 10"
+  ],
+  [
+   "test_manual_gate.py",
+   "make_project",
+   "line 21"
+  ],
+  [
+   "test_pet_report.py",
+   "json",
+   "line 3"
+  ],
+  [
+   "test_pet_report.py",
+   "time",
+   "line 3"
+  ],
+  [
+   "test_pet_report.py",
+   "pet_llm",
+   "line 10"
+  ],
+  [
+   "test_pet_report.py",
+   "pet_state",
+   "line 10"
+  ],
+  [
+   "test_pet_state.py",
+   "SKIPPED",
+   "line 11"
+  ]
+ ],
+ "top_level_symbols": 967,
+ "never_used_in_program": [
+  [
+   "asset_thumbs.py",
+   "forget",
+   "line 92",
+   1,
+   1
+  ],
+  [
+   "comfy_service.py",
+   "validate_safetensors",
+   "line 15",
+   1,
+   5
+  ],
+  [
+   "model_pool.py",
+   "has_local_key",
+   "line 241",
+   1,
+   1
+  ],
+  [
+   "model_router.py",
+   "agent_patch",
+   "line 501",
+   1,
+   4
+  ],
+  [
+   "pet_cloud.py",
+   "inside_shape",
+   "line 346",
+   1,
+   8
+  ],
+  [
+   "previs_progress.py",
+   "status_value",
+   "line 40",
+   1,
+   11
+  ],
+  [
+   "previs_progress.py",
+   "ProgressCells",
+   "line 66",
+   1,
+   1
+  ],
+  [
+   "skill_tools.py",
+   "page_of",
+   "line 54",
+   1,
+   1
+  ],
+  [
+   "skill_tools.py",
+   "ready_names",
+   "line 432",
+   1,
+   2
+  ],
+  [
+   "skill_tools.py",
+   "page_names",
+   "line 436",
+   1,
+   2
+  ],
+  [
+   "stage_config.py",
+   "drop_preset",
+   "line 214",
+   1,
+   2
+  ],
+  [
+   "storyboard_files.py",
+   "recycle_file",
+   "line 205",
+   1,
+   1
+  ],
+  [
+   "storyboard_lifecycle.py",
+   "working_content",
+   "line 54",
+   1,
+   3
+  ]
+ ],
+ "duplicate_blocks": [
+  [
+   "pet_ui.py",
+   2,
+   "if job is None:"
+  ],
+  [
+   "pet_ui.py",
+   2,
+   "return None"
+  ],
+  [
+   "pet_ui.py",
+   2,
+   "text = ' '.join(str(text or '').split())"
+  ],
+  [
+   "pet_ui.py",
+   2,
+   "if not text:"
+  ],
+  [
+   "responsive_ui.py",
+   2,
+   "def on_configure(event=None):"
+  ],
+  [
+   "stage_models.py",
+   2,
+   "asked = getattr(desktop, '_manual_model_asked', None)"
+  ]
+ ],
+ "duplicate_block_count": 6,
+ "commented_code_blocks": []
+}

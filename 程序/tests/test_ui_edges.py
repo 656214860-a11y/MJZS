@@ -1,11 +1,21 @@
 # -*- coding: utf-8 -*-
 """UI 边界回归：无分镜/无资产的最小项目下，11 个页面均能构建不崩溃。运行：python test_ui_edges.py"""
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import inspect, json, os, re, sys, tempfile, time, unittest
 from pathlib import Path
 
 HERE = str(Path(__file__).resolve().parents[1])
 sys.path.insert(0, HERE)
 os.chdir(HERE)
+
+import idea_chat
 
 PROGRAM = HERE
 FFMPEG = r"D:/Tools/ffmpeg/bin/ffmpeg.exe"
@@ -287,7 +297,7 @@ class UiEdgeTests(unittest.TestCase):
 
     def test_all_pages_build_without_storyboard(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             win = self.tk.Tk(); win.withdraw()
@@ -307,7 +317,7 @@ class UiEdgeTests(unittest.TestCase):
 
     def test_editing_actions_disabled_without_downloads(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             win = self.tk.Tk(); win.withdraw()
@@ -341,7 +351,7 @@ class UiEdgeTests(unittest.TestCase):
 
     def test_all_pages_build_with_storyboard(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             win = self.tk.Tk(); win.withdraw()
@@ -362,7 +372,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_all_pages_build_with_populated_project(self):
         """全流程跑过一遍的项目（定稿、资产图、首帧、已验收镜头、成片、交接包）也要能构建 11 个页面。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_populated_project(td)
             win = self.tk.Tk(); win.withdraw()
@@ -392,7 +402,7 @@ class UiEdgeTests(unittest.TestCase):
 
     def test_audio_actions_disabled_without_dialogue(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             adopt_storyboard_fixture(proj)
@@ -429,7 +439,7 @@ class UiEdgeTests(unittest.TestCase):
 
     def test_final_storyboard_split_viewer(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             win = self.tk.Tk(); win.withdraw()
@@ -453,7 +463,7 @@ class UiEdgeTests(unittest.TestCase):
 
     def test_script_box_above_storyboard_json_box(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             win = self.tk.Tk(); win.withdraw()
@@ -496,7 +506,7 @@ class UiEdgeTests(unittest.TestCase):
         所以按钮行到表格顶端的距离要落在十几像素以内（改前分别是 30 / 36 像素）。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             win = self.tk.Tk(); win.geometry("1100x760+40+40")
@@ -565,7 +575,7 @@ class UiEdgeTests(unittest.TestCase):
         原来一个都不勾，两颗主动作永远是灰的，用户得逐镜点一遍。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             adopt_storyboard_fixture(proj)
@@ -605,7 +615,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_file_table_click_rules(self):
         """第2步内容框点击：文本格单击勾选、再点取消；带链接的格子先勾选再打开，已勾选只打开不取消。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -667,7 +677,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_launch_comfy_does_not_block_on_a_starting_service(self):
         """ComfyUI 正在启动（端口已开、还没应答）时启动判断立刻返回，也不再索要桌面程序路径。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import socket
         import native_apps
         import desktop as desktop_module
@@ -725,7 +735,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_launch_comfy_is_silent_in_the_production_chain(self):
         """第 62 期任务 8：「手动制作资产／首帧」自动拉起 ComfyUI 时不弹「选择程序」对话框。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import socket
         import native_apps
         import desktop as desktop_module
@@ -770,7 +780,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_frame_page_batch_row_moved_below_table(self):
         """04 首帧页：「选中镜头」行贴内容框下方，批量/Skill/导入新首帧等按钮删除。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -865,7 +875,7 @@ class UiEdgeTests(unittest.TestCase):
         面板里的接口一个都不少，那一头由 test_skills.PanelTests.test_the_panel_keeps_the_interfaces 盯着。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -975,7 +985,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_unattended_switch_is_not_rendered_by_the_page(self):
         """自动状态只由三虎写入；页面不得保留用户可点的自动制作勾选框。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -1008,7 +1018,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_writing_page_first_line_and_removed_labels(self):
         """第 31 期第 1 条＋第 69 期任务 4：01 剧本准备页不再摆那一长句说明，四处多余文字也删掉。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             win = self.tk.Tk(); win.geometry("1100x760+40+40")
@@ -1054,7 +1064,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_the_brief_example_never_lands_in_the_project(self):
         """第 37 期第 2 条：创意栏那份预置示例随程序打包，用户不改就一个字都不进项目文件。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             win = self.tk.Tk(); win.geometry("1100x760+40+40")
@@ -1093,7 +1103,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_the_writing_page_gives_the_brief_more_room(self):
         """第 37 期第 3 条＋第 69 期任务 2：内容框加高，下面那格对话框并进来，按钮围着它摆。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             win = self.tk.Tk(); win.geometry("1100x760+40+40")
@@ -1133,7 +1143,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_the_writing_page_wraps_the_box_with_buttons(self):
         """第 69 期任务 2／3：创作入口在内容框上方，「发送」在它左下角，文件操作在右下角。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             from project_stages import writing
@@ -1199,7 +1209,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_script_structure_page_shows_source_and_output_in_separate_boxes(self):
         """剧本结构页上看剧本准备来源、下看结构化输出，手动制作和阶段配置夹在中间。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             writing = proj / "writing"; writing.mkdir(exist_ok=True)
@@ -1259,7 +1269,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_frame_checks_follow_the_frame_state(self):
         """04 首帧页：勾选与首帧状态双向同步，弹窗提交的那一批回写页面。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         import frame_checks as checks_module
@@ -1319,9 +1329,9 @@ class UiEdgeTests(unittest.TestCase):
 
     def test_final_page_nav_rows_and_headers(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             sb = storyboard_stage(proj) / "分镜文档" / "episode.json"
@@ -1385,7 +1395,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_final_page_marks_the_synced_final(self):
         """第 40 期第 2 条：同步过资产的那一份（同目录里有 assets.json）写「已同步」与「·同步」。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             final_dir = storyboard_stage(proj) / "分镜文档" / "EP001_分镜定稿_20260921_101438"
@@ -1439,7 +1449,7 @@ class UiEdgeTests(unittest.TestCase):
         过渡都不高于它最终的高度。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import storyboard_selection
         import responsive_ui
@@ -1504,7 +1514,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_source_selector_wheel_does_not_switch_episode(self):
         """下游页「选择分镜」下拉框：页面重建后仍带滚轮标签，滚轮只滚页面、不切换分镜。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import storyboard_selection
         import desktop as desktop_module
@@ -1576,7 +1586,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_source_selector_display_snaps_back_when_switch_is_blocked(self):
         """后台任务占用时切换分镜：只提示不切换，下拉框必须回到真实文件，不能停在新文件名上。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         from unittest.mock import patch
         import storyboard_selection
@@ -1632,7 +1642,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_frame_prompt_window_copies_and_closes(self):
         """首帧图片提示词窗口：点「复制提示词」写入剪贴板并关窗（与资产提示词窗口同一行为）。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -1681,7 +1691,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_frame_prompt_window_disables_copy_when_empty(self):
         """没有首帧提示词时：窗口保持打开，复制按钮禁用，剪贴板不被写入。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -1738,7 +1748,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_asset_prompt_window_copies_and_closes(self):
         """资产提示词窗口：与首帧图片提示词窗口同一套实现，复制成功后关窗。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -1781,7 +1791,7 @@ class UiEdgeTests(unittest.TestCase):
         第 57 期第 6 条：这一列改名「资产图片」（原来叫「导入图片」）。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         # 开机那个 after(150) 的「接着上次的项目」回调：这一页建得慢（要解真 PNG 缩略图），
         # 回调会在 update() 里到期、把内容重建回第 1 步——与相邻几个用例一样先掐掉它。
@@ -1872,7 +1882,7 @@ class UiEdgeTests(unittest.TestCase):
         （切勾选、点开「选择资产」下拉框、弹本页的镜头菜单全是树自己在管）。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, proj, win = self._open_page_with_real_frame(td, PAGE["video"], video_mode="local")
             app = d.video
@@ -1901,7 +1911,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_the_video_table_shows_the_first_frame_thumbnail(self):
         """第 53 期第 5 条：07 镜头内容框的「首帧」列摆缩略图（行高跟着放大）。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import app as app_module
         with tempfile.TemporaryDirectory() as td:
@@ -1925,7 +1935,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_the_previs_table_highlights_every_cell(self):
         """第 53 期第 2 条：白模预演那张镜头内容框的每一格都能悬停高亮。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
@@ -1976,7 +1986,7 @@ class UiEdgeTests(unittest.TestCase):
         解不开的图（jpg 等 Tk 不认的）照旧退回原来写的文件名——这一条一并盯住。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_doc
         import desktop as desktop_module
@@ -2050,7 +2060,7 @@ class UiEdgeTests(unittest.TestCase):
         加宽时先把被裁掉的内容补回来，再有富余按比例分掉。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -2106,7 +2116,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_readonly_combobox_ignores_mouse_wheel(self):
         """只读下拉框不再被滚轮改选：TCombobox 类级补丁拦下改值，可编辑下拉框保持 Tk 默认行为。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -2142,7 +2152,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_open_combobox_wheel_scrolls_list_without_rebuild(self):
         """「选择分镜」展开后滚轮只滚动列表：不换选项、不重建页面。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import storyboard_selection
         import desktop as desktop_module
@@ -2218,7 +2228,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_source_selector_skips_rebuild_for_same_choice(self):
         """选中同一份分镜不再重建整页；换一份时等下拉收起（after_idle）后再重建。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import storyboard_selection
         import desktop as desktop_module
@@ -2277,7 +2287,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_sanhu_auto_mode_persists_and_polls_auto_adopt(self):
         """全自动模式由三虎写入开关，主循环再把新分镜推进后续流程。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import project_settings, storyboard_selection
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -2344,7 +2354,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_startup_reconciliation_pulls_the_working_episode_back(self):
         """第 62 期任务 7：强制关闭后重开，第一拍把已完成的分镜同步回工作集。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import project_settings
         import storyboard_selection
         import desktop as desktop_module
@@ -2385,7 +2395,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_sanhu_auto_mode_assembles_once_per_approval(self):
         """三虎全自动模式写入粗剪开关，整集验收后只自动拼接一次。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from agent.core import file_hash, save
         import engine as engine_module
         import project_settings
@@ -2448,7 +2458,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_sanhu_auto_mode_persists_and_polls_handoff(self):
         """三虎全自动模式写入交接开关，整集验收后只整理一次。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time
         from agent.core import file_hash, save
         import project_settings
@@ -2529,7 +2539,7 @@ class UiEdgeTests(unittest.TestCase):
         """02 初步分镜「重排镜头编号」：批量分镜按完成顺序编号（EP002 拿到 SH020…）时，
         预览确认后按集号顺序重排，只改编号；编号本来就连续时只提示不改文件。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import messagebox, ttk
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
@@ -2596,7 +2606,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_page_build_failure_reports_instead_of_blank_page(self):
         """侧栏导航遇到页面构建失败要弹出原因：.pyw 启动没有控制台，空白页等于没有提示。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import messagebox
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
@@ -2634,7 +2644,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_handoff_prefers_approved_take(self):
         """交接包取「已验收」的那一版：重新生成但还没验收的新版本不能混进包里，否则和成片对不上。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from agent.core import file_hash, save
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -2689,7 +2699,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_readiness_check_is_shared_between_auto_edit_and_handoff(self):
         """自动粗剪与自动交接共用一次整集哈希校验：同一批验收结果不该把整集成片哈希两遍。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from agent.core import file_hash, save
         import engine as engine_module
         import project_settings
@@ -2743,7 +2753,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_auto_keyframe_sanhu_mode_persists_and_polls(self):
         """05 首帧自动链路由三虎模式启用，轮询只对缺首帧的镜头排队一次。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
         import keyframe_comfy
         import desktop as desktop_module
@@ -2836,7 +2846,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_auto_previs_sanhu_mode_dispatches_complex_once(self):
         """06 白模自动链路由三虎模式启用；复杂未就绪镜头只派一次，中等动作不代办。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
         import previs_routing, previs_automation
         import desktop as desktop_module
@@ -2904,7 +2914,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_auto_previs_waits_for_first_frame_stage(self):
         """无人值守顺序：首帧阶段也在跑时，白模要等这一镜首帧落盘再派发；首帧由人管的项目不被拦住。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
         import previs_routing, previs_automation
         import desktop as desktop_module
@@ -2961,7 +2971,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_final_storyboard_hint_points_to_step04(self):
         """工作稿引用的资产都已导入时提示可到第04步生成定稿；资产没齐或已经是定稿时不提示。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
         import asset_batch_state_service
         import desktop as desktop_module
@@ -3029,7 +3039,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_auto_asset_sanhu_mode_persists_and_polls(self):
         """03 资产自动链路由三虎模式启用；缺图且清单已补齐的资产才排队。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
         import asset_batch
         import desktop as desktop_module
@@ -3100,7 +3110,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_unattended_asset_batch_retries_when_nothing_landed(self):
         """第 62 期任务 10：一轮跑完却一张图都没做出来时，不能记成完成——要提示并自动重试。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
         import asset_auto_batch_service
         import desktop as desktop_module
@@ -3161,7 +3171,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_pet_storyboard_batch_dispatches_the_selected_scripts(self):
         """三虎只派有输入的分镜任务；结构化正稿同步后也必须成为可派发输入。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -3208,7 +3218,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_studio_follows_selected_storyboard(self):
         """工作集跟随当前选择的分镜：切换分镜或自动采用后，08 剪辑、自动粗剪和交付不能还按旧分镜执行。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import project_settings
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -3273,7 +3283,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_auto_video_sanhu_mode_persists_and_polls(self):
         """07 本地视频自动链路由三虎模式启用；缺视频的镜头只排队一次。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
         import local_video
         import desktop as desktop_module
@@ -3356,7 +3366,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_per_line_tts_asks_before_paying(self):
         """08 逐句配音按句计费：确认框取消时一句都不提交，确认后按预览的句数提交，重跑沿用不重复扣费。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
         import tts_api
         import desktop as desktop_module
@@ -3416,7 +3426,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_whole_script_tts_reuses_unchanged_audio(self):
         """08 整段配音：台词与音色都没变时第二次点击直接沿用文件，不重复扣费；换了音色才重新合成。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
         import tts_api
         import desktop as desktop_module
@@ -3470,7 +3480,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_auto_final_switch_generates_final_and_retires_working_json(self):
         """04「自动生成定稿」：资产没齐只提示缺什么；资产齐了自动定稿、工作稿移入回收站，随后自动停下。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time
         import desktop as desktop_module
         original_choose = desktop_module.Desktop.choose_project
@@ -3544,7 +3554,7 @@ class UiEdgeTests(unittest.TestCase):
         点一下立刻重扫资产、重跑一轮，不必等下一个 30 秒轮询周期。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time
         import project_settings
         import desktop as desktop_module
@@ -3627,7 +3637,7 @@ class UiEdgeTests(unittest.TestCase):
         资产每次开机都白跑一轮，用户既看不到「已经试过几次」，也等不到那句「已停下等您处理」。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
         import asset_auto_batch_service, asset_resume
         import desktop as desktop_module
@@ -3704,7 +3714,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_unattended_chain_runs_asset_final_keyframe_in_order(self):
         """无人值守链路连续推进：03 补齐资产 → 04 自动定稿 → 05 自动补首帧，中途不需要人工点按钮。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time
         from unittest.mock import patch
         import asset_auto_batch_service, keyframe_comfy, project_settings
@@ -3803,7 +3813,7 @@ class UiEdgeTests(unittest.TestCase):
         只要首帧批次抢跑，断言立刻失败（不依赖机器负载）。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time, threading
         from unittest.mock import patch
         import asset_auto_batch_service, keyframe_comfy, project_settings
@@ -3904,7 +3914,7 @@ class UiEdgeTests(unittest.TestCase):
         真正的连锁关系是「07 的成片通过验收」同时是 09 与 10 的前提。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time
         from unittest.mock import patch
         from agent.core import file_hash, save
@@ -3985,7 +3995,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_unattended_polls_yield_while_finalizing(self):
         """04 定稿正在移走工作稿时，02/03/09 的无人值守轮询这一轮都不动手：否则会拿到正在被替换的路径。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time
         from unittest.mock import patch
         from agent.core import file_hash, save
@@ -4059,7 +4069,7 @@ class UiEdgeTests(unittest.TestCase):
         这是「离开电脑让它自己做完」的验收口径：六条轮询同时打开，中途没有任何点击。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time
         from unittest.mock import patch
         from agent.core import file_hash, save
@@ -4175,7 +4185,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_chain_kick_skips_steps_in_failure_backoff(self):
         """链路接力只踢下游，且不抢跑失败后的 5 分钟退避：否则一次成功会把别处失败重试节奏打乱。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
@@ -4204,7 +4214,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_auto_final_waits_for_running_keyframe_batch(self):
         """定稿会移走工作稿，所以要等在跑的无人值守批次结束：批次收尾会按原路径重读分镜 JSON。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import threading, time
         from unittest.mock import patch
         import keyframe_comfy, project_settings
@@ -4282,7 +4292,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_table_hover_clears_when_wheel_scrolls(self):
         """滚轮滚动内容框时清掉悬停高亮：高亮浮层按旧坐标贴着表格，不跟着滚动就会停在错行上。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import storyboard_selection
         import desktop as desktop_module
@@ -4334,7 +4344,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_same_page_rebuild_keeps_scroll_offset(self):
         """同一页重建（刷新列表、切换分镜、自动流程刷新）保留滚动位置；换页才回到顶部。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -4377,7 +4387,7 @@ class UiEdgeTests(unittest.TestCase):
     def test_restored_main_window_recomputes_page_scroll_before_wheel(self):
         """最小化恢复后，第一枚落在页面底部的滚轮也能继续查看被遮挡内容。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -4435,7 +4445,7 @@ class RowHeightTests(unittest.TestCase):
 
     def test_the_height_reads_the_widget_font(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk, font as tkfont
         from responsive_ui import row_text_height, row_height_for
         win = self.tk.Tk(); win.withdraw()
@@ -4448,7 +4458,7 @@ class RowHeightTests(unittest.TestCase):
 
     def test_fit_row_height_sets_the_style(self):
         if self.tk is None:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         from responsive_ui import fit_row_height, row_height_for, row_text_height
         win = self.tk.Tk(); win.withdraw()
@@ -4518,7 +4528,7 @@ class BatchContinuationTests(unittest.TestCase):
 
     def test_storyboard_agent_continues_past_made_scripts(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import time
         import storyboard_catalog_service, storyboard_selection, workflow_tasks
         with tempfile.TemporaryDirectory() as td:
@@ -4583,7 +4593,7 @@ class BatchContinuationTests(unittest.TestCase):
     def test_asset_batch_asks_before_remaking_finished_assets(self):
         """第 59 期第 3 条：勾到「已制作」的行，点制作先问一句重不重做；不重做就不开窗口。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, win, _proj = self.asset_page(td)
             calls = self.answer_modal(False)
@@ -4597,7 +4607,7 @@ class BatchContinuationTests(unittest.TestCase):
     def test_asset_batch_remakes_the_ones_the_user_confirmed(self):
         """确认重做就把旧图移进项目回收站，资产回到待导入。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import json
         with tempfile.TemporaryDirectory() as td:
             d, win, proj = self.asset_page(td)
@@ -4622,7 +4632,7 @@ class BatchContinuationTests(unittest.TestCase):
     def test_asset_batch_still_starts_for_the_unfinished_ones(self):
         """第 59 期第 3 条：勾上一项已制作、一项未制作，不重做时只做未制作的那一项。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(td, proj)
@@ -4643,7 +4653,7 @@ class BatchContinuationTests(unittest.TestCase):
     def test_the_manual_asset_button_is_grey_when_everything_is_made(self):
         """第 59 期第 3 条：内容框里只剩「已制作」的行时，这颗按钮置灰。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(td, proj)
@@ -4661,7 +4671,7 @@ class BatchContinuationTests(unittest.TestCase):
 
     def test_adopt_skips_adopted_without_confirm(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             adopted_rel = "03初步分镜/分镜文档/episode.json"
@@ -4743,7 +4753,7 @@ class WorkerThreadSafetyTests(unittest.TestCase):
 
     def test_seedream_probe_reports_reachable(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import seedream_settings
         text = self.probe_status(seedream_settings, {"reachable": True, "code": 401})
         self.assertIn("接口可达", text)
@@ -4751,7 +4761,7 @@ class WorkerThreadSafetyTests(unittest.TestCase):
 
     def test_tts_probe_reports_connection_failure(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import tts_settings
         text = self.probe_status(tts_settings, {"reachable": False, "error": "超时"})
         self.assertIn("连接失败", text)
@@ -4779,9 +4789,9 @@ class PromptWindowSourceGuardTests(unittest.TestCase):
         各写一份时出过「一个窗口复制后关、另一个不关」，以及「复制失败没人处理」。
         """
         sources = self.program_sources()
-        # desktop 的输入框右键「粘贴」必须直接使用 Tk 剪贴板；提示词复制仍只走 copy_text。
+        # desktop 的输入框右键「粘贴」可以直接读取 Tk 剪贴板；所有写入必须走 copy_text。
         offenders = [name for name, text in sources.items()
-                     if name not in ("prompt_window.py", "desktop.py") and "clipboard_append" in text]
+                     if name != "prompt_window.py" and "clipboard_append" in text]
         self.assertEqual(offenders, [])
         self.assertEqual(sources["prompt_window.py"].count("clipboard_append"), 1)
         self.assertIn("copy_text", sources["local_previs.py"])            # 白模制作说明的复制
@@ -4879,7 +4889,7 @@ class StageConfigEntryTests(unittest.TestCase):
 
     def test_every_page_opens_its_own_panel(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         import skill_panel
         # safe() 出错时会弹 messagebox，自检会被那个弹窗卡住：这里只记账，最后断言没人报错。
@@ -4932,7 +4942,7 @@ class BriefTintTests(unittest.TestCase):
 
     def build(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         proj = make_adopted_project(self.tmp.name)
@@ -4989,8 +4999,8 @@ class BriefTintTests(unittest.TestCase):
     def test_the_users_own_words_show_up_on_the_display(self):
         """第 65 期任务 9：上次存下的那份创意，显示在上面那格对话展示框里。"""
         win, d = self.build()
-        import idea_chat
-        idea_chat.append(d.root, 'user', '我的创意：一只会说话的猫。', model=d.idea_chat_model())
+        idea_chat.append(d.root, 'user', '我的创意：一只会说话的猫。',
+                         model=d.idea_chat_model(), gateway=d.idea_chat_gateway())
         d.show(0)
         win.update()
         shown = str(d.idea_log.get("1.0", "end-1c"))
@@ -5019,7 +5029,7 @@ class ContentBoxFitTests(unittest.TestCase):
 
     def build(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         proj = make_adopted_project(tmp.name)
@@ -5103,7 +5113,7 @@ class TalkBoxFitTests(unittest.TestCase):
 
     def build(self, geometry):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         proj = make_adopted_project(tmp.name)
@@ -5183,7 +5193,7 @@ class StoryboardRowLayoutTests(unittest.TestCase):
 
     def test_the_action_row_stays_inside_the_visible_canvas(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         from desktop import Desktop
         from local_video import open_studio
@@ -5238,7 +5248,7 @@ class PageHintTests(unittest.TestCase):
 
     def test_notes_are_green_and_same_page_duplicates_are_reused(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         from desktop import Desktop
         from local_video import open_studio
@@ -5255,7 +5265,7 @@ class PageHintTests(unittest.TestCase):
 
     def test_asset_sync_failure_stays_silent_outside_assets(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         from desktop import Desktop
         from local_video import open_studio
@@ -5342,5 +5352,3 @@ class EditorStartMenuScanTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
-
-

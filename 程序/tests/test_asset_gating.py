@@ -6,6 +6,14 @@
 2) 资产图片制作窗口：只剩「启动并检测／取消检测」，随勾选禁用，紧邻进度条下方；
    检测通过就自动开跑（第 65 期任务 1：手动制作资产／桌面打开 ComfyUI 撤掉，
    强制关闭 ComfyUI／制作记录搬到主界面阶段配置旁）。运行：python test_asset_gating.py"""
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import base64, json, os, sys, tempfile, unittest
 from pathlib import Path
 
@@ -96,7 +104,7 @@ class _TkHarness(unittest.TestCase):
 
     def desktop(self, td):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -171,7 +179,7 @@ class AssetPageContentTests(_TkHarness):
     def test_the_columns_and_the_reference_categories(self):
         """第 55 期第 4／5／6 条：两栏去掉「(点击查看)」、参考图那一栏写类目、「资产目录」删掉。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = adopted_project(td)
             # 参考图存在资产清单里（asset_reference_images 那几扇窗读写的是这一份）：
@@ -212,7 +220,7 @@ class AssetPageContentTests(_TkHarness):
         点进去说「还没有参考图」——这条用例就是钉住这一点。
         """
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = adopted_project(td)
             d, win = self.open_assets(proj)          # 先建一次页：资产清单是这一页同步出来的
@@ -278,7 +286,7 @@ class AssetPageContentTests(_TkHarness):
     def test_only_the_visible_rows_decode_a_picture(self):
         """第 55 期第 3 条：打开这一页只为可视区那几行解图，不是为整库每一项。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import asset_thumbs
         with tempfile.TemporaryDirectory() as td:
             proj = many_assets_project(td, 30)
@@ -365,7 +373,7 @@ class AssetCellDeleteTests(_TkHarness):
     def test_the_reference_column_deletes_the_reference_only(self):
         """右键落在「参考图」那一格：解除这一项的参考图绑定，已导入的资产图片原封不动。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, proj = self.prepared(td)
             errors = self.quiet_messagebox()
@@ -385,7 +393,7 @@ class AssetCellDeleteTests(_TkHarness):
     def test_another_column_deletes_the_asset_image_only(self):
         """右键落在别的格（「名称」那一栏）：删的是已导入的资产图片，参考图一张不少。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, proj = self.prepared(td)
             errors = self.quiet_messagebox()
@@ -398,7 +406,7 @@ class AssetCellDeleteTests(_TkHarness):
     def test_deleted_asset_image_restores_from_recycle_service(self):
         """恢复动作按资产目录和 ID 定位，不依赖已经移除的图片登记。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             d, proj = self.prepared(td)
             errors = self.quiet_messagebox()
@@ -487,7 +495,7 @@ class AssetPageGatingTests(_TkHarness):
 class NativeAssetsGatingTests(_TkHarness):
     def attach(self, d, proj, selection):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         win = self.tk.Toplevel(d.win); win.withdraw()
         form = self.ttk.Frame(win); form.pack()
         footer = self.ttk.Frame(win); footer.pack(side="bottom")
@@ -548,7 +556,7 @@ class NativeAssetsGatingTests(_TkHarness):
     def test_kill_comfy_runs_off_the_ui_thread(self):
         """「强制关闭 ComfyUI」在主界面阶段配置旁，后台线程执行：按下时 ComfyUI 往往已经卡住，界面不能跟着僵。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import threading, time as clock
         import native_apps
         with tempfile.TemporaryDirectory() as td:

@@ -2,7 +2,7 @@
 import json,re
 from datetime import datetime
 from pathlib import Path
-from agent.core import read,save
+from agent.core import read
 
 LEVELS={'simple':'简单／固定动作','medium':'中等动作','complex':'复杂动作'}
 ROUTES={'simple':'无需白模','medium':'线上简单白模','complex':'Agent 自动制作'}
@@ -59,14 +59,14 @@ def entries(project,source):
     return result
 
 
-def set_override(project,source,sid,value):
+def set_override(project,source,sid,value,*,publish):
     if value not in ('auto',*LEVELS):raise ValueError('未知的动作复杂度')
     ep=read(source)
     if sid not in {s['id'] for s in ep['shots']}:raise ValueError('镜头不存在')
     file=overrides_file(project);data=read(file) if file.is_file() else {};key=str(ep.get('episode_id',''))+'|'+sid
     if value=='auto':data.pop(key,None)
     else:data[key]=value
-    save(file,data)
+    publish(file,data)
 
 
 def partition(project,source,ids):
@@ -125,7 +125,7 @@ def automatic_engine(project, read_settings, engines):
     settings = read_settings(project, 'previs')
     return engines[settings['engine']]
 
-def dispatch(project,source,ids,state,monitor=False,start_complex=None):
+def dispatch(project,source,ids,state,monitor=False,start_complex=None,*,publish):
     """Route selected shots; the caller owns the optional Agent executor.
 
     Keeping the executor injected prevents the routing policy from importing the
@@ -136,7 +136,7 @@ def dispatch(project,source,ids,state,monitor=False,start_complex=None):
     completed=[sid for sid in ids if ready(project,sid)]
     for level in groups:groups[level]=[sid for sid in groups[level] if sid not in completed]
     folder=Path(project)/'工作流任务/白模分流记录'/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-    save(folder/'分流结果.json',{'source':str(source),'groups':groups,'ready_skipped':completed,'decisions':{sid:decisions[sid] for sid in ids}})
+    publish(folder/'分流结果.json',{'source':str(source),'groups':groups,'ready_skipped':completed,'decisions':{sid:decisions[sid] for sid in ids}})
     state['routing_log_dir']=str(folder)
     for level in ('simple','medium'):
         for sid in groups[level]:
@@ -148,7 +148,7 @@ def dispatch(project,source,ids,state,monitor=False,start_complex=None):
         try:
             start_complex(project,source,groups['complex'],state,monitor=monitor)
         except Exception as exc:
-            save(folder/'启动错误.json',{'error':str(exc),'shot_ids':groups['complex']})
+            publish(folder/'启动错误.json',{'error':str(exc),'shot_ids':groups['complex']})
             for sid in groups['complex']:state.setdefault('status',{})[str(project)+'|'+sid]='失败：'+str(exc)
             state['summary']+=' Agent 尚未启动：'+str(exc)
     elif groups['complex']:

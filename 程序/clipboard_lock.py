@@ -15,9 +15,12 @@
 """
 import os
 import time
+import threading
+from importlib import import_module
 from contextlib import contextmanager
 
 LOCK_NAME = 'drama_clipboard.lock'
+_LOCAL = threading.local()
 
 
 def lock_path():
@@ -28,10 +31,22 @@ def lock_path():
 @contextmanager
 def hold(timeout=30.0, poll=0.02):
     """占住剪贴板这一小会儿；等不到也不硬等（超时就照旧往下走，最多还是原来那样红）。"""
+    if getattr(_LOCAL, 'depth', 0):
+        _LOCAL.depth += 1
+        try:
+            yield True
+        finally:
+            _LOCAL.depth -= 1
+        return
     handle = _acquire(timeout, poll)
+    acquired = handle is not None
+    if acquired:
+        _LOCAL.depth = 1
     try:
-        yield handle is not None
+        yield acquired
     finally:
+        if acquired:
+            _LOCAL.depth = 0
         _release(handle)
 
 
@@ -40,7 +55,8 @@ def _acquire(timeout, poll):
         import msvcrt
         lock = lambda handle: msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
     else:
-        import fcntl
+        # Windows 裁剪运行环境没有 Unix 专用 fcntl；只在非 Windows 实际走到此分支时加载。
+        fcntl = import_module('fcntl')
         lock = lambda handle: fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     deadline = time.time() + max(0.0, float(timeout))
     while True:
@@ -71,7 +87,7 @@ def _release(handle):
             import msvcrt
             msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
         else:
-            import fcntl
+            fcntl = import_module('fcntl')
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
     except Exception:
         pass

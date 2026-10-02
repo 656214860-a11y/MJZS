@@ -59,7 +59,7 @@ def pending_generated(project, base):
     return [aid for _, _, aid in pending_generated_files(project, base)]
 
 
-def import_pending_generated(project, base, report=None):
+def import_pending_generated(project, base, report=None, *, gateway=None):
     """自动导入未登记生成图；JPEG 等格式统一转换为 PNG。"""
     from asset_batch_service import register_image
     from native_asset_codec import to_png
@@ -69,7 +69,7 @@ def import_pending_generated(project, base, report=None):
         try:
             tmp = folder / (aid + '_autoimport.png')
             save_bytes(tmp, to_png(path.read_bytes()))
-            result = register_image(base, aid, plan[aid], tmp)
+            result = register_image(base, aid, plan[aid], tmp, gateway=gateway)
             remove_temporary_file(tmp)
             done.append(aid)
             if report:

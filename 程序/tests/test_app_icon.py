@@ -5,6 +5,14 @@
 用例盯住「画布是方的」、「剪影外是透的」、「耳朵顶出来」、「颜色鲜艳且平涂」、「极简／七笔」，
 以及 .ico 目录里的宽高照旧各写各的。
 """
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import os
 import struct
 import sys
@@ -261,7 +269,7 @@ class WindowTests(unittest.TestCase):
             import tkinter as tk
             win = tk.Tk()
         except Exception:
-            self.skipTest('tkinter 不可用')
+            self.skipTest(PLATFORM_TKINTER)
         win.withdraw()
         try:
             self.assertEqual(app_icon.apply(win), app_icon.icon_path())

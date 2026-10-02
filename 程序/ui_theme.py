@@ -117,9 +117,12 @@ def apply(win):
 
     s.configure('Box.TFrame',background=BG,bordercolor='#d3dce8',relief='solid',borderwidth=1)
 
-    s.configure('Vertical.TScrollbar',background='#c6d2e1',troughcolor=BG,arrowcolor='#52677f',borderwidth=0)
-
-    s.configure('Horizontal.TScrollbar',background='#c6d2e1',troughcolor=BG,arrowcolor='#52677f',borderwidth=0)
+    from ui_tokens import (SCROLLBAR_ARROW, SCROLLBAR_BORDER_WIDTH, SCROLLBAR_THUMB,
+                           SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH)
+    for name in ('Vertical.TScrollbar', 'Horizontal.TScrollbar'):
+        s.configure(name, background=SCROLLBAR_THUMB, troughcolor=SCROLLBAR_TROUGH,
+                    arrowcolor=SCROLLBAR_ARROW, borderwidth=SCROLLBAR_BORDER_WIDTH)
+        s.map(name, background=[('active', SCROLLBAR_THUMB_ACTIVE)])
 
     s.map('TEntry',bordercolor=[('focus',ACCENT)])
 
@@ -220,11 +223,21 @@ def install_window_placement(root):
 
         original_init=tk.Toplevel.__init__
 
-        def grab_popup(event_or_window):
-            window=getattr(event_or_window,'widget',event_or_window)
-
+        def grab_popup(event,window):
+            # <Map> 会沿 bindtags 冒泡：子 Label／Frame 映射时也会送到
+            # Toplevel 的绑定。只能由窗口自身取得 grab，绝不能让子控件
+            # 把整个应用的输入锁走。
+            if getattr(event,'widget',None) is not window:
+                return
             try:window.grab_set()
+            except tk.TclError:pass
 
+        def release_popup_on_unmap(event,window):
+            # 隐藏以复用的窗口不应继续持有输入；同样只响应自身事件，避免
+            # 子控件卸载时误释放仍可见窗口的 grab。
+            if getattr(event,'widget',None) is not window:
+                return
+            try:window.grab_release()
             except tk.TclError:pass
 
         def hidden_init(window,*args,**kwargs):
@@ -239,9 +252,16 @@ def install_window_placement(root):
 
                 window.attributes('-alpha',0)
 
-                # patched ``hidden_init`` retains grab_popup for the app lifetime;
+                # patched ``hidden_init`` retains callbacks for the app lifetime;
                 # a one-off lambda can be deleted before a queued Map event runs.
-                window.bind('<Map>',grab_popup,add='+')
+                def grab_on_own_map(event,w=window):
+                    grab_popup(event,w)
+                def release_on_own_unmap(event,w=window):
+                    release_popup_on_unmap(event,w)
+                window._drama_grab_popup_callback=grab_on_own_map
+                window._drama_release_popup_callback=release_on_own_unmap
+                window.bind('<Map>',grab_on_own_map,add='+')
+                window.bind('<Unmap>',release_on_own_unmap,add='+')
 
                 # 第 8 轮（收口）：弹窗右上角那两颗「最小化 / 最大化」删掉了（用户点名要删）。
                 # 第 65 期任务 5 曾在这一处给每个弹窗长出它们（全程序只此一处接线），第 67 期
@@ -371,9 +391,17 @@ def install_window_placement(root):
             try:
                 if window.winfo_exists():
                     place(window,parent)
-            except Exception:
-                # 关闭流程中 Tcl 句柄可能已无效；窗口已消失时无需再定位。
-                return
+            except Exception as exc:
+                # 已在 Map 时隐藏并取得输入的窗口，定位失败也必须恢复为
+                # 可见且无 grab；否则会留下“看不见但点不动”的全局输入锁。
+                try:window.attributes('-alpha',1)
+                except tk.TclError:pass
+                try:window.grab_release()
+                except tk.TclError:pass
+                notice=getattr(root,'_drama_place_notice',None)
+                if callable(notice):
+                    try:notice('窗口定位失败，已恢复交互：%s'% (str(exc) or '未知错误'))
+                    except Exception:pass
 
         window._drama_place_job=window.after_idle(ready)
 

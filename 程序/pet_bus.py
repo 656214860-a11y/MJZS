@@ -21,6 +21,13 @@ STAGE_NAMES = {'script': '剧本准备', 'script_structure': '剧本结构', 'st
                'final': '分镜定稿', 'keyframe': '首帧管理', 'previs': '白模预演', 'video': '视频生成',
                'audio': '配音与字幕', 'edit': '后期剪辑', 'delivery': '质检与交付'}
 
+
+def stage_name(stage, fallback=None):
+    """返回制作阶段的唯一用户可见名称；未知阶段保留调用方给出的回退值。"""
+    key = str(stage or '')
+    return STAGE_NAMES.get(key, key if fallback is None else fallback)
+
+
 # 事件契约：kind → 必填负载字段。新事件必须先在这里登记，契约与实现不会各写一份。
 CONTRACT = {
     'stage.started': ('stage',),
@@ -156,4 +163,4 @@ class Bus:
             handle.write(json.dumps(item, ensure_ascii=False, sort_keys=True) + '\n')
 
     def stage_name(self, stage):
-        return STAGE_NAMES.get(stage, stage)
+        return stage_name(stage)

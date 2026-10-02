@@ -457,7 +457,8 @@ class NormalizeTests(unittest.TestCase):
             old = time.time() - 100
             for f in (proj / "storyboard" / "分镜拆分").glob("*.json"):
                 os.utime(f, (old, old))
-            normalize(proj, min_age=0)
+            from stage_execution_service import storyboard_gateway
+            normalize(proj, min_age=0, gateway=storyboard_gateway())
             jsons = [f for f in (proj / "storyboard" / "分镜拆分").glob("*.json") if f.name != ALIAS_FILE]
             self.assertEqual(len(jsons), 1)
             self.assertTrue((proj / "storyboard" / "分镜拆分" / "EP001_T_分镜.json").exists())
@@ -478,7 +479,8 @@ class NormalizeTests(unittest.TestCase):
             old = time.time() - 100
             for file in root.glob("*.json"):
                 os.utime(file, (old, old))
-            normalize(proj, min_age=0)
+            from stage_execution_service import storyboard_gateway
+            normalize(proj, min_age=0, gateway=storyboard_gateway())
             self.assertTrue((root / "EP001_当前_分镜.json").is_file())
             self.assertFalse((root / "a.json").exists())
             self.assertFalse((root / "b.json").exists())

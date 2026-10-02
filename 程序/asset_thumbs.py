@@ -60,10 +60,12 @@ WORKER_IDLE = 90      # 后台进程空转 90 秒自己退（关掉软件之后�
 FALLBACK_SECONDS = 2.0   # 「刚起来就死」的判据：这么短就没了的，当它这一趟不可用
 JOB_DEADLINE = 20.0      # 一条任务等这么久还不回来，就地同步解（进程卡住也不至于不出图）
 QUEUE_LIMIT = 400         # 大项目滚动列表时，后台任务不能无限堆积占满磁盘与内存
+RESULTS_PER_TICK = 12     # 分批收结果，不能一拍扫／贴完整个长列表队列，留出 Tk 绘制时间
 
 _PENDING = {}         # 键 → 一条等 update() 来收的任务
 _PUMP = None          # 界面线程上那个定时器挂在哪个 master 上
 _PUMP_ID = None       # 上面那一拍的 after 标识；销毁窗口前必须取消
+_PENDING_CURSOR = 0   # 分批轮询 pending 的起点，避免永远只检查队首
 _WORKER = None        # 后台进程句柄
 _WORKER_AT = 0.0
 _WORKER_BAD = False   # 这一趟会话里它已经不可用了，不必再起
@@ -372,7 +374,7 @@ def update(master=None):
     界面线程调它只有两个时机：上面那个 after 定时器到点，或自检里 settle() 自己轮着跑。
     返回这一拍收了几张。
     """
-    global _PUMP, _PUMP_ID
+    global _PUMP, _PUMP_ID, _PENDING_CURSOR
     master = master or _PUMP
     pump_id = _PUMP_ID
     _PUMP = None
@@ -387,7 +389,13 @@ def update(master=None):
     if not _PENDING:
         return 0
     landed = []
-    for token, job in list(_PENDING.items()):
+    jobs = list(_PENDING.items())
+    start = _PENDING_CURSOR % len(jobs) if jobs else 0
+    checked = min(RESULTS_PER_TICK, len(jobs))
+    for offset in range(checked):
+        token, job = jobs[(start + offset) % len(jobs)]
+        if token not in _PENDING:
+            continue
         if not _alive(job['master']):
             _PENDING.pop(token, None)  # 那一页拆了：这条不必再收，也不去动磁盘缓存
             continue
@@ -400,8 +408,10 @@ def update(master=None):
         _PENDING.pop(token, None)
         _landed(job, image if state == 'hit' else None)
         landed.append(token)
+    _PENDING_CURSOR = (start + checked) % max(1, len(_PENDING))
     if _PENDING and _worker_gone():
-        for token, job in list(_PENDING.items()):
+        # worker 不可用时也分批回退，不能把数百张图的同步解码塞进一次 UI tick。
+        for token, job in list(_PENDING.items())[:RESULTS_PER_TICK]:
             image = _build_here(job['master'], job['path'], job['size'], job['stamp'], token)
             _PENDING.pop(token, None)
             _landed(job, image)
@@ -452,7 +462,7 @@ def settle(master, seconds=30.0):
 
 def forget():
     """把内存缓存清空（自检换项目、换窗口时用）。"""
-    global _PUMP, _PUMP_ID
+    global _PUMP, _PUMP_ID, _PENDING_CURSOR
     master, pump_id = _PUMP, _PUMP_ID
     _PUMP = None
     _PUMP_ID = None
@@ -463,6 +473,7 @@ def forget():
             pass
     _CACHE.clear()
     _PENDING.clear()
+    _PENDING_CURSOR = 0
 
 
 def reset_worker():

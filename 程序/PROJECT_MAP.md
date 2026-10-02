@@ -64,6 +64,7 @@
 | `test_workflow.py` | 模型选择、本机客户端、API 回退 |
 | `test_asset_thumbs.py` | 缩略图缓存、worker 回收、环境隔离 |
 | `test_video_ui.py`、`test_integration.py` | 视频链路、页面接力与交付 |
+| `tests/architecture/test_skip_hygiene.py` | skip 原因常量、恢复条件与源码／台账双向一致性 |
 
 ## 数据边界
 

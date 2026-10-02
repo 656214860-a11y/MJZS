@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 """COM: 首帧制作弹窗（内嵌 ComfyUI）回归。运行：python test_keyframe_comfy.py"""
+from skip_reasons import (
+    MISSING_NODE,
+    PLATFORM_DIRECTORY_LINK,
+    PLATFORM_TKINTER,
+    PLATFORM_TK_DISPLAY,
+    PLATFORM_WORKING_SET,
+    REQUIRES_BUNDLED_SKILL,
+)
 import json, os, sys, tempfile, unittest
 from pathlib import Path
 
@@ -119,7 +127,7 @@ class DialogTests(unittest.TestCase):
 
     def test_dialog_lists_only_shots_without_frames(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         with tempfile.TemporaryDirectory() as td:
             win, app, dialog, src = self.open_dialog(td)
@@ -139,7 +147,7 @@ class DialogTests(unittest.TestCase):
 
     def test_dialog_controls_and_click_toggle(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         from keyframe_comfy import FORMATS
         with tempfile.TemporaryDirectory() as td:
@@ -194,7 +202,7 @@ class DialogTests(unittest.TestCase):
     def test_header_checkbox_selects_and_clears_all(self):
         """表头勾选框要能全选：此前方向相反，点表头只会全部取消，看起来就是「勾不上」。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         with tempfile.TemporaryDirectory() as td:
             win, app, dialog, src = self.open_dialog(td)
@@ -214,7 +222,7 @@ class DialogTests(unittest.TestCase):
     def test_reference_check_stays_local(self):
         """「检查参考资产」只读本地文件：不再占用 app.async_，避免连 ComfyUI 时整机卡住。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         with tempfile.TemporaryDirectory() as td:
             win, app, dialog, src = self.open_dialog(td)
@@ -252,7 +260,7 @@ class DialogTests(unittest.TestCase):
     def test_merged_selector_runs_first_frame_agent(self):
         """合并后的模型下拉框里选 Agent 引擎，开始按钮把勾选镜头交给首帧 Agent。"""
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import keyframe_comfy
         import stage_models
         from tkinter import ttk
@@ -376,7 +384,7 @@ class ResubmitTests(unittest.TestCase):
 
     def test_confirm_abandons_old_task_and_resubmits(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import tkinter as tk
         import tkinter.messagebox as messagebox
         import keyframe_import
@@ -412,7 +420,7 @@ class ResubmitTests(unittest.TestCase):
 
     def test_declining_keeps_old_task(self):
         if self.tk is None:
-            self.skipTest("tkinter 不可用")
+            self.skipTest(PLATFORM_TKINTER)
         import tkinter as tk
         import tkinter.messagebox as messagebox
         import keyframe_import

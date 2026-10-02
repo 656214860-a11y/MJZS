@@ -177,12 +177,13 @@ class SubjectiveTests(unittest.TestCase):
             items = cg.anchor_candidates(assets={"CHAR_001": {"name": "主角"}})
             self.assertEqual(len(cg.pending(td, items)), 1)
             self.assertEqual(cg.confirm_path(td).name, "gate_confirmations.json")
-            cg.record(td, items[0]["key"], "候选一")
+            from stage_execution_service import record_stage_confirmation, forget_stage_confirmation
+            record_stage_confirmation(td, items[0]["key"], "候选一")
             self.assertEqual(cg.pending(td, items), ())
             self.assertTrue(cg.run("G-05", project=td,
                                    assets={"CHAR_001": {"name": "主角"}})["passed"])
             self.assertEqual(cg.confirmations(td)[items[0]["key"]]["choice"], "候选一")
-            cg.forget(td, items[0]["key"])
+            forget_stage_confirmation(td, items[0]["key"])
             self.assertEqual(len(cg.pending(td, items)), 1)
 
     def test_duplicate_keys_are_collapsed(self):
