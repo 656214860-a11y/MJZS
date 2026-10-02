@@ -60,7 +60,7 @@
 
 # 本机任务、监督与临时诊断产物不属于源码。
 /程序/tasks/
-/程序/tasks_round/
+# `tasks_round/*.md` 是可复现轮次史，应入库；运行时任务仍由上一条排除。
 /程序/_supervisor/
 /程序/_diag_*.py
 /程序/_diag_*.ps1
