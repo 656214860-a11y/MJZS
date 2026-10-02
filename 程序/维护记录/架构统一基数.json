@@ -766,7 +766,7 @@
         ]
     },
     "\u7b2c\u56db\u9879": {
-    "count": 12,
+    "count": 9,
         "baseline_pending": 35,
         "items": [
             {
@@ -1090,20 +1090,20 @@
             {
                 "file": "video_prompt_results.py",
                 "point": "14",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R829：外部 Agent 结果文本的 JSON 解析，不是正式项目文件读取。"
             },
             {
                 "file": "video_prompt_results.py",
                 "point": "20",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R829：格式修复分支对外部 Agent 结果片段的 JSON 解析，不是正式项目文件读取。"
             },
             {
                 "file": "video_prompt_results.py",
                 "point": "31",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R829：格式修复后的提示词字面量 JSON 解码，不是文件读取。"
             },
             {
                 "file": "workflow_engines.py",
