@@ -11,6 +11,7 @@ FORBIDDEN_DIRECTORY_CALLS = frozenset({'rglob', 'glob', 'walk'})
 STARTUP_CHAIN = {
     'app.py': (None, ('<module>',)),
     'desktop.py': ('Desktop', ('__init__', 'choose_project', 'load', 'show', 'writing')),
+    'projects.py': ('Projects', ('__init__', 'refresh_registry')),
     'pet_ui.py': (None, ('attach', 'watch_status', 'start')),
 }
 

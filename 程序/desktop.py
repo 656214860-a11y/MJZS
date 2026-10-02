@@ -260,8 +260,10 @@ class Desktop:
     def __init__(self,win,root=ROOT):
         self._diagnostic_start=time.perf_counter()
         from stage_execution_service import project_registry_gateway
-        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway());self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self.hollmwood_progress=queue.Queue();self._stream_text='';self._async_ticket=0;self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self._hollmwood_poll_id=None;self.video=None
+        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self.hollmwood_progress=queue.Queue();self._stream_text='';self._async_ticket=0;self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self._hollmwood_poll_id=None;self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0
+        self._legacy_project_migration_results=queue.Queue();self._legacy_project_migration_poll_id=None
+        self._legacy_project_migration_started=False
         win._desktop_first_paint_complete=False
         win._desktop_loading_project=False
         self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self.cloud_monitor_result=queue.Queue()
@@ -1981,6 +1983,11 @@ class Desktop:
         if startup_recovery is not None:
             try:self.win.after_cancel(startup_recovery)
             except tk.TclError:pass
+        legacy_migration_poll=getattr(self,'_legacy_project_migration_poll_id',None)
+        self._legacy_project_migration_poll_id=None
+        if legacy_migration_poll is not None:
+            try:self.win.after_cancel(legacy_migration_poll)
+            except tk.TclError:pass
         async_result_poll=getattr(self,'_async_result_poll_id',None)
         self._async_result_poll_id=None
         if async_result_poll is not None:
@@ -2033,12 +2040,44 @@ class Desktop:
     def _after_first_paint(self):
         """首帧已交给 Tk 后，才恢复会触发轮询／回填的周期 tick。"""
         self.win._desktop_first_paint_complete=True
+        self._start_legacy_project_migration()
         # 首帧通知不能覆盖用户已发起的后台操作（例如“强制关闭 ComfyUI”）；
         # 否则任务实际结束后状态栏仍停在“正在打开今日项目”。
         # 自动续开尚未选择项目时才显示这条启动提示。已有项目（含测试或
         # 外部入口已经装配好的项目）不能让延后的首帧回调覆盖刚完成的操作结果。
-        if self.root is None and not self.worker:
+        if self.root is None and not self.worker and not self.projects.legacy_migration_pending:
             self.status.set('正在打开今日项目…')
+
+    def _start_legacy_project_migration(self):
+        """首帧后才在 worker 迁移旧目录；Tk 线程只轮询结果。"""
+        if (self._legacy_project_migration_started or not self.projects.legacy_migration_pending
+                or getattr(self,'shutting_down',False)):
+            return
+        self._legacy_project_migration_started=True
+        def migrate():
+            try:
+                self.projects.migrate()
+            except Exception as exc:
+                self._legacy_project_migration_results.put(exc)
+            else:
+                self._legacy_project_migration_results.put(None)
+        threading.Thread(target=migrate,name='legacy-project-migration',daemon=True).start()
+        self._poll_legacy_project_migration()
+
+    def _poll_legacy_project_migration(self):
+        self._legacy_project_migration_poll_id=None
+        if getattr(self,'shutting_down',False):
+            return
+        try:
+            outcome=self._legacy_project_migration_results.get_nowait()
+        except queue.Empty:
+            self._legacy_project_migration_poll_id=self.win.after(25,self._poll_legacy_project_migration)
+            return
+        if outcome is None:
+            self.projects.refresh_registry();self.reload()
+        else:
+            self.projects.legacy_migration_pending=False
+            self.status.set('旧项目迁移失败：%s；原文件未改动。' % outcome)
     def _request_tick_resume_after_first_paint(self):
         """项目页已完成一次构建后再恢复既有 tick，避免回填重入首帧／建页。"""
         if not bool(getattr(self.win,'_desktop_first_paint_complete',False)):
@@ -3554,6 +3593,10 @@ class Desktop:
     def choose_project(self):
         # 自动续开项目时，三虎的量测只排到这次选择交回事件循环之后；否则
         # 它的 ``update_idletasks`` 会重入本调用栈并放大启动时间。
+        if self.projects.legacy_migration_pending:
+            self.status.set('正在后台迁移旧项目…')
+            self._startup_timer=self.win.after(25,self.choose_project)
+            return None
         self.win._desktop_loading_project=True
         try:
             return self._choose_project_impl()
