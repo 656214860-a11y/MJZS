@@ -5,23 +5,18 @@ import copy
 import json
 from pathlib import Path
 
-from agent.core import fingerprint, read, restore_bytes, save, save_bytes
+from agent.core import fingerprint, read
 from project_naming import dated_path
 
 
-def _publish_legacy_bundle(artifacts):
-    """旧调用方兼容入口；正式调用方必须从上层注入统一发布器。"""
-    previous = {path: path.read_bytes() if path.is_file() else None for path in artifacts}
-    try:
-        for path, data in artifacts.items():
-            save_bytes(path, data)
-    except Exception:
-        for path in reversed(tuple(artifacts)):
-            restore_bytes(path, previous[path])
-        raise
+def _publish_legacy_bundle(artifacts, *, publish_bundle=None):
+    """兼容命名入口；发布实现只能由 L3 注入。"""
+    if not callable(publish_bundle):
+        raise TypeError('视频提示词发布需要 L3 注入事务发布器')
+    return publish_bundle(artifacts, lambda _items: True, lambda: None)
 
 
-def publish(studio, sid, text, publish_bundle=None):
+def publish(studio, sid, text, *, publish_bundle=None):
     """原子发布单镜头提示词及其三个可见副本，再更新分镜索引。"""
     sid = str(sid)
     text = str(text).strip()
@@ -47,16 +42,23 @@ def publish(studio, sid, text, publish_bundle=None):
         targets[2]: text.encode('utf-8'),
         episode_path: json.dumps(episode, ensure_ascii=False, indent=2).encode('utf-8'),
     }
-    if publish_bundle is None:
-        _publish_legacy_bundle(artifacts)
-    else:
-        publish_bundle(artifacts, lambda _items: True, lambda: None)
+    _publish_legacy_bundle(artifacts, publish_bundle=publish_bundle)
     studio.episode = episode
     return copy.deepcopy(record)
 
 
-def stage_import(studio, sid, text):
+def _import_gateway(gateway):
+    gateway = gateway if isinstance(gateway, dict) else {}
+    names = ('read_bytes', 'publish_json', 'publish_bytes', 'restore_bytes', 'remove_dir')
+    values = {name: gateway.get(name) for name in names}
+    if not all(callable(value) for value in values.values()):
+        raise TypeError('视频提示词导入需要 L3 注入发布网关')
+    return values
+
+
+def stage_import(studio, sid, text, *, gateway=None):
     """原子暂存手工导入提示词，不提前修改分镜索引。"""
+    writers = _import_gateway(gateway)
     sid = str(sid)
     text = str(text).strip()
     if not text or len(text) > 1500:
@@ -67,21 +69,18 @@ def stage_import(studio, sid, text):
         raise ValueError('镜头不存在：' + sid)
     folder = Path(studio.media_dir) / 'video_prompts'
     target = folder / (sid + '.json')
-    previous = target.read_bytes() if target.is_file() else None
+    previous = writers['read_bytes'](target) if target.is_file() else None
     backup = dated_path(folder / '历史版本', sid, '.json') if previous is not None else None
     record = {'shot_id': sid, 'source_signature': fingerprint(shot),
               'video_prompt': text, 'provider': 'import'}
     try:
         if backup is not None:
-            save_bytes(backup, previous)
-        save(target, record)
+            writers['publish_bytes'](backup, previous)
+        writers['publish_json'](target, record)
     except Exception:
         if backup is not None:
-            restore_bytes(backup, None)
-            try:
-                backup.parent.rmdir()
-            except OSError:
-                pass
-        restore_bytes(target, previous)
+            writers['restore_bytes'](backup, None)
+            writers['remove_dir'](backup.parent)
+        writers['restore_bytes'](target, previous)
         raise
     return copy.deepcopy(record)

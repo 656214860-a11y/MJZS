@@ -5272,11 +5272,12 @@ class PageHintTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             original_choose = Desktop.choose_project
-            original_sync = desktop_module.sync_plan
+            import stage_execution_service
+            original_sync = stage_execution_service.sync_asset_plan
             Desktop.choose_project = lambda self: None
-            desktop_module.sync_plan = lambda *a, **k: (_ for _ in ()).throw(ValueError('资产目录超出当前项目'))
+            stage_execution_service.sync_asset_plan = lambda *a, **k: (_ for _ in ()).throw(ValueError('资产目录超出当前项目'))
             self.addCleanup(setattr, Desktop, 'choose_project', original_choose)
-            self.addCleanup(setattr, desktop_module, 'sync_plan', original_sync)
+            self.addCleanup(setattr, stage_execution_service, 'sync_asset_plan', original_sync)
             win = self.tk.Tk(); win.withdraw(); self.addCleanup(win.destroy)
             d = Desktop(win, root=PROGRAM); d.root=proj; d.studio=open_studio(proj); d.show(0)
             self.assertEqual(d.asset_requirements(),{})

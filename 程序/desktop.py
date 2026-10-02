@@ -3018,7 +3018,8 @@ class Desktop:
         if self.root is None or self.studio is None or not self.pet.should_auto_run('assets'):
             self.auto_asset_signature=None;self.auto_asset_attempt=0;return
         if self.auto_asset_busy or self.worker or self.auto_final_busy:return
-        from asset_batch_service import unattended_plan as auto_plan, current_model, unattended_signature, unattended_retry_decision
+        from asset_batch_service import current_model, unattended_signature, unattended_retry_decision
+        from stage_execution_service import plan_unattended_assets as auto_plan
         from asset_context import scope_sources
         project=self.root;base=self.asset_base();sources=scope_sources(project,'adopted')
         missing,skipped,saved=auto_plan(project,base,sources,'adopted')
@@ -3064,7 +3065,7 @@ class Desktop:
         原来只问一句「还有没有」（asset_work_left），于是每个编号试了几次、下次该什么时候
         接着试，全在内存里——窗口一关就没了。
         """
-        from asset_batch_service import unattended_plan as auto_plan
+        from stage_execution_service import plan_unattended_assets as auto_plan
         from asset_context import scope_sources
         try:
             missing,_skipped,_saved=auto_plan(self.root,self.asset_base(),scope_sources(self.root,'adopted'),'adopted')
@@ -5616,12 +5617,10 @@ class Desktop:
                                      view_refresh_delay=750)
         # 第 55 期第 1 条：「视图变了就重排」已经收进盖图那一层自己（watch_view：滚动条动了、
         # 列宽变了、内容框改了尺寸都算），这儿不必再往那两条回调末尾补一次重排。
-        # 首帧必须在同步建好几何后就盖上可视区缩略图：只靠 after_idle 时，整套回归并发较高
-        # 时可能在调用方第一次 update 前仍拿不到 bbox，造成已导入资产短暂空白。这里只推进
-        # 当前表的布局闲置任务，不进入事件循环；后续滚动仍由 CellImages 的 250ms 防抖处理。
+        # 不在建页路径强制 ``update_idletasks``：它会清空同一 Tcl 解释器里不属于资产表的
+        # 空闲队列，慢机上还会让后续补行定时器落进首次 ``update``，退化成首帧一次性建表。
+        # CellImages 已在映射事件及自己的空闲回调中补齐覆盖层；首帧之后再按真实 bbox 盖图。
         table.cell_images.schedule_initial_refresh()
-        table.update_idletasks()
-        table.cell_images.refresh()
         refresh_buttons()
         # 第 72 期（Round 3）：剩下的行按帧补上，补完再重排一次缩略图那一层。
         rest=wanted[ASSET_FIRST_ROWS:]

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import skill_tools
 from stage_execution_service import export_stage_dialogue_script, export_stage_srt
+from subtitle_export_controller import publish_stage_srt_text
 from subtitle_export_service import export_dialogue_script, export_srt, publish_srt_text
 
 
@@ -16,7 +17,9 @@ class SubtitleExportServiceTests(unittest.TestCase):
     def test_publish_srt_text_uses_validated_atomic_writer(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             target = Path(temp_dir) / 'nested' / 'skill.srt'
-            result = publish_srt_text(target, '1\n00:00:00,000 --> 00:00:01,000\n台词\n')
+            result = publish_srt_text(target, '1\n00:00:00,000 --> 00:00:01,000\n台词\n',
+                                      publish=lambda path, value: path.parent.mkdir(parents=True, exist_ok=True)
+                                      or path.write_text(value, encoding='utf-8'))
 
             self.assertEqual(result, target)
             self.assertTrue(target.exists())
@@ -25,8 +28,13 @@ class SubtitleExportServiceTests(unittest.TestCase):
     def test_skill_tool_delegates_srt_publication_to_service(self):
         source = inspect.getsource(skill_tools._subtitle_generate)
 
-        self.assertIn('from subtitle_export_service import publish_srt_text', source)
+        self.assertIn('from subtitle_export_controller import publish_stage_srt_text', source)
         self.assertNotIn('line_endings.write_text', source)
+
+    def test_l3_wrapper_publishes_validated_srt_text(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / 'skill.srt'
+            self.assertEqual(target, publish_stage_srt_text(target, '正文\n'))
 
     def test_desktop_delegates_exports_to_service(self):
         source = (Path(__file__).resolve().parents[1] / 'desktop.py').read_text(encoding='utf-8')

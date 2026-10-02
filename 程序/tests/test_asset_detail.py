@@ -27,7 +27,7 @@ import asset_contract as ac
 import asset_detail
 import asset_plan
 import confirm_gates
-from asset_plan import apply_gate_choice
+from stage_execution_service import apply_asset_plan_gate_choice as apply_gate_choice
 from test_asset_thumbs import png
 from test_ui_edges import adopt_storyboard_fixture, make_minimal_project
 

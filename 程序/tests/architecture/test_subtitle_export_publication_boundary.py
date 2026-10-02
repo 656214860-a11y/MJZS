@@ -1,31 +1,28 @@
-"""字幕阶段成果必须经 L3 注入发布器的架构门禁。"""
-import ast
-import unittest
+"""字幕文本发布必须由 L3 装配，L2 不可反向依赖基础设施。"""
 from pathlib import Path
+import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class SubtitleExportPublicationBoundaryTests(unittest.TestCase):
-    def test_l2_exports_accept_a_publisher_and_do_not_write_directly(self):
-        tree = ast.parse((ROOT / 'subtitle_export_service.py').read_text(encoding='utf-8'))
-        exports = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
-                   and node.name in {'export_srt', 'export_dialogue_script'}}
-        self.assertEqual(set(exports), {'export_srt', 'export_dialogue_script'})
-        for node in exports.values():
-            self.assertIn('publish', [arg.arg for arg in node.args.kwonlyargs])
-            names = {child.id for child in ast.walk(node) if isinstance(child, ast.Name)}
-            self.assertIn('publish', names)
-            self.assertNotIn('save_text', names)
+    def test_l2_requires_injected_text_publisher(self):
+        source = (ROOT / 'subtitle_export_service.py').read_text(encoding='utf-8')
+        self.assertIn('def publish_srt_text(target, text, *, publish=None):', source)
+        self.assertNotIn('import line_endings', source)
+        self.assertIn("TypeError('字幕文本发布需要 L3 注入发布器')", source)
 
-    def test_l3_injects_the_text_publisher_and_desktop_uses_l3(self):
-        stage_source = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
-        desktop_source = (ROOT / 'desktop.py').read_text(encoding='utf-8')
-        self.assertIn('export_srt(project, episode, publish=publish_stage_text)', stage_source)
-        self.assertIn('export_dialogue_script(project, episode, assets, publish=publish_stage_text)', stage_source)
-        self.assertIn('from stage_execution_service import export_stage_srt', desktop_source)
-        self.assertIn('from stage_execution_service import export_stage_dialogue_script', desktop_source)
+    def test_l3_controller_owns_writer_injection(self):
+        source = (ROOT / 'subtitle_export_controller.py').read_text(encoding='utf-8')
+        self.assertIn('def subtitle_export_gateway():', source)
+        self.assertIn('line_endings.write_text', source)
+        self.assertIn('def publish_stage_srt_text(target, text):', source)
+
+    def test_skill_tool_calls_l3_controller_only(self):
+        source = (ROOT / 'skill_tools.py').read_text(encoding='utf-8')
+        self.assertIn('from subtitle_export_controller import publish_stage_srt_text', source)
+        self.assertNotIn('from subtitle_export_service import publish_srt_text', source)
 
 
 if __name__ == '__main__':

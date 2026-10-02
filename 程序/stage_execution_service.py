@@ -99,6 +99,26 @@ def export_stage_srt(project, episode):
     return export_srt(project, episode, publish=publish_stage_text)
 
 
+def video_prompt_gateway():
+    """L3 为视频提示词草稿与可见成果装配事务发布能力。"""
+    from agent.core import restore_bytes, save, save_bytes
+    return {'publish_bundle': publish_stage_bundle,
+            'read_bytes': lambda path: Path(path).read_bytes(),
+            'publish_json': save, 'publish_bytes': save_bytes,
+            'restore_bytes': restore_bytes,
+            'remove_dir': lambda folder: Path(folder).rmdir()}
+
+
+def publish_video_prompt(studio, sid, text):
+    from video_prompt_publication import publish
+    return publish(studio, sid, text, publish_bundle=video_prompt_gateway()['publish_bundle'])
+
+
+def import_video_prompt(studio, sid, text):
+    from video_prompt_publication import stage_import
+    return stage_import(studio, sid, text, gateway=video_prompt_gateway())
+
+
 def export_stage_dialogue_script(project, episode, assets):
     """对白脚本导出编排：L3 注入统一文本阶段发布器。"""
     from subtitle_export_service import export_dialogue_script
@@ -193,6 +213,12 @@ def update_asset_plan_fields(project, episode_dir, aid, values):
 def apply_asset_plan_gate_choice(project, key, choice, episode_dir=''):
     from asset_plan import apply_gate_choice
     return apply_gate_choice(project, key, choice, episode_dir, gateway=asset_plan_gateway())
+
+
+def plan_unattended_assets(project, base, sources, scope='adopted'):
+    """L3 为无人值守资产计划装配唯一的发布网关。"""
+    from asset_batch_service import unattended_plan
+    return unattended_plan(project, base, sources, scope, gateway=asset_plan_gateway())
 
 
 def note_asset_resume_round(project, ids, limit=None, now=None):

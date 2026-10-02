@@ -40,7 +40,7 @@ _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audi
           "storyboard_adoption_contract", "storyboard_rows_service",
           "storyboard_storage", "subtitle_export_service", "video_lifecycle_service", "video_prompt_publication",
           "video_task_state", "workflow_context", "writing", "writing_tools", "hollmwood_roles")
-_register(3, "image_agent_runner", "keyframe_model_service", "skill_budget", "skill_templates",
+_register(3, "image_agent_runner", "keyframe_model_service", "skill_budget", "skill_templates", "subtitle_export_controller",
           "stage_handler_registry", "stage_model_value", "storyboard_recycle_service", "workflow_engines", "recycle_recovery_controller")
 _register(4, "asset_prompt_rules", "asset_reference_images", "asset_reference_import", "asset_reference_prompts",
           "asset_reference_search", "asset_skill_batch", "background_characters", "cloud_assets", "keyframe_comfy",

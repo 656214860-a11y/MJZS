@@ -2,15 +2,16 @@
 from pathlib import Path
 import uuid
 
-import line_endings
 from project_stages import subtitles
 from subtitle_timing import srt_rows, timed_entries
 
 
-def publish_srt_text(target, text):
+def publish_srt_text(target, text, *, publish=None):
     """校验行尾并原子发布由调用方指定位置的字幕成果。"""
     target_path = Path(target)
-    line_endings.write_text(target_path, str(text))
+    if not callable(publish):
+        raise TypeError('字幕文本发布需要 L3 注入发布器')
+    publish(target_path, str(text))
     return target_path
 
 

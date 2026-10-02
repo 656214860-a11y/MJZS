@@ -7,6 +7,16 @@ from project_settings import read_prefs
 from storyboard_adoption_contract import adopted as _adopted, problem_text, resolve_source
 
 
+def _asset_plan_gateway(gateway):
+    """分镜采用是 L3，缺省时在此装配资产计划的正式发布能力。"""
+    if isinstance(gateway, dict):
+        return gateway
+    from agent.core import save_bytes, save_text
+    from file_cache import remove_temporary_file
+    return {'publish_json': save, 'publish_bytes': save_bytes,
+            'publish_text': save_text, 'remove_file': remove_temporary_file}
+
+
 def prefs(project):
     # 一次页面重排里会被读 9 次以上：按文件签名缓存解析；损坏时给出可操作提示而不是解析异常。
     return read_prefs(Path(project)/'ui_settings.json',read_json)
@@ -203,7 +213,8 @@ def adopt(project,values,*,gateway=None):
         # 第 62 期任务 12：报错带上文件名和具体差多少，别只说一句「不一致」。
         try:validate_episode(read(source),media_root(source))
         except ValueError as exc:raise ValueError(f'{source.name}：'+problem_text(exc)) from None
-    sync_plan(project,library_dir(project),combined,_adopting=True,gateway=gateway)
+    sync_plan(project,library_dir(project),combined,_adopting=True,
+              gateway=_asset_plan_gateway(gateway))
     data=writable_prefs(project)
     data['adopted_storyboards']=[p.relative_to(project).as_posix() for p in combined]
     data['frame_json']=incoming[-1].relative_to(project).as_posix()
@@ -312,7 +323,7 @@ def remove(project,values,*,gateway=None):
     data['adopted_storyboards']=[p.relative_to(project).as_posix() for p in remaining]
     current=resolve_source(project,data['frame_json']) if data.get('frame_json') else None
     if current not in remaining:data['frame_json']=remaining[-1].relative_to(project).as_posix() if remaining else ''
-    sync_plan(project,library_dir(project),remaining,gateway=gateway)
+    sync_plan(project,library_dir(project),remaining,gateway=_asset_plan_gateway(gateway))
     save(project/'ui_settings.json',data)
     return remaining
 

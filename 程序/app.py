@@ -1098,10 +1098,9 @@ class App:
         assert_prompt_editable(self)
         value=self.prompt.get('1.0','end').strip()
         if not value or len(value)>1500:raise ValueError('提示词须为1–1500个字符')
-        from video_prompt_publication import publish
-        from stage_execution_service import publish_stage_bundle
+        from stage_execution_service import publish_video_prompt
         self.save_options()
-        publish(self.studio,self.sid(),value,publish_bundle=publish_stage_bundle)
+        publish_video_prompt(self.studio,self.sid(),value)
         self.write('已覆盖当前镜头提示词文件；历史视频的实际提交记录保留。')
     def flush_prompt(self, next_sid):
         """切换镜头前，自动保存当前镜头尚未保存的提示词编辑，避免丢稿。"""
@@ -1119,9 +1118,8 @@ class App:
         shot = self.studio.shot(sid)
         if shot.get('video_prompt', '').strip() == text:
             return
-        from video_prompt_publication import publish
-        from stage_execution_service import publish_stage_bundle
-        publish(self.studio, sid, text, publish_bundle=publish_stage_bundle)
+        from stage_execution_service import publish_video_prompt
+        publish_video_prompt(self.studio, sid, text)
         self.write(sid + ' 提示词已自动保存（切换镜头前）。')
     def review(self,value):
         self.studio.review(self.sid(),value,self.note.get());self.refresh()
@@ -1159,8 +1157,8 @@ class App:
         if not isinstance(text,str) or not text.strip():raise ValueError('提示词为空，JSON 需要包含 video_prompt')
         text=text.strip()
         if len(text)>1500:raise ValueError('单镜头提示词不能超过1500字，请精简后导入')
-        from video_prompt_publication import stage_import
-        stage_import(self.studio,sid,text)
+        from stage_execution_service import import_video_prompt
+        import_video_prompt(self.studio,sid,text)
         self.prompt.delete('1.0','end');self.prompt.insert('1.0',text);self.editing_sid=sid;self.fit_prompt_height()
         self.write('已导入 '+sid+' 提示词，可继续 MCP 优化；确认后点击保存提示词。原文件保留。')
     def open_prompt_folder(self):

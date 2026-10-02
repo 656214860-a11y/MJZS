@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-        "count": 5,
+        "count": 2,
         "baseline_pending": 66,
         "items": [
             {
@@ -446,8 +446,8 @@
             {
                 "file": "subtitle_export_service.py",
                 "point": "publish_srt_text",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R823：SKILL 字幕文本发布改为必须接收 L3 subtitle_export_controller 注入的行尾校验发布器。"
             },
             {
                 "file": "video_lifecycle_service.py",
@@ -470,14 +470,14 @@
             {
                 "file": "video_prompt_publication.py",
                 "point": "_publish_legacy_bundle",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R823：视频提示词草稿与可见成果事务发布改为必须接收 L3 video_prompt_gateway 注入的发布器。"
             },
             {
                 "file": "video_prompt_publication.py",
                 "point": "stage_import",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R823：视频提示词导入的读取、发布、回滚与目录清理由 L3 video_prompt_gateway 注入。"
             },
             {
                 "file": "workflow_context.py",
@@ -1011,19 +1011,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "449",
+                "point": "547",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "480",
+                "point": "578",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "493",
+                "point": "591",
                 "disposition": "pending",
                 "reason": ""
             },
@@ -1071,7 +1071,7 @@
             },
             {
                 "file": "storyboard_final_controller.py",
-                "point": "111",
+                "point": "113",
                 "disposition": "pending",
                 "reason": ""
             },

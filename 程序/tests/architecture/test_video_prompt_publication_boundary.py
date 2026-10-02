@@ -18,22 +18,20 @@ class VideoPromptPublicationBoundaryTests(unittest.TestCase):
         for name in ('save_prompt', 'flush_prompt'):
             source = _method(name)
             with self.subTest(method=name):
-                self.assertIn('video_prompt_publication import publish', source)
-                self.assertIn('publish(self.studio,', source)
-                self.assertIn('publish_bundle=publish_stage_bundle', source)
+                self.assertIn('stage_execution_service import publish_video_prompt', source)
+                self.assertIn('publish_video_prompt(self.studio,', source)
                 self.assertNotIn("'video_prompts'", source)
 
     def test_manual_import_delegates_draft_publication_to_service(self):
         source = _method('import_prompt')
-        self.assertIn('video_prompt_publication import stage_import', source)
-        self.assertIn('stage_import(self.studio,', source)
-        self.assertNotIn("'video_prompts'", source[source.index('stage_import'):])
+        self.assertIn('stage_execution_service import import_video_prompt', source)
+        self.assertIn('import_video_prompt(self.studio,', source)
+        self.assertNotIn("'video_prompts'", source[source.index('import_video_prompt'):])
 
     def test_agent_result_delegates_visible_publication_to_service(self):
         source = open(os.path.join(ROOT, 'video_prompt_results.py'), encoding='utf-8').read()
-        self.assertIn('video_prompt_publication import publish', source)
-        self.assertIn('publish(studio, sid, text, publish_bundle=publish_stage_bundle)', source)
-        self.assertIn('stage_execution_service import publish_stage_bundle', source)
+        self.assertIn('stage_execution_service import publish_video_prompt', source)
+        self.assertIn('publish_video_prompt(studio, sid, text)', source)
         self.assertNotIn('save_text(path.with_suffix', source)
         self.assertNotIn('save(studio.episode_path', source)
 
@@ -42,5 +40,17 @@ class VideoPromptPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('def publish(', source)
         self.assertIn('def stage_import(', source)
         self.assertNotIn('stage_execution_service', source)
+        self.assertNotIn('from agent.core import fingerprint, read, restore_bytes, save, save_bytes', source)
         for name in ("'video_prompts'", "'当前提示词.txt'", "'.json'", "'.txt'"):
             self.assertIn(name, source)
+
+    def test_l2_requires_l3_publishers_for_legacy_and_import_paths(self):
+        source = open(os.path.join(ROOT, 'video_prompt_publication.py'), encoding='utf-8').read()
+        stage = open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8').read()
+        self.assertIn('def _publish_legacy_bundle(artifacts, *, publish_bundle=None)', source)
+        self.assertIn('def _import_gateway(gateway)', source)
+        self.assertNotIn('save_bytes(', source)
+        self.assertNotIn('save(target, record)', source)
+        self.assertIn('def video_prompt_gateway()', stage)
+        self.assertIn('def publish_video_prompt(', stage)
+        self.assertIn('def import_video_prompt(', stage)

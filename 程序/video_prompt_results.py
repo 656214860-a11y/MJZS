@@ -66,9 +66,8 @@ def import_result(studio, sid, path):
             if not backup.exists(): save_bytes(backup, raw)
         if previous != text or fixed:
             try:
-                from video_prompt_publication import publish
-                from stage_execution_service import publish_stage_bundle
-                publish(studio, sid, text, publish_bundle=publish_stage_bundle)
+                from stage_execution_service import publish_video_prompt
+                publish_video_prompt(studio, sid, text)
             except Exception:
                 if backup is not None:
                     restore_bytes(backup, None)
