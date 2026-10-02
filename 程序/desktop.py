@@ -3336,7 +3336,9 @@ class Desktop:
             items=[p for p in self.projects.info['projects'] if p.get('status','making')==state]
             tree.insert('','end',iid='group:'+state,text=f'{label}（{len(items)}）',open=True)
             for p in sorted(items,key=lambda item:item.get('created_at',Path(item['path']).stat().st_ctime if Path(item['path']).exists() else 0)):
-                tree.insert('group:'+state,'end',iid=p['path'],text=p['name'])
+                missing=not Path(p['path']).is_dir()
+                text=p['name']+('（目录已失效，可右键清除登记）' if missing else '')
+                tree.insert('group:'+state,'end',iid=p['path'],text=text)
     def reload(self):self.fill_projects(self.list)
     def idea_example(self):
         """创意栏里那份预置示例（第 37 期第 2 条）：随程序打包，不改动就绝不进项目文件。

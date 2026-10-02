@@ -157,6 +157,18 @@ class ResidualProjectTests(unittest.TestCase):
 
 
 class DailyProjectChoiceTests(unittest.TestCase):
+    def test_missing_project_is_marked_in_project_lists(self):
+        class Tree:
+            def __init__(self):self.rows=[]
+            def get_children(self):return ()
+            def delete(self,*unused):pass
+            def insert(self,*args,**kwargs):self.rows.append((args,kwargs))
+        with tempfile.TemporaryDirectory() as td:
+            missing=Path(td)/'已移走项目';tree=Tree();desk=Desktop.__new__(Desktop)
+            desk.projects=type('Registry',(),{'info':{'projects':[{'name':'故事','path':str(missing)}]}})()
+            desk.fill_projects(tree)
+            self.assertTrue(any('目录已失效' in row[1]['text'] for row in tree.rows))
+
     def test_today_choice_is_saved_and_returned_without_touching_project_files(self):
         with tempfile.TemporaryDirectory() as td:
             app=Path(td);choice=app/'当日项目';choice.mkdir()
