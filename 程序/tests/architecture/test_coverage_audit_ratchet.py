@@ -13,7 +13,7 @@ P21={'platform_tools','native_apps','app_shortcut','codex_paste','codex_tasks','
 # 25 白名单：pet_bus 已登记事件；自定义字面量须报告。
 E25={'stage.executing','stage.failed','stage.retrying','stage.paused','script.completed','budget.warning','budget.exceeded','notify.aggregate','intent.command'}
 # 26 白名单：唯一模型池、路由与供应商适配器。
-P26={'model_pool','model_router','qwen_adapter','comfy_service','cloud_assets','cloud_video'}
+P26={'model_pool','model_router','qwen_adapter','comfy_service','cloud_assets','cloud_video','platform_tools'}
 # 24 白名单：两份注册表是产品插件入口；clipboard_lock 仅在非 Windows 条件分支加载 Unix
 # 标准库 fcntl，属于跨平台锁实现而非产品动态插件，不能把它记作未登记业务动态导入。
 P24={'ui_plugin_registry','stage_handler_registry','clipboard_lock'}

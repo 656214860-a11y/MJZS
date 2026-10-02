@@ -121,6 +121,36 @@ def tcp_listener(url, *, timeout=0.3):
         return False
 
 
+def probe_http_endpoint(base_url, *, timeout=8):
+    """Probe an HTTP(S) root without credentials or a request body.
+
+    Network reachability is a host-adapter responsibility.  Keeping this small
+    probe here gives configuration pages and future access gates one controlled
+    outbound path while preserving their user-facing failure classification.
+    """
+    import urllib.request, urllib.error
+    try:
+        with urllib.request.urlopen(str(base_url).rstrip('/'), timeout=timeout) as response:
+            return {'reachable': True, 'code': response.status}
+    except urllib.error.HTTPError as exc:
+        return {'reachable': True, 'code': exc.code}
+    except Exception as exc:
+        reason = getattr(exc, 'reason', None)
+        detail = str(reason) if reason is not None else str(exc)
+        low = detail.lower()
+        if 'getaddrinfo' in low or 'name or service not known' in low or 'gaierror' in low:
+            hint = '域名解析失败，请检查网络/DNS 或确认地址拼写正确'
+        elif 'certificate' in low or 'ssl' in low:
+            hint = 'HTTPS 证书校验失败，请检查系统时间、代理或防火墙'
+        elif 'timed out' in low or 'timeout' in low:
+            hint = '连接超时，请检查网络、防火墙或代理'
+        elif 'refused' in low or '10061' in low:
+            hint = '连接被拒绝，请确认地址与端口正确'
+        else:
+            hint = type(exc).__name__
+        return {'reachable': False, 'code': None, 'error': f'{hint}（{detail[:160]}）'}
+
+
 def launch_windows_app(executable, feature, *, args=None, cwd=None, env=None, creationflags=0):
     """启动已定位的 Windows 本地程序，并把宿主失败转成可展示提示。
 
