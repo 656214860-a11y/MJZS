@@ -766,7 +766,7 @@
         ]
     },
     "\u7b2c\u56db\u9879": {
-    "count": 14,
+    "count": 12,
         "baseline_pending": 35,
         "items": [
             {
@@ -934,14 +934,14 @@
             {
                 "file": "model_pool.py",
                 "point": "541",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。"
             },
             {
                 "file": "model_pool.py",
                 "point": "577",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。"
             },
             {
                 "file": "pet_agent.py",
