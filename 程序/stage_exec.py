@@ -11,6 +11,23 @@ import stage_flow
 import skill_orchestrator
 
 
+# L4 在应用组合时注入窗口构造；本层只保留执行结果和重试语义。
+_EXECUTION_PRESENTER = None
+
+
+def set_execution_presenter(presenter):
+    """登记 L4 执行页呈现器，避免阶段编排层反向依赖 UI 组件。"""
+    global _EXECUTION_PRESENTER
+    _EXECUTION_PRESENTER = presenter
+
+
+def install_ui_presenters(execution_presenter, plan_presenter):
+    """由 L4 组合根一次安装两个阶段窗口呈现器。"""
+    import stage_models
+    set_execution_presenter(execution_presenter)
+    stage_models.set_plan_window_presenter(plan_presenter)
+
+
 def _run_script_structure(desktop, project, names, trigger):
     """Writer 提取、Editor 审校并按反馈返工后，才把结构化正稿写入 script.md。"""
     import script_contract
@@ -92,70 +109,17 @@ def run(desktop, stage, only=None, trigger='manual'):
 
 def show(desktop, stage, parent=None):
     """把次级执行页摆出来，返回这一页的把手（自检直接读它，不猜控件）。"""
-    import tkinter as tk
-    from tkinter import ttk
-    host = parent if parent is not None else getattr(desktop, 'win', None)
-    standalone = host is None
-    window = tk.Tk() if standalone else tk.Toplevel(host)
-    window.title('执行：' + stage_flow.stage_name(stage))
-    if not standalone:
-        window.transient(host)
-    window.resizable(True, True)
-    window.minsize(520, 360)
-    body = ttk.Frame(window, padding=10)
-    body.pack(fill='both', expand=True)
-    ttk.Label(body, text='执行：' + stage_flow.stage_name(stage),
-              font=('Microsoft YaHei UI', 11, 'bold')).pack(anchor='w')
+    if _EXECUTION_PRESENTER is None:
+        raise RuntimeError('执行页呈现器尚未安装。')
     project = stage_flow.project_of(desktop)
     names = stage_flow.selected_skills(project, stage)
-    ttk.Label(body, text='本阶段 SKILL：' + ('、'.join(names) if names else '（还没勾上）'),
-              style='Muted.TLabel', wraplength=520, justify='left').pack(anchor='w', pady=(4, 0))
-    progress = ttk.Label(body, text='还没开始', style='Muted.TLabel')
-    progress.pack(anchor='w', pady=(6, 0))
-    log = tk.Text(body, height=10, wrap='word')
-    log.pack(fill='both', expand=True, pady=(6, 0))
-    row = ttk.Frame(body)
-    row.pack(fill='x', pady=(6, 0))
-    handle = {'window': window, 'stage': stage, 'run': None, 'log': log, 'names': names,
-              'failures': [], 'progress': progress}
-
-    def start(only=None):
-        try:
-            result = run(desktop, stage, only=only)
-        except Exception as exc:
-            result = {'results': [], 'text': str(exc), 'failed': []}
-        handle['run'] = result
-        handle['failures'] = [row.get('skill') for row in failures(result)]
-        try:
-            log.delete('1.0', 'end')
-            log.insert('end', str(result.get('text') or result.get('errors') or ''))
-        except Exception:
-            pass
-        progress.configure(text=progress_text(result))
-        retry.configure(state='normal' if handle['failures'] else 'disabled')
-        return result
 
     def go_back():
         index = stage_flow.OWN_ORDER.index(stage) if stage in stage_flow.OWN_ORDER else None
-        try:
-            if index is not None:
-                desktop.show(index)
-        except Exception:
-            pass
-        window.destroy()
+        if index is not None:
+            desktop.show(index)
 
-    retry = ttk.Button(row, text='重试失败项', style='Compact.TButton',
-                       command=lambda: start(only=handle['failures']))
-    retry.pack(side='left')
-    retry.configure(state='disabled')
-    ttk.Button(row, text='返回阶段页面', style='Compact.TButton',
-               command=go_back).pack(side='left', padx=(6, 0))
-    ttk.Button(row, text='关闭', style='Compact.TButton',
-               command=window.destroy).pack(side='left', padx=(6, 0))
-    handle['retry'] = lambda: start(only=handle['failures'])
-    handle['start'] = start
-    handle['back'] = go_back
-    start()
-    if standalone:
-        window.mainloop()
-    return handle
+    return _EXECUTION_PRESENTER(desktop, stage, parent=parent,
+                                title='执行：' + stage_flow.stage_name(stage), names=names,
+                                runner=run, failed_rows=failures, progress=progress_text,
+                                on_back=go_back)

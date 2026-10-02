@@ -19,6 +19,16 @@ from pet_bus import STAGES
 from stage_flow import manual_label as manual_label_for
 
 
+# L4 在应用组合时注入精简窗；阶段层仅决定文案、阻断条件和返回选择。
+_PLAN_WINDOW_PRESENTER = None
+
+
+def set_plan_window_presenter(presenter):
+    """登记 L4 手动制作窗口呈现器，避免本层反向导入 UI 组件。"""
+    global _PLAN_WINDOW_PRESENTER
+    _PLAN_WINDOW_PRESENTER = presenter
+
+
 def assets_choices():
     """资产管理这一阶段的生产模型：(值, 文案)——与生图窗口原来那份清单同源（第 46 期第 8 条）。"""
     from cloud_assets import LOCAL, MODELS
@@ -214,62 +224,17 @@ def plan_window(desktop, stage, parent=None):
     第 65 期任务 11：这一扇窗本身照旧随时可建（用例直接建它看控件树）；「代码测试阶段
     不许冒窗」那条保险装在上一层 plan()／manual_command 上——按钮那条路上它根本走不到这儿。
     """
-    import tkinter as tk
     import stage_flow
-    from tkinter import ttk
     host = parent if parent is not None else getattr(desktop, 'win', None)
     if host is None:
         return 'run'                      # 没有窗口可挂：不拦，照旧动手
     lines = stage_flow.summary_lines(desktop, stage)
     blocked = stage_flow.blockers(stage_flow.project_of(desktop), stage)
-    choice = []
-    window = tk.Toplevel(host)
-    window.title('手动制作：' + stage_flow.stage_name(stage))
-    window.transient(host)
-    window.resizable(False, False)
-    body = ttk.Frame(window, padding=12)
-    body.pack(fill='both', expand=True)
-    ttk.Label(body, text='手动制作：' + stage_flow.stage_name(stage),
-              font=('Microsoft YaHei UI', 11, 'bold')).pack(anchor='w')
-    for line in lines:
-        ttk.Label(body, text=line, style='Muted.TLabel').pack(anchor='w', pady=(2, 0))
-    buttons = ttk.Frame(body)
-    buttons.pack(fill='x', pady=(10, 0))
-
-    def pick(value):
-        choice.append(value)
-        window.destroy()
-
-    ttk.Button(buttons, text='修改配置', style='Compact.TButton',
-               command=lambda: pick('configure')).pack(side='left')
-    run_button = ttk.Button(buttons, text='直接执行', style='Primary.TButton',
-                            command=lambda: pick('run'))
-    run_button.pack(side='left', padx=(6, 0))
-    if blocked:
-        run_button.configure(state='disabled')
-    ttk.Button(buttons, text='取消', style='Compact.TButton',
-               command=lambda: pick(None)).pack(side='left', padx=(6, 0))
-    window.protocol('WM_DELETE_WINDOW', lambda: pick(None))
-    window.bind('<Escape>', lambda event: pick(None))
     # 这一窗里用户已经看过「模型」那一行了（没配就是「自动」），第 47 期那句提醒不再补一刀。
     remember_model_asked(desktop, stage)
-    try:
-        # 第 55 期第 4 条：删掉三个折叠项之后这一窗更矮了，顺手摆在主界面正中（与其余弹窗一致）。
-        window.update_idletasks()
-        window.geometry('+%d+%d' % (max(0, host.winfo_rootx() + (host.winfo_width() - window.winfo_width()) // 2),
-                                    max(0, host.winfo_rooty() + (host.winfo_height() - window.winfo_height()) // 2)))
-        window.grab_set()
-        # 第 59 期第 13 条：抓到手之后（再等一拍让 ui_theme 把它显出来）就点活它。
-        window.lift()
-        window.focus_force()
-        _schedule_popup_job(window, 60, lambda: activate_popup(window))
-    except Exception:
-        pass
-    try:
-        window.wait_window()
-    except Exception:
-        pass
-    return choice[0] if choice else None
+    if _PLAN_WINDOW_PRESENTER is None:
+        raise RuntimeError('手动制作窗口呈现器尚未安装。')
+    return _PLAN_WINDOW_PRESENTER(host, '手动制作：' + stage_flow.stage_name(stage), lines, blocked)
 
 
 def open_config(desktop, stage):

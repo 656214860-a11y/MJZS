@@ -467,11 +467,12 @@ class BaseDialog(tk.Toplevel):
     """统一的模态弹窗骨架；业务页面不可再直接创建 ``tk.Toplevel``。"""
 
     def __init__(self, parent, title, *, geometry=None, minsize=None, modal=True,
-                 on_close=None):
+                 on_close=None, chrome=True):
         super().__init__(parent)
         _styles(self)
         self._closed = False
         self._modal = modal
+        self._chrome = chrome
         self._owns_grab = False
         self._on_close = on_close
         self.title(title)
@@ -480,25 +481,35 @@ class BaseDialog(tk.Toplevel):
             self.geometry(geometry)
         if minsize:
             self.minsize(*minsize)
-        self.header = ttk.Frame(self, padding=(DIALOG_CONTENT_PADDING,
-                                                DIALOG_CONTENT_PADDING,
-                                                DIALOG_CONTENT_PADDING, 0))
-        self.header.pack(fill="x")
-        ttk.Label(self.header, text=title,
-                  style="Tokens.Dialog.Title.TLabel").pack(anchor="w")
-        self.content = ttk.Frame(self, padding=DIALOG_CONTENT_PADDING)
-        self.content.pack(fill="both", expand=True)
-        self.actions = ttk.Frame(self, height=DIALOG_ACTION_HEIGHT,
-                                 padding=(DIALOG_CONTENT_PADDING, 0,
-                                          DIALOG_CONTENT_PADDING, DIALOG_ACTION_GAP))
-        self.actions.pack(fill="x", side="bottom")
-        self.actions.pack_propagate(False)
+        if chrome:
+            self.header = ttk.Frame(self, padding=(DIALOG_CONTENT_PADDING,
+                                                    DIALOG_CONTENT_PADDING,
+                                                    DIALOG_CONTENT_PADDING, 0))
+            self.header.pack(fill="x")
+            ttk.Label(self.header, text=title,
+                      style="Tokens.Dialog.Title.TLabel").pack(anchor="w")
+            self.content = ttk.Frame(self, padding=DIALOG_CONTENT_PADDING)
+            self.content.pack(fill="both", expand=True)
+            self.actions = ttk.Frame(self, height=DIALOG_ACTION_HEIGHT,
+                                     padding=(DIALOG_CONTENT_PADDING, 0,
+                                              DIALOG_CONTENT_PADDING, DIALOG_ACTION_GAP))
+            self.actions.pack(fill="x", side="bottom")
+            self.actions.pack_propagate(False)
+        else:
+            # 兼容旧有的透明浮窗、画布预览窗和自绘气泡：窗口生命周期仍由统一
+            # 基类接管，但不强行注入标题栏或动作区，也不改变其现有子控件层级。
+            self.header = None
+            self.content = self
+            self.actions = None
         self.bind("<Escape>", self._on_escape, add="+")
         self.protocol("WM_DELETE_WINDOW", self.close)
         if modal:
             self.grab_set()
             self._owns_grab = True
-        self._focus_after = self.after_idle(self._focus_first_interactive)
+        # 无 chrome 的旧式浮窗过去并不会在创建后抢走焦点；保留这一语义，
+        # 只有标准对话框才自动聚焦第一个可交互控件。
+        self._focus_after = (self.after_idle(self._focus_first_interactive)
+                             if chrome else None)
 
     def _on_escape(self, _event=None):
         self.close()
@@ -522,6 +533,8 @@ class BaseDialog(tk.Toplevel):
 
     def add_action(self, text, command, *, primary=False, dangerous=False):
         """将动作放入唯一底部按钮区；危险主操作复用 danger token。"""
+        if self.actions is None:
+            raise RuntimeError("无 chrome 的 BaseDialog 没有统一动作区")
         if dangerous:
             button = ttk.Button(self.actions, text=text, command=command,
                                 style="Tokens.Danger.TButton")
@@ -536,10 +549,11 @@ class BaseDialog(tk.Toplevel):
         if self._closed:
             return
         self._closed = True
-        try:
-            self.after_cancel(self._focus_after)
-        except (AttributeError, tk.TclError):
-            pass
+        if self._focus_after is not None:
+            try:
+                self.after_cancel(self._focus_after)
+            except (AttributeError, tk.TclError):
+                pass
         if self._owns_grab:
             # Tk 的 grab_release 只会释放调用它的窗口；若此窗口的后代
             # （或后来打开的模态窗）成为当前 grab，则从当前持有者释放，
@@ -722,3 +736,158 @@ class ProgressLabel(_TextLabel):
     """单行优先的状态/进度文字，默认不超过 40 字。"""
 
     TOKENS = TEXT_PROGRESS
+
+
+def _release_stage_popup_jobs(window, event=None):
+    if event is not None and event.widget is not window:
+        return
+    for job in tuple(getattr(window, '_stage_popup_jobs', ())):
+        try:
+            window.after_cancel(job)
+        except tk.TclError:
+            pass
+    window._stage_popup_jobs = set()
+
+
+def _schedule_stage_popup_job(window, delay, callback):
+    jobs = getattr(window, '_stage_popup_jobs', None)
+    if jobs is None:
+        jobs = set()
+        window._stage_popup_jobs = jobs
+        window.bind('<Destroy>', lambda event, owner=window: _release_stage_popup_jobs(owner, event), add='+')
+    job = None
+
+    def run():
+        jobs.discard(job)
+        callback()
+
+    job = window.after(delay, run)
+    jobs.add(job)
+    return job
+
+
+def _activate_stage_popup(window):
+    try:
+        window.attributes('-topmost', True)
+        window.lift()
+        window.focus_force()
+        _schedule_stage_popup_job(window, 1200,
+                                  lambda: window.winfo_exists() and window.attributes('-topmost', False))
+    except tk.TclError:
+        pass
+
+
+def _show_stage_execution(desktop, stage, *, parent, title, names, runner, failed_rows, progress, on_back):
+    """L4 承载执行页控件；L3 通过显式回调提供执行和结果解释。"""
+    host = parent if parent is not None else getattr(desktop, 'win', None)
+    standalone = host is None
+    window = tk.Tk() if standalone else BaseDialog(host, '', modal=False, chrome=False)
+    window.title(title)
+    if not standalone:
+        window.transient(host)
+    window.resizable(True, True)
+    window.minsize(520, 360)
+    body = ttk.Frame(window, padding=10)
+    body.pack(fill='both', expand=True)
+    ttk.Label(body, text=title,
+              font=('Microsoft YaHei UI', 11, 'bold')).pack(anchor='w')
+    ttk.Label(body, text='本阶段 SKILL：' + ('、'.join(names) if names else '（还没勾上）'),
+              style='Muted.TLabel', wraplength=520, justify='left').pack(anchor='w', pady=(4, 0))
+    progress_label = ttk.Label(body, text='还没开始', style='Muted.TLabel')
+    progress_label.pack(anchor='w', pady=(6, 0))
+    log = TextArea(body, height=10, wrap='word')
+    log.pack(fill='both', expand=True, pady=(6, 0))
+    row = ttk.Frame(body)
+    row.pack(fill='x', pady=(6, 0))
+    handle = {'window': window, 'stage': stage, 'run': None, 'log': log, 'names': names,
+              'failures': [], 'progress': progress_label}
+
+    def start(only=None):
+        try:
+            result = runner(desktop, stage, only=only)
+        except Exception as exc:
+            result = {'results': [], 'text': str(exc), 'failed': []}
+        handle['run'] = result
+        handle['failures'] = [item.get('skill') for item in failed_rows(result)]
+        try:
+            log.delete('1.0', 'end')
+            log.insert('end', str(result.get('text') or result.get('errors') or ''))
+        except tk.TclError:
+            pass
+        progress_label.configure(text=progress(result))
+        retry.configure(state='normal' if handle['failures'] else 'disabled')
+        return result
+
+    def go_back():
+        try:
+            on_back()
+        except Exception:
+            pass
+        window.destroy()
+
+    retry = ttk.Button(row, text='重试失败项', style='Compact.TButton',
+                       command=lambda: start(only=handle['failures']))
+    retry.pack(side='left')
+    retry.configure(state='disabled')
+    ttk.Button(row, text='返回阶段页面', style='Compact.TButton', command=go_back).pack(side='left', padx=(6, 0))
+    ttk.Button(row, text='关闭', style='Compact.TButton', command=window.destroy).pack(side='left', padx=(6, 0))
+    handle['retry'] = lambda: start(only=handle['failures'])
+    handle['start'] = start
+    handle['back'] = go_back
+    start()
+    if standalone:
+        window.mainloop()
+    return handle
+
+
+def _show_manual_plan(host, title, lines, blocked):
+    """L4 承载手动制作精简窗；L3 已在调用前完成业务判定。"""
+    choice = []
+    window = BaseDialog(host, '', modal=False, chrome=False)
+    window.title(title)
+    window.transient(host)
+    window.resizable(False, False)
+    body = ttk.Frame(window, padding=12)
+    body.pack(fill='both', expand=True)
+    ttk.Label(body, text=title, font=('Microsoft YaHei UI', 11, 'bold')).pack(anchor='w')
+    for line in lines:
+        ttk.Label(body, text=line, style='Muted.TLabel').pack(anchor='w', pady=(2, 0))
+    buttons = ttk.Frame(body)
+    buttons.pack(fill='x', pady=(10, 0))
+
+    def pick(value):
+        choice.append(value)
+        window.destroy()
+
+    ttk.Button(buttons, text='修改配置', style='Compact.TButton', command=lambda: pick('configure')).pack(side='left')
+    run_button = ttk.Button(buttons, text='直接执行', style='Primary.TButton', command=lambda: pick('run'))
+    run_button.pack(side='left', padx=(6, 0))
+    if blocked:
+        run_button.configure(state='disabled')
+    ttk.Button(buttons, text='取消', style='Compact.TButton', command=lambda: pick(None)).pack(side='left', padx=(6, 0))
+    window.protocol('WM_DELETE_WINDOW', lambda: pick(None))
+    window.bind('<Escape>', lambda event: pick(None))
+    try:
+        window.update_idletasks()
+        window.geometry('+%d+%d' % (max(0, host.winfo_rootx() + (host.winfo_width() - window.winfo_width()) // 2),
+                                    max(0, host.winfo_rooty() + (host.winfo_height() - window.winfo_height()) // 2)))
+        window.grab_set()
+        window.lift()
+        window.focus_force()
+        _schedule_stage_popup_job(window, 60, lambda: _activate_stage_popup(window))
+    except tk.TclError:
+        pass
+    try:
+        window.wait_window()
+    except tk.TclError:
+        pass
+    return choice[0] if choice else None
+
+
+def install_stage_presenters():
+    """在 L4 组合根登记阶段 UI 呈现器；依赖方向始终是 UI → 阶段。"""
+    from ui_plugin_registry import module
+    module('stage_exec').install_ui_presenters(_show_stage_execution, _show_manual_plan)
+
+
+install_stage_presenters()
