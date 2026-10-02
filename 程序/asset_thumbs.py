@@ -33,7 +33,6 @@ Round 1（2026-09-23）：缩略图不再在界面线程里整张解 PNG（95 �
 """
 import atexit
 import hashlib
-import json
 import os
 import struct
 import subprocess
@@ -41,7 +40,7 @@ import sys
 import time
 import tkinter as tk
 from pathlib import Path
-from file_cache import remove_temporary_file
+from file_cache import read_json, remove_temporary_file
 from agent.core import save, save_bytes
 
 DEFAULT_SIZE = 36
@@ -571,7 +570,7 @@ def worker_main(cache_root, idle=WORKER_IDLE):
         quiet = time.monotonic()
         for spec_file in todo:
             try:
-                spec = json.loads(spec_file.read_text(encoding='utf-8'))
+                spec = read_json(spec_file)
                 src = Path(spec['src'])
                 token = cache_key(src, spec['stamp'], spec['size'])
                 write_cache(build(root, src, int(spec['size'])), token)

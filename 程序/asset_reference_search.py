@@ -12,6 +12,8 @@ import re
 import tempfile
 from pathlib import Path
 
+from file_cache import read_json, read_text
+
 DEFAULT_THRESHOLD = 60        # 低于这个分数不上候选图墙
 DEFAULT_LIMIT = 6             # 图墙最多展示几张
 MIN_EDGE = 512                # 短边小于这个像素数，做参考图没有价值
@@ -209,11 +211,11 @@ def search(transport, asset, threshold=DEFAULT_THRESHOLD, limit=DEFAULT_LIMIT):
 
 def candidates_from_file(path):
     """读助手或手工导出的候选清单：JSON 数组、带 candidates 字段的对象，或逐行 JSONL。"""
-    text = Path(path).read_text(encoding='utf-8-sig')
     try:
-        data = json.loads(text)
+        data = read_json(path)
     except ValueError:
-        data = [json.loads(line) for line in text.splitlines() if line.strip()]
+        decoder = json.JSONDecoder()
+        data = [decoder.decode(line) for line in read_text(path).splitlines() if line.strip()]
     if isinstance(data, dict):
         data = data.get('candidates') or data.get('items') or []
     if not isinstance(data, list):

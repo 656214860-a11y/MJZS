@@ -766,7 +766,7 @@
         ]
     },
     "\u7b2c\u56db\u9879": {
-    "count": 21,
+    "count": 18,
         "baseline_pending": 35,
         "items": [
             {
@@ -808,20 +808,20 @@
             {
                 "file": "asset_reference_search.py",
                 "point": "214",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R825：候选清单的正式 JSON 读取收口至 file_cache.read_json。"
             },
             {
                 "file": "asset_reference_search.py",
                 "point": "216",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R825：JSONL 兼容输入改复用 file_cache.read_text，再按行解析。"
             },
             {
                 "file": "asset_thumbs.py",
                 "point": "574",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R825：缩略图后台任务描述 JSON 读取收口至 file_cache.read_json。"
             },
             {
                 "file": "batch_frames_tool/batch_frames.py",
@@ -1179,7 +1179,7 @@
             },
             {
                 "file": "asset_thumbs.py",
-                "point": "516",
+                "point": "515",
                 "disposition": "pending",
                 "reason": "\u6b63\u5f0f\u5e73\u53f0\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u9002\u914d\u8fb9\u754c"
             },
