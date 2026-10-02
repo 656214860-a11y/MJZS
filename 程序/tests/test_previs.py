@@ -104,8 +104,8 @@ class ClassifyTests(unittest.TestCase):
 
 
 class StatusValueTests(unittest.TestCase):
-    def test_publish_is_available_from_service_and_writes_complete_payload(self):
-        from previs_progress_service import publish
+    def test_compatibility_facade_publishes_complete_payload_through_l3(self):
+        from previs_progress import publish
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "SH001_进度.json"
             publish(path, "SH001", "render", 3, 12)
@@ -131,8 +131,9 @@ class StatusValueTests(unittest.TestCase):
             state = {"progress": {"p|SH001": "running"}, "log_dir": str(log), "busy": True}
             self.assertEqual(status_value(state, "p", "SH001", "制作中")[0], "determinate")
 
-    def test_progress_read_uses_cache_and_publish_invalidates_it(self):
-        from previs_progress_service import publish, status_value
+    def test_progress_read_uses_cache_and_l3_publish_invalidates_it(self):
+        from previs_progress import publish
+        from previs_progress_service import status_value
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "SH001_进度.json"
             state = {"progress": {"p|SH001": "running"}, "log_dir": td, "busy": True}
@@ -140,6 +141,11 @@ class StatusValueTests(unittest.TestCase):
             self.assertEqual(status_value(state, "p", "SH001", "制作中")[1], 25)
             publish(path, "SH001", "render", 3, 4)
             self.assertEqual(status_value(state, "p", "SH001", "制作中")[1], 75)
+
+    def test_service_rejects_a_missing_l3_publisher(self):
+        from previs_progress_service import publish
+        with self.assertRaisesRegex(TypeError, '必须由 L3 注入'):
+            publish('SH001_进度.json', 'SH001', 'scene')
 
     def test_invalid_frames_fall_back(self):
         from previs_progress_service import status_value

@@ -11,14 +11,21 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class JsonIoBoundaryTests(unittest.TestCase):
-    def test_previs_progress_uses_cache_for_read_and_core_for_write(self):
-        """L2 进度轮询不得退回裸 read_text/json.load 或直接落盘。"""
+    def test_previs_progress_uses_cache_and_l3_injected_publisher(self):
+        """L2 进度轮询不得退回裸读写，正式发布器必须由 L3 注入。"""
         self.assertEqual(LAYERS['previs_progress_service'], 2)
         source = (ROOT / 'previs_progress_service.py').read_text(encoding='utf-8')
         self.assertIn('from file_cache import read_json', source)
-        self.assertIn('from agent.core import save_text', source)
         self.assertIn('data = read_json(path)', source)
-        self.assertIn('save_text(path, json.dumps(data, ensure_ascii=False))', source)
+        self.assertIn("if not callable(publish_text):", source)
+        self.assertIn('publish_text(path, json.dumps(data, ensure_ascii=False))', source)
+        self.assertNotIn('from agent.core import', source)
         self.assertNotIn('path.read_text(', source)
         self.assertNotIn('json.dump(', source)
 
+        stage = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
+        facade = (ROOT / 'previs_progress.py').read_text(encoding='utf-8')
+        self.assertIn('def previs_progress_gateway()', stage)
+        self.assertIn('def publish_stage_previs_progress(', stage)
+        self.assertIn('publish_text=previs_progress_gateway()', stage)
+        self.assertIn('publish_stage_previs_progress as publish', facade)

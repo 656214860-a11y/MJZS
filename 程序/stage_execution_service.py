@@ -258,6 +258,26 @@ def dispatch_stage_previs(project, source, shot_ids, state, monitor=False, start
                     publish=previs_routing_gateway()['publish_json'])
 
 
+def previs_progress_gateway():
+    """L3 为 Blender 白模进度注入唯一的原子文本发布器。"""
+    from agent.core import save_text
+    return {'publish_text': save_text}
+
+
+def publish_stage_previs_progress(path, shot_id, stage, completed=None, total=None):
+    """发布单镜头白模进度；宿主兼容门面只委托此 L3 入口。"""
+    from previs_progress_service import publish
+    return publish(path, shot_id, stage, completed, total,
+                   publish_text=previs_progress_gateway()['publish_text'])
+
+
+def install_stage_previs_progress(path, shot_id):
+    """为 Blender 安装进度回调，并向 L2 注入正式发布器。"""
+    from previs_progress_service import install_blender_progress
+    return install_blender_progress(path, shot_id,
+                                    publish_text=previs_progress_gateway()['publish_text'])
+
+
 def storyboard_gateway():
     from agent.core import save, save_bytes
     from file_cache import remove_temporary_file

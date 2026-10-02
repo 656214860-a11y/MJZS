@@ -3,42 +3,44 @@ import json
 import math
 from pathlib import Path
 
-from agent.core import save_text
 from file_cache import read_json
 
 
-def publish(path, shot_id, stage, completed=None, total=None):
+def publish(path, shot_id, stage, completed=None, total=None, publish_text=None):
     """原子发布单镜头的渲染进度。"""
+    if not callable(publish_text):
+        raise TypeError('白模预演进度发布必须由 L3 注入。')
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
     data = {'shot_id': shot_id, 'stage': stage}
     if completed is not None and total is not None:
         data.update(completed=completed, total=total)
-    save_text(path, json.dumps(data, ensure_ascii=False))
+    publish_text(path, json.dumps(data, ensure_ascii=False))
 
 
-def install_blender_progress(path, shot_id):
+def install_blender_progress(path, shot_id, publish_text=None):
     """向 Blender 渲染处理器安装基于真实帧数的进度发布器。"""
+    if not callable(publish_text):
+        raise TypeError('白模预演进度发布必须由 L3 注入。')
     import bpy
     completed = set()
 
     def started(scene, *args):
         completed.clear()
-        publish(path, shot_id, 'render', 0, len(range(scene.frame_start, scene.frame_end + 1, scene.frame_step)))
+        publish(path, shot_id, 'render', 0, len(range(scene.frame_start, scene.frame_end + 1, scene.frame_step)), publish_text=publish_text)
 
     def written(scene, *args):
         completed.add(scene.frame_current)
-        publish(path, shot_id, 'render', len(completed), len(range(scene.frame_start, scene.frame_end + 1, scene.frame_step)))
+        publish(path, shot_id, 'render', len(completed), len(range(scene.frame_start, scene.frame_end + 1, scene.frame_step)), publish_text=publish_text)
 
-    def finished(scene, *args): publish(path, shot_id, 'encoding')
-    def cancelled(scene, *args): publish(path, shot_id, 'cancelled')
+    def finished(scene, *args): publish(path, shot_id, 'encoding', publish_text=publish_text)
+    def cancelled(scene, *args): publish(path, shot_id, 'cancelled', publish_text=publish_text)
     for name, handler in [('render_init', started), ('render_write', written), ('render_complete', finished), ('render_cancel', cancelled)]:
         handlers = getattr(bpy.app.handlers, name)
         for old in tuple(handlers):
             if getattr(old, '_drama_progress', False): handlers.remove(old)
         handler._drama_progress = True
         handlers.append(handler)
-    publish(path, shot_id, 'scene')
+    publish(path, shot_id, 'scene', publish_text=publish_text)
 
 
 def status_value(state, project, sid, status):

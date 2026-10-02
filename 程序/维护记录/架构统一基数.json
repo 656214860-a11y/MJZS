@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 17,
+    "count": 16,
         "baseline_pending": 66,
         "items": [
             {
@@ -260,8 +260,8 @@
             {
                 "file": "previs_progress_service.py",
                 "point": "publish",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R807：白模预演进度发布改由 L3 previs_progress_gateway 注入。"
             },
             {
                 "file": "previs_routing.py",
@@ -1011,19 +1011,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "399",
+                "point": "419",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "430",
+                "point": "450",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "443",
+                "point": "463",
                 "disposition": "pending",
                 "reason": ""
             },
