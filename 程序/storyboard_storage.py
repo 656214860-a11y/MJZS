@@ -2,6 +2,7 @@
 import hashlib,json,os,re,time
 from pathlib import Path
 from agent.core import read
+from file_cache import read_stable_json_snapshot
 from project_stages import storyboard
 from storage_maintenance import recycle_paths
 
@@ -44,9 +45,7 @@ def working_roots(project):
     return (storyboard(project) / '分镜拆分', project / 'storyboard' / '分镜拆分')
 
 def snapshot(path):
-    before=path.stat();raw=path.read_bytes();after=path.stat()
-    if (before.st_mtime_ns,before.st_size)!=(after.st_mtime_ns,after.st_size):raise ValueError('文件正在写入')
-    data=json.loads(raw.decode('utf-8-sig'))
+    data,raw,after=read_stable_json_snapshot(path)
     if not isinstance(data,dict) or not isinstance(data.get('shots'),list) or not data['shots']:raise ValueError('非分镜文件')
     if not isinstance(data.get('episode_id'),str) or not re.fullmatch(r'EP\d{3,}',data['episode_id']):raise ValueError('集号不明确')
     if not all(isinstance(s,dict) for s in data['shots']):raise ValueError('分镜尚未写完')

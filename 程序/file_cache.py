@@ -96,6 +96,22 @@ def read_bytes(path):
     return data
 
 
+def read_stable_json_snapshot(path):
+    """读取写入中的工作 JSON，并确认本次读取前后文件签名没有变化。
+
+    这类工作文件不能复用缓存：调用方需要原始字节、末次 stat，且必须拒绝
+    正在被外部流程覆盖的半份内容。因此把完整性边界集中在这里，而非让
+    service 自行读文件并解析 JSON。
+    """
+    path = Path(path)
+    before = path.stat()
+    raw = path.read_bytes()
+    after = path.stat()
+    if (before.st_mtime_ns, before.st_size) != (after.st_mtime_ns, after.st_size):
+        raise ValueError('文件正在写入')
+    return json.loads(raw.decode('utf-8-sig')), raw, after
+
+
 def clear():
     _CACHE.clear()
     _TEXT_CACHE.clear()
