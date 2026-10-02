@@ -6,11 +6,11 @@ from tkinter import ttk, messagebox
 import tts_api as api
 import tk_timers
 from ui_tokens import SPACING
-from ui_widgets import PrimaryButton, SecondaryButton
+from ui_widgets import FormDialog, PrimaryButton, SecondaryButton
 
 
 def show(parent, on_saved=None):
-    win = tk.Toplevel(parent)
+    win = FormDialog(parent, "配音设置 · OpenAI 兼容 TTS", modal=False, chrome=False)
     win.withdraw()
     win.title("配音设置 · OpenAI 兼容 TTS")
     win.transient(parent)

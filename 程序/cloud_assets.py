@@ -101,8 +101,9 @@ def settings(parent):
     import tkinter as tk
     import webbrowser
     from tkinter import ttk, messagebox
-    win = tk.Toplevel(parent)
-    win.withdraw();win.title('云图片模型 · Comfy 账户');win.transient(parent)
+    from ui_widgets import FormDialog
+    win = FormDialog(parent, '云图片模型 · Comfy 账户', modal=False, chrome=False)
+    win.withdraw();win.transient(parent)
     body = ttk.Frame(win, padding=16);body.pack(fill='both', expand=True)
     ttk.Label(body, text='Seedream 5.0 Pro / Nano Banana Pro / GPT Image 2', wraplength=560).pack(anchor='w')
     ttk.Label(body, text='使用 ComfyUI 账户余额；本地 FLUX 无需此密钥。', wraplength=560).pack(anchor='w', pady=6)

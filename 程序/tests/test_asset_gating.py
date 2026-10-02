@@ -22,6 +22,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 from pet_state import PAGE_OF
+from ui_widgets import DataTable
 
 FFMPEG = r"D:/Tools/ffmpeg/bin/ffmpeg.exe"
 FFPROBE = r"D:/Tools/ffmpeg/bin/ffprobe.exe"
@@ -238,7 +239,11 @@ class AssetPageContentTests(_TkHarness):
             self.assertEqual(str(d.asset_table.set("CHAR_001", "references")), "3 张 · 长相2 表情1")
             d.view_reference_images("CHAR_001"); win.update(); win.update_idletasks()
             window = self.reference_window(win)
-            table = self.first_of(window, self.ttk.Treeview)
+            # R818 起参考图表经 DataTable 统一承载，业务断言仍针对其底层
+            # Treeview 的行与筛选行为。
+            table_shell = self.first_of(window, DataTable)
+            self.assertIsNotNone(table_shell, "参考图列表必须经 DataTable 构建")
+            table = table_shell.tree
             self.assertEqual(len(table.get_children()), 3, "这一窗要真列出那 3 张")
             box = self.first_of(window, self.ttk.Combobox)
             self.assertEqual(tuple(box.cget("values")), ("全部", "长相", "服饰", "画风", "色调",
@@ -263,7 +268,7 @@ class AssetPageContentTests(_TkHarness):
             self.assertEqual(str(bar.pack_info().get("side")), "bottom",
                              "按钮行要 side='bottom' 先落位：内容框最后 pack，窗口矮也是它先让步")
             slaves = window.pack_slaves()
-            self.assertIsInstance(slaves[-1], self.ttk.Treeview,
+            self.assertIsInstance(slaves[-1], DataTable,
                                   "内容框要最后 pack，别抢在按钮前头把地方吃完")
             status_row = [w for w in slaves if isinstance(w, self.ttk.Label)][-1]
             self.assertEqual(str(status_row.pack_info().get("side")), "bottom",

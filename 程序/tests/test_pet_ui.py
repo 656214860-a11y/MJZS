@@ -6063,9 +6063,11 @@ class CloudCloseTests(PetTestCase):
         cloud = self.dialog()
         button = cloud.close_button
         self.assertEqual(str(button.cget("bg")), pet_cloud.CLOSE_BG)
-        button.event_generate("<Enter>")
+        # 测试根窗口保持 withdraw；未映射控件不会收到 Tk crossing 事件，
+        # 因而直接走与 <Enter> 绑定相同的可测状态转换。
+        cloud._hover_close_button()
         self.assertEqual(str(button.cget("bg")), pet_cloud.CLOSE_HOVER)
-        button.event_generate("<Leave>")
+        cloud._unhover_close_button()
         self.assertEqual(str(button.cget("bg")), pet_cloud.CLOSE_BG)
 
     def test_the_cross_shouts_where_to_close(self):

@@ -8,6 +8,7 @@ from tkinter import ttk,messagebox
 from api_models import records,remember,remove,label,identity
 from agent.core import save
 import tk_timers
+from ui_widgets import FormDialog
 
 def settings_path():return Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'漫剧制作助手'/'qwen-api.json'
 
@@ -96,7 +97,7 @@ def environment(model='',api=None):
     return env
 
 def show(parent,on_saved=None):
-    win=tk.Toplevel(parent);win.title('Qwen Code · API 设置');win.geometry('780x480');win.transient(parent)
+    win=FormDialog(parent,'Qwen Code · API 设置',geometry='780x480',modal=False,chrome=False)
     body=ttk.Frame(win,padding=18);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1)
     ttk.Label(body,text='支持阿里云百炼或自定义 OpenAI 兼容接口；填写后点击保存设置。').grid(row=0,column=0,columnspan=2,sticky='w',pady=(0,12))
     vars={k:tk.StringVar(value=v) for k,v in load().items() if k in ('base_url','model','api_key')}

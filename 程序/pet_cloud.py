@@ -462,10 +462,20 @@ class Cloud:
         button = tk.Label(canvas, text=CLOSE_MARK, bg=CLOSE_BG, fg=CLOSE_FG,
                           font=CLOSE_FONT, cursor='hand2', bd=0, highlightthickness=0)
         button.bind('<Button-1>', self._hit_close)
-        button.bind('<Enter>', lambda event: button.configure(bg=CLOSE_HOVER, fg=CLOSE_BG))
-        button.bind('<Leave>', lambda event: button.configure(bg=CLOSE_BG, fg=CLOSE_FG))
+        button.bind('<Enter>', self._hover_close_button)
+        button.bind('<Leave>', self._unhover_close_button)
         self.close_button = button
         return button
+
+    def _hover_close_button(self, event=None):
+        """关闭钮悬停状态；单列方法使无窗口映射的 UI 回归也可验证。"""
+        if self.close_button is not None:
+            self.close_button.configure(bg=CLOSE_HOVER, fg=CLOSE_BG)
+
+    def _unhover_close_button(self, event=None):
+        """恢复关闭钮的常态色。"""
+        if self.close_button is not None:
+            self.close_button.configure(bg=CLOSE_BG, fg=CLOSE_FG)
 
     def _hit_close(self, event=None):
         """点右上角那颗×＝收起对话框（与 Esc／close() 同一条路）。"""

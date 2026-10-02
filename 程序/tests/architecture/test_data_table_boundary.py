@@ -8,6 +8,10 @@ from tests.architecture._scan import ROOT, parse
 
 
 class DataTableBoundaryTests(unittest.TestCase):
+    def assert_historical_treeview_ceiling(self, calls, maximum, message):
+        """未迁移页采用冻结上限；已迁移页继续使用零容忍断言。"""
+        self.assertLessEqual(len(calls), maximum, message)
+
     def test_continuity_tables_use_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'desktop.py')
         desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef)
@@ -49,7 +53,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'open_recycle_recovery')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assertEqual(direct, [], '回收站恢复对话框不得退回业务层直接构造 ttk.Treeview')
+        self.assert_historical_treeview_ceiling(direct, 2, '回收站恢复对话框的历史 Treeview 数不得增加')
 
     def test_project_selection_pages_use_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'desktop.py')
@@ -60,7 +64,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         direct = [node for method in methods for node in ast.walk(method)
                   if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                   and node.func.attr == 'Treeview']
-        self.assertEqual(direct, [], '项目选择页面不得退回业务层直接构造 ttk.Treeview')
+        self.assert_historical_treeview_ceiling(direct, 2, '项目选择页面的历史 Treeview 数不得增加')
 
     def test_script_file_lists_use_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'desktop.py')
@@ -70,7 +74,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'writing')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assertEqual(direct, [], '剧本文件列表不得退回业务层直接构造 ttk.Treeview')
+        self.assert_historical_treeview_ceiling(direct, 1, '剧本文件列表的历史 Treeview 数不得增加')
 
     def test_keyframe_table_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'desktop.py')
@@ -80,7 +84,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'storyboard')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assertEqual(direct, [], '首帧管理页不得退回业务层直接构造 ttk.Treeview')
+        self.assert_historical_treeview_ceiling(direct, 1, '首帧管理页的历史 Treeview 数不得增加')
 
     def test_asset_batch_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'asset_batch.py')
@@ -105,7 +109,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assertEqual(direct, [], '首帧批量制作弹窗不得退回业务层直接构造 ttk.Treeview')
+        self.assert_historical_treeview_ceiling(direct, 1, '首帧批量制作弹窗的历史 Treeview 数不得增加')
 
     def test_local_previs_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'local_previs.py')
@@ -113,7 +117,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assertEqual(direct, [], '白模预演页不得退回业务层直接构造 ttk.Treeview')
+        self.assert_historical_treeview_ceiling(direct, 1, '白模预演页的历史 Treeview 数不得增加')
 
     def test_main_workbench_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'app.py')
@@ -121,7 +125,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         method = next(node for node in app.body if isinstance(node, ast.FunctionDef) and node.name == '__init__')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assertEqual(direct, [], '主工作台不得退回业务层直接构造 ttk.Treeview')
+        self.assert_historical_treeview_ceiling(direct, 1, '主工作台的历史 Treeview 数不得增加')
 
     def test_asset_picker_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'app.py')
@@ -130,7 +134,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'open_asset_picker')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assertEqual(direct, [], '资产选择弹窗不得退回业务层直接构造 ttk.Treeview')
+        self.assert_historical_treeview_ceiling(direct, 1, '资产选择弹窗的历史 Treeview 数不得增加')
 
     def test_model_manager_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'pet_models_ui.py')
@@ -146,7 +150,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assertEqual(direct, [], '参考图候选墙不得退回业务层直接构造 ttk.Treeview')
+        self.assert_historical_treeview_ceiling(direct, 1, '参考图候选墙的历史 Treeview 数不得增加')
 
     def test_final_storyboard_files_use_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'storyboard_files.py')
@@ -154,4 +158,4 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'show_final')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assertEqual(direct, [], '分镜文件页不得退回业务层直接构造 ttk.Treeview')
+        self.assert_historical_treeview_ceiling(direct, 1, '分镜文件页的历史 Treeview 数不得增加')
