@@ -16,6 +16,7 @@
 3. 并发上限是硬上限（全局 8，单阶段按表），挡下来的活儿排队降速，直接丢掉。
 """
 import json
+from file_cache import read_text
 import time
 from datetime import datetime
 from pathlib import Path
@@ -442,7 +443,7 @@ def log_read(project, stage=None, limit=20):
         return ()
     rows = []
     try:
-        for line in path.read_text(encoding='utf-8').splitlines():
+        for line in read_text(path, encoding='utf-8').splitlines():
             line = line.strip()
             if not line:
                 continue

@@ -766,7 +766,7 @@
         ]
     },
     "\u7b2c\u56db\u9879": {
-    "count": 9,
+    "count": 1,
         "baseline_pending": 35,
         "items": [
             {
@@ -970,8 +970,8 @@
             {
                 "file": "script_contract.py",
                 "point": "1068",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R830：L0 契约为保持单向层级，经 agent.core.read 统一读取；不直接解析 JSON 或依赖 L1 file_cache。"
             },
             {
                 "file": "scripts/migrate_workflow_presets.py",
@@ -1000,8 +1000,8 @@
             {
                 "file": "shot_numbering.py",
                 "point": "30",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R830：镜头编号重排的正式分镜 JSON 读取改由 file_cache.read_json。"
             },
             {
                 "file": "smoke_test.py",
@@ -1012,26 +1012,26 @@
             {
                 "file": "stage_execution_service.py",
                 "point": "547",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
                 "point": "578",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
                 "point": "591",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_parallel.py",
-                "point": "450",
-                "disposition": "pending",
-                "reason": ""
+                "point": "451",
+                "disposition": "exempt",
+                "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。"
             },
             {
                 "file": "storage_maintenance.py",
@@ -1072,14 +1072,14 @@
             {
                 "file": "storyboard_final_controller.py",
                 "point": "113",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R830：编辑器输入框内存文本的 JSON 解析，不读取文件。"
             },
             {
                 "file": "storyboard_final.py",
                 "point": "160",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "exempt",
+                "reason": "R830：发布前内存 JSON 文本校验，不读取文件。"
             },
             {
                 "file": "storyboard_storage.py",

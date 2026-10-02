@@ -33,6 +33,7 @@
 所以它也算剧本阶段的产出——`PRODUCERS` 里照实写，别归错。
 """
 import json
+from agent.core import read
 import re
 import hashlib
 from datetime import datetime
@@ -1065,7 +1066,7 @@ def completeness(folder):
             rows.append((name, '缺失', '这一份还没产出'))
             continue
         try:
-            data = json.loads(path.read_text(encoding='utf-8-sig'))
+            data = read(path)
         except (OSError, ValueError) as exc:
             rows.append((name, '有问题', '读不出来：%s' % exc))
             continue

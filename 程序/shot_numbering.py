@@ -11,6 +11,7 @@ EP003 反而占了 SH017-SH031）。本模块按集号升序重新分配连续�
     python shot_numbering.py <项目目录> --apply  # 执行，改写前自动备份
 """
 import json
+from file_cache import read_json
 import os
 import re
 import shutil
@@ -27,7 +28,7 @@ SIZE_LIMIT = 8 * 1024 * 1024
 
 
 def _read_json(path):
-    data = json.loads(Path(path).read_text(encoding='utf-8'))
+    data = read_json(path)
     if not isinstance(data, dict):
         raise ValueError(Path(path).name + ' 不是 JSON 对象')
     return data

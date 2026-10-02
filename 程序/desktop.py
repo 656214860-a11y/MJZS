@@ -5658,11 +5658,15 @@ class Desktop:
                     # 仅为刚插入而尚未有图层的行读取 provider，不能在这一帧全量重读。
                     table.cell_images.refresh(reuse_existing=True);refresh_buttons()
             table.bind('<Destroy>',cancel_more_rows,add='+')
-            # 首批后的首次调度要跨过首帧的完整绘制窗口：Windows/Tk 的一次 update 可能持续
-            # 数百毫秒，短 timer 会在同一轮内连锁跑完。先让首屏稳定可操作，再渐进补行。
-            # 全量自检及低配设备上的首次消息循环可能跨过 1 秒；延迟不足会让第一次
-            # ``update()`` 已插入第二批，破坏“首帧仅 24 行”的性能契约。
-            row_job['id']=table.after(2000,more_rows)
+            # 先把计时器的创建交给首帧空闲队列：计时若从 ``show()`` 中开始，慢机的首次
+            # ``update()`` 本身就可能耗尽延迟，让第二批仍落在首帧。这里只在首帧绘制已经
+            # 让出事件循环后开始计时，保证首批 24 行是唯一同步工作，随后才渐进补齐。
+            def arm_more_rows():
+                if (getattr(self,'asset_rows_token',None)!=asset_rows_token
+                        or not table.winfo_exists()):
+                    return
+                row_job['id']=table.after(2000,more_rows)
+            row_job['id']=table.after_idle(arm_more_rows)
     # ── 第 46 期第 2／9 条：资产管理那两行按钮 + 内容框右键删除的公共实现 ────────
     # 这些活原来散在 assets() 的函数体里，页面上的按钮却摆在 assets() 外面——按下去
     # 找不到名字（NameError）。收到 Desktop 上以后，按钮、右键菜单与内容框走同一份实现。
