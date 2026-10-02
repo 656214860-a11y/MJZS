@@ -107,6 +107,32 @@ class SkillReferenceInjectionTests(unittest.TestCase):
             for heading in headings:
                 self.assertIn(heading, text, '%s 缺目标章节 %s' % (relative, heading))
 
+    def test_keyframe_previs_video_stages_keep_media_handoffs_explicit(self):
+        expected = {
+            '07首帧管理SKILL/pipeline-keyframe.skill.md': (
+                'image-model-adapters.md#3-keyframe-prompt-anatomy-nine-slots-then-constraints',
+                'lighting-and-color.md#lighting-continuity-for-ai-video',
+                '不得发布 `keyframeManifest`',
+            ),
+            '08白模预演SKILL/pipeline-previs.skill.md': (
+                'blocking-and-staging.md#blocking-for-ai-video',
+                'production-workflow.md#shot-difficulty-rubric',
+                '不得进入视频生成',
+            ),
+            '09视频生成SKILL/pipeline-video-generation.skill.md': (
+                'ai-video-tool-adapters.md#the-capability-first-rule',
+                'failure-modes.md#60-second-triage-tree',
+                '先读取所选工具的控制面，再选择 S1／S2／S3／S4',
+                '不能作为已验证规则写入本阶段',
+            ),
+        }
+        for relative, fragments in expected.items():
+            text = (SKILLS / relative).read_text(encoding='utf-8')
+            self.assertIn('## 定向注入（00 包）', text, relative)
+            self.assertIn('不得加载 00 包全文', text, relative)
+            for fragment in fragments:
+                self.assertIn(fragment, text, '%s 缺定向章节或门控 %s' % (relative, fragment))
+
     def test_emotion_curve_uses_the_12_beat_source_not_the_old_scene_jump_rule(self):
         text = (SKILLS / '01 剧本准备SKILL/script-emotion-curve.skill.md').read_text(encoding='utf-8')
         self.assertIn('emotion-beat-curve.md#一-12-关键节拍点量化模型010-分', text)

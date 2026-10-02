@@ -1,6 +1,7 @@
 """Tk table adapters shared by storyboard picker pages."""
 from datetime import datetime
 from ui_widgets import DataTable
+from ui_shortcuts import ShortcutRegistry
 
 from responsive_ui import (
     CHECK_COLUMN_WIDTH, VIEW_PAD, auto_columns, auto_height, cached_fonts,
@@ -23,7 +24,8 @@ def file_table(parent, height=4, selectmode='browse', first_label='文件 / 内�
     if selectmode=='extended':
         def select_all(event=None):
             tree.selection_set(tree.get_children());return 'break'
-        tree.bind('<Control-a>',select_all);tree.bind('<Control-A>',select_all)
+        ShortcutRegistry().bind(tree, ('<Control-a>', '<Control-A>'), select_all,
+                               scope='分镜文件表', name='全选文件')
     tree.tag_configure('completed',background='#e8ecef',foreground='#1a7f37')
     auto_height(tree, area)
     def schedule_fit(event=None):

@@ -44,6 +44,7 @@ import threading
 import time
 import tkinter as tk
 from tkinter import ttk
+from ui_widgets import BaseDialog, LineInput
 
 from pet_agent import PET_NAME as SPEAKER     # 猫咪的名字（三虎）：云朵里每句话都挂在它名下
 from pet_cloud_text import reply_lines as _reply_lines, tight
@@ -373,7 +374,7 @@ class Cloud:
         if self.win is not None:
             return self.canvas
         try:
-            win = tk.Toplevel(self.parent)
+            win = BaseDialog(self.parent, '', modal=False, chrome=False)
             win._positioned_once = True    # 别让 ui_theme 按对话框接管（-alpha 0 ＋ <Map> grab_set）
             win._drama_cloud = True        # 记号：它是三虎的云朵，不是弹窗（自检要把它排除在弹窗统计外）
             # 第 8 轮（收口）：弹窗那两颗「最小化／最大化」全程序都不长了（见 ui_theme），
@@ -425,7 +426,7 @@ class Cloud:
         """
         row = tk.Frame(canvas, bg=self.fill())
         self.chat_row = row
-        self.reply = ttk.Entry(row, font=REPLY_FONT, takefocus=True)
+        self.reply = LineInput(row, font=REPLY_FONT, takefocus=True)
         self.reply.pack(fill='both', expand=True)
         self.reply.bind('<Return>', self.submit)      # 回车＝原来那一下
         # 第 37 期第 4 条：三虎听得懂的那几句做成回复框里的一条小灰字（自己往右滚，见 _hint_tick）。

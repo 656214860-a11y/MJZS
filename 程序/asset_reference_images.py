@@ -13,6 +13,7 @@ from cell_hover import bind_row_menu
 import asset_thumbs
 from cell_hover import CellHover,CellImages,ZOOM_SIZE
 from responsive_ui import row_height_for
+from ui_widgets import BaseDialog, DataTable, TextArea
 
 REF_THUMB=asset_thumbs.DEFAULT_SIZE          # 缩略图长边：与资产页那一列同尺寸
 # 第 58 期第 2 条：行高按格子里最高的那点内容算（这一张就是缩略图）——
@@ -376,7 +377,7 @@ def show(app,aid):
 
     asset=read(file)[aid]
 
-    win=tk.Toplevel(app.win);win.withdraw();win.title('参考图 + 提示词 · '+aid+' '+asset.get('name',aid));win.geometry('800x500');win.transient(app.win)
+    win=BaseDialog(app.win,'',modal=False,chrome=False);win.withdraw();win.title('参考图 + 提示词 · '+aid+' '+asset.get('name',aid));win.geometry('800x500');win.transient(app.win)
     ttk.Label(win,text='参考图可选，可添加多张并指定用途；不添加时仅按提示词生成。支持 PNG／JPG／WebP。',wraplength=750).pack(anchor='w',padx=12,pady=10)
     rolebar=FlowBar(win);rolebar.pack(fill='x',padx=12,pady=4)
     ttk.Label(rolebar,text='参考用途').pack(side='left')
@@ -390,13 +391,16 @@ def show(app,aid):
     filtervar=tk.StringVar(value='全部')
     filterbox=ttk.Combobox(rolebar,textvariable=filtervar,values=('全部',*choices,'待分类'),state='readonly',width=16)
     filterbox.pack(side='left',padx=4)
-    table=ttk.Treeview(win,columns=('file','role'),show='headings',selectmode='extended',height=5)
+    table_shell=DataTable(win,columns=[('file','已绑定参考图',600),('role','参考用途',110)],
+                          show='headings',selectmode='extended',height=5,
+                          empty_text='暂无已绑定参考图')
+    table=table_shell.tree
     table.heading('role',text='参考用途');table.column('role',width=110,stretch=False)
-    table.heading('file',text='已绑定参考图');table.column('file',width=600);table.pack(fill='x',padx=12)
+    table.heading('file',text='已绑定参考图');table.column('file',width=600);table_shell.pack(fill='x',padx=12)
     auto_columns(table)
     status=tk.StringVar();ttk.Label(win,textvariable=status).pack(anchor='w',padx=12,pady=5)
 
-    prompt=tk.Text(win,height=9,wrap='word');prompt.insert('1.0',display_prompt(asset));prompt.configure(state='disabled');prompt.pack(fill='both',expand=True,padx=12)
+    prompt=TextArea(win,height=9,wrap='word');prompt.insert('1.0',display_prompt(asset));prompt.configure(state='disabled');prompt.pack(fill='both',expand=True,padx=12)
 
     def guard():
 
@@ -411,6 +415,7 @@ def show(app,aid):
             role=current.get('reference_roles',{}).get(value,'待分类')
             if filtervar.get() not in ('全部',role):continue
             table.insert('','end',iid=str(i),values=(value,role))
+        table_shell.refresh_empty_state()
         status.set(f'已绑定 {len(values)} 张；按每张用途结合提示词生成。' if values else '未选择参考图：仅使用提示词生成。')
     def changed():
 
@@ -471,7 +476,7 @@ def view_references(app, aid):
     base=app.asset_base();file=base/'assets/资产清单/assets.json'
     asset=read(file)[aid];category=CATEGORIES.get(aid.split('_')[0],'未知')
     roles=ROLE_GROUPS.get(aid.split('_')[0],())
-    win=tk.Toplevel(app.win);win.withdraw();win.title(f'参考图 · {aid} {asset.get("name",aid)}');win.geometry('760x480');win.minsize(560,380);win.transient(app.win)
+    win=BaseDialog(app.win,'',modal=False,chrome=False);win.withdraw();win.title(f'参考图 · {aid} {asset.get("name",aid)}');win.geometry('760x480');win.minsize(560,380);win.transient(app.win)
     ttk.Label(win,text=f'编号：{aid}　类别：{category}　名称：{asset.get("name",aid)}',font=('Microsoft YaHei UI',11,'bold')).pack(anchor='w',padx=12,pady=(12,6))
     bar=FlowBar(win);bar.pack(fill='x',padx=12,pady=(0,4))
     ttk.Label(bar,text='显示分类').pack(side='left')
@@ -481,8 +486,11 @@ def view_references(app, aid):
     ttk.Label(bar,text='参考图按类目归档；改类目请用「导入参考图」里的「参考分类」。',style='Muted.TLabel').pack(side='left',padx=(10,0))
     # 第 57 期第 4 条：「分类」右边就是这一张参考图的缩略图——原来只有路径，看不出来是哪张。
     # 缩略图那一列由盖图那一层管（解不开的格式退回空白），行高也就得放到装得下一整张图。
-    table=ttk.Treeview(win,columns=('role','thumb','file'),show='headings',height=6,
-                       selectmode='browse',style='Reference.Treeview')
+    table_shell=DataTable(win,columns=[('role','分类',130),('thumb','缩略图',REF_THUMB+18),
+                                       ('file','参考图文件（项目内相对路径）',360)],
+                          show='headings',height=6,selectmode='browse',style='Reference.Treeview',
+                          empty_text='暂无参考图')
+    table=table_shell.tree
     from responsive_ui import fit_row_height
     fit_row_height(table,REF_THUMB,style='Reference.Treeview')      # 第 58 期第 2 条
     table.heading('role',text='分类');table.column('role',width=130,minwidth=90,stretch=False)
@@ -511,6 +519,7 @@ def view_references(app, aid):
             role=str(role_map.get(value) or '待分类')
             if picked not in ('全部',role):continue
             table.insert('','end',iid=str(i),values=(role,'',value))
+        table_shell.refresh_empty_state()
         table.cell_images.refresh()
         detail=' '.join('%s%d' % (role,counts[role]) for role in role_order(counts))
         status.set(('共 %d 张参考图（%s）' % (len(vals),detail) if detail else '还没有参考图：可用下面的「导入参考图」添加')
@@ -558,7 +567,7 @@ def view_references(app, aid):
     # 先让步，不会是这三个按钮消失。
     buttons.pack(side='bottom',fill='x',padx=12,pady=(0,10))
     status_label.pack(side='bottom',anchor='w',padx=12,pady=6)
-    table.pack(fill='both',expand=True,padx=12)
+    table_shell.pack(fill='both',expand=True,padx=12)
     filterbox.bind('<<ComboboxSelected>>',lambda event:refresh())
     table.bind('<Double-1>',lambda e:app.safe(preview))
     win.update_idletasks()

@@ -24,3 +24,26 @@ class NotificationBoundaryTests(unittest.TestCase):
                            and node.func.attr == "error"]
         self.assertEqual(messagebox_errors, [], "首迁错误链不得退回裸 messagebox")
         self.assertEqual(len(notifier_errors), 1, "Desktop.safe 必须经统一通知入口")
+
+    def test_desktop_display_notifications_use_dispatcher(self):
+        tree = parse(ROOT / "desktop.py")
+        direct = [node.func.attr for node in ast.walk(tree) if isinstance(node, ast.Call)
+                  and isinstance(node.func, ast.Attribute)
+                  and isinstance(node.func.value, ast.Name)
+                  and node.func.value.id == 'messagebox'
+                  and node.func.attr in {'showerror', 'showwarning', 'showinfo'}]
+        self.assertEqual(direct, [], 'Desktop 的展示型通知必须经 NotificationDispatcher')
+
+    def test_business_pages_have_no_direct_display_messagebox_calls(self):
+        forbidden = []
+        for path in ROOT.rglob('*.py'):
+            if 'tests' in path.parts or path.name == 'ui_widgets.py':
+                continue
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                        and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == 'messagebox'
+                        and node.func.attr in {'showerror', 'showwarning', 'showinfo'}):
+                    forbidden.append('%s:%s' % (path.name, node.lineno))
+        self.assertEqual(forbidden, [], '业务页面展示型通知必须经 NotificationDispatcher')

@@ -20,7 +20,7 @@ import skill_budget
 import token_saver
 from pet_settings_contract import TABS, LEVEL_NOTES
 from ui_tokens import FONTS, SPACING
-from ui_widgets import PrimaryButton, SecondaryButton
+from ui_widgets import BaseDialog, LineInput, PrimaryButton, SecondaryButton, TextArea
 
 HUB_TITLE = '设置'
 HUB_GEOMETRY = '880x620'
@@ -55,7 +55,7 @@ def parent_of(pet):
 def open_hub(pet, tab=None):
     """打开「设置」；tab 给了 'basic'／'model'／'level'／'budget' 就直接落在那一格。"""
     parent = parent_of(pet)
-    win = tk.Toplevel(parent)
+    win = BaseDialog(parent, '', modal=False, chrome=False)
     win.title(HUB_TITLE)
     win.geometry(HUB_GEOMETRY)
     win.transient(parent or None)
@@ -268,7 +268,7 @@ def budget_page(frame, pet):
         ttk.Label(grid, text=label).grid(row=row, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
         var = tk.StringVar(value=str(limits.get(kind, '')))
         fields[kind] = var
-        ttk.Entry(grid, textvariable=var, width=16).grid(row=row, column=1, sticky='w')
+        LineInput(grid, textvariable=var, width=16).grid(row=row, column=1, sticky='w')
         ttk.Label(grid, text='已用 %d %s' % (used.get(kind, 0), UNIT_OF.get(kind, '')),
                   style='Muted.TLabel').grid(row=row, column=2, sticky='w', padx=(SPACING['md'], 0))
 
@@ -361,13 +361,13 @@ def token_page(frame, pet):
         ttk.Label(grid, text=label).grid(row=row, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
         var = tk.StringVar(value=str(now[key]))
         fields[key] = var
-        ttk.Entry(grid, textvariable=var, width=14).grid(row=row, column=1, sticky='w')
+        LineInput(grid, textvariable=var, width=14).grid(row=row, column=1, sticky='w')
         row += 1
     note = tk.StringVar(value=token_saver.REASONING_SAVING.get(now['model_reasoning_effort'], ''))
     ttk.Label(grid, textvariable=note, style='Muted.TLabel').grid(
         row=row, column=0, columnspan=2, sticky='w', pady=(SPACING['xs'], 0))
 
-    text = tk.Text(frame, height=11, width=92, wrap='none')
+    text = TextArea(frame, height=11, width=92, wrap='none')
     text.pack(fill='both', expand=True, pady=(SPACING['sm'], 0))
 
     def read():

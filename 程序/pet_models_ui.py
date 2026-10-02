@@ -14,7 +14,7 @@ from tkinter import ttk
 
 import model_pool
 from ui_tokens import FONTS, SPACING
-from ui_widgets import PrimaryButton, SecondaryButton
+from ui_widgets import BaseDialog, DataTable, LineInput, PrimaryButton, SecondaryButton
 
 TITLE = '三虎 · 设置'
 SETTINGS_TITLE = '三虎模型配置'          # 第 46 期第 6 条：这一页与它的独立窗口都叫这个名字
@@ -100,7 +100,7 @@ def transport_of(pet):
 def window(pet, title, geometry):
     """一扇小窗：transient 挂在三虎的窗口上，Escape 关掉。"""
     parent = parent_of(pet)
-    win = tk.Toplevel(parent)
+    win = BaseDialog(parent, '', modal=False, chrome=False)
     win.title(title)
     win.geometry(geometry)
     win.transient(parent or None)
@@ -269,14 +269,13 @@ def open_manager(pet):
     # （14 行起），表单收紧（行距 3→1、外框内边距减半），多出来的高度都归列表。
     # 第 65 期任务 5：用户要「模型池优先显示全部内容」——14 行 → 20 行，且每一列都允许跟随
     # 窗口宽度伸展（原来只有根地址那一列会伸），名字长一点、地址长一点都看得全。
-    tree = ttk.Treeview(body, columns=keys, show='headings', height=20)
+    table_shell = DataTable(body, columns=COLUMNS, show='headings', height=20,
+                            empty_text='暂无模型配置')
+    tree = table_shell.tree
     for key, title, width in COLUMNS:
         tree.heading(key, text=title)
         tree.column(key, width=width, anchor='w', stretch=True)
-    tree.grid(row=2, column=0, sticky='nsew')
-    scroll = ttk.Scrollbar(body, orient='vertical', command=tree.yview)
-    scroll.grid(row=2, column=1, sticky='ns')
-    tree.configure(yscrollcommand=scroll.set)
+    table_shell.grid(row=2, column=0, sticky='nsew')
     form = ttk.Frame(body, padding=(0, SPACING['xs']))
     form.grid(row=3, column=0, columnspan=2, sticky='ew')
     form.columnconfigure(1, weight=1)
@@ -293,7 +292,7 @@ def open_manager(pet):
     def text_row(index, key, label):
         """一行「标签 ＋ 输入框」；行号往下走，表单中间插下拉框／多选都不会错位。"""
         ttk.Label(form, text=label).grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
-        entry = ttk.Entry(form, style='ModelManager.TEntry')
+        entry = LineInput(form, style='ModelManager.TEntry')
         entry.grid(row=index, column=1, sticky='ew', pady=SPACING['xs'])
         entries[key] = entry
         return index + 1
@@ -323,7 +322,7 @@ def open_manager(pet):
     ttk.Label(form, text='直接输入密钥').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
     key_row = ttk.Frame(form)
     key_row.grid(row=index, column=1, sticky='w', pady=SPACING['xs'])
-    key_entry = ttk.Entry(key_row, width=30, show='*', style='ModelManager.TEntry')
+    key_entry = LineInput(key_row, width=30, show='*', style='ModelManager.TEntry')
     key_entry.pack(side='left')
     SecondaryButton(key_row, text='保存到本机', command=lambda: local_save()).pack(side='left', padx=(SPACING['sm'], 0))
     SecondaryButton(key_row, text='清除本机密钥', command=lambda: local_clear()).pack(side='left', padx=(SPACING['xs'], 0))
@@ -373,6 +372,7 @@ def open_manager(pet):
                                 item['base_url'],
                                 model_pool.WIRE_LABELS.get(item['wire_api'], item['wire_api']),
                                 item['key_env'], status_text(item, program)))
+        table_shell.refresh_empty_state()
         return tree
 
     def show_key_state(value=None):

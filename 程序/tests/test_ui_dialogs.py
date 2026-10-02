@@ -17,6 +17,14 @@ class _Chooser:
             raise self.result
         return self.result
 
+    def askopenfilename(self, **options):
+        self.calls.append(options)
+        return self.result
+
+    def asksaveasfilename(self, **options):
+        self.calls.append(options)
+        return self.result
+
 
 class _Notifier:
     def __init__(self): self.calls = []
@@ -37,3 +45,12 @@ class FileDialogTests(unittest.TestCase):
         self.assertEqual(result, ())
         self.assertEqual(notifier.calls[0][1]['title'], '选择文件')
         self.assertIn('窗口不可用', notifier.calls[0][0])
+
+    def test_single_open_and_save_preserve_cancel_semantics(self):
+        parent = object()
+        chooser = _Chooser('frame.png')
+        dialog = FileDialog(parent, chooser=chooser)
+        self.assertEqual(dialog.open_file(title='选择首帧'), 'frame.png')
+        self.assertEqual(dialog.save_file(title='导出'), 'frame.png')
+        self.assertEqual(chooser.calls[0]['parent'], parent)
+        self.assertEqual(FileDialog(parent, chooser=_Chooser('')).open_file(), '')

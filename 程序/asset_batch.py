@@ -11,7 +11,8 @@ import ui_plugin_registry
 from responsive_ui import FlowBar, scroll_form
 from platform_tools import open_target
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import PrimaryButton, SecondaryButton
+from ui_dialogs import FileDialog
+from ui_widgets import BaseDialog, DataTable, LineInput, PrimaryButton, SecondaryButton
 from asset_batch_service import (
     KINDS, asset_prompt as _asset_prompt, register_image as _register_image,
     image_ready as _image_ready, batch_complete as _batch_complete,
@@ -128,7 +129,7 @@ def show(app,engine="comfy",selected_ids=None):
     prefsfile=project/'ui_settings.json';prefs=_prefs(prefsfile);saved=prefs.get('asset_batch',{})
     controller=AssetBatchController(project,base,sources,scope,engine,selected_ids,saved,sync_plan)
     scope_text=scope_label(scope,sources,read(source).get('episode_id',''))
-    win=tk.Toplevel(app.win);win.withdraw();win.title(('资产图片制作' if skill_mode or engine=='workflow' else 'ComfyUI')+' · 批量资产 · '+scope_text);win.geometry('850x640');win.minsize(700,480);win.transient(app.win)
+    win=BaseDialog(app.win,'',modal=False,chrome=False);win.withdraw();win.title(('资产图片制作' if skill_mode or engine=='workflow' else 'ComfyUI')+' · 批量资产 · '+scope_text);win.geometry('850x640');win.minsize(700,480);win.transient(app.win)
     win.protocol('WM_DELETE_WINDOW',win.destroy)
     # Keep production buttons visible while the long API form scrolls above them.
     footer=ttk.Frame(win);footer.pack(side='bottom',fill='x')
@@ -142,7 +143,10 @@ def show(app,engine="comfy",selected_ids=None):
         default_checked=controller.category_defaults(KINDS, app.asset_kind)[prefix]
         checks[prefix]=tk.BooleanVar(value=default_checked)
         ttk.Checkbutton(types,text=label,style='TCheckbutton',variable=checks[prefix],command=lambda p=prefix:toggle_category(p)).pack(side='left',padx=(SPACING['none'],SPACING['md']))
-    table=ttk.Treeview(form,columns=('name','references','prompt'),show='tree headings',height=8,selectmode='extended')
+    table_shell=DataTable(form,columns=[('name','名称',135),('references','参考图',65),
+                                        ('prompt','生图提示词',450)],show='tree headings',
+                          height=8,selectmode='extended',empty_text='暂无可生成资产')
+    table=table_shell.tree
     for key,label,width in [('#0','',120),('name','名称',135),('references','参考图',65),('prompt','生图提示词',450)]:table.heading(key,text=label);table.column(key,width=width,minwidth=36,stretch=False)
     def fit_columns(width=None):
         from tkinter import font as tkfont
@@ -159,7 +163,7 @@ def show(app,engine="comfy",selected_ids=None):
         table.column('prompt',width=max(160,available-sum(widths.values())))
     table.bind('<Configure>',lambda event:fit_columns(event.width),add='+')
     table.column('#0',anchor='w')
-    table.pack(fill='x',padx=SPACING['lg'])
+    table_shell.pack(fill='x',padx=SPACING['lg'])
     status=tk.StringVar();ttk.Label(form,textvariable=status,wraplength=760,justify='left').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['sm'])
     def toggle_category(prefix):
         if checks[prefix].get():
@@ -172,6 +176,7 @@ def show(app,engine="comfy",selected_ids=None):
         selected=table.selection();focused=table.focus();position=table.yview()[0]
         table.delete(*table.get_children())
         for aid,a in available():table.insert('','end',iid=aid,text=aid,image=app.win._tick_images[0 if aid in controller.excluded else 1],values=(a.get('name',aid),str(len(a.get('reference_images',[])))+' 张',a.get('image_prompt') or a.get('prompt') or a.get('description','')))
+        table_shell.refresh_empty_state()
         ids=[aid for aid,_ in available()]
         table.heading('#0',image=app.win._tick_images[1 if ids and all(aid not in controller.excluded for aid in ids) else 0])
         table.selection_set([aid for aid in selected if table.exists(aid)])
@@ -237,7 +242,7 @@ def show(app,engine="comfy",selected_ids=None):
         return controller.options({key:value.get() for key,value in values.items()}, current_model(project), aspect.get(), quality.get())
     for i,(key,label) in enumerate([('url','本机地址'),('model','基础模型'),('workflow','API 工作流（可选）'),('node','提示词节点编号'),('field','提示词字段')]):
         ttk.Label(config,text=label).grid(row=i,column=0,sticky='w',padx=SPACING['xs'],pady=SPACING['xs'])
-        field=ttk.Combobox(config,textvariable=values[key]) if key=='model' else ttk.Entry(config,textvariable=values[key])
+        field=ttk.Combobox(config,textvariable=values[key]) if key=='model' else LineInput(config,textvariable=values[key])
         field.grid(row=i,column=1,sticky='ew',padx=SPACING['xs'])
         if key=='model':modelbox=field
     def model_key():
@@ -268,7 +273,7 @@ def show(app,engine="comfy",selected_ids=None):
             status.set(f'检测到 {len(models)} 个基础模型，请选择。' if models else 'ComfyUI 已连接；未发现传统基础模型，可使用已选择的 API 工作流。')
         app.async_(load,done)
     SecondaryButton(config,text='启动并检测',command=lambda:app.safe(detect)).grid(row=1,column=2,padx=SPACING['xs'])
-    SecondaryButton(config,text='选择文件',command=lambda:values['workflow'].set(filedialog.askopenfilename(parent=win,filetypes=[('ComfyUI API 工作流','*.json')]) or values['workflow'].get())).grid(row=2,column=2,padx=SPACING['xs'])
+    SecondaryButton(config,text='选择文件',command=lambda:values['workflow'].set(FileDialog(win).open_file(filetypes=[('ComfyUI API 工作流','*.json')]) or values['workflow'].get())).grid(row=2,column=2,padx=SPACING['xs'])
     def save_api():
         options=work_options();Comfy(options['url'])
         if backend.get()==LOCAL and options['workflow'] and not Path(options['workflow']).is_file():raise ValueError('API 工作流文件不存在')

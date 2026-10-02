@@ -23,6 +23,7 @@
 import inspect
 import tkinter as tk
 from tkinter import ttk
+from ui_widgets import LineInput
 
 ROW_MENU_VIEW = '查看'          # 右键菜单第一项：等同单击这一格
 ROW_MENU_DELETE = '删除'        # 右键菜单第二项：逐个删除（目标就是右键那一行）
@@ -385,7 +386,7 @@ class CellHover:
         if self.editor is not None:return
         bounds=self.tree.bbox(row,column)
         if not bounds:return
-        entry=ttk.Entry(self.tree);self.editor=entry
+        entry=LineInput(self.tree);self.editor=entry
         entry.insert(0,value);entry.place(x=bounds[0],y=bounds[1],width=bounds[2],height=bounds[3])
         # 第 52 期第 3 条：改名这一格上可能盖着一张缩略图，输入框得提到最上面才看得见。
         entry.lift()

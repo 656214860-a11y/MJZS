@@ -1677,10 +1677,10 @@ class UiEdgeTests(unittest.TestCase):
             popups = popup_windows(win, self.tk)
             self.assertEqual(len(popups), 1)
             popup = popups[0]
-            expected = [w for w in popup.winfo_children() if isinstance(w, self.tk.Text)][0].get("1.0", "end-1c")
+            expected = [w for w in popup.content.winfo_children() if isinstance(w, self.tk.Text)][0].get("1.0", "end-1c")
             import clipboard_lock
             with clipboard_lock.hold():                             # 第 65 期第 12 条：剪贴板是全机器共用的一块，几路并行要排队用
-                [w for w in popup.winfo_children() if isinstance(w, ttk.Button) and str(w.cget("text")) == "复制提示词"][0].invoke()
+                [w for w in popup.actions.winfo_children() if isinstance(w, ttk.Button) and str(w.cget("text")) == "复制提示词"][0].invoke()
                 win.update()
                 self.assertFalse(popup.winfo_exists())          # 复制成功后关窗
                 self.assertEqual(win.clipboard_get(), expected)
@@ -1735,13 +1735,13 @@ class UiEdgeTests(unittest.TestCase):
             guard = clipboard_lock.hold(); guard.__enter__()
             self.addCleanup(lambda: guard.__exit__(None, None, None))
             win.clipboard_clear(); win.clipboard_append("哨兵"); win.update()
-            button = [w for w in popup.winfo_children() if isinstance(w, ttk.Button) and str(w.cget("text")) == "复制提示词"][0]
+            button = [w for w in popup.actions.winfo_children() if isinstance(w, ttk.Button) and str(w.cget("text")) == "复制提示词"][0]
             self.assertEqual(str(button.cget("state")), "disabled")
             button.invoke(); win.update()
             self.assertTrue(popup.winfo_exists())
             self.assertEqual(win.clipboard_get(), "哨兵")
             self.assertIn("还没有首帧图片提示词", d.status.get())
-            hints = [str(w.cget("text")) for w in popup.winfo_children() if isinstance(w, ttk.Label)]
+            hints = [str(w.cget("text")) for w in popup.content.winfo_children() if isinstance(w, ttk.Label)]
             self.assertTrue(any("没有可复制的首帧图片提示词" in text for text in hints))   # 窗口内写明原因
 
 
@@ -1777,7 +1777,7 @@ class UiEdgeTests(unittest.TestCase):
             popup = popups[0]
             import clipboard_lock
             with clipboard_lock.hold():                             # 第 65 期第 12 条：剪贴板是全机器共用的一块，几路并行要排队用
-                [w for w in popup.winfo_children() if isinstance(w, ttk.Button) and str(w.cget("text")) == "复制提示词"][0].invoke()
+                [w for w in popup.actions.winfo_children() if isinstance(w, ttk.Button) and str(w.cget("text")) == "复制提示词"][0].invoke()
                 win.update()
                 self.assertFalse(popup.winfo_exists())          # 复制成功后关窗
                 self.assertEqual(win.clipboard_get(), display_prompt(asset))
