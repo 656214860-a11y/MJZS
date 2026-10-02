@@ -546,6 +546,18 @@ class SignatureTests(unittest.TestCase):
 
 
 class StoryboardLifecyclePathTests(unittest.TestCase):
+    def test_retire_rejects_missing_l3_publisher(self):
+        from storyboard_lifecycle import retire
+        with tempfile.TemporaryDirectory() as td:
+            project=Path(td)
+            source=project/'03初步分镜'/'分镜拆分'/'EP001.json'
+            target=project/'04分镜定稿'/'EP001'/'episode.json'
+            source.parent.mkdir(parents=True); target.parent.mkdir(parents=True)
+            raw=b'{"episode_id":"EP001"}'; source.write_bytes(raw); target.write_bytes(raw)
+            import hashlib
+            with self.assertRaisesRegex(TypeError,'L3'):
+                retire(project,source,target,hashlib.sha256(raw).hexdigest())
+
     def test_current_stage_working_json_is_retired_to_recycle_bin(self):
         from storyboard_lifecycle import retire
         with tempfile.TemporaryDirectory() as td:
@@ -555,7 +567,7 @@ class StoryboardLifecyclePathTests(unittest.TestCase):
             source.parent.mkdir(parents=True); target.parent.mkdir(parents=True)
             raw=b'{"episode_id":"EP001"}'; source.write_bytes(raw); target.write_bytes(raw)
             import hashlib
-            retire(project,source,target,hashlib.sha256(raw).hexdigest())
+            retire(project,source,target,hashlib.sha256(raw).hexdigest(), publish=lambda path, data: path.write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8'))
             self.assertFalse(source.exists())
             manifests=list((project/'工作流任务'/'回收站').glob('*/恢复位置.json'))
             self.assertEqual(len(manifests),1)

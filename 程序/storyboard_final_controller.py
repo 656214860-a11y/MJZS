@@ -11,6 +11,25 @@ from storyboard_selection import remember_final_view
 from storyboard_storage import resolved_alias
 
 
+def storyboard_lifecycle_gateway():
+    """定稿退役的别名发布能力仅由 L3 注入。"""
+    from agent.core import save
+    return {'publish_json': save}
+
+
+def retire_stage_storyboard(project, source, target, expected):
+    """定稿后退役工作分镜：由 L3 注入别名发布器并保留回收站事务。"""
+    from storyboard_lifecycle import retire
+    return retire(project, source, target, expected,
+                  publish=storyboard_lifecycle_gateway()['publish_json'])
+
+
+def finalize_stage_storyboard(project, episode_dir, source):
+    """桌面定稿入口：完成发布后才允许经 L3 退役工作分镜。"""
+    from storyboard_final import finalize
+    return finalize(project, episode_dir, source, retire_working=retire_stage_storyboard)
+
+
 @dataclass(frozen=True)
 class FinalPreview:
     path: Path

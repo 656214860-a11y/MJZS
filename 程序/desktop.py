@@ -2406,8 +2406,8 @@ class Desktop:
         project=self.root;episode=self.asset_base()
         self.status.set('无人值守自动定稿：正在同步资产并生成定稿…')
         def worker():
-            from storyboard_final import finalize
-            try:self.auto_final_queue.put((True,(finalize(project,episode,source),project),signature))
+            from storyboard_final_controller import finalize_stage_storyboard
+            try:self.auto_final_queue.put((True,(finalize_stage_storyboard(project,episode,source),project),signature))
             except Exception as exc:self.auto_final_queue.put((False,'自动定稿未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
     def auto_final_scan(self):
@@ -5798,13 +5798,13 @@ class Desktop:
     def make_final_storyboard(self,source=None):
         if source is None:source=self.current_frame_json()
         if not source or not Path(source).is_file():raise ValueError('请先到第3步选择第2步生成的JSON并同步资产清单')
-        from storyboard_final import finalize
+        from storyboard_final_controller import finalize_stage_storyboard
         if self.worker or any(getattr(v,'busy',False) for v in self.video_sessions.values()):raise ValueError('请等待当前制作任务结束后再生成定稿')
         project=self.root;episode=self.asset_base()
         def done(folder):
             # 第 47 期第 5 条：手动定稿收了尾，三虎说一句。
             self.pet_report('final',self.apply_final(project,folder))
-        self.async_(lambda:finalize(project,episode,source),done)
+        self.async_(lambda:finalize_stage_storyboard(project,episode,source),done)
     def apply_final(self,project,folder):
         """定稿生成后的公共收尾：刷新已打开的工作集、记住当前分镜、写偏好并重建第04步页面。
 

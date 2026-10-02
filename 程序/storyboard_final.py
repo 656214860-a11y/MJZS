@@ -32,10 +32,10 @@ def _record_lineage(project, episodefile, source):
         from artifact_lineage import record
         record(project, episodefile, lineage_source, 'final_storyboard')
 
-def finalize(project,episode_dir,source):
+def finalize(project,episode_dir,source,retire_working=None):
     from asset_context import library_dir,references
     from storyboard_catalog_service import resolve_source
-    from storyboard_lifecycle import signature,retire
+    from storyboard_lifecycle import signature
     project=Path(project).resolve();base=library_dir(project,episode_dir)
     source=resolve_source(project,source);original=source.read_bytes()
     original_hash=hashlib.sha256(original).hexdigest()
@@ -107,7 +107,8 @@ def finalize(project,episode_dir,source):
             from storyboard_lifecycle import is_working_source
             _record_lineage(project, existing, source)
             if is_working_source(project,source):
-                retire(project,source,existing,original_hash)
+                if not callable(retire_working):raise TypeError('定稿退役需要 L3 编排入口。')
+                retire_working(project,source,existing,original_hash)
             return existing.parent
     dest=dated_path(stage(project,'final')/'分镜',re.sub(r'[^A-Za-z0-9_-]','_',episode['episode_id'])+'_分镜定稿')
     # A final is a single maintained document, including later asset updates.
@@ -168,5 +169,6 @@ def finalize(project,episode_dir,source):
     except Exception: raise
     from storyboard_lifecycle import is_working_source
     if is_working_source(project,source):
-        retire(project,source,dest/'episode.json',original_hash)
+        if not callable(retire_working):raise TypeError('定稿退役需要 L3 编排入口。')
+        retire_working(project,source,dest/'episode.json',original_hash)
     return dest
