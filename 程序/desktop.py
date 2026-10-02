@@ -3534,7 +3534,9 @@ class Desktop:
             self._cleanup_project_path=str(path)
             self.choose_project()
             return False
-        self.remember_daily_project_choice(path)
+        # ``load`` 可能已把资源管理器改名后的旧登记认领到新目录；日常选择必须
+        # 记住实际打开的项目，不能把调用入口携带的旧路径再写回设置。
+        self.remember_daily_project_choice(getattr(self,'root',None) or path)
         return True
     def daily_project_choice(self):
         """返回今天已确认过的项目；过期、已删或未登记的记录一律不使用。"""
@@ -3655,7 +3657,8 @@ class Desktop:
                     notice.set('剧本已被删除，不能进入项目。请点击“删除选中项目”清理残留文件夹。')
                     return
                 messagebox.showerror('无法打开项目',str(e),parent=popup);return
-            self.remember_daily_project_choice(selected[0])
+            # 同侧栏入口：成功认领后以 load() 解析出的实际根目录记忆当天选择。
+            self.remember_daily_project_choice(getattr(self,'root',None) or selected[0])
             popup.destroy()
         row=ttk.Frame(popup);row.pack(fill='x',padx=22,pady=18)
         ttk.Button(row,text='+ 新建项目',command=lambda:(popup.destroy(),self.safe(self.new))).pack(side='left')

@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-10-02｜权威位置：`D:\漫剧制作助手\程序\project_status.md`｜当前轮次：809 待确认（R808 定稿分镜编辑发布已验收；下一项按路线图或用户指令确定。）
+更新：2026-10-02｜权威位置：`D:\漫剧制作助手\程序\project_status.md`｜当前轮次：811 待确认（R810 SKILL 流水线契约对齐已验收；下一项按路线图或用户指令确定。）
 
 ## 新对话接续协议
 
@@ -12,6 +12,10 @@
 6. 架构统一待办见 `维护记录/架构统一路线图_v2.md`，第 3、4 项基数见 `维护记录/架构统一基数.json`；UI 统一待办见 `维护记录/UI统一入口路线图_v1.md`。
 
 ## 当前能力
+
+- R810 结构治理轮（SKILL 流水线契约对齐，**已验收**）：对齐 12 阶段 pipeline 的输入、输出与上游依赖；对白润色迁至剧本结构、音画同步预检迁至后期剪辑，资产链为“自动补全→版权过滤”。新增注册 SKILL DAG 与 pipeline 阶段 IO／manifest 归属门禁。默认冒烟 8/8、架构冒烟 177/177、契约定向 198 条／0 红、注册表 73 且 `problems()==[]`；完整安全全量重跑 3,614 条／0 红／882.9 秒。详见 `tasks_round/tasks_round_810_result.md`。
+
+- R809 结构治理轮（架构统一第 3 项定稿分镜退役别名发布，**已验收**）：`storyboard_lifecycle.retire()` 的别名 JSON 发布必须接收 L3 `storyboard_lifecycle_gateway()` 注入；定稿流程仍仅经控制器退役工作分镜。专项 117 条／0 红、默认冒烟 8/8、架构门禁 171/171；R810 已补齐完整安全全量。详见 `tasks_round/tasks_round_809_result.md`。
 
 - R808 结构治理轮（架构统一第 3 项定稿分镜编辑发布，**已验收**）：`storyboard_edit_service.save_edited_json()` 现必须接收 L3 `storyboard_edit_gateway()` 注入的 JSON 发布器；定稿控制器只委托 `stage_execution_service.save_edited_stage_storyboard()`。JSON 路径校验、原子失败不覆写旧文件与返回路径语义不变。第 3 项 pending 由 16 降至 15，第 4 项仅重定位既存行号，数量保持 21；服务与控制器专项 14 条／0 红、架构与台账专项 17 条／0 红、默认冒烟 8/8、架构门禁 171/171（43.103 秒）。R808−R806=2，不触发完整安全全量。详见 `tasks_round/tasks_round_808_result.md`。
 

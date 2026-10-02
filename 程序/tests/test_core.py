@@ -187,6 +187,16 @@ class DailyProjectChoiceTests(unittest.TestCase):
             desk.load.assert_called_once_with(choice)
             desk.remember_daily_project_choice.assert_called_once_with(choice)
 
+    def test_sidebar_open_remembers_reconciled_path_instead_of_missing_entry(self):
+        with tempfile.TemporaryDirectory() as td:
+            old=Path(td)/'已改名项目';new=Path(td)/'新项目';new.mkdir()
+            desk=Desktop.__new__(Desktop)
+            desk.root=None
+            desk.load=mock.Mock(side_effect=lambda path:setattr(desk,'root',new))
+            desk.remember_daily_project_choice=mock.Mock()
+            self.assertTrue(desk.open_project_or_cleanup(old))
+            desk.remember_daily_project_choice.assert_called_once_with(new)
+
     def test_main_window_can_clear_a_missing_project_registration_without_recycling(self):
         with tempfile.TemporaryDirectory() as td:
             missing=Path(td)/'已移走项目'
