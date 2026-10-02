@@ -512,6 +512,12 @@ class AssetUncertainSubmissionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "必须为对象"):
                 save_ledger(td, [])
 
+    def test_ledger_service_requires_l3_publisher(self):
+        from asset_batch_state_service import save_ledger
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaisesRegex(RuntimeError, "必须由 L3 注入"):
+                save_ledger(td, {})
+
     def fake(self, calls):
         class Fake:
             def request(self, path, data=None, raw=False, timeout=20):

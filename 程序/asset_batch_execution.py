@@ -87,6 +87,7 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
     from prop_assets import requires_asset
     from stage_execution_service import asset_batch_gateway
     gateway = asset_batch_gateway()
+    publish_ledger = gateway['publish_json']
     items = eligible_items(base, items, requires_asset)
     if not items:
         return '没有需要独立生成的资产；普通道具随镜头画面生成。'
@@ -115,16 +116,16 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
             prompt = asset_prompt(asset, kind); job = state.get(aid, {})
             record = resume_record(aid, job, prompt, options['url'], asset['_reference_signature'], generation, cloud)
             if record:
-                if job.get('state') == 'submitting': state[aid].update(state='queued', note='找到上次已提交的任务，接续取回'); save_ledger(project, state)
+                if job.get('state') == 'submitting': state[aid].update(state='queued', note='找到上次已提交的任务，接续取回'); save_ledger(project, state, publish=publish_ledger)
             else:
                 images = resolve(base, asset)
                 workflow = cloud_graph(client, aid, asset, prompt, images, options) if cloud else (client.reference_graph(prompt, images, reference_cfg) if images else None)
-                state[aid] = {'state':'submitting','prompt':prompt,'url':options['url'],'asset':asset,'references':asset['_reference_signature'],'generation':generation}; save_ledger(project, state)
+                state[aid] = {'state':'submitting','prompt':prompt,'url':options['url'],'asset':asset,'references':asset['_reference_signature'],'generation':generation}; save_ledger(project, state, publish=publish_ledger)
                 record = client.submit_graph(project, kind, prompt, workflow, extra_data={'api_key_comfy_org':get_key()}) if cloud else (client.submit_graph(project, kind, prompt, workflow) if images else client.submit(project, kind, prompt, options['model'], options['workflow'] or None, options['node'], options['field']))
-                state[aid].update(state='queued', record=str(record)); save_ledger(project, state)
+                state[aid].update(state='queued', record=str(record)); save_ledger(project, state, publish=publish_ledger)
             files = collect_result(client, project, record)
             if len(files) != 1: raise ValueError('工作流输出了多张图片，已保留，请手动选择登记；批量流程要求每个资产只输出一张图')
-            result = register_image(base, aid, asset, files[0], gateway=gateway); state[aid].update(state='imported', result=result); save_ledger(project, state)
+            result = register_image(base, aid, asset, files[0], gateway=gateway); state[aid].update(state='imported', result=result); save_ledger(project, state, publish=publish_ledger)
             success += 1; events.put(aid + '：' + result)
         except Exception as exc:
             failed += 1; events.put(aid + '：' + str(exc))
@@ -135,5 +136,5 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
                     state[aid]['state'] = 'failed'
                     if getattr(exc, 'record', ''): state[aid]['record'] = str(exc.record)
                 elif isinstance(exc, ComfyGenerationFailed) or state[aid].get('state') == 'submitting' and isinstance(exc, ValueError): state[aid]['state'] = 'failed'
-                save_ledger(project, state)
+                save_ledger(project, state, publish=publish_ledger)
     return f'批量完成：成功 {success}，未完成 {failed}' + ('；已停止后续资产' if stop.is_set() else '')

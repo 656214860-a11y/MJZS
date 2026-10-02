@@ -89,6 +89,12 @@ def asset_batch_gateway():
              'replace_file': lambda source, target: Path(source).replace(target)}
 
 
+def release_uncertain_asset_batch(project, ids):
+    """L3 为确认后的资产批次未知提交记录提供唯一放开入口。"""
+    from asset_batch_state_service import release_uncertain
+    return release_uncertain(project, ids, publish=asset_batch_gateway()['publish_json'])
+
+
 def tts_gateway():
     """L3 为 TTS 服务装配唯一的正式发布器；L2 不可自行写设置或阶段成果。"""
     from agent.core import save, save_bytes

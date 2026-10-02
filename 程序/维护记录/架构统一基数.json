@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 24,
+    "count": 23,
         "baseline_pending": 66,
         "items": [
             {
@@ -152,8 +152,8 @@
             {
                 "file": "asset_batch_state_service.py",
                 "point": "save_ledger",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R799：资产批次台账正式 JSON 发布改由 L3 asset_batch_gateway 注入。"
             },
             {
                 "file": "asset_detail_service.py",
@@ -1011,19 +1011,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "318",
+                "point": "324",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "349",
+                "point": "355",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "362",
+                "point": "368",
                 "disposition": "pending",
                 "reason": ""
             },

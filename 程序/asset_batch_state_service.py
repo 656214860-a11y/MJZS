@@ -1,7 +1,7 @@
 """资产批处理的可恢复台账与落盘状态操作；不依赖 Tk。"""
 from pathlib import Path
 
-from agent.core import read, save
+from agent.core import read
 from asset_batch_service import KINDS
 
 
@@ -16,11 +16,13 @@ def read_ledger(project):
     return data if isinstance(data, dict) else {}
 
 
-def save_ledger(project, data):
-    """原子发布资产批次台账，供所有批次状态变更共用。"""
+def save_ledger(project, data, *, publish=None):
+    """通过 L3 注入的发布器原子发布资产批次台账。"""
     if not isinstance(data, dict):
         raise ValueError('资产批次台账必须为对象')
-    save(ledger_path(project), data)
+    if not callable(publish):
+        raise RuntimeError('资产批次台账发布必须由 L3 注入')
+    publish(ledger_path(project), data)
 
 
 def _resumable_record(record):
@@ -39,7 +41,7 @@ def uncertain_assets(project):
                   and not (job.get('record') and _resumable_record(job['record'])))
 
 
-def release_uncertain(project, ids):
+def release_uncertain(project, ids, *, publish=None):
     """在用户确认后允许未知提交重新生成，保留可审计的原因。"""
     data = read_ledger(project)
     released = []
@@ -49,7 +51,7 @@ def release_uncertain(project, ids):
             job.update(state='failed', note='您已在 ComfyUI／云端核实，本次重新生成')
             released.append(aid)
     if released:
-        save_ledger(project, data)
+        save_ledger(project, data, publish=publish)
     return released
 
 
