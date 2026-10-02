@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 23,
+    "count": 22,
         "baseline_pending": 66,
         "items": [
             {
@@ -158,8 +158,8 @@
             {
                 "file": "asset_detail_service.py",
                 "point": "_publish",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R800：资产详情绑定的回滚字节发布改由 L3 asset_detail_gateway 注入。"
             },
             {
                 "file": "asset_generated_import_service.py",
@@ -1011,19 +1011,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "324",
+                "point": "344",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "355",
+                "point": "375",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "368",
+                "point": "388",
                 "disposition": "pending",
                 "reason": ""
             },

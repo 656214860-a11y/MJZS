@@ -6,7 +6,7 @@ import os
 import shutil
 from pathlib import Path
 
-from agent.core import save_bytes, temporary_path
+from agent.core import temporary_path
 from asset_context import library_dir
 from asset_plan import plan_file, update_fields
 from file_cache import remove_temporary_file
@@ -30,8 +30,11 @@ def _safe_part(value, label):
     return value
 
 
-def _publish(project, episode_dir, aid, source, suffix, values):
+def _publish(project, episode_dir, aid, source, suffix, values, *, gateway=None):
     """先原子替换图片，再发布索引；索引失败时恢复两侧旧状态。"""
+    publish_bytes = gateway.get('publish_bytes') if isinstance(gateway, dict) else None
+    if not callable(publish_bytes):
+        raise RuntimeError('资产详情发布必须由 L3 注入')
     project = Path(project).resolve()
     base = library_dir(project, episode_dir)
     aid = _safe_part(aid, '资产编号')
@@ -56,18 +59,18 @@ def _publish(project, episode_dir, aid, source, suffix, values):
             if old_dest is None:
                 remove_temporary_file(dest)
             else:
-                save_bytes(dest, old_dest)
+                publish_bytes(dest, old_dest)
         if old_index is None:
             remove_temporary_file(index)
         elif not index.is_file() or index.read_bytes() != old_index:
-            save_bytes(index, old_index)
+            publish_bytes(index, old_index)
         raise
     finally:
         remove_temporary_file(temporary)
     return dest
 
 
-def bind_canonical_view(project, episode_dir, aid, view, source):
+def bind_canonical_view(project, episode_dir, aid, view, source, *, gateway=None):
     """绑定正典板视角，并让 front 同步成为默认正典板。"""
     view = _safe_part(view, '正典板视角')
     current = {}
@@ -82,10 +85,10 @@ def bind_canonical_view(project, episode_dir, aid, view, source):
     values = {'canon_board_views': current}
     if view == 'front':
         values['canonical_board'] = relative
-    return _publish(project, episode_dir, aid, source, view, values)
+    return _publish(project, episode_dir, aid, source, view, values, gateway=gateway)
 
 
-def bind_variant_thumbnail(project, episode_dir, aid, state_id, source):
+def bind_variant_thumbnail(project, episode_dir, aid, state_id, source, *, gateway=None):
     """绑定一个既有状态变体的缩略图。"""
     from agent.core import read
     from asset_contract import state_variants
@@ -98,4 +101,5 @@ def bind_variant_thumbnail(project, episode_dir, aid, state_id, source):
     if target is None:
         raise ValueError('这一条状态变体已经不在了，请刷新')
     target['reference_image'] = 'assets/正典板/' + str(aid).strip() + '_' + state_id + '_变体' + Path(source).suffix.lower()
-    return _publish(project, episode_dir, aid, source, state_id + '_变体', {'state_variants': rows})
+    return _publish(project, episode_dir, aid, source, state_id + '_变体',
+                    {'state_variants': rows}, gateway=gateway)

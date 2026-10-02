@@ -4,7 +4,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agent.core import read, save
-from asset_detail_service import bind_canonical_view, bind_variant_thumbnail
+from asset_detail_service import bind_canonical_view
+from stage_execution_service import bind_asset_canonical_view, bind_asset_variant_thumbnail
 
 
 class AssetDetailServiceTests(unittest.TestCase):
@@ -22,14 +23,14 @@ class AssetDetailServiceTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_canonical_view_copies_and_updates_index(self):
-        dest = bind_canonical_view(self.project, self.base, 'CHAR_001', 'front', self.source)
+        dest = bind_asset_canonical_view(self.project, self.base, 'CHAR_001', 'front', self.source)
         self.assertEqual(dest.read_bytes(), b'png-data')
         row = read(self.index)['CHAR_001']
         self.assertEqual(row['canon_board_views']['front'], 'assets/正典板/CHAR_001_front.png')
         self.assertEqual(row['canonical_board'], 'assets/正典板/CHAR_001_front.png')
 
     def test_variant_thumbnail_updates_only_target_variant(self):
-        dest = bind_variant_thumbnail(self.project, self.base, 'CHAR_001', 'happy', self.source)
+        dest = bind_asset_variant_thumbnail(self.project, self.base, 'CHAR_001', 'happy', self.source)
         self.assertEqual(dest.name, 'CHAR_001_happy_变体.png')
         rows = read(self.index)['CHAR_001']['state_variants']
         self.assertEqual(rows[0]['reference_image'], 'assets/正典板/CHAR_001_happy_变体.png')
@@ -41,6 +42,10 @@ class AssetDetailServiceTests(unittest.TestCase):
         old_index = self.index.read_bytes()
         with patch('asset_detail_service.update_fields', side_effect=OSError('index failed')):
             with self.assertRaisesRegex(OSError, 'index failed'):
-                bind_canonical_view(self.project, self.base, 'CHAR_001', 'front', self.source)
+                bind_asset_canonical_view(self.project, self.base, 'CHAR_001', 'front', self.source)
         self.assertEqual(dest.read_bytes(), b'old-image')
         self.assertEqual(self.index.read_bytes(), old_index)
+
+    def test_l2_rejects_missing_l3_gateway(self):
+        with self.assertRaisesRegex(RuntimeError, '必须由 L3 注入'):
+            bind_canonical_view(self.project, self.base, 'CHAR_001', 'front', self.source)

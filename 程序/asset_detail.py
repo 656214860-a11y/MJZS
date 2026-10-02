@@ -73,8 +73,8 @@ def bind_view(desktop, aid, view, title=''):
                                         filetypes=[('图片', '*.png *.jpg *.jpeg *.webp')])
     if not source:
         return None
-    from asset_detail_service import bind_canonical_view
-    dest = bind_canonical_view(desktop.root, base, aid, view, source)
+    from stage_execution_service import bind_asset_canonical_view
+    dest = bind_asset_canonical_view(desktop.root, base, aid, view, source)
     desktop.status.set('已绑定正典板：' + view + ' · ' + dest.name)
     _reload(desktop, aid)
     return dest
@@ -473,8 +473,8 @@ def _bind_variant_image(desktop, aid, state_id):
                                         filetypes=[('图片', '*.png *.jpg *.jpeg *.webp')])
     if not source:
         return None
-    from asset_detail_service import bind_variant_thumbnail
-    dest = bind_variant_thumbnail(desktop.root, base, aid, state_id, source)
+    from stage_execution_service import bind_asset_variant_thumbnail
+    dest = bind_asset_variant_thumbnail(desktop.root, base, aid, state_id, source)
     desktop.status.set('已绑定状态变体缩略图：' + state_id)
     _reload(desktop, aid)
     return dest

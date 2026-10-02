@@ -95,6 +95,26 @@ def release_uncertain_asset_batch(project, ids):
     return release_uncertain(project, ids, publish=asset_batch_gateway()['publish_json'])
 
 
+def asset_detail_gateway():
+    """L3 为资产详情图片绑定注入唯一的回滚发布器。"""
+    from agent.core import save_bytes
+    return {'publish_bytes': save_bytes}
+
+
+def bind_asset_canonical_view(project, episode_dir, aid, view, source):
+    """L3 编排资产详情正典板绑定。"""
+    from asset_detail_service import bind_canonical_view
+    return bind_canonical_view(project, episode_dir, aid, view, source,
+                               gateway=asset_detail_gateway())
+
+
+def bind_asset_variant_thumbnail(project, episode_dir, aid, state_id, source):
+    """L3 编排资产详情状态变体缩略图绑定。"""
+    from asset_detail_service import bind_variant_thumbnail
+    return bind_variant_thumbnail(project, episode_dir, aid, state_id, source,
+                                  gateway=asset_detail_gateway())
+
+
 def tts_gateway():
     """L3 为 TTS 服务装配唯一的正式发布器；L2 不可自行写设置或阶段成果。"""
     from agent.core import save, save_bytes
