@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 19,
+    "count": 18,
         "baseline_pending": 66,
         "items": [
             {
@@ -248,8 +248,8 @@
             {
                 "file": "pet_performance_service.py",
                 "point": "record",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R805：宠物优化账本发布改由 L3 pet_performance_gateway 注入。"
             },
             {
                 "file": "pet_test_service.py",
@@ -1011,19 +1011,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "360",
+                "point": "380",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "391",
+                "point": "411",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "404",
+                "point": "424",
                 "disposition": "pending",
                 "reason": ""
             },

@@ -49,6 +49,26 @@ def publish_local_video_settings(project, current_config, options):
                                      gateway=local_video_settings_gateway())
 
 
+def pet_performance_gateway():
+    """L3 为宠物优化账本装配唯一的 JSON 发布器。"""
+    from agent.core import save
+    return {'publish_json': save}
+
+
+def start_pet_performance_check(program, project, kind='startup'):
+    """L3 编排宠物离线基准启动；L4 不直接调用 L2 服务。"""
+    from pet_performance_service import start_long_list_check, start_startup_check
+    starter = start_long_list_check if kind == 'long_list' else start_startup_check
+    return starter(program, project)
+
+
+def poll_pet_performance_check(session, at=None):
+    """L3 轮询宠物离线基准，并向 L2 注入正式账本发布器。"""
+    from pet_performance_service import poll_startup_check
+    return poll_startup_check(session, at=at,
+                              publish=pet_performance_gateway()['publish_json'])
+
+
 def import_stage_audio(project, source):
     """音频导入编排：L3 注入唯一二进制发布器。"""
     from audio_import_service import import_audio

@@ -6,6 +6,8 @@ from types import SimpleNamespace
 import pet_test_service
 import pet_agent
 import pet_performance_service
+from agent.core import save
+from stage_execution_service import poll_pet_performance_check
 
 
 class PetTestServiceTests(unittest.TestCase):
@@ -80,7 +82,8 @@ class PetTestServiceTests(unittest.TestCase):
         baseline = {'start': {'ready_total_ms': 100, 'rows': 300}, 'memory': {'after_start_mb': 50}}
         current = {'start': {'ready_total_ms': 141, 'rows': 600}, 'memory': {'after_start_mb': 90}}
         with tempfile.TemporaryDirectory() as folder:
-            result = pet_performance_service.compare_and_record(folder, baseline, current, at=7)
+            result = pet_performance_service.compare_and_record(
+                folder, baseline, current, at=7, publish=save)
             self.assertEqual(result['slowdowns'], [{'metric': 'start.ready_total_ms', 'ratio': 1.41}])
             self.assertEqual(result['text'], '优化检查：start.ready_total_ms 比基准慢 41%')
             saved = pet_performance_service.read_json(
@@ -105,7 +108,7 @@ class PetTestServiceTests(unittest.TestCase):
             session['output'].write(b'ok')
             session['output'].flush()
             session['current'].write_text('{"start": {"ready_total_ms": 150}}', encoding='utf-8')
-            result = pet_performance_service.poll_startup_check(session, at=4)
+            result = pet_performance_service.poll_startup_check(session, at=4, publish=save)
             self.assertEqual(seen['args'][1:3], [str(script / pet_performance_service.SCRIPT_NAME), 'start'])
             self.assertIn('--output', seen['args'])
             self.assertEqual(result['slowdowns'][0]['metric'], 'start.ready_total_ms')
@@ -145,6 +148,34 @@ class PetTestServiceTests(unittest.TestCase):
     def test_performance_compare_tolerates_missing_or_non_duration_metrics(self):
         with tempfile.TemporaryDirectory() as folder:
             result = pet_performance_service.compare_and_record(
-                folder, {'memory': {'after_start_mb': 50}}, {'rows': {'count': 100}}, at=5)
+                folder, {'memory': {'after_start_mb': 50}}, {'rows': {'count': 100}}, at=5,
+                publish=save)
             self.assertEqual(result['slowdowns'], [])
             self.assertIn('未发现超过 40% 的耗时退化', result['text'])
+
+    def test_performance_record_requires_l3_publisher(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(TypeError, 'L3'):
+                pet_performance_service.compare_and_record(folder, {}, {}, at=5)
+
+    def test_l3_poll_injects_pet_performance_publisher(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = tempfile.TemporaryFile(mode='w+b')
+            output.write(b'ok')
+            output.flush()
+            project = Path(folder) / '项目'
+            current = Path(folder) / 'current.json'
+            current.write_text('{"start": {"ready_total_ms": 150}}', encoding='utf-8')
+            session = {'process': SimpleNamespace(poll=lambda: 0, returncode=0), 'output': output,
+                       'project': project, 'baseline': Path(folder) / 'baseline.json', 'current': current}
+            session['baseline'].write_text('{"start": {"ready_total_ms": 100}}', encoding='utf-8')
+            result = poll_pet_performance_check(session, at=4)
+            self.assertEqual(result['slowdowns'][0]['metric'], 'start.ready_total_ms')
+            self.assertTrue((project / '工作流任务' / '宠物' / '优化.json').is_file())
+
+    def test_pet_ui_only_delegates_performance_flow_to_l3(self):
+        source = (Path(__file__).resolve().parents[1] / 'pet_ui.py').read_text(encoding='utf-8')
+        self.assertIn("stage_handler_registry.start(", source)
+        self.assertIn('stage_handler_registry.poll_pet_performance', source)
+        self.assertNotIn('import pet_performance_service', source)
+        self.assertNotIn('stage_execution_service.', source)

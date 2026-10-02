@@ -58,13 +58,32 @@ def _start_storyboard(desktop, trigger):
             + ' 份输入交给 Agent，做完会自动提示；没做完的会自动采用。')
 
 
-def start(desktop, stage, trigger='auto', fallback=None):
+def _start_pet_performance(desktop, kind):
+    """三虎优化检查同样经 L3 启动入口，返回既有轮询会话。"""
+    from stage_execution_service import start_pet_performance_check
+    pet = getattr(desktop, 'pet', None)
+    program = getattr(pet, 'program', None)
+    project = getattr(desktop, 'root', None)
+    if not program or project is None:
+        raise RuntimeError('缺少优化检查所需的程序或项目路径')
+    return start_pet_performance_check(program, project, kind=kind)
+
+
+def poll_pet_performance(session, at=None):
+    """三虎优化检查的 L3 轮询入口，负责继续向 L2 注入发布器。"""
+    from stage_execution_service import poll_pet_performance_check
+    return poll_pet_performance_check(session, at=at)
+
+
+def start(desktop, stage, trigger='auto', fallback=None, **options):
     """三虎唯一的 L3 启动指令入口。"""
     error = _workflow_lock_error(getattr(desktop, 'root', None), stage, trigger)
     if error:
         return _fail(desktop, stage, trigger, error)
     if stage == 'storyboard':
         return _start_storyboard(desktop, trigger)
+    if stage == 'pet_performance':
+        return _start_pet_performance(desktop, options.get('kind', 'startup'))
     if callable(fallback):
         return fallback(stage, trigger)
     return ''

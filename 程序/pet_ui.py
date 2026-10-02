@@ -45,6 +45,7 @@ import pet_bus
 import pet_llm
 import pet_report
 import pet_state
+import stage_handler_registry
 import stage_flow
 import token_saver
 from pet_settings_contract import LEVEL_NOTES
@@ -1778,10 +1779,8 @@ class Pet:
             self.notice = '还没打开项目，无法写入优化检查台账。'
             return self.notice
         try:
-            import pet_performance_service
-            starter = (pet_performance_service.start_long_list_check
-                       if kind == 'long_list' else pet_performance_service.start_startup_check)
-            self._performance_session = starter(self.program, project)
+            self._performance_session = stage_handler_registry.start(
+                self.desktop, 'pet_performance', trigger='manual', kind=kind)
             label = '长列表优化检查' if kind == 'long_list' else '优化检查'
             self.notice = label + '已启动，完成后只汇报超过阈值的耗时退化。'
         except Exception as exc:
@@ -1794,8 +1793,8 @@ class Pet:
         if self._performance_session is None:
             return ''
         try:
-            import pet_performance_service
-            result = pet_performance_service.poll_startup_check(self._performance_session, at=at)
+            result = stage_handler_registry.poll_pet_performance(
+                self._performance_session, at=at)
             if result is None:
                 return ''
             self._performance_session = None

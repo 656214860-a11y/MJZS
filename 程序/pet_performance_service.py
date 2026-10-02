@@ -10,7 +10,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from agent.core import read_json, save
+from agent.core import read_json
 
 LEDGER_PATH = ('工作流任务', '宠物', '优化.json')
 SLOWDOWN_THRESHOLD = 1.4
@@ -50,22 +50,24 @@ def slowdowns(baseline, current, threshold=SLOWDOWN_THRESHOLD):
     return rows
 
 
-def record(project, rows, at=None, keep=KEEP):
-    """保存仅含退化指标与倍率的摘要，不复制原始基准报告。"""
+def record(project, rows, at=None, keep=KEEP, publish=None):
+    """保存仅含退化指标与倍率的摘要；正式发布必须由 L3 注入。"""
+    if not callable(publish):
+        raise TypeError('宠物优化账本发布必须由 L3 注入。')
     now = time.time() if at is None else float(at)
     path = Path(project).joinpath(*LEDGER_PATH)
     old = read_json(path, {})
     items = list(old.get('runs') or []) if isinstance(old, dict) else []
     item = {'at': now, 'slowdowns': list(rows), 'count': len(rows)}
     items.append(item)
-    save(path, {'updated_at': now, 'runs': items[-int(keep):]})
+    publish(path, {'updated_at': now, 'runs': items[-int(keep):]})
     return item
 
 
-def compare_and_record(project, baseline, current, at=None, threshold=SLOWDOWN_THRESHOLD):
+def compare_and_record(project, baseline, current, at=None, threshold=SLOWDOWN_THRESHOLD, publish=None):
     """比较两份离线报告并生成适合三虎单次播报的简短结果。"""
     rows = slowdowns(baseline, current, threshold=threshold)
-    item = record(project, rows, at=at)
+    item = record(project, rows, at=at, publish=publish)
     if not rows:
         text = '优化检查完成：未发现超过 %.0f%% 的耗时退化' % ((float(threshold) - 1) * 100)
     else:
@@ -107,7 +109,7 @@ def start_long_list_check(program, project, executable=None, popen=None):
                         (), executable, popen)
 
 
-def poll_startup_check(session, at=None):
+def poll_startup_check(session, at=None, publish=None):
     """已完成时比较报告；子进程文本仅在失败提示中截短，不写入台账。"""
     process = session['process']
     if process.poll() is None:
@@ -123,4 +125,5 @@ def poll_startup_check(session, at=None):
         return {'failed': True, 'text': '优化检查运行失败：' + tail[0][:160]}
     if not session['current'].is_file():
         return {'failed': True, 'text': '优化检查未生成运行报告'}
-    return compare_and_record(session['project'], session['baseline'], session['current'], at=at)
+    return compare_and_record(session['project'], session['baseline'], session['current'], at=at,
+                              publish=publish)

@@ -71,6 +71,8 @@
 
 ### 已验证的发布边界
 
+R805 将三虎优化账本纳入 L3 发布边界：`pet_performance_service.record()` 不再自行发布项目 JSON，`stage_execution_service.poll_pet_performance_check()` 通过 `pet_performance_gateway()` 注入原子发布器；`pet_ui` 只委托 L3 启动与轮询。离线基准脚本、阈值比较、摘要格式与失败时不落账本的语义不变。
+
 R713 将确认门禁的项目确认记录 JSON 纳入“读走缓存、写走原子服务”迁移：`confirm_gates.confirmations()` 改经 `file_cache.read_json()` 读取，`record()`／`forget()` 仍只经 `agent.core.save()` 原子发布；缓存随发布失效，确认项的缺失／损坏回退与门禁语义不变。
 
 R714 将工作流调用设置 JSON 纳入“读走缓存、写走原子服务”迁移：`workflow_settings.load()`、Qwen 模型同步及设置窗保存均经 `file_cache.read_json()` 读取既有项目设置，写入仍只经 `agent.core.save()` 原子发布；缓存随发布失效，设置格式、默认值和 UI 行为不变。
