@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 21,
+    "count": 20,
         "baseline_pending": 66,
         "items": [
             {
@@ -200,8 +200,8 @@
             {
                 "file": "delivery_import_service.py",
                 "point": "import_final_master",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R802：最终成片发布改由 L3 import_delivery_master 注入。"
             },
             {
                 "file": "idea_chat.py",
@@ -766,7 +766,7 @@
         ]
     },
     "\u7b2c\u56db\u9879": {
-        "count": 21,
+    "count": 21,
         "baseline_pending": 35,
         "items": [
             {

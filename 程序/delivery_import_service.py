@@ -1,6 +1,5 @@
 """交付阶段的最终成片导入。"""
 import logging
-import shutil
 import uuid
 from pathlib import Path
 
@@ -16,6 +15,8 @@ def import_final_master(context, source, publish=None):
     """校验并发布成片，统一以 ``ServiceResult`` 返回结果。"""
     if not isinstance(context, ProjectContext):
         raise TypeError('最终成片导入需要由 L3 注入 ProjectContext。')
+    if not callable(publish):
+        raise TypeError('最终成片发布需要由 L3 注入发布器。')
     source = Path(source)
     try:
         if source.suffix.lower() not in ALLOWED_SUFFIXES:
@@ -25,10 +26,7 @@ def import_final_master(context, source, publish=None):
         target_dir = context.stage_resolver('delivery')
         target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / (source.stem + '_' + uuid.uuid4().hex[:6] + source.suffix)
-        if publish is None:
-            shutil.copy2(source, target)
-        else:
-            publish(target, source.read_bytes(), lambda raw: bool(raw), lambda _target: None)
+        publish(target, source.read_bytes(), lambda raw: bool(raw), lambda _target: None)
     except (OSError, ValueError) as exc:
         LOGGER.exception('最终成片发布失败')
         return SystemError(str(exc))

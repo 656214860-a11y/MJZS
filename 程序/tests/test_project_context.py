@@ -18,10 +18,10 @@ class ProjectContextTests(unittest.TestCase):
 
     def test_delivery_service_consumes_context_not_project_root(self):
         from delivery_import_service import import_final_master
-        from stage_execution_service import project_context
+        from stage_execution_service import project_context, publish_stage_bytes
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'project'; root.mkdir()
             source = Path(folder) / 'master.mp4'; source.write_bytes(b'video')
-            result = import_final_master(project_context(root), source)
+            result = import_final_master(project_context(root), source, publish=publish_stage_bytes)
             self.assertTrue(result.ok)
             self.assertEqual(result.data.parent.name, '12质检交付')
