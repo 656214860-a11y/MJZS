@@ -637,9 +637,9 @@ class App:
             except Exception as e:messagebox.showerror('无法准备',str(e),parent=self.window)
         ttk.Button(win,text='生成编剧任务书（离线）',command=generate).pack(pady=12)
     def import_json(self):
-        from writing import validate_episode,import_project
+        from writing import validate_episode
         from agent.core import read
-        from stage_execution_service import project_registry_gateway
+        from stage_execution_service import import_writing_project
         file=filedialog.askopenfilename(title='选择编剧输出的镜头JSON',filetypes=[('镜头JSON','*.json')],parent=self.window)
         if not file:return
         source=Path(file);af=source.parent/'assets.json'
@@ -648,7 +648,7 @@ class App:
         details=f"校验通过：{report['shot_count']}镜，共{report['total_seconds']}秒。\n"+'\n'.join(report['warnings'])
         details+='\n将建立独立项目，预算0秒、默认离线，不覆盖当前任务。'
         if messagebox.askyesno('导入预览',details+'\n创建新项目？',parent=self.window):
-            folder,report=import_project(self.root,file,gateway=project_registry_gateway());open_path(folder)
+            folder,report=import_writing_project(self.root,file);open_path(folder)
             self.write('新项目已创建：'+str(folder))
             messagebox.showinfo('导入完成','新项目已加入漫剧助手，在“我的项目”中选择即可。\n缺失首帧可在首帧管理补齐。',parent=self.window)
     def sid(self):

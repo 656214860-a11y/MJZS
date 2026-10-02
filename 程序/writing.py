@@ -4,7 +4,7 @@ import re
 import uuid
 from pathlib import Path
 from storyboard_paths import media_root
-from agent.core import read,save
+from agent.core import read
 from episode_contract import duration_gap, edited_total, number, relative, validate_episode
 
 STAGES=['Step 0 需求整理','Step 1 全局大纲','Step 2 分集规划','Step 3 分镜初稿','Step 4 剧本精修']
@@ -83,11 +83,13 @@ JSON仅为制作计划，不自动提交视频。
     ))
     return publish(root, folder_name, artifacts)
 
-def import_project(root,json_file,*,gateway=None):
+def import_project(root,json_file,*,gateway=None,publish_report=None):
     """Create a data-only project; reuse the one installed application and skills."""
     from projects import Projects
     if not isinstance(gateway,dict):
         raise TypeError('项目导入需要由 L3 注入项目登记读写网关。')
+    if not callable(publish_report):
+        raise TypeError('项目导入报告需要由 L3 注入发布器。')
     app=Path(__file__).resolve().parent
     source=Path(json_file).resolve()
     ep=read(source)
@@ -95,5 +97,5 @@ def import_project(root,json_file,*,gateway=None):
     assets=read(own_assets) if own_assets.exists() else None
     report=validate_episode(ep,media_root(source),assets)
     target=Projects(app,gateway=gateway).create(ep.get('title') or source.stem,source=source)
-    save(target/'import_report.json',report)
+    publish_report(target/'import_report.json',report)
     return target,report

@@ -10,6 +10,7 @@ PROGRAM_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM_ROOT))
 
 from workflow_context import snapshot, instruction, continuation_instruction, request_instruction
+from agent.core import save as save_json
 
 
 def make_project(td):
@@ -60,7 +61,7 @@ class InstructionTests(unittest.TestCase):
     def test_instruction_writes_and_contains_stage(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
-            text = instruction(proj, "writing", snapshot(proj))
+            text = instruction(proj, "writing", snapshot(proj), publish=lambda path, data: save_json(path, data))
             self.assertIn("当前阶段：writing", text)
             self.assertIn("项目进度文件", text)
             self.assertTrue((proj / "data" / "项目接续.json").is_file())
@@ -69,7 +70,7 @@ class InstructionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             data = snapshot(proj)
-            full = instruction(proj, "writing", data)
+            full = instruction(proj, "writing", data, publish=lambda path, value: save_json(path, value))
             summary = continuation_instruction(proj, "writing", data)
             self.assertIn("项目续接摘要", summary)
             self.assertIn("当前阶段：writing", summary)
@@ -89,17 +90,17 @@ class InstructionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             data = snapshot(proj)
-            text, strategy = request_instruction(proj, 'storyboard', data)
+            text, strategy = request_instruction(proj, 'storyboard', data, publish=lambda path, value: save_json(path, value))
             self.assertEqual(strategy, 'stage_summary')
             self.assertIn('项目续接摘要', text)
             self.assertIn('当前阶段：storyboard', text)
             self.assertTrue((proj / 'data' / '项目接续.json').is_file())
-            self.assertLess(len(text), len(instruction(proj, 'storyboard', data)))
+            self.assertLess(len(text), len(instruction(proj, 'storyboard', data, publish=lambda path, value: save_json(path, value))))
 
     def test_script_stage_retains_full_index_policy(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
-            text, strategy = request_instruction(proj, 'writing', snapshot(proj))
+            text, strategy = request_instruction(proj, 'writing', snapshot(proj), publish=lambda path, value: save_json(path, value))
             self.assertEqual(strategy, 'script_full_index')
             self.assertIn('项目接续要求', text)
 

@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-        "count": 2,
+        "count": 0,
         "baseline_pending": 66,
         "items": [
             {
@@ -482,14 +482,14 @@
             {
                 "file": "workflow_context.py",
                 "point": "instruction",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R824：项目接续索引正式 JSON 发布改由 L3 workflow_context_controller 注入。"
             },
             {
                 "file": "writing.py",
                 "point": "import_project",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R824：剧本 JSON 导入校验报告改由 L3 import_writing_project 注入发布器。"
             }
         ]
     },

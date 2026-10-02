@@ -4767,7 +4767,8 @@ class Desktop:
             title=window_title(name,stage,getattr(self,'page_index',None))
         use_cli=config['engine']!='codex' or config['program'] or config['model']
         def build():
-            from workflow_context import continuation_instruction,request_instruction,snapshot
+            from workflow_context import continuation_instruction,snapshot
+            from workflow_context_controller import request_stage_instruction
             from workflow_context_budget import prepare_request_context
             data=snapshot(project)
             receipt=claim(project,signature(stage,prompt,followup,config,data),title)
@@ -4777,7 +4778,7 @@ class Desktop:
                 if stage=='previs':
                     from native_apps import open_blender
                     open_blender()
-                context,strategy=request_instruction(project,stage,data)
+                context,strategy=request_stage_instruction(project,stage,data)
                 full,budget=prepare_request_context(
                     prompt_with_settings(context+prompt,config,stage=stage),stage,strategy)
                 continuation,continuation_budget=prepare_request_context(

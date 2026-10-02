@@ -40,6 +40,24 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('publish_stage_bundle(payload', stage_source)
         self.assertIn('publish=publish_writing_preparation', app_source)
 
+    def test_context_and_import_reports_require_l3_publishers(self):
+        context = (ROOT / 'workflow_context.py').read_text(encoding='utf-8')
+        writing = (ROOT / 'writing.py').read_text(encoding='utf-8')
+        controller = (ROOT / 'workflow_context_controller.py').read_text(encoding='utf-8')
+        stage = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
+        app = (ROOT / 'app.py').read_text(encoding='utf-8')
+        desktop = (ROOT / 'desktop.py').read_text(encoding='utf-8')
+        self.assertIn('def instruction(project, stage, data=None, *, publish=None):', context)
+        self.assertIn('项目接续进度需要由 L3 注入发布器', context)
+        self.assertNotIn('from agent.core import read, save', context)
+        self.assertIn('def import_project(root,json_file,*,gateway=None,publish_report=None):', writing)
+        self.assertIn('项目导入报告需要由 L3 注入发布器', writing)
+        self.assertIn('def request_stage_instruction(', controller)
+        self.assertIn('def publish_writing_context(', controller)
+        self.assertIn('def import_writing_project(', stage)
+        self.assertIn('request_stage_instruction(project,stage,data)', desktop)
+        self.assertIn('import_writing_project(self.root,file)', app)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -2,7 +2,7 @@
 import re
 from datetime import datetime
 from pathlib import Path
-from agent.core import read, save
+from agent.core import read
 
 
 def episode_number(name):
@@ -127,10 +127,12 @@ def snapshot(project):
             'read_errors': errors}
 
 
-def instruction(project, stage, data=None):
+def instruction(project, stage, data=None, *, publish=None):
     data = snapshot(project) if data is None else data
     target = Path(project).resolve() / 'data/项目接续.json'
-    save(target, data)                          # 原子写只有 agent.core.save 一份
+    if not callable(publish):
+        raise TypeError('项目接续进度需要由 L3 注入发布器。')
+    publish(target, data)
     from prop_assets import RULES as PROP_RULES
     lines = [
         '【项目接续要求：先读取已有成果，再执行本次任务】',
@@ -179,7 +181,7 @@ def continuation_instruction(project, stage, data=None):
 _SCRIPT_STAGES = frozenset(('writing', 'script', '剧本准备'))
 
 
-def request_instruction(project, stage, data=None):
+def request_instruction(project, stage, data=None, *, publish=None):
     """Return the project context policy for one model request.
 
     剧本准备保留完整项目接续要求；其他阶段只携带阶段摘要和进度文件定位，
@@ -187,8 +189,8 @@ def request_instruction(project, stage, data=None):
     """
     data = snapshot(project) if data is None else data
     if str(stage) in _SCRIPT_STAGES:
-        return instruction(project, stage, data), 'script_full_index'
+        return instruction(project, stage, data, publish=publish), 'script_full_index'
     # instruction() 的原有原子写入保证项目进度文件仍在本次请求前刷新；只是不把
     # 较长的通用规则带进非剧本阶段的实际提示词。
-    instruction(project, stage, data)
+    instruction(project, stage, data, publish=publish)
     return continuation_instruction(project, stage, data), 'stage_summary'

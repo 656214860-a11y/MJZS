@@ -352,7 +352,8 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
             complete_brief['本轮补充素材'] = supplement
         return _hollmwood_reply(root, chosen, record, settings, complete_brief,
                                 progress=progress, cancelled=cancelled, stream=stream, publish=publish)
-    context = workflow_context.instruction(root, 'writing', workflow_context.snapshot(root))
+    from workflow_context_controller import publish_writing_context
+    context = publish_writing_context(root, 'writing', workflow_context.snapshot(root))
     task = script_prompt(root, None, 'writing', creative_text=creative)
     if brief is not None:
         task += '\n\n<brief_complete>\n' + json.dumps(brief, ensure_ascii=False, indent=2) + '\n</brief_complete>'
