@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from file_cache import remove_temporary_file
 
-from agent.core import read, save_bytes
+from agent.core import read
 
 
 def cleanup_batches(folder, days=7):
@@ -63,12 +63,15 @@ def import_pending_generated(project, base, report=None, *, gateway=None):
     """自动导入未登记生成图；JPEG 等格式统一转换为 PNG。"""
     from asset_batch_service import register_image
     from native_asset_codec import to_png
+    publish_bytes = gateway.get('publish_bytes') if isinstance(gateway, dict) else None
+    if not callable(publish_bytes):
+        raise RuntimeError('生成资产导入必须由 L3 注入')
     plan = generated_plan(base)
     done = []
     for folder, path, aid in pending_generated_files(project, base, plan):
         try:
             tmp = folder / (aid + '_autoimport.png')
-            save_bytes(tmp, to_png(path.read_bytes()))
+            publish_bytes(tmp, to_png(path.read_bytes()))
             result = register_image(base, aid, plan[aid], tmp, gateway=gateway)
             remove_temporary_file(tmp)
             done.append(aid)

@@ -56,3 +56,10 @@ class AutoImportTests(unittest.TestCase):
             self.assertEqual(import_pending_generated(project, base), ["CHAR_002"])
             self.assertTrue(image_ready(base, "CHAR_002"))
             self.assertEqual(pending_generated(project, base), [])
+
+    def test_service_rejects_missing_l3_gateway(self):
+        with tempfile.TemporaryDirectory() as td:
+            project, base = self.make_project(td, "CHAR_003", "C", "z")
+            from asset_generated_import_service import import_pending_generated
+            with self.assertRaisesRegex(RuntimeError, "必须由 L3 注入"):
+                import_pending_generated(project, base)

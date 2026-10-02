@@ -286,6 +286,7 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 - 阶段命令入口唯一权威：`stage_handler_registry.start()`；`tests/test_stage_command_contract.py` 约束三虎自动启动、手动分镜与自动分镜均经该 L3 入口，并区分自动失败事件与手动页面结果。
 - 资产批次台账正式发布唯一经 `stage_execution_service.asset_batch_gateway()` 注入；L4 的未知提交放开请求经 `release_uncertain_asset_batch()` 委托，L2 不得自行持久化台账。
 - 资产详情图片绑定的回滚字节发布唯一经 `stage_execution_service.asset_detail_gateway()` 注入；详情页只调用 L3 的正典板／状态变体编排入口。
+- 生成资产自动导入的临时 PNG 发布唯一使用 `stage_execution_service.asset_batch_gateway()` 注入；缺少发布器时 L2 显式拒绝。
 - 本机加密密钥唯一实现入口：`model_secrets.PROTECTOR`，默认实现为同模块 `protect()`；测试替身只能替换该 L1 协议入口，不得恢复 `seedream_api` 反向密钥依赖。
 - SKILL 唯一权威：`skills/01`—`12` 阶段目录内的 `.skill.md` 与 `skill_registry.py`；根目录遗留文件仅由懒迁移归档；模型唯一权威：模型管理保存的模型池。
 - `<项目>` 是用户项目根目录占位符，非 `程序/episode/` 演示目录。

@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 22,
+    "count": 21,
         "baseline_pending": 66,
         "items": [
             {
@@ -164,8 +164,8 @@
             {
                 "file": "asset_generated_import_service.py",
                 "point": "import_pending_generated",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R801：自动导入临时 PNG 发布改由 L3 asset_batch_gateway 注入。"
             },
             {
                 "file": "cloud_video_service.py",
