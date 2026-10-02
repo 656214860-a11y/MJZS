@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import json
 import unittest
 
 import smoke_test
@@ -9,6 +10,7 @@ from tests.architecture._scan import ROOT
 
 
 STATUS = ROOT / 'project_status.md'
+BASELINES = ROOT / '维护记录' / '测试分层基线.json'
 RESULT_PATTERN = re.compile(r'tasks_round_(\d+)_result\.md$')
 INVALID_TYPE_HEADING = re.compile(r'结构治理执行(?:轮)?|修复/结构治理轮|整理轮（结构治理执行）')
 
@@ -49,3 +51,16 @@ class RoundBaselineTests(unittest.TestCase):
                 headings.append(f'{STATUS}: {matched.group(1)}')
         invalid = [heading for heading in headings if INVALID_TYPE_HEADING.search(heading)]
         self.assertEqual(invalid, [], '轮次标题或状态摘要不得把“执行”写成独立轮次类型')
+
+    def test_full_safe_all_is_required_every_three_rounds(self) -> None:
+        """相差三轮即须有该轮的完整安全全量通过记录。"""
+        latest = _latest_result_number()
+        baseline = json.loads(BASELINES.read_text(encoding='utf-8'))
+        last_full = baseline['last_full_safe_all_round']
+        if latest - last_full < 3:
+            return
+        result = ROOT / 'tasks_round' / f'tasks_round_{latest}_result.md'
+        text = result.read_text(encoding='utf-8') if result.exists() else ''
+        passed = ('--all --safe' in text and
+                  bool(re.search(r'(?:0\s*红|0\s*(?:个)?失败|ALL TESTS PASSED)', text, re.I)))
+        self.assertTrue(passed, f'R{latest} 欠一次完整安全全量')

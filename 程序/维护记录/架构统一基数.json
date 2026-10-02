@@ -1168,18 +1168,18 @@
         ]
     },
     "\u8986\u76d6\u7387\u5ba1\u8ba121": {
-        "count": 9,
-        "baseline_pending": 9,
+        "count": 6,
+        "baseline_pending": 6,
         "items": [
             {
                 "file": "api_endpoints.py",
                 "point": "47",
-                "disposition": "pending",
-                "reason": "\u6b63\u5f0f\u7f51\u7edc\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u662f\u5426\u5e94\u7ecf platform_tools"
+                "disposition": "exempt",
+                "reason": "R797: network call is owned only by audit 26; it is not a process-adapter pending item."
             },
             {
                 "file": "asset_thumbs.py",
-                "point": "505",
+                "point": "516",
                 "disposition": "pending",
                 "reason": "\u6b63\u5f0f\u5e73\u53f0\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u9002\u914d\u8fb9\u754c"
             },
@@ -1192,14 +1192,14 @@
             {
                 "file": "model_pool.py",
                 "point": "538",
-                "disposition": "pending",
-                "reason": "\u6a21\u578b\u8bf7\u6c42\u5e73\u53f0\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u8def\u7531\u8fb9\u754c"
+                "disposition": "exempt",
+                "reason": "R797: model_pool is the approved model-routing authority (audit 26 whitelist), not a process-adapter pending item."
             },
             {
                 "file": "model_pool.py",
                 "point": "566",
-                "disposition": "pending",
-                "reason": "\u6a21\u578b\u8bf7\u6c42\u5e73\u53f0\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u8def\u7531\u8fb9\u754c"
+                "disposition": "exempt",
+                "reason": "R797: model_pool is the approved model-routing authority (audit 26 whitelist), not a process-adapter pending item."
             },
             {
                 "file": "native_asset_codec.py",
@@ -1228,170 +1228,170 @@
         ]
     },
     "\u8986\u76d6\u7387\u5ba1\u8ba124": {
-        "count": 27,
-        "baseline_pending": 27,
+        "count": 0,
+        "baseline_pending": 0,
         "items": [
             {
                 "file": "asset_auto_batch_service.py",
                 "point": "26",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "asset_skill_batch.py",
                 "point": "46",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "codex_tasks.py",
                 "point": "134",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "engine.py",
                 "point": "224",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_batch.py",
                 "point": "86",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_comfy.py",
                 "point": "111",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_comfy.py",
                 "point": "190",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_comfy.py",
                 "point": "391",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_comfy.py",
                 "point": "469",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_comfy.py",
                 "point": "470",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_comfy.py",
                 "point": "504",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_comfy.py",
                 "point": "505",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_comfy.py",
                 "point": "629",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_comfy.py",
                 "point": "726",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_comfy.py",
                 "point": "741",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "keyframe_model_service.py",
                 "point": "14",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "local_video.py",
                 "point": "209",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "qwen_setup.py",
                 "point": "170",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "script_contract.py",
                 "point": "1098",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "script_contract.py",
                 "point": "1104",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "script_contract.py",
                 "point": "1136",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "stage_models.py",
                 "point": "41",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "storyboard_adoption_contract.py",
                 "point": "33",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "white_model.py",
                 "point": "176",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "white_model.py",
                 "point": "24",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "workflow_settings.py",
                 "point": "585",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },
             {
                 "file": "workflow_settings.py",
                 "point": "590",
-                "disposition": "pending",
-                "reason": "\u88f8\u52a8\u6001\u5bfc\u5165"
+                "disposition": "exempt",
+                "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             }
         ]
     },
