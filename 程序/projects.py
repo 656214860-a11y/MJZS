@@ -72,16 +72,27 @@ def is_missing_storyboard_open_error(error):
     return '项目里找不到镜头 JSON' in str(error)
 
 class Projects:
-    def __init__(self, app, *, gateway=None):
+    def __init__(self, app, *, gateway=None, migrate_legacy=True):
         self.app=Path(app); self.registry=self.app/'projects.json'; self.gateway=gateway
         self._require_gateway()
         cfg=self._read_json(self.app/'config.json') if (self.app/'config.json').is_file() else {}
         if not isinstance(cfg,dict):cfg={}
         self.downloads=Path(cfg.get('downloads_root','D:/漫剧下载'))
         self.base=self.downloads/'项目'; self.base.mkdir(parents=True,exist_ok=True)
-        if not self.registry.exists(): self.migrate()
+        # 桌面首帧不能为了旧版数据迁移而递归遍历整个程序目录。命令行导入等
+        # 非 UI 调用仍维持原有的同步兼容行为；Desktop 会在首帧后把迁移交给 worker。
+        self.legacy_migration_pending=not self.registry.exists()
+        if self.legacy_migration_pending and migrate_legacy:
+            self.migrate()
+        info=self._read_json(self.registry) if self.registry.exists() else {}
+        self.info=info if isinstance(info,dict) else {'active':None,'projects':[]}
+
+    def refresh_registry(self):
+        """在后台迁移完成后由 UI 线程刷新内存登记。"""
         info=self._read_json(self.registry)
         self.info=info if isinstance(info,dict) else {'active':None,'projects':[]}
+        self.legacy_migration_pending=False
+        return self.info
 
     def _require_gateway(self):
         """L2 项目服务没有注入读写边界时，拒绝一切项目操作。"""
@@ -93,6 +104,8 @@ class Projects:
         self._restore_bytes=self.gateway['restore_bytes'];self._copy_file=self.gateway['copy_file'];self._copy_tree=self.gateway['copy_tree']
 
     def migrate(self):
+        if self.registry.exists():
+            return self.refresh_registry()
         config_path=self.app/'config.json'
         cfg=self._read_json(config_path) if config_path.is_file() else {}
         if not isinstance(cfg,dict):cfg={}
@@ -101,7 +114,7 @@ class Projects:
         # 保留空注册表；用户随后可通过“新建项目/打开项目”进入正常流程。
         if not (src/'episode.json').is_file():
             self._publish_json(self.registry,{'active':None,'projects':[]})
-            return
+            return self.refresh_registry()
         ep=self._read_json(src/'episode.json'); title=str(ep.get('title') or '项目')
         slug=re.sub(r'[<>:"/\\|?*\x00-\x1f]','_',title)[:50].rstrip('. ')
         dst=self.base/(slug+'_EP001_'+uuid.uuid4().hex[:6])
@@ -118,6 +131,7 @@ class Projects:
         if not Path(cfg.get('project_dir','.')).exists() and (credentials/'.env').exists():cfg['project_dir']=str(credentials)
         self._publish_json(dst/'config.json',cfg); self.organize(dst)
         self._publish_json(self.registry,{'active':str(dst),'projects':[{'name':title,'path':str(dst)}]})
+        return self.refresh_registry()
     def organize(self,root):
         root=Path(root); base=project_stages.assets(root); assets=self._read_json(base/'assets.json') if (base/'assets.json').exists() else {}
         if not isinstance(assets,dict):assets={}
