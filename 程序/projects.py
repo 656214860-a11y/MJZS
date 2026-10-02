@@ -85,12 +85,18 @@ class Projects:
         if self.legacy_migration_pending and migrate_legacy:
             self.migrate()
         info=self._read_json(self.registry) if self.registry.exists() else {}
-        self.info=info if isinstance(info,dict) else {'active':None,'projects':[]}
+        info=dict(info) if isinstance(info,dict) else {}
+        if 'active' not in info:info['active']=None
+        if not isinstance(info.get('projects'),list):info['projects']=[]
+        self.info=info
 
     def refresh_registry(self):
         """在后台迁移完成后由 UI 线程刷新内存登记。"""
         info=self._read_json(self.registry)
-        self.info=info if isinstance(info,dict) else {'active':None,'projects':[]}
+        info=dict(info) if isinstance(info,dict) else {}
+        if 'active' not in info:info['active']=None
+        if not isinstance(info.get('projects'),list):info['projects']=[]
+        self.info=info
         self.legacy_migration_pending=False
         return self.info
 

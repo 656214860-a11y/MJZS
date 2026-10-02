@@ -41,3 +41,25 @@ class ProjectsGatewayTests(unittest.TestCase):
             service.migrate()
             self.assertFalse(service.legacy_migration_pending)
             self.assertEqual(service.info['projects'][0]['name'],'旧故事')
+
+    def test_empty_registry_gets_required_keys_without_losing_future_fields(self):
+        with tempfile.TemporaryDirectory() as td:
+            app=Path(td) / '程序'; app.mkdir()
+            (app / 'config.json').write_text(json.dumps({
+                'downloads_root':str(Path(td) / '库'),
+            },ensure_ascii=False),encoding='utf-8')
+            (app / 'projects.json').write_text('{}',encoding='utf-8')
+            service=Projects(app,gateway=project_registry_gateway(),migrate_legacy=False)
+            self.assertEqual(service.info,{'active':None,'projects':[]})
+
+    def test_refresh_empty_registry_gets_required_keys(self):
+        with tempfile.TemporaryDirectory() as td:
+            app=Path(td) / '程序'; app.mkdir()
+            (app / 'config.json').write_text(json.dumps({
+                'downloads_root':str(Path(td) / '库'),
+            },ensure_ascii=False),encoding='utf-8')
+            registry=app / 'projects.json'
+            registry.write_text(json.dumps({'active':None,'projects':[]}),encoding='utf-8')
+            service=Projects(app,gateway=project_registry_gateway(),migrate_legacy=False)
+            registry.write_text('{}',encoding='utf-8')
+            self.assertEqual(service.refresh_registry(),{'active':None,'projects':[]})
