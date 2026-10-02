@@ -33,6 +33,22 @@ def import_delivery_master(project, source, *, settings_snapshot=None, cache=Non
         publish=publish_stage_bytes)
 
 
+def local_video_settings_gateway():
+    """L3 为本地视频设置服务注入唯一的发布与回滚能力。"""
+    import shutil
+    from agent.core import save, save_bytes
+    return {'publish_json': save, 'publish_bytes': save_bytes,
+            'copy_file': shutil.copy2,
+            'replace_file': lambda source, target: Path(source).replace(target)}
+
+
+def publish_local_video_settings(project, current_config, options):
+    """L3 编排本地视频工作流与项目设置的成对发布。"""
+    from local_video_settings_service import save_local_video_settings
+    return save_local_video_settings(project, current_config, options,
+                                     gateway=local_video_settings_gateway())
+
+
 def import_stage_audio(project, source):
     """音频导入编排：L3 注入唯一二进制发布器。"""
     from audio_import_service import import_audio

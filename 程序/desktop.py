@@ -5549,9 +5549,9 @@ class Desktop:
         # 第 57 期第 5 条：鼠标停在这一格上就在旁边弹一张大图（够看清人物与背景）。
         table.cell_images=CellImages(table,('#3',),thumb_value,hover=table.cell_hover,background=row_background,
                                      zoom=lambda aid,column:asset_thumb(aid,cell_hover.ZOOM_SIZE),
-                                     # 250ms 高于重列表单帧的正常绘制抖动：连续滚动期间不反复取图，
-                                     # 停稳后才对齐新可见区，防抖不会再退化成逐帧刷新。
-                                     view_refresh_delay=250)
+                                     # 750ms 让连续滚动跨过本机 Tk 的绘制抖动窗口；停止后仍会
+                                     # 自动对齐新可见区，且防抖不会退化成逐帧刷新。
+                                     view_refresh_delay=750)
         # 第 55 期第 1 条：「视图变了就重排」已经收进盖图那一层自己（watch_view：滚动条动了、
         # 列宽变了、内容框改了尺寸都算），这儿不必再往那两条回调末尾补一次重排。
         # 首帧必须在同步建好几何后就盖上可视区缩略图：只靠 after_idle 时，整套回归并发较高
@@ -5592,7 +5592,9 @@ class Desktop:
                     # 回调里把所有剩余行连续插完。
                     row_job['id']=table.after(50,more_rows)
                 else:
-                    table.cell_images.refresh();refresh_buttons()
+                    # 分片完成可能正好撞上用户滚动；已有可视缩略图只需重摆，
+                    # 仅为刚插入而尚未有图层的行读取 provider，不能在这一帧全量重读。
+                    table.cell_images.refresh(reuse_existing=True);refresh_buttons()
             table.bind('<Destroy>',cancel_more_rows,add='+')
             # 首批后的首次调度要跨过首帧的完整绘制窗口：Windows/Tk 的一次 update 可能持续
             # 数百毫秒，短 timer 会在同一轮内连锁跑完。先让首屏稳定可操作，再渐进补行。

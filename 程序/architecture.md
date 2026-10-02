@@ -288,6 +288,7 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 - 资产详情图片绑定的回滚字节发布唯一经 `stage_execution_service.asset_detail_gateway()` 注入；详情页只调用 L3 的正典板／状态变体编排入口。
 - 生成资产自动导入的临时 PNG 发布唯一使用 `stage_execution_service.asset_batch_gateway()` 注入；缺少发布器时 L2 显式拒绝。
 - 最终成片导入的字节发布唯一经 `stage_execution_service.import_delivery_master()` 注入；L2 不得保留复制回退。
+- 本地视频设置的工作流、配置及回滚发布唯一经 `stage_execution_service.publish_local_video_settings()` 注入；L2 不得直连正式发布器。
 - 本机加密密钥唯一实现入口：`model_secrets.PROTECTOR`，默认实现为同模块 `protect()`；测试替身只能替换该 L1 协议入口，不得恢复 `seedream_api` 反向密钥依赖。
 - SKILL 唯一权威：`skills/01`—`12` 阶段目录内的 `.skill.md` 与 `skill_registry.py`；根目录遗留文件仅由懒迁移归档；模型唯一权威：模型管理保存的模型池。
 - `<项目>` 是用户项目根目录占位符，非 `程序/episode/` 演示目录。

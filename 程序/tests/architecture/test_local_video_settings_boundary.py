@@ -13,7 +13,11 @@ class LocalVideoSettingsBoundaryTests(unittest.TestCase):
         window = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'settings_window')
         commit = next(node for node in ast.walk(window) if isinstance(node, ast.FunctionDef) and node.name == 'commit')
         method = ast.get_source_segment(source, commit)
-        calls = [node for node in ast.walk(commit) if isinstance(node, ast.Call) and getattr(node.func, 'id', '') == 'save_local_video_settings']
-        self.assertEqual(len(calls), 1)
+        self.assertIn("'publish_local_video_settings'", method)
         self.assertNotIn('copy2', method)
         self.assertNotIn('save(', method)
+
+    def test_l2_requires_l3_gateway_without_direct_publishers(self):
+        source = Path(ROOT, 'local_video_settings_service.py').read_text(encoding='utf-8')
+        self.assertNotIn('from agent.core import file_hash, save,', source)
+        self.assertIn("'publish_json', 'publish_bytes', 'copy_file', 'replace_file'", source)

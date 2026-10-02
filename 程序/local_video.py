@@ -373,8 +373,8 @@ def settings_window(app):
     def commit():
         opts=values();cfg={**app.studio.cfg,'local_video':opts,'video_backend':'comfy'}
         LocalAPI(opts['url']);prepare_graph(app.root,cfg,{**app.studio.episode['shots'][0],'duration':5})
-        from local_video_settings_service import save_local_video_settings
-        app.studio.cfg=save_local_video_settings(app.root, app.studio.cfg, opts);win.destroy();app.refresh()
+        publisher=getattr(__import__('stage_execution_service'), 'publish_local_video_settings')
+        app.studio.cfg=publisher(app.root, app.studio.cfg, opts);win.destroy();app.refresh()
     ttk.Label(win,text='只连接本机，不读取云端API Key。H3需完整模型；无音轨视频不会通过有声QC。',wraplength=770).grid(row=9,column=0,columnspan=2,pady=SPACING['md'])
     SecondaryButton(win,text='检测节点与模型',command=lambda:app.safe(inspect)).grid(row=10,column=0,pady=SPACING['sm'])
     PrimaryButton(win,text='保存设置',command=lambda:app.safe(commit)).grid(row=10,column=1,sticky='w',pady=SPACING['sm'])

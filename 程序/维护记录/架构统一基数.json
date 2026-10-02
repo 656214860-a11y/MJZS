@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 20,
+    "count": 19,
         "baseline_pending": 66,
         "items": [
             {
@@ -242,8 +242,8 @@
             {
                 "file": "local_video_settings_service.py",
                 "point": "save_local_video_settings",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R803：本地视频工作流与设置发布改由 L3 publish_local_video_settings 注入。"
             },
             {
                 "file": "pet_performance_service.py",
@@ -1011,19 +1011,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "344",
+                "point": "360",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "375",
+                "point": "391",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "388",
+                "point": "404",
                 "disposition": "pending",
                 "reason": ""
             },
