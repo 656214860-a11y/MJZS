@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 11,
+        "count": 8,
         "baseline_pending": 66,
         "items": [
             {
@@ -332,20 +332,20 @@
             {
                 "file": "asset_plan.py",
                 "point": "publish_plan_bundle",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R821：资产计划四文件事务的 JSON、文本、字节回滚与临时文件移除均由 L3 asset_plan_gateway 注入。"
             },
             {
                 "file": "asset_plan.py",
                 "point": "update_planned",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R821：资产字段唯一落盘入口改为接收 L3 asset_plan_gateway 注入的正式 JSON 发布器。"
             },
             {
                 "file": "asset_resume.py",
                 "point": "note_round",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R821：跨重启资产续跑台账改为接收 L3 asset_plan_gateway 注入的正式 JSON 发布器。"
             },
             {
                 "file": "desktop_settings_service.py",

@@ -4,9 +4,15 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 import asset_plan
+
+
+def gateway():
+    from agent.core import save, save_bytes, save_text
+    from file_cache import remove_temporary_file
+    return {'publish_json': save, 'publish_bytes': save_bytes,
+            'publish_text': save_text, 'remove_file': remove_temporary_file}
 
 
 class AssetPlanPublicationTests(unittest.TestCase):
@@ -20,7 +26,7 @@ class AssetPlanPublicationTests(unittest.TestCase):
             }
             for name, content in originals.items():
                 (folder / name).write_bytes(content)
-            real_save = asset_plan.save
+            real_save = gateway()['publish_json']
             calls = 0
 
             def fail_second_save(path, content):
@@ -30,16 +36,16 @@ class AssetPlanPublicationTests(unittest.TestCase):
                     raise OSError('disk full')
                 real_save(path, content)
 
-            with patch.object(asset_plan, 'save', side_effect=fail_second_save):
-                with self.assertRaisesRegex(OSError, 'disk full'):
-                    asset_plan.publish_plan_bundle(folder, {'CHAR:甲': 'CHAR_001'}, {'CHAR_001': {'name': '甲'}},
-                                                  {'storyboard': 'new'}, '# new\n')
+            failed_gateway = dict(gateway(), publish_json=fail_second_save)
+            with self.assertRaisesRegex(OSError, 'disk full'):
+                asset_plan.publish_plan_bundle(folder, {'CHAR:甲': 'CHAR_001'}, {'CHAR_001': {'name': '甲'}},
+                                                {'storyboard': 'new'}, '# new\n', gateway=failed_gateway)
             self.assertEqual({name: (folder / name).read_bytes() for name in originals}, originals)
 
     def test_bundle_publication_writes_and_verifies_all_four_files(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary) / 'assets' / '资产清单'
             asset_plan.publish_plan_bundle(folder, {'CHAR:甲': 'CHAR_001'}, {'CHAR_001': {'name': '甲'}},
-                                          {'storyboard': 'episode.json'}, '# 资产清单\n')
+                                          {'storyboard': 'episode.json'}, '# 资产清单\n', gateway=gateway())
             self.assertEqual(asset_plan.read(folder / 'assets.json'), {'CHAR_001': {'name': '甲'}})
             self.assertEqual((folder / '导入进度.md').read_text(encoding='utf-8'), '# 资产清单\n')

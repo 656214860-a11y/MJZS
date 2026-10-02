@@ -25,10 +25,10 @@ def save_images(base,aid,role,paths,active_ids,pending=False):
 
 
 def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
-    from asset_plan import sync_plan
+    from stage_execution_service import sync_asset_plan
     from asset_context import scope_sources
     project=Path(app.root);base=app.asset_base()
-    rows=sync_plan(project,base,scope_sources(project,'adopted'),scope='adopted')
+    rows=sync_asset_plan(project,base,scope_sources(project,'adopted'),scope='adopted')
     if not rows:raise ValueError('请先采用分镜，再添加资产参考图')
     parent=parent or app.win
     win=tk.Toplevel(parent);win.withdraw();win.transient(parent)
@@ -71,7 +71,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     def commit():
         try:
             if Path(app.root)!=project:raise ValueError('项目已切换，请重新打开添加窗口')
-            active=sync_plan(project,base,scope_sources(project,'adopted'),scope='adopted')
+            active=sync_asset_plan(project,base,scope_sources(project,'adopted'),scope='adopted')
             count=save_images(base,choices.get(asset.get()),purpose.get(),paths,active,pending)
             if on_saved:on_saved()
             else:app.show(2)
@@ -85,7 +85,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
         """
         try:
             if Path(app.root)!=project:raise ValueError('项目已切换，请重新打开添加窗口')
-            active=sync_plan(project,base,scope_sources(project,'adopted'),scope='adopted')
+            active=sync_asset_plan(project,base,scope_sources(project,'adopted'),scope='adopted')
             target=choices.get(asset.get())
             if target not in active:raise ValueError('请选择已采用分镜引用的资产编号')
             role=purpose.get()

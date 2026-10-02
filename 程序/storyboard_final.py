@@ -32,7 +32,7 @@ def _record_lineage(project, episodefile, source):
         from artifact_lineage import record
         record(project, episodefile, lineage_source, 'final_storyboard')
 
-def finalize(project,episode_dir,source,retire_working=None):
+def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     from asset_context import library_dir,references
     from storyboard_catalog_service import resolve_source
     from storyboard_lifecycle import signature
@@ -40,7 +40,7 @@ def finalize(project,episode_dir,source,retire_working=None):
     source=resolve_source(project,source);original=source.read_bytes()
     original_hash=hashlib.sha256(original).hexdigest()
     frame_base=media_root(source)
-    rows=sync_plan(project,base,source)
+    rows=sync_plan(project,base,source,gateway=gateway)
     mapping=read(base/'assets/资产清单/名称编号对照.json')
     if not isinstance(mapping,dict):mapping={}
     episode=copy.deepcopy(read(source));missing=[];used=set()

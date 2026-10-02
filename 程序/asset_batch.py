@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import ttk,filedialog,messagebox
 from agent.core import read
 from comfy_service import Comfy
-from asset_plan import sync_plan
+from stage_execution_service import remove_asset_batch_model as remove_model, save_asset_batch_settings as save_settings
 import tk_timers
 import ui_plugin_registry
 from responsive_ui import FlowBar, scroll_form
@@ -114,12 +114,14 @@ def auto_plan(project,base,sources,scope='adopted'):
     用的模型与「资产图片制作」窗口当前保存的生图模型一致：本地模型照常排队，云端模型按次计费，
     所以状态栏和勾选框都会写明当前模型，用户随时能停掉或换成便宜的后端。
     """
-    return _unattended_plan(project,base,sources,scope)
+    from stage_execution_service import asset_plan_gateway
+    return _unattended_plan(project,base,sources,scope,gateway=asset_plan_gateway())
 
 
 def auto_batch(project,base,sources,scope='adopted',log=None,stop=None,client_factory=Comfy):
     """Compatibility facade for the headless unattended batch service."""
-    return _auto_batch(project,base,sources,scope,log,stop,client_factory)
+    from stage_execution_service import asset_plan_gateway
+    return _auto_batch(project,base,sources,scope,log,stop,client_factory,gateway=asset_plan_gateway())
 
 
 def show(app,engine="comfy",selected_ids=None):
@@ -127,7 +129,8 @@ def show(app,engine="comfy",selected_ids=None):
     qwen_images=skill_mode and _is_skill_api_engine(app.root)
     project=Path(app.root);base=app.asset_base();source=app.current_frame_json();scope=app.asset_scope();sources=app.asset_sources()
     prefsfile=project/'ui_settings.json';prefs=_prefs(prefsfile);saved=prefs.get('asset_batch',{})
-    controller=AssetBatchController(project,base,sources,scope,engine,selected_ids,saved,sync_plan)
+    from stage_execution_service import sync_asset_plan
+    controller=AssetBatchController(project,base,sources,scope,engine,selected_ids,saved,sync_asset_plan)
     scope_text=scope_label(scope,sources,read(source).get('episode_id',''))
     win=BaseDialog(app.win,'',modal=False,chrome=False);win.withdraw();win.title(('资产图片制作' if skill_mode or engine=='workflow' else 'ComfyUI')+' · 批量资产 · '+scope_text);win.geometry('850x640');win.minsize(700,480);win.transient(app.win)
     win.protocol('WM_DELETE_WINDOW',win.destroy)

@@ -10,7 +10,6 @@ from agent.core import read,save,save_text,save_bytes
 import project_settings
 from projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
 from responsive_ui import FlowBar,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
-from asset_plan import sync_plan
 from engine import approved_versions
 from local_video import open_studio,skip_summary
 from app import App
@@ -2607,14 +2606,15 @@ class Desktop:
             self.reconcile_storyboards()
         if not self.pet.should_auto_run('auto_adopt'):
             self.auto_adopt_signature=None;self.auto_adopt_pending=False;return
-        from storyboard_selection import adopt_pending,tree_signature
+        from storyboard_selection import tree_signature
+        from stage_execution_service import poll_asset_storyboard_adoption
         # 目录里没有新增或改写的分镜时不必反复解析全部 JSON；只有等写入完成的文件才继续轮询。
         signature=tree_signature(self.root)
         from storyboard_adoption_service import automatic_poll_decision
         decision=automatic_poll_decision(signature,self.auto_adopt_signature,self.auto_adopt_pending,self.auto_final_busy)
         if decision['action'] in ('wait','skip'):return
         self.auto_adopt_signature=decision['signature']
-        result=adopt_pending(self.root)
+        result=poll_asset_storyboard_adoption(self.root)
         self.auto_adopt_pending=bool(result['waiting'])
         for path in list(self.auto_adopt_errors):
             if path not in result['failed']:self.auto_adopt_errors.pop(path,None)
@@ -3081,9 +3081,10 @@ class Desktop:
         重启后 poll_auto_asset 读同一份台账接着往后数、到顶就停下等人。台账写不动时退回内存里
         的计数（宁可多试几次，也不把这条路弄丢）。返回「离该重试还差几秒」，没有等待中的项返回 None。
         """
+        from stage_execution_service import note_asset_resume_round
         fallback=self.auto_asset_attempt+1
         try:
-            asset_resume.note_round(self.root,ids,limit=ASSET_RETRY_LIMIT)
+            note_asset_resume_round(self.root,ids,limit=ASSET_RETRY_LIMIT)
             counted=asset_resume.attempts(self.root,ids)
             left=asset_resume.delay(self.root)
         except (OSError,ValueError,TypeError,KeyError):
@@ -5181,9 +5182,9 @@ class Desktop:
         canonical_board／character_anchor 一个字没写——「采用推荐」点了资产还是空的。
         现在与资产详情页走同一条写入路径（confirm_gates.apply_choice）。
         """
-        from asset_plan import apply_gate_choice
         from stage_execution_service import record_stage_confirmation
-        apply_gate_choice(self.root,key,choice)
+        from stage_execution_service import apply_asset_plan_gate_choice
+        apply_asset_plan_gate_choice(self.root,key,choice)
         path=record_stage_confirmation(self.root,key,choice)
         if again:again()                      # 先重建页面（重建会重置状态栏），再写状态栏
         self.status.set('已确认：'+str(choice))
@@ -5214,9 +5215,9 @@ class Desktop:
         每一条只处理一次（记进 gate_confirmations.json），选择同时写进资产清单。
         """
         import stage_flow
-        from asset_plan import apply_gate_choice
         from confirm_gates import AUTO
         from stage_execution_service import record_stage_confirmation
+        from stage_execution_service import apply_asset_plan_gate_choice
         if self.gate_level() not in stage_flow.AUTO_LEVELS:return 0
         done=0
         for item in self.pending_gate_asks():
@@ -5227,7 +5228,7 @@ class Desktop:
             choice=candidates[min(max(index,0),len(candidates)-1)]
             # 写资产清单或确认账本失败不能伪装成“这条已经处理过”。交给外层
             # _poll_auto_due 的节流与可见错误反馈，下一拍才会重试。
-            apply_gate_choice(self.root,key,choice)
+            apply_asset_plan_gate_choice(self.root,key,choice)
             record_stage_confirmation(self.root,key,choice,by=AUTO)
             done+=1
         if done:
@@ -5418,7 +5419,8 @@ class Desktop:
         from asset_context import scope_sources
         return scope_sources(self.root,self.asset_scope())
     def asset_requirements(self):
-        try:return sync_plan(self.root,self.asset_base(),self.asset_sources(),scope=self.asset_scope())
+        from stage_execution_service import sync_asset_plan
+        try:return sync_asset_plan(self.root,self.asset_base(),self.asset_sources(),scope=self.asset_scope())
         except (ValueError,OSError,TypeError,AttributeError,KeyError) as e:
             # 门禁会在后台预读资产清单；剧本准备等非资产页不应因此叠出资产错误。
             if getattr(self,'page_index',None)==PAGE['assets']:
@@ -5925,8 +5927,11 @@ class Desktop:
         self.show(PAGE['keyframe'])
         self.status.set(sid+' 尚无首帧，已定位到首帧管理页；请用「手动制作首帧」生成，或用「导入 / 替换选中首帧」导入图片。')
     def adopt_frame_jsons(self,paths):
-        from storyboard_selection import adopt
-        return adopt(self.root,paths)
+        from stage_execution_service import adopt_asset_storyboards
+        return adopt_asset_storyboards(self.root,paths)
+    def remove_frame_jsons(self,paths):
+        from stage_execution_service import remove_asset_storyboards
+        return remove_asset_storyboards(self.root,paths)
     def remember_frame_json(self,path):
         return self.adopt_frame_jsons([path])
     def current_frame_json(self):

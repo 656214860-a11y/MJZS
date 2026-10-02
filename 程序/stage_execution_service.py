@@ -143,6 +143,52 @@ def asset_batch_gateway():
              'replace_file': lambda source, target: Path(source).replace(target)}
 
 
+def asset_plan_gateway():
+    """L3 为资产计划与续跑台账装配唯一的正式发布能力。"""
+    from agent.core import save, save_bytes, save_text
+    from file_cache import remove_temporary_file
+    return {'publish_json': save, 'publish_bytes': save_bytes,
+            'publish_text': save_text, 'remove_file': remove_temporary_file}
+
+
+def sync_asset_plan(project, episode_dir, storyboard=None, *, scope='current', _adopting=False):
+    """L3 同步资产计划，避免 L2 自行选择发布器。"""
+    from asset_plan import sync_plan
+    return sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting,
+                     gateway=asset_plan_gateway())
+
+
+def update_asset_plan_fields(project, episode_dir, aid, values):
+    from asset_plan import update_fields
+    return update_fields(project, episode_dir, aid, values, gateway=asset_plan_gateway())
+
+
+def apply_asset_plan_gate_choice(project, key, choice, episode_dir=''):
+    from asset_plan import apply_gate_choice
+    return apply_gate_choice(project, key, choice, episode_dir, gateway=asset_plan_gateway())
+
+
+def note_asset_resume_round(project, ids, limit=None, now=None):
+    from asset_resume import note_round
+    return note_round(project, ids, limit=limit, now=now,
+                      publish=asset_plan_gateway()['publish_json'])
+
+
+def adopt_asset_storyboards(project, values):
+    from storyboard_selection import adopt
+    return adopt(project, values, gateway=asset_plan_gateway())
+
+
+def remove_asset_storyboards(project, values):
+    from storyboard_selection import remove
+    return remove(project, values, gateway=asset_plan_gateway())
+
+
+def poll_asset_storyboard_adoption(project, minimum_age=10):
+    from storyboard_selection import adopt_pending
+    return adopt_pending(project, minimum_age=minimum_age, gateway=asset_plan_gateway())
+
+
 def release_uncertain_asset_batch(project, ids):
     """L3 为确认后的资产批次未知提交记录提供唯一放开入口。"""
     from asset_batch_state_service import release_uncertain
@@ -169,8 +215,7 @@ def remove_asset_batch_model(project, url, model, model_id):
 
 def asset_detail_gateway():
     """L3 为资产详情图片绑定注入唯一的回滚发布器。"""
-    from agent.core import save_bytes
-    return {'publish_bytes': save_bytes}
+    return asset_plan_gateway()
 
 
 def bind_asset_canonical_view(project, episode_dir, aid, view, source):

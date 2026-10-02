@@ -28,7 +28,7 @@ def picks(items):
 
 def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, candidates=None, fetch=None):
     """打开候选图墙；取消或没有候选时返回 None。"""
-    from asset_plan import sync_plan
+    from stage_execution_service import sync_asset_plan
     from asset_context import scope_sources
     project = Path(app.root)
     base = Path(base) if base else Path(app.asset_base())
@@ -40,7 +40,7 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
             return None
         candidates = search.candidates_from_file(path)
     if assets is None:
-        assets = sync_plan(project, base, scope_sources(project, 'adopted'), scope='adopted')
+        assets = sync_asset_plan(project, base, scope_sources(project, 'adopted'), scope='adopted')
     if not assets:
         raise ValueError('请先采用分镜，再挑选参考图候选')
     labels = {key + ' · ' + str(value.get('name', key)): key for key, value in assets.items()}

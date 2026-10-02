@@ -53,7 +53,7 @@ def _publish(project, episode_dir, aid, source, suffix, values, *, gateway=None)
             folder.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, temporary)
             os.replace(temporary, dest)
-        update_fields(project, episode_dir, aid, values)
+        update_fields(project, episode_dir, aid, values, gateway=gateway)
     except Exception:
         if copied:
             if old_dest is None:

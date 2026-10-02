@@ -1,21 +1,32 @@
 """Project asset requirements, independent of image registration."""
 from pathlib import Path
 import re
-from agent.core import read, save, save_bytes, save_text
+from agent.core import read
 
 
-def publish_plan_bundle(folder, mappings, planned, source_info, progress_text):
+def _publishers(gateway):
+    """L2 只接受 L3 装配的发布能力，不自行决定正式落盘入口。"""
+    gateway = gateway if isinstance(gateway, dict) else {}
+    names = ('publish_json', 'publish_bytes', 'publish_text', 'remove_file')
+    values = {name: gateway.get(name) for name in names}
+    if not all(callable(value) for value in values.values()):
+        raise RuntimeError('资产计划发布必须由 L3 注入')
+    return values
+
+
+def publish_plan_bundle(folder, mappings, planned, source_info, progress_text, *, gateway=None):
     """发布同一资产清单的索引、正文、来源与进度；失败则恢复整个发布包。"""
+    publishers = _publishers(gateway)
     folder = Path(folder)
     if not isinstance(mappings, dict) or not isinstance(planned, dict) or not isinstance(source_info, dict):
         raise ValueError('资产清单发布内容必须是对象')
     if not isinstance(progress_text, str):
         raise ValueError('资产清单进度必须是文本')
     targets = (
-        (folder / '名称编号对照.json', save, mappings),
-        (folder / 'assets.json', save, planned),
-        (folder / '来源.json', save, source_info),
-        (folder / '导入进度.md', save_text, progress_text),
+        (folder / '名称编号对照.json', publishers['publish_json'], mappings),
+        (folder / 'assets.json', publishers['publish_json'], planned),
+        (folder / '来源.json', publishers['publish_json'], source_info),
+        (folder / '导入进度.md', publishers['publish_text'], progress_text),
     )
     previous = tuple((path, path.read_bytes() if path.is_file() else None) for path, _, _ in targets)
     try:
@@ -26,15 +37,14 @@ def publish_plan_bundle(folder, mappings, planned, source_info, progress_text):
                 or (folder / '导入进度.md').read_text(encoding='utf-8') != progress_text):
             raise ValueError('资产清单发布后复核失败')
     except Exception:
-        from file_cache import remove_temporary_file
         for path, raw in previous:
             if raw is not None:
-                save_bytes(path, raw)
+                publishers['publish_bytes'](path, raw)
             elif path.is_file():
-                remove_temporary_file(path)
+                publishers['remove_file'](path)
         raise
 
-def sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=False):
+def sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=False,gateway=None):
     if scope not in ('all','current','adopted'):raise ValueError('未知的资产显示范围')
     from asset_context import library_dir,active_source,references
     project=Path(project).resolve();episode_dir=library_dir(project,episode_dir)
@@ -139,7 +149,7 @@ def sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=Fa
     publish_plan_bundle(folder, mappings, planned,
                         {'storyboard':str(source) if source else '', 'storyboards':[str(p) for p in sources],
                          'episode_id':episode.get('episode_id'),'episode_ids':[ep.get('episode_id') for _,ep in episodes],
-                         'asset_ids':list(current)}, '\n'.join(lines)+'\n')
+                         'asset_ids':list(current)}, '\n'.join(lines)+'\n', gateway=gateway)
     return rows
 
 
@@ -149,7 +159,7 @@ def plan_file(project,episode_dir):
     return library_dir(project,episode_dir)/'assets/资产清单/assets.json'
 
 
-def update_fields(project,episode_dir,aid,values):
+def update_fields(project,episode_dir,aid,values,*,gateway=None):
     """把几项字段写进资产清单里那一条资产，返回写后的那一行（第 64 期任务 13）。
 
     正典板、锚点字符串、状态变体这些字段以前只在内存里被 asset_contract.normalize 补出来，
@@ -157,10 +167,10 @@ def update_fields(project,episode_dir,aid,values):
     新增都失败」。这里补上唯一的落盘入口，界面与门禁都走它。
     """
     from asset_context import library_dir
-    return update_planned(library_dir(project,episode_dir),aid,values)
+    return update_planned(library_dir(project,episode_dir),aid,values,gateway=gateway)
 
 
-def apply_gate_choice(project, key, choice, episode_dir=""):
+def apply_gate_choice(project, key, choice, episode_dir="", *, gateway=None):
     """将主观门禁的锚点／正典板选择写入资产清单。
 
     门禁契约只负责判断和记录确认；这项领域写入必须留在资产服务层，
@@ -172,14 +182,15 @@ def apply_gate_choice(project, key, choice, episode_dir=""):
     value = str(choice or '').strip()
     values = ({'character_anchor': value, 'base_anchor': value}
               if head == 'anchor' else {'canonical_board': value})
-    return update_fields(project, episode_dir, asset_id, values)
+    return update_fields(project, episode_dir, asset_id, values, gateway=gateway)
 
 
-def update_planned(episode_dir,aid,values):
+def update_planned(episode_dir,aid,values,*,gateway=None):
     """按资产库目录直接落盘（第 64 期任务 13）。
 
     asset_batch.register_image 手上只有资产库目录、没有 project，走这一条同一个入口。
     """
+    publishers = _publishers(gateway)
     aid=str(aid or '').strip()
     if not aid:raise ValueError('资产编号不能为空')
     if not isinstance(values,dict) or not values:raise ValueError('没有要写入的字段')
@@ -190,7 +201,7 @@ def update_planned(episode_dir,aid,values):
     if not isinstance(row,dict):row={}
     row.update(values)
     planned[aid]=row
-    save(file,planned)
+    publishers['publish_json'](file,planned)
     return row
 
 

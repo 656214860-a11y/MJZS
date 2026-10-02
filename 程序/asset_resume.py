@@ -20,7 +20,7 @@
 import time
 from pathlib import Path
 
-from agent.core import read_json, save
+from agent.core import read_json
 
 FILE_NAME = '资产续跑台账.json'
 STEP = 60                      # 每多试一次，退避多等这么些秒（与进程内那份 60×次数 一致）
@@ -68,12 +68,14 @@ def attempts(project, ids=None):
     return max([entry['attempts'] for entry in picked], default=0)
 
 
-def note_round(project, ids, limit=None, now=None):
+def note_round(project, ids, limit=None, now=None, *, publish=None):
     """一轮跑完还有缺图：只留还在等图的编号，逐个「次数＋1」并写下下次退避的挂钟时刻。
 
     出图了的编号不在 `ids` 里，跟着就从台账上摘掉——台账始终只记「眼下还缺、还在退避」的那些。
     到 `limit` 次的那一项标成 stopped、不再排下一次（与 desktop 的 ASSET_RETRY_LIMIT 对齐）。
     """
+    if not callable(publish):
+        raise RuntimeError('资产续跑台账发布必须由 L3 注入')
     ids = [str(aid) for aid in ids]
     if not ids:
         clear(project)
@@ -88,7 +90,7 @@ def note_round(project, ids, limit=None, now=None):
         if limit is not None and tries >= limit:
             data[aid]['state'] = 'stopped'
             data[aid]['next_try'] = None
-    save(path(project), data)
+    publish(path(project), data)
     return data
 
 

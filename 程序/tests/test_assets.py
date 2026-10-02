@@ -10,6 +10,7 @@ os.chdir(HERE)
 from prop_assets import requires_asset, normalize_shot, inline_text
 from background_characters import scan
 from asset_batch_service import automatic_plan, auto_settings
+from stage_execution_service import asset_plan_gateway
 from asset_batch_selection_service import all_selected, select_category, set_selection, toggle_excluded
 
 
@@ -754,6 +755,7 @@ class AutoAssetTests(unittest.TestCase):
                 proj, proj / "episode",
                 [proj / "storyboard" / "分镜拆分" / "episode.json"],
                 dict(self.SETTINGS),
+                gateway=asset_plan_gateway(),
             )
             self.assertEqual([aid for aid, _ in items], ["CHAR_001"])
             self.assertEqual([aid for aid, _ in skipped], ["LOC_001"])
@@ -827,7 +829,8 @@ class AutoAssetTests(unittest.TestCase):
                  patch.object(native_apps, "open_comfy", lambda settings=None: launched.append(settings)):
                 summary = auto_batch(proj, proj / "episode",
                                      [proj / "storyboard" / "分镜拆分" / "episode.json"], "adopted",
-                                     logs.append, client_factory=lambda url: fake)
+                                     logs.append, client_factory=lambda url: fake,
+                                     gateway=asset_plan_gateway())
             self.assertEqual(waits, [("http://127.0.0.1:8189", 5), ("http://127.0.0.1:8189", 120)])
             self.assertEqual(launched, [None])            # 探测失败后自动拉起 ComfyUI
             self.assertIn("一只猫坐在窗边", fake.prompt)
@@ -839,7 +842,8 @@ class AutoAssetTests(unittest.TestCase):
             # 图片已就绪后清单为空：不会再排队，直接说明无事可做
             self.assertIn("没有需要独立生成的资产", auto_batch(
                 proj, proj / "episode", [proj / "storyboard" / "分镜拆分" / "episode.json"], "adopted",
-                logs.append, client_factory=lambda url: fake))
+                logs.append, client_factory=lambda url: fake,
+                gateway=asset_plan_gateway()))
 
 
 if __name__ == "__main__":

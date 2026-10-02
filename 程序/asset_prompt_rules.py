@@ -62,9 +62,8 @@ def issues(aid,asset):
 
 def check(app):
     from tkinter import messagebox
-    from asset_plan import sync_plan
     scope=app.asset_scope();label={'all':'全部资产','adopted':'已采用分镜','current':'当前分镜'}[scope]
-    rows=sync_plan(app.root,app.asset_base(),app.asset_sources(),scope=scope)
+    rows=app.asset_requirements()
     missing=[aid+' '+str(asset.get('name',''))+'：'+'、'.join(errors)
              for aid,asset in rows.items() if (errors:=issues(aid,asset))]
     if missing:

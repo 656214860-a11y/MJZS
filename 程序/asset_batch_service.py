@@ -287,7 +287,7 @@ def batch_complete(base, aids):
     return all(image_ready(base, aid, registry=registry) for aid in aids)
 
 
-def automatic_plan(project, base, sources, settings, scope='adopted'):
+def automatic_plan(project, base, sources, settings, scope='adopted', *, gateway=None):
     """Return independently generatable assets without constructing any Tk UI."""
     from asset_plan import sync_plan
     from asset_prompt_rules import issues
@@ -295,7 +295,7 @@ def automatic_plan(project, base, sources, settings, scope='adopted'):
 
     project = Path(project)
     base = Path(base)
-    rows = sync_plan(project, base, sources, scope=scope)
+    rows = sync_plan(project, base, sources, scope=scope, gateway=gateway)
     ready = []
     skipped = []
     for aid, asset in rows.items():
@@ -342,12 +342,12 @@ def current_model(project):
     return LOCAL
 
 
-def unattended_plan(project, base, sources, scope='adopted'):
+def unattended_plan(project, base, sources, scope='adopted', *, gateway=None):
     """Build an unattended plan together with its persisted batch settings."""
     saved = auto_settings(project)
     if not saved:
         raise ValueError('请先打开一次「批量资产」窗口并保存生图设置，再开启无人值守自动补资产')
-    ready, skipped = automatic_plan(project, base, sources, saved, scope)
+    ready, skipped = automatic_plan(project, base, sources, saved, scope, gateway=gateway)
     return ready, skipped, saved
 
 

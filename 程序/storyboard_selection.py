@@ -186,7 +186,7 @@ def prune_invalid_adoptions(project):
     return tuple(removed)
 
 
-def adopt(project,values):
+def adopt(project,values,*,gateway=None):
     """Validate the whole request before changing any adoption or asset state."""
     from writing import validate_episode
     from storyboard_paths import media_root
@@ -203,7 +203,7 @@ def adopt(project,values):
         # 第 62 期任务 12：报错带上文件名和具体差多少，别只说一句「不一致」。
         try:validate_episode(read(source),media_root(source))
         except ValueError as exc:raise ValueError(f'{source.name}：'+problem_text(exc)) from None
-    sync_plan(project,library_dir(project),combined,_adopting=True)
+    sync_plan(project,library_dir(project),combined,_adopting=True,gateway=gateway)
     data=writable_prefs(project)
     data['adopted_storyboards']=[p.relative_to(project).as_posix() for p in combined]
     data['frame_json']=incoming[-1].relative_to(project).as_posix()
@@ -272,7 +272,7 @@ def tree_signature(project):
     return (count,latest)
 
 
-def adopt_pending(project,minimum_age=10):
+def adopt_pending(project,minimum_age=10,*,gateway=None):
     """无人值守自动采用：把新出现且校验通过的分镜 JSON 推进后续流程。
 
     返回 {'adopted':[路径…],'failed':{路径:原因},'waiting':[路径…]}。刚写入的文件先等
@@ -295,7 +295,7 @@ def adopt_pending(project,minimum_age=10):
             failed[str(path)]=str(exc);continue
         ready.append(path)
     if not ready:return {'adopted':[],'failed':failed,'waiting':waiting}
-    try:adopt(project,ready)
+    try:adopt(project,ready,gateway=gateway)
     except (OSError,ValueError,KeyError,TypeError) as exc:
         for path in ready:failed[str(path)]=str(exc)
         return {'adopted':[],'failed':failed,'waiting':waiting}
@@ -303,7 +303,7 @@ def adopt_pending(project,minimum_age=10):
     return {'adopted':ready,'failed':failed,'waiting':waiting}
 
 
-def remove(project,values):
+def remove(project,values,*,gateway=None):
     from asset_context import library_dir
     from asset_plan import sync_plan
     project=Path(project).resolve();removed=set(paths(project,values))
@@ -312,7 +312,7 @@ def remove(project,values):
     data['adopted_storyboards']=[p.relative_to(project).as_posix() for p in remaining]
     current=resolve_source(project,data['frame_json']) if data.get('frame_json') else None
     if current not in remaining:data['frame_json']=remaining[-1].relative_to(project).as_posix() if remaining else ''
-    sync_plan(project,library_dir(project),remaining)
+    sync_plan(project,library_dir(project),remaining,gateway=gateway)
     save(project/'ui_settings.json',data)
     return remaining
 

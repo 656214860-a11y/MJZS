@@ -59,10 +59,10 @@ def _reload(desktop, aid):
 
 
 def _fields(desktop, aid, values):
-    from asset_plan import update_fields
+    from stage_execution_service import update_asset_plan_fields
     if not desktop.root:
         raise ValueError('还没有打开项目')
-    return update_fields(desktop.root, _base(desktop), aid, values)
+    return update_asset_plan_fields(desktop.root, _base(desktop), aid, values)
 
 
 def bind_view(desktop, aid, view, title=''):
@@ -244,10 +244,10 @@ def delete_variant(desktop, aid, state_id):
 
 def _pick(desktop, key, choice, aid):
     """采用一个候选：记一次确认 ＋ 把选择真正写进资产清单，然后重建这一页。"""
-    from asset_plan import apply_gate_choice
+    from stage_execution_service import apply_asset_plan_gate_choice
     from confirm_gates import record
     record(desktop.root, key, choice)
-    apply_gate_choice(desktop.root, key, choice)
+    apply_asset_plan_gate_choice(desktop.root, key, choice)
     desktop.status.set('已采用：' + str(choice)[:60] + '（已写进资产 JSON）')
     _reload(desktop, aid)
 

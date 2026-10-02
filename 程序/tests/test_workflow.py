@@ -8,8 +8,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.chdir(HERE)
 
-from storyboard_selection import adopt, adopted, adopt_pending, remove, summary, focus, sync_working_episode
-from asset_plan import sync_plan
+from storyboard_selection import adopted, summary, focus, sync_working_episode
+from stage_execution_service import (adopt_asset_storyboards as adopt,
+                                     poll_asset_storyboard_adoption as adopt_pending,
+                                     remove_asset_storyboards as remove,
+                                     sync_asset_plan as sync_plan)
 from asset_context import library_dir
 
 
@@ -588,7 +591,7 @@ class WorkingEpisodeRepairTests(unittest.TestCase):
         return cfg
 
     def test_a_stale_pointer_is_pulled_back_to_the_adopted_storyboard(self):
-        from storyboard_selection import adopt, repair_working_episode
+        from storyboard_selection import repair_working_episode
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             adopt(proj, ["storyboard/分镜拆分/episode.json"])
@@ -598,7 +601,7 @@ class WorkingEpisodeRepairTests(unittest.TestCase):
             self.assertEqual(json.loads(cfg.read_text(encoding="utf-8"))["episode_file"], str(target))
 
     def test_an_aligned_pointer_is_left_alone(self):
-        from storyboard_selection import adopt, adopted, repair_working_episode
+        from storyboard_selection import adopted, repair_working_episode
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             adopt(proj, ["storyboard/分镜拆分/episode.json"])

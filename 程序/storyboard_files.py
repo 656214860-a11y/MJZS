@@ -17,7 +17,7 @@ from storyboard_catalog_service import (
 from storyboard_selection import (
     remember_many as _remember_many, selected_many as _selected_many,
     sync_structured_script as _sync_structured_script, remember_final_view as _remember_final_view,
-    adopted as _adopted, remove as _remove, summary as _summary,
+    adopted as _adopted, summary as _summary,
     prune_invalid_adoptions as _prune_invalid_adoptions,
 )
 from storyboard_final_controller import FinalStoryboardController
@@ -670,7 +670,7 @@ def show(desktop):
         switched=desktop.sync_working_episode()
         desktop.status.set(f'新增采用 {len(incoming)} 份{skipped}；'+controller.summary()+('；工作集已切到最新采用的分镜' if switched else '；工作集保持不变')+desktop.final_storyboard_hint()+desktop.shot_numbering_hint())
     def remove_selected():
-        _remove(project,current_selection('storyboard'));refresh();desktop.status.set('已取消所选分镜的采用；分镜文件与资产保留')
+        desktop.remove_frame_jsons(current_selection('storyboard'));refresh();desktop.status.set('已取消所选分镜的采用；分镜文件与资产保留')
     toolbar=FlowBar(desktop.content);toolbar.pack(
         fill='x', pady=(SPACING['none'], SPACING['none']))
     from project_stages import writing

@@ -9,6 +9,11 @@ from pathlib import Path
 import asset_resume
 
 
+def note(*args, **kwargs):
+    from agent.core import save
+    return asset_resume.note_round(*args, **kwargs, publish=save)
+
+
 def project(td):
     """一个最小项目：只要 workflows 目录在，台账就有地方落。"""
     proj = Path(td) / "p"
@@ -24,7 +29,7 @@ class ResumeLedgerTests(unittest.TestCase):
     def test_a_round_lands_on_disk_with_the_count_and_the_next_try(self):
         with tempfile.TemporaryDirectory() as td:
             proj = project(td)
-            asset_resume.note_round(proj, ["CHAR_001", "LOC_001"], limit=3, now=1000.0)
+            note(proj, ["CHAR_001", "LOC_001"], limit=3, now=1000.0)
             self.assertTrue(asset_resume.path(proj).is_file())
             data = saved(proj)
             self.assertEqual(sorted(data), ["CHAR_001", "LOC_001"])
@@ -40,8 +45,8 @@ class ResumeLedgerTests(unittest.TestCase):
     def test_a_restart_reads_the_count_and_the_remaining_wait_back(self):
         with tempfile.TemporaryDirectory() as td:
             proj = project(td)
-            asset_resume.note_round(proj, ["CHAR_001"], limit=3, now=1000.0)
-            asset_resume.note_round(proj, ["CHAR_001"], limit=3, now=1060.0)
+            note(proj, ["CHAR_001"], limit=3, now=1000.0)
+            note(proj, ["CHAR_001"], limit=3, now=1060.0)
             self.assertEqual(asset_resume.attempts(proj), 2)
             self.assertAlmostEqual(asset_resume.delay(proj, now=1060.0), 120.0)
             self.assertAlmostEqual(asset_resume.delay(proj, now=1100.0), 80.0)
@@ -51,7 +56,7 @@ class ResumeLedgerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = project(td)
             for stamp in (1000.0, 1060.0, 1180.0):
-                asset_resume.note_round(proj, ["CHAR_001"], limit=3, now=stamp)
+                note(proj, ["CHAR_001"], limit=3, now=stamp)
             self.assertEqual(asset_resume.attempts(proj), 3)
             self.assertEqual(saved(proj)["CHAR_001"]["state"], "stopped")
             self.assertIsNone(asset_resume.delay(proj, now=1180.0), "到顶了就不再排下一次")
@@ -59,8 +64,8 @@ class ResumeLedgerTests(unittest.TestCase):
     def test_assets_that_got_their_picture_drop_out_of_the_ledger(self):
         with tempfile.TemporaryDirectory() as td:
             proj = project(td)
-            asset_resume.note_round(proj, ["CHAR_001", "LOC_001"], limit=3, now=1000.0)
-            asset_resume.note_round(proj, ["LOC_001"], limit=3, now=1060.0)
+            note(proj, ["CHAR_001", "LOC_001"], limit=3, now=1000.0)
+            note(proj, ["LOC_001"], limit=3, now=1060.0)
             data = saved(proj)
             self.assertEqual(sorted(data), ["LOC_001"], "出图了的编号要跟着摘掉")
             self.assertEqual(data["LOC_001"]["attempts"], 2)
@@ -68,15 +73,15 @@ class ResumeLedgerTests(unittest.TestCase):
     def test_an_empty_round_clears_the_ledger(self):
         with tempfile.TemporaryDirectory() as td:
             proj = project(td)
-            asset_resume.note_round(proj, ["CHAR_001"], limit=3, now=1000.0)
-            self.assertEqual(asset_resume.note_round(proj, []), {})
+            note(proj, ["CHAR_001"], limit=3, now=1000.0)
+            self.assertEqual(note(proj, []), {})
             self.assertFalse(asset_resume.path(proj).is_file())
             self.assertIsNone(asset_resume.delay(proj))
 
     def test_clearing_removes_the_file_and_a_second_clear_is_harmless(self):
         with tempfile.TemporaryDirectory() as td:
             proj = project(td)
-            asset_resume.note_round(proj, ["CHAR_001"], limit=3, now=1000.0)
+            note(proj, ["CHAR_001"], limit=3, now=1000.0)
             asset_resume.clear(proj)
             self.assertFalse(asset_resume.path(proj).is_file())
             asset_resume.clear(proj)
