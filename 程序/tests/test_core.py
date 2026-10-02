@@ -151,7 +151,7 @@ class ResidualProjectTests(unittest.TestCase):
         desk=Desktop.__new__(Desktop)
         desk.root=Path(tempfile.gettempdir())
         desk.status=type('Status',(),{'value':'', 'set':lambda self,value:setattr(self,'value',value)})()
-        with mock.patch('legacy_adoption_service.record_legacy_adoption',side_effect=OSError('归档目录不可写')):
+        with mock.patch('stage_execution_service.record_stage_legacy_adoption',side_effect=OSError('归档目录不可写')):
             self.assertIsNone(desk.record_legacy_adoption([desk.root/'writing']))
         self.assertIn('旧目录归位记录未写入',desk.status.value)
 

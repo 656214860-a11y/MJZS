@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import hollmwood_roles as roles
+from agent.core import save_text
 from model_router import ModelAdapter
 
 
@@ -42,7 +43,7 @@ class RolesTests(unittest.TestCase):
                 adapter = EmptyContentAdapter()
                 with self.assertRaisesRegex(roles.RoleExecutionError, '模型未返回可显示正文'):
                     roles._ask(adapter, 'test-model', role, '创作规则', '创作请求',
-                               folder, 2, None)
+                               folder, 2, None, publish_log=save_text)
                 self.assertEqual(len(adapter.requests), 1, '非导演角色不能无边界重试')
                 self.assertEqual(adapter.requests[0][1]['max_tokens'],
                                  roles.CONTENT_ROLE_MAX_TOKENS)
@@ -65,7 +66,7 @@ class RolesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             adapter = RetryAdapter()
             result = roles._ask(adapter, 'test-model', 'director', '导演规则', '初始任务',
-                                folder, 1, None)
+                                folder, 1, None, publish_log=save_text)
         self.assertEqual(result, '可见导演计划')
         self.assertEqual(len(adapter.requests), 2)
         for messages, _options, system in adapter.requests:
@@ -91,7 +92,8 @@ class RolesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             adapter = EmptyDirectorAdapter()
             with self.assertRaisesRegex(roles.RoleExecutionError, '模型未生成导演正文'):
-                roles._ask(adapter, 'test-model', 'director', '规划', '生成节奏计划', folder, 1, None)
+                roles._ask(adapter, 'test-model', 'director', '规划', '生成节奏计划', folder, 1, None,
+                           publish_log=save_text)
             self.assertEqual(adapter.calls, 2, '空导演正文只允许补发一次')
             self.assertEqual(adapter.requests[1][1]['max_tokens'], roles.DIRECTOR_RETRY_MAX_TOKENS)
             self.assertIn('直接输出完整、可执行的导演节奏计划', adapter.requests[1][0][0]['content'])
@@ -114,7 +116,7 @@ class RolesTests(unittest.TestCase):
             adapter = EmptyReviewAdapter()
             with self.assertRaisesRegex(roles.RoleExecutionError, '模型未生成审核正文'):
                 roles._ask(adapter, 'test-model', 'director_review_writer', '审核', '审核候选剧本',
-                           folder, 3, None)
+                           folder, 3, None, publish_log=save_text)
             self.assertEqual(adapter.calls, 2, '空审核正文只允许补发一次')
             final_log = Path(folder) / 'hollmwood_step_3.log'
             self.assertIn('reasoning_content', final_log.read_text(encoding='utf-8'))
@@ -125,7 +127,7 @@ class RolesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             adapter = FakeAdapter(answers)
             result = roles.run(adapter, 'test-model', {'idea': '少年发现秘密'},
-                               rhythm_template={'rules': 'hook'}, log_folder=folder)
+                               rhythm_template={'rules': 'hook'}, log_folder=folder, publish_log=save_text)
             self.assertEqual(result['script'], '演员稿')
             files = sorted(Path(folder).glob('hollmwood_step_*.log'))
             self.assertEqual(len(files), 7)
@@ -147,7 +149,7 @@ class RolesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             adapter = FakeAdapter(answers)
             roles.run(adapter, 'test-model', '创意', rhythm_template='全局节奏', log_folder=folder,
-                      skill_instructions='仅编剧可见的 SKILL 规则')
+                      skill_instructions='仅编剧可见的 SKILL 规则', publish_log=save_text)
         self.assertIn('仅编剧可见的 SKILL 规则', adapter.systems[1])
         self.assertIn('仅编剧可见的 SKILL 规则', adapter.systems[3])
         for index, system in enumerate(adapter.systems):
@@ -170,7 +172,7 @@ class RolesTests(unittest.TestCase):
             with self.assertRaisesRegex(roles.RoleExecutionError, '上下文过长'):
                 roles._ask(adapter, 'test-model', 'writer', '规则',
                            '剧本' * (roles.REQUEST_CONTEXT_MAX_CHARS + 1),
-                           folder, 2, None)
+                           folder, 2, None, publish_log=save_text)
             self.assertEqual(adapter.calls, 0)
             log = Path(folder) / 'hollmwood_step_2.log'
             self.assertIn('安全预算', log.read_text(encoding='utf-8'))
@@ -181,7 +183,7 @@ class RolesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             adapter = FakeAdapter(answers)
             roles.run(adapter, 'test-model', '创意', rhythm_template='规则', log_folder=folder,
-                      director_rules='导演必须保留雨伞这个关键道具')
+                      director_rules='导演必须保留雨伞这个关键道具', publish_log=save_text)
         self.assertIn('雨伞', adapter.systems[0])
         self.assertIn('雨伞', adapter.systems[2])
         self.assertNotIn('雨伞', adapter.systems[1])
@@ -191,7 +193,7 @@ class RolesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaises(roles.RoleExecutionError):
                 roles.run(FakeAdapter(answers), 'test-model', '创意', rhythm_template='规则',
-                          log_folder=folder, max_revisions=1)
+                          log_folder=folder, max_revisions=1, publish_log=save_text)
 
     def test_contract_reference_points_to_project_template(self):
         self.assertEqual(roles.RHYTHM_TEMPLATE_PATH, 'skills/templates/rhythm_template.yaml')
@@ -203,7 +205,7 @@ class RolesTests(unittest.TestCase):
             with self.assertRaises(roles.RoleCancelledError):
                 roles.run(adapter, 'test-model', '创意', rhythm_template='规则', log_folder=folder,
                           emit=lambda role, step: events.append((role, step)),
-                          cancelled=lambda: bool(events))
+                          cancelled=lambda: bool(events), publish_log=save_text)
         self.assertEqual(events, [('director', 1)])
         self.assertEqual(len(adapter.systems), 1, '取消后不再启动后续角色')
 

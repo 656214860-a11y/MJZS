@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from agent.core import read
+from agent.core import read, save
 from desktop_settings_service import publish_desktop_settings
 
 
@@ -13,7 +13,7 @@ class DesktopSettingsServiceTests(unittest.TestCase):
             path = Path(temp) / 'desktop_settings.json'
             current = {'comfy_url': 'http://127.0.0.1:8188', 'jianying': ''}
 
-            saved = publish_desktop_settings(path, current, {'jianying': 'C:/Jianying.exe'})
+            saved = publish_desktop_settings(path, current, {'jianying': 'C:/Jianying.exe'}, publish=save)
 
             self.assertEqual('', current['jianying'])
             self.assertEqual('http://127.0.0.1:8188', saved['comfy_url'])
@@ -24,9 +24,10 @@ class DesktopSettingsServiceTests(unittest.TestCase):
             path = Path(temp) / 'desktop_settings.json'
             current = {'comfy_exe': 'old.exe'}
 
-            with patch('desktop_settings_service.save', side_effect=OSError('disk full')):
+            with patch('agent.core.save', side_effect=OSError('disk full')):
                 with self.assertRaisesRegex(OSError, 'disk full'):
-                    publish_desktop_settings(path, current, {'comfy_exe': 'new.exe'})
+                    publish_desktop_settings(path, current, {'comfy_exe': 'new.exe'},
+                                             publish=__import__('agent.core', fromlist=['save']).save)
 
             self.assertEqual({'comfy_exe': 'old.exe'}, current)
             self.assertFalse(path.exists())

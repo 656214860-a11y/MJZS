@@ -3516,8 +3516,8 @@ class Desktop:
     def record_legacy_adoption(self,made):
         """归位留一笔记录（升级说明要照着看）：_archive/logs/旧目录归位.json。"""
         try:
-            from legacy_adoption_service import record_legacy_adoption
-            return record_legacy_adoption(self.root,made)
+            from stage_execution_service import record_stage_legacy_adoption
+            return record_stage_legacy_adoption(self.root,made)
         except (OSError,ValueError,TypeError,KeyError) as exc:
             # 已完成的目录归位不能回滚，但审计记录失败必须让用户知道它不可追溯。
             self.status.set('旧目录归位记录未写入：%s；请稍后重试。' % exc)
@@ -3589,15 +3589,15 @@ class Desktop:
         return None
     def remember_daily_project_choice(self,path):
         """仅记录项目入口，不写入用户的剧本、分镜或阶段配置。"""
-        from desktop_settings_service import publish_desktop_settings
-        self.settings=publish_desktop_settings(self.settings_file,self.settings,{
+        from stage_execution_service import publish_desktop_preferences
+        self.settings=publish_desktop_preferences(self.settings_file,self.settings,{
             'project_choice_day':date.today().isoformat(),
             'project_choice_path':str(path),
         })
 
     def _sync_desktop_project_paths(self,old_path,new_path):
         """认领成功后同步桌面级入口；项目文件改写仍归 Projects 的事务。"""
-        from desktop_settings_service import publish_desktop_settings
+        from stage_execution_service import publish_desktop_preferences
         old=Path(old_path);new=Path(new_path);updates={}
         if self.settings.get('project_choice_path')==str(old):
             updates['project_choice_path']=str(new)
@@ -3609,7 +3609,7 @@ class Desktop:
                 except ValueError:pass
             migrated[str(new)]=value;updates['frame_json_by_project']=migrated
         if updates:
-            self.settings=publish_desktop_settings(self.settings_file,self.settings,updates)
+            self.settings=publish_desktop_preferences(self.settings_file,self.settings,updates)
     def choose_project(self):
         # 自动续开项目时，三虎的量测只排到这次选择交回事件循环之后；否则
         # 它的 ``update_idletasks`` 会重入本调用栈并放大启动时间。
@@ -5398,8 +5398,8 @@ class Desktop:
             selected=filedialog.askopenfilename(title='选择 ComfyUI 桌面版程序',filetypes=[('程序','*.exe')],parent=self.win)
             if not selected:return
             exe=Path(selected)
-            from desktop_settings_service import publish_desktop_settings
-            self.settings=publish_desktop_settings(self.settings_file,self.settings,{'comfy_exe':str(exe)})
+            from stage_execution_service import publish_desktop_preferences
+            self.settings=publish_desktop_preferences(self.settings_file,self.settings,{'comfy_exe':str(exe)})
         from native_apps import open_comfy
         open_comfy({**self.settings,'comfy_exe':str(exe)})
         self.status.set('已打开本地 ComfyUI；可在桌面窗口查看工作流和调整参数。')
@@ -6628,8 +6628,8 @@ class Desktop:
         for executable in candidates:
             if executable.is_file():
                 if str(executable)!=saved:
-                    from desktop_settings_service import publish_desktop_settings
-                    self.settings=publish_desktop_settings(self.settings_file,self.settings,{'jianying':str(executable)})
+                    from stage_execution_service import publish_desktop_preferences
+                    self.settings=publish_desktop_preferences(self.settings_file,self.settings,{'jianying':str(executable)})
                 return executable
         return None
     def find_editor_shortcut(self):

@@ -1,10 +1,7 @@
 """Atomic persistence for desktop-wide, non-project preferences."""
 from pathlib import Path
 
-from agent.core import save
-
-
-def publish_desktop_settings(settings_path, current, updates):
+def publish_desktop_settings(settings_path, current, updates, *, publish=None):
     """Merge desktop preference changes without mutating the caller on failure."""
     if not isinstance(current, dict):
         raise ValueError('桌面设置必须为对象')
@@ -16,5 +13,7 @@ def publish_desktop_settings(settings_path, current, updates):
     if path.name != 'desktop_settings.json':
         raise ValueError('桌面设置只能写入 desktop_settings.json')
     merged = {**current, **updates}
-    save(path, merged)
+    if not callable(publish):
+        raise TypeError('桌面设置发布需要 L3 注入发布器')
+    publish(path, merged)
     return merged

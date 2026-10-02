@@ -112,6 +112,33 @@ def reply_to_writing(project, creative, progress=None, cancelled=None, stream=No
                  publish=publish_stage_text)
 
 
+def desktop_settings_gateway():
+    """L3 为桌面级偏好设置注入唯一 JSON 发布器。"""
+    from agent.core import save
+    return {'publish_json': save}
+
+
+def publish_desktop_preferences(settings_path, current, updates):
+    """桌面设置持久化只经 L3 装配的发布器。"""
+    from desktop_settings_service import publish_desktop_settings
+    return publish_desktop_settings(settings_path, current, updates,
+                                    publish=desktop_settings_gateway()['publish_json'])
+
+
+def legacy_adoption_gateway():
+    """L3 为旧目录归位记录装配目录与 JSON 发布能力。"""
+    from agent.core import save
+    return {'publish_json': save,
+            'make_dir': lambda folder: Path(folder).mkdir(parents=True, exist_ok=True)}
+
+
+def record_stage_legacy_adoption(project, linked_paths, now=None):
+    """旧目录归位记录只经 L3 网关发布。"""
+    from legacy_adoption_service import record_legacy_adoption
+    return record_legacy_adoption(project, linked_paths, now=now,
+                                  gateway=legacy_adoption_gateway())
+
+
 def archive_idea_attachments(project, paths, now=None):
     """剧本准备附档归档编排：L3 注入统一文本阶段发布器。"""
     from idea_attachments import store

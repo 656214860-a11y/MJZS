@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-        "count": 8,
+        "count": 5,
         "baseline_pending": 66,
         "items": [
             {
@@ -350,20 +350,20 @@
             {
                 "file": "desktop_settings_service.py",
                 "point": "publish_desktop_settings",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R822：桌面级偏好设置改由 L3 desktop_settings_gateway 注入正式 JSON 发布器。"
             },
             {
                 "file": "hollmwood_roles.py",
                 "point": "_write_log",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R822：四角色协作日志改由 L3 writing_api.hollmwood_gateway 注入正式文本发布器。"
             },
             {
                 "file": "legacy_adoption_service.py",
                 "point": "record_legacy_adoption",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R822：旧目录归位日志的目录创建与 JSON 发布改由 L3 legacy_adoption_gateway 注入。"
             },
             {
                 "file": "projects.py",

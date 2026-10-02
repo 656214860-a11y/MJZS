@@ -62,6 +62,12 @@ def idea_chat_gateway():
     }
 
 
+def hollmwood_gateway():
+    """L3 剧本编排为四角色日志注入唯一文本发布器。"""
+    from agent.core import save_text
+    return {'publish_log': save_text}
+
+
 def _record_model_diagnostic(project, result, purpose='chat'):
     """保存无正文/协议诊断的安全元数据，绝不把对话或推理正文写入日志。"""
     try:
@@ -242,6 +248,7 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
             director_rules=director_rules or None,
             role_rules=role_rules,
             stream=stream,
+            publish_log=hollmwood_gateway()['publish_log'],
         )
     except hollmwood_roles.RoleCancelledError:
         raise

@@ -10,7 +10,6 @@ from pathlib import Path
 import json
 import time
 
-from agent.core import save_text
 from model_router import ModelAdapter
 from script_contract import RHYTHM_TEMPLATE_PATH
 
@@ -38,7 +37,7 @@ def _ensure_active(cancelled):
         raise RoleCancelledError('HOLLMWOOD 调用已取消')
 
 
-def _ensure_context_budget(role, system, prompt, log_folder, step):
+def _ensure_context_budget(role, system, prompt, log_folder, step, *, publish_log=None):
     """在模型调用前拒绝过长上下文，避免推理字段耗尽可见输出。"""
     size = len(str(system or '')) + len(str(prompt or ''))
     if size <= REQUEST_CONTEXT_MAX_CHARS:
@@ -46,7 +45,7 @@ def _ensure_context_budget(role, system, prompt, log_folder, step):
     error = ('上下文过长：%s 角色请求为 %d 字符，超过 %d 字符安全预算；'
              '请缩短简报、节奏模板或编剧角色 SKILL 指令后重试。' %
              (role, size, REQUEST_CONTEXT_MAX_CHARS))
-    _write_log(log_folder, step, str(role) + '_context_rejected', error)
+    _write_log(log_folder, step, str(role) + '_context_rejected', error, publish=publish_log)
     raise RoleExecutionError('%s 角色执行失败：%s' % (role, error))
 
 
@@ -67,11 +66,13 @@ def _body(value):
     raise TypeError('brief_complete 和 rhythm_template 必须是 dict 或字符串')
 
 
-def _write_log(folder, step, role, text):
+def _write_log(folder, step, role, text, *, publish=None):
     """每次角色输出单独留痕，便于定位未通过的导演审核。"""
     directory = Path(folder)
     path = directory / ('hollmwood_step_%d.log' % int(step))
-    save_text(path, '[%s]\n%s\n' % (role, text))
+    if not callable(publish):
+        raise TypeError('HOLLMWOOD 日志发布需要 L3 注入发布器')
+    publish(path, '[%s]\n%s\n' % (role, text))
     return path
 
 
@@ -109,12 +110,13 @@ def _empty_output_detail(result, retried=False):
     return meta
 
 
-def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled=None, stream=None):
+def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled=None, stream=None,
+         *, publish_log=None):
     """通过既有 ModelAdapter 执行一次角色请求，并写出该步的结果日志。"""
     if not isinstance(adapter, ModelAdapter):
         raise TypeError('HOLLMWOOD 必须接收 model_router 的 ModelAdapter')
     _ensure_active(cancelled)
-    _ensure_context_budget(role, system, prompt, log_folder, step)
+    _ensure_context_budget(role, system, prompt, log_folder, step, publish_log=publish_log)
     if emit:
         emit(role, step)
     # 首个导演规划和导演审核只要返回空正文才补发一次；网络/协议错误不重试，避免放大失败或费用。
@@ -158,7 +160,8 @@ def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled
         if attempt == 0:
             retried = True
             _write_log(log_folder, step, role + '_empty_retry',
-                       json.dumps(_empty_output_detail(result, retried=True), ensure_ascii=False, sort_keys=True))
+                       json.dumps(_empty_output_detail(result, retried=True), ensure_ascii=False, sort_keys=True),
+                       publish=publish_log)
     if not (result or {}).get('ok') or not text:
         if empty_retry and (result or {}).get('ok') and not text:
             detail = _empty_output_detail(result, retried=retried)
@@ -169,9 +172,9 @@ def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled
                      + '）；响应诊断=' + json.dumps(detail, ensure_ascii=False, sort_keys=True))
         else:
             error = str((result or {}).get('error') or '模型未返回可显示正文')
-        _write_log(log_folder, step, role + '_failed', error)
+        _write_log(log_folder, step, role + '_failed', error, publish=publish_log)
         raise RoleExecutionError('%s 角色执行失败：%s' % (role, error))
-    _write_log(log_folder, step, role, text)
+    _write_log(log_folder, step, role, text, publish=publish_log)
     return text
 
 
@@ -222,15 +225,17 @@ def default_role_rules(role):
     return defaults.get(str(role), '')
 
 
-def _revision(adapter, model, role, system, original, review, log_folder, step, emit, cancelled=None):
+def _revision(adapter, model, role, system, original, review, log_folder, step, emit, cancelled=None,
+              *, publish_log=None):
     prompt = ('请根据导演退回意见重写完整剧本。\n\n<director_review>\n%s\n</director_review>'
               '\n\n<previous_script>\n%s\n</previous_script>' % (review, original))
-    return _ask(adapter, model, role + '_revision', system, prompt, log_folder, step, emit, cancelled)
+    return _ask(adapter, model, role + '_revision', system, prompt, log_folder, step, emit, cancelled,
+                publish_log=publish_log)
 
 
 def run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
         max_revisions=MAX_REVISIONS, emit=None, skill_instructions='', cancelled=None,
-        director_rules=None, role_rules=None, stream=None):
+        director_rules=None, role_rules=None, stream=None, *, publish_log=None):
     """串行运行导演、编剧、编辑、演员并执行三次导演门禁。
 
     返回包含 ``script``、``director_plan`` 与各角色最终正文的字典。最终正文仍只在内存；
@@ -259,11 +264,11 @@ def run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
     step = 1
     plan = _ask(adapter, model, 'director', director_system,
                 '<brief_complete>\n%s\n</brief_complete>' % brief,
-                log_folder, step, emit, cancelled)
+                log_folder, step, emit, cancelled, publish_log=publish_log)
     step += 1
     writer = _ask(adapter, model, 'writer', writer_system,
                   '<director_instruction>\n%s\n</director_instruction>\n\n<brief_complete>\n%s\n</brief_complete>'
-                  % (plan, brief), log_folder, step, emit, cancelled)
+                  % (plan, brief), log_folder, step, emit, cancelled, publish_log=publish_log)
 
     stages = (('writer', writer, writer_system),
               ('editor', None, editor_system),
@@ -275,14 +280,15 @@ def run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
             step += 1
             current = _ask(adapter, model, role, system,
                            '<director_instruction>\n%s\n</director_instruction>\n\n<current_script>\n%s\n</current_script>'
-                           % (plan, current), log_folder, step, emit, cancelled, stream)
+                           % (plan, current), log_folder, step, emit, cancelled, stream,
+                           publish_log=publish_log)
         attempts = 0
         while True:
             step += 1
             review = _ask(adapter, model, 'director_review_' + role, review_system,
                           ('请审核 %s 的候选剧本。\n\n<candidate>\n%s\n</candidate>' %
                            (role, current)),
-                          log_folder, step, emit, cancelled)
+                          log_folder, step, emit, cancelled, publish_log=publish_log)
             if _approved(review):
                 outputs[role] = current
                 break
@@ -290,6 +296,7 @@ def run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
                 raise RoleExecutionError('导演未通过 %s：%s' % (role, review))
             attempts += 1
             step += 1
-            current = _revision(adapter, model, role, system, current, review, log_folder, step, emit, cancelled)
+            current = _revision(adapter, model, role, system, current, review, log_folder, step, emit, cancelled,
+                                publish_log=publish_log)
     outputs['script'] = outputs['actor']
     return outputs
