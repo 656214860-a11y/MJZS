@@ -68,6 +68,45 @@ class SkillReferenceInjectionTests(unittest.TestCase):
             for anchor in anchors:
                 self.assertIn(anchor, headings, '%s 缺目标章节 %s' % (relative, anchor))
 
+    def test_asset_and_continuity_stages_keep_canon_and_audit_separate(self):
+        expected = {
+            '04资产管理SKILL/pipeline-assets.skill.md': (
+                'continuity-bible.md#the-identity-string-contract',
+                'image-model-adapters.md#4-character-consistency-playbook-cheapest-first',
+                '不得进入正典',
+                '不能把它们伪装为本阶段已验证规则',
+            ),
+            '05连贯性SKILL/pipeline-continuity.skill.md': (
+                'continuity-bible.md#the-continuity-axes',
+                'failure-modes.md#f7-continuity-break-across-shots',
+                '未解决冲突必须保留到 `repairList`',
+                '不取得 D 锁的段缝放行权',
+            ),
+        }
+        for relative, fragments in expected.items():
+            text = (SKILLS / relative).read_text(encoding='utf-8')
+            self.assertIn('## 定向注入（00 包）', text, relative)
+            self.assertIn('不得加载 00 包全文', text, relative)
+            for fragment in fragments:
+                self.assertIn(fragment, text, '%s 缺定向章节或门控 %s' % (relative, fragment))
+
+    def test_asset_and_continuity_sources_contain_the_named_sections(self):
+        expected = {
+            'cinematic-director/references/continuity-bible.md': (
+                '## The continuity axes', '## The identity string contract',
+                '## Character schema', '## Asset naming convention',
+                '## Shot-to-shot continuity schema', '## State-change ledger'),
+            'cinematic-director/references/image-model-adapters.md': (
+                '## 4. Character consistency playbook, cheapest first',),
+            'cinematic-director/references/failure-modes.md': (
+                '### F7 — Continuity break across shots',
+                '### F19 — Object permanence break（对象消失）'),
+        }
+        for relative, headings in expected.items():
+            text = (SKILLS / '00全流程SKILL' / relative).read_text(encoding='utf-8')
+            for heading in headings:
+                self.assertIn(heading, text, '%s 缺目标章节 %s' % (relative, heading))
+
     def test_emotion_curve_uses_the_12_beat_source_not_the_old_scene_jump_rule(self):
         text = (SKILLS / '01 剧本准备SKILL/script-emotion-curve.skill.md').read_text(encoding='utf-8')
         self.assertIn('emotion-beat-curve.md#一-12-关键节拍点量化模型010-分', text)
