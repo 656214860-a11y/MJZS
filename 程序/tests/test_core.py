@@ -197,6 +197,17 @@ class DailyProjectChoiceTests(unittest.TestCase):
             self.assertTrue(desk.open_project_or_cleanup(old))
             desk.remember_daily_project_choice.assert_called_once_with(new)
 
+    def test_rename_claim_migrates_remembered_and_legacy_board_paths(self):
+        with tempfile.TemporaryDirectory() as td:
+            app=Path(td);old=app/'旧项目';new=app/'新项目';new.mkdir()
+            board=old/'03初步分镜'/'分镜拆分'/'episode.json'
+            desk=Desktop.__new__(Desktop);desk.settings_file=app/'desktop_settings.json'
+            desk.settings={'project_choice_path':str(old),'frame_json_by_project':{str(old):str(board)}}
+            desk._sync_desktop_project_paths(old,new)
+            self.assertEqual(desk.settings['project_choice_path'],str(new))
+            self.assertEqual(desk.settings['frame_json_by_project'][str(new)],
+                             str(new/'03初步分镜'/'分镜拆分'/'episode.json'))
+
     def test_main_window_can_clear_a_missing_project_registration_without_recycling(self):
         with tempfile.TemporaryDirectory() as td:
             missing=Path(td)/'已移走项目'

@@ -3333,7 +3333,9 @@ class Desktop:
             if service is not None:
                 recovered=service.reconcile_missing(path)
                 if recovered.get('state')=='claimed':
+                    original_path=path
                     path=recovered['path']
+                    self._sync_desktop_project_paths(original_path,path)
                     self.status.set('已按新位置同步项目登记')
                 elif recovered.get('state')=='confirm':
                     raise ValueError('项目目录已被改名，找到多个候选目录；请在项目选择窗口点击“重新查找项目”后选择。')
@@ -3551,6 +3553,22 @@ class Desktop:
             'project_choice_day':date.today().isoformat(),
             'project_choice_path':str(path),
         })
+
+    def _sync_desktop_project_paths(self,old_path,new_path):
+        """认领成功后同步桌面级入口；项目文件改写仍归 Projects 的事务。"""
+        from desktop_settings_service import publish_desktop_settings
+        old=Path(old_path);new=Path(new_path);updates={}
+        if self.settings.get('project_choice_path')==str(old):
+            updates['project_choice_path']=str(new)
+        legacy=self.settings.get('frame_json_by_project')
+        if isinstance(legacy,dict) and str(old) in legacy:
+            migrated=dict(legacy);value=migrated.pop(str(old))
+            if isinstance(value,str):
+                try:value=str(new/Path(value).relative_to(old))
+                except ValueError:pass
+            migrated[str(new)]=value;updates['frame_json_by_project']=migrated
+        if updates:
+            self.settings=publish_desktop_settings(self.settings_file,self.settings,updates)
     def choose_project(self):
         # 自动续开项目时，三虎的量测只排到这次选择交回事件循环之后；否则
         # 它的 ``update_idletasks`` 会重入本调用栈并放大启动时间。
@@ -3567,7 +3585,7 @@ class Desktop:
         self._cleanup_project_path=None
         startup=bool(getattr(self,'_startup_project_choice',False));self._startup_project_choice=False
         remembered=self.daily_project_choice() if startup and not cleanup_path else None
-        if remembered and Path(remembered).is_dir():
+        if remembered:
             try:self.load(remembered,defer_page=startup);return
             except (ValueError,OSError):
                 self.status.set('今天选定的项目已不可用，请选择其他项目或导入新剧本')
