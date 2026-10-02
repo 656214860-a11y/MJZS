@@ -133,6 +133,51 @@ class SkillReferenceInjectionTests(unittest.TestCase):
             for fragment in fragments:
                 self.assertIn(fragment, text, '%s 缺定向章节或门控 %s' % (relative, fragment))
 
+    def test_audio_edit_delivery_stages_keep_timeline_and_quality_gates_explicit(self):
+        expected = {
+            '10配音字幕SKILL/pipeline-audio-subtitle.skill.md': (
+                'sound-and-dialogue.md#duration-budgeting',
+                'sound-and-dialogue.md#the-one-speaker-per-clip-rule',
+                '不得发布 `audioManifest`',
+            ),
+            '11后期剪辑SKILL/pipeline-editing.skill.md': (
+                'editing-and-assembly.md#the-assembly-spec',
+                'editing-and-assembly.md#fix-in-the-edit-regenerate-or-cover-it',
+                '不得发布 `previewMaster` 或 `editManifest`',
+            ),
+            '12质检交付SKILL/pipeline-delivery.skill.md': (
+                'failure-modes.md#failure-taxonomy-f1f19',
+                'continuity-bible.md#seed-and-reference-registry',
+                '不得标记交付完成',
+            ),
+        }
+        for relative, fragments in expected.items():
+            text = (SKILLS / relative).read_text(encoding='utf-8')
+            self.assertIn('## 定向注入（00 包）', text, relative)
+            self.assertIn('不得加载 00 包全文', text, relative)
+            for fragment in fragments:
+                self.assertIn(fragment, text, '%s 缺定向章节或门控 %s' % (relative, fragment))
+
+    def test_audio_edit_delivery_sources_contain_the_named_sections(self):
+        expected = {
+            'cinematic-director/references/sound-and-dialogue.md': (
+                '## Dialogue for AI video', '### Duration budgeting',
+                '### The one-speaker-per-clip rule', '## Voice-over'),
+            'cinematic-director/references/editing-and-assembly.md': (
+                '## Pacing math', '## Cut motivation taxonomy',
+                '### The hard-cut agreement checklist', '## The assembly spec',
+                '## Fix in the edit, regenerate, or cover it'),
+            'cinematic-director/references/failure-modes.md': (
+                '## 60-second triage tree', '## The cost ladder',
+                '## Failure taxonomy F1–F19'),
+            'cinematic-director/references/continuity-bible.md': (
+                '## Seed and reference registry',),
+        }
+        for relative, headings in expected.items():
+            text = (SKILLS / '00全流程SKILL' / relative).read_text(encoding='utf-8')
+            for heading in headings:
+                self.assertIn(heading, text, '%s 缺目标章节 %s' % (relative, heading))
+
     def test_emotion_curve_uses_the_12_beat_source_not_the_old_scene_jump_rule(self):
         text = (SKILLS / '01 剧本准备SKILL/script-emotion-curve.skill.md').read_text(encoding='utf-8')
         self.assertIn('emotion-beat-curve.md#一-12-关键节拍点量化模型010-分', text)
