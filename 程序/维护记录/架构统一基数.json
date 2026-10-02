@@ -92,7 +92,7 @@
         ]
     },
     "\u7b2c\u4e09\u9879": {
-    "count": 18,
+    "count": 17,
         "baseline_pending": 66,
         "items": [
             {
@@ -254,8 +254,8 @@
             {
                 "file": "pet_test_service.py",
                 "point": "record",
-                "disposition": "pending",
-                "reason": ""
+                "disposition": "migrated",
+                "reason": "R806：宠物测试账本发布改由 L3 pet_test_gateway 注入。"
             },
             {
                 "file": "previs_progress_service.py",
@@ -1011,19 +1011,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "380",
+                "point": "399",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "411",
+                "point": "430",
                 "disposition": "pending",
                 "reason": ""
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "424",
+                "point": "443",
                 "disposition": "pending",
                 "reason": ""
             },
@@ -1209,7 +1209,7 @@
             },
             {
                 "file": "pet_test_service.py",
-                "point": "72",
+                "point": "74",
                 "disposition": "pending",
                 "reason": "\u670d\u52a1\u8fdb\u7a0b\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u662f\u5426\u6b63\u5f0f\u8d44\u6e90\u76ee\u6807"
             },

@@ -69,6 +69,25 @@ def poll_pet_performance_check(session, at=None):
                               publish=pet_performance_gateway()['publish_json'])
 
 
+def pet_test_gateway():
+    """L3 为宠物增量自检账本装配唯一的 JSON 发布器。"""
+    from agent.core import save
+    return {'publish_json': save}
+
+
+def start_pet_test_check(program, text=''):
+    """L3 编排宠物增量自检启动；L4 不直接调用 L2 服务。"""
+    from pet_test_service import start_incremental
+    return start_incremental(program, text)
+
+
+def poll_pet_test_check(session, project, at=None):
+    """L3 轮询宠物增量自检，并向 L2 注入正式账本发布器。"""
+    from pet_test_service import poll_incremental
+    return poll_incremental(session, project, at=at,
+                            publish=pet_test_gateway()['publish_json'])
+
+
 def import_stage_audio(project, source):
     """音频导入编排：L3 注入唯一二进制发布器。"""
     from audio_import_service import import_audio

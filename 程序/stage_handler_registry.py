@@ -75,6 +75,22 @@ def poll_pet_performance(session, at=None):
     return poll_pet_performance_check(session, at=at)
 
 
+def _start_pet_test(desktop, text):
+    """三虎增量自检经统一 L3 启动入口，返回既有轮询会话。"""
+    from stage_execution_service import start_pet_test_check
+    pet = getattr(desktop, 'pet', None)
+    program = getattr(pet, 'program', None)
+    if not program or getattr(desktop, 'root', None) is None:
+        raise RuntimeError('缺少增量自检所需的程序或项目路径')
+    return start_pet_test_check(program, text)
+
+
+def poll_pet_test(session, project, at=None):
+    """三虎增量自检的 L3 轮询入口，继续注入账本发布器。"""
+    from stage_execution_service import poll_pet_test_check
+    return poll_pet_test_check(session, project, at=at)
+
+
 def start(desktop, stage, trigger='auto', fallback=None, **options):
     """三虎唯一的 L3 启动指令入口。"""
     error = _workflow_lock_error(getattr(desktop, 'root', None), stage, trigger)
@@ -84,6 +100,8 @@ def start(desktop, stage, trigger='auto', fallback=None, **options):
         return _start_storyboard(desktop, trigger)
     if stage == 'pet_performance':
         return _start_pet_performance(desktop, options.get('kind', 'startup'))
+    if stage == 'pet_test':
+        return _start_pet_test(desktop, options.get('text', ''))
     if callable(fallback):
         return fallback(stage, trigger)
     return ''

@@ -71,6 +71,8 @@
 
 ### 已验证的发布边界
 
+R806 将三虎增量自检账本纳入 L3 发布边界：`pet_test_service.record()` 不再自行发布项目 JSON，`stage_execution_service.poll_pet_test_check()` 通过 `pet_test_gateway()` 注入原子发布器；`pet_ui` 只经 `stage_handler_registry.start()` 启动并由 L3 轮询。重复次数、失败用例脱敏摘要与失败时不落账本的语义不变。
+
 R805 将三虎优化账本纳入 L3 发布边界：`pet_performance_service.record()` 不再自行发布项目 JSON，`stage_execution_service.poll_pet_performance_check()` 通过 `pet_performance_gateway()` 注入原子发布器；`pet_ui` 只委托 L3 启动与轮询。离线基准脚本、阈值比较、摘要格式与失败时不落账本的语义不变。
 
 R713 将确认门禁的项目确认记录 JSON 纳入“读走缓存、写走原子服务”迁移：`confirm_gates.confirmations()` 改经 `file_cache.read_json()` 读取，`record()`／`forget()` 仍只经 `agent.core.save()` 原子发布；缓存随发布失效，确认项的缺失／损坏回退与门禁语义不变。

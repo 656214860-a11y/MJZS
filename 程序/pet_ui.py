@@ -1742,9 +1742,8 @@ class Pet:
             self.notice = '还没打开项目，无法写入测试台账。'
             return self.notice
         try:
-            import pet_test_service
-            self._test_session = pet_test_service.start_incremental(
-                self.program, str(params.get('text') or ''))
+            self._test_session = stage_handler_registry.start(
+                self.desktop, 'pet_test', trigger='manual', text=str(params.get('text') or ''))
             self.notice = '增量自检已启动，完成后汇报成功率与失败用例。'
         except Exception as exc:
             self.errors.append(('test.start', str(exc)))
@@ -1756,8 +1755,8 @@ class Pet:
         if self._test_session is None:
             return ''
         try:
-            import pet_test_service
-            result = pet_test_service.poll_incremental(self._test_session, self.desktop.root, at=at)
+            result = stage_handler_registry.poll_pet_test(
+                self._test_session, self.desktop.root, at=at)
             if result is None or result.get('running'):
                 return ''
             self._test_session = None

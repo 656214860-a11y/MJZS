@@ -7,7 +7,7 @@ import pet_test_service
 import pet_agent
 import pet_performance_service
 from agent.core import save
-from stage_execution_service import poll_pet_performance_check
+from stage_execution_service import poll_pet_performance_check, poll_pet_test_check
 
 
 class PetTestServiceTests(unittest.TestCase):
@@ -44,7 +44,7 @@ class PetTestServiceTests(unittest.TestCase):
             project = Path(folder) / '项目'
             result = pet_test_service.run_incremental(
                 folder, project, '跑 2 次测试', at=12,
-                invoke=lambda _args, _cwd: next(outputs))
+                invoke=lambda _args, _cwd: next(outputs), publish=save)
             self.assertEqual(result['item']['passed'], 1)
             self.assertEqual(result['item']['total'], 2)
             self.assertEqual(result['failures'], ['test_demo'])
@@ -59,7 +59,8 @@ class PetTestServiceTests(unittest.TestCase):
             session = {'program': Path(folder), 'command': ['python'],
                        'process': SimpleNamespace(poll=lambda: 0, returncode=0),
                        'output': output, 'repeats': 1, 'runs': []}
-            result = pet_test_service.poll_incremental(session, Path(folder) / 'project', at=9)
+            result = pet_test_service.poll_incremental(
+                session, Path(folder) / 'project', at=9, publish=save)
             self.assertFalse(result['running'])
             self.assertEqual(result['item']['success_rate'], 1.0)
             self.assertNotIn('Ran 2 tests', str(result['item']))
@@ -179,3 +180,27 @@ class PetTestServiceTests(unittest.TestCase):
         self.assertIn('stage_handler_registry.poll_pet_performance', source)
         self.assertNotIn('import pet_performance_service', source)
         self.assertNotIn('stage_execution_service.', source)
+
+    def test_pet_test_record_requires_l3_publisher(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(TypeError, 'L3'):
+                pet_test_service.record(folder, [], at=5)
+
+    def test_l3_poll_injects_pet_test_publisher(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = tempfile.TemporaryFile(mode='w+b')
+            output.write(b'Ran 2 tests\nOK')
+            output.flush()
+            project = Path(folder) / '项目'
+            session = {'program': Path(folder), 'command': ['python'],
+                       'process': SimpleNamespace(poll=lambda: 0, returncode=0),
+                       'output': output, 'repeats': 1, 'runs': []}
+            result = poll_pet_test_check(session, project, at=9)
+            self.assertFalse(result['running'])
+            self.assertTrue((project / '工作流任务' / '宠物' / '测试.json').is_file())
+
+    def test_pet_ui_only_delegates_test_flow_to_l3(self):
+        source = (Path(__file__).resolve().parents[1] / 'pet_ui.py').read_text(encoding='utf-8')
+        self.assertIn("stage_handler_registry.start(", source)
+        self.assertIn('stage_handler_registry.poll_pet_test', source)
+        self.assertNotIn('import pet_test_service', source)
