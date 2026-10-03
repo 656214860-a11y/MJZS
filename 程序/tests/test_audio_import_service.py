@@ -91,7 +91,7 @@ class AudioImportServiceTests(unittest.TestCase):
         dialog = Mock()
         namespace = {'FileDialog': dialog}
         exec(compile(ast.Module(body=methods, type_ignores=[]), str(source), 'exec'), namespace)
-        with patch('stage_workspace_service.ensure_audio_workspace', return_value=(self.root, self.root)):
+        with patch('stage_workspace_service.ensure_audio_workspace', return_value=success((self.root, self.root))):
             for result in [SystemError('导入失败'), success(self.source)]:
                 app = Mock()
                 dialog.return_value.open_file.return_value = str(self.source)

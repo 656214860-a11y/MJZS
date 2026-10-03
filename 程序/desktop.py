@@ -3811,7 +3811,9 @@ class Desktop:
     def import_json(self):
         if self.root:
             from stage_workspace_service import ensure_storyboard_workspace
-            base=ensure_storyboard_workspace(self.root)
+            result=ensure_storyboard_workspace(self.root)
+            if not result.ok:raise ValueError(result.reason)
+            base=result.data
         else:
             base=self.projects.base
             base.mkdir(parents=True,exist_ok=True)
@@ -6562,7 +6564,9 @@ class Desktop:
         self.open_flow_agent('audio','配音制作',audio_prompt(self.root,source))
     def audio(self):
         from stage_workspace_service import ensure_audio_workspace
-        audio_dir,subtitle_dir=ensure_audio_workspace(self.root)
+        result=ensure_audio_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
+        audio_dir,subtitle_dir=result.data
         self.note('可导入配音或音乐；按剧本对白时间导出整集SRT。字幕时间需在剪映中听校。')
         # 对白读不出来时不要静默禁用按钮：把原因写在页面上，用户才知道该改哪里。
         dialogue_reason=''
@@ -6610,7 +6614,9 @@ class Desktop:
         audio_button(self.content,'打开 ElevenLabs（浏览器）',lambda:self.safe(lambda:open_target('https://elevenlabs.io/app')))
     def import_audio(self):
         from stage_workspace_service import ensure_audio_workspace
-        folder,_=ensure_audio_workspace(self.root)
+        result=ensure_audio_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
+        folder,_=result.data
         p=FileDialog(self.win).open_file(initialdir=folder,filetypes=[('音频','*.wav *.mp3 *.m4a *.aac')])
         if not p:return
         from stage_execution_service import import_stage_audio
@@ -6644,7 +6650,9 @@ class Desktop:
         from editing_page_controller import EditingPageController
         from stage_workspace_service import ensure_editing_workspace
         controller = EditingPageController(self.root, self.studio)
-        edit_dir,=ensure_editing_workspace(self.root)
+        result=ensure_editing_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
+        edit_dir,=result.data
         from stage_models import manual_command as _manual_edit
         _edit_bar=FlowBar(self.content);_edit_bar.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
         _edit_button=PrimaryButton(_edit_bar,text='手动制作剪辑',width=STAGE_ACTION_WIDTH,
@@ -6752,7 +6760,9 @@ class Desktop:
                               publish=publish_handoff_bundle)
     def delivery(self):
         from stage_workspace_service import ensure_delivery_workspace
-        delivery_dir,export_dir=ensure_delivery_workspace(self.root)
+        result=ensure_delivery_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
+        delivery_dir,export_dir=result.data
         from stage_models import manual_command as _manual_deliver
         _deliver_bar=FlowBar(self.content);_deliver_bar.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
         _deliver_button=PrimaryButton(_deliver_bar,text='手动制作交付',width=STAGE_ACTION_WIDTH,
@@ -6785,7 +6795,9 @@ class Desktop:
     def open_folder(self,p):p.mkdir(exist_ok=True);open_path(p)
     def final_import(self):
         from stage_workspace_service import ensure_delivery_workspace
-        delivery_dir,_=ensure_delivery_workspace(self.root)
+        result=ensure_delivery_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
+        delivery_dir,_=result.data
         p=FileDialog(self.win).open_file(initialdir=delivery_dir,filetypes=[('成片','*.mp4 *.mov')])
         if not p:return
         def work():

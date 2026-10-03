@@ -9,6 +9,7 @@
             "desktop_settings_service",
             "keyframe_lifecycle_service",
             "script_workspace_service",
+            "stage_workspace_service",
             "storyboard_edit_service",
             "subtitle_export_service"
         ],
@@ -21,7 +22,6 @@
             "projects",
             "recycle_recovery_service",
             "script_preview_service",
-            "stage_workspace_service",
             "storyboard_adoption_contract",
             "storyboard_rows_service",
             "storyboard_storage",
