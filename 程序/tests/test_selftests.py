@@ -2,6 +2,8 @@
 """run_selftests 的回归覆盖：门禁调度必须可恢复、可增量、不可遗留后台助手。"""
 import inspect
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import datetime
@@ -12,6 +14,26 @@ import smoke_test
 
 
 class SafeRunnerTests(unittest.TestCase):
+    def test_topmost_tracking_does_not_retain_finished_windows(self):
+        script = '''
+import gc, weakref
+import tkinter as tk
+import run_selftests
+tk.Wm.wm_attributes = lambda self, *args: ''
+run_selftests.sink_test_windows()
+window = tk.Wm()
+window.wm_attributes('-topmost', True)
+assert window.wm_attributes('-topmost') is True
+reference = weakref.ref(window)
+del window
+gc.collect()
+assert reference() is None, 'topmost tracking retains a finished window'
+assert len(tk._drama_wanted_topmost) == 0
+'''
+        result = subprocess.run([sys.executable, '-c', script], cwd=run_selftests.HERE,
+                                capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr[-1500:])
+
     def test_parallel_timeout_records_failure_and_terminates_worker(self):
         from concurrent.futures import Future
         pending = Future()

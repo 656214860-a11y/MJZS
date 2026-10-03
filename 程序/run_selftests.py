@@ -471,12 +471,13 @@ def sink_test_windows():
     只对 Tk／Toplevel 这种真窗口生效，画布之类的子控件不碰（lower 对它们是改同层叠放）。
     """
     import tkinter as tk
+    import weakref
     if getattr(tk, '_drama_sunk_windows', False):
         return
     tk._drama_sunk_windows = True
     original_attrs = tk.Wm.wm_attributes
     tk._drama_real_wm_attributes = original_attrs
-    wanted = tk._drama_wanted_topmost = {}
+    wanted = tk._drama_wanted_topmost = weakref.WeakKeyDictionary()
 
     def wm_attributes(self, *args):
         if len(args) == 2 and args[0] == '-topmost':
