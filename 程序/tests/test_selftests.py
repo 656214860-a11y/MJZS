@@ -95,6 +95,14 @@ assert len(tk._drama_wanted_topmost) == 0
         with mock.patch.object(run_selftests, 'gui_test_module', side_effect=lambda name: name == 'test_window'):
             self.assertEqual(run_selftests.split_safe_units(units), ([units[0]], [units[1]]))
 
+    def test_long_gui_units_start_first_without_dropping_or_reordering_each_group(self):
+        units = [('short1', 'test_window', None), ('long1', 'test_ui_edges', None),
+                 ('short2', 'test_window', None), ('long2', 'test_pet_ui', None)]
+        expected = [units[1], units[3], units[0], units[2]]
+        self.assertEqual(run_selftests.prioritize_gui_units(units), expected)
+        self.assertEqual(units[0][0], 'short1')
+        self.assertEqual(run_selftests.prioritize_gui_units([]), [])
+
     def test_parallel_runner_reports_heartbeat_while_waiting(self):
         source = inspect.getsource(run_selftests.run_units)
         self.assertIn('futures.wait(', source)

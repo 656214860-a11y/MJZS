@@ -874,6 +874,11 @@ def split_safe_units(todo):
     return non_gui, gui
 
 
+def prioritize_gui_units(units):
+    """Submit known long GUI suites first; retain every unit and stable group order."""
+    return sorted(units, key=lambda unit: unit[1].rsplit('.', 1)[-1] not in GUI_E2E_MODULES)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     keys, jobs, serial, listing, whole = [], 0, False, False, False
@@ -977,7 +982,7 @@ def main(argv=None):
             print('安全分池：%d 路无 Tk 并行（%d workers），%d 路 Tk 受控并行（%d workers）' %
                   (len(non_gui), jobs, len(gui), gui_jobs))
         got = run_units(non_gui, jobs) if non_gui else []
-        got += run_units(gui, gui_jobs) if gui else []
+        got += run_units(prioritize_gui_units(gui), gui_jobs) if gui else []
         got += run_safe_serial(perf)
     else:
         got = run_serial(todo) if serial else run_units(todo, jobs)
