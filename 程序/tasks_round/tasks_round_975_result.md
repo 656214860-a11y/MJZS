@@ -18,3 +18,8 @@
 - 单独运行 tests.test_baseline_history 与 tests.test_asset_gating.AssetPageContentTests.test_only_the_visible_rows_decode_a_picture：6 条，2.836 秒，1 个错误。
 - 基线历史错误已定位 tests/test_baseline_history.py:100：本工作树缺少 `维护记录/基准历史.json`，FileNotFoundError。
 - 首帧首批加载用例本次单独运行通过；并行增量中的 31 != 24 尚未稳定复现，不能宣告已修复，也未修改该用例或产品代码。
+
+## 提交记录
+
+- 已提交：`66a7cab`，`R975-FAIL: 统一阶段工作区初始化结果并记录回归失败`。仅独立分支 8 个列明文件，未合并 master。
+- 提交前检查暂存清单及新增行凭据形态，未命中；测试失败状态不变。本节为提交后的追记。
