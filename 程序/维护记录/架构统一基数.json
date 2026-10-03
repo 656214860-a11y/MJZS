@@ -6,6 +6,7 @@
             "asset_batch_settings_service",
             "audio_import_service",
             "delivery_import_service",
+            "desktop_settings_service",
             "keyframe_lifecycle_service",
             "storyboard_edit_service",
             "subtitle_export_service"
@@ -13,7 +14,6 @@
         "scope_audit_pending": [
             "asset_plan",
             "asset_resume",
-            "desktop_settings_service",
             "hollmwood_roles",
             "legacy_adoption_service",
             "project_naming",

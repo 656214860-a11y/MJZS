@@ -3641,10 +3641,12 @@ class Desktop:
     def remember_daily_project_choice(self,path):
         """仅记录项目入口，不写入用户的剧本、分镜或阶段配置。"""
         from stage_execution_service import publish_desktop_preferences
-        self.settings=publish_desktop_preferences(self.settings_file,self.settings,{
+        result=publish_desktop_preferences(self.settings_file,self.settings,{
             'project_choice_day':date.today().isoformat(),
             'project_choice_path':str(path),
         })
+        if not result.ok:raise ValueError(result.reason)
+        self.settings=result.data
 
     def _sync_desktop_project_paths(self,old_path,new_path):
         """认领成功后同步桌面级入口；项目文件改写仍归 Projects 的事务。"""
@@ -3660,7 +3662,9 @@ class Desktop:
                 except ValueError:pass
             migrated[str(new)]=value;updates['frame_json_by_project']=migrated
         if updates:
-            self.settings=publish_desktop_preferences(self.settings_file,self.settings,updates)
+            result=publish_desktop_preferences(self.settings_file,self.settings,updates)
+            if not result.ok:raise ValueError(result.reason)
+            self.settings=result.data
     def choose_project(self):
         # 自动续开项目时，三虎的量测只排到这次选择交回事件循环之后；否则
         # 它的 ``update_idletasks`` 会重入本调用栈并放大启动时间。
@@ -5447,7 +5451,9 @@ class Desktop:
             if not selected:return
             exe=Path(selected)
             from stage_execution_service import publish_desktop_preferences
-            self.settings=publish_desktop_preferences(self.settings_file,self.settings,{'comfy_exe':str(exe)})
+            result=publish_desktop_preferences(self.settings_file,self.settings,{'comfy_exe':str(exe)})
+            if not result.ok:raise ValueError(result.reason)
+            self.settings=result.data
         from native_apps import open_comfy
         open_comfy({**self.settings,'comfy_exe':str(exe)})
         self.status.set('已打开本地 ComfyUI；可在桌面窗口查看工作流和调整参数。')
@@ -6690,7 +6696,9 @@ class Desktop:
             if executable.is_file():
                 if str(executable)!=saved:
                     from stage_execution_service import publish_desktop_preferences
-                    self.settings=publish_desktop_preferences(self.settings_file,self.settings,{'jianying':str(executable)})
+                    result=publish_desktop_preferences(self.settings_file,self.settings,{'jianying':str(executable)})
+                    if not result.ok:raise ValueError(result.reason)
+                    self.settings=result.data
                 return executable
         return None
     def find_editor_shortcut(self):
