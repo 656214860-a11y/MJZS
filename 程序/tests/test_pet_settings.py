@@ -149,6 +149,10 @@ class SettingsCase(unittest.TestCase):
         self.win.withdraw()
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
+        # 每例在 attach 读取设置前就隔离 program；复用 worker 的进程沙盒可能已有旧档位。
+        program_patch = mock.patch.object(pet_ui, 'PROGRAM', Path(self.tmp.name))
+        program_patch.start()
+        self.addCleanup(program_patch.stop)
         self.fake = FakeDesktop(self.tk, self.ttk, self.win)
         self.fake.root = make_project(self.tmp.name)
         self.pet = pet_ui.attach(self.fake, autostart=False)

@@ -144,7 +144,8 @@ class AssetPageContentTests(_TkHarness):
         d = Desktop(win, root=HERE)
         d.root = proj
         d.studio = open_studio(proj)
-        d.show(PAGE_OF['assets']); win.update()
+        # 首帧只排空布局/绘制；update() 还执行到期计时器，慢机上会越过渐进插行边界。
+        d.show(PAGE_OF['assets']); win.update_idletasks()
         return d, win
 
     def page_buttons(self, widget):
