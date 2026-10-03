@@ -28,6 +28,15 @@ class SafeRunnerTests(unittest.TestCase):
         source = inspect.getsource(run_selftests.run_serial)
         self.assertLess(source.index('result_queue.get(timeout=timeout)'), source.index('process.join(10)'))
 
+    def test_serial_runner_runs_the_unit_when_windows_cannot_spawn_isolation_process(self):
+        payload = ('回退单元', 'test_demo', None)
+        expected = ('回退单元', 'test_demo', 1, [], '', 0.0, '')
+        with mock.patch('multiprocessing.Process') as process, \
+             mock.patch.object(run_selftests, '_run_unit', return_value=expected) as run:
+            process.return_value.start.side_effect = PermissionError(5, '拒绝访问')
+            self.assertEqual(run_selftests.run_serial([payload]), [expected])
+        run.assert_called_once_with(payload)
+
     def test_parallel_runner_reports_heartbeat_while_waiting(self):
         source = inspect.getsource(run_selftests.run_units)
         self.assertIn('futures.wait(', source)

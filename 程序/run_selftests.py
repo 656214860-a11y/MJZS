@@ -584,7 +584,17 @@ def run_serial(todo, timeout=SAFE_UNIT_TIMEOUT):
         started = time.time()
         result_queue = multiprocessing.Queue()
         process = multiprocessing.Process(target=_serial_worker, args=(payload, result_queue))
-        process.start()
+        try:
+            process.start()
+        except OSError as exc:
+            # Windows 在长安全串行运行中可能拒绝复制新子进程的管道句柄。
+            # 不能把尚未执行的测试误报为通过；退回当前进程直接运行并保留真实结果。
+            result_queue.close()
+            print('  ! 安全隔离进程未启动，改为同进程执行：' + str(exc), flush=True)
+            item = _run_unit(payload)
+            out.append(item)
+            print_unit_result(item)
+            continue
         try:
             # 先读取结果再等子进程退出：测试日志较大时，反过来 join 会让子进程堵在
             # Queue 的管道上，父进程误判它超时并终止，得到并不存在的“测试超时”。
