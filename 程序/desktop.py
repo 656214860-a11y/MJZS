@@ -6336,7 +6336,7 @@ class Desktop:
         episode=episode or self.studio.episode;base=Path(base or self.studio.episode_dir).resolve()
         path=(base/shot['frame']).resolve()
         if not path.is_file():raise ValueError('首帧已不存在，请刷新列表')
-        if ask and not messagebox.askyesno('删除首帧',f'删除 {shot["id"]} 的首帧图片？\n{path}\n图片进首帧回收目录，可恢复；视频和记录保留。',parent=self.win,default='no'):return False
+        if ask and not confirm(self.win, '删除首帧', f'删除 {shot["id"]} 的首帧图片？\n{path}\n图片进首帧回收目录，可恢复；视频和记录保留。', dangerous=True):return False
         if not path.is_relative_to(base/'frames'):raise ValueError('仅允许删除所选JSON目录下frames中的首帧')
         if any(s['id']!=shot['id'] and (base/s['frame']).resolve()==path for s in episode['shots']):raise ValueError('其他镜头也在使用此图片，请先替换它们的首帧')
         from stage_execution_service import delete_stage_keyframe
@@ -6346,7 +6346,7 @@ class Desktop:
         return True
     def restore_keyframe(self,shot,episode,base,source):
         sid=shot['id']
-        if not messagebox.askyesno('恢复首帧',f'将恢复 {sid} 的最近回收首帧。',parent=self.win):return
+        if not confirm(self.win, '恢复首帧', f'将恢复 {sid} 的最近回收首帧。'):return
         from stage_execution_service import restore_stage_keyframe
         result=restore_stage_keyframe(base,source,episode,shot)
         if not result.ok:raise ValueError(result.reason)
@@ -6536,7 +6536,7 @@ class Desktop:
         chars=sum(len(lines[index-1].get('text') or '') for index in pending)
         tip='将向 TTS 接口提交 '+str(len(pending))+' 句（共 '+str(chars)+' 字），按用量计费。'
         if len(pending)<len(lines):tip+='\n另有 '+str(len(lines)-len(pending))+' 句沿用已生成文件，不重复扣费。'
-        if not messagebox.askyesno('逐句配音（付费）',tip+'\n\n继续提交？',parent=self.win):
+        if not confirm(self.win, '逐句配音（付费）', tip+'\n\n继续提交？', dangerous=True):
             self.status.set('已取消逐句配音：未提交任何句子，也没有产生费用');return
         def work():
             from stage_execution_service import run_tts_lines
