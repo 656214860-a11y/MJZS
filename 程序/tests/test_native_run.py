@@ -97,6 +97,16 @@ class BrokenDispatchComfy(LegacyComfy):
         return LegacyComfy.request(self, path, data, raw, timeout)
 
 
+class BrokenAckComfy(FakeComfy):
+    """任务已进入 ComfyUI，但节点认领回执暂时失败。"""
+
+    def request(self, path, data=None, raw=False, timeout=20):
+        if path == '/drama/assets/ack':
+            FakeComfy.calls.append(path)
+            raise URLError('节点认领接口暂不可用')
+        return FakeComfy.request(self, path, data, raw, timeout)
+
+
 class FakeUploader:
     """参考图上传：run() 只关心拿回一个文件名。"""
 
@@ -181,6 +191,21 @@ class RunTests(unittest.TestCase):
                                         options=self.options, stop=threading.Event())
             self.assertIn('已自动导入 1/1', message)
             self.assertNotIn('HTTP Error', message)
+
+    def test_a_failed_ack_is_visible_without_resubmitting_the_prompt(self):
+        """/prompt 已排队后回执失败，必须说明会以输出目录对账，且不再发第二次 prompt。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj, base, asset = make_project(td)
+            native_assets.Comfy = BrokenAckComfy
+            reports = []
+            message = native_assets.run(proj, base, [('CHAR_001', asset)],
+                                        'http://127.0.0.1:8189', reports.append,
+                                        options=self.options, stop=threading.Event())
+            self.assertIn('已自动导入 1/1', message)
+            self.assertTrue(any('进度认领未确认' in text and '不会重复提交' in text for text in reports))
+            self.assertEqual(FakeComfy.calls.count('/prompt'), 1, '认领失败不许重复提交已排队的任务')
+            record = json.loads(self.records(proj)[0].read_text(encoding='utf-8'))
+            self.assertIn('进度认领未确认', record['ack_warning'])
 
     def test_a_dead_comfyui_says_what_to_do(self):
         with tempfile.TemporaryDirectory() as td:

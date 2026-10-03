@@ -155,9 +155,14 @@ def _submit_job(client, state, options, key, health):
             result=client.request('/prompt',{'prompt':{'batch':{'class_type':'DramaAssistantBatch','inputs':inputs}},
                                              'prompt_id':prompt_id,'extra_data':extra})
             if not result.get('prompt_id'):raise ValueError('ComfyUI 没有返回任务编号')
-            try:client.request('/drama/assets/ack',{'id':state['id'],'prompt_id':result['prompt_id']})
-            except (HTTPError,OSError,ValueError):pass        # 认领失败不影响生成，取进度那一步照样按输出目录报完成
-            return {'state':'queued','prompt_id':result['prompt_id'],'error':''}
+            try:
+                client.request('/drama/assets/ack',{'id':state['id'],'prompt_id':result['prompt_id']})
+            except (HTTPError,OSError,ValueError) as exc:
+                # 任务已由 /prompt 接收，不能因认领回执失败而重复提交；但也不能把这条
+                # 网络失败伪装成正常排队，后续进度可能只能由输出目录对账。
+                return {'state':'queued','prompt_id':result['prompt_id'],'error':'',
+                        'ack_warning':'任务已排入 ComfyUI 队列，但进度认领未确认（'+str(exc)+'）。将继续按输出目录核对结果，不会重复提交。'}
+            return {'state':'queued','prompt_id':result['prompt_id'],'error':'','ack_warning':''}
         except HTTPError as exc:
             return {'state':'uncertain','error':'ComfyUI 拒绝了这一批（HTTP '+str(exc.code)+'）。请检查模型与节点配置后重试。'}
         except (OSError,ValueError) as exc:
@@ -258,6 +263,8 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
     if state['state']=='pending':
         report('正在直接提交到 ComfyUI：'+options['model'])
         state.update(_submit_job(client,state,options,key,health));save(record,state)
+        if state.get('ack_warning'):
+            report(state['ack_warning'])
     report('已提交本地 ComfyUI，正在获取生成进度…')
     started=time.monotonic();import_errors={};last_change=time.monotonic();last_key=None
     states={'pending':'等待本地 ComfyUI 接收','claimed':'正在载入工作流','dispatching':'正在提交到生成后端',
