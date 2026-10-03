@@ -839,7 +839,7 @@ class Panel(ttk.Frame):
         self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
         self.workflow_summary = ProgressLabel(row, text='自由模式')
         self.workflow_summary.pack(side='left', padx=(0, SPACING['sm']))
-        ttk.Button(row, text='去填写', command=self.open_workflow_brief).pack(side='left')
+        SecondaryButton(row, text='去填写', command=self.open_workflow_brief).pack(side='left')
         if self.stage != 'script':
             HintLabel(row, text='锁在剧本页采集简报时填写最顺').pack(side='left', padx=(SPACING['sm'], 0))
 

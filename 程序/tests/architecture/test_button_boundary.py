@@ -61,3 +61,6 @@ class ButtonBoundaryTests(unittest.TestCase):
 
     def test_native_assets_uses_semantic_buttons(self):
         self._assert_semantic_buttons('native_assets.py')
+
+    def test_skill_panel_uses_semantic_buttons(self):
+        self._assert_semantic_buttons('skill_panel.py')
