@@ -15,7 +15,8 @@ from keyframe_batch import frame_prompt
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
                                        KEYFRAME_MODELS)
-from ui_widgets import BaseDialog, DataTable, LineInput, TextArea, ask_confirmation, notify
+from ui_widgets import (BaseDialog, DataTable, LineInput, PrimaryButton, SecondaryButton,
+                        TextArea, ask_confirmation, notify)
 
 CONFIG_FILE = Path(__file__).with_name('batch_frames_tool') / 'config.json'
 # Compatibility exports for callers and existing project extensions.
@@ -376,11 +377,11 @@ def show(app, source, initial=None):
     shape.grid(row=0, column=3, padx=4)
     hint = tk.StringVar()
     ttk.Label(model_box, textvariable=hint, wraplength=800, justify='left').grid(row=1, column=0, columnspan=4, sticky='w', pady=8)
-    account = ttk.Button(model_box, text='火山 API 设置')
+    account = SecondaryButton(model_box, text='火山 API 设置')
     account.grid(row=2, column=0, sticky='w')
-    skill_button = ttk.Button(model_box, text='Skill 调用设置')
+    skill_button = SecondaryButton(model_box, text='Skill 调用设置')
     skill_button.grid(row=2, column=1, sticky='w')
-    stage_button = ttk.Button(model_box, text='阶段配置', style='Compact.TButton',
+    stage_button = SecondaryButton(model_box, text='阶段配置',
                               command=lambda: app.safe(open_stage_config))
     stage_button.grid(row=2, column=2, sticky='w', padx=6)
 
@@ -427,9 +428,9 @@ def show(app, source, initial=None):
         field = LineInput(local_box, textvariable=variable) if key == 'url' else ttk.Combobox(local_box, textvariable=variable)
         field.grid(row=index, column=1, sticky='ew', padx=4)
         fields[key] = field
-    ttk.Button(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=1, column=2, padx=6)
-    ttk.Button(local_box, text='启动并检测', command=lambda: app.safe(detect)).grid(row=2, column=2, padx=6)
-    ttk.Button(local_box, text='删除模型', command=lambda: app.safe(delete_model)).grid(row=3, column=2, padx=6)
+    PrimaryButton(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=1, column=2, padx=6)
+    SecondaryButton(local_box, text='启动并检测', command=lambda: app.safe(detect)).grid(row=2, column=2, padx=6)
+    SecondaryButton(local_box, text='删除模型', command=lambda: app.safe(delete_model)).grid(row=3, column=2, padx=6)
     log = TextArea(form, height=7, wrap='word', state='disabled', bg='#ffffff', fg='#243247', font=('Microsoft YaHei UI', 10), padx=10, pady=8)
     log.pack(fill='both', expand=True, padx=14, pady=6)
 
@@ -700,14 +701,14 @@ def show(app, source, initial=None):
         pass
     bar = FlowBar(footer)
     bar.pack(fill='x', padx=14, pady=8)
-    start_button = ttk.Button(bar, text='开始逐镜生成', style='Primary.TButton', command=lambda: app.safe(start))
+    start_button = PrimaryButton(bar, text='开始逐镜生成', command=lambda: app.safe(start))
     start_button.pack(side='left')
-    halt = ttk.Button(bar, text='停止后续镜头', command=stop_request)
+    halt = SecondaryButton(bar, text='停止后续镜头', command=stop_request)
     halt.pack(side='left', padx=6)
-    check_button = ttk.Button(bar, text='检查参考资产', command=lambda: app.safe(preflight_check))
+    check_button = SecondaryButton(bar, text='检查参考资产', command=lambda: app.safe(preflight_check))
     check_button.pack(side='left', padx=6)
-    ttk.Button(bar, text='生成记录', command=records).pack(side='left', padx=6)
-    ttk.Button(bar, text='关闭', command=lambda: app.safe(close)).pack(side='left', padx=6)
+    SecondaryButton(bar, text='生成记录', command=records).pack(side='left', padx=6)
+    SecondaryButton(bar, text='关闭', command=lambda: app.safe(close)).pack(side='left', padx=6)
 
     def poll():
         nonlocal busy, poll_id

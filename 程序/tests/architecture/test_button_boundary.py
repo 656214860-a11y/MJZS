@@ -55,3 +55,6 @@ class ButtonBoundaryTests(unittest.TestCase):
 
     def test_white_model_uses_semantic_buttons(self):
         self._assert_semantic_buttons('white_model.py')
+
+    def test_keyframe_comfy_uses_semantic_buttons(self):
+        self._assert_semantic_buttons('keyframe_comfy.py')
