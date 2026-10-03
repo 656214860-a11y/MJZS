@@ -94,7 +94,9 @@ def watch(app,manifest):
             elif execution['state']=='running' and Path(app.root).resolve()==manifest.parents[3].resolve():
                 app.status.set('Qwen → ComfyUI：'+execution.get('message','生成中'))
             if not any(i['state']=='pending' for i in data['assets']):watched.discard(key);stop();return
-        except (OSError,ValueError,KeyError):pass
+        except (OSError,ValueError,KeyError) as exc:
+            # 轮询会重试；不能让台账读取／格式错误伪装成“仍在等待生成”。
+            app.status.set('资产自动导入检查未完成：'+str(exc)+'；将在约 2 秒后重试')
     stop=tk_timers.repeat(app.win,2000,tick)
 
 def resume(app):
