@@ -194,12 +194,14 @@ class QuitTests(unittest.TestCase):
         self.assertEqual(self.closed, ['收摊'])
 
     def test_finish_close_takes_the_monitor_page_down(self):
-        import log_maintenance, previs_monitor, storage_maintenance
+        import log_maintenance, previs_monitor, storage_maintenance, workspace_maintenance
         monitors = []; destroyed = []
         launched_logs = []
+        launched_workspaces = []
         self.stub(previs_monitor, 'stop', lambda state: monitors.append(state))
         self.stub(storage_maintenance, 'launch_cleanup', lambda app: None)
         self.stub(log_maintenance, 'launch_cleanup', lambda app: launched_logs.append(app))
+        self.stub(workspace_maintenance, 'launch_cleanup', lambda app: launched_workspaces.append(app))
         state = {'monitor': ('http://127.0.0.1:1/', object())}
         subject = self.subject(previs_jobs=state, app=object())
         subject.win = SimpleNamespace(destroy=lambda: destroyed.append('窗口'))
@@ -207,16 +209,20 @@ class QuitTests(unittest.TestCase):
         self.assertEqual(monitors, [state], '监视页跟着程序一起收')
         self.assertEqual(destroyed, ['窗口'])
         self.assertEqual(launched_logs, [subject.app], '正常退出后才异步维护程序日志')
+        self.assertEqual(launched_workspaces, [subject.app], '正常退出后才异步做仓库卫生')
 
     def test_force_quit_does_not_schedule_log_maintenance(self):
-        import log_maintenance, storage_maintenance
+        import log_maintenance, storage_maintenance, workspace_maintenance
         launched_logs = []
+        launched_workspaces = []
         self.stub(storage_maintenance, 'launch_cleanup', lambda app: None)
         self.stub(log_maintenance, 'launch_cleanup', lambda app: launched_logs.append(app))
+        self.stub(workspace_maintenance, 'launch_cleanup', lambda app: launched_workspaces.append(app))
         subject = self.subject(app=object(), _forcing_quit=True)
         subject.win = SimpleNamespace(destroy=lambda: None)
         self.desktop.Desktop.finish_close(subject)
         self.assertEqual(launched_logs, [], '强制退出不额外做日志维护')
+        self.assertEqual(launched_workspaces, [], '强制退出不额外做仓库卫生')
 
 
 if __name__ == '__main__':

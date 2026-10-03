@@ -17,7 +17,7 @@
 | 分镜与批次 | `shot_batches.py`、`storyboard_selection.py` | 已采用分镜、批次/三元组约束、定稿输入 |
 | 首帧/预演/视频 | `keyframe_comfy.py`、`local_previs.py`、`cloud_video.py` | 首帧、白模预演、云端视频提交与轮询 |
 | 阶段基础设施 | `stage_layout.py`、`stage_path_service.py`、`project_context.py`、`stage_execution_service.py`、`stage_parallel.py`、`confirm_gates.py` | 12 阶段目录、唯一写入路径、L3 注入的项目上下文、成果发布编排、并发限制、SG 门禁与确认门禁 |
-| 成本与运行保障 | `token_saver.py`、`tk_timers.py`、`storage_maintenance.py`、`recycle_recovery_service.py`、`recycle_recovery_controller.py` | Token/媒体预算、Tk 回调回收、退出后保守清理；回收清单的项目内／项目库受控恢复 |
+| 成本与运行保障 | `token_saver.py`、`tk_timers.py`、`storage_maintenance.py`、`log_maintenance.py`、`workspace_maintenance.py`、`recycle_recovery_service.py`、`recycle_recovery_controller.py` | Token/媒体预算、Tk 回调回收、退出后保守清理；程序日志保留/轮转/容量帽；仓库级可再生卫生（__pycache__、超期 .selftmp、已并净 .wt 工作树）；回收清单的项目内／项目库受控恢复 |
 
 ## 12 阶段目录与交付契约
 
