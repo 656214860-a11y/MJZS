@@ -543,7 +543,7 @@ class NativeAssetsGatingTests(_TkHarness):
             d, proj = self.desktop(td)
             form = self.attach(d, proj, selection=lambda: [])
             kinds = [type(w).__name__ for w in form.winfo_children()]
-            self.assertEqual(kinds, ["Labelframe", "Progressbar", "Label", "FlowBar"])
+            self.assertEqual(kinds, ["Labelframe", "Progressbar", "ProgressLabel", "FlowBar"])
             bar = form.winfo_children()[3]
             texts = [b.cget("text") for b in bar.winfo_children()]
             self.assertEqual(texts, ["启动并检测", "取消检测"])
