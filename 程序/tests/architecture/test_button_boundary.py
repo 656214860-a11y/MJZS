@@ -52,3 +52,6 @@ class ButtonBoundaryTests(unittest.TestCase):
 
     def test_reference_wall_uses_semantic_buttons(self):
         self._assert_semantic_buttons('reference_wall.py')
+
+    def test_white_model_uses_semantic_buttons(self):
+        self._assert_semantic_buttons('white_model.py')

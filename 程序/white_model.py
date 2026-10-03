@@ -8,7 +8,7 @@ from file_cache import read_json
 from storyboard_paths import project_root
 import white_model_service as _service
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, TextArea, notify
+from ui_widgets import BaseDialog, PrimaryButton, SecondaryButton, TextArea, notify
 
 TOOLS = (
     ('打开 LensBlock 白模工作台', 'https://ilcaretz.github.io/lensblock/'),
@@ -44,7 +44,7 @@ def choose_previs(desktop):
         except (OSError,ValueError) as exc:
             notify(picker, str(exc), level='error', title='白模预演', status=desktop.status);return
         picker.destroy()
-    ttk.Button(body, text='进入白模预演', command=enter).pack(anchor='e', pady=10)
+    PrimaryButton(body, text='进入白模预演', command=enter).pack(anchor='e', pady=10)
 
 def read_record(root):
     return _service.read_record(root)
@@ -123,7 +123,7 @@ def open_previs(desktop,sid=None):
     # 页内逐镜取镜头目录仍走缓存，不会重复扫描 PATH。
     blender_exe=find_blender(refresh=True)
     ttk.Label(local,text=('已找到 Blender：'+str(blender_exe)) if blender_exe else '尚未检测到 Blender，安装后重新打开此页即可',wraplength=690).pack(anchor='w',pady=(2,0))
-    ttk.Button(local, text='开始白模制作', command=lambda: guarded(codex_blender)).pack(anchor='w', pady=5)
+    PrimaryButton(local, text='开始白模制作', command=lambda: guarded(codex_blender)).pack(anchor='w', pady=5)
     online = ttk.LabelFrame(body, text='线上白模 · 可选', padding=8)
     online.pack(fill='x', pady=5)
     for number, title, url in [(1, '布置人物、场景和机位；导出预演视频', TOOLS[0][1]),
@@ -131,7 +131,7 @@ def open_previs(desktop,sid=None):
                                (3, '可选：在 Rokoko Create 从视频提取动作', TOOLS[2][1])]:
         row = ttk.Frame(online); row.pack(fill='x', pady=3)
         ttk.Label(row, text=f'{number}. {title}').pack(side='left')
-        ttk.Button(row, text='打开网站', command=lambda u=url: webbrowser.open(u)).pack(side='right')
+        SecondaryButton(row, text='打开网站', command=lambda u=url: webbrowser.open(u)).pack(side='right')
     ttk.Label(body, text='动作与机位备注（可复制到视频提示词）：').pack(anchor='w', pady=(15, 3))
     notes = TextArea(body, height=9, wrap='word', undo=True)
     notes.pack(fill='both', expand=True)
@@ -155,9 +155,9 @@ def open_previs(desktop,sid=None):
         try: fn()
         except Exception as exc: notify(win, str(exc), level='error', title='白模预演', status=desktop.status)
     row = ttk.Frame(body); row.pack(fill='x', pady=8)
-    ttk.Button(row, text='导入预演视频/工程', command=lambda: guarded(import_preview)).pack(side='left', padx=(0, 7))
-    ttk.Button(row, text='保存备注', command=lambda: guarded(save)).pack(side='left', padx=(0, 7))
-    ttk.Button(row, text='打开本镜头目录', command=lambda: open_path(root)).pack(side='left')
+    SecondaryButton(row, text='导入预演视频/工程', command=lambda: guarded(import_preview)).pack(side='left', padx=(0, 7))
+    PrimaryButton(row, text='保存备注', command=lambda: guarded(save)).pack(side='left', padx=(0, 7))
+    SecondaryButton(row, text='打开本镜头目录', command=lambda: open_path(root)).pack(side='left')
 
 
 def validate_video_submission(studio,sid):
