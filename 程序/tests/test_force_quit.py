@@ -123,14 +123,16 @@ class QuitTests(unittest.TestCase):
                   lambda project: (self.terminated.append(str(project)), [111])[1])
         self.stub(previs_automation, 'force_stop',
                   lambda project, state: (self.stopped.append(str(project)), [])[1])
-        self.stub(desktop.messagebox, 'askyesno', self.ask)
+        # Desktop.close 已统一走 desktop.confirm；继续替换旧 messagebox 会让
+        # 子进程真的弹出模态确认窗，令安全全量回归永久等待。
+        self.stub(desktop, 'confirm', self.ask)
 
     def stub(self, module, name, value):
         original = getattr(module, name)
         setattr(module, name, value)
         self.addCleanup(setattr, module, name, original)
 
-    def ask(self, title, text, **kwargs):
+    def ask(self, _parent, title, text, **kwargs):
         self.asked.append((title, text))
         return self.answer
 
