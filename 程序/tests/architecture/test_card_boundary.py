@@ -27,6 +27,9 @@ class CardBoundaryTests(unittest.TestCase):
                  and isinstance(node.func, ast.Name) and node.func.id == "Card"]
         self.assertEqual(len(calls), 1)
 
+    def test_asset_reference_import_uses_card_for_its_configuration_group(self):
+        self._assert_settings_card("asset_reference_import.py", "show")
+
     def test_qwen_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("qwen_setup.py")
 

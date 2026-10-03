@@ -6,7 +6,7 @@ from tkinter import ttk
 from agent.core import read
 from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_target,image_bytes,save_copy,attach,unbind
 from ui_dialogs import FileDialog
-from ui_widgets import (BaseDialog, LineInput, PrimaryButton, ProgressLabel,
+from ui_widgets import (BaseDialog, Card, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
 
 
@@ -36,7 +36,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     parent=parent or app.win
     win=BaseDialog(parent,'导入参考图',geometry='760x470',minsize=(620,430),modal=False,chrome=False)
     win.withdraw()
-    body=ttk.Frame(win,padding=16);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1);body.rowconfigure(4,weight=1)
+    body=Card(win,padding=16);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1);body.rowconfigure(4,weight=1)
     prefix=aid.split('_')[0] if aid in rows else {'characters':'CHAR','scenes':'LOC','props':'PROP'}.get(app.asset_kind,'CHAR')
     category=tk.StringVar(value=CATEGORIES[prefix]);purpose=tk.StringVar();asset=tk.StringVar();destination=tk.StringVar();status=tk.StringVar()
     ttk.Label(body,text='资产类别').grid(row=0,column=0,sticky='w',padx=(0,12),pady=5)
