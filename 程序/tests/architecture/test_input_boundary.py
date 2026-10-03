@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import ast
 import unittest
-from pathlib import Path
-
 from tests.architecture._scan import ROOT, parse
 
 
@@ -22,16 +20,14 @@ class InputBoundaryTests(unittest.TestCase):
         self.assertEqual(direct_texts, [], "首迁表单不得退回业务页直接构造 tk.Text")
         self.assertGreaterEqual(len(component_calls), 2, "紧凑与详情字段均须走 TextArea")
 
-    def test_main_workbench_direct_inputs_do_not_increase(self):
+    def test_main_workbench_has_no_direct_inputs(self):
         tree = parse(ROOT / "app.py")
         app = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "App")
-        self.assertLessEqual(len(_direct_inputs(app)), LEGACY_DIRECT_INPUT_MAX['app.py'],
-                             "主工作台历史直构输入数量只能下降")
+        self.assertEqual(_direct_inputs(app), [], "主工作台输入必须走 LineInput/TextArea")
 
-    def test_desktop_direct_inputs_do_not_increase(self):
+    def test_desktop_has_no_direct_inputs(self):
         tree = parse(ROOT / "desktop.py")
-        self.assertLessEqual(len(_direct_inputs(tree)), LEGACY_DIRECT_INPUT_MAX['desktop.py'],
-                             "桌面页历史直构输入数量只能下降")
+        self.assertEqual(_direct_inputs(tree), [], "桌面页输入必须走 LineInput/TextArea")
 
     def test_business_ui_has_no_direct_entry_or_text_construction(self):
         actual = {}
@@ -42,15 +38,6 @@ class InputBoundaryTests(unittest.TestCase):
             if count:
                 actual[path.relative_to(ROOT).as_posix()] = count
         self.assertEqual(actual, {}, "业务 UI 不得绕过 LineInput/TextArea：" + str(actual))
-LEGACY_DIRECT_INPUT_MAX = {
-    'app.py': 6, 'asset_detail.py': 1, 'asset_reference_import.py': 1,
-    'cloud_assets.py': 1, 'cloud_video.py': 1, 'desktop.py': 5,
-    'keyframe_comfy.py': 2, 'local_previs.py': 1, 'prompt_window.py': 1,
-    'qwen_setup.py': 1, 'seedream_settings.py': 1, 'skill_panel.py': 2,
-    'storyboard_files.py': 1, 'tts_settings.py': 3, 'white_model.py': 1,
-    'workflow_settings.py': 2, 'agent/prompt_optimizer.py': 1,
-}
-
 def _direct_inputs(tree):
     return [node for node in ast.walk(tree) if isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute) and node.func.attr in {'Entry', 'Text'}
