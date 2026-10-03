@@ -68,11 +68,6 @@ EXTERNAL_PACKAGE_API_HINT = (
 )
 # 预设不是必填项；用明确的占位项避免刚打开面板就误把第一份预设当作当前选择。
 PRESET_PLACEHOLDER = '请选择'
-# 预设操作的选项要与按钮栏并排显示。单独使用说明字号，并给下拉列表留出
-# 足够的字符宽度；不要改全局 Combobox，以免模型等选择器的可读性被一并缩小。
-PRESET_ACTION_STYLE = 'PresetAction.TCombobox'
-PRESET_ACTION_FONT = FONTS['caption']
-PRESET_ACTION_WIDTH = 15
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 SKILL_FLOW_ORDER = ('script', 'storyboard', 'asset', 'firstframe', 'whitemodel',
                     'video', 'voice', 'subtitle', 'edit', 'qa', 'delivery')
@@ -675,30 +670,22 @@ class Panel(ttk.Frame):
 
     # ── 画界面 ──────────────────────────────────────────────────────────────
     def _build(self):
-        # 阶段配置把垂直空间优先让给底部的 SKILL 说明；下拉内容本身已表达
-        # 语义，重复的分组标签不再各占一列。
+        # 阶段配置以连续表单阅读为主，统一使用最小设计间距和标签宽度，避免控件跳列。
         pad = SPACING['xs']
+        label_width = 10
         # 预设决定整套配置，因此置于厂商／模型之前。
         row = ttk.Frame(self)
         row.pack(fill='x', pady=(0, pad))
-        ttk.Label(row, text='预设', style='Muted.TLabel', width=10).pack(side='left')
+        ttk.Label(row, text='预设', style='Muted.TLabel', width=label_width).pack(side='left')
         self.presets = ttk.Combobox(row, textvariable=self.preset, state='readonly', width=14,
                                     values=[PRESET_PLACEHOLDER] + self.preset_names())
         self.presets.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
         self.presets.bind('<<ComboboxSelected>>', lambda event: self.apply_preset())
-        ttk.Style(self).configure(PRESET_ACTION_STYLE, font=PRESET_ACTION_FONT)
         self.preset_actions = ttk.Combobox(
-            row, textvariable=self.preset_action, state='readonly', width=PRESET_ACTION_WIDTH,
-            style=PRESET_ACTION_STYLE,
+            row, textvariable=self.preset_action, state='readonly', width=12,
             values=['选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'])
         self.preset_actions.pack(side='left', padx=(0, SPACING['xs']))
         self.preset_actions.bind('<<ComboboxSelected>>', lambda event: self.run_preset_action())
-        # ttk 的弹出列表是独立 Listbox，不会继承 Combobox Style；展开后同步字号和
-        # 宽度，避免操作名称在列表中被截断。
-        self.preset_actions.bind('<ButtonPress-1>', self._schedule_preset_action_popup_style,
-                                 add='+')
-        self.preset_actions.bind('<Alt-Down>', self._schedule_preset_action_popup_style, add='+')
-        self.preset_actions.bind('<F4>', self._schedule_preset_action_popup_style, add='+')
         self.restore_defaults_button = SecondaryButton(row, text='恢复默认', width=12,
                                                        command=self.reset_defaults)
         self.restore_defaults_button.pack(side='left')
@@ -712,27 +699,10 @@ class Panel(ttk.Frame):
         engine.pack(fill='x', pady=(0, pad))
         top = ttk.Frame(engine)
         top.pack(fill='x')
-        ttk.Label(top, text='厂商', style='Muted.TLabel', width=10).pack(side='left')
-
-    def _schedule_preset_action_popup_style(self, _event=None):
-        """在 ttk 创建预设操作的弹出 Listbox 后应用其专属紧凑样式。"""
-        self.after_idle(self._style_preset_action_popup)
-
-    def _style_preset_action_popup(self):
-        """让预设操作弹出列表和触发框保持相同字号及足够宽度。"""
-        try:
-            popdown = str(self.tk.call('ttk::combobox::PopdownWindow',
-                                       str(self.preset_actions)))
-            listbox = self.nametowidget(popdown + '.f.l')
-            listbox.configure(font=PRESET_ACTION_FONT, width=PRESET_ACTION_WIDTH)
-        except (KeyError, tk.TclError):
-            # 键盘焦点切换或关闭窗口时，Tk 可能已回收这个临时 Listbox。
-            return None
-
-
+        ttk.Label(top, text='厂商', style='Muted.TLabel', width=label_width).pack(side='left')
         self.providers = ttk.Combobox(top, textvariable=self.provider, state='readonly', width=14,
                                       values=list(self.groups))
-        self.providers.pack(side='left', padx=(0, SPACING['xs']))
+        self.providers.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
         self.providers.bind('<<ComboboxSelected>>', lambda event: self.choose_provider())
         # 第 50 期第 1 条：最后一项是「+ 添加模型…」——原来那颗「手动配置模型与
         # SKILL」里的「自定义模型」入口，现在就在挑模型的那一格旁边。
@@ -980,12 +950,11 @@ class Panel(ttk.Frame):
         self._flow = STAGE_FLOW.get(self.stage)
         if not self._flow and not self.skills:
             return None
-        # 区域一：批量操作并入统筹行。两处的下拉自身已带有可见值，不再用
-        # 「统筹 SKILL／SKILL」重复标注，从而把高度让给下方说明正文。
-        self.skill_action_row = getattr(self, 'workflow_skill_row', None)
-        if self.skill_action_row is None:
-            self.skill_action_row = ttk.Frame(parent)
-            self.skill_action_row.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+        # 区域一：操作栏只放标签与 SKILL 操作下拉，不与勾选框混排。
+        self.skill_action_row = ttk.Frame(parent)
+        self.skill_action_row.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+        self.flow_skill_label = ttk.Label(self.skill_action_row, text='SKILL', style='Muted.TLabel', width=10)
+        self.flow_skill_label.pack(side='left')
         self.skill_action = tk.StringVar(value=MANAGE_ALL)
         action = ttk.Combobox(self.skill_action_row, textvariable=self.skill_action,
                               values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE), state='readonly', width=12)
@@ -997,8 +966,7 @@ class Panel(ttk.Frame):
         # 区域二：所有勾选项独占列表容器；注册表顺序是主顺序，不再按自然宽度散排。
         count = len(self.skills)
         self.skill_list_outer = ttk.Frame(parent)
-        self.skill_list_outer.pack(fill='x', pady=(SPACING['none'], SPACING['none']))
-        self.skill_list_outer.bind('<Configure>', self.schedule_skill_layout, add='+')
+        self.skill_list_outer.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.skill_scrollbar = None
         if self.uses_skill_scrollbar(count):
             self.skill_canvas = tk.Canvas(self.skill_list_outer, height=156, highlightthickness=0, bd=0,
@@ -1068,22 +1036,21 @@ class Panel(ttk.Frame):
         return count > 10
 
     def schedule_skill_layout(self, _event=None):
-        """按可用宽度重排勾选项；宽面板用三列，窄面板维持两列。"""
+        """固定列布局不依赖容器宽度，创建控件后立即排入本区域。"""
         self.layout_skill_controls()
 
     def layout_skill_controls(self):
-        """小列表随宽度使用二／三列；长列表使用单列滚动容器。"""
+        """小列表用两列固定网格；长列表使用单列滚动容器。"""
         self._skill_layout_job = None
         if self.flow_skill_row is None:
             return
         for widget in self.skill_controls:
             widget.grid_forget()
-        width = int(self.skill_list_outer.winfo_width() or 0)
-        columns = 1 if self.skill_scrollbar is not None else (3 if width >= 720 else 2)
+        columns = 1 if self.skill_scrollbar is not None else 2
         for widget in self.skill_controls:
             index = self.skill_controls.index(widget)
             row, column = divmod(index, columns)
-            widget.grid(row=row, column=column, sticky='w', padx=(0, SPACING['sm']), pady=(0, SPACING['none']))
+            widget.grid(row=row, column=column, sticky='w', padx=(0, SPACING['sm']), pady=(0, SPACING['xs']))
         for column in range(columns):
             self.flow_skill_row.grid_columnconfigure(column, weight=1)
 
