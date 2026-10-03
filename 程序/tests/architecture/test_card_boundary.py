@@ -36,6 +36,9 @@ class CardBoundaryTests(unittest.TestCase):
     def test_background_character_dialog_uses_card_for_its_content(self):
         self._assert_settings_card("background_characters.py", "show")
 
+    def test_reference_wall_uses_card_for_its_content(self):
+        self._assert_settings_card("reference_wall.py", "show")
+
     def test_qwen_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("qwen_setup.py")
 

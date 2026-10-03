@@ -14,7 +14,7 @@ from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, DataTable, PrimaryButton, SecondaryButton, notify
+from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, notify
 
 
 def rows(candidates, asset, threshold=search.DEFAULT_THRESHOLD, limit=search.DEFAULT_LIMIT):
@@ -51,7 +51,7 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
         tick_images = ['', '']
     win = BaseDialog(parent, '参考图候选 · 打分与入库', geometry='1000x640',
                      minsize=(780, 480), modal=False, chrome=False); win.withdraw()
-    body = ttk.Frame(win, padding=12); body.pack(fill='both', expand=True)
+    body = Card(win, padding=12); body.pack(fill='both', expand=True)
     tools = ttk.Frame(body); tools.pack(fill='x')
     ttk.Label(tools, text='资产').pack(side='left')
     asset_box = ttk.Combobox(tools, state='readonly', width=24, values=list(labels)); asset_box.pack(side='left', padx=(4, 10))
