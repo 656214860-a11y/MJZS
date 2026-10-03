@@ -31,9 +31,14 @@ from ui_tokens import COLORS, FONTS, SPACING
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
 from ui_widgets import (BaseDialog, BusyState, ContextMenu, DataTable, FormDialog, NotificationDispatcher,
-                        PrimaryButton, SecondaryButton, TextArea, setup_styles)
+                        PrimaryButton, SecondaryButton, TextArea, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
+
+
+def confirm(parent, title, message, *, dangerous=False, **_legacy_options):
+    """桌面历史确认框的统一同步适配器，忽略系统 messagebox 专属视觉参数。"""
+    return ask_confirmation(parent, title, message, dangerous=dangerous)
 
 
 def script_raw_saved_notice(four_roles):
@@ -1819,7 +1824,7 @@ class Desktop:
         import diagnostic_capture
         entries=diagnostic_capture.preview()
         detail='\n'.join(entries) if entries else '当前没有可导出的诊断记录（仍会导出清单）。'
-        if not messagebox.askokcancel('导出诊断包', '将仅包含以下脱敏程序日志（不会包含项目文件、private、.env 或凭据）：\n\n'+detail, parent=self.win):
+        if not confirm(self.win, '导出诊断包', '将仅包含以下脱敏程序日志（不会包含项目文件、private、.env 或凭据）：\n\n'+detail):
             return None
         target=FileDialog(self.win).save_file(title='保存诊断包', defaultextension='.zip', filetypes=[('诊断包','*.zip')])
         if not target:return None
@@ -3266,7 +3271,7 @@ class Desktop:
             # 第 47 期第 7 条：原来这里只弹一句「请等待…结束后退出」就什么都不做——白模那一批
             # 卡住时用户就再也关不掉程序了（用户报的「无法关闭程序」）。现在问一句：答「是」就把
             # 还在跑的进程收掉再退；答「否」照旧守着，等这一步自己结束。
-            if not messagebox.askyesno('仍在处理',reason+'。\n\n现在强制关闭程序吗？\n中断这一步不会删掉已经做好的成果，下次打开可以接着做。',parent=self.win):return
+            if not confirm(self.win, '仍在处理', reason+'。\n\n现在强制关闭程序吗？\n中断这一步不会删掉已经做好的成果，下次打开可以接着做。', dangerous=True):return
             return self.force_quit()
         if self.pet_hides_instead_of_quitting():return
         self._closing=True
