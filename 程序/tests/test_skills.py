@@ -939,6 +939,12 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(skill_panel.EXTERNAL_PACKAGE_API_HINT,
                          '外部包总入口：桌面引擎可完整执行；API 仅传入入口。')
 
+    def test_empty_route_hint_does_not_take_a_form_row(self):
+        """没有本机路由提示时，厂商行与 HOLLMWOOD 行应保持紧凑。"""
+        panel = skill_panel.Panel(self.win, self.desktop, 'script')
+        self.addCleanup(panel.destroy)
+        self.assertEqual(panel.route_hint.winfo_manager(), '')
+
     def test_hollmwood_editor_dropdown_is_above_skill_checks_and_opens_the_choice(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
@@ -1048,6 +1054,7 @@ class PanelTests(unittest.TestCase):
             panel.choose_model()
             self.assertEqual(notice.call_count, 1)
             self.assertIn('优先使用本机程序', panel.route_hint.cget('text'))
+            self.assertEqual(panel.route_hint.winfo_manager(), 'pack')
             panel.destroy()
 
     def test_stage_button_uses_the_confirmed_provider_or_keeps_default_for_auto(self):

@@ -704,10 +704,9 @@ class Panel(ttk.Frame):
                                    values=self.provider_labels() + [ADD_MODEL_LABEL])
         self.models.pack(side='left', padx=(SPACING['xs'], 0))
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
-        # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
+        # 只在用户改选模型后按需探测；空提示不参与布局，避免在厂商与 HOLLMWOOD 之间留白。
         self.route_hint = HintLabel(self, text='')
-        self.route_hint.pack(fill='x', pady=(0, SPACING['none']))
-        # HOLLMWOOD 紧贴模型路由提示之后、外部包提示之前，角色配置不会被附加说明挤开。
+        # HOLLMWOOD 紧贴厂商行；有本机路由提示时再按需插入提示行。
         self.build_hollmwood_editors(pad)
         self.build_workflow_coordinator(pad)
         # 工作流与附加 SKILL 放入同一行，避免上方出现重复的 SKILL 标签。
@@ -1166,6 +1165,10 @@ class Panel(ttk.Frame):
             except Exception:
                 notice = ''
         self.route_hint.configure(text=notice)
+        if notice:
+            self.route_hint.pack(after=self.models.master, fill='x', pady=(0, SPACING['xs']))
+        else:
+            self.route_hint.pack_forget()
         return notice
 
     def set_model(self, model):
