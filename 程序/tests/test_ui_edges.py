@@ -2817,10 +2817,10 @@ class UiEdgeTests(unittest.TestCase):
                 d.poll_auto_keyframe()
                 self.assertTrue(d.auto_keyframe_busy)
                 again = d.auto_keyframe_queue.get(timeout=20)
-            self.assertTrue(again[0]); self.assertEqual(again[2][1][0][1], 0)
+            self.assertTrue(again[1]); self.assertEqual(again[3][1][0][1], 0)
             self.assertEqual(len(started), 1)     # 缺参考资产那次没派发，只在资产补齐后跑了一次
             baseline = len(started)   # 后段只关心「参考图齐了就不再空跑」
-            d.auto_keyframe_busy = False; d.auto_keyframe_signature = again[2]
+            d.auto_keyframe_busy = False; d.auto_keyframe_signature = again[3]
             frames = storyboard_stage(proj) / "frames"; frames.mkdir(exist_ok=True)
             (frames / "SH001.png").write_bytes(b"\x89PNG\r\n\x1a\n")
             d.auto_keyframe_signature = None

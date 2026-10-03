@@ -89,12 +89,12 @@ class BackgroundTaskLifecycleTests(unittest.TestCase):
 
 
 class BackgroundTaskMigrationManifestTests(unittest.TestCase):
-    def test_auto_video_is_the_only_completed_progress_delivery_entry(self):
+    def test_progress_delivery_entries_are_migrated(self):
         records = {record['entry']: record for record in BACKGROUND_TASK_MIGRATION}
         self.assertEqual(records['auto_video'], {
             'entry': 'auto_video', 'category': 'progress-and-result', 'state': 'migrated'})
         self.assertEqual(records['auto_asset']['state'], 'migrated')
-        self.assertEqual(records['auto_keyframe']['state'], 'pending')
+        self.assertEqual(records['auto_keyframe']['state'], 'migrated')
 
 
 class AutoVideoLifecycleDeliveryTests(unittest.TestCase):
@@ -148,6 +148,31 @@ class AutoAssetLifecycleDeliveryTests(unittest.TestCase):
         self.assertEqual(status.values, [])
         self.assertTrue(desktop.auto_asset_busy)
         self.assertIsNone(desktop.auto_asset_signature)
+
+
+class AutoKeyframeLifecycleDeliveryTests(unittest.TestCase):
+    def test_stale_progress_and_result_cannot_refresh_the_desktop(self):
+        """自动首帧被替换后，旧 worker 的消息和结果均不得触达 UI 或推进阶段。"""
+        from desktop import Desktop
+        lifecycle = BackgroundTaskLifecycle()
+        lifecycle.submit(1)
+        lifecycle.submit(2)
+        status = SimpleNamespace(values=[], set=lambda value: status.values.append(value))
+        desktop = SimpleNamespace(
+            auto_keyframe_tasks=lifecycle,
+            auto_keyframe_messages=queue.Queue(),
+            auto_keyframe_queue=queue.Queue(),
+            auto_keyframe_busy=True,
+            auto_keyframe_signature=None,
+            status=status,
+            _poll_auto_due=lambda *args, **kwargs: None,
+        )
+        desktop.auto_keyframe_messages.put((1, '旧进度'))
+        desktop.auto_keyframe_queue.put((1, True, '旧结果', ('SH001',)))
+        Desktop._tick_auto_keyframe(desktop)
+        self.assertEqual(status.values, [])
+        self.assertTrue(desktop.auto_keyframe_busy)
+        self.assertIsNone(desktop.auto_keyframe_signature)
 
 
 if __name__ == '__main__':

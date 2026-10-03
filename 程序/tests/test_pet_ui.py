@@ -1460,7 +1460,7 @@ class FrameBatchSeamTests(unittest.TestCase):
             text = self.d.pet_frame_batch()
             self.assertIn("已按分镜顺序派发 2 镜首帧", text)
             self.assertTrue(self.d.auto_keyframe_busy)
-            ok, value, signature = self.d.auto_keyframe_queue.get(timeout=20)
+            _ticket, ok, value, signature = self.d.auto_keyframe_queue.get(timeout=20)
             self.assertTrue(ok)
             self.assertIn("处理 2 镜", value)
             self.assertEqual(signature, ("签名", 2))

@@ -500,7 +500,7 @@ class Desktop:
         self.auto_edit_queue=pet_ui.StageQueue('edit',self.pet.drain)
         self.auto_edit_signature=None
         self.auto_edit_error=''
-        self.auto_keyframe_due=0
+        self.auto_keyframe_due=0;self._auto_keyframe_ticket=0;self.auto_keyframe_tasks=BackgroundTaskLifecycle()
         self.auto_keyframe_busy=False
         self.auto_keyframe_queue=pet_ui.StageQueue('keyframe')
         self.auto_keyframe_messages=queue.Queue()
@@ -1955,7 +1955,7 @@ class Desktop:
         self.shutting_down=True
         # 计时器回归会构造最小 Desktop 替身；真实窗口在 __init__ 中必定拥有这些
         # 生命周期登记器，但关闭路径也必须兼容尚未完成初始化的窗口。
-        for lifecycle_name in ('background_tasks','auto_asset_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks'):
+        for lifecycle_name in ('background_tasks','auto_asset_tasks','auto_keyframe_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks'):
             lifecycle=getattr(self,lifecycle_name,None)
             if lifecycle is not None:lifecycle.cancel()
         # ``fit_content`` 的空闲布局任务属于桌面窗口；若关闭发生在首帧／重建之间，
@@ -2236,10 +2236,14 @@ class Desktop:
     def _tick_auto_keyframe(self):
         """处理自动补首帧的消息、后台收尾与下一轮轮询。"""
         try:
-            while True:self.status.set('自动补首帧：'+self.auto_keyframe_messages.get_nowait())
+            while True:
+                ticket,text=self.auto_keyframe_messages.get_nowait()
+                if self.auto_keyframe_tasks.accepts(ticket):self.status.set('自动补首帧：'+text)
         except queue.Empty:pass
         try:
-            ok,value,signature=self.auto_keyframe_queue.get_nowait();self.auto_keyframe_busy=False
+            ticket,ok,value,signature=self.auto_keyframe_queue.get_nowait()
+            if not self.auto_keyframe_tasks.finish(ticket,succeeded=ok):return
+            self.auto_keyframe_busy=False
             source,pending,_reason,_warn=self.keyframe_batch_state(check_settings=False)
             if ok and source is not None and not pending:
                 self.auto_keyframe_signature=signature
@@ -2712,7 +2716,9 @@ class Desktop:
         这里只管「什么时候该跑」，派发本身与宠物「一键执行」共用 start_keyframe_batch。
         """
         if self.root is None or self.studio is None or not self.pet.should_auto_run('keyframe'):
-            self.auto_keyframe_signature=None;return
+            self.auto_keyframe_signature=None
+            if self.auto_keyframe_tasks.cancel():self.auto_keyframe_busy=False
+            return
         # 先判重再派发：批次跑着的时候这一批的指纹已经记下，不会在生成过程中重复下单。
         sent,message,signature=self.start_keyframe_batch('无人值守自动补首帧',unless_signature=self.auto_keyframe_signature)
         from keyframe_batch import automatic_poll_decision
@@ -2790,11 +2796,13 @@ class Desktop:
         if reason:return False,'首帧未补：'+reason,signature if warn else None
         self.auto_keyframe_blocked=None
         self.auto_keyframe_busy=True
+        self._auto_keyframe_ticket+=1
+        ticket=self.auto_keyframe_tasks.submit(self._auto_keyframe_ticket)
         self.status.set(label+'：准备用本地 ComfyUI 按分镜顺序补 '+str(len(pending))+' 镜首帧…')
         def worker():
             from keyframe_comfy import auto_batch
-            try:self.auto_keyframe_queue.put((True,auto_batch(source,self.auto_keyframe_log),signature))
-            except Exception as exc:self.auto_keyframe_queue.put((False,label+'未完成：'+str(exc),signature))
+            try:self.auto_keyframe_queue.put((ticket,True,auto_batch(source,lambda text:self.auto_keyframe_log(ticket,text)),signature))
+            except Exception as exc:self.auto_keyframe_queue.put((ticket,False,label+'未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
         return True,'已按分镜顺序派发 '+str(len(pending))+' 镜首帧（本地 ComfyUI 免费后端，未运行会自动启动）',signature
     def pet_frame_batch(self, trigger='manual'):
@@ -2972,9 +2980,9 @@ class Desktop:
             try:shot_inputs(shot,media_root(source),assets)
             except ValueError as exc:result.append((shot['id'],str(exc)))
         return result
-    def auto_keyframe_log(self,text):
+    def auto_keyframe_log(self,ticket,text):
         # 工作线程回调：只入队，由主循环写状态栏，线程里不碰 Tk。
-        self.auto_keyframe_messages.put(str(text))
+        self.auto_keyframe_messages.put((ticket,str(text)))
     def poll_auto_previs(self):
         """无人值守：复杂动作镜头交给当前调用的制作引擎自动出白模；中等动作只在状态栏提示，不代办。
 
