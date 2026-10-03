@@ -45,6 +45,19 @@ class NotificationBoundaryTests(unittest.TestCase):
             if _display_messageboxes(parse(path))
         }
         self.assertEqual(direct, {}, '根目录业务模块不得直接显示 messagebox：' + str(direct))
+
+    def test_all_production_modules_use_the_notification_entry(self):
+        direct = {}
+        for path in ROOT.rglob('*.py'):
+            relative = path.relative_to(ROOT)
+            if (path.name.startswith('test') or 'tests' in relative.parts
+                    or 'tasks_round' in relative.parts or '维护记录' in relative.parts
+                    or path.name == 'ui_widgets.py'):
+                continue
+            count = len(_display_messageboxes(parse(path)))
+            if count:
+                direct[str(relative)] = count
+        self.assertEqual(direct, {}, '生产模块不得绕过统一通知入口：' + str(direct))
 LEGACY_MESSAGEBOX_MAX = {
     'app.py': 0, 'asset_detail.py': 0, 'asset_prompt_rules.py': 0,
     'asset_reference_import.py': 0, 'background_characters.py': 0,
