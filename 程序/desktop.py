@@ -1738,7 +1738,7 @@ class Desktop:
             self.status.set('当前没有可中断的剧本 Agent 调用。')
             return False
         self._async_ticket+=1;self.background_tasks.cancel()
-        self.worker=False;self.progress.stop()
+        self.worker=False;self.busy_state.set_busy(False)
         self.idea_chat_controller.cancel_request()
         self._stream_text=''
         if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
