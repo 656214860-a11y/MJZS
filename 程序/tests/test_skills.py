@@ -909,7 +909,7 @@ class PanelTests(unittest.TestCase):
         labels = [child.cget('text') for child in controls if str(child.winfo_class()) == 'TLabel']
         self.assertTrue(any('关闭时按所选 SKILL 直发' in text for text in labels))
 
-    def test_stage_panel_uses_compact_aligned_rows_and_short_hints(self):
+    def test_stage_panel_removes_redundant_group_labels_and_keeps_short_hints(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
         def descendants(widget):
@@ -918,8 +918,7 @@ class PanelTests(unittest.TestCase):
         labels = [child for child in descendants(panel) if str(child.winfo_class()) == 'TLabel']
         widths = {label.cget('text'): label.cget('width') for label in labels}
         self.assertEqual(widths['预设'], 10)
-        self.assertEqual(widths['厂商'], 10)
-        self.assertEqual(widths['SKILL'], 10)
+        self.assertFalse({'厂商', '统筹 SKILL', 'SKILL', 'HOLLMWOOD'} & set(widths))
         self.assertEqual(panel.state.cget('text'), '选择预设即可套用；确认保存本页。')
         self.assertEqual(skill_panel.EXTERNAL_PACKAGE_API_HINT,
                          '外部包总入口：桌面引擎可完整执行；API 仅传入入口。')
@@ -1181,6 +1180,16 @@ class PanelTests(unittest.TestCase):
         hint = str(panel.preset_hint.cget('text'))
         for text in ('选择预设即可套用', '确认'):
             self.assertIn(text, hint)
+        panel.destroy()
+
+    def test_preset_action_picker_uses_compact_font_and_room_for_option_text(self):
+        """预设操作下拉框单独紧凑，长操作名不会挤压或裁切。"""
+        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        self.assertEqual(panel.preset_actions.cget('style'), skill_panel.PRESET_ACTION_STYLE)
+        self.assertEqual(int(panel.preset_actions.cget('width')),
+                         skill_panel.PRESET_ACTION_WIDTH)
+        self.assertGreaterEqual(skill_panel.PRESET_ACTION_WIDTH, 15)
+        self.assertIsNone(panel._style_preset_action_popup())
         panel.destroy()
 
     def test_confirm_saves_current_page_configuration_and_is_in_bottom_action_bar(self):
@@ -1445,15 +1454,20 @@ class PanelTests(unittest.TestCase):
         deleted.assert_called_once_with()
         self.assertEqual(panel.skill_action.get(), skill_panel.MANAGE_ALL)
 
-    def test_skill_controls_use_fixed_columns_and_scroll_policy(self):
-        """勾选项固定两列；超过十项切换滚动列表，操作栏不参与网格。"""
+    def test_skill_controls_use_responsive_columns_and_scroll_policy(self):
+        """宽面板可用三列；超过十项切换滚动列表，操作栏不参与网格。"""
+        self.win.geometry('900x700')
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.addCleanup(panel.destroy)
-        panel.layout_skill_controls()
+        panel.pack(fill='both', expand=True)
+        self.win.update_idletasks()
+        with mock.patch.object(panel.skill_list_outer, 'winfo_width', return_value=720):
+            panel.layout_skill_controls()
         rows = [int(widget.grid_info()['row']) for widget in panel.skill_controls]
         self.assertGreater(max(rows), 0)
         self.assertTrue(all(widget.grid_info() for widget in panel.skill_controls))
         self.assertTrue(all(widget.master is panel.flow_skill_row for widget in panel.skill_controls))
+        self.assertEqual(max(int(widget.grid_info()['column']) for widget in panel.skill_controls), 2)
         self.assertTrue(panel.uses_skill_scrollbar(11))
         self.assertFalse(panel.uses_skill_scrollbar(10))
         clipped = panel.skill_label('名称' * 20, limit=12)
