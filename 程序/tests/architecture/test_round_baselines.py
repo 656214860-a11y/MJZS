@@ -56,7 +56,7 @@ class RoundBaselineTests(unittest.TestCase):
     def test_full_safe_all_is_required_every_three_rounds(self) -> None:
         """仅主干提交序列每三轮要求一次完整安全全量。"""
         latest = _latest_result_number()
-        baseline = json.loads(BASELINES.read_text(encoding='utf-8'))
+        baseline = run_selftests.load_layer_document()
         last_full = baseline['last_full_safe_all_round']
         if not run_selftests.full_safe_required(
                 latest, last_full, run_selftests.is_master_checkout()):
@@ -69,7 +69,7 @@ class RoundBaselineTests(unittest.TestCase):
                         f'R{latest} 欠一次完整安全全量')
 
     def test_verified_tree_records_have_required_metadata(self) -> None:
-        baseline = json.loads(BASELINES.read_text(encoding='utf-8'))
+        baseline = run_selftests.load_layer_document()
         records = baseline.get('full_safe_verified_trees', [])
         self.assertIsInstance(records, list)
         for record in records:

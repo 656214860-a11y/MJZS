@@ -22,6 +22,16 @@ spec.loader.exec_module(install_git_hooks)
 
 
 class GitHookTests(unittest.TestCase):
+    def test_precommit_blocks_full_safe_lock_even_without_staged_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            lock = root / '.git' / 'full-safe-selftest.lock'
+            lock.write_text('{"pid": 123}', encoding='utf-8')
+            self.assertNotEqual(self.run_hook(HOOKS / 'pre-commit', cwd=root).returncode, 0)
+            lock.unlink()
+            self.assertEqual(self.run_hook(HOOKS / 'pre-commit', cwd=root).returncode, 0)
+
     def run_hook(self, hook: Path, *args: str, cwd: Path | None = None, env: dict | None = None):
         return subprocess.run([str(SH), str(hook), *args], cwd=cwd, text=True,
                               capture_output=True, env=env, check=False)

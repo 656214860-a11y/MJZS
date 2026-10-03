@@ -14,6 +14,14 @@ import smoke_test
 
 
 class SafeRunnerTests(unittest.TestCase):
+    def test_gui_measurement_override_is_bounded(self):
+        self.assertEqual(run_selftests.safe_gui_jobs(8, 3), 3)
+        self.assertEqual(run_selftests.safe_gui_jobs(8, 4), 4)
+        self.assertEqual(run_selftests.safe_gui_jobs(1, 4), 1)
+        for value in (0, 5):
+            with self.assertRaises(ValueError):
+                run_selftests.safe_gui_jobs(8, value)
+
     def test_topmost_tracking_does_not_retain_finished_windows(self):
         script = '''
 import gc, weakref
@@ -231,6 +239,26 @@ class IncrementalTests(unittest.TestCase):
     def test_empty_tree_never_matches_a_receipt(self):
         record = {'tree': '', 'at': datetime.now().isoformat()}
         self.assertIsNone(run_selftests.verified_tree_record([record], ''))
+
+    def test_success_receipt_does_not_rewrite_tracked_baseline(self):
+        with tempfile.TemporaryDirectory() as folder, \
+             mock.patch.object(run_selftests, 'git_common_dir', return_value=folder), \
+             mock.patch.object(run_selftests, 'content_tree', return_value='tree'), \
+             mock.patch.object(run_selftests, 'layer_baseline_path', return_value=os.path.join(folder, 'tracked.json')):
+            saved = run_selftests.save_full_safe_verification('tree', 962, 400)
+            self.assertEqual(saved, os.path.join(folder, 'full-safe-receipts.json'))
+            self.assertFalse(os.path.exists(os.path.join(folder, 'tracked.json')))
+            self.assertEqual(run_selftests.load_layer_document()['full_safe_verified_trees'][0]['tree'], 'tree')
+
+    def test_content_tree_checks_repository_root(self):
+        with mock.patch.object(run_selftests, '_git_text', return_value=' M CLAUDE.md') as git:
+            self.assertEqual(run_selftests.content_tree(), '')
+            self.assertIn(':/', git.call_args.args)
+
+    def test_measurement_rejects_head_change_even_with_same_content(self):
+        with mock.patch.object(run_selftests, 'content_tree', return_value='tree'), \
+             mock.patch.object(run_selftests, '_git_text', return_value='new-head'):
+            self.assertFalse(run_selftests.measurement_unchanged('old-head', 'tree'))
 
     def test_changed_tree_during_run_cannot_publish_receipt(self):
         for current in ('', 'different-tree'):

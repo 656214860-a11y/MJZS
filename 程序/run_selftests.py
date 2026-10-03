@@ -57,7 +57,7 @@ SKIP = {"run_selftests", "test_core", "test_workflow"}
 SPLIT_OVER = 20         # 用例超过这么多条的测试文件才拆（小文件拆了反而多付进程启动的钱）
 CHUNK_TESTS = 16        # 安全串行仍受 180 秒回收；合并短用例以避免 worktree 的进程寿命上限打断全量回归
 JOBS_CAP = 8            # 默认并行度上限：这些用例一半在建整套 Tk 界面，16 路实测反而更慢
-SAFE_GUI_JOBS = 2       # C4 性能目标下 Tk 的受控并发上限；超过两路会明显争抢 Windows 图形资源
+SAFE_GUI_JOBS = 2       # 默认保持两路；--gui-jobs 3/4 仅用于显式对照测量
 SAFE_UNIT_TIMEOUT = 180 # 安全串行性能用例的一小段最长允许三分钟，避免模态窗永久占住门禁
 HEARTBEAT_SECONDS = 30  # 并行全量久未完成时仍需给出活跃心跳，方便定位是否只是慢
 SLOW_UNITS_LIMIT = 10   # 汇总只保留最慢若干工作单元，避免全量输出淹没结论
@@ -81,9 +81,12 @@ def safe_full_options(everything, serial, whole, jobs, safe):
     return everything, serial, whole, jobs
 
 
-def safe_gui_jobs(jobs):
-    """安全模式允许受控的 Tk 并发，但绝不超过经验证的两个 worker。"""
-    return max(1, min(SAFE_GUI_JOBS, jobs))
+def safe_gui_jobs(jobs, override=None):
+    """默认两路；显式 A/B 测量限制在 1～4 路且不超过总 worker 数。"""
+    limit = SAFE_GUI_JOBS if override is None else override
+    if limit not in (1, 2, 3, 4):
+        raise ValueError('--gui-jobs 必须为 1、2、3 或 4')
+    return max(1, min(limit, jobs))
 
 
 def _digest(path):
@@ -284,7 +287,7 @@ def layer_baseline_path():
 def content_tree():
     """返回 HEAD 中程序目录的内容树；未提交改动不应拿旧树替代验证。"""
     try:
-        if _git_text('status', '--porcelain', '--untracked-files=normal', '--', '.'):
+        if _git_text('status', '--porcelain', '--untracked-files=normal', '--', ':/'):
             return ''
         root = _git_text('rev-parse', '--show-toplevel')
         relative = os.path.relpath(HERE, root).replace(os.sep, '/')
@@ -321,6 +324,12 @@ def participating_full_safe_run(round_number):
         return False
 
 
+def measurement_unchanged(head, tree):
+    """相同内容树也不能掩盖测量期间发生的提交。"""
+    return bool(head and tree and _git_text('rev-parse', 'HEAD') == head
+                and content_tree() == tree)
+
+
 def verified_tree_record(records, tree, now=None):
     """找出七日内可引用的同内容树全量绿记录。"""
     if not tree:
@@ -345,7 +354,20 @@ def load_layer_document():
             document = json.load(handle)
     except (OSError, ValueError):
         document = {}
-    return document if isinstance(document, dict) else {}
+    document = document if isinstance(document, dict) else {}
+    try:
+        with io.open(full_safe_receipts_path(), encoding='utf-8') as handle:
+            receipts = json.load(handle)
+        if isinstance(receipts, dict):
+            document['full_safe_verified_trees'] = receipts.get('full_safe_verified_trees', [])
+    except (OSError, ValueError):
+        pass
+    return document
+
+
+def full_safe_receipts_path():
+    common = git_common_dir()
+    return os.path.join(common, 'full-safe-receipts.json') if common else layer_baseline_path()
 
 
 def record_verified_tree(document, tree, round_number, seconds, at=None):
@@ -365,7 +387,7 @@ def invalidate_verified_tree(document, tree):
         return False
     document['full_safe_verified_trees'] = kept
     try:
-        line_endings.write_text(layer_baseline_path(), json.dumps(document, ensure_ascii=False,
+        line_endings.write_text(full_safe_receipts_path(), json.dumps(document, ensure_ascii=False,
                                                                     indent=1, sort_keys=True) + '\n')
     except (OSError, ValueError):
         return False
@@ -411,7 +433,7 @@ def save_full_safe_verification(tree, round_number, elapsed):
         return ''
     document = load_layer_document()
     record_verified_tree(document, tree, round_number, elapsed)
-    target = layer_baseline_path()
+    target = full_safe_receipts_path()
     try:
         line_endings.write_text(target, json.dumps(document, ensure_ascii=False, indent=1,
                                                     sort_keys=True) + '\n')
@@ -883,6 +905,7 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     keys, jobs, serial, listing, whole = [], 0, False, False, False
     everything, safe, force, layer = False, False, False, ''
+    gui_override = None
     while argv:
         arg = argv.pop(0)
         if arg == '--serial':
@@ -904,6 +927,9 @@ def main(argv=None):
             layer = argv.pop(0).strip().lower()
         elif arg == '--jobs':
             jobs = int(argv.pop(0))
+        elif arg == '--gui-jobs':
+            gui_override = int(argv.pop(0))
+            safe_gui_jobs(JOBS_CAP, gui_override)
         elif arg == '-k':
             keys.extend(argv.pop(0).split())
         else:
@@ -924,6 +950,7 @@ def main(argv=None):
             print(name)
         return 0
     full_safe = everything and safe and not keys and not layer
+    start_head = ''
     tree = content_tree() if full_safe else ''
     verified = verified_tree_record(load_layer_document().get('full_safe_verified_trees', []), tree)
     if full_safe and verified and not force:
@@ -937,6 +964,13 @@ def main(argv=None):
             print(str(exc))
             return 2
         atexit.register(release_full_safe_lock, lock)
+        tree = content_tree()
+        start_head = _git_text('rev-parse', 'HEAD')
+        if not tree:
+            print('拒绝全量测量：仓库 git status --porcelain 非空；请先收口工作树。')
+            release_full_safe_lock(lock)
+            return 2
+        print('验收起点：HEAD=%s，工作树干净' % start_head)
     if not serial and not jobs:
         jobs = max(2, min(JOBS_CAP, (os.cpu_count() or 4)))
     protect_tk()
@@ -977,7 +1011,7 @@ def main(argv=None):
     started = time.time()
     if safe:
         non_gui, gui = split_safe_units(todo)
-        gui_jobs = safe_gui_jobs(jobs)
+        gui_jobs = safe_gui_jobs(jobs, gui_override)
         if non_gui or gui:
             print('安全分池：%d 路无 Tk 并行（%d workers），%d 路 Tk 受控并行（%d workers）' %
                   (len(non_gui), jobs, len(gui), gui_jobs))
@@ -999,6 +1033,9 @@ def main(argv=None):
     for name, bad, detail in reds:
         print('\n### %s（%d 条红）' % (name, len(bad)))
         print(detail)
+    if full_safe and not measurement_unchanged(start_head, tree):
+        print('验收无效：测量期间 HEAD 或工作树变化，不写入绿凭据。')
+        raise SystemExit(2)
     baseline = save_layer_baseline(layer, got, elapsed)
     if baseline:
         print('分层基线已刷新：' + baseline)
@@ -1021,4 +1058,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
