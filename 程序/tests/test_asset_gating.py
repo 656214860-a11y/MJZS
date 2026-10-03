@@ -627,6 +627,24 @@ class NativeAssetsGatingTests(_TkHarness):
             states = {b.cget("text"): button_state(b) for b in self._buttons(form)}
             self.assertEqual(states["启动并检测"], "normal")
 
+    def test_generation_is_dispatched_through_the_desktop_async_boundary(self):
+        """检测通过后，含轮询 sleep 的制图工作只能交给 Desktop.async_，不能留在按钮回调。"""
+        with tempfile.TemporaryDirectory() as td:
+            d, proj = self.desktop(td)
+            d.launch_comfy = lambda silent=True: True
+            submitted = []
+            d.async_ = lambda fn, done=None, **kwargs: submitted.append((fn, done, kwargs))
+            form = self.attach(d, proj, selection=lambda: [("CHAR_001", {"name": "主角"})])
+            buttons = {button.cget("text"): button for button in self._buttons(form)}
+            buttons["启动并检测"].invoke()
+            self.assertEqual(len(submitted), 1, "检测本身先经异步入口")
+            submitted[0][1]("ComfyUI 已连接，检测通过。正在自动开始制图…")
+            self.assertEqual(len(submitted), 2, "制图工作也必须经异步入口")
+            work, _done, kwargs = submitted[1]
+            self.assertTrue(callable(work))
+            self.assertFalse(kwargs["show_progress"])
+            form.winfo_children()[1].stop()  # 本测试不交付 worker 结果，别留下 Tk 自动步进回调。
+
 
 class ForceCloseComfyTests(unittest.TestCase):
     """第 65 期任务 1：「强制关闭 ComfyUI」要真的关得掉。
