@@ -328,11 +328,11 @@ def show(app,engine="comfy",selected_ids=None):
             return
         blocked=decision.uncertain_ids
         if blocked:
-            if messagebox.askyesno('提交结果无法确认',
+            if ask_confirmation(win, '提交结果无法确认',
                     '以下资产上次提交时连接中断，无法确认是否已经生成：\n'+'、'.join(blocked)+
                     '\n\n请先在 ComfyUI 或云端控制台核对它们的生成情况。\n'
-                    '点“是”：确认没有生成成功，本次重新生成；使用云端模型时会再次计费。\n'
-                    '点“否”：本次先跳过这些资产，其余资产照常生成。',parent=win,default='no'):
+                    '点“确认”：确认没有生成成功，本次重新生成；使用云端模型时会再次计费。\n'
+                    '点“取消”：本次先跳过这些资产，其余资产照常生成。',dangerous=True):
                 status.set('已按核实结果放开重新生成：'+'、'.join(release_uncertain(project,blocked)))
             else:
                 skip=set(blocked);items=[(aid,asset) for aid,asset in items if aid not in skip]
