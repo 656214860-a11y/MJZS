@@ -13,7 +13,7 @@
 
 ## 当前能力
 
-- R863 缺陷治理轮（退出维护 sleep 线程边界，**已验收**）：关闭后的项目维护三秒等待只在脱离标准流的独立 `--cleanup` 进程中运行；退出 UI 不会等待它。存储专项 9 条／0 红、完整安全全量待本轮 `run_selftests.py --all --safe` 收口。详见 `tasks_round/tasks_round_863_result.md`。
+- R863 缺陷治理轮（退出维护 sleep 线程边界，**已验收**）：关闭后的项目维护三秒等待只在脱离标准流的独立 `--cleanup` 进程中运行；退出 UI 不会等待它。存储专项 9 条／0 红、完整安全全量 3,706 条／641.2 秒／0 红，基线已更新至 R863。详见 `tasks_round/tasks_round_863_result.md`。
 
 - R862 缺陷治理轮（原生素材 sleep 线程边界，**已验收**）：原生素材的 ComfyUI 检测重试与生成进度轮询均由 `Desktop.async_()` 提交，不在 Tk 按钮回调执行；新增 UI 契约回归防止未来重构回退。原生素材门禁 6 条／0 红、默认冒烟 8/8。详见 `tasks_round/tasks_round_862_result.md`。
 
