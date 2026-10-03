@@ -10,7 +10,7 @@ from agent.core import read,save,file_hash,command,fingerprint,temporary_path,re
 from agent.media import check, png_size
 import project_settings
 from ui_tokens import SPACING
-from ui_widgets import BaseDialog, LineInput, PrimaryButton, SecondaryButton
+from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton
 
 def model_name(cfg=None):
     """本地视频当前使用的模型：取已保存工作流的文件名，未配置时按默认 H3 显示。"""
@@ -358,15 +358,16 @@ def settings_window(app):
     from tkinter import ttk
     from ui_dialogs import FileDialog
     win=BaseDialog(app.window,'',modal=False,chrome=False);win.attributes('-alpha',0);win.title('本地ComfyUI视频设置 · MiniMax H3');win.geometry('850x610')
+    body=Card(win,padding=SPACING['lg']);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1)
     defaults={'url':'http://127.0.0.1:8189','workflow':str(Path(__file__).parent/'workflows/h3_i2v_api.json'),'prompt':'104.prompt','image':'114.image','duration':'104.length','duration_mode':'h3_frames','seed':'15.noise_seed','output':'92'}
     defaults.update(app.studio.cfg.get('local_video',{}));entries={}
     labels={'url':'本地ComfyUI地址','workflow':'API工作流','prompt':'提示词节点.字段','image':'首帧节点.字段','duration':'时长节点.字段','duration_mode':'时长格式：h3_frames / seconds','seed':'随机种子节点.字段','output':'输出视频节点ID'}
     for row,(key,label) in enumerate(labels.items()):
-        ttk.Label(win,text=label).grid(row=row,column=0,padx=SPACING['md'],pady=SPACING['sm'],sticky='w');e=LineInput(win,width=66);e.insert(0,defaults[key]);e.grid(row=row,column=1,padx=SPACING['sm']);entries[key]=e
+        ttk.Label(body,text=label).grid(row=row,column=0,padx=SPACING['md'],pady=SPACING['sm'],sticky='w');e=LineInput(body,width=66);e.insert(0,defaults[key]);e.grid(row=row,column=1,padx=SPACING['sm']);entries[key]=e
     def browse():
         p=FileDialog(win).open_file(initialdir=app.root/'workflows',filetypes=[('ComfyUI API JSON','*.json')])
         if p:entries['workflow'].delete(0,'end');entries['workflow'].insert(0,p)
-    SecondaryButton(win,text='选择工作流',command=browse).grid(row=8,column=1,sticky='w',pady=SPACING['sm'])
+    SecondaryButton(body,text='选择工作流',command=browse).grid(row=8,column=1,sticky='w',pady=SPACING['sm'])
     def values():return {key:e.get().strip() for key,e in entries.items()}
     def inspect():
         cfg={**app.studio.cfg,'local_video':values()}
@@ -376,6 +377,6 @@ def settings_window(app):
         LocalAPI(opts['url']);prepare_graph(app.root,cfg,{**app.studio.episode['shots'][0],'duration':5})
         publisher=getattr(__import__('stage_execution_service'), 'publish_local_video_settings')
         app.studio.cfg=publisher(app.root, app.studio.cfg, opts);win.destroy();app.refresh()
-    ttk.Label(win,text='只连接本机，不读取云端API Key。H3需完整模型；无音轨视频不会通过有声QC。',wraplength=770).grid(row=9,column=0,columnspan=2,pady=SPACING['md'])
-    SecondaryButton(win,text='检测节点与模型',command=lambda:app.safe(inspect)).grid(row=10,column=0,pady=SPACING['sm'])
-    PrimaryButton(win,text='保存设置',command=lambda:app.safe(commit)).grid(row=10,column=1,sticky='w',pady=SPACING['sm'])
+    ttk.Label(body,text='只连接本机，不读取云端API Key。H3需完整模型；无音轨视频不会通过有声QC。',wraplength=770).grid(row=9,column=0,columnspan=2,pady=SPACING['md'])
+    SecondaryButton(body,text='检测节点与模型',command=lambda:app.safe(inspect)).grid(row=10,column=0,pady=SPACING['sm'])
+    PrimaryButton(body,text='保存设置',command=lambda:app.safe(commit)).grid(row=10,column=1,sticky='w',pady=SPACING['sm'])

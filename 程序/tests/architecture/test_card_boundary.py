@@ -11,6 +11,9 @@ class CardBoundaryTests(unittest.TestCase):
     def test_cloud_video_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("cloud_video.py", "settings_window")
 
+    def test_local_video_settings_uses_card_for_its_configuration_group(self):
+        self._assert_settings_card("local_video.py", "settings_window")
+
     def test_qwen_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("qwen_setup.py")
 
