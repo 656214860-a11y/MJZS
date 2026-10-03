@@ -1193,6 +1193,15 @@ class PanelTests(unittest.TestCase):
         self.assertIsNone(panel._style_preset_action_popup())
         panel.destroy()
 
+    def test_model_picker_uses_small_font_and_room_for_model_names(self):
+        """模型下拉框及弹出列表应完整展示含版本号的名称。"""
+        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        self.assertEqual(panel.models.cget('style'), skill_panel.MODEL_PICKER_STYLE)
+        self.assertEqual(int(panel.models.cget('width')), skill_panel.MODEL_PICKER_WIDTH)
+        self.assertGreaterEqual(skill_panel.MODEL_PICKER_WIDTH, 18)
+        self.assertIsNone(panel._style_model_popup())
+        panel.destroy()
+
     def test_confirm_saves_current_page_configuration_and_is_in_bottom_action_bar(self):
         """确认在底部动作条，预设行不承担关闭窗口的责任。"""
         window = tk.Toplevel(self.win)

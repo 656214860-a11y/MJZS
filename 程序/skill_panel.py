@@ -73,6 +73,10 @@ PRESET_PLACEHOLDER = '请选择'
 PRESET_ACTION_STYLE = 'PresetAction.TCombobox'
 PRESET_ACTION_FONT = FONTS['caption']
 PRESET_ACTION_WIDTH = 15
+# 模型名称常含版本号；弹出列表使用更小字号和更宽字符位，避免内容被截断。
+MODEL_PICKER_STYLE = 'ModelPicker.TCombobox'
+MODEL_PICKER_FONT = (FONTS['caption'][0], 9)
+MODEL_PICKER_WIDTH = 18
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 SKILL_FLOW_ORDER = ('script', 'storyboard', 'asset', 'firstframe', 'whitemodel',
                     'video', 'voice', 'subtitle', 'edit', 'qa', 'delivery')
@@ -720,13 +724,16 @@ class Panel(ttk.Frame):
         # 第 50 期第 1 条：最后一项是「+ 添加模型…」——原来那颗「手动配置模型与
         # SKILL」里的「自定义模型」入口，现在就在挑模型的那一格旁边。
         self.models = ttk.Combobox(top, textvariable=self.model, state='readonly',
-                                   width=14,
+                                   width=MODEL_PICKER_WIDTH, style=MODEL_PICKER_STYLE,
                                    values=self.provider_labels() + [ADD_MODEL_LABEL])
+        ttk.Style(self).configure(MODEL_PICKER_STYLE, font=MODEL_PICKER_FONT)
         self.models.pack(side='left', padx=(SPACING['xs'], 0))
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
+        self.models.bind('<ButtonPress-1>', self._schedule_model_popup_style, add='+')
+        self.models.bind('<Alt-Down>', self._schedule_model_popup_style, add='+')
+        self.models.bind('<F4>', self._schedule_model_popup_style, add='+')
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
         self.route_hint = HintLabel(engine, text='')
-        self.route_hint.pack(fill='x', pady=(0, SPACING['none']))
         skill_section = ttk.LabelFrame(self, text='', padding=pad)
         skill_section.pack(fill='x', pady=(0, pad))
         self.skill_content = ttk.Frame(skill_section)
@@ -736,9 +743,9 @@ class Panel(ttk.Frame):
         # 得回页面按的和缺文件的分开讲，用户才知道下一步该去哪儿。
         # 执行编排时的细节仍独占一行，避免覆盖上面的结果摘要。
         self.reason = DescriptionBlock(skill_section, text='')
-        self.reason.pack(fill='x', pady=(0, pad))
         specific = ttk.LabelFrame(self, text='', padding=pad)
         specific.pack(fill='x', pady=(0, pad))
+        self.specific_section = specific
         self.build_hollmwood_editors(pad, specific)
         self.build_interfaces(pad, specific)
         self.bottom_bar = ttk.Frame(self)
@@ -766,6 +773,29 @@ class Panel(ttk.Frame):
         except (KeyError, tk.TclError):
             # 键盘焦点切换或关闭窗口时，Tk 可能已回收这个临时 Listbox。
             return None
+
+    def _schedule_model_popup_style(self, _event=None):
+        """在 ttk 创建模型列表后应用更小的专属字体及宽度。"""
+        self.after_idle(self._style_model_popup)
+
+    def _style_model_popup(self):
+        """避免模型名称和版本号在弹出列表中被截断。"""
+        try:
+            popdown = str(self.tk.call('ttk::combobox::PopdownWindow', str(self.models)))
+            listbox = self.nametowidget(popdown + '.f.l')
+            listbox.configure(font=MODEL_PICKER_FONT, width=MODEL_PICKER_WIDTH)
+        except (KeyError, tk.TclError):
+            return None
+
+    def set_run_reason(self, text):
+        """仅在有执行说明时占用垂直空间。"""
+        text = str(text or '')
+        self.reason.configure(text=text)
+        if text:
+            self.reason.pack(fill='x', pady=(0, SPACING['xs']), before=self.specific_section)
+        else:
+            self.reason.pack_forget()
+        return text
 
     def build_hollmwood_editors(self, pad, parent=None):
         """仅在真正调用 HOLLMWOOD 的阶段提供规则编辑，避免无关页面出现无效入口。"""
@@ -1227,6 +1257,10 @@ class Panel(ttk.Frame):
             except Exception:
                 notice = ''
         self.route_hint.configure(text=notice)
+        if notice:
+            self.route_hint.pack(fill='x', pady=(0, SPACING['none']))
+        else:
+            self.route_hint.pack_forget()
         return notice
 
     def set_model(self, model):
@@ -1761,7 +1795,7 @@ class Panel(ttk.Frame):
                   if row.get('status') in (skill_orchestrator.FAILED, skill_orchestrator.MISSING)]
         self.state.configure(text='做完了 %d 个，%d 个要回页面按，没成 %d 个'
                                   % (len(done), len(waiting), len(failed)))
-        self.reason.configure(text=waiting_reason(waiting))
+        self.set_run_reason(waiting_reason(waiting))
         text = str(run.get('text') or '')
         status_of(self.desktop, text.splitlines()[0] if text else '')
         run_report(self.desktop, text)
