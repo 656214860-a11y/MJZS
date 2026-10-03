@@ -3,7 +3,7 @@ import base64
 import subprocess
 from pathlib import Path
 
-from platform_tools import hidden_console_flags, tool_path
+from platform_tools import run_process, tool_path
 
 
 def seedream_payload(profile_model, prompt, aspect_ratio, ref_paths):
@@ -30,8 +30,8 @@ def to_png(raw):
     if raw.startswith(b'\x89PNG\r\n\x1a\n'):
         return raw
     ffmpeg = tool_path('ffmpeg', 'D:/Tools/ffmpeg/bin/ffmpeg.exe')
-    proc = subprocess.run([ffmpeg, '-y', '-v', 'error', '-i', 'pipe:0', '-f', 'image2pipe', '-c:v', 'png', 'pipe:1'],
-                          input=raw, capture_output=True, timeout=120, creationflags=hidden_console_flags())
+    proc = run_process([ffmpeg, '-y', '-v', 'error', '-i', 'pipe:0', '-f', 'image2pipe', '-c:v', 'png', 'pipe:1'],
+                       input=raw, capture_output=True, timeout=120, run=subprocess.run)
     if proc.returncode != 0 or not proc.stdout.startswith(b'\x89PNG\r\n\x1a\n'):
         raise ValueError('Seedream 图片转换 PNG 失败：' + proc.stderr.decode('utf-8', 'replace')[:160])
     return proc.stdout
