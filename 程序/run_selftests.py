@@ -65,6 +65,10 @@ SLOW_UNITS_LIMIT = 10   # 汇总只保留最慢若干工作单元，避免全量
 
 CACHE_NAME = 'selftest-incremental.json'
 FULL_SAFE_LOCK_NAME = 'full-safe-selftest.lock'
+GUI_LOCK_NAME = 'gui-selftest.lock'
+GUI_WAIT_SECONDS = 900
+_GUI_LOCK_DEPTH = {}
+_FULL_LOCK_DEPTH = {}
 LAYER_BASELINE_NAME = os.path.join('维护记录', '测试分层基线.json')
 FULL_SAFE_TREE_TTL = timedelta(days=7)
 DATA_GLOBS = ('skills/*.skill.md', 'skills/*/*.md', 'skills/*/*/*.md')
@@ -195,39 +199,128 @@ def _pid_is_alive(pid):
     return True
 
 
-def acquire_full_safe_lock(common_dir=None, round_number=None):
-    """领取跨工作树的全量安全回归锁；活跃持有人不得被覆盖。"""
+def lock_holder(path):
+    try:
+        with io.open(path, encoding='utf-8') as handle:
+            value = json.load(handle)
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def acquire_pid_lock(name, common_dir=None, round_number=None, reentrant=False):
+    """两个跨树令牌共用 PID 检查和失效回收；原子发布避免半写锁。"""
     common = common_dir or git_common_dir()
     if not common:
-        raise RuntimeError('无法定位 Git common-dir，拒绝并行全量安全回归')
-    path = os.path.join(common, FULL_SAFE_LOCK_NAME)
+        raise RuntimeError('无法定位 Git common-dir，拒绝无令牌执行')
+    path = os.path.join(common, name)
     payload = {'pid': os.getpid(), 'round': round_number, 'started_at': time.time()}
-    try:
-        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-    except FileExistsError:
+    while True:
+        descriptor, temporary = tempfile.mkstemp(prefix=name + '.', suffix='.tmp', dir=common)
         try:
-            with io.open(path, encoding='utf-8') as handle:
-                holder = json.load(handle)
-        except (OSError, ValueError):
-            holder = {}
-        if _pid_is_alive(holder.get('pid')):
-            raise RuntimeError('全量安全回归已由 PID %s（R%s）持有' %
-                               (holder.get('pid'), holder.get('round', '?')))
-        try:
-            os.unlink(path)
-        except OSError:
-            raise RuntimeError('全量安全回归锁无法回收：%s' % path)
-        return acquire_full_safe_lock(common, round_number)
-    with os.fdopen(descriptor, 'w', encoding='utf-8') as handle:
-        json.dump(payload, handle, ensure_ascii=False)
+            with os.fdopen(descriptor, 'w', encoding='utf-8') as handle:
+                json.dump(payload, handle, ensure_ascii=False)
+            try:
+                os.link(temporary, path)
+                return path
+            except FileExistsError:
+                try:
+                    stat = os.stat(path)
+                except FileNotFoundError:
+                    continue
+                holder = lock_holder(path)
+                if reentrant and holder.get('pid') == os.getpid():
+                    return path
+                if _pid_is_alive(holder.get('pid')):
+                    raise RuntimeError('%s 已由 PID %s（R%s）持有' %
+                                       (name, holder.get('pid'), holder.get('round', '?')))
+                # 只回收刚读到的失效实例，避免竞争者替换后误删新锁。
+                try:
+                    if os.stat(path) == stat:
+                        os.unlink(path)
+                except FileNotFoundError:
+                    pass
+        finally:
+            os.unlink(temporary)
+
+
+def acquire_full_safe_lock(common_dir=None, round_number=None):
+    path = acquire_pid_lock(FULL_SAFE_LOCK_NAME, common_dir, round_number, reentrant=True)
+    _FULL_LOCK_DEPTH[path] = _FULL_LOCK_DEPTH.get(path, 0) + 1
     return path
 
 
 def release_full_safe_lock(path):
+    depth = _FULL_LOCK_DEPTH.get(path, 1) - 1
+    if depth:
+        _FULL_LOCK_DEPTH[path] = depth
+        return
+    _FULL_LOCK_DEPTH.pop(path, None)
+    release_pid_lock(path)
+
+
+def release_pid_lock(path):
+    if lock_holder(path).get('pid') != os.getpid():
+        return
     try:
         os.unlink(path)
     except OSError:
         pass
+
+
+def acquire_gui_lock(common_dir=None, wait=GUI_WAIT_SECONDS):
+    if wait < 0:
+        raise ValueError('--gui-wait 必须非负')
+    deadline = time.monotonic() + wait
+    while True:
+        try:
+            path = acquire_pid_lock(GUI_LOCK_NAME, common_dir, reentrant=True)
+            _GUI_LOCK_DEPTH[path] = _GUI_LOCK_DEPTH.get(path, 0) + 1
+            return path
+        except RuntimeError as exc:
+            if time.monotonic() >= deadline:
+                print('[GUI_DEFERRED] GUI 令牌等待超时：%s' % exc)
+                return None
+            time.sleep(min(0.1, max(0, deadline - time.monotonic())))
+
+
+def release_gui_lock(path):
+    if not path:
+        return
+    depth = _GUI_LOCK_DEPTH.get(path, 1) - 1
+    if depth:
+        _GUI_LOCK_DEPTH[path] = depth
+    else:
+        _GUI_LOCK_DEPTH.pop(path, None)
+        release_pid_lock(path)
+
+
+def other_gui_holder():
+    common = git_common_dir()
+    holder = lock_holder(os.path.join(common, GUI_LOCK_NAME)) if common else {}
+    pid = holder.get('pid')
+    # 工作池子进程使用父进程的令牌，不是竞争工作流。
+    return pid if pid not in (os.getpid(), os.getppid()) and _pid_is_alive(pid) else None
+
+
+def concurrency_warning():
+    pid = other_gui_holder()
+    return ('[SUSPECT_CONCURRENCY] 失败时 GUI 令牌由 PID %s 持有；建议串行复跑' % pid) if pid else ''
+
+
+class ConcurrencyResult(unittest.TextTestResult):
+    def _observe(self):
+        warning = concurrency_warning()
+        if warning:
+            self.stream.writeln(warning)
+
+    def addFailure(self, test, err):
+        self._observe()
+        super().addFailure(test, err)
+
+    def addError(self, test, err):
+        self._observe()
+        super().addError(test, err)
 
 
 def load_cache():
@@ -360,6 +453,12 @@ def load_layer_document():
             receipts = json.load(handle)
         if isinstance(receipts, dict):
             document['full_safe_verified_trees'] = receipts.get('full_safe_verified_trees', [])
+            document['last_full_safe_all_round'] = receipts.get('last_full_safe_all_round',
+                                                               document.get('last_full_safe_all_round', 0))
+            # 兼容 R962/R963 只写树凭据、没有同步 last_full 字段的真实绿记录。
+            rounds = [item.get('round', 0) for item in document['full_safe_verified_trees']
+                      if isinstance(item, dict) and isinstance(item.get('round'), int)]
+            document['last_full_safe_all_round'] = max([document['last_full_safe_all_round']] + rounds)
     except (OSError, ValueError):
         pass
     return document
@@ -376,6 +475,7 @@ def record_verified_tree(document, tree, round_number, seconds, at=None):
     records.append({'tree': tree, 'round': int(round_number), 'seconds': round(float(seconds), 3),
                     'at': at or datetime.now().isoformat(timespec='seconds')})
     document['full_safe_verified_trees'] = records[-30:]
+    document['last_full_safe_all_round'] = int(round_number)
     return document
 
 
@@ -736,7 +836,7 @@ def _run_unit(payload):
                         suite.addTest(case)
         else:
             suite = loader.loadTestsFromName(module)
-        result = unittest.TextTestRunner(stream=buf, verbosity=1).run(suite)
+        result = unittest.TextTestRunner(stream=buf, verbosity=1, resultclass=ConcurrencyResult).run(suite)
         bad = [str(case) for case, _tb in list(result.failures) + list(result.errors)]
         detail = ''
         for case, tb in list(result.failures) + list(result.errors):
@@ -744,7 +844,7 @@ def _run_unit(payload):
         return (label, module, result.testsRun, bad, detail, time.time() - started, buf.getvalue())
     except Exception as exc:                     # 这一路起不来（导入期就炸）
         return (label, module, 0, [label], "\n===== %s 起不来 =====\n%s" % (label, exc),
-                time.time() - started, buf.getvalue())
+                time.time() - started, buf.getvalue() + concurrency_warning())
     finally:
         # 一路测试可能通过 Desktop → asset_thumbs 启动后台 Tk 解码器；测试进程退出
         # 不会替它收尾，导致全量并行后积累几十个 Python 进程并让 smoke 卡住。
@@ -810,7 +910,7 @@ def run_units(todo, jobs=8):
                 now = time.time()
                 out.extend((payload[0], payload[1], 0, [payload[0]],
                             '\n===== %s 超时 =====\n并行池连续 %d 秒无进展，已回收。' %
-                            (payload[0], SAFE_UNIT_TIMEOUT), now - last_progress, '')
+                            (payload[0], SAFE_UNIT_TIMEOUT), now - last_progress, concurrency_warning())
                            for payload in stalled)
                 pending = {}
                 timed_out = True
@@ -861,7 +961,7 @@ def run_serial(todo, timeout=SAFE_UNIT_TIMEOUT):
             process.join(10)
             item = (payload[0], payload[1], 0, [payload[0]],
                     '\n===== %s 超时 =====\n安全串行单元超过 %d 秒，已回收。' % (payload[0], timeout),
-                    time.time() - started, '')
+                    time.time() - started, concurrency_warning())
         else:
             process.join(10)
             if process.is_alive():
@@ -906,6 +1006,10 @@ def main(argv=None):
     keys, jobs, serial, listing, whole = [], 0, False, False, False
     everything, safe, force, layer = False, False, False, ''
     gui_override = None
+    gui_wait = GUI_WAIT_SECONDS
+    gui_lock = None
+    lock = None
+    deferred = []
     while argv:
         arg = argv.pop(0)
         if arg == '--serial':
@@ -930,6 +1034,10 @@ def main(argv=None):
         elif arg == '--gui-jobs':
             gui_override = int(argv.pop(0))
             safe_gui_jobs(JOBS_CAP, gui_override)
+        elif arg == '--gui-wait':
+            gui_wait = float(argv.pop(0))
+            if gui_wait < 0:
+                raise ValueError('--gui-wait 必须非负')
         elif arg == '-k':
             keys.extend(argv.pop(0).split())
         else:
@@ -973,88 +1081,111 @@ def main(argv=None):
         print('验收起点：HEAD=%s，工作树干净' % start_head)
     if not serial and not jobs:
         jobs = max(2, min(JOBS_CAP, (os.cpu_count() or 4)))
-    protect_tk()
-    fails = import_all()
-    if fails:
-        print("IMPORT FAILURES:")
-        for m, e in fails:
-            print(f"  {m}: {e}")
-    else:
-        print("IMPORT OK: all modules imported")
-    cache = {} if everything else load_cache()
-    todo_names, skipped, state = incremental(names, cache)
-    if keys:
-        # -k 是显式门禁，不应被增量台账跳过；同时不能因只跑一个用例而抹掉其他用例的缓存。
-        old_tests = cache.get('tests') if isinstance(cache.get('tests'), dict) else {}
-        selected_tests = state['tests']
-        state['tests'] = {name: entry for name, entry in old_tests.items() if name in all_names}
-        state['tests'].update(selected_tests)
-        todo_names, skipped = list(names), []
-        print('定向：忽略增量台账，执行 %d 个匹配测试文件' % len(names))
-    elif everything:
-        todo_names, skipped = list(names), []
-        print('%s：忽略增量台账，%d 个测试文件全跑一遍' %
-              ('--safe（全量受控分池）' if safe else '--all', len(names)))
-    elif skipped:
-        print('增量：跳过 %d 个没改过的测试文件（--all 全跑）：%s' % (len(skipped), ' '.join(skipped)))
-    keep = set(todo_names)
-    todo = [unit for unit in units(names, whole=whole) if unit[1] in keep]
-    # 性能用例（test_perf_*.py）不与别的用例挤并行池：它们量的是墙上时间，而「建 Tk 控件＋
-    # 字体量宽」是全机共享的资源，被别的用例抢慢好几倍时，会把自己的抖动判成性能退化
-    # （第 72 期实测：并行时资产页打开 3.9～6.8 s，单独跑 0.3～0.5 s）。挑出来等池子空了自己跑。
-    perf = [unit for unit in todo if unit[1].startswith('test_perf')]
-    todo = [unit for unit in todo if unit not in perf]
-    print('跑 %d 个测试文件 / %d 路工作单元（%s）' % (len(todo_names), len(todo),
-                                                  '串行' if serial else '%d 路并行' % jobs))
-    if perf:
-        print('另有 %d 个工作单元是性能用例，排在并行池之后单独串行跑' % len(perf))
-    started = time.time()
-    if safe:
-        non_gui, gui = split_safe_units(todo)
-        gui_jobs = safe_gui_jobs(jobs, gui_override)
-        if non_gui or gui:
-            print('安全分池：%d 路无 Tk 并行（%d workers），%d 路 Tk 受控并行（%d workers）' %
-                  (len(non_gui), jobs, len(gui), gui_jobs))
-        got = run_units(non_gui, jobs) if non_gui else []
-        got += run_units(prioritize_gui_units(gui), gui_jobs) if gui else []
-        got += run_safe_serial(perf)
-    else:
-        got = run_serial(todo) if serial else run_units(todo, jobs)
-        got += run_serial(perf)
-    elapsed = time.time() - started
-    total = sum(item[2] for item in got)
-    reds = [(item[1], item[3], item[4]) for item in got if item[3]]
-    print('\n共 %d 条用例，%.1f 秒；%d 个文件有红' % (total, elapsed, len(reds)))
-    slow = slowest_units(got)
-    if slow:
-        print('最慢 %d 路工作单元：' % len(slow))
-        for item in slow:
-            print('  %-26s %6.1f 秒 / %d 条' % (item[0], item[5], item[2]))
-    for name, bad, detail in reds:
-        print('\n### %s（%d 条红）' % (name, len(bad)))
-        print(detail)
-    if full_safe and not measurement_unchanged(start_head, tree):
-        print('验收无效：测量期间 HEAD 或工作树变化，不写入绿凭据。')
-        raise SystemExit(2)
-    baseline = save_layer_baseline(layer, got, elapsed)
-    if baseline:
-        print('分层基线已刷新：' + baseline)
-    if fails or reds:
-        failed_tree = content_tree()
-        if failed_tree and invalidate_verified_tree(load_layer_document(), failed_tree):
-            print('当前内容树的全量绿凭据已失效：本轮存在红项')
-        raise SystemExit(1)
-    if full_safe and tree and is_master_checkout():
-        saved = save_full_safe_verification(tree, latest_completed_round(), elapsed)
-        if saved:
-            print('内容树全量凭据已刷新：' + saved)
-    timings = record_elapsed(cache, state, elapsed)
-    written = save_cache(state)
-    if written:
-        print('增量台账已刷新：' + written)
-        print('最近 %d 轮自检中位基线：%.1f 秒' % (len(timings['recent_seconds']), timings['median_seconds']))
-    print("\nALL TESTS PASSED")
-    return 0
+    try:
+        selected_gui = [name for name in names if gui_test_module(name)]
+        if selected_gui:
+            print('申请跨树 GUI 令牌（最多等待 %.1f 秒）' % gui_wait, flush=True)
+            gui_lock = acquire_gui_lock(wait=gui_wait)
+            if gui_lock:
+                atexit.register(release_gui_lock, gui_lock)
+            else:
+                deferred = selected_gui
+                names = [name for name in names if name not in deferred]
+        protect_tk()
+        fails = import_all()
+        if fails:
+            print("IMPORT FAILURES:")
+            for m, e in fails:
+                print(f"  {m}: {e}")
+        else:
+            print("IMPORT OK: all modules imported")
+        cache = {} if everything else load_cache()
+        todo_names, skipped, state = incremental(names, cache)
+        if keys:
+            # -k 是显式门禁，不应被增量台账跳过；同时不能因只跑一个用例而抹掉其他用例的缓存。
+            old_tests = cache.get('tests') if isinstance(cache.get('tests'), dict) else {}
+            selected_tests = state['tests']
+            state['tests'] = {name: entry for name, entry in old_tests.items() if name in all_names}
+            state['tests'].update(selected_tests)
+            todo_names, skipped = list(names), []
+            print('定向：忽略增量台账，执行 %d 个匹配测试文件' % len(names))
+        elif everything:
+            todo_names, skipped = list(names), []
+            print('%s：忽略增量台账，%d 个测试文件全跑一遍' %
+                  ('--safe（全量受控分池）' if safe else '--all', len(names)))
+        elif skipped:
+            print('增量：跳过 %d 个没改过的测试文件（--all 全跑）：%s' % (len(skipped), ' '.join(skipped)))
+        keep = set(todo_names)
+        todo = [unit for unit in units(names, whole=whole) if unit[1] in keep]
+        # 性能用例（test_perf_*.py）不与别的用例挤并行池：它们量的是墙上时间，而「建 Tk 控件＋
+        # 字体量宽」是全机共享的资源，被别的用例抢慢好几倍时，会把自己的抖动判成性能退化
+        # （第 72 期实测：并行时资产页打开 3.9～6.8 s，单独跑 0.3～0.5 s）。挑出来等池子空了自己跑。
+        perf = [unit for unit in todo if unit[1].startswith('test_perf')]
+        todo = [unit for unit in todo if unit not in perf]
+        print('跑 %d 个测试文件 / %d 路工作单元（%s）' % (len(todo_names), len(todo),
+                                                      '串行' if serial else '%d 路并行' % jobs))
+        if perf:
+            print('另有 %d 个工作单元是性能用例，排在并行池之后单独串行跑' % len(perf))
+        started = time.time()
+        if safe:
+            non_gui, gui = split_safe_units(todo)
+            gui_jobs = safe_gui_jobs(jobs, gui_override)
+            if non_gui or gui:
+                print('安全分池：%d 路无 Tk 并行（%d workers），%d 路 Tk 受控并行（%d workers）' %
+                      (len(non_gui), jobs, len(gui), gui_jobs))
+            got = run_units(non_gui, jobs) if non_gui else []
+            got += run_units(prioritize_gui_units(gui), gui_jobs) if gui else []
+            got += run_safe_serial(perf)
+        else:
+            got = run_serial(todo) if serial else run_units(todo, jobs)
+            got += run_serial(perf)
+        elapsed = time.time() - started
+        total = sum(item[2] for item in got)
+        reds = [(item[1], item[3], item[4]) for item in got if item[3]]
+        print('\n共 %d 条用例，%.1f 秒；%d 个文件有红' % (total, elapsed, len(reds)))
+        slow = slowest_units(got)
+        if slow:
+            print('最慢 %d 路工作单元：' % len(slow))
+            for item in slow:
+                print('  %-26s %6.1f 秒 / %d 条' % (item[0], item[5], item[2]))
+        for name, bad, detail in reds:
+            print('\n### %s（%d 条红）' % (name, len(bad)))
+            print(detail)
+        if any('[SUSPECT_CONCURRENCY]' in item[6] for item in got if item[3]):
+            print('[SUSPECT_CONCURRENCY] 红项发生时有其他 PID 持有 GUI 令牌；建议串行复跑。')
+        if deferred:
+            print('[GUI_DEFERRED] 未执行、不计通过：' + ' '.join(deferred))
+        if full_safe and not measurement_unchanged(start_head, tree):
+            print('验收无效：测量期间 HEAD 或工作树变化，不写入绿凭据。')
+            raise SystemExit(2)
+        baseline = '' if deferred else save_layer_baseline(layer, got, elapsed)
+        if baseline:
+            print('分层基线已刷新：' + baseline)
+        if fails or reds:
+            failed_tree = content_tree()
+            if failed_tree and invalidate_verified_tree(load_layer_document(), failed_tree):
+                print('当前内容树的全量绿凭据已失效：本轮存在红项')
+            raise SystemExit(1)
+        if deferred:
+            return 2
+        if full_safe and tree and is_master_checkout():
+            saved = save_full_safe_verification(tree, latest_completed_round(), elapsed)
+            if saved:
+                print('内容树全量凭据已刷新：' + saved)
+        timings = record_elapsed(cache, state, elapsed)
+        written = save_cache(state)
+        if written:
+            print('增量台账已刷新：' + written)
+            print('最近 %d 轮自检中位基线：%.1f 秒' % (len(timings['recent_seconds']), timings['median_seconds']))
+        print("\nALL TESTS PASSED")
+        return 0
+    finally:
+        if gui_lock:
+            atexit.unregister(release_gui_lock)
+            release_gui_lock(gui_lock)
+        if lock:
+            atexit.unregister(release_full_safe_lock)
+            release_full_safe_lock(lock)
 
 
 if __name__ == "__main__":

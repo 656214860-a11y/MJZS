@@ -276,7 +276,8 @@ class IncrementalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             lock = run_selftests.acquire_full_safe_lock(folder, 873)
             self.assertTrue(os.path.exists(lock))
-            with self.assertRaisesRegex(RuntimeError, 'PID'):
+            with mock.patch.object(run_selftests.os, 'getpid', return_value=os.getpid() + 100000), \
+                 self.assertRaisesRegex(RuntimeError, 'PID'):
                 run_selftests.acquire_full_safe_lock(folder, 874)
             run_selftests.release_full_safe_lock(lock)
             replacement = run_selftests.acquire_full_safe_lock(folder, 874)

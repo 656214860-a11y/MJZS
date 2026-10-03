@@ -18,7 +18,8 @@ ROOT = PROGRAM.parent
 RESULT_RE = re.compile(r"tasks_round_(\d+)_result\.md$")
 LOCK_NAME = "round-claim.lock"
 COUNTER_NAME = "round-counter.json"
-DEFAULT_QUEUE = PROGRAM / "维护记录" / "任务队列.json"
+QUEUE_NAME = "maintenance-queue.json"
+SNAPSHOT = Path("程序") / "维护记录" / "任务队列.json"
 
 
 def git_common_dir(root: Path = ROOT) -> Path:
@@ -28,6 +29,105 @@ def git_common_dir(root: Path = ROOT) -> Path:
     )
     path = Path(result.stdout.strip())
     return path if path.is_absolute() else (root / path).resolve()
+
+
+DEFAULT_QUEUE = git_common_dir() / QUEUE_NAME
+
+
+def seed_queue(common_dir: Path, root: Path = ROOT) -> Path:
+    """仅首次发布合并结果；硬链接的独占创建避免覆盖另一进程已发布的队列。"""
+    target = common_dir / QUEUE_NAME
+    if target.exists():
+        return target
+    result = subprocess.run(["git", "-C", str(root), "worktree", "list", "--porcelain", "-z"],
+                            capture_output=True, check=True)
+    roots = [Path(entry[9:].decode("utf-8")) for entry in result.stdout.split(b"\0")
+             if entry.startswith(b"worktree ")]
+    merged, metadata = {}, {}
+    rank = {"pending": 0, "claimed": 1, "completed": 2}
+    for tree in roots:
+        snapshot = tree / SNAPSHOT
+        if not snapshot.is_file():
+            continue
+        payload = _read_queue(snapshot)
+        metadata.update({key: value for key, value in payload.items() if key != "items"})
+        for item in payload["items"]:
+            key = item["id"]
+            prior = merged.get(key)
+            if prior is None:
+                merged[key] = dict(item)
+                continue
+            def priority(value):
+                lease = _parse_time(value.get("lease_until"))
+                return rank.get(value.get("status"), -1), lease.timestamp() if lease else float("-inf")
+            winner = dict(max((prior, item), key=priority))
+            notes = [str(value.get("note", "")) for value in (prior, item) if value.get("note")]
+            winner["note"] = "；".join(notes)
+            merged[key] = winner
+    metadata["items"] = list(merged.values())
+    common_dir.mkdir(parents=True, exist_ok=True)
+    import tempfile
+    descriptor, temporary = tempfile.mkstemp(prefix="queue-seed-", suffix=".tmp", dir=common_dir)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(metadata, handle, ensure_ascii=False)
+            handle.write("\n")
+        try:
+            os.link(temporary, target)
+        except FileExistsError:
+            pass
+    finally:
+        os.unlink(temporary)
+    return target
+
+
+def _load_authority(common_dir: Path, queue_path: Path, root: Path) -> dict:
+    if queue_path.resolve() == (common_dir / QUEUE_NAME).resolve():
+        seed_queue(common_dir, root)
+    return _read_queue(queue_path)
+
+
+def _write_authority(common_dir: Path, queue_path: Path, payload: dict, root: Path) -> None:
+    _atomic_json_write(queue_path, payload)
+    if queue_path.resolve() == (common_dir / QUEUE_NAME).resolve():
+        snapshot = root / SNAPSHOT
+        snapshot.parent.mkdir(parents=True, exist_ok=True)
+        _atomic_json_write(snapshot, payload)
+
+
+def validate_queue(payload: dict, now: datetime | None = None) -> tuple[list[str], list[str]]:
+    now = now or datetime.now().astimezone()
+    errors, warnings, seen = [], [], set()
+    for item in payload["items"]:
+        key = item.get("id")
+        if not key or key in seen:
+            errors.append("重复或缺失 id: %s" % key)
+        seen.add(key)
+        if item.get("status") != "claimed":
+            continue
+        if not str(item.get("owner", "")).strip():
+            errors.append("claimed 但 owner 为空: %s" % key)
+        try:
+            lease = _parse_time(item.get("lease_until"))
+            minutes = float(item.get("lease_minutes", payload.get("lease_minutes", 60)))
+            expected = now + timedelta(minutes=minutes)
+            if not lease or minutes <= 0 or abs((lease - expected).total_seconds()) > 300:
+                warnings.append("lease 不自洽: %s lease=%s expected=%s" % (key, lease, expected.isoformat()))
+        except (ValueError, TypeError, OverflowError):
+            warnings.append("lease 无效: %s" % key)
+    return errors, warnings
+
+
+def show_queue(payload: dict, now: datetime | None = None) -> None:
+    now = now or datetime.now().astimezone()
+    for item in payload["items"]:
+        if item.get("status") not in ("pending", "claimed"):
+            continue
+        lease = _parse_time(item.get("lease_until"))
+        status = item["status"]
+        if status == "claimed" and (lease is None or lease <= now):
+            status = "expired"
+        print("%s %s owner=%s lease=%s" % (item["id"], status, item.get("owner", ""), item.get("lease_until", "")))
 
 
 def latest_result_round(tasks_round: Path = PROGRAM / "tasks_round") -> int:
@@ -115,13 +215,13 @@ def _note(item: dict, text: str) -> None:
 
 
 def claim_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str,
-               lease_minutes: int = 60, now: datetime | None = None) -> dict:
+               lease_minutes: int = 60, now: datetime | None = None, root: Path = ROOT) -> dict:
     """认领待办；他人的未过期租约会被拒绝，过期租约可抢占并留痕。"""
     if not owner.strip() or lease_minutes <= 0:
         raise ValueError("owner 不可为空且 lease_minutes 必须为正数")
     now = now or datetime.now().astimezone()
     with shared_lock(common_dir):
-        payload = _read_queue(queue_path)
+        payload = _load_authority(common_dir, queue_path, root)
         item = _queue_item(payload, task_id)
         if item.get("status") == "completed":
             raise RuntimeError("任务 %s 已完成，拒绝重新认领" % task_id)
@@ -133,17 +233,18 @@ def claim_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str,
         takeover = item.get("status") == "claimed" and prior_owner != owner and (not expires_at or expires_at <= now)
         item["status"] = "claimed"
         item["owner"] = owner
+        item["lease_minutes"] = lease_minutes
         item["lease_until"] = (now + timedelta(minutes=lease_minutes)).isoformat(timespec="seconds")
         if takeover:
             _note(item, "%s 过期后由 %s 抢占" % (prior_owner or "未署名认领", owner))
-        _atomic_json_write(queue_path, payload)
+        _write_authority(common_dir, queue_path, payload, root)
         return dict(item)
 
 
-def release_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str) -> dict:
+def release_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str, root: Path = ROOT) -> dict:
     """释放自己持有的任务，保留释放痕迹以便后续接手。"""
     with shared_lock(common_dir):
-        payload = _read_queue(queue_path)
+        payload = _load_authority(common_dir, queue_path, root)
         item = _queue_item(payload, task_id)
         if item.get("status") != "claimed" or item.get("owner") != owner:
             raise RuntimeError("任务 %s 不由 %s 持有，拒绝释放" % (task_id, owner))
@@ -151,21 +252,21 @@ def release_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str
         item["owner"] = ""
         item["lease_until"] = ""
         _note(item, "%s 已释放认领" % owner)
-        _atomic_json_write(queue_path, payload)
+        _write_authority(common_dir, queue_path, payload, root)
         return dict(item)
 
 
-def complete_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str, note: str) -> dict:
+def complete_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str, note: str, root: Path = ROOT) -> dict:
     """将自己认领的任务收口，避免手工改队列绕过共享锁。"""
     with shared_lock(common_dir):
-        payload = _read_queue(queue_path)
+        payload = _load_authority(common_dir, queue_path, root)
         item = _queue_item(payload, task_id)
         if item.get("status") != "claimed" or item.get("owner") != owner:
             raise RuntimeError("任务 %s 不由 %s 持有，拒绝收口" % (task_id, owner))
         item["status"] = "completed"
         item["lease_until"] = ""
         _note(item, note)
-        _atomic_json_write(queue_path, payload)
+        _write_authority(common_dir, queue_path, payload, root)
         return dict(item)
 
 
@@ -173,6 +274,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=False)
     subparsers.add_parser("next", help="领取下一个轮次号")
+    for command in ("show", "validate"):
+        sub = subparsers.add_parser(command)
+        sub.add_argument("--queue", type=Path, default=DEFAULT_QUEUE)
     for command, help_text in (("claim", "认领队列任务"), ("release", "释放队列任务"), ("complete", "收口队列任务")):
         sub = subparsers.add_parser(command, help=help_text)
         sub.add_argument("task_id")
@@ -184,8 +288,22 @@ def main(argv: list[str] | None = None) -> int:
             sub.add_argument("--note", required=True)
     args = parser.parse_args(argv)
     common_dir = git_common_dir()
+    if hasattr(args, "queue") and args.queue.resolve() != (common_dir / QUEUE_NAME).resolve():
+        parser.error("--queue 必须指向 Git common-dir/maintenance-queue.json；禁止编辑工作树快照")
     if args.command in (None, "next"):
         print(claim_next(common_dir=common_dir, tasks_round=PROGRAM / "tasks_round"))
+    elif args.command in ("show", "validate"):
+        payload = _load_authority(common_dir, args.queue, ROOT)
+        if args.command == "show":
+            show_queue(payload)
+        else:
+            errors, warnings = validate_queue(payload)
+            for message in errors:
+                print("ERROR " + message)
+            for message in warnings:
+                print("WARN " + message)
+            print("validate: %d errors, %d warnings" % (len(errors), len(warnings)))
+            return int(bool(errors))
     elif args.command == "claim":
         item = claim_task(common_dir=common_dir, queue_path=args.queue, task_id=args.task_id,
                           owner=args.owner, lease_minutes=args.lease_minutes)

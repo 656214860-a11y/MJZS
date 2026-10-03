@@ -4,11 +4,13 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import subprocess
 import tempfile
 import threading
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 
 PROGRAM = Path(__file__).resolve().parent.parent
@@ -98,3 +100,88 @@ class RoundClaimTests(unittest.TestCase):
             queue = self._queue(root, status="completed", owner="alice")
             with self.assertRaisesRegex(RuntimeError, "已完成"):
                 round_claim.claim_task(common_dir=root / ".git", queue_path=queue, task_id="T1", owner="bob")
+
+
+class SharedWorktreeQueueTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.repo = self.root / "main"
+        self.repo.mkdir()
+        self.git("init", str(self.repo))
+        self.git("-C", str(self.repo), "-c", "user.name=Queue Test", "-c",
+                 "user.email=queue@example.invalid", "commit", "--allow-empty", "-m", "seed")
+        self.trees = [self.root / name for name in ("A", "B")]
+        for tree in self.trees:
+            self.git("-C", str(self.repo), "worktree", "add", "--detach", str(tree))
+        self.common = round_claim.git_common_dir(self.repo)
+
+    def git(self, *args):
+        result = subprocess.run(["git", *args], capture_output=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", "replace")[-1500:])
+        return result.stdout
+
+    def snapshot(self, tree, items):
+        path = tree / round_claim.SNAPSHOT
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"lease_minutes": 60, "items": items}), encoding="utf-8")
+        return path
+
+    def test_two_worktrees_cannot_claim_same_id_and_export_is_identical(self):
+        self.snapshot(self.trees[0], [{"id": "T1", "status": "pending"}])
+        queue = self.common / round_claim.QUEUE_NAME
+        round_claim.claim_task(common_dir=self.common, queue_path=queue, root=self.trees[0],
+                               task_id="T1", owner="alice")
+        with self.assertRaisesRegex(RuntimeError, "alice"):
+            round_claim.claim_task(common_dir=round_claim.git_common_dir(self.trees[1]),
+                                   queue_path=queue, root=self.trees[1], task_id="T1", owner="bob")
+        self.assertEqual(queue.read_bytes(), (self.trees[0] / round_claim.SNAPSHOT).read_bytes())
+        round_claim.release_task(common_dir=self.common, queue_path=queue, root=self.trees[0],
+                                 task_id="T1", owner="alice")
+        round_claim.claim_task(common_dir=self.common, queue_path=queue, root=self.trees[1],
+                               task_id="T1", owner="bob")
+        self.assertEqual(queue.read_bytes(), (self.trees[1] / round_claim.SNAPSHOT).read_bytes())
+
+    def test_seed_union_12_and_20_preserves_completed_notes_and_latest_lease(self):
+        first = [{"id": str(i), "status": "pending", "note": "A"} for i in range(12)]
+        second = [{"id": str(i), "status": "claimed", "owner": "B", "note": "B",
+                   "lease_until": "2026-10-04T01:00:00+00:00"} for i in range(6, 26)]
+        first[6]["status"] = "completed"
+        first[7].update(status="claimed", owner="A", lease_until="2026-10-04T02:00:00+00:00")
+        self.snapshot(self.trees[0], first)
+        self.snapshot(self.trees[1], second)
+        queue = round_claim.seed_queue(self.common, self.repo)
+        items = {item["id"]: item for item in round_claim._read_queue(queue)["items"]}
+        self.assertEqual(set(items), set(map(str, range(26))))
+        self.assertEqual(items["6"]["status"], "completed")
+        self.assertEqual(items["7"]["owner"], "A")
+        self.assertIn("A", items["6"]["note"])
+        self.assertIn("B", items["6"]["note"])
+        original = queue.read_bytes()
+        self.snapshot(self.trees[0], [{"id": "should-not-reseed", "status": "pending"}])
+        round_claim.seed_queue(self.common, self.repo)
+        self.assertEqual(original, queue.read_bytes())
+
+    def test_show_and_validate_do_not_lock_or_rewrite_initialized_queue(self):
+        self.snapshot(self.repo, [{"id": "T1", "status": "pending"}])
+        queue = round_claim.seed_queue(self.common, self.repo)
+        before = queue.stat().st_mtime_ns
+        with mock.patch.object(round_claim, 'git_common_dir', return_value=self.common), \
+             mock.patch.object(round_claim, 'shared_lock', side_effect=AssertionError("write lock")), \
+             mock.patch('builtins.print'):
+            self.assertEqual(round_claim.main(["show", "--queue", str(queue)]), 0)
+            self.assertEqual(round_claim.main(["validate", "--queue", str(queue)]), 0)
+        self.assertEqual(before, queue.stat().st_mtime_ns)
+
+    def test_validate_duplicate_empty_owner_and_inconsistent_lease(self):
+        now = datetime(2026, 10, 4, tzinfo=timezone.utc)
+        payload = {"items": [{"id": "T", "status": "claimed", "owner": "",
+                              "lease_until": "2026-10-04T10:00:00+00:00"},
+                             {"id": "T", "status": "pending"}]}
+        errors, warnings = round_claim.validate_queue(payload, now)
+        self.assertEqual(len(errors), 2)
+        self.assertEqual(len(warnings), 1)
+        payload["items"] = [{"id": "T", "status": "claimed", "owner": "A", "lease_minutes": 60,
+                              "lease_until": "2026-10-04T01:00:00+00:00"}]
+        self.assertEqual(round_claim.validate_queue(payload, now), ([], []))
