@@ -29,6 +29,12 @@ class CardBoundaryTests(unittest.TestCase):
     def test_pet_model_windows_use_card_for_their_configuration_group(self):
         self._assert_settings_card("pet_models_ui.py", "window")
 
+    def test_white_model_picker_uses_card_for_its_configuration_group(self):
+        self._assert_settings_card("white_model.py", "choose_previs")
+
+    def test_white_model_workspace_uses_card_for_its_configuration_group(self):
+        self._assert_settings_card("white_model.py", "open_previs")
+
     def _assert_settings_card(self, filename, function_name="show"):
         tree = parse(ROOT / filename)
         imported = {

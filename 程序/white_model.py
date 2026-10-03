@@ -8,7 +8,7 @@ from file_cache import read_json
 from storyboard_paths import project_root
 import white_model_service as _service
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, PrimaryButton, SecondaryButton, TextArea, notify
+from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, notify
 
 TOOLS = (
     ('打开 LensBlock 白模工作台', 'https://ilcaretz.github.io/lensblock/'),
@@ -34,7 +34,7 @@ def choose_previs(desktop):
         raise ValueError('当前分镜中没有镜头，请先完成第04步分镜定稿')
     picker = BaseDialog(desktop.win, '选择要预演的镜头', geometry='420x150', modal=False, chrome=False)
     picker.lift()
-    body = ttk.Frame(picker, padding=16); body.pack(fill='both', expand=True)
+    body = Card(picker); body.pack(fill='both', expand=True, padx=16, pady=16)
     ttk.Label(body, text='选择要制作白模预演的镜头：').pack(anchor='w', pady=(0,8))
     selected = tk.StringVar(value=ids[0])
     choice = ttk.Combobox(body, textvariable=selected, values=ids, state='readonly')
@@ -98,8 +98,8 @@ def open_previs(desktop,sid=None):
     win = BaseDialog(desktop.win, sid + ' · 白模预演', geometry='760x720',
                      minsize=(620, 560), modal=False, chrome=False)
     win.lift()
-    body = ttk.Frame(win, padding=14)
-    body.pack(fill='both', expand=True)
+    body = Card(win)
+    body.pack(fill='both', expand=True, padx=14, pady=14)
     ttk.Label(body, text=sid + ' · 白模预演', font=('Microsoft YaHei UI', 15, 'bold')).pack(anchor='w')
     ttk.Label(body, text='先用白模确定人物动作和镜头运动，再把预演导入当前镜头。', wraplength=710).pack(anchor='w', pady=(4, 12))
     def codex_blender():
