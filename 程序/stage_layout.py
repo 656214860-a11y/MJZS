@@ -408,9 +408,9 @@ def link_dir(source, dest):
     except (OSError, NotImplementedError, AttributeError):
         pass
     try:
-        done = subprocess.run(['cmd', '/c', 'mklink', '/J', str(dest), str(source)],
-                              creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        done = run_process(['cmd', '/c', 'mklink', '/J', str(dest), str(source)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           run=subprocess.run)
     except Exception:
         return False
     return done.returncode == 0 and dest.is_dir()
@@ -452,3 +452,4 @@ def adopt_legacy(project, dry=False):
 def ready(project):
     """整棵阶段树都齐了吗（ensure 的幂等判据）。"""
     return not ensure(project, dry=True)
+from platform_tools import run_process
