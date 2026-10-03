@@ -16,8 +16,11 @@ class ComboboxBoundaryTests(unittest.TestCase):
 
     def test_business_pages_do_not_define_private_combobox_styles(self):
         violations = []
-        for path in ROOT.glob('*.py'):
-            if path.name in {'ui_widgets.py', 'ui_theme.py'}:
+        for path in ROOT.rglob('*.py'):
+            relative = path.relative_to(ROOT)
+            if (path.name in {'ui_widgets.py', 'ui_theme.py'} or path.name.startswith('test')
+                    or 'tests' in relative.parts or 'tasks_round' in relative.parts
+                    or '维护记录' in relative.parts):
                 continue
             for node in ast.walk(parse(path)):
                 if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
@@ -26,7 +29,7 @@ class ComboboxBoundaryTests(unittest.TestCase):
                 values = [arg.value for arg in node.args if isinstance(arg, ast.Constant)
                           and isinstance(arg.value, str)]
                 if any('Combobox' in value for value in values):
-                    violations.append(f'{path.name}:{node.lineno}')
+                    violations.append(f'{relative}:{node.lineno}')
         self.assertEqual(violations, [],
                          '业务页不得覆盖 TCombobox 视觉，统一由 setup_styles 定义：'
                          + '; '.join(violations))
