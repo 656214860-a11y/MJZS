@@ -132,6 +132,10 @@ class PetTestCase(unittest.TestCase):
     def setUp(self):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
+        # 分片 worker 会复用进程；前一个用例的自动链阻塞不属于新项目。
+        previous_auto = stage_flow.AUTO
+        stage_flow.AUTO = stage_flow.Auto()
+        self.addCleanup(setattr, stage_flow, 'AUTO', previous_auto)
         self.win = self.tk.Tk()
         self.win.withdraw()
         self.tmp = tempfile.TemporaryDirectory()
@@ -3668,6 +3672,12 @@ class DefaultLevelTests(PetTestCase):
     def test_a_fresh_pet_starts_in_hint_mode(self):
         self.assertEqual(pet_agent.DEFAULT_LEVEL, 'hint')
         self.assertEqual(self.pet.agent.level, 'hint')
+
+    def test_new_fixture_has_no_previous_automatic_blocker(self):
+        self.assertIs(self.pet.auto, stage_flow.AUTO)
+        self.assertIsNone(self.pet.auto.blocked)
+        self.assertFalse(self.pet.auto.armed)
+        self.assertEqual(self.pet.auto.history, [])
 
     def test_the_hint_level_does_not_wake_the_next_step(self):
         """第 64 期任务 7：默认档＝只提醒——只看着、不替用户推进下一步。"""

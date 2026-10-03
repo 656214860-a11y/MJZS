@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from agent.core import read, save
 from storyboard_final_controller import FinalStoryboardController
@@ -42,6 +43,20 @@ class FinalStoryboardControllerTests(unittest.TestCase):
         self.assertIs(accepted, preview)
         self.assertEqual(self.controller.active_path(), self.path.resolve())
         self.assertEqual(self.controller.shot_ids, ('S01', 'S02'))
+
+    def test_failed_publish_preserves_document_preview_and_navigation(self):
+        preview = self.controller.load(self.path)
+        self.controller.select_shot('S02')
+        original = self.path.read_bytes()
+        with patch('stage_execution_service.storyboard_edit_gateway',
+                   return_value={'publish_json': Mock(side_effect=OSError('private path'))}):
+            with self.assertLogs('storyboard_edit_service', level='ERROR'):
+                with self.assertRaisesRegex(ValueError, '分镜保存失败'):
+                    self.controller.save_edited('{"shots":[{"id":"S03"}]}')
+        self.assertEqual(self.path.read_bytes(), original)
+        self.assertIs(self.controller.preview, preview)
+        self.assertEqual(self.controller.shot_ids, ('S01', 'S02'))
+        self.assertEqual(self.controller.selected_shot, 'S02')
 
     def test_choose_can_persist_before_a_background_load(self):
         preview, note = self.controller.choose(self.path, load=False)

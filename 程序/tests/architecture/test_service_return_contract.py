@@ -1,4 +1,5 @@
 import ast
+import json
 import os
 import unittest
 from pathlib import Path
@@ -8,8 +9,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 
 class ServiceReturnContractBoundaryTests(unittest.TestCase):
-    def test_only_frozen_l2_adopters_import_service_contract(self):
-        """第 1 项暂停期间，新增采用方必须显式解冻并更新本棘轮。"""
+    def test_only_approved_l2_adopters_import_service_contract(self):
+        """解冻后的每批迁移仍必须显式更新采用方棘轮。"""
         from tests.architecture._layers import LAYERS
         adopters = set()
         for module, layer in LAYERS.items():
@@ -22,7 +23,12 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
             if any(isinstance(node, ast.ImportFrom) and node.module == 'service_contract'
                    for node in ast.walk(tree)):
                 adopters.add(module)
-        self.assertEqual(adopters, {'delivery_import_service', 'keyframe_lifecycle_service'})
+        self.assertEqual(adopters, {'delivery_import_service', 'keyframe_lifecycle_service',
+                                    'storyboard_edit_service'})
+        ledger = json.loads((Path(ROOT) / '维护记录' / '架构统一基数.json').read_text(encoding='utf-8'))['第一项']
+        self.assertEqual(adopters, set(ledger['adopters']))
+        self.assertFalse(adopters & set(ledger['exempt_items']))
+        self.assertEqual(ledger['exempt_count'], len(ledger['exempt_items']))
 
     def test_delivery_import_is_registered_l2_and_uses_result_contract(self):
         from tests.architecture._layers import LAYERS

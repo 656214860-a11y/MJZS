@@ -113,7 +113,9 @@ class FinalStoryboardController:
             data = json.loads(text)
         except ValueError as exc:
             raise ValueError('改完的文字不是一份合法 JSON：' + str(exc)) from exc
-        save_edited_stage_storyboard(path, data)
+        result = save_edited_stage_storyboard(path, data)
+        if not result.ok:
+            raise ValueError(result.reason)
         return self.load(path)
 
     def set_navigation(self, data) -> tuple[str, ...]:

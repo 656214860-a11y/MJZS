@@ -4,9 +4,10 @@
         "decided_at": "2026-10-04",
         "adopters": [
             "delivery_import_service",
-            "keyframe_lifecycle_service"
+            "keyframe_lifecycle_service",
+            "storyboard_edit_service"
         ],
-        "exempt_count": 35,
+        "exempt_count": 34,
         "exempt_items": [
             "asset_batch_lifecycle",
             "asset_batch_selection_service",
@@ -34,7 +35,6 @@
             "previs_routing",
             "storyboard_adoption_service",
             "storyboard_catalog_service",
-            "storyboard_edit_service",
             "storyboard_lifecycle",
             "storyboard_source_service",
             "subtitle_timing",
