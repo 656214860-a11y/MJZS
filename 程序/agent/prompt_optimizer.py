@@ -9,7 +9,7 @@ from .core import read,save,fingerprint
 from api_models import records,remember,remove,label as model_label,identity
 from .shot_assets import assets
 import tk_timers
-from ui_widgets import BaseDialog, LineInput, notify
+from ui_widgets import BaseDialog, LineInput, ask_confirmation, notify
 
 ROOT=Path(__file__).resolve().parent.parent
 CONFIG=ROOT/'private'/'prompt_optimizer.json'
@@ -115,7 +115,7 @@ def settings(app):
             if getattr(app,'optimizer_busy',False):raise ValueError('请等待本次提示词优化完成后删除模型')
             base=entries['base_url'].get().strip().rstrip('/');model=entries['model'].get().strip()
             if not base or not model:raise ValueError('请先选择要删除的模型')
-            if not messagebox.askyesno('删除模型',f'删除模型 {model}？\n接口：{base}\n删除后立即保存，已有提示词保持不变。',parent=win):return
+            if not ask_confirmation(win, '删除模型', f'删除模型 {model}？\n接口：{base}\n删除后立即保存，已有提示词保持不变。', dangerous=True):return
             updated=remove(read(CONFIG) if CONFIG.is_file() else cfg,base,model)
             save(CONFIG,updated);cfg=updated;profiles=dict(cfg.get('profiles',{}))
             entries['model'].delete(0,'end');refresh_models();choice.set(name_for(entries['base_url'].get().strip()))

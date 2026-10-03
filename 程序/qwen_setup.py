@@ -8,7 +8,7 @@ from tkinter import ttk,messagebox
 from api_models import records,remember,remove,label,identity
 from agent.core import save
 import tk_timers
-from ui_widgets import FormDialog, LineInput, notify
+from ui_widgets import FormDialog, LineInput, ask_confirmation, notify
 
 def settings_path():return Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'漫剧制作助手'/'qwen-api.json'
 
@@ -137,7 +137,7 @@ def show(parent,on_saved=None):
         try:
             base=vars['base_url'].get().strip().rstrip('/');model=vars['model'].get().strip()
             if not base or not model:raise ValueError('请先选择要删除的模型')
-            if not messagebox.askyesno('删除模型',f'删除模型 {model}？\n接口：{base}\n删除后立即保存，正在执行的任务保持不变。',parent=win):return
+            if not ask_confirmation(win, '删除模型', f'删除模型 {model}？\n接口：{base}\n删除后立即保存，正在执行的任务保持不变。', dangerous=True):return
             updated=remove({**load(),'api_key':''},base,model);save(settings_path(),updated);cfg=updated
             vars['model'].set('');refresh_models()
             status.set('模型已删除并保存。请选择其他模型，或填写新模型后保存。')

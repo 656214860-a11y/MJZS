@@ -15,7 +15,7 @@ from keyframe_batch import frame_prompt
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
                                        KEYFRAME_MODELS)
-from ui_widgets import BaseDialog, DataTable, LineInput, TextArea, notify
+from ui_widgets import BaseDialog, DataTable, LineInput, TextArea, ask_confirmation, notify
 
 CONFIG_FILE = Path(__file__).with_name('batch_frames_tool') / 'config.json'
 # Compatibility exports for callers and existing project extensions.
@@ -552,7 +552,7 @@ def show(app, source, initial=None):
         name = model_name.get().strip()
         if not name:
             raise ValueError('请先填写或选择要删除的模型')
-        if not messagebox.askyesno('删除模型', '删除模型配置 ' + name + '？\n只移除助手中的填写，不删除本地模型文件和已生成首帧。', parent=win):
+        if not ask_confirmation(win, '删除模型', '删除模型配置 ' + name + '？\n只移除助手中的填写，不删除本地模型文件和已生成首帧。', dangerous=True):
             return
         model_name.set('')
         write_settings(options())

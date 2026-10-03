@@ -12,7 +12,7 @@ from responsive_ui import FlowBar, scroll_form
 from platform_tools import open_target
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton
+from ui_widgets import BaseDialog, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
 from asset_batch_service import (
     KINDS, asset_prompt as _asset_prompt, register_image as _register_image,
     image_ready as _image_ready, batch_complete as _batch_complete,
@@ -256,7 +256,7 @@ def show(app,engine="comfy",selected_ids=None):
         if app.root!=project:raise ValueError('项目已切换，请重新打开资产设置')
         model=work_options()['model']
         if not model:raise ValueError('请先选择要删除的模型')
-        if not messagebox.askyesno('删除模型',f'删除模型配置 {model}？\n只从助手列表移除，ComfyUI 里的模型文件不动。',parent=win):return
+        if not ask_confirmation(win, '删除模型', f'删除模型配置 {model}？\n只从助手列表移除，ComfyUI 里的模型文件不动。', dangerous=True):return
         remove_model(project, values['url'].get(), model, model_key())
         values['model'].set('');modelbox.configure(values=[m for m in modelbox['values'] if m!=model])
         status.set('模型配置已删除并保存，ComfyUI 模型文件保留。')

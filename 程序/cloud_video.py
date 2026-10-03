@@ -6,7 +6,7 @@ from tkinter import ttk,messagebox
 import webbrowser
 from pathlib import Path
 from ui_tokens import SPACING
-from ui_widgets import BaseDialog, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, notify
+from ui_widgets import BaseDialog, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation, notify
 from agent.core import read
 from api_models import identity,cloud_removed
 from project_naming import dated_path
@@ -159,7 +159,7 @@ def settings_window(desktop):
             if desktop.worker or (desktop.video and desktop.video.busy):raise ValueError('请等待当前请求结束后删除模型')
             kind=PROVIDERS[provider.get()][0];base=entries['base'].get().strip().rstrip('/');model=entries['model'].get().strip()
             if not base or not model:raise ValueError('请先选择要删除的模型')
-            if not messagebox.askyesno('删除模型',f'删除模型 {model}？\n接口：{base}\n仅移除可选模型，已有视频和正在处理的任务保留。',parent=win):return
+            if not ask_confirmation(win, '删除模型', f'删除模型 {model}？\n接口：{base}\n仅移除可选模型，已有视频和正在处理的任务保留。', dangerous=True):return
             key=identity(base,model,kind);updated=read(prefs_path) if prefs_path.is_file() else {}
             updated['cloud_deleted_models']=list(dict.fromkeys([*updated.get('cloud_deleted_models',[]),key]))
             active=updated.get('cloud_video_workspace')

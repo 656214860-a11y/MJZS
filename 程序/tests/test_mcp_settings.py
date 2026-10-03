@@ -215,9 +215,9 @@ class NewInterfaceSaveTests(SettingsCase):
         sheet = self.open_settings()
         label = "example-chat · https://api.example.com/v1"
         self.assertIn(label, self.values(sheet))
-        original = optimizer.messagebox.askyesno
-        optimizer.messagebox.askyesno = lambda *args, **kwargs: True
-        self.addCleanup(setattr, optimizer.messagebox, "askyesno", original)
+        original = optimizer.ask_confirmation
+        optimizer.ask_confirmation = lambda *args, **kwargs: True
+        self.addCleanup(setattr, optimizer, "ask_confirmation", original)
         self.button(sheet, "删除模型").invoke()
         self.win.update_idletasks()
         self.assertNotIn(label, self.values(sheet), "删掉的接口不该还留在服务商下拉里")
