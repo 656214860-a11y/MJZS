@@ -46,3 +46,9 @@ class ButtonBoundaryTests(unittest.TestCase):
 
     def test_shared_video_controls_use_semantic_buttons(self):
         self._assert_semantic_buttons('shared_video_controls.py', required=('SecondaryButton',))
+
+    def test_prompt_window_uses_semantic_buttons(self):
+        self._assert_semantic_buttons('prompt_window.py', required=('PrimaryButton',))
+
+    def test_reference_wall_uses_semantic_buttons(self):
+        self._assert_semantic_buttons('reference_wall.py')

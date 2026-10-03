@@ -14,7 +14,7 @@ from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, DataTable, notify
+from ui_widgets import BaseDialog, DataTable, PrimaryButton, SecondaryButton, notify
 
 
 def rows(candidates, asset, threshold=search.DEFAULT_THRESHOLD, limit=search.DEFAULT_LIMIT):
@@ -148,11 +148,11 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
         except (ValueError, OSError) as exc:
             notify(win, str(exc), level='error', title='入库未开始', status=status)
 
-    ttk.Button(tools, text='重新打分', style='Compact.TButton', command=lambda: safe(reload)).pack(side='left')
-    ttk.Button(bottom, text='打开候选清单…', style='Compact.TButton',
-               command=lambda: safe(pick_file)).pack(side='left')
-    ttk.Button(bottom, text='确认入库', style='Primary.TButton', command=safe_commit).pack(side='left', padx=(8, 0))
-    ttk.Button(bottom, text='取消', style='Compact.TButton', command=win.destroy).pack(side='right')
+    SecondaryButton(tools, text='重新打分', command=lambda: safe(reload)).pack(side='left')
+    SecondaryButton(bottom, text='打开候选清单…',
+                    command=lambda: safe(pick_file)).pack(side='left')
+    PrimaryButton(bottom, text='确认入库', command=safe_commit).pack(side='left', padx=(8, 0))
+    SecondaryButton(bottom, text='取消', command=win.destroy).pack(side='right')
 
     def safe(fn):
         def run():

@@ -6,11 +6,11 @@
 避免把「尚未填写」的说明当成提示词复制出去。
 """
 import tkinter as tk
-from tkinter import ttk,messagebox
+from tkinter import ttk
 import re
 
 from clipboard_lock import hold as hold_clipboard
-from ui_widgets import BaseDialog, TextArea, notify
+from ui_widgets import BaseDialog, PrimaryButton, TextArea, notify
 
 
 _SECRET_VALUE = re.compile(r"(?i)(\b(?:api[_-]?key|secret|token|password)\s*[=:]\s*)([^\s,;]+)|\bsk-[A-Za-z0-9_-]{8,}")
@@ -58,7 +58,7 @@ def show(parent,title,text,status=None,receipt='',empty_text='',empty_hint='',so
             notify(win, "复制失败，请重试："+reason, level='error', title="复制提示词", status=status);return
         if status is not None and receipt:status.set(receipt)
         win.destroy()
-    action=ttk.Button(win.actions,text=button,command=copy)
+    action=PrimaryButton(win.actions,text=button,command=copy)
     action.pack(side="right",pady=(8,2))
     if not text:action.configure(state="disabled")
     return win
