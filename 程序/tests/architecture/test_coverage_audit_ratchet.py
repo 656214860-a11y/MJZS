@@ -18,11 +18,14 @@ P26={'model_pool','model_router','qwen_adapter','comfy_service','cloud_assets','
 P24={'ui_plugin_registry','stage_handler_registry','clipboard_lock'}
 LEDGER=ROOT/'维护记录'/'架构统一基数.json'
 CRITERIA=ROOT/'维护记录'/'覆盖率审计判据_20261001.md'
-AUDIT_SECTIONS={'21':'覆盖率审计21','24':'覆盖率审计24','25':'覆盖率审计25','26':'覆盖率审计26'}
+AUDIT_SECTIONS={'20':'覆盖率审计20','21':'覆盖率审计21','24':'覆盖率审计24','25':'覆盖率审计25','26':'覆盖率审计26'}
 def dot(n):
     if isinstance(n,ast.Name): return n.id
     if isinstance(n,ast.Attribute):
         p=dot(n.value); return f'{p}.{n.attr}' if p else None
+    if (isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name)
+            and isinstance(n.slice, ast.Constant) and isinstance(n.slice.value, str)):
+        return f'{n.value.id}.{n.slice.value}'
 
 def _dynamic_target(node):
     """只把非字面量或插件／阶段处理器目标视作注册路径动态加载。"""
@@ -37,10 +40,35 @@ def _event_kind(node, name):
         return None
     return node.args[index].value if isinstance(node.args[index].value, str) else None
 
+def _json_replace_calls(function):
+    """只把替换正式 JSON 的外部覆写归为 file_cache 审计目标。"""
+    assignments={node.targets[0].id: node.value for node in ast.walk(function)
+                 if isinstance(node, ast.Assign) and len(node.targets)==1
+                 and isinstance(node.targets[0], ast.Name)}
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call) or dot(node.func) != 'gateway.replace_file' or len(node.args)<2:
+            continue
+        target=node.args[1]
+        value=assignments.get(target.id) if isinstance(target, ast.Name) else target
+        if value and any(isinstance(part, ast.Constant) and isinstance(part.value, str)
+                         and part.value.lower().endswith('.json') for part in ast.walk(value)):
+            yield node
+
 def scan(kind, paths=None):
     out=set()
     for p in (production_files() if paths is None else paths):
         tree=parse(p) if paths is None else ast.parse(p.read_text(encoding='utf-8'))
+        functions={node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
+        if kind == '20':
+            for name, function in functions.items():
+                calls=[dot(node.func) for node in ast.walk(function) if isinstance(node, ast.Call)]
+                publishes=sum(call == 'gateway.published' for call in calls)
+                replaces=sum(1 for _ in _json_replace_calls(function))
+                # agent.core 的原子发布由签名变化自动换代缓存；只有绕过该入口的
+                # replace_file 是“外部覆写”，必须显式广播失效事件。
+                if replaces and publishes < replaces:
+                    out.add(f'{p.name}:{function.lineno}')
+            continue
         for n in ast.walk(tree):
             if not isinstance(n,ast.Call): continue
             name,mod=dot(n.func),p.stem
@@ -51,7 +79,7 @@ def scan(kind, paths=None):
     return out
 class CoverageAuditCanaryTests(unittest.TestCase):
     def test_each_predicate_hits_canary(self):
-        names={'21':'audit21_platform_violation.py','22':'audit22_violation.py','24':'audit24_violation.py','25':'audit25_event_violation.py','26':'audit26_violation.py'}
+        names={'20':'audit20_cache_violation.py','21':'audit21_platform_violation.py','22':'audit22_violation.py','24':'audit24_violation.py','25':'audit25_event_violation.py','26':'audit26_violation.py'}
         for kind,name in names.items():
             self.assertTrue(scan(kind,[CANARY/name]),f'{kind} 金丝雀漏报')
     def test_pending_and_predicate_hits_are_exactly_equal(self):

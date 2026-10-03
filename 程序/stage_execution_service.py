@@ -38,7 +38,8 @@ def local_video_settings_gateway():
     from agent.core import save, save_bytes
     return {'publish_json': save, 'publish_bytes': save_bytes,
             'copy_file': shutil.copy2,
-            'replace_file': lambda source, target: Path(source).replace(target)}
+            'replace_file': lambda source, target: Path(source).replace(target),
+            'published': file_cache.published}
 
 
 def publish_local_video_settings(project, current_config, options):

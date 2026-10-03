@@ -8,7 +8,8 @@ from file_cache import remove_temporary_file
 def save_local_video_settings(project, current_config, options, *, gateway=None):
     """发布经 UI 预检的本地工作流副本与项目设置，失败时恢复旧状态。"""
     if not isinstance(gateway, dict) or not all(callable(gateway.get(name)) for name in
-                                                ('publish_json', 'publish_bytes', 'copy_file', 'replace_file')):
+                                                ('publish_json', 'publish_bytes', 'copy_file', 'replace_file',
+                                                 'published')):
         raise TypeError('本地视频设置需要由 L3 注入发布网关。')
     project = Path(project).resolve()
     if not isinstance(current_config, dict) or not isinstance(options, dict):
@@ -32,17 +33,21 @@ def save_local_video_settings(project, current_config, options, *, gateway=None)
             workflow_dir.mkdir(parents=True, exist_ok=True)
             gateway['copy_file'](source, temporary)
             gateway['replace_file'](temporary, target)
+            gateway['published'](target)
         gateway['publish_json'](config_file, updated)
+        gateway['published'](config_file)
     except Exception:
         if copied:
             if old_target is None:
                 remove_temporary_file(target)
             else:
                 gateway['publish_bytes'](target, old_target)
+            gateway['published'](target)
         if old_config is None:
             remove_temporary_file(config_file)
         elif not config_file.is_file() or config_file.read_bytes() != old_config:
             gateway['publish_bytes'](config_file, old_config)
+            gateway['published'](config_file)
         raise
     finally:
         remove_temporary_file(temporary)
