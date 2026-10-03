@@ -32,13 +32,13 @@ def select_agent_shots(project,source,ids,state):
             state.setdefault('progress',{}).pop(key,None)
     return list(groups['complex'])
 
-def announce(state,ok,text):
+def announce(state,ok,text,ticket=None):
     """把这一批的结局放进 state['news']：界面线程的心跳取出来交给三虎播报（第 47 期第 5 条）。
 
     工作线程不碰 Tk、也不 import pet_ui：这里只写队列，谁取谁播报。state 上没有这条队列就现建。
     """
     try:
-        state.setdefault('news',queue.Queue()).put((bool(ok),str(text)))
+        state.setdefault('news',queue.Queue()).put((ticket,bool(ok),str(text)))
     except (AttributeError,TypeError):
         return None
     return text
@@ -63,7 +63,7 @@ def force_stop(project,state):
     return killed
 
 
-def start(project,source,ids,state,monitor=False):
+def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
     if state.get('busy'):raise ValueError('已有白模任务进行中')
     from previs_routing import ready
     ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(project,sid)]
@@ -147,13 +147,16 @@ def start(project,source,ids,state,monitor=False):
                 else:
                     state['summary']=f'自动制作结束：{completed}/{len(shots)} 就绪；失败项请查看运行日志'
                     # 第 47 期第 5 条：这一批收了尾就说一句（强制停止是用户自己按的，不用再报）。
-                    announce(state,True,state['summary'])
+                    announce(state,True,state['summary'],ticket)
         except Exception as exc:
             state['summary']='自动制作中断：'+str(exc)
-            announce(state,False,state['summary'])
+            announce(state,False,state['summary'],ticket)
             for shot in shots:
                 key=str(project)+'|'+shot['id']
                 if state['progress'].get(key) in ('queued','running','validating'):
                     state['progress'][key]='failed';state['status'][key]='失败：'+str(exc)
-        finally:state['busy']=False
+        finally:
+            # 被替换或关闭的批次仍可能在线程退出时返回；不得由旧代次
+            # 解除新批次的忙碌态。无生命周期调用方维持原有兼容行为。
+            if is_current is None or is_current(ticket):state['busy']=False
     threading.Thread(target=worker,daemon=True).start()

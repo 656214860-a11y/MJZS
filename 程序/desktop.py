@@ -525,6 +525,7 @@ class Desktop:
         self.auto_video_error=''
         self.auto_video_last=''
         self.auto_previs_due=0
+        self._auto_previs_ticket=0;self.auto_previs_tasks=BackgroundTaskLifecycle()
         self.auto_previs_signature=None
         self.auto_previs_notice=None
         self.auto_previs_error=''
@@ -1955,7 +1956,7 @@ class Desktop:
         self.shutting_down=True
         # 计时器回归会构造最小 Desktop 替身；真实窗口在 __init__ 中必定拥有这些
         # 生命周期登记器，但关闭路径也必须兼容尚未完成初始化的窗口。
-        for lifecycle_name in ('background_tasks','cloud_monitor_tasks','auto_asset_tasks','auto_keyframe_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks'):
+        for lifecycle_name in ('background_tasks','cloud_monitor_tasks','auto_asset_tasks','auto_keyframe_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks','auto_previs_tasks'):
             lifecycle=getattr(self,lifecycle_name,None)
             if lifecycle is not None:lifecycle.cancel()
         # ``fit_content`` 的空闲布局任务属于桌面窗口；若关闭发生在首帧／重建之间，
@@ -2279,9 +2280,9 @@ class Desktop:
         previs_state=getattr(self,'previs_jobs',None)
         previs_news=previs_state.get('news') if isinstance(previs_state,dict) else None
         while previs_news is not None:
-            try:ok,value=previs_news.get_nowait()
+            try:ticket,ok,value=previs_news.get_nowait()
             except queue.Empty:break
-            self.pet_report('previs',value,ok=ok)
+            if self.auto_previs_tasks.finish(ticket,succeeded=ok):self.pet_report('previs',value,ok=ok)
     def _tick_auto_asset(self):
         """处理自动补资产的消息、续跑台账、后台收尾与轮询。"""
         try:
@@ -2995,7 +2996,9 @@ class Desktop:
         派发失败（没装 Blender、引擎命令行未配置）时清掉签名并退避 5 分钟，设置修好就能自动重试。
         """
         if self.root is None or self.studio is None or not self.pet.should_auto_run('previs'):
-            self.auto_previs_signature=None;return
+            self.auto_previs_signature=None
+            if self.auto_previs_tasks.cancel() and getattr(self,'previs_jobs',{}):self.previs_jobs['busy']=False
+            return
         state=getattr(self,'previs_jobs',None)
         if state is None:state={'busy':False,'status':{},'selected':set()};self.previs_jobs=state
         if state.get('busy') or self.worker or self.final_holding():return
@@ -3036,8 +3039,11 @@ class Desktop:
         self.status.set('无人值守自动补白模：使用 '+engine+' 制作 '+str(len(pending))+' 镜复杂动作…')
         try:
             from previs_automation import start
-            start(self.root,source,pending,state)
+            self._auto_previs_ticket+=1
+            ticket=self.auto_previs_tasks.submit(self._auto_previs_ticket)
+            start(self.root,source,pending,state,ticket=ticket,is_current=self.auto_previs_tasks.accepts)
         except Exception as exc:
+            self.auto_previs_tasks.cancel()
             self.auto_previs_signature=None;self.auto_previs_due=time.monotonic()+300
             if self.auto_previs_error!=str(exc):
                 self.auto_previs_error=str(exc);self.status.set('无人值守自动补白模暂缓：'+str(exc))

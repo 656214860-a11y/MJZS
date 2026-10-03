@@ -95,6 +95,7 @@ class BackgroundTaskMigrationManifestTests(unittest.TestCase):
             'entry': 'auto_video', 'category': 'progress-and-result', 'state': 'migrated'})
         self.assertEqual(records['auto_asset']['state'], 'migrated')
         self.assertEqual(records['auto_keyframe']['state'], 'migrated')
+        self.assertEqual(records['previs_jobs']['state'], 'migrated')
         self.assertEqual(records['cloud_monitor']['state'], 'migrated')
 
 
@@ -197,6 +198,28 @@ class CloudMonitorLifecycleDeliveryTests(unittest.TestCase):
         self.assertEqual(status.values, [])
         self.assertTrue(desktop.cloud_monitor_busy)
         self.assertEqual(desktop.cloud_monitor_due, 0)
+
+
+class PrevisLifecycleDeliveryTests(unittest.TestCase):
+    def test_stale_completion_announcement_cannot_reach_pet(self):
+        """白模旧批次退出后不得再向桌宠或主界面交付完成播报。"""
+        from desktop import Desktop
+        lifecycle = BackgroundTaskLifecycle()
+        lifecycle.submit(1)
+        lifecycle.submit(2)
+        reports = []
+        desktop = SimpleNamespace(
+            auto_previs_tasks=lifecycle,
+            previs_jobs={'news': queue.Queue()},
+            _poll_auto_due=lambda *args, **kwargs: None,
+            poll_auto_previs=lambda: None,
+            auto_previs_error='',
+            pet_report=lambda *args, **kwargs: reports.append((args, kwargs)),
+        )
+        desktop.previs_jobs['news'].put((1, True, '旧批次完成'))
+        Desktop._tick_auto_previs(desktop)
+        self.assertEqual(reports, [])
+        self.assertTrue(lifecycle.accepts(2))
 
 
 if __name__ == '__main__':

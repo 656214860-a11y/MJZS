@@ -15,7 +15,7 @@ BACKGROUND_TASK_MIGRATION = (
     {'entry': 'auto_video', 'category': 'progress-and-result', 'state': 'migrated'},
     {'entry': 'auto_asset', 'category': 'progress-and-result', 'state': 'migrated'},
     {'entry': 'auto_keyframe', 'category': 'progress-and-result', 'state': 'migrated'},
-    {'entry': 'previs_jobs', 'category': 'special-process', 'state': 'pending'},
+    {'entry': 'previs_jobs', 'category': 'special-process', 'state': 'migrated'},
     {'entry': 'cloud_monitor', 'category': 'cross-page-monitor', 'state': 'migrated'},
 )
 
