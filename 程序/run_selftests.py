@@ -284,6 +284,8 @@ def layer_baseline_path():
 def content_tree():
     """返回 HEAD 中程序目录的内容树；未提交改动不应拿旧树替代验证。"""
     try:
+        if _git_text('status', '--porcelain', '--untracked-files=normal', '--', '.'):
+            return ''
         root = _git_text('rev-parse', '--show-toplevel')
         relative = os.path.relpath(HERE, root).replace(os.sep, '/')
         return _git_text('rev-parse', 'HEAD:' + relative)
@@ -321,6 +323,8 @@ def participating_full_safe_run(round_number):
 
 def verified_tree_record(records, tree, now=None):
     """找出七日内可引用的同内容树全量绿记录。"""
+    if not tree:
+        return None
     now = now or datetime.now()
     for record in records if isinstance(records, list) else []:
         if not isinstance(record, dict) or record.get('tree') != tree:
@@ -402,6 +406,9 @@ def save_layer_baseline(layer, results, elapsed):
 
 
 def save_full_safe_verification(tree, round_number, elapsed):
+    # A run may overlap edits or a commit; never certify a different checkout.
+    if not tree or content_tree() != tree:
+        return ''
     document = load_layer_document()
     record_verified_tree(document, tree, round_number, elapsed)
     target = layer_baseline_path()

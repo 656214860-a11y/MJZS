@@ -188,6 +188,28 @@ class IncrementalTests(unittest.TestCase):
         self.assertIsNone(run_selftests.verified_tree_record(
             [record], 'abc', datetime(2026, 10, 10, 0, 1)))
 
+    def test_dirty_checkout_cannot_identify_as_verified_head(self):
+        def git_response(*args):
+            if args[:2] == ('rev-parse', '--show-toplevel'):
+                return run_selftests.HERE
+            if args[0] == 'status':
+                return ' M desktop.py'
+            return 'head-tree'
+        with mock.patch.object(run_selftests, '_git_text', side_effect=git_response):
+            self.assertEqual(run_selftests.content_tree(), '')
+
+    def test_empty_tree_never_matches_a_receipt(self):
+        record = {'tree': '', 'at': datetime.now().isoformat()}
+        self.assertIsNone(run_selftests.verified_tree_record([record], ''))
+
+    def test_changed_tree_during_run_cannot_publish_receipt(self):
+        for current in ('', 'different-tree'):
+            with self.subTest(current=current), \
+                 mock.patch.object(run_selftests, 'content_tree', return_value=current), \
+                 mock.patch.object(run_selftests, 'load_layer_document') as load:
+                self.assertEqual(run_selftests.save_full_safe_verification('start-tree', 949, 400), '')
+                load.assert_not_called()
+
     def test_full_safe_counter_only_applies_to_master(self):
         self.assertTrue(run_selftests.full_safe_required(858, 855, True))
         self.assertFalse(run_selftests.full_safe_required(858, 855, False))
