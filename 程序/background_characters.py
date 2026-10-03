@@ -5,7 +5,7 @@ from tkinter import ttk
 from pathlib import Path
 from agent.core import read, save
 from responsive_ui import scroll_form
-from ui_widgets import BaseDialog, PrimaryButton, SecondaryButton, notify
+from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
 
 # 名称/别名匹配（高置信，命中的会展示给用户二次确认）
 NAME_KEYWORDS = (
@@ -124,13 +124,14 @@ def show(desktop):
     win = BaseDialog(desktop.win, '识别背景人物', geometry='780x540',
                      minsize=(620, 380), modal=False, chrome=False)
     win.transient(desktop.win)
+    card = Card(win, padding=12); card.pack(fill='both', expand=True)
     ttk.Label(
-        win,
+        card,
         text=f'以下 {len(candidates)} 个角色疑似背景/不露脸/局部人物。勾选后点击“标记为背景人物”，将不再建档、不再生成图片，并从分镜引用中移除。',
         wraplength=740, style='Muted.TLabel',
-    ).pack(anchor='w', padx=12, pady=(12, 4))
+    ).pack(anchor='w', pady=(0, 4))
 
-    top = ttk.Frame(win); top.pack(fill='x', padx=12, pady=(0, 4))
+    top = ttk.Frame(card); top.pack(fill='x', pady=(0, 4))
     vars_ = {}
 
     def set_all(value):
@@ -140,7 +141,7 @@ def show(desktop):
     SecondaryButton(top, text='全选', command=lambda: set_all(True)).pack(side='left', padx=(0, 6))
     SecondaryButton(top, text='全不选', command=lambda: set_all(False)).pack(side='left')
 
-    body = ttk.Frame(win); body.pack(fill='both', expand=True, padx=12, pady=4)
+    body = ttk.Frame(card); body.pack(fill='both', expand=True, pady=4)
     view = scroll_form(body); inner = view.form
 
     for c in candidates:
@@ -151,7 +152,7 @@ def show(desktop):
 
     view.bind_wheel()          # 候选多到要滚的时候，滚轮也得落在这批勾选框上
 
-    footer = ttk.Frame(win); footer.pack(fill='x', padx=12, pady=12)
+    footer = ttk.Frame(card); footer.pack(fill='x', pady=(8, 0))
 
     def confirm():
         selected = [aid for aid, v in vars_.items() if v.get()]
