@@ -7,17 +7,21 @@ import unittest
 from tests.architecture._scan import ROOT, parse
 
 
+EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__"}
+
+
 class DataTableBoundaryTests(unittest.TestCase):
-    def test_only_project_navigation_uses_raw_treeview(self):
+    def test_only_project_navigation_uses_raw_treeview_recursively(self):
         """表格一律经 DataTable；仅项目导航保留树形选择器语义。"""
         actual = {}
-        for path in ROOT.glob('*.py'):
-            if path.name == 'ui_widgets.py':
+        for path in ROOT.rglob('*.py'):
+            if (path.name == 'ui_widgets.py'
+                    or any(part in EXCLUDED_PARTS for part in path.parts)):
                 continue
             calls = [node for node in ast.walk(parse(path)) if isinstance(node, ast.Call)
                      and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
             if calls:
-                actual[path.name] = len(calls)
+                actual[str(path.relative_to(ROOT))] = len(calls)
         self.assertEqual(actual, {'desktop.py': 3},
                          '业务数据表必须通过 DataTable；项目树是唯一语义导航例外')
 
