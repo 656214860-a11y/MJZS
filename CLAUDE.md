@@ -32,7 +32,10 @@ python smoke_test.py --gate                 # 增量门禁（按台账，只跑�
 python smoke_test.py --architecture         # 全部架构门禁（tests/architecture/，基线见 project_status.md）
 
 python run_selftests.py                     # 并行全量自检（增量：未改动的测试自动跳过，约 85 秒）
-python run_selftests.py --all --safe        # 强制全量串行回归（发布前，基线约 3,230 条，15 分钟级）
+python run_selftests.py --all --safe        # 分池全量回归（无 Tk 单元并行＋Tk 最多 2 路＋性能用例独占串行；实测 545～587 秒）
+                                       # 仅 master 提交序列每 3 轮要求一次；同内容树七日内有绿凭据则直接引用免跑
+                                       # 分支／worktree 每轮只需冒烟＋架构＋定向，不累计全量欠账
+python run_selftests.py --all --safe --force   # 忽略同内容树绿凭据，强制再跑一轮全量复核
 python run_selftests.py -k pet keyframe     # 只跑文件名含这些关键词的测试（单测试的标准做法）
 python run_selftests.py --layer architecture --all   # 只跑架构契约层
 python run_selftests.py --list              # 列出会跑哪些测试文件

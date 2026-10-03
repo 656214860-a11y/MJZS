@@ -67,8 +67,8 @@
 | 阶段完成核验 | `stage_completion_service`                                                                         |
 | 回收服务   | `storage_maintenance.recycle_paths()`                                                              |
 | UI 组件与弹窗 | `ui_widgets`（组件与全局 Style）／`ui_tokens`（视觉 token）／`ui_shortcuts`（快捷键登记）          |
-| L2 写服务结果 | **试点，第 1 项暂停**：目前仅 `delivery_import_service`、`keyframe_lifecycle_service` 采用 `service_contract` 四字段结果；其余 35 个 L2 模块为待迁移豁免，沿用各自既有返回约定。新增 L2 写服务不得引入第三种返回形状（如 `(ok, msg)` 元组），也不得自行采用 `ServiceResult`；解冻见 `维护记录/架构统一路线图_v2.md` 第 1 项。 |
-| 项目操作上下文 | **试点，第 2 项暂停**：仅 `delivery_import_service` 消费由 `stage_execution_service.project_context()` 构造的 `project_context.ProjectContext`；其余 36 个 L2 模块未接入，沿用既有上下文约定。解冻见 `维护记录/架构统一路线图_v2.md` 第 2 项。 |
+| L2 写服务结果 | **第 1 项已解冻（2026-10-04 用户授权）**：分批复用 `service_contract` 四字段结果，每轮最多 3 个 service；同轮迁移调用方、测试与采用方棘轮，不创造第三种返回形状。采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准；执行顺序见路线图。 |
+| 项目操作上下文 | **第 2 项已解冻（2026-10-04 用户授权），按路线图顺序推进**：复用 L3 注入的 `project_context.ProjectContext`，每轮最多 3 个 service；采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准。 |
 | 阶段成果发布器 | `stage_execution_service.publish_stage_text()`／`publish_stage_bytes()`／`publish_stage_bundle()`；L2 写服务只能接收 L3 注入的发布器，音频导入经 `import_stage_audio()`、自动粗剪完成标记经 `save_automatic_assemble_marker()`、自动交接完成标记经 `save_automatic_handoff_marker()`、首帧删除／恢复／替换经 `delete_stage_keyframe()`／`restore_stage_keyframe()`／`replace_stage_keyframe()` 注入 |
 | 正式 JSON 读写 | 读取优先 `file_cache.read_json()`，写入只经 `agent.core.save()`／`save_text()` 或 L3 发布器；L2 不得直接向正式路径 `json.dump()` 或裸写入 |
 
@@ -158,7 +158,7 @@
 
     - 架构门禁：当前已验证基线 94/94（不得低于历史 14/14）
 
-    - 全量回归：当前基线 3,230 条；仅合并到 `master` 的提交序列每 3 轮执行一次，内容树七日内已有绿凭据可引用。
+    - 全量回归：当前可引用绿基线 3,671 条（R841，0 个失败文件）；`--safe` 已改为分池受控并行，R881 实测用例总数 3,727～3,728 条／545.3～586.7 秒，两轮均含红项未收口，不得当作绿基线引用。仅合并到 `master` 的提交序列每 3 轮执行一次，内容树七日内已有绿凭据可引用；当前 `full_safe_verified_trees` 为空、`last_full_safe_all_round` 停在 868（已到 R901），主干全量欠账 33 轮。
 
 30. \*\*桌面主动后台任务\*\*：`Desktop.async_()` 的提交、逻辑取消、成功／失败收尾与迟到结果拒绝必须经 `BackgroundTaskLifecycle`；取消不强杀任意 Python 线程，但已取消或被新代次替换的结果不得触发 UI 回调。
 
@@ -376,9 +376,11 @@
 不再按轮次自动触发完整自检：Tk UI 全量回归耗时长、会创建大量界面，
 不适合作为日常开发门禁。
 
-当前验证基线：默认 `smoke_test.py` 为 8/8，最后已验证的 `smoke_test.py --architecture` 为 226/226（R843；历史下限 14/14），全量安全自检为 3,671 条（R841 结构治理轮，1005.4 秒、0 个失败文件）。续接时仍须在改动后运行受影响验证与默认冒烟；架构总数以当轮输出为准，不能以本行历史记录替代验收。
+当前验证基线：默认 `smoke_test.py` 为 8/8，最后已验证的 `smoke_test.py --architecture` 为 226/226（R843；历史下限 14/14），全量安全自检最后可引用的绿基线为 3,671 条（R841 结构治理轮，1005.4 秒、0 个失败文件，旧单路串行口径）。`--safe` 改成分池受控并行后，R881 实测 3,727～3,728 条／545.3～586.7 秒，两轮均含红项、未收口，不作绿基线；`full_safe_verified_trees` 为空、`last_full_safe_all_round` 停在 868（已到 R901），欠账 33 轮须补跑，且只能以真实全绿输出入账——不得用文档措辞代替凭据。续接时仍须在改动后运行受影响验证与默认冒烟；架构总数以当轮输出为准，不能以本行历史记录替代验收。
 
 当前架构门禁清单（`tests/architecture/`）：清单如下；总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。
+
+- 卡片与忙碌状态补充：`test_card_boundary.py`、`test_busy_state_boundary.py`。
 
 - 分层与一致性：`test_agents_md.py`、`test_layers.py`、`test_no_circular_import.py`、`test_path_authority.py`、`test_stage_paths.py`、`test_storyboard_edit_boundary.py`、`test_storyboard_final_selection_boundary.py`。
 - 写入与删除边界：`test_atomic_write_boundary.py`、`test_asset_batch_ledger_boundary.py`、`test_asset_batch_settings_boundary.py`、`test_asset_detail_binding_boundary.py`、`test_asset_generated_import_boundary.py`、`test_asset_image_import_boundary.py`、`test_asset_plan_publication_boundary.py`、`test_asset_rename_boundary.py`、`test_asset_image_removal_boundary.py`、`test_asset_image_restore_boundary.py`、`test_audio_import_boundary.py`、`test_cloud_video_settings_boundary.py`、`test_continuity_publication_boundary.py`、`test_delivery_import_boundary.py`、`test_desktop_settings_boundary.py`、`test_edit_publication_boundary.py`、`test_final_bundle_boundary.py`、`test_handoff_publication_boundary.py`、`test_keyframe_delete_boundary.py`、`test_keyframe_restore_boundary.py`、`test_keyframe_replace_boundary.py`、`test_keyframe_reference_publication_boundary.py`、`test_legacy_adoption_boundary.py`、`test_local_video_settings_boundary.py`、`test_manual_creative_publication_boundary.py`、`test_previs_routing_publication_boundary.py`、`test_stage_workspace_boundary.py`、`test_structured_script_write_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_tts_publication_boundary.py`、`test_video_delete_boundary.py`、`test_video_options_boundary.py`、`test_video_prompt_publication_boundary.py`、`test_video_publication_boundary.py`、`test_white_model_import_boundary.py`、`test_writing_preparation_path_boundary.py`、`test_deletion_gateway.py`、`test_remove_authority.py`、`test_recycle_service.py`。
@@ -386,12 +388,12 @@
 - 剧本重命名边界：`test_script_rename_boundary.py`。
 - 阶段/UI 契约：`test_dynamic_import_registry.py`、`test_stage_command_contract.py`、`test_completion_gate.py`、`test_event_bus_boundary.py`、`test_skill_dependency_dag.py`、`test_pipeline_stage_io_contract.py`、`test_skill_reference_injection.py`。
 - 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_migrated_ui_boundaries.py`。
-- 体验与布局：`test_responsive_layout_contract.py`。
+- 体验与布局：`test_responsive_layout_contract.py`、`test_combobox_boundary.py`。
 - 启动预算：`test_startup_budget.py`。
 - 历史兼容门面：`test_legacy_facade_manifest.py`。
 - 轮次与基线／测试卫生：`test_round_baselines.py`、`test_skip_hygiene.py`、`test_todo_comment_snapshot.py`。
 - 覆盖率审计棘轮：`test_coverage_audit_ratchet.py`、`test_secret_sink_audit.py`。
-- JSON／服务／统筹补充：`test_confirm_gates_json_boundary.py`、`test_context_menu_boundary.py`、`test_data_table_boundary.py`、`test_dialog_boundary.py`、`test_file_dialog_boundary.py`、`test_idea_attachment_publication_boundary.py`、`test_input_boundary.py`、`test_json_io_boundary.py`、`test_keyframe_batch_json_boundary.py`、`test_local_previs_json_boundary.py`、`test_notification_boundary.py`、`test_previs_automation_json_boundary.py`、`test_previs_batch_json_boundary.py`、`test_previs_monitor_json_boundary.py`、`test_project_context_boundary.py`、`test_service_return_contract.py`、`test_shortcut_registry_boundary.py`、`test_skill_orchestrator_json_boundary.py`、`test_stage_display_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_text_component_boundary.py`、`test_tooltip_boundary.py`、`test_ui_icons_boundary.py`、`test_scrollbar_theme_boundary.py`、`test_copy_entry_boundary.py`、`test_unification_ratchet.py`、`test_video_navigation_json_boundary.py`、`test_white_model_json_boundary.py`、`test_white_model_service_json_boundary.py`、`test_workflow_settings_json_boundary.py`、`test_writing_api_json_boundary.py`、`test_writing_publication_boundary.py`。
+- JSON／服务／统筹补充：`test_confirm_gates_json_boundary.py`、`test_context_menu_boundary.py`、`test_data_table_boundary.py`、`test_dialog_boundary.py`、`test_button_boundary.py`、`test_file_dialog_boundary.py`、`test_idea_attachment_publication_boundary.py`、`test_input_boundary.py`、`test_json_io_boundary.py`、`test_keyframe_batch_json_boundary.py`、`test_local_previs_json_boundary.py`、`test_notification_boundary.py`、`test_previs_automation_json_boundary.py`、`test_previs_batch_json_boundary.py`、`test_previs_monitor_json_boundary.py`、`test_project_context_boundary.py`、`test_service_return_contract.py`、`test_shortcut_registry_boundary.py`、`test_skill_orchestrator_json_boundary.py`、`test_stage_display_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_text_component_boundary.py`、`test_tooltip_boundary.py`、`test_ui_icons_boundary.py`、`test_scrollbar_theme_boundary.py`、`test_copy_entry_boundary.py`、`test_unification_ratchet.py`、`test_video_navigation_json_boundary.py`、`test_white_model_json_boundary.py`、`test_white_model_service_json_boundary.py`、`test_workflow_settings_json_boundary.py`、`test_writing_api_json_boundary.py`、`test_writing_publication_boundary.py`。
 
 新增或删除架构测试时，必须在同一轮更新以上清单、架构基线和结果报告；不得只更新测试而遗漏本入口说明。
 
