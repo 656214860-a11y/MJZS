@@ -1,5 +1,7 @@
-# R908 B 线幽灵项目条目处置核验
+# R908 UI 统一入口：本地视频控制条按钮
 
-- 侧栏项目树的 `<Button-3>` 绑定进入 `Desktop.project_menu()`；失效项目目录只提供“只清除失效项目登记”，回调进入 `clear_missing_project()`。
-- 该路径先拒绝仍存在的目录，再仅调用 `Projects.clear_missing_registration()`；不会进入项目回收或删除流程。登记写入失败会保留条目并显示可重试原因。
-- 验证：`python run_selftests.py --safe -k core`，125 条／0 红。结论：台账所列主界面右键分流已具备可执行回归证据，B-ghost-entry 收口。
+- 本地视频控制条的 H3／ComfyUI 启动操作已从裸 `ttk.Button` 迁移至 `SecondaryButton`。
+- 保留启动脚本、错误保护和仅本地视频页显示的既有行为。
+- 按钮边界测试覆盖增至九个已迁移模块，防止该控制条退回裸按钮。
+- 验证：源码编译、按钮边界测试及默认 smoke test 通过。
+- 全站按钮覆盖尚未完成，路线图仍在推进。

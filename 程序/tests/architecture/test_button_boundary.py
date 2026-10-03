@@ -8,7 +8,7 @@ from tests.architecture._scan import ROOT, parse
 
 
 class ButtonBoundaryTests(unittest.TestCase):
-    def _assert_semantic_buttons(self, filename):
+    def _assert_semantic_buttons(self, filename, required=('PrimaryButton', 'SecondaryButton')):
         tree = parse(ROOT / filename)
         raw = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                and isinstance(node.func, ast.Attribute)
@@ -17,8 +17,8 @@ class ButtonBoundaryTests(unittest.TestCase):
         imports = {alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
                    and node.module == 'ui_widgets' for alias in node.names}
         self.assertEqual(raw, [], f'{filename} 不得使用裸 ttk.Button')
-        self.assertIn('PrimaryButton', imports)
-        self.assertIn('SecondaryButton', imports)
+        for component in required:
+            self.assertIn(component, imports)
 
     def test_asset_reference_import_uses_semantic_buttons(self):
         self._assert_semantic_buttons('asset_reference_import.py')
@@ -43,3 +43,6 @@ class ButtonBoundaryTests(unittest.TestCase):
 
     def test_workflow_settings_use_semantic_buttons(self):
         self._assert_semantic_buttons('workflow_settings.py')
+
+    def test_shared_video_controls_use_semantic_buttons(self):
+        self._assert_semantic_buttons('shared_video_controls.py', required=('SecondaryButton',))
