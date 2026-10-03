@@ -30,6 +30,9 @@ class CardBoundaryTests(unittest.TestCase):
     def test_asset_reference_import_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("asset_reference_import.py", "show")
 
+    def test_cloud_asset_settings_uses_card_for_its_configuration_group(self):
+        self._assert_settings_card("cloud_assets.py", "settings")
+
     def test_qwen_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("qwen_setup.py")
 
@@ -60,7 +63,7 @@ class CardBoundaryTests(unittest.TestCase):
     def _assert_settings_card(self, filename, function_name="show"):
         tree = parse(ROOT / filename)
         imported = {
-            alias.name for node in tree.body if isinstance(node, ast.ImportFrom)
+            alias.name for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
             and node.module == "ui_widgets" for alias in node.names
         }
         self.assertIn("Card", imported)

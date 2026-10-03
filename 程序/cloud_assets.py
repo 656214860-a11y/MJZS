@@ -101,11 +101,11 @@ def settings(parent):
     import tkinter as tk
     import webbrowser
     from tkinter import ttk
-    from ui_widgets import (DescriptionBlock, FormDialog, LineInput, PrimaryButton,
+    from ui_widgets import (Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
                             ProgressLabel, SecondaryButton, notify)
     win = FormDialog(parent, '云图片模型 · Comfy 账户', modal=False, chrome=False)
     win.withdraw();win.transient(parent)
-    body = ttk.Frame(win, padding=16);body.pack(fill='both', expand=True)
+    body = Card(win, padding=16);body.pack(fill='both', expand=True)
     DescriptionBlock(body, text='Seedream 5.0 Pro / Nano Banana Pro / GPT Image 2', wraplength=560).pack(anchor='w')
     DescriptionBlock(body, text='使用 ComfyUI 账户余额；本地 FLUX 无需此密钥。', wraplength=560).pack(anchor='w', pady=6)
     DescriptionBlock(body,text='1. 打开 Comfy 账户并登录或注册。\n2. 在 API Keys 页面创建密钥，复制到下方并保存。\n3. 确认账户有可用余额，再返回手动制作资产。',wraplength=560).pack(anchor='w',pady=6)
