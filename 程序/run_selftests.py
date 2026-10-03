@@ -616,6 +616,21 @@ def run_serial(todo, timeout=SAFE_UNIT_TIMEOUT):
     return out
 
 
+def run_safe_serial(todo):
+    """安全全量在当前进程逐单元执行，规避 Windows 长运行的 spawn 管道句柄限制。
+
+    ``--serial`` 仍保留子进程隔离与超时回收；``--safe`` 的目标是同一时刻只运行一个
+    测试单元，直接调用既能满足该目标，也不会在数百次 Windows spawn 后失去结果汇总。
+    """
+    out = []
+    for payload in todo:
+        print('  → 开始 %-26s' % payload[0], flush=True)
+        item = _run_unit(payload)
+        out.append(item)
+        print_unit_result(item)
+    return out
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     keys, jobs, serial, listing, whole = [], 0, False, False, False
@@ -696,8 +711,12 @@ def main(argv=None):
     if perf:
         print('另有 %d 个工作单元是性能用例，排在并行池之后单独串行跑' % len(perf))
     started = time.time()
-    got = run_serial(todo) if serial else run_units(todo, jobs)
-    got += run_serial(perf)
+    if safe:
+        got = run_safe_serial(todo)
+        got += run_safe_serial(perf)
+    else:
+        got = run_serial(todo) if serial else run_units(todo, jobs)
+        got += run_serial(perf)
     elapsed = time.time() - started
     total = sum(item[2] for item in got)
     reds = [(item[1], item[3], item[4]) for item in got if item[3]]

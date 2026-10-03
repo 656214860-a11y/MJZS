@@ -37,6 +37,15 @@ class SafeRunnerTests(unittest.TestCase):
             self.assertEqual(run_selftests.run_serial([payload]), [expected])
         run.assert_called_once_with(payload)
 
+    def test_safe_serial_runner_never_spawns_an_isolation_process(self):
+        payload = ('安全单元', 'test_demo', None)
+        expected = ('安全单元', 'test_demo', 1, [], '', 0.0, '')
+        with mock.patch.object(run_selftests, '_run_unit', return_value=expected) as run, \
+             mock.patch('multiprocessing.Process') as process:
+            self.assertEqual(run_selftests.run_safe_serial([payload]), [expected])
+        run.assert_called_once_with(payload)
+        process.assert_not_called()
+
     def test_parallel_runner_reports_heartbeat_while_waiting(self):
         source = inspect.getsource(run_selftests.run_units)
         self.assertIn('futures.wait(', source)
