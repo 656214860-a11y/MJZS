@@ -516,7 +516,7 @@ class Desktop:
         self.auto_asset_blocked=None
         self.auto_asset_error=''
         self.auto_asset_tried=None
-        self.auto_video_due=0
+        self.auto_video_due=0;self._auto_video_ticket=0;self.auto_video_tasks=BackgroundTaskLifecycle()
         self.auto_video_busy=False
         self.auto_video_queue=pet_ui.StageQueue('video',self.pet.drain)
         self.auto_video_messages=queue.Queue()
@@ -1955,7 +1955,7 @@ class Desktop:
         self.shutting_down=True
         # 计时器回归会构造最小 Desktop 替身；真实窗口在 __init__ 中必定拥有这些
         # 生命周期登记器，但关闭路径也必须兼容尚未完成初始化的窗口。
-        for lifecycle_name in ('background_tasks','auto_edit_tasks','auto_handoff_tasks'):
+        for lifecycle_name in ('background_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks'):
             lifecycle=getattr(self,lifecycle_name,None)
             if lifecycle is not None:lifecycle.cancel()
         # ``fit_content`` 的空闲布局任务属于桌面窗口；若关闭发生在首帧／重建之间，
@@ -2320,10 +2320,14 @@ class Desktop:
     def _tick_auto_video(self):
         """处理自动补视频的消息、后台收尾与下一轮轮询。"""
         try:
-            while True:self.status.set('自动补视频：'+self.auto_video_messages.get_nowait())
+            while True:
+                ticket,text=self.auto_video_messages.get_nowait()
+                if self.auto_video_tasks.accepts(ticket):self.status.set('自动补视频：'+text)
         except queue.Empty:pass
         try:
-            ok,value,signature=self.auto_video_queue.get_nowait();self.auto_video_busy=False
+            ticket,ok,value,signature=self.auto_video_queue.get_nowait()
+            if not self.auto_video_tasks.finish(ticket,succeeded=ok):return
+            self.auto_video_busy=False
             if ok:self.auto_video_signature=signature;self.kick_unattended('auto_video')
             else:self.auto_video_due=time.monotonic()+300
             # 仍在生成的镜头每轮给出同一句话，不重复刷状态栏。
@@ -3137,7 +3141,9 @@ class Desktop:
         """
         import project_settings
         if self.root is None or self.studio is None or not self.pet.should_auto_run('video'):
-            self.auto_video_signature=None;return
+            self.auto_video_signature=None
+            if self.auto_video_tasks.cancel():self.auto_video_busy=False
+            return
         if self.auto_video_busy or self.worker or self.final_holding():return
         if not self.align_studio():return
         from local_video import LocalStudio,auto_plan,auto_poll_decision
@@ -3157,17 +3163,18 @@ class Desktop:
         self.auto_video_notice=None
         if decision['action']=='skip':return
         signature=decision['signature']
-        self.auto_video_busy=True
+        self.auto_video_busy=True;self._auto_video_ticket+=1
+        ticket=self.auto_video_tasks.submit(self._auto_video_ticket)
         self.status.set('无人值守自动补视频：准备提交 '+str(len(submit))+' 镜、查询 '+str(len(poll))+' 镜…')
         studio=self.studio
         def worker():
             from local_video import auto_batch
-            try:self.auto_video_queue.put((True,auto_batch(self.root,source,self.auto_video_log,studio=studio),signature))
-            except Exception as exc:self.auto_video_queue.put((False,'自动补视频未完成：'+str(exc),signature))
+            try:self.auto_video_queue.put((ticket,True,auto_batch(self.root,source,lambda text:self.auto_video_log(ticket,text),studio=studio),signature))
+            except Exception as exc:self.auto_video_queue.put((ticket,False,'自动补视频未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
-    def auto_video_log(self,text):
+    def auto_video_log(self,ticket,text):
         # 工作线程回调：只入队，由主循环写状态栏，线程里不碰 Tk。
-        self.auto_video_messages.put(str(text))
+        self.auto_video_messages.put((ticket,str(text)))
     def poll_auto_handoff(self):
         """无人值守：本集全部镜头验收通过后自动整理剪映素材交接包（只复制本地已下载成片，不调用云端、不产生费用）。
 

@@ -1,12 +1,15 @@
 """无 Tk 桌面自动流程调度器回归。"""
 import os
+import queue
 import sys
 import unittest
+from types import SimpleNamespace
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler
+from desktop_automation_service import (BACKGROUND_TASK_MIGRATION,
+                                        BackgroundTaskLifecycle, DesktopAutomationScheduler)
 
 
 class DesktopAutomationSchedulerTests(unittest.TestCase):
@@ -72,6 +75,54 @@ class BackgroundTaskLifecycleTests(unittest.TestCase):
         self.assertFalse(lifecycle.accepts(8))
         self.assertTrue(lifecycle.finish(9, succeeded=False))
         self.assertEqual(lifecycle.snapshot(), {'ticket': 9, 'state': 'failed'})
+
+    def test_progress_and_result_share_the_same_delivery_ticket(self):
+        """连续进度与最终结果都必须由同一个仍有效的代次交付。"""
+        lifecycle = BackgroundTaskLifecycle()
+        old_ticket = lifecycle.submit(1)
+        current_ticket = lifecycle.submit(2)
+        self.assertFalse(lifecycle.accepts(old_ticket))
+        self.assertTrue(lifecycle.accepts(current_ticket))
+        self.assertFalse(lifecycle.finish(old_ticket, succeeded=True))
+        self.assertTrue(lifecycle.finish(current_ticket, succeeded=True))
+        self.assertFalse(lifecycle.accepts(current_ticket))
+
+
+class BackgroundTaskMigrationManifestTests(unittest.TestCase):
+    def test_auto_video_is_the_only_completed_progress_delivery_entry(self):
+        records = {record['entry']: record for record in BACKGROUND_TASK_MIGRATION}
+        self.assertEqual(records['auto_video'], {
+            'entry': 'auto_video', 'category': 'progress-and-result', 'state': 'migrated'})
+        self.assertEqual(records['auto_asset']['state'], 'pending')
+        self.assertEqual(records['auto_keyframe']['state'], 'pending')
+
+
+class AutoVideoLifecycleDeliveryTests(unittest.TestCase):
+    def test_stale_progress_and_result_cannot_refresh_the_desktop(self):
+        """自动视频被替换后，旧 worker 的日志和结果均不得触达状态栏或下游。"""
+        from desktop import Desktop
+        lifecycle = BackgroundTaskLifecycle()
+        lifecycle.submit(1)
+        lifecycle.submit(2)
+        status = SimpleNamespace(values=[], set=lambda value: status.values.append(value))
+        desktop = SimpleNamespace(
+            auto_video_tasks=lifecycle,
+            auto_video_messages=queue.Queue(),
+            auto_video_queue=queue.Queue(),
+            auto_video_busy=True,
+            auto_video_signature=None,
+            auto_video_due=0,
+            auto_video_last='',
+            auto_video_error='',
+            status=status,
+            _poll_auto_due=lambda *args, **kwargs: self.fail('过期结果不得继续轮询'),
+        )
+        desktop.auto_video_messages.put((1, '旧进度'))
+        desktop.auto_video_queue.put((1, True, '旧结果', ('SH001',)))
+        Desktop._tick_auto_video(desktop)
+        self.assertEqual(status.values, [])
+        self.assertTrue(desktop.auto_video_busy)
+        self.assertIsNone(desktop.auto_video_signature)
 
 
 if __name__ == '__main__':

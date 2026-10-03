@@ -5,6 +5,21 @@
 """
 
 
+# 后台任务生命周期的唯一迁移清单。每一项都必须证明同一代次覆盖提交、替换、
+# 取消、成功、失败和迟到交付拒绝；含连续进度消息的入口还必须把进度与最终结果
+# 绑定到同一 ticket。状态只记录已落地的事实，待迁移项不得借清单宣称已收口。
+BACKGROUND_TASK_MIGRATION = (
+    {'entry': 'Desktop.async_', 'category': 'final-result', 'state': 'migrated'},
+    {'entry': 'auto_edit', 'category': 'final-result', 'state': 'migrated'},
+    {'entry': 'auto_handoff', 'category': 'final-result', 'state': 'migrated'},
+    {'entry': 'auto_video', 'category': 'progress-and-result', 'state': 'migrated'},
+    {'entry': 'auto_asset', 'category': 'progress-and-result', 'state': 'pending'},
+    {'entry': 'auto_keyframe', 'category': 'progress-and-result', 'state': 'pending'},
+    {'entry': 'previs_jobs', 'category': 'special-process', 'state': 'pending'},
+    {'entry': 'cloud_monitor', 'category': 'cross-page-monitor', 'state': 'pending'},
+)
+
+
 class DesktopAutomationScheduler:
     """管理桌面拥有的周期回调，不持有窗口或阶段状态。"""
 
