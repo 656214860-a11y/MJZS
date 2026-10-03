@@ -407,9 +407,10 @@ class ResubmitTests(unittest.TestCase):
                     return False
                 def open_flow_agent(self, *args, **kwargs):
                     launched.append((args, kwargs))
-            real = messagebox.askyesno
-            messagebox.askyesno = lambda *a, **k: True
-            self.addCleanup(setattr, messagebox, "askyesno", real)
+            real = __import__('ui_widgets').ask_confirmation
+            import ui_widgets
+            ui_widgets.ask_confirmation = lambda *a, **k: True
+            self.addCleanup(setattr, ui_widgets, "ask_confirmation", real)
             keyframe_import.launch(App(), src, shot_ids=shot_ids)
             self.assertTrue(launched)
             old_items = {item["shot_id"]: item["state"] for item in read(old)["items"]}
@@ -442,9 +443,10 @@ class ResubmitTests(unittest.TestCase):
                     return False
                 def open_flow_agent(self, *args, **kwargs):
                     launched.append(args)
-            real = messagebox.askyesno
-            messagebox.askyesno = lambda *a, **k: False
-            self.addCleanup(setattr, messagebox, "askyesno", real)
+            real = __import__('ui_widgets').ask_confirmation
+            import ui_widgets
+            ui_widgets.ask_confirmation = lambda *a, **k: False
+            self.addCleanup(setattr, ui_widgets, "ask_confirmation", real)
             keyframe_import.launch(App(), src, shot_ids=shot_ids)
             self.assertEqual(launched, [])
             self.assertEqual(list(keyframe_import.pending_tasks(proj, src)), ["SH001"])

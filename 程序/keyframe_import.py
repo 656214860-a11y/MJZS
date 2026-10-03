@@ -2,7 +2,6 @@
 from pathlib import Path
 import hashlib,json,re,time,uuid,shutil
 from datetime import datetime
-from tkinter import messagebox
 import tk_timers
 from agent.core import read,save,save_bytes_new
 from agent.media import png_complete
@@ -121,10 +120,11 @@ def launch(app,source,shot_id=None,shot_ids=None):
     blocked=sorted(shot['id'] for shot in shots if shot['id'] in waiting)
     blocked=clear_stale_tasks(app,project,source,blocked,waiting)
     if blocked:
-        if not messagebox.askyesno('已有未完成的首帧任务',
+        from ui_widgets import ask_confirmation
+        if not ask_confirmation(app.win, '已有未完成的首帧任务',
                 '这些镜头还有上次未完成的首帧任务：\n'+'、'.join(blocked)+'\n\n'
                 '如果上次的 Agent 窗口已经关闭、不再继续，可以放弃旧任务并重新提交。\n'
-                '点“是”放弃旧任务并重新提交；点“否”保留旧任务，等待自动导入。',parent=app.win,default='no'):
+                '点“确认”放弃旧任务并重新提交；点“取消”保留旧任务，等待自动导入。',dangerous=True):
             app.status.set('已保留上次未完成的首帧任务；需要重做时再点一次并选择“放弃旧任务”。')
             return False
         abandon_tasks({sid:waiting[sid] for sid in blocked})
