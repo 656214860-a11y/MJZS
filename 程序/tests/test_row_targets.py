@@ -332,9 +332,9 @@ class KeyframePageTests(PageHelpers):
             self.assertEqual(self.button_state(d, "批量删除首帧"), "normal",
                              "高亮那一行也算选中，按钮不该是灰的")
             asked = []
-            original = desktop_module.messagebox.askyesno
-            desktop_module.messagebox.askyesno = lambda *a, **k: (asked.append(a[1] if len(a) > 1 else a), True)[1]
-            self.addCleanup(setattr, desktop_module.messagebox, "askyesno", original)
+            original = desktop_module.confirm
+            desktop_module.confirm = lambda _parent, _title, message, **_kw: (asked.append(message), True)[1]
+            self.addCleanup(setattr, desktop_module, "confirm", original)
             button.invoke(); win.update()
             self.assertIn("按高亮的那一行 SH001 算", asked[0])
             recycle = Path(proj) / "storyboard" / "工作流任务" / "回收站"

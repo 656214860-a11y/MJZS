@@ -4502,7 +4502,7 @@ class Desktop:
             else:
                 prompt=f'确定将 {path.name} 移入项目回收站吗？\n\n可在对应页面恢复最近删除。'
                 title='移入回收站'
-                if not messagebox.askyesno(title,prompt,parent=self.win,default='no'):return
+                if not confirm(self.win,title,prompt,dangerous=True):return
             if len(all_files)==1:
                 item=next((dict(p) for p in self.projects.info['projects'] if p['path']==str(self.root)),None)
                 if item is None:raise ValueError('当前项目未登记，无法安全删除')
@@ -4520,7 +4520,7 @@ class Desktop:
             else:
                 title='移入回收站'
                 prompt='确定将选中的 '+str(len(paths))+' 份剧本文件移入项目回收站吗？\n\n'+names+'\n\n可在对应页面恢复最近删除。'
-                if not messagebox.askyesno(title,prompt,parent=self.win,default='no'):return
+                if not confirm(self.win,title,prompt,dangerous=True):return
             if selection.deletes_all:
                 item=next((dict(p) for p in self.projects.info['projects'] if p['path']==str(self.root)),None)
                 if item is None:raise ValueError('当前项目未登记，无法安全删除')
@@ -4925,9 +4925,9 @@ class Desktop:
                 self.status.set(outcome['reason'])
                 if outcome['ok']:return
                 if outcome.get('can_confirm') and not outcome.get('send_dispatched'):
-                    accepted=messagebox.askyesno('确认发送',
+                    accepted=confirm(self.win,'确认发送',
                         '任务：'+result['title']+'\n\n内容已填入 Codex，但自动发送尚未完成。\n'
-                        '请确认左侧输入框是本次任务，点击“是”后助手会直接点击发送，不再粘贴。',parent=self.win)
+                        '请确认左侧输入框是本次任务，点击“确认”后助手会直接点击发送，不再粘贴。')
                     if accepted:
                         self.status.set('正在发送已确认的 Codex 输入框内容…')
                         self.async_(lambda:confirm_existing(result['title'],result['prompt'],outcome['confirmation'],
@@ -5042,9 +5042,9 @@ class Desktop:
         path=str(item['path'])
         if Path(path).exists():
             raise ValueError('项目目录仍存在，请使用“删除项目及全部素材”移入回收站')
-        if not confirmed and not messagebox.askyesno(
+        if not confirmed and not confirm(self.win,
                 '只清除登记', '项目目录已不存在。只清除这条项目登记，不会改动磁盘上的任何文件。是否继续？',
-                parent=self.win):
+                dangerous=True):
             return False
         try:self.projects.clear_missing_registration(path)
         except (OSError,ValueError) as exc:
@@ -5071,7 +5071,7 @@ class Desktop:
             target=raw_project;linked=True
         note=('这是一条项目目录链接。只会删除链接和项目登记，不会删除链接指向的真实目录。'
               if linked else '将项目的剧本、图片、音频、视频和成片移入项目库回收站；可通过“恢复回收站内容…”入口恢复。')
-        if not confirmed and not messagebox.askyesno('移入项目回收站',f"{item['name']}\n{target}\n\n{note} 是否继续？",icon='warning',default='no',parent=self.win):return
+        if not confirmed and not confirm(self.win,'移入项目回收站',f"{item['name']}\n{target}\n\n{note} 是否继续？",dangerous=True):return
         for key,v in sessions:
             if hasattr(v,'timer'):v.scheduler.after_cancel(v.timer)
             if self.video is v:self.video=None
@@ -5377,10 +5377,10 @@ class Desktop:
             controller=self.asset_page_controller(registry)
             selected=controller.checked_ids()
             made=controller.imported_ids(selected)
-            if made and messagebox.askyesno('重新制作资产',
+            if made and confirm(self.win,'重新制作资产',
                     '勾选的 %d 项已经做好了：%s\n\n要删掉旧图重做一遍吗？'
                     '（旧图移入项目回收站，可恢复）'%(len(made),'、'.join(made[:8])),
-                    parent=self.win,default='no'):
+                    dangerous=True):
                 for aid in made:
                     try:
                         self.delete_asset_image(aid,ask=False)
@@ -5810,9 +5810,9 @@ class Desktop:
         values=[value for value in entry.get('reference_images',[]) if isinstance(value,str) and value]
         values=list(dict.fromkeys(values))
         if not values:raise ValueError(aid+' 还没有参考图')
-        if ask and not messagebox.askyesno('删除参考图',
+        if ask and not confirm(self.win,'删除参考图',
                 '%s 的 %d 张参考图将移入项目回收站，可在需要时恢复。\n是否继续？'%(aid,len(values)),
-                parent=self.win,default='no'):
+                dangerous=True):
             return False
         unbind(base,aid,values)
         self.show(2)
@@ -5833,9 +5833,9 @@ class Desktop:
         path=(base/image).resolve()
         if not path.is_relative_to(base):raise ValueError('资产路径越界')
         if not path.is_file():raise ValueError('图片文件已不存在，请刷新列表')
-        if ask and not messagebox.askyesno('删除已导入图片',
+        if ask and not confirm(self.win,'删除已导入图片',
                 f'删除 {aid} 的已导入图片？\n{image}\n\n图片将移入项目回收站，该资产恢复为待导入。',
-                parent=self.win,default='no'):
+                dangerous=True):
             return False
         from asset_batch_service import remove_asset_image
         remove_asset_image(base,aid,gateway=Desktop.asset_batch_gateway())
@@ -5857,10 +5857,10 @@ class Desktop:
         targets=[aid for aid in ids if assets.get(aid,{}).get('image')]
         if not targets:raise ValueError('勾选的资产都没有已导入图片')
         shown='、'.join(targets[:8])+('…' if len(targets)>8 else '')
-        if not messagebox.askyesno('批量删除已导入图片',
+        if not confirm(self.win,'批量删除已导入图片',
                 f'删除勾选的 {len(targets)} 项资产的已导入图片？\n{shown}\n\n图片将移入项目回收站，'
                 '这些资产恢复为待导入；未勾选资产不受影响。'+self.asset_work_hint(targets,how),
-                parent=self.win,default='no'):
+                dangerous=True):
             return []
         done=[]
         for aid in targets:
@@ -5883,8 +5883,8 @@ class Desktop:
         kind={'CHAR':'characters','LOC':'scenes','PROP':'props'}.get(prefix)
         if not kind:raise ValueError('资产ID格式错误，无法确定恢复目录')
         folder=(base/'assets'/kind).resolve()
-        if ask and not messagebox.askyesno('恢复资产图片',
-                f'恢复 {aid} 的最近删除图片？',parent=self.win,default='no'):
+        if ask and not confirm(self.win,'恢复资产图片',
+                f'恢复 {aid} 的最近删除图片？'):
             return False
         from asset_batch_service import restore_asset_image
         restore_asset_image(base,aid,gateway=Desktop.asset_batch_gateway())
@@ -6259,10 +6259,10 @@ class Desktop:
                    if iid in set(wanted) and exists(shot) and not shot.get('frame_deleted')]
             if not shots:raise ValueError('先在镜头内容框里勾选要删除首帧的镜头')
             listed='、'.join(shot['id'] for shot in shots[:12])+('…' if len(shots)>12 else '')
-            if not messagebox.askyesno('批量删除首帧',
+            if not confirm(self.win,'批量删除首帧',
                     f'删除勾选的 {len(shots)} 镜首帧？\n{listed}\n\n图片将移入首帧回收目录，可恢复；'
                     '镜头记录、已生成视频与未勾选的镜头不受影响。'+work_hint(wanted,how),
-                    parent=self.win,default='no'):
+                    dangerous=True):
                 return []
             done=[]
             for shot in shots:
