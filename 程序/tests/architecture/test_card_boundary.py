@@ -20,6 +20,9 @@ class CardBoundaryTests(unittest.TestCase):
     def test_prompt_optimizer_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("agent/prompt_optimizer.py", "settings")
 
+    def test_workflow_settings_uses_card_for_its_configuration_group(self):
+        self._assert_settings_card("workflow_settings.py", "show_settings")
+
     def _assert_settings_card(self, filename, function_name="show"):
         tree = parse(ROOT / filename)
         imported = {

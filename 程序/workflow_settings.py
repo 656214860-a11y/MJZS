@@ -9,7 +9,7 @@ import tkinter as tk
 from agent.core import save
 from file_cache import read_json
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, PrimaryButton, SecondaryButton, notify
+from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
 from ui_widgets import LineInput, TextArea
 
 ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code'}
@@ -511,7 +511,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
     # The shared placement handler reveals the dialog after centering it.
     dialogs[dialog_key]=win;desktop._flow_settings_dialogs=dialogs
     footer=ttk.Frame(win,padding=(16,8));footer.pack(side='bottom',fill='x')
-    body=ttk.Frame(win,padding=16);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1)
+    body=Card(win);body.pack(fill='both',expand=True,padx=16,pady=16);body.columnconfigure(1,weight=1)
     ttk.Label(body,text='当前项目的本流程生效；保存后用于新任务，进行中的整批任务不变。',wraplength=680).grid(row=0,column=0,columnspan=3,sticky='w',pady=(0,6))
     # 第 63 期任务 3.1／3.2：每一次打开阶段配置都能看见「本步怎么并行」和「门禁过没过」——
     # 口径只有 stage_parallel 一处（附件那张并行配置速查表）。
