@@ -20,7 +20,7 @@ import skill_budget
 import token_saver
 from pet_settings_contract import TABS, LEVEL_NOTES
 from ui_tokens import FONTS, SPACING
-from ui_widgets import BaseDialog, LineInput, PrimaryButton, SecondaryButton, TextArea
+from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea
 
 HUB_TITLE = '设置'
 HUB_GEOMETRY = '880x620'
@@ -60,8 +60,8 @@ def open_hub(pet, tab=None):
     win.geometry(HUB_GEOMETRY)
     win.transient(parent or None)
     win.bind('<Escape>', lambda event: win.destroy())
-    body = ttk.Frame(win, padding=SPACING['md'])
-    body.pack(fill='both', expand=True)
+    body = Card(win)
+    body.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
     ttk.Label(body, text=HUB_TITLE, font=FONTS['title']).pack(anchor='w')
     ttk.Label(body, text=NOTE_HUB, style='Muted.TLabel', wraplength=780).pack(
         anchor='w', pady=(SPACING['xs'], SPACING['sm']))

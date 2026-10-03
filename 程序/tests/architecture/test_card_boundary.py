@@ -23,6 +23,9 @@ class CardBoundaryTests(unittest.TestCase):
     def test_workflow_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("workflow_settings.py", "show_settings")
 
+    def test_pet_settings_hub_uses_card_for_its_configuration_group(self):
+        self._assert_settings_card("pet_settings_ui.py", "open_hub")
+
     def _assert_settings_card(self, filename, function_name="show"):
         tree = parse(ROOT / filename)
         imported = {
