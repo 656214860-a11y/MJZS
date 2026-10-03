@@ -436,18 +436,27 @@ def normalize_storyboard_for_desktop(desktop):
 
 def mark_stage_video_deleted(source, sid, versions):
     from video_lifecycle_service import mark_video_deleted
-    return mark_video_deleted(source, sid, versions, gateway=video_lifecycle_gateway())
+    result = mark_video_deleted(source, sid, versions, gateway=video_lifecycle_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def save_stage_video_options(source, sid, selected, generate_audio, is_local):
     from video_lifecycle_service import save_video_options
-    return save_video_options(source, sid, selected, generate_audio, is_local,
+    result = save_video_options(source, sid, selected, generate_audio, is_local,
                               gateway=video_lifecycle_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def save_stage_white_model_upload(source, sid, enabled):
     from video_lifecycle_service import save_white_model_upload
-    return save_white_model_upload(source, sid, enabled, gateway=video_lifecycle_gateway())
+    result = save_white_model_upload(source, sid, enabled, gateway=video_lifecycle_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def save_stage_editing_checklist(project, text):

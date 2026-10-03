@@ -12,6 +12,7 @@
             "stage_workspace_service",
             "storyboard_edit_service",
             "subtitle_export_service",
+            "video_lifecycle_service",
             "video_prompt_publication"
         ],
         "scope_audit_pending": [
@@ -26,7 +27,6 @@
             "storyboard_adoption_contract",
             "storyboard_rows_service",
             "storyboard_storage",
-            "video_lifecycle_service",
             "video_task_state",
             "workflow_context",
             "writing",
@@ -1051,19 +1051,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "554",
+                "point": "563",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "585",
+                "point": "594",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "598",
+                "point": "607",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
