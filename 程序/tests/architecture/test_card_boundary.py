@@ -26,6 +26,9 @@ class CardBoundaryTests(unittest.TestCase):
     def test_pet_settings_hub_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("pet_settings_ui.py", "open_hub")
 
+    def test_pet_model_windows_use_card_for_their_configuration_group(self):
+        self._assert_settings_card("pet_models_ui.py", "window")
+
     def _assert_settings_card(self, filename, function_name="show"):
         tree = parse(ROOT / filename)
         imported = {

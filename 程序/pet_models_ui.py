@@ -14,7 +14,7 @@ from tkinter import ttk
 
 import model_pool
 from ui_tokens import FONTS, SPACING
-from ui_widgets import BaseDialog, DataTable, LineInput, PrimaryButton, SecondaryButton
+from ui_widgets import BaseDialog, Card, DataTable, LineInput, PrimaryButton, SecondaryButton
 
 TITLE = '三虎 · 设置'
 SETTINGS_TITLE = '三虎模型配置'          # 第 46 期第 6 条：这一页与它的独立窗口都叫这个名字
@@ -105,8 +105,8 @@ def window(pet, title, geometry):
     win.geometry(geometry)
     win.transient(parent or None)
     win.bind('<Escape>', lambda event: win.destroy())
-    body = ttk.Frame(win, padding=SPACING['md'])
-    body.pack(fill='both', expand=True)
+    body = Card(win)
+    body.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
     return win, body
 
 
