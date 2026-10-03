@@ -714,6 +714,12 @@ class Panel(ttk.Frame):
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
         self.route_hint = HintLabel(engine, text='')
+        specific = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
+        specific.pack(fill='x', pady=(0, section_gap))
+        self.build_hollmwood_editors(pad, specific)
+        self.build_interfaces(pad, specific)
+        if not specific.winfo_children():
+            specific.pack_forget()
         skill_section = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
         skill_section.pack(fill='x', pady=(0, section_gap))
         self.skill_content = ttk.Frame(skill_section)
@@ -723,12 +729,6 @@ class Panel(ttk.Frame):
         # 得回页面按的和缺文件的分开讲，用户才知道下一步该去哪儿。
         # 执行编排时的细节仍独占一行，避免覆盖上面的结果摘要。
         self.reason = DescriptionBlock(skill_section, text='')
-        specific = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
-        specific.pack(fill='x', pady=(0, section_gap))
-        self.build_hollmwood_editors(pad, specific)
-        self.build_interfaces(pad, specific)
-        if not specific.winfo_children():
-            specific.pack_forget()
         self.bottom_bar = ttk.Frame(self)
         self.bottom_bar.pack(side='bottom', fill='x', pady=(pad, 0))
         self.state = ProgressLabel(self.bottom_bar, text='选择预设即可套用；确认保存本页。')
@@ -746,7 +746,7 @@ class Panel(ttk.Frame):
             return None
         row = ttk.Frame(parent or self)
         row.pack(fill='x', pady=(SPACING['none'], pad))
-        ttk.Label(row, text='HOLLMWOOD', style='Muted.TLabel', width=10).pack(side='left')
+        ttk.Label(row, text='HOLLMWOOD', style='Muted.TLabel').pack(side='left')
         ttk.Checkbutton(row, text='四角色协作', variable=self.hollmwood_enabled_var).pack(
             side='left', padx=(SPACING['xs'], SPACING['sm']))
         self.hollmwood_editor = ttk.Combobox(
@@ -963,6 +963,8 @@ class Panel(ttk.Frame):
         action.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
         # 外部包的引擎说明从独占行收进 SKILL 操作行，保持表单行高与上方栏一致。
         self.external_package_hint = HintLabel(self.skill_action_row, text='')
+        # 行内提示不使用 HintLabel 的段落换行宽度，保留全文且不撑高操作行。
+        self.external_package_hint.configure(wraplength=0)
         self.external_package_hint.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
         # 区域二：所有勾选项独占列表容器；注册表顺序是主顺序，不再按自然宽度散排。
         count = len(self.skills)
@@ -1033,7 +1035,7 @@ class Panel(ttk.Frame):
 
     @staticmethod
     def uses_skill_scrollbar(count):
-        """超过十项时切换为单列滚动列表，避免把最后一项挤出页面。"""
+        """超过十项时使用滚动容器，三列排列保持不变。"""
         return count > 10
 
     def schedule_skill_layout(self, _event=None):
@@ -1041,13 +1043,13 @@ class Panel(ttk.Frame):
         self.layout_skill_controls()
 
     def layout_skill_controls(self):
-        """小列表用两列固定网格；长列表使用单列滚动容器。"""
+        """勾选项统一按三列排列，长列表在同样的网格外提供滚动容器。"""
         self._skill_layout_job = None
         if self.flow_skill_row is None:
             return
         for widget in self.skill_controls:
             widget.grid_forget()
-        columns = 1 if self.skill_scrollbar is not None else 2
+        columns = 3
         for widget in self.skill_controls:
             index = self.skill_controls.index(widget)
             row, column = divmod(index, columns)

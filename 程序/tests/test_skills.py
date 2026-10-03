@@ -943,8 +943,8 @@ class PanelTests(unittest.TestCase):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
         packed = list(panel.pack_slaves())
-        self.assertLess(packed.index(panel.skill_list_outer.master.master),
-                        packed.index(panel.hollmwood_editor.master.master))
+        self.assertLess(packed.index(panel.hollmwood_editor.master.master),
+                        packed.index(panel.skill_list_outer.master.master))
         self.assertIs(panel.external_package_hint.master, panel.skill_action_row)
         self.assertEqual(list(panel.hollmwood_editor.cget('values')),
                          ['选择要编辑的内容', '节奏模板', '导演规则', '编剧规则', '编辑规则', '演员规则'])
@@ -1479,19 +1479,44 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(panel.skill_action.get(), skill_panel.MANAGE_ALL)
 
     def test_skill_controls_use_fixed_columns_and_scroll_policy(self):
-        """勾选项固定两列；超过十项切换滚动列表，操作栏不参与网格。"""
+        """勾选项固定三列；超过十项提供滚动，操作栏不参与网格。"""
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.addCleanup(panel.destroy)
         panel.layout_skill_controls()
         rows = [int(widget.grid_info()['row']) for widget in panel.skill_controls]
         self.assertGreater(max(rows), 0)
         self.assertTrue(all(widget.grid_info() for widget in panel.skill_controls))
+        for index, widget in enumerate(panel.skill_controls):
+            self.assertEqual(int(widget.grid_info()['row']), index // 3)
+            self.assertEqual(int(widget.grid_info()['column']), index % 3)
         self.assertTrue(all(widget.master is panel.flow_skill_row for widget in panel.skill_controls))
         self.assertTrue(panel.uses_skill_scrollbar(11))
         self.assertFalse(panel.uses_skill_scrollbar(10))
         clipped = panel.skill_label('名称' * 20, limit=12)
         self.assertTrue(clipped.endswith('...'))
         self.assertEqual(len(clipped), 12)
+
+    def test_hollmwood_precedes_three_column_skills_and_hint_is_single_line(self):
+        self.win.deiconify()
+        self.win.geometry('1200x900')
+        self.win.update_idletasks()
+        panel = skill_panel.open_for_page(self.desktop, 0)
+        window = panel.winfo_toplevel()
+        self.addCleanup(window.destroy)
+        panel.external_package_hint.configure(text=skill_panel.EXTERNAL_PACKAGE_API_HINT)
+        window.geometry('880x690')
+        window.update()
+        row = panel.hollmwood_editor.master
+        label = next(child for child in row.winfo_children()
+                     if child.winfo_class() == 'TLabel' and child.cget('text') == 'HOLLMWOOD')
+        self.assertGreaterEqual(label.winfo_width(), label.winfo_reqwidth())
+        self.assertLess(row.master.winfo_y(), panel.skill_content.master.winfo_y())
+        hint = panel.external_package_hint
+        self.assertEqual(int(hint.cget('wraplength')), 0)
+        self.assertGreaterEqual(hint.winfo_width(), hint.winfo_reqwidth())
+        for index, widget in enumerate(panel.skill_controls):
+            self.assertEqual(int(widget.grid_info()['column']), index % 3)
+            self.assertLessEqual(widget.winfo_x() + widget.winfo_width(), panel.flow_skill_row.winfo_width())
 
     def test_stage_panel_skill_display_only_keeps_chinese(self):
         self.assertEqual(skill_panel.chinese_skill_display('Drama 分镜'), '分镜')
