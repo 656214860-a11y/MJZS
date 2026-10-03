@@ -307,7 +307,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
 def attach_controls(app, win, form, footer, project, base, selection, status, reload_rows, context_matches):
     import tkinter as tk
     from tkinter import ttk, messagebox
-    from ui_widgets import ProgressLabel, notify
+    from ui_widgets import PrimaryButton, ProgressLabel, SecondaryButton, notify
     from responsive_ui import FlowBar
     progress_text=tk.StringVar()
     events=queue.Queue()
@@ -343,7 +343,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
         else:
             from cloud_assets import settings
             settings(win)
-    ttk.Button(config,textvariable=account_text,command=lambda:app.safe(account)).grid(row=2,column=0,columnspan=2,sticky='w')
+    SecondaryButton(config,textvariable=account_text,command=lambda:app.safe(account)).grid(row=2,column=0,columnspan=2,sticky='w')
     update_hint()
     check_stop=threading.Event()
     gen_stop=threading.Event()
@@ -456,8 +456,8 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
     # （见上面 done）；「桌面打开 ComfyUI」主界面已经有一颗；「强制关闭 ComfyUI」与「制作记录」搬到主界面
     # 「阶段配置」右边（desktop.asset_page）。同一件事只留一个入口。
     buttons=FlowBar(form);buttons.pack(fill='x',padx=14,pady=(2,8))
-    check_button=ttk.Button(buttons,text='启动并检测',style='Primary.TButton',command=lambda:app.safe(check));check_button.pack(side='left')
-    cancel_button=ttk.Button(buttons,text='取消检测',command=cancel,state='disabled');cancel_button.pack(side='left',padx=(6,0))
+    check_button=PrimaryButton(buttons,text='启动并检测',command=lambda:app.safe(check));check_button.pack(side='left')
+    cancel_button=SecondaryButton(buttons,text='取消检测',command=cancel,state='disabled');cancel_button.pack(side='left',padx=(6,0))
     def update_buttons():
         if not win.winfo_exists():return
         check_button.state(['!disabled'] if (not app.worker and selection()) else ['disabled'])

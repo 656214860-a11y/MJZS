@@ -58,3 +58,6 @@ class ButtonBoundaryTests(unittest.TestCase):
 
     def test_keyframe_comfy_uses_semantic_buttons(self):
         self._assert_semantic_buttons('keyframe_comfy.py')
+
+    def test_native_assets_uses_semantic_buttons(self):
+        self._assert_semantic_buttons('native_assets.py')
