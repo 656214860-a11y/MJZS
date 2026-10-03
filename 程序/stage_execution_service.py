@@ -112,12 +112,18 @@ def video_prompt_gateway():
 
 def publish_video_prompt(studio, sid, text):
     from video_prompt_publication import publish
-    return publish(studio, sid, text, publish_bundle=video_prompt_gateway()['publish_bundle'])
+    result = publish(studio, sid, text, publish_bundle=video_prompt_gateway()['publish_bundle'])
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def import_video_prompt(studio, sid, text):
     from video_prompt_publication import stage_import
-    return stage_import(studio, sid, text, gateway=video_prompt_gateway())
+    result = stage_import(studio, sid, text, gateway=video_prompt_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def export_stage_dialogue_script(project, episode, assets):

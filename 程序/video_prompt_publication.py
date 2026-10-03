@@ -3,10 +3,27 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
+from functools import wraps
 from pathlib import Path
+from service_contract import SystemError, UserError, success
 
 from agent.core import fingerprint, read
 from project_naming import dated_path
+
+
+LOGGER = logging.getLogger(__name__)
+
+
+def _publication_result(operation):
+    @wraps(operation)
+    def run(*args, **kwargs):
+        try:
+            return operation(*args, **kwargs)
+        except OSError:
+            LOGGER.exception('视频提示词保存失败')
+            return SystemError('视频提示词保存失败，请检查文件权限和磁盘空间。')
+    return run
 
 
 def _publish_legacy_bundle(artifacts, *, publish_bundle=None):
@@ -16,17 +33,18 @@ def _publish_legacy_bundle(artifacts, *, publish_bundle=None):
     return publish_bundle(artifacts, lambda _items: True, lambda: None)
 
 
+@_publication_result
 def publish(studio, sid, text, *, publish_bundle=None):
     """原子发布单镜头提示词及其三个可见副本，再更新分镜索引。"""
     sid = str(sid)
     text = str(text).strip()
     if not text or len(text) > 1500:
-        raise ValueError('提示词须为1–1500个字符')
+        return UserError('提示词须为1–1500个字符')
     episode_path = Path(studio.episode_path)
     episode = read(episode_path)
     shot = next((item for item in episode.get('shots', ()) if item.get('id') == sid), None)
     if shot is None:
-        raise ValueError('镜头不存在：' + sid)
+        return UserError('镜头不存在：' + sid)
     shot['video_prompt'] = text
     folder = Path(studio.media_dir) / 'video_prompts'
     targets = (
@@ -44,7 +62,7 @@ def publish(studio, sid, text, *, publish_bundle=None):
     }
     _publish_legacy_bundle(artifacts, publish_bundle=publish_bundle)
     studio.episode = episode
-    return copy.deepcopy(record)
+    return success(copy.deepcopy(record))
 
 
 def _import_gateway(gateway):
@@ -56,17 +74,18 @@ def _import_gateway(gateway):
     return values
 
 
+@_publication_result
 def stage_import(studio, sid, text, *, gateway=None):
     """原子暂存手工导入提示词，不提前修改分镜索引。"""
     writers = _import_gateway(gateway)
     sid = str(sid)
     text = str(text).strip()
     if not text or len(text) > 1500:
-        raise ValueError('单镜头提示词须为 1–1500 字')
+        return UserError('单镜头提示词须为 1–1500 字')
     episode = read(Path(studio.episode_path))
     shot = next((item for item in episode.get('shots', ()) if item.get('id') == sid), None)
     if shot is None:
-        raise ValueError('镜头不存在：' + sid)
+        return UserError('镜头不存在：' + sid)
     folder = Path(studio.media_dir) / 'video_prompts'
     target = folder / (sid + '.json')
     previous = writers['read_bytes'](target) if target.is_file() else None
@@ -83,4 +102,4 @@ def stage_import(studio, sid, text, *, gateway=None):
             writers['remove_dir'](backup.parent)
         writers['restore_bytes'](target, previous)
         raise
-    return copy.deepcopy(record)
+    return success(copy.deepcopy(record))
