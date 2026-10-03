@@ -3,6 +3,7 @@ import os, shutil, subprocess, sys, time
 from pathlib import Path
 from agent.core import save
 from file_cache import recycled, read_json
+from platform_tools import launch_background
 
 PROGRAM=Path(__file__).resolve().parent
 def downloads_root():
@@ -19,9 +20,8 @@ PENDING={'queued','running','succeeded','unknown','submitting'}
 
 def launch_cleanup(app_root=None):
     program=Path(app_root or PROGRAM)
-    subprocess.Popen([sys.executable,str(program/'storage_maintenance.py'),'--cleanup'],
-                     creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0),
-                     stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    launch_background([sys.executable,str(program/'storage_maintenance.py'),'--cleanup'],
+                      stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
 def _within(child,parent):
     return child.resolve().is_relative_to(parent.resolve())

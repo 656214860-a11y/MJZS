@@ -36,6 +36,13 @@ def hidden_console_flags():
     return getattr(subprocess, 'CREATE_NO_WINDOW', 0) if os.name == 'nt' else 0
 
 
+def launch_background(command, *, cwd=None, stdin=None, stdout=None, stderr=None):
+    """Start a host background process with the common silent-window policy."""
+    return subprocess.Popen(command, cwd=None if cwd is None else str(cwd),
+                            creationflags=hidden_console_flags(),
+                            stdin=stdin, stdout=stdout, stderr=stderr)
+
+
 def require_windows(feature):
     """Reject a Windows-only local integration with an actionable UI message."""
     if os.name != 'nt':

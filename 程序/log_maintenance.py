@@ -12,6 +12,7 @@ import re
 import subprocess
 import sys
 import time
+from platform_tools import launch_background
 
 
 RETENTION_DAYS = 30
@@ -117,9 +118,8 @@ def maintain_program_logs(program: Path | None = None, *, now: float | None = No
 def launch_cleanup(program: Path | None = None) -> None:
     """Start best-effort post-exit maintenance without delaying UI shutdown."""
     root = Path(program or PROGRAM)
-    subprocess.Popen([sys.executable, str(root / "log_maintenance.py"), "--cleanup"],
-                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    launch_background([sys.executable, str(root / "log_maintenance.py"), "--cleanup"],
+                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def _format_mib(size: int) -> str:
