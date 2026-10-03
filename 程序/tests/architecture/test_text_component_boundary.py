@@ -11,6 +11,8 @@ TEXT_PAGE_COMPONENTS = {
     "skill_panel.py": ("HintLabel", "DescriptionBlock", "ProgressLabel"),
     "agent/prompt_optimizer.py": ("DescriptionBlock",),
     "seedream_settings.py": ("DescriptionBlock", "ProgressLabel"),
+    "qwen_setup.py": ("DescriptionBlock", "ProgressLabel"),
+    "tts_settings.py": ("DescriptionBlock", "ProgressLabel"),
 }
 FORBIDDEN_OPTIONS = frozenset({"font", "foreground", "fg"})
 

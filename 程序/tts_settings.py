@@ -6,7 +6,8 @@ from tkinter import ttk, messagebox
 import tts_api as api
 import tk_timers
 from ui_tokens import SPACING
-from ui_widgets import FormDialog, LineInput, PrimaryButton, SecondaryButton, notify
+from ui_widgets import (DescriptionBlock, FormDialog, LineInput, PrimaryButton,
+                        ProgressLabel, SecondaryButton, notify)
 
 
 def show(parent, on_saved=None):
@@ -30,7 +31,7 @@ def show(parent, on_saved=None):
     body = ttk.Frame(win, padding=SPACING['lg'])
     body.pack(fill="both", expand=True)
     body.columnconfigure(1, weight=1)
-    ttk.Label(body, text="支持 OpenAI /audio/speech 或任意 OpenAI 兼容 TTS 端点；密钥统一保存到 程序目录/private/.env。", wraplength=700).grid(row=0, column=0, columnspan=3, sticky="w", pady=(SPACING['none'], SPACING['md']))
+    DescriptionBlock(body, text="支持 OpenAI /audio/speech 或任意 OpenAI 兼容 TTS 端点；密钥统一保存到 程序目录/private/.env。", wraplength=700).grid(row=0, column=0, columnspan=3, sticky="w", pady=(SPACING['none'], SPACING['md']))
     for row, key, label in [(1, "base_url", "API 根地址"), (2, "model", "TTS 模型"), (3, "voice", "默认音色"), (4, "api_key", "API Key")]:
         ttk.Label(body, text=label).grid(row=row, column=0, sticky="w", padx=(SPACING['none'], SPACING['md']))
         LineInput(body, textvariable=values[key], show="•" if key == "api_key" else "").grid(row=row, column=1, columnspan=2, sticky="ew", pady=SPACING['sm'])
@@ -39,7 +40,7 @@ def show(parent, on_saved=None):
     ttk.Label(body, text="角色语速映射（可选，JSON：{\"CHAR_001\": 1.2}，范围 0.25–4.0，留空默认 1.0）").grid(row=6, column=0, sticky="w", padx=(SPACING['none'], SPACING['md']))
     LineInput(body, textvariable=values["speeds"]).grid(row=6, column=1, columnspan=2, sticky="ew", pady=SPACING['sm'])
     status = tk.StringVar(value="保存配置不会发起付费合成；实际合成时按用量计费。")
-    ttk.Label(body, textvariable=status, wraplength=700).grid(row=7, column=0, columnspan=3, sticky="w", pady=SPACING['sm'])
+    ProgressLabel(body, textvariable=status, wraplength=700).grid(row=7, column=0, columnspan=3, sticky="w", pady=SPACING['sm'])
 
     def check():
         try:
