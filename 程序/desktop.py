@@ -4068,7 +4068,8 @@ class Desktop:
             for index,(card,_,_) in enumerate(cards):card.grid(row=index//2,column=index%2,sticky='nsew')
     def writing(self):
         from script_workspace_service import ensure_script_workspace
-        ensure_script_workspace(self.root)
+        result=ensure_script_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
         # 第 69 期任务 4：原来第一行那句「在下面的对话框写想法…」删掉——页面自己会说清怎么走。
         import idea_chat
         # 先使用不扫描目录的默认路径；历史创意文件由页面建好后在后台发现。
@@ -4496,7 +4497,9 @@ class Desktop:
             new=simpledialog.askstring('重命名文件','新文件名：',initialvalue=path.name,parent=self.win)
             if not new:return
             from script_workspace_service import rename_script_document
-            dest=rename_script_document(self.root,path,new)
+            result=rename_script_document(self.root,path,new)
+            if not result.ok:raise ValueError(result.reason)
+            dest=result.data
             if dest==path:return
             fill_script_list();self.status.set('已重命名：'+dest.name)
         def delete_script():

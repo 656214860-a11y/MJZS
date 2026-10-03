@@ -6,8 +6,12 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import logging
+from service_contract import SystemError, UserError, success
 
 import project_stages
+
+LOGGER = logging.getLogger(__name__)
 
 
 SCRIPT_CATEGORIES = {
@@ -53,9 +57,13 @@ class ScriptStructureDocuments:
 
 def ensure_script_workspace(project):
     """创建并返回剧本准备阶段目录，供页面在渲染前显式初始化。"""
-    writing_dir = project_stages.writing(project)
-    writing_dir.mkdir(parents=True, exist_ok=True)
-    return writing_dir
+    try:
+        writing_dir = project_stages.writing(project)
+        writing_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        LOGGER.exception('剧本工作区初始化失败')
+        return SystemError('剧本工作区初始化失败，请检查文件权限和磁盘空间。')
+    return success(writing_dir)
 
 
 def iter_script_documents(project):
@@ -255,8 +263,17 @@ def renamed_script_path(project, source_path, requested_name):
 
 def rename_script_document(project, source_path, requested_name):
     """校验并执行当前剧本准备目录内的单文件重命名。"""
-    source = selected_script_paths(project, [source_path], require_files=True)[0]
-    target = renamed_script_path(project, source, requested_name)
-    if target != source:
-        source.rename(target)
-    return target
+    try:
+        try:
+            source = selected_script_paths(project, [source_path], require_files=True)[0]
+            target = renamed_script_path(project, source, requested_name)
+        except ValueError as exc:
+            if isinstance(exc.__cause__, OSError):
+                raise exc.__cause__
+            return UserError(str(exc))
+        if target != source:
+            source.rename(target)
+    except OSError:
+        LOGGER.exception('剧本文档重命名失败')
+        return SystemError('剧本文档重命名失败，请检查文件权限后重试。')
+    return success(target)
