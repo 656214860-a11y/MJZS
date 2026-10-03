@@ -1,14 +1,29 @@
 # -*- coding: utf-8 -*-
 """存储清理安全自检（路径越界与明确目录范围）。"""
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import storage_maintenance as sm
 
 
 class StorageSafetyTests(unittest.TestCase):
+    def test_launch_cleanup_starts_the_detached_cleanup_entry(self):
+        """带三秒延后等待的维护只能由独立 --cleanup 进程启动。"""
+        with tempfile.TemporaryDirectory() as td:
+            program = Path(td)
+            commands = []
+            with mock.patch.object(sm, 'launch_background',
+                                   lambda command, **kwargs: commands.append((command, kwargs))):
+                sm.launch_cleanup(program)
+        self.assertEqual(commands[0][0], [sys.executable, str(program / 'storage_maintenance.py'), '--cleanup'])
+        self.assertIs(commands[0][1]['stdin'], sm.subprocess.DEVNULL)
+        self.assertIs(commands[0][1]['stdout'], sm.subprocess.DEVNULL)
+        self.assertIs(commands[0][1]['stderr'], sm.subprocess.DEVNULL)
+
     def test_within(self):
         root = Path(tempfile.mkdtemp())
         self.assertTrue(sm._within(root / "a", root))
