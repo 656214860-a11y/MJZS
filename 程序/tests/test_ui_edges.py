@@ -826,7 +826,8 @@ class UiEdgeTests(unittest.TestCase):
             for kept in ("手动制作首帧", "刷新首帧列表", "查看首帧提示词",
                          "查看镜头资产", "导入 / 替换选中首帧", "批量删除首帧", "恢复删除的首帧"):
                 self.assertIn(kept, found)
-            table_box = [t for t in trees if "prompt" in t["columns"]][0].master
+            # DataTable 是统一表格壳；Treeview 的直接父级是壳本身，页面内容框在再上一层。
+            table_box = [t for t in trees if "prompt" in t["columns"]][0].master.master
             target_row = found["刷新首帧列表"].master
             actions_row = found["手动制作首帧"].master
             self.assertIsNot(target_row, actions_row)
