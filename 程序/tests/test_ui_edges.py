@@ -2878,7 +2878,7 @@ class UiEdgeTests(unittest.TestCase):
             d.pet.auto_variable('auto_first_frame_var').set(False)
             self.assertTrue(d.pet.should_auto_run('previs'))
             started = []
-            def fake_start(project, source, ids, state):
+            def fake_start(project, source, ids, state, **_lifecycle):
                 started.append([str(project), str(source), list(ids)])
                 state["busy"] = True
             groups = {"simple": [], "medium": ["SH002"], "complex": ["SH001"]}
@@ -2946,7 +2946,7 @@ class UiEdgeTests(unittest.TestCase):
             frame_path = media_root(source) / episode["shots"][0]["frame"]
             frame_path.unlink(missing_ok=True)
             started = []
-            def fake_start(project, src, ids, state):
+            def fake_start(project, src, ids, state, **_lifecycle):
                 started.append(list(ids)); state["busy"] = True
             groups = {"simple": [], "medium": [], "complex": ["SH001"]}
             with patch.object(previs_routing, "partition", lambda project, source, ids: (dict(groups), {})), \
