@@ -6,7 +6,7 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from desktop_automation_service import DesktopAutomationScheduler
+from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler
 
 
 class DesktopAutomationSchedulerTests(unittest.TestCase):
@@ -57,6 +57,21 @@ class DesktopAutomationSchedulerTests(unittest.TestCase):
             allowed=lambda:state['ready'], set_due=lambda value:state.__setitem__('due', value),
             poll=lambda:None, on_error=errors.append, handled_exceptions=(OSError,)))
         self.assertEqual(state['due'], 40)
+
+
+class BackgroundTaskLifecycleTests(unittest.TestCase):
+    def test_cancelled_or_superseded_result_is_never_accepted(self):
+        lifecycle = BackgroundTaskLifecycle()
+        lifecycle.submit(7)
+        self.assertTrue(lifecycle.cancel())
+        self.assertFalse(lifecycle.finish(7, succeeded=True))
+        self.assertEqual(lifecycle.snapshot(), {'ticket': 7, 'state': 'cancelled'})
+
+        lifecycle.submit(8)
+        lifecycle.submit(9)
+        self.assertFalse(lifecycle.accepts(8))
+        self.assertTrue(lifecycle.finish(9, succeeded=False))
+        self.assertEqual(lifecycle.snapshot(), {'ticket': 9, 'state': 'failed'})
 
 
 if __name__ == '__main__':

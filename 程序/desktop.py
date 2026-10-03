@@ -25,7 +25,7 @@ import ui_plugin_registry
 import stage_handler_registry
 from platform_tools import launch_windows_app, open_path, open_target, tcp_listener
 from desktop_startup_service import DesktopStartupController
-from desktop_automation_service import DesktopAutomationScheduler
+from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler
 from idea_chat_controller import IdeaChatController
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_dialogs import FileDialog
@@ -258,7 +258,7 @@ class Desktop:
     def __init__(self,win,root=ROOT):
         self._diagnostic_start=time.perf_counter()
         from stage_execution_service import project_registry_gateway
-        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self.hollmwood_progress=queue.Queue();self._stream_text='';self._async_ticket=0;self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self._hollmwood_poll_id=None;self.video=None
+        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self.hollmwood_progress=queue.Queue();self._stream_text='';self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self._hollmwood_poll_id=None;self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0
         self._legacy_project_migration_results=queue.Queue();self._legacy_project_migration_poll_id=None
         self._legacy_project_migration_started=False
@@ -1742,7 +1742,7 @@ class Desktop:
         if not api_active and not processes and not launching:
             self.status.set('当前没有可中断的剧本 Agent 调用。')
             return False
-        self._async_ticket+=1
+        self._async_ticket+=1;self.background_tasks.cancel()
         self.worker=False;self.progress.stop()
         self.idea_chat_controller.cancel_request()
         self._stream_text=''
@@ -1837,7 +1837,7 @@ class Desktop:
         self.status.set('诊断包已导出：'+str(result))
         return result
     def async_(self,fn,done=None,show_progress=True,label=None):
-        self._async_ticket+=1;ticket=self._async_ticket
+        self._async_ticket+=1;ticket=self.background_tasks.submit(self._async_ticket)
         self.worker=True
         self.busy_state.set_busy(True, message=label or '正在处理… 界面保持响应',
                                  progress=show_progress)
@@ -1861,7 +1861,8 @@ class Desktop:
         return self._async_result_poll_id
     def _poll_async_result(self,ticket):
         self._async_result_poll_id=None
-        if getattr(self,'shutting_down',False) or ticket!=self._async_ticket:return
+        if (getattr(self,'shutting_down',False) or ticket!=self._async_ticket
+                or not self.background_tasks.accepts(ticket)):return
         self._tick_async_result()
         if self.worker and ticket==self._async_ticket:
             self._schedule_async_result_poll(ticket)
@@ -1952,6 +1953,7 @@ class Desktop:
         # 先停掉定时器再销毁窗口：残留的 after 回调会在 Tk 里报 invalid command name。
         if event is not None and event.widget is not self.win:return
         self.shutting_down=True
+        self.background_tasks.cancel()
         # ``fit_content`` 的空闲布局任务属于桌面窗口；若关闭发生在首帧／重建之间，
         # 必须在销毁 Tcl 回调前取消，否则会留下 ``...run`` 的 after 噪声。
         fit_job=getattr(self,'_fit_job',None)
@@ -2362,7 +2364,7 @@ class Desktop:
         except queue.Empty:pass
         try:
             ticket,ok,value,done=self.q.get_nowait()
-            if ticket!=self._async_ticket:return
+            if ticket!=self._async_ticket or not self.background_tasks.finish(ticket, succeeded=ok):return
             self.worker=False;self.busy_state.set_busy(False)
             if ok and done:done(value)
             elif ok:self.status.set(str(value))

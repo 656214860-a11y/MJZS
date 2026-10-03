@@ -75,3 +75,42 @@ class DesktopAutomationScheduler:
         finally:
             if name in self._tasks:
                 self._schedule(name)
+
+
+class BackgroundTaskLifecycle:
+    """桌面单一主动后台任务的代次、取消与收尾判定。
+
+    任意线程都可能在逻辑取消后才返回；本对象不尝试强杀 Python 线程，
+    而是让主线程只接纳当前代次的结果，避免关闭窗口或中断请求后触发迟到 UI 回调。
+    """
+
+    def __init__(self):
+        self._active_ticket = None
+        self._last = None
+
+    def submit(self, ticket):
+        self.cancel()
+        self._active_ticket = ticket
+        self._last = {'ticket': ticket, 'state': 'running'}
+        return ticket
+
+    def accepts(self, ticket):
+        return self._active_ticket == ticket
+
+    def finish(self, ticket, *, succeeded):
+        if not self.accepts(ticket):
+            return False
+        self._active_ticket = None
+        self._last = {'ticket': ticket, 'state': 'succeeded' if succeeded else 'failed'}
+        return True
+
+    def cancel(self, ticket=None):
+        if self._active_ticket is None or (ticket is not None and ticket != self._active_ticket):
+            return False
+        cancelled = self._active_ticket
+        self._active_ticket = None
+        self._last = {'ticket': cancelled, 'state': 'cancelled'}
+        return True
+
+    def snapshot(self):
+        return dict(self._last) if self._last is not None else None
