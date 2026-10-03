@@ -305,12 +305,12 @@ class Desktop:
             # 第 48 期第 3 条：点「08 视频生成」的入口逻辑——本次启动第一次点先摆「选择生成方式」
             # 那一屏；之后（用户已经选过线上或线下）再点就直接回他选的那一侧，不再反复拦在选择页上。
             # 页内切分镜、刷新列表仍直接调 show()。
-            b=ttk.Button(side,text=title,command=lambda n=i:self.go_page(n));b.configure(style='Nav.TButton');b.pack(anchor='w',fill='x',pady=2);self.nav.append(b)
+            b=SecondaryButton(side,text=title,command=lambda n=i:self.go_page(n),style='Nav.TButton');b.pack(anchor='w',fill='x',pady=2);self.nav.append(b)
             if i==PAGE['assets']:
                 # 第 71 期任务 2：「03 资产管理」下面挂一级缩进的二级入口「资产清单」——
                 # 一页看完每个角色的正典板与换状态面板（见 asset_detail.show_roster）。
-                sub=ttk.Button(side,text='资产清单',command=lambda:self.safe(self.open_asset_roster))
-                sub.configure(style='Sub.Nav.TButton');sub.pack(anchor='w',fill='x',pady=(0,2))
+                sub=SecondaryButton(side,text='资产清单',command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
+                sub.pack(anchor='w',fill='x',pady=(0,2))
                 self.asset_list_button=sub
         # 每一行分一份可用高度：项目列表与导航按钮按权重摊，头部与「我的项目」那两行贴顶不摊
         # （第 50 期第 2 条），最后一步「12 参考网站」始终留在可视区，不靠侧栏滚动条。
@@ -1793,12 +1793,13 @@ class Desktop:
         def action():return pet_ui.tap(self,text,fn)
         stage_action=str(text).startswith('手动制作')
         if isinstance(parent,FlowBar):
-            b=ttk.Button(parent,text=text,command=lambda:self.safe(action),
+            button_type=PrimaryButton if stage_action else SecondaryButton
+            b=button_type(parent,text=text,command=lambda:self.safe(action),
                          style='Primary.TButton' if stage_action else 'TButton',
                          width=STAGE_ACTION_WIDTH if stage_action else 0)
             b.pack(side='left',padx=(0,6),pady=2)
         else:
-            b=ttk.Button(parent,text=text,command=lambda:self.safe(action),style='Compact.TButton' if parent is self.sidebar else 'TButton')
+            b=SecondaryButton(parent,text=text,command=lambda:self.safe(action),style='Compact.TButton' if parent is self.sidebar else 'TButton')
             b.pack(anchor='w',fill='x',pady=2 if parent is self.sidebar else 4)
         if 'Agent' in text:
             b.bind('<Button-1>',lambda e,b=b,text=text:self._agent_disabled_hint(b,text,e),add='+')
@@ -3758,7 +3759,7 @@ class Desktop:
                 picker.destroy();self.reload();self.fill_projects(tree)
                 new=claimed['path'];tree.selection_set(new);tree.see(new)
                 notice.set('已按新位置同步项目登记。')
-            ttk.Button(picker,text='认领此目录',command=claim).pack(pady=16)
+            PrimaryButton(picker,text='认领此目录',command=claim).pack(pady=16)
         def enter(event=None):
             selected=tree.selection()
             if not selected or selected[0].startswith('group:'):return
@@ -3774,11 +3775,11 @@ class Desktop:
             self.remember_daily_project_choice(getattr(self,'root',None) or selected[0])
             popup.destroy()
         row=ttk.Frame(popup);row.pack(fill='x',padx=22,pady=18)
-        ttk.Button(row,text='+ 新建项目',command=lambda:(popup.destroy(),self.safe(self.new))).pack(side='left')
-        ttk.Button(row,text='恢复回收站内容…',command=lambda:self.safe(self.open_recycle_recovery)).pack(side='left',padx=(8,0))
-        ttk.Button(row,text='重新查找项目',command=refind_selected_project).pack(side='left',padx=(8,0))
-        ttk.Button(row,text='删除选中项目',command=lambda:self.safe(delete_selected_project)).pack(side='left',padx=(8,0))
-        ttk.Button(row,text='进入项目 →',command=enter).pack(side='right')
+        PrimaryButton(row,text='+ 新建项目',command=lambda:(popup.destroy(),self.safe(self.new))).pack(side='left')
+        SecondaryButton(row,text='恢复回收站内容…',command=lambda:self.safe(self.open_recycle_recovery)).pack(side='left',padx=(8,0))
+        SecondaryButton(row,text='重新查找项目',command=refind_selected_project).pack(side='left',padx=(8,0))
+        SecondaryButton(row,text='删除选中项目',command=lambda:self.safe(delete_selected_project)).pack(side='left',padx=(8,0))
+        PrimaryButton(row,text='进入项目 →',command=enter).pack(side='right')
         tree.bind('<Double-1>',enter);tree.bind('<Return>',enter)
         popup.bind('<Escape>',lambda e:popup.destroy());popup.grab_set();tree.focus_set()
     def project_home(self):
@@ -4041,7 +4042,7 @@ class Desktop:
             cards=[]
             for name,url,description in sites:
                 card=ttk.Frame(group,padding=(4,3))
-                ttk.Button(card,text=name,command=lambda u=url:self.safe(lambda:open_target(u))).pack(anchor='w')
+                SecondaryButton(card,text=name,command=lambda u=url:self.safe(lambda:open_target(u))).pack(anchor='w')
                 link=ttk.Label(card,text=url,style='Muted.TLabel',cursor='hand2',wraplength=240,justify='left')
                 link.local_wrap=True;link.pack(anchor='w',fill='x',pady=(4,2))
                 link.bind('<Button-1>',lambda event,u=url:self.safe(lambda:open_target(u)))
@@ -5133,12 +5134,12 @@ class Desktop:
             self.show(PAGE['continuity'])
         bar=FlowBar(self.content);bar.pack(fill='x',pady=(0,3))
         ttk.Label(bar,text='清单',width=ASSET_ROW_LABEL).pack(side='left')
-        _make=ttk.Button(bar,text='手动生成连贯性清单',style='Primary.TButton',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(make))
+        _make=PrimaryButton(bar,text='手动生成连贯性清单',style='Primary.TButton',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(make))
         _make.pack(side='left',padx=(0,3),pady=2)
         ui_plugin_registry.module('stage_flow').follow(_make,'continuity')     # 三虎在跑这一步就写「自动执行中」并置灰
         self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(bar,self,PAGE['continuity'])
         self.stage_button.pack(side='left',padx=(6,3),pady=2)
-        ttk.Button(bar,text='清单目录',style='Asset.TButton',
+        SecondaryButton(bar,text='清单目录',style='Asset.TButton',
                    command=lambda:self.safe(lambda:open_path(self.continuity_folder()))).pack(side='left',padx=3,pady=2)
         head=ttk.Frame(self.content);head.pack(fill='x',pady=(2,0))
         ttk.Label(head,text=line(),foreground='#1a7f37' if passed else '#b54708').pack(side='left')
@@ -5218,7 +5219,7 @@ class Desktop:
             ttk.Label(box,text='理由：'+str(item.get('reason') or ''),foreground='#555555',
                       wraplength=760,justify='left').pack(anchor='w')
             choice=item['candidates'][item.get('recommended',0)]
-            ttk.Button(box,text='采用推荐',style='Compact.TButton',
+            PrimaryButton(box,text='采用推荐',
                        command=lambda key=item['key'],value=choice:self.safe(
                            lambda:self.pick_gate(key,value,
                                lambda:self.show(PAGE['continuity'])))).pack(anchor='w')
@@ -6408,13 +6409,13 @@ class Desktop:
                       else '未开启：进去后仍可逐个镜头手动生成')
         say_state()
         ttk.Label(local,textvariable=state,style='Muted.TLabel').pack(anchor='w',pady=(4,0))
-        ttk.Button(local,text='进入本地生成',style='Primary.TButton',
+        PrimaryButton(local,text='进入本地生成',
                    command=lambda:self.safe(lambda:self.show(PAGE['video'],video_mode='local'))).pack(anchor='w',pady=(12,0))
         cloud=ttk.LabelFrame(self.content,text='线上生成',padding=16);cloud.pack(fill='x')
         ttk.Label(cloud,text='用万相 / Seedance API 出片，按秒计费；读取第 05 步的镜头与首帧，提交前会先问一次。',
                   wraplength=650,justify='left',style='Muted.TLabel').pack(anchor='w')
         entry=FlowBar(cloud);entry.pack(fill='x',pady=(12,0))
-        ttk.Button(entry,text='进入线上生成',style='Primary.TButton',
+        PrimaryButton(entry,text='进入线上生成',
                    command=lambda:self.safe(lambda:self.show(PAGE['video'],video_mode='cloud'))).pack(side='left')
         ttk.Label(entry,text='（线上接口在「阶段配置」→「接口」里配）',
                   style='Muted.TLabel').pack(side='left',padx=(8,0))
