@@ -826,7 +826,7 @@ class AutoAssetTests(unittest.TestCase):
             proj = self.make_project(td, settings=dict(self.SETTINGS))
             image = Path(td) / "generated.png"; image.write_bytes(PNG_1PX)
             waits = []; launched = []; logs = []
-            def wait(url, report=None, timeout=90):
+            def wait(url, report=None, timeout=90, cancelled=None):
                 waits.append((url, timeout))
                 if len(waits) == 1: raise ValueError("本地 ComfyUI 未运行")
                 return True

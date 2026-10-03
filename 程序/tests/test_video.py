@@ -421,7 +421,7 @@ class AutoVideoTests(unittest.TestCase):
             root = Path(td)
             studio, source = self.build(root, self.versions())
             logs = []
-            with patch.object(native_apps, "wait_comfy", lambda url, report=None, timeout=90: None):
+            with patch.object(native_apps, "wait_comfy", lambda url, report=None, timeout=90, cancelled=None: None):
                 summary = local_video.auto_batch(root, source, logs.append, studio=studio)
             self.assertEqual(studio.submitted, ["SH001"])
             self.assertEqual(studio.polled, ["SH002"])
@@ -437,7 +437,7 @@ class AutoVideoTests(unittest.TestCase):
             root = Path(td)
             studio, source = self.build(root, self.versions())
             studio.errors["SH001"] = "本地 ComfyUI 未运行"
-            with patch.object(native_apps, "wait_comfy", lambda url, report=None, timeout=90: None):
+            with patch.object(native_apps, "wait_comfy", lambda url, report=None, timeout=90, cancelled=None: None):
                 summary = local_video.auto_batch(root, source, studio=studio)
             self.assertIn("未完成 1 镜", summary)
             saved = json.loads((root / "data" / "state.json").read_text(encoding="utf-8"))["shots"]["SH001"][-1]
@@ -459,7 +459,7 @@ class AutoVideoTests(unittest.TestCase):
             root = Path(td)
             studio, source = self.build(root, self.versions())
             studio.poll_results["SH002"] = ("failed", "本地生成失败，请在ComfyUI查看显存或节点错误")
-            with patch.object(native_apps, "wait_comfy", lambda url, report=None, timeout=90: None):
+            with patch.object(native_apps, "wait_comfy", lambda url, report=None, timeout=90, cancelled=None: None):
                 summary = local_video.auto_batch(root, source, studio=studio)
             self.assertIn("未完成 1 镜", summary)
             self.assertNotIn("仍在生成", summary)
@@ -471,7 +471,7 @@ class AutoVideoTests(unittest.TestCase):
             root = Path(td)
             studio, source = self.build(root, self.versions())
             studio.poll_results["SH002"] = ("downloaded", "已下载，不重复取回")
-            with patch.object(native_apps, "wait_comfy", lambda url, report=None, timeout=90: None):
+            with patch.object(native_apps, "wait_comfy", lambda url, report=None, timeout=90, cancelled=None: None):
                 summary = local_video.auto_batch(root, source, studio=studio)
             self.assertIn("已取回 1 镜", summary)
             self.assertNotIn("仍在生成", summary)

@@ -87,6 +87,11 @@ class OpenPathTests(unittest.TestCase):
             self.assertEqual(comfy_runtime.open_comfy({}), target)
         open_path.assert_called_once_with(target)
 
+    def test_comfy_wait_honours_unattended_cancellation_before_network_retry(self):
+        import comfy_runtime
+        with self.assertRaisesRegex(ValueError, '已取消等待'):
+            comfy_runtime.wait_comfy('http://127.0.0.1:8189', cancelled=lambda: True)
+
     def test_windows_app_launcher_checks_host_and_starts_existing_executable(self):
         with tempfile.TemporaryDirectory() as td:
             executable = Path(td) / 'JianyingPro.exe'

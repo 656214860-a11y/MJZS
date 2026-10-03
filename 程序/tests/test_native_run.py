@@ -129,7 +129,7 @@ class RunTests(unittest.TestCase):
         self.addCleanup(setattr, native_apps, 'wait_comfy', native_apps.wait_comfy)
         native_assets.Comfy = FakeComfy
         batch_frames.Client = FakeUploader
-        native_apps.wait_comfy = lambda url, report=None, timeout=90: None
+        native_apps.wait_comfy = lambda url, report=None, timeout=90, cancelled=None: None
         self.options = {'model': native_assets.LOCAL, 'aspect_ratio': '1:1'}
 
     def records(self, proj):

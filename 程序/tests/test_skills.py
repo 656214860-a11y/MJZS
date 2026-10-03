@@ -1391,7 +1391,7 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(panel.flow_skill_label.cget('text'), 'SKILL')
         self.assertIs(panel.flow_skill_label.master, panel.skill_action_row, 'SKILL 标签必须留在操作栏左侧')
         self.assertEqual(list(panel.skill_action_row.winfo_children())[1].cget('values'),
-                         (skill_panel.MANAGE_ALL, skill_panel.MANAGE_NONE, skill_panel.MANAGE_DELETE))
+                         skill_panel.MANAGE_LABELS)
         self.assertFalse(hasattr(panel, 'delete_skill_button'))
         self.assertEqual(panel.skill_action.get(), skill_panel.MANAGE_ALL)
         self.assertEqual([label for label, _path in skill_panel.flow_skill_choices('frames')],
@@ -1462,6 +1462,21 @@ class PanelTests(unittest.TestCase):
             self.assertEqual(panel.choose_skill_action(), ['recycled'])
         deleted.assert_called_once_with()
         self.assertEqual(panel.skill_action.get(), skill_panel.MANAGE_ALL)
+
+    def test_skill_action_dropdown_adds_custom_skill_then_resets_to_all(self):
+        """“新增”选择 SKILL.md 后追加到当前流程，且不会停在一次性入口。"""
+        folder = Path(self.tmp.name) / '我的扩展技能'; folder.mkdir()
+        custom = folder / 'SKILL.md'; custom.write_text('# 我的扩展技能', encoding='utf-8')
+        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        self.addCleanup(panel.destroy)
+        with mock.patch.object(skill_panel.FileDialog, 'open_file', return_value=str(custom)) as choose:
+            panel.skill_action.set(skill_panel.MANAGE_ADD)
+            saved = panel.choose_skill_action()
+        choose.assert_called_once()
+        self.assertIn(str(custom.resolve()), saved)
+        self.assertIn(str(custom.resolve()), skill_panel.flow_skill_paths(self.desktop.root, 'frames'))
+        self.assertEqual(panel.skill_action.get(), skill_panel.MANAGE_ALL)
+        self.assertIn('已添加流程 SKILL', panel.state.cget('text'))
 
     def test_skill_controls_use_fixed_columns_and_scroll_policy(self):
         """勾选项固定两列；超过十项切换滚动列表，操作栏不参与网格。"""

@@ -189,11 +189,11 @@ def auto_batch(source, log, stop=None):
     from importlib import import_module
     native_apps = import_module('native_apps')
     try:
-        native_apps.wait_comfy(values['url'], log, timeout=5)
+        native_apps.wait_comfy(values['url'], log, timeout=5, cancelled=stop.is_set)
     except ValueError:
         log('本地 ComfyUI 未运行，正在启动…')
         native_apps.open_comfy()          # 未配置程序时给出明确错误，不静默失败
-        native_apps.wait_comfy(values['url'], log, timeout=120)
+        native_apps.wait_comfy(values['url'], log, timeout=120, cancelled=stop.is_set)
     before = [shot['id'] for shot in pending_shots(read(source).get('shots'), media_root(source))]
     engine().run(source, values, log, stop)
     still = [shot['id'] for shot in pending_shots(read(source).get('shots'), media_root(source)) if shot['id'] in before]

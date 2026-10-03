@@ -300,10 +300,10 @@ def auto_batch(project,source,log=None,stop=None,studio=None):
         return '无人值守本地视频：没有需要提交或取回的镜头'+('；'+str(len(skipped))+' 镜跳过：'+skip_summary(skipped) if skipped else '')
     url=(studio.cfg.get('local_video') or {}).get('url','http://127.0.0.1:8189')
     from native_apps import open_comfy,wait_comfy
-    try:wait_comfy(url,log,timeout=5)
+    try:wait_comfy(url,log,timeout=5,cancelled=stop.is_set if stop is not None else None)
     except ValueError:
         log('本地 ComfyUI 未运行，正在启动…');open_comfy()
-        wait_comfy(url,log,timeout=120)
+        wait_comfy(url,log,timeout=120,cancelled=stop.is_set if stop is not None else None)
     done=[];fetched=[];waiting=[];failed=[]
     for sid in submit:
         if stop is not None and stop.is_set():break

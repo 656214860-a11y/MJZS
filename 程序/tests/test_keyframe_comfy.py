@@ -329,7 +329,7 @@ class AutoBatchTests(unittest.TestCase):
                     # 引擎生成完一镜：写出首帧图片，下一次 pending_shots 就不再有它
                     (proj / "episode" / "frames" / "SH002.png").write_bytes(b"\x89PNG\r\n\x1a\n")
 
-            def wait(url, report=None, timeout=90):
+            def wait(url, report=None, timeout=90, cancelled=None):
                 calls["waits"].append((url, timeout))
                 if len(calls["waits"]) == 1:
                     raise ValueError("本地 ComfyUI 未运行")      # 首次探测：没起来
@@ -364,7 +364,7 @@ class AutoBatchTests(unittest.TestCase):
 
             with patch.object(keyframe_comfy, "saved_settings", lambda: dict(settings)), \
                  patch.object(keyframe_comfy, "engine", lambda: StubBatch()), \
-                 patch.object(native_apps, "wait_comfy", lambda url, report=None, timeout=90: True), \
+                 patch.object(native_apps, "wait_comfy", lambda url, report=None, timeout=90, cancelled=None: True), \
                  patch.object(native_apps, "open_comfy", lambda settings=None: self.fail("已就绪时不应再拉起 ComfyUI")):
                 summary = keyframe_comfy.auto_batch(src, lambda text: None)
             self.assertIn("处理 1 镜", summary)

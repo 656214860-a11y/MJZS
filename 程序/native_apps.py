@@ -110,6 +110,6 @@ def open_blender(project_file=None):
     return exe
 
 
-def wait_comfy(url,report=None,timeout=90):
+def wait_comfy(url,report=None,timeout=90,cancelled=None):
     from comfy_runtime import wait_comfy as wait
-    return wait(url, report, timeout)
+    return wait(url, report, timeout, cancelled)

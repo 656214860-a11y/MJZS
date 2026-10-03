@@ -25,10 +25,10 @@ def auto_batch(project, base, sources, scope='adopted', log=None, stop=None, cli
     from importlib import import_module
     native_apps = import_module('native_apps')
     try:
-        native_apps.wait_comfy(url, log, timeout=5)
+        native_apps.wait_comfy(url, log, timeout=5, cancelled=stop.is_set)
     except ValueError:
         log('本地 ComfyUI 未运行，正在启动…')
-        native_apps.open_comfy(); native_apps.wait_comfy(url, log, timeout=120)
+        native_apps.open_comfy(); native_apps.wait_comfy(url, log, timeout=120, cancelled=stop.is_set)
     for aid, asset in items: asset_prompt(asset, KINDS[aid.split('_')[0]][0])
     options = {key: saved.get(key, '') for key in ('backend', 'aspect_ratio', 'quality', 'workflow', 'model', 'node', 'field')}
     options['backend'], options['url'] = current_model(project), url

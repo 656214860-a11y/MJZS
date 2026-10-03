@@ -192,7 +192,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
     options=options or {}
     if options.get('model')=='Seedream 5.0 Pro':
         return _run_seedream_direct(project, base, items, options, report, stop)
-    wait_comfy(url,report)
+    wait_comfy(url,report,cancelled=stop.is_set if stop is not None else None)
     client=Comfy(url)
     from urllib.error import HTTPError                      # 第 34 期第 9 条：HTTP 栈按需加载
     try:health=client.request('/drama/assets/health')

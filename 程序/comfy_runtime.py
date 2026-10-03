@@ -32,13 +32,16 @@ def open_comfy(settings=None):
     return exe
 
 
-def wait_comfy(url, report=None, timeout=90):
+def wait_comfy(url, report=None, timeout=90, cancelled=None):
+    """Wait for ComfyUI outside Tk; an unattended worker may stop the wait."""
     from comfy_service import Comfy
     client = Comfy(url)
     deadline = time.monotonic() + timeout
     if report:
         report('已打开本地 ComfyUI，正在等待服务就绪…')
     while True:
+        if cancelled and cancelled():
+            raise ValueError('已取消等待本地 ComfyUI 就绪')
         try:
             client.request('/system_stats')
             return

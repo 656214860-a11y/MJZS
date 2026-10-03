@@ -19,7 +19,7 @@ from pathlib import Path
 import re
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import messagebox, simpledialog, ttk
 
 import model_pool
 import model_router
@@ -31,6 +31,7 @@ import stage_models
 import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json
 from storage_maintenance import recycle_paths
+from ui_dialogs import FileDialog
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import (DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
                         SecondaryButton, Tooltip)
@@ -953,7 +954,7 @@ class Panel(ttk.Frame):
         self.flow_skill_label.pack(side='left')
         self.skill_action = tk.StringVar(value=MANAGE_ALL)
         action = ttk.Combobox(self.skill_action_row, textvariable=self.skill_action,
-                              values=(MANAGE_ALL, MANAGE_NONE, MANAGE_DELETE), state='readonly', width=12)
+                              values=MANAGE_LABELS, state='readonly', width=12)
         action.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         action.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
         # 外部包的引擎说明从独占行收进 SKILL 操作行，保持表单行高与上方栏一致。
@@ -1053,6 +1054,12 @@ class Panel(ttk.Frame):
     def choose_skill_action(self):
         """唯一阶段网格的批量操作；旧引擎档清单只读保留，不再形成第二套勾选。"""
         picked = self.skill_action.get()
+        if picked == MANAGE_ADD:
+            try:
+                return self.add_flow_skill()
+            finally:
+                # 新增是一次性入口；复位后可再次选择同一项继续添加。
+                self.skill_action.set(MANAGE_ALL)
         if picked == MANAGE_DELETE:
             try:
                 return self.delete_checked_skills()
@@ -1064,6 +1071,34 @@ class Panel(ttk.Frame):
         if picked == MANAGE_NONE:
             return self.check_all_skills(False)
         return ''
+
+    def add_flow_skill(self):
+        """选择一份自定义 SKILL.md，并追加到当前阶段的工作流 SKILL 清单。"""
+        if not self._flow:
+            self.state.configure(text='当前阶段不支持添加流程 SKILL。')
+            return []
+        selected = FileDialog(
+            self.winfo_toplevel(), notifier=getattr(self.desktop, 'notifier', None)
+        ).open_file(
+            title='选择 SKILL.md',
+            initialdir=str(self.project() or Path(__file__).resolve().parent),
+            filetypes=[('SKILL.md', 'SKILL.md'), ('Markdown 文件', '*.md')],
+        )
+        if not selected:
+            return []
+        path = Path(selected).expanduser()
+        if not path.is_file() or path.name.casefold() != 'skill.md':
+            notifier = getattr(self.desktop, 'notifier', None)
+            warn = getattr(notifier, 'warning', None)
+            if callable(warn):
+                warn('请选择有效的 SKILL.md 文件。', title=TITLE)
+            else:
+                self.state.configure(text='请选择有效的 SKILL.md 文件。')
+            return []
+        current = flow_skill_paths(self.project(), self._flow)
+        saved = set_flow_skills(self.project(), self._flow, current + [str(path)])
+        self.state.configure(text='已添加流程 SKILL：' + flow_skill_display(str(path)))
+        return saved
 
     def check_all_skills(self, value=True):
         """全选／取消全选只作用于唯一的阶段 SKILL 网格。"""
