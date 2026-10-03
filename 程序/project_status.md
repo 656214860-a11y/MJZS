@@ -13,7 +13,7 @@
 
 ## 当前能力
 
-- R882 UI 统一入口覆盖轮（通知分发，**已验收**）：业务根目录的非确认型提示全部经 `ui_widgets.notify()`／`NotificationDispatcher`；静态门禁覆盖所有根目录生产模块并要求零个直接 `messagebox.show*`。语法检查、通知边界与通知行为共 9 条／0 红；扩展回归实际执行 230 条／0 红。详见 `tasks_round/tasks_round_882_result.md`。
+- R882 UI 统一入口覆盖轮（通知分发，**局部验收；完整全量待补**）：业务根目录的非确认型提示全部经 `ui_widgets.notify()`／`NotificationDispatcher`；静态门禁覆盖所有根目录生产模块并要求零个直接 `messagebox.show*`。语法检查、通知边界与通知行为共 9 条／0 红；扩展回归实际执行 230 条／0 红；完整安全全量受 R881 有效锁阻塞。详见 `tasks_round/tasks_round_882_result.md`。
 
 - R873 协作治理轮（全量安全自测错峰锁，**已验收**）：`run_selftests.py --all --safe` 在 Git common-dir 使用原子锁跨工作树互斥；活动持有者会被拒绝并显示 PID／轮次，失效锁会回收，Windows 使用进程句柄判断存活。相关回归 35 条／0 红。详见 `tasks_round/tasks_round_873_result.md`。
 
