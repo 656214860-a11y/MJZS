@@ -6,6 +6,7 @@ import json
 import unittest
 
 import smoke_test
+import run_selftests
 from tests.architecture._scan import ROOT
 
 
@@ -53,14 +54,22 @@ class RoundBaselineTests(unittest.TestCase):
         self.assertEqual(invalid, [], '轮次标题或状态摘要不得把“执行”写成独立轮次类型')
 
     def test_full_safe_all_is_required_every_three_rounds(self) -> None:
-        """相差三轮即须有该轮的完整安全全量通过记录。"""
+        """仅主干提交序列每三轮要求一次完整安全全量。"""
         latest = _latest_result_number()
         baseline = json.loads(BASELINES.read_text(encoding='utf-8'))
         last_full = baseline['last_full_safe_all_round']
-        if latest - last_full < 3:
+        if not run_selftests.full_safe_required(
+                latest, last_full, run_selftests.is_master_checkout()):
             return
         result = ROOT / 'tasks_round' / f'tasks_round_{latest}_result.md'
         text = result.read_text(encoding='utf-8') if result.exists() else ''
         passed = ('--all --safe' in text and
                   bool(re.search(r'(?:0\s*红|0\s*(?:个)?失败|ALL TESTS PASSED)', text, re.I)))
         self.assertTrue(passed, f'R{latest} 欠一次完整安全全量')
+
+    def test_verified_tree_records_have_required_metadata(self) -> None:
+        baseline = json.loads(BASELINES.read_text(encoding='utf-8'))
+        records = baseline.get('full_safe_verified_trees', [])
+        self.assertIsInstance(records, list)
+        for record in records:
+            self.assertTrue({'tree', 'round', 'seconds', 'at'} <= set(record))

@@ -4,6 +4,7 @@ import inspect
 import os
 import tempfile
 import unittest
+from datetime import datetime
 from unittest import mock
 
 import run_selftests
@@ -21,12 +22,12 @@ class SafeRunnerTests(unittest.TestCase):
 
     def test_serial_runner_has_recoverable_timeout(self):
         source = inspect.getsource(run_selftests.run_serial)
-        self.assertIn('result_queue.get(timeout=timeout)', source)
+        self.assertIn('result_reader.poll(timeout)', source)
         self.assertIn('process.terminate()', source)
 
     def test_serial_runner_drains_result_before_waiting_for_child_exit(self):
         source = inspect.getsource(run_selftests.run_serial)
-        self.assertLess(source.index('result_queue.get(timeout=timeout)'), source.index('process.join(10)'))
+        self.assertLess(source.index('result_reader.poll(timeout)'), source.index('process.join(10)'))
 
     def test_parallel_runner_reports_heartbeat_while_waiting(self):
         source = inspect.getsource(run_selftests.run_units)
@@ -99,9 +100,31 @@ class IncrementalTests(unittest.TestCase):
             finally:
                 run_selftests.HERE, run_selftests.CACHE_NAME = old_here, old_cache
 
-    def test_cache_path_stays_in_maintenance_folder(self):
-        self.assertEqual(os.path.relpath(run_selftests.cache_path(), run_selftests.HERE),
-                         os.path.join('维护记录', '自检增量.json'))
+    def test_cache_path_uses_common_git_dir_and_falls_back_locally(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with mock.patch.object(run_selftests, 'git_common_dir', return_value=folder):
+                self.assertEqual(run_selftests.cache_path(),
+                                 os.path.join(folder, 'selftest-incremental.json'))
+        with mock.patch.object(run_selftests, 'git_common_dir', return_value=''):
+            self.assertEqual(os.path.relpath(run_selftests.cache_path(), run_selftests.HERE),
+                             os.path.join('维护记录', '自检增量.json'))
+
+    def test_cache_write_replaces_file_atomically(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with mock.patch.object(run_selftests, 'git_common_dir', return_value=folder):
+                self.assertTrue(run_selftests.save_cache({'tests': {'test_demo': {}}}))
+                self.assertEqual(run_selftests.load_cache()['tests'], {'test_demo': {}})
+
+    def test_verified_content_tree_is_reused_for_seven_days(self):
+        record = {'tree': 'abc', 'round': 850, 'seconds': 1021, 'at': '2026-10-03T00:00:00'}
+        self.assertEqual(run_selftests.verified_tree_record(
+            [record], 'abc', datetime(2026, 10, 9, 23, 59)), record)
+        self.assertIsNone(run_selftests.verified_tree_record(
+            [record], 'abc', datetime(2026, 10, 10, 0, 1)))
+
+    def test_full_safe_counter_only_applies_to_master(self):
+        self.assertTrue(run_selftests.full_safe_required(858, 855, True))
+        self.assertFalse(run_selftests.full_safe_required(858, 855, False))
 
     def test_elapsed_history_keeps_five_runs_and_uses_the_median(self):
         state = {}

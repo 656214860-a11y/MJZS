@@ -111,9 +111,9 @@ class AuditTests(unittest.TestCase):
         self.assertEqual([row["skill"] for row in rows],
                          ["screenplay-production-line", "screenplay-writer",
                           "script-character-extraction", "script-dialogue-polish",
-                          "script-emotion-curve", "script-forging",
+                          "script-emotion-curve",
                           "script-structured-generation", "script-worldbuilding",
-                          "短剧编剧搭子", "编剧技能集"])
+                          "短剧编剧搭子"])
         self.assertEqual(sc.unlisted_skills(HERE), (), "剧本阶段的 SKILL 都要有审计行")
 
     def test_every_row_has_a_legal_category_and_action(self):
@@ -133,8 +133,7 @@ class AuditTests(unittest.TestCase):
             self.assertEqual(by_skill[skill], "核心", skill)
         self.assertEqual(by_skill["script-dialogue-polish"], "重叠")
         self.assertEqual(by_skill["script-worldbuilding"], "支撑")
-        for skill in ("screenplay-production-line", "screenplay-writer", "script-forging",
-                      "短剧编剧搭子", "编剧技能集"):
+        for skill in ("screenplay-production-line", "screenplay-writer", "短剧编剧搭子"):
             self.assertEqual(by_skill[skill], "支撑", skill)
 
 

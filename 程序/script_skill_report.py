@@ -38,8 +38,11 @@ def audit_rows(program=None):
     known = {row['skill']: dict(row) for row in manifest_rows(program)}
     out = []
     for skill, category, owner, reason in AUDIT:
-        row = known.get(skill) or {'skill': skill, 'display': '', 'path': '', 'input': (),
-                                   'output': (), 'format': ''}
+        # 审计只描述当前注册表实际加载到的入口。外部包目录未随项目分发时，不能
+        # 生成空路径的“幽灵 SKILL”并让面板或验收误认为它可用。
+        row = known.get(skill)
+        if row is None:
+            continue
         row['category'] = category
         row['action'] = CATEGORIES.get(category, '')
         row['owner'] = owner
