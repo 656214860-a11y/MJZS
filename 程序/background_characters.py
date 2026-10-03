@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Scan adopted storyboards and mark background / non-face characters as non-assets."""
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk
 from pathlib import Path
 from agent.core import read, save
 from responsive_ui import scroll_form
-from ui_widgets import BaseDialog, notify
+from ui_widgets import BaseDialog, PrimaryButton, SecondaryButton, notify
 
 # 名称/别名匹配（高置信，命中的会展示给用户二次确认）
 NAME_KEYWORDS = (
@@ -137,8 +137,8 @@ def show(desktop):
         for v in vars_.values():
             v.set(value)
 
-    ttk.Button(top, text='全选', command=lambda: set_all(True)).pack(side='left', padx=(0, 6))
-    ttk.Button(top, text='全不选', command=lambda: set_all(False)).pack(side='left')
+    SecondaryButton(top, text='全选', command=lambda: set_all(True)).pack(side='left', padx=(0, 6))
+    SecondaryButton(top, text='全不选', command=lambda: set_all(False)).pack(side='left')
 
     body = ttk.Frame(win); body.pack(fill='both', expand=True, padx=12, pady=4)
     view = scroll_form(body); inner = view.form
@@ -168,5 +168,5 @@ def show(desktop):
         desktop.show(2)
         desktop.status.set(f'已标记 {n} 个背景人物为不建档，并清理 {touched} 份分镜中的引用。')
 
-    ttk.Button(footer, text='标记为背景人物', command=confirm).pack(side='right')
-    ttk.Button(footer, text='取消', command=win.destroy).pack(side='right', padx=6)
+    PrimaryButton(footer, text='标记为背景人物', command=confirm).pack(side='right')
+    SecondaryButton(footer, text='取消', command=win.destroy).pack(side='right', padx=6)
