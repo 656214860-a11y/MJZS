@@ -495,7 +495,7 @@ class Desktop:
         self.auto_final_notice=None
         self.auto_final_blocked=False
         self.auto_final_error=''
-        self.auto_edit_due=0
+        self.auto_edit_due=0;self._auto_edit_ticket=0;self.auto_edit_tasks=BackgroundTaskLifecycle()
         self.auto_edit_busy=False
         self.auto_edit_queue=pet_ui.StageQueue('edit',self.pet.drain)
         self.auto_edit_signature=None
@@ -528,7 +528,7 @@ class Desktop:
         self.auto_previs_signature=None
         self.auto_previs_notice=None
         self.auto_previs_error=''
-        self.auto_handoff_due=0
+        self.auto_handoff_due=0;self._auto_handoff_ticket=0;self.auto_handoff_tasks=BackgroundTaskLifecycle()
         self.auto_handoff_busy=False
         self.auto_handoff_queue=pet_ui.StageQueue('delivery',self.pet.drain)
         self.auto_handoff_signature=None
@@ -1954,6 +1954,8 @@ class Desktop:
         if event is not None and event.widget is not self.win:return
         self.shutting_down=True
         self.background_tasks.cancel()
+        self.auto_edit_tasks.cancel()
+        self.auto_handoff_tasks.cancel()
         # ``fit_content`` 的空闲布局任务属于桌面窗口；若关闭发生在首帧／重建之间，
         # 必须在销毁 Tcl 回调前取消，否则会留下 ``...run`` 的 after 噪声。
         fit_job=getattr(self,'_fit_job',None)
@@ -2213,7 +2215,9 @@ class Desktop:
     def _drain_auto_edit_result(self):
         """只交付已完成的自动粗剪；不在启动期偷偷触发下一轮轮询。"""
         try:
-            ok,value=self.auto_edit_queue.get_nowait();self.auto_edit_busy=False
+            ticket,ok,value=self.auto_edit_queue.get_nowait()
+            if not self.auto_edit_tasks.finish(ticket,succeeded=ok):return False
+            self.auto_edit_busy=False
             # 先重建页面再写状态栏：页面重建会重置状态栏，顺序反了用户就看不到结果。
             if ok and getattr(self,'page_index',None)==PAGE['edit']:self.show(PAGE['edit'])
             elif not ok:self.auto_edit_signature=None;self.auto_edit_due=time.monotonic()+300
@@ -2334,7 +2338,9 @@ class Desktop:
     def _drain_auto_handoff_result(self):
         """只交付已完成的自动交接包；不在启动期偷偷触发下一轮轮询。"""
         try:
-            ok,value,signature=self.auto_handoff_queue.get_nowait();self.auto_handoff_busy=False
+            ticket,ok,value,signature=self.auto_handoff_queue.get_nowait()
+            if not self.auto_handoff_tasks.finish(ticket,succeeded=ok):return False
+            self.auto_handoff_busy=False
             # 失败时清掉指纹并推迟重试：否则下一轮会被「签名没变」直接跳过，永远不再重试。
             if ok:self.auto_handoff_signature=signature
             else:self.auto_handoff_signature=None;self.auto_handoff_due=time.monotonic()+300
@@ -2675,15 +2681,17 @@ class Desktop:
         if decision['action']=='skip':return
         self.auto_edit_signature=decision['signature']
         if decision['action'] in ('wait','complete'):return
-        self.auto_edit_busy=True;self.status.set('全部镜头已验收，正在自动粗剪整集…')
+        self.auto_edit_busy=True;self._auto_edit_ticket+=1
+        ticket=self.auto_edit_tasks.submit(self._auto_edit_ticket)
+        self.status.set('全部镜头已验收，正在自动粗剪整集…')
         def worker():
             # 只在工作线程里做文件与队列操作，不碰 Tk。
             try:
                 path=studio.assemble()
                 from stage_execution_service import save_automatic_assemble_marker
                 save_automatic_assemble_marker(self.root,digest,path,time.time())
-                self.auto_edit_queue.put((True,'自动粗剪完成：'+str(path)))
-            except Exception as exc:self.auto_edit_queue.put((False,'自动粗剪未完成，稍后重试：'+str(exc)))
+                self.auto_edit_queue.put((ticket,True,'自动粗剪完成：'+str(path)))
+            except Exception as exc:self.auto_edit_queue.put((ticket,False,'自动粗剪未完成，稍后重试：'+str(exc)))
         threading.Thread(target=worker,daemon=True).start()
         self._schedule_auto_edit_result_poll()
     def poll_auto_keyframe(self):
@@ -3179,15 +3187,16 @@ class Desktop:
         if decision['action']=='skip':return
         self.auto_handoff_signature=decision['signature']
         if decision['action'] in ('wait','complete'):return
-        self.auto_handoff_busy=True
+        self.auto_handoff_busy=True;self._auto_handoff_ticket+=1
+        ticket=self.auto_handoff_tasks.submit(self._auto_handoff_ticket)
         self.status.set('全部镜头已验收，正在自动整理剪映素材交接包…')
         def worker():
             try:
                 out=self.handoff(auto=True)
                 from stage_execution_service import save_automatic_handoff_marker
                 save_automatic_handoff_marker(self.root,digest,out,len(studio.episode['shots']))
-                self.auto_handoff_queue.put((True,'自动交接包已整理：'+str(out),signature))
-            except Exception as exc:self.auto_handoff_queue.put((False,'自动整理交接包未完成，稍后重试：'+str(exc),signature))
+                self.auto_handoff_queue.put((ticket,True,'自动交接包已整理：'+str(out),signature))
+            except Exception as exc:self.auto_handoff_queue.put((ticket,False,'自动整理交接包未完成，稍后重试：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
         self._schedule_auto_handoff_result_poll()
     def poll_unwatched_cloud(self):

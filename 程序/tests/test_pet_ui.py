@@ -988,7 +988,9 @@ class DesktopSeamTests(unittest.TestCase):
         try:
             from desktop import Desktop
             d = Desktop(win, root=PROGRAM)
-            d.auto_handoff_queue.put((True, "自动交接包已整理：exports/MASTER.mp4", "sig"))
+            d._auto_handoff_ticket += 1
+            ticket = d.auto_handoff_tasks.submit(d._auto_handoff_ticket)
+            d.auto_handoff_queue.put((ticket, True, "自动交接包已整理：exports/MASTER.mp4", "sig"))
             d._tick_once()
             kinds = [(item["kind"], item.get("stage")) for item in d.pet.bus.history]
             self.assertIn(("stage.completed", "delivery"), kinds)
