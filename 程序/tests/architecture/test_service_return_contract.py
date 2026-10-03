@@ -9,6 +9,21 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 
 class ServiceReturnContractBoundaryTests(unittest.TestCase):
+    def test_every_registered_l2_module_has_a_scope_record(self):
+        """未审计模块不能因旧清单遗漏而被误判为已经完成迁移。"""
+        from tests.architecture._layers import LAYERS
+        root = Path(ROOT)
+        ledger = json.loads((root / '维护记录' / '架构统一基数.json').read_text(encoding='utf-8'))['第一项']
+        groups = [ledger[key] for key in ('adopters', 'exempt_items', 'scope_audit_pending')]
+        names = [name for group in groups for name in group]
+        self.assertEqual(len(names), len(set(names)), '范围记录不得重复或跨组重叠')
+        self.assertEqual(set(names), {name for name, layer in LAYERS.items() if layer == 2})
+        missing = {name for name in names if not (root / f'{name}.py').is_file()
+                   and not (root / name / '__init__.py').is_file()}
+        historical = ledger['historical_name_audit_pending']
+        self.assertEqual(len(historical), len(set(historical)))
+        self.assertEqual(missing, set(historical), '旧逻辑名须追溯替代入口，不能直接算已迁移')
+
     def test_only_approved_l2_adopters_import_service_contract(self):
         """解冻后的每批迁移仍必须显式更新采用方棘轮。"""
         from tests.architecture._layers import LAYERS
