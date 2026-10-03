@@ -6,7 +6,7 @@ from tkinter import ttk, messagebox
 import tts_api as api
 import tk_timers
 from ui_tokens import SPACING
-from ui_widgets import FormDialog, LineInput, PrimaryButton, SecondaryButton
+from ui_widgets import FormDialog, LineInput, PrimaryButton, SecondaryButton, notify
 
 
 def show(parent, on_saved=None):
@@ -92,7 +92,7 @@ def show(parent, on_saved=None):
                 on_saved()
             win.destroy()
         except (ValueError, OSError, _json.JSONDecodeError) as exc:
-            messagebox.showerror("保存失败", str(exc), parent=win)
+            notify(win, str(exc), level='error', title="保存失败", status=status)
 
     row = ttk.Frame(body)
     row.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(SPACING['md'], SPACING['none']))

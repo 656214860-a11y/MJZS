@@ -5,7 +5,7 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 from agent.core import read, save
 from responsive_ui import scroll_form
-from ui_widgets import BaseDialog
+from ui_widgets import BaseDialog, notify
 
 # 名称/别名匹配（高置信，命中的会展示给用户二次确认）
 NAME_KEYWORDS = (
@@ -119,7 +119,7 @@ def apply(project, selected):
 def show(desktop):
     candidates = scan(desktop.root)
     if not candidates:
-        messagebox.showinfo('识别背景人物', '未发现疑似背景/不露脸人物（按名称关键词匹配）。', parent=desktop.win)
+        notify(desktop.win, '未发现疑似背景/不露脸人物（按名称关键词匹配）。', title='识别背景人物', status=desktop.status)
         return
     win = BaseDialog(desktop.win, '识别背景人物', geometry='780x540',
                      minsize=(620, 380), modal=False, chrome=False)
@@ -156,12 +156,12 @@ def show(desktop):
     def confirm():
         selected = [aid for aid, v in vars_.items() if v.get()]
         if not selected:
-            messagebox.showinfo('识别背景人物', '未勾选任何角色。', parent=win)
+            notify(win, '未勾选任何角色。', title='识别背景人物', status=desktop.status)
             return
         try:
             n, touched = apply(desktop.root, selected)
         except Exception as exc:
-            messagebox.showerror('识别背景人物', str(exc), parent=win)
+            notify(win, str(exc), level='error', title='识别背景人物', status=desktop.status)
             return
         win.destroy()
         desktop.asset_kind = 'characters'

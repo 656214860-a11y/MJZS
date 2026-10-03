@@ -10,7 +10,7 @@ from tkinter import ttk,messagebox
 import re
 
 from clipboard_lock import hold as hold_clipboard
-from ui_widgets import BaseDialog, TextArea
+from ui_widgets import BaseDialog, TextArea, notify
 
 
 _SECRET_VALUE = re.compile(r"(?i)(\b(?:api[_-]?key|secret|token|password)\s*[=:]\s*)([^\s,;]+)|\bsk-[A-Za-z0-9_-]{8,}")
@@ -55,7 +55,7 @@ def show(parent,title,text,status=None,receipt='',empty_text='',empty_hint='',so
         # 复制成功后关闭本窗口：与其他提示词复制窗口保持一致；剪贴板归主窗口所有，关窗不会丢内容。
         reason=copy_text(parent.winfo_toplevel(),text)
         if reason:
-            messagebox.showerror("复制提示词","复制失败，请重试："+reason,parent=win);return
+            notify(win, "复制失败，请重试："+reason, level='error', title="复制提示词", status=status);return
         if status is not None and receipt:status.set(receipt)
         win.destroy()
     action=ttk.Button(win.actions,text=button,command=copy)

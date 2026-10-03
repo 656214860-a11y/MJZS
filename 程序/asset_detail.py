@@ -27,7 +27,7 @@ from agent.core import read
 from platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, TextArea
+from ui_widgets import BaseDialog, TextArea, notify
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
 ZOOM_SIZE = 900                      # 点一下放大后的长边（不放大原图，只按原分辨率显示）
@@ -128,16 +128,17 @@ def edit_anchor(desktop, aid):
         return None
     value = value.strip()
     if not value:
-        messagebox.showerror('无法保存', '锚点字符串不能为空。', parent=desktop.win)
+        notify(desktop.win, '锚点字符串不能为空。', level='error', title='无法保存', status=desktop.status)
         return None
     if '\n' in value or '\r' in value or len(value) > ANCHOR_LIMIT:
-        messagebox.showerror('无法保存', '锚点字符串必须是一行、且不超过 ' + str(ANCHOR_LIMIT) + ' 个字。',
-                             parent=desktop.win)
+        notify(desktop.win, '锚点字符串必须是一行、且不超过 ' + str(ANCHOR_LIMIT) + ' 个字。',
+               level='error', title='无法保存', status=desktop.status)
         return None
     _fields(desktop, aid, {'character_anchor': value, 'base_anchor': value})
     saved = str((desktop.asset_requirements().get(aid) or {}).get('character_anchor') or '')
     if saved != value:
-        messagebox.showerror('保存没生效', '资产 JSON 里读回来的锚点与刚写的对不上：' + saved, parent=desktop.win)
+        notify(desktop.win, '资产 JSON 里读回来的锚点与刚写的对不上：' + saved,
+               level='error', title='保存没生效', status=desktop.status)
         return None
     desktop.status.set('锚点已保存并与资产 JSON 核对一致')
     _reload(desktop, aid)
@@ -213,7 +214,7 @@ def edit_variant(desktop, aid, state_id):
     if override is None:
         return None
     if not name.strip() or not override.strip():
-        messagebox.showerror('无法保存', '状态名称与覆盖描述都要写。', parent=desktop.win)
+        notify(desktop.win, '状态名称与覆盖描述都要写。', level='error', title='无法保存', status=desktop.status)
         return None
     target['name'] = name.strip()
     target['override'] = override.strip()

@@ -14,7 +14,7 @@ from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, DataTable
+from ui_widgets import BaseDialog, DataTable, notify
 
 
 def rows(candidates, asset, threshold=search.DEFAULT_THRESHOLD, limit=search.DEFAULT_LIMIT):
@@ -146,7 +146,7 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
         try:
             commit()
         except (ValueError, OSError) as exc:
-            messagebox.showerror('入库未开始', str(exc), parent=win)
+            notify(win, str(exc), level='error', title='入库未开始', status=status)
 
     ttk.Button(tools, text='重新打分', style='Compact.TButton', command=lambda: safe(reload)).pack(side='left')
     ttk.Button(bottom, text='打开候选清单…', style='Compact.TButton',
@@ -159,7 +159,7 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
             try:
                 fn()
             except (ValueError, OSError) as exc:
-                messagebox.showerror('操作提示', str(exc), parent=win)
+                notify(win, str(exc), level='error', title='操作提示', status=status)
         return run()
 
     def pick_file():

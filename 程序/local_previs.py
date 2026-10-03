@@ -12,7 +12,7 @@ from platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
                            work_rows, work_hint, view_row)
 from ui_tokens import COLORS, SPACING
-from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea
+from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea, notify
 
 def engine_name(project):
     """当前白模引擎名：读得出来就写进口径，读不出来退回空串。
@@ -67,7 +67,7 @@ def online_window(desktop, source, ids):
             if target:
                 desktop.status.set(sid + ' 白模已导入：' + str(target))
         except Exception as exc:
-            messagebox.showerror('导入白模', str(exc), parent=win)
+            notify(win, str(exc), level='error', title='导入白模', status=desktop.status)
     row = ttk.Frame(body); row.pack(fill='x', pady=SPACING['sm'])
     PrimaryButton(row, text='打开线上白模并复制说明', command=open_online).pack(side='left')
     SecondaryButton(row, text='导入该镜头白模', command=import_result).pack(
@@ -174,14 +174,14 @@ def show(desktop):
             decisions=previs_routing.entries(project,source)
             if len(rows)>1:reason.set('已把 %d 个镜头设为「%s」%s'%(len(rows),chosen_level.get(),work_hint(rows,how)))
             show_decision();refresh()
-        except Exception as exc:messagebox.showerror('动作复杂度',str(exc),parent=desktop.win)
+        except Exception as exc:notify(desktop.win, str(exc), level='error', title='动作复杂度', status=desktop.status)
     tree.bind('<<TreeviewSelect>>',show_decision);level_box.bind('<<ComboboxSelected>>',change_level)
     def start():
-        if state['busy']:messagebox.showinfo('白模预演','已有本地任务运行中，请等待完成');return
+        if state['busy']:notify(desktop.win, '已有本地任务运行中，请等待完成', title='白模预演', status=desktop.status);return
         # 第 47 期第 1 条：勾选优先；一个都没勾时，把高亮那一行当作选中的那一个（顺手补上勾选，
         # 页面上的小勾立刻看得见）。原来这里只认勾选，用户点了一行看着是选中的，却被告知「请先勾选」。
         ids,how=work_rows(tree,lambda sid: key(sid) in state['selected'])
-        if not ids:messagebox.showinfo('白模预演','请先勾选要制作的镜头');return
+        if not ids:notify(desktop.win, '请先勾选要制作的镜头', title='白模预演', status=desktop.status);return
         if how=='shown':
             state['selected'].add(key(ids[0]))
             state['summary']='没有勾选行，按高亮的那一行 %s 派发（已替您勾上）'%ids[0]
@@ -195,7 +195,7 @@ def show(desktop):
             groups=dispatch_stage_previs(project,source,ids,state,monitor=True,start_complex=agent_start)
             if groups['medium']:online_window(desktop,source,groups['medium'])
             refresh()
-        except Exception as exc:messagebox.showerror('白模预演',str(exc),parent=desktop.win)
+        except Exception as exc:notify(desktop.win, str(exc), level='error', title='白模预演', status=desktop.status)
     # 主动作行：开始制作 → 强制停止 → 无人值守 → 线上白模。
     buttons=FlowBar(body);buttons.pack(fill='x',pady=SPACING['sm'])
     # 第 29 期第 1 条：原先这一行左头挂着阶段配置面板（模型＋SKILL）＋「调用设置」＋「Skill说明」，
@@ -219,7 +219,7 @@ def show(desktop):
         由本页 750 毫秒一次的刷新显示，线程里不碰 Tk。
         """
         if not state.get('busy'):
-            messagebox.showinfo('白模预演','当前没有正在制作的白模任务，无需停止',parent=desktop.win);return
+            notify(desktop.win, '当前没有正在制作的白模任务，无需停止', title='白模预演', status=desktop.status);return
         state['summary']='正在强制停止制作进程…'
         def work():
             try:
@@ -256,7 +256,7 @@ def show(desktop):
                 from native_apps import open_blender
                 open_blender(path)
             else:open_path(path)
-        except Exception as exc:messagebox.showerror('白模预演',str(exc))
+        except Exception as exc:notify(desktop.win, str(exc), level='error', title='白模预演', status=desktop.status)
     SecondaryButton(views,text='播放视频',command=lambda:open_file('preview')).pack(side='left',padx=SPACING['xs'])
     SecondaryButton(views,text='打开工程调整',command=lambda:open_file('project_file')).pack(side='left',padx=SPACING['xs'])
     def open_current_directory():
@@ -265,7 +265,7 @@ def show(desktop):
             folder.mkdir(parents=True,exist_ok=True)
             open_path(folder)
         except Exception as exc:
-            messagebox.showerror('当前白模目录',str(exc),parent=desktop.win)
+            notify(desktop.win, str(exc), level='error', title='当前白模目录', status=desktop.status)
     SecondaryButton(views,text='当前白模目录',command=open_current_directory).pack(side='left',padx=SPACING['xs'])
     def logs():
         folder=previs_routing.records_directory(project,state);open_path(folder);desktop.status.set('已打开制作记录：'+str(folder))

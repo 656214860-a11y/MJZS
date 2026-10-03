@@ -35,7 +35,7 @@ from storage_maintenance import recycle_paths
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import (BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
                         TextArea,
-                        SecondaryButton, Tooltip)
+                        SecondaryButton, Tooltip, notify)
 from ui_dialogs import FileDialog
 
 TITLE = '阶段配置'
@@ -775,7 +775,7 @@ class Panel(ttk.Frame):
         """在独立弹窗编辑项目级覆盖；不写程序内置模板，便于恢复默认。"""
         project = desktop_project(self.desktop)
         if not project:
-            messagebox.showinfo(TITLE, '请先选择项目。', parent=self.winfo_toplevel())
+            notify(self.winfo_toplevel(), '请先选择项目。', title=TITLE, status=getattr(self.desktop, 'status', None))
             return None
         import hollmwood_roles
         is_rhythm = field == stage_config.HOLLMWOOD_RHYTHM
@@ -877,7 +877,7 @@ class Panel(ttk.Frame):
             lines.append('%s\n当前：%s\n建议：%s' %
                          (label, '、'.join(values['current']) or '空',
                           '、'.join(values['suggested']) or '空'))
-        messagebox.showinfo('本地修改明细', '\n\n'.join(lines), parent=self.winfo_toplevel())
+        notify(self.winfo_toplevel(), '\n\n'.join(lines), title='本地修改明细', status=getattr(self.desktop, 'status', None))
 
     def workflow_apply_dialog(self, choice, preset, switching):
         """逐阶段选择“套用／保留”；默认不重写已有勾选。"""
@@ -1132,7 +1132,7 @@ class Panel(ttk.Frame):
             if path.suffixes[-2:] == ['.skill', '.md'] and path.is_file() and path.is_relative_to(skills_root):
                 paths.append((item, path))
         if not paths:
-            messagebox.showinfo(TITLE, '没有可删除的程序 SKILL。', parent=self.winfo_toplevel())
+            notify(self.winfo_toplevel(), '没有可删除的程序 SKILL。', title=TITLE, status=getattr(self.desktop, 'status', None))
             return []
         refs = self._referenced_skills([item for item, _path in paths])
         names = '、'.join(item.displayName or item.name for item, _path in paths)
@@ -1686,11 +1686,11 @@ class Panel(ttk.Frame):
         try:
             project = self.project()
         except Exception as exc:
-            messagebox.showinfo(TITLE, str(exc), parent=self.winfo_toplevel())
+            notify(self.winfo_toplevel(), str(exc), title=TITLE, status=getattr(self.desktop, 'status', None))
             return None
         names = self.selected()
         if not names:
-            messagebox.showinfo(TITLE, '先勾上要跑的 SKILL。', parent=self.winfo_toplevel())
+            notify(self.winfo_toplevel(), '先勾上要跑的 SKILL。', title=TITLE, status=getattr(self.desktop, 'status', None))
             return None
         self.save()
         orch = build_orchestrator(self.desktop, project)
@@ -1706,8 +1706,8 @@ class Panel(ttk.Frame):
         names = '、'.join(row.get('name') or row['skill'] for row in pending)
         window = self.winfo_toplevel()
         if any(row.get('queued') for row in pending):
-            messagebox.showinfo(TITLE, '这几个要花钱的活先排着队（现在不打扰您）：%s' % names,
-                                parent=window)
+            notify(window, '这几个要花钱的活先排着队（现在不打扰您）：%s' % names,
+                   title=TITLE, status=getattr(self.desktop, 'status', None))
             return []
         if not messagebox.askyesno(TITLE, '这几个要花钱：%s\n\n现在做吗？' % names, parent=window):
             orch.confirm_all(False)
@@ -1773,7 +1773,7 @@ def show(desktop, stage, function=None, launcher_button=None):
     阶段只会让人分不清「我刚配的到底是哪一步」。
     """
     if desktop_project(desktop) is None:
-        messagebox.showinfo(TITLE, '请先选择项目。', parent=getattr(desktop, 'win', None))
+        notify(getattr(desktop, 'win', None), '请先选择项目。', title=TITLE, status=getattr(desktop, 'status', None))
         return None
     stage = stage_for(stage)
     parent = getattr(desktop, 'win', None)
@@ -1818,6 +1818,6 @@ def open_for_page(desktop, index=None, launcher_button=None):
     page = getattr(desktop, 'page_index', index)
     stage = stage_of_page(int(page or 0))
     if not stage:
-        messagebox.showinfo(TITLE, '这一页没有制作阶段。', parent=getattr(desktop, 'win', None))
+        notify(getattr(desktop, 'win', None), '这一页没有制作阶段。', title=TITLE, status=getattr(desktop, 'status', None))
         return None
     return show(desktop, stage, launcher_button=launcher_button)

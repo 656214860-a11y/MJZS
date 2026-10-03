@@ -9,7 +9,7 @@ from .core import read,save,fingerprint
 from api_models import records,remember,remove,label as model_label,identity
 from .shot_assets import assets
 import tk_timers
-from ui_widgets import BaseDialog, LineInput
+from ui_widgets import BaseDialog, LineInput, notify
 
 ROOT=Path(__file__).resolve().parent.parent
 CONFIG=ROOT/'private'/'prompt_optimizer.json'
@@ -120,7 +120,7 @@ def settings(app):
             save(CONFIG,updated);cfg=updated;profiles=dict(cfg.get('profiles',{}))
             entries['model'].delete(0,'end');refresh_models();choice.set(name_for(entries['base_url'].get().strip()))
             app.write('API 模型已删除并保存：'+model)
-        except (ValueError,OSError) as exc:messagebox.showerror('优化设置',str(exc),parent=win)
+        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='优化设置')
 
     ttk.Label(win,text='智谱 GLM-4.7-Flash：选择后自动填入地址与模型，请填写智谱 API Key。切换服务商保留各自配置。\n填写用于文本优化的模型与密钥，不是视频模型。支持 OpenAI 兼容接口；本地 Ollama 可填写本机地址。\n点击整理提示词时会发送本镜分镜、资产编号与名称及提示词（不上传图片），并可能产生文本模型费用。\n保存设置不会调用模型。MCP 包版本：0.1.0；来源与许可证见安装目录 README.md。',wraplength=730).grid(row=7,column=0,columnspan=2,padx=12,pady=12,sticky='w')
     def commit():
@@ -137,7 +137,7 @@ def settings(app):
             if not updated['api_key']:raise ValueError('新地址需要填写对应密钥，不会复用视频密钥')
             updated=remember(read(CONFIG) if CONFIG.is_file() else cfg,updated)
             save(CONFIG,updated);win.destroy();app.write('优化服务设置已保存。点击“MCP 优化”开始优化。')
-        except (ValueError,OSError) as e:messagebox.showerror('优化设置',str(e),parent=win)
+        except (ValueError,OSError) as e:notify(win, str(e), level='error', title='优化设置')
     actions=ttk.Frame(win);actions.grid(row=8,column=0,columnspan=2,pady=12)
     ttk.Button(actions,text='保存设置',command=commit).pack(side='left',padx=5)
     ttk.Button(actions,text='删除模型',command=delete_model).pack(side='left',padx=5)

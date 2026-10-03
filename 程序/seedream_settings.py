@@ -4,7 +4,7 @@ import webbrowser
 from tkinter import ttk,messagebox
 import seedream_api as api
 import tk_timers
-from ui_widgets import LineInput
+from ui_widgets import LineInput, notify
 from ui_widgets import BaseDialog
 
 
@@ -69,7 +69,7 @@ def show(parent,on_saved=None):
             api.save_profile(values['base_url'].get(),values['model'].get(),values['api_key'].get(), profile_id=current[0] or None)
             if on_saved:on_saved()
             win.destroy()
-        except (ValueError,OSError) as exc:messagebox.showerror('保存失败',str(exc),parent=win)
+        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='保存失败', status=status)
     def check():
         try:
             api.validate(values['base_url'].get(),values['model'].get(),values['api_key'].get())

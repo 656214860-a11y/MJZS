@@ -8,7 +8,7 @@ from tkinter import ttk,messagebox
 from api_models import records,remember,remove,label,identity
 from agent.core import save
 import tk_timers
-from ui_widgets import FormDialog, LineInput
+from ui_widgets import FormDialog, LineInput, notify
 
 def settings_path():return Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'漫剧制作助手'/'qwen-api.json'
 
@@ -131,7 +131,7 @@ def show(parent,on_saved=None):
             updated=remember(load(),{**value,'api_key':''});save(settings_path(),updated);cfg=updated
             if on_saved:on_saved()
             win.destroy()
-        except Exception as exc:messagebox.showerror('Qwen 设置',str(exc),parent=win)
+        except Exception as exc:notify(win, str(exc), level='error', title='Qwen 设置', status=status)
     def delete_model():
         nonlocal cfg
         try:
@@ -142,7 +142,7 @@ def show(parent,on_saved=None):
             vars['model'].set('');refresh_models()
             status.set('模型已删除并保存。请选择其他模型，或填写新模型后保存。')
             if on_saved:on_saved()
-        except (ValueError,OSError) as exc:messagebox.showerror('Qwen 设置',str(exc),parent=win)
+        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='Qwen 设置', status=status)
     def check():
         try:cfg=values()
         except ValueError as exc:status.set(str(exc));return

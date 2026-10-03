@@ -37,7 +37,7 @@ from pet_state import PAGE_OF
 from responsive_ui import FlowBar, refresh_check_heading, bind_row_toggle
 from storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton, TextArea
+from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton, TextArea, notify
 from ui_dialogs import FileDialog
 # 第 46 期第 1 条：内容框的右键菜单（查看／删除）用的是 cell_hover 那一份实现，两页都要用，
 # 所以提到模块头上（原先只在 show() 里 import，show_final 拿不到这个名字）。
@@ -329,8 +329,8 @@ def show_final(desktop):
             return
         try:preview=controller.save_edited(viewer.get('1.0','end-1c'))
         except ValueError as exc:
-            messagebox.showerror('无法保存',str(exc)
-                                 +'\n\n请改回 JSON 格式再存，或点「刷新列表」重新载入。',parent=desktop.win)
+            notify(desktop.win, str(exc)+'\n\n请改回 JSON 格式再存，或点「刷新列表」重新载入。',
+                   level='error', title='无法保存', status=desktop.status)
             return
         render_preview(preview)                   # 存完重新摆一遍：改动状态清零，看到的就是盘上那份
         desktop.status.set('已保存改动：'+controller.display_name(path))
@@ -777,7 +777,7 @@ def show(desktop):
             ui_plugin_registry.module('stage_flow').follow(controls['agent'],'storyboard')
             desktop.stage_button=ui_plugin_registry.module('skill_panel').stage_button(row,desktop,1)
             desktop.stage_button.pack(side='left',padx=(SPACING['sm'], SPACING['none']))
-            controls['agent'].bind('<Button-1>',lambda e: (messagebox.showinfo('手动制作分镜','请先在上方选择需要制作的剧本，或选择要采用的 JSON 分镜。',parent=desktop.win) if controls['agent'].cget('state')=='disabled' else None),add='+')
+            controls['agent'].bind('<Button-1>',lambda e: (notify(desktop.win, '请先在上方选择需要制作的剧本，或选择要采用的 JSON 分镜。', title='手动制作分镜', status=desktop.status) if controls['agent'].cget('state')=='disabled' else None),add='+')
     refresh()
     # 自动文件监听只在后台扫描目录；这颗短周期计时器只把已经完整的结果批量写进 Treeview。
     tk_timers.repeat(toolbar, 60, apply_background_catalog)

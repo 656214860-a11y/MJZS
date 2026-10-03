@@ -8,7 +8,7 @@ from file_cache import read_json
 from storyboard_paths import project_root
 import white_model_service as _service
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, TextArea
+from ui_widgets import BaseDialog, TextArea, notify
 
 TOOLS = (
     ('打开 LensBlock 白模工作台', 'https://ilcaretz.github.io/lensblock/'),
@@ -42,7 +42,7 @@ def choose_previs(desktop):
     def enter():
         try:open_previs(desktop,selected.get())
         except (OSError,ValueError) as exc:
-            messagebox.showerror('白模预演',str(exc),parent=picker);return
+            notify(picker, str(exc), level='error', title='白模预演', status=desktop.status);return
         picker.destroy()
     ttk.Button(body, text='进入白模预演', command=enter).pack(anchor='e', pady=10)
 
@@ -153,7 +153,7 @@ def open_previs(desktop,sid=None):
         save()
     def guarded(fn):
         try: fn()
-        except Exception as exc: messagebox.showerror('白模预演', str(exc), parent=win)
+        except Exception as exc: notify(win, str(exc), level='error', title='白模预演', status=desktop.status)
     row = ttk.Frame(body); row.pack(fill='x', pady=8)
     ttk.Button(row, text='导入预演视频/工程', command=lambda: guarded(import_preview)).pack(side='left', padx=(0, 7))
     ttk.Button(row, text='保存备注', command=lambda: guarded(save)).pack(side='left', padx=(0, 7))

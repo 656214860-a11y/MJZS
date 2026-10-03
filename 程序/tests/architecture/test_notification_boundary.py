@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, parse, production_files
 
 
 class NotificationBoundaryTests(unittest.TestCase):
@@ -36,16 +36,24 @@ class NotificationBoundaryTests(unittest.TestCase):
             count = len(_display_messageboxes(parse(ROOT / filename)))
             if count > maximum:
                 actual[filename] = f'{count}>{maximum}'
-        self.assertEqual(actual, {}, '业务页历史裸通知数量只能下降：' + str(actual))
+        self.assertEqual(actual, {}, '业务页不得绕过统一通知入口：' + str(actual))
+
+    def test_all_root_business_modules_use_the_notification_entry(self):
+        direct = {
+            path.name: len(_display_messageboxes(parse(path)))
+            for path in production_files() if path.name != 'ui_widgets.py'
+            if _display_messageboxes(parse(path))
+        }
+        self.assertEqual(direct, {}, '根目录业务模块不得直接显示 messagebox：' + str(direct))
 LEGACY_MESSAGEBOX_MAX = {
-    'app.py': 7, 'asset_detail.py': 4, 'asset_prompt_rules.py': 2,
-    'asset_reference_import.py': 2, 'background_characters.py': 3,
-    'cloud_assets.py': 1, 'cloud_video.py': 3, 'desktop.py': 13,
-    'desktop_launcher.py': 1, 'keyframe_comfy.py': 1, 'local_previs.py': 8,
-    'native_assets.py': 2, 'prompt_window.py': 1, 'qwen_setup.py': 2,
-    'reference_wall.py': 2, 'seedream_settings.py': 1, 'skill_panel.py': 8,
-    'storyboard_files.py': 2, 'tts_settings.py': 1, 'white_model.py': 2,
-    'workflow_settings.py': 1, 'agent/prompt_optimizer.py': 2,
+    'app.py': 0, 'asset_detail.py': 0, 'asset_prompt_rules.py': 0,
+    'asset_reference_import.py': 0, 'background_characters.py': 0,
+    'cloud_assets.py': 0, 'cloud_video.py': 0, 'desktop.py': 0,
+    'desktop_launcher.py': 0, 'keyframe_comfy.py': 0, 'local_previs.py': 0,
+    'native_assets.py': 0, 'prompt_window.py': 0, 'qwen_setup.py': 0,
+    'reference_wall.py': 0, 'seedream_settings.py': 0, 'skill_panel.py': 0,
+    'storyboard_files.py': 0, 'tts_settings.py': 0, 'white_model.py': 0,
+    'workflow_settings.py': 0, 'agent/prompt_optimizer.py': 0,
 }
 
 def _display_messageboxes(tree):

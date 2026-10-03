@@ -6,7 +6,7 @@ from tkinter import ttk,messagebox
 import webbrowser
 from pathlib import Path
 from ui_tokens import SPACING
-from ui_widgets import BaseDialog, LineInput, PrimaryButton, SecondaryButton
+from ui_widgets import BaseDialog, LineInput, PrimaryButton, SecondaryButton, notify
 from agent.core import read
 from api_models import identity,cloud_removed
 from project_naming import dated_path
@@ -114,7 +114,7 @@ def settings_window(desktop):
         kind,base,_,_=PROVIDERS[provider.get()]
         key=saved_provider_key(project,kind,initial_records.get(provider.get(),{}),entries['base'].get().strip() or base)
         if not key:
-            messagebox.showinfo('云端设置','当前接口没有已保存的 API Key。',parent=win);return
+            notify(win, '当前接口没有已保存的 API Key。', title='云端设置', status=desktop.status);return
         entries['key'].delete(0,'end');entries['key'].insert(0,key);entries['key'].configure(show='')
         revealed[0]=True;reveal_timer[0]=win.after(KEY_REVEAL_MS,conceal_key)
     entries['key'].bind('<KeyPress>',lambda _event: revealed.__setitem__(0,False))
@@ -178,7 +178,7 @@ def settings_window(desktop):
             entries['model'].delete(0,'end');refresh_models()
             if reset and getattr(desktop,'page_index',None)==desktop.page_of('video'):
                 desktop.show_stage('video',video_mode='cloud')
-        except (ValueError,OSError) as exc:messagebox.showerror('云端设置',str(exc),parent=win)
+        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='云端设置', status=desktop.status)
     SecondaryButton(win,text='删除模型',command=delete_model).grid(row=2,column=2,padx=(SPACING['none'],SPACING['md']))
     entries['base'].bind('<FocusOut>',refresh_models)
     choice.bind('<<ComboboxSelected>>',select);select()
@@ -237,7 +237,7 @@ def settings_window(desktop):
             else:
                 desktop.set_video_workspace(folder,navigate=False)
                 win.destroy()
-        except (ValueError,OSError) as e:messagebox.showerror('云端设置',str(e),parent=win)
+        except (ValueError,OSError) as e:notify(win, str(e), level='error', title='云端设置', status=desktop.status)
     probe_status=tk.StringVar(value='')
     def probe_endpoint_now():
         from api_endpoints import normalize_url, probe_endpoint

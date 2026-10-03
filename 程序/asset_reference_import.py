@@ -6,7 +6,7 @@ from tkinter import ttk,messagebox
 from agent.core import read
 from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_target,image_bytes,save_copy,attach,unbind
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, LineInput
+from ui_widgets import BaseDialog, LineInput, notify
 
 
 def save_images(base,aid,role,paths,active_ids,pending=False):
@@ -79,7 +79,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
             else:app.show(2)
             app.status.set(f'已保存 {count} 张分类参考图。'+('点击“批量导入参考图”完成绑定。' if pending else '已自动绑定资产。'))
             win.destroy()
-        except (ValueError,OSError) as exc:messagebox.showerror('保存未完成',str(exc),parent=win)
+        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='保存未完成')
     def remove_refs():
         """解除参考图绑定并将受控文件移入回收站。
 
@@ -105,7 +105,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
             else:app.show(2)
             app.status.set('已解除 '+str(len(values))+' 张「'+role+'」参考图绑定，文件已移入回收站。')
             win.destroy()
-        except (ValueError,OSError) as exc:messagebox.showerror('删除未完成',str(exc),parent=win)
+        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='删除未完成')
     ttk.Button(buttons,text='保存',command=commit).pack(side='left')
     ttk.Button(buttons,text='删除参考图',command=remove_refs).pack(side='left',padx=(8,0))
     ttk.Button(buttons,text='取消',command=win.destroy).pack(side='right')

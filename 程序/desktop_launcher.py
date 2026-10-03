@@ -8,7 +8,7 @@ from __future__ import annotations
 import hash_backend
 hash_backend.install()
 import tkinter as tk
-from tkinter import messagebox
+from ui_widgets import notify
 
 
 def launch():
@@ -20,7 +20,7 @@ def launch():
             diagnostic_capture.record_crash(value, trace)
         finally:
             try:
-                window.after_idle(lambda: messagebox.showerror('启动错误', '发生未处理错误，详情已写入 启动错误.log。', parent=window))
+                window.after_idle(lambda: notify(window, '发生未处理错误，详情已写入 启动错误.log。', level='error', title='启动错误'))
             except tk.TclError:
                 pass
     window.report_callback_exception = report_callback_exception

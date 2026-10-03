@@ -9,7 +9,7 @@ import tkinter as tk
 from agent.core import save
 from file_cache import read_json
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog
+from ui_widgets import BaseDialog, notify
 from ui_widgets import LineInput, TextArea
 
 ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code'}
@@ -582,7 +582,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
             if active[0]=='qwen':sync_qwen_model(project,draft['profiles']['qwen']['model'])
             if on_saved:on_saved()
             win.destroy()
-        except Exception as exc:messagebox.showerror('调用设置',str(exc),parent=win)
+        except Exception as exc:notify(win, str(exc), level='error', title='调用设置', status=feedback)
     def api_saved():
         model=__import__('qwen_setup').load()['model']
         sync_qwen_model(project,model)

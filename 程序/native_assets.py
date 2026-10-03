@@ -307,6 +307,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
 def attach_controls(app, win, form, footer, project, base, selection, status, reload_rows, context_matches):
     import tkinter as tk
     from tkinter import ttk, messagebox
+    from ui_widgets import notify
     from responsive_ui import FlowBar
     progress_text=tk.StringVar()
     events=queue.Queue()
@@ -436,9 +437,9 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                     # 只导入一部分的批次都不算完成，不能弹「已自动保存」。
                     from asset_batch_service import batch_complete
                     if batch_complete(base,[aid for aid,_ in items]):
-                        messagebox.showinfo('制作完成', result+'\n\n已自动保存到资产库。', parent=win)
+                        notify(win, result+'\n\n已自动保存到资产库。', title='制作完成', status=app.status)
                     else:
-                        messagebox.showwarning('制图提示', result, parent=win)
+                        notify(win, result, level='warning', title='制图提示', status=app.status)
                     win.destroy()
             except Exception:
                 pass

@@ -15,7 +15,7 @@ from keyframe_batch import frame_prompt
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
                                        KEYFRAME_MODELS)
-from ui_widgets import BaseDialog, DataTable, LineInput, TextArea
+from ui_widgets import BaseDialog, DataTable, LineInput, TextArea, notify
 
 CONFIG_FILE = Path(__file__).with_name('batch_frames_tool') / 'config.json'
 # Compatibility exports for callers and existing project extensions.
@@ -618,7 +618,7 @@ def show(app, source, initial=None):
     def close():
         if busy:
             stop.set()
-            messagebox.showinfo('正在停止', '已请求停止后续镜头，当前镜头跑完就停。\n任务编号已保留，下次可以继续查询。', parent=win)
+            notify(win, '已请求停止后续镜头，当前镜头跑完就停。\n任务编号已保留，下次可以继续查询。', title='正在停止', status=status)
             return
         win.destroy()
 

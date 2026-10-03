@@ -389,6 +389,27 @@ class NotificationDispatcher:
         return self.notify(message, level="info", title=title, modal=modal)
 
 
+class _NotificationStatusSink:
+    """没有状态栏宿主时仍让通知走同一分发器的最小适配器。"""
+
+    def set(self, _message):
+        return None
+
+
+def notify(parent, message, *, level="info", title=None, modal=True, status=None):
+    """页面级通知入口，避免业务模块直接操作 ``messagebox``。
+
+    有宿主状态栏时调用方传入其 ``StringVar``；独立设置窗没有状态栏时仍经
+    ``NotificationDispatcher`` 统一级别、标题和模态行为。
+    """
+    if status is None:
+        status = getattr(parent, "status", None)
+    if status is None:
+        status = _NotificationStatusSink()
+    return NotificationDispatcher(status, parent=parent).notify(
+        message, level=level, title=title, modal=modal)
+
+
 class BusyState:
     """共享主任务的忙碌／加载态，不拥有后台任务或取消语义。"""
 

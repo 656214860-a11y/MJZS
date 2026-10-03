@@ -61,11 +61,13 @@ def issues(aid,asset):
 
 
 def check(app):
-    from tkinter import messagebox
+    from ui_widgets import notify
     scope=app.asset_scope();label={'all':'全部资产','adopted':'已采用分镜','current':'当前分镜'}[scope]
     rows=app.asset_requirements()
     missing=[aid+' '+str(asset.get('name',''))+'：'+'、'.join(errors)
              for aid,asset in rows.items() if (errors:=issues(aid,asset))]
     if missing:
-        messagebox.showwarning('资产提示词待补齐','\n'.join(missing)+'\n\n固定角色请在第1步补齐；场景、道具、临时角色请在第2步补齐。',parent=app.win)
-    else:messagebox.showinfo('资产提示词检查',f'{label}的 {len(rows)} 项资产编号、名称和提示词已齐备，可以批量生成。',parent=app.win)
+        notify(app.win, '\n'.join(missing)+'\n\n固定角色请在第1步补齐；场景、道具、临时角色请在第2步补齐。',
+               level='warning', title='资产提示词待补齐', status=app.status)
+    else:notify(app.win, f'{label}的 {len(rows)} 项资产编号、名称和提示词已齐备，可以批量生成。',
+                title='资产提示词检查', status=app.status)
