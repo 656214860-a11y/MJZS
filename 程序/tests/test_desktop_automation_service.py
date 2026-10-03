@@ -95,6 +95,7 @@ class BackgroundTaskMigrationManifestTests(unittest.TestCase):
             'entry': 'auto_video', 'category': 'progress-and-result', 'state': 'migrated'})
         self.assertEqual(records['auto_asset']['state'], 'migrated')
         self.assertEqual(records['auto_keyframe']['state'], 'migrated')
+        self.assertEqual(records['cloud_monitor']['state'], 'migrated')
 
 
 class AutoVideoLifecycleDeliveryTests(unittest.TestCase):
@@ -173,6 +174,29 @@ class AutoKeyframeLifecycleDeliveryTests(unittest.TestCase):
         self.assertEqual(status.values, [])
         self.assertTrue(desktop.auto_keyframe_busy)
         self.assertIsNone(desktop.auto_keyframe_signature)
+
+
+class CloudMonitorLifecycleDeliveryTests(unittest.TestCase):
+    def test_stale_result_cannot_refresh_schedule_or_status(self):
+        """跨页云端查询被替换后，旧结果不得改变节流或写入状态栏。"""
+        from desktop import Desktop
+        lifecycle = BackgroundTaskLifecycle()
+        lifecycle.submit(1)
+        lifecycle.submit(2)
+        status = SimpleNamespace(values=[], set=lambda value: status.values.append(value))
+        desktop = SimpleNamespace(
+            cloud_monitor_tasks=lifecycle,
+            cloud_monitor_result=queue.Queue(),
+            cloud_monitor_busy=True,
+            cloud_monitor_due=0,
+            root=object(),
+            status=status,
+        )
+        desktop.cloud_monitor_result.put((1, False, '旧错误'))
+        Desktop._tick_cloud_monitor(desktop)
+        self.assertEqual(status.values, [])
+        self.assertTrue(desktop.cloud_monitor_busy)
+        self.assertEqual(desktop.cloud_monitor_due, 0)
 
 
 if __name__ == '__main__':

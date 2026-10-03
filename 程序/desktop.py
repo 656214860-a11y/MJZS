@@ -264,7 +264,7 @@ class Desktop:
         self._legacy_project_migration_started=False
         win._desktop_first_paint_complete=False
         win._desktop_loading_project=False
-        self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self.cloud_monitor_result=queue.Queue()
+        self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self._cloud_monitor_ticket=0;self.cloud_monitor_tasks=BackgroundTaskLifecycle();self.cloud_monitor_result=queue.Queue()
         self.settings_file=self.app/'desktop_settings.json';self.settings=read(self.settings_file) if self.settings_file.exists() else {'comfy_url':'http://127.0.0.1:8189','jianying':''}
         win.title('漫剧制作助手 · '+VERSION);win.state('normal')
         win.geometry('%dx%d'%(min(1360,win.winfo_screenwidth()-80),min(900,win.winfo_screenheight()-100)))
@@ -1955,7 +1955,7 @@ class Desktop:
         self.shutting_down=True
         # 计时器回归会构造最小 Desktop 替身；真实窗口在 __init__ 中必定拥有这些
         # 生命周期登记器，但关闭路径也必须兼容尚未完成初始化的窗口。
-        for lifecycle_name in ('background_tasks','auto_asset_tasks','auto_keyframe_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks'):
+        for lifecycle_name in ('background_tasks','cloud_monitor_tasks','auto_asset_tasks','auto_keyframe_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks'):
             lifecycle=getattr(self,lifecycle_name,None)
             if lifecycle is not None:lifecycle.cancel()
         # ``fit_content`` 的空闲布局任务属于桌面窗口；若关闭发生在首帧／重建之间，
@@ -2418,11 +2418,16 @@ class Desktop:
     def _tick_cloud_monitor(self):
         """处理云端任务监控结果与下一轮轮询。"""
         try:
-            ok,value=self.cloud_monitor_result.get_nowait();self.cloud_monitor_busy=False
+            ticket,ok,value=self.cloud_monitor_result.get_nowait()
+            if not self.cloud_monitor_tasks.finish(ticket,succeeded=ok):return
+            self.cloud_monitor_busy=False
             self.cloud_monitor_due=time.monotonic()+(5 if ok else 30)
             if not ok and self.root is not None:self.status.set('线上任务查询稍后重试：'+value)
         except queue.Empty:pass
-        if self.root is not None and not self.cloud_monitor_busy and time.monotonic()>=self.cloud_monitor_due:
+        if self.root is None:
+            if self.cloud_monitor_tasks.cancel():self.cloud_monitor_busy=False
+            return
+        if not self.cloud_monitor_busy and time.monotonic()>=self.cloud_monitor_due:
             try:self.poll_unwatched_cloud()
             except (OSError,ValueError):self.cloud_monitor_due=time.monotonic()+30
     def _tick_auto_adopt(self):
@@ -3232,14 +3237,15 @@ class Desktop:
         if not pending:
             self.cloud_monitor_due=time.monotonic()+5;return
         root,sid=pending[self.cloud_monitor_cursor%len(pending)];self.cloud_monitor_cursor+=1
-        self.cloud_monitor_busy=True
+        self.cloud_monitor_busy=True;self._cloud_monitor_ticket+=1
+        ticket=self.cloud_monitor_tasks.submit(self._cloud_monitor_ticket)
         def work():
             try:
                 from local_video import open_studio
                 studio=open_studio(root)
                 result=studio.poll(sid)
-                self.cloud_monitor_result.put((True,result))
-            except Exception as exc:self.cloud_monitor_result.put((False,str(exc)))
+                self.cloud_monitor_result.put((ticket,True,result))
+            except Exception as exc:self.cloud_monitor_result.put((ticket,False,str(exc)))
         threading.Thread(target=work,daemon=True).start()
     def busy_reason(self):
         """当前拦着退出的那件事（没有就返回空串）。
