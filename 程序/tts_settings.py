@@ -6,7 +6,7 @@ from tkinter import ttk, messagebox
 import tts_api as api
 import tk_timers
 from ui_tokens import SPACING
-from ui_widgets import (DescriptionBlock, FormDialog, LineInput, PrimaryButton,
+from ui_widgets import (Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
                         ProgressLabel, SecondaryButton, notify)
 
 
@@ -28,8 +28,8 @@ def show(parent, on_saved=None):
         "voices": tk.StringVar(value=_json.dumps(settings.get("voices", {}) or {}, ensure_ascii=False)),
         "speeds": tk.StringVar(value=_json.dumps(settings.get("speeds", {}) or {}, ensure_ascii=False)),
     }
-    body = ttk.Frame(win, padding=SPACING['lg'])
-    body.pack(fill="both", expand=True)
+    body = Card(win)
+    body.pack(fill="both", expand=True, padx=SPACING['lg'], pady=SPACING['lg'])
     body.columnconfigure(1, weight=1)
     DescriptionBlock(body, text="支持 OpenAI /audio/speech 或任意 OpenAI 兼容 TTS 端点；密钥统一保存到 程序目录/private/.env。", wraplength=700).grid(row=0, column=0, columnspan=3, sticky="w", pady=(SPACING['none'], SPACING['md']))
     for row, key, label in [(1, "base_url", "API 根地址"), (2, "model", "TTS 模型"), (3, "voice", "默认音色"), (4, "api_key", "API Key")]:

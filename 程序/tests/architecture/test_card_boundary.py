@@ -9,7 +9,13 @@ from tests.architecture._scan import ROOT, parse
 
 class CardBoundaryTests(unittest.TestCase):
     def test_qwen_settings_uses_card_for_its_configuration_group(self):
-        tree = parse(ROOT / "qwen_setup.py")
+        self._assert_settings_card("qwen_setup.py")
+
+    def test_tts_settings_uses_card_for_its_configuration_group(self):
+        self._assert_settings_card("tts_settings.py")
+
+    def _assert_settings_card(self, filename):
+        tree = parse(ROOT / filename)
         imported = {
             alias.name for node in tree.body if isinstance(node, ast.ImportFrom)
             and node.module == "ui_widgets" for alias in node.names
