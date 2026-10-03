@@ -12,6 +12,23 @@ import smoke_test
 
 
 class SafeRunnerTests(unittest.TestCase):
+    def test_parallel_timeout_records_failure_and_terminates_worker(self):
+        from concurrent.futures import Future
+        pending = Future()
+        process = mock.Mock()
+        pool = mock.Mock()
+        pool.submit.return_value = pending
+        pool._processes = {1: process}
+        with mock.patch('concurrent.futures.ProcessPoolExecutor', return_value=pool), \
+             mock.patch.object(run_selftests, 'HEARTBEAT_SECONDS', 0), \
+             mock.patch.object(run_selftests, 'SAFE_UNIT_TIMEOUT', 0):
+            result = run_selftests.run_units([('stalled', 'test_demo', None)])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0][3], ['stalled'])
+        self.assertIn('超时', result[0][4])
+        process.terminate.assert_called_once_with()
+        pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
+
     def test_safe_mode_keeps_non_gui_parallel_capacity(self):
         self.assertEqual(run_selftests.safe_full_options(False, False, False, 8, True),
                          (True, False, False, 8))

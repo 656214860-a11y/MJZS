@@ -755,7 +755,8 @@ def run_units(todo, jobs=8):
                       (len(waiting), HEARTBEAT_SECONDS), flush=True)
                 if time.time() - last_progress < SAFE_UNIT_TIMEOUT:
                     continue
-                labels = [payload[0] for payload in waiting.values()]
+                stalled = [pending[future] for future in waiting]
+                labels = [payload[0] for payload in stalled]
                 print('  ! 并行池连续 %d 秒无进展，回收 %d 路卡住单元：%s' %
                       (SAFE_UNIT_TIMEOUT, len(labels), ' '.join(labels)), flush=True)
                 for process in pool._processes.values():
@@ -764,7 +765,7 @@ def run_units(todo, jobs=8):
                 out.extend((payload[0], payload[1], 0, [payload[0]],
                             '\n===== %s 超时 =====\n并行池连续 %d 秒无进展，已回收。' %
                             (payload[0], SAFE_UNIT_TIMEOUT), now - last_progress, '')
-                           for payload in waiting.values())
+                           for payload in stalled)
                 pending = {}
                 timed_out = True
                 break
