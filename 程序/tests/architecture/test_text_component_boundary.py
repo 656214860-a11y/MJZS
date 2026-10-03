@@ -7,7 +7,11 @@ import unittest
 from tests.architecture._scan import ROOT, parse
 
 
-TEXT_PAGE_MODULES = ("skill_panel.py",)
+TEXT_PAGE_COMPONENTS = {
+    "skill_panel.py": ("HintLabel", "DescriptionBlock", "ProgressLabel"),
+    "agent/prompt_optimizer.py": ("DescriptionBlock",),
+    "seedream_settings.py": ("DescriptionBlock", "ProgressLabel"),
+}
 FORBIDDEN_OPTIONS = frozenset({"font", "foreground", "fg"})
 
 
@@ -18,10 +22,23 @@ def _is_label_call(node: ast.Call) -> bool:
 
 
 class TextComponentBoundaryTests(unittest.TestCase):
-    def test_stage_panel_does_not_hand_style_raw_labels(self):
-        """阶段配置页的提示/说明/进度必须经文字组件，不得退回局部样式。"""
+    def test_migrated_pages_import_their_text_components(self):
+        """已迁移页面必须继续经 ui_widgets 的文字语义组件。"""
+        for filename, expected in TEXT_PAGE_COMPONENTS.items():
+            tree = parse(ROOT / filename)
+            imported = {
+                alias.name
+                for node in ast.walk(tree)
+                if isinstance(node, ast.ImportFrom) and node.module == "ui_widgets"
+                for alias in node.names
+            }
+            self.assertTrue(set(expected) <= imported,
+                            f"{filename} 应导入：{', '.join(expected)}")
+
+    def test_migrated_pages_do_not_hand_style_raw_labels(self):
+        """迁移页面的提示/说明/进度不得退回局部文字样式。"""
         violations = []
-        for filename in TEXT_PAGE_MODULES:
+        for filename in TEXT_PAGE_COMPONENTS:
             tree = parse(ROOT / filename)
             for node in ast.walk(tree):
                 if not isinstance(node, ast.Call) or not _is_label_call(node):
