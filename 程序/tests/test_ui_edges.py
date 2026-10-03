@@ -3404,19 +3404,19 @@ class UiEdgeTests(unittest.TestCase):
             def fake_synthesize(text, speed=1.0, voice=None):
                 calls.append(text); return b"audio"
             asked = []
-            def refuse(title, message, **kwargs):
+            def refuse(_parent, title, message, **kwargs):
                 asked.append((title, message)); return False
-            with patch.object(desktop_module.messagebox, "askyesno", refuse), patch.object(tts_api, "synthesize", fake_synthesize):
+            with patch.object(desktop_module, "confirm", refuse), patch.object(tts_api, "synthesize", fake_synthesize):
                 d.generate_tts_per_line()
             self.assertEqual(calls, [])                       # 取消：一句都不提交，也不产生费用
             self.assertIn("未提交", d.status.get())
             self.assertIn("2 句", asked[0][1])                # 确认框先把要付多少摊开
             self.assertIn("6 字", asked[0][1])
-            with patch.object(desktop_module.messagebox, "askyesno", lambda *a, **k: True), patch.object(tts_api, "synthesize", fake_synthesize):
+            with patch.object(desktop_module, "confirm", lambda *a, **k: True), patch.object(tts_api, "synthesize", fake_synthesize):
                 d.generate_tts_per_line()
             self.assertEqual(calls, ["第一句", "第二句"])      # 确认后按预览的句数提交
             self.assertIn("逐句配音完成", d.status.get())
-            with patch.object(desktop_module.messagebox, "askyesno", refuse), patch.object(tts_api, "synthesize", fake_synthesize):
+            with patch.object(desktop_module, "confirm", refuse), patch.object(tts_api, "synthesize", fake_synthesize):
                 d.generate_tts_per_line()                     # 同一批再点：全部沿用，连确认框都不弹
             self.assertEqual(calls, ["第一句", "第二句"])
             self.assertIn("都已有成品", d.status.get())
@@ -4516,14 +4516,14 @@ class BatchContinuationTests(unittest.TestCase):
 
     def no_modal(self):
         """把确认弹窗换成记录器：一旦被调用就记下来，测试用空列表证明「没有弹窗」。"""
-        from tkinter import messagebox
+        import desktop as desktop_module
         calls = []
-        original_ask = messagebox.askyesno
-        original_error = messagebox.showerror
-        messagebox.askyesno = lambda *a, **k: (calls.append(a[0] if a else ""), False)[1]
-        messagebox.showerror = lambda *a, **k: calls.append(a[0] if a else "")
-        self.addCleanup(setattr, messagebox, "askyesno", original_ask)
-        self.addCleanup(setattr, messagebox, "showerror", original_error)
+        original_confirm = desktop_module.confirm
+        original_error = desktop_module.messagebox.showerror
+        desktop_module.confirm = lambda _parent, title, *_a, **_k: (calls.append(title), False)[1]
+        desktop_module.messagebox.showerror = lambda *a, **k: calls.append(a[0] if a else "")
+        self.addCleanup(setattr, desktop_module, "confirm", original_confirm)
+        self.addCleanup(setattr, desktop_module.messagebox, "showerror", original_error)
         return calls
 
     def test_storyboard_agent_continues_past_made_scripts(self):
@@ -4583,11 +4583,11 @@ class BatchContinuationTests(unittest.TestCase):
 
     def answer_modal(self, value):
         """把确认弹窗按下去：返回被问过的标题表。"""
-        from tkinter import messagebox
+        import desktop as desktop_module
         calls = []
-        original_ask = messagebox.askyesno
-        messagebox.askyesno = lambda *a, **k: (calls.append(a[0] if a else ""), value)[1]
-        self.addCleanup(setattr, messagebox, "askyesno", original_ask)
+        original_confirm = desktop_module.confirm
+        desktop_module.confirm = lambda _parent, title, *_a, **_k: (calls.append(title), value)[1]
+        self.addCleanup(setattr, desktop_module, "confirm", original_confirm)
         return calls
 
     def test_asset_batch_asks_before_remaking_finished_assets(self):
