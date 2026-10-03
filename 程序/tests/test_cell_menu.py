@@ -290,8 +290,8 @@ class AssetDeleteTests(unittest.TestCase):
             stub.asset_table = self.tree_for(["CHAR_001", "CHAR_002", "CHAR_003"], None)   # 高亮 CHAR_002
             stub.asset_checks = {str(Path(td).resolve()): {}}
             asked = []
-            with patch.object(desktop.messagebox, "askyesno",
-                              lambda *a, **k: (asked.append(a[1] if len(a) > 1 else a), True)[1]):
+            with patch.object(desktop, "confirm",
+                              lambda *a, **k: (asked.append(a[2] if len(a) > 2 else a), True)[1]):
                 done = stub.delete_asset_images()
             self.assertEqual(done, ["CHAR_002"], "没勾选就按高亮那一行算")
             self.assertIn("按高亮的那一行 CHAR_002 算", asked[0])
@@ -326,7 +326,7 @@ class AssetDeleteTests(unittest.TestCase):
             stub, _registry, base = self.make(td)
             stub.asset_table = self.tree_for(["CHAR_001", "CHAR_002", "CHAR_003"], None)
             stub.asset_checks = {str(Path(td).resolve()): {"CHAR_001": True}}
-            with patch.object(desktop.messagebox, "askyesno", lambda *a, **k: True):
+            with patch.object(desktop, "confirm", lambda *a, **k: True):
                 done = stub.delete_asset_images()
             self.assertEqual(done, ["CHAR_001"])
             saved = json.loads((base / "assets.json").read_text(encoding="utf-8"))

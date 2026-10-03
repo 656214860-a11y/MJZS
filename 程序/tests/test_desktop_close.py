@@ -15,7 +15,7 @@ class DesktopCloseTests(unittest.TestCase):
             force_quit=lambda: calls.append('force_quit'),
             win=object(),
         )
-        with patch.object(desktop.messagebox, 'askyesno',
+        with patch.object(desktop, 'confirm',
                           side_effect=lambda *args, **kwargs: calls.append('confirm') or False):
             desktop.Desktop.close(host)
         self.assertEqual(calls, ['restore', 'confirm'])

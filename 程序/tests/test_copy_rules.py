@@ -34,7 +34,8 @@ BUTTON_CHARS = 16
 MESSAGEBOX = {"showerror", "showinfo", "showwarning", "askyesno", "askokcancel",
               "askyesnocancel", "askquestion"}
 ERRORS = {"ValueError", "RuntimeError"}
-BUTTON_TYPES = {"Button", "Checkbutton", "Radiobutton"}
+# 自定义主／次按钮同样是用户可见的按钮；迁移到组件层后仍必须受文案契约约束。
+BUTTON_TYPES = {"Button", "Checkbutton", "Radiobutton", "PrimaryButton", "SecondaryButton"}
 SKIP_DIRS = {"运行环境", "__pycache__", ".git", "维护记录"}
 
 # 同一件事只认一个名字：左边是唯一正确写法，右边是历史遗留的另一种叫法。
