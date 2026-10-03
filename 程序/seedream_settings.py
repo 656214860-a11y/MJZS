@@ -4,7 +4,7 @@ import webbrowser
 from tkinter import ttk
 import seedream_api as api
 import tk_timers
-from ui_widgets import (DescriptionBlock, LineInput, PrimaryButton, ProgressLabel,
+from ui_widgets import (Card, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
 from ui_widgets import BaseDialog
 
@@ -28,7 +28,7 @@ def confirm_unsettled(parent,folder,values,what='镜头'):
 
 def show(parent,on_saved=None):
     win=BaseDialog(parent,'Seedream 5.0 Pro · 火山 API',geometry='760x420',minsize=(620,390),modal=False,chrome=False);win.withdraw()
-    body=ttk.Frame(win,padding=16);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1)
+    body=Card(win);body.pack(fill='both',expand=True,padx=16,pady=16);body.columnconfigure(1,weight=1)
     DescriptionBlock(body,text='使用您自己的火山方舟 API Key，费用计入火山账户，无需 Comfy 余额。',wraplength=690).grid(row=0,column=0,columnspan=3,sticky='w',pady=(0,12))
     values={key:tk.StringVar(value=value) for key,value in {'base_url':api.DEFAULT_URL,'model':'','api_key':''}.items()}
     current=['']

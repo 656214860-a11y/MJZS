@@ -14,6 +14,9 @@ class CardBoundaryTests(unittest.TestCase):
     def test_tts_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("tts_settings.py")
 
+    def test_seedream_settings_uses_card_for_its_configuration_group(self):
+        self._assert_settings_card("seedream_settings.py")
+
     def _assert_settings_card(self, filename):
         tree = parse(ROOT / filename)
         imported = {
