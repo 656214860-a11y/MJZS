@@ -37,8 +37,9 @@ from pet_state import PAGE_OF
 from responsive_ui import FlowBar, refresh_check_heading, bind_row_toggle
 from storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton, TextArea, notify
+from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
 from ui_dialogs import FileDialog
+confirm = ask_confirmation
 # 第 46 期第 1 条：内容框的右键菜单（查看／删除）用的是 cell_hover 那一份实现，两页都要用，
 # 所以提到模块头上（原先只在 show() 里 import，show_final 拿不到这个名字）。
 from cell_hover import CellHover
@@ -320,10 +321,10 @@ def show_final(desktop):
         if not viewer.winfo_exists():return       # 这一页已经换掉了：这一下什么都不做
         if not viewer_edited():return
         path=controller.live_path()               # 维护改过名就跟着走，别在旧名字上再写一份
-        if not messagebox.askyesno('保存改动',
+        if not confirm(desktop.win, '保存改动',
                 '这份 JSON 您改过，要存回项目吗？\n\n'+controller.display_name(path)
                 +'\n\n选「否」＝丢掉这次改动，恢复成盘上那一份。',
-                parent=desktop.win,default='yes'):
+                ):
             show_content(path)
             desktop.status.set('已放弃这次改动：'+controller.display_name(path))
             return
@@ -623,15 +624,15 @@ def show(desktop):
         paths=current_selection(kind)
         if not paths:raise ValueError('请先选择文件')
         paths,targets=controller.recycle_targets(kind,paths)
-        if not messagebox.askyesno('删除选中文件',f'将选中的 {len(paths)} 份文件及关联工作稿共 {len(targets)} 项移入项目回收站？\n\n'+'\n'.join(p.name for p in targets)+'\n\n资产、其他定稿和视频保留；仍引用这些 JSON 的视频任务将解除来源关联。',parent=desktop.win,default='no'):return
+        if not confirm(desktop.win, '删除选中文件',f'将选中的 {len(paths)} 份文件及关联工作稿共 {len(targets)} 项移入项目回收站？\n\n'+'\n'.join(p.name for p in targets)+'\n\n资产、其他定稿和视频保留；仍引用这些 JSON 的视频任务将解除来源关联。',dangerous=True):return
         folder=controller.recycle(kind,paths);refresh();desktop.status.set('已移入回收站：'+str(folder))
     def delete_one(kind,item):
         """逐个删除（第 46 期第 1 条）：目标就是右键点中的那一行——高亮与勾选都不参与。"""
         path=controller.removable(kind,Path(item))
-        if not messagebox.askyesno('删除此文件',
+        if not confirm(desktop.win, '删除此文件',
                 '将这一份文件及它带的关联工作稿移入项目回收站？\n\n'+path.name+
                 '\n\n资产、其他定稿和视频保留；仍引用它的视频任务将解除来源关联。',
-                parent=desktop.win,default='no'):return
+                dangerous=True):return
         folder=controller.recycle(kind,[path]);refresh()
         desktop.status.set('已移入回收站：'+str(folder))
     def restore_latest():
@@ -641,9 +642,9 @@ def show(desktop):
         _folder, names = candidate
         shown = '\n'.join(Path(name).name for name in names[:12])
         more = '\n…' if len(names) > 12 else ''
-        if not messagebox.askyesno('恢复最近删除',
+        if not confirm(desktop.win, '恢复最近删除',
                 '将恢复最近一次删除的 %d 项关联文件：\n%s%s\n\n若原位置已有同名文件，将安全中止且不恢复任何文件。'
-                % (len(names), shown, more), parent=desktop.win, default='no'):
+                % (len(names), shown, more)):
             return
         _names, restored = controller.restore_latest()
         refresh()
@@ -719,11 +720,11 @@ def show(desktop):
                                        else '镜头编号检查：'+'；'.join(problems))
                     return
                 preview='、'.join('%s→%s'%(old,new) for old,new in sorted(plan['mapping'].items())[:12])
-                if not messagebox.askyesno('重排镜头编号',
+                if not confirm(desktop.win, '重排镜头编号',
                         f'重排 {len(plan["mapping"])} 个镜头编号：{preview}{"…" if len(plan["mapping"])>12 else ""}\n'
                         f'并改写 {len(plan["contents"])} 个文件里的引用、{len(plan["renames"])} 项文件名。\n'
                         '只改编号，不碰内容；会先备份。是否继续？',
-                        parent=desktop.win):
+                        dangerous=True):
                     desktop.status.set('已取消重排镜头编号')
                     return
                 def work():

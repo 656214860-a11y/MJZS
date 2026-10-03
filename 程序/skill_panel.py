@@ -35,10 +35,11 @@ from storage_maintenance import recycle_paths
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import (BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
                         TextArea,
-                        SecondaryButton, Tooltip, notify)
+                        SecondaryButton, Tooltip, ask_confirmation, notify)
 from ui_dialogs import FileDialog
 
 TITLE = '阶段配置'
+confirm = ask_confirmation
 _LIVE = []            # 还开着的面板：模型池变了一次就把它们的下拉框都刷一遍（不用重开窗口）
 # 老页面上的流程名 → 新的制作阶段 id：面板两边都认，省得每个调用点各写一遍。
 FLOW_STAGE = {'writing': 'script', 'storyboard': 'storyboard', 'assets': 'assets',
@@ -1138,8 +1139,8 @@ class Panel(ttk.Frame):
         names = '、'.join(item.displayName or item.name for item, _path in paths)
         reference_notice = ('\n\n以下 SKILL 仍被当前项目 skill_config.json 引用：' + '、'.join(refs)
                             + '。继续删除后，该配置会在下次读取时按既有失效项规则清理。') if refs else ''
-        if not messagebox.askyesno(TITLE, '将把以下 SKILL 移入程序回收站，是否继续？\n' + names + reference_notice,
-                                   parent=self.winfo_toplevel()):
+        if not confirm(self.winfo_toplevel(), TITLE, '将把以下 SKILL 移入程序回收站，是否继续？\n' + names + reference_notice,
+                       dangerous=True):
             return []
         records = recycle_paths(program, [path for _item, path in paths], '阶段配置删除 SKILL')
         if not records:
@@ -1517,8 +1518,7 @@ class Panel(ttk.Frame):
 
     def reset_defaults(self):
         """经确认后仅恢复本阶段模型与 SKILL 默认值；统筹和制作锁保持不变。"""
-        if not messagebox.askyesno(TITLE, '恢复本阶段的默认模型和 SKILL？\n统筹与制作锁不会改变。',
-                                   parent=self.winfo_toplevel()):
+        if not confirm(self.winfo_toplevel(), TITLE, '恢复本阶段的默认模型和 SKILL？\n统筹与制作锁不会改变。'):
             return None
         entry = stage_config.reset(self.project(), self.stage, registry=self.registry)
         self.load()
@@ -1709,7 +1709,7 @@ class Panel(ttk.Frame):
             notify(window, '这几个要花钱的活先排着队（现在不打扰您）：%s' % names,
                    title=TITLE, status=getattr(self.desktop, 'status', None))
             return []
-        if not messagebox.askyesno(TITLE, '这几个要花钱：%s\n\n现在做吗？' % names, parent=window):
+        if not confirm(window, TITLE, '这几个要花钱：%s\n\n现在做吗？' % names, dangerous=True):
             orch.confirm_all(False)
             return []
         orch.confirm_all(True)

@@ -1495,7 +1495,7 @@ class PanelTests(unittest.TestCase):
         registry.scan(force=True)
         with mock.patch.object(skill_panel, '__file__', str(program / 'skill_panel.py')):
             with mock.patch.object(skill_panel.skill_registry, 'default_registry', return_value=registry):
-                with mock.patch.object(skill_panel.messagebox, 'askyesno', return_value=True):
+                with mock.patch.object(skill_panel, 'confirm', return_value=True):
                     panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
                     self.addCleanup(panel.destroy)
                     panel.vars['temporary-delete'].set(True)
@@ -1522,17 +1522,17 @@ class PanelTests(unittest.TestCase):
             json.dumps({'script': {'skills': ['referenced-delete']}}, ensure_ascii=False), encoding='utf-8')
         with mock.patch.object(skill_panel, '__file__', str(program / 'skill_panel.py')):
             with mock.patch.object(skill_panel.skill_registry, 'default_registry', return_value=registry):
-                with mock.patch.object(skill_panel.messagebox, 'askyesno', return_value=False) as confirm:
+                with mock.patch.object(skill_panel, 'confirm', return_value=False) as confirm:
                     panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
                     self.addCleanup(panel.destroy)
                     panel.vars['referenced-delete'].set(True)
                     self.assertEqual(panel.delete_checked_skills(), [])
-                    self.assertIn('仍被当前项目 skill_config.json 引用', confirm.call_args.args[1])
+                    self.assertIn('仍被当前项目 skill_config.json 引用', confirm.call_args.args[2])
 
         self.assertTrue(target.exists(), '用户取消时不得删除')
         with mock.patch.object(skill_panel, '__file__', str(program / 'skill_panel.py')):
             with mock.patch.object(skill_panel.skill_registry, 'default_registry', return_value=registry):
-                with mock.patch.object(skill_panel.messagebox, 'askyesno', return_value=True):
+                with mock.patch.object(skill_panel, 'confirm', return_value=True):
                     records = panel.delete_checked_skills()
         self.assertTrue(records, '引用提示确认后应进入既有回收服务')
         self.assertFalse(target.exists())
@@ -1621,28 +1621,18 @@ class PanelTests(unittest.TestCase):
 
 
     def test_restore_defaults_requires_confirmation(self):
-        class Confirm(object):
-            @staticmethod
-            def askyesno(*args, **kwargs):
-                return False
-
-        real = skill_panel.messagebox
-        skill_panel.messagebox = Confirm
-        self.addCleanup(setattr, skill_panel, 'messagebox', real)
+        real = skill_panel.confirm
+        skill_panel.confirm = lambda *args, **kwargs: False
+        self.addCleanup(setattr, skill_panel, 'confirm', real)
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         panel.model.set('Qwen-Max')
         self.assertIsNone(panel.reset_defaults())
         self.assertEqual(panel.model.get(), 'Qwen-Max')
 
     def test_restore_defaults_resets_only_the_current_stage(self):
-        class Confirm(object):
-            @staticmethod
-            def askyesno(*args, **kwargs):
-                return True
-
-        real = skill_panel.messagebox
-        skill_panel.messagebox = Confirm
-        self.addCleanup(setattr, skill_panel, 'messagebox', real)
+        real = skill_panel.confirm
+        skill_panel.confirm = lambda *args, **kwargs: True
+        self.addCleanup(setattr, skill_panel, 'confirm', real)
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         panel.model.set('Qwen-Max')
         panel.vars['firstframe-quality'].set(False)

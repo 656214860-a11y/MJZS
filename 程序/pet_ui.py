@@ -49,7 +49,7 @@ import stage_handler_registry
 import stage_flow
 import token_saver
 from pet_settings_contract import LEVEL_NOTES
-from ui_widgets import ContextMenu
+from ui_widgets import ContextMenu, ask_confirmation
 
 PROGRAM = Path(__file__).resolve().parent
 SIZE = 64                        # 贴片边长
@@ -3408,17 +3408,16 @@ class Pet:
     def confirm_start(self, title=ONE_CLICK_TITLE, text=ONE_CLICK_ASK):
         """一键执行前的确认弹窗（第 18 期）：要自动制图，先问一句，别一按就跑起来。
 
-        asker 可注入（默认系统 messagebox.askyesno）：自检里换成假函数，不弹真窗也不卡用例。
-        弹不出来（无界面环境）时放行——按钮是用户自己按的，不算擅自开工。
+        asker 可注入；默认经统一确认窗口，自检可换成假函数而不弹真窗。
+        无界面或弹窗失败一律不放行，避免在未获确认时启动自动制作。
         """
         asker, parent = self.asker, None
         if asker is None:
             try:
-                from tkinter import messagebox
-                asker, parent = messagebox.askyesno, self.win
+                return bool(ask_confirmation(self.win, title, text, dangerous=True))
             except Exception as exc:
                 self.errors.append(('ask', str(exc)))
-                return True
+                return False
         try:
             if parent is None:
                 return bool(asker(title, text))

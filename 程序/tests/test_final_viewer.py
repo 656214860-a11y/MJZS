@@ -86,11 +86,11 @@ class FinalViewerCase(unittest.TestCase):
         self.app.poll_auto_adopt()
         self.asked = []
         self.errors = []
-        original_yes = storyboard_files.messagebox.askyesno
+        original_yes = storyboard_files.confirm
         original_error = storyboard_files.messagebox.showerror
-        storyboard_files.messagebox.askyesno = lambda *a, **k: (self.asked.append(a), self.answer)[1]
+        storyboard_files.confirm = lambda *a, **k: (self.asked.append(a), self.answer)[1]
         storyboard_files.messagebox.showerror = lambda *a, **k: self.errors.append(a)
-        self.addCleanup(setattr, storyboard_files.messagebox, "askyesno", original_yes)
+        self.addCleanup(setattr, storyboard_files, "confirm", original_yes)
         self.addCleanup(setattr, storyboard_files.messagebox, "showerror", original_error)
         self.answer = True
         # show() 使用零基索引；资产管理置为 04 后，分镜定稿（06）位于索引 5。

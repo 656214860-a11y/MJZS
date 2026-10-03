@@ -2576,9 +2576,10 @@ class UiEdgeTests(unittest.TestCase):
             button = [w for w in buttons if str(w.cget("text")) == "重排镜头编号"]
             self.assertEqual(len(button), 1)
             asked = []
-            original_ask = messagebox.askyesno
-            messagebox.askyesno = lambda title, message, **kw: (asked.append((title, message)), True)[1]
-            self.addCleanup(setattr, messagebox, "askyesno", original_ask)
+            import storyboard_files
+            original_ask = storyboard_files.confirm
+            storyboard_files.confirm = lambda _parent, title, message, **_kw: (asked.append((title, message)), True)[1]
+            self.addCleanup(setattr, storyboard_files, "confirm", original_ask)
             original_async = d.async_                           # 后台任务换成同步执行，便于断言
             d.async_ = lambda fn, done=None: done(fn()) if done else fn()
             self.addCleanup(setattr, d, "async_", original_async)
