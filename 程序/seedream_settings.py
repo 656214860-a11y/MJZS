@@ -4,7 +4,7 @@ import webbrowser
 from tkinter import ttk
 import seedream_api as api
 import tk_timers
-from ui_widgets import LineInput, ask_confirmation, notify
+from ui_widgets import LineInput, PrimaryButton, SecondaryButton, ask_confirmation, notify
 from ui_widgets import BaseDialog
 
 
@@ -62,7 +62,7 @@ def show(parent,on_saved=None):
         if data.get('active')==key:data['active']=''
         api.write_settings(data);current[0]='';refresh()
         values['model'].set('');values['api_key'].set('');status.set('模型已从列表移除；进行中的任务仍使用原配置。')
-    ttk.Button(body,text='删除模型',command=remove).grid(row=5,column=2,padx=(8,0))
+    SecondaryButton(body,text='删除模型',command=remove).grid(row=5,column=2,padx=(8,0))
     row=ttk.Frame(body);row.grid(row=7,column=0,columnspan=3,sticky='ew',pady=(10,0))
     def commit():
         try:
@@ -96,10 +96,10 @@ def show(parent,on_saved=None):
             status.set(text);stop()
         threading.Thread(target=run,daemon=True).start()
         stop=tk_timers.repeat(win,150,poll);poll()
-    ttk.Button(row,text='保存',command=commit).pack(side='left')
-    ttk.Button(row,text='检查配置',command=check).pack(side='left',padx=5)
-    ttk.Button(row,text='测试连接',command=probe).pack(side='left',padx=5)
-    ttk.Button(row,text='打开火山控制台',command=lambda:webbrowser.open('https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey')).pack(side='left',padx=5)
-    ttk.Button(row,text='取消',command=win.destroy).pack(side='right')
+    PrimaryButton(row,text='保存',command=commit).pack(side='left')
+    SecondaryButton(row,text='检查配置',command=check).pack(side='left',padx=5)
+    SecondaryButton(row,text='测试连接',command=probe).pack(side='left',padx=5)
+    SecondaryButton(row,text='打开火山控制台',command=lambda:webbrowser.open('https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey')).pack(side='left',padx=5)
+    SecondaryButton(row,text='取消',command=win.destroy).pack(side='right')
     win.update_idletasks();x=max(0,parent.winfo_rootx()+(parent.winfo_width()-win.winfo_width())//2);y=max(0,parent.winfo_rooty()+(parent.winfo_height()-win.winfo_height())//2)
     win.geometry(f'+{x}+{y}');win.deiconify()

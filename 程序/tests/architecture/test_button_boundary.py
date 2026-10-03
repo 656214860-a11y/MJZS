@@ -37,3 +37,6 @@ class ButtonBoundaryTests(unittest.TestCase):
 
     def test_prompt_optimizer_settings_use_semantic_buttons(self):
         self._assert_semantic_buttons('agent/prompt_optimizer.py')
+
+    def test_seedream_settings_use_semantic_buttons(self):
+        self._assert_semantic_buttons('seedream_settings.py')
