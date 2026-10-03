@@ -20,12 +20,14 @@
 import json
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import messagebox, simpledialog, ttk
 
 import asset_thumbs
 from agent.core import read
 from platform_tools import open_path
 from responsive_ui import FlowBar
+from ui_dialogs import FileDialog
+from ui_widgets import BaseDialog, TextArea
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
 ZOOM_SIZE = 900                      # 点一下放大后的长边（不放大原图，只按原分辨率显示）
@@ -43,9 +45,7 @@ def _open_zoom(desktop, path, title=''):
     if image is None:
         open_path(path)
         return None
-    win = tk.Toplevel(desktop.win)
-    win.title(title or Path(path).name)
-    win.transient(desktop.win)
+    win = BaseDialog(desktop.win, title or Path(path).name, modal=False, chrome=False)
     tk.Label(win, image=image).pack(padx=8, pady=8)
     win.image = image                        # 图元必须留引用，否则画面上只剩空框
     ttk.Button(win, text='关闭', command=win.destroy).pack(pady=(0, 8))
@@ -68,7 +68,7 @@ def _fields(desktop, aid, values):
 def bind_view(desktop, aid, view, title=''):
     """给正典板某一格绑定一张图（附件任务 2.2 的 TurnaroundGrid／HeadGrid）。"""
     base = _base(desktop)
-    source = filedialog.askopenfilename(parent=desktop.win, title=title or ('选择转盘图：' + view),
+    source = FileDialog(desktop.win).open_file(title=title or ('选择转盘图：' + view),
                                         initialdir=str(base / 'assets'),
                                         filetypes=[('图片', '*.png *.jpg *.jpeg *.webp')])
     if not source:
@@ -468,7 +468,7 @@ def _variants_block(desktop, aid, asset):
 def _bind_variant_image(desktop, aid, state_id):
     """给一条状态变体绑一张缩略图。"""
     base = _base(desktop)
-    source = filedialog.askopenfilename(parent=desktop.win, title='选择状态变体缩略图',
+    source = FileDialog(desktop.win).open_file(title='选择状态变体缩略图',
                                         initialdir=str(base / 'assets'),
                                         filetypes=[('图片', '*.png *.jpg *.jpeg *.webp')])
     if not source:
@@ -503,7 +503,7 @@ def _raw_block(desktop, aid):
         text = json.dumps(row if row is not None else {}, ensure_ascii=False, indent=2)
     except (OSError, ValueError):
         text = '（读不出来）'
-    view = tk.Text(body, wrap='none', height=12, bg='#ffffff', fg='#243247', padx=10, pady=10)
+    view = TextArea(body, wrap='none', height=12, bg='#ffffff', fg='#243247', padx=10, pady=10)
     view.insert('1.0', text)
     view.configure(state='disabled')
     view.pack(fill='both', expand=True)

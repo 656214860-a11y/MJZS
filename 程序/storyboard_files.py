@@ -2,7 +2,7 @@
 from pathlib import Path
 import json, os, queue, threading
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, messagebox
 from agent.core import read
 from storyboard_paths import is_final_dir
 from storyboard_catalog_service import (
@@ -37,7 +37,8 @@ from pet_state import PAGE_OF
 from responsive_ui import FlowBar, refresh_check_heading, bind_row_toggle
 from storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import Card, PrimaryButton, SecondaryButton
+from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton, TextArea
+from ui_dialogs import FileDialog
 # 第 46 期第 1 条：内容框的右键菜单（查看／删除）用的是 cell_hover 那一份实现，两页都要用，
 # 所以提到模块头上（原先只在 show() 里 import，show_final 拿不到这个名字）。
 from cell_hover import CellHover
@@ -217,26 +218,18 @@ def show_final(desktop):
 
     left_box=Card(container,padding=SPACING['sm'])
     left_box.grid(row=0,column=0,sticky='nsew',pady=(SPACING['none'],SPACING['xs']))
-    left_box.columnconfigure(0,weight=1)
+    left_box.columnconfigure(0,weight=1); left_box.rowconfigure(0,weight=1)
     # 第 40 期第 2 条：用户要「第一栏改名同步资产分镜」＋「创建时间前面新增一栏是否同步」。
-    tree=ttk.Treeview(left_box,columns=('file','sync','time','location'),show='headings',selectmode='browse')
+    table_shell=DataTable(left_box,columns=[
+        ('file','同步资产分镜',250),('sync','是否同步',80),('time','创建时间',90),('location','项目内位置',150),
+    ],show='headings',selectmode='browse',empty_text='暂无分镜文件',auto_hide_scrollbars=True)
+    tree=table_shell.tree
     for col,label,width in [('file','同步资产分镜',250),('sync','是否同步',80),
                             ('time','创建时间',90),('location','项目内位置',150)]:
         tree.heading(col,text=label);tree.column(col,width=width,minwidth=60,stretch=col!='time')
     # 第 53 期第 4 条：列宽交给 fit_final_columns（内容量 ＋ 跟窗口收放，见上）——
     # 原来那个 auto_columns 只按「当前列宽」收放，窗口一变宽度几乎全被最后一列吃掉。
-    tree.grid(row=0,column=0,sticky='nsew')
-    left_scroll=ttk.Scrollbar(left_box,orient='vertical',command=tree.yview);left_scroll.grid(row=0,column=1,sticky='ns')
-    left_h=ttk.Scrollbar(left_box,orient='horizontal',command=tree.xview);left_h.grid(row=1,column=0,sticky='ew')
-    def left_v_scroll(first,last):
-        left_scroll.set(first,last)
-        if float(first)<=0 and float(last)>=1:left_scroll.grid_remove()
-        else:left_scroll.grid()
-    def left_h_scroll(first,last):
-        left_h.set(first,last)
-        if float(first)<=0 and float(last)>=1:left_h.grid_remove()
-        else:left_h.grid()
-    tree.configure(yscrollcommand=left_v_scroll,xscrollcommand=left_h_scroll)
+    table_shell.grid(row=0,column=0,sticky='nsew')
     tree.tag_configure('completed',background=COLORS['border_default'],foreground=COLORS['success'])
 
     right_box=Card(container,padding=SPACING['sm'])
@@ -263,7 +256,7 @@ def show_final(desktop):
 
     body=ttk.Frame(right_box);body.grid(row=2,column=0,sticky='nsew')
     body.columnconfigure(0,weight=1);body.rowconfigure(0,weight=1)
-    viewer=tk.Text(body,wrap='none',bg=COLORS['background_card'],fg=COLORS['text_primary'],
+    viewer=TextArea(body,wrap='none',bg=COLORS['background_card'],fg=COLORS['text_primary'],
                    font=FONTS['caption'],padx=SPACING['md'],pady=SPACING['md'],insertwidth=0)
     vscroll=ttk.Scrollbar(body,orient='vertical',command=viewer.yview)
     hscroll=ttk.Scrollbar(body,orient='horizontal',command=viewer.xview)
@@ -657,7 +650,7 @@ def show(desktop):
         desktop.status.set('已恢复 %d 项剧本／分镜文件' % len(restored))
     def browse():
         from project_stages import writing
-        values=filedialog.askopenfilenames(parent=desktop.win,title='选择用于制作分镜的剧本（可多选）',initialdir=writing(project),filetypes=[('剧本','*.md *.txt *.docx')])
+        values=FileDialog(desktop.win).open_files(title='选择用于制作分镜的剧本（可多选）',initialdir=writing(project),filetypes=[('剧本','*.md *.txt *.docx')])
         if values:choose('script',[Path(p).resolve() for p in values]);refresh()
     def adopt_selected():
         selected_paths=current_selection('storyboard');used=controller.adopted();incoming=[p for p in selected_paths if p not in used]

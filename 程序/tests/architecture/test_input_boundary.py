@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import ast
 import unittest
+from pathlib import Path
 
 from tests.architecture._scan import ROOT, parse
 
@@ -34,11 +35,13 @@ class InputBoundaryTests(unittest.TestCase):
 
     def test_business_ui_has_no_direct_entry_or_text_construction(self):
         actual = {}
-        for filename, maximum in LEGACY_DIRECT_INPUT_MAX.items():
-            count = len(_direct_inputs(parse(ROOT / filename)))
-            if count > maximum:
-                actual[filename] = f'{count}>{maximum}'
-        self.assertEqual(actual, {}, "业务 UI 历史直构输入数量只能下降：" + str(actual))
+        for path in ROOT.rglob('*.py'):
+            if 'tests' in path.parts or path.name == 'ui_widgets.py':
+                continue
+            count = len(_direct_inputs(parse(path)))
+            if count:
+                actual[path.relative_to(ROOT).as_posix()] = count
+        self.assertEqual(actual, {}, "业务 UI 不得绕过 LineInput/TextArea：" + str(actual))
 LEGACY_DIRECT_INPUT_MAX = {
     'app.py': 6, 'asset_detail.py': 1, 'asset_reference_import.py': 1,
     'cloud_assets.py': 1, 'cloud_video.py': 1, 'desktop.py': 5,

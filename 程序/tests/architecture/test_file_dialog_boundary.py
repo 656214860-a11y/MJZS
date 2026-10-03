@@ -31,6 +31,17 @@ class FileDialogBoundaryTests(unittest.TestCase):
             if count > maximum:
                 actual[filename] = f'{count}>{maximum}'
         self.assertEqual(actual, {}, '业务页历史直调 filedialog 数量只能下降：' + str(actual))
+
+    def test_business_modules_use_file_dialog_boundary(self):
+        """路线图收口：除统一入口本身外，业务模块不再直调 tkinter.filedialog。"""
+        actual = {}
+        for path in ROOT.glob('*.py'):
+            if path.name == 'ui_dialogs.py':
+                continue
+            calls = _direct_file_dialog_calls(ast.parse(path.read_text(encoding='utf-8')))
+            if calls:
+                actual[path.name] = [call.lineno for call in calls]
+        self.assertEqual(actual, {}, '业务模块必须经 FileDialog 选择文件：' + str(actual))
  # 现有业务页的冻结上限；首迁入口仍由下方的零容忍断言保护。
 LEGACY_FILE_DIALOG_MAX = {
     'app.py': 2, 'asset_detail.py': 2, 'asset_reference_import.py': 1,

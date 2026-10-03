@@ -9,6 +9,7 @@ from .core import read,save,fingerprint
 from api_models import records,remember,remove,label as model_label,identity
 from .shot_assets import assets
 import tk_timers
+from ui_widgets import BaseDialog, LineInput
 
 ROOT=Path(__file__).resolve().parent.parent
 CONFIG=ROOT/'private'/'prompt_optimizer.json'
@@ -22,8 +23,8 @@ def settings(app):
     if old is not None and old.winfo_exists():old.lift();return
     cfg=read(CONFIG) if CONFIG.is_file() else {}
     if not isinstance(cfg,dict):cfg={}
-    win=tk.Toplevel(app.window);app.optimizer_settings=win;win.attributes('-alpha',0)
-    win.title('Prompt Optimizer MCP 设置');win.geometry('820x560');win.columnconfigure(1,weight=1)
+    win=BaseDialog(app.window,'Prompt Optimizer MCP 设置',geometry='820x560',modal=False,chrome=False);app.optimizer_settings=win;win.attributes('-alpha',0)
+    win.columnconfigure(1,weight=1)
     entries={}
     presets={
         '智谱 GLM-4.7-Flash':('https://open.bigmodel.cn/api/paas/v4/','glm-4.7-flash'),
@@ -61,7 +62,7 @@ def settings(app):
               'server':str(HOME/'npm-global/node_modules/prompt-optimizer-mcp/mcp_server.py')}
     for row,(key,label) in enumerate([('base_url','优化模型 API 地址'),('model','文本模型 ID'),('api_key','API Key（留空保留）'),('python','优化服务 Python'),('server','MCP 服务文件')],start=1):
         ttk.Label(win,text=label).grid(row=row,column=0,sticky='w',padx=12,pady=10)
-        field=ttk.Entry(win)
+        field=LineInput(win)
         field.grid(row=row,column=1,sticky='ew',padx=12);entries[key]=field
         field.insert(0,cfg.get(key,defaults.get(key,'')))
     def select_provider(event=None):

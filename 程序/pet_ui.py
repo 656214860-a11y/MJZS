@@ -49,6 +49,7 @@ import stage_handler_registry
 import stage_flow
 import token_saver
 from pet_settings_contract import LEVEL_NOTES
+from ui_widgets import ContextMenu
 
 PROGRAM = Path(__file__).resolve().parent
 SIZE = 64                        # 贴片边长
@@ -3989,7 +3990,7 @@ class Pet:
             if index is None or self.menu is None:
                 continue
             try:
-                self.menu.entryconfigure(index, label=label)
+                self.menu.configure_entry(index, label=label)
             except Exception as exc:
                 self.errors.append(('menu', str(exc)))
             else:
@@ -4446,28 +4447,28 @@ class Pet:
         小标题（见 _add_section），用户扫一眼就知道该去哪一块找。头尾两块一眼就懂，不加。
         """
         import tkinter as tk
-        self.menu = tk.Menu(self.win, tearoff=0)
+        self.menu = ContextMenu(self.win)
         # ① 和三虎说话：提问、一键收尾。
-        self.menu.add_command(label='向三虎提问', command=lambda: self.act('chat'))
+        self.menu.command('向三虎提问', lambda: self.act('chat'))
         self._add_menu('一键执行（重试＋补首帧＋日报）', lambda: self.act('oneclick'))
-        self.menu.add_separator()
+        self.menu.separator()
         # ② 进度与待确认的事：面板、重试、详情、跳过。
         self._add_section('进度与待确认')
         self._add_menu(PANEL_MENU_LABEL, lambda: self.act(self.show_panel, speak=False), name='panel')
         self._add_menu('重试失败项', lambda: self.act('retry'))
         self._add_menu(DETAIL_MENU_LABEL, lambda: self.act(self.show_details, speak=False))
         self._add_menu('跳过这张', lambda: self.act('skip'))
-        self.menu.add_separator()
+        self.menu.separator()
         # ③ 设置与模型：两子菜单。
         self._add_section('设置与模型')
         self._build_settings_menu()
         self._build_model_menu()
-        self.menu.add_separator()
+        self.menu.separator()
         # ④ 运行状态：自动化入口只保留猫爪，右键不再重复提供手动／全自动。
         self._add_section('运行状态')
         self._add_menu(self.pause_label(), lambda: self.act(self.pause_action), name='pause')
         self._add_menu(self.snooze_label(), lambda: self.act(self.toggle_snooze), name='snooze')
-        self.menu.add_separator()
+        self.menu.separator()
         # ⑤ 退出程序：单独一块（点错了真会关掉）。
         self._add_menu(QUIT_LABEL, lambda: self.act(self.quit_app), name='quit')
         return self.menu
@@ -4524,12 +4525,11 @@ class Pet:
     def _build_mode_menu(self):
         """运行状态中的模式单选菜单；只调用三虎的 set_mode。"""
         import tkinter as tk
-        sub = tk.Menu(self.menu, tearoff=0)
+        sub = self.menu.submenu()
         self.menu_mode = sub
         self.mode_var = tk.StringVar(master=self.win, value=self.mode)
         for value, label in (('manual', '手动模式'), ('auto', '全自动模式')):
-            sub.add_radiobutton(label=label, variable=self.mode_var, value=value,
-                                command=lambda target=value: self.set_mode(target))
+            sub.radio(label, self.mode_var, value, lambda target=value: self.set_mode(target))
         self._add_cascade(self.mode_label(), sub, name='mode')
         return sub
 
@@ -4539,7 +4539,7 @@ class Pet:
         第 18 期起整栏重建一次就跟着变；第 43 期起条目来自模型池（模型管理），不再硬编码档位。
         """
         import tkinter as tk
-        sub = tk.Menu(self.menu, tearoff=0)
+        sub = self.menu.submenu()
         self.menu_tier = sub
         self._fill_model_menu()
         self._add_cascade(self.model_label(), sub, name='model')
@@ -4550,7 +4550,7 @@ class Pet:
         sub = self.menu_tier
         if sub is None:
             return None
-        sub.delete(0, 'end')
+        sub.clear()
         records = self.agent_model_records()
         entries = [(model_pool.AUTO, model_pool.AUTO_LABEL)]
         entries.extend((model_id, item['label']) for model_id, item in records.items())
@@ -4558,10 +4558,9 @@ class Pet:
                        if tier != model_pool.AUTO and tier not in records)
         for model_id, label in entries:
             mark = '✓ ' if model_id == self.tier else ''
-            sub.add_command(label=mark + label,
-                            command=lambda value=model_id: self.act(lambda: self.set_tier(value)))
-        sub.add_separator()
-        sub.add_command(label='+ 新增模型…', command=lambda: self.act(self.open_model_manager))
+            sub.command(mark + label, lambda value=model_id: self.act(lambda: self.set_tier(value)))
+        sub.separator()
+        sub.command('+ 新增模型…', lambda: self.act(self.open_model_manager))
         return sub
 
     def _build_settings_menu(self):
@@ -4571,11 +4570,10 @@ class Pet:
         附件里还有一格「SKILL 管理」——用户这一轮说不用做，所以这里不摆，也不留空占位。
         """
         import tkinter as tk
-        sub = tk.Menu(self.menu, tearoff=0)
+        sub = self.menu.submenu()
         self.menu_settings = sub
         for tab, label in SETTINGS_ENTRIES:
-            sub.add_command(label=label,
-                            command=lambda key=tab: self.act(lambda: self.open_settings(key)))
+            sub.command(label, lambda key=tab: self.act(lambda: self.open_settings(key)))
         self._add_cascade(SETTINGS_LABEL, sub, name='settings')
         return sub
 
@@ -4585,13 +4583,13 @@ class Pet:
         第 60 期第 2 条。它不记序号——事后改文字（refresh_menu_labels）只认 model／pause／snooze
         那几项，标题永远不动，也就不会被算错。
         """
-        self.menu.add_command(label='【%s】' % title, state='disabled')
+        self.menu.disabled('【%s】' % title)
         return title
 
     def _add_cascade(self, label, menu, name=None):
         """加一个子菜单并记下它的序号（序号用来事后改文字，不用 Tk 变量）。"""
         index = self.menu.index('end')
-        self.menu.add_cascade(label=label, menu=menu)
+        self.menu.cascade(label, menu)
         index = 0 if index is None else index + 1
         if name:
             self.menu_index[name] = index
@@ -4600,7 +4598,7 @@ class Pet:
     def _add_menu(self, label, command, name=None):
         """加一个菜单项并记下它的序号（序号用来事后改文字，不用 Tk 变量）。"""
         index = self.menu.index('end')
-        self.menu.add_command(label=label, command=command)
+        self.menu.command(label, command)
         index = 0 if index is None else index + 1
         if name:
             self.menu_index[name] = index
@@ -4694,9 +4692,8 @@ class Pet:
         # 栏里那几项自己开的界面（比如「向三虎提问」）照旧，不受这道闸影响。
         self._menu_open = True
         try:
-            self.menu.tk_popup(int(x), int(y))
+            self.menu.popup_at(int(x), int(y))
         finally:
-            self.menu.grab_release()
             self._menu_open = False
             self.say_held()
         return self.menu

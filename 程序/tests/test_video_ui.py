@@ -611,13 +611,16 @@ class AssetCheckTableTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             app, _proj, _win = self.make_app(td)
             picker, table, buttons, _labels = self.picker(app)
-            self.assertEqual(str(table.winfo_manager()), "pack", "那张表得真摆进窗里")
-            self.assertGreater(int(table.winfo_reqheight()), 0, "得请求到高度")
-            self.assertEqual(str(table.pack_info().get("fill")), "both",
+            from ui_widgets import DataTable
+            shell = table.master
+            self.assertIsInstance(shell, DataTable, "资产选择器必须使用统一 DataTable")
+            self.assertEqual(str(shell.winfo_manager()), "pack", "那张表得真摆进窗里")
+            self.assertGreater(int(shell.winfo_reqheight()), 0, "得请求到高度")
+            self.assertEqual(str(shell.pack_info().get("fill")), "both",
                              "内容框吃掉剩下的地方")
             self.assertEqual(str(buttons["关闭"].master.pack_info().get("side")), "bottom",
                              "底下那排按钮先落位")
-            self.assertIs(picker.pack_slaves()[-1], table,
+            self.assertIs(picker.pack_slaves()[-1], shell,
                           "内容框最后 pack：窗口再矮也是它先让步")
 
 

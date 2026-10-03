@@ -53,7 +53,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'open_recycle_recovery')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assert_historical_treeview_ceiling(direct, 2, '回收站恢复对话框的历史 Treeview 数不得增加')
+        self.assertEqual(direct, [], '回收站恢复对话框必须通过 DataTable 构造表格')
 
     def test_project_selection_pages_use_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'desktop.py')
@@ -74,7 +74,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'writing')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assert_historical_treeview_ceiling(direct, 1, '剧本文件列表的历史 Treeview 数不得增加')
+        self.assertEqual(direct, [], '剧本文件列表必须通过 DataTable 构造表格')
 
     def test_keyframe_table_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'desktop.py')
@@ -84,7 +84,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'storyboard')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assert_historical_treeview_ceiling(direct, 1, '首帧管理页的历史 Treeview 数不得增加')
+        self.assertEqual(direct, [], '首帧管理页必须通过 DataTable 构造表格')
 
     def test_asset_batch_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'asset_batch.py')

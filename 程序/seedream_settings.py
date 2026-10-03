@@ -4,6 +4,8 @@ import webbrowser
 from tkinter import ttk,messagebox
 import seedream_api as api
 import tk_timers
+from ui_widgets import LineInput
+from ui_widgets import BaseDialog
 
 
 def confirm_unsettled(parent,folder,values,what='镜头'):
@@ -24,8 +26,7 @@ def confirm_unsettled(parent,folder,values,what='镜头'):
 
 
 def show(parent,on_saved=None):
-    win=tk.Toplevel(parent);win.withdraw();win.title('Seedream 5.0 Pro · 火山 API');win.transient(parent)
-    win.geometry('760x420');win.minsize(620,390)
+    win=BaseDialog(parent,'Seedream 5.0 Pro · 火山 API',geometry='760x420',minsize=(620,390),modal=False,chrome=False);win.withdraw()
     body=ttk.Frame(win,padding=16);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1)
     ttk.Label(body,text='使用您自己的火山方舟 API Key，费用计入火山账户，无需 Comfy 余额。',wraplength=690).grid(row=0,column=0,columnspan=3,sticky='w',pady=(0,12))
     values={key:tk.StringVar(value=value) for key,value in {'base_url':api.DEFAULT_URL,'model':'','api_key':''}.items()}
@@ -38,7 +39,7 @@ def show(parent,on_saved=None):
     fill()
     for row,key,label in [(1,'base_url','API 根地址'),(2,'model','模型 ID'),(3,'api_key','火山 API Key')]:
         ttk.Label(body,text=label).grid(row=row,column=0,sticky='w',padx=(0,12))
-        ttk.Entry(body,textvariable=values[key],show='•' if key=='api_key' else '').grid(row=row,column=1,columnspan=2,sticky='ew',pady=6)
+        LineInput(body,textvariable=values[key],show='•' if key=='api_key' else '').grid(row=row,column=1,columnspan=2,sticky='ew',pady=6)
     ttk.Label(body,text='模型 ID 填写火山控制台已开通的实际值，也支持推理接入点 ID。\n支持纯提示词或最多 10 张分类参考图；每项生成一张，批量顺序执行。',wraplength=690).grid(row=4,column=0,columnspan=3,sticky='w',pady=8)
     ttk.Label(body,text='已保存模型').grid(row=5,column=0,sticky='w')
     selected=tk.StringVar();choices={}

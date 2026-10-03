@@ -6,7 +6,7 @@ from tkinter import ttk,messagebox
 import webbrowser
 from pathlib import Path
 from ui_tokens import SPACING
-from ui_widgets import PrimaryButton, SecondaryButton
+from ui_widgets import BaseDialog, LineInput, PrimaryButton, SecondaryButton
 from agent.core import read
 from api_models import identity,cloud_removed
 from project_naming import dated_path
@@ -83,9 +83,9 @@ def settings_window(desktop):
         if folder.is_relative_to((project/'cloud_video').resolve()) and (folder/'config.json').is_file():
             remembered=read(folder/'config.json')
             if not isinstance(remembered,dict):remembered={}
-    win=tk.Toplevel(desktop.win);win.attributes('-alpha',0)
+    win=BaseDialog(desktop.win,'调用设置 · 云端视频 API',geometry='820x620',modal=False,chrome=False);win.attributes('-alpha',0)
     desktop.cloud_settings_window=win
-    win.title('调用设置 · 云端视频 API');win.geometry('820x620');win.columnconfigure(1,weight=1)
+    win.columnconfigure(1,weight=1)
     # 第 36 期第 2 条：下半截原来是一大段密排说明 ＋ 一列铺满整行的链接按钮，读起来费劲、
     # 也看不出哪个是主操作。现在窗口可放大（说明跟着换行），下面按「主操作 → 说明分条 →
     # 服务商控制台」三段排。
@@ -98,7 +98,7 @@ def settings_window(desktop):
     entries={}
     for row,(key,label) in enumerate([('base','API根地址'),('model','模型ID'),('key','API Key（留空保留同地址密钥）'),('budget','本地累计调用上限（秒）')],1):
         ttk.Label(win,text=label).grid(row=row,column=0,padx=SPACING['md'],pady=SPACING['md'],sticky='w')
-        field=ttk.Combobox(win) if key=='model' else ttk.Entry(win)
+        field=ttk.Combobox(win) if key=='model' else LineInput(win)
         if key=='key':field.configure(show='•')
         field.grid(row=row,column=1,padx=SPACING['md'],sticky='ew');entries[key]=field
     entries['budget'].insert(0,'60')

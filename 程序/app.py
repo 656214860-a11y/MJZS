@@ -8,7 +8,7 @@ import queue
 import threading
 import time
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+from tkinter import ttk, messagebox
 from pathlib import Path
 from storyboard_paths import media_root, project_root
 from responsive_ui import FlowBar,QuietVar,configure_check_column,CheckboxColumn,fit_columns_by_content,fit_row_height,row_height_for
@@ -21,7 +21,10 @@ import asset_thumbs
 import ui_plugin_registry
 from platform_tools import open_path
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import PrimaryButton, SecondaryButton
+from ui_widgets import (BaseDialog, ContextMenu, DataTable, LineInput, NotificationDispatcher,
+                        PrimaryButton, SecondaryButton, TextArea)
+from ui_dialogs import FileDialog
+from ui_shortcuts import ShortcutRegistry
 
 ROOT=Path(__file__).resolve().parent
 # 第 30 期第 2 条：「勾选要上传的镜头资产」改名「选择镜头资产」——线上／本地一个说法。
@@ -115,14 +118,16 @@ class App:
         self.footer.pack(side='bottom',fill='x',pady=SPACING['xs'])
         # Embedded in the shared project workspace.
         # 第 38 期第 1 条：这一行只报本页那一侧，占位文字也别把两侧都写上。
-        self.status=tk.StringVar();self.shared_progress=QuietVar(value='进度读取中…')
+        self.status=tk.StringVar();self.notifier=NotificationDispatcher(self.status, parent=window);self.shortcuts=ShortcutRegistry();self.shared_progress=QuietVar(value='进度读取中…')
         table_box=ttk.Frame(window);table_box.pack(fill='x',padx=SPACING['lg'])
-        self.tree=ttk.Treeview(table_box,columns=('id','title',ASSET_FIELD,'seconds','frame','state','local_progress','cloud_progress','review','versions','white_model'),show='tree headings',height=SHOT_ROWS,selectmode='browse',takefocus=True,style='Shot.Treeview')
-        scrollbar=ttk.Scrollbar(table_box,orient='vertical',command=self.tree.yview)
-        scrollbar.grid(row=0,column=1,sticky='ns');self.tree.configure(yscrollcommand=scrollbar.set)
-        horizontal=ttk.Scrollbar(table_box,orient='horizontal',command=self.tree.xview)
-        horizontal.grid(row=1,column=0,sticky='ew');self.tree.configure(xscrollcommand=horizontal.set)
-        table_box.columnconfigure(0,weight=1)
+        table_shell=DataTable(table_box,columns=[
+            ('id','镜头号',110),('title','内容',145),(ASSET_FIELD,ASSET_TITLE,145),('seconds','秒数',145),
+            ('frame','首帧',145),('state','当前任务',145),('local_progress','本地进度',145),
+            ('cloud_progress','线上进度',145),('review','验收',145),('versions','版本数',145),('white_model','白模 · 上传',145),
+        ],show='tree headings',height=SHOT_ROWS,selectmode='browse',takefocus=True,
+          style='Shot.Treeview',empty_text='暂无镜头')
+        self.tree=table_shell.tree
+        table_box.columnconfigure(0,weight=1);table_box.rowconfigure(0,weight=1)
         # 第 58 期第 2 条：行高按格子内容现算——「首帧」列是 54 像素的缩略图，
         # 行高就是图高加上下余地；以后图尺寸或字体变了，行高自己跟着走。
         fit_row_height(self.tree,SHOT_THUMB_SIZE,style='Shot.Treeview')
@@ -133,7 +138,7 @@ class App:
         # 不再是一个没有标题的空格子。
         for k,t in [('id','镜头号'),('title','内容'),(ASSET_FIELD,ASSET_TITLE),('seconds','秒数'),('frame','首帧'),('state','当前任务'),('local_progress','本地进度'),('cloud_progress','线上进度'),('review','验收'),('versions','版本数'),('white_model','白模 · 上传')]:self.tree.heading(k,text=t)
         for k in self.tree['columns']:self.tree.column(k,width=145)
-        self.tree.column('id',width=110);self.tree.grid(row=0,column=0,sticky='ew')
+        self.tree.column('id',width=110);table_shell.grid(row=0,column=0,sticky='ew')
         self.tree.tag_configure('completed',background=COLORS['border_default'],foreground=COLORS['success'])
         self.tree.bind('<<TreeviewSelect>>',lambda e:self.select())
         from shot_selection import bind_shot_checks
@@ -208,27 +213,29 @@ class App:
         self.prompt_box=prompt_box      # 第 58 期第 1 条：量高度要用它的位置与高度
         prompt_scroll=ttk.Scrollbar(prompt_box,orient='vertical')
         prompt_scroll.pack(side='right',fill='y')
-        self.prompt=tk.Text(prompt_box,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],
+        self.prompt=TextArea(prompt_box,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],
                             height=self.PROMPT_ROWS_MIN,wrap='word',font=FONTS['body'],
                             padx=SPACING['sm'],pady=SPACING['sm'],spacing1=SPACING['xs'],spacing3=SPACING['xs'],
                             undo=True,autoseparators=True,maxundo=100,
                             yscrollcommand=prompt_scroll.set)
         self.prompt.pack(side='left',fill='both',expand=True)
         prompt_scroll.configure(command=self.prompt.yview)
-        self.prompt.bind('<Control-a>',lambda event:(self.prompt.tag_add('sel','1.0','end-1c'),'break')[1])
+        self.shortcuts.bind(self.prompt, ('<Control-a>', '<Control-A>'),
+                            lambda event:(self.prompt.tag_add('sel','1.0','end-1c'),'break')[1],
+                            scope='视频生成·提示词', name='全选提示词')
         # 第 48 期第 4 条：提示词框不再写死 7 行，跟着内容多少自己长高或变矮。
         self.prompt_width=None
         self.prompt.bind('<<Modified>>',self.prompt_edited)
         self.prompt.bind('<Configure>',self.prompt_resized,add='+')
         # 第 58 期第 1 条：窗口一变大小，提示词框与日志框的高度就重算一遍（提示词优先）。
         self.window.bind('<Configure>',self.fit_page_heights,add='+')
-        prompt_menu=tk.Menu(self.prompt,tearoff=False)
+        prompt_menu=ContextMenu(self.prompt)
         for title,command in [('剪切',lambda:self.prompt.event_generate('<<Cut>>')),
                               ('复制',lambda:self.prompt.event_generate('<<Copy>>')),
                               ('粘贴',lambda:self.prompt.event_generate('<<Paste>>')),
                               ('全选',lambda:self.prompt.tag_add('sel','1.0','end-1c'))]:
-            prompt_menu.add_command(label=title,command=command)
-        self.prompt.bind('<Button-3>',lambda event:prompt_menu.tk_popup(event.x_root,event.y_root))
+            prompt_menu.command(title,command)
+        self.prompt.bind('<Button-3>',prompt_menu.popup)
         # 第 35 期第 5 条：这行按钮的上下外边距一起收到 2／4，紧贴下面的提示词内容框。
         prompt_actions=FlowBar(window);prompt_actions.pack(fill='x',padx=SPACING['lg'],pady=(SPACING['xs'],SPACING['xs']),before=prompt_box)
         # 第 29 期第 4 条：原来这里还有一颗「设置model+skill」和一份贴在同行的 Model＋SKILL
@@ -264,9 +271,9 @@ class App:
         # 第 55 期第 1 条：首帧缩略图那一层的重排已经收进它自己（watch_view），这里只管
         # 白模勾选框那一层（它归这一页自己摆）。
         def scroll_white(first,last):
-            scrollbar.set(first,last);self.tree.after_idle(self.layout_white_cells)
+            table_shell.vertical_scrollbar.set(first,last);self.tree.after_idle(self.layout_white_cells)
         def horizontal_white(first,last):
-            horizontal.set(first,last);self.tree.after_idle(self.layout_white_cells)
+            table_shell.horizontal_scrollbar.set(first,last);self.tree.after_idle(self.layout_white_cells)
         self.tree.configure(yscrollcommand=scroll_white,xscrollcommand=horizontal_white)
         actions=ttk.Frame(self.footer);actions.pack(fill='x',padx=SPACING['sm'],pady=SPACING['xs'])
         actions.columnconfigure(0,weight=1)
@@ -324,7 +331,7 @@ class App:
         # 第 46 期第 9 条：批量删除与它成对——都只认勾选行，逐个删除走内容框的右键菜单。
         self.delete_checked_button=add(secondary,'删除勾选镜头',self.delete_checked_shots)
         ttk.Label(secondary,text='验收备注：').pack(side='left',padx=(SPACING['sm'],SPACING['xs']))
-        self.note=ttk.Entry(secondary,width=14);self.note.pack(side='left')
+        self.note=LineInput(secondary,width=14);self.note.pack(side='left')
         # 第 39 期第 2 条：验收那一组并进第二行（通过／需修改／验收备注），这一列只剩「自动验收」——
         # 它排在「自动提交」下面（自动提交先建、先 pack）。
         self.auto_review=tk.BooleanVar(value=False)
@@ -346,7 +353,7 @@ class App:
                   activebackground=COLORS['primary_subtle'],relief='flat',borderwidth=0,padx=SPACING['sm'],pady=SPACING['none'],cursor='hand2',font=FONTS['caption']).pack(side='right',padx=SPACING['xs'])
         log_body=tk.Frame(log_box,bg=COLORS['background_card']);log_body.pack(fill='both',expand=True)
         log_scroll=ttk.Scrollbar(log_body,orient='vertical');log_scroll.pack(side='right',fill='y')
-        self.log=tk.Text(log_body,bg=COLORS['background_card'],fg=COLORS['text_secondary'],height=self.LOG_ROWS_MIN,state='disabled',wrap='word',
+        self.log=TextArea(log_body,bg=COLORS['background_card'],fg=COLORS['text_secondary'],height=self.LOG_ROWS_MIN,state='disabled',wrap='word',
                          borderwidth=0,highlightthickness=0,padx=SPACING['sm'],pady=SPACING['xs'],yscrollcommand=log_scroll.set)
         self.log.pack(side='left',fill='both',expand=True);log_scroll.configure(command=self.log.yview)
         from video_prompt_results import PromptResults
@@ -542,7 +549,7 @@ class App:
         try:
             if self.busy: raise ValueError('正在执行操作，请稍后')
             fn()
-        except Exception as e:messagebox.showerror('提示',str(e),parent=self.window)
+        except Exception as e:self.notifier.error(str(e), title='提示')
     def white_model_path(self,sid):
         """这一镜的白模视频（第 54 期第 3 条：「白模 · 上传」那一列右键查看的就是它）。"""
         from white_model import shot_directory,project_for_app,read_record
@@ -573,7 +580,7 @@ class App:
             with self.studio.lock():
                 self.studio.episode=save_stage_white_model_upload(self.studio.episode_path,sid,var.get())
         except Exception as exc:
-            var.set(previous);messagebox.showerror('白模上传',str(exc),parent=self.window)
+            var.set(previous);self.notifier.error(str(exc), title='白模上传')
     def layout_white_cells(self):
         if not hasattr(self,'white_cells') or not self.tree.winfo_exists():return
         ids=set(self.tree.get_children())
@@ -596,9 +603,9 @@ class App:
     def writing_setup(self):
         from writing import STAGES,prepare
         from stage_execution_service import publish_writing_preparation,project_registry_gateway
-        win=tk.Toplevel(self.window);win.attributes('-alpha',0);win.title('剧本准备 · 五阶段编剧技能');win.geometry('780x540')
+        win=BaseDialog(self.window,'剧本准备 · 五阶段编剧技能',geometry='780x540',modal=False,chrome=False);win.attributes('-alpha',0)
         ttk.Label(win,text='填写创意或粘贴已有剧本：').pack(anchor='w',padx=12,pady=6)
-        brief=tk.Text(win,height=15,wrap='word');brief.pack(fill='both',expand=True,padx=12)
+        brief=TextArea(win,height=15,wrap='word');brief.pack(fill='both',expand=True,padx=12)
         # 第 45 期：这一栏里的示例以前是正常黑字，看着像用户自己写的，一按「生成编剧任务书」才发现
         # 交上去的是软件自带的那几句话。现在示例默认置灰（只是提示）：一动键盘整段让位，
         # 空着再离开焦点就把灰色的示例放回来；真拿着示例去生成会被拦下并说清。
@@ -623,7 +630,7 @@ class App:
         show_example()
         row=ttk.Frame(win);row.pack(fill='x',padx=12,pady=8)
         stage=ttk.Combobox(row,values=STAGES,state='readonly',width=25);stage.current(0);stage.pack(side='left')
-        ttk.Label(row,text='目标秒数：').pack(side='left',padx=8);duration=ttk.Entry(row,width=8);duration.insert(0,'40');duration.pack(side='left')
+        ttk.Label(row,text='目标秒数：').pack(side='left',padx=8);duration=LineInput(row,width=8);duration.insert(0,'40');duration.pack(side='left')
         def generate():
             try:
                 if self.busy:raise ValueError('请等待当前操作完成')
@@ -633,14 +640,14 @@ class App:
                 folder=prepare(self.root,text,stage.get(),duration.get(),
                                publish=publish_writing_preparation)
                 self.write('编剧任务书已生成：'+str(folder));open_path(folder)
-                messagebox.showinfo('已准备','任务书、技能说明、资产表和JSON模板已保存。\n交给 Codex 执行即可，本按钮不调用模型。',parent=self.window)
-            except Exception as e:messagebox.showerror('无法准备',str(e),parent=self.window)
+                self.notifier.success('任务书、技能说明、资产表和JSON模板已保存。\n交给 Codex 执行即可，本按钮不调用模型。', title='已准备', modal=True)
+            except Exception as e:self.notifier.error(str(e), title='无法准备')
         ttk.Button(win,text='生成编剧任务书（离线）',command=generate).pack(pady=12)
     def import_json(self):
         from writing import validate_episode
         from agent.core import read
         from stage_execution_service import import_writing_project
-        file=filedialog.askopenfilename(title='选择编剧输出的镜头JSON',filetypes=[('镜头JSON','*.json')],parent=self.window)
+        file=FileDialog(self.window).open_file(title='选择编剧输出的镜头JSON',filetypes=[('镜头JSON','*.json')])
         if not file:return
         source=Path(file);af=source.parent/'assets.json'
         assets=read(af) if af.exists() else read(self.studio.episode_dir/'assets.json')
@@ -650,7 +657,7 @@ class App:
         if messagebox.askyesno('导入预览',details+'\n创建新项目？',parent=self.window):
             folder,report=import_writing_project(self.root,file);open_path(folder)
             self.write('新项目已创建：'+str(folder))
-            messagebox.showinfo('导入完成','新项目已加入漫剧助手，在“我的项目”中选择即可。\n缺失首帧可在首帧管理补齐。',parent=self.window)
+            self.notifier.success('新项目已加入漫剧助手，在“我的项目”中选择即可。\n缺失首帧可在首帧管理补齐。', title='导入完成', modal=True)
     def sid(self):
         """当前这一镜（第 47 期第 1 条）：高亮优先；没高亮就用第一个勾选行。
 
@@ -725,12 +732,11 @@ class App:
         view_label,view,delete_label,delete=self.cell_actions(sid,self.tree.identify_column(event.x))
         if view is None and delete is None:return
         self.tree.selection_set(sid);self.tree.focus(sid);self.select()
-        menu=tk.Menu(self.window,tearoff=False)
-        if view is not None:menu.add_command(label=view_label,command=lambda:self.safe(view))
-        if delete is not None:menu.add_command(label=delete_label,command=lambda:self.safe(delete))
-        if menu.index('end') is None:return
-        try:menu.tk_popup(event.x_root,event.y_root)
-        finally:menu.grab_release()
+        # 保持该页可替换的菜单工厂，供无窗口的动作逻辑测试注入替身。
+        menu=ContextMenu(self.window, menu_factory=tk.Menu)
+        if view is not None:menu.command(view_label,lambda:self.safe(view))
+        if delete is not None:menu.command(delete_label,lambda:self.safe(delete))
+        return menu.popup(event)
     def delete_video_shot(self,sid=None,ask=True,rebuild=True):
         """逐个删除：目标就是传进来的那一镜（右键那一行）；ask／rebuild 给批量删除复用。"""
         sid=sid or self.sid()
@@ -900,16 +906,18 @@ class App:
         from cell_hover import CellHover,CellImages,ZOOM_SIZE
         from responsive_ui import refresh_check_heading,row_toggle_target
         tick_images=list(getattr(self.scheduler,'_tick_images',None) or ('',''))
-        win=tk.Toplevel(self.window);win.withdraw();win.transient(self.window)
-        win.title('选择资产 · '+sid);win.geometry('720x430');win.minsize(520,340)
+        win=BaseDialog(self.window,'选择资产 · '+sid,geometry='720x430',minsize=(520,340),modal=False,chrome=False);win.withdraw()
         ttk.Label(win,wraplength=660,text=(
             LOCKED_NOTE if locked else
             '单击一行＝勾上／取消（勾上的随视频上传）；双击缩略图看它的图片。' if rows else
             '这一镜没有声明资产，或资产清单暂时读不出来。')).pack(anchor='w',padx=SPACING['md'],pady=(SPACING['md'],SPACING['sm']))
         note=tk.StringVar()
         ttk.Label(win,textvariable=note,style='Muted.TLabel',wraplength=660).pack(anchor='w',padx=SPACING['md'],pady=(SPACING['none'],SPACING['sm']))
-        table=ttk.Treeview(win,columns=('thumb','name','state'),show='tree headings',
-                           height=PICK_ROWS,selectmode='browse',style='Picker.Treeview')
+        table_shell=DataTable(win,columns=[
+            ('thumb','缩略图',PICK_THUMB_SIZE+28),('name','资产',300),('state','图片',90),
+        ],show='tree headings',height=PICK_ROWS,selectmode='browse',style='Picker.Treeview',
+          empty_text='暂无可选资产')
+        table=table_shell.tree
         fit_row_height(table,PICK_THUMB_SIZE,style='Picker.Treeview')   # 第 58 期第 2 条
         configure_check_column(table)                                   # 第 59 期第 11 条：首列＝勾选框
         table.heading('thumb',text='缩略图')
@@ -986,7 +994,7 @@ class App:
         # 第 57 期第 5 条：内容框最后 pack 去吃掉剩下的地方（底下那排按钮先按 side='bottom' 落了位，
         # 窗口再矮也是内容框先让步）。少了这一句整张表根本没摆进窗里——窗里只剩说明与按钮，
         # 一行资产都看不见（眼验截图里就是这么一片空白）。
-        table.pack(fill='both',expand=True,padx=SPACING['md'],pady=(SPACING['none'],SPACING['sm']))
+        table_shell.pack(fill='both',expand=True,padx=SPACING['md'],pady=(SPACING['none'],SPACING['sm']))
         fill();mark_header();win.update_idletasks()
         win.geometry('+%d+%d'%(max(0,self.window.winfo_rootx()+(self.window.winfo_width()-win.winfo_width())//2),
                                max(0,self.window.winfo_rooty()+(self.window.winfo_height()-win.winfo_height())//2)))
@@ -1138,7 +1146,7 @@ class App:
         sid=self.sid()
         if getattr(self,'optimizer_busy',False):raise ValueError('请等待 MCP 优化完成后再导入')
         folder=self.studio.media_dir/'video_prompts'
-        name=filedialog.askopenfilename(parent=self.window,title='为 '+sid+' 导入提示词',
+        name=FileDialog(self.window).open_file(title='为 '+sid+' 导入提示词',
             initialdir=str(folder if folder.is_dir() else self.studio.episode_path.parent),
             filetypes=[('提示词文件','*.txt *.md *.json'),('文本','*.txt'),('Markdown','*.md'),('JSON','*.json')])
         if not name:return
@@ -1297,11 +1305,11 @@ class App:
         self.write(sid+' 已恢复任务编号：'+task_id+'，将自动跟踪查询。')
     def settings(self):
         if isinstance(self.studio,LocalStudio):return settings_window(self)
-        win=tk.Toplevel(self.window);win.attributes('-alpha',0);win.title('设置');entries={}
+        win=BaseDialog(self.window,'设置',modal=False,chrome=False);win.attributes('-alpha',0);entries={}
         labels={'project_dir':'密钥.env所在目录','base_url':'阿里云API根地址','model':'模型ID','ffmpeg':'FFmpeg程序','ffprobe':'FFprobe程序','budget_seconds':'本地总预算秒数（含历史占用）','reserve_seconds':'备用秒数'}
         for row,(key,label) in enumerate(labels.items()):
             ttk.Label(win,text=label).grid(row=row,column=0,padx=SPACING['sm'],pady=SPACING['sm'],sticky='w')
-            e=ttk.Entry(win,width=80);e.insert(0,str(self.studio.cfg[key]));e.grid(row=row,column=1,padx=SPACING['sm']);entries[key]=e
+            e=LineInput(win,width=80);e.insert(0,str(self.studio.cfg[key]));e.grid(row=row,column=1,padx=SPACING['sm']);entries[key]=e
         live=tk.BooleanVar(value=self.studio.cfg['live_enabled']);ttk.Checkbutton(win,text='开启联网生成与查询（需手动提交）',variable=live).grid(row=len(labels),column=1,sticky='w')
         def commit():
             try:
@@ -1314,7 +1322,7 @@ class App:
                 WanAdapter(cfg) # Reject arbitrary credential destinations before saving.
                 from stage_execution_service import publish_cloud_video_studio_config
                 publish_cloud_video_studio_config(self.root/'config.json',cfg);self.studio.cfg=cfg;win.destroy();self.refresh()
-            except Exception as e:messagebox.showerror('无法保存',str(e),parent=self.window)
+            except Exception as e:self.notifier.error(str(e), title='无法保存')
         PrimaryButton(win,text='保存',command=commit).grid(row=len(labels)+1,column=1,pady=SPACING['md'])
     def open_assembled(self):
         from project_stages import exports
@@ -1360,7 +1368,7 @@ class App:
                         if self.quiet_run:
                             self.write('后台查询或下载暂时中断，30秒后自动重试；不会重新提交生成。')
                         elif self.window.winfo_ismapped():
-                            messagebox.showerror('操作未完成',str(value),parent=self.window)
+                            self.notifier.error(str(value), title='操作未完成')
                 except Exception:
                     # Results/task IDs are persisted by the engine; rendering must not stop polling.
                     pass

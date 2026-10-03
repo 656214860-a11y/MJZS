@@ -5,7 +5,7 @@ from pathlib import Path
 from file_cache import remove_temporary_file
 from storyboard_paths import media_root
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog
+from tkinter import ttk, messagebox, simpledialog
 from agent.core import read,save,save_text,save_bytes
 import project_settings
 from projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
@@ -86,9 +86,7 @@ ASSET_ROWS_PER_FRAME=12
 def confirm_project_removal_from_last_script(parent, files):
     """红色破坏性确认：删掉最后剧本时，用户必须明确同意删除整个项目。"""
     names='\n'.join(str(name) for name in files)
-    win=tk.Toplevel(parent)
-    win.title('危险操作：删除当前项目')
-    win.transient(parent)
+    win=BaseDialog(parent, '危险操作：删除当前项目', modal=False, chrome=False)
     win.resizable(False,False)
     border=tk.Frame(win,bg='#c62828',padx=2,pady=2);border.pack(fill='both',expand=True)
     body=tk.Frame(border,bg='#fff5f5',padx=22,pady=18);body.pack(fill='both',expand=True)
@@ -966,14 +964,9 @@ class Desktop:
         try:text=str(box.clipboard_get() or '')
         except tk.TclError:return 'break'
         if not text:return 'break'
-        menu=tk.Menu(box,tearoff=False)
-        menu.add_command(label='粘贴',command=lambda:box.event_generate('<<Paste>>'))
+        menu=ContextMenu(box, menu_factory=tk.Menu).command('粘贴',lambda:box.event_generate('<<Paste>>'))
         self._idea_paste_menu=menu
-        try:menu.tk_popup(event.x_root,event.y_root)
-        finally:
-            try:menu.grab_release()
-            except tk.TclError:pass
-        return 'break'
+        return menu.popup(event)
     def update_idea_attachment_status(self):
         """仅展示用户已选择的文件名；路径和正文不出现在界面或聊天记录。"""
         label=getattr(self,'idea_attachment_status',None)
@@ -1034,15 +1027,11 @@ class Desktop:
         import idea_attachments
         paths=idea_attachments.uploaded(self.root)
         if not paths:return None
-        menu=tk.Menu(event.widget,tearoff=False)
+        menu=ContextMenu(event.widget, menu_factory=tk.Menu)
         for path in paths:
-            menu.add_command(label=path.name,command=lambda item=path:self.insert_idea_reference(item))
+            menu.command(path.name,lambda item=path:self.insert_idea_reference(item))
         self._idea_reference_menu=menu
-        try:menu.tk_popup(event.x_root,event.y_root)
-        finally:
-            try:menu.grab_release()
-            except tk.TclError:pass
-        return 'break'
+        return menu.popup(event)
     def bubble_edit_position_allowed(self,box,index,selection=True):
         """编辑态的插入点／选区只能落在正文标记内，气泡外的标题和控件永远只读。"""
         edit=getattr(self,'_bubble_edit',None)
@@ -1575,7 +1564,7 @@ class Desktop:
                     return
                 reply=str(result.get('text') or '').strip()
                 if not reply:
-                    messagebox.showerror('模型调用失败',idea_chat.why_empty(result),parent=self.win)
+                    self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                     self.status.set(idea_chat.why_empty(result));return
                 idea_chat.append(self.root,'assistant',reply,model=model,gateway=self.idea_chat_gateway())
                 self.show_conversation();self.update_script_download_button()
@@ -1720,12 +1709,12 @@ class Desktop:
             if getattr(self, 'idea_send', None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
             self.update_script_interrupt_button();self.clear_thinking()
             if not result.get('ok'):
-                messagebox.showerror('模型调用失败', str(result.get('error') or '未收到模型回复'), parent=self.win)
+                self.notifier.error(str(result.get('error') or '未收到模型回复'), title='模型调用失败')
                 self.status.set('刷新正文失败：' + str(result.get('error') or '未收到模型回复'))
                 return
             reply = str(result.get('text') or '').strip()
             if not reply:
-                messagebox.showerror('模型调用失败', idea_chat.why_empty(result), parent=self.win)
+                self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                 self.status.set(idea_chat.why_empty(result));return
             idea_chat.append(self.root, 'assistant', reply, model=model,gateway=self.idea_chat_gateway())
             self.show_conversation();self.update_script_download_button()
@@ -1811,7 +1800,7 @@ class Desktop:
         return b
     def _agent_disabled_hint(self,button,text,event):
         if button.instate(['disabled']):
-            messagebox.showinfo('无法执行',text+' 当前不可用，请先完成对应前置步骤（选择文件、补齐内容或等待任务结束）。',parent=self.win)
+            self.notifier.warning(text+' 当前不可用，请先完成对应前置步骤（选择文件、补齐内容或等待任务结束）。', title='无法执行', modal=True)
             return 'break'
     def safe(self,fn):
         try:
@@ -1832,7 +1821,7 @@ class Desktop:
         detail='\n'.join(entries) if entries else '当前没有可导出的诊断记录（仍会导出清单）。'
         if not messagebox.askokcancel('导出诊断包', '将仅包含以下脱敏程序日志（不会包含项目文件、private、.env 或凭据）：\n\n'+detail, parent=self.win):
             return None
-        target=filedialog.asksaveasfilename(parent=self.win, title='保存诊断包', defaultextension='.zip', filetypes=[('诊断包','*.zip')])
+        target=FileDialog(self.win).save_file(title='保存诊断包', defaultextension='.zip', filetypes=[('诊断包','*.zip')])
         if not target:return None
         result=diagnostic_capture.export(target)
         self.status.set('诊断包已导出：'+str(result))
@@ -2398,7 +2387,7 @@ class Desktop:
                 self._script_agent_launching=False
                 self.update_script_interrupt_button()
                 self.clear_thinking()
-                messagebox.showerror('操作未完成',str(value),parent=self.win)
+                self.notifier.error(str(value), title='操作未完成')
             # 自动链派到结构剧本时，若恰有另一项后台工作在收尾，不能把这次
             # 暂时占用误判成永久失败。只保留一个待派发标记；当前队列清空后
             # 仍走 L3 注册器重新启动，避免在 UI 层复制派发逻辑或无限重试。
@@ -3690,7 +3679,7 @@ class Desktop:
             try:self.load(remembered,defer_page=startup);return
             except (ValueError,OSError):
                 self.status.set('今天选定的项目已不可用，请选择其他项目或导入新剧本')
-        popup=tk.Toplevel(self.win);popup.attributes('-alpha',0);popup.title('选择项目 · 漫剧制作助手');popup.geometry('640x480');popup.minsize(500,380);popup.transient(self.win)
+        popup=BaseDialog(self.win,'选择项目 · 漫剧制作助手',geometry='640x480',minsize=(500,380),modal=False,chrome=False);popup.attributes('-alpha',0)
         ttk.Label(popup,text='今天继续哪个故事？',font=('Microsoft YaHei UI',17,'bold')).pack(anchor='w',padx=22,pady=(22,8))
         ttk.Label(popup,text='选择项目后点击进入，或双击项目名称。',style='Muted.TLabel').pack(anchor='w',padx=22,pady=(0,12))
         notice=tk.StringVar(value=('剧本已被删除，不能进入项目。请点击“删除选中项目”清理残留文件夹。'
@@ -3752,7 +3741,7 @@ class Desktop:
             choices=outcome.get('choices',[])
             if not choices:
                 notice.set('没有找到可认领的目录；可只清除这条失效登记。');return
-            picker=tk.Toplevel(popup);picker.title('选择重新找到的项目目录');picker.transient(popup)
+            picker=BaseDialog(popup,'选择重新找到的项目目录',modal=False,chrome=False)
             ttk.Label(picker,text='找到多个候选目录，请确认实际项目：').pack(anchor='w',padx=16,pady=(16,8))
             candidate=tk.StringVar(value=choices[0])
             for value in choices:
@@ -3760,7 +3749,7 @@ class Desktop:
             def claim():
                 try:claimed=self.projects.reconcile_missing(old,selected=candidate.get())
                 except Exception as exc:
-                    messagebox.showerror('无法同步项目登记',str(exc),parent=picker);return
+                    NotificationDispatcher(self.status, parent=picker).error(str(exc), title='无法同步项目登记');return
                 picker.destroy();self.reload();self.fill_projects(tree)
                 new=claimed['path'];tree.selection_set(new);tree.see(new)
                 notice.set('已按新位置同步项目登记。')
@@ -3775,7 +3764,7 @@ class Desktop:
                 if needs_cleanup_after_open_error(e):
                     notice.set('剧本已被删除，不能进入项目。请点击“删除选中项目”清理残留文件夹。')
                     return
-                messagebox.showerror('无法打开项目',str(e),parent=popup);return
+                NotificationDispatcher(self.status, parent=popup).error(str(e), title='无法打开项目');return
             # 同侧栏入口：成功认领后以 load() 解析出的实际根目录记忆当天选择。
             self.remember_daily_project_choice(getattr(self,'root',None) or selected[0])
             popup.destroy()
@@ -3816,7 +3805,7 @@ class Desktop:
         else:
             base=self.projects.base
             base.mkdir(parents=True,exist_ok=True)
-        p=filedialog.askopenfilename(initialdir=base,filetypes=[('镜头 JSON','*.json')],parent=self.win)
+        p=FileDialog(self.win).open_file(initialdir=base,filetypes=[('镜头 JSON','*.json')])
         if p:
             source=Path(p)
             # 文件选择框有时会交回外部工具解包出来的临时文件。原来随后把 create()
@@ -3862,7 +3851,7 @@ class Desktop:
         第 35 期第 4 条：video_mode 原样透给 show()——侧栏点「08 视频生成」时传 'choose'。
         """
         try:self.show(index,video_mode=video_mode)
-        except Exception as exc:messagebox.showerror('页面无法显示',str(exc),parent=self.win)
+        except Exception as exc:self.notifier.error(str(exc), title='页面无法显示')
     def show(self,index,video_mode=None):
         from video_navigation import hide_back
         hide_back(self)
@@ -4003,7 +3992,7 @@ class Desktop:
         self.canvas.yview_moveto(max(0.0,min(1.0,offset/height)))
 
     def text(self,value,height=10):
-        t=tk.Text(self.content,bg='#ffffff',fg='#243247',insertbackground='#3564a8',height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=12,pady=12);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=8);bind_show_all(t,after=self.fit_content);return t
+        t=TextArea(self.content,bg='#ffffff',fg='#243247',insertbackground='#3564a8',height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=12,pady=12);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=8);bind_show_all(t,after=self.fit_content);return t
     def note(self,value):
         """把页面操作说明写入共享绿色信息栏，不再额外占一行。"""
         text=' '.join(str(value or '').split())
@@ -4090,7 +4079,7 @@ class Desktop:
         composer=ttk.Frame(talk);composer.pack(side='bottom',fill='x',pady=(SPACING['none'],SPACING['xs']))
         ttk.Label(composer,text='输入想法→点击发送',style='Muted.TLabel').pack(anchor='w')
         input_row=ttk.Frame(composer);input_row.pack(fill='x')
-        input_box=tk.Text(input_row,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
+        input_box=TextArea(input_row,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
                           font=FONTS['body'],relief='solid',bd=1,padx=SPACING['md'],pady=SPACING['sm'])
         attach_button=SecondaryButton(input_row,text='📁',width=3,
                                  command=lambda:self.safe(self.choose_idea_attachments))
@@ -4120,7 +4109,7 @@ class Desktop:
         dialog=ttk.Frame(talk);dialog.pack(side='top',fill='both',expand=True,pady=SPACING['none'])
         dialog_scroll=ttk.Scrollbar(dialog,orient='vertical')
         dialog_scroll.pack(side='right',fill='y')
-        box=tk.Text(dialog,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],
+        box=TextArea(dialog,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],
                     selectbackground='#3564a8',inactiveselectbackground='#3564a8',selectforeground='#ffffff',height=TALK_MIN_LINES,wrap='word',
                     font=FONTS['body'],relief='flat',padx=SPACING['md'],pady=SPACING['sm'],yscrollcommand=dialog_scroll.set)
         box.pack(side='left',fill='both',expand=True)
@@ -4149,8 +4138,10 @@ class Desktop:
         box.bind('<KeyPress>',self.guard_bubble_edit_key,add='+')
         box.bind('<<Paste>>',self.guard_bubble_edit_key,add='+')
         box.bind('<FocusOut>',lambda event:self.finish_bubble_edit(),add='+')
-        box.bind('<Control-Return>',lambda event:self.finish_bubble_edit(),add='+')
-        box.bind('<Escape>',lambda event:self.finish_bubble_edit(commit=False),add='+')
+        self.shortcuts.bind(box, ('<Control-Return>',), lambda event:self.finish_bubble_edit(),
+                            scope='剧本准备·聊天记录', name='保存气泡编辑')
+        self.shortcuts.bind(box, ('<Escape>',), lambda event:self.finish_bubble_edit(commit=False),
+                            scope='剧本准备·聊天记录', name='取消气泡编辑')
         self.idea_row=foot
         # 输入框下方的动作统一为紧凑尺寸，避免长旧文案把聊天区挤窄。
         script_action_width=STAGE_ACTION_WIDTH
@@ -4277,12 +4268,13 @@ class Desktop:
         script_trees={}
         for column,(category,title) in enumerate(categories):
             script_lists.columnconfigure(column,weight=1,uniform='script-files')
-            tree=ttk.Treeview(script_lists,columns=('name',),show='tree headings',height=1,
-                              selectmode='browse',style='Script.Treeview')
+            table=DataTable(script_lists,columns=[('name',title,180)],show='tree headings',height=1,
+                            selectmode='browse',style='Script.Treeview',auto_hide_scrollbars=True)
+            tree=table.tree
             configure_check_column(tree)
             tree.heading('name',text=title)
             tree.column('name',width=180,minwidth=100,stretch=True)
-            tree.grid(row=0,column=column,sticky='nsew',padx=(SPACING['none'],SPACING['xs']) if column<2 else SPACING['none'])
+            table.grid(row=0,column=column,sticky='nsew',padx=(SPACING['none'],SPACING['xs']) if column<2 else SPACING['none'])
             script_trees[category]=tree
         self.script_trees=script_trees
         # 兼容旧的页面外部访问：script_tree 指向项目剧本这一列。
@@ -4540,13 +4532,12 @@ class Desktop:
             for other in script_trees.values():
                 if other is not tree:other.selection_remove(other.selection())
             tree.selection_set(row)
-            menu=tk.Menu(self.win,tearoff=False)
+            menu=ContextMenu(self.win)
             # 第 46 期第 1 条：内容框的右键一律是「查看／…／删除」这一套，剧本表原来只有改名与删除。
-            menu.add_command(label='查看',command=lambda:self.safe(open_script_file))
-            menu.add_command(label='重命名',command=lambda:self.safe(rename_script))
-            menu.add_command(label='删除',command=lambda:self.safe(delete_script))
-            try:menu.tk_popup(event.x_root,event.y_root)
-            finally:menu.grab_release()
+            menu.command('查看',lambda:self.safe(open_script_file))
+            menu.command('重命名',lambda:self.safe(rename_script))
+            menu.command('删除',lambda:self.safe(delete_script))
+            return menu.popup(event)
         for tree in script_trees.values():
             tree.bind('<Button-3>',lambda event,tree=tree:script_menu(tree,event))
     def storyboard_creation(self):
@@ -4580,13 +4571,13 @@ class Desktop:
             files = ttk.Frame(body)
             # 高度交给外层上下等分网格。这里若声明 12 行，会成为 Tk 的刚性
             # 最小请求高度，窄窗口先撑满上框、把下方结构剧本挤出可视区。
-            file_list = ttk.Treeview(files, columns=('script',), show='headings', height=1,
-                                     selectmode='browse')
-            file_list.heading('script', text=file_heading)
+            file_table = DataTable(files, columns=[('script', file_heading, 170)], show='headings',
+                                   height=1, selectmode='browse', auto_hide_scrollbars=True)
+            file_list = file_table.tree
             # 文件栏仅用于选择；正文是本页的主要阅读区。原来的 260px 在窄窗口
             # 抢走过多空间，缩为约三分之二并允许随窗口继续收缩。
             file_list.column('script', anchor='w', width=170, minwidth=105, stretch=True)
-            file_list.pack(fill='both', expand=True)
+            file_table.pack(fill='both', expand=True)
             available = tuple(path for path in documents if path and path.is_file())
             active = {'path': active_path if active_path in available else (available[0] if available else None)}
             if available:
@@ -4603,7 +4594,7 @@ class Desktop:
             controls = ttk.Frame(preview_header)
             controls.pack(side='right')
             text_area = ttk.Frame(preview_area); text_area.pack(fill='both', expand=True)
-            preview = tk.Text(text_area, bg=COLORS["background_card"], fg=COLORS["text_primary"], height=1,
+            preview = TextArea(text_area, bg=COLORS["background_card"], fg=COLORS["text_primary"], height=1,
                               wrap='word', undo=True, maxundo=-1, font=FONTS["caption"], relief='flat',
                               padx=SPACING["md"], pady=SPACING["sm"])
             scroll = ttk.Scrollbar(text_area, orient='vertical', command=preview.yview)
@@ -4712,14 +4703,9 @@ class Desktop:
                 if not row or row not in {str(path) for path in available}:
                     return None
                 file_list.selection_set(row)
-                menu = tk.Menu(file_list, tearoff=False)
-                menu.add_command(label='删除（移入回收站）', command=lambda:self.safe(delete_document))
+                menu = ContextMenu(file_list).command('删除（移入回收站）', lambda:self.safe(delete_document))
                 self._script_structure_file_menu = menu
-                try:
-                    menu.tk_popup(event.x_root, event.y_root)
-                finally:
-                    menu.grab_release()
-                return 'break'
+                return menu.popup(event)
             file_list.bind('<Button-3>', open_document_menu)
             def begin_edit():
                 if not editable or active['path'] is None:
@@ -4860,7 +4846,7 @@ class Desktop:
                     return
                 if not live:
                     finish(receipt,'failed','上次 Agent 窗口已关闭，请重新点击启动')
-                    messagebox.showinfo('请重新点击','上次 Agent 窗口未在运行，任务状态已重置；请再次点击“手动制作分镜”。',parent=self.win);return
+                    self.notifier.info('上次 Agent 窗口未在运行，任务状态已重置；请再次点击“手动制作分镜”。', title='请重新点击', modal=True);return
                 state={'preparing':'正在打开或发送','sent':'已发送','uncertain':'发送结果待核实'}[receipt['state']]
                 self.status.set('相同任务'+state+'，已复用记录，本次不重复发送。请在对应 Agent 窗口继续。');return
             if use_cli:
@@ -4883,7 +4869,7 @@ class Desktop:
                         finish(receipt,'uncertain',str(exc));raise
                 def submitted(value):
                     outcome(receipt,value);self.status.set(value['reason'])
-                    if not value['ok']:messagebox.showinfo('请检查 Agent 输入框',value['reason'],parent=self.win)
+                    if not value['ok']:self.notifier.info(value['reason'], title='请检查 Agent 输入框', modal=True)
                 self.async_(submit,submitted);return
             def launched(result):
                 sessions[key]=result['process'];self.flow_processes=sessions
@@ -4928,7 +4914,7 @@ class Desktop:
             def confirmed(outcome):
                 ui_plugin_registry.module('agent_dispatch').outcome(receipt,outcome)
                 self.status.set(outcome['reason'])
-                if not outcome['ok']:messagebox.showinfo('发送结果',outcome['reason'],parent=self.win)
+                if not outcome['ok']:self.notifier.info(outcome['reason'], title='发送结果', modal=True)
             def pasted(outcome):
                 ui_plugin_registry.module('agent_dispatch').outcome(receipt,outcome)
                 self.status.set(outcome['reason'])
@@ -4942,7 +4928,7 @@ class Desktop:
                         self.async_(lambda:confirm_existing(result['title'],result['prompt'],outcome['confirmation'],
                             result.get('draft_prompt',''),result.get('project','')),confirmed)
                     else:self.status.set('已保留 Codex 输入框内容，尚未发送。')
-                else:messagebox.showinfo('请检查 Codex 输入框',outcome['reason'],parent=self.win)
+                else:self.notifier.info(outcome['reason'], title='请检查 Codex 输入框', modal=True)
             self.async_(lambda:paste_existing(result['title'],result['prompt'],result.get('draft_prompt',''),result.get('project',''),auto_send=True),pasted)
             self.status.set('正在将本次任务粘贴到 Codex 并自动发送…')
         self.async_(build,dispatch)
@@ -4983,15 +4969,15 @@ class Desktop:
         controller=RecycleRecoveryController(self.root,self.projects.base)
         batches=[]
         ttk.Label(dialog.content,text='选择回收批次后可恢复整批，或选择下方原位置只恢复一项；目标已存在时不会覆盖。').pack(anchor='w',pady=(0,6))
-        batch_tree=ttk.Treeview(dialog.content,columns=('scope','created','reason'),show='tree headings',height=8)
-        batch_tree.heading('#0',text='批次');batch_tree.heading('scope',text='位置');batch_tree.heading('created',text='创建时间');batch_tree.heading('reason',text='原因')
-        batch_tree.column('#0',width=180,stretch=False);batch_tree.column('scope',width=110,stretch=False);batch_tree.column('created',width=155,stretch=False);batch_tree.column('reason',width=390)
-        batch_tree.pack(fill='x',expand=False)
+        batch_table=DataTable(dialog.content,columns=[('scope','位置',110),('created','创建时间',155),('reason','原因',390)],show='tree headings',height=8,auto_hide_scrollbars=True)
+        batch_tree=batch_table.tree
+        batch_tree.heading('#0',text='批次');batch_tree.column('#0',width=180,stretch=False)
+        batch_table.pack(fill='x',expand=False)
         ttk.Label(dialog.content,text='批次条目（原位置）').pack(anchor='w',pady=(10,3))
-        item_tree=ttk.Treeview(dialog.content,columns=('recycled',),show='tree headings',height=9)
-        item_tree.heading('#0',text='原位置');item_tree.heading('recycled',text='回收位置')
-        item_tree.column('#0',width=420);item_tree.column('recycled',width=420)
-        item_tree.pack(fill='both',expand=True)
+        item_table=DataTable(dialog.content,columns=[('recycled','回收位置',420)],show='tree headings',height=9,auto_hide_scrollbars=True)
+        item_tree=item_table.tree
+        item_tree.heading('#0',text='原位置');item_tree.column('#0',width=420)
+        item_table.pack(fill='both',expand=True)
         def selected_batch():
             selected=batch_tree.selection()
             return batches[int(selected[0])] if selected else None
@@ -5034,19 +5020,18 @@ class Desktop:
         if not path or path.startswith('group:'):return
         item=next((dict(p) for p in self.projects.info['projects'] if p['path']==path),None)
         if item is None:return
-        menu=tk.Menu(self.win,tearoff=False)
+        menu=ContextMenu(self.win)
         completed=item.get('status','making')=='completed'
-        menu.add_command(label='恢复为在制作项目' if completed else '标记为已完成项目',command=lambda:self.safe(lambda:self.set_project_status(item,'making' if completed else 'completed')))
-        menu.add_separator()
+        menu.command('恢复为在制作项目' if completed else '标记为已完成项目',lambda:self.safe(lambda:self.set_project_status(item,'making' if completed else 'completed')))
+        menu.separator()
         if not Path(item['path']).exists():
             # 与项目选择弹窗一致：幽灵登记没有可回收的目录，只能清登记。
-            menu.add_command(label='只清除失效项目登记',command=lambda:self.safe(lambda:self.clear_missing_project(item)))
-            menu.add_separator()
-        menu.add_command(label='恢复回收站内容…',command=lambda:self.safe(self.open_recycle_recovery))
-        menu.add_separator()
-        menu.add_command(label='删除项目及全部素材…',command=lambda:self.safe(lambda:self.delete_project(item)))
-        try:menu.tk_popup(event.x_root,event.y_root)
-        finally:menu.grab_release()
+            menu.command('只清除失效项目登记',lambda:self.safe(lambda:self.clear_missing_project(item)))
+            menu.separator()
+        menu.command('恢复回收站内容…',lambda:self.safe(self.open_recycle_recovery))
+        menu.separator()
+        menu.command('删除项目及全部素材…',lambda:self.safe(lambda:self.delete_project(item)))
+        return menu.popup(event)
     def clear_missing_project(self,item,confirmed=False):
         """主界面右键清理幽灵登记；不把不存在的目录送入回收流程。"""
         path=str(item['path'])
@@ -5452,7 +5437,7 @@ class Desktop:
             if silent:
                 self.status.set('没找到 ComfyUI 桌面程序，本次不启动；请点“桌面打开 ComfyUI”选一次程序。')
                 return False
-            selected=filedialog.askopenfilename(title='选择 ComfyUI 桌面版程序',filetypes=[('程序','*.exe')],parent=self.win)
+            selected=FileDialog(self.win).open_file(title='选择 ComfyUI 桌面版程序',filetypes=[('程序','*.exe')])
             if not selected:return
             exe=Path(selected)
             from stage_execution_service import publish_desktop_preferences
@@ -5613,8 +5598,8 @@ class Desktop:
         def detail(aid,field):
             asset=registry[aid]
             text={'name':asset.get('name',aid),'note':asset.get('description',asset.get('reference_region',''))}.get(field,'')
-            win=tk.Toplevel(self.win);win.title(aid+' · '+('名称' if field=='name' else '外观要求'));win.geometry('650x340');win.transient(self.win)
-            box=tk.Text(win,wrap='word',height=10,padx=SPACING['md'],pady=SPACING['md']);box.pack(fill='both',expand=True,padx=SPACING['md'],pady=SPACING['md'])
+            win=BaseDialog(self.win,aid+' · '+('名称' if field=='name' else '外观要求'),geometry='650x340',modal=False,chrome=False)
+            box=TextArea(win,wrap='word',height=10,padx=SPACING['md'],pady=SPACING['md']);box.pack(fill='both',expand=True,padx=SPACING['md'],pady=SPACING['md'])
             box.insert('1.0',text or '暂无内容');box.configure(state='disabled');bind_show_all(box)
             if field=='name':SecondaryButton(win,text='修改名称',command=lambda:(win.destroy(),self.safe(lambda:self.rename_asset(aid)))).pack(anchor='e',padx=SPACING['md'],pady=(SPACING['none'],SPACING['md']))
             # 第 64 期任务 13（附件任务 4.1）：正典板不再嵌在主页面这个弹窗里，搬进了资产详情页。
@@ -5972,7 +5957,7 @@ class Desktop:
         return True
     def asset_import(self,kind,initial=None,selected=None):
         base=self.asset_base()/'assets'
-        p=filedialog.askopenfilename(initialdir=initial or (base/kind if kind!='all' else base),filetypes=[('图片','*.png *.jpg *.jpeg *.webp')],parent=self.win)
+        p=FileDialog(self.win).open_file(initialdir=initial or (base/kind if kind!='all' else base),filetypes=[('图片','*.png *.jpg *.jpeg *.webp')])
         if not p:return
         aid=selected or simpledialog.askstring('资产编号','例如 CHAR_001 / LOC_001 / PROP_001',parent=self.win)
         if not aid:return
@@ -6055,12 +6040,15 @@ class Desktop:
         if available_shots:target.current(0)
         # 第 53 期第 5 条：「图片文件」那一列要盖一层首帧缩略图（Tk 的 value 格只写得了文字），
         # 行高得跟着放大——这一张表单给一个样式，别的内容框照旧 34。
-        table=ttk.Treeview(table_box,columns=('id','title','duration','status','file','prompt'),show='tree headings',height=9,selectmode='browse',style='Frame.Treeview')
+        table_shell=DataTable(table_box, columns=[
+            ('id', '镜头', 155), ('title', '内容', 175), ('duration', '秒数', 60),
+            ('status', '首帧状态', 120), ('file', '图片文件(点击查看)', 180),
+            ('prompt', '首帧图片提示词(点击查看)', 480),
+        ], show='tree headings', height=9, selectmode='browse', style='Frame.Treeview',
+            auto_hide_scrollbars=True)
+        table=table_shell.tree
         fit_row_height(table,THUMB_SIZE,style='Frame.Treeview')   # 第 58 期第 2 条：同上
-        table_scroll=ttk.Scrollbar(table_box,orient='vertical',command=table.yview)
-        table_scroll.grid(row=0,column=1,sticky='ns');table.configure(yscrollcommand=table_scroll.set)
-        table_horizontal=ttk.Scrollbar(table_box,orient='horizontal',command=table.xview)
-        table_horizontal.grid(row=1,column=0,sticky='ew');table.configure(xscrollcommand=table_horizontal.set)
+        table_shell.grid(row=0,column=0,sticky='nsew')
         table_box.columnconfigure(0,weight=1);table_box.rowconfigure(0,weight=1)
         configure_check_column(table)
         for key,title,width in [('id','镜头',155),('title','内容',175),('duration','秒数',60),('status','首帧状态',120),('file','图片文件(点击查看)',180),('prompt','首帧图片提示词(点击查看)',480)]:
@@ -6230,7 +6218,7 @@ class Desktop:
             if table.exists(target.get()):table.selection_set(target.get());table.see(target.get());selection_changed()
         target.bind('<<ComboboxSelected>>',choose_target)
         def replace(shot=None):
-            shot=shot or selected();path=filedialog.askopenfilename(initialdir=base/'frames',filetypes=[('PNG','*.png')],parent=self.win)
+            shot=shot or selected();path=FileDialog(self.win).open_file(initialdir=base/'frames',filetypes=[('PNG','*.png')])
             if not path:return
             raw=Path(path).read_bytes()
             from stage_execution_service import replace_stage_keyframe
@@ -6242,7 +6230,7 @@ class Desktop:
         # 选中镜头右侧：刷新与查看在前，文件维护三键在后（下行内容框改动本地图片，低频且需谨慎）。
         secondary_action('刷新首帧列表',refresh)
         secondary_action('查看首帧提示词',prompt_details)
-        secondary_action('查看镜头资产',lambda:messagebox.showinfo('镜头资产',ui_plugin_registry.module('agent.shot_assets').summary(home(selected())[0],selected()).replace('；','\n'),parent=self.win))
+        secondary_action('查看镜头资产',lambda:self.notifier.info(ui_plugin_registry.module('agent.shot_assets').summary(home(selected())[0],selected()).replace('；','\n'), title='镜头资产', modal=True))
         replace_button=secondary_action('导入 / 替换选中首帧',replace)
         # 第 46 期第 9 条：这颗按钮改名「批量删除首帧」——它删的是勾选那一批（高亮不算数），
         # 只想删一镜时用内容框上的右键菜单「删除」（目标就是右键那一行）。
@@ -6608,7 +6596,7 @@ class Desktop:
     def import_audio(self):
         from stage_workspace_service import ensure_audio_workspace
         folder,_=ensure_audio_workspace(self.root)
-        p=filedialog.askopenfilename(initialdir=folder,filetypes=[('音频','*.wav *.mp3 *.m4a *.aac')],parent=self.win)
+        p=FileDialog(self.win).open_file(initialdir=folder,filetypes=[('音频','*.wav *.mp3 *.m4a *.aac')])
         if not p:return
         from stage_execution_service import import_stage_audio
         dest=import_stage_audio(self.root,p)
@@ -6775,7 +6763,7 @@ class Desktop:
     def final_import(self):
         from stage_workspace_service import ensure_delivery_workspace
         delivery_dir,_=ensure_delivery_workspace(self.root)
-        p=filedialog.askopenfilename(initialdir=delivery_dir,filetypes=[('成片','*.mp4 *.mov')],parent=self.win)
+        p=FileDialog(self.win).open_file(initialdir=delivery_dir,filetypes=[('成片','*.mp4 *.mov')])
         if not p:return
         def work():
             from service_contract import UserError

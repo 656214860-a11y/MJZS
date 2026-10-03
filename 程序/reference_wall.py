@@ -7,12 +7,14 @@ asset_reference_search.normalize）。这里只做图墙：按打分阈值过滤
 """
 import tkinter as tk
 from pathlib import Path
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, messagebox
 
 import asset_reference_search as search
 from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
+from ui_dialogs import FileDialog
+from ui_widgets import BaseDialog, DataTable
 
 
 def rows(candidates, asset, threshold=search.DEFAULT_THRESHOLD, limit=search.DEFAULT_LIMIT):
@@ -34,7 +36,7 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
     base = Path(base) if base else Path(app.asset_base())
     parent = parent or app.win
     if candidates is None:
-        path = filedialog.askopenfilename(parent=parent, title='选择参考图候选清单',
+        path = FileDialog(parent).open_file(title='选择参考图候选清单',
                                           filetypes=[('候选清单', '*.json *.jsonl'), ('全部文件', '*.*')])
         if not path:
             return None
@@ -47,8 +49,8 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
     tick_images = list(getattr(app.win, '_tick_images', None) or ('', ''))
     if len(tick_images) < 2:
         tick_images = ['', '']
-    win = tk.Toplevel(parent); win.withdraw(); win.transient(parent)
-    win.title('参考图候选 · 打分与入库'); win.geometry('1000x640'); win.minsize(780, 480)
+    win = BaseDialog(parent, '参考图候选 · 打分与入库', geometry='1000x640',
+                     minsize=(780, 480), modal=False, chrome=False); win.withdraw()
     body = ttk.Frame(win, padding=12); body.pack(fill='both', expand=True)
     tools = ttk.Frame(body); tools.pack(fill='x')
     ttk.Label(tools, text='资产').pack(side='left')
@@ -64,16 +66,17 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
     limit_box.pack(side='left', padx=(4, 10))
     status = tk.StringVar()
     table_box = ttk.Frame(body); table_box.pack(fill='both', expand=True, pady=(10, 6))
-    table = ttk.Treeview(table_box, columns=('score', 'license', 'commercial', 'title', 'page', 'reasons'),
-                         show='tree headings', height=12, selectmode='browse')
-    scroll = ttk.Scrollbar(table_box, orient='vertical', command=table.yview)
-    scroll.pack(side='right', fill='y'); table.configure(yscrollcommand=scroll.set)
+    table_shell = DataTable(table_box, columns=[
+        ('score', '分数', 60), ('license', '许可', 150), ('commercial', '可商用', 70),
+        ('title', '标题', 240), ('page', '来源页', 240), ('reasons', '打分理由', 460),
+    ], show='tree headings', height=12, selectmode='browse', empty_text='暂无参考图候选')
+    table = table_shell.tree
     configure_check_column(table)
     for key, title, width in [('score', '分数', 60), ('license', '许可', 150), ('commercial', '可商用', 70),
                               ('title', '标题', 240), ('page', '来源页', 240), ('reasons', '打分理由', 460)]:
         table.heading(key, text=title); table.column(key, width=width, minwidth=50)
     auto_columns(table)
-    table.pack(fill='both', expand=True)
+    table_shell.pack(fill='both', expand=True)
     checked = {}
     box = CheckboxColumn(table, tick_images, lambda url: checked.get(url, False),
                          lambda url, value: checked.__setitem__(url, value))
@@ -160,7 +163,7 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
         return run()
 
     def pick_file():
-        path = filedialog.askopenfilename(parent=win, title='选择参考图候选清单',
+        path = FileDialog(win).open_file(title='选择参考图候选清单',
                                           filetypes=[('候选清单', '*.json *.jsonl'), ('全部文件', '*.*')])
         if not path:
             return

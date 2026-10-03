@@ -385,6 +385,9 @@ class NotificationDispatcher:
     def success(self, message, *, title="操作完成", modal=False):
         return self.notify(message, level="success", title=title, modal=modal)
 
+    def info(self, message, *, title="操作提示", modal=False):
+        return self.notify(message, level="info", title=title, modal=modal)
+
 
 class BusyState:
     """共享主任务的忙碌／加载态，不拥有后台任务或取消语义。"""
@@ -422,12 +425,57 @@ class ContextMenu:
     def __init__(self, owner, menu_factory=tk.Menu):
         self.menu = menu_factory(owner, tearoff=False)
 
+    def __getattr__(self, name):
+        """兼容仍需读取 Tk 菜单状态的旧调用与测试。"""
+        return getattr(self.menu, name)
+
     def command(self, label, command):
         self.menu.add_command(label=label, command=command)
         return self
 
+    def disabled(self, label):
+        self.menu.add_command(label=label, state="disabled")
+        return self
+
+    def radio(self, label, variable, value, command):
+        self.menu.add_radiobutton(label=label, variable=variable, value=value,
+                                  command=command)
+        return self
+
     def separator(self):
         self.menu.add_separator()
+        return self
+
+    def submenu(self):
+        """创建受统一入口管理的子菜单。"""
+        child = self.__class__.__new__(self.__class__)
+        child.menu = tk.Menu(self.menu, tearoff=False)
+        return child
+
+    def cascade(self, label, submenu):
+        self.menu.add_cascade(label=label, menu=submenu.menu)
+        return self
+
+    def clear(self):
+        self.menu.delete(0, "end")
+        return self
+
+    def index(self, index):
+        return self.menu.index(index)
+
+    def configure_entry(self, index, **kwargs):
+        self.menu.entryconfigure(index, **kwargs)
+        return self
+
+    def popup_at(self, x, y):
+        try:
+            # 经代理调用，保留业务代码和测试对菜单弹出时机的可观测性。
+            self.tk_popup(int(x), int(y))
+        finally:
+            try:
+                self.grab_release()
+            except tk.TclError:
+                pass
         return self
 
     def popup(self, event):

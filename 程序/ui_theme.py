@@ -138,41 +138,17 @@ def install_tick_indicators(win,style):
 
     """Use a tick for every themed checkbutton, retaining native input behavior."""
 
-    import tkinter as tk
-
     from tkinter import font as tkfont
+    from ui_icons import IconLoader
 
     text_font=tkfont.Font(root=win,font=('Microsoft YaHei UI',10))
 
     size=max(12,int(text_font.metrics('ascent')))
 
-    def icon(selected=False,disabled=False):
-
-        image=tk.PhotoImage(master=win,width=size,height=size)
-
-        border='#aab6c6' if disabled else ACCENT
-
-        image.put(border,to=(0,0,size,size))
-
-        image.put('#edf1f5' if disabled else '#ffffff',to=(1,1,size-1,size-1))
-
-        if selected:
-
-            points=[(round(size*.20),round(size*.51)),(round(size*.42),round(size*.73)),(round(size*.80),round(size*.25))]
-
-            for (x0,y0),(x1,y1) in zip(points,points[1:]):
-
-                steps=max(abs(x1-x0),abs(y1-y0),1)
-
-                for n in range(steps+1):
-
-                    x=round(x0+(x1-x0)*n/steps);y=round(y0+(y1-y0)*n/steps)
-
-                    image.put(border,to=(max(1,x-1),max(1,y-1),min(size-1,x+1),min(size-1,y+1)))
-
-        return image
-
-    off,on,disabled_off,disabled_on=[icon(*state) for state in [(False,False),(True,False),(False,True),(True,True)]]
+    off,on,disabled_off,disabled_on=[
+        IconLoader.check_indicator(win, size=size, selected=selected,
+                                   disabled=disabled, accent=ACCENT)
+        for selected, disabled in [(False,False),(True,False),(False,True),(True,True)]]
 
     win._tick_images=(off,on,disabled_off,disabled_on)
     # 第 30 期：apply() 在同一个解释器里会被调用多次（入口一次、Desktop 一次），而勾选图元只在

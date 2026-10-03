@@ -5,6 +5,7 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 from agent.core import read, save
 from responsive_ui import scroll_form
+from ui_widgets import BaseDialog
 
 # 名称/别名匹配（高置信，命中的会展示给用户二次确认）
 NAME_KEYWORDS = (
@@ -120,10 +121,8 @@ def show(desktop):
     if not candidates:
         messagebox.showinfo('识别背景人物', '未发现疑似背景/不露脸人物（按名称关键词匹配）。', parent=desktop.win)
         return
-    win = tk.Toplevel(desktop.win)
-    win.title('识别背景人物')
-    win.geometry('780x540')
-    win.minsize(620, 380)
+    win = BaseDialog(desktop.win, '识别背景人物', geometry='780x540',
+                     minsize=(620, 380), modal=False, chrome=False)
     win.transient(desktop.win)
     ttk.Label(
         win,

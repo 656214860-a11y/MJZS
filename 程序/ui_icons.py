@@ -39,3 +39,30 @@ class IconLoader:
                                  round(42 * scale_x), round(19 * scale_y)))
         cache[key] = image
         return image
+
+    @classmethod
+    def check_indicator(cls, master, *, size: int, selected: bool = False,
+                        disabled: bool = False, accent: str = '#2b78c5'):
+        """返回统一复选框图元，按宿主、状态与尺寸缓存。"""
+        size = max(1, int(size))
+        key = ('check_indicator', size, bool(selected), bool(disabled), accent)
+        cache = cls._cache(master)
+        if key in cache:
+            return cache[key]
+        image = tk.PhotoImage(master=master, width=size, height=size)
+        border = '#aab6c6' if disabled else accent
+        image.put(border, to=(0, 0, size, size))
+        image.put('#edf1f5' if disabled else '#ffffff', to=(1, 1, size - 1, size - 1))
+        if selected:
+            points = [(round(size * .20), round(size * .51)),
+                      (round(size * .42), round(size * .73)),
+                      (round(size * .80), round(size * .25))]
+            for (x0, y0), (x1, y1) in zip(points, points[1:]):
+                steps = max(abs(x1 - x0), abs(y1 - y0), 1)
+                for index in range(steps + 1):
+                    x = round(x0 + (x1 - x0) * index / steps)
+                    y = round(y0 + (y1 - y0) * index / steps)
+                    image.put(border, to=(max(1, x - 1), max(1, y - 1),
+                                          min(size - 1, x + 1), min(size - 1, y + 1)))
+        cache[key] = image
+        return image

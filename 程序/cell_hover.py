@@ -23,7 +23,7 @@
 import inspect
 import tkinter as tk
 from tkinter import ttk
-from ui_widgets import LineInput
+from ui_widgets import ContextMenu, LineInput
 
 ROW_MENU_VIEW = '查看'          # 右键菜单第一项：等同单击这一格
 ROW_MENU_DELETE = '删除'        # 右键菜单第二项：逐个删除（目标就是右键那一行）
@@ -219,18 +219,17 @@ def popup_row_menu(tree, row, column, view=None, delete=None, x=None, y=None):
     column 给 None＝这一格没有「查看」（比如勾选列）。两项都摆不出来就不弹，返回 None。
     delete 收一个人参＝delete(row)，收两个人参＝delete(row, column)。
     """
-    menu = tk.Menu(tree, tearoff=False)
+    # 保留本模块的可替换菜单工厂，供无 Tk 根窗口的逻辑测试使用。
+    context_menu = ContextMenu(tree, menu_factory=tk.Menu)
     if view is not None and column is not None:
-        menu.add_command(label=ROW_MENU_VIEW, command=lambda: view(row, column))
+        context_menu.command(ROW_MENU_VIEW, lambda: view(row, column))
     if delete is not None:
-        menu.add_command(label=ROW_MENU_DELETE, command=lambda: call_delete(delete, row, column))
+        context_menu.command(ROW_MENU_DELETE, lambda: call_delete(delete, row, column))
+    menu = context_menu.menu
     if menu.index('end') is None:
         return None
-    try:
-        menu.tk_popup(int(x if x is not None else tree.winfo_pointerx()),
-                      int(y if y is not None else tree.winfo_pointery()))
-    finally:
-        menu.grab_release()
+    context_menu.popup_at(x if x is not None else tree.winfo_pointerx(),
+                          y if y is not None else tree.winfo_pointery())
     return menu
 
 

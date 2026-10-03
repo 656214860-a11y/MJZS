@@ -10,7 +10,7 @@ from tkinter import ttk,messagebox
 import re
 
 from clipboard_lock import hold as hold_clipboard
-from ui_widgets import BaseDialog
+from ui_widgets import BaseDialog, TextArea
 
 
 _SECRET_VALUE = re.compile(r"(?i)(\b(?:api[_-]?key|secret|token|password)\s*[=:]\s*)([^\s,;]+)|\bsk-[A-Za-z0-9_-]{8,}")
@@ -44,7 +44,7 @@ def show(parent,title,text,status=None,receipt='',empty_text='',empty_hint='',so
     win=BaseDialog(parent,title,geometry=geometry,modal=False)
     content=win.content
     if source:ttk.Label(content,text=source,wraplength=760).pack(anchor='w',padx=12,pady=(8,0))
-    box=tk.Text(content,wrap="word",padx=12,pady=12)
+    box=TextArea(content,wrap="word",padx=12,pady=12)
     if scrollbar:
         bar=ttk.Scrollbar(content,orient="vertical",command=box.yview)
         box.configure(yscrollcommand=bar.set);bar.pack(side="right",fill="y")

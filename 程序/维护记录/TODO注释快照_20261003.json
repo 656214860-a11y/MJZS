@@ -13,7 +13,7 @@
     },
     {
       "file": "desktop.py",
-      "line": 2403,
+      "line": 2392,
       "scope": "_tick_async_result",
       "comment": "暂时占用误判成永久失败。只保留一个待派发标记；当前队列清空后",
       "classification": "C",
@@ -22,7 +22,7 @@
     },
     {
       "file": "pet_ui.py",
-      "line": 2784,
+      "line": 2785,
       "scope": "firstframe_batch",
       "comment": "「无分镜／没有缺口／暂时无法派发」收成明确阶段事件；无参数接缝仍兼容。",
       "classification": "C",

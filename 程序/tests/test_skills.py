@@ -1663,7 +1663,7 @@ class PanelTests(unittest.TestCase):
     def test_add_skill_action_uses_the_file_picker(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.addCleanup(panel.destroy)
-        with mock.patch.object(skill_panel.filedialog, 'askopenfilename', return_value='') as picker:
+        with mock.patch('ui_dialogs.filedialog.askopenfilename', return_value='') as picker:
             panel.skill_action.set(skill_panel.MANAGE_ADD)
             self.assertIsNone(panel.choose_skill_action())
         picker.assert_called_once()

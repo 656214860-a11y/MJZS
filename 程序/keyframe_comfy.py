@@ -15,6 +15,7 @@ from keyframe_batch import frame_prompt
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
                                        KEYFRAME_MODELS)
+from ui_widgets import BaseDialog, DataTable, LineInput, TextArea
 
 CONFIG_FILE = Path(__file__).with_name('batch_frames_tool') / 'config.json'
 # Compatibility exports for callers and existing project extensions.
@@ -215,10 +216,9 @@ def show(app, source, initial=None):
         scope = '生成范围：' + str(episode.get('episode_id') or source.stem) + '（' + source.relative_to(project).as_posix() + '）'
     except ValueError:
         scope = '生成范围：' + str(episode.get('episode_id') or source.stem)
-    win = tk.Toplevel(app.win)
+    win = BaseDialog(app.win, '首帧制作 · ' + str(episode.get('episode_id') or source.stem),
+                     geometry='900x760', modal=False, chrome=False)
     win.withdraw()
-    win.title('首帧制作 · ' + str(episode.get('episode_id') or source.stem))
-    win.geometry('900x760')
     win.minsize(760, 560)
     win.transient(app.win)
     footer = ttk.Frame(win)
@@ -231,7 +231,11 @@ def show(app, source, initial=None):
     ttk.Label(form, text='勾选镜头 → 开始逐镜生成 → 按镜头编号自动导入', font=('Microsoft YaHei UI', 12, 'bold')).pack(anchor='w', padx=14, pady=12)
     ttk.Label(form, text=scope + '；只处理尚未有首帧的镜头。').pack(anchor='w', padx=14)
     ttk.Label(form, text='提示词沿用镜头 JSON 的 frame_prompt，参考图沿用资产图片；缺少参考图或提示词的镜头会被列出并跳过。', style='Muted.TLabel').pack(anchor='w', padx=14, pady=4)
-    table = ttk.Treeview(form, columns=('shot', 'title', 'references', 'prompt'), show='tree headings', height=6, selectmode='extended')
+    table_shell = DataTable(form, columns=[
+        ('shot', '镜头号', 130), ('title', '内容', 150),
+        ('references', '参考图', 70), ('prompt', '首帧提示词', 430),
+    ], show='tree headings', height=6, selectmode='extended', empty_text='暂无待制作镜头')
+    table = table_shell.tree
     configure_check_column(table)
     for key, label, width in [('shot', '镜头号', 130), ('title', '内容', 150), ('references', '参考图', 70), ('prompt', '首帧提示词', 430)]:
         table.heading(key, text=label)
@@ -257,7 +261,7 @@ def show(app, source, initial=None):
         table.column('prompt', width=max(180, available - CHECK_COLUMN_WIDTH - shot_width - title_width - ref_width))
 
     table.bind('<Configure>', lambda event: fit_columns(event.width), add='+')
-    table.pack(fill='x', padx=14)
+    table_shell.pack(fill='x', padx=14)
     status = tk.StringVar()
     ttk.Label(form, textvariable=status, wraplength=830, justify='left').pack(anchor='w', padx=14, pady=6)
     rows = {shot['id']: shot for shot in pending_shots(episode.get('shots'), base)}
@@ -420,13 +424,13 @@ def show(app, source, initial=None):
     for index, (key, label, variable) in enumerate(
             [('url', '本机地址', url), ('model', '图像模型', model_name), ('text_encoder', '文本编码器', encoder), ('vae', 'VAE', vae)], start=1):
         ttk.Label(local_box, text=label).grid(row=index, column=0, sticky='w', padx=4, pady=2)
-        field = ttk.Entry(local_box, textvariable=variable) if key == 'url' else ttk.Combobox(local_box, textvariable=variable)
+        field = LineInput(local_box, textvariable=variable) if key == 'url' else ttk.Combobox(local_box, textvariable=variable)
         field.grid(row=index, column=1, sticky='ew', padx=4)
         fields[key] = field
     ttk.Button(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=1, column=2, padx=6)
     ttk.Button(local_box, text='启动并检测', command=lambda: app.safe(detect)).grid(row=2, column=2, padx=6)
     ttk.Button(local_box, text='删除模型', command=lambda: app.safe(delete_model)).grid(row=3, column=2, padx=6)
-    log = tk.Text(form, height=7, wrap='word', state='disabled', bg='#ffffff', fg='#243247', font=('Microsoft YaHei UI', 10), padx=10, pady=8)
+    log = TextArea(form, height=7, wrap='word', state='disabled', bg='#ffffff', fg='#243247', font=('Microsoft YaHei UI', 10), padx=10, pady=8)
     log.pack(fill='both', expand=True, padx=14, pady=6)
 
     def log_lines(text):

@@ -4,10 +4,13 @@ import os
 import re
 import shutil
 from pathlib import Path
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, messagebox
 import tkinter as tk
 from agent.core import save
 from file_cache import read_json
+from ui_dialogs import FileDialog
+from ui_widgets import BaseDialog
+from ui_widgets import LineInput, TextArea
 
 ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code'}
 FLOWS={'writing':'剧本创作','storyboard':'初步分镜','assets':'资产图片制作','frames':'批量首帧','previs':'白模预演','video_prompt':'视频提示词','audio':'配音与字幕'}
@@ -504,9 +507,8 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
         previous.lift();previous.model_entry.focus_set();return previous
     saved=load(project,stage);draft=copy.deepcopy(saved)
     stage_presets=[(label,folder) for label,folder in SKILL_PRESETS if folder in FLOW_SKILLS[stage] and preset_skill(folder).is_file()]
-    win=tk.Toplevel(desktop.win);win.attributes('-alpha',0)
+    win=BaseDialog(desktop.win,FLOWS[stage]+' · 调用设置',geometry='800x610',minsize=(640,520),modal=False,chrome=False);win.attributes('-alpha',0)
     # The shared placement handler reveals the dialog after centering it.
-    win.title(FLOWS[stage]+' · 调用设置');win.geometry('800x610');win.minsize(640,520);win.transient(desktop.win)
     dialogs[dialog_key]=win;desktop._flow_settings_dialogs=dialogs
     footer=ttk.Frame(win,padding=(16,8));footer.pack(side='bottom',fill='x')
     body=ttk.Frame(win,padding=16);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1)
@@ -523,12 +525,12 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
     custom=ttk.LabelFrame(body,text='自定义模型 / Skill / API',padding=10)
     custom.grid(row=3,column=0,columnspan=3,sticky='ew',pady=(8,4));custom.columnconfigure(1,weight=1)
     def browse(key):
-        name=filedialog.askopenfilename(parent=win,title='选择 '+('SKILL.md' if key=='skill' else ENGINES[active[0]]+' 命令行程序'),
+        name=FileDialog(win).open_file(title='选择 '+('SKILL.md' if key=='skill' else ENGINES[active[0]]+' 命令行程序'),
             filetypes=[('Skill','SKILL.md')] if key=='skill' else [('命令行程序','*.exe')])
         if name:values[key].set(name)
     for row,key,label in [(1,'program','程序位置'),(0,'model','自定义模型 ID'),(3,'skill','Skill 文件')]:
         ttk.Label(custom,text=label).grid(row=row,column=0,sticky='w',padx=(0,12))
-        entry=ttk.Entry(custom,textvariable=values[key],state='normal');entry.grid(row=row,column=1,sticky='ew',pady=5)
+        entry=LineInput(custom,textvariable=values[key],state='normal');entry.grid(row=row,column=1,sticky='ew',pady=5)
         if key=='model':win.model_entry=entry
         if key=='skill':skill_entry=entry
         if key!='model':ttk.Button(custom,text='选择文件',command=lambda k=key:browse(k)).grid(row=row,column=2,padx=(8,0))
@@ -540,7 +542,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
     values['skill'].trace_add('write',update_skill)
     ttk.Label(custom,textvariable=skill_details,wraplength=650).grid(row=5,column=0,columnspan=3,sticky='w',pady=4)
     ttk.Label(body,text='补充制作要求（可选）').grid(row=4,column=0,columnspan=2,sticky='w')
-    notes=tk.Text(body,height=4,wrap='word',undo=True);notes.grid(row=5,column=0,columnspan=3,sticky='nsew',pady=5);body.rowconfigure(5,weight=1)
+    notes=TextArea(body,height=4,wrap='word',undo=True);notes.grid(row=5,column=0,columnspan=3,sticky='nsew',pady=5);body.rowconfigure(5,weight=1)
     feedback=tk.StringVar(value='模型与 Skill 在主页面切换；此处编辑当前配置，保存后自动关闭。')
     ttk.Label(body,textvariable=feedback,wraplength=680).grid(row=6,column=0,columnspan=3,sticky='w',pady=6)
     ttk.Label(body,text='当前 Agent').grid(row=2,column=0,sticky='w')

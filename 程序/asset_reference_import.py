@@ -2,9 +2,11 @@
 from pathlib import Path
 import hashlib
 import tkinter as tk
-from tkinter import ttk,filedialog,messagebox
+from tkinter import ttk,messagebox
 from agent.core import read
 from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_target,image_bytes,save_copy,attach,unbind
+from ui_dialogs import FileDialog
+from ui_widgets import BaseDialog, LineInput
 
 
 def save_images(base,aid,role,paths,active_ids,pending=False):
@@ -31,8 +33,8 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     rows=sync_asset_plan(project,base,scope_sources(project,'adopted'),scope='adopted')
     if not rows:raise ValueError('请先采用分镜，再添加资产参考图')
     parent=parent or app.win
-    win=tk.Toplevel(parent);win.withdraw();win.transient(parent)
-    win.title('导入参考图');win.geometry('760x470');win.minsize(620,430)
+    win=BaseDialog(parent,'导入参考图',geometry='760x470',minsize=(620,430),modal=False,chrome=False)
+    win.withdraw()
     body=ttk.Frame(win,padding=16);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1);body.rowconfigure(4,weight=1)
     prefix=aid.split('_')[0] if aid in rows else {'characters':'CHAR','scenes':'LOC','props':'PROP'}.get(app.asset_kind,'CHAR')
     category=tk.StringVar(value=CATEGORIES[prefix]);purpose=tk.StringVar();asset=tk.StringVar();destination=tk.StringVar();status=tk.StringVar()
@@ -60,12 +62,12 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     category_box.bind('<<ComboboxSelected>>',update_categories)
     role_box.bind('<<ComboboxSelected>>',update_destination);asset_box.bind('<<ComboboxSelected>>',update_destination)
     def choose_files():
-        selected=filedialog.askopenfilenames(parent=win,title='选择参考图片（可多选）',filetypes=[('参考图片',' '.join('*'+suffix for suffix in sorted(EXTENSIONS)))])
+        selected=FileDialog(win).open_files(title='选择参考图片（可多选）',filetypes=[('参考图片',' '.join('*'+suffix for suffix in sorted(EXTENSIONS)))])
         for value in selected:
             if value not in paths:paths.append(value);files.insert('end',Path(value).name)
     ttk.Button(body,text='选择图片…',command=choose_files).grid(row=3,column=1,sticky='e',pady=(12,5))
     ttk.Label(body,text='保存目录').grid(row=5,column=0,sticky='w',pady=5)
-    ttk.Entry(body,textvariable=destination,state='readonly').grid(row=5,column=1,sticky='ew',pady=5)
+    LineInput(body,textvariable=destination,state='readonly').grid(row=5,column=1,sticky='ew',pady=5)
     ttk.Label(body,textvariable=status,wraplength=690).grid(row=6,column=0,columnspan=2,sticky='w',pady=5)
     buttons=ttk.Frame(body);buttons.grid(row=7,column=0,columnspan=2,sticky='ew',pady=(12,0))
     def commit():

@@ -701,10 +701,11 @@ class UiEdgeTests(unittest.TestCase):
             asked = []
             original_open = native_apps.open_comfy
             native_apps.open_comfy = lambda settings=None: (launched.append(settings), None)[1]
-            original_ask = desktop_module.filedialog.askopenfilename
-            desktop_module.filedialog.askopenfilename = lambda **kwargs: asked.append(kwargs) or ""
+            import ui_dialogs
+            original_ask = ui_dialogs.filedialog.askopenfilename
+            ui_dialogs.filedialog.askopenfilename = lambda **kwargs: asked.append(kwargs) or ""
             self.addCleanup(setattr, native_apps, "open_comfy", original_open)
-            self.addCleanup(setattr, desktop_module.filedialog, "askopenfilename", original_ask)
+            self.addCleanup(setattr, ui_dialogs.filedialog, "askopenfilename", original_ask)
             # 只接受连接、永不回应的端口＝ComfyUI 正在启动
             server = socket.socket()
             server.bind(("127.0.0.1", 0)); server.listen(1)
@@ -758,12 +759,13 @@ class UiEdgeTests(unittest.TestCase):
             launched = []
             original_open = native_apps.open_comfy
             native_apps.open_comfy = lambda settings=None: (launched.append(settings), None)[1]
-            original_ask = desktop_module.filedialog.askopenfilename
-            desktop_module.filedialog.askopenfilename = lambda **kwargs: asked.append(kwargs) or ""
+            import ui_dialogs
+            original_ask = ui_dialogs.filedialog.askopenfilename
+            ui_dialogs.filedialog.askopenfilename = lambda **kwargs: asked.append(kwargs) or ""
             original_exe = desktop_module.comfy_executable
             desktop_module.comfy_executable = lambda settings: None
             self.addCleanup(setattr, native_apps, "open_comfy", original_open)
-            self.addCleanup(setattr, desktop_module.filedialog, "askopenfilename", original_ask)
+            self.addCleanup(setattr, ui_dialogs.filedialog, "askopenfilename", original_ask)
             self.addCleanup(setattr, desktop_module, "comfy_executable", original_exe)
             probe = socket.socket()
             probe.bind(("127.0.0.1", 0)); free_port = probe.getsockname()[1]; probe.close()

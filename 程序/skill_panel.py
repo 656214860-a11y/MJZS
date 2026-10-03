@@ -20,7 +20,7 @@ import re
 import shutil
 
 import tkinter as tk
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import messagebox, simpledialog, ttk
 
 import model_pool
 import model_router
@@ -33,8 +33,10 @@ import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json
 from storage_maintenance import recycle_paths
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import (DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
+from ui_widgets import (BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
+                        TextArea,
                         SecondaryButton, Tooltip)
+from ui_dialogs import FileDialog
 
 TITLE = '阶段配置'
 _LIVE = []            # 还开着的面板：模型池变了一次就把它们的下拉框都刷一遍（不用重开窗口）
@@ -785,15 +787,13 @@ class Panel(ttk.Frame):
                        'director': stage_config.HOLLMWOOD_DIRECTOR, 'writer': stage_config.HOLLMWOOD_WRITER,
                        'editor': stage_config.HOLLMWOOD_EDITOR, 'actor': stage_config.HOLLMWOOD_ACTOR}.items() if key == field)))
         current = stage_config.get(project, self.stage).get(field, '') or default
-        window = tk.Toplevel(self.winfo_toplevel())
-        window.title(title + ' · ' + stage_label(self.stage))
-        window.transient(self.winfo_toplevel())
-        window.minsize(620, 430)
+        window = BaseDialog(self.winfo_toplevel(), title + ' · ' + stage_label(self.stage),
+                            minsize=(620, 430), modal=False, chrome=False)
         body = ttk.Frame(window, padding=SPACING['md'])
         body.pack(fill='both', expand=True)
         DescriptionBlock(body, text='项目级规则：保存后仅在本项目下一次 HOLLMWOOD 四角色运行时生效。').pack(
             anchor='w', pady=(SPACING['none'], SPACING['sm']))
-        editor = tk.Text(body, wrap='word', undo=True, font=FONTS['body'],
+        editor = TextArea(body, wrap='word', undo=True, font=FONTS['body'],
                          bg=COLORS['background_card'], fg=COLORS['text_primary'],
                          insertbackground=COLORS['primary'])
         editor.insert('1.0', current)
@@ -885,8 +885,8 @@ class Panel(ttk.Frame):
         old = stage_config.current_workflow(self.project())
         rows = stage_config.workflow_differences(self.project(), preset)
         old_preset = workflow_settings.WORKFLOW_PRESETS.get(str(old.get('name') or ''), {})
-        dialog = tk.Toplevel(self); dialog.title('切换统筹' if switching else '套用统筹建议')
-        dialog.transient(self.winfo_toplevel()); dialog.resizable(True, True)
+        dialog = BaseDialog(self.winfo_toplevel(), '切换统筹' if switching else '套用统筹建议',
+                            modal=False, chrome=False); dialog.resizable(True, True)
         body = ttk.Frame(dialog, padding=12); body.pack(fill='both', expand=True)
         DescriptionBlock(body, text=('逐项选择是否套用建议；已有阶段勾选默认保留，不会自动覆盖。'
                                      if switching else '仅显式空阶段默认勾选套用；已有勾选保持不覆盖。')).pack(fill='x')
@@ -1073,7 +1073,7 @@ class Panel(ttk.Frame):
 
     def add_skill_from_file(self):
         """显式导入单个 SKILL 到本阶段的受控注册目录。"""
-        source = filedialog.askopenfilename(parent=self.winfo_toplevel(), title='新增 SKILL',
+        source = FileDialog(self.winfo_toplevel()).open_file(title='新增 SKILL',
                                             filetypes=[('SKILL', ('*.skill.md', 'SKILL.md')), ('全部文件', '*.*')])
         if not source:
             return None
@@ -1300,7 +1300,7 @@ class Panel(ttk.Frame):
         body.rowconfigure(0, weight=1)
         bar = ttk.Scrollbar(body, orient='vertical')
         bar.grid(row=0, column=1, sticky='ns')
-        self.note_text = tk.Text(body, height=height, wrap='word', relief='flat', bg=COLORS['background_card'],
+        self.note_text = TextArea(body, height=height, wrap='word', relief='flat', bg=COLORS['background_card'],
                                  fg=COLORS['text_primary'], font=FONTS['caption'], padx=SPACING['sm'], pady=SPACING['xs'],
                                  yscrollcommand=bar.set)
         self.note_text.grid(row=0, column=0, sticky='nsew')
@@ -1550,10 +1550,7 @@ class Panel(ttk.Frame):
         if not name or name == PRESET_PLACEHOLDER:
             self.state.configure(text='先在上方选一个预设')
             return None
-        dialog = tk.Toplevel(self.winfo_toplevel())
-        dialog.title('复制预设：选择共享页面')
-        dialog.transient(self.winfo_toplevel())
-        dialog.grab_set()
+        dialog = BaseDialog(self.winfo_toplevel(), '复制预设：选择共享页面', chrome=False)
         DescriptionBlock(dialog, text='将预设「%s」复制到以下页面：\n各页面获得独立副本，之后互不影响。' % name).pack(
             anchor='w', padx=SPACING['lg'], pady=(SPACING['md'], SPACING['sm']))
         body = ttk.Frame(dialog)
@@ -1779,10 +1776,8 @@ def show(desktop, stage, function=None, launcher_button=None):
         messagebox.showinfo(TITLE, '请先选择项目。', parent=getattr(desktop, 'win', None))
         return None
     stage = stage_for(stage)
-    window = tk.Toplevel(getattr(desktop, 'win', None))
-    window.title(panel_title(stage))
     parent = getattr(desktop, 'win', None)
-    window.transient(parent or None)
+    window = BaseDialog(parent, panel_title(stage), modal=False, chrome=False)
     # 第 29 期第 2 条：面板里多了「接口」与「SKILL 说明」两块，窗口要能放大、也有个下限，
     # 说明文字才排得开（原先定死大小，MD 一长就被挤成一条）。
     window.resizable(True, True)

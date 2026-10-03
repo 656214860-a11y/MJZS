@@ -101,7 +101,7 @@ def settings(parent):
     import tkinter as tk
     import webbrowser
     from tkinter import ttk, messagebox
-    from ui_widgets import FormDialog
+    from ui_widgets import FormDialog, LineInput
     win = FormDialog(parent, '云图片模型 · Comfy 账户', modal=False, chrome=False)
     win.withdraw();win.transient(parent)
     body = ttk.Frame(win, padding=16);body.pack(fill='both', expand=True)
@@ -111,7 +111,7 @@ def settings(parent):
     ttk.Label(body, text='Comfy API Key（统一保存到 程序目录/private/.env，不写入工作流）').pack(anchor='w')
     saved = get_key()
     token = tk.StringVar(value=saved)
-    ttk.Entry(body, textvariable=token, show='•', width=64).pack(fill='x', pady=6)
+    LineInput(body, textvariable=token, show='•', width=64).pack(fill='x', pady=6)
     status = tk.StringVar(value='已保存密钥（%s）' % redact(saved) if saved
                            else '尚未配置，暂不能从助手批量调用云模型')
     ttk.Label(body, textvariable=status, wraplength=560).pack(anchor='w')

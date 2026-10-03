@@ -2,11 +2,13 @@
 import tkinter as tk
 import webbrowser
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import messagebox, ttk
 from platform_tools import open_path
 from file_cache import read_json
 from storyboard_paths import project_root
 import white_model_service as _service
+from ui_dialogs import FileDialog
+from ui_widgets import BaseDialog, TextArea
 
 TOOLS = (
     ('打开 LensBlock 白模工作台', 'https://ilcaretz.github.io/lensblock/'),
@@ -30,10 +32,7 @@ def choose_previs(desktop):
     ids = [str(shot['id']) for shot in episode.get('shots', []) if shot.get('id')]
     if not ids:
         raise ValueError('当前分镜中没有镜头，请先完成第04步分镜定稿')
-    picker = tk.Toplevel(desktop.win)
-    picker.title('选择要预演的镜头')
-    picker.geometry('420x150')
-    picker.transient(desktop.win)
+    picker = BaseDialog(desktop.win, '选择要预演的镜头', geometry='420x150', modal=False, chrome=False)
     picker.lift()
     body = ttk.Frame(picker, padding=16); body.pack(fill='both', expand=True)
     ttk.Label(body, text='选择要制作白模预演的镜头：').pack(anchor='w', pady=(0,8))
@@ -55,7 +54,7 @@ def write_record(root,data):
     return publish_record(root, data, writer=_service.write_record)
 
 def import_media(root,sid,parent):
-    name=filedialog.askopenfilename(parent=parent,title='为 '+sid+' 导入白模',
+    name=FileDialog(parent).open_file(title='为 '+sid+' 导入白模',
         filetypes=[('白模视频或工程','*.mp4 *.webm *.mov *.blend *.json *.cclayproject'),('所有文件','*.*')])
     if not name:return None
     from white_model_persistence_controller import import_media
@@ -96,11 +95,8 @@ def open_previs(desktop,sid=None):
     root = shot_directory(desktop.root,sid)
     root.mkdir(parents=True, exist_ok=True)
     saved = read_record(root)
-    win = tk.Toplevel(desktop.win)
-    win.title(sid + ' · 白模预演')
-    win.geometry('760x720')
-    win.minsize(620, 560)
-    win.transient(desktop.win)
+    win = BaseDialog(desktop.win, sid + ' · 白模预演', geometry='760x720',
+                     minsize=(620, 560), modal=False, chrome=False)
     win.lift()
     body = ttk.Frame(win, padding=14)
     body.pack(fill='both', expand=True)
@@ -137,7 +133,7 @@ def open_previs(desktop,sid=None):
         ttk.Label(row, text=f'{number}. {title}').pack(side='left')
         ttk.Button(row, text='打开网站', command=lambda u=url: webbrowser.open(u)).pack(side='right')
     ttk.Label(body, text='动作与机位备注（可复制到视频提示词）：').pack(anchor='w', pady=(15, 3))
-    notes = tk.Text(body, height=9, wrap='word', undo=True)
+    notes = TextArea(body, height=9, wrap='word', undo=True)
     notes.pack(fill='both', expand=True)
     notes.insert('1.0', saved.get('notes', ''))
     path_text = tk.StringVar(value=saved.get('preview') or '尚未导入预演视频')

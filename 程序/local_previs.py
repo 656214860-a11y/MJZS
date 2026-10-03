@@ -12,7 +12,7 @@ from platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
                            work_rows, work_hint, view_row)
 from ui_tokens import COLORS, SPACING
-from ui_widgets import Card, PrimaryButton, SecondaryButton
+from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea
 
 def engine_name(project):
     """当前白模引擎名：读得出来就写进口径，读不出来退回空串。
@@ -34,14 +34,15 @@ def online_window(desktop, source, ids):
              if shot['id'] in ids and not previs_routing.ready(desktop.root, shot['id'])}
     if not shots:
         raise ValueError('没有勾选待制作的中等复杂度镜头；已就绪镜头不重复制作')
-    win = tk.Toplevel(desktop.win); win.title('线上白模 · 中等动作'); win.geometry('740x480'); win.transient(desktop.win)
+    win = BaseDialog(desktop.win, '线上白模 · 中等动作', geometry='740x480',
+                     modal=False, chrome=False)
     body = Card(win, padding=SPACING['lg']); body.pack(fill='both', expand=True)
     ttk.Label(body, text='按分镜简化制作 → 导出预演视频 → 导入对应镜头', wraplength=680).pack(anchor='w')
     selected = tk.StringVar(value=next(iter(shots)))
     combo = ttk.Combobox(body, textvariable=selected, values=list(shots), state='readonly'); combo.pack(
         fill='x', pady=SPACING['sm']
     )
-    text = tk.Text(body, wrap='word', height=12); text.pack(fill='both', expand=True)
+    text = TextArea(body, wrap='word', height=12); text.pack(fill='both', expand=True)
     def update(event=None):
         shot = shots[selected.get()]
         task = f"{ep.get('episode_id', '')} / {shot['id']} · {shot.get('title', '')} · {shot.get('duration', 0)}秒\n"
@@ -89,19 +90,18 @@ def show(desktop):
     )
     tablebox=ttk.Frame(body);tablebox.pack(fill='both',expand=True,pady=SPACING['sm'])
     # 第 47 期第 5 条：用户点名删掉「制作进度」那一栏——进度条整列撤掉，状态那一栏照旧说事。
-    tree=ttk.Treeview(tablebox,columns=('id','title','duration','complexity','route','status'),show='tree headings',height=8,selectmode='browse')
+    table_shell=DataTable(tablebox,columns=[
+        ('id','镜头',165),('title','内容',150),('duration','秒数',50),
+        ('complexity','动作复杂度',120),('route','制作方式',130),('status','状态',140),
+    ],show='tree headings',height=8,selectmode='browse',empty_text='暂无镜头')
+    tree=table_shell.tree
     icons=desktop.win._tick_images[:2]
     configure_check_column(tree)
     for col,title,width in [('id','镜头',165),('title','内容',150),('duration','秒数',50),('complexity','动作复杂度',120),('route','制作方式',130),('status','状态',140)]:
         tree.heading(col,text=title);tree.column(col,width=width,stretch=col in ('title','status'))
     auto_columns(tree)
     tree.tag_configure('completed',background=COLORS['border_default'],foreground=COLORS['success'])
-    scroll=ttk.Scrollbar(tablebox,orient='vertical',command=tree.yview)
-    horizontal=ttk.Scrollbar(tablebox,orient='horizontal',command=tree.xview)
-    def scrolled(first,last):scroll.set(first,last)
-    def moved(first,last):horizontal.set(first,last)
-    tree.configure(yscrollcommand=scrolled,xscrollcommand=moved)
-    scroll.grid(row=0,column=1,sticky='ns');horizontal.grid(row=1,column=0,sticky='ew');tree.grid(row=0,column=0,sticky='nsew')
+    table_shell.grid(row=0,column=0,sticky='nsew')
     tablebox.columnconfigure(0,weight=1);tablebox.rowconfigure(0,weight=1)
     auto_height(tree, tablebox)
     def key(sid):return str(project)+'|'+sid
