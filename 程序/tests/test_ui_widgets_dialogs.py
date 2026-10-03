@@ -13,7 +13,7 @@ import tkinter as tk
 import unittest
 from tkinter import ttk
 
-from ui_widgets import BaseDialog, ConfirmDialog, FormDialog
+from ui_widgets import BaseDialog, ConfirmDialog, FormDialog, ask_confirmation
 
 
 class DialogWidgetTests(unittest.TestCase):
@@ -62,6 +62,13 @@ class DialogWidgetTests(unittest.TestCase):
         dialog._confirm()
         self.assertTrue(dialog.result)
         self.assertEqual(outcomes, [True])
+
+    def test_sync_confirmation_returns_dialog_result(self):
+        """同步兼容入口仍须经统一 ConfirmDialog，而非回落系统 messagebox。"""
+        self.root.after_idle(
+            lambda: next(child for child in self.root.winfo_children()
+                         if isinstance(child, ConfirmDialog))._confirm())
+        self.assertTrue(ask_confirmation(self.root, '确认', '继续执行？'))
 
     def test_escape_closes_and_releases_modal_grab(self):
         dialog = BaseDialog(self.root, '关闭测试')

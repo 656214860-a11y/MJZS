@@ -130,20 +130,19 @@ class SeedreamUnsettledTests(unittest.TestCase):
 
     def test_confirm_dialog_releases_only_when_user_agrees(self):
         import seedream_settings
-        from tkinter import messagebox
         with tempfile.TemporaryDirectory() as td:
             folder = Path(td)
             (folder / "seedream_A.json").write_text(json.dumps({"state": "sending"}), encoding="utf-8")
-            original = messagebox.askyesno
-            self.addCleanup(setattr, messagebox, "askyesno", original)
-            messagebox.askyesno = lambda *a, **k: False
+            original = seedream_settings.ask_confirmation
+            self.addCleanup(setattr, seedream_settings, "ask_confirmation", original)
+            seedream_settings.ask_confirmation = lambda *a, **k: False
             self.assertEqual(seedream_settings.confirm_unsettled(None, folder, ["A"], "镜头"), [])
             self.assertEqual(json.loads((folder / "seedream_A.json").read_text(encoding="utf-8"))["state"], "sending")
-            messagebox.askyesno = lambda *a, **k: True
+            seedream_settings.ask_confirmation = lambda *a, **k: True
             self.assertEqual(seedream_settings.confirm_unsettled(None, folder, ["A"], "镜头"), ["A"])
             self.assertEqual(json.loads((folder / "seedream_A.json").read_text(encoding="utf-8"))["state"], "failed")
             (folder / "seedream_B.json").write_text(json.dumps({"state": "completed"}), encoding="utf-8")
-            messagebox.askyesno = lambda *a, **k: (_ for _ in ()).throw(AssertionError("没有未确定记录时不应弹窗"))
+            seedream_settings.ask_confirmation = lambda *a, **k: (_ for _ in ()).throw(AssertionError("没有未确定记录时不应弹窗"))
             self.assertEqual(seedream_settings.confirm_unsettled(None, folder, ["B"], "镜头"), [])
 
 if __name__ == "__main__":

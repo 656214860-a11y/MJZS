@@ -1,10 +1,10 @@
 """Local settings for the user's own Volcengine Seedream API account."""
 import tkinter as tk
 import webbrowser
-from tkinter import ttk,messagebox
+from tkinter import ttk
 import seedream_api as api
 import tk_timers
-from ui_widgets import LineInput, notify
+from ui_widgets import LineInput, ask_confirmation, notify
 from ui_widgets import BaseDialog
 
 
@@ -17,10 +17,10 @@ def confirm_unsettled(parent,folder,values,what='镜头'):
     blocked=api.unsettled(folder,values)
     if not blocked:return []
     shown='、'.join(blocked[:8])+('…' if len(blocked)>8 else '')
-    if not messagebox.askyesno('Seedream 请求结果不确定',
+    if not ask_confirmation(parent, 'Seedream 请求结果不确定',
             '有 '+str(len(blocked))+' 个'+what+'上次的 Seedream 请求没有拿到结果，可能已经扣费：\n'+shown+
             '\n\n请先在火山控制台核实这些请求；确认没有生成，再选择“是”重新生成。\n其余'+what+'照常制作，不会重复扣费。',
-            parent=parent):
+            dangerous=True):
         return []
     return api.release(folder,blocked)
 

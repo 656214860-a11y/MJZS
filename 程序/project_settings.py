@@ -58,10 +58,10 @@ def confirm_unattended(text, parent=None):
     自动排队的活会自己往下跑，勾错一次就是一批任务被派出去；先问一句，用户点「否」时
     调用方负责把勾选框还原成未勾选。关闭时不用问（这里直接放行）。
     """
-    from tkinter import messagebox
-    return bool(messagebox.askyesno('确认开启无人值守',
+    from ui_widgets import ask_confirmation
+    return ask_confirmation(parent, '确认开启无人值守',
         text+'\n\n开启后三虎会按这一页的规则自动排队执行，遇到要花钱或要您确认的步骤仍会停下来。\n要现在开启吗？',
-        parent=parent))
+        dangerous=True)
 
 def auto_review(project):
     """无人值守自动验收：视频下载且技术质检通过后，直接标记为已验收。"""

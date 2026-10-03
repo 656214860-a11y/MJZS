@@ -685,6 +685,22 @@ class ConfirmDialog(BaseDialog):
         super().close()
 
 
+def ask_confirmation(parent, title, message, *, dangerous=False):
+    """以统一确认窗提供旧式同步布尔语义。
+
+    业务确认过去大多依赖 ``messagebox.askyesno`` 的同步返回值；在调用点
+    尚未全部改为回调前，使用此入口可统一弹窗外观并保留 ``True``／``False``
+    语义。关闭、Esc 与取消都稳定返回 ``False``。
+    """
+    dialog = ConfirmDialog(parent, title, message, dangerous=dangerous)
+    try:
+        dialog.wait_window()
+    except tk.TclError:
+        # 父窗口在确认期间已销毁时，按“未确认”处理，绝不继续危险操作。
+        return False
+    return bool(dialog.result)
+
+
 class Tooltip:
     """统一的短说明浮层，鼠标和键盘焦点都可触发且不会取得输入 grab。"""
 
