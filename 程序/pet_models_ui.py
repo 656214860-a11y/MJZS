@@ -283,7 +283,6 @@ def open_manager(pet):
     # 模型管理的字段都是单行输入。专用紧凑样式把默认控件的纵向空白压到最小，
     # 不牵连其他设置页或聊天输入框。
     style.configure('ModelManager.TEntry', font=FONTS['caption'], padding=(SPACING['xs'], 0))
-    style.configure('ModelManager.TCombobox', font=FONTS['caption'], padding=(SPACING['xs'], 0))
     entries = {}
     caps = {}
     provider = tk.StringVar(value=model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
@@ -303,7 +302,7 @@ def open_manager(pet):
     # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
     # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
     # 挑现成的，或者直接敲一个名字；存的就是填进去的那个名字。
-    provider_box = ttk.Combobox(form, textvariable=provider, state='normal', style='ModelManager.TCombobox',
+    provider_box = ttk.Combobox(form, textvariable=provider, state='normal',
                                 values=[label for _value, label in model_pool.PROVIDERS])
     provider_box.grid(row=index, column=1, sticky='ew', pady=SPACING['xs'])
     def match_wire(event=None):
@@ -333,7 +332,7 @@ def open_manager(pet):
     index += 1
     index = text_row(index, 'model', '模型 ID')
     ttk.Label(form, text='协议').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
-    ttk.Combobox(form, textvariable=wire, state='readonly', style='ModelManager.TCombobox',
+    ttk.Combobox(form, textvariable=wire, state='readonly',
                  values=[label for _value, label in model_pool.WIRE_APIS]).grid(
         row=index, column=1, sticky='w', pady=SPACING['xs'])
     index += 1
