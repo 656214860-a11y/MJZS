@@ -14,6 +14,19 @@ class CardBoundaryTests(unittest.TestCase):
     def test_local_video_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("local_video.py", "settings_window")
 
+    def test_cloud_studio_settings_uses_card_for_its_configuration_group(self):
+        tree = parse(ROOT / "app.py")
+        imported = {
+            alias.name for node in tree.body if isinstance(node, ast.ImportFrom)
+            and node.module == "ui_widgets" for alias in node.names
+        }
+        self.assertIn("Card", imported)
+        function = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+                        and node.name == "settings")
+        calls = [node for node in ast.walk(function) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name) and node.func.id == "Card"]
+        self.assertEqual(len(calls), 1)
+
     def test_qwen_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("qwen_setup.py")
 

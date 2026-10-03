@@ -21,7 +21,7 @@ import asset_thumbs
 import ui_plugin_registry
 from platform_tools import open_path
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import (BaseDialog, ContextMenu, DataTable, LineInput, NotificationDispatcher,
+from ui_widgets import (BaseDialog, Card, ContextMenu, DataTable, LineInput, NotificationDispatcher,
                         ask_confirmation,
                         PrimaryButton, SecondaryButton, TextArea)
 from ui_dialogs import FileDialog
@@ -1306,12 +1306,13 @@ class App:
         self.write(sid+' 已恢复任务编号：'+task_id+'，将自动跟踪查询。')
     def settings(self):
         if isinstance(self.studio,LocalStudio):return settings_window(self)
-        win=BaseDialog(self.window,'设置',modal=False,chrome=False);win.attributes('-alpha',0);entries={}
+        win=BaseDialog(self.window,'设置',modal=False,chrome=False);win.attributes('-alpha',0)
+        body=Card(win,padding=SPACING['lg']);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1);entries={}
         labels={'project_dir':'密钥.env所在目录','base_url':'阿里云API根地址','model':'模型ID','ffmpeg':'FFmpeg程序','ffprobe':'FFprobe程序','budget_seconds':'本地总预算秒数（含历史占用）','reserve_seconds':'备用秒数'}
         for row,(key,label) in enumerate(labels.items()):
-            ttk.Label(win,text=label).grid(row=row,column=0,padx=SPACING['sm'],pady=SPACING['sm'],sticky='w')
-            e=LineInput(win,width=80);e.insert(0,str(self.studio.cfg[key]));e.grid(row=row,column=1,padx=SPACING['sm']);entries[key]=e
-        live=tk.BooleanVar(value=self.studio.cfg['live_enabled']);ttk.Checkbutton(win,text='开启联网生成与查询（需手动提交）',variable=live).grid(row=len(labels),column=1,sticky='w')
+            ttk.Label(body,text=label).grid(row=row,column=0,padx=SPACING['sm'],pady=SPACING['sm'],sticky='w')
+            e=LineInput(body,width=80);e.insert(0,str(self.studio.cfg[key]));e.grid(row=row,column=1,padx=SPACING['sm']);entries[key]=e
+        live=tk.BooleanVar(value=self.studio.cfg['live_enabled']);ttk.Checkbutton(body,text='开启联网生成与查询（需手动提交）',variable=live).grid(row=len(labels),column=1,sticky='w')
         def commit():
             try:
                 if self.busy:raise ValueError('请等待当前操作完成')
@@ -1324,7 +1325,7 @@ class App:
                 from stage_execution_service import publish_cloud_video_studio_config
                 publish_cloud_video_studio_config(self.root/'config.json',cfg);self.studio.cfg=cfg;win.destroy();self.refresh()
             except Exception as e:self.notifier.error(str(e), title='无法保存')
-        PrimaryButton(win,text='保存',command=commit).grid(row=len(labels)+1,column=1,pady=SPACING['md'])
+        PrimaryButton(body,text='保存',command=commit).grid(row=len(labels)+1,column=1,pady=SPACING['md'])
     def open_assembled(self):
         from project_stages import exports
         folder=exports(self.root);folder.mkdir(parents=True,exist_ok=True)
