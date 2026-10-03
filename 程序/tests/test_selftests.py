@@ -144,6 +144,17 @@ class IncrementalTests(unittest.TestCase):
         self.assertTrue(run_selftests.full_safe_required(858, 855, True))
         self.assertFalse(run_selftests.full_safe_required(858, 855, False))
 
+    def test_full_safe_lock_rejects_active_holder_and_releases(self):
+        with tempfile.TemporaryDirectory() as folder:
+            lock = run_selftests.acquire_full_safe_lock(folder, 873)
+            self.assertTrue(os.path.exists(lock))
+            with self.assertRaisesRegex(RuntimeError, 'PID'):
+                run_selftests.acquire_full_safe_lock(folder, 874)
+            run_selftests.release_full_safe_lock(lock)
+            replacement = run_selftests.acquire_full_safe_lock(folder, 874)
+            self.assertTrue(os.path.exists(replacement))
+            run_selftests.release_full_safe_lock(replacement)
+
     def test_elapsed_history_keeps_five_runs_and_uses_the_median(self):
         state = {}
         timings = run_selftests.record_elapsed(

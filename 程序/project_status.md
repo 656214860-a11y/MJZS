@@ -13,6 +13,8 @@
 
 ## 当前能力
 
+- R873 协作治理轮（全量安全自测错峰锁，**已验收**）：`run_selftests.py --all --safe` 在 Git common-dir 使用原子锁跨工作树互斥；活动持有者会被拒绝并显示 PID／轮次，失效锁会回收，Windows 使用进程句柄判断存活。相关回归 35 条／0 红。详见 `tasks_round/tasks_round_873_result.md`。
+
 - R871 协作治理轮（Git hooks 协议，**已验收**）：版本受控的 `commit-msg`／`pre-commit` 模板可由安装脚本写入共享 Git hooks；提交消息受 R 轮次前缀约束，`程序/` 中的非默认文档必须显式列入白名单，非 master 不可改 `project_status.md`。定向 10 条／0 红、默认冒烟 8/8。详见 `tasks_round/tasks_round_871_result.md`。
 
 - R870 协作治理轮（队列认领强制化，**已验收**）：`round_claim.py` 新增 `claim`／`release`，队列更新与轮次计数共用 Git common-dir 排他锁和原子写入；默认 60 分钟租约会拒绝已完成项或他人有效认领，过期抢占和释放均记入 note。`AGENTS.md` 已纳入开工协议。回归 6 条／0 红、默认冒烟 8/8。详见 `tasks_round/tasks_round_870_result.md`。

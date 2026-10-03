@@ -27,6 +27,7 @@ test_pet_ui／test_ui_edges 各自七八十秒，整跑就被它们俩顶住了�
 怀疑漏检时用 --all 或 --serial 对照，两条路都在。
 """
 import ast
+import atexit
 import glob
 import hashlib
 import importlib
@@ -61,6 +62,7 @@ SLOW_UNITS_LIMIT = 10   # 汇总只保留最慢若干工作单元，避免全量
 
 
 CACHE_NAME = 'selftest-incremental.json'
+FULL_SAFE_LOCK_NAME = 'full-safe-selftest.lock'
 LAYER_BASELINE_NAME = os.path.join('维护记录', '测试分层基线.json')
 FULL_SAFE_TREE_TTL = timedelta(days=7)
 DATA_GLOBS = ('skills/*.skill.md', 'skills/*/*.md', 'skills/*/*/*.md')
@@ -164,6 +166,62 @@ def cache_path():
     if common and os.path.isdir(common):
         return os.path.join(common, CACHE_NAME)
     return os.path.join(HERE, '维护记录', '自检增量.json')
+
+
+def _pid_is_alive(pid):
+    try:
+        pid = int(pid)
+    except (ValueError, TypeError):
+        return False
+    if os.name == 'nt':
+        # Windows 的 os.kill(pid, 0) 不可靠地报告 WinError 87；用进程句柄
+        # 查询活动持有者，避免把仍在执行的全量回归锁当成过期锁。
+        import ctypes
+        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+        if not handle:
+            return False
+        ctypes.windll.kernel32.CloseHandle(handle)
+        return True
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def acquire_full_safe_lock(common_dir=None, round_number=None):
+    """领取跨工作树的全量安全回归锁；活跃持有人不得被覆盖。"""
+    common = common_dir or git_common_dir()
+    if not common:
+        raise RuntimeError('无法定位 Git common-dir，拒绝并行全量安全回归')
+    path = os.path.join(common, FULL_SAFE_LOCK_NAME)
+    payload = {'pid': os.getpid(), 'round': round_number, 'started_at': time.time()}
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        try:
+            with io.open(path, encoding='utf-8') as handle:
+                holder = json.load(handle)
+        except (OSError, ValueError):
+            holder = {}
+        if _pid_is_alive(holder.get('pid')):
+            raise RuntimeError('全量安全回归已由 PID %s（R%s）持有' %
+                               (holder.get('pid'), holder.get('round', '?')))
+        try:
+            os.unlink(path)
+        except OSError:
+            raise RuntimeError('全量安全回归锁无法回收：%s' % path)
+        return acquire_full_safe_lock(common, round_number)
+    with os.fdopen(descriptor, 'w', encoding='utf-8') as handle:
+        json.dump(payload, handle, ensure_ascii=False)
+    return path
+
+
+def release_full_safe_lock(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
 
 
 def load_cache():
@@ -806,6 +864,13 @@ def main(argv=None):
         print('内容树同 R%s 已验证(3,698 条/%.3f秒/0 红)' %
               (verified['round'], float(verified['seconds'])))
         return 0
+    if full_safe:
+        try:
+            lock = acquire_full_safe_lock(round_number=latest_completed_round())
+        except RuntimeError as exc:
+            print(str(exc))
+            return 2
+        atexit.register(release_full_safe_lock, lock)
     if not serial and not jobs:
         jobs = max(2, min(JOBS_CAP, (os.cpu_count() or 4)))
     protect_tk()
