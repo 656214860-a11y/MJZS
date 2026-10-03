@@ -38,6 +38,7 @@ import struct
 import subprocess
 import sys
 import time
+from platform_tools import launch_background
 import tkinter as tk
 from pathlib import Path
 from file_cache import read_json, remove_temporary_file
@@ -512,11 +513,10 @@ def _ensure_worker():
         return True
     try:
         Path(CACHE_ROOT).mkdir(parents=True, exist_ok=True)
-        _WORKER = subprocess.Popen(
+        _WORKER = launch_background(
             [sys.executable, str(Path(__file__).resolve()), '--worker', str(CACHE_ROOT)],
-            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            env=_worker_environment())
+            env=_worker_environment(), popen=subprocess.Popen)
         _WORKER_AT = time.monotonic()
         return True
     except Exception:
