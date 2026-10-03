@@ -112,15 +112,17 @@ def tests_active():
 
 
 # ── 第 47 期第 3 条：点「手动XX」以前先问一句「模型配了吗」 ──────────────────
-ASKER = None                # 自检里换成假函数；默认走系统的 messagebox.askyesno
+ASKER = None                # 自检里换成假函数；默认走统一 ConfirmDialog
 
 
 def _ask(title, message, parent=None):
     """弹一次确认框（返回 True＝用户要现在就去配）。自检把 ASKER 换掉，不弹真窗。"""
     if ASKER is None and tests_active():
         return False            # 第 60 期第 6 条：自检里不冒窗，按「先不配、照旧开始」走
-    from tkinter import messagebox
-    asker = ASKER or messagebox.askyesno
+    if ASKER is None:
+        from ui_widgets import ask_confirmation
+        return ask_confirmation(parent, title, message)
+    asker = ASKER
     return bool(asker(title, message, parent=parent))
 
 
