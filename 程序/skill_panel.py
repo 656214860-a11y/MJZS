@@ -672,10 +672,11 @@ class Panel(ttk.Frame):
     def _build(self):
         # 阶段配置以连续表单阅读为主，统一使用最小设计间距和标签宽度，避免控件跳列。
         pad = SPACING['xs']
+        section_gap = max(1, round(pad / 3))
         label_width = 10
         # 预设决定整套配置，因此置于厂商／模型之前。
         row = ttk.Frame(self)
-        row.pack(fill='x', pady=(0, pad))
+        row.pack(fill='x', pady=(0, section_gap))
         ttk.Label(row, text='预设', style='Muted.TLabel', width=label_width).pack(side='left')
         self.presets = ttk.Combobox(row, textvariable=self.preset, state='readonly', width=14,
                                     values=[PRESET_PLACEHOLDER] + self.preset_names())
@@ -691,12 +692,12 @@ class Panel(ttk.Frame):
         self.restore_defaults_button.pack(side='left')
         HintLabel(row, text='勾选项与模型已自动保存').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
 
-        coordinator = ttk.LabelFrame(self, text='统筹 SKILL', padding=pad)
-        coordinator.pack(fill='x', pady=(0, pad))
+        coordinator = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
+        coordinator.pack(fill='x', pady=(0, section_gap))
         self.build_workflow_coordinator(pad, coordinator)
 
-        engine = ttk.LabelFrame(self, text='由谁执行', padding=pad)
-        engine.pack(fill='x', pady=(0, pad))
+        engine = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
+        engine.pack(fill='x', pady=(0, section_gap))
         top = ttk.Frame(engine)
         top.pack(fill='x')
         ttk.Label(top, text='厂商', style='Muted.TLabel', width=label_width).pack(side='left')
@@ -713,9 +714,8 @@ class Panel(ttk.Frame):
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
         self.route_hint = HintLabel(engine, text='')
-        self.route_hint.pack(fill='x', pady=(0, SPACING['none']))
-        skill_section = ttk.LabelFrame(self, text='怎么执行', padding=pad)
-        skill_section.pack(fill='x', pady=(0, pad))
+        skill_section = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
+        skill_section.pack(fill='x', pady=(0, section_gap))
         self.skill_content = ttk.Frame(skill_section)
         self.skill_content.pack(fill='x')
         self.build_flow_skill(self.skill_content)
@@ -723,11 +723,12 @@ class Panel(ttk.Frame):
         # 得回页面按的和缺文件的分开讲，用户才知道下一步该去哪儿。
         # 执行编排时的细节仍独占一行，避免覆盖上面的结果摘要。
         self.reason = DescriptionBlock(skill_section, text='')
-        self.reason.pack(fill='x', pady=(0, pad))
-        specific = ttk.LabelFrame(self, text='本页专属', padding=pad)
-        specific.pack(fill='x', pady=(0, pad))
+        specific = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
+        specific.pack(fill='x', pady=(0, section_gap))
         self.build_hollmwood_editors(pad, specific)
         self.build_interfaces(pad, specific)
+        if not specific.winfo_children():
+            specific.pack_forget()
         self.bottom_bar = ttk.Frame(self)
         self.bottom_bar.pack(side='bottom', fill='x', pady=(pad, 0))
         self.state = ProgressLabel(self.bottom_bar, text='选择预设即可套用；确认保存本页。')
@@ -1199,6 +1200,10 @@ class Panel(ttk.Frame):
             except Exception:
                 notice = ''
         self.route_hint.configure(text=notice)
+        if notice:
+            self.route_hint.pack(fill='x')
+        else:
+            self.route_hint.pack_forget()
         return notice
 
     def set_model(self, model):
@@ -1279,12 +1284,12 @@ class Panel(ttk.Frame):
         if not self.note_items:
             return None
         box = ttk.LabelFrame(self, text='技能说明', padding=pad)
-        box.pack(side='bottom', fill='both', expand=True, pady=(pad, 0))
+        box.pack(fill='both', expand=True, pady=(max(1, round(pad / 3)), 0))
         # LabelFrame 默认会按子控件的请求高度收缩；锁定其几何传播后再按面板
         # 剩余高度分配，拖动阶段配置窗口才不会留下空白而说明区仍停在 12 行。
         box.grid_propagate(False)
         # 说明框占用面板剩余空间：窗口放大时目录和正文一起变高，优先露出更多 SKILL。
-        box.columnconfigure(1, weight=1)
+        box.columnconfigure(1, weight=0)
         box.rowconfigure(0, weight=1)
         height = 5 if self.compact else 12
         self.note_list = tk.Listbox(box, height=height, width=18, exportselection=False,
@@ -1308,32 +1313,6 @@ class Panel(ttk.Frame):
         bar.configure(command=self.note_text.yview)
         self.note_text.configure(state='disabled')
 
-        def resize_note_rows(event):
-            """按说明框实际高度换算可见行数，窗口拖拽时尽可能多显示目录。"""
-            rows = max(1, (event.height - pad * 2) // 15)
-            if int(self.note_list.cget('height')) != rows:
-                self.note_list.configure(height=rows)
-                self.note_text.configure(height=rows)
-
-        box.bind('<Configure>', resize_note_rows, add='+')
-        self._note_box_top = None
-
-        def place_note_box(event=None):
-            # 先借 pack 得到上方控件的实际底边，再交给 place 占据余下区域。
-            # 这样底部说明区不会因自身的 Text/Listbox 请求高度而停止伸缩。
-            if self._note_box_top is None:
-                top = box.winfo_y()
-                if top <= 0:
-                    self.after_idle(place_note_box)
-                    return
-                self._note_box_top = top
-            bottom_height = self.bottom_bar.winfo_height() if hasattr(self, 'bottom_bar') else 0
-            box.place(x=0, y=self._note_box_top, relwidth=1,
-                      height=max(1, self.winfo_height() - self._note_box_top - bottom_height))
-
-        box.bind('<Map>', place_note_box, add='+')
-        self.bind('<Configure>', place_note_box, add='+')
-        self.bottom_bar.bind('<Configure>', place_note_box, add='+')
         self.refresh_notes()
         return self.note_list
 
@@ -1733,6 +1712,10 @@ class Panel(ttk.Frame):
         self.state.configure(text='做完了 %d 个，%d 个要回页面按，没成 %d 个'
                                   % (len(done), len(waiting), len(failed)))
         self.reason.configure(text=waiting_reason(waiting))
+        if self.reason.cget('text'):
+            self.reason.pack(fill='x')
+        else:
+            self.reason.pack_forget()
         text = str(run.get('text') or '')
         status_of(self.desktop, text.splitlines()[0] if text else '')
         run_report(self.desktop, text)

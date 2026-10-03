@@ -1282,16 +1282,34 @@ class PanelTests(unittest.TestCase):
         panel = skill_panel.open_for_page(self.desktop, 0)
         window = panel.winfo_toplevel()
         self.addCleanup(window.destroy)
-        window.geometry('800x680')
+        window.geometry('880x690')
         window.update()
         tall_list = panel.note_list.winfo_height()
         tall_text = panel.note_text.winfo_height()
-        window.geometry('800x460')
+        self.assertGreaterEqual(tall_text, 150, '默认窗口必须留出可阅读的技能说明高度')
+        sections = [child for child in panel.winfo_children()
+                    if child.winfo_class() == 'TFrame' and child is not panel.bottom_bar]
+        for previous, current in zip(sections, sections[1:]):
+            self.assertLessEqual(current.winfo_y() - previous.winfo_y() - previous.winfo_height(), 2)
+        self.assertEqual(panel.route_hint.winfo_manager(), '')
+        self.assertEqual(panel.reason.winfo_manager(), '')
+        window.geometry('880x600')
         window.update()
         self.assertLessEqual(panel.note_list.master.winfo_y() + panel.note_list.master.winfo_height(),
                              panel.bottom_bar.winfo_y())
         self.assertGreater(tall_list, 0)
         self.assertGreater(tall_text, 0)
+        self.assertLess(panel.note_text.winfo_height(), tall_text)
+        window.geometry('880x900')
+        window.update()
+        self.assertGreater(panel.note_text.winfo_height(), tall_text)
+        self.assertEqual(panel.note_list.master.winfo_manager(), 'pack')
+        window.geometry('800x460')
+        window.update()
+        self.assertTrue(panel.bottom_bar.winfo_ismapped())
+        if panel.note_list.master.winfo_ismapped():
+            self.assertLessEqual(panel.note_list.master.winfo_y() + panel.note_list.master.winfo_height(),
+                                 panel.bottom_bar.winfo_y())
 
     def test_note_text_reads_the_body_and_survives_an_empty_skill(self):
         skill = skill_registry.default_registry().getById('firstframe-batch')
