@@ -1190,7 +1190,10 @@ class PanelTests(unittest.TestCase):
                        panel.workflow_box, panel.skill_action_box if hasattr(panel, 'skill_action_box') else None):
             if picker is not None:
                 self.assertEqual(picker.cget('style'), skill_panel.PANEL_COMBO_STYLE)
+                self.assertTrue(str(picker.cget('font')).endswith(' 8'))
         self.assertGreaterEqual(skill_panel.PANEL_COMBO_POPUP_WIDTH, 18)
+        self.assertGreaterEqual(panel.combobox_popup_width(panel.models),
+                                len(max(panel.models.cget('values'), key=len)) + 2)
         self.assertIsNone(panel.style_combobox_popup(panel.models))
         panel.destroy()
 

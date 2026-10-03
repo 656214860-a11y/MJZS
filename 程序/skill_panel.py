@@ -71,7 +71,7 @@ PRESET_PLACEHOLDER = '请选择'
 # 阶段配置的所有下拉框共用紧凑字体；弹出列表至少预留 18 个字符位，模型名和
 # 预设操作均不会因单个控件的默认尺寸被截断。
 PANEL_COMBO_STYLE = 'StagePanel.TCombobox'
-PANEL_COMBO_FONT = (FONTS['caption'][0], 9)
+PANEL_COMBO_FONT = (FONTS['caption'][0], 8)
 PANEL_COMBO_POPUP_WIDTH = 18
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 SKILL_FLOW_ORDER = ('script', 'storyboard', 'asset', 'firstframe', 'whitemodel',
@@ -676,7 +676,8 @@ class Panel(ttk.Frame):
     # ── 画界面 ──────────────────────────────────────────────────────────────
     def _build(self):
         # 阶段配置以连续表单阅读为主，统一使用最小设计间距和标签宽度，避免控件跳列。
-        pad = SPACING['xs']
+        # 阶段配置以说明正文为优先：栏目间距从 4px 缩至 1px。
+        pad = max(1, SPACING['xs'] // 3)
         label_width = 10
         # 预设决定整套配置，因此置于厂商／模型之前。
         row = ttk.Frame(self)
@@ -748,6 +749,8 @@ class Panel(ttk.Frame):
         """创建阶段配置统一的紧凑下拉框，并同步其独立弹出列表。"""
         ttk.Style(self).configure(PANEL_COMBO_STYLE, font=PANEL_COMBO_FONT)
         kwargs.setdefault('style', PANEL_COMBO_STYLE)
+        # 显式指定控件字体，避免当前 Windows ttk 主题用全局 12 号 Combobox 覆盖样式。
+        kwargs.setdefault('font', PANEL_COMBO_FONT)
         box = ttk.Combobox(parent, **kwargs)
         for sequence in ('<ButtonPress-1>', '<Alt-Down>', '<F4>'):
             box.bind(sequence, lambda _event, picker=box: self.after_idle(
@@ -759,10 +762,17 @@ class Panel(ttk.Frame):
         try:
             popdown = str(self.tk.call('ttk::combobox::PopdownWindow', str(picker)))
             listbox = self.nametowidget(popdown + '.f.l')
-            width = max(PANEL_COMBO_POPUP_WIDTH, int(picker.cget('width')))
+            width = self.combobox_popup_width(picker)
             listbox.configure(font=PANEL_COMBO_FONT, width=width)
         except (KeyError, tk.TclError):
             return None
+
+    @staticmethod
+    def combobox_popup_width(picker):
+        """以最长候选项确定弹出列表宽度，绝不因触发框较窄截断文字。"""
+        values = [str(value) for value in picker.cget('values')]
+        longest = max((len(value) for value in values), default=0)
+        return max(PANEL_COMBO_POPUP_WIDTH, int(picker.cget('width')), longest + 2)
 
     def set_run_reason(self, text):
         """仅在有执行说明时占用垂直空间。"""
