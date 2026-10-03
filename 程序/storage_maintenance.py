@@ -252,6 +252,60 @@ def remove_private_file(path):
         return False
 
 
+def remove_regenerable_tree(path, result, *, dry_run=False, stats=None):
+    """受控清除可再生缓存树，供退出后的仓库卫生任务复用。
+
+    该入口只接受调用方已完成边界校验的临时或缓存目录；锁定文件保持原状并计入
+    ``errors``，避免一个占用项扩大成失败或递归到不受控路径。
+    """
+    path = Path(path)
+    try:
+        if dry_run:
+            files, size = ((0, path.lstat().st_size) if path.is_file()
+                           else (stats(path) if stats else (0, 0)))
+            result['removed_entries'] += 1
+            result['removed_files'] += files
+            result['removed_bytes'] += size
+            return True
+        if path.is_file() or path.is_symlink():
+            size = path.lstat().st_size
+            path.unlink()
+            result['removed_entries'] += 1
+            result['removed_files'] += 1
+            result['removed_bytes'] += size
+            return True
+        files, size = stats(path) if stats else (0, 0)
+        for dirpath, dirnames, filenames in os.walk(path, topdown=False, followlinks=False):
+            directory = Path(dirpath)
+            for name in filenames:
+                try:
+                    Path(dirpath, name).unlink()
+                except OSError:
+                    result['errors'] += 1
+            for name in dirnames:
+                try:
+                    Path(dirpath, name).rmdir()
+                except OSError:
+                    pass
+            try:
+                if directory != path:
+                    directory.rmdir()
+            except OSError:
+                result['errors'] += 1
+        try:
+            path.rmdir()
+        except OSError:
+            result['errors'] += 1
+            return False
+        result['removed_entries'] += 1
+        result['removed_files'] += files
+        result['removed_bytes'] += size
+        return True
+    except OSError:
+        result['errors'] += 1
+        return False
+
+
 def clear_generated_workflow_state(project_root, state_path, filename):
     """受控清除 ``workflows`` 下可重建的内部状态文件。"""
     root = Path(project_root).resolve()

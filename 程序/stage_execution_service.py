@@ -617,8 +617,7 @@ def build_orchestrator(desktop, project):
 
 def stage_context(desktop, stage, function=None, extra=None):
     project = getattr(desktop, 'root', None)
-    context = {'project': str(project) if project else '', 'stage': stage, 'function': function,
-               'globalModel': stage_config.global_model(program_of(desktop))}
+    context = {'project': str(project) if project else '', 'stage': stage, 'function': function}
     if project and stage:
         try: chosen = stage_config.get(project, stage)['model']
         except Exception: chosen = ''

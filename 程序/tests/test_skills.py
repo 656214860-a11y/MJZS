@@ -125,10 +125,10 @@ class RegistryTests(unittest.TestCase):
         """验收：既有 SKILL 保留，并为 12 个阶段各登记一个全流程编排 SKILL。"""
         reg = skill_registry.default_registry()
         reg.scan(force=True)
-        self.assertEqual(reg.count(), 73)
+        self.assertEqual(reg.count(), 71)
         self.assertEqual(len(reg.stages()), 12)
         expected_by_stage = {
-            'script': 7, 'script_structure': 5, 'storyboard': 6, 'assets': 6,
+            'script': 5, 'script_structure': 5, 'storyboard': 6, 'assets': 6,
             'continuity': 6, 'final': 6, 'keyframe': 6, 'previs': 7,
             'video': 5, 'audio': 6, 'edit': 7, 'delivery': 6,
         }
@@ -320,14 +320,14 @@ class RegistryTests(unittest.TestCase):
         """
         real = skill_registry.default_registry()
         real.scan(force=True)
-        self.assertEqual(real.count(), 73)
+        self.assertEqual(real.count(), 71)
         with tempfile.TemporaryDirectory() as td:
             program = Path(td) / '程序'
             write_skill(program / 'skills' / '04资产管理SKILL', 'probe-one', stage='资产管理')
             other = skill_registry.default_registry(program)
             self.assertEqual([item.name for item in other.getAll()], ['probe-one'])
             self.assertIs(skill_registry.default_registry(), real, '不带参数仍是程序目录那一份')
-            self.assertEqual(skill_registry.default_registry().count(), 73)
+            self.assertEqual(skill_registry.default_registry().count(), 71)
         self.assertEqual([item.name for item in skill_registry.default_registry().getByStage('keyframe')],
                          ['firstframe-auto-fill', 'firstframe-batch', 'firstframe-quality',
                           'firstframe-retry', 'firstframe-thumbnail', 'pipeline-keyframe'])
@@ -525,26 +525,11 @@ class StageConfigTests(unittest.TestCase):
             self.assertEqual(list(stage_config.presets(program)), ['省钱先跑', '乙'], '报错之后原样不动')
 
 
-    def test_global_model_starts_empty_and_round_trips(self):
-        # 规格三级覆盖的最底下一层：全局默认落在程序目录下，没设过就是空串。
-        with tempfile.TemporaryDirectory() as td:
-            program = Path(td) / '程序'
-            self.assertEqual(stage_config.global_model(program), '')
-            self.assertEqual(stage_config.set_global_model('qwen-max', program=program), 'qwen-max')
-            self.assertEqual(stage_config.global_model(program), 'qwen-max')
-            target = Path(program) / '配置' / 'SKILL' / '全局模型.json'
-            self.assertTrue(target.exists())
-
-    def test_global_model_written_as_auto_cancels(self):
-        with tempfile.TemporaryDirectory() as td:
-            program = Path(td) / '程序'
-            stage_config.set_global_model('gpt-4o', program=program)
-            self.assertEqual(stage_config.global_model(program), 'gpt-4o')
-            self.assertEqual(stage_config.set_global_model('auto', program=program), '')
-            self.assertEqual(stage_config.global_model(program), '')
-            stage_config.set_global_model('我的本地模型', program=program)
-            self.assertEqual(stage_config.global_model(program), '我的本地模型',
-                             '第 43 期：池里的自定义模型存得住（只有空值与「自动」才算没设）')
+    def test_program_wide_model_api_is_absent(self):
+        """用户决策：阶段模型不再有程序级兜底。"""
+        names = vars(stage_config)
+        self.assertNotIn('set_' + 'global' + '_model', names)
+        self.assertNotIn('global' + '_model', names)
 
 
 class RouterTests(unittest.TestCase):
@@ -570,11 +555,11 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(model_router.spend_kind(self.skill('video-batch-submit')), 'videos')
         self.assertEqual(model_router.spend_kind(self.skill('script-structured-generation')), 'tokens')
 
-    def test_override_is_single_then_project_then_global(self):
+    def test_override_is_single_then_project(self):
         router = self.router()
         self.assertEqual(router.override({'model': 'fake-cheap', 'projectModel': 'fake-smart'})[0], 'fake-cheap')
-        self.assertEqual(router.override({'projectModel': 'fake-smart', 'globalModel': 'fake-cheap'})[0], 'fake-smart')
-        self.assertEqual(router.override({'globalModel': 'fake-smart'}), ('fake-smart', '全局'))
+        self.assertEqual(router.override({'projectModel': 'fake-smart', 'legacyDefault': 'fake-cheap'})[0], 'fake-smart')
+        self.assertEqual(router.override({'legacyDefault': 'fake-smart'}), ('', ''))
         self.assertEqual(router.override({'model': 'auto'}), ('', ''))
 
     def test_select_uses_the_skill_preference_first(self):
@@ -883,7 +868,7 @@ class PanelTests(unittest.TestCase):
         self.desktop.win = self.win
         self.desktop.root = Path(self.tmp.name) / 'p'
         self.desktop.root.mkdir(parents=True, exist_ok=True)
-        # 预设与全局默认都落在 program 下：自检给一个临时程序目录，
+        # 预设落在 program 下：自检给一个临时程序目录，
         # 别往真机的 配置\SKILL\ 里写试验用的东西（上一版就把一个厫名预设写进去了）。
         self.desktop.app = Path(self.tmp.name) / '程序'
         self.desktop.app.mkdir(parents=True, exist_ok=True)
@@ -910,27 +895,27 @@ class PanelTests(unittest.TestCase):
     def test_hollmwood_switch_is_visible_and_saved_with_the_panel(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
-        controls = [child for child in panel.winfo_children()
-                    if str(child.winfo_class()) == 'TFrame']
-        checkboxes = []
-        for row in controls:
-            checkboxes.extend(child for child in row.winfo_children()
-                              if str(child.winfo_class()) == 'TCheckbutton'
-                              and child.cget('text') == '四角色协作')
+        def descendants(widget):
+            return [child for item in widget.winfo_children()
+                    for child in [item] + descendants(item)]
+        controls = descendants(panel)
+        checkboxes = [child for child in controls if str(child.winfo_class()) == 'TCheckbutton'
+                      and child.cget('text') == '四角色协作']
         self.assertEqual(len(checkboxes), 1)
         self.assertTrue(panel.hollmwood_enabled_var.get())
         panel.hollmwood_enabled_var.set(False)
         panel.save()
         self.assertFalse(stage_config.hollmwood_enabled(self.desktop.root))
-        labels = [child.cget('text') for row in controls for child in row.winfo_children()
-                  if str(child.winfo_class()) == 'TLabel']
+        labels = [child.cget('text') for child in controls if str(child.winfo_class()) == 'TLabel']
         self.assertTrue(any('关闭时按所选 SKILL 直发' in text for text in labels))
 
     def test_stage_panel_uses_compact_aligned_rows_and_short_hints(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
-        labels = [child for row in panel.winfo_children() for child in row.winfo_children()
-                  if str(child.winfo_class()) == 'TLabel']
+        def descendants(widget):
+            return [child for item in widget.winfo_children()
+                    for child in [item] + descendants(item)]
+        labels = [child for child in descendants(panel) if str(child.winfo_class()) == 'TLabel']
         widths = {label.cget('text'): label.cget('width') for label in labels}
         self.assertEqual(widths['预设'], 10)
         self.assertEqual(widths['厂商'], 10)
@@ -942,8 +927,9 @@ class PanelTests(unittest.TestCase):
     def test_hollmwood_editor_dropdown_is_above_skill_checks_and_opens_the_choice(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
-        children = list(panel.winfo_children())
-        self.assertLess(children.index(panel.hollmwood_editor.master), children.index(panel.skill_list_outer))
+        packed = list(panel.pack_slaves())
+        self.assertLess(packed.index(panel.skill_list_outer.master.master),
+                        packed.index(panel.hollmwood_editor.master.master))
         self.assertIs(panel.external_package_hint.master, panel.skill_action_row)
         self.assertEqual(list(panel.hollmwood_editor.cget('values')),
                          ['选择要编辑的内容', '节奏模板', '导演规则', '编剧规则', '编辑规则', '演员规则'])
@@ -1121,11 +1107,11 @@ class PanelTests(unittest.TestCase):
         self.assertTrue(stage_config.path(self.desktop.root).is_file())
 
     def test_check_all_and_reset(self):
-        """第 62 期任务 4：面板上的「全选」「重置」两颗按钮删了（与 SKILL 管理、预设重复），
-        这两件事改由「SKILL 管理 → 全选／取消全选」与预设下拉框表达；stage_config 那两个入口照旧。"""
+        """恢复默认入口回归；SKILL 批量操作仍是唯一的全选入口。"""
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.assertFalse(hasattr(panel, 'check_all'), '面板上的「全选」接口一并删掉')
-        self.assertFalse(hasattr(panel, 'reset'), '面板上的「重置」接口一并删掉')
+        self.assertTrue(hasattr(panel, 'reset_defaults'))
+        self.assertEqual(panel.restore_defaults_button.cget('text'), '恢复默认')
         for name in panel.vars:
             panel.vars[name].set(False)
         self.assertEqual(panel.selected(), [])
@@ -1197,20 +1183,20 @@ class PanelTests(unittest.TestCase):
             self.assertIn(text, hint)
         panel.destroy()
 
-    def test_confirm_saves_current_page_configuration_and_is_beside_preset_actions(self):
-        """「确认」取代窗口底部关闭，并与预设操作下拉框处在同一操作栏。"""
+    def test_confirm_saves_current_page_configuration_and_is_in_bottom_action_bar(self):
+        """确认在底部动作条，预设行不承担关闭窗口的责任。"""
         window = tk.Toplevel(self.win)
         panel = skill_panel.Panel(window, self.desktop, 'keyframe', compact=False)
         panel.pack()
         panel.model.set('Qwen-Max')
         panel.vars['firstframe-quality'].set(False)
         self.win.update_idletasks()
-        self.assertEqual(panel.preset_actions.master, panel.confirm_button.master)
-        row_children = list(panel.preset_actions.master.winfo_children())
-        self.assertLess(row_children.index(panel.preset_actions), row_children.index(panel.confirm_button))
+        self.assertEqual(panel.confirm_button.master, panel.bottom_bar)
+        row_children = list(panel.bottom_bar.winfo_children())
         self.assertFalse(any(child.cget('text') == '执行' for child in row_children
                              if str(child.winfo_class()) in ('TButton', 'Button')))
-        self.assertEqual(panel.confirm_button.pack_info()['side'], 'left')
+        self.assertEqual(panel.confirm_button.cget('text'), '确认并关闭')
+        self.assertEqual(panel.confirm_button.pack_info()['side'], 'right')
         panel.confirm()
         entry = stage_config.get(self.desktop.root, 'keyframe')
         self.assertEqual(entry['model'], 'qwen-max')
@@ -1287,8 +1273,10 @@ class PanelTests(unittest.TestCase):
         tall_text = panel.note_text.winfo_height()
         window.geometry('800x460')
         window.update()
-        self.assertGreater(tall_list, panel.note_list.winfo_height())
-        self.assertGreater(tall_text, panel.note_text.winfo_height())
+        self.assertLessEqual(panel.note_list.master.winfo_y() + panel.note_list.master.winfo_height(),
+                             panel.bottom_bar.winfo_y())
+        self.assertGreater(tall_list, 0)
+        self.assertGreater(tall_text, 0)
 
     def test_note_text_reads_the_body_and_survives_an_empty_skill(self):
         skill = skill_registry.default_registry().getById('firstframe-batch')
@@ -1384,7 +1372,8 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(panel.flow_skill_label.cget('text'), 'SKILL')
         self.assertIs(panel.flow_skill_label.master, panel.skill_action_row, 'SKILL 标签必须留在操作栏左侧')
         self.assertEqual(list(panel.skill_action_row.winfo_children())[1].cget('values'),
-                         (skill_panel.MANAGE_ALL, skill_panel.MANAGE_NONE, skill_panel.MANAGE_DELETE))
+                     (skill_panel.MANAGE_ALL, skill_panel.MANAGE_NONE, skill_panel.MANAGE_ADD,
+                      skill_panel.MANAGE_DELETE))
         self.assertFalse(hasattr(panel, 'delete_skill_button'))
         self.assertEqual(panel.skill_action.get(), skill_panel.MANAGE_ALL)
         self.assertEqual([label for label, _path in skill_panel.flow_skill_choices('frames')],
@@ -1400,7 +1389,7 @@ class PanelTests(unittest.TestCase):
             with mock.patch.dict(os.environ, {'CODEX_HOME': str(home)}):
                 choices = skill_panel.flow_skill_choices('frames')
         self.assertTrue(choices)
-        self.assertTrue(all('.codex' not in str(path).lower() for _label, path in choices))
+        self.assertTrue(all(not Path(path).is_relative_to(home) for _label, path in choices))
         self.assertTrue(all(Path(path).is_relative_to(skill_panel.skill_registry.default_root())
                             for _label, path in choices))
 
@@ -1631,26 +1620,7 @@ class PanelTests(unittest.TestCase):
         panel.destroy()
 
 
-    def test_set_global_writes_the_program_level_default(self):
-        class Confirm(object):
-            answer = True
-
-            @classmethod
-            def askyesno(cls, *args, **kwargs):
-                return cls.answer
-
-        real = skill_panel.messagebox
-        skill_panel.messagebox = Confirm
-        self.addCleanup(setattr, skill_panel, 'messagebox', real)
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        panel.model.set('Qwen-Max')
-        self.assertEqual(panel.set_global(), 'qwen-max')
-        self.assertEqual(stage_config.global_model(self.desktop.app), 'qwen-max')
-        panel.model.set('自动')
-        self.assertEqual(panel.set_global(), '')
-        self.assertEqual(stage_config.global_model(self.desktop.app), '')
-
-    def test_set_global_requires_confirmation(self):
+    def test_restore_defaults_requires_confirmation(self):
         class Confirm(object):
             @staticmethod
             def askyesno(*args, **kwargs):
@@ -1661,9 +1631,43 @@ class PanelTests(unittest.TestCase):
         self.addCleanup(setattr, skill_panel, 'messagebox', real)
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         panel.model.set('Qwen-Max')
-        self.assertIsNone(panel.set_global())
-        self.assertEqual(stage_config.global_model(self.desktop.app), '')
-        self.assertEqual(panel.state.cget('text'), '未更改全局默认')
+        self.assertIsNone(panel.reset_defaults())
+        self.assertEqual(panel.model.get(), 'Qwen-Max')
+
+    def test_restore_defaults_resets_only_the_current_stage(self):
+        class Confirm(object):
+            @staticmethod
+            def askyesno(*args, **kwargs):
+                return True
+
+        real = skill_panel.messagebox
+        skill_panel.messagebox = Confirm
+        self.addCleanup(setattr, skill_panel, 'messagebox', real)
+        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        panel.model.set('Qwen-Max')
+        panel.vars['firstframe-quality'].set(False)
+        panel.save()
+        entry = panel.reset_defaults()
+        self.assertEqual(entry['model'], 'auto')
+        self.assertTrue(panel.vars['firstframe-quality'].get())
+        self.assertIn('统筹与制作锁未改变', panel.state.cget('text'))
+
+    def test_copy_preset_requires_a_selected_preset(self):
+        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        self.addCleanup(panel.destroy)
+        with mock.patch.object(skill_panel.tk, 'Toplevel') as dialog:
+            self.assertIsNone(panel.share_preset_copy())
+        dialog.assert_not_called()
+        self.assertEqual(panel.state.cget('text'), '先在上方选一个预设')
+
+    def test_add_skill_action_uses_the_file_picker(self):
+        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        self.addCleanup(panel.destroy)
+        with mock.patch.object(skill_panel.filedialog, 'askopenfilename', return_value='') as picker:
+            panel.skill_action.set(skill_panel.MANAGE_ADD)
+            self.assertIsNone(panel.choose_skill_action())
+        picker.assert_called_once()
+        self.assertEqual(panel.skill_action.get(), skill_panel.MANAGE_ALL)
 
     def test_stage_label_names_the_stage(self):
         """第 30 期第 8 条：下拉框那一列的名字（面板抬头还是「阶段配置 · 06 首帧管理」）。"""

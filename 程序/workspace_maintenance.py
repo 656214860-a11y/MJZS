@@ -11,8 +11,8 @@
 工作树段，pycache/selftmp 两段照常执行。``git gc`` 永不进本模块——重打包
 可能长时间占盘，只留在开发侧 ``scripts/repo_health.py``。
 
-删除只用 ``Path.unlink()/Path.rmdir()``（对齐 ``log_maintenance``，不触删除
-网关五禁名）；进程只经 ``platform_tools``（不触审计 21 的直接 subprocess 名）。
+实际物理清理委托 ``storage_maintenance.remove_regenerable_tree()``；进程只经
+``platform_tools``（不触审计 21 的直接 subprocess 名）。
 """
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ import sys
 import time
 
 from platform_tools import launch_background, run_process, tool_path
+from storage_maintenance import remove_regenerable_tree
 
 
 PROGRAM = Path(__file__).resolve().parent
@@ -69,56 +70,6 @@ def _entry_stats(path: Path) -> tuple[int, int]:
     return files, total
 
 
-def _remove_tree(path: Path, result: dict, *, dry_run: bool) -> bool:
-    """自底向上删除一棵目录树或单个文件；锁定与权限失败只计数，不致命。"""
-    path = Path(path)
-    try:
-        if dry_run:
-            files, size = (0, path.lstat().st_size) if path.is_file() else _entry_stats(path)
-            result["removed_entries"] += 1
-            result["removed_files"] += files
-            result["removed_bytes"] += size
-            return True
-        if path.is_file() or path.is_symlink():
-            size = path.lstat().st_size
-            path.unlink()
-            result["removed_entries"] += 1
-            result["removed_files"] += 1
-            result["removed_bytes"] += size
-            return True
-        files, size = _entry_stats(path)
-        for dirpath, dirnames, filenames in os.walk(path, topdown=False, followlinks=False):
-            directory = Path(dirpath)
-            for name in filenames:
-                try:
-                    Path(dirpath, name).unlink()
-                except OSError:
-                    result["errors"] += 1
-            for name in dirnames:
-                try:
-                    Path(dirpath, name).rmdir()
-                except OSError:
-                    # 内层已被上面的文件删除失败占用，留给上层 rmdir 统一计数。
-                    pass
-            try:
-                if directory != path:
-                    directory.rmdir()
-            except OSError:
-                result["errors"] += 1
-        try:
-            path.rmdir()
-        except OSError:
-            result["errors"] += 1
-            return False
-        result["removed_entries"] += 1
-        result["removed_files"] += files
-        result["removed_bytes"] += size
-        return True
-    except OSError:
-        result["errors"] += 1
-        return False
-
-
 # ── 阶段 1：__pycache__ 字节码缓存 ─────────────────────────────────
 
 def pycache_directories(root: Path) -> list[Path]:
@@ -152,7 +103,7 @@ def clean_pycache(roots: tuple[Path, ...], *, dry_run: bool = False) -> dict:
     for root in roots:
         root = Path(root)
         for target in pycache_directories(root):
-            _remove_tree(target, result, dry_run=dry_run)
+            remove_regenerable_tree(target, result, dry_run=dry_run, stats=_entry_stats)
     return result
 
 
@@ -184,7 +135,7 @@ def clean_selftemp(selftmp: Path, *, now: float | None = None,
             if entry.lstat().st_mtime >= cutoff:
                 result["kept_recent"] += 1
                 continue
-            _remove_tree(entry, result, dry_run=dry_run)
+            remove_regenerable_tree(entry, result, dry_run=dry_run, stats=_entry_stats)
         except OSError:
             result["errors"] += 1
     return result

@@ -337,7 +337,7 @@ class PanelTests(unittest.TestCase):
             self.assertNotIn('执行', texts, '保存预设已并入左侧下拉，不再保留独立执行按钮')
             self.assertEqual(
                 tuple(panel.preset_actions.cget('values')),
-                ('选择操作', '保存为预设', '删除预设', '重命名预设', '设为全局'))
+                ('选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'))
 
     def test_the_skill_notes_are_untouched(self):
         if self.tk is None:

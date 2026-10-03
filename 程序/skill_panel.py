@@ -17,6 +17,7 @@ SKILL 不绑定模型：这里挑的模型是「用户偏好」，model_router �
 """
 from pathlib import Path
 import re
+import shutil
 
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
@@ -565,9 +566,6 @@ def sync_models(project, program=None):
             if value and value != model_router.AUTO and not stage_models.is_production(stage, value):
                 if value not in wanted:
                     wanted.append(value)
-        kept = str(stage_config.global_model(program) or '').strip()
-        if kept and kept != model_router.AUTO and kept not in wanted:
-            wanted.append(kept)
     except Exception:
         return []
     try:
@@ -682,16 +680,22 @@ class Panel(ttk.Frame):
         self.presets.bind('<<ComboboxSelected>>', lambda event: self.apply_preset())
         self.preset_actions = ttk.Combobox(
             row, textvariable=self.preset_action, state='readonly', width=12,
-            values=['选择操作', '保存为预设', '删除预设', '重命名预设', '设为全局'])
+            values=['选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'])
         self.preset_actions.pack(side='left', padx=(0, SPACING['xs']))
         self.preset_actions.bind('<<ComboboxSelected>>', lambda event: self.run_preset_action())
-        self.confirm_button = PrimaryButton(row, text='确认', width=12,
-                                            command=self.confirm)
-        self.confirm_button.pack(side='left')
+        self.restore_defaults_button = SecondaryButton(row, text='恢复默认', width=12,
+                                                       command=self.reset_defaults)
+        self.restore_defaults_button.pack(side='left')
+        HintLabel(row, text='勾选项与模型已自动保存').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
 
+        coordinator = ttk.LabelFrame(self, text='统筹 SKILL', padding=pad)
+        coordinator.pack(fill='x', pady=(0, pad))
+        self.build_workflow_coordinator(pad, coordinator)
 
-        top = ttk.Frame(self)
-        top.pack(fill='x', pady=(0, pad))
+        engine = ttk.LabelFrame(self, text='由谁执行', padding=pad)
+        engine.pack(fill='x', pady=(0, pad))
+        top = ttk.Frame(engine)
+        top.pack(fill='x')
         ttk.Label(top, text='厂商', style='Muted.TLabel', width=label_width).pack(side='left')
         self.providers = ttk.Combobox(top, textvariable=self.provider, state='readonly', width=14,
                                       values=list(self.groups))
@@ -705,42 +709,38 @@ class Panel(ttk.Frame):
         self.models.pack(side='left', padx=(SPACING['xs'], 0))
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
-        self.route_hint = HintLabel(self, text='')
+        self.route_hint = HintLabel(engine, text='')
         self.route_hint.pack(fill='x', pady=(0, SPACING['none']))
-        # HOLLMWOOD 紧贴模型路由提示之后、外部包提示之前，角色配置不会被附加说明挤开。
-        self.build_hollmwood_editors(pad)
-        self.build_workflow_coordinator(pad)
-        # 工作流与附加 SKILL 放入同一行，避免上方出现重复的 SKILL 标签。
-        self.build_flow_skill(self)
-        # 第 62 期任务 4：删掉「全选」「重置」两颗按钮。它们与「SKILL 管理」那一格里的
-        # 全选／取消全选重复，又与预设下拉框抢同一份状态（三处各写一套，谁最后写谁赢），
-        # 用户点名删。要全选／全不选走「SKILL 管理」，要整组换走预设下拉框。
-        # 第 62 期任务 1：预设下拉框旁边补一颗「删除预设」——存歪的那一份原来只能改名，
-        # 不能删（stage_config.drop_preset 早就写好了，一直没有入口）。
-        # 第 51 期第 4 条：这一格原来只能存不能改名——存歪了只能再存一份、旧的那份留着碍眼。
-        # 第 50 期第 1 条：原来这颗「手动配置模型与 SKILL」拆成两个入口，长在上面两个下拉框里
-        # （模型→「+ 添加模型…」，流程 SKILL→「+ SKILL 入口…」），按钮本身删掉。
-        # 第 51 期第 3 条：它剩下的那半（引擎／程序位置／补充要求）原来改名「引擎设置」收在「接口」
-        # 那一行，用户说重复——一并删掉，这一行现在只剩线上视频 API 与配音接口。
-        # 第 54 期附件一第 1／2 条：连「执行选中」也删掉——面板只做配置，不留执行入口；
-        # 要跑这一步，按同页那颗「手动制作XX」。
-        self.state = ProgressLabel(row, text='选择预设即可套用；确认保存本页。')
-        self.state.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
-        self.preset_hint = self.state
+        skill_section = ttk.LabelFrame(self, text='怎么执行', padding=pad)
+        skill_section.pack(fill='x', pady=(0, pad))
+        self.skill_content = ttk.Frame(skill_section)
+        self.skill_content.pack(fill='x')
+        self.build_flow_skill(self.skill_content)
         # 第 30 期第 7 条：跑完一批之后，除了三个数，还要说清「为什么不算做完」——
         # 得回页面按的和缺文件的分开讲，用户才知道下一步该去哪儿。
         # 执行编排时的细节仍独占一行，避免覆盖上面的结果摘要。
-        self.reason = DescriptionBlock(self, text='')
+        self.reason = DescriptionBlock(skill_section, text='')
         self.reason.pack(fill='x', pady=(0, pad))
-        self.build_interfaces(pad)
+        specific = ttk.LabelFrame(self, text='本页专属', padding=pad)
+        specific.pack(fill='x', pady=(0, pad))
+        self.build_hollmwood_editors(pad, specific)
+        self.build_interfaces(pad, specific)
+        self.bottom_bar = ttk.Frame(self)
+        self.bottom_bar.pack(side='bottom', fill='x', pady=(pad, 0))
+        self.state = ProgressLabel(self.bottom_bar, text='选择预设即可套用；确认保存本页。')
+        self.state.pack(side='left')
+        self.preset_hint = self.state
+        self.confirm_button = PrimaryButton(self.bottom_bar, text='确认并关闭', width=12,
+                                            command=self.confirm)
+        self.confirm_button.pack(side='right')
         self.build_notes(pad)
         self.load()
 
-    def build_hollmwood_editors(self, pad):
+    def build_hollmwood_editors(self, pad, parent=None):
         """仅在真正调用 HOLLMWOOD 的阶段提供规则编辑，避免无关页面出现无效入口。"""
         if self.stage not in stage_config.HOLLMWOOD_STAGES:
             return None
-        row = ttk.Frame(self)
+        row = ttk.Frame(parent or self)
         row.pack(fill='x', pady=(SPACING['none'], pad))
         ttk.Label(row, text='HOLLMWOOD', style='Muted.TLabel', width=10).pack(side='left')
         ttk.Checkbutton(row, text='四角色协作', variable=self.hollmwood_enabled_var).pack(
@@ -826,11 +826,11 @@ class Panel(ttk.Frame):
                         command=window.destroy).pack(side='right')
         return window
 
-    def build_workflow_coordinator(self, pad):
+    def build_workflow_coordinator(self, pad, parent=None):
         """受控统筹入口；阶段勾选网格仍是唯一可编辑清单。"""
         import workflow_settings
-        row = ttk.Frame(self)
-        row.pack(fill='x', pady=(0, pad))
+        row = ttk.Frame(parent or self)
+        row.pack(fill='x')
         ttk.Label(row, text='统筹 SKILL', style='Muted.TLabel', width=10).pack(side='left')
         names = list(workflow_settings.WORKFLOW_PRESETS) + ['浏览本地…', '不使用统筹']
         self.workflow_box = ttk.Combobox(row, textvariable=self.workflow_choice, state='readonly', width=18, values=names)
@@ -839,6 +839,8 @@ class Panel(ttk.Frame):
         self.workflow_summary = ProgressLabel(row, text='自由模式')
         self.workflow_summary.pack(side='left', padx=(0, SPACING['sm']))
         ttk.Button(row, text='去填写', command=self.open_workflow_brief).pack(side='left')
+        if self.stage != 'script':
+            HintLabel(row, text='锁在剧本页采集简报时填写最顺').pack(side='left', padx=(SPACING['sm'], 0))
 
     def refresh_workflow(self):
         import workflow_settings
@@ -954,7 +956,7 @@ class Panel(ttk.Frame):
         self.flow_skill_label.pack(side='left')
         self.skill_action = tk.StringVar(value=MANAGE_ALL)
         action = ttk.Combobox(self.skill_action_row, textvariable=self.skill_action,
-                              values=(MANAGE_ALL, MANAGE_NONE, MANAGE_DELETE), state='readonly', width=12)
+                              values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE), state='readonly', width=12)
         action.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         action.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
         # 外部包的引擎说明从独占行收进 SKILL 操作行，保持表单行高与上方栏一致。
@@ -1060,11 +1062,41 @@ class Panel(ttk.Frame):
             finally:
                 # 删除是一次性动作，不能让下拉框停在危险选项上。
                 self.skill_action.set(MANAGE_ALL)
+        if picked == MANAGE_ADD:
+            self.skill_action.set(MANAGE_ALL)
+            return self.add_skill_from_file()
         if picked == MANAGE_ALL:
             return self.check_all_skills(True)
         if picked == MANAGE_NONE:
             return self.check_all_skills(False)
         return ''
+
+    def add_skill_from_file(self):
+        """显式导入单个 SKILL 到本阶段的受控注册目录。"""
+        source = filedialog.askopenfilename(parent=self.winfo_toplevel(), title='新增 SKILL',
+                                            filetypes=[('SKILL', ('*.skill.md', 'SKILL.md')), ('全部文件', '*.*')])
+        if not source:
+            return None
+        target_dir = self.registry._stage_directory_for(self.stage)
+        if target_dir is None:
+            self.state.configure(text='新增 SKILL 失败：未找到本阶段注册目录')
+            return None
+        target = target_dir / Path(source).name
+        try:
+            shutil.copy2(source, target)
+            self.registry.scan(force=True)
+            self.skills = list(self.registry.getByStage(self.stage))
+            for child in self.skill_content.winfo_children():
+                child.destroy()
+            self.vars = {}
+            self.build_flow_skill(self.skill_content)
+            self.load()
+            self.state.configure(text='已新增 SKILL：' + target.name)
+            self.refresh_notes(str(target))
+            return target
+        except OSError as exc:
+            self.state.configure(text='新增 SKILL 失败：' + str(exc))
+            return None
 
     def check_all_skills(self, value=True):
         """全选／取消全选只作用于唯一的阶段 SKILL 网格。"""
@@ -1214,12 +1246,12 @@ class Panel(ttk.Frame):
             return {}
 
     # ── 接口与 SKILL 说明（第 29 期第 1／2／4 条） ──────────────────────────
-    def build_interfaces(self, pad):
+    def build_interfaces(self, pad, parent=None):
         """「接口」那一行：点开还是原来那个窗口，只是不再每页各放一份。"""
         self.interface_buttons = []
         for label, opener in interfaces_of(self.desktop, self.stage, self.function):
             if not self.interface_buttons:
-                line = ttk.Frame(self)
+                line = ttk.Frame(parent or self)
                 line.pack(fill='x', pady=(pad, 0))
                 ttk.Label(line, text='接口', style='Muted.TLabel').pack(side='left')
             button = SecondaryButton(line, text=label,
@@ -1245,7 +1277,7 @@ class Panel(ttk.Frame):
         self.note_items = self.note_entries()
         if not self.note_items:
             return None
-        box = ttk.LabelFrame(self, text='SKILL 说明', padding=pad)
+        box = ttk.LabelFrame(self, text='技能说明', padding=pad)
         box.pack(side='bottom', fill='both', expand=True, pady=(pad, 0))
         # LabelFrame 默认会按子控件的请求高度收缩；锁定其几何传播后再按面板
         # 剩余高度分配，拖动阶段配置窗口才不会留下空白而说明区仍停在 12 行。
@@ -1277,7 +1309,7 @@ class Panel(ttk.Frame):
 
         def resize_note_rows(event):
             """按说明框实际高度换算可见行数，窗口拖拽时尽可能多显示目录。"""
-            rows = max(5, (event.height - pad * 2) // 15)
+            rows = max(1, (event.height - pad * 2) // 15)
             if int(self.note_list.cget('height')) != rows:
                 self.note_list.configure(height=rows)
                 self.note_text.configure(height=rows)
@@ -1294,11 +1326,13 @@ class Panel(ttk.Frame):
                     self.after_idle(place_note_box)
                     return
                 self._note_box_top = top
+            bottom_height = self.bottom_bar.winfo_height() if hasattr(self, 'bottom_bar') else 0
             box.place(x=0, y=self._note_box_top, relwidth=1,
-                      height=max(120, self.winfo_height() - self._note_box_top))
+                      height=max(1, self.winfo_height() - self._note_box_top - bottom_height))
 
         box.bind('<Map>', place_note_box, add='+')
         self.bind('<Configure>', place_note_box, add='+')
+        self.bottom_bar.bind('<Configure>', place_note_box, add='+')
         self.refresh_notes()
         return self.note_list
 
@@ -1432,9 +1466,6 @@ class Panel(ttk.Frame):
             # 第 36 期第 4 条：手动配过就把这一档说出来，别让人猜「我配的生效了没有」。
             self.state.configure(text='手动：' + (manual.get('model') or '模型按上方选择')
                                  + ' · ' + (Path(manual['skill']).name if manual.get('skill') else 'SKILL 按上方勾选'))
-        kept = stage_config.global_model(program_of(self.desktop))
-        if kept:
-            self.state.configure(text='全局默认：' + self.model_label(kept) + '（本页选择优先）')
         self.refresh_notes()
         self.refresh_external_package_hint()
         return entry
@@ -1484,9 +1515,15 @@ class Panel(ttk.Frame):
         self.winfo_toplevel().destroy()
         return entry
 
-    # 第 62 期任务 4：check_all／reset 两个方法连同那两颗按钮一起删掉。
-    # 「重置回默认」这件事没有丢掉——stage_config.reset 还在（自检与外部调用照旧能用），
-    # 面板上改由「SKILL 管理 → 取消全选／新增」与预设下拉框这两处表达。
+    def reset_defaults(self):
+        """经确认后仅恢复本阶段模型与 SKILL 默认值；统筹和制作锁保持不变。"""
+        if not messagebox.askyesno(TITLE, '恢复本阶段的默认模型和 SKILL？\n统筹与制作锁不会改变。',
+                                   parent=self.winfo_toplevel()):
+            return None
+        entry = stage_config.reset(self.project(), self.stage, registry=self.registry)
+        self.load()
+        self.state.configure(text='已恢复本阶段默认配置；统筹与制作锁未改变。')
+        return entry
 
     def run_preset_action(self):
         """执行预设操作下拉框当前选择，并在操作后回到占位项。"""
@@ -1495,7 +1532,7 @@ class Panel(ttk.Frame):
             '保存为预设': self.save_preset,
             '删除预设': self.drop_preset,
             '重命名预设': self.rename_preset,
-            '设为全局': self.set_global,
+            '复制本预设到其他页面': self.share_preset_copy,
         }
         callback = actions.get(action)
         if callback is None:
@@ -1507,24 +1544,14 @@ class Panel(ttk.Frame):
             self.preset_action.set('选择操作')
 
     # ── 跨页面共享预设 ────────────────────────────────────────────────────
-    def set_global(self):
+    def share_preset_copy(self):
         """把当前页面的预设复制到用户勾选的页面，不再把预设混成全局共用一份。"""
         name = str(self.preset.get() or '').strip()
         if not name or name == PRESET_PLACEHOLDER:
-            # 保留旧的「全局默认模型」入口：只有选中预设时，这颗按钮才进入跨页面复制。
-            current = self.model_label(self.model_id())
-            action = '取消全部阶段的全局默认模型' if self.model_id() == model_router.AUTO else \
-                     '将「%s」设为全部阶段的默认模型' % current
-            if not messagebox.askyesno('设为全局', '确定要%s吗？' % action,
-                                       parent=self.winfo_toplevel()):
-                self.state.configure(text='未更改全局默认')
-                return None
-            kept = stage_config.set_global_model(self.model_id(), program=program_of(self.desktop))
-            self.state.configure(text=('全局默认：' + self.model_label(kept)) if kept
-                                 else '已取消全局默认（各阶段各自选）')
-            return kept
+            self.state.configure(text='先在上方选一个预设')
+            return None
         dialog = tk.Toplevel(self.winfo_toplevel())
-        dialog.title('设为全局：选择共享页面')
+        dialog.title('复制预设：选择共享页面')
         dialog.transient(self.winfo_toplevel())
         dialog.grab_set()
         DescriptionBlock(dialog, text='将预设「%s」复制到以下页面：\n各页面获得独立副本，之后互不影响。' % name).pack(
@@ -1716,7 +1743,7 @@ class Panel(ttk.Frame):
 
 
 def program_of(desktop):
-    """这套程序装在哪儿：预设与全局默认都落在这个目录下。
+    """这套程序装在哪儿：预设落在这个目录下。
 
     desktop.app 就是程序目录（真机上就是 漫剧制作助手\程序）；拿不到时退回
     stage_config 自己那个默认根，自检里因此可以喂一个临时目录进来。"""
@@ -1725,10 +1752,9 @@ def program_of(desktop):
 
 
 def stage_context(desktop, stage, function=None, extra=None):
-    """跑一个阶段用的上下文：项目 ＋ 三级模型覆盖（单次 ＞ 项目 ＞ 全局）。
+    """跑一个阶段用的上下文：两级模型覆盖（单次 ＞ 项目）。
 
-    页面上的「手动制作XX」与三虎那边都走这一份，两边口径才不会差。globalModel 是程序级默认，
-    projectModel 是项目里存的那一档（都是「自动」时路由器自己挑）。"""
+    页面上的「手动制作XX」与三虎那边都走这一份；都是「自动」时路由器自己挑。"""
     from stage_execution_service import stage_context as _stage_context
     return _stage_context(desktop, stage, function, extra)
 
