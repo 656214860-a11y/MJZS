@@ -290,16 +290,16 @@ def thumbnail(master, path, size=DEFAULT_SIZE):
     if queued is None:
         # 队列饱和时不在界面线程解大图；本轮先显示文字，滚动回来再自然补图。
         return None
-    image = _build_here(master, path, size, stamp, token)   # 没有后台进程可用：这一拍就解
-    _remember(key, image)
-    return image
+    # 后台进程不可用时宁可本拍留文字，也不能在 Tk 回调里解整张图：大图解码会把滚动和
+    # 页面切换一起卡住。下一次项目打开或 worker 恢复后会自然补图。
+    return None
 
 
 def request(master, key, path, size, stamp, token):
     """登记一条「造这张小图」的任务交给后台进程；排不出去返回 False。
 
-    返回 False 的两种情形（起不了进程、任务写不下去）都由调用方就地同步解；返回 None 表示
-    队列已满，调用方本轮不解图，避免长列表把大图解码挤回界面线程。
+    返回 False 表示后台进程或任务写入不可用，调用方本轮保留文字；返回 None 表示队列已满，
+    同样不在界面线程解图，避免长列表把大图解码挤回界面线程。
     """
     if token in _PENDING:
         return True                    # 已经在队列里，不重复登记

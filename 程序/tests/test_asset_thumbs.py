@@ -5,7 +5,7 @@ Round 1 起多两条路：磁盘缓存（private/缩略图）与后台解码进�
 界面线程那一拍不再整张解图，先在页面上摆一个**同尺寸的空盒子**；后台进程把图解好、写进
 磁盘缓存，界面线程那一拍（update）再把真图**就地贴进**这个盒子。下面这几条盯住新口径：
 那一拍绝不整张解图、盒子的尺寸与成品严丝合缝、落地之后像素真的贴进了盒子、小图落在磁盘上、
-第二次打开当拍就有图、没有后台进程时同一拍同步解。
+第二次打开当拍就有图、后台进程不可用时也绝不在当前 UI 拍同步解。
 
 运行：python test_asset_thumbs.py
 """
@@ -18,6 +18,7 @@ from skip_reasons import (
     REQUIRES_BUNDLED_SKILL,
 )
 import os, struct, sys, tempfile, time, unittest, zlib
+from unittest import mock
 from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -247,19 +248,15 @@ class ThumbnailTests(unittest.TestCase):
         self.assertEqual(colors(again), PICTURE, "从磁盘读回来的就是那张小图")
         self.assertLess(spent, 100, "读一张小图不该拖住界面（实测 %.1f ms）" % spent)
 
-    def test_without_a_background_process_the_same_beat_still_gets_a_picture(self):
-        """兜底：这台机器起不了后台进程，同一拍就把图解出来，顺手写进缓存，图不会不见。"""
+    def test_without_a_background_process_the_ui_beat_does_not_decode_a_large_picture(self):
+        """后台不可用时，Tk 当前拍不能同步解整图；页面先保留文字，避免可见卡顿。"""
         asset_thumbs._WORKER_BAD = True                    # 就当这一趟会话里它已经不可用
         path = self.write("big.png", png(400, 200))
-        started = time.perf_counter()
-        image = asset_thumbs.thumbnail(self.win, path, 72)
-        spent = (time.perf_counter() - started) * 1000
-        self.assertIsNotNone(image, "没有后台进程也一样出图")
-        self.assertEqual((image.width(), image.height()), (67, 34))
-        self.assertEqual(colors(image), PICTURE)
+        with mock.patch.object(asset_thumbs, '_build_here', side_effect=AssertionError('不应在 UI 线程解码')):
+            image = asset_thumbs.thumbnail(self.win, path, 72)
+        self.assertIsNone(image, "后台不可用时先保留文字，避免阻塞当前 UI 回调")
         self.assertEqual(asset_thumbs.pending(), 0, "没有后台进程就不排队")
-        self.assertEqual(len(self.cached_pngs()), 1, "顺手把结果写进磁盘缓存")
-        self.assertLess(spent, 4000, "一张 400×200 不该拖到几秒（实测 %.1f ms）" % spent)
+        self.assertEqual(len(self.cached_pngs()), 0, "UI 当前拍不应同步写出缩略图缓存")
 
     def test_the_same_picture_is_only_built_once(self):
         path = self.write("same.png", png(200, 100))
