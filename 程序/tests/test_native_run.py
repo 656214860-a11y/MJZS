@@ -186,11 +186,13 @@ class RunTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj, base, asset = make_project(td)
             native_assets.Comfy = BrokenDispatchComfy
+            reports = []
             message = native_assets.run(proj, base, [('CHAR_001', asset)],
-                                        'http://127.0.0.1:8189', lambda text: None,
+                                        'http://127.0.0.1:8189', reports.append,
                                         options=self.options, stop=threading.Event())
             self.assertIn('已自动导入 1/1', message)
             self.assertNotIn('HTTP Error', message)
+            self.assertTrue(any('可能已排队' in text and '不会重复提交' in text for text in reports))
 
     def test_a_failed_ack_is_visible_without_resubmitting_the_prompt(self):
         """/prompt 已排队后回执失败，必须说明会以输出目录对账，且不再发第二次 prompt。"""

@@ -171,7 +171,8 @@ def _submit_job(client, state, options, key, health):
         dispatched=client.request('/drama/assets/dispatch',{'id':state['id'],'options':options,'api_key':key})
     except HTTPError:
         # 老节点这个接口会在任务已经排进队列之后回一个英文 500；不能当成失败中断整批，接着取进度就好。
-        return {'state':'queued','error':''}
+        return {'state':'queued','error':'',
+                'ack_warning':'旧版节点提交接口返回异常；任务可能已排队，将继续核对进度与输出目录，不会重复提交。'}
     return {'state':dispatched['state'],'error':dispatched.get('error','')}
 
 def run(project, base, items, url, report, timeout=7200, options=None, stop=None):
