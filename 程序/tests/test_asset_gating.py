@@ -386,6 +386,9 @@ class AssetCellDeleteTests(_TkHarness):
         original = desktop_module.messagebox
         desktop_module.messagebox = Fake()
         self.addCleanup(setattr, desktop_module, "messagebox", original)
+        original_confirm = desktop_module.confirm
+        desktop_module.confirm = lambda *args, **kwargs: answer
+        self.addCleanup(setattr, desktop_module, "confirm", original_confirm)
         return errors
 
     def test_the_reference_column_deletes_the_reference_only(self):

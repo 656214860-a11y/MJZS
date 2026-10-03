@@ -303,6 +303,22 @@ def full_safe_required(latest_round, last_full_round, master_checkout):
     return bool(master_checkout and latest_round - last_full_round >= 3)
 
 
+def participating_full_safe_run(round_number):
+    """Only the full-run lock owner and its workers may defer receipt checking."""
+    common = git_common_dir()
+    if not common:
+        return False
+    try:
+        with io.open(os.path.join(common, FULL_SAFE_LOCK_NAME), encoding='utf-8') as handle:
+            holder = json.load(handle)
+        return (isinstance(holder, dict)
+                and holder.get('round') == round_number
+                and holder.get('pid') in (os.getpid(), os.getppid())
+                and _pid_is_alive(holder.get('pid')))
+    except (OSError, ValueError):
+        return False
+
+
 def verified_tree_record(records, tree, now=None):
     """找出七日内可引用的同内容树全量绿记录。"""
     now = now or datetime.now()

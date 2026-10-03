@@ -61,11 +61,12 @@ class RoundBaselineTests(unittest.TestCase):
         if not run_selftests.full_safe_required(
                 latest, last_full, run_selftests.is_master_checkout()):
             return
-        result = ROOT / 'tasks_round' / f'tasks_round_{latest}_result.md'
-        text = result.read_text(encoding='utf-8') if result.exists() else ''
-        passed = ('--all --safe' in text and
-                  bool(re.search(r'(?:0\s*红|0\s*(?:个)?失败|ALL TESTS PASSED)', text, re.I)))
-        self.assertTrue(passed, f'R{latest} 欠一次完整安全全量')
+        receipt = run_selftests.verified_tree_record(
+            baseline.get('full_safe_verified_trees', []), run_selftests.content_tree())
+        # A run cannot have its own success receipt before its tests finish.
+        # Other processes still need an actual receipt, not report prose.
+        self.assertTrue(receipt or run_selftests.participating_full_safe_run(latest),
+                        f'R{latest} 欠一次完整安全全量')
 
     def test_verified_tree_records_have_required_metadata(self) -> None:
         baseline = json.loads(BASELINES.read_text(encoding='utf-8'))

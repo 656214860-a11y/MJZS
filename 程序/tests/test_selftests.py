@@ -132,6 +132,22 @@ class WorkerCleanupTests(unittest.TestCase):
 
 
 class IncrementalTests(unittest.TestCase):
+    def test_only_current_full_run_can_defer_receipt_check(self):
+        import json
+        with tempfile.TemporaryDirectory() as folder, \
+             mock.patch.object(run_selftests, 'git_common_dir', return_value=folder), \
+             mock.patch.object(run_selftests, '_pid_is_alive', return_value=True):
+            path = os.path.join(folder, run_selftests.FULL_SAFE_LOCK_NAME)
+            self.assertFalse(run_selftests.participating_full_safe_run(946))
+            for pid, round_number, expected in (
+                    (os.getpid(), 946, True), (os.getppid(), 946, True),
+                    (-100, 946, False), (os.getpid(), 945, False)):
+                with open(path, 'w', encoding='utf-8') as handle:
+                    json.dump({'pid': pid, 'round': round_number}, handle)
+                self.assertEqual(run_selftests.participating_full_safe_run(946), expected)
+            with mock.patch.object(run_selftests, '_pid_is_alive', return_value=False):
+                self.assertFalse(run_selftests.participating_full_safe_run(945))
+
     def test_incremental_flag_is_an_explicit_cli_option(self):
         source = inspect.getsource(run_selftests.main)
         self.assertIn("arg == '--incremental'", source)
