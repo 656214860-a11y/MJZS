@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 from agent.core import read_json
+from platform_tools import launch_background, run_process
 
 LEDGER_PATH = ('工作流任务', '宠物', '测试.json')
 KEEP = 30
@@ -71,9 +72,10 @@ def run_incremental(program, project, text='', executable=None, invoke=None, at=
     program = Path(program)
     repeats = repeat_count(text)
     command = [str(executable or sys.executable), 'run_selftests.py', '--incremental']
-    invoke = invoke or (lambda args, cwd: subprocess.run(
-        args, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding='utf-8', errors='replace', check=False))
+    invoke = invoke or (lambda args, cwd: run_process(
+        args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, encoding='utf-8', errors='replace', check=False,
+        run=subprocess.run))
     runs = [result_of(invoke(command, program), index + 1) for index in range(repeats)]
     item = record(project, runs, at=at, publish=publish)
     failed = [name for row in runs for name in row['failures']]
@@ -91,7 +93,8 @@ def start_incremental(program, text='', executable=None, popen=None):
     command = [str(executable or sys.executable), 'run_selftests.py', '--incremental']
     popen = popen or subprocess.Popen
     try:
-        process = popen(command, cwd=str(program), stdout=output, stderr=subprocess.STDOUT)
+        process = launch_background(command, cwd=program, stdout=output,
+                                    stderr=subprocess.STDOUT, popen=popen)
     except Exception:
         output.close()
         raise

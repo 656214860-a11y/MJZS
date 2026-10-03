@@ -49,11 +49,13 @@ def launch_background(command, *, cwd=None, stdin=None, stdout=None, stderr=None
                   stdin=stdin, stdout=stdout, stderr=stderr, env=env)
 
 
-def run_process(command, *, input=None, capture_output=False, timeout=None, cwd=None, run=None):
+def run_process(command, *, run=None, **kwargs):
     """Run a local host command with the shared hidden-console policy."""
     runner = run or subprocess.run
-    return runner(command, input=input, capture_output=capture_output, timeout=timeout,
-                  cwd=None if cwd is None else str(cwd), creationflags=hidden_console_flags())
+    if kwargs.get('cwd') is not None:
+        kwargs['cwd'] = str(kwargs['cwd'])
+    kwargs.setdefault('creationflags', hidden_console_flags())
+    return runner(command, **kwargs)
 
 
 def require_windows(feature):

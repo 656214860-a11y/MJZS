@@ -1174,7 +1174,7 @@
         ]
     },
     "\u8986\u76d6\u7387\u5ba1\u8ba121": {
-        "count": 2,
+        "count": 1,
         "baseline_pending": 6,
         "items": [
             {
@@ -1215,9 +1215,9 @@
             },
             {
                 "file": "pet_test_service.py",
-                "point": "74",
-                "disposition": "pending",
-                "reason": "\u670d\u52a1\u8fdb\u7a0b\u8c03\u7528\uff0c\u5f85\u5224\u5b9a\u662f\u5426\u6b63\u5f0f\u8d44\u6e90\u76ee\u6807"
+                "point": "75",
+                "disposition": "migrated",
+                "reason": "R836：宠物增量自检后台进程经 platform_tools.launch_background 启动，保留输出流与可替换启动钩子。"
             },
             {
                 "file": "stage_layout.py",
