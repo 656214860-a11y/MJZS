@@ -144,7 +144,7 @@
 
     不列入 2.3 节。
 
-27. \*\*轮次编号必须连续\*\*：每轮结束检查 \`N == M + 1\`（N = project\_status.md 当前轮次，M = tasks\_round 最新结果文件轮次）。
+27. \*\*轮次编号必须连续且跨工作树唯一\*\*：每轮开工先运行 \`D:\\漫剧制作助手\\运行环境\\Python\\python.exe 维护记录/基准脚本/round_claim.py next\` 领取轮次号；脚本在 Git common-dir 中以锁与临时文件替换维护共享计数器。每轮结束检查 \`N == M + 1\`（N = project\_status.md 当前轮次，M = tasks\_round 最新结果文件轮次）。
 
     不连续时，本轮必须先修正编号再继续。
 
@@ -158,7 +158,7 @@
 
     - 架构门禁：当前已验证基线 94/94（不得低于历史 14/14）
 
-    - 全量回归：当前基线 3,230 条
+    - 全量回归：当前基线 3,230 条；仅合并到 `master` 的提交序列每 3 轮执行一次，内容树七日内已有绿凭据可引用。
 
 30. \*\*桌面主动后台任务\*\*：`Desktop.async_()` 的提交、逻辑取消、成功／失败收尾与迟到结果拒绝必须经 `BackgroundTaskLifecycle`；取消不强杀任意 Python 线程，但已取消或被新代次替换的结果不得触发 UI 回调。
 
@@ -245,8 +245,8 @@
   - 只读诊断：不跑测试。
   - 纯服务／小拆分：`smoke_test.py` ＋ `run_selftests.py -k <本轮改动模块>`。
   - 跨层改动（同一轮触及 ≥2 个层级）：上一条 ＋ `smoke_test.py --architecture`。越层与契约漂移由架构门禁每轮拦截，不以全量自检替代。
-  - 完整安全全量 `run_selftests.py --all --safe` 只在四种时机跑：① 本轮轮次号 − `维护记录/测试分层基线.json` 的 `last_full_safe_all_round` ≥ 3；② 路线图条目收口；③ 发布前；④ 用户明确要求。R734 按 734−731=3 本应触发而未触发；自本轮起按该算式执行，并由实际全量轮写回该字段。
-  - 例外升级（当轮即跑全量，不等满 3 轮）：改动触及启动路径（`启动漫剧制作助手.pyw`／`启动助手.cmd`）、Tk 控件生命周期或事件绑定（`pet_ui.py`、`skill_panel.py`、`ui_widgets.py`）、删除语义（`storage_maintenance.py`）、层级登记表 `tests/architecture/_layers.py`。仅替换 `desktop.py` 内的注入点／调用入口、不改 Tk 控件与事件绑定的，不升级。
+  - 完整安全全量 `run_selftests.py --all --safe` 是**合并到 `master` 的提交点门禁**：主干提交序列相对 `last_full_safe_all_round` 每满 3 轮、路线图条目收口、发布前或用户明确要求时执行。分支/worktree 每轮只需默认冒烟 8/8、架构门禁、定向和默认增量；不得因分支轮次累计全量欠账。主干全量绿后把 `{tree, round, seconds, at}` 写入 `full_safe_verified_trees`；七日内同 `HEAD:程序` 内容树引用该凭据而免跑。
+  - 例外升级只在**合并到 `master` 前的门禁**生效（当次即跑全量，不等满 3 轮）：改动触及启动路径（`启动漫剧制作助手.pyw`／`启动助手.cmd`）、Tk 控件生命周期或事件绑定（`pet_ui.py`、`skill_panel.py`、`ui_widgets.py`）、删除语义（`storage_maintenance.py`）、层级登记表 `tests/architecture/_layers.py`。仅替换 `desktop.py` 内的注入点／调用入口、不改 Tk 控件与事件绑定的，不升级。
   - SKILL 说明文件（`skills/**/*.md`）改动不得与代码改动同轮：`run_selftests.py` 的 `data_moved` 判定会让增量台账整表失效。
 
 - 更新 `architecture.md`。

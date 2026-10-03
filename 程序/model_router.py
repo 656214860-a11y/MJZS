@@ -456,12 +456,12 @@ class ModelRouter:
         return [(model, provider, cost) for model, provider, cost in self.available_models()
                 if capability in (self.adapter_for(model).capabilities(model) if self.adapter_for(model) else ())]
 
-    # ── 三级覆盖 ────────────────────────────────────────────────────────────
+    # ── 两级覆盖 ────────────────────────────────────────────────────────────
     def override(self, context=None):
-        """单次 ＞ 项目 ＞ 全局；「自动」与空值都跳过。返回 (模型, 层级名)。"""
+        """单次 ＞ 项目；「自动」与空值都跳过。返回 (模型, 层级名)。"""
         ctx = dict(context or {})
         for key, level in (('model', '单次'), ('userPreferredModel', '单次'),
-                           ('projectModel', '项目'), ('globalModel', '全局')):
+                           ('projectModel', '项目')):
             value = str(ctx.get(key) or '').strip()
             if value and value != AUTO:
                 return value, level

@@ -22,7 +22,6 @@ import skill_registry
 PROGRAM = Path(__file__).resolve().parent
 CONFIG_NAME = 'skill_config.json'
 PRESET_PATH = ('配置', 'SKILL', '预设.json')
-GLOBAL_PATH = ('配置', 'SKILL', '全局模型.json')
 # 只有实际走 HOLLMWOOD 四角色协作的阶段才会读取这两项。它们保存在项目配置，
 # 不改程序内置模板，确保一个项目的创作规则不会意外影响其他项目。
 HOLLMWOOD_STAGES = ('script',)
@@ -68,27 +67,6 @@ def path(project):
 
 def preset_path(program=None):
     return Path(program or PROGRAM).joinpath(*PRESET_PATH)
-
-
-def global_path(program=None):
-    return Path(program or PROGRAM).joinpath(*GLOBAL_PATH)
-
-
-def global_model(program=None):
-    """全局默认模型（程序级）：没设过、或写成「自动」就是空串。
-
-    规格里的三级覆盖——单次 ＞ 项目 ＞ 全局：这一份是最底下那层，对所有项目都算数。"""
-    data = read_json(global_path(program))
-    value = clean_model(data.get('model') if isinstance(data, dict) else '')
-    return value if value != model_router.AUTO else ''
-
-
-def set_global_model(name, program=None):
-    """设全局默认：再点一次「自动」就是取消。返回存下来的值（空串＝已取消）。"""
-    value = clean_model(name)
-    value = '' if value == model_router.AUTO else value
-    save(global_path(program), {'model': value or model_router.AUTO})
-    return value
 
 
 def default_entry(stage, registry=None):
@@ -437,7 +415,7 @@ def problems(project, registry=None):
 
 
 # ── 预设 ────────────────────────────────────────────────────────────────────
-# 预设按阶段分箱保存。每个页面只看自己的箱子；“设为全局”并不是共享同一条记录，
+# 预设按阶段分箱保存。每个页面只看自己的箱子；复制预设并不是共享同一条记录，
 # 而是把当前预设复制到用户选中的其它阶段，之后各阶段仍可独立修改。
 PRESET_VERSION = 2
 

@@ -27,9 +27,10 @@ import unittest
 
 TESTS = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(TESTS)
-# 闭包从程序目录解析；运行时在同级的「运行环境」，不在程序目录内。
+# 闭包从程序目录解析；标准库必须以当前解释器为准。正式目录把「运行环境」放在
+# 源码同级，但 Codex worktree 只检出源码，仍复用同一个受控解释器。
 HERE = ROOT
-PYTHON = os.path.join(os.path.dirname(ROOT), "运行环境", "Python")
+PYTHON = sys.prefix
 LIB = os.path.join(PYTHON, "Lib")
 DLLS = os.path.join(PYTHON, "DLLs")
 ENTRY = os.path.join(ROOT, "app.py")

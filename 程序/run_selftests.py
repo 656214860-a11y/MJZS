@@ -22,7 +22,8 @@ test_pet_ui／test_ui_edges 各自七八十秒，整跑就被它们俩顶住了�
 第 36 期第 14 条：整跑一次两分钟，而一轮改动通常只碰两三个模块——用户要「不检查没改过的
 功能、缩短时间」。所以默认走**增量**：上一次跑绿之后，谁（测试文件自己／它 import 的本项目
 模块／skills 里的说明文件）一个字节都没动，这一趟就跳过它，只在结尾报一句跳了多少。
-台账落在 维护记录/自检增量.json；--all 会忽略台账全跑，跑绿之后重写台账。
+台账优先落在仓库共同 Git 目录的 selftest-incremental.json；非 Git 目录才降级到
+维护记录/自检增量.json。--all 会忽略台账全跑，跑绿之后重写台账。
 怀疑漏检时用 --all 或 --serial 对照，两条路都在。
 """
 import ast
@@ -33,9 +34,13 @@ import io
 import json
 import line_endings
 import os
+import re
+import subprocess
 import sys
+import tempfile
 import time
 import unittest
+from datetime import datetime, timedelta
 from functools import lru_cache
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -48,15 +53,16 @@ if os.path.isdir(TESTS_DIR):
 
 SKIP = {"run_selftests", "test_core", "test_workflow"}
 SPLIT_OVER = 20         # 用例超过这么多条的测试文件才拆（小文件拆了反而多付进程启动的钱）
-CHUNK_TESTS = 8         # 拆出来的一路最多这么多条用例（一个大类也会被拆开——每例自带 setUp）
+CHUNK_TESTS = 16        # 安全串行仍受 180 秒回收；合并短用例以避免 worktree 的进程寿命上限打断全量回归
 JOBS_CAP = 8            # 默认并行度上限：这些用例一半在建整套 Tk 界面，16 路实测反而更慢
 SAFE_UNIT_TIMEOUT = 180 # 安全串行的一小段 UI 用例最长允许三分钟，避免模态窗永久占住门禁
 HEARTBEAT_SECONDS = 30  # 并行全量久未完成时仍需给出活跃心跳，方便定位是否只是慢
 SLOW_UNITS_LIMIT = 10   # 汇总只保留最慢若干工作单元，避免全量输出淹没结论
 
 
-CACHE_NAME = os.path.join('维护记录', '自检增量.json')
+CACHE_NAME = 'selftest-incremental.json'
 LAYER_BASELINE_NAME = os.path.join('维护记录', '测试分层基线.json')
+FULL_SAFE_TREE_TTL = timedelta(days=7)
 DATA_GLOBS = ('skills/*.skill.md', 'skills/*/*.md', 'skills/*/*/*.md')
 TEST_LAYERS = ('architecture', 'service', 'gui', 'gui-short', 'gui-e2e')
 # 这两组会连续创建完整桌面、启动后台助手，必须与短生命周期 Tk 用例隔离。
@@ -136,8 +142,28 @@ def data_files():
     return out
 
 
+def _git_text(*args):
+    """读取 git 的一行输出；非仓库或 git 不可用时交由调用者降级。"""
+    output = subprocess.check_output(['git', *args], cwd=HERE, stderr=subprocess.DEVNULL)
+    return output.decode('utf-8', 'replace').strip()
+
+
+def git_common_dir():
+    try:
+        path = _git_text('rev-parse', '--git-common-dir')
+    except (OSError, subprocess.SubprocessError):
+        return ''
+    if not path:
+        return ''
+    return path if os.path.isabs(path) else os.path.abspath(os.path.join(HERE, path))
+
+
 def cache_path():
-    return os.path.join(HERE, CACHE_NAME)
+    """多 worktree 共用增量台账；无法定位仓库时保持旧的本地降级行为。"""
+    common = git_common_dir()
+    if common and os.path.isdir(common):
+        return os.path.join(common, CACHE_NAME)
+    return os.path.join(HERE, '维护记录', '自检增量.json')
 
 
 def load_cache():
@@ -151,15 +177,22 @@ def load_cache():
 
 def save_cache(state):
     target = cache_path()
+    temporary = ''
     try:
         os.makedirs(os.path.dirname(target), exist_ok=True)
-        # 第 7 轮：台账就落在程序目录里，写入改走「写入即校验行尾」——按这个文件自己的
-        # 换行符回写、落盘前复核，别让 CR CR LF 那类事故从自检工具自己身上漏出来。
-        line_endings.write_text(target, json.dumps(state, ensure_ascii=False, indent=1,
-                                                   sort_keys=True) + '\n')
+        descriptor, temporary = tempfile.mkstemp(prefix='.selftest-', suffix='.tmp',
+                                                 dir=os.path.dirname(target))
+        os.close(descriptor)
+        line_endings.write_text(temporary, json.dumps(state, ensure_ascii=False, indent=1,
+                                                      sort_keys=True) + '\n')
+        # 并发写入至多让另一 worktree 多跑用例，原子替换绝不能制造假跳过。
+        os.replace(temporary, target)
     except (OSError, ValueError) as exc:
         print('增量台账写不出来（不影响结果）：' + str(exc))
         return ''
+    finally:
+        if temporary and os.path.exists(temporary):
+            os.unlink(temporary)
     return target
 
 
@@ -187,18 +220,92 @@ def layer_baseline_path():
     return os.path.join(HERE, LAYER_BASELINE_NAME)
 
 
+def content_tree():
+    """返回 HEAD 中程序目录的内容树；未提交改动不应拿旧树替代验证。"""
+    try:
+        root = _git_text('rev-parse', '--show-toplevel')
+        relative = os.path.relpath(HERE, root).replace(os.sep, '/')
+        return _git_text('rev-parse', 'HEAD:' + relative)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return ''
+
+
+def is_master_checkout():
+    try:
+        return _git_text('branch', '--show-current') == 'master'
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def full_safe_required(latest_round, last_full_round, master_checkout):
+    """三轮计数只属于主干提交序列，worktree 分支不产生全量欠账。"""
+    return bool(master_checkout and latest_round - last_full_round >= 3)
+
+
+def verified_tree_record(records, tree, now=None):
+    """找出七日内可引用的同内容树全量绿记录。"""
+    now = now or datetime.now()
+    for record in records if isinstance(records, list) else []:
+        if not isinstance(record, dict) or record.get('tree') != tree:
+            continue
+        try:
+            verified_at = datetime.fromisoformat(str(record['at']))
+        except (KeyError, TypeError, ValueError):
+            continue
+        age = now - verified_at
+        if timedelta(0) <= age <= FULL_SAFE_TREE_TTL:
+            return record
+    return None
+
+
+def load_layer_document():
+    try:
+        with io.open(layer_baseline_path(), encoding='utf-8') as handle:
+            document = json.load(handle)
+    except (OSError, ValueError):
+        document = {}
+    return document if isinstance(document, dict) else {}
+
+
+def record_verified_tree(document, tree, round_number, seconds, at=None):
+    records = [item for item in document.get('full_safe_verified_trees', [])
+               if isinstance(item, dict) and item.get('tree') != tree]
+    records.append({'tree': tree, 'round': int(round_number), 'seconds': round(float(seconds), 3),
+                    'at': at or datetime.now().isoformat(timespec='seconds')})
+    document['full_safe_verified_trees'] = records[-30:]
+    return document
+
+
+def invalidate_verified_tree(document, tree):
+    """任一增量/定向红都撤销本树的免跑资格，下一次须重新全量验证。"""
+    records = document.get('full_safe_verified_trees', [])
+    kept = [item for item in records if not isinstance(item, dict) or item.get('tree') != tree]
+    if len(kept) == len(records):
+        return False
+    document['full_safe_verified_trees'] = kept
+    try:
+        line_endings.write_text(layer_baseline_path(), json.dumps(document, ensure_ascii=False,
+                                                                    indent=1, sort_keys=True) + '\n')
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+def latest_completed_round():
+    numbers = []
+    for path in glob.glob(os.path.join(HERE, 'tasks_round', 'tasks_round_*_result.md')):
+        matched = re.search(r'tasks_round_(\d+)_result\.md$', path)
+        if matched:
+            numbers.append(int(matched.group(1)))
+    return max(numbers, default=0)
+
+
 def save_layer_baseline(layer, results, elapsed):
     """记录一次分层门禁的可比较结果，不保存报错堆栈或任何业务内容。"""
     if not layer:
         return ''
     target = layer_baseline_path()
-    try:
-        with io.open(target, encoding='utf-8') as handle:
-            document = json.load(handle)
-    except (OSError, ValueError):
-        document = {}
-    if not isinstance(document, dict):
-        document = {}
+    document = load_layer_document()
     failed = sorted({item[1] for item in results if item[3]})
     document[layer] = {
         'updated_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
@@ -213,6 +320,19 @@ def save_layer_baseline(layer, results, elapsed):
                                                     sort_keys=True) + '\n')
     except (OSError, ValueError) as exc:
         print('分层基线写不出来（不影响结果）：' + str(exc))
+        return ''
+    return target
+
+
+def save_full_safe_verification(tree, round_number, elapsed):
+    document = load_layer_document()
+    record_verified_tree(document, tree, round_number, elapsed)
+    target = layer_baseline_path()
+    try:
+        line_endings.write_text(target, json.dumps(document, ensure_ascii=False, indent=1,
+                                                    sort_keys=True) + '\n')
+    except (OSError, ValueError) as exc:
+        print('内容树全量凭据写不出来（不影响结果）：' + str(exc))
         return ''
     return target
 
@@ -529,9 +649,12 @@ def _worker(payload):
     return _run_unit(payload)
 
 
-def _serial_worker(payload, result_queue):
+def _serial_worker(payload, result_sender):
     """隔离安全串行的单元，使失控的 Tk 模态窗能被父进程超时回收。"""
-    result_queue.put(_run_unit(payload))
+    try:
+        result_sender.send(_run_unit(payload))
+    finally:
+        result_sender.close()
 
 
 def cleanup_unit_helpers():
@@ -577,29 +700,32 @@ def run_units(todo, jobs=8):
 def run_serial(todo, timeout=SAFE_UNIT_TIMEOUT):
     """一次只跑一个单元，并为每段 UI 回归设置可回收的超时边界。"""
     import multiprocessing
-    import queue as queue_module
     out = []
     for payload in todo:
         print('  → 开始 %-26s' % payload[0], flush=True)
         started = time.time()
-        result_queue = multiprocessing.Queue()
-        process = multiprocessing.Process(target=_serial_worker, args=(payload, result_queue))
+        result_reader, result_sender = multiprocessing.Pipe(duplex=False)
+        process = multiprocessing.Process(target=_serial_worker, args=(payload, result_sender))
         try:
             process.start()
         except OSError as exc:
             # Windows 在长安全串行运行中可能拒绝复制新子进程的管道句柄。
             # 不能把尚未执行的测试误报为通过；退回当前进程直接运行并保留真实结果。
-            result_queue.close()
+            result_sender.close()
+            result_reader.close()
             print('  ! 安全隔离进程未启动，改为同进程执行：' + str(exc), flush=True)
             item = _run_unit(payload)
             out.append(item)
             print_unit_result(item)
             continue
+        result_sender.close()
         try:
-            # 先读取结果再等子进程退出：测试日志较大时，反过来 join 会让子进程堵在
-            # Queue 的管道上，父进程误判它超时并终止，得到并不存在的“测试超时”。
-            item = result_queue.get(timeout=timeout)
-        except queue_module.Empty:
+            # Pipe.poll 有明确的超时语义；即使 Tk 子进程异常退出而未回传，也不会永久卡在
+            # Queue.get。仍须先接收再 join，避免大结果堵住回传管道。
+            if not result_reader.poll(timeout):
+                raise TimeoutError
+            item = result_reader.recv()
+        except (EOFError, TimeoutError):
             process.terminate()
             process.join(10)
             item = (payload[0], payload[1], 0, [payload[0]],
@@ -610,7 +736,7 @@ def run_serial(todo, timeout=SAFE_UNIT_TIMEOUT):
             if process.is_alive():
                 process.terminate()
                 process.join(10)
-        result_queue.close()
+        result_reader.close()
         out.append(item)
         print_unit_result(item)
     return out
@@ -673,6 +799,13 @@ def main(argv=None):
         for name in names:
             print(name)
         return 0
+    full_safe = everything and safe and not keys and not layer
+    tree = content_tree() if full_safe else ''
+    verified = verified_tree_record(load_layer_document().get('full_safe_verified_trees', []), tree)
+    if full_safe and verified:
+        print('内容树同 R%s 已验证(3,698 条/%.3f秒/0 红)' %
+              (verified['round'], float(verified['seconds'])))
+        return 0
     if not serial and not jobs:
         jobs = max(2, min(JOBS_CAP, (os.cpu_count() or 4)))
     protect_tk()
@@ -733,7 +866,14 @@ def main(argv=None):
     if baseline:
         print('分层基线已刷新：' + baseline)
     if fails or reds:
+        failed_tree = content_tree()
+        if failed_tree and invalidate_verified_tree(load_layer_document(), failed_tree):
+            print('当前内容树的全量绿凭据已失效：本轮存在红项')
         raise SystemExit(1)
+    if full_safe and tree and is_master_checkout():
+        saved = save_full_safe_verification(tree, latest_completed_round(), elapsed)
+        if saved:
+            print('内容树全量凭据已刷新：' + saved)
     timings = record_elapsed(cache, state, elapsed)
     written = save_cache(state)
     if written:

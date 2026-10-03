@@ -244,6 +244,15 @@ class WorkspaceMaintenanceTests(unittest.TestCase):
             result = wm.clean_worktrees(repo, run=lambda command, **kwargs: self.fail('无 git 不得调用进程'))
         self.assertEqual(result['git'], 'absent')
 
+    def test_linked_worktree_gitfile_is_a_repository(self):
+        linked = self.root / 'linked'
+        linked.mkdir()
+        (linked / '.git').write_text('gitdir: elsewhere', encoding='utf-8')
+        with mock.patch.object(wm, 'tool_path', lambda name, fallback='': None):
+            result = wm.clean_worktrees(linked,
+                                        run=lambda command, **kwargs: self.fail('git 不可用时不得调用'))
+        self.assertEqual(result['git'], 'absent')
+
     def test_maintain_repository_dry_run_changes_nothing(self):
         cache = self._pycache(self.program / 'pkg')
         home = self.root / '.selftmp'

@@ -9,7 +9,7 @@
 | 桌面与页面 | `app.py`、`desktop.py`、`desktop_startup_service.py`、`storyboard_files.py` | `desktop` 创建窗口和绑定事件；无 Tk 启动控制器编排首帧延迟、项目选择与取消；其余负责项目选择、12 阶段页面、文件表及关闭清理 |
 | UI 设计系统 | `ui_tokens.py`、`ui_widgets.py`、`design_tokens.md`、`ui_components.md` | 设计 token 的代码化事实来源，以及主/次按钮、卡片的 Tk 组件唯一入口 |
 | 三虎与自动化 | `pet_ui.py`、`pet_cloud.py`、`stage_flow.py`、`desktop_automation_service.py` | 前缀播报、手动/全自动、检查点、暂停和强制停止；桌面自动流程的周期调度、取消、受控异常与到期轮询由无 Tk 服务统一编排 |
-| 阶段配置 | `stage_config.py`、`stage_models.py`、`skill_panel.py` | 单次 > 项目 > 全局模型优先级、SKILL、预设 |
+| 阶段配置 | `stage_config.py`、`stage_models.py`、`skill_panel.py` | 单次 > 项目模型优先级、SKILL、预设 |
 | Agent 工作流 | `workflow_settings.py`、`workflow_engines.py`、`workflow_tasks.py` | GPT/Anthropic API 在对应本机程序可启动时优先本机执行、启动失败兼容 API 回退；桌面模型显式选择、任务文件与进程台账 |
 | 模型与安全 | `model_pool.py`、`model_router.py`、`pet_llm.py`、`model_secrets.py` | 厂商/模型池、协议路由、唯一密钥判据、DPAPI |
 | 剧本与契约 | `idea_chat.py`、`idea_attachments.py`、`idea_chat_controller.py`、`script_contract.py`、`prompt_templates.py` | 聊天、受控文本附档、无 Tk 对话请求/节流/流式进度编排、创意工作流、五类 manifest、提示词模板 |

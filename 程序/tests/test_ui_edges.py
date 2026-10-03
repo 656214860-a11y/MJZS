@@ -1021,6 +1021,10 @@ class UiEdgeTests(unittest.TestCase):
             self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
+            import desktop as desktop_module
+            original = desktop_module.Desktop.choose_project
+            desktop_module.Desktop.choose_project = lambda self: None
+            self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original)
             win = self.tk.Tk(); win.geometry("1100x760+40+40")
             def quiet_destroy():
                 try:
@@ -1028,15 +1032,6 @@ class UiEdgeTests(unittest.TestCase):
                 except Exception:
                     pass
             self.addCleanup(quiet_destroy)
-            from desktop import Desktop
-            from local_video import open_studio
-            d = Desktop(win, root=PROGRAM)
-            d.root = proj
-            d.studio = open_studio(proj)
-            import desktop as desktop_module
-            original = desktop_module.Desktop.choose_project
-            desktop_module.Desktop.choose_project = lambda self: None
-            self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original)
             from desktop import Desktop
             from local_video import open_studio
             d = Desktop(win, root=PROGRAM)
