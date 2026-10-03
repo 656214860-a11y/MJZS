@@ -93,11 +93,16 @@ class SettingsCase(unittest.TestCase):
 
     def selector(self, sheet):
         """第 0 行右边那只下拉＝文本模型服务商。"""
-        return sheet.grid_slaves(row=0, column=1)[0]
+        return self.form_body(sheet).grid_slaves(row=0, column=1)[0]
 
     def field(self, sheet, row):
         """1 地址／2 模型／3 密钥／4 优化服务 Python／5 MCP 服务文件。"""
-        return sheet.grid_slaves(row=row, column=1)[0]
+        return self.form_body(sheet).grid_slaves(row=row, column=1)[0]
+
+    def form_body(self, sheet):
+        """设置项可放在统一 Card 内，测试只依赖其行列语义。"""
+        return next(child for child in sheet.winfo_children()
+                    if child.grid_slaves(row=0, column=1))
 
     def values(self, sheet):
         return [str(item) for item in self.selector(sheet).cget("values")]

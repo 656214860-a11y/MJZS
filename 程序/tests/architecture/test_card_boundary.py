@@ -17,15 +17,18 @@ class CardBoundaryTests(unittest.TestCase):
     def test_seedream_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("seedream_settings.py")
 
-    def _assert_settings_card(self, filename):
+    def test_prompt_optimizer_settings_uses_card_for_its_configuration_group(self):
+        self._assert_settings_card("agent/prompt_optimizer.py", "settings")
+
+    def _assert_settings_card(self, filename, function_name="show"):
         tree = parse(ROOT / filename)
         imported = {
             alias.name for node in tree.body if isinstance(node, ast.ImportFrom)
             and node.module == "ui_widgets" for alias in node.names
         }
         self.assertIn("Card", imported)
-        show = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
-                    and node.name == "show")
-        calls = [node for node in ast.walk(show) if isinstance(node, ast.Call)
+        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+                        and node.name == function_name)
+        calls = [node for node in ast.walk(function) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == "Card"]
         self.assertEqual(len(calls), 1)
