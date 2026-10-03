@@ -94,8 +94,8 @@ assert len(tk._drama_wanted_topmost) == 0
         run.assert_called_once_with(payload)
         process.assert_not_called()
 
-    def test_safe_gui_pool_is_capped_at_two_workers(self):
-        self.assertEqual(run_selftests.safe_gui_jobs(8), 2)
+    def test_safe_gui_pool_is_capped_at_four_workers(self):
+        self.assertEqual(run_selftests.safe_gui_jobs(8), 4)
         self.assertEqual(run_selftests.safe_gui_jobs(1), 1)
 
     def test_safe_split_identifies_tk_units(self):

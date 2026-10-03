@@ -10,15 +10,15 @@ test_pet_ui／test_ui_edges 各自七八十秒，整跑就被它们俩顶住了�
   python run_selftests.py --serial         # 老样子串行（怀疑并行互相干扰时用它对照）
   python run_selftests.py --jobs 4         # 指定并行度
   python run_selftests.py --whole          # 不拆大文件（一个文件一路，出问题时对照用）
-  python run_selftests.py --safe           # 无 Tk 并行、Tk 最多 2 路受控并行，性能用例独占串行
+  python run_selftests.py --safe           # 无 Tk 并行、Tk 最多 4 路受控并行，性能用例独占串行
   python run_selftests.py --all --safe --force # 忽略同内容树绿凭据，强制再跑一轮全量复核
   python run_selftests.py -k pet keyframe  # 只跑文件名含这些片段的用例（改哪儿跑哪儿）
   python run_selftests.py --list           # 只列会跑哪些文件
   python run_selftests.py --all            # 不管改没改过，全部重跑一遍，并刷新增量台账
   python run_selftests.py --layer architecture --all  # 只跑架构契约层，并记录分层基线
   python run_selftests.py --layer service --all       # 只跑不依赖 Tk 的服务层
-  python run_selftests.py --layer gui-short --safe --all # 短生命周期 Tk 用例（最多 2 路）
-  python run_selftests.py --layer gui-e2e --safe --all   # 端到端桌面冒烟（最多 2 路）
+  python run_selftests.py --layer gui-short --safe --all # 短生命周期 Tk 用例（最多 4 路）
+  python run_selftests.py --layer gui-e2e --safe --all   # 端到端桌面冒烟（最多 4 路）
 
 第 36 期第 14 条：整跑一次两分钟，而一轮改动通常只碰两三个模块——用户要「不检查没改过的
 功能、缩短时间」。所以默认走**增量**：上一次跑绿之后，谁（测试文件自己／它 import 的本项目
@@ -57,7 +57,7 @@ SKIP = {"run_selftests", "test_core", "test_workflow"}
 SPLIT_OVER = 20         # 用例超过这么多条的测试文件才拆（小文件拆了反而多付进程启动的钱）
 CHUNK_TESTS = 16        # 安全串行仍受 180 秒回收；合并短用例以避免 worktree 的进程寿命上限打断全量回归
 JOBS_CAP = 8            # 默认并行度上限：这些用例一半在建整套 Tk 界面，16 路实测反而更慢
-SAFE_GUI_JOBS = 2       # 默认保持两路；--gui-jobs 3/4 仅用于显式对照测量
+SAFE_GUI_JOBS = 4       # R968 全量 A/B 候选；须以最终树连续两轮 ≤420 秒且 0 红验收
 SAFE_UNIT_TIMEOUT = 180 # 安全串行性能用例的一小段最长允许三分钟，避免模态窗永久占住门禁
 HEARTBEAT_SECONDS = 30  # 并行全量久未完成时仍需给出活跃心跳，方便定位是否只是慢
 SLOW_UNITS_LIMIT = 10   # 汇总只保留最慢若干工作单元，避免全量输出淹没结论
@@ -86,7 +86,7 @@ def safe_full_options(everything, serial, whole, jobs, safe):
 
 
 def safe_gui_jobs(jobs, override=None):
-    """默认两路；显式 A/B 测量限制在 1～4 路且不超过总 worker 数。"""
+    """默认四路；显式 A/B 测量限制在 1～4 路且不超过总 worker 数。"""
     limit = SAFE_GUI_JOBS if override is None else override
     if limit not in (1, 2, 3, 4):
         raise ValueError('--gui-jobs 必须为 1、2、3 或 4')
