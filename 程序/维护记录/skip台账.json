@@ -1899,6 +1899,15 @@
       "reason_constant": "PLATFORM_TKINTER",
       "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_workspace_maintenance.py",
+      "test": "WorkspaceMaintenanceTests.test_selftemp_symlink_entry_skipped",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_DIRECTORY_LINK",
+      "reason": "当前环境不支持目录链接；支持目录链接时应恢复执行",
+      "reference": ""
     }
   ]
 }

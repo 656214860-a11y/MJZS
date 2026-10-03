@@ -9,7 +9,9 @@ from tests.architecture._scan import module_name, parse, production_files
 
 
 _REMOVE_CALLS = frozenset({'os.remove', 'os.unlink', 'shutil.rmtree'})
-_AUTHORITIES = frozenset({'storage_maintenance', 'file_cache', 'log_maintenance'})
+_AUTHORITIES = frozenset({
+    'storage_maintenance', 'file_cache', 'log_maintenance', 'workspace_maintenance',
+})
 
 
 def _dotted_name(node: ast.AST) -> str | None:
