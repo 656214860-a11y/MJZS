@@ -448,7 +448,7 @@ class VideoShotMenuTests(unittest.TestCase):
             subject.edit_checks = {"SH001": True, "SH002": False, "SH003": True}
             deleted = []
             subject.delete_video_shot = lambda sid=None, **k: deleted.append(sid) or True
-            with patch.object(self.app.messagebox, "askyesno", lambda *a, **k: True):
+            with patch.object(self.app, "ask_confirmation", lambda *a, **k: True):
                 self.app.App.delete_checked_shots(subject)
             self.assertEqual(deleted, ["SH001"])                  # 未勾选与已删的都跳过
             self.assertEqual(subject.refreshed, [True])
@@ -464,7 +464,7 @@ class VideoShotMenuTests(unittest.TestCase):
             subject.tree.selected = ("SH002",)          # 高亮那一行（_FakeTree 的 selection 读它）
             deleted = []
             subject.delete_video_shot = lambda sid=None, **k: deleted.append(sid) or True
-            with patch.object(self.app.messagebox, "askyesno", lambda *a, **k: True):
+            with patch.object(self.app, "ask_confirmation", lambda *a, **k: True):
                 self.app.App.delete_checked_shots(subject)
             self.assertEqual(deleted, ["SH002"], "没勾选就按高亮那一行算")
             self.assertTrue(any("按高亮的那一行 SH002" in text for text in subject.written),

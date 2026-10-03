@@ -22,6 +22,7 @@ import ui_plugin_registry
 from platform_tools import open_path
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import (BaseDialog, ContextMenu, DataTable, LineInput, NotificationDispatcher,
+                        ask_confirmation,
                         PrimaryButton, SecondaryButton, TextArea)
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
@@ -654,7 +655,7 @@ class App:
         report=validate_episode(read(source),media_root(source),assets)
         details=f"校验通过：{report['shot_count']}镜，共{report['total_seconds']}秒。\n"+'\n'.join(report['warnings'])
         details+='\n将建立独立项目，预算0秒、默认离线，不覆盖当前任务。'
-        if messagebox.askyesno('导入预览',details+'\n创建新项目？',parent=self.window):
+        if ask_confirmation(self.window, '导入预览', details+'\n创建新项目？'):
             folder,report=import_writing_project(self.root,file);open_path(folder)
             self.write('新项目已创建：'+str(folder))
             self.notifier.success('新项目已加入漫剧助手，在“我的项目”中选择即可。\n缺失首帧可在首帧管理补齐。', title='导入完成', modal=True)
@@ -740,7 +741,7 @@ class App:
     def delete_video_shot(self,sid=None,ask=True,rebuild=True):
         """逐个删除：目标就是传进来的那一镜（右键那一行）；ask／rebuild 给批量删除复用。"""
         sid=sid or self.sid()
-        if ask and not messagebox.askyesno('删除本地视频镜头',sid+' 将从本地视频列表及自动剪辑中移除。\n首帧、历史视频和任务记录保留。是否删除？',parent=self.window,default='no'):return False
+        if ask and not ask_confirmation(self.window, '删除本地视频镜头', sid+' 将从本地视频列表及自动剪辑中移除。\n首帧、历史视频和任务记录保留。是否删除？', dangerous=True):return False
         with self.studio.lock():
             versions=self.studio.state()['shots'].get(sid,[])
             from stage_execution_service import mark_stage_video_deleted
@@ -757,9 +758,9 @@ class App:
         if self.busy:raise ValueError('请等待当前任务结束后再删除镜头')
         ids,how=work_targets(self)
         if not ids:raise ValueError('请先在镜头内容框里勾选要删除的镜头')
-        if not messagebox.askyesno('批量删除本地视频镜头',
+        if not ask_confirmation(self.window, '批量删除本地视频镜头',
                 '以下 %d 个镜头将从本地视频列表及自动剪辑中移除：\n%s\n\n首帧、历史视频和任务记录保留。是否删除？'
-                % (len(ids),'、'.join(ids)),parent=self.window,default='no'):return
+                % (len(ids),'、'.join(ids)), dangerous=True):return
         if how=='shown':self.write('没有勾选行：按高亮的那一行 %s 删除。'%ids[0])
         done=[];blocked=[]
         for sid in ids:
@@ -1203,7 +1204,7 @@ class App:
                                  ' 秒。无人值守自动提交不会超预算提交，请调整预算或减少勾选后重试。')
             self.write(title+'：无人值守自动提交，已跳过确认框（'+str(seconds)+' 秒／预算剩余 '+str(remaining)+' 秒）')
             return True
-        return bool(messagebox.askyesno(title,message,parent=self.window))
+        return ask_confirmation(self.window, title, message, dangerous=True)
     def auto_submit_scan(self):
         """无人值守自动提交：把从未提交过、首帧已就绪的镜头依次自动提交，一次只提交一个。
 

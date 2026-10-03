@@ -240,9 +240,9 @@ class AutoSubmitTests(unittest.TestCase):
         # 页面只读自动状态；三虎是唯一写入方。测试在边界上提供它的只读判定。
         app.pet = SimpleNamespace(should_auto_run=lambda stage: auto and stage == "auto_submit")
         self.dialogs = []
-        real = app_module.messagebox.askyesno
-        app_module.messagebox.askyesno = lambda *a, **k: (self.dialogs.append(a[0]), False)[1]
-        self.addCleanup(setattr, app_module.messagebox, "askyesno", real)
+        real = app_module.ask_confirmation
+        app_module.ask_confirmation = lambda *a, **k: (self.dialogs.append(a[1]), False)[1]
+        self.addCleanup(setattr, app_module, "ask_confirmation", real)
         return app, proj
 
     def test_skips_confirmation_within_budget(self):
