@@ -198,6 +198,7 @@
 38. 禁止 `git push`，除非用户明确要求。
 39. 用户要求回滚时，Codex 优先用 `git revert` 保留历史，而非 `git reset --hard`。
 40. 每轮结果文件 `tasks_round_N_result.md` 中记录本轮是否已提交，以及 commit hash（若已提交）。
+41. 协作 hooks 源码位于 `维护记录/基准脚本/hooks/`；每个工作树初始化后运行 `维护记录/基准脚本/install_git_hooks.py` 安装到共享 Git hooks。提交包含非默认文档的 `程序/` 文件时，必须显式设置 `CODEX_STAGE_ALLOWLIST`（分号分隔 repo 相对路径）；禁止用 `git add -A` 绕过最小暂存清单。仅 master 可提交 `project_status.md`。
 
 ## 3. 轮次类型
 

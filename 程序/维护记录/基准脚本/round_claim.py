@@ -155,17 +155,33 @@ def release_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str
         return dict(item)
 
 
+def complete_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: str, note: str) -> dict:
+    """将自己认领的任务收口，避免手工改队列绕过共享锁。"""
+    with shared_lock(common_dir):
+        payload = _read_queue(queue_path)
+        item = _queue_item(payload, task_id)
+        if item.get("status") != "claimed" or item.get("owner") != owner:
+            raise RuntimeError("任务 %s 不由 %s 持有，拒绝收口" % (task_id, owner))
+        item["status"] = "completed"
+        item["lease_until"] = ""
+        _note(item, note)
+        _atomic_json_write(queue_path, payload)
+        return dict(item)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=False)
     subparsers.add_parser("next", help="领取下一个轮次号")
-    for command, help_text in (("claim", "认领队列任务"), ("release", "释放队列任务")):
+    for command, help_text in (("claim", "认领队列任务"), ("release", "释放队列任务"), ("complete", "收口队列任务")):
         sub = subparsers.add_parser(command, help=help_text)
         sub.add_argument("task_id")
         sub.add_argument("--owner", required=True)
         sub.add_argument("--queue", type=Path, default=DEFAULT_QUEUE)
         if command == "claim":
             sub.add_argument("--lease-minutes", type=int, default=60)
+        if command == "complete":
+            sub.add_argument("--note", required=True)
     args = parser.parse_args(argv)
     common_dir = git_common_dir()
     if args.command in (None, "next"):
@@ -174,8 +190,12 @@ def main(argv: list[str] | None = None) -> int:
         item = claim_task(common_dir=common_dir, queue_path=args.queue, task_id=args.task_id,
                           owner=args.owner, lease_minutes=args.lease_minutes)
         print(json.dumps(item, ensure_ascii=False))
-    else:
+    elif args.command == "release":
         item = release_task(common_dir=common_dir, queue_path=args.queue, task_id=args.task_id, owner=args.owner)
+        print(json.dumps(item, ensure_ascii=False))
+    else:
+        item = complete_task(common_dir=common_dir, queue_path=args.queue, task_id=args.task_id,
+                             owner=args.owner, note=args.note)
         print(json.dumps(item, ensure_ascii=False))
     return 0
 
