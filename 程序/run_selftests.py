@@ -10,14 +10,15 @@ test_pet_ui／test_ui_edges 各自七八十秒，整跑就被它们俩顶住了�
   python run_selftests.py --serial         # 老样子串行（怀疑并行互相干扰时用它对照）
   python run_selftests.py --jobs 4         # 指定并行度
   python run_selftests.py --whole          # 不拆大文件（一个文件一路，出问题时对照用）
-  python run_selftests.py --safe           # Tk 串行、无 Tk 并行：一次只建一套 Tk 界面
+  python run_selftests.py --safe           # 无 Tk 并行、Tk 最多 2 路受控并行，性能用例独占串行
+  python run_selftests.py --all --safe --force # 忽略同内容树绿凭据，强制再跑一轮全量复核
   python run_selftests.py -k pet keyframe  # 只跑文件名含这些片段的用例（改哪儿跑哪儿）
   python run_selftests.py --list           # 只列会跑哪些文件
   python run_selftests.py --all            # 不管改没改过，全部重跑一遍，并刷新增量台账
   python run_selftests.py --layer architecture --all  # 只跑架构契约层，并记录分层基线
   python run_selftests.py --layer service --all       # 只跑不依赖 Tk 的服务层
-  python run_selftests.py --layer gui-short --safe --all # 短生命周期 Tk 用例（安全串行）
-  python run_selftests.py --layer gui-e2e --safe --all   # 端到端桌面冒烟（安全串行）
+  python run_selftests.py --layer gui-short --safe --all # 短生命周期 Tk 用例（最多 2 路）
+  python run_selftests.py --layer gui-e2e --safe --all   # 端到端桌面冒烟（最多 2 路）
 
 第 36 期第 14 条：整跑一次两分钟，而一轮改动通常只碰两三个模块——用户要「不检查没改过的
 功能、缩短时间」。所以默认走**增量**：上一次跑绿之后，谁（测试文件自己／它 import 的本项目
@@ -56,7 +57,8 @@ SKIP = {"run_selftests", "test_core", "test_workflow"}
 SPLIT_OVER = 20         # 用例超过这么多条的测试文件才拆（小文件拆了反而多付进程启动的钱）
 CHUNK_TESTS = 16        # 安全串行仍受 180 秒回收；合并短用例以避免 worktree 的进程寿命上限打断全量回归
 JOBS_CAP = 8            # 默认并行度上限：这些用例一半在建整套 Tk 界面，16 路实测反而更慢
-SAFE_UNIT_TIMEOUT = 180 # 安全串行的一小段 UI 用例最长允许三分钟，避免模态窗永久占住门禁
+SAFE_GUI_JOBS = 2       # C4 性能目标下 Tk 的受控并发上限；超过两路会明显争抢 Windows 图形资源
+SAFE_UNIT_TIMEOUT = 180 # 安全串行性能用例的一小段最长允许三分钟，避免模态窗永久占住门禁
 HEARTBEAT_SECONDS = 30  # 并行全量久未完成时仍需给出活跃心跳，方便定位是否只是慢
 SLOW_UNITS_LIMIT = 10   # 汇总只保留最慢若干工作单元，避免全量输出淹没结论
 
@@ -73,10 +75,15 @@ GUI_E2E_MODULES = frozenset({'test_ui_edges', 'test_pet_ui'})
 
 
 def safe_full_options(everything, serial, whole, jobs, safe):
-    """安全模式只串行 Tk；无 Tk 单元可并行，避免浪费大部分全量时间。"""
+    """安全模式固定为全量、可拆分；Tk 单元的并发度另由 safe_gui_jobs 限制。"""
     if safe:
         return True, False, False, jobs
     return everything, serial, whole, jobs
+
+
+def safe_gui_jobs(jobs):
+    """安全模式允许受控的 Tk 并发，但绝不超过经验证的两个 worker。"""
+    return max(1, min(SAFE_GUI_JOBS, jobs))
 
 
 def _digest(path):
@@ -812,7 +819,7 @@ def run_safe_serial(todo):
 
 
 def split_safe_units(todo):
-    """把可能创建 Tk 的单元留给安全串行阶段。"""
+    """把可能创建 Tk 的单元识别出来，交给受控的 Tk 工作池。"""
     gui, non_gui = [], []
     for unit in todo:
         (gui if gui_test_module(unit[1]) else non_gui).append(unit)
@@ -822,7 +829,7 @@ def split_safe_units(todo):
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     keys, jobs, serial, listing, whole = [], 0, False, False, False
-    everything, safe, layer = False, False, ''
+    everything, safe, force, layer = False, False, False, ''
     while argv:
         arg = argv.pop(0)
         if arg == '--serial':
@@ -833,6 +840,8 @@ def main(argv=None):
             whole = True
         elif arg == '--safe':
             safe = True
+        elif arg == '--force':
+            force = True
         elif arg == '--all':
             everything = True
         elif arg == '--incremental':
@@ -864,7 +873,7 @@ def main(argv=None):
     full_safe = everything and safe and not keys and not layer
     tree = content_tree() if full_safe else ''
     verified = verified_tree_record(load_layer_document().get('full_safe_verified_trees', []), tree)
-    if full_safe and verified:
+    if full_safe and verified and not force:
         print('内容树同 R%s 已验证(3,698 条/%.3f秒/0 红)' %
               (verified['round'], float(verified['seconds'])))
         return 0
@@ -898,7 +907,7 @@ def main(argv=None):
     elif everything:
         todo_names, skipped = list(names), []
         print('%s：忽略增量台账，%d 个测试文件全跑一遍' %
-              ('--safe（全量串行）' if safe else '--all', len(names)))
+              ('--safe（全量受控分池）' if safe else '--all', len(names)))
     elif skipped:
         print('增量：跳过 %d 个没改过的测试文件（--all 全跑）：%s' % (len(skipped), ' '.join(skipped)))
     keep = set(todo_names)
@@ -915,10 +924,12 @@ def main(argv=None):
     started = time.time()
     if safe:
         non_gui, gui = split_safe_units(todo)
-        if non_gui:
-            print('安全分池：%d 路无 Tk 并行，%d 路 Tk 串行' % (len(non_gui), len(gui)))
+        gui_jobs = safe_gui_jobs(jobs)
+        if non_gui or gui:
+            print('安全分池：%d 路无 Tk 并行（%d workers），%d 路 Tk 受控并行（%d workers）' %
+                  (len(non_gui), jobs, len(gui), gui_jobs))
         got = run_units(non_gui, jobs) if non_gui else []
-        got += run_safe_serial(gui)
+        got += run_units(gui, gui_jobs) if gui else []
         got += run_safe_serial(perf)
     else:
         got = run_serial(todo) if serial else run_units(todo, jobs)

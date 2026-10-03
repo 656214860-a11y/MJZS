@@ -47,7 +47,11 @@ class SafeRunnerTests(unittest.TestCase):
         run.assert_called_once_with(payload)
         process.assert_not_called()
 
-    def test_safe_split_keeps_tk_units_serial(self):
+    def test_safe_gui_pool_is_capped_at_two_workers(self):
+        self.assertEqual(run_selftests.safe_gui_jobs(8), 2)
+        self.assertEqual(run_selftests.safe_gui_jobs(1), 1)
+
+    def test_safe_split_identifies_tk_units(self):
         units = [('service', 'test_service', None), ('window', 'test_window', None)]
         with mock.patch.object(run_selftests, 'gui_test_module', side_effect=lambda name: name == 'test_window'):
             self.assertEqual(run_selftests.split_safe_units(units), ([units[0]], [units[1]]))
