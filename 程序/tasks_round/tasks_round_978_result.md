@@ -14,3 +14,4 @@
 - 架构 280 条，97.461 秒，唯一失败为 tests/architecture/test_round_baselines.py:33 的 963 != 979。
 - 默认增量 3627 条，326.9 秒，5 个文件共 6 条红：轮次基线、基准历史文件、asset_gating 首帧 31 != 24、script_contract 的 SKILL 清单差异、skills 两条 71 != 73。退出码 1。
 - [TASK_FAILED]：不能以定向通过替代整体通过。不修改主树或 R977 治理文件，不弱化断言、不复制缺失依赖。
+- 已提交 `b4ebe53`（R978-FAIL），仅独立分支 6 个列明文件；暂存清单已核对，新增行凭据形态扫描未命中，未同步 master。
