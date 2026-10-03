@@ -1,7 +1,26 @@
 """通用回收站恢复的领域服务：只投影清单，恢复仍委托唯一底层入口。"""
 from pathlib import Path
+import logging
+from service_contract import SystemError, UserError, success
 
 from storage_maintenance import read_recycle_batch, recycle_base, restore_recycle_batch
+
+LOGGER = logging.getLogger(__name__)
+
+
+def _restore(record, sources=None):
+    root, batch = record['root'], record['batch']
+    try:
+        try:
+            return success(restore_recycle_batch(root, batch, sources=sources))
+        except ValueError as exc:
+            # 底层把磁盘错误包装为 ValueError；不能误标成用户校验错误。
+            if isinstance(exc.__cause__, OSError):
+                raise exc.__cause__
+            return UserError(str(exc))
+    except OSError:
+        LOGGER.exception('回收内容恢复失败')
+        return SystemError('回收内容恢复失败，请检查文件权限和磁盘空间。')
 
 
 def list_batches(root):
@@ -33,9 +52,9 @@ def list_batches(root):
 
 def restore_batch(record):
     """恢复完整批次；安全边界由 storage_maintenance 再校验。"""
-    return restore_recycle_batch(record['root'], record['batch'])
+    return _restore(record)
 
 
 def restore_item(record, source):
     """只恢复清单中这一原位置对应的条目，不连带同批其它用户文件。"""
-    return restore_recycle_batch(record['root'], record['batch'], sources=(source,))
+    return _restore(record, sources=(source,))
