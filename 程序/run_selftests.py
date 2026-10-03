@@ -743,18 +743,34 @@ def run_units(todo, jobs=8):
     import concurrent.futures as futures
     out = []
     with futures.ProcessPoolExecutor(max_workers=max(1, jobs)) as pool:
-        pending = {pool.submit(_worker, payload) for payload in todo}
+        pending = {pool.submit(_worker, payload): payload for payload in todo}
+        last_progress = time.time()
         while pending:
-            done, pending = futures.wait(pending, timeout=HEARTBEAT_SECONDS,
+            done, waiting = futures.wait(pending, timeout=HEARTBEAT_SECONDS,
                                          return_when=futures.FIRST_COMPLETED)
             if not done:
                 print('  … 并行回归仍在执行：%d 路未完成（每 %d 秒心跳）' %
-                      (len(pending), HEARTBEAT_SECONDS), flush=True)
+                      (len(waiting), HEARTBEAT_SECONDS), flush=True)
+                if time.time() - last_progress < SAFE_UNIT_TIMEOUT:
+                    continue
+                labels = [payload[0] for payload in waiting.values()]
+                print('  ! 并行池连续 %d 秒无进展，回收 %d 路卡住单元：%s' %
+                      (SAFE_UNIT_TIMEOUT, len(labels), ' '.join(labels)), flush=True)
+                for process in pool._processes.values():
+                    process.terminate()
+                now = time.time()
+                out.extend((payload[0], payload[1], 0, [payload[0]],
+                            '\n===== %s 超时 =====\n并行池连续 %d 秒无进展，已回收。' %
+                            (payload[0], SAFE_UNIT_TIMEOUT), now - last_progress, '')
+                           for payload in waiting.values())
+                pending = {}
                 continue
             for future in done:
                 item = future.result()
                 out.append(item)
                 print_unit_result(item)
+                pending.pop(future)
+            last_progress = time.time()
     return out
 
 

@@ -62,6 +62,12 @@ class SafeRunnerTests(unittest.TestCase):
         self.assertIn('HEARTBEAT_SECONDS', source)
         self.assertIn('并行回归仍在执行', source)
 
+    def test_parallel_runner_recovers_after_no_progress_timeout(self):
+        source = inspect.getsource(run_selftests.run_units)
+        self.assertIn('SAFE_UNIT_TIMEOUT', source)
+        self.assertIn('process.terminate()', source)
+        self.assertIn('并行池连续', source)
+
     def test_slowest_units_are_descending_and_bounded(self):
         first = ('fast', 'test_fast', 1, [], '', 0.2, '')
         second = ('slow', 'test_slow', 1, [], '', 9.0, '')
