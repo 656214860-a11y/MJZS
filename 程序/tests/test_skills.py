@@ -1183,20 +1183,6 @@ class PanelTests(unittest.TestCase):
             self.assertIn(text, hint)
         panel.destroy()
 
-    def test_all_panel_dropdowns_use_compact_font_and_room_for_option_text(self):
-        """阶段配置的所有下拉框都应统一紧凑，并为弹出选项留出足够宽度。"""
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        for picker in (panel.presets, panel.preset_actions, panel.providers, panel.models,
-                       panel.workflow_box, panel.skill_action_box if hasattr(panel, 'skill_action_box') else None):
-            if picker is not None:
-                self.assertEqual(picker.cget('style'), skill_panel.PANEL_COMBO_STYLE)
-                self.assertTrue(str(picker.cget('font')).endswith(' 8'))
-        self.assertGreaterEqual(skill_panel.PANEL_COMBO_POPUP_WIDTH, 18)
-        self.assertGreaterEqual(panel.combobox_popup_width(panel.models),
-                                len(max(panel.models.cget('values'), key=len)) + 2)
-        self.assertIsNone(panel.style_combobox_popup(panel.models))
-        panel.destroy()
-
     def test_confirm_saves_current_page_configuration_and_is_in_bottom_action_bar(self):
         """确认在底部动作条，预设行不承担关闭窗口的责任。"""
         window = tk.Toplevel(self.win)

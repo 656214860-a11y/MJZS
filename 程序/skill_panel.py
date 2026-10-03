@@ -68,11 +68,6 @@ EXTERNAL_PACKAGE_API_HINT = (
 )
 # 预设不是必填项；用明确的占位项避免刚打开面板就误把第一份预设当作当前选择。
 PRESET_PLACEHOLDER = '请选择'
-# 阶段配置的所有下拉框共用紧凑字体；弹出列表至少预留 18 个字符位，模型名和
-# 预设操作均不会因单个控件的默认尺寸被截断。
-PANEL_COMBO_STYLE = 'StagePanel.TCombobox'
-PANEL_COMBO_FONT = (FONTS['caption'][0], 8)
-PANEL_COMBO_POPUP_WIDTH = 18
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 SKILL_FLOW_ORDER = ('script', 'storyboard', 'asset', 'firstframe', 'whitemodel',
                     'video', 'voice', 'subtitle', 'edit', 'qa', 'delivery')
@@ -676,20 +671,18 @@ class Panel(ttk.Frame):
     # ── 画界面 ──────────────────────────────────────────────────────────────
     def _build(self):
         # 阶段配置以连续表单阅读为主，统一使用最小设计间距和标签宽度，避免控件跳列。
-        # 阶段配置以说明正文为优先：栏目间距从 4px 缩至 1px。
-        pad = max(1, SPACING['xs'] // 3)
+        pad = SPACING['xs']
         label_width = 10
         # 预设决定整套配置，因此置于厂商／模型之前。
         row = ttk.Frame(self)
         row.pack(fill='x', pady=(0, pad))
         ttk.Label(row, text='预设', style='Muted.TLabel', width=label_width).pack(side='left')
-        self.presets = self.compact_combobox(
-            row, textvariable=self.preset, state='readonly', width=14,
-            values=[PRESET_PLACEHOLDER] + self.preset_names())
+        self.presets = ttk.Combobox(row, textvariable=self.preset, state='readonly', width=14,
+                                    values=[PRESET_PLACEHOLDER] + self.preset_names())
         self.presets.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
         self.presets.bind('<<ComboboxSelected>>', lambda event: self.apply_preset())
-        self.preset_actions = self.compact_combobox(
-            row, textvariable=self.preset_action, state='readonly', width=15,
+        self.preset_actions = ttk.Combobox(
+            row, textvariable=self.preset_action, state='readonly', width=12,
             values=['选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'])
         self.preset_actions.pack(side='left', padx=(0, SPACING['xs']))
         self.preset_actions.bind('<<ComboboxSelected>>', lambda event: self.run_preset_action())
@@ -698,29 +691,30 @@ class Panel(ttk.Frame):
         self.restore_defaults_button.pack(side='left')
         HintLabel(row, text='勾选项与模型已自动保存').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
 
-        coordinator = ttk.LabelFrame(self, text='', padding=pad)
+        coordinator = ttk.LabelFrame(self, text='统筹 SKILL', padding=pad)
         coordinator.pack(fill='x', pady=(0, pad))
         self.build_workflow_coordinator(pad, coordinator)
 
-        engine = ttk.LabelFrame(self, text='', padding=pad)
+        engine = ttk.LabelFrame(self, text='由谁执行', padding=pad)
         engine.pack(fill='x', pady=(0, pad))
         top = ttk.Frame(engine)
         top.pack(fill='x')
         ttk.Label(top, text='厂商', style='Muted.TLabel', width=label_width).pack(side='left')
-        self.providers = self.compact_combobox(
-            top, textvariable=self.provider, state='readonly', width=14, values=list(self.groups))
+        self.providers = ttk.Combobox(top, textvariable=self.provider, state='readonly', width=14,
+                                      values=list(self.groups))
         self.providers.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
         self.providers.bind('<<ComboboxSelected>>', lambda event: self.choose_provider())
         # 第 50 期第 1 条：最后一项是「+ 添加模型…」——原来那颗「手动配置模型与
         # SKILL」里的「自定义模型」入口，现在就在挑模型的那一格旁边。
-        self.models = self.compact_combobox(
-            top, textvariable=self.model, state='readonly', width=18,
-            values=self.provider_labels() + [ADD_MODEL_LABEL])
+        self.models = ttk.Combobox(top, textvariable=self.model, state='readonly',
+                                   width=14,
+                                   values=self.provider_labels() + [ADD_MODEL_LABEL])
         self.models.pack(side='left', padx=(SPACING['xs'], 0))
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
         self.route_hint = HintLabel(engine, text='')
-        skill_section = ttk.LabelFrame(self, text='', padding=pad)
+        self.route_hint.pack(fill='x', pady=(0, SPACING['none']))
+        skill_section = ttk.LabelFrame(self, text='怎么执行', padding=pad)
         skill_section.pack(fill='x', pady=(0, pad))
         self.skill_content = ttk.Frame(skill_section)
         self.skill_content.pack(fill='x')
@@ -729,9 +723,9 @@ class Panel(ttk.Frame):
         # 得回页面按的和缺文件的分开讲，用户才知道下一步该去哪儿。
         # 执行编排时的细节仍独占一行，避免覆盖上面的结果摘要。
         self.reason = DescriptionBlock(skill_section, text='')
-        specific = ttk.LabelFrame(self, text='', padding=pad)
+        self.reason.pack(fill='x', pady=(0, pad))
+        specific = ttk.LabelFrame(self, text='本页专属', padding=pad)
         specific.pack(fill='x', pady=(0, pad))
-        self.specific_section = specific
         self.build_hollmwood_editors(pad, specific)
         self.build_interfaces(pad, specific)
         self.bottom_bar = ttk.Frame(self)
@@ -745,45 +739,6 @@ class Panel(ttk.Frame):
         self.build_notes(pad)
         self.load()
 
-    def compact_combobox(self, parent, **kwargs):
-        """创建阶段配置统一的紧凑下拉框，并同步其独立弹出列表。"""
-        ttk.Style(self).configure(PANEL_COMBO_STYLE, font=PANEL_COMBO_FONT)
-        kwargs.setdefault('style', PANEL_COMBO_STYLE)
-        # 显式指定控件字体，避免当前 Windows ttk 主题用全局 12 号 Combobox 覆盖样式。
-        kwargs.setdefault('font', PANEL_COMBO_FONT)
-        box = ttk.Combobox(parent, **kwargs)
-        for sequence in ('<ButtonPress-1>', '<Alt-Down>', '<F4>'):
-            box.bind(sequence, lambda _event, picker=box: self.after_idle(
-                lambda: self.style_combobox_popup(picker)), add='+')
-        return box
-
-    def style_combobox_popup(self, picker):
-        """让任一阶段配置下拉列表统一用小字体且完整显示选项。"""
-        try:
-            popdown = str(self.tk.call('ttk::combobox::PopdownWindow', str(picker)))
-            listbox = self.nametowidget(popdown + '.f.l')
-            width = self.combobox_popup_width(picker)
-            listbox.configure(font=PANEL_COMBO_FONT, width=width)
-        except (KeyError, tk.TclError):
-            return None
-
-    @staticmethod
-    def combobox_popup_width(picker):
-        """以最长候选项确定弹出列表宽度，绝不因触发框较窄截断文字。"""
-        values = [str(value) for value in picker.cget('values')]
-        longest = max((len(value) for value in values), default=0)
-        return max(PANEL_COMBO_POPUP_WIDTH, int(picker.cget('width')), longest + 2)
-
-    def set_run_reason(self, text):
-        """仅在有执行说明时占用垂直空间。"""
-        text = str(text or '')
-        self.reason.configure(text=text)
-        if text:
-            self.reason.pack(fill='x', pady=(0, SPACING['xs']), before=self.specific_section)
-        else:
-            self.reason.pack_forget()
-        return text
-
     def build_hollmwood_editors(self, pad, parent=None):
         """仅在真正调用 HOLLMWOOD 的阶段提供规则编辑，避免无关页面出现无效入口。"""
         if self.stage not in stage_config.HOLLMWOOD_STAGES:
@@ -793,7 +748,7 @@ class Panel(ttk.Frame):
         ttk.Label(row, text='HOLLMWOOD', style='Muted.TLabel', width=10).pack(side='left')
         ttk.Checkbutton(row, text='四角色协作', variable=self.hollmwood_enabled_var).pack(
             side='left', padx=(SPACING['xs'], SPACING['sm']))
-        self.hollmwood_editor = self.compact_combobox(
+        self.hollmwood_editor = ttk.Combobox(
             row, textvariable=self.hollmwood_editor_choice, state='readonly', width=18,
             values=['选择要编辑的内容', '节奏模板', '导演规则', '编剧规则', '编辑规则', '演员规则'])
         self.hollmwood_editor.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
@@ -879,8 +834,7 @@ class Panel(ttk.Frame):
         row.pack(fill='x')
         ttk.Label(row, text='统筹 SKILL', style='Muted.TLabel', width=10).pack(side='left')
         names = list(workflow_settings.WORKFLOW_PRESETS) + ['浏览本地…', '不使用统筹']
-        self.workflow_box = self.compact_combobox(
-            row, textvariable=self.workflow_choice, state='readonly', width=18, values=names)
+        self.workflow_box = ttk.Combobox(row, textvariable=self.workflow_choice, state='readonly', width=18, values=names)
         self.workflow_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
         self.workflow_summary = ProgressLabel(row, text='自由模式')
@@ -1002,11 +956,10 @@ class Panel(ttk.Frame):
         self.flow_skill_label = ttk.Label(self.skill_action_row, text='SKILL', style='Muted.TLabel', width=10)
         self.flow_skill_label.pack(side='left')
         self.skill_action = tk.StringVar(value=MANAGE_ALL)
-        self.skill_action_box = self.compact_combobox(
-            self.skill_action_row, textvariable=self.skill_action,
-            values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE), state='readonly', width=12)
-        self.skill_action_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
-        self.skill_action_box.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
+        action = ttk.Combobox(self.skill_action_row, textvariable=self.skill_action,
+                              values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE), state='readonly', width=12)
+        action.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
+        action.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
         # 外部包的引擎说明从独占行收进 SKILL 操作行，保持表单行高与上方栏一致。
         self.external_package_hint = HintLabel(self.skill_action_row, text='')
         self.external_package_hint.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
@@ -1246,10 +1199,6 @@ class Panel(ttk.Frame):
             except Exception:
                 notice = ''
         self.route_hint.configure(text=notice)
-        if notice:
-            self.route_hint.pack(fill='x', pady=(0, SPACING['none']))
-        else:
-            self.route_hint.pack_forget()
         return notice
 
     def set_model(self, model):
@@ -1337,8 +1286,7 @@ class Panel(ttk.Frame):
         # 说明框占用面板剩余空间：窗口放大时目录和正文一起变高，优先露出更多 SKILL。
         box.columnconfigure(1, weight=1)
         box.rowconfigure(0, weight=1)
-        # 紧凑弹窗也先给说明正文更多可见行；后续仍会随窗口高度继续扩展。
-        height = 8 if self.compact else 12
+        height = 5 if self.compact else 12
         self.note_list = tk.Listbox(box, height=height, width=18, exportselection=False,
                                     activestyle='none', font=FONTS['caption'])
         self.note_list.grid(row=0, column=0, sticky='ns')
@@ -1784,7 +1732,7 @@ class Panel(ttk.Frame):
                   if row.get('status') in (skill_orchestrator.FAILED, skill_orchestrator.MISSING)]
         self.state.configure(text='做完了 %d 个，%d 个要回页面按，没成 %d 个'
                                   % (len(done), len(waiting), len(failed)))
-        self.set_run_reason(waiting_reason(waiting))
+        self.reason.configure(text=waiting_reason(waiting))
         text = str(run.get('text') or '')
         status_of(self.desktop, text.splitlines()[0] if text else '')
         run_report(self.desktop, text)
