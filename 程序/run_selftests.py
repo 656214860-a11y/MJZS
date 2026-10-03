@@ -10,7 +10,7 @@ test_pet_ui／test_ui_edges 各自七八十秒，整跑就被它们俩顶住了�
   python run_selftests.py --serial         # 老样子串行（怀疑并行互相干扰时用它对照）
   python run_selftests.py --jobs 4         # 指定并行度
   python run_selftests.py --whole          # 不拆大文件（一个文件一路，出问题时对照用）
-  python run_selftests.py --safe           # 全量串行：一次只建一套 Tk 界面，适合正在使用电脑时
+  python run_selftests.py --safe           # Tk 串行、无 Tk 并行：一次只建一套 Tk 界面
   python run_selftests.py -k pet keyframe  # 只跑文件名含这些片段的用例（改哪儿跑哪儿）
   python run_selftests.py --list           # 只列会跑哪些文件
   python run_selftests.py --all            # 不管改没改过，全部重跑一遍，并刷新增量台账
@@ -73,13 +73,9 @@ GUI_E2E_MODULES = frozenset({'test_ui_edges', 'test_pet_ui'})
 
 
 def safe_full_options(everything, serial, whole, jobs, safe):
-    """把安全全量模式收口在这一处，防止参数顺序改变后又意外并行建 Tk 窗口。
-
-    安全模式仍按小单元切分大 UI 文件：一次只运行一个单元，却不会把数百个 UI
-    用例困在同一趟无进度输出的执行中。
-    """
+    """安全模式只串行 Tk；无 Tk 单元可并行，避免浪费大部分全量时间。"""
     if safe:
-        return True, True, False, 1
+        return True, False, False, jobs
     return everything, serial, whole, jobs
 
 
@@ -815,6 +811,14 @@ def run_safe_serial(todo):
     return out
 
 
+def split_safe_units(todo):
+    """把可能创建 Tk 的单元留给安全串行阶段。"""
+    gui, non_gui = [], []
+    for unit in todo:
+        (gui if gui_test_module(unit[1]) else non_gui).append(unit)
+    return non_gui, gui
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     keys, jobs, serial, listing, whole = [], 0, False, False, False
@@ -910,7 +914,11 @@ def main(argv=None):
         print('另有 %d 个工作单元是性能用例，排在并行池之后单独串行跑' % len(perf))
     started = time.time()
     if safe:
-        got = run_safe_serial(todo)
+        non_gui, gui = split_safe_units(todo)
+        if non_gui:
+            print('安全分池：%d 路无 Tk 并行，%d 路 Tk 串行' % (len(non_gui), len(gui)))
+        got = run_units(non_gui, jobs) if non_gui else []
+        got += run_safe_serial(gui)
         got += run_safe_serial(perf)
     else:
         got = run_serial(todo) if serial else run_units(todo, jobs)

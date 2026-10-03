@@ -12,9 +12,9 @@ import smoke_test
 
 
 class SafeRunnerTests(unittest.TestCase):
-    def test_safe_mode_is_full_serial_but_keeps_chunks(self):
+    def test_safe_mode_keeps_non_gui_parallel_capacity(self):
         self.assertEqual(run_selftests.safe_full_options(False, False, False, 8, True),
-                         (True, True, False, 1))
+                         (True, False, False, 8))
 
     def test_non_safe_options_are_preserved(self):
         self.assertEqual(run_selftests.safe_full_options(True, False, False, 4, False),
@@ -46,6 +46,11 @@ class SafeRunnerTests(unittest.TestCase):
             self.assertEqual(run_selftests.run_safe_serial([payload]), [expected])
         run.assert_called_once_with(payload)
         process.assert_not_called()
+
+    def test_safe_split_keeps_tk_units_serial(self):
+        units = [('service', 'test_service', None), ('window', 'test_window', None)]
+        with mock.patch.object(run_selftests, 'gui_test_module', side_effect=lambda name: name == 'test_window'):
+            self.assertEqual(run_selftests.split_safe_units(units), ([units[0]], [units[1]]))
 
     def test_parallel_runner_reports_heartbeat_while_waiting(self):
         source = inspect.getsource(run_selftests.run_units)
