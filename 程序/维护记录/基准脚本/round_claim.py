@@ -105,7 +105,8 @@ def validate_queue(payload: dict, now: datetime | None = None) -> tuple[list[str
         seen.add(key)
         if item.get("status") != "claimed":
             continue
-        if not str(item.get("owner", "")).strip():
+        owner = item.get("owner")
+        if not isinstance(owner, str) or not owner.strip():
             errors.append("claimed 但 owner 为空: %s" % key)
         try:
             lease = _parse_time(item.get("lease_until"))

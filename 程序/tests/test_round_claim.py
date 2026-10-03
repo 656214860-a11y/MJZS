@@ -182,6 +182,10 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         errors, warnings = round_claim.validate_queue(payload, now)
         self.assertEqual(len(errors), 2)
         self.assertEqual(len(warnings), 1)
+        for empty_owner in (None, " ", 0):
+            with self.subTest(owner=empty_owner):
+                payload["items"][0]["owner"] = empty_owner
+                self.assertEqual(len(round_claim.validate_queue(payload, now)[0]), 2)
         payload["items"] = [{"id": "T", "status": "claimed", "owner": "A", "lease_minutes": 60,
                               "lease_until": "2026-10-04T01:00:00+00:00"}]
         self.assertEqual(round_claim.validate_queue(payload, now), ([], []))
