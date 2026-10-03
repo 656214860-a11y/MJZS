@@ -1953,9 +1953,11 @@ class Desktop:
         # 先停掉定时器再销毁窗口：残留的 after 回调会在 Tk 里报 invalid command name。
         if event is not None and event.widget is not self.win:return
         self.shutting_down=True
-        self.background_tasks.cancel()
-        self.auto_edit_tasks.cancel()
-        self.auto_handoff_tasks.cancel()
+        # 计时器回归会构造最小 Desktop 替身；真实窗口在 __init__ 中必定拥有这些
+        # 生命周期登记器，但关闭路径也必须兼容尚未完成初始化的窗口。
+        for lifecycle_name in ('background_tasks','auto_edit_tasks','auto_handoff_tasks'):
+            lifecycle=getattr(self,lifecycle_name,None)
+            if lifecycle is not None:lifecycle.cancel()
         # ``fit_content`` 的空闲布局任务属于桌面窗口；若关闭发生在首帧／重建之间，
         # 必须在销毁 Tcl 回调前取消，否则会留下 ``...run`` 的 after 噪声。
         fit_job=getattr(self,'_fit_job',None)
@@ -3310,6 +3312,13 @@ class Desktop:
                 launch_log_cleanup(self.app)
             except OSError:
                 # 退出后的可选日志卫生不影响已完成退出。
+                pass
+            # 仓库级清理与日志维护同为正常退出后的可选卫生；强制退出同样不做。
+            try:
+                from workspace_maintenance import launch_cleanup as launch_workspace_cleanup
+                launch_workspace_cleanup(self.app)
+            except OSError:
+                # 退出后的可选仓库卫生不影响已完成退出。
                 pass
     def pet_report(self,stage,text,ok=True):
         """第 47 期第 5 条：某一步的制作收了尾，说给三虎听——各页共用这一条出口。

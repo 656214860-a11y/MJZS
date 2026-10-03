@@ -46,6 +46,15 @@ class DialogWidgetTests(unittest.TestCase):
         dialog.close()
         self.assertFalse(dialog.winfo_exists())
 
+    def test_form_dialog_actions_keep_button_labels_visible(self):
+        """动作区不能把 Windows 主题的标准按钮裁成无文字色块。"""
+        dialog = FormDialog(self.root, '填写创作信息')
+        submit = dialog.add_form_actions('保存并发送', lambda: None)
+        dialog.update_idletasks()
+        self.assertGreaterEqual(dialog.actions.winfo_reqheight(), submit.winfo_reqheight(),
+                                '底部动作区的请求高度必须容纳完整按钮')
+        dialog.close()
+
     def test_confirm_dialog_dangerous_branch_returns_confirmation(self):
         outcomes = []
         dialog = ConfirmDialog(self.root, '危险操作', '确认删除？', dangerous=True,

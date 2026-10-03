@@ -226,6 +226,13 @@ def skill_checkbox_label(path):
     return chinese_skill_display(Path(str(path or '')).name)
 
 
+def registered_skill_checkbox_label(skill):
+    """注册 SKILL 的勾选项优先显示注册表名称，而不是通用的 SKILL.md 文件名。"""
+    label = (getattr(skill, 'displayName', '') or getattr(skill, 'name', '') or
+             getattr(skill, 'path', ''))
+    return chinese_skill_display(label)
+
+
 def flow_skill_match(text, flow, current=()):
     """勾选框／文件框里的那一条 → 要写进配置的值（预设给路径／自己挑的文件给路径／原来那份原样留着）。"""
     text = str(text or '').strip()
@@ -978,7 +985,9 @@ class Panel(ttk.Frame):
         for item in self.skills:
             var = tk.BooleanVar(value=True)
             self.vars[item.name] = var
-            shown = skill_checkbox_label(item.path)
+            # 每个包里的入口通常都叫 SKILL.md；从路径取名会把所有项降级为
+            # 「自定义技能」。注册表 displayName 才是已解析的用户可见名称。
+            shown = registered_skill_checkbox_label(item)
             box = ttk.Checkbutton(self.flow_skill_row, text=shown, width=28,
                                   variable=var, command=self.save_and_refresh_notes)
             box._skill_full_name = shown

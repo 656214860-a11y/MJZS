@@ -1252,8 +1252,8 @@ class PanelTests(unittest.TestCase):
         """说明目录沿用勾选列表的注册表顺序，并显示对应 Markdown 文件原文。"""
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.assertEqual([box.cget('text') for box in panel.registered_boxes.values()],
-                         [skill_panel.skill_checkbox_label(item.path) for item in panel.skills],
-                         '勾选框只能显示对应文件名的纯中文部分，不能带显示名、路径或符号')
+                         [skill_panel.registered_skill_checkbox_label(item) for item in panel.skills],
+                         '勾选框必须显示注册表中的用户可见名称，不能退化为通用 SKILL.md 文件名')
         expected = [skill_panel.chinese_skill_display(item.displayName or item.name)
                     for item in panel.skills]
         self.assertEqual(list(panel.note_list.get(0, 'end')), expected,
@@ -1478,6 +1478,9 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(skill_panel.chinese_skill_display('【我的-分镜】 01'), '我的分镜')
         self.assertEqual(skill_panel.chinese_skill_display('custom-skill'), '自定义技能')
         self.assertEqual(skill_panel.skill_checkbox_label('D:/任意/目录/【我的-分镜】.skill.md'), '我的分镜')
+        skill = type('Skill', (), {'displayName': '全流程剧本准备', 'name': 'pipeline-script-preparation',
+                                   'path': 'D:/skills/01/SKILL.md'})()
+        self.assertEqual(skill_panel.registered_skill_checkbox_label(skill), '全流程剧本准备')
 
     def test_note_selection_focuses_the_matching_skill_checkbox(self):
         """点击左侧说明目录时，对应顶部勾选框成为焦点。"""

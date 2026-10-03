@@ -494,7 +494,9 @@ class BaseDialog(tk.Toplevel):
                                      padding=(DIALOG_CONTENT_PADDING, 0,
                                               DIALOG_CONTENT_PADDING, DIALOG_ACTION_GAP))
             self.actions.pack(fill="x", side="bottom")
-            self.actions.pack_propagate(False)
+            # 动作区的 token 高度只是空状态下的下限；不能锁死它。Windows 主题下
+            # 标准 ttk 按钮的请求高度会高于这个值，锁死后会把文字裁成一条色块。
+            # 保持 geometry propagation，让「保存并发送／取消」始终完整可读。
         else:
             # 兼容旧有的透明浮窗、画布预览窗和自绘气泡：窗口生命周期仍由统一
             # 基类接管，但不强行注入标题栏或动作区，也不改变其现有子控件层级。
