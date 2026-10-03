@@ -3092,8 +3092,8 @@ class UiEdgeTests(unittest.TestCase):
                 d.poll_auto_asset()
                 self.assertTrue(d.auto_asset_busy)
                 self.assertIn("准备处理 1 项", d.status.get())
-                ok, value, signature = d.auto_asset_queue.get(timeout=20)
-                self.assertEqual(d.auto_asset_messages.get(timeout=20), "批量资产日志")
+                ticket, ok, value, signature = d.auto_asset_queue.get(timeout=20)
+                self.assertEqual(d.auto_asset_messages.get(timeout=20), (ticket, "批量资产日志"))
             self.assertTrue(ok)
             self.assertEqual(signature[0], ("CHAR_001",))
             self.assertEqual(started, ["adopted"])
@@ -3150,7 +3150,7 @@ class UiEdgeTests(unittest.TestCase):
                 d.poll_auto_asset()
                 self.assertTrue(d.auto_asset_busy)
                 item = d.auto_asset_queue.get(timeout=20)
-            self.assertEqual(item[0], True)
+            self.assertEqual(item[1], True)
             # 主循环收尾：把结果放回队列，让真实路径处理这一拍
             now = time.monotonic()
             d.auto_adopt_startup = False
@@ -3678,7 +3678,7 @@ class UiEdgeTests(unittest.TestCase):
                 for expected in (1, 2, 3):
                     d.poll_auto_asset()
                     item = d.auto_asset_queue.get(timeout=20)
-                    self.assertEqual(item[0], True)
+                    self.assertEqual(item[1], True)
                     now = time.monotonic()
                     d.auto_adopt_startup = False
                     d.auto_adopt_due = d.auto_final_due = d.auto_edit_due = d.auto_keyframe_due = now + 9999

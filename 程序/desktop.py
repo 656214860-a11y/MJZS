@@ -507,7 +507,7 @@ class Desktop:
         self.auto_keyframe_signature=None
         self.auto_keyframe_blocked=None
         self.auto_keyframe_error=''
-        self.auto_asset_due=0
+        self.auto_asset_due=0;self._auto_asset_ticket=0;self.auto_asset_tasks=BackgroundTaskLifecycle()
         self.auto_asset_busy=False
         self.auto_asset_queue=pet_ui.StageQueue('assets')
         self.auto_asset_messages=queue.Queue()
@@ -1955,7 +1955,7 @@ class Desktop:
         self.shutting_down=True
         # 计时器回归会构造最小 Desktop 替身；真实窗口在 __init__ 中必定拥有这些
         # 生命周期登记器，但关闭路径也必须兼容尚未完成初始化的窗口。
-        for lifecycle_name in ('background_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks'):
+        for lifecycle_name in ('background_tasks','auto_asset_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks'):
             lifecycle=getattr(self,lifecycle_name,None)
             if lifecycle is not None:lifecycle.cancel()
         # ``fit_content`` 的空闲布局任务属于桌面窗口；若关闭发生在首帧／重建之间，
@@ -2281,10 +2281,14 @@ class Desktop:
     def _tick_auto_asset(self):
         """处理自动补资产的消息、续跑台账、后台收尾与轮询。"""
         try:
-            while True:self.status.set('自动补资产：'+self.auto_asset_messages.get_nowait())
+            while True:
+                ticket,text=self.auto_asset_messages.get_nowait()
+                if self.auto_asset_tasks.accepts(ticket):self.status.set('自动补资产：'+text)
         except queue.Empty:pass
         try:
-            ok,value,signature=self.auto_asset_queue.get_nowait();self.auto_asset_busy=False
+            ticket,ok,value,signature=self.auto_asset_queue.get_nowait()
+            if not self.auto_asset_tasks.finish(ticket,succeeded=ok):return
+            self.auto_asset_busy=False
             if ok:
                 self.auto_asset_signature=signature;self.kick_unattended('auto_asset')
             pending=self.asset_pending_ids()
@@ -3032,7 +3036,9 @@ class Desktop:
         同一批「缺图资产＋当前设置」只跑一次；导入图片、补清单或改设置都会让清单变化，从而自动再跑一轮。
         """
         if self.root is None or self.studio is None or not self.pet.should_auto_run('assets'):
-            self.auto_asset_signature=None;self.auto_asset_attempt=0;return
+            self.auto_asset_signature=None;self.auto_asset_attempt=0
+            if self.auto_asset_tasks.cancel():self.auto_asset_busy=False
+            return
         if self.auto_asset_busy or self.worker or self.auto_final_busy:return
         from asset_batch_service import current_model, unattended_signature, unattended_retry_decision
         from stage_execution_service import plan_unattended_assets as auto_plan
@@ -3058,6 +3064,8 @@ class Desktop:
         if signature!=self.auto_asset_tried:
             self.auto_asset_tried=signature
             self.auto_asset_busy=True
+        self._auto_asset_ticket+=1
+        ticket=self.auto_asset_tasks.submit(self._auto_asset_ticket)
         self.status.set('无人值守自动补资产（'+current_model(project)+'）：准备处理 '+str(len(missing))+' 项…')
         # 第 64 期任务 2：提交结果不确定的那几项（连接中断、ComfyUI 里也找不到任务编号）按设计
         # 不自动重提，以免重复扣费——但必须说给用户听，否则这一项会永远卡在「待导入」，
@@ -3072,8 +3080,8 @@ class Desktop:
                             '请在 ComfyUI 或云端核实后点「手动制作资产」重新生成。')
         def worker():
             from asset_auto_batch_service import auto_batch
-            try:self.auto_asset_queue.put((True,auto_batch(project,base,sources,'adopted',self.auto_asset_log),signature))
-            except Exception as exc:self.auto_asset_queue.put((False,'自动补资产未完成：'+str(exc),signature))
+            try:self.auto_asset_queue.put((ticket,True,auto_batch(project,base,sources,'adopted',lambda text:self.auto_asset_log(ticket,text)),signature))
+            except Exception as exc:self.auto_asset_queue.put((ticket,False,'自动补资产未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
     def asset_pending_ids(self):
         """没人值守这一路还缺图的资产编号（第 6 轮：收尾与台账都按编号记账）。
@@ -3131,9 +3139,9 @@ class Desktop:
             self.status.set('自动补资产续跑记录未恢复：%s；请稍后重试。' % exc)
         if left is not None:
             self.auto_asset_due=time.monotonic()+left
-    def auto_asset_log(self,text):
+    def auto_asset_log(self,ticket,text):
         # 工作线程回调：只入队，由主循环写状态栏，线程里不碰 Tk。
-        self.auto_asset_messages.put(str(text))
+        self.auto_asset_messages.put((ticket,str(text)))
     def poll_auto_video(self):
         """无人值守：本地 ComfyUI 自动补齐当前分镜缺视频的镜头（免费后端，不弹窗）。
 

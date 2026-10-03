@@ -13,7 +13,7 @@ BACKGROUND_TASK_MIGRATION = (
     {'entry': 'auto_edit', 'category': 'final-result', 'state': 'migrated'},
     {'entry': 'auto_handoff', 'category': 'final-result', 'state': 'migrated'},
     {'entry': 'auto_video', 'category': 'progress-and-result', 'state': 'migrated'},
-    {'entry': 'auto_asset', 'category': 'progress-and-result', 'state': 'pending'},
+    {'entry': 'auto_asset', 'category': 'progress-and-result', 'state': 'migrated'},
     {'entry': 'auto_keyframe', 'category': 'progress-and-result', 'state': 'pending'},
     {'entry': 'previs_jobs', 'category': 'special-process', 'state': 'pending'},
     {'entry': 'cloud_monitor', 'category': 'cross-page-monitor', 'state': 'pending'},
