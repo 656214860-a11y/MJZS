@@ -27,7 +27,7 @@ from agent.core import read
 from platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, TextArea, ask_confirmation, notify
+from ui_widgets import BaseDialog, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
 ZOOM_SIZE = 900                      # 点一下放大后的长边（不放大原图，只按原分辨率显示）
@@ -48,7 +48,7 @@ def _open_zoom(desktop, path, title=''):
     win = BaseDialog(desktop.win, title or Path(path).name, modal=False, chrome=False)
     tk.Label(win, image=image).pack(padx=8, pady=8)
     win.image = image                        # 图元必须留引用，否则画面上只剩空框
-    ttk.Button(win, text='关闭', command=win.destroy).pack(pady=(0, 8))
+    SecondaryButton(win, text='关闭', command=win.destroy).pack(pady=(0, 8))
     return win
 
 
@@ -285,14 +285,13 @@ def _gates_block(desktop, aid):
             row.pack(fill='x', anchor='w', padx=(10, 0))
             ttk.Label(row, text='候选' + str(index + 1) + ' ' + str(candidate),
                       wraplength=760, justify='left').pack(side='left')
-            ttk.Button(row, text='采用', style='Compact.TButton',
+            SecondaryButton(row, text='采用',
                        command=lambda key=item['key'], value=candidate:
                        desktop.safe(lambda: _pick(desktop, key, value, aid))).pack(side='left', padx=6)
         ttk.Label(box, text='理由：' + str(item.get('reason') or ''), foreground='#555555',
                   wraplength=760, justify='left').pack(anchor='w', padx=(10, 0))
         recommended = item['candidates'][item.get('recommended', 0)]
-        ttk.Button(box, text='采用推荐（候选' + str(int(item.get('recommended', 0)) + 1) + '）',
-                   style='Primary.TButton',
+        PrimaryButton(box, text='采用推荐（候选' + str(int(item.get('recommended', 0)) + 1) + '）',
                    command=lambda key=item['key'], value=recommended:
                    desktop.safe(lambda: _pick(desktop, key, value, aid))).pack(anchor='w', pady=(2, 6))
     return box
@@ -301,7 +300,7 @@ def _gates_block(desktop, aid):
 def _header(desktop, aid, asset):
     head = FlowBar(desktop.content)
     head.pack(fill='x', pady=(0, 4))
-    ttk.Button(head, text='← 返回资产管理', style='Compact.TButton',
+    SecondaryButton(head, text='← 返回资产管理',
                command=lambda: desktop.safe(desktop.close_asset_detail)).pack(side='left', padx=(0, 12), pady=2)
     ttk.Label(head, text=aid + ' · ' + str(asset.get('name', aid)),
               font=('Microsoft YaHei UI', 13, 'bold')).pack(side='left')
@@ -309,7 +308,7 @@ def _header(desktop, aid, asset):
     locked = bool(asset.get('locked'))
     ttk.Label(head, text='　' + ('已锁定' if locked else '未锁定'),
               foreground='#1a7f37' if locked else '#b54708').pack(side='left')
-    ttk.Button(head, text='解锁' if locked else '锁定', style='Compact.TButton',
+    SecondaryButton(head, text='解锁' if locked else '锁定',
                command=lambda: desktop.safe(lambda: toggle_lock(desktop, aid))).pack(side='left', padx=8, pady=2)
     return head
 
@@ -354,16 +353,16 @@ def _board_block(desktop, aid, asset):
                   justify='left').pack(anchor='w')
         buttons = ttk.Frame(holder)
         buttons.pack(anchor='w')
-        ttk.Button(buttons, text='绑定图片', style='Compact.TButton',
+        SecondaryButton(buttons, text='绑定图片',
                    command=lambda view=cell['view'], name=cell['label']:
                    desktop.safe(lambda: bind_view(desktop, aid, view, aid + ' · ' + name))).pack(side='left')
         if cell['ready']:
-            ttk.Button(buttons, text='清除', style='Compact.TButton',
+            SecondaryButton(buttons, text='清除',
                        command=lambda view=cell['view']:
                        desktop.safe(lambda: clear_view(desktop, aid, view))).pack(side='left', padx=4)
     foot = ttk.Frame(box)
     foot.pack(fill='x', pady=(4, 0))
-    ttk.Button(foot, text='重新生成', style='Primary.TButton',
+    PrimaryButton(foot, text='重新生成',
                command=lambda: desktop.safe(lambda: regenerate(desktop, aid))).pack(side='left')
     board = str(asset.get('canonical_board') or '').strip()
     note = '当前方案：' + board if board else '还没选定：点「重新生成」把 Agent 预筛的候选摆出来'
@@ -380,10 +379,10 @@ def _anchor_block(desktop, aid, asset):
               wraplength=760, justify='left', foreground='#1a7f37' if anchor else '#8a8a8a').pack(anchor='w')
     row = ttk.Frame(box)
     row.pack(fill='x', pady=(4, 0))
-    ttk.Button(row, text='复制', style='Compact.TButton',
+    SecondaryButton(row, text='复制',
                command=lambda: desktop.safe(lambda: (desktop.copy_text(anchor),
                                                      desktop.status.set('锚点字符串已复制')))).pack(side='left')
-    ttk.Button(row, text='编辑', style='Compact.TButton',
+    SecondaryButton(row, text='编辑',
                command=lambda: desktop.safe(lambda: edit_anchor(desktop, aid))).pack(side='left', padx=6)
     for title, text in card_lines(asset):
         if title in ('锚点字符串（逐字复用，可复制）', '正典板'):
@@ -401,7 +400,7 @@ def _role_block(desktop, aid, asset):
     exclude = str(asset.get('reference_exclude') or DEFAULT_EXCLUDE)
     ttk.Label(box, text='负责：' + role, wraplength=760, justify='left').pack(anchor='w')
     ttk.Label(box, text='不继承：' + exclude, wraplength=760, justify='left').pack(anchor='w')
-    ttk.Button(box, text='编辑', style='Compact.TButton',
+    SecondaryButton(box, text='编辑',
                command=lambda: desktop.safe(lambda: edit_role(desktop, aid))).pack(anchor='w', pady=(4, 0))
     return box
 
@@ -423,7 +422,7 @@ def _variants_block(desktop, aid, asset):
         button.configure(text=title_text() + ('（收起）' if state['open'] else '（展开）'))
     def title_text():
         return '状态变体（' + str(len(rows)) + ' 个）'
-    button = ttk.Button(box, text=title_text() + '（展开）', style='Asset.TButton', command=toggle)
+    button = SecondaryButton(box, text=title_text() + '（展开）', command=toggle)
     button.pack(anchor='w')
     base = _base(desktop)
     if not rows:
@@ -452,16 +451,16 @@ def _variants_block(desktop, aid, asset):
         ttk.Label(line, text=item['state_id'] + ' · ' + (item['name'] or '未命名') + '：'
                            + (item['override'] or '缺覆盖描述'), wraplength=520,
                   justify='left').pack(side='left')
-        ttk.Button(line, text='缩略图', style='Compact.TButton',
+        SecondaryButton(line, text='缩略图',
                    command=lambda sid=item['state_id']:
                    desktop.safe(lambda: _bind_variant_image(desktop, aid, sid))).pack(side='left', padx=4)
-        ttk.Button(line, text='编辑', style='Compact.TButton',
+        SecondaryButton(line, text='编辑',
                    command=lambda sid=item['state_id']:
                    desktop.safe(lambda: edit_variant(desktop, aid, sid))).pack(side='left')
-        ttk.Button(line, text='删除', style='Compact.TButton',
+        SecondaryButton(line, text='删除',
                    command=lambda sid=item['state_id']:
                    desktop.safe(lambda: delete_variant(desktop, aid, sid))).pack(side='left', padx=4)
-    ttk.Button(body, text='新增状态变体', style='Compact.TButton',
+    SecondaryButton(body, text='新增状态变体',
                command=lambda: desktop.safe(lambda: add_variant(desktop, aid))).pack(anchor='w', pady=(6, 0))
     return box
 
@@ -494,7 +493,7 @@ def _raw_block(desktop, aid):
         else:
             body.pack_forget()
         button.configure(text='资产 JSON 原文' + ('（收起）' if state['open'] else '（展开）'))
-    button = ttk.Button(holder, text='资产 JSON 原文（展开）', style='Asset.TButton', command=toggle)
+    button = SecondaryButton(holder, text='资产 JSON 原文（展开）', command=toggle)
     button.pack(anchor='w')
     from asset_plan import plan_file
     text = '{}'
@@ -522,7 +521,7 @@ def show(desktop, aid):
         # 都能看到这次打开失败的原因。
         desktop.note(message)
         ttk.Label(desktop.content,text=message,style='Muted.TLabel',wraplength=640).pack(anchor='w',padx=8,pady=(8,4))
-        ttk.Button(desktop.content, text='← 返回资产管理', style='Compact.TButton',
+        SecondaryButton(desktop.content, text='← 返回资产管理',
                    command=lambda: desktop.safe(desktop.close_asset_detail)).pack(anchor='w',padx=8)
         return None
     _header(desktop, aid, asset)
@@ -620,7 +619,7 @@ def _roster_role(desktop, aid, asset):
                       wraplength=230, justify='left').pack(side='left')
     foot = ttk.Frame(box)
     foot.pack(fill='x', pady=(6, 0))
-    ttk.Button(foot, text='编辑这一项', style='Compact.TButton',
+    SecondaryButton(foot, text='编辑这一项',
                command=lambda: desktop.safe(lambda: desktop.open_asset_detail(aid))).pack(side='left')
     ttk.Label(foot, text='正典板 ' + str(bound) + '/' + str(len(grid)) + ' 格已绑定 · 状态变体 '
                          + str(len(states)) + ' 个', foreground='#555555').pack(side='left', padx=(10, 0))
@@ -633,7 +632,7 @@ def show_roster(desktop):
     rows = roster_rows(registry)
     head = FlowBar(desktop.content)
     head.pack(fill='x', pady=(0, 4))
-    ttk.Button(head, text='← 返回资产管理', style='Compact.TButton',
+    SecondaryButton(head, text='← 返回资产管理',
                command=lambda: desktop.safe(desktop.close_asset_detail)).pack(side='left', padx=(0, 12), pady=2)
     ttk.Label(head, text='资产清单', font=('Microsoft YaHei UI', 13, 'bold')).pack(side='left')
     ttk.Label(head, text='　共 ' + str(len(rows)) + ' 项').pack(side='left')
