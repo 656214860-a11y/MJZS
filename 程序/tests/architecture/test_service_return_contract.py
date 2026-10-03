@@ -39,7 +39,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
                    for node in ast.walk(tree)):
                 adopters.add(module)
         self.assertEqual(adopters, {'asset_batch_settings_service', 'delivery_import_service', 'keyframe_lifecycle_service',
-                                    'storyboard_edit_service'})
+                                    'storyboard_edit_service', 'subtitle_export_service'})
         ledger = json.loads((Path(ROOT) / '维护记录' / '架构统一基数.json').read_text(encoding='utf-8'))['第一项']
         self.assertEqual(adopters, set(ledger['adopters']))
         self.assertFalse(adopters & set(ledger['exempt_items']))

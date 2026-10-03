@@ -6615,13 +6615,17 @@ class Desktop:
         return rows,estimated
     def subtitles(self):
         from stage_execution_service import export_stage_srt
-        p,estimated=export_stage_srt(self.root,self.current_episode())
+        result=export_stage_srt(self.root,self.current_episode())
+        if not result.ok:raise ValueError(result.reason)
+        p,estimated=result.data
         if estimated:self.status.set('字幕时间按镜头时长自动均分，属草稿，请在剪映中听校。')
         return p
     def dialogue_script(self):
         """Export a readable dialogue script with speaker names and timing for dubbing."""
         from stage_execution_service import export_stage_dialogue_script
-        p,estimated=export_stage_dialogue_script(self.root,self.current_episode(),self.dialogue_assets())
+        result=export_stage_dialogue_script(self.root,self.current_episode(),self.dialogue_assets())
+        if not result.ok:raise ValueError(result.reason)
+        p,estimated=result.data
         if estimated:self.status.set('对白时间按镜头时长自动均分，属草稿，请在剪映中听校。')
         return p
 

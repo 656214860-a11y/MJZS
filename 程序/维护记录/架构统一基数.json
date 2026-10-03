@@ -6,7 +6,8 @@
             "asset_batch_settings_service",
             "delivery_import_service",
             "keyframe_lifecycle_service",
-            "storyboard_edit_service"
+            "storyboard_edit_service",
+            "subtitle_export_service"
         ],
         "scope_audit_pending": [
             "asset_plan",
@@ -24,7 +25,6 @@
             "storyboard_adoption_contract",
             "storyboard_rows_service",
             "storyboard_storage",
-            "subtitle_export_service",
             "video_lifecycle_service",
             "video_prompt_publication",
             "video_task_state",
