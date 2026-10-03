@@ -1490,10 +1490,7 @@ class Panel(ttk.Frame):
                     launcher.configure(text=stage_button_label(self.desktop, self.stage))
             except tk.TclError:
                 pass
-        if self.stage == 'script':
-            refresh = getattr(self.desktop, 'refresh_script_chat_for_selected_model', None)
-            if callable(refresh):
-                refresh()
+        # 配置确认只保存并关闭，不刷新聊天或触发任何发送流程。
         self.winfo_toplevel().destroy()
         return entry
 

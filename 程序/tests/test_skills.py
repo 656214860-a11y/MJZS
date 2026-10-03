@@ -1071,17 +1071,15 @@ class PanelTests(unittest.TestCase):
         self.assertIn('生产模型读取失败', label)
         self.assertIn('模型清单不可读', label)
 
-    def test_confirming_script_model_refreshes_its_chat_immediately(self):
-        class Dialog:
-            def destroy(self):
-                pass
-        refreshed = []
-        self.desktop.refresh_script_chat_for_selected_model = lambda: refreshed.append(True)
-        panel = skill_panel.Panel(self.win, self.desktop, 'script')
+    def test_confirming_script_model_only_saves_without_refreshing_or_sending(self):
+        window = tk.Toplevel(self.win)
+        self.desktop.refresh_script_chat_for_selected_model = mock.Mock()
+        panel = skill_panel.Panel(window, self.desktop, 'script')
         panel.set_model('deepseek-v4-flash')
-        panel.winfo_toplevel = lambda: Dialog()
-        panel.confirm()
-        self.assertEqual(refreshed, [True])
+        panel.confirm_button.invoke()
+        self.desktop.refresh_script_chat_for_selected_model.assert_not_called()
+        self.assertEqual(stage_config.get(self.desktop.root, 'script')['model'], 'deepseek-v4-flash')
+        self.assertFalse(window.winfo_exists())
 
     def test_a_saved_api_model_is_not_dropped_by_capability_tags(self):
         """模型池里的 API 模型由用户决定用途，不能因能力标签自动改回自动。"""
