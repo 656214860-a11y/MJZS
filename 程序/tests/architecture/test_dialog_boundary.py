@@ -7,20 +7,6 @@ import unittest
 from tests.architecture._scan import ROOT, parse
 
 
-# 首批迁移后的历史基线；数值只能下降。新增裸 Toplevel 必须先建立统一组件迁移任务。
-LEGACY_RAW_TOPLEVEL_MAX = {
-    'app.py': 3, 'asset_batch.py': 0, 'asset_detail.py': 1,
-    'asset_reference_images.py': 0, 'asset_reference_import.py': 1,
-    'background_characters.py': 1, 'cloud_assets.py': 0, 'cloud_video.py': 1,
-    'desktop.py': 4, 'keyframe_comfy.py': 1, 'local_previs.py': 1,
-    'local_video.py': 0, 'pet_cloud.py': 0, 'pet_models_ui.py': 0,
-    'pet_settings_ui.py': 0, 'prompt_window.py': 0, 'qwen_setup.py': 0,
-    'reference_wall.py': 1, 'seedream_settings.py': 1, 'skill_panel.py': 4,
-    'stage_exec.py': 0, 'stage_models.py': 0, 'tts_settings.py': 0,
-    'white_model.py': 2, 'workflow_settings.py': 1,
-}
-
-
 def _raw_toplevel_calls(tree):
     return [node for node in ast.walk(tree) if isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute) and node.func.attr == 'Toplevel']
@@ -29,11 +15,15 @@ def _raw_toplevel_calls(tree):
 class DialogBoundaryTests(unittest.TestCase):
     def test_dialogs_use_the_unified_boundary(self):
         actual = {}
-        for filename, maximum in LEGACY_RAW_TOPLEVEL_MAX.items():
-            count = len(_raw_toplevel_calls(parse(ROOT / filename)))
-            if count > maximum:
-                actual[filename] = f'{count}>{maximum}'
-        self.assertEqual(actual, {}, '业务页不得新增裸 Toplevel 对话框：' + str(actual))
+        for path in ROOT.glob('*.py'):
+            if path.name in {'ui_widgets.py', 'ui_theme.py', 'run_selftests.py'}:
+                continue
+            count = len(_raw_toplevel_calls(parse(path)))
+            if count:
+                actual[path.name] = count
+        self.assertEqual(actual, {},
+                         '业务层弹窗必须经 BaseDialog/FormDialog/ConfirmDialog：'
+                         + str(actual))
         tree = parse(ROOT / 'desktop.py')
         desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'Desktop')
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef)
