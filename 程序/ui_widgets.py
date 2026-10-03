@@ -73,6 +73,12 @@ def setup_styles(root):
                           ("disabled", COLORS["text_muted"])])
     style.configure("Tokens.Card.TFrame", background=COLORS["background_card"],
                     bordercolor=COLORS["border_default"], borderwidth=1, relief="solid")
+    # 表单的普通标签、分组标题和勾选项必须与按钮／输入框同用正文 token。
+    # TCombobox 的显示区及其弹出 Listbox 在下方同样使用该 token，避免一页内
+    # 混入系统默认字体或不同字号。
+    style.configure("TLabel", font=FONTS["body"])
+    style.configure("TCheckbutton", font=FONTS["body"])
+    style.configure("TLabelframe.Label", font=FONTS["body"])
     style.configure("Tokens.Title.TLabel", font=FONTS["title"],
                     foreground=COLORS["text_primary"])
     style.configure("Tokens.Dialog.Title.TLabel", font=DIALOG_TITLE_FONT,

@@ -17,10 +17,13 @@ COLORS = {
 SPACING = {"none": 0, "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "2xl": 32}
 RADIUS = {"sm": 4, "md": 8, "lg": 12}
 FONTS = {
-    "title": ("Microsoft YaHei", 14, "bold"),
-    "body": ("Microsoft YaHei", 12),
-    "caption": ("Microsoft YaHei", 10),
-    "numeric": ("Consolas", 12),
+    # 设置页的原生 ttk 文本默认是 Microsoft YaHei UI 10；统一组件若另用
+    # Microsoft YaHei 12，就会让按钮／说明／下拉框在同一表单行看起来忽大忽小。
+    # 正文、短说明和下拉展开项共用这一档；标题仅用字重和尺寸表达层级。
+    "title": ("Microsoft YaHei UI", 14, "bold"),
+    "body": ("Microsoft YaHei UI", 10),
+    "caption": ("Microsoft YaHei UI", 10),
+    "numeric": ("Consolas", 10),
 }
 
 # TCombobox 的默认规格只在这里定义；页面不得另写颜色、字体或内边距。

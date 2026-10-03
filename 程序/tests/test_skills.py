@@ -924,6 +924,21 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(skill_panel.EXTERNAL_PACKAGE_API_HINT,
                          '外部包总入口：桌面引擎可完整执行；API 仅传入入口。')
 
+    def test_stage_panel_controls_and_dropdowns_share_the_standard_font(self):
+        """标签、勾选、分组标题及下拉显示/弹出项不可各走一套字体。"""
+        from tkinter import ttk
+        from ui_tokens import COMBOBOX_FONT, FONTS
+        from ui_widgets import setup_styles
+
+        setup_styles(self.win)
+        style = ttk.Style(self.win)
+        expected = style.lookup('TCombobox', 'font')
+        self.assertEqual(FONTS['body'], FONTS['caption'])
+        self.assertEqual(COMBOBOX_FONT, FONTS['body'])
+        self.assertTrue(expected)
+        for name in ('TLabel', 'TCheckbutton', 'TLabelframe.Label'):
+            self.assertEqual(style.lookup(name, 'font'), expected, name)
+
     def test_hollmwood_editor_dropdown_is_above_skill_checks_and_opens_the_choice(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
