@@ -4,4 +4,6 @@
 
 验证：`test_native_run.py` 6／0 红；`smoke_test.py` 8／8。
 
+完整安全全量：`run_selftests.py --all --safe`，3,698 条用例、996.8 秒、`0 红`；`tests.architecture.test_round_baselines` 已复核本记录。
+
 `[TASK_COMPLETE]`：网络异常不再静默伪装为正常提交。
