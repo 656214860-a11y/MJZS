@@ -27,7 +27,7 @@ from agent.core import read
 from platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, TextArea, notify
+from ui_widgets import BaseDialog, TextArea, ask_confirmation, notify
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
 ZOOM_SIZE = 900                      # 点一下放大后的长边（不放大原图，只按原分辨率显示）
@@ -232,9 +232,9 @@ def delete_variant(desktop, aid, state_id):
     target = next((item for item in rows if item.get('state_id') == state_id), None)
     if target is None:
         raise ValueError('这一条状态变体已经不在了，请刷新')
-    if not messagebox.askyesno('删除状态变体',
-                               '删掉「' + str(target.get('name') or state_id) + '」这一条状态变体？',
-                               parent=desktop.win, default='no'):
+    if not ask_confirmation(desktop.win, '删除状态变体',
+                            '删掉「' + str(target.get('name') or state_id) + '」这一条状态变体？',
+                            dangerous=True):
         return None
     rows = [item for item in rows if item.get('state_id') != state_id]
     _fields(desktop, aid, {'state_variants': rows})

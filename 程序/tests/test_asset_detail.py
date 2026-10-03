@@ -327,11 +327,11 @@ class VariantTests(_Harness):
                 ensure_ascii=False), encoding="utf-8")
             d, win = self.desktop(proj)
             d.open_asset_detail("CHAR_001"); win.update()
-            with mock.patch.object(asset_detail.messagebox, "askyesno", return_value=False) as ask:
+            with mock.patch.object(asset_detail, "ask_confirmation", return_value=False) as ask:
                 self.assertIsNone(asset_detail.delete_variant(d, "CHAR_001", "CST-01"))
                 self.assertTrue(ask.called, "先问一句再动手")
             self.assertEqual(len(plan_of(proj, "CHAR_001")["state_variants"]), 1)
-            with mock.patch.object(asset_detail.messagebox, "askyesno", return_value=True):
+            with mock.patch.object(asset_detail, "ask_confirmation", return_value=True):
                 asset_detail.delete_variant(d, "CHAR_001", "CST-01")
             self.assertEqual(plan_of(proj, "CHAR_001")["state_variants"], [])
 

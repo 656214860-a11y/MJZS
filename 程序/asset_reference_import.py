@@ -6,7 +6,7 @@ from tkinter import ttk,messagebox
 from agent.core import read
 from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_target,image_bytes,save_copy,attach,unbind
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, LineInput, ProgressLabel, notify
+from ui_widgets import BaseDialog, LineInput, ProgressLabel, ask_confirmation, notify
 
 
 def save_images(base,aid,role,paths,active_ids,pending=False):
@@ -96,9 +96,9 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
             values=[value for value in now.get('reference_images',[])
                     if isinstance(value,str) and str(roles.get(value) or '待分类')==role]
             if not values:raise ValueError('这一项资产在「'+role+'」分类下还没有参考图')
-            if not messagebox.askyesno('解除参考图绑定',
+            if not ask_confirmation(win, '解除参考图绑定',
                     '解除 '+target+' 的「'+role+'」参考图 '+str(len(values))+' 张？\n受控文件将一并移入项目回收站。',
-                    parent=win,default='no'):
+                    dangerous=True):
                 return
             unbind(base,target,values)
             if on_saved:on_saved()
