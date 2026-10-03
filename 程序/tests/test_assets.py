@@ -427,6 +427,21 @@ class ComfySubmitRecoveryTests(unittest.TestCase):
         self.assertEqual(client.locate_prompt("abc", attempts=2, wait=0), "PID-3")
         self.assertGreaterEqual(seen["calls"], 2)
 
+    def test_lost_receipt_and_unreadable_recovery_are_not_reported_as_no_task(self):
+        """网络无法读取队列／历史时，不能静默判成“没有提交”。"""
+        from comfy_service import Comfy, ComfySubmissionUncertain
+        with tempfile.TemporaryDirectory() as td:
+            client = Comfy('http://127.0.0.1:8189')
+            def request(path, data=None, raw=False, timeout=20):
+                raise OSError('connection refused')
+            client.request = request
+            client = self.only_once(client)
+            with self.assertRaises(ComfySubmissionUncertain) as ctx:
+                client.submit_graph(td, "characters", "提示词", {"4": {"class_type": "X", "inputs": {}}})
+            self.assertIn('无法读取 ComfyUI 队列／历史', str(ctx.exception))
+            record = Path(ctx.exception.record)
+            self.assertEqual(json.loads(record.read_text(encoding='utf-8'))['state'], 'unknown')
+
     def test_batch_marks_uncertain_as_failed_and_keeps_record(self):
         import queue as queue_module, threading
         from comfy_service import ComfySubmissionUncertain

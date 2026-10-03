@@ -12,6 +12,11 @@ class ComfyGenerationFailed(ValueError):
 class ComfySubmissionUncertain(RuntimeError):
     pass
 
+
+class ComfyRecoveryUnavailable(RuntimeError):
+    """提交回执丢失后，队列与历史均无法读取，不能把网络故障当成查无任务。"""
+    pass
+
 def validate_safetensors(path):
     """校验 .safetensors 头部的张量表；LoRA 等模型文件送入 ComfyUI 之前先过这道关。"""
     with Path(path).open('rb') as f:
@@ -28,9 +33,12 @@ def locate_prompt(fetch,client_id='',workflow=None,attempts=3,wait=1.0):
     """
     for index in range(max(1,attempts)):
         entries=[]
+        failures=[]
         for path in ('/queue','/history'):
             try:data=fetch(path)
-            except Exception:continue
+            except Exception as exc:
+                failures.append(exc)
+                continue
             if not isinstance(data,dict):continue
             if path=='/queue':
                 entries.extend(data.get('queue_running',[]) or [])
@@ -42,6 +50,8 @@ def locate_prompt(fetch,client_id='',workflow=None,attempts=3,wait=1.0):
             extra=entry[3] if isinstance(entry[3],dict) else {}
             if client_id and extra.get('client_id')==client_id:return entry[1]
             if workflow is not None and entry[2]==workflow:return entry[1]
+        if len(failures) == 2 and index == attempts - 1:
+            raise ComfyRecoveryUnavailable('ComfyUI 队列和历史均无法读取，无法核对已提交任务') from failures[0]
         if index<attempts-1:time.sleep(wait)
     return None
 
@@ -130,7 +140,13 @@ class Comfy:
         except Exception as exc:
             # 提交响应可能只是超时或断连，任务其实已经进了 ComfyUI：先按 client_id 找回，
             # 找回后照常排队生成；确认队列与历史里都没有本次任务，才判定提交结果不确定。
-            prompt_id=self.locate_prompt(client_id)
+            try:
+                prompt_id=self.locate_prompt(client_id)
+            except ComfyRecoveryUnavailable as recovery_error:
+                job['state']='unknown';save(rec,job)
+                error=ComfySubmissionUncertain('提交响应中断，且无法读取 ComfyUI 队列／历史核对任务；请检查本机 ComfyUI 连接，不会自动重复提交')
+                error.record=str(rec)
+                raise error from recovery_error
             if prompt_id:
                 job.update(state='queued',prompt_id=prompt_id,note='提交响应中断，已按 client_id 找回任务编号');save(rec,job)
                 return rec
