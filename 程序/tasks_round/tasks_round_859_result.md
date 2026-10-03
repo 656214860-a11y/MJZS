@@ -8,6 +8,7 @@
 
 ## 体检与验证
 
+- 主树体积：本轮执行前沿用 R856 已记录的 139 MiB；完成移除及 `repo_health.py --run` 后实测为 106.94 MiB（递归文件字节和）。该量测包含主树中现有的运行文件，未触及 `private`、`data` 或运行环境。
 - `run_selftests.py --serial -k workspace maintenance force_quit`：54/54 通过，0 红。
 - 修正 linked worktree 的 `.git` 文件形态识别；`repo_health.py --run` 现报告 `worktrees: git=present`，不会把 worktree 误判为非仓库。
 - 体检执行清理可再生 pycache 1.30 MiB；`.selftmp` 未删除；4 条 stash 仅报告、未删除。
