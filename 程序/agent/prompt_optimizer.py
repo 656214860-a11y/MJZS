@@ -4,12 +4,12 @@ from pathlib import Path
 from storyboard_paths import media_root
 from urllib.parse import urlparse
 import tkinter as tk
-from tkinter import ttk,messagebox
+from tkinter import ttk
 from .core import read,save,fingerprint
 from api_models import records,remember,remove,label as model_label,identity
 from .shot_assets import assets
 import tk_timers
-from ui_widgets import BaseDialog, LineInput, ask_confirmation, notify
+from ui_widgets import BaseDialog, LineInput, PrimaryButton, SecondaryButton, ask_confirmation, notify
 
 ROOT=Path(__file__).resolve().parent.parent
 CONFIG=ROOT/'private'/'prompt_optimizer.json'
@@ -139,8 +139,8 @@ def settings(app):
             save(CONFIG,updated);win.destroy();app.write('优化服务设置已保存。点击“MCP 优化”开始优化。')
         except (ValueError,OSError) as e:notify(win, str(e), level='error', title='优化设置')
     actions=ttk.Frame(win);actions.grid(row=8,column=0,columnspan=2,pady=12)
-    ttk.Button(actions,text='保存设置',command=commit).pack(side='left',padx=5)
-    ttk.Button(actions,text='删除模型',command=delete_model).pack(side='left',padx=5)
+    PrimaryButton(actions,text='保存设置',command=commit).pack(side='left',padx=5)
+    SecondaryButton(actions,text='删除模型',command=delete_model).pack(side='left',padx=5)
 
 def start(app,source_prompt=None):
     from video_task_state import assert_prompt_editable,prompt_locked

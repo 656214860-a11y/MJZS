@@ -100,8 +100,9 @@ def redact(value):
 def settings(parent):
     import tkinter as tk
     import webbrowser
-    from tkinter import ttk, messagebox
-    from ui_widgets import DescriptionBlock, FormDialog, LineInput, ProgressLabel, notify
+    from tkinter import ttk
+    from ui_widgets import (DescriptionBlock, FormDialog, LineInput, PrimaryButton,
+                            ProgressLabel, SecondaryButton, notify)
     win = FormDialog(parent, '云图片模型 · Comfy 账户', modal=False, chrome=False)
     win.withdraw();win.transient(parent)
     body = ttk.Frame(win, padding=16);body.pack(fill='both', expand=True)
@@ -119,9 +120,9 @@ def settings(parent):
     def save():
         try:save_key(token.get());win.destroy()
         except Exception as exc:notify(win, str(exc), level='error', title='保存失败', status=status)
-    ttk.Button(row, text='保存', command=save).pack(side='left')
-    ttk.Button(row, text='打开 Comfy 账户', command=lambda:webbrowser.open('https://platform.comfy.org/')).pack(side='left', padx=5)
-    ttk.Button(row, text='获取 API Key', command=lambda:webbrowser.open('https://platform.comfy.org/profile/api-keys')).pack(side='left', padx=5)
+    PrimaryButton(row, text='保存', command=save).pack(side='left')
+    SecondaryButton(row, text='打开 Comfy 账户', command=lambda:webbrowser.open('https://platform.comfy.org/')).pack(side='left', padx=5)
+    SecondaryButton(row, text='获取 API Key', command=lambda:webbrowser.open('https://platform.comfy.org/profile/api-keys')).pack(side='left', padx=5)
     win.update_idletasks()
     x = max(0, parent.winfo_rootx() + (parent.winfo_width()-win.winfo_reqwidth())//2)
     y = max(0, parent.winfo_rooty() + (parent.winfo_height()-win.winfo_reqheight())//2)

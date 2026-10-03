@@ -4,11 +4,11 @@ from pathlib import Path
 from urllib.parse import urlparse
 # 第 34 期第 9 条：`urllib.request` 连 ssl 一起加载（约 4.4 MB 常驻），验证连接时才 import。
 import tkinter as tk
-from tkinter import ttk,messagebox
+from tkinter import ttk
 from api_models import records,remember,remove,label,identity
 from agent.core import save
 import tk_timers
-from ui_widgets import FormDialog, LineInput, ask_confirmation, notify
+from ui_widgets import FormDialog, LineInput, PrimaryButton, SecondaryButton, ask_confirmation, notify
 
 def settings_path():return Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'漫剧制作助手'/'qwen-api.json'
 
@@ -165,8 +165,8 @@ def show(parent,on_saved=None):
         threading.Thread(target=run,daemon=True).start()
         stop=tk_timers.repeat(win,250,poll);poll()
     row=ttk.Frame(body);row.grid(row=7,column=0,columnspan=2,sticky='w',pady=10)
-    ttk.Button(row,text='保存设置',command=commit).pack(side='left')
-    ttk.Button(row,text='删除模型',command=delete_model).pack(side='left',padx=8)
-    ttk.Button(row,text='测试连接',command=check).pack(side='left',padx=8)
-    ttk.Button(row,text='打开阿里云百炼',command=lambda:__import__('webbrowser').open('https://bailian.console.aliyun.com/')).pack(side='left')
+    PrimaryButton(row,text='保存设置',command=commit).pack(side='left')
+    SecondaryButton(row,text='删除模型',command=delete_model).pack(side='left',padx=8)
+    SecondaryButton(row,text='测试连接',command=check).pack(side='left',padx=8)
+    SecondaryButton(row,text='打开阿里云百炼',command=lambda:__import__('webbrowser').open('https://bailian.console.aliyun.com/')).pack(side='left')
     return win
