@@ -1,10 +1,10 @@
 {
  "architecture": {
-  "elapsed_seconds": 69.881,
+  "elapsed_seconds": 81.843,
   "failed_modules": [],
-  "test_count": 226,
-  "unit_count": 98,
-  "updated_at": "2026-10-03T17:39:15"
+  "test_count": 228,
+  "unit_count": 99,
+  "updated_at": "2026-10-03T18:01:59"
  },
  "gui": {
   "elapsed_seconds": 508.783,
@@ -14,26 +14,26 @@
   "updated_at": "2026-09-27T11:49:34"
  },
  "gui-e2e": {
-  "elapsed_seconds": 261.696,
+  "elapsed_seconds": 341.301,
   "failed_modules": [],
-  "test_count": 662,
-  "unit_count": 103,
-  "updated_at": "2026-09-28T15:49:20"
+  "test_count": 673,
+  "unit_count": 104,
+  "updated_at": "2026-10-03T18:17:09"
  },
  "gui-short": {
-  "elapsed_seconds": 300.365,
+  "elapsed_seconds": 320.437,
   "failed_modules": [],
-  "test_count": 1079,
-  "unit_count": 155,
-  "updated_at": "2026-10-01T04:01:41"
+  "test_count": 1141,
+  "unit_count": 166,
+  "updated_at": "2026-10-03T18:10:31"
  },
  "last_full_safe_all_at": "2026-10-03",
  "last_full_safe_all_round": 855,
  "service": {
-  "elapsed_seconds": 24.89,
+  "elapsed_seconds": 71.943,
   "failed_modules": [],
-  "test_count": 1483,
-  "unit_count": 241,
-  "updated_at": "2026-09-28T16:26:54"
+  "test_count": 1661,
+  "unit_count": 279,
+  "updated_at": "2026-10-03T17:47:34"
  }
 }
