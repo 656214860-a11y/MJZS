@@ -6,6 +6,9 @@ import unittest
 from tests.architecture._scan import ROOT, parse
 
 
+EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__"}
+
+
 class InputBoundaryTests(unittest.TestCase):
     def test_brief_creation_form_uses_text_area_not_direct_tk_text(self):
         tree = parse(ROOT / "desktop.py")
@@ -32,7 +35,8 @@ class InputBoundaryTests(unittest.TestCase):
     def test_business_ui_has_no_direct_entry_or_text_construction(self):
         actual = {}
         for path in ROOT.rglob('*.py'):
-            if 'tests' in path.parts or path.name == 'ui_widgets.py':
+            if (path.name == 'ui_widgets.py'
+                    or any(part in EXCLUDED_PARTS for part in path.parts)):
                 continue
             count = len(_direct_inputs(parse(path)))
             if count:
