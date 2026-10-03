@@ -5,13 +5,12 @@ import unittest
 import json
 import re
 from pathlib import Path
+from pet_bus import CONTRACT
 from tests.architecture._scan import parse, production_files
 ROOT=Path(__file__).resolve().parents[2]
 CANARY=Path(__file__).with_name('_canary')
 # 21 白名单：明确的平台适配器／外部工具；其余 OS 进程调用须报告。
 P21={'platform_tools','native_apps','app_shortcut','codex_paste','codex_tasks','console_submit','engine_probe','previs_automation','qwen_adapter','workflow_engines'}
-# 25 白名单：pet_bus 已登记事件；自定义字面量须报告。
-E25={'stage.executing','stage.failed','stage.retrying','stage.paused','script.completed','budget.warning','budget.exceeded','notify.aggregate','intent.command'}
 # 26 白名单：唯一模型池、路由与供应商适配器。
 P26={'model_pool','model_router','qwen_adapter','comfy_service','cloud_assets','cloud_video','platform_tools'}
 # 24 白名单：两份注册表是产品插件入口；clipboard_lock 仅在非 Windows 条件分支加载 Unix
@@ -19,7 +18,7 @@ P26={'model_pool','model_router','qwen_adapter','comfy_service','cloud_assets','
 P24={'ui_plugin_registry','stage_handler_registry','clipboard_lock'}
 LEDGER=ROOT/'维护记录'/'架构统一基数.json'
 CRITERIA=ROOT/'维护记录'/'覆盖率审计判据_20261001.md'
-AUDIT_SECTIONS={'21':'覆盖率审计21','24':'覆盖率审计24','26':'覆盖率审计26'}
+AUDIT_SECTIONS={'21':'覆盖率审计21','24':'覆盖率审计24','25':'覆盖率审计25','26':'覆盖率审计26'}
 def dot(n):
     if isinstance(n,ast.Name): return n.id
     if isinstance(n,ast.Attribute):
@@ -31,6 +30,13 @@ def _dynamic_target(node):
         return None
     return node.args[0].value
 
+def _event_kind(node, name):
+    """取得统一事件入口的字面量 kind；包装器转发的变量不在静态候选内。"""
+    index = 2 if name == 'pet_bus.emit_safe' else 0
+    if len(node.args) <= index or not isinstance(node.args[index], ast.Constant):
+        return None
+    return node.args[index].value if isinstance(node.args[index].value, str) else None
+
 def scan(kind, paths=None):
     out=set()
     for p in (production_files() if paths is None else paths):
@@ -39,7 +45,8 @@ def scan(kind, paths=None):
             if not isinstance(n,ast.Call): continue
             name,mod=dot(n.func),p.stem
             dynamic_target=_dynamic_target(n)
-            hit=(kind=='21' and name in {'subprocess.run','subprocess.Popen','os.startfile'} and mod not in P21) or (kind=='22' and name in {'os.remove','os.unlink','shutil.rmtree'} and mod not in {'storage_maintenance','file_cache','asset_batch_lifecycle','storyboard_lifecycle'}) or (kind=='24' and name in {'__import__','import_module','importlib.import_module'} and mod not in P24 and (dynamic_target is None or 'plugin' in dynamic_target.lower() or 'handler' in dynamic_target.lower())) or (kind=='25' and name in {'pet_bus.emit_safe','self._emit','pet._emit'} and n.args and isinstance(n.args[0],ast.Constant) and n.args[0].value not in E25) or (kind=='26' and name in {'requests.get','requests.post','urllib.request.urlopen'} and mod not in P26)
+            event_kind = _event_kind(n, name)
+            hit=(kind=='21' and name in {'subprocess.run','subprocess.Popen','os.startfile'} and mod not in P21) or (kind=='22' and name in {'os.remove','os.unlink','shutil.rmtree'} and mod not in {'storage_maintenance','file_cache','asset_batch_lifecycle','storyboard_lifecycle'}) or (kind=='24' and name in {'__import__','import_module','importlib.import_module'} and mod not in P24 and (dynamic_target is None or 'plugin' in dynamic_target.lower() or 'handler' in dynamic_target.lower())) or (kind=='25' and (name == 'pet_bus.emit_safe' or (name or '').endswith('._emit')) and event_kind is not None and event_kind not in CONTRACT) or (kind=='26' and name in {'requests.get','requests.post','urllib.request.urlopen'} and mod not in P26)
             if hit: out.add(f'{p.name}:{n.lineno}')
     return out
 class CoverageAuditCanaryTests(unittest.TestCase):

@@ -1,1 +1,1 @@
-pet_bus.emit_safe('unregistered.event')
+pet_bus.emit_safe(bus, errors, 'unregistered.event')
