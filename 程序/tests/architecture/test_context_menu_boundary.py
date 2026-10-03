@@ -34,3 +34,16 @@ class ContextMenuBoundaryTests(unittest.TestCase):
         self.assertEqual(actual, {},
                          '业务菜单必须经 ContextMenu 创建：' + str(actual))
 
+    def test_all_production_modules_do_not_construct_tk_menus(self):
+        actual = {}
+        for path in ROOT.rglob('*.py'):
+            relative = path.relative_to(ROOT)
+            if (path.name == 'ui_widgets.py' or path.name.startswith('test')
+                    or 'tests' in relative.parts or 'tasks_round' in relative.parts
+                    or '维护记录' in relative.parts):
+                continue
+            lines = _direct_menu_calls(ast.parse(path.read_text(encoding='utf-8')))
+            if lines:
+                actual[str(relative)] = lines
+        self.assertEqual(actual, {},
+                         '生产菜单必须经 ContextMenu 创建：' + str(actual))
