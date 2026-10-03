@@ -144,7 +144,7 @@
 
     不列入 2.3 节。
 
-27. \*\*轮次编号必须连续且跨工作树唯一\*\*：每轮开工先运行 \`D:\\漫剧制作助手\\运行环境\\Python\\python.exe 维护记录/基准脚本/round_claim.py next\` 领取轮次号；脚本在 Git common-dir 中以锁与临时文件替换维护共享计数器。每轮结束检查 \`N == M + 1\`（N = project\_status.md 当前轮次，M = tasks\_round 最新结果文件轮次）。
+27. \*\*轮次编号必须连续且跨工作树唯一\*\*：每轮开工先运行 \`D:\\漫剧制作助手\\运行环境\\Python\\python.exe 维护记录/基准脚本/round_claim.py next\` 领取轮次号；脚本在 Git common-dir 中以锁与临时文件替换维护共享计数器。随后必须运行 \`round_claim.py claim <队列ID> --owner <署名>\` 领取当前队列项，默认租约 60 分钟；他人的未过期租约不得覆盖，过期项可抢占且脚本会在 note 留痕。无法继续时运行 \`round_claim.py release <队列ID> --owner <署名>\`。每轮结束检查 \`N == M + 1\`（N = project\_status.md 当前轮次，M = tasks\_round 最新结果文件轮次）。
 
     不连续时，本轮必须先修正编号再继续。
 

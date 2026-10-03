@@ -7,6 +7,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -25,6 +26,12 @@ class RoundClaimTests(unittest.TestCase):
         for number in rounds:
             (tasks / ("tasks_round_%s_result.md" % number)).write_text("# result\n", encoding="utf-8")
         return tasks
+
+    def _queue(self, root: Path, *, status="pending", owner="", lease_until="", note="") -> Path:
+        path = root / "任务队列.json"
+        path.write_text(json.dumps({"items": [{"id": "T1", "status": status, "owner": owner,
+                                                "lease_until": lease_until, "note": note}]}), encoding="utf-8")
+        return path
 
     def test_claim_starts_after_existing_result_round(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -62,3 +69,32 @@ class RoundClaimTests(unittest.TestCase):
             self.assertEqual(errors, [])
             self.assertEqual(sorted(values), list(range(41, 49)))
 
+    def test_claim_rejects_another_active_lease_and_release_restores_pending(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            now = datetime(2026, 10, 3, 14, tzinfo=timezone.utc)
+            queue = self._queue(root)
+            claimed = round_claim.claim_task(common_dir=root / ".git", queue_path=queue, task_id="T1",
+                                             owner="alice", now=now)
+            self.assertEqual(claimed["status"], "claimed")
+            with self.assertRaises(RuntimeError):
+                round_claim.claim_task(common_dir=root / ".git", queue_path=queue, task_id="T1",
+                                       owner="bob", now=now)
+            released = round_claim.release_task(common_dir=root / ".git", queue_path=queue, task_id="T1", owner="alice")
+            self.assertEqual((released["status"], released["owner"], released["lease_until"]), ("pending", "", ""))
+
+    def test_expired_lease_can_be_taken_over_with_note(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            queue = self._queue(root, status="claimed", owner="alice", lease_until="2026-10-03T12:00:00+00:00")
+            claimed = round_claim.claim_task(common_dir=root / ".git", queue_path=queue, task_id="T1", owner="bob",
+                                             now=datetime(2026, 10, 3, 13, tzinfo=timezone.utc))
+            self.assertEqual(claimed["owner"], "bob")
+            self.assertIn("alice 过期后由 bob 抢占", claimed["note"])
+
+    def test_completed_task_cannot_be_claimed_again(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            queue = self._queue(root, status="completed", owner="alice")
+            with self.assertRaisesRegex(RuntimeError, "已完成"):
+                round_claim.claim_task(common_dir=root / ".git", queue_path=queue, task_id="T1", owner="bob")
