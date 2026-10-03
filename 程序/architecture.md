@@ -4,6 +4,8 @@
 
 ## 1. 目录树
 
+协作基础设施：`维护记录/基准脚本/worktree_ledger.py` 只读汇总 Git 工作树、租约及显式容器残差；`--plan` 仅输出待确认命令。`round_claim.py next` 拒绝 detached HEAD 分配轮次。两者不进入生产执行链，不读用户项目正文。
+
 ```text
 程序/
 ├─ agent/                 通用 Agent、媒体与视频服务适配器

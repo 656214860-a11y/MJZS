@@ -189,6 +189,19 @@ def claim_next(*, common_dir: Path, tasks_round: Path) -> int:
         return next_round
 
 
+def require_branch(root: Path = ROOT) -> None:
+    """领取轮次前验证调用位置；禁止把下一次提交继续留在游离 HEAD。"""
+    result = subprocess.run(["git", "-C", str(root), "symbolic-ref", "--quiet", "HEAD"],
+                            capture_output=True, text=True)
+    if result.returncode:
+        root = Path(subprocess.check_output(["git", "-C", str(root), "rev-parse", "--show-toplevel"]).decode("utf-8").strip())
+        common = git_common_dir(root)
+        number = max(read_counter(common / COUNTER_NAME),
+                     latest_result_round(root / "程序" / "tasks_round")) + 1
+        raise RuntimeError("拒绝领取轮次：detached HEAD。先执行 git switch -c codex/R%s-main，再领取轮次；"
+                           "main 可替换为车道名。" % number)
+
+
 def _read_queue(queue_path: Path) -> dict:
     payload = json.loads(queue_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
@@ -292,6 +305,12 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(args, "queue") and args.queue.resolve() != (common_dir / QUEUE_NAME).resolve():
         parser.error("--queue 必须指向 Git common-dir/maintenance-queue.json；禁止编辑工作树快照")
     if args.command in (None, "next"):
+        try:
+            # 主树脚本从其他工作树调用时，也必须检查实际 cwd 所在树。
+            require_branch(Path.cwd())
+        except (RuntimeError, subprocess.CalledProcessError) as error:
+            print(str(error), file=sys.stderr)
+            return 2
         print(claim_next(common_dir=common_dir, tasks_round=PROGRAM / "tasks_round"))
     elif args.command in ("show", "validate"):
         payload = _load_authority(common_dir, args.queue, ROOT)

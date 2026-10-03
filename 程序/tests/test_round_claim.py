@@ -128,6 +128,23 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         path.write_text(json.dumps({"lease_minutes": 60, "items": items}), encoding="utf-8")
         return path
 
+    def test_detached_next_cli_refuses_without_allocating_and_gives_switch_command(self):
+        tree = self.trees[0]
+        script = tree / "程序/维护记录/基准脚本/round_claim.py"
+        script.parent.mkdir(parents=True)
+        script.write_bytes(SCRIPT.read_bytes())
+        result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
+                                capture_output=True, timeout=20)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(b"detached HEAD", result.stderr)
+        self.assertIn(b"git switch -c codex/R1-main", result.stderr)
+        self.assertFalse((self.common / round_claim.COUNTER_NAME).exists())
+        self.git("-C", str(tree), "switch", "-c", "codex/test-lane")
+        result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
+                                capture_output=True, timeout=20)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), b"1")
+
     def test_two_worktrees_cannot_claim_same_id_and_export_is_identical(self):
         self.snapshot(self.trees[0], [{"id": "T1", "status": "pending"}])
         queue = self.common / round_claim.QUEUE_NAME
