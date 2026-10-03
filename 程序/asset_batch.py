@@ -257,7 +257,10 @@ def show(app,engine="comfy",selected_ids=None):
         model=work_options()['model']
         if not model:raise ValueError('请先选择要删除的模型')
         if not ask_confirmation(win, '删除模型', f'删除模型配置 {model}？\n只从助手列表移除，ComfyUI 里的模型文件不动。', dangerous=True):return
-        remove_model(project, values['url'].get(), model, model_key())
+        result=remove_model(project, values['url'].get(), model, model_key())
+        if not result.ok:
+            status.set(result.reason)
+            return
         values['model'].set('');modelbox.configure(values=[m for m in modelbox['values'] if m!=model])
         status.set('模型配置已删除并保存，ComfyUI 模型文件保留。')
     SecondaryButton(config,text='删除模型',command=lambda:app.safe(delete_model)).grid(row=3,column=2,padx=SPACING['xs'])
@@ -280,7 +283,10 @@ def show(app,engine="comfy",selected_ids=None):
     def save_api():
         options=work_options();Comfy(options['url'])
         if backend.get()==LOCAL and options['workflow'] and not Path(options['workflow']).is_file():raise ValueError('API 工作流文件不存在')
-        save_settings(project, options, {k:v.get() for k,v in checks.items()}, model_key())
+        result=save_settings(project, options, {k:v.get() for k,v in checks.items()}, model_key())
+        if not result.ok:
+            status.set(result.reason)
+            return
         status.set('ComfyUI API 设置已保存，下次打开自动回填。')
     SecondaryButton(config,text='保存设置',command=lambda:app.safe(save_api)).grid(row=0,column=2,padx=SPACING['xs'])
     def show_backend():
@@ -319,7 +325,10 @@ def show(app,engine="comfy",selected_ids=None):
                 if backend.get() in MODELS:
                     from cloud_assets import get_key
                     if not get_key():raise ValueError('请先在“云模型设置”保存 Comfy API Key，再启动 Qwen 批量生图')
-                save_settings(project, options)
+                result=save_settings(project, options)
+                if not result.ok:
+                    status.set(result.reason)
+                    return
                 if _launch_skill_batch(app,project,base,items):win.destroy()
                 else:status.set(app.status.get())
                 return
@@ -339,7 +348,10 @@ def show(app,engine="comfy",selected_ids=None):
                 status.set('已跳过提交结果无法确认的资产：'+'、'.join(blocked))
         Comfy(options['url'])
         for aid,a in items:asset_prompt(a,KINDS[aid.split('_')[0]][0])
-        save_settings(project, options, {k:v.get() for k,v in checks.items()}, model_key())
+        result=save_settings(project, options, {k:v.get() for k,v in checks.items()}, model_key())
+        if not result.ok:
+            status.set(result.reason)
+            return
         if not app.launch_comfy(silent=True):return                 # 第 62 期任务 8：静默拉起，不弹选择框
         stop.clear()
         app.async_(lambda:run_batch(project,base,items,options,events,stop),done)

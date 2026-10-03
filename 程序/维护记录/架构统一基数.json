@@ -3,12 +3,12 @@
         "status": "active",
         "decided_at": "2026-10-04",
         "adopters": [
+            "asset_batch_settings_service",
             "delivery_import_service",
             "keyframe_lifecycle_service",
             "storyboard_edit_service"
         ],
         "scope_audit_pending": [
-            "asset_batch_settings_service",
             "asset_plan",
             "asset_resume",
             "audio_import_service",
