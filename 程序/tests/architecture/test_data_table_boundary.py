@@ -8,9 +8,18 @@ from tests.architecture._scan import ROOT, parse
 
 
 class DataTableBoundaryTests(unittest.TestCase):
-    def assert_historical_treeview_ceiling(self, calls, maximum, message):
-        """未迁移页采用冻结上限；已迁移页继续使用零容忍断言。"""
-        self.assertLessEqual(len(calls), maximum, message)
+    def test_only_project_navigation_uses_raw_treeview(self):
+        """表格一律经 DataTable；仅项目导航保留树形选择器语义。"""
+        actual = {}
+        for path in ROOT.glob('*.py'):
+            if path.name == 'ui_widgets.py':
+                continue
+            calls = [node for node in ast.walk(parse(path)) if isinstance(node, ast.Call)
+                     and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
+            if calls:
+                actual[path.name] = len(calls)
+        self.assertEqual(actual, {'desktop.py': 3},
+                         '业务数据表必须通过 DataTable；项目树是唯一语义导航例外')
 
     def test_continuity_tables_use_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'desktop.py')
@@ -64,7 +73,8 @@ class DataTableBoundaryTests(unittest.TestCase):
         direct = [node for method in methods for node in ast.walk(method)
                   if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                   and node.func.attr == 'Treeview']
-        self.assert_historical_treeview_ceiling(direct, 2, '项目选择页面的历史 Treeview 数不得增加')
+        self.assertEqual(len(direct), 2,
+                         '仅项目选择与项目主页可保留树形导航选择器')
 
     def test_script_file_lists_use_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'desktop.py')
@@ -109,7 +119,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assert_historical_treeview_ceiling(direct, 1, '首帧批量制作弹窗的历史 Treeview 数不得增加')
+        self.assertEqual(direct, [], '首帧批量制作弹窗必须通过 DataTable 构造表格')
 
     def test_local_previs_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'local_previs.py')
@@ -117,7 +127,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assert_historical_treeview_ceiling(direct, 1, '白模预演页的历史 Treeview 数不得增加')
+        self.assertEqual(direct, [], '白模预演页必须通过 DataTable 构造表格')
 
     def test_main_workbench_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'app.py')
@@ -125,7 +135,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         method = next(node for node in app.body if isinstance(node, ast.FunctionDef) and node.name == '__init__')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assert_historical_treeview_ceiling(direct, 1, '主工作台的历史 Treeview 数不得增加')
+        self.assertEqual(direct, [], '主工作台的数据表必须通过 DataTable 构造')
 
     def test_asset_picker_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'app.py')
@@ -134,7 +144,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'open_asset_picker')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assert_historical_treeview_ceiling(direct, 1, '资产选择弹窗的历史 Treeview 数不得增加')
+        self.assertEqual(direct, [], '资产选择弹窗必须通过 DataTable 构造表格')
 
     def test_model_manager_uses_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'pet_models_ui.py')
@@ -150,7 +160,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'show')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assert_historical_treeview_ceiling(direct, 1, '参考图候选墙的历史 Treeview 数不得增加')
+        self.assertEqual(direct, [], '参考图候选墙必须通过 DataTable 构造表格')
 
     def test_final_storyboard_files_use_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'storyboard_files.py')
@@ -158,4 +168,4 @@ class DataTableBoundaryTests(unittest.TestCase):
                       and node.name == 'show_final')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
-        self.assert_historical_treeview_ceiling(direct, 1, '分镜文件页的历史 Treeview 数不得增加')
+        self.assertEqual(direct, [], '分镜文件页必须通过 DataTable 构造表格')
