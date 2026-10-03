@@ -1,7 +1,7 @@
 {
     "\u7b2c\u4e00\u9879": {
-        "status": "paused",
-        "decided_at": "2026-10-01",
+        "status": "active",
+        "decided_at": "2026-10-04",
         "adopters": [
             "delivery_import_service",
             "keyframe_lifecycle_service"
@@ -46,8 +46,8 @@
         ]
     },
     "\u7b2c\u4e8c\u9879": {
-        "status": "paused",
-        "decided_at": "2026-10-01",
+        "status": "active",
+        "decided_at": "2026-10-04",
         "adopters": [
             "delivery_import_service"
         ],
@@ -789,7 +789,7 @@
             },
             {
                 "file": "agent/prompt_optimizer.py",
-                "point": "173",
+                "point": "174",
                 "disposition": "exempt",
                 "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
             },
@@ -969,7 +969,7 @@
             },
             {
                 "file": "qwen_setup.py",
-                "point": "47",
+                "point": "48",
                 "disposition": "exempt",
                 "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
             },

@@ -6,7 +6,7 @@ from tkinter import ttk,messagebox
 import webbrowser
 from pathlib import Path
 from ui_tokens import SPACING
-from ui_widgets import BaseDialog, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation, notify
+from ui_widgets import Card, BaseDialog, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation, notify
 from agent.core import read
 from api_models import identity,cloud_removed
 from project_naming import dated_path
@@ -85,7 +85,7 @@ def settings_window(desktop):
             if not isinstance(remembered,dict):remembered={}
     win=BaseDialog(desktop.win,'调用设置 · 云端视频 API',geometry='820x620',modal=False,chrome=False);win.attributes('-alpha',0)
     desktop.cloud_settings_window=win
-    win.columnconfigure(1,weight=1)
+    body=Card(win);body.pack(fill='both',expand=True,padx=SPACING['lg'],pady=SPACING['lg']);body.columnconfigure(1,weight=1)
     # 第 36 期第 2 条：下半截原来是一大段密排说明 ＋ 一列铺满整行的链接按钮，读起来费劲、
     # 也看不出哪个是主操作。现在窗口可放大（说明跟着换行），下面按「主操作 → 说明分条 →
     # 服务商控制台」三段排。
@@ -93,12 +93,12 @@ def settings_window(desktop):
     if remembered and cloud_removed(project,remembered):remembered={**remembered,'model':''}
     selected_provider=provider_label(remembered)
     provider=tk.StringVar(value=selected_provider)
-    ttk.Label(win,text='接口协议 / 服务商').grid(row=0,column=0,padx=SPACING['md'],pady=SPACING['md'],sticky='w')
-    choice=ttk.Combobox(win,textvariable=provider,values=list(PROVIDERS),state='readonly');choice.grid(row=0,column=1,sticky='ew',padx=SPACING['md'])
+    ttk.Label(body,text='接口协议 / 服务商').grid(row=0,column=0,padx=SPACING['md'],pady=SPACING['md'],sticky='w')
+    choice=ttk.Combobox(body,textvariable=provider,values=list(PROVIDERS),state='readonly');choice.grid(row=0,column=1,sticky='ew',padx=SPACING['md'])
     entries={}
     for row,(key,label) in enumerate([('base','API根地址'),('model','模型ID'),('key','API Key（留空保留同地址密钥）'),('budget','本地累计调用上限（秒）')],1):
-        ttk.Label(win,text=label).grid(row=row,column=0,padx=SPACING['md'],pady=SPACING['md'],sticky='w')
-        field=ttk.Combobox(win) if key=='model' else LineInput(win)
+        ttk.Label(body,text=label).grid(row=row,column=0,padx=SPACING['md'],pady=SPACING['md'],sticky='w')
+        field=ttk.Combobox(body) if key=='model' else LineInput(body)
         if key=='key':field.configure(show='•')
         field.grid(row=row,column=1,padx=SPACING['md'],sticky='ew');entries[key]=field
     entries['budget'].insert(0,'60')
@@ -179,11 +179,11 @@ def settings_window(desktop):
             if reset and getattr(desktop,'page_index',None)==desktop.page_of('video'):
                 desktop.show_stage('video',video_mode='cloud')
         except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='云端设置', status=desktop.status)
-    SecondaryButton(win,text='删除模型',command=delete_model).grid(row=2,column=2,padx=(SPACING['none'],SPACING['md']))
+    SecondaryButton(body,text='删除模型',command=delete_model).grid(row=2,column=2,padx=(SPACING['none'],SPACING['md']))
     entries['base'].bind('<FocusOut>',refresh_models)
     choice.bind('<<ComboboxSelected>>',select);select()
     enabled=tk.BooleanVar(value=remembered.get('live_enabled',True))
-    ttk.Checkbutton(win,text='允许联网调用（不会自动提交）',variable=enabled).grid(row=5,column=0,columnspan=2,padx=SPACING['md'],pady=(SPACING['md'],SPACING['xs']),sticky='w')
+    ttk.Checkbutton(body,text='允许联网调用（不会自动提交）',variable=enabled).grid(row=5,column=0,columnspan=2,padx=SPACING['md'],pady=(SPACING['md'],SPACING['xs']),sticky='w')
     def open_session():
         try:
             if desktop.root!=project:raise ValueError('当前项目已切换，请关闭设置后在对应项目重新打开')
@@ -251,13 +251,13 @@ def settings_window(desktop):
             return '连接失败：'+str(result.get('error','未知错误'))
         desktop.async_(work,lambda text:probe_status.set(str(text)),show_progress=False)
     # ① 主操作：保存设置摆在最前面并加粗（原来三样挤在一行、也没个主次）。
-    row7=ttk.Frame(win);row7.grid(row=6,column=0,columnspan=2,sticky='ew',padx=SPACING['md'],pady=(SPACING['sm'],SPACING['md']))
+    row7=ttk.Frame(body);row7.grid(row=6,column=0,columnspan=2,sticky='ew',padx=SPACING['md'],pady=(SPACING['sm'],SPACING['md']))
     PrimaryButton(row7,text='保存设置',command=open_session).pack(side='left')
     SecondaryButton(row7,text='测试连接',command=probe_endpoint_now).pack(side='left',padx=SPACING['sm'])
     SecondaryButton(row7,text='显示已保存密钥（10 秒）',command=reveal_key).pack(side='left',padx=SPACING['sm'])
     ProgressLabel(row7,textvariable=probe_status).pack(side='left',padx=SPACING['sm'])
     # ② 说明分条：一条一行，跟着窗口宽度换行——原来是一整段四行密排，读起来串行。
-    notes=ttk.LabelFrame(win,text='说明与限制',padding=(SPACING['md'],SPACING['sm']));notes.grid(row=7,column=0,columnspan=2,sticky='ew',padx=SPACING['md'])
+    notes=ttk.LabelFrame(body,text='说明与限制',padding=(SPACING['md'],SPACING['sm']));notes.grid(row=7,column=0,columnspan=2,sticky='ew',padx=SPACING['md'])
     notes.columnconfigure(0,weight=1)
     for index,line in enumerate((
         '自定义地址需兼容所选万相或 Seedance API 协议；模型 ID 可手动填写，点「保存设置」后回填。',
@@ -266,7 +266,7 @@ def settings_window(desktop):
         '本地秒数预算不代表免费额度，调用前请核对费用。')):
         ttk.Label(notes,text='· '+line,wraplength=740,justify='left').grid(row=index,column=0,sticky='w')
     # ③ 服务商控制台：三个小按钮排一行（原来是一列铺满整行的按钮，看着像三件正经操作）。
-    links=ttk.Frame(win);links.grid(row=8,column=0,columnspan=2,sticky='w',padx=SPACING['md'],pady=(SPACING['sm'],SPACING['md']))
+    links=ttk.Frame(body);links.grid(row=8,column=0,columnspan=2,sticky='w',padx=SPACING['md'],pady=(SPACING['sm'],SPACING['md']))
     ttk.Label(links,text='服务商控制台',style='Muted.TLabel').pack(side='left',padx=(SPACING['none'],SPACING['sm']))
     for label,url in (
         ('阿里云：免费额度与用完即停','https://help.aliyun.com/zh/model-studio/new-free-quota'),

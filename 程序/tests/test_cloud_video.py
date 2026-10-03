@@ -123,11 +123,12 @@ class KeyEntryPrivacyTests(unittest.TestCase):
                                     cloud_settings_window=None)
             settings_window(desktop);self.root.update()
             win=desktop.cloud_settings_window
-            key=next(widget for widget in win.winfo_children()
-                     if str(widget.winfo_class())=='TEntry' and str(widget.grid_info().get('row'))=='3')
+            body=next(widget for widget in win.winfo_children()
+                      if widget.grid_slaves(row=3,column=1))
+            key=body.grid_slaves(row=3,column=1)[0]
             self.assertEqual(key.cget('show'),'•')
             self.assertEqual(key.get(),'')
-            button=next(child for frame in win.winfo_children() if str(frame.winfo_class())=='TFrame'
+            button=next(child for frame in body.winfo_children() if str(frame.winfo_class())=='TFrame'
                         for child in frame.winfo_children()
                         if '显示已保存密钥' in str(child.cget('text')))
             button.invoke();self.root.update()

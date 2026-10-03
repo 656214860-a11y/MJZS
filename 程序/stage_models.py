@@ -19,14 +19,21 @@ from pet_bus import STAGES
 from stage_flow import manual_label as manual_label_for
 
 
-# L4 在应用组合时注入精简窗；阶段层仅决定文案、阻断条件和返回选择。
+# L4 在应用组合时注入窗口和确认呈现器；阶段层仅决定文案、阻断条件和返回选择。
 _PLAN_WINDOW_PRESENTER = None
+_CONFIRMATION_PRESENTER = None
 
 
 def set_plan_window_presenter(presenter):
     """登记 L4 手动制作窗口呈现器，避免本层反向导入 UI 组件。"""
     global _PLAN_WINDOW_PRESENTER
     _PLAN_WINDOW_PRESENTER = presenter
+
+
+def set_confirmation_presenter(presenter):
+    """登记统一确认呈现器，避免阶段层反向依赖 UI 组件。"""
+    global _CONFIRMATION_PRESENTER
+    _CONFIRMATION_PRESENTER = presenter
 
 
 def assets_choices():
@@ -112,17 +119,17 @@ def tests_active():
 
 
 # ── 第 47 期第 3 条：点「手动XX」以前先问一句「模型配了吗」 ──────────────────
-ASKER = None                # 自检里换成假函数；默认走统一 ConfirmDialog
+ASKER = None                # 自检里换成假函数；默认走 L4 注册的统一 ConfirmDialog
 
 
 def _ask(title, message, parent=None):
     """弹一次确认框（返回 True＝用户要现在就去配）。自检把 ASKER 换掉，不弹真窗。"""
     if ASKER is None and tests_active():
         return False            # 第 60 期第 6 条：自检里不冒窗，按「先不配、照旧开始」走
-    if ASKER is None:
-        from ui_widgets import ask_confirmation
-        return ask_confirmation(parent, title, message)
-    asker = ASKER
+    asker = ASKER or _CONFIRMATION_PRESENTER
+    if asker is None:
+        # 未完成 L4 组合时不能把“无法确认”误作同意，按拒绝处理。
+        return False
     return bool(asker(title, message, parent=parent))
 
 

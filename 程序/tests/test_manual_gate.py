@@ -100,6 +100,19 @@ class GateTests(unittest.TestCase):
             self.assertIn("白模预演", text, "说清是哪一步")
             self.assertIn("跟着变", text, "说清「配一次各页同步」")
 
+    def test_default_confirmation_uses_the_l4_presenter_without_reverse_import(self):
+        seen = []
+        previous_presenter = self.sm._CONFIRMATION_PRESENTER
+        previous_self_test = self.sm.SELF_TEST
+        self.sm.ASKER = None
+        self.sm.SELF_TEST = False
+        self.sm.set_confirmation_presenter(
+            lambda title, message, parent=None: seen.append((title, message, parent)) or True)
+        self.addCleanup(self.sm.set_confirmation_presenter, previous_presenter)
+        self.addCleanup(setattr, self.sm, "SELF_TEST", previous_self_test)
+        self.assertTrue(self.sm._ask("确认标题", "确认内容", "父窗口"))
+        self.assertEqual(seen, [("确认标题", "确认内容", "父窗口")])
+
     def test_a_broken_config_counts_as_auto_and_the_work_still_goes_on(self):
         """配置写坏了：面板按默认值（模型＝自动）走，这里也一样——问一句，答「否」照旧开工。"""
         with tempfile.TemporaryDirectory() as td:
