@@ -12,7 +12,7 @@ from platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
                            work_rows, work_hint, view_row)
 from ui_tokens import COLORS, SPACING
-from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea, notify
+from ui_widgets import BaseDialog, Card, DataTable, DescriptionBlock, PrimaryButton, ProgressLabel, SecondaryButton, TextArea, notify
 
 def engine_name(project):
     """当前白模引擎名：读得出来就写进口径，读不出来退回空串。
@@ -37,7 +37,7 @@ def online_window(desktop, source, ids):
     win = BaseDialog(desktop.win, '线上白模 · 中等动作', geometry='740x480',
                      modal=False, chrome=False)
     body = Card(win, padding=SPACING['lg']); body.pack(fill='both', expand=True)
-    ttk.Label(body, text='按分镜简化制作 → 导出预演视频 → 导入对应镜头', wraplength=680).pack(anchor='w')
+    DescriptionBlock(body, text='按分镜简化制作 → 导出预演视频 → 导入对应镜头', wraplength=680).pack(anchor='w')
     selected = tk.StringVar(value=next(iter(shots)))
     combo = ttk.Combobox(body, textvariable=selected, values=list(shots), state='readonly'); combo.pack(
         fill='x', pady=SPACING['sm']
@@ -84,8 +84,8 @@ def show(desktop):
     if state is None:state={'busy':False,'status':{},'selected':set()};desktop.previs_jobs=state
     body=ttk.Frame(desktop.content);body.pack(fill='both',expand=True)
     decisions=previs_routing.entries(project,source)
-    ttk.Label(body,text='简单／固定动作：无需白模；中等动作：线上简单制作；复杂动作：Agent 自动制作。',wraplength=920).pack(anchor='w')
-    ttk.Label(body,text='优先读取分镜的复杂度标注；未标注时自动判断。选中镜头可手动调整。').pack(
+    DescriptionBlock(body,text='简单／固定动作：无需白模；中等动作：线上简单制作；复杂动作：Agent 自动制作。',wraplength=920).pack(anchor='w')
+    DescriptionBlock(body,text='优先读取分镜的复杂度标注；未标注时自动判断。选中镜头可手动调整。').pack(
         anchor='w', pady=SPACING['xs']
     )
     tablebox=ttk.Frame(body);tablebox.pack(fill='both',expand=True,pady=SPACING['sm'])
@@ -145,7 +145,7 @@ def show(desktop):
     tree.cell_hover=CellHover(tree,('#1','#2','#3','#4','#5','#6'),lambda row,col:None,
                               hover_only=True,forward=forward_to_tree)
     tree.heading('#0',command=lambda:box.toggle_all())
-    status=tk.StringVar(value='就绪');ttk.Label(body,textvariable=status).pack(anchor='w')
+    status=tk.StringVar(value='就绪');ProgressLabel(body,textvariable=status).pack(anchor='w')
     level_row=ttk.Frame(body);level_row.pack(fill='x',pady=SPACING['xs'])
     ttk.Label(level_row,text='选中镜头的复杂度').pack(side='left')
     choices={'自动判断':'auto',**{name:key for key,name in previs_routing.LEVELS.items()}}
@@ -154,7 +154,7 @@ def show(desktop):
         side='left', padx=SPACING['sm']
     )
     reason=tk.StringVar(value='点击一个镜头查看判断依据')
-    ttk.Label(level_row,textvariable=reason,wraplength=610).pack(side='left')
+    ProgressLabel(level_row,textvariable=reason,wraplength=610).pack(side='left')
     def adjust_targets():
         """第 47 期第 1 条：调复杂度认的目标与「手动制作白模」逐条对齐——勾选优先，高亮兜底。"""
         return work_rows(tree,lambda sid: key(sid) in state['selected'])

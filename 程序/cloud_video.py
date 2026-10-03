@@ -6,7 +6,7 @@ from tkinter import ttk,messagebox
 import webbrowser
 from pathlib import Path
 from ui_tokens import SPACING
-from ui_widgets import BaseDialog, LineInput, PrimaryButton, SecondaryButton, notify
+from ui_widgets import BaseDialog, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, notify
 from agent.core import read
 from api_models import identity,cloud_removed
 from project_naming import dated_path
@@ -255,7 +255,7 @@ def settings_window(desktop):
     PrimaryButton(row7,text='保存设置',command=open_session).pack(side='left')
     SecondaryButton(row7,text='测试连接',command=probe_endpoint_now).pack(side='left',padx=SPACING['sm'])
     SecondaryButton(row7,text='显示已保存密钥（10 秒）',command=reveal_key).pack(side='left',padx=SPACING['sm'])
-    ttk.Label(row7,textvariable=probe_status,style='Muted.TLabel').pack(side='left',padx=SPACING['sm'])
+    ProgressLabel(row7,textvariable=probe_status).pack(side='left',padx=SPACING['sm'])
     # ② 说明分条：一条一行，跟着窗口宽度换行——原来是一整段四行密排，读起来串行。
     notes=ttk.LabelFrame(win,text='说明与限制',padding=(SPACING['md'],SPACING['sm']));notes.grid(row=7,column=0,columnspan=2,sticky='ew',padx=SPACING['md'])
     notes.columnconfigure(0,weight=1)

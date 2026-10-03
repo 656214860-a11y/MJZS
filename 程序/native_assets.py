@@ -307,7 +307,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
 def attach_controls(app, win, form, footer, project, base, selection, status, reload_rows, context_matches):
     import tkinter as tk
     from tkinter import ttk, messagebox
-    from ui_widgets import notify
+    from ui_widgets import ProgressLabel, notify
     from responsive_ui import FlowBar
     progress_text=tk.StringVar()
     events=queue.Queue()
@@ -322,7 +322,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
     ttk.Label(config,text='画幅').grid(row=0,column=2,padx=(12,4))
     shape=ttk.Combobox(config,textvariable=aspect,values=['1:1','9:16','16:9'],state='readonly',width=8);shape.grid(row=0,column=3,padx=4)
     hint=tk.StringVar();account_text=tk.StringVar(value='云模型账号 / 密钥')
-    ttk.Label(config,textvariable=hint,wraplength=730).grid(row=1,column=0,columnspan=4,sticky='w',pady=8)
+    ProgressLabel(config,textvariable=hint,wraplength=730).grid(row=1,column=0,columnspan=4,sticky='w',pady=8)
     def update_hint():
         account_text.set('火山 API 设置' if model.get()=='Seedream 5.0 Pro' else '云模型账号 / 密钥')
         if model.get()=='Seedream 5.0 Pro':
@@ -389,7 +389,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                 app.safe(start)
         app.async_(probe,done,show_progress=False)
     progress=ttk.Progressbar(form,mode='indeterminate');progress.pack(fill='x',padx=14,pady=6)
-    ttk.Label(form,textvariable=progress_text,wraplength=760,justify='left').pack(anchor='w',padx=14,pady=(0,4))
+    ProgressLabel(form,textvariable=progress_text,wraplength=760,justify='left').pack(anchor='w',padx=14,pady=(0,4))
     def poll():
         if not win.winfo_exists():return
         try:
