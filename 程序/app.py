@@ -251,7 +251,7 @@ class App:
         for label,action in [('手动制作提示词',self.start_prompt_skill),('MCP 优化',self.make_prompt),('MCP 设置',lambda:ui_plugin_registry.module('agent.prompt_optimizer').settings(self)),('保存提示词',self.save_prompt),('导入提示词',self.import_prompt),('当前提示词目录',self.open_prompt_folder)]:
             # MCP 优化会产生额外调用成本；保留既有警示层级，其余动作统一走 token 组件。
             if label=='MCP 优化':
-                btn=ttk.Button(prompt_actions,text=label,style='Highlight.TButton',
+                btn=PrimaryButton(prompt_actions,text=label,style='Highlight.TButton',
                                command=lambda f=action:self.safe(f))
             else:
                 button_type=PrimaryButton if label=='手动制作提示词' else SecondaryButton
@@ -643,7 +643,7 @@ class App:
                 self.write('编剧任务书已生成：'+str(folder));open_path(folder)
                 self.notifier.success('任务书、技能说明、资产表和JSON模板已保存。\n交给 Codex 执行即可，本按钮不调用模型。', title='已准备', modal=True)
             except Exception as e:self.notifier.error(str(e), title='无法准备')
-        ttk.Button(win,text='生成编剧任务书（离线）',command=generate).pack(pady=12)
+        PrimaryButton(win,text='生成编剧任务书（离线）',command=generate).pack(pady=12)
     def import_json(self):
         from writing import validate_episode
         from agent.core import read
