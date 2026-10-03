@@ -3703,9 +3703,9 @@ class Desktop:
             if item is None:
                 notice.set('该项目已不在列表中。');return
             if not Path(path).exists():
-                if not messagebox.askyesno('只清除登记',
+                if not confirm(popup, '只清除登记',
                         '项目目录已不存在。只清除这条项目登记，不会改动磁盘上的任何文件。是否继续？',
-                        parent=popup):return
+                        dangerous=True):return
                 if not self.clear_missing_project(item,confirmed=True):
                     notice.set('清除失效项目登记失败，请查看状态栏后重试。');return
                 self.fill_projects(tree)
@@ -3718,9 +3718,9 @@ class Desktop:
             message=(f"{item.get('name','项目')}\n{target}\n\n"
                      +('这是一条项目目录链接。只会删除链接和项目登记，不会删除链接指向的真实目录。是否删除？'
                        if linked else '将把这个项目文件夹及全部素材移入项目库回收站。是否继续？'))
-            if not messagebox.askyesno('移入项目回收站',
+            if not confirm(popup, '移入项目回收站',
                     message,
-                    icon='warning',default='no',parent=popup):return
+                    dangerous=True):return
             notice.set('正在删除项目文件夹…');tree.state(['disabled'])
             def gone(_):
                 self.reload();self.fill_projects(tree)
