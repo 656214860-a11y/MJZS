@@ -42,6 +42,20 @@ class FileDialogBoundaryTests(unittest.TestCase):
             if calls:
                 actual[path.name] = [call.lineno for call in calls]
         self.assertEqual(actual, {}, '业务模块必须经 FileDialog 选择文件：' + str(actual))
+
+    def test_all_production_modules_use_file_dialog_boundary(self):
+        actual = {}
+        for path in ROOT.rglob('*.py'):
+            relative = path.relative_to(ROOT)
+            if (path.name == 'ui_dialogs.py' or path.name.startswith('test')
+                    or 'tests' in relative.parts or 'tasks_round' in relative.parts
+                    or '维护记录' in relative.parts):
+                continue
+            calls = _direct_file_dialog_calls(ast.parse(path.read_text(encoding='utf-8')))
+            if calls:
+                actual[str(relative)] = [call.lineno for call in calls]
+        self.assertEqual(actual, {}, '生产模块必须经 FileDialog 选择文件：' + str(actual))
+
  # 现有业务页的冻结上限；首迁入口仍由下方的零容忍断言保护。
 LEGACY_FILE_DIALOG_MAX = {
     'app.py': 2, 'asset_detail.py': 2, 'asset_reference_import.py': 1,
