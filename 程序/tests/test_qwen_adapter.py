@@ -38,3 +38,17 @@ class InteractiveLaunchTests(unittest.TestCase):
             thread.return_value.start.assert_called_once_with()
             from workflow_process_registry import forget_process
             forget_process(root, process)
+
+    def test_qwen_readiness_waits_stay_off_the_desktop_callback(self):
+        """续发和启动后的命名都可能等待 Qwen 就绪，必须经后台边界。"""
+        root = Path(__file__).resolve().parents[1]
+        adapter = (root / 'qwen_adapter.py').read_text(encoding='utf-8')
+        desktop = (root / 'desktop.py').read_text(encoding='utf-8')
+        self.assertIn(
+            "threading.Thread(target=name_when_ready,args=(process,),daemon=True).start()",
+            adapter)
+        start = desktop.index("if key in sessions and sessions[key].poll() is None:")
+        end = desktop.index("            def launched(result):", start)
+        continuation = desktop[start:end]
+        self.assertIn("from qwen_adapter import submit_existing", continuation)
+        self.assertIn("self.async_(submit,submitted);return", continuation)
