@@ -21,3 +21,21 @@ class TooltipBoundaryTests(unittest.TestCase):
                                    if isinstance(node.func, ast.Name)])
         self.assertNotIn("show_skill_tip", [node.func.attr for node in calls
                                              if isinstance(node.func, ast.Attribute)])
+
+    def test_production_modules_do_not_construct_tooltip_toplevels(self):
+        violations = {}
+        for path in ROOT.rglob('*.py'):
+            relative = path.relative_to(ROOT)
+            if (path.name in {'ui_widgets.py', 'ui_theme.py'} or path.name.startswith('test')
+                    or 'tests' in relative.parts or 'tasks_round' in relative.parts
+                    or '维护记录' in relative.parts):
+                continue
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+            lines = [node.lineno for node in ast.walk(tree) if isinstance(node, ast.Call)
+                     and isinstance(node.func, ast.Attribute)
+                     and isinstance(node.func.value, ast.Name)
+                     and node.func.value.id == 'tk' and node.func.attr == 'Toplevel']
+            if lines:
+                violations[str(relative)] = lines
+        self.assertEqual(violations, {},
+                         '业务提示窗口必须经 Tooltip 或 BaseDialog：' + str(violations))
