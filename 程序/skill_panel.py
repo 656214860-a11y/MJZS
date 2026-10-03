@@ -68,6 +68,11 @@ EXTERNAL_PACKAGE_API_HINT = (
 )
 # 预设不是必填项；用明确的占位项避免刚打开面板就误把第一份预设当作当前选择。
 PRESET_PLACEHOLDER = '请选择'
+# 预设操作的名称比普通下拉项更长；只缩小这一控件的字号，并保留足够的字符宽度。
+# 不修改全局 Combobox，避免影响模型等常用选择器的可读性。
+PRESET_ACTION_STYLE = 'PresetAction.TCombobox'
+PRESET_ACTION_FONT = FONTS['caption']
+PRESET_ACTION_WIDTH = 15
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 SKILL_FLOW_ORDER = ('script', 'storyboard', 'asset', 'firstframe', 'whitemodel',
                     'video', 'voice', 'subtitle', 'edit', 'qa', 'delivery')
@@ -681,21 +686,29 @@ class Panel(ttk.Frame):
                                     values=[PRESET_PLACEHOLDER] + self.preset_names())
         self.presets.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
         self.presets.bind('<<ComboboxSelected>>', lambda event: self.apply_preset())
+        ttk.Style(self).configure(PRESET_ACTION_STYLE, font=PRESET_ACTION_FONT)
         self.preset_actions = ttk.Combobox(
-            row, textvariable=self.preset_action, state='readonly', width=12,
+            row, textvariable=self.preset_action, state='readonly', width=PRESET_ACTION_WIDTH,
+            style=PRESET_ACTION_STYLE,
             values=['选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'])
         self.preset_actions.pack(side='left', padx=(0, SPACING['xs']))
         self.preset_actions.bind('<<ComboboxSelected>>', lambda event: self.run_preset_action())
+        # ttk 的弹出列表是独立 Listbox，不会继承 Combobox Style；展开后同步字号和
+        # 宽度，避免长操作名称在列表中被截断。
+        self.preset_actions.bind('<ButtonPress-1>', self._schedule_preset_action_popup_style,
+                                 add='+')
+        self.preset_actions.bind('<Alt-Down>', self._schedule_preset_action_popup_style, add='+')
+        self.preset_actions.bind('<F4>', self._schedule_preset_action_popup_style, add='+')
         self.restore_defaults_button = SecondaryButton(row, text='恢复默认', width=12,
                                                        command=self.reset_defaults)
         self.restore_defaults_button.pack(side='left')
         HintLabel(row, text='勾选项与模型已自动保存').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
 
-        coordinator = ttk.LabelFrame(self, text='统筹 SKILL', padding=pad)
+        coordinator = ttk.LabelFrame(self, text='', padding=pad)
         coordinator.pack(fill='x', pady=(0, pad))
         self.build_workflow_coordinator(pad, coordinator)
 
-        engine = ttk.LabelFrame(self, text='由谁执行', padding=pad)
+        engine = ttk.LabelFrame(self, text='', padding=pad)
         engine.pack(fill='x', pady=(0, pad))
         top = ttk.Frame(engine)
         top.pack(fill='x')
@@ -714,7 +727,7 @@ class Panel(ttk.Frame):
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
         self.route_hint = HintLabel(engine, text='')
         self.route_hint.pack(fill='x', pady=(0, SPACING['none']))
-        skill_section = ttk.LabelFrame(self, text='怎么执行', padding=pad)
+        skill_section = ttk.LabelFrame(self, text='', padding=pad)
         skill_section.pack(fill='x', pady=(0, pad))
         self.skill_content = ttk.Frame(skill_section)
         self.skill_content.pack(fill='x')
@@ -724,7 +737,7 @@ class Panel(ttk.Frame):
         # 执行编排时的细节仍独占一行，避免覆盖上面的结果摘要。
         self.reason = DescriptionBlock(skill_section, text='')
         self.reason.pack(fill='x', pady=(0, pad))
-        specific = ttk.LabelFrame(self, text='本页专属', padding=pad)
+        specific = ttk.LabelFrame(self, text='', padding=pad)
         specific.pack(fill='x', pady=(0, pad))
         self.build_hollmwood_editors(pad, specific)
         self.build_interfaces(pad, specific)
@@ -738,6 +751,21 @@ class Panel(ttk.Frame):
         self.confirm_button.pack(side='right')
         self.build_notes(pad)
         self.load()
+
+    def _schedule_preset_action_popup_style(self, _event=None):
+        """在 ttk 创建预设操作的弹出 Listbox 后应用其专属紧凑样式。"""
+        self.after_idle(self._style_preset_action_popup)
+
+    def _style_preset_action_popup(self):
+        """让预设操作弹出列表和触发框保持相同字号及足够宽度。"""
+        try:
+            popdown = str(self.tk.call('ttk::combobox::PopdownWindow',
+                                       str(self.preset_actions)))
+            listbox = self.nametowidget(popdown + '.f.l')
+            listbox.configure(font=PRESET_ACTION_FONT, width=PRESET_ACTION_WIDTH)
+        except (KeyError, tk.TclError):
+            # 键盘焦点切换或关闭窗口时，Tk 可能已回收这个临时 Listbox。
+            return None
 
     def build_hollmwood_editors(self, pad, parent=None):
         """仅在真正调用 HOLLMWOOD 的阶段提供规则编辑，避免无关页面出现无效入口。"""
@@ -1286,7 +1314,8 @@ class Panel(ttk.Frame):
         # 说明框占用面板剩余空间：窗口放大时目录和正文一起变高，优先露出更多 SKILL。
         box.columnconfigure(1, weight=1)
         box.rowconfigure(0, weight=1)
-        height = 5 if self.compact else 12
+        # 紧凑弹窗也先给说明正文更多可见行；后续仍会随窗口高度继续扩展。
+        height = 8 if self.compact else 12
         self.note_list = tk.Listbox(box, height=height, width=18, exportselection=False,
                                     activestyle='none', font=FONTS['caption'])
         self.note_list.grid(row=0, column=0, sticky='ns')

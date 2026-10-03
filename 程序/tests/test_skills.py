@@ -1183,6 +1183,16 @@ class PanelTests(unittest.TestCase):
             self.assertIn(text, hint)
         panel.destroy()
 
+    def test_preset_action_picker_uses_compact_font_and_room_for_option_text(self):
+        """预设操作下拉框单独紧凑，长操作名不会挤压或裁切。"""
+        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        self.assertEqual(panel.preset_actions.cget('style'), skill_panel.PRESET_ACTION_STYLE)
+        self.assertEqual(int(panel.preset_actions.cget('width')),
+                         skill_panel.PRESET_ACTION_WIDTH)
+        self.assertGreaterEqual(skill_panel.PRESET_ACTION_WIDTH, 15)
+        self.assertIsNone(panel._style_preset_action_popup())
+        panel.destroy()
+
     def test_confirm_saves_current_page_configuration_and_is_in_bottom_action_bar(self):
         """确认在底部动作条，预设行不承担关闭窗口的责任。"""
         window = tk.Toplevel(self.win)
