@@ -17,3 +17,22 @@ class ScrollbarThemeBoundaryTests(unittest.TestCase):
         self.assertIn("'Vertical.TScrollbar'", source)
         self.assertIn("'Horizontal.TScrollbar'", source)
         self.assertIn("('active', SCROLLBAR_THUMB_ACTIVE)", source)
+
+    def test_production_scrollbars_do_not_override_global_style(self):
+        violations = []
+        for path in PROGRAM.rglob('*.py'):
+            relative = path.relative_to(PROGRAM)
+            if (path.name in {'ui_theme.py', 'ui_widgets.py'} or path.name.startswith('test')
+                    or 'tests' in relative.parts or 'tasks_round' in relative.parts
+                    or '维护记录' in relative.parts):
+                continue
+            tree = ast.parse(path.read_text(encoding='utf-8'))
+            for node in ast.walk(tree):
+                if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                        and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == 'ttk' and node.func.attr == 'Scrollbar'):
+                    continue
+                if any(keyword.arg == 'style' for keyword in node.keywords):
+                    violations.append(f'{relative}:{node.lineno}')
+        self.assertEqual(violations, [],
+                         '业务滚动条必须使用全局 TScrollbar 样式：' + '; '.join(violations))
