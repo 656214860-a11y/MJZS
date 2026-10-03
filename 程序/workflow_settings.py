@@ -4,12 +4,12 @@ import os
 import re
 import shutil
 from pathlib import Path
-from tkinter import ttk, messagebox
+from tkinter import ttk
 import tkinter as tk
 from agent.core import save
 from file_cache import read_json
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, notify
+from ui_widgets import BaseDialog, PrimaryButton, SecondaryButton, notify
 from ui_widgets import LineInput, TextArea
 
 ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code'}
@@ -533,7 +533,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
         entry=LineInput(custom,textvariable=values[key],state='normal');entry.grid(row=row,column=1,sticky='ew',pady=5)
         if key=='model':win.model_entry=entry
         if key=='skill':skill_entry=entry
-        if key!='model':ttk.Button(custom,text='选择文件',command=lambda k=key:browse(k)).grid(row=row,column=2,padx=(8,0))
+        if key!='model':SecondaryButton(custom,text='选择文件',command=lambda k=key:browse(k)).grid(row=row,column=2,padx=(8,0))
     ttk.Label(custom,text='模型 ID 可直接填写；留空使用默认模型。保存后更新外面的 Agent 名称。',wraplength=650,style='Muted.TLabel').grid(row=4,column=0,columnspan=3,sticky='w',pady=4)
     skill_details=tk.StringVar()
     def update_skill(*_):
@@ -589,12 +589,12 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
         draft['profiles']['qwen']['model']=model
         if active[0]=='qwen':values['model'].set(model)
         feedback.set('API 设置已保存，Qwen 模型已同步。')
-    api_button=ttk.Button(custom,text='自定义 API（Qwen）',command=lambda:__import__('qwen_setup').show(win,on_saved=api_saved))
+    api_button=SecondaryButton(custom,text='自定义 API（Qwen）',command=lambda:__import__('qwen_setup').show(win,on_saved=api_saved))
     api_button.grid(row=0,column=2,padx=(8,0))
     row=ttk.Frame(footer);row.pack(side='right')
-    ttk.Button(row,text='检查配置',command=check).pack(side='left',padx=5)
-    ttk.Button(row,text='保存',command=commit).pack(side='left',padx=5)
-    ttk.Button(row,text='取消',command=win.destroy).pack(side='left')
+    SecondaryButton(row,text='检查配置',command=check).pack(side='left',padx=5)
+    PrimaryButton(row,text='保存',command=commit).pack(side='left',padx=5)
+    SecondaryButton(row,text='取消',command=win.destroy).pack(side='left')
     populate()
     def focus_model():
         if win.winfo_exists():win.lift();win.model_entry.focus_set()

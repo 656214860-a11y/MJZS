@@ -40,3 +40,6 @@ class ButtonBoundaryTests(unittest.TestCase):
 
     def test_seedream_settings_use_semantic_buttons(self):
         self._assert_semantic_buttons('seedream_settings.py')
+
+    def test_workflow_settings_use_semantic_buttons(self):
+        self._assert_semantic_buttons('workflow_settings.py')
