@@ -742,7 +742,9 @@ def run_units(todo, jobs=8):
     """并行跑（Windows 上 spawn：每个子进程自己建 Tk，互不打扰）。"""
     import concurrent.futures as futures
     out = []
-    with futures.ProcessPoolExecutor(max_workers=max(1, jobs)) as pool:
+    pool = futures.ProcessPoolExecutor(max_workers=max(1, jobs))
+    timed_out = False
+    try:
         pending = {pool.submit(_worker, payload): payload for payload in todo}
         last_progress = time.time()
         while pending:
@@ -764,13 +766,18 @@ def run_units(todo, jobs=8):
                             (payload[0], SAFE_UNIT_TIMEOUT), now - last_progress, '')
                            for payload in waiting.values())
                 pending = {}
-                continue
+                timed_out = True
+                break
             for future in done:
                 item = future.result()
                 out.append(item)
                 print_unit_result(item)
                 pending.pop(future)
             last_progress = time.time()
+    finally:
+        # ``with ProcessPoolExecutor`` always waits in __exit__.  Once a GUI
+        # worker is known stuck, that turns the watchdog into another hang.
+        pool.shutdown(wait=not timed_out, cancel_futures=timed_out)
     return out
 
 

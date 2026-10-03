@@ -957,7 +957,7 @@ class VideoHomePageTests(unittest.TestCase):
                        if str(b.cget("text")) in ("进入本地生成", "进入线上生成")]
             self.assertEqual(len(entries), 2)
             for button in entries:
-                self.assertEqual(str(button.cget("style")), "Primary.TButton")
+                self.assertEqual(str(button.cget("style")), "Tokens.Primary.TButton")
             # 自动补视频由三虎统一控制；选择页不再渲染独立勾选框。
             self.assertFalse([box for box in widget_list(d.content, ttk.Checkbutton)
                               if "自动补视频" in str(box.cget("text"))])
