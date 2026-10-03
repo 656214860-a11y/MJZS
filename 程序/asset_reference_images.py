@@ -13,7 +13,8 @@ from cell_hover import bind_row_menu
 import asset_thumbs
 from cell_hover import CellHover,CellImages,ZOOM_SIZE
 from responsive_ui import row_height_for
-from ui_widgets import BaseDialog, DataTable, DescriptionBlock, ProgressLabel, TextArea
+from ui_widgets import (BaseDialog, DataTable, DescriptionBlock, PrimaryButton,
+                        ProgressLabel, SecondaryButton, TextArea)
 
 REF_THUMB=asset_thumbs.DEFAULT_SIZE          # 缩略图长边：与资产页那一列同尺寸
 # 第 58 期第 2 条：行高按格子里最高的那点内容算（这一张就是缩略图）——
@@ -386,7 +387,7 @@ def show(app,aid):
     ttk.Combobox(rolebar,textvariable=rolevar,values=choices,state='readonly',width=18).pack(side='left',padx=6)
     def change_roles():
         guard();set_roles(base,aid,selected_values(),rolevar.get());changed()
-    ttk.Button(rolebar,text='应用到选中参考图',command=lambda:app.safe(change_roles)).pack(side='left')
+    SecondaryButton(rolebar,text='应用到选中参考图',command=lambda:app.safe(change_roles)).pack(side='left')
     ttk.Label(rolebar,text='显示分类').pack(side='left',padx=(12,0))
     filtervar=tk.StringVar(value='全部')
     filterbox=ttk.Combobox(rolebar,textvariable=filtervar,values=('全部',*choices,'待分类'),state='readonly',width=16)
@@ -452,9 +453,8 @@ def show(app,aid):
 
     buttons=FlowBar(win);buttons.pack(fill='x',padx=12,pady=10)
 
-    for label,fn in [('添加参考图',add),('查看参考图',preview),('移除绑定',remove),('打开待导入目录',lambda:open_path(inbox(base,CATEGORIES[aid.split('_')[0]])))]:
-
-        ttk.Button(buttons,text=label,command=lambda f=fn:app.safe(f)).pack(side='left')
+    for label,fn,button_type in [('添加参考图',add,PrimaryButton),('查看参考图',preview,SecondaryButton),('移除绑定',remove,SecondaryButton),('打开待导入目录',lambda:open_path(inbox(base,CATEGORIES[aid.split('_')[0]])),SecondaryButton)]:
+        button_type(buttons,text=label,command=lambda f=fn:app.safe(f)).pack(side='left')
 
     table.bind('<Double-1>',lambda event:app.safe(preview))
     filterbox.bind('<<ComboboxSelected>>',lambda event:refresh());refresh()
@@ -561,8 +561,8 @@ def view_references(app, aid):
         import_images(app,aid,role=filtervar.get() if filtervar.get() in roles else roles[0],
                       parent=win,on_saved=lambda:(refresh(),app.safe(lambda:app.show(2))))
     buttons=FlowBar(win)
-    for label,fn in [('查看图片',preview),('导入参考图',add),('打开参考图目录',open_folder)]:
-        ttk.Button(buttons,text=label,command=lambda f=fn:app.safe(f)).pack(side='left',padx=(0,4))
+    for label,fn,button_type in [('查看图片',preview,SecondaryButton),('导入参考图',add,PrimaryButton),('打开参考图目录',open_folder,SecondaryButton)]:
+        button_type(buttons,text=label,command=lambda f=fn:app.safe(f)).pack(side='left',padx=(0,4))
     # 按钮与状态行先落位（bottom），内容框最后 pack 去吃掉剩下的空间：窗口再矮也是内容框
     # 先让步，不会是这三个按钮消失。
     buttons.pack(side='bottom',fill='x',padx=12,pady=(0,10))
