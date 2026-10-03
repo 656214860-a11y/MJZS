@@ -1183,23 +1183,15 @@ class PanelTests(unittest.TestCase):
             self.assertIn(text, hint)
         panel.destroy()
 
-    def test_preset_action_picker_uses_compact_font_and_room_for_option_text(self):
-        """预设操作下拉框单独紧凑，长操作名不会挤压或裁切。"""
+    def test_all_panel_dropdowns_use_compact_font_and_room_for_option_text(self):
+        """阶段配置的所有下拉框都应统一紧凑，并为弹出选项留出足够宽度。"""
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        self.assertEqual(panel.preset_actions.cget('style'), skill_panel.PRESET_ACTION_STYLE)
-        self.assertEqual(int(panel.preset_actions.cget('width')),
-                         skill_panel.PRESET_ACTION_WIDTH)
-        self.assertGreaterEqual(skill_panel.PRESET_ACTION_WIDTH, 15)
-        self.assertIsNone(panel._style_preset_action_popup())
-        panel.destroy()
-
-    def test_model_picker_uses_small_font_and_room_for_model_names(self):
-        """模型下拉框及弹出列表应完整展示含版本号的名称。"""
-        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
-        self.assertEqual(panel.models.cget('style'), skill_panel.MODEL_PICKER_STYLE)
-        self.assertEqual(int(panel.models.cget('width')), skill_panel.MODEL_PICKER_WIDTH)
-        self.assertGreaterEqual(skill_panel.MODEL_PICKER_WIDTH, 18)
-        self.assertIsNone(panel._style_model_popup())
+        for picker in (panel.presets, panel.preset_actions, panel.providers, panel.models,
+                       panel.workflow_box, panel.skill_action_box if hasattr(panel, 'skill_action_box') else None):
+            if picker is not None:
+                self.assertEqual(picker.cget('style'), skill_panel.PANEL_COMBO_STYLE)
+        self.assertGreaterEqual(skill_panel.PANEL_COMBO_POPUP_WIDTH, 18)
+        self.assertIsNone(panel.style_combobox_popup(panel.models))
         panel.destroy()
 
     def test_confirm_saves_current_page_configuration_and_is_in_bottom_action_bar(self):

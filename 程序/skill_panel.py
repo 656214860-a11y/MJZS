@@ -68,15 +68,11 @@ EXTERNAL_PACKAGE_API_HINT = (
 )
 # 预设不是必填项；用明确的占位项避免刚打开面板就误把第一份预设当作当前选择。
 PRESET_PLACEHOLDER = '请选择'
-# 预设操作的名称比普通下拉项更长；只缩小这一控件的字号，并保留足够的字符宽度。
-# 不修改全局 Combobox，避免影响模型等常用选择器的可读性。
-PRESET_ACTION_STYLE = 'PresetAction.TCombobox'
-PRESET_ACTION_FONT = FONTS['caption']
-PRESET_ACTION_WIDTH = 15
-# 模型名称常含版本号；弹出列表使用更小字号和更宽字符位，避免内容被截断。
-MODEL_PICKER_STYLE = 'ModelPicker.TCombobox'
-MODEL_PICKER_FONT = (FONTS['caption'][0], 9)
-MODEL_PICKER_WIDTH = 18
+# 阶段配置的所有下拉框共用紧凑字体；弹出列表至少预留 18 个字符位，模型名和
+# 预设操作均不会因单个控件的默认尺寸被截断。
+PANEL_COMBO_STYLE = 'StagePanel.TCombobox'
+PANEL_COMBO_FONT = (FONTS['caption'][0], 9)
+PANEL_COMBO_POPUP_WIDTH = 18
 # 勾选框按「功能分组／流程先后」排（第 59 期第 6 条）：文件名前缀就是那条流程里的功能分组。
 SKILL_FLOW_ORDER = ('script', 'storyboard', 'asset', 'firstframe', 'whitemodel',
                     'video', 'voice', 'subtitle', 'edit', 'qa', 'delivery')
@@ -686,23 +682,16 @@ class Panel(ttk.Frame):
         row = ttk.Frame(self)
         row.pack(fill='x', pady=(0, pad))
         ttk.Label(row, text='预设', style='Muted.TLabel', width=label_width).pack(side='left')
-        self.presets = ttk.Combobox(row, textvariable=self.preset, state='readonly', width=14,
-                                    values=[PRESET_PLACEHOLDER] + self.preset_names())
+        self.presets = self.compact_combobox(
+            row, textvariable=self.preset, state='readonly', width=14,
+            values=[PRESET_PLACEHOLDER] + self.preset_names())
         self.presets.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
         self.presets.bind('<<ComboboxSelected>>', lambda event: self.apply_preset())
-        ttk.Style(self).configure(PRESET_ACTION_STYLE, font=PRESET_ACTION_FONT)
-        self.preset_actions = ttk.Combobox(
-            row, textvariable=self.preset_action, state='readonly', width=PRESET_ACTION_WIDTH,
-            style=PRESET_ACTION_STYLE,
+        self.preset_actions = self.compact_combobox(
+            row, textvariable=self.preset_action, state='readonly', width=15,
             values=['选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'])
         self.preset_actions.pack(side='left', padx=(0, SPACING['xs']))
         self.preset_actions.bind('<<ComboboxSelected>>', lambda event: self.run_preset_action())
-        # ttk 的弹出列表是独立 Listbox，不会继承 Combobox Style；展开后同步字号和
-        # 宽度，避免长操作名称在列表中被截断。
-        self.preset_actions.bind('<ButtonPress-1>', self._schedule_preset_action_popup_style,
-                                 add='+')
-        self.preset_actions.bind('<Alt-Down>', self._schedule_preset_action_popup_style, add='+')
-        self.preset_actions.bind('<F4>', self._schedule_preset_action_popup_style, add='+')
         self.restore_defaults_button = SecondaryButton(row, text='恢复默认', width=12,
                                                        command=self.reset_defaults)
         self.restore_defaults_button.pack(side='left')
@@ -717,21 +706,17 @@ class Panel(ttk.Frame):
         top = ttk.Frame(engine)
         top.pack(fill='x')
         ttk.Label(top, text='厂商', style='Muted.TLabel', width=label_width).pack(side='left')
-        self.providers = ttk.Combobox(top, textvariable=self.provider, state='readonly', width=14,
-                                      values=list(self.groups))
+        self.providers = self.compact_combobox(
+            top, textvariable=self.provider, state='readonly', width=14, values=list(self.groups))
         self.providers.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
         self.providers.bind('<<ComboboxSelected>>', lambda event: self.choose_provider())
         # 第 50 期第 1 条：最后一项是「+ 添加模型…」——原来那颗「手动配置模型与
         # SKILL」里的「自定义模型」入口，现在就在挑模型的那一格旁边。
-        self.models = ttk.Combobox(top, textvariable=self.model, state='readonly',
-                                   width=MODEL_PICKER_WIDTH, style=MODEL_PICKER_STYLE,
-                                   values=self.provider_labels() + [ADD_MODEL_LABEL])
-        ttk.Style(self).configure(MODEL_PICKER_STYLE, font=MODEL_PICKER_FONT)
+        self.models = self.compact_combobox(
+            top, textvariable=self.model, state='readonly', width=18,
+            values=self.provider_labels() + [ADD_MODEL_LABEL])
         self.models.pack(side='left', padx=(SPACING['xs'], 0))
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
-        self.models.bind('<ButtonPress-1>', self._schedule_model_popup_style, add='+')
-        self.models.bind('<Alt-Down>', self._schedule_model_popup_style, add='+')
-        self.models.bind('<F4>', self._schedule_model_popup_style, add='+')
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
         self.route_hint = HintLabel(engine, text='')
         skill_section = ttk.LabelFrame(self, text='', padding=pad)
@@ -759,31 +744,23 @@ class Panel(ttk.Frame):
         self.build_notes(pad)
         self.load()
 
-    def _schedule_preset_action_popup_style(self, _event=None):
-        """在 ttk 创建预设操作的弹出 Listbox 后应用其专属紧凑样式。"""
-        self.after_idle(self._style_preset_action_popup)
+    def compact_combobox(self, parent, **kwargs):
+        """创建阶段配置统一的紧凑下拉框，并同步其独立弹出列表。"""
+        ttk.Style(self).configure(PANEL_COMBO_STYLE, font=PANEL_COMBO_FONT)
+        kwargs.setdefault('style', PANEL_COMBO_STYLE)
+        box = ttk.Combobox(parent, **kwargs)
+        for sequence in ('<ButtonPress-1>', '<Alt-Down>', '<F4>'):
+            box.bind(sequence, lambda _event, picker=box: self.after_idle(
+                lambda: self.style_combobox_popup(picker)), add='+')
+        return box
 
-    def _style_preset_action_popup(self):
-        """让预设操作弹出列表和触发框保持相同字号及足够宽度。"""
+    def style_combobox_popup(self, picker):
+        """让任一阶段配置下拉列表统一用小字体且完整显示选项。"""
         try:
-            popdown = str(self.tk.call('ttk::combobox::PopdownWindow',
-                                       str(self.preset_actions)))
+            popdown = str(self.tk.call('ttk::combobox::PopdownWindow', str(picker)))
             listbox = self.nametowidget(popdown + '.f.l')
-            listbox.configure(font=PRESET_ACTION_FONT, width=PRESET_ACTION_WIDTH)
-        except (KeyError, tk.TclError):
-            # 键盘焦点切换或关闭窗口时，Tk 可能已回收这个临时 Listbox。
-            return None
-
-    def _schedule_model_popup_style(self, _event=None):
-        """在 ttk 创建模型列表后应用更小的专属字体及宽度。"""
-        self.after_idle(self._style_model_popup)
-
-    def _style_model_popup(self):
-        """避免模型名称和版本号在弹出列表中被截断。"""
-        try:
-            popdown = str(self.tk.call('ttk::combobox::PopdownWindow', str(self.models)))
-            listbox = self.nametowidget(popdown + '.f.l')
-            listbox.configure(font=MODEL_PICKER_FONT, width=MODEL_PICKER_WIDTH)
+            width = max(PANEL_COMBO_POPUP_WIDTH, int(picker.cget('width')))
+            listbox.configure(font=PANEL_COMBO_FONT, width=width)
         except (KeyError, tk.TclError):
             return None
 
@@ -806,7 +783,7 @@ class Panel(ttk.Frame):
         ttk.Label(row, text='HOLLMWOOD', style='Muted.TLabel', width=10).pack(side='left')
         ttk.Checkbutton(row, text='四角色协作', variable=self.hollmwood_enabled_var).pack(
             side='left', padx=(SPACING['xs'], SPACING['sm']))
-        self.hollmwood_editor = ttk.Combobox(
+        self.hollmwood_editor = self.compact_combobox(
             row, textvariable=self.hollmwood_editor_choice, state='readonly', width=18,
             values=['选择要编辑的内容', '节奏模板', '导演规则', '编剧规则', '编辑规则', '演员规则'])
         self.hollmwood_editor.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
@@ -892,7 +869,8 @@ class Panel(ttk.Frame):
         row.pack(fill='x')
         ttk.Label(row, text='统筹 SKILL', style='Muted.TLabel', width=10).pack(side='left')
         names = list(workflow_settings.WORKFLOW_PRESETS) + ['浏览本地…', '不使用统筹']
-        self.workflow_box = ttk.Combobox(row, textvariable=self.workflow_choice, state='readonly', width=18, values=names)
+        self.workflow_box = self.compact_combobox(
+            row, textvariable=self.workflow_choice, state='readonly', width=18, values=names)
         self.workflow_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
         self.workflow_summary = ProgressLabel(row, text='自由模式')
@@ -1014,10 +992,11 @@ class Panel(ttk.Frame):
         self.flow_skill_label = ttk.Label(self.skill_action_row, text='SKILL', style='Muted.TLabel', width=10)
         self.flow_skill_label.pack(side='left')
         self.skill_action = tk.StringVar(value=MANAGE_ALL)
-        action = ttk.Combobox(self.skill_action_row, textvariable=self.skill_action,
-                              values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE), state='readonly', width=12)
-        action.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
-        action.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
+        self.skill_action_box = self.compact_combobox(
+            self.skill_action_row, textvariable=self.skill_action,
+            values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE), state='readonly', width=12)
+        self.skill_action_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
+        self.skill_action_box.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
         # 外部包的引擎说明从独占行收进 SKILL 操作行，保持表单行高与上方栏一致。
         self.external_package_hint = HintLabel(self.skill_action_row, text='')
         self.external_package_hint.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
