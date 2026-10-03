@@ -6,7 +6,7 @@ from tkinter import ttk,messagebox
 from agent.core import read
 from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_target,image_bytes,save_copy,attach,unbind
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, LineInput, notify
+from ui_widgets import BaseDialog, LineInput, ProgressLabel, notify
 
 
 def save_images(base,aid,role,paths,active_ids,pending=False):
@@ -68,7 +68,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     ttk.Button(body,text='选择图片…',command=choose_files).grid(row=3,column=1,sticky='e',pady=(12,5))
     ttk.Label(body,text='保存目录').grid(row=5,column=0,sticky='w',pady=5)
     LineInput(body,textvariable=destination,state='readonly').grid(row=5,column=1,sticky='ew',pady=5)
-    ttk.Label(body,textvariable=status,wraplength=690).grid(row=6,column=0,columnspan=2,sticky='w',pady=5)
+    ProgressLabel(body,textvariable=status,wraplength=690).grid(row=6,column=0,columnspan=2,sticky='w',pady=5)
     buttons=ttk.Frame(body);buttons.grid(row=7,column=0,columnspan=2,sticky='ew',pady=(12,0))
     def commit():
         try:

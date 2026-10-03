@@ -101,20 +101,20 @@ def settings(parent):
     import tkinter as tk
     import webbrowser
     from tkinter import ttk, messagebox
-    from ui_widgets import FormDialog, LineInput, notify
+    from ui_widgets import DescriptionBlock, FormDialog, LineInput, ProgressLabel, notify
     win = FormDialog(parent, '云图片模型 · Comfy 账户', modal=False, chrome=False)
     win.withdraw();win.transient(parent)
     body = ttk.Frame(win, padding=16);body.pack(fill='both', expand=True)
-    ttk.Label(body, text='Seedream 5.0 Pro / Nano Banana Pro / GPT Image 2', wraplength=560).pack(anchor='w')
-    ttk.Label(body, text='使用 ComfyUI 账户余额；本地 FLUX 无需此密钥。', wraplength=560).pack(anchor='w', pady=6)
-    ttk.Label(body,text='1. 打开 Comfy 账户并登录或注册。\n2. 在 API Keys 页面创建密钥，复制到下方并保存。\n3. 确认账户有可用余额，再返回手动制作资产。',wraplength=560).pack(anchor='w',pady=6)
+    DescriptionBlock(body, text='Seedream 5.0 Pro / Nano Banana Pro / GPT Image 2', wraplength=560).pack(anchor='w')
+    DescriptionBlock(body, text='使用 ComfyUI 账户余额；本地 FLUX 无需此密钥。', wraplength=560).pack(anchor='w', pady=6)
+    DescriptionBlock(body,text='1. 打开 Comfy 账户并登录或注册。\n2. 在 API Keys 页面创建密钥，复制到下方并保存。\n3. 确认账户有可用余额，再返回手动制作资产。',wraplength=560).pack(anchor='w',pady=6)
     ttk.Label(body, text='Comfy API Key（统一保存到 程序目录/private/.env，不写入工作流）').pack(anchor='w')
     saved = get_key()
     token = tk.StringVar(value=saved)
     LineInput(body, textvariable=token, show='•', width=64).pack(fill='x', pady=6)
     status = tk.StringVar(value='已保存密钥（%s）' % redact(saved) if saved
                            else '尚未配置，暂不能从助手批量调用云模型')
-    ttk.Label(body, textvariable=status, wraplength=560).pack(anchor='w')
+    ProgressLabel(body, textvariable=status, wraplength=560).pack(anchor='w')
     row = ttk.Frame(body);row.pack(fill='x', pady=(12, 0))
     def save():
         try:save_key(token.get());win.destroy()
