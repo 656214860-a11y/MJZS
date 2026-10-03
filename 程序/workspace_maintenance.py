@@ -246,7 +246,9 @@ def clean_worktrees(repo_root: Path, *, now: float | None = None,
     result = {"category": "worktrees", "git": "present", "removed": [],
               "kept": [], "errors": 0}
     repo_root = Path(repo_root)
-    if not (repo_root / ".git").is_dir():
+    # linked worktree 的 .git 是指向公共 gitdir 的普通文件；它和主仓目录同样可安全
+    # 执行只读判定，不能因形态不同把工作树段误报为“非仓库”。
+    if not (repo_root / ".git").exists():
         result["git"] = "not-a-repo"
         return result
     if tool_path("git") is None:
