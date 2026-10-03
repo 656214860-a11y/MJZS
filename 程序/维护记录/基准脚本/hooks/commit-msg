@@ -1,0 +1,9 @@
+#!/bin/sh
+# 由 install_git_hooks.py 安装到 Git common-dir/hooks/commit-msg。
+message_file="$1"
+first_line=$(sed -n '1p' "$message_file")
+if printf '%s\n' "$first_line" | grep -Eq '^R[0-9]+(-FAIL)?: .+'; then
+  exit 0
+fi
+echo "拒绝提交：首行必须为 R<轮次>: 说明 或 R<轮次>-FAIL: 说明。" >&2
+exit 1

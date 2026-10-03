@@ -1,0 +1,29 @@
+#!/bin/sh
+# 由 install_git_hooks.py 安装到 Git common-dir/hooks/pre-commit。
+# CODEX_STAGE_ALLOWLIST 使用分号分隔 repo 相对路径；只对非默认安全文档路径必填。
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+allowed=";${CODEX_STAGE_ALLOWLIST:-};"
+staged=$(mktemp "${TMPDIR:-/tmp}/codex-staged.XXXXXX") || exit 1
+trap 'rm -f "$staged"' EXIT HUP INT TERM
+git -c core.quotepath=false diff --cached --name-only > "$staged"
+
+while IFS= read -r path; do
+  case "$path" in
+    程序/*) ;;
+    *) continue ;;
+  esac
+  if [ "$path" = "程序/project_status.md" ] && [ "$branch" != "master" ]; then
+    echo "拒绝提交：只有 master 可更新 程序/project_status.md；工作树只写 tasks_round。" >&2
+    exit 1
+  fi
+  case "$path" in
+    程序/tasks_round/tasks_round_*_result.md|程序/project_status.md|程序/维护记录/任务队列.json)
+      continue ;;
+  esac
+  case "$allowed" in
+    *";$path;"*) continue ;;
+    *)
+      echo "拒绝提交：$path 未在 CODEX_STAGE_ALLOWLIST 中。请显式列出本轮文件，勿用 git add -A。" >&2
+      exit 1 ;;
+  esac
+done < "$staged"
