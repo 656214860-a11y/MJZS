@@ -214,18 +214,18 @@ def asset_plan_gateway():
 def sync_asset_plan(project, episode_dir, storyboard=None, *, scope='current', _adopting=False):
     """L3 同步资产计划，避免 L2 自行选择发布器。"""
     from asset_plan import sync_plan
-    return sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting,
-                     gateway=asset_plan_gateway())
+    return unwrap_service_result(sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting,
+                                            gateway=asset_plan_gateway()))
 
 
 def update_asset_plan_fields(project, episode_dir, aid, values):
     from asset_plan import update_fields
-    return update_fields(project, episode_dir, aid, values, gateway=asset_plan_gateway())
+    return unwrap_service_result(update_fields(project, episode_dir, aid, values, gateway=asset_plan_gateway()))
 
 
 def apply_asset_plan_gate_choice(project, key, choice, episode_dir=''):
     from asset_plan import apply_gate_choice
-    return apply_gate_choice(project, key, choice, episode_dir, gateway=asset_plan_gateway())
+    return unwrap_service_result(apply_gate_choice(project, key, choice, episode_dir, gateway=asset_plan_gateway()))
 
 
 def plan_unattended_assets(project, base, sources, scope='adopted'):
@@ -803,11 +803,14 @@ def prepare_writing_project(root, brief, stage, target):
     return result.data
 
 
-def unwrap_project_result(result):
-    """L3 消费项目登记服务结果；L4 只接收既有业务数据或可展示异常。"""
-    # 旧桌面测试桩仍返回裸值；生产 Projects 总是返回 ServiceResult。
+def unwrap_service_result(result):
+    """L3 解包 L2 服务结果；L4 只接收既有业务数据或可展示异常。"""
+    # 旧桌面测试桩仍返回裸值；正式写服务总是返回 ServiceResult。
     if not hasattr(result, 'ok'):
         return result
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
+
+
+unwrap_project_result = unwrap_service_result

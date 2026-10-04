@@ -4,6 +4,7 @@
         "decided_at": "2026-10-04",
         "adopters": [
             "asset_batch_settings_service",
+            "asset_plan",
             "asset_detail_service",
             "asset_resume",
             "audio_import_service",
@@ -28,7 +29,6 @@
             "writing_tools"
         ],
         "scope_audit_pending": [
-            "asset_plan",
             "hollmwood_roles",
             "storyboard_rows_service",
             "storyboard_storage",

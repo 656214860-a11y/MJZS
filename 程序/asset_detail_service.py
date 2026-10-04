@@ -10,7 +10,7 @@ import logging
 
 from agent.core import temporary_path
 from asset_context import library_dir
-from asset_plan import plan_file, update_fields
+from asset_plan import plan_file, _update_fields
 from file_cache import remove_temporary_file
 from service_contract import SystemError, UserError, success
 
@@ -73,7 +73,7 @@ def _publish(project, episode_dir, aid, source, suffix, values, *, gateway=None)
             folder.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, temporary)
             os.replace(temporary, dest)
-        update_fields(project, episode_dir, aid, values, gateway=gateway)
+        _update_fields(project, episode_dir, aid, values, gateway=gateway)
     except Exception:
         if copied:
             if old_dest is None:

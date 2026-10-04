@@ -37,15 +37,17 @@ class AssetPlanPublicationTests(unittest.TestCase):
                 real_save(path, content)
 
             failed_gateway = dict(gateway(), publish_json=fail_second_save)
-            with self.assertRaisesRegex(OSError, 'disk full'):
-                asset_plan.publish_plan_bundle(folder, {'CHAR:甲': 'CHAR_001'}, {'CHAR_001': {'name': '甲'}},
-                                                {'storyboard': 'new'}, '# new\n', gateway=failed_gateway)
+            result = asset_plan.publish_plan_bundle(folder, {'CHAR:甲': 'CHAR_001'}, {'CHAR_001': {'name': '甲'}},
+                                                    {'storyboard': 'new'}, '# new\n', gateway=failed_gateway)
+            self.assertFalse(result.ok)
+            self.assertIn('资产清单未能保存', result.reason)
             self.assertEqual({name: (folder / name).read_bytes() for name in originals}, originals)
 
     def test_bundle_publication_writes_and_verifies_all_four_files(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary) / 'assets' / '资产清单'
-            asset_plan.publish_plan_bundle(folder, {'CHAR:甲': 'CHAR_001'}, {'CHAR_001': {'name': '甲'}},
-                                          {'storyboard': 'episode.json'}, '# 资产清单\n', gateway=gateway())
+            result = asset_plan.publish_plan_bundle(folder, {'CHAR:甲': 'CHAR_001'}, {'CHAR_001': {'name': '甲'}},
+                                                    {'storyboard': 'episode.json'}, '# 资产清单\n', gateway=gateway())
+            self.assertTrue(result.ok)
             self.assertEqual(asset_plan.read(folder / 'assets.json'), {'CHAR_001': {'name': '甲'}})
             self.assertEqual((folder / '导入进度.md').read_text(encoding='utf-8'), '# 资产清单\n')

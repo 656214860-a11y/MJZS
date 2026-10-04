@@ -289,13 +289,13 @@ def batch_complete(base, aids):
 
 def automatic_plan(project, base, sources, settings, scope='adopted', *, gateway=None):
     """Return independently generatable assets without constructing any Tk UI."""
-    from asset_plan import sync_plan
+    from asset_plan import _sync_plan
     from asset_prompt_rules import issues
     from prop_assets import requires_asset
 
     project = Path(project)
     base = Path(base)
-    rows = sync_plan(project, base, sources, scope=scope, gateway=gateway)
+    rows = _sync_plan(project, base, sources, scope=scope, gateway=gateway)
     ready = []
     skipped = []
     for aid, asset in rows.items():

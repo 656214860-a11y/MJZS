@@ -201,7 +201,7 @@ def adopt(project,values,*,gateway=None):
     from writing import validate_episode
     from storyboard_paths import media_root
     from asset_context import library_dir
-    from asset_plan import sync_plan
+    from asset_plan import _sync_plan
     project=Path(project).resolve();incoming=paths(project,values)
     if not incoming:raise ValueError('请先选择一份或多份分镜 JSON')
     existing=adopted(project);incoming=[p for p in incoming if p not in existing]
@@ -213,8 +213,8 @@ def adopt(project,values,*,gateway=None):
         # 第 62 期任务 12：报错带上文件名和具体差多少，别只说一句「不一致」。
         try:validate_episode(read(source),media_root(source))
         except ValueError as exc:raise ValueError(f'{source.name}：'+problem_text(exc)) from None
-    sync_plan(project,library_dir(project),combined,_adopting=True,
-              gateway=_asset_plan_gateway(gateway))
+    _sync_plan(project,library_dir(project),combined,_adopting=True,
+               gateway=_asset_plan_gateway(gateway))
     data=writable_prefs(project)
     data['adopted_storyboards']=[p.relative_to(project).as_posix() for p in combined]
     data['frame_json']=incoming[-1].relative_to(project).as_posix()
@@ -316,14 +316,14 @@ def adopt_pending(project,minimum_age=10,*,gateway=None):
 
 def remove(project,values,*,gateway=None):
     from asset_context import library_dir
-    from asset_plan import sync_plan
+    from asset_plan import _sync_plan
     project=Path(project).resolve();removed=set(paths(project,values))
     remaining=[p for p in adopted(project) if p not in removed]
     data=writable_prefs(project)
     data['adopted_storyboards']=[p.relative_to(project).as_posix() for p in remaining]
     current=resolve_source(project,data['frame_json']) if data.get('frame_json') else None
     if current not in remaining:data['frame_json']=remaining[-1].relative_to(project).as_posix() if remaining else ''
-    sync_plan(project,library_dir(project),remaining,gateway=_asset_plan_gateway(gateway))
+    _sync_plan(project,library_dir(project),remaining,gateway=_asset_plan_gateway(gateway))
     save(project/'ui_settings.json',data)
     return remaining
 

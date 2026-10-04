@@ -1,7 +1,23 @@
 """Project asset requirements, independent of image registration."""
 from pathlib import Path
 import re
+import logging
+from functools import wraps
 from agent.core import read
+from service_contract import SystemError, success
+
+
+def _asset_plan_result(operation):
+    """资产清单写入口只把实际存储故障转成可展示结果。"""
+    @wraps(operation)
+    def run(*args, **kwargs):
+        try:
+            return success(operation(*args, **kwargs))
+        except OSError as exc:
+            logging.getLogger(__name__).exception('资产清单写入失败')
+            return SystemError('资产清单未能保存，请检查磁盘或文件占用后重试。',
+                               data={'cause': str(exc), 'operation': operation.__name__})
+    return run
 
 
 def _publishers(gateway):
@@ -14,7 +30,7 @@ def _publishers(gateway):
     return values
 
 
-def publish_plan_bundle(folder, mappings, planned, source_info, progress_text, *, gateway=None):
+def _publish_plan_bundle(folder, mappings, planned, source_info, progress_text, *, gateway=None):
     """发布同一资产清单的索引、正文、来源与进度；失败则恢复整个发布包。"""
     publishers = _publishers(gateway)
     folder = Path(folder)
@@ -44,7 +60,12 @@ def publish_plan_bundle(folder, mappings, planned, source_info, progress_text, *
                 publishers['remove_file'](path)
         raise
 
-def sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=False,gateway=None):
+
+@_asset_plan_result
+def publish_plan_bundle(folder, mappings, planned, source_info, progress_text, *, gateway=None):
+    return _publish_plan_bundle(folder, mappings, planned, source_info, progress_text, gateway=gateway)
+
+def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=False,gateway=None):
     if scope not in ('all','current','adopted'):raise ValueError('未知的资产显示范围')
     from asset_context import library_dir,active_source,references
     project=Path(project).resolve();episode_dir=library_dir(project,episode_dir)
@@ -146,11 +167,16 @@ def sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=Fa
     for aid,entry in sorted(rows.items()):
         name=str(entry.get('name',aid)).replace('|','／').replace('\n',' ')
         lines.append(f"| {aid} | {name} | {entry['status']} |")
-    publish_plan_bundle(folder, mappings, planned,
-                        {'storyboard':str(source) if source else '', 'storyboards':[str(p) for p in sources],
-                         'episode_id':episode.get('episode_id'),'episode_ids':[ep.get('episode_id') for _,ep in episodes],
-                         'asset_ids':list(current)}, '\n'.join(lines)+'\n', gateway=gateway)
+    _publish_plan_bundle(folder, mappings, planned,
+                         {'storyboard':str(source) if source else '', 'storyboards':[str(p) for p in sources],
+                          'episode_id':episode.get('episode_id'),'episode_ids':[ep.get('episode_id') for _,ep in episodes],
+                          'asset_ids':list(current)}, '\n'.join(lines)+'\n', gateway=gateway)
     return rows
+
+
+@_asset_plan_result
+def sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=False,gateway=None):
+    return _sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting, gateway=gateway)
 
 
 def plan_file(project,episode_dir):
@@ -159,7 +185,7 @@ def plan_file(project,episode_dir):
     return library_dir(project,episode_dir)/'assets/资产清单/assets.json'
 
 
-def update_fields(project,episode_dir,aid,values,*,gateway=None):
+def _update_fields(project,episode_dir,aid,values,*,gateway=None):
     """把几项字段写进资产清单里那一条资产，返回写后的那一行（第 64 期任务 13）。
 
     正典板、锚点字符串、状态变体这些字段以前只在内存里被 asset_contract.normalize 补出来，
@@ -167,10 +193,15 @@ def update_fields(project,episode_dir,aid,values,*,gateway=None):
     新增都失败」。这里补上唯一的落盘入口，界面与门禁都走它。
     """
     from asset_context import library_dir
-    return update_planned(library_dir(project,episode_dir),aid,values,gateway=gateway)
+    return _update_planned(library_dir(project,episode_dir),aid,values,gateway=gateway)
 
 
-def apply_gate_choice(project, key, choice, episode_dir="", *, gateway=None):
+@_asset_plan_result
+def update_fields(project,episode_dir,aid,values,*,gateway=None):
+    return _update_fields(project, episode_dir, aid, values, gateway=gateway)
+
+
+def _apply_gate_choice(project, key, choice, episode_dir="", *, gateway=None):
     """将主观门禁的锚点／正典板选择写入资产清单。
 
     门禁契约只负责判断和记录确认；这项领域写入必须留在资产服务层，
@@ -182,10 +213,15 @@ def apply_gate_choice(project, key, choice, episode_dir="", *, gateway=None):
     value = str(choice or '').strip()
     values = ({'character_anchor': value, 'base_anchor': value}
               if head == 'anchor' else {'canonical_board': value})
-    return update_fields(project, episode_dir, asset_id, values, gateway=gateway)
+    return _update_fields(project, episode_dir, asset_id, values, gateway=gateway)
 
 
-def update_planned(episode_dir,aid,values,*,gateway=None):
+@_asset_plan_result
+def apply_gate_choice(project, key, choice, episode_dir="", *, gateway=None):
+    return _apply_gate_choice(project, key, choice, episode_dir, gateway=gateway)
+
+
+def _update_planned(episode_dir,aid,values,*,gateway=None):
     """按资产库目录直接落盘（第 64 期任务 13）。
 
     asset_batch.register_image 手上只有资产库目录、没有 project，走这一条同一个入口。
@@ -203,5 +239,10 @@ def update_planned(episode_dir,aid,values,*,gateway=None):
     planned[aid]=row
     publishers['publish_json'](file,planned)
     return row
+
+
+@_asset_plan_result
+def update_planned(episode_dir,aid,values,*,gateway=None):
+    return _update_planned(episode_dir, aid, values, gateway=gateway)
 
 
