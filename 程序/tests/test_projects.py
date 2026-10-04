@@ -38,7 +38,7 @@ class ProjectsGatewayTests(unittest.TestCase):
                 service=Projects(app,gateway=project_registry_gateway(),migrate_legacy=False)
             self.assertTrue(service.legacy_migration_pending)
             self.assertFalse((app/'projects.json').exists())
-            service.migrate()
+            self.assertTrue(service.migrate().ok)
             self.assertFalse(service.legacy_migration_pending)
             self.assertEqual(service.info['projects'][0]['name'],'旧故事')
 
@@ -63,3 +63,16 @@ class ProjectsGatewayTests(unittest.TestCase):
             service=Projects(app,gateway=project_registry_gateway(),migrate_legacy=False)
             registry.write_text('{}',encoding='utf-8')
             self.assertEqual(service.refresh_registry(),{'active':None,'projects':[]})
+
+    def test_create_maps_storage_failure_to_controlled_result(self):
+        with tempfile.TemporaryDirectory() as td:
+            app=Path(td) / '程序'; app.mkdir()
+            (app / 'config.json').write_text(json.dumps({
+                'downloads_root':str(Path(td) / '库'),
+            },ensure_ascii=False),encoding='utf-8')
+            (app / 'projects.json').write_text(json.dumps({'active':None,'projects':[]}),encoding='utf-8')
+            gateway=project_registry_gateway()
+            gateway['publish_json']=lambda *_args: (_ for _ in ()).throw(PermissionError('locked'))
+            result=Projects(app,gateway=gateway,migrate_legacy=False).create('测试项目')
+            self.assertFalse(result.ok)
+            self.assertIn('项目登记未能保存',result.reason)

@@ -2056,7 +2056,7 @@ class Desktop:
         self._legacy_project_migration_started=True
         def migrate():
             try:
-                self.projects.migrate()
+                self._project_result_data(self.projects.migrate())
             except Exception as exc:
                 self._legacy_project_migration_results.put(exc)
             else:
@@ -2403,6 +2403,10 @@ class Desktop:
                 except (OSError, ValueError, KeyError, TypeError) as exc:
                     self.status.set('自动恢复结构剧本暂缓：'+str(exc))
         except queue.Empty:pass
+    def _project_result_data(self,result):
+        """项目登记写服务的 L3 结果只在桌面编排层解包。"""
+        from stage_execution_service import unwrap_project_result
+        return unwrap_project_result(result)
     def _tick_pre_automation(self):
         """在自动阶段调度前回收 Tk 任务并轮询流程进程。"""
         drain_tk_gc()
@@ -3425,7 +3429,7 @@ class Desktop:
         if path and not Path(path).is_dir():
             service=getattr(self,'projects',None)
             if service is not None:
-                recovered=service.reconcile_missing(path)
+                recovered=self._project_result_data(service.reconcile_missing(path))
                 if recovered.get('state')=='claimed':
                     original_path=path
                     path=recovered['path']
@@ -3453,7 +3457,7 @@ class Desktop:
             # （程序目录只读、杀毒软件锁住 projects.json、磁盘满…）绝不该把「打开项目」拦下来，
             # 更不该弹一句「无法打开项目：[Errno 2] No such file or directory：…」让用户无从下手。
             try:
-                self.projects.activate(str(self.root))
+                self._project_result_data(self.projects.activate(str(self.root)))
             except (OSError, ValueError) as exc:
                 # 打开仍可继续，但必须明确告知“本次项目未记为当前项目”，
                 # 否则下次启动回到旧项目会被误认为无响应或打开错误。
@@ -3737,13 +3741,13 @@ class Desktop:
                     notice.set('项目已删除；请选择其他项目或新建项目。')
                     tree.state(['!disabled']);popup.lift();popup.focus_force()
                 self.status.set('项目及残留目录已删除')
-            self.async_(lambda:(self.projects.unlink_registered_project(path) if linked else self.projects.delete(path)),gone)
+            self.async_(lambda:self._project_result_data(self.projects.unlink_registered_project(path) if linked else self.projects.delete(path)),gone)
         def refind_selected_project():
             selected=tree.selection()
             if not selected or selected[0].startswith('group:'):
                 notice.set('请先选中失效的项目登记。');return
             old=selected[0]
-            try:outcome=self.projects.reconcile_missing(old)
+            try:outcome=self._project_result_data(self.projects.reconcile_missing(old))
             except Exception as exc:
                 notice.set(str(exc));return
             if outcome.get('state')=='claimed':
@@ -3759,7 +3763,7 @@ class Desktop:
             for value in choices:
                 ttk.Radiobutton(picker,text=value,variable=candidate,value=value).pack(anchor='w',padx=16,pady=3)
             def claim():
-                try:claimed=self.projects.reconcile_missing(old,selected=candidate.get())
+                try:claimed=self._project_result_data(self.projects.reconcile_missing(old,selected=candidate.get()))
                 except Exception as exc:
                     NotificationDispatcher(self.status, parent=picker).error(str(exc), title='无法同步项目登记');return
                 picker.destroy();self.reload();self.fill_projects(tree)
@@ -3801,14 +3805,14 @@ class Desktop:
         self.button(self.content,'恢复回收站内容…',self.open_recycle_recovery)
         self.button(self.content,'导出诊断包…',self.export_diagnostics_package)
     def set_project_status(self,item,status):
-        self.projects.set_status(item['path'],status);self.reload()
+        self._project_result_data(self.projects.set_status(item['path'],status));self.reload()
         if self.root:self.list.selection_set(str(self.root))
         else:self.show(0)
         self.status.set('已完成项目' if status=='completed' else '已恢复到在制作项目')
     def new(self):
         name=simpledialog.askstring('新建项目','项目名称：',parent=self.win)
         if name:
-            p=self.projects.create(name);self.reload();self.load(p)
+            p=self._project_result_data(self.projects.create(name));self.reload();self.load(p)
             self.remember_daily_project_choice(p)
     def import_json(self):
         if self.root:
@@ -3833,7 +3837,7 @@ class Desktop:
             previous=self.win.cget('cursor')
             try:
                 self.win.configure(cursor='watch');self.win.update_idletasks()
-                result=self.projects.create(name,source)
+                result=self._project_result_data(self.projects.create(name,source))
             finally:
                 self.win.configure(cursor=previous)
             self.reload();self.load(result)
@@ -5058,7 +5062,7 @@ class Desktop:
                 '只清除登记', '项目目录已不存在。只清除这条项目登记，不会改动磁盘上的任何文件。是否继续？',
                 dangerous=True):
             return False
-        try:self.projects.clear_missing_registration(path)
+        try:self._project_result_data(self.projects.clear_missing_registration(path))
         except (OSError,ValueError) as exc:
             # 注册表落盘失败不能让主界面或选择弹窗看起来像已清理；目录仍存在
             # 的输入错误在上面的显式判断处上抛，只有写入／登记竞态走可重试降级。
@@ -5091,7 +5095,7 @@ class Desktop:
         def completed(_):
             if self.root==target:self.brief_editor=None
             self.reload();self.load(None);self.status.set('项目及全部文件已移入项目库回收站')
-        self.async_(lambda:(self.projects.unlink_registered_project(item['path']) if linked
+        self.async_(lambda:self._project_result_data(self.projects.unlink_registered_project(item['path']) if linked
                             else self.projects.delete(item['path'])),completed)
 
     # ── 第 61 期 v0.8：正典板／状态变体（任务 3／5）的折叠区・连贯性清单（任务 7）独立成页 ──

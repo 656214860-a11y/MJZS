@@ -801,3 +801,13 @@ def prepare_writing_project(root, brief, stage, target):
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
+
+
+def unwrap_project_result(result):
+    """L3 消费项目登记服务结果；L4 只接收既有业务数据或可展示异常。"""
+    # 旧桌面测试桩仍返回裸值；生产 Projects 总是返回 ServiceResult。
+    if not hasattr(result, 'ok'):
+        return result
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data

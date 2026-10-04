@@ -15,6 +15,7 @@
             "idea_attachments",
             "keyframe_lifecycle_service",
             "legacy_adoption_service",
+            "projects",
             "recycle_recovery_service",
             "script_workspace_service",
             "stage_workspace_service",
@@ -29,7 +30,6 @@
         "scope_audit_pending": [
             "asset_plan",
             "hollmwood_roles",
-            "projects",
             "storyboard_rows_service",
             "storyboard_storage",
             "video_task_state"

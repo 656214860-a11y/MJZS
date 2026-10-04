@@ -106,7 +106,10 @@ def import_project(root,json_file,*,gateway=None,publish_report=None):
     assets=read(own_assets) if own_assets.exists() else None
     report=validate_episode(ep,media_root(source),assets)
     try:
-        target=Projects(app,gateway=gateway).create(ep.get('title') or source.stem,source=source)
+        created=Projects(app,gateway=gateway).create(ep.get('title') or source.stem,source=source)
+        if not created.ok:
+            raise OSError(created.reason)
+        target=created.data
         publish_report(target/'import_report.json',report)
     except OSError:
         _LOG.exception('剧本项目导入发布失败')
