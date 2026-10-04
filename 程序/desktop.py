@@ -3442,6 +3442,8 @@ class Desktop:
                     original_path=path
                     path=recovered['path']
                     self._sync_desktop_project_paths(original_path,path)
+                    # 认领已替换登记路径，先同步以路径为 iid 的侧栏再选择新项目。
+                    self.reload()
                     self.status.set('已按新位置同步项目登记')
                 elif recovered.get('state')=='confirm':
                     raise ValueError('项目目录已被改名，找到多个候选目录；请在项目选择窗口点击“重新查找项目”后选择。')

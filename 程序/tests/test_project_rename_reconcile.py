@@ -4,7 +4,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import desktop
 
 import project_stages
 import projects as projects_mod
@@ -89,6 +91,61 @@ class RenameReconcileTests(unittest.TestCase):
             with patch.object(Path,'iterdir',new=counted):
                 reconcile_missing(service.info,base)
             self.assertEqual(calls,[str(base)])
+
+
+class DesktopRenameReconcileTests(unittest.TestCase):
+    def make_desktop(self, service):
+        app=MagicMock()
+        app.projects=service
+        app._project_result_data=lambda result:desktop.Desktop._project_result_data(app,result)
+        app.fill_projects=lambda tree:desktop.Desktop.fill_projects(app,tree)
+        app.reload=lambda:desktop.Desktop.reload(app)
+        rows={}
+        app.list.get_children.side_effect=lambda:tuple(rows)
+        app.list.delete.side_effect=lambda *items:[rows.pop(item) for item in items]
+        def insert(parent,index,*,iid,text,**kwargs):rows[iid]=text
+        app.list.insert.side_effect=insert
+        def select(item):
+            self.assertIn(item,rows,'load selected a renamed iid before refreshing the project tree')
+        app.list.selection_set.side_effect=select
+        app.reload()
+        return app,rows
+
+    def test_automatic_claim_refreshes_tree_before_selecting_and_building_page(self):
+        fixture=RenameReconcileTests()
+        for deferred in (False,True):
+            with self.subTest(deferred=deferred),tempfile.TemporaryDirectory() as td:
+                service,base=fixture.make_service(td)
+                old=service.info['active'];new=fixture.renamed(base,old=old)
+                app,rows=self.make_desktop(service)
+                self.assertIn(old,rows)
+                with patch.object(desktop,'open_studio',return_value=None):
+                    desktop.Desktop.load(app,old,defer_page=deferred)
+                self.assertNotIn(old,rows)
+                self.assertEqual(rows[str(new)],'新故事')
+                self.assertEqual(app.root,new)
+                app.list.selection_set.assert_called_once_with(str(new))
+                app.list.see.assert_called_once_with(str(new))
+                app._sync_desktop_project_paths.assert_called_once_with(old,str(new))
+                self.assertEqual(service.info['active'],str(new))
+                if deferred:
+                    app.win.after.assert_called_once()
+                    app.show.assert_not_called()
+                else:app.show.assert_called_once_with(0)
+
+    def test_unchanged_project_keeps_valid_tree_and_opens_normally(self):
+        fixture=RenameReconcileTests()
+        with tempfile.TemporaryDirectory() as td:
+            service,base=fixture.make_service(td)
+            root=Path(service.info['active']);root.mkdir()
+            app,rows=self.make_desktop(service)
+            before=dict(rows)
+            with patch.object(desktop,'open_studio',return_value=None):
+                desktop.Desktop.load(app,str(root))
+            self.assertEqual(rows,before)
+            app.list.selection_set.assert_called_once_with(str(root))
+            app.show.assert_called_once_with(0)
+            app._sync_desktop_project_paths.assert_not_called()
 
 
 if __name__=='__main__':unittest.main()
