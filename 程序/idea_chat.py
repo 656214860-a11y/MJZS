@@ -17,6 +17,7 @@ import re
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
+from project_context import ProjectContext
 
 FOLDER = '创意对话'
 CHAT_NAME = '对话.json'
@@ -37,6 +38,12 @@ _HISTORY_CACHE_LIMIT = 16
 _history_cache = OrderedDict()
 
 
+def _context(value):
+    if not isinstance(value, ProjectContext):
+        raise TypeError('创意聊天项目路径需要由 L3 注入 ProjectContext。')
+    return value
+
+
 def _require_gateway(gateway):
     """创意聊天的正式读写只能由 L3 注入，避免 L2 自行落盘。"""
     required = ('read_json', 'publish_json', 'publish_text')
@@ -45,9 +52,9 @@ def _require_gateway(gateway):
     return gateway
 
 
-def folder(root):
+def folder(context):
     from project_stages import writing
-    return writing(root) / FOLDER
+    return writing(_context(context).root) / FOLDER
 
 
 def history_path(root):
@@ -55,13 +62,13 @@ def history_path(root):
     return folder(root) / CHAT_NAME
 
 
-def model_history_path(root, model, provider=''):
+def model_history_path(context, model, provider=''):
     """当前模型的唯一聊天记录位置：不再混放在剧本准备根目录。"""
     provider_name, model_name = (storage_identity(model) if not provider else
                                  (_storage_name(provider, '未知Provider'),
                                   _storage_name(model, '未知模型')))
     from project_stages import writing
-    return writing(root) / provider_name / model_name / FOLDER / CHAT_NAME
+    return writing(_context(context).root) / provider_name / model_name / FOLDER / CHAT_NAME
 
 
 def deleted_history_path(root, model=None, provider=''):
@@ -71,22 +78,22 @@ def deleted_history_path(root, model=None, provider=''):
     return path.with_name('已删除消息.json')
 
 
-def brief_raw_path(root):
+def brief_raw_path(context):
     """HOLLMWOOD 的原始用户简报（唯一文件：brief_creation.md）。"""
     from project_stages import writing
-    return writing(root) / BRIEF_RAW_NAME
+    return writing(_context(context).root) / BRIEF_RAW_NAME
 
 
-def legacy_brief_raw_path(root):
+def legacy_brief_raw_path(context):
     """旧项目的简报位置；仅在新文件尚未创建时导入读取。"""
     from project_stages import writing
-    return writing(root) / LEGACY_BRIEF_RAW_NAME
+    return writing(_context(context).root) / LEGACY_BRIEF_RAW_NAME
 
 
-def brief_complete_path(root):
+def brief_complete_path(context):
     """经完整性检查后才会出现的 HOLLMWOOD 输入文件。"""
     from project_stages import writing
-    return writing(root) / BRIEF_COMPLETE_NAME
+    return writing(_context(context).root) / BRIEF_COMPLETE_NAME
 
 
 def _stamp(at=None):
@@ -107,10 +114,10 @@ def _file_part(value, fallback):
     return text[:80] or fallback
 
 
-def project_script_filename(root, at=None, file_type='自然剧本', content='模型输出'):
+def project_script_filename(context, at=None, file_type='自然剧本', content='模型输出'):
     """用户可见创作文件名：``项目名_文件类型_文件内容_年月日.md``。"""
     from script_contract import stage_file_name
-    return stage_file_name(root, _file_part(file_type, '自然剧本'),
+    return stage_file_name(_context(context).root, _file_part(file_type, '自然剧本'),
                            _file_part(content, '模型输出'), at=at)
 
 
@@ -160,7 +167,7 @@ def _all_rows(root, model=None, provider='', *, gateway=None):
     if not key:
         rows = _read_rows(history_path(root), gateway)
         from project_stages import writing
-        base = writing(root)
+        base = writing(_context(root).root)
         if base.is_dir():
             for path in base.glob('*/*/' + FOLDER + '/' + CHAT_NAME):
                 if path == history_path(root):
@@ -390,6 +397,7 @@ def storage_identity(model_label):
 
 def save_reply(root, text, at=None, provider='', model='', *, publish=None):
     """组织确认下载的模型创意；发布由调用方注入的 L3 完成。"""
+    context = _context(root)
     value = str(text or '').strip()
     if not value:
         raise ValueError('模型没有输出文字，未写入创意文件')
@@ -406,14 +414,15 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None):
         value = require_natural_script(value)
     folder = '/'.join((provider_name, model_name, '创意_' + day))
     name = folder + '/' + project_document_directory(file_type) + '/' + project_script_filename(
-        root, at=at, file_type=file_type)
-    return publish(root, ({'name': name, 'data': value[:REPLY_LIMIT].encode('utf-8'),
+        context, at=at, file_type=file_type)
+    return publish(context.root, ({'name': name, 'data': value[:REPLY_LIMIT].encode('utf-8'),
                            'directories': tuple(folder + '/' + directory
                                                 for directory in PROJECT_DOCUMENT_DIRS.values())},))[name]
 
 
 def save_manual_creative(root, text, at=None, *, publish=None):
     """组织用户手写创意；发布由调用方注入的 L3 完成。"""
+    context = _context(root)
     value = str(text or '')
     if not value.strip():
         raise ValueError('请先填写自己的创意。')
@@ -423,9 +432,9 @@ def save_manual_creative(root, text, at=None, *, publish=None):
     from script_contract import require_natural_script
     require_natural_script(value)
     name = '/'.join(('创意_' + day, project_document_directory('自然剧本'),
-                     project_script_filename(root, at=at, file_type='自然剧本',
+                     project_script_filename(context, at=at, file_type='自然剧本',
                                           content='手动创意')))
-    return publish(root, ({'name': name, 'data': value.encode('utf-8'),
+    return publish(context.root, ({'name': name, 'data': value.encode('utf-8'),
                            'directories': tuple('创意_' + day + '/' + directory
                                                 for directory in PROJECT_DOCUMENT_DIRS.values())},))[name]
 
@@ -660,25 +669,26 @@ def initial_brief_document(root):
     文件恢复，完全没有历史内容时则返回页面可首次保存的默认路径。
     """
     from project_stages import writing
-    writing_dir = writing(root)
+    context = _context(root)
+    writing_dir = writing(context.root)
     versions = creative_documents(root)
     if versions:
         return versions[-1]
     legacy = sorted((path for path in writing_dir.glob('*.md') if path.is_file()),
                     key=lambda path: path.stat().st_mtime)
-    return legacy[-1] if legacy else default_brief_document(root)
+    return legacy[-1] if legacy else default_brief_document(context)
 
 
 def default_brief_document(root):
     """没有创意历史时，剧本准备页可首次保存的默认路径。"""
     from project_stages import writing
-    return writing(root) / '创意与剧本.md'
+    return writing(_context(root).root) / '创意与剧本.md'
 
 
 def creative_documents(root):
     """剧本准备阶段可见的创意文件，兼容旧文件但只把新文件写入分类目录。"""
     from project_stages import writing
-    writing = writing(root)
+    writing = writing(_context(root).root)
     # 新文件名不再依赖“创意与剧本”字样；目录本身才是下载版本的唯一归属。
     # 同时保留旧命名文件，让升级后仍能打开历史剧本。
     categories = set(PROJECT_DOCUMENT_DIRS.values())

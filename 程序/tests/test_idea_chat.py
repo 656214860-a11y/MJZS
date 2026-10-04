@@ -27,7 +27,7 @@ os.chdir(HERE)
 
 import idea_chat as _idea_chat
 import script_contract
-from stage_execution_service import idea_chat_gateway, publish_idea_creative
+from stage_execution_service import idea_chat_gateway, publish_idea_creative, project_context
 from desktop import Desktop, PAGE
 from project_stages import writing as writing_dir
 from tests.test_ui_edges import make_minimal_project
@@ -35,19 +35,26 @@ from tests.test_ui_edges import make_minimal_project
 
 class _InjectedIdeaChat:
     """测试也经 L3 网关注入，保留 L2 的“无注入即拒绝”契约。"""
-    _operations = frozenset({
+    _gateway_operations = frozenset({
         'append', 'load', 'remove', 'repair_internal_replies', 'replace',
         'restore_latest_removed', 'receive_brief', 'save_brief_creation', 'save_rows',
         'latest_text',
     })
+    _operations = frozenset({
+        'model_history_path', 'history_path', 'deleted_history_path',
+        'brief_raw_path', 'legacy_brief_raw_path', 'brief_complete_path',
+        'brief_creation_values', 'initial_brief_document', 'default_brief_document',
+        'creative_documents', 'latest_reply', 'save_reply', 'save_manual_creative',
+    }) | _gateway_operations
 
     def __getattr__(self, name):
         value = getattr(_idea_chat, name)
         if name not in self._operations:
             return value
         def invoke(*args, **kwargs):
-            kwargs.setdefault('gateway', idea_chat_gateway())
-            return value(*args, **kwargs)
+            if name in self._gateway_operations:
+                kwargs.setdefault('gateway', idea_chat_gateway())
+            return value(project_context(args[0]), *args[1:], **kwargs)
         return invoke
 
 
@@ -78,7 +85,7 @@ class SavingTests(unittest.TestCase):
     def test_chat_storage_rejects_an_uninjected_gateway(self):
         with tempfile.TemporaryDirectory() as td:
             with self.assertRaisesRegex(TypeError, 'L3 注入'):
-                _idea_chat.append(td, 'user', '不得绕过网关')
+                _idea_chat.append(project_context(td), 'user', '不得绕过网关')
 
     def test_history_cache_returns_copies_and_invalidates_external_changes(self):
         with tempfile.TemporaryDirectory() as td:

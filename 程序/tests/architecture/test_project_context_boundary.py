@@ -106,6 +106,16 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('session_folder(project_context(project)', orchestrator)
         self.assertIn('saved_provider_key(project_context(project)', orchestrator)
 
+    def test_idea_chat_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'idea_chat.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('def _context(value)', source)
+        self.assertIn('writing(_context(context).root)', source)
+        self.assertNotIn('ProjectContext(', source)
+        desktop = Path(ROOT, 'desktop.py').read_text(encoding='utf-8')
+        self.assertIn('def idea_chat_context(self)', desktop)
+        self.assertIn('idea_chat.load(self.idea_chat_context()', desktop)
+
     def test_storyboard_path_only_services_are_explicit_context_exemptions(self):
         for name in ('keyframe_lifecycle_service.py', 'previs_progress_service.py', 'storyboard_edit_service.py',
                      'storyboard_source_service.py'):

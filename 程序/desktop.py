@@ -478,6 +478,11 @@ class Desktop:
         from stage_execution_service import idea_chat_gateway
         return idea_chat_gateway()
 
+    def idea_chat_context(self):
+        """L4 只从 L3 取得创意聊天所需的项目上下文。"""
+        from stage_execution_service import project_context
+        return project_context(self.root)
+
     @staticmethod
     def asset_batch_gateway():
         """L4 只装配资产批处理的 L3 读写入口。"""
@@ -691,7 +696,7 @@ class Desktop:
                 return path
         import idea_chat
         from stage_execution_service import publish_idea_creative
-        dest=idea_chat.save_manual_creative(self.root,value,publish=publish_idea_creative)
+        dest=idea_chat.save_manual_creative(self.idea_chat_context(),value,publish=publish_idea_creative)
         editor=getattr(self,'brief_editor',None)
         if editor and editor[0]==path:
             self.brief_editor=(dest,editor[1]);self.brief_saved_text=value
@@ -924,7 +929,7 @@ class Desktop:
             if reason:return None
             return text
         import idea_chat
-        rows=idea_chat.load(self.root,model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
+        rows=idea_chat.load(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
         if not 0<=index<len(rows):return None
         text=str(rows[index].get('text') or '')
         if not text:return None
@@ -937,15 +942,15 @@ class Desktop:
         """右键“删除整条信息”：移出当前对话，并保留最近删除恢复记录。"""
         import idea_chat
         model=self.idea_chat_model()
-        rows=idea_chat.load(self.root,model=model,gateway=self.idea_chat_gateway())
+        rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
         if not 0<=index<len(rows):return None
-        idea_chat.remove(self.root,index,model=model,gateway=self.idea_chat_gateway())
+        idea_chat.remove(self.idea_chat_context(),index,model=model,gateway=self.idea_chat_gateway())
         self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
         return index
     def restore_latest_bubble_message(self):
         """恢复当前模型聊天页最近删除的一条完整消息。"""
         import idea_chat
-        row=idea_chat.restore_latest_removed(self.root,model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
+        row=idea_chat.restore_latest_removed(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
         self.show_conversation();self.status.set('已恢复最近删除的整条信息')
         return row
     def open_bubble_menu(self,event):
@@ -1092,7 +1097,7 @@ class Desktop:
         if index == 'example':
             rows=[]
         else:
-            rows=idea_chat.load(self.root,model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
+            rows=idea_chat.load(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
             if not isinstance(index,int) or not 0<=index<len(rows):
                 raise ValueError('这条对话已不存在，请刷新后重试')
         # 折叠的长消息进入编辑时先还原全文，避免只修改预览那几行。
@@ -1138,8 +1143,8 @@ class Desktop:
             return 'break'
         import idea_chat
         model=self.idea_chat_model()
-        if value:idea_chat.replace(self.root,edit['index'],value,model=model,gateway=self.idea_chat_gateway());notice='已修改这条对话'
-        else:idea_chat.remove(self.root,edit['index'],model=model,gateway=self.idea_chat_gateway());notice='已删除这条对话'
+        if value:idea_chat.replace(self.idea_chat_context(),edit['index'],value,model=model,gateway=self.idea_chat_gateway());notice='已修改这条对话'
+        else:idea_chat.remove(self.idea_chat_context(),edit['index'],model=model,gateway=self.idea_chat_gateway());notice='已删除这条对话'
         self.show_conversation()
         self.status.set(notice)
         return 'break'
@@ -1298,7 +1303,8 @@ class Desktop:
             # 可见内容。键回来后 resume 按现有页面代次完整重绘真实历史。
             resolving_model=True
         model=cached[1] if root and isinstance(cached,tuple) else ''
-        rows=idea_chat.load(root,model=model,gateway=self.idea_chat_gateway()) if root and not resolving_model else []
+        from stage_execution_service import project_context
+        rows=idea_chat.load(project_context(root),model=model,gateway=self.idea_chat_gateway()) if root and not resolving_model else []
         box.configure(state='normal')
         self._bubble_rows=[];self._bubble_full={};self._bubble_width=int(box.winfo_width() or 0)
         for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
@@ -1391,7 +1397,7 @@ class Desktop:
         except tk.TclError:
             pass
         import idea_chat
-        values = idea_chat.brief_creation_values(self.root, current_text)
+        values = idea_chat.brief_creation_values(self.idea_chat_context(), current_text)
         def cleared():
             self._brief_creation_window = None
         win = FormDialog(self.win, '填写创作信息', geometry='700x680', minsize=(600, 520),
@@ -1470,7 +1476,7 @@ class Desktop:
         def save_and_send():
             submitted = {label: (editor.get().strip() if isinstance(editor, ttk.Combobox)
                                 else editor.get('1.0', 'end-1c').strip()) for label, editor in editors.items()}
-            _path, text = idea_chat.save_brief_creation(self.root, submitted, gateway=self.idea_chat_gateway())
+            _path, text = idea_chat.save_brief_creation(self.idea_chat_context(), submitted, gateway=self.idea_chat_gateway())
             box = getattr(self, 'idea_input', None)
             if box is not None and box.winfo_exists():
                 box.delete('1.0', 'end'); box.insert('1.0', text)
@@ -1501,7 +1507,7 @@ class Desktop:
         import stage_config, workflow_settings
         workflow_config = stage_config.current_workflow(self.root)
         preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
-        brief = idea_chat.receive_brief(self.root, submission, workflow=workflow_config,
+        brief = idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
                                         lock_definitions=preset.get('locks', ()), gateway=self.idea_chat_gateway())
         if brief.get('workflow_projection') is not None:
             stage_config.put_workflow(self.root, brief['workflow_projection'])
@@ -1519,14 +1525,14 @@ class Desktop:
                 except Exception:
                     self.idea_chat_controller.rollback_sent()
                     raise
-        idea_chat.append(self.root,'user',visible_value,model=model,gateway=self.idea_chat_gateway())
+        idea_chat.append(self.idea_chat_context(),'user',visible_value,model=model,gateway=self.idea_chat_gateway())
         box.delete('1.0','end')
         self.discard_idea_draft()
         self.idea_attachment_paths=()
         self.update_idea_attachment_status()
         self.show_conversation()
         if brief['missing']:
-            idea_chat.append(self.root, 'assistant', brief['followup'], model=model,gateway=self.idea_chat_gateway())
+            idea_chat.append(self.idea_chat_context(), 'assistant', brief['followup'], model=model,gateway=self.idea_chat_gateway())
             self.show_conversation()
             self.status.set('已保存创意草稿；请补充缺少的信息后再发送。')
             self.open_brief_creation_form(value)
@@ -1571,7 +1577,7 @@ class Desktop:
                 if not reply:
                     self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                     self.status.set(idea_chat.why_empty(result));return
-                idea_chat.append(self.root,'assistant',reply,model=model,gateway=self.idea_chat_gateway())
+                idea_chat.append(self.idea_chat_context(),'assistant',reply,model=model,gateway=self.idea_chat_gateway())
                 self.show_conversation();self.update_script_download_button()
                 if result.get('script_raw_path'):
                     four_roles = result.get('hollmwood_enabled', True)
@@ -1690,7 +1696,7 @@ class Desktop:
         """刷新剧本聊天和文件表；旧 Claude 思考块会先清洗，必要时仅重发一次正文请求。"""
         import idea_chat
         import writing_api
-        repaired = idea_chat.repair_internal_replies(self.root, model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
+        repaired = idea_chat.repair_internal_replies(self.idea_chat_context(), model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
         self.show_conversation()
         refresh = getattr(self, 'refresh_script_list', None)
         if callable(refresh):
@@ -1721,7 +1727,7 @@ class Desktop:
             if not reply:
                 self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                 self.status.set(idea_chat.why_empty(result));return
-            idea_chat.append(self.root, 'assistant', reply, model=model,gateway=self.idea_chat_gateway())
+            idea_chat.append(self.idea_chat_context(), 'assistant', reply, model=model,gateway=self.idea_chat_gateway())
             self.show_conversation();self.update_script_download_button()
             self.status.set('已恢复并刷新 ' + model + ' 的正文；完整剧本可下载保存。')
         from stage_execution_service import reply_to_writing
@@ -1764,17 +1770,17 @@ class Desktop:
         import idea_chat
         button=getattr(self,'idea_download',None)
         if button is None or not button.winfo_exists():return False
-        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.root,gateway=self.idea_chat_gateway()))
+        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.idea_chat_context(),gateway=self.idea_chat_gateway()))
         button.state(['!disabled'] if ready else ['disabled'])
         return ready
     def download_script(self):
         """用户明确下载剧本文档后，才通知三虎询问是否进入分镜阶段。"""
         import idea_chat
-        reply=idea_chat.latest_text(self.root,gateway=self.idea_chat_gateway())
+        reply=idea_chat.latest_text(self.idea_chat_context(),gateway=self.idea_chat_gateway())
         if not idea_chat.looks_like_script(reply):raise ValueError('请先让模型生成完整剧本，再下载。')
         provider, model = idea_chat.storage_identity(self.idea_chat_model())
         from stage_execution_service import publish_idea_creative
-        saved=idea_chat.save_reply(self.root,reply,provider=provider,model=model,
+        saved=idea_chat.save_reply(self.idea_chat_context(),reply,provider=provider,model=model,
                                    publish=publish_idea_creative)
         self.brief_editor=(saved,getattr(self,'idea_log',None))
         self.close_dialog()
@@ -1905,8 +1911,9 @@ class Desktop:
         # 全局门禁，若复用它，输入框刚出现就会被误报为“当前操作尚未结束”。
         def discover():
             import idea_chat
+            from stage_execution_service import project_context
             try:
-                path=idea_chat.initial_brief_document(root);error=None
+                path=idea_chat.initial_brief_document(project_context(root));error=None
             except (OSError,ValueError,TypeError,KeyError) as exc:
                 # 线程只传递结果；Tk 状态须由 _tick_async_result 在主线程更新。
                 path=None;error=str(exc)
@@ -4081,7 +4088,7 @@ class Desktop:
         # 第 69 期任务 4：原来第一行那句「在下面的对话框写想法…」删掉——页面自己会说清怎么走。
         import idea_chat
         # 先使用不扫描目录的默认路径；历史创意文件由页面建好后在后台发现。
-        brief=idea_chat.default_brief_document(self.root)
+        brief=idea_chat.default_brief_document(self.idea_chat_context())
         self.idea_template=self.idea_example()
         # 聊天记录与发送框分离：记录可滚动，发送框固定停在聊天区域底部。
         talk=ttk.LabelFrame(self.content,text='对话AI',padding=(SPACING['xs'],SPACING['none']))
