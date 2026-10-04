@@ -4525,17 +4525,6 @@ class Pet:
         """控制面板入口文字始终反映三虎当前模式。"""
         return '模式：' + ('全自动' if self.mode == 'auto' else '手动')
 
-    def _build_mode_menu(self):
-        """运行状态中的模式单选菜单；只调用三虎的 set_mode。"""
-        import tkinter as tk
-        sub = self.menu.submenu()
-        self.menu_mode = sub
-        self.mode_var = tk.StringVar(master=self.win, value=self.mode)
-        for value, label in (('manual', '手动模式'), ('auto', '全自动模式')):
-            sub.radio(label, self.mode_var, value, lambda target=value: self.set_mode(target))
-        self._add_cascade(self.mode_label(), sub, name='mode')
-        return sub
-
     def _build_model_menu(self):
         """「切换模型」子菜单（第 43 期）：自动 ＋ 池里每一条（当前那条前面打 ✓）＋ 新增模型…。
 

@@ -1355,29 +1355,6 @@ class Cloud:
             return not hasattr(self, 'pet')
         return self._patch_is_trustworthy(canvas, left, top, width, height)
 
-    def _parent_work_area(self, parent_rect):
-        """取父窗口所在显示器工作区；失败时仍以父窗口坐标保留副屏范围。"""
-        try:
-            import ctypes
-            from ctypes import wintypes
-            class MONITORINFO(ctypes.Structure):
-                _fields_ = [('cbSize', wintypes.DWORD), ('rcMonitor', wintypes.RECT),
-                             ('rcWork', wintypes.RECT), ('dwFlags', wintypes.DWORD)]
-            api = ctypes.windll.user32
-            info = MONITORINFO(); info.cbSize = ctypes.sizeof(info)
-            monitor = api.MonitorFromWindow(self.parent.winfo_id(), 2)
-            if api.GetMonitorInfoW(monitor, ctypes.byref(info)):
-                rect = info.rcWork
-                return rect.left, rect.top, rect.right, rect.bottom
-        except (AttributeError, OSError):
-            pass
-        left, top, width, height = (int(value) for value in parent_rect)
-        try:
-            screen_width, screen_height = int(self.parent.winfo_screenwidth()), int(self.parent.winfo_screenheight())
-        except Exception:
-            screen_width, screen_height = 0, 0
-        return min(0, left), min(0, top), max(screen_width, left + width), max(screen_height, top + height)
-
     # ── 记录排版与滚动 ──────────────────────────────────────────────────────
     def _body_text(self):
         """云里的文字：一条一行，行末交给标签自动换行（第 24 期第 7 条）。
