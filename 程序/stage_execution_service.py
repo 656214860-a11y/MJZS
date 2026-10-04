@@ -233,7 +233,7 @@ def sync_asset_plan(project, episode_dir, storyboard=None, *, scope='current', _
     """L3 同步资产计划，避免 L2 自行选择发布器。"""
     from asset_plan import sync_plan
     return unwrap_service_result(sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting,
-                                            gateway=asset_plan_gateway()))
+                                            gateway=asset_plan_gateway(), context=project_context(project)))
 
 
 def update_asset_plan_fields(project, episode_dir, aid, values):
@@ -484,6 +484,51 @@ def previs_automatic_candidates(project, source, shots, wait_for_frames=False, p
 def previs_automatic_engine(project, read_settings, engines):
     from previs_routing import automatic_engine
     return automatic_engine(project_context(project), read_settings, engines)
+
+
+def storyboard_catalog(project, kind, ignored=None):
+    from storyboard_catalog_service import catalog
+    return catalog(project_context(project), kind) if ignored is None else catalog(project_context(project), kind, ignored)
+
+
+def storyboard_produced_scripts(project, entries=None):
+    from storyboard_catalog_service import produced_scripts
+    return produced_scripts(project_context(project), entries)
+
+
+def storyboard_produced_episodes(project, entries=None):
+    from storyboard_catalog_service import produced_episodes
+    return produced_episodes(project_context(project), entries)
+
+
+def storyboard_default_source(project):
+    from storyboard_catalog_service import default_source
+    return default_source(project_context(project))
+
+
+def storyboard_resolve_source(project, path):
+    from storyboard_catalog_service import resolve_source
+    return resolve_source(project_context(project), path)
+
+
+def storyboard_board_source_script(project, board):
+    from storyboard_catalog_service import board_source_script
+    return board_source_script(project_context(project), board)
+
+
+def storyboard_working_dir(project):
+    from storyboard_catalog_service import working_dir
+    return working_dir(project_context(project))
+
+
+def storyboard_document_dir(project):
+    from storyboard_catalog_service import document_dir
+    return document_dir(project_context(project))
+
+
+def storyboard_file_snapshot(project, ignored=None):
+    from storyboard_catalog_service import file_snapshot
+    return file_snapshot(project_context(project)) if ignored is None else file_snapshot(project_context(project), ignored)
 
 
 def previs_progress_gateway():

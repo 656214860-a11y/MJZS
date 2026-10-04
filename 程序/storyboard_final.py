@@ -34,7 +34,7 @@ def _record_lineage(project, episodefile, source):
 
 def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     from asset_context import library_dir,references
-    from storyboard_catalog_service import resolve_source
+    from stage_execution_service import storyboard_resolve_source as resolve_source
     from storyboard_lifecycle import signature
     project=Path(project).resolve();base=library_dir(project,episode_dir)
     source=resolve_source(project,source);original=source.read_bytes()

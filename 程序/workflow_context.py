@@ -53,7 +53,8 @@ def _reference_documents(project, ignored):
 
 
 def snapshot(project):
-    from storyboard_catalog_service import catalog, IGNORED
+    from storyboard_catalog_service import IGNORED
+    from stage_execution_service import storyboard_catalog as catalog
     project = Path(project).resolve()
     errors = []
     def mapping(path):

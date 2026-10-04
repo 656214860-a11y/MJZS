@@ -58,10 +58,10 @@ def active_source(project=None, storyboard=None, fallback=None, *, context=None)
     remembered=read(record).get('storyboard') if record.is_file() else None
     value=storyboard or prefs.get('frame_json') or remembered
     if value:
-        path=resolve_source(project,value)
+        path=resolve_source(context,value)
         if not path.is_file():raise ValueError('当前分镜JSON已移动或删除，请重新采用分镜：'+str(path))
         return path
-    for path in (default_source(project),library_dir(project,fallback, context=context)/'episode.json'):
+    for path in (default_source(context),library_dir(project,fallback, context=context)/'episode.json'):
         if path.is_file():return path.resolve()
     raise ValueError('尚未采用分镜JSON，请先在第2步点「手动采用分镜」')
 

@@ -99,8 +99,10 @@ def storyboard_batch_prompt(project,scripts,existing):
     """One task for the selected files, with completed work excluded by provenance."""
     import json
     from agent.core import read
-    from storyboard_catalog_service import (
-        produced_scripts, produced_episodes, catalog, file_order, resolve_source,
+    from storyboard_catalog_service import file_order
+    from stage_execution_service import (
+        storyboard_catalog as catalog, storyboard_produced_episodes as produced_episodes,
+        storyboard_produced_scripts as produced_scripts, storyboard_resolve_source as resolve_source,
     )
     from storyboard_selection import adopted
     project=Path(project).resolve()

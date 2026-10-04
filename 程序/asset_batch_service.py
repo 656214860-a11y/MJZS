@@ -308,7 +308,7 @@ def automatic_plan(project, base, sources, settings, scope='adopted', *, gateway
 
     project = _project_root(project, context=context)
     base = Path(base)
-    rows = _sync_plan(project, base, sources, scope=scope, gateway=gateway)
+    rows = _sync_plan(project, base, sources, scope=scope, gateway=gateway, context=context)
     ready = []
     skipped = []
     for aid, asset in rows.items():

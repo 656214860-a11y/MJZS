@@ -5,6 +5,7 @@ from pathlib import Path
 
 from storyboard_plan_service import build_work_plan
 from storyboard_catalog_service import discover_files, document_dir, file_snapshot, has_synced_assets, working_dir
+from stage_execution_service import project_context
 
 
 class StoryboardPlanServiceTests(unittest.TestCase):
@@ -43,11 +44,11 @@ class StoryboardPlanServiceTests(unittest.TestCase):
             board.write_text('{}', encoding='utf-8')
             (board.parent / 'empty.json').write_text('', encoding='utf-8')
             ignored = board.parent / '历史版本' / 'old.json'; ignored.parent.mkdir(); ignored.write_text('{}', encoding='utf-8')
-            rows = file_snapshot(project)
+            rows = file_snapshot(project_context(project))
             self.assertEqual(len(rows), 1)
             self.assertEqual(Path(rows[0][0]), board)
 
     def test_storyboard_workspace_paths_are_headless_stage_derivations(self):
         project = Path('D:/project')
-        self.assertEqual(working_dir(project), Path('D:/project/03初步分镜/分镜拆分'))
-        self.assertEqual(document_dir(project), Path('D:/project/03初步分镜/分镜文档'))
+        self.assertEqual(working_dir(project_context(project)), Path('D:/project/03初步分镜/分镜拆分'))
+        self.assertEqual(document_dir(project_context(project)), Path('D:/project/03初步分镜/分镜文档'))

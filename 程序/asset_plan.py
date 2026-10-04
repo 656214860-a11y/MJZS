@@ -65,7 +65,7 @@ def _publish_plan_bundle(folder, mappings, planned, source_info, progress_text, 
 def publish_plan_bundle(folder, mappings, planned, source_info, progress_text, *, gateway=None):
     return _publish_plan_bundle(folder, mappings, planned, source_info, progress_text, gateway=gateway)
 
-def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=False,gateway=None):
+def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=False,gateway=None,context=None):
     if scope not in ('all','current','adopted'):raise ValueError('未知的资产显示范围')
     from asset_context import library_dir,active_source,references
     project=Path(project).resolve();episode_dir=library_dir(project,episode_dir)
@@ -77,9 +77,12 @@ def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=F
         if not re.fullmatch(r'(CHAR|LOC|PROP)_\d{3,}',aid) or not isinstance(asset,dict):
             raise ValueError('资产清单编号或格式错误：'+str(aid))
     from storyboard_catalog_service import resolve_source
+    from project_context import ProjectContext
+    if not isinstance(context, ProjectContext):
+        raise TypeError('资产计划需要由 L3 注入 ProjectContext。')
     if isinstance(storyboard,(list,tuple)):
-        sources=list(dict.fromkeys(resolve_source(project,path) for path in storyboard))
-    else:sources=[active_source(project,storyboard,episode_dir)]
+        sources=list(dict.fromkeys(resolve_source(context,path) for path in storyboard))
+    else:sources=[active_source(project,storyboard,episode_dir,context=context)]
     if not _adopting:
         from storyboard_adoption_contract import adopted
         allowed=set(adopted(project))
@@ -175,8 +178,8 @@ def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=F
 
 
 @_asset_plan_result
-def sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=False,gateway=None):
-    return _sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting, gateway=gateway)
+def sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=False,gateway=None,context=None):
+    return _sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting, gateway=gateway, context=context)
 
 
 def plan_file(project,episode_dir):

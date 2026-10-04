@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from storyboard_catalog_service import catalog, produced_scripts, resolve_source
+from stage_execution_service import storyboard_catalog as catalog, storyboard_produced_scripts as produced_scripts, storyboard_resolve_source as resolve_source
 from storyboard_recycle_service import (
     latest_recycle_batch, recycle_files, recycle_plan, restore_latest_recycled_files,
 )

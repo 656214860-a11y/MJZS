@@ -2142,7 +2142,7 @@ class Desktop:
         try:
             # 看的是目录里全部分镜 JSON，而不是只看已采用的：编号错了要在 02 初步分镜 就发现，
             # 不必等采用之后才在下游暴露。
-            from storyboard_catalog_service import catalog
+            from stage_execution_service import storyboard_catalog as catalog
             problems=shot_numbering.verify(self.root,[entry['path'] for entry in catalog(self.root,'storyboard')])
         except (OSError,ValueError):return ''
         return '；镜头编号与剧本顺序不一致（'+problems[0]+'），可在 02 初步分镜 点“重排镜头编号”修正' if problems else ''
@@ -4964,7 +4964,7 @@ class Desktop:
     def open_storyboard_skill(self,key=None):
         batch={}
         def work():
-            from storyboard_catalog_service import produced_scripts
+            from stage_execution_service import storyboard_produced_scripts as produced_scripts
             from storyboard_selection import selected_many
             from workflow_tasks import storyboard_batch_prompt
             scripts=selected_many(self.root,'script');existing=selected_many(self.root,'storyboard')
