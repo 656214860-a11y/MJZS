@@ -6756,8 +6756,10 @@ class Desktop:
             except ValueError:pass  # 无对白时不附字幕，交接包仍可用
         from handoff_service import publish_bundle
         from stage_execution_service import publish_handoff_bundle
-        return publish_bundle(self.root,self.studio.episode['shots'],rows,subtitle,auto,
+        result=publish_bundle(self.root,self.studio.episode['shots'],rows,subtitle,auto,
                               publish=publish_handoff_bundle)
+        if not result.ok:raise ValueError(result.reason)
+        return result.data
     def delivery(self):
         from stage_workspace_service import ensure_delivery_workspace
         result=ensure_delivery_workspace(self.root)

@@ -1,9 +1,23 @@
 """云视频会话的无界面配置查询服务。"""
 import re
 from pathlib import Path
+from functools import wraps
+import logging
+from service_contract import SystemError, success
 
 from agent.core import read
 from project_naming import dated_path
+
+
+def _write_result(function):
+    @wraps(function)
+    def run(*args, **kwargs):
+        try:
+            return success(function(*args, **kwargs))
+        except OSError:
+            logging.getLogger(__name__).exception('云视频工作区保存失败')
+            return SystemError('云视频工作区保存失败，请检查文件权限和磁盘空间。')
+    return run
 
 PROVIDERS={
     '阿里云百炼 · 万相':('wan','https://dashscope.aliyuncs.com/api/v1','wan2.6-i2v-flash','DASHSCOPE_API_KEY'),
@@ -20,6 +34,7 @@ def _require_gateway(gateway):
     return gateway
 
 
+@_write_result
 def publish_session_config(config_path, config, prefs_path, prefs, *, gateway=None):
     """发布已校验的云视频会话配置及项目工作区偏好。"""
     publish = _require_gateway(gateway)["publish_json"]
@@ -27,10 +42,12 @@ def publish_session_config(config_path, config, prefs_path, prefs, *, gateway=No
     publish(Path(prefs_path), prefs)
 
 
+@_write_result
 def publish_workspace_preference(prefs_path, prefs, *, gateway=None):
     """发布云视频当前工作区偏好；调用者负责完成路径边界校验。"""
     _require_gateway(gateway)["publish_json"](Path(prefs_path), prefs)
 
+@_write_result
 def publish_studio_config(config_path, config, *, gateway=None):
     """发布已由云视频设置页校验过的工作室会话配置。"""
     _require_gateway(gateway)["publish_json"](Path(config_path), config)
@@ -43,6 +60,7 @@ def provider_label(config, providers):
     return '自定义 · 万相兼容' if kind=='wan' else '自定义 · Seedance兼容'
 
 
+@_write_result
 def session_folder(project, kind, base, model, source):
     parent=Path(project)/'cloud_video';parent.mkdir(exist_ok=True)
     source=Path(source).resolve()

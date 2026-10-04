@@ -5,8 +5,11 @@
         "adopters": [
             "asset_batch_settings_service",
             "audio_import_service",
+            "cloud_video_service",
             "delivery_import_service",
             "desktop_settings_service",
+            "edit_service",
+            "handoff_service",
             "keyframe_lifecycle_service",
             "legacy_adoption_service",
             "recycle_recovery_service",
@@ -43,7 +46,7 @@
             "script_preview_service": "R981：仅 stat、经 file_cache 读取预览和分块；缓存为读取实现，不发布项目数据。",
             "storyboard_adoption_contract": "R981：只读设置、解析已有别名并校验采用路径；采用状态写入由独立服务承担。"
         },
-        "exempt_count": 37,
+        "exempt_count": 34,
         "exempt_items": [
             "asset_batch_lifecycle",
             "asset_batch_selection_service",
@@ -53,11 +56,8 @@
             "asset_detail_service",
             "asset_gating",
             "asset_generated_import_service",
-            "cloud_video_service",
             "confirm_gates",
-            "edit_service",
             "final_service",
-            "handoff_service",
             "idea_attachments",
             "idea_chat",
             "keyframe",
@@ -1056,19 +1056,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "566",
+                "point": "578",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "597",
+                "point": "609",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "610",
+                "point": "625",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },

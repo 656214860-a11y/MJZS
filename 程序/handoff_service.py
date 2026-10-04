@@ -3,6 +3,20 @@ import json
 import time
 import uuid
 from pathlib import Path
+from functools import wraps
+import logging
+from service_contract import SystemError, UserError, success
+
+
+def _write_result(function):
+    @wraps(function)
+    def run(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        except OSError:
+            logging.getLogger(__name__).exception('交接成果保存失败')
+            return SystemError('交接成果保存失败，请检查文件权限和磁盘空间。')
+    return run
 
 
 AUTOMATIC_HANDOFF_MARKER_NAME = '自动交接.json'
@@ -19,28 +33,30 @@ def automatic_decision(signature, digest, previous_signature, completed_marker):
     return {'action': 'dispatch', 'signature': signature}
 
 
+@_write_result
 def save_automatic_handoff_marker(target, digest, folder, shot_count, *, publish):
     """登记一次无人值守交接；正式发布器必须由 L3 注入。"""
     if not callable(publish):
         raise TypeError('自动交接标记需要由 L3 注入发布器。')
     target = Path(target)
     publish(target, {'digest': digest, 'folder': str(folder), 'shots': shot_count})
-    return target
+    return success(target)
 
 
+@_write_result
 def publish_bundle(root, shots, rows, subtitle=None, auto=False, *, publish=None):
     """准备剪映交接包描述；正式文件只能由 L3 注入的发布器写入。"""
     if not callable(publish):
         raise TypeError('剪映交接包需要由 L3 注入发布器。')
     root = Path(root).resolve()
     if not rows:
-        raise ValueError('当前项目没有已下载视频')
+        return UserError('当前项目没有已下载视频')
     manifest = []
     artifacts = []
     for index, (shot, version) in enumerate(rows, 1):
         source = (root / version['file']).resolve()
         if not source.is_relative_to(root):
-            raise ValueError('视频路径越界')
+            return UserError('视频路径越界')
         name = f'{index:03}_{shot["id"]}{source.suffix}'
         artifacts.append({'name': name, 'source': source})
         manifest.append({'shot': shot['id'], 'file': name, 'review': version.get('review'), 'seconds': shot['duration']})
@@ -57,4 +73,4 @@ def publish_bundle(root, shots, rows, subtitle=None, auto=False, *, publish=None
         artifacts.append({'name': '交接包标记.json', 'data': json.dumps(
             {'kind': 'auto', 'built_at': time.strftime('%Y-%m-%d %H:%M:%S')}, ensure_ascii=False).encode('utf-8')})
     name = '自动交接包' if auto else '剪映交接_' + uuid.uuid4().hex[:8]
-    return publish(root, name, artifacts, auto=auto)
+    return success(publish(root, name, artifacts, auto=auto))

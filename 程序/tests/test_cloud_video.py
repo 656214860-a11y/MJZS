@@ -14,7 +14,8 @@ import tkinter as tk
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+from service_contract import SystemError
 
 from cloud_video import PROVIDERS, provider_label, saved_provider_key, session_folder, settings_window
 
@@ -82,8 +83,9 @@ class SessionPublicationTests(unittest.TestCase):
         from cloud_video_service import publish_session_config
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            publish_session_config(root / 'session' / 'config.json', {'model': 'm1'},
+            result = publish_session_config(root / 'session' / 'config.json', {'model': 'm1'},
                                    root / 'ui_settings.json', {'cloud_video_workspace': 'cloud_video/session'}, gateway=_gateway())
+            self.assertTrue(result.ok)
             self.assertEqual(json.loads((root / 'session' / 'config.json').read_text(encoding='utf-8'))['model'], 'm1')
             self.assertEqual(json.loads((root / 'ui_settings.json').read_text(encoding='utf-8'))['cloud_video_workspace'], 'cloud_video/session')
 
@@ -91,8 +93,50 @@ class SessionPublicationTests(unittest.TestCase):
         from cloud_video_service import publish_studio_config
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / 'config.json'
-            publish_studio_config(path, {'model': 'test-model', 'live_enabled': True}, gateway=_gateway())
+            result = publish_studio_config(path, {'model': 'test-model', 'live_enabled': True}, gateway=_gateway())
+            self.assertTrue(result.ok)
             self.assertEqual(json.loads(path.read_text(encoding='utf-8')), {'model': 'test-model', 'live_enabled': True})
+
+
+class CloudResultTests(unittest.TestCase):
+    def test_configuration_errors_are_classified_at_each_publish(self):
+        import cloud_video_service as service
+        calls = [(service.publish_session_config, ('config.json', {}, 'prefs.json', {}), 2),
+                 (service.publish_workspace_preference, ('prefs.json', {}), 1),
+                 (service.publish_studio_config, ('config.json', {}), 1)]
+        for function, args, count in calls:
+            self.assertTrue(function(*args, gateway={'publish_json': Mock()}).ok)
+            for index in range(count):
+                publisher = Mock(side_effect=[None] * index + [OSError('private detail')])
+                with self.subTest(function=function.__name__, index=index), self.assertLogs('cloud_video_service', level='ERROR'):
+                    result = function(*args, gateway={'publish_json': publisher})
+                self.assertIsInstance(result, SystemError)
+                self.assertIsNone(result.data)
+                self.assertNotIn('private detail', result.reason)
+                self.assertEqual(index + 1, publisher.call_count)
+            with self.assertRaises(TypeError):
+                function(*args, gateway={'publish_json': Mock(side_effect=TypeError('bug'))})
+
+    def test_session_directory_failure_does_not_deliver_path(self):
+        from cloud_video_service import session_folder as service_folder
+        args = ('project', 'wan', 'https://example.test', 'model', 'source.json')
+        with patch('pathlib.Path.mkdir', side_effect=OSError('private detail')):
+            with self.assertLogs('cloud_video_service', level='ERROR'):
+                result = service_folder(*args)
+            self.assertIsInstance(result, SystemError)
+            self.assertIsNone(result.data)
+            with self.assertLogs('cloud_video_service', level='ERROR'), self.assertRaises(ValueError):
+                session_folder(*args)
+        with patch('pathlib.Path.mkdir', side_effect=TypeError('bug')), self.assertRaises(TypeError):
+            service_folder(*args)
+
+    def test_l3_configuration_wrappers_reject_failed_results(self):
+        import stage_execution_service as stage
+        for name, args in [('session_config', ('config', {}, 'prefs', {})),
+                           ('workspace_preference', ('prefs', {})), ('studio_config', ('config', {}))]:
+            with self.subTest(name=name), patch('cloud_video_service.publish_' + name, return_value=SystemError('保存失败')):
+                with self.assertRaisesRegex(ValueError, '保存失败'):
+                    getattr(stage, 'publish_cloud_video_' + name)(*args)
 
 
 class ProviderKeyTests(unittest.TestCase):

@@ -3,6 +3,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+from service_contract import SystemError, UserError, success
 
 
 class AutomaticDecisionTests(unittest.TestCase):
@@ -43,13 +46,55 @@ class BundlePublicationTests(unittest.TestCase):
             root = Path(folder)
             clip = root / 'clip.mp4'; clip.write_bytes(b'clip')
             shot = {'id': 'SH001', 'duration': 3}
-            output = publish_bundle(root, [shot], [(shot, {'file': 'clip.mp4', 'review': 'pass'})],
+            result = publish_bundle(root, [shot], [(shot, {'file': 'clip.mp4', 'review': 'pass'})],
                                     subtitle='1\n00:00:00,000 --> 00:00:01,000\n你好\n'.encode('utf-8'), auto=True,
                                     publish=publish_handoff_bundle)
+            self.assertTrue(result.ok)
+            output = result.data
             self.assertEqual((output / '001_SH001.mp4').read_bytes(), b'clip')
             self.assertTrue((output / '对白.srt').is_file())
             self.assertEqual(json.loads((output / '镜头顺序.json').read_text(encoding='utf-8'))[0]['shot'], 'SH001')
             self.assertEqual(json.loads((output / '交接包标记.json').read_text(encoding='utf-8'))['kind'], 'auto')
+
+
+class HandoffResultTests(unittest.TestCase):
+    def test_validation_rejects_before_publishing(self):
+        from handoff_service import publish_bundle
+        publisher = Mock()
+        for rows in ([], [({'id': 'SH001'}, {'file': '../outside.mp4'})]):
+            result = publish_bundle(Path('project'), [], rows, publish=publisher)
+            self.assertIsInstance(result, UserError)
+        publisher.assert_not_called()
+
+    def test_write_errors_are_classified(self):
+        from handoff_service import publish_bundle, save_automatic_handoff_marker
+        shot = {'id': 'SH001', 'duration': 1}
+        calls = [(save_automatic_handoff_marker, ('marker.json', 'digest', 'folder', 1)),
+                 (publish_bundle, ('project', [shot], [(shot, {'file': 'clip.mp4'})]))]
+        for function, args in calls:
+            with self.subTest(function=function.__name__):
+                with self.assertLogs('handoff_service', level='ERROR'):
+                    result = function(*args, publish=Mock(side_effect=OSError('private detail')))
+                self.assertIsInstance(result, SystemError)
+                self.assertIsNone(result.data)
+                self.assertNotIn('private detail', result.reason)
+                with self.assertRaises(TypeError):
+                    function(*args, publish=Mock(side_effect=TypeError('bug')))
+
+    def test_callers_check_result_before_returning_path(self):
+        from desktop import Desktop
+        from stage_execution_service import save_automatic_handoff_marker
+        desk = SimpleNamespace(root=Path('project'), studio=SimpleNamespace(
+            state=lambda: {'shots': {'SH001': []}}, episode={'shots': [{'id': 'SH001'}]}))
+        target = Path('bundle')
+        with patch('handoff_service.publish_bundle', return_value=success(target)):
+            self.assertIs(target, Desktop.handoff(desk))
+        with patch('handoff_service.publish_bundle', return_value=SystemError('保存失败')):
+            with self.assertRaisesRegex(ValueError, '保存失败'):
+                Desktop.handoff(desk)
+        with patch('handoff_service.save_automatic_handoff_marker', return_value=SystemError('保存失败')):
+            with self.assertRaisesRegex(ValueError, '保存失败'):
+                save_automatic_handoff_marker('project', 'digest', 'bundle', 1)
 
 
 if __name__ == '__main__':

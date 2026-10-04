@@ -2,6 +2,34 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
+from service_contract import SystemError
+
+
+class EditingResultTests(unittest.TestCase):
+    def test_write_results_classify_io_without_hiding_programming_errors(self):
+        from edit_service import save_editing_checklist, save_automatic_assemble_marker
+        calls = [(save_editing_checklist, (Path('project'), 'text')),
+                 (save_automatic_assemble_marker, (Path('marker.json'), 'digest', 'master', 1))]
+        for function, args in calls:
+            with self.subTest(function=function.__name__):
+                self.assertTrue(function(*args, publish=Mock()).ok)
+                with self.assertLogs('edit_service', level='ERROR'):
+                    result = function(*args, publish=Mock(side_effect=OSError('private detail')))
+                self.assertIsInstance(result, SystemError)
+                self.assertIsNone(result.data)
+                self.assertNotIn('private detail', result.reason)
+                with self.assertRaises(TypeError):
+                    function(*args, publish=Mock(side_effect=TypeError('bug')))
+
+    def test_l3_rejects_failed_writes(self):
+        from stage_execution_service import save_stage_editing_checklist, save_automatic_assemble_marker
+        for name, function, args in [
+                ('save_editing_checklist', save_stage_editing_checklist, ('project', 'text')),
+                ('save_automatic_assemble_marker', save_automatic_assemble_marker, ('project', 'digest', 'master', 1))]:
+            with self.subTest(name=name), patch('edit_service.' + name, return_value=SystemError('保存失败')):
+                with self.assertRaisesRegex(ValueError, '保存失败'):
+                    function(*args)
 
 
 class AutomaticAssembleDecisionTests(unittest.TestCase):

@@ -1,11 +1,26 @@
 """无人值守自动粗剪的无界面派发决策。"""
 from pathlib import Path
+from functools import wraps
+import logging
+from service_contract import SystemError, success
+
+
+def _write_result(function):
+    @wraps(function)
+    def run(*args, **kwargs):
+        try:
+            return success(function(*args, **kwargs))
+        except OSError:
+            logging.getLogger(__name__).exception('剪辑记录保存失败')
+            return SystemError('剪辑记录保存失败，请检查文件权限和磁盘空间。')
+    return run
 
 
 CHECKLIST_NAME = '剪辑优化清单.md'
 AUTOMATIC_ASSEMBLE_MARKER_NAME = '自动粗剪.json'
 
 
+@_write_result
 def save_editing_checklist(project, text, *, publish=None):
     """发布用户维护的剪辑优化清单；正式发布器必须由 L3 注入。"""
     if not callable(publish):
@@ -15,6 +30,7 @@ def save_editing_checklist(project, text, *, publish=None):
     return publish(target, str(text or ''))
 
 
+@_write_result
 def save_automatic_assemble_marker(target, digest, master, completed_at, *, publish):
     """登记一次已完成的自动粗剪；正式发布器必须由 L3 注入。"""
     if not callable(publish):

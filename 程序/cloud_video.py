@@ -31,7 +31,9 @@ def _legacy_provider_label(config):
 
 def session_folder(project, kind, base, model, source):
     from cloud_video_service import session_folder as _session_folder
-    return _session_folder(project,kind,base,model,source)
+    result=_session_folder(project,kind,base,model,source)
+    if not result.ok:raise ValueError(result.reason)
+    return result.data
 def _legacy_session_folder(project, kind, base, model, source):
     # Find an existing ledger, or choose a readable name for a new one.
     parent=Path(project)/'cloud_video';parent.mkdir(exist_ok=True)

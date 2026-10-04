@@ -324,17 +324,26 @@ def cloud_video_gateway():
 
 def publish_cloud_video_session_config(config_path, config, prefs_path, prefs):
     from cloud_video_service import publish_session_config
-    return publish_session_config(config_path, config, prefs_path, prefs, gateway=cloud_video_gateway())
+    result = publish_session_config(config_path, config, prefs_path, prefs, gateway=cloud_video_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def publish_cloud_video_workspace_preference(prefs_path, prefs):
     from cloud_video_service import publish_workspace_preference
-    return publish_workspace_preference(prefs_path, prefs, gateway=cloud_video_gateway())
+    result = publish_workspace_preference(prefs_path, prefs, gateway=cloud_video_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def publish_cloud_video_studio_config(config_path, config):
     from cloud_video_service import publish_studio_config
-    return publish_studio_config(config_path, config, gateway=cloud_video_gateway())
+    result = publish_studio_config(config_path, config, gateway=cloud_video_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def video_lifecycle_gateway():
@@ -470,7 +479,10 @@ def save_stage_editing_checklist(project, text):
         return publish_stage_text(
             target, value, lambda _value: True, lambda _target: None, allow_empty=True)
 
-    return save_editing_checklist(project, text, publish=publish_checklist)
+    result = save_editing_checklist(project, text, publish=publish_checklist)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def publish_handoff_bundle(project, name, artifacts, *, auto=False):
@@ -596,7 +608,10 @@ def save_automatic_assemble_marker(project, digest, master, completed_at):
             path, json.dumps(payload, ensure_ascii=False, sort_keys=True),
             lambda text: isinstance(json.loads(text), dict), lambda _target: None)
 
-    return save_marker(target, digest, master, completed_at, publish=publish_marker)
+    result = save_marker(target, digest, master, completed_at, publish=publish_marker)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def save_automatic_handoff_marker(project, digest, folder, shot_count):
@@ -609,7 +624,10 @@ def save_automatic_handoff_marker(project, digest, folder, shot_count):
             path, json.dumps(payload, ensure_ascii=False, sort_keys=True),
             lambda text: isinstance(json.loads(text), dict), lambda _target: None)
 
-    return save_marker(target, digest, folder, shot_count, publish=publish_marker)
+    result = save_marker(target, digest, folder, shot_count, publish=publish_marker)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def _model_ids(desktop, stage):
