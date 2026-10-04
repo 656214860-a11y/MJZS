@@ -301,23 +301,37 @@ class AnimationTests(PetTestCase):
         """
         win = self.tk.Tk()
         win.withdraw()
+        destroyed = False
+
+        def animation_jobs():
+            # after info 返回 after#N；回调名称在每个任务的详细信息里。
+            return {
+                str(job) for job in win.tk.call('after', 'info')
+                if str(win.tk.call('after', 'info', job)[0]).endswith('step')
+            }
+
         try:
             fake = FakeDesktop(self.tk, self.ttk, win)
             fake.root = Path(self.tmp.name)
             pet = pet_ui.attach(fake, autostart=False)
-            pet.step()
-            pet.step()
-            jobs = [str(job) for job in win.tk.call('after', 'info')]
-            self.assertEqual(len([item for item in jobs if 'step' in item]), 1, '宠物定时器叠了第二个')
+            unrelated = win.after(60000, lambda: None)
+            self.assertEqual(animation_jobs(), {pet._timer}, 'build 必须登记唯一动画任务')
+            for _ in range(2):
+                previous = pet._timer
+                pet.step()
+                self.assertEqual(animation_jobs(), {pet._timer}, '宠物定时器叠了第二个')
+                self.assertNotIn(previous, win.tk.call('after', 'info'), '旧动画任务未撤销')
+                self.assertIn(unrelated, win.tk.call('after', 'info'), '不应撤销其他任务')
             win.destroy()
-            left = [str(job) for job in win.tk.call('after', 'info')]
-            self.assertEqual([item for item in left if 'step' in item], [], '窗口销毁后还留着宠物定时器')
-        except Exception:
-            pass
-        try:
-            win.destroy()
-        except Exception:
-            pass
+            destroyed = True
+            self.assertEqual(animation_jobs(), set(), '窗口销毁后还留着宠物定时器')
+            self.assertIsNone(pet._timer, '销毁后应清除动画任务登记')
+        finally:
+            # 清理失败探针留下的任务，不捕获或替换测试断言。
+            for job in win.tk.call('after', 'info'):
+                win.tk.call('after', 'cancel', job)
+            if not destroyed:
+                win.destroy()
 
 
 class SeamTests(PetTestCase):
