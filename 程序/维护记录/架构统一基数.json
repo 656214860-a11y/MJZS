@@ -99,8 +99,19 @@
             "edit_service",
             "handoff_service"
         ],
-        "exempt_count": 1,
-        "exempt_items": ["final_service"],
+        "exempt_count": 4,
+        "exempt_items": [
+            "asset_batch_selection_service",
+            "final_service",
+            "storyboard_adoption_service",
+            "subtitle_timing"
+        ],
+        "exempt_reasons": {
+            "asset_batch_selection_service": "R999：仅对调用方已加载的行进行选择、过滤与标签计算，不接收项目路径、设置或持久化能力。",
+            "final_service": "R998：仅根据调用方提供的签名和忙碌状态返回派发决定，不读取项目路径、设置或持久化能力。",
+            "storyboard_adoption_service": "R999：仅根据调用方提供的状态返回自动采用轮询决定，不接收项目路径、设置或持久化能力。",
+            "subtitle_timing": "R999：仅把调用方提供的剧集数据换算为时间轴/SRT 行，不接收项目路径、设置或持久化能力。"
+        },
         "historical_name_audit_pending": [
             "asset_gating",
             "keyframe",
@@ -111,7 +122,6 @@
             "writing_workflow"
         ],
         "pending": [
-            "asset_batch_selection_service",
             "cloud_video_service",
             "confirm_gates",
             "idea_attachments",
@@ -123,12 +133,10 @@
             "pet_test_service",
             "previs_progress_service",
             "previs_routing",
-            "storyboard_adoption_service",
             "storyboard_catalog_service",
             "storyboard_edit_service",
             "storyboard_lifecycle",
             "storyboard_source_service",
-            "subtitle_timing",
             "tts_api",
             "white_model_service"
         ]

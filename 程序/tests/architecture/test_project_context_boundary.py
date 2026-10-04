@@ -58,6 +58,13 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertFalse((pending & exempt) | (pending & historical) | (exempt & historical))
         self.assertEqual(len(adopters | pending | exempt | historical), 37)
         self.assertEqual(item['exempt_count'], len(exempt))
+        reasons = item['exempt_reasons']
+        self.assertEqual(set(reasons), exempt)
+        for name, reason in reasons.items():
+            self.assertRegex(reason, r'^R\d+：')
+            source = Path(ROOT, name + '.py').read_text(encoding='utf-8')
+            self.assertNotIn('ProjectContext', source,
+                             name + ' 是经审计的纯计算服务，不应伪造上下文消费')
         missing = {name for name in historical
                    if not (Path(ROOT, name + '.py').is_file()
                            or Path(ROOT, name, '__init__.py').is_file())}
