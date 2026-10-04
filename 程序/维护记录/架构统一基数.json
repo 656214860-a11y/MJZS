@@ -95,6 +95,7 @@
             "asset_context",
             "asset_detail_service",
             "asset_generated_import_service",
+            "cloud_video_service",
             "confirm_gates",
             "delivery_import_service",
             "edit_service",
@@ -135,7 +136,6 @@
             "writing_workflow"
         ],
         "pending": [
-            "cloud_video_service",
             "idea_chat",
             "keyframe_batch",
             "previs_routing",

@@ -119,14 +119,15 @@ class CloudResultTests(unittest.TestCase):
 
     def test_session_directory_failure_does_not_deliver_path(self):
         from cloud_video_service import session_folder as service_folder
-        args = ('project', 'wan', 'https://example.test', 'model', 'source.json')
+        from stage_execution_service import project_context
+        args = (project_context('project'), 'wan', 'https://example.test', 'model', 'source.json')
         with patch('pathlib.Path.mkdir', side_effect=OSError('private detail')):
             with self.assertLogs('cloud_video_service', level='ERROR'):
                 result = service_folder(*args)
             self.assertIsInstance(result, SystemError)
             self.assertIsNone(result.data)
             with self.assertLogs('cloud_video_service', level='ERROR'), self.assertRaises(ValueError):
-                session_folder(*args)
+                session_folder('project', *args[1:])
         with patch('pathlib.Path.mkdir', side_effect=TypeError('bug')), self.assertRaises(TypeError):
             service_folder(*args)
 

@@ -97,6 +97,15 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
         self.assertIn('poll_incremental(session, project_context(project)', orchestrator)
 
+    def test_cloud_video_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'cloud_video_service.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn("context.root/'cloud_video'", source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('session_folder(project_context(project)', orchestrator)
+        self.assertIn('saved_provider_key(project_context(project)', orchestrator)
+
     def test_storyboard_path_only_services_are_explicit_context_exemptions(self):
         for name in ('keyframe_lifecycle_service.py', 'previs_progress_service.py', 'storyboard_edit_service.py',
                      'storyboard_source_service.py'):

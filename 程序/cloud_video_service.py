@@ -7,6 +7,7 @@ from service_contract import SystemError, success
 
 from agent.core import read
 from project_naming import dated_path
+from project_context import ProjectContext
 
 
 def _write_result(function):
@@ -61,8 +62,10 @@ def provider_label(config, providers):
 
 
 @_write_result
-def session_folder(project, kind, base, model, source):
-    parent=Path(project)/'cloud_video';parent.mkdir(exist_ok=True)
+def session_folder(context, kind, base, model, source):
+    if not isinstance(context, ProjectContext):
+        raise TypeError('云视频会话目录需要由 L3 注入 ProjectContext。')
+    parent=context.root/'cloud_video';parent.mkdir(exist_ok=True)
     source=Path(source).resolve()
     for candidate in parent.iterdir():
         config=candidate/'config.json'
@@ -74,7 +77,9 @@ def session_folder(project, kind, base, model, source):
     return dated_path(parent,provider+'_'+model_name)
 
 
-def saved_provider_key(project,kind,providers,remembered=None,base_url=None,module_file=None):
+def saved_provider_key(context,kind,providers,remembered=None,base_url=None,module_file=None):
+    if not isinstance(context, ProjectContext):
+        raise TypeError('云视频凭据查询需要由 L3 注入 ProjectContext。')
     key_name='ARK_API_KEY' if kind=='volcengine' else 'DASHSCOPE_API_KEY';configs=[]
     # R505 P0：新保存的云视频会话统一由模型池读取 DPAPI；不会再回填或扫描明文。
     try:
@@ -85,7 +90,7 @@ def saved_provider_key(project,kind,providers,remembered=None,base_url=None,modu
     except ValueError:
         pass
     if remembered and remembered.get('cloud_provider')==kind:configs.append(remembered)
-    for path in sorted((Path(project)/'cloud_video').glob('*/config.json'),key=lambda p:p.stat().st_mtime,reverse=True):
+    for path in sorted((context.root/'cloud_video').glob('*/config.json'),key=lambda p:p.stat().st_mtime,reverse=True):
         cfg=read(path)
         if isinstance(cfg,dict) and cfg.get('cloud_provider')==kind:configs.append(cfg)
     expected=(base_url or next(spec[1] for spec in providers.values() if spec[0]==kind and spec[1])).rstrip('/')
