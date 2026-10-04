@@ -3,6 +3,7 @@ import json,re
 from datetime import datetime
 from pathlib import Path
 from agent.core import read
+from project_context import ProjectContext
 
 LEVELS={'simple':'简单／固定动作','medium':'中等动作','complex':'复杂动作'}
 ROUTES={'simple':'无需白模','medium':'线上简单白模','complex':'Agent 自动制作'}
@@ -38,13 +39,20 @@ def classify(shot):
     return 'medium','分镜动作信息不足，先按中等处理，可手动调整复杂度'
 
 
-def overrides_file(project):return Path(project)/'data/白模复杂度设置.json'
+def _context(value):
+    if not isinstance(value, ProjectContext):
+        raise TypeError('白模分流项目路径需要由 L3 注入 ProjectContext。')
+    return value
 
 
-def entries(project,source):
+def overrides_file(context):return _context(context).root/'data/白模复杂度设置.json'
+
+
+def entries(context,source):
+    context=_context(context)
     ep=read(source)
     if not isinstance(ep,dict):return {}
-    saved=read(overrides_file(project)) if overrides_file(project).is_file() else {}
+    saved=read(overrides_file(context)) if overrides_file(context).is_file() else {}
     result={};prefix=str(ep.get('episode_id',''))+'|'
     shots=ep.get('shots',[])
     if not isinstance(shots, list):
@@ -59,27 +67,30 @@ def entries(project,source):
     return result
 
 
-def set_override(project,source,sid,value,*,publish):
+def set_override(context,source,sid,value,*,publish):
+    context=_context(context)
     if value not in ('auto',*LEVELS):raise ValueError('未知的动作复杂度')
     ep=read(source)
     if sid not in {s['id'] for s in ep['shots']}:raise ValueError('镜头不存在')
-    file=overrides_file(project);data=read(file) if file.is_file() else {};key=str(ep.get('episode_id',''))+'|'+sid
+    file=overrides_file(context);data=read(file) if file.is_file() else {};key=str(ep.get('episode_id',''))+'|'+sid
     if value=='auto':data.pop(key,None)
     else:data[key]=value
     publish(file,data)
 
 
-def partition(project,source,ids):
-    decisions=entries(project,source);groups={key:[] for key in LEVELS}
+def partition(context,source,ids):
+    context=_context(context)
+    decisions=entries(context,source);groups={key:[] for key in LEVELS}
     if not ids or any(sid not in decisions for sid in ids):raise ValueError('请选择当前分镜中的镜头')
     for sid in dict.fromkeys(ids):groups[decisions[sid]['level']].append(sid)
     return groups,decisions
 
 
-def ready(project,sid):
+def ready(context,sid):
+    context=_context(context)
     import white_model_service as wm
     try:
-        value=wm.read_record(wm.shot_directory(project,sid)).get('preview')
+        value=wm.read_record(wm.shot_directory(context.root,sid)).get('preview')
     except (OSError,ValueError):
         return False
     path=Path(value) if value else None
@@ -89,13 +100,14 @@ def ready(project,sid):
         return False
 
 
-def automatic_candidates(project, source, shots, wait_for_frames=False, pending_frame_ids=None):
+def automatic_candidates(context, source, shots, wait_for_frames=False, pending_frame_ids=None):
     """计算无人值守白模候选；不启动任务也不访问 UI。"""
+    context=_context(context)
     ids = [shot['id'] for shot in shots if isinstance(shot, dict) and shot.get('id')]
     if not ids:
         return {'pending': [], 'medium': [], 'waiting': []}
-    groups, _decisions = partition(project, source, ids)
-    pending = [sid for sid in groups['complex'] if not ready(project, sid)]
+    groups, _decisions = partition(context, source, ids)
+    pending = [sid for sid in groups['complex'] if not ready(context, sid)]
     waiting = []
     if pending and wait_for_frames and callable(pending_frame_ids):
         without_frame = set(pending_frame_ids(shots))
@@ -120,48 +132,51 @@ def automatic_signature(source, pending):
     return str(source), tuple(pending)
 
 
-def automatic_engine(project, read_settings, engines):
+def automatic_engine(context, read_settings, engines):
     """从注入的设置读取器解析白模引擎，保留调用方的 UI/退避职责。"""
-    settings = read_settings(project, 'previs')
+    settings = read_settings(_context(context).root, 'previs')
     return engines[settings['engine']]
 
-def dispatch(project,source,ids,state,monitor=False,start_complex=None,*,publish):
+def dispatch(context,source,ids,state,monitor=False,start_complex=None,*,publish):
     """Route selected shots; the caller owns the optional Agent executor.
 
     Keeping the executor injected prevents the routing policy from importing the
     automation runner, while retaining the old one-click behaviour in the UI.
     """
+    context=_context(context)
     if state.get('busy'):raise ValueError('已有白模任务运行中')
-    groups,decisions=partition(project,source,ids)
-    completed=[sid for sid in ids if ready(project,sid)]
+    root=context.root
+    groups,decisions=partition(context,source,ids)
+    completed=[sid for sid in ids if ready(context,sid)]
     for level in groups:groups[level]=[sid for sid in groups[level] if sid not in completed]
-    folder=Path(project)/'工作流任务/白模分流记录'/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    folder=root/'工作流任务/白模分流记录'/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     publish(folder/'分流结果.json',{'source':str(source),'groups':groups,'ready_skipped':completed,'decisions':{sid:decisions[sid] for sid in ids}})
     state['routing_log_dir']=str(folder)
     for level in ('simple','medium'):
         for sid in groups[level]:
-            key=str(project)+'|'+sid
+            key=str(root)+'|'+sid
             state.setdefault('status',{})[key]='无需白模，已跳过' if level=='simple' else '待线上制作／导入'
             state.setdefault('progress',{}).pop(key,None)
     state['summary']=f'已就绪 {len(completed)} 镜跳过；简单 {len(groups["simple"])} 镜跳过；中等 {len(groups["medium"])} 镜走线上；复杂 {len(groups["complex"])} 镜交给 Agent。'
     if groups['complex'] and start_complex:
         try:
-            start_complex(project,source,groups['complex'],state,monitor=monitor)
+            start_complex(root,source,groups['complex'],state,monitor=monitor)
         except Exception as exc:
             publish(folder/'启动错误.json',{'error':str(exc),'shot_ids':groups['complex']})
-            for sid in groups['complex']:state.setdefault('status',{})[str(project)+'|'+sid]='失败：'+str(exc)
+            for sid in groups['complex']:state.setdefault('status',{})[str(root)+'|'+sid]='失败：'+str(exc)
             state['summary']+=' Agent 尚未启动：'+str(exc)
     elif groups['complex']:
         state['summary']+=' Agent 尚未启动：未提供自动制作执行器。'
     return groups
 
 
-def records_directory(project,state):
+def records_directory(context,state):
+    root=_context(context).root
     candidates=[]
     for key in ('log_dir','routing_log_dir'):
         value=state.get(key)
-        if value and Path(value).is_dir() and Path(value).resolve().is_relative_to(Path(project).resolve()):candidates.append(Path(value))
-    root=Path(project)/'工作流任务'
+        if value and Path(value).is_dir() and Path(value).resolve().is_relative_to(root.resolve()):candidates.append(Path(value))
+    root=root/'工作流任务'
     for name in ('白模自动制作','白模批量任务','白模分流记录'):
         if (root/name).is_dir():candidates.extend(p for p in (root/name).iterdir() if p.is_dir())
     if candidates:return max(candidates,key=lambda p:p.stat().st_mtime_ns)

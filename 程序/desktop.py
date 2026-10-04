@@ -3013,13 +3013,14 @@ class Desktop:
         if source is None:return
         episode=read(source)
         shots=episode.get('shots',[]) if isinstance(episode,dict) else []
-        from previs_routing import automatic_candidates, automatic_notice, automatic_signature, automatic_engine
+        from previs_routing import automatic_notice, automatic_signature
+        from stage_execution_service import previs_automatic_candidates, previs_automatic_engine
         try:
             frame_pending = None
             if self.pet.should_auto_run('keyframe'):
                 from keyframe_comfy import pending_shots
                 frame_pending = lambda rows: [shot['id'] for shot in pending_shots(rows, media_root(source))]
-            candidates=automatic_candidates(self.root,source,shots,bool(frame_pending),frame_pending)
+            candidates=previs_automatic_candidates(self.root,source,shots,bool(frame_pending),frame_pending)
         except ValueError:return
         pending=candidates['pending'];waiting=candidates['waiting'];medium=candidates['medium']
         # 顺序是「首帧在前、白模在后」：首帧阶段也在无人值守（05 开关打开）时，等这一镜的首帧落盘再建白模，
@@ -3038,7 +3039,7 @@ class Desktop:
         self.auto_previs_signature=signature;self.auto_previs_notice=notice
         try:
             from workflow_settings import current,ENGINES
-            engine=automatic_engine(self.root,current,ENGINES)
+            engine=previs_automatic_engine(self.root,current,ENGINES)
         except Exception as exc:
             self.auto_previs_signature=None;self.auto_previs_due=time.monotonic()+300
             self.auto_previs_error='白模调用设置无法读取：'+str(exc);self.status.set('无人值守自动补白模暂缓：'+str(exc));return

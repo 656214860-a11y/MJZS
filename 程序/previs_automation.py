@@ -24,7 +24,8 @@ def verify(project,sid,seconds):
 def select_agent_shots(project,source,ids,state):
     """只把复杂动作交给 Agent：简单镜头无需白模、中等镜头走线上入口，都只跳过、不中断整批。"""
     from previs_routing import partition
-    groups,_=partition(project,source,ids)
+    from stage_execution_service import project_context
+    groups,_=partition(project_context(project),source,ids)
     for level,note in (('simple','无需白模，已跳过'),('medium','待线上制作／导入')):
         for sid in groups[level]:
             key=str(project)+'|'+sid
@@ -66,7 +67,9 @@ def force_stop(project,state):
 def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
     if state.get('busy'):raise ValueError('已有白模任务进行中')
     from previs_routing import ready
-    ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(project,sid)]
+    from stage_execution_service import project_context
+    context=project_context(project)
+    ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(context,sid)]
     if not ids:
         state['summary']='没有需要 Agent 制作的镜头：简单镜头无需白模、中等镜头走线上入口，或所选镜头已就绪';return
     from workflow_settings import current,find_program,ENGINES
