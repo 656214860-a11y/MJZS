@@ -65,7 +65,7 @@ def start_pet_performance_check(program, project, kind='startup'):
 def poll_pet_performance_check(session, at=None):
     """L3 轮询宠物离线基准，并向 L2 注入正式账本发布器。"""
     from pet_performance_service import poll_startup_check
-    return poll_startup_check(session, at=at,
+    return poll_startup_check(session, project_context(session['project']), at=at,
                               publish=pet_performance_gateway()['publish_json'])
 
 

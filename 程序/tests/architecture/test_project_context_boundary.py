@@ -81,6 +81,14 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('store(project_context(project)', orchestrator)
         self.assertIn('def stage_idea_attachment_reference(', orchestrator)
 
+    def test_pet_performance_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'pet_performance_service.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('context.root.joinpath', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn("poll_startup_check(session, project_context(session['project'])", orchestrator)
+
     def test_storyboard_path_only_services_are_explicit_context_exemptions(self):
         for name in ('keyframe_lifecycle_service.py', 'storyboard_edit_service.py',
                      'storyboard_source_service.py'):
