@@ -1,10 +1,10 @@
 {
  "architecture": {
-  "elapsed_seconds": 46.419,
+  "elapsed_seconds": 35.886,
   "failed_modules": [],
-  "test_count": 177,
-  "unit_count": 81,
-  "updated_at": "2026-10-02T23:59:00"
+  "test_count": 309,
+  "unit_count": 104,
+  "updated_at": "2026-10-05T02:03:17"
  },
  "gui": {
   "elapsed_seconds": 508.783,

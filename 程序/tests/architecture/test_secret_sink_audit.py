@@ -4,8 +4,10 @@ from __future__ import annotations
 import ast
 import json
 import re
+import textwrap
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tests.architecture._scan import parse, production_files
 
@@ -77,9 +79,74 @@ def audit(paths=None):
 
 
 class SecretSinkAuditTests(unittest.TestCase):
+    def audit_snippet(self, source):
+        # Parse fake source only: never import it or call a credential provider.
+        path = mock.Mock(spec=Path)
+        path.name = 'fake_secret_canary.py'
+        path.read_text.return_value = textwrap.dedent(source)
+        return audit([path])
+
     def test_canary_hits_each_sink_kind(self):
         kinds = {item.rsplit(':', 1)[-1] for item in audit([CANARY])}
         self.assertEqual(kinds, {'log', 'json', 'prompt'})
+
+    def test_source_and_sink_matrix_canaries(self):
+        sources = (
+            "model_secrets.load('FAKE_TEST_KEY')",
+            "model_pool.credential('FAKE_TEST_KEY')",
+            "pet_llm.credential('FAKE_TEST_KEY')",
+            "api_endpoints.configured_key('FAKE_TEST_KEY')",
+            "os.getenv('FAKE_TEST_SECRET')",
+            "os.environ.get('FAKE_TEST_TOKEN')",
+        )
+        sinks = {'log': 'logger.warning(token)',
+                 'json': 'json.dumps({"payload": token})',
+                 'prompt': 'client.chat(message=token)'}
+        for source in sources:
+            for kind, sink in sinks.items():
+                with self.subTest(source=source, kind=kind):
+                    self.assertEqual(self.audit_snippet(
+                        f'def canary():\n    token = {source}\n    {sink}\n'),
+                        {f'fake_secret_canary.py:3:{kind}'})
+
+    def test_local_propagation_canaries(self):
+        cases = {
+            'assignment_alias': ('alias = token', 'print(alias)', 'log'),
+            'annotated_alias': ('alias: str = token', 'print(alias)', 'log'),
+            'formatted_keyword': ('alias = f"value={token}"',
+                                  'logger.error(message=alias)', 'log'),
+            'list_container': ('items = [token]', 'print(items[0])', 'log'),
+            'dict_container': ('items = {"value": token}',
+                               'json.dumps(items)', 'json'),
+            'return_sink': ('alias = token',
+                            'return client.send_prompt(alias)', 'prompt'),
+        }
+        for label, (assignment, sink, kind) in cases.items():
+            with self.subTest(case=label):
+                self.assertEqual(self.audit_snippet(
+                    "def canary():\n    token = os.getenv('FAKE_TEST_SECRET')\n"
+                    f'    {assignment}\n    {sink}\n'),
+                    {f'fake_secret_canary.py:4:{kind}'})
+
+    def test_nonsecret_counterexamples(self):
+        cases = {
+            'literal': "def safe():\n    print('FAKE_TEST_SECRET')\n",
+            'ordinary_environment':
+                "def safe():\n    value = os.getenv('FAKE_TEST_URL')\n    print(value)\n",
+            'field_name_only':
+                "def safe():\n    json.dumps({'token': 'not-a-credential'})\n",
+            'parameter_without_known_source':
+                'def safe(token):\n    print(token)\n',
+            'request_not_sink':
+                "def safe():\n    token = os.getenv('FAKE_TEST_SECRET')\n"
+                '    transport.request(headers={"Authorization": token})\n',
+            'separate_scope':
+                "def reader():\n    token = os.getenv('FAKE_TEST_SECRET')\n"
+                "def safe():\n    token = 'not-a-credential'\n    print(token)\n",
+        }
+        for label, source in cases.items():
+            with self.subTest(case=label):
+                self.assertEqual(self.audit_snippet(source), set())
 
     def test_production_has_no_secret_sink_flow(self):
         self.assertEqual(audit(), set(), '受控密钥不得流入日志、任务 JSON 或 prompt')
