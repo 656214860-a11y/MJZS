@@ -213,8 +213,10 @@ class SaveReminderTests(FinalViewerCase):
         from stage_execution_service import storyboard_gateway
         stamp = time.time()
         os.utime(self.source, (stamp, stamp))       # 这一份放旧了，维护才有权整理它
-        moved = storyboard_storage.normalize(self.project, min_age=0,
-                                             gateway=storyboard_gateway())
+        result = storyboard_storage.normalize(self.project, min_age=0,
+                                              gateway=storyboard_gateway())
+        self.assertTrue(result.ok)
+        moved = result.data
         self.assertTrue(moved, "这一下确实把工作稿改成了规范名")
         live = self.saved_path()
         self.assertNotEqual(live, self.source, "旧名字已经不在盘上了")

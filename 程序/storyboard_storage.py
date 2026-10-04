@@ -1,12 +1,27 @@
 """Normalize working storyboard filenames and coalesce only equal JSON documents."""
 import hashlib,json,os,re,time
 from pathlib import Path
+import logging
+from functools import wraps
 from agent.core import read
 from file_cache import read_stable_json_snapshot
 from project_stages import storyboard
 from storage_maintenance import recycle_paths
 
 ALIAS_FILE='文件路径映射.json'
+
+
+def _storage_result(operation):
+    @wraps(operation)
+    def run(*args, **kwargs):
+        try:
+            from service_contract import SystemError, success
+            return success(operation(*args, **kwargs))
+        except OSError as exc:
+            logging.getLogger(__name__).exception('分镜存储写入失败')
+            return SystemError('分镜文件未能保存，请检查磁盘或文件占用后重试。',
+                               data={'cause': str(exc), 'operation': operation.__name__})
+    return run
 
 
 def _require_gateway(gateway, *operations):
@@ -18,7 +33,7 @@ def _require_gateway(gateway, *operations):
     return gateway
 
 
-def publish_final_bundle(episodefile, assetfile, episode, assets, validate, *, gateway=None):
+def _publish_final_bundle(episodefile, assetfile, episode, assets, validate, *, gateway=None):
     """原子发布定稿双索引；校验失败时恢复本次之前的 JSON。"""
     gateway = _require_gateway(gateway, 'publish_json', 'publish_bytes', 'remove_temporary_file')
     publish_json, publish_bytes = gateway['publish_json'], gateway['publish_bytes']
@@ -37,6 +52,11 @@ def publish_final_bundle(episodefile, assetfile, episode, assets, validate, *, g
             elif file.is_file():
                 gateway['remove_temporary_file'](file)
         raise
+
+
+@_storage_result
+def publish_final_bundle(episodefile, assetfile, episode, assets, validate, *, gateway=None):
+    return _publish_final_bundle(episodefile, assetfile, episode, assets, validate, gateway=gateway)
 
 
 def working_roots(project):
@@ -107,7 +127,7 @@ def _references(project,mapping, gateway=None):
             updated['episode_dir']=str((project/updated['episode_file']).resolve().parent)
         if updated!=original:gateway['publish_json'](config,updated)
 
-def normalize(project,min_age=3, *, gateway=None):
+def _normalize(project,min_age=3, *, gateway=None):
     gateway = _require_gateway(gateway, 'publish_json', 'publish_bytes_new', 'recycle_paths')
     project=Path(project).resolve();changed=[];now=time.time()
     for root in working_roots(project):
@@ -157,6 +177,11 @@ def normalize(project,min_age=3, *, gateway=None):
     return changed
 
 
+@_storage_result
+def normalize(project,min_age=3, *, gateway=None):
+    return _normalize(project, min_age, gateway=gateway)
+
+
 def unique_entries(entries,project):
     """Read-only fallback for files too new to normalize; never merge final bundles."""
     root=(storyboard(project)/'分镜拆分').resolve();groups={};others=[]
@@ -176,10 +201,10 @@ def unique_entries(entries,project):
     return sorted(result,key=lambda e:(e['created'],str(e['path'])),reverse=True)
 
 
-def normalize_for_desktop(desktop, *, gateway=None):
+def _normalize_for_desktop(desktop, *, gateway=None):
     videos=list(getattr(desktop,'video_sessions',{}).values())
     if getattr(desktop,'worker',False) or any(getattr(v,'busy',False) for v in videos):return []
-    changed=normalize(desktop.root, gateway=gateway)
+    changed=_normalize(desktop.root, gateway=gateway)
     mapping={Path(old).resolve():Path(new).resolve() for old,new in changed}
     studios=[getattr(desktop,'studio',None)]+[getattr(v,'studio',None) for v in videos]
     for studio in studios:
@@ -190,3 +215,8 @@ def normalize_for_desktop(desktop, *, gateway=None):
         value=cfg.get('episode_file')
         if value and (Path(desktop.root)/value).resolve() in mapping:cfg['episode_file']=str(mapping[(Path(desktop.root)/value).resolve()])
     return changed
+
+
+@_storage_result
+def normalize_for_desktop(desktop, *, gateway=None):
+    return _normalize_for_desktop(desktop, gateway=gateway)

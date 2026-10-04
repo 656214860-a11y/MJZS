@@ -449,13 +449,13 @@ def storyboard_gateway():
 
 def publish_final_storyboard_bundle(episodefile, assetfile, episode, assets, validate):
     from storyboard_storage import publish_final_bundle
-    return publish_final_bundle(episodefile, assetfile, episode, assets, validate,
-                                gateway=storyboard_gateway())
+    return unwrap_service_result(publish_final_bundle(episodefile, assetfile, episode, assets, validate,
+                                                       gateway=storyboard_gateway()))
 
 
 def normalize_storyboard_for_desktop(desktop):
     from storyboard_storage import normalize_for_desktop
-    return normalize_for_desktop(desktop, gateway=storyboard_gateway())
+    return unwrap_service_result(normalize_for_desktop(desktop, gateway=storyboard_gateway()))
 
 
 def mark_stage_video_deleted(source, sid, versions):
