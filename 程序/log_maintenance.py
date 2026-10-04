@@ -2,6 +2,13 @@
 
 The maintenance scope is deliberately narrow: ``程序/logs`` and
 ``程序/维护记录``.  It never walks, reads, or changes a user project.
+
+Runtime ownership: Desktop.finish_close calls launch_cleanup once after window
+destruction on normal exit; forced exit skips it. Never schedule this service
+from startup. launch_cleanup is the sole desktop entry and delegates to this
+module's --cleanup worker. scripts/maintain_logs.py is an explicit operator
+entry to the same implementation, not a second scheduler or retention policy.
+Use --dry-run for inspection; invoking cleanup can rotate or remove managed logs.
 """
 from __future__ import annotations
 
@@ -116,7 +123,7 @@ def maintain_program_logs(program: Path | None = None, *, now: float | None = No
 
 
 def launch_cleanup(program: Path | None = None) -> None:
-    """Start best-effort post-exit maintenance without delaying UI shutdown."""
+    """Sole desktop entry: best-effort normal post-exit worker, never startup."""
     root = Path(program or PROGRAM)
     launch_background([sys.executable, str(root / "log_maintenance.py"), "--cleanup"],
                       stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

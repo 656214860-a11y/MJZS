@@ -298,6 +298,9 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 
 ## 维护边界
 
+- 程序日志维护职责唯一归属 `log_maintenance`；运行期唯一入口为 `Desktop.finish_close()` 在窗口销毁后、非强制退出分支调用 `log_maintenance.launch_cleanup(self.app)`，后台工作进程复用该模块的 `--cleanup` 实现。启动路径不调度日志维护，强制退出不调度；启动维护进程失败不阻断已经完成的退出。
+- `scripts/maintain_logs.py` 仅是同一实现的显式运维入口，不是另一套运行期调度或保留策略；人工核查先用 `--dry-run`，实际维护会轮转或删除受管日志。本轮仅确认既有链路，不执行真实日志维护；保留、轮转、容量参数仍以 `log_maintenance.py` 现有常量为准。范围仅程序自有 `logs/` 与 `维护记录/` 的受管日志，不递归用户项目。
+
 - 阶段顺序唯一权威：`pet_bus.py`；并行/重试唯一权威：`stage_parallel.py`。
 - 阶段命令入口唯一权威：`stage_handler_registry.start()`；`tests/architecture/test_stage_command_contract.py` 约束三虎自动启动、手动分镜与自动分镜均经该 L3 入口，并区分自动失败事件与手动页面结果。
 - 资产批次台账正式发布唯一经 `stage_execution_service.asset_batch_gateway()` 注入；L4 的未知提交放开请求经 `release_uncertain_asset_batch()` 委托，L2 不得自行持久化台账。

@@ -21,6 +21,12 @@
 | 阶段基础设施 | `stage_layout.py`、`stage_path_service.py`、`project_context.py`、`stage_execution_service.py`、`stage_parallel.py`、`confirm_gates.py` | 12 阶段目录、唯一写入路径、L3 注入的项目上下文、成果发布编排、并发限制、SG 门禁与确认门禁 |
 | 成本与运行保障 | `token_saver.py`、`tk_timers.py`、`storage_maintenance.py`、`log_maintenance.py`、`workspace_maintenance.py`、`recycle_recovery_service.py`、`recycle_recovery_controller.py` | Token/媒体预算、Tk 回调回收、退出后保守清理；程序日志保留/轮转/容量帽；仓库级可再生卫生（__pycache__、超期 .selftmp、已并净 .wt 工作树）；回收清单的项目内／项目库受控恢复 |
 
+### 日志维护归属
+
+程序日志运行期维护唯一由 `Desktop.finish_close()` 在窗口销毁后的正常退出分支调用 `log_maintenance.launch_cleanup()`，委托后台 `--cleanup` 工作进程；强制退出跳过，启动路径不调用。`log_maintenance` 统一负责程序自有日志的保留、轮转和容量限制，参数以其代码常量为准。
+
+`scripts/maintain_logs.py` 仅复用同一实现供显式运维，不另设调度或策略；手动检查用 `--dry-run`，实际维护会改变受管日志，不应为验证文档而执行。维护范围为程序 `logs/`、`维护记录/` 的受管日志，不递归用户项目。
+
 ## 12 阶段目录与交付契约
 
 | 阶段 | 当前目录 | 主要输入 | 主要交付 |
