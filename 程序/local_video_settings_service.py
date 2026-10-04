@@ -3,15 +3,18 @@ from pathlib import Path
 
 from agent.core import file_hash, temporary_path
 from file_cache import remove_temporary_file
+from project_context import ProjectContext
 
 
-def save_local_video_settings(project, current_config, options, *, gateway=None):
+def save_local_video_settings(context, current_config, options, *, gateway=None):
     """发布经 UI 预检的本地工作流副本与项目设置，失败时恢复旧状态。"""
+    if not isinstance(context, ProjectContext):
+        raise TypeError('本地视频设置需要由 L3 注入 ProjectContext。')
     if not isinstance(gateway, dict) or not all(callable(gateway.get(name)) for name in
                                                 ('publish_json', 'publish_bytes', 'copy_file', 'replace_file',
                                                  'published')):
         raise TypeError('本地视频设置需要由 L3 注入发布网关。')
-    project = Path(project).resolve()
+    project = context.root.resolve()
     if not isinstance(current_config, dict) or not isinstance(options, dict):
         raise ValueError('本地视频设置格式错误')
     source = Path(str(options.get('workflow', '')).strip()).resolve()

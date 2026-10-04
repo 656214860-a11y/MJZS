@@ -45,7 +45,7 @@ def local_video_settings_gateway():
 def publish_local_video_settings(project, current_config, options):
     """L3 编排本地视频工作流与项目设置的成对发布。"""
     from local_video_settings_service import save_local_video_settings
-    return save_local_video_settings(project, current_config, options,
+    return save_local_video_settings(project_context(project), current_config, options,
                                      gateway=local_video_settings_gateway())
 
 

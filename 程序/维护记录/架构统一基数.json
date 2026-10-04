@@ -98,7 +98,8 @@
             "confirm_gates",
             "delivery_import_service",
             "edit_service",
-            "handoff_service"
+            "handoff_service",
+            "local_video_settings_service"
         ],
         "exempt_count": 4,
         "exempt_items": [
@@ -128,7 +129,6 @@
             "idea_chat",
             "keyframe_batch",
             "keyframe_lifecycle_service",
-            "local_video_settings_service",
             "pet_performance_service",
             "pet_test_service",
             "previs_progress_service",

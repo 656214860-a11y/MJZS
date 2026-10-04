@@ -59,6 +59,16 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def run_stage_confirmation_gate(', orchestrator)
         self.assertIn('context=project_context(project)', orchestrator)
 
+    def test_local_video_settings_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'local_video_settings_service.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        tree = _tree('local_video_settings_service.py')
+        constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                        and getattr(node.func, 'id', '') == 'ProjectContext']
+        self.assertEqual(constructors, [])
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('save_local_video_settings(project_context(project)', orchestrator)
+
     def test_second_roadmap_scope_is_a_complete_migration_ratchet(self):
         ledger = json.loads(Path(ROOT, '维护记录', '架构统一基数.json').read_text(encoding='utf-8'))
         item = ledger['第二项']
