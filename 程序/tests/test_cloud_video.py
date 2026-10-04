@@ -38,6 +38,12 @@ class ProviderLabelTests(unittest.TestCase):
     def test_empty(self):
         self.assertEqual(provider_label({}), "阿里云百炼 · 万相")
 
+    def test_custom_seedance_and_official_trailing_slashes(self):
+        for label, (kind, base, _, _) in PROVIDERS.items():
+            config = {'cloud_provider': kind, 'base_url': base + '/' if base else 'https://custom.example.test/v1'}
+            with self.subTest(label=label):
+                self.assertEqual(provider_label(config), label)
+
 
 class SessionFolderTests(unittest.TestCase):
     def make(self, td):
@@ -146,6 +152,30 @@ class ProviderKeyTests(unittest.TestCase):
             value=saved_provider_key(Path(td), 'wan', {'key_provider':'model_pool'})
         self.assertEqual(value, 'sk-encrypted')
         named.assert_called_once_with('DASHSCOPE_API_KEY')
+
+    def test_legacy_session_key_fallback_is_read_only_and_host_bound(self):
+        for label, (kind, base, _, key_name) in PROVIDERS.items():
+            if not base:
+                continue
+            for remembered in (False, True):
+                with self.subTest(provider=label, remembered=remembered), tempfile.TemporaryDirectory() as td:
+                    project = Path(td) / 'project'
+                    session = project / 'cloud_video' / 'saved'
+                    session.mkdir(parents=True)
+                    env = session / '.env'
+                    env.write_text('# isolated fixture only\n' + key_name + '=FAKE_TEST_VALUE\n', encoding='utf-8')
+                    config = {'cloud_provider': kind, 'base_url': base + '/', 'project_dir': str(session)}
+                    config_path = session / 'config.json'
+                    config_path.write_text(json.dumps(config), encoding='utf-8')
+                    before = {path: path.read_bytes() for path in (config_path, env)}
+                    # Keep the compatibility fallback inside the fixture, never real private/.
+                    with (patch('model_pool.named_key', return_value='') as named,
+                          patch('cloud_video.__file__', str(Path(td) / 'app' / 'cloud_video.py'))):
+                        self.assertEqual(saved_provider_key(project, kind, config if remembered else None, base),
+                                         'FAKE_TEST_VALUE')
+                        self.assertEqual(saved_provider_key(project, kind, config, 'https://other.example.test/v1'), '')
+                    self.assertEqual(named.call_args_list, [((key_name,),), ((key_name,),)])
+                    self.assertEqual({path: path.read_bytes() for path in before}, before)
 
 
 class KeyEntryPrivacyTests(unittest.TestCase):

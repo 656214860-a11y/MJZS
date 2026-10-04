@@ -1,5 +1,4 @@
 """Configure isolated cloud video task sessions without submitting on open."""
-import re
 import time
 import tkinter as tk
 from tkinter import ttk,messagebox
@@ -9,7 +8,6 @@ from ui_tokens import SPACING
 from ui_widgets import Card, BaseDialog, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation, notify
 from agent.core import read
 from api_models import identity,cloud_removed
-from project_naming import dated_path
 
 PROVIDERS={
     '阿里云百炼 · 万相':('wan','https://dashscope.aliyuncs.com/api/v1','wan2.6-i2v-flash','DASHSCOPE_API_KEY'),
@@ -22,54 +20,14 @@ KEY_REVEAL_MS=10_000
 def provider_label(config):
     from cloud_video_service import provider_label as _provider_label
     return _provider_label(config,PROVIDERS)
-def _legacy_provider_label(config):
-    kind=config.get('cloud_provider','wan');url=config.get('base_url','').rstrip('/')
-    for label,(provider,base,_,_) in PROVIDERS.items():
-        if provider==kind and base and url==base:return label
-    if not url:return '阿里云百炼 · 万相'
-    return '自定义 · 万相兼容' if kind=='wan' else '自定义 · Seedance兼容'
 
 def session_folder(project, kind, base, model, source):
     from stage_execution_service import cloud_video_session_folder
     return cloud_video_session_folder(project,kind,base,model,source)
-def _legacy_session_folder(project, kind, base, model, source):
-    # Find an existing ledger, or choose a readable name for a new one.
-    parent=Path(project)/'cloud_video';parent.mkdir(exist_ok=True)
-    source=Path(source).resolve()
-    for candidate in parent.iterdir():
-        config=candidate/'config.json'
-        if not candidate.is_dir() or not config.is_file():continue
-        saved=read(config)
-        if not isinstance(saved,dict):continue
-        if (saved.get('cloud_provider')==kind and saved.get('base_url','').rstrip('/')==base.rstrip('/')
-                and saved.get('model')==model and Path(saved.get('episode_file','')).resolve()==source):
-            return candidate
-    provider='火山引擎' if kind=='volcengine' else '阿里云'
-    model_name=re.sub(r'[^A-Za-z0-9_-]+','-',model).strip('-_')[:55] or '视频模型'
-    return dated_path(parent,provider+'_'+model_name)
 
 def saved_provider_key(project,kind,remembered=None,base_url=None):
     from stage_execution_service import cloud_video_saved_provider_key
     return cloud_video_saved_provider_key(project,kind,PROVIDERS,remembered,base_url,__file__)
-def _legacy_saved_provider_key(project,kind,remembered=None,base_url=None):
-    key_name='ARK_API_KEY' if kind=='volcengine' else 'DASHSCOPE_API_KEY'
-    configs=[]
-    if remembered and remembered.get('cloud_provider')==kind:configs.append(remembered)
-    for path in sorted((Path(project)/'cloud_video').glob('*/config.json'),key=lambda p:p.stat().st_mtime,reverse=True):
-        cfg=read(path)
-        if not isinstance(cfg,dict):continue
-        if cfg.get('cloud_provider')==kind:configs.append(cfg)
-    expected=(base_url or next(spec[1] for spec in PROVIDERS.values() if spec[0]==kind and spec[1])).rstrip('/')
-    paths=[Path(c['project_dir'])/'.env' for c in configs if c.get('project_dir') and c.get('base_url','').rstrip('/')==expected]
-    if expected in [spec[1] for spec in PROVIDERS.values() if spec[0]==kind and spec[1]]:
-        paths.append(Path(__file__).resolve().parent/'private/.env')
-    for path in paths:
-        if not path.is_file():continue
-        for line in path.read_text(encoding='utf-8-sig').splitlines():
-            if line.lstrip().startswith('#') or '=' not in line:continue
-            name,value=line.split('=',1);value=value.strip().strip(chr(34)).strip(chr(39))
-            if name.strip()==key_name and value and value not in ('replace_me','<YOUR_API_KEY>'):return value
-    return ''
 
 def settings_window(desktop):
     previous=getattr(desktop,'cloud_settings_window',None)
