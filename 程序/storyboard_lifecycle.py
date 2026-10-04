@@ -2,25 +2,33 @@
 from pathlib import Path
 import copy,hashlib
 from agent.core import read,fingerprint,file_hash
+from project_context import ProjectContext
 from storyboard_storage import _references,ALIAS_FILE,resolved_alias
 from storyboard_paths import media_root
 
 
-def working_roots(project):
+def _context(value):
+    """分镜生命周期的项目路径只能由 L3 注入。"""
+    if not isinstance(value, ProjectContext):
+        raise TypeError('分镜生命周期项目路径需要由 L3 注入 ProjectContext。')
+    return value
+
+
+def working_roots(context):
     """当前初步分镜目录优先，旧 storyboard 只作为历史读取兼容。"""
     from project_stages import storyboard
-    project=Path(project).resolve()
+    project=_context(context).root.resolve()
     return (storyboard(project).resolve(), (project/'storyboard').resolve())
 
 
-def is_working_source(project,path):
+def is_working_source(context,path):
     path=Path(path).resolve()
     # 新项目的工作稿位于 03初步分镜/分镜文档；旧项目仍可能保留分镜拆分。
-    return any(path.parent in (root/'分镜文档',root/'分镜拆分') for root in working_roots(project))
+    return any(path.parent in (root/'分镜文档',root/'分镜拆分') for root in working_roots(context))
 
 
-def _safe(project,path,working=True):
-    project=Path(project).resolve();roots=working_roots(project)
+def _safe(context,path,working=True):
+    project=_context(context).root.resolve();roots=working_roots(context)
     path=Path(path).absolute()
     root=next((item for item in roots if path.resolve().is_relative_to(item)),None)
     if working and root is None:raise ValueError('只能整理当前项目内的分镜JSON')
@@ -45,9 +53,9 @@ def signature(episode,assets,base):
     return fingerprint({'episode':episode,'assets':assets})
 
 
-def retire(project,source,target,expected,publish=None):
+def retire(context,source,target,expected,publish=None):
     if not callable(publish):raise TypeError('分镜退役需要 L3 别名发布器。')
-    project=Path(project).resolve();source=_safe(project,source);target=_safe(project,target,working=False)
+    project=_context(context).root.resolve();source=_safe(context,source);target=_safe(context,target,working=False)
     if source==target:return
     if not target.is_file():raise ValueError('定稿未保存，原稿已保留')
     if not source.is_file():return
@@ -75,17 +83,18 @@ def working_content(episode):
     return episode
 
 
-def refresh_open_studios(desktop):
+def refresh_open_studios(desktop, context):
+    project = _context(context).root
     sessions=getattr(desktop,'video_sessions',{})
     studios=[getattr(desktop,'studio',None)]+[getattr(v,'studio',None) for v in sessions.values()]
     for studio in studios:
         if studio is None:continue
-        old=Path(studio.episode_path).resolve();source=resolved_alias(desktop.root,old)
+        old=Path(studio.episode_path).resolve();source=resolved_alias(project,old)
         if source==old:continue
         studio.episode_path=source;studio.episode_dir=source.parent;studio.media_dir=media_root(source)
         studio.episode=read(source)
         studio.cfg=read(studio.root/'config.json')
     for key,video in list(sessions.items()):
-        source=resolved_alias(desktop.root,key[1])
+        source=resolved_alias(project,key[1])
         if str(source)!=str(key[1]):
             sessions[(key[0],str(source))]=sessions.pop(key)

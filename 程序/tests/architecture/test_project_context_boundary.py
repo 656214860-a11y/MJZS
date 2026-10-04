@@ -157,6 +157,17 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('publish_full_track(project_context(project)', orchestrator)
         self.assertIn('reusable_full_track(project_context(project)', orchestrator)
 
+    def test_storyboard_lifecycle_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'storyboard_lifecycle.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('def _context(value)', source)
+        self.assertIn('_context(context).root', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('def storyboard_working_source(', orchestrator)
+        self.assertIn('def retire_storyboard(', orchestrator)
+        self.assertIn('def refresh_storyboard_studios(', orchestrator)
+
     def test_storyboard_path_only_services_are_explicit_context_exemptions(self):
         for name in ('keyframe_lifecycle_service.py', 'previs_progress_service.py', 'storyboard_edit_service.py',
                      'storyboard_source_service.py'):

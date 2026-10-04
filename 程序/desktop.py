@@ -5953,8 +5953,8 @@ class Desktop:
         result=read(folder/'episode.json')
         missing=len((result.get('missing_assets') or [])) if isinstance(result,dict) else 0
         if self.root is not None and Path(project)==Path(self.root):
-            from storyboard_lifecycle import refresh_open_studios
-            refresh_open_studios(self)
+            from stage_execution_service import refresh_storyboard_studios
+            refresh_storyboard_studios(self, project)
             final_source = folder / 'episode.json'
             self.remember_frame_json(final_source)
             from storyboard_selection import remember_final_view

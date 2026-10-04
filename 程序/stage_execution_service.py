@@ -362,6 +362,24 @@ def reusable_tts_full_track(project, signature):
     return reusable_full_track(project_context(project), signature)
 
 
+def storyboard_working_source(project, source):
+    """L3 为分镜生命周期的工作稿判定注入项目上下文。"""
+    from storyboard_lifecycle import is_working_source
+    return is_working_source(project_context(project), source)
+
+
+def retire_storyboard(project, source, target, expected, publish):
+    """L3 为已发布定稿退役工作分镜注入项目上下文。"""
+    from storyboard_lifecycle import retire
+    return retire(project_context(project), source, target, expected, publish=publish)
+
+
+def refresh_storyboard_studios(desktop, project):
+    """L3 为定稿后的已开分镜工作集刷新注入项目上下文。"""
+    from storyboard_lifecycle import refresh_open_studios
+    return refresh_open_studios(desktop, project_context(project))
+
+
 def run_tts_lines(lines, folder, generate=None, report=None, stop=None):
     from tts_api import run_lines
     return run_lines(lines, folder, generate, report, stop, gateway=tts_gateway())

@@ -104,7 +104,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
         try:matches=bool(wanted and signature(read(existing),read(existing.with_name('assets.json')),existing.parent)==wanted)
         except (OSError,ValueError,KeyError):continue
         if matches:
-            from storyboard_lifecycle import is_working_source
+            from stage_execution_service import storyboard_working_source as is_working_source
             _record_lineage(project, existing, source)
             if is_working_source(project,source):
                 if not callable(retire_working):raise TypeError('定稿退役需要 L3 编排入口。')
@@ -167,7 +167,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
         )
         _record_lineage(project, episodefile, source)
     except Exception: raise
-    from storyboard_lifecycle import is_working_source
+    from stage_execution_service import storyboard_working_source as is_working_source
     if is_working_source(project,source):
         if not callable(retire_working):raise TypeError('定稿退役需要 L3 编排入口。')
         retire_working(project,source,dest/'episode.json',original_hash)
