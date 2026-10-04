@@ -19,9 +19,9 @@ def storyboard_lifecycle_gateway():
 
 def retire_stage_storyboard(project, source, target, expected):
     """定稿后退役工作分镜：由 L3 注入别名发布器并保留回收站事务。"""
-    from storyboard_lifecycle import retire
-    return retire(project, source, target, expected,
-                  publish=storyboard_lifecycle_gateway()['publish_json'])
+    from stage_execution_service import retire_storyboard
+    return retire_storyboard(project, source, target, expected,
+                             publish=storyboard_lifecycle_gateway()['publish_json'])
 
 
 def finalize_stage_storyboard(project, episode_dir, source):

@@ -9,9 +9,12 @@
 from pathlib import Path
 import json
 import time
+import logging
+from functools import wraps
 
 from model_router import ModelAdapter
 from script_contract import RHYTHM_TEMPLATE_PATH
+from service_contract import SystemError, success
 
 
 ROLE_ORDER = ('director', 'writer', 'editor', 'actor')
@@ -30,6 +33,19 @@ class RoleExecutionError(RuntimeError):
 
 class RoleCancelledError(RoleExecutionError):
     """用户取消后在下一次安全边界停止，不再进入后续角色或落盘。"""
+
+
+def _hollmwood_result(operation):
+    """仅将日志发布等真实环境故障映射为可展示的服务结果。"""
+    @wraps(operation)
+    def run(*args, **kwargs):
+        try:
+            return success(operation(*args, **kwargs))
+        except OSError as exc:
+            logging.getLogger(__name__).exception('HOLLMWOOD 协作日志保存失败')
+            return SystemError('HOLLMWOOD 日志未能保存，请检查磁盘或文件占用后重试。',
+                               data={'cause': str(exc), 'operation': operation.__name__})
+    return run
 
 
 def _ensure_active(cancelled):
@@ -233,7 +249,7 @@ def _revision(adapter, model, role, system, original, review, log_folder, step, 
                 publish_log=publish_log)
 
 
-def run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
+def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
         max_revisions=MAX_REVISIONS, emit=None, skill_instructions='', cancelled=None,
         director_rules=None, role_rules=None, stream=None, *, publish_log=None):
     """串行运行导演、编剧、编辑、演员并执行三次导演门禁。
@@ -300,3 +316,12 @@ def run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
                                 publish_log=publish_log)
     outputs['script'] = outputs['actor']
     return outputs
+
+
+@_hollmwood_result
+def run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
+        max_revisions=MAX_REVISIONS, emit=None, skill_instructions='', cancelled=None,
+        director_rules=None, role_rules=None, stream=None, *, publish_log=None):
+    return _run(adapter, model, brief_complete, rhythm_template, log_folder, max_revisions,
+                emit, skill_instructions, cancelled, director_rules, role_rules, stream,
+                publish_log=publish_log)

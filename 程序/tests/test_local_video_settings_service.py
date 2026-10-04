@@ -5,7 +5,7 @@ from pathlib import Path
 
 from agent.core import read, save, save_bytes
 from local_video_settings_service import save_local_video_settings
-from stage_execution_service import publish_local_video_settings
+from stage_execution_service import project_context, publish_local_video_settings
 
 
 class LocalVideoSettingsServiceTests(unittest.TestCase):
@@ -41,7 +41,7 @@ class LocalVideoSettingsServiceTests(unittest.TestCase):
                    'replace_file': lambda source, destination: Path(source).replace(destination),
                    'published': lambda path: events.append(Path(path))}
         self.source.write_text('{"2": {}}', encoding='utf-8')
-        refreshed = save_local_video_settings(self.project, read(self.config),
+        refreshed = save_local_video_settings(project_context(self.project), read(self.config),
                                               {'workflow': str(self.source)}, gateway=gateway)
         self.assertEqual(events, [Path(refreshed['local_video']['workflow']), self.config])
 
@@ -56,10 +56,10 @@ class LocalVideoSettingsServiceTests(unittest.TestCase):
                    'replace_file': lambda source, target: Path(source).replace(target),
                    'published': lambda _path: None}
         with self.assertRaisesRegex(OSError, 'config failed'):
-            save_local_video_settings(self.project, read(self.config), {'workflow': str(self.source)}, gateway=gateway)
+            save_local_video_settings(project_context(self.project), read(self.config), {'workflow': str(self.source)}, gateway=gateway)
         self.assertEqual(self.config.read_bytes(), old_config)
         self.assertEqual(target.read_bytes(), old_target)
 
     def test_rejects_missing_l3_gateway(self):
         with self.assertRaisesRegex(TypeError, 'L3'):
-            save_local_video_settings(self.project, read(self.config), {'workflow': str(self.source)})
+            save_local_video_settings(project_context(self.project), read(self.config), {'workflow': str(self.source)})

@@ -1,0 +1,88 @@
+import ast
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+import project_stages
+from script_workspace_service import ensure_script_workspace, rename_script_document
+from service_contract import SystemError, UserError, success
+
+
+class ScriptWorkspaceResultTests(unittest.TestCase):
+    def test_mkdir_failure_is_system_error(self):
+        with patch.object(Path, 'mkdir', side_effect=OSError('private detail')):
+            with self.assertLogs('script_workspace_service', level='ERROR'):
+                result = ensure_script_workspace('project')
+        self.assertIsInstance(result, SystemError)
+        self.assertNotIn('private detail', result.reason)
+
+    def test_rename_invalid_failure_and_noop_preserve_source(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = project_stages.writing(temp) / '原名.md'
+            source.parent.mkdir(parents=True)
+            source.write_text('original', encoding='utf-8')
+            with patch.object(Path, 'rename') as rename:
+                self.assertIsInstance(rename_script_document(temp, source, '../bad'), UserError)
+                unchanged = rename_script_document(temp, source, source.name)
+                self.assertTrue(unchanged.ok)
+                self.assertEqual(source.resolve(), unchanged.data)
+                rename.assert_not_called()
+            with patch.object(Path, 'rename', side_effect=OSError('private detail')):
+                with self.assertLogs('script_workspace_service', level='ERROR'):
+                    result = rename_script_document(temp, source, 'new.md')
+            self.assertIsInstance(result, SystemError)
+            self.assertNotIn('private detail', result.reason)
+            self.assertEqual('original', source.read_text(encoding='utf-8'))
+            self.assertFalse(source.with_name('new.md').exists())
+
+    def test_wrapped_filesystem_failure_is_not_user_error(self):
+        error = ValueError('wrapped')
+        error.__cause__ = OSError('private detail')
+        with patch('script_workspace_service.selected_script_paths', side_effect=error):
+            with self.assertLogs('script_workspace_service', level='ERROR'):
+                result = rename_script_document('project', 'source', 'target')
+        self.assertIsInstance(result, SystemError)
+
+    def test_programming_error_propagates(self):
+        with patch.object(Path, 'mkdir', side_effect=TypeError('bug')):
+            with self.assertRaisesRegex(TypeError, 'bug'):
+                ensure_script_workspace('project')
+
+    def test_desktop_rename_success_failure_and_cancel(self):
+        source = Path(__file__).resolve().parents[1] / 'desktop.py'
+        tree = ast.parse(source.read_text(encoding='utf-8'))
+        methods = [node for node in ast.walk(tree)
+                   if isinstance(node, ast.FunctionDef) and node.name == 'rename_script']
+        self.assertEqual(1, len(methods))
+        for result in (SystemError('保存失败'), success(Path('new.md'))):
+            app, dialog, refresh = Mock(), Mock(), Mock()
+            dialog.askstring.return_value = 'new.md'
+            env = dict(self=app, simpledialog=dialog, fill_script_list=refresh,
+                       selected_script=Mock(return_value=Path('old.md')))
+            exec(compile(ast.Module(body=methods, type_ignores=[]), str(source), 'exec'), env)
+            with patch('script_workspace_service.rename_script_document', return_value=result) as service:
+                if result.ok:
+                    env['rename_script']()
+                    refresh.assert_called_once()
+                    app.status.set.assert_called_once_with('已重命名：new.md')
+                else:
+                    with self.assertRaisesRegex(ValueError, '保存失败'):
+                        env['rename_script']()
+                    refresh.assert_not_called()
+                    app.status.set.assert_not_called()
+                dialog.askstring.return_value = ''
+                service.reset_mock()
+                env['rename_script']()
+                service.assert_not_called()
+
+    def test_desktop_initialization_failure_stops_before_page_construction(self):
+        source = Path(__file__).resolve().parents[1] / 'desktop.py'
+        tree = ast.parse(source.read_text(encoding='utf-8'))
+        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'Desktop')
+        method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing')
+        env = {}
+        exec(compile(ast.Module(body=[method], type_ignores=[]), str(source), 'exec'), env)
+        with patch('script_workspace_service.ensure_script_workspace', return_value=SystemError('初始化失败')):
+            with self.assertRaisesRegex(ValueError, '初始化失败'):
+                env['writing'](Mock())

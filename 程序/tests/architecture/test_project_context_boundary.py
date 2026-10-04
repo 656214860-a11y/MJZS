@@ -1,6 +1,8 @@
 import ast
+import json
 import os
 import unittest
+from pathlib import Path
 
 from tests.architecture._layers import LAYERS
 
@@ -29,7 +31,185 @@ class ProjectContextBoundaryTests(unittest.TestCase):
 
     def test_l2_uses_injected_stage_resolver_without_project_path_join(self):
         delivery = _tree('delivery_import_service.py')
-        source = open(os.path.join(ROOT, 'delivery_import_service.py'), encoding='utf-8').read()
+        source = Path(ROOT, 'delivery_import_service.py').read_text(encoding='utf-8')
         self.assertIn("context.stage_resolver('delivery')", source)
         self.assertNotIn('project_stages', source)
         self.assertNotIn('os.path.join', source)
+
+    def test_asset_domain_services_consume_but_do_not_construct_context(self):
+        for name in ('asset_context.py', 'asset_batch_lifecycle.py',
+                     'asset_batch_state_service.py', 'asset_batch_service.py',
+                     'asset_detail_service.py', 'asset_generated_import_service.py'):
+            tree = _tree(name)
+            constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                            and getattr(node.func, 'id', '') == 'ProjectContext']
+            self.assertEqual(constructors, [], name + ' 不得自行构造 ProjectContext')
+            source = Path(ROOT, name).read_text(encoding='utf-8')
+            self.assertIn('ProjectContext', source)
+
+    def test_confirmation_service_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'confirm_gates.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn("context.stage_resolver('continuity')", source)
+        tree = _tree('confirm_gates.py')
+        constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                        and getattr(node.func, 'id', '') == 'ProjectContext']
+        self.assertEqual(constructors, [])
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('def run_stage_confirmation_gate(', orchestrator)
+        self.assertIn('context=project_context(project)', orchestrator)
+
+    def test_local_video_settings_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'local_video_settings_service.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        tree = _tree('local_video_settings_service.py')
+        constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                        and getattr(node.func, 'id', '') == 'ProjectContext']
+        self.assertEqual(constructors, [])
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('save_local_video_settings(project_context(project)', orchestrator)
+
+    def test_idea_attachments_consume_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'idea_attachments.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn("context.stage_resolver('script')", source)
+        tree = _tree('idea_attachments.py')
+        constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                        and getattr(node.func, 'id', '') == 'ProjectContext']
+        self.assertEqual(constructors, [])
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('store(project_context(project)', orchestrator)
+        self.assertIn('def stage_idea_attachment_reference(', orchestrator)
+
+    def test_pet_performance_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'pet_performance_service.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('context.root.joinpath', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn("poll_startup_check(session, project_context(session['project'])", orchestrator)
+
+    def test_pet_test_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'pet_test_service.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('context.root.joinpath', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('poll_incremental(session, project_context(project)', orchestrator)
+
+    def test_cloud_video_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'cloud_video_service.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn("context.root/'cloud_video'", source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('session_folder(project_context(project)', orchestrator)
+        self.assertIn('saved_provider_key(project_context(project)', orchestrator)
+
+    def test_idea_chat_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'idea_chat.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('def _context(value)', source)
+        self.assertIn('writing(_context(context).root)', source)
+        self.assertNotIn('ProjectContext(', source)
+        desktop = Path(ROOT, 'desktop.py').read_text(encoding='utf-8')
+        self.assertIn('def idea_chat_context(self)', desktop)
+        self.assertIn('idea_chat.load(self.idea_chat_context()', desktop)
+
+    def test_keyframe_batch_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'keyframe_batch.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('isinstance(context, ProjectContext)', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('def keyframe_image_prompt(', orchestrator)
+        self.assertIn('image_prompt(source, project_context(project)', orchestrator)
+
+    def test_previs_routing_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'previs_routing.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('def _context(value)', source)
+        self.assertIn('isinstance(value, ProjectContext)', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('set_override(project_context(project)', orchestrator)
+        self.assertIn('dispatch(project_context(project)', orchestrator)
+        self.assertIn('def previs_entries(', orchestrator)
+
+    def test_storyboard_catalog_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'storyboard_catalog_service.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('def _context(value)', source)
+        self.assertIn('isinstance(value, ProjectContext)', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('def storyboard_catalog(', orchestrator)
+        self.assertIn('catalog(project_context(project)', orchestrator)
+
+    def test_tts_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'tts_api.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('def _context(value)', source)
+        self.assertIn('audio(_context(context).root)', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('def reusable_tts_full_track(', orchestrator)
+        self.assertIn('publish_full_track(project_context(project)', orchestrator)
+        self.assertIn('reusable_full_track(project_context(project)', orchestrator)
+
+    def test_storyboard_lifecycle_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'storyboard_lifecycle.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('def _context(value)', source)
+        self.assertIn('_context(context).root', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('def storyboard_working_source(', orchestrator)
+        self.assertIn('def retire_storyboard(', orchestrator)
+        self.assertIn('def refresh_storyboard_studios(', orchestrator)
+
+    def test_white_model_service_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'white_model_service.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('def _context(value)', source)
+        self.assertIn('_context(context).root', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('def white_model_shot_directory(', orchestrator)
+        self.assertIn('shot_directory(project_context(project)', orchestrator)
+
+    def test_storyboard_path_only_services_are_explicit_context_exemptions(self):
+        for name in ('keyframe_lifecycle_service.py', 'previs_progress_service.py', 'storyboard_edit_service.py',
+                     'storyboard_source_service.py'):
+            source = Path(ROOT, name).read_text(encoding='utf-8')
+            self.assertNotIn('ProjectContext', source)
+        ledger = json.loads(Path(ROOT, '维护记录', '架构统一基数.json').read_text(encoding='utf-8'))
+        reasons = ledger['第二项']['exempt_reasons']
+        self.assertIn('storyboard_edit_service', reasons)
+        self.assertIn('storyboard_source_service', reasons)
+        self.assertIn('keyframe_lifecycle_service', reasons)
+        self.assertIn('previs_progress_service', reasons)
+
+    def test_second_roadmap_scope_is_a_complete_migration_ratchet(self):
+        ledger = json.loads(Path(ROOT, '维护记录', '架构统一基数.json').read_text(encoding='utf-8'))
+        item = ledger['第二项']
+        adopters = set(item['adopters'])
+        pending = set(item['pending'])
+        exempt = set(item['exempt_items'])
+        historical = set(item['historical_name_audit_pending'])
+        self.assertFalse((adopters & pending) | (adopters & exempt) | (adopters & historical))
+        self.assertFalse((pending & exempt) | (pending & historical) | (exempt & historical))
+        self.assertEqual(len(adopters | pending | exempt | historical), 37)
+        self.assertEqual(item['exempt_count'], len(exempt))
+        reasons = item['exempt_reasons']
+        self.assertEqual(set(reasons), exempt)
+        for name, reason in reasons.items():
+            self.assertRegex(reason, r'^R\d+：')
+            source = Path(ROOT, name + '.py').read_text(encoding='utf-8')
+            self.assertNotIn('ProjectContext', source,
+                             name + ' 是经审计的纯计算服务，不应伪造上下文消费')
+        missing = {name for name in historical
+                   if not (Path(ROOT, name + '.py').is_file()
+                           or Path(ROOT, name, '__init__.py').is_file())}
+        self.assertEqual(missing, historical,
+                         '历史名称必须单独追溯，不得伪装成已迁移或现行待办')

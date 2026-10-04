@@ -456,7 +456,7 @@ class ProjectsEngineTests(unittest.TestCase):
             (app / "config.json").write_text(json.dumps({"downloads_root": str(t / "downloads")}), encoding="utf-8")
             (app / "projects.json").write_text(json.dumps({"active": None, "projects": []}), encoding="utf-8")
             P = projects_mod.Projects(app, gateway=project_registry_gateway())
-            p = P.create("测试项目")
+            p = P.create("测试项目").data
             self.assertRegex(p.name, r'^测试项目_\d{8}(?:_\d+)?$')
             self.assertTrue((p / "config.json").is_file())
             self.assertTrue((p / "03初步分镜" / "分镜拆分" / "episode.json").is_file())
@@ -474,8 +474,10 @@ class ProjectsEngineTests(unittest.TestCase):
             (proj / "episode" / "assets.json").write_text("{}", encoding="utf-8")
             (proj / "config.json").write_text(json.dumps({"episode_dir": str(proj / "episode"), "episode_file": str(proj / "episode" / "episode.json")}), encoding="utf-8")
             from stage_execution_service import publish_writing_preparation
-            out = writing.prepare(proj, "一个创意", "Step 0 需求整理", 60,
-                                  publish=publish_writing_preparation)
+            result = writing.prepare(proj, "一个创意", "Step 0 需求整理", 60,
+                                     publish=publish_writing_preparation)
+            self.assertTrue(result.ok)
+            out = result.data
             txt = (out / "编剧任务书.md").read_text(encoding="utf-8")
             from project_stages import writing as script_stage
             self.assertEqual(out.parent, script_stage(proj))
@@ -859,7 +861,7 @@ class ProjectsDeleteTests(unittest.TestCase):
     def test_deletion_target_registered(self):
         with tempfile.TemporaryDirectory() as td:
             P = self.make_projects(td)
-            p = P.create("测试项目")
+            p = P.create("测试项目").data
             self.assertEqual(P.deletion_target(str(p)), Path(p).resolve())
 
     def test_deletion_target_unregistered(self):
@@ -879,16 +881,16 @@ class ProjectsDeleteTests(unittest.TestCase):
     def test_registered_project_can_be_deleted_after_its_script_is_removed(self):
         with tempfile.TemporaryDirectory() as td:
             P = self.make_projects(td)
-            project = P.create("已删剧本")
+            project = P.create("已删剧本").data
             (project / "03初步分镜" / "分镜拆分" / "episode.json").unlink()
-            P.delete(str(project))
+            self.assertTrue(P.delete(str(project)).ok)
             self.assertFalse(project.exists())
             self.assertEqual(P.info["projects"], [])
 
     def test_delete_removes_internal_directory_link_without_touching_its_target(self):
         with tempfile.TemporaryDirectory() as td:
             P = self.make_projects(td)
-            project = P.create("带链接项目")
+            project = P.create("带链接项目").data
             outside = Path(td) / "outside"; outside.mkdir()
             keep = outside / "keep.txt"; keep.write_text("保留", encoding="utf-8")
             link = project / "遗留目录链接"
@@ -896,7 +898,7 @@ class ProjectsDeleteTests(unittest.TestCase):
                 os.symlink(outside, link, target_is_directory=True)
             except (OSError, NotImplementedError):
                 self.skipTest(PLATFORM_DIRECTORY_LINK)
-            P.delete(str(project))
+            self.assertTrue(P.delete(str(project)).ok)
             self.assertFalse(project.exists())
             self.assertTrue(keep.exists(), "只删除项目内的链接节点，绝不删除链接目标")
             self.assertEqual(P.info["projects"], [])
@@ -904,7 +906,7 @@ class ProjectsDeleteTests(unittest.TestCase):
     def test_linked_project_is_rejected_by_recursive_delete(self):
         with tempfile.TemporaryDirectory() as td:
             P = self.make_projects(td)
-            project = P.create("链接项目")
+            project = P.create("链接项目").data
             with self.assertRaises(ValueError):
                 P.unlink_registered_project(str(project))
 
@@ -1007,6 +1009,34 @@ class ValidateProfileTests(unittest.TestCase):
             proj = Path(td) / "p"; proj.mkdir()
             with self.assertRaises(TypeError):
                 writing.prepare(proj, "创意", "Step 0 需求整理", 60)
+
+    def test_writing_publication_maps_disk_errors_but_not_programming_errors(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = Path(td) / 'p'; proj.mkdir()
+            (proj / 'config.json').write_text('{}', encoding='utf-8')
+            with self.assertLogs('writing', level='ERROR'):
+                result = writing.prepare(proj, '创意', 'Step 0 需求整理', 60,
+                                         publish=lambda *_args: (_ for _ in ()).throw(OSError('disk')))
+            self.assertFalse(result.ok)
+            self.assertIn('未能保存', result.reason)
+            with self.assertRaises(TypeError):
+                writing.prepare(proj, '创意', 'Step 0 需求整理', 60,
+                                publish=lambda *_args: (_ for _ in ()).throw(TypeError('bug')))
+
+    def test_writing_import_maps_disk_error_to_controlled_result(self):
+        with tempfile.TemporaryDirectory() as td:
+            source = Path(td) / 'episode.json'
+            source.write_text(json.dumps(valid_episode(), ensure_ascii=False), encoding='utf-8')
+            gateway = {'read_json': lambda _path: {}, 'read_bytes': lambda _path: b'',
+                       'publish_json': lambda *_args: None, 'publish_bytes': lambda *_args: None,
+                       'restore_bytes': lambda *_args: None, 'copy_file': lambda *_args: None,
+                       'copy_tree': lambda *_args: None}
+            with mock.patch.object(projects_mod.Projects, 'create', side_effect=OSError('disk')):
+                with self.assertLogs('writing', level='ERROR'):
+                    result = writing.import_project(td, source, gateway=gateway,
+                                                    publish_report=lambda *_args: None)
+            self.assertFalse(result.ok)
+            self.assertIn('未能导入', result.reason)
 
     def test_episode_dir_reads_config(self):
         with tempfile.TemporaryDirectory() as td:

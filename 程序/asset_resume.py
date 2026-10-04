@@ -19,11 +19,25 @@
 """
 import time
 from pathlib import Path
+from functools import wraps
+import logging
 
 from agent.core import read_json
+from service_contract import SystemError, success
 
 FILE_NAME = '资产续跑台账.json'
 STEP = 60                      # 每多试一次，退避多等这么些秒（与进程内那份 60×次数 一致）
+
+
+def _ledger_result(function):
+    @wraps(function)
+    def run(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        except OSError:
+            logging.getLogger(__name__).exception('资产续跑台账更新失败')
+            return SystemError('资产续跑台账更新失败，请检查文件权限和磁盘空间。')
+    return run
 
 
 def path(project):
@@ -68,6 +82,7 @@ def attempts(project, ids=None):
     return max([entry['attempts'] for entry in picked], default=0)
 
 
+@_ledger_result
 def note_round(project, ids, limit=None, now=None, *, publish=None):
     """一轮跑完还有缺图：只留还在等图的编号，逐个「次数＋1」并写下下次退避的挂钟时刻。
 
@@ -78,8 +93,8 @@ def note_round(project, ids, limit=None, now=None, *, publish=None):
         raise RuntimeError('资产续跑台账发布必须由 L3 注入')
     ids = [str(aid) for aid in ids]
     if not ids:
-        clear(project)
-        return {}
+        result = clear(project)
+        return success({}) if result.ok else result
     now = time.time() if now is None else float(now)
     counted = load(project)
     data = {}
@@ -91,7 +106,7 @@ def note_round(project, ids, limit=None, now=None, *, publish=None):
             data[aid]['state'] = 'stopped'
             data[aid]['next_try'] = None
     publish(path(project), data)
-    return data
+    return success(data)
 
 
 def delay(project, now=None):
@@ -104,8 +119,12 @@ def delay(project, now=None):
     return max(0.0, min(stamps) - now)
 
 
+@_ledger_result
 def clear(project):
-    """台账整份删掉（缺图补齐、或用户亲手关了再开）。删不动就算了，绝不抛给调用方。"""
+    """受控清除台账；底层拒绝或删除失败必须返回失败，不再静默丢弃。"""
     from storage_maintenance import clear_generated_workflow_state
 
-    clear_generated_workflow_state(project, path(project), FILE_NAME)
+    if not clear_generated_workflow_state(project, path(project), FILE_NAME):
+        logging.getLogger(__name__).error('资产续跑台账清除被拒绝或失败')
+        return SystemError('资产续跑台账未清除，请检查文件权限和目录边界后重试。')
+    return success()

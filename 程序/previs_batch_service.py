@@ -20,11 +20,12 @@ def prepare_batch(project, source, ids, call_config=None):
     folder.mkdir(parents=True, exist_ok=True)
     manifest = folder / '勾选镜头.json'
     from agent.shot_assets import assets
+    from stage_execution_service import white_model_shot_directory
     payload = {
         'source': str(source), 'project': str(project),
         'blender': str(white_model_service.find_blender() or ''),
         'shots': [{'storyboard': shot, 'assets': assets(source, shot),
-                   'output_dir': str(white_model_service.shot_directory(project, shot['id']))}
+                   'output_dir': str(white_model_shot_directory(project, shot['id']))}
                   for shot in shots],
     }
     from agent.core import save

@@ -18,7 +18,9 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp) / '新项目'
 
-            writing = ensure_script_workspace(project)
+            result = ensure_script_workspace(project)
+            self.assertTrue(result.ok)
+            writing = result.data
 
             self.assertEqual(project_stages.writing(project), writing)
             self.assertTrue(writing.is_dir())
@@ -170,7 +172,9 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
             source.parent.mkdir(parents=True, exist_ok=True)
             source.write_text('内容', encoding='utf-8')
 
-            target = rename_script_document(temp, source, '新名.md')
+            result = rename_script_document(temp, source, '新名.md')
+            self.assertTrue(result.ok)
+            target = result.data
 
             self.assertEqual(source.with_name('新名.md'), target)
             self.assertFalse(source.exists())

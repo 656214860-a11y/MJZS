@@ -478,6 +478,11 @@ class Desktop:
         from stage_execution_service import idea_chat_gateway
         return idea_chat_gateway()
 
+    def idea_chat_context(self):
+        """L4 只从 L3 取得创意聊天所需的项目上下文。"""
+        from stage_execution_service import project_context
+        return project_context(self.root)
+
     @staticmethod
     def asset_batch_gateway():
         """L4 只装配资产批处理的 L3 读写入口。"""
@@ -691,7 +696,7 @@ class Desktop:
                 return path
         import idea_chat
         from stage_execution_service import publish_idea_creative
-        dest=idea_chat.save_manual_creative(self.root,value,publish=publish_idea_creative)
+        dest=idea_chat.save_manual_creative(self.idea_chat_context(),value,publish=publish_idea_creative)
         editor=getattr(self,'brief_editor',None)
         if editor and editor[0]==path:
             self.brief_editor=(dest,editor[1]);self.brief_saved_text=value
@@ -924,7 +929,7 @@ class Desktop:
             if reason:return None
             return text
         import idea_chat
-        rows=idea_chat.load(self.root,model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
+        rows=idea_chat.load(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
         if not 0<=index<len(rows):return None
         text=str(rows[index].get('text') or '')
         if not text:return None
@@ -937,15 +942,15 @@ class Desktop:
         """右键“删除整条信息”：移出当前对话，并保留最近删除恢复记录。"""
         import idea_chat
         model=self.idea_chat_model()
-        rows=idea_chat.load(self.root,model=model,gateway=self.idea_chat_gateway())
+        rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
         if not 0<=index<len(rows):return None
-        idea_chat.remove(self.root,index,model=model,gateway=self.idea_chat_gateway())
+        idea_chat.remove(self.idea_chat_context(),index,model=model,gateway=self.idea_chat_gateway())
         self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
         return index
     def restore_latest_bubble_message(self):
         """恢复当前模型聊天页最近删除的一条完整消息。"""
         import idea_chat
-        row=idea_chat.restore_latest_removed(self.root,model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
+        row=idea_chat.restore_latest_removed(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
         self.show_conversation();self.status.set('已恢复最近删除的整条信息')
         return row
     def open_bubble_menu(self,event):
@@ -1029,8 +1034,8 @@ class Desktop:
     def show_idea_reference_menu(self, event):
         """用户输入 @ 时仅展示当前项目已入库的创意，不访问任意本地文件。"""
         if str(getattr(event,'char',''))!='@':return None
-        import idea_attachments
-        paths=idea_attachments.uploaded(self.root)
+        from stage_execution_service import stage_idea_attachment_paths
+        paths=stage_idea_attachment_paths(self.root)
         if not paths:return None
         menu=ContextMenu(event.widget, menu_factory=tk.Menu)
         for path in paths:
@@ -1092,7 +1097,7 @@ class Desktop:
         if index == 'example':
             rows=[]
         else:
-            rows=idea_chat.load(self.root,model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
+            rows=idea_chat.load(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
             if not isinstance(index,int) or not 0<=index<len(rows):
                 raise ValueError('这条对话已不存在，请刷新后重试')
         # 折叠的长消息进入编辑时先还原全文，避免只修改预览那几行。
@@ -1138,8 +1143,8 @@ class Desktop:
             return 'break'
         import idea_chat
         model=self.idea_chat_model()
-        if value:idea_chat.replace(self.root,edit['index'],value,model=model,gateway=self.idea_chat_gateway());notice='已修改这条对话'
-        else:idea_chat.remove(self.root,edit['index'],model=model,gateway=self.idea_chat_gateway());notice='已删除这条对话'
+        if value:idea_chat.replace(self.idea_chat_context(),edit['index'],value,model=model,gateway=self.idea_chat_gateway());notice='已修改这条对话'
+        else:idea_chat.remove(self.idea_chat_context(),edit['index'],model=model,gateway=self.idea_chat_gateway());notice='已删除这条对话'
         self.show_conversation()
         self.status.set(notice)
         return 'break'
@@ -1298,7 +1303,8 @@ class Desktop:
             # 可见内容。键回来后 resume 按现有页面代次完整重绘真实历史。
             resolving_model=True
         model=cached[1] if root and isinstance(cached,tuple) else ''
-        rows=idea_chat.load(root,model=model,gateway=self.idea_chat_gateway()) if root and not resolving_model else []
+        from stage_execution_service import project_context
+        rows=idea_chat.load(project_context(root),model=model,gateway=self.idea_chat_gateway()) if root and not resolving_model else []
         box.configure(state='normal')
         self._bubble_rows=[];self._bubble_full={};self._bubble_width=int(box.winfo_width() or 0)
         for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
@@ -1391,7 +1397,7 @@ class Desktop:
         except tk.TclError:
             pass
         import idea_chat
-        values = idea_chat.brief_creation_values(self.root, current_text)
+        values = idea_chat.brief_creation_values(self.idea_chat_context(), current_text)
         def cleared():
             self._brief_creation_window = None
         win = FormDialog(self.win, '填写创作信息', geometry='700x680', minsize=(600, 520),
@@ -1470,7 +1476,7 @@ class Desktop:
         def save_and_send():
             submitted = {label: (editor.get().strip() if isinstance(editor, ttk.Combobox)
                                 else editor.get('1.0', 'end-1c').strip()) for label, editor in editors.items()}
-            _path, text = idea_chat.save_brief_creation(self.root, submitted, gateway=self.idea_chat_gateway())
+            _path, text = idea_chat.save_brief_creation(self.idea_chat_context(), submitted, gateway=self.idea_chat_gateway())
             box = getattr(self, 'idea_input', None)
             if box is not None and box.winfo_exists():
                 box.delete('1.0', 'end'); box.insert('1.0', text)
@@ -1501,7 +1507,7 @@ class Desktop:
         import stage_config, workflow_settings
         workflow_config = stage_config.current_workflow(self.root)
         preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
-        brief = idea_chat.receive_brief(self.root, submission, workflow=workflow_config,
+        brief = idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
                                         lock_definitions=preset.get('locks', ()), gateway=self.idea_chat_gateway())
         if brief.get('workflow_projection') is not None:
             stage_config.put_workflow(self.root, brief['workflow_projection'])
@@ -1519,14 +1525,14 @@ class Desktop:
                 except Exception:
                     self.idea_chat_controller.rollback_sent()
                     raise
-        idea_chat.append(self.root,'user',visible_value,model=model,gateway=self.idea_chat_gateway())
+        idea_chat.append(self.idea_chat_context(),'user',visible_value,model=model,gateway=self.idea_chat_gateway())
         box.delete('1.0','end')
         self.discard_idea_draft()
         self.idea_attachment_paths=()
         self.update_idea_attachment_status()
         self.show_conversation()
         if brief['missing']:
-            idea_chat.append(self.root, 'assistant', brief['followup'], model=model,gateway=self.idea_chat_gateway())
+            idea_chat.append(self.idea_chat_context(), 'assistant', brief['followup'], model=model,gateway=self.idea_chat_gateway())
             self.show_conversation()
             self.status.set('已保存创意草稿；请补充缺少的信息后再发送。')
             self.open_brief_creation_form(value)
@@ -1571,7 +1577,7 @@ class Desktop:
                 if not reply:
                     self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                     self.status.set(idea_chat.why_empty(result));return
-                idea_chat.append(self.root,'assistant',reply,model=model,gateway=self.idea_chat_gateway())
+                idea_chat.append(self.idea_chat_context(),'assistant',reply,model=model,gateway=self.idea_chat_gateway())
                 self.show_conversation();self.update_script_download_button()
                 if result.get('script_raw_path'):
                     four_roles = result.get('hollmwood_enabled', True)
@@ -1690,7 +1696,7 @@ class Desktop:
         """刷新剧本聊天和文件表；旧 Claude 思考块会先清洗，必要时仅重发一次正文请求。"""
         import idea_chat
         import writing_api
-        repaired = idea_chat.repair_internal_replies(self.root, model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
+        repaired = idea_chat.repair_internal_replies(self.idea_chat_context(), model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
         self.show_conversation()
         refresh = getattr(self, 'refresh_script_list', None)
         if callable(refresh):
@@ -1721,7 +1727,7 @@ class Desktop:
             if not reply:
                 self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                 self.status.set(idea_chat.why_empty(result));return
-            idea_chat.append(self.root, 'assistant', reply, model=model,gateway=self.idea_chat_gateway())
+            idea_chat.append(self.idea_chat_context(), 'assistant', reply, model=model,gateway=self.idea_chat_gateway())
             self.show_conversation();self.update_script_download_button()
             self.status.set('已恢复并刷新 ' + model + ' 的正文；完整剧本可下载保存。')
         from stage_execution_service import reply_to_writing
@@ -1764,17 +1770,17 @@ class Desktop:
         import idea_chat
         button=getattr(self,'idea_download',None)
         if button is None or not button.winfo_exists():return False
-        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.root,gateway=self.idea_chat_gateway()))
+        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.idea_chat_context(),gateway=self.idea_chat_gateway()))
         button.state(['!disabled'] if ready else ['disabled'])
         return ready
     def download_script(self):
         """用户明确下载剧本文档后，才通知三虎询问是否进入分镜阶段。"""
         import idea_chat
-        reply=idea_chat.latest_text(self.root,gateway=self.idea_chat_gateway())
+        reply=idea_chat.latest_text(self.idea_chat_context(),gateway=self.idea_chat_gateway())
         if not idea_chat.looks_like_script(reply):raise ValueError('请先让模型生成完整剧本，再下载。')
         provider, model = idea_chat.storage_identity(self.idea_chat_model())
         from stage_execution_service import publish_idea_creative
-        saved=idea_chat.save_reply(self.root,reply,provider=provider,model=model,
+        saved=idea_chat.save_reply(self.idea_chat_context(),reply,provider=provider,model=model,
                                    publish=publish_idea_creative)
         self.brief_editor=(saved,getattr(self,'idea_log',None))
         self.close_dialog()
@@ -1905,8 +1911,9 @@ class Desktop:
         # 全局门禁，若复用它，输入框刚出现就会被误报为“当前操作尚未结束”。
         def discover():
             import idea_chat
+            from stage_execution_service import project_context
             try:
-                path=idea_chat.initial_brief_document(root);error=None
+                path=idea_chat.initial_brief_document(project_context(root));error=None
             except (OSError,ValueError,TypeError,KeyError) as exc:
                 # 线程只传递结果；Tk 状态须由 _tick_async_result 在主线程更新。
                 path=None;error=str(exc)
@@ -2056,7 +2063,7 @@ class Desktop:
         self._legacy_project_migration_started=True
         def migrate():
             try:
-                self.projects.migrate()
+                self._project_result_data(self.projects.migrate())
             except Exception as exc:
                 self._legacy_project_migration_results.put(exc)
             else:
@@ -2135,7 +2142,7 @@ class Desktop:
         try:
             # 看的是目录里全部分镜 JSON，而不是只看已采用的：编号错了要在 02 初步分镜 就发现，
             # 不必等采用之后才在下游暴露。
-            from storyboard_catalog_service import catalog
+            from stage_execution_service import storyboard_catalog as catalog
             problems=shot_numbering.verify(self.root,[entry['path'] for entry in catalog(self.root,'storyboard')])
         except (OSError,ValueError):return ''
         return '；镜头编号与剧本顺序不一致（'+problems[0]+'），可在 02 初步分镜 点“重排镜头编号”修正' if problems else ''
@@ -2403,6 +2410,10 @@ class Desktop:
                 except (OSError, ValueError, KeyError, TypeError) as exc:
                     self.status.set('自动恢复结构剧本暂缓：'+str(exc))
         except queue.Empty:pass
+    def _project_result_data(self,result):
+        """项目登记写服务的 L3 结果只在桌面编排层解包。"""
+        from stage_execution_service import unwrap_project_result
+        return unwrap_project_result(result)
     def _tick_pre_automation(self):
         """在自动阶段调度前回收 Tk 任务并轮询流程进程。"""
         drain_tk_gc()
@@ -3002,13 +3013,14 @@ class Desktop:
         if source is None:return
         episode=read(source)
         shots=episode.get('shots',[]) if isinstance(episode,dict) else []
-        from previs_routing import automatic_candidates, automatic_notice, automatic_signature, automatic_engine
+        from previs_routing import automatic_notice, automatic_signature
+        from stage_execution_service import previs_automatic_candidates, previs_automatic_engine
         try:
             frame_pending = None
             if self.pet.should_auto_run('keyframe'):
                 from keyframe_comfy import pending_shots
                 frame_pending = lambda rows: [shot['id'] for shot in pending_shots(rows, media_root(source))]
-            candidates=automatic_candidates(self.root,source,shots,bool(frame_pending),frame_pending)
+            candidates=previs_automatic_candidates(self.root,source,shots,bool(frame_pending),frame_pending)
         except ValueError:return
         pending=candidates['pending'];waiting=candidates['waiting'];medium=candidates['medium']
         # 顺序是「首帧在前、白模在后」：首帧阶段也在无人值守（05 开关打开）时，等这一镜的首帧落盘再建白模，
@@ -3027,7 +3039,7 @@ class Desktop:
         self.auto_previs_signature=signature;self.auto_previs_notice=notice
         try:
             from workflow_settings import current,ENGINES
-            engine=automatic_engine(self.root,current,ENGINES)
+            engine=previs_automatic_engine(self.root,current,ENGINES)
         except Exception as exc:
             self.auto_previs_signature=None;self.auto_previs_due=time.monotonic()+300
             self.auto_previs_error='白模调用设置无法读取：'+str(exc);self.status.set('无人值守自动补白模暂缓：'+str(exc));return
@@ -3133,7 +3145,9 @@ class Desktop:
     def clear_asset_resume(self):
         """缺图补齐了、或用户亲手关掉这一档：把跨重启台账整份删掉（第 6 轮）。"""
         try:
-            asset_resume.clear(self.root)
+            result=asset_resume.clear(self.root)
+            if not result.ok:
+                self.status.set('自动补资产续跑记录未清除：'+result.reason)
         except (OSError, ValueError, TypeError) as exc:
             # 续跑台账仍会在下次启动出现；不能把“已经清掉”的假象留给用户。
             self.status.set('自动补资产续跑记录未清除：%s；请稍后重试。' % exc)
@@ -3423,7 +3437,7 @@ class Desktop:
         if path and not Path(path).is_dir():
             service=getattr(self,'projects',None)
             if service is not None:
-                recovered=service.reconcile_missing(path)
+                recovered=self._project_result_data(service.reconcile_missing(path))
                 if recovered.get('state')=='claimed':
                     original_path=path
                     path=recovered['path']
@@ -3451,7 +3465,7 @@ class Desktop:
             # （程序目录只读、杀毒软件锁住 projects.json、磁盘满…）绝不该把「打开项目」拦下来，
             # 更不该弹一句「无法打开项目：[Errno 2] No such file or directory：…」让用户无从下手。
             try:
-                self.projects.activate(str(self.root))
+                self._project_result_data(self.projects.activate(str(self.root)))
             except (OSError, ValueError) as exc:
                 # 打开仍可继续，但必须明确告知“本次项目未记为当前项目”，
                 # 否则下次启动回到旧项目会被误认为无响应或打开错误。
@@ -3601,14 +3615,14 @@ class Desktop:
         """项目加载后自动导入生成目录里尚未登记的资产图：重启软件即可生效，无需先进资产页。"""
         if not self.root:return
         try:
-            from asset_generated_import_service import pending_generated
-            if not pending_generated(self.root,self.asset_base()):return
+            from stage_execution_service import pending_generated_assets
+            if not pending_generated_assets(self.root,self.asset_base()):return
         except Exception as exc:
             self.status.set('生成资产检查未完成：%s；请稍后重试。' % exc)
             return
         def work():
-            from asset_generated_import_service import import_pending_generated
-            imported=import_pending_generated(self.root,self.asset_base(),gateway=self.asset_batch_gateway())
+            from stage_execution_service import import_pending_generated_assets
+            imported=import_pending_generated_assets(self.root,self.asset_base())
             return ('已自动导入生成资产图：'+'、'.join(imported)) if imported else '生成资产检查完成'
         try:self.async_(work)
         except Exception as exc:
@@ -3641,10 +3655,12 @@ class Desktop:
     def remember_daily_project_choice(self,path):
         """仅记录项目入口，不写入用户的剧本、分镜或阶段配置。"""
         from stage_execution_service import publish_desktop_preferences
-        self.settings=publish_desktop_preferences(self.settings_file,self.settings,{
+        result=publish_desktop_preferences(self.settings_file,self.settings,{
             'project_choice_day':date.today().isoformat(),
             'project_choice_path':str(path),
         })
+        if not result.ok:raise ValueError(result.reason)
+        self.settings=result.data
 
     def _sync_desktop_project_paths(self,old_path,new_path):
         """认领成功后同步桌面级入口；项目文件改写仍归 Projects 的事务。"""
@@ -3660,7 +3676,9 @@ class Desktop:
                 except ValueError:pass
             migrated[str(new)]=value;updates['frame_json_by_project']=migrated
         if updates:
-            self.settings=publish_desktop_preferences(self.settings_file,self.settings,updates)
+            result=publish_desktop_preferences(self.settings_file,self.settings,updates)
+            if not result.ok:raise ValueError(result.reason)
+            self.settings=result.data
     def choose_project(self):
         # 自动续开项目时，三虎的量测只排到这次选择交回事件循环之后；否则
         # 它的 ``update_idletasks`` 会重入本调用栈并放大启动时间。
@@ -3731,13 +3749,13 @@ class Desktop:
                     notice.set('项目已删除；请选择其他项目或新建项目。')
                     tree.state(['!disabled']);popup.lift();popup.focus_force()
                 self.status.set('项目及残留目录已删除')
-            self.async_(lambda:(self.projects.unlink_registered_project(path) if linked else self.projects.delete(path)),gone)
+            self.async_(lambda:self._project_result_data(self.projects.unlink_registered_project(path) if linked else self.projects.delete(path)),gone)
         def refind_selected_project():
             selected=tree.selection()
             if not selected or selected[0].startswith('group:'):
                 notice.set('请先选中失效的项目登记。');return
             old=selected[0]
-            try:outcome=self.projects.reconcile_missing(old)
+            try:outcome=self._project_result_data(self.projects.reconcile_missing(old))
             except Exception as exc:
                 notice.set(str(exc));return
             if outcome.get('state')=='claimed':
@@ -3753,7 +3771,7 @@ class Desktop:
             for value in choices:
                 ttk.Radiobutton(picker,text=value,variable=candidate,value=value).pack(anchor='w',padx=16,pady=3)
             def claim():
-                try:claimed=self.projects.reconcile_missing(old,selected=candidate.get())
+                try:claimed=self._project_result_data(self.projects.reconcile_missing(old,selected=candidate.get()))
                 except Exception as exc:
                     NotificationDispatcher(self.status, parent=picker).error(str(exc), title='无法同步项目登记');return
                 picker.destroy();self.reload();self.fill_projects(tree)
@@ -3795,19 +3813,21 @@ class Desktop:
         self.button(self.content,'恢复回收站内容…',self.open_recycle_recovery)
         self.button(self.content,'导出诊断包…',self.export_diagnostics_package)
     def set_project_status(self,item,status):
-        self.projects.set_status(item['path'],status);self.reload()
+        self._project_result_data(self.projects.set_status(item['path'],status));self.reload()
         if self.root:self.list.selection_set(str(self.root))
         else:self.show(0)
         self.status.set('已完成项目' if status=='completed' else '已恢复到在制作项目')
     def new(self):
         name=simpledialog.askstring('新建项目','项目名称：',parent=self.win)
         if name:
-            p=self.projects.create(name);self.reload();self.load(p)
+            p=self._project_result_data(self.projects.create(name));self.reload();self.load(p)
             self.remember_daily_project_choice(p)
     def import_json(self):
         if self.root:
             from stage_workspace_service import ensure_storyboard_workspace
-            base=ensure_storyboard_workspace(self.root)
+            result=ensure_storyboard_workspace(self.root)
+            if not result.ok:raise ValueError(result.reason)
+            base=result.data
         else:
             base=self.projects.base
             base.mkdir(parents=True,exist_ok=True)
@@ -3825,7 +3845,7 @@ class Desktop:
             previous=self.win.cget('cursor')
             try:
                 self.win.configure(cursor='watch');self.win.update_idletasks()
-                result=self.projects.create(name,source)
+                result=self._project_result_data(self.projects.create(name,source))
             finally:
                 self.win.configure(cursor=previous)
             self.reload();self.load(result)
@@ -4064,11 +4084,12 @@ class Desktop:
             for index,(card,_,_) in enumerate(cards):card.grid(row=index//2,column=index%2,sticky='nsew')
     def writing(self):
         from script_workspace_service import ensure_script_workspace
-        ensure_script_workspace(self.root)
+        result=ensure_script_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
         # 第 69 期任务 4：原来第一行那句「在下面的对话框写想法…」删掉——页面自己会说清怎么走。
         import idea_chat
         # 先使用不扫描目录的默认路径；历史创意文件由页面建好后在后台发现。
-        brief=idea_chat.default_brief_document(self.root)
+        brief=idea_chat.default_brief_document(self.idea_chat_context())
         self.idea_template=self.idea_example()
         # 聊天记录与发送框分离：记录可滚动，发送框固定停在聊天区域底部。
         talk=ttk.LabelFrame(self.content,text='对话AI',padding=(SPACING['xs'],SPACING['none']))
@@ -4492,7 +4513,9 @@ class Desktop:
             new=simpledialog.askstring('重命名文件','新文件名：',initialvalue=path.name,parent=self.win)
             if not new:return
             from script_workspace_service import rename_script_document
-            dest=rename_script_document(self.root,path,new)
+            result=rename_script_document(self.root,path,new)
+            if not result.ok:raise ValueError(result.reason)
+            dest=result.data
             if dest==path:return
             fill_script_list();self.status.set('已重命名：'+dest.name)
         def delete_script():
@@ -4941,7 +4964,7 @@ class Desktop:
     def open_storyboard_skill(self,key=None):
         batch={}
         def work():
-            from storyboard_catalog_service import produced_scripts
+            from stage_execution_service import storyboard_produced_scripts as produced_scripts
             from storyboard_selection import selected_many
             from workflow_tasks import storyboard_batch_prompt
             scripts=selected_many(self.root,'script');existing=selected_many(self.root,'storyboard')
@@ -5047,7 +5070,7 @@ class Desktop:
                 '只清除登记', '项目目录已不存在。只清除这条项目登记，不会改动磁盘上的任何文件。是否继续？',
                 dangerous=True):
             return False
-        try:self.projects.clear_missing_registration(path)
+        try:self._project_result_data(self.projects.clear_missing_registration(path))
         except (OSError,ValueError) as exc:
             # 注册表落盘失败不能让主界面或选择弹窗看起来像已清理；目录仍存在
             # 的输入错误在上面的显式判断处上抛，只有写入／登记竞态走可重试降级。
@@ -5080,7 +5103,7 @@ class Desktop:
         def completed(_):
             if self.root==target:self.brief_editor=None
             self.reload();self.load(None);self.status.set('项目及全部文件已移入项目库回收站')
-        self.async_(lambda:(self.projects.unlink_registered_project(item['path']) if linked
+        self.async_(lambda:self._project_result_data(self.projects.unlink_registered_project(item['path']) if linked
                             else self.projects.delete(item['path'])),completed)
 
     # ── 第 61 期 v0.8：正典板／状态变体（任务 3／5）的折叠区・连贯性清单（任务 7）独立成页 ──
@@ -5120,7 +5143,7 @@ class Desktop:
         下面按组各一张表。表里的数字全部来自同一次台账计算，页面上写的批次、镜头与结论不会
         各说各话（第 62 期任务 11 的「信息要准确」）。
         """
-        from confirm_gates import run
+        from stage_execution_service import run_stage_confirmation_gate
         ledger=self.continuity_ledger_data()
         summary=ledger.get('summary') or {}
         passed=bool(summary.get('ok'))
@@ -5207,7 +5230,7 @@ class Desktop:
             for text in problems[:8]:ttk.Label(foot,text='· '+text,wraplength=760,justify='left').pack(anchor='w')
         else:
             ttk.Label(foot,text='没有待办：批次、锚点与三元组都对得上。',foreground='#1a7f37').pack(anchor='w')
-        asks=run('G-08',project=self.root,ledger=ledger).get('ask') or ()
+        asks=run_stage_confirmation_gate(self.root, 'G-08', ledger=ledger).get('ask') or ()
         if asks:
             ttk.Label(foot,text='参考图优先级（每条选一个，问过就不再问）：',
                       foreground='#b54708').pack(anchor='w',pady=(4,0))
@@ -5247,14 +5270,15 @@ class Desktop:
         return value if value in pet_agent.LEVELS else pet_agent.DEFAULT_LEVEL
     def pending_gate_asks(self):
         """这一刻还没点的门禁候选：锚点定稿、正典板、连贯性裁决三处合起来。"""
-        from confirm_gates import run
+        from stage_execution_service import run_stage_confirmation_gate
         try:assets=self.asset_requirements()
         except (ValueError,OSError,TypeError,AttributeError,KeyError):assets={}
         try:ledger=self.continuity_ledger_data()
         except (ValueError,OSError,TypeError,AttributeError,KeyError):ledger={}
         asks=[]
         for gate in ('G-05','G-06','G-08'):
-            asks.extend(run(gate,project=self.root,assets=assets,ledger=ledger).get('ask') or ())
+            asks.extend(run_stage_confirmation_gate(
+                self.root, gate, assets=assets, ledger=ledger).get('ask') or ())
         return asks
     def auto_decide_gates(self):
         """半自动／全自动：三虎自己把「待办与裁决」里没点的候选按推荐选掉。
@@ -5361,8 +5385,8 @@ class Desktop:
             open_path(self.asset_base())
         SecondaryButton(imgs,text='资产目录',command=lambda:self.safe(open_library)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         try:
-            from asset_generated_import_service import import_pending_generated
-            imported=import_pending_generated(self.root, self.asset_base(), self.status.set, gateway=self.asset_batch_gateway())
+            from stage_execution_service import import_pending_generated_assets
+            imported=import_pending_generated_assets(self.root, self.asset_base(), self.status.set)
             if imported:self.status.set('已自动导入生成资产图：'+'、'.join(imported))
         except Exception as exc:
             self.note('生成图自动导入暂缓：'+str(exc))
@@ -5447,7 +5471,9 @@ class Desktop:
             if not selected:return
             exe=Path(selected)
             from stage_execution_service import publish_desktop_preferences
-            self.settings=publish_desktop_preferences(self.settings_file,self.settings,{'comfy_exe':str(exe)})
+            result=publish_desktop_preferences(self.settings_file,self.settings,{'comfy_exe':str(exe)})
+            if not result.ok:raise ValueError(result.reason)
+            self.settings=result.data
         from native_apps import open_comfy
         open_comfy({**self.settings,'comfy_exe':str(exe)})
         self.status.set('已打开本地 ComfyUI；可在桌面窗口查看工作流和调整参数。')
@@ -5927,8 +5953,8 @@ class Desktop:
         result=read(folder/'episode.json')
         missing=len((result.get('missing_assets') or [])) if isinstance(result,dict) else 0
         if self.root is not None and Path(project)==Path(self.root):
-            from storyboard_lifecycle import refresh_open_studios
-            refresh_open_studios(self)
+            from stage_execution_service import refresh_storyboard_studios
+            refresh_storyboard_studios(self, project)
             final_source = folder / 'episode.json'
             self.remember_frame_json(final_source)
             from storyboard_selection import remember_final_view
@@ -6508,7 +6534,8 @@ class Desktop:
         # 整段配音一次就是一次付费请求：台词与音色都没变、文件还在时直接沿用，双击或重复点击
         # 不会再扣一次费；改台词、改模型或改音色会得到新指纹，才重新合成。
         signature=tts_api.script_signature(script)
-        previous=tts_api.reusable_full_track(self.root,signature)
+        from stage_execution_service import reusable_tts_full_track
+        previous=reusable_tts_full_track(self.root,signature)
         if previous:
             self.status.set('配音台词与音色都没变，沿用已有配音：'+str(previous)+'（未重复扣费）');return
         def work():
@@ -6553,7 +6580,9 @@ class Desktop:
         self.open_flow_agent('audio','配音制作',audio_prompt(self.root,source))
     def audio(self):
         from stage_workspace_service import ensure_audio_workspace
-        audio_dir,subtitle_dir=ensure_audio_workspace(self.root)
+        result=ensure_audio_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
+        audio_dir,subtitle_dir=result.data
         self.note('可导入配音或音乐；按剧本对白时间导出整集SRT。字幕时间需在剪映中听校。')
         # 对白读不出来时不要静默禁用按钮：把原因写在页面上，用户才知道该改哪里。
         dialogue_reason=''
@@ -6601,11 +6630,15 @@ class Desktop:
         audio_button(self.content,'打开 ElevenLabs（浏览器）',lambda:self.safe(lambda:open_target('https://elevenlabs.io/app')))
     def import_audio(self):
         from stage_workspace_service import ensure_audio_workspace
-        folder,_=ensure_audio_workspace(self.root)
+        result=ensure_audio_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
+        folder,_=result.data
         p=FileDialog(self.win).open_file(initialdir=folder,filetypes=[('音频','*.wav *.mp3 *.m4a *.aac')])
         if not p:return
         from stage_execution_service import import_stage_audio
-        dest=import_stage_audio(self.root,p)
+        result=import_stage_audio(self.root,p)
+        if not result.ok:raise ValueError(result.reason)
+        dest=result.data
         self.status.set('音频已导入：'+str(dest))
     def subtitle_rows(self):
         """按剧本对白时间算出 SRT 行；没有对白时抛 ValueError。只读文件、不碰界面，可在工作线程里用。"""
@@ -6615,13 +6648,17 @@ class Desktop:
         return rows,estimated
     def subtitles(self):
         from stage_execution_service import export_stage_srt
-        p,estimated=export_stage_srt(self.root,self.current_episode())
+        result=export_stage_srt(self.root,self.current_episode())
+        if not result.ok:raise ValueError(result.reason)
+        p,estimated=result.data
         if estimated:self.status.set('字幕时间按镜头时长自动均分，属草稿，请在剪映中听校。')
         return p
     def dialogue_script(self):
         """Export a readable dialogue script with speaker names and timing for dubbing."""
         from stage_execution_service import export_stage_dialogue_script
-        p,estimated=export_stage_dialogue_script(self.root,self.current_episode(),self.dialogue_assets())
+        result=export_stage_dialogue_script(self.root,self.current_episode(),self.dialogue_assets())
+        if not result.ok:raise ValueError(result.reason)
+        p,estimated=result.data
         if estimated:self.status.set('对白时间按镜头时长自动均分，属草稿，请在剪映中听校。')
         return p
 
@@ -6629,7 +6666,9 @@ class Desktop:
         from editing_page_controller import EditingPageController
         from stage_workspace_service import ensure_editing_workspace
         controller = EditingPageController(self.root, self.studio)
-        edit_dir,=ensure_editing_workspace(self.root)
+        result=ensure_editing_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
+        edit_dir,=result.data
         from stage_models import manual_command as _manual_edit
         _edit_bar=FlowBar(self.content);_edit_bar.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
         _edit_button=PrimaryButton(_edit_bar,text='手动制作剪辑',width=STAGE_ACTION_WIDTH,
@@ -6684,7 +6723,9 @@ class Desktop:
             if executable.is_file():
                 if str(executable)!=saved:
                     from stage_execution_service import publish_desktop_preferences
-                    self.settings=publish_desktop_preferences(self.settings_file,self.settings,{'jianying':str(executable)})
+                    result=publish_desktop_preferences(self.settings_file,self.settings,{'jianying':str(executable)})
+                    if not result.ok:raise ValueError(result.reason)
+                    self.settings=result.data
                 return executable
         return None
     def find_editor_shortcut(self):
@@ -6729,13 +6770,14 @@ class Desktop:
                 else:
                     subtitle=self.subtitles()
             except ValueError:pass  # 无对白时不附字幕，交接包仍可用
-        from handoff_service import publish_bundle
-        from stage_execution_service import publish_handoff_bundle
-        return publish_bundle(self.root,self.studio.episode['shots'],rows,subtitle,auto,
-                              publish=publish_handoff_bundle)
+        from stage_execution_service import publish_stage_handoff_bundle
+        return publish_stage_handoff_bundle(self.root, self.studio.episode['shots'], rows,
+                                            subtitle, auto)
     def delivery(self):
         from stage_workspace_service import ensure_delivery_workspace
-        delivery_dir,export_dir=ensure_delivery_workspace(self.root)
+        result=ensure_delivery_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
+        delivery_dir,export_dir=result.data
         from stage_models import manual_command as _manual_deliver
         _deliver_bar=FlowBar(self.content);_deliver_bar.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
         _deliver_button=PrimaryButton(_deliver_bar,text='手动制作交付',width=STAGE_ACTION_WIDTH,
@@ -6768,7 +6810,9 @@ class Desktop:
     def open_folder(self,p):p.mkdir(exist_ok=True);open_path(p)
     def final_import(self):
         from stage_workspace_service import ensure_delivery_workspace
-        delivery_dir,_=ensure_delivery_workspace(self.root)
+        result=ensure_delivery_workspace(self.root)
+        if not result.ok:raise ValueError(result.reason)
+        delivery_dir,_=result.data
         p=FileDialog(self.win).open_file(initialdir=delivery_dir,filetypes=[('成片','*.mp4 *.mov')])
         if not p:return
         def work():

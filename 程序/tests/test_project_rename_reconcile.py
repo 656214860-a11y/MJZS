@@ -35,7 +35,7 @@ class RenameReconcileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             service,base=self.make_service(td);old=service.info['active'];new=self.renamed(base,old=old)
             cloud=new/'cloud_video'/'job';dump(cloud/'config.json',{'episode_dir':str(Path(old)/'03初步分镜')})
-            out=service.reconcile_missing(old)
+            out=service.reconcile_missing(old).data
             self.assertEqual(out['state'],'claimed');self.assertEqual(out['path'],str(new))
             self.assertEqual(service.info['active'],str(new));self.assertEqual(service.info['projects'][0]['status'],'making')
             self.assertEqual(json.loads((new/'config.json').read_text())['episode_dir'],str(new/'03初步分镜'/'分镜拆分'))
@@ -46,7 +46,7 @@ class RenameReconcileTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             service,base=self.make_service(td);old=service.info['active']
             self.renamed(base,'甲_20261001',old);self.renamed(base,'乙_20261001',old)
-            out=service.reconcile_missing(old)
+            out=service.reconcile_missing(old).data
             self.assertEqual(out['state'],'confirm');self.assertEqual(len(out['choices']),2)
             self.assertEqual(service.info['active'],old)
 
@@ -55,7 +55,7 @@ class RenameReconcileTests(unittest.TestCase):
             service,base=self.make_service(td);candidate=base/'新来的_20261002'
             (candidate/'01剧本准备').mkdir(parents=True)
             self.assertEqual(reconcile_missing(service.info,base)['matches'][service.info['active']],[])
-            service.register_discovered_project(candidate)
+            self.assertTrue(service.register_discovered_project(candidate).ok)
             self.assertIn(str(candidate),[x['path'] for x in service.info['projects']])
 
     def test_recycle_base_never_becomes_candidate(self):
@@ -75,7 +75,8 @@ class RenameReconcileTests(unittest.TestCase):
                 if len(calls)==2:raise PermissionError('locked')
                 return original(path,data)
             gateway['publish_bytes']=fail_second;service.gateway=gateway;service._require_gateway()
-            with self.assertRaises(PermissionError):service.claim_reconciled(old,new)
+            outcome=service.claim_reconciled(old,new)
+            self.assertFalse(outcome.ok)
             self.assertEqual(service.registry.read_bytes(),before_registry)
             self.assertEqual((new/'config.json').read_bytes(),before_config)
 

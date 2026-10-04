@@ -1,5 +1,6 @@
 """One application, isolated data-only projects."""
-import uuid, re, time, copy, os
+import uuid, re, time, copy, os, logging
+from functools import wraps
 from datetime import datetime
 from pathlib import Path
 from storyboard_paths import media_root
@@ -8,6 +9,22 @@ from episode_contract import validate_episode, relative
 import project_stages
 from storage_maintenance import remove_project_link_node
 from file_cache import read_json as cached_read_json
+from service_contract import SystemError, success
+
+_LOG = logging.getLogger(__name__)
+
+
+def _project_write_result(operation):
+    """将项目服务的环境写入失败收口为统一结果，保留输入校验异常。"""
+    @wraps(operation)
+    def wrapped(*args, **kwargs):
+        try:
+            return success(operation(*args, **kwargs))
+        except OSError as exc:
+            _LOG.exception('项目登记写入失败：%s', operation.__name__)
+            return SystemError('项目登记未能保存，请检查磁盘或文件占用后重试。',
+                               data={'cause': str(exc), 'operation': operation.__name__})
+    return wrapped
 
 def _slug(path):
     return re.sub(r'_\d{8}(?:_\d+)?$','',Path(path).name)
@@ -83,7 +100,7 @@ class Projects:
         # 非 UI 调用仍维持原有的同步兼容行为；Desktop 会在首帧后把迁移交给 worker。
         self.legacy_migration_pending=not self.registry.exists()
         if self.legacy_migration_pending and migrate_legacy:
-            self.migrate()
+            self._migrate()
         info=self._read_json(self.registry) if self.registry.exists() else {}
         info=dict(info) if isinstance(info,dict) else {}
         if 'active' not in info:info['active']=None
@@ -109,7 +126,7 @@ class Projects:
         self._publish_json=self.gateway['publish_json'];self._publish_bytes=self.gateway['publish_bytes']
         self._restore_bytes=self.gateway['restore_bytes'];self._copy_file=self.gateway['copy_file'];self._copy_tree=self.gateway['copy_tree']
 
-    def migrate(self):
+    def _migrate(self):
         if self.registry.exists():
             return self.refresh_registry()
         config_path=self.app/'config.json'
@@ -138,6 +155,10 @@ class Projects:
         self._publish_json(dst/'config.json',cfg); self.organize(dst)
         self._publish_json(self.registry,{'active':str(dst),'projects':[{'name':title,'path':str(dst)}]})
         return self.refresh_registry()
+
+    @_project_write_result
+    def migrate(self):
+        return self._migrate()
     def organize(self,root):
         root=Path(root); base=project_stages.assets(root); assets=self._read_json(base/'assets.json') if (base/'assets.json').exists() else {}
         if not isinstance(assets,dict):assets={}
@@ -217,7 +238,7 @@ class Projects:
             if rollback_error:raise RuntimeError('项目登记同步失败，且回滚失败') from rollback_error
             raise
 
-    def claim_reconciled(self,old_path,new_path):
+    def _claim_reconciled(self,old_path,new_path):
         """把一条已确认的失效登记认领到新目录，并同步唯一允许变动的活路径。"""
         old=Path(old_path);new=Path(new_path)
         if not new.is_dir() or new.parent.resolve()!=self.base.resolve():
@@ -232,17 +253,23 @@ class Projects:
         self.ensure_stage_dirs(new)
         return str(new)
 
+    @_project_write_result
+    def claim_reconciled(self,old_path,new_path):
+        return self._claim_reconciled(old_path,new_path)
+
+    @_project_write_result
     def reconcile_missing(self,path,selected=None):
         """包装纯扫描服务：自动仅接受一对一，多个候选交给 UI 选择。"""
         result=reconcile_missing(self.info,self.base)
         choices=result['matches'].get(str(path),[])
         if selected is not None:
             if str(selected) not in choices:raise ValueError('所选目录不是该失效项目的候选目录')
-            return {'state':'claimed','path':self.claim_reconciled(path,selected),'result':result}
+            return {'state':'claimed','path':self._claim_reconciled(path,selected),'result':result}
         if len(choices)==1:
-            return {'state':'claimed','path':self.claim_reconciled(path,choices[0]),'result':result}
+            return {'state':'claimed','path':self._claim_reconciled(path,choices[0]),'result':result}
         return {'state':'confirm' if len(choices)>1 else 'missing','choices':choices,'result':result}
 
+    @_project_write_result
     def register_discovered_project(self,path):
         """将扫描到但不属于失效登记的一级目录作为新项目登记。"""
         candidate=Path(path)
@@ -260,6 +287,7 @@ class Projects:
         self._publish_json(self.registry,info);self.info=info
         return str(candidate)
 
+    @_project_write_result
     def clear_missing_registration(self,path):
         """普通目录已不存在时只清登记，绝不尝试移动或删除磁盘文件。"""
         if Path(path).exists():raise ValueError('项目目录仍存在，请使用“删除选中项目”移入回收站')
@@ -268,11 +296,13 @@ class Projects:
         info['projects']=[x for x in info['projects'] if x.get('path')!=path]
         if info.get('active')==path:info['active']=info['projects'][0]['path'] if info['projects'] else None
         self._publish_json(self.registry,info);self.info=info
+    @_project_write_result
     def set_status(self,path,status):
         if status not in ('making','completed'):raise ValueError('无效的项目状态')
         item=next((p for p in self.info['projects'] if p['path']==path),None)
         if item is None:raise ValueError('项目未登记')
         item['status']=status;self._publish_json(self.registry,self.info)
+    @_project_write_result
     def activate(self,path):
         if path not in [x['path'] for x in self.info['projects']]:raise ValueError('项目未登记')
         self.info['active']=path;self._publish_json(self.registry,self.info)
@@ -302,6 +332,7 @@ class Projects:
                     raise ValueError('项目里的目录链接仍被占用，项目入口未删除。请关闭占用它的窗口后重试。') from exc
                 if name in dirs:
                     dirs.remove(name)       # 即使平台把链接列入 dirs，也绝不跟进
+    @_project_write_result
     def delete(self,path):
         target=self.deletion_target(path)
         if not target.exists():
@@ -318,6 +349,7 @@ class Projects:
         self.info['projects']=[x for x in self.info['projects'] if x['path']!=path]
         if self.info['active']==path:self.info['active']=self.info['projects'][0]['path'] if self.info['projects'] else None
         self._publish_json(self.registry,self.info)
+    @_project_write_result
     def unlink_registered_project(self,path):
         """只移除登记项目自身的目录链接，绝不递归进入它指向的真实目录。"""
         if path not in [x['path'] for x in self.info['projects']]:raise ValueError('项目未登记，不能删除')
@@ -333,6 +365,7 @@ class Projects:
         self.info['projects']=[x for x in self.info['projects'] if x['path']!=path]
         if self.info['active']==path:self.info['active']=self.info['projects'][0]['path'] if self.info['projects'] else None
         self._publish_json(self.registry,self.info)
+    @_project_write_result
     def create(self,name,source=None):
         name=name.strip()
         if not name:raise ValueError('请填写项目名称')

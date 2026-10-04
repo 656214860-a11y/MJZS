@@ -21,7 +21,13 @@ class RecycleRecoveryController:
         return sorted(records, key=lambda item: item['batch'].name, reverse=True)
 
     def restore_batch(self, record):
-        return service.restore_batch(record)
+        result = service.restore_batch(record)
+        if not result.ok:
+            raise ValueError(result.reason)
+        return result.data
 
     def restore_item(self, record, source):
-        return service.restore_item(record, source)
+        result = service.restore_item(record, source)
+        if not result.ok:
+            raise ValueError(result.reason)
+        return result.data

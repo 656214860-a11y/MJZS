@@ -24,6 +24,12 @@ def project_context(project, *, settings_snapshot=None, cache=None):
         file_cache if cache is None else cache)
 
 
+def keyframe_image_prompt(project, source, shot_id=None, outputs=None, shot_ids=None):
+    """L3 为首帧批次任务书注入唯一的项目上下文。"""
+    from keyframe_batch import image_prompt
+    return image_prompt(source, project_context(project), shot_id, outputs, shot_ids=shot_ids)
+
+
 def import_delivery_master(project, source, *, settings_snapshot=None, cache=None):
     """交付成片导入编排：L3 负责上下文和发布器注入。"""
     from delivery_import_service import import_final_master
@@ -45,7 +51,7 @@ def local_video_settings_gateway():
 def publish_local_video_settings(project, current_config, options):
     """L3 编排本地视频工作流与项目设置的成对发布。"""
     from local_video_settings_service import save_local_video_settings
-    return save_local_video_settings(project, current_config, options,
+    return save_local_video_settings(project_context(project), current_config, options,
                                      gateway=local_video_settings_gateway())
 
 
@@ -65,7 +71,7 @@ def start_pet_performance_check(program, project, kind='startup'):
 def poll_pet_performance_check(session, at=None):
     """L3 轮询宠物离线基准，并向 L2 注入正式账本发布器。"""
     from pet_performance_service import poll_startup_check
-    return poll_startup_check(session, at=at,
+    return poll_startup_check(session, project_context(session['project']), at=at,
                               publish=pet_performance_gateway()['publish_json'])
 
 
@@ -84,7 +90,7 @@ def start_pet_test_check(program, text=''):
 def poll_pet_test_check(session, project, at=None):
     """L3 轮询宠物增量自检，并向 L2 注入正式账本发布器。"""
     from pet_test_service import poll_incremental
-    return poll_incremental(session, project, at=at,
+    return poll_incremental(session, project_context(project), at=at,
                             publish=pet_test_gateway()['publish_json'])
 
 
@@ -112,12 +118,18 @@ def video_prompt_gateway():
 
 def publish_video_prompt(studio, sid, text):
     from video_prompt_publication import publish
-    return publish(studio, sid, text, publish_bundle=video_prompt_gateway()['publish_bundle'])
+    result = publish(studio, sid, text, publish_bundle=video_prompt_gateway()['publish_bundle'])
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def import_video_prompt(studio, sid, text):
     from video_prompt_publication import stage_import
-    return stage_import(studio, sid, text, gateway=video_prompt_gateway())
+    result = stage_import(studio, sid, text, gateway=video_prompt_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def export_stage_dialogue_script(project, episode, assets):
@@ -156,8 +168,11 @@ def legacy_adoption_gateway():
 def record_stage_legacy_adoption(project, linked_paths, now=None):
     """旧目录归位记录只经 L3 网关发布。"""
     from legacy_adoption_service import record_legacy_adoption
-    return record_legacy_adoption(project, linked_paths, now=now,
-                                  gateway=legacy_adoption_gateway())
+    result = record_legacy_adoption(project, linked_paths, now=now,
+                                    gateway=legacy_adoption_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def archive_idea_attachments(project, paths, now=None):
@@ -168,7 +183,22 @@ def archive_idea_attachments(project, paths, now=None):
         return publish_stage_text(
             target, text, lambda value: bool(value.strip()), lambda _target: None)
 
-    return store(project, paths, now=now, publish=publish_attachment)
+    result = store(project_context(project), paths, now=now, publish=publish_attachment)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
+
+
+def stage_idea_attachment_paths(project, limit=None):
+    """列出已入库创意附档；项目根只由 L3 上下文提供。"""
+    from idea_attachments import uploaded
+    return uploaded(project_context(project), limit)
+
+
+def stage_idea_attachment_reference(project, message='', selected_paths=()):
+    """为剧本准备对话解析已入库附档，不向 L2 暴露裸项目路径。"""
+    from idea_attachments import referenced
+    return referenced(project_context(project), message, selected_paths)
 
 
 def idea_chat_gateway():
@@ -202,30 +232,34 @@ def asset_plan_gateway():
 def sync_asset_plan(project, episode_dir, storyboard=None, *, scope='current', _adopting=False):
     """L3 同步资产计划，避免 L2 自行选择发布器。"""
     from asset_plan import sync_plan
-    return sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting,
-                     gateway=asset_plan_gateway())
+    return unwrap_service_result(sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting,
+                                            gateway=asset_plan_gateway(), context=project_context(project)))
 
 
 def update_asset_plan_fields(project, episode_dir, aid, values):
     from asset_plan import update_fields
-    return update_fields(project, episode_dir, aid, values, gateway=asset_plan_gateway())
+    return unwrap_service_result(update_fields(project, episode_dir, aid, values, gateway=asset_plan_gateway()))
 
 
 def apply_asset_plan_gate_choice(project, key, choice, episode_dir=''):
     from asset_plan import apply_gate_choice
-    return apply_gate_choice(project, key, choice, episode_dir, gateway=asset_plan_gateway())
+    return unwrap_service_result(apply_gate_choice(project, key, choice, episode_dir, gateway=asset_plan_gateway()))
 
 
 def plan_unattended_assets(project, base, sources, scope='adopted'):
     """L3 为无人值守资产计划装配唯一的发布网关。"""
     from asset_batch_service import unattended_plan
-    return unattended_plan(project, base, sources, scope, gateway=asset_plan_gateway())
+    return unattended_plan(project, base, sources, scope, gateway=asset_plan_gateway(),
+                           context=project_context(project))
 
 
 def note_asset_resume_round(project, ids, limit=None, now=None):
     from asset_resume import note_round
-    return note_round(project, ids, limit=limit, now=now,
-                      publish=asset_plan_gateway()['publish_json'])
+    result = note_round(project, ids, limit=limit, now=now,
+                        publish=asset_plan_gateway()['publish_json'])
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def adopt_asset_storyboards(project, values):
@@ -246,7 +280,8 @@ def poll_asset_storyboard_adoption(project, minimum_age=10):
 def release_uncertain_asset_batch(project, ids):
     """L3 为确认后的资产批次未知提交记录提供唯一放开入口。"""
     from asset_batch_state_service import release_uncertain
-    return release_uncertain(project, ids, publish=asset_batch_gateway()['publish_json'])
+    return release_uncertain(None, ids, context=project_context(project),
+                             publish=asset_batch_gateway()['publish_json'])
 
 
 def asset_batch_settings_gateway():
@@ -275,15 +310,34 @@ def asset_detail_gateway():
 def bind_asset_canonical_view(project, episode_dir, aid, view, source):
     """L3 编排资产详情正典板绑定。"""
     from asset_detail_service import bind_canonical_view
-    return bind_canonical_view(project, episode_dir, aid, view, source,
-                               gateway=asset_detail_gateway())
+    result = bind_canonical_view(project, episode_dir, aid, view, source,
+                                gateway=asset_detail_gateway(), context=project_context(project))
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def bind_asset_variant_thumbnail(project, episode_dir, aid, state_id, source):
     """L3 编排资产详情状态变体缩略图绑定。"""
     from asset_detail_service import bind_variant_thumbnail
-    return bind_variant_thumbnail(project, episode_dir, aid, state_id, source,
-                                  gateway=asset_detail_gateway())
+    result = bind_variant_thumbnail(project, episode_dir, aid, state_id, source,
+                                   gateway=asset_detail_gateway(), context=project_context(project))
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
+
+
+def pending_generated_assets(project, base):
+    """L3 统一装配自动导入生成资产时的项目上下文。"""
+    from asset_generated_import_service import pending_generated
+    return pending_generated(project, base, context=project_context(project))
+
+
+def import_pending_generated_assets(project, base, report=None):
+    """L3 装配生成资产导入所需的上下文与发布网关。"""
+    from asset_generated_import_service import import_pending_generated
+    return import_pending_generated(project, base, report, gateway=asset_batch_gateway(),
+                                    context=project_context(project))
 
 
 def tts_gateway():
@@ -299,7 +353,37 @@ def save_tts_key(base_url, model, voice, key, voices=None, speeds=None):
 
 def publish_tts_full_track(project, signature, raw):
     from tts_api import publish_full_track
-    return publish_full_track(project, signature, raw, gateway=tts_gateway())
+    return publish_full_track(project_context(project), signature, raw, gateway=tts_gateway())
+
+
+def reusable_tts_full_track(project, signature):
+    """L3 为整段配音复用检查注入项目上下文。"""
+    from tts_api import reusable_full_track
+    return reusable_full_track(project_context(project), signature)
+
+
+def storyboard_working_source(project, source):
+    """L3 为分镜生命周期的工作稿判定注入项目上下文。"""
+    from storyboard_lifecycle import is_working_source
+    return is_working_source(project_context(project), source)
+
+
+def retire_storyboard(project, source, target, expected, publish):
+    """L3 为已发布定稿退役工作分镜注入项目上下文。"""
+    from storyboard_lifecycle import retire
+    return retire(project_context(project), source, target, expected, publish=publish)
+
+
+def refresh_storyboard_studios(desktop, project):
+    """L3 为定稿后的已开分镜工作集刷新注入项目上下文。"""
+    from storyboard_lifecycle import refresh_open_studios
+    return refresh_open_studios(desktop, project_context(project))
+
+
+def white_model_shot_directory(project, sid, workspace_path=None):
+    """L3 为白模镜头工作目录解析注入项目上下文。"""
+    from white_model_service import shot_directory
+    return shot_directory(project_context(project), sid, workspace_path)
 
 
 def run_tts_lines(lines, folder, generate=None, report=None, stop=None):
@@ -313,19 +397,43 @@ def cloud_video_gateway():
     return {'publish_json': save}
 
 
+def cloud_video_session_folder(project, kind, base, model, source):
+    """L3 统一注入项目上下文并创建/复用云视频会话目录。"""
+    from cloud_video_service import session_folder
+    result = session_folder(project_context(project), kind, base, model, source)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
+
+
+def cloud_video_saved_provider_key(project, kind, providers, remembered=None, base_url=None, module_file=None):
+    """L3 统一注入项目上下文，供 L4 查询旧会话兼容凭据。"""
+    from cloud_video_service import saved_provider_key
+    return saved_provider_key(project_context(project), kind, providers, remembered, base_url, module_file)
+
+
 def publish_cloud_video_session_config(config_path, config, prefs_path, prefs):
     from cloud_video_service import publish_session_config
-    return publish_session_config(config_path, config, prefs_path, prefs, gateway=cloud_video_gateway())
+    result = publish_session_config(config_path, config, prefs_path, prefs, gateway=cloud_video_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def publish_cloud_video_workspace_preference(prefs_path, prefs):
     from cloud_video_service import publish_workspace_preference
-    return publish_workspace_preference(prefs_path, prefs, gateway=cloud_video_gateway())
+    result = publish_workspace_preference(prefs_path, prefs, gateway=cloud_video_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def publish_cloud_video_studio_config(config_path, config):
     from cloud_video_service import publish_studio_config
-    return publish_studio_config(config_path, config, gateway=cloud_video_gateway())
+    result = publish_studio_config(config_path, config, gateway=cloud_video_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def video_lifecycle_gateway():
@@ -344,13 +452,22 @@ def record_stage_confirmation(project, key, choice='', by='human'):
     """记录确认门禁；L4 不得自行装配或直写确认账本。"""
     from confirm_gates import record
     return record(project, key, choice, by=by,
-                  publish=confirm_gates_gateway()['publish_json'])
+                  publish=confirm_gates_gateway()['publish_json'],
+                  context=project_context(project))
 
 
 def forget_stage_confirmation(project, key):
     """撤销确认门禁；保持与记录入口相同的 L3 发布边界。"""
     from confirm_gates import forget
-    return forget(project, key, publish=confirm_gates_gateway()['publish_json'])
+    return forget(project, key, publish=confirm_gates_gateway()['publish_json'],
+                  context=project_context(project))
+
+
+def run_stage_confirmation_gate(project, gate_id, *, shots=None, assets=None, ledger=None):
+    """L3 运行确认门禁，并为需要确认记忆的 L2 注入项目上下文。"""
+    from confirm_gates import run
+    return run(gate_id, project=project, shots=shots, assets=assets, ledger=ledger,
+               context=project_context(project))
 
 
 def previs_routing_gateway():
@@ -362,16 +479,86 @@ def previs_routing_gateway():
 def save_stage_previs_override(project, source, shot_id, value):
     """保存白模复杂度人工覆写；L4 只委托 L3。"""
     from previs_routing import set_override
-    return set_override(project, source, shot_id, value,
+    return set_override(project_context(project), source, shot_id, value,
                         publish=previs_routing_gateway()['publish_json'])
 
 
 def dispatch_stage_previs(project, source, shot_ids, state, monitor=False, start_complex=None):
     """发布白模分流记录；执行器仍由调用方注入，路由落盘只经 L3。"""
     from previs_routing import dispatch
-    return dispatch(project, source, shot_ids, state, monitor=monitor,
+    return dispatch(project_context(project), source, shot_ids, state, monitor=monitor,
                     start_complex=start_complex,
                     publish=previs_routing_gateway()['publish_json'])
+
+
+def previs_entries(project, source):
+    from previs_routing import entries
+    return entries(project_context(project), source)
+
+
+def previs_ready(project, shot_id):
+    from previs_routing import ready
+    return ready(project_context(project), shot_id)
+
+
+def previs_records_directory(project, state):
+    from previs_routing import records_directory
+    return records_directory(project_context(project), state)
+
+
+def previs_automatic_candidates(project, source, shots, wait_for_frames=False, pending_frame_ids=None):
+    from previs_routing import automatic_candidates
+    return automatic_candidates(project_context(project), source, shots, wait_for_frames, pending_frame_ids)
+
+
+def previs_automatic_engine(project, read_settings, engines):
+    from previs_routing import automatic_engine
+    return automatic_engine(project_context(project), read_settings, engines)
+
+
+def storyboard_catalog(project, kind, ignored=None):
+    from storyboard_catalog_service import catalog
+    return catalog(project_context(project), kind) if ignored is None else catalog(project_context(project), kind, ignored)
+
+
+def storyboard_produced_scripts(project, entries=None):
+    from storyboard_catalog_service import produced_scripts
+    return produced_scripts(project_context(project), entries)
+
+
+def storyboard_produced_episodes(project, entries=None):
+    from storyboard_catalog_service import produced_episodes
+    return produced_episodes(project_context(project), entries)
+
+
+def storyboard_default_source(project):
+    from storyboard_catalog_service import default_source
+    return default_source(project_context(project))
+
+
+def storyboard_resolve_source(project, path):
+    from storyboard_catalog_service import resolve_source
+    return resolve_source(project_context(project), path)
+
+
+def storyboard_board_source_script(project, board):
+    from storyboard_catalog_service import board_source_script
+    return board_source_script(project_context(project), board)
+
+
+def storyboard_working_dir(project):
+    from storyboard_catalog_service import working_dir
+    return working_dir(project_context(project))
+
+
+def storyboard_document_dir(project):
+    from storyboard_catalog_service import document_dir
+    return document_dir(project_context(project))
+
+
+def storyboard_file_snapshot(project, ignored=None):
+    from storyboard_catalog_service import file_snapshot
+    return file_snapshot(project_context(project)) if ignored is None else file_snapshot(project_context(project), ignored)
 
 
 def previs_progress_gateway():
@@ -419,29 +606,38 @@ def storyboard_gateway():
 
 def publish_final_storyboard_bundle(episodefile, assetfile, episode, assets, validate):
     from storyboard_storage import publish_final_bundle
-    return publish_final_bundle(episodefile, assetfile, episode, assets, validate,
-                                gateway=storyboard_gateway())
+    return unwrap_service_result(publish_final_bundle(episodefile, assetfile, episode, assets, validate,
+                                                       gateway=storyboard_gateway()))
 
 
 def normalize_storyboard_for_desktop(desktop):
     from storyboard_storage import normalize_for_desktop
-    return normalize_for_desktop(desktop, gateway=storyboard_gateway())
+    return unwrap_service_result(normalize_for_desktop(desktop, gateway=storyboard_gateway()))
 
 
 def mark_stage_video_deleted(source, sid, versions):
     from video_lifecycle_service import mark_video_deleted
-    return mark_video_deleted(source, sid, versions, gateway=video_lifecycle_gateway())
+    result = mark_video_deleted(source, sid, versions, gateway=video_lifecycle_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def save_stage_video_options(source, sid, selected, generate_audio, is_local):
     from video_lifecycle_service import save_video_options
-    return save_video_options(source, sid, selected, generate_audio, is_local,
+    result = save_video_options(source, sid, selected, generate_audio, is_local,
                               gateway=video_lifecycle_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def save_stage_white_model_upload(source, sid, enabled):
     from video_lifecycle_service import save_white_model_upload
-    return save_white_model_upload(source, sid, enabled, gateway=video_lifecycle_gateway())
+    result = save_white_model_upload(source, sid, enabled, gateway=video_lifecycle_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def save_stage_editing_checklist(project, text):
@@ -452,7 +648,11 @@ def save_stage_editing_checklist(project, text):
         return publish_stage_text(
             target, value, lambda _value: True, lambda _target: None, allow_empty=True)
 
-    return save_editing_checklist(project, text, publish=publish_checklist)
+    result = save_editing_checklist(project, text, publish=publish_checklist,
+                                    context=project_context(project))
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def publish_handoff_bundle(project, name, artifacts, *, auto=False):
@@ -578,7 +778,10 @@ def save_automatic_assemble_marker(project, digest, master, completed_at):
             path, json.dumps(payload, ensure_ascii=False, sort_keys=True),
             lambda text: isinstance(json.loads(text), dict), lambda _target: None)
 
-    return save_marker(target, digest, master, completed_at, publish=publish_marker)
+    result = save_marker(target, digest, master, completed_at, publish=publish_marker)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def save_automatic_handoff_marker(project, digest, folder, shot_count):
@@ -591,7 +794,21 @@ def save_automatic_handoff_marker(project, digest, folder, shot_count):
             path, json.dumps(payload, ensure_ascii=False, sort_keys=True),
             lambda text: isinstance(json.loads(text), dict), lambda _target: None)
 
-    return save_marker(target, digest, folder, shot_count, publish=publish_marker)
+    result = save_marker(target, digest, folder, shot_count, publish=publish_marker)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
+
+
+def publish_stage_handoff_bundle(project, shots, rows, subtitle=None, auto=False):
+    """交接包编排：L3 注入项目上下文与唯一阶段发布器。"""
+    from handoff_service import publish_bundle
+    result = publish_bundle(project, shots, rows, subtitle, auto,
+                            publish=publish_handoff_bundle,
+                            context=project_context(project))
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def _model_ids(desktop, stage):
@@ -739,5 +956,30 @@ def import_writing_project(root, json_file):
     """L3 编排剧本 JSON 导入与其校验报告发布。"""
     from writing import import_project
     from workflow_context_controller import workflow_context_gateway
-    return import_project(root, json_file, gateway=project_registry_gateway(),
-                          publish_report=workflow_context_gateway()['publish_json'])
+    result = import_project(root, json_file, gateway=project_registry_gateway(),
+                            publish_report=workflow_context_gateway()['publish_json'])
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
+
+
+def prepare_writing_project(root, brief, stage, target):
+    """L3 编排剧本任务书发布并只向界面交付成功数据。"""
+    from writing import prepare
+    result = prepare(root, brief, stage, target, publish=publish_writing_preparation)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
+
+
+def unwrap_service_result(result):
+    """L3 解包 L2 服务结果；L4 只接收既有业务数据或可展示异常。"""
+    # 旧桌面测试桩仍返回裸值；正式写服务总是返回 ServiceResult。
+    if not hasattr(result, 'ok'):
+        return result
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
+
+
+unwrap_project_result = unwrap_service_result

@@ -12,8 +12,9 @@ def recycle_plan(project, kind, path):
     """
     from agent.core import read
     from storyboard_adoption_contract import adopted
-    from storyboard_catalog_service import catalog
+    from stage_execution_service import storyboard_catalog as catalog
     from storyboard_catalog_service import linked_path
+    from stage_execution_service import project_context
     from storyboard_paths import is_final_dir
     from project_stages import writing, structure, storyboard
     project = Path(project).resolve()
@@ -37,7 +38,7 @@ def recycle_plan(project, kind, path):
     linked = []
     if kind == 'script':
         for candidate in storyboards:
-            if linked_path(project, read(candidate).get('source_script')) == source and not is_final_dir(candidate.parent.name):
+            if linked_path(project_context(project), read(candidate).get('source_script')) == source and not is_final_dir(candidate.parent.name):
                 linked.append(candidate)
     targets = list(dict.fromkeys([source, *linked]))
     for target in targets:
@@ -53,7 +54,7 @@ def recycle_plan(project, kind, path):
 def detach_video_refs(project, targets):
     """Remove deleted-JSON source links while preserving generated videos."""
     from agent.core import read, save
-    from storyboard_catalog_service import resolve_source
+    from stage_execution_service import storyboard_resolve_source as resolve_source
     project = Path(project).resolve()
     targets = {Path(target).resolve() for target in targets}
     configs = [project / 'config.json', *(project / 'cloud_video').glob('*/config.json')]
@@ -77,6 +78,7 @@ def recycle_files(project, kind, paths):
     from agent.core import read, save
     from project_stages import writing, structure, storyboard
     from storyboard_catalog_service import linked_path
+    from stage_execution_service import project_context
     from storyboard_selection import remember_many, selected_many
     project = Path(project).resolve()
     sources = [Path(path).resolve() for path in paths]
@@ -109,7 +111,7 @@ def recycle_files(project, kind, paths):
     prefs = read(prefs_file) if prefs_file.is_file() else {}
     if not isinstance(prefs, dict):
         prefs = {}
-    if linked_path(project, prefs.get('final_storyboard_json')) in targets:
+    if linked_path(project_context(project), prefs.get('final_storyboard_json')) in targets:
         prefs['final_storyboard_json'] = ''
         save(prefs_file, prefs)
     detach_video_refs(project, targets)

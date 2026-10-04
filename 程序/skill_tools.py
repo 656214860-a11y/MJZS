@@ -210,7 +210,10 @@ def _subtitle_generate(context):
         # 第 7 轮：字幕正文来自用户与模型，最容易夹带落单的 \r；写入改走「写入即校验行尾」，
         # 已有的字幕文件按它自己的换行符回写，新建的按 Windows 文本惯例给 CRLF。
         from subtitle_export_controller import publish_stage_srt_text
-        written = str(publish_stage_srt_text(target, text))
+        result = publish_stage_srt_text(target, text)
+        if not result.ok:
+            raise ValueError(result.reason)
+        written = str(result.data)
     return {'ok': True, 'rows': len(rows), 'estimated': bool(estimated),
             'subtitle_file': written, 'text': text if not written else ''}
 

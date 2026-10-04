@@ -1,6 +1,19 @@
 """Track Agent dispatch separately from image output; recover unsubmitted legacy batches."""
 import time
 from pathlib import Path
+from project_context import ProjectContext
+
+
+def _project_root(project, *, context=None):
+    """L2 消费 L3 提供的项目上下文，旧路径参数仅为现有调用兼容。"""
+    if context is None:
+        return Path(project).resolve()
+    if not isinstance(context, ProjectContext):
+        raise TypeError('资产批次生命周期需要由 L3 注入 ProjectContext。')
+    root = context.root.resolve()
+    if project is not None and Path(project).resolve() != root:
+        raise ValueError('项目路径与注入的 ProjectContext 不一致。')
+    return root
 def _require_gateway(gateway):
     """Batch dispatch records are formal project data and require L3 I/O."""
     required = ('read_json', 'publish_json')
@@ -45,10 +58,10 @@ def fail(manifest,message, *, gateway=None):
     gateway['publish_json'](Path(manifest).parent/'执行状态.json',{'state':'failed','message':str(message),'updated':time.time()})
 
 
-def reconcile(project,base,selected,agent_running=False, *, gateway=None):
+def reconcile(project,base,selected,agent_running=False, *, gateway=None, context=None):
     """Return only batches with output or evidence of a real dispatch/submission."""
     gateway = _require_gateway(gateway)
-    project=Path(project);base=Path(base).resolve();selected=set(selected)
+    project=_project_root(project, context=context);base=Path(base).resolve();selected=set(selected)
     ledger=project/'workflows/资产批量记录.json'
     jobs=gateway['read_json'](ledger) if ledger.is_file() else {}
     if not isinstance(jobs,dict):jobs={}

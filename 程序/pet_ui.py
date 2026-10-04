@@ -2896,7 +2896,7 @@ class Pet:
         if project is None:
             return result
         try:
-            from storyboard_catalog_service import catalog
+            from stage_execution_service import storyboard_catalog as catalog
             result['scripts'] = len(catalog(project, 'script'))
             entries = catalog(project, 'storyboard')
             result['storyboards'] = len(entries)

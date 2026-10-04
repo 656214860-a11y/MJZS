@@ -9,6 +9,7 @@ os.chdir(HERE)
 
 from previs_routing import classify
 from previs_automation import select_agent_shots
+from stage_execution_service import project_context
 
 
 class AgentSelectionTests(unittest.TestCase):
@@ -98,9 +99,9 @@ class ClassifyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = Path(td) / "p"; proj.mkdir()
             source = proj / "episode.json"; source.write_text("[]", encoding="utf-8")
-            self.assertEqual(entries(proj, source), {})
+            self.assertEqual(entries(project_context(proj), source), {})
             source.write_text(json.dumps({"shots": None}, ensure_ascii=False), encoding="utf-8")
-            self.assertEqual(entries(proj, source), {})
+            self.assertEqual(entries(project_context(proj), source), {})
 
 
 class StatusValueTests(unittest.TestCase):
@@ -171,7 +172,7 @@ class OverrideTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj, source = self.make(td)
             save_stage_previs_override(proj, source, "SH001", "complex")
-            self.assertEqual(entries(proj, source)["SH001"]["level"], "complex")
+            self.assertEqual(entries(project_context(proj), source)["SH001"]["level"], "complex")
 
     def test_auto_removes_override(self):
         from previs_routing import entries
@@ -181,7 +182,7 @@ class OverrideTests(unittest.TestCase):
             save_stage_previs_override(proj, source, "SH001", "complex")
             save_stage_previs_override(proj, source, "SH001", "auto")
             # 原动作是“站着说话”→ simple
-            self.assertEqual(entries(proj, source)["SH001"]["level"], "simple")
+            self.assertEqual(entries(project_context(proj), source)["SH001"]["level"], "simple")
 
     def test_invalid_value_rejected(self):
         from stage_execution_service import save_stage_previs_override
@@ -312,7 +313,7 @@ class ImportPrevisMediaTests(unittest.TestCase):
             root = Path(td)
             with patch("white_model_service.shot_directory", return_value=root), \
                  patch("white_model_service.read_record", side_effect=ValueError("损坏")):
-                self.assertFalse(ready(root, "SH001"))
+                self.assertFalse(ready(project_context(root), "SH001"))
 
     def test_automatic_candidates_wait_for_missing_keyframes(self):
         from unittest.mock import patch
@@ -321,7 +322,7 @@ class ImportPrevisMediaTests(unittest.TestCase):
         groups = {'simple': [], 'medium': ['SH002'], 'complex': ['SH001']}
         with patch('previs_routing.partition', return_value=(groups, {})), \
              patch('previs_routing.ready', return_value=False):
-            plan = automatic_candidates('project', 'source', shots, True, lambda rows: ['SH001'])
+            plan = automatic_candidates(project_context('project'), 'source', shots, True, lambda rows: ['SH001'])
         self.assertEqual(plan, {'pending': [], 'medium': ['SH002'], 'waiting': ['SH001']})
 
     def test_automatic_notice_keeps_dispatch_signature_and_human_guidance(self):
@@ -344,30 +345,30 @@ class ImportPrevisMediaTests(unittest.TestCase):
         def read_settings(project, stage):
             seen.append((project, stage))
             return {'engine': 'blender'}
-        self.assertEqual(automatic_engine('project', read_settings, {'blender': 'Blender'}), 'Blender')
-        self.assertEqual(seen, [('project', 'previs')])
+        self.assertEqual(automatic_engine(project_context('project'), read_settings, {'blender': 'Blender'}), 'Blender')
+        self.assertEqual(seen, [(Path('project'), 'previs')])
 
     def test_automatic_engine_rejects_unknown_configured_engine(self):
         from previs_routing import automatic_engine
         with self.assertRaises(KeyError):
-            automatic_engine('project', lambda *_args: {'engine': 'unknown'}, {'blender': 'Blender'})
+            automatic_engine(project_context('project'), lambda *_args: {'engine': 'unknown'}, {'blender': 'Blender'})
 
     def test_automatic_candidates_ignore_empty_or_invalid_shots(self):
         from previs_routing import automatic_candidates
-        self.assertEqual(automatic_candidates('project', 'source', [None, {}, {'name': '无编号'}]),
+        self.assertEqual(automatic_candidates(project_context('project'), 'source', [None, {}, {'name': '无编号'}]),
                          {'pending': [], 'medium': [], 'waiting': []})
 
     def test_entries_ignores_malformed_saved_shots(self):
         from unittest.mock import patch
         from previs_routing import entries
         with patch('previs_routing.read', return_value={'episode_id': 'EP001', 'shots': [None, {}, {'id': 'SH001'}]}):
-            self.assertIn('SH001', entries('project', 'source'))
+            self.assertIn('SH001', entries(project_context('project'), 'source'))
 
     def test_entries_treats_non_list_shots_as_empty(self):
         from unittest.mock import patch
         from previs_routing import entries
         with patch('previs_routing.read', return_value={'episode_id': 'EP001', 'shots': None}):
-            self.assertEqual(entries('project', 'source'), {})
+            self.assertEqual(entries(project_context('project'), 'source'), {})
 
 
 class BlenderLookupTests(unittest.TestCase):

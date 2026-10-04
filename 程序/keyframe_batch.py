@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from storyboard_paths import media_root
 from file_cache import read_json
+from project_context import ProjectContext
 
 
 def batch_signature(source, pending, available_asset_ids, asset_references):
@@ -55,8 +56,10 @@ def candidates(source,shot_id=None,shot_ids=None):
     if not pending:raise ValueError('没有待生成首帧；已有图片及已删除镜头均跳过')
     return pending
 
-def image_prompt(source, project, shot_id=None, outputs=None,shot_ids=None):
-    source=Path(source).resolve();project=Path(project).resolve()
+def image_prompt(source, context, shot_id=None, outputs=None,shot_ids=None):
+    if not isinstance(context, ProjectContext):
+        raise TypeError('首帧批次项目路径需要由 L3 注入 ProjectContext。')
+    source=Path(source).resolve();project=context.root.resolve()
     if not source.is_relative_to(project):raise ValueError('请选择当前项目的镜头JSON')
     pending=candidates(source,shot_id,shot_ids)
     from agent.shot_assets import registry as asset_registry,assets,asset_rows

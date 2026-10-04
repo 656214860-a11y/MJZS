@@ -4,7 +4,7 @@ from storyboard_paths import media_root, is_final_dir
 from datetime import datetime
 import copy, shutil, re, uuid, hashlib, json
 from agent.core import read
-from asset_plan import sync_plan
+from asset_plan import _sync_plan
 from project_naming import dated_path
 
 
@@ -34,13 +34,13 @@ def _record_lineage(project, episodefile, source):
 
 def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     from asset_context import library_dir,references
-    from storyboard_catalog_service import resolve_source
+    from stage_execution_service import storyboard_resolve_source as resolve_source
     from storyboard_lifecycle import signature
     project=Path(project).resolve();base=library_dir(project,episode_dir)
     source=resolve_source(project,source);original=source.read_bytes()
     original_hash=hashlib.sha256(original).hexdigest()
     frame_base=media_root(source)
-    rows=sync_plan(project,base,source,gateway=gateway)
+    rows=_sync_plan(project,base,source,gateway=gateway)
     mapping=read(base/'assets/资产清单/名称编号对照.json')
     if not isinstance(mapping,dict):mapping={}
     episode=copy.deepcopy(read(source));missing=[];used=set()
@@ -104,7 +104,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
         try:matches=bool(wanted and signature(read(existing),read(existing.with_name('assets.json')),existing.parent)==wanted)
         except (OSError,ValueError,KeyError):continue
         if matches:
-            from storyboard_lifecycle import is_working_source
+            from stage_execution_service import storyboard_working_source as is_working_source
             _record_lineage(project, existing, source)
             if is_working_source(project,source):
                 if not callable(retire_working):raise TypeError('定稿退役需要 L3 编排入口。')
@@ -167,7 +167,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
         )
         _record_lineage(project, episodefile, source)
     except Exception: raise
-    from storyboard_lifecycle import is_working_source
+    from stage_execution_service import storyboard_working_source as is_working_source
     if is_working_source(project,source):
         if not callable(retire_working):raise TypeError('定稿退役需要 L3 编排入口。')
         retire_working(project,source,dest/'episode.json',original_hash)

@@ -7,12 +7,15 @@ from agent.core import read
 from storyboard_paths import is_final_dir
 from storyboard_catalog_service import (
     IGNORED, discover_files, linked_path as _linked_path, content_preview as _content_preview, is_deliverable as _is_deliverable,
-    file_order as _file_order, catalog as _catalog, produced_scripts as _produced_scripts,
-    produced_episodes as _produced_episodes, board_source_script as _board_source_script,
-    default_source as _default_source, resolve_source as _resolve_source,
+    file_order as _file_order,
     check_adoptable as _check_adoptable, has_synced_assets as _has_synced_assets,
-    file_snapshot as _file_snapshot, working_dir as _working_dir,
-    document_dir as _document_dir,
+)
+from stage_execution_service import (
+    storyboard_board_source_script as _board_source_script, storyboard_catalog as _catalog,
+    storyboard_default_source as _default_source, storyboard_document_dir as _document_dir,
+    storyboard_file_snapshot as _file_snapshot, storyboard_produced_episodes as _produced_episodes,
+    storyboard_produced_scripts as _produced_scripts, storyboard_resolve_source as _resolve_source,
+    storyboard_working_dir as _working_dir,
 )
 from storyboard_selection import (
     remember_many as _remember_many, selected_many as _selected_many,

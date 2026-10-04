@@ -25,10 +25,10 @@ def build_work_plan(scripts, boards, made, adopted):
 def storyboard_work_plan(project):
     """兼容当前扫描实现；L3 调用方不再直接依赖 UI 文件。"""
     # 延迟导入是服务边界的适配，不是 UI 调用方的任意动态导入；扫描迁出后可删除。
-    from storyboard_catalog_service import produced_scripts
+    from stage_execution_service import storyboard_produced_scripts
     from storyboard_selection import selected_many
     from storyboard_selection import adopted
     root = Path(project).resolve()
     scripts = selected_many(root, 'script')
     boards = selected_many(root, 'storyboard')
-    return build_work_plan(scripts, boards, produced_scripts(root), adopted(root))
+    return build_work_plan(scripts, boards, storyboard_produced_scripts(root), adopted(root))

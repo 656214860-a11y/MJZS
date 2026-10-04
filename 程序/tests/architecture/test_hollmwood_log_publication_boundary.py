@@ -14,6 +14,8 @@ class HollmwoodLogPublicationBoundaryTests(unittest.TestCase):
         functions = {node.name: node for node in roles.body if isinstance(node, ast.FunctionDef)}
         self.assertIn('publish', [arg.arg for arg in functions['_write_log'].args.kwonlyargs])
         self.assertIn('publish_log', [arg.arg for arg in functions['run'].args.kwonlyargs])
+        self.assertIn('_hollmwood_result', [item.id for item in functions['run'].decorator_list
+                                             if isinstance(item, ast.Name)])
 
         writing = parse(ROOT / 'writing_api.py')
         writing_functions = {node.name: node for node in writing.body if isinstance(node, ast.FunctionDef)}

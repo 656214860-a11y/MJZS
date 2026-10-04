@@ -22,6 +22,7 @@ from asset_contract import missing_ids
 from asset_contract import normalize as normalize_asset
 from shot_batches import check_batches, validate as validate_shot
 from legacy_compat import canonical_stage_name
+from project_context import ProjectContext
 
 OBJECTIVE = '客观'
 SUBJECTIVE = '主观'
@@ -270,17 +271,24 @@ _ASKS = {'anchors': anchor_candidates, 'canon': canon_candidates, 'conflicts': c
 
 
 # ── 确认记忆：同一角色／同一批次只问一次（人工点击量降到「每角色一次」） ──────────
-def confirm_path(project):
+def confirm_path(project=None, *, context=None):
     """确认记录落在哪：03_continuity/output/gate_confirmations.json。"""
+    if context is not None:
+        if not isinstance(context, ProjectContext):
+            raise TypeError('确认门禁需要由 L3 注入 ProjectContext。')
+        root = context.root.resolve()
+        if project is not None and Path(project).resolve() != root:
+            raise ValueError('项目路径与注入的 ProjectContext 不一致。')
+        return context.stage_resolver('continuity') / 'output' / CONFIRM_NAME
     import stage_layout
     return stage_layout.paths(project, FOLDER)['output'] / CONFIRM_NAME
 
 
-def confirmations(project):
+def confirmations(project=None, *, context=None):
     """已经点过的确认（key → {choice, by}）。"""
-    if not project:
+    if not project and context is None:
         return {}
-    path = confirm_path(project)
+    path = confirm_path(project, context=context)
     if not path.is_file():
         return {}
     try:
@@ -291,27 +299,27 @@ def confirmations(project):
     return out if isinstance(out, dict) else {}
 
 
-def record(project, key, choice='', by=HUMAN, *, publish):
+def record(project, key, choice='', by=HUMAN, *, publish, context=None):
     """记一次人工确认；正式发布器必须由 L3 注入。"""
-    path = confirm_path(project)
-    data = {'version': 1, 'confirmed': dict(confirmations(project))}
+    path = confirm_path(project, context=context)
+    data = {'version': 1, 'confirmed': dict(confirmations(project, context=context))}
     data['confirmed'][str(key)] = {'choice': str(choice), 'by': str(by)}
     publish(path, data)
     return path
 
 
-def forget(project, key, *, publish):
+def forget(project, key, *, publish, context=None):
     """忘掉一次确认；正式发布器必须由 L3 注入。"""
-    path = confirm_path(project)
-    data = {'version': 1, 'confirmed': dict(confirmations(project))}
+    path = confirm_path(project, context=context)
+    data = {'version': 1, 'confirmed': dict(confirmations(project, context=context))}
     data['confirmed'].pop(str(key), None)
     publish(path, data)
     return path
 
 
-def pending(project, items):
+def pending(project, items, *, context=None):
     """还没点过的候选（同 key 只留一条——这就是「每角色一次」）。"""
-    done = confirmations(project) if project else {}
+    done = confirmations(project, context=context) if project or context is not None else {}
     out, seen = [], set()
     for item in items or ():
         key = str((item or {}).get('key') or '')
@@ -322,7 +330,7 @@ def pending(project, items):
     return tuple(out)
 
 
-def run(gate_id, project='', shots=None, assets=None, ledger=None):
+def run(gate_id, project='', shots=None, assets=None, ledger=None, *, context=None):
     """跑一条门禁。返回 {'gate_id','type','judge','title','passed','problems','ask'}。
 
     客观门禁：problems 空＝通过，自动放行。
@@ -338,7 +346,7 @@ def run(gate_id, project='', shots=None, assets=None, ledger=None):
         result['passed'] = not result['problems']
     else:
         items = tuple(_ASKS[row['ask']](shots=shots, assets=assets, ledger=ledger))
-        result['ask'] = pending(project, items) if project else items
+        result['ask'] = pending(project, items, context=context) if project or context is not None else items
         result['passed'] = not result['ask']
     # 诊断只保留最后一次结果，不写项目目录，也不参与门禁判定。
     import diagnostic_capture
@@ -346,16 +354,16 @@ def run(gate_id, project='', shots=None, assets=None, ledger=None):
     return result
 
 
-def summary(project='', shots=None, assets=None, ledger=None):
+def summary(project='', shots=None, assets=None, ledger=None, *, context=None):
     """一次跑完全部门禁：一行一条，给门禁面板与自检看。"""
     rows = []
     for row in GATES:
-        result = run(row['id'], project=project, shots=shots, assets=assets, ledger=ledger)
+        result = run(row['id'], project=project, shots=shots, assets=assets, ledger=ledger, context=context)
         rows.append((row['id'], row['title'], row['type'], result['passed'],
                      len(result['problems']), len(result['ask'])))
     return tuple(rows)
 
 
-def passed(project='', shots=None, assets=None, ledger=None):
+def passed(project='', shots=None, assets=None, ledger=None, *, context=None):
     """全部门禁都过吗（客观没问题＋主观没有待点）。"""
-    return all(row[3] for row in summary(project, shots=shots, assets=assets, ledger=ledger))
+    return all(row[3] for row in summary(project, shots=shots, assets=assets, ledger=ledger, context=context))

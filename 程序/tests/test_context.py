@@ -58,10 +58,23 @@ class SnapshotTests(unittest.TestCase):
 
 
 class InstructionTests(unittest.TestCase):
+    def test_instruction_maps_only_disk_failure_to_controlled_result(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_project(td)
+            result = instruction(proj, 'writing', snapshot(proj),
+                                 publish=lambda _path, _data: (_ for _ in ()).throw(OSError('disk')))
+            self.assertFalse(result.ok)
+            self.assertIn('未能保存', result.reason)
+            with self.assertRaises(TypeError):
+                instruction(proj, 'writing', snapshot(proj),
+                            publish=lambda _path, _data: (_ for _ in ()).throw(TypeError('bug')))
+
     def test_instruction_writes_and_contains_stage(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
-            text = instruction(proj, "writing", snapshot(proj), publish=lambda path, data: save_json(path, data))
+            result = instruction(proj, "writing", snapshot(proj), publish=lambda path, data: save_json(path, data))
+            self.assertTrue(result.ok)
+            text = result.data
             self.assertIn("当前阶段：writing", text)
             self.assertIn("项目进度文件", text)
             self.assertTrue((proj / "data" / "项目接续.json").is_file())
@@ -70,7 +83,7 @@ class InstructionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             data = snapshot(proj)
-            full = instruction(proj, "writing", data, publish=lambda path, value: save_json(path, value))
+            full = instruction(proj, "writing", data, publish=lambda path, value: save_json(path, value)).data
             summary = continuation_instruction(proj, "writing", data)
             self.assertIn("项目续接摘要", summary)
             self.assertIn("当前阶段：writing", summary)
@@ -90,17 +103,21 @@ class InstructionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             data = snapshot(proj)
-            text, strategy = request_instruction(proj, 'storyboard', data, publish=lambda path, value: save_json(path, value))
+            result = request_instruction(proj, 'storyboard', data, publish=lambda path, value: save_json(path, value))
+            self.assertTrue(result.ok)
+            text, strategy = result.data
             self.assertEqual(strategy, 'stage_summary')
             self.assertIn('项目续接摘要', text)
             self.assertIn('当前阶段：storyboard', text)
             self.assertTrue((proj / 'data' / '项目接续.json').is_file())
-            self.assertLess(len(text), len(instruction(proj, 'storyboard', data, publish=lambda path, value: save_json(path, value))))
+            self.assertLess(len(text), len(instruction(proj, 'storyboard', data, publish=lambda path, value: save_json(path, value)).data))
 
     def test_script_stage_retains_full_index_policy(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
-            text, strategy = request_instruction(proj, 'writing', snapshot(proj), publish=lambda path, value: save_json(path, value))
+            result = request_instruction(proj, 'writing', snapshot(proj), publish=lambda path, value: save_json(path, value))
+            self.assertTrue(result.ok)
+            text, strategy = result.data
             self.assertEqual(strategy, 'script_full_index')
             self.assertIn('项目接续要求', text)
 

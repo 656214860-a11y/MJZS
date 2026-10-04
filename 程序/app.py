@@ -602,8 +602,8 @@ class App:
             check.state(['!disabled'] if self.white_ready.get(sid) or var.get() else ['disabled'])
             x,y,w,h=bbox;check.place(x=x+2,y=y+1,width=w-4,height=h-2)
     def writing_setup(self):
-        from writing import STAGES,prepare
-        from stage_execution_service import publish_writing_preparation,project_registry_gateway
+        from writing import STAGES
+        from stage_execution_service import prepare_writing_project
         win=BaseDialog(self.window,'剧本准备 · 五阶段编剧技能',geometry='780x540',modal=False,chrome=False);win.attributes('-alpha',0)
         ttk.Label(win,text='填写创意或粘贴已有剧本：').pack(anchor='w',padx=12,pady=6)
         brief=TextArea(win,height=15,wrap='word');brief.pack(fill='both',expand=True,padx=12)
@@ -638,8 +638,7 @@ class App:
                 text=brief.get('1.0','end')
                 if not text.strip():raise ValueError('请先填写创意或剧本需求')
                 if example_showing():raise ValueError('灰色的只是软件示例，请先改成您自己的创意')
-                folder=prepare(self.root,text,stage.get(),duration.get(),
-                               publish=publish_writing_preparation)
+                folder=prepare_writing_project(self.root,text,stage.get(),duration.get())
                 self.write('编剧任务书已生成：'+str(folder));open_path(folder)
                 self.notifier.success('任务书、技能说明、资产表和JSON模板已保存。\n交给 Codex 执行即可，本按钮不调用模型。', title='已准备', modal=True)
             except Exception as e:self.notifier.error(str(e), title='无法准备')

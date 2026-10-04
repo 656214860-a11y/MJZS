@@ -6,22 +6,29 @@
 import os
 import re
 from pathlib import Path
+from project_context import ProjectContext
 
 
 IGNORED = {'历史版本', '分镜历史', '剧本输入', 'frames', 'video_prompts', 'assets',
            '__pycache__', '首帧任务'}
 
 
-def working_dir(project):
+def _context(value):
+    if not isinstance(value, ProjectContext):
+        raise TypeError('分镜目录项目路径需要由 L3 注入 ProjectContext。')
+    return value
+
+
+def working_dir(context):
     """Return the structured JSON storyboard workspace without creating it."""
     from project_stages import storyboard
-    return storyboard(project) / '分镜拆分'
+    return storyboard(_context(context).root) / '分镜拆分'
 
 
-def document_dir(project):
+def document_dir(context):
     """Return the user-readable storyboard document directory without creating it."""
     from project_stages import storyboard
-    return storyboard(project) / '分镜文档'
+    return storyboard(_context(context).root) / '分镜文档'
 
 
 def discover_files(roots, suffixes, ignored, ignored_name=None):
@@ -85,10 +92,10 @@ def has_synced_assets(path):
         return False
 
 
-def file_snapshot(project, ignored=IGNORED):
+def file_snapshot(context, ignored=IGNORED):
     """Return a cheap, safe catalog change signature without parsing document content."""
     from project_stages import writing, storyboard
-    project = Path(project).resolve()
+    project = _context(context).root.resolve()
     roots = (writing(project).resolve(), storyboard(project).resolve(),
              (project / 'writing').resolve(), (project / 'storyboard').resolve())
     rows = []
@@ -99,11 +106,11 @@ def file_snapshot(project, ignored=IGNORED):
     return tuple(sorted(rows))
 
 
-def default_source(project):
+def default_source(context):
     """Find the current storyboard source without loading the file-picker page."""
     from agent.core import read
     from project_stages import storyboard
-    project = Path(project)
+    project = _context(context).root
     prefs = read(project / 'ui_settings.json') if (project / 'ui_settings.json').is_file() else {}
     value = prefs.get('storyboard_file') if isinstance(prefs, dict) else None
     selected = (project / value).resolve() if value else None
@@ -123,15 +130,15 @@ def default_source(project):
     return working / 'episode.json'
 
 
-def resolve_source(project, path):
+def resolve_source(context, path):
     """Resolve aliases and legacy episode placeholders to a current storyboard source."""
     from storyboard_storage import resolved_alias
     from project_stages import storyboard
-    project = Path(project).resolve()
+    project = _context(context).root.resolve()
     path = resolved_alias(project, Path(path))
     legacy_episode = project / 'storyboard' / 'episode.json'
     if not path.exists() and path in (storyboard(project) / 'episode.json', legacy_episode):
-        return default_source(project).resolve()
+        return default_source(context).resolve()
     return path
 
 
@@ -182,24 +189,25 @@ def file_order(path, data=None):
     return (number, min(shots) if shots else 0, path.name, str(path))
 
 
-def linked_path(project, value):
+def linked_path(context, value):
     if not isinstance(value, str) or not value.strip():
         return None
     path = Path(value)
+    project = _context(context).root
     return (project / path).resolve() if not path.is_absolute() else path.resolve()
 
 
-def board_source_script(project, board):
+def board_source_script(context, board):
     """Return a board's real source script, including the legacy generic-name bridge."""
     from file_cache import read_json
-    project = Path(project).resolve()
+    project = _context(context).root.resolve()
     try:
         data = read_json(Path(board))
     except (OSError, ValueError, TypeError):
         return None
     if not isinstance(data, dict):
         return None
-    source = linked_path(project, data.get('source_script'))
+    source = linked_path(context, data.get('source_script'))
     if source is None or source.name.casefold() != 'script.md':
         return source
     try:
@@ -210,14 +218,14 @@ def board_source_script(project, board):
     return current if current.is_file() else None
 
 
-def catalog(project, kind, ignored=IGNORED):
+def catalog(context, kind, ignored=IGNORED):
     """Build the script/storyboard catalog without importing Tk page code."""
     from artifact_lineage import source_available
     from file_cache import read_json
     from project_stages import writing, structure, storyboard, stage
     from storyboard_paths import is_final_dir
     from writing import duration_gap
-    project = Path(project).resolve()
+    project = _context(context).root.resolve()
     current_roots = ((writing(project).resolve(), structure(project).resolve()) if kind == 'script'
                      else (storyboard(project).resolve(), stage(project, 'final').resolve()))
     legacy_roots = ((project / 'writing').resolve(),) if kind == 'script' else ((project / 'storyboard').resolve(),)
@@ -252,7 +260,7 @@ def catalog(project, kind, ignored=IGNORED):
                 final_candidate = any(is_final_dir(part) for part in path.relative_to(root).parts)
                 if final_candidate and source_available(project, path) is False:
                     continue
-                linked = board_source_script(project, path)
+                linked = board_source_script(context, path)
                 if not final_candidate and str(data.get('source_script') or '').strip() and (not linked or not linked.is_file()):
                     continue
                 title = f"{data.get('episode_id', '')} · {data.get('title', path.stem)}（{len(data['shots'])}镜）"
@@ -276,7 +284,7 @@ def catalog(project, kind, ignored=IGNORED):
             if entry['done']:
                 entry['title'] += ' · 已采用'
     else:
-        made = produced_scripts(project)
+        made = produced_scripts(context)
         for entry in entries:
             entry['done'] = entry['path'] in made
             if entry['done']:
@@ -284,13 +292,14 @@ def catalog(project, kind, ignored=IGNORED):
     return sorted(entries, key=lambda entry: (entry.get('done', False), entry['order']))
 
 
-def produced_scripts(project, entries=None):
-    project = Path(project).resolve()
-    entries = catalog(project, 'storyboard') if entries is None else entries
-    return {board_source_script(project, entry['path']) for entry in entries} - {None}
+def produced_scripts(context, entries=None):
+    context = _context(context)
+    entries = catalog(context, 'storyboard') if entries is None else entries
+    return {board_source_script(context, entry['path']) for entry in entries} - {None}
 
 
-def produced_episodes(project, entries=None):
-    entries = catalog(Path(project).resolve(), 'storyboard') if entries is None else entries
+def produced_episodes(context, entries=None):
+    context = _context(context)
+    entries = catalog(context, 'storyboard') if entries is None else entries
     return {entry.get('order', (10 ** 9,))[0] for entry in entries
             if entry.get('order', (10 ** 9,))[0] < 10 ** 9}

@@ -23,11 +23,13 @@ class IdeaAttachmentPublicationBoundaryTests(unittest.TestCase):
         with open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8') as handle:
             source = handle.read()
         self.assertIn('def archive_idea_attachments(', source)
+        self.assertIn('def stage_idea_attachment_reference(', source)
         self.assertIn('publish_stage_text(', source)
         with open(os.path.join(ROOT, 'idea_chat_controller.py'), encoding='utf-8') as handle:
             controller = handle.read()
         self.assertIn('archive_idea_attachments(root, selected)', controller)
         self.assertNotIn('idea_attachments.store(root, selected)', controller)
+        self.assertIn('stage_idea_attachment_reference(project, value, self.attachment_paths)', controller)
 
 
 if __name__ == '__main__':

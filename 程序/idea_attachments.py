@@ -7,6 +7,10 @@ from datetime import datetime
 from pathlib import Path
 import xml.etree.ElementTree as ET
 import zipfile
+from functools import wraps
+import logging
+from service_contract import SystemError, UserError, success
+from project_context import ProjectContext
 
 
 MAX_FILES = 5
@@ -14,6 +18,17 @@ MAX_FILE_BYTES = 1_000_000
 MAX_TOTAL_CHARS = 24_000
 TEXT_SUFFIXES = frozenset({'.txt', '.md', '.markdown', '.json', '.csv', '.yaml', '.yml', '.log'})
 INPUT_FOLDER = '输入'
+
+
+def _store_result(function):
+    @wraps(function)
+    def run(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        except OSError:
+            logging.getLogger(__name__).exception('创意附档归档失败')
+            return SystemError('创意附档归档失败，请检查文件权限和磁盘空间。')
+    return run
 
 
 def _read_text(path):
@@ -48,13 +63,15 @@ def read_source(path):
     return _read_docx(path) if path.suffix.lower() == '.docx' else _read_text(path)
 
 
-def input_folder(root):
-    from stage_path_service import write_dir
-    return write_dir(Path(root), 'script') / INPUT_FOLDER
+def input_folder(context):
+    if not isinstance(context, ProjectContext):
+        raise TypeError('创意附档需要由 L3 注入 ProjectContext。')
+    return context.stage_resolver('script') / INPUT_FOLDER
 
 
-def store(root, paths, now=None, *, publish=None):
-    """将用户选择的文本转换为项目内可引用的 Markdown，返回存档路径。
+@_store_result
+def store(context, paths, now=None, *, publish=None):
+    """将用户选择的文本转换为项目内可引用的 Markdown，结果携带存档路径。
 
     正式项目成果由 L3 注入发布器；这里不保留直写回退。
     """
@@ -62,30 +79,35 @@ def store(root, paths, now=None, *, publish=None):
         raise TypeError('创意附档归档需要由 L3 注入发布器。')
     selected = tuple(dict.fromkeys(Path(value) for value in (paths or ()) if str(value).strip()))
     if len(selected) > MAX_FILES:
-        raise ValueError('一次最多附加 %d 个文件。' % MAX_FILES)
-    folder = input_folder(root)
+        return UserError('一次最多附加 %d 个文件。' % MAX_FILES)
+    folder = input_folder(context)
     folder.mkdir(parents=True, exist_ok=True)
     stamp = (now or datetime.now()).strftime('%Y%m%d_%H%M%S_%f')
     saved = []
     for index, path in enumerate(selected, 1):
         if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES | {'.docx'}:
-            raise ValueError('仅支持 .md、.txt、.docx：' + path.name)
-        text = read_source(path).strip()
+            return UserError('仅支持 .md、.txt、.docx：' + path.name)
+        try:
+            text = read_source(path).strip()
+        except ValueError as exc:
+            if isinstance(exc.__cause__, OSError):
+                raise exc.__cause__ from exc
+            return UserError(str(exc))
         if not text:
-            raise ValueError('附档为空：' + path.name)
+            return UserError('附档为空：' + path.name)
         target = folder / ('故事创意_%s%s.md' % (stamp, ('_%d' % index) if len(selected) > 1 else ''))
         saved.append(publish(target, text + '\n'))
-    return tuple(saved)
+    return success(tuple(saved))
 
 
-def uploaded(root, limit=None):
-    paths = sorted(input_folder(root).glob('故事创意_*.md'), key=lambda item: item.stat().st_mtime, reverse=True)
+def uploaded(context, limit=None):
+    paths = sorted(input_folder(context).glob('故事创意_*.md'), key=lambda item: item.stat().st_mtime, reverse=True)
     return tuple(paths[:limit] if limit else paths)
 
 
-def referenced(root, message='', selected_paths=()):
+def referenced(context, message='', selected_paths=()):
     """解析本轮可提交的入库创意，绝不回读用户电脑中的原始上传路径。"""
-    available = uploaded(root)
+    available = uploaded(context)
     selected = tuple(Path(path) for path in selected_paths if Path(path).is_file())
     explicit = tuple(path for path in available if ('@' + path.name) in str(message or ''))
     # @ 指向的文件优先；没有显式指向时，带上本次选择并补足最近三份，

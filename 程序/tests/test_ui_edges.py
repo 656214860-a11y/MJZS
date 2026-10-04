@@ -4999,7 +4999,8 @@ class BriefTintTests(unittest.TestCase):
     def test_the_users_own_words_show_up_on_the_display(self):
         """第 65 期任务 9：上次存下的那份创意，显示在上面那格对话展示框里。"""
         win, d = self.build()
-        idea_chat.append(d.root, 'user', '我的创意：一只会说话的猫。',
+        from stage_execution_service import project_context
+        idea_chat.append(project_context(d.root), 'user', '我的创意：一只会说话的猫。',
                          model=d.idea_chat_model(), gateway=d.idea_chat_gateway())
         d.show(0)
         win.update()

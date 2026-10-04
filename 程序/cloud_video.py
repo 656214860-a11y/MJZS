@@ -30,8 +30,8 @@ def _legacy_provider_label(config):
     return '自定义 · 万相兼容' if kind=='wan' else '自定义 · Seedance兼容'
 
 def session_folder(project, kind, base, model, source):
-    from cloud_video_service import session_folder as _session_folder
-    return _session_folder(project,kind,base,model,source)
+    from stage_execution_service import cloud_video_session_folder
+    return cloud_video_session_folder(project,kind,base,model,source)
 def _legacy_session_folder(project, kind, base, model, source):
     # Find an existing ledger, or choose a readable name for a new one.
     parent=Path(project)/'cloud_video';parent.mkdir(exist_ok=True)
@@ -49,8 +49,8 @@ def _legacy_session_folder(project, kind, base, model, source):
     return dated_path(parent,provider+'_'+model_name)
 
 def saved_provider_key(project,kind,remembered=None,base_url=None):
-    from cloud_video_service import saved_provider_key as _saved_provider_key
-    return _saved_provider_key(project,kind,PROVIDERS,remembered,base_url,__file__)
+    from stage_execution_service import cloud_video_saved_provider_key
+    return cloud_video_saved_provider_key(project,kind,PROVIDERS,remembered,base_url,__file__)
 def _legacy_saved_provider_key(project,kind,remembered=None,base_url=None):
     key_name='ARK_API_KEY' if kind=='volcengine' else 'DASHSCOPE_API_KEY'
     configs=[]

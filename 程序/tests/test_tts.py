@@ -13,6 +13,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import tts_api
+from project_context import ProjectContext
 
 
 def _gateway():
@@ -118,6 +119,10 @@ class TtsLengthGuardTests(unittest.TestCase):
 
 
 class TtsFullTrackPublicationTests(unittest.TestCase):
+    @staticmethod
+    def _context(project):
+        return ProjectContext.snapshot(project, lambda _stage: Path(project))
+
     def test_publish_requires_l3_gateway(self):
         with tempfile.TemporaryDirectory() as td:
             with self.assertRaisesRegex(TypeError, "L3"):
@@ -127,10 +132,10 @@ class TtsFullTrackPublicationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             project = Path(td)
             with patch('tts_api.os.urandom', return_value=b'abc'):
-                path = tts_api.publish_full_track(project, 'same-script', b'audio bytes', gateway=_gateway())
+                path = tts_api.publish_full_track(self._context(project), 'same-script', b'audio bytes', gateway=_gateway())
             self.assertEqual(path.read_bytes(), b'audio bytes')
-            self.assertEqual(tts_api.reusable_full_track(project, 'same-script'), path)
-            self.assertIsNone(tts_api.reusable_full_track(project, 'changed-script'))
+            self.assertEqual(tts_api.reusable_full_track(self._context(project), 'same-script'), path)
+            self.assertIsNone(tts_api.reusable_full_track(self._context(project), 'changed-script'))
 
     def test_failed_marker_publish_keeps_completed_audio_without_reuse_marker(self):
         with tempfile.TemporaryDirectory() as td:
@@ -139,7 +144,7 @@ class TtsFullTrackPublicationTests(unittest.TestCase):
             gateway['publish_json'] = lambda *_args: (_ for _ in ()).throw(OSError('磁盘已满'))
             with patch('tts_api.os.urandom', return_value=b'abc'):
                 with self.assertRaisesRegex(OSError, '磁盘已满'):
-                    tts_api.publish_full_track(project, 'same-script', b'audio bytes', gateway=gateway)
+                    tts_api.publish_full_track(self._context(project), 'same-script', b'audio bytes', gateway=gateway)
             audio_dir = project / '10配音与字幕' / '音频'
             self.assertEqual((audio_dir / '配音_616263.mp3').read_bytes(), b'audio bytes')
             self.assertFalse((audio_dir / '整段配音.json').exists())

@@ -7,6 +7,7 @@ import white_model_service as wm
 from file_cache import read_json
 from previs_batch_service import prepare_batch
 import previs_routing
+from stage_execution_service import previs_entries, previs_ready, previs_records_directory
 import ui_plugin_registry
 from platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
@@ -31,7 +32,7 @@ def online_window(desktop, source, ids):
     from agent.core import read
     ep = read(source)
     shots = {shot['id']: shot for shot in ep['shots']
-             if shot['id'] in ids and not previs_routing.ready(desktop.root, shot['id'])}
+             if shot['id'] in ids and not previs_ready(desktop.root, shot['id'])}
     if not shots:
         raise ValueError('没有勾选待制作的中等复杂度镜头；已就绪镜头不重复制作')
     win = BaseDialog(desktop.win, '线上白模 · 中等动作', geometry='740x480',
@@ -54,7 +55,7 @@ def online_window(desktop, source, ids):
         text.delete('1.0', 'end'); text.insert('1.0', task)
     combo.bind('<<ComboboxSelected>>', update); update()
     def open_online():
-        if previs_routing.ready(desktop.root, selected.get()):
+        if previs_ready(desktop.root, selected.get()):
             desktop.status.set(selected.get() + ' 白模已就绪，本次跳过'); return
         from prompt_window import copy_text
         reason = copy_text(desktop.win, text.get('1.0', 'end-1c'))
@@ -83,7 +84,7 @@ def show(desktop):
     state=getattr(desktop,'previs_jobs',None)
     if state is None:state={'busy':False,'status':{},'selected':set()};desktop.previs_jobs=state
     body=ttk.Frame(desktop.content);body.pack(fill='both',expand=True)
-    decisions=previs_routing.entries(project,source)
+    decisions=previs_entries(project,source)
     DescriptionBlock(body,text='简单／固定动作：无需白模；中等动作：线上简单制作；复杂动作：Agent 自动制作。',wraplength=920).pack(anchor='w')
     DescriptionBlock(body,text='优先读取分镜的复杂度标注；未标注时自动判断。选中镜头可手动调整。').pack(
         anchor='w', pady=SPACING['xs']
@@ -171,7 +172,7 @@ def show(desktop):
             # 勾选了几行就一起改：原来只改高亮那一行，勾了 3 镜却只动 1 镜，页面上看不出区别。
             from stage_execution_service import save_stage_previs_override
             for sid in rows:save_stage_previs_override(project,source,sid,choices[chosen_level.get()])
-            decisions=previs_routing.entries(project,source)
+            decisions=previs_entries(project,source)
             if len(rows)>1:reason.set('已把 %d 个镜头设为「%s」%s'%(len(rows),chosen_level.get(),work_hint(rows,how)))
             show_decision();refresh()
         except Exception as exc:notify(desktop.win, str(exc), level='error', title='动作复杂度', status=desktop.status)
@@ -268,7 +269,7 @@ def show(desktop):
             notify(desktop.win, str(exc), level='error', title='当前白模目录', status=desktop.status)
     SecondaryButton(views,text='当前白模目录',command=open_current_directory).pack(side='left',padx=SPACING['xs'])
     def logs():
-        folder=previs_routing.records_directory(project,state);open_path(folder);desktop.status.set('已打开制作记录：'+str(folder))
+        folder=previs_records_directory(project,state);open_path(folder);desktop.status.set('已打开制作记录：'+str(folder))
     SecondaryButton(views,text='制作记录',command=lambda:desktop.safe(logs)).pack(side='left',padx=SPACING['xs'])
     SecondaryButton(views,text='进入视频生成',command=lambda:desktop.show_stage('video')).pack(side='left',padx=SPACING['xs'])
     def record_status(sid):

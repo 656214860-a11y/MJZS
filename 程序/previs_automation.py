@@ -9,7 +9,8 @@ import white_model_service as wm
 from platform_tools import hidden_console_flags
 
 def verify(project,sid,seconds):
-    root=wm.shot_directory(project,sid)
+    from stage_execution_service import white_model_shot_directory
+    root=white_model_shot_directory(project,sid)
     data=wm.read_record(root)
     paths=[Path(data.get(k,'')) for k in ('preview','project_file')]
     if not all(p.is_file() and p.stat().st_size for p in paths):return False
@@ -24,7 +25,8 @@ def verify(project,sid,seconds):
 def select_agent_shots(project,source,ids,state):
     """只把复杂动作交给 Agent：简单镜头无需白模、中等镜头走线上入口，都只跳过、不中断整批。"""
     from previs_routing import partition
-    groups,_=partition(project,source,ids)
+    from stage_execution_service import project_context
+    groups,_=partition(project_context(project),source,ids)
     for level,note in (('simple','无需白模，已跳过'),('medium','待线上制作／导入')):
         for sid in groups[level]:
             key=str(project)+'|'+sid
@@ -66,7 +68,9 @@ def force_stop(project,state):
 def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
     if state.get('busy'):raise ValueError('已有白模任务进行中')
     from previs_routing import ready
-    ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(project,sid)]
+    from stage_execution_service import project_context
+    context=project_context(project)
+    ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(context,sid)]
     if not ids:
         state['summary']='没有需要 Agent 制作的镜头：简单镜头无需白模、中等镜头走线上入口，或所选镜头已就绪';return
     from workflow_settings import current,find_program,ENGINES
@@ -128,7 +132,8 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
                              f'再 from previs_progress import install_blender_progress; install_blender_progress({str(progress_file)!r}, {sid!r})。'
                              '在正式动画渲染前调用；此模块会按实际写出帧数原子更新进度。'
                              '不要模拟百分比。分段渲染时应汇总已完成帧数和总帧数，写入相同JSON的shot_id、stage=render、completed、total字段。')
-                    output=wm.shot_directory(project,sid);output.mkdir(parents=True,exist_ok=True)
+                    from stage_execution_service import white_model_shot_directory
+                    output=white_model_shot_directory(project,sid);output.mkdir(parents=True,exist_ok=True)
                     from workflow_engines import run_background
                     run_background(call_config,project,output,batch/(sid+'_制作报告.txt'),batch/(sid+'_运行日志.txt'),prompt)
                     state['progress'][key]='validating';state['status'][key]='校验视频中'
