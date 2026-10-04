@@ -11,6 +11,12 @@
 5. 主界面的“齿轮 → 设置”入口必须保留；界面或服务拆分不得删除、隐藏或使该路径不可达。
 6. 架构统一待办见 `维护记录/架构统一路线图_v2.md`，第 3、4 项基数见 `维护记录/架构统一基数.json`；UI 统一待办见 `维护记录/UI统一入口路线图_v1.md`。
 
+- 收尾凭据缺口声明（用户 2026-10-04 裁定）：R963–R995（主树干）与 R996–R1016（codex/architecture-contracts、
+  codex/architecture-reconcile-996 分支段）区间存在缺 `tasks_round_N_result.md` 的轮次，
+  其中主树干 900 号之后缺号 26 个。经用户决定不逐轮补写历史结果文件（补写不构成凭据），
+  该区间的改动内容一律以 git 提交历史为唯一事实来源，不得引用为已验收基线。
+  自 R1017 起由 pre-commit 硬拦缺结果文件提交，编号由 round_claim.py 中央分配器唯一发放。
+
 ## 当前能力
 
 - R965 协作治理轮：唯一队列已迁到 Git common-dir/maintenance-queue.json，工作树仅保留忽略的自动快照；show/claim/release 后主树干净。所有自检入口共享 GUI 令牌，超时显式 GUI_DEFERRED，竞争期失败提示 SUSPECT_CONCURRENCY。默认冒烟 8/8、架构 279/279、定向 58/0；检查点 76c1dd3 全量 3808/0，439.508 秒，实测凭据清零历史欠账；最终内容树凭据由收尾后的完整复验写入。C4 的 ≤420 秒性能目标仍未完成。详见 `tasks_round/tasks_round_965_result.md`。

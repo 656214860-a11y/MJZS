@@ -22,6 +22,9 @@ spec.loader.exec_module(round_claim)
 
 
 class RoundClaimTests(unittest.TestCase):
+    def _init_repo(self, root: Path) -> None:
+        subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+
     def _tasks(self, root: Path, *rounds: int) -> Path:
         tasks = root / "tasks_round"
         tasks.mkdir()
@@ -38,20 +41,36 @@ class RoundClaimTests(unittest.TestCase):
     def test_claim_starts_after_existing_result_round(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            self.assertEqual(round_claim.claim_next(common_dir=root / ".git", tasks_round=self._tasks(root, 868)), 869)
+            self._init_repo(root)
+            self.assertEqual(round_claim.claim_next(common_dir=root / ".git", tasks_round=self._tasks(root, 868), root=root), 869)
 
     def test_claim_uses_atomic_counter_after_result_directory_changes(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
+            self._init_repo(root)
             common = root / ".git"
             tasks = self._tasks(root, 2)
-            self.assertEqual(round_claim.claim_next(common_dir=common, tasks_round=tasks), 3)
-            self.assertEqual(round_claim.claim_next(common_dir=common, tasks_round=tasks), 4)
+            self.assertEqual(round_claim.claim_next(common_dir=common, tasks_round=tasks, root=root), 3)
+            self.assertEqual(round_claim.claim_next(common_dir=common, tasks_round=tasks, root=root), 4)
             self.assertEqual(json.loads((common / "round-counter.json").read_text(encoding="utf-8"))["last_claimed"], 4)
+
+    def test_claim_catches_counter_up_to_all_refs_before_allocating(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+            subprocess.run(["git", "-C", str(root), "-c", "user.name=Round Test", "-c",
+                            "user.email=round@example.invalid", "commit", "--allow-empty", "-m", "R1016: historic"],
+                           check=True)
+            common = round_claim.git_common_dir(root)
+            (common / round_claim.COUNTER_NAME).write_text('{"last_claimed": 997}\n', encoding="utf-8")
+            with mock.patch('builtins.print') as printed:
+                self.assertEqual(round_claim.claim_next(common_dir=common, tasks_round=self._tasks(root, 3), root=root), 1017)
+            printed.assert_called_once_with("计数器已从 997 追平到 1016")
 
     def test_concurrent_claims_are_unique_and_contiguous(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
+            self._init_repo(root)
             common = root / ".git"
             tasks = self._tasks(root, 40)
             values: list[int] = []
@@ -59,7 +78,7 @@ class RoundClaimTests(unittest.TestCase):
 
             def worker():
                 try:
-                    values.append(round_claim.claim_next(common_dir=common, tasks_round=tasks))
+                    values.append(round_claim.claim_next(common_dir=common, tasks_round=tasks, root=root))
                 except BaseException as exc:  # pragma: no cover - asserted below
                     errors.append(exc)
 

@@ -148,7 +148,11 @@
 
     不连续时，本轮必须先修正编号再继续。
 
-    **分支存活上限**：`next` 在 detached HEAD 下拒绝领取；先执行提示中的 `git switch -c codex/R<轮次>-<车道名>`。`behind>20` 必须回主干 rebase 或归档；`ahead=0` 的空转树当日回收。回收前保存未提交内容、核验活跃租约；用 `维护记录/基准脚本/worktree_ledger.py --plan` 生成计划，删除须用户逐条确认，台账不自动删除。
+    **轮的定义**：一轮＝一个可独立回滚的完整变更集。同类改动必须批量成轮（如 UI 卡片迁移按页面一次 ≥5 处），禁止一卡一轮、一字段一轮。
+
+    **全量触发条件**：触及启动路径（`启动漫剧制作助手.pyw`／`启动助手.cmd`）、Tk 控件生命周期或事件绑定、删除语义、层级登记表 `tests/architecture/_layers.py`、同一轮跨 ≥2 分层、累计生产 `.py` 改动 ≥200 行、任何合并入 master 的点、发布前，命中即跑 `run_selftests.py --all --safe` 并要求干净树凭据入账；另以每满 10 轮为兜底上界。分支／worktree 不累计全量欠账。
+
+    **并行硬规则**：同一时刻活跃 `codex/*` 车道 ≤2（用户可临时降到 1，冻结期内只有主树可提交）；一个队列 id 全局只允许一条线持有（权威队列＝Git common-dir/`maintenance-queue.json`，工作树内为只读快照）；分支 ahead>10 必须先回合或 rebase，否则 `round_claim.py next` 拒绝领号；detached HEAD 工作树不得开工；分支 behind>20 或 ahead=0 且 48 小时无活动即列入待回收。回收前保存未提交内容、核验活跃租约；用 `维护记录/基准脚本/worktree_ledger.py --plan` 生成计划，删除须用户逐条确认，台账不自动删除。
 
     **WIP 前置**：`next` 发现未提交改动时拒绝继续领取，先以 `git switch -c codex/wip-R<轮次>` 保存 WIP；跨文件改动达到 50 行时，必须先提交或落 WIP 分支，禁止裸放在工作树。
 
@@ -162,7 +166,7 @@
 
     - 架构门禁：R965 已验证 279/279（不得低于历史 14/14）
 
-    - 全量回归与欠账：唯一权威是 Git common-dir 的 `full-safe-receipts.json` 中真实 `{tree, round, seconds, at}`；`维护记录/测试分层基线.json` 不保存也不回退全量轮次或内容树。主干每 3 轮要求全量，同内容树七日内可引用绿凭据。
+    - 全量回归与欠账：唯一权威是 Git common-dir 的 `full-safe-receipts.json` 中真实 `{tree, round, seconds, at}`；`维护记录/测试分层基线.json` 不保存也不回退全量轮次或内容树。按性质触发执行，且每满 10 轮兜底一次；同内容树七日内可引用绿凭据。
 
 30. \*\*桌面主动后台任务\*\*：`Desktop.async_()` 的提交、逻辑取消、成功／失败收尾与迟到结果拒绝必须经 `BackgroundTaskLifecycle`；取消不强杀任意 Python 线程，但已取消或被新代次替换的结果不得触发 UI 回调。
 

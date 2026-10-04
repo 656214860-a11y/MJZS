@@ -16,6 +16,7 @@ from pathlib import Path
 PROGRAM = Path(__file__).resolve().parents[2]
 ROOT = PROGRAM.parent
 RESULT_RE = re.compile(r"tasks_round_(\d+)_result\.md$")
+COMMIT_ROUND_RE = re.compile(r"^R(\d+)(?:-FAIL)?:")
 LOCK_NAME = "round-claim.lock"
 COUNTER_NAME = "round-counter.json"
 QUEUE_NAME = "maintenance-queue.json"
@@ -137,6 +138,17 @@ def latest_result_round(tasks_round: Path = PROGRAM / "tasks_round") -> int:
     return max(values, default=0)
 
 
+def latest_git_round(root: Path = ROOT) -> int:
+    """返回所有可见引用中已使用的最高 R<轮次> 提交号。"""
+    result = subprocess.run(
+        ["git", "-C", str(root), "log", "--all", "--format=%s"],
+        text=True, capture_output=True, check=True,
+    )
+    values = [int(match.group(1)) for line in result.stdout.splitlines()
+              if (match := COMMIT_ROUND_RE.match(line))]
+    return max(values, default=0)
+
+
 def read_counter(counter: Path) -> int:
     try:
         value = json.loads(counter.read_text(encoding="utf-8"))
@@ -180,11 +192,16 @@ def _atomic_json_write(path: Path, value: object) -> None:
     os.replace(temporary, path)
 
 
-def claim_next(*, common_dir: Path, tasks_round: Path) -> int:
+def claim_next(*, common_dir: Path, tasks_round: Path, root: Path = ROOT) -> int:
     """在共享 git common-dir 下原子地领取下一个未使用轮次。"""
     with shared_lock(common_dir):
         counter = common_dir / COUNTER_NAME
-        next_round = max(read_counter(counter), latest_result_round(tasks_round)) + 1
+        claimed = read_counter(counter)
+        git_floor = latest_git_round(root)
+        if claimed < git_floor:
+            print("计数器已从 %s 追平到 %s" % (claimed, git_floor))
+            claimed = git_floor
+        next_round = max(claimed, latest_result_round(tasks_round)) + 1
         _atomic_json_write(counter, {"last_claimed": next_round})
         return next_round
 
@@ -325,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:
         except (RuntimeError, subprocess.CalledProcessError) as error:
             print(str(error), file=sys.stderr)
             return 2
-        print(claim_next(common_dir=common_dir, tasks_round=PROGRAM / "tasks_round"))
+        print(claim_next(common_dir=common_dir, tasks_round=PROGRAM / "tasks_round", root=ROOT))
     elif args.command in ("show", "validate"):
         payload = _load_authority(common_dir, args.queue, ROOT)
         if args.command == "show":

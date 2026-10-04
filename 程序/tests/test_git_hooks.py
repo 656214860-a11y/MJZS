@@ -44,13 +44,39 @@ class GitHookTests(unittest.TestCase):
 
     def test_commit_message_requires_round_prefix(self):
         with tempfile.TemporaryDirectory() as temporary:
-            message = Path(temporary) / "message"
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            counter = root / ".git" / "round-counter.json"
+            counter.write_text('{"last_claimed": 871}\n', encoding="utf-8")
+            message = root / "message"
             message.write_text("update files\n", encoding="utf-8")
-            self.assertNotEqual(self.run_hook(HOOKS / "commit-msg", str(message)).returncode, 0)
+            self.assertNotEqual(self.run_hook(HOOKS / "commit-msg", str(message), cwd=root).returncode, 0)
             message.write_text("R871: enforce hooks\n", encoding="utf-8")
-            self.assertEqual(self.run_hook(HOOKS / "commit-msg", str(message)).returncode, 0)
+            self.assertEqual(self.run_hook(HOOKS / "commit-msg", str(message), cwd=root).returncode, 0)
             message.write_text("R871-FAIL: record blocker\n", encoding="utf-8")
-            self.assertEqual(self.run_hook(HOOKS / "commit-msg", str(message)).returncode, 0)
+            self.assertEqual(self.run_hook(HOOKS / "commit-msg", str(message), cwd=root).returncode, 0)
+
+    def test_commit_message_rejects_stale_or_nonancestor_round(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            subprocess.run(["git", "-c", "user.name=Hook Test", "-c", "user.email=hook@example.invalid",
+                            "commit", "--allow-empty", "-m", "seed"], cwd=root, check=True)
+            message = root / "message"
+            counter = root / ".git" / "round-counter.json"
+            counter.write_text('{"last_claimed": 872}\n', encoding="utf-8")
+            message.write_text("R871: stale\n", encoding="utf-8")
+            stale = self.run_hook(HOOKS / "commit-msg", str(message), cwd=root)
+            self.assertNotEqual(stale.returncode, 0)
+            self.assertIn("R871 不等于中央已领取轮次 R872", stale.stderr)
+            subprocess.run(["git", "checkout", "-q", "-b", "other"], cwd=root, check=True)
+            subprocess.run(["git", "-c", "user.name=Hook Test", "-c", "user.email=hook@example.invalid",
+                            "commit", "--allow-empty", "-m", "R872: already used"], cwd=root, check=True)
+            subprocess.run(["git", "checkout", "-q", "master"], cwd=root, check=True)
+            message.write_text("R872-FAIL: duplicate\n", encoding="utf-8")
+            duplicate = self.run_hook(HOOKS / "commit-msg", str(message), cwd=root)
+            self.assertNotEqual(duplicate.returncode, 0)
+            self.assertIn("非祖先分支使用", duplicate.stderr)
 
     def test_precommit_requires_explicit_allowlist_for_program_code(self):
         with tempfile.TemporaryDirectory() as temporary:
