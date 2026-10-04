@@ -1,8 +1,13 @@
 """Discover durable project work independently of any agent's chat history."""
 import re
+import logging
 from datetime import datetime
 from pathlib import Path
 from agent.core import read
+from service_contract import SystemError, success
+
+
+_LOG = logging.getLogger(__name__)
 
 
 def episode_number(name):
@@ -128,6 +133,15 @@ def snapshot(project):
 
 
 def instruction(project, stage, data=None, *, publish=None):
+    """刷新接续索引；磁盘故障以受控结果返回，发布器编程错误继续传播。"""
+    try:
+        return success(_instruction_text(project, stage, data, publish=publish))
+    except OSError:
+        _LOG.exception('项目接续索引发布失败')
+        return SystemError('项目接续索引未能保存，请检查磁盘后重试')
+
+
+def _instruction_text(project, stage, data=None, *, publish=None):
     data = snapshot(project) if data is None else data
     target = Path(project).resolve() / 'data/项目接续.json'
     if not callable(publish):
@@ -189,8 +203,13 @@ def request_instruction(project, stage, data=None, *, publish=None):
     """
     data = snapshot(project) if data is None else data
     if str(stage) in _SCRIPT_STAGES:
-        return instruction(project, stage, data, publish=publish), 'script_full_index'
+        result = instruction(project, stage, data, publish=publish)
+        if not result.ok:
+            return result
+        return success((result.data, 'script_full_index'))
     # instruction() 的原有原子写入保证项目进度文件仍在本次请求前刷新；只是不把
     # 较长的通用规则带进非剧本阶段的实际提示词。
-    instruction(project, stage, data, publish=publish)
-    return continuation_instruction(project, stage, data), 'stage_summary'
+    result = instruction(project, stage, data, publish=publish)
+    if not result.ok:
+        return result
+    return success((continuation_instruction(project, stage, data), 'stage_summary'))

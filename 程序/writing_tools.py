@@ -3,6 +3,11 @@
 from pathlib import Path
 
 from stage_path_service import write_dir
+import logging
+from service_contract import SystemError, success
+
+
+_LOG = logging.getLogger(__name__)
 
 PROJECT_CONTEXT_FILES=('data/项目接续.json',)
 MAX_READ_CHARS=60000
@@ -72,8 +77,12 @@ def write_file(project, path, content, *, publish=None):
         raise ValueError('剧本正文不能为空')
     if not callable(publish):
         raise TypeError('剧本成果工具需要 L3 注入发布器')
-    publish(target, text, lambda value: bool(value.strip()), lambda _target: None)
-    return {'path':relative,'saved_chars':len(text)}
+    try:
+        publish(target, text, lambda value: bool(value.strip()), lambda _target: None)
+    except OSError:
+        _LOG.exception('剧本成果发布失败')
+        return SystemError('剧本成果未能保存，请检查磁盘后重试')
+    return success({'path':relative,'saved_chars':len(text)})
 
 
 def execute(project, name, payload, *, publish=None):
@@ -83,5 +92,8 @@ def execute(project, name, payload, *, publish=None):
     if name=='write_project_writing_file':
         if not callable(publish):
             raise TypeError('剧本成果工具需要 L3 注入发布器')
-        return write_file(project,args.get('path'),args.get('content'),publish=publish)
+        result=write_file(project,args.get('path'),args.get('content'),publish=publish)
+        if not result.ok:
+            raise ValueError(result.reason)
+        return result.data
     raise ValueError('未授权的项目工具：'+str(name))

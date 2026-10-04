@@ -225,7 +225,9 @@ class WritingApiTests(unittest.TestCase):
             root=Path(td);legacy=root/'writing';legacy.mkdir()
             (legacy/'历史剧本.md').write_text('旧稿',encoding='utf-8')
             self.assertEqual(writing_tools.read_file(root,'writing/历史剧本.md')['content'],'旧稿')
-            saved=writing_tools.write_file(root,'writing/新剧本.md','新稿', publish=publish_stage_text)
+            result=writing_tools.write_file(root,'writing/新剧本.md','新稿', publish=publish_stage_text)
+            self.assertTrue(result.ok)
+            saved=result.data
             current=project_stages.writing(root)/'新剧本.md'
             self.assertTrue(current.is_file())
             self.assertEqual(current.read_text(encoding='utf-8'),'新稿')
@@ -238,6 +240,17 @@ class WritingApiTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, '正文不能为空'):
                 writing_tools.write_file(root, 'writing/空剧本.md', ' \n\t ')
             self.assertFalse((project_stages.writing(root)/'空剧本.md').exists())
+
+    def test_writing_tool_maps_disk_failure_but_keeps_programmer_error_visible(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td)
+            disk=lambda *_args: (_ for _ in ()).throw(OSError('disk'))
+            result=writing_tools.write_file(root, 'writing/失败.md', '正文', publish=disk)
+            self.assertFalse(result.ok)
+            self.assertIn('未能保存', result.reason)
+            broken=lambda *_args: (_ for _ in ()).throw(TypeError('bug'))
+            with self.assertRaises(TypeError):
+                writing_tools.write_file(root, 'writing/程序错误.md', '正文', publish=broken)
 
     def test_hollmwood_publication_rejects_blank_script(self):
         with tempfile.TemporaryDirectory() as td:
@@ -356,7 +369,7 @@ class WritingApiTests(unittest.TestCase):
             stage_config.put(project, 'script', model='gpt-4o')
             huge_context = 'x' * (writing_api.DIRECT_REQUEST_CONTEXT_MAX_CHARS + 1)
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('workflow_context.instruction', return_value=huge_context), \
+                 patch('workflow_context.instruction', return_value=__import__('service_contract').success(huge_context)), \
                  patch('writing_api.PoolAdapter.chat') as chat:
                 result = writing_api.reply(project, '一个简短创意')
         self.assertFalse(result['ok'])

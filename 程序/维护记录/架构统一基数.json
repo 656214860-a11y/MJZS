@@ -21,7 +21,9 @@
             "storyboard_edit_service",
             "subtitle_export_service",
             "video_lifecycle_service",
-            "video_prompt_publication"
+            "video_prompt_publication",
+            "workflow_context",
+            "writing_tools"
         ],
         "scope_audit_pending": [
             "asset_plan",
@@ -30,9 +32,7 @@
             "storyboard_rows_service",
             "storyboard_storage",
             "video_task_state",
-            "workflow_context",
-            "writing",
-            "writing_tools"
+            "writing"
         ],
         "historical_name_audit_pending": [
             "asset_gating",
