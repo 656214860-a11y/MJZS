@@ -6,6 +6,7 @@
             "asset_batch_settings_service",
             "asset_plan",
             "asset_detail_service",
+            "hollmwood_roles",
             "asset_resume",
             "audio_import_service",
             "cloud_video_service",
@@ -29,7 +30,6 @@
             "writing_tools"
         ],
         "scope_audit_pending": [
-            "hollmwood_roles",
             "storyboard_rows_service",
             "storyboard_storage",
             "video_task_state"

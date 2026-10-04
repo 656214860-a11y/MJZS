@@ -250,6 +250,9 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
             stream=stream,
             publish_log=hollmwood_gateway()['publish_log'],
         )
+        if not outputs.ok:
+            raise hollmwood_roles.RoleExecutionError(outputs.reason)
+        outputs = outputs.data
     except hollmwood_roles.RoleCancelledError:
         raise
     except hollmwood_roles.RoleExecutionError as exc:

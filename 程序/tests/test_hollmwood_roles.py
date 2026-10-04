@@ -128,7 +128,8 @@ class RolesTests(unittest.TestCase):
             adapter = FakeAdapter(answers)
             result = roles.run(adapter, 'test-model', {'idea': '少年发现秘密'},
                                rhythm_template={'rules': 'hook'}, log_folder=folder, publish_log=save_text)
-            self.assertEqual(result['script'], '演员稿')
+            self.assertTrue(result.ok)
+            self.assertEqual(result.data['script'], '演员稿')
             files = sorted(Path(folder).glob('hollmwood_step_*.log'))
             self.assertEqual(len(files), 7)
             diagnostics = sorted((Path(folder) / 'model_diagnostics').glob('*.json'))
