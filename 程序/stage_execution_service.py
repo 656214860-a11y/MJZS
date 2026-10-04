@@ -787,5 +787,17 @@ def import_writing_project(root, json_file):
     """L3 编排剧本 JSON 导入与其校验报告发布。"""
     from writing import import_project
     from workflow_context_controller import workflow_context_gateway
-    return import_project(root, json_file, gateway=project_registry_gateway(),
-                          publish_report=workflow_context_gateway()['publish_json'])
+    result = import_project(root, json_file, gateway=project_registry_gateway(),
+                            publish_report=workflow_context_gateway()['publish_json'])
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
+
+
+def prepare_writing_project(root, brief, stage, target):
+    """L3 编排剧本任务书发布并只向界面交付成功数据。"""
+    from writing import prepare
+    result = prepare(root, brief, stage, target, publish=publish_writing_preparation)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data

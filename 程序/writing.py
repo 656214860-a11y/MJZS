@@ -1,11 +1,15 @@
 """Offline screenplay preparation and validated, isolated episode imports."""
 import json
+import logging
 import re
 import uuid
 from pathlib import Path
 from storyboard_paths import media_root
 from agent.core import read
 from episode_contract import duration_gap, edited_total, number, relative, validate_episode
+from service_contract import SystemError, success
+
+_LOG = logging.getLogger(__name__)
 
 STAGES=['Step 0 需求整理','Step 1 全局大纲','Step 2 分集规划','Step 3 分镜初稿','Step 4 剧本精修']
 
@@ -81,7 +85,12 @@ JSON仅为制作计划，不自动提交视频。
         {'name': '编剧任务书.md', 'data': task.encode('utf-8')},
         {'name': 'episode_template.json', 'data': json.dumps(template, ensure_ascii=False, indent=2).encode('utf-8')},
     ))
-    return publish(root, folder_name, artifacts)
+    try:
+        folder = publish(root, folder_name, artifacts)
+    except OSError:
+        _LOG.exception('剧本任务书发布失败')
+        return SystemError('剧本任务书未能保存，请检查磁盘后重试')
+    return success(folder)
 
 def import_project(root,json_file,*,gateway=None,publish_report=None):
     """Create a data-only project; reuse the one installed application and skills."""
@@ -96,6 +105,10 @@ def import_project(root,json_file,*,gateway=None,publish_report=None):
     own_assets=source.parent/'assets.json'
     assets=read(own_assets) if own_assets.exists() else None
     report=validate_episode(ep,media_root(source),assets)
-    target=Projects(app,gateway=gateway).create(ep.get('title') or source.stem,source=source)
-    publish_report(target/'import_report.json',report)
-    return target,report
+    try:
+        target=Projects(app,gateway=gateway).create(ep.get('title') or source.stem,source=source)
+        publish_report(target/'import_report.json',report)
+    except OSError:
+        _LOG.exception('剧本项目导入发布失败')
+        return SystemError('剧本项目未能导入，请检查磁盘后重试')
+    return success((target,report))
