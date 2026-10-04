@@ -4,6 +4,8 @@
 
 ## 1. 目录树
 
+R1040（J5 分轮 1）：`ui_icons.IconLoader.return_arrow()` 支持显式颜色，缓存键包含宿主、尺寸与颜色；默认白色保持兼容。页面迁移在下一轮验证，当前不代表 J5 已完成。
+
 协作基础设施：`维护记录/基准脚本/worktree_ledger.py` 只读汇总 Git 工作树、租约及显式容器残差；`--plan` 仅输出待确认命令。`round_claim.py next` 拒绝 detached HEAD 分配轮次。两者不进入生产执行链，不读用户项目正文。
 
 ```text

@@ -22,9 +22,10 @@ class IconLoader:
         return cache
 
     @classmethod
-    def return_arrow(cls, master, *, width: int = 48, height: int = 32):
-        """返回生成方式的箭头；尺寸是唯一缩放规格，结果按宿主和尺寸缓存。"""
-        key = ("return_arrow", int(width), int(height))
+    def return_arrow(cls, master, *, width: int = 48, height: int = 32,
+                     color: str = "#ffffff"):
+        """返回箭头按宿主、尺寸和颜色缓存；默认白色兼容既有深色按钮。"""
+        key = ("return_arrow", int(width), int(height), color)
         cache = cls._cache(master)
         if key in cache:
             return cache[key]
@@ -34,8 +35,8 @@ class IconLoader:
         scale_y = key[2] / 32
         for y in range(round(2 * scale_y), round(30 * scale_y)):
             x = round((6 + abs(15.5 - y / scale_y)) * scale_x)
-            image.put("#ffffff", to=(x, y, x + max(1, round(6 * scale_x)), y + 1))
-        image.put("#ffffff", to=(round(9 * scale_x), round(13 * scale_y),
+            image.put(color, to=(x, y, x + max(1, round(6 * scale_x)), y + 1))
+        image.put(color, to=(round(9 * scale_x), round(13 * scale_y),
                                  round(42 * scale_x), round(19 * scale_y)))
         cache[key] = image
         return image

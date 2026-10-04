@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 
 import ui_icons
+from ui_tokens import COLORS
 
 
 class _Master:
@@ -18,6 +19,23 @@ class _Image:
 
 
 class IconLoaderTests(unittest.TestCase):
+    def test_return_arrow_color_is_rendered_and_part_of_cache_key(self):
+        master = _Master()
+        with patch.object(ui_icons.tk, 'PhotoImage', side_effect=lambda **kw: _Image(**kw)) as made:
+            white = ui_icons.IconLoader.return_arrow(master)
+            themed = ui_icons.IconLoader.return_arrow(master, color=COLORS['primary'])
+            again = ui_icons.IconLoader.return_arrow(master, color=COLORS['primary'])
+            scaled = ui_icons.IconLoader.return_arrow(master, width=24, height=16,
+                                                       color=COLORS['primary'])
+        self.assertIsNot(white, themed)
+        self.assertIs(themed, again)
+        self.assertIsNot(themed, scaled)
+        self.assertEqual(made.call_count, 3)
+        self.assertEqual({color for color, _ in white.puts}, {'#ffffff'})
+        self.assertEqual({color for color, _ in themed.puts}, {COLORS['primary']})
+        self.assertEqual([area for _, area in white.puts],
+                         [area for _, area in themed.puts])
+
     def test_return_arrow_is_cached_per_master_and_size(self):
         master = _Master()
         with patch.object(ui_icons.tk, 'PhotoImage', side_effect=lambda **kw: _Image(**kw)) as made:
