@@ -32,3 +32,12 @@ class StageGateE2EProbeTests(unittest.TestCase):
         self.assertFalse(result["deleted"]["file_exists"])
         self.assertFalse(result["deleted"]["completed"],
                          "SG-01 必须依据实际图片文件，清单中的路径文字不能充当成果凭据")
+
+    def test_real_evidence_opens_every_gate_in_order(self):
+        result = probe.run_probe()
+        self.assertEqual(result["findings"], [])
+        self.assertEqual(result["executed"], ["SG-01", "SG-02", "SG-03", "SG-04", "SG-05"])
+        for gate_id, row in result["stages"].items():
+            self.assertTrue(row["completed"], (gate_id, row))
+            self.assertTrue(row["gate_ok"], (gate_id, row))
+            self.assertTrue(row["gate_started"], (gate_id, row))
