@@ -30,7 +30,6 @@
             "writing_tools"
         ],
         "scope_audit_pending": [
-            "storyboard_rows_service",
             "storyboard_storage",
             "video_task_state"
         ],
@@ -46,9 +45,10 @@
         "readonly_scope_audit": {
             "project_naming": "R981：dated_path 仅查询路径占用并生成候选，不创建文件或目录。",
             "script_preview_service": "R981：仅 stat、经 file_cache 读取预览和分块；缓存为读取实现，不发布项目数据。",
+            "storyboard_rows_service": "R992：只读取已校验分镜并生成稳定行标识；不发布、不修改项目数据。",
             "storyboard_adoption_contract": "R981：只读设置、解析已有别名并校验采用路径；采用状态写入由独立服务承担。"
         },
-        "exempt_count": 32,
+        "exempt_count": 33,
         "exempt_items": [
             "asset_batch_lifecycle",
             "asset_batch_selection_service",
@@ -75,6 +75,7 @@
             "storyboard_adoption_service",
             "storyboard_catalog_service",
             "storyboard_lifecycle",
+            "storyboard_rows_service",
             "storyboard_source_service",
             "subtitle_timing",
             "tts_api",

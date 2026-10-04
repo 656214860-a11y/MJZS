@@ -18,6 +18,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
         expected = {
             'project_naming': {'dated_path'},
             'script_preview_service': {'should_load_async', 'read_preview', 'preview_chunks'},
+            'storyboard_rows_service': {'shot_stats', 'frame_rows', 'rows_from_sources'},
             'storyboard_adoption_contract': {'prefs', 'paths', 'resolve_source', 'adopted', 'problem_text'},
         }
         root = Path(ROOT)
@@ -26,7 +27,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
         self.assertEqual(set(expected), set(audit))
         self.assertTrue(set(audit) <= set(ledger['exempt_items']))
         for module, names in expected.items():
-            self.assertTrue(audit[module].startswith('R981：'))
+            self.assertRegex(audit[module], r'^R\d+：')
             tree = ast.parse((root / f'{module}.py').read_text(encoding='utf-8'))
             self.assertEqual(names, {node.name for node in tree.body
                                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
