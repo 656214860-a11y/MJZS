@@ -1338,8 +1338,22 @@ class App:
             try:self.results.put((True,fn()))
             except Exception as e:self.results.put((False,str(e)))
         threading.Thread(target=work,daemon=True).start()
+    def _record_result_render_failure(self,exc,phase):
+        """限频记录固定位置和异常类型；不采集结果、异常全文或项目路径。"""
+        now=time.monotonic()
+        if now<getattr(self,'_result_render_report_due',0):return
+        self._result_render_report_due=now+30
+        try:
+            import diagnostic_capture
+            diagnostic_capture.record_degradation(
+                RuntimeError('视频结果渲染失败：'+type(exc).__name__),
+                page='视频生成',stage='app.tick.'+phase)
+        except Exception:
+            # 诊断磁盘不可用也不能停止查询；同样限频，不另建日志出口。
+            pass
     def tick(self):
         # Keep network tracking alive even when its panel is hidden or a UI refresh fails.
+        if self.closed:return
         try:
             while not self.local_messages.empty():
                 sid,text=self.local_messages.get_nowait()
@@ -1358,21 +1372,28 @@ class App:
                     try:callback(value)
                     except Exception as exc:self.write('成片目录打开失败：'+str(exc))
                 self.next_poll=(max(time.monotonic(),getattr(self,'poll_started',0)+self.poll_wait) if self.quiet_run else time.monotonic()) if ok else time.monotonic()+30
+                phase='write_result'
                 try:
                     if not (ok and self.quiet_run and self.last_poll_messages.get(self.polling_sid)==str(value)):self.write(str(value))
                     if ok and self.quiet_run:self.last_poll_messages[self.polling_sid]=str(value)
                     # 第 47 期第 5 条：手动／批量提交收了尾就说一句；后台轮询的进度不报（太吵）。
+                    phase='report_done'
                     if ok and not self.quiet_run:self.report_done(value)
+                    phase='window_state'
                     if self.window.winfo_ismapped():
-                        self.refresh();self.update_progress()
+                        phase='refresh'
+                        self.refresh()
+                        phase='update_progress'
+                        self.update_progress()
+                    phase='failure_notice'
                     if not ok:
                         if self.quiet_run:
                             self.write('后台查询或下载暂时中断，30秒后自动重试；不会重新提交生成。')
                         elif self.window.winfo_ismapped():
                             self.notifier.error(str(value), title='操作未完成')
-                except Exception:
+                except Exception as exc:
                     # Results/task IDs are persisted by the engine; rendering must not stop polling.
-                    pass
+                    self._record_result_render_failure(exc,phase)
             if time.monotonic()>=self.next_ui_update:
                 self.next_ui_update=time.monotonic()+1
                 try:
@@ -1394,7 +1415,12 @@ class App:
                 try:self.write('后台跟踪暂时异常，30秒后重试查询，不会重新提交生成：'+str(exc))
                 except tk.TclError:pass
         finally:
-            if self.window.winfo_exists() and not self.closed:self.timer=self.scheduler.after(150,self.tick)
+            if not self.closed:
+                try:
+                    if self.window.winfo_exists():self.timer=self.scheduler.after(150,self.tick)
+                except tk.TclError:
+                    # Tk 可能在存活检查或注册下一次回调时已退出。
+                    pass
     def cancel_timers(self,event=None):
         # 视频页定时器挂在 Tk 主窗口上，窗口销毁后回调会报 invalid command name。
         if event is not None and event.widget is not self.window:return
