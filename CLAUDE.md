@@ -20,25 +20,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 常用命令
 
-一律使用内置解释器 `D:\漫剧制作助手\运行环境\Python\python.exe`（不用全局 Python），工作目录 `程序\`：
+以下为 PowerShell 示例，先显式切换到程序目录；启动器位于仓库根目录，解释器位于根目录的 `运行环境\Python\`，不依赖 PATH 或 `.pyw` 文件关联。仅按 AGENTS.md §5 选择本轮需要的测试，不整块执行：
 
-```bash
+```powershell
+Set-Location -LiteralPath 'D:\漫剧制作助手\程序'
+
 # 启动应用（无控制台）
-运行环境\Python\pythonw.exe -I 启动漫剧制作助手.pyw    # 或双击 .pyw / 启动助手.cmd；启动错误写 启动错误.log
+& '..\运行环境\Python\pythonw.exe' -I '..\启动漫剧制作助手.pyw'
+# 也可双击仓库根目录的 启动助手.cmd；不以双击 .pyw 的系统关联代替随附解释器。
 
-python smoke_test.py                        # 默认冒烟；执行／只读轮触发条件见 AGENTS.md §5
-python smoke_test.py --affected idea_chat workflow   # 只跑受影响模块的门禁
-python smoke_test.py --gate                 # 增量门禁（按台账，只跑改过的测试）
-python smoke_test.py --architecture         # 全部架构门禁（tests/architecture/，基线见 project_status.md）
+& '..\运行环境\Python\python.exe' -B smoke_test.py  # 默认冒烟；触发条件见 AGENTS.md §5
+& '..\运行环境\Python\python.exe' -B smoke_test.py --affected idea_chat workflow
+& '..\运行环境\Python\python.exe' -B smoke_test.py --gate  # 增量门禁
+& '..\运行环境\Python\python.exe' -B smoke_test.py --architecture  # 全部架构门禁
 
-python run_selftests.py                     # 并行全量自检（增量：未改动的测试自动跳过，约 85 秒）
-python run_selftests.py --all --safe        # 分池全量回归（无 Tk 单元并行＋Tk 最多 2 路＋性能用例独占串行；实测 545～587 秒）
-                                       # 全量触发、升级条件与凭据复用统一见 AGENTS.md §5
-python run_selftests.py --all --safe --force   # 忽略同内容树绿凭据，强制再跑一轮全量复核
-python run_selftests.py -k pet keyframe     # 只跑文件名含这些关键词的测试（单测试的标准做法）
-python run_selftests.py --layer architecture --all   # 只跑架构契约层
-python run_selftests.py --list              # 列出会跑哪些测试文件
+& '..\运行环境\Python\python.exe' -B run_selftests.py  # 增量自检，可跳过未改测试
+& '..\运行环境\Python\python.exe' -B run_selftests.py --all --safe  # 安全全量，触发／凭据复用见 AGENTS.md §5
+& '..\运行环境\Python\python.exe' -B run_selftests.py --all --safe --force  # 强制复核，不复用绿凭据
+& '..\运行环境\Python\python.exe' -B run_selftests.py -k pet keyframe  # 按测试文件名关键词筛选
+& '..\运行环境\Python\python.exe' -B run_selftests.py --layer architecture --all
+& '..\运行环境\Python\python.exe' -B run_selftests.py --list  # 仅列出测试文件
 ```
+
+耗时以对应报告的受测版本、范围和环境为准；历史测量不代表当前执行时长，也不是性能保证。路径可用静态存在性检查验证，无需为文档核验启动真实项目。
 
 ## 架构要点
 
