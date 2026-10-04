@@ -1,0 +1,601 @@
+{
+  "schema_version": "1.0",
+  "project_root": "D:\\\u6f2b\u5267\u5236\u4f5c\u52a9\u624b\\\u7a0b\u5e8f",
+  "generated_at": "2026-10-04T20:33:13Z",
+  "scope": {
+    "source_extensions": [
+      ".cjs",
+      ".js",
+      ".jsx",
+      ".mjs",
+      ".py",
+      ".ts",
+      ".tsx"
+    ],
+    "excluded_directories": [
+      ".git",
+      ".hg",
+      ".mypy_cache",
+      ".next",
+      ".nuxt",
+      ".pytest_cache",
+      ".ruff_cache",
+      ".selftmp",
+      ".svelte-kit",
+      ".svn",
+      ".venv",
+      "__pycache__",
+      "assets",
+      "build",
+      "coverage",
+      "data",
+      "dist",
+      "episode",
+      "logs",
+      "node_modules",
+      "out",
+      "outputs",
+      "private",
+      "skills",
+      "target",
+      "tasks",
+      "tasks_round",
+      "vendor",
+      "venv",
+      "writing",
+      "\u5347\u7ea7\u5907\u4efd",
+      "\u8fd0\u884c\u73af\u5883",
+      "\u914d\u7f6e"
+    ],
+    "source_files": 562,
+    "source_loc": 123183,
+    "source_bytes": 6390420
+  },
+  "summary": {
+    "candidates": 25,
+    "proof_eligible": 2,
+    "potential_removable_loc": 2294,
+    "potential_removable_bytes": 108287,
+    "by_category": {
+      "orphan-file": 25,
+      "unused-dependency": 0,
+      "unused-export": 0,
+      "duplicate-file": 0,
+      "commented-code": 0
+    }
+  },
+  "candidates": [
+    {
+      "category": "orphan-file",
+      "subject": "asset_reference_import.py",
+      "path": "asset_reference_import.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 115,
+      "bytes": 8181,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: asset_reference_import, asset_reference_import.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-001"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "blender_previs_template.py",
+      "path": "blender_previs_template.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 64,
+      "bytes": 3381,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: blender_previs_template, blender_previs_template.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-002"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "desktop_launcher.py",
+      "path": "desktop_launcher.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 28,
+      "bytes": 935,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: desktop_launcher, desktop_launcher.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-003"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "script_skill_report.py",
+      "path": "script_skill_report.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 79,
+      "bytes": 3681,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: script_skill_report."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-004"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "storyboard_catalog.py",
+      "path": "storyboard_catalog.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 17,
+      "bytes": 869,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: storyboard_catalog."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-005"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "tests/architecture/_canary/audit20_cache_violation.py",
+      "path": "tests/architecture/_canary/audit20_cache_violation.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 2,
+      "bytes": 100,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: audit20_cache_violation, audit20_cache_violation.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-006"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "tests/architecture/_canary/audit21_platform_violation.py",
+      "path": "tests/architecture/_canary/audit21_platform_violation.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 2,
+      "bytes": 33,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: audit21_platform_violation, audit21_platform_violation.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-007"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "tests/architecture/_canary/audit22_violation.py",
+      "path": "tests/architecture/_canary/audit22_violation.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 2,
+      "bytes": 33,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: audit22_violation, audit22_violation.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-008"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "tests/architecture/_canary/audit24_violation.py",
+      "path": "tests/architecture/_canary/audit24_violation.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 2,
+      "bytes": 64,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: audit24_violation, audit24_violation.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-009"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "tests/architecture/_canary/audit25_event_violation.py",
+      "path": "tests/architecture/_canary/audit25_event_violation.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 1,
+      "bytes": 53,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: audit25_event_violation, audit25_event_violation.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-010"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "tests/architecture/_canary/audit26_violation.py",
+      "path": "tests/architecture/_canary/audit26_violation.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 2,
+      "bytes": 54,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: audit26_violation, audit26_violation.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-011"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "tests/architecture/_canary/audit27_secret_violation.py",
+      "path": "tests/architecture/_canary/audit27_secret_violation.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 13,
+      "bytes": 261,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: audit27_secret_violation, audit27_secret_violation.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-012"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "tests/performance_contract.py",
+      "path": "tests/performance_contract.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 15,
+      "bytes": 524,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: performance_contract, performance_contract.py, tests/performance_contract, tests/performance_contract.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-013"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "tests/skip_reasons.py",
+      "path": "tests/skip_reasons.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 21,
+      "bytes": 1079,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: skip_reasons, skip_reasons.py, tests/skip_reasons, tests/skip_reasons.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-014"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/benchmark_history.py",
+      "path": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/benchmark_history.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 100,
+      "bytes": 4179,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: benchmark_history, benchmark_history.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-015"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/install_git_hooks.py",
+      "path": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/install_git_hooks.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 37,
+      "bytes": 1153,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: install_git_hooks, install_git_hooks.py, \u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/install_git_hooks, \u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/install_git_hooks.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-016"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/round_claim.py",
+      "path": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/round_claim.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 373,
+      "bytes": 16626,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: round_claim, round_claim.py, \u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/round_claim, \u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/round_claim.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-017"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/round_gate.py",
+      "path": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/round_gate.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 55,
+      "bytes": 2572,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: round_gate, round_gate.py, \u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/round_gate, \u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/round_gate.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-018"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/worktree_ledger.py",
+      "path": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/worktree_ledger.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 220,
+      "bytes": 10459,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: worktree_ledger, worktree_ledger.py, \u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/worktree_ledger, \u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/worktree_ledger.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-019"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u57fa\u51c6_\u5185\u5b58\u957f\u8dd1.py",
+      "path": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u57fa\u51c6_\u5185\u5b58\u957f\u8dd1.py",
+      "confidence": "high",
+      "initial_status": "REVIEW",
+      "risk": "low",
+      "proof_eligible": true,
+      "loc": 357,
+      "bytes": 16166,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability."
+      ],
+      "id": "CRT-020"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u57fa\u51c6_\u542f\u52a8\u4e0e\u9875\u9762.py",
+      "path": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u57fa\u51c6_\u542f\u52a8\u4e0e\u9875\u9762.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 202,
+      "bytes": 7932,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: \u57fa\u51c6_\u542f\u52a8\u4e0e\u9875\u9762, \u57fa\u51c6_\u542f\u52a8\u4e0e\u9875\u9762.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-021"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u57fa\u51c6_\u957f\u5217\u8868.py",
+      "path": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u57fa\u51c6_\u957f\u5217\u8868.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 122,
+      "bytes": 6129,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: \u57fa\u51c6_\u957f\u5217\u8868, \u57fa\u51c6_\u957f\u5217\u8868.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-022"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u626b\u63cf_\u4ee3\u7801\u8d28\u91cf.py",
+      "path": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u626b\u63cf_\u4ee3\u7801\u8d28\u91cf.py",
+      "confidence": "high",
+      "initial_status": "REVIEW",
+      "risk": "low",
+      "proof_eligible": true,
+      "loc": 125,
+      "bytes": 4710,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability."
+      ],
+      "id": "CRT-023"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u63a2\u9488_\u9636\u6bb5\u95e8\u7981\u7aef\u5230\u7aef.py",
+      "path": "\u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u63a2\u9488_\u9636\u6bb5\u95e8\u7981\u7aef\u5230\u7aef.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 151,
+      "bytes": 7607,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: \u63a2\u9488_\u9636\u6bb5\u95e8\u7981\u7aef\u5230\u7aef, \u63a2\u9488_\u9636\u6bb5\u95e8\u7981\u7aef\u5230\u7aef.py, \u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u63a2\u9488_\u9636\u6bb5\u95e8\u7981\u7aef\u5230\u7aef, \u7ef4\u62a4\u8bb0\u5f55/\u57fa\u51c6\u811a\u672c/\u63a2\u9488_\u9636\u6bb5\u95e8\u7981\u7aef\u5230\u7aef.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-024"
+    },
+    {
+      "category": "orphan-file",
+      "subject": "\u9644\u52a0\u5de5\u5177/ComfyUI_\u6279\u91cf\u9996\u5e27_Klein4B/batch_frames.py",
+      "path": "\u9644\u52a0\u5de5\u5177/ComfyUI_\u6279\u91cf\u9996\u5e27_Klein4B/batch_frames.py",
+      "confidence": "medium",
+      "initial_status": "REVIEW",
+      "risk": "medium",
+      "proof_eligible": false,
+      "loc": 189,
+      "bytes": 11506,
+      "evidence": [
+        "No resolved static inbound import was found.",
+        "The file is not a detected package or conventional entry point.",
+        "Repository text contains possible string/name references: batch_frames, batch_frames.py."
+      ],
+      "caveats": [
+        "Dynamic loading, reflection, external consumers, or incomplete framework detection can hide reachability.",
+        "Possible string reachability prevents high-confidence deletion."
+      ],
+      "id": "CRT-025"
+    },
+    {"id":"CRT-026","category":"unused-export","subject":"idea_chat.project_document_kind","path":"idea_chat.py","line":459,"confidence":"medium","initial_status":"REVIEW","risk":"medium","proof_eligible":false,"loc":25,"bytes":1349,"evidence":["Supplementary AST and tracked-source/text reference scan found only the definition of project_document_kind, lines 459-483."],"caveats":["Public function: dynamic/external consumers remain possible. Symbol-only proposal; never delete its containing module. No removal proof executed."]},
+    {"id":"CRT-027","category":"unused-export","subject":"Projects.remove_internal_links","path":"projects.py","line":316,"confidence":"medium","initial_status":"REVIEW","risk":"medium","proof_eligible":false,"loc":19,"bytes":1107,"evidence":["Supplementary AST and tracked-source/text reference scan found only the definition of remove_internal_links, lines 316-334. Projects.delete uses recycle_paths instead."],"caveats":["Public method may have external consumers. Keep shared remove_project_link_node import: still used at line 360. No removal proof executed."]},
+    {"id":"CRT-028","category":"unused-export","subject":"workflow_process_registry.cancel_process_slot_request","path":"workflow_process_registry.py","line":70,"confidence":"medium","initial_status":"REVIEW","risk":"medium","proof_eligible":false,"loc":10,"bytes":334,"evidence":["Supplementary AST and tracked-source/text reference scan found only the definition of cancel_process_slot_request, lines 70-79."],"caveats":["Keep live project-level cancellation and queue functions. Public API may have external consumers. No removal proof executed."]}
+  ],
+  "limitations": [
+    "Discovery used the bundled scanner with an in-memory git-tracked allowlist walker, excluding private, episode, writing, configuration, logs, data, assets, runtime, caches and report histories. Supplemental symbol reference checking included tracked Markdown histories. No user project data was read.",
+    "The original scanner summary describes 25 file candidates only; three manually appended Python symbol candidates add 54 LOC and 2790 normalized UTF-8 bytes. All three require symbol-level disposable-copy proof; bundled whole-file removal is not appropriate.",
+    "Static analysis cannot prove absence of dynamic, reflective, operational, platform-specific, or external use.",
+    "JavaScript/TypeScript and Python import resolution is intentionally conservative and does not implement every alias or framework convention.",
+    "Unused dependencies and exports are leads only until project-native tooling and focused proof support removal.",
+    "No project code, package command, or dependency was executed by this scanner."
+  ]
+}
