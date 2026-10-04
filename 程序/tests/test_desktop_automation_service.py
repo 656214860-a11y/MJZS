@@ -222,5 +222,123 @@ class PrevisLifecycleDeliveryTests(unittest.TestCase):
         self.assertTrue(lifecycle.accepts(2))
 
 
+class BackgroundDeliveryMatrixTests(unittest.TestCase):
+    """逐项调用真实桌面收尾方法，不创建窗口或启动线程。"""
+
+    ENTRIES = {
+        'Desktop.async_': ('background_tasks', 'q', '_tick_async_result'),
+        'auto_edit': ('auto_edit_tasks', 'auto_edit_queue', '_drain_auto_edit_result'),
+        'auto_handoff': ('auto_handoff_tasks', 'auto_handoff_queue', '_drain_auto_handoff_result'),
+        'auto_video': ('auto_video_tasks', 'auto_video_queue', '_tick_auto_video'),
+        'auto_asset': ('auto_asset_tasks', 'auto_asset_queue', '_tick_auto_asset'),
+        'auto_keyframe': ('auto_keyframe_tasks', 'auto_keyframe_queue', '_tick_auto_keyframe'),
+        'previs_jobs': ('auto_previs_tasks', 'previs_news', '_tick_auto_previs'),
+        'cloud_monitor': ('cloud_monitor_tasks', 'cloud_monitor_result', '_tick_cloud_monitor'),
+    }
+
+    def make_desktop(self, entry):
+        effects = []
+        record = lambda *args, **kwargs: effects.append((args, kwargs))
+        desktop = SimpleNamespace(
+            win=SimpleNamespace(after_cancel=record),
+            idea_chat_controller=SimpleNamespace(cancel_request=lambda: None),
+            _async_ticket=1, _brief_load_results=queue.Queue(), worker=True,
+            busy_state=SimpleNamespace(set_busy=record), status=SimpleNamespace(set=record),
+            notifier=SimpleNamespace(error=record), update_script_interrupt_button=record,
+            clear_thinking=record, _poll_auto_due=lambda *args, **kwargs: False,
+            kick_unattended=record, pet_report=record, show=record, page_index=None,
+            root=object(), pet=SimpleNamespace(auto=SimpleNamespace(active=None)),
+            keyframe_batch_state=lambda **kwargs: (object(), [], '', ''),
+            asset_pending_ids=lambda: [], clear_asset_resume=record,
+            auto_asset_attempt=0, cloud_monitor_busy=True, cloud_monitor_due=0,
+            auto_video_last='', auto_previs_error='',
+        )
+        for name, (owner, result, _) in self.ENTRIES.items():
+            lifecycle = BackgroundTaskLifecycle()
+            lifecycle.submit(1)
+            setattr(desktop, owner, lifecycle)
+            setattr(desktop, result, queue.Queue())
+            setattr(desktop, name + '_busy', True)
+            setattr(desktop, name + '_signature', None)
+            setattr(desktop, name + '_due', 0)
+            setattr(desktop, name + '_error', '')
+            setattr(desktop, 'poll_' + name, lambda: None)
+        desktop.poll_auto_previs = lambda: None
+        desktop.previs_jobs = {'news': desktop.previs_news}
+        for name in ('auto_video', 'auto_asset', 'auto_keyframe'):
+            setattr(desktop, name + '_messages', queue.Queue())
+        return desktop, effects
+
+    def enqueue(self, desktop, entry, succeeded, ticket=1):
+        _, result, _ = self.ENTRIES[entry]
+        row = (ticket, succeeded, '完成' if succeeded else '失败')
+        if entry == 'Desktop.async_':
+            row += (None,)
+        elif entry in ('auto_handoff', 'auto_video', 'auto_asset', 'auto_keyframe'):
+            row += (('signature',),)
+        getattr(desktop, result).put(row)
+
+    def drain(self, desktop, entry):
+        from desktop import Desktop
+        getattr(Desktop, self.ENTRIES[entry][2])(desktop)
+
+    def test_manifest_has_exactly_the_exercised_entries(self):
+        names = [item['entry'] for item in BACKGROUND_TASK_MIGRATION]
+        self.assertEqual(len(names), len(set(names)))
+        self.assertEqual(set(names), set(self.ENTRIES))
+        self.assertTrue(all(item['state'] == 'migrated' for item in BACKGROUND_TASK_MIGRATION))
+
+    def test_cancel_replace_and_window_close_reject_all_late_deliveries(self):
+        from desktop import Desktop
+        for entry, (owner, _, _) in self.ENTRIES.items():
+            for mode in ('cancel', 'replace', 'close'):
+                for succeeded in (True, False):
+                    with self.subTest(entry=entry, mode=mode, succeeded=succeeded):
+                        desktop, effects = self.make_desktop(entry)
+                        lifecycle = getattr(desktop, owner)
+                        if mode == 'replace':
+                            lifecycle.submit(2)
+                        elif mode == 'close':
+                            Desktop.cancel_timers(desktop)
+                            self.assertTrue(desktop.shutting_down)
+                        else:
+                            self.assertTrue(lifecycle.cancel(1))
+                        before = lifecycle.snapshot()
+                        effects.clear()
+                        if entry in ('auto_video', 'auto_asset', 'auto_keyframe'):
+                            getattr(desktop, entry + '_messages').put((1, '迟到进度'))
+                        self.enqueue(desktop, entry, succeeded)
+                        self.drain(desktop, entry)
+                        self.assertEqual(effects, [])
+                        self.assertEqual(lifecycle.snapshot(), before)
+                        self.assertEqual(lifecycle.accepts(2), mode == 'replace')
+
+    def test_current_success_and_failure_finish_once(self):
+        for entry, (owner, _, _) in self.ENTRIES.items():
+            for succeeded in (True, False):
+                with self.subTest(entry=entry, succeeded=succeeded):
+                    desktop, effects = self.make_desktop(entry)
+                    self.enqueue(desktop, entry, succeeded)
+                    self.drain(desktop, entry)
+                    self.assertEqual(getattr(desktop, owner).snapshot(), {
+                        'ticket': 1, 'state': 'succeeded' if succeeded else 'failed'})
+                    if entry != 'cloud_monitor' or not succeeded:
+                        self.assertTrue(effects)
+                    effects.clear()
+                    self.enqueue(desktop, entry, succeeded)
+                    self.drain(desktop, entry)
+                    self.assertEqual(effects, [], '同一结果不得重复交付')
+
+    def test_current_progress_and_result_share_ticket(self):
+        for entry in ('auto_video', 'auto_asset', 'auto_keyframe'):
+            with self.subTest(entry=entry):
+                desktop, effects = self.make_desktop(entry)
+                getattr(desktop, entry + '_messages').put((1, '当前进度'))
+                self.enqueue(desktop, entry, True)
+                self.drain(desktop, entry)
+                self.assertIn('当前进度', effects[0][0][0])
+                self.assertEqual(getattr(desktop, self.ENTRIES[entry][0]).snapshot()['state'], 'succeeded')
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
