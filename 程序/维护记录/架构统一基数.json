@@ -95,6 +95,7 @@
             "asset_context",
             "asset_detail_service",
             "asset_generated_import_service",
+            "confirm_gates",
             "delivery_import_service",
             "edit_service",
             "handoff_service"
@@ -123,7 +124,6 @@
         ],
         "pending": [
             "cloud_video_service",
-            "confirm_gates",
             "idea_attachments",
             "idea_chat",
             "keyframe_batch",

@@ -5135,7 +5135,7 @@ class Desktop:
         下面按组各一张表。表里的数字全部来自同一次台账计算，页面上写的批次、镜头与结论不会
         各说各话（第 62 期任务 11 的「信息要准确」）。
         """
-        from confirm_gates import run
+        from stage_execution_service import run_stage_confirmation_gate
         ledger=self.continuity_ledger_data()
         summary=ledger.get('summary') or {}
         passed=bool(summary.get('ok'))
@@ -5222,7 +5222,7 @@ class Desktop:
             for text in problems[:8]:ttk.Label(foot,text='· '+text,wraplength=760,justify='left').pack(anchor='w')
         else:
             ttk.Label(foot,text='没有待办：批次、锚点与三元组都对得上。',foreground='#1a7f37').pack(anchor='w')
-        asks=run('G-08',project=self.root,ledger=ledger).get('ask') or ()
+        asks=run_stage_confirmation_gate(self.root, 'G-08', ledger=ledger).get('ask') or ()
         if asks:
             ttk.Label(foot,text='参考图优先级（每条选一个，问过就不再问）：',
                       foreground='#b54708').pack(anchor='w',pady=(4,0))
@@ -5262,14 +5262,15 @@ class Desktop:
         return value if value in pet_agent.LEVELS else pet_agent.DEFAULT_LEVEL
     def pending_gate_asks(self):
         """这一刻还没点的门禁候选：锚点定稿、正典板、连贯性裁决三处合起来。"""
-        from confirm_gates import run
+        from stage_execution_service import run_stage_confirmation_gate
         try:assets=self.asset_requirements()
         except (ValueError,OSError,TypeError,AttributeError,KeyError):assets={}
         try:ledger=self.continuity_ledger_data()
         except (ValueError,OSError,TypeError,AttributeError,KeyError):ledger={}
         asks=[]
         for gate in ('G-05','G-06','G-08'):
-            asks.extend(run(gate,project=self.root,assets=assets,ledger=ledger).get('ask') or ())
+            asks.extend(run_stage_confirmation_gate(
+                self.root, gate, assets=assets, ledger=ledger).get('ask') or ())
         return asks
     def auto_decide_gates(self):
         """半自动／全自动：三虎自己把「待办与裁决」里没点的候选按推荐选掉。

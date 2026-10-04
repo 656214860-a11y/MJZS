@@ -389,13 +389,22 @@ def record_stage_confirmation(project, key, choice='', by='human'):
     """记录确认门禁；L4 不得自行装配或直写确认账本。"""
     from confirm_gates import record
     return record(project, key, choice, by=by,
-                  publish=confirm_gates_gateway()['publish_json'])
+                  publish=confirm_gates_gateway()['publish_json'],
+                  context=project_context(project))
 
 
 def forget_stage_confirmation(project, key):
     """撤销确认门禁；保持与记录入口相同的 L3 发布边界。"""
     from confirm_gates import forget
-    return forget(project, key, publish=confirm_gates_gateway()['publish_json'])
+    return forget(project, key, publish=confirm_gates_gateway()['publish_json'],
+                  context=project_context(project))
+
+
+def run_stage_confirmation_gate(project, gate_id, *, shots=None, assets=None, ledger=None):
+    """L3 运行确认门禁，并为需要确认记忆的 L2 注入项目上下文。"""
+    from confirm_gates import run
+    return run(gate_id, project=project, shots=shots, assets=assets, ledger=ledger,
+               context=project_context(project))
 
 
 def previs_routing_gateway():
