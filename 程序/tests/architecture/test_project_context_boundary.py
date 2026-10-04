@@ -90,7 +90,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn("poll_startup_check(session, project_context(session['project'])", orchestrator)
 
     def test_storyboard_path_only_services_are_explicit_context_exemptions(self):
-        for name in ('keyframe_lifecycle_service.py', 'storyboard_edit_service.py',
+        for name in ('keyframe_lifecycle_service.py', 'previs_progress_service.py', 'storyboard_edit_service.py',
                      'storyboard_source_service.py'):
             source = Path(ROOT, name).read_text(encoding='utf-8')
             self.assertNotIn('ProjectContext', source)
@@ -99,6 +99,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('storyboard_edit_service', reasons)
         self.assertIn('storyboard_source_service', reasons)
         self.assertIn('keyframe_lifecycle_service', reasons)
+        self.assertIn('previs_progress_service', reasons)
 
     def test_second_roadmap_scope_is_a_complete_migration_ratchet(self):
         ledger = json.loads(Path(ROOT, '维护记录', '架构统一基数.json').read_text(encoding='utf-8'))
