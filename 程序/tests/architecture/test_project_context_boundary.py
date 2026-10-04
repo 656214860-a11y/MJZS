@@ -81,6 +81,15 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('store(project_context(project)', orchestrator)
         self.assertIn('def stage_idea_attachment_reference(', orchestrator)
 
+    def test_storyboard_path_only_services_are_explicit_context_exemptions(self):
+        for name in ('storyboard_edit_service.py', 'storyboard_source_service.py'):
+            source = Path(ROOT, name).read_text(encoding='utf-8')
+            self.assertNotIn('ProjectContext', source)
+        ledger = json.loads(Path(ROOT, '维护记录', '架构统一基数.json').read_text(encoding='utf-8'))
+        reasons = ledger['第二项']['exempt_reasons']
+        self.assertIn('storyboard_edit_service', reasons)
+        self.assertIn('storyboard_source_service', reasons)
+
     def test_second_roadmap_scope_is_a_complete_migration_ratchet(self):
         ledger = json.loads(Path(ROOT, '维护记录', '架构统一基数.json').read_text(encoding='utf-8'))
         item = ledger['第二项']
