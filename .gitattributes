@@ -6,6 +6,15 @@
 *.skill.md text eol=lf
 *.cmd text eol=crlf
 
+# 历史行尾门禁固定的文件：重新检出也必须保持 CRLF。
+程序/desktop.py text eol=crlf
+程序/pet_ui.py text eol=crlf
+程序/README.md text eol=crlf
+程序/skill_panel.py text eol=crlf
+程序/tests/test_model_pool.py text eol=crlf
+程序/tests/test_seedream_direct.py text eol=crlf
+程序/维护记录/体积分析_20260921.md text eol=crlf
+
 # 媒体必须按二进制处理，禁止行尾转换。
 *.png binary
 *.jpg binary

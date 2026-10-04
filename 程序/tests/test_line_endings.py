@@ -16,6 +16,7 @@ Tk 保护会把 `\r\n` 归一，表面上是绿的——只有双击 `.pyw` 才�
 运行：python test_line_endings.py
 """
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -45,6 +46,19 @@ WRITERS = ('run_selftests.py', 'skill_tools.py')
 
 
 class ProgramTreeTests(unittest.TestCase):
+    def test_git_checkout_preserves_pinned_line_endings(self):
+        """历史固定行尾必须在重新检出后仍成立，不依赖本机残留。"""
+        paths = ['程序/' + rel for rel, _ in VICTIMS]
+        result = subprocess.run(
+            ['git', 'check-attr', '-z', 'eol', '--', *paths],
+            cwd=PROGRAM.parent, capture_output=True, check=True)
+        fields = result.stdout.decode('utf-8').split('\0')
+        actual = dict(zip(fields[::3], fields[2::3]))
+        for rel, eol in VICTIMS:
+            with self.subTest(file=rel):
+                self.assertEqual(actual['程序/' + rel],
+                                 'crlf' if eol == line_endings.CRLF else 'lf')
+
     def test_the_program_tree_has_no_cr_cr_lf(self):
         """整棵程序目录扫一遍：文本文件不许有落单的 CR／CR CR LF、不许不是 UTF-8。"""
         found = line_endings.audit(PROGRAM)
