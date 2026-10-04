@@ -6,11 +6,19 @@ from pathlib import Path
 
 from file_cache import read_json, remove_temporary_file
 from project_naming import dated_path
+from project_context import ProjectContext
 
 _BLENDER_CACHE = []
 _WORKSPACE_CACHE = {}
 _BASE_CACHE = {}
 _DIR_CACHE = {}
+
+
+def _context(value):
+    """白模项目目录只能由 L3 注入的项目上下文解析。"""
+    if not isinstance(value, ProjectContext):
+        raise TypeError('白模项目路径需要由 L3 注入 ProjectContext。')
+    return value
 
 def read_record(root):
     path = root / '预演记录.json'
@@ -85,11 +93,12 @@ def workspace():
         _WORKSPACE_CACHE.clear(); _WORKSPACE_CACHE[key] = cached
     return cached
 
-def shot_directory(project, sid, workspace_path=None):
-    space = workspace_path if workspace_path is not None else workspace(); key = (str(space), Path(project).name)
+def shot_directory(context, sid, workspace_path=None):
+    project = _context(context).root
+    space = workspace_path if workspace_path is not None else workspace(); key = (str(space), project.name)
     base = _BASE_CACHE.get(key)
     if base is None:
-        base = (space / Path(project).name).resolve(); _BASE_CACHE.clear(); _BASE_CACHE[key] = base
+        base = (space / project.name).resolve(); _BASE_CACHE.clear(); _BASE_CACHE[key] = base
     if not sid or Path(sid).name != sid or sid in ('.', '..'): raise ValueError('镜头编号不正确')
     root = base / sid
     if not root.is_relative_to(base): raise ValueError('镜头编号不正确')

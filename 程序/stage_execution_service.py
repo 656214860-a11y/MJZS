@@ -380,6 +380,12 @@ def refresh_storyboard_studios(desktop, project):
     return refresh_open_studios(desktop, project_context(project))
 
 
+def white_model_shot_directory(project, sid, workspace_path=None):
+    """L3 为白模镜头工作目录解析注入项目上下文。"""
+    from white_model_service import shot_directory
+    return shot_directory(project_context(project), sid, workspace_path)
+
+
 def run_tts_lines(lines, folder, generate=None, report=None, stop=None):
     from tts_api import run_lines
     return run_lines(lines, folder, generate, report, stop, gateway=tts_gateway())

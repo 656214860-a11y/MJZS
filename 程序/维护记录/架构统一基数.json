@@ -108,7 +108,8 @@
       "pet_test_service",
       "previs_routing",
       "tts_api",
-      "storyboard_lifecycle"
+      "storyboard_lifecycle",
+      "white_model_service"
         ],
         "exempt_count": 8,
         "exempt_items": [
@@ -141,8 +142,7 @@
             "writing_workflow"
         ],
         "pending": [
-      "storyboard_catalog_service",
-            "white_model_service"
+      "storyboard_catalog_service"
         ]
     },
     "\u7b2c\u4e09\u9879": {

@@ -90,7 +90,7 @@ def ready(context,sid):
     context=_context(context)
     import white_model_service as wm
     try:
-        value=wm.read_record(wm.shot_directory(context.root,sid)).get('preview')
+        value=wm.read_record(wm.shot_directory(context,sid)).get('preview')
     except (OSError,ValueError):
         return False
     path=Path(value) if value else None

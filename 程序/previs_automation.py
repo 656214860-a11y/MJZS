@@ -9,7 +9,8 @@ import white_model_service as wm
 from platform_tools import hidden_console_flags
 
 def verify(project,sid,seconds):
-    root=wm.shot_directory(project,sid)
+    from stage_execution_service import white_model_shot_directory
+    root=white_model_shot_directory(project,sid)
     data=wm.read_record(root)
     paths=[Path(data.get(k,'')) for k in ('preview','project_file')]
     if not all(p.is_file() and p.stat().st_size for p in paths):return False
@@ -131,7 +132,8 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
                              f'再 from previs_progress import install_blender_progress; install_blender_progress({str(progress_file)!r}, {sid!r})。'
                              '在正式动画渲染前调用；此模块会按实际写出帧数原子更新进度。'
                              '不要模拟百分比。分段渲染时应汇总已完成帧数和总帧数，写入相同JSON的shot_id、stage=render、completed、total字段。')
-                    output=wm.shot_directory(project,sid);output.mkdir(parents=True,exist_ok=True)
+                    from stage_execution_service import white_model_shot_directory
+                    output=white_model_shot_directory(project,sid);output.mkdir(parents=True,exist_ok=True)
                     from workflow_engines import run_background
                     run_background(call_config,project,output,batch/(sid+'_制作报告.txt'),batch/(sid+'_运行日志.txt'),prompt)
                     state['progress'][key]='validating';state['status'][key]='校验视频中'
