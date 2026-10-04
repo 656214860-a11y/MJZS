@@ -3023,6 +3023,36 @@ class CloudVoiceTests(PetTestCase):
         self.assertEqual(jobs[0][1].__func__, self.pet.greet.__func__, '到点就打招呼')
         self.assertIs(jobs[0][1].__self__, self.pet)
 
+    def test_startup_automatic_message_waits_for_the_greeting(self):
+        self.main_window_showing()
+        now = [0.0]
+        self.pet.clock = lambda: now[0]
+        pet_ui.start(self.fake, delay_ms=5000)
+        self.pet.agent.failures = [
+            {'stage': 'assets', 'category': 'a', 'error': '出图失败'}]
+        now[0] = 1.0
+        self.assertEqual(self.pet.announce_failures(), '',
+                         '招呼尚未出现时，自动对话不能抢先弹出')
+        self.pet.cancel_greet()
+        self.pet.greet()
+        self.assertEqual(self.pet.cloud().shape, pet_cloud.SHAPE_PUFF)
+        self.assertEqual(self.pet.announce_failures(), '')
+        now[0] += pet_ui.GREET_QUIET_SECONDS + 1
+        self.assertIn('出图失败', self.pet.announce_failures())
+
+    def test_pending_greeting_does_not_block_manual_messages(self):
+        self.main_window_showing()
+        pet_ui.start(self.fake, delay_ms=5000)
+        self.assertTrue(self.pet.quiet())
+        self.assertEqual(self.pet.announce('用户主动操作'),
+                         self.pet._prefix_output('用户主动操作'))
+
+    def test_cancelled_greeting_does_not_leave_automatic_messages_blocked(self):
+        pet_ui.start(self.fake, delay_ms=5000)
+        self.assertTrue(self.pet.quiet())
+        self.pet.cancel_greet()
+        self.assertFalse(self.pet.quiet())
+
     def test_a_whisper_is_a_puff_bubble(self):
         """第 25 期第 2 条：与工作无关的可爱话统一用云朵框（圆气泡留给进度）。"""
         text = '%s：尾巴甩一甩' % pet_agent.PET_NAME

@@ -3225,17 +3225,17 @@ class Pet:
             return []
 
     def quiet(self, at=None):
-        """第 68 期任务 11：招呼说完的这一小段里，别的话先不出声。
+        """招呼等待期间及说完的这一小段里，自动消息先不出声。
 
         用户原话：「启动软件->三虎打招呼的聊天框关闭后，再慢慢弹出其他信息」。安静期里那几路
         自动播报都闭嘴，各自的节流起算点跟着往后挪（安静期一过接着按正常节奏说，不会攒成一大串
         挤在一起）；这段里新冒出来的缺口也顺手记成「已对表」，不当急事顶出来。返回 True ＝ 还在
         安静期里。用户自己按出来的话（换档位、一键执行）不走这道闸，照常说。
         """
-        if not self._quiet_until:
+        if self._greet_id is None and not self._quiet_until:
             return False
         now = float(self.clock() if at is None else at)
-        if now < self._quiet_until:
+        if self._greet_id is not None or now < self._quiet_until:
             self._broadcast_at = now
             self._progress_at = now
             self._offer_at = now
