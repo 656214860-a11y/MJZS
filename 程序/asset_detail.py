@@ -45,10 +45,19 @@ def _open_zoom(desktop, path, title=''):
     if image is None:
         open_path(path)
         return None
-    win = BaseDialog(desktop.win, title or Path(path).name, modal=False, chrome=False)
+    source = desktop.win.focus_get()
+    def restore_focus():
+        if source is not None and source.winfo_exists():
+            source.focus_set()
+    win = BaseDialog(desktop.win, title or Path(path).name, modal=False, chrome=False,
+                     on_close=restore_focus)
     tk.Label(win, image=image).pack(padx=8, pady=8)
     win.image = image                        # 图元必须留引用，否则画面上只剩空框
-    SecondaryButton(win, text='关闭', command=win.destroy).pack(pady=(0, 8))
+    close = SecondaryButton(win, text='关闭', command=win.close)
+    close.pack(pady=(0, 8))
+    # Windows 激活新窗口晚于 idle；仅接管窗口自身的焦点，不抢子控件焦点。
+    win.bind('<FocusIn>', lambda event: close.focus_set() if event.widget is win else None,
+             add='+')
     return win
 
 
@@ -299,8 +308,10 @@ def _gates_block(desktop, aid):
 def _header(desktop, aid, asset):
     head = FlowBar(desktop.content)
     head.pack(fill='x', pady=(0, 4))
-    SecondaryButton(head, text='← 返回资产管理',
-               command=lambda: desktop.safe(desktop.close_asset_detail)).pack(side='left', padx=(0, 12), pady=2)
+    back = SecondaryButton(head, text='← 返回资产管理',
+                           command=lambda: desktop.safe(desktop.close_asset_detail))
+    back.pack(side='left', padx=(0, 12), pady=2)
+    back.focus_set()
     ttk.Label(head, text=aid + ' · ' + str(asset.get('name', aid)),
               font=('Microsoft YaHei UI', 13, 'bold')).pack(side='left')
     ttk.Label(head, text='　' + TYPE_NAMES.get(aid.split('_')[0], '资产')).pack(side='left')
@@ -334,12 +345,14 @@ def _board_block(desktop, aid, asset):
                 thumbnail_unavailable = True
                 image = asset_thumbs.thumbnail(holder, path, CELL_SIZE)
         if image is not None:
-            label = tk.Label(holder, image=image, cursor='hand2')
+            title = aid + ' · ' + cell['label']
+            label = SecondaryButton(holder, image=image, text='放大：' + title,
+                                    takefocus=True, cursor='hand2',
+                                    command=lambda value=cell['image'], name=title:
+                                    desktop.safe(lambda: _open_zoom(desktop, (base / value).resolve(), name)))
             label.image = image
             label.pack(anchor='w')
-            label.bind('<Button-1>', lambda _e, value=cell['image'], name=cell['label']:
-                       desktop.safe(lambda: _open_zoom(desktop, (base / value).resolve(),
-                                                       aid + ' · ' + name)))
+            label.bind('<Return>', lambda _e, button=label: (button.invoke(), 'break')[1])
             text = Path(cell['image']).name
         elif thumbnail_unavailable:
             # 文件已绑定但缩略图服务暂时没有可用图，不能误导用户以为绑定丢了。
@@ -438,11 +451,14 @@ def _variants_block(desktop, aid, asset):
                 thumbnail_unavailable = True
                 image = asset_thumbs.thumbnail(line, path, CELL_SIZE)
         if image is not None:
-            label = tk.Label(line, image=image, cursor='hand2')
+            title = aid + ' · ' + item['state_id']
+            label = SecondaryButton(line, image=image, text='放大：' + title,
+                                    takefocus=True, cursor='hand2',
+                                    command=lambda value=value, name=title: desktop.safe(
+                                        lambda: _open_zoom(desktop, (base / value).resolve(), name)))
             label.image = image
             label.pack(side='left', padx=(0, 8))
-            label.bind('<Button-1>', lambda _e, value=value: desktop.safe(
-                lambda: _open_zoom(desktop, (base / value).resolve(), aid + ' · ' + item['state_id'])))
+            label.bind('<Return>', lambda _e, button=label: (button.invoke(), 'break')[1])
         else:
             label = '（缩略图暂不可用）' if thumbnail_unavailable else '（缺缩略图）'
             ttk.Label(line, text=label, foreground='#8a8a8a', width=12).pack(side='left', padx=(0, 8))

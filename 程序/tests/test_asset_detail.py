@@ -224,6 +224,69 @@ class EntryTests(_Harness):
 class BoardTests(_Harness):
     """单功能 2／3：7 面板转盘图展示与放大。"""
 
+    def test_image_actions_are_keyboard_buttons(self):
+        from ui_widgets import SecondaryButton
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            path = d.asset_base() / 'keyboard.png'
+            path.write_bytes(png(24, 32))
+            asset = {'canon_board_views': {'front': 'keyboard.png'},
+                     'state_variants': [{'state_id': 'CST-01', 'reference_image': 'keyboard.png'},
+                                        {'state_id': 'CST-02', 'reference_image': 'keyboard.png'}]}
+            asset_detail._board_block(d, 'CHAR_001', asset)
+            asset_detail._variants_block(d, 'CHAR_001', asset)
+            self.buttons(d.content, '状态变体（2 个）（展开）')[0].invoke()
+            win.deiconify(); win.update()
+            for title in ('CHAR_001 · 正面 0°', 'CHAR_001 · CST-01', 'CHAR_001 · CST-02'):
+                with self.subTest(title=title):
+                    buttons = self.buttons(d.content, '放大：' + title)
+                    self.assertEqual(len(buttons), 1)
+                    button = buttons[0]
+                    self.assertIsInstance(button, SecondaryButton)
+                    self.assertEqual(str(button.cget('takefocus')), '1')
+                    self.assertEqual(button.tk_focusPrev().tk_focusNext(), button)
+                    button.focus_force(); win.update()
+                    with mock.patch.object(asset_detail, '_open_zoom') as opened:
+                        button.event_generate('<Return>'); win.update()
+                        self.assertEqual(opened.call_count, 1)
+                        self.assertEqual(opened.call_args.args[:3], (d, path.resolve(), title))
+                        opened.reset_mock()
+                        button.event_generate('<space>'); win.update()
+                        self.assertEqual(opened.call_count, 1)
+
+    def test_zoom_focus_and_both_close_routes(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            path = proj / 'preview.png'; path.write_bytes(png(24, 32))
+            trigger = self.ttk.Button(d.content, text='source'); trigger.pack()
+            win.deiconify(); win.update()
+            for route in ('escape', 'button'):
+                with self.subTest(route=route):
+                    trigger.focus_force(); win.update()
+                    zoom = asset_detail._open_zoom(d, path, 'preview')
+                    win.update()
+                    close = self.buttons(zoom, '关闭')[0]
+                    self.assertEqual(zoom.focus_get(), close)
+                    if route == 'escape':
+                        close.event_generate('<Escape>')
+                    else:
+                        close.invoke()
+                    win.update()
+                    self.assertFalse(zoom.winfo_exists())
+                    self.assertEqual(win.focus_get(), trigger)
+
+    def test_reload_restores_focus_to_detail_navigation(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(project_with(td))
+            d.open_asset_detail('CHAR_001'); win.deiconify(); win.update()
+            old = self.buttons(d.content, '锁定')[0]
+            old.focus_force(); win.update()
+            old.invoke(); win.update()
+            self.assertFalse(old.winfo_exists())
+            self.assertEqual(win.focus_get(), self.buttons(d.content, '← 返回资产管理')[0])
+
     def test_seven_cells_with_angle_labels(self):
         with tempfile.TemporaryDirectory() as td:
             proj = project_with(td)
