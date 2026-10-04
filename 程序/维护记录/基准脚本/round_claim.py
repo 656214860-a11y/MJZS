@@ -202,6 +202,19 @@ def require_branch(root: Path = ROOT) -> None:
                            "main 可替换为车道名。" % number)
 
 
+def require_clean_checkout(root: Path = ROOT) -> None:
+    """未落分支的改动不能作为下一轮的隐含起点，避免跨轮写同一文件。"""
+    result = subprocess.run(["git", "-C", str(root), "status", "--porcelain"],
+                            capture_output=True, text=True)
+    if result.returncode:
+        raise RuntimeError("无法检查工作树状态：%s" % result.stderr.strip())
+    dirty = [line for line in result.stdout.splitlines() if line.strip()]
+    if dirty:
+        raise RuntimeError("拒绝领取轮次：当前工作树有未提交改动，可能与本轮文件重叠。"
+                           "先执行 git switch -c codex/wip-R<轮次> 保存 WIP，再领取轮次；"
+                           "脏文件：%s" % ", ".join(dirty))
+
+
 def _read_queue(queue_path: Path) -> dict:
     payload = json.loads(queue_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
@@ -308,6 +321,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             # 主树脚本从其他工作树调用时，也必须检查实际 cwd 所在树。
             require_branch(Path.cwd())
+            require_clean_checkout(Path.cwd())
         except (RuntimeError, subprocess.CalledProcessError) as error:
             print(str(error), file=sys.stderr)
             return 2

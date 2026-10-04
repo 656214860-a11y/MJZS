@@ -112,6 +112,12 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         self.git("init", str(self.repo))
         self.git("-C", str(self.repo), "-c", "user.name=Queue Test", "-c",
                  "user.email=queue@example.invalid", "commit", "--allow-empty", "-m", "seed")
+        script = self.repo / "程序/维护记录/基准脚本/round_claim.py"
+        script.parent.mkdir(parents=True)
+        script.write_bytes(SCRIPT.read_bytes())
+        self.git("-C", str(self.repo), "add", "--", "程序/维护记录/基准脚本/round_claim.py")
+        self.git("-C", str(self.repo), "-c", "user.name=Queue Test", "-c",
+                 "user.email=queue@example.invalid", "commit", "-m", "script fixture")
         self.trees = [self.root / name for name in ("A", "B")]
         for tree in self.trees:
             self.git("-C", str(self.repo), "worktree", "add", "--detach", str(tree))
@@ -131,8 +137,6 @@ class SharedWorktreeQueueTests(unittest.TestCase):
     def test_detached_next_cli_refuses_without_allocating_and_gives_switch_command(self):
         tree = self.trees[0]
         script = tree / "程序/维护记录/基准脚本/round_claim.py"
-        script.parent.mkdir(parents=True)
-        script.write_bytes(SCRIPT.read_bytes())
         result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
                                 capture_output=True, timeout=20)
         self.assertNotEqual(result.returncode, 0)
@@ -144,6 +148,17 @@ class SharedWorktreeQueueTests(unittest.TestCase):
                                 capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), b"1")
+
+    def test_dirty_next_cli_refuses_without_allocating_and_suggests_wip_branch(self):
+        tree = self.trees[0]
+        script = tree / "程序/维护记录/基准脚本/round_claim.py"
+        self.git("-C", str(tree), "switch", "-c", "codex/test-lane")
+        (tree / "draft.txt").write_text("unfinished", encoding="utf-8")
+        result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
+                                capture_output=True, timeout=20)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(b"git switch -c codex/wip-R<", result.stderr)
+        self.assertFalse((self.common / round_claim.COUNTER_NAME).exists())
 
     def test_two_worktrees_cannot_claim_same_id_and_export_is_identical(self):
         self.snapshot(self.trees[0], [{"id": "T1", "status": "pending"}])

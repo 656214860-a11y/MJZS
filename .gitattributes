@@ -1,0 +1,18 @@
+# 仅声明新增与后续编辑的文本归一规则；本轮不执行 git add --renormalize。
+* text=auto
+*.py text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.skill.md text eol=lf
+*.cmd text eol=crlf
+
+# 媒体必须按二进制处理，禁止行尾转换。
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.mp3 binary
+*.wav binary
+*.mp4 binary
+*.mov binary
