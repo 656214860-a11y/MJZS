@@ -3404,7 +3404,10 @@ class Desktop:
                 missing=not Path(p['path']).is_dir()
                 text=p['name']+('（目录已失效，可右键清除登记）' if missing else '')
                 tree.insert('group:'+state,'end',iid=p['path'],text=text)
-    def reload(self):self.fill_projects(self.list)
+    def reload(self):
+        self.fill_projects(self.list)
+        tree=getattr(self,'_project_home_tree',None)
+        if tree is not None and tree.winfo_exists():self.fill_projects(tree)
     def idea_example(self):
         """创意栏里那份预置示例（第 37 期第 2 条）：随程序打包，不改动就绝不进项目文件。
 
@@ -3708,8 +3711,8 @@ class Desktop:
         popup=BaseDialog(self.win,'选择项目 · 漫剧制作助手',geometry='640x480',minsize=(500,380),modal=False,chrome=False);popup.attributes('-alpha',0)
         ttk.Label(popup,text='今天继续哪个故事？',font=('Microsoft YaHei UI',17,'bold')).pack(anchor='w',padx=22,pady=(22,8))
         ttk.Label(popup,text='选择项目后点击进入，或双击项目名称。',style='Muted.TLabel').pack(anchor='w',padx=22,pady=(0,12))
-        notice=tk.StringVar(value=('剧本已被删除，不能进入项目。请点击“删除选中项目”清理残留文件夹。'
-                                   if cleanup_path else ''))
+        missing_notice='项目目录不存在或已被移动，不能进入项目。可“重新查找项目”；选择清除时只清除登记，不动磁盘。'
+        notice=tk.StringVar(value=missing_notice if cleanup_path else '')
         ttk.Label(popup,textvariable=notice,foreground='#b54708',wraplength=590).pack(anchor='w',padx=22,pady=(0,8))
         tree=ttk.Treeview(popup,show='tree',selectmode='browse');tree.pack(fill='both',expand=True,padx=22);self.fill_projects(tree)
         selected_path=cleanup_path or self.projects.info.get('active')
@@ -3785,10 +3788,9 @@ class Desktop:
             if not selected or selected[0].startswith('group:'):return
             try:self.load(selected[0])
             except Exception as e:
-                # 用户已删掉整份剧本时，这一项不再是可打开的项目。移除它的登记和目录，
-                # 不留下下一次启动还会报错的幽灵入口，也不再叠一层原生错误框。
+                # 目录失效不代表剧本被删除；保留登记，等待用户重新定位或确认清除。
                 if needs_cleanup_after_open_error(e):
-                    notice.set('剧本已被删除，不能进入项目。请点击“删除选中项目”清理残留文件夹。')
+                    notice.set(missing_notice)
                     return
                 NotificationDispatcher(self.status, parent=popup).error(str(e), title='无法打开项目');return
             # 同侧栏入口：成功认领后以 load() 解析出的实际根目录记忆当天选择。
@@ -3805,6 +3807,7 @@ class Desktop:
     def project_home(self):
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。')
         tree=ttk.Treeview(self.content,show='tree',height=13,selectmode='browse');tree.pack(fill='both',expand=True,pady=12);self.fill_projects(tree)
+        self._project_home_tree=tree
         tree.bind('<Button-3>',lambda e:self.project_menu(e,tree))
         def enter(event=None):
             selected=tree.selection()

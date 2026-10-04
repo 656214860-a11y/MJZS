@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
 """项目目录改名后的一级认领；所有案例只使用临时目录。"""
 import json
+import inspect
 import tempfile
+import tkinter as tk
 import unittest
 from pathlib import Path
+from tkinter import ttk
 from unittest.mock import MagicMock, patch
 
 import desktop
@@ -146,6 +149,75 @@ class DesktopRenameReconcileTests(unittest.TestCase):
             app.list.selection_set.assert_called_once_with(str(root))
             app.show.assert_called_once_with(0)
             app._sync_desktop_project_paths.assert_not_called()
+
+
+class DesktopMissingRegistrationTests(unittest.TestCase):
+    """真实登记与两个真实列表联动；窗口保持隐藏，不操作用户桌面。"""
+    def setUp(self):
+        self.temp=tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.service,self.base=RenameReconcileTests().make_service(self.temp.name)
+        self.old=self.service.info['active']
+        self.win=tk.Tk();self.win.withdraw()
+        self.addCleanup(self.win.destroy)
+        self.app=MagicMock()
+        self.app.win=self.win;self.app.root=None;self.app.projects=self.service
+        self.app.content=ttk.Frame(self.win);self.app.list=ttk.Treeview(self.win)
+        self.app._project_home_tree=None
+        self.app._project_result_data=lambda r:desktop.Desktop._project_result_data(self.app,r)
+        self.app.fill_projects=lambda tree:desktop.Desktop.fill_projects(self.app,tree)
+        self.app.reload=lambda:desktop.Desktop.reload(self.app)
+        self.app.reload();desktop.Desktop.project_home(self.app)
+        self.home=next(w for w in self.app.content.winfo_children() if isinstance(w,ttk.Treeview))
+        self.before=self.service.registry.read_bytes()
+
+    def clear(self,confirmed=True):
+        return desktop.Desktop.clear_missing_project(self.app,{'path':self.old},confirmed=confirmed)
+
+    def assert_unchanged(self):
+        self.assertEqual(self.service.registry.read_bytes(),self.before)
+        self.assertTrue(self.app.list.exists(self.old))
+        self.assertTrue(self.home.exists(self.old))
+
+    def test_clear_refreshes_both_lists_without_rebuilding_page_or_touching_other_tree(self):
+        other=ttk.Treeview(self.app.content);other.insert('','end',iid='unrelated',text='保留')
+        self.assertTrue(self.clear())
+        self.assertEqual(self.service.refresh_registry(),{'active':None,'projects':[]})
+        self.assertFalse(self.app.list.exists(self.old))
+        self.assertFalse(self.home.exists(self.old),'homepage retained cleared ghost registration')
+        self.assertTrue(other.exists('unrelated'))
+        self.assertTrue(self.home.winfo_exists())
+        self.app.show.assert_not_called()
+
+    def test_cancel_preserves_registration_and_both_lists(self):
+        with patch.object(desktop,'confirm',return_value=False):
+            self.assertFalse(self.clear(confirmed=False))
+        self.assert_unchanged()
+
+    def test_existing_project_is_not_cleared(self):
+        Path(self.old).mkdir()
+        with self.assertRaisesRegex(ValueError,'仍存在'):
+            self.clear()
+        self.assertTrue(Path(self.old).is_dir())
+        self.assert_unchanged()
+
+    def test_write_failure_preserves_registration_and_both_lists(self):
+        with patch.object(self.service,'_publish_json',side_effect=PermissionError('locked')):
+            self.assertFalse(self.clear())
+        self.assert_unchanged()
+        self.assertIn('清除失效项目登记失败',self.app.status.set.call_args.args[0])
+
+    def test_destroyed_homepage_is_not_refreshed(self):
+        self.home.destroy()
+        self.assertTrue(self.clear())
+        self.assertFalse(self.app.list.exists(self.old))
+        self.assertEqual(self.service.refresh_registry()['projects'],[])
+
+    def test_missing_directory_notice_does_not_claim_script_or_files_were_deleted(self):
+        source=inspect.getsource(desktop.Desktop._choose_project_impl)
+        self.assertNotIn('剧本已被删除',source)
+        self.assertNotIn('清理残留文件夹',source)
+        self.assertIn('只清除登记，不动磁盘',source)
 
 
 if __name__=='__main__':unittest.main()
