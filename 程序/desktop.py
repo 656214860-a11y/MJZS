@@ -3822,6 +3822,13 @@ class Desktop:
         if name:
             p=self._project_result_data(self.projects.create(name));self.reload();self.load(p)
             self.remember_daily_project_choice(p)
+            self._startup_project_choice=False
+        elif getattr(self,'_startup_project_choice',False) and self.root is None:
+            self._startup_project_choice=False
+            if not getattr(self,'shutting_down',False):
+                if self.status.get()=='正在打开今日项目…':
+                    self.status.set('未选择项目，可创建新项目。')
+                self._request_tick_resume_after_first_paint()
     def import_json(self):
         if self.root:
             from stage_workspace_service import ensure_storyboard_workspace

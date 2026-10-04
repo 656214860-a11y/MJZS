@@ -137,6 +137,87 @@ class DesktopStartupPerfTests(unittest.TestCase):
             except tk.TclError:
                 pass
 
+    def test_empty_startup_cancel_finishes_loading_and_resumes_tick(self):
+        """R1043：真实首帧→项目选择→取消新建不能停留在载入态。"""
+        try:
+            window = tk.Tk()
+        except tk.TclError as exc:
+            self.skipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
+        desktop = None
+        try:
+            with tempfile.TemporaryDirectory(prefix='desktop-startup-cancel-') as temporary:
+                app = Path(temporary) / 'app'
+                app.mkdir()
+                (app / 'config.json').write_text(json.dumps({
+                    'downloads_root': str(Path(temporary) / 'downloads'),
+                }), encoding='utf-8')
+                (app / 'projects.json').write_text(json.dumps({
+                    'active': None, 'projects': [],
+                }), encoding='utf-8')
+                cancelled = []
+                deadline = time.perf_counter() + 2
+                def cancel_new_dialog():
+                    dialog = next((child for child in window.winfo_children()
+                                   if isinstance(child, tk.Toplevel)
+                                   and child.title() == '新建项目'), None)
+                    if dialog is not None:
+                        cancelled.append(desktop.status.get())
+                        dialog.cancel()
+                    elif time.perf_counter() < deadline:
+                        window.after(10, cancel_new_dialog)
+                desktop = Desktop(window, root=app)
+                window.update_idletasks()
+                window.after(10, cancel_new_dialog)
+                self.assertTrue(self._pump_until(window, lambda: bool(cancelled), deadline))
+                window.update()
+                self.assertEqual(len(cancelled), 1)
+                self.assertIn('正在打开今日项目', cancelled[0])
+                self.assertNotIn('正在打开今日项目', desktop.status.get())
+                self.assertFalse(desktop._startup_project_choice,
+                                 '取消后状态：' + desktop.status.get())
+                self.assertFalse(desktop._startup_tick_paused)
+                self.assertFalse(window._desktop_loading_project)
+                self.assertIsNone(desktop.root)
+                self.assertEqual(desktop.projects.info['projects'], [])
+                self.assertEqual(desktop.page_index, 0)
+                self.assertIsNotNone(desktop._tick_id)
+                # 后续手动取消不能重写状态或新建项目。
+                desktop.status.set('保留当前操作结果')
+                with mock.patch('desktop.simpledialog.askstring', return_value=None):
+                    desktop.new()
+                self.assertEqual(desktop.status.get(), '保留当前操作结果')
+                self.assertEqual(desktop.projects.info['projects'], [])
+                with mock.patch('desktop.simpledialog.askstring', return_value='取消后新建'):
+                    desktop.new()
+                self.assertIsNotNone(desktop.root)
+                self.assertTrue(desktop.root.is_relative_to(Path(temporary)))
+                self.assertFalse(desktop._startup_project_choice)
+                selected = desktop.root
+                desktop.status.set('保留已打开项目')
+                with mock.patch('desktop.simpledialog.askstring', return_value=None):
+                    desktop.new()
+                self.assertEqual(desktop.root, selected)
+                self.assertEqual(desktop.status.get(), '保留已打开项目')
+        finally:
+            if desktop is not None:
+                desktop.cancel_timers()
+            try:
+                window.destroy()
+            except tk.TclError:
+                pass
+
+    def test_empty_startup_cancel_during_shutdown_does_not_resume_tick(self):
+        from types import SimpleNamespace
+        desktop = SimpleNamespace(
+            win=object(), root=None, _startup_project_choice=True,
+            shutting_down=True, status=mock.Mock(),
+            _request_tick_resume_after_first_paint=mock.Mock())
+        with mock.patch('desktop.simpledialog.askstring', return_value=None):
+            Desktop.new(desktop)
+        self.assertFalse(desktop._startup_project_choice)
+        desktop.status.set.assert_not_called()
+        desktop._request_tick_resume_after_first_paint.assert_not_called()
+
     def test_first_event_loop_is_bounded(self):
         """R697 口径：窗口构建完成后首次事件循环不超过 2.6 秒。"""
         try:

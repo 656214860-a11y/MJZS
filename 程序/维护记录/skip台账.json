@@ -300,6 +300,15 @@
     },
     {
       "file": "tests/test_desktop_startup_perf.py",
+      "test": "DesktopStartupPerfTests.test_empty_startup_cancel_finishes_loading_and_resumes_tick",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_startup_perf.py",
       "test": "DesktopStartupPerfTests.test_empty_project_first_paint_is_bounded",
       "ordinal": 1,
       "kind": "平台限制",
