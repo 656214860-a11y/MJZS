@@ -137,6 +137,9 @@ class TextHierarchyTests(_Harness):
         from ui_tokens import TEXT_DESC
         win = self.tk.Tk(); win.withdraw()
         self.addCleanup(win.destroy)
+        original_scaling = float(win.tk.call('tk', 'scaling'))
+        # Tk scaling is shared across interpreters in a reused test worker.
+        self.addCleanup(win.tk.call, 'tk', 'scaling', original_scaling)
         long_text = '这是需要完整保留并自动换行的资产说明。' * 18
         with tempfile.TemporaryDirectory() as td:
             for scaling in (1.0, 1.5, 2.0):
@@ -172,6 +175,18 @@ class TextHierarchyTests(_Harness):
                                            font.Font(root=win, font=label.cget('font')).metrics('linespace') * 2)
                     self.assertIn('（还没定稿：用下面的候选点一下，或点「编辑」自己写）', self.texts(content))
                     content.destroy()
+
+
+class ScalingIsolationTests(_Harness):
+    def test_text_hierarchy_restores_shared_tk_scaling(self):
+        win = self.tk.Tk(); win.withdraw()
+        self.addCleanup(win.destroy)
+        original = float(win.tk.call('tk', 'scaling'))
+        self.addCleanup(win.tk.call, 'tk', 'scaling', original)
+        result = unittest.TestResult()
+        unittest.defaultTestLoader.loadTestsFromTestCase(TextHierarchyTests).run(result)
+        self.assertTrue(result.wasSuccessful(), result.failures + result.errors)
+        self.assertAlmostEqual(float(win.tk.call('tk', 'scaling')), original, places=5)
 
 
 class EntryTests(_Harness):
