@@ -12,3 +12,7 @@ $env:PYTHONPATH = (Join-Path (Get-Location) 'tests')
 & 'D:\漫剧制作助手\运行环境\Python\python.exe' -m unittest test_keyframe architecture.test_keyframe_batch_json_boundary architecture.test_project_context_boundary
 & 'D:\漫剧制作助手\运行环境\Python\python.exe' -m py_compile keyframe_batch.py keyframe_import.py stage_execution_service.py
 ```
+
+## 提交凭据
+
+- 实现提交：`a365cb5`
