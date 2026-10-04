@@ -109,7 +109,8 @@
       "previs_routing",
       "tts_api",
       "storyboard_lifecycle",
-      "white_model_service"
+      "white_model_service",
+      "storyboard_catalog_service"
         ],
         "exempt_count": 8,
         "exempt_items": [
@@ -141,9 +142,7 @@
             "writing_roles",
             "writing_workflow"
         ],
-        "pending": [
-      "storyboard_catalog_service"
-        ]
+    "pending": []
     },
     "\u7b2c\u4e09\u9879": {
         "count": 0,
