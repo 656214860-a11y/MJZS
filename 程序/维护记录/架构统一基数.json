@@ -102,10 +102,11 @@
             "idea_attachments",
             "local_video_settings_service"
         ],
-        "exempt_count": 6,
+        "exempt_count": 7,
         "exempt_items": [
             "asset_batch_selection_service",
             "final_service",
+            "keyframe_lifecycle_service",
             "storyboard_edit_service",
             "storyboard_adoption_service",
             "storyboard_source_service",
@@ -114,6 +115,7 @@
         "exempt_reasons": {
             "asset_batch_selection_service": "R999：仅对调用方已加载的行进行选择、过滤与标签计算，不接收项目路径、设置或持久化能力。",
             "final_service": "R998：仅根据调用方提供的签名和忙碌状态返回派发决定，不读取项目路径、设置或持久化能力。",
+            "keyframe_lifecycle_service": "R1004：仅操作调用方指定分镜源的媒体目录及其 frames 子目录；正式发布器由 L3 注入，不接收项目根、阶段解析器或项目设置。",
             "storyboard_edit_service": "R1003：仅对调用方指定的 JSON 目标执行 L3 注入发布，不接收项目根、阶段解析器或项目设置。",
             "storyboard_adoption_service": "R999：仅根据调用方提供的状态返回自动采用轮询决定，不接收项目路径、设置或持久化能力。",
             "storyboard_source_service": "R1003：仅排序和读取调用方已选分镜源路径，不接收项目根、阶段解析器或项目设置。",
@@ -132,7 +134,6 @@
             "cloud_video_service",
             "idea_chat",
             "keyframe_batch",
-            "keyframe_lifecycle_service",
             "pet_performance_service",
             "pet_test_service",
             "previs_progress_service",
