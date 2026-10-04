@@ -2,6 +2,7 @@
 """run_selftests 的回归覆盖：门禁调度必须可恢复、可增量、不可遗留后台助手。"""
 import inspect
 import io
+import json
 import os
 import subprocess
 import sys
@@ -267,6 +268,18 @@ class IncrementalTests(unittest.TestCase):
             self.assertEqual(saved, os.path.join(folder, 'full-safe-receipts.json'))
             self.assertFalse(os.path.exists(os.path.join(folder, 'tracked.json')))
             self.assertEqual(run_selftests.load_layer_document()['full_safe_verified_trees'][0]['tree'], 'tree')
+
+    def test_legacy_tracked_receipt_fields_never_become_authority(self):
+        with tempfile.TemporaryDirectory() as folder:
+            tracked = os.path.join(folder, 'tracked.json')
+            with io.open(tracked, 'w', encoding='utf-8') as handle:
+                json.dump({'last_full_safe_all_round': 868,
+                           'full_safe_verified_trees': [{'tree': 'stale', 'round': 868}]}, handle)
+            with mock.patch.object(run_selftests, 'git_common_dir', return_value=folder), \
+                 mock.patch.object(run_selftests, 'layer_baseline_path', return_value=tracked):
+                document = run_selftests.load_layer_document()
+        self.assertEqual(document['last_full_safe_all_round'], 0)
+        self.assertEqual(document['full_safe_verified_trees'], [])
 
     def test_content_tree_checks_repository_root(self):
         with mock.patch.object(run_selftests, '_git_text', return_value=' M CLAUDE.md') as git:

@@ -160,7 +160,7 @@
 
     - 架构门禁：R965 已验证 279/279（不得低于历史 14/14）
 
-    - 全量回归与欠账：以 Git common-dir 的 `full-safe-receipts.json` 中真实 `{tree, round, seconds, at}` 为准；主干每 3 轮要求全量，同内容树七日内可引用绿凭据。当前实测数字见第 5 节，禁止用文档声明代替凭据。
+    - 全量回归与欠账：唯一权威是 Git common-dir 的 `full-safe-receipts.json` 中真实 `{tree, round, seconds, at}`；`维护记录/测试分层基线.json` 不保存也不回退全量轮次或内容树。主干每 3 轮要求全量，同内容树七日内可引用绿凭据。
 
 30. \*\*桌面主动后台任务\*\*：`Desktop.async_()` 的提交、逻辑取消、成功／失败收尾与迟到结果拒绝必须经 `BackgroundTaskLifecycle`；取消不强杀任意 Python 线程，但已取消或被新代次替换的结果不得触发 UI 回调。
 
@@ -248,7 +248,7 @@
   - 只读诊断：不跑测试。
   - 纯服务／小拆分：`smoke_test.py` ＋ `run_selftests.py -k <本轮改动模块>`。
   - 跨层改动（同一轮触及 ≥2 个层级）：上一条 ＋ `smoke_test.py --architecture`。越层与契约漂移由架构门禁每轮拦截，不以全量自检替代。
-  - 完整安全全量 `run_selftests.py --all --safe` 是**合并到 `master` 的提交点门禁**：主干提交序列相对 `last_full_safe_all_round` 每满 3 轮、路线图条目收口、发布前或用户明确要求时执行。分支/worktree 每轮只需默认冒烟 8/8、架构门禁、定向和默认增量；不得因分支轮次累计全量欠账。主干全量绿后把 `{tree, round, seconds, at}` 写入 `full_safe_verified_trees`；七日内同 `HEAD:程序` 内容树引用该凭据而免跑。
+  - 完整安全全量 `run_selftests.py --all --safe` 是**合并到 `master` 的提交点门禁**：主干提交序列相对 `last_full_safe_all_round` 每满 3 轮、路线图条目收口、发布前或用户明确要求时执行。分支/worktree 每轮只需默认冒烟 8/8、架构门禁、定向和默认增量；不得因分支轮次累计全量欠账。主干全量绿后把 `{tree, round, seconds, at}` 写入 common-dir `full-safe-receipts.json` 内的 `full_safe_verified_trees`；七日内同 `HEAD:程序` 内容树引用该凭据而免跑。
   - 例外升级只在**合并到 `master` 前的门禁**生效（当次即跑全量，不等满 3 轮）：改动触及启动路径（`启动漫剧制作助手.pyw`／`启动助手.cmd`）、Tk 控件生命周期或事件绑定（`pet_ui.py`、`skill_panel.py`、`ui_widgets.py`）、删除语义（`storage_maintenance.py`）、层级登记表 `tests/architecture/_layers.py`。仅替换 `desktop.py` 内的注入点／调用入口、不改 Tk 控件与事件绑定的，不升级。
   - SKILL 说明文件（`skills/**/*.md`）改动不得与代码改动同轮：`run_selftests.py` 的 `data_moved` 判定会让增量台账整表失效。
 

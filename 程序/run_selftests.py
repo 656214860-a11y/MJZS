@@ -477,19 +477,25 @@ def load_layer_document():
     except (OSError, ValueError):
         document = {}
     document = document if isinstance(document, dict) else {}
+    # 台账是可追溯的分层配置，不是全量凭据的后备来源；旧工作树遗留字段也不能回退凭据。
+    document.pop('full_safe_verified_trees', None)
+    document.pop('last_full_safe_all_round', None)
+    receipts = {}
     try:
         with io.open(full_safe_receipts_path(), encoding='utf-8') as handle:
             receipts = json.load(handle)
-        if isinstance(receipts, dict):
-            document['full_safe_verified_trees'] = receipts.get('full_safe_verified_trees', [])
-            document['last_full_safe_all_round'] = receipts.get('last_full_safe_all_round',
-                                                               document.get('last_full_safe_all_round', 0))
-            # 兼容 R962/R963 只写树凭据、没有同步 last_full 字段的真实绿记录。
-            rounds = [item.get('round', 0) for item in document['full_safe_verified_trees']
-                      if isinstance(item, dict) and isinstance(item.get('round'), int)]
-            document['last_full_safe_all_round'] = max([document['last_full_safe_all_round']] + rounds)
     except (OSError, ValueError):
-        pass
+        receipts = {}
+    if isinstance(receipts, dict):
+        document['full_safe_verified_trees'] = receipts.get('full_safe_verified_trees', [])
+        document['last_full_safe_all_round'] = receipts.get('last_full_safe_all_round', 0)
+        # 兼容 R962/R963 只写树凭据、没有同步 last_full 字段的真实绿记录。
+        rounds = [item.get('round', 0) for item in document['full_safe_verified_trees']
+                  if isinstance(item, dict) and isinstance(item.get('round'), int)]
+        document['last_full_safe_all_round'] = max([document['last_full_safe_all_round']] + rounds)
+    else:
+        document['full_safe_verified_trees'] = []
+        document['last_full_safe_all_round'] = 0
     return document
 
 
