@@ -27,8 +27,10 @@ class ProjectContextTests(unittest.TestCase):
             self.assertEqual(result.data.parent.name, '12质检交付')
 
     def test_asset_project_services_accept_injected_context(self):
+        from asset_batch_service import auto_settings
         from asset_batch_state_service import ledger_path, read_ledger
         from asset_context import library_dir
+        from asset_generated_import_service import pending_generated
         from stage_execution_service import project_context
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'project'; root.mkdir()
@@ -40,3 +42,5 @@ class ProjectContextTests(unittest.TestCase):
             self.assertEqual(ledger_path(context=context), ledger)
             self.assertEqual(read_ledger(context=context), {'CHAR_001': {}})
             self.assertEqual(library_dir(context=context), root / '04资产管理')
+            self.assertEqual(auto_settings(context=context), {})
+            self.assertEqual(pending_generated(None, root / '04资产管理', context=context), [])

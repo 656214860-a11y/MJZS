@@ -38,7 +38,8 @@ class ProjectContextBoundaryTests(unittest.TestCase):
 
     def test_asset_domain_services_consume_but_do_not_construct_context(self):
         for name in ('asset_context.py', 'asset_batch_lifecycle.py',
-                     'asset_batch_state_service.py'):
+                     'asset_batch_state_service.py', 'asset_batch_service.py',
+                     'asset_detail_service.py', 'asset_generated_import_service.py'):
             tree = _tree(name)
             constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                             and getattr(node.func, 'id', '') == 'ProjectContext']

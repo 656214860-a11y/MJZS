@@ -5,9 +5,22 @@ import uuid
 from pathlib import Path
 
 from file_cache import read_json
+from project_context import ProjectContext
 
 KINDS = {'CHAR': ('characters', '角色'), 'LOC': ('scenes', '场景'),
          'PROP': ('props', '道具')}
+
+
+def _project_root(project=None, *, context=None):
+    """项目级计划消费 L3 注入上下文；保留旧路径调用的兼容边界。"""
+    if context is None:
+        return Path(project).resolve()
+    if not isinstance(context, ProjectContext):
+        raise TypeError('资产批次计划需要由 L3 注入 ProjectContext。')
+    root = context.root.resolve()
+    if project is not None and Path(project).resolve() != root:
+        raise ValueError('项目路径与注入的 ProjectContext 不一致。')
+    return root
 
 
 def _require_gateway(gateway):
@@ -287,13 +300,13 @@ def batch_complete(base, aids):
     return all(image_ready(base, aid, registry=registry) for aid in aids)
 
 
-def automatic_plan(project, base, sources, settings, scope='adopted', *, gateway=None):
+def automatic_plan(project, base, sources, settings, scope='adopted', *, gateway=None, context=None):
     """Return independently generatable assets without constructing any Tk UI."""
     from asset_plan import _sync_plan
     from asset_prompt_rules import issues
     from prop_assets import requires_asset
 
-    project = Path(project)
+    project = _project_root(project, context=context)
     base = Path(base)
     rows = _sync_plan(project, base, sources, scope=scope, gateway=gateway)
     ready = []
@@ -316,38 +329,40 @@ def automatic_plan(project, base, sources, settings, scope='adopted', *, gateway
     return ready, skipped
 
 
-def auto_settings(project):
+def auto_settings(project=None, *, context=None):
     """Return persisted unattended asset-batch settings without constructing UI."""
     from project_settings import read_prefs
-    prefs = read_prefs(Path(project) / 'ui_settings.json')
+    prefs = read_prefs(_project_root(project, context=context) / 'ui_settings.json')
     saved = prefs.get('asset_batch', {})
     return dict(saved) if isinstance(saved, dict) else {}
 
 
-def current_model(project):
+def current_model(project=None, *, context=None):
     """Resolve the asset model from the same stage configuration as execution."""
     from cloud_assets import LOCAL, MODELS
     from stage_model_value import value as configured_value
     try:
-        value = configured_value(project, 'assets')
+        value = configured_value(_project_root(project, context=context), 'assets')
     except (OSError, ValueError, TypeError, KeyError):
         value = ''
     choices = [LOCAL, *MODELS]
     if value in choices:
         return value
     if value not in choices:
-        legacy = str(auto_settings(project).get('backend') or '').strip()
+        legacy = str(auto_settings(project, context=context).get('backend') or '').strip()
         if legacy in choices:
             return legacy
     return LOCAL
 
 
-def unattended_plan(project, base, sources, scope='adopted', *, gateway=None):
+def unattended_plan(project, base, sources, scope='adopted', *, gateway=None, context=None):
     """Build an unattended plan together with its persisted batch settings."""
-    saved = auto_settings(project)
+    project = _project_root(project, context=context)
+    saved = auto_settings(project, context=context)
     if not saved:
         raise ValueError('请先打开一次「批量资产」窗口并保存生图设置，再开启无人值守自动补资产')
-    ready, skipped = automatic_plan(project, base, sources, saved, scope, gateway=gateway)
+    ready, skipped = automatic_plan(project, base, sources, saved, scope,
+                                    gateway=gateway, context=context)
     return ready, skipped, saved
 
 

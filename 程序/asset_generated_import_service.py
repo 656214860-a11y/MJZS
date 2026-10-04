@@ -5,6 +5,18 @@ from pathlib import Path
 from file_cache import remove_temporary_file
 
 from agent.core import read
+from project_context import ProjectContext
+
+
+def _project_root(project=None, *, context=None):
+    if context is None:
+        return Path(project).resolve()
+    if not isinstance(context, ProjectContext):
+        raise TypeError('生成资产导入需要由 L3 注入 ProjectContext。')
+    root = context.root.resolve()
+    if project is not None and Path(project).resolve() != root:
+        raise ValueError('项目路径与注入的 ProjectContext 不一致。')
+    return root
 
 
 def cleanup_batches(folder, days=7):
@@ -30,11 +42,11 @@ def generated_plan(base):
     return plan if isinstance(plan, dict) else {}
 
 
-def pending_generated_files(project, base, plan=None):
+def pending_generated_files(project, base, plan=None, *, context=None):
     """返回尚未登记、可自动导入的 (目录, 文件, 资产编号)；只扫描不写盘。"""
     from asset_context import generated_dir
     from asset_batch_service import image_ready
-    project = Path(project)
+    project = _project_root(project, context=context)
     base = Path(base).resolve()
     plan = generated_plan(base) if plan is None else plan
     if not plan:
@@ -54,12 +66,12 @@ def pending_generated_files(project, base, plan=None):
     return found
 
 
-def pending_generated(project, base):
+def pending_generated(project, base, *, context=None):
     """返回尚未登记的生成图资产编号。"""
-    return [aid for _, _, aid in pending_generated_files(project, base)]
+    return [aid for _, _, aid in pending_generated_files(project, base, context=context)]
 
 
-def import_pending_generated(project, base, report=None, *, gateway=None):
+def import_pending_generated(project, base, report=None, *, gateway=None, context=None):
     """自动导入未登记生成图；JPEG 等格式统一转换为 PNG。"""
     from asset_batch_service import register_image
     from native_asset_codec import to_png
@@ -68,7 +80,7 @@ def import_pending_generated(project, base, report=None, *, gateway=None):
         raise RuntimeError('生成资产导入必须由 L3 注入')
     plan = generated_plan(base)
     done = []
-    for folder, path, aid in pending_generated_files(project, base, plan):
+    for folder, path, aid in pending_generated_files(project, base, plan, context=context):
         try:
             tmp = folder / (aid + '_autoimport.png')
             publish_bytes(tmp, to_png(path.read_bytes()))

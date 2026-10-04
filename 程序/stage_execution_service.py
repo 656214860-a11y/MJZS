@@ -231,7 +231,8 @@ def apply_asset_plan_gate_choice(project, key, choice, episode_dir=''):
 def plan_unattended_assets(project, base, sources, scope='adopted'):
     """L3 为无人值守资产计划装配唯一的发布网关。"""
     from asset_batch_service import unattended_plan
-    return unattended_plan(project, base, sources, scope, gateway=asset_plan_gateway())
+    return unattended_plan(project, base, sources, scope, gateway=asset_plan_gateway(),
+                           context=project_context(project))
 
 
 def note_asset_resume_round(project, ids, limit=None, now=None):
@@ -292,7 +293,7 @@ def bind_asset_canonical_view(project, episode_dir, aid, view, source):
     """L3 编排资产详情正典板绑定。"""
     from asset_detail_service import bind_canonical_view
     result = bind_canonical_view(project, episode_dir, aid, view, source,
-                                gateway=asset_detail_gateway())
+                                gateway=asset_detail_gateway(), context=project_context(project))
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
@@ -302,10 +303,23 @@ def bind_asset_variant_thumbnail(project, episode_dir, aid, state_id, source):
     """L3 编排资产详情状态变体缩略图绑定。"""
     from asset_detail_service import bind_variant_thumbnail
     result = bind_variant_thumbnail(project, episode_dir, aid, state_id, source,
-                                   gateway=asset_detail_gateway())
+                                   gateway=asset_detail_gateway(), context=project_context(project))
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
+
+
+def pending_generated_assets(project, base):
+    """L3 统一装配自动导入生成资产时的项目上下文。"""
+    from asset_generated_import_service import pending_generated
+    return pending_generated(project, base, context=project_context(project))
+
+
+def import_pending_generated_assets(project, base, report=None):
+    """L3 装配生成资产导入所需的上下文与发布网关。"""
+    from asset_generated_import_service import import_pending_generated
+    return import_pending_generated(project, base, report, gateway=asset_batch_gateway(),
+                                    context=project_context(project))
 
 
 def tts_gateway():

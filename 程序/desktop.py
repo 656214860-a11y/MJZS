@@ -3607,14 +3607,14 @@ class Desktop:
         """项目加载后自动导入生成目录里尚未登记的资产图：重启软件即可生效，无需先进资产页。"""
         if not self.root:return
         try:
-            from asset_generated_import_service import pending_generated
-            if not pending_generated(self.root,self.asset_base()):return
+            from stage_execution_service import pending_generated_assets
+            if not pending_generated_assets(self.root,self.asset_base()):return
         except Exception as exc:
             self.status.set('生成资产检查未完成：%s；请稍后重试。' % exc)
             return
         def work():
-            from asset_generated_import_service import import_pending_generated
-            imported=import_pending_generated(self.root,self.asset_base(),gateway=self.asset_batch_gateway())
+            from stage_execution_service import import_pending_generated_assets
+            imported=import_pending_generated_assets(self.root,self.asset_base())
             return ('已自动导入生成资产图：'+'、'.join(imported)) if imported else '生成资产检查完成'
         try:self.async_(work)
         except Exception as exc:
@@ -5376,8 +5376,8 @@ class Desktop:
             open_path(self.asset_base())
         SecondaryButton(imgs,text='资产目录',command=lambda:self.safe(open_library)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         try:
-            from asset_generated_import_service import import_pending_generated
-            imported=import_pending_generated(self.root, self.asset_base(), self.status.set, gateway=self.asset_batch_gateway())
+            from stage_execution_service import import_pending_generated_assets
+            imported=import_pending_generated_assets(self.root, self.asset_base(), self.status.set)
             if imported:self.status.set('已自动导入生成资产图：'+'、'.join(imported))
         except Exception as exc:
             self.note('生成图自动导入暂缓：'+str(exc))

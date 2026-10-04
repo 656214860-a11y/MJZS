@@ -10,11 +10,23 @@ import logging
 
 from agent.core import temporary_path
 from asset_context import library_dir
-from asset_plan import plan_file, _update_fields
+from asset_plan import plan_file, _update_fields as update_fields
 from file_cache import remove_temporary_file
+from project_context import ProjectContext
 from service_contract import SystemError, UserError, success
 
 _IMAGE_SUFFIXES = frozenset({'.png', '.jpg', '.jpeg', '.webp'})
+
+
+def _project_root(project=None, *, context=None):
+    if context is None:
+        return Path(project).resolve()
+    if not isinstance(context, ProjectContext):
+        raise TypeError('资产详情服务需要由 L3 注入 ProjectContext。')
+    root = context.root.resolve()
+    if project is not None and Path(project).resolve() != root:
+        raise ValueError('项目路径与注入的 ProjectContext 不一致。')
+    return root
 
 
 class _BindingInputError(ValueError):
@@ -50,12 +62,12 @@ def _safe_part(value, label):
     return value
 
 
-def _publish(project, episode_dir, aid, source, suffix, values, *, gateway=None):
+def _publish(project, episode_dir, aid, source, suffix, values, *, gateway=None, context=None):
     """先原子替换图片，再发布索引；索引失败时恢复两侧旧状态。"""
     publish_bytes = gateway.get('publish_bytes') if isinstance(gateway, dict) else None
     if not callable(publish_bytes):
         raise RuntimeError('资产详情发布必须由 L3 注入')
-    project = Path(project).resolve()
+    project = _project_root(project, context=context)
     base = library_dir(project, episode_dir)
     aid = _safe_part(aid, '资产编号')
     source = _source(source)
@@ -73,7 +85,7 @@ def _publish(project, episode_dir, aid, source, suffix, values, *, gateway=None)
             folder.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, temporary)
             os.replace(temporary, dest)
-        _update_fields(project, episode_dir, aid, values, gateway=gateway)
+        update_fields(project, episode_dir, aid, values, gateway=gateway)
     except Exception:
         if copied:
             if old_dest is None:
@@ -91,10 +103,11 @@ def _publish(project, episode_dir, aid, source, suffix, values, *, gateway=None)
 
 
 @_binding_result
-def bind_canonical_view(project, episode_dir, aid, view, source, *, gateway=None):
+def bind_canonical_view(project, episode_dir, aid, view, source, *, gateway=None, context=None):
     """绑定正典板视角，并让 front 同步成为默认正典板。"""
     view = _safe_part(view, '正典板视角')
     current = {}
+    project = _project_root(project, context=context)
     index = plan_file(project, episode_dir)
     if index.is_file():
         from agent.core import read
@@ -106,15 +119,17 @@ def bind_canonical_view(project, episode_dir, aid, view, source, *, gateway=None
     values = {'canon_board_views': current}
     if view == 'front':
         values['canonical_board'] = relative
-    return _publish(project, episode_dir, aid, source, view, values, gateway=gateway)
+    return _publish(project, episode_dir, aid, source, view, values,
+                    gateway=gateway, context=context)
 
 
 @_binding_result
-def bind_variant_thumbnail(project, episode_dir, aid, state_id, source, *, gateway=None):
+def bind_variant_thumbnail(project, episode_dir, aid, state_id, source, *, gateway=None, context=None):
     """绑定一个既有状态变体的缩略图。"""
     from agent.core import read
     from asset_contract import state_variants
     state_id = _safe_part(state_id, '状态变体编号')
+    project = _project_root(project, context=context)
     index = plan_file(project, episode_dir)
     data = read(index) if index.is_file() else {}
     asset = data.get(str(aid), {}) if isinstance(data, dict) else {}
@@ -124,4 +139,4 @@ def bind_variant_thumbnail(project, episode_dir, aid, state_id, source, *, gatew
         raise _BindingInputError('这一条状态变体已经不在了，请刷新')
     target['reference_image'] = 'assets/正典板/' + str(aid).strip() + '_' + state_id + '_变体' + Path(source).suffix.lower()
     return _publish(project, episode_dir, aid, source, state_id + '_变体',
-                    {'state_variants': rows}, gateway=gateway)
+                    {'state_variants': rows}, gateway=gateway, context=context)
