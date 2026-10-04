@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """run_selftests 的回归覆盖：门禁调度必须可恢复、可增量、不可遗留后台助手。"""
 import inspect
+import io
 import os
 import subprocess
 import sys
@@ -235,6 +236,23 @@ class IncrementalTests(unittest.TestCase):
             return 'head-tree'
         with mock.patch.object(run_selftests, '_git_text', side_effect=git_response):
             self.assertEqual(run_selftests.content_tree(), '')
+
+    def test_full_safe_preflight_refuses_dirty_tree_with_file_location(self):
+        with mock.patch.object(run_selftests, 'checkout_dirty_entries',
+                               return_value=('D:/repo', [' M desktop.py', '?? scratch.txt'])):
+            with mock.patch('sys.stdout', new_callable=io.StringIO) as output:
+                self.assertEqual(run_selftests.full_safe_preflight(), (False, ''))
+        text = output.getvalue()
+        self.assertIn('脏树不会产凭据', text)
+        self.assertIn('D:/repo:  M desktop.py', text)
+        self.assertIn('D:/repo: ?? scratch.txt', text)
+
+    def test_full_safe_preflight_allows_diagnostic_without_a_tree(self):
+        with mock.patch.object(run_selftests, 'checkout_dirty_entries',
+                               return_value=('D:/repo', [' M desktop.py'])):
+            with mock.patch('sys.stdout', new_callable=io.StringIO) as output:
+                self.assertEqual(run_selftests.full_safe_preflight(True), (True, ''))
+        self.assertIn('[NO_RECEIPT]', output.getvalue())
 
     def test_empty_tree_never_matches_a_receipt(self):
         record = {'tree': '', 'at': datetime.now().isoformat()}

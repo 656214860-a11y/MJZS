@@ -120,6 +120,7 @@ r.release_gui_lock(p)
             stack.enter_context(mock.patch.object(runner, 'git_common_dir', return_value=common))
             for name, value in {'test_modules': ['test_demo'], 'gui_test_module': True,
                                 'load_layer_document': {}, 'content_tree': 'tree',
+                                'full_safe_preflight': (True, 'tree'),
                                 '_git_text': 'head', 'latest_completed_round': 965}.items():
                 stack.enter_context(mock.patch.object(runner, name, return_value=value))
             def check_order():

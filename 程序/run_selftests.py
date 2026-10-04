@@ -12,6 +12,7 @@ test_pet_ui／test_ui_edges 各自七八十秒，整跑就被它们俩顶住了�
   python run_selftests.py --whole          # 不拆大文件（一个文件一路，出问题时对照用）
   python run_selftests.py --safe           # 无 Tk 并行、Tk 最多 4 路受控并行，性能用例独占串行
   python run_selftests.py --all --safe --force # 忽略同内容树绿凭据，强制再跑一轮全量复核
+  python run_selftests.py --all --safe --allow-dirty-diagnostic # 脏树仅诊断，不记账
   python run_selftests.py -k pet keyframe  # 只跑文件名含这些片段的用例（改哪儿跑哪儿）
   python run_selftests.py --list           # 只列会跑哪些文件
   python run_selftests.py --all            # 不管改没改过，全部重跑一遍，并刷新增量台账
@@ -380,13 +381,41 @@ def layer_baseline_path():
 def content_tree():
     """返回 HEAD 中程序目录的内容树；未提交改动不应拿旧树替代验证。"""
     try:
-        if _git_text('status', '--porcelain', '--untracked-files=normal', '--', ':/'):
+        if checkout_dirty_entries()[1]:
             return ''
         root = _git_text('rev-parse', '--show-toplevel')
         relative = os.path.relpath(HERE, root).replace(os.sep, '/')
         return _git_text('rev-parse', 'HEAD:' + relative)
     except (OSError, ValueError, subprocess.SubprocessError):
         return ''
+
+
+def checkout_dirty_entries():
+    """返回 content_tree 同一口径下的当前树脏文件，供全量凭据前置断言复用。"""
+    try:
+        root = _git_text('rev-parse', '--show-toplevel')
+        status = _git_text('status', '--porcelain', '--untracked-files=normal', '--', ':/')
+        return root, [line for line in status.splitlines() if line.strip()]
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return '', ['<无法读取 git status>']
+
+
+def full_safe_preflight(allow_dirty_diagnostic=False):
+    """在持有全量锁后、启动子进程前检查凭据所需的干净内容树。"""
+    root, dirty = checkout_dirty_entries()
+    if dirty:
+        print('拒绝全量测量：脏树不会产凭据；以下文件尚未收口：')
+        for entry in dirty:
+            print('  %s: %s' % (root or '<当前工作树>', entry))
+        if not allow_dirty_diagnostic:
+            return False, ''
+        print('[NO_RECEIPT] --allow-dirty-diagnostic：仅诊断，不写入绿凭据或测试台账。')
+        return True, ''
+    tree = content_tree()
+    if not tree:
+        print('拒绝全量测量：无法确认内容树；脏树不会产凭据。')
+        return False, ''
+    return True, tree
 
 
 def is_master_checkout():
@@ -1005,6 +1034,7 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     keys, jobs, serial, listing, whole = [], 0, False, False, False
     everything, safe, force, layer = False, False, False, ''
+    allow_dirty_diagnostic = False
     gui_override = None
     gui_wait = GUI_WAIT_SECONDS
     gui_lock = None
@@ -1022,6 +1052,8 @@ def main(argv=None):
             safe = True
         elif arg == '--force':
             force = True
+        elif arg == '--allow-dirty-diagnostic':
+            allow_dirty_diagnostic = True
         elif arg == '--all':
             everything = True
         elif arg == '--incremental':
@@ -1058,6 +1090,7 @@ def main(argv=None):
             print(name)
         return 0
     full_safe = everything and safe and not keys and not layer
+    no_receipt = full_safe and allow_dirty_diagnostic
     start_head = ''
     tree = content_tree() if full_safe else ''
     verified = verified_tree_record(load_layer_document().get('full_safe_verified_trees', []), tree)
@@ -1072,13 +1105,15 @@ def main(argv=None):
             print(str(exc))
             return 2
         atexit.register(release_full_safe_lock, lock)
-        tree = content_tree()
-        start_head = _git_text('rev-parse', 'HEAD')
-        if not tree:
-            print('拒绝全量测量：仓库 git status --porcelain 非空；请先收口工作树。')
+        permitted, tree = full_safe_preflight(allow_dirty_diagnostic)
+        if not permitted:
+            atexit.unregister(release_full_safe_lock)
             release_full_safe_lock(lock)
+            lock = None
             return 2
-        print('验收起点：HEAD=%s，工作树干净' % start_head)
+        start_head = _git_text('rev-parse', 'HEAD') if tree else ''
+        if tree:
+            print('验收起点：HEAD=%s，工作树干净' % start_head)
     if not serial and not jobs:
         jobs = max(2, min(JOBS_CAP, (os.cpu_count() or 4)))
     try:
@@ -1155,10 +1190,12 @@ def main(argv=None):
             print('[SUSPECT_CONCURRENCY] 红项发生时有其他 PID 持有 GUI 令牌；建议串行复跑。')
         if deferred:
             print('[GUI_DEFERRED] 未执行、不计通过：' + ' '.join(deferred))
-        if full_safe and not measurement_unchanged(start_head, tree):
+        if full_safe and not no_receipt and not measurement_unchanged(start_head, tree):
             print('验收无效：测量期间 HEAD 或工作树变化，不写入绿凭据。')
             raise SystemExit(2)
-        baseline = '' if deferred else save_layer_baseline(layer, got, elapsed)
+        if no_receipt:
+            print('[NO_RECEIPT] 本次仅诊断：不写入绿凭据、分层基线或增量台账。')
+        baseline = '' if (deferred or no_receipt) else save_layer_baseline(layer, got, elapsed)
         if baseline:
             print('分层基线已刷新：' + baseline)
         if fails or reds:
@@ -1168,12 +1205,12 @@ def main(argv=None):
             raise SystemExit(1)
         if deferred:
             return 2
-        if full_safe and tree and is_master_checkout():
+        if full_safe and not no_receipt and tree and is_master_checkout():
             saved = save_full_safe_verification(tree, latest_completed_round(), elapsed)
             if saved:
                 print('内容树全量凭据已刷新：' + saved)
-        timings = record_elapsed(cache, state, elapsed)
-        written = save_cache(state)
+        timings = record_elapsed(cache, state, elapsed) if not no_receipt else None
+        written = save_cache(state) if not no_receipt else ''
         if written:
             print('增量台账已刷新：' + written)
             print('最近 %d 轮自检中位基线：%.1f 秒' % (len(timings['recent_seconds']), timings['median_seconds']))
