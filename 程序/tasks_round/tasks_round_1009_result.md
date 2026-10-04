@@ -15,3 +15,7 @@ $env:PYTHONPATH = (Join-Path (Get-Location) 'tests')
 ```
 
 上述定向验证共 52 项通过。完整 `test_idea_chat` 在本机执行至最后一个既有 Tk 用例时超过 30 秒工具时限；此前 70 余项均通过，未将该超时计为通过。
+
+## 提交凭据
+
+- 实现提交：`85e9ecd`
