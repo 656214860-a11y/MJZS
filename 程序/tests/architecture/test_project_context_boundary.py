@@ -146,6 +146,17 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def storyboard_catalog(', orchestrator)
         self.assertIn('catalog(project_context(project)', orchestrator)
 
+    def test_tts_consumes_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'tts_api.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn('def _context(value)', source)
+        self.assertIn('audio(_context(context).root)', source)
+        self.assertNotIn('ProjectContext(', source)
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('def reusable_tts_full_track(', orchestrator)
+        self.assertIn('publish_full_track(project_context(project)', orchestrator)
+        self.assertIn('reusable_full_track(project_context(project)', orchestrator)
+
     def test_storyboard_path_only_services_are_explicit_context_exemptions(self):
         for name in ('keyframe_lifecycle_service.py', 'previs_progress_service.py', 'storyboard_edit_service.py',
                      'storyboard_source_service.py'):

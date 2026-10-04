@@ -106,7 +106,8 @@
       "local_video_settings_service",
       "pet_performance_service",
       "pet_test_service",
-      "previs_routing"
+      "previs_routing",
+      "tts_api"
         ],
         "exempt_count": 8,
         "exempt_items": [
@@ -140,8 +141,7 @@
         ],
         "pending": [
       "storyboard_catalog_service",
-            "storyboard_lifecycle",
-            "tts_api",
+      "storyboard_lifecycle",
             "white_model_service"
         ]
     },

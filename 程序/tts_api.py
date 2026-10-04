@@ -7,6 +7,7 @@ import os
 import re
 from pathlib import Path
 from agent.core import read_json
+from project_context import ProjectContext
 from urllib.parse import urlparse
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要请求语音接口时用得到——都改成函数内 import。
@@ -36,6 +37,13 @@ def _require_gateway(gateway, *operations):
     if missing:
         raise TypeError("TTS gateway 缺少：" + "、".join(missing))
     return gateway
+
+
+def _context(value):
+    """TTS 的项目阶段路径只能由 L3 注入的上下文解析。"""
+    if not isinstance(value, ProjectContext):
+        raise TypeError("TTS 项目路径需要由 L3 注入 ProjectContext")
+    return value
 
 
 def write_settings(data, *, gateway=None):
@@ -154,10 +162,10 @@ def script_signature(text, settings=None):
     return hashlib.sha256(json.dumps(payload_, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
 
 
-def reusable_full_track(project, signature):
+def reusable_full_track(context, signature):
     """Return the completed whole-track audio for an unchanged paid request, if any."""
     from project_stages import audio
-    marker = audio(project) / '整段配音.json'
+    marker = audio(_context(context).root) / '整段配音.json'
     previous = read_json(marker) if marker.is_file() else {}
     path = Path(previous.get('file', '')) if isinstance(previous, dict) else Path()
     if (isinstance(previous, dict) and previous.get('signature') == signature
@@ -166,10 +174,10 @@ def reusable_full_track(project, signature):
     return None
 
 
-def publish_full_track(project, signature, raw, *, gateway=None):
+def publish_full_track(context, signature, raw, *, gateway=None):
     """Publish complete audio before its idempotence marker, preserving media on marker failure."""
     from project_stages import audio
-    folder = audio(project)
+    folder = audio(_context(context).root)
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / ('配音_' + os.urandom(3).hex() + '.mp3')
     publish = _require_gateway(gateway, "publish_json", "publish_bytes")

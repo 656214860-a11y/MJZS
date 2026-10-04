@@ -6534,7 +6534,8 @@ class Desktop:
         # 整段配音一次就是一次付费请求：台词与音色都没变、文件还在时直接沿用，双击或重复点击
         # 不会再扣一次费；改台词、改模型或改音色会得到新指纹，才重新合成。
         signature=tts_api.script_signature(script)
-        previous=tts_api.reusable_full_track(self.root,signature)
+        from stage_execution_service import reusable_tts_full_track
+        previous=reusable_tts_full_track(self.root,signature)
         if previous:
             self.status.set('配音台词与音色都没变，沿用已有配音：'+str(previous)+'（未重复扣费）');return
         def work():

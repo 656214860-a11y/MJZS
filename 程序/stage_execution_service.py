@@ -353,7 +353,13 @@ def save_tts_key(base_url, model, voice, key, voices=None, speeds=None):
 
 def publish_tts_full_track(project, signature, raw):
     from tts_api import publish_full_track
-    return publish_full_track(project, signature, raw, gateway=tts_gateway())
+    return publish_full_track(project_context(project), signature, raw, gateway=tts_gateway())
+
+
+def reusable_tts_full_track(project, signature):
+    """L3 为整段配音复用检查注入项目上下文。"""
+    from tts_api import reusable_full_track
+    return reusable_full_track(project_context(project), signature)
 
 
 def run_tts_lines(lines, folder, generate=None, report=None, stop=None):
