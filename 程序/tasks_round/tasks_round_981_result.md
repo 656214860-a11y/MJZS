@@ -8,4 +8,4 @@
 
 后续范围风险：旧豁免中的 edit_service、handoff_service、cloud_video_service、asset_detail_service、asset_generated_import_service、idea_attachments 实际包含写入口，须复审，不能把旧豁免当成已完成。此次三项只读结论不适用于它们。
 
-[TASK_FAILED] 整体门禁未全绿，不宣告路线图收口。待记录诊断性提交凭据。
+[TASK_FAILED] 整体门禁未全绿，不宣告路线图收口。已诊断性提交 `641e1c1`，仅在 `codex/architecture-contracts`，未同步 master。
