@@ -53,8 +53,13 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         adopters = set(item['adopters'])
         pending = set(item['pending'])
         exempt = set(item['exempt_items'])
-        self.assertFalse(adopters & pending)
-        self.assertFalse(adopters & exempt)
-        self.assertFalse(pending & exempt)
-        self.assertEqual(len(adopters | pending | exempt), 37)
+        historical = set(item['historical_name_audit_pending'])
+        self.assertFalse((adopters & pending) | (adopters & exempt) | (adopters & historical))
+        self.assertFalse((pending & exempt) | (pending & historical) | (exempt & historical))
+        self.assertEqual(len(adopters | pending | exempt | historical), 37)
         self.assertEqual(item['exempt_count'], len(exempt))
+        missing = {name for name in historical
+                   if not (Path(ROOT, name + '.py').is_file()
+                           or Path(ROOT, name, '__init__.py').is_file())}
+        self.assertEqual(missing, historical,
+                         '历史名称必须单独追溯，不得伪装成已迁移或现行待办')
