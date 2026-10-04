@@ -167,7 +167,7 @@ def _complete_brief(project):
     """读取并按唯一契约复核已确认简报；缺失文件保留既有普通对话路径。"""
     import idea_chat
     from script_contract import brief_document
-    from stage_execution_service import project_context
+    from project_context_factory import project_context
     path = idea_chat.brief_complete_path(project_context(project))
     # 已迁移项目只从当前阶段读取；历史项目保留一次只读兼容，避免因目录升级
     # 退化为普通单轮聊天。后续保存始终由当前阶段目录负责，绝不复制回旧 writing。
@@ -357,11 +357,11 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
         return _hollmwood_reply(root, chosen, record, settings, complete_brief,
                                 progress=progress, cancelled=cancelled, stream=stream, publish=publish)
     from workflow_context_controller import publish_writing_context
-    context = publish_writing_context(root, 'writing', workflow_context.snapshot(root))
+    from project_context_factory import project_context
+    context = publish_writing_context(root, 'writing', workflow_context.snapshot(project_context(root)))
     task = script_prompt(root, None, 'writing', creative_text=creative)
     if brief is not None:
         task += '\n\n<brief_complete>\n' + json.dumps(brief, ensure_ascii=False, indent=2) + '\n</brief_complete>'
-    from stage_execution_service import project_context
     history = _recent_chat_history(idea_chat.load(
         project_context(root), model=model_label(root), gateway=idea_chat_gateway()))
     if history:

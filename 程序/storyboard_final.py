@@ -6,6 +6,7 @@ import copy, shutil, re, uuid, hashlib, json
 from agent.core import read
 from asset_plan import _sync_plan
 from project_naming import dated_path
+from project_context_factory import project_context
 
 
 def _lineage_source(project, source):
@@ -40,7 +41,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     source=resolve_source(project,source);original=source.read_bytes()
     original_hash=hashlib.sha256(original).hexdigest()
     frame_base=media_root(source)
-    rows=_sync_plan(project,base,source,gateway=gateway)
+    rows=_sync_plan(project,base,source,gateway=gateway,context=project_context(project))
     mapping=read(base/'assets/资产清单/名称编号对照.json')
     if not isinstance(mapping,dict):mapping={}
     episode=copy.deepcopy(read(source));missing=[];used=set()

@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from agent.core import read
 from service_contract import SystemError, success
+from project_context import ProjectContext
 
 
 _LOG = logging.getLogger(__name__)
@@ -52,10 +53,12 @@ def _reference_documents(project, ignored):
     return references
 
 
-def snapshot(project):
-    from storyboard_catalog_service import IGNORED
-    from stage_execution_service import storyboard_catalog as catalog
-    project = Path(project).resolve()
+def snapshot(context):
+    """读取已有成果；目录服务所需上下文由 L3 注入。"""
+    from storyboard_catalog_service import IGNORED, catalog
+    if not isinstance(context, ProjectContext):
+        raise TypeError('项目接续快照需要由 L3 注入 ProjectContext。')
+    project = context.root.resolve()
     errors = []
     def mapping(path):
         if not path.is_file():
@@ -71,7 +74,7 @@ def snapshot(project):
 
     boards = []
     adopted_sources = set()
-    for entry in catalog(project, 'storyboard'):
+    for entry in catalog(context, 'storyboard'):
         data = mapping(entry['path'])
         source = data.get('source_script')
         if source and entry.get('done'):
@@ -81,7 +84,7 @@ def snapshot(project):
                        'source_script': source})
 
     scripts = []
-    for entry in catalog(project, 'script'):
+    for entry in catalog(context, 'script'):
         path = entry['path']
         status = '已有剧本，未推断审核状态'
         if path in adopted_sources:
@@ -144,7 +147,7 @@ def instruction(project, stage, data=None, *, publish=None):
 
 def _instruction_text(project, stage, data=None, *, publish=None):
     data = snapshot(project) if data is None else data
-    target = Path(project).resolve() / 'data/项目接续.json'
+    target = Path(project.root if isinstance(project, ProjectContext) else project).resolve() / 'data/项目接续.json'
     if not callable(publish):
         raise TypeError('项目接续进度需要由 L3 注入发布器。')
     publish(target, data)
@@ -177,7 +180,7 @@ def _instruction_text(project, stage, data=None, *, publish=None):
 def continuation_instruction(project, stage, data=None):
     """续接同一工作流时使用的短摘要；完整约束和索引保留在本地进度文件。"""
     data = snapshot(project) if data is None else data
-    target = Path(project).resolve() / 'data/项目接续.json'
+    target = Path(project.root if isinstance(project, ProjectContext) else project).resolve() / 'data/项目接续.json'
     status = (f'已有剧本 {len(data["scripts"])} 份，分镜 {len(data["storyboards"])} 份，'
               f'独立资产 {len(data["assets"])} 项。')
     lines = [

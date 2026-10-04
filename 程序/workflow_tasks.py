@@ -100,25 +100,24 @@ def storyboard_batch_prompt(project,scripts,existing):
     import json
     from agent.core import read
     from storyboard_catalog_service import file_order
-    from stage_execution_service import (
-        storyboard_catalog as catalog, storyboard_produced_episodes as produced_episodes,
-        storyboard_produced_scripts as produced_scripts, storyboard_resolve_source as resolve_source,
-    )
+    from storyboard_catalog_service import catalog, produced_episodes, produced_scripts, resolve_source
+    from project_context_factory import project_context
     from storyboard_selection import adopted
     project=Path(project).resolve()
+    context=project_context(project)
     scripts=list(dict.fromkeys(Path(path).resolve() for path in scripts))
-    existing=list(dict.fromkeys(resolve_source(project,path) for path in existing))
+    existing=list(dict.fromkeys(resolve_source(context,path) for path in existing))
     if not scripts and not existing:raise ValueError('请先多选剧本或分镜，再点击手动制作分镜')
     for path in [*scripts,*existing]:
         if not path.is_file():raise ValueError('所选文件不存在：'+str(path))
-    entries=catalog(project,'storyboard')
-    made=produced_scripts(project,entries)
+    entries=catalog(context,'storyboard')
+    made=produced_scripts(context,entries)
     used=set(adopted(project));skipped=[str(p) for p in scripts if p in made]+[str(p) for p in existing if p in used]
     scripts=[p for p in scripts if p not in made];existing=[p for p in existing if p not in used]
     # 第 62 期任务 6：提交前再按「集号」去一次重——同一集只收最先的一条输入（按集号／文件名排），
     # 其余进 skipped_completed。这是本地的硬约束，不指望 agent 自己发现：
     # 用户选了同一集的好几份草稿时，每份各派一项，agent 每一集都照着写一遍，于是 EP001 出三份。
-    have=produced_episodes(project,entries);kept=[];seen=set()
+    have=produced_episodes(context,entries);kept=[];seen=set()
     for path in sorted(scripts,key=file_order):
         number=file_order(path)[0]
         if number<10**9 and (number in have or number in seen):

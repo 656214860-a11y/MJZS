@@ -11,6 +11,7 @@ sys.path.insert(0, str(PROGRAM_ROOT))
 
 from workflow_context import snapshot, instruction, continuation_instruction, request_instruction
 from agent.core import save as save_json
+from stage_execution_service import project_context
 
 
 def make_project(td):
@@ -30,9 +31,21 @@ def make_project(td):
 
 
 class SnapshotTests(unittest.TestCase):
+    def test_snapshot_consumes_l3_context(self):
+        with tempfile.TemporaryDirectory() as td:
+            context = project_context(make_project(td))
+            data = snapshot(context)
+            self.assertEqual(data['next_episode_number'], 4)
+            self.assertEqual(len(data['storyboards']), 1)
+
+    def test_snapshot_rejects_uninjected_root(self):
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaisesRegex(TypeError, 'ProjectContext'):
+                snapshot(Path(td))
+
     def test_snapshot_counts(self):
         with tempfile.TemporaryDirectory() as td:
-            data = snapshot(make_project(td))
+            data = snapshot(project_context(make_project(td)))
             self.assertEqual(len(data["scripts"]), 1)
             self.assertEqual(data["scripts"][0]["episode_number"], 3)
             self.assertEqual(len(data["storyboards"]), 1)
@@ -44,7 +57,7 @@ class SnapshotTests(unittest.TestCase):
             proj = make_project(td)
             plan = proj / "episode" / "assets" / "资产清单" / "assets.json"
             plan.write_text(json.dumps({123: {"name": "数字键"}}, ensure_ascii=False), encoding="utf-8")
-            self.assertIn("CHAR_001", [a["id"] for a in snapshot(proj)["assets"]])
+            self.assertIn("CHAR_001", [a["id"] for a in snapshot(project_context(proj))["assets"]])
 
     def test_snapshot_prefers_current_asset_stage(self):
         with tempfile.TemporaryDirectory() as td:
@@ -52,27 +65,38 @@ class SnapshotTests(unittest.TestCase):
             current = proj / "04资产管理" / "assets.json"
             current.parent.mkdir(parents=True)
             current.write_text(json.dumps({"CHAR_001": {"name": "当前资产"}}, ensure_ascii=False), encoding="utf-8")
-            data = snapshot(proj)
+            data = snapshot(project_context(proj))
             self.assertEqual(data["assets"][0]["name"], "当前资产")
             self.assertEqual(Path(data["asset_manifest"]), current)
 
 
 class InstructionTests(unittest.TestCase):
+    def test_l3_entry_points_can_build_snapshot_from_injected_context(self):
+        from workflow_context_controller import request_stage_instruction, publish_writing_context
+        with tempfile.TemporaryDirectory() as td:
+            context = project_context(make_project(td))
+            text, strategy = request_stage_instruction(context, 'storyboard')
+            self.assertEqual(strategy, 'stage_summary')
+            self.assertIn('已有剧本 1 份，分镜 1 份，独立资产 1 项', text)
+            self.assertTrue((context.root / 'data' / '项目接续.json').is_file())
+            self.assertIn('项目接续要求', publish_writing_context(context, 'writing'))
+            self.assertIn('项目续接摘要', continuation_instruction(context, 'writing'))
+
     def test_instruction_maps_only_disk_failure_to_controlled_result(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
-            result = instruction(proj, 'writing', snapshot(proj),
+            result = instruction(proj, 'writing', snapshot(project_context(proj)),
                                  publish=lambda _path, _data: (_ for _ in ()).throw(OSError('disk')))
             self.assertFalse(result.ok)
             self.assertIn('未能保存', result.reason)
             with self.assertRaises(TypeError):
-                instruction(proj, 'writing', snapshot(proj),
+                instruction(proj, 'writing', snapshot(project_context(proj)),
                             publish=lambda _path, _data: (_ for _ in ()).throw(TypeError('bug')))
 
     def test_instruction_writes_and_contains_stage(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
-            result = instruction(proj, "writing", snapshot(proj), publish=lambda path, data: save_json(path, data))
+            result = instruction(proj, "writing", snapshot(project_context(proj)), publish=lambda path, data: save_json(path, data))
             self.assertTrue(result.ok)
             text = result.data
             self.assertIn("当前阶段：writing", text)
@@ -82,7 +106,7 @@ class InstructionTests(unittest.TestCase):
     def test_continuation_instruction_is_short_and_preserves_actionable_summary(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
-            data = snapshot(proj)
+            data = snapshot(project_context(proj))
             full = instruction(proj, "writing", data, publish=lambda path, value: save_json(path, value)).data
             summary = continuation_instruction(proj, "writing", data)
             self.assertIn("项目续接摘要", summary)
@@ -93,7 +117,7 @@ class InstructionTests(unittest.TestCase):
 
     def test_continuation_instruction_reports_read_errors_without_expanding_snapshot(self):
         with tempfile.TemporaryDirectory() as td:
-            data = snapshot(make_project(td))
+            data = snapshot(project_context(make_project(td)))
             data['read_errors'] = [{'path': '坏.json', 'issue': '无法读取'}]
             summary = continuation_instruction(Path(td) / 'p', 'storyboard', data)
             self.assertIn('读取异常', summary)
@@ -102,7 +126,7 @@ class InstructionTests(unittest.TestCase):
     def test_non_script_stage_uses_summary_policy_and_refreshes_progress_file(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
-            data = snapshot(proj)
+            data = snapshot(project_context(proj))
             result = request_instruction(proj, 'storyboard', data, publish=lambda path, value: save_json(path, value))
             self.assertTrue(result.ok)
             text, strategy = result.data
@@ -115,7 +139,7 @@ class InstructionTests(unittest.TestCase):
     def test_script_stage_retains_full_index_policy(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
-            result = request_instruction(proj, 'writing', snapshot(proj), publish=lambda path, value: save_json(path, value))
+            result = request_instruction(proj, 'writing', snapshot(project_context(proj)), publish=lambda path, value: save_json(path, value))
             self.assertTrue(result.ok)
             text, strategy = result.data
             self.assertEqual(strategy, 'script_full_index')

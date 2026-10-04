@@ -21,7 +21,8 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         calls = [node for node in ast.walk(delivery) if isinstance(node, ast.Call)
                  and getattr(node.func, 'id', '') == 'ProjectContext']
         self.assertEqual(calls, [], 'L2 只可消费 ProjectContext，不得自行构造')
-        orchestrator = _tree('stage_execution_service.py')
+        self.assertEqual(LAYERS['project_context_factory'], 3)
+        orchestrator = _tree('project_context_factory.py')
         constructors = [node for node in ast.walk(orchestrator) if isinstance(node, ast.Call)
                         and isinstance(node.func, ast.Attribute)
                         and node.func.attr == 'snapshot'
@@ -29,12 +30,44 @@ class ProjectContextBoundaryTests(unittest.TestCase):
                         and node.func.value.id == 'ProjectContext']
         self.assertEqual(len(constructors), 1, '项目上下文必须由 L3 统一构造')
 
+    def test_context_factory_is_shared_without_orchestrator_back_dependency(self):
+        from project_context_factory import project_context
+        from stage_execution_service import project_context as compatibility_entry
+        import file_cache
+        self.assertIs(project_context, compatibility_entry)
+        settings = {'model': 'fixture'}
+        context = project_context(Path('fixture'), settings_snapshot=settings)
+        settings['model'] = 'changed'
+        self.assertEqual(context.settings_snapshot['model'], 'fixture')
+        self.assertIs(context.cache, file_cache)
+        self.assertEqual(context.stage_resolver('script'), Path('fixture') / '01剧本准备')
+        with self.assertRaises(TypeError):
+            context.settings_snapshot['model'] = 'changed'
+        for name in ('stage_parallel.py', 'storyboard_selection.py', 'writing_api.py', 'white_model.py', 'workflow_tasks.py'):
+            source = Path(ROOT, name).read_text(encoding='utf-8')
+            self.assertNotIn('from stage_execution_service import', source, name)
+
     def test_l2_uses_injected_stage_resolver_without_project_path_join(self):
         delivery = _tree('delivery_import_service.py')
         source = Path(ROOT, 'delivery_import_service.py').read_text(encoding='utf-8')
         self.assertIn("context.stage_resolver('delivery')", source)
         self.assertNotIn('project_stages', source)
         self.assertNotIn('os.path.join', source)
+
+    def test_previs_page_and_finalization_inject_context_at_l3(self):
+        page = _tree('local_previs.py')
+        show = next(node for node in page.body if isinstance(node, ast.FunctionDef) and node.name == 'show')
+        calls = [node for node in ast.walk(show) if isinstance(node, ast.Call)]
+        self.assertFalse(any(isinstance(node.func, ast.Attribute) and node.func.attr == 'shot_directory'
+                             for node in calls), '页面不得把裸路径直接传给 L2 白模目录服务')
+        self.assertEqual(sum(isinstance(node.func, ast.Name) and node.func.id == 'white_model_shot_directory'
+                             for node in calls), 4)
+        finalize = _tree('storyboard_final.py')
+        sync = next(node for node in ast.walk(finalize) if isinstance(node, ast.Call)
+                    and isinstance(node.func, ast.Name) and node.func.id == '_sync_plan')
+        context = next(keyword.value for keyword in sync.keywords if keyword.arg == 'context')
+        self.assertIsInstance(context, ast.Call)
+        self.assertEqual(context.func.id, 'project_context')
 
     def test_asset_domain_services_consume_but_do_not_construct_context(self):
         for name in ('asset_context.py', 'asset_batch_lifecycle.py',

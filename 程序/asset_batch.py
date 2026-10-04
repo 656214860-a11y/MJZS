@@ -114,8 +114,8 @@ def auto_plan(project,base,sources,scope='adopted'):
     用的模型与「资产图片制作」窗口当前保存的生图模型一致：本地模型照常排队，云端模型按次计费，
     所以状态栏和勾选框都会写明当前模型，用户随时能停掉或换成便宜的后端。
     """
-    from stage_execution_service import asset_plan_gateway
-    return _unattended_plan(project,base,sources,scope,gateway=asset_plan_gateway())
+    from stage_execution_service import plan_unattended_assets
+    return plan_unattended_assets(project,base,sources,scope)
 
 
 def auto_batch(project,base,sources,scope='adopted',log=None,stop=None,client_factory=Comfy):

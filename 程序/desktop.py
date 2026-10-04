@@ -4838,9 +4838,10 @@ class Desktop:
         use_cli=config['engine']!='codex' or config['program'] or config['model']
         def build():
             from workflow_context import continuation_instruction,snapshot
+            from stage_execution_service import project_context
             from workflow_context_controller import request_stage_instruction
             from workflow_context_budget import prepare_request_context
-            data=snapshot(project)
+            data=snapshot(project_context(project))
             receipt=claim(project,signature(stage,prompt,followup,config,data),title)
             if on_receipt is not None:on_receipt(receipt)
             if receipt['duplicate']:return {'receipt':receipt}

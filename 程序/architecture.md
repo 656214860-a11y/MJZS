@@ -187,6 +187,10 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 
 工作流引擎与 Codex 任务创建在启动进程或创建任务工件前共用上下文预算预检。预算服务会先合并完全重复的大段上下文，保留首份完整内容并写明去重摘要；唯一内容仍超过上限时安全拒绝，不启动模型或创建任务工件。
 
+项目上下文装配唯一实现为 L3 `project_context_factory.project_context()`；`stage_execution_service.project_context` 仅静态重导出同一函数以兼容既有调用。阶段并行、分镜选择、白模、工作流任务和剧本 API 直接复用装配模块，避免为构造上下文反向依赖阶段总编排器。装配不扫描或写入项目。
+
+项目接续快照：`workflow_context.snapshot()` 消费由 L3 注入的 `ProjectContext`，直接调用同层 `storyboard_catalog_service.catalog()`；L2 不得反向导入编排层。桌面与剧本 API 在进入快照前装配上下文。提示词入口传入预计算 `data` 时仍接受项目路径；省略 `data` 时必须传入上下文，避免 L2 自行构造依赖。
+
 ## 4. 三虎 Agent 的阶段定义
 
 唯一阶段定义来源：`pet_bus.STAGES`、`pet_bus.STAGE_NAMES`。

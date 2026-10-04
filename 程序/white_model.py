@@ -77,8 +77,8 @@ def _base_directory(project):
         _BASE_CACHE.clear();_BASE_CACHE[key]=base
     return base
 def shot_directory(project,sid):
-    from stage_execution_service import white_model_shot_directory
-    return white_model_shot_directory(project,sid,workspace())
+    from project_context_factory import project_context
+    return _service.shot_directory(project_context(project),sid,workspace())
 
 def find_blender(refresh=False):
     return _service.find_blender(refresh)

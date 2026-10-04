@@ -6,6 +6,7 @@ from asset_batch_execution import run_batch
 from asset_batch_service import KINDS, asset_prompt, current_model, unattended_plan
 from cloud_assets import LOCAL, MODELS
 from comfy_service import Comfy
+from project_context_factory import project_context
 
 
 class _LogEvents:
@@ -17,7 +18,8 @@ def auto_batch(project, base, sources, scope='adopted', log=None, stop=None, cli
     """不创建 Tk 窗口地执行自动资产生成。"""
     log = log or (lambda text: None)
     project, base = Path(project), Path(base)
-    items, skipped, saved = unattended_plan(project, base, sources, scope, gateway=gateway)
+    items, skipped, saved = unattended_plan(project, base, sources, scope, gateway=gateway,
+                                          context=project_context(project))
     if not items:
         return '无人值守批量资产：没有需要独立生成的资产' + (f'；{len(skipped)} 项资产清单待补齐' if skipped else '')
     url = saved.get('url') or 'http://127.0.0.1:8189'

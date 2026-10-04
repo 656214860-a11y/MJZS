@@ -8,20 +8,12 @@ import model_router
 import skill_budget
 import stage_config
 import stage_models
-from project_context import ProjectContext
+from project_context_factory import project_context
 from stage_path_service import write_dir
 
 
 def program_of(desktop):
     return getattr(desktop, 'app', None) or None
-
-
-def project_context(project, *, settings_snapshot=None, cache=None):
-    """由 L3 装配项目根、阶段路径、设置快照和缓存给 L2 服务。"""
-    root = Path(project)
-    return ProjectContext.snapshot(
-        root, lambda stage: write_dir(root, stage), settings_snapshot,
-        file_cache if cache is None else cache)
 
 
 def keyframe_image_prompt(project, source, shot_id=None, outputs=None, shot_ids=None):

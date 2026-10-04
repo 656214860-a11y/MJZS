@@ -4538,7 +4538,7 @@ class BatchContinuationTests(unittest.TestCase):
             script.write_text("# 剧本", encoding="utf-8")
             patches = [(storyboard_selection, "selected_many",
                         lambda project, kind: [script.resolve()] if kind == "script" else []),
-                       (storyboard_catalog_service, "produced_scripts", lambda project: {script.resolve()}),
+                       (storyboard_catalog_service, "produced_scripts", lambda context, entries=None: {script.resolve()}),
                        (workflow_tasks, "storyboard_batch_prompt",
                         lambda project, scripts, existing: ("任务正文", "追加说明"))]
             for module, name, value in patches:

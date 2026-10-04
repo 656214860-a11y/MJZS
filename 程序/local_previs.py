@@ -7,7 +7,7 @@ import white_model_service as wm
 from file_cache import read_json
 from previs_batch_service import prepare_batch
 import previs_routing
-from stage_execution_service import previs_entries, previs_ready, previs_records_directory
+from stage_execution_service import previs_entries, previs_ready, previs_records_directory, white_model_shot_directory
 import ui_plugin_registry
 from platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
@@ -111,7 +111,7 @@ def show(desktop):
         level=(decisions.get(sid) or {}).get('level')
         if level in (None,'simple'):return False
         try:
-            record=wm.read_record(wm.shot_directory(project,sid))
+            record=wm.read_record(white_model_shot_directory(project,sid))
         except Exception:
             return True
         preview=record.get('preview')
@@ -251,7 +251,7 @@ def show(desktop):
     views=FlowBar(body);views.pack(fill='x',pady=SPACING['xs'])
     def open_file(field):
         try:
-            sid=current();record=wm.read_record(wm.shot_directory(project,sid));path=Path(record.get(field,''))
+            sid=current();record=wm.read_record(white_model_shot_directory(project,sid));path=Path(record.get(field,''))
             if not path.is_file():raise ValueError('请先创建相应工程或视频')
             if field=='project_file':
                 from native_apps import open_blender
@@ -262,7 +262,7 @@ def show(desktop):
     SecondaryButton(views,text='打开工程调整',command=lambda:open_file('project_file')).pack(side='left',padx=SPACING['xs'])
     def open_current_directory():
         try:
-            folder=wm.shot_directory(project,current())
+            folder=white_model_shot_directory(project,current())
             folder.mkdir(parents=True,exist_ok=True)
             open_path(folder)
         except Exception as exc:
@@ -276,7 +276,7 @@ def show(desktop):
         current_state=state['status'].get(key(sid))
         if current_state and state.get('busy'):return current_state
         try:
-            record=wm.read_record(wm.shot_directory(project,sid))
+            record=wm.read_record(white_model_shot_directory(project,sid))
             if record.get('preview') and Path(record['preview']).is_file():return '已就绪'
             if record.get('project_file') and Path(record['project_file']).is_file():return '工程已生成，待导出视频'
             level=decisions[sid]['level']

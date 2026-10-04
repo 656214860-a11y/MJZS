@@ -764,6 +764,7 @@ class AutoAssetTests(unittest.TestCase):
             self.assertEqual(saved["model"], "flux.safetensors")
 
     def test_automatic_plan_service_runs_without_tk(self):
+        from project_context_factory import project_context
         with tempfile.TemporaryDirectory() as td:
             proj = self.make_project(td, settings=dict(self.SETTINGS))
             items, skipped = automatic_plan(
@@ -771,6 +772,7 @@ class AutoAssetTests(unittest.TestCase):
                 [proj / "storyboard" / "分镜拆分" / "episode.json"],
                 dict(self.SETTINGS),
                 gateway=asset_plan_gateway(),
+                context=project_context(proj),
             )
             self.assertEqual([aid for aid, _ in items], ["CHAR_001"])
             self.assertEqual([aid for aid, _ in skipped], ["LOC_001"])

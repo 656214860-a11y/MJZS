@@ -4,6 +4,7 @@ from pathlib import Path
 from agent.core import read,save
 from file_cache import read_json
 from project_settings import read_prefs
+from project_context_factory import project_context
 from storyboard_adoption_contract import adopted as _adopted, problem_text, resolve_source
 
 
@@ -111,7 +112,7 @@ def current_source(project, legacy_sources=(), fallbacks=(), remember=None):
     解析规则不依赖 Tk；``remember`` 只由调用方提供，用于把仍可用的旧指针迁移到
     当前采用记录。这样首帧、资产和视频页面可以共享同一来源约束。
     """
-    from stage_execution_service import storyboard_default_source as default_source, storyboard_resolve_source as resolve_source
+    from storyboard_catalog_service import default_source, resolve_source
 
     project = Path(project).resolve()
     settings_path = project / 'ui_settings.json'
@@ -119,7 +120,7 @@ def current_source(project, legacy_sources=(), fallbacks=(), remember=None):
         data = prefs(project)
         saved = data.get('frame_json') if isinstance(data, dict) else None
         if saved:
-            path = resolve_source(project, saved)
+            path = resolve_source(project_context(project), saved)
             if path.is_relative_to(project) and path.is_file():
                 return path
             raise ValueError('上次的镜头 JSON 找不到了：' + str(path) + '。请到第 02 步重新采用一份。')
@@ -139,7 +140,7 @@ def current_source(project, legacy_sources=(), fallbacks=(), remember=None):
                 remember(candidate)
             return candidate
 
-    for candidate in (default_source(project), *fallbacks):
+    for candidate in (default_source(project_context(project)), *fallbacks):
         candidate = Path(candidate)
         if candidate.is_file():
             candidate = candidate.resolve()
@@ -155,7 +156,7 @@ def source_script_error(project, board):
     迁移目录后，旧 JSON 常保留 ``writing/script.md`` 之类已经失效的来源。
     它们可以留在磁盘供用户查看，但不能继续被采用并推进后续阶段。
     """
-    from stage_execution_service import storyboard_board_source_script as board_source_script, storyboard_catalog as catalog
+    from storyboard_catalog_service import board_source_script, catalog
     project=Path(project).resolve();board=Path(board).resolve()
     try:data=read_json(board)
     except (OSError,ValueError,TypeError):return '无法读取 JSON 的分镜初稿来源'
@@ -163,10 +164,10 @@ def source_script_error(project, board):
     # 早期 JSON 没有记录来源；它们已经是用户既有成果，保持可采用。新 JSON 和带来源的
     # 历史 JSON 则必须走下面的严格校验，防止误把无关文件推进到后续阶段。
     if not str(data.get('source_script') or '').strip():return ''
-    try:source=board_source_script(project,board)
+    try:source=board_source_script(project_context(project),board)
     except (OSError,ValueError,TypeError):return '无法读取 JSON 的分镜初稿来源'
     if source is None:return 'JSON 未记录分镜初稿来源'
-    available={entry['path'] for entry in catalog(project,'script')}
+    available={entry['path'] for entry in catalog(project_context(project),'script')}
     if source not in available:
         return '对应分镜初稿不存在或已迁移：'+str(source)
     return ''
@@ -213,7 +214,6 @@ def adopt(project,values,*,gateway=None):
         # 第 62 期任务 12：报错带上文件名和具体差多少，别只说一句「不一致」。
         try:validate_episode(read(source),media_root(source))
         except ValueError as exc:raise ValueError(f'{source.name}：'+problem_text(exc)) from None
-    from stage_execution_service import project_context
     _sync_plan(project,library_dir(project),combined,_adopting=True,
                gateway=_asset_plan_gateway(gateway), context=project_context(project))
     data=writable_prefs(project)
@@ -291,10 +291,10 @@ def adopt_pending(project,minimum_age=10,*,gateway=None):
     minimum_age 秒，避免读到 agent 正在写的一半内容（记在 waiting，下一轮再看）；某一份
     不合法只跳过它，其余照常采用；整批只同步一次资产计划，重复调用不会重复采用。
     """
-    from stage_execution_service import storyboard_catalog as catalog
+    from storyboard_catalog_service import catalog
     project=Path(project).resolve();now=time.time()
     used=set(adopted(project))
-    entries=sorted((entry for entry in catalog(project,'storyboard') if entry['path'] not in used),key=lambda entry:entry['order'])
+    entries=sorted((entry for entry in catalog(project_context(project),'storyboard') if entry['path'] not in used),key=lambda entry:entry['order'])
     ready=[];failed={};waiting=[]
     for entry in entries:
         path=entry['path']
@@ -324,7 +324,6 @@ def remove(project,values,*,gateway=None):
     data['adopted_storyboards']=[p.relative_to(project).as_posix() for p in remaining]
     current=resolve_source(project,data['frame_json']) if data.get('frame_json') else None
     if current not in remaining:data['frame_json']=remaining[-1].relative_to(project).as_posix() if remaining else ''
-    from stage_execution_service import project_context
     _sync_plan(project,library_dir(project),remaining,gateway=_asset_plan_gateway(gateway), context=project_context(project))
     save(project/'ui_settings.json',data)
     return remaining

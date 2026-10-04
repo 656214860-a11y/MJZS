@@ -698,7 +698,7 @@ def previs_ready(project):
     """SG-05：需要白模的镜头都有可播放的预演产物。"""
     row = gate_for('video')
     from previs_routing import classify, ready
-    from stage_execution_service import project_context
+    from project_context_factory import project_context
     context = project_context(project)
     entries = _adopted(project)
     if not entries:
