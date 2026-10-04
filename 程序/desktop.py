@@ -108,9 +108,9 @@ def confirm_project_removal_from_last_script(parent, files):
         try:win.grab_release()
         except tk.TclError:pass
         win.destroy()
-    tk.Button(buttons,text='取消',command=close,width=10).pack(side='right')
-    tk.Button(buttons,text='移入回收站',command=lambda:close(True),width=11,
-              bg='#c62828',fg='white',activebackground='#8e0000',activeforeground='white').pack(side='right',padx=(0,8))
+    SecondaryButton(buttons,text='取消',command=close,width=10).pack(side='right')
+    PrimaryButton(buttons,text='移入回收站',command=lambda:close(True),width=11,
+                  style='Tokens.Danger.TButton').pack(side='right',padx=(SPACING['none'],SPACING['sm']))
     win.protocol('WM_DELETE_WINDOW',close)
     win.update_idletasks()
     x=max(0,parent.winfo_rootx()+(parent.winfo_width()-win.winfo_width())//2)

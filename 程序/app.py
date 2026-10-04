@@ -347,11 +347,11 @@ class App:
         self.task_progress=ttk.Progressbar(self.footer,mode='indeterminate');self.task_progress.pack(fill='x',padx=SPACING['sm'],pady=(SPACING['xs'],SPACING['xs']))
         log_box=tk.Frame(self.footer,bg=COLORS['background_card'],highlightthickness=1,highlightbackground=COLORS['border_default'])
         log_box.pack(fill='x',padx=SPACING['sm'],pady=SPACING['xs']);self.log_box=log_box
-        log_actions=tk.Frame(log_box,bg=COLORS['background_card'],height=22);log_actions.pack(fill='x');log_actions.pack_propagate(False)
+        log_actions=tk.Frame(log_box,bg=COLORS['background_card']);log_actions.pack(fill='x')
         self.log_header=log_actions
         tk.Label(log_actions,text='动态日志',bg=COLORS['background_card'],fg=COLORS['text_secondary'],font=FONTS['caption']).pack(side='left',padx=SPACING['xs'])
-        tk.Button(log_actions,text='清空日志',command=self.clear_log,bg=COLORS['background_card'],fg=COLORS['primary'],
-                  activebackground=COLORS['primary_subtle'],relief='flat',borderwidth=0,padx=SPACING['sm'],pady=SPACING['none'],cursor='hand2',font=FONTS['caption']).pack(side='right',padx=SPACING['xs'])
+        SecondaryButton(log_actions,text='清空日志',command=self.clear_log,
+                        cursor='hand2').pack(side='right',padx=SPACING['xs'])
         log_body=tk.Frame(log_box,bg=COLORS['background_card']);log_body.pack(fill='both',expand=True)
         log_scroll=ttk.Scrollbar(log_body,orient='vertical');log_scroll.pack(side='right',fill='y')
         self.log=TextArea(log_body,bg=COLORS['background_card'],fg=COLORS['text_secondary'],height=self.LOG_ROWS_MIN,state='disabled',wrap='word',

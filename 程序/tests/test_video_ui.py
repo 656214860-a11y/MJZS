@@ -1085,10 +1085,36 @@ class VideoEntryTests(unittest.TestCase):
             d, win, proj = self.page(td)
             d.show(PAGE['video'], video_mode="cloud"); win.update()
             self.assertEqual(d.video_mode, "cloud")
-            # 第 48 期：返回按钮是经典 tk.Button，不是 ttk，两种都要算。
+            # 保留文字契约，并通过实际语义按钮验证返回回调。
             self.assertIn("返回生成方式", widget_texts(d.title_row, (self.tk.Button, ttk.Button)),
                           "想换一侧：页里那颗还是摆着")
-            d.show(PAGE['video'], video_mode="choose"); win.update()
+            from ui_widgets import SecondaryButton
+            from ui_tokens import COLORS
+            button, = d.video_back.winfo_children()
+            self.assertIsInstance(button, SecondaryButton)
+            self.assertTrue(button.tk.getboolean(button.cget('takefocus')))
+            self.assertEqual(str(button.cget('image')[0]), str(button.image))
+            self.assertGreaterEqual(button.winfo_width(), button.image.width())
+            self.assertGreaterEqual(button.winfo_height(), button.image.height())
+            style = ttk.Style(win)
+            pixel = button.image.get(20, 15)
+            self.assertEqual(tuple(pixel), tuple(c // 257 for c in win.winfo_rgb(COLORS['primary'])))
+
+            def luminance(rgb):
+                channels = [channel / 255 for channel in rgb]
+                linear = [c / 12.92 if c <= .04045 else ((c + .055) / 1.055) ** 2.4
+                          for c in channels]
+                return sum(c * weight for c, weight in zip(linear, (.2126, .7152, .0722)))
+
+            for state in ((), ('active',), ('pressed',), ('active', 'pressed'), ('focus',)):
+                button.state(('!active', '!pressed', '!focus'))
+                button.state(state)
+                rgb = win.winfo_rgb(style.lookup(button.cget('style'), 'background', button.state()))
+                levels = (luminance(pixel), luminance(tuple(c / 257 for c in rgb)))
+                self.assertGreaterEqual((max(levels) + .05) / (min(levels) + .05), 3,
+                                        '返回箭头在正常/悬停/按下/焦点状态均须可见')
+            button.state(('!active', '!pressed', '!focus'))
+            button.invoke(); win.update()
             self.assertIsNone(d.video_mode)
             self.assertIn("进入本地生成", widget_texts(d.content, ttk.Button))
 
@@ -1222,7 +1248,21 @@ class PromptBoxHeightTests(unittest.TestCase):
                 win.update(); win.update_idletasks()
             self.assertGreater(int(v.log.cget("height")), v.LOG_ROWS_MIN, "日志多了，框跟着长高")
             self.assertLessEqual(int(v.log.cget("height")), v.LOG_ROWS_MAX, "再长也封顶")
-            v.clear_log()
+            from ui_widgets import SecondaryButton
+            from unittest.mock import patch
+            clear, = [child for child in v.log_header.winfo_children()
+                      if isinstance(child, SecondaryButton)]
+            self.assertEqual(str(clear.cget('text')), '清空日志')
+            self.assertEqual(str(clear.cget('style')), 'Tokens.Secondary.TButton')
+            self.assertGreaterEqual(clear.winfo_height(), clear.winfo_reqheight(),
+                                    '日志操作行不得裁切标准按钮')
+            v.busy = True
+            with patch('storage_maintenance.recycle_paths') as recycle:
+                clear.invoke()
+                recycle.assert_not_called()
+            v.busy = False
+            self.assertEqual(v.log.get('1.0', 'end').strip(), '')
+            self.assertEqual(str(v.log.cget('state')), 'disabled')
             for _ in range(3):
                 win.update(); win.update_idletasks()
             self.assertEqual(int(v.log.cget("height")), v.LOG_ROWS_MIN, "清空以后缩回去")

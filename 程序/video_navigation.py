@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """Fixed, prominent navigation for both video workspaces."""
-import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 from file_cache import read_json as read_cached_json
+from ui_tokens import COLORS, SPACING
+from ui_widgets import SecondaryButton
 
 
 def read_json(path):
@@ -114,16 +115,15 @@ def show_back(desktop):
     if box is None:
         box=ttk.Frame(desktop.title_row,width=76,height=52)
         box.pack_propagate(False)
-        icon=IconLoader.return_arrow(box)
-        button=tk.Button(box,text='返回生成方式',image=icon,anchor='center',
-            background='#3564a8',foreground='#ffffff',activebackground='#294b75',
-            relief='flat',borderwidth=0,highlightthickness=2,highlightbackground='#3564a8',
-            highlightcolor='#87b3ee',cursor='hand2',takefocus=True,
+        icon=IconLoader.return_arrow(box,color=COLORS['primary'])
+        # 返回属于次要动作；主题色箭头在正常和浅色悬停背景上均可读。
+        button=SecondaryButton(box,text='返回生成方式',image=icon,
+            padding=(SPACING['sm'],SPACING['xs']),cursor='hand2',takefocus=True,
             command=lambda:desktop.safe(lambda:desktop.show_stage('video',video_mode='choose')))
         button.image=icon
         button.pack(fill='both',expand=True)
         desktop.video_back=box
-    box.pack(side='left',before=desktop.title,padx=(0,12),anchor='center')
+    box.pack(side='left',before=desktop.title,padx=(SPACING['none'],SPACING['md']),anchor='center')
 
 
 def hide_back(desktop):

@@ -946,12 +946,13 @@ class ProjectRemovalWarningTests(_Harness):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             _d, win = self.desktop(proj)
-            found = []; colors = []
+            found = []; colors = []; styles = []
             def click_cancel():
                 def walk(widget):
                     if 'text' in widget.keys() and str(widget.cget('text')) == '取消':
                         found.append(widget)
                         colors.append(widget.master.master.master.cget('bg'))
+                        styles.append(str(widget.cget('style')))
                         widget.invoke();return True
                     return any(walk(child) for child in widget.winfo_children())
                 walk(win)
@@ -959,6 +960,46 @@ class ProjectRemovalWarningTests(_Harness):
             self.assertFalse(desktop_module.confirm_project_removal_from_last_script(win, ['最后一份.md']))
             self.assertEqual(len(found), 1)
             self.assertEqual(colors, ['#c62828'])
+            self.assertEqual(styles, ['Tokens.Secondary.TButton'])
+
+    def test_only_explicit_recycle_accepts_and_close_paths_cancel(self):
+        import desktop as desktop_module
+        from ui_widgets import BaseDialog, PrimaryButton
+        for action in ('recycle', 'window-close', 'escape'):
+            with self.subTest(action=action), tempfile.TemporaryDirectory() as td:
+                proj = make_minimal_project(td)
+                _d, win = self.desktop(proj)
+                seen = []
+                timed_out = []
+                watchdog = []
+
+                def act():
+                    dialog = next(child for child in win.winfo_children()
+                                  if isinstance(child, BaseDialog))
+                    button = next(child for child in BaseDialog._descendants(dialog)
+                                  if 'text' in child.keys()
+                                  and str(child.cget('text')) == '移入回收站')
+                    def timeout():
+                        timed_out.append(True)
+                        dialog.destroy()
+                    watchdog.append(win.after(2000, timeout))
+                    seen.append((isinstance(button, PrimaryButton), str(button.cget('style'))))
+                    if action == 'recycle':
+                        button.invoke()
+                    elif action == 'window-close':
+                        dialog.tk.call(dialog.protocol('WM_DELETE_WINDOW'))
+                    else:
+                        dialog.focus_force()
+                        dialog.event_generate('<Escape>')
+
+                win.after(30, act)
+                accepted = desktop_module.confirm_project_removal_from_last_script(win, ['最后一份.md'])
+                for timer in watchdog:
+                    win.after_cancel(timer)
+                self.assertEqual(timed_out, [], '确认窗关闭路径不得卡住')
+                self.assertEqual(accepted, action == 'recycle')
+                self.assertEqual(seen, [(True, 'Tokens.Danger.TButton')])
+                self.assertTrue(proj.is_dir(), '确认窗本身不得执行文件删除')
 
 
 class BubbleLayoutTests(_Harness):
