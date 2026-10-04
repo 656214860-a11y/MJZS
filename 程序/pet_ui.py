@@ -4220,13 +4220,23 @@ class Pet:
             return None
         # 一次只准有一个在排队：build() 之后再手动 step()（自测里到处在用）会叠出第二个定时器，
         # 动画双倍频，关窗时也只取消得掉最后一个——剩下那个到期就报 invalid command name "…step"。
-        self.stop()
+        self._cancel_animation_timer()
         try:
             self._timer = self.win.after(self.interval(state), self.step)
         except Exception as exc:
             self.errors.append(('after', str(exc)))
             self._timer = None
         return self._timer
+
+    def _cancel_animation_timer(self):
+        """动画重排只撤销旧帧，不影响聊天、单击和主窗恢复回调。"""
+        if self._timer:
+            try:
+                self.win.after_cancel(self._timer)
+            except TclError:
+                # 计时器随窗口销毁。
+                pass
+            self._timer = None
 
     def stop(self, event=None):
         if event is not None and getattr(event, 'widget', None) is not self.win:
@@ -4242,13 +4252,7 @@ class Pet:
             cancel = getattr(cloud, 'cancel_deferred_render', None)
             if callable(cancel):
                 cancel()
-        if self._timer:
-            try:
-                self.win.after_cancel(self._timer)
-            except TclError:
-                # 计时器随窗口销毁。
-                pass
-            self._timer = None
+        self._cancel_animation_timer()
         if self._main_topmost_job:
             try:
                 self.win.after_cancel(self._main_topmost_job)

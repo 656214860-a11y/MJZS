@@ -233,6 +233,33 @@ class MainWindowRestoreTests(PetTestCase):
 
 
 class AnimationTests(PetTestCase):
+    def test_animation_frames_do_not_close_open_chat(self):
+        self.pet.open_chat()
+        cloud = self.pet.cloud()
+        for _ in range(12):
+            self.pet.step()
+            self.assertTrue(cloud.visible, '动画重排不能关闭刚打开的聊天框')
+
+    def test_animation_frames_preserve_pending_single_click(self):
+        self.pet.pet_click(_Event(widget=self.pet.canvas))
+        pending = self.pet._click_at
+        self.assertIsNotNone(pending)
+        for _ in range(3):
+            self.pet.step()
+            self.assertEqual(self.pet._click_at, pending)
+            self.assertIn(pending, self.win.tk.call('after', 'info'))
+
+    def test_stop_still_closes_chat_and_cancels_pending_click(self):
+        self.pet.open_chat()
+        self.pet.pet_click(_Event(widget=self.pet.canvas))
+        self.pet.step()
+        self.pet.stop()
+        self.assertFalse(self.pet.cloud().visible)
+        self.assertIsNone(self.pet._click_at)
+        self.assertIsNone(self.pet._timer)
+        self.pet.stop()
+        self.assertFalse(self.pet.cloud().visible)
+
     def test_frames_draw_eyes_and_blink(self):
         self.pet.draw(0)
         self.assertEqual(len(self.pet.canvas.find_withtag('eye-dot')), 2)
