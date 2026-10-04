@@ -111,7 +111,8 @@ def clear_stale_tasks(app,project,source,blocked,waiting):
     return [sid for sid in blocked if sid not in stale]
 
 def launch(app,source,shot_id=None,shot_ids=None):
-    from keyframe_batch import candidates,image_prompt,frame_prompt
+    from keyframe_batch import candidates,frame_prompt
+    from stage_execution_service import keyframe_image_prompt
     from workflow_settings import current
     source=Path(source).resolve();project=Path(app.root).resolve()
     if not source.is_relative_to(project):raise ValueError('请选择当前项目的镜头JSON')
@@ -138,7 +139,7 @@ def launch(app,source,shot_id=None,shot_ids=None):
     if any(not re.fullmatch(r'(?:EP\d+_)?SH\d+',item['shot_id']) for item in items):raise ValueError('镜头编号格式无效')
     manifest=folder/'批次.json';save(manifest,{'source':str(source),'items':items})
     outputs={item['shot_id']:folder/item['output'] for item in items}
-    task=image_prompt(source,project,shot_id,outputs,shot_ids=shot_ids)
+    task=keyframe_image_prompt(project,source,shot_id,outputs,shot_ids=shot_ids)
     if current(app.root,'assets')['engine']=='qwen':
         from image_agent_runner import task_instruction
         config_file=Path(__file__).parent/'batch_frames_tool/config.json'

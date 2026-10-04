@@ -102,6 +102,7 @@
             "handoff_service",
             "idea_chat",
             "idea_attachments",
+            "keyframe_batch",
             "local_video_settings_service",
             "pet_performance_service",
             "pet_test_service"
@@ -137,7 +138,6 @@
             "writing_workflow"
         ],
         "pending": [
-            "keyframe_batch",
             "previs_routing",
             "storyboard_catalog_service",
             "storyboard_lifecycle",

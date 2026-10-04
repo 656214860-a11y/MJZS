@@ -24,6 +24,12 @@ def project_context(project, *, settings_snapshot=None, cache=None):
         file_cache if cache is None else cache)
 
 
+def keyframe_image_prompt(project, source, shot_id=None, outputs=None, shot_ids=None):
+    """L3 为首帧批次任务书注入唯一的项目上下文。"""
+    from keyframe_batch import image_prompt
+    return image_prompt(source, project_context(project), shot_id, outputs, shot_ids=shot_ids)
+
+
 def import_delivery_master(project, source, *, settings_snapshot=None, cache=None):
     """交付成片导入编排：L3 负责上下文和发布器注入。"""
     from delivery_import_service import import_final_master
