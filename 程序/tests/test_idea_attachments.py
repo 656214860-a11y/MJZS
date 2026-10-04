@@ -13,6 +13,7 @@ os.chdir(HERE)
 
 import idea_attachments
 from service_contract import SystemError, UserError
+from stage_execution_service import project_context
 
 
 class IdeaAttachmentsTests(unittest.TestCase):
@@ -38,7 +39,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
             self.assertEqual(len(archived), 2)
             self.assertTrue(all(path.parent.name == '输入' and path.suffix == '.md' for path in archived))
             self.assertEqual(archived[0].read_text(encoding='utf-8').strip(), '第一份创意')
-            prepared = idea_attachments.referenced(root, '请使用上传的文件')
+            prepared = idea_attachments.referenced(project_context(root), '请使用上传的文件')
             self.assertEqual(set(prepared['names']), {path.name for path in archived})
             self.assertIn('第一份创意', prepared['context'])
 
@@ -51,7 +52,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
             root = Path(td)
             source = root / 'input.txt'
             source.write_text('创意', encoding='utf-8')
-            result = idea_attachments.store(root, [source], publish=publish)
+            result = idea_attachments.store(project_context(root), [source], publish=publish)
             self.assertTrue(result.ok)
             self.assertIsInstance(result.data, tuple)
             self.assertEqual(result.data[0].read_text(encoding='utf-8'), '创意\n')
@@ -66,7 +67,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
                      [root / ('%d.txt' % index) for index in range(6)])
             for paths in cases:
                 with self.subTest(paths=paths):
-                    result = idea_attachments.store(root, paths, publish=publisher)
+                    result = idea_attachments.store(project_context(root), paths, publish=publisher)
                     self.assertIsInstance(result, UserError)
                     self.assertFalse(result.ok)
             publisher.assert_not_called()
@@ -80,10 +81,10 @@ class IdeaAttachmentsTests(unittest.TestCase):
                     publisher = Mock(side_effect=OSError('private-location'))
                     if point == 'read_source':
                         with patch('idea_attachments.read_source', side_effect=OSError('private-location')):
-                            result = idea_attachments.store(root, [source], publish=publisher)
+                            result = idea_attachments.store(project_context(root), [source], publish=publisher)
                         publisher.assert_not_called()
                     else:
-                        result = idea_attachments.store(root, [source], publish=publisher)
+                        result = idea_attachments.store(project_context(root), [source], publish=publisher)
                     self.assertIsInstance(result, SystemError)
                     self.assertIsNone(result.data)
                     self.assertNotIn('private-location', result.reason)
@@ -94,7 +95,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
             source = root / 'input.docx'; source.write_bytes(b'docx')
             with patch('idea_attachments.zipfile.ZipFile', side_effect=OSError('private-location')):
                 with self.assertLogs('idea_attachments', level='ERROR'):
-                    result = idea_attachments.store(root, [source], publish=Mock())
+                    result = idea_attachments.store(project_context(root), [source], publish=Mock())
             self.assertIsInstance(result, SystemError)
 
     def test_publisher_programming_error_is_not_masked(self):
@@ -103,9 +104,9 @@ class IdeaAttachmentsTests(unittest.TestCase):
             source = root / 'input.txt'; source.write_text('创意', encoding='utf-8')
             for failure in (TypeError('broken'), KeyError('broken'), ValueError('publisher bug')):
                 with self.subTest(failure=type(failure).__name__), self.assertRaises(type(failure)):
-                    idea_attachments.store(root, [source], publish=Mock(side_effect=failure))
+                    idea_attachments.store(project_context(root), [source], publish=Mock(side_effect=failure))
             with self.assertRaises(TypeError):
-                idea_attachments.store(root, [source])
+                idea_attachments.store(project_context(root), [source])
 
     def test_l3_checks_failed_store_result(self):
         from stage_execution_service import archive_idea_attachments

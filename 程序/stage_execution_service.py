@@ -177,10 +177,22 @@ def archive_idea_attachments(project, paths, now=None):
         return publish_stage_text(
             target, text, lambda value: bool(value.strip()), lambda _target: None)
 
-    result = store(project, paths, now=now, publish=publish_attachment)
+    result = store(project_context(project), paths, now=now, publish=publish_attachment)
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
+
+
+def stage_idea_attachment_paths(project, limit=None):
+    """列出已入库创意附档；项目根只由 L3 上下文提供。"""
+    from idea_attachments import uploaded
+    return uploaded(project_context(project), limit)
+
+
+def stage_idea_attachment_reference(project, message='', selected_paths=()):
+    """为剧本准备对话解析已入库附档，不向 L2 暴露裸项目路径。"""
+    from idea_attachments import referenced
+    return referenced(project_context(project), message, selected_paths)
 
 
 def idea_chat_gateway():

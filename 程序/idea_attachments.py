@@ -10,6 +10,7 @@ import zipfile
 from functools import wraps
 import logging
 from service_contract import SystemError, UserError, success
+from project_context import ProjectContext
 
 
 MAX_FILES = 5
@@ -62,13 +63,14 @@ def read_source(path):
     return _read_docx(path) if path.suffix.lower() == '.docx' else _read_text(path)
 
 
-def input_folder(root):
-    from stage_path_service import write_dir
-    return write_dir(Path(root), 'script') / INPUT_FOLDER
+def input_folder(context):
+    if not isinstance(context, ProjectContext):
+        raise TypeError('创意附档需要由 L3 注入 ProjectContext。')
+    return context.stage_resolver('script') / INPUT_FOLDER
 
 
 @_store_result
-def store(root, paths, now=None, *, publish=None):
+def store(context, paths, now=None, *, publish=None):
     """将用户选择的文本转换为项目内可引用的 Markdown，结果携带存档路径。
 
     正式项目成果由 L3 注入发布器；这里不保留直写回退。
@@ -78,7 +80,7 @@ def store(root, paths, now=None, *, publish=None):
     selected = tuple(dict.fromkeys(Path(value) for value in (paths or ()) if str(value).strip()))
     if len(selected) > MAX_FILES:
         return UserError('一次最多附加 %d 个文件。' % MAX_FILES)
-    folder = input_folder(root)
+    folder = input_folder(context)
     folder.mkdir(parents=True, exist_ok=True)
     stamp = (now or datetime.now()).strftime('%Y%m%d_%H%M%S_%f')
     saved = []
@@ -98,14 +100,14 @@ def store(root, paths, now=None, *, publish=None):
     return success(tuple(saved))
 
 
-def uploaded(root, limit=None):
-    paths = sorted(input_folder(root).glob('故事创意_*.md'), key=lambda item: item.stat().st_mtime, reverse=True)
+def uploaded(context, limit=None):
+    paths = sorted(input_folder(context).glob('故事创意_*.md'), key=lambda item: item.stat().st_mtime, reverse=True)
     return tuple(paths[:limit] if limit else paths)
 
 
-def referenced(root, message='', selected_paths=()):
+def referenced(context, message='', selected_paths=()):
     """解析本轮可提交的入库创意，绝不回读用户电脑中的原始上传路径。"""
-    available = uploaded(root)
+    available = uploaded(context)
     selected = tuple(Path(path) for path in selected_paths if Path(path).is_file())
     explicit = tuple(path for path in available if ('@' + path.name) in str(message or ''))
     # @ 指向的文件优先；没有显式指向时，带上本次选择并补足最近三份，

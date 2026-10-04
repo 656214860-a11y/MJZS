@@ -26,8 +26,8 @@ class IdeaChatController:
         """按既有附档规则拼装模型输入和用户可见的引用标记。"""
         if self.attachment_preparing:
             raise ValueError('附档正在入库和校验，请完成后再发送。')
-        import idea_attachments
-        attachments = idea_attachments.referenced(project, value, self.attachment_paths)
+        from stage_execution_service import stage_idea_attachment_reference
+        attachments = stage_idea_attachment_reference(project, value, self.attachment_paths)
         visible = value.strip()
         if (not visible and not attachments['context']) or is_example:
             return None

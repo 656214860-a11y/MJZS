@@ -99,6 +99,7 @@
             "delivery_import_service",
             "edit_service",
             "handoff_service",
+            "idea_attachments",
             "local_video_settings_service"
         ],
         "exempt_count": 4,
@@ -125,7 +126,6 @@
         ],
         "pending": [
             "cloud_video_service",
-            "idea_attachments",
             "idea_chat",
             "keyframe_batch",
             "keyframe_lifecycle_service",

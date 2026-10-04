@@ -69,6 +69,18 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
         self.assertIn('save_local_video_settings(project_context(project)', orchestrator)
 
+    def test_idea_attachments_consume_context_and_l3_injects_it(self):
+        source = Path(ROOT, 'idea_attachments.py').read_text(encoding='utf-8')
+        self.assertIn('ProjectContext', source)
+        self.assertIn("context.stage_resolver('script')", source)
+        tree = _tree('idea_attachments.py')
+        constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                        and getattr(node.func, 'id', '') == 'ProjectContext']
+        self.assertEqual(constructors, [])
+        orchestrator = Path(ROOT, 'stage_execution_service.py').read_text(encoding='utf-8')
+        self.assertIn('store(project_context(project)', orchestrator)
+        self.assertIn('def stage_idea_attachment_reference(', orchestrator)
+
     def test_second_roadmap_scope_is_a_complete_migration_ratchet(self):
         ledger = json.loads(Path(ROOT, '维护记录', '架构统一基数.json').read_text(encoding='utf-8'))
         item = ledger['第二项']

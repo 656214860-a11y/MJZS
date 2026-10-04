@@ -1029,8 +1029,8 @@ class Desktop:
     def show_idea_reference_menu(self, event):
         """用户输入 @ 时仅展示当前项目已入库的创意，不访问任意本地文件。"""
         if str(getattr(event,'char',''))!='@':return None
-        import idea_attachments
-        paths=idea_attachments.uploaded(self.root)
+        from stage_execution_service import stage_idea_attachment_paths
+        paths=stage_idea_attachment_paths(self.root)
         if not paths:return None
         menu=ContextMenu(event.widget, menu_factory=tk.Menu)
         for path in paths:
