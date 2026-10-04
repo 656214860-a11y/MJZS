@@ -313,6 +313,7 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 - 阶段命令入口唯一权威：`stage_handler_registry.start()`；`tests/architecture/test_stage_command_contract.py` 约束三虎自动启动、手动分镜与自动分镜均经该 L3 入口，并区分自动失败事件与手动页面结果。
 - 资产批次台账正式发布唯一经 `stage_execution_service.asset_batch_gateway()` 注入；L4 的未知提交放开请求经 `release_uncertain_asset_batch()` 委托，L2 不得自行持久化台账。
 - 资产详情图片绑定的回滚字节发布唯一经 `stage_execution_service.asset_detail_gateway()` 注入；详情页只调用 L3 的正典板／状态变体编排入口。
+- 资产详情辅助文字按语义分批统一：R1051 的推荐理由、正典板页脚、锚点补充说明和参考职责两行共 5 处复用 `ui_widgets.DescriptionBlock`／`TEXT_DESC`，由文字组件门禁精确约束。标题、锁定／就绪状态色、窄缩略图文件名及其他未迁移项仍为后续分类范围，不宣称整页已统一；不得用描述组件默认宽度机械替换窄格文字。
 - 生成资产自动导入的临时 PNG 发布唯一使用 `stage_execution_service.asset_batch_gateway()` 注入；缺少发布器时 L2 显式拒绝。
 - 最终成片导入的字节发布唯一经 `stage_execution_service.import_delivery_master()` 注入；L2 不得保留复制回退。
 - 本地视频设置的工作流、配置及回滚发布唯一经 `stage_execution_service.publish_local_video_settings()` 注入；L2 不得直连正式发布器。

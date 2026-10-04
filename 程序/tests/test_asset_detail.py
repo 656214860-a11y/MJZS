@@ -129,6 +129,51 @@ class _Harness(unittest.TestCase):
         return found
 
 
+class TextHierarchyTests(_Harness):
+    def test_five_description_sites_keep_long_text_and_token_styles_at_scaling(self):
+        from types import SimpleNamespace
+        from tkinter import font
+        from ui_widgets import DescriptionBlock
+        from ui_tokens import TEXT_DESC
+        win = self.tk.Tk(); win.withdraw()
+        self.addCleanup(win.destroy)
+        long_text = '这是需要完整保留并自动换行的资产说明。' * 18
+        with tempfile.TemporaryDirectory() as td:
+            for scaling in (1.0, 1.5, 2.0):
+                with self.subTest(scaling=scaling):
+                    win.tk.call('tk', 'scaling', scaling)
+                    content = self.ttk.Frame(win)
+                    d = SimpleNamespace(content=content, root=Path(td), asset_base=lambda:Path(td),
+                                        asset_requirements=lambda:{}, safe=lambda callback:callback())
+                    asset = {'canonical_board':long_text, 'reference_role':long_text,
+                             'reference_exclude':long_text}
+                    gate = {'key':'anchor:CHAR_001', 'title':'待确认', 'candidates':['候选'],
+                            'reason':long_text}
+                    with mock.patch.object(confirm_gates, 'run', side_effect=[{'ask':[gate]}, {'ask':[]}]), \
+                         mock.patch.object(ac, 'cells', return_value=[]), \
+                         mock.patch.object(ac, 'card_lines', return_value=[('细节', long_text)]):
+                        asset_detail._gates_block(d, 'CHAR_001')
+                        asset_detail._board_block(d, 'CHAR_001', asset)
+                        asset_detail._anchor_block(d, 'CHAR_001', asset)
+                        asset_detail._role_block(d, 'CHAR_001', asset)
+                    def labels(widget):
+                        return ([widget] if isinstance(widget, DescriptionBlock) else []) + [
+                            label for child in widget.winfo_children() for label in labels(child)]
+                    descriptions = labels(content)
+                    self.assertEqual(sorted(str(label.cget('text')) for label in descriptions), sorted([
+                        prefix + long_text for prefix in ('理由：', '当前方案：', '细节：', '负责：', '不继承：')]))
+                    win.update_idletasks()
+                    for label in descriptions:
+                        self.assertEqual(str(label.cget('foreground')), TEXT_DESC['foreground'])
+                        self.assertEqual(int(label.cget('wraplength')), TEXT_DESC['wraplength'])
+                        self.assertEqual(label.linespace, TEXT_DESC['linespace'])
+                        self.assertLessEqual(label.winfo_reqwidth(), TEXT_DESC['wraplength'] + 10)
+                        self.assertGreater(label.winfo_reqheight(),
+                                           font.Font(root=win, font=label.cget('font')).metrics('linespace') * 2)
+                    self.assertIn('（还没定稿：用下面的候选点一下，或点「编辑」自己写）', self.texts(content))
+                    content.destroy()
+
+
 class EntryTests(_Harness):
     """单功能 1：主页面 → 详情页跳转；返回。"""
 

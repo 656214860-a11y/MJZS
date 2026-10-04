@@ -27,7 +27,7 @@ from agent.core import read
 from platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
+from ui_widgets import BaseDialog, DescriptionBlock, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
 ZOOM_SIZE = 900                      # 点一下放大后的长边（不放大原图，只按原分辨率显示）
@@ -288,8 +288,7 @@ def _gates_block(desktop, aid):
             SecondaryButton(row, text='采用',
                        command=lambda key=item['key'], value=candidate:
                        desktop.safe(lambda: _pick(desktop, key, value, aid))).pack(side='left', padx=6)
-        ttk.Label(box, text='理由：' + str(item.get('reason') or ''), foreground='#555555',
-                  wraplength=760, justify='left').pack(anchor='w', padx=(10, 0))
+        DescriptionBlock(box, text='理由：' + str(item.get('reason') or '')).pack(anchor='w', padx=(10, 0))
         recommended = item['candidates'][item.get('recommended', 0)]
         PrimaryButton(box, text='采用推荐（候选' + str(int(item.get('recommended', 0)) + 1) + '）',
                    command=lambda key=item['key'], value=recommended:
@@ -366,7 +365,7 @@ def _board_block(desktop, aid, asset):
                command=lambda: desktop.safe(lambda: regenerate(desktop, aid))).pack(side='left')
     board = str(asset.get('canonical_board') or '').strip()
     note = '当前方案：' + board if board else '还没选定：点「重新生成」把 Agent 预筛的候选摆出来'
-    ttk.Label(foot, text=note, foreground='#555555', wraplength=640, justify='left').pack(side='left', padx=8)
+    DescriptionBlock(foot, text=note).pack(side='left', padx=8)
     return box
 
 
@@ -387,8 +386,7 @@ def _anchor_block(desktop, aid, asset):
     for title, text in card_lines(asset):
         if title in ('锚点字符串（逐字复用，可复制）', '正典板'):
             continue
-        ttk.Label(box, text=title + '：' + text, wraplength=760,
-                  justify='left', foreground='#555555').pack(anchor='w', pady=(2, 0))
+        DescriptionBlock(box, text=title + '：' + text).pack(anchor='w', pady=(2, 0))
     return box
 
 
@@ -398,8 +396,8 @@ def _role_block(desktop, aid, asset):
     box.pack(fill='x', pady=(4, 0))
     role = str(asset.get('reference_role') or DEFAULT_RESPONSIBILITY)
     exclude = str(asset.get('reference_exclude') or DEFAULT_EXCLUDE)
-    ttk.Label(box, text='负责：' + role, wraplength=760, justify='left').pack(anchor='w')
-    ttk.Label(box, text='不继承：' + exclude, wraplength=760, justify='left').pack(anchor='w')
+    DescriptionBlock(box, text='负责：' + role).pack(anchor='w')
+    DescriptionBlock(box, text='不继承：' + exclude).pack(anchor='w')
     SecondaryButton(box, text='编辑',
                command=lambda: desktop.safe(lambda: edit_role(desktop, aid))).pack(anchor='w', pady=(4, 0))
     return box
