@@ -84,7 +84,7 @@ def start_pet_test_check(program, text=''):
 def poll_pet_test_check(session, project, at=None):
     """L3 轮询宠物增量自检，并向 L2 注入正式账本发布器。"""
     from pet_test_service import poll_incremental
-    return poll_incremental(session, project, at=at,
+    return poll_incremental(session, project_context(project), at=at,
                             publish=pet_test_gateway()['publish_json'])
 
 

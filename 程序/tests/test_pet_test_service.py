@@ -43,12 +43,12 @@ class PetTestServiceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             project = Path(folder) / '项目'
             result = pet_test_service.run_incremental(
-                folder, project, '跑 2 次测试', at=12,
+                folder, project_context(project), '跑 2 次测试', at=12,
                 invoke=lambda _args, _cwd: next(outputs), publish=save)
             self.assertEqual(result['item']['passed'], 1)
             self.assertEqual(result['item']['total'], 2)
             self.assertEqual(result['failures'], ['test_demo'])
-            saved = pet_test_service.read_json(pet_test_service.ledger_path(project), {})
+            saved = pet_test_service.read_json(pet_test_service.ledger_path(project_context(project)), {})
             self.assertEqual(saved['runs'][0]['success_rate'], 0.5)
 
     def test_poll_incremental_finishes_and_records_without_raw_log(self):
@@ -60,7 +60,7 @@ class PetTestServiceTests(unittest.TestCase):
                        'process': SimpleNamespace(poll=lambda: 0, returncode=0),
                        'output': output, 'repeats': 1, 'runs': []}
             result = pet_test_service.poll_incremental(
-                session, Path(folder) / 'project', at=9, publish=save)
+                session, project_context(Path(folder) / 'project'), at=9, publish=save)
             self.assertFalse(result['running'])
             self.assertEqual(result['item']['success_rate'], 1.0)
             self.assertNotIn('Ran 2 tests', str(result['item']))
@@ -184,7 +184,7 @@ class PetTestServiceTests(unittest.TestCase):
     def test_pet_test_record_requires_l3_publisher(self):
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaisesRegex(TypeError, 'L3'):
-                pet_test_service.record(folder, [], at=5)
+                pet_test_service.record(project_context(folder), [], at=5)
 
     def test_l3_poll_injects_pet_test_publisher(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from agent.core import read_json
 from platform_tools import launch_background, run_process
+from project_context import ProjectContext
 
 LEDGER_PATH = ('工作流任务', '宠物', '测试.json')
 KEEP = 30
@@ -46,16 +47,18 @@ def result_of(completed, index):
             'failures': failure_names(output)}
 
 
-def ledger_path(project):
-    return Path(project).joinpath(*LEDGER_PATH)
+def ledger_path(context):
+    if not isinstance(context, ProjectContext):
+        raise TypeError('宠物测试账本需要由 L3 注入 ProjectContext。')
+    return context.root.joinpath(*LEDGER_PATH)
 
 
-def record(project, runs, at=None, keep=KEEP, publish=None):
+def record(context, runs, at=None, keep=KEEP, publish=None):
     """追加一条不含原始日志的摘要；正式发布必须由 L3 注入。"""
     if not callable(publish):
         raise TypeError('宠物测试账本发布必须由 L3 注入。')
     now = time.time() if at is None else float(at)
-    path = ledger_path(project)
+    path = ledger_path(context)
     old = read_json(path, {})
     rows = list(old.get('runs') or []) if isinstance(old, dict) else []
     passed = sum(1 for row in runs if row.get('ok'))
@@ -67,7 +70,7 @@ def record(project, runs, at=None, keep=KEEP, publish=None):
     return item
 
 
-def run_incremental(program, project, text='', executable=None, invoke=None, at=None, publish=None):
+def run_incremental(program, context, text='', executable=None, invoke=None, at=None, publish=None):
     """顺序运行增量自检，写台账并返回用于播报的精简摘要。"""
     program = Path(program)
     repeats = repeat_count(text)
@@ -77,7 +80,7 @@ def run_incremental(program, project, text='', executable=None, invoke=None, at=
         text=True, encoding='utf-8', errors='replace', check=False,
         run=subprocess.run))
     runs = [result_of(invoke(command, program), index + 1) for index in range(repeats)]
-    item = record(project, runs, at=at, publish=publish)
+    item = record(context, runs, at=at, publish=publish)
     failed = [name for row in runs for name in row['failures']]
     text = '增量自检 %d/%d 通过（成功率 %.0f%%）' % (
         item['passed'], item['total'], item['success_rate'] * 100)
@@ -102,7 +105,7 @@ def start_incremental(program, text='', executable=None, popen=None):
             'repeats': repeat_count(text), 'runs': []}
 
 
-def poll_incremental(session, project, at=None, publish=None):
+def poll_incremental(session, context, at=None, publish=None):
     """轮询一次；未完成返回 ``None``，多次请求会顺序启动下一次。"""
     process = session['process']
     if process.poll() is None:
@@ -122,7 +125,7 @@ def poll_incremental(session, project, at=None, publish=None):
         session.update(next_session)
         session['runs'], session['repeats'] = runs, repeats
         return {'running': True, 'completed': len(session['runs']), 'total': session['repeats']}
-    item = record(project, session['runs'], at=at, publish=publish)
+    item = record(context, session['runs'], at=at, publish=publish)
     failed = list(dict.fromkeys(name for row in session['runs'] for name in row['failures']))
     message = '增量自检 %d/%d 通过（成功率 %.0f%%）' % (
         item['passed'], item['total'], item['success_rate'] * 100)

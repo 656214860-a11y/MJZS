@@ -101,7 +101,8 @@
             "handoff_service",
             "idea_attachments",
             "local_video_settings_service",
-            "pet_performance_service"
+            "pet_performance_service",
+            "pet_test_service"
         ],
         "exempt_count": 8,
         "exempt_items": [
@@ -137,7 +138,6 @@
             "cloud_video_service",
             "idea_chat",
             "keyframe_batch",
-            "pet_test_service",
             "previs_routing",
             "storyboard_catalog_service",
             "storyboard_lifecycle",
