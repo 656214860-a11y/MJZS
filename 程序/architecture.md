@@ -315,3 +315,7 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 - 本机加密密钥唯一实现入口：`model_secrets.PROTECTOR`，默认实现为同模块 `protect()`；测试替身只能替换该 L1 协议入口，不得恢复 `seedream_api` 反向密钥依赖。
 - SKILL 唯一权威：`skills/01`—`12` 阶段目录内的 `.skill.md` 与 `skill_registry.py`；根目录遗留文件仅由懒迁移归档；模型唯一权威：模型管理保存的模型池。
 - `<项目>` 是用户项目根目录占位符，非 `程序/episode/` 演示目录。
+
+### 历史层级名称的审计边界
+
+`asset_gating`、`keyframe`、`keyframe_api`、`previs`、`writing_files`、`writing_roles`、`writing_workflow` 是已有分层表中未实体化的名称：可查初始树和当前树无同名模块，不能称为已迁移模块。R1028 在 `维护记录/架构统一基数.json` 的 `historical_name_audit` 登记现行职责入口；这是职责索引，不是历史重命名证明。两个迁移台账保留 `historical_name_audited` 与原基数，门禁检查缺失名称集合守恒、审计分类及现行模块/符号存在。生产层级、采用方和豁免数量均不变；不得据此宣布第 1、2 项整体完成。

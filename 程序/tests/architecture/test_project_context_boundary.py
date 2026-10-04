@@ -229,7 +229,12 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         adopters = set(item['adopters'])
         pending = set(item['pending'])
         exempt = set(item['exempt_items'])
-        historical = set(item['historical_name_audit_pending'])
+        historical_pending = set(item['historical_name_audit_pending'])
+        historical_audited = set(item['historical_name_audited'])
+        self.assertFalse(historical_pending & historical_audited)
+        self.assertEqual(historical_audited, set(ledger['historical_name_audit']['entrypoints']))
+        self.assertEqual(historical_audited, set(ledger['第一项']['historical_name_audited']))
+        historical = historical_pending | historical_audited
         self.assertFalse((adopters & pending) | (adopters & exempt) | (adopters & historical))
         self.assertFalse((pending & exempt) | (pending & historical) | (exempt & historical))
         self.assertEqual(len(adopters | pending | exempt | historical), 37)

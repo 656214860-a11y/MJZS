@@ -31,7 +31,8 @@
             "writing_tools"
         ],
         "scope_audit_pending": [],
-        "historical_name_audit_pending": [
+        "historical_name_audit_pending": [],
+        "historical_name_audited": [
             "asset_gating",
             "keyframe",
             "keyframe_api",
@@ -133,7 +134,8 @@
             "storyboard_source_service": "R1003：仅排序和读取调用方已选分镜源路径，不接收项目根、阶段解析器或项目设置。",
             "subtitle_timing": "R999：仅把调用方提供的剧集数据换算为时间轴/SRT 行，不接收项目路径、设置或持久化能力。"
         },
-        "historical_name_audit_pending": [
+        "historical_name_audit_pending": [],
+        "historical_name_audited": [
             "asset_gating",
             "keyframe",
             "keyframe_api",
@@ -143,6 +145,20 @@
             "writing_workflow"
         ],
     "pending": []
+    },
+    "historical_name_audit": {
+        "round": 1028,
+        "classification": "unmaterialized_registry_names",
+        "evidence": "七个名称均在初始提交 c00a5f8 的分层登记中存在，但初始树、当前树及 git log --all 的同名模块路径均无文件记录。以下仅登记现行职责入口，不断言历史重命名或迁移完成；不改变采用方、豁免数及层级登记。",
+        "entrypoints": {
+            "asset_gating": {"asset_batch_selection_service": ["selectable_rows", "initial_excluded"], "asset_batch": ["show"]},
+            "keyframe": {"keyframe_import": ["register", "launch"], "keyframe_batch": ["image_prompt"]},
+            "keyframe_api": {"keyframe_model_service": ["production_choices", "current_model"]},
+            "previs": {"previs_routing": ["classify", "dispatch"], "white_model_service": ["import_previs_media", "save_previs_notes"]},
+            "writing_files": {"writing_tools": ["list_files", "read_file", "write_file"], "script_workspace_service": ["iter_script_documents", "rename_script_document"]},
+            "writing_roles": {"hollmwood_roles": ["run", "default_role_rules"]},
+            "writing_workflow": {"writing_api": ["reply"], "writing": ["prepare", "import_project"]}
+        }
     },
     "\u7b2c\u4e09\u9879": {
         "count": 0,

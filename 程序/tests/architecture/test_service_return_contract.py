@@ -92,7 +92,24 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
                    and not (root / name / '__init__.py').is_file()}
         historical = ledger['historical_name_audit_pending']
         self.assertEqual(len(historical), len(set(historical)))
-        self.assertEqual(missing, set(historical), '旧逻辑名须追溯替代入口，不能直接算已迁移')
+        audited = ledger['historical_name_audited']
+        self.assertEqual(len(audited), len(set(audited)))
+        self.assertFalse(set(historical) & set(audited))
+        self.assertEqual(missing, set(historical) | set(audited),
+                         '旧逻辑名须保留追溯记录，不能直接算已迁移')
+        audit = json.loads((root / '维护记录' / '架构统一基数.json').read_text(encoding='utf-8'))['historical_name_audit']
+        self.assertEqual(audit['classification'], 'unmaterialized_registry_names')
+        self.assertEqual(set(audit['entrypoints']), set(audited))
+        self.assertTrue(audit['evidence'])
+        for name, entries in audit['entrypoints'].items():
+            self.assertTrue(entries, name)
+            for module, symbols in entries.items():
+                self.assertNotIn(module, missing)
+                source = ast.parse((root / (module + '.py')).read_text(encoding='utf-8-sig'))
+                actual = {node.name for node in source.body
+                          if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+                self.assertTrue(symbols, module)
+                self.assertTrue(set(symbols) <= actual, (name, module, symbols))
 
     def test_only_approved_l2_adopters_import_service_contract(self):
         """解冻后的每批迁移仍必须显式更新采用方棘轮。"""
