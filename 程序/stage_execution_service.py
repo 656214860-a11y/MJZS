@@ -162,8 +162,11 @@ def legacy_adoption_gateway():
 def record_stage_legacy_adoption(project, linked_paths, now=None):
     """旧目录归位记录只经 L3 网关发布。"""
     from legacy_adoption_service import record_legacy_adoption
-    return record_legacy_adoption(project, linked_paths, now=now,
-                                  gateway=legacy_adoption_gateway())
+    result = record_legacy_adoption(project, linked_paths, now=now,
+                                    gateway=legacy_adoption_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def archive_idea_attachments(project, paths, now=None):

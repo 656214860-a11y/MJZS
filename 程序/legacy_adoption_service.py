@@ -2,8 +2,12 @@
 """旧目录归位日志的受控发布服务。"""
 from datetime import datetime
 from pathlib import Path
+import logging
 
 from stage_layout import ARCHIVE
+from service_contract import SystemError, success
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _require_gateway(gateway):
@@ -20,8 +24,13 @@ def record_legacy_adoption(project, linked_paths, now=None, *, gateway=None):
     root = Path(project)
     folder = root / ARCHIVE / 'logs'
     publish, make_dir = _require_gateway(gateway)
-    make_dir(folder)
     target = folder / '旧目录归位.json'
     timestamp = now or datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    publish(target, {'at': timestamp, 'linked': [str(path) for path in linked_paths]})
-    return target
+    payload = {'at': timestamp, 'linked': [str(path) for path in linked_paths]}
+    try:
+        make_dir(folder)
+        publish(target, payload)
+    except OSError:
+        LOGGER.exception('旧目录归位日志保存失败')
+        return SystemError('旧目录归位日志保存失败，请检查文件权限和磁盘空间。')
+    return success(target)

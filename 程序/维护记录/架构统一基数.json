@@ -8,6 +8,7 @@
             "delivery_import_service",
             "desktop_settings_service",
             "keyframe_lifecycle_service",
+            "legacy_adoption_service",
             "recycle_recovery_service",
             "script_workspace_service",
             "stage_workspace_service",
@@ -20,7 +21,6 @@
             "asset_plan",
             "asset_resume",
             "hollmwood_roles",
-            "legacy_adoption_service",
             "project_naming",
             "projects",
             "script_preview_service",
@@ -1051,19 +1051,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "563",
+                "point": "566",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "594",
+                "point": "597",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "607",
+                "point": "610",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
