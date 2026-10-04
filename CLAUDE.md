@@ -11,10 +11,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 权威文档（开工前必读）
 
-`程序\` 下四份文档是项目的"文件系统记忆"，优先级高于任何对话历史：
+读取顺序、各文档阅读范围及完成条件唯一以 `程序\AGENTS.md` §0 为准；本入口不另设“只读头部”例外。文件索引：
 
-1. `程序\AGENTS.md` — 硬约束、轮次协议、自检规则、权威源表（最重要，与本文件配套）。
-2. `程序\project_status.md` — 当前轮次、待办、验证基线（200KB+，读头部接续协议与当前状态即可）。
+1. `程序\AGENTS.md` — 硬约束、轮次协议、自检规则、权威源表（治理规则唯一权威）。
+2. `程序\project_status.md` — 当前轮次、待办、验证基线与历史事实；阅读范围见上述 §0。
 3. `程序\architecture.md` — 目录树、L0–L5 分层表、模块职责、已验证的发布边界。
 4. `程序\PROJECT_MAP.md` — 核心模块地图、12 阶段目录、SG-01~05 门禁关系、数据边界。
 
@@ -26,15 +26,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # 启动应用（无控制台）
 运行环境\Python\pythonw.exe -I 启动漫剧制作助手.pyw    # 或双击 .pyw / 启动助手.cmd；启动错误写 启动错误.log
 
-python smoke_test.py                        # 每轮必跑的默认冒烟（基线 8/8）
+python smoke_test.py                        # 默认冒烟；执行／只读轮触发条件见 AGENTS.md §5
 python smoke_test.py --affected idea_chat workflow   # 只跑受影响模块的门禁
 python smoke_test.py --gate                 # 增量门禁（按台账，只跑改过的测试）
 python smoke_test.py --architecture         # 全部架构门禁（tests/architecture/，基线见 project_status.md）
 
 python run_selftests.py                     # 并行全量自检（增量：未改动的测试自动跳过，约 85 秒）
 python run_selftests.py --all --safe        # 分池全量回归（无 Tk 单元并行＋Tk 最多 2 路＋性能用例独占串行；实测 545～587 秒）
-                                       # 仅 master 提交序列每 3 轮要求一次；同内容树七日内有绿凭据则直接引用免跑
-                                       # 分支／worktree 每轮只需冒烟＋架构＋定向，不累计全量欠账
+                                       # 全量触发、升级条件与凭据复用统一见 AGENTS.md §5
 python run_selftests.py --all --safe --force   # 忽略同内容树绿凭据，强制再跑一轮全量复核
 python run_selftests.py -k pet keyframe     # 只跑文件名含这些关键词的测试（单测试的标准做法）
 python run_selftests.py --layer architecture --all   # 只跑架构契约层
@@ -84,5 +83,5 @@ python run_selftests.py --list              # 列出会跑哪些测试文件
 ## 开发流程约定（源自 AGENTS.md，本项目实际执行）
 
 - **轮次制**：每轮开工先声明轮次类型（功能轮/修复轮/结构治理轮/契约轮/只读诊断轮/测试搬家轮/性能轮/可靠性轮/兼容轮/验证基线轮），不同类型协议不同。
-- **每轮收尾**：先写 `程序\tasks_round\tasks_round_N_result.md`（N 必须连续）并报告三个基线（默认冒烟 / 架构门禁 / 全量回归）；三个基线达标且凭据形态扫描未命中后提交一次。成功提交信息以 `RN:` 开头；`[TASK_FAILED]` 只可用 `RN-FAIL:` 前缀的诊断性提交，绝不得伪装为完成。提交前核对暂存清单，拒绝 `private/`、日志、运行数据与用户项目内容；`project_status.md` 按用户协议或每 5 轮更新一次。
+- **每轮收尾**：认领与轮次一致性按 `程序\AGENTS.md` §2.5，提交按 §2.6，归档按 §7；只读诊断的报告／元数据写入边界按 §3.5，测试按 §5。未运行和历史凭据须如实区分，不写为本轮通过；普通只读问答不自动立轮。
 - **禁止事项**：不改用户项目数据；不重复创建已有模块（先搜已有入口）；不重构范围外文件；不改测试迁就实现（契约有意变更时可同步改 mock/导入路径，但禁止弱化断言，且须在结果文件注明"断言未动"）；新测试一律放 `程序\tests\`；启动路径上禁止递归扫描目录（须缓存/后台加载/懒加载）；连续 5 个功能轮后必须插 1 个整理轮。
