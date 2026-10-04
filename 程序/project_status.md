@@ -1,13 +1,13 @@
 # 项目状态（可独立接续）
 
-更新：2026-10-04｜权威位置：`D:\漫剧制作助手\程序\project_status.md`｜当前轮次：1022（R1021 结构治理轮：按 R996 报告 J3 清理程序字节码缓存，验证与提交状态见 tasks_round/tasks_round_1021_result.md；历史缺口声明保留。R993 完整安全凭据为 3824/0、306.312 秒。）
+更新：2026-10-04｜权威位置：`D:\漫剧制作助手\程序\project_status.md`｜当前轮次：1023（R1022 结构治理轮：文档规则去重与事实校正，结果见 tasks_round/tasks_round_1022_result.md；历史缺口声明保留。）
 
 ## 新对话接续协议
 
-1. 先读根目录 `AGENTS.md`，再完整读取本文件；不依赖任何旧对话历史。
-2. 架构、目录、SKILL、模型和数据边界参见根目录 `architecture.md`；阶段顺序只认 `pet_bus.STAGES` / `STAGE_NAMES`，并行策略只认 `stage_parallel.CONFIG`。
-3. 每轮只处理当前任务；完成后写 `tasks_round/tasks_round_N_result.md`，更新本文件，并用项目内置 Python 运行默认 `smoke_test.py`。
-4. 不写入/回显密钥，不修改用户项目数据；界面或注册表改动后提示重启应用。
+1. 按程序目录 `AGENTS.md` §0 读取接续资料；本文按轮次记载的旧事实不等于当前树已验收。
+2. 架构、目录、SKILL、模型和数据边界参见同目录 `architecture.md` 与 `PROJECT_MAP.md`；唯一权威索引见 `AGENTS.md` §2.2。
+3. 每轮范围、验证和收尾分别按 `AGENTS.md` §2、§5、§7；本文不另设测试周期或只读诊断例外。
+4. 密钥、用户数据及重启提示边界见 `AGENTS.md` §2.1。
 5. 主界面的“齿轮 → 设置”入口必须保留；界面或服务拆分不得删除、隐藏或使该路径不可达。
 6. 架构统一待办见 `维护记录/架构统一路线图_v2.md`，第 3、4 项基数见 `维护记录/架构统一基数.json`；UI 统一待办见 `维护记录/UI统一入口路线图_v1.md`。
 
@@ -954,7 +954,7 @@
 
 - R392 契约收敛：`AGENTS.md` 已纳入阶段启动、动态导入、阶段路径、完成核验及回收服务的唯一入口；状态更新、删除边界、结构治理自检分级和新增轮次类型均已按 R391 修订方案更新。默认冒烟 8/8、架构冒烟 14/14。
 
-- 产品：Windows Tkinter「漫剧制作助手」，零第三方依赖，12 阶段由 `skill_orchestrator` 执行；“剧本结构”位于剧本准备与初步分镜之间。已可将确认后的 `writing/script_raw.md` 无损读取并结构化写为 `writing/script.md`（角色、场景、道具、分场剧本）；剧本准备保留 2 个创意 SKILL，剧本结构承接 3 个结构化 SKILL。
+- 产品：Windows Tkinter「漫剧制作助手」，零第三方依赖，12 阶段由 `skill_orchestrator` 执行；“剧本结构”位于剧本准备与初步分镜之间。剧本输入与结构化输出由 `script_contract`、`stage_path_service` 解析；旧 `writing/` 仅作历史读取兼容。当前可选 SKILL 以 `skill_registry` 懒加载登记结果为准。
 - 三虎：带前缀播报和 UTF-8 日志、检查点/恢复、12 阶段 YAML 模板、手动/全自动模式、暂停/阻塞控制、资产跨重启续跑；`auto_*_var` 的写入权只属于三虎，页面不显示自动制作勾选框。
 - 剧本准备：模型/用户气泡左右分列，模型名、折叠、思考提示、原位编辑、拖选复制、右键整条复制/删除及恢复最近删除、输入草稿持久化、输入框自适应和文件表刷新均已实现。每个模型保留独立聊天页并使用稳定浅色主题；下方无标题文件表按项目设定、项目大纲、项目剧本分为三列独立紧凑排列，单元格仅显示文件名，不列出用户简报、聊天记录或无关文件。
 - 模型：模型管理是唯一池；阶段按所选厂商/协议/模型/密钥/SKILL 直连 API，不回退到 Qwen。GPT API 与 ChatGPT Desktop 归类为 GPT；自定义 Provider 与模型保存后刷新阶段配置。
@@ -965,6 +965,8 @@
 - Round 131 二次核验：自动粗剪/交接标记、JSON 导入、创意历史和参考脚本扫描均以 `project_stages` 为唯一新路径；剧本/分镜目录清单继续只读兼容旧目录，项目接续资产优先读取 `04资产管理/assets.json`。
 
 ## 检查点
+
+以下为 2026-09-24 的历史格式示例，不是当前检查点；`02_assets` 是旧标识，现行阶段 ID 以 `pet_bus.STAGES` 为准。
 
 ```json
 {
@@ -977,6 +979,10 @@
 ```
 
 ## 验证基线
+
+- 当前最近完整架构实测：R1021 为 299 项、6 失败（默认冒烟 8/8），不具备当前绿色架构验收；失败集合见 `tasks_round/tasks_round_1021_result.md`。R1022 改前后比较见本轮结果报告。
+- R993 完整安全全量的历史记录为 3824/0、306.312 秒；是否可复用必须由 common-dir 的 `full-safe-receipts.json` 按内容树与有效期判定，不由本文授予通过。
+- 下列 Round 403 及更早记录均为历史快照；测试触发规则只认 `AGENTS.md` §5。
 
 - Round 403：经 `comfy_runtime.open_comfy()` 启动并读取 `http://127.0.0.1:8188/system_stats`；ComfyUI 0.37.0、RTX 4060 就绪，已保存的 Flux Klein、Qwen 编码器、Flux VAE 均在对应节点选项中。`run_selftests.py --safe --serial -k workflow keyframe_model_service stage_model_value keyframe_comfy` **95/95 通过**；默认 `smoke_test.py` **8/8 通过**。未提交生成任务。
 
@@ -997,7 +1003,7 @@
   `smoke_test.py --architecture` **14/14 通过**、7.584 秒，覆盖删除网关、动态导入登记、层级、
   模型边界、循环依赖、路径权威、平台和阶段路径门禁。
 
-- 默认冒烟：项目内置 Python 运行 `smoke_test.py`，最近结果 **8/8 通过**（Round 404）；`--architecture` 为显式架构治理扫描，最近结果 **31/31 通过**（Round 402），不纳入默认快速冒烟。
+- 历史快照：Round 404 默认冒烟 **8/8 通过**；Round 402 架构检查 **31/31 通过**，不代表当前树的结果。
 - Round 17：项目文件落盘过滤回归 **49/49**、剧本页面文件表 UI 回归 **1/1**、默认冒烟 **8/8 通过**。
 - Round 18：HOLLMWOOD 队列 2/2、剧本 API 14/14、三虎模式 7/7、默认冒烟 8/8 通过。完整 `test_pet_ui.py` 仍有剧本结构阶段插入前的旧断言（期待 storyboard 而非 script_structure），不作为本轮新增失败。
 - Round 19：剧本文件三列独立紧凑排列、文件名去除目录前缀的 UI 回归 1/1，默认冒烟 8/8 通过。
@@ -1006,8 +1012,7 @@
 - Round 16：历史对话简报回归 **48/48**、工作流 **69/69**、API **14/14** 通过；默认冒烟 **8/8 通过**。
 - Round 15：剧本准备文件表分类回归 **1/1 通过**，默认冒烟 **8/8 通过**。
 - Round 14 定向：`test_api` **53/53 通过**；页面构建异常回归 **1/1 通过**。全量安全自检已按用户指示暂停，未可作为发布通过依据。
-- 最新定向基线：Round 13 `test_skill_templates` + `test_sanhu_mode` 10/10 通过；Round 12 `test_skill_templates` 2/2、检查点恢复相关 `test_skills` 2/2 通过；Round 11 `test_sanhu_mode` 7/7、页面构建 1/1 通过。
-- 发布前或用户明确要求才运行 `run_selftests.py --all --safe`；日常每轮跑默认冒烟，改动逻辑时补跑 `smoke_test.py --affected <模块>`。
+- 历史定向记录：Round 13 `test_skill_templates` + `test_sanhu_mode` 10/10 通过；Round 12 `test_skill_templates` 2/2、检查点恢复相关 `test_skills` 2/2 通过；Round 11 `test_sanhu_mode` 7/7、页面构建 1/1 通过。
 
 ## 已知阻塞与待办
 

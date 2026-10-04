@@ -2,6 +2,8 @@
 
 本图只描述源码职责和数据边界；用户项目、生成媒体和密钥都不属于源码树。
 
+执行与验证规则统一见 `AGENTS.md`；分层说明见 `architecture.md`，当前验收事实见 `project_status.md`。下列目录表是 `pet_bus.STAGES`／`STAGE_NAMES` 与 `stage_layout.STAGES` 的阅读投影，变更契约时须同步代码及文档；本轮仅校正文档，不改变权威定义。
+
 ## 核心模块
 
 | 区域 | 入口 | 职责 |
@@ -56,7 +58,7 @@
 | 测试 | 守护内容 |
 | --- | --- |
 | `smoke_test.py` | 快速导入、静态名称、受影响模块门禁 |
-| `run_selftests.py --all --safe` | 隔离串行全量回归、超时回收、Tk 清理 |
+| `run_selftests.py --all --safe` | 安全全量回归、受控 Tk 工作池与清理；实际调度与超时策略以执行器为准，不等同于强制串行 |
 | `test_stage_parallel.py` | SG-01~05、并发上限、阶段提示 |
 | `test_script_contract.py` | 五类 manifest 与剧本契约 |
 | `test_idea_chat.py` | 聊天布局、草稿、发送工作流 |
