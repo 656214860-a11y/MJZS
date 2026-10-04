@@ -306,6 +306,8 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 
 ## 维护边界
 
+- R1056 仅删除 `idea_chat._numbered_path()`、`white_model._base_directory()` 两个零消费者私有辅助函数。创意发布仍经 `stage_execution_service.publish_idea_creative()` 定位当前阶段；白模镜头路径仍委托 `white_model_service.shot_directory()`，四个共享缓存别名及旧读兼容不变。静态引用复核与前后回归见 R1056 报告。
+
 - R1055 仅移除 `cloud_video` 三个无消费者的 `_legacy_*` 私有副本；公开 `provider_label()` 仍委托 `cloud_video_service`，`session_folder()`／`saved_provider_key()` 仍经 `stage_execution_service` 注入上下文。旧会话与凭据只读兼容保留在现行服务，未退役兼容门面或改变云端提交行为；引用扫描与前后回归见 R1055 报告。
 
 - 密钥 sink 静态门禁 `tests/architecture/test_secret_sink_audit.py` 只解析根目录生产 Python AST，不执行取钥代码。R1054 用 30 个假代码子场景覆盖已支持的源／出口、局部别名与容器传播及无来源反例；新增 3 个测试方法，生产算法不变。跨函数返回／参数、调用别名、直接嵌套取钥和容器变更等仍需人工复核，赋值覆盖、嵌套作用域与容器字段可能误报；完整实测矩阵见 R1054 D–F。该审计完成不等于扩展扫描能力或证明全项目安全。

@@ -121,17 +121,6 @@ def project_script_filename(context, at=None, file_type='自然剧本', content=
                            _file_part(content, '模型输出'), at=at)
 
 
-def _numbered_path(parent, name, suffix=''):
-    """返回尚未占用的 ``name`` 路径，同日重复时追加序号而不是时间。"""
-    parent = Path(parent)
-    candidate = parent / (name + suffix)
-    serial = 2
-    while candidate.exists():
-        candidate = parent / (name + '_' + str(serial) + suffix)
-        serial += 1
-    return candidate
-
-
 def _read_rows(path, gateway):
     """读取单个历史文件；以 mtime/大小失效的内存缓存避免重复 JSON 解析。"""
     path = Path(path)
