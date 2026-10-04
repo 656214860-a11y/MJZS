@@ -559,8 +559,22 @@ def assets_locked(project):
     if not isinstance(rows, dict) or not rows:
         return _result(row, True, False, '资产清单还没生成（资产管理还没做），先不拦')
     problems = []
+    resolved_base = base.resolve()
+
+    def _has_imported_image(item):
+        """清单中的路径必须指向资产库内一个真实、非空的图片文件。"""
+        image = str(item.get('image') or '').strip()
+        if not image:
+            return False
+        try:
+            candidate = (base / image).resolve()
+            candidate.relative_to(resolved_base)
+            return candidate.is_file() and candidate.stat().st_size > 0
+        except (OSError, ValueError):
+            return False
+
     missing = [aid for aid, item in rows.items()
-               if not isinstance(item, dict) or not str(item.get('image') or '').strip()]
+               if not isinstance(item, dict) or not _has_imported_image(item)]
     if missing:
         problems.append('%d 项资产还没导入图片：%s' % (len(missing), '、'.join(sorted(missing)[:6])))
     unlocked = [aid for aid, item in rows.items()
