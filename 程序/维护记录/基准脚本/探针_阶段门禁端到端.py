@@ -21,6 +21,7 @@ def run_probe():
     from continuity_ledger import write as write_ledger
     from shot_batches import assign
     from stage_completion_service import completion_evidence
+    from project_context_factory import project_context
     from storyboard_paths import media_root
     import stage_parallel
     import stage_layout
@@ -121,7 +122,7 @@ def run_probe():
         white_model_service._BASE_CACHE.clear()
         white_model_service._DIR_CACHE.clear()
         try:
-            shot_dir = white_model_service.shot_directory(project, "SH001")
+            shot_dir = white_model_service.shot_directory(project_context(project), "SH001")
             preview = shot_dir / "preview.mp4"
             preview.parent.mkdir(parents=True, exist_ok=True)
             preview.write_bytes(b"stage-gate-e2e-preview")
