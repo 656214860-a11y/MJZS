@@ -6,9 +6,9 @@
 与缓存（AGENTS 约束 14"受控清理"），绝不触碰用户项目、``private``、``data``、
 ``运行环境/Python`` 与任何被 Git 跟踪的内容。
 
-只在正常退出后的无窗口子进程执行；启动路径零扫描。git 仅用于工作树判定，
+只在正常退出后的无窗口子进程执行；启动路径零扫描。git 用于缓存跟踪保护与工作树判定，
 且三重保守回退：非主仓形态（无 ``.git``）、PATH 无 git、任何调用异常都跳过
-工作树段，pycache/selftmp 两段照常执行。``git gc`` 永不进本模块——重打包
+工作树段；Git 仓库内无法核验跟踪状态时保留缓存。``git gc`` 永不进本模块——重打包
 可能长时间占盘，只留在开发侧 ``scripts/repo_health.py``。
 
 实际物理清理委托 ``storage_maintenance.remove_regenerable_tree()``；进程只经
@@ -43,6 +43,8 @@ TMP_PREFIX_RE = re.compile(r"tmp", re.IGNORECASE)
 SWEEP_PROTECTED = (DIST_ROOT / "运行环境", DIST_ROOT / ".git", DIST_ROOT / "升级备份",
                    PROGRAM / "private", PROGRAM / "data")
 SWEEP_LOG_NAME = "仓库清理.log"
+PYCACHE_PROTECTED_NAMES = frozenset({"episode", "writing", "private", "data", "配置",
+                                    "logs", "运行环境", ".git", "升级备份"})
 
 
 def _inside(child: Path, parent: Path) -> bool:
@@ -76,7 +78,9 @@ def pycache_directories(root: Path) -> list[Path]:
     """列出 root 子树内的 __pycache__ 目录并就地剪枝；保护前缀整体跳过。"""
     root = Path(root)
     found: list[Path] = []
-    if not root.is_dir() or _protected(root) or root.is_symlink() or root.is_junction():
+    if (any(part.casefold() in PYCACHE_PROTECTED_NAMES for part in root.parts)
+            or not root.is_dir() or _protected(root)
+            or any(p.is_symlink() or p.is_junction() for p in (root, *root.parents))):
         return found
     if root.name == PYCACHE_NAME:
         return [root]
@@ -87,7 +91,7 @@ def pycache_directories(root: Path) -> list[Path]:
             child = directory / name
             if child.is_symlink() or child.is_junction():
                 continue
-            if _protected(child):
+            if name.casefold() in PYCACHE_PROTECTED_NAMES or _protected(child):
                 continue
             if name == PYCACHE_NAME:
                 found.append(child)
@@ -97,13 +101,38 @@ def pycache_directories(root: Path) -> list[Path]:
     return found
 
 
+def _cache_tree_safe(target: Path) -> bool:
+    """整树预检：有非字节码、链接或受跟踪文件就保留整树，不做部分删除。"""
+    def scan_error(error):
+        raise error
+
+    for directory, dirs, files in os.walk(target, followlinks=False, onerror=scan_error):
+        for name in dirs + files:
+            entry = Path(directory, name)
+            if entry.is_symlink() or entry.is_junction():
+                return False
+            if name in files and (entry.suffix.lower() != '.pyc' or not entry.is_file()):
+                return False
+    for parent in target.parents:
+        if (parent / '.git').exists():
+            checked = run_git(['ls-files', '-z', '--', target.relative_to(parent).as_posix()], parent)
+            if checked is None or checked.returncode:
+                raise OSError('无法确认缓存的 Git 跟踪状态，保留目录')
+            return not checked.stdout
+    return True
+
+
 def clean_pycache(roots: tuple[Path, ...], *, dry_run: bool = False) -> dict:
     result = {"category": "pycache", "removed_entries": 0, "removed_files": 0,
               "removed_bytes": 0, "errors": 0}
     for root in roots:
         root = Path(root)
         for target in pycache_directories(root):
-            remove_regenerable_tree(target, result, dry_run=dry_run, stats=_entry_stats)
+            try:
+                if _cache_tree_safe(target):
+                    remove_regenerable_tree(target, result, dry_run=dry_run, stats=_entry_stats)
+            except OSError:
+                result['errors'] += 1
     return result
 
 

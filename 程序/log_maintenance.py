@@ -40,10 +40,7 @@ def _is_managed_log(path: Path) -> bool:
 
 def log_files(directory: Path) -> list[Path]:
     """List a single managed directory without descending into any child directory."""
-    try:
-        return [path for path in directory.iterdir() if _is_managed_log(path)]
-    except OSError:
-        return []
+    return [path for path in directory.iterdir() if _is_managed_log(path)]
 
 
 def _remove(path: Path, result: dict, *, dry_run: bool) -> bool:
@@ -86,30 +83,46 @@ def maintain_directory(directory: Path, *, now: float | None = None, dry_run: bo
     result = {"directory": Path(directory), "removed_files": 0, "removed_bytes": 0,
               "rotated_files": 0, "errors": 0}
     directory = Path(directory)
-    if not directory.is_dir() or directory.is_symlink():
+    if any(p.is_symlink() or p.is_junction() for p in (directory, *directory.parents)):
         return result
-    cutoff = (time.time() if now is None else float(now)) - RETENTION_DAYS * 24 * 60 * 60
-    for path in log_files(directory):
-        try:
-            if path.stat().st_mtime < cutoff:
-                _remove(path, result, dry_run=dry_run)
-        except OSError:
-            result["errors"] += 1
-    for path in log_files(directory):
-        if path.suffix.lower() == ".log":
-            _rotate(path, result, dry_run=dry_run)
-    entries = []
-    for path in log_files(directory):
+    if not directory.is_dir():
+        return result
+    current_time = time.time() if now is None else float(now)
+    cutoff = current_time - RETENTION_DAYS * 24 * 60 * 60
+    entries = {}
+    try:
+        paths = log_files(directory)
+    except OSError:
+        result['errors'] += 1
+        return result
+    for path in paths:
         try:
             stat = path.stat()
-            entries.append((stat.st_mtime, path, stat.st_size))
+            entries[path] = (stat.st_mtime, stat.st_size)
         except OSError:
             result["errors"] += 1
-    total = sum(size for _mtime, _path, size in entries)
-    for _mtime, path, size in sorted(entries, key=lambda row: (row[0], row[1].name)):
+    # 预演与执行共享逻辑目录；已删除项不能再参与轮转或容量计数。
+    for path, (mtime, _size) in list(entries.items()):
+        if mtime < cutoff and _remove(path, result, dry_run=dry_run):
+            del entries[path]
+    for path in list(entries):
+        if path.suffix.lower() == '.log' and _rotate(path, result, dry_run=dry_run):
+            for index in range(ROTATE_KEEP, 1, -1):
+                source = path.with_name(path.name + '.' + str(index - 1))
+                if source in entries:
+                    entries[path.with_name(path.name + '.' + str(index))] = entries.pop(source)
+            entries[path.with_name(path.name + '.1')] = entries[path]
+            entries[path] = (time.time(), 0)
+    total = sum(size for _mtime, size in entries.values())
+    for path, (_mtime, size) in sorted(entries.items(), key=lambda row: (row[1][0], row[0].name)):
         if total <= DIR_MAX_BYTES:
             break
-        if _remove(path, result, dry_run=dry_run):
+        if dry_run:
+            # 路径可能是本次模拟轮转产生的，不能再 stat 原磁盘路径。
+            result['removed_files'] += 1
+            result['removed_bytes'] += size
+            total -= size
+        elif _remove(path, result, dry_run=False):
             total -= size
     return result
 
@@ -143,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{result['directory']}: 轮转 {result['rotated_files']} 个，"
               f"删除 {result['removed_files']} 个（{_format_mib(result['removed_bytes'])}），"
               f"错误 {result['errors']} 个")
-    return 0
+    return 1 if any(result['errors'] for result in results) else 0
 
 
 if __name__ == "__main__":

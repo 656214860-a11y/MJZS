@@ -5,6 +5,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import log_maintenance as logs
 
@@ -75,6 +76,61 @@ class LogMaintenanceTests(unittest.TestCase):
         result = logs.maintain_directory(self.log_dir, dry_run=True)
         self.assertTrue(old.exists())
         self.assertEqual(result['removed_files'], 1)
+
+    def test_expired_oversize_preview_matches_execution(self):
+        old = self._file('old.log', size=16, age_days=31)
+        with mock.patch.object(logs, 'SINGLE_MAX_BYTES', 4), mock.patch.object(logs, 'DIR_MAX_BYTES', 6):
+            preview = logs.maintain_directory(self.log_dir, dry_run=True)
+            self.assertTrue(old.exists())
+            actual = logs.maintain_directory(self.log_dir)
+        self.assertEqual(preview, actual)
+        self.assertEqual(preview['removed_files'], 1)
+        self.assertEqual(preview['removed_bytes'], 16)
+        self.assertEqual(preview['rotated_files'], 0)
+
+    def test_rotation_capacity_preview_matches_execution(self):
+        for name, size in [('live.log', 8), ('live.log.1', 3), ('live.log.2', 2), ('live.log.3', 20)]:
+            self._file(name, size=size, age_days=1)
+        before = {p.name: p.read_bytes() for p in self.log_dir.iterdir()}
+        with mock.patch.object(logs, 'SINGLE_MAX_BYTES', 4), mock.patch.object(logs, 'DIR_MAX_BYTES', 10):
+            preview = logs.maintain_directory(self.log_dir, dry_run=True)
+            self.assertEqual(before, {p.name: p.read_bytes() for p in self.log_dir.iterdir()})
+            actual = logs.maintain_directory(self.log_dir)
+        self.assertEqual(preview, actual)
+
+    def test_junction_is_rejected_before_directory_scan(self):
+        with mock.patch.object(Path, 'is_junction', return_value=True), mock.patch.object(logs, 'log_files') as scan:
+            result = logs.maintain_directory(self.log_dir)
+        scan.assert_not_called()
+        self.assertEqual(result['removed_files'], 0)
+
+    def test_capacity_keeps_new_empty_live_log_after_rotation(self):
+        now = time.time() - 10
+        for name, size in [('a.log', 13), ('b.log', 17)]:
+            path = self._file(name, size=size)
+            os.utime(path, (now, now))
+        with mock.patch.object(logs, 'SINGLE_MAX_BYTES', 8), mock.patch.object(logs, 'DIR_MAX_BYTES', 25):
+            preview = logs.maintain_directory(self.log_dir, now=now, dry_run=True)
+            actual = logs.maintain_directory(self.log_dir, now=now)
+        self.assertTrue((self.log_dir / 'a.log').exists())
+        self.assertEqual(actual['removed_files'], 1)
+        self.assertEqual(preview, actual)
+
+    def test_junction_ancestor_is_rejected_before_directory_scan(self):
+        with mock.patch.object(Path, 'is_junction', autospec=True, side_effect=lambda p: p == self.root), mock.patch.object(logs, 'log_files') as scan:
+            logs.maintain_directory(self.log_dir)
+        scan.assert_not_called()
+
+    def test_scan_permission_error_is_reported_without_mutation(self):
+        old = self._file('old.log', age_days=31)
+        with mock.patch.object(Path, 'iterdir', side_effect=PermissionError('denied')):
+            result = logs.maintain_directory(self.log_dir)
+        self.assertGreater(result['errors'], 0)
+        self.assertTrue(old.exists())
+
+    def test_cli_scan_failure_returns_nonzero(self):
+        with mock.patch.object(logs, 'PROGRAM', self.root), mock.patch.object(Path, 'iterdir', side_effect=PermissionError('denied')):
+            self.assertNotEqual(logs.main(['--dry-run']), 0)
 
 
 if __name__ == '__main__':

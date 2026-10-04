@@ -70,6 +70,45 @@ class WorkspaceMaintenanceTests(unittest.TestCase):
         self.assertGreaterEqual(result['errors'], 1)
         self.assertTrue(cache.exists(), '删不动就留着，下次退出再收')
 
+    def test_pycache_with_non_cache_content_is_preserved(self):
+        cache = self._pycache(self.program / 'pkg')
+        note = cache / 'important.txt'
+        note.write_text('keep', encoding='utf-8')
+        result = wm.clean_pycache((self.program,))
+        self.assertEqual(note.read_text(encoding='utf-8'), 'keep')
+        self.assertTrue((cache / 'mod.cpython-312.pyc').exists())
+        self.assertEqual(result['removed_files'], 0)
+
+    def test_pycache_under_user_and_log_directories_is_preserved(self):
+        caches = [self._pycache(self.program / name) for name in ('episode', 'writing', '配置', 'logs')]
+        wm.clean_pycache((self.program,))
+        self.assertTrue(all(p.exists() for p in caches))
+
+    def test_pycache_nested_junction_is_not_traversed_or_removed(self):
+        cache = self._pycache(self.program / 'pkg')
+        linked = cache / 'linked'
+        linked.mkdir()
+        with mock.patch.object(Path, 'is_junction', autospec=True, side_effect=lambda p: p == linked):
+            result = wm.clean_pycache((self.program,))
+        self.assertTrue(linked.exists())
+        self.assertTrue((cache / 'mod.cpython-312.pyc').exists())
+        self.assertEqual(result['removed_files'], 0)
+
+    def test_tracked_pycache_is_preserved(self):
+        cache = self._pycache(self.program / 'pkg')
+        (self.root / '.git').mkdir()
+        with mock.patch.object(wm, 'run_git', return_value=SimpleNamespace(returncode=0, stdout='程序/pkg/__pycache__/mod.pyc\0')):
+            wm.clean_pycache((self.program,))
+        self.assertTrue(cache.exists())
+
+    def test_unknown_git_tracking_state_preserves_pycache(self):
+        cache = self._pycache(self.program / 'pkg')
+        (self.root / '.git').mkdir()
+        with mock.patch.object(wm, 'run_git', return_value=None):
+            result = wm.clean_pycache((self.program,))
+        self.assertTrue(cache.exists())
+        self.assertGreater(result['errors'], 0)
+
     def test_selftemp_age_cutoff_keeps_root_and_recent(self):
         home = self.root / '.selftmp'
         home.mkdir()
