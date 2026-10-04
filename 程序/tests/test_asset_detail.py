@@ -339,6 +339,42 @@ class BoardTests(_Harness):
 
 
 class AnchorTests(_Harness):
+    def test_picking_a_candidate_records_and_keeps_success_feedback(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            d.open_asset_detail('CHAR_001'); win.update()
+            asset_detail._pick(d, 'anchor:CHAR_001', '候选锚点', 'CHAR_001')
+            self.assertIn('anchor:CHAR_001', confirm_gates.confirmations(proj))
+            self.assertEqual(plan_of(proj, 'CHAR_001')['character_anchor'], '候选锚点')
+            self.assertEqual(d.status.get(), '已采用：候选锚点（已写进资产 JSON）')
+
+    def test_regenerate_reopens_confirmations_through_existing_gateway(self):
+        from stage_execution_service import record_stage_confirmation
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            d.open_asset_detail('CHAR_001'); win.update()
+            keys = ['canon:CHAR_001', 'anchor:CHAR_001']
+            for key in keys:
+                record_stage_confirmation(proj, key, 'chosen')
+            self.assertEqual(asset_detail.regenerate(d, 'CHAR_001'), keys)
+            saved = confirm_gates.confirmations(proj)
+            self.assertTrue(all(key not in saved for key in keys))
+            self.assertTrue(d.status.get().startswith('已重新摆出候选：CHAR_001'))
+
+    def test_regenerate_partial_failure_does_not_claim_success(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(project_with(td))
+            d.open_asset_detail('CHAR_001'); win.update()
+            with mock.patch.object(confirm_gates, 'forget', side_effect=[None, OSError('denied')]) as forget, \
+                    mock.patch.object(asset_detail, '_reload') as reload_page:
+                with self.assertRaisesRegex(OSError, 'denied'):
+                    asset_detail.regenerate(d, 'CHAR_001')
+                self.assertEqual(forget.call_count, 2)
+                reload_page.assert_not_called()
+                self.assertNotIn('已重新摆出候选', d.status.get())
+
     """单功能 4／5 ＋ 数据一致性：锚点展示、复制、编辑、与 JSON 逐字核对。"""
 
     def test_apply_choice_writes_the_anchor_and_the_board(self):
@@ -373,6 +409,7 @@ class AnchorTests(_Harness):
             with mock.patch.object(asset_detail.simpledialog, "askstring", return_value="  定稿锚点  "):
                 self.assertEqual(asset_detail.edit_anchor(d, "CHAR_001"), "定稿锚点")
             self.assertEqual(plan_of(proj, "CHAR_001")["character_anchor"], "定稿锚点")
+            self.assertEqual(d.status.get(), '锚点已保存并与资产 JSON 核对一致')
 
     def test_an_empty_anchor_is_refused(self):
         """空白输入不许写进资产清单。
@@ -439,6 +476,7 @@ class VariantTests(_Harness):
             self.assertEqual([item["state_id"] for item in rows], ["CST-01"])
             self.assertEqual(rows[0]["name"], "雨夜装")
             self.assertEqual(rows[0]["override"], "深色雨衣")
+            self.assertEqual(d.status.get(), '已新增状态变体：雨夜装')
 
     def test_deleting_a_variant_asks_first(self):
         with tempfile.TemporaryDirectory() as td:
@@ -457,6 +495,7 @@ class VariantTests(_Harness):
             with mock.patch.object(asset_detail, "ask_confirmation", return_value=True):
                 asset_detail.delete_variant(d, "CHAR_001", "CST-01")
             self.assertEqual(plan_of(proj, "CHAR_001")["state_variants"], [])
+            self.assertEqual(d.status.get(), '已删除状态变体：日常装')
 
     def test_locking_writes_the_json(self):
         with tempfile.TemporaryDirectory() as td:

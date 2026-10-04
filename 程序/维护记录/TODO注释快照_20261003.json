@@ -4,7 +4,7 @@
   "items": [
     {
       "file": "asset_detail.py",
-      "line": 358,
+      "line": 355,
       "scope": "_board_block",
       "comment": "文件已绑定但缩略图服务暂时没有可用图，不能误导用户以为绑定丢了。",
       "classification": "C",

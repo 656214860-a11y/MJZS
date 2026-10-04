@@ -84,8 +84,8 @@ def bind_view(desktop, aid, view, title=''):
         return None
     from stage_execution_service import bind_asset_canonical_view
     dest = bind_asset_canonical_view(desktop.root, base, aid, view, source)
-    desktop.status.set('已绑定正典板：' + view + ' · ' + dest.name)
     _reload(desktop, aid)
+    desktop.status.set('已绑定正典板：' + view + ' · ' + dest.name)
     return dest
 
 
@@ -102,8 +102,8 @@ def clear_view(desktop, aid, view):
     if view == 'front' and not views:
         values['canonical_board'] = ''
     _fields(desktop, aid, values)
-    desktop.status.set('已清掉正典板：' + view)
     _reload(desktop, aid)
+    desktop.status.set('已清掉正典板：' + view)
     return True
 
 
@@ -113,16 +113,13 @@ def regenerate(desktop, aid):
     第 64 期任务 13：原来这两条主观门禁（G-05 锚点定稿、G-06 正典板 4 选 1）在界面上根本没有
     入口，选择也无从落盘——这就是「正典板和换状态面板两次新增都失败」的一半原因。
     """
-    from confirm_gates import forget
+    from stage_execution_service import forget_stage_confirmation
     dropped = []
     for key in ('canon:' + aid, 'anchor:' + aid):
-        try:
-            forget(desktop.root, key)
-            dropped.append(key)
-        except OSError:
-            continue
-    desktop.status.set('已重新摆出候选：' + aid + ' 的正典板与锚点各 2 个候选（点一下采用）')
+        forget_stage_confirmation(desktop.root, key)
+        dropped.append(key)
     _reload(desktop, aid)
+    desktop.status.set('已重新摆出候选：' + aid + ' 的正典板与锚点各 2 个候选（点一下采用）')
     return dropped
 
 
@@ -149,8 +146,8 @@ def edit_anchor(desktop, aid):
         notify(desktop.win, '资产 JSON 里读回来的锚点与刚写的对不上：' + saved,
                level='error', title='保存没生效', status=desktop.status)
         return None
-    desktop.status.set('锚点已保存并与资产 JSON 核对一致')
     _reload(desktop, aid)
+    desktop.status.set('锚点已保存并与资产 JSON 核对一致')
     return value
 
 
@@ -171,8 +168,8 @@ def edit_role(desktop, aid):
     if exclude is None:
         return None
     _fields(desktop, aid, {'reference_role': role.strip(), 'reference_exclude': exclude.strip()})
-    desktop.status.set('参考职责声明已保存')
     _reload(desktop, aid)
+    desktop.status.set('参考职责声明已保存')
     return role
 
 
@@ -181,9 +178,9 @@ def toggle_lock(desktop, aid):
     asset = desktop.asset_requirements().get(aid) or {}
     locked = not bool(asset.get('locked'))
     _fields(desktop, aid, {'locked': locked})
+    _reload(desktop, aid)
     desktop.status.set('已锁定：本角色外观不再变（换状态走状态变体）' if locked
                        else '已解锁：可以继续改这一项的外观')
-    _reload(desktop, aid)
     return locked
 
 
@@ -201,8 +198,8 @@ def add_variant(desktop, aid):
         return None
     rows.append(normalize_variant({'name': name.strip(), 'override': override.strip()}, len(rows) + 1))
     _fields(desktop, aid, {'state_variants': rows})
-    desktop.status.set('已新增状态变体：' + name.strip())
     _reload(desktop, aid)
+    desktop.status.set('已新增状态变体：' + name.strip())
     return rows
 
 
@@ -228,8 +225,8 @@ def edit_variant(desktop, aid, state_id):
     target['name'] = name.strip()
     target['override'] = override.strip()
     _fields(desktop, aid, {'state_variants': rows})
-    desktop.status.set('已保存状态变体：' + target['name'])
     _reload(desktop, aid)
+    desktop.status.set('已保存状态变体：' + target['name'])
     return rows
 
 
@@ -247,19 +244,19 @@ def delete_variant(desktop, aid, state_id):
         return None
     rows = [item for item in rows if item.get('state_id') != state_id]
     _fields(desktop, aid, {'state_variants': rows})
-    desktop.status.set('已删除状态变体：' + str(target.get('name') or state_id))
     _reload(desktop, aid)
+    desktop.status.set('已删除状态变体：' + str(target.get('name') or state_id))
     return rows
 
 
 def _pick(desktop, key, choice, aid):
     """采用一个候选：记一次确认 ＋ 把选择真正写进资产清单，然后重建这一页。"""
     from stage_execution_service import apply_asset_plan_gate_choice
-    from confirm_gates import record
-    record(desktop.root, key, choice)
+    from stage_execution_service import record_stage_confirmation
+    record_stage_confirmation(desktop.root, key, choice)
     apply_asset_plan_gate_choice(desktop.root, key, choice)
-    desktop.status.set('已采用：' + str(choice)[:60] + '（已写进资产 JSON）')
     _reload(desktop, aid)
+    desktop.status.set('已采用：' + str(choice)[:60] + '（已写进资产 JSON）')
 
 
 def _gates_block(desktop, aid):
@@ -489,8 +486,8 @@ def _bind_variant_image(desktop, aid, state_id):
         return None
     from stage_execution_service import bind_asset_variant_thumbnail
     dest = bind_asset_variant_thumbnail(desktop.root, base, aid, state_id, source)
-    desktop.status.set('已绑定状态变体缩略图：' + state_id)
     _reload(desktop, aid)
+    desktop.status.set('已绑定状态变体缩略图：' + state_id)
     return dest
 
 
