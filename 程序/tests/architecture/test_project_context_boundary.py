@@ -1,6 +1,8 @@
 import ast
+import json
 import os
 import unittest
+from pathlib import Path
 
 from tests.architecture._layers import LAYERS
 
@@ -29,7 +31,29 @@ class ProjectContextBoundaryTests(unittest.TestCase):
 
     def test_l2_uses_injected_stage_resolver_without_project_path_join(self):
         delivery = _tree('delivery_import_service.py')
-        source = open(os.path.join(ROOT, 'delivery_import_service.py'), encoding='utf-8').read()
+        source = Path(ROOT, 'delivery_import_service.py').read_text(encoding='utf-8')
         self.assertIn("context.stage_resolver('delivery')", source)
         self.assertNotIn('project_stages', source)
         self.assertNotIn('os.path.join', source)
+
+    def test_asset_domain_services_consume_but_do_not_construct_context(self):
+        for name in ('asset_context.py', 'asset_batch_lifecycle.py',
+                     'asset_batch_state_service.py'):
+            tree = _tree(name)
+            constructors = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                            and getattr(node.func, 'id', '') == 'ProjectContext']
+            self.assertEqual(constructors, [], name + ' 不得自行构造 ProjectContext')
+            source = Path(ROOT, name).read_text(encoding='utf-8')
+            self.assertIn('ProjectContext', source)
+
+    def test_second_roadmap_scope_is_a_complete_migration_ratchet(self):
+        ledger = json.loads(Path(ROOT, '维护记录', '架构统一基数.json').read_text(encoding='utf-8'))
+        item = ledger['第二项']
+        adopters = set(item['adopters'])
+        pending = set(item['pending'])
+        exempt = set(item['exempt_items'])
+        self.assertFalse(adopters & pending)
+        self.assertFalse(adopters & exempt)
+        self.assertFalse(pending & exempt)
+        self.assertEqual(len(adopters | pending | exempt), 37)
+        self.assertEqual(item['exempt_count'], len(exempt))

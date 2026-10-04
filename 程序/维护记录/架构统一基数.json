@@ -89,15 +89,16 @@
         "status": "active",
         "decided_at": "2026-10-04",
         "adopters": [
-            "delivery_import_service"
-        ],
-        "exempt_count": 36,
-        "exempt_items": [
             "asset_batch_lifecycle",
-            "asset_batch_selection_service",
-            "asset_batch_service",
             "asset_batch_state_service",
             "asset_context",
+            "delivery_import_service"
+        ],
+        "exempt_count": 0,
+        "exempt_items": [],
+        "pending": [
+            "asset_batch_selection_service",
+            "asset_batch_service",
             "asset_detail_service",
             "asset_gating",
             "asset_generated_import_service",

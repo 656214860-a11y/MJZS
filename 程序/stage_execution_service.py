@@ -261,7 +261,8 @@ def poll_asset_storyboard_adoption(project, minimum_age=10):
 def release_uncertain_asset_batch(project, ids):
     """L3 为确认后的资产批次未知提交记录提供唯一放开入口。"""
     from asset_batch_state_service import release_uncertain
-    return release_uncertain(project, ids, publish=asset_batch_gateway()['publish_json'])
+    return release_uncertain(None, ids, context=project_context(project),
+                             publish=asset_batch_gateway()['publish_json'])
 
 
 def asset_batch_settings_gateway():
