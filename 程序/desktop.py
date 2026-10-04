@@ -3133,7 +3133,9 @@ class Desktop:
     def clear_asset_resume(self):
         """缺图补齐了、或用户亲手关掉这一档：把跨重启台账整份删掉（第 6 轮）。"""
         try:
-            asset_resume.clear(self.root)
+            result=asset_resume.clear(self.root)
+            if not result.ok:
+                self.status.set('自动补资产续跑记录未清除：'+result.reason)
         except (OSError, ValueError, TypeError) as exc:
             # 续跑台账仍会在下次启动出现；不能把“已经清掉”的假象留给用户。
             self.status.set('自动补资产续跑记录未清除：%s；请稍后重试。' % exc)

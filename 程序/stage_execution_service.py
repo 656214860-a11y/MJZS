@@ -177,7 +177,10 @@ def archive_idea_attachments(project, paths, now=None):
         return publish_stage_text(
             target, text, lambda value: bool(value.strip()), lambda _target: None)
 
-    return store(project, paths, now=now, publish=publish_attachment)
+    result = store(project, paths, now=now, publish=publish_attachment)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def idea_chat_gateway():
@@ -233,8 +236,11 @@ def plan_unattended_assets(project, base, sources, scope='adopted'):
 
 def note_asset_resume_round(project, ids, limit=None, now=None):
     from asset_resume import note_round
-    return note_round(project, ids, limit=limit, now=now,
-                      publish=asset_plan_gateway()['publish_json'])
+    result = note_round(project, ids, limit=limit, now=now,
+                        publish=asset_plan_gateway()['publish_json'])
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def adopt_asset_storyboards(project, values):
@@ -284,15 +290,21 @@ def asset_detail_gateway():
 def bind_asset_canonical_view(project, episode_dir, aid, view, source):
     """L3 编排资产详情正典板绑定。"""
     from asset_detail_service import bind_canonical_view
-    return bind_canonical_view(project, episode_dir, aid, view, source,
-                               gateway=asset_detail_gateway())
+    result = bind_canonical_view(project, episode_dir, aid, view, source,
+                                gateway=asset_detail_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def bind_asset_variant_thumbnail(project, episode_dir, aid, state_id, source):
     """L3 编排资产详情状态变体缩略图绑定。"""
     from asset_detail_service import bind_variant_thumbnail
-    return bind_variant_thumbnail(project, episode_dir, aid, state_id, source,
-                                  gateway=asset_detail_gateway())
+    result = bind_variant_thumbnail(project, episode_dir, aid, state_id, source,
+                                   gateway=asset_detail_gateway())
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
 
 
 def tts_gateway():

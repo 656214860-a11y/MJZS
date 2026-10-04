@@ -4,12 +4,15 @@
         "decided_at": "2026-10-04",
         "adopters": [
             "asset_batch_settings_service",
+            "asset_detail_service",
+            "asset_resume",
             "audio_import_service",
             "cloud_video_service",
             "delivery_import_service",
             "desktop_settings_service",
             "edit_service",
             "handoff_service",
+            "idea_attachments",
             "keyframe_lifecycle_service",
             "legacy_adoption_service",
             "recycle_recovery_service",
@@ -22,7 +25,6 @@
         ],
         "scope_audit_pending": [
             "asset_plan",
-            "asset_resume",
             "hollmwood_roles",
             "projects",
             "storyboard_rows_service",
@@ -46,19 +48,17 @@
             "script_preview_service": "R981：仅 stat、经 file_cache 读取预览和分块；缓存为读取实现，不发布项目数据。",
             "storyboard_adoption_contract": "R981：只读设置、解析已有别名并校验采用路径；采用状态写入由独立服务承担。"
         },
-        "exempt_count": 34,
+        "exempt_count": 32,
         "exempt_items": [
             "asset_batch_lifecycle",
             "asset_batch_selection_service",
             "asset_batch_service",
             "asset_batch_state_service",
             "asset_context",
-            "asset_detail_service",
             "asset_gating",
             "asset_generated_import_service",
             "confirm_gates",
             "final_service",
-            "idea_attachments",
             "idea_chat",
             "keyframe",
             "keyframe_api",
@@ -1056,19 +1056,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "578",
+                "point": "590",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "609",
+                "point": "621",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "625",
+                "point": "637",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
