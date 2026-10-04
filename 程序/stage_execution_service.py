@@ -506,7 +506,8 @@ def save_stage_editing_checklist(project, text):
         return publish_stage_text(
             target, value, lambda _value: True, lambda _target: None, allow_empty=True)
 
-    result = save_editing_checklist(project, text, publish=publish_checklist)
+    result = save_editing_checklist(project, text, publish=publish_checklist,
+                                    context=project_context(project))
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
@@ -652,6 +653,17 @@ def save_automatic_handoff_marker(project, digest, folder, shot_count):
             lambda text: isinstance(json.loads(text), dict), lambda _target: None)
 
     result = save_marker(target, digest, folder, shot_count, publish=publish_marker)
+    if not result.ok:
+        raise ValueError(result.reason)
+    return result.data
+
+
+def publish_stage_handoff_bundle(project, shots, rows, subtitle=None, auto=False):
+    """交接包编排：L3 注入项目上下文与唯一阶段发布器。"""
+    from handoff_service import publish_bundle
+    result = publish_bundle(project, shots, rows, subtitle, auto,
+                            publish=publish_handoff_bundle,
+                            context=project_context(project))
     if not result.ok:
         raise ValueError(result.reason)
     return result.data

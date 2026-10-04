@@ -95,10 +95,12 @@
             "asset_context",
             "asset_detail_service",
             "asset_generated_import_service",
-            "delivery_import_service"
+            "delivery_import_service",
+            "edit_service",
+            "handoff_service"
         ],
-        "exempt_count": 0,
-        "exempt_items": [],
+        "exempt_count": 1,
+        "exempt_items": ["final_service"],
         "historical_name_audit_pending": [
             "asset_gating",
             "keyframe",
@@ -112,9 +114,6 @@
             "asset_batch_selection_service",
             "cloud_video_service",
             "confirm_gates",
-            "edit_service",
-            "final_service",
-            "handoff_service",
             "idea_attachments",
             "idea_chat",
             "keyframe_batch",

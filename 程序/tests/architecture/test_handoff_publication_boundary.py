@@ -17,7 +17,7 @@ class HandoffPublicationBoundaryTests(unittest.TestCase):
         with open(os.path.join(ROOT, 'desktop.py'), encoding='utf-8') as handle:
             text = handle.read()
         source = ast.get_source_segment(text, _method(ast.parse(text), 'Desktop', 'handoff'))
-        self.assertIn('publish_bundle(', source)
+        self.assertIn('publish_stage_handoff_bundle(', source)
         self.assertNotIn("镜头顺序.json", source)
 
     def test_service_owns_manifest_and_instruction_writes(self):
@@ -34,9 +34,12 @@ class HandoffPublicationBoundaryTests(unittest.TestCase):
         with open(os.path.join(ROOT, 'desktop.py'), encoding='utf-8') as handle:
             text = handle.read()
         source = ast.get_source_segment(text, _method(ast.parse(text), 'Desktop', 'handoff'))
-        self.assertIn('publish=publish_handoff_bundle', source)
+        self.assertIn('publish_stage_handoff_bundle(', source)
         with open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8') as handle:
             service = handle.read()
+        self.assertIn('def publish_stage_handoff_bundle(', service)
+        self.assertIn('publish=publish_handoff_bundle', service)
+        self.assertIn('context=project_context(project)', service)
         self.assertIn('def publish_handoff_bundle(', service)
         self.assertIn('publish_stage_bundle(payload', service)
 

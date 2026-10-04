@@ -3,6 +3,18 @@ from pathlib import Path
 from functools import wraps
 import logging
 from service_contract import SystemError, success
+from project_context import ProjectContext
+
+
+def _project_root(project=None, *, context=None):
+    if context is None:
+        return Path(project).resolve()
+    if not isinstance(context, ProjectContext):
+        raise TypeError('剪辑清单需要由 L3 注入 ProjectContext。')
+    root = context.root.resolve()
+    if project is not None and Path(project).resolve() != root:
+        raise ValueError('项目路径与注入的 ProjectContext 不一致。')
+    return root
 
 
 def _write_result(function):
@@ -21,12 +33,12 @@ AUTOMATIC_ASSEMBLE_MARKER_NAME = '自动粗剪.json'
 
 
 @_write_result
-def save_editing_checklist(project, text, *, publish=None):
+def save_editing_checklist(project, text, *, publish=None, context=None):
     """发布用户维护的剪辑优化清单；正式发布器必须由 L3 注入。"""
     if not callable(publish):
         raise TypeError('剪辑优化清单需要由 L3 注入发布器。')
     from project_stages import editing
-    target = editing(project) / CHECKLIST_NAME
+    target = editing(_project_root(project, context=context)) / CHECKLIST_NAME
     return publish(target, str(text or ''))
 
 

@@ -6,6 +6,18 @@ from pathlib import Path
 from functools import wraps
 import logging
 from service_contract import SystemError, UserError, success
+from project_context import ProjectContext
+
+
+def _project_root(project=None, *, context=None):
+    if context is None:
+        return Path(project).resolve()
+    if not isinstance(context, ProjectContext):
+        raise TypeError('交接包需要由 L3 注入 ProjectContext。')
+    root = context.root.resolve()
+    if project is not None and Path(project).resolve() != root:
+        raise ValueError('项目路径与注入的 ProjectContext 不一致。')
+    return root
 
 
 def _write_result(function):
@@ -44,11 +56,11 @@ def save_automatic_handoff_marker(target, digest, folder, shot_count, *, publish
 
 
 @_write_result
-def publish_bundle(root, shots, rows, subtitle=None, auto=False, *, publish=None):
+def publish_bundle(root, shots, rows, subtitle=None, auto=False, *, publish=None, context=None):
     """准备剪映交接包描述；正式文件只能由 L3 注入的发布器写入。"""
     if not callable(publish):
         raise TypeError('剪映交接包需要由 L3 注入发布器。')
-    root = Path(root).resolve()
+    root = _project_root(root, context=context)
     if not rows:
         return UserError('当前项目没有已下载视频')
     manifest = []
