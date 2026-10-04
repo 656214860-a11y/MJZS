@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-10-04T20:48:58Z",
+  "project_root": "D:/漫剧制作助手/程序",
+  "analysis_file": "../R1063/analysis.json",
+  "source_commit": "d464cfacab597d28dd1b4c60da5c6ea3de63a315",
+  "disposable_root": "C:/Users/LAIBIAO/AppData/Local/Temp/code-rot-R1064-1e410f664b9e4d5389d2fba9cb92e457",
+  "commands": [
+    "D:/漫剧制作助手/运行环境/Python/python.exe -B run_selftests.py --safe -k idea_chat projects workflow_process_registry",
+    "D:/漫剧制作助手/运行环境/Python/python.exe -B smoke_test.py",
+    "D:/漫剧制作助手/运行环境/Python/python.exe -B smoke_test.py --architecture"
+  ],
+  "baseline": {
+    "passed": false,
+    "commands": [
+      {"command": "run_selftests.py --safe -k idea_chat projects workflow_process_registry", "exit_code": 0, "duration": 44.3, "timeout": false, "output": "90 cases; 0 failing files; ALL TESTS PASSED"},
+      {"command": "smoke_test.py", "exit_code": 0, "duration": null, "timeout": false, "output": "8 passed; 0 failed"},
+      {"command": "smoke_test.py --architecture", "exit_code": 1, "duration": 118.576, "timeout": false, "output": "309 tests; 1 failure: test_round_baselines.py:68 test_full_safe_all_is_required_every_three_rounds; R1063 has no full-safe receipt in the isolated repository"}
+    ]
+  },
+  "results": [
+    {"candidate_id": "CRT-026", "path": "idea_chat.py", "outcome": "SKIPPED", "reason": "Baseline failed before symbol removal"},
+    {"candidate_id": "CRT-027", "path": "projects.py", "outcome": "SKIPPED", "reason": "Baseline failed before symbol removal"},
+    {"candidate_id": "CRT-028", "path": "workflow_process_registry.py", "outcome": "SKIPPED", "reason": "Baseline failed before symbol removal"}
+  ],
+  "limitations": [
+    "Only an allowlisted tracked-file snapshot was copied (1757 files); no original user data, private directory, configuration JSON, logs, credentials or runtime was copied. Three tracked architecture-ledger JSON files were allowed.",
+    "Initial non-Git targeted invocation could not acquire a Git lock and was stopped before tests. An independent Git repository was initialized inside the disposable program directory and the identical command was retried.",
+    "Fresh Git metadata had no full-safe receipt. is_master_checkout plus default last_full_safe_all_round=0 triggered the existing receipt gate. No receipt was copied or fabricated, no check was weakened, and no candidate was removed.",
+    "No conclusions about candidate safety can be drawn from a failed baseline. Real production sources and the three corresponding disposable files remain byte-identical.",
+    "Disposable snapshot and its logs are retained for inspection; no original cache or logs were cleaned. Raw test logs are not committed."
+  ]
+}
