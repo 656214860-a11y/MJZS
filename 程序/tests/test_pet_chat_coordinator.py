@@ -10,6 +10,8 @@ class CoordinatorTests(unittest.TestCase):
         self.events = []
         self.visible = False
         self.sequence = 0
+        self.schedule_error = None
+        self.cancel_error = None
         self.coordinator = ChatCoordinator(
             schedule=self.schedule, cancel=self.cancel, delay=250,
             visible=lambda: self.visible, open_chat=self.open,
@@ -17,6 +19,8 @@ class CoordinatorTests(unittest.TestCase):
             on_error=lambda *error: self.events.append(('error', error)))
 
     def schedule(self, delay, callback):
+        if self.schedule_error is not None:
+            raise self.schedule_error
         self.sequence += 1
         key = str(self.sequence)
         self.jobs[key] = callback
@@ -24,6 +28,9 @@ class CoordinatorTests(unittest.TestCase):
         return key
 
     def cancel(self, key):
+        if self.cancel_error is not None:
+            self.assertIsNone(self.coordinator.pending)
+            raise self.cancel_error
         self.events.append(('cancel', key))
         del self.jobs[key]
 
@@ -93,24 +100,19 @@ class CoordinatorTests(unittest.TestCase):
         self.assertEqual(self.events, [('schedule', 250, key), ('cancel', key)])
 
     def test_schedule_failure_reports_before_immediate_flip(self):
-        def fail(*args):
-            raise RuntimeError('schedule failed')
-        self.coordinator._schedule = fail
+        self.schedule_error = RuntimeError('schedule failed')
         self.assertEqual(self.coordinator.request_single(), 'widget')
         self.assertEqual(self.events, [('error', ('click', 'schedule failed')), 'open'])
         self.assertIsNone(self.coordinator.pending)
 
     def test_cancel_failure_clears_pending_and_prevents_double_open(self):
         key = self.coordinator.request_single()
-        def fail(job):
-            self.assertEqual(job, key)
-            self.assertIsNone(self.coordinator.pending)
-            raise ValueError('cancel failed')
-        self.coordinator._cancel = fail
+        self.cancel_error = ValueError('cancel failed')
         with self.assertRaisesRegex(ValueError, 'cancel failed'):
             self.coordinator.request_double()
         self.assertFalse(self.visible)
         self.assertIsNone(self.coordinator.pending)
+        self.assertIn(key, self.jobs)
 
 
 if __name__ == '__main__':
