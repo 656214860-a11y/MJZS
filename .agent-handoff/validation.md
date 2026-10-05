@@ -6,6 +6,7 @@
 - 干净 master d6bfe1e 正式全量 4015/4015，含架构 309/309，exit=0。新增 G3 7 条及内存协调 10 条，未删原测试。
 - 执行器凭据：tree=68211bcc962eff5e40fe0722c0735a920044e7ec，round=1073，seconds=359.982，at=2026-10-05T17:51:24。临时日志 R1073-full.log。
 - 后续仅文档回填，最终文档树未重跑全量；不声称实机视觉体验已验收。
+- a517dd1 后文档／轮次 15/15；中央 R1073-CHAT-COORDINATION completed，validate 0 errors、1 条既有租约警告。
 
 ## R1072
 
