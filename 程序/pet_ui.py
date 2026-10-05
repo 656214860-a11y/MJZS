@@ -41,6 +41,7 @@ import model_router
 from broadcaster import Broadcaster, PREFIX_PATTERNS
 import pet_agent
 import pet_cloud
+from pet_chat_coordinator import ChatCoordinator
 import pet_bus
 import pet_llm
 import pet_report
@@ -913,7 +914,12 @@ class Pet:
         self._spoken = {}                 # 第 57 期第 2 条：刚说过的那几件事（key → 钟点）
         self._gap_at = None               # 上一次算缺口的钟点（读盘很贵，按 GAP_SECONDS 节流）
         self._gap_cache = []              # 最近一次算出来的缺口
-        self._click_at = None             # 单击贴片后待弹出的功能下拉栏（双击会把它撤掉）
+        self._chat_interaction = ChatCoordinator(
+            schedule=lambda delay, callback: self.win.after(delay, callback),
+            cancel=self._cancel_chat_click, delay=CLICK_MS,
+            visible=lambda: self.cloud_visible(), open_chat=lambda: self.open_chat(),
+            close_chat=lambda: self.close_chat(), mute=lambda **kw: self.mute(**kw),
+            on_error=lambda name, message: self.errors.append((name, message)))
         self._greet_id = None             # 还没到点的开机招呼（关窗比招呼先到时必须收回来）
         self._quiet_until = None          # 招呼之后的安静期到哪一刻（第 68 期任务 11）
         self.cat = Cat()                  # 第 17 期：三虎的猫样（随机做点猫的事，见 Cat）
@@ -3815,7 +3821,7 @@ class Pet:
 
     def toggle_chat(self):
         """贴片双击／右键菜单入口：开着就收、关着就开；两个方向都不抛。"""
-        return self.close_chat() if self.chat is not None else self.open_chat()
+        return self._chat_interaction.toggle(self.chat is not None)
 
     def speech_blocked(self, text=''):
         """这会儿不能冒云？不能就把这句话压住，返回 True。
@@ -3849,12 +3855,7 @@ class Pet:
         与其留一朵关不掉的框（点哪都落到那屎弹窗上），不如先收起；要说的那一句话
         已经在记录里，弹窗一关心跳再把它补说。返回 True ＝这一拍真的收了一朵。
         """
-        if not self.modal_grabbed():
-            return False
-        if not self.cloud_visible():
-            return False
-        self.close_chat()
-        return True
+        return self._chat_interaction.guard(self.modal_grabbed())
 
     def guard_cloud_away(self):
         """第 60 期第 4 条：用户在别的应用里时，露着的那朵云自己收起来。
@@ -3864,12 +3865,7 @@ class Pet:
         收起来不丢话：要说的那句已经记进云朵记录，回来打开三虎照旧看得见。返回 True ＝这一拍
         真的收了一朵。
         """
-        if self.attending():
-            return False
-        if not self.cloud_visible():
-            return False
-        self.close_chat()
-        return True
+        return self._chat_interaction.guard(not self.attending())
 
     def chat_drain(self):
         """心跳里把云朵框的后台回答贴上记录；没有云朵框就是空操作。"""
@@ -4599,7 +4595,7 @@ class Pet:
     def _bind(self):
         try:
             self.win.bind('<Destroy>', self.stop, add='+')
-            # stop() 会被 _schedule() 反复调用（只取消定时器），收独立窗必须另绑一条。
+            # stop 清理退出资源；close_chat 另负责清空聊天引用，保持绑定顺序。
             # 自绘气泡也跟着主窗口走：主窗口没了，气泡留在屏幕上就是没人管的孤儿窗。
             # 云朵框同理：主窗口没了，浮层与它的定时器都要跟着停。
             self.win.bind('<Destroy>', self.close_chat, add='+')
@@ -4611,13 +4607,7 @@ class Pet:
         为什么还等 CLICK_MS：第二下（双击）该由 double_click 接管，单击才真的切一次；
         下拉栏改成只跟右键，不再跟弹出的菜单抢那一下点击（“再点一下关不掉”就是这么来的）。
         """
-        self.cancel_click()
-        try:
-            self._click_at = self.win.after(CLICK_MS, self.flip_chat)
-        except Exception as exc:
-            self.errors.append(('click', str(exc)))
-            return self.flip_chat()
-        return self._click_at
+        return self._chat_interaction.request_single()
 
     def cloud_visible(self, sticker_only=False):
         """云朵框这会儿是不是真露着（含云朵框／圆／标签这些贴纸形态）。
@@ -4633,11 +4623,7 @@ class Pet:
 
     def flip_chat(self, at=None):
         """单击的落点：云朵框开着就收起（并且安静一会儿），关着就打开。"""
-        self._click_at = None
-        if self.cloud_visible():
-            self.mute(at=at)
-            return self.close_chat()
-        return self.open_chat()
+        return self._chat_interaction.flip(at=at)
 
     def mute(self, seconds=CHAT_MUTE_SECONDS, at=None):
         """安静一会儿：这段时间里自动播报与进度气泡不再往外顶（用户刚把云点掉）。"""
@@ -4655,21 +4641,25 @@ class Pet:
         except (TypeError, ValueError):
             return False
     def cancel_click(self):
-        """撤掉待弹出的功能下拉栏（双击来了、窗口要关了都走这里）。"""
-        job, self._click_at = self._click_at, None
-        if job is None:
-            return None
+        """双击与退出共用协调 module 的待单击取消入口。"""
+        return self._chat_interaction.cancel_pending()
+
+    @property
+    def _click_at(self):
+        """保留既有观察口径，待点击只由协调 module 写入。"""
+        return self._chat_interaction.pending
+
+    def _cancel_chat_click(self, job):
+        """Tk 调度 adapter：只吞掉已经销毁的 Tcl 任务。"""
         try:
             self.win.after_cancel(job)
         except TclError:
             # 延迟任务已被 Tk 清理。
             pass
-        return job
 
     def double_click(self, event=None):
         """双击贴片＝直接和三虎说话（云朵框以对话形态打开）。"""
-        self.cancel_click()
-        return self.open_chat()
+        return self._chat_interaction.request_double()
     def popup_at(self, x=None, y=None):
         """把功能下拉栏弹在鼠标处；拿不到鼠标坐标（键盘／程序触发）就落在贴片下沿。"""
         if self.menu is None:
