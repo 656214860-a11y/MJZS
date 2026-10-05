@@ -2466,6 +2466,86 @@ class MenuFeedbackTests(PetTestCase):
         self.assertTrue(any(name == 'act' for name, _text in self.pet.errors))
         self.assertTrue(self.pet.cloud().visible, '动作出错也要让用户看见')
 
+class ChatCoordinationFailureTests(PetTestCase):
+    """R1073：迁移前冻结 G3 的异常顺序，不借重构修行为。"""
+
+    def test_schedule_failure_records_error_and_flips_immediately(self):
+        from unittest.mock import patch
+        with patch.object(self.win, 'after', side_effect=RuntimeError('schedule failed')), \
+                patch.object(self.pet, 'open_chat', return_value='opened') as opened:
+            self.assertEqual(self.pet.pet_click(), 'opened')
+        opened.assert_called_once_with()
+        self.assertIsNone(self.pet._click_at)
+        self.assertIn(('click', 'schedule failed'), self.pet.errors)
+
+    def test_cancel_tcl_failure_clears_pending_and_returns_job(self):
+        from unittest.mock import patch
+        job = self.pet.pet_click()
+        with patch.object(self.win, 'after_cancel', side_effect=self.tk.TclError('gone')):
+            self.assertEqual(self.pet.cancel_click(), job)
+        self.assertIsNone(self.pet._click_at)
+        self.win.after_cancel(job)
+
+    def test_cancel_other_failure_propagates_after_clearing_pending(self):
+        from unittest.mock import patch
+        job = self.pet.pet_click()
+        with patch.object(self.win, 'after_cancel', side_effect=ValueError('bad cancel')):
+            with self.assertRaisesRegex(ValueError, 'bad cancel'):
+                self.pet.cancel_click()
+        self.assertIsNone(self.pet._click_at)
+        self.win.after_cancel(job)
+
+    def test_repeated_single_click_replaces_the_pending_job(self):
+        first = self.pet.pet_click()
+        second = self.pet.pet_click()
+        self.assertNotEqual(first, second)
+        self.assertEqual(self.pet._click_at, second)
+        scheduled = self.win.tk.call('after', 'info')
+        self.assertNotIn(first, scheduled)
+        self.assertIn(second, scheduled)
+
+    def test_child_destroy_does_not_close_or_cancel(self):
+        self.pet.open_chat()
+        job = self.pet.pet_click()
+        self.pet.step()
+        animation = self.pet._timer
+        child = _Event(self.pet.canvas)
+        self.assertIsNone(self.pet.stop(child))
+        self.assertIsNone(self.pet.close_chat(child))
+        self.assertTrue(self.pet.cloud().visible)
+        self.assertIsNotNone(self.pet.chat)
+        self.assertEqual(self.pet._click_at, job)
+        self.assertEqual(self.pet._timer, animation)
+
+    def test_stop_close_failure_preserves_animation_but_cancels_click(self):
+        from unittest.mock import patch
+        self.pet.open_chat()
+        self.pet.pet_click()
+        self.pet.step()
+        animation = self.pet._timer
+        with patch.object(self.pet.cloud(), 'close', side_effect=RuntimeError('close failed')):
+            with self.assertRaisesRegex(RuntimeError, 'close failed'):
+                self.pet.stop()
+        self.assertIsNone(self.pet._click_at)
+        self.assertEqual(self.pet._timer, animation)
+        self.assertIn(animation, self.win.tk.call('after', 'info'))
+
+    def test_late_callback_after_cancel_failure_keeps_legacy_behavior(self):
+        from unittest.mock import patch
+        callbacks = []
+        def schedule(delay, callback):
+            callbacks.append(callback)
+            return 'pending'
+        with patch.object(self.win, 'after', side_effect=schedule), \
+                patch.object(self.win, 'after_cancel', side_effect=self.tk.TclError('gone')), \
+                patch.object(self.pet, 'open_chat', return_value='opened') as opened:
+            self.assertEqual(self.pet.pet_click(), 'pending')
+            self.assertEqual(self.pet.cancel_click(), 'pending')
+            self.assertEqual(callbacks[0](), 'opened')
+        opened.assert_called_once_with()
+        self.assertIsNone(self.pet._click_at)
+
+
 class PetClickTests(PetTestCase):
     """第 16 期：单击三虎＝收起云朵框＋唤出功能下拉栏；等级／模型在子菜单里一次点到位。"""
 
