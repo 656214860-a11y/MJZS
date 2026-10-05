@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-10-05T00:21:00Z",
+  "project_root": "D:/漫剧制作助手/程序",
+  "analysis_file": "../R1063/analysis.json",
+  "source_commit": "1b36059d5e7c8036b50cbf8118d41b3d0aa2ed84",
+  "disposable_root": "C:/Users/LAIBIAO/AppData/Local/Temp/code-rot-R1068-fa22bd6db7aa4fa592c9d0c63af8ee84",
+  "disposable_baseline_commit": "f7f2837",
+  "commands": ["run_selftests.py --all --safe --force", "run_selftests.py --safe -k idea_chat projects workflow_process_registry", "smoke_test.py", "smoke_test.py --architecture"],
+  "baseline": {
+    "passed": true,
+    "commands": [
+      {"command": "run_selftests.py --all --safe --force", "passed": true, "exit_code": 0, "duration_seconds": 344.326, "timeout": false, "output": "3994 cases; 0 failing files; ALL TESTS PASSED"},
+      {"command": "run_selftests.py --safe -k idea_chat projects workflow_process_registry", "passed": true, "exit_code": 0, "timeout": false, "output": "90 cases; ALL TESTS PASSED; duration not independently retained"},
+      {"command": "smoke_test.py", "passed": true, "exit_code": 0, "timeout": false, "output": "8 passed; 0 failed; duration not independently retained"},
+      {"command": "smoke_test.py --architecture", "passed": true, "exit_code": 0, "timeout": false, "output": "309-test suite passed; summary was truncated by output filter; duration not retained"}
+    ]
+  },
+  "experiment": {
+    "mode": "manual-symbol-batch",
+    "note": "Three symbol removals in the same disposable tree, not three independent file-removal experiments. Symbol candidates are not eligible for automatic SAFE TO REMOVE promotion.",
+    "removed_symbol_loc": 54,
+    "removed_diff_lines_including_separators": 58,
+    "commands": [
+      {"command": "run_selftests.py --safe -k idea_chat projects workflow_process_registry", "passed": true, "exit_code": 0, "duration_seconds": 36.7, "timeout": false, "output": "90 cases; 0 failing files; ALL TESTS PASSED"},
+      {"command": "smoke_test.py", "passed": true, "exit_code": 0, "timeout": false, "output": "8 passed; 0 failed"},
+      {"command": "smoke_test.py --architecture", "passed": true, "exit_code": 0, "duration_seconds": 120.944, "timeout": false, "output": "Ran 309 tests; OK"}
+    ]
+  },
+  "results": [
+    {"candidate_id": "CRT-026", "path": "idea_chat.py", "symbol": "project_document_kind", "outcome": "PASSED_IN_DISPOSABLE_COPY", "experiment": "manual-symbol-batch"},
+    {"candidate_id": "CRT-027", "path": "projects.py", "symbol": "Projects.remove_internal_links", "outcome": "PASSED_IN_DISPOSABLE_COPY", "experiment": "manual-symbol-batch"},
+    {"candidate_id": "CRT-028", "path": "workflow_process_registry.py", "symbol": "cancel_process_slot_request", "outcome": "PASSED_IN_DISPOSABLE_COPY", "experiment": "manual-symbol-batch"}
+  ],
+  "limitations": ["External and dynamic callers cannot be exhaustively disproved.", "No production source was changed.", "Snapshot setup failures were corrected before the removal experiment; see R1068 report."]
+}

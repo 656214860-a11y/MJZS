@@ -1,0 +1,29 @@
+id,final_status,category,subject,path,line,confidence,risk,proof_eligible,loc,bytes,status_reason
+CRT-001,KEEP,orphan-file,asset_reference_import.py,asset_reference_import.py,,medium,medium,False,115,8181,动态入口：ui_plugin_registry.py:11、desktop.py:5800。
+CRT-002,KEEP,orphan-file,blender_previs_template.py,blender_previs_template.py,,medium,medium,False,64,3381,运行模板：previs_batch_service.py:41 明确要求复用，不按导入模块判定。
+CRT-003,KEEP,orphan-file,desktop_launcher.py,desktop_launcher.py,,medium,medium,False,28,935,桌面启动入口：app.py:1449 动态加载。
+CRT-004,KEEP,orphan-file,script_skill_report.py,script_skill_report.py,,medium,medium,False,79,3681,script_contract.py:1099/1105/1137 动态 import_module 调用。
+CRT-005,KEEP,orphan-file,storyboard_catalog.py,storyboard_catalog.py,,medium,medium,False,17,869,仍有 asset_context.py:54 等调用，且兼容窗口未结束。
+CRT-006,KEEP,orphan-file,tests/architecture/_canary/audit20_cache_violation.py,tests/architecture/_canary/audit20_cache_violation.py,,medium,medium,False,2,100,"架构审计 canary：test_coverage_audit_ratchet.py:11,81 按目录发现。"
+CRT-007,KEEP,orphan-file,tests/architecture/_canary/audit21_platform_violation.py,tests/architecture/_canary/audit21_platform_violation.py,,medium,medium,False,2,33,"架构审计 canary：test_coverage_audit_ratchet.py:11,81 按目录发现。"
+CRT-008,KEEP,orphan-file,tests/architecture/_canary/audit22_violation.py,tests/architecture/_canary/audit22_violation.py,,medium,medium,False,2,33,"架构审计 canary：test_coverage_audit_ratchet.py:11,81 按目录发现。"
+CRT-009,KEEP,orphan-file,tests/architecture/_canary/audit24_violation.py,tests/architecture/_canary/audit24_violation.py,,medium,medium,False,2,64,"架构审计 canary：test_coverage_audit_ratchet.py:11,81 按目录发现。"
+CRT-010,KEEP,orphan-file,tests/architecture/_canary/audit25_event_violation.py,tests/architecture/_canary/audit25_event_violation.py,,medium,medium,False,1,53,"架构审计 canary：test_coverage_audit_ratchet.py:11,81 按目录发现。"
+CRT-011,KEEP,orphan-file,tests/architecture/_canary/audit26_violation.py,tests/architecture/_canary/audit26_violation.py,,medium,medium,False,2,54,"架构审计 canary：test_coverage_audit_ratchet.py:11,81 按目录发现。"
+CRT-012,KEEP,orphan-file,tests/architecture/_canary/audit27_secret_violation.py,tests/architecture/_canary/audit27_secret_violation.py,,medium,medium,False,13,261,"安全审计 canary：test_secret_sink_audit.py:15,89。"
+CRT-013,KEEP,orphan-file,tests/performance_contract.py,tests/performance_contract.py,,medium,medium,False,15,524,测试契约：tests/test_baseline_history.py:13 导入。
+CRT-014,KEEP,orphan-file,tests/skip_reasons.py,tests/skip_reasons.py,,medium,medium,False,21,1079,跳过原因常量：tests/test_app_icon.py:8 等导入。
+CRT-015,KEEP,orphan-file,维护记录/基准脚本/benchmark_history.py,维护记录/基准脚本/benchmark_history.py,,medium,medium,False,100,4179,维护辅助库：基准_启动与页面.py:13 导入。
+CRT-016,KEEP,orphan-file,维护记录/基准脚本/install_git_hooks.py,维护记录/基准脚本/install_git_hooks.py,,medium,medium,False,37,1153,AGENTS.md §2.6 指定的 hooks 安装 CLI。
+CRT-017,KEEP,orphan-file,维护记录/基准脚本/round_claim.py,维护记录/基准脚本/round_claim.py,,medium,medium,False,373,16626,AGENTS.md §2.5 指定的中央轮次 CLI，本轮使用。
+CRT-018,KEEP,orphan-file,维护记录/基准脚本/round_gate.py,维护记录/基准脚本/round_gate.py,,medium,medium,False,55,2572,维护门禁 CLI，命令行操作不要求静态入站导入；未证明已废弃，保守保留。
+CRT-019,KEEP,orphan-file,维护记录/基准脚本/worktree_ledger.py,维护记录/基准脚本/worktree_ledger.py,,medium,medium,False,220,10459,AGENTS.md §2.5 指定的 worktree 台账 CLI。
+CRT-020,KEEP,orphan-file,维护记录/基准脚本/基准_内存长跑.py,维护记录/基准脚本/基准_内存长跑.py,,high,low,True,357,16166,独立内存基准 CLI，文件内提供手动用法；零导入不等于废弃。
+CRT-021,KEEP,orphan-file,维护记录/基准脚本/基准_启动与页面.py,维护记录/基准脚本/基准_启动与页面.py,,medium,medium,False,202,7932,独立启动性能基准 CLI。
+CRT-022,KEEP,orphan-file,维护记录/基准脚本/基准_长列表.py,维护记录/基准脚本/基准_长列表.py,,medium,medium,False,122,6129,独立长列表性能基准 CLI。
+CRT-023,KEEP,orphan-file,维护记录/基准脚本/扫描_代码质量.py,维护记录/基准脚本/扫描_代码质量.py,,high,low,True,125,4710,独立静态扫描维护脚本；旧测试目录识别值得另轮评估，不能据此删除。
+CRT-024,KEEP,orphan-file,维护记录/基准脚本/探针_阶段门禁端到端.py,维护记录/基准脚本/探针_阶段门禁端到端.py,,medium,medium,False,151,7607,独立阶段门禁端到端探针 CLI。
+CRT-025,KEEP,orphan-file,附加工具/ComfyUI_批量首帧_Klein4B/batch_frames.py,附加工具/ComfyUI_批量首帧_Klein4B/batch_frames.py,,medium,medium,False,189,11506,启动批量首帧.pyw:5 直接导入。
+CRT-026,REVIEW,unused-export,idea_chat.project_document_kind,idea_chat.py,459,medium,medium,False,25,1349,仅静态无引用证据，尚未获准执行副本删除验证；不得直接清理。
+CRT-027,REVIEW,unused-export,Projects.remove_internal_links,projects.py,316,medium,medium,False,19,1107,仅静态无引用证据，尚未获准执行副本删除验证；不得直接清理。
+CRT-028,REVIEW,unused-export,workflow_process_registry.cancel_process_slot_request,workflow_process_registry.py,70,medium,medium,False,10,334,仅静态无引用证据，尚未获准执行副本删除验证；不得直接清理。
