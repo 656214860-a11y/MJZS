@@ -444,3 +444,4 @@
 - 上下文超过一半：写接续摘要；仅按用户协议更新 `project_status.md` 后换新会话。
 - 新对话开始时，Codex 自动读 `AGENTS.md` → 按指令读 `project_status.md`。
 - 不依赖对话历史，依赖文件系统。
+- 完成 §0 启动阅读后，按根目录 [AGENT_HANDOFF.md](../AGENT_HANDOFF.md) 恢复接力快照；该索引不替代中央认领、状态页或测试凭据。
