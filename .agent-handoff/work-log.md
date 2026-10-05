@@ -1,4 +1,6 @@
 # 近期工作
 
-- R1069：接力入口、分类记忆及会话提示完成；定向 23/23、冒烟 8/8；仅 Markdown，合回 master 收尾。见 [报告](../程序/tasks_round/tasks_round_1069_result.md)。
+- R1070：按用户要求核验并更新交接；确认 R1069 提交 bc6358e、中央状态 completed，开始时工作树干净。仅接力/状态/报告文档，未继续优化。
+
+- R1069：接力入口、分类记忆及会话提示完成；定向 23/23、冒烟 8/8；master 提交 bc6358e，中央任务 completed。见 [报告](../程序/tasks_round/tasks_round_1069_result.md)。
 - R1068：隔离批量删除证明定向 90/90、冒烟 8/8、架构 309/309；真实源码未删除。提交 c80b965，见 [报告](../程序/tasks_round/tasks_round_1068_result.md)。

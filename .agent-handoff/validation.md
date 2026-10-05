@@ -1,5 +1,12 @@
 # 验证证据
 
+## R1070
+
+- 周期安全全量：干净 master bc6358e719fea403a0e74a09f06786a0a7ab7bf7 执行 run_selftests.py --all --safe，exit=0，ALL TESTS PASSED，313.560 秒。
+- 执行器真实凭据：tree=69a5dd97bc85aebed4f89780683ae3ecce1ee34c，round=1069，at=2026-10-05T08:44:11。round 取执行时最新报告，不手工改为 1070。
+- 输出仅保留尾部，未保留本次总用例计数，不沿用历史 3994 冒充本次计数。全量后仅文档收尾，不声称最终文档树同树全量通过。
+- 中央 validate：0 errors、1 既有租约 warning，详见 risks。文档链接与 diff --check 通过，凭据形态扫描 0 命中；默认 smoke_test.py：8/8、0 失败。未独立重跑架构门禁。
+
 ## R1069
 
 静态检查：11 份入口/接力文档链接有效、标记唯一、无模板占位符；diff --check 通过。
