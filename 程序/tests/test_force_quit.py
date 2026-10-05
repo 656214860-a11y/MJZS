@@ -195,6 +195,55 @@ class QuitTests(unittest.TestCase):
         self.assertTrue(subject._forcing_quit)
         self.assertEqual(self.closed, ['收摊'])
 
+    def maintenance_subject(self, failure=None, forcing=False):
+        import log_maintenance, storage_maintenance, workspace_maintenance
+        events = []
+        for name, module in [('storage', storage_maintenance), ('logs', log_maintenance),
+                             ('workspace', workspace_maintenance)]:
+            def launch(app, name=name):
+                events.append(name)
+                if failure and failure[0] == name:
+                    raise failure[1]
+            self.stub(module, 'launch_cleanup', launch)
+        subject = self.subject(app=object(), _forcing_quit=forcing)
+        subject.win = SimpleNamespace(destroy=lambda: events.append('destroy'))
+        return subject, events
+
+    def test_maintenance_order_after_window_destroy(self):
+        subject, events = self.maintenance_subject()
+        self.desktop.Desktop.finish_close(subject)
+        self.assertEqual(events, ['destroy', 'storage', 'logs', 'workspace'])
+
+    def test_storage_launch_failure_propagates_and_stops_later_launches(self):
+        error = OSError('private path must not enter summary')
+        subject, events = self.maintenance_subject(('storage', error))
+        with self.assertRaises(OSError) as caught:
+            self.desktop.Desktop.finish_close(subject)
+        self.assertIs(caught.exception, error)
+        self.assertEqual(events, ['destroy', 'storage'])
+
+    def test_optional_launch_oserror_does_not_stop_following_launch(self):
+        subject, events = self.maintenance_subject(('logs', OSError('denied')))
+        self.desktop.Desktop.finish_close(subject)
+        self.assertEqual(events, ['destroy', 'storage', 'logs', 'workspace'])
+
+    def test_optional_programming_error_still_propagates(self):
+        subject, events = self.maintenance_subject(('logs', ValueError('bad adapter')))
+        with self.assertRaises(ValueError):
+            self.desktop.Desktop.finish_close(subject)
+        self.assertEqual(events, ['destroy', 'storage', 'logs'])
+
+    def test_forced_exit_keeps_storage_only(self):
+        subject, events = self.maintenance_subject(forcing=True)
+        self.desktop.Desktop.finish_close(subject)
+        self.assertEqual(events, ['destroy', 'storage'])
+
+    def test_repeated_close_does_not_repeat_finish(self):
+        subject = self.subject()
+        self.desktop.Desktop.close(subject)
+        self.desktop.Desktop.close(subject)
+        self.assertEqual(self.closed, ['收摊'])
+
     def test_finish_close_takes_the_monitor_page_down(self):
         import log_maintenance, previs_monitor, storage_maintenance, workspace_maintenance
         monitors = []; destroyed = []

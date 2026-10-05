@@ -23,7 +23,7 @@
 
 ### 日志维护归属
 
-程序日志运行期维护唯一由 `Desktop.finish_close()` 在窗口销毁后的正常退出分支调用 `log_maintenance.launch_cleanup()`，委托后台 `--cleanup` 工作进程；强制退出跳过，启动路径不调用。`log_maintenance` 统一负责程序自有日志的保留、轮转和容量限制，参数以其代码常量为准。
+程序日志运行期维护由 `Desktop.finish_close()` 在窗口销毁后委托 L3 `exit_maintenance.launch_cleanup()`，其正常退出分支调用 `log_maintenance.launch_cleanup()`，委托后台 `--cleanup` 工作进程；强制退出跳过，启动路径不调用。`log_maintenance` 统一负责程序自有日志的保留、轮转和容量限制，参数以其代码常量为准。协调入口的有界脱敏摘要只说明派发情况，不声称后台已完成。
 
 `scripts/maintain_logs.py` 仅复用同一实现供显式运维，不另设调度或策略；手动检查用 `--dry-run`，实际维护会改变受管日志，不应为验证文档而执行。维护范围为程序 `logs/`、`维护记录/` 的受管日志，不递归用户项目。
 

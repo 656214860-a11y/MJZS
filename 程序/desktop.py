@@ -3347,23 +3347,8 @@ class Desktop:
             # 关窗清理仅忽略 Tk 生命周期竞态。
             pass
         self.win.destroy()
-        from storage_maintenance import launch_cleanup
-        launch_cleanup(self.app)
-        # 日志维护只在正常退出后另起无窗口进程执行；强制退出不能再多做磁盘操作。
-        if not getattr(self, '_forcing_quit', False):
-            try:
-                from log_maintenance import launch_cleanup as launch_log_cleanup
-                launch_log_cleanup(self.app)
-            except OSError:
-                # 退出后的可选日志卫生不影响已完成退出。
-                pass
-            # 仓库级清理与日志维护同为正常退出后的可选卫生；强制退出同样不做。
-            try:
-                from workspace_maintenance import launch_cleanup as launch_workspace_cleanup
-                launch_workspace_cleanup(self.app)
-            except OSError:
-                # 退出后的可选仓库卫生不影响已完成退出。
-                pass
+        from exit_maintenance import launch_cleanup
+        launch_cleanup(self.app, forced=getattr(self, '_forcing_quit', False))
     def pet_report(self,stage,text,ok=True):
         """第 47 期第 5 条：某一步的制作收了尾，说给三虎听——各页共用这一条出口。
 

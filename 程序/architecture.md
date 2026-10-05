@@ -66,6 +66,8 @@ R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确�
 
 ## 3. 分层判定
 
+R1074：L3 `exit_maintenance.launch_cleanup()` 集中退出后的三路派发顺序、正常／强制退出差异、可选启动 OSError 降级与固定大小的脱敏派发摘要。L4 只传程序位置及退出意图；工作进程保持独立，既有清理实现、范围和回收策略不变。摘要只报告 scheduled／launch-failed／skipped-force／not-attempted，完成状态明确 unobserved；不把启动当作清理完成，不新增等待、重试或持久化出口。
+
 R1073：L3 `pet_chat_coordinator.ChatCoordinator` module 独占待单击任务，合并单／双击消歧、取消与守护关闭规则。L4 `pet_ui.Pet` 保留既有入口并注入调度与视图动作 adapter；测试采用内存队列／视图 adapter。这个 seam 不传入整个 Pet，不复制 chat／visible／shape，动画、Cloud 资源、问候与静默策略仍由原所有者管理。interface 的 locality 与 depth 由跨入口顺序测试证明，不以文件缩短作验收；删除此 module 会把共享协调规则与状态重新分散回 UI。
 
 | 层       | 模块/职责                                                                                                                                                      | 判定                           |
@@ -320,7 +322,7 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 
 - 视频页结果渲染失败由 `App.tick()` 沿用 `diagnostic_capture.record_degradation()` 记录固定阶段和异常类型，不传结果正文、原始异常文字或项目路径；每个页面实例 30 秒内最多尝试一次，诊断写入失败不得阻断后续查询。关闭后不再消费结果，Tk 销毁与下次调度之间的竞态只在定时器收尾边界处理；不新增日志出口，不重提生成任务。
 
-- 程序日志维护职责唯一归属 `log_maintenance`；运行期唯一入口为 `Desktop.finish_close()` 在窗口销毁后、非强制退出分支调用 `log_maintenance.launch_cleanup(self.app)`，后台工作进程复用该模块的 `--cleanup` 实现。启动路径不调度日志维护，强制退出不调度；启动维护进程失败不阻断已经完成的退出。
+- 程序日志维护职责唯一归属 `log_maintenance`；运行期由 `Desktop.finish_close()` 在窗口销毁后委托 `exit_maintenance.launch_cleanup()`，其非强制退出分支调用 `log_maintenance.launch_cleanup()`，后台工作进程复用该模块的 `--cleanup` 实现。启动路径不调度日志维护，强制退出不调度；日志启动 OSError 不阻断已经完成的退出，其他异常保持原有传播语义。
 - `scripts/maintain_logs.py` 仅是同一实现的显式运维入口，不是另一套运行期调度或保留策略；人工核查先用 `--dry-run`，实际维护会轮转或删除受管日志。本轮仅确认既有链路，不执行真实日志维护；保留、轮转、容量参数仍以 `log_maintenance.py` 现有常量为准。范围仅程序自有 `logs/` 与 `维护记录/` 的受管日志，不递归用户项目。
 
 - 阶段顺序唯一权威：`pet_bus.py`；并行/重试唯一权威：`stage_parallel.py`。
