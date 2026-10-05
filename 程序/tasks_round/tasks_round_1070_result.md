@@ -55,4 +55,4 @@ validate 为 0 errors、1 warning：architecture-unfreeze-1-2 lease 不自洽。
 
 ## M. 收尾
 
-WIP 分支 codex/wip-R1070；检查点与 master 收尾提交号以 Git 为准。状态页最终 1071，报告最新 1070；中央收口与提交在验证后执行。
+检查点 3a62641 已提交并由 codex/wip-R1070 快进合入 master。状态页 1071，最新报告 1070，满足 N=M+1；中央收口及最终元数据提交在本报告落盘后执行，最终 hash 以 Git 与回复为准。仅白名单 Markdown，不推送远端。
