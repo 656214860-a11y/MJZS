@@ -338,6 +338,56 @@ class BoardTests(_Harness):
             self.assertTrue(any("CHAR_001_front.png（可重新选择图片）" in text for text in texts))
 
 
+class OperationCompletionTests(unittest.TestCase):
+    """通过现行交互入口验证顺序与失败；不需要真实 Tk 窗口。"""
+
+    def test_completion_refreshes_before_success_feedback(self):
+        from types import SimpleNamespace
+        events = []
+        desktop = SimpleNamespace(status=SimpleNamespace(set=lambda text: events.append(text)))
+        with mock.patch.object(asset_detail, '_reload', side_effect=lambda *_: events.append('refresh')):
+            asset_detail._complete(desktop, 'CHAR_001', 'success')
+        self.assertEqual(events, ['refresh', 'success'])
+
+    def test_refresh_failure_does_not_publish_success(self):
+        from types import SimpleNamespace
+        status = mock.Mock()
+        with mock.patch.object(asset_detail, '_reload', side_effect=RuntimeError('refresh failed')):
+            with self.assertRaisesRegex(RuntimeError, 'refresh failed'):
+                asset_detail._complete(SimpleNamespace(status=status), 'CHAR_001', 'success')
+        status.set.assert_not_called()
+
+    def test_pick_second_step_failure_preserves_confirmation_without_refresh(self):
+        from types import SimpleNamespace
+        import stage_execution_service as execution
+        events = []
+        desktop = SimpleNamespace(root=object(), status=mock.Mock())
+        def fail(*args):
+            events.append('apply')
+            raise OSError('apply failed')
+        with mock.patch.object(execution, 'record_stage_confirmation', side_effect=lambda *args: events.append('record')), \
+                mock.patch.object(execution, 'apply_asset_plan_gate_choice', side_effect=fail), \
+                mock.patch.object(asset_detail, '_reload') as refresh:
+            with self.assertRaisesRegex(OSError, 'apply failed'):
+                asset_detail._pick(desktop, 'anchor:CHAR_001', 'choice', 'CHAR_001')
+        self.assertEqual(events, ['record', 'apply'])
+        refresh.assert_not_called()
+        desktop.status.set.assert_not_called()
+
+    def test_pick_first_step_failure_stops_before_applying(self):
+        from types import SimpleNamespace
+        import stage_execution_service as execution
+        desktop = SimpleNamespace(root=object(), status=mock.Mock())
+        with mock.patch.object(execution, 'record_stage_confirmation', side_effect=OSError('record failed')), \
+                mock.patch.object(execution, 'apply_asset_plan_gate_choice') as apply, \
+                mock.patch.object(asset_detail, '_reload') as refresh:
+            with self.assertRaisesRegex(OSError, 'record failed'):
+                asset_detail._pick(desktop, 'anchor:CHAR_001', 'choice', 'CHAR_001')
+        apply.assert_not_called()
+        refresh.assert_not_called()
+        desktop.status.set.assert_not_called()
+
+
 class AnchorTests(_Harness):
     def test_picking_a_candidate_records_and_keeps_success_feedback(self):
         with tempfile.TemporaryDirectory() as td:

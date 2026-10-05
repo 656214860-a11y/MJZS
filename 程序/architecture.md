@@ -306,6 +306,8 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 
 ## 维护边界
 
+- R1072：资产详情成功反馈统一由 `asset_detail._complete()` 在页面重建成功后发布；候选采用与重新生成分别委托既有 L3 的 `adopt_asset_plan_choice()`、`reopen_asset_plan_choices()`，封装确认/应用及正典板/锚点撤销顺序。保留第二步失败后的部分完成状态，不引入隐式回滚；Tk 输入与呈现不移动。
+
 - R1057 仅删除 `pet_cloud.Cloud._parent_work_area()` 与 `pet_ui.Pet._build_mode_menu()` 两个无消费者私有方法。云朵仍经 `_place_window()` → `_origin()` 按贴片锚点定位，模式切换仍由猫爪及既有 `set_mode()` 接管；保留模式变量同步、聊天计时、动画取消与退出清理。引用复核和前后定向回归见 R1057 报告，不代表新增实机视觉验收。
 
 - R1056 仅删除 `idea_chat._numbered_path()`、`white_model._base_directory()` 两个零消费者私有辅助函数。创意发布仍经 `stage_execution_service.publish_idea_creative()` 定位当前阶段；白模镜头路径仍委托 `white_model_service.shot_directory()`，四个共享缓存别名及旧读兼容不变。静态引用复核与前后回归见 R1056 报告。

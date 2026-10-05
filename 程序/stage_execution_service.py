@@ -455,6 +455,21 @@ def forget_stage_confirmation(project, key):
                   context=project_context(project))
 
 
+def adopt_asset_plan_choice(project, key, choice):
+    """先确认、再采用；第二步失败保留已有确认，不虚构跨文件事务。"""
+    record_stage_confirmation(project, key, choice)
+    return apply_asset_plan_gate_choice(project, key, choice)
+
+
+def reopen_asset_plan_choices(project, aid):
+    """按正典板、锚点顺序撤销；失败即停止，保留既有部分完成语义。"""
+    dropped = []
+    for key in ('canon:' + aid, 'anchor:' + aid):
+        forget_stage_confirmation(project, key)
+        dropped.append(key)
+    return dropped
+
+
 def run_stage_confirmation_gate(project, gate_id, *, shots=None, assets=None, ledger=None):
     """L3 运行确认门禁，并为需要确认记忆的 L2 注入项目上下文。"""
     from confirm_gates import run
