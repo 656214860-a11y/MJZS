@@ -1,5 +1,7 @@
 # 风险与未知
 
+- R1074 摘要仅 stdout 派发状态，GUI 无控制台时可能不可见；三个工作进程完成状态为 unobserved，不将 scheduled 当作清理成功。未执行真实清理或实机退出验收；未新增持久日志、等待、重试或清理范围。
+
 - R1070 中央 validate：0 errors、1 warning，architecture-unfreeze-1-2 的 lease 不自洽。非本轮任务，不改他人认领；接手相关任务前须经中央入口核验。
 
 - 仓库无引用和隔离回归不证明没有外部动态调用；CRT-026～028 仍为 REVIEW。
