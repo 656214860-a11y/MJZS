@@ -979,13 +979,20 @@ class Desktop:
         return menu.popup(event)
     def update_idea_attachment_status(self):
         """仅展示用户已选择的文件名；路径和正文不出现在界面或聊天记录。"""
+        self.refresh_uploaded_idea_attachments()
         label=getattr(self,'idea_attachment_status',None)
         if label is None:return
         prepared=getattr(self.idea_chat_controller,'attachment_details',())
-        details=['%s（%d 字）' % (name, count) for name,count in prepared]
+        from idea_attachments import display_name
+        details=[('%s（原文件，将由 Agent 自行读取）' % display_name(name) if count is None
+                  else '%s（%d 字）' % (name, count)) for name,count in prepared]
         if not details:
             import idea_attachments
+            from stage_execution_service import idea_attachment_local_mode
             for value in getattr(self,'idea_attachment_paths',()):
+                if idea_attachment_local_mode(self.root):
+                    details.append('%s（原文件，将由 Agent 自行读取）' % display_name(value))
+                    continue
                 try:details.append('%s（%d 字）' % (Path(value).name, len(idea_attachments.read_source(Path(value)))))
                 except (OSError, ValueError):continue
         label.set(('已引用：'+'、'.join(details)) if details else '')
@@ -998,11 +1005,49 @@ class Desktop:
             if not widget.winfo_manager():widget.pack(anchor='w',pady=(1,0),after=row)
         elif widget.winfo_manager():
             widget.pack_forget()
+    def refresh_uploaded_idea_attachments(self):
+        """上传库与本轮引用分开显示，发送后仍可管理项目副本。"""
+        panel=getattr(self,'idea_uploaded_panel',None)
+        if panel is None or not panel.winfo_exists():return
+        from stage_execution_service import stage_idea_attachment_paths
+        from idea_attachments import display_name
+        table=self.idea_uploaded_table
+        selected=table.tree.selection()
+        previous=getattr(self,'_idea_uploaded_paths',{})
+        chosen=previous.get(selected[0]) if selected else None
+        paths=stage_idea_attachment_paths(self.root)
+        children=table.tree.get_children()
+        if children:table.tree.delete(*children)
+        self._idea_uploaded_paths={}
+        for index,path in enumerate(paths):
+            item=str(index)
+            self._idea_uploaded_paths[item]=path
+            table.tree.insert('', 'end', iid=item, values=(display_name(path),))
+            if path==chosen:table.tree.selection_set(item)
+        table.refresh_empty_state()
+        self.idea_attachment_delete_button.state(['!disabled'] if table.tree.selection() else ['disabled'])
+        if paths:
+            table.tree.configure(height=min(3,len(paths)))
+            if not panel.winfo_manager():panel.pack(fill='x',pady=(SPACING['xs'],SPACING['none']),after=self.idea_input_row)
+        else:panel.pack_forget()
+    def delete_uploaded_idea_attachment(self):
+        selected=self.idea_uploaded_table.tree.selection()
+        if not selected:return
+        path=self._idea_uploaded_paths.get(selected[0])
+        if path is None:return
+        from idea_attachments import display_name
+        name=display_name(path)
+        if not confirm(self.win,'删除已上传文件',
+                       '确定将“%s”的项目副本移入回收站吗？\n原始文件不受影响；可从回收站恢复。' % name,
+                       dangerous=True):return
+        self.idea_chat_controller.delete_attachment(self.root,path)
+        self.update_idea_attachment_status()
+        self.status.set('已移入回收站：'+name+'；原始文件未删除。')
     def choose_idea_attachments(self):
-        """选择文本附档；入库、DOCX 解析和校验均在后台进行。"""
+        """选择创意附档；分模式准入、归档和解析均在后台进行。"""
         paths=self.file_dialog.open_files(
-            title='选择要提交给模型的文本附档', parent=self.win,
-            filetypes=[('文本、Markdown 与 Word', '*.txt *.md *.markdown *.docx *.json *.csv *.yaml *.yml *.log'),
+            title='选择要提交给模型的创意附档', parent=self.win,
+            filetypes=[('文本、Office 与 PDF', '*.txt *.md *.markdown *.doc *.docx *.xls *.xlsx *.ppt *.pptx *.pdf *.json *.csv *.yaml *.yml *.log'),
                        ('所有文件', '*.*')])
         if not paths:return ()
         self.idea_chat_controller.start_attachment_preparation(self.root, paths)
@@ -4116,6 +4161,18 @@ class Desktop:
         self.idea_attachment_status=tk.StringVar(value='')
         self.idea_attachment_status_label=ttk.Label(composer,textvariable=self.idea_attachment_status,
                                                      style='Muted.TLabel')
+        self.idea_uploaded_panel=ttk.Frame(composer)
+        self.idea_attachment_delete_button=SecondaryButton(
+            self.idea_uploaded_panel,text='删除选中文件',
+            command=lambda:self.safe(self.delete_uploaded_idea_attachment))
+        self.idea_attachment_delete_button.pack(side='right',padx=(SPACING['sm'],SPACING['none']))
+        self.idea_attachment_delete_button.state(['disabled'])
+        self.idea_uploaded_table=DataTable(
+            self.idea_uploaded_panel,columns=[('name','已上传文件',280)],height=1,
+            auto_hide_scrollbars=True,
+            on_select=lambda selected:self.idea_attachment_delete_button.state(
+                ['!disabled'] if selected else ['disabled']))
+        self.idea_uploaded_table.pack(side='left',fill='x',expand=True)
         self.update_idea_attachment_status()
         input_hint=ttk.Label(composer,text='调用模型将创建导演、编剧、编辑、演员四个角色自动进行剧本创作，可在阶段配置中修改规则',style='Muted.TLabel')
         self.idea_input_hint=input_hint

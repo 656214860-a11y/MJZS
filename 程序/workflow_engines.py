@@ -219,3 +219,9 @@ def submit_existing(process,prompt,title=None):
     message=f'请完整读取并执行本次任务文件：{task}。仅执行本次指定任务，沿用已有成果。'
     from console_submit import send
     return send(process.pid,message)
+
+
+def current_config(project, stage):
+    """供 L3 编排读取实际引擎配置；复用引擎模块既有的设置依赖边界。"""
+    from workflow_settings import current
+    return current(project, stage)

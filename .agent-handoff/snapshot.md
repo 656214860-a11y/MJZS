@@ -1,5 +1,22 @@
 # 当前快照
 
+## 2026-10-07 本地 Agent 附档增量（R1075 提交收尾）
+
+- 最新任务已实现：本地 Agent 仅接收项目内原件的相对路径及素材边界提示，任意后缀、非空、50 MB 上限；可解析文件同时保留 Markdown。API 保留原有白名单（含此前新增的 `.xlsx`）、1 MB／24000 字上限及 `<attachment_text>` 全文边界；未转换原件切到 API 时明确拒绝并提示转换后重新上传。
+- 模式判定位于 `stage_execution_service`，显式 `writing_api.model_label` 优先；经 `workflow_engines.current_config` 复用 `workflow_settings.current`，不新增越层豁免、不改引擎投递机制。上传后台改走分模式服务预检；附件两份副本作为同一条目展示和回收。聊天简报网关、聊天记录和下载逻辑未改。
+- 本轮实际验证：内置 Python `-B run_selftests.py -k idea_attachment idea_chat` 106/106；`-B smoke_test.py --affected idea_chat` 9/9；`-B run_selftests.py --layer architecture --all` 309/309。新增界面测试补齐简报必填输入后通过；首次架构失败的新增越层已通过既有 L3 引擎边界消除，原有注释／JSON 校验点仅同步行号，未弱化断言。
+- 状态：未跑本轮全量或默认冒烟、未实机投递到外部 Agent。用户已授权提交，通过临时干净工作树领取 R1075，将本地 Agent 附档与前一项上传管理合并提交；提交结果以 Git 记录为准。用户预设配置、既有输出及本地技能配置不纳入提交。本次定向验证不等同于正式全量验收，不借用历史 R1074 验收。
+
+## 前一项上传管理（并入 R1075）
+
+- 当前用户任务：剧本准备页显示已上传文件名并支持删除，已实现。列表独立于本轮聊天引用，发送后仍显示；新上传保留原文件名，旧副本回退显示归档名。
+- 删除需选择文件并确认，仅通过既有回收机制处理当前项目上传副本，原始文件不受影响；忙碌状态拒绝删除，回收失败保留引用状态。
+- 保留此前未提交的 `.xlsx` 支持。当前功能涉及 `程序/desktop.py`、`idea_attachments.py`、`idea_chat_controller.py` 及对应测试；同步 TODO 注释快照的行号，不改注释或断言。
+- 实际验证（程序目录，内置 Python，`-B`）：`run_selftests.py -k idea_attachment idea_chat` 99/99；`smoke_test.py --affected idea_chat` 9/9；默认 `smoke_test.py` 8/8；`run_selftests.py --layer architecture --all` 309/309。首次架构检查仅注释行号快照失败，同步行号后复跑通过。
+- 边界：未跑当前树全量，未做人工视觉验收，未提交 Git，也未形成新的正式轮次验收；下次先核验工作区。用户重启桌面程序后可体验文件列表与删除功能。
+
+## 上次正式轮次记录
+
 更新：2026-10-06，R1074 退出维护保守调度重构已通过正式验收。
 
 - 用户目标：在前两项完成后推进候选 03；已确认保留原策略和异常行为，不新增重试、串行等待或删除范围。

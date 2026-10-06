@@ -771,6 +771,7 @@ class SendMessageTests(_Harness):
             target = d.bubble_target_at(d.idea_log, SimpleNamespace(x=x + 1, y=y + 1))
             self.assertEqual(target[0], 'example', '软件示例气泡必须可被右键命中')
 
+    @patch('stage_execution_service.idea_attachment_local_mode', new=lambda _project: False)
     def test_text_attachment_is_visible_and_submitted_to_the_workflow(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
@@ -799,6 +800,62 @@ class SendMessageTests(_Harness):
             self.assertIn('主要角色：林默', seen[0][2])
             self.assertEqual(d.idea_attachment_paths, ())
             self.assertIn('【已引用：故事创意_', idea_chat.load(proj)[0]['text'])
+
+    @patch('stage_execution_service.idea_attachment_local_mode', new=lambda _project: True)
+    def test_local_attachment_status_and_submission_only_expose_relative_path(self):
+        from stage_execution_service import archive_idea_attachments, prepare_idea_attachment_selection
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            source = Path(td) / '设定.pdf'
+            source.write_bytes(b'PRIVATE_BINARY_PDF')
+            archived = archive_idea_attachments(proj, (source,))
+            prepared = prepare_idea_attachment_selection(proj, archived)
+            d, win = self.desktop(proj)
+            d.show(0); win.update()
+            d.idea_chat_controller.replace_attachments(prepared['paths'], prepared['details'])
+            d.update_idea_attachment_status()
+            self.assertIn('设定.pdf（原文件，将由 Agent 自行读取）', d.idea_attachment_status.get())
+            self.assertNotIn(str(source), d.idea_attachment_status.get())
+            seen = []
+            d.open_flow_agent = lambda *args, **kwargs: seen.append(args)
+            self.say(d, '主要角色：林默\n题材类型：都市悬疑\n篇幅：12集\n请参考本地素材')
+            d.send_message(); win.update()
+            self.assertIn(archived[0].relative_to(proj).as_posix(), seen[0][2])
+            self.assertIn('请先读取并解析', seen[0][2])
+            self.assertNotIn('PRIVATE_BINARY_PDF', seen[0][2])
+            self.assertNotIn(str(source), seen[0][2])
+
+    def test_uploaded_file_list_survives_send_clear_and_deletes_only_confirmed_copy(self):
+        from stage_execution_service import archive_idea_attachments
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            source = Path(td) / '角色设定.txt'
+            source.write_text('角色设定', encoding='utf-8')
+            archived = archive_idea_attachments(proj, (source,))[0]
+            d, win = self.desktop(proj)
+            d.show(0); win.update()
+            tree = d.idea_uploaded_table.tree
+            self.assertEqual(tree.item(tree.get_children()[0], 'values'), (source.name,))
+            d.idea_attachment_paths = ()
+            d.update_idea_attachment_status(); win.update()
+            self.assertTrue(d.idea_uploaded_panel.winfo_manager())
+            tree.selection_set(tree.get_children()[0]); win.update()
+            self.assertNotIn('disabled', d.idea_attachment_delete_button.state())
+            with patch('desktop.confirm', return_value=False):
+                d.delete_uploaded_idea_attachment()
+            self.assertTrue(archived.is_file())
+            self.assertEqual(len(tree.get_children()), 1)
+            with patch('desktop.confirm', return_value=True) as confirm_delete:
+                d.delete_uploaded_idea_attachment()
+            win.update()
+            self.assertIn(source.name, confirm_delete.call_args.args[2])
+            self.assertNotIn(str(source), confirm_delete.call_args.args[2])
+            self.assertTrue(source.is_file())
+            self.assertFalse(archived.exists())
+            self.assertEqual(tree.get_children(), ())
+            self.assertFalse(d.idea_uploaded_panel.winfo_manager())
+            self.assertIn('disabled', d.idea_attachment_delete_button.state())
+            self.assertIn('原始文件未删除', d.status.get())
 
     def test_a_failed_workflow_keeps_the_draft_without_creating_a_submission(self):
         with tempfile.TemporaryDirectory() as td:

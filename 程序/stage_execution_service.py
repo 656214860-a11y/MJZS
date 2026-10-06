@@ -167,15 +167,32 @@ def record_stage_legacy_adoption(project, linked_paths, now=None):
     return result.data
 
 
+def idea_attachment_local_mode(project):
+    """显式 API 选择优先；其余按 writing 实际目标识别本地 Agent。"""
+    import model_pool
+    from workflow_engines import current_config
+    import writing_api
+    if writing_api.model_label(project):
+        return False
+    config = current_config(project, 'writing')
+    engine = model_pool.desktop_engine(config.get('model')) or config.get('engine')
+    return engine in {'codex', 'claude', 'qwen'} and not config.get('api')
+
+
 def archive_idea_attachments(project, paths, now=None):
     """剧本准备附档归档编排：L3 注入统一文本阶段发布器。"""
     from idea_attachments import store
 
     def publish_attachment(target, text):
+        if isinstance(text, bytes):
+            from agent.core import save_bytes
+            save_bytes(target, text)
+            return target
         return publish_stage_text(
             target, text, lambda value: bool(value.strip()), lambda _target: None)
 
-    result = store(project_context(project), paths, now=now, publish=publish_attachment)
+    result = store(project_context(project), paths, now=now, publish=publish_attachment,
+                   local_mode=idea_attachment_local_mode(project))
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
@@ -184,13 +201,20 @@ def archive_idea_attachments(project, paths, now=None):
 def stage_idea_attachment_paths(project, limit=None):
     """列出已入库创意附档；项目根只由 L3 上下文提供。"""
     from idea_attachments import uploaded
-    return uploaded(project_context(project), limit)
+    return uploaded(project_context(project), limit, local_mode=idea_attachment_local_mode(project))
 
 
 def stage_idea_attachment_reference(project, message='', selected_paths=()):
     """为剧本准备对话解析已入库附档，不向 L2 暴露裸项目路径。"""
     from idea_attachments import referenced
-    return referenced(project_context(project), message, selected_paths)
+    return referenced(project_context(project), message, selected_paths,
+                      local_mode=idea_attachment_local_mode(project))
+
+
+def prepare_idea_attachment_selection(project, paths):
+    """仅预检刚上传的附件，不把历史最近三份混入上传结果。"""
+    from idea_attachments import prepare
+    return prepare(paths, local_mode=idea_attachment_local_mode(project), context=project_context(project))
 
 
 def idea_chat_gateway():

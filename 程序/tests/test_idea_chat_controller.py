@@ -1,6 +1,7 @@
 """无 Tk 的剧本准备对话控制器回归。"""
 import sys
 import time
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -14,6 +15,55 @@ from idea_chat_controller import IdeaChatController
 
 
 class IdeaChatControllerTests(unittest.TestCase):
+    def test_deleted_upload_is_recoverable_and_no_longer_referenced(self):
+        from stage_execution_service import archive_idea_attachments, stage_idea_attachment_reference
+        from storage_maintenance import restore_latest_recycled_path
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = root / '角色.xlsx.txt'
+            source.write_text('测试角色', encoding='utf-8')
+            archived = archive_idea_attachments(root, (source,))[0]
+            controller = IdeaChatController()
+            controller.replace_attachments((archived,), ((archived.name, 4),))
+            controller.delete_attachment(root, archived)
+            self.assertTrue(source.is_file())
+            self.assertFalse(archived.exists())
+            self.assertEqual(controller.attachment_paths, ())
+            self.assertEqual(controller.attachment_details, ())
+            self.assertEqual(stage_idea_attachment_reference(root)['context'], '')
+            restore_latest_recycled_path(root, archived)
+            self.assertEqual(archived.read_text(encoding='utf-8').strip(), '测试角色')
+
+    def test_attachment_delete_rejects_source_foreign_project_and_busy_state(self):
+        from stage_execution_service import archive_idea_attachments
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = root / '原文件.txt'
+            source.write_text('保留', encoding='utf-8')
+            archived = archive_idea_attachments(root / 'project', (source,))[0]
+            controller = IdeaChatController()
+            for project, path in ((root / 'project', source), (root / 'other', archived)):
+                with self.subTest(project=project), self.assertRaises(ValueError):
+                    controller.delete_attachment(project, path)
+            for flag in ('attachment_preparing', 'requesting', 'script_agent_launching'):
+                setattr(controller, flag, True)
+                with self.subTest(flag=flag), self.assertRaisesRegex(ValueError, '进行中'):
+                    controller.delete_attachment(root / 'project', archived)
+                setattr(controller, flag, False)
+            self.assertTrue(source.is_file())
+            self.assertTrue(archived.is_file())
+
+    def test_failed_recycle_keeps_attachment_state(self):
+        controller = IdeaChatController()
+        path = Path('project/故事创意_1.md')
+        controller.replace_attachments((path,), ((path.name, 2),))
+        with patch('stage_execution_service.stage_idea_attachment_paths', return_value=(path,)), \
+             patch('storage_maintenance.recycle_paths', return_value=[]):
+            with self.assertRaises(OSError):
+                controller.delete_attachment('project', path)
+        self.assertEqual(controller.attachment_paths, (str(path),))
+        self.assertEqual(controller.attachment_details, ((path.name, 2),))
+
     def test_attachment_injection_keeps_existing_visible_marker(self):
         controller = IdeaChatController()
         controller.replace_attachments(('D:/idea.md',))

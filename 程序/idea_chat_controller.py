@@ -2,6 +2,7 @@
 import queue
 import threading
 import time
+from pathlib import Path
 
 
 class IdeaChatController:
@@ -103,10 +104,9 @@ class IdeaChatController:
         selected = tuple(paths or ())
         def work():
             try:
-                import idea_attachments
-                from stage_execution_service import archive_idea_attachments
+                from stage_execution_service import archive_idea_attachments, prepare_idea_attachment_selection
                 archived = archive_idea_attachments(root, selected)
-                prepared = idea_attachments.prepare(archived)
+                prepared = prepare_idea_attachment_selection(root, archived)
                 self._attachment_results.put((token, True, prepared))
             except (OSError, ValueError) as exc:
                 self._attachment_results.put((token, False, str(exc)))
@@ -130,3 +130,19 @@ class IdeaChatController:
     def clear_attachments(self):
         self.attachment_paths = ()
         self.attachment_details = ()
+
+    def delete_attachment(self, project, path):
+        """只回收当前项目的入库副本，成功后同步移除待提交引用。"""
+        if self.attachment_preparing or self.requesting or self.script_agent_launching:
+            raise ValueError('附档处理或模型请求进行中，请完成后再删除。')
+        from stage_execution_service import stage_idea_attachment_paths
+        from storage_maintenance import recycle_paths
+        from idea_attachments import archive_pair
+        path = Path(path)
+        if path not in stage_idea_attachment_paths(project):
+            raise ValueError('文件不在当前项目的已上传列表中，请刷新后重试。')
+        pair = tuple(dict.fromkeys(archive_pair(path)))
+        if not recycle_paths(project, pair, '删除创意附档'):
+            raise OSError('附档未能移入回收站，请刷新后重试。')
+        self.attachment_paths = tuple(value for value in self.attachment_paths if Path(value) not in pair)
+        self.attachment_details = tuple(item for item in self.attachment_details if item[0] not in {p.name for p in pair})
