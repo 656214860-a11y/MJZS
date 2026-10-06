@@ -217,6 +217,28 @@ def prepare_idea_attachment_selection(project, paths):
     return prepare(paths, local_mode=idea_attachment_local_mode(project), context=project_context(project))
 
 
+def stage_idea_brief_defaults(project):
+    """为创作表单读取最近三份归档的解析副本，不改变模型投递上下文。"""
+    from idea_attachments import uploaded, archive_pair, display_name, read_source, MAX_FILE_BYTES, input_folder
+    from idea_chat import extract_brief_creation
+    context = project_context(project)
+    folder = input_folder(context).resolve()
+    values, skipped = {}, []
+    for path in uploaded(context, limit=3):
+        _original, converted = archive_pair(path)
+        if (not converted.is_file() or converted.resolve().parent != folder
+                or converted.stat().st_size > MAX_FILE_BYTES
+                or converted.suffix.lower() != '.md'):
+            skipped.append(display_name(path))
+            continue
+        fields = extract_brief_creation(read_source(converted))
+        if not fields:
+            skipped.append(display_name(path))
+        for label, value in fields.items():
+            values.setdefault(label, value)
+    return {'values': values, 'skipped': tuple(skipped)}
+
+
 def idea_chat_gateway():
     """为 ``idea_chat`` 注入缓存读取与原子发布；L2 不可自行落盘。"""
     from agent.core import save, save_text

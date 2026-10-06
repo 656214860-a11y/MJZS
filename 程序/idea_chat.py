@@ -486,7 +486,7 @@ def project_document_kind(path):
 def _brief_value(text, labels):
     """从用户常见的“字段：内容”写法中取值，不猜测未明说的信息。"""
     names = '|'.join(re.escape(label) for label in labels)
-    match = re.search(r'(?im)^\s*(?:[-*#]+\s*)?(?:' + names + r')\s*[：:]\s*(.+?)\s*$',
+    match = re.search(r'(?im)^[ \t]*(?:[-*#]+[ \t]*)?(?:' + names + r')[ \t]*[：:][ \t]*([^\r\n]*)',
                       str(text or ''))
     return match.group(1).strip() if match else ''
 
@@ -555,7 +555,31 @@ def format_brief_creation(values):
                      for label in labels).rstrip() + '\n'
 
 
-def brief_creation_values(root, extra_text=''):
+def extract_brief_creation(text, *, extra_labels=()):
+    """只提取明确标注的字段，保留空值和多行；附件不会被当成指令执行。"""
+    aliases = {'集数': '故事集数', '单集时长': '单集时间', '时长': '单集时间',
+               '主要角色': '故事角色', '角色': '故事角色', '人物设定': '故事角色',
+               '题材类型': '故事题材', '题材': '故事题材', '画风': '故事画风',
+               '外貌特征': '物理特征', '故事概述': '故事梗概'}
+    fields, active = {}, None
+    for line in str(text or '').replace('\r\r\n', '\n').splitlines():
+        match = re.match(r'^[ \t]*(?:[-*#]+[ \t]*)?([^：:\t]{1,30})[：:\t][ \t]*(.*)$', line)
+        if match:
+            label = match.group(1).strip().strip('*').strip()
+            canonical = aliases.get(label, label)
+            if canonical in BRIEF_CREATION_FIELDS:
+                active = canonical
+                fields[active] = match.group(2)
+                continue
+            if label in extra_labels:
+                active = None
+                continue
+        if active:
+            fields[active] += '\n' + line
+    return {label: value.strip() for label, value in fields.items()}
+
+
+def brief_creation_values(root, extra_text='', *, attachment_values=None, extra_labels=()):
     """读取上次填写内容；当前未发送文本可覆盖同名字段。"""
     path = brief_raw_path(root)
     if path.is_file():
@@ -564,12 +588,11 @@ def brief_creation_values(root, extra_text=''):
         legacy = legacy_brief_raw_path(root)
         source = legacy.read_text(encoding='utf-8') if legacy.is_file() else ''
     current = str(extra_text or '').strip()
-    values = {label: _brief_value(source, (label,)) for label in BRIEF_CREATION_FIELDS}
-    for label in BRIEF_CREATION_FIELDS:
-        value = _brief_value(current, (label,))
-        if value:
-            values[label] = value
-    if current and not any(values.values()):
+    values = {label: str((attachment_values or {}).get(label, '')) for label in BRIEF_CREATION_FIELDS}
+    values.update(extract_brief_creation(source, extra_labels=extra_labels))
+    current_fields = extract_brief_creation(current, extra_labels=extra_labels)
+    values.update(current_fields)
+    if current and not current_fields and not any(values.values()):
         values['故事梗概'] = current
     return values
 

@@ -1067,7 +1067,10 @@ class Desktop:
             return
         prepared=result['value']
         self.update_idea_attachment_status()
-        self.status.set('已入库 %d 份创意文件；发送时将作为本轮模型素材提交。' % len(prepared['names']))
+        form = getattr(self, '_brief_creation_window', None)
+        if form is not None and form.winfo_exists():
+            form.refresh_attachment_fields()
+        self.status.set('已入库 %d 份创意文件；去填写创作信息时将自动读取可识别字段。' % len(prepared['names']))
     def insert_idea_reference(self, path):
         """把已入库创意插入编辑框，并标记为本轮显式引用。"""
         box=getattr(self,'idea_input',None)
@@ -1442,7 +1445,15 @@ class Desktop:
         except tk.TclError:
             pass
         import idea_chat
-        values = idea_chat.brief_creation_values(self.idea_chat_context(), current_text)
+        import stage_config, workflow_settings
+        workflow_config = stage_config.current_workflow(self.root)
+        preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
+        lock_defs = preset.get('locks', ())
+        extra_labels = tuple(item['label'] for item in lock_defs)
+        from stage_execution_service import stage_idea_brief_defaults
+        attachment = stage_idea_brief_defaults(self.root)
+        values = idea_chat.brief_creation_values(self.idea_chat_context(), current_text,
+                                                attachment_values=attachment['values'], extra_labels=extra_labels)
         def cleared():
             self._brief_creation_window = None
         win = FormDialog(self.win, '填写创作信息', geometry='700x680', minsize=(600, 520),
@@ -1450,7 +1461,10 @@ class Desktop:
         self._brief_creation_window = win
         outer = win.content
         outer.columnconfigure(0, weight=1)
-        ttk.Label(outer, text='已自动记住上次填写内容；保存并发送后会写入 brief_creation.md。',
+        notice = '已读取附件中明确标注的创作信息；手填内容（含清空）优先，保存并发送后生效。'
+        if attachment['skipped']:
+            notice += '\n部分附件无法自动提取字段，请手动填写或交由 Agent 解析。'
+        ttk.Label(outer, text=notice,
                   style='Muted.TLabel').grid(row=0, column=0, columnspan=2, sticky='w', pady=(SPACING['xs'], SPACING['md']))
         outer.rowconfigure(1, weight=1)
         canvas = tk.Canvas(outer, highlightthickness=0)
@@ -1475,10 +1489,6 @@ class Desktop:
             editor.grid(row=row, column=label_column + 1, sticky='ew', padx=(0, SPACING['md']), pady=SPACING['xs'])
             editors[label] = editor
         # 统筹锁只在创作信息窗采集；无统筹或统筹未声明 locks 时完全不显示。
-        import stage_config, workflow_settings
-        workflow_config = stage_config.current_workflow(self.root)
-        preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
-        lock_defs = preset.get('locks', ())
         lock_start = (len(compact) + 1) // 2
         for offset, lock_def in enumerate(lock_defs):
             row = lock_start + offset
@@ -1499,6 +1509,20 @@ class Desktop:
             editor.insert('1.0', values.get(label, ''))
             editor.grid(row=row, column=1, columnspan=3, sticky='ew', padx=(0, SPACING['md']), pady=SPACING['xs'])
             editors[label] = editor
+        win.brief_editors = editors
+        for editor in editors.values():
+            if isinstance(editor, tk.Text):
+                editor.edit_modified(False)
+        def refresh_attachment_fields():
+            latest = stage_idea_brief_defaults(self.root)
+            updated = idea_chat.brief_creation_values(self.idea_chat_context(), current_text,
+                                                      attachment_values=latest['values'], extra_labels=extra_labels)
+            for label, editor in editors.items():
+                if (isinstance(editor, tk.Text) and not editor.edit_modified()
+                        and not editor.get('1.0', 'end-1c') and updated.get(label)):
+                    editor.insert('1.0', updated[label])
+                    editor.edit_modified(False)
+        win.refresh_attachment_fields = refresh_attachment_fields
         def refit(event=None):
             bounds = canvas.bbox('all')
             canvas.configure(scrollregion=bounds)

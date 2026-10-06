@@ -316,6 +316,12 @@ class SavingTests(unittest.TestCase):
             self.assertEqual(values['故事角色'], '手填角色')
             self.assertEqual(values['故事梗概'], '')
 
+    def test_brief_multiline_dialogue_does_not_become_a_field(self):
+        text = '故事梗概：夜幕降临\n阿青：谁在那里？\n灯突然亮了\n故事角色：阿青\n画幅：16:9'
+        fields = idea_chat.extract_brief_creation(text, extra_labels=('画幅',))
+        self.assertEqual(fields['故事梗概'], '夜幕降临\n阿青：谁在那里？\n灯突然亮了')
+        self.assertEqual(fields['故事角色'], '阿青')
+
     def test_archived_attachment_populates_brief_without_changing_local_delivery(self):
         from stage_execution_service import archive_idea_attachments, stage_idea_brief_defaults, stage_idea_attachment_reference
         with tempfile.TemporaryDirectory() as td:
@@ -793,6 +799,33 @@ class SendMessageTests(_Harness):
             self.assertTrue(d._brief_creation_window.winfo_exists(), '空白创意应打开填写表格')
             self.assertEqual(idea_chat.load(proj), [], '一个字都不许发出去')
             self.assertFalse(idea_chat.brief_raw_path(proj).exists(), '只打开表格不应先落盘')
+
+    def test_brief_form_attachment_fill_can_be_deleted_and_saved(self):
+        from stage_execution_service import archive_idea_attachments
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            source = Path(td) / '创意.md'
+            source.write_text('故事梗概：附档梗概\n故事角色：阿青', encoding='utf-8')
+            archive_idea_attachments(proj, (source,))
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            d.open_brief_creation_form(); win.update()
+            form = d._brief_creation_window
+            editor = form.brief_editors['故事梗概']
+            self.assertEqual(editor.get('1.0', 'end-1c'), '附档梗概')
+            editor.focus_force(); win.update()
+            editor.tag_add('sel', '1.0', 'end-1c')
+            editor.event_generate('<Delete>')
+            self.assertEqual(editor.get('1.0', 'end-1c'), '')
+            form.refresh_attachment_fields()
+            self.assertEqual(editor.get('1.0', 'end-1c'), '', '刷新不能复活用户删除的内容')
+            with patch.object(d, 'send_message'):
+                for button in form.actions.winfo_children():
+                    if button.cget('text') == '保存并发送':
+                        button.invoke()
+            d.open_brief_creation_form(); win.update()
+            self.assertEqual(d._brief_creation_window.brief_editors['故事梗概'].get('1.0', 'end-1c'), '')
+            self.assertEqual(d._brief_creation_window.brief_editors['故事角色'].get('1.0', 'end-1c'), '阿青')
 
     def test_software_example_can_be_copied_as_a_whole_message(self):
         with tempfile.TemporaryDirectory() as td:
