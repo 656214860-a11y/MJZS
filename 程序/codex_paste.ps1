@@ -1,4 +1,4 @@
-﻿param([Parameter(Mandatory=$true)][string]$PayloadFile)
+﻿param([Parameter(Mandatory=$true)][string]$PayloadFile,[ValidateRange(1,120)][int]$DeadlineSeconds=15)
 $ErrorActionPreference='Stop'
 [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
 Add-Type -AssemblyName UIAutomationClient
@@ -20,6 +20,7 @@ $draft=[string]$payload.draft
 $project=[string]$payload.project
 $newTask=$draft.Length -gt 0
 $diagnostic=[bool]$payload.diagnostic
+if($null -ne $payload.deadline){$DeadlineSeconds=[Math]::Min(120,[Math]::Max(1,[int]$payload.deadline))}
 $autoSend=[bool]$payload.auto_send
 $confirmation=$payload.confirmation
 $script:sendDispatched=$false;$script:pasteDispatched=$false;$script:promptVerified=$false
@@ -45,6 +46,10 @@ function Test-SendContent($edit){
 }
 function Finish($ok,$reason){
  $outcome=@{ok=$ok;reason=$reason;send_dispatched=[bool]$script:sendDispatched}
+ if($diagnostic -or $script:diagnostics){
+  if(!$script:diagnostics){$script:diagnostics=Get-Diagnostics}
+  $outcome.diagnostics=$script:diagnostics
+ }
  # Offer confirmation only after this task was pasted/verified and no Send
  # click was dispatched. Bind approval to this editor and this exact snapshot.
  if(!$confirmation -and !$script:sendDispatched -and ($script:pasteDispatched -or $script:promptVerified)){
@@ -126,6 +131,49 @@ function Complete-Task($window,$edit,$handle){
  }
  Finish $false '本次内容已填入，发送按钮暂不可用；请查看 Codex。'
 }
+function Get-Diagnostics{
+ # Read-only terminal snapshot: counts/categories only, never names, paths or text.
+ $entries=@();$enumerationErrors=0
+ try{
+  $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.Condition]::TrueCondition)
+  foreach($candidate in $windows){
+   $entry=$null
+   try{
+    $process=Get-Process -Id $candidate.Current.ProcessId -ErrorAction SilentlyContinue
+    if(!$process -or $process.ProcessName -notin @('ChatGPT','Codex')){continue}
+    $entry=@{index=$entries.Count+1;categories=@();editor_count=0;named_editor_count=0;stable_count=0;header_count=0;draft_match_count=0}
+    $entries+=,$entry
+    if(!(Test-CodexProcess $process)){$entry.categories+='process-path-mismatch';continue}
+    $candidateHandle=[IntPtr]$candidate.Current.NativeWindowHandle
+    if($candidateHandle -eq [IntPtr]::Zero){$entry.categories+='handle-zero'}
+    if($candidateHandle -eq $lastHandle){$entry.stable_count=$stable}
+    $condition=[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty,$title)
+    $headerFound=$false;$draftFound=$false
+    foreach($header in $candidate.FindAll([Windows.Automation.TreeScope]::Descendants,$condition)){
+     if(!$header.Current.IsOffscreen -and $header.Current.BoundingRectangle.Top -lt ($candidate.Current.BoundingRectangle.Top+120)){$headerFound=$true;$entry.header_count++}
+    }
+    $editCondition=[Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,[Windows.Automation.ControlType]::Edit)
+    foreach($node in $candidate.FindAll([Windows.Automation.TreeScope]::Descendants,$editCondition)){
+     $c=$node.Current;$rect=$c.BoundingRectangle;$area=$candidate.Current.BoundingRectangle
+     $value=Read-Edit $node
+     if(!$c.IsOffscreen -and $null -ne $value -and $newTask -and ($value.Trim() -eq $draft.Trim() -or $value.Trim() -eq $prompt.Trim())){$draftFound=$true;$entry.draft_match_count++}
+     if($c.IsOffscreen -or !$c.IsEnabled -or !$c.IsKeyboardFocusable){continue}
+     $minimumTop=if($newTask){0.15}else{0.4}
+     if($rect.Top -lt ($area.Top+$area.Height*$minimumTop)){continue}
+     $entry.editor_count++
+     if($c.Name -match '(?i)(message|prompt|ask|follow.?up|向.*提问|发送消息|输入消息|输入.*提示|后续|询问|提问|使用 ChatGPT Work)'){$entry.named_editor_count++}
+    }
+    if(!$headerFound -and !$draftFound){$entry.categories+='header-not-found'}
+    if($entry.named_editor_count -ne 1){$entry.categories+='editor-count'}
+    if($entry.editor_count -gt $entry.named_editor_count){$entry.categories+='editor-name-mismatch'}
+    if($entry.stable_count -lt 3){$entry.categories+='stable-too-low'}
+   }catch{
+    if($entry){$entry.categories+='uia-read-error'}else{$enumerationErrors++}
+   }
+  }
+ }catch{$enumerationErrors++}
+ return @{window_count=$entries.Count;windows=@($entries);enumeration_errors=$enumerationErrors}
+}
 function Target-Window{
  $windows=[Windows.Automation.AutomationElement]::RootElement.FindAll([Windows.Automation.TreeScope]::Children,[Windows.Automation.Condition]::TrueCondition)
  foreach($candidate in $windows){
@@ -148,7 +196,7 @@ function Target-Window{
  return $null
 }
 try {
- $deadline=[DateTime]::UtcNow.AddSeconds(15)
+ $deadline=[DateTime]::UtcNow.AddSeconds($DeadlineSeconds)
  $stable=0;$lastHandle=[IntPtr]::Zero
  while([DateTime]::UtcNow -lt $deadline){
   Start-Sleep -Milliseconds 450
@@ -238,7 +286,8 @@ try {
   }
   Finish $false '已尝试粘贴，请检查 Codex 输入框；为避免重复，未再次粘贴。'
  }
- Finish $false '未找到可确认的 Codex 消息输入框；本次内容已复制，可手动粘贴。'
+ $script:diagnostics=Get-Diagnostics
+ Finish $false ('未找到可确认的 Codex 消息输入框；本次内容已复制，可手动粘贴。 诊断：'+($script:diagnostics|ConvertTo-Json -Depth 4 -Compress))
 }catch{
  if($script:sendDispatched){Finish $false '已尝试点击发送，结果未确认；请检查 Codex，未重复发送。'}
  Finish $false '自动粘贴或发送未完成，请检查 Codex 输入框；本次内容仍在剪贴板中。'

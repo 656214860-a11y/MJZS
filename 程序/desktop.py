@@ -5025,7 +5025,10 @@ class Desktop:
                 if not outcome['ok']:self.notifier.info(outcome['reason'], title='发送结果', modal=True)
             def pasted(outcome):
                 ui_plugin_registry.module('agent_dispatch').outcome(receipt,outcome)
-                self.status.set(outcome['reason'])
+                reason=outcome['reason']
+                if outcome.get('diagnostics') and '诊断：' not in reason:
+                    reason+=' 诊断：'+json.dumps(outcome['diagnostics'],ensure_ascii=False,separators=(',',':'))
+                self.status.set(reason)
                 if outcome['ok']:return
                 if outcome.get('can_confirm') and not outcome.get('send_dispatched'):
                     accepted=confirm(self.win,'确认发送',
@@ -5036,8 +5039,8 @@ class Desktop:
                         self.async_(lambda:confirm_existing(result['title'],result['prompt'],outcome['confirmation'],
                             result.get('draft_prompt',''),result.get('project','')),confirmed)
                     else:self.status.set('已保留 Codex 输入框内容，尚未发送。')
-                else:self.notifier.info(outcome['reason'], title='请检查 Codex 输入框', modal=True)
-            self.async_(lambda:paste_existing(result['title'],result['prompt'],result.get('draft_prompt',''),result.get('project',''),auto_send=True),pasted)
+                else:self.notifier.info(reason, title='请检查 Codex 输入框', modal=True)
+            self.async_(lambda:paste_existing(result['title'],result['prompt'],result.get('draft_prompt',''),result.get('project',''),auto_send=True,deadline_seconds=45 if result.get('mode')=='new' else 15),pasted)
             self.status.set('正在将本次任务粘贴到 Codex 并自动发送…')
         self.async_(build,dispatch)
     def open_storyboard_skill(self,key=None):

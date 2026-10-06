@@ -6,10 +6,10 @@ from pathlib import Path
 from agent.core import save_text
 
 
-def paste_existing(title,prompt,draft='',project='',diagnostic=False,auto_send=False,confirmation=None):
+def paste_existing(title,prompt,draft='',project='',diagnostic=False,auto_send=False,confirmation=None,deadline_seconds=15):
     script=Path(__file__).with_name('codex_paste.ps1')
     payload={'title':title,'prompt':prompt,'draft':draft,'project':str(project),
-             'diagnostic':bool(diagnostic),'auto_send':bool(auto_send),'confirmation':confirmation}
+             'diagnostic':bool(diagnostic),'auto_send':bool(auto_send),'confirmation':confirmation,'deadline':deadline_seconds}
     try:
         # Full episode prompts routinely exceed Windows' command-line limit.
         # Only filenames go in argv; immutable UTF-8 data stays out of shell code.
@@ -17,7 +17,7 @@ def paste_existing(title,prompt,draft='',project='',diagnostic=False,auto_send=F
             source=Path(folder)/'input.json'
             save_text(source, json.dumps(payload, ensure_ascii=False))
             result=subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-STA','-File',str(script),'-PayloadFile',str(source)],
-                capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=55,
+                capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=max(55,deadline_seconds+40),
                 creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
         lines=[line for line in result.stdout.splitlines() if line.startswith('{')]
         if lines:return json.loads(lines[-1])
