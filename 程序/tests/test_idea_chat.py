@@ -298,6 +298,40 @@ class SavingTests(unittest.TestCase):
             self.assertTrue(saved.is_file())
             self.assertIn('增加雨夜氛围', saved.read_text(encoding='utf-8'))
 
+    def test_brief_form_empty_and_multiline_fields_round_trip(self):
+        with tempfile.TemporaryDirectory() as td:
+            idea_chat.save_brief_creation(td, {'故事梗概': '第一行\n第二行', '故事角色': '阿青'})
+            values = idea_chat.brief_creation_values(td)
+            self.assertEqual(values['故事主体'], '')
+            self.assertEqual(values['故事梗概'], '第一行\n第二行')
+            values = idea_chat.brief_creation_values(td, '故事角色：\n特殊要求：不要旁白')
+            self.assertEqual(values['故事角色'], '')
+            self.assertEqual(values['特殊要求'], '不要旁白')
+
+    def test_brief_attachment_defaults_preserve_explicit_empty_and_manual_values(self):
+        with tempfile.TemporaryDirectory() as td:
+            idea_chat.save_brief_creation(td, {'故事角色': '手填角色'})
+            values = idea_chat.brief_creation_values(td, attachment_values={
+                '故事角色': '附档角色', '故事梗概': '附档梗概'})
+            self.assertEqual(values['故事角色'], '手填角色')
+            self.assertEqual(values['故事梗概'], '')
+
+    def test_archived_attachment_populates_brief_without_changing_local_delivery(self):
+        from stage_execution_service import archive_idea_attachments, stage_idea_brief_defaults, stage_idea_attachment_reference
+        with tempfile.TemporaryDirectory() as td:
+            source = Path(td) / '创意.txt'
+            source.write_text('故事集数：12集\n故事梗概：第一行\n第二行\n主要角色：阿青\n题材类型：悬疑', encoding='utf-8')
+            with patch('stage_execution_service.idea_attachment_local_mode', return_value=True):
+                archive_idea_attachments(td, (source,))
+                result = stage_idea_brief_defaults(td)
+                self.assertEqual(result['values']['故事角色'], '阿青')
+                self.assertEqual(result['values']['故事梗概'], '第一行\n第二行')
+                self.assertEqual(result['values']['故事集数'], '12集')
+                self.assertEqual(result['values']['故事题材'], '悬疑')
+                self.assertNotIn('第一行', stage_idea_attachment_reference(td)['context'])
+                source.unlink()
+                self.assertEqual(stage_idea_brief_defaults(td)['values'], result['values'])
+
     def test_brief_followup_does_not_repeat_provided_fields(self):
         fields = {'story_summary': '一个完整故事', 'main_characters': '阿青', 'genre': '', 'length': ''}
         question = idea_chat.brief_followup(fields)
