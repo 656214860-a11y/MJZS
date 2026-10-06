@@ -3052,6 +3052,14 @@ class CloudVoiceTests(PetTestCase):
         now[0] = pet_ui.GREET_QUIET_SECONDS + 1
         self.assertIn('出图失败', self.pet.announce_failures(), '安静期过了照旧报')
 
+    def test_greeting_quiet_window_releases_at_five_seconds(self):
+        self.main_window_showing()
+        self.pet.clock = lambda: 100.0
+        self.pet.greet()
+        self.assertTrue(self.pet.quiet(at=104.9))
+        self.assertFalse(self.pet.quiet(at=105.0))
+        self.assertIsNone(self.pet._quiet_until)
+
     def test_the_quiet_window_only_holds_back_the_pet_itself(self):
         """安静期只压住三虎自己找话说：用户刚按出来的那一句照常冒（换档位是用户点出来的）。"""
         self.main_window_showing()
@@ -3066,7 +3074,7 @@ class CloudVoiceTests(PetTestCase):
     def test_the_quiet_window_ends_and_the_throttles_start_over(self):
         """安静期里说不上话，那几路的节流起算点就跟着往后挪；到点安静期自己结束。"""
         self.main_window_showing()
-        now = [0.0]
+        now = [1.0]
         self.pet.clock = lambda: now[0]
         self.pet.greet()
         now[0] = 5.0
