@@ -1435,7 +1435,7 @@ class Desktop:
         return model, False
 
     def open_brief_creation_form(self, current_text=''):
-        """信息不足时显示可记忆的创作简报表；提交后仍复用普通发送入口。"""
+        """显示可记忆的创作简报表；仅保存，不自动发送。"""
         if not self.root:
             raise ValueError('请先打开项目')
         existing = getattr(self, '_brief_creation_window', None)
@@ -1461,7 +1461,7 @@ class Desktop:
         self._brief_creation_window = win
         outer = win.content
         outer.columnconfigure(0, weight=1)
-        notice = '已读取附件中明确标注的创作信息；手填内容（含清空）优先，保存并发送后生效。'
+        notice = '已读取附件中明确标注的创作信息；手填内容（含清空）优先，保存后生效。'
         if attachment['skipped']:
             notice += '\n部分附件无法自动提取字段，请手动填写或交由 Agent 解析。'
         ttk.Label(outer, text=notice,
@@ -1542,16 +1542,13 @@ class Desktop:
         form.bind('<MouseWheel>', scroll_form)
         def close():
             win.close()
-        def save_and_send():
+        def save():
             submitted = {label: (editor.get().strip() if isinstance(editor, ttk.Combobox)
                                 else editor.get('1.0', 'end-1c').strip()) for label, editor in editors.items()}
-            _path, text = idea_chat.save_brief_creation(self.idea_chat_context(), submitted, gateway=self.idea_chat_gateway())
-            box = getattr(self, 'idea_input', None)
-            if box is not None and box.winfo_exists():
-                box.delete('1.0', 'end'); box.insert('1.0', text)
+            idea_chat.save_brief_creation(self.idea_chat_context(), submitted, gateway=self.idea_chat_gateway())
             close()
-            self.safe(self.send_message)
-        win.add_form_actions('保存并发送', save_and_send)
+            self.status.set('创作信息已保存，未发送。')
+        win.add_form_actions('保存', save)
         protect_readonly_combobox(win)
         win.after_idle(refit)
 

@@ -13,7 +13,7 @@
     },
     {
       "file": "desktop.py",
-      "line": 2474,
+      "line": 2471,
       "scope": "_tick_async_result",
       "comment": "暂时占用误判成永久失败。只保留一个待派发标记；当前队列清空后",
       "classification": "C",

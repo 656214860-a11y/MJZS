@@ -821,11 +821,31 @@ class SendMessageTests(_Harness):
             self.assertEqual(editor.get('1.0', 'end-1c'), '', '刷新不能复活用户删除的内容')
             with patch.object(d, 'send_message'):
                 for button in form.actions.winfo_children():
-                    if button.cget('text') == '保存并发送':
+                    if button.cget('text') == '保存':
                         button.invoke()
             d.open_brief_creation_form(); win.update()
             self.assertEqual(d._brief_creation_window.brief_editors['故事梗概'].get('1.0', 'end-1c'), '')
             self.assertEqual(d._brief_creation_window.brief_editors['故事角色'].get('1.0', 'end-1c'), '阿青')
+
+    def test_brief_form_save_does_not_send_or_replace_chat_draft(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            d.idea_input.insert('1.0', '尚未发送的草稿')
+            d.open_brief_creation_form(); win.update()
+            form = d._brief_creation_window
+            form.brief_editors['故事梗概'].insert('1.0', '仅保存的故事')
+            buttons = {button.cget('text'): button for button in form.actions.winfo_children()}
+            self.assertIn('保存', buttons)
+            self.assertNotIn('保存并发送', buttons)
+            with patch.object(d, 'send_message') as send:
+                buttons['保存'].invoke(); win.update()
+                send.assert_not_called()
+            self.assertEqual(idea_chat.brief_creation_values(proj)['故事梗概'], '仅保存的故事')
+            self.assertEqual(d.idea_input.get('1.0', 'end-1c'), '尚未发送的草稿')
+            self.assertEqual(idea_chat.load(proj), [])
+            self.assertIsNone(d._brief_creation_window)
 
     def test_software_example_can_be_copied_as_a_whole_message(self):
         with tempfile.TemporaryDirectory() as td:
