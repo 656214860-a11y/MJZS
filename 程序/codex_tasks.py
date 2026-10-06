@@ -3,6 +3,7 @@ import json,os,queue,shutil,subprocess,threading,time
 import token_saver
 from pathlib import Path
 from contextlib import contextmanager
+from importlib import import_module
 from agent.core import read,save,save_text
 from pet_bus import read_json
 from pet_llm import config_path
@@ -85,7 +86,8 @@ def task_lock(project):
             except OSError:raise ValueError('正在打开此项目的Codex任务，请稍后') from None
             unlock=lambda:msvcrt.locking(f.fileno(),msvcrt.LK_UNLCK,1)
         else:
-            import fcntl
+            # Windows 裁剪运行环境不含 Unix 专用模块；仅在 POSIX 锁分支加载。
+            fcntl = import_module('fcntl')
             try:fcntl.flock(f.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
             except OSError:raise ValueError('正在打开此项目的Codex任务，请稍后') from None
             unlock=lambda:fcntl.flock(f.fileno(),fcntl.LOCK_UN)
