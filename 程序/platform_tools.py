@@ -109,13 +109,23 @@ def open_path(path):
 
 
 def open_target(target):
-    """打开本地路径或受限的 HTTP(S) 链接，供 UI 取代 Windows ``startfile``。"""
+    """打开本地路径、HTTP(S) 或白名单 Codex 深链，供 UI 取代 Windows ``startfile``。"""
     value = str(target or '').strip()
     # ``urlparse('C:\\foo')`` 会把 C 误判为 scheme；盘符路径必须优先按本地文件处理。
     if Path(value).drive:
         return open_path(value)
     parsed = urlparse(value)
     if parsed.scheme:
+        if parsed.scheme in {'codex'}:
+            message = '无法打开 codex:// 链接:请确认已安装并注册 ChatGPT/Codex 桌面协议。'
+            startfile = getattr(os, 'startfile', None)
+            if not callable(startfile):
+                raise ValueError(message)
+            try:
+                startfile(value)
+            except OSError as exc:
+                raise ValueError(message) from exc
+            return value
         if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
             raise ValueError('只允许打开有效的 HTTP(S) 链接：' + value)
         if not webbrowser.open(value):

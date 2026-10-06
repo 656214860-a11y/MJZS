@@ -73,6 +73,36 @@ class OpenPathTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'HTTP'):
             platform_tools.open_target('file:///unsafe')
 
+    def test_codex_targets_are_passed_unchanged_to_startfile(self):
+        for target in ('codex://threads/abc',
+                       'codex://new?path=D%3A%2Fproject&prompt=hello%20world'):
+            with self.subTest(target=target), \
+                 patch.object(os, 'startfile', create=True) as startfile, \
+                 patch('platform_tools.webbrowser.open') as browser:
+                self.assertEqual(platform_tools.open_target(target), target)
+                startfile.assert_called_once_with(target)
+                browser.assert_not_called()
+
+    def test_unknown_scheme_is_still_rejected(self):
+        with patch.object(os, 'startfile', create=True) as startfile:
+            with self.assertRaisesRegex(ValueError, 'HTTP'):
+                platform_tools.open_target('evil://x')
+            startfile.assert_not_called()
+
+    def test_codex_startfile_failure_has_actionable_error(self):
+        message = '无法打开 codex:// 链接:请确认已安装并注册 ChatGPT/Codex 桌面协议。'
+        with patch.object(os, 'startfile', create=True, side_effect=OSError('unregistered')):
+            with self.assertRaises(ValueError) as caught:
+                platform_tools.open_target('codex://threads/abc')
+        self.assertEqual(str(caught.exception), message)
+
+    def test_codex_without_startfile_has_actionable_error(self):
+        with patch.object(os, 'startfile', create=True, new=None):
+            with self.assertRaises(ValueError) as caught:
+                platform_tools.open_target('codex://threads/abc')
+        self.assertEqual(str(caught.exception),
+                         '无法打开 codex:// 链接:请确认已安装并注册 ChatGPT/Codex 桌面协议。')
+
     def test_windows_drive_path_is_not_mistaken_for_url_scheme(self):
         with tempfile.TemporaryDirectory() as td:
             with patch('platform_tools.open_path', return_value='opened') as open_path:
