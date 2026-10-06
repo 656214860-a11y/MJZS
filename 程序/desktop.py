@@ -4374,7 +4374,7 @@ class Desktop:
         for column,(category,title) in enumerate(categories):
             script_lists.columnconfigure(column,weight=1,uniform='script-files')
             table=DataTable(script_lists,columns=[('name',title,180)],show='tree headings',height=1,
-                            selectmode='browse',style='Script.Treeview',auto_hide_scrollbars=True)
+                            selectmode='browse',style='Script.Treeview',auto_hide_scrollbars=True,empty_text='')
             tree=table.tree
             configure_check_column(tree)
             tree.heading('name',text=title)
@@ -4461,13 +4461,10 @@ class Desktop:
         self.win.bind('<Destroy>', cancel_layout_job, add='+')
         schedule_layout(fit_composer, measure_page_fixed, fit_talk)
         checked_scripts=set()
-        def set_script_box_visible(has_files):
-            """没有任何文件时不保留空表格，把整页优先交给上方聊天内容。"""
-            if has_files:
-                if not script_box.winfo_manager():
-                    script_box.pack(fill='x',expand=False,pady=SPACING['none'])
-            elif script_box.winfo_manager():
-                script_box.pack_forget()
+        def keep_script_headers_visible():
+            """空列表也保留分类标题，表格高度仍按内容压缩。"""
+            if not script_box.winfo_manager():
+                script_box.pack(fill='x',expand=False,pady=SPACING['none'])
             schedule_layout(fit_talk, self._fit_content_now)
         from writing_page_controller import ScriptListLoadController
         script_loader=ScriptListLoadController(category for category,_title in categories)
@@ -4496,8 +4493,8 @@ class Desktop:
                 tree.delete(*tree.get_children())
             # 首批文件尚未扫描完成时也必须保留三列表的列头。此前这里先隐藏
             # ``script_box``，慢目录扫描期间“项目设定／项目大纲／项目剧本”会完全
-            # 消失；只有确认最终为空时才在 finish() 中收起空表。
-            set_script_box_visible(True)
+            # 消失；空列表与加载完成后也保留标题。
+            keep_script_headers_visible()
             def alive():
                 return script_loader.is_current(generation) and all(tree.winfo_exists() for tree in script_trees.values())
             def finish():
@@ -4522,7 +4519,7 @@ class Desktop:
                     for category,tree in script_trees.items():
                         tree.configure(height=max(1,min(6,len(tree.get_children()))))
                         script_checks[category].refresh_header()
-                    set_script_box_visible(bool(live));script_load_job=None
+                    keep_script_headers_visible();script_load_job=None
                 place()
             def load_batch():
                 nonlocal script_load_job
@@ -4533,7 +4530,7 @@ class Desktop:
                         image=self.win._tick_images[int(row.item_id in checked_scripts)], values=(row.name,))
                 if finished:
                     finish();return
-                set_script_box_visible(True)
+                keep_script_headers_visible()
                 script_load_job=self.win.after_idle(load_batch)
             # 初次目录扫描必须越过首帧的 event loop；after_idle 会在同一次
             # update() 内被追着执行，等同又把 rglob 塞回启动回调。

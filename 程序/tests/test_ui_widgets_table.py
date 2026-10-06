@@ -48,3 +48,17 @@ class DataTableTests(unittest.TestCase):
         self.assertEqual(table.tree.get_children(), ('one', 'two'))
         table.sort_by('name')
         self.assertEqual(table.tree.get_children(), ('two', 'one'))
+
+    def test_empty_text_disables_overlay_without_hiding_header(self):
+        table = DataTable(self.root, columns=[('name', '项目剧本', 120)], empty_text='')
+        table.pack()
+        for populated in (False, True, False):
+            if populated:
+                table.tree.insert('', 'end', iid='script', values=('剧本.md',))
+            else:
+                table.tree.delete(*table.tree.get_children())
+            table.refresh_empty_state()
+            self.root.update()
+            self.assertEqual(table.empty_label.winfo_manager(), '')
+            self.assertEqual(table.tree.winfo_manager(), 'grid')
+            self.assertEqual(table.tree.heading('name')['text'], '项目剧本')

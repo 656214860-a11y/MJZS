@@ -683,13 +683,49 @@ class SendMessageTests(_Harness):
             d.show(0); win.update()
             self.assertEqual(d.draft_text(), draft, '切换页面不会丢失尚未发送的输入')
 
-    def test_empty_script_list_gives_the_chat_area_the_page_space(self):
+    def test_empty_script_list_keeps_category_headers_and_chat_visible(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            self.assertFalse(d.script_box.winfo_ismapped(), '没有剧本文件时不显示空白文件表')
-            self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录保留并接管可用空间')
+            win.deiconify()
+            self.settle_script_page(win, .4)
+            self.assertTrue(d.script_box.winfo_ismapped(), '没有文件也保留分类标题栏')
+            for category, title in (('setting', '项目设定'), ('outline', '项目大纲'), ('script', '项目剧本')):
+                tree = d.script_trees[category]
+                self.assertEqual(tree.heading('name')['text'], title)
+                self.assertTrue(tree.winfo_ismapped())
+                self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
+                self.assertEqual(tree.get_children(), ())
+            self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录仍保留可用空间')
+
+    def test_delayed_script_rows_are_not_covered_by_empty_state(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            path = writing_dir(proj) / 'GPT' / 'Codex' / '创意_20261007' / '项目剧本' / '前10集剧本.md'
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('第1集\n场景 1：室内\n小明：开始。', encoding='utf-8')
+            d, win = self.desktop(proj)
+            d.show(0); win.deiconify()
+            self.settle_script_page(win, .4)
+            tree = d.script_trees['script']
+            self.assertIn(str(path), tree.get_children())
+            self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '延迟填表后不能仍显示暂无数据')
+
+    def test_refresh_script_workspace_shows_agent_internal_draft(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            d.show(0); win.deiconify()
+            self.settle_script_page(win, .4)
+            path = writing_dir(proj) / script_contract.RAW_SCRIPT_NAME
+            path.write_text('\n'.join('## 第%d集\n场景 1：室内\n小明：开始。' % n for n in range(1, 11)), encoding='utf-8')
+            self.assertTrue(d.refresh_script_workspace())
+            self.settle_script_page(win, .4)
+            tree = d.script_trees['script']
+            self.assertIn(str(path), tree.get_children())
+            self.assertIn('内部工作稿', tree.item(str(path), 'values')[0])
+            self.assertFalse(tree._data_table.empty_label.winfo_ismapped())
 
     def test_stage_settings_is_immediately_to_the_right_of_send(self):
         with tempfile.TemporaryDirectory() as td:

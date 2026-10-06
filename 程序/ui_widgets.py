@@ -188,7 +188,8 @@ class DataTable(ttk.Frame):
         return self.tree.selection()
 
     def refresh_empty_state(self):
-        if self.tree.get_children():
+        # 空文案表示保留原生列头和空行，不用标签覆盖整张表。
+        if not self.empty_label.cget('text') or self.tree.get_children():
             self.empty_label.grid_remove()
         else:
             self.empty_label.grid()

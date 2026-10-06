@@ -10,6 +10,7 @@ import logging
 from service_contract import SystemError, UserError, success
 
 import project_stages
+from script_contract import RAW_SCRIPT_NAME, is_natural_script
 
 LOGGER = logging.getLogger(__name__)
 
@@ -80,6 +81,17 @@ def iter_script_documents(project):
     except OSError:
         return
 
+    # 本地 Agent 可只更新内部工作稿；展示真实文件但不将它改名为正式交付。
+    # 只探测当前阶段的固定路径，不为首屏调用递归的自然剧本检索。
+    draft = writing_dir / RAW_SCRIPT_NAME
+    try:
+        draft.resolve().relative_to(writing_root)
+        if (draft.is_file() and draft.stat().st_size
+                and is_natural_script(draft.read_text(encoding='utf-8', errors='ignore'))):
+            yield ScriptDocument('script', draft, draft.stat().st_mtime, RAW_SCRIPT_NAME)
+    except (OSError, ValueError):
+        pass
+
     # 用户上传的创意是剧本准备的项目设定来源，放在该列而不是混进模型生成的版本目录。
     input_dir = writing_dir / '输入'
     if input_dir.is_dir():
@@ -135,7 +147,7 @@ def iter_script_documents(project):
 
 
 def discover_script_documents(project):
-    """返回创意目录内的设定、大纲和自然剧本，按最新修改时间排序。"""
+    """返回分类文档、上传创意及有效内部工作稿，按最新修改时间排序。"""
     return tuple(sorted(iter_script_documents(project),
                         key=lambda row: row.modified_at, reverse=True))
 
@@ -145,7 +157,7 @@ def script_document_rows(project):
     return tuple(ScriptDocumentRow(
         category=document.category,
         item_id=str(document.path),
-        name=document.path.name,
+        name=_document_display_name(document.path),
         modified_label=datetime.fromtimestamp(document.modified_at).strftime('%m-%d'),
         modified_at=document.modified_at,
     ) for document in discover_script_documents(project))
@@ -157,10 +169,14 @@ def iter_script_document_rows(project):
         yield ScriptDocumentRow(
             category=document.category,
             item_id=str(document.path),
-            name=document.path.name,
+            name=_document_display_name(document.path),
             modified_label=datetime.fromtimestamp(document.modified_at).strftime('%m-%d'),
             modified_at=document.modified_at,
         )
+
+
+def _document_display_name(path):
+    return path.name + ('（内部工作稿）' if path.name == RAW_SCRIPT_NAME else '')
 
 
 def script_structure_documents(project):

@@ -14,6 +14,49 @@ from script_workspace_service import (batch_selected_script_paths, discover_scri
 
 
 class ScriptWorkspaceServiceTests(unittest.TestCase):
+    def test_agent_internal_draft_is_visible_without_canonical_delivery(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = project_stages.writing(temp) / 'script_raw.md'
+            path.parent.mkdir(parents=True)
+            content = '\n'.join('## 第%d集\n场景 1：室内\n小明：开始。' % n for n in range(1, 11))
+            path.write_text(content, encoding='utf-8')
+            row, = script_document_rows(temp)
+            self.assertEqual(('script', str(path)), (row.category, row.item_id))
+            self.assertEqual('script_raw.md（内部工作稿）', row.name)
+            self.assertEqual(content, path.read_text(encoding='utf-8'))
+
+    def test_internal_draft_does_not_replace_formal_script_or_accept_wrong_stage(self):
+        import script_contract
+        with tempfile.TemporaryDirectory() as temp:
+            writing = project_stages.writing(temp)
+            draft = writing / script_contract.RAW_SCRIPT_NAME
+            formal = writing / 'GPT' / 'Codex' / '创意_20261007' / '项目剧本' / '正式剧本.md'
+            formal.parent.mkdir(parents=True)
+            formal.write_text('场景 1：公园\n小明：开始。', encoding='utf-8')
+            draft.write_text('场景 2：室内\n小明：结束。', encoding='utf-8')
+            self.assertEqual({draft, formal}, {row.path for row in discover_script_documents(temp)})
+            self.assertEqual(formal, script_contract.resolve_script_source(temp))
+            self.assertNotIn(draft, script_contract.natural_script_paths(temp))
+            for invalid in ('', '   ', '{"shots": []}', '# 结构化剧本\n角色档案'):
+                with self.subTest(invalid=invalid):
+                    draft.write_text(invalid, encoding='utf-8')
+                    self.assertEqual([formal], [row.path for row in discover_script_documents(temp)])
+
+    def test_internal_draft_resolving_outside_stage_is_not_shown(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temp:
+            writing = project_stages.writing(temp)
+            writing.mkdir(parents=True)
+            draft = writing / 'script_raw.md'
+            draft.write_text('场景 1：室内', encoding='utf-8')
+            original = Path.resolve
+            def resolve(path, *args, **kwargs):
+                if path == draft:
+                    return Path(temp) / 'outside.md'
+                return original(path, *args, **kwargs)
+            with patch.object(Path, 'resolve', resolve):
+                self.assertEqual((), discover_script_documents(temp))
+
     def test_ensure_workspace_creates_only_the_script_stage_directory(self):
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp) / '新项目'
