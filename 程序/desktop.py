@@ -1437,7 +1437,7 @@ class Desktop:
         self.open_flow_agent('writing', '剧本准备', prompt, followup)
         return model, False
 
-    def open_brief_creation_form(self, current_text=''):
+    def open_brief_creation_form(self, current_text='', *, attachment_reference=None):
         """显示可记忆的创作简报表；仅保存，不自动发送。"""
         if not self.root:
             raise ValueError('请先打开项目')
@@ -1453,8 +1453,10 @@ class Desktop:
         preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
         lock_defs = preset.get('locks', ())
         extra_labels = tuple(item['label'] for item in lock_defs)
-        from stage_execution_service import stage_idea_brief_defaults
-        attachment = stage_idea_brief_defaults(self.root)
+        from stage_execution_service import stage_idea_brief_defaults, stage_idea_attachment_reference
+        if attachment_reference is None:
+            attachment_reference = stage_idea_attachment_reference(self.root, current_text, self.idea_attachment_paths)
+        attachment = stage_idea_brief_defaults(self.root, reference=attachment_reference)
         values = idea_chat.brief_creation_values(self.idea_chat_context(), current_text,
                                                 attachment_values=attachment['values'], extra_labels=extra_labels)
         def cleared():
@@ -1466,7 +1468,7 @@ class Desktop:
         outer.columnconfigure(0, weight=1)
         notice = '已读取附件中明确标注的创作信息；手填内容（含清空）优先，保存后生效。'
         if attachment['skipped']:
-            notice += '\n部分附件无法自动提取字段，请手动填写或交由 Agent 解析。'
+            notice = idea_chat.BRIEF_ATTACHMENT_NOTICE + '\n' + notice
         ttk.Label(outer, text=notice,
                   style='Muted.TLabel').grid(row=0, column=0, columnspan=2, sticky='w', pady=(SPACING['xs'], SPACING['md']))
         outer.rowconfigure(1, weight=1)
@@ -1517,7 +1519,7 @@ class Desktop:
             if isinstance(editor, tk.Text):
                 editor.edit_modified(False)
         def refresh_attachment_fields():
-            latest = stage_idea_brief_defaults(self.root)
+            latest = stage_idea_brief_defaults(self.root, reference=attachment_reference)
             updated = idea_chat.brief_creation_values(self.idea_chat_context(), current_text,
                                                       attachment_values=latest['values'], extra_labels=extra_labels)
             for label, editor in editors.items():
@@ -1577,7 +1579,8 @@ class Desktop:
         workflow_config = stage_config.current_workflow(self.root)
         preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
         brief = idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
-                                        lock_definitions=preset.get('locks', ()), gateway=self.idea_chat_gateway())
+                                        lock_definitions=preset.get('locks', ()), gateway=self.idea_chat_gateway(),
+                                        attachment_reference=prepared['attachments'])
         if brief.get('workflow_projection') is not None:
             stage_config.put_workflow(self.root, brief['workflow_projection'])
         if direct_model:
@@ -1604,7 +1607,7 @@ class Desktop:
             idea_chat.append(self.idea_chat_context(), 'assistant', brief['followup'], model=model,gateway=self.idea_chat_gateway())
             self.show_conversation()
             self.status.set('已保存创意草稿；请补充缺少的信息后再发送。')
-            self.open_brief_creation_form(value)
+            self.open_brief_creation_form(value, attachment_reference=prepared['attachments'])
             return
         prefix = '已打开 '+model+' 的独立对话；' if cleared else ''
         if direct_model:

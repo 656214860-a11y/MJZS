@@ -490,9 +490,15 @@ def project_document_kind(path):
 def _brief_value(text, labels):
     """从用户常见的“字段：内容”写法中取值，不猜测未明说的信息。"""
     names = '|'.join(re.escape(label) for label in labels)
-    match = re.search(r'(?im)^[ \t]*(?:[-*#]+[ \t]*)?(?:' + names + r')[ \t]*[：:][ \t]*([^\r\n]*)',
+    match = re.search(r'(?im)^[ \t]*(?:[-*#]+[ \t]*)?(?:' + names + r')[ ]*[：:\t][ \t]*([^\r\n]*)',
                       str(text or ''))
-    return match.group(1).strip() if match else ''
+    value = match.group(1).strip() if match else ''
+    labels = BRIEF_CREATION_FIELDS + ('题材类型', '题材', '类型', '风格', '集数',
+        '单集时长', '时长', '篇幅', '主要角色', '角色', '故事人物', '人物设定',
+        '故事主线', '故事概述', '剧情', '角色物理特征', '外貌特征', '外貌', '形象', '额外要求', '要求')
+    if value and any(value in label or label in value for label in labels):
+        return ''
+    return value
 
 
 def _brief_fields(raw):
@@ -516,7 +522,8 @@ def _brief_fields(raw):
         candidate = re.search(r'(?m)^.*(?:主角|男主|女主).+$', text)
         characters = candidate.group(0).strip() if candidate else ''
     fields = {
-        'story_summary': _brief_value(text, ('故事梗概', '故事主体', '故事主线', '故事概述', '剧情')) or text,
+        'story_summary': _brief_value(text, ('故事梗概', '故事主体', '故事主线', '故事概述', '剧情')) or (
+            '' if re.search(r'(?m)^[ \t]*(?:[-*#]+[ \t]*)?(?:故事梗概|故事主体|故事主线|故事概述|剧情)[ \t]*[：:\t]', text) else text),
         'main_characters': characters,
         'physical_features': _brief_value(text, ('物理特征', '角色物理特征', '外貌特征', '外貌', '形象')),
         'genre': genre,
@@ -583,7 +590,7 @@ def extract_brief_creation(text, *, extra_labels=()):
     return {label: value.strip() for label, value in fields.items()}
 
 
-def brief_creation_values(root, extra_text='', *, attachment_values=None, extra_labels=()):
+def brief_creation_values(root, extra_text='', *, attachment_values=None, extra_labels=(), attachment_reference=None):
     """读取上次填写内容；当前未发送文本可覆盖同名字段。"""
     path = brief_raw_path(root)
     if path.is_file():
@@ -592,7 +599,11 @@ def brief_creation_values(root, extra_text='', *, attachment_values=None, extra_
         legacy = legacy_brief_raw_path(root)
         source = legacy.read_text(encoding='utf-8') if legacy.is_file() else ''
     current = str(extra_text or '').strip()
-    values = {label: str((attachment_values or {}).get(label, '')) for label in BRIEF_CREATION_FIELDS}
+    extracted = dict(attachment_values or {})
+    for text in (attachment_reference or {}).get('brief_texts', ()):
+        for label, value in extract_brief_creation(text, extra_labels=extra_labels).items():
+            extracted.setdefault(label, value)
+    values = {label: str(extracted.get(label, '')) for label in BRIEF_CREATION_FIELDS}
     values.update(extract_brief_creation(source, extra_labels=extra_labels))
     current_fields = extract_brief_creation(current, extra_labels=extra_labels)
     values.update(current_fields)
@@ -633,7 +644,10 @@ def brief_followup(fields):
     return '为了开始创作，请一次补充以下信息：' + labels + '。已提供的内容无需重复。'
 
 
-def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=None):
+BRIEF_ATTACHMENT_NOTICE = '引用附档无本地可读转换稿,请补充填写或改用 .md/.txt 重新上传'
+
+
+def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=None, attachment_reference=None):
     """接收用户创意，落盘原始简报；满足必填项时才生成 brief_complete.json。"""
     value = str(text or '').strip()
     if not value:
@@ -641,7 +655,9 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
     gateway = _require_gateway(gateway)
     raw_path = _append_raw_brief(root, value, gateway=gateway)
     raw = raw_path.read_text(encoding='utf-8')
-    fields = _brief_fields(_brief_source_text(root, raw, gateway=gateway))
+    extraction_text = '\n'.join((_brief_source_text(root, raw, gateway=gateway),
+                                 *(attachment_reference or {}).get('brief_texts', ())))
+    fields = _brief_fields(extraction_text)
     workflow = dict(workflow or {})
     selected_locks = {item['key']: _brief_value(raw, (item['label'],))
                       for item in lock_definitions}
@@ -649,7 +665,8 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
     from script_contract import brief_document, missing_brief_fields
     missing = missing_brief_fields(fields)
     result = {'raw_path': raw_path, 'fields': fields, 'missing': missing,
-              'followup': brief_followup(fields), 'complete_path': None}
+              'followup': brief_followup(fields), 'complete_path': None,
+              'attachment_notice': BRIEF_ATTACHMENT_NOTICE if (attachment_reference or {}).get('brief_unreadable') else ''}
     if missing:
         return result
     document = brief_document(fields)

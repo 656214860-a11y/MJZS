@@ -209,6 +209,26 @@ def uploaded(context, limit=None, *, local_mode=False):
     return tuple(paths[:limit] if limit else paths)
 
 
+def brief_sources(context, reference):
+    """仅读取已引用归档的受控转换稿；正文不进入模型投递 context。"""
+    folder = input_folder(context).resolve()
+    texts, skipped = [], []
+    for path in reference.get('paths', ()):
+        _original, converted = archive_pair(path)
+        try:
+            if (converted.resolve().parent != folder or converted.suffix.lower() != '.md'
+                    or not converted.is_file() or converted.stat().st_size > MAX_FILE_BYTES):
+                raise ValueError('no readable conversion')
+            text = read_source(converted)
+            if not text.strip():
+                raise ValueError('empty conversion')
+        except (OSError, ValueError):
+            skipped.append(display_name(path))
+        else:
+            texts.append(text)
+    return {'brief_texts': tuple(texts), 'brief_unreadable': tuple(skipped)}
+
+
 def display_name(path):
     """新附档展示原文件名；旧归档没有来源名称时保留原归档名。"""
     name = Path(path).name

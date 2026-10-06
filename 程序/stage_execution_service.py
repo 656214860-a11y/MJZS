@@ -206,9 +206,12 @@ def stage_idea_attachment_paths(project, limit=None):
 
 def stage_idea_attachment_reference(project, message='', selected_paths=()):
     """为剧本准备对话解析已入库附档，不向 L2 暴露裸项目路径。"""
-    from idea_attachments import referenced
-    return referenced(project_context(project), message, selected_paths,
-                      local_mode=idea_attachment_local_mode(project))
+    from idea_attachments import referenced, brief_sources
+    context = project_context(project)
+    result = referenced(context, message, selected_paths,
+                        local_mode=idea_attachment_local_mode(project))
+    result.update(brief_sources(context, result))
+    return result
 
 
 def prepare_idea_attachment_selection(project, paths):
@@ -217,26 +220,17 @@ def prepare_idea_attachment_selection(project, paths):
     return prepare(paths, local_mode=idea_attachment_local_mode(project), context=project_context(project))
 
 
-def stage_idea_brief_defaults(project):
-    """为创作表单读取最近三份归档的解析副本，不改变模型投递上下文。"""
-    from idea_attachments import uploaded, archive_pair, display_name, read_source, MAX_FILE_BYTES, input_folder
+def stage_idea_brief_defaults(project, *, reference=None):
+    """复用本轮引用的解析副本，不再扫描目录或改变模型投递上下文。"""
     from idea_chat import extract_brief_creation
-    context = project_context(project)
-    folder = input_folder(context).resolve()
-    values, skipped = {}, []
-    for path in uploaded(context, limit=3):
-        _original, converted = archive_pair(path)
-        if (not converted.is_file() or converted.resolve().parent != folder
-                or converted.stat().st_size > MAX_FILE_BYTES
-                or converted.suffix.lower() != '.md'):
-            skipped.append(display_name(path))
-            continue
-        fields = extract_brief_creation(read_source(converted))
-        if not fields:
-            skipped.append(display_name(path))
+    if reference is None:
+        reference = stage_idea_attachment_reference(project)
+    values = {}
+    for text in reference.get('brief_texts', ()):
+        fields = extract_brief_creation(text)
         for label, value in fields.items():
             values.setdefault(label, value)
-    return {'values': values, 'skipped': tuple(skipped)}
+    return {'values': values, 'skipped': reference.get('brief_unreadable', ())}
 
 
 def idea_chat_gateway():

@@ -345,6 +345,14 @@ class SavingTests(unittest.TestCase):
         self.assertNotIn('故事梗概', question)
         self.assertNotIn('主要角色', question)
 
+    def test_brief_label_values_are_missing_instead_of_placeholder_content(self):
+        for value in ('故事角色', '角色', '故事集数：单集时间：', '故事角色故事题材'):
+            with self.subTest(value=value):
+                self.assertEqual(idea_chat._brief_value('故事梗概：' + value, ('故事梗概',)), '')
+        fields = idea_chat._brief_fields('故事梗概：故事主体\n故事角色：角色\n故事题材：题材\n篇幅：故事集数：单集时间：')
+        for field in ('story_summary', 'main_characters', 'genre', 'length'):
+            self.assertEqual(fields[field], '')
+
     def test_brief_intake_reuses_user_chat_history_from_other_model(self):
         with tempfile.TemporaryDirectory() as td:
             idea_chat.append(td, 'user', '故事梗概：夜班照相馆收到能显影未来的旧底片。\n主要角色：摄影师林默与阿青\n题材类型：都市悬疑\n篇幅：24集', model='DeepSeek V4 Flash')
@@ -862,6 +870,45 @@ class SendMessageTests(_Harness):
             d.open_brief_creation_form(); win.update()
             self.assertEqual(d._brief_creation_window.brief_editors['故事梗概'].get('1.0', 'end-1c'), '')
             self.assertEqual(d._brief_creation_window.brief_editors['故事角色'].get('1.0', 'end-1c'), '阿青')
+
+    @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
+    def test_local_attachment_send_extracts_without_sending_body(self, _mode):
+        from stage_execution_service import archive_idea_attachments
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            source = Path(td) / '素材.txt'
+            source.write_text('故事梗概：照片预示未来\n故事角色：阿青\n故事题材：悬疑\n故事集数：12集', encoding='utf-8')
+            paths = archive_idea_attachments(proj, (source,))
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            d.idea_attachment_paths = paths
+            with patch('writing_api.model_label', return_value=''), patch.object(
+                    d, 'start_script_workflow', return_value=('Codex', False)) as launch, patch.object(
+                    d, 'open_brief_creation_form') as form:
+                d.send_message()
+            form.assert_not_called()
+            sent = launch.call_args.args[0]
+            self.assertIn('请先读取', sent)
+            self.assertNotIn('照片预示未来', sent)
+
+    @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
+    def test_unreadable_attachment_form_has_actionable_first_line(self, _mode):
+        from stage_execution_service import archive_idea_attachments
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            source = Path(td) / '素材.pdf'
+            source.write_bytes(b'%PDF-unparsed')
+            paths = archive_idea_attachments(proj, (source,))
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            d.idea_attachment_paths = paths
+            with patch('writing_api.model_label', return_value=''):
+                d.send_message(); win.update()
+            form = d._brief_creation_window
+            notices = [child.cget('text') for child in form.content.winfo_children()
+                       if isinstance(child, ttk.Label)]
+            self.assertTrue(any(text.splitlines()[0] == idea_chat.BRIEF_ATTACHMENT_NOTICE
+                                for text in notices))
 
     def test_brief_form_save_does_not_send_or_replace_chat_draft(self):
         with tempfile.TemporaryDirectory() as td:
