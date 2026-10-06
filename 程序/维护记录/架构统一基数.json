@@ -918,7 +918,7 @@
             },
             {
                 "file": "codex_tasks.py",
-                "point": "47",
+                "point": "48",
                 "disposition": "exempt",
                 "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
             },
@@ -1320,7 +1320,7 @@
             },
             {
                 "file": "codex_tasks.py",
-                "point": "134",
+                "point": "136",
                 "disposition": "exempt",
                 "reason": "R797: fixed literal lazy-load of a known ordinary module; not a plugin or stage-handler registration path."
             },

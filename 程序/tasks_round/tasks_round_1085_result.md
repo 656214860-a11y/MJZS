@@ -18,11 +18,11 @@ Windows 随附运行环境不含 Unix 专用 fcntl。标准库闭包测试会扫
 2. 改后 run_selftests.py -k codex_task_lock stdlib_closure clipboard_lock workflow：115 条，0 红，4.2 秒。
 3. smoke_test.py：8/8。
 4. smoke_test.py --affected idea_chat workflow：9/9，定向门禁 0 红。
-5. run_selftests.py --all --safe --force：待干净 master 检查点后执行。
+5. run_selftests.py --all --safe --force：检查点 5d4a9ab 首次 4064 条、358.6 秒，2 个文件失败：test_baseline_history 缺隔离树中被忽略的基准历史.json；架构棘轮登记行号由 47 移至 48。fcntl 闭包已通过。后续仅从主树复制原始本地基准历史（不提交、不伪造），并同步原有两处登记行号 47→48、134→136；不新增豁免、不改基数或断言。待重新全量。
 6. run_selftests.py --layer architecture --all：待执行。
 
 ## 边界、自审与接续
 
 中央入口领取 1085；主树临时保留于 codex/r1085-preserve-local，用户预设和输出不改。产品仅改一个平台加载点，不读取用户创作项目，不启动真实外部 Agent，不弱化已有断言。R1084 待授权事项不在本轮范围。diagnosing-bugs 复用已证实根因；minimal-diff-fix 限制补丁范围；scoped-tests 用于相关回归；tech-writer 区分证据与待验收事项。
 
-提交：待检查点提交；全量通过前不能宣称收尾完成。
+提交：首个检查点 5d4a9ab；全量通过前不能宣称收尾完成。
