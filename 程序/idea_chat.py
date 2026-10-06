@@ -384,6 +384,13 @@ def storage_identity(model_label):
     return _storage_name(provider, '未知Provider'), _storage_name(label, '未知模型')
 
 
+def reply_path_parts(root, at=None, provider='', model='', file_type='自然剧本'):
+    """纯计算下载正式稿在剧本准备阶段内的逐段路径，不创建或发布文件。"""
+    return (_storage_name(provider, '未知Provider'), _storage_name(model, '未知模型'),
+            '创意_' + _file_day(at), project_document_directory(file_type),
+            project_script_filename(_context(root), at=at, file_type=file_type))
+
+
 def save_reply(root, text, at=None, provider='', model='', *, publish=None):
     """组织确认下载的模型创意；发布由调用方注入的 L3 完成。"""
     context = _context(root)
@@ -392,18 +399,15 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None):
         raise ValueError('模型没有输出文字，未写入创意文件')
     if not is_project_document_text(value):
         raise ValueError('模型回复不是项目设定、大纲或剧本，未写入项目文件')
-    day = _file_day(at)
-    provider_name = _storage_name(provider, '未知Provider')
-    model_name = _storage_name(model, '未知模型')
     if not callable(publish):
         raise TypeError('模型创意文件需要由 L3 注入发布器。')
     file_type = _project_file_type(value)
     if file_type == '自然剧本':
         from script_contract import require_natural_script
         value = require_natural_script(value)
-    folder = '/'.join((provider_name, model_name, '创意_' + day))
-    name = folder + '/' + project_document_directory(file_type) + '/' + project_script_filename(
-        context, at=at, file_type=file_type)
+    parts = reply_path_parts(context, at=at, provider=provider, model=model, file_type=file_type)
+    folder = '/'.join(parts[:-2])
+    name = '/'.join(parts)
     return publish(context.root, ({'name': name, 'data': value[:REPLY_LIMIT].encode('utf-8'),
                            'directories': tuple(folder + '/' + directory
                                                 for directory in PROJECT_DOCUMENT_DIRS.values())},))[name]

@@ -159,6 +159,8 @@ R729 后架构门禁基线为 128/128，默认冒烟基线仍为 8/8。
 
 R730 将剧本准备的用户可见创意文件纳入 L3 发布器注入边界：L2 `idea_chat.save_reply()`／`save_manual_creative()` 只校验并组织 Provider、模型、创意版本、分类目录与文件内容描述，`stage_execution_service.publish_idea_creative()` 负责剧本阶段目录定位与原子发布；桌面仅注入该 L3 发布器。模型下载、手动创意、文件命名与每版三类分类目录的既有语义不变。
 
+R1087 将正式回复的纯路径计算集中到 L2 `idea_chat.reply_path_parts()`；下载保存与 L3 Agent 任务书共同使用，不通过伪发布器取路径。桌面入口显式启用正式交付条款并固定本次时间；API 默认不启用。内部工作稿保留，正式稿仍优先，三类目录和文件名规则不在调用方复制。
+
 R730 后架构门禁基线为 128/128，默认冒烟基线仍为 8/8。
 
 R731 将首帧删除、恢复与替换的 `episode.json` 状态发布完全纳入 L3 发布器注入边界：L2 `keyframe_lifecycle_service` 只接收图片及索引发布器，绝不保留 `save()`／`save_bytes()` 直写回退；`stage_execution_service.delete_stage_keyframe()`／`restore_stage_keyframe()`／`replace_stage_keyframe()` 分别注入 JSON 文本及 PNG 原子发布器，桌面只调用这些 L3 编排入口。镜头编号和路径校验、回收站处理、索引失败时的图片与内存状态回滚均保持不变。

@@ -1429,8 +1429,11 @@ class Desktop:
         from workflow_settings import model_name
         model = model_name(self.root, 'writing')
         from workflow_tasks import script_followup, script_prompt
-        prompt = script_prompt(self.root, None, 'writing', creative_text=creative)
-        followup = script_followup(None, 'writing', project=self.root, creative_text=creative)
+        delivery_at = time.time()
+        prompt = script_prompt(self.root, None, 'writing', creative_text=creative,
+                               agent_delivery=True, delivery_at=delivery_at)
+        followup = script_followup(None, 'writing', project=self.root, creative_text=creative,
+                                   agent_delivery=True, delivery_at=delivery_at)
         self.open_flow_agent('writing', '剧本准备', prompt, followup)
         return model, False
 
@@ -1745,6 +1748,8 @@ class Desktop:
                     source=None
                 if source is not None:
                     message='剧本 Agent 已保存自然剧本：'+source.name
+                    if source.name == script_contract.RAW_SCRIPT_NAME:
+                        message += '；Agent 未产出规范正式稿(任务书要求写入 项目剧本/)'
                     self.status.set(message)
                     # 完成事件只经三虎的产物校验出口；Agent 正常退出本身不是成功证据。
                     self.pet.report_done('script', message)
