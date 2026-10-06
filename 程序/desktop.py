@@ -3406,14 +3406,17 @@ class Desktop:
         # 不能把完成／失败事件吞成“页面看似正常”。没有宠物的假宿主仍是无操作。
         if ok:return pet.report_done(str(stage),str(text))
         return pet.drain(str(stage),(False,str(text),None))
-    def pet_at_stage(self,index):
+    def pet_at_stage(self,index,*,automatic=False):
         """进入制作页交给三虎统一协调：提示进度、半自动征询或全自动按 SKILL 执行。
 
         宠物不在、问不出来都不影响翻页——它只是搭一句话，不参与页面本身。
         """
         pet=getattr(self,'pet',None)
         if pet is None:return ''
-        try:return pet.enter_stage(index)
+        try:
+            # 启动自动进页不得抢先打开聊天框；用户主动切页不受静默限制。
+            if automatic and pet.quiet():return ''
+            return pet.enter_stage(index)
         except Exception:return ''
     def pet_hides_instead_of_quitting(self):
         """常驻模式（配置里明确开）：关主窗口＝收进宠物窗，不退出。
@@ -4026,7 +4029,7 @@ class Desktop:
                 self.writing()
                 self.status.set(str(self.root))
                 self.fit_content()
-                self.pet_at_stage(PAGE['script'])
+                self.pet_at_stage(PAGE['script'],automatic=True)
                 self._request_tick_resume_after_first_paint()
                 self._schedule_project_recovery(target)
             # 不能用 after_idle：空闲队列会在 Windows 处理首帧绘制之前继续执行，

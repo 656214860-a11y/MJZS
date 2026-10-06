@@ -327,7 +327,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                     desktop = Desktop(window, root=app)
                     # 此探针只量“打开项目 → 剧本准备可见壳”。进入页面后由
                     # 宠物自动制作触发的分镜盘点是后台生产链，不属于启动路径。
-                    desktop.pet_at_stage = lambda index: ''
+                    desktop.pet_at_stage = lambda index, **kwargs: ''
                     self.assertTrue(self._pump_until(
                         window,
                         lambda: (desktop.page_index == 0
@@ -395,6 +395,37 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 window.destroy()
             except tk.TclError:
                 pass
+
+    def test_startup_stage_entry_waits_for_greeting_but_manual_entry_does_not(self):
+        """自动续开的真实 40ms 回调不能越过问候静默门禁。"""
+        window = tk.Tk()
+        window.withdraw()
+        desktop = None
+        try:
+            with tempfile.TemporaryDirectory(prefix='desktop-startup-greeting-') as temporary:
+                app, _project = self._startup_app(temporary, remembered=True)
+                with mock.patch.object(Desktop, 'writing') as writing:
+                    desktop = Desktop(window, root=app)
+                    with mock.patch.object(desktop.pet, 'enter_stage', return_value='进页') as enter:
+                        self.assertTrue(self._pump_until(
+                            window, lambda: writing.called, time.perf_counter() + 2))
+                        self.assertIsNotNone(desktop.pet._greet_id)
+                        enter.assert_not_called()
+                        # 未问候时主动切页仍立即响应。
+                        self.assertEqual(desktop.pet_at_stage(0), '进页')
+                        enter.assert_called_once_with(0)
+                        enter.reset_mock()
+                        desktop.pet.cancel_greet()
+                        desktop.pet._quiet_until = desktop.pet.clock() + 10
+                        self.assertEqual(desktop.pet_at_stage(0, automatic=True), '')
+                        enter.assert_not_called()
+                        desktop.pet._quiet_until = None
+                        self.assertEqual(desktop.pet_at_stage(0, automatic=True), '进页')
+                        enter.assert_called_once_with(0)
+        finally:
+            if desktop is not None:
+                desktop.cancel_timers()
+            window.destroy()
 
     def test_startup_script_guard_does_not_leave_tick_paused_after_page_switch(self):
         """40ms 建页守卫失效后，创意历史结果仍须由恢复的 tick 消费。"""
