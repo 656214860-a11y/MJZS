@@ -132,6 +132,99 @@ class InlineBriefTests(unittest.TestCase):
 
 
 class InlineBriefDesktopTests(_Harness):
+    def test_brief_enter_is_newline_and_followup_enter_sends(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            self.assertFalse(d.idea_brief_editor.bind('<Return>'))
+            with patch.object(d, 'send_message') as send:
+                win.deiconify(); win.update()
+                d.idea_brief_editor.focus_force(); win.update()
+                d.idea_brief_editor.mark_set('insert', 'end-1c')
+                before = d.brief_editor_text()
+                d.idea_brief_editor.event_generate('<Return>'); win.update()
+                self.assertEqual(d.brief_editor_text(), before + '\n')
+                send.assert_not_called()
+                d.idea_input.focus_force(); win.update()
+                d.idea_input.event_generate('<Return>'); win.update()
+                send.assert_called_once()
+
+    @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
+    def test_uploaded_fields_visibly_fill_only_template_or_empty_values(self, _local):
+        from stage_execution_service import archive_idea_attachments
+        with tempfile.TemporaryDirectory() as td:
+            root = make_minimal_project(td)
+            source = Path(td) / '材料.txt'
+            source.write_text(draft().replace('故事角色:', '主要角色:')
+                              .replace('故事画幅:', '画幅:')
+                              .replace('视频模型:', '视频模型版本:') + '\n世界设定：海上城市', encoding='utf-8')
+            paths = archive_idea_attachments(root, [source])
+            d, win = self.desktop(root)
+            d.show(0); self.settle_script_page(win)
+            lines = d.idea_template.splitlines(keepends=True)
+            lines = ['故事题材：用户手填题材\n' if line.startswith('故事题材:') else
+                     '单集时间：\n' if line.startswith('单集时间:') else line for line in lines]
+            d.reset_idea_brief_editor(''.join(lines))
+            d.idea_input.insert('1.0', '保留这条追问')
+            controller = d.idea_chat_controller
+            token = object(); controller._attachment_token = token
+            controller._attachment_results.put((token, True, {'paths': paths, 'names': ['材料.txt']}))
+            d.poll_idea_attachment_preparation()
+            labels = idea_chat.inline_template_labels(d.idea_template)
+            fields = idea_chat.extract_brief_creation(d.brief_editor_text(), extra_labels=labels, include_extra=True)
+            for label, value in VALUES.items():
+                self.assertEqual(fields[label], '用户手填题材' if label == '故事题材' else value)
+            self.assertEqual(fields['世界设定'], '海上城市')
+            self.assertEqual(d.draft_text(), '保留这条追问')
+            self.assertNotIn('卡梅隆', fields['故事角色'])
+            self.assertNotIn('（必填）', d.brief_editor_text())
+            self.assertFalse(injected_chat.brief_raw_path(root).exists())
+            before = d.brief_editor_text()
+            d.refresh_idea_brief_from_attachments()
+            self.assertEqual(d.brief_editor_text(), before)
+            with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \
+                    patch.object(d.notifier, 'info') as notice:
+                d.send_message()
+            launch.assert_called_once()
+            notice.assert_not_called()
+
+    def test_attachment_refill_keeps_manual_multiline_and_unknown_fields(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            current = '我的标题\n故事角色：手填主角\n  配角：保留细节\n自定字段：保留\n内容补充：\n'
+            d.reset_idea_brief_editor(current)
+            with patch('stage_execution_service.stage_idea_attachment_reference',
+                       return_value={'brief_texts': ['主要角色：附件角色\n内容补充：附件备注']}):
+                d.refresh_idea_brief_from_attachments()
+            self.assertEqual(d.brief_editor_text(), current.replace('内容补充：\n', '内容补充：附件备注\n'))
+
+    def test_unreadable_and_failed_upload_do_not_change_editor(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            before = d.brief_editor_text()
+            with patch('stage_execution_service.stage_idea_attachment_reference',
+                       return_value={'brief_texts': [], 'brief_unreadable': ['材料.pdf']}):
+                d.refresh_idea_brief_from_attachments()
+            self.assertEqual(d.brief_editor_text(), before)
+            with patch.object(d.idea_chat_controller, 'poll_attachment_preparation',
+                              return_value={'ok': False, 'value': '解析失败'}), \
+                    patch.object(d, 'refresh_idea_brief_from_attachments') as refresh:
+                d.poll_idea_attachment_preparation()
+            refresh.assert_not_called()
+            self.assertEqual(d.brief_editor_text(), before)
+
+    def test_attachment_refill_can_fill_cleared_editor(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            d.reset_idea_brief_editor('')
+            with patch('stage_execution_service.stage_idea_attachment_reference',
+                       return_value={'brief_texts': [draft()]}):
+                d.refresh_idea_brief_from_attachments()
+            self.assertEqual(idea_chat.inline_required_missing(d.idea_template, d.brief_editor_text()), ())
+
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
     def test_attachment_without_duration_keeps_inline_gate_closed(self, _local):
         from stage_execution_service import archive_idea_attachments
@@ -198,6 +291,9 @@ class InlineBriefDesktopTests(_Harness):
             self.assertFalse(d.idea_still_the_example())
             self.assertEqual(d.idea_brief_editor.cget('fg'), COLORS['text_primary'])
             self.assertFalse(hasattr(d, 'open_brief_creation_form'))
+            panel = d.idea_brief_editor.master.master
+            self.assertTrue(any(child.cget('text') == '创作简报 · 可直接编辑'
+                                for child in panel.winfo_children() if 'text' in child.keys()))
 
     def test_complete_inline_send_saves_and_starts_without_prompt(self):
         default = Path(__file__).resolve().parents[1] / '默认创意示例.md'
@@ -215,6 +311,7 @@ class InlineBriefDesktopTests(_Harness):
             self.assertEqual(injected_chat.brief_raw_path(root).read_text(encoding='utf-8'), draft())
             self.assertEqual(d.brief_editor_text(), d.idea_template)
             self.assertEqual(d.draft_text(), '')
+            self.assertNotIn('已一并提交追问', d.status.get())
         self.assertEqual(default.read_bytes(), before)
 
     def test_followup_completes_example_and_submits_combined_text(self):
@@ -229,6 +326,7 @@ class InlineBriefDesktopTests(_Harness):
                 d.send_message()
             notice.assert_not_called()
             self.assertEqual(launch.call_args.args[0], combined)
+            self.assertIn('已一并提交追问', d.status.get())
             self.assertEqual(injected_chat.brief_raw_path(root).read_text(encoding='utf-8'), combined)
             self.assertEqual(injected_chat.load(root)[0]['text'], combined)
             self.assertEqual(d.brief_editor_text(), d.idea_template)

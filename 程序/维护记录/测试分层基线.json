@@ -1,18 +1,12 @@
 {
  "architecture": {
-  "elapsed_seconds": 24.684,
+  "elapsed_seconds": 36.171,
   "failed_modules": [],
   "test_count": 308,
   "unit_count": 104,
-  "updated_at": "2026-10-07T22:07:37"
+  "updated_at": "2026-10-07T22:55:12"
  },
  "full_safe_verified_trees": [
-  {
-   "at": "2026-10-04T10:11:44",
-   "round": 993,
-   "seconds": 306.312,
-   "tree": "98ce450afb3769f34c65f5512013bce894e00394"
-  },
   {
    "at": "2026-10-04T15:57:10",
    "round": 1027,
@@ -186,6 +180,12 @@
    "round": 1100,
    "seconds": 447.831,
    "tree": "c8b8902486cad4ea3bec84d26368bda118cbc4f7"
+  },
+  {
+   "at": "2026-10-07T22:31:16",
+   "round": 1101,
+   "seconds": 349.289,
+   "tree": "7f94b4ea33d822a128669cd19a7513a5dc2e90fa"
   }
  ],
  "gui": {
@@ -210,7 +210,7 @@
   "updated_at": "2026-10-01T04:01:41"
  },
  "last_full_safe_all_at": "2026-10-03",
- "last_full_safe_all_round": 1100,
+ "last_full_safe_all_round": 1101,
  "service": {
   "elapsed_seconds": 24.89,
   "failed_modules": [],

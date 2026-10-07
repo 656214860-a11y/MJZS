@@ -1096,7 +1096,52 @@ class Desktop:
             return
         prepared=result['value']
         self.update_idea_attachment_status()
-        self.status.set('已入库 %d 份创意文件；请在发送框内填写必填信息。' % len(prepared['names']))
+        self.refresh_idea_brief_from_attachments()
+        self.status.set('已入库 %d 份创意文件；请确认上方创作简报，下方发送框可补充追问。' % len(prepared['names']))
+    def refresh_idea_brief_from_attachments(self):
+        """仅将本轮附件识别值写入空白／示例字段，不覆盖手填内容。"""
+        box=getattr(self,'idea_brief_editor',None)
+        if box is None or not box.winfo_exists():return
+        import idea_chat, workflow_settings
+        from stage_execution_service import stage_idea_attachment_reference
+        labels=idea_chat.inline_template_labels(self.idea_template)
+        locks=tuple(item for preset in workflow_settings.WORKFLOW_PRESETS.values()
+                    for item in preset.get('locks',()))
+        extra_labels=tuple(dict.fromkeys((*labels, *(label for item in locks
+                          for label in (item['label'], *item.get('aliases',()))))))
+        reference=stage_idea_attachment_reference(self.root, self.draft_text(), self.idea_attachment_paths)
+        fields={}
+        for text in reference.get('brief_texts',()):
+            for label,value in idea_chat.extract_brief_creation(
+                    text,extra_labels=extra_labels,include_extra=True).items():
+                fields.setdefault(label,value)
+        for item in locks:
+            aliases=(item['label'], *item.get('aliases',()))
+            target=next((label for label in aliases if label in labels),None)
+            if target is not None:
+                fields[target]=next((fields[label] for label in aliases if fields.get(label)),'')
+        current=self.brief_editor_text()
+        template=idea_chat.extract_brief_creation(self.idea_template,extra_labels=labels,include_extra=True)
+        values=idea_chat.extract_brief_creation(current,extra_labels=labels,include_extra=True)
+        updates={label:fields[label] for label in labels if fields.get(label)
+                 and (not values.get(label) or ''.join(values[label].split()) ==
+                      ''.join(template.get(label,'').split()))}
+        if not updates:return
+        # 用现有标签确定多行字段边界，保留未修改字段、标题和用户自增字段。
+        boundaries=tuple(dict.fromkeys((*labels,*idea_chat.inline_template_labels(current))))
+        pattern=r'^([ \t]*(?:'+ '|'.join(re.escape(label) for label in boundaries)+r')[：:][ \t]*)'
+        matches=list(re.finditer(pattern,current,re.MULTILINE))
+        for index in range(len(matches)-1,-1,-1):
+            match=matches[index]
+            label=re.split('[：:]',match.group(),maxsplit=1)[0].strip()
+            if label not in updates:continue
+            end=matches[index+1].start() if index+1<len(matches) else len(current)
+            old=current[match.end():end]
+            trailing=old[len(old.rstrip('\r\n')):]
+            current=current[:match.end()]+updates.pop(label)+trailing+current[end:]
+        for label,value in updates.items():
+            current=current.rstrip('\n')+'\n'+label+'：'+value+'\n'
+        self.reset_idea_brief_editor(current)
     def insert_idea_reference(self, path):
         """把已入库创意插入编辑框，并标记为本轮显式引用。"""
         box=getattr(self,'idea_input',None)
@@ -1630,6 +1675,8 @@ class Desktop:
             self._script_agent_launching=True
             self.update_script_interrupt_button()
             self.status.set(prefix+'已提交创意并启动剧本 Agent；模型回复完整剧本后可下载保存。')
+        if followup_text.strip():
+            self.status.set(self.status.get()+' 已一并提交追问')
         self.update_script_download_button()
 
     def script_agent_processes(self):
@@ -4149,7 +4196,7 @@ class Desktop:
             except tk.TclError:pass
         input_box.bind('<Destroy>',lambda event:stop_input_hint() if event.widget is input_box else None,add='+')
         brief_panel=ttk.Frame(talk);brief_panel.pack(side='top',fill='x')
-        HintLabel(brief_panel,text='创作简报：直接修改示例内容').pack(anchor='w')
+        HintLabel(brief_panel,text='创作简报 · 可直接编辑').pack(anchor='w')
         brief_row=ttk.Frame(brief_panel);brief_row.pack(fill='x')
         brief_scroll=ttk.Scrollbar(brief_row,orient='vertical')
         brief_scroll.pack(side='right',fill='y')
