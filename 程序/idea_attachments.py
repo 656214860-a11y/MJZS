@@ -18,6 +18,10 @@ MAX_FILES = 5
 MAX_FILE_BYTES = 1_000_000
 MAX_LOCAL_FILE_BYTES = 50_000_000
 MAX_TOTAL_CHARS = 24_000
+# Office 解析预算独立于压缩文件大小和最终提示词上限。
+MAX_XML_MEMBER_BYTES = 2_000_000
+MAX_XML_TOTAL_BYTES = 8_000_000
+MAX_CONVERTED_CHARS = 1_000_000
 TEXT_SUFFIXES = frozenset({'.txt', '.md', '.markdown', '.json', '.csv', '.yaml', '.yml', '.log'})
 INPUT_FOLDER = '输入'
 
@@ -51,13 +55,18 @@ def _read_docx(path):
         raise ValueError('附档过大（单个文件最多 1 MB）：' + path.name)
     try:
         with zipfile.ZipFile(path) as archive:
-            raw = archive.read('word/document.xml')
+            budget = _OfficeBudget(archive, path)
+            raw = budget.read('word/document.xml')
         root = ET.fromstring(raw)
     except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError) as exc:
         raise ValueError('DOCX 无法读取：' + path.name) from exc
     ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
-    return '\n'.join(''.join(node.text or '' for node in paragraph.iter(ns + 't'))
-                     for paragraph in root.iter(ns + 'p')).strip()
+    lines = []
+    for paragraph in root.iter(ns + 'p'):
+        if lines:
+            budget.text('\n')
+        lines.append(budget.text(''.join(node.text or '' for node in paragraph.iter(ns + 't'))))
+    return '\n'.join(lines).strip()
 
 
 def _read_xlsx(path):
@@ -69,14 +78,15 @@ def _read_xlsx(path):
     package_ns = '{http://schemas.openxmlformats.org/package/2006/relationships}'
     try:
         with zipfile.ZipFile(path) as archive:
-            workbook = ET.fromstring(archive.read('xl/workbook.xml'))
-            relations = ET.fromstring(archive.read('xl/_rels/workbook.xml.rels'))
+            budget = _OfficeBudget(archive, path)
+            workbook = ET.fromstring(budget.read('xl/workbook.xml'))
+            relations = ET.fromstring(budget.read('xl/_rels/workbook.xml.rels'))
             targets = {rel.attrib['Id']: rel.attrib['Target']
                        for rel in relations.findall(package_ns + 'Relationship')
                        if rel.get('TargetMode') != 'External'}
             strings = []
             if 'xl/sharedStrings.xml' in archive.namelist():
-                shared = ET.fromstring(archive.read('xl/sharedStrings.xml'))
+                shared = ET.fromstring(budget.read('xl/sharedStrings.xml'))
                 strings = [''.join(node.text or '' for node in item.iter(ns + 't'))
                            for item in shared.findall(ns + 'si')]
             lines = []
@@ -86,9 +96,12 @@ def _read_xlsx(path):
                                            else posixpath.join('xl', target))
                 if not member.startswith('xl/worksheets/'):
                     raise KeyError('worksheet target')
-                root = ET.fromstring(archive.read(member))
-                lines.append('【工作表：%s】' % sheet.attrib['name'])
+                root = ET.fromstring(budget.read(member))
+                if lines:
+                    budget.text('\n')
+                lines.append(budget.text('【工作表：%s】' % sheet.attrib['name']))
                 for row in root.findall(ns + 'sheetData/' + ns + 'row'):
+                    budget.text('\n')
                     cells = []
                     for cell in row.findall(ns + 'c'):
                         value = cell.findtext(ns + 'v', '')
@@ -103,7 +116,9 @@ def _read_xlsx(path):
                             value = (''.join(node.text or '' for node in inline.iter(ns + 't'))
                                      if inline is not None else '')
                         # 数值原样输出，不进行日期序列号换算。
-                        cells.append(value)
+                        if cells:
+                            budget.text('\t')
+                        cells.append(budget.text(value))
                     lines.append('\t'.join(cells))
         return '\n'.join(lines).strip()
     except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError) as exc:
@@ -306,3 +321,29 @@ def prepare(paths, *, local_mode=False, context=None):
             raise ValueError('附档总内容超过 %d 字，请减少文件或内容。' % MAX_TOTAL_CHARS)
     return {'paths': selected, 'names': tuple(names), 'details': tuple(details),
             'context': '\n\n'.join(parts)}
+
+
+class _OfficeBudget:
+    """声明大小先拒绝，实际读取再限流；每次读取和输出都累计计费。"""
+    def __init__(self, archive, path):
+        self.archive = archive
+        self.name = path.name
+        self.remaining = MAX_XML_TOTAL_BYTES
+        self.characters = 0
+
+    def read(self, member):
+        limit = min(MAX_XML_MEMBER_BYTES, self.remaining)
+        if self.archive.getinfo(member).file_size > limit:
+            raise ValueError('附档解压内容超过安全上限，请拆分或转换为 .txt/.md：' + self.name)
+        with self.archive.open(member) as stream:
+            raw = stream.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError('附档解压内容超过安全上限，请拆分或转换为 .txt/.md：' + self.name)
+        self.remaining -= len(raw)
+        return raw
+
+    def text(self, value):
+        self.characters += len(value)
+        if self.characters > MAX_CONVERTED_CHARS:
+            raise ValueError('附档转换文本超过安全上限，请拆分或转换为 .txt/.md：' + self.name)
+        return value
