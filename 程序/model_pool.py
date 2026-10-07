@@ -535,7 +535,7 @@ def http_transport(url, payload, headers, timeout):
     request = urllib.request.Request(url, data=body, headers=dict(headers), method='POST')
     for attempt in range(3):
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with _http_opener().open(request, timeout=timeout) as response:
                 raw = response.read()
                 return {'ok': True, 'status': getattr(response, 'status', 200),
                         'data': json.loads(raw or b'{}')}
@@ -563,7 +563,7 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
                                      headers=dict(headers), method='POST')
     parts = []
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with _http_opener().open(request, timeout=timeout) as response:
             for raw in response:
                 if cancelled and cancelled():
                     return {'ok': False, 'status': 0, 'error': '请求已取消'}
@@ -592,3 +592,14 @@ def elapsed_ms(started):
         return int(round((time.time() - float(started)) * 1000))
     except (TypeError, ValueError):
         return 0
+
+
+def _http_opener():
+    """Never forward model credentials or request bodies through redirects."""
+    import urllib.request
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    return urllib.request.build_opener(NoRedirect())
