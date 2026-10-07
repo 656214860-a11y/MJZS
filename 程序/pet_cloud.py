@@ -580,16 +580,7 @@ class Cloud:
         「收起来了没有」，不关心那个渐隐定时器。
         """
         self.cancel_deferred_render()
-        # 定位重试挂在父窗口的 Tcl after 队列；云朵或主窗先关闭时必须显式撤销，
-        # 否则 Tcl 会继续调用已销毁的 ``_place_window`` Python 命令。
-        job, self._position_job = self._position_job, None
-        self._position_callback = None
-        if job is not None:
-            try:
-                self.parent.after_cancel(job)
-            except Exception:
-                # 父 Tcl 解释器已销毁时无可取消对象，关窗路径无需二次报错。
-                pass
+        self._cancel_position()
         self._cancel_hold()
         self._cancel_fade()
         self._hint_stop()
@@ -729,6 +720,18 @@ class Cloud:
             self._hold = None
         return self._hold
 
+    def _cancel_position(self):
+        """撤销父窗口上的定位重试；先清登记，取消失败后的迟到回调也不能继续定位。"""
+        job, self._position_job = self._position_job, None
+        self._position_callback = None
+        if job is not None:
+            try:
+                self.parent.after_cancel(job)
+            except Exception:
+                # 父 Tcl 解释器已销毁时无可取消对象，关窗路径无需二次报错。
+                pass
+        return None
+
     def _cancel_hold(self):
         if self._hold is None:
             return None
@@ -824,13 +827,7 @@ class Cloud:
         """父窗口被销毁：立刻收回定时器（子控件冒泡上来的 <Destroy> 不认领）。"""
         if event is not None and getattr(event, 'widget', None) is not self.parent:
             return None
-        job, self._position_job = self._position_job, None
-        self._position_callback = None
-        if job is not None:
-            try:
-                self.parent.after_cancel(job)
-            except Exception:
-                pass
+        self._cancel_position()
         # 第 37 期第 4 条：滚动小字的表也挂在这个窗口上，一起收回来。
         self._hint_stop()
         return self._cancel_hold(), self._cancel_fade()
@@ -842,14 +839,7 @@ class Cloud:
         self._cancel_hold()
         self._cancel_fade()
         self._hint_stop()
-        job, self._position_job = self._position_job, None
-        self._position_callback = None
-        if job is not None:
-            try:
-                self.parent.after_cancel(job)
-            except Exception:
-                # 浮窗销毁可能发生在根 Tcl 解释器拆除之后；此时没有可取消的任务。
-                pass
+        self._cancel_position()
         self.win, self.canvas = None, None
         self.visible = False
         return None

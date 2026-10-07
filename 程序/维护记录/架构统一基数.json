@@ -1152,7 +1152,7 @@
             },
             {
                 "file": "storyboard_final.py",
-                "point": "161",
+                "point": "160",
                 "disposition": "exempt",
                 "reason": "R830：发布前内存 JSON 文本校验，不读取文件。"
             },

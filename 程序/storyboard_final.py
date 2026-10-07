@@ -154,20 +154,18 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
         raise ValueError('分镜在同步期间已修改，请重新生成；原JSON未改动')
     validate_episode(episode,output_base,assets)
     episodefile=dest/'episode.json';assetfile=dest/'assets.json'
-    try:
-        from stage_execution_service import publish_final_storyboard_bundle
-        from stage_execution_service import publish_stage_text
-        def validate_episode_text(value):
-            validate_episode(json.loads(value), output_base, assets)
-            return True
-        publish_stage_text(
-            episodefile, json.dumps(episode, ensure_ascii=False, indent=2), validate_episode_text,
-            lambda _published: publish_final_storyboard_bundle(
-                episodefile, assetfile, episode, assets,
-                lambda saved_episode, saved_assets: validate_episode(saved_episode, output_base, saved_assets)),
-        )
-        _record_lineage(project, episodefile, source)
-    except Exception: raise
+    from stage_execution_service import publish_final_storyboard_bundle
+    from stage_execution_service import publish_stage_text
+    def validate_episode_text(value):
+        validate_episode(json.loads(value), output_base, assets)
+        return True
+    publish_stage_text(
+        episodefile, json.dumps(episode, ensure_ascii=False, indent=2), validate_episode_text,
+        lambda _published: publish_final_storyboard_bundle(
+            episodefile, assetfile, episode, assets,
+            lambda saved_episode, saved_assets: validate_episode(saved_episode, output_base, saved_assets)),
+    )
+    _record_lineage(project, episodefile, source)
     from stage_execution_service import storyboard_working_source as is_working_source
     if is_working_source(project,source):
         if not callable(retire_working):raise TypeError('定稿退役需要 L3 编排入口。')
