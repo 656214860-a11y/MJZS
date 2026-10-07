@@ -404,3 +404,28 @@ class Projects:
         self._publish_json(dst/'config.json',cfg);self.organize(dst)
         self.info['projects'].append({'name':name,'path':str(dst),'created_at':datetime.now().timestamp()});self.info['active']=str(dst);self._publish_json(self.registry,self.info)
         return dst
+
+    @_project_write_result
+    def register_restored_projects(self, paths):
+        """只登记恢复服务明确返回的一级目录，不扫描或臆造旧登记元数据。"""
+        base = self.base.resolve()
+        info = copy.deepcopy(self.info)
+        known = {item.get('path') for item in info.get('projects', [])}
+        added = []
+        for value in paths:
+            path = Path(value)
+            if (path.is_symlink() or path.is_junction() or not path.is_dir()
+                    or path.resolve().parent != base or path.name == '工作流任务'):
+                raise ValueError('只能重新登记恢复的项目库一级独立目录')
+            path = path.resolve()
+            if str(path) in known:
+                continue
+            info['projects'].append({'name': _slug(path), 'path': str(path),
+                                     'created_at': path.stat().st_mtime})
+            known.add(str(path)); added.append(path)
+        if added:
+            if not info.get('active'):
+                info['active'] = str(added[0])
+            self._publish_json(self.registry, info)
+            self.info = info
+        return added

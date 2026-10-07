@@ -42,7 +42,8 @@ def list_batches(root):
             # 清单是历史事实，恢复后不改写它；列表只呈现仍在这一批次中的可恢复条目。
             record['items'] = [item for item in record['items']
                                if (root / item['recycle_path']).resolve().is_relative_to(record['batch'])
-                               and (root / item['recycle_path']).is_file()
+                               and ((root / item['recycle_path']).is_file()
+                                    or (root / item['recycle_path']).is_dir())
                                and not (root / item['recycle_path']).is_symlink()
                                and not (root / item['recycle_path']).is_junction()]
         record['root'] = root

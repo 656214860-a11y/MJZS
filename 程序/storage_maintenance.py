@@ -110,13 +110,13 @@ def recycle_paths(root, paths, reason, now=None):
 
 
 def restore_recycle_batch(root, batch, sources=None):
-    """恢复一个回收批次的全部文件，目标冲突或清单异常时零移动。
+    """恢复一个回收批次的文件或目录，目标冲突或清单异常时零移动。
 
     兼容自动维护的 ``items`` 清单和分镜页早期的 ``files`` 清单。批次必须位于当前
     项目回收站内，不能借由手工编辑清单越界移动任意文件。
     """
     root = Path(root).resolve()
-    batch = Path(batch).resolve()
+    batch = _restore_location(root, batch, '恢复批次不在当前项目回收站中')
     recycle_base = _recycle_base(root).resolve()
     if not batch.is_relative_to(recycle_base):
         raise ValueError('恢复批次不在当前项目回收站中')
@@ -139,12 +139,17 @@ def restore_recycle_batch(root, batch, sources=None):
         target_text = row.get('source', row.get('original'))
         if wanted is not None and str(target_text or '').replace('\\', '/') not in wanted:
             continue
-        source = (root / str(source_text or '')).resolve()
-        target = (root / str(target_text or '')).resolve()
+        source = _restore_location(root, source_text)
+        target = _restore_location(root, target_text)
         if (not source.is_relative_to(batch) or not target.is_relative_to(root)
                 or target.is_relative_to(recycle_base) or source.is_symlink() or source.is_junction()
-                or not source.is_file() or target.exists()):
+                or not (source.is_file() or source.is_dir()) or target.exists()):
             raise ValueError('恢复目标不存在、已被占用或超出项目范围')
+        if source == batch or any(
+                source.is_relative_to(old_source) or old_source.is_relative_to(source)
+                or target.is_relative_to(old_target) or old_target.is_relative_to(target)
+                for old_source, old_target in moves):
+            raise ValueError('恢复清单含重复或相互嵌套的路径')
         moves.append((source, target))
     if not moves:
         raise ValueError('回收站中没有可恢复的指定文件')
@@ -396,5 +401,18 @@ def main():
             except (OSError,ValueError):continue
     log=PROGRAM/'维护记录';log.mkdir(exist_ok=True)
     save(log/'上次关闭清理.json',{'at':time.strftime('%Y-%m-%d %H:%M:%S'),'recycled':[str(p) for p in summary]})
+
+def _restore_location(root, value, message='恢复路径超出项目范围'):
+    """解析前检查路径节点与祖先链接；目录移动不遍历内部内容。"""
+    path = root / str(value or '')
+    if '..' in path.parts or not path.is_relative_to(root) or path == root:
+        raise ValueError(message)
+    cursor = root
+    for part in path.relative_to(root).parts:
+        cursor = cursor / part
+        if cursor.is_symlink() or cursor.is_junction():
+            raise ValueError('恢复路径不能包含链接或连接点')
+    return path.resolve()
+
 
 if __name__=='__main__' and '--cleanup' in sys.argv:main()

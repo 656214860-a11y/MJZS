@@ -5082,7 +5082,8 @@ class Desktop:
         """打开已承诺的回收站恢复入口；恢复决策与磁盘操作均留在 L2/L3。"""
         from recycle_recovery_controller import RecycleRecoveryController
         dialog=BaseDialog(self.win,'恢复回收站内容',geometry='920x580',minsize=(720,420))
-        controller=RecycleRecoveryController(self.root,self.projects.base)
+        controller=RecycleRecoveryController(self.root,self.projects.base,
+            register_restored=self.projects.register_restored_projects)
         batches=[]
         ttk.Label(dialog.content,text='选择回收批次后可恢复整批，或选择下方原位置只恢复一项；目标已存在时不会覆盖。').pack(anchor='w',pady=(0,6))
         batch_table=DataTable(dialog.content,columns=[('scope','位置',110),('created','创建时间',155),('reason','原因',390)],show='tree headings',height=8,auto_hide_scrollbars=True)
@@ -5115,13 +5116,13 @@ class Desktop:
             record=selected_batch()
             if record is None:raise ValueError('请先选择一个回收批次')
             restored=controller.restore_batch(record)
-            refresh();self.status.set('已恢复 '+str(len(restored))+' 项回收内容。')
+            refresh();self.reload();self.status.set('已恢复 '+str(len(restored))+' 项回收内容。')
         def restore_selected():
             record=selected_batch();selected=item_tree.selection()
             if record is None or not selected:raise ValueError('请先选择一个待恢复条目')
             source=item_tree.item(selected[0],'text')
             restored=controller.restore_item(record,source)
-            refresh();self.status.set('已恢复：'+str(restored[0].name))
+            refresh();self.reload();self.status.set('已恢复：'+str(restored[0].name))
         batch_tree.bind('<<TreeviewSelect>>',show_items)
         dialog.add_action('关闭',dialog.close)
         dialog.add_action('刷新',lambda:self.safe(refresh))
