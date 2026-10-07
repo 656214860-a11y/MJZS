@@ -265,11 +265,13 @@ class InlineBriefDesktopTests(_Harness):
     def test_readonly_example_and_required_hints_remain_when_typing(self):
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
-            d.show(0); self.settle_script_page(win)
+            template = d.idea_example() + '\n模板自带提示：（必填）\n'
+            with patch.object(d, 'idea_example', return_value=template):
+                d.show(0); self.settle_script_page(win)
             body = d._bubble_full['bubble_example']['text']
-            self.assertEqual(idea_chat.strip_inline_required_markers(body), d.idea_example())
+            self.assertEqual(body, template)
             self.assertEqual(d.draft_text(), '')
-            self.assertEqual(body.count('（必填）'), 8)
+            self.assertEqual(body.count('（必填）'), template.count('（必填）'))
             self.assertFalse(d.idea_input.tag_ranges('required_hint'))
             from ui_tokens import COLORS
             self.assertEqual(d.idea_log.tag_cget('bubble_example', 'foreground'), COLORS['text_secondary'])
