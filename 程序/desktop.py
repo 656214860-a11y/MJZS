@@ -1070,7 +1070,9 @@ class Desktop:
         form = getattr(self, '_brief_creation_window', None)
         if form is not None and form.winfo_exists():
             form.refresh_attachment_fields()
-        self.status.set('已入库 %d 份创意文件；去填写创作信息时将自动读取可识别字段。' % len(prepared['names']))
+            self.status.set('已入库 %d 份创意文件；已自动同步可识别字段到创作信息表单。' % len(prepared['names']))
+        else:
+            self.status.set('已入库 %d 份创意文件；去填写创作信息时将自动读取可识别字段。' % len(prepared['names']))
     def insert_idea_reference(self, path):
         """把已入库创意插入编辑框，并标记为本轮显式引用。"""
         box=getattr(self,'idea_input',None)
@@ -1444,6 +1446,8 @@ class Desktop:
         existing = getattr(self, '_brief_creation_window', None)
         try:
             if existing is not None and existing.winfo_exists():
+                if attachment_reference is not None or self.idea_attachment_paths:
+                    existing.refresh_attachment_fields(attachment_reference)
                 existing.deiconify(); existing.lift(); existing.focus_force(); return
         except tk.TclError:
             pass
@@ -1518,9 +1522,13 @@ class Desktop:
         for editor in editors.values():
             if isinstance(editor, tk.Text):
                 editor.edit_modified(False)
-        def refresh_attachment_fields():
-            latest = stage_idea_brief_defaults(self.root, reference=attachment_reference)
-            updated = idea_chat.brief_creation_values(self.idea_chat_context(), current_text,
+        def refresh_attachment_fields(latest_reference=None):
+            latest_text = self.draft_text()
+            if latest_reference is None:
+                latest_reference = stage_idea_attachment_reference(
+                    self.root, latest_text, self.idea_attachment_paths)
+            latest = stage_idea_brief_defaults(self.root, reference=latest_reference)
+            updated = idea_chat.brief_creation_values(self.idea_chat_context(), latest_text,
                                                       attachment_values=latest['values'], extra_labels=extra_labels)
             for label, editor in editors.items():
                 if (isinstance(editor, tk.Text) and not editor.edit_modified()
