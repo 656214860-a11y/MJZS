@@ -196,7 +196,8 @@ class SemanticBriefDesktopTests(_Harness):
                 pending['request']['path'].write_text(json.dumps(response(pending['request'], fields)), encoding='utf-8')
                 d.poll_idea_semantic_brief()
                 launch.assert_not_called()
-                self.assertEqual(notice.call_args.args[0], '请先填写：交付形态')
+                self.assertEqual(tuple(d._idea_missing_dialog.brief_fields), ('交付形态',))
+                notice.assert_not_called()
                 self.assertIn('故事题材：冒险悬疑', d.draft_text())
 
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)

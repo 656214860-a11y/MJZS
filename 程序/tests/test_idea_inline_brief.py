@@ -47,6 +47,24 @@ class InlineBriefTests(unittest.TestCase):
             self.assertEqual(result['fields']['story_summary'], '修表师寻找失踪的父亲')
             self.assertEqual(result['fields']['main_characters'], '林青与阿禾')
 
+    def test_all_brief_aliases_and_nested_setting_cell(self):
+        for summary in ('故事主线', '故事主体', '剧情'):
+            for genre in ('故事主题', '类型', '风格'):
+                text = f'{summary}：寻找父亲\n{genre}：冒险\n故事人物：林青'
+                fields = idea_chat.extract_brief_creation(text)
+                self.assertEqual(fields, {'故事梗概': '寻找父亲', '故事题材': '冒险', '故事角色': '林青'})
+        for text in ('设定：故事集数：100 集\n单集时间：90s',
+                     '设定\t故事集数：100 集\\n单集时间：90s',
+                     '| 设定 | 故事集数：100 集<br>单集时间：90s |'):
+            fields = idea_chat.extract_brief_creation(text, extra_labels=('设定',), include_extra=True)
+            self.assertEqual(fields.get('故事集数'), '100 集')
+            self.assertEqual(fields.get('单集时间'), '90s')
+
+    def test_fill_missing_preserves_manual_and_unknown_text(self):
+        text = '我的标题\n自定字段：保留\n故事主线：手填梗概\n故事角色：\n'
+        merged = idea_chat.merge_brief_creation(text, {'故事梗概': '附件梗概', '故事角色': '林青'})
+        self.assertEqual(merged, text.replace('故事角色：', '故事角色：林青'))
+
     def test_attachment_values_satisfy_gate_without_template_comparison(self):
         template = draft()
         self.assertEqual(idea_chat.inline_required_missing(template, template,
@@ -156,6 +174,39 @@ class InlineBriefTests(unittest.TestCase):
 
 
 class InlineBriefDesktopTests(_Harness):
+    def test_missing_dialog_saves_all_fields_then_explicit_resend(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            d.idea_input.insert('1.0', '自定字段：保留\n故事梗概：手填梗概\n故事角色：')
+            with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, patch.object(d.notifier, 'info') as notice:
+                d.send_message()
+                dialog = d._idea_missing_dialog
+                self.assertEqual(set(dialog.brief_fields), set(VALUES) - {'故事梗概'})
+                for label, entry in dialog.brief_fields.items():
+                    entry.delete('1.0', 'end'); entry.insert('1.0', VALUES[label])
+                next(button for button in dialog.actions.winfo_children() if button.cget('text') == '保存').invoke()
+                launch.assert_not_called()
+                self.assertIn('故事梗概：手填梗概', d.draft_text())
+                self.assertIn('自定字段：保留', d.draft_text())
+                self.assertEqual(d.draft_text().count('故事角色：'), 1)
+                d.send_message()
+                launch.assert_called_once()
+                notice.assert_not_called()
+
+    def test_missing_dialog_cancel_leaves_draft_unchanged(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            with patch.object(d, 'start_script_workflow') as launch:
+                d.send_message()
+                dialog = d._idea_missing_dialog
+                self.assertEqual(set(dialog.brief_fields), set(VALUES))
+                dialog.brief_fields['故事梗概'].insert('1.0', '未保存内容')
+                dialog.close()
+                self.assertEqual(d.draft_text(), '')
+                launch.assert_not_called()
+
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
     def test_tabular_attachment_plus_missing_fields_in_input_starts_workflow(self, _local):
         from stage_execution_service import archive_idea_attachments
@@ -198,7 +249,7 @@ class InlineBriefDesktopTests(_Harness):
                 send.assert_called_once()
 
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
-    def test_uploaded_fields_are_used_without_modifying_input_or_example(self, _local):
+    def test_uploaded_fields_visibly_fill_input_and_preserve_example(self, _local):
         from stage_execution_service import archive_idea_attachments
         with tempfile.TemporaryDirectory() as td:
             root = make_minimal_project(td)
@@ -209,13 +260,15 @@ class InlineBriefDesktopTests(_Harness):
             paths = archive_idea_attachments(root, [source])
             d, win = self.desktop(root)
             d.show(0); self.settle_script_page(win)
-            d.idea_input.insert('1.0', '保留这条追问')
+            d.idea_input.insert('1.0', '保留这条追问\n故事题材：手填题材')
             before = d.idea_log.get('1.0', 'end-1c')
             controller = d.idea_chat_controller
             token = object(); controller._attachment_token = token
             controller._attachment_results.put((token, True, {'paths': paths, 'names': ['材料.txt']}))
             d.poll_idea_attachment_preparation()
-            self.assertEqual(d.draft_text(), '保留这条追问')
+            self.assertTrue(d.draft_text().startswith('保留这条追问\n'))
+            self.assertEqual(idea_chat.extract_brief_creation(d.draft_text())['故事梗概'], VALUES['故事梗概'])
+            self.assertEqual(idea_chat.extract_brief_creation(d.draft_text())['故事题材'], '手填题材')
             self.assertEqual(d.idea_log.get('1.0', 'end-1c'), before)
             self.assertFalse(injected_chat.brief_raw_path(root).exists())
             with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \
@@ -280,7 +333,8 @@ class InlineBriefDesktopTests(_Harness):
                 d.send_message()
                 extract.assert_not_called()
             launch.assert_not_called()
-            self.assertEqual(notice.call_args.args[0], '请先填写：单集时间')
+            self.assertEqual(tuple(d._idea_missing_dialog.brief_fields), ('单集时间',))
+            notice.assert_not_called()
 
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
     def test_attachment_aliases_send_unchanged_example_without_prompt(self, _local):
@@ -406,7 +460,9 @@ class InlineBriefDesktopTests(_Harness):
                                 patch.object(d.notifier, 'info') as notice:
                             d.send_message()
                         launch.assert_not_called()
-                        self.assertIn('请先填写：' + label, notice.call_args.args[0])
+                        self.assertEqual(tuple(d._idea_missing_dialog.brief_fields), (label,))
+                        notice.assert_not_called()
+                        d._idea_missing_dialog.close()
                         self.assertEqual(d.draft_text(), text)
             self.assertFalse(injected_chat.brief_raw_path(root).exists())
 

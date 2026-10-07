@@ -538,7 +538,7 @@ def _brief_plain_text(text, labels):
     lines, pending = [], ''
     for line in str(text or '').replace('\r\r\n', '\n').splitlines():
         cells = [cell.strip().strip('*').strip() for cell in line.strip().strip('|').split('|')]
-        if len(cells) == 2 and cells[0] in labels:
+        if len(cells) == 2 and (cells[0] in labels or cells[0] == '设定'):
             line = cells[0] + '：' + cells[1]
         heading = re.fullmatch(r'\s*#{1,6}\s+(' + names + r')\s*[：:]?\s*', line)
         if pending:
@@ -555,7 +555,11 @@ def _brief_plain_text(text, labels):
             lines.append(line)
     if pending:
         lines.append(pending + '：')
-    return '\n'.join(lines)
+    value = '\n'.join(lines)
+    # 只在已知字段之前还原单元格换行，不把任意正文当字段。
+    value = re.sub(r'(?:\\n|<br\s*/?>|[；;\t])\s*(?=(?:' + names + r')[ *]*[：:])', '\n', value, flags=re.I)
+    value = re.sub(r'(?m)^[ \t]*(?:设定|备注)[：:][ \t]*(?=(?:' + names + r')[ *]*[：:])', '', value)
+    return value
 
 
 def _brief_value(text, labels):
@@ -564,7 +568,7 @@ def _brief_value(text, labels):
     match = re.search(r'(?im)(?:^|\t)[ ]*(?:[-*#]+[ \t]*)?(?:' + names + r')[ *]*[：:\t][ \t]*([^\r\n]*)',
                       _brief_plain_text(text, (*BRIEF_CREATION_FIELDS, *INLINE_REQUIRED_LABELS, *labels)))
     value = match.group(1).strip() if match else ''
-    labels = BRIEF_CREATION_FIELDS + ('题材类型', '题材', '类型', '风格', '集数',
+    labels = BRIEF_CREATION_FIELDS + ('故事主体', '故事主题', '题材类型', '题材', '类型', '风格', '集数',
         '单集时长', '时长', '篇幅', '主要角色', '角色', '故事人物', '人物设定',
         '故事主线', '故事概述', '剧情', '角色物理特征', '外貌特征', '外貌', '形象', '额外要求', '要求')
     if value and any(value in label or label in value for label in labels):
@@ -577,7 +581,7 @@ def _brief_fields(raw):
     text = str(raw or '').strip()
     from script_contract import normalize_brief
     genre_words = ('都市', '悬疑', '奇幻', '科幻', '仙侠', '武侠', '校园', '爱情', '喜剧', '恐怖', '冒险', '现实')
-    genre = _brief_value(text, ('故事题材', '题材类型', '题材', '类型', '风格'))
+    genre = _brief_value(text, ('故事题材', '故事主题', '题材类型', '题材', '类型', '风格'))
     if not genre:
         genre = next((word for word in genre_words if word in text), '')
     episodes = _brief_value(text, ('故事集数', '集数'))
@@ -623,7 +627,7 @@ def _append_raw_brief(root, text, *, gateway=None):
 # 表单字段写在这里而不是桌面层：直接输入、表格填写、后续 HOLLMWOOD 契约
 # 都经由同一份 brief_creation.md，不会出现两套记忆或两份“原始简报”。
 BRIEF_CREATION_FIELDS = (
-    '故事集数', '单集时间', '故事画风', '故事主体', '故事梗概', '故事题材',
+    '故事集数', '单集时间', '故事画风', '故事梗概', '故事题材',
     '故事角色', '物理特征', '故事分集', '特殊要求', '内容补充',
 )
 
@@ -670,7 +674,10 @@ def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
                '主要角色': '故事角色', '角色': '故事角色', '人物设定': '故事角色',
                '题材类型': '故事题材', '题材': '故事题材', '画风': '故事画风',
                '外貌特征': '物理特征', '故事概述': '故事梗概',
-               '故事主线': '故事梗概', '故事人物': '故事角色'}
+               '故事主线': '故事梗概', '故事主体': '故事梗概', '剧情': '故事梗概',
+               '故事主题': '故事题材', '类型': '故事题材', '风格': '故事题材',
+               '故事人物': '故事角色', '角色物理特征': '物理特征',
+               '外貌': '物理特征', '形象': '物理特征', '额外要求': '特殊要求', '要求': '特殊要求'}
     # XLSX 转换稿保留列间制表符；字段可能在“设定”等说明列之后。
     labels = tuple(dict.fromkeys((*BRIEF_CREATION_FIELDS, '篇幅', *aliases, *extra_labels)))
     label_pattern = '|'.join(re.escape(label) for label in labels)
@@ -684,6 +691,10 @@ def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
             if canonical in (*BRIEF_CREATION_FIELDS, '篇幅') or (include_extra and label in extra_labels):
                 active = canonical
                 fields[active] = match.group(2)
+                nested = re.match(r'[ *]*(?:' + label_pattern + r')[ *]*[：:]', match.group(2))
+                if nested:
+                    fields.update(extract_brief_creation(match.group(2), extra_labels=extra_labels, include_extra=include_extra))
+                    active = None
                 continue
             if label in extra_labels:
                 active = None
@@ -698,6 +709,26 @@ def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
         if match:
             fields.setdefault(label, match.group(match.lastindex or 0))
     return {label: value.strip() for label, value in fields.items()}
+
+
+def merge_brief_creation(text, values):
+    """只补空字段，保留手填正文、别名、未知字段和原有布局。"""
+    source = str(text or '')
+    current = extract_brief_creation(source, extra_labels=tuple(values), include_extra=True)
+    for label, raw in values.items():
+        value = str(raw or '').strip()
+        if not value or current.get(label):continue
+        replaced = False
+        for match in re.finditer(r'(?m)^([^\r\n：:]+)[：:][ \t]*(?=\r?$)', source):
+            field = extract_brief_creation(match.group(1) + '：value', extra_labels=tuple(values), include_extra=True)
+            if label in field:
+                source = source[:match.end()] + value + source[match.end():]
+                replaced = True
+                break
+        if not replaced:
+            source += ('\n' if source and not source.endswith('\n') else '') + label + '：' + value
+        current[label] = value
+    return source
 
 
 def brief_creation_values(root, extra_text='', *, attachment_values=None, extra_labels=(), attachment_reference=None):

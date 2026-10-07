@@ -30,7 +30,7 @@ from idea_chat_controller import IdeaChatController
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
-from ui_widgets import (BaseDialog, BusyState, ContextMenu, DataTable, NotificationDispatcher,
+from ui_widgets import (BaseDialog, FormDialog, BusyState, ContextMenu, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
@@ -1046,6 +1046,10 @@ class Desktop:
             self.status.set('创意文件未入库：'+str(result['value']))
             return
         prepared=result['value']
+        if prepared.get('paths'):
+            from stage_execution_service import stage_idea_attachment_reference, stage_idea_brief_defaults
+            reference = stage_idea_attachment_reference(self.root, self.draft_text(), self.idea_attachment_paths)
+            self.fill_idea_brief(stage_idea_brief_defaults(self.root, reference=reference)['values'])
         self.update_idea_attachment_status()
         self.status.set('已入库 %d 份创意文件；发送时读取附档，下方发送框可补充创作信息。' % len(prepared['names']))
     def insert_idea_reference(self, path):
@@ -1489,6 +1493,49 @@ class Desktop:
         self.status.set('已智能识别并回填创作信息，正在核验必填项。')
         self.send_message()
 
+    def fill_idea_brief(self, values):
+        import idea_chat
+        box = getattr(self, 'idea_input', None)
+        if box is None or not box.winfo_exists():return
+        current = self.draft_text()
+        merged = idea_chat.merge_brief_creation(current, values)
+        if merged != current:
+            box.delete('1.0', 'end')
+            box.insert('1.0', merged)
+            self.preserve_idea_draft()
+
+    def show_missing_idea_brief(self, missing, attachment_fields, notice=''):
+        """缺项可一次补齐；保存只更新草稿，发送仍由用户点击。"""
+        existing = getattr(self, '_idea_missing_dialog', None)
+        if existing is not None and existing.winfo_exists():
+            existing.lift()
+            return existing
+        import idea_chat
+        project, box = self.root, self.idea_input
+        fields = dict(attachment_fields)
+        fields.update(idea_chat.extract_brief_creation(self.draft_text(),
+                      extra_labels=idea_chat.INLINE_REQUIRED_LABELS, include_extra=True))
+        dialog = FormDialog(self.win, '补充创作信息')
+        self._idea_missing_dialog = dialog
+        ttk.Label(dialog.content, text=notice + '以下信息尚未填写。保存后请再次点击发送。').pack(anchor='w', pady=SPACING['sm'])
+        dialog.brief_fields = {}
+        for label in missing:
+            row = ttk.Frame(dialog.content)
+            row.pack(fill='x', pady=SPACING['xs'])
+            ttk.Label(row, text=label).pack(side='left', padx=(0, SPACING['sm']))
+            entry = TextArea(row, height=2, width=50, wrap='word')
+            entry.pack(side='left', fill='x', expand=True)
+            entry.insert('1.0', fields.get(label, ''))
+            dialog.brief_fields[label] = entry
+        def save():
+            if self.root == project and self.idea_input is box and box.winfo_exists():
+                self.fill_idea_brief({label: entry.get('1.0', 'end-1c')
+                                      for label, entry in dialog.brief_fields.items()})
+                self.status.set('已保存补充信息，请再次点击发送。')
+            dialog.close()
+        dialog.add_form_actions('保存', save)
+        return dialog
+
     def send_message(self):
         """提交创意；显式 API 模型在聊天框内回复，其余仍启动剧本 Agent。"""
         box=getattr(self,'idea_input',None)
@@ -1524,7 +1571,7 @@ class Desktop:
                                                     attachment_fields=attachment_fields)
         if missing:
             notice = idea_chat.BRIEF_ATTACHMENT_NOTICE + '\n' if prepared and prepared['attachments'].get('brief_unreadable') else ''
-            self.notifier.info(notice + '请先填写：' + '、'.join(missing), modal=True)
+            self.show_missing_idea_brief(missing, attachment_fields, notice)
             return
         if prepared is None:
             return

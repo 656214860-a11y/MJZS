@@ -87,5 +87,6 @@ class LocalBriefDesktopTests(_Harness):
                 d.send_message()
             extract.assert_not_called()
             launch.assert_not_called()
-            self.assertEqual(notice.call_args.args[0], '请先填写：交付形态')
+            self.assertEqual(tuple(d._idea_missing_dialog.brief_fields), ('交付形态',))
+            notice.assert_not_called()
             self.assertFalse(injected_chat.brief_raw_path(root).exists())

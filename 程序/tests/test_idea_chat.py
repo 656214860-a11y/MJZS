@@ -302,7 +302,7 @@ class SavingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             idea_chat.save_brief_creation(td, {'故事梗概': '第一行\n第二行', '故事角色': '阿青'})
             values = idea_chat.brief_creation_values(td)
-            self.assertEqual(values['故事主体'], '')
+            self.assertNotIn('故事主体', values)
             self.assertEqual(values['故事梗概'], '第一行\n第二行')
             values = idea_chat.brief_creation_values(td, '故事角色：\n特殊要求：不要旁白')
             self.assertEqual(values['故事角色'], '')
@@ -615,7 +615,8 @@ class SendMessageTests(_Harness):
             self.assertFalse(idea_chat.brief_complete_path(proj).exists())
             messages = idea_chat.load(proj)
             self.assertEqual(messages, [])
-            self.assertEqual(notice.call_args.args[0], '请先填写：故事题材、故事角色、故事集数、单集时间、故事画幅、视频模型、交付形态')
+            self.assertEqual(tuple(d._idea_missing_dialog.brief_fields), ('故事题材', '故事角色', '故事集数', '单集时间', '故事画幅', '视频模型', '交付形态'))
+            notice.assert_not_called()
             self.assertEqual(d.idea_row.winfo_manager(), 'pack', '启动工作流后发送框仍固定显示')
 
     def test_the_composer_expands_for_content_and_enter_sends(self):
@@ -854,7 +855,8 @@ class SendMessageTests(_Harness):
             with patch.object(d.notifier, 'info') as notice, patch.object(d, 'start_script_workflow') as launch:
                 d.send_message(); win.update()
             launch.assert_not_called()
-            self.assertTrue(notice.call_args.args[0].startswith('请先填写：'))
+            self.assertEqual(len(d._idea_missing_dialog.brief_fields), 8)
+            notice.assert_not_called()
             self.assertFalse(hasattr(d, 'open_brief_creation_form'))
             self.assertEqual(idea_chat.load(proj), [], '一个字都不许发出去')
             self.assertFalse(idea_chat.brief_raw_path(proj).exists(), '示例被门禁拦截后不应落盘')
@@ -904,7 +906,8 @@ class SendMessageTests(_Harness):
             d.idea_attachment_paths = paths
             with patch('writing_api.model_label', return_value=''), patch.object(d.notifier, 'info') as notice:
                 d.send_message(); win.update()
-            notices = [call.args[0] for call in notice.call_args_list]
+            notice.assert_not_called()
+            notices = [widget.cget('text') for widget in d._idea_missing_dialog.content.winfo_children() if widget.winfo_class() == 'TLabel']
             self.assertTrue(any(text.splitlines()[0] == idea_chat.BRIEF_ATTACHMENT_NOTICE
                                 for text in notices))
 
