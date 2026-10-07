@@ -469,7 +469,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 pass
 
     def test_real_project_chat_shows_independent_content_before_model_key(self):
-        """模型分区键慢时，软件示例仍须先出现，不能把聊天壳卡在空白。"""
+        """模型分区键慢时，上方简报示例仍须先出现，不依赖聊天记录加载。"""
         try:
             window = tk.Tk()
         except tk.TclError as exc:
@@ -492,10 +492,12 @@ class DesktopStartupPerfTests(unittest.TestCase):
                     desktop.show_conversation()
                 while time.perf_counter() - started < CHAT_FIRST_TEXT_SECONDS:
                         window.update()
-                        if str(desktop.idea_log.get('1.0', 'end-1c')).strip():
+                        if desktop.brief_editor_text().strip():
                             break
                         time.sleep(.01)
-                self.assertTrue(str(desktop.idea_log.get('1.0', 'end-1c')).strip())
+                self.assertEqual(desktop.brief_editor_text(), desktop.idea_template)
+                self.assertEqual(desktop.draft_text(), '')
+                self.assertEqual(str(desktop.idea_log.get('1.0', 'end-1c')).strip(), '')
                 self.assertLessEqual(time.perf_counter() - started, CHAT_FIRST_TEXT_SECONDS)
         finally:
             if desktop is not None:

@@ -47,4 +47,6 @@ idea_chat.py、script_contract.py、skill_panel.py、默认创意示例.md 未�
 
 [TASK_BLOCKED] 实现检查点 233b3ce 已提交，但未通过完整验收。唯一失败为 tests/test_desktop_startup_perf.py:498 的 test_real_project_chat_shows_independent_content_before_model_key：旧断言要求 idea_log 非空，注释明确指软件示例；本轮要求空会话不再产生该气泡。该文件不在三个指定测试文件中，尚未改动。最小授权：将此用例的首屏可见内容检查迁至 idea_brief_editor，保持原时间阈值断言，并检查下方输入为空、无示例气泡；随后重跑失败项与完整安全回归。不以恢复气泡或弱化性能阈值绕过失败。全量期间另有 Tk after 回调清理警告，执行器未将其归类为失败。
 
-工作保留在隔离树 assistant-slim-apply 的 master；用户主目录仍在 codex/r1101-workspace-hold，未加载未验收实现，原配置与未跟踪资料保持。收到上述最小授权后继续本轮，不领取新号。完成后再恢复主目录 master。
+续办：用户已授权迁移上述启动性能测试，不领取新号。断言转为上方简报与模板全文相等、下方为空、聊天区无示例气泡，原 CHAT_FIRST_TEXT_SECONDS 阈值不变。首次迁移误将模板末尾换行 strip 掉导致精确比较失败，已修正为全文对比；最终 run_selftests.py -k desktop_startup_perf 14/14 通过（测试单元 10.8 秒，R1101-startup-retest-final.log）。等待新检查点上的完整安全回归；此前阻塞已解除，任务仍未完成。
+
+工作保留在隔离树 assistant-slim-apply 的 master；用户主目录仍在 codex/r1101-workspace-hold，未加载未验收实现，原配置与未跟踪资料保持。完成后再恢复主目录 master。
