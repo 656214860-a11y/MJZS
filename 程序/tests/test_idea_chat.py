@@ -570,6 +570,12 @@ class SendMessageTests(_Harness):
         box.configure(fg='#243247')
         box.delete('1.0', 'end'); box.insert('1.0', text)
 
+    @staticmethod
+    def complete_draft(summary='一个夜班照相馆的故事'):
+        return ('故事梗概：' + summary + '\n故事角色：摄影师林默\n故事题材：都市悬疑\n'
+                '故事集数：12集\n单集时间：120秒\n故事画幅：9:16\n'
+                '视频模型：MiniMax H3\n交付形态：只要 markdown 文档')
+
     def test_sending_starts_the_selected_workflow_without_creating_a_script_file(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
@@ -577,7 +583,7 @@ class SendMessageTests(_Harness):
             d.show(0); self.settle_script_page(win)
             seen = []
             d.open_flow_agent = lambda *args, **kwargs: seen.append((args, kwargs))
-            self.say(d, '故事梗概：一个夜班照相馆的故事\n主要角色：摄影师林默\n题材类型：都市悬疑\n篇幅：12集')
+            self.say(d, self.complete_draft())
             d.send_message(); win.update()
             self.assertEqual(len(seen), 1)
             args, _ = seen[0]
@@ -588,7 +594,7 @@ class SendMessageTests(_Harness):
             self.assertFalse(list((writing_dir(proj) / '创意对话').glob('提交_*.md')),
                              '发送创意不能先创建提交文件')
             self.assertEqual(d.draft_text().strip(), '', '发出去之后下面那段草稿就空了')
-            self.assertIn(('left', '故事梗概：一个夜班照相馆的故事\n主要角色：摄影师林默\n题材类型：都市悬疑\n篇幅：12集'), self.bubbles(d),
+            self.assertIn(('left', self.complete_draft()), self.bubbles(d),
                           '用户气泡贴右侧，但正文从气泡左边开始')
             self.assertEqual([row['role'] for row in idea_chat.load(proj)], ['user'])
             self.assertFalse(list(writing_dir(proj).glob('创意_*/*.md')),
@@ -602,13 +608,14 @@ class SendMessageTests(_Harness):
             seen = []
             d.open_flow_agent = lambda *args, **kwargs: seen.append(args)
             self.say(d, '故事梗概：夜班照相馆收到一张会显影未来的旧底片。')
-            d.send_message(); win.update()
+            with patch.object(d.notifier, 'info') as notice:
+                d.send_message(); win.update()
             self.assertEqual(seen, [])
-            self.assertTrue(idea_chat.brief_raw_path(proj).is_file())
+            self.assertFalse(idea_chat.brief_raw_path(proj).is_file())
             self.assertFalse(idea_chat.brief_complete_path(proj).exists())
             messages = idea_chat.load(proj)
-            self.assertEqual(messages[-1]['role'], 'assistant')
-            self.assertIn('主要角色、题材类型、篇幅', messages[-1]['text'])
+            self.assertEqual(messages, [])
+            self.assertEqual(notice.call_args.args[0], '请先填写：故事题材、故事角色、故事集数、单集时间、故事画幅、视频模型、交付形态')
             self.assertEqual(d.idea_row.winfo_manager(), 'pack', '启动工作流后发送框仍固定显示')
 
     def test_the_composer_expands_for_content_and_enter_sends(self):
@@ -616,6 +623,7 @@ class SendMessageTests(_Harness):
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
+            d.idea_input.delete('1.0', 'end'); win.update(); d._fit_composer()
             self.assertEqual(int(d.idea_input.cget('height')), 1, '空输入框保持紧凑')
             d.idea_input.insert('1.0', '第一行创意\n第二行创意\n第三行创意')
             win.update(); d._fit_composer(); win.update()
@@ -631,6 +639,7 @@ class SendMessageTests(_Harness):
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
             d.show(0); win.update()
+            d.idea_input.delete('1.0', 'end'); win.update()
             d.idea_input.event_generate('<Button-1>')
             heights=[]
             for _ in range(6):
@@ -661,6 +670,7 @@ class SendMessageTests(_Harness):
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
             d.show(0); win.update()
+            d.idea_input.delete('1.0', 'end'); win.update()
             self.assertTrue(d.idea_input_hint.place_info(), '空输入框时提示应已显示')
             d.idea_input_hint.event_generate('<Button-1>'); win.update()
             self.assertEqual(int(d.idea_input.cget('height')), 1, '点击提示只应聚焦，不能扩大空输入框')
@@ -686,6 +696,7 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.update()
             draft = '先保留这段没有发送的创意\n回到剧本准备页后还要继续写'
+            d.idea_input.delete('1.0', 'end')
             d.idea_input.insert('1.0', draft); win.update()
             d.show(1); win.update()
             d.show(0); win.update()
@@ -836,40 +847,15 @@ class SendMessageTests(_Harness):
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
-            self.assertEqual(d.idea_input.get('1.0', 'end-1c'), '', '发送框保持空白，范例不冒充用户输入')
+            self.assertEqual(d.draft_text(), d.idea_example(), '发送框预填示例，但未修改不能发送')
             self.assertIn('模型 · 软件示例', self.log_text(d), '范例显示在上方对话区')
             self.assertIn(d.idea_example(), self.log_text(d))
-            d.send_message(); win.update()
-            self.assertTrue(d._brief_creation_window.winfo_exists(), '空白创意应打开填写表格')
+            with patch.object(d.notifier, 'info') as notice:
+                d.send_message(); win.update()
+            self.assertTrue(notice.call_args.args[0].startswith('请先填写：'))
+            self.assertFalse(hasattr(d, 'open_brief_creation_form'))
             self.assertEqual(idea_chat.load(proj), [], '一个字都不许发出去')
-            self.assertFalse(idea_chat.brief_raw_path(proj).exists(), '只打开表格不应先落盘')
-
-    def test_brief_form_attachment_fill_can_be_deleted_and_saved(self):
-        from stage_execution_service import archive_idea_attachments
-        with tempfile.TemporaryDirectory() as td:
-            proj = make_minimal_project(td)
-            source = Path(td) / '创意.md'
-            source.write_text('故事梗概：附档梗概\n故事角色：阿青', encoding='utf-8')
-            archive_idea_attachments(proj, (source,))
-            d, win = self.desktop(proj)
-            d.show(0); self.settle_script_page(win)
-            d.open_brief_creation_form(); win.update()
-            form = d._brief_creation_window
-            editor = form.brief_editors['故事梗概']
-            self.assertEqual(editor.get('1.0', 'end-1c'), '附档梗概')
-            editor.focus_force(); win.update()
-            editor.tag_add('sel', '1.0', 'end-1c')
-            editor.event_generate('<Delete>')
-            self.assertEqual(editor.get('1.0', 'end-1c'), '')
-            form.refresh_attachment_fields()
-            self.assertEqual(editor.get('1.0', 'end-1c'), '', '刷新不能复活用户删除的内容')
-            with patch.object(d, 'send_message'):
-                for button in form.actions.winfo_children():
-                    if button.cget('text') == '保存':
-                        button.invoke()
-            d.open_brief_creation_form(); win.update()
-            self.assertEqual(d._brief_creation_window.brief_editors['故事梗概'].get('1.0', 'end-1c'), '')
-            self.assertEqual(d._brief_creation_window.brief_editors['故事角色'].get('1.0', 'end-1c'), '阿青')
+            self.assertFalse(idea_chat.brief_raw_path(proj).exists(), '示例被门禁拦截后不应落盘')
 
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
     def test_local_attachment_send_extracts_without_sending_body(self, _mode):
@@ -882,9 +868,10 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
             d.idea_attachment_paths = paths
+            self.say(d, self.complete_draft())
             with patch('writing_api.model_label', return_value=''), patch.object(
                     d, 'start_script_workflow', return_value=('Codex', False)) as launch, patch.object(
-                    d, 'open_brief_creation_form') as form:
+                    d.notifier, 'info') as form:
                 d.send_message()
             form.assert_not_called()
             sent = launch.call_args.args[0]
@@ -902,11 +889,9 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
             d.idea_attachment_paths = paths
-            with patch('writing_api.model_label', return_value=''):
+            with patch('writing_api.model_label', return_value=''), patch.object(d.notifier, 'info') as notice:
                 d.send_message(); win.update()
-            form = d._brief_creation_window
-            notices = [child.cget('text') for child in form.content.winfo_children()
-                       if isinstance(child, ttk.Label)]
+            notices = [call.args[0] for call in notice.call_args_list]
             self.assertTrue(any(text.splitlines()[0] == idea_chat.BRIEF_ATTACHMENT_NOTICE
                                 for text in notices))
 
@@ -915,20 +900,14 @@ class SendMessageTests(_Harness):
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
-            d.idea_input.insert('1.0', '尚未发送的草稿')
-            d.open_brief_creation_form(); win.update()
-            form = d._brief_creation_window
-            form.brief_editors['故事梗概'].insert('1.0', '仅保存的故事')
-            buttons = {button.cget('text'): button for button in form.actions.winfo_children()}
-            self.assertIn('保存', buttons)
-            self.assertNotIn('保存并发送', buttons)
+            d.idea_input.delete('1.0', 'end')
             with patch.object(d, 'send_message') as send:
-                buttons['保存'].invoke(); win.update()
+                d.idea_input.insert('1.0', '尚未发送的草稿'); win.update()
                 send.assert_not_called()
-            self.assertEqual(idea_chat.brief_creation_values(proj)['故事梗概'], '仅保存的故事')
             self.assertEqual(d.idea_input.get('1.0', 'end-1c'), '尚未发送的草稿')
             self.assertEqual(idea_chat.load(proj), [])
-            self.assertIsNone(d._brief_creation_window)
+            self.assertFalse(idea_chat.brief_raw_path(proj).exists())
+            self.assertFalse(hasattr(d, 'open_brief_creation_form'))
 
     def test_software_example_can_be_copied_as_a_whole_message(self):
         with tempfile.TemporaryDirectory() as td:
@@ -964,7 +943,7 @@ class SendMessageTests(_Harness):
             self.assertIn('已引用：故事创意_', d.idea_attachment_status.get())
             seen=[]
             d.open_flow_agent=lambda *args, **kwargs: seen.append(args)
-            self.say(d, '请基于附档创作')
+            self.say(d, self.complete_draft() + '\n请基于附档创作')
             d.send_message(); win.update()
             self.assertIn('【附档：故事创意_', seen[0][2])
             self.assertIn('主要角色：林默', seen[0][2])
@@ -988,7 +967,7 @@ class SendMessageTests(_Harness):
             self.assertNotIn(str(source), d.idea_attachment_status.get())
             seen = []
             d.open_flow_agent = lambda *args, **kwargs: seen.append(args)
-            self.say(d, '主要角色：林默\n题材类型：都市悬疑\n篇幅：12集\n请参考本地素材')
+            self.say(d, self.complete_draft() + '\n请参考本地素材')
             d.send_message(); win.update()
             self.assertIn(archived[0].relative_to(proj).as_posix(), seen[0][2])
             self.assertIn('请先读取并解析', seen[0][2])
@@ -1033,10 +1012,10 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.update()
             d.open_flow_agent = lambda *args, **kwargs: (_ for _ in ()).throw(ValueError('工作流没有启动'))
-            self.say(d, '故事梗概：一个夜班照相馆的故事\n主要角色：摄影师林默\n题材类型：都市悬疑\n篇幅：12集')
+            self.say(d, self.complete_draft())
             with self.assertRaisesRegex(ValueError, '工作流没有启动'):
                 d.send_message()
-            self.assertEqual(d.idea_input.get('1.0', 'end-1c'), '故事梗概：一个夜班照相馆的故事\n主要角色：摄影师林默\n题材类型：都市悬疑\n篇幅：12集')
+            self.assertEqual(d.idea_input.get('1.0', 'end-1c'), self.complete_draft())
             self.assertFalse(list((writing_dir(proj) / '创意对话').glob('提交_*.md')),
                              '启动失败也不能留下未获模型回复的剧本文档')
 
@@ -1055,7 +1034,7 @@ class SendMessageTests(_Harness):
                 if done is not None:
                     done(fn())
             d.async_ = immediate
-            self.say(d, '故事梗概：雨夜照相馆收到会显影未来的旧底片。\n主要角色：摄影师林默和阿青。\n题材类型：都市悬疑\n篇幅：12集')
+            self.say(d, self.complete_draft('雨夜照相馆收到会显影未来的旧底片。'))
             with patch('writing_api.reply', return_value={'ok':False, 'error':'模型未生成导演正文'}):
                 d.send_message()
             self.assertEqual(emitted, [('stage.failed', {
@@ -1426,6 +1405,7 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'assistant', '先前的纲要')
             d, win = self.desktop(proj)
             d.show(0); win.update()
+            d.idea_input.delete('1.0', 'end')
             self.assertEqual(d.draft_text(), '', '上面那些气泡不算您在写的字')
             d.idea_input.insert('end', '再补一句')
             win.update()

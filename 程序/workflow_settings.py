@@ -45,9 +45,9 @@ WORKFLOW_PRESETS={'AIGC全流程': {
         'video':['pipeline-video-generation'], 'audio':['pipeline-audio-subtitle'], 'edit':['pipeline-editing'],
         'delivery':['pipeline-delivery']},
     'locks': [
-        {'key':'aspect_ratio','label':'画幅','options':['16:9','9:16','21:9','1:1']},
-        {'key':'delivery_format','label':'交付形态','options':['只要离线看板','只要 markdown 文档','两者都交付']},
-        {'key':'video_model_version','label':'视频模型版本','options':['Seedance 2.5','Seedance 2.0','MiniMax H3']},
+        {'key':'aspect_ratio','label':'画幅','aliases':('故事画幅',),'options':['16:9','9:16','21:9','1:1']},
+        {'key':'delivery_format','label':'交付形态','aliases':(),'options':['只要离线看板','只要 markdown 文档','两者都交付']},
+        {'key':'video_model_version','label':'视频模型版本','aliases':('视频模型',),'options':['Seedance 2.5','Seedance 2.0','MiniMax H3']},
     ],
 }}
 _DESKTOP_INSTALLATION_CACHE={}

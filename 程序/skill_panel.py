@@ -838,11 +838,8 @@ class Panel(ttk.Frame):
         self.workflow_box = ttk.Combobox(row, textvariable=self.workflow_choice, state='readonly', width=18, values=names)
         self.workflow_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
-        self.workflow_summary = ProgressLabel(row, text='自由模式')
+        self.workflow_summary = ProgressLabel(row, text='制作锁')
         self.workflow_summary.pack(side='left', padx=(0, SPACING['sm']))
-        SecondaryButton(row, text='去填写', command=self.open_workflow_brief).pack(side='left')
-        if self.stage != 'script':
-            HintLabel(row, text='锁在剧本页采集简报时填写最顺').pack(side='left', padx=(SPACING['sm'], 0))
 
     def refresh_workflow(self):
         import workflow_settings
@@ -851,13 +848,14 @@ class Panel(ttk.Frame):
         self.workflow_choice.set(name if name in workflow_settings.WORKFLOW_PRESETS else '不使用统筹')
         locks = stage_config.workflow_lock(self.project())
         if not name:
-            self.workflow_summary.configure(text='自由模式')
+            self.workflow_summary.configure(text='制作锁：未使用统筹')
             self.workflow_summary.unbind('<Button-1>')
             return
         preset = workflow_settings.WORKFLOW_PRESETS[name]
-        missing = [item['label'] for item in preset.get('locks', ()) if not str(locks.get(item['key']) or '').strip()]
         deviation = stage_config.workflow_deviation_count(self.project(), preset)
-        status = '锁未填齐，下游页面将使用各自默认值' if missing else '制作锁已填写'
+        status = '制作锁\n' + '\n'.join(
+            item['label'] + '=' + (str(locks.get(item['key']) or '').strip() or '未填写')
+            for item in preset.get('locks', ()))
         if deviation:
             status += ' · %d 个阶段已本地修改' % deviation
         self.workflow_summary.configure(text=status)
@@ -936,11 +934,6 @@ class Panel(ttk.Frame):
         previous = str(stage_config.current_workflow(self.project()).get('name') or '')
         self.workflow_apply_dialog(choice, preset, switching=bool(previous and previous != choice))
 
-    def open_workflow_brief(self):
-        if self.stage != 'script':
-            self.state.configure(text='请先去 01 剧本准备填写制作锁。'); return
-        opener = getattr(self.desktop, 'open_brief_creation_form', None)
-        if callable(opener): opener()
 
     def build_flow_skill(self, parent):
         """三段式 SKILL 面板：操作栏、固定列勾选列表、说明区。"""

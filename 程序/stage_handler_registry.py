@@ -22,7 +22,7 @@ def _workflow_lock_error(project, stage, trigger):
                if not str(selected.get(item.get('key')) or '').strip()]
     if not missing:
         return ''
-    return '自动化要求先在“填写创作信息”补齐制作锁：' + '、'.join(missing)
+    return '请先在 01 剧本准备 的发送框内写明制作锁（故事画幅／视频模型／交付形态）：' + '、'.join(missing)
 
 
 def _fail(desktop, stage, trigger, error):

@@ -18,6 +18,7 @@ from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from project_context import ProjectContext
+from script_contract import INLINE_REQUIRED_LABELS
 
 FOLDER = '创意对话'
 CHAT_NAME = '对话.json'
@@ -541,7 +542,32 @@ def format_brief_creation(values):
                      for label in labels).rstrip() + '\n'
 
 
-def extract_brief_creation(text, *, extra_labels=()):
+def strip_inline_required_markers(text):
+    """行尾必填提示只用于显示，不进入提取、模型输入或项目文件。"""
+    return re.sub(r'[ \t]*（必填）[ \t]*(?=\r?$)', '', str(text or ''), flags=re.MULTILINE)
+
+
+def inline_template_labels(text):
+    """从示例的顶层行取得字段边界，缩进角色描述不另起字段。"""
+    return tuple(dict.fromkeys(re.findall(r'^([^\s：:][^：:\n]{0,29})[：:]',
+                                         str(text or ''), re.MULTILINE)))
+
+
+def inline_required_missing(template_text, draft_text, required_labels=INLINE_REQUIRED_LABELS):
+    """内联发送唯一门禁：空值或仍为示例占位值均未填写。"""
+    labels = tuple(dict.fromkeys((*inline_template_labels(template_text), *required_labels)))
+    template = extract_brief_creation(strip_inline_required_markers(template_text),
+                                      extra_labels=labels, include_extra=True)
+    draft = extract_brief_creation(strip_inline_required_markers(draft_text),
+                                   extra_labels=labels, include_extra=True)
+    def normalized(value):
+        return ''.join(value.split())
+    return tuple(label for label in required_labels
+                 if not normalized(draft.get(label, ''))
+                 or normalized(draft.get(label, '')) == normalized(template.get(label, '')))
+
+
+def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
     """只提取明确标注的字段，保留空值和多行；附件不会被当成指令执行。"""
     aliases = {'集数': '故事集数', '单集时长': '单集时间', '时长': '单集时间',
                '主要角色': '故事角色', '角色': '故事角色', '人物设定': '故事角色',
@@ -553,7 +579,7 @@ def extract_brief_creation(text, *, extra_labels=()):
         if match:
             label = match.group(1).strip().strip('*').strip()
             canonical = aliases.get(label, label)
-            if canonical in BRIEF_CREATION_FIELDS:
+            if canonical in BRIEF_CREATION_FIELDS or (include_extra and label in extra_labels):
                 active = canonical
                 fields[active] = match.group(2)
                 continue
@@ -589,7 +615,7 @@ def brief_creation_values(root, extra_text='', *, attachment_values=None, extra_
 
 def save_brief_creation(root, values, *, gateway=None):
     """保存表格内容到唯一简报文件，并返回可直接发送的文本。"""
-    text = format_brief_creation(values)
+    text = strip_inline_required_markers(values) if isinstance(values, str) else format_brief_creation(values)
     path = brief_raw_path(root)
     _require_gateway(gateway)['publish_text'](path, text)
     return path, text
@@ -622,19 +648,29 @@ def brief_followup(fields):
 BRIEF_ATTACHMENT_NOTICE = '引用附档无本地可读转换稿,请补充填写或改用 .md/.txt 重新上传'
 
 
-def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=None, attachment_reference=None):
+def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=None, attachment_reference=None,
+                  inline_text=None):
     """接收用户创意，落盘原始简报；满足必填项时才生成 brief_complete.json。"""
     value = str(text or '').strip()
     if not value:
         raise ValueError('请先输入创意')
     gateway = _require_gateway(gateway)
-    raw_path = _append_raw_brief(root, value, gateway=gateway)
-    raw = raw_path.read_text(encoding='utf-8')
+    if inline_text is None:
+        raw_path = _append_raw_brief(root, value, gateway=gateway)
+        raw = raw_path.read_text(encoding='utf-8')
+    else:
+        # 当前模板优先；发送启动成功后由调用方覆盖保存，失败不吞掉上一份简报。
+        raw_path = brief_raw_path(root)
+        raw = strip_inline_required_markers(inline_text)
     extraction_text = '\n'.join((_brief_source_text(root, raw, gateway=gateway),
                                  *(attachment_reference or {}).get('brief_texts', ())))
+    if inline_text is not None:
+        values = extract_brief_creation(raw, extra_labels=inline_template_labels(raw), include_extra=True)
+        extraction_text = '\n'.join(label + '：' + ' '.join(value.splitlines())
+                                     for label, value in values.items())
     fields = _brief_fields(extraction_text)
     workflow = dict(workflow or {})
-    selected_locks = {item['key']: _brief_value(raw, (item['label'],))
+    selected_locks = {item['key']: _brief_value(raw, (item['label'], *item.get('aliases', ())))
                       for item in lock_definitions}
     fields['production_locks'] = {key: value for key, value in selected_locks.items() if value}
     from script_contract import brief_document, missing_brief_fields

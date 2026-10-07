@@ -24,14 +24,10 @@ class DialogBoundaryTests(unittest.TestCase):
         self.assertEqual(actual, {},
                          '业务层弹窗必须经 BaseDialog/FormDialog/ConfirmDialog：'
                          + str(actual))
+        # R1099 删除创作信息弹窗；全局裸窗门禁继续覆盖全部页面。
         tree = parse(ROOT / 'desktop.py')
-        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'Desktop')
-        method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef)
-                      and node.name == 'open_brief_creation_form')
-        names = [node.func.id for node in ast.walk(method) if isinstance(node, ast.Call)
-                 and isinstance(node.func, ast.Name)]
-        self.assertIn('FormDialog', names)
-        self.assertEqual(_raw_toplevel_calls(method), [])
+        self.assertFalse(any(isinstance(node, ast.FunctionDef) and node.name == 'open_brief_creation_form'
+                             for node in ast.walk(tree)))
 
     def test_prompt_window_uses_base_dialog_not_a_raw_toplevel(self):
         tree = parse(ROOT / 'prompt_window.py')

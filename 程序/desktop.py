@@ -30,7 +30,7 @@ from idea_chat_controller import IdeaChatController
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
-from ui_widgets import (BaseDialog, BusyState, ContextMenu, DataTable, FormDialog, NotificationDispatcher,
+from ui_widgets import (BaseDialog, BusyState, ContextMenu, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
@@ -722,7 +722,9 @@ class Desktop:
         box=getattr(self,'idea_input',None)
         if box is None or not box.winfo_exists():return ''
         start,end=self.idea_draft_range()
-        try:return str(box.get(start,end))
+        try:
+            from idea_chat import strip_inline_required_markers
+            return strip_inline_required_markers(box.get(start,end))
         except tk.TclError:return ''
     def preserve_idea_draft(self):
         """翻页重建前把尚未发送的创意留在本次运行内，不写入项目文件。"""
@@ -749,19 +751,21 @@ class Desktop:
         """框里那一段还是不是程序带的那份示例（不改动就不算您写的字）。"""
         return self.draft_text().strip()==str(getattr(self,'idea_template','') or '').strip()
     def tint_brief(self):
-        """第 37／45 期：还是示例就置灰，自己写的才是正文黑字；字段名那一层单点亮。"""
+        """正文可就地编辑，示例顶层字段使用统一弱化色。"""
         box=getattr(self,'idea_input',None)
         if box is None or not box.winfo_exists():return
         start,end=self.idea_draft_range()
-        box.configure(fg='#718196' if self.idea_still_the_example() else '#243247')
+        box.configure(fg=COLORS['text_primary'])
         box.tag_remove('field_hint',start,end)
+        from idea_chat import inline_template_labels
+        labels = inline_template_labels(self.idea_template)
         try:first=int(str(box.index(start)).split('.')[0])
         except (tk.TclError,ValueError):return
         for offset,line in enumerate(str(box.get(start,end)).splitlines()):
             head,sep,_rest=line.partition('：')
             if not sep:head,sep,_rest=line.partition(':')
             name=head.strip()
-            for label in IDEA_FIELDS:
+            for label in labels:
                 # 按尾巴认：示例里写「故事人物」，点亮的就是这几个字的字段名。
                 if sep and name.endswith(label):
                     box.tag_add('field_hint',f'{first+offset}.0',f'{first+offset}.{len(head)+1}')
@@ -1067,12 +1071,7 @@ class Desktop:
             return
         prepared=result['value']
         self.update_idea_attachment_status()
-        form = getattr(self, '_brief_creation_window', None)
-        if form is not None and form.winfo_exists():
-            form.refresh_attachment_fields()
-            self.status.set('已入库 %d 份创意文件；已自动同步可识别字段到创作信息表单。' % len(prepared['names']))
-        else:
-            self.status.set('已入库 %d 份创意文件；去填写创作信息时将自动读取可识别字段。' % len(prepared['names']))
+        self.status.set('已入库 %d 份创意文件；请在发送框内填写必填信息。' % len(prepared['names']))
     def insert_idea_reference(self, path):
         """把已入库创意插入编辑框，并标记为本轮显式引用。"""
         box=getattr(self,'idea_input',None)
@@ -1439,131 +1438,6 @@ class Desktop:
         self.open_flow_agent('writing', '剧本准备', prompt, followup)
         return model, False
 
-    def open_brief_creation_form(self, current_text='', *, attachment_reference=None):
-        """显示可记忆的创作简报表；仅保存，不自动发送。"""
-        if not self.root:
-            raise ValueError('请先打开项目')
-        existing = getattr(self, '_brief_creation_window', None)
-        try:
-            if existing is not None and existing.winfo_exists():
-                if attachment_reference is not None or self.idea_attachment_paths:
-                    existing.refresh_attachment_fields(attachment_reference)
-                existing.deiconify(); existing.lift(); existing.focus_force(); return
-        except tk.TclError:
-            pass
-        import idea_chat
-        import stage_config, workflow_settings
-        workflow_config = stage_config.current_workflow(self.root)
-        preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
-        lock_defs = preset.get('locks', ())
-        extra_labels = tuple(item['label'] for item in lock_defs)
-        from stage_execution_service import stage_idea_brief_defaults, stage_idea_attachment_reference
-        if attachment_reference is None:
-            attachment_reference = stage_idea_attachment_reference(self.root, current_text, self.idea_attachment_paths)
-        attachment = stage_idea_brief_defaults(self.root, reference=attachment_reference)
-        values = idea_chat.brief_creation_values(self.idea_chat_context(), current_text,
-                                                attachment_values=attachment['values'], extra_labels=extra_labels)
-        def cleared():
-            self._brief_creation_window = None
-        win = FormDialog(self.win, '填写创作信息', geometry='700x680', minsize=(600, 520),
-                         on_close=cleared)
-        self._brief_creation_window = win
-        outer = win.content
-        outer.columnconfigure(0, weight=1)
-        notice = '已读取附件中明确标注的创作信息；手填内容（含清空）优先，保存后生效。'
-        if attachment['skipped']:
-            notice = idea_chat.BRIEF_ATTACHMENT_NOTICE + '\n' + notice
-        ttk.Label(outer, text=notice,
-                  style='Muted.TLabel').grid(row=0, column=0, columnspan=2, sticky='w', pady=(SPACING['xs'], SPACING['md']))
-        outer.rowconfigure(1, weight=1)
-        canvas = tk.Canvas(outer, highlightthickness=0)
-        scroll = ttk.Scrollbar(outer, orient='vertical', command=canvas.yview)
-        canvas.configure(yscrollcommand=scroll.set)
-        canvas.grid(row=1, column=0, sticky='nsew')
-        scroll.grid(row=1, column=1, sticky='ns')
-        form = ttk.Frame(canvas, padding=(0, 0, SPACING['sm'], 0))
-        window_id = canvas.create_window((0, 0), window=form, anchor='nw')
-        form.columnconfigure(1, weight=1, minsize=180)
-        form.columnconfigure(3, weight=1, minsize=180)
-        editors = {}
-        tall = {'故事梗概', '故事角色', '物理特征', '故事分集', '特殊要求', '内容补充'}
-        compact = [label for label in idea_chat.BRIEF_CREATION_FIELDS if label not in tall]
-        for index, label in enumerate(compact):
-            row, label_column = divmod(index, 2)
-            label_column *= 2
-            ttk.Label(form, text=label + '：', width=9, anchor='e').grid(
-                row=row, column=label_column, sticky='e', padx=(0, SPACING['sm']), pady=SPACING['xs'])
-            editor = TextArea(form, height=1, width=20, wrap='word')
-            editor.insert('1.0', values.get(label, ''))
-            editor.grid(row=row, column=label_column + 1, sticky='ew', padx=(0, SPACING['md']), pady=SPACING['xs'])
-            editors[label] = editor
-        # 统筹锁只在创作信息窗采集；无统筹或统筹未声明 locks 时完全不显示。
-        lock_start = (len(compact) + 1) // 2
-        for offset, lock_def in enumerate(lock_defs):
-            row = lock_start + offset
-            ttk.Label(form, text=lock_def['label'] + '：', width=9, anchor='e').grid(
-                row=row, column=0, sticky='e', padx=(0, SPACING['sm']), pady=SPACING['xs'])
-            value = ttk.Combobox(form, values=lock_def.get('options', ()), state='readonly')
-            value.set(stage_config.workflow_lock(self.root).get(lock_def['key'], ''))
-            value.grid(row=row, column=1, columnspan=3, sticky='ew', padx=(0, SPACING['md']), pady=SPACING['xs'])
-            editors[lock_def['label']] = value
-        detail_start = lock_start + len(lock_defs)
-        ttk.Separator(form, orient='horizontal').grid(row=detail_start, column=0, columnspan=4,
-                                                       sticky='ew', pady=(SPACING['xs'], SPACING['xs']))
-        for offset, label in enumerate(label for label in idea_chat.BRIEF_CREATION_FIELDS if label in tall):
-            row = detail_start + offset + 1
-            ttk.Label(form, text=label + '：', width=9, anchor='ne').grid(
-                row=row, column=0, sticky='ne', padx=(0, SPACING['sm']), pady=SPACING['xs'])
-            editor = TextArea(form, height=2, width=56, wrap='word')
-            editor.insert('1.0', values.get(label, ''))
-            editor.grid(row=row, column=1, columnspan=3, sticky='ew', padx=(0, SPACING['md']), pady=SPACING['xs'])
-            editors[label] = editor
-        win.brief_editors = editors
-        for editor in editors.values():
-            if isinstance(editor, tk.Text):
-                editor.edit_modified(False)
-        def refresh_attachment_fields(latest_reference=None):
-            latest_text = self.draft_text()
-            if latest_reference is None:
-                latest_reference = stage_idea_attachment_reference(
-                    self.root, latest_text, self.idea_attachment_paths)
-            latest = stage_idea_brief_defaults(self.root, reference=latest_reference)
-            updated = idea_chat.brief_creation_values(self.idea_chat_context(), latest_text,
-                                                      attachment_values=latest['values'], extra_labels=extra_labels)
-            for label, editor in editors.items():
-                if (isinstance(editor, tk.Text) and not editor.edit_modified()
-                        and not editor.get('1.0', 'end-1c') and updated.get(label)):
-                    editor.insert('1.0', updated[label])
-                    editor.edit_modified(False)
-        win.refresh_attachment_fields = refresh_attachment_fields
-        def refit(event=None):
-            bounds = canvas.bbox('all')
-            canvas.configure(scrollregion=bounds)
-            canvas.itemconfigure(window_id, width=max(1, canvas.winfo_width()))
-            content_height = (bounds[3] - bounds[1]) if bounds else 0
-            if content_height <= canvas.winfo_height():
-                scroll.grid_remove()
-            else:
-                scroll.grid()
-        form.bind('<Configure>', refit); canvas.bind('<Configure>', refit)
-        def scroll_form(event):
-            delta = -int(event.delta / 120) if event.delta else 0
-            if delta:
-                canvas.yview_scroll(delta, 'units')
-            return 'break'
-        canvas.bind('<MouseWheel>', scroll_form)
-        form.bind('<MouseWheel>', scroll_form)
-        def close():
-            win.close()
-        def save():
-            submitted = {label: (editor.get().strip() if isinstance(editor, ttk.Combobox)
-                                else editor.get('1.0', 'end-1c').strip()) for label, editor in editors.items()}
-            idea_chat.save_brief_creation(self.idea_chat_context(), submitted, gateway=self.idea_chat_gateway())
-            close()
-            self.status.set('创作信息已保存，未发送。')
-        win.add_form_actions('保存', save)
-        protect_readonly_combobox(win)
-        win.after_idle(refit)
 
     def send_message(self):
         """提交创意；显式 API 模型在聊天框内回复，其余仍启动剧本 Agent。"""
@@ -1572,23 +1446,30 @@ class Desktop:
         value=self.draft_text()
         prepared=self.idea_chat_controller.prepare_submission(
             self.root, value, is_example=self.idea_still_the_example())
+        import idea_chat
+        missing = idea_chat.inline_required_missing(self.idea_template, value)
+        if missing:
+            notice = idea_chat.BRIEF_ATTACHMENT_NOTICE + '\n' if prepared and prepared['attachments'].get('brief_unreadable') else ''
+            self.notifier.info(notice + '请先填写：' + '、'.join(missing), modal=True)
+            return
         if prepared is None:
-            self.open_brief_creation_form()
             return
         submission=prepared['submission']
         visible_value=prepared['visible_value']
-        import idea_chat
         import writing_api
         direct_model = writing_api.model_label(self.root)
         if direct_model and self.idea_chat_controller.requesting:
             raise ValueError('模型正在回复，请不要重复发送。')
-        # 先把用户创意交给简报契约：未齐时由本地一次性追问缺项，绝不提前启动模型工作流。
+        # UI 八项门禁通过后仍核验底层四项契约；缺项只提示，不启动模型。
         import stage_config, workflow_settings
         workflow_config = stage_config.current_workflow(self.root)
         preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
         brief = idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
                                         lock_definitions=preset.get('locks', ()), gateway=self.idea_chat_gateway(),
-                                        attachment_reference=prepared['attachments'])
+                                        attachment_reference=prepared['attachments'], inline_text=value)
+        if brief['missing']:
+            self.notifier.info((brief.get('attachment_notice', '') + '\n' + brief['followup']).strip(), modal=True)
+            return
         if brief.get('workflow_projection') is not None:
             stage_config.put_workflow(self.root, brief['workflow_projection'])
         if direct_model:
@@ -1597,26 +1478,20 @@ class Desktop:
         else:
             from workflow_settings import model_name
             model, cleared = model_name(self.root, 'writing'), False
-        if not brief['missing']:
-            self.idea_chat_controller.mark_sent()
-            if not direct_model:
-                # 启动失败不能吞掉用户刚输入的内容；成功启动后才落聊天记录并清空编辑框。
-                try:model, cleared = self.start_script_workflow(submission)
-                except Exception:
-                    self.idea_chat_controller.rollback_sent()
-                    raise
+        self.idea_chat_controller.mark_sent()
+        if not direct_model:
+            # 启动失败不能吞掉用户刚输入的内容；成功启动后才落聊天记录并清空编辑框。
+            try:model, cleared = self.start_script_workflow(submission)
+            except Exception:
+                self.idea_chat_controller.rollback_sent()
+                raise
+        idea_chat.save_brief_creation(self.idea_chat_context(), value, gateway=self.idea_chat_gateway())
         idea_chat.append(self.idea_chat_context(),'user',visible_value,model=model,gateway=self.idea_chat_gateway())
         box.delete('1.0','end')
         self.discard_idea_draft()
         self.idea_attachment_paths=()
         self.update_idea_attachment_status()
         self.show_conversation()
-        if brief['missing']:
-            idea_chat.append(self.idea_chat_context(), 'assistant', brief['followup'], model=model,gateway=self.idea_chat_gateway())
-            self.show_conversation()
-            self.status.set('已保存创意草稿；请补充缺少的信息后再发送。')
-            self.open_brief_creation_form(value, attachment_reference=prepared['attachments'])
-            return
         prefix = '已打开 '+model+' 的独立对话；' if cleared else ''
         if direct_model:
             token, cancelled = self.idea_chat_controller.begin_request(cancellable=True)
@@ -3492,7 +3367,9 @@ class Desktop:
             text=path.read_text(encoding='utf-8-sig') if path.is_file() else ''
         except OSError:
             text=''
-        if not text.strip():text='\n'.join(label+'：' for label in IDEA_FIELDS)+'\n'
+        if not text.strip():
+            from script_contract import INLINE_REQUIRED_LABELS
+            text='\n'.join(label+'：' for label in dict.fromkeys((*IDEA_FIELDS, *INLINE_REQUIRED_LABELS)))+'\n'
         self._idea_example=text
         return text
 
@@ -4293,15 +4170,6 @@ class Desktop:
                                       command=lambda:self.safe(lambda:self.open_folder(project_stages.writing(self.root))))
         open_folder_button.pack(side='right',padx=(SPACING['none'],SPACING['sm']));self.idea_open_folder=open_folder_button
         download_button.pack(side='right',padx=(SPACING['none'],SPACING['xs']))
-        def clear_example(event=None):
-            # 第 45 期：还是那份示例就先清掉——第一笔字是您写的，不是压着示例写。
-            if self.idea_still_the_example():
-                input_box.delete(*self.idea_draft_range());input_box.configure(fg=COLORS['text_primary'])
-        def start_writing(event):
-            printable=bool(event.char and event.char.isprintable() and not (event.state & 0xC))
-            paste=(event.state & 0x4) and event.keysym.lower()=='v'
-            if printable or paste or event.keysym in ('Return','KP_Enter'):
-                clear_example()
         def on_modified(event=None):
             if event is not None and not input_box.edit_modified():return
             self.tint_brief()
@@ -4345,7 +4213,6 @@ class Desktop:
         input_box.bind('<FocusIn>',update_input_hint,add='+')
         input_box.bind('<FocusOut>',restore_composer_after_blur,add='+')
         input_box.bind('<FocusOut>',update_input_hint,add='+')
-        input_box.bind('<KeyPress>',start_writing,add='+')
         input_box.bind('<KeyRelease>',self.show_idea_reference_menu,add='+')
         def send_on_enter(event):
             if event.state & 0x1:return None  # Shift+Enter 保留换行
@@ -4353,10 +4220,17 @@ class Desktop:
             return 'break'
         input_box.bind('<Return>',send_on_enter,add='+')
         input_box.bind('<KP_Enter>',send_on_enter,add='+')
-        input_box.bind('<<Paste>>',clear_example,add='+')
         input_box.bind('<<Modified>>',on_modified)
         box.bind('<Configure>',self.refit_bubbles,add='+')
+        input_box.insert('1.0', self.idea_template)
         self.restore_idea_draft()
+        from script_contract import INLINE_REQUIRED_LABELS
+        input_box.tag_configure('required_hint', foreground=COLORS['text_secondary'])
+        for number, line in enumerate(input_box.get('1.0', 'end-1c').splitlines(), 1):
+            label = re.split('[：:]', line, maxsplit=1)[0].strip()
+            if label in INLINE_REQUIRED_LABELS:
+                input_box.insert(f'{number}.end', '（必填）', ('required_hint',))
+        input_box.after_idle(fit_composer)
         self.tint_brief()
         update_input_hint()
         self.show_conversation()

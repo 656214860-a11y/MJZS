@@ -547,6 +547,8 @@ RHYTHM_TEMPLATE_PATH = 'skills/templates/rhythm_template.yaml'
 # HOLLMWOOD 的输入简报同样由本契约统一命名；创意接收层只负责从用户原话提取并落盘，
 # 不在 idea_chat.py 再复制一套“哪些字段必须有”的判断。
 BRIEF_REQUIRED_FIELDS = ('story_summary', 'main_characters', 'genre', 'length')
+INLINE_REQUIRED_LABELS = ('故事梗概', '故事题材', '故事角色', '故事集数', '单集时间',
+                          '故事画幅', '视频模型', '交付形态')
 BRIEF_RECOMMENDED_FIELDS = ('physical_features',)
 BRIEF_PRODUCTION_LOCKS_FIELD = 'production_locks'
 BRIEF_OPTIONAL_FIELDS = ('special_requirements',)

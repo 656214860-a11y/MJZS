@@ -30,7 +30,7 @@ class IdeaChatController:
         from stage_execution_service import stage_idea_attachment_reference
         attachments = stage_idea_attachment_reference(project, value, self.attachment_paths)
         visible = value.strip()
-        if (not visible and not attachments['context']) or is_example:
+        if not visible and not attachments['context']:
             return None
         submission = visible
         if attachments['context']:
