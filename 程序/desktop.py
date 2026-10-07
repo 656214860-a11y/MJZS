@@ -30,7 +30,7 @@ from idea_chat_controller import IdeaChatController
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
-from ui_widgets import (BaseDialog, BusyState, ContextMenu, DataTable, HintLabel, NotificationDispatcher,
+from ui_widgets import (BaseDialog, BusyState, ContextMenu, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
@@ -726,24 +726,6 @@ class Desktop:
             from idea_chat import strip_inline_required_markers
             return strip_inline_required_markers(box.get(start,end))
         except tk.TclError:return ''
-    def brief_editor_text(self):
-        """上方简报独立于追问；视觉必填标记不进入提交内容。"""
-        box=getattr(self,'idea_brief_editor',None)
-        if box is None or not box.winfo_exists():return ''
-        from idea_chat import strip_inline_required_markers
-        try:return strip_inline_required_markers(box.get('1.0','end-1c'))
-        except tk.TclError:return ''
-    def reset_idea_brief_editor(self, text=None):
-        """建页恢复内存简报；发送成功后恢复可编辑的灰色示例。"""
-        box=self.idea_brief_editor
-        value=self.idea_template if text is None else text
-        box.delete('1.0','end');box.insert('1.0',value)
-        from script_contract import INLINE_REQUIRED_LABELS
-        for number,line in enumerate(value.splitlines(),1):
-            label=re.split('[：:]',line,maxsplit=1)[0].strip()
-            if label in INLINE_REQUIRED_LABELS:
-                box.insert(f'{number}.end','（必填）',('required_hint',))
-        self.tint_brief()
     def preserve_idea_draft(self):
         """翻页重建前把尚未发送的创意留在本次运行内，不写入项目文件。"""
         if not self.root:return
@@ -755,10 +737,6 @@ class Desktop:
         value=self.draft_text()
         if value:drafts[key]=value
         else:drafts.pop(key,None)
-        brief_drafts=getattr(self,'_idea_brief_drafts',None)
-        if brief_drafts is None:self._idea_brief_drafts=brief_drafts={}
-        if self.idea_still_the_example():brief_drafts.pop(key,None)
-        else:brief_drafts[key]=self.brief_editor_text()
     def restore_idea_draft(self):
         """回到剧本准备页时恢复当前项目尚未发送的输入。"""
         box=getattr(self,'idea_input',None)
@@ -766,37 +744,9 @@ class Desktop:
         value=getattr(self,'_idea_drafts',{}).get(str(Path(self.root).resolve()),'')
         if value:
             box.delete('1.0','end');box.insert('1.0',value)
-        brief=getattr(self,'_idea_brief_drafts',{}).get(str(Path(self.root).resolve()))
-        if brief is not None:self.reset_idea_brief_editor(brief)
     def discard_idea_draft(self):
         """内容真正送出后，清除对应的内存草稿。"""
         if self.root:getattr(self,'_idea_drafts',{}).pop(str(Path(self.root).resolve()),None)
-        if self.root:getattr(self,'_idea_brief_drafts',{}).pop(str(Path(self.root).resolve()),None)
-    def idea_still_the_example(self):
-        """框里那一段还是不是程序带的那份示例（不改动就不算您写的字）。"""
-        return self.brief_editor_text().strip()==str(getattr(self,'idea_template','') or '').strip()
-    def tint_brief(self):
-        """正文可就地编辑，示例顶层字段使用统一弱化色。"""
-        box=getattr(self,'idea_brief_editor',None)
-        if box is None or not box.winfo_exists():return
-        start,end='1.0','end-1c'
-        box.configure(fg=COLORS['text_secondary'] if self.idea_still_the_example() else COLORS['text_primary'])
-        box.tag_remove('field_hint',start,end)
-        from idea_chat import inline_template_labels
-        labels = inline_template_labels(self.idea_template)
-        try:first=int(str(box.index(start)).split('.')[0])
-        except (tk.TclError,ValueError):return
-        for offset,line in enumerate(str(box.get(start,end)).splitlines()):
-            head,sep,_rest=line.partition('：')
-            if not sep:head,sep,_rest=line.partition(':')
-            name=head.strip()
-            for label in labels:
-                # 按尾巴认：示例里写「故事人物」，点亮的就是这几个字的字段名。
-                if sep and name.endswith(label):
-                    box.tag_add('field_hint',f'{first+offset}.0',f'{first+offset}.{len(head)+1}')
-                    break
-        try:box.edit_modified(False)
-        except tk.TclError:pass
     def refit_bubbles(self,event=None):
         """第 69 期任务 1：窗口一改宽窄就重算气泡的左右边距——只动边距，
         上面的字和您正在写的那段一个字节都不碰。"""
@@ -1096,52 +1046,7 @@ class Desktop:
             return
         prepared=result['value']
         self.update_idea_attachment_status()
-        self.refresh_idea_brief_from_attachments()
-        self.status.set('已入库 %d 份创意文件；请确认上方创作简报，下方发送框可补充追问。' % len(prepared['names']))
-    def refresh_idea_brief_from_attachments(self):
-        """仅将本轮附件识别值写入空白／示例字段，不覆盖手填内容。"""
-        box=getattr(self,'idea_brief_editor',None)
-        if box is None or not box.winfo_exists():return
-        import idea_chat, workflow_settings
-        from stage_execution_service import stage_idea_attachment_reference
-        labels=idea_chat.inline_template_labels(self.idea_template)
-        locks=tuple(item for preset in workflow_settings.WORKFLOW_PRESETS.values()
-                    for item in preset.get('locks',()))
-        extra_labels=tuple(dict.fromkeys((*labels, *(label for item in locks
-                          for label in (item['label'], *item.get('aliases',()))))))
-        reference=stage_idea_attachment_reference(self.root, self.draft_text(), self.idea_attachment_paths)
-        fields={}
-        for text in reference.get('brief_texts',()):
-            for label,value in idea_chat.extract_brief_creation(
-                    text,extra_labels=extra_labels,include_extra=True).items():
-                fields.setdefault(label,value)
-        for item in locks:
-            aliases=(item['label'], *item.get('aliases',()))
-            target=next((label for label in aliases if label in labels),None)
-            if target is not None:
-                fields[target]=next((fields[label] for label in aliases if fields.get(label)),'')
-        current=self.brief_editor_text()
-        template=idea_chat.extract_brief_creation(self.idea_template,extra_labels=labels,include_extra=True)
-        values=idea_chat.extract_brief_creation(current,extra_labels=labels,include_extra=True)
-        updates={label:fields[label] for label in labels if fields.get(label)
-                 and (not values.get(label) or ''.join(values[label].split()) ==
-                      ''.join(template.get(label,'').split()))}
-        if not updates:return
-        # 用现有标签确定多行字段边界，保留未修改字段、标题和用户自增字段。
-        boundaries=tuple(dict.fromkeys((*labels,*idea_chat.inline_template_labels(current))))
-        pattern=r'^([ \t]*(?:'+ '|'.join(re.escape(label) for label in boundaries)+r')[：:][ \t]*)'
-        matches=list(re.finditer(pattern,current,re.MULTILINE))
-        for index in range(len(matches)-1,-1,-1):
-            match=matches[index]
-            label=re.split('[：:]',match.group(),maxsplit=1)[0].strip()
-            if label not in updates:continue
-            end=matches[index+1].start() if index+1<len(matches) else len(current)
-            old=current[match.end():end]
-            trailing=old[len(old.rstrip('\r\n')):]
-            current=current[:match.end()]+updates.pop(label)+trailing+current[end:]
-        for label,value in updates.items():
-            current=current.rstrip('\n')+'\n'+label+'：'+value+'\n'
-        self.reset_idea_brief_editor(current)
+        self.status.set('已入库 %d 份创意文件；发送时读取附档，下方发送框可补充创作信息。' % len(prepared['names']))
     def insert_idea_reference(self, path):
         """把已入库创意插入编辑框，并标记为本轮显式引用。"""
         box=getattr(self,'idea_input',None)
@@ -1207,21 +1112,18 @@ class Desktop:
         return None
     def start_bubble_edit(self,event,index,name):
         """单击消息正文后直接编辑；不再弹出编辑或删除窗口。"""
-        if not isinstance(index,int) and index != 'example':return 'break'
+        if not isinstance(index,int):return 'break'
         box=event.widget
         if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
         ranges=box.tag_ranges(name)
         if len(ranges)<2:return 'break'
         import idea_chat
-        if index == 'example':
-            rows=[]
-        else:
-            rows=idea_chat.load(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
-            if not isinstance(index,int) or not 0<=index<len(rows):
-                raise ValueError('这条对话已不存在，请刷新后重试')
+        rows=idea_chat.load(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
+        if not 0<=index<len(rows):
+            raise ValueError('这条对话已不存在，请刷新后重试')
         # 折叠的长消息进入编辑时先还原全文，避免只修改预览那几行。
         record=getattr(self,'_bubble_full',{}).get(name,{})
-        original=str(record.get('text') or (rows[index].get('text') if rows else self.idea_example()) or '').strip()
+        original=str(record.get('text') or rows[index].get('text') or '').strip()
         box.configure(state='normal',cursor='xterm')
         box.delete(ranges[0],ranges[-1])
         box.insert(ranges[0],original,name)
@@ -1234,8 +1136,7 @@ class Desktop:
         try:box.mark_set('insert',box.index('@%d,%d'%(event.x,event.y)))
         except tk.TclError:box.mark_set('insert',start)
         box.focus_set()
-        self.status.set('正在直接编辑软件示例；修改仅保留在本次打开期间。' if index == 'example'
-                        else '正在直接编辑消息；只能改气泡正文，删空后点击其他位置即可删除。')
+        self.status.set('正在直接编辑消息；只能改气泡正文，删空后点击其他位置即可删除。')
         return 'break'
     def finish_bubble_edit(self,event=None,commit=True):
         """把当前气泡内的直接编辑同步到对话记录；空内容表示删除该条。"""
@@ -1254,12 +1155,6 @@ class Desktop:
         if value==edit['original']:
             self.show_conversation()
             return 'break'
-        if edit['index'] == 'example':
-            # 软件示例只是可编辑的本次会话提示：绝不伪装成用户消息或写入项目目录。
-            self._idea_example=value or edit['original']
-            self.show_conversation()
-            self.status.set('已修改软件示例（仅本次打开期间有效）')
-            return 'break'
         import idea_chat
         model=self.idea_chat_model()
         if value:idea_chat.replace(self.idea_chat_context(),edit['index'],value,model=model,gateway=self.idea_chat_gateway());notice='已修改这条对话'
@@ -1270,7 +1165,7 @@ class Desktop:
     def add_bubble(self,box,row,index):
         """把一条对话排成微信式左右气泡，并在顶部标出说话者／模型名。"""
         raw_text=str(row.get('text') or '')
-        # 软件示例是可复制、可编辑的参考文本；不能为了普通聊天气泡的排版
+        # 软件示例是只读、可复制的参考文本；不能为了普通聊天气泡的排版
         # ``strip`` 掉它首尾的换行或空格，否则展示内容已不再等于程序提供的示例。
         # 普通消息仍沿用既有的首尾空白清理，避免空白消息生成气泡。
         text=raw_text if index == 'example' else raw_text.strip()
@@ -1286,7 +1181,7 @@ class Desktop:
         model_back, model_meta = self.model_chat_colors(row.get('model'))
         look=dict(justify=align,
                   background='' if example else ('#dff5e3' if mine else model_back),
-                  foreground='#8a96a5' if example else '#243247',
+                  foreground=COLORS['text_secondary'] if example else '#243247',
                   lmargin1=left,lmargin2=left,rmargin=right,
                   spacing1=2,spacing2=1,spacing3=4,font=BUBBLE_FONT,wrap='word')
         # Tk 默认连边距一起刷成气泡色，那样每条都是满屏一条；把两边留白按框底的白走，
@@ -1320,8 +1215,8 @@ class Desktop:
             box.tag_bind(toggle,'<Button-1>',lambda event,b=box,n=name:self.toggle_bubble(b,n))
             box.tag_bind(toggle,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
             box.tag_bind(toggle,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
-        if isinstance(index,int) or example:
-            # 入口留在消息自身：包括无底色软件示例；拖动时仍由原生 Text 选区负责复制。
+        if isinstance(index,int):
+            # 只允许编辑真实消息；只读软件示例仍可拖选复制。
             box.tag_bind(name,'<Button-1>',lambda event,i=index,n=name:self.begin_bubble_click(event,i,n))
             box.tag_bind(name,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
             box.tag_bind(name,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
@@ -1462,6 +1357,14 @@ class Desktop:
                 else:finish()
             idle(append_batch)
         else:
+            from script_contract import INLINE_REQUIRED_LABELS
+            lines=[]
+            for line in self.idea_template.splitlines(keepends=True):
+                body=line.rstrip('\r\n')
+                label=re.split('[：:]',body,maxsplit=1)[0].strip()
+                hint='（必填）' if label in INLINE_REQUIRED_LABELS else ''
+                lines.append(body+hint+line[len(body):])
+            self.add_bubble(box,{'role':'assistant','model':'软件示例','text':''.join(lines)},'example')
             finish()
         # 保持 normal 才能让 Tk 的原生鼠标拖选建立 ``sel`` 标签；只读由
         # guard_bubble_edit_key 控制，避免 disabled 状态吞掉拖选事件。
@@ -1507,11 +1410,8 @@ class Desktop:
         """提交创意；显式 API 模型在聊天框内回复，其余仍启动剧本 Agent。"""
         box=getattr(self,'idea_input',None)
         if box is None or not box.winfo_exists():raise ValueError('这一页还没建好，请重新打开这一页')
-        brief_text=self.brief_editor_text()
-        followup_text=self.draft_text()
-        value=brief_text+('\n\n'+followup_text if followup_text.strip() else '')
-        prepared=self.idea_chat_controller.prepare_submission(
-            self.root, value, is_example=self.idea_still_the_example())
+        value=self.draft_text()
+        prepared=self.idea_chat_controller.prepare_submission(self.root, value, is_example=False)
         import idea_chat
         import stage_config, workflow_settings
         workflow_config = stage_config.current_workflow(self.root)
@@ -1537,7 +1437,7 @@ class Desktop:
                 target = next((label for label in labels if label in idea_chat.INLINE_REQUIRED_LABELS), None)
                 if target is not None:
                     attachment_fields[target] = next((lock_fields[label] for label in labels if lock_fields.get(label)), '')
-        missing = idea_chat.inline_required_missing(self.idea_template, value,
+        missing = idea_chat.inline_required_missing(None, value,
                                                     attachment_fields=attachment_fields)
         if missing:
             notice = idea_chat.BRIEF_ATTACHMENT_NOTICE + '\n' if prepared and prepared['attachments'].get('brief_unreadable') else ''
@@ -1554,8 +1454,7 @@ class Desktop:
         # UI 八项门禁通过后仍核验底层四项契约；缺项只提示，不启动模型。
         brief = idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
                                         lock_definitions=lock_definitions, gateway=self.idea_chat_gateway(),
-                                        attachment_reference=prepared['attachments'], inline_text=value,
-                                        inline_template=self.idea_template)
+                                        attachment_reference=prepared['attachments'], inline_text=value)
         if brief['missing']:
             self.notifier.info((brief.get('attachment_notice', '') + '\n' + brief['followup']).strip(), modal=True)
             return
@@ -1577,7 +1476,6 @@ class Desktop:
         idea_chat.save_brief_creation(self.idea_chat_context(), value, gateway=self.idea_chat_gateway())
         idea_chat.append(self.idea_chat_context(),'user',visible_value,model=model,gateway=self.idea_chat_gateway())
         box.delete('1.0','end')
-        self.reset_idea_brief_editor()
         self.discard_idea_draft()
         self.idea_attachment_paths=()
         self.update_idea_attachment_status()
@@ -1675,8 +1573,6 @@ class Desktop:
             self._script_agent_launching=True
             self.update_script_interrupt_button()
             self.status.set(prefix+'已提交创意并启动剧本 Agent；模型回复完整剧本后可下载保存。')
-        if followup_text.strip():
-            self.status.set(self.status.get()+' 已一并提交追问')
         self.update_script_download_button()
 
     def script_agent_processes(self):
@@ -4195,21 +4091,6 @@ class Desktop:
                 else:stop_input_hint()
             except tk.TclError:pass
         input_box.bind('<Destroy>',lambda event:stop_input_hint() if event.widget is input_box else None,add='+')
-        brief_panel=ttk.Frame(talk);brief_panel.pack(side='top',fill='x')
-        HintLabel(brief_panel,text='创作简报 · 可直接编辑').pack(anchor='w')
-        brief_row=ttk.Frame(brief_panel);brief_row.pack(fill='x')
-        brief_scroll=ttk.Scrollbar(brief_row,orient='vertical')
-        brief_scroll.pack(side='right',fill='y')
-        brief_box=TextArea(brief_row,height=TALK_MIN_LINES,wrap='word',yscrollcommand=brief_scroll.set)
-        brief_box.pack(side='left',fill='x',expand=True)
-        brief_scroll.configure(command=brief_box.yview)
-        self.idea_brief_editor=brief_box
-        brief_box.tag_configure('field_hint',foreground=COLORS['text_secondary'])
-        brief_box.tag_configure('required_hint',foreground=COLORS['text_secondary'])
-        def on_brief_modified(event=None):
-            if brief_box.edit_modified():self.tint_brief()
-        brief_box.bind('<<Modified>>',on_brief_modified)
-        self.reset_idea_brief_editor()
         dialog=ttk.Frame(talk);dialog.pack(side='top',fill='both',expand=True,pady=SPACING['none'])
         dialog_scroll=ttk.Scrollbar(dialog,orient='vertical')
         dialog_scroll.pack(side='right',fill='y')

@@ -566,7 +566,6 @@ class SendMessageTests(_Harness):
     """第 65 期任务 9＋第 69 期任务 1：内容框里写 → 发送 → 气泡按时间往下排；落盘只在定稿那一步。"""
 
     def say(self, d, text):
-        d.idea_brief_editor.delete('1.0', 'end')
         box = d.idea_input
         box.configure(fg='#243247')
         box.delete('1.0', 'end'); box.insert('1.0', text)
@@ -848,10 +847,10 @@ class SendMessageTests(_Harness):
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
-            self.assertEqual(d.brief_editor_text(), d.idea_example(), '上方简报预填示例')
+            self.assertFalse(hasattr(d, 'idea_brief_editor'))
+            self.assertEqual(idea_chat.strip_inline_required_markers(d._bubble_full['bubble_example']['text']), d.idea_example())
             self.assertEqual(d.draft_text(), '', '下方发送框初始为空')
-            self.assertNotIn('模型 · 软件示例', self.log_text(d), '示例不再作为聊天气泡显示')
-            self.assertNotIn(d.idea_example(), self.log_text(d))
+            self.assertIn('模型 · 软件示例', self.log_text(d), '示例只在只读气泡显示')
             with patch.object(d.notifier, 'info') as notice, patch.object(d, 'start_script_workflow') as launch:
                 d.send_message(); win.update()
             launch.assert_not_called()
@@ -869,7 +868,7 @@ class SendMessageTests(_Harness):
                     d, 'start_script_workflow', return_value=('Codex', False)) as launch:
                 d.send_message()
             notice.assert_not_called()
-            launch.assert_called_once_with(d.idea_template + '\n\n' + self.complete_draft())
+            launch.assert_called_once_with(self.complete_draft())
 
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
     def test_local_attachment_send_extracts_without_sending_body(self, _mode):
@@ -923,16 +922,18 @@ class SendMessageTests(_Harness):
             self.assertFalse(idea_chat.brief_raw_path(proj).exists())
             self.assertFalse(hasattr(d, 'open_brief_creation_form'))
 
-    def test_software_example_can_be_selected_and_copied_from_brief_editor(self):
+    def test_software_example_can_be_selected_and_copied_from_readonly_bubble(self):
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
-            d.show(0); win.update()
-            box = d.idea_brief_editor
-            box.tag_add('sel', '1.0', 'end-1c')
+            d.show(0); self.settle_script_page(win)
+            box = d.idea_log
+            start, end = box.tag_ranges('bubble_example')
+            end = box.index(str(end) + '-1c')
+            box.tag_add('sel', start, end)
             box.event_generate('<<Copy>>'); win.update()
-            self.assertEqual(win.clipboard_get(), box.get('1.0', 'end-1c'))
+            self.assertEqual(win.clipboard_get(), box.get(start, end))
             self.assertEqual(idea_chat.strip_inline_required_markers(win.clipboard_get()), d.idea_example())
-            self.assertFalse(d.idea_log.tag_ranges('bubble_example'))
+            self.assertTrue(d.idea_log.tag_ranges('bubble_example'))
 
     @patch('stage_execution_service.idea_attachment_local_mode', new=lambda _project: False)
     def test_text_attachment_is_visible_and_submitted_to_the_workflow(self):

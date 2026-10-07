@@ -1081,9 +1081,8 @@ class UiEdgeTests(unittest.TestCase):
             self.assertIn(IDEA_FIELDS[0], example, "示例里要有字段名，灰色字段名那一层才认得出")
             self.assertEqual(example, d.idea_example(), "读一次就记着，不反复读盘")
             self.assertEqual(d.draft_text(), '', "下方发送框初始为空")
-            self.assertEqual(d.brief_editor_text(), example, "示例完整显示在上方编辑框")
-            self.assertNotIn(example, d.idea_log.get("1.0", "end-1c"),
-                             "软件示例不再显示为聊天气泡")
+            self.assertEqual(idea_chat.strip_inline_required_markers(d._bubble_full['bubble_example']['text']), example)
+            self.assertTrue(d.idea_log.tag_ranges('bubble_example'), "软件示例显示为只读气泡")
             brief_path = d.brief_editor[0]
             self.assertFalse(list((proj / "writing").glob("创意与剧本*.md")), "一个字都没落盘")
             with self.assertRaises(ValueError):
@@ -4985,24 +4984,25 @@ class BriefTintTests(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
         return path
 
-    def test_the_fresh_example_is_shown_in_the_brief_editor(self):
+    def test_the_fresh_example_is_shown_in_readonly_bubble(self):
         win, d = self.build()
         self.assertEqual(d.draft_text(), '', "发送框初始空白")
-        self.assertEqual(d.brief_editor_text(), d.idea_example())
-        self.assertNotIn(d.idea_example(), str(d.idea_log.get("1.0", "end-1c")))
+        self.assertEqual(idea_chat.strip_inline_required_markers(d._bubble_full['bubble_example']['text']), d.idea_example())
+        self.assertFalse(hasattr(d, 'idea_brief_editor'))
         self.assertEqual(str(d.idea_log.cget("state")), "normal", "聊天正文需要支持直接选择与编辑")
 
-    def test_software_example_is_gray_without_a_bubble_and_is_directly_editable(self):
-        """软件示例是可改的提示文本，不应带模型回复的色块或落入项目对话。"""
+    def test_software_example_is_gray_readonly_and_has_no_edit_entry(self):
+        """软件示例只供参考，可复制但不能编辑或落入项目对话。"""
         from ui_tokens import COLORS
         win, d = self.build()
-        box = d.idea_brief_editor
+        box = d.idea_log
         original_draft = d.draft_text()
-        self.assertFalse(d.idea_log.tag_ranges('bubble_example'))
-        self.assertEqual(str(box.cget("fg")), COLORS['text_secondary'])
-        box.insert("end-1c", "\n我的示例补充"); win.update()
-        self.assertIn("我的示例补充", d.brief_editor_text())
-        self.assertNotIn("我的示例补充", d.idea_example())
+        self.assertTrue(box.tag_ranges('bubble_example'))
+        self.assertEqual(box.tag_cget('bubble_example', 'foreground'), COLORS['text_secondary'])
+        self.assertFalse(box.tk.call(box._w, 'tag', 'bind', 'bubble_example', '<Button-1>'))
+        self.assertEqual(d.start_bubble_edit(None, 'example', 'bubble_example'), 'break')
+        self.assertFalse(getattr(d, '_bubble_edit', None))
+        self.assertEqual(idea_chat.strip_inline_required_markers(d._bubble_full['bubble_example']['text']), d.idea_example())
         self.assertEqual(d.draft_text(), original_draft)
 
     def test_a_legacy_saved_example_does_not_repopulate_the_send_box(self):
@@ -5012,7 +5012,7 @@ class BriefTintTests(unittest.TestCase):
         d.show(0)
         win.update()
         self.assertEqual(d.draft_text(), '')
-        self.assertEqual(d.brief_editor_text(), d.idea_example())
+        self.assertEqual(idea_chat.strip_inline_required_markers(d._bubble_full['bubble_example']['text']), d.idea_example())
 
     def test_the_users_own_words_show_up_on_the_display(self):
         """第 65 期任务 9：上次存下的那份创意，显示在上面那格对话展示框里。"""

@@ -492,12 +492,13 @@ class DesktopStartupPerfTests(unittest.TestCase):
                     desktop.show_conversation()
                 while time.perf_counter() - started < CHAT_FIRST_TEXT_SECONDS:
                         window.update()
-                        if desktop.brief_editor_text().strip():
+                        if desktop.idea_log.tag_ranges('bubble_example'):
                             break
                         time.sleep(.01)
-                self.assertEqual(desktop.brief_editor_text(), desktop.idea_template)
+                from idea_chat import strip_inline_required_markers
+                self.assertEqual(strip_inline_required_markers(desktop._bubble_full['bubble_example']['text']), desktop.idea_template)
                 self.assertEqual(desktop.draft_text(), '')
-                self.assertEqual(str(desktop.idea_log.get('1.0', 'end-1c')).strip(), '')
+                self.assertFalse(hasattr(desktop, 'idea_brief_editor'))
                 self.assertLessEqual(time.perf_counter() - started, CHAT_FIRST_TEXT_SECONDS)
         finally:
             if desktop is not None:
