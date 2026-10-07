@@ -4079,7 +4079,7 @@ class Desktop:
                 ['!disabled'] if selected else ['disabled']))
         self.idea_uploaded_table.pack(side='left',fill='x',expand=True)
         self.update_idea_attachment_status()
-        input_hint=ttk.Label(composer,text='调用模型将创建导演、编剧、编辑、演员四个角色自动进行剧本创作，可在阶段配置中修改规则',style='Muted.TLabel')
+        input_hint=ttk.Label(composer,text='可在阶段配置中修改模型和SKILL',style='Muted.TLabel')
         self.idea_input_hint=input_hint
         def stop_input_hint():
             input_hint.place_forget()
