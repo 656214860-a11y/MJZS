@@ -426,8 +426,8 @@ def is_master_checkout():
 
 
 def full_safe_required(latest_round, last_full_round, master_checkout):
-    """三轮计数只属于主干提交序列，worktree 分支不产生全量欠账。"""
-    return bool(master_checkout and latest_round - last_full_round >= 3)
+    """五轮计数只属于主干提交序列，worktree 分支不产生全量欠账。"""
+    return bool(master_checkout and latest_round - last_full_round >= 5)
 
 
 def participating_full_safe_run(round_number):

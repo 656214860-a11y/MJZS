@@ -300,8 +300,10 @@ class IncrementalTests(unittest.TestCase):
                 load.assert_not_called()
 
     def test_full_safe_counter_only_applies_to_master(self):
-        self.assertTrue(run_selftests.full_safe_required(858, 855, True))
-        self.assertFalse(run_selftests.full_safe_required(858, 855, False))
+        for delta in (0, 3, 4, 5, 6):
+            with self.subTest(delta=delta):
+                self.assertEqual(run_selftests.full_safe_required(855 + delta, 855, True), delta >= 5)
+                self.assertFalse(run_selftests.full_safe_required(855 + delta, 855, False))
 
     def test_full_safe_lock_rejects_active_holder_and_releases(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -53,8 +53,8 @@ class RoundBaselineTests(unittest.TestCase):
         invalid = [heading for heading in headings if INVALID_TYPE_HEADING.search(heading)]
         self.assertEqual(invalid, [], '轮次标题或状态摘要不得把“执行”写成独立轮次类型')
 
-    def test_full_safe_all_is_required_every_three_rounds(self) -> None:
-        """仅主干提交序列每三轮要求一次完整安全全量。"""
+    def test_full_safe_all_is_required_every_five_rounds(self) -> None:
+        """仅主干提交序列每五轮要求一次完整安全全量。"""
         latest = _latest_result_number()
         baseline = run_selftests.load_layer_document()
         last_full = baseline['last_full_safe_all_round']

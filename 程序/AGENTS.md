@@ -337,14 +337,14 @@
 | 改动活跃逻辑     | `python smoke_test.py --affected <模块名>` | 只跑受影响测试模块，例如 `--affected idea_chat workflow` |
 | 需要增量回归     | `python smoke_test.py --gate`           | 按台账串行执行改动过的测试文件                              |
 | 结构治理轮      | `python smoke_test.py --architecture`   | 运行下列全部架构门禁；不只限于分层/循环/路径/删除                   |
-| master 提交点：本轮号 − `last_full_safe_all_round` ≥ 3／路线图条目收口 | `run_selftests.py --all --safe` | 完整安全回归；分支不累计轮次欠账 |
+| master 提交点：本轮号 − `last_full_safe_all_round` ≥ 5／路线图条目收口 | `run_selftests.py --all --safe` | 完整安全回归；分支不累计轮次欠账 |
 | 发布前／用户明确要求 | `run_selftests.py --all --safe`         | 完整安全回归；不通过先修复                                |
 
 | 收尾时 | 核对 §2.5 轮次、认领与实际欠账 | 不伪造轮次或凭据；失败按 §8 继续处理 |
 
-纯服务或小拆分另跑 `run_selftests.py -k <本轮改动模块>`；文档整理跑文档一致性回归。跨层改动仍须架构门禁，不以全量自检替代。
+纯服务或小拆分另跑 `run_selftests.py -k <本轮改动模块>`；文档整理跑文档一致性回归。跨层改动仍须覆盖架构门禁；运行全量时按下述去重规则执行。
 
-合并到 master 前的当次全量升级条件：启动路径（`启动漫剧制作助手.pyw`／`启动助手.cmd`）、Tk 控件生命周期或事件绑定、删除语义（`storage_maintenance.py`）、层级登记表（`tests/architecture/_layers.py`）改动。仅替换 `desktop.py` 的注入点且未改变 Tk 生命周期或事件绑定，不单独触发升级。
+合并到 master 前的当次全量升级条件：启动路径（`启动漫剧制作助手.pyw`／`启动助手.cmd`）、Tk 控件生命周期（销毁/重建，不含普通事件绑定）、删除语义（`storage_maintenance.py`）、层级登记表（`tests/architecture/_layers.py`）改动。仅替换 `desktop.py` 的注入点且未改变 Tk 控件生命周期，不单独触发升级。
 
 全量成功凭据记录 `{tree, round, seconds, at}`，由现有执行器写入 common-dir 的 `full-safe-receipts.json`；七日内同 `HEAD:程序` 内容树可复用真实绿凭据。不得以文档数字代替或伪造凭据。当前实测与历史绿色记录分开列于 `project_status.md` 的“验证基线”；失败处置见 §8，检查点提交见 §2.6。
 
@@ -367,6 +367,9 @@
 - JSON／服务／统筹补充：`test_confirm_gates_json_boundary.py`、`test_context_menu_boundary.py`、`test_data_table_boundary.py`、`test_dialog_boundary.py`、`test_button_boundary.py`、`test_file_dialog_boundary.py`、`test_idea_attachment_publication_boundary.py`、`test_input_boundary.py`、`test_json_io_boundary.py`、`test_keyframe_batch_json_boundary.py`、`test_local_previs_json_boundary.py`、`test_notification_boundary.py`、`test_previs_automation_json_boundary.py`、`test_previs_batch_json_boundary.py`、`test_previs_monitor_json_boundary.py`、`test_project_context_boundary.py`、`test_service_return_contract.py`、`test_shortcut_registry_boundary.py`、`test_skill_orchestrator_json_boundary.py`、`test_stage_display_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_text_component_boundary.py`、`test_tooltip_boundary.py`、`test_ui_icons_boundary.py`、`test_scrollbar_theme_boundary.py`、`test_copy_entry_boundary.py`、`test_unification_ratchet.py`、`test_video_navigation_json_boundary.py`、`test_white_model_json_boundary.py`、`test_white_model_service_json_boundary.py`、`test_workflow_settings_json_boundary.py`、`test_writing_api_json_boundary.py`、`test_writing_publication_boundary.py`。
 
 新增或删除架构测试时，必须在同一轮更新以上清单、架构基线和结果报告；不得只更新测试而遗漏本入口说明。
+
+- 架构门禁去重：跑 `run_selftests.py --all --safe` 的那一轮，`--all` 已含架构门禁，不再单独跑 `smoke_test.py --architecture`；只跑架构门禁的轮次不变。
+- 失败复验走增量：全量失败后，先用 `--affected`／`-k` 在定向层面修到绿，再复验全量；禁止把全量当排错工具反复兜底。
 
 ---
 
