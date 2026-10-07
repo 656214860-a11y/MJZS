@@ -1,10 +1,13 @@
 {
  "architecture": {
-  "elapsed_seconds": 34.022,
+  "elapsed_seconds": null,
   "failed_modules": [],
-  "test_count": 308,
+  "full_safe_elapsed_seconds": 416.6,
+  "measurement_scope": "included_in_full_safe",
+  "test_count": 309,
   "unit_count": 104,
-  "updated_at": "2026-10-08T01:06:02"
+  "updated_at": "2026-10-08T04:47:24",
+  "verification": "R1122 master 9af286a; no separate architecture run"
  },
  "full_safe_verified_trees": [
   {
