@@ -1245,6 +1245,12 @@
                 "point": "190",
                 "disposition": "exempt",
                 "reason": "SKILL \u81ea\u5e26\u811a\u672c"
+            },
+            {
+                "file": "skill_notes.py",
+                "point": "167",
+                "disposition": "exempt",
+                "reason": "R1125：解析模型返回的译文 JSON 字符串数组，不是文件读取；说明缓存与词表仍复用 file_cache.read_json。"
             }
         ]
     },
