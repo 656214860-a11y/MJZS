@@ -266,7 +266,7 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
             'usage': {}, 'script_raw_path': str(target), 'hollmwood_enabled': True}
 
 
-def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish=None):
+def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish=None, cancelled=None):
     """执行受控文件工具；只有连续重复的同一请求才暂停。"""
     messages = [{'role': 'user', 'content': task}]
     options = {'max_tokens': CLAUDE_VISIBLE_OUTPUT_TOKENS, 'tools': writing_tools.definitions(), 'cache_ttl': '1h'}
@@ -274,11 +274,14 @@ def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish
     repeats = 0
     continued_internal_reply = False
     continued_empty_reply = False
+    publish = _cancellable_publisher(publish, cancelled)
     while True:
+        _ensure_reply_active(cancelled)
         rejected = _context_budget_error(chosen, system, messages)
         if rejected:
             return rejected
         result = adapter.chat(messages, options=options, model=chosen, system=system)
+        _ensure_reply_active(cancelled)
         _record_model_diagnostic(project, result, purpose='tool_chat')
         if not result.get('ok'):
             return result
@@ -318,6 +321,7 @@ def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish
         previous_batch = batch
         tool_results = []
         for use in uses:
+            _ensure_reply_active(cancelled)
             try:
                 output = writing_tools.execute(project, use.get('name'), use.get('input'), publish=publish)
                 if read_only_repeat:
@@ -334,6 +338,7 @@ def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish
 
 def reply(project, creative, progress=None, cancelled=None, stream=None, *, publish=None):
     """以剧本工作流的上下文、SKILL 和用户创意请求一次 API 回复。"""
+    _ensure_reply_active(cancelled)
     root = Path(project)
     chosen, record = selected_model(root)
     if not chosen:
@@ -358,6 +363,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
                                 progress=progress, cancelled=cancelled, stream=stream, publish=publish)
     from workflow_context_controller import publish_writing_context
     from project_context_factory import project_context
+    _ensure_reply_active(cancelled)
     context = publish_writing_context(root, 'writing', workflow_context.snapshot(project_context(root)))
     task = script_prompt(root, None, 'writing', creative_text=creative)
     if brief is not None:
@@ -374,13 +380,32 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
         system += ('\n\n本次已接入受控剧本文件工具。需要读取项目内容时先列出再读取剧本文档或项目接续 JSON；'
                    '本轮成果只能写入当前项目的 writing/。资产清单属于后续资产阶段，本阶段不读取、不写入、也不报告其为空。'
                    '仅当同一文件操作连续重复且没有新进展时才暂停。')
-        result = _reply_with_project_tools(adapter, chosen, system, task, root, publish=publish)
-        return _auto_save_script_raw(root, result, publish=publish) if auto_save_enabled else result
+        result = _reply_with_project_tools(adapter, chosen, system, task, root, publish=publish, cancelled=cancelled)
+        _ensure_reply_active(cancelled)
+        return _auto_save_script_raw(root, result, publish=_cancellable_publisher(publish, cancelled)) if auto_save_enabled else result
     messages = [{'role': 'user', 'content': task}]
     rejected = _context_budget_error(chosen, system, messages)
     if rejected:
         return rejected
+    _ensure_reply_active(cancelled)
     result = adapter.chat(messages, options={'max_tokens': 4096},
                           model=chosen, system=system)
+    _ensure_reply_active(cancelled)
     _record_model_diagnostic(root, result)
-    return _auto_save_script_raw(root, result, publish=publish) if auto_save_enabled else result
+    return _auto_save_script_raw(root, result, publish=_cancellable_publisher(publish, cancelled)) if auto_save_enabled else result
+
+
+def _ensure_reply_active(cancelled):
+    if callable(cancelled) and cancelled():
+        from hollmwood_roles import RoleCancelledError
+        raise RoleCancelledError('剧本调用已取消')
+
+
+def _cancellable_publisher(publish, cancelled):
+    """在最后的发布调用边界再检查，阻止校验期间取消的旧请求写入。"""
+    if not callable(publish) or not callable(cancelled):
+        return publish
+    def guarded(*args, **kwargs):
+        _ensure_reply_active(cancelled)
+        return publish(*args, **kwargs)
+    return guarded
