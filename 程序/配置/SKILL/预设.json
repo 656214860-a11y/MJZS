@@ -15,7 +15,7 @@
         "skills": []
       },
       "测试模型": {
-        "model": "deepseek-v4-flash",
+        "model": "deepseek-v4-pro-0813",
         "skills": [
           "screenplay-production-line"
         ]
