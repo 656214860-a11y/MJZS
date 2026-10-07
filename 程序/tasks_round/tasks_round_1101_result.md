@@ -1,8 +1,8 @@
 # R1101 简报编辑区与追问输入分离
 
 - 类型：功能轮；生产逻辑仅改 desktop.py，既有门禁与附件提取保持不变。
-- 实跑：最终定向/UI 360/360、独立架构 308/308、受影响冒烟 9/9、默认冒烟 8/8；全量未运行。架构基线 308，无增减。
-- 欠账：本轮有 Tk 控件与事件绑定变化，需在干净 master 完成安全全量，不借用 R1100 凭据。
+- 实跑：最终定向/UI 360/360、独立架构 308/308、受影响冒烟 9/9、默认冒烟 8/8；安全全量 4128 条、383.7 秒，1 条失败。架构基线 308，无增减。
+- 阻塞：范围外启动性能测试仍要求空聊天区显示软件示例，与本轮删除示例气泡的契约冲突，需授权迁移该测试；不借用 R1100 凭据。
 
 ## 实现与边界
 
@@ -33,7 +33,7 @@ idea_chat.py、script_contract.py、skill_panel.py、默认创意示例.md 未�
 | run_selftests.py --layer architecture --all | 308/308，24.7 秒 | R1101-architecture-all.log |
 | smoke_test.py --affected idea_chat workflow | 9/9 | R1101-smoke-affected.log |
 | smoke_test.py | 8/8 | R1101-smoke-default.log |
-| run_selftests.py --all --safe | 未运行 | R1101-full-safe.log |
+| run_selftests.py --all --safe | 4128 条、383.7 秒，1 条失败；干净 master 检查点 233b3ce | R1101-full-safe.log |
 
 首次直接 unittest 未设置项目测试导入路径，因 skip_reasons 导入失败退出；随后改用仓库执行器得到真实失败先行证据，不把导入错误视作功能验证。
 
@@ -45,4 +45,6 @@ idea_chat.py、script_contract.py、skill_panel.py、默认创意示例.md 未�
 
 凭据扫描：新增源码/测试的常见 API key、AWS、GitHub token、私钥头形态零命中；git diff --check 通过。队列 validate 0 errors、1 条历史租约警告，未修改他人租约。自审确认三个禁止改动的生产模块均无差异；无新增反向依赖，必填/未落盘断言保留，仅按新契约迁移已删除的示例气泡行为。
 
-完整安全回归待收尾。尚未提交；本文件为进行中检查点，不标 TASK_COMPLETE。
+[TASK_BLOCKED] 实现检查点 233b3ce 已提交，但未通过完整验收。唯一失败为 tests/test_desktop_startup_perf.py:498 的 test_real_project_chat_shows_independent_content_before_model_key：旧断言要求 idea_log 非空，注释明确指软件示例；本轮要求空会话不再产生该气泡。该文件不在三个指定测试文件中，尚未改动。最小授权：将此用例的首屏可见内容检查迁至 idea_brief_editor，保持原时间阈值断言，并检查下方输入为空、无示例气泡；随后重跑失败项与完整安全回归。不以恢复气泡或弱化性能阈值绕过失败。全量期间另有 Tk after 回调清理警告，执行器未将其归类为失败。
+
+工作保留在隔离树 assistant-slim-apply 的 master；用户主目录仍在 codex/r1101-workspace-hold，未加载未验收实现，原配置与未跟踪资料保持。收到上述最小授权后继续本轮，不领取新号。完成后再恢复主目录 master。
