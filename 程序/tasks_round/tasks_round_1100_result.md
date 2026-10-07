@@ -1,8 +1,8 @@
 # R1100 附档补齐内联简报门禁
 
 - 类型：修复轮，仅增量修复 R1099 的附件采集，不重做界面。
-- 实跑：定向 241/241、独立架构 308/308（历史基线 308，无增减）、受影响 smoke 9/9、默认 smoke 8/8。完整安全全量尚待执行，当前为检查点，不是完成。
-- 欠账：本轮到达 R1097 后第三轮，须取得 master 实跑全量凭据；未提前宣称清账。
+- 实跑：定向 241/241、独立架构 308/308（历史基线 308，无增减）、受影响 smoke 9/9、默认 smoke 8/8，完整安全全量 4124/4124。
+- 欠账：master 执行器已写入 R1100 正式全量凭据，本轮到期的全量欠账已闭环；历史其他待办不在本轮处理。
 
 ## 改动与证据
 
@@ -24,7 +24,9 @@
 | run_selftests.py --layer architecture --all | 308/308 | R1100-architecture-final.log |
 | smoke_test.py --affected idea_chat workflow | 9/9 | R1100-smoke-affected.log |
 | smoke_test.py | 8/8 | R1100-smoke-default.log |
-| run_selftests.py --all --safe | 待执行 | R1100-full-safe.log |
+| run_selftests.py --all --safe | 4124/4124，447.831 秒，ALL TESTS PASSED | R1100-full-safe.log |
+
+完整安全回归在干净 master 检查点 `4a8d8f3` 执行。中央真实凭据 round=1100、tree=`c8b8902486cad4ea3bec84d26368bda118cbc4f7`、at=2026-10-07T21:30:56；随后只回填报告、状态和接力，不冒称最终文档树同树全量。Tk after 的 greet/run 回调输出非失败警告，执行器最终 0 个文件有红。
 
 ## 未运行与边界
 
@@ -32,4 +34,10 @@
 
 ## 收尾
 
-中央领取 R1100，无对应队列 ID；状态下一轮 1101。检查点待提交、全量未完成，暂不标 TASK_COMPLETE。不推送远端。
+中央领取 R1100，无对应队列 ID；状态下一轮 1101，满足 N=M+1。队列 validate 为 0 errors、1 条历史 architecture-unfreeze-1-2 租约警告，未改写他人租约。
+
+凭据扫描：本轮新增源码/测试中常见 API key、AWS、GitHub token、私钥头形态零命中；git diff --check 通过，精确暂存清单不含用户数据/运行日志。该有限扫描不是全路径安全保证。
+
+自审通过：请求验收齐备、仅两个生产模块增量修改、无新反向依赖、既有断言完整、附件正文仍限于提取器。实现检查点已提交 `4a8d8f3`，完成文档提交以 Git 的 `R1100: 完成附档补齐内联简报验收` 回执为准，不推送远端。主目录用户预设哈希收尾复核，真实应用需要重启加载新代码。
+
+[TASK_COMPLETE]
