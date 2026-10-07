@@ -812,7 +812,7 @@ class Desktop:
         return preview.rstrip()+'…',True
     def model_name(self,row):
         if str(row.get('role'))=='user':return '您'
-        return '模型 · '+str(row.get('model') or 'AI 助手').strip()
+        return '对话AI · '+str(row.get('model') or 'AI 助手').strip()
     def toggle_bubble(self,box,name):
         """点击“展开全文／收起”只改当前气泡的正文，不重建输入区。"""
         record=getattr(self,'_bubble_full',{}).get(name)
@@ -1364,7 +1364,7 @@ class Desktop:
                 label=re.split('[：:]',body,maxsplit=1)[0].strip()
                 hint='（必填）' if label in INLINE_REQUIRED_LABELS else ''
                 lines.append(body+hint+line[len(body):])
-            self.add_bubble(box,{'role':'assistant','model':'软件示例','text':''.join(lines)},'example')
+            self.add_bubble(box,{'role':'assistant','model':'示例模板','text':''.join(lines)},'example')
             finish()
         # 保持 normal 才能让 Tk 的原生鼠标拖选建立 ``sel`` 标签；只读由
         # guard_bubble_edit_key 控制，避免 disabled 状态吞掉拖选事件。
@@ -4039,7 +4039,7 @@ class Desktop:
         brief=idea_chat.default_brief_document(self.idea_chat_context())
         self.idea_template=self.idea_example()
         # 聊天记录与发送框分离：记录可滚动，发送框固定停在聊天区域底部。
-        talk=ttk.LabelFrame(self.content,text='对话AI',padding=(SPACING['xs'],SPACING['none']))
+        talk=ttk.Frame(self.content,style='Box.TFrame',padding=(SPACING['xs'],SPACING['none']))
         # 标题、聊天框与左侧内容起点同高；不在标题下额外留出一档空白。
         talk.pack(fill='both',expand=True,pady=SPACING['none'])
         # 第 69 期任务 2：「发送」挪到创意框左下角；第 69 期任务 3：文件操作挪到右下角。

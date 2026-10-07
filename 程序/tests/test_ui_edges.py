@@ -1053,7 +1053,9 @@ class UiEdgeTests(unittest.TestCase):
                     walk_text(child)
             walk_text(d.content)
             joined = "\n".join(texts)
-            self.assertIn("对话AI", texts, "对话区标题应使用当前简洁文案")
+            self.assertNotIn("对话AI", texts, "独立标题应移除，让聊天框上移")
+            self.assertEqual(d.idea_log.master.master.winfo_class(), "TFrame",
+                             "使用无标题容器，避免 LabelFrame 保留标题行高度")
             self.assertIn("输入想法→点击发送", texts, "输入区提示应使用当前简洁文案")
             for gone in ("当前剧本目录", "创作入口", "文件操作",
                          "在下面的对话框写想法", "对话框（在这里写"):
