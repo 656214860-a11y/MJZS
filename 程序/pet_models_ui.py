@@ -14,7 +14,7 @@ from tkinter import ttk
 
 import model_pool
 from ui_tokens import FONTS, SPACING
-from ui_widgets import BaseDialog, Card, DataTable, LineInput, PrimaryButton, SecondaryButton
+from ui_widgets import SelectBox, BaseDialog, Card, DataTable, LineInput, PrimaryButton, SecondaryButton
 
 TITLE = '三虎 · 设置'
 SETTINGS_TITLE = '三虎模型配置'          # 第 46 期第 6 条：这一页与它的独立窗口都叫这个名字
@@ -182,7 +182,7 @@ def settings_page(parent, pet, close=None, with_manager=True):
                                                      records, labeler=workflow_settings.desktop_model_label))
         picked[key] = var
         ttk.Label(body, text=label).grid(row=row, column=0, sticky='w', padx=(0, SPACING['md']), pady=(SPACING['xs'], 0))
-        ttk.Combobox(body, textvariable=var, values=values, state='readonly', width=28).grid(
+        SelectBox(body, textvariable=var, values=values).grid(
             row=row, column=1, sticky='w', pady=(SPACING['xs'], 0))
         state = ttk.Label(body, text='', style='Muted.TLabel', wraplength=280)
         state.grid(row=row, column=2, sticky='w', padx=(SPACING['md'], 0), pady=(SPACING['xs'], 0))
@@ -302,7 +302,7 @@ def open_manager(pet):
     # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
     # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
     # 挑现成的，或者直接敲一个名字；存的就是填进去的那个名字。
-    provider_box = ttk.Combobox(form, textvariable=provider, state='normal',
+    provider_box = SelectBox(form, textvariable=provider, state='normal',
                                 values=[label for _value, label in model_pool.PROVIDERS])
     provider_box.grid(row=index, column=1, sticky='ew', pady=SPACING['xs'])
     def match_wire(event=None):
@@ -332,7 +332,7 @@ def open_manager(pet):
     index += 1
     index = text_row(index, 'model', '模型 ID')
     ttk.Label(form, text='协议').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
-    ttk.Combobox(form, textvariable=wire, state='readonly',
+    SelectBox(form, textvariable=wire,
                  values=[label for _value, label in model_pool.WIRE_APIS]).grid(
         row=index, column=1, sticky='w', pady=SPACING['xs'])
     index += 1

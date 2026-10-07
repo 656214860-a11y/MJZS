@@ -33,7 +33,7 @@ import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json
 from storage_maintenance import recycle_paths
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import (BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
+from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
                         TextArea,
                         SecondaryButton, Tooltip, ask_confirmation, notify)
 from ui_dialogs import FileDialog
@@ -678,12 +678,12 @@ class Panel(ttk.Frame):
         row = ttk.Frame(self)
         row.pack(fill='x', pady=(0, section_gap))
         ttk.Label(row, text='预设', style='Muted.TLabel', width=label_width).pack(side='left')
-        self.presets = ttk.Combobox(row, textvariable=self.preset, state='readonly', width=14,
+        self.presets = SelectBox(row, textvariable=self.preset,
                                     values=[PRESET_PLACEHOLDER] + self.preset_names())
         self.presets.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
         self.presets.bind('<<ComboboxSelected>>', lambda event: self.apply_preset())
-        self.preset_actions = ttk.Combobox(
-            row, textvariable=self.preset_action, state='readonly', width=12,
+        self.preset_actions = SelectBox(
+            row, textvariable=self.preset_action,
             values=['选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'])
         self.preset_actions.pack(side='left', padx=(0, SPACING['xs']))
         self.preset_actions.bind('<<ComboboxSelected>>', lambda event: self.run_preset_action())
@@ -701,14 +701,13 @@ class Panel(ttk.Frame):
         top = ttk.Frame(engine)
         top.pack(fill='x')
         ttk.Label(top, text='厂商', style='Muted.TLabel', width=label_width).pack(side='left')
-        self.providers = ttk.Combobox(top, textvariable=self.provider, state='readonly', width=14,
+        self.providers = SelectBox(top, textvariable=self.provider,
                                       values=list(self.groups))
         self.providers.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
         self.providers.bind('<<ComboboxSelected>>', lambda event: self.choose_provider())
         # 第 50 期第 1 条：最后一项是「+ 添加模型…」——原来那颗「手动配置模型与
         # SKILL」里的「自定义模型」入口，现在就在挑模型的那一格旁边。
-        self.models = ttk.Combobox(top, textvariable=self.model, state='readonly',
-                                   width=14,
+        self.models = SelectBox(top, textvariable=self.model,
                                    values=self.provider_labels() + [ADD_MODEL_LABEL])
         self.models.pack(side='left', padx=(SPACING['xs'], 0))
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
@@ -749,8 +748,8 @@ class Panel(ttk.Frame):
         ttk.Label(row, text='HOLLMWOOD', style='Muted.TLabel').pack(side='left')
         ttk.Checkbutton(row, text='四角色协作', variable=self.hollmwood_enabled_var).pack(
             side='left', padx=(SPACING['xs'], SPACING['sm']))
-        self.hollmwood_editor = ttk.Combobox(
-            row, textvariable=self.hollmwood_editor_choice, state='readonly', width=18,
+        self.hollmwood_editor = SelectBox(
+            row, textvariable=self.hollmwood_editor_choice,
             values=['选择要编辑的内容', '节奏模板', '导演规则', '编剧规则', '编辑规则', '演员规则'])
         self.hollmwood_editor.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         self.hollmwood_editor.bind('<<ComboboxSelected>>', lambda event: self.choose_hollmwood_editor())
@@ -835,7 +834,7 @@ class Panel(ttk.Frame):
         row.pack(fill='x')
         ttk.Label(row, text='统筹 SKILL', style='Muted.TLabel', width=10).pack(side='left')
         names = list(workflow_settings.WORKFLOW_PRESETS) + ['浏览本地…', '不使用统筹']
-        self.workflow_box = ttk.Combobox(row, textvariable=self.workflow_choice, state='readonly', width=18, values=names)
+        self.workflow_box = SelectBox(row, textvariable=self.workflow_choice, values=names)
         self.workflow_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
         self.workflow_summary = ProgressLabel(row, text='制作锁')
@@ -950,8 +949,8 @@ class Panel(ttk.Frame):
         self.flow_skill_label = ttk.Label(self.skill_action_row, text='SKILL', style='Muted.TLabel', width=10)
         self.flow_skill_label.pack(side='left')
         self.skill_action = tk.StringVar(value='请选择')
-        action = ttk.Combobox(self.skill_action_row, textvariable=self.skill_action,
-                              values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE), state='readonly', width=12)
+        action = SelectBox(self.skill_action_row, textvariable=self.skill_action,
+                              values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE))
         action.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         action.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
         # 外部包的引擎说明从独占行收进 SKILL 操作行，保持表单行高与上方栏一致。
@@ -1174,7 +1173,7 @@ class Panel(ttk.Frame):
     def choose_provider(self):
         """先选供应商，再在右侧只显示该供应商的具体模型。"""
         labels = self.provider_labels()
-        self.models.configure(values=labels + [ADD_MODEL_LABEL])
+        self.models.set_values(labels + [ADD_MODEL_LABEL])
         if labels:
             self.model.set(labels[0])
             self._picked = labels[0]
@@ -1208,7 +1207,7 @@ class Panel(ttk.Frame):
             for model_id, label in options:
                 if model_id == wanted:
                     self.provider.set(provider)
-                    self.models.configure(values=[item_label for _item_id, item_label in options] + [ADD_MODEL_LABEL])
+                    self.models.set_values([item_label for _item_id, item_label in options] + [ADD_MODEL_LABEL])
                     self.model.set(label)
                     self._picked = label
                     return wanted
@@ -1217,9 +1216,9 @@ class Panel(ttk.Frame):
         # 用户手写的本地模型尚未登记到模型池时，不替用户丢掉配置。
         provider = '自定义'
         self.groups.setdefault(provider, []).append((wanted, wanted))
-        self.providers.configure(values=list(self.groups))
+        self.providers.set_values(list(self.groups))
         self.provider.set(provider)
-        self.models.configure(values=[wanted, ADD_MODEL_LABEL])
+        self.models.set_values([wanted, ADD_MODEL_LABEL])
         self.model.set(wanted)
         self._picked = wanted
         return wanted
@@ -1387,7 +1386,7 @@ class Panel(ttk.Frame):
         self.choices = model_choices(self.desktop, self.stage)
         self.labels = [label for _model_id, label in self.choices]
         self.groups = grouped_model_choices(self.desktop, self.stage)
-        self.providers.configure(values=list(self.groups))
+        self.providers.set_values(list(self.groups))
         kept = [model_id for model_id, _label in self.choices if model_id == current]
         self.set_model(kept[0] if kept else model_router.AUTO)
         self.refresh_external_package_hint()
@@ -1571,7 +1570,7 @@ class Panel(ttk.Frame):
         预设，或者删完了还选着它）。
         """
         names = self.preset_names()
-        self.presets.configure(values=[PRESET_PLACEHOLDER] + names)
+        self.presets.set_values([PRESET_PLACEHOLDER] + names)
         self.preset.set(picked if picked in names else PRESET_PLACEHOLDER)
         return names
 

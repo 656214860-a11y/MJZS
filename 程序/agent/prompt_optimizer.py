@@ -9,7 +9,7 @@ from .core import read,save,fingerprint
 from api_models import records,remember,remove,label as model_label,identity
 from .shot_assets import assets
 import tk_timers
-from ui_widgets import (BaseDialog, Card, DescriptionBlock, LineInput, PrimaryButton,
+from ui_widgets import (SelectBox, BaseDialog, Card, DescriptionBlock, LineInput, PrimaryButton,
                         SecondaryButton, ask_confirmation, notify)
 
 ROOT=Path(__file__).resolve().parent.parent
@@ -56,7 +56,7 @@ def settings(app):
 
     choice=tk.StringVar(value=name_for(cfg.get('base_url','')))
     ttk.Label(body,text='文本模型服务商').grid(row=0,column=0,sticky='w',padx=12,pady=10)
-    selector=ttk.Combobox(body,textvariable=choice,values=interface_names(),state='readonly')
+    selector=SelectBox(body,textvariable=choice,values=interface_names())
     selector.grid(row=0,column=1,sticky='ew',padx=12)
     defaults={'base_url':'https://api.deepseek.com/v1','model':'',
               'python':str(HOME/'venv/Scripts/python.exe'),
@@ -97,11 +97,11 @@ def settings(app):
     selector.bind('<<ComboboxSelected>>',select_provider)
     ttk.Label(body,text='已保存模型').grid(row=6,column=0,sticky='w',padx=12,pady=8)
     saved_model=tk.StringVar()
-    model_picker=ttk.Combobox(body,textvariable=saved_model,state='readonly')
+    model_picker=SelectBox(body,textvariable=saved_model)
     model_picker.grid(row=6,column=1,sticky='ew',padx=12)
     def refresh_models():
-        model_picker.configure(values=[model_label(r) for r in records(cfg)])
-        selector.configure(values=interface_names())      # 加／删过接口，下拉跟着变（第 45 期）
+        model_picker.set_values([model_label(r) for r in records(cfg)])
+        selector.set_values(interface_names())      # 加／删过接口，下拉跟着变（第 45 期）
         saved_model.set('')
     def choose_model(event=None):
         record=next((r for r in records(cfg) if model_label(r)==saved_model.get()),None)

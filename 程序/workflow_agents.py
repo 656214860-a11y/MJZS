@@ -42,13 +42,14 @@ def refresh(desktop):
 def selector(desktop,parent,stage,function=None):
     import tkinter as tk
     from tkinter import ttk
+    from ui_widgets import SelectBox
     project=desktop.root
     box=ttk.Frame(parent);box.pack(side='left',padx=(0,4))
     model=tk.StringVar();skill=tk.StringVar()
     ttk.Label(box,text='模型').pack(side='left',padx=(4,3))
-    models=ttk.Combobox(box,textvariable=model,state='readonly',width=12);models.pack(side='left')
+    models=SelectBox(box,textvariable=model);models.pack(side='left')
     ttk.Label(box,text='Skill').pack(side='left',padx=(7,3))
-    skills=ttk.Combobox(box,textvariable=skill,state='readonly',width=9);skills.pack(side='left')
+    skills=SelectBox(box,textvariable=skill);skills.pack(side='left')
     model_choices={};skill_choices={}
     def update():
         nonlocal model_choices,skill_choices
@@ -58,7 +59,7 @@ def selector(desktop,parent,stage,function=None):
             name=cfg['profiles'][engine].get('model','').strip() or engine_name
             while name in model_choices:name+=' · '+engine_name
             model_choices[name]=engine
-        models.configure(values=list(model_choices))
+        models.set_values(list(model_choices))
         model.set(next(k for k,v in model_choices.items() if v==cfg['engine']))
         profile=cfg['profiles'][cfg['engine']]
         paths=[profile['skill'],'',*[str(preset_skill(folder)) for _,folder in SKILL_PRESETS if folder in FLOW_SKILLS[stage] and preset_skill(folder).is_file()]]
@@ -68,7 +69,7 @@ def selector(desktop,parent,stage,function=None):
             if name=='自定义 Skill':name='自定义'
             while name in skill_choices:name+=' *'
             skill_choices[name]=path
-        skills.configure(values=list(skill_choices));skill.set(next(k for k,v in skill_choices.items() if v==profile['skill']))
+        skills.set_values(list(skill_choices));skill.set(next(k for k,v in skill_choices.items() if v==profile['skill']))
     def close_settings():
         key=(str(Path(project).resolve()),stage)
         dialog=getattr(desktop,'_flow_settings_dialogs',{}).get(key)

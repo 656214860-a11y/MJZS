@@ -15,7 +15,7 @@ from keyframe_batch import frame_prompt
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
                                        KEYFRAME_MODELS)
-from ui_widgets import (BaseDialog, DataTable, LineInput, PrimaryButton, SecondaryButton,
+from ui_widgets import (SelectBox, BaseDialog, DataTable, LineInput, PrimaryButton, SecondaryButton,
                         TextArea, ask_confirmation, notify)
 
 CONFIG_FILE = Path(__file__).with_name('batch_frames_tool') / 'config.json'
@@ -373,7 +373,7 @@ def show(app, source, initial=None):
     selector = ttk.Label(model_box, textvariable=model, anchor='w')
     selector.grid(row=0, column=1, sticky='w')
     ttk.Label(model_box, text='画幅').grid(row=0, column=2, padx=(12, 4))
-    shape = ttk.Combobox(model_box, textvariable=aspect, values=list(ASPECTS), state='disabled', width=8)
+    shape = SelectBox(model_box, textvariable=aspect, values=list(ASPECTS), state='disabled', width=8)
     shape.grid(row=0, column=3, padx=4)
     hint = tk.StringVar()
     ttk.Label(model_box, textvariable=hint, wraplength=800, justify='left').grid(row=1, column=0, columnspan=4, sticky='w', pady=8)
@@ -420,12 +420,12 @@ def show(app, source, initial=None):
     local_box = ttk.LabelFrame(form, text='ComfyUI 连接与模型接口', padding=8)
     local_box.columnconfigure(1, weight=1)
     ttk.Label(local_box, text='图片格式').grid(row=0, column=0, sticky='w', padx=4, pady=2)
-    ttk.Combobox(local_box, textvariable=ratio, values=list(FORMATS), state='readonly', width=16).grid(row=0, column=1, sticky='w', padx=4)
+    SelectBox(local_box, textvariable=ratio, values=list(FORMATS)).grid(row=0, column=1, sticky='w', padx=4)
     fields = {}
     for index, (key, label, variable) in enumerate(
             [('url', '本机地址', url), ('model', '图像模型', model_name), ('text_encoder', '文本编码器', encoder), ('vae', 'VAE', vae)], start=1):
         ttk.Label(local_box, text=label).grid(row=index, column=0, sticky='w', padx=4, pady=2)
-        field = LineInput(local_box, textvariable=variable) if key == 'url' else ttk.Combobox(local_box, textvariable=variable)
+        field = LineInput(local_box, textvariable=variable) if key == 'url' else SelectBox(local_box, textvariable=variable, state='normal')
         field.grid(row=index, column=1, sticky='ew', padx=4)
         fields[key] = field
     PrimaryButton(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=1, column=2, padx=6)

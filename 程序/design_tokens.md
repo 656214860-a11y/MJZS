@@ -50,11 +50,13 @@
 
 ## 下拉框（Combobox）
 
-下拉框的视觉由 `ui_widgets.setup_styles(root)` 一次性应用；业务页面不得自行指定颜色、字体、边框或内边距。`combobox.width` 是未显式宽度的控件默认字符宽度，内容确有特殊长度需求时可以显式覆盖宽度，但仍必须继承其余视觉 token。
+下拉框的视觉由 `ui_widgets.setup_styles(root)` 一次性应用；业务页面不得自行指定颜色、字体、边框或内边距。业务页统一使用 `SelectBox`：只读选项按 ASCII=1、CJK=2 估算最长宽度，封顶 28；空选项及可编辑框默认宽度 15。布局需要时可显式覆盖宽度。弹出列表默认最多 12 行，超出由原生滚动条承载。
 
 | Token | 值 | 用途 |
 | --- | --- | --- |
-| `combobox.width` | 15 字符 | 未显式设置宽度的默认值 |
+| `combobox.width` | 15 字符 | 空选项及可编辑框的默认宽度 |
+| `COMBOBOX_MAX_WIDTH` | 28 字符 | 只读框自适应宽度上限 |
+| `COMBOBOX_POPDOWN_HEIGHT` | 12 行 | 弹出列表默认最大行数 |
 | `combobox.font` | `font.body` | 输入区和下拉列表文字 |
 | `combobox.padding` | `space.sm` × `space.xs` | 字段水平／垂直内边距 |
 | `combobox.field.background` | `color.background.card` | 可编辑与只读字段背景 |

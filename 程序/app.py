@@ -21,7 +21,7 @@ import asset_thumbs
 import ui_plugin_registry
 from platform_tools import open_path
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import (BaseDialog, Card, ContextMenu, DataTable, LineInput, NotificationDispatcher,
+from ui_widgets import (SelectBox, BaseDialog, Card, ContextMenu, DataTable, LineInput, NotificationDispatcher,
                         ask_confirmation,
                         PrimaryButton, SecondaryButton, TextArea)
 from ui_dialogs import FileDialog
@@ -630,7 +630,7 @@ class App:
         brief.bind('<FocusOut>',brief_blur,add='+')
         show_example()
         row=ttk.Frame(win);row.pack(fill='x',padx=12,pady=8)
-        stage=ttk.Combobox(row,values=STAGES,state='readonly',width=25);stage.current(0);stage.pack(side='left')
+        stage=SelectBox(row,values=STAGES);stage.current(0);stage.pack(side='left')
         ttk.Label(row,text='目标秒数：').pack(side='left',padx=8);duration=LineInput(row,width=8);duration.insert(0,'40');duration.pack(side='left')
         def generate():
             try:

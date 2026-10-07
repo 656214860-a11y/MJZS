@@ -4,7 +4,7 @@ import webbrowser
 from tkinter import ttk
 import seedream_api as api
 import tk_timers
-from ui_widgets import (Card, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel,
+from ui_widgets import (SelectBox, Card, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
 from ui_widgets import BaseDialog
 
@@ -44,12 +44,12 @@ def show(parent,on_saved=None):
     DescriptionBlock(body,text='模型 ID 填写火山控制台已开通的实际值，也支持推理接入点 ID。\n支持纯提示词或最多 10 张分类参考图；每项生成一张，批量顺序执行。',wraplength=690).grid(row=4,column=0,columnspan=3,sticky='w',pady=8)
     ttk.Label(body,text='已保存模型').grid(row=5,column=0,sticky='w')
     selected=tk.StringVar();choices={}
-    dropdown=ttk.Combobox(body,textvariable=selected,state='readonly');dropdown.grid(row=5,column=1,sticky='ew',pady=6)
+    dropdown=SelectBox(body,textvariable=selected);dropdown.grid(row=5,column=1,sticky='ew',pady=6)
     def refresh():
         choices.clear()
         for key,value in api.read_settings().get('profiles',{}).items():
             if not value.get('retired'):choices[value['model']+' · '+key[:6]]=key
-        dropdown.configure(values=list(choices))
+        dropdown.set_values(list(choices))
         selected.set(next((label for label,key in choices.items() if key==current[0]),''))
     def choose(event=None):
         if selected.get() in choices:fill(choices[selected.get()])

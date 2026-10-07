@@ -13,7 +13,7 @@ from cell_hover import bind_row_menu
 import asset_thumbs
 from cell_hover import CellHover,CellImages,ZOOM_SIZE
 from responsive_ui import row_height_for
-from ui_widgets import (BaseDialog, DataTable, DescriptionBlock, PrimaryButton,
+from ui_widgets import (SelectBox, BaseDialog, DataTable, DescriptionBlock, PrimaryButton,
                         ProgressLabel, SecondaryButton, TextArea)
 
 REF_THUMB=asset_thumbs.DEFAULT_SIZE          # 缩略图长边：与资产页那一列同尺寸
@@ -384,13 +384,13 @@ def show(app,aid):
     ttk.Label(rolebar,text='参考用途').pack(side='left')
     choices=ROLE_GROUPS[aid.split('_')[0]]
     rolevar=tk.StringVar(value=choices[0])
-    ttk.Combobox(rolebar,textvariable=rolevar,values=choices,state='readonly',width=18).pack(side='left',padx=6)
+    SelectBox(rolebar,textvariable=rolevar,values=choices).pack(side='left',padx=6)
     def change_roles():
         guard();set_roles(base,aid,selected_values(),rolevar.get());changed()
     SecondaryButton(rolebar,text='应用到选中参考图',command=lambda:app.safe(change_roles)).pack(side='left')
     ttk.Label(rolebar,text='显示分类').pack(side='left',padx=(12,0))
     filtervar=tk.StringVar(value='全部')
-    filterbox=ttk.Combobox(rolebar,textvariable=filtervar,values=('全部',*choices,'待分类'),state='readonly',width=16)
+    filterbox=SelectBox(rolebar,textvariable=filtervar,values=('全部',*choices,'待分类'))
     filterbox.pack(side='left',padx=4)
     table_shell=DataTable(win,columns=[('file','已绑定参考图',600),('role','参考用途',110)],
                           show='headings',selectmode='extended',height=5,
@@ -481,7 +481,7 @@ def view_references(app, aid):
     bar=FlowBar(win);bar.pack(fill='x',padx=12,pady=(0,4))
     ttk.Label(bar,text='显示分类').pack(side='left')
     filtervar=tk.StringVar(value='全部')
-    filterbox=ttk.Combobox(bar,textvariable=filtervar,values=('全部',*roles,'待分类'),state='readonly',width=14)
+    filterbox=SelectBox(bar,textvariable=filtervar,values=('全部',*roles,'待分类'))
     filterbox.pack(side='left',padx=(6,0))
     ttk.Label(bar,text='参考图按类目归档；改类目请用「导入参考图」里的「参考分类」。',style='Muted.TLabel').pack(side='left',padx=(10,0))
     # 第 57 期第 4 条：「分类」右边就是这一张参考图的缩略图——原来只有路径，看不出来是哪张。

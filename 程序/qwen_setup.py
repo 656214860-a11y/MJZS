@@ -8,7 +8,7 @@ from tkinter import ttk
 from api_models import records,remember,remove,label,identity
 from agent.core import save
 import tk_timers
-from ui_widgets import (Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
+from ui_widgets import (SelectBox, Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
                         ProgressLabel, SecondaryButton, ask_confirmation, notify)
 
 def settings_path():return Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'漫剧制作助手'/'qwen-api.json'
@@ -111,10 +111,10 @@ def show(parent,on_saved=None):
     cfg=load()
     ttk.Label(body,text='已保存模型').grid(row=6,column=0,sticky='w',pady=6)
     preset=tk.StringVar()
-    chooser=ttk.Combobox(body,textvariable=preset,state='readonly')
+    chooser=SelectBox(body,textvariable=preset)
     chooser.grid(row=6,column=1,sticky='ew')
     def refresh_models():
-        chooser.configure(values=[label(r) for r in records(cfg)])
+        chooser.set_values([label(r) for r in records(cfg)])
         selected=next((r for r in records(cfg) if identity(r['base_url'],r['model'])==identity(vars['base_url'].get(),vars['model'].get())),None)
         preset.set(label(selected) if selected else '')
     def choose(event=None):

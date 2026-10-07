@@ -307,7 +307,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
 def attach_controls(app, win, form, footer, project, base, selection, status, reload_rows, context_matches):
     import tkinter as tk
     from tkinter import ttk, messagebox
-    from ui_widgets import PrimaryButton, ProgressLabel, SecondaryButton, notify
+    from ui_widgets import SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
     from responsive_ui import FlowBar
     progress_text=tk.StringVar()
     events=queue.Queue()
@@ -318,9 +318,9 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
     config=ttk.LabelFrame(form,text='生图模型',padding=10);config.pack(fill='x',padx=14,pady=10)
     config.columnconfigure(1,weight=1)
     ttk.Label(config,text='模型').grid(row=0,column=0,sticky='w',padx=(0,8))
-    selector=ttk.Combobox(config,textvariable=model,values=MODELS,state='readonly');selector.grid(row=0,column=1,sticky='ew',padx=4)
+    selector=SelectBox(config,textvariable=model,values=MODELS);selector.grid(row=0,column=1,sticky='ew',padx=4)
     ttk.Label(config,text='画幅').grid(row=0,column=2,padx=(12,4))
-    shape=ttk.Combobox(config,textvariable=aspect,values=['1:1','9:16','16:9'],state='readonly',width=8);shape.grid(row=0,column=3,padx=4)
+    shape=SelectBox(config,textvariable=aspect,values=['1:1','9:16','16:9']);shape.grid(row=0,column=3,padx=4)
     hint=tk.StringVar();account_text=tk.StringVar(value='云模型账号 / 密钥')
     ProgressLabel(config,textvariable=hint,wraplength=730).grid(row=1,column=0,columnspan=4,sticky='w',pady=8)
     def update_hint():

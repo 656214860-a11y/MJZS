@@ -347,6 +347,7 @@ def source_selector(app,index):
     """Downstream pages share one focus control while keeping every adopted file."""
     import tkinter as tk
     from tkinter import ttk
+    from ui_widgets import SelectBox
     sources=adopted(app.root)
     if not sources:return
     from storyboard_source_service import source_options
@@ -361,7 +362,7 @@ def source_selector(app,index):
         return source_options(adopted(app.root),app.asset_scope(),app.current_frame_json())[2]
     line=ttk.Frame(row);line.pack(fill='x',pady=3)
     ttk.Label(line,text='选择分镜').pack(side='left',padx=(0,8))
-    combo=ttk.Combobox(line,values=labels,state='readonly',width=1)
+    combo=SelectBox(line,values=labels,width=1)
     combo.pack(side='left',fill='x',expand=True)
     combo.current(current_index)
     def guard_wheel(event):

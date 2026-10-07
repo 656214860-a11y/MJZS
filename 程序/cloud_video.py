@@ -5,7 +5,7 @@ from tkinter import ttk,messagebox
 import webbrowser
 from pathlib import Path
 from ui_tokens import SPACING
-from ui_widgets import Card, BaseDialog, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation, notify
+from ui_widgets import SelectBox, Card, BaseDialog, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation, notify
 from agent.core import read
 from api_models import identity,cloud_removed
 
@@ -52,11 +52,11 @@ def settings_window(desktop):
     selected_provider=provider_label(remembered)
     provider=tk.StringVar(value=selected_provider)
     ttk.Label(body,text='接口协议 / 服务商').grid(row=0,column=0,padx=SPACING['md'],pady=SPACING['md'],sticky='w')
-    choice=ttk.Combobox(body,textvariable=provider,values=list(PROVIDERS),state='readonly');choice.grid(row=0,column=1,sticky='ew',padx=SPACING['md'])
+    choice=SelectBox(body,textvariable=provider,values=list(PROVIDERS));choice.grid(row=0,column=1,sticky='ew',padx=SPACING['md'])
     entries={}
     for row,(key,label) in enumerate([('base','API根地址'),('model','模型ID'),('key','API Key（留空保留同地址密钥）'),('budget','本地累计调用上限（秒）')],1):
         ttk.Label(body,text=label).grid(row=row,column=0,padx=SPACING['md'],pady=SPACING['md'],sticky='w')
-        field=ttk.Combobox(body) if key=='model' else LineInput(body)
+        field=SelectBox(body, state='normal') if key=='model' else LineInput(body)
         if key=='key':field.configure(show='•')
         field.grid(row=row,column=1,padx=SPACING['md'],sticky='ew');entries[key]=field
     entries['budget'].insert(0,'60')

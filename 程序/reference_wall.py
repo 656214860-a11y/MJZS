@@ -14,7 +14,7 @@ from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, notify
+from ui_widgets import SelectBox, BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, notify
 
 
 def rows(candidates, asset, threshold=search.DEFAULT_THRESHOLD, limit=search.DEFAULT_LIMIT):
@@ -54,10 +54,10 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
     body = Card(win, padding=12); body.pack(fill='both', expand=True)
     tools = ttk.Frame(body); tools.pack(fill='x')
     ttk.Label(tools, text='资产').pack(side='left')
-    asset_box = ttk.Combobox(tools, state='readonly', width=24, values=list(labels)); asset_box.pack(side='left', padx=(4, 10))
+    asset_box = SelectBox(tools, values=list(labels)); asset_box.pack(side='left', padx=(4, 10))
     asset_box.set(next((text for text, key in labels.items() if key == aid), next(iter(labels), '')))
     ttk.Label(tools, text='参考用途').pack(side='left')
-    role_box = ttk.Combobox(tools, state='readonly', width=14); role_box.pack(side='left', padx=(4, 10))
+    role_box = SelectBox(tools); role_box.pack(side='left', padx=(4, 10))
     ttk.Label(tools, text='打分阈值').pack(side='left')
     threshold_box = ttk.Spinbox(tools, from_=0, to=100, width=5); threshold_box.set(search.DEFAULT_THRESHOLD)
     threshold_box.pack(side='left', padx=(4, 10))
@@ -92,7 +92,7 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
 
     def asset_changed(event=None):
         roles = ROLE_GROUPS.get(str(labels.get(asset_box.get()) or '').split('_')[0], ())
-        role_box.configure(values=list(roles))
+        role_box.set_values(list(roles))
         if roles:
             role_box.set(roles[0])
         reload()

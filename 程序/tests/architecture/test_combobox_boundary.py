@@ -33,3 +33,20 @@ class ComboboxBoundaryTests(unittest.TestCase):
         self.assertEqual(violations, [],
                          '业务页不得覆盖 TCombobox 视觉，统一由 setup_styles 定义：'
                          + '; '.join(violations))
+
+    def test_business_pages_create_comboboxes_through_select_box(self):
+        violations = []
+        excluded = {'tests', '维护记录', '附加工具', 'batch_frames_tool',
+                    'tasks_round', '__pycache__', '.git'}
+        for path in ROOT.rglob('*.py'):
+            relative = path.relative_to(ROOT)
+            if path.name == 'ui_widgets.py' or excluded.intersection(relative.parts):
+                continue
+            tree = parse(path)
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                        and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == 'ttk' and node.func.attr == 'Combobox'):
+                    violations.append(f'{relative}:{node.lineno}')
+        self.assertEqual(violations, [],
+                         '业务页必须通过 SelectBox 创建下拉框：' + '; '.join(violations))

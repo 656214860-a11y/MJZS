@@ -4,7 +4,8 @@ from tkinter import messagebox, ttk
 
 from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_FIELD_BACKGROUND,
                        COMBOBOX_FONT, COMBOBOX_FOREGROUND, COMBOBOX_PADDING,
-                       COMBOBOX_WIDTH, FONTS, SPACING, TEXT_DESC, TEXT_HINT,
+                       COMBOBOX_WIDTH, COMBOBOX_POPDOWN_HEIGHT, COMBOBOX_MAX_WIDTH,
+                       FONTS, SPACING, TEXT_DESC, TEXT_HINT,
                        TEXT_PROGRESS, DIALOG_ACTION_GAP, DIALOG_ACTION_HEIGHT,
                        DIALOG_CONTENT_PADDING, DIALOG_TITLE_FONT,
                        TOOLTIP_BACKGROUND, TOOLTIP_BORDER, TOOLTIP_BORDER_WIDTH, TOOLTIP_DELAY_MS,
@@ -212,6 +213,39 @@ class DataTable(ttk.Frame):
         for index, (_value, item) in enumerate(rows):
             self.tree.move(item, "", index)
         self._sort_descending[column] = not descending
+
+
+def _display_width(value):
+    """全角按 2 计、ASCII 按 1 计，近似下拉框可视宽度。"""
+    return sum(2 if ord(ch) > 0x2E80 else 1 for ch in str(value))
+
+
+class SelectBox(ttk.Combobox):
+    """统一下拉框：只读默认、自适应宽度封顶、弹出高度受限。
+
+    保持 Combobox 的 textvariable/current/get 语义。
+    """
+
+    def __init__(self, master=None, *, values=(), height=COMBOBOX_POPDOWN_HEIGHT,
+                 width=None, state="readonly", **kwargs):
+        _styles(master)
+        values = tuple(values)
+        if width is None:
+            width = self._fit_width(values) if state == "readonly" else COMBOBOX_WIDTH
+        super().__init__(master, values=values, height=height, width=width,
+                         state=state, **kwargs)
+
+    @staticmethod
+    def _fit_width(values):
+        if not values:
+            return COMBOBOX_WIDTH
+        return min(COMBOBOX_MAX_WIDTH, max(_display_width(v) for v in values))
+
+    def set_values(self, values, *, refit=True):
+        values = tuple(values)
+        self.configure(values=values)
+        if refit and "readonly" in self.state():
+            self.configure(width=self._fit_width(values))
 
 
 class LineInput(ttk.Entry):

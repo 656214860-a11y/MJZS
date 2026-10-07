@@ -7,7 +7,7 @@ from file_cache import read_json
 from storyboard_paths import project_root
 import white_model_service as _service
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, notify
+from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, notify
 
 TOOLS = (
     ('打开 LensBlock 白模工作台', 'https://ilcaretz.github.io/lensblock/'),
@@ -36,7 +36,7 @@ def choose_previs(desktop):
     body = Card(picker); body.pack(fill='both', expand=True, padx=16, pady=16)
     ttk.Label(body, text='选择要制作白模预演的镜头：').pack(anchor='w', pady=(0,8))
     selected = tk.StringVar(value=ids[0])
-    choice = ttk.Combobox(body, textvariable=selected, values=ids, state='readonly')
+    choice = SelectBox(body, textvariable=selected, values=ids)
     choice.pack(fill='x')
     def enter():
         try:open_previs(desktop,selected.get())

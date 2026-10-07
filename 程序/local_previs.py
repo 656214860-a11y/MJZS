@@ -13,7 +13,7 @@ from platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
                            work_rows, work_hint, view_row)
 from ui_tokens import COLORS, SPACING
-from ui_widgets import BaseDialog, Card, DataTable, DescriptionBlock, PrimaryButton, ProgressLabel, SecondaryButton, TextArea, notify
+from ui_widgets import SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, PrimaryButton, ProgressLabel, SecondaryButton, TextArea, notify
 
 def engine_name(project):
     """当前白模引擎名：读得出来就写进口径，读不出来退回空串。
@@ -40,7 +40,7 @@ def online_window(desktop, source, ids):
     body = Card(win, padding=SPACING['lg']); body.pack(fill='both', expand=True)
     DescriptionBlock(body, text='按分镜简化制作 → 导出预演视频 → 导入对应镜头', wraplength=680).pack(anchor='w')
     selected = tk.StringVar(value=next(iter(shots)))
-    combo = ttk.Combobox(body, textvariable=selected, values=list(shots), state='readonly'); combo.pack(
+    combo = SelectBox(body, textvariable=selected, values=list(shots)); combo.pack(
         fill='x', pady=SPACING['sm']
     )
     text = TextArea(body, wrap='word', height=12); text.pack(fill='both', expand=True)
@@ -151,7 +151,7 @@ def show(desktop):
     ttk.Label(level_row,text='选中镜头的复杂度').pack(side='left')
     choices={'自动判断':'auto',**{name:key for key,name in previs_routing.LEVELS.items()}}
     chosen_level=tk.StringVar(value='自动判断')
-    level_box=ttk.Combobox(level_row,values=list(choices),textvariable=chosen_level,state='readonly',width=18);level_box.pack(
+    level_box=SelectBox(level_row,values=list(choices),textvariable=chosen_level);level_box.pack(
         side='left', padx=SPACING['sm']
     )
     reason=tk.StringVar(value='点击一个镜头查看判断依据')

@@ -12,7 +12,7 @@ from responsive_ui import FlowBar, scroll_form
 from platform_tools import open_target
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
+from ui_widgets import SelectBox, BaseDialog, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
 from asset_batch_service import (
     KINDS, asset_prompt as _asset_prompt, register_image as _register_image,
     image_ready as _image_ready, batch_complete as _batch_complete,
@@ -233,7 +233,7 @@ def show(app,engine="comfy",selected_ids=None):
     SecondaryButton(chooser,text='阶段配置',
                     command=lambda:app.safe(lambda:ui_plugin_registry.module('skill_panel').show(app,'assets'))).pack(side='left',padx=SPACING['xs'])
     ttk.Label(chooser,text='云模型画幅').pack(side='left',padx=(SPACING['sm'],SPACING['none']))
-    ttk.Combobox(chooser,textvariable=aspect,values=['1:1','9:16','16:9'],state='readonly',width=7).pack(side='left',padx=SPACING['xs'])
+    SelectBox(chooser,textvariable=aspect,values=['1:1','9:16','16:9']).pack(side='left',padx=SPACING['xs'])
     SecondaryButton(chooser,text='云模型设置',command=lambda:app.safe(lambda:cloud_settings(win))).pack(side='left',padx=SPACING['xs'])
     def open_midjourney():
         open_target('https://www.midjourney.com/create')
@@ -245,7 +245,7 @@ def show(app,engine="comfy",selected_ids=None):
         return controller.options({key:value.get() for key,value in values.items()}, current_model(project), aspect.get(), quality.get())
     for i,(key,label) in enumerate([('url','本机地址'),('model','基础模型'),('workflow','API 工作流（可选）'),('node','提示词节点编号'),('field','提示词字段')]):
         ttk.Label(config,text=label).grid(row=i,column=0,sticky='w',padx=SPACING['xs'],pady=SPACING['xs'])
-        field=ttk.Combobox(config,textvariable=values[key]) if key=='model' else LineInput(config,textvariable=values[key])
+        field=SelectBox(config,textvariable=values[key], state='normal') if key=='model' else LineInput(config,textvariable=values[key])
         field.grid(row=i,column=1,sticky='ew',padx=SPACING['xs'])
         if key=='model':modelbox=field
     def model_key():

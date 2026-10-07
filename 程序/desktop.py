@@ -30,7 +30,7 @@ from idea_chat_controller import IdeaChatController
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
-from ui_widgets import (BaseDialog, FormDialog, BusyState, ContextMenu, DataTable, NotificationDispatcher,
+from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMenu, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
@@ -6137,7 +6137,7 @@ class Desktop:
             side='left', padx=(SPACING['none'], SPACING['sm'])
         )
         available_shots={iid:shot for iid,shot,_item,_bse,_one in rows}
-        target=ttk.Combobox(target_row,state='readonly',width=19,values=list(available_shots));target.pack(
+        target=SelectBox(target_row,values=list(available_shots));target.pack(
             side='left', padx=(SPACING['none'], SPACING['sm'])
         )
         if available_shots:target.current(0)
@@ -6220,7 +6220,7 @@ class Desktop:
                 file_text=Path(shot['frame']).name if present else '—'
                 table.insert('','end',iid=iid,text='',image=self.win._tick_images[int(checked[iid])],values=(shot['id'],shot['title'],shot['duration'],state,file_text,frame_prompt(shot).replace('\n',' ') or '待补齐首帧提示词'),tags=('completed',) if present else ())
             available_shots.clear();available_shots.update({row[0]:row[1] for row in rows})
-            target.configure(values=list(available_shots))
+            target.set_values(list(available_shots))
             fit_frame_columns()
             # 第 53 期第 5 条：行重建之后格子全挪了位，缩略图那一层跟着重排一次。
             images=getattr(table,'cell_images',None)
