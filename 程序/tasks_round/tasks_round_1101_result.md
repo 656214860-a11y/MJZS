@@ -1,8 +1,8 @@
 # R1101 简报编辑区与追问输入分离
 
 - 类型：功能轮；生产逻辑仅改 desktop.py，既有门禁与附件提取保持不变。
-- 实跑：最终定向/UI 360/360、独立架构 308/308、受影响冒烟 9/9、默认冒烟 8/8；安全全量 4128 条、383.7 秒，1 条失败。架构基线 308，无增减。
-- 阻塞：范围外启动性能测试仍要求空聊天区显示软件示例，与本轮删除示例气泡的契约冲突，需授权迁移该测试；不借用 R1100 凭据。
+- 实跑：最终定向/UI 360/360、独立架构 308/308、受影响冒烟 9/9、默认冒烟 8/8、启动性能复测 14/14；最终安全全量 4128/4128、349.289 秒。架构基线 308，无增减。
+- 状态：原启动性能用例契约冲突已按用户追加授权迁移并复验通过；本轮验收完成，不借用 R1100 凭据。
 
 ## 实现与边界
 
@@ -10,7 +10,7 @@
 
 发送沿用原流程，只将输入换成“上方简报 + 两个换行 + 非空追问”。门禁仍从同一 prepared attachments 获取字段；不另建附件提取路径，不改变手填/附件优先规则。成功后上方复位灰色模板、下方清空；启动失败保留两框。两个未发送草稿按项目保留在内存，翻页不丢失，明确清空的上方框不被模板覆盖。
 
-idea_chat.py、script_contract.py、skill_panel.py、默认创意示例.md 未修改。其他文件仅为三个指定测试文件、既有 TODO 注释行号快照、执行器基线与轮次/交接文档。
+idea_chat.py、script_contract.py、skill_panel.py、默认创意示例.md 未修改。其他文件仅为三个指定测试文件、追加授权的 test_desktop_startup_perf.py、既有 TODO 注释行号快照、执行器基线与轮次/交接文档。
 
 ## 测试迁移
 
@@ -33,7 +33,9 @@ idea_chat.py、script_contract.py、skill_panel.py、默认创意示例.md 未�
 | run_selftests.py --layer architecture --all | 308/308，24.7 秒 | R1101-architecture-all.log |
 | smoke_test.py --affected idea_chat workflow | 9/9 | R1101-smoke-affected.log |
 | smoke_test.py | 8/8 | R1101-smoke-default.log |
-| run_selftests.py --all --safe | 4128 条、383.7 秒，1 条失败；干净 master 检查点 233b3ce | R1101-full-safe.log |
+| run_selftests.py --all --safe（首次） | 4128 条、383.7 秒，1 条旧气泡断言失败；干净 master 检查点 233b3ce | R1101-full-safe.log |
+| run_selftests.py -k desktop_startup_perf（授权迁移后） | 14/14，单元 10.8 秒 | R1101-startup-retest-final.log |
+| run_selftests.py --all --safe（最终） | 4128/4128、349.289 秒；干净 master 检查点 e1179af | R1101-full-safe-final.log |
 
 首次直接 unittest 未设置项目测试导入路径，因 skip_reasons 导入失败退出；随后改用仓库执行器得到真实失败先行证据，不把导入错误视作功能验证。
 
@@ -45,8 +47,8 @@ idea_chat.py、script_contract.py、skill_panel.py、默认创意示例.md 未�
 
 凭据扫描：新增源码/测试的常见 API key、AWS、GitHub token、私钥头形态零命中；git diff --check 通过。队列 validate 0 errors、1 条历史租约警告，未修改他人租约。自审确认三个禁止改动的生产模块均无差异；无新增反向依赖，必填/未落盘断言保留，仅按新契约迁移已删除的示例气泡行为。
 
-[TASK_BLOCKED] 实现检查点 233b3ce 已提交，但未通过完整验收。唯一失败为 tests/test_desktop_startup_perf.py:498 的 test_real_project_chat_shows_independent_content_before_model_key：旧断言要求 idea_log 非空，注释明确指软件示例；本轮要求空会话不再产生该气泡。该文件不在三个指定测试文件中，尚未改动。最小授权：将此用例的首屏可见内容检查迁至 idea_brief_editor，保持原时间阈值断言，并检查下方输入为空、无示例气泡；随后重跑失败项与完整安全回归。不以恢复气泡或弱化性能阈值绕过失败。全量期间另有 Tk after 回调清理警告，执行器未将其归类为失败。
+历史阻塞（已解除）：实现检查点 233b3ce 首次全量唯一失败为 tests/test_desktop_startup_perf.py:498 的 test_real_project_chat_shows_independent_content_before_model_key：旧断言要求 idea_log 非空，注释明确指软件示例；本轮要求空会话不再产生该气泡。因文件在原范围外，先记录阻塞并请求最小授权，未恢复气泡或弱化性能阈值绕过失败。全量期间另有 Tk after 回调清理警告，执行器未将其归类为失败。
 
-续办：用户已授权迁移上述启动性能测试，不领取新号。断言转为上方简报与模板全文相等、下方为空、聊天区无示例气泡，原 CHAT_FIRST_TEXT_SECONDS 阈值不变。首次迁移误将模板末尾换行 strip 掉导致精确比较失败，已修正为全文对比；最终 run_selftests.py -k desktop_startup_perf 14/14 通过（测试单元 10.8 秒，R1101-startup-retest-final.log）。等待新检查点上的完整安全回归；此前阻塞已解除，任务仍未完成。
+续办：用户已授权迁移上述启动性能测试，不领取新号。断言转为上方简报与模板全文相等、下方为空、聊天区无示例气泡，原 CHAT_FIRST_TEXT_SECONDS 阈值不变。首次迁移误将模板末尾换行 strip 掉导致精确比较失败，已修正为全文对比；最终定向 14/14、完整安全回归 4128/4128 通过。没有删除测试，原性能断言未改；仅依授权迁移已删除功能的显示目标。
 
-工作保留在隔离树 assistant-slim-apply 的 master；用户主目录仍在 codex/r1101-workspace-hold，未加载未验收实现，原配置与未跟踪资料保持。完成后再恢复主目录 master。
+[TASK_COMPLETE] 中央正式凭据：round=1101，tree=7f94b4ea33d822a128669cd19a7513a5dc2e90fa（e1179af 的程序内容树），seconds=349.289，at=2026-10-07T22:31:16。后续提交只回填验收/交接文档，不冒称文档更新树另跑过全量。收尾提交见 Git 的 R1101 提交回执；主目录恢复 master，用户预设哈希须保持 E596C86C8D362FD6C6797FE9F9E19B4A7507D4F6ACE19BB91CE955EFF47E4651，未跟踪资料不动。真实应用未重启，请重启后加载新界面。
