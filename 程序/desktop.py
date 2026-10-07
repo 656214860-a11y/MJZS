@@ -4230,7 +4230,6 @@ class Desktop:
             label = re.split('[：:]', line, maxsplit=1)[0].strip()
             if label in INLINE_REQUIRED_LABELS:
                 input_box.insert(f'{number}.end', '（必填）', ('required_hint',))
-        input_box.after_idle(fit_composer)
         self.tint_brief()
         update_input_hint()
         self.show_conversation()
@@ -4334,14 +4333,18 @@ class Desktop:
         def schedule_layout(*callbacks):
             nonlocal layout_job
             cancel_layout_job()
+            pending = iter(callbacks)
             def run():
                 nonlocal layout_job
                 layout_job = None
-                for callback in callbacks:
-                    try:
-                        callback()
-                    except tk.TclError:
-                        return None
+                callback = next(pending, None)
+                if callback is None:return None
+                try:
+                    callback()
+                    # 先让 Tk 应用上一项的请求尺寸，再测量固定空间。
+                    layout_job = self.win.after_idle(run)
+                except tk.TclError:
+                    return None
                 return None
             try:
                 layout_job = self.win.after_idle(run)
@@ -4355,7 +4358,7 @@ class Desktop:
             """空列表也保留分类标题，表格高度仍按内容压缩。"""
             if not script_box.winfo_manager():
                 script_box.pack(fill='x',expand=False,pady=SPACING['none'])
-            schedule_layout(fit_talk, self._fit_content_now)
+            schedule_layout(fit_composer, measure_page_fixed, fit_talk, self._fit_content_now)
         from writing_page_controller import ScriptListLoadController
         script_loader=ScriptListLoadController(category for category,_title in categories)
         script_load_job=None

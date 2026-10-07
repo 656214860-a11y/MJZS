@@ -1080,8 +1080,8 @@ class UiEdgeTests(unittest.TestCase):
             from desktop import IDEA_FIELDS
             self.assertIn(IDEA_FIELDS[0], example, "示例里要有字段名，灰色字段名那一层才认得出")
             self.assertEqual(example, d.idea_example(), "读一次就记着，不反复读盘")
-            self.assertEqual(str(d.idea_input.get("1.0", "end-1c")), "",
-                             "发送框保持空白，不能把软件示例伪装成用户输入")
+            self.assertEqual(d.draft_text(), example,
+                             "发送框预填示例，但未编辑的必填占位不得发送或落盘")
             self.assertIn(example, d.idea_log.get("1.0", "end-1c"),
                           "软件示例应完整显示在上方只读对话框")
             brief_path = d.brief_editor[0]
@@ -1115,6 +1115,7 @@ class UiEdgeTests(unittest.TestCase):
             d.root = proj
             d.show(0); win.update()
             box = d.idea_log
+            d.idea_input.delete('1.0', 'end'); win.update()
             # 聊天记录按窗口剩余空间自适应；下方发送框在空白时仅保留一行，输入后再撑开。
             lines = int(box.cget("height"))
             self.assertGreaterEqual(lines, desktop_module.TALK_MIN_LINES, "再挤也留着下限那些行")
@@ -4986,8 +4987,7 @@ class BriefTintTests(unittest.TestCase):
 
     def test_the_fresh_example_is_shown_in_the_read_only_conversation(self):
         win, d = self.build()
-        self.assertEqual(str(d.idea_input.get("1.0", "end-1c")), "",
-                         "示例不能再占用用户发送框")
+        self.assertEqual(d.draft_text(), d.idea_example(), "发送框预填完整示例")
         self.assertIn(d.idea_example(), str(d.idea_log.get("1.0", "end-1c")))
         self.assertEqual(str(d.idea_log.cget("state")), "normal", "聊天正文需要支持直接选择与编辑")
 
@@ -4996,13 +4996,14 @@ class BriefTintTests(unittest.TestCase):
         from types import SimpleNamespace
         win, d = self.build()
         box = d.idea_log
+        original_draft = d.draft_text()
         self.assertEqual(str(box.tag_cget("bubble_example", "background")), "")
         self.assertEqual(str(box.tag_cget("bubble_example", "foreground")), "#8a96a5")
         d.start_bubble_edit(SimpleNamespace(widget=box, x=1, y=1), "example", "bubble_example")
         box.insert("bubble_edit_end", "\n我的示例补充")
         d.finish_bubble_edit()
         self.assertIn("我的示例补充", d.idea_example())
-        self.assertEqual(str(d.idea_input.get("1.0", "end-1c")), "")
+        self.assertEqual(d.draft_text(), original_draft)
 
     def test_a_legacy_saved_example_does_not_repopulate_the_send_box(self):
         """历史示例文件不能在翻页后伪装成用户尚未发送的内容。"""
@@ -5010,7 +5011,7 @@ class BriefTintTests(unittest.TestCase):
         self.write_brief(d, d.idea_example() + "\n  \n")
         d.show(0)
         win.update()
-        self.assertEqual(str(d.idea_input.get("1.0", "end-1c")), "")
+        self.assertEqual(d.draft_text(), d.idea_template)
         self.assertIn(d.idea_example(), str(d.idea_log.get("1.0", "end-1c")))
 
     def test_the_users_own_words_show_up_on_the_display(self):
@@ -5023,15 +5024,16 @@ class BriefTintTests(unittest.TestCase):
         win.update()
         shown = str(d.idea_log.get("1.0", "end-1c"))
         self.assertIn("我的创意：一只会说话的猫。", shown, "上次存下的创意要看得见")
-        self.assertEqual(str(d.idea_input.get("1.0", "end-1c")), "")
+        self.assertEqual(d.draft_text(), d.idea_template)
 
     def test_typing_keeps_the_send_box_as_user_owned_text(self):
         win, d = self.build()
         box = d.idea_input
         box.insert("1.0", "我的补充：一只会说话的猫。\n")
         win.update()
-        self.assertEqual(str(box.get("1.0", "end-1c")), "我的补充：一只会说话的猫。\n")
-        self.assertEqual(str(box.cget("fg")), "#243247", "用户输入始终使用正文颜色")
+        self.assertEqual(d.draft_text(), "我的补充：一只会说话的猫。\n" + d.idea_template)
+        from ui_tokens import COLORS
+        self.assertEqual(str(box.cget("fg")), COLORS['text_primary'], "用户输入始终使用正文颜色")
 
 
 class ContentBoxFitTests(unittest.TestCase):
