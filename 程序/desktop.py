@@ -1514,7 +1514,7 @@ class Desktop:
         project, box = self.root, self.idea_input
         fields = dict(attachment_fields)
         fields.update(idea_chat.extract_brief_creation(self.draft_text(),
-                      extra_labels=idea_chat.INLINE_REQUIRED_LABELS, include_extra=True))
+                      extra_labels=(*idea_chat.INLINE_REQUIRED_LABELS, *missing), include_extra=True))
         dialog = FormDialog(self.win, '补充创作信息')
         self._idea_missing_dialog = dialog
         ttk.Label(dialog.content, text=notice + '以下信息尚未填写。保存后请再次点击发送。').pack(anchor='w', pady=SPACING['sm'])
@@ -1562,13 +1562,9 @@ class Desktop:
                         text, extra_labels=lock_labels, include_extra=True).items():
                     lock_fields.setdefault(label, field)
             attachment_fields.update(lock_fields)
-            for item in lock_definitions:
-                labels = (item['label'], *item.get('aliases', ()))
-                target = next((label for label in labels if label in idea_chat.INLINE_REQUIRED_LABELS), None)
-                if target is not None:
-                    attachment_fields[target] = next((lock_fields[label] for label in labels if lock_fields.get(label)), '')
         missing = idea_chat.inline_required_missing(None, value,
-                                                    attachment_fields=attachment_fields)
+                                                    attachment_fields=attachment_fields,
+                                                    stage='script', lock_definitions=lock_definitions)
         if missing:
             notice = idea_chat.BRIEF_ATTACHMENT_NOTICE + '\n' if prepared and prepared['attachments'].get('brief_unreadable') else ''
             self.show_missing_idea_brief(missing, attachment_fields, notice)
@@ -1581,10 +1577,10 @@ class Desktop:
         direct_model = writing_api.model_label(self.root)
         if direct_model and self.idea_chat_controller.requesting:
             raise ValueError('模型正在回复，请不要重复发送。')
-        # UI 八项门禁通过后仍核验底层四项契约；缺项只提示，不启动模型。
+        # UI 故事字段与阶段锁门禁通过后仍核验底层四项契约；缺项只提示，不启动模型。
         brief = idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
                                         lock_definitions=lock_definitions, gateway=self.idea_chat_gateway(),
-                                        attachment_reference=prepared['attachments'], inline_text=value)
+                                        attachment_reference=prepared['attachments'], inline_text=value, stage='script')
         if brief['missing']:
             self.notifier.info((brief.get('attachment_notice', '') + '\n' + brief['followup']).strip(), modal=True)
             return

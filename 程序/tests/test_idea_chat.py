@@ -253,11 +253,11 @@ class SavingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             first = idea_chat.receive_brief(td, '故事梗概：夜班照相馆收到一张会显影未来的旧底片。')
             self.assertTrue(first['raw_path'].is_file())
-            self.assertEqual(first['missing'], ('main_characters', 'genre', 'length'))
+            self.assertEqual(first['missing'], ('main_characters', 'genre', 'length', 'delivery_format'))
             self.assertIn('主要角色、题材类型、篇幅', first['followup'])
             self.assertFalse(idea_chat.brief_complete_path(td).exists())
             done = idea_chat.receive_brief(
-                td, '主要角色：少年摄影师林默，长发女孩阿青\n题材类型：都市悬疑\n篇幅：24集')
+                td, '主要角色：少年摄影师林默，长发女孩阿青\n题材类型：都市悬疑\n篇幅：24集\n交付形态：markdown')
             self.assertEqual(done['missing'], ())
             self.assertTrue(done['complete_path'].is_file())
             data = json.loads(done['complete_path'].read_text(encoding='utf-8'))
@@ -265,13 +265,13 @@ class SavingTests(unittest.TestCase):
             self.assertEqual(data['brief']['length'], '24集')
             self.assertIn('physical_features', data['recommended_missing'])
 
-    def test_production_locks_are_recommended_not_a_brief_send_blocker(self):
+    def test_production_locks_are_advisory_outside_lock_stages(self):
         with tempfile.TemporaryDirectory() as td:
             result = idea_chat.receive_brief(
                 td,
                 '故事梗概：夜班照相馆收到一张会显影未来的旧底片。\n'
                 '主要角色：摄影师林默与阿青\n题材类型：都市悬疑\n篇幅：24集',
-                workflow={'name': 'AIGC全流程', 'skill_ref': 'skills/AIGC/SKILL.md', 'lock': {}},
+                workflow={'name': 'AIGC全流程', 'skill_ref': 'skills/AIGC/SKILL.md', 'lock': {}}, stage='audio',
                 lock_definitions=({'key': 'aspect_ratio', 'label': '画幅', 'options': ('9:16',)},),
             )
             self.assertEqual(result['missing'], ())
@@ -357,7 +357,7 @@ class SavingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             idea_chat.append(td, 'user', '故事梗概：夜班照相馆收到能显影未来的旧底片。\n主要角色：摄影师林默与阿青\n题材类型：都市悬疑\n篇幅：24集', model='DeepSeek V4 Flash')
             idea_chat.append(td, 'assistant', '虚构的主要角色：不应被当作用户设定。', model='DeepSeek V4 Flash')
-            done = idea_chat.receive_brief(td, '请输出第6集到第10集的剧本')
+            done = idea_chat.receive_brief(td, '请输出第6集到第10集的剧本\n交付形态：markdown')
             self.assertEqual(done['missing'], ())
             self.assertEqual(done['fields']['main_characters'], '摄影师林默与阿青')
             self.assertEqual(done['fields']['genre'], '都市悬疑')
@@ -615,7 +615,7 @@ class SendMessageTests(_Harness):
             self.assertFalse(idea_chat.brief_complete_path(proj).exists())
             messages = idea_chat.load(proj)
             self.assertEqual(messages, [])
-            self.assertEqual(tuple(d._idea_missing_dialog.brief_fields), ('故事题材', '故事角色', '故事集数', '单集时间', '故事画幅', '视频模型', '交付形态'))
+            self.assertEqual(tuple(d._idea_missing_dialog.brief_fields), ('故事题材', '故事角色', '故事集数', '单集时间', '交付形态'))
             notice.assert_not_called()
             self.assertEqual(d.idea_row.winfo_manager(), 'pack', '启动工作流后发送框仍固定显示')
 
@@ -855,7 +855,7 @@ class SendMessageTests(_Harness):
             with patch.object(d.notifier, 'info') as notice, patch.object(d, 'start_script_workflow') as launch:
                 d.send_message(); win.update()
             launch.assert_not_called()
-            self.assertEqual(len(d._idea_missing_dialog.brief_fields), 8)
+            self.assertEqual(len(d._idea_missing_dialog.brief_fields), 6)
             notice.assert_not_called()
             self.assertFalse(hasattr(d, 'open_brief_creation_form'))
             self.assertEqual(idea_chat.load(proj), [], '一个字都不许发出去')

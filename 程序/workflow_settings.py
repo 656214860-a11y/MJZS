@@ -8,6 +8,7 @@ from tkinter import ttk
 import tkinter as tk
 from agent.core import save
 from file_cache import read_json
+from script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
 from ui_widgets import LineInput, TextArea
@@ -44,11 +45,7 @@ WORKFLOW_PRESETS={'AIGC全流程': {
         'final':['pipeline-storyboard-final'], 'keyframe':['pipeline-keyframe'], 'previs':['pipeline-previs'],
         'video':['pipeline-video-generation'], 'audio':['pipeline-audio-subtitle'], 'edit':['pipeline-editing'],
         'delivery':['pipeline-delivery']},
-    'locks': [
-        {'key':'aspect_ratio','label':'画幅','aliases':('故事画幅',),'options':['16:9','9:16','21:9','1:1']},
-        {'key':'delivery_format','label':'交付形态','aliases':(),'options':['只要离线看板','只要 markdown 文档','两者都交付']},
-        {'key':'video_model_version','label':'视频模型版本','aliases':('视频模型',),'options':['Seedance 2.5','Seedance 2.0','MiniMax H3']},
-    ],
+    'locks': list(PRODUCTION_LOCK_DEFINITIONS),
 }}
 _DESKTOP_INSTALLATION_CACHE={}
 
@@ -56,10 +53,7 @@ _DESKTOP_INSTALLATION_CACHE={}
 # SKILL 之后，因而比通用工作流里的“可做分镜／资产”等能力说明优先。
 _STAGE_OUTPUT_CONTRACTS={
     'writing': ('\n\n【剧本准备阶段输出契约（最高优先级）】\n'
-                '本阶段唯一可交付内容是完整的自然语言剧本原稿：分集标题、场景／时间地点、可见动作、人物目标、冲突、对白和结尾悬念。\n'
-                '剧本正文中禁止出现结构化剧本、角色／场景／道具档案、字段表、JSON／YAML、镜头或分镜表、首帧／视频提示词、资产清单；结构化剧本工作仍属下一阶段“02剧本结构”，即使所选 SKILL 含有这些能力，也不得以剧本正文形式在本阶段产出。\n'
-                '所选 SKILL 要求的过程文档（分集大纲、情节节点表、节奏／逻辑／合规审查报告、确认清单等供人阅读的 Markdown）允许写入本阶段目录的 docs/ 子目录；它们不是阶段交付物，不得并入剧本原稿，不得替代“02剧本结构”的结构化剧本。\n'
-                '五类 manifest JSON 仍按 script_contract.PRODUCERS 的归属产出，本阶段对话不生成。只返回剧本正文与 SKILL 要求的确认清单，不解释创作过程。'),
+                '本阶段唯一交付物是完整自然语言剧本正文（场景/动作/人物目标/冲突/对白/悬念）；不得产出结构化剧本、分镜、字段表、JSON/YAML、首帧/视频提示词、资产清单等后续阶段产物；过程文档可入 docs/ 但不得并入剧本正文。'),
     'script_structure': ('\n\n【剧本整理阶段输出契约（最高优先级）】\n'
                          '本阶段核心任务是整理剧本要素：从自然语言原稿提取并校验人物、场景、道具、事件、冲突、台词与分场关系，生成可追溯的结构剧本。\n'
                          '不得重写或替换自然语言原稿，不得做核心人物切镜头、镜头三元组、镜头拆分、分镜 JSON、首帧或媒体提示词；这些只属于“03初步分镜”。'),
@@ -412,7 +406,7 @@ def current(project,stage='previs'):
     name = str(workflow.get('name') or '').strip()
     preset = WORKFLOW_PRESETS.get(name, {})
     if preset:
-        profile['workflow_skill_prompt'] = '请先完整读取并遵循统筹 SKILL：' + str(preset['package'])
+        profile['workflow_skill_prompt'] = '按当前阶段需要，只读取统筹 SKILL 中与本阶段交付相关的章节，不全文加载统筹 SKILL 及无关 reference：' + str(preset['package'])
     try:
         import skill_registry
         reg = skill_registry.default_registry()
@@ -421,7 +415,7 @@ def current(project,stage='previs'):
                                   if reg.getById(item) is not None]
     except Exception:
         profile['stage_skills'] = []
-    return {'engine':engine,**profile}
+    return {'engine':engine, 'stage':stage, **profile}
 
 def find_program(config):
     if config['program']:return config['program']
@@ -455,17 +449,32 @@ def desktop_model_label(model_id, label):
         else:_DESKTOP_INSTALLATION_CACHE[engine]=True
     return str(label or '')+('（未安装）' if not _DESKTOP_INSTALLATION_CACHE[engine] else '')
 
-def skill_prompt(config):
-    """这一档勾中的 SKILL 拼成一段「先读这份技能文件」的说明（第 59 期第 5 条：可以勾几份）。"""
-    locks=config.get('workflow_lock') if isinstance(config,dict) else None
-    header=''.join('制作锁：%s=%s\n' % (key,value) for key,value in (locks or {}).items() if str(value).strip())
-    coordinator=str(config.get('workflow_skill_prompt') or '') if isinstance(config,dict) else ''
+def skill_prompt(config, stage=None):
+    """按阶段注入制作锁；剧本准备的勾选 SKILL 正文只出现一次。"""
+    stage = lock_stage(stage if stage is not None else config.get('stage'))
+    locks = config.get('workflow_lock') or {}
+    required = STAGE_LOCK_REQUIREMENTS.get(stage)
+    header = ''.join('制作锁：%s=%s\n' % (key, value) for key, value in locks.items()
+                     if str(value).strip() and (required is None or key in required))
+    coordinator = str(config.get('workflow_skill_prompt') or '')
     if coordinator and not coordinator.endswith('\n'):
         coordinator += '\n'
-    # 顺序是契约：锁 → 统筹 → 阶段清单 → 引擎档附加清单。
-    stage_items=config.get('stage_skills') if isinstance(config,dict) else None
-    attached=skills_of(config)
-    return header + coordinator + ''.join(_one_skill_prompt(config,item) for item in (stage_items or ())) + ''.join(_one_skill_prompt(config,item) for item in attached)
+    items = [*(config.get('stage_skills') or ()), *skills_of(config)]
+    prompts, seen = [], set()
+    for item in items:
+        if not item:
+            continue
+        identity = os.path.normcase(str(Path(item).resolve()))
+        if identity in seen:
+            continue
+        seen.add(identity)
+        if stage == 'script':
+            path = Path(item).resolve()
+            prompts.append(f'\n已勾选 SKILL：{path}（相对引用以此文件所在目录为基准）\n'
+                           + path.read_text(encoding='utf-8-sig') + '\n')
+        else:
+            prompts.append(_one_skill_prompt(config, item))
+    return header + coordinator + ''.join(prompts)
 
 
 def _one_skill_prompt(config,skill):

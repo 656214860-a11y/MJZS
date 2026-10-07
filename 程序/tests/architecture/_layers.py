@@ -9,7 +9,7 @@ def _register(layer: int, *names: str) -> None:
     for name in names:
         LAYERS[name] = layer
 
-_register(0, "pet_bus", "script_contract", "script_manifest_contract", "asset_contract", "episode_contract", "service_contract", "project_context", "stage_layout", "stage_path_service", "storyboard_paths", "project_stages", "platform_tools",
+_register(0, "pet_bus", "hollmwood_rules", "script_contract", "script_manifest_contract", "asset_contract", "episode_contract", "service_contract", "project_context", "stage_layout", "stage_path_service", "storyboard_paths", "project_stages", "platform_tools",
           "prompt_templates", "shot_batches", "production_model_contract", "app_metadata")
 _register(1, "model_pool", "model_secrets", "pet_llm", "file_cache", "hash_backend",
           "storage_maintenance", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger")

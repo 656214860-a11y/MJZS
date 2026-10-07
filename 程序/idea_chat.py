@@ -18,7 +18,7 @@ from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from project_context import ProjectContext
-from script_contract import INLINE_REQUIRED_LABELS
+from script_contract import INLINE_REQUIRED_LABELS, BRIEF_EXTRACTION_LABELS, PRODUCTION_LOCK_DEFINITIONS, stage_lock_requirements, stage_lock_definitions
 
 FOLDER = '创意对话'
 CHAT_NAME = '对话.json'
@@ -110,7 +110,7 @@ def semantic_brief_request(context, draft, reference, *, local_mode=True):
     path = brief_raw_path(context).with_name('brief_extract_' + request_id + '.json')
     relative = path.relative_to(context.root).as_posix()
     schema = {'request_id': request_id, 'fields': {
-        label: {'value': '', 'evidence': ''} for label in INLINE_REQUIRED_LABELS}}
+        label: {'value': '', 'evidence': ''} for label in BRIEF_EXTRACTION_LABELS}}
     sources = {Path(item) for item in reference.get('paths', ())}
     prompt = ('本次仅做创作简报语义提取，不生成剧本、大纲或其他阶段产物。'
               '阅读本次素材实际内容，不要求出现字段名或“标签：值”。'
@@ -147,7 +147,7 @@ def semantic_brief_values(data, request_id, source):
     compact = lambda value: re.sub(r'\s+', '', value)
     source = compact(source)
     values = {}
-    for label in INLINE_REQUIRED_LABELS:
+    for label in BRIEF_EXTRACTION_LABELS:
         item = data['fields'].get(label)
         if not isinstance(item, dict):
             continue
@@ -653,19 +653,29 @@ def inline_template_labels(text):
 
 
 def inline_required_missing(template_text, draft_text, required_labels=INLINE_REQUIRED_LABELS,
-                            attachment_fields=None):
-    """内联发送唯一门禁：有效手填值或本轮附件字段任一满足即可。"""
-    labels = tuple(dict.fromkeys((*inline_template_labels(template_text), *required_labels)))
+                            attachment_fields=None, *, stage='script',
+                            lock_definitions=PRODUCTION_LOCK_DEFINITIONS):
+    """故事字段与本阶段制作锁共用门禁；其他锁只保留为建议值。"""
+    lock_definitions = stage_lock_definitions(stage, lock_definitions)
+    lock_aliases = {item['label']: (item['label'], *item.get('aliases', ()), item['key'])
+                    for item in lock_definitions}
+    required_keys = stage_lock_requirements(stage)
+    required_labels = tuple(dict.fromkeys((*required_labels,
+        *(item['label'] for item in lock_definitions if item['key'] in required_keys))))
+    labels = tuple(dict.fromkeys((*inline_template_labels(template_text), *required_labels,
+                                 *(label for aliases in lock_aliases.values() for label in aliases))))
     template = extract_brief_creation(strip_inline_required_markers(template_text),
                                       extra_labels=labels, include_extra=True)
     draft = extract_brief_creation(strip_inline_required_markers(draft_text),
                                    extra_labels=labels, include_extra=True)
-    def normalized(value):
-        return ''.join(value.split())
+    def normalized(fields, label):
+        return next((''.join(str(fields.get(alias) or '').split())
+                     for alias in lock_aliases.get(label, (label,))
+                     if str(fields.get(alias) or '').strip()), '')
     return tuple(label for label in required_labels
-                 if not str((attachment_fields or {}).get(label) or '').strip()
-                 and (not normalized(draft.get(label, ''))
-                      or normalized(draft.get(label, '')) == normalized(template.get(label, ''))))
+                 if not normalized(attachment_fields or {}, label)
+                 and (not normalized(draft, label)
+                      or normalized(draft, label) == normalized(template, label)))
 
 
 def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
@@ -679,7 +689,9 @@ def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
                '故事人物': '故事角色', '角色物理特征': '物理特征',
                '外貌': '物理特征', '形象': '物理特征', '额外要求': '特殊要求', '要求': '特殊要求'}
     # XLSX 转换稿保留列间制表符；字段可能在“设定”等说明列之后。
-    labels = tuple(dict.fromkeys((*BRIEF_CREATION_FIELDS, '篇幅', *aliases, *extra_labels)))
+    lock_labels = tuple(label for item in PRODUCTION_LOCK_DEFINITIONS
+                        for label in (item['label'], *item.get('aliases', ()), item['key']))
+    labels = tuple(dict.fromkeys((*BRIEF_CREATION_FIELDS, '篇幅', *aliases, *extra_labels, *lock_labels)))
     label_pattern = '|'.join(re.escape(label) for label in labels)
     fields, active = {}, None
     for line in _brief_plain_text(text, labels).splitlines():
@@ -688,7 +700,7 @@ def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
         if match:
             label = match.group(1).strip().strip('*').strip()
             canonical = aliases.get(label, label)
-            if canonical in (*BRIEF_CREATION_FIELDS, '篇幅') or (include_extra and label in extra_labels):
+            if canonical in (*BRIEF_CREATION_FIELDS, '篇幅') or (include_extra and label in (*extra_labels, *lock_labels)):
                 active = canonical
                 fields[active] = match.group(2)
                 nested = re.match(r'[ *]*(?:' + label_pattern + r')[ *]*[：:]', match.group(2))
@@ -696,7 +708,7 @@ def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
                     fields.update(extract_brief_creation(match.group(2), extra_labels=extra_labels, include_extra=include_extra))
                     active = None
                 continue
-            if label in extra_labels:
+            if label in labels:
                 active = None
                 continue
         if active:
@@ -789,8 +801,9 @@ BRIEF_ATTACHMENT_NOTICE = '引用附档无本地可读转换稿,请补充填写�
 
 
 def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=None, attachment_reference=None,
-                  inline_text=None, inline_template=None):
+                  inline_text=None, inline_template=None, stage='script'):
     """接收用户创意，落盘原始简报；满足必填项时才生成 brief_complete.json。"""
+    lock_definitions = stage_lock_definitions(stage, lock_definitions)
     value = str(text or '').strip()
     if not value:
         raise ValueError('请先输入创意')
@@ -807,7 +820,7 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
     lock_sources = [raw, *(attachment_reference or {}).get('brief_texts', ())]
     if inline_text is not None:
         values = extract_brief_creation(raw, extra_labels=inline_template_labels(raw), include_extra=True)
-        missing = inline_required_missing(inline_template, raw, tuple(values)) if inline_template is not None else ()
+        missing = inline_required_missing(inline_template, raw, tuple(values), stage=None, lock_definitions=lock_definitions) if inline_template is not None else ()
         current = '\n'.join(label + '：' + ' '.join(value.splitlines()) for label, value in values.items()
                             if value.strip() and label not in missing)
         lock_sources = [current, *(attachment_reference or {}).get('brief_texts', ())]
@@ -816,14 +829,20 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
     workflow = dict(workflow or {})
     selected_locks = {}
     for item in lock_definitions:
-        labels = (item['label'], *item.get('aliases', ()))
+        labels = (item['label'], *item.get('aliases', ()), item['key'])
         selected_locks[item['key']] = next((value for source in lock_sources
                                            if (value := _brief_value(source, labels))), '')
     fields['production_locks'] = {key: value for key, value in selected_locks.items() if value}
     from script_contract import brief_document, missing_brief_fields
-    missing = missing_brief_fields(fields)
+    missing_locks = tuple(item for item in lock_definitions
+                          if item['key'] in stage_lock_requirements(stage)
+                          and not selected_locks.get(item['key']))
+    missing = missing_brief_fields(fields) + tuple(item['key'] for item in missing_locks)
+    followup = brief_followup(fields)
+    if missing_locks:
+        followup += ('\n' if followup else '') + '请补充本阶段制作锁：' + '、'.join(item['label'] for item in missing_locks) + '。'
     result = {'raw_path': raw_path, 'fields': fields, 'missing': missing,
-              'followup': brief_followup(fields), 'complete_path': None,
+              'followup': followup, 'complete_path': None,
               'attachment_notice': BRIEF_ATTACHMENT_NOTICE if (attachment_reference or {}).get('brief_unreadable') else ''}
     if missing:
         return result

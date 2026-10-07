@@ -547,8 +547,42 @@ RHYTHM_TEMPLATE_PATH = 'skills/templates/rhythm_template.yaml'
 # HOLLMWOOD 的输入简报同样由本契约统一命名；创意接收层只负责从用户原话提取并落盘，
 # 不在 idea_chat.py 再复制一套“哪些字段必须有”的判断。
 BRIEF_REQUIRED_FIELDS = ('story_summary', 'main_characters', 'genre', 'length')
-INLINE_REQUIRED_LABELS = ('故事梗概', '故事题材', '故事角色', '故事集数', '单集时间',
-                          '故事画幅', '视频模型', '交付形态')
+INLINE_REQUIRED_LABELS = ('故事梗概', '故事题材', '故事角色', '故事集数', '单集时间')
+STAGE_LOCK_REQUIREMENTS = {
+    'script': ('delivery_format',),
+    'keyframe': ('aspect_ratio', 'video_model_version', 'delivery_format'),
+    'video': ('aspect_ratio', 'video_model_version', 'delivery_format'),
+    'previs': ('aspect_ratio', 'video_model_version', 'delivery_format'),
+}
+PRODUCTION_LOCK_DEFINITIONS = (
+    {'key': 'aspect_ratio', 'label': '画幅', 'aliases': ('故事画幅',), 'options': ['16:9', '9:16', '21:9', '1:1']},
+    {'key': 'delivery_format', 'label': '交付形态', 'aliases': (), 'options': ['只要离线看板', '只要 markdown 文档', '两者都交付']},
+    {'key': 'video_model_version', 'label': '视频模型版本', 'aliases': ('视频模型',), 'options': ['Seedance 2.5', 'Seedance 2.0', 'MiniMax H3']},
+)
+
+# 提取范围独立于必填范围：建议值仍保留，不因阶段门禁收窄而丢失。
+BRIEF_EXTRACTION_LABELS = INLINE_REQUIRED_LABELS + tuple(
+    next(iter(item['aliases']), item['label']) for item in PRODUCTION_LOCK_DEFINITIONS)
+
+
+def lock_stage(stage):
+    """工作流名称与阶段编号名称在契约边界归一。"""
+    return {'writing': 'script', 'frames': 'keyframe', 'video_prompt': 'video'}.get(stage, stage)
+
+
+def stage_lock_requirements(stage):
+    """未登记阶段没有必填制作锁。"""
+    return STAGE_LOCK_REQUIREMENTS.get(lock_stage(stage), ())
+
+def stage_lock_definitions(stage, definitions):
+    """优先使用统筹标签；未配置统筹时，必填锁仍使用契约默认标签。"""
+    definitions = tuple(definitions)
+    known = {item['key'] for item in definitions}
+    required = stage_lock_requirements(stage)
+    return definitions + tuple(item for item in PRODUCTION_LOCK_DEFINITIONS
+                               if item['key'] in required and item['key'] not in known)
+
+
 BRIEF_RECOMMENDED_FIELDS = ('physical_features',)
 BRIEF_PRODUCTION_LOCKS_FIELD = 'production_locks'
 BRIEF_OPTIONAL_FIELDS = ('special_requirements',)

@@ -24,12 +24,12 @@ examples:
 
 ## 阶段职责
 
-来自 `00全流程SKILL` 的创作锁与剧本门控：先确认模型、画幅和交付形态，再形成可审阅的自然剧本。
+来自 `00全流程SKILL` 的创作锁与剧本门控：先确认交付形态，再形成可审阅的自然剧本；模型与画幅在本阶段仅作建议值。
 只发布确认后的简报和原稿；情绪曲线（`emotion_curve.json`）也在本阶段产出，不替下游生成分镜、资产或媒体。
 
 ## 定向注入（00 包）
 
-执行本阶段时，只按需读取 [production-workflow.md 的 The loop 与 Gate 1 · Plan](../00全流程SKILL/cinematic-director/references/production-workflow.md#the-loop)：
-自然剧本、节拍、风格透镜与创意简报必须能支撑每个镜头的戏剧职责、时长和连续性锚点；缺少这一计划证据时退回剧本准备，不进入下游。
+本阶段方法本体即五阶门控，只定向读取统筹同包的 [screenplay-gate-engine.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/screenplay-gate-engine.md)。
+完整遵循五阶门控 Premise→Structure→Beat→Entity→Page，不裁剪 Gate；各 Gate 的过程证据用于形成最终完整自然语言剧本，不扩展本阶段交付范围。
 
 不得加载 00 包全文、风格库或无关 reference；需要特定类型或导演风格时，另由用户明确选择后才定向读取对应单一文件。

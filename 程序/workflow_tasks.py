@@ -1,5 +1,7 @@
 """Content requirements independent of the selected engine or skill."""
 from pathlib import Path
+from hollmwood_rules import SINGLE_WINDOW_COLLABORATION
+from script_contract import RHYTHM_TEMPLATE_PATH
 import stage_parallel
 from integrations import script_text
 from asset_prompt_rules import rules as asset_rules
@@ -38,6 +40,8 @@ def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_
               + ('内部工作稿 `script_raw.md` 可继续更新，正式交付以规范路径为准，不得写入后续阶段目录。'
                  if agent_delivery else '如需落盘，仅可写入本阶段的内部原稿 `script_raw.md`，不得写入 02剧本结构或任何后续阶段目录。') +
               '暂不调用图片、视频或分镜制作。')
+        task += '\n' + SINGLE_WINDOW_COLLABORATION
+        task += '\n节奏模板：\n' + (Path(__file__).parent / RHYTHM_TEMPLATE_PATH).read_text(encoding='utf-8-sig')
         if agent_delivery:
             task += '\n' + _agent_delivery_contract(project, delivery_at)
     elif stage=='storyboard':

@@ -6,6 +6,7 @@
 并把每步模型输出写至 ``logs/hollmwood_step_N.log``。Round 6 的 ``writing_api`` 会在导演
 最终通过后负责唯一允许的业务写入：``writing/script_raw.md``。
 """
+from hollmwood_rules import (DIRECTOR_PLAN_RULES, WRITER_RULES, EDITOR_RULES, ACTOR_RULES, DIRECTOR_REVIEW_RULES)
 from pathlib import Path
 import json
 import time
@@ -200,33 +201,23 @@ def _approved(review):
 
 
 def _director_plan_system():
-    return ('你是漫剧导演。把用户确认的创意简报转成可执行的本集节奏指令。'
-            '只依据给定节奏模板：开场钩子、冲突升级、情绪转折、结尾卡点、时长和台词长度均不可遗漏。'
-            '用可拍摄的动作描述压力变化，不使用空泛情绪形容词。')
+    return DIRECTOR_PLAN_RULES
 
 
 def _writer_system():
-    return ('你是漫剧编剧。根据导演节奏指令写一集完整自然语言剧本。'
-            '保留场景、动作、人物目标、冲突、可念对白和结尾悬念；每句对白不得超过 20 个汉字。'
-            '禁止结构化剧本、角色／场景／道具档案、字段表、JSON、镜头／分镜表和提示词；这些属于下一阶段。不要解释创作过程，只输出剧本正文。')
+    return WRITER_RULES
 
 
 def _editor_system():
-    return ('你是漫剧剧本编辑。对给定剧本进行完整改写，而不是只给意见。'
-            '修复逻辑断裂、人物动机、转场、冲突推进与卡点；保留导演节奏要求。'
-            '禁止把剧本改成结构化档案、JSON或分镜表；只输出可直接交给演员的完整剧本正文。')
+    return EDITOR_RULES
 
 
 def _actor_system():
-    return ('你是漫剧演员与表演指导。把剧本润色为可表演的完整剧本。'
-            '每个动作必须可见，每句对白要匹配人物身份和即时目标，必要时用简短括号标注语气。'
-            '不得新增无依据角色或改变结局卡点；不得输出结构化档案、JSON或分镜表；只输出完整剧本正文。')
+    return ACTOR_RULES
 
 
 def _director_review_system():
-    return ('你是漫剧导演审核人。按节奏模板逐项核验候选剧本：黄金 3 秒、冲突升级、场景情绪转折、'
-            '60–90 秒节奏、单句 20 字限制及结尾卡点。动作必须可视化，人物行为必须连贯。'
-            '合格时只以 APPROVED 开头并给一句理由；不合格时只以 REVISE: 开头列出可执行修改。')
+    return DIRECTOR_REVIEW_RULES
 
 
 def default_director_rules():

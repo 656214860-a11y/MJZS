@@ -57,7 +57,10 @@ def prompt_with_settings(prompt,config,stage=None):
                 'ComfyUI 可经本机 API 执行任务，同时保留桌面工作流；不要只打开浏览器地址。'
                 '需要 Blender 时一律用后台方式（blender --background）制作与渲染，不要打开 Blender 桌面窗口；'
                 '本次的进度由助手打开的本地制作监视页（浏览器）显示，用户要改工程时会自己把 .blend 调出来。\n')
-    return skill_prompt(config)+stage_output_contract(stage)+prompt+('\n用户补充制作要求：\n'+extra if extra else '')+language+media_apps
+    stage = stage if stage is not None else config.get('stage')
+    if stage not in ('assets', 'frames', 'keyframe', 'previs', 'video_prompt', 'video'):
+        media_apps = ''
+    return skill_prompt(config, stage=stage)+stage_output_contract(stage)+prompt+('\n用户补充制作要求：\n'+extra if extra else '')+language+media_apps
 
 def background_command(config,project,output,report):
     exe=find_program(config)

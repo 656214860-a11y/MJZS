@@ -394,12 +394,15 @@ class AudioFlowTests(unittest.TestCase):
             creative = proj / '创意.md'; creative.write_text('少年在照相馆发现旧底片。', encoding='utf-8')
             config = ws.defaults('writing')['profiles']['claude']
             config['engine'] = 'claude'
-            whale = str(ws.preset_skill('jingju-skills'))
+            whale_path = proj / 'jingju-skills' / 'SKILL.md'
+            whale_path.parent.mkdir()
+            whale_path.write_text('---\nname: jingju-skills\n---\n遵循剧本准备门控。', encoding='utf-8')
+            whale = str(whale_path)
             ws.set_skills(config, [whale])
-            prompt = workflow_engines.prompt_with_settings(script_prompt(proj, creative, 'writing'), config)
+            prompt = workflow_engines.prompt_with_settings(script_prompt(proj, creative, 'writing'), config, stage='writing')
             self.assertIn(whale, prompt)
-            self.assertIn('先完整读取并遵循本地技能文件', prompt)
-            self.assertIn('本阶段唯一可交付内容是完整的自然语言剧本原稿', prompt)
+            self.assertIn('已勾选 SKILL：', prompt)
+            self.assertIn('本阶段唯一交付物是完整自然语言剧本正文', prompt)
             self.assertIn('不得写入 02剧本结构或任何后续阶段目录', prompt)
 
     def test_load_corrupt_settings_falls_back(self):

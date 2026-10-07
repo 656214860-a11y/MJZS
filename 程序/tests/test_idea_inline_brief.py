@@ -75,7 +75,7 @@ class InlineBriefTests(unittest.TestCase):
                              attachment_fields=values), (label,))
         self.assertEqual(idea_chat.inline_required_missing(template, '',
                          attachment_fields={'故事梗概': VALUES['故事梗概']}),
-                         script_contract.INLINE_REQUIRED_LABELS[1:])
+                         script_contract.INLINE_REQUIRED_LABELS[1:] + ('交付形态',))
 
     def test_attachment_length_requires_explicit_episode_and_duration(self):
         self.assertEqual(idea_chat.extract_brief_creation('篇幅：12集，每集120秒'),
@@ -138,7 +138,7 @@ class InlineBriefTests(unittest.TestCase):
                     changed = dict(VALUES, **{label: value})
                     self.assertEqual(idea_chat.inline_required_missing(template, draft(changed)), (label,))
         self.assertEqual(idea_chat.inline_required_missing(template, template),
-                         script_contract.INLINE_REQUIRED_LABELS)
+                         script_contract.INLINE_REQUIRED_LABELS + ('交付形态',))
         self.assertEqual(script_contract.BRIEF_REQUIRED_FIELDS,
                          ('story_summary', 'main_characters', 'genre', 'length'))
 
@@ -182,7 +182,7 @@ class InlineBriefDesktopTests(_Harness):
             with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, patch.object(d.notifier, 'info') as notice:
                 d.send_message()
                 dialog = d._idea_missing_dialog
-                self.assertEqual(set(dialog.brief_fields), set(VALUES) - {'故事梗概'})
+                self.assertEqual(set(dialog.brief_fields), set(VALUES) - {'故事梗概', '故事画幅', '视频模型'})
                 for label, entry in dialog.brief_fields.items():
                     entry.delete('1.0', 'end'); entry.insert('1.0', VALUES[label])
                 next(button for button in dialog.actions.winfo_children() if button.cget('text') == '保存').invoke()
@@ -201,7 +201,7 @@ class InlineBriefDesktopTests(_Harness):
             with patch.object(d, 'start_script_workflow') as launch:
                 d.send_message()
                 dialog = d._idea_missing_dialog
-                self.assertEqual(set(dialog.brief_fields), set(VALUES))
+                self.assertEqual(set(dialog.brief_fields), set(VALUES) - {'故事画幅', '视频模型'})
                 dialog.brief_fields['故事梗概'].insert('1.0', '未保存内容')
                 dialog.close()
                 self.assertEqual(d.draft_text(), '')

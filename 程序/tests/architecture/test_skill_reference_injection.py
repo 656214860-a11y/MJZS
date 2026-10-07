@@ -11,10 +11,12 @@ class SkillReferenceInjectionTests(unittest.TestCase):
     def test_script_stages_name_only_their_approved_00_references(self):
         expected = {
             '01 剧本准备SKILL/pipeline-script-preparation.skill.md': (
-                'production-workflow.md#the-loop',),
+                'AIGC创作全流程/short-drama-director/references/screenplay-gate-engine.md',
+                '完整遵循五阶门控', 'Premise→Structure→Beat→Entity→Page', '不裁剪 Gate'),
             '02 剧本整理SKILL/pipeline-script-structure.skill.md': (
                 'production-workflow.md#the-loop', 'cinematic-language.md#shot-functions'),
         }
+        self.assertTrue((SKILLS / '00全流程SKILL/AIGC创作全流程/short-drama-director/references/screenplay-gate-engine.md').is_file())
         for relative, fragments in expected.items():
             text = (SKILLS / relative).read_text(encoding='utf-8')
             self.assertIn('## 定向注入（00 包）', text, relative)
