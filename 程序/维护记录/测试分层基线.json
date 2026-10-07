@@ -1,30 +1,12 @@
 {
  "architecture": {
-  "elapsed_seconds": 28.977,
+  "elapsed_seconds": 34.022,
   "failed_modules": [],
   "test_count": 308,
   "unit_count": 104,
-  "updated_at": "2026-10-07T23:39:51"
+  "updated_at": "2026-10-08T01:06:02"
  },
  "full_safe_verified_trees": [
-  {
-   "at": "2026-10-04T15:57:10",
-   "round": 1027,
-   "seconds": 376.202,
-   "tree": "a0b9097a04d70d5be8dd8b22644e933e8a8c5c74"
-  },
-  {
-   "at": "2026-10-04T16:23:53",
-   "round": 1029,
-   "seconds": 359.139,
-   "tree": "0fc25270aefcfbb10009f715ffe284dcdbcaf240"
-  },
-  {
-   "at": "2026-10-04T16:49:07",
-   "round": 1032,
-   "seconds": 341.134,
-   "tree": "9d7d8875929408ea2c0e9b77cc933c0fd646ae42"
-  },
   {
    "at": "2026-10-04T19:14:30",
    "round": 1034,
@@ -186,6 +168,24 @@
    "round": 1101,
    "seconds": 349.289,
    "tree": "7f94b4ea33d822a128669cd19a7513a5dc2e90fa"
+  },
+  {
+   "at": "2026-10-07T23:51:56",
+   "round": 1103,
+   "seconds": 407.773,
+   "tree": "f31f407c80587c2283d3a3ad63616faf29c37f2b"
+  },
+  {
+   "at": "2026-10-08T00:39:52",
+   "round": 1107,
+   "seconds": 405.661,
+   "tree": "9268c94e2545aee839058ac05c35883b23abde42"
+  },
+  {
+   "at": "2026-10-08T01:01:14",
+   "round": 1110,
+   "seconds": 417.3,
+   "tree": "95002f7ad27149c4b77398f5643bd6c1db69f0bc"
   }
  ],
  "gui": {
@@ -210,7 +210,7 @@
   "updated_at": "2026-10-01T04:01:41"
  },
  "last_full_safe_all_at": "2026-10-03",
- "last_full_safe_all_round": 1101,
+ "last_full_safe_all_round": 1110,
  "service": {
   "elapsed_seconds": 24.89,
   "failed_modules": [],
