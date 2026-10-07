@@ -4877,7 +4877,8 @@ class Desktop:
             data={} if intake_only else snapshot(project_context(project))
             receipt=claim(project,signature(stage,prompt,followup,config,data),title)
             if on_receipt is not None:on_receipt(receipt)
-            if receipt['duplicate']:return {'receipt':receipt}
+            if receipt['duplicate'] and use_cli:return {'receipt':receipt}
+            if not use_cli:receipt['duplicate']=False
             try:
                 if stage=='previs':
                     from native_apps import open_blender
@@ -4978,30 +4979,12 @@ class Desktop:
             from prompt_window import copy_text
             copy_text(self.win,clipboard_text)
             open_target(result['url'])
-            from codex_paste import paste_existing,confirm_existing
-            def confirmed(outcome):
-                ui_plugin_registry.module('agent_dispatch').outcome(receipt,outcome)
-                self.status.set(outcome['reason'])
-                if not outcome['ok']:self.notifier.info(outcome['reason'], title='发送结果', modal=True)
-            def pasted(outcome):
-                ui_plugin_registry.module('agent_dispatch').outcome(receipt,outcome)
-                reason=outcome['reason']
-                if outcome.get('diagnostics') and '诊断：' not in reason:
-                    reason+=' 诊断：'+json.dumps(outcome['diagnostics'],ensure_ascii=False,separators=(',',':'))
-                self.status.set(reason)
-                if outcome['ok']:return
-                if outcome.get('can_confirm') and not outcome.get('send_dispatched'):
-                    accepted=confirm(self.win,'确认发送',
-                        '任务：'+result['title']+'\n\n内容已填入 Codex，但自动发送尚未完成。\n'
-                        '请确认左侧输入框是本次任务，点击“确认”后助手会直接点击发送，不再粘贴。')
-                    if accepted:
-                        self.status.set('正在发送已确认的 Codex 输入框内容…')
-                        self.async_(lambda:confirm_existing(result['title'],result['prompt'],outcome['confirmation'],
-                            result.get('draft_prompt',''),result.get('project','')),confirmed)
-                    else:self.status.set('已保留 Codex 输入框内容，尚未发送。')
-                else:self.notifier.info(reason, title='请检查 Codex 输入框', modal=True)
-            self.async_(lambda:paste_existing(result['title'],result['prompt'],result.get('draft_prompt',''),result.get('project',''),auto_send=True,deadline_seconds=45 if result.get('mode')=='new' else 15),pasted)
-            self.status.set('正在将本次任务粘贴到 Codex 并自动发送…')
+            from codex_paste import paste_existing
+            def pasted(result):
+                finish(receipt,'prepared' if result['ok'] else 'failed',result['reason'])
+                self.status.set(result['reason'])
+            self.async_(lambda:paste_existing(result['title'],clipboard_text,result.get('draft_prompt',''),result.get('project',''),deadline_seconds=45 if result.get('mode')=='new' else 15),pasted)
+            self.status.set('正在将本次任务粘贴到 GPT 桌面，请在窗口中手动点击发送…')
         self.async_(build,dispatch)
     def open_storyboard_skill(self,key=None):
         batch={}
