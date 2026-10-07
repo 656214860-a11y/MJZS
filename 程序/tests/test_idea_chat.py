@@ -848,7 +848,7 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
             self.assertFalse(hasattr(d, 'idea_brief_editor'))
-            self.assertEqual(idea_chat.strip_inline_required_markers(d._bubble_full['bubble_example']['text']), d.idea_example())
+            self.assertEqual(d._bubble_full['bubble_example']['text'], d.idea_example())
             self.assertEqual(d.draft_text(), '', '下方发送框初始为空')
             self.assertIn('对话AI · 示例模板', self.log_text(d), '示例只在只读气泡显示')
             with patch.object(d.notifier, 'info') as notice, patch.object(d, 'start_script_workflow') as launch:
@@ -932,7 +932,7 @@ class SendMessageTests(_Harness):
             box.tag_add('sel', start, end)
             box.event_generate('<<Copy>>'); win.update()
             self.assertEqual(win.clipboard_get(), box.get(start, end))
-            self.assertEqual(idea_chat.strip_inline_required_markers(win.clipboard_get()), d.idea_example())
+            self.assertEqual(win.clipboard_get(), d.idea_example())
             self.assertTrue(d.idea_log.tag_ranges('bubble_example'))
 
     @patch('stage_execution_service.idea_attachment_local_mode', new=lambda _project: False)

@@ -1357,14 +1357,7 @@ class Desktop:
                 else:finish()
             idle(append_batch)
         else:
-            from script_contract import INLINE_REQUIRED_LABELS
-            lines=[]
-            for line in self.idea_template.splitlines(keepends=True):
-                body=line.rstrip('\r\n')
-                label=re.split('[：:]',body,maxsplit=1)[0].strip()
-                hint='（必填）' if label in INLINE_REQUIRED_LABELS else ''
-                lines.append(body+hint+line[len(body):])
-            self.add_bubble(box,{'role':'assistant','model':'示例模板','text':''.join(lines)},'example')
+            self.add_bubble(box,{'role':'assistant','model':'示例模板','text':self.idea_template},'example')
             finish()
         # 保持 normal 才能让 Tk 的原生鼠标拖选建立 ``sel`` 标签；只读由
         # guard_bubble_edit_key 控制，避免 disabled 状态吞掉拖选事件。
