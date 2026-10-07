@@ -553,8 +553,9 @@ def inline_template_labels(text):
                                          str(text or ''), re.MULTILINE)))
 
 
-def inline_required_missing(template_text, draft_text, required_labels=INLINE_REQUIRED_LABELS):
-    """内联发送唯一门禁：空值或仍为示例占位值均未填写。"""
+def inline_required_missing(template_text, draft_text, required_labels=INLINE_REQUIRED_LABELS,
+                            attachment_fields=None):
+    """内联发送唯一门禁：有效手填值或本轮附件字段任一满足即可。"""
     labels = tuple(dict.fromkeys((*inline_template_labels(template_text), *required_labels)))
     template = extract_brief_creation(strip_inline_required_markers(template_text),
                                       extra_labels=labels, include_extra=True)
@@ -563,8 +564,9 @@ def inline_required_missing(template_text, draft_text, required_labels=INLINE_RE
     def normalized(value):
         return ''.join(value.split())
     return tuple(label for label in required_labels
-                 if not normalized(draft.get(label, ''))
-                 or normalized(draft.get(label, '')) == normalized(template.get(label, '')))
+                 if not str((attachment_fields or {}).get(label) or '').strip()
+                 and (not normalized(draft.get(label, ''))
+                      or normalized(draft.get(label, '')) == normalized(template.get(label, ''))))
 
 
 def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
@@ -579,7 +581,7 @@ def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
         if match:
             label = match.group(1).strip().strip('*').strip()
             canonical = aliases.get(label, label)
-            if canonical in BRIEF_CREATION_FIELDS or (include_extra and label in extra_labels):
+            if canonical in (*BRIEF_CREATION_FIELDS, '篇幅') or (include_extra and label in extra_labels):
                 active = canonical
                 fields[active] = match.group(2)
                 continue
@@ -588,6 +590,13 @@ def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
                 continue
         if active:
             fields[active] += '\n' + line
+    length = fields.pop('篇幅', '')
+    # 旧简报的篇幅可同时声明集数和单集时长；没有明确时长时不猜默认值。
+    for label, pattern in (('故事集数', r'\d+\s*集'),
+                           ('单集时间', r'(?:每集|单集)[：:\s]*(\d+(?:\.\d+)?\s*(?:分钟|秒|minutes?|min|s))')):
+        match = re.search(pattern, length, re.I)
+        if match:
+            fields.setdefault(label, match.group(match.lastindex or 0))
     return {label: value.strip() for label, value in fields.items()}
 
 
@@ -649,7 +658,7 @@ BRIEF_ATTACHMENT_NOTICE = '引用附档无本地可读转换稿,请补充填写�
 
 
 def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=None, attachment_reference=None,
-                  inline_text=None):
+                  inline_text=None, inline_template=None):
     """接收用户创意，落盘原始简报；满足必填项时才生成 brief_complete.json。"""
     value = str(text or '').strip()
     if not value:
@@ -664,14 +673,21 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
         raw = strip_inline_required_markers(inline_text)
     extraction_text = '\n'.join((_brief_source_text(root, raw, gateway=gateway),
                                  *(attachment_reference or {}).get('brief_texts', ())))
+    lock_sources = [raw, *(attachment_reference or {}).get('brief_texts', ())]
     if inline_text is not None:
         values = extract_brief_creation(raw, extra_labels=inline_template_labels(raw), include_extra=True)
-        extraction_text = '\n'.join(label + '：' + ' '.join(value.splitlines())
-                                     for label, value in values.items())
+        missing = inline_required_missing(inline_template, raw, tuple(values)) if inline_template is not None else ()
+        current = '\n'.join(label + '：' + ' '.join(value.splitlines()) for label, value in values.items()
+                            if value.strip() and label not in missing)
+        lock_sources = [current, *(attachment_reference or {}).get('brief_texts', ())]
+        extraction_text = '\n'.join(lock_sources)
     fields = _brief_fields(extraction_text)
     workflow = dict(workflow or {})
-    selected_locks = {item['key']: _brief_value(raw, (item['label'], *item.get('aliases', ())))
-                      for item in lock_definitions}
+    selected_locks = {}
+    for item in lock_definitions:
+        labels = (item['label'], *item.get('aliases', ()))
+        selected_locks[item['key']] = next((value for source in lock_sources
+                                           if (value := _brief_value(source, labels))), '')
     fields['production_locks'] = {key: value for key, value in selected_locks.items() if value}
     from script_contract import brief_document, missing_brief_fields
     missing = missing_brief_fields(fields)

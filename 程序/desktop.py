@@ -1447,7 +1447,32 @@ class Desktop:
         prepared=self.idea_chat_controller.prepare_submission(
             self.root, value, is_example=self.idea_still_the_example())
         import idea_chat
-        missing = idea_chat.inline_required_missing(self.idea_template, value)
+        import stage_config, workflow_settings
+        workflow_config = stage_config.current_workflow(self.root)
+        preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
+        lock_definitions = preset.get('locks') or tuple(
+            item for definition in workflow_settings.WORKFLOW_PRESETS.values() for item in definition.get('locks', ()))
+        attachment_fields = {}
+        if prepared is not None:
+            from stage_execution_service import stage_idea_brief_defaults
+            reference = prepared['attachments']
+            attachment_fields.update(stage_idea_brief_defaults(self.root, reference=reference)['values'])
+            # 普通字段沿用 L2 别名；锁标签只来自统筹定义，不再维护第二张映射表。
+            lock_labels = tuple(label for item in lock_definitions
+                                for label in (item['label'], *item.get('aliases', ())))
+            lock_fields = {}
+            for text in reference.get('brief_texts', ()):
+                for label, field in idea_chat.extract_brief_creation(
+                        text, extra_labels=lock_labels, include_extra=True).items():
+                    lock_fields.setdefault(label, field)
+            attachment_fields.update(lock_fields)
+            for item in lock_definitions:
+                labels = (item['label'], *item.get('aliases', ()))
+                target = next((label for label in labels if label in idea_chat.INLINE_REQUIRED_LABELS), None)
+                if target is not None:
+                    attachment_fields[target] = next((lock_fields[label] for label in labels if lock_fields.get(label)), '')
+        missing = idea_chat.inline_required_missing(self.idea_template, value,
+                                                    attachment_fields=attachment_fields)
         if missing:
             notice = idea_chat.BRIEF_ATTACHMENT_NOTICE + '\n' if prepared and prepared['attachments'].get('brief_unreadable') else ''
             self.notifier.info(notice + '请先填写：' + '、'.join(missing), modal=True)
@@ -1461,12 +1486,10 @@ class Desktop:
         if direct_model and self.idea_chat_controller.requesting:
             raise ValueError('模型正在回复，请不要重复发送。')
         # UI 八项门禁通过后仍核验底层四项契约；缺项只提示，不启动模型。
-        import stage_config, workflow_settings
-        workflow_config = stage_config.current_workflow(self.root)
-        preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
         brief = idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
-                                        lock_definitions=preset.get('locks', ()), gateway=self.idea_chat_gateway(),
-                                        attachment_reference=prepared['attachments'], inline_text=value)
+                                        lock_definitions=lock_definitions, gateway=self.idea_chat_gateway(),
+                                        attachment_reference=prepared['attachments'], inline_text=value,
+                                        inline_template=self.idea_template)
         if brief['missing']:
             self.notifier.info((brief.get('attachment_notice', '') + '\n' + brief['followup']).strip(), modal=True)
             return

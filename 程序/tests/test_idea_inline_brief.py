@@ -23,6 +23,53 @@ def draft(values=None):
 
 
 class InlineBriefTests(unittest.TestCase):
+    def test_attachment_values_satisfy_gate_without_template_comparison(self):
+        template = draft()
+        self.assertEqual(idea_chat.inline_required_missing(template, template,
+                         attachment_fields=VALUES), ())
+        for label in script_contract.INLINE_REQUIRED_LABELS:
+            values = dict(VALUES, **{label: ' \t\n'})
+            self.assertEqual(idea_chat.inline_required_missing(template, template,
+                             attachment_fields=values), (label,))
+        self.assertEqual(idea_chat.inline_required_missing(template, '',
+                         attachment_fields={'故事梗概': VALUES['故事梗概']}),
+                         script_contract.INLINE_REQUIRED_LABELS[1:])
+
+    def test_attachment_length_requires_explicit_episode_and_duration(self):
+        self.assertEqual(idea_chat.extract_brief_creation('篇幅：12集，每集120秒'),
+                         {'故事集数': '12集', '单集时间': '120秒'})
+        self.assertEqual(idea_chat.extract_brief_creation('篇幅：12集'), {'故事集数': '12集'})
+
+    def test_attachment_locks_and_fields_replace_only_template_placeholders(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = make_minimal_project(td)
+            template = draft({label: '示例' + label for label in VALUES})
+            preset = next(iter(workflow_settings.WORKFLOW_PRESETS.values()))
+            text = draft().replace('故事画幅:', '画幅:').replace('视频模型:', '视频模型版本:')
+            result = injected_chat.receive_brief(root, '【附档：输入/材料.md】',
+                inline_text=template, inline_template=template, lock_definitions=preset['locks'],
+                attachment_reference={'brief_texts': [text]})
+            self.assertEqual(result['missing'], ())
+            self.assertEqual(result['fields']['story_summary'], VALUES['故事梗概'])
+            self.assertEqual(result['fields']['production_locks']['aspect_ratio'], '9:16')
+            self.assertEqual(result['fields']['production_locks']['video_model_version'], 'MiniMax H3')
+            changed = template.replace('示例故事梗概', '手写梗概').replace('示例故事画幅', '4:3')
+            result = injected_chat.receive_brief(root, '【附档：输入/材料.md】',
+                inline_text=changed, inline_template=template, lock_definitions=preset['locks'],
+                attachment_reference={'brief_texts': [text]})
+            self.assertEqual(result['fields']['story_summary'], '手写梗概')
+            self.assertEqual(result['fields']['production_locks']['aspect_ratio'], '4:3')
+
+    def test_non_inline_receive_reads_attachment_lock_aliases(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = make_minimal_project(td)
+            preset = next(iter(workflow_settings.WORKFLOW_PRESETS.values()))
+            result = injected_chat.receive_brief(root, '请读取附档\n故事画幅：', lock_definitions=preset['locks'],
+                attachment_reference={'brief_texts': [draft()]})
+            self.assertEqual(result['fields']['production_locks'],
+                             {'aspect_ratio': '9:16', 'video_model_version': 'MiniMax H3',
+                              'delivery_format': '只要 markdown 文档'})
+
     def test_coordinator_lists_readonly_locks_and_keeps_deviation_badge(self):
         from skill_panel import Panel
         name, preset = next(iter(workflow_settings.WORKFLOW_PRESETS.items()))
@@ -85,6 +132,52 @@ class InlineBriefTests(unittest.TestCase):
 
 
 class InlineBriefDesktopTests(_Harness):
+    @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
+    def test_attachment_without_duration_keeps_inline_gate_closed(self, _local):
+        from stage_execution_service import archive_idea_attachments
+        with tempfile.TemporaryDirectory() as td:
+            root = make_minimal_project(td)
+            source = Path(td) / '材料.txt'
+            source.write_text(draft(dict(VALUES, 单集时间='')), encoding='utf-8')
+            stored = archive_idea_attachments(root, [source])
+            d, win = self.desktop(root)
+            d.show(0); self.settle_script_page(win)
+            d.idea_attachment_paths = tuple(stored)
+            with patch.object(d, 'start_script_workflow') as launch, \
+                    patch.object(d.notifier, 'info') as notice:
+                d.send_message()
+            launch.assert_not_called()
+            self.assertEqual(notice.call_args.args[0], '请先填写：单集时间')
+
+    @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
+    def test_attachment_aliases_send_unchanged_example_without_prompt(self, _local):
+        from stage_execution_service import archive_idea_attachments, stage_idea_brief_defaults
+        with tempfile.TemporaryDirectory() as td:
+            root = make_minimal_project(td)
+            source = Path(td) / '材料.txt'
+            body = ('故事梗概：修表师寻找失踪的父亲\n主要角色：林青与阿禾\n'
+                    '题材类型：冒险喜剧\n篇幅：12集，每集120秒\n画幅：9:16\n'
+                    '视频模型版本：MiniMax H3\n交付形态：只要 markdown 文档')
+            source.write_text(body, encoding='utf-8')
+            stored = archive_idea_attachments(root, [source])
+            d, win = self.desktop(root)
+            d.show(0); self.settle_script_page(win)
+            d.idea_attachment_paths = tuple(stored)
+            with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \
+                    patch.object(d.notifier, 'info') as notice, \
+                    patch('stage_execution_service.stage_idea_brief_defaults',
+                          wraps=stage_idea_brief_defaults) as defaults:
+                d.send_message()
+            notice.assert_not_called()
+            launch.assert_called_once()
+            defaults.assert_called_once()
+            self.assertIn('brief_texts', defaults.call_args.kwargs['reference'])
+            submission = launch.call_args.args[0]
+            self.assertIn('【附档：01剧本准备/输入/', submission)
+            self.assertNotIn(body, submission)
+            self.assertNotIn('修表师寻找失踪的父亲', submission)
+            self.assertEqual(injected_chat.brief_raw_path(root).read_text(encoding='utf-8'), d.idea_template)
+
     def test_prefilled_example_and_required_tags_do_not_clear_on_typing(self):
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
