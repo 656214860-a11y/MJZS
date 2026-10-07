@@ -1406,7 +1406,10 @@ class PanelTests(unittest.TestCase):
                      (skill_panel.MANAGE_ALL, skill_panel.MANAGE_NONE, skill_panel.MANAGE_ADD,
                       skill_panel.MANAGE_DELETE))
         self.assertFalse(hasattr(panel, 'delete_skill_button'))
-        self.assertEqual(panel.skill_action.get(), skill_panel.MANAGE_ALL)
+        self.assertEqual(panel.skill_action.get(), '请选择')
+        with mock.patch.object(panel, 'check_all_skills') as check_all:
+            self.assertEqual(panel.choose_skill_action(), '')
+        check_all.assert_not_called()
         self.assertEqual([label for label, _path in skill_panel.flow_skill_choices('frames')],
                          ['图像生成'])
         self.assertFalse(hasattr(panel, 'flow_vars'))

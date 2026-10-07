@@ -949,7 +949,7 @@ class Panel(ttk.Frame):
         self.skill_action_row.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.flow_skill_label = ttk.Label(self.skill_action_row, text='SKILL', style='Muted.TLabel', width=10)
         self.flow_skill_label.pack(side='left')
-        self.skill_action = tk.StringVar(value=MANAGE_ALL)
+        self.skill_action = tk.StringVar(value='请选择')
         action = ttk.Combobox(self.skill_action_row, textvariable=self.skill_action,
                               values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE), state='readonly', width=12)
         action.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
