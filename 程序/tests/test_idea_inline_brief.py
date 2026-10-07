@@ -278,8 +278,7 @@ class InlineBriefDesktopTests(_Harness):
                     patch.object(d, 'open_flow_agent') as extract, \
                     patch.object(d.notifier, 'info') as notice:
                 d.send_message()
-                extract.assert_called_once()
-                d.finish_idea_semantic_brief(d._idea_semantic_pending, {})
+                extract.assert_not_called()
             launch.assert_not_called()
             self.assertEqual(notice.call_args.args[0], '请先填写：单集时间')
 

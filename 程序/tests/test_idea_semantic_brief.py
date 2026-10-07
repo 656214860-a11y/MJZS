@@ -128,6 +128,12 @@ class SemanticBriefTests(unittest.TestCase):
 
 
 class SemanticBriefDesktopTests(_Harness):
+    def start_explicit_extraction(self, desktop):
+        # 兼容旧的显式提取接口；普通发送已不再启动独立提取任务。
+        value = desktop.draft_text()
+        prepared = desktop.idea_chat_controller.prepare_submission(desktop.root, value, is_example=False)
+        desktop.start_idea_semantic_brief(value, prepared)
+
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
     def test_manual_values_and_empty_label_are_preserved_or_filled(self, _local):
         with tempfile.TemporaryDirectory() as td:
@@ -136,7 +142,7 @@ class SemanticBriefDesktopTests(_Harness):
             with patch.object(d, 'open_flow_agent'), \
                     patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \
                     patch.object(d.notifier, 'info') as notice:
-                d.send_message()
+                self.start_explicit_extraction(d)
                 pending = d._idea_semantic_pending
                 pending['request']['path'].write_text(json.dumps(response(pending['request'])), encoding='utf-8')
                 d.poll_idea_semantic_brief()
@@ -166,7 +172,7 @@ class SemanticBriefDesktopTests(_Harness):
             with patch.object(d, 'open_flow_agent') as extract, \
                     patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \
                     patch.object(d.notifier, 'info') as notice:
-                d.send_message()
+                self.start_explicit_extraction(d)
                 extract.assert_called_once()
                 launch.assert_not_called()
                 notice.assert_not_called()
@@ -184,7 +190,7 @@ class SemanticBriefDesktopTests(_Harness):
             d = self.setup_request(td)
             with patch.object(d, 'open_flow_agent'), patch.object(d, 'start_script_workflow') as launch, \
                     patch.object(d.notifier, 'info') as notice:
-                d.send_message()
+                self.start_explicit_extraction(d)
                 pending = d._idea_semantic_pending
                 fields = {key: value for key, value in VALUES.items() if key != '交付形态'}
                 pending['request']['path'].write_text(json.dumps(response(pending['request'], fields)), encoding='utf-8')
@@ -198,7 +204,7 @@ class SemanticBriefDesktopTests(_Harness):
         with tempfile.TemporaryDirectory() as td:
             d = self.setup_request(td)
             with patch.object(d, 'open_flow_agent'), patch.object(d, 'start_script_workflow') as launch:
-                d.send_message()
+                self.start_explicit_extraction(d)
                 pending = d._idea_semantic_pending
                 d.idea_input.insert('1.0', '新的手填内容')
                 pending['request']['path'].write_text(json.dumps(response(pending['request'])), encoding='utf-8')

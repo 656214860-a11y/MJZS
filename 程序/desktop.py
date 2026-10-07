@@ -1523,8 +1523,6 @@ class Desktop:
         missing = idea_chat.inline_required_missing(None, value,
                                                     attachment_fields=attachment_fields)
         if missing:
-            if prepared and prepared['attachments'].get('brief_texts'):
-                if self.start_idea_semantic_brief(value, prepared):return
             notice = idea_chat.BRIEF_ATTACHMENT_NOTICE + '\n' if prepared and prepared['attachments'].get('brief_unreadable') else ''
             self.notifier.info(notice + '请先填写：' + '、'.join(missing), modal=True)
             return

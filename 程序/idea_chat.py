@@ -532,11 +532,37 @@ def _project_file_type(text):
 
 
 
+def _brief_plain_text(text, labels):
+    """把明确的 Markdown 字段表/标题转成标签行，不推测正文含义。"""
+    names = '|'.join(re.escape(label) for label in labels)
+    lines, pending = [], ''
+    for line in str(text or '').replace('\r\r\n', '\n').splitlines():
+        cells = [cell.strip().strip('*').strip() for cell in line.strip().strip('|').split('|')]
+        if len(cells) == 2 and cells[0] in labels:
+            line = cells[0] + '：' + cells[1]
+        heading = re.fullmatch(r'\s*#{1,6}\s+(' + names + r')\s*[：:]?\s*', line)
+        if pending:
+            if not line.strip():
+                continue
+            if heading or re.match(r'\s*(?:[-*#]+\s*)?(?:' + names + r')[ *]*[：:\t]', line):
+                lines.append(pending + '：')
+            else:
+                line = pending + '：' + line.strip()
+            pending = ''
+        if heading:
+            pending = heading.group(1)
+        else:
+            lines.append(line)
+    if pending:
+        lines.append(pending + '：')
+    return '\n'.join(lines)
+
+
 def _brief_value(text, labels):
     """从用户常见的“字段：内容”写法中取值，不猜测未明说的信息。"""
     names = '|'.join(re.escape(label) for label in labels)
-    match = re.search(r'(?im)(?:^|\t)[ ]*(?:[-*#]+[ \t]*)?(?:' + names + r')[ ]*[：:\t][ \t]*([^\r\n]*)',
-                      str(text or ''))
+    match = re.search(r'(?im)(?:^|\t)[ ]*(?:[-*#]+[ \t]*)?(?:' + names + r')[ *]*[：:\t][ \t]*([^\r\n]*)',
+                      _brief_plain_text(text, (*BRIEF_CREATION_FIELDS, *INLINE_REQUIRED_LABELS, *labels)))
     value = match.group(1).strip() if match else ''
     labels = BRIEF_CREATION_FIELDS + ('题材类型', '题材', '类型', '风格', '集数',
         '单集时长', '时长', '篇幅', '主要角色', '角色', '故事人物', '人物设定',
@@ -649,7 +675,7 @@ def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
     labels = tuple(dict.fromkeys((*BRIEF_CREATION_FIELDS, '篇幅', *aliases, *extra_labels)))
     label_pattern = '|'.join(re.escape(label) for label in labels)
     fields, active = {}, None
-    for line in str(text or '').replace('\r\r\n', '\n').splitlines():
+    for line in _brief_plain_text(text, labels).splitlines():
         match = re.search(r'(?:^|\t)[ ]*(?:[-*#]+[ \t]*)?(' + label_pattern
                           + r')[ *]*[：:\t][ \t]*(.*)$', line)
         if match:
