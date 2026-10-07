@@ -233,6 +233,35 @@ def stage_idea_brief_defaults(project, *, reference=None):
     return {'values': values, 'skipped': reference.get('brief_unreadable', ())}
 
 
+def prepare_idea_semantic_brief(project, draft, reference):
+    from idea_chat import semantic_brief_request
+    return semantic_brief_request(project_context(project), draft, reference,
+                                  local_mode=idea_attachment_local_mode(project))
+
+
+def validate_idea_semantic_sources(request):
+    for source, modified, size in request['fingerprints']:
+        stat = source.stat()
+        if (stat.st_mtime_ns, stat.st_size) != (modified, size):
+            raise ValueError('附档内容已变化，未套用旧提取结果，请重新发送。')
+
+
+def read_idea_semantic_brief(request):
+    """只轮询本次唯一文件；模型尚未原子发布时继续等待。"""
+    from idea_chat import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
+    path = request['path']
+    if not path.is_file():
+        return None
+    if path.is_symlink() or path.resolve().parent != path.parent.resolve() or path.stat().st_size > SEMANTIC_BRIEF_MAX_BYTES:
+        raise ValueError('简报提取结果路径或大小无效。')
+    validate_idea_semantic_sources(request)
+    try:
+        data = file_cache.read_json(path)
+    except ValueError as exc:
+        raise ValueError('简报提取结果不是有效 JSON，请让 Agent 完成后重新发送。') from exc
+    return semantic_brief_values(data, request['request_id'], request['source'])
+
+
 def idea_chat_gateway():
     """为 ``idea_chat`` 注入缓存读取与原子发布；L2 不可自行落盘。"""
     from agent.core import save, save_text

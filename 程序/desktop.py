@@ -1036,6 +1036,7 @@ class Desktop:
 
     def poll_idea_attachment_preparation(self):
         """仅在 Tk 主线程更新附件状态；后台线程绝不触碰控件。"""
+        self.poll_idea_semantic_brief()
         result=self.idea_chat_controller.poll_attachment_preparation()
         if result is None:return
         if (getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists()
@@ -1399,6 +1400,95 @@ class Desktop:
         return model, False
 
 
+    def _idea_semantic_key(self, value):
+        return (str(self.root), value, tuple(self.idea_attachment_paths))
+
+    def start_idea_semantic_brief(self, value, prepared):
+        """提取不是阶段开工：未齐全前不生成剧本，也不保存完成简报。"""
+        from stage_execution_service import prepare_idea_semantic_brief, idea_attachment_local_mode
+        import writing_api
+        key = self._idea_semantic_key(value)
+        if getattr(self, '_idea_semantic_resolved', None) == key:
+            return False
+        pending = getattr(self, '_idea_semantic_pending', None)
+        if pending and pending['key'] == key:
+            self.status.set('Agent 正在读取附档并提取创作信息，请稍候。')
+            return True
+        request = prepare_idea_semantic_brief(self.root, value, prepared['attachments'])
+        local = idea_attachment_local_mode(self.root)
+        pending = {'key': key, 'request': request, 'started': time.monotonic(),
+                   'local': local, 'next_poll': 0}
+        self._idea_semantic_pending = pending
+        try:
+            if local:
+                self.open_flow_agent('writing', '简报信息提取', request['prompt'], request['prompt'], intake_only=True)
+            else:
+                project = self.root
+                def extract():
+                    try:return {'values': writing_api.extract_idea_brief(project, request)}
+                    except (ValueError, OSError) as exc:return {'error': str(exc)}
+                def received(result):
+                    if getattr(self, '_idea_semantic_pending', None) is not pending:return
+                    if result.get('error'):
+                        self._idea_semantic_pending = None
+                        self.notifier.info(result['error'], modal=True)
+                    else:self.finish_idea_semantic_brief(pending, result['values'])
+                self.async_(extract, received, label='模型正在读取附档并提取创作信息…')
+        except Exception:
+            self._idea_semantic_pending = None
+            raise
+        self.status.set('正在智能读取附档；提取完成后自动回填，缺项再询问。')
+        return True
+
+    def poll_idea_semantic_brief(self):
+        pending = getattr(self, '_idea_semantic_pending', None)
+        if not pending:return
+        import idea_chat
+        if (getattr(self, 'shutting_down', False) or self.page_index != PAGE['script']
+                or self._idea_semantic_key(self.draft_text()) != pending['key']):
+            self._idea_semantic_pending = None
+            self.status.set('输入、附件或项目已变化；未套用旧提取结果，请重新发送。')
+            return
+        if time.monotonic() - pending['started'] > idea_chat.SEMANTIC_BRIEF_TIMEOUT:
+            self._idea_semantic_pending = None
+            self.notifier.info('简报提取尚未返回有效结果；请检查 Agent 是否完成提取后重新发送。', modal=True)
+            return
+        if not pending['local'] or getattr(self, 'worker', False) or time.monotonic() < pending['next_poll']:
+            return
+        pending['next_poll'] = time.monotonic() + idea_chat.SEMANTIC_BRIEF_POLL_SECONDS
+        from stage_execution_service import read_idea_semantic_brief
+        try:values = read_idea_semantic_brief(pending['request'])
+        except (ValueError, OSError) as exc:
+            self._idea_semantic_pending = None
+            self.notifier.info(str(exc), modal=True)
+            return
+        if values is not None:self.finish_idea_semantic_brief(pending, values)
+
+    def finish_idea_semantic_brief(self, pending, values):
+        if getattr(self, '_idea_semantic_pending', None) is not pending:return
+        self._idea_semantic_pending = None
+        current = self.draft_text()
+        if self.page_index != PAGE['script'] or self._idea_semantic_key(current) != pending['key']:
+            self.status.set('内容已变化，未覆盖当前输入；请重新发送。')
+            return
+        from stage_execution_service import validate_idea_semantic_sources
+        try:validate_idea_semantic_sources(pending['request'])
+        except OSError:
+            self.notifier.info('附档已不可读取，未套用旧提取结果，请重新发送。', modal=True)
+            return
+        except ValueError as exc:
+            self.notifier.info(str(exc), modal=True)
+            return
+        import idea_chat
+        fields = idea_chat.extract_brief_creation(current, extra_labels=idea_chat.INLINE_REQUIRED_LABELS,
+                                                  include_extra=True)
+        additions = [label + '：' + value for label, value in values.items() if not fields.get(label)]
+        if additions:
+            self.idea_input.insert('end', ('\n' if current.strip() else '') + '\n'.join(additions))
+        self._idea_semantic_resolved = self._idea_semantic_key(self.draft_text())
+        self.status.set('已智能识别并回填创作信息，正在核验必填项。')
+        self.send_message()
+
     def send_message(self):
         """提交创意；显式 API 模型在聊天框内回复，其余仍启动剧本 Agent。"""
         box=getattr(self,'idea_input',None)
@@ -1433,6 +1523,8 @@ class Desktop:
         missing = idea_chat.inline_required_missing(None, value,
                                                     attachment_fields=attachment_fields)
         if missing:
+            if prepared and prepared['attachments'].get('brief_texts'):
+                if self.start_idea_semantic_brief(value, prepared):return
             notice = idea_chat.BRIEF_ATTACHMENT_NOTICE + '\n' if prepared and prepared['attachments'].get('brief_unreadable') else ''
             self.notifier.info(notice + '请先填写：' + '、'.join(missing), modal=True)
             return
@@ -1675,6 +1767,7 @@ class Desktop:
 
     def interrupt_script_agent(self):
         """中断当前剧本 API 请求或本窗口启动的剧本 Agent，不影响其他制作阶段。"""
+        self._idea_semantic_pending = None
         api_active=getattr(self,'_idea_requesting',False)
         processes=self.script_agent_processes()
         launching=getattr(self,'_script_agent_launching',False)
@@ -4758,7 +4851,7 @@ class Desktop:
         if self.root is None:raise ValueError('请先选择项目')
         from workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)
-    def open_flow_agent(self,stage,label,prompt,followup=None,on_receipt=None,_config=None):
+    def open_flow_agent(self,stage,label,prompt,followup=None,on_receipt=None,_config=None,*,intake_only=False):
         from workflow_settings import current
         from workflow_engines import prompt_with_settings,launch_interactive
         from agent_dispatch import signature,claim,finish,outcome,retryable
@@ -4766,7 +4859,9 @@ class Desktop:
         # 「发送待核实」的安全重试必须沿用第一次已经解析的引擎。原来递归重进时会重新
         # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
         config=_config if _config is not None else current(self.root,stage);followup=followup if followup is not None else prompt
-        setup_key=hashlib.sha256(json.dumps(config,sort_keys=True).encode()).hexdigest()
+        use_cli=config['engine']!='codex' or config['program'] or config['model']
+        # CLI 继续复用同一进程；提取结束后不能占住唯一槽位又排队启动剧本进程。
+        setup_key=hashlib.sha256((json.dumps(config,sort_keys=True)+('brief-intake' if intake_only and not use_cli else '')).encode()).hexdigest()
         from codex_tasks import prepare_task
         project=self.root
         name=next((p['name'] for p in self.projects.info['projects'] if Path(p['path'])==project),project.name)
@@ -4774,13 +4869,12 @@ class Desktop:
         if config['engine']=='qwen':
             from qwen_adapter import window_title
             title=window_title(name,stage,getattr(self,'page_index',None))
-        use_cli=config['engine']!='codex' or config['program'] or config['model']
         def build():
             from workflow_context import continuation_instruction,snapshot
             from stage_execution_service import project_context
             from workflow_context_controller import request_stage_instruction
             from workflow_context_budget import prepare_request_context
-            data=snapshot(project_context(project))
+            data={} if intake_only else snapshot(project_context(project))
             receipt=claim(project,signature(stage,prompt,followup,config,data),title)
             if on_receipt is not None:on_receipt(receipt)
             if receipt['duplicate']:return {'receipt':receipt}
@@ -4788,12 +4882,17 @@ class Desktop:
                 if stage=='previs':
                     from native_apps import open_blender
                     open_blender()
-                context,strategy=request_stage_instruction(project,stage,data)
-                full,budget=prepare_request_context(
-                    prompt_with_settings(context+prompt,config,stage=stage),stage,strategy)
-                continuation,continuation_budget=prepare_request_context(
-                    prompt_with_settings(continuation_instruction(project,stage,data)+followup,config,stage=stage),
-                    stage,'continuation_summary')
+                if intake_only:
+                    # 提取阶段不得附加“直接生成剧本”的 SKILL/阶段交付指令。
+                    full,budget=prepare_request_context(prompt,stage,'brief_intake')
+                    continuation,continuation_budget=prepare_request_context(followup,stage,'brief_intake')
+                else:
+                    context,strategy=request_stage_instruction(project,stage,data)
+                    full,budget=prepare_request_context(
+                        prompt_with_settings(context+prompt,config,stage=stage),stage,strategy)
+                    continuation,continuation_budget=prepare_request_context(
+                        prompt_with_settings(continuation_instruction(project,stage,data)+followup,config,stage=stage),
+                        stage,'continuation_summary')
                 finish(receipt,'preparing','',context_budget={
                     'initial':budget,'continuation':continuation_budget})
                 if use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
@@ -4811,7 +4910,7 @@ class Desktop:
                 if retryable(receipt,live):
                     finish(receipt,'failed','上次发送结果未确认，且对应 Agent 窗口已关闭')
                     self.status.set('上次 Agent 发送未确认且窗口已关闭，正在自动重新启动…')
-                    self.open_flow_agent(stage,label,prompt,followup,on_receipt,_config=config)
+                    self.open_flow_agent(stage,label,prompt,followup,on_receipt,_config=config,intake_only=intake_only)
                     return
                 if not live:
                     finish(receipt,'failed','上次 Agent 窗口已关闭，请重新点击启动')

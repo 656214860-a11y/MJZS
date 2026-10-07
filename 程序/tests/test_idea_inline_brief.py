@@ -23,6 +23,30 @@ def draft(values=None):
 
 
 class InlineBriefTests(unittest.TestCase):
+    def test_xlsx_later_cell_and_story_aliases_feed_attachment_gate(self):
+        text = ('【工作表：主线】\n设定\t故事集数：12集\n'
+                '单集时间：120秒\n故事画幅：9:16\n视频模型：MiniMax H3\n'
+                '故事主线：修表师寻找失踪的父亲\n故事人物：林青与阿禾')
+        fields = idea_chat.extract_brief_creation(text,
+            extra_labels=script_contract.INLINE_REQUIRED_LABELS, include_extra=True)
+        self.assertEqual(fields['故事集数'], '12集')
+        self.assertEqual(fields['故事梗概'], '修表师寻找失踪的父亲')
+        self.assertEqual(fields['故事角色'], '林青与阿禾')
+        self.assertEqual(idea_chat.inline_required_missing(None, '', attachment_fields=fields),
+                         ('故事题材', '交付形态'))
+        self.assertEqual(idea_chat.inline_required_missing(None,
+            '故事题材：冒险喜剧\n交付形态：markdown文档', attachment_fields=fields), ())
+        with tempfile.TemporaryDirectory() as td:
+            root = make_minimal_project(td)
+            preset = next(iter(workflow_settings.WORKFLOW_PRESETS.values()))
+            result = injected_chat.receive_brief(root, '【附档：输入/材料.xlsx】',
+                inline_text='故事题材：冒险喜剧\n交付形态：markdown文档',
+                lock_definitions=preset['locks'], attachment_reference={'brief_texts': [text]})
+            self.assertEqual(result['missing'], ())
+            self.assertIn('12集', result['fields']['length'])
+            self.assertEqual(result['fields']['story_summary'], '修表师寻找失踪的父亲')
+            self.assertEqual(result['fields']['main_characters'], '林青与阿禾')
+
     def test_attachment_values_satisfy_gate_without_template_comparison(self):
         template = draft()
         self.assertEqual(idea_chat.inline_required_missing(template, template,
@@ -132,6 +156,31 @@ class InlineBriefTests(unittest.TestCase):
 
 
 class InlineBriefDesktopTests(_Harness):
+    @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
+    def test_tabular_attachment_plus_missing_fields_in_input_starts_workflow(self, _local):
+        from stage_execution_service import archive_idea_attachments
+        with tempfile.TemporaryDirectory() as td:
+            root = make_minimal_project(td)
+            source = Path(td) / '表格转换稿.md'
+            body = ('设定\t故事集数：12集\n单集时间：120秒\n'
+                    '故事画幅：9:16\n视频模型：MiniMax H3\n'
+                    '故事主线：修表师寻找失踪的父亲\n故事人物：林青与阿禾')
+            source.write_text(body, encoding='utf-8')
+            stored = archive_idea_attachments(root, [source])
+            d, win = self.desktop(root)
+            d.show(0); self.settle_script_page(win)
+            d.idea_attachment_paths = tuple(stored)
+            d.idea_input.insert('1.0', '故事题材：冒险喜剧\n交付形态：markdown文档')
+            with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \
+                    patch.object(d.notifier, 'info') as notice:
+                d.send_message()
+            notice.assert_not_called()
+            launch.assert_called_once()
+            submission = launch.call_args.args[0]
+            self.assertIn('【附档：01剧本准备/输入/', submission)
+            self.assertNotIn('修表师寻找失踪的父亲', submission)
+            self.assertNotIn(d.idea_template, submission)
+
     def test_readonly_example_enter_does_not_send_but_input_enter_sends(self):
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
@@ -226,8 +275,11 @@ class InlineBriefDesktopTests(_Harness):
             d.show(0); self.settle_script_page(win)
             d.idea_attachment_paths = tuple(stored)
             with patch.object(d, 'start_script_workflow') as launch, \
+                    patch.object(d, 'open_flow_agent') as extract, \
                     patch.object(d.notifier, 'info') as notice:
                 d.send_message()
+                extract.assert_called_once()
+                d.finish_idea_semantic_brief(d._idea_semantic_pending, {})
             launch.assert_not_called()
             self.assertEqual(notice.call_args.args[0], '请先填写：单集时间')
 

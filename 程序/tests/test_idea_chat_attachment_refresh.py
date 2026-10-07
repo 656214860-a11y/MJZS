@@ -9,6 +9,7 @@ class AttachmentRefreshTests(unittest.TestCase):
     def test_upload_keeps_inline_draft_and_reports_new_entry(self):
         draft = Mock(return_value='用户已修改的模板')
         view = SimpleNamespace(idea_send=None, draft_text=draft,
+                               poll_idea_semantic_brief=Mock(),
                                status=Mock(), update_idea_attachment_status=Mock(),
                                idea_chat_controller=Mock())
         view.idea_chat_controller.poll_attachment_preparation.return_value = {
