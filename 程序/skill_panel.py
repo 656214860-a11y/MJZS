@@ -24,6 +24,8 @@ from tkinter import messagebox, simpledialog, ttk
 
 import model_pool
 import model_router
+import skill_notes
+from tk_timers import repeat
 import skill_budget
 import skill_orchestrator
 import skill_registry
@@ -86,48 +88,19 @@ def skill_order(name):
 # 面板里——入口只留一处（标题栏的「阶段配置」），接口本身一个都不少：编排模型的「调用设置」、
 # 线上视频 API、配音接口，都在下面这一行里点得到。
 def markdown_document(path):
-    """读取配置项说明：优先同目录 README，缺失时才读取 SKILL。"""
-    source = Path(path) if path else None
-    if source is None:
-        return ''
-
-    def sibling(name):
-        """按大小写无关的文件名寻找说明，兼容 readme.MD 等写法。"""
-        try:
-            return next((item for item in source.parent.iterdir()
-                         if item.is_file() and item.name.casefold() == name), None)
-        except OSError:
-            return None
-
-    readme = sibling('readme.md')
-    skill = sibling('skill.md')
-    candidates = [readme, skill, source]
-    seen = set()
-    for candidate in candidates:
-        if candidate is None:
-            continue
-        marker = str(candidate).casefold()
-        if marker in seen:
-            continue
-        seen.add(marker)
-        try:
-            content = candidate.read_text(encoding='utf-8-sig').strip()
-        except OSError:
-            continue
-        if content:
-            return content
-    return ''
+    """优先读取中文说明；原始 SKILL 执行文件保持不变。"""
+    return skill_notes.document(path)
 
 
-def note_text(skill):
+def note_text(skill, *, localize=True):
     """显示注册 SKILL 对应 Markdown 文件的完整内容，缺失时才使用注册表摘要。"""
     if skill is None:
         return ''
     content = markdown_document(getattr(skill, 'path', None))
-    if content:
-        return content
-    return '\n'.join(line for line in (str(skill.displayName or skill.name or ''),
-                                        str(skill.description or '')) if line)
+    if not content:
+        content = '\n'.join(line for line in (str(skill.displayName or skill.name or ''),
+                                            str(skill.description or '')) if line)
+    return skill_notes.preview(content)[0] if localize else content
 
 
 def external_package_api_hint(skills, model_id):
@@ -1078,7 +1051,10 @@ class Panel(ttk.Frame):
             self.state.configure(text='新增 SKILL 失败：未找到本阶段注册目录')
             return None
         target = target_dir / Path(source).name
+        if Path(source).name.casefold() == 'skill.md':
+            target = target_dir / Path(source).parent.name / 'SKILL.md'
         try:
+            target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
             self.registry.scan(force=True)
             self.skills = list(self.registry.getByStage(self.stage))
@@ -1319,7 +1295,8 @@ class Panel(ttk.Frame):
         if self.note_list is None:
             return []
         old = self.current_note()
-        old_path = old[2] if old and old[0] == 'workflow' else None
+        old_path = (old[1].path if old and old[0] == 'registered'
+                    else old[2] if old else None)
         target = str(preferred_path or old_path or '')
         self.note_items = self.note_entries()
         self.note_list.delete(0, 'end')
@@ -1328,7 +1305,8 @@ class Panel(ttk.Frame):
             label = (entry[1].displayName or entry[1].name
                      if entry[0] == 'registered' else entry[1])
             self.note_list.insert('end', chinese_skill_display(label))
-            if entry[0] == 'workflow' and str(entry[2]) == target:
+            path = entry[1].path if entry[0] == 'registered' else entry[2]
+            if str(path) == target:
                 selected = index
         if self.note_items:
             self.note_list.selection_set(selected)
@@ -1353,17 +1331,58 @@ class Panel(ttk.Frame):
         if self.note_text is None:
             return ''
         entry = self.current_note()
-        body = (note_text(entry[1]) if entry and entry[0] == 'registered'
+        body = (note_text(entry[1], localize=False) if entry and entry[0] == 'registered'
                 else workflow_note_text(entry[1], entry[2]) if entry else '')
-        self.note_text.configure(state='normal')
-        self.note_text.delete('1.0', 'end')
-        self.note_text.insert('1.0', body)
-        self.note_text.configure(state='disabled')
+        source = body
+        body, pending = skill_notes.preview(source, program_of(self.desktop))
+        self._note_source = source
+        self.render_note(body)
+        if pending:
+            self.translate_note(source, body)
         if entry and entry[0] == 'registered':
             box = self.registered_boxes.get(entry[1].name)
             if box is not None:
                 box.focus_set()
         return body
+
+    def render_note(self, body):
+        self.note_text.configure(state='normal')
+        self.note_text.delete('1.0', 'end')
+        self.note_text.insert('1.0', body)
+        self.note_text.configure(state='disabled')
+
+    def translate_note(self, source, shown):
+        """利用既有后台执行器翻译；忙时等待，切换条目后不回填旧内容。"""
+        attempts = getattr(self, '_note_attempts', None)
+        if attempts is None:
+            attempts = self._note_attempts = {}
+        if source in attempts:
+            result = attempts[source]
+            self.render_note(result if result else '正在生成中文说明…\n\n' + shown)
+            return
+        if not callable(getattr(self.desktop, 'async_', None)):
+            self.render_note('中文翻译需要可用的 API 文本模型。\n\n' + shown)
+            return
+        attempts[source] = None
+        self.render_note('正在生成中文说明…\n\n' + shown)
+        program = program_of(self.desktop)
+
+        def done(result):
+            content = result['text']
+            if not result['ok']:
+                content = '中文翻译未完成：' + result['message'] + '\n\n' + content
+            attempts[source] = content
+            if self.winfo_exists() and getattr(self, '_note_source', None) == source:
+                self.render_note(content)
+
+        def start():
+            if getattr(self.desktop, 'worker', False):
+                return
+            stop()
+            self.desktop.async_(lambda: skill_notes.translate(source, program), done,
+                                show_progress=False)
+
+        stop = repeat(self, 200, start)
 
     # ── 读写 ────────────────────────────────────────────────────────────────
     def project(self):

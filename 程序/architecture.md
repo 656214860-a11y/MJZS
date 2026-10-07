@@ -68,6 +68,8 @@ R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确�
 
 ## 3. 分层判定
 
+R1125：L3 `skill_notes` 负责阶段配置的中文阅读副本：优先中文说明、本地术语翻译、经现有模型路由后台翻译及内容哈希缓存；L4 `skill_panel` 只处理选择与显示。代码、地址、路径和执行源文件保持原样；失败保留原文并提示，不阻断导入。
+
 R1074：L3 `exit_maintenance.launch_cleanup()` 集中退出后的三路派发顺序、正常／强制退出差异、可选启动 OSError 降级与固定大小的脱敏派发摘要。L4 只传程序位置及退出意图；工作进程保持独立，既有清理实现、范围和回收策略不变。摘要只报告 scheduled／launch-failed／skipped-force／not-attempted，完成状态明确 unobserved；不把启动当作清理完成，不新增等待、重试或持久化出口。
 
 R1073：L3 `pet_chat_coordinator.ChatCoordinator` module 独占待单击任务，合并单／双击消歧、取消与守护关闭规则。L4 `pet_ui.Pet` 保留既有入口并注入调度与视图动作 adapter；测试采用内存队列／视图 adapter。这个 seam 不传入整个 Pet，不复制 chat／visible／shape，动画、Cloud 资源、问候与静默策略仍由原所有者管理。interface 的 locality 与 depth 由跨入口顺序测试证明，不以文件缩短作验收；删除此 module 会把共享协调规则与状态重新分散回 UI。
