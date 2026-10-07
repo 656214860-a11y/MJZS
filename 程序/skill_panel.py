@@ -93,7 +93,7 @@ def markdown_document(path):
 
 
 def note_text(skill, *, localize=True):
-    """显示注册 SKILL 对应 Markdown 文件的完整内容，缺失时才使用注册表摘要。"""
+    """读取注册 SKILL 的说明；默认返回阅读副本，缺失时使用注册表摘要。"""
     if skill is None:
         return ''
     content = markdown_document(getattr(skill, 'path', None))
@@ -115,7 +115,7 @@ def external_package_api_hint(skills, model_id):
 
 def workflow_note_text(label, path):
     """读取工作流说明：README.md 优先，缺失时回退 SKILL.md。"""
-    content = markdown_document(path)
+    content = skill_notes.reading_text(markdown_document(path))
     return label + ('\n\n' + content if content else '\n\n未找到该工作流的说明文件。')
 
 

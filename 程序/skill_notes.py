@@ -75,7 +75,7 @@ def _mask(text):
             field = re.match(r'^(description|displayName):\s*(.*?)(\n?)$', line)
             if field:
                 value = field[2]
-                description_block = value in ('>', '|', '>-', '|-')
+                description_block = value in ('>', '|', '>-', '|-', '>+', '|+')
                 rows.append(keep(line) if description_block else
                             keep(field[1] + ': ') + value + field[3])
             elif description_block and line.startswith((' ', '\t')):
@@ -115,7 +115,7 @@ def _terms(text):
 
 
 def _foreign(line):
-    plain = _BRANDS.sub('', _TOKEN.sub('', line))
+    plain = _BRANDS.sub('', _TOKEN.sub('', line)).removeprefix('名称：').removeprefix('简介：')
     plain = re.sub(r'`[^`]+`|\b[\w-]+\.(?:md|jpg|webp|io)\b|\b[a-z0-9]+(?:-[a-z0-9]+)+\b', '', plain)
     plain = re.sub(r'\b(?:Fountain|Faber|Toonflow|BiFish|DuoDrama|Seedance|Cloudflare|Tk|Resolve|Rec|HEVC|Main|id|kind|state|conflicts|priority|resolution|detail|ok|drift|triplets|anchor|jpg|webp)\b', '', plain)
     # 剩余自然语言单词才需要模型；字段标识、品牌与技术缩写可以保留。
@@ -124,7 +124,7 @@ def _foreign(line):
 
 
 def _prepared(text):
-    masked, kept = _mask(text)
+    masked, kept = _mask(reading_text(text))
     return _terms(masked), kept
 
 
@@ -140,9 +140,9 @@ def preview(text, program=None):
     except (OSError, ValueError):
         cached = None
     if isinstance(cached, dict) and cached.get('version') == VERSION and cached.get('text'):
-        return str(cached['text']), False
+        return reading_text(str(cached['text'])), False
     masked, kept = _prepared(text)
-    return _restore(masked, kept), any(_foreign(line) for line in masked.splitlines())
+    return reading_text(_restore(masked, kept)), any(_foreign(line) for line in masked.splitlines())
 
 
 def _api_translator(program):
@@ -203,8 +203,36 @@ def translate(text, program=None, translator=None):
                 rows[index] = result + ('\n' if rows[index].endswith('\n') else '')
         translated = _restore(''.join(rows), kept)
         save(cache_path(text, program), {'version': VERSION, 'text': translated})
-        return {'ok': True, 'text': translated, 'message': ''}
+        return {'ok': True, 'text': reading_text(translated), 'message': ''}
     except (OSError, ValueError) as exc:
         # 只展示本模块固定文案，存储异常不暴露本机路径。
         message = str(exc) if isinstance(exc, ValueError) else '中文说明暂时无法保存，请检查目录写入权限。'
         return {'ok': False, 'text': shown, 'message': message}
+
+
+def reading_text(text):
+    """阅读区只展示名称、简介和正文；执行元数据保留在源文件中。"""
+    raw = text.lstrip('\ufeff').replace('\r\n', '\n').replace('\r', '\n')
+    front = re.match(r'\A---[ \t]*\n(.*?)\n---[ \t]*(?:\n|$)', raw, re.S)
+    if not front or not re.search(r'^[A-Za-z][\w-]*:', front[1], re.M):
+        return text
+    parts = []
+    for key, label in (('displayName', '名称'), ('description', '简介')):
+        field = re.search(r'^' + key + r':[ \t]*(.*)((?:\n[ \t]+[^\n]*)*)',
+                          front[1], re.M)
+        if not field:
+            continue
+        value = field[1].strip()
+        continuation = [line.strip() for line in field[2].splitlines()[1:]]
+        if value in ('>', '|', '>-', '|-', '>+', '|+'):
+            value = ('\n' if value.startswith('|') else ' ').join(continuation)
+        elif continuation:
+            value = ' '.join([value, *continuation]).strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        if value:
+            parts.append(label + '：' + value)
+    body = raw[front.end():].strip()
+    if body:
+        parts.append(body)
+    return '\n\n'.join(parts) or '此技能暂无说明正文。'

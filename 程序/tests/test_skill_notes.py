@@ -29,12 +29,21 @@ class SkillNotesTests(unittest.TestCase):
                   '```python\nprint("do not translate")\n```\n'
                   'Read ${PROJECT} and ⟦SKILL_KEEP_0⟧ carefully.\n')
         def translator(lines):
-            return ['中文说明 ' + ' '.join(skill_notes._TOKEN.findall(line)) for line in lines]
+            return [('简介：' if line.startswith('简介：') else '') + '中文说明 ' +
+                    ' '.join(skill_notes._TOKEN.findall(line)) for line in lines]
+        masked, kept = skill_notes._mask(source)
+        self.assertEqual(skill_notes._restore(masked, kept), source)
         with tempfile.TemporaryDirectory() as folder:
             call = Mock(side_effect=translator)
             result = skill_notes.translate(source, folder, call)
             self.assertTrue(result['ok'], result)
-            for literal in ('name: example', 'description:', '`command`',
+            self.assertNotIn('name: example', result['text'])
+            self.assertNotIn('description:', result['text'])
+            self.assertIn('简介：中文说明', result['text'])
+            cached = skill_notes.read_json(skill_notes.cache_path(source, folder))
+            self.assertNotIn('name: example', cached['text'])
+            self.assertNotIn('description:', cached['text'])
+            for literal in ('`command`',
                             '](docs/guide.md)', 'print("do not translate")',
                             '${PROJECT}', '⟦SKILL_KEEP_0⟧'):
                 self.assertIn(literal, result['text'])
@@ -42,6 +51,73 @@ class SkillNotesTests(unittest.TestCase):
             self.assertEqual(skill_notes.translate(source, folder, call), result)
             self.assertEqual(call.call_count, count)
             self.assertTrue(skill_notes.preview(source + 'New content', folder)[1])
+
+    def test_selected_pipeline_note_hides_execution_metadata(self):
+        source = (skill_notes.PROGRAM / 'skills' / '01 剧本准备SKILL' /
+                  'pipeline-script-preparation.skill.md')
+        original = source.read_bytes()
+        skill = SimpleNamespace(path=source, displayName='全流程·剧本准备',
+                                name='pipeline-script-preparation')
+        panel = SimpleNamespace(note_text=Mock(), desktop=SimpleNamespace(app=None),
+                                current_note=lambda: ('registered', skill),
+                                render_note=Mock(), translate_note=Mock(), registered_boxes={})
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.object(skill_panel, 'program_of', return_value=Path(folder)):
+            shown = skill_panel.Panel.show_note(panel)
+        panel.render_note.assert_called_once_with(shown)
+        panel.translate_note.assert_not_called()
+        self.assertIn('名称：全流程·剧本准备', shown)
+        self.assertIn('简介：锁定创作前提', shown)
+        self.assertIn('## 阶段职责', shown)
+        for literal in ('name:', 'displayName:', 'description:', 'capabilities:',
+                        'preferredModels:', 'fallbackModels:', 'tools:', 'creative-writing',
+                        'qwen-max', 'script.generate'):
+            self.assertNotIn(literal, shown)
+        self.assertEqual(source.read_bytes(), original)
+
+    def test_old_cached_frontmatter_is_projected_without_retranslation(self):
+        source = '---\nname: external\ndescription: Write a story\n---\nCreate scenes.'
+        cached = source.replace('Write a story', '编写故事').replace('Create scenes.', '创作场景。')
+        with tempfile.TemporaryDirectory() as folder:
+            skill_notes.save(skill_notes.cache_path(source, folder),
+                             {'version': skill_notes.VERSION, 'text': cached})
+            translator = Mock()
+            result = skill_notes.translate(source, folder, translator)
+            self.assertEqual(result['text'], '简介：编写故事\n\n创作场景。')
+            self.assertTrue(result['ok'])
+            translator.assert_not_called()
+
+    def test_reading_projection_handles_blocks_and_preserves_markdown(self):
+        for marker, expected in (('>-', '第一行 第二行'), ('|+', '第一行\n第二行')):
+            source = ('\ufeff---\r\ndisplayName: "中文名称"\r\ndescription: ' + marker +
+                      '\r\n  第一行\r\n  第二行\r\ntools:\r\n  - script.generate\r\n---\r\n'
+                      '## 正文\r\n```yaml\r\nname: example\r\n```\r\n---\r\n后文')
+            shown = skill_notes.reading_text(source)
+            self.assertEqual(shown, '名称：中文名称\n\n简介：' + expected +
+                             '\n\n## 正文\n```yaml\nname: example\n```\n---\n后文')
+        for source in ('---\n普通正文\n---\n后文', '---\nname: incomplete',
+                       '# 无配置头\n\n```yaml\nname: example\n```'):
+            self.assertEqual(skill_notes.reading_text(source), source)
+        self.assertEqual(skill_notes.reading_text('---\nname: empty\n---'), '此技能暂无说明正文。')
+
+    def test_new_english_metadata_translates_only_visible_description(self):
+        source = ('---\nname: external\ndisplayName: Writer\ndescription: >-\n'
+                  '  Write a story\n  with characters\ntools: [script.generate]\n---\n'
+                  '# 正文\n已有中文。')
+        def translator(lines):
+            self.assertEqual(lines, ['名称：Writer', '简介：Write a story with characters'])
+            return ['名称：编剧', '简介：创作带有人物的故事']
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertTrue(skill_notes.preview(source, folder)[1])
+            result = skill_notes.translate(source, folder, translator)
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(result['text'], '名称：编剧\n\n简介：创作带有人物的故事\n\n# 正文\n已有中文。')
+
+    def test_workflow_note_hides_frontmatter_before_adding_label(self):
+        source = '---\nname: workflow\ndescription: 统筹说明\ntools: [script.generate]\n---\n中文正文'
+        with patch.object(skill_panel, 'markdown_document', return_value=source):
+            shown = skill_panel.workflow_note_text('统筹技能', None)
+        self.assertEqual(shown, '统筹技能\n\n简介：统筹说明\n\n中文正文')
 
     def test_failed_or_incomplete_translation_never_cached(self):
         with tempfile.TemporaryDirectory() as folder:
