@@ -2,7 +2,7 @@
 
 > 初稿基于 2026-09-25 源码；后续按轮次追加，R1022 校正文档口径。本文的 R 编号段落是历史记录，不是当前验收凭据。阶段、路径与事件以 AGENTS.md §2.2 所列代码为准；开发验证规则只在 AGENTS.md §5 定义。
 
-R1122：统一下拉框创建入口为 `ui_widgets.SelectBox`（继承 ttk.Combobox），18 个业务文件的 39 处构造迁移完成。只读默认、CJK 按 2 宽估算并封顶 28、弹出最多 12 行；动态选项经 set_values 重算。保留可编辑/禁用状态、分镜选择 width=1 与既有 Tcl 滚轮保护。现有 test_combobox_boundary 增加裸构造门禁，豁免统一组件、测试、维护记录及附加工具目录。
+R1122：统一下拉框创建入口为 `ui_widgets.SelectBox`（继承 ttk.Combobox），18 个业务文件的 39 处构造迁移完成。只读默认、CJK 按 2 宽估算并封顶 28、弹出最多 12 行；动态选项经 set_values 重算。保留可编辑/禁用状态、分镜选择 width=1 与既有 Tcl 滚轮保护；分镜选择服务由 desktop 注入 SelectBox 工厂，不反向依赖 UI 层。现有 test_combobox_boundary 增加裸构造门禁，豁免统一组件、测试、维护记录及附加工具目录。
 
 ## 1. 目录树
 

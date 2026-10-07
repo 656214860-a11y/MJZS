@@ -4039,7 +4039,7 @@ class Desktop:
                 return
         if PAGE['assets']<=index<=PAGE['audio'] and not choosing_video and not (index==PAGE['assets'] and (getattr(self,'asset_detail_id',None) or getattr(self,'asset_roster',False))):
             from storyboard_selection import source_selector
-            source_selector(self,index)
+            source_selector(self,index,select_box=SelectBox)
         # 08／09 步直接读工作集：切换分镜或自动采用后必须先让工作集跟上，否则会按旧分镜拼接和交付。
         if index in (PAGE['edit'],PAGE['delivery']):self.align_studio()
         if index==PAGE['script'] and getattr(self.win,'_desktop_loading_project',False):
