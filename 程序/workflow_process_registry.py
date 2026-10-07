@@ -67,16 +67,6 @@ def claim_process_slot(ticket):
                 'reason': '模型请求正在排队，等待可用并发槽位'}
 
 
-def cancel_process_slot_request(ticket):
-    """取消尚未运行的请求；已发出的槽位由既有 release_process_slot 回收。"""
-    if not isinstance(ticket, dict):
-        return False
-    with _lock:
-        try:
-            _queued.remove(ticket)
-        except ValueError:
-            return False
-        return True
 
 
 def cancel_project_slot_requests(project):

@@ -314,6 +314,8 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 
 ## 维护边界
 
+- R1098 经逐候选授权移除 `idea_chat.project_document_kind`、`Projects.remove_internal_links`、`workflow_process_registry.cancel_process_slot_request` 三个无仓内消费者的接口；文件分类、项目回收与项目级排队取消继续使用现有入口。仅删函数定义，不迁移职责、层级或测试；外部动态调用风险已提示并获准实施。
+
 - R1072：资产详情成功反馈统一由 `asset_detail._complete()` 在页面重建成功后发布；候选采用与重新生成分别委托既有 L3 的 `adopt_asset_plan_choice()`、`reopen_asset_plan_choices()`，封装确认/应用及正典板/锚点撤销顺序。保留第二步失败后的部分完成状态，不引入隐式回滚；Tk 输入与呈现不移动。
 
 - R1057 仅删除 `pet_cloud.Cloud._parent_work_area()` 与 `pet_ui.Pet._build_mode_menu()` 两个无消费者私有方法。云朵仍经 `_place_window()` → `_origin()` 按贴片锚点定位，模式切换仍由猫爪及既有 `set_mode()` 接管；保留模式变量同步、聊天计时、动画取消与退出清理。引用复核和前后定向回归见 R1057 报告，不代表新增实机视觉验收。

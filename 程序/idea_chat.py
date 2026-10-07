@@ -460,31 +460,6 @@ def _project_file_type(text):
     return '自然剧本'
 
 
-def project_document_kind(path):
-    """给剧本准备页文件表归类；聊天记录、简报和后续阶段产物不显示。"""
-    relative = Path(path)
-    name = relative.name.casefold()
-    if (FOLDER in relative.parts or '结构剧本' in relative.parts
-            or name in (BRIEF_RAW_NAME, BRIEF_COMPLETE_NAME, RAW_SCRIPT_NAME)):
-        return ''
-    # ``writing/script.md`` 是“剧本结构”阶段的结构化输出，不是剧本准备
-    # 阶段可供选择的原稿；留在磁盘供下游读取，但不混入本阶段的内容框。
-    if name == 'script.md':
-        return ''
-    # 项目名可包含下划线；四段式和旧 EP 命名都由剧本契约统一解析，
-    # 不让页面再自行切片或猜测文件类型。
-    from script_contract import stage_file_info
-    info = stage_file_info(relative)
-    if info:
-        return {'项目大纲': 'outline', '项目设定': 'setting', '自然剧本': 'script'}.get(
-            info['file_type'], '')
-    if any(mark in name for mark in ('大纲', '纲要', 'outline', '分集', 'episode')):
-        return 'outline'
-    if any(mark in name for mark in ('剧本', 'script', '创意与剧本', '台词')):
-        return 'script'
-    if any(mark in name for mark in ('设定', '角色', '世界观', '需求梳理')):
-        return 'setting'
-    return ''
 
 
 def _brief_value(text, labels):

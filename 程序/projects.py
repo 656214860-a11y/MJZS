@@ -313,25 +313,6 @@ class Projects:
             raise ValueError('只允许删除项目根目录下的独立项目，拒绝链接或越界路径')
         return target
 
-    def remove_internal_links(self,target):
-        """删除项目内部的链接节点，不进入其目标目录。
-
-        项目根目录本身仍由 deletion_target 拒绝递归删除；这里仅处理项目中遗留的
-        目录链接／文件链接，让右键删除项目不再要求用户手动清理这些空壳。
-        """
-        import os
-        for folder, dirs, files in os.walk(target, topdown=True, followlinks=False):
-            for name in list(dirs) + list(files):
-                link = Path(folder) / name
-                if not (link.is_symlink() or link.is_junction()):
-                    continue
-                try:
-                    if not remove_project_link_node(link):
-                        raise OSError('project link removal rejected')
-                except OSError as exc:
-                    raise ValueError('项目里的目录链接仍被占用，项目入口未删除。请关闭占用它的窗口后重试。') from exc
-                if name in dirs:
-                    dirs.remove(name)       # 即使平台把链接列入 dirs，也绝不跟进
     @_project_write_result
     def delete(self,path):
         target=self.deletion_target(path)
