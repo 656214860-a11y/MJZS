@@ -1080,10 +1080,10 @@ class UiEdgeTests(unittest.TestCase):
             from desktop import IDEA_FIELDS
             self.assertIn(IDEA_FIELDS[0], example, "示例里要有字段名，灰色字段名那一层才认得出")
             self.assertEqual(example, d.idea_example(), "读一次就记着，不反复读盘")
-            self.assertEqual(d.draft_text(), example,
-                             "发送框预填示例，但未编辑的必填占位不得发送或落盘")
-            self.assertIn(example, d.idea_log.get("1.0", "end-1c"),
-                          "软件示例应完整显示在上方只读对话框")
+            self.assertEqual(d.draft_text(), '', "下方发送框初始为空")
+            self.assertEqual(d.brief_editor_text(), example, "示例完整显示在上方编辑框")
+            self.assertNotIn(example, d.idea_log.get("1.0", "end-1c"),
+                             "软件示例不再显示为聊天气泡")
             brief_path = d.brief_editor[0]
             self.assertFalse(list((proj / "writing").glob("创意与剧本*.md")), "一个字都没落盘")
             with self.assertRaises(ValueError):
@@ -4948,7 +4948,7 @@ class StageConfigEntryTests(unittest.TestCase):
         self.assertEqual(errors, [], "这一步不该靠弹框收场")
 
 class BriefTintTests(unittest.TestCase):
-    """剧本准备页：示例只在只读对话区，发送框必须保持空白。"""
+    """剧本准备页：上方简报可编辑，独立追问框初始空白。"""
 
     @classmethod
     def setUpClass(cls):
@@ -4985,24 +4985,24 @@ class BriefTintTests(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
         return path
 
-    def test_the_fresh_example_is_shown_in_the_read_only_conversation(self):
+    def test_the_fresh_example_is_shown_in_the_brief_editor(self):
         win, d = self.build()
-        self.assertEqual(d.draft_text(), d.idea_example(), "发送框预填完整示例")
-        self.assertIn(d.idea_example(), str(d.idea_log.get("1.0", "end-1c")))
+        self.assertEqual(d.draft_text(), '', "发送框初始空白")
+        self.assertEqual(d.brief_editor_text(), d.idea_example())
+        self.assertNotIn(d.idea_example(), str(d.idea_log.get("1.0", "end-1c")))
         self.assertEqual(str(d.idea_log.cget("state")), "normal", "聊天正文需要支持直接选择与编辑")
 
     def test_software_example_is_gray_without_a_bubble_and_is_directly_editable(self):
         """软件示例是可改的提示文本，不应带模型回复的色块或落入项目对话。"""
-        from types import SimpleNamespace
+        from ui_tokens import COLORS
         win, d = self.build()
-        box = d.idea_log
+        box = d.idea_brief_editor
         original_draft = d.draft_text()
-        self.assertEqual(str(box.tag_cget("bubble_example", "background")), "")
-        self.assertEqual(str(box.tag_cget("bubble_example", "foreground")), "#8a96a5")
-        d.start_bubble_edit(SimpleNamespace(widget=box, x=1, y=1), "example", "bubble_example")
-        box.insert("bubble_edit_end", "\n我的示例补充")
-        d.finish_bubble_edit()
-        self.assertIn("我的示例补充", d.idea_example())
+        self.assertFalse(d.idea_log.tag_ranges('bubble_example'))
+        self.assertEqual(str(box.cget("fg")), COLORS['text_secondary'])
+        box.insert("end-1c", "\n我的示例补充"); win.update()
+        self.assertIn("我的示例补充", d.brief_editor_text())
+        self.assertNotIn("我的示例补充", d.idea_example())
         self.assertEqual(d.draft_text(), original_draft)
 
     def test_a_legacy_saved_example_does_not_repopulate_the_send_box(self):
@@ -5011,8 +5011,8 @@ class BriefTintTests(unittest.TestCase):
         self.write_brief(d, d.idea_example() + "\n  \n")
         d.show(0)
         win.update()
-        self.assertEqual(d.draft_text(), d.idea_template)
-        self.assertIn(d.idea_example(), str(d.idea_log.get("1.0", "end-1c")))
+        self.assertEqual(d.draft_text(), '')
+        self.assertEqual(d.brief_editor_text(), d.idea_example())
 
     def test_the_users_own_words_show_up_on_the_display(self):
         """第 65 期任务 9：上次存下的那份创意，显示在上面那格对话展示框里。"""
@@ -5024,14 +5024,14 @@ class BriefTintTests(unittest.TestCase):
         win.update()
         shown = str(d.idea_log.get("1.0", "end-1c"))
         self.assertIn("我的创意：一只会说话的猫。", shown, "上次存下的创意要看得见")
-        self.assertEqual(d.draft_text(), d.idea_template)
+        self.assertEqual(d.draft_text(), '')
 
     def test_typing_keeps_the_send_box_as_user_owned_text(self):
         win, d = self.build()
         box = d.idea_input
         box.insert("1.0", "我的补充：一只会说话的猫。\n")
         win.update()
-        self.assertEqual(d.draft_text(), "我的补充：一只会说话的猫。\n" + d.idea_template)
+        self.assertEqual(d.draft_text(), "我的补充：一只会说话的猫。\n")
         from ui_tokens import COLORS
         self.assertEqual(str(box.cget("fg")), COLORS['text_primary'], "用户输入始终使用正文颜色")
 

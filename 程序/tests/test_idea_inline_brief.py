@@ -163,6 +163,8 @@ class InlineBriefDesktopTests(_Harness):
             d, win = self.desktop(root)
             d.show(0); self.settle_script_page(win)
             d.idea_attachment_paths = tuple(stored)
+            self.assertEqual(d.brief_editor_text(), d.idea_template)
+            self.assertEqual(d.draft_text(), '')
             with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \
                     patch.object(d.notifier, 'info') as notice, \
                     patch('stage_execution_service.stage_idea_brief_defaults',
@@ -182,11 +184,19 @@ class InlineBriefDesktopTests(_Harness):
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
             d.show(0); self.settle_script_page(win)
-            self.assertEqual(d.draft_text(), d.idea_example())
-            self.assertEqual(len(d.idea_input.tag_ranges('required_hint')), 16)
-            self.assertGreater(int(d.idea_input.cget('height')), 1)
-            d.idea_input.insert('end-1c', '新增'); win.update()
-            self.assertTrue(d.draft_text().startswith(d.idea_example()))
+            self.assertEqual(d.brief_editor_text(), d.idea_example())
+            self.assertEqual(d.draft_text(), '')
+            self.assertEqual(len(d.idea_brief_editor.tag_ranges('required_hint')), 16)
+            self.assertFalse(d.idea_input.tag_ranges('required_hint'))
+            self.assertGreater(int(d.idea_brief_editor.cget('height')), 1)
+            from ui_tokens import COLORS
+            self.assertEqual(d.idea_brief_editor.cget('fg'), COLORS['text_secondary'])
+            self.assertEqual(d.idea_brief_editor.cget('state'), 'normal')
+            self.assertLess(d.idea_brief_editor.winfo_rooty(), d.idea_log.winfo_rooty())
+            d.idea_brief_editor.insert('end-1c', '新增'); win.update()
+            self.assertTrue(d.brief_editor_text().startswith(d.idea_example()))
+            self.assertFalse(d.idea_still_the_example())
+            self.assertEqual(d.idea_brief_editor.cget('fg'), COLORS['text_primary'])
             self.assertFalse(hasattr(d, 'open_brief_creation_form'))
 
     def test_complete_inline_send_saves_and_starts_without_prompt(self):
@@ -196,14 +206,62 @@ class InlineBriefDesktopTests(_Harness):
             root = make_minimal_project(td)
             d, win = self.desktop(root)
             d.show(0); self.settle_script_page(win)
-            d.idea_input.delete('1.0', 'end'); d.idea_input.insert('1.0', draft())
+            d.idea_brief_editor.delete('1.0', 'end'); d.idea_brief_editor.insert('1.0', draft())
             with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \
                     patch.object(d.notifier, 'info') as notice:
                 d.send_message()
             launch.assert_called_once()
             notice.assert_not_called()
             self.assertEqual(injected_chat.brief_raw_path(root).read_text(encoding='utf-8'), draft())
+            self.assertEqual(d.brief_editor_text(), d.idea_template)
+            self.assertEqual(d.draft_text(), '')
         self.assertEqual(default.read_bytes(), before)
+
+    def test_followup_completes_example_and_submits_combined_text(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = make_minimal_project(td)
+            d, win = self.desktop(root)
+            d.show(0); self.settle_script_page(win)
+            d.idea_input.insert('1.0', draft())
+            combined = d.idea_template + '\n\n' + draft()
+            with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \
+                    patch.object(d.notifier, 'info') as notice:
+                d.send_message()
+            notice.assert_not_called()
+            self.assertEqual(launch.call_args.args[0], combined)
+            self.assertEqual(injected_chat.brief_raw_path(root).read_text(encoding='utf-8'), combined)
+            self.assertEqual(injected_chat.load(root)[0]['text'], combined)
+            self.assertEqual(d.brief_editor_text(), d.idea_template)
+            self.assertEqual(d.draft_text(), '')
+            self.assertEqual(len(d.idea_brief_editor.tag_ranges('required_hint')), 16)
+            from ui_tokens import COLORS
+            self.assertEqual(d.idea_brief_editor.cget('fg'), COLORS['text_secondary'])
+
+    def test_launch_failure_preserves_both_editors(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            d.idea_brief_editor.delete('1.0', 'end'); d.idea_brief_editor.insert('1.0', draft())
+            d.idea_input.insert('1.0', '补充：保持角色动机清晰')
+            with patch.object(d, 'start_script_workflow', side_effect=ValueError('启动失败')):
+                with self.assertRaisesRegex(ValueError, '启动失败'):
+                    d.send_message()
+            self.assertEqual(d.brief_editor_text(), draft())
+            self.assertEqual(d.draft_text(), '补充：保持角色动机清晰')
+
+    def test_page_rebuild_preserves_both_drafts_including_cleared_brief(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            d.idea_brief_editor.delete('1.0', 'end'); d.idea_brief_editor.insert('1.0', draft())
+            d.idea_input.insert('1.0', '尚未发送的追问')
+            d.show(0); self.settle_script_page(win)
+            self.assertEqual(d.brief_editor_text(), draft())
+            self.assertEqual(d.draft_text(), '尚未发送的追问')
+            d.idea_brief_editor.delete('1.0', 'end')
+            d.show(0); self.settle_script_page(win)
+            self.assertEqual(d.brief_editor_text(), '')
+            self.assertEqual(d.draft_text(), '尚未发送的追问')
 
     def test_each_missing_or_example_value_notifies_without_starting(self):
         with tempfile.TemporaryDirectory() as td:

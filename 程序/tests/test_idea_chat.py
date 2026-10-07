@@ -566,6 +566,7 @@ class SendMessageTests(_Harness):
     """第 65 期任务 9＋第 69 期任务 1：内容框里写 → 发送 → 气泡按时间往下排；落盘只在定稿那一步。"""
 
     def say(self, d, text):
+        d.idea_brief_editor.delete('1.0', 'end')
         box = d.idea_input
         box.configure(fg='#243247')
         box.delete('1.0', 'end'); box.insert('1.0', text)
@@ -847,15 +848,28 @@ class SendMessageTests(_Harness):
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
-            self.assertEqual(d.draft_text(), d.idea_example(), '发送框预填示例，但未修改不能发送')
-            self.assertIn('模型 · 软件示例', self.log_text(d), '范例显示在上方对话区')
-            self.assertIn(d.idea_example(), self.log_text(d))
-            with patch.object(d.notifier, 'info') as notice:
+            self.assertEqual(d.brief_editor_text(), d.idea_example(), '上方简报预填示例')
+            self.assertEqual(d.draft_text(), '', '下方发送框初始为空')
+            self.assertNotIn('模型 · 软件示例', self.log_text(d), '示例不再作为聊天气泡显示')
+            self.assertNotIn(d.idea_example(), self.log_text(d))
+            with patch.object(d.notifier, 'info') as notice, patch.object(d, 'start_script_workflow') as launch:
                 d.send_message(); win.update()
+            launch.assert_not_called()
             self.assertTrue(notice.call_args.args[0].startswith('请先填写：'))
             self.assertFalse(hasattr(d, 'open_brief_creation_form'))
             self.assertEqual(idea_chat.load(proj), [], '一个字都不许发出去')
             self.assertFalse(idea_chat.brief_raw_path(proj).exists(), '示例被门禁拦截后不应落盘')
+
+    def test_followup_can_complete_required_fields_below_unchanged_example(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            d.idea_input.insert('1.0', self.complete_draft())
+            with patch.object(d.notifier, 'info') as notice, patch.object(
+                    d, 'start_script_workflow', return_value=('Codex', False)) as launch:
+                d.send_message()
+            notice.assert_not_called()
+            launch.assert_called_once_with(d.idea_template + '\n\n' + self.complete_draft())
 
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
     def test_local_attachment_send_extracts_without_sending_body(self, _mode):
@@ -909,16 +923,16 @@ class SendMessageTests(_Harness):
             self.assertFalse(idea_chat.brief_raw_path(proj).exists())
             self.assertFalse(hasattr(d, 'open_brief_creation_form'))
 
-    def test_software_example_can_be_copied_as_a_whole_message(self):
+    def test_software_example_can_be_selected_and_copied_from_brief_editor(self):
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))
             d.show(0); win.update()
-            self.assertEqual(d.copy_bubble_message('example'), d.idea_example())
-            self.assertEqual(win.clipboard_get(), d.idea_example())
-            span=d.idea_log.tag_ranges('bubble_example')
-            x, y, _, _ = d.idea_log.bbox(span[0])
-            target = d.bubble_target_at(d.idea_log, SimpleNamespace(x=x + 1, y=y + 1))
-            self.assertEqual(target[0], 'example', '软件示例气泡必须可被右键命中')
+            box = d.idea_brief_editor
+            box.tag_add('sel', '1.0', 'end-1c')
+            box.event_generate('<<Copy>>'); win.update()
+            self.assertEqual(win.clipboard_get(), box.get('1.0', 'end-1c'))
+            self.assertEqual(idea_chat.strip_inline_required_markers(win.clipboard_get()), d.idea_example())
+            self.assertFalse(d.idea_log.tag_ranges('bubble_example'))
 
     @patch('stage_execution_service.idea_attachment_local_mode', new=lambda _project: False)
     def test_text_attachment_is_visible_and_submitted_to_the_workflow(self):
