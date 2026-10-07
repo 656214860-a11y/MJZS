@@ -105,6 +105,8 @@ R719 将白模预演记录的正式 JSON 读取纳入同一入口：L2 `white_mo
 
 R720 将白模页面对当前正式分镜的读取纳入同一入口：L4 `local_previs.show()` 改经 `file_cache.read_json()` 读取镜头清单，保留页面构建、默认勾选、复杂度路由和所有交互语义；写入边界不变。
 
+R1096 白模页面启动、线上入口和刷新复用既有 `adjust_targets()`，即时读取勾选优先／高亮兜底的工作目标；不缓存选择，不改变查看行规则或发布边界。
+
 R721 将白模入口选择器对当前正式分镜的读取纳入同一 JSON 入口：L4 `white_model.choose_previs()` 改经 `file_cache.read_json()` 获取可选镜头；弹窗、选择与进入白模预演的交互语义不变。
 
 R712 将三虎项目运行状态 JSON 作为第二个“读走缓存、写走原子服务”的迁移：`skill_orchestrator.load_project_status()` 改经 `file_cache.read_json()` 读取，`save_project_status()` 保持 `agent.core.save_text()` 原子发布；缓存会随发布失效，运行状态语义和容错回退不变。

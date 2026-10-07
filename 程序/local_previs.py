@@ -181,7 +181,7 @@ def show(desktop):
         if state['busy']:notify(desktop.win, '已有本地任务运行中，请等待完成', title='白模预演', status=desktop.status);return
         # 第 47 期第 1 条：勾选优先；一个都没勾时，把高亮那一行当作选中的那一个（顺手补上勾选，
         # 页面上的小勾立刻看得见）。原来这里只认勾选，用户点了一行看着是选中的，却被告知「请先勾选」。
-        ids,how=work_rows(tree,lambda sid: key(sid) in state['selected'])
+        ids,how=adjust_targets()
         if not ids:notify(desktop.win, '请先勾选要制作的镜头', title='白模预演', status=desktop.status);return
         if how=='shown':
             state['selected'].add(key(ids[0]))
@@ -238,7 +238,7 @@ def show(desktop):
         if not row:raise ValueError('请先点击一个镜头行')
         return row
     def online_selected():
-        rows,how=work_rows(tree,lambda sid: key(sid) in state['selected'])
+        rows,how=adjust_targets()
         ids=[sid for sid in rows if decisions[sid]['level']=='medium']
         if not ids:raise ValueError('请先勾选待制作的中等复杂度镜头'+work_hint(rows,how))
         online_window(desktop,source,ids)
@@ -294,7 +294,7 @@ def show(desktop):
         level_box.state(['disabled'] if state.get('busy') else ['!disabled'])
         # 第 47 期第 1 条：两颗制作按钮的可用状态跟 start／online_selected 用同一个口径
         # （勾选优先、高亮兜底），否则会出现「按钮是灰的但点了也能做」或者反过来的错配。
-        target_rows,_target_source=work_rows(tree,lambda sid: key(sid) in state['selected'])
+        target_rows,_target_source=adjust_targets()
         selected_any=bool(target_rows)
         start_button.state(['disabled'] if state.get('busy') or not selected_any else ['!disabled'])
         medium_selected=any(decisions[sid]['level']=='medium' for sid in target_rows)
