@@ -467,6 +467,14 @@ def find_program(config):
     else:
         native=Path.home()/'.local/bin/claude.exe'
         if native.is_file():return str(native)
+        # npm 的 PATH 入口是脚本；直接定位包内原生程序，不解释或执行包装脚本。
+        shim=shutil.which('claude.cmd')
+        prefixes=[Path(shim).parent] if shim else []
+        appdata=os.environ.get('APPDATA')
+        if appdata:prefixes.append(Path(appdata)/'npm')
+        for prefix in prefixes:
+            native=prefix/'node_modules/@anthropic-ai/claude-code/bin/claude.exe'
+            if native.is_file():return str(native)
     raise ValueError('未找到 '+ENGINES[engine]+' 命令行程序，请安装并登录后在“调用设置”选择其 .exe')
 
 
