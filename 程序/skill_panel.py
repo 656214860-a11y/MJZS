@@ -324,8 +324,8 @@ def stage_of_page(index, stages=None):
     return names[index] if 0 <= index < len(names) else ''
 
 def stage_button_for(parent, command, text='阶段配置'):
-    """造一颗统一次级操作「阶段配置」，与发送键形成明确主次层级。"""
-    button = SecondaryButton(parent, text=text, command=command, width=16)
+    """各阶段统一使用与发送键相同的蓝色填充「阶段配置」按钮。"""
+    button = PrimaryButton(parent, text=text, command=command, width=16)
     # 这是语义标记而非视觉样式；回归可据此找到入口，不再耦合已废弃的暖色样式名。
     button._stage_config_entry = True
     return button
