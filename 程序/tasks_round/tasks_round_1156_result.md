@@ -78,4 +78,9 @@ ALL TESTS PASSED
 - 验证：上述实跑与未运行项分列，首次失败已闭环；模型实际停等行为仍需后续真实使用观察。
 - 新问题：未新增待修代码缺陷；现有同名设定路径的角色卡合并通过指令保留已确认内容，未擅自扩展命名契约。
 - 自审结论：通过。使用 minimal-diff-fix 控制修改范围，scoped-tests 限定回归，skill-creator 保持技能元数据和定向引用边界。
-- 提交：实现随本报告提交；合入主目录后登记实现 commit 与既有用户修改保留核对结果。
+- 提交：实现 `1659831` 已 fast-forward 合入 master；本报告最终登记随 R1156 收尾文档提交，未 push。
+- 主目录核对：原有 7 个跟踪路径修改完整保留。6 个非重叠路径文件哈希/删除状态不变；重叠 pipeline SKILL 的用户增删行逐项比较完全相同，仅叠加本轮授权内容。临时保护 stash `4d1e84f7` 已 apply 恢复并保留为恢复凭据，未删除用户内容。
+- 合入后在含原有用户修改的主目录实跑 `run_selftests.py -k workflow_writing_stages script_agent_delivery_assembly`：`共 6 条用例，0.4 秒；0 个文件有红` / `ALL TESTS PASSED`，日志 `r1156-integrated.log`。其余上述完整验证在隔离树执行，不将主目录未跑项写为通过。
+- 状态轮次头已更新到 1157，接力 snapshot 已记录本轮变更、验证和未运行项。
+
+[TASK_COMPLETE]
