@@ -145,7 +145,7 @@ class TtsFullTrackPublicationTests(unittest.TestCase):
             with patch('tts_api.os.urandom', return_value=b'abc'):
                 with self.assertRaisesRegex(OSError, '磁盘已满'):
                     tts_api.publish_full_track(self._context(project), 'same-script', b'audio bytes', gateway=gateway)
-            audio_dir = project / '10配音与字幕' / '音频'
+            audio_dir = project / '11配音与字幕' / '音频'
             self.assertEqual((audio_dir / '配音_616263.mp3').read_bytes(), b'audio bytes')
             self.assertFalse((audio_dir / '整段配音.json').exists())
 

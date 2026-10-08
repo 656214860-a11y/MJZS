@@ -79,7 +79,7 @@ class TableTests(unittest.TestCase):
         rows = cg.detail_rows()
         self.assertEqual(len(rows), 9)
         self.assertEqual(rows[0][1], "字段完整性")
-        self.assertIn("04资产管理", rows[0][5])
+        self.assertIn("05资产管理", rows[0][5])
 
 
 class ObjectiveTests(unittest.TestCase):

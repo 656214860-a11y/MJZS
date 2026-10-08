@@ -252,10 +252,10 @@ class QwenWindowTitleTests(unittest.TestCase):
         self.assertEqual(self.title("项目", "writing"), "01 剧本准备｜项目｜Qwen")
 
     def test_storyboard_video_prompt_page(self):
-        self.assertEqual(self.title("项目", "storyboard", PAGE["video"]), "09 视频生成｜项目｜Qwen")
+        self.assertEqual(self.title("项目", "storyboard", PAGE["video"]), "10 视频生成｜项目｜Qwen")
 
     def test_assets_keyframe_page(self):
-        self.assertEqual(self.title("项目", "assets", PAGE["keyframe"]), "07 首帧管理｜项目｜Qwen")
+        self.assertEqual(self.title("项目", "assets", PAGE["keyframe"]), "08 首帧管理｜项目｜Qwen")
 
     def test_control_chars_stripped(self):
         self.assertEqual(self.title("项" + "\n" + "目", "writing"), "01 剧本准备｜项 目｜Qwen")

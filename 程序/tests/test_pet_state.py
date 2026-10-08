@@ -105,8 +105,8 @@ class ProgressTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             clock = Clock()
             m = machine(td, clock=clock, persist=False)
-            m.start("script"); m.complete("script")             # 1/12 完成
-            self.assertEqual(m.progress()["percent"], 8.3)
+            m.start("script"); m.complete("script")             # 1/13 完成
+            self.assertEqual(m.progress()["percent"], 7.7)
             m.start("script_structure"); m.complete("script_structure")
             m.start("storyboard")
             m.detail("storyboard", 0, 10)
@@ -114,7 +114,7 @@ class ProgressTests(unittest.TestCase):
             m.detail("storyboard", 5, 10)
             state = m.progress()
             self.assertEqual(state["ratio"], 0.5)
-            self.assertEqual(state["percent"], 20.8)
+            self.assertEqual(state["percent"], 19.2)
             self.assertEqual(state["eta_seconds"], 5.0)         # 每秒 1 镜，还剩 5 镜
             self.assertEqual(state["detail"], {"done": 5, "total": 10})
 
@@ -134,6 +134,7 @@ class ProgressTests(unittest.TestCase):
             m.start("script"); clock.now = 4.0; m.complete("script")
             m.start("script_structure"); clock.now = 7.0; m.complete("script_structure")
             m.start("storyboard"); clock.now = 9.0; m.complete("storyboard")
+            m.start("animatic"); m.complete("animatic")
             m.start("assets"); m.detail("assets", 0, 4)
             clock.now = 11.0; m.detail("assets", 2, 4)          # 每秒 1 项，还剩 2 项
             state = m.progress()
@@ -145,7 +146,7 @@ class ProgressTests(unittest.TestCase):
             m = machine(td, persist=False)
             self.assertTrue(m.summary().startswith(
                 "0/%d 阶段完成 · 当前：剧本准备" % len(pet_bus.STAGES)))
-            for stage in pet_bus.STAGES[:6]:
+            for stage in pet_bus.STAGES[:pet_bus.STAGES.index('keyframe')]:
                 m.complete(stage)
             m.start("keyframe"); m.detail("keyframe", 3, 12)
             self.assertIn("当前：首帧管理（3/12）", m.summary())
@@ -162,6 +163,7 @@ class PersistenceTests(unittest.TestCase):
             m.start("script"); clock.now = 3.0; m.complete("script")
             m.start("script_structure"); clock.now = 4.0; m.complete("script_structure")
             m.start("storyboard"); clock.now = 5.0; m.complete("storyboard")
+            m.start("animatic"); m.complete("animatic")
             m.apply(pet_bus.event("stage.failed", stage="assets", error="余额不足"), persist=True)
             m.save()
             restored = Machine(Path(td)).load()

@@ -24,7 +24,7 @@ class AudioImportServiceTests(unittest.TestCase):
             result = audio_import_service.import_audio(self.root, self.source, publish=publish)
         self.assertTrue(result.ok)
         target = result.data
-        self.assertEqual(target, self.root / '10配音与字幕' / '音频' / 'input_abcdef.wav')
+        self.assertEqual(target, self.root / '11配音与字幕' / '音频' / 'input_abcdef.wav')
         self.assertEqual(target.read_bytes(), b'audio bytes')
         self.assertTrue(self.source.is_file())
 
@@ -41,7 +41,7 @@ class AudioImportServiceTests(unittest.TestCase):
         self.assertIsInstance(result, UserError)
         self.assertIn('WAV、MP3、M4A 或 AAC', result.reason)
         publisher.assert_not_called()
-        self.assertFalse((self.root / '10配音与字幕').exists())
+        self.assertFalse((self.root / '11配音与字幕').exists())
 
     def test_accepts_injected_publisher_for_formal_release(self):
         calls = []

@@ -36,7 +36,7 @@ class StageTemplateExecutionTests(unittest.TestCase):
             saved = json.loads((Path(folder) / 'sanhu_project_status.json').read_text(encoding='utf-8'))
             self.assertNotIn('checkpoint', saved)
             self.assertTrue(all(text.startswith('【') for text in messages))
-            self.assertIn('【阶段 4/12】资产处理', messages)
+            self.assertIn('【阶段 5/13】资产处理', messages)
             self.assertIn('【门禁】检测到 0 个角色缺少正典板，是否生成？', messages)
 
     def test_template_recovery_uses_template_step_count(self):

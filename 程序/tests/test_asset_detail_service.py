@@ -13,9 +13,9 @@ class AssetDetailServiceTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.project = Path(self.temp.name) / 'project'
-        self.base = self.project / '04资产管理'
+        self.base = self.project / '05资产管理'
         self.index = self.base / 'assets/资产清单/assets.json'
-        save(self.project / 'config.json', {'episode_dir': '04资产管理'})
+        save(self.project / 'config.json', {'episode_dir': '05资产管理'})
         save(self.index, {'CHAR_001': {'name': '小满', 'state_variants': [{'state_id': 'happy', 'label': '开心'}]}})
         self.source = self.project / 'source.png'
         self.source.write_bytes(b'png-data')

@@ -62,7 +62,7 @@ class SnapshotTests(unittest.TestCase):
     def test_snapshot_prefers_current_asset_stage(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
-            current = proj / "04资产管理" / "assets.json"
+            current = proj / "05资产管理" / "assets.json"
             current.parent.mkdir(parents=True)
             current.write_text(json.dumps({"CHAR_001": {"name": "当前资产"}}, ensure_ascii=False), encoding="utf-8")
             data = snapshot(project_context(proj))

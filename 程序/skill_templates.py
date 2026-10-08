@@ -75,7 +75,12 @@ def load_template(stage_id, program=None):
     """按规范阶段 ID 取得唯一模板；缺失或重复都显式报错，不猜测。"""
     wanted = str(stage_id or '').strip()
     found = []
-    for path in sorted(template_root(program).glob('*_process_template.yaml')):
+    root = template_root(program)
+    paths = set(root.glob('*_process_template.yaml'))
+    animatic = root / 'animatic.yaml'
+    if animatic.is_file():
+        paths.add(animatic)
+    for path in sorted(paths):
         template = parse_template(path.read_text(encoding='utf-8'), path)
         if template.stage_id == wanted:
             found.append(template)
