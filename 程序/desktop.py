@@ -5075,7 +5075,7 @@ class Desktop:
             receipt=result['receipt']
             clipboard_text=result['prompt']
             task_file=result.get('task_file')
-            if not native_claude and task_file and Path(task_file).is_file():
+            if task_file and Path(task_file).is_file():
                 try:clipboard_text=Path(task_file).read_text(encoding='utf-8')
                 except OSError:clipboard_text=result['prompt']
             from prompt_window import copy_text
@@ -5089,7 +5089,7 @@ class Desktop:
                 def claude_pasted(value):
                     finish(receipt,'prepared' if value['ok'] else 'failed',value['reason'],task_file=task_file)
                     self.status.set(value['reason'])
-                self.status.set('正在将任务路径粘贴到 Claude Desktop，请检查后手动发送…')
+                self.status.set('正在将本次任务粘贴到 Claude Desktop，请检查后手动发送…')
                 self.async_(lambda:paste_existing(title,clipboard_text,program=program,deadline_seconds=45),claude_pasted)
                 return
             if config.get('desktop_program'):

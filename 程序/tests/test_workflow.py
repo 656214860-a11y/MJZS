@@ -716,7 +716,7 @@ class DesktopModelPoolTests(unittest.TestCase):
             self.assertEqual(config['program'], '')
             self.assertEqual(config['model'], '')
 
-    def test_native_claude_pastes_task_reference_without_cli_or_auto_send(self):
+    def test_native_claude_pastes_full_task_without_cli_or_auto_send(self):
         from desktop import Desktop
         from types import SimpleNamespace
         from unittest.mock import Mock
@@ -734,17 +734,46 @@ class DesktopModelPoolTests(unittest.TestCase):
                     patch('codex_tasks.prepare_task') as codex:
                 Desktop.open_flow_agent(desktop, 'writing', '提取', '提取简报', _config=config, intake_only=True)
             launch.assert_called_once_with('C:/Apps/Claude.exe', 'Claude Desktop')
-            reference = copy.call_args.args[1]
-            self.assertNotIn('提取简报', reference)
+            clipboard_text = copy.call_args.args[1]
+            self.assertEqual(clipboard_text, '提取简报')
             tasks = list((proj / '工作流任务' / 'writing').glob('*.md'))
             self.assertEqual(len(tasks), 1)
             self.assertEqual(tasks[0].read_text(encoding='utf-8'), '提取简报')
-            self.assertIn(str(tasks[0]), reference)
-            self.assertIn('无法读取', reference)
-            paste.assert_called_once_with(proj.name + ' 提取', reference, program='C:/Apps/Claude.exe', deadline_seconds=45)
+            self.assertEqual(clipboard_text, tasks[0].read_text(encoding='utf-8'))
+            paste.assert_called_once_with(proj.name + ' 提取', clipboard_text, program='C:/Apps/Claude.exe', deadline_seconds=45)
             cli.assert_not_called()
             codex.assert_not_called()
             self.assertEqual(finish.call_args.args[1], 'prepared')
+
+    def test_native_claude_writing_pastes_contract_and_skill_reference_not_skill_body(self):
+        from desktop import Desktop
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from workflow_settings import stage_output_contract
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_project(td)
+            skill = Path(td) / 'test.skill.md'
+            skill.write_text('---\nname: test-writing\n---\nSKILL_BODY_NOT_INLINED', encoding='utf-8')
+            desktop = SimpleNamespace(root=proj, worker=False, win=Mock(), status=Mock(),
+                projects=SimpleNamespace(info={'projects': []}), async_=lambda fn, done: done(fn()))
+            config = {'engine': 'claude-desktop-app', 'program': 'C:/Apps/Claude.exe',
+                      'model': '', 'stage_skills': [str(skill)]}
+            with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
+                    patch('agent_dispatch.finish'), \
+                    patch('prompt_window.copy_text') as copy, \
+                    patch('platform_tools.launch_windows_app'), \
+                    patch('codex_paste.paste_existing', return_value={'ok': True, 'reason': '已粘贴'}) as paste:
+                Desktop.open_flow_agent(desktop, 'writing', '创作', '用户本轮创作要求', _config=config)
+            tasks = list((proj / '工作流任务' / 'writing').glob('*.md'))
+            self.assertEqual(len(tasks), 1)
+            text = copy.call_args.args[1]
+            self.assertEqual(text, tasks[0].read_text(encoding='utf-8'))
+            self.assertIn('用户本轮创作要求', text)
+            self.assertIn(stage_output_contract('writing'), text)
+            self.assertIn(str(skill), text)
+            self.assertNotIn('SKILL_BODY_NOT_INLINED', text)
+            paste.assert_called_once_with(proj.name + ' 创作', text,
+                                          program='C:/Apps/Claude.exe', deadline_seconds=45)
 
     def test_stage_model_selects_the_matching_desktop_agent(self):
         import stage_config
