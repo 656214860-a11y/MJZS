@@ -27,7 +27,8 @@
 2. `run_selftests.py -k workflow codex_paste dispatch`：137 条、0 红，1.4 秒。
 3. `smoke_test.py --affected workflow codex_paste`：9 项、0 失败，包含默认 8 项及定向门禁。
 4. `-m unittest tests.architecture.test_platform_opening tests.architecture.test_platform_process_boundary tests.architecture.test_copy_entry_boundary`：5/5，3.530 秒。
-5. `git diff --check`：通过；凭据扫描及最终暂存核对在提交前执行，结果见收尾回执。
+5. `git diff --check`：通过；实现暂存文件逐项核对，凭据扫描 0 命中。
+6. 主目录同步后两项投递回归：2/2，0.282 秒。首次从仓库根执行因工作目录错误而无法导入 tests；改在程序目录执行后通过，该首次执行不记为通过。
 
 未运行：完整架构、安全全量、真实 Claude/Codex 窗口粘贴、登录或模型回复；未重启应用。历史凭据仅作周期判断。
 
@@ -37,4 +38,4 @@
 
 中央领取 R1162；队列仅有历史 B-facade-callers 和 architecture-unfreeze-1-2，无本轮匹配 ID，不冒领。
 
-提交：待本轮实现提交后回填真实 hash；未 push。
+实现提交：`db0e878`（R1162: 统一 Claude Desktop 与 Codex 全文任务投递），已快进同步至主目录 master，未 push。同步前后逐文件 SHA256/删除状态核验，6 项既有已跟踪改动保持原样；未纳入本轮提交。
