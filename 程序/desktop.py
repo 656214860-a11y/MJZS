@@ -6860,7 +6860,7 @@ class Desktop:
         _edit_button.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
         ui_plugin_registry.module('stage_flow').follow(_edit_button,'edit')
         self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(_edit_bar,self,PAGE['edit'])
-        self.stage_button.configure(style='Tokens.Secondary.TButton')
+        self.stage_button.configure(style='Tokens.Primary.TButton')
         self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
         self.note('自动粗剪只拼装已验收的镜头：未验收的镜头会被跳过并列在状态栏，不再因为个别镜头卡住整集。剪映负责精剪、音量、字幕和转场；交接包保留镜头顺序。')
         edit_buttons=[]
@@ -6969,7 +6969,7 @@ class Desktop:
         _deliver_button.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
         ui_plugin_registry.module('stage_flow').follow(_deliver_button,'delivery')
         self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(_deliver_bar,self,PAGE['delivery'])
-        self.stage_button.configure(style='Tokens.Secondary.TButton')
+        self.stage_button.configure(style='Tokens.Primary.TButton')
         self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
         self.note('查看本地任务和技术质检状态，再由您确认画面、对白和剧情。这里不会查询云端任务。')
         def delivery_button(text,command,primary=False):

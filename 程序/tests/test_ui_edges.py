@@ -4875,12 +4875,12 @@ class StageConfigEntryTests(unittest.TestCase):
             cls.tk = None
 
     def buttons_named(self, widget):
-        """阶段入口会显示实际模型名，且复用次按钮而不依赖旧暖色样式名。"""
+        """阶段入口会显示实际模型名，且复用蓝色主按钮而不依赖旧暖色样式名。"""
         found = []
         if widget.winfo_class() in ("TButton", "Button"):
             if getattr(widget, "_stage_config_entry", False):
-                self.assertEqual(str(widget.cget("style")), "Tokens.Secondary.TButton",
-                                 "阶段配置必须复用设计系统的次按钮")
+                self.assertEqual(str(widget.cget("style")), "Tokens.Primary.TButton",
+                                 "阶段配置必须复用设计系统的蓝色主按钮")
                 found.append(widget)
         for child in widget.winfo_children():
             found.extend(self.buttons_named(child))
@@ -4892,7 +4892,7 @@ class StageConfigEntryTests(unittest.TestCase):
         button.winfo_class.return_value = "TButton"
         button.winfo_children.return_value = []
         button.cget.return_value = "Wrong.TButton"
-        with self.assertRaisesRegex(AssertionError, "阶段配置必须复用设计系统的次按钮"):
+        with self.assertRaisesRegex(AssertionError, "阶段配置必须复用设计系统的蓝色主按钮"):
             self.buttons_named(button)
 
     def test_buttons_named_keeps_valid_entry_and_reports_lookup_errors(self):
@@ -4900,7 +4900,7 @@ class StageConfigEntryTests(unittest.TestCase):
         button = Mock(_stage_config_entry=True)
         button.winfo_class.return_value = "TButton"
         button.winfo_children.return_value = []
-        button.cget.return_value = "Tokens.Secondary.TButton"
+        button.cget.return_value = "Tokens.Primary.TButton"
         self.assertEqual(self.buttons_named(button), [button])
         button.cget.side_effect = RuntimeError("style lookup failed")
         with self.assertRaisesRegex(RuntimeError, "style lookup failed"):

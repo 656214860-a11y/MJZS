@@ -363,8 +363,8 @@ class WorkflowSettingsTests(unittest.TestCase):
         """过程 Markdown 可落 docs/，但不得稀释原稿与结构稿边界。"""
         contract = ws.stage_output_contract('writing')
         self.assertIn('唯一交付物是完整自然语言剧本正文', contract)
-        self.assertIn('不得产出结构化剧本、分镜、字段表、JSON/YAML', contract)
-        self.assertIn('首帧/视频提示词、资产清单等后续阶段产物', contract)
+        self.assertNotIn('不得产出结构化剧本、分镜、字段表、JSON/YAML', contract)
+        self.assertNotIn('首帧/视频提示词、资产清单等后续阶段产物', contract)
         self.assertIn('过程文档可入 docs/ 但不得并入剧本正文', contract)
         self.assertNotIn('正文与 SKILL 要求的确认清单', contract)
 

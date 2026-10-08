@@ -18,6 +18,29 @@ from stage_execution_service import project_context
 
 
 class IdeaAttachmentsTests(unittest.TestCase):
+    def test_four_part_archive_names_preserve_pairs_and_same_day_uploads(self):
+        from datetime import datetime
+        from agent.core import save_bytes, save_text
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / '摄影侠_20260930'
+            root.mkdir()
+            source = root / '人物.txt'
+            source.write_text('人物设定', encoding='utf-8')
+            def publish(path, value):
+                (save_bytes if isinstance(value, bytes) else save_text)(path, value)
+            first = idea_attachments.store(project_context(root), [source],
+                now=datetime(2026, 10, 8), publish=publish, local_mode=True).data[0]
+            self.assertEqual(first.name, '摄影侠_原始附件_人物_20261008.txt')
+            original, converted = idea_attachments.archive_pair(first)
+            self.assertEqual(converted.name, '摄影侠_附件文本_人物_20261008.md')
+            self.assertEqual(idea_attachments.archive_pair(converted), (original, converted))
+            second = idea_attachments.store(project_context(root), [source],
+                now=datetime(2026, 10, 8), publish=publish, local_mode=True).data[0]
+            self.assertNotEqual(first, second)
+            self.assertTrue(second.name.endswith('_20261008.txt'))
+            self.assertEqual(first.read_bytes(), source.read_bytes())
+            self.assertEqual(len(idea_attachments.uploaded(project_context(root))), 2)
+
     def test_upload_display_name_survives_reload_and_legacy_names_still_work(self):
         from stage_execution_service import archive_idea_attachments, stage_idea_attachment_paths
         with tempfile.TemporaryDirectory() as td:
@@ -279,7 +302,7 @@ class IdeaAttachmentsTests(unittest.TestCase):
                 original, converted = idea_attachments.archive_pair(result.data[0])
                 self.assertEqual(original.read_bytes(), source.read_bytes())
                 self.assertEqual(converted.read_text(encoding='utf-8'), '原样内容\n')
-                self.assertEqual(original.name.split('_原文件__')[0], converted.name.split('__')[0])
+                self.assertEqual(original.stem.replace('_原始附件_', '_附件文本_', 1), converted.stem)
                 self.assertIn(original, idea_attachments.uploaded(project_context(root), local_mode=True))
                 self.assertIn(converted, idea_attachments.uploaded(project_context(root)))
                 api = idea_attachments.referenced(project_context(root), '@' + original.name)
