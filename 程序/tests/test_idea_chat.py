@@ -958,15 +958,17 @@ class SendMessageTests(_Harness):
             self.assertTrue(Path(d.idea_attachment_paths[0]).is_file())
             self.assertEqual(Path(d.idea_attachment_paths[0]).parent.name, '输入')
             self.assertEqual(d.idea_attachment_button.cget('text'), '📁')
-            self.assertIn('已引用：故事创意_', d.idea_attachment_status.get())
+            attachment_name = Path(d.idea_attachment_paths[0]).name
+            self.assertRegex(attachment_name, r'^p_附件文本_角色设定_\d{8}\.md$')
+            self.assertIn('已引用：' + attachment_name, d.idea_attachment_status.get())
             seen=[]
             d.open_flow_agent=lambda *args, **kwargs: seen.append(args)
             self.say(d, self.complete_draft() + '\n请基于附档创作')
             d.send_message(); win.update()
-            self.assertIn('【附档：故事创意_', seen[0][2])
+            self.assertIn('【附档：' + attachment_name, seen[0][2])
             self.assertIn('主要角色：林默', seen[0][2])
             self.assertEqual(d.idea_attachment_paths, ())
-            self.assertIn('【已引用：故事创意_', idea_chat.load(proj)[0]['text'])
+            self.assertIn('【已引用：' + attachment_name, idea_chat.load(proj)[0]['text'])
 
     @patch('stage_execution_service.idea_attachment_local_mode', new=lambda _project: True)
     def test_local_attachment_status_and_submission_only_expose_relative_path(self):
