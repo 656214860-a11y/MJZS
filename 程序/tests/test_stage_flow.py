@@ -43,7 +43,8 @@ class LabelTests(unittest.TestCase):
     def test_the_table_matches_the_spec(self):
         self.assertEqual(stage_flow.MANUAL_LABELS, {
             'script': '手动制作剧本', 'script_structure': '手动制作结构剧本',
-            'storyboard': '手动制作分镜', 'assets': '手动制作资产',
+            'storyboard': '手动制作分镜', 'animatic': '手动制作分镜预演',
+            'assets': '手动制作资产',
             'continuity': '手动生成连贯性清单',
             'final': '手动同步资产', 'keyframe': '手动制作首帧', 'previs': '手动制作白模',
             'video': '手动制作视频', 'audio': '手动制作配音', 'edit': '手动制作剪辑',
@@ -216,7 +217,9 @@ class SummaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = self.project(td)
             for stage in ('storyboard', 'assets', 'final', 'keyframe'):
-                self.assertEqual(self.module.blockers(proj, stage), [])
+                expected = ['animatic'] if stage == 'assets' else []
+                self.assertEqual(self.module.blockers(proj, stage), expected)
+            self.assertEqual(self.module.blockers(proj, 'animatic'), ['storyboard'])
 
     def test_the_graph_starts_at_the_script(self):
         self.assertEqual(self.module.DEPENDS['script'], ())
@@ -272,7 +275,9 @@ class AutoTests(unittest.TestCase):
         auto = stage_flow.Auto()
         auto.script_done('auto')
         auto.done('storyboard')
-        self.assertEqual(auto.next_stage(), 'assets', '前面那几步不再重跑')
+        self.assertEqual(auto.next_stage(), 'animatic', '初稿之后先进行分镜预演')
+        auto.done('animatic')
+        self.assertEqual(auto.next_stage(), 'assets', '预演确认之后才进入资产管理')
 
     def test_a_failure_blocks_the_chain_at_the_same_stage(self):
         auto = stage_flow.Auto()
