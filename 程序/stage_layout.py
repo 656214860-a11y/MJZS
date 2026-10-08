@@ -4,7 +4,7 @@
 用户附件（v0.8 任务 2）要的顶层结构：
 
     project/
-    ├── 01剧本准备/ … 12质检交付/       每个阶段一个目录（阶段目录 ＋ 固定子目录）
+    ├── 01剧本准备/ … 13质检交付/       每个阶段一个目录（阶段目录 ＋ 固定子目录）
     ├── _shared/                       跨阶段共享：schema、锚点库、三元组字典
     └── _archive/                      废弃文件
 
@@ -40,23 +40,25 @@ STAGES = (
      (), ()),
     ('03初步分镜', 'storyboard', '初步分镜', '剧本 ＋ SKILL 拆出分镜初稿 JSON',
      ('episode.json', 'characters.json'), ('storyboard_draft.json',)),
-    ('04资产管理', 'assets', '资产管理', '资产清单、正典板、状态变体与参考图',
+    ('04分镜预演', 'animatic', '分镜预演', '参考图与分镜提示词生成预演草图，临时声音合成 Animatic，人工确认后进入资产管理',
+     ('storyboard_draft.json',), ('animatic_manifest.json',)),
+    ('05资产管理', 'assets', '资产管理', '资产清单、正典板、状态变体与参考图',
      ('storyboard_draft.json',), ('assets.json',)),
-    ('05连贯性清单', 'continuity', '连贯性清单', '跨镜约束、锚点冻结与三元组校验',
+    ('06连贯性清单', 'continuity', '连贯性清单', '跨镜约束、锚点冻结与三元组校验',
      ('storyboard_draft.json', 'assets.json'), ('continuity_ledger.json',)),
-    ('06分镜定稿', 'final', '分镜定稿', '批次划分、三元组补全、定稿 JSON',
+    ('07分镜定稿', 'final', '分镜定稿', '批次划分、三元组补全、定稿 JSON',
      ('storyboard_draft.json', 'assets.json', 'continuity_ledger.json'), ('storyboard_final.json',)),
-    ('07首帧管理', 'keyframe', '首帧管理', '每镜首帧图与首帧任务表',
+    ('08首帧管理', 'keyframe', '首帧管理', '每镜首帧图与首帧任务表',
      ('storyboard_final.json',), ('frames.json',)),
-    ('08白模预演', 'previs', '白模预演', '复杂动作镜头的白模预演',
+    ('09白模预演', 'previs', '白模预演', '复杂动作镜头的白模预演',
      ('storyboard_final.json', 'frames.json'), ('previs.json',)),
-    ('09视频生成', 'video', '视频生成', '图生／文生视频成片与任务表',
+    ('10视频生成', 'video', '视频生成', '图生／文生视频成片与任务表',
      ('frames.json', 'previs.json'), ('videos.json',)),
-    ('10配音与字幕', 'audio', '配音与字幕', '配音音频与字幕文件',
+    ('11配音与字幕', 'audio', '配音与字幕', '配音音频与字幕文件',
      ('storyboard_final.json',), ('voice.json', 'subtitles.json')),
-    ('11后期剪辑', 'edit', '后期剪辑', '按批次剪辑成片',
+    ('12后期剪辑', 'edit', '后期剪辑', '按批次剪辑成片',
      ('videos.json', 'voice.json', 'subtitles.json'), ('edits.json',)),
-    ('12质检交付', 'delivery', '质检与交付', '质检报告与交付包',
+    ('13质检交付', 'delivery', '质检与交付', '质检报告与交付包',
      ('edits.json',), ('qc_report.json', 'delivery.json')),
 )
 
@@ -66,15 +68,15 @@ LEGACY_STAGE_ALIASES = {
     '00_script': '01剧本准备',
     '01_script_structure': '02剧本结构',
     '01_storyboard_draft': '03初步分镜',
-    '02_assets': '04资产管理',
-    '03_continuity': '05连贯性清单',
-    '04_storyboard_final': '06分镜定稿',
-    '05_first_frame': '07首帧管理',
-    '06_previs': '08白模预演',
-    '07_video_gen': '09视频生成',
-    '08_audio_subtitle': '10配音与字幕',
-    '09_post_edit': '11后期剪辑',
-    '10_qc_delivery': '12质检交付',
+    '02_assets': '05资产管理',
+    '03_continuity': '06连贯性清单',
+    '04_storyboard_final': '07分镜定稿',
+    '05_first_frame': '08首帧管理',
+    '06_previs': '09白模预演',
+    '07_video_gen': '10视频生成',
+    '08_audio_subtitle': '11配音与字幕',
+    '09_post_edit': '12后期剪辑',
+    '10_qc_delivery': '13质检交付',
 }
 SHARED = '_shared'
 ARCHIVE = '_archive'
@@ -119,24 +121,25 @@ LEGACY = (
 
 # 每个阶段的 docs/ 该有哪些 MD（任务 11：各阶段 docs/ 目录文件清单）。机器一个都不读。
 DOCS = {
+    '04分镜预演': (('animatic_notes.md', '节奏、时长与对白同步确认记录'),),
     '01剧本准备': (('story_brief.md', '创意与需求原稿'), ('outline.md', '全局大纲'),
                   ('characters.md', '角色设定（自然语言，人读）'), ('episode_plan.md', '分集规划'),
                   ('world_bible.md', '世界观设定集（人读；script-worldbuilding 那一段并回正稿）')),
     '02剧本结构': (('script_raw.md', '剧本原稿（输入）'), ('script.md', '结构化剧本正稿（输出）')),
     '03初步分镜': (('storyboard_notes.md', '拆镜思路与取舍'),
                             ('shot_intent.md', '每镜的戏剧意图（人读）')),
-    '04资产管理': (('character_brief.md', '角色创意描述（自然语言，只给人看）'),
+    '05资产管理': (('character_brief.md', '角色创意描述（自然语言，只给人看）'),
                   ('scene_brief.md', '场景描述'), ('prop_brief.md', '道具描述'),
                   ('canon_board.md', '正典板与状态变体的说明')),
-    '05连贯性清单': (('continuity_ledger.md', '连贯性台账（人读版）'),
+    '06连贯性清单': (('continuity_ledger.md', '连贯性台账（人读版）'),
                       ('conflict_decisions.md', '参考图冲突的裁决记录')),
-    '06分镜定稿': (('batch_plan.md', '批次划分说明'), ('shot_table.md', '镜头表')),
-    '07首帧管理': (('first_frame_notes.md', '首帧制作记录'),),
-    '08白模预演': (('previs_notes.md', '白模预演记录'),),
-    '09视频生成': (('video_prompt_log.md', '视频提示词记录（只写动作与运镜）'),),
-    '10配音与字幕': (('voice_cast.md', '配音选角'), ('subtitle_notes.md', '字幕校对记录')),
-    '11后期剪辑': (('edit_notes.md', '剪辑记录'),),
-    '12质检交付': (('qc_report.md', '质检报告'), ('delivery_notes.md', '交付说明')),
+    '07分镜定稿': (('batch_plan.md', '批次划分说明'), ('shot_table.md', '镜头表')),
+    '08首帧管理': (('first_frame_notes.md', '首帧制作记录'),),
+    '09白模预演': (('previs_notes.md', '白模预演记录'),),
+    '10视频生成': (('video_prompt_log.md', '视频提示词记录（只写动作与运镜）'),),
+    '11配音与字幕': (('voice_cast.md', '配音选角'), ('subtitle_notes.md', '字幕校对记录')),
+    '12后期剪辑': (('edit_notes.md', '剪辑记录'),),
+    '13质检交付': (('qc_report.md', '质检报告'), ('delivery_notes.md', '交付说明')),
 }
 
 # 需要删除的重复字段（任务 6「SKILL 去重」＋ 任务 10／11 的字段收敛）。
@@ -358,17 +361,17 @@ def json_md_rows():
     左边是机器唯一输入（JSON），右边只给人看（docs/ 里的 MD）——同一件事不许两边各写一份。
     """
     return (
-        ('assets.json · character_anchor', '04资产管理/docs/character_brief.md',
+        ('assets.json · character_anchor', '05资产管理/docs/character_brief.md',
          '锚点字符串逐字复用；创意描述只给人看'),
-        ('assets.json · state_variants', '04资产管理/docs/canon_board.md',
+        ('assets.json · state_variants', '05资产管理/docs/canon_board.md',
          '状态变体的数据结构在 JSON 里，说明写在 MD'),
-        ('assets.json · scene_id／spatial_anchors', '04资产管理/docs/scene_brief.md',
+        ('assets.json · scene_id／spatial_anchors', '05资产管理/docs/scene_brief.md',
          '场景的空间锚点是机器输入，文字描述给人看'),
-        ('storyboard_final.json · batch_id', '06分镜定稿/docs/batch_plan.md',
+        ('storyboard_final.json · batch_id', '07分镜定稿/docs/batch_plan.md',
          '批次是机器切的，说明给人看'),
-        ('continuity_ledger.json', '05连贯性清单/docs/continuity_ledger.md',
+        ('continuity_ledger.json', '06连贯性清单/docs/continuity_ledger.md',
          '台账 JSON 是机器输入，人读版在 docs'),
-        ('shot.video_prompt', '09视频生成/docs/video_prompt_log.md',
+        ('shot.video_prompt', '10视频生成/docs/video_prompt_log.md',
          '视频提示词只写动作与运镜'),
     )
 

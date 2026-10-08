@@ -3,6 +3,7 @@
         "status": "active",
         "decided_at": "2026-10-04",
         "adopters": [
+            "animatic_service",
             "asset_batch_settings_service",
             "asset_plan",
             "asset_detail_service",
@@ -1086,19 +1087,37 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "824",
+                "point": "949",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "855",
+                "point": "108",
+                "disposition": "exempt",
+                "reason": "R1124：发布器对内存确认文本的 JSON 校验，不读取文件。"
+            },
+            {
+                "file": "animatic_service.py",
+                "point": "27",
+                "disposition": "exempt",
+                "reason": "R1124：解析待发布包内的清单字节协议，不读取文件。"
+            },
+            {
+                "file": "edit_service.py",
+                "point": "95",
+                "disposition": "exempt",
+                "reason": "R1124：解析 ffprobe 子进程标准输出协议，不读取 JSON 文件。"
+            },
+            {
+                "file": "stage_execution_service.py",
+                "point": "980",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "871",
+                "point": "996",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
@@ -1110,7 +1129,7 @@
             },
             {
                 "file": "stage_parallel.py",
-                "point": "451",
+                "point": "454",
                 "disposition": "exempt",
                 "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。"
             },
@@ -1193,13 +1212,13 @@
                 "reason": "\u7f51\u7edc\u54cd\u5e94\u89e3\u6790"
             },
             {
-                "file": "skills/08\u767d\u6a21\u9884\u6f14SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
+                "file": "skills/09\u767d\u6a21\u9884\u6f14SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
                 "point": "70",
                 "disposition": "exempt",
                 "reason": "SKILL \u81ea\u5e26\u811a\u672c"
             },
             {
-                "file": "skills/08\u767d\u6a21\u9884\u6f14SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
+                "file": "skills/09\u767d\u6a21\u9884\u6f14SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
                 "point": "468",
                 "disposition": "exempt",
                 "reason": "SKILL \u81ea\u5e26\u811a\u672c"

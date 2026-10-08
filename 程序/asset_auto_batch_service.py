@@ -22,6 +22,8 @@ def auto_batch(project, base, sources, scope='adopted', log=None, stop=None, cli
                                           context=project_context(project))
     if not items:
         return '无人值守批量资产：没有需要独立生成的资产' + (f'；{len(skipped)} 项资产清单待补齐' if skipped else '')
+    from stage_execution_service import require_formal_asset_generation
+    require_formal_asset_generation(project, online_model=current_model(project) in MODELS)
     url = saved.get('url') or 'http://127.0.0.1:8189'
     stop = stop if stop is not None else threading.Event()
     from importlib import import_module

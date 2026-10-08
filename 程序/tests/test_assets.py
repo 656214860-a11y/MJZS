@@ -843,6 +843,7 @@ class AutoAssetTests(unittest.TestCase):
                     return [str(image)]
             fake = Fake()
             with patch.object(native_apps, "wait_comfy", wait), \
+                 patch('stage_execution_service.require_formal_asset_generation'), \
                  patch.object(native_apps, "open_comfy", lambda settings=None: launched.append(settings)):
                 summary = auto_batch(proj, proj / "episode",
                                      [proj / "storyboard" / "分镜拆分" / "episode.json"], "adopted",

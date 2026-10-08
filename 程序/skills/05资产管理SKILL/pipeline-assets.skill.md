@@ -7,7 +7,7 @@ capabilities: [vision, structured-output, reasoning]
 preferredModels: [qwen-max]
 fallbackModels: [deepseek-v4-pro]
 tools: [asset.plan, asset.validate]
-dependsOn: [pipeline-storyboard-draft]
+dependsOn: [pipeline-animatic]
 conflictsWith: []
 parallelizable: false
 paid: false

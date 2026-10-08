@@ -340,8 +340,8 @@ def write(project, ledger):
 
 def read(project):
     """读回台账（没有就是空 dict）。"""
-    import stage_layout
-    file = stage_layout.paths(project, '03_continuity')['output'] / LEDGER_NAME
+    from stage_path_service import read_file
+    file = read_file(project, 'continuity', 'output', LEDGER_NAME)
     if not file.is_file():
         return {}
     try:

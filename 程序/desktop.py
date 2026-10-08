@@ -222,7 +222,7 @@ def _prefs(path):
 import pet_bus
 # 制作页名称只从 pet_bus.STAGES／STAGE_NAMES 生成；「参考网站」是唯一非阶段工具页。
 PAGES = [f'{index:02d}  {pet_bus.stage_name(stage)}'
-         for index, stage in enumerate(pet_bus.STAGES, start=1)] + ['13  参考网站']
+         for index, stage in enumerate(pet_bus.STAGES, start=1)] + ['14  参考网站']
 # 页面序号一律由阶段表推出来（PAGES 与 pet_bus.STAGES 一一对应），
 # 再加一个阶段时只改 pet_bus.STAGES／STAGE_NAMES。
 import pet_state
@@ -3606,6 +3606,9 @@ class Desktop:
         if not self.root:return []
         try:
             from asset_batch_state_service import prune_raw_outputs
+            from stage_path_service import LEGACY_NUMBERED
+            if self.asset_base() == Path(self.root)/LEGACY_NUMBERED['assets']:
+                return []
             removed=prune_raw_outputs(self.asset_base())
         except Exception as exc:
             # 清理是可选维护，不能拦住打开项目；但失败也不能伪装成没有重复图。
@@ -4074,7 +4077,7 @@ class Desktop:
             from asset_detail import show as asset_detail_page
             asset_detail_page(self,self.asset_detail_id)
         else:
-            [self.writing,self.script_structure,self.storyboard_creation,self.asset_page,self.continuity_page,self.final_storyboard,self.storyboard,self.previs,self.videos,self.audio,self.editing,self.delivery][index]()
+            [self.writing,self.script_structure,self.storyboard_creation,self.animatic_page,self.asset_page,self.continuity_page,self.final_storyboard,self.storyboard,self.previs,self.videos,self.audio,self.editing,self.delivery][index]()
         # 页面树可能很大；强制 Tk 立刻完成两次尺寸计算会阻塞点击与绘制，启动时尤其容易
         # 被 Windows 判为无响应。交给已有的合并空闲布局：同一轮连续换页只做最后一次，
         # 内容尺寸晚到时由 _fit_again 补算，首帧也能先交还事件循环。
@@ -5407,7 +5410,10 @@ class Desktop:
     def asset_page(self):
         from asset_skill_batch import resume
         from asset_reference_images import prepare_folders
-        resume(self);prepare_folders(self.asset_base())
+        from stage_path_service import write_dir
+        resume(self)
+        if self.asset_base() == write_dir(self.root,'assets'):
+            prepare_folders(self.asset_base())
         if not hasattr(self,'asset_checks'):self.asset_checks={}
         self.asset_gated_buttons=[]
         toolbar=FlowBar(self.content);toolbar.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
@@ -5553,6 +5559,9 @@ class Desktop:
         # 资产库属于项目：不跟着当前选择的分镜走，工作集切到别的分镜时资产库位置必须保持稳定。
         from asset_context import library_dir
         return library_dir(self.root)
+    def asset_write_base(self):
+        from stage_execution_service import prepare_legacy_asset_base
+        return prepare_legacy_asset_base(self.asset_base())
     def asset_scope(self):
         from storyboard_selection import prefs
         return 'current' if prefs(self.root).get('asset_scope')=='current' else 'adopted'
@@ -5561,6 +5570,12 @@ class Desktop:
         return scope_sources(self.root,self.asset_scope())
     def asset_requirements(self):
         from stage_execution_service import sync_asset_plan
+        from stage_path_service import write_dir, LEGACY_NUMBERED
+        base=self.asset_base()
+        if base == Path(self.root)/LEGACY_NUMBERED['assets']:
+            # 查看历史清单不触发复制或自动同步；第一次修改由 L3 复制。
+            path=base/'assets/资产清单/assets.json'
+            return read(path) if path.is_file() else {}
         try:return sync_asset_plan(self.root,self.asset_base(),self.asset_sources(),scope=self.asset_scope())
         except (ValueError,OSError,TypeError,AttributeError,KeyError) as e:
             # 门禁会在后台预读资产清单；剧本准备等非资产页不应因此叠出资产错误。
@@ -5585,7 +5600,9 @@ class Desktop:
                 button.configure(state='normal' if enabled else 'disabled')
     def assets(self,kind):
         from asset_context import ensure_browser_directory
-        folder=ensure_browser_directory(self.asset_base(),kind)
+        from stage_path_service import LEGACY_NUMBERED
+        base=self.asset_base()
+        folder=ensure_browser_directory(base,kind,create=base != Path(self.root)/LEGACY_NUMBERED['assets'])
         registry=self.asset_requirements()
         try:source=self.current_frame_json();episode=read(source)
         except ValueError:source=None;episode={}
@@ -5865,7 +5882,7 @@ class Desktop:
         直接拿 None 去 rstrip（崩），而且开着角色页去开道具的文件夹也不合直觉。
         """
         from asset_reference_images import CATEGORIES,prepare_folders
-        base=self.asset_base();prepare_folders(base)
+        base=Desktop.asset_write_base(self);prepare_folders(base)
         folder=base/'assets/参考图'
         category=CATEGORIES.get(str(aid or self.asset_selected() or '').split('_')[0])
         if category:folder=folder/category
@@ -5908,6 +5925,7 @@ class Desktop:
                 '%s 的 %d 张参考图将移入项目回收站，可在需要时恢复。\n是否继续？'%(aid,len(values)),
                 dangerous=True):
             return False
+        base=Desktop.asset_write_base(self)
         unbind(base,aid,values)
         self.show(2)
         self.status.set(aid+' 的 '+str(len(values))+' 张参考图已移入回收站。')
@@ -5932,6 +5950,7 @@ class Desktop:
                 dangerous=True):
             return False
         from asset_batch_service import remove_asset_image
+        base=Desktop.asset_write_base(self)
         remove_asset_image(base,aid,gateway=Desktop.asset_batch_gateway())
         if ask:
             self.show(2)
@@ -5981,6 +6000,7 @@ class Desktop:
                 f'恢复 {aid} 的最近删除图片？'):
             return False
         from asset_batch_service import restore_asset_image
+        base=Desktop.asset_write_base(self)
         restore_asset_image(base,aid,gateway=Desktop.asset_batch_gateway())
         self.show(PAGE['assets'])
         self.status.set(aid+' 的资产图片已从项目回收站恢复。')
@@ -5994,7 +6014,7 @@ class Desktop:
         name=name.strip()
         if not name:raise ValueError('资产名称不能为空')
         from asset_batch_service import rename_asset as _rename_asset
-        _rename_asset(self.asset_base(),aid,old,name,gateway=Desktop.asset_batch_gateway())
+        _rename_asset(Desktop.asset_write_base(self),aid,old,name,gateway=Desktop.asset_batch_gateway())
         if refresh:self.show(2)
         self.status.set('名称已保存')
     def final_storyboard(self):
@@ -6061,7 +6081,7 @@ class Desktop:
         aid=selected or simpledialog.askstring('资产编号','例如 CHAR_001 / LOC_001 / PROP_001',parent=self.win)
         if not aid:return
         from asset_batch_service import import_asset_image
-        kind,result=import_asset_image(self.asset_base(),self.root,aid,p,self.asset_requirements(),gateway=Desktop.asset_batch_gateway())
+        kind,result=import_asset_image(Desktop.asset_write_base(self),self.root,aid,p,self.asset_requirements(),gateway=Desktop.asset_batch_gateway())
         self.asset_kind=kind;self.show(PAGE['assets']);self.status.set(result)
     # 第 50 期第 1 条：原来那颗「选择镜头 JSON」删掉——首帧页看的永远是「当前分镜」，
     # 也就是第 02 步采用的那一份（自动认领见 current_frame_json），不用在这儿再挑一遍。
@@ -6445,6 +6465,92 @@ class Desktop:
         result=restore_stage_keyframe(base,source,episode,shot)
         if not result.ok:raise ValueError(result.reason)
         self.show(PAGE['keyframe']);self.status.set(sid+' 首帧已恢复')
+    def animatic_page(self):
+        from stage_execution_service import (animatic_reference_paths, import_animatic_references,
+                                             import_animatic_audio, run_animatic, confirm_animatic, animatic_video,
+                                             generate_animatic_reference)
+        from ui_widgets import DescriptionBlock, PrimaryButton, SecondaryButton, ProgressLabel, LineInput, HintLabel
+        from ui_tokens import SPACING
+        project = self.root
+        selected = {'source': None, 'audio': None}
+        comfy_settings = {'url': self.settings.get('comfy_url', 'http://127.0.0.1:8188')}
+        DescriptionBlock(self.content, text='先准备共享参考图，再用本地 ComfyUI 生成镜头草图并合成预演。正式资产仍在线上生成。').pack(fill='x')
+        detail = ProgressLabel(self.content, text='请选择本项目分镜初稿和临时音频')
+        detail.pack(fill='x')
+
+        def choose(kind):
+            paths = self.file_dialog.open_files(parent=self.win,
+                title='选择分镜初稿' if kind == 'source' else '选择临时音频',
+                filetypes=[('分镜 JSON', '*.json')] if kind == 'source' else [('临时音频', '*.wav *.mp3 *.m4a *.aac')])
+            if paths:
+                if kind == 'audio':
+                    def imported(result):
+                        if not result.ok:
+                            self.status.set(result.reason); return
+                        selected[kind] = result.data
+                        detail.configure(text='已导入临时音频：' + Path(result.data).name)
+                    self.async_(lambda: import_animatic_audio(project, paths[0]), imported)
+                else:
+                    selected[kind] = paths[0]
+                    detail.configure(text='已选择：' + Path(paths[0]).name)
+
+        def references():
+            paths = self.file_dialog.open_files(parent=self.win, title='导入共享参考图',
+                filetypes=[('参考图', '*.png *.jpg *.jpeg *.webp')])
+            if paths:
+                self.async_(lambda: import_animatic_references(project, paths),
+                            lambda result: self.status.set('已准备 %d 张共享参考图' % len(result)))
+
+        def generate():
+            source, audio = selected['source'], selected['audio']
+            text = tts_text.get().strip()
+            if self.worker:
+                self.status.set('请等待当前任务完成'); return
+            if not source or (not audio and not text):
+                self.status.set('请选择分镜初稿，并导入音频或填写临时 TTS 文本'); return
+            for value in checked.values():
+                value.set(False)
+            self.async_(lambda: run_animatic(project, source, animatic_reference_paths(project), audio,
+                                            settings={**comfy_settings, 'tts_text': text}),
+                        lambda _result: self.status.set('分镜预演已生成；请观看后确认节奏、时长与对白同步'),
+                        label='正在生成分镜预演…')
+
+        for text, command in [('导入共享参考图', references), ('选择分镜初稿', lambda: choose('source')),
+                              ('选择临时音频', lambda: choose('audio'))]:
+            SecondaryButton(self.content, text=text, command=command).pack(anchor='w', pady=SPACING['xs'])
+        reference_prompt = LineInput(self.content, placeholder='参考图描述（角色或场景草图）')
+        reference_prompt.pack(fill='x', pady=SPACING['xs'])
+        reference_model = LineInput(self.content, placeholder='本地已安装模型名称（含扩展名）')
+        reference_model.pack(fill='x', pady=SPACING['xs'])
+        def make_reference():
+            prompt, model = reference_prompt.get().strip(), reference_model.get().strip()
+            if self.worker:
+                self.status.set('请等待当前任务完成'); return
+            self.async_(lambda: generate_animatic_reference(project, prompt, model, comfy_settings),
+                        lambda result: self.status.set('已生成共享参考草图' if result.ok else result.reason),
+                        label='正在生成共享参考草图…')
+        SecondaryButton(self.content, text='本地生成参考草图', command=make_reference).pack(anchor='w', pady=SPACING['xs'])
+        HintLabel(self.content, text='临时 TTS（已导入音频优先）').pack(anchor='w')
+        tts_text = LineInput(self.content, placeholder='未导入音频时使用的临时对白')
+        tts_text.pack(fill='x', pady=SPACING['xs'])
+        PrimaryButton(self.content, text='生成分镜预演', command=generate).pack(anchor='w', pady=SPACING['sm'])
+        def preview():
+            self.async_(lambda: animatic_video(project), lambda path: open_target(path))
+        SecondaryButton(self.content, text='观看预演视频', command=preview).pack(anchor='w', pady=SPACING['xs'])
+        checked = {key: tk.BooleanVar(value=False) for key in ('rhythm', 'duration', 'dialogue_sync')}
+        for key, label in [('rhythm', '已确认节奏'), ('duration', '已确认时长'), ('dialogue_sync', '已确认对白同步')]:
+            ttk.Checkbutton(self.content, text=label, variable=checked[key]).pack(anchor='w')
+
+        def confirm():
+            values = {key: value.get() for key, value in checked.items()}
+            def confirmed(_result):
+                self.status.set('分镜预演已确认，可以进入资产管理')
+                if self.root == project:
+                    self.pet_report('animatic', '节奏、时长与对白同步均已确认')
+            self.async_(lambda: confirm_animatic(project, **values),
+                        confirmed)
+        SecondaryButton(self.content, text='确认预演（SG-B）', command=confirm).pack(anchor='w', pady=SPACING['sm'])
+
     def previs(self):
         ui_plugin_registry.module('local_previs').show(self)
     def refresh_video_workspace(self):

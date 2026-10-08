@@ -42,6 +42,7 @@ class SpeedTableTests(unittest.TestCase):
         ('剧本准备', '无（整段串行）', '1', '—', 1),
         ('剧本结构', '无（整段串行）', '1', '—', 1),
         ('初步分镜', '场景', '2-3', '是', 3),
+        ('分镜预演', '批次', '1-3', '是', 3),
         ('资产管理', '资产（角色／场景／道具）', '3-5', '是', 5),
         ('连贯性清单', '无（整段串行）', '1', '—', 1),
         ('分镜定稿', '无（整段串行）', '1', '—', 1),
@@ -296,9 +297,9 @@ class GateTests(unittest.TestCase):
     """任务 3.2：五条门禁。只拦「上游真的做了却没做全」的，空项目一律放行。"""
 
     def test_the_five_gates_are_the_ones_the_attachment_asks_for(self):
-        self.assertEqual(spec.gate_ids(), ('SG-01', 'SG-02', 'SG-03', 'SG-04', 'SG-05'))
+        self.assertEqual(spec.gate_ids(), ('SG-A', 'SG-B', 'SG-01', 'SG-02', 'SG-03', 'SG-04', 'SG-05'))
         pairs = [(row['from'], row['to']) for row in spec.GATES]
-        self.assertEqual(pairs, [('assets', 'continuity'), ('continuity', 'final'), ('final', 'keyframe'),
+        self.assertEqual(pairs, [('storyboard', 'animatic'), ('animatic', 'assets'), ('assets', 'continuity'), ('continuity', 'final'), ('final', 'keyframe'),
                                  ('keyframe', 'previs'), ('previs', 'video')])
         self.assertIsNone(spec.gate_for('script'), '剧本准备没有上游门禁')
 
@@ -307,6 +308,10 @@ class GateTests(unittest.TestCase):
             proj = make_project(td)
             for stage in STAGES:
                 result = spec.evaluate(proj, stage)
+                if stage in ('animatic', 'assets'):
+                    self.assertFalse(result['ok'], stage)
+                    self.assertTrue(result['started'], stage)
+                    continue
                 self.assertTrue(result['ok'], stage)
                 self.assertFalse(result['started'], stage)
             self.assertEqual(spec.blocked_stages(proj, 'continuity'), ())
@@ -358,7 +363,7 @@ class GateTests(unittest.TestCase):
             text = spec.audit_text(proj)
             for gate in spec.gate_ids():
                 self.assertIn(gate, text)
-            self.assertEqual(len(spec.audit(proj)), 5)
+            self.assertEqual(len(spec.audit(proj)), 7)
             keyframe = spec.page_lines(proj, 'keyframe')
             self.assertIn('并行：镜头 4-6 路', keyframe[0])
             self.assertIn('门禁：SG-03', keyframe[1])          # 进首帧管理前先看批次划分
@@ -471,6 +476,8 @@ class FlowWiringTests(unittest.TestCase):
         auto.done('script_structure')
         self.assertEqual(auto.next_stage(), 'storyboard')
         auto.done('storyboard')
+        self.assertEqual(auto.next_stage(), 'animatic')
+        auto.done('animatic')
         self.assertIsNone(auto.next_stage(), '被门禁挡住就不往下推')
         self.assertEqual(auto.blocked[0], 'assets')
         self.assertEqual(auto.state()['blocked'], 'assets')

@@ -72,15 +72,15 @@ GATES = (
 
 # 门禁挂在哪几个当前用户可见阶段目录。旧内部标识由 stage_gates() 兼容解析。
 GATE_STAGES = {
-    'G-01': ('04资产管理', '06分镜定稿'),
-    'G-02': ('05连贯性清单',),
-    'G-03': ('04资产管理', '05连贯性清单'),
-    'G-04': ('04资产管理', '07首帧管理'),
-    'G-05': ('04资产管理',),
-    'G-06': ('04资产管理',),
-    'G-07': ('06分镜定稿',),
-    'G-08': ('05连贯性清单',),
-    'G-09': ('05连贯性清单',),
+    'G-01': ('05资产管理', '07分镜定稿'),
+    'G-02': ('06连贯性清单',),
+    'G-03': ('05资产管理', '06连贯性清单'),
+    'G-04': ('05资产管理', '08首帧管理'),
+    'G-05': ('05资产管理',),
+    'G-06': ('05资产管理',),
+    'G-07': ('07分镜定稿',),
+    'G-08': ('06连贯性清单',),
+    'G-09': ('06连贯性清单',),
 }
 
 ANCHOR_REASON = '候选一改动最小、直接沿用现有描述；候选二把可变属性摘出去，锚点更稳。'
@@ -289,6 +289,10 @@ def confirmations(project=None, *, context=None):
     if not project and context is None:
         return {}
     path = confirm_path(project, context=context)
+    if not path.is_file():
+        from stage_path_service import read_file
+        path = read_file(context.root if context is not None else project,
+                         'continuity', 'output', CONFIRM_NAME)
     if not path.is_file():
         return {}
     try:

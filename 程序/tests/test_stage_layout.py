@@ -57,7 +57,7 @@ class TreeTests(unittest.TestCase):
             stage_layout.ensure(td)
             readme = Path(td) / "01剧本准备" / "README.md"
             readme.write_text("人工改过的说明", encoding="utf-8")
-            keep = Path(td) / "04资产管理" / "docs" / "character_brief.md"
+            keep = Path(td) / "05资产管理" / "docs" / "character_brief.md"
             keep.write_text("人写的角色创意", encoding="utf-8")
             self.assertEqual(stage_layout.ensure(td), [], "第二次不该再建东西")
             self.assertEqual(readme.read_text(encoding="utf-8"), "人工改过的说明")
@@ -77,7 +77,7 @@ class ContractTests(unittest.TestCase):
     def test_readme_is_the_input_output_contract(self):
         with tempfile.TemporaryDirectory() as td:
             stage_layout.ensure(td)
-            text = (Path(td) / "06分镜定稿" / "README.md").read_text(encoding="utf-8")
+            text = (Path(td) / "07分镜定稿" / "README.md").read_text(encoding="utf-8")
             self.assertIn("storyboard_final.json", text)
             self.assertIn("input/", text)
             self.assertIn("docs/", text)
@@ -94,17 +94,17 @@ class ContractTests(unittest.TestCase):
     def test_the_tree_draws_readme_as_the_last_branch(self):
         text = stage_layout.tree_text()
         self.assertNotIn("└── logs/", text, "logs 后面还有 README，不该是最后一个分支")
-        self.assertEqual(text.count("└── README.md"), 12)
-        self.assertEqual(text.count("├── logs/"), 12)
+        self.assertEqual(text.count("└── README.md"), 13)
+        self.assertEqual(text.count("├── logs/"), 13)
 
     def test_contract_rows_pair_stages_with_gates_and_docs(self):
         rows = contract_rows()
-        self.assertEqual(len(rows), 12)
+        self.assertEqual(len(rows), 13)
         by_folder = {row["folder"]: row for row in rows}
-        self.assertIn("G-07", by_folder["06分镜定稿"]["gates"])
-        self.assertIn("G-08", by_folder["05连贯性清单"]["gates"])
+        self.assertIn("G-07", by_folder["07分镜定稿"]["gates"])
+        self.assertIn("G-08", by_folder["06连贯性清单"]["gates"])
         self.assertEqual(by_folder["01剧本准备"]["input"], ())
-        self.assertTrue(by_folder["04资产管理"]["docs"])
+        self.assertTrue(by_folder["05资产管理"]["docs"])
 
     def test_names_and_dirs_agree(self):
         for name in stage_layout.names():
@@ -112,14 +112,14 @@ class ContractTests(unittest.TestCase):
             self.assertIsNotNone(row, name)
             self.assertEqual(row[0], name)
             self.assertEqual(stage_layout.paths(".", name)["output"].name, "output")
-        self.assertEqual(stage_layout.dirname_of("video"), "09视频生成")
-        self.assertEqual(stage_layout.dirname_of("assets"), "04资产管理", "一个阶段 id 取第一个目录")
+        self.assertEqual(stage_layout.dirname_of("video"), "10视频生成")
+        self.assertEqual(stage_layout.dirname_of("assets"), "05资产管理", "一个阶段 id 取第一个目录")
         self.assertEqual(stage_layout.dirname_of("没有这个"), "")
         with self.assertRaises(ValueError):
             stage_layout.paths(".", "没有这个目录")
 
     def test_every_stage_has_a_chinese_name_and_a_docs_list(self):
-        self.assertEqual(len(stage_layout.stage_names()), 12)
+        self.assertEqual(len(stage_layout.stage_names()), 13)
         self.assertTrue(all(stage_layout.stage_names()))
         folders = {row[0] for row in stage_layout.docs_rows()}
         for name in stage_layout.names():
@@ -176,7 +176,7 @@ class LegacyTests(unittest.TestCase):
             self.assertEqual((link / "创意_1" / "创意与剧本.md").read_text(encoding="utf-8"), "原稿",
                              "从阶段目录里照样读得到老目录那份文件")
             self.assertTrue((proj / "writing" / "创意_1").is_dir(), "老目录一个字节都没搬走")
-            self.assertIn(proj / "07首帧管理" / "frames", result["made"])
+            self.assertIn(proj / "08首帧管理" / "frames", result["made"])
             self.assertEqual(stage_layout.adopt_legacy(proj)["made"], [], "再归位一次什么都不做")
 
     def test_an_existing_stage_folder_is_never_replaced(self):
@@ -205,7 +205,7 @@ class LegacyTests(unittest.TestCase):
     def test_legacy_stage_name_resolves_to_current_directory(self):
         with tempfile.TemporaryDirectory() as td:
             self.assertEqual(stage_layout.paths(td, "03_continuity")["root"],
-                             Path(td) / "05连贯性清单")
+                             Path(td) / "06连贯性清单")
             self.assertEqual(stage_layout.stage_dir("00_script")[0], "01剧本准备")
 
     def test_nothing_happens_without_a_legacy_folder(self):

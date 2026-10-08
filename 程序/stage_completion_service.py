@@ -6,13 +6,13 @@ import pet_bus
 
 def media_output_folders(root, stage):
     """返回媒体阶段的成果目录与允许扩展名。"""
-    from project_stages import audio, delivery, exports
+    from stage_path_service import read_dirs
     if stage == 'audio':
-        return (audio(root),), {'.mp3', '.wav', '.m4a', '.aac', '.srt', '.ass'}
+        return tuple(folder / '音频' for folder in read_dirs(root,'audio')), {'.mp3', '.wav', '.m4a', '.aac', '.srt', '.ass'}
     if stage == 'edit':
-        return (exports(root),), {'.mp4', '.mov', '.mkv'}
+        return tuple(folder / '导出成片' for folder in read_dirs(root,'delivery')), {'.mp4', '.mov', '.mkv'}
     if stage == 'delivery':
-        return (delivery(root),), {'.mp4', '.mov', '.mkv', '.zip'}
+        return read_dirs(root,'delivery'), {'.mp4', '.mov', '.mkv', '.zip'}
     return (), set()
 
 
@@ -30,6 +30,9 @@ def completion_evidence(root, stage, video_ready=None):
             from skill_orchestrator import verified_stage_output
             ok = verified_stage_output(root, stage)
             return ok, '没有找到可读取的%s成果' % pet_bus.STAGE_NAMES.get(stage, stage)
+        if stage == 'animatic':
+            from animatic_service import evidence
+            return evidence(root)
         if stage == 'storyboard':
             from stage_parallel import _adopted
             return bool(any(shots for _source, shots in _adopted(root))), '还没有已采用且含镜头的分镜 JSON'

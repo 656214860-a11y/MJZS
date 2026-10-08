@@ -140,7 +140,9 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
         if not chosen:
             raise ValueError('请先勾选要入库的候选图')
         status.set(f'正在下载并入库 {len(chosen)} 张…（版权与来源会一并记进资产库）')
-        app.async_(lambda: search.adopt(base, aid_value, chosen, role=role, fetch=fetch), finish)
+        from stage_execution_service import prepare_asset_write
+        app.async_(lambda: search.adopt(prepare_asset_write(project, base), aid_value,
+                                        chosen, role=role, fetch=fetch), finish)
 
     def safe_commit():
         try:

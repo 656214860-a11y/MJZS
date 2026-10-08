@@ -61,3 +61,42 @@ def automatic_assemble_decision(signature, digest, previous_signature, completed
     if isinstance(completed_marker, dict) and completed_marker.get('digest') == digest:
         return {'action': 'complete', 'signature': signature}
     return {'action': 'dispatch', 'signature': signature}
+
+
+def assemble_image_timeline(images, durations, audio, destination, *, ffmpeg, ffprobe, write_temporary, run=None):
+    """仅在调用方暂存区合成图片时间线；不登记正式视频或绕过 L3 发布器。"""
+    import json
+    import math
+    from platform_tools import run_process
+    execute = run or run_process
+    if not images or len(images) != len(durations):
+        raise ValueError('预演镜头与时长数量不一致')
+    if any(not math.isfinite(float(value)) or not 0 < float(value) <= 600 for value in durations):
+        raise ValueError('每镜时长必须在 0 到 600 秒之间')
+    destination = Path(destination)
+    segments = []
+    for index, (source, seconds) in enumerate(zip(images, durations)):
+        segment = destination.parent / f'segment_{index:04d}.mp4'
+        execute([str(ffmpeg), '-nostdin', '-y', '-v', 'error', '-loop', '1', '-i', str(source),
+                 '-t', str(seconds), '-vf',
+                 'scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1',
+                 '-r', '24', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', str(segment)],
+                check=True, capture_output=True, timeout=600)
+        segments.append(segment.name)
+    listing = destination.parent / 'animatic_concat.txt'
+    write_temporary(listing, ''.join("file '" + name + "'\n" for name in segments).encode('utf-8'))
+    execute([str(ffmpeg), '-nostdin', '-y', '-v', 'error', '-f', 'concat', '-safe', '1',
+             '-i', str(listing), '-i', str(audio), '-map', '0:v:0', '-map', '1:a:0',
+             '-af', 'apad', '-t', str(sum(float(v) for v in durations)),
+             '-c:v', 'copy', '-c:a', 'aac', '-movflags', '+faststart', str(destination)],
+            check=True, capture_output=True, timeout=600)
+    probe = execute([str(ffprobe), '-v', 'error', '-show_streams', '-show_format', '-of', 'json',
+                     str(destination)], check=True, capture_output=True, timeout=30)
+    info = json.loads(probe.stdout)
+    kinds = {item.get('codec_type') for item in info.get('streams', [])}
+    actual = float(info.get('format', {}).get('duration', 0))
+    if not {'video', 'audio'} <= kinds or not math.isfinite(actual) or abs(actual - sum(map(float, durations))) > 1:
+        raise ValueError('Animatic 视频、音频或时长核验失败')
+    execute([str(ffmpeg), '-nostdin', '-v', 'error', '-xerror', '-i', str(destination),
+             '-f', 'null', '-'], check=True, capture_output=True, timeout=600)
+    return destination

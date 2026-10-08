@@ -131,6 +131,7 @@ def show(app,engine="comfy",selected_ids=None):
     prefsfile=project/'ui_settings.json';prefs=_prefs(prefsfile);saved=prefs.get('asset_batch',{})
     from stage_execution_service import sync_asset_plan
     controller=AssetBatchController(project,base,sources,scope,engine,selected_ids,saved,sync_asset_plan)
+    base=app.asset_base();controller.base=base
     scope_text=scope_label(scope,sources,read(source).get('episode_id',''))
     win=BaseDialog(app.win,'',modal=False,chrome=False);win.withdraw();win.title(('资产图片制作' if skill_mode or engine=='workflow' else 'ComfyUI')+' · 批量资产 · '+scope_text);win.geometry('850x640');win.minsize(700,480);win.transient(app.win)
     win.protocol('WM_DELETE_WINDOW',win.destroy)
@@ -303,7 +304,9 @@ def show(app,engine="comfy",selected_ids=None):
     tk_timers.repeat(win,250,poll)
     def start():
         from asset_prompt_rules import issues
+        from stage_execution_service import require_formal_asset_generation
         options=work_options()
+        require_formal_asset_generation(project, online_model=backend.get() in MODELS)
         decision=controller.start_decision(
             app.root==project and app.current_frame_json()==source and app.asset_scope()==scope and app.asset_sources()==sources,
             enabled(), issues, options, backend.get(), None if skill_mode else LOCAL, uncertain_assets(project))

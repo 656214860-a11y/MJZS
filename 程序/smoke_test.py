@@ -214,8 +214,8 @@ ROUND_CHECKS = {
         {'kind': 'import', 'module': 'smoke_test',
          'msg': '冒烟脚本能当模块导入（没有语法错、没有导入期副作用）'},
         # 回归：贴在这一轮改动旁边的几条锚点
-        {'kind': 'route', 'module': 'pet_bus', 'name': 'STAGE_NAMES', 'expect': 12,
-         'msg': '12 个制作阶段的阶段表还挂着'},
+        {'kind': 'route', 'module': 'pet_bus', 'name': 'STAGE_NAMES', 'expect': 13,
+         'msg': '13 个制作阶段的阶段表还挂着'},
         {'kind': 'json', 'path': r'程序\config.json', 'field': 'video_backend',
          'msg': '视频后端那条配置还在'},
         {'kind': 'widget', 'module': 'responsive_ui', 'klass': 'FlowBar',
@@ -243,7 +243,7 @@ ROUND_CHECKS = {
         {'kind': 'import', 'module': 'storyboard_files',
          'msg': '分镜页模块能当模块导入（没有语法错、没有导入期副作用）'},
         # 回归：贴在本轮改动旁边的几条锚点
-        {'kind': 'route', 'module': 'pet_state', 'name': 'PAGE_OF', 'expect': 12,
+        {'kind': 'route', 'module': 'pet_state', 'name': 'PAGE_OF', 'expect': 13,
          'msg': '页面路由表是 12 个阶段'},
         {'kind': 'json', 'path': r'程序\config.json', 'field': 'video_backend',
          'msg': '视频后端那条配置还在'},
@@ -278,7 +278,7 @@ ROUND_CHECKS = {
         {'kind': 'import', 'module': 'asset_resume',
          'msg': '台账模块能当模块导入（没有语法错、没有导入期副作用）'},
         # 回归：贴在本轮改动旁边的几条锚点
-        {'kind': 'route', 'module': 'pet_state', 'name': 'PAGE_OF', 'expect': 12,
+        {'kind': 'route', 'module': 'pet_state', 'name': 'PAGE_OF', 'expect': 13,
          'msg': '页面路由表是 12 个阶段'},
         {'kind': 'json', 'path': r'程序\config.json', 'field': 'video_backend',
          'msg': '视频后端那条配置还在'},
@@ -319,7 +319,7 @@ ROUND_CHECKS = {
         # 回归：贴在本轮改动旁边的几条锚点
         {'kind': 'keyword', 'path': r'程序\smoke_test.py', 'keyword': 'ROUND = 8',
          'msg': '当前轮次＝8'},
-        {'kind': 'route', 'module': 'pet_state', 'name': 'PAGE_OF', 'expect': 12,
+        {'kind': 'route', 'module': 'pet_state', 'name': 'PAGE_OF', 'expect': 13,
          'msg': '页面路由表是 12 个阶段'},
         {'kind': 'json', 'path': r'程序\config.json', 'field': 'video_backend',
          'msg': '视频后端那条配置还在'},
@@ -376,7 +376,7 @@ ROUND_CHECKS = {
         # 回归：贴在本轮改动旁边的几条锚点
         {'kind': 'keyword', 'path': r'程序\smoke_test.py', 'keyword': 'ROUND = 8',
          'msg': '当前轮次＝8'},
-        {'kind': 'route', 'module': 'pet_state', 'name': 'PAGE_OF', 'expect': 12,
+        {'kind': 'route', 'module': 'pet_state', 'name': 'PAGE_OF', 'expect': 13,
          'msg': '页面路由表是 12 个阶段'},
         {'kind': 'json', 'path': r'程序\config.json', 'field': 'video_backend',
          'msg': '视频后端那条配置还在'},
@@ -398,8 +398,8 @@ ROUND_CHECKS = {
          'msg': '剧本工作流回归测试在'},
         {'kind': 'file', 'path': r'程序\tests\test_workflow.py',
          'msg': '鲸剧 SKILL 路由回归测试在'},
-        {'kind': 'route', 'module': 'pet_bus', 'name': 'STAGE_NAMES', 'expect': 12,
-         'msg': '12 个制作阶段路由仍完整'},
+        {'kind': 'route', 'module': 'pet_bus', 'name': 'STAGE_NAMES', 'expect': 13,
+         'msg': '13 个制作阶段路由仍完整'},
     ],
     10: [
         {'kind': 'keyword', 'path': r'程序\model_pool.py', 'keyword': "'chatgpt-desktop': 'codex'",
@@ -415,8 +415,8 @@ ROUND_CHECKS = {
         {'kind': 'keyword', 'path': r'程序\idea_chat.py', 'keyword': 'def load(root, model=None, *, gateway=None):',
          'msg': '切换模型保留各自独立聊天记录且经 L3 网关读取'},
         {'kind': 'file', 'path': r'程序\tests\test_workflow.py', 'msg': '桌面模型工作流回归测试在'},
-        {'kind': 'route', 'module': 'pet_bus', 'name': 'STAGE_NAMES', 'expect': 12,
-         'msg': '12 个制作阶段路由仍完整'},
+        {'kind': 'route', 'module': 'pet_bus', 'name': 'STAGE_NAMES', 'expect': 13,
+         'msg': '13 个制作阶段路由仍完整'},
     ],
 }
 

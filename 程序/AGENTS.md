@@ -26,7 +26,7 @@
 - 产品：Windows 桌面应用「漫剧制作助手」
 - 技术栈：Python + Tkinter，零第三方依赖
 - 解释器：`D:\漫剧制作助手\运行环境\Python\python.exe`（不使用全局 Python）
-- 工作流：12 个制作阶段
+- 工作流：13 个制作阶段（初步分镜之后为 Animatic 分镜预演）
 - 阶段唯一来源：`pet_bus.STAGES` / `pet_bus.STAGE_NAMES`
 - 执行链路：`skill_orchestrator`
 - 并行配置唯一来源：`stage_parallel.CONFIG`
@@ -53,7 +53,7 @@
 | 阶段顺序   | `pet_bus.STAGES` / `STAGE_NAMES`                                                                   |
 | 并行与重试  | `stage_parallel.CONFIG`                                                                            |
 | 模型池    | 模型管理保存的模型池                                                                                         |
-| SKILL  | `skills/01—12 阶段目录/*.skill.md` 与 `skill_registry.py`；根目录遗留文件只在阶段配置懒迁移时按 stage 归档；阶段外部包只登记根 `SKILL.md`/README 总入口，不展开内部 SKILL；剧本阶段入口须同步登记 `script_contract.AUDIT`，且不得虚构 manifest |
+| SKILL  | `skills/01—13 阶段目录/*.skill.md` 与 `skill_registry.py`；根目录遗留文件只在阶段配置懒迁移时按 stage 归档；阶段外部包只登记根 `SKILL.md`/README 总入口，不展开内部 SKILL；剧本阶段入口须同步登记 `script_contract.AUDIT`，且不得虚构 manifest |
 | 统筹 SKILL | 项目 `skill_config.json` 顶层 `workflow` 键 |
 | 锁采集 | 剧本准备简报流（创作信息窗） |
 | 分层依赖   | `architecture.md` 第 3 节分层表                                                                         |
@@ -329,6 +329,8 @@
 
 ## 5. 自检规则
 
+Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目录只读兼容和发布失败回滚；层级表改动仍触发本节全量安全回归条件。
+
 本节是测试触发规则的唯一文档定义。命令均使用 §1 指定的随附解释器。只读诊断（§3.3、§3.5）默认不跑测试，除非用户明确要求；以下“每轮”与结构治理扫描均指执行轮。
 
 | 时机         | 命令                                      | 说明                                           |
@@ -377,7 +379,7 @@
 
 前缀事实来源为 `broadcaster.PREFIX_PATTERNS`，阶段分母由 `Broadcaster.stage()` 从 `pet_bus.STAGES` 生成。以下是当前展示格式，不是第二套定义：
 
-`【阶段 X/12】`、`【步骤 Y/Z】`、`【门禁】`、`【警告】`、`【阻塞】`、
+`【阶段 X/13】`、`【步骤 Y/Z】`、`【门禁】`、`【警告】`、`【阻塞】`、
 `【完成】`、`【恢复】`、`【下一阶段】`、`【模式】`
 
 无前缀消息会被拒绝。

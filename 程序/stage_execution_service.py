@@ -12,6 +12,124 @@ from project_context_factory import project_context
 from stage_path_service import write_dir
 
 
+def publish_animatic_bundle(project, artifacts, *, validate, update_index=None):
+    """整包校验、原子发布、索引更新；失败时恢复成果及同包索引。"""
+    from animatic_service import MANIFEST
+    root = Path(project).resolve()
+    folder = write_dir(root, 'animatic').resolve()
+    if not folder.is_relative_to(root) or MANIFEST not in artifacts:
+        raise ValueError('Animatic 发布路径或清单无效')
+    payload = {}
+    for name, raw in artifacts.items():
+        if name == 'animatic_index.json':
+            raise ValueError('Animatic 索引只允许由发布器生成')
+        target = (folder / name).resolve()
+        if not target.is_relative_to(folder) or target == folder:
+            raise ValueError('Animatic 成果路径越界')
+        payload[target] = bytes(raw)
+    payload[folder / 'animatic_index.json'] = json.dumps(
+        {'manifest': MANIFEST, 'files': sorted(artifacts)}, ensure_ascii=False).encode('utf-8')
+    publish_stage_bundle(payload, validate, update_index or (lambda: [file_cache.published(p) for p in payload]))
+    return folder / MANIFEST
+
+
+def import_animatic_references(project, sources):
+    from stage_path_service import shared_reference_dir
+    from animatic_service import digest
+    folder = shared_reference_dir(project).resolve()
+    if not folder.is_relative_to(Path(project).resolve()):
+        raise ValueError('共享参考图路径越界')
+    artifacts = {}
+    for source in sources:
+        path = Path(source)
+        if path.suffix.lower() not in ('.png', '.jpg', '.jpeg', '.webp') or not 0 < path.stat().st_size <= 20 * 1024 * 1024:
+            raise ValueError('请选择不超过 20 MB 的 PNG、JPEG 或 WebP 参考图')
+        raw = path.read_bytes()
+        artifacts[folder / (digest(raw) + path.suffix.lower())] = raw
+    publish_stage_bundle(artifacts, lambda items: all(raw for _, raw in items),
+                         lambda: [file_cache.published(p) for p in artifacts])
+    return tuple(artifacts)
+
+
+def run_animatic(project, source, references, audio=None, settings=None):
+    import tempfile
+    from agent.core import save_bytes
+    import stage_parallel
+    from animatic_service import build_bundle, validate_bundle
+    from platform_tools import tool_path
+    settings = dict(settings or {})
+    settings['retry_attempts'] = stage_parallel.retry_attempts('animatic')
+    config = file_cache.read_json(Path(project) / 'config.json') if (Path(project) / 'config.json').is_file() else {}
+    for tool in ('ffmpeg', 'ffprobe'):
+        settings[tool] = settings.get(tool) or config.get(tool) or tool_path(tool)
+        if not settings[tool]:
+            raise ValueError('请在运行环境配置 ' + tool)
+    gate = stage_parallel.evaluate(project, 'animatic')
+    if gate and not gate['ok']:
+        raise ValueError(stage_parallel.blocked_text(gate))
+    from storyboard_selection import adopted
+    if Path(source).resolve() not in {Path(path).resolve() for path in adopted(project)}:
+        raise ValueError('请选择已采用的本项目分镜初稿')
+    from comfy_runtime import wait_comfy
+    wait_comfy(settings.get('url', 'http://127.0.0.1:8188'), timeout=settings.get('readiness_timeout', 45))
+    work_root = write_dir(project, 'animatic') / '.work'
+    work_root.mkdir(parents=True, exist_ok=True)
+    workspace = Path(tempfile.mkdtemp(prefix='run-', dir=work_root))
+
+    def batches(groups, worker):
+        results = stage_parallel.parallel_map('animatic', groups, worker)
+        for _group, _result, error in results:
+            if error:
+                raise error
+        return [result for _group, result, _error in results]
+
+    def publish(artifacts):
+        # Media has been probed and decoded in the temporary workspace.
+        if not validate_bundle(artifacts):
+            raise ValueError('Animatic 清单与媒体不一致，本次不发布')
+        return publish_animatic_bundle(project, artifacts, validate=lambda items: all(raw for _, raw in items))
+
+    return build_bundle(project_context(project), source, references, audio, settings,
+                        publish=publish, write_temporary=save_bytes, run_batches=batches, workspace=workspace)
+
+
+def confirm_animatic(project, *, rhythm, duration, dialogue_sync):
+    from copy import deepcopy
+    from animatic_service import MANIFEST, evidence
+    if not all(value is True for value in (rhythm, duration, dialogue_sync)):
+        raise ValueError('节奏、时长与对白同步必须全部确认')
+    ok, reason = evidence(project, require_confirmation=False)
+    if not ok:
+        raise ValueError(reason)
+    path = write_dir(project, 'animatic') / MANIFEST
+    data = deepcopy(file_cache.read_json(path))
+    data['confirmed'] = dict(rhythm=True, duration=True, dialogue_sync=True)
+    publish_stage_text(path, json.dumps(data, ensure_ascii=False, indent=2),
+                       lambda text: bool(json.loads(text)['shots']), file_cache.published)
+    return path
+
+
+def animatic_reference_paths(project):
+    from stage_path_service import shared_reference_read_dirs
+    return tuple(dict.fromkeys(path for folder in shared_reference_read_dirs(project) if folder.is_dir()
+                               for path in sorted(folder.rglob('*'))
+                               if path.is_file() and path.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp')))
+
+
+def import_animatic_audio(project, source):
+    from audio_import_service import import_audio
+    return import_audio(project, source, publish=publish_stage_bytes, stage='animatic')
+
+
+def animatic_video(project):
+    from animatic_service import MANIFEST, evidence
+    ok, reason = evidence(project, require_confirmation=False)
+    if not ok:
+        raise ValueError(reason)
+    folder = write_dir(project, 'animatic')
+    return folder / file_cache.read_json(folder / MANIFEST)['video']
+
+
 def program_of(desktop):
     return getattr(desktop, 'app', None) or None
 
@@ -293,23 +411,27 @@ def asset_plan_gateway():
 def sync_asset_plan(project, episode_dir, storyboard=None, *, scope='current', _adopting=False):
     """L3 同步资产计划，避免 L2 自行选择发布器。"""
     from asset_plan import sync_plan
+    episode_dir = prepare_asset_write(project, episode_dir)
     return unwrap_service_result(sync_plan(project, episode_dir, storyboard, scope=scope, _adopting=_adopting,
                                             gateway=asset_plan_gateway(), context=project_context(project)))
 
 
 def update_asset_plan_fields(project, episode_dir, aid, values):
     from asset_plan import update_fields
+    episode_dir = prepare_asset_write(project, episode_dir)
     return unwrap_service_result(update_fields(project, episode_dir, aid, values, gateway=asset_plan_gateway()))
 
 
 def apply_asset_plan_gate_choice(project, key, choice, episode_dir=''):
     from asset_plan import apply_gate_choice
+    episode_dir = prepare_asset_write(project, episode_dir)
     return unwrap_service_result(apply_gate_choice(project, key, choice, episode_dir, gateway=asset_plan_gateway()))
 
 
 def plan_unattended_assets(project, base, sources, scope='adopted'):
     """L3 为无人值守资产计划装配唯一的发布网关。"""
     from asset_batch_service import unattended_plan
+    base = prepare_asset_write(project, base)
     return unattended_plan(project, base, sources, scope, gateway=asset_plan_gateway(),
                            context=project_context(project))
 
@@ -371,6 +493,7 @@ def asset_detail_gateway():
 def bind_asset_canonical_view(project, episode_dir, aid, view, source):
     """L3 编排资产详情正典板绑定。"""
     from asset_detail_service import bind_canonical_view
+    episode_dir = prepare_asset_write(project, episode_dir)
     result = bind_canonical_view(project, episode_dir, aid, view, source,
                                 gateway=asset_detail_gateway(), context=project_context(project))
     if not result.ok:
@@ -381,6 +504,7 @@ def bind_asset_canonical_view(project, episode_dir, aid, view, source):
 def bind_asset_variant_thumbnail(project, episode_dir, aid, state_id, source):
     """L3 编排资产详情状态变体缩略图绑定。"""
     from asset_detail_service import bind_variant_thumbnail
+    episode_dir = prepare_asset_write(project, episode_dir)
     result = bind_variant_thumbnail(project, episode_dir, aid, state_id, source,
                                    gateway=asset_detail_gateway(), context=project_context(project))
     if not result.ok:
@@ -397,6 +521,7 @@ def pending_generated_assets(project, base):
 def import_pending_generated_assets(project, base, report=None):
     """L3 装配生成资产导入所需的上下文与发布网关。"""
     from asset_generated_import_service import import_pending_generated
+    base = prepare_asset_write(project, base)
     return import_pending_generated(project, base, report, gateway=asset_batch_gateway(),
                                     context=project_context(project))
 
@@ -666,7 +791,7 @@ def storyboard_edit_gateway():
 def save_edited_stage_storyboard(path, data):
     """保存已校验的定稿分镜；L3 保持正式发布器唯一装配点。"""
     from storyboard_edit_service import save_edited_json
-    return save_edited_json(path, data,
+    return save_edited_json(prepare_legacy_stage_path(path), data,
                             publish=storyboard_edit_gateway()['publish_json'])
 
 
@@ -693,7 +818,7 @@ def normalize_storyboard_for_desktop(desktop):
 
 def mark_stage_video_deleted(source, sid, versions):
     from video_lifecycle_service import mark_video_deleted
-    result = mark_video_deleted(source, sid, versions, gateway=video_lifecycle_gateway())
+    result = mark_video_deleted(prepare_legacy_stage_path(source), sid, versions, gateway=video_lifecycle_gateway())
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
@@ -701,7 +826,7 @@ def mark_stage_video_deleted(source, sid, versions):
 
 def save_stage_video_options(source, sid, selected, generate_audio, is_local):
     from video_lifecycle_service import save_video_options
-    result = save_video_options(source, sid, selected, generate_audio, is_local,
+    result = save_video_options(prepare_legacy_stage_path(source), sid, selected, generate_audio, is_local,
                               gateway=video_lifecycle_gateway())
     if not result.ok:
         raise ValueError(result.reason)
@@ -710,7 +835,7 @@ def save_stage_video_options(source, sid, selected, generate_audio, is_local):
 
 def save_stage_white_model_upload(source, sid, enabled):
     from video_lifecycle_service import save_white_model_upload
-    result = save_white_model_upload(source, sid, enabled, gateway=video_lifecycle_gateway())
+    result = save_white_model_upload(prepare_legacy_stage_path(source), sid, enabled, gateway=video_lifecycle_gateway())
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
@@ -827,20 +952,20 @@ def publish_keyframe_episode(target, episode):
 def delete_stage_keyframe(base, source, episode, shot):
     """首帧删除编排：L3 注入索引发布器。"""
     from keyframe_lifecycle_service import delete_keyframe
-    return delete_keyframe(base, source, episode, shot, publish=publish_keyframe_episode)
+    return delete_keyframe(prepare_legacy_stage_path(base), prepare_legacy_stage_path(source), episode, shot, publish=publish_keyframe_episode)
 
 
 def restore_stage_keyframe(base, source, episode, shot):
     """首帧恢复编排：L3 注入索引发布器。"""
     from keyframe_lifecycle_service import restore_keyframe
-    return restore_keyframe(base, source, episode, shot, publish=publish_keyframe_episode)
+    return restore_keyframe(prepare_legacy_stage_path(base), prepare_legacy_stage_path(source), episode, shot, publish=publish_keyframe_episode)
 
 
 def replace_stage_keyframe(base, source, episode, shot, data):
     """首帧替换编排：L3 注入图片与索引两个原子发布器。"""
     from keyframe_lifecycle_service import replace_keyframe
     return replace_keyframe(
-        base, source, episode, shot, data, publish=publish_stage_bytes,
+        prepare_legacy_stage_path(base), prepare_legacy_stage_path(source), episode, shot, data, publish=publish_stage_bytes,
         publish_episode=publish_keyframe_episode)
 
 
@@ -1059,3 +1184,143 @@ def unwrap_service_result(result):
 
 
 unwrap_project_result = unwrap_service_result
+
+
+def require_formal_asset_generation(project, *, online_model):
+    """生成正式资产前核验 SG-B 与线上模型；纯计划和浏览不受影响。"""
+    import stage_parallel
+    gate = stage_parallel.evaluate(project, 'assets')
+    if not gate['ok']:
+        raise ValueError(stage_parallel.blocked_text(gate))
+    if not online_model:
+        raise ValueError('正式资产请选择线上 API 模型；本地草图请在分镜预演阶段生成')
+
+
+def generate_animatic_reference(project, prompt, model, settings=None):
+    """本地草图准备与发布，复用 ComfyUI，不进入正式资产登记。"""
+    import tempfile
+    from animatic_service import prepare_reference
+    from comfy_runtime import wait_comfy
+    settings = dict(settings or {})
+    wait_comfy(settings.get('url', 'http://127.0.0.1:8188'), timeout=settings.get('readiness_timeout', 45))
+    work_root = write_dir(project, 'animatic') / '.work'
+    work_root.mkdir(parents=True, exist_ok=True)
+    workspace = Path(tempfile.mkdtemp(prefix='reference-', dir=work_root))
+    return prepare_reference(workspace, prompt, model, settings,
+                             publish=lambda paths: import_animatic_references(project, paths))
+
+
+import threading
+
+_STAGE_COPY_LOCK = threading.RLock()
+
+
+def prepare_stage_write(project, stage, *, source=None):
+    with _STAGE_COPY_LOCK:
+        return _copy_stage_for_write(project, stage, source=source)
+
+
+def _copy_stage_for_write(project, stage, *, source=None):
+    """首次修改前复制历史成果；只替换当前目录，绝不改动历史目录。
+
+    当前目录中的同名文件优先。先在同卷临时目录完成复制，再切换目录；
+    切换失败恢复当前目录。调用方必须在用户修改动作中调用，浏览不调用。
+    """
+    import os
+    import shutil
+    import tempfile
+    from file_cache import remove_temporary_tree
+    from stage_path_service import existing_dir
+    root = Path(project).resolve()
+    target = write_dir(root, stage)
+    origin = Path(source) if source is not None else existing_dir(root, stage)
+    origin = origin.resolve()
+    if not origin.is_relative_to(root) or origin == root:
+        raise ValueError('历史阶段目录超出当前项目')
+    if target.is_symlink() or target.resolve() != target or not target.is_relative_to(root):
+        raise ValueError('阶段写入目录不能是目录联接或符号链接')
+    if origin == target or not origin.is_dir():
+        return target
+    if target.is_relative_to(origin) or origin.is_relative_to(target):
+        raise ValueError('历史与当前阶段目录不能互相包含')
+    temporary = Path(tempfile.mkdtemp(prefix='.stage-copy-', dir=root))
+    prepared = temporary / 'prepared'
+    backup = temporary / 'previous'
+    prepared.mkdir()
+
+    def copy_files(folder, *, missing_only):
+        for current, directories, files in os.walk(folder, followlinks=False):
+            current = Path(current)
+            for name in directories + files:
+                item = current / name
+                if item.is_symlink() or item.resolve() != item:
+                    raise ValueError('历史阶段含目录联接或符号链接，未复制')
+            relative = current.relative_to(folder)
+            (prepared / relative).mkdir(parents=True, exist_ok=True)
+            for name in files:
+                item, destination = current / name, prepared / relative / name
+                if missing_only and destination.exists():
+                    continue
+                before = item.stat()
+                shutil.copy2(item, destination)
+                after = item.stat()
+                if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                    raise ValueError('复制期间历史文件变化，请停止相关编辑后重试')
+
+    try:
+        if target.is_dir():
+            copy_files(target, missing_only=False)
+        copy_files(origin, missing_only=True)
+        if target.exists():
+            target.replace(backup)
+        try:
+            prepared.replace(target)
+        except Exception:
+            if backup.exists():
+                backup.replace(target)
+            raise
+    finally:
+        # Only this call's unpublished scratch / redundant backup is removed.
+        # A failed rollback leaves its backup intact for recovery.
+        if not backup.exists() or target.exists():
+            remove_temporary_tree(temporary)
+    return target
+
+
+def prepare_asset_write(project, base=None):
+    from asset_context import library_dir
+    from stage_path_service import LEGACY_NUMBERED
+    root = Path(project).resolve()
+    base = library_dir(root, base)
+    # 本轮编号升级不迁移用户另行配置的资产库，保留既有自定义目录契约。
+    if base != root / LEGACY_NUMBERED['assets']:
+        return base
+    return prepare_stage_write(root, 'assets', source=base)
+
+
+def prepare_legacy_asset_base(base):
+    """兼容仍只接收资产库路径的 UI 操作；不推测自定义目录所属项目。"""
+    from stage_path_service import LEGACY_NUMBERED
+    base = Path(base).resolve()
+    if base.name == LEGACY_NUMBERED['assets']:
+        return prepare_asset_write(base.parent, base)
+    return base
+
+
+def prepare_legacy_stage_path(path):
+    """将显式修改目标重定位到新编号，历史文件保持只读。
+
+    仅识别权威表中的完整旧目录名，不迁移普通目录或英文自定义目录。
+    调用方保留空 source 的既有回退语义。
+    """
+    from stage_path_service import LEGACY_NUMBERED
+    if path is None:
+        return None
+    target = Path(path).absolute()
+    stages = {name: stage for stage, name in LEGACY_NUMBERED.items()}
+    for ancestor in (target, *target.parents):
+        stage = stages.get(ancestor.name)
+        if stage is not None:
+            current = prepare_stage_write(ancestor.parent, stage, source=ancestor)
+            return current / target.relative_to(ancestor)
+    return path

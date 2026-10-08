@@ -6,6 +6,8 @@ R1122：统一下拉框创建入口为 `ui_widgets.SelectBox`（继承 ttk.Combo
 
 ## 1. 目录树
 
+R1124：在 storyboard 与 assets 之间增加 animatic，阶段总数为 13。L2 `animatic_service` 编排共享参考图、本地 ComfyUI 镜头草图、临时音频与图片时间线合成；L3 `stage_execution_service` 注入校验、原子发布及索引更新，L4 只发起回调。SG-A 检查已采用初稿，SG-B 要求预演媒体证据及人工确认节奏、时长和对白同步；正式资产仍使用线上 API，资产提示词、正典与锚点职责不迁移。共享参考图路径由 `stage_path_service` 产出。旧编号目录只读，显式修改经 L3 复制到新编号后重定位，复制失败不改原件；当前同名文件优先。应用内合成不是剪映原生自动导出。
+
 R1040（J5 分轮 1）：`ui_icons.IconLoader.return_arrow()` 支持显式颜色，缓存键包含宿主、尺寸与颜色；默认白色保持兼容。页面迁移在下一轮验证，当前不代表 J5 已完成。
 
 R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确认／取消、video_navigation 返回均经语义按钮；返回使用主题色共享箭头及次按钮。现有按钮边界扩展 tk/ttk 静态导入及赋值别名 canary，架构实测 306/306（原 301，新增 5 个用例，测试文件数量不变）；不声称覆盖动态导入、名称遮蔽或跨函数数据流。
@@ -23,7 +25,7 @@ R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确�
 ├─ private/               本机私有配置和加密密钥副本
 ├─ scripts/               Python 维护/迁移工具
 ├─ skills/                可注册 SKILL 与阶段模板
-│  ├─ templates/          12 阶段 YAML 流程模板
+│  ├─ templates/          13 阶段 YAML 流程模板
 │  └─ cinematic-director/ 导演工作流资料包
 ├─ tasks/                 任务记录
 ├─ tasks_round/           每轮开发结果
@@ -54,15 +56,15 @@ R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确�
 | 各阶段内容 SKILL（`skills/01 剧本准备SKILL/`） | 剧本准备 | 创意剧本的台词润色与情绪节奏标注。 |
 | 各阶段内容 SKILL（`skills/02剧本整理SKILL/`） | 剧本结构 | 将原稿组织为结构化剧本，并提取资产需求、整理世界观。 |
 | 各阶段内容 SKILL（`skills/03初步分镜SKILL/`） | 初步分镜 | 拆场、生成镜头链、设计镜头语言并校验节奏和时长。 |
-| 各阶段内容 SKILL（`skills/04资产管理SKILL/`） | 资产管理 | 检索/生成候选、版权筛选、去重排序、确认后入库。 |
-| 各阶段内容 SKILL（`skills/05连贯性SKILL/`） | 连贯性清单 | 冻结锚点并审计角色、场景、服装、道具和跨批次漂移。 |
-| 各阶段内容 SKILL（`skills/06分镜定稿SKILL/`） | 分镜定稿 | 对齐资产、锁定一致性、校验定稿、输出提示词和快照。 |
-| 各阶段内容 SKILL（`skills/07首帧管理SKILL/`） | 首帧管理 | 首帧批量生成、质检重试及缩略图缓存。 |
-| 各阶段内容 SKILL（`skills/08白模预演SKILL/`） | 白模预演 | 生成白模场景、走位、机位路径、动作和节奏预览。 |
-| 各阶段内容 SKILL（`skills/09视频生成SKILL/`） | 视频生成 | 视频批量提交、模型分流、轮询、质检和失败重跑。 |
-| 各阶段内容 SKILL（`skills/10配音字幕SKILL/`） | 配音与字幕 | 多角色配音、情绪核验、字幕对齐及 SRT/ASS 导出。 |
-| 各阶段内容 SKILL（`skills/11后期剪辑SKILL/`） | 后期剪辑 | 合成、配乐、预览、转场和多平台导出。 |
-| 各阶段内容 SKILL（`skills/12质检交付SKILL/`） | 质检与交付 | 质检、合规与风格检查、归档和交付报告。 |
+| 各阶段内容 SKILL（`skills/05资产管理SKILL/`） | 资产管理 | 检索/生成候选、版权筛选、去重排序、确认后入库。 |
+| 各阶段内容 SKILL（`skills/06连贯性SKILL/`） | 连贯性清单 | 冻结锚点并审计角色、场景、服装、道具和跨批次漂移。 |
+| 各阶段内容 SKILL（`skills/07分镜定稿SKILL/`） | 分镜定稿 | 对齐资产、锁定一致性、校验定稿、输出提示词和快照。 |
+| 各阶段内容 SKILL（`skills/08首帧管理SKILL/`） | 首帧管理 | 首帧批量生成、质检重试及缩略图缓存。 |
+| 各阶段内容 SKILL（`skills/09白模预演SKILL/`） | 白模预演 | 生成白模场景、走位、机位路径、动作和节奏预览。 |
+| 各阶段内容 SKILL（`skills/10视频生成SKILL/`） | 视频生成 | 视频批量提交、模型分流、轮询、质检和失败重跑。 |
+| 各阶段内容 SKILL（`skills/11配音字幕SKILL/`） | 配音与字幕 | 多角色配音、情绪核验、字幕对齐及 SRT/ASS 导出。 |
+| 各阶段内容 SKILL（`skills/12后期剪辑SKILL/`） | 后期剪辑 | 合成、配乐、预览、转场和多平台导出。 |
+| 各阶段内容 SKILL（`skills/13质检交付SKILL/`） | 质检与交付 | 质检、合规与风格检查、归档和交付报告。 |
 
 阶段模板位于 `skills/templates/`：`script`、`script_structure`、`storyboard`、`asset`、`continuity`、`final`、`keyframe`、`previs`、`video`、`audio`、`edit`、`delivery` 各一份 YAML。每份均含读取/分析、生成（可确认）和写入产物步骤。
 
@@ -78,7 +80,7 @@ R1073：L3 `pet_chat_coordinator.ChatCoordinator` module 独占待单击任务�
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
 | L0 合同   | `pet_bus`、`hollmwood_rules`、`script_contract`、`asset_contract`、`service_contract`、`project_context`、`stage_layout`、`stage_path_service`、`storyboard_paths`、`prompt_templates`、`shot_batches`、`continuity_ledger`       | `service_contract.ServiceResult` 定义四字段结果口径；`project_context.ProjectContext={root, stage_resolver, settings_snapshot, cache}` 定义项目上下文注入契约。采用方及待迁移范围以 `维护记录/架构统一基数.json` 和对应门禁为准，本表不缓存数量。两项于 2026-10-04 经用户授权解冻，按序每轮最多迁移 3 个 service，执行规则见 `维护记录/架构统一路线图_v2.md`。`pet_bus.emit_safe()` 是跨模块状态的唯一安全发送器，`pet_agent._emit()`／`pet_ui._emit()` 仅作受控转发；`broadcaster` 只写用户可见文本日志。`stage_path_service` 是新写/旧读的唯一阶段路径口径；`script_contract.save_natural_script()` 是手改自然剧本的内容闸门与原子发布口径；允许被上层依赖，不应反向依赖 UI/编排；`stage_layout.validate_stage_contract()` 保证目录阶段与 `pet_bus.STAGES` 同序；`json_md_rows()` 的人读 MD 路径只使用当前编号阶段目录下的 `docs/` |
 | L1 基础设施 | `model_pool`、`model_secrets`、`pet_llm`、`file_cache`、`hash_backend`、`storage_maintenance`、`workspace_maintenance`、`diagnostic_capture`、`line_endings`、`ui_tokens`                                                    | `diagnostic_capture` 仅采集程序拥有日志的脱敏现场与已知启动指标，导出固定白名单且不扫描项目目录；模型小环违反此层应无反向依赖的目标；`ui_tokens` 是 design_tokens.md 的只读代码化事实来源；本机路径/浏览器/进程和短 TCP 探测统一由 `platform_tools` 适配，不得由 UI 直连；`workspace_maintenance` 只做仓库级可再生卫生（`__pycache__`、超期 `.selftmp`、已并净的 `.wt` 工作树），用户可见删除仍唯一走 `storage_maintenance.recycle_paths()`，`git gc` 只在开发脚本 `scripts/repo_health.py`            |
-| L2 业务   | `writing*`、`idea_chat`、`idea_attachments`、`storyboard*`、`asset*`、`keyframe*`、`video_lifecycle_service`、`cloud_video`、`local_video`、`tts_api`、`audio_import_service`、`subtitle_timing`、`subtitle_export_service`、`delivery_import_service`、`confirm_gates`、`desktop_settings_service`、`stage_workspace_service`、`legacy_adoption_service`、`recycle_recovery_service`、`white_model*`、`previs*`、`native_assets`、`handoff_service`、`edit_service`、`final_service`、`storyboard_adoption_service` | `writing.prepare()` 负责离线编剧任务书成果包在剧本准备阶段的受控发布；`idea_chat.save_manual_creative()` 负责手动创意的剧本准备分类目录、命名与原子发布；`idea_attachments.prepare()` 受控读取文本附档、限制体积与上下文，并且只向模型提交文件名与带边界的文本，不暴露本地路径；`storyboard_files.storyboard_work_plan()` 是无 Tk/Agent 的分镜输入决策服务；`storyboard_rows_service` 负责首帧行与分镜统计；`storyboard_edit_service` 负责已校验分镜 JSON 的原子编辑保存；`asset_batch_service` 负责资产生成登记、本地导入图片的校验/落盘/索引原子发布与失败回滚、资产改名的可恢复双文件同步、图片回收/恢复与索引失败回滚、无人值守资产计划、设置快照去重与重试决定；`asset_detail_service` 负责正典板视角与状态变体缩略图的格式/非空校验、原子复制、资产清单索引发布及失败回滚；`recycle_recovery_service` 只投影项目内或项目库回收清单，并且逐项/整批恢复始终委托 `storage_maintenance.restore_recycle_batch()` 的既有边界与回滚语义；`local_video_settings_service` 负责经 UI 本机预检后的 ComfyUI 工作流副本和项目设置原子发布，并在配置失败时恢复旧文件；`desktop_settings_service` 负责桌面全局项目选择、本机 ComfyUI 与剪映路径偏好的原子发布；`stage_workspace_service` 负责配音、后期和交付页面的既有阶段目录初始化；`legacy_adoption_service` 负责旧目录归位日志的原子发布；`confirm_gates` 负责门禁候选的确认记录读写，读取走 `file_cache`、写入走 `agent.core.save()`；`keyframe_lifecycle_service` 负责首帧导入替换、回收/恢复、状态发布与失败回滚；`video_lifecycle_service` 负责本地视频镜头删除标记、选项发布与失败回滚；`tts_api` 负责整段及逐句配音的媒体优先发布、幂等复用查询与可续跑时间轴登记；`audio_import_service` 负责用户选择音频的格式/非空校验、临时复制校验与原子落盘；`subtitle_export_service` 负责 SRT 与对白脚本的受控阶段目录发布及角色名渲染；`delivery_import_service` 是项目上下文与结果契约的采用方：只消费 L3 注入的 `ProjectContext`，以阶段解析器定位交付目录，不自行拼接项目路径；成功或业务失败均返回 `service_contract` 结果对象，源文件保持不动。其他待迁移范围由 `维护记录/架构统一基数.json` 登记，两项已于 2026-10-04 经用户授权解冻，后续迁移见路线图；均不导入 Tk 或配置页面。 |
+| L2 业务   | `writing*`、`idea_chat`、`idea_attachments`、`storyboard*`、`asset*`、`keyframe*`、`video_lifecycle_service`、`cloud_video`、`local_video`、`tts_api`、`audio_import_service`、`subtitle_timing`、`subtitle_export_service`、`delivery_import_service`、`confirm_gates`、`desktop_settings_service`、`stage_workspace_service`、`legacy_adoption_service`、`recycle_recovery_service`、`white_model*`、`previs*`、`native_assets`、`handoff_service`、`edit_service`、`animatic_service`、`final_service`、`storyboard_adoption_service` | `writing.prepare()` 负责离线编剧任务书成果包在剧本准备阶段的受控发布；`idea_chat.save_manual_creative()` 负责手动创意的剧本准备分类目录、命名与原子发布；`idea_attachments.prepare()` 受控读取文本附档、限制体积与上下文，并且只向模型提交文件名与带边界的文本，不暴露本地路径；`storyboard_files.storyboard_work_plan()` 是无 Tk/Agent 的分镜输入决策服务；`storyboard_rows_service` 负责首帧行与分镜统计；`storyboard_edit_service` 负责已校验分镜 JSON 的原子编辑保存；`asset_batch_service` 负责资产生成登记、本地导入图片的校验/落盘/索引原子发布与失败回滚、资产改名的可恢复双文件同步、图片回收/恢复与索引失败回滚、无人值守资产计划、设置快照去重与重试决定；`asset_detail_service` 负责正典板视角与状态变体缩略图的格式/非空校验、原子复制、资产清单索引发布及失败回滚；`recycle_recovery_service` 只投影项目内或项目库回收清单，并且逐项/整批恢复始终委托 `storage_maintenance.restore_recycle_batch()` 的既有边界与回滚语义；`local_video_settings_service` 负责经 UI 本机预检后的 ComfyUI 工作流副本和项目设置原子发布，并在配置失败时恢复旧文件；`desktop_settings_service` 负责桌面全局项目选择、本机 ComfyUI 与剪映路径偏好的原子发布；`stage_workspace_service` 负责配音、后期和交付页面的既有阶段目录初始化；`legacy_adoption_service` 负责旧目录归位日志的原子发布；`confirm_gates` 负责门禁候选的确认记录读写，读取走 `file_cache`、写入走 `agent.core.save()`；`keyframe_lifecycle_service` 负责首帧导入替换、回收/恢复、状态发布与失败回滚；`video_lifecycle_service` 负责本地视频镜头删除标记、选项发布与失败回滚；`tts_api` 负责整段及逐句配音的媒体优先发布、幂等复用查询与可续跑时间轴登记；`audio_import_service` 负责用户选择音频的格式/非空校验、临时复制校验与原子落盘；`subtitle_export_service` 负责 SRT 与对白脚本的受控阶段目录发布及角色名渲染；`delivery_import_service` 是项目上下文与结果契约的采用方：只消费 L3 注入的 `ProjectContext`，以阶段解析器定位交付目录，不自行拼接项目路径；成功或业务失败均返回 `service_contract` 结果对象，源文件保持不动。其他待迁移范围由 `维护记录/架构统一基数.json` 登记，两项已于 2026-10-04 经用户授权解冻，后续迁移见路线图；均不导入 Tk 或配置页面。 |
 | L3 编排   | `stage_flow`、`stage_exec`、`stage_parallel`、`stage_config`、`stage_models`、`stage_handler_registry`、`skill*`、`workflow*`、`agent_dispatch`、`engine`、`integrations`、`asset_auto_batch_service`、`asset_batch_execution`、`asset_batch_controller`、`asset_page_controller`、`editing_page_controller`、`keyframe_page_controller`、`stage_completion_service`、`desktop_startup_service`、`desktop_automation_service`、`idea_chat_controller`、`recycle_recovery_controller`、`storyboard_final_controller`、`storyboard_page_controller` | 三虎启动唯一经 `stage_handler_registry.start()`；无人值守资产批量生成由 L3 编排服务调用执行器；`workflow_engines` 与 `codex_tasks.prepare_task()` 均须在启动进程或创建任务工件前执行统一请求上下文预算预检；`project_context_factory.project_context()` 是 `ProjectContext` 的唯一构造实现；`stage_execution_service.project_context` 静态重导出同一函数，并由交付编排注入统一二进制发布器；`stage_execution_service.publish_stage_text()`、`publish_stage_bytes()`、`publish_stage_bundle()` 均以调用方既有校验器与索引更新器完成“校验→原子发布→索引更新”，任一写入或索引失败会回滚本次成果并抛错；L2 仅接收注入发布器，不得反向导入 L3；`desktop_startup_service.DesktopStartupController` 仅编排注入的首帧延迟、空闲选择和取消回调；`desktop_automation_service.DesktopAutomationScheduler` 仅编排注入的周期回调、取消、受控异常与到期轮询，不持有 Tk 或阶段状态；`idea_chat_controller.IdeaChatController` 仅保存注入的对话请求、发送节流、附件引用和流式进度回调状态；`RecycleRecoveryController` 只汇总注入的当前项目与项目库根目录，不持有 Tk 控件，委托 L2 列表与恢复；`AssetBatchController` 保存资产批量页的表单默认值、勾选状态、模型检测与启动前门禁，只调用注入的计划及选择服务；`asset_page_controller.AssetPageController` 保存资产主页面的类别筛选、勾选初始化和批量目标判定，不持有 Tk 控件或写入项目数据；`editing_page_controller.EditingPageController` 保存后期页的视频可用性、自动粗剪报告与完成状态文案，只调用注入的工作室对象；`keyframe_page_controller.KeyframePageController` 保存首帧页多分镜行归属、首帧路径校验与按来源分批选择，不持有 Tk 控件或写入项目数据；`storyboard_final_controller.FinalStoryboardController` 保存定稿预览、编辑和镜头导航状态，只调用既有选择与原子保存边界，并可接收后台读取完成的预览结果；`storyboard_page_controller.StoryboardPageController` 保存初步分镜文件表的扫描、选择、按钮门禁和回收编排，只调用既有目录、选择和回收服务；阶段成果核验由无 Tk 服务处理，桌面视频状态经回调注入；L3 不持有 Tk 控件 |
 | L4 UI   | `desktop`、`pet_ui`、`pet_cloud`、`pet_cloud_text`、`pet_cloud_geometry`、`pet_cloud_shape`、`pet_cloud_tail`、`responsive_ui`、`ui_theme`、`ui_widgets`、`cell_hover`、`prompt_window`、`asset_detail`、`storyboard_table_ui`、`skill_panel`、`ui_plugin_registry`                                | `ui_widgets` 是主/次按钮与卡片的 Tk 组件唯一入口，只消费 L1 `ui_tokens`；`pet_cloud_text` 承载云朵框的无 Tk 文本规整与转播文案；`pet_cloud_geometry`、`pet_cloud_shape` 与 `pet_cloud_tail` 分别承载图元几何、形状规则和尾巴曲线的无 Tk 计算；`storyboard_table_ui` 承载分镜文件表的 Tk 构建与渲染；`desktop` 保留 Tk 窗口、页面控件和事件绑定，在启动边界只注入回调给无 Tk 控制器；`desktop`、`storyboard_files`、`asset_batch` 禁止直连进程或网络，只可使用静态登记的 `platform_tools`／`native_apps` 入口；UI 延迟加载只能经 `ui_plugin_registry.module()`；登记表外名称拒绝加载，保留按页延迟导入行为 |
 | L5 入口   | `app`、`app_icon`、`app_shortcut`                                                                                                                            | 入口只装配依赖，当前 `app.py` 仍动态调用流程  |
@@ -182,7 +184,7 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 
 ### 阶段专属全流程 SKILL
 
-`skills/01 剧本准备SKILL/`、`02剧本整理SKILL/`、`03初步分镜SKILL/`、`04资产管理SKILL/`、`05连贯性SKILL/`、`06分镜定稿SKILL/`、`07首帧管理SKILL/`、`08白模预演SKILL/`、`09视频生成SKILL/`、`10配音字幕SKILL/`、`11后期剪辑SKILL/` 与 `12质检交付SKILL/` 各含一个 `pipeline-*.skill.md`。剧本准备另有 `screenplay-production-line`、`screenplay-writer`、`script-forging`、`短剧编剧搭子`、`编剧技能集` 五个外部包总入口；其审计归属统一以 `script_contract.AUDIT` 为准，均不产生 manifest。
+`skills/01 剧本准备SKILL/`、`02剧本整理SKILL/`、`03初步分镜SKILL/`、`05资产管理SKILL/`、`06连贯性SKILL/`、`07分镜定稿SKILL/`、`08首帧管理SKILL/`、`09白模预演SKILL/`、`10视频生成SKILL/`、`11配音字幕SKILL/`、`12后期剪辑SKILL/` 与 `13质检交付SKILL/` 各含一个 `pipeline-*.skill.md`。剧本准备另有 `screenplay-production-line`、`screenplay-writer`、`script-forging`、`短剧编剧搭子`、`编剧技能集` 五个外部包总入口；其审计归属统一以 `script_contract.AUDIT` 为准，均不产生 manifest。
 它们从 `skills/00全流程SKILL/` 的全流程资料抽出阶段职责，并以 `dependsOn` 表达强前置关系；
 `pipeline-editing` 同时依赖视频与配音字幕。原始全流程资料保留为只读参考。`skill_registry.Registry.files()`
 只递归扫描 `skills/01`—`12` 阶段目录内的常规 `.skill.md`；根目录遗留 `.skill.md` 只在该懒扫描中按 frontmatter `stage` 安全归档，无法归档则保留并报告。`00全流程SKILL` 与其他根目录资料包不扫描。阶段下外部包只登记根部 `SKILL.md`（集合包可用根部 README）为一个总入口，不展开内部子目录。该扫描仅由阶段配置面板显式触发，未进入启动路径。
@@ -271,7 +273,7 @@ R1127：`hollmwood_rules` 为 L0 纯规则模块，统一导演／编剧／编�
 | ------------------------------------------ | ------------- | ---------------------- |
 | `配置/宠物/配置.json`                            | JSON          | 全局三虎设置、模型池、Agent 模型档位。 |
 | `配置/SKILL/预设.json`                               | JSON          | 按阶段保存的可复制预设。            |
-| `<项目>/skill_config.json`                   | JSON          | 项目 12 阶段模型和 SKILL。     |
+| `<项目>/skill_config.json`                   | JSON          | 项目 13 阶段模型和 SKILL。     |
 | `<项目>/data/项目接续.json`                      | JSON          | 项目进度和接续上下文。            |
 | `<项目>/01剧本准备/`、`<项目>/02剧本结构/` | Markdown、JSON | 当前剧本阶段目录；由 `stage_path_service` 与 `script_contract` 解析。 |
 | `<项目>/03初步分镜/`—`<项目>/12质检交付/` | JSON、媒体、Markdown | 当前后续阶段目录，细表见 PROJECT_MAP；JSON、MD 分别放受控的 output/、docs/。 |

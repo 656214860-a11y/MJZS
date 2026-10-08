@@ -1,0 +1,21 @@
+name: 分镜预演处理
+stage_id: "animatic"
+process_id: "animatic"
+steps:
+  - index: 1
+    name: 准备共享参考图
+    action: prepare_shared_references
+    needs_confirmation: false
+  - index: 2
+    name: 本地 ComfyUI 逐镜草图
+    action: generate_animatic_sketches
+    needs_confirmation: false
+  - index: 3
+    name: 临时声音与草图自动合成
+    action: assemble_animatic
+    needs_confirmation: false
+  - index: 4
+    name: 确认节奏、时长与对白同步
+    action: confirm_animatic
+    needs_confirmation: true
+    question: "已查看 Animatic 并确认节奏、时长与对白同步吗？"

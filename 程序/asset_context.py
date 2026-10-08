@@ -24,7 +24,7 @@ def generated_dir(base):
     return path
 
 
-def ensure_browser_directory(base, kind):
+def ensure_browser_directory(base, kind, *, create=True):
     """创建并返回资产页面可浏览的分类目录，不涉及资产内容发布。"""
     base = Path(base).resolve()
     if kind not in ('all', 'scenes', 'characters', 'props'):
@@ -32,18 +32,22 @@ def ensure_browser_directory(base, kind):
     path = base / 'assets'
     if kind != 'all':
         path /= kind
-    path.mkdir(parents=True, exist_ok=True)
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
     return path
 
 def library_dir(project=None, fallback=None, *, context=None):
     project=_project_root(project, context=context)
     cfg=read(project/'config.json') if (project/'config.json').is_file() else {}
-    from project_stages import assets
-    standard=assets(project)
+    from stage_path_service import existing_dir, write_dir, LEGACY_NUMBERED
+    standard=write_dir(project, 'assets')
     value=cfg.get('asset_library_dir')
-    if not value and ((standard/'assets.json').is_file() or (standard/'assets/资产清单/assets.json').is_file()):
+    if (standard/'assets.json').is_file() or (standard/'assets/资产清单/assets.json').is_file():
         value=standard
-    base=(project/Path(value or fallback or cfg.get('episode_dir','04资产管理'))).resolve()
+    candidate=value or fallback or cfg.get('episode_dir')
+    if not candidate or Path(candidate).name == LEGACY_NUMBERED['assets']:
+        candidate=existing_dir(project, 'assets')
+    base=(project/Path(candidate)).resolve()
     if not base.is_relative_to(project):raise ValueError('资产目录超出当前项目')
     return base
 

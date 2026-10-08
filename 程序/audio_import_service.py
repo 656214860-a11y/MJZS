@@ -9,9 +9,11 @@ _SUFFIXES = {'.wav', '.mp3', '.m4a', '.aac'}
 LOGGER = logging.getLogger(__name__)
 
 
-def import_audio(project, source, *, publish):
+def import_audio(project, source, *, publish, stage='audio'):
     """Copy one non-empty supported audio file into the authoritative stage directory."""
-    from project_stages import audio
+    from stage_path_service import write_dir
+    if stage not in ('audio', 'animatic'):
+        raise ValueError('不支持的音频导入阶段')
     if not callable(publish):
         raise TypeError('音频导入发布必须由 L3 注入。')
     try:
@@ -22,7 +24,10 @@ def import_audio(project, source, *, publish):
         suffix = source.suffix.lower()
         if suffix not in _SUFFIXES:
             return UserError('请选择 WAV、MP3、M4A 或 AAC 音频文件')
-        folder = audio(project)
+        folder = write_dir(project, stage)
+        if stage == 'audio':
+            from project_stages import audio
+            folder = audio(project)
         folder.mkdir(parents=True, exist_ok=True)
         destination = folder / (source.stem + '_' + uuid.uuid4().hex[:6] + suffix)
         expected_size = source.stat().st_size

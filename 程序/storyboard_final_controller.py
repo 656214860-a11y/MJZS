@@ -116,7 +116,7 @@ class FinalStoryboardController:
         result = save_edited_stage_storyboard(path, data)
         if not result.ok:
             raise ValueError(result.reason)
-        return self.load(path)
+        return self.load(result.data)
 
     def set_navigation(self, data) -> tuple[str, ...]:
         shots = data.get('shots', []) if isinstance(data, dict) else []

@@ -386,7 +386,9 @@ def show(app,aid):
     rolevar=tk.StringVar(value=choices[0])
     SelectBox(rolebar,textvariable=rolevar,values=choices).pack(side='left',padx=6)
     def change_roles():
-        guard();set_roles(base,aid,selected_values(),rolevar.get());changed()
+        nonlocal base,file
+        guard();base=app.asset_write_base();file=base/'assets/资产清单/assets.json'
+        set_roles(base,aid,selected_values(),rolevar.get());changed()
     SecondaryButton(rolebar,text='应用到选中参考图',command=lambda:app.safe(change_roles)).pack(side='left')
     ttk.Label(rolebar,text='显示分类').pack(side='left',padx=(12,0))
     filtervar=tk.StringVar(value='全部')
@@ -435,7 +437,9 @@ def show(app,aid):
         for path in resolve(base,{'reference_images':list(values)}):open_path(path)
     def remove_values(values):
         """删除：只解除这一批绑定——高亮与勾选都不参与（第 46 期第 1／9 条）。"""
-        guard();unbind(base,aid,list(values));changed()
+        nonlocal base,file
+        guard();base=app.asset_write_base();file=base/'assets/资产清单/assets.json'
+        unbind(base,aid,list(values));changed()
     # 第 46 期第 1 条：目标永远是右键点中的那一行。
     bind_row_menu(table,
                   view=lambda row,_column:app.safe(lambda:preview_values([table.set(row,'file')])),
@@ -531,6 +535,8 @@ def view_references(app, aid):
         preview_files(selected_files())
     def remove_files(values):
         """删除：解除这一批参考图的绑定，再把这张表重画一遍（第 46 期第 1／9 条）。"""
+        nonlocal base,file
+        base=app.asset_write_base();file=base/'assets/资产清单/assets.json'
         unbind(base,aid,list(values));refresh()
     # 第 46 期第 1 条：右键＝查看这一行的图片／删除这一行的绑定。
     # 第 57 期第 4 条：这三列整栏交给 CellHover——右键先落在盖着缩略图的那层 Label 上，

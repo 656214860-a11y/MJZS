@@ -96,9 +96,9 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     # 定稿的唯一写入目录。此前读取 ``分镜拆分``、写入 ``分镜``，下一次定稿扫不到上次
     # 产物而重复创建；旧目录仅兼容读取历史项目。
     finals_root=stage(project, 'final')/'分镜'
-    legacy_finals_root=stage(project, 'final')/'分镜拆分'
     existing_files=[]
-    for root in (finals_root,legacy_finals_root):
+    from stage_path_service import read_dirs
+    for root in (folder / name for folder in read_dirs(project,'final') for name in ('分镜','分镜拆分')):
         if root.is_dir():
             existing_files.extend(p for p in root.glob('*/episode.json') if is_final_dir(p.parent.name))
     for existing in sorted(existing_files,key=lambda p:p.stat().st_mtime,reverse=True):
@@ -113,7 +113,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
             return existing.parent
     dest=dated_path(stage(project,'final')/'分镜',re.sub(r'[^A-Za-z0-9_-]','_',episode['episode_id'])+'_分镜定稿')
     # A final is a single maintained document, including later asset updates.
-    if source.name=='episode.json' and is_final_dir(source.parent.name):
+    if source.name=='episode.json' and is_final_dir(source.parent.name) and source.is_relative_to(finals_root):
         dest=source.parent
     else:
         from storyboard_storage import ALIAS_FILE

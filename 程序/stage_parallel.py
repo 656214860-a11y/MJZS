@@ -52,6 +52,9 @@ CONFIG = {
     'storyboard': {'unit': SCENE, 'min': 2, 'max': 3, 'serial': True, 'limit': 3,
                    'retry': {'attempts': 2, 'backoff': 'fixed', 'on_exhaust': ON_BLOCK},
                    'why': '一个场景一个 Agent；同一场景内的镜头必须串行，免得动作接不上'},
+    'animatic': {'unit': BATCH, 'min': 1, 'max': 3, 'serial': True, 'limit': 3,
+                 'retry': {'attempts': 2, 'backoff': 'fixed', 'on_exhaust': ON_MANUAL},
+                 'why': '跨批次并行，批内按镜头顺序生成预演草图，合成后人工确认节奏与对白同步'},
     'assets': {'unit': ASSET, 'min': 3, 'max': 5, 'serial': True, 'limit': 5,
                'retry': {'attempts': 2, 'backoff': 'fixed', 'on_exhaust': ON_BLOCK},
                'why': '一项资产一个 Agent；资产内部（正典板→状态变体→锚点→参考职责）必须串行'},
@@ -465,6 +468,10 @@ def log_line(row):
 # 每条门禁查三件事：上游输出 JSON 是否完整、关键字段是否齐全、有没有未处理的错误。
 # 判定口径见模块头第 2 条：上游**真的做了**却没做全才拦；压根没开始不拦。
 GATES = (
+    {'id': 'SG-A', 'from': 'storyboard', 'to': 'animatic', 'title': '分镜初稿完成', 'check': 'animatic_input_ready',
+     'condition': '已采用分镜初稿，镜头提示词和时长完整', 'reject': '先完成并采用初步分镜'},
+    {'id': 'SG-B', 'from': 'animatic', 'to': 'assets', 'title': '分镜预演确认', 'check': 'animatic_ready',
+     'condition': 'Animatic 可播放，节奏、时长和对白同步已确认', 'reject': '先完成分镜预演并确认三项检查'},
     {'id': 'SG-01', 'from': 'assets', 'to': 'continuity', 'title': '资产锁定', 'check': 'assets_locked',
      'condition': '资产清单每一项都导入了图片，角色锚点已锁定',
      'reject': '先到 03 资产管理 把资产补齐、锁定锚点'},
@@ -543,6 +550,25 @@ def _adopted(project):
         if isinstance(data, dict) and isinstance(data.get('shots'), list):
             out.append((source, [shot for shot in data['shots'] if isinstance(shot, dict)]))
     return out
+
+
+def animatic_input_ready(project):
+    from animatic_service import shots_of
+    adopted = _adopted(project)
+    try:
+        if not adopted:
+            raise ValueError('尚未采用分镜初稿')
+        for _source, shots in adopted:
+            shots_of({'shots': shots})
+        return _result(gate_for('animatic'), True, True, '分镜初稿已就绪')
+    except (ValueError, TypeError, KeyError) as error:
+        return _result(gate_for('animatic'), False, True, str(error))
+
+
+def animatic_ready(project):
+    from animatic_service import evidence
+    ok, reason = evidence(project)
+    return _result(gate_for('assets'), ok, True, reason or '分镜预演三项确认通过')
 
 
 def assets_locked(project):

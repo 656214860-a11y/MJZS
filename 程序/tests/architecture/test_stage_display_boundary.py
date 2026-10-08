@@ -25,7 +25,7 @@ class StageDisplayBoundaryTests(unittest.TestCase):
         literals = [node.value for node in ast.walk(pages_assignment.value)
                     if isinstance(node, ast.Constant) and isinstance(node.value, str)]
         self.assertFalse(set(literals) & set(pet_bus.STAGE_NAMES.values()))
-        self.assertIn('13  参考网站', literals)
+        self.assertIn('14  参考网站', literals)
 
     def test_stage_name_has_a_stable_unknown_stage_fallback(self):
         self.assertEqual(pet_bus.stage_name('script'), pet_bus.STAGE_NAMES['script'])

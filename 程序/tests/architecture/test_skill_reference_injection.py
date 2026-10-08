@@ -31,7 +31,7 @@ class SkillReferenceInjectionTests(unittest.TestCase):
                 'cinematic-language.md#shot-functions',
                 '这里只做段缝风险预检',
             ),
-            '06分镜定稿SKILL/pipeline-storyboard-final.skill.md': (
+            '07分镜定稿SKILL/pipeline-storyboard-final.skill.md': (
                 'cinematic-language.md#shot-functions',
                 'prompt-lexicon.md#the-conversion-procedure',
                 'continuity-bible.md#shot-to-shot-continuity-schema',
@@ -72,13 +72,13 @@ class SkillReferenceInjectionTests(unittest.TestCase):
 
     def test_asset_and_continuity_stages_keep_canon_and_audit_separate(self):
         expected = {
-            '04资产管理SKILL/pipeline-assets.skill.md': (
+            '05资产管理SKILL/pipeline-assets.skill.md': (
                 'continuity-bible.md#the-identity-string-contract',
                 'image-model-adapters.md#4-character-consistency-playbook-cheapest-first',
                 '不得进入正典',
                 '不能把它们伪装为本阶段已验证规则',
             ),
-            '05连贯性SKILL/pipeline-continuity.skill.md': (
+            '06连贯性SKILL/pipeline-continuity.skill.md': (
                 'continuity-bible.md#the-continuity-axes',
                 'failure-modes.md#f7-continuity-break-across-shots',
                 '未解决冲突必须保留到 `repairList`',
@@ -111,17 +111,17 @@ class SkillReferenceInjectionTests(unittest.TestCase):
 
     def test_keyframe_previs_video_stages_keep_media_handoffs_explicit(self):
         expected = {
-            '07首帧管理SKILL/pipeline-keyframe.skill.md': (
+            '08首帧管理SKILL/pipeline-keyframe.skill.md': (
                 'image-model-adapters.md#3-keyframe-prompt-anatomy-nine-slots-then-constraints',
                 'lighting-and-color.md#lighting-continuity-for-ai-video',
                 '不得发布 `keyframeManifest`',
             ),
-            '08白模预演SKILL/pipeline-previs.skill.md': (
+            '09白模预演SKILL/pipeline-previs.skill.md': (
                 'blocking-and-staging.md#blocking-for-ai-video',
                 'production-workflow.md#shot-difficulty-rubric',
                 '不得进入视频生成',
             ),
-            '09视频生成SKILL/pipeline-video-generation.skill.md': (
+            '10视频生成SKILL/pipeline-video-generation.skill.md': (
                 'ai-video-tool-adapters.md#the-capability-first-rule',
                 'failure-modes.md#60-second-triage-tree',
                 '先读取所选工具的控制面，再选择 S1／S2／S3／S4',
@@ -137,17 +137,17 @@ class SkillReferenceInjectionTests(unittest.TestCase):
 
     def test_audio_edit_delivery_stages_keep_timeline_and_quality_gates_explicit(self):
         expected = {
-            '10配音字幕SKILL/pipeline-audio-subtitle.skill.md': (
+            '11配音字幕SKILL/pipeline-audio-subtitle.skill.md': (
                 'sound-and-dialogue.md#duration-budgeting',
                 'sound-and-dialogue.md#the-one-speaker-per-clip-rule',
                 '不得发布 `audioManifest`',
             ),
-            '11后期剪辑SKILL/pipeline-editing.skill.md': (
+            '12后期剪辑SKILL/pipeline-editing.skill.md': (
                 'editing-and-assembly.md#the-assembly-spec',
                 'editing-and-assembly.md#fix-in-the-edit-regenerate-or-cover-it',
                 '不得发布 `previewMaster` 或 `editManifest`',
             ),
-            '12质检交付SKILL/pipeline-delivery.skill.md': (
+            '13质检交付SKILL/pipeline-delivery.skill.md': (
                 'failure-modes.md#failure-taxonomy-f1f19',
                 'continuity-bible.md#seed-and-reference-registry',
                 '不得标记交付完成',

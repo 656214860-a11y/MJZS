@@ -40,7 +40,8 @@ OWN_ORDER = list(STAGES)
 
 # 依赖图（附件四第 5 条那条链）：后一步要看前一步有没有成。只登记硬依赖——
 # 「视频生成」要首帧，「配音」要定稿资产，「剪辑」要成片，「交付」要粗剪。
-DEPENDS = {'script': (), 'script_structure': ('script',), 'storyboard': ('script_structure',), 'assets': ('storyboard',),
+DEPENDS = {'script': (), 'script_structure': ('script',), 'storyboard': ('script_structure',),
+           'animatic': ('storyboard',), 'assets': ('animatic',),
            'continuity': ('assets',), 'final': ('storyboard',), 'keyframe': ('final',),
            'previs': ('keyframe',), 'video': ('keyframe',), 'audio': ('final',),
            'edit': ('video',), 'delivery': ('edit',)}

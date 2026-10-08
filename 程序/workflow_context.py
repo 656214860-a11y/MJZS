@@ -100,7 +100,7 @@ def snapshot(context):
 
     references = _reference_documents(project, IGNORED)
 
-    # 04资产管理是当前唯一写入位置；episode/assets 仅兼容旧项目的历史资料。
+    # 05资产管理是当前唯一写入位置；episode/assets 仅兼容旧项目的历史资料。
     from project_stages import assets as assets_stage
     current_assets = assets_stage(project).resolve() / 'assets.json'
     from asset_contract import legacy_asset_paths

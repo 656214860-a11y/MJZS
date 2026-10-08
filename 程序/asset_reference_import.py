@@ -32,6 +32,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     from asset_context import scope_sources
     project=Path(app.root);base=app.asset_base()
     rows=sync_asset_plan(project,base,scope_sources(project,'adopted'),scope='adopted')
+    base=app.asset_base()
     if not rows:raise ValueError('请先采用分镜，再添加资产参考图')
     parent=parent or app.win
     win=BaseDialog(parent,'导入参考图',geometry='760x470',minsize=(620,430),modal=False,chrome=False)
@@ -63,7 +64,8 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     category_box.bind('<<ComboboxSelected>>',update_categories)
     role_box.bind('<<ComboboxSelected>>',update_destination);asset_box.bind('<<ComboboxSelected>>',update_destination)
     def choose_files():
-        selected=FileDialog(win).open_files(title='选择参考图片（可多选）',filetypes=[('参考图片',' '.join('*'+suffix for suffix in sorted(EXTENSIONS)))])
+        from stage_path_service import shared_reference_dir
+        selected=FileDialog(win).open_files(title='选择参考图片（可多选）',initialdir=str(shared_reference_dir(app.root)),filetypes=[('参考图片',' '.join('*'+suffix for suffix in sorted(EXTENSIONS)))])
         for value in selected:
             if value not in paths:paths.append(value);files.insert('end',Path(value).name)
     SecondaryButton(body,text='选择图片…',command=choose_files).grid(row=3,column=1,sticky='e',pady=(12,5))

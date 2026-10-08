@@ -9,7 +9,7 @@ LEGACY_READ_UNTIL = date(2027, 3, 31)
 
 _STAGES = {
     'script': 'script', 'structure': 'script_structure', 'script_structure': 'script_structure',
-    'storyboard': 'storyboard', 'assets': 'assets', 'continuity': 'continuity',
+    'storyboard': 'storyboard', 'animatic': 'animatic', 'assets': 'assets', 'continuity': 'continuity',
     'final': 'final', 'frames': 'keyframe', 'keyframe': 'keyframe', 'previs': 'previs',
     'video': 'video', 'audio': 'audio', 'editing': 'edit', 'edit': 'edit', 'delivery': 'delivery',
 }
@@ -20,6 +20,25 @@ _LEGACY = {
     'storyboard': ('storyboard/分镜拆分',),
     'assets': ('episode/assets/资产清单',),
 }
+
+# R1124 插入阶段前的中文目录只供读取，不建立会导致回写旧数据的目录联接。
+LEGACY_NUMBERED = {
+    'assets': '04资产管理', 'continuity': '05连贯性清单', 'final': '06分镜定稿',
+    'keyframe': '07首帧管理', 'previs': '08白模预演', 'video': '09视频生成',
+    'audio': '10配音与字幕', 'edit': '11后期剪辑', 'delivery': '12质检交付',
+}
+
+
+def shared_reference_dir(project):
+    """预演准备、正式资产复用；正典板与资产提示词仍由资产阶段管理。"""
+    return stage_layout.shared_paths(project)['root'] / 'reference_images'
+
+
+def shared_reference_read_dirs(project):
+    """新共享目录优先，旧资产参考图保持原位、只读兼容。"""
+    return (shared_reference_dir(project), *(folder / 'assets' / '参考图' for folder in read_dirs(project, 'assets')),
+            *(folder / '参考图' for folder in read_dirs(project, 'assets')),
+            Path(project) / 'episode' / 'assets' / '参考图')
 
 
 def write_dir(project, stage):
@@ -43,5 +62,37 @@ def legacy_read_dirs(project, stage, today=None):
 
 def read_dirs(project, stage, today=None):
     """当前目录优先，旧目录仅作为只读回退，且不重复。"""
-    values = [write_dir(project, stage), *legacy_read_dirs(project, stage, today=today)]
+    old = LEGACY_NUMBERED.get(_STAGES.get(str(stage)))
+    values = [write_dir(project, stage)]
+    if old:
+        values.append(Path(project) / old)
+    values.extend(legacy_read_dirs(project, stage, today=today))
     return tuple(dict.fromkeys(values))
+
+
+def existing_dir(project, stage):
+    """只读选择：当前目录有内容时优先，否则回退旧编号目录。
+
+    只检查一层，不在启动路径递归扫描；空的阶段骨架不遮住历史成果。
+    """
+    candidates = read_dirs(project, stage)
+    def material(item):
+        return item.is_file() and not item.name.startswith(('README', '目录说明', '共用技能位置'))
+    for folder in candidates:
+        if folder.is_dir() and any(material(child) or
+                                   (child.is_dir() and any(material(item) or item.is_dir()
+                                                          for item in child.iterdir()))
+                                   for child in folder.iterdir()):
+            return folder
+    return candidates[0]
+
+
+def read_file(project, stage, *parts):
+    """已有单文件按新目录优先读取；不存在时返回规范路径，不创建目录。"""
+    for folder in read_dirs(project, stage):
+        path = folder.joinpath(*parts)
+        if not path.resolve().is_relative_to(Path(project).resolve()):
+            raise ValueError('阶段读取路径越界')
+        if path.is_file():
+            return path
+    return write_dir(project, stage).joinpath(*parts)

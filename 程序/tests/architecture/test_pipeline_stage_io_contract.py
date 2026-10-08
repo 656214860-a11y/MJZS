@@ -11,7 +11,8 @@ PIPELINE_DEPENDENCIES = {
     'pipeline-script-preparation': [],
     'pipeline-script-structure': ['pipeline-script-preparation'],
     'pipeline-storyboard-draft': ['pipeline-script-structure'],
-    'pipeline-assets': ['pipeline-storyboard-draft'],
+    'pipeline-animatic': ['pipeline-storyboard-draft'],
+    'pipeline-assets': ['pipeline-animatic'],
     'pipeline-continuity': ['pipeline-assets'],
     'pipeline-storyboard-final': ['pipeline-continuity'],
     'pipeline-keyframe': ['pipeline-storyboard-final'],
@@ -24,6 +25,7 @@ PIPELINE_DEPENDENCIES = {
 
 # 这些是用户在启动阶段时输入的配置事实，而不是任一 pipeline 的阶段成果。
 INPUT_EXEMPTIONS = {
+    'temporaryAudio': '分镜预演入口导入临时音频或填写临时 TTS 文本。',
     'creativeBrief': '创意简报是剧本准备入口填写的创作事实。',
     'modelLock': '模型锁是剧本准备入口锁定的配置。',
     'aspectRatio': '画幅是剧本准备入口锁定的配置。',
@@ -38,6 +40,15 @@ def _camel_from_manifest(filename):
 
 
 class PipelineStageIoContractTests(unittest.TestCase):
+    def test_animatic_tools_and_gates_follow_the_stage_authority(self):
+        import skill_tools
+        import stage_parallel
+        self.assertEqual(pet_bus.STAGES[2:5], ('storyboard', 'animatic', 'assets'))
+        self.assertEqual(stage_parallel.gate_for('animatic')['id'], 'SG-A')
+        self.assertEqual(stage_parallel.gate_for('assets')['id'], 'SG-B')
+        for tool in ('animatic.generate', 'animatic.validate'):
+            self.assertEqual(skill_tools.PAGES[tool][0], pet_bus.STAGES.index('animatic'))
+
     def setUp(self):
         self.registry = skill_registry.default_registry()
         self.registry.scan(force=True)

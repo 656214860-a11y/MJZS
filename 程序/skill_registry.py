@@ -42,9 +42,9 @@ FRESH_TTL_SECONDS = 2.0
 # 新放入 01—12 文件夹但尚未补 frontmatter 的 SKILL 可据此立即出现在正确阶段。
 STAGE_DIRECTORY_IDS = {
     '01': 'script', '02': 'script_structure', '03': 'storyboard',
-    '04': 'assets', '05': 'continuity', '06': 'final',
-    '07': 'keyframe', '08': 'previs', '09': 'video',
-    '10': 'audio', '11': 'edit', '12': 'delivery',
+    '04': 'animatic', '05': 'assets', '06': 'continuity', '07': 'final',
+    '08': 'keyframe', '09': 'previs', '10': 'video',
+    '11': 'audio', '12': 'edit', '13': 'delivery',
 }
 
 

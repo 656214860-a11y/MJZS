@@ -432,8 +432,11 @@ READY = {
 }
 
 # 只能在页面上按的那几步：页序号按 STAGES 的顺序（与左侧导航一一对应）。
-_SCRIPT, _SCRIPT_STRUCTURE, _STORYBOARD, _ASSETS, _CONTINUITY, _FINAL, _KEYFRAME, _PREVIS, _VIDEO, _AUDIO, _EDIT, _DELIVERY = range(12)
+from pet_bus import STAGES, STAGE_NAMES
+_SCRIPT, _SCRIPT_STRUCTURE, _STORYBOARD, _ANIMATIC, _ASSETS, _CONTINUITY, _FINAL, _KEYFRAME, _PREVIS, _VIDEO, _AUDIO, _EDIT, _DELIVERY = map(STAGES.index, STAGES)
 PAGES = {
+    'animatic.generate': (_ANIMATIC, '分镜预演 → 生成分镜预演'),
+    'animatic.validate': (_ANIMATIC, '分镜预演 → 确认预演（SG-B）'),
     'script.generate': (_SCRIPT, '01 剧本准备 → 剧本创作'),
     'script.save': (_SCRIPT, '01 剧本准备 → 保存剧本'),
     'script.extractCharacters': (_ASSETS, '04 资产管理 → 从剧本提取角色／场景／道具'),
@@ -495,6 +498,10 @@ PAGES = {
     'delivery.validate': (_DELIVERY, '12 质检与交付 → 质检'),
     'delivery.package': (_DELIVERY, '12 质检与交付 → 打包交付'),
 }
+
+# 页号与显示名均随阶段权威源顺延，动作说明保持原有语义。
+PAGES = {tool: (page, '%02d %s → %s' % (page + 1, STAGE_NAMES[STAGES[page]], hint.split('→', 1)[-1].strip()))
+         for tool, (page, hint) in PAGES.items()}
 
 _INJECTED = {}
 

@@ -122,13 +122,13 @@ class FakeAdapter(model_router.ModelAdapter):
 
 class RegistryTests(unittest.TestCase):
     def test_skill_distribution_matches_the_split_script_flow(self):
-        """验收：既有 SKILL 保留，并为 12 个阶段各登记一个全流程编排 SKILL。"""
+        """验收：既有 SKILL 保留，并为 13 个阶段各登记一个全流程编排 SKILL。"""
         reg = skill_registry.default_registry()
         reg.scan(force=True)
-        self.assertEqual(reg.count(), 73)
-        self.assertEqual(len(reg.stages()), 12)
+        self.assertEqual(reg.count(), 74)
+        self.assertEqual(len(reg.stages()), 13)
         expected_by_stage = {
-            'script': 7, 'script_structure': 5, 'storyboard': 6, 'assets': 6,
+            'script': 7, 'script_structure': 5, 'storyboard': 6, 'animatic': 1, 'assets': 6,
             'continuity': 6, 'final': 6, 'keyframe': 6, 'previs': 7,
             'video': 5, 'audio': 6, 'edit': 7, 'delivery': 6,
         }
@@ -176,7 +176,7 @@ class RegistryTests(unittest.TestCase):
         """阶段目录中新增文件免重启：再查一次就该进表。"""
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / 'skills'
-            stage_dir = root / '04资产管理SKILL'
+            stage_dir = root / '05资产管理SKILL'
             write_skill(stage_dir, 'probe-one', stage='资产管理')
             reg = skill_registry.Registry(root=root)
             self.assertEqual([item.name for item in reg.getAll()], ['probe-one'])
@@ -265,7 +265,7 @@ class RegistryTests(unittest.TestCase):
         """常规查询只 stat skills 根目录，不能再次递归扫描整棵树。"""
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / 'skills'
-            write_skill(root / '04资产管理SKILL', 'probe-one', stage='资产管理')
+            write_skill(root / '05资产管理SKILL', 'probe-one', stage='资产管理')
             reg = skill_registry.Registry(root=root)
             self.assertEqual([item.name for item in reg.getAll()], ['probe-one'])
 
@@ -286,7 +286,7 @@ class RegistryTests(unittest.TestCase):
         """启动期多控件查询不得反复构造文件键；面板强刷另有覆盖。"""
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / 'skills'
-            write_skill(root / '04资产管理SKILL', 'probe-one', stage='资产管理')
+            write_skill(root / '05资产管理SKILL', 'probe-one', stage='资产管理')
             reg = skill_registry.Registry(root=root)
             reg.scan(force=True)
             calls = []
@@ -303,7 +303,7 @@ class RegistryTests(unittest.TestCase):
         """01—12 文件夹是归类依据，漏写 stage 不会让新 SKILL 从阶段配置中消失。"""
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / 'skills'
-            path = write_skill(root / '06分镜定稿SKILL', 'prompt-render-probe', stage='')
+            path = write_skill(root / '07分镜定稿SKILL', 'prompt-render-probe', stage='')
             reg = skill_registry.Registry(root=root)
             item = reg.getById('prompt-render-probe')
             self.assertEqual(item.stage, 'final')
@@ -320,14 +320,14 @@ class RegistryTests(unittest.TestCase):
         """
         real = skill_registry.default_registry()
         real.scan(force=True)
-        self.assertEqual(real.count(), 73)
+        self.assertEqual(real.count(), 74)
         with tempfile.TemporaryDirectory() as td:
             program = Path(td) / '程序'
-            write_skill(program / 'skills' / '04资产管理SKILL', 'probe-one', stage='资产管理')
+            write_skill(program / 'skills' / '05资产管理SKILL', 'probe-one', stage='资产管理')
             other = skill_registry.default_registry(program)
             self.assertEqual([item.name for item in other.getAll()], ['probe-one'])
             self.assertIs(skill_registry.default_registry(), real, '不带参数仍是程序目录那一份')
-            self.assertEqual(skill_registry.default_registry().count(), 73)
+            self.assertEqual(skill_registry.default_registry().count(), 74)
         self.assertEqual([item.name for item in skill_registry.default_registry().getByStage('keyframe')],
                          ['firstframe-auto-fill', 'firstframe-batch', 'firstframe-quality',
                           'firstframe-retry', 'firstframe-thumbnail', 'pipeline-keyframe'])
@@ -338,7 +338,7 @@ class RegistryTests(unittest.TestCase):
             root = Path(td) / 'skills'
             write_skill(root, 'bad-stage', stage='没这个阶段')
             text = (root / 'bad-stage.skill.md').read_text(encoding='utf-8')
-            stage_dir = root / '04资产管理SKILL'
+            stage_dir = root / '05资产管理SKILL'
             stage_dir.mkdir(parents=True)
             (stage_dir / 'self-dep.skill.md').write_text(
                 text.replace('name: bad-stage', 'name: self-dep')
@@ -352,7 +352,7 @@ class RegistryTests(unittest.TestCase):
     def test_capability_outside_the_list_is_reported(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / 'skills'
-            path = write_skill(root / '04资产管理SKILL', 'weird-cap', stage='资产管理')
+            path = write_skill(root / '05资产管理SKILL', 'weird-cap', stage='资产管理')
             path.write_text(path.read_text(encoding='utf-8').replace(
                 'capabilities: [structured-output]', 'capabilities: [telepathy]'), encoding='utf-8')
             reg = skill_registry.Registry(root=root)
@@ -672,7 +672,7 @@ class OrchestratorTests(unittest.TestCase):
     def test_build_dag_reports_a_cycle_instead_of_hanging(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / 'skills'
-            stage_dir = root / '04资产管理SKILL'
+            stage_dir = root / '05资产管理SKILL'
             write_skill(stage_dir, 'ring-a', stage='资产管理', depends='ring-b')
             write_skill(stage_dir, 'ring-b', stage='资产管理', depends='ring-a')
             orch = skill_orchestrator.Orchestrator(registry=skill_registry.Registry(root=root))
@@ -683,7 +683,7 @@ class OrchestratorTests(unittest.TestCase):
     def test_validate_catches_unknown_conflict_and_budget(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / 'skills'
-            stage_dir = root / '04资产管理SKILL'
+            stage_dir = root / '05资产管理SKILL'
             write_skill(stage_dir, 'pair-a', stage='资产管理', conflicts='pair-b')
             write_skill(stage_dir, 'pair-b', stage='资产管理')
             reg = skill_registry.Registry(root=root)
@@ -1243,7 +1243,7 @@ class PanelTests(unittest.TestCase):
         panel.destroy()
 
     def test_open_for_page_maps_the_page_to_its_stage(self):
-        panel = skill_panel.open_for_page(self.desktop, 6)
+        panel = skill_panel.open_for_page(self.desktop, pet_bus.STAGES.index('keyframe'))
         self.assertEqual(panel.stage, 'keyframe')
         panel.winfo_toplevel().destroy()
 
@@ -1548,7 +1548,7 @@ class PanelTests(unittest.TestCase):
     def test_delete_checked_program_skill_recycles_it_and_refreshes_the_panel(self):
         """删除按钮只能把程序 skills/ 的 .skill.md 移到程序回收站，并立即刷新。"""
         program = Path(self.tmp.name) / '删除测试程序'
-        target = write_skill(program / 'skills' / '07首帧管理SKILL',
+        target = write_skill(program / 'skills' / '08首帧管理SKILL',
                              'temporary-delete', stage='keyframe')
         registry = skill_registry.Registry(root=program / 'skills')
         registry.scan(force=True)
@@ -1573,7 +1573,7 @@ class PanelTests(unittest.TestCase):
     def test_referenced_program_skill_requires_confirmation_before_deleting(self):
         """仍被项目配置引用时必须先确认；确认后才可回收，不改项目配置。"""
         program = Path(self.tmp.name) / '引用删除测试程序'
-        target = write_skill(program / 'skills' / '07首帧管理SKILL',
+        target = write_skill(program / 'skills' / '08首帧管理SKILL',
                              'referenced-delete', stage='keyframe')
         registry = skill_registry.Registry(root=program / 'skills')
         registry.scan(force=True)
@@ -1720,9 +1720,9 @@ class PanelTests(unittest.TestCase):
 
     def test_stage_label_names_the_stage(self):
         """第 30 期第 8 条：下拉框那一列的名字（面板抬头还是「阶段配置 · 06 首帧管理」）。"""
-        self.assertEqual(skill_panel.stage_label('keyframe'), '07 首帧管理')
+        self.assertEqual(skill_panel.stage_label('keyframe'), '08 首帧管理')
         self.assertEqual(skill_panel.stage_label('没有这个'), '没有这个')
-        self.assertEqual(skill_panel.panel_title('keyframe'), '阶段配置 · 07 首帧管理')
+        self.assertEqual(skill_panel.panel_title('keyframe'), '阶段配置 · 08 首帧管理')
 
     def test_the_panel_stays_on_the_stage_of_the_page(self):
         """第 33 期第 3 条：抬头那个「阶段」下拉撤掉——每页的按钮只配自己那一个阶段。"""
@@ -1745,11 +1745,11 @@ class PanelTests(unittest.TestCase):
         texts = [str(w.cget('text')) for w in walk(window) if isinstance(w, ttk.Label)]
         self.assertIn('阶段配置 · 01 剧本准备', texts, '抬头写的就是本页那一阶段的标题')
         self.assertEqual(window.title(), '阶段配置 · 01 剧本准备')
-        # 07 首帧管理页自己那颗按钮进去，开的还是它自己那一个阶段
-        other = skill_panel.open_for_page(self.desktop, 6)
+        # 首帧管理页自己那颗按钮进去，开的还是它自己那一个阶段
+        other = skill_panel.open_for_page(self.desktop, pet_bus.STAGES.index('keyframe'))
         self.addCleanup(other.winfo_toplevel().destroy)
         self.assertEqual(other.stage, 'keyframe')
-        self.assertEqual(other.winfo_toplevel().title(), '阶段配置 · 07 首帧管理')
+        self.assertEqual(other.winfo_toplevel().title(), '阶段配置 · 08 首帧管理')
         self.assertEqual(len([w for w in walk(other.winfo_toplevel())
                                if isinstance(w, skill_panel.Panel)]), 1, '一次只开一块面板')
 
@@ -1933,7 +1933,7 @@ class GeneratorTests(unittest.TestCase):
             self.assertEqual(code, 0, err)
             self.assertIn('已生成', out)
             self.assertTrue((Path(td) / 'self-check-skill.skill.md').is_file())
-            (Path(td) / '07首帧管理SKILL').mkdir()
+            (Path(td) / '08首帧管理SKILL').mkdir()
             reg = skill_registry.Registry(root=td)
             reg.scan(force=True)
             self.assertEqual(reg.problems(), [])
@@ -1953,7 +1953,7 @@ class GeneratorTests(unittest.TestCase):
                                  'asset.demo', '', 'scope', 'saved', '不落库', 'n', 'n', '']) + '\n'
             code, out, err = self.run_generator(['--dir', td], stdin=answers)
             self.assertEqual(code, 0, err)
-            (Path(td) / '04资产管理SKILL').mkdir()
+            (Path(td) / '05资产管理SKILL').mkdir()
             item = skill_registry.Registry(root=td).getById('demo-skill')
             self.assertEqual(item.displayName, '演示 SKILL')
             self.assertEqual(item.stage, 'assets')

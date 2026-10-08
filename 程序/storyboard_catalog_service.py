@@ -95,9 +95,11 @@ def has_synced_assets(path):
 def file_snapshot(context, ignored=IGNORED):
     """Return a cheap, safe catalog change signature without parsing document content."""
     from project_stages import writing, storyboard
+    from stage_path_service import read_dirs
     project = _context(context).root.resolve()
     roots = (writing(project).resolve(), storyboard(project).resolve(),
-             (project / 'writing').resolve(), (project / 'storyboard').resolve())
+             (project / 'writing').resolve(), (project / 'storyboard').resolve(),
+             *read_dirs(project, 'final'))
     rows = []
     for path, _resolved, stat in discover_files(
         tuple(dict.fromkeys(roots)), {'.md', '.txt', '.docx', '.json'}, ignored
@@ -226,8 +228,9 @@ def catalog(context, kind, ignored=IGNORED):
     from storyboard_paths import is_final_dir
     from writing import duration_gap
     project = _context(context).root.resolve()
+    from stage_path_service import read_dirs, write_dir
     current_roots = ((writing(project).resolve(), structure(project).resolve()) if kind == 'script'
-                     else (storyboard(project).resolve(), stage(project, 'final').resolve()))
+                     else (storyboard(project).resolve(), *read_dirs(project, 'final')))
     legacy_roots = ((project / 'writing').resolve(),) if kind == 'script' else ((project / 'storyboard').resolve(),)
     roots = tuple(dict.fromkeys((*current_roots, *legacy_roots)))
     suffixes = {'.md', '.txt', '.docx'} if kind == 'script' else {'.json'}
@@ -246,6 +249,10 @@ def catalog(context, kind, ignored=IGNORED):
         root = next((candidate for candidate in roots if resolved.is_relative_to(candidate)), None)
         if root is None:
             continue
+        if kind != 'script' and root in read_dirs(project, 'final')[1:]:
+            current = write_dir(project, 'final') / resolved.relative_to(root)
+            if current.is_file():
+                continue
         if not (kind == 'script' and current_structured is not None and resolved == current_structured) and not is_deliverable(path, kind):
             continue
         if kind == 'script' and _is_structured_name(path) and resolved != current_structured:

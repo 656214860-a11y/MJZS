@@ -85,7 +85,8 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
     """Generate and register one image per eligible asset without UI access."""
     from cloud_assets import LOCAL, MODELS, validate as validate_cloud, graph as cloud_graph, get_key
     from prop_assets import requires_asset
-    from stage_execution_service import asset_batch_gateway
+    from stage_execution_service import asset_batch_gateway, prepare_asset_write
+    base = prepare_asset_write(project, base)
     gateway = asset_batch_gateway()
     publish_ledger = gateway['publish_json']
     items = eligible_items(base, items, requires_asset)

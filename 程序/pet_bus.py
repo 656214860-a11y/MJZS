@@ -12,12 +12,12 @@ from pathlib import Path
 # 宽松读 JSON 只有 agent.core.read_json 一份实现，这里再导出一次：宠物各模块只 import pet_bus。
 from agent.core import read_json
 
-# 12 个制作阶段与页面序号一一对应（「参考网站」是工具页，不进状态机）。
+# 13 个制作阶段与页面序号一一对应（「参考网站」是工具页，不进状态机）。
 # 第 62 期任务 11：「连贯性清单」从资产页底部的折叠区升成独立的一步（资产管理之后、分镜定稿之前），
 # 页表、状态机、依赖图与三虎的进度面板都按这一份顺序走。
-STAGES = ('script', 'script_structure', 'storyboard', 'assets', 'continuity', 'final', 'keyframe', 'previs', 'video', 'audio',
+STAGES = ('script', 'script_structure', 'storyboard', 'animatic', 'assets', 'continuity', 'final', 'keyframe', 'previs', 'video', 'audio',
           'edit', 'delivery')
-STAGE_NAMES = {'script': '剧本准备', 'script_structure': '剧本结构', 'storyboard': '初步分镜', 'assets': '资产管理', 'continuity': '连贯性清单',
+STAGE_NAMES = {'script': '剧本准备', 'script_structure': '剧本结构', 'storyboard': '初步分镜', 'animatic': '分镜预演', 'assets': '资产管理', 'continuity': '连贯性清单',
                'final': '分镜定稿', 'keyframe': '首帧管理', 'previs': '白模预演', 'video': '视频生成',
                'audio': '配音与字幕', 'edit': '后期剪辑', 'delivery': '质检与交付'}
 

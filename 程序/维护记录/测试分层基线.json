@@ -1,27 +1,18 @@
 {
  "architecture": {
-  "elapsed_seconds": null,
-  "failed_modules": [],
-  "full_safe_elapsed_seconds": 416.6,
-  "measurement_scope": "included_in_full_safe",
+  "elapsed_seconds": 24.779,
+  "failed_modules": [
+   "architecture.test_agents_md",
+   "architecture.test_pipeline_stage_io_contract",
+   "architecture.test_round_baselines",
+   "architecture.test_service_return_contract",
+   "architecture.test_unification_ratchet"
+  ],
   "test_count": 309,
   "unit_count": 104,
-  "updated_at": "2026-10-08T04:47:24",
-  "verification": "R1122 master 9af286a; no separate architecture run"
+  "updated_at": "2026-10-08T06:32:52"
  },
  "full_safe_verified_trees": [
-  {
-   "at": "2026-10-04T19:14:30",
-   "round": 1034,
-   "seconds": 334.51,
-   "tree": "5113c0c2571b9cf256d4509cfff9a2f8f37f1f59"
-  },
-  {
-   "at": "2026-10-04T20:25:07",
-   "round": 1037,
-   "seconds": 399.665,
-   "tree": "caca7a682da36c5c6db7e5832fd92dc8ee11cedf"
-  },
   {
    "at": "2026-10-04T21:23:32",
    "round": 1040,
@@ -189,6 +180,18 @@
    "round": 1110,
    "seconds": 417.3,
    "tree": "95002f7ad27149c4b77398f5643bd6c1db69f0bc"
+  },
+  {
+   "at": "2026-10-08T03:49:34",
+   "round": 1115,
+   "seconds": 397.524,
+   "tree": "92d56dd4daa677db8553a9c939077cb4d53cf80a"
+  },
+  {
+   "at": "2026-10-08T04:46:42",
+   "round": 1122,
+   "seconds": 416.65,
+   "tree": "98d19542a1be1d9f602cefca533487d4c857f2c9"
   }
  ],
  "gui": {
@@ -213,7 +216,7 @@
   "updated_at": "2026-10-01T04:01:41"
  },
  "last_full_safe_all_at": "2026-10-03",
- "last_full_safe_all_round": 1110,
+ "last_full_safe_all_round": 1122,
  "service": {
   "elapsed_seconds": 24.89,
   "failed_modules": [],

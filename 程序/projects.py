@@ -381,7 +381,7 @@ class Projects:
         else:
             ep={'episode_id':'EP001','title':name,'shots':[{'id':'SH001','title':'待编写','duration':5,'characters':['CHAR_001'],'location':'LOC_001','frame':'frames/SH001.png','video_prompt':'待填写镜头画面、动作和对白','dialogue':[]}]}
         self._publish_json(story/'episode.json',ep);self._publish_json(base/'assets.json',assets or {})
-        cfg.update(episode_dir=str(story),episode_file=str(story/'episode.json'),asset_library_dir='04资产管理',live_enabled=False,budget_seconds=0,reserve_seconds=0,video_backend='comfy')
+        cfg.update(episode_dir=str(story),episode_file=str(story/'episode.json'),asset_library_dir='05资产管理',live_enabled=False,budget_seconds=0,reserve_seconds=0,video_backend='comfy')
         self._publish_json(dst/'config.json',cfg);self.organize(dst)
         self.info['projects'].append({'name':name,'path':str(dst),'created_at':datetime.now().timestamp()});self.info['active']=str(dst);self._publish_json(self.registry,self.info)
         return dst
