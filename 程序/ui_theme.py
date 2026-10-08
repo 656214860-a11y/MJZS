@@ -311,6 +311,15 @@ def install_window_placement(root):
 
         height=min(window.winfo_height(),bottom-top-48)
 
+        if parent and not window.overrideredirect():
+            window.transient(parent)
+            # 主窗口仅约束首次尺寸；之后由用户自由缩放，不沿用业务页的固定尺寸。
+            width=min(width,parent.winfo_width())
+            height=min(height,parent.winfo_height())
+            window.resizable(True,True)
+            window.minsize(1,1)
+            window.maxsize(window.winfo_vrootwidth(),window.winfo_vrootheight())
+
         if parent is None:
 
             window.state('normal')
@@ -325,7 +334,7 @@ def install_window_placement(root):
 
             y=parent.winfo_rooty()+(parent.winfo_height()-height)//2
 
-            window.transient(parent)
+            if window.overrideredirect():window.transient(parent)
 
         else:x=left+(right-left-width)//2;y=top+(bottom-top-height)//2
 
@@ -394,4 +403,3 @@ def install_window_placement(root):
     root.bind_all('<Map>',mapped,add='+')
 
     schedule_place(root)
-

@@ -1797,17 +1797,14 @@ def show(desktop, stage, function=None, launcher_button=None):
     stage = stage_for(stage)
     parent = getattr(desktop, 'win', None)
     window = BaseDialog(parent, panel_title(stage), modal=False, chrome=False)
-    # 第 29 期第 2 条：面板里多了「接口」与「SKILL 说明」两块，窗口要能放大、也有个下限，
-    # 说明文字才排得开（原先定死大小，MD 一长就被挤成一条）。
+    # 主窗口只约束初始尺寸，不作为用户后续缩放的上限或下限。
     window.resizable(True, True)
     if parent is not None:
         width, height, max_width, max_height = panel_window_size(parent)
         window.geometry('%dx%d' % (width, height))
-        window.maxsize(max_width, max_height)
-        window.minsize(min(560, max_width), min(420, max_height))
     else:
         window.geometry('880x720')
-        window.minsize(560, 420)
+    window.minsize(1, 1)
     body = ttk.Frame(window, padding=SPACING['md'])
     body.pack(fill='both', expand=True)
     head = ttk.Frame(body)

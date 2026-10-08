@@ -17,6 +17,27 @@ from ui_widgets import BaseDialog, ConfirmDialog, FormDialog, ask_confirmation
 
 
 class DialogWidgetTests(unittest.TestCase):
+    def test_initial_placement_fits_main_but_allows_later_resize(self):
+        import ui_theme
+        ui_theme.install_window_placement(self.root)
+        self.root.deiconify()
+        self.root.update()
+        self.root.geometry('640x480+0+0')
+        self.root.update()
+        dialog = BaseDialog(self.root, '尺寸测试', geometry='1000x800',
+                            minsize=(900, 700), modal=False)
+        dialog.resizable(False, False)
+        dialog.maxsize(900, 700)
+        self.root.update()
+        self.assertLessEqual(dialog.winfo_width(), self.root.winfo_width())
+        self.assertLessEqual(dialog.winfo_height(), self.root.winfo_height())
+        self.assertEqual(tuple(map(bool, dialog.resizable())), (True, True))
+        for width, height in ((800, 600), (320, 240)):
+            dialog.geometry(f'{width}x{height}')
+            self.root.update()
+            self.assertEqual((dialog.winfo_width(), dialog.winfo_height()), (width, height))
+        dialog.close()
+
     def setUp(self):
         try:
             self.root = tk.Tk()

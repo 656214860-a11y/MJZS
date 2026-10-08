@@ -1755,6 +1755,7 @@ class PanelTests(unittest.TestCase):
                                if isinstance(w, skill_panel.Panel)]), 1, '一次只开一块面板')
 
     def test_stage_config_window_is_smaller_than_its_main_window(self):
+        self.win.deiconify()
         self.win.geometry('1200x800+0+0')
         self.win.update_idletasks()
         panel = skill_panel.open_for_page(self.desktop, 0)
@@ -1763,8 +1764,13 @@ class PanelTests(unittest.TestCase):
         window.update_idletasks()
         self.assertLess(window.winfo_width(), self.win.winfo_width())
         self.assertLess(window.winfo_height(), self.win.winfo_height())
-        self.assertEqual(window.maxsize(), (self.win.winfo_width() - 2 * skill_panel.SPACING['xl'],
-                                            self.win.winfo_height() - 2 * skill_panel.SPACING['xl']))
+        self.assertTrue(all(window.resizable()))
+        window.geometry('1250x850')
+        window.update_idletasks()
+        self.assertEqual((window.winfo_width(), window.winfo_height()), (1250, 850))
+        window.geometry('400x300')
+        window.update_idletasks()
+        self.assertEqual((window.winfo_width(), window.winfo_height()), (400, 300))
 
     def test_the_report_splits_done_from_needs_the_page(self):
         """第 30 期第 7 条：两个都「得回页面按」时，不再报「成了 2 个」。"""
