@@ -249,7 +249,7 @@ class InlineBriefDesktopTests(_Harness):
                 send.assert_called_once()
 
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
-    def test_uploaded_fields_visibly_fill_input_and_preserve_example(self, _local):
+    def test_upload_preserves_input_and_uses_attachment_fields_on_send(self, _local):
         from stage_execution_service import archive_idea_attachments
         with tempfile.TemporaryDirectory() as td:
             root = make_minimal_project(td)
@@ -266,9 +266,8 @@ class InlineBriefDesktopTests(_Harness):
             token = object(); controller._attachment_token = token
             controller._attachment_results.put((token, True, {'paths': paths, 'names': ['材料.txt']}))
             d.poll_idea_attachment_preparation()
-            self.assertTrue(d.draft_text().startswith('保留这条追问\n'))
-            self.assertEqual(idea_chat.extract_brief_creation(d.draft_text())['故事梗概'], VALUES['故事梗概'])
-            self.assertEqual(idea_chat.extract_brief_creation(d.draft_text())['故事题材'], '手填题材')
+            self.assertEqual(d.draft_text(), '保留这条追问\n故事题材：手填题材')
+            self.assertEqual(tuple(d.idea_attachment_paths), tuple(str(p) for p in paths))
             self.assertEqual(d.idea_log.get('1.0', 'end-1c'), before)
             self.assertFalse(injected_chat.brief_raw_path(root).exists())
             with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \

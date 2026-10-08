@@ -1046,10 +1046,6 @@ class Desktop:
             self.status.set('创意文件未入库：'+str(result['value']))
             return
         prepared=result['value']
-        if prepared.get('paths'):
-            from stage_execution_service import stage_idea_attachment_reference, stage_idea_brief_defaults
-            reference = stage_idea_attachment_reference(self.root, self.draft_text(), self.idea_attachment_paths)
-            self.fill_idea_brief(stage_idea_brief_defaults(self.root, reference=reference)['values'])
         self.update_idea_attachment_status()
         self.status.set('已入库 %d 份创意文件；发送时读取附档，下方发送框可补充创作信息。' % len(prepared['names']))
     def insert_idea_reference(self, path):
