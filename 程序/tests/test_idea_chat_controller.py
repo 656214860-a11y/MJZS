@@ -15,6 +15,38 @@ from idea_chat_controller import IdeaChatController
 
 
 class IdeaChatControllerTests(unittest.TestCase):
+    def test_cancelled_request_can_delete_upload_after_mode_switch(self):
+        from idea_attachments import archive_pair
+        from stage_execution_service import archive_idea_attachments, stage_idea_attachment_paths
+        from storage_maintenance import restore_latest_recycled_path
+        for local_mode in (True, False):
+            with self.subTest(local_mode=local_mode), tempfile.TemporaryDirectory() as td, \
+                 patch('stage_execution_service.idea_attachment_local_mode', return_value=local_mode) as mode:
+                root = Path(td)
+                source = root / '人物.txt'
+                source.write_text('保留原始人物设定', encoding='utf-8')
+                selected = archive_idea_attachments(root, (source,))[0]
+                pair = archive_pair(selected)
+                other = archive_idea_attachments(root, (source,))[0]
+                controller = IdeaChatController()
+                controller.replace_attachments(pair + (other,), tuple((p.name, 8) for p in pair + (other,)))
+                self.assertIn(selected, stage_idea_attachment_paths(root))
+                token, cancelled = controller.begin_request(cancellable=True)
+                controller.cancel_request()
+                mode.return_value = not local_mode
+                self.assertNotIn(selected, stage_idea_attachment_paths(root))
+                controller.delete_attachment(root, selected)
+                self.assertTrue(cancelled.is_set())
+                self.assertFalse(controller.finish_request(token))
+                self.assertTrue(source.is_file())
+                self.assertTrue(all(p.is_file() for p in archive_pair(other)))
+                self.assertEqual(controller.attachment_paths, (str(other),))
+                self.assertEqual(controller.attachment_details, ((other.name, 8),))
+                for path in pair:
+                    self.assertFalse(path.exists())
+                    restore_latest_recycled_path(root, path)
+                    self.assertIn('保留原始人物设定', path.read_text(encoding='utf-8'))
+
     def test_deleted_upload_is_recoverable_and_no_longer_referenced(self):
         from stage_execution_service import archive_idea_attachments, stage_idea_attachment_reference
         from storage_maintenance import restore_latest_recycled_path
