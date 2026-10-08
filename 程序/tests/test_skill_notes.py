@@ -56,7 +56,7 @@ class SkillNotesTests(unittest.TestCase):
         source = (skill_notes.PROGRAM / 'skills' / '01 剧本准备SKILL' /
                   'pipeline-script-preparation.skill.md')
         original = source.read_bytes()
-        skill = SimpleNamespace(path=source, displayName='全流程·剧本准备',
+        skill = SimpleNamespace(path=source, displayName='全流程AIGC·剧本',
                                 name='pipeline-script-preparation')
         panel = SimpleNamespace(note_text=Mock(), desktop=SimpleNamespace(app=None),
                                 current_note=lambda: ('registered', skill),
@@ -66,7 +66,7 @@ class SkillNotesTests(unittest.TestCase):
             shown = skill_panel.Panel.show_note(panel)
         panel.render_note.assert_called_once_with(shown)
         panel.translate_note.assert_not_called()
-        self.assertIn('名称：全流程·剧本准备', shown)
+        self.assertIn('名称：全流程AIGC·剧本', shown)
         self.assertIn('简介：锁定创作前提', shown)
         self.assertIn('## 阶段职责', shown)
         for literal in ('name:', 'displayName:', 'description:', 'capabilities:',

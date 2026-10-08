@@ -1519,16 +1519,17 @@ class PanelTests(unittest.TestCase):
             self.assertEqual(int(widget.grid_info()['column']), index % 3)
             self.assertLessEqual(widget.winfo_x() + widget.winfo_width(), panel.flow_skill_row.winfo_width())
 
-    def test_stage_panel_skill_display_only_keeps_chinese(self):
+    def test_stage_panel_skill_display_keeps_chinese_and_aigc_name(self):
+        self.assertEqual(skill_panel.chinese_skill_display('全流程AIGC·剧本'), '全流程AIGC·剧本')
         self.assertEqual(skill_panel.chinese_skill_display('Drama 分镜'), '分镜')
         self.assertEqual(skill_panel.chinese_skill_display('TTS 配音合成'), '配音合成')
         self.assertEqual(skill_panel.chinese_skill_display('我的分镜/SKILL.md'), '我的分镜')
         self.assertEqual(skill_panel.chinese_skill_display('【我的-分镜】 01'), '我的分镜')
         self.assertEqual(skill_panel.chinese_skill_display('custom-skill'), '自定义技能')
         self.assertEqual(skill_panel.skill_checkbox_label('D:/任意/目录/【我的-分镜】.skill.md'), '我的分镜')
-        skill = type('Skill', (), {'displayName': '全流程剧本准备', 'name': 'pipeline-script-preparation',
+        skill = type('Skill', (), {'displayName': '全流程AIGC·剧本', 'name': 'pipeline-script-preparation',
                                    'path': 'D:/skills/01/SKILL.md'})()
-        self.assertEqual(skill_panel.registered_skill_checkbox_label(skill), '全流程剧本准备')
+        self.assertEqual(skill_panel.registered_skill_checkbox_label(skill), '全流程AIGC·剧本')
 
     def test_note_selection_focuses_the_matching_skill_checkbox(self):
         """点击左侧说明目录时，对应顶部勾选框成为焦点。"""

@@ -193,8 +193,8 @@ def flow_skill_display(skill):
 
 
 def chinese_skill_display(label):
-    """阶段配置面板只向用户显示中文名称，不泄露路径或装饰符号。"""
-    text = ''.join(char for char in str(label or '') if '\u4e00' <= char <= '\u9fff')
+    """显示中文名称，保留 AIGC 缩写与中点分隔符，过滤路径等装饰。"""
+    text = ''.join(re.findall(r'AIGC|[\u4e00-\u9fff·]', str(label or '')))
     return text or '自定义技能'
 
 

@@ -1,6 +1,6 @@
 ---
 name: pipeline-script-preparation
-displayName: 全流程·剧本准备
+displayName: 全流程AIGC·剧本
 description: 锁定创作前提并产出可供结构化处理的自然剧本与创意简报
 stage: 剧本准备
 capabilities: [creative-writing, structured-output, reasoning]
