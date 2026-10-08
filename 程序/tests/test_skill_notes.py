@@ -185,9 +185,12 @@ class SkillNotesTests(unittest.TestCase):
                                     stage='script', state=Mock(), skill_content=Mock(),
                                     build_flow_skill=Mock(), load=Mock(), refresh_notes=Mock())
             panel.skill_content.winfo_children.return_value = []
-            with patch.object(skill_panel, 'FileDialog') as dialog:
+            with patch.object(skill_panel, 'FileDialog') as dialog, \
+                    patch.object(skill_panel, 'confirm', return_value=True) as confirm:
                 dialog.return_value.open_file.return_value = str(source)
                 target = skill_panel.Panel.add_skill_from_file(panel)
+            confirm.assert_called_once()
+            self.assertIn('未找到可显示的技能名称', confirm.call_args.args[2])
             self.assertEqual(target, target_dir / 'package' / 'SKILL.md')
             self.assertEqual(target.read_text(encoding='utf-8'), source.read_text(encoding='utf-8'))
             registry.scan.assert_called_once_with(force=True)

@@ -954,18 +954,11 @@ class Panel(ttk.Frame):
             self.flow_skill_row.pack(fill='x')
 
         for item in self.skills:
+            var = tk.BooleanVar(value=True)
+            self.vars[item.name] = var
             # 每个包里的入口通常都叫 SKILL.md；从路径取名会把所有项降级为
             # 「自定义技能」。注册表 displayName 才是已解析的用户可见名称。
             shown = registered_skill_checkbox_label(item)
-            # 外部包只支持安装到桌面端，不参与阶段编排或勾选配置。
-            if item.meta.get(skill_registry.IMPORTED_PACKAGE_FLAG):
-                text = shown + '（仅支持安装到桌面端）'
-                label = HintLabel(self.flow_skill_row, text=text)
-                label._skill_full_name = text
-                self.add_skill_control(label)
-                continue
-            var = tk.BooleanVar(value=True)
-            self.vars[item.name] = var
             box = ttk.Checkbutton(self.flow_skill_row, text=shown, width=28,
                                   variable=var, command=self.save_and_refresh_notes)
             box._skill_full_name = shown
@@ -1057,9 +1050,35 @@ class Panel(ttk.Frame):
         if target_dir is None:
             self.state.configure(text='新增 SKILL 失败：未找到本阶段注册目录')
             return None
+        external_package = Path(source).name.casefold() == 'skill.md'
         target = target_dir / Path(source).name
-        if Path(source).name.casefold() == 'skill.md':
+        if external_package:
             target = target_dir / Path(source).parent.name / 'SKILL.md'
+        try:
+            raw = Path(source).read_text(encoding='utf-8-sig')
+        except (OSError, UnicodeError) as exc:
+            self.state.configure(text='新增 SKILL 失败：读不出源文件（%s）' % exc)
+            return None
+        meta, body = skill_registry.parse(raw, source=str(source))
+        problems = []
+        if external_package:
+            # 外部包由注册表补默认元数据，只检查可显示名称。
+            if not (str(meta.get('displayName') or '').strip() or skill_registry.markdown_heading(body)):
+                problems.append('未找到可显示的技能名称')
+        else:
+            skill = skill_registry.Skill(meta, body, path=Path(source))
+            known = {item.name for item in self.registry.getAll()}
+            problems.extend(skill_registry.validate_skill(skill, known=known))
+        declared = skill_registry.stage_id(meta.get('stage', ''))
+        if declared and declared != self.stage:
+            problems.append('frontmatter 声明阶段「%s」与本阶段不一致' % declared)
+        if target.exists():
+            problems.append('目标 %s 已存在，继续将覆盖' % target.name)
+        if problems:
+            message = ('导入前发现以下问题：\n\n' + '\n'.join('· ' + p for p in problems)
+                       + '\n\n仍要导入吗？')
+            if not confirm(self.winfo_toplevel(), TITLE, message, dangerous=True):
+                return None
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
@@ -1452,13 +1471,6 @@ class Panel(ttk.Frame):
             entry = self.entry()
         except Exception:
             return None
-        imported = {item.name for item in self.skills
-                    if item.meta.get(skill_registry.IMPORTED_PACKAGE_FLAG)}
-        skills = list(entry.get('skills') or [])
-        if imported.intersection(skills):
-            entry = stage_config.put(self.project(), self.stage,
-                                     skills=[name for name in skills if name not in imported],
-                                     registry=self.registry)
         kept = self.drop_mismatched(entry.get('model') or model_router.AUTO, entry.get('skills'))
         self.set_model(kept or model_router.AUTO)
         if self.stage in stage_config.HOLLMWOOD_STAGES:

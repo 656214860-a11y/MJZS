@@ -197,7 +197,7 @@ def parse(text, source=''):
             break
     if end is None:
         return {}, ''
-    meta, entries, block, pending = {}, [], None, None
+    meta, entries, block, pending, fold = {}, [], None, None, ' '
     for line in lines[1:end]:
         if not line.strip() or line.lstrip().startswith('#'):
             continue
@@ -208,9 +208,14 @@ def parse(text, source=''):
                 continue
             key, value = pair
             items = inline_list(value)
-            if value == '':
+            # 与 skill_notes.reading_text 识别同一组块标量指示符，避免简介丢失。
+            if value in ('>', '>-', '>+', '|', '|-', '|+'):
+                block, pending, fold = str, '', ('\n' if value.startswith('|') else ' ')
+                meta[key] = pending
+            elif value == '':
                 block = list if key in LIST_FIELDS or key == 'feedback' else str
                 pending = [] if block is list else ''
+                fold = ' '
                 meta[key] = pending
             elif items is not None:
                 meta[key] = items
@@ -237,7 +242,7 @@ def parse(text, source=''):
                     pending[-1][pair[0]] = scalar(pair[1])
                     continue
             continue
-        pending = (str(pending) + ' ' + line.strip()).strip()
+        pending = (str(pending) + fold + line.strip()).strip()
         meta[entries[-1]] = pending
     body = '\n'.join(lines[end + 1:]).strip()
     return meta, body

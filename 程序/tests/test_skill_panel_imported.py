@@ -1,4 +1,4 @@
-"""外部 SKILL 包只读展示与旧阶段选择回写。"""
+"""外部 SKILL 包可勾选且保留阶段选择。"""
 import tkinter as tk
 import unittest
 from unittest import mock
@@ -7,7 +7,6 @@ import skill_panel
 import skill_registry
 import stage_config
 import test_skills
-from ui_widgets import HintLabel
 
 
 class ImportedPackagePanelTests(unittest.TestCase):
@@ -33,29 +32,23 @@ class ImportedPackagePanelTests(unittest.TestCase):
         self.addCleanup(panel.destroy)
         return panel, imported
 
-    def test_imported_package_is_readonly_and_never_selected_or_saved(self):
+    def test_imported_package_can_be_selected_and_saved(self):
         panel, imported = self.make_panel()
-        self.assertNotIn(imported.name, panel.vars)
-        self.assertNotIn(imported.name, panel.registered_boxes)
-        expected = skill_panel.registered_skill_checkbox_label(imported) + '（仅支持安装到桌面端）'
-        labels = [w for w in panel.skill_controls if isinstance(w, HintLabel)]
-        self.assertEqual([str(w.cget('text')) for w in labels], [expected])
-        self.assertEqual(labels[0]._skill_full_name, expected)
-        self.assertEqual(labels[0].winfo_manager(), 'grid')
-        self.assertEqual(panel.check_all_skills(True), ['ordinary-skill'])
-        self.assertEqual([item.name for item in panel.selected_skill_items()], ['ordinary-skill'])
-        self.assertEqual(stage_config.get(self.desktop.root, 'script', registry=panel.registry)['skills'],
-                         ['ordinary-skill'])
+        self.assertIn(imported.name, panel.vars)
+        self.assertIn(imported.name, panel.registered_boxes)
+        box = panel.registered_boxes[imported.name]
+        self.assertEqual(str(box.cget('text')), skill_panel.registered_skill_checkbox_label(imported))
+        self.assertEqual(box.winfo_manager(), 'grid')
+        expected = {'ordinary-skill', imported.name}
+        self.assertEqual(set(panel.check_all_skills(True)), expected)
+        self.assertEqual({item.name for item in panel.selected_skill_items()}, expected)
+        self.assertEqual(set(stage_config.get(self.desktop.root, 'script', registry=panel.registry)['skills']), expected)
         self.assertEqual(panel.check_all_skills(False), [])
-        with mock.patch.object(skill_panel, 'confirm') as confirm, mock.patch.object(skill_panel, 'notify'):
-            panel.delete_checked_skills()
-            confirm.assert_not_called()
-        self.assertTrue(imported.path.is_file())
 
-    def test_load_removes_old_imported_selection_without_changing_other_settings(self):
+    def test_load_preserves_imported_selection_and_other_settings(self):
         panel, imported = self.make_panel(existing=True)
         entry = stage_config.get(self.desktop.root, 'script', registry=panel.registry)
-        self.assertEqual(entry['skills'], ['ordinary-skill'])
+        self.assertEqual(set(entry['skills']), {'ordinary-skill', imported.name})
         self.assertEqual(entry['model'], 'qwen-max')
         self.assertFalse(entry[stage_config.HOLLMWOOD_ENABLED])
-        self.assertNotIn(imported.name, panel.selected())
+        self.assertIn(imported.name, panel.selected())
