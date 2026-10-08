@@ -198,6 +198,10 @@ class RolesTests(unittest.TestCase):
 
     def test_contract_reference_points_to_project_template(self):
         self.assertEqual(roles.RHYTHM_TEMPLATE_PATH, 'skills/templates/rhythm_template.yaml')
+        lines = [line for line in roles.load_rhythm_template().splitlines()
+                 if line.strip() and not line.lstrip().startswith('#')]
+        self.assertEqual(lines, ['name: 漫剧节奏指令', 'template_id: "rhythm"',
+                                 'version: 1', 'rules: {}', 'constraints: {}'])
 
     def test_cancel_stops_after_the_active_request_before_next_role(self):
         events = []

@@ -34,6 +34,16 @@ class HollmwoodAgentDeliveryTests(unittest.TestCase):
             self.assertEqual(prompt.count('单窗口四阶段协作'), 1)
             for role in ('导演规划', '编剧初稿', '编辑改写', '演员润色'):
                 self.assertIn(role, prompt)
+            for text in ('节奏尺度按所选 SKILL', '对白字数按所选 SKILL',
+                         '单集时长以简报的“单集时间”字段为准', 'APPROVED', 'REVISE:'):
+                self.assertIn(text, prompt)
+            for text in ('黄金 3 秒', '20 个汉字', '单句 20 字', '60–90',
+                         'golden_three_seconds', 'conflict_escalation',
+                         'scene_emotional_turn', 'ending_cliffhanger',
+                         'dialogue_line_max_chars', 'episode_duration_seconds',
+                         'Gate 1~2', 'Gate 3~5', '空泛情绪形容词'):
+                self.assertNotIn(text, prompt)
+            self.assertEqual(prompt.count('禁止结构化剧本'), 1)
 
     def test_disabled_cancels_prior_collaboration_on_both_paths(self):
         for prompt in self.prompts(self.configure(False)):

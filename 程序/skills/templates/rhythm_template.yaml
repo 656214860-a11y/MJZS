@@ -1,21 +1,6 @@
 name: 漫剧节奏指令
 template_id: "rhythm"
 version: 1
-constraints:
-  episode_duration_seconds:
-    min: 60
-    max: 90
-  dialogue_line_max_chars: 20
-rules:
-  golden_three_seconds:
-    name: 黄金3秒
-    requirement: "开场 3 秒内给出异常、冲突、悬念或明确目标，避免背景说明开场。"
-  conflict_escalation:
-    name: 冲突升级
-    requirement: "每集至少推进一个压力节点；人物目标、阻碍或代价必须比开场更强。"
-  scene_emotional_turn:
-    name: 场景情绪转折
-    requirement: "每个场景标注起始情绪、转折触发事件与结束情绪，转折必须可由画面或动作表现。"
-  ending_cliffhanger:
-    name: 结尾卡点
-    requirement: "结尾保留未解问题、反转、威胁或关键决定，驱动下一集继续观看。"
+# 节奏与对白规则引用所选 SKILL；单集时长以 brief 的“单集时间”字段为准。
+rules: {}
+constraints: {}

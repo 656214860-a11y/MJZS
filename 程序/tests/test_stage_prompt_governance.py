@@ -127,8 +127,8 @@ class StagePromptGovernanceTests(unittest.TestCase):
             self.assertNotIn('独有的技能正文。', prompt)
             self.assertNotIn('已完整注入', prompt)
             self.assertIn('四阶段协作', prompt)
-            self.assertIn('Gate 1~2', prompt)
-            self.assertIn('Gate 3~5', prompt)
+            self.assertIn('依据已确认简报与所选 SKILL，输出本集节奏指令', prompt)
+            self.assertIn('依据导演指令与所选 SKILL，写一集完整自然语言剧本', prompt)
             self.assertIn('制作锁：delivery_format=markdown', prompt)
             for unwanted in ('ComfyUI', 'Blender', '制作锁：aspect_ratio=', '制作锁：video_model_version='):
                 self.assertNotIn(unwanted, prompt)
