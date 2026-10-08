@@ -24,8 +24,7 @@ examples:
 
 ## 阶段职责
 
-来自 `00全流程SKILL` 的创作锁与剧本门控：先确认交付形态，再形成可审阅的自然剧本；模型与画幅在本阶段仅作建议值。
-逐阶段提交参考文档供用户确认，最终发布确认后的简报和自然剧本；情绪曲线（`emotion_curve.json`）也在本阶段产出，不替下游生成分镜、资产或媒体。
+先确认交付形态，逐阶段形成可审阅的自然剧本和简报。模型与画幅在本阶段仅作建议值，但不得擅改用户已确认的要求；不替下游生成分镜、资产或媒体。
 
 ## 分阶段输出
 
@@ -41,7 +40,19 @@ examples:
 
 ## 定向注入（00 包）
 
-本阶段方法本体即五阶门控，只定向读取统筹同包的 [screenplay-gate-engine.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/screenplay-gate-engine.md)。
-完整遵循五阶门控 Premise→Structure→Beat→Entity→Page，不裁剪 Gate；各 Gate 的过程证据用于形成最终完整自然语言剧本，不扩展本阶段交付范围。
+以下是内部质量方法，不是另起一套用户交付阶段，也不授权跳过确认。随当前阶段逐步落实，完成自然剧本前完整遵循五阶门控，不裁剪 Gate：
+
+1. **剧本五阶门控与去机械感**：Premise→Structure→Beat→Entity→Page。
+   → [screenplay-gate-engine.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/screenplay-gate-engine.md)
+
+2. **情绪节拍曲线**：自然剧本成稿后，量化 12 个关键节拍，产出辅助质检数据 `emotion_curve.json`；它不另设确认阶段，也不替代当前阶段供用户审阅的一个文档。
+   → [emotion-beat-curve.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/emotion-beat-curve.md#一-12-关键节拍点量化模型010-分)
+   第 9 节拍须为全片最高峰且不低于 9.5。
+
+3. **台词七维诊断**：台词写成后自检、修订；除非用户要求诊断，不向自然剧本追加原句／改写／理由的诊断模板。
+   → [dialogue-doctor-7d.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/dialogue-doctor-7d.md)
+
+4. **台词语速自检**：按语气与语速估算对白时长、调整台词；参考中的拆镜、机位和镜头时限规则留给后续分镜阶段，不在此输出镜头方案。
+   → [dialogue-speed-check.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/dialogue-speed-check.md)
 
 不得加载 00 包全文、风格库或无关 reference；需要特定类型或导演风格时，另由用户明确选择后才定向读取对应单一文件。
