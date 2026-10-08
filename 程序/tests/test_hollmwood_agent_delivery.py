@@ -61,10 +61,11 @@ class HollmwoodAgentDeliveryTests(unittest.TestCase):
         config = self.configure()
         self.assertNotIn('HOLLMWOOD', prompt_with_settings('分镜任务', config, stage='storyboard'))
 
-    def test_api_task_body_keeps_existing_default_rules(self):
+    def test_api_task_body_excludes_disabled_collaboration(self):
         self.configure(False)
         prompt = script_prompt(self.project, None, 'writing', creative_text='素材')
-        self.assertIn('单窗口四阶段协作', prompt)
+        self.assertNotIn('单窗口四阶段协作', prompt)
+        self.assertNotIn('节奏模板', prompt)
         self.assertNotIn('HOLLMWOOD 四角色协作：未启用', prompt)
 
     def test_codex_visible_summary_and_file_contain_current_settings(self):

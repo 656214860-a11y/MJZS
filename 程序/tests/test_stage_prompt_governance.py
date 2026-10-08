@@ -72,6 +72,7 @@ class StagePromptGovernanceTests(unittest.TestCase):
             path.write_text('---\nname: chosen\n---\n独有的技能正文。', encoding='utf-8')
             config = {'engine': 'codex', 'stage': 'writing', 'stage_skills': [str(path)],
                       'skills': [str(path)], 'skill': str(path),
+                      'hollmwood': {'enabled': True, 'rhythm': '测试节奏', 'roles': {}},
                       'workflow_lock': {'aspect_ratio': '9:16', 'video_model_version': 'Seedance', 'delivery_format': 'markdown'}}
             prompt = workflow_engines.prompt_with_settings(script_prompt(td, None, 'writing'), config)
             self.assertEqual(prompt.count(f'请使用 [$chosen]({path.as_posix()})'), 1)
