@@ -14,7 +14,7 @@ from stage_execution_service import (archive_idea_attachments, idea_chat_gateway
 @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
 class AttachmentBriefTests(unittest.TestCase):
     def test_local_converted_body_fills_brief_but_never_submission_or_raw(self, _mode):
-        body = '故事梗概：旧照片显影未来。\n故事角色：摄影师阿青\n故事题材：悬疑\n故事集数：12集'
+        body = '故事梗概：旧照片显影未来。\n故事角色：摄影师阿青\n故事题材：悬疑\n故事集数：12集\n交付形态：markdown'
         with tempfile.TemporaryDirectory() as td:
             source = Path(td) / '创意.txt'
             source.write_text(body, encoding='utf-8')

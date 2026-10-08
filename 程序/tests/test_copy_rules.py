@@ -294,7 +294,7 @@ class PetVoiceTests(unittest.TestCase):
 
 # 第 68 期任务 10：界面文案一律第二人称「您」。下面这三个文件是「写给模型／Agent 的提示词」，
 # 里面的「你」指的是模型自己，不是用户，所以只在它们身上放行；以后再加这类提示词，把文件补进来。
-PROMPT_FILES = ("pet_llm.py", "continuity_ledger.py", "workflow_tasks.py", "hollmwood_roles.py",
+PROMPT_FILES = ("pet_llm.py", "continuity_ledger.py", "workflow_tasks.py", "hollmwood_roles.py", "hollmwood_rules.py",
                 "skills/00全流程SKILL/AIGC创作全流程/short-drama-director/scripts/validate_prompt.py")
 
 

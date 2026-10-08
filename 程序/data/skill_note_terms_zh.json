@@ -145,5 +145,7 @@
   "seed": "随机种子",
   "stderr": "标准错误输出",
   "adapter": "适配器",
-  "Season Two": "第二季"
+  "Season Two": "第二季",
+  "Premise→Structure→Beat→Entity→Page": "前提→结构→节拍→实体→剧本页",
+  "Gate": "门控"
 }

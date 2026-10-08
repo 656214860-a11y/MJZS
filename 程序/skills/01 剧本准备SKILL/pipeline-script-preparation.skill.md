@@ -13,7 +13,7 @@ parallelizable: false
 paid: false
 input: [creativeBrief, modelLock, aspectRatio]
 output: [scriptRaw, creativeBrief, emotionCurve]
-constraints: [确认模型与画幅前不启动, 不覆盖已确认剧本, 产物通过剧本契约]
+constraints: [确认交付形态前不启动, 不覆盖已确认剧本, 产物通过剧本契约]
 feedback:
   - onProgress: 更新剧本准备进度
   - onError: 说明缺失前置输入或契约失败
