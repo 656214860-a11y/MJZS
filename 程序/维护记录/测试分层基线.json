@@ -1,36 +1,12 @@
 {
  "architecture": {
-  "elapsed_seconds": 24.779,
-  "failed_modules": [
-   "architecture.test_agents_md",
-   "architecture.test_pipeline_stage_io_contract",
-   "architecture.test_round_baselines",
-   "architecture.test_service_return_contract",
-   "architecture.test_unification_ratchet"
-  ],
-  "test_count": 309,
+  "elapsed_seconds": 29.982,
+  "failed_modules": [],
+  "test_count": 310,
   "unit_count": 104,
-  "updated_at": "2026-10-08T06:32:52"
+  "updated_at": "2026-10-08T16:47:50"
  },
  "full_safe_verified_trees": [
-  {
-   "at": "2026-10-04T21:23:32",
-   "round": 1040,
-   "seconds": 375.716,
-   "tree": "c902058eca8062872392f66fd4e8223dbf8f399d"
-  },
-  {
-   "at": "2026-10-04T22:38:39",
-   "round": 1043,
-   "seconds": 350.776,
-   "tree": "52ed4b62628064d6437c27c98000504ac9c064af"
-  },
-  {
-   "at": "2026-10-04T23:21:03",
-   "round": 1046,
-   "seconds": 374.583,
-   "tree": "f5d2d3210427d0d3d62fa396c2fd833772bcc0d7"
-  },
   {
    "at": "2026-10-05T00:18:38",
    "round": 1049,
@@ -192,6 +168,24 @@
    "round": 1122,
    "seconds": 416.65,
    "tree": "98d19542a1be1d9f602cefca533487d4c857f2c9"
+  },
+  {
+   "at": "2026-10-08T08:09:31",
+   "round": 1127,
+   "seconds": 444.522,
+   "tree": "f779114fa9a3d5429bffecbfc653814af11ae82d"
+  },
+  {
+   "at": "2026-10-08T09:15:03",
+   "round": 1134,
+   "seconds": 437.628,
+   "tree": "a21c2baaaf8db6b3c924a047cc34c8e7b5eee209"
+  },
+  {
+   "at": "2026-10-08T16:14:45",
+   "round": 1140,
+   "seconds": 501.415,
+   "tree": "2b6e3b0819dda6756f30edb9c0a9dbdbb22118c2"
   }
  ],
  "gui": {
@@ -216,7 +210,7 @@
   "updated_at": "2026-10-01T04:01:41"
  },
  "last_full_safe_all_at": "2026-10-03",
- "last_full_safe_all_round": 1122,
+ "last_full_safe_all_round": 1140,
  "service": {
   "elapsed_seconds": 24.89,
   "failed_modules": [],

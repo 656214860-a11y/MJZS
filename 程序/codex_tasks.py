@@ -95,7 +95,7 @@ def task_lock(project):
         finally:
             f.seek(0);unlock()
 
-def prepare_task(project,title,stage,prompt,rpc_factory=RPC,followup=None,setup_key=None):
+def prepare_task(project,title,stage,prompt,rpc_factory=RPC,followup=None,setup_key=None,*,delivery_summary=''):
     from urllib.parse import urlencode,quote
     prompt=ensure_request_context(prompt, stage)
     project=Path(project).resolve();file=project/'codex_tasks.json'
@@ -136,6 +136,8 @@ def prepare_task(project,title,stage,prompt,rpc_factory=RPC,followup=None,setup_
         signature=__import__('hashlib').sha256(prompt.encode('utf-8')).hexdigest()[:20]
         taskfile=taskdir/(signature+'.md')
         delivery=f'请将当前任务命名为“{title}”。请完整读取并执行本次任务文件：{taskfile}。仅执行该文件指定的任务，沿用已有成果，不重复制作。'
+        if delivery_summary:
+            delivery = delivery_summary + '\n' + delivery
         if mode=='new':
             draft=delivery
             url='codex://new?'+urlencode({'path':str(project),'prompt':draft},quote_via=quote)

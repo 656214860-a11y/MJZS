@@ -403,6 +403,13 @@ def current(project,stage='previs'):
     locks = stage_config.workflow_lock(project)
     if locks:
         profile['workflow_lock'] = locks
+    if stage == 'writing':
+        rhythm, _ = stage_config.hollmwood_rules(project, 'script')
+        profile['hollmwood'] = {
+            'enabled': stage_config.hollmwood_enabled(project, 'script'),
+            'rhythm': rhythm,
+            'roles': stage_config.hollmwood_role_rules(project, 'script'),
+        }
     name = str(workflow.get('name') or '').strip()
     preset = WORKFLOW_PRESETS.get(name, {})
     if preset:
@@ -416,6 +423,36 @@ def current(project,stage='previs'):
     except Exception:
         profile['stage_skills'] = []
     return {'engine':engine, 'stage':stage, **profile}
+
+
+def hollmwood_summary(config, stage=None):
+    """来自本次配置快照的可见摘要，不读取或暴露创作正文。"""
+    stage = stage if stage is not None else config.get('stage')
+    if stage != 'writing' or 'hollmwood' not in config:
+        return ''
+    if config['hollmwood']['enabled']:
+        return 'HOLLMWOOD 四角色协作：已启用（导演→编剧→编辑→演员）'
+    return 'HOLLMWOOD 四角色协作：未启用；以本次设置为准，不沿用历史四角色规则。'
+
+
+def hollmwood_prompt(config, stage=None):
+    """首次与续发同源，内置规则和项目覆盖的优先级与 API 四角色一致。"""
+    summary = hollmwood_summary(config, stage)
+    if not summary:
+        return ''
+    settings = config['hollmwood']
+    if not settings['enabled']:
+        return summary + '\n'
+    from hollmwood_rules import SINGLE_WINDOW_COLLABORATION
+    from script_contract import RHYTHM_TEMPLATE_PATH
+    rhythm = settings['rhythm'] or (Path(__file__).parent / RHYTHM_TEMPLATE_PATH).read_text(encoding='utf-8-sig')
+    parts = [summary, SINGLE_WINDOW_COLLABORATION, '节奏模板：\n' + rhythm]
+    for role, label in (('director', '导演'), ('writer', '编剧'), ('editor', '编辑'), ('actor', '演员')):
+        override = settings['roles'].get(role, '')
+        if override:
+            parts.append('本项目' + label + '角色规则（优先遵守）：\n' + override)
+    return '\n'.join(parts) + '\n'
+
 
 def find_program(config):
     if config['program']:return config['program']

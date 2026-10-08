@@ -7,7 +7,7 @@ from pathlib import Path
 from file_cache import remove_temporary_file
 from datetime import datetime
 from agent.core import save,save_text,read,temporary_path,replace
-from workflow_settings import find_program,ENGINES,skill_prompt,stage_output_contract
+from workflow_settings import find_program,ENGINES,skill_prompt,stage_output_contract,hollmwood_prompt
 from workflow_process_registry import (register_process, forget_process, processes,
                                        reserve_process_slot, release_process_slot,
                                        request_process_slot, claim_process_slot,
@@ -60,7 +60,7 @@ def prompt_with_settings(prompt,config,stage=None):
     stage = stage if stage is not None else config.get('stage')
     if stage not in ('assets', 'frames', 'keyframe', 'previs', 'video_prompt', 'video'):
         media_apps = ''
-    return skill_prompt(config, stage=stage)+stage_output_contract(stage)+prompt+('\n用户补充制作要求：\n'+extra if extra else '')+language+media_apps
+    return skill_prompt(config, stage=stage)+stage_output_contract(stage)+hollmwood_prompt(config,stage)+prompt+('\n用户补充制作要求：\n'+extra if extra else '')+language+media_apps
 
 def background_command(config,project,output,report):
     exe=find_program(config)

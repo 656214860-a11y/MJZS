@@ -4899,7 +4899,7 @@ class Desktop:
         from workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)
     def open_flow_agent(self,stage,label,prompt,followup=None,on_receipt=None,_config=None,*,intake_only=False):
-        from workflow_settings import current
+        from workflow_settings import current,hollmwood_summary
         from workflow_engines import prompt_with_settings,launch_interactive
         from agent_dispatch import signature,claim,finish,outcome,retryable
         if self.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
@@ -4951,7 +4951,8 @@ class Desktop:
                     'initial':budget,'continuation':continuation_budget})
                 if use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
                                    'context_budget':{'initial':budget,'continuation':continuation_budget}}
-                result=prepare_task(project,title,stage,full,followup=continuation,setup_key=setup_key)
+                result=prepare_task(project,title,stage,full,followup=continuation,setup_key=setup_key,
+                                    delivery_summary='' if intake_only else hollmwood_summary(config,stage))
                 result['receipt']=receipt;result['context_budget']={
                     'initial':budget,'continuation':continuation_budget};return result
             except Exception as exc:finish(receipt,'failed',str(exc));raise
