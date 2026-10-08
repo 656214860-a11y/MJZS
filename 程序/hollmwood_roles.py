@@ -73,6 +73,31 @@ def load_rhythm_template(program=None):
     return path.read_text(encoding='utf-8-sig')
 
 
+def rhythm_prompt(template):
+    """空模板／仅元数据占位不进入请求；未知格式和自定义规则原样保留。"""
+    metadata = {'name', 'template_id', 'version'}
+    sections = {'rules', 'constraints'}
+    if isinstance(template, dict):
+        if (set(template) <= metadata | sections
+                and all(template.get(key) in (None, '', {}, []) for key in sections)):
+            return ''
+    text = _body(template)
+    for line in text.lstrip('\ufeff').splitlines():
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        if line != line.lstrip():
+            return '\n\n全局节奏模板（每个角色都必须遵守）：\n' + text
+        line = line.strip()
+        key, separator, value = line.partition(':')
+        if separator and key in metadata:
+            continue
+        if (separator and key in sections
+                and value.split('#', 1)[0].strip() in ('', '{}', '[]', 'null', '~')):
+            continue
+        return '\n\n全局节奏模板（每个角色都必须遵守）：\n' + text
+    return ''
+
+
 def _body(value):
     """将已完成的简报或模板保留为可安全拼接的文本。"""
     if isinstance(value, str):
@@ -233,8 +258,8 @@ def default_role_rules(role):
 
 
 def _revision(adapter, model, role, system, original, review, log_folder, step, emit, cancelled=None,
-              *, publish_log=None):
-    prompt = ('请根据导演退回意见重写完整剧本。\n\n<director_review>\n%s\n</director_review>'
+              *, publish_log=None, context=''):
+    prompt = context + ('请根据导演退回意见重写完整剧本。\n\n<director_review>\n%s\n</director_review>'
               '\n\n<previous_script>\n%s\n</previous_script>' % (review, original))
     return _ask(adapter, model, role + '_revision', system, prompt, log_folder, step, emit, cancelled,
                 publish_log=publish_log)
@@ -242,40 +267,44 @@ def _revision(adapter, model, role, system, original, review, log_folder, step, 
 
 def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
         max_revisions=MAX_REVISIONS, emit=None, skill_instructions='', cancelled=None,
-        director_rules=None, role_rules=None, stream=None, *, publish_log=None):
+        director_rules=None, role_rules=None, stream=None, *, publish_log=None, output_contract=''):
     """串行运行导演、编剧、编辑、演员并执行三次导演门禁。
 
     返回包含 ``script``、``director_plan`` 与各角色最终正文的字典。最终正文仍只在内存；
     由 Round 6 的受控 API 层在本函数成功返回后写入 ``writing/script_raw.md``。
     """
     brief = _body(brief_complete)
-    rhythm = _body(rhythm_template) if rhythm_template is not None else load_rhythm_template()
+    rhythm = rhythm_template if rhythm_template is not None else load_rhythm_template()
     director = _body(director_rules) if director_rules is not None else ''
     role_rules = role_rules if isinstance(role_rules, dict) else {}
     if not brief:
         raise ValueError('brief_complete 不能为空')
     if int(max_revisions) < 0:
         raise ValueError('max_revisions 不能小于 0')
-    rhythm_constraints = '\n\n全局节奏模板（每个角色都必须遵守）：\n' + rhythm
-    skill_constraints = ('\n\n本次编剧角色 SKILL 指令：\n' + str(skill_instructions).strip()
+    rhythm_constraints = rhythm_prompt(rhythm)
+    skill_constraints = ('\n\n四角色与导演审核共用的 SKILL 指令：\n' + str(skill_instructions).strip()
                          if str(skill_instructions).strip() else '')
+    shared_constraints = rhythm_constraints + skill_constraints
+    writer_output = ('\n\n编剧阶段交付契约：\n' + str(output_contract).strip()
+                     if str(output_contract).strip() else '')
     director_constraints = ('\n\n本项目导演角色规则（优先遵守）：\n' + director) if director else ''
     def role_constraints(role):
         value = _body(role_rules.get(role)) if role_rules.get(role) is not None else ''
         return ('\n\n本项目%s角色规则（优先遵守）：\n%s' % (role, value)) if value else ''
-    director_system = _director_plan_system() + director_constraints + rhythm_constraints
-    writer_system = _writer_system() + role_constraints('writer') + rhythm_constraints + skill_constraints
-    editor_system = _editor_system() + role_constraints('editor') + rhythm_constraints
-    actor_system = _actor_system() + role_constraints('actor') + rhythm_constraints
-    review_system = _director_review_system() + director_constraints + rhythm_constraints
+    director_system = _director_plan_system() + director_constraints + shared_constraints
+    writer_system = _writer_system() + role_constraints('writer') + shared_constraints + writer_output
+    editor_system = _editor_system() + role_constraints('editor') + shared_constraints
+    actor_system = _actor_system() + role_constraints('actor') + shared_constraints
+    review_system = _director_review_system() + director_constraints + shared_constraints
+    brief_context = '<brief_complete>\n%s\n</brief_complete>\n\n' % brief
     step = 1
     plan = _ask(adapter, model, 'director', director_system,
-                '<brief_complete>\n%s\n</brief_complete>' % brief,
+                brief_context,
                 log_folder, step, emit, cancelled, publish_log=publish_log)
     step += 1
+    script_context = brief_context + '<director_instruction>\n%s\n</director_instruction>\n\n' % plan
     writer = _ask(adapter, model, 'writer', writer_system,
-                  '<director_instruction>\n%s\n</director_instruction>\n\n<brief_complete>\n%s\n</brief_complete>'
-                  % (plan, brief), log_folder, step, emit, cancelled, publish_log=publish_log)
+                  script_context, log_folder, step, emit, cancelled, publish_log=publish_log)
 
     stages = (('writer', writer, writer_system),
               ('editor', None, editor_system),
@@ -286,14 +315,14 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
         if role != 'writer':
             step += 1
             current = _ask(adapter, model, role, system,
-                           '<director_instruction>\n%s\n</director_instruction>\n\n<current_script>\n%s\n</current_script>'
-                           % (plan, current), log_folder, step, emit, cancelled, stream,
+                           script_context + '<current_script>\n%s\n</current_script>'
+                           % current, log_folder, step, emit, cancelled, stream,
                            publish_log=publish_log)
         attempts = 0
         while True:
             step += 1
             review = _ask(adapter, model, 'director_review_' + role, review_system,
-                          ('请审核 %s 的候选剧本。\n\n<candidate>\n%s\n</candidate>' %
+                          script_context + ('请审核 %s 的候选剧本。\n\n<candidate>\n%s\n</candidate>' %
                            (role, current)),
                           log_folder, step, emit, cancelled, publish_log=publish_log)
             if _approved(review):
@@ -304,7 +333,7 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
             attempts += 1
             step += 1
             current = _revision(adapter, model, role, system, current, review, log_folder, step, emit, cancelled,
-                                publish_log=publish_log)
+                                publish_log=publish_log, context=script_context)
     outputs['script'] = outputs['actor']
     return outputs
 
@@ -312,7 +341,7 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
 @_hollmwood_result
 def run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
         max_revisions=MAX_REVISIONS, emit=None, skill_instructions='', cancelled=None,
-        director_rules=None, role_rules=None, stream=None, *, publish_log=None):
+        director_rules=None, role_rules=None, stream=None, *, publish_log=None, output_contract=''):
     return _run(adapter, model, brief_complete, rhythm_template, log_folder, max_revisions,
                 emit, skill_instructions, cancelled, director_rules, role_rules, stream,
-                publish_log=publish_log)
+                publish_log=publish_log, output_contract=output_contract)

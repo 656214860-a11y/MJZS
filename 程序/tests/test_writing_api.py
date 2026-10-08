@@ -67,8 +67,16 @@ class WritingApiTests(unittest.TestCase):
             self.assertIn('<skill name="api-role-test">', writer_system)
             self.assertIn('四角色共用内联技能正文', writer_system)
             self.assertIn(f'<!-- 来源: {skill.resolve()} -->', writer_system)
-            for call in chat.call_args_list:
+            for index, call in enumerate(chat.call_args_list):
+                self.assertEqual(call.kwargs['system'].count('四角色共用内联技能正文'), 1)
+                self.assertEqual(call.kwargs['system'].count('<skill name="api-role-test">'), 1)
                 self.assertNotIn('请先完整读取并遵循本地技能文件', call.kwargs['system'])
+                self.assertNotIn('全局节奏模板', call.kwargs['system'])
+                prompt = call.args[0][0]['content']
+                self.assertEqual(prompt.count('<brief_complete>'), 1)
+                self.assertIn('单集 60 秒', prompt)
+                if index:
+                    self.assertEqual(prompt.count('<director_instruction>\n节奏计划'), 1)
             self.assertEqual((project_stages.writing(project) / 'script_raw.md').read_text(encoding='utf-8'), '演员稿\n')
             self.assertEqual(len(list((project / 'logs').glob('hollmwood_step_*.log'))), 7)
             self.assertEqual(len(list((project / 'logs' / 'model_diagnostics').glob('*.json'))), 7)

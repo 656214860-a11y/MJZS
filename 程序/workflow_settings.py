@@ -458,9 +458,11 @@ def hollmwood_prompt(config, stage=None):
     if not settings['enabled']:
         return summary + '\n'
     from hollmwood_rules import SINGLE_WINDOW_COLLABORATION
-    from script_contract import RHYTHM_TEMPLATE_PATH
-    rhythm = settings['rhythm'] or (Path(__file__).parent / RHYTHM_TEMPLATE_PATH).read_text(encoding='utf-8-sig')
-    parts = [summary, SINGLE_WINDOW_COLLABORATION, '节奏模板：\n' + rhythm]
+    from hollmwood_roles import load_rhythm_template, rhythm_prompt
+    rhythm = rhythm_prompt(settings['rhythm'] or load_rhythm_template())
+    parts = [summary, SINGLE_WINDOW_COLLABORATION]
+    if rhythm:
+        parts.append(rhythm)
     for role, label in (('director', '导演'), ('writer', '编剧'), ('editor', '编辑'), ('actor', '演员')):
         override = settings['roles'].get(role, '')
         if override:

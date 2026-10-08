@@ -34,7 +34,7 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
                         prompt = prompt_with_settings(task, config, stage='writing')
                         self.assertEqual(prompt.count(self.contract), 1)
                         self.assertEqual(prompt.count('单窗口四阶段协作'), int(enabled))
-                        self.assertEqual(prompt.count('节奏模板：\n测试节奏'), int(enabled))
+                        self.assertEqual(prompt.count('全局节奏模板（每个角色都必须遵守）：\n测试节奏'), int(enabled))
                         self.assertIn('正式交付路径', prompt)
 
     def api_setup(self, enabled):
@@ -85,6 +85,7 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
         with patch('stage_config.hollmwood_rules', return_value=('测试节奏', '测试导演规则')), \
              patch('stage_config.hollmwood_role_rules', return_value=role_rules), \
              patch('hollmwood_roles.run', return_value=success({'script': '演员稿'})) as run, \
+             patch('workflow_settings.skill_prompt', return_value='所选共享 SKILL 标记') as skill, \
              patch('writing_api._write_script_raw', return_value=self.root / 'script_raw.md') as publish, \
              patch('workflow_tasks.script_prompt') as plain_task:
             result = writing_api.reply(self.root, '本轮创意')
@@ -97,7 +98,9 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs['rhythm_template'], '测试节奏')
         self.assertEqual(run.call_args.kwargs['director_rules'], '测试导演规则')
         self.assertEqual(run.call_args.kwargs['role_rules'], role_rules)
-        self.assertEqual(run.call_args.kwargs['skill_instructions'].count(self.contract), 1)
+        self.assertEqual(run.call_args.kwargs['skill_instructions'], '所选共享 SKILL 标记')
+        self.assertEqual(run.call_args.kwargs['output_contract'], self.contract)
+        self.assertTrue(skill.call_args.kwargs['inline'])
         publish.assert_called_once()
         self.assertTrue(result['ok'])
         self.assertTrue(result['hollmwood_enabled'])

@@ -215,6 +215,8 @@ R1127：`hollmwood_rules` 为 L0 纯规则模块，统一导演／编剧／编�
 
 ## 4. 三虎 Agent 的阶段定义
 
+R1176：四角色 API 的请求装配在 `hollmwood_roles` 共用同一份所选 SKILL；规划之后的创作、三次审核与返工都显式携带已确认简报和导演计划，不依赖模型隐式会话记忆。`writing_api` 将编剧专属阶段交付契约与共享 SKILL 分开传入。API 与桌面 `workflow_settings` 共用节奏文本投影：空文本或仅含元数据、空 rules/constraints 的占位不进入提示；自定义非空与未知格式保持原样。L0 角色规则、串行顺序、审核返工次数、取消及发布边界不变。
+
 唯一阶段定义来源：`pet_bus.STAGES`、`pet_bus.STAGE_NAMES`。
 
 | 序号  | ID                 | 阶段    | 核心产物                                             |

@@ -143,20 +143,59 @@ class RolesTests(unittest.TestCase):
             self.assertNotIn('<rhythm_template>', adapter.prompts[0])
             self.assertTrue(all('<rhythm_template>' not in prompt for prompt in adapter.prompts))
 
-    def test_skill_instructions_are_injected_only_into_writer_and_writer_revision(self):
+    def test_all_roles_and_reviews_share_skill_but_writer_owns_output_contract(self):
         answers = ('节奏计划', '编剧稿', 'REVISE: 补足冲突', '编剧返工稿',
                    'APPROVED 编剧通过', '编辑稿', 'APPROVED 编辑通过',
                    '演员稿', 'APPROVED 演员通过')
         with tempfile.TemporaryDirectory() as folder:
             adapter = FakeAdapter(answers)
             roles.run(adapter, 'test-model', '创意', rhythm_template='全局节奏', log_folder=folder,
-                      skill_instructions='仅编剧可见的 SKILL 规则', publish_log=save_text)
-        self.assertIn('仅编剧可见的 SKILL 规则', adapter.systems[1])
-        self.assertIn('仅编剧可见的 SKILL 规则', adapter.systems[3])
+                      skill_instructions='共享 SKILL 标记', output_contract='仅编剧交付标记',
+                      publish_log=save_text)
         for index, system in enumerate(adapter.systems):
-            if index not in (1, 3):
-                self.assertNotIn('仅编剧可见的 SKILL 规则', system)
+            self.assertEqual(system.count('共享 SKILL 标记'), 1)
+            self.assertEqual(system.count('仅编剧交付标记'), int(index in (1, 3)))
         self.assertTrue(all('全局节奏' in system for system in adapter.systems))
+
+    def test_brief_and_plan_reach_every_review_and_revision(self):
+        answers = ('独立导演计划标记', '编剧稿', 'REVISE: 编剧返工', '编剧修订',
+                   'APPROVED 编剧通过', '编辑稿', 'REVISE: 编辑返工', '编辑修订',
+                   'APPROVED 编辑通过', '演员稿', 'REVISE: 演员返工', '演员修订',
+                   'APPROVED 演员通过')
+        with tempfile.TemporaryDirectory() as folder:
+            adapter = FakeAdapter(answers)
+            result = roles.run(adapter, 'test-model', {'单集时间': '137秒', '确认事实': '独立简报标记'},
+                               log_folder=folder, skill_instructions='共享规则标记', publish_log=save_text)
+        self.assertEqual(len(adapter.prompts), 13)
+        self.assertEqual(result.data['script'], '演员修订')
+        for index, (system, prompt) in enumerate(zip(adapter.systems, adapter.prompts)):
+            with self.subTest(request=index):
+                self.assertEqual(system.count('共享规则标记'), 1)
+                self.assertEqual(prompt.count('<brief_complete>'), 1)
+                self.assertEqual(prompt.count('独立简报标记'), 1)
+                self.assertIn('137秒', prompt)
+                self.assertEqual(prompt.count('独立导演计划标记'), int(index > 0))
+                self.assertNotIn('全局节奏模板', system)
+        for index, candidate in ((2, '编剧稿'), (4, '编剧修订'), (6, '编辑稿'),
+                                 (8, '编辑修订'), (10, '演员稿'), (12, '演员修订')):
+            self.assertIn('<candidate>\n' + candidate + '\n</candidate>', adapter.prompts[index])
+        for index, draft, review in ((3, '编剧稿', '编剧返工'), (7, '编辑稿', '编辑返工'),
+                                     (11, '演员稿', '演员返工')):
+            self.assertIn('<previous_script>\n' + draft, adapter.prompts[index])
+            self.assertIn('<director_review>\nREVISE: ' + review, adapter.prompts[index])
+
+    def test_empty_rhythm_is_skipped_and_custom_content_is_preserved(self):
+        for template in ('', '  ', '# 只读说明', roles.load_rhythm_template(), {},
+                         {'name': '占位', 'rules': {}, 'constraints': {}},
+                         'name: 占位\nrules:\nconstraints: null # 空'):
+            with self.subTest(template=template):
+                self.assertEqual(roles.rhythm_prompt(template), '')
+        for template in ('自定义节奏', 'rules:\n  name: 必须保留的自定义规则',
+                         'rules: {custom: true}', 'other: 保留未知字段',
+                         {'rules': {'custom': '保留规则'}}):
+            with self.subTest(template=template):
+                self.assertEqual(roles.rhythm_prompt(template),
+                                 '\n\n全局节奏模板（每个角色都必须遵守）：\n' + roles._body(template))
 
     def test_context_budget_rejects_before_model_call_without_truncating_script(self):
         class NeverCalledAdapter(ModelAdapter):

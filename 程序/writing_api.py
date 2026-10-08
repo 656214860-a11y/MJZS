@@ -242,8 +242,8 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
             adapter, chosen, brief,
             rhythm_template=rhythm_template or hollmwood_roles.load_rhythm_template(),
             log_folder=Path(project) / 'logs',
-            skill_instructions=(workflow_settings.skill_prompt(settings, inline=True)
-                                + workflow_settings.stage_output_contract('writing')),
+            skill_instructions=workflow_settings.skill_prompt(settings, inline=True),
+            output_contract=workflow_settings.stage_output_contract('writing'),
             emit=progress,
             cancelled=cancelled,
             director_rules=director_rules or None,

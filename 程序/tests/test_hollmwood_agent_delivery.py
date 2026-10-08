@@ -44,6 +44,16 @@ class HollmwoodAgentDeliveryTests(unittest.TestCase):
                          'Gate 1~2', 'Gate 3~5', '空泛情绪形容词'):
                 self.assertNotIn(text, prompt)
             self.assertEqual(prompt.count('禁止结构化剧本'), 1)
+            self.assertNotIn('全局节奏模板', prompt)
+            self.assertNotIn('template_id:', prompt)
+            self.assertNotIn('rules: {}', prompt)
+
+    def test_blank_rhythm_does_not_inject_a_template_on_either_path(self):
+        for template in ('  ', '# 空节奏配置', 'name: 占位\nrules: {}\nconstraints: {}'):
+            with self.subTest(template=template):
+                for prompt in self.prompts(self.configure(hollmwood_rhythm_template=template)):
+                    self.assertNotIn('全局节奏模板', prompt)
+                    self.assertNotIn('name: 占位', prompt)
 
     def test_disabled_cancels_prior_collaboration_on_both_paths(self):
         for prompt in self.prompts(self.configure(False)):
@@ -62,7 +72,7 @@ class HollmwoodAgentDeliveryTests(unittest.TestCase):
         self.assertNotEqual(json.dumps(before, sort_keys=True), json.dumps(after, sort_keys=True))
         for prompt in self.prompts(after):
             for text in ('自定义节奏甲', '导演覆盖甲', '编剧覆盖甲', '编辑覆盖甲', '演员覆盖甲'):
-                self.assertIn(text, prompt)
+                self.assertEqual(prompt.count(text), 1)
 
     def test_disabled_changes_setup_snapshot(self):
         self.assertNotEqual(self.configure(), self.configure(False))
