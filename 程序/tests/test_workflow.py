@@ -403,7 +403,7 @@ class AudioFlowTests(unittest.TestCase):
             self.assertIn(whale, prompt)
             self.assertIn(f'请先完整读取并遵循本地技能文件 {whale}', prompt)
             self.assertNotIn('遵循剧本准备门控。', prompt)
-            self.assertIn('本阶段唯一交付物是完整自然语言剧本正文', prompt)
+            self.assertIn('本阶段唯一正式交付物是完整自然语言剧本正文', prompt)
             self.assertIn('不得写入 02剧本结构或任何后续阶段目录', prompt)
 
     def test_load_corrupt_settings_falls_back(self):
@@ -934,7 +934,8 @@ class DesktopModelPoolTests(unittest.TestCase):
             self.assertLess(len(followup), len(prompt))
             self.assertIn('尚未保存为剧本文件', prompt)
             self.assertIn('script_raw.md', prompt)
-            self.assertIn('仅可写入本阶段的内部原稿 `script_raw.md`', prompt)
+            self.assertIn('内部工作稿 `script_raw.md` 可继续更新', prompt)
+            self.assertIn('回复由应用按既有分类保存规则落盘', prompt)
             self.assertEqual(list((proj / 'writing').glob('创意_*/*.md')), [])
 
 

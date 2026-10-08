@@ -21,6 +21,7 @@ def _agent_delivery_contract(project, at=None):
         target = stage.joinpath(*parts).as_posix()
         lines.append(target + ('（仅当产出该类内容时使用）' if index else ''))
     lines.append('判类规则：正文含大纲/纲要→项目大纲；含项目设定/人物设定/世界观/需求梳理→项目设定；剧本正文→项目剧本。')
+    lines.append('项目设定和角色卡均使用项目设定类路径；角色卡标明“人物设定”，更新同一路径时保留已确认的项目设定。前三项是参考文档，不是最终剧本。')
     return '\n'.join(lines)
 
 
@@ -31,12 +32,17 @@ def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_
         from project_stages import writing as writing_stage
         writing=writing_stage(project)
         task=(f'你正在项目“01剧本准备”工作阶段。项目目录：{project}。本次创意输入：{script if script else "聊天输入（尚未保存为剧本文件）"}。'
-              f'先读取 `{writing / "brief_complete.json"}` 中已经确认的信息；已有自然剧本仅作为续写或修订依据，不重复生成项目设定或大纲。'
+              f'先读取 `{writing / "brief_complete.json"}` 中已经确认的信息；已有自然剧本仅作为续写或修订依据。'
               '必须先完整遵循本次工作流所选 SKILL；但 SKILL 只能影响题材、节奏和写法，不能改变本阶段交付物。'
-              '禁止擅自直接返回剧本、大纲或分镜方案以外的阶段产物；本阶段只可交付自然语言剧本。'
-              '请直接完成一份可阅读、可表演的自然语言剧本：场景、动作、人物目标、冲突、对白与结尾悬念必须连贯；不要输出创作说明或任务回执。'
+              '先问清楚，再创作：用户未提供故事大体环境和小说/漫剧类型时，必须先问，不能直接写；已有明确答案则不重复询问。'
+              '按①项目设定 → ②剧本大纲 → ③角色卡 → ④自然剧本逐阶段输出；前提齐全时本次只输出阶段①项目设定，末尾“待确认”。'
+              '每个关键阶段都必须用户确认，不能自动跳到下一阶段；每次只输出当前阶段一个文件，不一次输出多阶段。'
+              '项目设定和角色卡存入规范的项目设定目录，剧本大纲存入项目大纲目录；前三项仅供用户审阅参考，不进入 02 结构剧本的输入，不替代其结构化档案。'
+              '角色卡标明“人物设定”，同一路径更新时保留已确认设定。'
+              '完整自然剧本是唯一正式交付，存入规范的项目剧本目录，是 02 结构剧本的唯一来源；character_manifest 仍由 02 从自然剧本提取。'
+              '最终自然剧本须可阅读、可表演，场景、动作、人物目标、冲突、对白与结尾悬念连贯。'
               + ('内部工作稿 `script_raw.md` 可继续更新，正式交付以规范路径为准，不得写入后续阶段目录。'
-                 if agent_delivery else '如需落盘，仅可写入本阶段的内部原稿 `script_raw.md`，不得写入 02剧本结构或任何后续阶段目录。') +
+                 if agent_delivery else '内部工作稿 `script_raw.md` 可继续更新；回复由应用按既有分类保存规则落盘，不得写入 02剧本结构或任何后续阶段目录。') +
               '暂不调用图片、视频或分镜制作。')
         # Agent 首发和续发统一在 prompt_with_settings 使用当前四角色配置。
         # API 启用四角色时由 hollmwood_roles.run 携带规则；普通任务不注入角色或节奏模板。
@@ -86,9 +92,14 @@ def script_followup(script,stage,existing=None,project=None,creative_text=None,*
                       else (script_text(script) if script else ''))
             parts = [
                 '继续完成本对话中的剧本准备任务，沿用已确认的题材、人物关系、项目设定和阶段交付要求。',
-                '本轮仅处理下面补充创意；不要重复输出任务说明，不要创建结构剧本、分镜或媒体成果。',
+                '先核对故事大体环境和小说/漫剧类型；缺失则先询问，不能直接写。根据对话历史按①项目设定 → ②剧本大纲 → ③角色卡 → ④自然剧本判断当前阶段。'
+                '仅在用户确认当前阶段通过后进入下一阶段；要求修改则修改当前阶段。每次只输出当前阶段一个文件，末尾“待确认”，不一次输出多阶段。'
+                '项目设定和角色卡存入规范的项目设定目录，剧本大纲存入项目大纲目录；前三项仅供用户审阅参考，不进入 02 结构剧本的输入。'
+                '角色卡标明“人物设定”，同一路径更新时保留已确认设定。'
+                '完整自然剧本存入规范的项目剧本目录，是唯一正式交付，也是 02 结构剧本的唯一来源；character_manifest 仍由 02 从自然剧本提取。'
+                '不要创建结构剧本、分镜或媒体成果。',
                 ('若需核对已确认信息，读取项目 01剧本准备/brief_complete.json；内部工作稿 script_raw.md 可继续更新，正式交付以规范路径为准。'
-                 if agent_delivery else '若需核对已确认信息，读取项目 01剧本准备/brief_complete.json；只可更新本阶段内部原稿 script_raw.md。'),
+                 if agent_delivery else '内部工作稿 script_raw.md 可继续更新；回复由应用按既有分类保存规则落盘。'),
             ]
             if agent_delivery:
                 parts.append(_agent_delivery_contract(project, delivery_at))
