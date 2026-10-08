@@ -3,7 +3,7 @@
 ## §7 三问
 
 1. 本轮类型：功能轮；将应用阶段单文件技能同步为 Codex 可发现的技能，不改提示词内联策略。
-2. 本轮验证：定向 197 条通过、默认冒烟 8/8；全量安全回归待执行，尚不声明 TASK_COMPLETE。
+2. 本轮验证：定向 197 条通过、默认冒烟 8/8；干净 master 的全量安全回归 exit=1，旧测试契约冲突阻塞验收，状态 TASK_BLOCKED。
 3. 债务变化：补齐技能引用与 Codex 发现之间的缺口；未新增 JSON 读写入口或直接删除入口。TODO 快照仅更新代码位移行号，断言未弱化。
 
 ## 实现与边界
@@ -29,4 +29,12 @@
 - 尚未执行真实创作投递或让模型复述技能名；复述名称本身也不能证明正文已加载。当前证明是 Codex 的实际技能发现结果，不虚报模型行为。
 - 方案 A 要求应用安装目录及共享资料仍可读取；移动应用后需重新同步。
 - 多安装目录的同名技能不会相互接管，冲突时需要用户明确选择保留来源。
-- 全量安全回归、正式 tree/round/seconds/at 凭据及最终提交待收尾更新。
+- 全量安全回归已在干净 master 191ef053b2f44e50154424cfa8d7ae81599c73ac 执行，exit=1；没有本轮绿色 tree/round/seconds/at 凭据。输出仅保留末尾，不能据此虚报完整失败数量或总耗时。
+
+## 验收阻塞与接续
+
+- tests/test_ui_edges.py:4882：阶段配置按钮断言仍要求 Tokens.Secondary.TButton，实际为 R1138 已采用的 Tokens.Primary.TButton，test_every_page_opens_its_own_panel 多个子用例失败。
+- tests/test_core.py:366：test_writing_output_contract_allows_only_skill_process_documents 仍要求旧的“不得产出结构化剧本、分镜、字段表、JSON/YAML”文案，现行契约为自然语言剧本正文交付。
+- 与开工基线 326a008 比较，上述测试及 skill_panel.py、workflow_settings.py、script_contract.py 均无本轮差异。需用户确认是否另行同步这些既有契约测试；本轮不弱化断言或扩改生产行为。
+- 补充定向：codex_skill_sync/todo_comment_snapshot/desktop_startup_perf 合计 27 条，11.6 秒，通过。
+- 已提交实现检查点 191ef053b2f44e50154424cfa8d7ae81599c73ac；本报告后续诊断提交以 R1139-FAIL 开头，可从 Git 查询。不声明 TASK_COMPLETE。

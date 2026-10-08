@@ -1,5 +1,11 @@
 # 验证证据
 
+## R1139
+
+- 技能/Codex 定向 197 条通过，默认冒烟 8/8；补充定向 27 条和 ratchet/coverage 7 条通过。
+- 干净 master 191ef05 全量安全回归 exit=1，旧 UI 按钮样式及剧本输出契约断言失败；没有本轮绿色全量凭据。详情与未运行项见 [报告](../程序/tasks_round/tasks_round_1139_result.md)。
+- 实际 67 技能安装，重复 67 unchanged；只读 Codex skills/list 确认 pipeline-script-preparation enabled，不冒称已验证模型加载执行。
+
 ## R1074
 
 - 旧实现内存对照 17/17，迁移后定向 58/58，默认冒烟 8/8，受影响 9/9；原断言未改，新增 11 条。
