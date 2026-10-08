@@ -1394,9 +1394,43 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(idea_chat.load(proj), saved)
             self.assertEqual(d.draft_text(), draft)
             self.assertEqual(d.idea_attachment_paths, attachments)
-            d.show_conversation()
+            d.refresh_script_workspace()
             self.settle_script_page(win)
             self.assertIn('保留的消息 19', self.log_text(d))
+
+    def test_clear_screen_keeps_old_messages_hidden_when_sending_and_redrawing(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            model = d.idea_chat_model()
+            idea_chat.append(proj, 'user', '清屏前的历史', model=model)
+            d.show(0)
+            self.settle_script_page(win)
+            saved = idea_chat.load(proj, model=model)
+            d.clear_bubble_view()
+            d.open_flow_agent = lambda *args, **kwargs: None
+            draft = SendMessageTests.complete_draft('清屏后新发送')
+            d.idea_input.delete('1.0', 'end')
+            d.idea_input.insert('1.0', draft)
+            d.send_message()
+            self.settle_script_page(win)
+            self.assertNotIn('清屏前的历史', self.log_text(d))
+            self.assertIn('清屏后新发送', self.log_text(d))
+            self.assertEqual(d.copy_bubble_message(1), draft)
+            d.show_thinking(model)
+            self.settle_script_page(win)
+            self.assertNotIn('清屏前的历史', self.log_text(d))
+            self.assertIn('模型正在思考', self.log_text(d))
+            idea_chat.append(proj, 'assistant', '清屏后新回复', model=model)
+            d.clear_thinking()
+            self.settle_script_page(win)
+            self.assertNotIn('清屏前的历史', self.log_text(d))
+            self.assertIn('清屏后新回复', self.log_text(d))
+            self.assertEqual(idea_chat.load(proj, model=model)[:1], saved)
+            d.delete_bubble_message(1)
+            self.settle_script_page(win)
+            self.assertNotIn('清屏前的历史', self.log_text(d))
+            self.assertIn('清屏后新回复', self.log_text(d))
 
     def test_clear_screen_menu_is_available_on_message_example_and_blank_area(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1415,6 +1449,43 @@ class BubbleLayoutTests(_Harness):
                     self.assertEqual(menu.entrycget(index, 'label'), '清屏')
                     menu.invoke(index)
                     clear.assert_called_once_with()
+
+    def test_clear_screen_is_scoped_and_preserves_new_identical_messages(self):
+        with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as other:
+            proj = make_minimal_project(td)
+            other_proj = make_minimal_project(other)
+            d, win = self.desktop(proj)
+            with patch.object(d, 'idea_chat_model', return_value='模型甲'):
+                idea_chat.append(proj, 'user', '相同正文', at=1000, model='模型甲')
+                saved = idea_chat.load(proj, model='模型甲')
+                idea_chat.save_rows(proj, [dict(saved[0], model='模型乙')], model='模型乙')
+                idea_chat.append(other_proj, 'user', '另一项目历史', model='模型甲')
+                d.show(0)
+                self.settle_script_page(win)
+                d.clear_bubble_view()
+                d.show_conversation()
+                self.settle_script_page(win)
+                self.assertEqual(self.log_text(d), '')
+                idea_chat.save_rows(proj, saved + saved, model='模型甲')
+                d.show_conversation()
+                self.settle_script_page(win)
+                self.assertEqual(self.log_text(d).count('相同正文'), 1)
+                self.assertTrue(d.idea_log.tag_ranges('bubble_1'))
+                d.clear_bubble_view()
+                d.show_conversation()
+                self.settle_script_page(win)
+                self.assertEqual(self.log_text(d), '')
+                with patch.object(d, 'idea_chat_model', return_value='模型乙'):
+                    d.refresh_script_chat_for_selected_model()
+                    self.settle_script_page(win)
+                    self.assertIn('相同正文', self.log_text(d))
+                d.refresh_script_chat_for_selected_model()
+                self.settle_script_page(win)
+                self.assertEqual(self.log_text(d), '')
+                d.root = other_proj
+                d.show_conversation()
+                self.settle_script_page(win)
+                self.assertIn('另一项目历史', self.log_text(d))
 
     def test_a_very_long_message_stops_short_of_the_whole_box(self):
         """第 71 期任务 6：字再多，色块也不铺满整行——一行到底就看不下去了。"""

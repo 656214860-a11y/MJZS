@@ -933,8 +933,15 @@ class Desktop:
         self.show_conversation();self.status.set('已恢复最近删除的整条信息')
         return row
     def clear_bubble_view(self):
-        """只清空当前气泡显示；刷新可重新读取已保存对话。"""
+        """记住当前会话已清屏的记录；仅显式刷新恢复历史显示。"""
         if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
+        import idea_chat
+        from collections import Counter
+        model=self.idea_chat_model()
+        rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway()) if self.root else []
+        hidden=getattr(self,'_idea_hidden_messages',{})
+        hidden[self.bubble_view_key(model)]=Counter(json.dumps(row,sort_keys=True,ensure_ascii=False) for row in rows)
+        self._idea_hidden_messages=hidden
         box=self.idea_log
         self._idea_view_generation=getattr(self,'_idea_view_generation',0)+1
         for job in getattr(self,'_idea_view_after_jobs',()):
@@ -948,6 +955,9 @@ class Desktop:
         for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
             box.tag_delete(name)
         self.status.set('已清屏；聊天记录已保留，点击“刷新”可重新显示。')
+    def bubble_view_key(self,model):
+        """清屏范围按项目和模型隔离，只在本次应用会话内保存。"""
+        return (str(Path(self.root).resolve()) if self.root else '',str(model or '').strip())
     def open_bubble_menu(self,event):
         """消息右键菜单；点击标题、正文或展开控件都能定位同一条消息。"""
         if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
@@ -1338,6 +1348,15 @@ class Desktop:
         model=cached[1] if root and isinstance(cached,tuple) else ''
         from stage_execution_service import project_context
         rows=idea_chat.load(project_context(root),model=model,gateway=self.idea_chat_gateway()) if root and not resolving_model else []
+        hidden=getattr(self,'_idea_hidden_messages',{}).get(self.bubble_view_key(model))
+        remaining=hidden.copy() if hidden is not None else {}
+        visible=[]
+        for index,row in enumerate(rows):
+            signature=json.dumps(row,sort_keys=True,ensure_ascii=False)
+            if remaining.get(signature,0):
+                remaining[signature]-=1
+            else:
+                visible.append((index,row))
         box.configure(state='normal')
         self._bubble_rows=[];self._bubble_full={};self._bubble_width=int(box.winfo_width() or 0)
         for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
@@ -1362,21 +1381,23 @@ class Desktop:
                 except tk.TclError:pass
             # 一次空闲合并量测；逐条 add_bubble 不再触发布局往返。
             idle(lambda: alive() and self._fit_content_now())
-        if rows:
+        if visible:
             cursor=[0]
             def append_batch():
                 if not alive():return
-                end=min(cursor[0]+8,len(rows))
+                end=min(cursor[0]+8,len(visible))
                 while cursor[0]<end:
-                    self.add_bubble(box,rows[cursor[0]],cursor[0]);cursor[0]+=1
-                if cursor[0]<len(rows):
+                    index,row=visible[cursor[0]]
+                    self.add_bubble(box,row,index);cursor[0]+=1
+                if cursor[0]<len(visible):
                     # 递归 after_idle 会被一次 update() 连续清空；真实项目的
                     # 历史消息因此仍会堵住首帧。短时延让输入区先处理事件。
                     later(12,append_batch)
                 else:finish()
             idle(append_batch)
         else:
-            self.add_bubble(box,{'role':'assistant','model':'示例模板','text':self.idea_template},'example')
+            if hidden is None:
+                self.add_bubble(box,{'role':'assistant','model':'示例模板','text':self.idea_template},'example')
             finish()
         # 保持 normal 才能让 Tk 的原生鼠标拖选建立 ``sel`` 标签；只读由
         # guard_bubble_edit_key 控制，避免 disabled 状态吞掉拖选事件。
@@ -1782,6 +1803,7 @@ class Desktop:
         import idea_chat
         import writing_api
         repaired = idea_chat.repair_internal_replies(self.idea_chat_context(), model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
+        getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(self.idea_chat_model()),None)
         self.show_conversation()
         refresh = getattr(self, 'refresh_script_list', None)
         if callable(refresh):
