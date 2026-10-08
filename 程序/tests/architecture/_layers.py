@@ -21,7 +21,7 @@ _register(2, "animatic_service", "writing_files", "writing_roles", "writing_work
           "keyframe", "keyframe_api", "keyframe_batch", "keyframe_lifecycle_service", "cloud_video_service", "white_model_service", "storyboard_source_service", "tts_api", "subtitle_timing", "pet_test_service", "pet_performance_service", "local_video_settings_service",
           "previs", "previs_routing", "previs_progress_service", "handoff_service", "edit_service", "final_service", "storyboard_adoption_service", "delivery_import_service", "confirm_gates", "recycle_recovery_service")
 _register(3, "exit_maintenance", "pet_chat_coordinator", "project_context_factory", "stage_flow", "stage_exec", "stage_parallel", "stage_config", "stage_models",
-          "skill_notes", "skill_orchestrator", "skill_registry", "workflow", "workflow_tasks",
+          "skill_notes", "skill_orchestrator", "skill_registry", "codex_skill_sync", "workflow", "workflow_tasks",
           "agent_dispatch", "engine", "integrations", "project_storage", "stage_contract_report", "stage_execution_service", "desktop_startup_service", "desktop_automation_service", "idea_chat_controller",
           "writing_api", "script_skill_report", "storyboard_plan_service", "storyboard_final", "storyboard_final_controller", "storyboard_page_controller", "keyframe_page_controller", "storyboard_selection", "storyboard_catalog", "asset_batch_controller", "asset_page_controller", "editing_page_controller",
           "previs_automation", "previs_batch_service", "previs_monitor", "asset_auto_batch_service", "asset_batch_execution", "stage_completion_service", "white_model_persistence_controller")

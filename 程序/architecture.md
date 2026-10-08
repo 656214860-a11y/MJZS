@@ -47,6 +47,8 @@ R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确�
 
 ## 2. SKILL 清单
 
+R1139：L3 `codex_skill_sync` 通过注册表物化所有已登记阶段（含第 13 阶段）的 `.skill.md` 至 `CODEX_HOME/skills/<name>/SKILL.md`（默认用户 `.codex/skills`）。生成稿仅保留 name/description 元数据，正文的共享资料引用改为应用绝对路径；不复制共享包、不内联正文。首帧后后台同步，Codex 发送 worker 在构建提示词前校验；来源/产物 hash 避免无变化重写。同步器只更新本安装拥有且未被手改的技能，源删除后的同类目录经回收入口保存；手工同名、越界链接或扫描失败均不删除。
+
 注册规则：`skill_registry.py` 只递归扫描 `skills/01`—`12` 阶段目录内的 `.skill.md`，并以目录编号归类 SKILL；根目录遗留 `.skill.md` 仅在用户打开阶段配置后的懒扫描中，按 frontmatter 的 `stage` 自动移动到对应阶段目录，无法判定、目标缺失或重名时保留原文件并报告。`00全流程SKILL` 和其他根目录资料包不作为阶段候选。同时只在同一次懒扫描中，将各阶段目录下一层、根部含 `SKILL.md`（或集合包 README）的外部包注册为**一个总入口**，绝不递归展开包内子 SKILL。剧本阶段的总入口还必须登记到 L0 `script_contract.AUDIT`：它们均为支撑性技能，受控默认值不声明 output 或 manifest，不能据此虚构产物归属。`stage_config.py` 将每阶段选中的模型和 SKILL 存入项目 `skill_config.json`，读取时清理失效项并将错阶段项归位。
 
 统筹预设契约：`workflow_settings.WORKFLOW_PRESETS` 的结构为 `label → {package, stage_skills{阶段 → [注册id]}, locks[{key, label, options}]}`。项目配置在 `skill_config.json` 顶层以 `workflow: {name, skill_ref, lock: {统筹名称: {键: 值}}}` 投影；`lock` 按统筹名称分命名空间，切换统筹时不得丢弃旧值。统筹声明可提供锁键和默认值，但外部包 frontmatter 仍不是执行字段来源，继续遵守注册表不信任原则。

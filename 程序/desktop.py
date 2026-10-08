@@ -2115,6 +2115,10 @@ class Desktop:
     def _after_first_paint(self):
         """首帧已交给 Tk 后，才恢复会触发轮询／回填的周期 tick。"""
         self.win._desktop_first_paint_complete=True
+        if not getattr(self,'_codex_skill_sync_started',False):
+            from codex_skill_sync import start_codex_skill_sync
+            self._codex_skill_sync_started=True
+            start_codex_skill_sync()
         self._start_legacy_project_migration()
         # 首帧通知不能覆盖用户已发起的后台操作（例如“强制关闭 ComfyUI”）；
         # 否则任务实际结束后状态栏仍停在“正在打开今日项目”。
@@ -4917,6 +4921,12 @@ class Desktop:
             from stage_execution_service import project_context
             from workflow_context_controller import request_stage_instruction
             from workflow_context_budget import prepare_request_context
+            if config['engine']=='codex':
+                from codex_skill_sync import sync_codex_skills
+                sync_result=sync_codex_skills()
+                if sync_result['errors'] or sync_result['conflicts']:
+                    raise ValueError('Codex 技能同步未完成：'+ '; '.join(
+                        sync_result['errors']+sync_result['conflicts']))
             data={} if intake_only else snapshot(project_context(project))
             receipt=claim(project,signature(stage,prompt,followup,config,data),title)
             if on_receipt is not None:on_receipt(receipt)
