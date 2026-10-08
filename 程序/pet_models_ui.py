@@ -265,10 +265,8 @@ def open_manager(pet):
     body.rowconfigure(2, weight=1)
     row = heading(body, MANAGER_TITLE, NOTE_MANAGER, columns=1)
     keys = [key for key, _title, _width in COLUMNS]
-    # 第 51 期第 2 条：这一格原来只露 8 行，下面那张九行表单却占掉大半个窗口。现在列表要高
-    # （14 行起），表单收紧（行距 3→1、外框内边距减半），多出来的高度都归列表。
-    # 第 65 期任务 5：用户要「模型池优先显示全部内容」——14 行 → 20 行，且每一列都允许跟随
-    # 窗口宽度伸展（原来只有根地址那一列会伸），名字长一点、地址长一点都看得全。
+    # 表单行不叠加纵向外边距；控件保留自身内边距，窗口剩余高度全部交给模型列表。
+    # 列宽随窗口伸展，长名称与地址可以通过滚动条查看。
     table_shell = DataTable(body, columns=COLUMNS, show='headings', height=20,
                             empty_text='暂无模型配置')
     tree = table_shell.tree
@@ -290,21 +288,21 @@ def open_manager(pet):
 
     def text_row(index, key, label):
         """一行「标签 ＋ 输入框」；行号往下走，表单中间插下拉框／多选都不会错位。"""
-        ttk.Label(form, text=label).grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
+        ttk.Label(form, text=label).grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
         entry = LineInput(form, style='ModelManager.TEntry')
-        entry.grid(row=index, column=1, sticky='ew', pady=SPACING['xs'])
+        entry.grid(row=index, column=1, sticky='ew')
         entries[key] = entry
         return index + 1
 
     # 表单次序照规格那张表：显示名、Provider、根地址、密钥、模型 ID、协议、能力标签、上下文、备注。
     index = text_row(0, 'label', '显示名')
-    ttk.Label(form, text='Provider').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
+    ttk.Label(form, text='Provider').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
     # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
     # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
     # 挑现成的，或者直接敲一个名字；存的就是填进去的那个名字。
     provider_box = SelectBox(form, textvariable=provider, state='normal',
                                 values=[label for _value, label in model_pool.PROVIDERS])
-    provider_box.grid(row=index, column=1, sticky='ew', pady=SPACING['xs'])
+    provider_box.grid(row=index, column=1, sticky='ew')
     def match_wire(event=None):
         """第 65 期任务 8：换了 Provider，「协议」栏自动摆到它默认的那一档。
 
@@ -318,9 +316,9 @@ def open_manager(pet):
     index = text_row(index + 1, 'base_url', 'API 根地址')
     index = text_row(index, 'key_env', '密钥名（.env 里的变量名）')
     # 规格里的第二种放法：密钥直接输进来，用系统加密存本机（明文不落盘、配置 JSON 里不写）。
-    ttk.Label(form, text='直接输入密钥').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
+    ttk.Label(form, text='直接输入密钥').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
     key_row = ttk.Frame(form)
-    key_row.grid(row=index, column=1, sticky='w', pady=SPACING['xs'])
+    key_row.grid(row=index, column=1, sticky='w')
     key_entry = LineInput(key_row, width=30, show='*', style='ModelManager.TEntry')
     key_entry.pack(side='left')
     SecondaryButton(key_row, text='保存到本机', command=lambda: local_save()).pack(side='left', padx=(SPACING['sm'], 0))
@@ -328,17 +326,17 @@ def open_manager(pet):
     index += 1
     key_state = tk.StringVar(value='')
     ttk.Label(form, textvariable=key_state, style='Muted.TLabel').grid(
-        row=index, column=1, sticky='w', pady=(0, SPACING['xs']))
+        row=index, column=1, sticky='w')
     index += 1
     index = text_row(index, 'model', '模型 ID')
-    ttk.Label(form, text='协议').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
+    ttk.Label(form, text='协议').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
     SelectBox(form, textvariable=wire,
                  values=[label for _value, label in model_pool.WIRE_APIS]).grid(
-        row=index, column=1, sticky='w', pady=SPACING['xs'])
+        row=index, column=1, sticky='w')
     index += 1
-    ttk.Label(form, text='能力标签').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']), pady=SPACING['xs'])
+    ttk.Label(form, text='能力标签').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
     cap_row = ttk.Frame(form)
-    cap_row.grid(row=index, column=1, sticky='w', pady=SPACING['xs'])
+    cap_row.grid(row=index, column=1, sticky='w')
     for tag in model_pool.CAPABILITY_TAGS:
         var = tk.BooleanVar(value=False)
         caps[tag] = var
