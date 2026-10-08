@@ -1057,9 +1057,35 @@ class Panel(ttk.Frame):
         if target_dir is None:
             self.state.configure(text='新增 SKILL 失败：未找到本阶段注册目录')
             return None
+        external_package = Path(source).name.casefold() == 'skill.md'
         target = target_dir / Path(source).name
-        if Path(source).name.casefold() == 'skill.md':
+        if external_package:
             target = target_dir / Path(source).parent.name / 'SKILL.md'
+        try:
+            raw = Path(source).read_text(encoding='utf-8-sig')
+        except (OSError, UnicodeError) as exc:
+            self.state.configure(text='新增 SKILL 失败：读不出源文件（%s）' % exc)
+            return None
+        meta, body = skill_registry.parse(raw, source=str(source))
+        problems = []
+        if external_package:
+            # 外部包由注册表补默认元数据，只检查可显示名称。
+            if not (str(meta.get('displayName') or '').strip() or skill_registry.markdown_heading(body)):
+                problems.append('未找到可显示的技能名称')
+        else:
+            skill = skill_registry.Skill(meta, body, path=Path(source))
+            known = {item.name for item in self.registry.getAll()}
+            problems.extend(skill_registry.validate_skill(skill, known=known))
+        declared = skill_registry.stage_id(meta.get('stage', ''))
+        if declared and declared != self.stage:
+            problems.append('frontmatter 声明阶段「%s」与本阶段不一致' % declared)
+        if target.exists():
+            problems.append('目标 %s 已存在，继续将覆盖' % target.name)
+        if problems:
+            message = ('导入前发现以下问题：\n\n' + '\n'.join('· ' + p for p in problems)
+                       + '\n\n仍要导入吗？')
+            if not confirm(self.winfo_toplevel(), TITLE, message, dangerous=True):
+                return None
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
