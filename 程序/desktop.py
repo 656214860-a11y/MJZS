@@ -4950,7 +4950,13 @@ class Desktop:
                         stage,'continuation_summary')
                 finish(receipt,'preparing','',context_budget={
                     'initial':budget,'continuation':continuation_budget})
-                if native_claude:return {'receipt':receipt,'prompt':full}
+                if native_claude:
+                    from codex_tasks import task_file_reference
+                    task_file = task_file_reference(project, stage, full)
+                    reference = (f'请读取并执行本次任务文件：{task_file}\n'
+                                 '其中引用的 SKILL 和附件按任务需要读取，不重复加载无关内容。'
+                                 '若无法读取本地文件，请提示启用文件访问并授权对应目录，或请用户上传文件；不要假定已读。')
+                    return {'receipt':receipt,'prompt':reference,'task_file':str(task_file)}
                 if use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
                                    'context_budget':{'initial':budget,'continuation':continuation_budget}}
                 result=prepare_task(project,title,stage,full,followup=continuation,setup_key=setup_key,
@@ -5029,7 +5035,7 @@ class Desktop:
             receipt=result['receipt']
             clipboard_text=result['prompt']
             task_file=result.get('task_file')
-            if task_file and Path(task_file).is_file():
+            if not native_claude and task_file and Path(task_file).is_file():
                 try:clipboard_text=Path(task_file).read_text(encoding='utf-8')
                 except OSError:clipboard_text=result['prompt']
             from prompt_window import copy_text
@@ -5037,10 +5043,14 @@ class Desktop:
             if native_claude:
                 from workflow_settings import find_program
                 from platform_tools import launch_windows_app
-                launch_windows_app(find_program(config), 'Claude Desktop')
-                reason = '已打开 Claude Desktop，任务已复制；请在应用中粘贴并手动发送。'
-                finish(receipt,'prepared',reason)
-                self.status.set(reason)
+                program = find_program(config)
+                launch_windows_app(program, 'Claude Desktop')
+                from codex_paste import paste_existing
+                def claude_pasted(value):
+                    finish(receipt,'prepared' if value['ok'] else 'failed',value['reason'],task_file=task_file)
+                    self.status.set(value['reason'])
+                self.status.set('正在将任务路径粘贴到 Claude Desktop，请检查后手动发送…')
+                self.async_(lambda:paste_existing(title,clipboard_text,program=program,deadline_seconds=45),claude_pasted)
                 return
             if config.get('desktop_program'):
                 from platform_tools import launch_windows_app

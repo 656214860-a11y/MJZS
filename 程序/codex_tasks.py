@@ -95,6 +95,16 @@ def task_lock(project):
         finally:
             f.seek(0);unlock()
 
+def task_file_reference(project, stage, prompt):
+    """保存桌面任务快照；输入框只传引用，不启动模型或 Codex RPC。"""
+    taskdir = Path(project).resolve() / '工作流任务' / stage
+    signature = __import__('hashlib').sha256(prompt.encode('utf-8')).hexdigest()[:20]
+    taskfile = taskdir / (signature + '.md')
+    if not taskfile.is_file() or taskfile.read_text(encoding='utf-8') != prompt:
+        save_text(taskfile, prompt)
+    return taskfile
+
+
 def prepare_task(project,title,stage,prompt,rpc_factory=RPC,followup=None,setup_key=None,*,delivery_summary=''):
     from urllib.parse import urlencode,quote
     prompt=ensure_request_context(prompt, stage)
@@ -104,7 +114,6 @@ def prepare_task(project,title,stage,prompt,rpc_factory=RPC,followup=None,setup_
         if not isinstance(info,dict):info={}
         entry=info.get(stage,{})
         if not isinstance(entry,dict):entry={}
-        taskdir=project/'工作流任务'/stage;taskdir.mkdir(parents=True,exist_ok=True)
         prompt='请将当前任务命名为“'+title+'”。\n'+prompt
         def usable(thread):
             return (Path(thread.get('cwd','')).resolve()==project
@@ -133,8 +142,7 @@ def prepare_task(project,title,stage,prompt,rpc_factory=RPC,followup=None,setup_
         else:
             info[stage]={'title':title,'state':'draft','invalid_thread_id':entry.get('thread_id') or entry.get('invalid_thread_id')}
             mode='new'
-        signature=__import__('hashlib').sha256(prompt.encode('utf-8')).hexdigest()[:20]
-        taskfile=taskdir/(signature+'.md')
+        taskfile=task_file_reference(project,stage,prompt)
         delivery=f'请将当前任务命名为“{title}”。请完整读取并执行本次任务文件：{taskfile}。仅执行该文件指定的任务，沿用已有成果，不重复制作。'
         if delivery_summary:
             delivery = delivery_summary + '\n' + delivery
@@ -142,6 +150,5 @@ def prepare_task(project,title,stage,prompt,rpc_factory=RPC,followup=None,setup_
             draft=delivery
             url='codex://new?'+urlencode({'path':str(project),'prompt':draft},quote_via=quote)
         if setup_key is not None:info[stage]['setup_key']=setup_key
-        if not taskfile.is_file() or taskfile.read_text(encoding='utf-8')!=prompt:save_text(taskfile,prompt)
         save(file,info)
         return {'url':url,'title':title,'prompt':delivery,'task_file':str(taskfile),'mode':mode,'draft_prompt':draft,'project':str(project)}

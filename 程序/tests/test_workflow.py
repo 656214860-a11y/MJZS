@@ -716,7 +716,7 @@ class DesktopModelPoolTests(unittest.TestCase):
             self.assertEqual(config['program'], '')
             self.assertEqual(config['model'], '')
 
-    def test_native_claude_opens_app_and_copies_without_cli_or_auto_send(self):
+    def test_native_claude_pastes_task_reference_without_cli_or_auto_send(self):
         from desktop import Desktop
         from types import SimpleNamespace
         from unittest.mock import Mock
@@ -729,11 +729,19 @@ class DesktopModelPoolTests(unittest.TestCase):
                     patch('agent_dispatch.finish') as finish, \
                     patch('prompt_window.copy_text') as copy, \
                     patch('platform_tools.launch_windows_app') as launch, \
+                    patch('codex_paste.paste_existing', return_value={'ok': True, 'reason': '已粘贴'}) as paste, \
                     patch('workflow_engines.launch_interactive') as cli, \
                     patch('codex_tasks.prepare_task') as codex:
                 Desktop.open_flow_agent(desktop, 'writing', '提取', '提取简报', _config=config, intake_only=True)
             launch.assert_called_once_with('C:/Apps/Claude.exe', 'Claude Desktop')
-            self.assertIn('提取简报', copy.call_args.args[1])
+            reference = copy.call_args.args[1]
+            self.assertNotIn('提取简报', reference)
+            tasks = list((proj / '工作流任务' / 'writing').glob('*.md'))
+            self.assertEqual(len(tasks), 1)
+            self.assertEqual(tasks[0].read_text(encoding='utf-8'), '提取简报')
+            self.assertIn(str(tasks[0]), reference)
+            self.assertIn('无法读取', reference)
+            paste.assert_called_once_with(proj.name + ' 提取', reference, program='C:/Apps/Claude.exe', deadline_seconds=45)
             cli.assert_not_called()
             codex.assert_not_called()
             self.assertEqual(finish.call_args.args[1], 'prepared')

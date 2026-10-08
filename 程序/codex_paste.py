@@ -6,10 +6,11 @@ from pathlib import Path
 from agent.core import save_text
 
 
-def paste_existing(title,prompt,draft='',project='',deadline_seconds=15):
+def paste_existing(title,prompt,draft='',project='',deadline_seconds=15,*,program=''):
     script=Path(__file__).with_name('codex_paste.ps1')
     payload={'title':title,'prompt':prompt,'draft':draft,'project':str(project),
-             'deadline':deadline_seconds}
+             'deadline':deadline_seconds,'program':str(program)}
+    app = 'Claude Desktop' if program else 'GPT'
     try:
         # Full episode prompts routinely exceed Windows' command-line limit.
         # Only filenames go in argv; immutable UTF-8 data stays out of shell code.
@@ -27,8 +28,8 @@ def paste_existing(title,prompt,draft='',project='',deadline_seconds=15):
 
         return {'ok':False,'reason':'自动填入工具未返回结果（退出码 '+str(result.returncode)+'）；任务文本已保留，未自动重试。','send_dispatched':False}
     except subprocess.TimeoutExpired:
-        return {'ok':False,'reason':'自动填入等待超时；内容已复制，请在 GPT 窗口中粘贴并手动发送。','send_dispatched':False}
+        return {'ok':False,'reason':f'自动填入等待超时；内容已复制，请在 {app} 窗口中粘贴并手动发送。','send_dispatched':False}
     except OSError as exc:
         return {'ok':False,'reason':'自动填入工具未启动（系统错误 '+str(getattr(exc,'winerror',None) or exc.errno)+'）；任务文本已保留。'}
     except ValueError:
-        return {'ok':False,'reason':'无法读取自动填入结果；内容已复制，请检查 GPT 窗口并手动发送。','send_dispatched':False}
+        return {'ok':False,'reason':f'无法读取自动填入结果；内容已复制，请检查 {app} 窗口并手动发送。','send_dispatched':False}

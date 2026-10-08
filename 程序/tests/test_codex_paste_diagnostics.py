@@ -9,6 +9,24 @@ import codex_paste
 
 
 class CodexManualPasteTests(unittest.TestCase):
+    def test_claude_targets_configured_program_and_preserves_manual_send(self):
+        def run(args, **kwargs):
+            payload = json.loads(Path(args[-1]).read_text(encoding='utf-8'))
+            self.assertEqual(payload['program'], 'C:/Apps/Claude.exe')
+            self.assertEqual(payload['prompt'], '请读取任务文件')
+            self.assertNotIn('auto_send', payload)
+            return SimpleNamespace(stdout='{"ok":true,"send_dispatched":false}', stderr='', returncode=0)
+        with patch.object(codex_paste.subprocess, 'run', side_effect=run):
+            result = codex_paste.paste_existing('任务', '请读取任务文件', program='C:/Apps/Claude.exe')
+        self.assertTrue(result['ok'])
+        self.assertFalse(result['send_dispatched'])
+
+    def test_claude_timeout_identifies_the_correct_app(self):
+        with patch.object(codex_paste.subprocess, 'run', side_effect=codex_paste.subprocess.TimeoutExpired('powershell', 55)):
+            result = codex_paste.paste_existing('title', 'path', program='C:/Apps/Claude.exe')
+        self.assertIn('Claude Desktop', result['reason'])
+        self.assertFalse(result['send_dispatched'])
+
     def test_deadline_and_paste_only_payload(self):
         diagnostics = {'window_count': 1, 'windows': [{'index': 1, 'categories': ['editor-count'], 'editor_count': 0}]}
         receipt = {'ok': False, 'reason': '未找到输入框', 'send_dispatched': False, 'diagnostics': diagnostics}
