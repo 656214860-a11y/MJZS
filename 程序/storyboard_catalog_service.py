@@ -220,6 +220,18 @@ def board_source_script(context, board):
     return current if current.is_file() else None
 
 
+def _is_initial_storyboard(data):
+    """Recognize the untouched Projects.create seed, including renamed legacy files."""
+    return (set(data) <= {'episode_id', 'title', 'shots'}
+            and data.get('episode_id') == 'EP001'
+            and data.get('shots') == [{
+                'id': 'SH001', 'title': '待编写', 'duration': 5,
+                'characters': ['CHAR_001'], 'location': 'LOC_001',
+                'frame': 'frames/SH001.png',
+                'video_prompt': '待填写镜头画面、动作和对白', 'dialogue': [],
+            }])
+
+
 def catalog(context, kind, ignored=IGNORED):
     """Build the script/storyboard catalog without importing Tk page code."""
     from artifact_lineage import source_available
@@ -263,6 +275,8 @@ def catalog(context, kind, ignored=IGNORED):
             try:
                 data = read_json(path)
                 if not isinstance(data, dict) or not isinstance(data.get('shots'), list) or not data['shots']:
+                    continue
+                if _is_initial_storyboard(data):
                     continue
                 final_candidate = any(is_final_dir(part) for part in path.relative_to(root).parts)
                 if final_candidate and source_available(project, path) is False:

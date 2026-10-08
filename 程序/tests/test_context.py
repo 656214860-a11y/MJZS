@@ -31,6 +31,40 @@ def make_project(td):
 
 
 class SnapshotTests(unittest.TestCase):
+    def test_new_project_placeholder_is_not_a_storyboard_after_script_removal(self):
+        from projects import Projects
+        from stage_execution_service import project_registry_gateway
+        from project_stages import writing, storyboard
+        with tempfile.TemporaryDirectory() as td:
+            app = Path(td) / 'app'
+            app.mkdir()
+            save_json(app / 'config.json', {'downloads_root': str(Path(td) / 'downloads')})
+            service = Projects(app, gateway=project_registry_gateway(), migrate_legacy=False)
+            result = service.create('测试故事')
+            self.assertTrue(result.ok, result.reason)
+            project = result.data
+            context = project_context(project)
+            boards = list((storyboard(project) / '分镜拆分').glob('*.json'))
+            self.assertEqual(len(boards), 1)
+            original = boards[0].read_bytes()
+            script = writing(project) / '第1集_正式剧本.md'
+            script.parent.mkdir(parents=True, exist_ok=True)
+            script.write_text('自然剧本正文', encoding='utf-8')
+            self.assertEqual(len(snapshot(context)['scripts']), 1)
+            script.unlink()
+            data = snapshot(context)
+            self.assertEqual(data['scripts'], [])
+            self.assertEqual(data['storyboards'], [])
+            self.assertIn('已有剧本 0 份，分镜 0 份，独立资产 0 项',
+                          continuation_instruction(context, 'writing', data))
+            self.assertEqual(boards[0].read_bytes(), original)
+
+            # 用户填入真实内容后，即使没有源剧本，也仍是独立分镜。
+            edited = json.loads(original)
+            edited['shots'][0]['video_prompt'] = '摄影师举起相机，沿走廊向门口移动。'
+            save_json(boards[0], edited)
+            self.assertEqual(len(snapshot(context)['storyboards']), 1)
+
     def test_snapshot_consumes_l3_context(self):
         with tempfile.TemporaryDirectory() as td:
             context = project_context(make_project(td))
