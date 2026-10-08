@@ -360,12 +360,16 @@ class WorkflowSettingsTests(unittest.TestCase):
             self.assertEqual(set(d["profiles"]), set(ws.ENGINES))
 
     def test_writing_output_contract_allows_only_skill_process_documents(self):
-        """过程 Markdown 可落 docs/，但不得稀释原稿与结构稿边界。"""
+        """四阶段审阅文件不得稀释最终自然剧本与结构稿的输入边界。"""
         contract = ws.stage_output_contract('writing')
-        self.assertIn('唯一交付物是完整自然语言剧本正文', contract)
+        self.assertIn('唯一正式交付物是完整自然语言剧本正文', contract)
         self.assertNotIn('不得产出结构化剧本、分镜、字段表、JSON/YAML', contract)
         self.assertNotIn('首帧/视频提示词、资产清单等后续阶段产物', contract)
-        self.assertIn('过程文档可入 docs/ 但不得并入剧本正文', contract)
+        self.assertIn('①项目设定 → ②剧本大纲 → ③角色卡 → ④自然剧本', contract)
+        self.assertIn('每个关键阶段都必须用户确认，不能自动跳到下一阶段', contract)
+        self.assertIn('每次只输出当前阶段一个文件，末尾“待确认”', contract)
+        self.assertIn('前三项仅供用户审阅参考，不进入 02 结构剧本的输入', contract)
+        self.assertIn('02 结构剧本的唯一来源仍是最终自然剧本', contract)
         self.assertNotIn('正文与 SKILL 要求的确认清单', contract)
 
     def test_defaults_bad_stage(self):
