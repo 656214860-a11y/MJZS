@@ -954,11 +954,18 @@ class Panel(ttk.Frame):
             self.flow_skill_row.pack(fill='x')
 
         for item in self.skills:
-            var = tk.BooleanVar(value=True)
-            self.vars[item.name] = var
             # 每个包里的入口通常都叫 SKILL.md；从路径取名会把所有项降级为
             # 「自定义技能」。注册表 displayName 才是已解析的用户可见名称。
             shown = registered_skill_checkbox_label(item)
+            # 外部包只支持安装到桌面端，不参与阶段编排或勾选配置。
+            if item.meta.get(skill_registry.IMPORTED_PACKAGE_FLAG):
+                text = shown + '（仅支持安装到桌面端）'
+                label = HintLabel(self.flow_skill_row, text=text)
+                label._skill_full_name = text
+                self.add_skill_control(label)
+                continue
+            var = tk.BooleanVar(value=True)
+            self.vars[item.name] = var
             box = ttk.Checkbutton(self.flow_skill_row, text=shown, width=28,
                                   variable=var, command=self.save_and_refresh_notes)
             box._skill_full_name = shown
@@ -1445,6 +1452,13 @@ class Panel(ttk.Frame):
             entry = self.entry()
         except Exception:
             return None
+        imported = {item.name for item in self.skills
+                    if item.meta.get(skill_registry.IMPORTED_PACKAGE_FLAG)}
+        skills = list(entry.get('skills') or [])
+        if imported.intersection(skills):
+            entry = stage_config.put(self.project(), self.stage,
+                                     skills=[name for name in skills if name not in imported],
+                                     registry=self.registry)
         kept = self.drop_mismatched(entry.get('model') or model_router.AUTO, entry.get('skills'))
         self.set_model(kept or model_router.AUTO)
         if self.stage in stage_config.HOLLMWOOD_STAGES:

@@ -1137,7 +1137,7 @@ class PanelTests(unittest.TestCase):
     def test_every_stage_has_a_panel(self):
         for stage in pet_bus.STAGES:
             panel = skill_panel.Panel(self.win, self.desktop, stage)
-            expected = sum(not item.deprecated
+            expected = sum(not item.deprecated and not item.meta.get(skill_registry.IMPORTED_PACKAGE_FLAG)
                            for item in skill_registry.default_registry().getByStage(stage))
             self.assertEqual(len(panel.vars), expected, stage)
             self.assertEqual(panel.stage, stage)
@@ -1616,18 +1616,18 @@ class PanelTests(unittest.TestCase):
         registry.scan(force=True)
         return source, registry
 
-    def test_registered_legacy_flow_skill_has_one_stage_checkbox(self):
+    def test_registered_legacy_flow_skill_has_one_readonly_label(self):
         """同源旧路径只由阶段注册表渲染一次，旧字段不提供可编辑副本。"""
         source, registry = self.registered_package_registry()
         skill_panel.set_flow_skills(self.desktop.root, 'writing', [str(source)])
         with mock.patch.object(skill_panel.skill_registry, 'default_registry', return_value=registry):
             panel = skill_panel.Panel(self.win, self.desktop, 'script')
             self.addCleanup(panel.destroy)
-            resolved = str(source.resolve())
-            boxes = [box for box in panel.flow_skill_row.winfo_children()
-                     if getattr(box, '_skill_path', '') == resolved]
-            self.assertEqual(len(boxes), 1,
-                             '同一 resolve 路径只能由注册表或流程来源之一渲染')
+            labels = [widget for widget in panel.flow_skill_row.winfo_children()
+                      if isinstance(widget, skill_panel.HintLabel)]
+            self.assertEqual(len(labels), 1, '同源外部包只能渲染一次')
+            self.assertTrue(str(labels[0].cget('text')).endswith('（仅支持安装到桌面端）'))
+            self.assertEqual(panel.selected(), [])
             self.assertFalse(hasattr(panel, 'flow_vars'))
 
     def test_legacy_engine_skill_is_preserved_for_cli_consumption(self):
