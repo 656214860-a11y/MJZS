@@ -5818,7 +5818,7 @@ class StageEntryTests(PetTestCase):
         self.pet.agent.set_level('hint')
         self.pet.run_skill = lambda *_args, **_kwargs: self.fail('提示档不能启动 SKILL')
         said = self.pet.enter_stage(page=0, at=self.now)
-        self.assertIn('【阶段 1/12】', said)
+        self.assertIn('【阶段 1/13】', said)
         self.assertIn('剧本', said)
         self.assertIn('当前进度', said)
 
@@ -5826,7 +5826,7 @@ class StageEntryTests(PetTestCase):
         self.pet.agent.set_level('semi')
         self.pet.run_skill = lambda *_args, **_kwargs: self.fail('确认前不能启动 SKILL')
         said = self.pet.enter_stage(page=0, at=self.now)
-        self.assertIn('【阶段 1/12】', said)
+        self.assertIn('【阶段 1/13】', said)
         self.assertIn('要不要', said)
         self.assertIn(pet_agent.PET_NAME + '：', said)
 

@@ -30,7 +30,7 @@ class HollmwoodQueueTests(unittest.TestCase):
             app.poll_hollmwood_progress()
             self.assertEqual(app.status.values, ['导演 正在工作…'])
             log = app.root / 'logs' / 'sanhu_progress.log'
-            self.assertIn('【阶段 1/12】HOLLMWOOD：导演 正在工作…', log.read_text(encoding='utf-8'))
+            self.assertIn('【阶段 1/13】HOLLMWOOD：导演 正在工作…', log.read_text(encoding='utf-8'))
 
     def test_cancelled_request_progress_is_ignored(self):
         app = Desktop.__new__(Desktop)

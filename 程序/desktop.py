@@ -6467,6 +6467,7 @@ class Desktop:
                                              generate_animatic_reference)
         from ui_widgets import DescriptionBlock, PrimaryButton, SecondaryButton, ProgressLabel, LineInput, HintLabel
         from ui_tokens import SPACING
+        self.header_stage_config(PAGE['animatic'])
         project = self.root
         selected = {'source': None, 'audio': None}
         comfy_settings = {'url': self.settings.get('comfy_url', 'http://127.0.0.1:8188')}

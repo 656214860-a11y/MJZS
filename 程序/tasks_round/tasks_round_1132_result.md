@@ -12,4 +12,8 @@
 
 ## 验证与提交
 
+本轮接续专项 1039 条、175.1 秒，5 个工作单元失败，定位为阶段配置入口、三虎阶段提问映射遗漏，以及旧编号/分母断言。已补齐入口和映射，更新顺延断言；未删除或弱化断言。针对 PageAskTests、StageEntryTests、StageConfigEntryTests、test_hollmwood_ui_queue、test_project_rename_reconcile 重跑 16/16，1.2 秒通过。
+
+当前为全量前检查点，尚未获得本轮全量绿色凭据。
+
 [TASK_FAILED] 本文件用于可恢复检查点，等待本轮真实验收。未改真实用户项目数据，未调用真实 ComfyUI 或付费服务，未重启应用。

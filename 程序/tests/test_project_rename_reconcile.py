@@ -45,7 +45,7 @@ class RenameReconcileTests(unittest.TestCase):
             self.assertEqual(service.info['active'],str(new));self.assertEqual(service.info['projects'][0]['status'],'making')
             self.assertEqual(json.loads((new/'config.json').read_text())['episode_dir'],str(new/'03初步分镜'/'分镜拆分'))
             self.assertEqual(json.loads((cloud/'config.json').read_text())['episode_dir'],str(new/'03初步分镜'))
-            self.assertTrue((new/'12质检交付').is_dir())
+            self.assertTrue((new/'13质检交付').is_dir())
 
     def test_multiple_fingerprint_candidates_requires_confirmation(self):
         with tempfile.TemporaryDirectory() as td:
