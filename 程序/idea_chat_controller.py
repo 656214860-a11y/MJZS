@@ -139,7 +139,8 @@ class IdeaChatController:
         from storage_maintenance import recycle_paths
         from idea_attachments import archive_pair
         path = Path(path)
-        if path not in stage_idea_attachment_paths(project):
+        # 模型切换会改变列表优先展示的副本；原件与转换稿仍属于同一份归档。
+        if not any(path in archive_pair(uploaded) for uploaded in stage_idea_attachment_paths(project)):
             raise ValueError('文件不在当前项目的已上传列表中，请刷新后重试。')
         pair = tuple(dict.fromkeys(archive_pair(path)))
         if not recycle_paths(project, pair, '删除创意附档'):
