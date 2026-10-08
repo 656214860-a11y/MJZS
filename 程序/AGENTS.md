@@ -246,10 +246,11 @@
 一律归类为**契约轮**，并保留本节要求的范围、验证和文档更新；结果报告和状态台账不得再使用未定义的组合类型。
 
 - 只改 `pet_bus` / `script_contract` / `asset_contract` /
-  `stage_layout` / `storyboard_paths`。
+  `stage_layout` / `storyboard_paths` / `hollmwood_rules`。
 - 不动 L1 以上。
 - 跑全量自检。
 - 更新 `AGENTS.md` 硬约束与 `architecture.md`。
+- HOLLMWOOD 的 L0 只定义角色职责、交接和审核机制；详细写作规则唯一遵循所选 SKILL，时长唯一遵循已确认 brief 的“单集时间”。不得在角色常量或默认节奏模板复制字数、时长或节拍指标。共享 SKILL、brief、导演计划的请求装配与空模板投影属于既有上层实现，不因本白名单扩充而纳入契约轮生产修改范围。
 
 ### 3.5 只读诊断轮
 

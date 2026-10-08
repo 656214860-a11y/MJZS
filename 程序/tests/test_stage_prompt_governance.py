@@ -66,6 +66,29 @@ class InlineSkillTests(unittest.TestCase):
 
 
 class StagePromptGovernanceTests(unittest.TestCase):
+    def test_hollmwood_authority_and_handoff_contract(self):
+        expected = {
+            'DIRECTOR_PLAN_RULES': ('用户确认', 'SKILL', '单集时间'),
+            'WRITER_RULES': ('完整自然语言剧本', '对白字数按所选 SKILL', '结尾悬念',
+                             '禁止结构化剧本', '只输出剧本正文'),
+            'EDITOR_RULES': ('完整改写', '逻辑断裂', '人物动机', '转场', '保留导演节奏要求'),
+            'ACTOR_RULES': ('可表演', '不得新增无依据角色或改变结局卡点', '完整剧本正文'),
+            'DIRECTOR_REVIEW_RULES': ('所选 SKILL 与已确认简报', '单集时间',
+                                      '动作必须可视化', '人物行为必须连贯', 'APPROVED', 'REVISE:'),
+        }
+        for name, duties in expected.items():
+            rule = getattr(hollmwood_rules, name)
+            with self.subTest(role=name):
+                for duty in duties:
+                    self.assertIn(duty, rule)
+                self.assertEqual(hollmwood_rules.SINGLE_WINDOW_COLLABORATION.count(rule), 1)
+        text = hollmwood_rules.SINGLE_WINDOW_COLLABORATION
+        for obsolete in ('黄金', '冲突升级', '情绪转折', '反形容词', '20 字', '20字',
+                         '20 个汉字', '60–90', '60-90', '100秒', '100 秒',
+                         '≤24', '6~18', '6～18'):
+            self.assertNotIn(obsolete, text)
+        self.assertIn('最终只交付第④阶段的完整剧本正文', text)
+
     def test_story_fields_and_stage_lock_contract(self):
         self.assertEqual(contract.INLINE_REQUIRED_LABELS,
                          ('故事梗概', '故事题材', '故事角色', '故事集数', '单集时间'))

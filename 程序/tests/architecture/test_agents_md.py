@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pet_bus
 from tests.architecture._scan import ROOT
+from tests.architecture._layers import LAYERS
 from tests.architecture.test_path_authority import _WHITELIST as PATH_AUTHORITIES
 from tests.architecture.test_remove_authority import _WHITELIST as REMOVE_AUTHORITIES
 
@@ -35,6 +36,17 @@ def _stage_counts(text: str) -> set[int]:
 class AgentsMdConsistencyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.agents = _read(AGENTS)
+
+    def test_contract_round_whitelist_matches_authorized_l0_scope(self) -> None:
+        section = self.agents.split('### 3.4 契约轮', 1)[1].split('### 3.5', 1)[0]
+        clause = section.split('- 只改 ', 1)[1].split('。', 1)[0]
+        modules = set(re.findall(r'`([a-z_]+)`', clause))
+        self.assertEqual(modules, {'pet_bus', 'script_contract', 'asset_contract',
+                                  'stage_layout', 'storyboard_paths', 'hollmwood_rules'})
+        self.assertEqual({module: LAYERS[module] for module in modules},
+                         dict.fromkeys(modules, 0))
+        self.assertIn('不动 L1 以上', section)
+        self.assertIn('跑全量自检', section)
 
     def test_workflow_stage_count_matches_bus(self) -> None:
         matched = re.search(r'工作流：(\d+) 个制作阶段', self.agents)
