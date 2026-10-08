@@ -37,7 +37,9 @@ class SemanticBriefTests(unittest.TestCase):
             desktop = SimpleNamespace(root=root, worker=False, status=Mock(), notifier=Mock(),
                 projects=SimpleNamespace(info={'projects': []}), flow_processes={key: process},
                 async_=lambda fn, done: done(fn()))
-            with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
+            with patch('codex_skill_sync.sync_codex_skills',
+                       return_value={'errors': [], 'conflicts': []}), \
+                    patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish'), patch('agent_dispatch.outcome'), \
                     patch('workflow_engines.submit_existing', return_value={
                         'ok': True, 'reason': '已发送', 'send_dispatched': True}) as submit, \
@@ -65,7 +67,9 @@ class SemanticBriefTests(unittest.TestCase):
             desktop = SimpleNamespace(root=root, worker=False, projects=SimpleNamespace(info={'projects': []}),
                                       async_=lambda fn, done: built.append(fn()))
             config = {'engine': 'codex', 'program': 'codex', 'model': ''}
-            with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
+            with patch('codex_skill_sync.sync_codex_skills',
+                       return_value={'errors': [], 'conflicts': []}), \
+                    patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish'), \
                     patch('workflow_context.snapshot', side_effect=AssertionError('no history')), \
                     patch('workflow_engines.prompt_with_settings', side_effect=AssertionError('no script skill')):
