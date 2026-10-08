@@ -54,7 +54,7 @@ CONFIG = {
                    'why': '一个场景一个 Agent；同一场景内的镜头必须串行，免得动作接不上'},
     'animatic': {'unit': BATCH, 'min': 1, 'max': 3, 'serial': True, 'limit': 3,
                  'retry': {'attempts': 2, 'backoff': 'fixed', 'on_exhaust': ON_MANUAL},
-                 'why': '跨批次并行，批内按镜头顺序生成预演草图，合成后人工确认节奏与对白同步'},
+                 'why': '跨批次并行，批内按镜头顺序生成预演草图，合成后请您确认节奏与对白同步'},
     'assets': {'unit': ASSET, 'min': 3, 'max': 5, 'serial': True, 'limit': 5,
                'retry': {'attempts': 2, 'backoff': 'fixed', 'on_exhaust': ON_BLOCK},
                'why': '一项资产一个 Agent；资产内部（正典板→状态变体→锚点→参考职责）必须串行'},

@@ -93,8 +93,8 @@ class FinalViewerCase(unittest.TestCase):
         self.addCleanup(setattr, storyboard_files, "confirm", original_yes)
         self.addCleanup(setattr, storyboard_files.messagebox, "showerror", original_error)
         self.answer = True
-        # show() 使用零基索引；资产管理置为 04 后，分镜定稿（06）位于索引 5。
-        self.app.show(5)
+        # 使用阶段权威映射，新增阶段不改变定稿页的测试目标。
+        self.app.show(self.desktop_module.PAGE['final'])
         self.win.update_idletasks()
         self.viewer = self.find_viewer(self.app.content)
         self.assertIsNotNone(self.viewer, "04 那一页有那个 JSON 文本框")
@@ -255,7 +255,7 @@ class SaveReminderTests(FinalViewerCase):
         self.assertEqual(self.disk_text()["title"], "打完字停一会儿")
 
     def test_drawing_the_page_again_does_not_ask(self):
-        self.app.show(5)
+        self.app.show(self.desktop_module.PAGE['final'])
         self.win.update_idletasks()
         self.assertEqual(self.asked, [], "只是重新画一遍这一页：一个字都没改，不问")
 

@@ -40,7 +40,7 @@ STAGES = (
      (), ()),
     ('03初步分镜', 'storyboard', '初步分镜', '剧本 ＋ SKILL 拆出分镜初稿 JSON',
      ('episode.json', 'characters.json'), ('storyboard_draft.json',)),
-    ('04分镜预演', 'animatic', '分镜预演', '参考图与分镜提示词生成预演草图，临时声音合成 Animatic，人工确认后进入资产管理',
+    ('04分镜预演', 'animatic', '分镜预演', '参考图与分镜提示词生成预演草图，临时声音合成 Animatic，等您确认后进入资产管理',
      ('storyboard_draft.json',), ('animatic_manifest.json',)),
     ('05资产管理', 'assets', '资产管理', '资产清单、正典板、状态变体与参考图',
      ('storyboard_draft.json',), ('assets.json',)),

@@ -101,7 +101,7 @@ def start(desktop, stage, trigger='auto', fallback=None, **options):
     if stage == 'animatic':
         from pet_bus import STAGES
         desktop.show(STAGES.index('animatic'))
-        return _fail(desktop, stage, trigger, '分镜预演需要选择参考图与临时声音，生成后人工确认节奏、时长和对白同步')
+        return _fail(desktop, stage, trigger, '分镜预演需要选择参考图与临时声音，生成后请您确认节奏、时长和对白同步')
     if stage == 'pet_performance':
         return _start_pet_performance(desktop, options.get('kind', 'startup'))
     if stage == 'pet_test':

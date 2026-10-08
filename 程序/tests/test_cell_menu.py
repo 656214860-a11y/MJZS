@@ -531,6 +531,7 @@ class ReferenceRowMenuTests(unittest.TestCase):
         subject.shown = []; subject.errors = []
         subject.show = lambda index: subject.shown.append(index)
         subject.asset_base = lambda: base
+        subject.asset_write_base = lambda: base
         def safe(fn):
             try:
                 return fn()

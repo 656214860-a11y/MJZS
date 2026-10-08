@@ -27,7 +27,7 @@ class CompletionEvidenceTests(unittest.TestCase):
     def test_media_output_folders_keeps_delivery_formats_separate(self):
         root = Path('project')
         folders, suffixes = media_output_folders(root, 'delivery')
-        self.assertEqual(len(folders), 1)
+        self.assertEqual(folders, (root / '13质检交付', root / '12质检交付'))
         self.assertEqual(suffixes, {'.mp4', '.mov', '.mkv', '.zip'})
 
 

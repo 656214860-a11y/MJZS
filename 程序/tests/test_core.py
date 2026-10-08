@@ -455,7 +455,7 @@ class ProjectsEngineTests(unittest.TestCase):
             self.assertRegex(p.name, r'^测试项目_\d{8}(?:_\d+)?$')
             self.assertTrue((p / "config.json").is_file())
             self.assertTrue((p / "03初步分镜" / "分镜拆分" / "episode.json").is_file())
-            for d in ("01剧本准备", "10配音与字幕", "11后期剪辑", "12质检交付"):
+            for d in ("01剧本准备", "11配音与字幕", "12后期剪辑", "13质检交付"):
                 self.assertTrue((p / d).is_dir(), d)
             st = engine_mod.Studio(p)
             self.assertEqual(len(st.episode["shots"]), 1)

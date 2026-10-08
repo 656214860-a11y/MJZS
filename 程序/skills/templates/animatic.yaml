@@ -1,6 +1,6 @@
 name: 分镜预演处理
 stage_id: "animatic"
-process_id: "animatic"
+process_id: "04_animatic"
 steps:
   - index: 1
     name: 准备共享参考图

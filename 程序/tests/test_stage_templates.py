@@ -11,7 +11,7 @@ TEMPLATE_ROOT = Path(__file__).parent.parent / "skills" / "templates"
 
 class StageTemplateTests(unittest.TestCase):
     def test_each_canonical_stage_has_a_valid_sequential_step_template(self):
-        templates = sorted(TEMPLATE_ROOT.glob("*_process_template.yaml"))
+        templates = sorted([*TEMPLATE_ROOT.glob("*_process_template.yaml"), TEMPLATE_ROOT / "animatic.yaml"])
         self.assertEqual(len(templates), len(STAGES))
 
         found_stages = []
