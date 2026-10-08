@@ -53,13 +53,22 @@ class WritingApiTests(unittest.TestCase):
                 __import__('json').dumps(brief, ensure_ascii=False), encoding='utf-8')
             answers = ('节奏计划', '编剧稿', 'APPROVED 编剧通过', '编辑稿',
                        'APPROVED 编辑通过', '演员稿', 'APPROVED 演员通过')
+            skill = Path(td) / 'SKILL.md'
+            skill.write_text('---\nname: api-role-test\n---\n四角色共用内联技能正文', encoding='utf-8')
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('workflow_settings.skills_of', return_value=[str(skill)]), \
                  patch('writing_api.PoolAdapter.chat',
                        side_effect=[{'ok': True, 'text': text} for text in answers]) as chat:
                 result = writing_api.reply(project, '开始创作', publish=publish_stage_text)
             self.assertTrue(result['ok'])
             self.assertEqual(result['text'], '演员稿')
             self.assertEqual(chat.call_count, 7)
+            writer_system = chat.call_args_list[1].kwargs['system']
+            self.assertIn('<skill name="api-role-test">', writer_system)
+            self.assertIn('四角色共用内联技能正文', writer_system)
+            self.assertIn(f'<!-- 来源: {skill.resolve()} -->', writer_system)
+            for call in chat.call_args_list:
+                self.assertNotIn('请先完整读取并遵循本地技能文件', call.kwargs['system'])
             self.assertEqual((project_stages.writing(project) / 'script_raw.md').read_text(encoding='utf-8'), '演员稿\n')
             self.assertEqual(len(list((project / 'logs').glob('hollmwood_step_*.log'))), 7)
             self.assertEqual(len(list((project / 'logs' / 'model_diagnostics').glob('*.json'))), 7)
@@ -158,13 +167,20 @@ class WritingApiTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
             stage_config.put(project, 'script', model='gpt-4o')
+            skill = Path(td) / 'SKILL.md'
+            skill.write_text('---\nname: api-direct-test\n---\n直连共用内联技能正文', encoding='utf-8')
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('workflow_settings.skills_of', return_value=[str(skill)]), \
                  patch('model_router.PoolAdapter.chat', return_value={'ok': True, 'text': '收到'}) as chat:
                 self.assertEqual(writing_api.selected_model(project)[0], 'gpt-4o')
                 result = writing_api.reply(project, '照相馆里有一张会说话的底片')
             self.assertTrue(result['ok'])
             self.assertIn('本次创意输入', chat.call_args.args[0][0]['content'])
             self.assertIn('本次创意输入', chat.call_args.kwargs['system'] + chat.call_args.args[0][0]['content'])
+            self.assertIn('<skill name="api-direct-test">', chat.call_args.kwargs['system'])
+            self.assertIn('直连共用内联技能正文', chat.call_args.kwargs['system'])
+            self.assertIn(f'<!-- 来源: {skill.resolve()} -->', chat.call_args.kwargs['system'])
+            self.assertNotIn('请先完整读取并遵循本地技能文件', chat.call_args.kwargs['system'])
 
     def test_desktop_agent_is_not_treated_as_an_api_model(self):
         with tempfile.TemporaryDirectory() as td:

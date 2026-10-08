@@ -1,6 +1,7 @@
 """阶段制作锁、SKILL 路径引用和桌面四角色共用规则。"""
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 import hollmwood_roles
@@ -15,6 +16,53 @@ from tests.test_ui_edges import make_minimal_project
 
 
 STORY = '故事梗概：修表师寻找父亲\n故事题材：冒险\n故事角色：林青与阿禾\n故事集数：12集\n单集时间：90秒'
+
+
+class InlineSkillTests(unittest.TestCase):
+    def test_direct_references_only_and_desktop_unchanged(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'skills'
+            root.mkdir()
+            skill = root / 'SKILL.md'
+            skill.write_text('---\nname: sample\n---\n技能正文\n[一](one.md#section)\n'
+                             '[重复](one.md)\n[二](two.txt)\n[越界](../outside.md)\n'
+                             '[网址](https://example.com/file.md)', encoding='utf-8-sig')
+            (root / 'one.md').write_text('直接正文一 [递归](nested.md)', encoding='utf-8')
+            (root / 'two.txt').write_text('直接正文二', encoding='utf-8')
+            (root / 'nested.md').write_text('禁止递归正文', encoding='utf-8')
+            (root.parent / 'outside.md').write_text('禁止越界正文', encoding='utf-8')
+            config = {'engine': 'qwen', 'stage_skills': [str(skill)], 'skills': [str(skill)]}
+            before = workflow_settings.skill_prompt(config)
+            with patch('skill_registry.default_root', return_value=root):
+                result = workflow_settings.skill_prompt(config, inline=True)
+                self.assertEqual(result, workflow_settings.skill_prompt(config, inline=True))
+            self.assertTrue(result.startswith('<skill name="sample">\n<!-- 来源:'))
+            self.assertTrue(result.endswith('</skill>'))
+            self.assertEqual(result.count('技能正文'), 1)
+            self.assertEqual(result.count('直接正文一'), 1)
+            self.assertIn('直接正文二', result)
+            self.assertNotIn('禁止递归正文', result)
+            self.assertNotIn('禁止越界正文', result)
+            self.assertNotIn('请先完整读取并遵循本地技能文件', result)
+            self.assertEqual(before, workflow_settings.skill_prompt(config, inline=False))
+
+    def test_cap_and_fresh_self_contained_content(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            skill = root / 'SKILL.md'
+            skill.write_text('正文 [引用](large.md)', encoding='utf-8')
+            (root / 'large.md').write_text('长' * 30000, encoding='utf-8')
+            with patch('skill_registry.default_root', return_value=root):
+                result = workflow_settings._inline_skill(skill)
+            self.assertLessEqual(len(result), 20000)
+            self.assertIn('其余引用未内联，见 SKILL 文件', result)
+            self.assertIn(str(root / 'large.md'), result)
+            self.assertTrue(result.endswith('</skill>'))
+            skill.write_text('更新后的独立正文', encoding='utf-8')
+            result = workflow_settings._inline_skill(skill)
+            self.assertIn('更新后的独立正文', result)
+            self.assertIn(f'<skill name="{root.name}">', result)
+            self.assertNotIn('长', result)
 
 
 class StagePromptGovernanceTests(unittest.TestCase):

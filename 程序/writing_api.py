@@ -242,7 +242,7 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
             adapter, chosen, brief,
             rhythm_template=rhythm_template or hollmwood_roles.load_rhythm_template(),
             log_folder=Path(project) / 'logs',
-            skill_instructions=(workflow_settings.skill_prompt(settings)
+            skill_instructions=(workflow_settings.skill_prompt(settings, inline=True)
                                 + workflow_settings.stage_output_contract('writing')),
             emit=progress,
             cancelled=cancelled,
@@ -397,7 +397,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
         project_context(root), model=model_label(root), gateway=idea_chat_gateway()))
     if history:
         task += '\n\n以下为本次对话之前已确认的信息：\n' + history
-    system = (workflow_settings.skill_prompt(settings)
+    system = (workflow_settings.skill_prompt(settings, inline=True)
               + workflow_settings.stage_output_contract('writing') + context)
     adapter=PoolAdapter(record, chosen, program=Path(__file__).resolve().parent,
                         timeout=WRITING_REQUEST_TIMEOUT)

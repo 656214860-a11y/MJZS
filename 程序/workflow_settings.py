@@ -512,8 +512,56 @@ def desktop_model_label(model_id, label):
         else:_DESKTOP_INSTALLATION_CACHE[engine]=True
     return str(label or '')+('（未安装）' if not _DESKTOP_INSTALLATION_CACHE[engine] else '')
 
-def skill_prompt(config, stage=None):
-    """所有阶段的勾选 SKILL 以路径引用传入，模型自行读取，不内联正文。"""
+def _inline_skill(path, *, cap=20000):
+    """API 发送快照：技能及目录边界内的直接引用，不递归加载引用。"""
+    from html import escape
+    from urllib.parse import unquote, urlsplit
+    import skill_registry
+
+    path = Path(path).resolve()
+    text = path.read_text(encoding='utf-8-sig')
+    meta, _ = skill_registry.parse(text, source=str(path))
+    name = str(meta.get('name') or path.parent.name)
+    opening = f'<skill name="{escape(name, quote=True)}">\n'
+    closing = '\n</skill>'
+    blocks = [(path, f'<!-- 来源: {path} -->\n{text}')]
+    root = skill_registry.default_root().resolve()
+    seen = {path}
+    for match in re.finditer(r'\]\(\s*(<[^>]+>|[^)]+)\s*\)', text):
+        link = match.group(1).strip()
+        if link.startswith('<'):
+            link = link[1:-1]
+        else:
+            link = re.sub(r'\s+[\"\'][^\"\']*[\"\']\s*$', '', link)
+        parts = urlsplit(link.replace('\\', '/'))
+        relative = Path(unquote(parts.path))
+        if parts.scheme or parts.netloc or not parts.path or relative.is_absolute():
+            continue
+        reference = (path.parent / relative).resolve()
+        if (reference.suffix.lower() not in ('.md', '.txt')
+                or not reference.is_relative_to(root) or reference in seen):
+            continue
+        seen.add(reference)
+        body = reference.read_text(encoding='utf-8-sig')
+        blocks.append((reference, f'\n\n## 引用: {reference.name}\n{body}'))
+    complete = opening + ''.join(body for _, body in blocks) + closing
+    if len(complete) <= cap:
+        return complete
+    result = opening
+    for index, (_, body) in enumerate(blocks):
+        omitted = blocks[index:]
+        footer = '\n\n其余引用未内联，见 SKILL 文件：\n' + '\n'.join(str(p) for p, _ in omitted)
+        available = cap - len(result) - len(footer) - len(closing)
+        if available < 0:
+            raise ValueError('SKILL 字符上限不足以保留来源和未内联路径')
+        if len(body) > available:
+            return result + body[:available] + footer + closing
+        result += body
+    return result + closing
+
+
+def skill_prompt(config, stage=None, inline=False):
+    """桌面使用路径引用；直连 API 按需内联技能及直接引用的发送快照。"""
     stage = lock_stage(stage if stage is not None else config.get('stage'))
     locks = config.get('workflow_lock') or {}
     required = STAGE_LOCK_REQUIREMENTS.get(stage)
@@ -531,12 +579,13 @@ def skill_prompt(config, stage=None):
         if identity in seen:
             continue
         seen.add(identity)
-        prompts.append(_one_skill_prompt(config, item))
+        prompts.append(_one_skill_prompt(config, item, inline=inline))
     return header + coordinator + ''.join(prompts)
 
 
-def _one_skill_prompt(config,skill):
+def _one_skill_prompt(config,skill,inline=False):
     if not skill:return ''
+    if inline:return _inline_skill(skill)
     path=Path(skill)
     # Both engines read the same skill and its relative support files.
     adapter=''
