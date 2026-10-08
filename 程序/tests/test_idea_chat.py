@@ -817,7 +817,7 @@ class SendMessageTests(_Harness):
             self.assertTrue({'中断', '剧本目录', '删除剧本', '添加剧本'} <= labels)
             for button in buttons:
                 if button.cget('text') in action_labels:
-                    self.assertEqual(button.cget('width'), desktop.STAGE_ACTION_WIDTH)
+                    self.assertEqual(button.cget('width'), desktop.SCRIPT_ACTION_WIDTH)
 
     def test_script_action_bar_wraps_instead_of_clipping_buttons_when_narrow(self):
         """剧本页缩窄时操作栏分行，不能把“删除剧本”挤成半个字。"""

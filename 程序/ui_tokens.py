@@ -78,6 +78,9 @@ TABLE_HEADER_FONT = FONTS["body"]
 TABLE_ROW_FONT = FONTS["body"]
 TABLE_ROW_HEIGHT = SPACING["xl"]
 TABLE_EMPTY_PADDING = SPACING["lg"]
+TABLE_COMPACT_HEADER_PADDING = (SPACING["sm"], SPACING["xs"] // 4)
+SCRIPT_ACTION_WIDTH = 8
+SCRIPT_ACTION_PADDING = (SPACING["md"] // 2, SPACING["xs"])
 
 # 三类用户可见文字只在 ui_widgets 的文字组件中消费；页面不再各自拼字体、颜色和折行规格。
 TEXT_HINT = {

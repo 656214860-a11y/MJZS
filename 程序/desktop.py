@@ -27,7 +27,7 @@ from platform_tools import launch_windows_app, open_path, open_target, tcp_liste
 from desktop_startup_service import DesktopStartupController
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler
 from idea_chat_controller import IdeaChatController
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import COLORS, FONTS, SPACING, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
 from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMenu, DataTable, NotificationDispatcher,
@@ -4200,6 +4200,7 @@ class Desktop:
         self.idea_attachment_delete_button.state(['disabled'])
         self.idea_uploaded_table=DataTable(
             self.idea_uploaded_panel,columns=[('name','已上传文件',280)],height=1,
+            style='Compact.Tokens.DataTable.Treeview',
             auto_hide_scrollbars=True,
             on_select=lambda selected:self.idea_attachment_delete_button.state(
                 ['!disabled'] if selected else ['disabled']))
@@ -4255,7 +4256,7 @@ class Desktop:
                             scope='剧本准备·聊天记录', name='取消气泡编辑')
         self.idea_row=foot
         # 输入框下方的动作统一为紧凑尺寸，避免长旧文案把聊天区挤窄。
-        script_action_width=STAGE_ACTION_WIDTH
+        script_action_width=SCRIPT_ACTION_WIDTH
         send_button=PrimaryButton(foot,text='发送',width=script_action_width,
                                command=lambda:self.safe(self.send_message))
         send_button.pack(side='left',pady=SPACING['none']);self.idea_send=send_button
@@ -4283,6 +4284,8 @@ class Desktop:
                                       command=lambda:self.safe(lambda:self.open_folder(project_stages.writing(self.root))))
         open_folder_button.pack(side='right',padx=(SPACING['none'],SPACING['sm']));self.idea_open_folder=open_folder_button
         download_button.pack(side='right',padx=(SPACING['none'],SPACING['xs']))
+        for action_button in foot.winfo_children():
+            action_button.configure(width=script_action_width,padding=SCRIPT_ACTION_PADDING)
         def on_modified(event=None):
             if event is not None and not input_box.edit_modified():return
             input_box.edit_modified(False)

@@ -11,7 +11,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_FIELD_BACKGROUND,
                        TOOLTIP_BACKGROUND, TOOLTIP_BORDER, TOOLTIP_BORDER_WIDTH, TOOLTIP_DELAY_MS,
                        TOOLTIP_FONT, TOOLTIP_FOREGROUND, TOOLTIP_OFFSET,
                        TOOLTIP_PADDING,
-                       TABLE_EMPTY_PADDING, TABLE_HEADER_FONT, TABLE_ROW_FONT,
+                       TABLE_EMPTY_PADDING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TABLE_COMPACT_HEADER_PADDING,
                        TABLE_ROW_HEIGHT, INPUT_BACKGROUND, INPUT_BORDER,
                        INPUT_BORDER_WIDTH, INPUT_ERROR_BORDER, INPUT_FONT,
                        INPUT_FOREGROUND, INPUT_PADDING_X, INPUT_PADDING_Y,
@@ -91,6 +91,8 @@ def setup_styles(root):
                     foreground=COLORS["text_primary"])
     style.configure("Tokens.DataTable.Treeview.Heading", font=TABLE_HEADER_FONT,
                     foreground=COLORS["text_primary"])
+    style.configure("Compact.Tokens.DataTable.Treeview.Heading",
+                    padding=TABLE_COMPACT_HEADER_PADDING)
     input_options = {
         "font": INPUT_FONT,
         "foreground": INPUT_FOREGROUND,
