@@ -470,7 +470,7 @@ def find_program(config):
                                  key=lambda path: path.stat().st_mtime, reverse=True))
         for candidate in candidates:
             if candidate.is_file():return str(candidate)
-        raise ValueError('未找到 Claude Desktop，请在模型管理选择桌面应用的 .exe（不是 Claude Code）')
+        raise ValueError('未找到 Claude Desktop，请在模型管理选择其 .exe')
     if config['engine']=='qwen':
         from qwen_adapter import command
         return command(config)[0]

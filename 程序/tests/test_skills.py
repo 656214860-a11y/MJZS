@@ -980,7 +980,7 @@ class PanelTests(unittest.TestCase):
         extra = [label for _value, label in stage_models.keyframe_choices(self.desktop.root)]
         grouped_labels = [label for options in panel.groups.values() for _model, label in options]
         self.assertEqual(values, [model_pool.AUTO_LABEL, skill_panel.ADD_MODEL_LABEL])
-        self.assertEqual(sorted(grouped_labels), sorted([model_pool.AUTO_LABEL] + labels + extra))
+        self.assertEqual(sorted(grouped_labels), sorted(set([model_pool.AUTO_LABEL] + labels + extra)))
         self.assertNotIn('DeepSeek Pro', values, '写死的字面档位不该再出现在下拉里')
         self.assertEqual(panel.model.get(), '自动')
         self.assertEqual(sorted(panel.vars), sorted(['firstframe-auto-fill', 'firstframe-batch', 'firstframe-quality',

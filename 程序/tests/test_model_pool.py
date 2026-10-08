@@ -128,7 +128,8 @@ class RecordTests(unittest.TestCase):
 
     def test_desktop_probe_exception_is_marked_and_cached_without_reaching_the_ui(self):
         pool = model_pool.default_pool()
-        with patch('workflow_settings.find_program', side_effect=RuntimeError('probe failed')) as probe:
+        with patch('model_pool.pool', return_value=pool), \
+                patch('workflow_settings.find_program', side_effect=RuntimeError('probe failed')) as probe:
             first = dict(model_pool.options(pool, labeler=workflow_settings.desktop_model_label))
             second = dict(model_pool.options(pool, labeler=workflow_settings.desktop_model_label))
         self.assertIn('未安装', first['chatgpt-desktop'])

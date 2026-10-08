@@ -556,7 +556,7 @@ def open_manager(pet):
             engine = model_pool.desktop_engine(state['id']) or value['model']
             try:
                 if engine == 'codex' and not value['program']:
-                    raise ValueError('请先选择 Codex 桌面应用的 .exe；留空发送时沿用系统桌面链接，不使用命令行程序作为安装路径')
+                    raise ValueError('请选择 Codex 桌面 .exe；留空使用系统链接，不要选择命令行程序')
                 path = find_program({'engine': engine, 'program': value['program']})
                 if not Path(path).is_file():raise ValueError('应用路径不存在')
                 program_entry.delete(0, 'end')
