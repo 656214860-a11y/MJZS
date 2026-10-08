@@ -450,7 +450,7 @@ def desktop_model_label(model_id, label):
     return str(label or '')+('（未安装）' if not _DESKTOP_INSTALLATION_CACHE[engine] else '')
 
 def skill_prompt(config, stage=None):
-    """按阶段注入制作锁；剧本准备的勾选 SKILL 正文只出现一次。"""
+    """所有阶段的勾选 SKILL 以路径引用传入，模型自行读取，不内联正文。"""
     stage = lock_stage(stage if stage is not None else config.get('stage'))
     locks = config.get('workflow_lock') or {}
     required = STAGE_LOCK_REQUIREMENTS.get(stage)
@@ -468,12 +468,7 @@ def skill_prompt(config, stage=None):
         if identity in seen:
             continue
         seen.add(identity)
-        if stage == 'script':
-            path = Path(item).resolve()
-            prompts.append(f'\n已勾选 SKILL：{path}（相对引用以此文件所在目录为基准）\n'
-                           + path.read_text(encoding='utf-8-sig') + '\n')
-        else:
-            prompts.append(_one_skill_prompt(config, item))
+        prompts.append(_one_skill_prompt(config, item))
     return header + coordinator + ''.join(prompts)
 
 

@@ -1,4 +1,4 @@
-"""阶段制作锁、完整 SKILL 单次注入和桌面四角色共用规则。"""
+"""阶段制作锁、SKILL 路径引用和桌面四角色共用规则。"""
 import tempfile
 import unittest
 from pathlib import Path
@@ -66,7 +66,7 @@ class StagePromptGovernanceTests(unittest.TestCase):
             self.assertEqual(fields['production_locks']['video_model_version'], 'Seedance 2.5')
             self.assertEqual(receive(STORY, 'audio')['missing'], ())
 
-    def test_writing_injects_skill_once_and_excludes_media_locks(self):
+    def test_writing_references_skill_once_and_excludes_media_locks(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / 'SKILL.md'
             path.write_text('---\nname: chosen\n---\n独有的技能正文。', encoding='utf-8')
@@ -74,7 +74,9 @@ class StagePromptGovernanceTests(unittest.TestCase):
                       'skills': [str(path)], 'skill': str(path),
                       'workflow_lock': {'aspect_ratio': '9:16', 'video_model_version': 'Seedance', 'delivery_format': 'markdown'}}
             prompt = workflow_engines.prompt_with_settings(script_prompt(td, None, 'writing'), config)
-            self.assertEqual(prompt.count('独有的技能正文。'), 1)
+            self.assertEqual(prompt.count(f'请使用 [$chosen]({path.as_posix()})'), 1)
+            self.assertNotIn('独有的技能正文。', prompt)
+            self.assertNotIn('已完整注入', prompt)
             self.assertIn('四阶段协作', prompt)
             self.assertIn('Gate 1~2', prompt)
             self.assertIn('Gate 3~5', prompt)
@@ -85,6 +87,31 @@ class StagePromptGovernanceTests(unittest.TestCase):
                           hollmwood_rules.EDITOR_RULES, hollmwood_rules.ACTOR_RULES,
                           hollmwood_rules.DIRECTOR_REVIEW_RULES):
                 self.assertEqual(prompt.count(rules), 1)
+
+    def test_selected_skills_are_path_references_for_all_engines_and_stages(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / 'SKILL.md'
+            path.write_text('---\nname: chosen\n---\n独有的技能正文。\n'
+                            '../references/screenplay-gate-engine.md', encoding='utf-8')
+            for engine in ('codex', 'claude', 'qwen'):
+                config = {'engine': engine, 'stage': 'frames',
+                          'stage_skills': [str(path)], 'skills': [str(path)],
+                          'workflow_lock': {'aspect_ratio': '9:16',
+                                            'video_model_version': 'Seedance',
+                                            'delivery_format': 'markdown'}}
+                for stage in ('script', 'writing', 'storyboard', 'assets', 'frames',
+                              'previs', 'video_prompt', 'audio'):
+                    with self.subTest(engine=engine, stage=stage):
+                        prompt = workflow_engines.prompt_with_settings('任务', config, stage=stage)
+                        reference = (f'请使用 [$chosen]({path.as_posix()})' if engine == 'codex'
+                                     else f'请先完整读取并遵循本地技能文件 {path}')
+                        self.assertEqual(prompt.count(reference), 1)
+                        self.assertNotIn('独有的技能正文。', prompt)
+                        self.assertNotIn('../references/screenplay-gate-engine.md', prompt)
+                        if stage in ('script', 'writing'):
+                            self.assertIn('制作锁：delivery_format=markdown', prompt)
+                            self.assertNotIn('制作锁：aspect_ratio=', prompt)
+                            self.assertNotIn('制作锁：video_model_version=', prompt)
 
     def test_api_role_wrappers_share_exact_rules(self):
         for role in ('director_plan', 'writer', 'editor', 'actor', 'director_review'):

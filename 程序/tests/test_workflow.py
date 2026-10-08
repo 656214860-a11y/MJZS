@@ -401,7 +401,8 @@ class AudioFlowTests(unittest.TestCase):
             ws.set_skills(config, [whale])
             prompt = workflow_engines.prompt_with_settings(script_prompt(proj, creative, 'writing'), config, stage='writing')
             self.assertIn(whale, prompt)
-            self.assertIn('已勾选 SKILL：', prompt)
+            self.assertIn(f'请先完整读取并遵循本地技能文件 {whale}', prompt)
+            self.assertNotIn('遵循剧本准备门控。', prompt)
             self.assertIn('本阶段唯一交付物是完整自然语言剧本正文', prompt)
             self.assertIn('不得写入 02剧本结构或任何后续阶段目录', prompt)
 
