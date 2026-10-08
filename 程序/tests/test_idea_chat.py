@@ -590,7 +590,10 @@ class SendMessageTests(_Harness):
             self.assertEqual(args[:2], ('writing', '剧本准备'))
             self.assertIn('一个夜班照相馆的故事', args[2])
             self.assertIn('必须先完整遵循本次工作流所选 SKILL', args[2])
-            self.assertIn('禁止擅自直接返回剧本、大纲或分镜方案', args[2])
+            self.assertIn('按①项目设定 → ②剧本大纲 → ③角色卡 → ④自然剧本逐阶段输出', args[2])
+            self.assertIn('前提齐全时本次只输出阶段①项目设定，末尾“待确认”', args[2])
+            self.assertIn('每个关键阶段都必须用户确认，不能自动跳到下一阶段', args[2])
+            self.assertIn('每次只输出当前阶段一个文件，不一次输出多阶段', args[2])
             self.assertFalse(list((writing_dir(proj) / '创意对话').glob('提交_*.md')),
                              '发送创意不能先创建提交文件')
             self.assertEqual(d.draft_text().strip(), '', '发出去之后下面那段草稿就空了')
@@ -1367,6 +1370,51 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(win.clipboard_get(), '完整的一条消息')
             self.assertEqual(d.delete_bubble_message(0), 0)
             self.assertEqual(idea_chat.load(proj), [])
+
+    def test_clear_bubbles_cancels_pending_display_without_changing_saved_content(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            for index in range(20):
+                idea_chat.append(proj, 'user', '保留的消息 %d' % index)
+            d, win = self.desktop(proj)
+            d.show(0)
+            self.settle_script_page(win)
+            d.idea_input.insert('1.0', '保留草稿')
+            draft = d.draft_text()
+            attachments = d.idea_attachment_paths
+            saved = idea_chat.load(proj)
+            d.show_conversation()  # 首批历史尚在空闲队列中。
+            self.assertTrue(d._idea_view_after_jobs)
+            d.clear_bubble_view()
+            self.settle_script_page(win)
+            self.assertEqual(self.log_text(d), '')
+            self.assertEqual(d._bubble_rows, [])
+            self.assertEqual(d._bubble_full, {})
+            self.assertEqual(d._idea_view_after_jobs, [])
+            self.assertEqual(idea_chat.load(proj), saved)
+            self.assertEqual(d.draft_text(), draft)
+            self.assertEqual(d.idea_attachment_paths, attachments)
+            d.show_conversation()
+            self.settle_script_page(win)
+            self.assertIn('保留的消息 19', self.log_text(d))
+
+    def test_clear_screen_menu_is_available_on_message_example_and_blank_area(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0)
+            self.settle_script_page(win)
+            event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
+            for target in ((0, 'bubble_0'), ('example', 'bubble_example'), None):
+                with self.subTest(target=target), \
+                        patch.object(d, 'bubble_target_at', return_value=target), \
+                        patch('desktop.ContextMenu.popup', return_value='break'), \
+                        patch.object(d, 'clear_bubble_view') as clear:
+                    self.assertEqual(d.open_bubble_menu(event), 'break')
+                    menu = d._bubble_menu
+                    index = menu.index('end')
+                    self.assertEqual(menu.entrycget(index, 'label'), '清屏')
+                    menu.invoke(index)
+                    clear.assert_called_once_with()
 
     def test_a_very_long_message_stops_short_of_the_whole_box(self):
         """第 71 期任务 6：字再多，色块也不铺满整行——一行到底就看不下去了。"""

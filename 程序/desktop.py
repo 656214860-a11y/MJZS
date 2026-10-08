@@ -932,19 +932,37 @@ class Desktop:
         row=idea_chat.restore_latest_removed(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
         self.show_conversation();self.status.set('已恢复最近删除的整条信息')
         return row
+    def clear_bubble_view(self):
+        """只清空当前气泡显示；刷新可重新读取已保存对话。"""
+        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
+        box=self.idea_log
+        self._idea_view_generation=getattr(self,'_idea_view_generation',0)+1
+        for job in getattr(self,'_idea_view_after_jobs',()):
+            try:box.after_cancel(job)
+            except tk.TclError:pass
+        self._idea_view_after_jobs=[]
+        self._bubble_click=None
+        self._bubble_rows=[];self._bubble_full={}
+        box.configure(state='normal')
+        box.delete('1.0','end')
+        for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
+            box.tag_delete(name)
+        self.status.set('已清屏；聊天记录已保留，点击“刷新”可重新显示。')
     def open_bubble_menu(self,event):
         """消息右键菜单；点击标题、正文或展开控件都能定位同一条消息。"""
         if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
         target=self.bubble_target_at(event.widget,event)
-        if target is None:return None
-        index,_name=target
         menu=ContextMenu(event.widget)
-        if index == 'example':
-            menu.command('复制软件示例',lambda:self.copy_bubble_message('example'))
-        else:
-            menu.command('复制整条信息',lambda i=index:self.copy_bubble_message(i))
-            menu.command('删除整条信息',lambda i=index:self.delete_bubble_message(i))
-            menu.command('恢复最近删除的信息',self.restore_latest_bubble_message)
+        if target is not None:
+            index,_name=target
+            if index == 'example':
+                menu.command('复制软件示例',lambda:self.copy_bubble_message('example'))
+            else:
+                menu.command('复制整条信息',lambda i=index:self.copy_bubble_message(i))
+                menu.command('删除整条信息',lambda i=index:self.delete_bubble_message(i))
+                menu.command('恢复最近删除的信息',self.restore_latest_bubble_message)
+            menu.separator()
+        menu.command('清屏',self.clear_bubble_view)
         self._bubble_menu=menu
         return menu.popup(event)
     def open_idea_paste_menu(self,event):
