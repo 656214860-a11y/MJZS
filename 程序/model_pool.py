@@ -26,7 +26,7 @@ PROGRAM = Path(__file__).resolve().parent
 CONFIG_PATH = ('配置', '宠物', '配置.json')
 AUTO = 'auto'                                    # 「自动」是特殊值，由 model_router 解析
 AUTO_LABEL = '自动'
-FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note')
+FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program')
 WIRE_APIS = (('chat', 'chat/completions（OpenAI 兼容）'), ('responses', 'responses 新协议'),
              ('messages', 'messages（Anthropic 原生）'))
 WIRE_LABELS = dict(WIRE_APIS)
@@ -60,7 +60,7 @@ TASK_KEYS = tuple(field for field, _label, _note in TASK_FIELDS)
 TASK_LABELS = {field: label for field, label, _note in TASK_FIELDS}
 TASK_NOTES = {field: note for field, _label, note in TASK_FIELDS}
 # 桌面 Agent 不是 API：在阶段配置中选中后，工作流会切换到对应的本机 Agent 引擎。
-DESKTOP_ENGINES = {'chatgpt-desktop': 'codex', 'claude-desktop': 'claude'}
+DESKTOP_ENGINES = {'chatgpt-desktop': 'codex', 'claude-desktop': 'claude', 'claude-desktop-app': 'claude-desktop-app'}
 
 # 出厂模型与桌面 Agent：模型池是唯一的模型选择来源。
 BUILTIN = (
@@ -89,9 +89,12 @@ BUILTIN = (
     ('chatgpt-desktop', {'label': 'ChatGPT Desktop · Codex', 'model': 'codex',
                          'provider': 'desktop', 'note': '本机 ChatGPT / Codex Agent',
                          'capabilities': ['long-context', 'creative-writing', 'reasoning']}),
-    ('claude-desktop', {'label': 'Claude Desktop · Claude Code', 'model': 'claude',
+    ('claude-desktop', {'label': 'Claude Code', 'model': 'claude',
                         'provider': 'desktop', 'note': '本机 Claude Agent',
                         'capabilities': ['long-context', 'creative-writing', 'reasoning']}),
+    ('claude-desktop-app', {'label': 'Claude Desktop', 'model': 'claude-desktop-app',
+                            'provider': 'desktop', 'note': 'Claude 桌面应用（非 Claude Code）；打开后由用户发送',
+                            'capabilities': ['long-context', 'creative-writing', 'reasoning']}),
 )
 TASKS_DEFAULT = {'default': AUTO, 'chat': 'deepseek-v4-pro', 'escalate': 'deepseek-v4-pro',
                  'fallback': 'deepseek-v4-flash'}
@@ -168,6 +171,8 @@ def record(value, model_id=''):
     item = {key: str(source.get(key) or '').strip() for key in FIELDS}
     item['model'] = item['model'] or str(model_id or '').strip()
     item['label'] = item['label'] or item['model']
+    if model_id == 'claude-desktop' and item['label'] == 'Claude Desktop · Claude Code':
+        item['label'] = 'Claude Code'
     item['path'] = item['path'] or DEFAULT_PATH
     item['wire_api'] = item['wire_api'] if item['wire_api'] in WIRE_LABELS else DEFAULT_WIRE
     # 第 65 期任务 5：用户报「provider → 自定义不可用」。Provider 只是一行标签（真发请求看

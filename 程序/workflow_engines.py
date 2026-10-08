@@ -63,6 +63,8 @@ def prompt_with_settings(prompt,config,stage=None):
     return skill_prompt(config, stage=stage)+stage_output_contract(stage)+hollmwood_prompt(config,stage)+prompt+('\n用户补充制作要求：\n'+extra if extra else '')+language+media_apps
 
 def background_command(config,project,output,report):
+    if config['engine'] == 'claude-desktop-app':
+        raise ValueError('Claude Desktop 需要在桌面窗口中手动发送，请使用手动制作入口')
     exe=find_program(config)
     if config['engine']=='codex':
         args=[exe,'exec','--skip-git-repo-check','--sandbox','workspace-write','--cd',str(project),'--add-dir',str(output),'--color','never','-o',str(report)]
@@ -159,6 +161,8 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
         except Exception:
             release_process_slot(slot)
             raise
+    if config['engine'] == 'claude-desktop-app':
+        raise ValueError('Claude Desktop 请通过桌面发送入口打开，不支持 Claude Code 命令行参数')
     exe=find_program(config);project=Path(project)
     folder=project/'工作流任务'/'交互任务'/stage/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     folder.mkdir(parents=True)

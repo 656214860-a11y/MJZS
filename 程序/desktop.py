@@ -4906,7 +4906,8 @@ class Desktop:
         # 「发送待核实」的安全重试必须沿用第一次已经解析的引擎。原来递归重进时会重新
         # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
         config=_config if _config is not None else current(self.root,stage);followup=followup if followup is not None else prompt
-        use_cli=config['engine']!='codex' or config['program'] or config['model']
+        native_claude = config['engine'] == 'claude-desktop-app'
+        use_cli = not native_claude and (config['engine']!='codex' or config['program'] or config['model'])
         # CLI 继续复用同一进程；提取结束后不能占住唯一槽位又排队启动剧本进程。
         setup_key=hashlib.sha256((json.dumps(config,sort_keys=True)+('brief-intake' if intake_only and not use_cli else '')).encode()).hexdigest()
         from codex_tasks import prepare_task
@@ -4949,6 +4950,7 @@ class Desktop:
                         stage,'continuation_summary')
                 finish(receipt,'preparing','',context_budget={
                     'initial':budget,'continuation':continuation_budget})
+                if native_claude:return {'receipt':receipt,'prompt':full}
                 if use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
                                    'context_budget':{'initial':budget,'continuation':continuation_budget}}
                 result=prepare_task(project,title,stage,full,followup=continuation,setup_key=setup_key,
@@ -5032,6 +5034,17 @@ class Desktop:
                 except OSError:clipboard_text=result['prompt']
             from prompt_window import copy_text
             copy_text(self.win,clipboard_text)
+            if native_claude:
+                from workflow_settings import find_program
+                from platform_tools import launch_windows_app
+                launch_windows_app(find_program(config), 'Claude Desktop')
+                reason = '已打开 Claude Desktop，任务已复制；请在应用中粘贴并手动发送。'
+                finish(receipt,'prepared',reason)
+                self.status.set(reason)
+                return
+            if config.get('desktop_program'):
+                from platform_tools import launch_windows_app
+                launch_windows_app(config['desktop_program'], 'Codex 桌面')
             open_target(result['url'])
             from codex_paste import paste_existing
             def pasted(result):

@@ -3193,6 +3193,31 @@ class ModelPoolTests(PetTestCase):
             found.extend(self._walk(child, kind))
         return found
 
+    def test_desktop_form_hides_api_fields_and_persists_application(self):
+        from unittest.mock import patch
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        tree = win._pet_tree
+        tree.selection_set('claude-desktop-app')
+        tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        self.assertEqual(win._pet_provider.get(), 'desktop')
+        self.assertEqual(win._pet_program_row.winfo_manager(), 'grid')
+        self.assertTrue(all(not w.winfo_manager() for w in win._pet_api_controls))
+        executable = self.pet.program / 'Claude.exe'
+        executable.write_bytes(b'test executable; never launched')
+        win._pet_entries['program'].insert(0, str(executable))
+        buttons = {str(w.cget('text')): w for w in self._walk(win, self.ttk.Button)}
+        with patch('model_pool.probe', side_effect=AssertionError('desktop must not use HTTP')):
+            buttons['检查程序'].invoke()
+        buttons['保存这条'].invoke()
+        self.assertEqual(model_pool.pool(program=self.pet.program)['claude-desktop-app']['program'], str(executable))
+        tree.selection_set('gpt-4o')
+        tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        self.assertFalse(win._pet_program_row.winfo_manager())
+        self.assertTrue(all(w.winfo_manager() == 'grid' for w in win._pet_api_controls))
+
     def model_menu(self):
         index = self.pet.menu_index['model']
         return self.pet.menu.nametowidget(self.pet.menu.entrycget(index, 'menu'))

@@ -13,7 +13,7 @@ from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
 from ui_widgets import LineInput, TextArea
 
-ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code'}
+ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop'}
 FLOWS={'writing':'剧本创作','storyboard':'初步分镜','assets':'资产图片制作','frames':'批量首帧','previs':'白模预演','video_prompt':'视频提示词','audio':'配音与字幕'}
 DEFAULT_SKILLS={'writing':'coconah-ai-short-drama-agent-skill','storyboard':'short-drama-storyboard','assets':'.system/imagegen','frames':'.system/imagegen','previs':'create-blender-story-video','video_prompt':'short-drama-storyboard','audio':''}
 SKILL_PRESETS=[('万能剧本工作流','coconah-ai-short-drama-agent-skill'),('鲸剧工作流','jingju-skills'),
@@ -385,6 +385,13 @@ def current(project,stage='previs'):
             # 自动打开的是 Codex 而阶段按钮却显示 DeepSeek。
             engine = 'qwen'
     profile=validate_stage_profile(value['profiles'][engine],stage)
+    if explicit_engine and item.get('program'):
+        if explicit_engine == 'codex':
+            profile['desktop_program'] = item['program']
+            profile['program'] = ''
+            profile['model'] = ''
+        else:
+            profile['program'] = item['program']
     if local_program:
         # 本机 Codex/Claude 的可选模型集合由客户端登录态决定，不能把 API 模型 id 当 CLI 参数塞入。
         profile['program']=local_program
@@ -456,6 +463,14 @@ def hollmwood_prompt(config, stage=None):
 
 def find_program(config):
     if config['program']:return config['program']
+    if config['engine'] == 'claude-desktop-app':
+        local = Path(os.environ.get('LOCALAPPDATA', ''))
+        candidates = [local/'AnthropicClaude/claude.exe', local/'Programs/Claude/Claude.exe']
+        candidates.extend(sorted((local/'AnthropicClaude').glob('app-*/claude.exe'),
+                                 key=lambda path: path.stat().st_mtime, reverse=True))
+        for candidate in candidates:
+            if candidate.is_file():return str(candidate)
+        raise ValueError('未找到 Claude Desktop，请在模型管理选择桌面应用的 .exe（不是 Claude Code）')
     if config['engine']=='qwen':
         from qwen_adapter import command
         return command(config)[0]
@@ -488,6 +503,9 @@ def desktop_model_label(model_id, label):
     import model_pool
     engine=model_pool.desktop_engine(model_id)
     if not engine:return str(label or '')
+    configured=model_pool.pool(program=Path(__file__).resolve().parent).get(model_id, {}).get('program', '')
+    if configured:
+        return str(label or '')+('（未安装）' if not Path(configured).is_file() else '')
     if engine not in _DESKTOP_INSTALLATION_CACHE:
         try:find_program({'engine':engine,'program':''})
         except Exception:_DESKTOP_INSTALLATION_CACHE[engine]=False
@@ -527,7 +545,7 @@ def _one_skill_prompt(config,skill):
                  '沿用项目已确认的剧本、角色固定外观、场景、画风和资产编号，补齐缺项，不重新开始设定。'
                  '不调用媒体生成服务。本次明确要求图片及视频提示词，需同时交付。'
                  'Skill 自带的通用表格或脚手架不能直接当成本助手最终 JSON；须逐镜依据剧本细化，并按后文输出契约和校验器转换。\n')
-    if config['engine'] in ('claude','qwen'):
+    if config['engine'] in ('claude','qwen','claude-desktop-app'):
         return f'请先完整读取并遵循本地技能文件 {path}，相对引用以该技能文件所在目录为基准。'+adapter
     text=path.read_text(encoding='utf-8-sig')
     match=re.search(r'^name:\s*[\"\']?([A-Za-z0-9_-]+)',text,re.M)

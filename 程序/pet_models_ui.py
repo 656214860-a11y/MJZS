@@ -14,6 +14,7 @@ from tkinter import ttk
 
 import model_pool
 from ui_tokens import FONTS, SPACING
+from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, LineInput, PrimaryButton, SecondaryButton
 
 TITLE = '三虎 · 设置'
@@ -39,7 +40,7 @@ MANAGER_GEOMETRY = '1180x860'
 MANAGER_RATIO = 0.9
 MANAGER_MIN = (820, 620)
 NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶段配置里选。'
-NOTE_MANAGER = '模型池与 API 配置的唯一入口；密钥只写在 .env 里，这里只填变量名。'
+NOTE_MANAGER = '本地模型配置应用安装路径；API 模型配置接口与密钥。'
 # 列表那一行照规格那张表：显示名／Provider／模型 ID／能力标签／状态，另加两个用得上又不好猜的
 # （API 根地址、密钥名）。协议在下面表单里选，列表不再占一格。
 COLUMNS = (('label', '显示名', 120), ('provider', 'Provider', 100), ('model', '模型 ID', 140),
@@ -345,6 +346,31 @@ def open_manager(pet):
     index = text_row(index + 1, 'context_length', '上下文长度（可选）')
     text_row(index, 'note', '备注（可选）')
     hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
+    api_rows = {2, 3, 4, 5, 7}
+    api_controls = [widget for widget in form.winfo_children()
+                    if int(widget.grid_info().get('row', -1)) in api_rows]
+    program_label = ttk.Label(form, text='应用安装路径')
+    program_label.grid(row=2, column=0, sticky='w', padx=(0, SPACING['md']))
+    program_row = ttk.Frame(form)
+    program_row.grid(row=2, column=1, sticky='ew')
+    program_row.columnconfigure(0, weight=1)
+    program_entry = LineInput(program_row, style='ModelManager.TEntry')
+    program_entry.grid(row=0, column=0, sticky='ew')
+    entries['program'] = program_entry
+    def browse_program():
+        path = FileDialog(win).open_file(title='选择应用可执行文件', filetypes=[('程序', '*.exe')])
+        if path:
+            program_entry.delete(0, 'end')
+            program_entry.insert(0, path)
+    SecondaryButton(program_row, text='浏览…', command=browse_program).grid(
+        row=0, column=1, padx=(SPACING['xs'], 0))
+    def refresh_connection_fields(*_args):
+        local = provider.get().strip() == 'desktop'
+        for widget in api_controls:
+            widget.grid_remove() if local else widget.grid()
+        for widget in (program_label, program_row):
+            widget.grid() if local else widget.grid_remove()
+        probe_button.configure(text='检查程序' if local else '测试连接')
     manager_hint = ttk.Label(body, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=860)
     manager_hint.grid(
         row=4, column=0, columnspan=2, sticky='w', pady=(SPACING['xs'], SPACING['xs']))
@@ -414,7 +440,7 @@ def open_manager(pet):
         用户报「密钥名和密钥输入后没有自动保存」——原来必须再点一下「保存到本机」。框里
         是空的就什么都不做，免得点来点去把提示刷成报错。
         """
-        if not key_entry.get().strip():
+        if provider.get().strip() == 'desktop' or not key_entry.get().strip():
             return None
         try:
             return local_save()
@@ -441,7 +467,10 @@ def open_manager(pet):
         provider.set(model_pool.PROVIDER_LABELS.get(
             saved_provider, saved_provider or model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER]))
         wire.set(model_pool.WIRE_LABELS.get(item.get('wire_api'), model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
-        show_key_state(item)
+        program_entry.delete(0, 'end')
+        program_entry.insert(0, item.get('program') or '')
+        refresh_connection_fields()
+        if saved_provider != 'desktop':show_key_state(item)
 
     def read_form():
         value = {key: entries[key].get().strip() for key, _label in FORM_FIELDS}
@@ -450,6 +479,7 @@ def open_manager(pet):
         value['capabilities'] = [tag for tag, var in caps.items() if var.get()]
         value['context_length'] = entries['context_length'].get().strip()
         value['note'] = entries['note'].get().strip()
+        value['program'] = program_entry.get().strip()
         return value
 
     def on_select(event=None):
@@ -465,7 +495,7 @@ def open_manager(pet):
         state['id'] = ''
         for key, _label in FORM_FIELDS:
             entries[key].delete(0, 'end')
-        for key in ('context_length', 'note'):
+        for key in ('context_length', 'note', 'program'):
             entries[key].delete(0, 'end')
         for var in caps.values():
             var.set(False)
@@ -478,7 +508,12 @@ def open_manager(pet):
 
     def save_one():
         try:
-            if key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
+            if provider.get().strip() == 'desktop' and program_entry.get().strip():
+                from pathlib import Path
+                path = Path(program_entry.get().strip()).expanduser()
+                if not path.is_absolute() or path.suffix.lower() != '.exe' or not path.is_file():
+                    raise ValueError('请选择存在的应用 .exe 安装路径')
+            if provider.get().strip() != 'desktop' and key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
                 local_save()
             pet.save_pool(read_form(), state['id'])
         except ValueError as exc:
@@ -515,6 +550,21 @@ def open_manager(pet):
         if not value.get('model'):
             hint.set('先填模型 ID。')
             return None
+        if value['provider'] == 'desktop':
+            from workflow_settings import find_program
+            from pathlib import Path
+            engine = model_pool.desktop_engine(state['id']) or value['model']
+            try:
+                if engine == 'codex' and not value['program']:
+                    raise ValueError('请先选择 Codex 桌面应用的 .exe；留空发送时沿用系统桌面链接，不使用命令行程序作为安装路径')
+                path = find_program({'engine': engine, 'program': value['program']})
+                if not Path(path).is_file():raise ValueError('应用路径不存在')
+                program_entry.delete(0, 'end')
+                program_entry.insert(0, path)
+                hint.set('已找到程序：' + path + '；请保存这条。')
+            except (ValueError, KeyError) as exc:
+                hint.set('检查程序失败：' + str(exc))
+            return value
         hint.set(probe_line(model_pool.record(value), pet))
         return value
 
@@ -523,10 +573,15 @@ def open_manager(pet):
     bar = ttk.Frame(body)
     bar.grid(row=5, column=0, columnspan=2, sticky='ew')
     SecondaryButton(bar, text='新建一条', command=new_one).pack(side='left')
-    SecondaryButton(bar, text='测试连接', command=probe_one).pack(side='left', padx=(SPACING['sm'], 0))
+    probe_button = SecondaryButton(bar, text='测试连接', command=probe_one)
+    probe_button.pack(side='left', padx=(SPACING['sm'], 0))
+    provider.trace_add('write', refresh_connection_fields)
+    refresh_connection_fields()
     SecondaryButton(bar, text='删除这条', command=delete_one).pack(side='left', padx=(SPACING['sm'], 0))
     SecondaryButton(bar, text='关闭', command=win.destroy).pack(side='right')
     PrimaryButton(bar, text='保存这条', command=save_one).pack(side='right', padx=(0, SPACING['sm']))
+    win._pet_api_controls = api_controls
+    win._pet_program_row = program_row
     win._pet_reload = load_rows
     win._pet_hint = hint
     win._pet_manager_hint_label = manager_hint

@@ -86,7 +86,7 @@ class RecordTests(unittest.TestCase):
     def test_the_shipped_pool_contains_api_models_and_desktop_agents(self):
         pool = model_pool.pool(program=Path('不存在的目录'))
         self.assertEqual(list(pool), ['deepseek-v4-flash', 'deepseek-v4-pro', 'gpt-4o', 'qwen-max',
-                                      'chatgpt-desktop', 'claude-desktop'])
+                                      'chatgpt-desktop', 'claude-desktop', 'claude-desktop-app'])
         self.assertEqual(pool['gpt-4o']['key_env'], 'OPENAI_API_KEY')
         self.assertEqual(model_pool.desktop_engine('claude-desktop'), 'claude')
         self.assertEqual(model_pool.status(pool['chatgpt-desktop']), (True, '桌面 Agent'))
@@ -94,7 +94,7 @@ class RecordTests(unittest.TestCase):
     def test_the_stored_pool_is_authoritative(self):
         data = {'models': {'mine': {'model': 'my-model', 'base_url': 'https://example.test/v1',
                                     'key_env': 'K'}}}
-        self.assertEqual(list(model_pool.pool(config=data)), ['chatgpt-desktop', 'claude-desktop', 'mine'],
+        self.assertEqual(list(model_pool.pool(config=data)), ['chatgpt-desktop', 'claude-desktop', 'claude-desktop-app', 'mine'],
                          '内建桌面 Agent 固定展示在前，用户保存的 API 模型保持可选')
 
     def test_the_four_task_fields_come_from_the_config(self):
@@ -134,7 +134,7 @@ class RecordTests(unittest.TestCase):
         self.assertIn('未安装', first['chatgpt-desktop'])
         self.assertIn('未安装', first['claude-desktop'])
         self.assertEqual(first, second)
-        self.assertEqual(probe.call_count, 2, '每个桌面引擎在本进程只探测一次')
+        self.assertEqual(probe.call_count, 3, '每个桌面引擎在本进程只探测一次')
 
 
 class ProviderDisplayTests(unittest.TestCase):

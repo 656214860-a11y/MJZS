@@ -676,6 +676,68 @@ class StoryboardBatchTests(unittest.TestCase):
 class DesktopModelPoolTests(unittest.TestCase):
     """阶段配置选择桌面模型时，真正切换调用引擎而不是只显示一个名字。"""
 
+    def test_native_claude_uses_saved_application_path(self):
+        import workflow_settings
+        import stage_config
+        import model_pool
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_project(td)
+            stage_config.put(proj, 'script', model='claude-desktop-app')
+            records = model_pool.default_pool()
+            records['claude-desktop-app']['program'] = str(Path(td) / 'Claude.exe')
+            with patch('model_pool.pool', return_value=records):
+                config = workflow_settings.current(proj, 'writing')
+            self.assertEqual(config['engine'], 'claude-desktop-app')
+            self.assertEqual(workflow_settings.find_program(config), records['claude-desktop-app']['program'])
+
+    def test_native_claude_never_falls_back_to_code_cli(self):
+        import os
+        import workflow_settings
+        with tempfile.TemporaryDirectory() as td, patch.dict(os.environ, {'LOCALAPPDATA': td}), \
+                patch('workflow_settings.shutil.which', return_value='claude-code.exe') as cli:
+            with self.assertRaisesRegex(ValueError, 'Claude Desktop'):
+                workflow_settings.find_program({'engine': 'claude-desktop-app', 'program': ''})
+            cli.assert_not_called()
+
+    def test_saved_codex_desktop_path_overrides_old_cli_profile(self):
+        import stage_config
+        import model_pool
+        import workflow_settings
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_project(td)
+            stage_config.put(proj, 'script', model='chatgpt-desktop')
+            records = model_pool.default_pool()
+            records['chatgpt-desktop']['program'] = str(Path(td) / 'Codex.exe')
+            profile = workflow_settings.defaults('writing')
+            profile['profiles']['codex']['model'] = 'old-cli-model'
+            with patch('model_pool.pool', return_value=records), patch('workflow_settings.load', return_value=profile):
+                config = workflow_settings.current(proj, 'writing')
+            self.assertEqual(config['desktop_program'], records['chatgpt-desktop']['program'])
+            self.assertEqual(config['program'], '')
+            self.assertEqual(config['model'], '')
+
+    def test_native_claude_opens_app_and_copies_without_cli_or_auto_send(self):
+        from desktop import Desktop
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_project(td)
+            desktop = SimpleNamespace(root=proj, worker=False, win=Mock(), status=Mock(),
+                projects=SimpleNamespace(info={'projects': []}), async_=lambda fn, done: done(fn()))
+            config = {'engine': 'claude-desktop-app', 'program': 'C:/Apps/Claude.exe', 'model': ''}
+            with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
+                    patch('agent_dispatch.finish') as finish, \
+                    patch('prompt_window.copy_text') as copy, \
+                    patch('platform_tools.launch_windows_app') as launch, \
+                    patch('workflow_engines.launch_interactive') as cli, \
+                    patch('codex_tasks.prepare_task') as codex:
+                Desktop.open_flow_agent(desktop, 'writing', '提取', '提取简报', _config=config, intake_only=True)
+            launch.assert_called_once_with('C:/Apps/Claude.exe', 'Claude Desktop')
+            self.assertIn('提取简报', copy.call_args.args[1])
+            cli.assert_not_called()
+            codex.assert_not_called()
+            self.assertEqual(finish.call_args.args[1], 'prepared')
+
     def test_stage_model_selects_the_matching_desktop_agent(self):
         import stage_config
         import workflow_settings
@@ -685,7 +747,7 @@ class DesktopModelPoolTests(unittest.TestCase):
             config = workflow_settings.current(proj, 'writing')
             self.assertEqual(config['engine'], 'claude')
             self.assertTrue(workflow_settings.effective_model(proj, 'writing').startswith(
-                            'Claude Desktop · Claude Code'),
+                            'Claude Code'),
                             '桌面模型名称保持不变，未安装时仅追加状态标注')
             stage_config.put(proj, 'script', model='chatgpt-desktop')
             self.assertEqual(workflow_settings.current(proj, 'writing')['engine'], 'codex')
