@@ -367,15 +367,15 @@ PREPARATION_STAGES = ('项目设定', '剧本大纲', '角色卡')
 
 
 def preparation_continuation(project, text):
-    """已有阶段成果后的普通追问沿用简报；显式简报字段仍走原录入校验。"""
+    """简报完成后的普通追问/失败重试沿用简报；显式字段仍走原录入校验。"""
     import idea_chat
     if idea_chat.extract_brief_creation(text):
         return False
     brief = _complete_brief(project)
     if brief is None:
         return False
-    _target, state, _texts = _preparation_state(project, brief)
-    return bool(state['documents'])
+    _preparation_state(project, brief)
+    return True
 
 
 def _preparation_state(project, brief):

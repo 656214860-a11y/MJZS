@@ -28,6 +28,9 @@ class WritingCancellationTests(unittest.TestCase):
             'story_summary': '雨夜少年发现会说话的底片。', 'main_characters': '少年和老板',
             'genre': '奇幻', 'length': '单集 60 秒'})
         (writing / 'brief_complete.json').write_text(json.dumps(brief), encoding='utf-8')
+        # 本组验证自然剧本发布时的取消保护，真实前置确认由 API 阶段测试覆盖。
+        from tests.test_writing_api import WritingApiTests
+        WritingApiTests.confirmed_preparation(self.project)
         self.text = ('雨夜照相馆，少年推开门。老板说：“底片会告诉你真相。”少年攥紧相机继续追查。\n') * 30
         self.cancelled = threading.Event()
         self.enterContext(patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()))

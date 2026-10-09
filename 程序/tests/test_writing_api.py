@@ -47,6 +47,7 @@ class WritingApiTests(unittest.TestCase):
             stage_config.put(project, 'script', model='gpt-4o')
             from agent.core import save
             save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
+            self.assertTrue(writing_api.preparation_continuation(project, '重试'))
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
                  patch('writing_api._hollmwood_reply') as roles, \
                  patch('writing_api.PoolAdapter.chat', return_value={
