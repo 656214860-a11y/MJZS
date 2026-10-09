@@ -24,7 +24,37 @@ class FakeAdapter(ModelAdapter):
 
 
 class RolesTests(unittest.TestCase):
-    def test_content_roles_use_8192_and_empty_response_is_not_retried(self):
+    def test_deepseek_v4_has_room_for_reasoning_and_visible_output(self):
+        class Capture(FakeAdapter):
+            def chat(self, messages, options=None, model='', system=''):
+                self.limit = options['max_tokens']
+                return super().chat(messages, options, model, system)
+
+        for role in ('director', 'writer_revision', 'director_review_writer', 'actor'):
+            with self.subTest(role=role), tempfile.TemporaryDirectory() as folder:
+                adapter = Capture(['完整正文'])
+                roles._ask(adapter, 'deepseek-v4-flash', role, '', '', folder, 1, None,
+                           publish_log=save_text)
+                self.assertEqual(adapter.limit, 32768)
+
+    def test_truncated_visible_output_is_never_accepted_or_retried(self):
+        class Truncated(FakeAdapter):
+            def chat(self, *args, **kwargs):
+                self.prompts.append('called')
+                return {'ok': True, 'text': 'APPROVED 半截正文',
+                        'response_meta': {'finish_reason': 'length'},
+                        'usage': {'completion_tokens': 8192}}
+
+        for role in ('director', 'writer_revision', 'director_review_writer', 'actor'):
+            with self.subTest(role=role), tempfile.TemporaryDirectory() as folder:
+                adapter = Truncated([])
+                with self.assertRaisesRegex(roles.RoleExecutionError, '输出额度耗尽.*length'):
+                    roles._ask(adapter, 'test-model', role, '', '', folder, 1, None,
+                               publish_log=save_text)
+                self.assertEqual(len(adapter.prompts), 1)
+                self.assertIn(role + '_failed', (Path(folder) / 'hollmwood_step_1.log').read_text('utf-8'))
+
+    def test_other_models_keep_8192_and_empty_response_has_budget_diagnostics(self):
         """只有导演空正文可补发；创作角色必须保留一次请求的真实失败边界。"""
         class EmptyContentAdapter(ModelAdapter):
             def __init__(self):
@@ -41,12 +71,16 @@ class RolesTests(unittest.TestCase):
                      'writer_revision', 'editor_revision', 'actor_revision'):
             with self.subTest(role=role), tempfile.TemporaryDirectory() as folder:
                 adapter = EmptyContentAdapter()
-                with self.assertRaisesRegex(roles.RoleExecutionError, '模型未返回可显示正文'):
+                with self.assertRaisesRegex(roles.RoleExecutionError, '模型未返回可显示正文') as caught:
                     roles._ask(adapter, 'test-model', role, '创作规则', '创作请求',
                                folder, 2, None, publish_log=save_text)
                 self.assertEqual(len(adapter.requests), 1, '非导演角色不能无边界重试')
                 self.assertEqual(adapter.requests[0][1]['max_tokens'],
                                  roles.CONTENT_ROLE_MAX_TOKENS)
+                self.assertIn('finish_reason=length', str(caught.exception))
+                self.assertIn('max_tokens=8192', str(caught.exception))
+                self.assertIn('"retried_once": false', str(caught.exception))
+                self.assertNotIn('private only', str(caught.exception))
 
     def test_director_retry_keeps_openai_chat_envelope(self):
         """重试只改变提示和额度，system 与 user 消息仍使用既有 Chat 契约。"""

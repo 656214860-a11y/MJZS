@@ -567,6 +567,7 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
     request = urllib.request.Request(url, data=json.dumps(body, ensure_ascii=False).encode('utf-8'),
                                      headers=dict(headers), method='POST')
     parts = []
+    finish_reason = ''
     try:
         with _http_opener().open(request, timeout=timeout) as response:
             for raw in response:
@@ -580,13 +581,16 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
                     break
                 try:
                     item = json.loads(data)
-                    delta = item.get('choices', [{}])[0].get('delta', {}).get('content') or ''
+                    choice = item.get('choices', [{}])[0]
+                    finish_reason = choice.get('finish_reason') or finish_reason
+                    delta = choice.get('delta', {}).get('content') or ''
                 except (ValueError, IndexError, AttributeError):
                     continue
                 if delta:
                     parts.append(str(delta)); on_chunk(str(delta))
             return {'ok': True, 'status': getattr(response, 'status', 200),
-                    'data': {'choices': [{'message': {'content': ''.join(parts)}}]}}
+                    'data': {'choices': [{'finish_reason': finish_reason,
+                                          'message': {'content': ''.join(parts)}}]}}
     except (urllib.error.URLError, OSError, ValueError) as exc:
         return {'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc)}
 

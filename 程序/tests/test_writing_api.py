@@ -24,6 +24,31 @@ from test_workflow import make_project
 
 
 class WritingApiTests(unittest.TestCase):
+    def test_truncated_actor_stream_fails_without_publishing_script(self):
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o')
+            writing = project / 'writing'
+            writing.mkdir(exist_ok=True)
+            (writing / 'brief_complete.json').write_text(
+                __import__('json').dumps(self.complete_brief(), ensure_ascii=False), encoding='utf-8')
+            answers = ('计划', '编剧稿', 'APPROVED', '编辑稿', 'APPROVED')
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat',
+                       side_effect=[{'ok': True, 'text': text} for text in answers]) as chat, \
+                 patch('writing_api.PoolAdapter.stream', return_value={
+                     'ok': True, 'text': '未完成的演员稿',
+                     'response_meta': {'finish_reason': 'length'}}) as stream, \
+                 patch('writing_api._write_script_raw') as publish:
+                result = writing_api.reply(project, '开始创作', stream=lambda _: None,
+                                           publish=publish_stage_text)
+            self.assertFalse(result['ok'])
+            self.assertIn('actor 角色执行失败', result['error'])
+            self.assertIn('finish_reason=length', result['error'])
+            self.assertEqual(chat.call_count, 5)
+            self.assertEqual(stream.call_count, 1)
+            publish.assert_not_called()
+
     @staticmethod
     def complete_brief():
         return script_contract.brief_document({

@@ -16,6 +16,20 @@ class _Adapter(ModelAdapter):
 
 
 class ModelRouterDiagnosticsTests(unittest.TestCase):
+    def test_sse_length_survives_transport_and_adapter(self):
+        import io
+        from unittest.mock import patch
+        response = io.BytesIO(
+            b'data: {"choices":[{"delta":{"content":"partial"}}]}\n'
+            b'data: {"choices":[{"delta":{},"finish_reason":"length"}]}\n'
+            b'data: [DONE]\n')
+        with patch('model_pool._http_opener') as opener:
+            opener.return_value.open.return_value = response
+            result = _Adapter(key='sk-test').stream([], model='test-model', on_chunk=lambda _: None)
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['text'], 'partial')
+        self.assertEqual(result['response_meta']['finish_reason'], 'length')
+
     def responses_adapter(self, transport):
         item = _Adapter(transport=transport, key='sk-test')
         item.wire_api = 'responses'

@@ -254,7 +254,8 @@ class ModelAdapter:
         return {'ok': True, 'status': result.get('status', 200), 'error': '', 'model': target,
                 'text': text, 'usage': pet_llm.usage_of(result), 'data': result.get('data'),
                 'error_class': '', 'response_meta': {'requested_model': target, 'wire_api': 'chat',
-                'response_id': '', 'finish_reason': 'stream', 'response_shape': ['choices'],
+                'response_id': '', 'finish_reason': result['data']['choices'][0].get('finish_reason') or '',
+                'response_shape': ['choices'],
                 'message_fields': ['content'], 'reasoning_fields': [], 'reasoning_lengths': {},
                 'content_length': len(text)}}
 

@@ -22,8 +22,9 @@ ROLE_ORDER = ('director', 'writer', 'editor', 'actor')
 MAX_REVISIONS = 1
 DIRECTOR_RETRY_MAX_TOKENS = 8192
 CONTENT_ROLE_MAX_TOKENS = 8192
+DEEPSEEK_V4_MAX_TOKENS = 32768
 # 这是请求正文的保守字符上限，而不是模型宣称的上下文窗口。中文通常接近一字一
-# token，预留给 8192 输出 token 与协议开销；超过此值必须在调用前明确提示，不能
+# token；输出额度另按模型设置，超过此值必须在调用前明确提示，不能
 # 静默截断剧本后继续创作。
 REQUEST_CONTEXT_MAX_CHARS = 96_000
 
@@ -169,8 +170,7 @@ def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled
     retried = False
     for attempt in range(2 if empty_retry else 1):
         retrying = bool(attempt and empty_retry)
-        # DeepSeek Flash 的空回复常是推理字段占满输出额度、没有 content。第二次请求必须
-        # 改变指令和额度；原样重发同一请求只会稳定复现同一个空结果。
+        # 空正文补发时明确要求可见 content；输出额度仍受下方模型上限约束。
         request_prompt = prompt
         request_system = system
         # Writer、Editor、Actor 都要输出完整剧本；4096 容易在推理型模型中被
@@ -184,6 +184,10 @@ def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled
                                '不要只输出推理字段、分析过程或空内容。')
             request_system += '\n\n本次必须在可见 content 中输出最终导演计划，禁止仅返回思考过程。'
             max_tokens = DIRECTOR_RETRY_MAX_TOKENS
+        # V4 的额度同时覆盖推理与正文；8K 已实测耗尽且没有正文。
+        # 仅调整已知 V4 型号，不向其他模型发送可能超出其能力的额度。
+        if str(model).lower() in ('deepseek-v4-flash', 'deepseek-v4-pro'):
+            max_tokens = DEEPSEEK_V4_MAX_TOKENS
         request_started = time.perf_counter()
         on_chunk = stream if role in ('actor', 'actor_revision') and callable(stream) else None
         result = (adapter.stream([{'role': 'user', 'content': request_prompt}], options={'max_tokens': max_tokens},
@@ -199,13 +203,20 @@ def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled
         text = str((result or {}).get('text') or '').strip()
         if text or not (result or {}).get('ok'):
             break
-        if attempt == 0:
+        if attempt == 0 and empty_retry:
             retried = True
             _write_log(log_folder, step, role + '_empty_retry',
                        json.dumps(_empty_output_detail(result, retried=True), ensure_ascii=False, sort_keys=True),
                        publish=publish_log)
-    if not (result or {}).get('ok') or not text:
-        if empty_retry and (result or {}).get('ok') and not text:
+    detail = _empty_output_detail(result, retried=retried)
+    truncated = detail.get('finish_reason') == 'length'
+    if not (result or {}).get('ok') or not text or truncated:
+        if (result or {}).get('ok') and truncated:
+            error = ('模型输出额度耗尽（finish_reason=length；max_tokens=%s）；%s；'
+                     '请缩小本次创作范围后重试。响应诊断=%s' % (
+                         max_tokens, '正文被截断，未采用' if text else '模型未返回可显示正文',
+                         json.dumps(detail, ensure_ascii=False, sort_keys=True)))
+        elif empty_retry and (result or {}).get('ok') and not text:
             detail = _empty_output_detail(result, retried=retried)
             finish = detail.get('finish_reason') or '未提供'
             reasoning = '；检测到推理字段：' + '、'.join(detail.get('reasoning_fields') or []) if detail.get('reasoning_fields') else ''
@@ -214,6 +225,8 @@ def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled
                      + '）；响应诊断=' + json.dumps(detail, ensure_ascii=False, sort_keys=True))
         else:
             error = str((result or {}).get('error') or '模型未返回可显示正文')
+            if (result or {}).get('ok') and not text:
+                error += '；响应诊断=' + json.dumps(detail, ensure_ascii=False, sort_keys=True)
         _write_log(log_folder, step, role + '_failed', error, publish=publish_log)
         raise RoleExecutionError('%s 角色执行失败：%s' % (role, error))
     _write_log(log_folder, step, role, text, publish=publish_log)
