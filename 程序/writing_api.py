@@ -137,7 +137,7 @@ def _repeated_tool_error(chosen, read_only=False):
 def _recent_chat_history(rows):
     """有界地发送近况及较早对话摘录，控制远端请求的上下文体积。"""
     import idea_chat
-    return idea_chat.history_context(rows, char_limit=CHAT_HISTORY_CHAR_LIMIT)
+    return idea_chat.history_context(rows, recent_limit=12, char_limit=CHAT_HISTORY_CHAR_LIMIT)
 
 
 def _request_context_size(system, messages):
@@ -447,7 +447,7 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     if documents and documents[-1].get('confirmed') is not True:
         stage = documents[-1]['stage']
         confirmation = str(creative if user_message is None else user_message).strip().rstrip('。！!')
-        if confirmation in ('确认', '确认通过', '通过', '确认，继续', '确认并继续',
+        if confirmation in ('确认', '确认通过', '通过', '确认，继续', '确认并继续', '可以', '好的', '没问题', 'OK', 'ok',
                             stage + '确认', stage + '确认通过', '确认' + stage):
             documents[-1]['confirmed'] = True
             _save_preparation_state(target, state, publish)
