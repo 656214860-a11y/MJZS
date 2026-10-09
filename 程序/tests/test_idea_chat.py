@@ -38,7 +38,7 @@ class _InjectedIdeaChat:
     _gateway_operations = frozenset({
         'append', 'load', 'remove', 'repair_internal_replies', 'replace',
         'restore_latest_removed', 'receive_brief', 'save_brief_creation', 'save_rows',
-        'latest_text',
+        'latest_text', 'compact_context',
     })
     _operations = frozenset({
         'model_history_path', 'history_path', 'deleted_history_path',
@@ -80,6 +80,30 @@ class FakeClient:
 
 
 class SavingTests(unittest.TestCase):
+    def test_compact_context_keeps_original_and_new_messages_across_reload(self):
+        with tempfile.TemporaryDirectory() as td:
+            original = '世界观：雨城。' + '旧讨论细节' * 1500
+            idea_chat.append(td, 'user', original, model='模型甲')
+            idea_chat.append(td, 'user', '其他模型完整消息', model='模型乙')
+            before = idea_chat.load(td, model='模型甲')
+            idea_chat.compact_context(td, model='模型甲')
+            _idea_chat._history_cache.clear()
+            rows = idea_chat.load(td, model='模型甲')
+            self.assertEqual(rows[0]['text'], original)
+            self.assertEqual(rows[0]['at'], before[0]['at'])
+            self.assertTrue(rows[0]['context_compacted'])
+            context = idea_chat.history_context(rows)
+            self.assertIn('世界观：雨城', context)
+            self.assertLess(len(context), 1801)
+            self.assertNotIn('context_compacted', idea_chat.load(td, model='模型乙')[0])
+            idea_chat.append(td, 'user', '清屏后的新要求：主角保留底片', model='模型甲')
+            self.assertIn('清屏后的新要求：主角保留底片',
+                          idea_chat.history_context(idea_chat.load(td, model='模型甲')))
+            idea_chat.compact_context(td, model='模型甲')
+            self.assertTrue(all(row['context_compacted'] for row in idea_chat.load(td, model='模型甲')))
+            idea_chat.replace(td, 0, '修订后的设定应完整进入上下文', model='模型甲')
+            self.assertNotIn('context_compacted', idea_chat.load(td, model='模型甲')[0])
+
     """落盘口径：对话记录与模型输出的创意文件。"""
 
     def test_chat_storage_rejects_an_uninjected_gateway(self):
@@ -1402,6 +1426,36 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(d.delete_bubble_message(0), 0)
             self.assertEqual(idea_chat.load(proj), [])
 
+    def test_editing_right_click_finishes_edit_without_opening_clear_menu(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0)
+            self.settle_script_page(win)
+            d._bubble_edit = {'editing': True}
+            event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
+            with patch.object(d, 'finish_bubble_edit') as finish, \
+                 patch('desktop.ContextMenu') as menu:
+                self.assertEqual(d.open_bubble_menu(event), 'break')
+            finish.assert_called_once_with()
+            menu.assert_not_called()
+
+    def test_clear_screen_compacts_context_and_refresh_only_restores_display(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            model = d.idea_chat_model()
+            original = '主角保留底片。' + '冗长讨论' * 1500
+            idea_chat.append(proj, 'user', original, model=model)
+            d.show(0)
+            self.settle_script_page(win)
+            d.clear_bubble_view()
+            self.assertLess(len(idea_chat.history_context(idea_chat.load(proj, model=model))), 1801)
+            d.refresh_script_workspace()
+            self.settle_script_page(win)
+            self.assertIn('主角保留底片', self.log_text(d))
+            self.assertEqual(idea_chat.load(proj, model=model)[0]['text'], original)
+            self.assertLess(len(idea_chat.history_context(idea_chat.load(proj, model=model))), 1801)
+
     def test_clear_bubbles_cancels_pending_display_without_changing_saved_content(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
@@ -1422,7 +1476,7 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(d._bubble_rows, [])
             self.assertEqual(d._bubble_full, {})
             self.assertEqual(d._idea_view_after_jobs, [])
-            self.assertEqual(idea_chat.load(proj), saved)
+            self.assertEqual(idea_chat.load(proj), [dict(row, context_compacted=True) for row in saved])
             self.assertEqual(d.draft_text(), draft)
             self.assertEqual(d.idea_attachment_paths, attachments)
             d.refresh_script_workspace()
@@ -1457,7 +1511,7 @@ class BubbleLayoutTests(_Harness):
             self.settle_script_page(win)
             self.assertNotIn('清屏前的历史', self.log_text(d))
             self.assertIn('清屏后新回复', self.log_text(d))
-            self.assertEqual(idea_chat.load(proj, model=model)[:1], saved)
+            self.assertEqual(idea_chat.load(proj, model=model)[:1], [dict(row, context_compacted=True) for row in saved])
             d.delete_bubble_message(1)
             self.settle_script_page(win)
             self.assertNotIn('清屏前的历史', self.log_text(d))

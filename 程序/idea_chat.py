@@ -290,6 +290,21 @@ def append(root, role, text, at=None, model=None, *, gateway=None):
     return save_rows(root, rows, model=model, gateway=gateway)
 
 
+def compact_context(root, model=None, *, gateway=None):
+    """标记当前聊天为摘录输入；原文保留，后续新增消息仍正常进入上下文。"""
+    rows = (_all_rows(root, model=model, gateway=gateway) if str(model or '').strip()
+            else _read_rows(history_path(root), _require_gateway(gateway)))
+    indexes = _row_indexes(rows, model)
+    changed = False
+    for index in indexes:
+        if rows[index].get('context_compacted') is not True:
+            rows[index]['context_compacted'] = True
+            changed = True
+    if changed:
+        save_rows(root, rows, model=model, gateway=gateway)
+    return load(root, model=model, gateway=gateway)
+
+
 def _visible_claude_text(value):
     """从历史中误存的 Claude 内容块取回正文，不把 thinking／signature 展示给用户。"""
     raw = str(value or '').strip()
@@ -389,6 +404,7 @@ def replace(root, index, text, model=None, *, gateway=None):
     if not value:
         raise ValueError('对话内容不能为空')
     rows[indexes[index]]['text'] = value
+    rows[indexes[index]].pop('context_compacted', None)
     return save_rows(root, rows, model=model, gateway=gateway)
 
 
@@ -1011,15 +1027,31 @@ def history_context(rows, recent_limit=6, char_limit=12000, summary_limit=1800):
              if isinstance(row, dict) and str(row.get('text') or '').strip()]
     recent_limit = max(1, int(recent_limit))
     char_limit = max(1, int(char_limit))
+    compacted = [row for row in clean if row.get('context_compacted') is True]
+    if compacted:
+        summary = _history_excerpt(compacted, min(summary_limit, char_limit // 3))
+        pending = [row for row in clean if row.get('context_compacted') is not True]
+        remaining = char_limit - len(summary) - 2
+        if not pending or remaining <= 0:
+            return summary[:char_limit]
+        return summary + '\n\n' + history_context(pending, recent_limit, remaining, summary_limit)
     recent_rows = clean[-recent_limit:]
     early_rows = clean[:-recent_limit]
     recent = history_text(recent_rows, limit=recent_limit)
     if not early_rows:
         return recent[-char_limit:]
 
+    summary = _history_excerpt(early_rows, min(summary_limit, char_limit // 3))
+    remaining = max(0, char_limit - len(summary) - 2)
+    if not remaining:
+        return summary[:char_limit]
+    return summary + '\n\n' + recent[-remaining:]
+
+
+def _history_excerpt(rows, char_limit):
     excerpts = []
     # 早期设定和最近一次已确认内容通常都具有延续价值；中段细节由完整本地历史保留。
-    sample = early_rows[:2] + early_rows[-4:]
+    sample = rows[:2] + rows[-4:]
     for row in sample:
         who = '用户' if str(row.get('role')) == 'user' else '模型'
         text = ' '.join(str(row.get('text') or '').split())
@@ -1029,11 +1061,7 @@ def history_context(rows, recent_limit=6, char_limit=12000, summary_limit=1800):
         if item not in excerpts:
             excerpts.append(item)
     summary = '较早对话摘录（完整记录保存在本地）：\n' + '\n'.join(excerpts)
-    summary = summary[:max(0, min(summary_limit, char_limit // 3))]
-    remaining = max(0, char_limit - len(summary) - 2)
-    if not remaining:
-        return summary[:char_limit]
-    return summary + '\n\n' + recent[-remaining:]
+    return summary[:max(0, char_limit)]
 
 
 def looks_like_script(text):

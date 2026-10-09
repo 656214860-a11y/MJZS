@@ -933,14 +933,14 @@ class Desktop:
         self.show_conversation();self.status.set('已恢复最近删除的整条信息')
         return row
     def clear_bubble_view(self):
-        """记住当前会话已清屏的记录；仅显式刷新恢复历史显示。"""
+        """压缩当前聊天的模型上下文并隐藏旧消息；刷新仅恢复原文显示。"""
         if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
         import idea_chat
         from collections import Counter
         model=self.idea_chat_model()
-        rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway()) if self.root else []
+        rows=idea_chat.compact_context(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway()) if self.root else []
         hidden=getattr(self,'_idea_hidden_messages',{})
-        hidden[self.bubble_view_key(model)]=Counter(json.dumps(row,sort_keys=True,ensure_ascii=False) for row in rows)
+        hidden[self.bubble_view_key(model)]=Counter(json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False) for row in rows)
         self._idea_hidden_messages=hidden
         box=self.idea_log
         self._idea_view_generation=getattr(self,'_idea_view_generation',0)+1
@@ -954,13 +954,15 @@ class Desktop:
         box.delete('1.0','end')
         for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
             box.tag_delete(name)
-        self.status.set('已清屏；聊天记录已保留，点击“刷新”可重新显示。')
+        self.status.set('已清屏并压缩历史上下文（本地摘录）；完整聊天已保留，点击“刷新”可重新显示。')
     def bubble_view_key(self,model):
         """清屏范围按项目和模型隔离，只在本次应用会话内保存。"""
         return (str(Path(self.root).resolve()) if self.root else '',str(model or '').strip())
     def open_bubble_menu(self,event):
         """消息右键菜单；点击标题、正文或展开控件都能定位同一条消息。"""
-        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
+        if getattr(self,'_bubble_edit',None):
+            self.finish_bubble_edit()
+            return 'break'
         target=self.bubble_target_at(event.widget,event)
         menu=ContextMenu(event.widget)
         if target is not None:
@@ -1352,7 +1354,7 @@ class Desktop:
         remaining=hidden.copy() if hidden is not None else {}
         visible=[]
         for index,row in enumerate(rows):
-            signature=json.dumps(row,sort_keys=True,ensure_ascii=False)
+            signature=json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False)
             if remaining.get(signature,0):
                 remaining[signature]-=1
             else:
