@@ -174,6 +174,33 @@ class InlineBriefTests(unittest.TestCase):
 
 
 class InlineBriefDesktopTests(_Harness):
+    def test_api_stage_confirmation_keeps_brief_and_refreshes_saved_document(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            d.idea_input.insert('1.0', '确认')
+            result = {'ok': True, 'text': '# 剧本大纲\n正文\n待确认',
+                      'preparation_stage': '剧本大纲', 'preparation_path': str(Path(td) / 'outline.md')}
+            def finish(_action, received, **_kwargs):
+                received(result)
+                return 1
+            with patch('writing_api.model_label', return_value='gpt-4o'), \
+                 patch('writing_api.preparation_continuation', return_value=True) as continuation, \
+                 patch('idea_chat.receive_brief') as receive, \
+                 patch('idea_chat.save_brief_creation') as save, \
+                 patch.object(d, 'show_missing_idea_brief') as missing, \
+                 patch.object(d, 'refresh_script_list') as refresh, \
+                 patch.object(d, 'async_', side_effect=finish), \
+                 patch('workflow_engines.request_stage_process_slot', return_value={'state': 'granted', 'slot': 'test'}):
+                d.send_message()
+            continuation.assert_called_once_with(d.root, '确认')
+            receive.assert_not_called()
+            save.assert_not_called()
+            missing.assert_not_called()
+            refresh.assert_called_once()
+            self.assertIn('剧本大纲已保存', d.status.get())
+            self.assertIn('确认', d.status.get())
+
     def test_missing_dialog_saves_all_fields_then_explicit_resend(self):
         with tempfile.TemporaryDirectory() as td:
             d, win = self.desktop(make_minimal_project(td))

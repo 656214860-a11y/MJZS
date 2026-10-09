@@ -1578,6 +1578,10 @@ class Desktop:
         value=self.draft_text()
         prepared=self.idea_chat_controller.prepare_submission(self.root, value, is_example=False)
         import idea_chat
+        import writing_api
+        direct_model = writing_api.model_label(self.root)
+        continuing = bool(direct_model and prepared and
+                          writing_api.preparation_continuation(self.root, prepared['submission']))
         import stage_config, workflow_settings
         workflow_config = stage_config.current_workflow(self.root)
         preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
@@ -1597,7 +1601,7 @@ class Desktop:
                         text, extra_labels=lock_labels, include_extra=True).items():
                     lock_fields.setdefault(label, field)
             attachment_fields.update(lock_fields)
-        missing = idea_chat.inline_required_missing(None, value,
+        missing = () if continuing else idea_chat.inline_required_missing(None, value,
                                                     attachment_fields=attachment_fields,
                                                     stage='script', lock_definitions=lock_definitions)
         if missing:
@@ -1608,12 +1612,10 @@ class Desktop:
             return
         submission=prepared['submission']
         visible_value=prepared['visible_value']
-        import writing_api
-        direct_model = writing_api.model_label(self.root)
         if direct_model and self.idea_chat_controller.requesting:
             raise ValueError('模型正在回复，请不要重复发送。')
         # UI 故事字段与阶段锁门禁通过后仍核验底层四项契约；缺项只提示，不启动模型。
-        brief = idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
+        brief = {'missing': ()} if continuing else idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
                                         lock_definitions=lock_definitions, gateway=self.idea_chat_gateway(),
                                         attachment_reference=prepared['attachments'], inline_text=value, stage='script')
         if brief['missing']:
@@ -1634,7 +1636,8 @@ class Desktop:
             except Exception:
                 self.idea_chat_controller.rollback_sent()
                 raise
-        idea_chat.save_brief_creation(self.idea_chat_context(), value, gateway=self.idea_chat_gateway())
+        if not continuing:
+            idea_chat.save_brief_creation(self.idea_chat_context(), value, gateway=self.idea_chat_gateway())
         idea_chat.append(self.idea_chat_context(),'user',visible_value,model=model,gateway=self.idea_chat_gateway())
         box.delete('1.0','end')
         self.discard_idea_draft()
@@ -1683,6 +1686,11 @@ class Desktop:
                     self.status.set(idea_chat.why_empty(result));return
                 idea_chat.append(self.idea_chat_context(),'assistant',reply,model=model,gateway=self.idea_chat_gateway())
                 self.show_conversation();self.update_script_download_button()
+                if result.get('preparation_path'):
+                    refresh=getattr(self,'refresh_script_list',None)
+                    if callable(refresh):refresh()
+                    self.status.set(result['preparation_stage']+'已保存，请审阅后回复“确认”；需要修改请直接说明。')
+                    return
                 if result.get('script_raw_path'):
                     four_roles = result.get('hollmwood_enabled', True)
                     if four_roles:

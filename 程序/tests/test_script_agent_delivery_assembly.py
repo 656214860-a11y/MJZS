@@ -54,6 +54,9 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
             ('writing_api._record_model_diagnostic', None),
         ):
             self.enterContext(patch(target, return_value=value))
+        # 本组只检验自然剧本阶段的最终拼装；前置确认的真实路由由 test_writing_api 覆盖。
+        self.confirmed = {stage: stage + '已确认正文' for stage in writing_api.PREPARATION_STAGES}
+        self.enterContext(patch('writing_api._preparation_step', return_value=(None, self.confirmed)))
         adapter = self.enterContext(patch('writing_api.PoolAdapter')).return_value
         adapter.wire_api = 'chat/completions'
         adapter.chat.return_value = {'ok': True, 'text': '短回复，不触发自动落盘'}
@@ -94,12 +97,13 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
         run.assert_called_once()
         self.assertIs(run.call_args.args[0], adapter)
         self.assertEqual(run.call_args.args[1], 'test-model')
-        self.assertEqual(run.call_args.args[2], dict(brief, 本轮补充素材='本轮创意'))
+        self.assertEqual(run.call_args.args[2], dict(brief, 已确认阶段文件=self.confirmed, 本轮补充素材='本轮创意'))
         self.assertEqual(run.call_args.kwargs['rhythm_template'], '测试节奏')
         self.assertEqual(run.call_args.kwargs['director_rules'], '测试导演规则')
         self.assertEqual(run.call_args.kwargs['role_rules'], role_rules)
         self.assertEqual(run.call_args.kwargs['skill_instructions'], '所选共享 SKILL 标记')
-        self.assertEqual(run.call_args.kwargs['output_contract'], self.contract)
+        self.assertEqual(run.call_args.kwargs['output_contract'], self.contract
+                         + '\n程序已核验设定、大纲、角色卡逐项确认；当前仅执行阶段④自然剧本，沿用简报中的已确认阶段文件。')
         self.assertTrue(skill.call_args.kwargs['inline'])
         publish.assert_called_once()
         self.assertTrue(result['ok'])

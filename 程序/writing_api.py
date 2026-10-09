@@ -6,6 +6,7 @@
 """
 from pathlib import Path
 import json
+import hashlib
 from datetime import datetime
 
 import model_pool
@@ -243,7 +244,8 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
             rhythm_template=rhythm_template or hollmwood_roles.load_rhythm_template(),
             log_folder=Path(project) / 'logs',
             skill_instructions=workflow_settings.skill_prompt(settings, inline=True),
-            output_contract=workflow_settings.stage_output_contract('writing'),
+            output_contract=(workflow_settings.stage_output_contract('writing')
+                             + '\n程序已核验设定、大纲、角色卡逐项确认；当前仅执行阶段④自然剧本，沿用简报中的已确认阶段文件。'),
             emit=progress,
             cancelled=cancelled,
             director_rules=director_rules or None,
@@ -361,6 +363,130 @@ def extract_idea_brief(project, request):
     return semantic_brief_values(data, request['request_id'], request['source'])
 
 
+PREPARATION_STAGES = ('项目设定', '剧本大纲', '角色卡')
+
+
+def preparation_continuation(project, text):
+    """已有阶段成果后的普通追问沿用简报；显式简报字段仍走原录入校验。"""
+    import idea_chat
+    if idea_chat.extract_brief_creation(text):
+        return False
+    brief = _complete_brief(project)
+    if brief is None:
+        return False
+    _target, state, _texts = _preparation_state(project, brief)
+    return bool(state['documents'])
+
+
+def _preparation_state(project, brief):
+    """简报不是阶段完成凭据；确认必须绑定实际落盘的那一版正文。"""
+    from stage_path_service import write_dir
+    folder = write_dir(project, 'script')
+    target = folder / 'preparation_state.json'
+    fingerprint = hashlib.sha256(json.dumps(brief['brief'], ensure_ascii=False,
+                                            sort_keys=True).encode('utf-8')).hexdigest()
+    state = read_json(target) if target.is_file() else None
+    if state is not None and not isinstance(state, dict):
+        raise ValueError('剧本准备阶段记录无效，不能启动四角色')
+    if state is None or state.get('brief_hash') != fingerprint:
+        return target, {'version': 1, 'brief_hash': fingerprint, 'documents': []}, []
+    documents = state.get('documents')
+    if state.get('version') != 1 or not isinstance(documents, list) or len(documents) > 3:
+        raise ValueError('剧本准备阶段记录无效，不能启动四角色')
+    texts = []
+    for index, document in enumerate(documents):
+        if not isinstance(document, dict) or not all(isinstance(document.get(key), str)
+                                                    for key in ('path', 'stage', 'sha256')):
+            raise ValueError('剧本准备阶段文件记录无效')
+        path = (folder / document['path']).resolve()
+        if not path.is_relative_to(folder.resolve()) or document['stage'] != PREPARATION_STAGES[index]:
+            raise ValueError('剧本准备阶段文件记录无效')
+        if index < len(documents) - 1 and document.get('confirmed') is not True:
+            raise ValueError('前置阶段尚未确认，不能跳阶段')
+        text = path.read_text(encoding='utf-8') if path.is_file() else ''
+        if not text.strip() or hashlib.sha256(text.encode('utf-8')).hexdigest() != document['sha256']:
+            raise ValueError(document['stage'] + '文件已删除或修改，原确认失效；请恢复已审阅文件后继续')
+        texts.append(text)
+    return target, state, texts
+
+
+def _save_preparation_state(target, state, publish):
+    payload = json.dumps(state, ensure_ascii=False, indent=2) + '\n'
+    publish(target, payload, lambda value: value == payload, lambda _target: None)
+
+
+def _preparation_step(project, chosen, record, settings, brief, creative, *, publish, cancelled):
+    """一次请求最多产出一个待确认阶段；返回 None 才可开始自然剧本。"""
+    import idea_chat
+    import workflow_settings
+    from project_context_factory import project_context
+    from stage_path_service import write_dir
+    target, state, texts = _preparation_state(project, brief)
+    documents = state['documents']
+    if not callable(publish):
+        raise TypeError('剧本准备阶段需要 L3 注入发布器')
+    publish = _cancellable_publisher(publish, cancelled)
+    if documents and documents[-1].get('confirmed') is not True:
+        stage = documents[-1]['stage']
+        confirmation = str(creative or '').strip().rstrip('。！!')
+        if confirmation in ('确认', '确认通过', '通过', '确认，继续', '确认并继续',
+                            stage + '确认', stage + '确认通过', '确认' + stage):
+            documents[-1]['confirmed'] = True
+            _save_preparation_state(target, state, publish)
+    index = len(documents) if not documents or documents[-1].get('confirmed') is True else len(documents) - 1
+    if index == len(PREPARATION_STAGES):
+        return None, dict(zip(PREPARATION_STAGES, texts))
+    stage = PREPARATION_STAGES[index]
+    system = (workflow_settings.skill_prompt(settings, inline=True)
+              + workflow_settings.stage_output_contract('writing'))
+    title = '人物设定（角色卡）' if index == 2 else stage
+    task = ('本次创意输入：' + str(creative or '') + '\n'
+            + '<brief_complete>\n' + json.dumps(brief, ensure_ascii=False) + '\n</brief_complete>\n'
+            + '程序核验的当前阶段：' + stage + '。仅输出这一阶段的完整 Markdown 文件正文，'
+            + '一级标题必须为“# ' + title + '”，末尾“待确认”。不得输出自然剧本或其他阶段文件。'
+            + '用户未明确确认时，只修改当前阶段，不能自行认定通过。\n')
+    for position, text in enumerate(texts):
+        task += '\n<' + PREPARATION_STAGES[position] + '>\n' + text + '\n</' + PREPARATION_STAGES[position] + '>\n'
+    messages = [{'role': 'user', 'content': task}]
+    rejected = _context_budget_error(chosen, system, messages)
+    if rejected:
+        return rejected, None
+    _ensure_reply_active(cancelled)
+    adapter = PoolAdapter(record, chosen, program=Path(__file__).resolve().parent,
+                          timeout=WRITING_REQUEST_TIMEOUT)
+    tokens = 32768 if str(record.get('model') or chosen).lower() in (
+        'deepseek-v4-flash', 'deepseek-v4-pro') else CLAUDE_VISIBLE_OUTPUT_TOKENS
+    result = adapter.chat(messages, options={'max_tokens': tokens}, model=chosen, system=system)
+    _ensure_reply_active(cancelled)
+    _record_model_diagnostic(project, result, purpose='preparation')
+    if not result.get('ok'):
+        return result, None
+    text = str(result.get('text') or '').replace('\r\n', '\n').strip()
+    meta = result.get('response_meta') or {}
+    data = result.get('data') or {}
+    choices = data.get('choices') or [{}]
+    finish = meta.get('finish_reason') or data.get('stop_reason') or choices[0].get('finish_reason')
+    if finish in ('length', 'max_tokens') or not text.startswith('# ' + title + '\n') or not text.endswith('待确认'):
+        return dict(result, ok=False, text='', error=stage + '输出未完成或阶段格式不符，未保存、未进入下一阶段'), None
+    body = text.split('\n', 1)[1].removesuffix('待确认').strip()
+    if not body:
+        return dict(result, ok=False, text='', error=stage + '正文为空，未保存'), None
+    context = project_context(project)
+    provider, model = idea_chat.storage_identity(model_label(project))
+    file_type = '项目大纲' if index == 1 else '项目设定'
+    parts = idea_chat.reply_path_parts(context, provider=provider, model=model, file_type=file_type)
+    filename = idea_chat.project_script_filename(context, file_type=file_type, content=stage)
+    path = write_dir(project, 'script').joinpath(*parts[:-1], filename)
+    if index < len(documents):
+        path = write_dir(project, 'script') / documents[index]['path']
+    document = {'stage': stage, 'path': path.relative_to(write_dir(project, 'script')).as_posix(),
+                'sha256': hashlib.sha256((text + '\n').encode('utf-8')).hexdigest(), 'confirmed': False}
+    state['documents'] = documents[:index] + [document]
+    publish(path, text + '\n', lambda value: bool(value.strip()),
+            lambda _target: _save_preparation_state(target, state, publish))
+    return dict(result, text=text, preparation_stage=stage, preparation_path=str(path)), None
+
+
 def reply(project, creative, progress=None, cancelled=None, stream=None, *, publish=None):
     """以剧本工作流的上下文、SKILL 和用户创意请求一次 API 回复。"""
     _ensure_reply_active(cancelled)
@@ -375,6 +501,12 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
 
     settings = workflow_settings.load(root, 'writing')
     brief = _complete_brief(root)
+    if brief is not None:
+        preparation, confirmed = _preparation_step(
+            root, chosen, record, settings, brief, creative, publish=publish, cancelled=cancelled)
+        if preparation is not None:
+            return preparation
+        brief = dict(brief, 已确认阶段文件=confirmed)
     hollmwood_active = brief is not None and stage_config.hollmwood_enabled(root, 'script')
     auto_save_enabled = brief is not None and not hollmwood_active
     if hollmwood_active:
@@ -393,6 +525,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     task = script_prompt(root, None, 'writing', creative_text=creative)
     if brief is not None:
         task += '\n\n<brief_complete>\n' + json.dumps(brief, ensure_ascii=False, indent=2) + '\n</brief_complete>'
+        task += '\n程序已核验设定、大纲、角色卡逐项确认；本次仅执行阶段④自然剧本，沿用上述已确认阶段文件。'
     history = _recent_chat_history(idea_chat.load(
         project_context(root), model=model_label(root), gateway=idea_chat_gateway()))
     if history:
