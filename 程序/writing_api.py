@@ -547,7 +547,10 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     if rejected:
         return rejected
     _ensure_reply_active(cancelled)
-    result = adapter.chat(messages, options={'max_tokens': 4096},
+    # V4 的思考与可见正文共用额度；普通阶段对话也需沿用阶段生成的预算。
+    tokens = 32768 if str(record.get('model') or chosen).lower() in (
+        'deepseek-v4-flash', 'deepseek-v4-pro') else 4096
+    result = adapter.chat(messages, options={'max_tokens': tokens},
                           model=chosen, system=system)
     _ensure_reply_active(cancelled)
     _record_model_diagnostic(root, result)
