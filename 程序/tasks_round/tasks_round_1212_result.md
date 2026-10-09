@@ -30,4 +30,8 @@
 
 有意契约变更登记：test_preparation_requires_each_confirmation_and_hands_all_documents_to_roles 的“修订覆盖原路径”改为“新路径且旧正文保留”；四角色顺序、确认数量、上下文及哈希断言保留。原 GUI 确认用例加强为带附件并执行 API 接线。未削弱断言、未跳过测试。
 
-默认 smoke_test.py 8/8；架构 311/311。自审通过：四角色顺序与审核机制不变，确认绑定文件与发布失败回滚仍有测试；改动均在直接调用链，未改用户文件与 SKILL。提交回执待 Git 收尾记录。
+默认 smoke_test.py 8/8；架构 311/311。自审通过：四角色顺序与审核机制不变，确认绑定文件与发布失败回滚仍有测试；改动均在直接调用链，未改用户文件与 SKILL。实现已提交 40f87ac 并快进合入实际主目录。凭据形态扫描 0 命中，git diff --check 通过；六项用户修改逐文件哈希及删除状态核验 6/6 保持。状态页同步为 1213；收尾文档提交见 Git 回执。
+
+收尾文档与轮次一致性：run_selftests.py -k agents_md round_baselines，16/16，通过；日志 TEMP/r1212-docs.log。
+
+[TASK_COMPLETE]
