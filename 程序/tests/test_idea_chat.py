@@ -38,7 +38,7 @@ class _InjectedIdeaChat:
     _gateway_operations = frozenset({
         'append', 'load', 'remove', 'repair_internal_replies', 'replace',
         'restore_latest_removed', 'receive_brief', 'save_brief_creation', 'save_rows',
-        'latest_text', 'compact_context',
+        'latest_text', 'compact_context', 'remove_all',
     })
     _operations = frozenset({
         'model_history_path', 'history_path', 'deleted_history_path',
@@ -1425,6 +1425,68 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(win.clipboard_get(), '完整的一条消息')
             self.assertEqual(d.delete_bubble_message(0), 0)
             self.assertEqual(idea_chat.load(proj), [])
+
+    def test_delete_all_menu_order_and_persistent_history_removal(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            model = d.idea_chat_model()
+            idea_chat.append(proj, 'user', '要删除的隐藏历史', model=model)
+            idea_chat.append(proj, 'assistant', '要删除的回复', model=model)
+            idea_chat.append(proj, 'user', '其他模型保留', model='另一模型')
+            idea_chat.remove(proj, 1, model=model)
+            d.show(0)
+            self.settle_script_page(win)
+            event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
+            with patch.object(d, 'bubble_target_at', return_value=(0, 'bubble_0')), \
+                 patch('desktop.ContextMenu.popup', return_value='break'):
+                d.open_bubble_menu(event)
+            labels = [d._bubble_menu.entrycget(i, 'label')
+                      for i in range(d._bubble_menu.index('end') + 1)
+                      if d._bubble_menu.type(i) != 'separator']
+            self.assertEqual(labels[labels.index('删除整条信息') + 1], '删除全部信息')
+            with patch('desktop.confirm', return_value=False):
+                self.assertIsNone(d.delete_all_bubble_messages())
+            self.assertEqual(len(idea_chat.load(proj, model=model)), 1)
+            d.clear_bubble_view()
+            with patch('desktop.confirm', return_value=True):
+                self.assertEqual(d.delete_all_bubble_messages(), 1)
+            d.refresh_script_workspace()
+            self.settle_script_page(win)
+            self.assertNotIn('要删除的隐藏历史', self.log_text(d))
+            _idea_chat._history_cache.clear()
+            self.assertEqual(idea_chat.load(proj, model=model), [])
+            self.assertEqual(idea_chat.load(proj, model='另一模型')[0]['text'], '其他模型保留')
+            with self.assertRaisesRegex(ValueError, '没有可恢复'):
+                idea_chat.restore_latest_removed(proj, model=model)
+            self.assertTrue(list(Path(proj).rglob('恢复位置.json')))
+            d._idea_requesting = True
+            with patch('desktop.confirm') as confirmation:
+                with self.assertRaisesRegex(ValueError, '模型正在回复'):
+                    d.delete_all_bubble_messages()
+                confirmation.assert_not_called()
+            d._idea_requesting = False
+
+    def test_delete_all_removes_legacy_duplicates_and_protects_other_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            idea_chat.append(proj, 'user', '当前历史', model='模型甲')
+            idea_chat.save_rows(proj, [
+                {'role': 'user', 'text': '旧版重复', 'model': '模型甲'},
+                {'role': 'user', 'text': '旧版其他模型', 'model': '模型乙'}])
+            artifact = Path(proj) / '已保存剧本.md'
+            artifact.write_text('已保存正文', encoding='utf-8')
+            idea_chat.remove_all(proj, '模型甲')
+            _idea_chat._history_cache.clear()
+            self.assertEqual(idea_chat.load(proj, model='模型甲'), [])
+            self.assertEqual(idea_chat.load(proj, model='模型乙')[0]['text'], '旧版其他模型')
+            self.assertEqual(artifact.read_text(encoding='utf-8'), '已保存正文')
+            idea_chat.append(proj, 'user', '失败时保留', model='模型甲')
+            gateway = idea_chat_gateway()
+            gateway['recycle_paths'] = lambda *args: []
+            with self.assertRaisesRegex(OSError, '未能移入回收站'):
+                idea_chat.remove_all(proj, '模型甲', gateway=gateway)
+            self.assertEqual(idea_chat.load(proj, model='模型甲')[0]['text'], '失败时保留')
 
     def test_editing_right_click_finishes_edit_without_opening_clear_menu(self):
         with tempfile.TemporaryDirectory() as td:

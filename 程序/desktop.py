@@ -926,6 +926,22 @@ class Desktop:
         idea_chat.remove(self.idea_chat_context(),index,model=model,gateway=self.idea_chat_gateway())
         self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
         return index
+    def delete_all_bubble_messages(self):
+        """删除当前模型的完整会话，含清屏隐藏的历史。"""
+        if (getattr(self,'_idea_requesting',False) or getattr(self,'_script_agent_launching',False)
+                or self.script_agent_processes()):
+            raise ValueError('模型正在回复，请先中断或等待完成，再删除全部信息。')
+        if not self.root:return
+        model=self.idea_chat_model()
+        if not confirm(self.win,'删除全部信息',
+                       '删除当前模型的全部历史对话？\n聊天记录将移入回收站，已保存的剧本和附件保留。',dangerous=True):return
+        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit(commit=False)
+        import idea_chat
+        count=idea_chat.remove_all(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
+        getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(model),None)
+        self.show_conversation()
+        self.status.set('已删除当前模型全部历史对话；记录已移入回收站')
+        return count
     def restore_latest_bubble_message(self):
         """恢复当前模型聊天页最近删除的一条完整消息。"""
         import idea_chat
@@ -972,8 +988,11 @@ class Desktop:
             else:
                 menu.command('复制整条信息',lambda i=index:self.copy_bubble_message(i))
                 menu.command('删除整条信息',lambda i=index:self.delete_bubble_message(i))
+                menu.command('删除全部信息',lambda:self.safe(self.delete_all_bubble_messages))
                 menu.command('恢复最近删除的信息',self.restore_latest_bubble_message)
             menu.separator()
+        if target is None or target[0]=='example':
+            menu.command('删除全部信息',lambda:self.safe(self.delete_all_bubble_messages))
         menu.command('清屏',self.clear_bubble_view)
         self._bubble_menu=menu
         return menu.popup(event)

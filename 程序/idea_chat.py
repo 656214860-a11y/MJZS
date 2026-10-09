@@ -430,6 +430,34 @@ def remove(root, index, model=None, *, gateway=None):
     return save_rows(root, rows, model=model, gateway=gateway)
 
 
+def remove_all(root, model, *, gateway=None):
+    """回收当前模型的全部历史及单条恢复记录，保留其他模型与创作文件。"""
+    gateway = _require_gateway(gateway)
+    if not str(model or '').strip():
+        raise ValueError('请先选择聊天模型')
+    recycle = gateway.get('recycle_paths')
+    if not callable(recycle):
+        raise TypeError('删除全部信息需要 L3 注入回收入口')
+    rows = load(root, model=model, gateway=gateway)
+    legacy_path = history_path(root)
+    legacy = _read_rows(legacy_path, gateway)
+    selected = set(_row_indexes(legacy, model))
+    remaining = [row for index, row in enumerate(legacy) if index not in selected]
+    paths = [model_history_path(root, model), deleted_history_path(root, model=model)]
+    if selected:
+        paths.append(legacy_path)
+    paths = [path for path in paths if path.is_file()]
+    if paths:
+        try:
+            recycle(_context(root).root, paths, '删除全部聊天信息')
+            if any(path.exists() for path in paths):
+                raise OSError('部分聊天记录未能移入回收站，请重试')
+        finally:
+            if selected and remaining and not legacy_path.exists():
+                save_rows(root, remaining, gateway=gateway)
+    return len(rows)
+
+
 def restore_latest_removed(root, model=None, *, gateway=None):
     """恢复当前会话最近删除的一条消息，其他模型的删除记录不相互串入。"""
     gateway = _require_gateway(gateway)

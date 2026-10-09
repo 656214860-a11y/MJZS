@@ -383,10 +383,12 @@ def read_idea_semantic_brief(request):
 def idea_chat_gateway():
     """为 ``idea_chat`` 注入缓存读取与原子发布；L2 不可自行落盘。"""
     from agent.core import save, save_text
+    from storage_maintenance import recycle_paths
     return {
         'read_json': file_cache.read_json,
         'publish_json': save,
         'publish_text': save_text,
+        'recycle_paths': recycle_paths,
     }
 
 
