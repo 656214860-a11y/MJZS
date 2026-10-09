@@ -9,15 +9,14 @@
 - render(data)：日报 Markdown 正文；
 - write(project, data)：落盘 <项目>/工作流任务/宠物/日报/YYYY-MM-DD.md，并把当日数字并入 汇总.json；
 - weekly(project, at)：读 汇总.json 汇总最近 7 天（不足 7 天就按实际天数）；
-- prune(project)：多出来的日报／周报删掉——一天只留一份、一周只留一份（第 21 期用户要的
-  「每日／每周只保存一份，以当天／当周最后一次关闭软件为准」）。
+- prune(project)：过期及重复日报／周报移入项目回收站；默认保留最近 90 个自然日。
 纯标准库＋既有 pet_llm／pet_state／pet_bus，再借 pet_agent 的类目中文名，不联网、不起线程，
 界面线程可直接调用。
 """
 import datetime
+import re
 import time
 from pathlib import Path
-from file_cache import remove_temporary_file
 from agent.core import save, save_text
 import pet_llm
 import pet_state
@@ -26,7 +25,7 @@ from pet_bus import STAGES, STAGE_NAMES, read_json
 
 REPORT_DIR = ('工作流任务', '宠物', '日报')
 SUMMARY_NAME = '汇总.json'
-KEEP = 90                                   # 汇总文件只留最近 90 天
+KEEP = 90                                   # 报表与汇总保留最近 90 个自然日
 WEEK_DAYS = 7
 TARGETS = {'hit_rate': 0.8, 'flash_share': 0.9, 'budget_share': 0.8}
 # 盘上一眼能数出来的物料：剧本／分镜／已采用／镜头／首帧／资产／已有图的资产。
@@ -92,47 +91,53 @@ def written_at(path):
         return 0.0
 
 
-def prune(project, at=None):
-    """多出来的日报／周报删掉：一天只留一份、一周只留一份，留最后一次写下去的那一份。
+def retention_start(at=None, keep=KEEP):
+    """最近 keep 个自然日（含指定当日）；0 表示不按年龄清理。"""
+    if not keep:
+        return None
+    if int(keep) < 0:
+        raise ValueError('报表保留天数不能为负数')
+    return datetime.date.fromisoformat(as_day(at)) - datetime.timedelta(days=int(keep) - 1)
 
-    第 21 期用户要的「每日／每周只保存一份，以当天／当周最后一次关闭软件为准，多余日报／
-    周报删除」。日报本来一天一个名字，只有出现副本（例如「2026-09-20 (1).md」）才会多；
-    周报原来按生成日命名、一周能攒好几份，这里按「这一天属于哪一周」分堆，每堆只留正名那份。
-    返回被删掉的路径；清理本身出问题也只当没清（报告已经落盘了，不该被这一步带崩）。
+
+def prune(project, at=None, keep=KEEP):
+    """回收过期与重复报表；正名优先，缺正名时保留最后写入的副本。
+
+    只识别日期名及数字副本名；周报保留与窗口有交集的整周。
+    返回成功回收的原路径；文件占用不影响已生成的报告。
     """
+    import storage_maintenance
+
     folder = report_dir(project)
+    start = retention_start(at, keep)
     removed = []
-    try:
-        if not folder.is_dir():
-            return removed
-        weekly, daily = {}, {}
-        for path in sorted(folder.glob('*.md')):
-            name = path.name
-            stem = name[:-3] if name.endswith('.md') else name
-            if name == SUMMARY_NAME:
-                continue
-            if stem.startswith('周报-'):
-                day = stem[len('周报-'):][:10]
-                weekly.setdefault(week_key(day), []).append(path)
-            else:
-                daily.setdefault(stem[:10], []).append(path)
-        groups = [('周报-' + key, paths) for key, paths in weekly.items()]
-        groups += [(key, paths) for key, paths in daily.items()]
-        keepers = set()
-        for name, paths in groups:
-            canonical = folder.joinpath(name + '.md')
-            keepers.add(canonical if canonical in paths else max(paths, key=written_at))
-        for _name, paths in groups:
-            for path in paths:
-                if path in keepers:
-                    continue
-                try:
-                    remove_temporary_file(path)
-                    removed.append(path)
-                except OSError:
-                    pass
-    except Exception:
+    if (not folder.is_dir() or folder.is_symlink() or folder.is_junction()
+            or not folder.resolve().is_relative_to(Path(project).resolve())):
         return removed
+    groups = {}
+    for path in sorted(folder.glob('*.md')):
+        match = re.fullmatch(r'(周报-)?(\d{4}-\d{2}-\d{2})(?: \(\d+\))?\.md', path.name)
+        if not match or not path.is_file() or path.is_symlink() or path.is_junction():
+            continue
+        try:
+            date = datetime.date.fromisoformat(match[2])
+        except ValueError:
+            continue
+        weekly = bool(match[1])
+        key = date - datetime.timedelta(days=date.weekday()) if weekly else date
+        groups.setdefault((weekly, key), []).append(path)
+    for (weekly, date), paths in groups.items():
+        end = date + datetime.timedelta(days=6) if weekly else date
+        canonical = folder / (('周报-' if weekly else '') + date.isoformat() + '.md')
+        keeper = canonical if canonical in paths else max(paths, key=written_at)
+        for path in paths:
+            if path == keeper and (start is None or end >= start):
+                continue
+            try:
+                records = storage_maintenance.recycle_paths(project, [path], '日报周报保留期与重复副本清理')
+            except OSError:
+                continue
+            removed.extend(Path(project) / record['source'] for record in records)
     return removed
 
 
@@ -363,7 +368,22 @@ def merge_rows(rows, data, keep=KEEP):
     kept = [row for row in (rows or []) if isinstance(row, dict) and row.get('day') and row.get('day') != data.get('day')]
     kept.append(dict(data))
     kept.sort(key=lambda row: str(row.get('day')))
-    return kept[-int(keep):] if keep else kept
+    return retained_rows(kept, data['day'], keep)
+
+
+def retained_rows(rows, at=None, keep=KEEP):
+    """汇总与 Markdown 使用同一个自然日保留窗口。"""
+    start = retention_start(at, keep)
+    kept = []
+    for row in rows:
+        try:
+            date = datetime.date.fromisoformat(str(row.get('day', '')))
+        except ValueError:
+            kept.append(row)  # 无法识别的历史记录不按猜测删除。
+            continue
+        if start is None or date >= start:
+            kept.append(row)
+    return kept
 
 
 def write(project, data, items=None, keep=KEEP):
@@ -373,7 +393,7 @@ def write(project, data, items=None, keep=KEEP):
     save_text(path, render(data, items=items))
     summary = summary_path(project)
     save(summary, {'updated_at': time.time(), 'rows': merge_rows(load_rows(project), data, keep=keep)})
-    prune(project)                        # 第 21 期：一天只留一份日报，多出来的副本删掉
+    prune(project, data['day'], keep=keep)
     return path, summary
 
 
@@ -515,12 +535,15 @@ def weekly(project, at=None, days=WEEK_DAYS):
 def write_weekly(project, at=None, days=WEEK_DAYS):
     """落盘周报（一周一份：按本周周一命名，同周重跑覆盖同一份）；返回（路径，汇总数字）。
 
-    第 21 期：名字改成「本周周一」之后，周五写了、周日又写也还是同一份（用户要的
-    「以当周最后一次关闭软件为准」）；写完顺手把这一周里按旧命名散落的几份清掉。
+    写完回收超期和重复报表，并同步裁剪汇总；不依赖另一次日报生成。
     """
     totals, text = weekly(project, at=at, days=days)
     path = weekly_path(project, day_key(at))
     path.parent.mkdir(parents=True, exist_ok=True)
     save_text(path, text)
+    rows = load_rows(project)
+    retained = retained_rows(rows, at)
+    if retained != rows:
+        save(summary_path(project), {'updated_at': time.time(), 'rows': retained})
     prune(project, at)
     return path, totals

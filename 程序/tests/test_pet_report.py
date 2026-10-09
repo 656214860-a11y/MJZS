@@ -8,6 +8,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import pet_llm, pet_report, pet_state
+from unittest.mock import patch
 from pet_bus import STAGES
 
 AT = calendar.timegm((2026, 9, 20, 4, 0, 0, 0, 0, 0))          # 北京时间 2026-09-20 12:00
@@ -261,6 +262,71 @@ class WriteTests(unittest.TestCase):
 
 
 class WeeklyTests(unittest.TestCase):
+    def test_retention_uses_calendar_days_and_recycles_reports(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_in(td)
+            folder = pet_report.report_dir(proj)
+            folder.mkdir(parents=True)
+            expired = ['2026-06-22.md', '周报-2026-06-15.md']
+            retained = ['2026-06-23.md', '周报-2026-06-22.md',
+                        '2026-06-22-notes.md', '2026-02-30.md']
+            for name in expired + retained:
+                (folder / name).write_text(name, encoding='utf-8')
+            removed = pet_report.prune(proj, at=AT)
+            self.assertEqual(sorted(p.name for p in removed), sorted(expired))
+            self.assertEqual(sorted(p.name for p in folder.glob('*.md')), sorted(retained))
+            from storage_maintenance import recycle_base, read_recycle_batch, restore_recycle_batch
+            batch = next(recycle_base(proj).iterdir())
+            self.assertEqual(len(read_recycle_batch(proj, batch)['items']), 2)
+            restore_recycle_batch(proj, batch)
+            for name in expired:
+                self.assertEqual((folder / name).read_text(encoding='utf-8'), name)
+
+    def test_sparse_summary_ages_out_without_waiting_for_ninety_rows(self):
+        rows = [{'day': '2025-01-01'}, {'day': '2026-06-22'}, {'day': '2026-06-23'}]
+        merged = pet_report.merge_rows(rows, {'day': DAY})
+        self.assertEqual([r['day'] for r in merged], ['2026-06-23', DAY])
+
+    def test_daily_custom_retention_and_unlimited_retention(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_in(td)
+            pet_report.daily(proj, at=AT - 4 * 86400)
+            pet_report.daily(proj, at=AT, keep=0)
+            self.assertTrue(pet_report.report_path(proj, '2026-09-16').exists())
+            pet_report.daily(proj, at=AT, keep=3)
+            self.assertFalse(pet_report.report_path(proj, '2026-09-16').exists())
+            self.assertEqual([r['day'] for r in pet_report.load_rows(proj)], [DAY])
+
+    def test_cleanup_failure_is_not_reported_as_success(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_in(td)
+            folder = pet_report.report_dir(proj)
+            folder.mkdir(parents=True)
+            old = folder / '2025-01-01.md'
+            old.write_text('retain on failure', encoding='utf-8')
+            with patch('storage_maintenance.recycle_paths', side_effect=PermissionError('occupied')):
+                self.assertEqual(pet_report.prune(proj, at=AT), [])
+            self.assertTrue(old.exists())
+
+    def test_weekly_also_prunes_sparse_summary(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_in(td)
+            pet_report.daily(proj, at=AT - 100 * 86400)
+            pet_report.write_weekly(proj, at=AT)
+            self.assertEqual(pet_report.load_rows(proj), [])
+            self.assertTrue(pet_report.weekly_path(proj, DAY).exists())
+
+    def test_rejected_recycle_and_invalid_dates_are_preserved(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_in(td)
+            folder = pet_report.report_dir(proj)
+            folder.mkdir(parents=True)
+            for name in ['2025-01-01.md', '2025-99-99.md', '2025-99-99 (1).md']:
+                (folder / name).write_text('preserve', encoding='utf-8')
+            with patch('storage_maintenance.recycle_paths', return_value=[]):
+                self.assertEqual(pet_report.prune(proj, at=AT), [])
+            self.assertEqual(len(list(folder.glob('*.md'))), 3)
+
     def rows(self):
         days = ['2026-09-13', '2026-09-14', '2026-09-19', '2026-09-20', '2026-09-21']
         made = []
