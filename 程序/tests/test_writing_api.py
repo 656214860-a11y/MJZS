@@ -191,6 +191,35 @@ class WritingApiTests(unittest.TestCase):
             self.assertFalse((project_stages.writing(project) / 'preparation_state.json').exists())
             self.assertEqual(list(project_stages.writing(project).rglob('*.md')), [])
 
+    def test_preparation_publication_failure_preserves_cached_state_and_document(self):
+        from agent.core import save
+        for message in ('确认', '修改设定'):
+            with self.subTest(message=message), tempfile.TemporaryDirectory() as td:
+                project = make_project(td)
+                stage_config.put(project, 'script', model='gpt-4o')
+                save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
+                with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                     patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': '# 项目设定\n原设定。\n待确认'}):
+                    first = writing_api.reply(project, '开始', publish=publish_stage_text)
+                    state_path = project_stages.writing(project) / 'preparation_state.json'
+                    original_state = state_path.read_bytes()
+                    document = Path(first['preparation_path'])
+                    original_document = document.read_bytes()
+                    def fail_state(target, *args, **kwargs):
+                        if target == state_path:
+                            raise OSError('模拟阶段记录发布失败')
+                        return publish_stage_text(target, *args, **kwargs)
+                    with patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': '# 项目设定\n新设定。\n待确认'}), \
+                         patch('writing_api._hollmwood_reply') as roles:
+                        with self.assertRaisesRegex(OSError, '阶段记录发布失败'):
+                            writing_api.reply(project, message, publish=fail_state)
+                    roles.assert_not_called()
+                    self.assertEqual(state_path.read_bytes(), original_state)
+                    self.assertEqual(document.read_bytes(), original_document)
+                    _, state, texts = writing_api._preparation_state(project, writing_api._complete_brief(project))
+                    self.assertFalse(state['documents'][0]['confirmed'])
+                    self.assertEqual(texts, [original_document.decode('utf-8').replace('\r\n', '\n')])
+
     def test_truncated_actor_stream_fails_without_publishing_script(self):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)

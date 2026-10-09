@@ -380,12 +380,13 @@ def preparation_continuation(project, text):
 
 def _preparation_state(project, brief):
     """简报不是阶段完成凭据；确认必须绑定实际落盘的那一版正文。"""
+    from copy import deepcopy
     from stage_path_service import write_dir
     folder = write_dir(project, 'script')
     target = folder / 'preparation_state.json'
     fingerprint = hashlib.sha256(json.dumps(brief['brief'], ensure_ascii=False,
                                             sort_keys=True).encode('utf-8')).hexdigest()
-    state = read_json(target) if target.is_file() else None
+    state = deepcopy(read_json(target)) if target.is_file() else None
     if state is not None and not isinstance(state, dict):
         raise ValueError('剧本准备阶段记录无效，不能启动四角色')
     if state is None or state.get('brief_hash') != fingerprint:
