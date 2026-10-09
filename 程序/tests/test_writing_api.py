@@ -99,6 +99,53 @@ class WritingApiTests(unittest.TestCase):
             self.assertEqual(len({item['path'] for item in state['documents']}), 3)
             self.assertEqual(chat.call_count, 4)
 
+    def test_colloquial_confirmation_advances_preparation(self):
+        from agent.core import save
+        for confirmation in ('可以', '好的', '没问题', 'OK', 'ok'):
+            with self.subTest(confirmation=confirmation), tempfile.TemporaryDirectory() as td:
+                project = make_project(td)
+                stage_config.put(project, 'script', model='gpt-4o')
+                brief = self.complete_brief()
+                save(project_stages.writing(project) / 'brief_complete.json', brief)
+                with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                     patch('writing_api.PoolAdapter.chat', side_effect=[
+                         {'ok': True, 'text': '# 项目设定\n初始设定。\n待确认'},
+                         {'ok': True, 'text': '# 剧本大纲\n大纲正文。\n待确认'}]):
+                    writing_api.reply(project, '开始', publish=publish_stage_text)
+                    result = writing_api.reply(project, confirmation, publish=publish_stage_text)
+                self.assertTrue(result['ok'])
+                self.assertEqual(result['preparation_stage'], '剧本大纲')
+                _, state, _ = writing_api._preparation_state(project, brief)
+                self.assertIs(state['documents'][0]['confirmed'], True)
+                self.assertIs(state['documents'][1]['confirmed'], False)
+
+    def test_qualified_confirmation_keeps_current_preparation_stage(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o')
+            brief = self.complete_brief()
+            save(project_stages.writing(project) / 'brief_complete.json', brief)
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat', side_effect=[
+                     {'ok': True, 'text': '# 项目设定\n初始设定。\n待确认'},
+                     {'ok': True, 'text': '# 项目设定\n主角改成女的。\n待确认'}]):
+                writing_api.reply(project, '开始', publish=publish_stage_text)
+                result = writing_api.reply(project, '可以，但是把主角改成女的', publish=publish_stage_text)
+            self.assertTrue(result['ok'])
+            self.assertEqual(result['preparation_stage'], '项目设定')
+            _, state, _ = writing_api._preparation_state(project, brief)
+            self.assertEqual(len(state['documents']), 1)
+            self.assertIs(state['documents'][0]['confirmed'], False)
+
+    def test_recent_history_keeps_twelve_messages_without_excerpt(self):
+        rows = [{'role': 'user', 'text': '完整消息' + str(index)} for index in range(12)]
+        history = writing_api._recent_chat_history(rows)
+        self.assertNotIn('较早对话摘录', history)
+        for row in rows:
+            self.assertIn(row['text'], history)
+        self.assertLessEqual(len(history), writing_api.CHAT_HISTORY_CHAR_LIMIT)
+
     def test_confirmation_uses_user_message_not_attachment_context(self):
         from agent.core import save
         from stage_execution_service import reply_to_writing
@@ -628,7 +675,7 @@ class WritingApiTests(unittest.TestCase):
 
     def test_long_history_keeps_an_earlier_excerpt_and_recent_turns(self):
         rows = ([{'role': 'user', 'text': '世界观设定：雨城每晚停电一次'}]
-                + [{'role': 'assistant', 'text': '中段讨论' * 300} for _ in range(8)]
+                + [{'role': 'assistant', 'text': '中段讨论' * 300} for _ in range(16)]
                 + [{'role': 'user', 'text': '最近确认：主角最终选择离开'}])
         history = writing_api._recent_chat_history(rows)
         self.assertIn('较早对话摘录', history)
