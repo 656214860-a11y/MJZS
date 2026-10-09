@@ -4,7 +4,7 @@
 
 - 定向 129/129、默认冒烟 8/8、受影响冒烟 9/9。首次全量仅架构登记行号漂移，修正后定向 71/71。
 - 干净 e1f2d26 安全全量 4283/4283、539.0 秒、exit=0（含架构 311/311）。后续仅文档收尾；不声称最终文档树或用户主目录同树全量。
-- 正式 master 凭据历史仍 R1160；未实发 API、未重启。原始日志 TEMP/R1200-full-recheck.log，事实摘要见 [报告](../程序/tasks_round/tasks_round_1200_result.md)。
+- 后续干净 master 808a972 正式全量 4283/4283、511.725 秒，R1202 凭据已写入；未实发 API、未重启。原始日志 TEMP/R1200-full-recheck.log、TEMP/R1202-master-full.log；见 [报告](../程序/tasks_round/tasks_round_1200_result.md)。
 
 ## R1162
 
