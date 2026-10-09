@@ -1015,7 +1015,7 @@
             },
             {
                 "file": "model_pool.py",
-                "point": "582",
+                "point": "583",
                 "disposition": "exempt",
                 "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。"
             },
