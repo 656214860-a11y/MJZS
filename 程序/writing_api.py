@@ -416,7 +416,7 @@ def _save_preparation_state(target, state, publish):
     publish(target, payload, lambda value: value == payload, lambda _target: None)
 
 
-def _preparation_step(project, chosen, record, settings, brief, creative, *, publish, cancelled):
+def _preparation_step(project, chosen, record, settings, brief, creative, *, publish, cancelled, user_message=None):
     """一次请求最多产出一个待确认阶段；返回 None 才可开始自然剧本。"""
     import idea_chat
     import workflow_settings
@@ -429,7 +429,7 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     publish = _cancellable_publisher(publish, cancelled)
     if documents and documents[-1].get('confirmed') is not True:
         stage = documents[-1]['stage']
-        confirmation = str(creative or '').strip().rstrip('。！!')
+        confirmation = str(creative if user_message is None else user_message).strip().rstrip('。！!')
         if confirmation in ('确认', '确认通过', '通过', '确认，继续', '确认并继续',
                             stage + '确认', stage + '确认通过', '确认' + stage):
             documents[-1]['confirmed'] = True
@@ -475,11 +475,7 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     context = project_context(project)
     provider, model = idea_chat.storage_identity(model_label(project))
     file_type = '项目大纲' if index == 1 else '项目设定'
-    parts = idea_chat.reply_path_parts(context, provider=provider, model=model, file_type=file_type)
-    filename = idea_chat.project_script_filename(context, file_type=file_type, content=stage)
-    path = write_dir(project, 'script').joinpath(*parts[:-1], filename)
-    if index < len(documents):
-        path = write_dir(project, 'script') / documents[index]['path']
+    path = idea_chat.reply_document_path(context, text, provider=provider, model=model, file_type=file_type)
     document = {'stage': stage, 'path': path.relative_to(write_dir(project, 'script')).as_posix(),
                 'sha256': hashlib.sha256((text + '\n').encode('utf-8')).hexdigest(), 'confirmed': False}
     state['documents'] = documents[:index] + [document]
@@ -488,7 +484,7 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     return dict(result, text=text, preparation_stage=stage, preparation_path=str(path)), None
 
 
-def reply(project, creative, progress=None, cancelled=None, stream=None, *, publish=None):
+def reply(project, creative, progress=None, cancelled=None, stream=None, *, publish=None, user_message=None):
     """以剧本工作流的上下文、SKILL 和用户创意请求一次 API 回复。"""
     _ensure_reply_active(cancelled)
     root = Path(project)
@@ -504,7 +500,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     brief = _complete_brief(root)
     if brief is not None:
         preparation, confirmed = _preparation_step(
-            root, chosen, record, settings, brief, creative, publish=publish, cancelled=cancelled)
+            root, chosen, record, settings, brief, creative, publish=publish, cancelled=cancelled, user_message=user_message)
         if preparation is not None:
             return preparation
         brief = dict(brief, 已确认阶段文件=confirmed)

@@ -458,13 +458,36 @@ def reply_path_parts(root, at=None, provider='', model='', file_type='自然剧�
     """纯计算下载正式稿在剧本准备阶段内的逐段路径，不创建或发布文件。"""
     return (_storage_name(provider, '未知Provider'), _storage_name(model, '未知模型'),
             '创意_' + _file_day(at), project_document_directory(file_type),
-            project_script_filename(_context(root), at=at, file_type=file_type))
+            project_script_filename(_context(root), at=at, file_type=file_type, content=model or '模型输出'))
+
+
+def reply_document_path(context, text, at=None, provider='', model='', file_type=None):
+    """自动保存与下载共用：相同正文复用，异稿在模型名后递增编号。"""
+    from stage_path_service import write_dir
+    context = _context(context)
+    file_type = file_type or _project_file_type(text)
+    parts = reply_path_parts(context, at=at, provider=provider, model=model, file_type=file_type)
+    target = write_dir(context.root, 'script').joinpath(*parts)
+    value = str(text).replace('\r\n', '\n').strip()
+    # 同目录的历史命名也可复用，避免旧自动保存稿再次下载产生副本。
+    if target.parent.is_dir():
+        for existing in sorted(target.parent.glob('*.md')):
+            if existing.is_file() and existing.read_text(encoding='utf-8').strip() == value:
+                return existing
+    number = 0
+    while target.exists():
+        number += 1
+        suffix = '(' + str(number) + ')'
+        content = _file_part(model, '模型输出')[:80 - len(suffix)] + suffix
+        target = target.with_name(project_script_filename(
+            context, at=at, file_type=file_type, content=content))
+    return target
 
 
 def save_reply(root, text, at=None, provider='', model='', *, publish=None):
     """组织确认下载的模型创意；发布由调用方注入的 L3 完成。"""
     context = _context(root)
-    value = str(text or '').strip()
+    value = str(text or '').replace('\r\n', '\n').strip()
     if not value:
         raise ValueError('模型没有输出文字，未写入创意文件')
     if not is_project_document_text(value):
@@ -475,10 +498,14 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None):
     if file_type == '自然剧本':
         from script_contract import require_natural_script
         value = require_natural_script(value)
-    parts = reply_path_parts(context, at=at, provider=provider, model=model, file_type=file_type)
+    from stage_path_service import write_dir
+    path = reply_document_path(context, value, at=at, provider=provider, model=model, file_type=file_type)
+    if path.is_file():
+        return path
+    parts = path.relative_to(write_dir(context.root, 'script')).parts
     folder = '/'.join(parts[:-2])
     name = '/'.join(parts)
-    return publish(context.root, ({'name': name, 'data': value[:REPLY_LIMIT].encode('utf-8'),
+    return publish(context.root, ({'name': name, 'data': value.encode('utf-8'),
                            'directories': tuple(folder + '/' + directory
                                                 for directory in PROJECT_DOCUMENT_DIRS.values())},))[name]
 
@@ -523,6 +550,13 @@ def is_project_document_text(text):
 def _project_file_type(text):
     """按正文归类保存类型；未明确归类的模型正文仍按自然剧本保存。"""
     value = str(text or '')
+    title = value.strip().split('\n', 1)[0].lstrip('# ').strip()
+    for file_type, titles in (
+            ('项目设定', ('项目设定', '人物设定', '世界观', '需求梳理')),
+            ('项目大纲', ('项目大纲', '剧本大纲', '故事大纲', '分集大纲', '纲要')),
+            ('自然剧本', ('自然剧本', '项目剧本'))):
+        if any(title.startswith(heading) for heading in titles):
+            return file_type
     if any(mark in value for mark in ('项目大纲', '故事大纲', '分集大纲', '纲要')):
         return '项目大纲'
     if any(mark in value for mark in ('项目设定', '人物设定', '世界观', '需求梳理')):

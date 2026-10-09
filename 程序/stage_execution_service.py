@@ -248,11 +248,11 @@ def export_stage_dialogue_script(project, episode, assets):
     return export_dialogue_script(project, episode, assets, publish=publish_stage_text)
 
 
-def reply_to_writing(project, creative, progress=None, cancelled=None, stream=None):
+def reply_to_writing(project, creative, progress=None, cancelled=None, stream=None, *, user_message=None):
     """剧本模型调用编排：为所有可见剧本成果注入统一发布器。"""
     from writing_api import reply
     return reply(project, creative, progress=progress, cancelled=cancelled, stream=stream,
-                 publish=publish_stage_text)
+                 publish=publish_stage_text, user_message=user_message)
 
 
 def desktop_settings_gateway():

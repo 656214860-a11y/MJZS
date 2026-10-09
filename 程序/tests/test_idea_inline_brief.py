@@ -181,11 +181,17 @@ class InlineBriefDesktopTests(_Harness):
             d.idea_input.insert('1.0', '确认')
             result = {'ok': True, 'text': '# 剧本大纲\n正文\n待确认',
                       'preparation_stage': '剧本大纲', 'preparation_path': str(Path(td) / 'outline.md')}
+            prepared = {'submission': '确认\n\n附件：故事梗概：雨夜',
+                        'visible_value': '确认【已引用：人物.md】',
+                        'attachments': {'context': '故事梗概：雨夜', 'names': ['人物.md'],
+                                        'brief_texts': ['故事梗概：雨夜']}}
             def finish(_action, received, **_kwargs):
-                received(result)
+                received(_action())
                 return 1
             with patch('writing_api.model_label', return_value='gpt-4o'), \
                  patch('writing_api.preparation_continuation', return_value=True) as continuation, \
+                 patch.object(d.idea_chat_controller, 'prepare_submission', return_value=prepared), \
+                 patch('stage_execution_service.reply_to_writing', return_value=result) as reply, \
                  patch('idea_chat.receive_brief') as receive, \
                  patch('idea_chat.save_brief_creation') as save, \
                  patch.object(d, 'show_missing_idea_brief') as missing, \
@@ -194,6 +200,8 @@ class InlineBriefDesktopTests(_Harness):
                  patch('workflow_engines.request_stage_process_slot', return_value={'state': 'granted', 'slot': 'test'}):
                 d.send_message()
             continuation.assert_called_once_with(d.root, '确认')
+            self.assertEqual(reply.call_args.kwargs['user_message'], '确认')
+            self.assertEqual(reply.call_args.args[1], prepared['submission'])
             receive.assert_not_called()
             save.assert_not_called()
             missing.assert_not_called()

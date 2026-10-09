@@ -244,6 +244,37 @@ class SavingTests(unittest.TestCase):
             self.assertEqual(idea_chat.storage_identity('DeepSeek V4 Flash'),
                              ('DeepSeek', 'DeepSeek V4 Flash'))
 
+    def test_download_reuses_identical_content_and_numbers_changed_content_after_model(self):
+        with tempfile.TemporaryDirectory() as td:
+            options = dict(at=0, provider='DeepSeek', model='DeepSeek V4 Flash', publish=publish_idea_creative)
+            first = idea_chat.save_reply(td, '# 项目设定\n第一版', **options)
+            stamp = first.stat().st_mtime_ns
+            again = idea_chat.save_reply(td, '# 项目设定\r\n第一版\n', **options)
+            self.assertEqual(first, again)
+            self.assertEqual(first.stat().st_mtime_ns, stamp)
+            second = idea_chat.save_reply(td, '# 项目设定\n第二版', **options)
+            third = idea_chat.save_reply(td, '# 项目设定\n第三版', **options)
+            self.assertEqual(first.name, Path(td).name + '_项目设定_DeepSeek V4 Flash_19700101.md')
+            self.assertEqual(second.name, Path(td).name + '_项目设定_DeepSeek V4 Flash(1)_19700101.md')
+            self.assertEqual(third.name, Path(td).name + '_项目设定_DeepSeek V4 Flash(2)_19700101.md')
+            self.assertEqual(idea_chat.save_reply(td, '# 项目设定\n第二版', **options), second)
+            self.assertIn('第一版', first.read_text(encoding='utf-8'))
+
+    def test_download_reuses_auto_saved_setting_with_outline_reference_and_preserves_full_text(self):
+        from stage_execution_service import publish_stage_text
+        with tempfile.TemporaryDirectory() as td:
+            context = project_context(td)
+            value = '# 项目设定\n后续项目大纲按此设定。\n' + '设定正文' * 6000 + '\n待确认'
+            path = _idea_chat.reply_document_path(context, value, at=0, model='DeepSeek', file_type='项目设定')
+            publish_stage_text(path, value + '\n', lambda content: bool(content), lambda _path: None)
+            stamp = path.stat().st_mtime_ns
+            saved = idea_chat.save_reply(td, value, at=0, model='DeepSeek', publish=publish_idea_creative)
+            self.assertEqual(saved, path)
+            self.assertEqual(saved.stat().st_mtime_ns, stamp)
+            self.assertEqual(saved.read_text(encoding='utf-8').strip(), value)
+            changed = idea_chat.save_reply(td, value + '。', at=0, model='DeepSeek', publish=publish_idea_creative)
+            self.assertEqual(changed.read_text(encoding='utf-8'), value + '。')
+
     def test_non_project_model_reply_is_not_saved_as_a_project_file(self):
         with tempfile.TemporaryDirectory() as td:
             with self.assertRaisesRegex(ValueError, '不是项目设定、大纲或剧本'):

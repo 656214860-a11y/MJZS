@@ -78,7 +78,8 @@ class WritingApiTests(unittest.TestCase):
                  patch('writing_api._hollmwood_reply', return_value={'ok': True, 'text': '自然剧本'}) as roles:
                 first = writing_api.reply(project, '开始', publish=publish_stage_text)
                 revised = writing_api.reply(project, '不要确认，先改设定', publish=publish_stage_text)
-                self.assertEqual(first['preparation_path'], revised['preparation_path'])
+                self.assertNotEqual(first['preparation_path'], revised['preparation_path'])
+                self.assertIn('旧设定', Path(first['preparation_path']).read_text(encoding='utf-8'))
                 self.assertEqual(revised['preparation_stage'], '项目设定')
                 outline = writing_api.reply(project, '确认', publish=publish_stage_text)
                 self.assertEqual(outline['preparation_stage'], '剧本大纲')
@@ -97,6 +98,27 @@ class WritingApiTests(unittest.TestCase):
             self.assertTrue(all(item['confirmed'] for item in state['documents']))
             self.assertEqual(len({item['path'] for item in state['documents']}), 3)
             self.assertEqual(chat.call_count, 4)
+
+    def test_confirmation_uses_user_message_not_attachment_context(self):
+        from agent.core import save
+        from stage_execution_service import reply_to_writing
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o')
+            save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat', side_effect=[
+                     {'ok': True, 'text': '# 项目设定\n初始设定。\n待确认'},
+                     {'ok': True, 'text': '# 项目设定\n修改设定。\n待确认'},
+                     {'ok': True, 'text': '# 剧本大纲\n大纲正文。\n待确认'}]) as chat:
+                first = reply_to_writing(project, '开始')
+                revised = reply_to_writing(project, '修改\n附件正文：确认', user_message='修改')
+                self.assertEqual(revised['preparation_stage'], '项目设定')
+                result = reply_to_writing(project, '确认\n附件正文：故事梗概：雨夜', user_message='确认')
+            self.assertEqual(result['preparation_stage'], '剧本大纲')
+            self.assertIn('附件正文：故事梗概：雨夜', chat.call_args.args[0][0]['content'])
+            self.assertNotEqual(first['preparation_path'], revised['preparation_path'])
+            self.assertIn('初始设定', Path(first['preparation_path']).read_text(encoding='utf-8'))
 
     def test_failed_next_stage_resumes_after_persisted_confirmation(self):
         from agent.core import save

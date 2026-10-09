@@ -4,6 +4,8 @@
 
 R1122：统一下拉框创建入口为 `ui_widgets.SelectBox`（继承 ttk.Combobox），18 个业务文件的 39 处构造迁移完成。只读默认、CJK 按 2 宽估算并封顶 28、弹出最多 12 行；动态选项经 set_values 重算。保留可编辑/禁用状态、分镜选择 width=1 与既有 Tcl 滚轮保护；分镜选择服务由 desktop 注入 SelectBox 工厂，不反向依赖 UI 层。现有 test_combobox_boundary 增加裸构造门禁，豁免统一组件、测试、维护记录及附加工具目录。
 
+R1212：剧本准备 API 的阶段确认仅使用 L4 输入框原文，经 L3 独立传入；含附件的完整请求继续作为创作上下文。L2 `idea_chat.reply_document_path` 统一自动阶段保存与下载命名，复用正文相同的文件，异稿在模型名后加 `(N)`；具体名称仍由 `script_contract.stage_file_name` 产出，发布仍经 L3，确认台账绑定最新修订文件。下载优先按文档标题分类，保留全文。
+
 ## 1. 目录树
 
 R1124：在 storyboard 与 assets 之间增加 animatic，阶段总数为 13。L2 `animatic_service` 编排共享参考图、本地 ComfyUI 镜头草图、临时音频与图片时间线合成；L3 `stage_execution_service` 注入校验、原子发布及索引更新，L4 只发起回调。SG-A 检查已采用初稿，SG-B 要求预演媒体证据及人工确认节奏、时长和对白同步；正式资产仍使用线上 API，资产提示词、正典与锚点职责不迁移。共享参考图路径由 `stage_path_service` 产出。旧编号目录只读，显式修改经 L3 复制到新编号后重定位，复制失败不改原件；当前同名文件优先。应用内合成不是剪映原生自动导出。

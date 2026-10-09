@@ -1581,7 +1581,7 @@ class Desktop:
         import writing_api
         direct_model = writing_api.model_label(self.root)
         continuing = bool(direct_model and prepared and
-                          writing_api.preparation_continuation(self.root, prepared['submission']))
+                          writing_api.preparation_continuation(self.root, value))
         import stage_config, workflow_settings
         workflow_config = stage_config.current_workflow(self.root)
         preset = workflow_settings.WORKFLOW_PRESETS.get(workflow_config.get('name'), {})
@@ -1706,7 +1706,7 @@ class Desktop:
                     try:
                         from stage_execution_service import reply_to_writing
                         return reply_to_writing(
-                            self.root, submission, progress=report_role,
+                            self.root, submission, user_message=value, progress=report_role,
                             cancelled=cancelled.is_set,
                             stream=lambda chunk:self.hollmwood_progress.put(
                                 (async_ticket['value'],'actor_stream',chunk)))
