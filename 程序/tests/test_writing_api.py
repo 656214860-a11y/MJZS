@@ -120,6 +120,82 @@ class WritingApiTests(unittest.TestCase):
             self.assertNotEqual(first['preparation_path'], revised['preparation_path'])
             self.assertIn('初始设定', Path(first['preparation_path']).read_text(encoding='utf-8'))
 
+    def test_missing_stage_relinks_identical_download_before_confirmation(self):
+        import json
+        import hashlib
+        from agent.core import save
+        for ending in ('', '\n'):
+            with self.subTest(ending=ending), tempfile.TemporaryDirectory() as td:
+                project = make_project(td)
+                stage_config.put(project, 'script', model='gpt-4o')
+                folder = project_stages.writing(project)
+                save(folder / 'brief_complete.json', self.complete_brief())
+                with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                     patch('writing_api._hollmwood_reply') as roles, \
+                     patch('writing_api.PoolAdapter.chat', side_effect=[
+                         {'ok': True, 'text': '# 项目设定\n雨夜照相馆。\n待确认'},
+                         {'ok': True, 'text': '# 剧本大纲\n追查底片。\n待确认'}]) as chat:
+                    first = writing_api.reply(project, '开始', publish=publish_stage_text)
+                    old = Path(first['preparation_path'])
+                    copy = old.with_name('下载副本.md')
+                    copy.write_text(old.read_text(encoding='utf-8').rstrip('\n') + ending, encoding='utf-8')
+                    old.unlink()
+                    ledger = folder / 'preparation_state.json'
+                    before = ledger.read_bytes()
+                    copy_before = copy.read_bytes()
+                    self.assertTrue(writing_api.preparation_continuation(project, '确认'))
+                    self.assertEqual(ledger.read_bytes(), before)
+                    result = writing_api.reply(project, '确认', publish=publish_stage_text)
+                self.assertEqual(result['preparation_stage'], '剧本大纲')
+                self.assertEqual(chat.call_count, 2)
+                roles.assert_not_called()
+                state = json.loads(ledger.read_text(encoding='utf-8'))
+                self.assertEqual(state['documents'][0]['path'], copy.relative_to(folder).as_posix())
+                self.assertTrue(state['documents'][0]['confirmed'])
+                self.assertEqual(state['documents'][0]['sha256'],
+                                 hashlib.sha256(copy.read_text(encoding='utf-8').encode()).hexdigest())
+                self.assertEqual(copy.read_bytes(), copy_before)
+                self.assertFalse(old.exists())
+
+    def test_relink_requires_matching_content_and_persists_before_roles(self):
+        import json
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o')
+            folder = project_stages.writing(project)
+            save(folder / 'brief_complete.json', self.complete_brief())
+            self.confirmed_preparation(project)
+            original = folder / '项目设定.md'
+            text = original.read_text(encoding='utf-8')
+            copy = folder / '改名后的设定.md'
+            copy.write_text(text, encoding='utf-8')
+            original.write_text('已修改正文', encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, '原确认失效'):
+                writing_api.preparation_continuation(project, '确认')
+            original.unlink()
+            copy.write_text('不同版本', encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, '原确认失效'):
+                writing_api.preparation_continuation(project, '确认')
+            copy.write_text(text, encoding='utf-8')
+            ledger = folder / 'preparation_state.json'
+            before = ledger.read_bytes()
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat') as chat, \
+                 patch('writing_api._hollmwood_reply', return_value={'ok': True, 'text': '自然剧本'}) as roles:
+                with self.assertRaisesRegex(OSError, '台账写入失败'):
+                    writing_api.reply(project, '继续', publish=lambda *args: (_ for _ in ()).throw(OSError('台账写入失败')))
+                self.assertEqual(ledger.read_bytes(), before)
+                roles.assert_not_called()
+                result = writing_api.reply(project, '继续', publish=publish_stage_text)
+            self.assertTrue(result['ok'])
+            chat.assert_not_called()
+            roles.assert_called_once()
+            self.assertEqual(roles.call_args.args[4]['已确认阶段文件']['项目设定'], text)
+            state = json.loads(ledger.read_text(encoding='utf-8'))
+            self.assertEqual(state['documents'][0]['path'], copy.name)
+            self.assertTrue(all(item['confirmed'] for item in state['documents']))
+
     def test_failed_next_stage_resumes_after_persisted_confirmation(self):
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:

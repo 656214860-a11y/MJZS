@@ -405,6 +405,21 @@ def _preparation_state(project, brief):
         if index < len(documents) - 1 and document.get('confirmed') is not True:
             raise ValueError('前置阶段尚未确认，不能跳阶段')
         text = path.read_text(encoding='utf-8') if path.is_file() else ''
+        if not path.exists():
+            # 旧版自动保存与下载名称不同；仅重定位同目录、同正文的副本。
+            for candidate in sorted(path.parent.glob('*.md')):
+                resolved = candidate.resolve()
+                if not resolved.is_relative_to(folder.resolve()) or not resolved.is_file():
+                    continue
+                value = resolved.read_text(encoding='utf-8')
+                digest = hashlib.sha256(value.encode('utf-8')).hexdigest()
+                # 旧下载不写末尾换行，自动保存会追加一个；其余字符必须一致。
+                with_newline = hashlib.sha256((value + '\n').encode('utf-8')).hexdigest()
+                if value.strip() and document['sha256'] in (digest, with_newline):
+                    document['path'] = resolved.relative_to(folder.resolve()).as_posix()
+                    document['sha256'] = digest
+                    text = value
+                    break
         if not text.strip() or hashlib.sha256(text.encode('utf-8')).hexdigest() != document['sha256']:
             raise ValueError(document['stage'] + '文件已删除或修改，原确认失效；请恢复已审阅文件后继续')
         texts.append(text)
@@ -427,6 +442,8 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     if not callable(publish):
         raise TypeError('剧本准备阶段需要 L3 注入发布器')
     publish = _cancellable_publisher(publish, cancelled)
+    if documents and state != read_json(target):
+        _save_preparation_state(target, state, publish)
     if documents and documents[-1].get('confirmed') is not True:
         stage = documents[-1]['stage']
         confirmation = str(creative if user_message is None else user_message).strip().rstrip('。！!')
