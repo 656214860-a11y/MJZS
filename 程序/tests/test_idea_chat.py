@@ -1062,11 +1062,11 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.update()
             tree = d.idea_uploaded_table.tree
-            self.assertEqual(tree.item(tree.get_children()[0], 'values'), (source.name,))
+            self.assertEqual(tree.item(tree.get_children()[0], 'values'), ('☐ ' + source.name,))
             d.idea_attachment_paths = ()
             d.update_idea_attachment_status(); win.update()
             self.assertTrue(d.idea_uploaded_panel.winfo_manager())
-            tree.selection_set(tree.get_children()[0]); win.update()
+            d.toggle_uploaded_idea_attachment('0'); win.update()
             self.assertNotIn('disabled', d.idea_attachment_delete_button.state())
             with patch('desktop.confirm', return_value=False):
                 d.delete_uploaded_idea_attachment()
@@ -1083,6 +1083,63 @@ class SendMessageTests(_Harness):
             self.assertFalse(d.idea_uploaded_panel.winfo_manager())
             self.assertIn('disabled', d.idea_attachment_delete_button.state())
             self.assertIn('原始文件未删除', d.status.get())
+
+    def test_uploaded_attachments_are_horizontal_ordered_and_openable(self):
+        from stage_execution_service import archive_idea_attachments
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            sources = [Path(td) / name for name in ('先传.txt', '后传.txt', '最后.txt')]
+            for source in sources:
+                source.write_text(source.stem, encoding='utf-8')
+            archived = archive_idea_attachments(proj, sources)
+            d, win = self.desktop(proj)
+            d.show(0); win.deiconify(); win.update()
+            tree = d.idea_uploaded_table.tree
+            self.assertEqual(tree.item('attachments', 'values'),
+                             tuple('☐ ' + source.name for source in sources))
+            self.assertEqual(len(tree.get_children()), 1)
+            self.assertEqual(d.idea_uploaded_heading.cget('text'), '已传附档')
+            self.assertEqual(d.idea_composer_label.cget('text'), '输入想法/上传附件---->enter/发送')
+            self.assertEqual(d.idea_attachment_delete_button.winfo_rootx(),
+                             d.idea_attachment_button.winfo_rootx())
+            self.assertEqual(d.idea_attachment_delete_button.winfo_width(),
+                             d.idea_attachment_button.winfo_width())
+            self.assertEqual(d.idea_uploaded_table.winfo_rootx(), d.idea_input.winfo_rootx())
+            d.toggle_uploaded_idea_attachment('0')
+            d.toggle_uploaded_idea_attachment('2')
+            d.refresh_uploaded_idea_attachments()
+            self.assertEqual(d._idea_uploaded_selected, {archived[0], archived[2]})
+            x, y, width, height = tree.bbox('attachments', '1')
+            with patch('desktop.open_path') as opened:
+                d.open_uploaded_idea_attachment(SimpleNamespace(x=x + width // 2, y=y + height // 2))
+            from idea_attachments import archive_pair
+            opened.assert_called_once_with(archive_pair(archived[1])[0])
+            with patch('desktop.confirm', return_value=True):
+                d.delete_uploaded_idea_attachment()
+            self.assertFalse(archived[0].exists())
+            self.assertTrue(archived[1].exists())
+            self.assertFalse(archived[2].exists())
+            self.assertTrue(all(source.exists() for source in sources))
+            self.assertEqual(tree.item('attachments', 'values'), ('☐ ' + sources[1].name,))
+
+    def test_uploaded_legacy_text_without_original_remains_openable(self):
+        from stage_execution_service import archive_idea_attachments
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            source = Path(td) / '素材.txt'
+            source.write_text('素材', encoding='utf-8')
+            archived = archive_idea_attachments(proj, (source,))[0]
+            legacy = archived.parent / '故事创意_20200101__旧材料.txt.md'
+            legacy.write_text('旧材料', encoding='utf-8')
+            d, win = self.desktop(proj)
+            d.show(0); win.deiconify(); win.update()
+            column = next(key for key, path in d._idea_uploaded_paths.items() if path == legacy)
+            x, y, width, height = d.idea_uploaded_table.tree.bbox('attachments', column)
+            with patch('desktop.open_path') as opened:
+                d.open_uploaded_idea_attachment(SimpleNamespace(x=x + width // 2, y=y + height // 2))
+            opened.assert_called_once_with(legacy)
 
     def test_a_failed_workflow_keeps_the_draft_without_creating_a_submission(self):
         with tempfile.TemporaryDirectory() as td:

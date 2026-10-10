@@ -1038,39 +1038,71 @@ class Desktop:
         panel=getattr(self,'idea_uploaded_panel',None)
         if panel is None or not panel.winfo_exists():return
         from stage_execution_service import stage_idea_attachment_paths
-        from idea_attachments import display_name
+        from idea_attachments import archive_pair, display_name
+        from tkinter import font as tkfont
         table=self.idea_uploaded_table
-        selected=table.tree.selection()
-        previous=getattr(self,'_idea_uploaded_paths',{})
-        chosen=previous.get(selected[0]) if selected else None
-        paths=stage_idea_attachment_paths(self.root)
+        # 原件创建时间代表入库顺序，不让转换稿后续编辑改变显示顺序。
+        def upload_order(path):
+            original,_converted=archive_pair(path)
+            archived=original if original.is_file() else path
+            return archived.stat().st_ctime_ns,path.name
+        paths=sorted(stage_idea_attachment_paths(self.root),key=upload_order)
+        self._idea_uploaded_selected=getattr(self,'_idea_uploaded_selected',set()).intersection(paths)
         children=table.tree.get_children()
         if children:table.tree.delete(*children)
-        self._idea_uploaded_paths={}
+        self._idea_uploaded_paths={str(index):path for index,path in enumerate(paths)}
+        table.tree.configure(columns=tuple(self._idea_uploaded_paths))
+        face=tkfont.Font(font=FONTS['body'])
+        values=[]
         for index,path in enumerate(paths):
-            item=str(index)
-            self._idea_uploaded_paths[item]=path
-            table.tree.insert('', 'end', iid=item, values=(display_name(path),))
-            if path==chosen:table.tree.selection_set(item)
+            label=('☑ ' if path in self._idea_uploaded_selected else '☐ ')+display_name(path)
+            table.tree.column(str(index),width=face.measure(label)+SPACING['xl'],stretch=False)
+            values.append(label)
+        if paths:table.tree.insert('', 'end', iid='attachments', values=values)
         table.refresh_empty_state()
-        self.idea_attachment_delete_button.state(['!disabled'] if table.tree.selection() else ['disabled'])
+        self.idea_attachment_delete_button.state(['!disabled'] if self._idea_uploaded_selected else ['disabled'])
         if paths:
-            table.tree.configure(height=min(3,len(paths)))
             if not panel.winfo_manager():panel.pack(fill='x',pady=(SPACING['xs'],SPACING['none']),after=self.idea_input_row)
         else:panel.pack_forget()
-    def delete_uploaded_idea_attachment(self):
-        selected=self.idea_uploaded_table.tree.selection()
-        if not selected:return
-        path=self._idea_uploaded_paths.get(selected[0])
-        if path is None:return
+
+    def uploaded_idea_attachment_at(self,event):
+        tree=self.idea_uploaded_table.tree
+        if tree.identify_row(event.y)!='attachments':return None
+        column=tree.identify_column(event.x)
+        return str(int(column[1:])-1) if column and column!='#0' else None
+
+    def toggle_uploaded_idea_attachment(self,column):
+        path=self._idea_uploaded_paths.get(column)
+        if path is None:return 'break'
         from idea_attachments import display_name
-        name=display_name(path)
-        if not confirm(self.win,'删除已上传文件',
-                       '确定将“%s”的项目副本移入回收站吗？\n原始文件不受影响；可从回收站恢复。' % name,
+        selected=self._idea_uploaded_selected
+        if path in selected:selected.remove(path)
+        else:selected.add(path)
+        self.idea_uploaded_table.tree.set('attachments',column,('☑ ' if path in selected else '☐ ')+display_name(path))
+        self.idea_attachment_delete_button.state(['!disabled'] if selected else ['disabled'])
+        return 'break'
+
+    def open_uploaded_idea_attachment(self,event):
+        path=self._idea_uploaded_paths.get(self.uploaded_idea_attachment_at(event))
+        if path is not None:
+            from idea_attachments import archive_pair
+            original,_converted=archive_pair(path)
+            open_path(original if original.is_file() else path)
+        return 'break'
+
+    def delete_uploaded_idea_attachment(self):
+        selected=[path for path in self._idea_uploaded_paths.values() if path in self._idea_uploaded_selected]
+        if not selected:return
+        from idea_attachments import display_name
+        names='、'.join(display_name(path) for path in selected)
+        if not confirm(self.win,'删除附件',
+                       '确定将“%s”的项目副本移入回收站吗？\n原始文件不受影响；可从回收站恢复。' % names,
                        dangerous=True):return
-        self.idea_chat_controller.delete_attachment(self.root,path)
-        self.update_idea_attachment_status()
-        self.status.set('已移入回收站：'+name+'；原始文件未删除。')
+        try:
+            for path in selected:self.idea_chat_controller.delete_attachment(self.root,path)
+        finally:
+            self.update_idea_attachment_status()
+        self.status.set('已移入回收站：'+names+'；原始文件未删除。')
     def choose_idea_attachments(self):
         """选择创意附档；分模式准入、归档和解析均在后台进行。"""
         paths=self.file_dialog.open_files(
@@ -4255,7 +4287,8 @@ class Desktop:
         foot=FlowBar(talk);foot.pack(side='bottom',fill='x',pady=SPACING['none'])
         # 输入框与操作栏保留极小缓冲带，视觉仍紧凑，同时避免鼠标落点贴边误触发送。
         composer=ttk.Frame(talk);composer.pack(side='bottom',fill='x',pady=(SPACING['none'],SPACING['xs']))
-        ttk.Label(composer,text='输入想法→点击发送',style='Muted.TLabel').pack(anchor='w')
+        self.idea_composer_label=ttk.Label(composer,text='输入想法/上传附件---->enter/发送',style='Muted.TLabel')
+        self.idea_composer_label.pack(anchor='w')
         input_row=ttk.Frame(composer);input_row.pack(fill='x')
         input_box=TextArea(input_row,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
                           font=FONTS['body'],relief='solid',bd=1,padx=SPACING['md'],pady=SPACING['sm'])
@@ -4277,17 +4310,22 @@ class Desktop:
                                                      style='Muted.TLabel')
         self.idea_uploaded_panel=ttk.Frame(composer)
         self.idea_attachment_delete_button=SecondaryButton(
-            self.idea_uploaded_panel,text='删除选中文件',
+            self.idea_uploaded_panel,text='🗑',width=3,
             command=lambda:self.safe(self.delete_uploaded_idea_attachment))
-        self.idea_attachment_delete_button.pack(side='right',padx=(SPACING['sm'],SPACING['none']))
+        self.idea_attachment_delete_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
+        Tooltip(self.idea_attachment_delete_button,'删除附件（勾选后删除，可多选）')
         self.idea_attachment_delete_button.state(['disabled'])
+        uploaded_content=ttk.Frame(self.idea_uploaded_panel)
+        uploaded_content.pack(side='left',fill='x',expand=True)
+        self.idea_uploaded_heading=ttk.Label(uploaded_content,text='已传附档',style='Muted.TLabel')
+        self.idea_uploaded_heading.pack(fill='x')
         self.idea_uploaded_table=DataTable(
-            self.idea_uploaded_panel,columns=[('name','已上传文件',280)],height=1,
-            style='Compact.Tokens.DataTable.Treeview',
-            auto_hide_scrollbars=True,
-            on_select=lambda selected:self.idea_attachment_delete_button.state(
-                ['!disabled'] if selected else ['disabled']))
-        self.idea_uploaded_table.pack(side='left',fill='x',expand=True)
+            uploaded_content,columns=[],height=1,show='',selectmode='none',
+            style='Compact.Tokens.DataTable.Treeview',auto_hide_scrollbars=True)
+        self.idea_uploaded_table.pack(fill='x',expand=True)
+        self.idea_uploaded_table.tree.bind('<Button-1>',lambda event:self.toggle_uploaded_idea_attachment(self.uploaded_idea_attachment_at(event)))
+        self.idea_uploaded_table.tree.bind('<Double-Button-1>',lambda event:self.safe(lambda:self.open_uploaded_idea_attachment(event)))
+        Tooltip(self.idea_uploaded_table.tree,'单击勾选，可多选；双击打开附件')
         self.update_idea_attachment_status()
         input_hint=ttk.Label(composer,text='可在阶段配置中修改模型和SKILL',style='Muted.TLabel')
         self.idea_input_hint=input_hint
