@@ -1097,6 +1097,73 @@ class SendMessageTests(_Harness):
             self.assertFalse(list((writing_dir(proj) / '创意对话').glob('提交_*.md')),
                              '启动失败也不能留下未获模型回复的剧本文档')
 
+    def test_enter_after_model_change_displays_the_submitted_conversation(self):
+        import stage_config
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            stage_config.put(proj, 'script', model='deepseek-v4-flash')
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            old_model = d.idea_chat_model()
+            idea_chat.append(proj, 'user', '旧模型历史', model=old_model)
+            d.show_conversation(); self.settle_script_page(win)
+            stage_config.put(proj, 'script', model='qwen-max')
+            new_model = d.idea_chat_model()
+            self.assertNotEqual(old_model, new_model)
+            self.say(d, self.complete_draft('切换模型后的新输入'))
+            pending = []
+            d.async_ = lambda fn, done=None, **kwargs: pending.append((fn, done)) or 1
+            win.deiconify(); win.update()
+            d.idea_input.focus_force(); win.update()
+            with patch('workflow_engines.request_stage_process_slot', return_value={'state':'granted', 'slot':'test'}):
+                d.idea_input.event_generate('<Return>')
+                self.settle_script_page(win)
+            self.assertEqual(len(pending), 1)
+            import skill_panel
+            self.assertEqual(d.stage_button.cget('text'), skill_panel.stage_button_label(d, 'script'))
+            self.assertEqual(d.draft_text(), '')
+            self.assertIn('切换模型后的新输入', idea_chat.load(proj, model=new_model)[-1]['text'])
+            self.assertIn('切换模型后的新输入', self.log_text(d))
+            self.assertNotIn('旧模型历史', self.log_text(d))
+            pending[0][1]({'ok':True, 'text':'新模型回复'})
+            self.settle_script_page(win)
+            self.assertIn('新模型回复', self.log_text(d))
+            self.assertEqual(idea_chat.load(proj, model=old_model)[-1]['text'], '旧模型历史')
+
+    def test_model_selection_waits_for_confirmation_and_cancel_discards_it(self):
+        import skill_panel
+        import stage_config
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            stage_config.put(proj, 'script', model='deepseek-v4-flash')
+            d, win = self.desktop(proj)
+            d.send_message = Mock()
+            launcher = Mock()
+            for confirm_selection in (False, True):
+                window = self.tk.Toplevel(win)
+                panel = skill_panel.Panel(window, d, 'script')
+                panel.launcher_button = launcher
+                self.assertEqual(panel.model_id(), 'deepseek-v4-flash')
+                panel.set_model('qwen-max')
+                panel.choose_provider()
+                self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
+                panel.set_model('qwen-max')
+                panel.choose_model()
+                self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
+                panel.save_and_refresh_notes()
+                panel.check_all_skills(False)
+                self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
+                launcher.configure.assert_not_called()
+                if confirm_selection:
+                    panel.confirm()
+                    self.assertEqual(stage_config.get(proj, 'script')['model'], 'qwen-max')
+                    launcher.configure.assert_called_once_with(text=skill_panel.stage_button_label(d, 'script'))
+                else:
+                    window.destroy()
+                    self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
+            d.send_message.assert_not_called()
+
     def test_direct_model_failure_ends_an_active_script_stage(self):
         """直接 API 调用失败不能只留在状态栏，自动链必须收到 script 失败事件。"""
         import stage_config

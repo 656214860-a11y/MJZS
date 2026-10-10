@@ -1100,13 +1100,13 @@ class Panel(ttk.Frame):
         """全选／取消全选只作用于唯一的阶段 SKILL 网格。"""
         for var in self.vars.values():
             var.set(bool(value))
-        self.save()
+        self.save(save_model=False)
         self.refresh_external_package_hint()
         return self.selected()
 
     def save_and_refresh_notes(self):
         """注册 SKILL 勾选变化后，说明目录与勾选状态同步。"""
-        entry = self.save()
+        entry = self.save(save_model=False)
         self.refresh_notes()
         self.refresh_external_package_hint()
         return entry
@@ -1159,13 +1159,12 @@ class Panel(ttk.Frame):
         return records
 
     def choose_model(self):
-        """模型那一格挑了一项：挑的是「+ 添加模型…」就去模型管理里加一条。"""
+        """模型选择仅暂存到确认；「+ 添加模型…」打开模型管理。"""
         if self.model.get() != ADD_MODEL_LABEL:
             self._picked = self.model.get()
-            entry = self.save()
             self.show_desktop_route_notice()
             self.refresh_external_package_hint()
-            return entry
+            return None
         self.model.set(self._picked or self.model_label(model_router.AUTO))
         return self.open_model_manager()
 
@@ -1179,10 +1178,9 @@ class Panel(ttk.Frame):
         if labels:
             self.model.set(labels[0])
             self._picked = labels[0]
-            entry = self.save()
             self.show_desktop_route_notice()
             self.refresh_external_package_hint()
-            return entry
+            return None
         return None
 
     def show_desktop_route_notice(self):
@@ -1504,14 +1502,14 @@ class Panel(ttk.Frame):
         self.external_package_hint.configure(text=hint)
         return hint
 
-    def save(self, quiet=True):
-        """把面板上的选择写进 project.skillConfig[stage]（＝skill_config.json）。"""
+    def save(self, quiet=True, save_model=True):
+        """保存阶段选择；SKILL 自动保存时用 save_model=False 保留已确认模型。"""
         project = self.project()
         names = self.selected()
         kwargs = {}
         if self.stage in stage_config.HOLLMWOOD_STAGES:
             kwargs['hollmwood_enabled'] = self.hollmwood_enabled_var.get()
-        entry = stage_config.put(project, self.stage, model=self.model_id(),
+        entry = stage_config.put(project, self.stage, model=self.model_id() if save_model else None,
                                  skills=names, registry=self.registry, **kwargs)
         if not quiet:
             self.state.configure(text='已保存：%d 个 SKILL' % len(names))
@@ -1707,7 +1705,7 @@ class Panel(ttk.Frame):
         if not names:
             notify(self.winfo_toplevel(), '先勾上要跑的 SKILL。', title=TITLE, status=getattr(self.desktop, 'status', None))
             return None
-        self.save()
+        self.save(save_model=False)
         orch = build_orchestrator(self.desktop, project)
         run = orch.run(names, self.context())
         self.confirmed(orch, run)
