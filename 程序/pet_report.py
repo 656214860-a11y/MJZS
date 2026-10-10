@@ -83,6 +83,19 @@ def weekly_path(project, day):
     return report_dir(project).joinpath('周报-' + str(week_key(day)) + '.md')
 
 
+def reminder_seen(project, kind, period):
+    """按项目记住已显示的日报日期／周报周一，重启后仍有效。"""
+    return (read_json(report_dir(project) / '提醒记录.json') or {}).get(kind) == period
+
+
+def mark_reminder_seen(project, kind, period):
+    """仅在提醒实际显示后调用；两类报表各保留最近一次，记录不随运行增长。"""
+    path = report_dir(project) / '提醒记录.json'
+    data = read_json(path) or {}
+    data[kind] = period
+    save(path, data)
+
+
 def written_at(path):
     """这一份是什么时候写下去的（清理时按它挑「最后一次」）。拿不到就当最旧。"""
     try:

@@ -3280,11 +3280,12 @@ class Pet:
         主窗口还没露出来（常驻／最小化启动）就先不冒——云朵要贴着贴片摆，窗口没映射时贴片没有
         真实的屏幕坐标，冒出来就是一朵落在屏幕角落的野云。
         """
+        scheduled = self._greet_id is not None
         self._greet_id = None             # 到点了：这一笔定时器就算用掉了
-        if not self.window_visible():
+        if not self.window_visible() or not self.attending():
+            if scheduled:
+                self.schedule_greet()     # 启动招呼等窗口回到前台，不让报表抢先
             return ''
-        if not self.attending():
-            return ''                     # 第 60 期第 4 条：人在别的应用里，招呼先不冒
         cloud = self.cloud()
         if cloud is None:
             return ''
@@ -3373,7 +3374,7 @@ class Pet:
 
         原来这件事挂在「关软件」那一下——点关闭弹一张标签框、真关还要等它渐入；用户要的是
         「删掉关闭前的弹框，改由三虎看工作强度自己提」。判据三条：下午两点之后、距上一次看见
-        制作动静满 REPORT_QUIET_SECONDS（这一波活干完了）、这一天的报表还没提过。提的时候顺手
+        制作动静满 REPORT_QUIET_SECONDS（这一波活干完了）、这一份日报／本周周报还没提过。提的时候顺手
         把报表生成好，标签框里带上文件名——用户要的「提示他去看生成好的文件」。
         """
         try:
@@ -3386,18 +3387,33 @@ class Pet:
         except Exception as exc:
             self.errors.append(('report_hint', str(exc)))
             return ''
+        if self.quiet(at=now):
+            return ''                                  # 启动问候及其安静期优先
         if moment.hour < BANNER_HOUR:
             return ''                                  # 上午不递：一天才开头，报表也没什么可写
         weekly = moment.weekday() >= WEEKLY_FROM
-        key = (moment.date().isoformat(), 'weekly' if weekly else 'daily')
+        project = self.agent.project
+        if project is None:
+            return ''
+        kind = 'weekly' if weekly else 'daily'
+        day = moment.date().isoformat()
+        period = pet_report.week_key(day) if weekly else day
+        key = (str(project), kind, period)
         if key == self._report_key:
-            return ''                                  # 这一份今天已经递过
+            return ''                                  # 这一份已经递过
         if self._work_at is not None and (now - float(self._work_at)) < REPORT_QUIET_SECONDS:
             return ''                                  # 手上还有动静：不在这时候拿报表打断
         if self.cloud_visible() or self.muted(at=at) or not self.attending():
             return ''                                  # 有框露着／静音／人不在界面里：都不提
         if self.busy(state=self.snapshot(at=at)):
             return ''                                  # 正跑着活儿：等它跑完再递
+        try:
+            if pet_report.reminder_seen(project, kind, period):
+                self._report_key = key
+                return ''
+        except Exception as exc:
+            self.errors.append(('report_hint.reminder', str(exc)))
+            return ''
         path = None
         try:
             if weekly:
@@ -3406,10 +3422,16 @@ class Pet:
                 _data, path = self.daily_report(at=at)
         except Exception as exc:
             self.errors.append(('report_hint.report', str(exc)))
+        if path is None:
+            return ''
         text = self.report_hint_text(weekly=weekly, path=path)
         said = self.banner(text) if text else ''
         if said:
             self._report_key = key
+            try:
+                pet_report.mark_reminder_seen(project, kind, period)
+            except Exception as exc:
+                self.errors.append(('report_hint.reminder', str(exc)))
         return said
 
     def confirm_start(self, title=ONE_CLICK_TITLE, text=ONE_CLICK_ASK):

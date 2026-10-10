@@ -3454,6 +3454,56 @@ class ReportHintTests(PetTestCase):
         self.pet.clock = lambda: self.now
         self.pet._work_at = None                     # 盘上没有新动静＝这一波活干完了
 
+    def test_report_waits_for_startup_greeting_and_its_quiet_period(self):
+        self.pet.schedule_greet(delay_ms=60000)
+        self.assertEqual(self.pet.report_hint(at=self.now), '')
+        self.assertIsNone(self.pet.report_path)
+        self.pet.cancel_greet()
+        self.pet.window_visible = lambda: True
+        self.assertTrue(self.pet.greet(at=self.now))
+        self.assertEqual(' '.join(pet_cloud.GREETING.split()), self.pet.cloud().transcript())
+        self.pet.cloud_visible = lambda: False
+        self.assertEqual(self.pet.report_hint(at=self.now + 1), '')
+        self.assertIn('日报', self.pet.report_hint(
+            at=self.now + pet_ui.GREET_QUIET_SECONDS + 1))
+
+    def test_background_start_keeps_greeting_ahead_of_reports(self):
+        self.pet._greet_id = 'expired-startup-callback'
+        self.pet.window_visible = lambda: False
+        self.assertEqual(self.pet.greet(at=self.now), '')
+        self.assertIsNotNone(self.pet._greet_id)
+        self.pet.window_visible = lambda: True
+        self.assertEqual(self.pet.report_hint(at=self.now), '')
+        self.pet.cancel_greet()
+        self.assertTrue(self.pet.greet(at=self.now))
+
+    def test_reminder_survives_a_fresh_pet_instance(self):
+        self.assertIn('日报', self.pet.report_hint(at=self.now))
+        restarted = pet_ui.Pet(self.fake, clock=lambda: self.now)
+        self.addCleanup(restarted.stop)
+        restarted.cloud_visible = lambda: False
+        self.assertEqual(restarted.report_hint(at=self.now), '')
+
+    def test_weekly_reminder_is_once_per_week(self):
+        self.pet.cloud_visible = lambda: False
+        self.assertIn('周报', self.pet.report_hint(at=self.stamp(day=25)))
+        self.pet._report_key = None
+        self.assertEqual(self.pet.report_hint(at=self.stamp(day=26)), '')
+        self.assertEqual(self.pet.report_hint(at=self.stamp(day=27)), '')
+        self.assertIn('周报', self.pet.report_hint(at=self.stamp(month=10, day=2)))
+
+    def test_new_day_can_remind_again(self):
+        self.pet.cloud_visible = lambda: False
+        self.assertIn('日报', self.pet.report_hint(at=self.now))
+        self.assertIn('日报', self.pet.report_hint(at=self.stamp(day=23)))
+
+    def test_unsuccessful_banner_does_not_consume_reminder(self):
+        original = self.pet.banner
+        self.pet.banner = lambda text: ''
+        self.assertEqual(self.pet.report_hint(at=self.now), '')
+        self.pet.banner = original
+        self.assertIn('日报', self.pet.report_hint(at=self.now))
+
     def test_the_morning_stays_quiet(self):
         self.assertEqual(self.pet.report_hint(at=self.stamp(hour=9)), '',
                          '一天才开头，报表也没什么可写')
