@@ -31,7 +31,7 @@ from ui_tokens import COLORS, FONTS, SPACING, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
 from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMenu, DataTable, NotificationDispatcher,
-                        PrimaryButton, SecondaryButton, TextArea, ask_confirmation, setup_styles)
+                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
 
@@ -4260,6 +4260,11 @@ class Desktop:
         # 既方便点击，也不会把图标挤出可视区。
         attach_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         input_box.pack(side='left',fill='x',expand=True)
+        input_box.configure(padx=SPACING['2xl'])
+        enter_hint=HintLabel(input_box,text='↵',background=COLORS['background_card'])
+        enter_hint.place(relx=1.0,rely=0.5,x=-SPACING['sm'],anchor='e',bordermode='outside')
+        Tooltip(enter_hint,'Enter 发送；Shift+Enter 换行')
+        self.idea_enter_hint=enter_hint
         self.idea_attachment_button=attach_button
         self.idea_input_row=input_row
         self.idea_attachment_status=tk.StringVar(value='')
@@ -4396,6 +4401,7 @@ class Desktop:
             stop_input_hint()
             return 'break'
         input_hint.bind('<Button-1>',focus_composer_from_hint,add='+')
+        enter_hint.bind('<Button-1>',focus_composer_from_hint,add='+')
         input_box.bind('<Button-3>',self.open_idea_paste_menu,add='+')
         input_box.bind('<Button-1>',expand_composer_for_click,add='+')
         input_box.bind('<FocusIn>',update_input_hint,add='+')
