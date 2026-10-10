@@ -1660,6 +1660,11 @@ class Desktop:
         if not continuing:
             idea_chat.save_brief_creation(self.idea_chat_context(), value, gateway=self.idea_chat_gateway())
         idea_chat.append(self.idea_chat_context(),'user',visible_value,model=model,gateway=self.idea_chat_gateway())
+        # 本次发送已确定模型，废弃旧的异步解析并用同一分区显示刚保存的消息。
+        self._idea_view_model_request=getattr(self,'_idea_view_model_request',0)+1
+        self._idea_view_model_cache=(self.root,model)
+        if self.stage_button is not None and self.stage_button.winfo_exists():
+            self.stage_button.configure(text=ui_plugin_registry.module('skill_panel').stage_button_label(self,'script'))
         box.delete('1.0','end')
         self.discard_idea_draft()
         self.idea_attachment_paths=()
