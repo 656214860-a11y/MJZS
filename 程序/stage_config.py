@@ -123,7 +123,7 @@ def clean_skills(values, stage=None, registry=None):
 
 
 def synchronize(project, registry=None):
-    """按当前注册表同步已有项目配置，清掉失效项并归位错阶段 SKILL。
+    """按当前注册表同步配置，保留失效项供发送校验并归位错阶段 SKILL。
 
     不会把用户主动取消勾选的有效 SKILL 重新选中；仅迁移已经在配置中、
     但因目录重组而落在错误阶段的项。没有阶段项的项目继续由默认值动态补全。
@@ -147,7 +147,8 @@ def synchronize(project, registry=None):
         for raw_name in entry.get('skills') or ():
             item = reg.getById(raw_name)
             if item is None:
-                changed = True
+                # 保留失效选择作为发送门禁依据；用户确认取消后才可移除。
+                kept.append(raw_name)
                 continue
             name = reg.canonical_id(raw_name)
             item = reg.getById(name)
@@ -168,7 +169,7 @@ def synchronize(project, registry=None):
     for stage, names in moved.items():
         entry = payload.get(stage)
         entry = dict(entry) if isinstance(entry, dict) else {'model': model_router.AUTO, 'skills': []}
-        skills = clean_skills(entry.get('skills'), stage, reg)
+        skills = list(entry.get('skills') or ())
         for name in names:
             if name not in skills:
                 skills.append(name)

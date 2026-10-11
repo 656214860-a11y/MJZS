@@ -430,7 +430,7 @@ class StageConfigTests(unittest.TestCase):
             self.assertEqual(stage_config.load(td)['video']['skills'], ['video-quality-check'])
 
     def test_get_syncs_missing_and_misfiled_skills_to_their_directory_stage(self):
-        """已有项目配置不保留失效项，重分类后的提示词 SKILL 会归入分镜定稿。"""
+        """失效选择保留供发送阻断；重分类的有效 SKILL 仍归入正确阶段。"""
         with tempfile.TemporaryDirectory() as td:
             stage_config.path(td).write_text(json.dumps({
                 'storyboard': {'model': 'auto', 'skills': ['storyboard-prompt-render', 'gone-skill']}
@@ -438,7 +438,10 @@ class StageConfigTests(unittest.TestCase):
             self.assertEqual(stage_config.get(td, 'storyboard')['skills'], [])
             self.assertEqual(stage_config.get(td, 'final')['skills'], ['storyboard-prompt-render'])
             saved = json.loads(stage_config.path(td).read_text(encoding='utf-8'))
-            self.assertEqual(saved['storyboard']['skills'], [])
+            self.assertEqual(saved['storyboard']['skills'], ['gone-skill'])
+            import workflow_settings
+            with self.assertRaisesRegex(ValueError, '已勾选的 SKILL 未加载'):
+                workflow_settings.validate_selected_skills(td, 'storyboard')
             self.assertEqual(saved['final']['skills'], ['storyboard-prompt-render'])
 
     def test_reset_restores_the_default(self):

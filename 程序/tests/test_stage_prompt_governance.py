@@ -19,6 +19,36 @@ STORY = '故事梗概：修表师寻找父亲\n故事题材：冒险\n故事角�
 
 
 class InlineSkillTests(unittest.TestCase):
+    def test_manifest_survives_history_without_exposing_configuration(self):
+        with tempfile.TemporaryDirectory() as td:
+            project = make_minimal_project(td)
+            manifest = {'engine': 'qwen', 'model': 'sample', 'selected': ['/skill'],
+                        'loaded': [{'name': '写作规则', 'path': '/skill', 'sha256': 'abc', 'chars': 10}]}
+            injected_chat.append(project, 'user', '本轮请求', skill_injection=manifest)
+            manifest['loaded'][0]['name'] = '后来改名'
+            row = injected_chat.load(project)[0]
+            self.assertIn('已勾选 1 项，本次已加载 1 项（写作规则）', idea_chat.skill_injection_summary(row))
+            self.assertEqual(row['skill_injection']['loaded'][0]['sha256'], 'abc')
+            self.assertEqual(idea_chat.skill_injection_summary({'text': '旧记录'}), '')
+
+    def test_frozen_request_keeps_content_and_route(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            skill = root / 'SKILL.md'
+            skill.write_text('冻结时的规则', encoding='utf-8')
+            config = {'engine': 'qwen', 'model': 'first', 'stage': 'writing',
+                      'skills': [str(skill)], 'stage_skills': [str(skill)]}
+            with patch('skill_registry.default_root', return_value=root):
+                frozen = workflow_settings.freeze_skills(config)
+            config['model'] = 'second'
+            skill.write_text('发送后的规则', encoding='utf-8')
+            self.assertEqual(frozen['model'], 'first')
+            for inline in (True, False):
+                prompt = workflow_settings.skill_prompt(frozen, inline=inline)
+                self.assertEqual(prompt.count('冻结时的规则'), 1)
+                self.assertNotIn('发送后的规则', prompt)
+            self.assertEqual(len(frozen['skill_injection']['loaded']), 1)
+
     def test_direct_references_only_and_desktop_unchanged(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / 'skills'
@@ -53,16 +83,30 @@ class InlineSkillTests(unittest.TestCase):
             skill.write_text('正文 [引用](large.md)', encoding='utf-8')
             (root / 'large.md').write_text('长' * 30000, encoding='utf-8')
             with patch('skill_registry.default_root', return_value=root):
-                result = workflow_settings._inline_skill(skill)
-            self.assertLessEqual(len(result), 20000)
-            self.assertIn('其余引用未内联，见 SKILL 文件', result)
-            self.assertIn(str(root / 'large.md'), result)
-            self.assertTrue(result.endswith('</skill>'))
+                with self.assertRaisesRegex(ValueError, '已阻止发送'):
+                    workflow_settings._inline_skill(skill, cap=20000)
             skill.write_text('更新后的独立正文', encoding='utf-8')
             result = workflow_settings._inline_skill(skill)
             self.assertIn('更新后的独立正文', result)
             self.assertIn(f'<skill name="{root.name}">', result)
             self.assertNotIn('长', result)
+
+    def test_missing_reference_and_total_budget_block_freeze(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            skill = root / 'SKILL.md'
+            config = {'engine': 'qwen', 'skills': [str(skill)]}
+            skill.write_text('规则 [依据](missing.md)', encoding='utf-8')
+            with patch('skill_registry.default_root', return_value=root):
+                with self.assertRaisesRegex(ValueError, '引用未加载'):
+                    workflow_settings.freeze_skills(config)
+            skill.write_text('规则' * 30000, encoding='utf-8')
+            other = root / 'other' / 'SKILL.md'
+            other.parent.mkdir()
+            other.write_text('依据' * 30000, encoding='utf-8')
+            config['skills'].append(str(other))
+            with self.assertRaisesRegex(ValueError, 'SKILL请求上下文超过'):
+                workflow_settings.freeze_skills(config)
 
 
 class StagePromptGovernanceTests(unittest.TestCase):

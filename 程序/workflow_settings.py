@@ -372,18 +372,21 @@ def desktop_route_notice(project, stage, selected, item=None):
     return '已检测到%s：运行时会优先由本机程序执行；若启动失败，将回落到所选 API。' % name
 
 
-def current(project,stage='previs'):
+def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     value=load(project,stage);engine=value['engine']
     selected='';item={};local_program=''
     import stage_config
     import model_pool
-    selected = str(stage_config.get(project, STAGE_CONFIG_STAGES.get(stage, stage)).get('model') or '').strip()
-    item = model_pool.pool(program=Path(__file__).resolve().parent).get(selected, {})
+    if model_snapshot is None:
+        selected = str(stage_config.get(project, STAGE_CONFIG_STAGES.get(stage, stage)).get('model') or '').strip()
+        item = model_pool.pool(program=Path(__file__).resolve().parent).get(selected, {})
+    else:
+        selected, item = model_snapshot
     explicit_engine = model_pool.desktop_engine(selected)
     if explicit_engine:
         engine = explicit_engine
     else:
-        local_engine, local_program = _local_engine_for_selected_model(value, selected, item, stage)
+        local_engine, local_program = ('', '') if direct_api else _local_engine_for_selected_model(value, selected, item, stage)
         if local_engine:
             engine = local_engine
         elif item:
@@ -391,6 +394,8 @@ def current(project,stage='previs'):
             # 会走这里，选 DeepSeek V4 Flash 时便错误沿用默认 Codex，导致三虎
             # 自动打开的是 Codex 而阶段按钮却显示 DeepSeek。
             engine = 'qwen'
+    if direct_api:
+        engine = 'qwen'
     profile=validate_stage_profile(value['profiles'][engine],stage)
     if explicit_engine and item.get('program'):
         if explicit_engine == 'codex':
@@ -409,7 +414,7 @@ def current(project,stage='previs'):
             profile['api_fallback']={'model':selected_model,'api':selected_api,
                                      'profile':validate_stage_profile(value['profiles']['qwen'],stage)}
     # 阶段配置里挑了 API 模型就以它为准；qwen 是兼容 API 调用器，见 stage_model。
-    model,api=stage_model(project,stage) if engine=='qwen' else ('','')
+    model,api=(selected, {}) if direct_api else (stage_model(project,stage) if engine=='qwen' else ('',''))
     if model:profile['model']=model
     if api:profile['api']=api
     # 统筹投影不改变旧引擎档；仅在生成提示词时作为受控前缀读取。
@@ -434,9 +439,11 @@ def current(project,stage='previs'):
         profile['stage_skills'] = [str(reg.getById(item).path) for item in
                                   stage_config.get(project, STAGE_CONFIG_STAGES.get(stage, stage)).get('skills', ())
                                   if reg.getById(item) is not None]
-    except Exception:
-        profile['stage_skills'] = []
-    return {'engine':engine, 'stage':stage, **profile}
+    except Exception as exc:
+        raise ValueError('阶段 SKILL 无法加载，请修复技能配置后重试：' + str(exc)) from exc
+    display_model = (model_pool.label_of(selected, {selected: item}) if explicit_engine
+                     else str(profile.get('model') or '').strip() or ENGINES[engine])
+    return {'engine':engine, 'stage':stage, 'display_model':display_model, **profile}
 
 
 def hollmwood_summary(config, stage=None):
@@ -521,7 +528,25 @@ def desktop_model_label(model_id, label):
         else:_DESKTOP_INSTALLATION_CACHE[engine]=True
     return str(label or '')+('（未安装）' if not _DESKTOP_INSTALLATION_CACHE[engine] else '')
 
-def _inline_skill(path, *, cap=20000):
+def validate_selected_skills(project, stage):
+    """在解析前检查保留的选择，禁止把失效选择静默变成未勾选。"""
+    import stage_config
+    import skill_registry
+    from file_cache import read_json
+    target = stage_config.path(project)
+    data = read_json(target)
+    if target.exists() and not isinstance(data, dict):
+        raise ValueError('SKILL 配置无法读取，已阻止发送，请重新确认阶段配置。')
+    entry = (data or {}).get(STAGE_CONFIG_STAGES.get(stage, stage), {})
+    if not isinstance(entry, dict) or not isinstance(entry.get('skills', []), (list, tuple)):
+        raise ValueError('阶段 SKILL 配置格式无效，已阻止发送，请重新确认阶段配置。')
+    registry = skill_registry.default_registry()
+    for name in entry.get('skills') or ():
+        if registry.getById(name) is None:
+            raise ValueError(f'已勾选的 SKILL 未加载：{name}；已阻止发送，请重新确认阶段配置。')
+
+
+def _inline_skill(path, *, cap=96000, strict=False):
     """API 发送快照：技能及目录边界内的直接引用，不递归加载引用。"""
     from html import escape
     from urllib.parse import unquote, urlsplit
@@ -529,7 +554,9 @@ def _inline_skill(path, *, cap=20000):
 
     path = Path(path).resolve()
     text = path.read_text(encoding='utf-8-sig')
-    meta, _ = skill_registry.parse(text, source=str(path))
+    meta, content = skill_registry.parse(text, source=str(path))
+    if strict and not content.strip():
+        raise ValueError(f'已勾选的 SKILL 内容为空，已阻止发送：{path}')
     name = str(meta.get('name') or path.parent.name)
     opening = f'<skill name="{escape(name, quote=True)}">\n'
     closing = '\n</skill>'
@@ -547,8 +574,12 @@ def _inline_skill(path, *, cap=20000):
         if parts.scheme or parts.netloc or not parts.path or relative.is_absolute():
             continue
         reference = (path.parent / relative).resolve()
+        if strict and reference.suffix.lower() in ('.md', '.txt') and not (
+                reference.is_relative_to(root) or reference.is_relative_to(path.parent)):
+            raise ValueError(f'SKILL 引用超出允许目录，已阻止发送：{reference}')
         if (reference.suffix.lower() not in ('.md', '.txt')
-                or not reference.is_relative_to(root) or reference in seen):
+                or not (reference.is_relative_to(root) or (strict and reference.is_relative_to(path.parent)))
+                or reference in seen):
             continue
         seen.add(reference)
         body = reference.read_text(encoding='utf-8-sig')
@@ -556,21 +587,50 @@ def _inline_skill(path, *, cap=20000):
     complete = opening + ''.join(body for _, body in blocks) + closing
     if len(complete) <= cap:
         return complete
-    result = opening
-    for index, (_, body) in enumerate(blocks):
-        omitted = blocks[index:]
-        footer = '\n\n其余引用未内联，见 SKILL 文件：\n' + '\n'.join(str(p) for p, _ in omitted)
-        available = cap - len(result) - len(footer) - len(closing)
-        if available < 0:
-            raise ValueError('SKILL 字符上限不足以保留来源和未内联路径')
-        if len(body) > available:
-            return result + body[:available] + footer + closing
-        result += body
-    return result + closing
+    raise ValueError(f'SKILL 内容超过 {cap:,} 字符，已阻止发送：{path}；请减少所选技能或缩短内容。')
+
+
+def freeze_skills(config):
+    """冻结发送内容；桌面与 API、四角色复用同一份正文，不在工作线程重读。"""
+    from copy import deepcopy
+    import hashlib
+    from html import unescape
+    frozen = deepcopy(config)
+    if 'frozen_skill_prompt' in frozen:
+        return frozen
+    if frozen.get('hollmwood', {}).get('enabled') and not frozen['hollmwood'].get('rhythm'):
+        from hollmwood_roles import load_rhythm_template
+        frozen['hollmwood']['rhythm'] = load_rhythm_template()
+    selected, loaded, bodies, seen = [], [], [], set()
+    for item in [*(frozen.get('stage_skills') or ()), *skills_of(frozen)]:
+        path = Path(item).resolve()
+        identity = os.path.normcase(str(path))
+        if identity in seen:
+            continue
+        seen.add(identity)
+        selected.append(str(path))
+        try:
+            body = _inline_skill(path, strict=True)
+        except (OSError, UnicodeError) as exc:
+            raise ValueError(f'已勾选的 SKILL 或其引用未加载：{path}；已阻止发送。{exc}') from exc
+        bodies.append(body)
+        loaded.append({'path': str(path), 'name': unescape(body.split('"', 2)[1]),
+                       'chars': len(body), 'sha256': hashlib.sha256(body.encode('utf-8')).hexdigest()})
+    header_config = dict(frozen, skills=[], skill='', stage_skills=[])
+    frozen['frozen_skill_prompt'] = skill_prompt(header_config, inline=True) + ''.join(bodies)
+    from workflow_context_budget import prepare_request_context
+    prepare_request_context(frozen['frozen_skill_prompt'], 'SKILL')
+    frozen['skill_injection'] = {'mode': frozen.get('invocation_mode') or frozen.get('engine', ''),
+                                'engine': frozen.get('engine', ''),
+                                'model': frozen.get('model', ''),
+                                'selected': selected, 'loaded': loaded}
+    return frozen
 
 
 def skill_prompt(config, stage=None, inline=False):
     """桌面使用路径引用；直连 API 按需内联技能及直接引用的发送快照。"""
+    if 'frozen_skill_prompt' in config:
+        return config['frozen_skill_prompt']
     stage = lock_stage(stage if stage is not None else config.get('stage'))
     locks = config.get('workflow_lock') or {}
     required = STAGE_LOCK_REQUIREMENTS.get(stage)

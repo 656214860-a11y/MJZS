@@ -349,18 +349,32 @@ def load(root, model=None, *, gateway=None):
     return []
 
 
-def append(root, role, text, at=None, model=None, *, gateway=None, context_budget=None, request_usage=None):
+def append(root, role, text, at=None, model=None, *, gateway=None, context_budget=None, request_usage=None, skill_injection=None):
     """记一轮对话（读回来再追加，原子写：写坏一次不会把整段对话丢掉）。"""
     rows = _all_rows(root, model=model, gateway=gateway)
     row = {'role': str(role), 'text': str(text), 'at': _stamp(at)}
     if isinstance(context_budget, dict):row['context_budget'] = dict(context_budget)
     if isinstance(request_usage, dict):row['request_usage'] = dict(request_usage)
+    if isinstance(skill_injection, dict):
+        from copy import deepcopy
+        row['skill_injection'] = deepcopy(skill_injection)
     if str(model or '').strip():
         identity = chat_model(model)
         row['model'] = str(identity)
         if identity.model_id:row['model_id'] = identity.model_id
     rows.append(row)
     return save_rows(root, rows, model=model, gateway=gateway)
+
+
+def skill_injection_summary(row):
+    """请求记录显示已勾选与实际加载；不把历史记录伪装成有加载凭据。"""
+    snapshot = row.get('skill_injection')
+    if not isinstance(snapshot, dict):
+        return ''
+    selected = snapshot.get('selected') or []
+    loaded = snapshot.get('loaded') or []
+    names = '、'.join(str(item.get('name') or '') for item in loaded)
+    return f"SKILL：已勾选 {len(selected)} 项，本次已加载 {len(loaded)} 项" + ('（' + names + '）' if names else '')
 
 
 def usage_summary(rows):

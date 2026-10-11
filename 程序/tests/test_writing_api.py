@@ -20,10 +20,87 @@ import project_stages
 from stage_execution_service import publish_stage_text
 from model_router import PoolAdapter
 import token_saver
-from test_workflow import make_project
+from test_workflow import make_project as _make_project
+
+
+def make_project(td):
+    """API 行为用例显式选择阶段技能，不隐式全选本机安装的写作包。"""
+    project = _make_project(td)
+    stage_config.put(project, 'script', skills=['pipeline-script-preparation'])
+    return project
 
 
 class WritingApiTests(unittest.TestCase):
+    def test_real_request_shares_frozen_skill_with_all_roles_and_reviews(self):
+        import workflow_settings
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o', skills=[], hollmwood_enabled=True)
+            skill = Path(td) / 'SKILL.md'
+            skill.write_text('本次共享规则标记', encoding='utf-8')
+            config = workflow_settings.defaults('writing')
+            workflow_settings.set_skills(config['profiles']['qwen'], [str(skill)])
+            save(workflow_settings.settings_path(project), {'flows': {'writing': config}})
+            save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
+            self.confirmed_preparation(project)
+            with patch('model_pool.pool', return_value=model_pool.default_pool()):
+                request = writing_api.capture_request(project)
+                skill.write_text('后来修改的规则', encoding='utf-8')
+                stage_config.put(project, 'script', model='deepseek-v4-flash', hollmwood_enabled=False)
+                replies = ['计划', self.natural_script(20), 'APPROVED', self.natural_script(20),
+                           'APPROVED', self.natural_script(20), 'APPROVED']
+                with patch('writing_api.PoolAdapter.chat', side_effect=[
+                        {'ok': True, 'text': text} for text in replies]) as chat:
+                    result = writing_api.reply(project, '开始', request_model=request, publish=publish_stage_text)
+            self.assertTrue(result['ok'])
+            self.assertEqual(chat.call_count, 7)
+            for call in chat.call_args_list:
+                self.assertEqual(call.kwargs['model'], 'gpt-4o')
+                self.assertEqual(call.kwargs['system'].count('本次共享规则标记'), 1)
+                self.assertNotIn('后来修改的规则', call.kwargs['system'])
+
+    def test_real_configuration_switches_and_freezes_selected_skills(self):
+        import workflow_settings
+        import workflow_engines
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', skills=[])
+            profiles = workflow_settings.defaults('writing')
+            for engine, profile in profiles['profiles'].items():
+                path = Path(td) / engine / 'SKILL.md'
+                path.parent.mkdir()
+                path.write_text('本次规则_' + engine, encoding='utf-8')
+                workflow_settings.set_skills(profile, [str(path)])
+            save(workflow_settings.settings_path(project), {'flows': {'writing': profiles}})
+            snapshots = []
+            with patch('model_pool.pool', return_value=model_pool.default_pool()):
+                for model in ('gpt-4o', 'deepseek-v4-flash', 'chatgpt-desktop', 'claude-desktop'):
+                    stage_config.put(project, 'script', model=model)
+                    request = writing_api.capture_request(project)
+                    snapshots.append(request)
+                    engine = model_pool.desktop_engine(model) or 'qwen'
+                    self.assertEqual(request['settings']['engine'], engine)
+                    self.assertEqual(request['settings']['skill_injection']['mode'],
+                                     model_pool.desktop_engine(model) or 'api')
+                    self.assertIn('本次规则_' + engine, workflow_engines.prompt_with_settings('请求', request['settings']))
+                Path(profiles['profiles']['qwen']['skills'][0]).write_text('修改后的内容', encoding='utf-8')
+                self.assertIn('本次规则_qwen', workflow_settings.skill_prompt(snapshots[0]['settings'], inline=True))
+                self.assertEqual(snapshots[0]['id'], 'gpt-4o')
+                self.assertEqual(snapshots[1]['id'], 'deepseek-v4-flash')
+
+    def test_missing_selection_survives_refresh_and_blocks_transport(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            save(stage_config.path(project), {'script': {'model': 'gpt-4o', 'skills': ['deleted-skill']}})
+            stage_config.get(project, 'script')
+            with patch('writing_api.PoolAdapter.chat') as chat:
+                with self.assertRaisesRegex(ValueError, '已勾选的 SKILL 未加载'):
+                    writing_api.reply(project, '发送')
+            chat.assert_not_called()
+
     def test_request_keeps_model_and_publication_identity_after_selection_changes(self):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
@@ -500,8 +577,12 @@ class WritingApiTests(unittest.TestCase):
             self.confirmed_preparation(project)
             skill = Path(td) / 'SKILL.md'
             skill.write_text('---\nname: api-role-test\n---\n四角色共用内联技能正文', encoding='utf-8')
+            import workflow_settings
+            from agent.core import save
+            config = workflow_settings.defaults('writing')
+            workflow_settings.set_skills(config['profiles']['qwen'], [str(skill)])
+            save(workflow_settings.settings_path(project), {'flows': {'writing': config}})
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('workflow_settings.skills_of', return_value=[str(skill)]), \
                  patch('writing_api.PoolAdapter.chat',
                        side_effect=[{'ok': True, 'text': text} for text in answers]) as chat:
                 result = writing_api.reply(project, '开始创作', publish=publish_stage_text)

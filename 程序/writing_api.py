@@ -43,6 +43,21 @@ def capture_request_model(project):
             'provider': provider}
 
 
+def capture_request(project):
+    """发送边界：模型、调用方式、技能内容只解析一次。"""
+    import workflow_settings
+    workflow_settings.validate_selected_skills(project, 'writing')
+    request = capture_request_model(project)
+    settings = workflow_settings.current(project, 'writing', direct_api=bool(request['id']),
+                                         model_snapshot=(request['id'], request['record']) if request['id'] else None)
+    if request['id']:
+        settings['model'] = request['id']
+        settings['engine'] = 'qwen'
+    settings['invocation_mode'] = 'api' if request['id'] else settings['engine']
+    request['settings'] = workflow_settings.freeze_skills(settings)
+    return request
+
+
 # Opus 的首段正文常会超过 45 秒。
 # Claude 的输出额度同时覆盖思考和正文；Opus 在网关开启思考时需要更长读取窗口。
 # 界面已有“强行中断”，用户不必等待到上限。
@@ -304,8 +319,9 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
     import workflow_settings
     adapter = _writing_adapter(record, chosen)
     try:
-        rhythm_template, director_rules = stage_config.hollmwood_rules(project, 'script')
-        role_rules = stage_config.hollmwood_role_rules(project, 'script')
+        rules = settings['hollmwood']
+        rhythm_template, director_rules = rules['rhythm'], rules['roles'].get('director', '')
+        role_rules = rules['roles']
         outputs = hollmwood_roles.run(
             adapter, chosen, brief,
             rhythm_template=rhythm_template or hollmwood_roles.load_rhythm_template(),
@@ -656,7 +672,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     _ensure_reply_active(cancelled)
     root = Path(project)
     from copy import deepcopy
-    request_model = deepcopy(request_model) if request_model is not None else capture_request_model(root)
+    request_model = deepcopy(request_model) if request_model is not None else capture_request(root)
     chosen, record = request_model['id'], request_model['record']
     identity = (request_model['provider'], request_model['label'])
     if not chosen:
@@ -666,7 +682,12 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     import workflow_settings
     from workflow_tasks import script_prompt
 
-    settings = workflow_settings.load(root, 'writing')
+    settings = request_model.get('settings')
+    if settings is None:
+        # 兼容旧调用方仅传模型身份；新发送入口始终传完整快照。
+        workflow_settings.validate_selected_skills(root, 'writing')
+        settings = workflow_settings.freeze_skills(workflow_settings.current(
+            root, 'writing', direct_api=True, model_snapshot=(chosen, record)))
     brief = _complete_brief(root)
     if brief is not None:
         preparation, confirmed = _preparation_step(
@@ -676,7 +697,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
             return preparation
         brief = dict(brief, 已确认阶段文件=confirmed)
         publish = _versioned_publisher(root, publish)
-    hollmwood_active = brief is not None and stage_config.hollmwood_enabled(root, 'script')
+    hollmwood_active = brief is not None and settings['hollmwood']['enabled']
     auto_save_enabled = brief is not None and not hollmwood_active
     if hollmwood_active:
         # 已完成的结构化简报仍是四角色协作的主契约；本轮聊天输入（含桌面端

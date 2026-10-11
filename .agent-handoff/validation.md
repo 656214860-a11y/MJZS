@@ -1,5 +1,11 @@
 # 验证证据
 
+## R1265
+
+- 最终受影响 14 文件 458/458、156.7 秒；冒烟 9/9，日志 程序/outputs/r1265-affected-final.log。
+- 本轮架构 307/311；四处失败修复后相关 3 文件 10/10，日志 程序/outputs/r1265-architecture-fix.log。未改门禁断言。
+- R1264 历史真实全量 tree=9ea232b7027c6e77b4ef9516c146a8e9c5ae2b95、413.396 秒；不覆盖本次树。中央 validate 0 errors/0 warnings，未实发 API 或重启。见 [报告](../程序/tasks_round/tasks_round_1265_result.md)。
+
 ## R1208
 
 - 正式 master fe4a923 安全全量 4291/4291、397.379 秒、含架构 311/311，执行器凭据 round=1208、tree=3831b1e0fe2e20cf1ea6c7b0b8afb9c881c3bff9；日志 TEMP/r1208-full-final.log。

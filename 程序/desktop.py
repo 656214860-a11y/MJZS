@@ -1286,6 +1286,10 @@ class Desktop:
                           lmargin1=left,lmargin2=left,rmargin=right,spacing1=4,spacing3=1,
                           font=BUBBLE_TIME_FONT)
         box.insert('end',self.model_name(row)+'\n',name+'_meta')
+        import idea_chat
+        injection = idea_chat.skill_injection_summary(row)
+        if injection:
+            box.insert('end', injection+'\n', name+'_meta')
         stamp=self.bubble_time(row.get('at'))
         if stamp:
             box.tag_configure(name+'_time',justify=align,foreground='#9aa7b7',
@@ -1487,7 +1491,7 @@ class Desktop:
     def close_dialog(self):
         """保存剧本也不隐藏发送框，用户仍可继续补充。"""
         self.open_dialog()
-    def start_script_workflow(self, creative):
+    def start_script_workflow(self, creative, *, config=None):
         """启动唯一的剧本 Agent 工作流，模型回复前不生成剧本文档。
 
         发送框不再直连任意文本 API。模型、SKILL 和追问顺序均由 writing 工作流的
@@ -1495,14 +1499,14 @@ class Desktop:
         """
         import idea_chat
         from workflow_settings import model_name
-        model = model_name(self.root, 'writing')
+        model = config['display_model'] if config is not None else model_name(self.root, 'writing')
         from workflow_tasks import script_followup, script_prompt
         delivery_at = time.time()
         prompt = script_prompt(self.root, None, 'writing', creative_text=creative,
                                agent_delivery=True, delivery_at=delivery_at)
         followup = script_followup(None, 'writing', project=self.root, creative_text=creative,
                                    agent_delivery=True, delivery_at=delivery_at)
-        self.open_flow_agent('writing', '剧本准备', prompt, followup)
+        self.open_flow_agent('writing', '剧本准备', prompt, followup, _config=config)
         return model, False
 
 
@@ -1646,6 +1650,8 @@ class Desktop:
         prepared=self.idea_chat_controller.prepare_submission(self.root, value, is_example=False)
         import idea_chat
         import writing_api
+        import workflow_settings
+        workflow_settings.validate_selected_skills(self.root, 'writing')
         request_model = writing_api.capture_request_model(self.root)
         direct_model = request_model['label']
         continuing = bool(direct_model and prepared and
@@ -1691,22 +1697,24 @@ class Desktop:
             return
         if brief.get('workflow_projection') is not None:
             stage_config.put_workflow(self.root, brief['workflow_projection'])
+        request_model = writing_api.capture_request(self.root)
+        direct_model = request_model['label']
         if direct_model:
             model = direct_model
             cleared = False
         else:
-            from workflow_settings import model_name
-            model, cleared = model_name(self.root, 'writing'), False
+            model, cleared = request_model['settings']['display_model'], False
         self.idea_chat_controller.mark_sent()
         if not direct_model:
             # 启动失败不能吞掉用户刚输入的内容；成功启动后才落聊天记录并清空编辑框。
-            try:model, cleared = self.start_script_workflow(submission)
+            try:model, cleared = self.start_script_workflow(submission, config=request_model['settings'])
             except Exception:
                 self.idea_chat_controller.rollback_sent()
                 raise
         if not continuing:
             idea_chat.save_brief_creation(self.idea_chat_context(), value, gateway=self.idea_chat_gateway())
-        idea_chat.append(self.idea_chat_context(),'user',visible_value,model=model,gateway=self.idea_chat_gateway())
+        idea_chat.append(self.idea_chat_context(),'user',visible_value,model=model,gateway=self.idea_chat_gateway(),
+                         skill_injection=request_model['settings']['skill_injection'])
         # 本次发送已确定模型，废弃旧的异步解析并用同一分区显示刚保存的消息。
         self._idea_view_model_request=getattr(self,'_idea_view_model_request',0)+1
         self._idea_view_model_cache=(self.root,model)
@@ -1744,6 +1752,8 @@ class Desktop:
                              if transient else '模型调用未完成：'+error)
                     self.set_hollmwood_role_status(review_failed=result.get('hollmwood_review_failed_role', ''))
                     self.status.set(message)
+                    if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
+                        self.notifier.error(message, title='请求校验未通过')
                     # 直接 API 模型与桌面 Agent 共用“剧本准备”这个自动阶段。
                     # 失败若只写状态栏，三虎会一直把 script 视为 active；仅当
                     # 自动链确实正在等待 script 时，才把可恢复的调用失败交给它。
@@ -1759,7 +1769,8 @@ class Desktop:
                     self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                     self.status.set(idea_chat.why_empty(result));return
                 idea_chat.append(self.idea_chat_context(),'assistant',reply,model=model,gateway=self.idea_chat_gateway(),
-                                 context_budget=result.get('context_budget'), request_usage=result.get('request_usage'))
+                                 context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
+                                 skill_injection=request_model['settings']['skill_injection'])
                 self.show_conversation();self.update_script_download_button()
                 if result.get('preparation_path'):
                     refresh=getattr(self,'refresh_script_list',None)
@@ -1932,6 +1943,8 @@ class Desktop:
         if getattr(self, '_idea_requesting', False):
             self.status.set('模型正在回复；已刷新显示，稍后会自动显示正文。')
             return True
+        request_model = writing_api.capture_request(self.root)
+        model = request_model['label']
         project = self.root
         token, cancelled = self.idea_chat_controller.begin_request(cancellable=True)
         if getattr(self, 'idea_send', None) is not None:self.idea_send.state(['disabled'])
@@ -1949,7 +1962,8 @@ class Desktop:
                 self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                 self.status.set(idea_chat.why_empty(result));return
             idea_chat.append(self.idea_chat_context(), 'assistant', reply, model=model,gateway=self.idea_chat_gateway(),
-                             context_budget=result.get('context_budget'), request_usage=result.get('request_usage'))
+                             context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
+                             skill_injection=request_model['settings']['skill_injection'])
             self.show_conversation();self.update_script_download_button()
             self.status.set('已恢复并刷新 ' + model + ' 的正文；完整剧本可下载保存。')
         from stage_execution_service import reply_to_writing
@@ -5124,7 +5138,13 @@ class Desktop:
         if self.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
         # 「发送待核实」的安全重试必须沿用第一次已经解析的引擎。原来递归重进时会重新
         # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
+        if stage == 'writing' and not intake_only and _config is None:
+            from workflow_settings import validate_selected_skills
+            validate_selected_skills(self.root, stage)
         config=_config if _config is not None else current(self.root,stage);followup=followup if followup is not None else prompt
+        if stage == 'writing' and not intake_only:
+            from workflow_settings import freeze_skills
+            config = freeze_skills(config)
         native_claude = config['engine'] == 'claude-desktop-app'
         use_cli = not native_claude and (config['engine']!='codex' or config['program'] or config['model'])
         # CLI 继续复用同一进程；提取结束后不能占住唯一槽位又排队启动剧本进程。
@@ -5167,7 +5187,7 @@ class Desktop:
                     continuation,continuation_budget=prepare_request_context(
                         prompt_with_settings(continuation_instruction(project,stage,data)+followup,config,stage=stage),
                         stage,'continuation_summary')
-                finish(receipt,'preparing','',context_budget={
+                finish(receipt,'preparing','',skill_injection=config.get('skill_injection'),context_budget={
                     'initial':budget,'continuation':continuation_budget})
                 if native_claude:
                     from codex_tasks import task_file_reference

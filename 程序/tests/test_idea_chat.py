@@ -669,6 +669,9 @@ class _Harness(unittest.TestCase):
     def desktop(self, proj):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
+        import stage_config
+        if not stage_config.path(proj).exists():
+            stage_config.put(proj, 'script', skills=['pipeline-script-preparation'])
         import desktop as desktop_module
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
@@ -740,6 +743,23 @@ class SendMessageTests(_Harness):
         box.configure(fg='#243247')
         box.delete('1.0', 'end'); box.insert('1.0', text)
 
+    def test_missing_selected_skill_keeps_draft_and_does_not_start_request(self):
+        import stage_config
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_minimal_project(td)
+            d, win = self.desktop(project)
+            d.show(0); self.settle_script_page(win)
+            self.say(d, self.complete_draft())
+            save(stage_config.path(project), {'script': {'model': 'gpt-4o', 'skills': ['missing-skill']}})
+            with patch.object(d, 'submit_idea_api_request') as api, patch.object(d, 'open_flow_agent') as agent:
+                with self.assertRaisesRegex(ValueError, '已勾选的 SKILL 未加载'):
+                    d.send_message()
+            api.assert_not_called()
+            agent.assert_not_called()
+            self.assertEqual(d.draft_text(), self.complete_draft())
+            self.assertEqual(idea_chat.load(project), [])
+
     @staticmethod
     def complete_draft(summary='一个夜班照相馆的故事'):
         return ('故事梗概：' + summary + '\n故事角色：摄影师林默\n故事题材：都市悬疑\n'
@@ -770,6 +790,8 @@ class SendMessageTests(_Harness):
             self.assertIn(('left', self.complete_draft()), self.bubbles(d),
                           '用户气泡贴右侧，但正文从气泡左边开始')
             self.assertEqual([row['role'] for row in idea_chat.load(proj)], ['user'])
+            self.assertEqual(len(idea_chat.load(proj)[0]['skill_injection']['loaded']), 1)
+            self.assertIn('本次已加载 1 项', self.log_text(d))
             self.assertFalse(list(writing_dir(proj).glob('创意_*/*.md')),
                              '工作流未完成前不把创意伪装成模型剧本')
 
@@ -1044,7 +1066,12 @@ class SendMessageTests(_Harness):
                     d, 'start_script_workflow', return_value=('Codex', False)) as launch:
                 d.send_message()
             notice.assert_not_called()
-            launch.assert_called_once_with(self.complete_draft())
+            launch.assert_called_once()
+            self.assertEqual(launch.call_args.args, (self.complete_draft(),))
+            config = launch.call_args.kwargs['config']
+            self.assertEqual(config['engine'], 'codex')
+            self.assertIn('pipeline-script-preparation', config['frozen_skill_prompt'])
+            self.assertEqual(len(config['skill_injection']['loaded']), 1)
 
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
     def test_local_attachment_send_extracts_without_sending_body(self, _mode):
@@ -1274,7 +1301,8 @@ class SendMessageTests(_Harness):
     def queued_api_request(self, proj):
         import stage_config
         import workflow_process_registry as registry
-        stage_config.put(proj, 'script', model='deepseek-v4-flash')
+        stage_config.put(proj, 'script', model='deepseek-v4-flash',
+                             skills=['pipeline-script-preparation'])
         d, win = self.desktop(proj)
         d.show(0); self.settle_script_page(win)
         running = registry.reserve_process_slot('running-project', 'script')
@@ -1358,7 +1386,8 @@ class SendMessageTests(_Harness):
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
-            stage_config.put(proj, 'script', model='deepseek-v4-flash')
+            stage_config.put(proj, 'script', model='deepseek-v4-flash',
+                             skills=['pipeline-script-preparation'])
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
             old_model = d.idea_chat_model()
@@ -1393,7 +1422,8 @@ class SendMessageTests(_Harness):
         from unittest.mock import Mock
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
-            stage_config.put(proj, 'script', model='deepseek-v4-flash')
+            stage_config.put(proj, 'script', model='deepseek-v4-flash',
+                             skills=['pipeline-script-preparation'])
             d, win = self.desktop(proj)
             d.send_message = Mock()
             launcher = Mock()
@@ -1425,7 +1455,8 @@ class SendMessageTests(_Harness):
         import stage_config
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
-            stage_config.put(proj, 'script', model='deepseek-v4-flash')
+            stage_config.put(proj, 'script', model='deepseek-v4-flash',
+                             skills=['pipeline-script-preparation'])
             d, win = self.desktop(proj)
             d.show(0); win.update()
             pending = []
@@ -1450,7 +1481,8 @@ class SendMessageTests(_Harness):
         import stage_config
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
-            stage_config.put(proj, 'script', model='deepseek-v4-flash')
+            stage_config.put(proj, 'script', model='deepseek-v4-flash',
+                             skills=['pipeline-script-preparation'])
             d, win = self.desktop(proj)
             d.show(0); win.update()
             emitted = []

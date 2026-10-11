@@ -745,7 +745,7 @@ class DesktopModelPoolTests(unittest.TestCase):
             codex.assert_not_called()
             self.assertEqual(finish.call_args.args[1], 'prepared')
 
-    def test_native_claude_writing_pastes_contract_and_skill_reference_not_skill_body(self):
+    def test_native_claude_writing_pastes_contract_and_frozen_skill_body(self):
         from desktop import Desktop
         from types import SimpleNamespace
         from unittest.mock import Mock
@@ -753,9 +753,12 @@ class DesktopModelPoolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             skill = Path(td) / 'test.skill.md'
-            skill.write_text('---\nname: test-writing\n---\nSKILL_BODY_NOT_INLINED', encoding='utf-8')
+            skill.write_text('---\nname: test-writing\n---\nFROZEN_SKILL_BODY', encoding='utf-8')
+            def async_launch(fn, done):
+                skill.write_text('LATER_SKILL_BODY', encoding='utf-8')
+                done(fn())
             desktop = SimpleNamespace(root=proj, worker=False, win=Mock(), status=Mock(),
-                projects=SimpleNamespace(info={'projects': []}), async_=lambda fn, done: done(fn()))
+                projects=SimpleNamespace(info={'projects': []}), async_=async_launch)
             config = {'engine': 'claude-desktop-app', 'program': 'C:/Apps/Claude.exe',
                       'model': '', 'stage_skills': [str(skill)]}
             with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
@@ -771,7 +774,8 @@ class DesktopModelPoolTests(unittest.TestCase):
             self.assertIn('用户本轮创作要求', text)
             self.assertIn(stage_output_contract('writing'), text)
             self.assertIn(str(skill), text)
-            self.assertNotIn('SKILL_BODY_NOT_INLINED', text)
+            self.assertEqual(text.count('FROZEN_SKILL_BODY'), 1)
+            self.assertNotIn('LATER_SKILL_BODY', text)
             paste.assert_called_once_with(proj.name + ' 创作', text,
                                           program='C:/Apps/Claude.exe', deadline_seconds=45)
 
