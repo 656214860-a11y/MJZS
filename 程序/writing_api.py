@@ -602,15 +602,20 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     stage = PREPARATION_STAGES[index]
     publish = _versioned_publisher(project, publish)
     system = (workflow_settings.skill_prompt(settings, inline=True)
-              + workflow_settings.stage_output_contract('writing'))
+              + workflow_settings.stage_output_contract('writing')
+              + '\n阶段修订规则：本轮用户答复用于修改当前待修改草稿；编号答复对应草稿中的同号问题。'
+              + '用户明确的新决定优先于草稿中的旧表述，必须落实到完整正文。'
+              + '不得把已经回答的问题再次列为待确认事项；用户要求补充时应实际补充，不能再次询问是否补充。'
+              + '只保留尚未回答或确有冲突的问题；所有问题已解决时仅在末尾保留“待确认”，等用户审阅整份文件。')
     title = '人物设定（角色卡）' if index == 2 else stage
-    task = ('本次创意输入：' + str(creative or '') + '\n'
-            + '<brief_complete>\n' + json.dumps(brief, ensure_ascii=False) + '\n</brief_complete>\n'
+    task = ('<brief_complete>\n' + json.dumps(brief, ensure_ascii=False) + '\n</brief_complete>\n'
             + '程序核验的当前阶段：' + stage + '。仅输出这一阶段的完整 Markdown 文件正文，'
             + '一级标题必须为“# ' + title + '”，末尾“待确认”。不得输出自然剧本或其他阶段文件。'
             + '用户未明确确认时，只修改当前阶段，不能自行认定通过。\n')
     for position, text in enumerate(texts):
+        task += '\n' + ('当前待修改草稿：' if position == index else '已确认前置文件：')
         task += '\n<' + PREPARATION_STAGES[position] + '>\n' + text + '\n</' + PREPARATION_STAGES[position] + '>\n'
+    task += '\n本次创意输入（本轮最新答复与补充材料）：\n' + str(creative or '') + '\n'
     messages = [{'role': 'user', 'content': task}]
     rejected = _context_budget_error(chosen, system, messages)
     if rejected:
