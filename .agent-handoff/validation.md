@@ -2,6 +2,8 @@
 
 ## 2026-10-12 O07 完成
 
+- 收口全量：干净 master 工作树（`HEAD=b0c6716`、`HEAD:程序`=12ad4759）`run_selftests.py --all --safe`——第 1 次 4500 条／528.7 秒／21 文件红（缺嵌套子模块致写作与技能组假红；补子模块后同树定向 489/489、0 红），第 2 次 4516 条／388.1 秒／0 红，凭据 round=1312、tree=12ad4759。
+
 - 定向：新增 `tests/test_white_model_identity.py` 12 条＋ `white_model_identity previs` 相关 136/136、5.0 秒、0 红。
 - 接缝：`white_model previs project stage_execution local_previs desktop stage_parallel stage_completion storyboard keyframe asset` 669/669、48.9 秒、0 红（`test_desktop_startup_perf` 本轮通过）。
 - 门禁：默认冒烟 8/8；`smoke_test.py --architecture` 312/312（首次 311/312，因本轮在 `stage_execution_service.py` 插入 7 行使 `架构统一基数.json` 第四项三处豁免行号漂移，同步行号后全绿）。
