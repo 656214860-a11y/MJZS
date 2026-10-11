@@ -807,7 +807,7 @@ class WritingApiTests(unittest.TestCase):
     def test_desktop_agent_is_not_treated_as_an_api_model(self):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
-            stage_config.put(project, 'script', model='claude-desktop')
+            stage_config.put(project, 'script', model='claude-desktop', hollmwood_enabled=False)
             self.assertEqual(writing_api.selected_model(project), ('', {}))
 
     def test_thinking_block_is_never_rendered_as_chat_text(self):
