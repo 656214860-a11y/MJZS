@@ -22,7 +22,8 @@ class WritingCancellationTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         self.project = make_project(temp.name)
-        stage_config.put(self.project, 'script', model='gpt-4o', hollmwood_enabled=False)
+        stage_config.put(self.project, 'script', model='gpt-4o',
+                         skills=['pipeline-script-preparation'], hollmwood_enabled=False)
         writing = self.project / 'writing'; writing.mkdir(exist_ok=True)
         brief = script_contract.brief_document({
             'story_summary': '雨夜少年发现会说话的底片。', 'main_characters': '少年和老板',

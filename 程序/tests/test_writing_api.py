@@ -168,7 +168,7 @@ class WritingApiTests(unittest.TestCase):
             save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
             answers = [{'ok': True, 'text': text} for text in (
                 '# 项目设定\n旧设定。\n待确认', '# 项目设定\n修订设定。\n待确认',
-                '# 剧本大纲\n追查底片的三幕故事。\n待确认', '# 人物设定（角色卡）\n阿远的目标与弱点。\n待确认')]
+                '# 剧本大纲\n追查底片的三幕故事。\n待确认', '# 人物设定（角色卡）\n阿远的目标与弱点。\n待确认', '{"next_stage":"自然剧本"}')]
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
                  patch('writing_api.PoolAdapter.chat', side_effect=answers) as chat, \
                  patch('writing_api._hollmwood_reply', return_value={'ok': True, 'text': '自然剧本'}) as roles:
@@ -193,7 +193,7 @@ class WritingApiTests(unittest.TestCase):
             state = json.loads((project_stages.writing(project) / 'preparation_state.json').read_text(encoding='utf-8'))
             self.assertTrue(all(item['confirmed'] for item in state['documents']))
             self.assertEqual(len({item['path'] for item in state['documents']}), 3)
-            self.assertEqual(chat.call_count, 4)
+            self.assertEqual(chat.call_count, 5)
 
     def test_colloquial_confirmation_advances_preparation(self):
         from agent.core import save
@@ -333,6 +333,7 @@ class WritingApiTests(unittest.TestCase):
                 writing_api.preparation_continuation(project, '确认')
             moved.write_text(text, encoding='utf-8')
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': '{"next_stage":"自然剧本"}'}), \
                  patch('writing_api._hollmwood_reply', return_value={'ok': True, 'text': '自然剧本'}) as roles:
                 writing_api.reply(project, '确认', publish=publish_stage_text)
             roles.assert_called_once()

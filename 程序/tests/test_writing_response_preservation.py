@@ -13,6 +13,32 @@ import test_writing_restart
 class WritingResponsePreservationTests(unittest.TestCase):
     setUp = test_writing_restart.WritingRestartTests.setUp
 
+    def test_api_decides_colloquial_confirmation_and_receives_original_input(self):
+        restart_writing_preparation(self.project, '项目设定')
+        self.call('# 项目设定\n新的设定。\n待确认')
+        with patch('writing_api.PoolAdapter.chat', return_value={
+                'ok': True, 'text': '# 剧本大纲\n新的大纲。\n待确认'}) as chat:
+            result = writing_api.reply(self.project, '确认项目通过\n附件补充材料',
+                                       user_message='确认项目通过', publish=publish_stage_text)
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['preparation_stage'], '剧本大纲')
+        self.assertEqual(chat.call_count, 1)
+        prompt = chat.call_args.args[0][0]['content']
+        self.assertIn('确认项目通过', prompt)
+        self.assertIn('附件补充材料', prompt)
+        self.assertIn('新的设定。', prompt)
+        state = json.loads(self.target.read_text(encoding='utf-8'))
+        self.assertTrue(state['documents'][0]['confirmed'])
+        self.assertFalse(state['documents'][1]['confirmed'])
+
+    def test_api_can_keep_current_stage_even_for_local_confirmation_word(self):
+        restart_writing_preparation(self.project, '项目设定')
+        self.call('# 项目设定\n需要澄清的设定。\n待确认')
+        result = self.call('# 项目设定\n补全后的设定。\n待确认', '确认')
+        self.assertTrue(result['ok'])
+        state = json.loads(self.target.read_text(encoding='utf-8'))
+        self.assertFalse(state['revision']['documents'][0]['confirmed'])
+
     def call(self, text, creative='重写', **extra):
         with patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': text, **extra}) as chat:
             result = writing_api.reply(self.project, creative, publish=publish_stage_text)
@@ -140,3 +166,13 @@ class WritingResponsePreservationTests(unittest.TestCase):
                 self.assertFalse(result['ok'])
                 self.assertNotIn('preparation_path', result)
                 self.assertTrue(Path(result['response_path']).is_file())
+
+    def test_rejected_next_stage_does_not_confirm_current_document(self):
+        restart_writing_preparation(self.project, '项目设定')
+        self.assertTrue(self.call('# 项目设定\n当前设定。\n待确认')['ok'])
+        before = self.target.read_bytes()
+        result = self.call('# 剧本大纲\n未完成的大纲。\n待确认',
+                           response_meta={'finish_reason': 'max_tokens'})
+        self.assertFalse(result['ok'])
+        self.assertEqual(self.target.read_bytes(), before)
+        self.assertIn('未完成的大纲', result['response_text'])

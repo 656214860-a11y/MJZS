@@ -21,7 +21,7 @@ class WritingRestartTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.project = make_project(temporary.name)
-        stage_config.put(self.project, 'script', model='gpt-4o')
+        stage_config.put(self.project, 'script', model='gpt-4o', skills=['pipeline-script-preparation'])
         save(project_stages.writing(self.project) / 'brief_complete.json', test_writing_api.WritingApiTests.complete_brief())
         test_writing_api.WritingApiTests.confirmed_preparation(self.project)
         self.target, self.original, _ = writing_api._preparation_state(
@@ -144,7 +144,9 @@ class WritingRestartTests(unittest.TestCase):
     def test_confirm_rewritten_character_supplies_new_text_to_four_roles(self):
         restart_writing_preparation(self.project, '角色卡')
         self.reply('人物设定（角色卡）')
-        with patch('writing_api._hollmwood_reply', return_value={'ok': True}) as roles:
+        with patch('writing_api._hollmwood_reply', return_value={'ok': True}) as roles, \
+             patch('writing_api.PoolAdapter.chat', return_value={
+                 'ok': True, 'text': '{"next_stage": "自然剧本"}'}):
             writing_api.reply(self.project, '确认', publish=publish_stage_text)
         confirmed = roles.call_args.args[4]['已确认阶段文件']
         self.assertIn('新版本', confirmed['角色卡'])
@@ -162,7 +164,9 @@ class WritingRestartTests(unittest.TestCase):
             if Path(path) == self.target:
                 raise OSError('state publication failed')
             return publish_stage_text(path, *args, **kwargs)
-        with self.assertRaisesRegex(OSError, 'state publication failed'):
+        with patch('writing_api.PoolAdapter.chat', return_value={
+                'ok': True, 'text': '# 剧本大纲\n新的大纲。\n待确认'}), \
+             self.assertRaisesRegex(OSError, 'state publication failed'):
             writing_api.reply(self.project, '确认', publish=fail_state)
         self.assertEqual(self.target.read_bytes(), before)
         self.assertEqual(selection.read_bytes(), selection_before)
