@@ -1389,6 +1389,20 @@ class FrameBatchSeamTests(unittest.TestCase):
         self.d.studio = object()
         return source
 
+    def verified_frames(self, source):
+        """写入真实可解码的首帧并登记来源证据，模拟已通过导入确认的成果。"""
+        from tests.image_fixtures import png
+        from keyframe_evidence import make_evidence
+        frames = self.base / "storyboard" / "frames"
+        frames.mkdir(parents=True, exist_ok=True)
+        data = png((16, 9))
+        episode = json.loads(source.read_text(encoding="utf-8"))
+        for shot in episode["shots"]:
+            path = frames / Path(shot["frame"]).name
+            path.write_bytes(data)
+            shot["frame_evidence"] = make_evidence(source, episode, shot, path)
+        source.write_text(json.dumps(episode, ensure_ascii=False), encoding="utf-8")
+
     def test_it_says_nothing_without_a_project(self):
         self.assertEqual(self.d.pet_frame_batch(), "")
         self.assertEqual(self.d.pet.firstframe_batch(), "")
@@ -1401,19 +1415,13 @@ class FrameBatchSeamTests(unittest.TestCase):
         self.assertEqual(emitted, [('stage.failed', {'stage': 'keyframe', 'error': text})])
 
     def test_it_says_nothing_when_there_is_no_gap(self):
-        self.project_with_a_gap()
-        frames = self.base / "storyboard" / "frames"
-        frames.mkdir(parents=True, exist_ok=True)
-        for name in ("SH001.png", "SH002.png"):
-            (frames / name).write_bytes(b"\x89PNG\r\n\x1a\n")
+        source = self.project_with_a_gap()
+        self.verified_frames(source)
         self.assertEqual(self.d.pet_frame_batch(), "", "没有缺口就一个字都不说")
 
     def test_auto_keyframe_with_no_gap_finishes_as_completed(self):
-        self.project_with_a_gap()
-        frames = self.base / "storyboard" / "frames"
-        frames.mkdir(parents=True, exist_ok=True)
-        for name in ("SH001.png", "SH002.png"):
-            (frames / name).write_bytes(b"\x89PNG\r\n\x1a\n")
+        source = self.project_with_a_gap()
+        self.verified_frames(source)
         emitted = []
         self.d.pet._emit = lambda kind, **payload: emitted.append((kind, payload))
         text = self.d.pet_frame_batch(trigger='auto')

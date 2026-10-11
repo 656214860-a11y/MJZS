@@ -15,7 +15,7 @@ if str(PROGRAM) not in sys.path:
 
 def run_probe():
     """只在自身创建的系统临时目录中操作；没有外部项目路径参数。"""
-    from agent.core import save
+    from agent.core import read, save
     from asset_context import library_dir
     from continuity_ledger import build as build_ledger
     from continuity_ledger import write as write_ledger
@@ -58,6 +58,7 @@ def run_probe():
 
         # 这份真实分镜同时提供 SG-02 台账、SG-03 批次与 SG-04 首帧的唯一来源。
         stage_layout.ensure(project)
+        save(project / "config.json", {})
         source = project / "storyboard" / "分镜文档" / "episode.json"
         source.parent.mkdir(parents=True)
         shots = list(assign([{
@@ -76,11 +77,19 @@ def run_probe():
         image = base / "assets/characters/CHAR_001.png"
         image.parent.mkdir(parents=True)
         original = base64.b64decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1kAAAAASUVORK5CYII=")
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==")
         image.write_bytes(original)
+        location = base / "assets/locations/LOC_001.png"
+        location.parent.mkdir(parents=True)
+        location.write_bytes(original)
         manifest = base / "assets/资产清单/assets.json"
         save(manifest, {"CHAR_001": {"image": "assets/characters/CHAR_001.png",
-                                    "locked": True, "character_anchor": "临时探针角色"}})
+                                    "locked": True, "character_anchor": "临时探针角色"},
+                        "LOC_001": {"image": "assets/locations/LOC_001.png"}})
+        # 首帧来源证据按「已登记资产」的图片指纹核对，真实项目会同时写登记表与清单。
+        save(base / "assets.json", {"CHAR_001": {"image": "assets/characters/CHAR_001.png",
+                                                "locked": True, "character_anchor": "临时探针角色"},
+                                    "LOC_001": {"image": "assets/locations/LOC_001.png"}})
         result["asset_before"] = {"completed": completion_evidence(project, "assets")[0],
                                   "file_exists": image.is_file(), "bytes": image.stat().st_size}
         records = storage_maintenance.recycle_paths(project, [image], "临时项目端到端探针")
@@ -113,6 +122,12 @@ def run_probe():
         frame = media_root(source) / "frames" / "SH001.png"
         frame.parent.mkdir(parents=True, exist_ok=True)
         frame.write_bytes(original)
+        # 首帧必须带来源校验记录：走真实导入同一条 make_evidence 生成证据后再写回分镜。
+        from keyframe_evidence import make_evidence
+        episode = read(source)
+        shot = next(item for item in episode["shots"] if item["id"] == "SH001")
+        shot["frame_evidence"] = make_evidence(source, episode, shot, frame)
+        save(source, episode)
         verify_gate("SG-04", "keyframe", "previs")
 
         # 白模服务的工作区也限定在临时仓库；复用真实记录读取与预演路由判据。

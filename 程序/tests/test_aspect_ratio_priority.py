@@ -36,7 +36,8 @@ class AspectRatioPriorityTests(unittest.TestCase):
         old_profile, old_request = seedream_api.load_profile, seedream_api.request_image
         old_shot, old_register = keyframe_comfy.check_shot, keyframe_import.register
         seedream_api.load_profile = lambda _='': {'model': 'm', 'api_key': 'k', 'base_url': 'http://x'}
-        seedream_api.request_image = lambda _profile, payload: captured.append(payload) or b'bad-image'
+        from tests.image_fixtures import png
+        seedream_api.request_image = lambda _profile, payload: captured.append(payload) or png()
         keyframe_comfy.check_shot = lambda _source, _shot: ('提示词', [])
         keyframe_import.register = lambda *_args: Path(_args[0]).parent / 'registered.png'
         self.addCleanup(setattr, seedream_api, 'load_profile', old_profile)
