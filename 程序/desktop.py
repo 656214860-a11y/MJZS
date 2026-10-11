@@ -1500,13 +1500,14 @@ class Desktop:
         import idea_chat
         from workflow_settings import model_name
         model = config['display_model'] if config is not None else model_name(self.root, 'writing')
-        from workflow_tasks import script_followup, script_prompt
+        from workflow_tasks import script_followup, script_prompt, writing_restart_requested
         delivery_at = time.time()
         prompt = script_prompt(self.root, None, 'writing', creative_text=creative,
                                agent_delivery=True, delivery_at=delivery_at)
         followup = script_followup(None, 'writing', project=self.root, creative_text=creative,
                                    agent_delivery=True, delivery_at=delivery_at)
-        self.open_flow_agent('writing', '剧本准备', prompt, followup, _config=config)
+        self.open_flow_agent('writing', '剧本准备', prompt, followup, _config=config,
+                             new_session=writing_restart_requested(creative))
         return model, False
 
 
@@ -5134,7 +5135,7 @@ class Desktop:
         if self.root is None:raise ValueError('请先选择项目')
         from workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)
-    def open_flow_agent(self,stage,label,prompt,followup=None,on_receipt=None,_config=None,*,intake_only=False):
+    def open_flow_agent(self,stage,label,prompt,followup=None,on_receipt=None,_config=None,*,intake_only=False,new_session=False):
         from workflow_settings import current,hollmwood_summary
         from workflow_engines import prompt_with_settings,launch_interactive
         from agent_dispatch import signature,claim,finish,outcome,retryable
@@ -5149,6 +5150,7 @@ class Desktop:
             from workflow_settings import freeze_skills
             config = freeze_skills(config)
         native_claude = config['engine'] == 'claude-desktop-app'
+        new_session = bool(new_session and stage == 'writing' and config['engine'] == 'claude' and not intake_only)
         use_cli = not native_claude and (config['engine']!='codex' or config['program'] or config['model'])
         # CLI 继续复用同一进程；提取结束后不能占住唯一槽位又排队启动剧本进程。
         setup_key=hashlib.sha256((json.dumps(config,sort_keys=True)+('brief-intake' if intake_only and not use_cli else '')).encode()).hexdigest()
@@ -5215,7 +5217,7 @@ class Desktop:
                 if retryable(receipt,live):
                     finish(receipt,'failed','上次发送结果未确认，且对应 Agent 窗口已关闭')
                     self.status.set('上次 Agent 发送未确认且窗口已关闭，正在自动重新启动…')
-                    self.open_flow_agent(stage,label,prompt,followup,on_receipt,_config=config,intake_only=intake_only)
+                    self.open_flow_agent(stage,label,prompt,followup,on_receipt,_config=config,intake_only=intake_only,new_session=new_session)
                     return
                 if not live:
                     finish(receipt,'failed','上次 Agent 窗口已关闭，请重新点击启动')
@@ -5230,6 +5232,16 @@ class Desktop:
             receipt=result['receipt'];full=result['prompt'];continuation=result['followup']
             sessions=getattr(self,'flow_processes',{});key=(str(project),stage,config['engine'],setup_key)
             if key in sessions and sessions[key].poll() is None:
+                if new_session:
+                    def close_old():
+                        from workflow_engines import close_for_restart
+                        try:close_for_restart(project,sessions[key])
+                        except Exception as exc:finish(receipt,'failed',str(exc));raise
+                    def closed(_):
+                        sessions.pop(key,None)
+                        launch_cli(result)
+                    self.status.set('正在结束空闲 Claude 会话，准备以新上下文重新创作…')
+                    self.async_(close_old,closed);return
                 def submit():
                     try:
                         if config['engine']=='qwen':
@@ -5252,7 +5264,8 @@ class Desktop:
                 finish(receipt,'sent','启动时已传入初始任务',task_file=result['task_file'])
                 self.status.set('已启动 '+result['engine']+'，初始任务已自动提交，可在窗口继续讨论。')
             def launch(slot=None):
-                try:return launch_interactive(project,stage,title,full,config,followup=continuation,slot=slot)
+                try:return launch_interactive(project,stage,title,full,config,followup=continuation,slot=slot,
+                                              **({'new_session':True} if new_session else {}))
                 except Exception as exc:finish(receipt,'failed',str(exc));raise
             from workflow_engines import request_stage_process_slot, claim_stage_process_slot
             request=request_stage_process_slot(project,stage)

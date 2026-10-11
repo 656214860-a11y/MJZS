@@ -153,7 +153,7 @@ def run_background(config,project,output,report,logfile,prompt):
     finally:
         release_process_slot(slot)
 
-def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None):
+def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None,*,new_session=False):
     """Custom engines use a real interactive CLI, preserving creative Q&A."""
     prompt=ensure_request_context(prompt, stage)
     if config['engine']=='qwen':
@@ -188,7 +188,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
         session=data.get(stage)
         try:session=str(uuid.UUID(str(session))) if session else None
         except ValueError:session=None
-        persisted=bool(session and any((Path.home()/'.claude/projects').glob('*/'+session+'.jsonl')))
+        persisted=bool(not new_session and session and any((Path.home()/'.claude/projects').glob('*/'+session+'.jsonl')))
         if persisted:
             args=[exe,'--resume',session]
             if followup is not None:save_text(task,followup)
@@ -222,6 +222,20 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
     register_process(project,process)
     process.agent_folder=folder;process.agent_engine=config['engine']
     return {'engine':ENGINES[config['engine']],'task_file':str(task),'process':process}
+
+def close_for_restart(project, process):
+    """Only exit an idle owned CLI; never interrupt generation or discard a draft."""
+    if process.poll() is None:
+        from console_submit import send
+        result = send(process.pid, '/exit')
+        if not result['ok']:
+            raise ValueError(result['reason'])
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired as exc:
+            raise ValueError('旧 Claude 窗口尚未退出；请检查窗口后重试，本次未启动重复请求。') from exc
+    forget_process(project, process)
+
 
 def submit_existing(process,prompt,title=None):
     """Continue the exact CLI process using a short immutable task-file message."""
