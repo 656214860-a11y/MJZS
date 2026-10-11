@@ -278,9 +278,9 @@ class SavingTests(unittest.TestCase):
             self.assertEqual(first.stat().st_mtime_ns, stamp)
             second = idea_chat.save_reply(td, '# 项目设定\n第二版', **options)
             third = idea_chat.save_reply(td, '# 项目设定\n第三版', **options)
-            self.assertEqual(first.name, Path(td).name + '_项目设定_DeepSeek V4 Flash_19700101.md')
-            self.assertEqual(second.name, Path(td).name + '_项目设定_DeepSeek V4 Flash(1)_19700101.md')
-            self.assertEqual(third.name, Path(td).name + '_项目设定_DeepSeek V4 Flash(2)_19700101.md')
+            self.assertEqual(first.name, Path(td).name + '_项目设定_DeepSeek_19700101.md')
+            self.assertEqual(second.name, Path(td).name + '_项目设定_DeepSeek(1)_19700101.md')
+            self.assertEqual(third.name, Path(td).name + '_项目设定_DeepSeek(2)_19700101.md')
             self.assertEqual(idea_chat.save_reply(td, '# 项目设定\n第二版', **options), second)
             self.assertIn('第一版', first.read_text(encoding='utf-8'))
 

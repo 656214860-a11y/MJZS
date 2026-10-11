@@ -502,11 +502,11 @@ def reply_path_parts(root, at=None, provider='', model='', file_type='自然剧�
     """纯计算下载正式稿在剧本准备阶段内的逐段路径，不创建或发布文件。"""
     return (_storage_name(provider, '未知Provider'), _storage_name(model, '未知模型'),
             '创意_' + _file_day(at), project_document_directory(file_type),
-            project_script_filename(_context(root), at=at, file_type=file_type, content=model or '模型输出'))
+            project_script_filename(_context(root), at=at, file_type=file_type, content=provider or (storage_identity(model)[0] if model else '模型输出')))
 
 
 def reply_document_path(context, text, at=None, provider='', model='', file_type=None):
-    """自动保存与下载共用：相同正文复用，异稿在模型名后递增编号。"""
+    """自动保存与下载共用：相同正文复用，异稿在 Provider 名后递增编号。"""
     from stage_path_service import write_dir
     context = _context(context)
     file_type = file_type or _project_file_type(text)
@@ -522,7 +522,7 @@ def reply_document_path(context, text, at=None, provider='', model='', file_type
     while target.exists():
         number += 1
         suffix = '(' + str(number) + ')'
-        content = _file_part(model, '模型输出')[:80 - len(suffix)] + suffix
+        content = _file_part(provider or (storage_identity(model)[0] if model else ''), '模型输出')[:80 - len(suffix)] + suffix
         target = target.with_name(project_script_filename(
             context, at=at, file_type=file_type, content=content))
     return target

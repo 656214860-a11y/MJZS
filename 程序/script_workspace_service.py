@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 import logging
+import re
 from service_contract import SystemError, UserError, success
 
 import project_stages
@@ -176,7 +177,19 @@ def iter_script_document_rows(project):
 
 
 def _document_display_name(path):
-    return path.name + ('（内部工作稿）' if path.name == RAW_SCRIPT_NAME else '')
+    if path.name == RAW_SCRIPT_NAME:
+        return path.name + '（内部工作稿）'
+    # 历史文件只调整展示，保留真实路径和阶段确认记录的关联。
+    if (path.parent.name in SCRIPT_CATEGORIES.values()
+            and path.parent.parent.name.startswith('创意_')):
+        model_dir = path.parent.parent.parent
+        provider = model_dir.parent.name
+        match = re.fullmatch(
+            r'(.+_(?:项目设定|项目大纲|剧本大纲|角色卡|自然剧本)_)'
+            + re.escape(model_dir.name) + r'(\(\d+\))?(_\d{8}\.[^.]+)', path.name)
+        if match and provider and provider != '未知Provider':
+            return match[1] + provider + (match[2] or '') + match[3]
+    return path.name
 
 
 def script_structure_documents(project):

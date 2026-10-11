@@ -14,6 +14,28 @@ from script_workspace_service import (batch_selected_script_paths, discover_scri
 
 
 class ScriptWorkspaceServiceTests(unittest.TestCase):
+    def test_legacy_model_versions_display_provider_without_changing_paths(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = (project_stages.writing(temp) / 'DeepSeek' / 'DeepSeek V4 Flash'
+                      / '创意_20261010' / '项目设定')
+            folder.mkdir(parents=True)
+            for suffix in ('', '(1)', '(2)'):
+                path = folder / ('摄影侠_项目设定_DeepSeek V4 Flash' + suffix + '_20261010.md')
+                path.write_text('设定正文', encoding='utf-8')
+            for rows in (script_document_rows(temp), tuple(iter_script_document_rows(temp))):
+                self.assertEqual(len(rows), 3)
+                self.assertEqual({row.name for row in rows}, {
+                    '摄影侠_项目设定_DeepSeek' + suffix + '_20261010.md'
+                    for suffix in ('', '(1)', '(2)')})
+                for row in rows:
+                    self.assertIn('DeepSeek V4 Flash', Path(row.item_id).name)
+                    self.assertEqual(Path(row.item_id).read_text(encoding='utf-8'), '设定正文')
+
+    def test_custom_document_name_is_not_rewritten(self):
+        from script_workspace_service import _document_display_name
+        path = Path('DeepSeek/DeepSeek V4 Flash/创意_20261010/项目设定/用户命名.md')
+        self.assertEqual(_document_display_name(path), '用户命名.md')
+
     def test_agent_internal_draft_is_visible_without_canonical_delivery(self):
         with tempfile.TemporaryDirectory() as temp:
             path = project_stages.writing(temp) / 'script_raw.md'
