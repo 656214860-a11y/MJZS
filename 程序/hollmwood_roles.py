@@ -9,12 +9,14 @@
 from hollmwood_rules import (DIRECTOR_PLAN_RULES, WRITER_RULES, EDITOR_RULES, ACTOR_RULES, DIRECTOR_REVIEW_RULES)
 from pathlib import Path
 import json
+import hashlib
 import time
 import logging
 from functools import wraps
 
 from model_router import ModelAdapter
 from script_contract import RHYTHM_TEMPLATE_PATH
+from file_cache import read_json
 from service_contract import SystemError, success
 
 
@@ -184,9 +186,13 @@ def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled
                                   'writer_revision', 'editor_revision', 'actor_revision')
                       else 4096)
         if retrying:
-            request_prompt += ('\n\n上一次没有返回可见正文。请现在直接输出完整、可执行的导演节奏计划；'
-                               '不要只输出推理字段、分析过程或空内容。')
-            request_system += '\n\n本次必须在可见 content 中输出最终导演计划，禁止仅返回思考过程。'
+            if audit:
+                request_prompt += '\n\n上一次没有返回可见审核正文。请直接输出 APPROVED 和一句理由，或 REVISE: 与简短可执行修改；不复述剧本。'
+                request_system += '\n\n本次必须在可见 content 中输出审核结论，禁止仅返回思考过程。'
+            else:
+                request_prompt += ('\n\n上一次没有返回可见正文。请现在直接输出完整、可执行的导演节奏计划；'
+                                   '不要只输出推理字段、分析过程或空内容。')
+                request_system += '\n\n本次必须在可见 content 中输出最终导演计划，禁止仅返回思考过程。'
             max_tokens = DIRECTOR_RETRY_MAX_TOKENS
         # V4 的额度同时覆盖推理与正文；8K 已实测耗尽且没有正文。
         # 仅调整已知 V4 型号，不向其他模型发送可能超出其能力的额度。
@@ -282,9 +288,33 @@ def _revision(adapter, model, role, system, original, review, log_folder, step, 
                 publish_log=publish_log)
 
 
+def _resume_digest(value):
+    return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
+
+
+def _load_resume(path, fingerprint):
+    """仅恢复同输入、未完成且内容完整的已审核连续前缀。损坏断点不参与创作。"""
+    try:
+        saved = read_json(path)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(saved, dict) or saved.get('fingerprint') != fingerprint:
+        return {}
+    outputs = saved.get('outputs')
+    if not isinstance(outputs, dict) or saved.get('digest') != _resume_digest(outputs):
+        return {}
+    keys = list(outputs)
+    if keys not in (['director_plan'], ['director_plan', 'writer'], ['director_plan', 'writer', 'editor']):
+        return {}
+    if not all(isinstance(value, str) and value.strip() for value in outputs.values()):
+        return {}
+    return dict(outputs)
+
+
 def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
         max_revisions=MAX_REVISIONS, emit=None, skill_instructions='', cancelled=None,
-        director_rules=None, role_rules=None, stream=None, *, publish_log=None, output_contract=''):
+        director_rules=None, role_rules=None, stream=None, *, publish_log=None, output_contract='',
+        resume_identity=''):
     """串行运行导演、编剧、编辑、演员并执行三次导演门禁。
 
     返回包含 ``script``、``director_plan`` 与各角色最终正文的字典。最终正文仍只在内存；
@@ -309,37 +339,65 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
                     '不以镜号、逐镜时间码或字幕逐行排版作为本阶段通过条件；这些留给后续分镜、配音字幕阶段。'
                     if str(output_contract).strip() else '')
     shared_constraints = rhythm_constraints + skill_constraints + stage_output
+    # 阶段面板会把默认规则原样保存；这类副本无需再次发送，也无需把规划规则塞入审核。
+    if director == default_director_rules():
+        director = ''
     director_constraints = ('\n\n本项目导演角色规则（优先遵守）：\n' + director) if director else ''
     def role_constraints(role):
         value = _body(role_rules.get(role)) if role_rules.get(role) is not None else ''
+        if value == default_role_rules(role):
+            value = ''
         return ('\n\n本项目%s角色规则（优先遵守）：\n%s' % (role, value)) if value else ''
     director_system = _director_plan_system() + director_constraints + shared_constraints
     writer_system = _writer_system() + role_constraints('writer') + shared_constraints
     editor_system = _editor_system() + role_constraints('editor') + shared_constraints
     actor_system = _actor_system() + role_constraints('actor') + shared_constraints
-    review_system = _director_review_system() + director_constraints + shared_constraints
+    review_system = (_director_review_system() + director_constraints + shared_constraints
+                     + '\n审核回复保持简短，不复述剧本、简报或检查过程：'
+                     '通过只输出 APPROVED 和一句理由；退回以 REVISE: 开头，'
+                     '逐条指出位置、问题及可执行修改，每条不超过两句；'
+                     '总篇幅优先控制在 300 字以内。'
+                     '相同问题合并描述，但不得遗漏影响通过的独立问题。不要代写完整剧本。')
     brief_context = '<brief_complete>\n%s\n</brief_complete>\n\n' % brief
-    step = 1
-    plan = _ask(adapter, model, 'director', director_system,
-                brief_context,
-                log_folder, step, emit, cancelled, publish_log=publish_log)
-    step += 1
-    script_context = brief_context + '<director_instruction>\n%s\n</director_instruction>\n\n' % plan
-    writer = _ask(adapter, model, 'writer', writer_system,
-                  script_context, log_folder, step, emit, cancelled, publish_log=publish_log)
+    fingerprint = _resume_digest([resume_identity, model, brief, director_system, writer_system,
+                                  editor_system, actor_system, review_system, int(max_revisions)])
+    checkpoint = Path(log_folder) / 'hollmwood_resume.json'
+    outputs = _load_resume(checkpoint, fingerprint) if resume_identity else {}
 
-    stages = (('writer', writer, writer_system),
-              ('editor', None, editor_system),
-              ('actor', None, actor_system))
-    outputs = {'director_plan': plan, 'writer': writer}
-    current = writer
-    for role, first, system in stages:
+    def save_resume(approved):
+        if resume_identity:
+            _ensure_active(cancelled)
+            if not callable(publish_log):
+                raise ValueError('四角色断点必须由 L3 发布器写入')
+            publish_log(checkpoint, json.dumps({'fingerprint': fingerprint, 'outputs': approved,
+                                               'digest': _resume_digest(approved)}, ensure_ascii=False))
+
+    step = 1
+    _ensure_active(cancelled)
+    plan = outputs.get('director_plan')
+    if not plan:
+        plan = _ask(adapter, model, 'director', director_system,
+                    brief_context, log_folder, step, emit, cancelled, publish_log=publish_log)
+        outputs['director_plan'] = plan
+        save_resume(outputs)
+    elif callable(emit):
+        emit('director', step)
+    script_context = brief_context + '<director_instruction>\n%s\n</director_instruction>\n\n' % plan
+    stages = (('writer', writer_system), ('editor', editor_system), ('actor', actor_system))
+    current = ''
+    for role, system in stages:
+        if role in outputs:
+            current = outputs[role]
+            step += 2
+            if callable(emit):
+                emit('director_review_' + role, step)
+            continue
+        step += 1
+        prompt = script_context
         if role != 'writer':
-            step += 1
-            current = _ask(adapter, model, role, system,
-                           script_context + '<current_script>\n%s\n</current_script>'
-                           % current, log_folder, step, emit, cancelled, stream,
-                           publish_log=publish_log)
+            prompt += '<current_script>\n%s\n</current_script>' % current
+        current = _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled, stream,
+                       publish_log=publish_log)
         attempts = 0
         while True:
             step += 1
@@ -349,6 +407,7 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
                           log_folder, step, emit, cancelled, publish_log=publish_log)
             if _approved(review):
                 outputs[role] = current
+                save_resume(outputs if role != 'actor' else {})
                 break
             if attempts >= int(max_revisions):
                 raise RoleExecutionError('导演未通过 %s：%s' % (role, review), review_failed_role=role)
@@ -363,7 +422,8 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
 @_hollmwood_result
 def run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs',
         max_revisions=MAX_REVISIONS, emit=None, skill_instructions='', cancelled=None,
-        director_rules=None, role_rules=None, stream=None, *, publish_log=None, output_contract=''):
+        director_rules=None, role_rules=None, stream=None, *, publish_log=None, output_contract='',
+        resume_identity=''):
     return _run(adapter, model, brief_complete, rhythm_template, log_folder, max_revisions,
                 emit, skill_instructions, cancelled, director_rules, role_rules, stream,
-                publish_log=publish_log, output_contract=output_contract)
+                publish_log=publish_log, output_contract=output_contract, resume_identity=resume_identity)

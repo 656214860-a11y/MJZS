@@ -252,6 +252,7 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
             role_rules=role_rules,
             stream=stream,
             publish_log=hollmwood_gateway()['publish_log'],
+            resume_identity=hashlib.sha256(json.dumps(record, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest(),
         )
         if not outputs.ok:
             raise hollmwood_roles.RoleExecutionError(outputs.reason)
