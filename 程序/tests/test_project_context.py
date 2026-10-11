@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 class ProjectContextTests(unittest.TestCase):
@@ -18,11 +19,14 @@ class ProjectContextTests(unittest.TestCase):
 
     def test_delivery_service_consumes_context_not_project_root(self):
         from delivery_import_service import import_final_master
-        from stage_execution_service import project_context, publish_stage_bytes
+        from stage_execution_service import project_context, media_import_publisher
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'project'; root.mkdir()
             source = Path(folder) / 'master.mp4'; source.write_bytes(b'video')
-            result = import_final_master(project_context(root), source, publish=publish_stage_bytes)
+            with patch("agent.media.validate_import", return_value={"decoded": True}) as validate:
+                result = import_final_master(project_context(root), source, publish=media_import_publisher(root, "video"))
+            validate.assert_called_once()
+            self.assertEqual(validate.call_args.args[2], "video")
             self.assertTrue(result.ok)
             self.assertEqual(result.data.parent.name, '13质检交付')
 
