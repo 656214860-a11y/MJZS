@@ -81,6 +81,36 @@ class WritingRestartTests(unittest.TestCase):
         self.assertEqual(state, self.original)
         self.assertEqual(len(texts), 3)
 
+    def test_native_claude_answers_revise_pending_document_before_confirmation(self):
+        stage_config.put(self.project, 'script', model='claude-test')
+        record = {'label': 'Claude Test', 'model': 'claude-test', 'provider': 'anthropic',
+                  'wire_api': 'messages', 'base_url': 'https://api.anthropic.com',
+                  'key_env': 'ANTHROPIC_API_KEY'}
+        restart_writing_preparation(self.project, '项目设定')
+        draft = '# 项目设定\n1.世界观是否全量呈现？\n2.是否补充空缺集数？\n待确认'
+        revised = '# 项目设定\n世界观按需呈现；空缺集数安排决战前夜。\n待确认'
+        answer = '1.按需呈现；2.补充'
+        responses = [{'ok': True, 'text': value, 'data': {'stop_reason': 'end_turn'}}
+                     for value in (draft, revised, '# 剧本大纲\n决战前夜。\n待确认')]
+        with patch('writing_api.model_pool.pool', return_value={'claude-test': record}), \
+             patch('writing_api.PoolAdapter.chat', side_effect=responses) as chat:
+            first = writing_api.reply(self.project, '重新创作', publish=publish_stage_text)
+            result = writing_api.reply(self.project, answer, publish=publish_stage_text)
+            request = chat.call_args.args[0][0]['content']
+            system = chat.call_args.kwargs['system']
+            self.assertIn('当前待修改草稿', request)
+            self.assertGreater(request.index(answer), request.index(draft))
+            self.assertIn('不得把已经回答的问题再次列为待确认事项', system)
+            self.assertEqual(result['preparation_stage'], '项目设定')
+            self.assertEqual(result['preparation_path'], first['preparation_path'])
+            self.assertEqual(Path(result['preparation_path']).read_text(encoding='utf-8').strip(), revised)
+            state = json.loads(self.target.read_text(encoding='utf-8'))
+            self.assertFalse(state['revision']['documents'][0]['confirmed'])
+            self.assertEqual(state['documents'], self.original['documents'])
+            next_result = writing_api.reply(self.project, '确认', publish=publish_stage_text)
+        self.assertEqual(next_result['preparation_stage'], '剧本大纲')
+        self.assertEqual(chat.call_count, 3)
+
     def test_stale_input_state_and_model_refuse_publication(self):
         for change in ('file', 'state', 'model'):
             with self.subTest(change=change):
