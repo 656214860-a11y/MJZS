@@ -7084,6 +7084,7 @@ class Desktop:
         dialogue_buttons.append(audio_button(production,'逐句配音（分句）',self.generate_tts_per_line))
         audio_button(production,'配音设置',self.open_tts_settings)
         audio_button(self.content,'导入配音 / 音乐',self.import_audio)
+        audio_button(self.content,'校验并确认本阶段成果',lambda:self.confirm_stage_media('audio'))
         dialogue_buttons.append(audio_button(self.content,'导出对白字幕 SRT',lambda:open_path(self.subtitles())))
         dialogue_buttons.append(audio_button(self.content,'导出对白脚本 TXT',lambda:open_path(self.dialogue_script())))
         for button in dialogue_buttons:button.configure(state='normal' if has_dialogue else 'disabled')
@@ -7163,6 +7164,7 @@ class Desktop:
         if not has_downloaded:self.note('还没有已下载的镜头视频，自动粗剪与交接包暂不可用；请先在第07步生成并下载视频。')
         edit_button('启动剪映',self.launch_editor)
         edit_button('打开后期目录',lambda:open_path(edit_dir))
+        edit_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('edit'))
         f=edit_dir/'剪辑优化清单.md'
         from file_cache import read_text
         box=self.text(read_text(f,encoding='utf-8') if f.exists() else '□ 删除多余停顿\n□ 检查对白口型\n□ 校对字幕\n□ 统一人声与环境音量\n□ 检查角色、镜头衔接\n□ 检查片头片尾和导出比例',8)
@@ -7267,6 +7269,7 @@ class Desktop:
             lines.append(f'{s["id"]}  {s["title"]}  | 状态 {state} | 技术QC {qc} | 验收 {review}')
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
         delivery_button('导入剪映最终成片',self.final_import,primary=True)
+        delivery_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))
         delivery_button('打开交付目录',lambda:open_path(delivery_dir))
         delivery_button('打开自动剪辑与QC报告目录',lambda:self.open_folder(export_dir))
     def open_folder(self,p):p.mkdir(exist_ok=True);open_path(p)
@@ -7285,6 +7288,28 @@ class Desktop:
             if isinstance(result,UserError):raise ValueError(result.reason)
             raise RuntimeError('最终成片导入失败，请稍后重试')
         self.async_(work)
+
+    def confirm_stage_media(self,stage):
+        from stage_completion_service import (media_output_folders, media_scope,
+                                              prepare_media_completion, confirm_media_completion)
+        root=Path(self.root).resolve()
+        scope=media_scope(root)
+        folders,suffixes=media_output_folders(root,stage)
+        paths=FileDialog(self.win).open_files(title='选择当前集的本阶段成果',initialdir=folders[0],
+            filetypes=[('媒体',' '.join('*'+suffix for suffix in sorted(suffixes)))])
+        if not paths:return
+        def work():
+            return prepare_media_completion(root,stage,paths,scope=scope)
+        def done(prepared):
+            if Path(self.root).resolve()!=root:
+                raise ValueError('项目已切换，请在当前项目重新校验成果')
+            names='\n'.join(item['path'] for item in prepared['outputs'])
+            if not confirm(self.win,'确认本集成果',
+                '媒体技术校验通过。请确认以下文件属于当前集，内容完整且已人工审核：\n'
+                +prepared['scope']['episode']+'\n'+names):return
+            confirm_media_completion(root,stage,prepared)
+            self.pet.report_done(stage,'本集成果已校验并确认')
+        self.async_(work,done)
 
 if __name__=='__main__':
     window=tk.Tk();Desktop(window);window.mainloop()
