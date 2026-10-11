@@ -83,14 +83,17 @@ def iter_script_documents(project):
     except OSError:
         return
 
-    # 本地 Agent 可只更新内部工作稿；展示真实文件但不将它改名为正式交付。
+    # 本地 Agent 可只更新内部工作稿；正式目录中没有同内容交付时才展示它。
     # 只探测当前阶段的固定路径，不为首屏调用递归的自然剧本检索。
     draft = writing_dir / RAW_SCRIPT_NAME
+    draft_document = None
+    draft_text = ''
     try:
         draft.resolve().relative_to(writing_root)
-        if (draft.is_file() and draft.stat().st_size
-                and is_natural_script(draft.read_text(encoding='utf-8', errors='ignore'))):
-            yield ScriptDocument('script', draft, draft.stat().st_mtime, RAW_SCRIPT_NAME)
+        if draft.is_file() and draft.stat().st_size:
+            draft_text = draft.read_text(encoding='utf-8', errors='ignore').strip()
+            if is_natural_script(draft_text):
+                draft_document = ScriptDocument('script', draft, draft.stat().st_mtime, RAW_SCRIPT_NAME)
     except (OSError, ValueError):
         pass
 
@@ -145,7 +148,16 @@ def iter_script_documents(project):
                     relative_path = path.relative_to(writing_dir).as_posix()
                 except (OSError, ValueError):
                     continue
+                if (draft_document is not None and category == 'script'
+                        and path.suffix.lower() in {'.md', '.txt'}):
+                    try:
+                        if path.read_text(encoding='utf-8').strip() == draft_text:
+                            draft_document = None
+                    except (OSError, UnicodeError):
+                        pass
                 yield ScriptDocument(category, path, modified_at, relative_path)
+    if draft_document is not None:
+        yield draft_document
 
 
 def discover_script_documents(project):

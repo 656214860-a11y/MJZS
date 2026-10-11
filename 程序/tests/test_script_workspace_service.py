@@ -47,6 +47,21 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
             self.assertEqual('script_raw.md（内部工作稿）', row.name)
             self.assertEqual(content, path.read_text(encoding='utf-8'))
 
+    def test_published_identical_draft_is_hidden_without_deleting_internal_file(self):
+        with tempfile.TemporaryDirectory() as temp:
+            writing = project_stages.writing(temp)
+            draft = writing / 'script_raw.md'
+            formal = (writing / 'DeepSeek' / 'DeepSeek V4 Flash' / '创意_20261011'
+                      / '项目剧本' / '摄影侠_自然剧本_DeepSeek_20261011.md')
+            formal.parent.mkdir(parents=True)
+            content = '场景 1：室内\n小明：开始。'
+            draft.write_text(content, encoding='utf-8')
+            formal.write_text(content + '\n', encoding='utf-8')
+            for rows in (script_document_rows(temp), tuple(iter_script_document_rows(temp))):
+                self.assertEqual([str(formal)], [row.item_id for row in rows])
+                self.assertEqual(formal.name, rows[0].name)
+            self.assertEqual(content, draft.read_text(encoding='utf-8'))
+
     def test_internal_draft_does_not_replace_formal_script_or_accept_wrong_stage(self):
         import script_contract
         with tempfile.TemporaryDirectory() as temp:
