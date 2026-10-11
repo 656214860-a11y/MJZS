@@ -357,6 +357,75 @@ class GateTests(unittest.TestCase):
             self.assertIn('缺首帧', result['detail'])
             self.assertEqual(spec.blocked_stages(proj, 'previs'), ('keyframe',))
 
+    def test_frame_completeness_does_not_reuse_generation_candidates(self):
+        from unittest.mock import patch
+        from keyframe_comfy import pending_shots
+        from stage_completion_service import completion_evidence
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            base = root / 'media'
+            base.mkdir()
+            source = root / 'adopted.json'
+            (base / 'good.png').write_bytes(b'image')
+            (base / 'empty.png').touch()
+            (root / 'outside.png').write_bytes(b'outside')
+            cases = (
+                ({'id': 'missing-field'}, '未配置'),
+                ({'id': 'deleted', 'frame': 'good.png', 'frame_deleted': True}, '已删除'),
+                ({'id': 'outside', 'frame': '../outside.png'}, '越界'),
+                ({'id': 'missing', 'frame': 'missing.png'}, '缺首帧'),
+                ({'id': 'empty', 'frame': 'empty.png'}, '空文件'),
+                ({'id': 'directory', 'frame': '.'}, '缺首帧'),
+                ({'id': 'invalid', 'frame': ['good.png']}, '未配置'),
+            )
+            for shot, reason in cases:
+                with self.subTest(shot=shot['id']), \
+                        patch.object(spec, '_adopted', return_value=[(source, [shot])]), \
+                        patch.object(spec, 'has_run', return_value=True), \
+                        patch('storyboard_paths.media_root', return_value=base):
+                    result = spec.frames_ready(root)
+                    self.assertFalse(result['ok'])
+                    self.assertTrue(result['started'])
+                    self.assertIn(reason, ' '.join(result['problems']))
+                    self.assertFalse(completion_evidence(root, 'keyframe')[0])
+            # 删除、越界、未配置仍不进入自动生成队列。
+            self.assertEqual(pending_shots([c[0] for c in cases[:3]], base), [])
+
+    def test_frame_completion_requires_nonempty_shots_and_keeps_unstarted_navigation(self):
+        from unittest.mock import patch
+        from stage_completion_service import completion_evidence
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            for shots in ([], [{'id': 'unconfigured'}], [{'id': 'missing', 'frame': 'gone.png'}]):
+                with self.subTest(shots=shots), \
+                        patch.object(spec, '_adopted', return_value=[(root / 'adopted.json', shots)]), \
+                        patch.object(spec, 'has_run', return_value=False), \
+                        patch('storyboard_paths.media_root', return_value=root):
+                    result = spec.frames_ready(root)
+                    self.assertTrue(result['ok'])
+                    self.assertFalse(result['started'])
+                    self.assertNotIn('首帧都在', result['detail'])
+                    self.assertFalse(completion_evidence(root, 'keyframe')[0])
+
+    def test_frame_completion_checks_all_episodes_and_preserves_files(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            good = root / 'good.png'
+            good.write_bytes(b'image')
+            first = (root / 'ep1.json', [{'id': 'S001', 'frame': 'good.png'}])
+            second = (root / 'ep2.json', [{'id': 'S001'}])
+            with patch.object(spec, '_adopted', return_value=[first, second]), \
+                    patch.object(spec, 'has_run', return_value=False), \
+                    patch('storyboard_paths.media_root', return_value=root):
+                self.assertFalse(spec.frames_ready(root)['ok'])
+            with patch.object(spec, '_adopted', return_value=[first]), \
+                    patch('storyboard_paths.media_root', return_value=root):
+                result = spec.frames_ready(root)
+                self.assertTrue(result['ok'])
+                self.assertTrue(result['started'])
+            self.assertEqual(good.read_bytes(), b'image')
+
     def test_the_audit_lists_all_five_gates(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
