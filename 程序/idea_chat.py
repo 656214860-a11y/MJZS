@@ -1033,10 +1033,15 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
     fields = _brief_fields(extraction_text)
     workflow = dict(workflow or {})
     selected_locks = {}
+    name = str(workflow.get('name') or '').strip()
+    # 已同步附档与手动配置优先于历史简报；本轮明确填写仍可覆盖。
+    configured = (workflow.get('lock') or {}).get(name, {})
     for item in lock_definitions:
         labels = (item['label'], *item.get('aliases', ()), item['key'])
-        selected_locks[item['key']] = next((value for source in lock_sources
-                                           if (value := _brief_value(source, labels))), '')
+        selected_locks[item['key']] = (_brief_value(str(text or ''), labels)
+            or configured.get(item['key'], '')
+            or next((value for source in lock_sources
+                     if (value := _brief_value(source, labels))), ''))
     fields['production_locks'] = {key: value for key, value in selected_locks.items() if value}
     from script_contract import brief_document, missing_brief_fields
     missing_locks = tuple(item for item in lock_definitions

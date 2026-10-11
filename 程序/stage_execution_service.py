@@ -325,6 +325,7 @@ def archive_idea_attachments(project, paths, now=None):
                    local_mode=idea_attachment_local_mode(project))
     if not result.ok:
         raise ValueError(result.reason)
+    sync_writing_attachment_locks(project)
     return result.data
 
 
@@ -1338,3 +1339,68 @@ def prepare_legacy_stage_path(path):
             current = prepare_stage_write(ancestor.parent, stage, source=ancestor)
             return current / target.relative_to(ancestor)
     return path
+
+
+def save_writing_production_locks(project, values, *, attachment_signature=None):
+    """制作锁与已存在的简报作为一包发布，失败不留下两份不同值。"""
+    from copy import deepcopy
+    from idea_chat import brief_complete_path
+    from script_contract import PRODUCTION_LOCK_DEFINITIONS
+    allowed = {item['key'] for item in PRODUCTION_LOCK_DEFINITIONS}
+    if set(values) - allowed:
+        raise ValueError('未知制作锁字段')
+    updates = {key: str(value).strip() for key, value in values.items()}
+    config_path = stage_config.path(project)
+    config = deepcopy(file_cache.read_json(config_path) or {})
+    workflow = config.get('workflow') or {}
+    name = str(workflow.get('name') or '').strip()
+    if not name:
+        raise ValueError('请先选择统筹 SKILL')
+    locks = stage_config.workflow_lock(project)
+    locks.update(updates)
+    workflow.setdefault('lock', {})[name] = locks
+    if attachment_signature is not None:
+        workflow.setdefault('lock_attachment_signatures', {})[name] = attachment_signature
+    config['workflow'] = workflow
+    documents = {config_path: config}
+    brief_path = brief_complete_path(project_context(project))
+    if brief_path.is_file():
+        brief = deepcopy(file_cache.read_json(brief_path))
+        brief['brief'].setdefault('production_locks', {}).update(updates)
+        documents[brief_path] = brief
+    payload = {path: json.dumps(value, ensure_ascii=False, indent=2).encode('utf-8')
+               for path, value in documents.items() if value != file_cache.read_json(path)}
+    if payload:
+        publish_stage_bundle(payload, lambda items: all(raw for _, raw in items),
+                             lambda: stage_config._invalidate_cache(project))
+
+
+def sync_writing_attachment_locks(project, *, reference=None):
+    """仅在附档制作参数变化时同步，保留随后手动修订的值。"""
+    from hashlib import sha256
+    from idea_chat import extract_brief_creation
+    from script_contract import PRODUCTION_LOCK_DEFINITIONS
+    workflow = stage_config.current_workflow(project)
+    name = str(workflow.get('name') or '').strip()
+    if not name:
+        return
+    if reference is None:
+        from idea_attachments import brief_sources
+        reference = brief_sources(project_context(project),
+                                  {'paths': stage_idea_attachment_paths(project, limit=3)})
+    definitions = PRODUCTION_LOCK_DEFINITIONS
+    labels = tuple(label for item in definitions
+                   for label in (item['label'], *item.get('aliases', ()), item['key']))
+    values = {}
+    for text in reference.get('brief_texts', ()):
+        fields = extract_brief_creation(text, extra_labels=labels, include_extra=True)
+        for item in definitions:
+            for label in (item['label'], *item.get('aliases', ()), item['key']):
+                if fields.get(label, '').strip():
+                    values.setdefault(item['key'], fields[label].strip())
+                    break
+    if not values:
+        return
+    signature = sha256(json.dumps(values, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
+    if workflow.get('lock_attachment_signatures', {}).get(name) != signature:
+        save_writing_production_locks(project, values, attachment_signature=signature)

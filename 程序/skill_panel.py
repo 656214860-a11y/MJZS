@@ -36,7 +36,7 @@ from pet_bus import STAGE_NAMES, read_json
 from storage_maintenance import recycle_paths
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
-                        TextArea,
+                        TextArea, LineInput,
                         SecondaryButton, Tooltip, ask_confirmation, notify)
 from ui_dialogs import FileDialog
 
@@ -812,22 +812,57 @@ class Panel(ttk.Frame):
         self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
         self.workflow_summary = ProgressLabel(row, text='制作锁')
         self.workflow_summary.pack(side='left', padx=(0, SPACING['sm']))
+        from script_contract import PRODUCTION_LOCK_DEFINITIONS
+        self.lock_row = ttk.Frame(parent or self)
+        self.lock_row.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
+        self.lock_inputs = {}
+        for column, item in enumerate(PRODUCTION_LOCK_DEFINITIONS):
+            field = ttk.Frame(self.lock_row)
+            field.grid(row=0, column=column, sticky='ew', padx=SPACING['xs'])
+            self.lock_row.columnconfigure(column, weight=1)
+            ttk.Label(field, text=item['label']).pack(side='left')
+            entry = LineInput(field, width=14)
+            entry.pack(side='left', fill='x', expand=True, padx=SPACING['xs'])
+            entry.bind('<Return>', lambda event: self.save_workflow_locks())
+            self.lock_inputs[item['key']] = entry
+        SecondaryButton(self.lock_row, text='保存制作锁', command=self.save_workflow_locks).grid(
+            row=0, column=len(self.lock_inputs), padx=SPACING['xs'])
+
+    def save_workflow_locks(self):
+        from stage_execution_service import save_writing_production_locks
+        try:
+            save_writing_production_locks(self.project(),
+                                         {key: entry.get() for key, entry in self.lock_inputs.items()})
+        except (ValueError, OSError) as exc:
+            self.state.configure(text='制作锁保存失败：' + str(exc))
+            return 'break'
+        self.state.configure(text='制作锁已保存；已生成文件不变，后续创作使用新参数。')
+        return 'break'
 
     def refresh_workflow(self):
         import workflow_settings
+        from stage_execution_service import sync_writing_attachment_locks
+        try:
+            sync_writing_attachment_locks(self.project())
+        except (ValueError, OSError) as exc:
+            self.state.configure(text='附档制作锁同步失败：' + str(exc))
         workflow = stage_config.current_workflow(self.project())
         name = str(workflow.get('name') or '').strip()
         self.workflow_choice.set(name if name in workflow_settings.WORKFLOW_PRESETS else '不使用统筹')
         locks = stage_config.workflow_lock(self.project())
+        for key, entry in self.lock_inputs.items():
+            entry.state(['!disabled'])
+            entry.delete(0, 'end')
+            entry.insert(0, str(locks.get(key) or ''))
+            if not name:
+                entry.state(['disabled'])
         if not name:
             self.workflow_summary.configure(text='制作锁：未使用统筹')
             self.workflow_summary.unbind('<Button-1>')
             return
         preset = workflow_settings.WORKFLOW_PRESETS[name]
         deviation = stage_config.workflow_deviation_count(self.project(), preset)
-        status = '制作锁\n' + '\n'.join(
-            item['label'] + '=' + (str(locks.get(item['key']) or '').strip() or '未填写')
-            for item in preset.get('locks', ()))
+        status = '制作锁（修改后按 Enter 或保存）'
         if deviation:
             status += ' · %d 个阶段已本地修改' % deviation
         self.workflow_summary.configure(text=status)

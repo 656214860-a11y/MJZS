@@ -874,6 +874,27 @@ class PanelTests(unittest.TestCase):
         self.desktop.app.mkdir(parents=True, exist_ok=True)
         self.desktop.status = self.tk.StringVar(master=self.win, value='')
 
+    def test_production_lock_inputs_are_horizontal_and_save(self):
+        import workflow_settings
+        name = next(iter(workflow_settings.WORKFLOW_PRESETS))
+        stage_config.put_workflow(self.desktop.root, {'name': name,
+            'lock': {name: {'aspect_ratio': '9:16'}}})
+        panel = skill_panel.Panel(self.win, self.desktop, 'script')
+        self.addCleanup(panel.destroy)
+        panel.refresh_workflow()
+        for column, entry in enumerate(panel.lock_inputs.values()):
+            self.assertEqual(int(entry.master.grid_info()['row']), 0)
+            self.assertEqual(int(entry.master.grid_info()['column']), column)
+            self.assertTrue(entry.bind('<Return>'))
+        entry = panel.lock_inputs['aspect_ratio']
+        self.assertEqual(entry.get(), '9:16')
+        entry.delete(0, 'end')
+        entry.insert(0, '16:9')
+        self.assertEqual(panel.save_workflow_locks(), 'break')
+        self.assertEqual(stage_config.workflow_lock(self.desktop.root)['aspect_ratio'], '16:9')
+        panel.refresh_workflow()
+        self.assertEqual(entry.get(), '16:9')
+
     def test_imported_package_hint_only_appears_for_api_models(self):
         """外部包总入口在 API 模型下必须明确提示，桌面与普通 SKILL 均不提示。"""
         imported = skill_registry.Skill({'name': 'external-package',

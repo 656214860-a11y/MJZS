@@ -112,19 +112,22 @@ class InlineBriefTests(unittest.TestCase):
                              {'aspect_ratio': '9:16', 'video_model_version': 'MiniMax H3',
                               'delivery_format': '只要 markdown 文档'})
 
-    def test_coordinator_lists_readonly_locks_and_keeps_deviation_badge(self):
+    def test_coordinator_edits_locks_and_keeps_deviation_badge(self):
         from skill_panel import Panel
         name, preset = next(iter(workflow_settings.WORKFLOW_PRESETS.items()))
         view = SimpleNamespace(project=lambda: 'unused', workflow_choice=Mock(),
-                               workflow_summary=Mock(), show_workflow_differences=Mock())
+                               workflow_summary=Mock(), show_workflow_differences=Mock(),
+                               lock_inputs={item['key']: Mock() for item in preset['locks']})
         with patch('stage_config.current_workflow', return_value={'name': name}), \
                 patch('stage_config.workflow_lock', return_value={'aspect_ratio': '9:16'}), \
-                patch('stage_config.workflow_deviation_count', return_value=2):
+                patch('stage_config.workflow_deviation_count', return_value=2), \
+                patch('stage_execution_service.sync_writing_attachment_locks'):
             Panel.refresh_workflow(view)
         text = view.workflow_summary.configure.call_args.kwargs['text']
         self.assertTrue(text.startswith('制作锁'))
         for item in preset['locks']:
-            self.assertIn(item['label'] + '=' + ('9:16' if item['key'] == 'aspect_ratio' else '未填写'), text)
+            view.lock_inputs[item['key']].insert.assert_called_once_with(
+                0, '9:16' if item['key'] == 'aspect_ratio' else '')
         self.assertIn('2 个阶段已本地修改', text)
         view.workflow_summary.bind.assert_called_once()
         self.assertFalse(hasattr(Panel, 'open_workflow_brief'))
