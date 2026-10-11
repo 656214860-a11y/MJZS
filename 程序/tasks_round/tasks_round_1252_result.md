@@ -10,4 +10,4 @@ R1250 已由中央入口领取，但提交时并行任务已将中央号推进 R
 
 自审通过：授权范围、回归、跨层边界均符合要求；既有断言未弱化，仅更新本轮造成的三处审计定位。未重启应用、未实发 API、未修改用户稿件。重启后生效。
 
-TASK_COMPLETE；提交哈希在主目录收尾时补录。
+TASK_COMPLETE；实现提交 `52eeb0c`，已快进同步主目录 master。状态页仅在 master 更新为下一轮 1253；元数据定向 `run_selftests.py -k architecture.test_round_baselines` 实测 5/5、1.0 秒。收尾提交补录本条与 R1250 关联记录。
