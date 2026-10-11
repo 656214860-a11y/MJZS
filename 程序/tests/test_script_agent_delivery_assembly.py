@@ -8,6 +8,7 @@ import script_contract
 import workflow_settings
 import writing_api
 from service_contract import success
+from stage_execution_service import publish_stage_text
 from workflow_engines import prompt_with_settings
 from workflow_tasks import script_followup, script_prompt
 
@@ -91,7 +92,7 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
              patch('workflow_settings.skill_prompt', return_value='所选共享 SKILL 标记') as skill, \
              patch('writing_api._write_script_raw', return_value=self.root / 'script_raw.md') as publish, \
              patch('workflow_tasks.script_prompt') as plain_task:
-            result = writing_api.reply(self.root, '本轮创意')
+            result = writing_api.reply(self.root, '本轮创意', publish=publish_stage_text)
         plain_task.assert_not_called()
         adapter.chat.assert_not_called()
         run.assert_called_once()
