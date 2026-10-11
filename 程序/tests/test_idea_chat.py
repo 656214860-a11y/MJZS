@@ -1241,6 +1241,30 @@ class SendMessageTests(_Harness):
                     self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
             d.send_message.assert_not_called()
 
+    def test_editor_review_failure_displays_actual_progress_and_next_request_resets(self):
+        import stage_config
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            stage_config.put(proj, 'script', model='deepseek-v4-flash')
+            d, win = self.desktop(proj)
+            d.show(0); win.update()
+            pending = []
+            d.async_ = lambda fn, done=None, **kwargs: pending.append(done) or 1
+            d.idea_chat_controller._clock = iter((100.0, 101.0)).__next__
+            self.say(d, self.complete_draft())
+            with patch('workflow_engines.request_stage_process_slot', return_value={'state':'granted', 'slot':'test'}):
+                d.send_message()
+            pending.pop()({'ok': False, 'error': '导演未通过 editor：REVISE: 人物动机不连贯',
+                           'hollmwood_review_failed_role': 'editor'})
+            self.assertEqual(d.hollmwood_role_status.get(),
+                             '导演：审核未通过  ·  编剧：已通过  ·  编辑：未通过  ·  演员：未开始')
+            self.assertIn('人物动机不连贯', d.status.get())
+            self.say(d, self.complete_draft())
+            with patch('workflow_engines.request_stage_process_slot', return_value={'state':'granted', 'slot':'test'}):
+                d.send_message()
+            self.assertEqual(d.hollmwood_role_status.get(),
+                             '导演：等待  ·  编剧：等待  ·  编辑：等待  ·  演员：等待')
+
     def test_direct_model_failure_ends_an_active_script_stage(self):
         """直接 API 调用失败不能只留在状态栏，自动链必须收到 script 失败事件。"""
         import stage_config

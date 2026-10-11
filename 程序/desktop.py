@@ -1726,7 +1726,7 @@ class Desktop:
                     transient=any(mark in error for mark in ('URLError', 'SSLError', 'SSLEOF', 'UNEXPECTED_EOF'))
                     message=('网络连接被模型网关中断，未生成内容；请点击发送重试。'
                              if transient else '模型调用未完成：'+error)
-                    self.set_hollmwood_role_status()
+                    self.set_hollmwood_role_status(review_failed=result.get('hollmwood_review_failed_role', ''))
                     self.status.set(message)
                     # 直接 API 模型与桌面 Agent 共用“剧本准备”这个自动阶段。
                     # 失败若只写状态栏，三虎会一直把 script 视为 active；仅当
@@ -2115,13 +2115,21 @@ class Desktop:
                     Broadcaster(Path(self.root)/'logs'/'sanhu_progress.log').broadcast(
                         Broadcaster.stage(1, 'HOLLMWOOD：'+text))
         except queue.Empty:pass
-    def set_hollmwood_role_status(self, active='', complete=False):
+    def set_hollmwood_role_status(self, active='', complete=False, review_failed=''):
         """在总进度条下方显示 HOLLMWOOD 四角色的当前状态。"""
         variable=getattr(self,'hollmwood_role_status',None)
         if variable is None:return ''
         labels={'director':'导演','writer':'编剧','editor':'编辑','actor':'演员'}
         active=str(active or '').split('_',1)[0]
-        if complete:text='导演：已完成  ·  编剧：已完成  ·  编辑：已完成  ·  演员：已完成'
+        if review_failed in ('writer','editor','actor'):
+            roles=('writer','editor','actor')
+            failed_index=roles.index(review_failed)
+            states={'director':'审核未通过'}
+            states.update((role,'已通过' if index<failed_index else
+                           ('未通过' if index==failed_index else '未开始'))
+                          for index,role in enumerate(roles))
+            text='  ·  '.join(label+'：'+states[key] for key,label in labels.items())
+        elif complete:text='导演：已完成  ·  编剧：已完成  ·  编辑：已完成  ·  演员：已完成'
         else:text='  ·  '.join(label+'：'+('工作中' if key==active else ('待命' if active else '等待')) for key,label in labels.items())
         try:variable.set(text)
         except (tk.TclError,AttributeError):pass

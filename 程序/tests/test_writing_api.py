@@ -598,6 +598,25 @@ class WritingApiTests(unittest.TestCase):
             self.assertIn('director 角色执行失败', result['error'])
             self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
 
+    def test_editor_review_failure_reaches_ui_without_publishing_script(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o')
+            save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
+            self.confirmed_preparation(project)
+            answers = ('节奏计划', '编剧稿', 'APPROVED', '编辑稿',
+                       'REVISE: 人物动机不连贯', '编辑返工稿', 'REVISE: 仍不连贯')
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat', side_effect=[
+                     {'ok': True, 'text': text} for text in answers]) as chat:
+                result = writing_api.reply(project, '开始创作', publish=publish_stage_text)
+            self.assertFalse(result['ok'])
+            self.assertEqual(result['hollmwood_review_failed_role'], 'editor')
+            self.assertIn('导演未通过 editor', result['error'])
+            self.assertEqual(chat.call_count, 7)
+            self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
+
     def test_claude_timeout_window_allows_thinking_and_visible_output(self):
         self.assertEqual(writing_api.WRITING_REQUEST_TIMEOUT, 180)
 

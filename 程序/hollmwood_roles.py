@@ -32,6 +32,10 @@ REQUEST_CONTEXT_MAX_CHARS = 96_000
 class RoleExecutionError(RuntimeError):
     """某角色没有可用输出，或导演在允许次数内没有放行。"""
 
+    def __init__(self, message, *, review_failed_role=''):
+        super().__init__(message)
+        self.review_failed_role = review_failed_role
+
 
 class RoleCancelledError(RoleExecutionError):
     """用户取消后在下一次安全边界停止，不再进入后续角色或落盘。"""
@@ -297,15 +301,20 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
     rhythm_constraints = rhythm_prompt(rhythm)
     skill_constraints = ('\n\n四角色与导演审核共用的 SKILL 指令：\n' + str(skill_instructions).strip()
                          if str(skill_instructions).strip() else '')
-    shared_constraints = rhythm_constraints + skill_constraints
-    writer_output = ('\n\n编剧阶段交付契约：\n' + str(output_contract).strip()
-                     if str(output_contract).strip() else '')
+    stage_output = ('\n\n本轮阶段交付契约（规划、创作、返工与审核共用）：\n'
+                    + str(output_contract).strip()
+                    + '\n当前阶段边界优先于 SKILL、角色规则和导演计划中的后续阶段要求。'
+                    '最终交付为自然剧本；导演仍输出节奏指令，审核仍只输出 APPROVED 或 REVISE:。'
+                    '规划和审核应保留已确认的故事、人物、可表演性及单集时长要求，'
+                    '不以镜号、逐镜时间码或字幕逐行排版作为本阶段通过条件；这些留给后续分镜、配音字幕阶段。'
+                    if str(output_contract).strip() else '')
+    shared_constraints = rhythm_constraints + skill_constraints + stage_output
     director_constraints = ('\n\n本项目导演角色规则（优先遵守）：\n' + director) if director else ''
     def role_constraints(role):
         value = _body(role_rules.get(role)) if role_rules.get(role) is not None else ''
         return ('\n\n本项目%s角色规则（优先遵守）：\n%s' % (role, value)) if value else ''
     director_system = _director_plan_system() + director_constraints + shared_constraints
-    writer_system = _writer_system() + role_constraints('writer') + shared_constraints + writer_output
+    writer_system = _writer_system() + role_constraints('writer') + shared_constraints
     editor_system = _editor_system() + role_constraints('editor') + shared_constraints
     actor_system = _actor_system() + role_constraints('actor') + shared_constraints
     review_system = _director_review_system() + director_constraints + shared_constraints
@@ -342,7 +351,7 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
                 outputs[role] = current
                 break
             if attempts >= int(max_revisions):
-                raise RoleExecutionError('导演未通过 %s：%s' % (role, review))
+                raise RoleExecutionError('导演未通过 %s：%s' % (role, review), review_failed_role=role)
             attempts += 1
             step += 1
             current = _revision(adapter, model, role, system, current, review, log_folder, step, emit, cancelled,

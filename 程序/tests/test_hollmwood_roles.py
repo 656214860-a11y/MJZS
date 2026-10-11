@@ -177,18 +177,19 @@ class RolesTests(unittest.TestCase):
             self.assertNotIn('<rhythm_template>', adapter.prompts[0])
             self.assertTrue(all('<rhythm_template>' not in prompt for prompt in adapter.prompts))
 
-    def test_all_roles_and_reviews_share_skill_but_writer_owns_output_contract(self):
+    def test_all_roles_and_reviews_share_skill_and_output_contract(self):
         answers = ('节奏计划', '编剧稿', 'REVISE: 补足冲突', '编剧返工稿',
                    'APPROVED 编剧通过', '编辑稿', 'APPROVED 编辑通过',
                    '演员稿', 'APPROVED 演员通过')
         with tempfile.TemporaryDirectory() as folder:
             adapter = FakeAdapter(answers)
             roles.run(adapter, 'test-model', '创意', rhythm_template='全局节奏', log_folder=folder,
-                      skill_instructions='共享 SKILL 标记', output_contract='仅编剧交付标记',
+                      skill_instructions='共享 SKILL 标记', output_contract='自然剧本交付标记',
                       publish_log=save_text)
         for index, system in enumerate(adapter.systems):
             self.assertEqual(system.count('共享 SKILL 标记'), 1)
-            self.assertEqual(system.count('仅编剧交付标记'), int(index in (1, 3)))
+            self.assertEqual(system.count('自然剧本交付标记'), 1)
+            self.assertIn('不以镜号、逐镜时间码或字幕逐行排版作为本阶段通过条件', system)
         self.assertTrue(all('全局节奏' in system for system in adapter.systems))
 
     def test_brief_and_plan_reach_every_review_and_revision(self):
@@ -199,12 +200,14 @@ class RolesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             adapter = FakeAdapter(answers)
             result = roles.run(adapter, 'test-model', {'单集时间': '137秒', '确认事实': '独立简报标记'},
-                               log_folder=folder, skill_instructions='共享规则标记', publish_log=save_text)
+                               log_folder=folder, skill_instructions='共享规则标记',
+                               output_contract='本轮自然剧本契约', publish_log=save_text)
         self.assertEqual(len(adapter.prompts), 13)
         self.assertEqual(result.data['script'], '演员修订')
         for index, (system, prompt) in enumerate(zip(adapter.systems, adapter.prompts)):
             with self.subTest(request=index):
                 self.assertEqual(system.count('共享规则标记'), 1)
+                self.assertEqual(system.count('本轮自然剧本契约'), 1)
                 self.assertEqual(prompt.count('<brief_complete>'), 1)
                 self.assertEqual(prompt.count('独立简报标记'), 1)
                 self.assertIn('137秒', prompt)
@@ -268,6 +271,16 @@ class RolesTests(unittest.TestCase):
             with self.assertRaises(roles.RoleExecutionError):
                 roles.run(FakeAdapter(answers), 'test-model', '创意', rhythm_template='规则',
                           log_folder=folder, max_revisions=1, publish_log=save_text)
+
+    def test_editor_rejection_identifies_failed_role_without_starting_actor(self):
+        answers = ('节奏计划', '编剧稿', 'APPROVED', '编辑稿',
+                   'REVISE: 人物动机不连贯', '编辑返工稿', 'REVISE: 仍不连贯')
+        with tempfile.TemporaryDirectory() as folder:
+            adapter = FakeAdapter(answers)
+            with self.assertRaisesRegex(roles.RoleExecutionError, '导演未通过 editor') as caught:
+                roles.run(adapter, 'test-model', '创意', log_folder=folder, publish_log=save_text)
+            self.assertEqual(caught.exception.review_failed_role, 'editor')
+            self.assertEqual(len(adapter.prompts), 7)
 
     def test_contract_reference_points_to_project_template(self):
         self.assertEqual(roles.RHYTHM_TEMPLATE_PATH, 'skills/templates/rhythm_template.yaml')

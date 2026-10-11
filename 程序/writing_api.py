@@ -260,7 +260,8 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
         raise
     except hollmwood_roles.RoleExecutionError as exc:
         # 角色请求失败是可恢复的模型结果，不应穿透异步边界变成通用“操作未完成”弹窗。
-        return {'ok': False, 'status': 0, 'model': chosen, 'text': '', 'usage': {}, 'error': str(exc)}
+        return {'ok': False, 'status': 0, 'model': chosen, 'text': '', 'usage': {}, 'error': str(exc),
+                'hollmwood_review_failed_role': exc.review_failed_role}
     if callable(cancelled) and cancelled():
         raise hollmwood_roles.RoleCancelledError('HOLLMWOOD 调用已取消')
     target = _write_script_raw(project, outputs['script'], publish=publish)
