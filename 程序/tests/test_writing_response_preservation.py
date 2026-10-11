@@ -20,7 +20,7 @@ class WritingResponsePreservationTests(unittest.TestCase):
             return result
 
     def test_explicit_confirmation_advances_only_to_next_stage(self):
-        for confirmation in ('确定', '确认，输出项目大纲', '确认并输出项目大纲'):
+        for confirmation in ('确定', '确认，输出项目大纲', '确认并输出项目大纲', '输出大纲', '生成项目大纲'):
             with self.subTest(confirmation=confirmation):
                 restart_writing_preparation(self.project, '项目设定')
                 self.call('# 项目设定\n新的设定。\n待确认')
@@ -100,3 +100,29 @@ class WritingResponsePreservationTests(unittest.TestCase):
                                   cancelled=lambda: stopped)
         self.assertEqual(self.target.read_bytes(), before)
         self.assertEqual(len(list((self.target.parent / 'responses').glob('*.txt'))), 1)
+
+    def test_explanatory_wrapper_and_confirmation_section_are_accepted(self):
+        restart_writing_preparation(self.project, '项目设定')
+        body = ('项目设定已按本轮资料重整。\n\n# 项目设定\n\n完整设定。\n\n'
+                '## 待确认\n请确认以上项目设定是否通过。\n确认通过后进入剧本大纲。')
+        result = self.call(body)
+        self.assertTrue(result['ok'])
+        published = Path(result['preparation_path']).read_text(encoding='utf-8')
+        self.assertTrue(published.startswith('# 项目设定\n'))
+        self.assertTrue(published.rstrip().endswith('待确认'))
+        self.assertIn('完整设定。', published)
+        self.assertEqual(Path(result['response_path']).read_text(encoding='utf-8'), body)
+
+    def test_wrong_stage_multiple_documents_and_truncation_still_rejected(self):
+        for body, meta in (
+            ('# 剧本大纲\n错阶段。\n待确认', {}),
+            ('# 项目设定\n设定。\n# 剧本大纲\n大纲。\n待确认', {}),
+            ('说明。\n# 项目设定\n设定。\n## 待确认\n请确认。', {'finish_reason': 'max_tokens'}),
+            ('# 项目设定\n正文没有结束标记。', {}),
+        ):
+            with self.subTest(body=body):
+                restart_writing_preparation(self.project, '项目设定')
+                result = self.call(body, response_meta=meta)
+                self.assertFalse(result['ok'])
+                self.assertNotIn('preparation_path', result)
+                self.assertTrue(Path(result['response_path']).is_file())

@@ -593,8 +593,23 @@ def _preparation_confirmation(message, stage):
     next_titles = {'项目设定': ('项目大纲', '剧本大纲', '大纲'),
                    '剧本大纲': ('角色卡', '人物设定', '人物设定（角色卡）'),
                    '角色卡': ('自然剧本',)}
-    match = re.fullmatch(r'(?:确认|确定)(?:通过)?\s*(?:[，,、]|并)?\s*(?:请)?(?:输出|生成)\s*(.+)', confirmation)
+    match = re.fullmatch(r'(?:(?:确认|确定)(?:通过)?\s*(?:[，,、]|并)?\s*)?(?:请)?(?:输出|生成)\s*(.+)', confirmation)
     return bool(match and match.group(1) in next_titles.get(stage, ()))
+
+
+def _preparation_document(text, title):
+    """只规范单份当前阶段文件的说明前缀及显式待确认尾节。"""
+    headings = list(re.finditer(r'^# ([^\n]+)\n', text, re.MULTILINE))
+    if len(headings) != 1 or headings[0].group(1).strip() != title:
+        return ''
+    document = text[headings[0].start():]
+    if document.endswith('待确认'):
+        return document
+    # 保留尾节里的问题与确认说明，只补统一结束标记；不凭空推断缺失标记。
+    sections = list(re.finditer(r'^#{2,6} (.+)$', document, re.MULTILINE))
+    if sections and sections[-1].group(1).strip() == '待确认':
+        return document + '\n\n待确认'
+    return ''
 
 
 def _preserve_preparation_response(project, result, publish):
@@ -677,7 +692,7 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     _record_model_diagnostic(project, result, purpose='preparation')
     if not result.get('ok'):
         return dict(result, error=str(result.get('error') or '模型调用失败') + saved), None
-    text = str(result.get('text') or '').replace('\r\n', '\n').strip()
+    text = _preparation_document(str(result.get('text') or '').replace('\r\n', '\n').strip(), title)
     meta = result.get('response_meta') or {}
     data = result.get('data') or {}
     choices = data.get('choices') or [{}]
