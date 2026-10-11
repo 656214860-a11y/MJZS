@@ -79,10 +79,14 @@ def terminate_process_tree(process, *, timeout=3):
 
 
 def tool_path(name, fallback=''):
-    """Return a cached executable path, falling back to an explicit setting."""
+    """Return a cached executable path, falling back to an explicit setting.
+
+    只缓存 `which` 的结果：未命中时不把 None 写进缓存，否则先发生的无兜底查询会让
+    后续带兜底的调用拿不到明确路径（首帧解码就会把 None 交给 subprocess）。
+    """
     if name not in _TOOL_CACHE:
-        _TOOL_CACHE[name] = shutil.which(name) or fallback or None
-    return _TOOL_CACHE[name]
+        _TOOL_CACHE[name] = shutil.which(name) or None
+    return _TOOL_CACHE[name] or fallback or None
 
 
 def open_path(path):
