@@ -895,21 +895,19 @@ class Panel(ttk.Frame):
         dialog = BaseDialog(self.winfo_toplevel(), '切换统筹' if switching else '套用统筹建议',
                             modal=False, chrome=False); dialog.resizable(True, True)
         body = ttk.Frame(dialog, padding=12); body.pack(fill='both', expand=True)
-        DescriptionBlock(body, text=('逐项选择是否套用建议；已有阶段勾选默认保留，不会自动覆盖。'
-                                     if switching else '仅显式空阶段默认勾选套用；已有勾选保持不覆盖。')).pack(fill='x')
+        DescriptionBlock(body, text='勾选后确认，将替换该阶段的 SKILL；未勾选的阶段保留。仅空阶段默认勾选。').pack(fill='x')
         choices = {}
         for stage, values in rows.items():
             current, suggested = values['current'], values['suggested']
-            # 首次套用仅可填补显式空阶段；切换时才由用户逐项决定是否覆盖。
-            may_apply = switching or not current
-            value = tk.BooleanVar(value=not current)
+            # 默认保留已有选择，但允许用户显式选择替换。
+            value = tk.BooleanVar(value=not current and bool(suggested))
             choices[stage] = value
             old_suggested = old_preset.get('stage_skills', {}).get(stage, ())
             label = '%s｜旧建议：%s｜当前：%s｜新建议：%s' % (
                 STAGE_NAMES.get(stage, stage), '、'.join(old_suggested) or '无',
                 '、'.join(current) or '空', '、'.join(suggested) or '空')
-            ttk.Checkbutton(body, text=label + '（套用）', variable=value,
-                            state='normal' if may_apply else 'disabled').pack(
+            suffix = '（已一致，无需重复套用）' if current == suggested else '（勾选以套用）'
+            ttk.Checkbutton(body, text=label + suffix, variable=value).pack(
                                 anchor='w', pady=(SPACING['xs'], 0))
         actions = ttk.Frame(body); actions.pack(fill='x', pady=(SPACING['md'], 0))
         def apply_selected():
@@ -918,13 +916,18 @@ class Panel(ttk.Frame):
                              'lock': dict(old.get('lock') or {})})
             # 逐项“套用”是用户显式决定；调用既有阶段保存入口，不碰未选项。
             for stage, value in choices.items():
-                if value.get() and (switching or not rows[stage]['current']):
-                    stage_config.put(self.project(), stage, skills=rows[stage]['suggested'])
+                if value.get() and rows[stage]['current'] != rows[stage]['suggested']:
+                    entry = stage_config.put(self.project(), stage, skills=rows[stage]['suggested'])
+                    if stage == self.stage:
+                        for name, var in self.vars.items():
+                            var.set(name in entry['skills'])
             stage_config.put_workflow(self.project(), workflow)
             dialog.destroy(); self.refresh_workflow()
+            self.refresh_notes()
+            self.refresh_external_package_hint()
             self.state.configure(text='统筹已更新；未选择的阶段勾选已保留。')
         PrimaryButton(actions, text='确认套用', command=apply_selected).pack(side='left')
-        SecondaryButton(actions, text='全部保留', command=lambda: (dialog.destroy(), self.refresh_workflow())).pack(side='left', padx=(SPACING['sm'], 0))
+        SecondaryButton(actions, text='取消', command=lambda: (dialog.destroy(), self.refresh_workflow())).pack(side='left', padx=(SPACING['sm'], 0))
         dialog.update_idletasks()
         dialog.geometry('+%d+%d' % (self.winfo_rootx() + 30, self.winfo_rooty() + 30))
         return dialog

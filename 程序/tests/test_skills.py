@@ -874,6 +874,92 @@ class PanelTests(unittest.TestCase):
         self.desktop.app.mkdir(parents=True, exist_ok=True)
         self.desktop.status = self.tk.StringVar(master=self.win, value='')
 
+    def _workflow_dialog_controls(self, panel, preset, switching=False):
+        dialog = panel.workflow_apply_dialog('AIGC全流程', preset, switching)
+        def descendants(widget):
+            return [child for item in widget.winfo_children()
+                    for child in [item] + descendants(item)]
+        controls = descendants(dialog)
+        checks = [w for w in controls if w.winfo_class() == 'TCheckbutton']
+        buttons = {w.cget('text'): w for w in controls
+                   if w.winfo_class() in ('TButton', 'Button')}
+        return dialog, checks, buttons
+
+    def test_workflow_explicit_choice_can_replace_existing_skills(self):
+        for switching in (False, True):
+            with self.subTest(switching=switching):
+                stage_config.put(self.desktop.root, 'script',
+                                 skills=['pipeline-script-preparation', 'screenplay-writer'])
+                stage_config.put(self.desktop.root, 'storyboard', skills=['pipeline-storyboard-draft'])
+                panel = skill_panel.Panel(self.win, self.desktop, 'script')
+                preset = {'package': 'skills/AIGC/SKILL.md', 'stage_skills': {
+                    'script': ['pipeline-script-preparation'], 'storyboard': []}}
+                _dialog, checks, buttons = self._workflow_dialog_controls(panel, preset, switching)
+                self.assertEqual(len(checks), 2)
+                self.assertTrue(all(not box.instate(['disabled']) for box in checks))
+                self.assertTrue(all(not box.instate(['selected']) for box in checks))
+                before = stage_config.get(self.desktop.root, 'script')['skills']
+                checks[0].invoke()
+                self.assertTrue(checks[0].instate(['selected']))
+                self.assertEqual(stage_config.get(self.desktop.root, 'script')['skills'], before)
+                buttons['确认套用'].invoke()
+                self.assertEqual(stage_config.get(self.desktop.root, 'script')['skills'],
+                                 ['pipeline-script-preparation'])
+                self.assertEqual(stage_config.get(self.desktop.root, 'storyboard')['skills'],
+                                 ['pipeline-storyboard-draft'])
+                panel.destroy()
+
+    def test_workflow_apply_syncs_checks_without_losing_pending_model(self):
+        stage_config.put(self.desktop.root, 'script', model='deepseek-v4-flash', skills=[])
+        panel = skill_panel.Panel(self.win, self.desktop, 'script')
+        panel.set_model('deepseek-v4-pro')
+        preset = {'package': 'skills/AIGC/SKILL.md',
+                  'stage_skills': {'script': ['pipeline-script-preparation']}}
+        _dialog, checks, buttons = self._workflow_dialog_controls(panel, preset)
+        self.assertTrue(checks[0].instate(['selected']))
+        buttons['确认套用'].invoke()
+        self.assertEqual(panel.selected(), ['pipeline-script-preparation'])
+        self.assertEqual(panel.model_id(), 'deepseek-v4-pro')
+        self.assertEqual(stage_config.get(self.desktop.root, 'script')['model'], 'deepseek-v4-flash')
+        panel.save()
+        self.assertEqual(stage_config.get(self.desktop.root, 'script')['skills'],
+                         ['pipeline-script-preparation'])
+        self.assertEqual(stage_config.get(self.desktop.root, 'script')['model'], 'deepseek-v4-pro')
+
+    def test_workflow_same_skills_are_marked_and_not_rewritten(self):
+        stage_config.put(self.desktop.root, 'script', skills=['pipeline-script-preparation'])
+        panel = skill_panel.Panel(self.win, self.desktop, 'script')
+        preset = {'package': 'skills/AIGC/SKILL.md',
+                  'stage_skills': {'script': ['pipeline-script-preparation']}}
+        _dialog, checks, buttons = self._workflow_dialog_controls(panel, preset)
+        self.assertIn('已一致，无需重复套用', checks[0].cget('text'))
+        self.assertFalse(checks[0].instate(['disabled']))
+        checks[0].invoke()
+        with mock.patch.object(stage_config, 'put', wraps=stage_config.put) as put:
+            buttons['确认套用'].invoke()
+        put.assert_not_called()
+
+    def test_workflow_cancel_preserves_stage_and_coordinator(self):
+        stage_config.put(self.desktop.root, 'script', skills=[])
+        panel = skill_panel.Panel(self.win, self.desktop, 'script')
+        before = stage_config.path(self.desktop.root).read_bytes()
+        preset = {'package': 'skills/AIGC/SKILL.md',
+                  'stage_skills': {'script': ['pipeline-script-preparation']}}
+        _dialog, _checks, buttons = self._workflow_dialog_controls(panel, preset)
+        buttons['取消'].invoke()
+        self.assertEqual(stage_config.path(self.desktop.root).read_bytes(), before)
+
+    def test_workflow_default_keeps_existing_stage_choices(self):
+        stage_config.put(self.desktop.root, 'script', skills=['screenplay-writer'])
+        panel = skill_panel.Panel(self.win, self.desktop, 'script')
+        preset = {'package': 'skills/AIGC/SKILL.md',
+                  'stage_skills': {'script': ['pipeline-script-preparation']}}
+        _dialog, checks, buttons = self._workflow_dialog_controls(panel, preset)
+        self.assertFalse(checks[0].instate(['selected']))
+        buttons['确认套用'].invoke()
+        self.assertEqual(stage_config.get(self.desktop.root, 'script')['skills'],
+                         ['screenplay-writer'])
+
     def test_imported_package_hint_only_appears_for_api_models(self):
         """外部包总入口在 API 模型下必须明确提示，桌面与普通 SKILL 均不提示。"""
         imported = skill_registry.Skill({'name': 'external-package',
