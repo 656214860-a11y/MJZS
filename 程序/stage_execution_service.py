@@ -254,6 +254,12 @@ def adopt_natural_script(project, source_path):
     return adopt(project, source_path, publish=publish_stage_text)
 
 
+def restart_writing_preparation(project, stage):
+    """显式重写入口复用阶段发布器，不由桌面直接写确认台账。"""
+    from writing_api import restart_preparation
+    return restart_preparation(project, stage, publish=publish_stage_text)
+
+
 def reply_to_writing(project, creative, progress=None, cancelled=None, stream=None, *, user_message=None, request_model=None):
     """剧本模型调用编排：为所有可见剧本成果注入统一发布器。"""
     from writing_api import reply

@@ -454,6 +454,51 @@ def preparation_continuation(project, text):
     return True
 
 
+def _working_documents(state):
+    """重新创作的草稿与当前采用版本分开，确认前不替换采用版本。"""
+    return state.get('revision', state)['documents']
+
+
+def restart_preparation(project, stage, *, publish):
+    """显式从指定阶段重写；None 放弃未确认重写，恢复原采用版本。"""
+    brief = _complete_brief(project)
+    if brief is None:
+        raise ValueError('请先完成项目创作信息')
+    target, state, _ = _preparation_state(project, brief)
+    if stage is None:
+        state.pop('revision', None)
+    else:
+        if stage not in PREPARATION_STAGES:
+            raise ValueError('请选择项目设定、剧本大纲或角色卡')
+        index = PREPARATION_STAGES.index(stage)
+        prefix = state['documents'][:index]
+        if len(prefix) != index or any(doc.get('confirmed') is not True for doc in prefix):
+            raise ValueError('请先确认所选阶段之前的文件')
+        state['revision'] = {'documents': prefix}
+    _save_preparation_state(target, state, publish)
+
+
+def preparation_file_labels(project):
+    """按绝对路径返回版本标记，script 键是自然稿类别的缺省标记。"""
+    from stage_path_service import write_dir
+    from script_contract import natural_script_selection_path
+    folder = write_dir(project, 'script')
+    target = folder / 'preparation_state.json'
+    state = read_json(target) if target.is_file() else {}
+    labels = {}
+    for document in state.get('documents', []):
+        labels[str((folder / document['path']).resolve())] = (
+            '已确认' if document.get('confirmed') is True else '待确认')
+    for document in state.get('revision', {}).get('documents', []):
+        if document.get('confirmed') is not True:
+            labels[str((folder / document['path']).resolve())] = '重写待确认'
+    selection = natural_script_selection_path(project)
+    adopted = read_json(selection) if selection.is_file() else {}
+    if adopted.get('reason') and not adopted.get('path'):
+        labels['script'] = '需更新或重新采用'
+    return labels
+
+
 def _preparation_state(project, brief):
     """简报不是阶段完成凭据；确认必须绑定实际落盘的那一版正文。"""
     from copy import deepcopy
@@ -467,7 +512,10 @@ def _preparation_state(project, brief):
         raise ValueError('剧本准备阶段记录无效，不能启动四角色')
     if state is None or state.get('brief_hash') != fingerprint:
         return target, {'version': 1, 'brief_hash': fingerprint, 'documents': []}, []
-    documents = state.get('documents')
+    revision = state.get('revision')
+    if revision is not None and (not isinstance(revision, dict) or 'documents' not in revision):
+        raise ValueError('剧本准备重写记录无效')
+    documents = _working_documents(state) if 'documents' in state else None
     if state.get('version') != 1 or not isinstance(documents, list) or len(documents) > 3:
         raise ValueError('剧本准备阶段记录无效，不能启动四角色')
     texts = []
@@ -524,7 +572,7 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     from project_context_factory import project_context
     from stage_path_service import write_dir
     target, state, texts = _preparation_state(project, brief)
-    documents = state['documents']
+    documents = _working_documents(state)
     if not callable(publish):
         raise TypeError('剧本准备阶段需要 L3 注入发布器')
     publish = _cancellable_publisher(publish, cancelled)
@@ -536,11 +584,23 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
         if confirmation in ('确认', '确认通过', '通过', '确认，继续', '确认并继续', '可以', '好的', '没问题', 'OK', 'ok',
                             stage + '确认', stage + '确认通过', '确认' + stage):
             documents[-1]['confirmed'] = True
-            _save_preparation_state(target, state, publish)
+            if 'revision' in state:
+                state['documents'] = documents
+                state.pop('revision')
+                # 空选择明确撤销旧剧本的采用；旧正文保留，02 不再自动沿用旧稿。
+                from script_contract import natural_script_selection_path
+                payload = json.dumps({'path': '', 'sha256': '',
+                                      'reason': '前置阶段已更新，请重新生成或明确采用自然剧本'}, ensure_ascii=False)
+                publish(natural_script_selection_path(project), payload,
+                        lambda value: value == payload,
+                        lambda _target: _save_preparation_state(target, state, publish))
+            else:
+                _save_preparation_state(target, state, publish)
     index = len(documents) if not documents or documents[-1].get('confirmed') is True else len(documents) - 1
     if index == len(PREPARATION_STAGES):
         return None, dict(zip(PREPARATION_STAGES, texts))
     stage = PREPARATION_STAGES[index]
+    publish = _versioned_publisher(project, publish)
     system = (workflow_settings.skill_prompt(settings, inline=True)
               + workflow_settings.stage_output_contract('writing'))
     title = '人物设定（角色卡）' if index == 2 else stage
@@ -580,7 +640,7 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     path = idea_chat.reply_document_path(context, text, provider=provider, model=model, file_type=file_type)
     document = {'stage': stage, 'path': path.relative_to(write_dir(project, 'script')).as_posix(),
                 'sha256': hashlib.sha256((text + '\n').encode('utf-8')).hexdigest(), 'confirmed': False}
-    state['documents'] = documents[:index] + [document]
+    state.get('revision', state)['documents'] = documents[:index] + [document]
     publish(path, text + '\n', lambda value: bool(value.strip()),
             lambda _target: _save_preparation_state(target, state, publish))
     return dict(result, text=text, preparation_stage=stage, preparation_path=str(path)), None
@@ -610,6 +670,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
         if preparation is not None:
             return preparation
         brief = dict(brief, 已确认阶段文件=confirmed)
+        publish = _versioned_publisher(root, publish)
     hollmwood_active = brief is not None and stage_config.hollmwood_enabled(root, 'script')
     auto_save_enabled = brief is not None and not hollmwood_active
     if hollmwood_active:
@@ -656,6 +717,33 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     _ensure_reply_active(cancelled)
     _record_model_diagnostic(root, result)
     return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled)) if auto_save_enabled else result
+
+
+def _versioned_publisher(project, publish):
+    """网络等待期间输入发生变化时拒绝发布，自己的写入同步更新快照。"""
+    from stage_path_service import write_dir
+    folder = write_dir(project, 'script')
+    target = folder / 'preparation_state.json'
+    state = read_json(target) if target.is_file() else {'documents': []}
+    paths = [target, folder / 'brief_complete.json']
+    paths.extend(folder / doc['path'] for doc in _working_documents(state) if isinstance(doc, dict))
+    def digest(path):
+        return hashlib.sha256(path.read_bytes()).digest() if path.is_file() else None
+    versions = {path: digest(path) for path in paths}
+    model = stage_config.get(project, 'script').get('model')
+    def verify(exclude=None):
+        if model != stage_config.get(project, 'script').get('model') or any(
+                digest(source) != expected for source, expected in versions.items() if source != exclude):
+            raise ValueError('生成期间模型或阶段文件已变化，本次结果未采用；请按当前版本重新发送')
+    def guarded(path, text, validate, update_index, *args, **kwargs):
+        verify()
+        def published(target):
+            verify(exclude=Path(path))
+            if Path(path) in versions:
+                versions[Path(path)] = digest(Path(path))
+            return update_index(target)
+        return publish(path, text, validate, published, *args, **kwargs)
+    return guarded
 
 
 def _ensure_reply_active(cancelled):

@@ -4672,6 +4672,8 @@ class Desktop:
             """渐进加载剧本文件表；新刷新或页面销毁会使旧批次失效。"""
             nonlocal script_load_job
             from script_workspace_service import iter_script_document_rows
+            from writing_api import preparation_file_labels
+            file_labels=preparation_file_labels(self.root)
             generation=script_loader.start(iter_script_document_rows(self.root))
             if script_load_job is not None:
                 try:self.win.after_cancel(script_load_job)
@@ -4714,8 +4716,10 @@ class Desktop:
                 if not alive():return
                 rows,finished=script_loader.take_batch(24)
                 for row in rows:
+                    label=file_labels.get(str(Path(row.item_id).resolve()),file_labels.get(row.category,''))
                     script_trees[row.category].insert('', 'end', iid=row.item_id, text='',
-                        image=self.win._tick_images[int(row.item_id in checked_scripts)], values=(row.name,))
+                        image=self.win._tick_images[int(row.item_id in checked_scripts)],
+                        values=(row.name+(' ['+label+']' if label else ''),))
                 if finished:
                     finish();return
                 keep_script_headers_visible()
@@ -4821,7 +4825,17 @@ class Desktop:
         def adopt_script():
             from stage_execution_service import adopt_natural_script
             adopted=adopt_natural_script(self.root,selected_script())
+            fill_script_list()
             self.status.set('已采用自然剧本：'+adopted.name+'；后续结构化使用此版本')
+        def restart_preparation(stage):
+            from stage_execution_service import restart_writing_preparation
+            import writing_api
+            if not writing_api.selected_model(self.root)[0]:
+                raise ValueError('请先在阶段配置中选择 API 模型')
+            restart_writing_preparation(self.root,stage)
+            fill_script_list()
+            self.status.set(('已从'+stage+'重新创作；请发送创作要求，新稿确认前保留原采用版本')
+                            if stage else '已放弃未确认重写，恢复原采用版本')
         def script_menu(tree,event):
             row=tree.identify_row(event.y)
             if not row:return
@@ -4834,6 +4848,11 @@ class Desktop:
             menu.command('重命名',lambda:self.safe(rename_script))
             if tree is script_trees.get('script'):
                 menu.command('采用此剧本',lambda:self.safe(adopt_script))
+            else:
+                stages={'setting':'项目设定','outline':'剧本大纲','character':'角色卡'}
+                stage=next(stages[key] for key in stages if tree is script_trees.get(key))
+                menu.command('从本阶段重新创作',lambda:self.safe(lambda:restart_preparation(stage)))
+                menu.command('放弃未确认重写',lambda:self.safe(lambda:restart_preparation(None)))
             menu.command('删除',lambda:self.safe(delete_script))
             return menu.popup(event)
         for tree in script_trees.values():
