@@ -77,6 +77,17 @@ TEST_LAYERS = ('architecture', 'service', 'gui', 'gui-short', 'gui-e2e')
 # 这两组会连续创建完整桌面、启动后台助手，必须与短生命周期 Tk 用例隔离。
 # 名称是测试模块的稳定契约，新增端到端模块时必须显式登记，不能靠耗时猜测。
 GUI_E2E_MODULES = frozenset({'test_ui_edges', 'test_pet_ui'})
+# 名称未采用 test_perf 前缀，但包含真实墙钟性能断言，也必须独占测量。
+PERFORMANCE_MODULES = frozenset({'test_desktop_startup_perf'})
+
+
+def split_performance_units(todo):
+    """分离必须等并行池退出后测量的单元，保持两组顺序与全部测试。"""
+    normal, perf = [], []
+    for unit in todo:
+        target = perf if unit[1].startswith('test_perf') or unit[1] in PERFORMANCE_MODULES else normal
+        target.append(unit)
+    return normal, perf
 
 
 def safe_full_options(everything, serial, whole, jobs, safe):
@@ -1158,11 +1169,10 @@ def main(argv=None):
             print('增量：跳过 %d 个没改过的测试文件（--all 全跑）：%s' % (len(skipped), ' '.join(skipped)))
         keep = set(todo_names)
         todo = [unit for unit in units(names, whole=whole) if unit[1] in keep]
-        # 性能用例（test_perf_*.py）不与别的用例挤并行池：它们量的是墙上时间，而「建 Tk 控件＋
+        # 性能用例不与别的用例挤并行池：它们量的是墙上时间，而「建 Tk 控件＋
         # 字体量宽」是全机共享的资源，被别的用例抢慢好几倍时，会把自己的抖动判成性能退化
         # （第 72 期实测：并行时资产页打开 3.9～6.8 s，单独跑 0.3～0.5 s）。挑出来等池子空了自己跑。
-        perf = [unit for unit in todo if unit[1].startswith('test_perf')]
-        todo = [unit for unit in todo if unit not in perf]
+        todo, perf = split_performance_units(todo)
         print('跑 %d 个测试文件 / %d 路工作单元（%s）' % (len(todo_names), len(todo),
                                                       '串行' if serial else '%d 路并行' % jobs))
         if perf:

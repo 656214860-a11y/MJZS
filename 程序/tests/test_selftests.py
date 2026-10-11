@@ -100,6 +100,20 @@ assert len(tk._drama_wanted_topmost) == 0
         self.assertEqual(run_selftests.safe_gui_jobs(8), 4)
         self.assertEqual(run_selftests.safe_gui_jobs(1), 1)
 
+    def test_startup_timing_is_exclusive_without_dropping_split_units(self):
+        units = [('ui', 'test_ui_edges', None),
+                 ('startup#1', 'test_desktop_startup_perf', ['first_paint']),
+                 ('service', 'test_stage_parallel', None),
+                 ('baseline', 'test_perf_baseline', None),
+                 ('startup#2', 'test_desktop_startup_perf', ['first_text'])]
+        original = list(units)
+        normal, perf = run_selftests.split_performance_units(units)
+        self.assertEqual(normal, [units[0], units[2]])
+        self.assertEqual(perf, [units[1], units[3], units[4]])
+        self.assertEqual(len(normal) + len(perf), len(units))
+        self.assertEqual(units, original)
+        self.assertEqual(run_selftests.split_performance_units([]), ([], []))
+
     def test_safe_split_identifies_tk_units(self):
         units = [('service', 'test_service', None), ('window', 'test_window', None)]
         with mock.patch.object(run_selftests, 'gui_test_module', side_effect=lambda name: name == 'test_window'):
