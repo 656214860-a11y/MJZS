@@ -1,4 +1,6 @@
 """不依赖 Tk 的白模预演记录、目录与 Blender 发现服务。"""
+import hashlib
+import json
 import os
 import re
 import shutil
@@ -120,6 +122,101 @@ def legacy_base(project, workspace_path=None):
     """旧布局的镜头父目录（工作区／项目目录名）；迁移源，也是旧成果所在。"""
     space = workspace_path if workspace_path is not None else workspace()
     return (space / Path(project).name).resolve()
+
+
+SOURCE_FIELDS = ('id', 'action', 'action_description', 'action_start', 'action_end',
+                 'camera', 'camera_motion', 'duration', 'seconds',
+                 'first_frame', 'keyframe', 'frame', 'characters', 'assets')
+
+
+def shot_digest(shot):
+    """采用分镜里这一镜的调度摘要；改动作、机位、时长或首帧都会换一个摘要。"""
+    if not isinstance(shot, dict):
+        return ''
+    payload = {}
+    for key in SOURCE_FIELDS:
+        if key not in shot:
+            continue
+        value = shot[key]
+        if isinstance(value, bool):
+            payload[key] = value
+        elif isinstance(value, (int, float)):
+            payload[key] = float(value)      # 5 与 5.0 是同一件事，别让它变成版本变化
+        else:
+            payload[key] = value
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True,
+                                     default=str).encode('utf-8')).hexdigest()
+
+
+def source_digest(source, sid):
+    """按当前采用分镜算出这一镜的来源摘要；分镜缺失或镜头不在其中都返回空串。"""
+    if not source or not sid:
+        return ''
+    try:
+        episode = read_json(Path(source))
+    except (OSError, ValueError):
+        return ''
+    shots = episode.get('shots') if isinstance(episode, dict) else None
+    if not isinstance(shots, list):
+        return ''
+    for shot in shots:
+        if isinstance(shot, dict) and str(shot.get('id')) == str(sid):
+            return shot_digest(shot)
+    return ''
+
+
+def evidence_state(record, preview, source=None, sid=None):
+    """这一份预演记录相对当前采用分镜与预演文件的状态。
+
+    `changed`：来源分镜或预演文件已经变过，旧就绪作废（成果本身不删）。
+    `ok`：来源与媒体都对得上，可以直接复用。
+    `unbound`：记录里没有登记来源摘要（升级前的旧成果），无法证明当前有效。
+    """
+    evidence = record.get('evidence') if isinstance(record, dict) else None
+    if not isinstance(evidence, dict):
+        return 'unbound'
+    current = source_digest(source, sid)
+    stored = str(evidence.get('source_sha256') or '')
+    if current and stored and current != stored:
+        return 'changed'
+    if current and not stored:
+        return 'unbound'
+    try:
+        stat = Path(preview).stat()
+    except OSError:
+        return 'missing'
+    if evidence.get('preview_bytes') is not None and int(evidence['preview_bytes']) != stat.st_size:
+        return 'changed'
+    if evidence.get('preview_mtime_ns') is not None and int(evidence['preview_mtime_ns']) != stat.st_mtime_ns:
+        return 'changed'
+    return 'ok'
+
+
+def record_evidence(root, sid, source, *, publish, media=None, preview=None):
+    """预演通过媒体校验后登记「来源摘要 + 媒体事实」，此后版本变化即可判过期。
+
+    只导入工程、还没有预演视频时不登记，也不报错。
+    """
+    root = Path(root)
+    data = read_record(root)
+    value = preview or data.get('preview')
+    path = Path(value) if value else None
+    try:
+        size = path.stat().st_size if path else 0
+    except OSError:
+        size = 0
+    if not path or not path.is_file() or not size:
+        return None
+    stat = path.stat()
+    data['evidence'] = {'shot_id': str(sid or data.get('shot_id') or ''),
+                        'source': str(source) if source else '',
+                        'source_sha256': source_digest(source, sid),
+                        'preview_bytes': stat.st_size,
+                        'preview_mtime_ns': stat.st_mtime_ns,
+                        'media': dict(media or {}),
+                        'verified_at': datetime.now().isoformat(timespec='seconds')}
+    write_record(root, data, publish=publish)
+    return data['evidence']
 
 
 def read_record(root):

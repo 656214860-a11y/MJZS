@@ -103,17 +103,26 @@ def decisions_for(context,source,shots):
 
 
 def ready(context,sid,source=None):
+    """这一镜的预演是否就绪：来源分镜与预演文件都未变才算，变过只判过期、不删成果。"""
     context=_context(context)
     import white_model_service as wm
     try:
-        value=wm.read_record(wm.shot_directory(context,sid,source=source)).get('preview')
+        record=wm.read_record(wm.shot_directory(context,sid,source=source))
     except (OSError,ValueError):
         return False
+    value=record.get('preview')
     path=Path(value) if value else None
     try:
-        return bool(path and path.is_file() and path.stat().st_size and path.suffix.lower() in ('.mp4','.mov','.webm'))
+        if not (path and path.is_file() and path.stat().st_size and path.suffix.lower() in ('.mp4','.mov','.webm')):
+            return False
     except OSError:
         return False
+    state=wm.evidence_state(record,path,source,sid)
+    if state=='changed':
+        return False
+    if state=='unbound' and source and sid:
+        return False   # 旧成果没登记来源：先重新校验／制作一次，登记后才复用
+    return True
 
 
 def automatic_candidates(context, source, shots, wait_for_frames=False, pending_frame_ids=None):

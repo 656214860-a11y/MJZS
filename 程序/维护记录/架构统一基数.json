@@ -1034,7 +1034,7 @@
             },
             {
                 "file": "previs_automation.py",
-                "point": "21",
+                "point": "23",
                 "disposition": "exempt",
                 "reason": "\u7f51\u7edc\u54cd\u5e94\u89e3\u6790"
             },
@@ -1094,7 +1094,7 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1017",
+                "point": "1025",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
@@ -1118,13 +1118,13 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1048",
+                "point": "1056",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1064",
+                "point": "1072",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },

@@ -7,7 +7,7 @@ import white_model_service as wm
 from file_cache import read_json
 from previs_batch_service import prepare_batch
 import previs_routing
-from stage_execution_service import previs_entries, previs_ready, previs_records_directory, white_model_shot_directory
+from stage_execution_service import previs_entries, previs_ready, previs_records_directory, white_model_shot_directory, record_previs_evidence
 import ui_plugin_registry
 from platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
@@ -66,6 +66,7 @@ def online_window(desktop, source, ids):
         try:
             sid = selected.get(); target = wm.import_media(wm.shot_directory(desktop.root, sid, source), sid, win)
             if target:
+                record_previs_evidence(desktop.root, sid, source)
                 desktop.status.set(sid + ' 白模已导入：' + str(target))
         except Exception as exc:
             notify(win, str(exc), level='error', title='导入白模', status=desktop.status)
@@ -285,7 +286,8 @@ def show(desktop):
         if current_state and state.get('busy'):return current_state
         try:
             record=wm.read_record(white_model_shot_directory(project,sid,source=source))
-            if record.get('preview') and Path(record['preview']).is_file():return '已就绪'
+            if record.get('preview') and Path(record['preview']).is_file():
+                return '已就绪' if previs_ready(project,sid,source) else '预演已过期，请重新校验'
             if record.get('project_file') and Path(record['project_file']).is_file():return '工程已生成，待导出视频'
             level=decisions[sid]['level']
             if level=='simple':return '无需白模，直接生成视频'

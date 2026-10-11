@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O09 完成
+
+- 2026-10-12 O09：新增 `tests/test_previs.py::PrevisEvidenceTests` 2 条（改调度失效／改回复用／换文件失效且不删成果／旧记录无来源时退回旧口径）；定向 `-k previs white_model` 138/138、关联 `-k stage_execution_service stage_parallel` 57/57 与 `-k ui_edges` 115/115、默认冒烟 8/8，全 0 红。架构 `smoke_test.py --architecture` 311/312，唯一红 `test_full_safe_all_is_required_every_five_rounds`（R1318 欠五轮全量，非本项改动），本轮收口在干净 master 工作树补跑。台账 `架构统一基数.json` 第四项三处行号随插入平移（exempt 不变）。
+
 ## 2026-10-12 O08 完成
 
 - 2026-10-12 O08：新增 `tests/test_previs.py::RoutingGateConsistencyTests` 4 条（自动→复杂、复杂→简单、跨集同镜头 ID、删除覆盖）；定向 `previs stage_parallel` 143/143、0 红；接缝 `previs stage_parallel stage_execution local_previs stage_completion white_model stage_models manual_gate row_targets ui_edges desktop` 398/398、119.2 秒、0 红；架构 `smoke_test.py --architecture` 312/312 OK；默认冒烟 8/8。回归修复仅颜色：`test_previs_monitor.py`、`test_ui_edges.py` 的 `ready` 打桩补 `source=None`。本轮号 1316 − 上次绿全量 1312 = 4 < 5，未跑全量。

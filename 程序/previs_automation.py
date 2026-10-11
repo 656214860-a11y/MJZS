@@ -9,18 +9,26 @@ import white_model_service as wm
 from platform_tools import hidden_console_flags
 
 def verify(project,sid,seconds,source=None):
+    """媒体可播放且来源未变才算通过；通过后登记来源摘要与媒体事实，供复用与失效判定。"""
     from stage_execution_service import white_model_shot_directory
     root=white_model_shot_directory(project,sid,source=source)
     data=wm.read_record(root)
     paths=[Path(data.get(k,'')) for k in ('preview','project_file')]
     if not all(p.is_file() and p.stat().st_size for p in paths):return False
+    if wm.evidence_state(data,paths[0],source,sid)=='changed':return False
     from integrations import tool_path
     probe=tool_path('ffprobe','D:/Tools/ffmpeg/bin/ffprobe.exe')
     result=subprocess.run([probe,'-v','error','-show_streams','-show_format','-of','json',str(paths[0])],capture_output=True,text=True,encoding='utf-8',timeout=30,creationflags=hidden_console_flags())
     if result.returncode:return False
     media=json.loads(result.stdout)
-    return (any(s.get('codec_type')=='video' for s in media.get('streams',[]))
-            and abs(float(media.get('format',{}).get('duration',0))-float(seconds))<=.5)
+    duration=float(media.get('format',{}).get('duration',0))
+    if not (any(s.get('codec_type')=='video' for s in media.get('streams',[]))
+            and abs(duration-float(seconds))<=.5):return False
+    if wm.evidence_state(data,paths[0],source,sid)!='ok':
+        wm.record_evidence(root,sid,source,publish=save,preview=paths[0],
+                           media={'duration':duration,'has_video':True})
+    return True
+
 
 def select_agent_shots(project,source,ids,state):
     """只把复杂动作交给 Agent：简单镜头无需白模、中等镜头走线上入口，都只跳过、不中断整批。"""

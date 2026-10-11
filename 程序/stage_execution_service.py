@@ -770,6 +770,14 @@ def previs_ready(project, shot_id, source=None):
     return ready(project_context(project), shot_id, source)
 
 
+def record_previs_evidence(project, sid, source, media=None):
+    """L3 为白模就绪登记注入项目上下文与正式发布器。"""
+    from agent.core import save
+    from white_model_service import record_evidence
+    root = white_model_shot_directory(project, sid, source=source)
+    return record_evidence(root, sid, source, publish=save, media=media)
+
+
 def previs_records_directory(project, state):
     from previs_routing import records_directory
     return records_directory(project_context(project), state)

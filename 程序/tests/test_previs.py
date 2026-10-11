@@ -515,12 +515,17 @@ class RoutingGateConsistencyTests(unittest.TestCase):
 
     def mark_ready(self, source, sid):
         from stage_execution_service import white_model_shot_directory
+        from white_model_service import source_digest
         directory = white_model_shot_directory(self.root, sid, source=source)
         directory.mkdir(parents=True, exist_ok=True)
         media = directory / (sid + "_白模预演.mp4")
         media.write_bytes(b"preview")
-        (directory / "预演记录.json").write_text(json.dumps({"preview": str(media)}, ensure_ascii=False),
-                                                 encoding="utf-8")
+        stat = media.stat()
+        (directory / "预演记录.json").write_text(json.dumps({
+            "preview": str(media),
+            "evidence": {"source": str(source), "source_sha256": source_digest(source, sid),
+                         "preview_bytes": stat.st_size, "preview_mtime_ns": stat.st_mtime_ns,
+                         "media": {"video": True}}}, ensure_ascii=False), encoding="utf-8")
 
     def decisions(self, source):
         from stage_execution_service import previs_entries
@@ -588,6 +593,57 @@ class RoutingGateConsistencyTests(unittest.TestCase):
         result = self.gate()
         self.assertTrue(result["ok"])
         self.assertEqual(result["detail"], "1 个镜头需要白模，都有预演")
+
+
+class PrevisEvidenceTests(unittest.TestCase):
+    """O09：白模就绪绑定来源分镜与预演文件，版本变化只判过期、不删成果。"""
+
+    def write_episode(self, path, action):
+        path.write_text(json.dumps({"episode_id": "EP001", "title": "T", "shots": [
+            {"id": "SH001", "title": "镜头", "action": action, "camera": "固定", "duration": 5}]},
+            ensure_ascii=False), encoding="utf-8")
+
+    def bound(self, td, action="站在原地说话"):
+        proj = Path(td) / "p"; proj.mkdir()
+        source = proj / "episode.json"; self.write_episode(source, action)
+        from stage_execution_service import white_model_shot_directory, record_previs_evidence
+        directory = white_model_shot_directory(proj, "SH001", source=source)
+        directory.mkdir(parents=True, exist_ok=True)
+        media = directory / "SH001_白模预演.mp4"; media.write_bytes(b"preview-bytes")
+        (directory / "预演记录.json").write_text(
+            json.dumps({"preview": str(media)}, ensure_ascii=False), encoding="utf-8")
+        record_previs_evidence(proj, "SH001", source, media={"duration": 5.0, "has_video": True})
+        return proj, source, media
+
+    def ready(self, proj, source):
+        from stage_execution_service import previs_ready
+        return previs_ready(proj, "SH001", source)
+
+    def test_source_change_or_media_replacement_invalidates_readiness(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj, source, media = self.bound(td)
+            self.assertTrue(self.ready(proj, source))                 # 来源未变：复用
+            self.write_episode(source, "追逐并转身奔跑，抢夺道具")
+            self.assertFalse(self.ready(proj, source))                # 改了镜头调度：旧就绪失效
+            self.write_episode(source, "站在原地说话")
+            self.assertTrue(self.ready(proj, source))
+            media.write_bytes(b"a-different-and-longer-preview")
+            self.assertFalse(self.ready(proj, source))                # 预演文件被替换：旧就绪失效
+            self.assertTrue(media.is_file())                          # 只判过期，不删除成果
+
+    def test_unbound_record_needs_a_source_to_judge(self):
+        from previs_routing import ready
+        with tempfile.TemporaryDirectory() as td:
+            proj = Path(td) / "p"; proj.mkdir()
+            source = proj / "episode.json"; self.write_episode(source, "站在原地说话")
+            from stage_execution_service import white_model_shot_directory
+            directory = white_model_shot_directory(proj, "SH001", source=source)
+            directory.mkdir(parents=True, exist_ok=True)
+            media = directory / "SH001_白模预演.mp4"; media.write_bytes(b"legacy")
+            (directory / "预演记录.json").write_text(
+                json.dumps({"preview": str(media)}, ensure_ascii=False), encoding="utf-8")
+            self.assertFalse(ready(project_context(proj), "SH001", source))   # 旧成果没绑来源：先重新校验
+            self.assertTrue(ready(project_context(proj), "SH001"))            # 不知道来源时退回只验文件
 
 
 if __name__ == "__main__":
