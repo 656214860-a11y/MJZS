@@ -1501,11 +1501,18 @@ class Desktop:
         from workflow_settings import model_name
         model = config['display_model'] if config is not None else model_name(self.root, 'writing')
         from workflow_tasks import script_followup, script_prompt, writing_restart_requested
+        from workflow_engines import current_config
+        bounded_input = (config or current_config(self.root, 'writing')).get('engine') == 'claude'
         delivery_at = time.time()
         prompt = script_prompt(self.root, None, 'writing', creative_text=creative,
-                               agent_delivery=True, delivery_at=delivery_at)
+                               agent_delivery=True, delivery_at=delivery_at, bounded_input=bounded_input)
         followup = script_followup(None, 'writing', project=self.root, creative_text=creative,
-                                   agent_delivery=True, delivery_at=delivery_at)
+                                   agent_delivery=True, delivery_at=delivery_at, bounded_input=bounded_input)
+        if bounded_input:
+            # 不再以全项目文件变化区分两次“确认”；同一轮重试仍复用相同标识。
+            turn = '\n本轮请求标识：' + str(delivery_at)
+            prompt += turn
+            followup += turn
         self.open_flow_agent('writing', '剧本准备', prompt, followup, _config=config,
                              new_session=writing_restart_requested(creative))
         return model, False
@@ -5150,6 +5157,7 @@ class Desktop:
             from workflow_settings import freeze_skills
             config = freeze_skills(config)
         native_claude = config['engine'] == 'claude-desktop-app'
+        bounded_writing = stage == 'writing' and config['engine'] == 'claude'
         new_session = bool(new_session and stage == 'writing' and config['engine'] == 'claude' and not intake_only)
         use_cli = not native_claude and (config['engine']!='codex' or config['program'] or config['model'])
         # CLI 继续复用同一进程；提取结束后不能占住唯一槽位又排队启动剧本进程。
@@ -5172,7 +5180,7 @@ class Desktop:
                 if sync_result['errors'] or sync_result['conflicts']:
                     raise ValueError('Codex 技能同步未完成：'+ '; '.join(
                         sync_result['errors']+sync_result['conflicts']))
-            data={} if intake_only else snapshot(project_context(project))
+            data={} if intake_only or bounded_writing else snapshot(project_context(project))
             receipt=claim(project,signature(stage,prompt,followup,config,data),title)
             if on_receipt is not None:on_receipt(receipt)
             if receipt['duplicate'] and use_cli:return {'receipt':receipt}
@@ -5185,6 +5193,11 @@ class Desktop:
                     # 提取阶段不得附加“直接生成剧本”的 SKILL/阶段交付指令。
                     full,budget=prepare_request_context(prompt,stage,'brief_intake')
                     continuation,continuation_budget=prepare_request_context(followup,stage,'brief_intake')
+                elif bounded_writing:
+                    full,budget=prepare_request_context(
+                        prompt_with_settings(prompt,config,stage=stage),stage,'explicit_writing_inputs')
+                    continuation,continuation_budget=prepare_request_context(
+                        prompt_with_settings(followup,config,stage=stage),stage,'explicit_writing_inputs')
                 else:
                     context,strategy=request_stage_instruction(project,stage,data)
                     full,budget=prepare_request_context(

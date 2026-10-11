@@ -18,6 +18,37 @@ from stage_execution_service import project_context
 
 
 class IdeaAttachmentsTests(unittest.TestCase):
+    def test_local_markdown_reuses_conversion_without_embedding_text(self):
+        from agent.core import save_bytes, save_text
+        with tempfile.TemporaryDirectory() as td:
+            context = project_context(td)
+            source = Path(td) / '人物.txt'
+            source.write_text('主角：阿明\n结尾伏笔必须保留', encoding='utf-8')
+            def publish(path, value):
+                (save_bytes if isinstance(value, bytes) else save_text)(path, value)
+            original = idea_attachments.store(context, [source], publish=publish, local_mode=True).data[0]
+            converted = idea_attachments.archive_pair(original)[1]
+            result = idea_attachments.prepare([original, converted], local_mode=True,
+                context=context, markdown_only=True)
+            self.assertEqual(result['paths'], (converted,))
+            self.assertEqual(result['context'].count(converted.name), 1)
+            self.assertNotIn(original.name, result['context'])
+            self.assertNotIn('结尾伏笔', result['context'])
+            self.assertIn('结尾伏笔必须保留', converted.read_text(encoding='utf-8'))
+            import stage_execution_service
+            with patch('stage_execution_service.idea_attachment_local_mode', return_value=True), \
+                    patch('workflow_engines.current_config', return_value={'engine': 'claude'}):
+                routed = stage_execution_service.stage_idea_attachment_reference(td, selected_paths=[original])
+            self.assertEqual(routed['paths'], (converted,))
+            self.assertIn('结尾伏笔必须保留', routed['brief_texts'][0])
+            with patch('stage_execution_service.idea_attachment_local_mode', return_value=True), \
+                    patch('workflow_engines.current_config', return_value={'engine': 'codex'}):
+                other = stage_execution_service.stage_idea_attachment_reference(td, selected_paths=[original])
+            self.assertEqual(other['paths'], (original,))
+            converted.unlink()
+            with self.assertRaisesRegex(ValueError, 'Markdown'):
+                idea_attachments.prepare([original], local_mode=True, context=context, markdown_only=True)
+
     def test_explicit_attachment_selection_is_not_truncated_or_padded(self):
         from agent.core import save_bytes, save_text
         with tempfile.TemporaryDirectory() as td:

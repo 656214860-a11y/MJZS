@@ -1093,7 +1093,7 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "971",
+                "point": "974",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
@@ -1117,13 +1117,13 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1002",
+                "point": "1005",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1018",
+                "point": "1021",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },

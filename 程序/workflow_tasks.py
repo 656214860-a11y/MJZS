@@ -40,14 +40,20 @@ _AGENT_READING_SCOPE = (
 )
 
 
-def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_delivery=False,delivery_at=None):
+_BOUNDED_READING_SCOPE = ('【限定输入】阶段①无需扫描已有文件。使用本轮输入、明确引用的 Markdown 附件和所选 SKILL；'
+    '后续阶段优先沿用当前会话已确认内容，仅定点读取用户明确引用的文件。'
+    '不要扫描项目目录、其他模型产物、历史任务或对话日志；资料缺失时先询问用户提供，不自行搜索。')
+
+
+def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_delivery=False,delivery_at=None,bounded_input=False):
     project=Path(project).resolve();script=Path(script).resolve() if script else None
     text=str(creative_text or '').strip() if creative_text is not None else (script_text(script) if script else '沿用本次所选分镜对应的剧本。')
     if stage=='writing':
         from project_stages import writing as writing_stage
         writing=writing_stage(project)
         task=(f'你正在项目“01剧本准备”工作阶段。项目目录：{project}。本次创意输入：{script if script else "聊天输入（尚未保存为剧本文件）"}。'
-              f'先读取 `{writing / "brief_complete.json"}` 中已经确认的信息；已有自然剧本仅作为续写或修订依据。'
+              + (_BOUNDED_READING_SCOPE if agent_delivery and bounded_input else
+                 f'先读取 `{writing / "brief_complete.json"}` 中已经确认的信息；已有自然剧本仅作为续写或修订依据。') +
               '必须先完整遵循本次工作流所选 SKILL；但 SKILL 只能影响题材、节奏和写法，不能改变本阶段交付物。'
               '先问清楚，再创作：用户未提供故事大体环境和小说/漫剧类型时，必须先问，不能直接写；已有明确答案则不重复询问。'
               '按①项目设定 → ②剧本大纲 → ③角色卡 → ④自然剧本逐阶段输出；前提齐全时本次只输出阶段①项目设定，末尾“待确认”。'
@@ -92,7 +98,7 @@ def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_
     return task+suffix
 
 
-def script_followup(script,stage,existing=None,project=None,creative_text=None,*,agent_delivery=False,delivery_at=None):
+def script_followup(script,stage,existing=None,project=None,creative_text=None,*,agent_delivery=False,delivery_at=None,bounded_input=False):
     """Send new source material without repeating the workflow or skill setup."""
     script=Path(script).resolve() if script else None
     if stage=='writing':
@@ -114,7 +120,8 @@ def script_followup(script,stage,existing=None,project=None,creative_text=None,*
                 '角色卡标明“人物设定”，修改时覆盖更新同一份角色卡，不另存历史副本。'
                 '完整自然剧本存入规范的项目剧本目录，是唯一正式交付，也是 02 结构剧本的唯一来源；character_manifest 仍由 02 从自然剧本提取。'
                 '不要创建结构剧本、分镜或媒体成果。',
-                ('若需核对已确认信息，读取项目 01剧本准备/brief_complete.json；内部工作稿 script_raw.md 可继续更新，正式交付以规范路径为准。'
+                (_BOUNDED_READING_SCOPE if agent_delivery and bounded_input else
+                 '若需核对已确认信息，读取项目 01剧本准备/brief_complete.json；内部工作稿 script_raw.md 可继续更新，正式交付以规范路径为准。'
                  if agent_delivery else '内部工作稿 script_raw.md 可继续更新；回复由应用按既有分类保存规则落盘。'),
             ]
             if agent_delivery:

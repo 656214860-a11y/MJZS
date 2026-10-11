@@ -106,8 +106,8 @@ class ClaudeWritingSessionTests(unittest.TestCase):
             with patch('workflow_settings.freeze_skills', side_effect=lambda c: c), \
                     patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish'), \
-                    patch('workflow_context.snapshot', return_value={'scripts': [], 'storyboards': [], 'assets': [], 'read_errors': []}), \
-                    patch('workflow_context_controller.request_stage_instruction', return_value=('', 'script_full_index')), \
+                    patch('workflow_context.snapshot', return_value={'scripts': [], 'storyboards': [], 'assets': [], 'read_errors': []}) as snapshot, \
+                    patch('workflow_context_controller.request_stage_instruction', return_value=('', 'script_full_index')) as instruction, \
                     patch('workflow_engines.prompt_with_settings', side_effect=lambda text, *a, **kw: text), \
                     patch('workflow_engines.close_for_restart', side_effect=lambda *a: events.append('close')) as close, \
                     patch('workflow_engines.request_stage_process_slot', side_effect=lambda *a: (events.append('slot') or {'state': 'granted', 'slot': 'slot'})), \
@@ -119,6 +119,16 @@ class ClaudeWritingSessionTests(unittest.TestCase):
             self.assertTrue(launch.call_args.kwargs['new_session'])
             self.assertIs(desktop.flow_processes[key], new)
             submit.assert_not_called()
+            snapshot.assert_not_called()
+            instruction.assert_not_called()
+
+    def test_bounded_first_stage_has_no_implicit_brief_read(self):
+        with tempfile.TemporaryDirectory() as td, \
+                patch('workflow_tasks._agent_delivery_contract', return_value='保存约定'):
+            prompt = workflow_tasks.script_prompt(td, None, 'writing', creative_text='重新输出项目设定',
+                agent_delivery=True, bounded_input=True)
+            self.assertNotIn('brief_complete.json', prompt)
+            self.assertIn('阶段①无需扫描已有文件', prompt)
 
     def test_desktop_forwards_explicit_restart_only(self):
         from desktop import Desktop
@@ -127,6 +137,20 @@ class ClaudeWritingSessionTests(unittest.TestCase):
             for text, expected in (('重新输出项目设定', True), ('确认', False)):
                 Desktop.start_script_workflow(desktop, text, config={'display_model': 'Claude Code'})
                 self.assertEqual(desktop.open_flow_agent.call_args.kwargs['new_session'], expected)
+
+    def test_separate_confirmations_do_not_share_dispatch_signature(self):
+        from desktop import Desktop
+        from agent_dispatch import signature
+        desktop = SimpleNamespace(root=Path('project'), open_flow_agent=Mock())
+        config = {'display_model': 'Claude Code', 'engine': 'claude'}
+        keys = []
+        with patch('workflow_tasks._agent_delivery_contract', return_value='保存约定'), \
+                patch('desktop.time.time', side_effect=[100.0, 101.0]):
+            for _ in range(2):
+                Desktop.start_script_workflow(desktop, '确认', config=config)
+                _, _, prompt, followup = desktop.open_flow_agent.call_args.args
+                keys.append(signature('writing', prompt, followup, config, {}))
+        self.assertNotEqual(*keys)
 
     def test_agent_tasks_limit_history_reads_but_api_prompt_unchanged(self):
         with tempfile.TemporaryDirectory() as td, \

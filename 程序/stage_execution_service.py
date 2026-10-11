@@ -345,9 +345,12 @@ def stage_idea_attachment_paths(project, limit=None):
 def stage_idea_attachment_reference(project, message='', selected_paths=()):
     """为剧本准备对话解析已入库附档，不向 L2 暴露裸项目路径。"""
     from idea_attachments import referenced, brief_sources
+    from workflow_engines import current_config
     context = project_context(project)
+    local_mode = idea_attachment_local_mode(project)
     result = referenced(context, message, selected_paths,
-                        local_mode=idea_attachment_local_mode(project))
+                        local_mode=local_mode, markdown_only=local_mode and
+                        current_config(project, 'writing').get('engine') == 'claude')
     result.update(brief_sources(context, result))
     return result
 
