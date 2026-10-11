@@ -75,6 +75,8 @@ class ResidualProjectTests(unittest.TestCase):
             project=Path(td)
             (project/'config.json').write_text('{}',encoding='utf-8')
             desk=Desktop.__new__(Desktop)
+            desk.root=None
+            desk.idea_chat_controller=__import__('idea_chat_controller').IdeaChatController()
             desk.flush_brief=lambda:None
             desk.projects=type('Projects',(),{'activate':lambda self,path:None})()
             desk.list=type('ProjectList',(),{'selection_set':lambda self,path:None,

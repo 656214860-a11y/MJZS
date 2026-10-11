@@ -19,8 +19,10 @@
 - 新增进程轮询不撤排队、控制器清理仅一次且旧 token 不影响新请求的回归。
 - 首次关联回归 199 条、110.6 秒，197 通过、2 条旧 UI 用例失败。模型切换用例依赖本机模型池，Qwen 不存在时误入桌面 Agent；改用固定默认模型池。旧附件打开用例未等待异步建页；补等待。两项原断言独立复验 2/2，不删除或弱化断言。
 - 调试中出现过 tests 导入路径缺失，以及新增测试的模型身份 fixture 不一致；已修正测试准备，不计作生产缺陷复现。
-- 最终 smoke_test.py --affected idea_chat idea_attachments workflow_process_registry writing_api：9/9（含默认 8/8），关联 199/199、115.7 秒。注释台账定向 2/2、1.738 秒。安全全量尚待干净 master 检查点后执行，未完成验收。
+- 最终 smoke_test.py --affected idea_chat idea_attachments workflow_process_registry writing_api：9/9（含默认 8/8），关联 199/199、115.7 秒。注释台账定向 2/2、1.738 秒。
+- 检查点 75e1881 在独立干净 master 工作树首轮安全全量：4337 条、611.3 秒，10 条失败（8 文件），未通过。验证工作树遗漏四个 gitlink 和被忽略的基准历史文件，造成 7 条失败；从本地精确提交补齐后相关 209/209、10.1 秒通过。另有 workflow_engines 行号台账 137→142（3/3 复验），旧 Desktop.__new__ 夹具遗漏 root/controller（补齐初始化，原断言 1/1 通过），缩略图可见区绘制用例独立复验 1/1 通过。下一次全量降低 GUI 并发，保留全部用例和原断言。
 - desktop 注释台账只同步位置 2591→2622，分类与理由保持不变。
+- 全量失败闭环：test_core、test_asset_gating、unification_ratchet 模块复验 148/148、14.1 秒；无断言削弱。准备在补齐依赖的干净 master 检查点重跑全量（--jobs 4 --gui-jobs 2）。
 
 ## 自审与边界
 
@@ -28,4 +30,4 @@
 
 ## 提交与验收状态
 
-实现待检查点提交；全量完成后补写真实 commit、计数、耗时与凭据。本文件当前不构成 TASK_COMPLETE。
+实现检查点 75e1881；失败闭环后须再次完成正式全量，补写真实 commit、计数、耗时与凭据。本文件当前不构成 TASK_COMPLETE。
