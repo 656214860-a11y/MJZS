@@ -19,7 +19,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
             'project_naming': {'dated_path'},
             'script_preview_service': {'should_load_async', 'read_preview', 'preview_chunks'},
             'storyboard_rows_service': {'shot_stats', 'frame_rows', 'rows_from_sources'},
-            'video_task_state': {'generation_active', 'prompt_locked', 'assert_prompt_editable', 'poll_delay', 'elapsed_text'},
+            'video_task_state': {'generation_active', 'prompt_locked', 'assert_prompt_editable', 'poll_delay', 'elapsed_text', 'submission_block_reason'},
             'storyboard_adoption_contract': {'prefs', 'paths', 'resolve_source', 'adopted', 'problem_text'},
         }
         root = Path(ROOT)
@@ -33,6 +33,17 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
             self.assertEqual(names, {node.name for node in tree.body
                                     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
                                     and not node.name.startswith('_')}, module)
+
+    def test_submission_decision_preserves_input_and_project_files(self):
+        from video_task_state import submission_block_reason
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            state = [{'state': 'downloaded', 'review': 'revise'}]
+            before = json.dumps(state)
+            files = self._tree_contents(root)
+            self.assertEqual(submission_block_reason(state), '')
+            self.assertEqual(json.dumps(state), before)
+            self.assertEqual(self._tree_contents(root), files)
 
     def test_naming_and_preview_do_not_publish_project_data(self):
         from project_naming import dated_path
