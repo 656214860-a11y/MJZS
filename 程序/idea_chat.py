@@ -1128,9 +1128,9 @@ def looks_like_script(text):
     return sum(1 for mark in SCRIPT_MARKS if mark in value) >= 2
 
 
-def latest_text(root, *, gateway=None):
+def latest_text(root, model=None, *, gateway=None):
     """最近一条模型的回复正文（定稿时保存的就是它）；没有就是空串。"""
-    for row in reversed(load(root, gateway=gateway)):
+    for row in reversed(load(root, model=model, gateway=gateway)):
         if str(row.get('role')) != 'user':
             return str(row.get('text') or '').strip()
     return ''

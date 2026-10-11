@@ -18,7 +18,7 @@ from skip_reasons import (
 import json, os, queue, sys, tempfile, time, unittest
 from tkinter import ttk
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from pathlib import Path
 
 HERE = str(Path(__file__).resolve().parents[1])
@@ -80,6 +80,40 @@ class FakeClient:
 
 
 class SavingTests(unittest.TestCase):
+    def download_page(self, root, model):
+        page = SimpleNamespace(
+            idea_chat_context=lambda: project_context(root),
+            idea_chat_gateway=idea_chat_gateway, idea_chat_model=lambda: model,
+            idea_download=Mock(), close_dialog=Mock(), status=Mock(), pet=Mock())
+        page.update_script_download_button = lambda: Desktop.update_script_download_button(page)
+        return page
+
+    def test_download_uses_current_model_latest_reply_and_identity(self):
+        with tempfile.TemporaryDirectory() as td, patch(
+                'idea_chat.storage_identity', side_effect=lambda label: (label.lower(), label)) as identity:
+            first = '# 自然剧本\n场景 1：雨夜\n台词：旧稿。\n' + '旧稿' * 200
+            other = '# 自然剧本\n场景 1：晴天\n台词：其他模型。\n' + '其他' * 200
+            latest = '# 自然剧本\n场景 1：雨夜\n台词：最新稿。\n' + '新稿' * 200
+            idea_chat.append(td, 'assistant', first, model='DeepSeek')
+            idea_chat.append(td, 'assistant', other, model='GPT')
+            idea_chat.append(td, 'assistant', latest, model='DeepSeek')
+            page = self.download_page(td, 'DeepSeek')
+            self.assertTrue(page.update_script_download_button())
+            saved = Desktop.download_script(page)
+            self.assertEqual(saved.read_text(encoding='utf-8').strip(), latest)
+            self.assertIn('deepseek', saved.name.lower())
+            self.assertEqual(Desktop.download_script(page), saved)
+            self.assertEqual(identity.call_args.args, ('DeepSeek',))
+
+    def test_download_cannot_borrow_another_model_reply(self):
+        with tempfile.TemporaryDirectory() as td:
+            idea_chat.append(td, 'assistant', '# 自然剧本\n场景 1\n台词：你好\n' + '正文' * 200,
+                             model='GPT')
+            page = self.download_page(td, 'DeepSeek')
+            self.assertFalse(page.update_script_download_button())
+            with self.assertRaisesRegex(ValueError, '请先让模型生成完整剧本'):
+                Desktop.download_script(page)
+
     def test_compact_context_keeps_original_and_new_messages_across_reload(self):
         with tempfile.TemporaryDirectory() as td:
             original = '世界观：雨城。' + '旧讨论细节' * 1500
@@ -1155,6 +1189,7 @@ class SendMessageTests(_Harness):
             legacy.write_text('旧材料', encoding='utf-8')
             d, win = self.desktop(proj)
             d.show(0); win.deiconify(); win.update()
+            self.settle_script_page(win)
             column = next(key for key, path in d._idea_uploaded_paths.items() if path == legacy)
             x, y, width, height = d.idea_uploaded_table.tree.bbox('attachments', column)
             with patch('desktop.open_path') as opened:
@@ -1174,8 +1209,89 @@ class SendMessageTests(_Harness):
             self.assertFalse(list((writing_dir(proj) / '创意对话').glob('提交_*.md')),
                              '启动失败也不能留下未获模型回复的剧本文档')
 
+    def queued_api_request(self, proj):
+        import stage_config
+        import workflow_process_registry as registry
+        stage_config.put(proj, 'script', model='deepseek-v4-flash')
+        d, win = self.desktop(proj)
+        d.show(0); self.settle_script_page(win)
+        running = registry.reserve_process_slot('running-project', 'script')
+        self.addCleanup(registry.release_process_slot, running)
+        self.addCleanup(registry.cancel_project_slot_requests, proj)
+        pending = []
+        d.async_ = lambda fn, done=None, **kwargs: pending.append((fn, done)) or 1
+        self.say(d, self.complete_draft())
+        d.send_message()
+        self.assertEqual(pending, [])
+        return d, win, registry, running, pending
+
+    def test_queued_request_does_not_follow_project_switch(self):
+        with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as other:
+            proj = make_minimal_project(td)
+            target = make_minimal_project(other)
+            d, win, registry, running, pending = self.queued_api_request(proj)
+            with patch.object(d.list, 'selection_set'), patch.object(d.list, 'see'):
+                d.load(target)
+            registry.release_process_slot(running)
+            self.settle_script_page(win, .3)
+            self.assertFalse(d.idea_chat_controller.requesting)
+            self.assertEqual(pending, [], '切项目必须撤销原项目排队请求')
+            self.assertFalse(any(item['project'] == str(proj) for item in registry._queued))
+
+    def test_interrupt_removes_only_its_queue_ticket(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win, registry, running, pending = self.queued_api_request(proj)
+            following = registry.request_process_slot(proj, 'script')
+            d.interrupt_script_agent()
+            registry.release_process_slot(running)
+            claimed = registry.claim_process_slot(following['ticket'])
+            self.assertEqual(claimed['state'], 'granted', '中断不能留下无人领取的队首或误撤同项目其他请求')
+            self.addCleanup(registry.release_process_slot, claimed['slot'])
+            self.settle_script_page(win, .3)
+            self.assertEqual(pending, [])
+
+    def test_process_poll_preserves_waiting_api_request(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win, registry, running, pending = self.queued_api_request(proj)
+            d.flow_processes = {(str(proj), 'writing'): Mock(poll=Mock(return_value=None))}
+            d.poll_flow_processes()
+            self.assertTrue(any(item['project'] == str(proj) for item in registry._queued))
+            d.flow_processes = {}
+            d.interrupt_script_agent()
+
+
+    def test_refresh_retry_can_be_cancelled_before_publication(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            pending, published = [], []
+            d.async_ = lambda fn, done=None, **kwargs: pending.append((fn, done)) or 1
+            with patch('idea_chat.repair_internal_replies', return_value={'retry_creative': '恢复创意'}), \
+                    patch('writing_api.model_label', return_value='DeepSeek V4 Flash'), \
+                    patch.object(d, 'show_conversation'), patch.object(d, 'refresh_script_list'):
+                d.refresh_script_workspace()
+            def reply(project, creative, **kwargs):
+                self.assertEqual(project, proj)
+                self.assertEqual(creative, '恢复创意')
+                cancelled = kwargs.get('cancelled')
+                self.assertTrue(callable(cancelled), '恢复调用必须收到取消回调')
+                self.assertFalse(cancelled())
+                d.interrupt_script_agent()
+                if not cancelled():published.append(creative)
+                return {'ok': False, 'error': '已取消'}
+            with patch('writing_api.reply', side_effect=reply):
+                result = pending[0][0]()
+                pending[0][1](result)
+            self.assertEqual(published, [])
+            self.assertFalse(d.idea_chat_controller.requesting)
+
     def test_enter_after_model_change_displays_the_submitted_conversation(self):
         import stage_config
+        import model_pool
+        self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             stage_config.put(proj, 'script', model='deepseek-v4-flash')

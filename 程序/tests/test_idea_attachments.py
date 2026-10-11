@@ -18,6 +18,29 @@ from stage_execution_service import project_context
 
 
 class IdeaAttachmentsTests(unittest.TestCase):
+    def test_explicit_attachment_selection_is_not_truncated_or_padded(self):
+        from agent.core import save_bytes, save_text
+        with tempfile.TemporaryDirectory() as td:
+            context = project_context(td)
+            sources = [Path(td) / ('素材%d.txt' % n) for n in range(5)]
+            for n, path in enumerate(sources):
+                path.write_text('独有素材%d' % n, encoding='utf-8')
+            def publish(path, value):
+                (save_bytes if isinstance(value, bytes) else save_text)(path, value)
+            result = idea_attachments.store(context, sources, publish=publish)
+            self.assertTrue(result.ok)
+            archived = result.data
+            for count in (1, 4, 5):
+                for mode in ('selected', 'mentioned'):
+                    with self.subTest(count=count, mode=mode):
+                        selected = archived[:count] if mode == 'selected' else ()
+                        message = ' '.join('@' + p.name for p in archived[:count]) if mode == 'mentioned' else ''
+                        prepared = idea_attachments.referenced(context, message, selected)
+                        self.assertEqual(len(prepared['names']), count)
+                        for path in archived[:count]:
+                            self.assertIn(path.read_text(encoding='utf-8').strip(), prepared['context'])
+            self.assertEqual(len(idea_attachments.referenced(context)['names']), 3)
+
     def test_four_part_archive_names_preserve_pairs_and_same_day_uploads(self):
         from datetime import datetime
         from agent.core import save_bytes, save_text

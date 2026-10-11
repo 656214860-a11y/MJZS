@@ -297,16 +297,13 @@ def referenced(context, message='', selected_paths=(), *, local_mode=False):
                      if Path(value) in archive_pair(path))
     explicit = tuple(path for path in available if any(
         ('@' + item.name) in str(message or '') for item in archive_pair(path)))
-    # @ 指向的文件优先；没有显式指向时，带上本次选择并补足最近三份，
-    # 让多轮对话中的创意不会在下一句提问时丢失。
-    candidates = explicit or (selected + tuple(path for path in available if path not in selected)[:3])
-    if not candidates:
-        candidates = available[:3]
+    # @ 指向优先，其次完整保留本次选择；仅无明确选择时沿用最近三份。
+    candidates = explicit or selected or available[:3]
     unique = []
     for path in candidates:
         if path not in unique:
             unique.append(path)
-    return prepare(tuple(unique[:3]), local_mode=local_mode, context=context)
+    return prepare(tuple(unique), local_mode=local_mode, context=context)
 
 
 def prepare(paths, *, local_mode=False, context=None):

@@ -22,6 +22,7 @@ class IdeaChatController:
         self._attachment_results = queue.Queue()
         self._last_sent_at = float('-inf')
         self._active_token = None
+        self._request_cleanup = None
 
     def prepare_submission(self, project, value, *, is_example):
         """按既有附档规则拼装模型输入和用户可见的引用标记。"""
@@ -66,7 +67,22 @@ class IdeaChatController:
         self.requesting = False
         self._active_token = None
         self.cancel_event = None
+        self._cleanup_request()
         return True
+
+    def request_is_current(self, token):
+        return self.requesting and token is self._active_token
+
+    def set_request_cleanup(self, token, cleanup):
+        if not self.request_is_current(token):
+            cleanup()
+            return
+        self._request_cleanup = cleanup
+
+    def _cleanup_request(self):
+        cleanup, self._request_cleanup = self._request_cleanup, None
+        if cleanup is not None:
+            cleanup()
 
     def cancel_request(self):
         if self.cancel_event is not None:
@@ -75,6 +91,8 @@ class IdeaChatController:
         self.script_agent_launching = False
         self.cancel_event = None
         self._active_token = None
+
+        self._cleanup_request()
 
     def progress_callback(self, token, ticket, emit):
         """工作线程只经注入队列投递；取消后的旧流式进度直接丢弃。"""

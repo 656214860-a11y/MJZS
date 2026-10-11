@@ -15,6 +15,23 @@ from idea_chat_controller import IdeaChatController
 
 
 class IdeaChatControllerTests(unittest.TestCase):
+    def test_request_cleanup_runs_once_and_old_token_cannot_cancel_new_request(self):
+        controller = IdeaChatController()
+        cleaned = []
+        old, cancelled = controller.begin_request(cancellable=True)
+        controller.set_request_cleanup(old, lambda: cleaned.append('old'))
+        controller.cancel_request()
+        controller.cancel_request()
+        self.assertTrue(cancelled.is_set())
+        new, _ = controller.begin_request(cancellable=True)
+        controller.set_request_cleanup(new, lambda: cleaned.append('new'))
+        self.assertFalse(controller.finish_request(old))
+        self.assertTrue(controller.request_is_current(new))
+        self.assertEqual(cleaned, ['old'])
+        self.assertTrue(controller.finish_request(new))
+        self.assertFalse(controller.finish_request(new))
+        self.assertEqual(cleaned, ['old', 'new'])
+
     def test_cancelled_request_can_delete_upload_after_mode_switch(self):
         from idea_attachments import archive_pair
         from stage_execution_service import archive_idea_attachments, stage_idea_attachment_paths

@@ -1704,12 +1704,13 @@ class Desktop:
         self.show_conversation()
         prefix = '已打开 '+model+' 的独立对话；' if cleared else ''
         if direct_model:
+            project = self.root
             token, cancelled = self.idea_chat_controller.begin_request(cancellable=True)
             self.set_hollmwood_role_status()
             async_ticket={'value':None}
             def report_role(role,step):
                 current=async_ticket['value']
-                if current is not None and self.idea_chat_controller.requesting:
+                if current is not None and self.idea_chat_controller.request_is_current(token):
                     self.hollmwood_progress.put((current,role,step))
             if getattr(self,'idea_send',None) is not None:self.idea_send.state(['disabled'])
             self.update_script_interrupt_button()
@@ -1757,50 +1758,77 @@ class Desktop:
                     if callable(refresh):refresh()
                     self.pet_report('script', script_raw_saved_notice(four_roles))
                 self.status.set('已收到 '+model+' 的回复；完整剧本可下载保存。')
-            from workflow_engines import (request_stage_process_slot, claim_stage_process_slot,
-                                          release_stage_process_slot)
-            def dispatch(slot):
-                def ask():
-                    try:
-                        from stage_execution_service import reply_to_writing
-                        return reply_to_writing(
-                            self.root, submission, user_message=value, progress=report_role,
-                            cancelled=cancelled.is_set,
-                            stream=lambda chunk:self.hollmwood_progress.put(
-                                (async_ticket['value'],'actor_stream',chunk)))
-                    finally:
-                        release_stage_process_slot(slot)
-                # async_ 在主线程先递增序号、再启动工作线程；先写入预期值可保证
-                # 极快的首个 SSE 分片也拥有正确的 UI 请求令牌。
-                async_ticket['value']=self._async_ticket+1
-                actual_ticket=self.async_(ask,received,label=model+' 模型正在思考…')
-                async_ticket['value']=actual_ticket
-            request=request_stage_process_slot(self.root,'writing')
-            if request['state']=='granted':
-                dispatch(request['slot'])
-            else:
-                self.status.set('模型请求排队中（第%d位），界面保持响应。' % request['position'])
-                def poll_slot():
-                    if not self.idea_chat_controller.requesting or cancelled.is_set():
-                        return
-                    claimed=claim_stage_process_slot(request['ticket'])
-                    if claimed['state']=='queued':
-                        self.status.set('模型请求排队中（第%d位），界面保持响应。' % claimed['position'])
-                        self.win.after(200,poll_slot);return
-                    if claimed['state']=='granted':
-                        self.status.set('已获得模型请求槽位，正在思考…')
-                        dispatch(claimed['slot']);return
-                    if self.idea_chat_controller.finish_request(token):
-                        if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():
-                            self.idea_send.state(['!disabled'])
-                        self.update_script_interrupt_button();self.clear_thinking()
-                        self.status.set(claimed.get('reason','模型请求已取消'))
-                self.win.after(200,poll_slot)
+            def ask():
+                from stage_execution_service import reply_to_writing
+                return reply_to_writing(
+                    project, submission, user_message=value, progress=report_role,
+                    cancelled=cancelled.is_set,
+                    stream=lambda chunk:self.hollmwood_progress.put(
+                        (async_ticket['value'],'actor_stream',chunk)))
+            self.submit_idea_api_request(project, token, cancelled, ask, received,
+                                         model+' 模型正在思考…', async_ticket)
         else:
             self._script_agent_launching=True
             self.update_script_interrupt_button()
             self.status.set(prefix+'已提交创意并启动剧本 Agent；模型回复完整剧本后可下载保存。')
         self.update_script_download_button()
+
+    def submit_idea_api_request(self, project, token, cancelled, ask, received, label, async_ticket=None):
+        """发送与恢复共用票据生命周期；项目切换和取消均撤销本次排队。"""
+        from workflow_engines import (request_stage_process_slot, claim_stage_process_slot,
+                                      release_stage_process_slot, cancel_stage_slot_request)
+        controller = self.idea_chat_controller
+        request = request_stage_process_slot(project, 'writing')
+        pending = {'timer': None}
+        def cleanup():
+            cancel_stage_slot_request(request.get('ticket'))
+            timer, pending['timer'] = pending['timer'], None
+            if timer is not None:
+                try:self.win.after_cancel(timer)
+                except tk.TclError:pass
+        controller.set_request_cleanup(token, cleanup)
+        def current():
+            return controller.request_is_current(token) and not cancelled.is_set() and self.root == project
+        def receive(result):
+            if current():received(result)
+        def dispatch(slot):
+            if not current():
+                release_stage_process_slot(slot)
+                if controller.request_is_current(token):controller.cancel_request()
+                return
+            def work():
+                try:
+                    if cancelled.is_set():return {'ok': False, 'error': '模型请求已取消'}
+                    return ask()
+                finally:
+                    release_stage_process_slot(slot)
+            try:
+                if async_ticket is not None:async_ticket['value'] = self._async_ticket + 1
+                ticket = self.async_(work, receive, label=label)
+                if async_ticket is not None:async_ticket['value'] = ticket
+            except Exception:
+                release_stage_process_slot(slot)
+                controller.cancel_request()
+                raise
+        def poll_slot():
+            pending['timer'] = None
+            if not current():
+                cleanup()
+                if controller.request_is_current(token):controller.cancel_request()
+                return
+            claimed = claim_stage_process_slot(request['ticket'])
+            if claimed['state'] == 'granted':
+                dispatch(claimed['slot'])
+            elif claimed['state'] == 'queued':
+                self.status.set('模型请求排队中（第%d位），界面保持响应。' % claimed['position'])
+                pending['timer'] = self.win.after(200, poll_slot)
+            else:
+                receive({'ok': False, 'error': claimed.get('reason', '模型请求已取消')})
+        if request['state'] == 'granted':
+            dispatch(request['slot'])
+        else:
+            self.status.set('模型请求排队中（第%d位），界面保持响应。' % request['position'])
+            pending['timer'] = self.win.after(200, poll_slot)
 
     def script_agent_processes(self):
         """返回当前剧本阶段由本窗口启动、仍在运行的 Agent 进程。"""
@@ -1816,8 +1844,7 @@ class Desktop:
         """
         sessions=getattr(self,'flow_processes',{})
         if not sessions:return
-        from workflow_engines import forget_process, cancel_stage_slot_requests
-        cancel_stage_slot_requests(self.root)
+        from workflow_engines import forget_process
         from workflow_settings import STAGE_CONFIG_STAGES
         remaining={}
         for key,process in list(sessions.items()):
@@ -1885,7 +1912,8 @@ class Desktop:
         if getattr(self, '_idea_requesting', False):
             self.status.set('模型正在回复；已刷新显示，稍后会自动显示正文。')
             return True
-        token, _unused_cancel = self.idea_chat_controller.begin_request(cancellable=False)
+        project = self.root
+        token, cancelled = self.idea_chat_controller.begin_request(cancellable=True)
         if getattr(self, 'idea_send', None) is not None:self.idea_send.state(['disabled'])
         self.update_script_interrupt_button();self.show_thinking(model)
         def received(result):
@@ -1904,8 +1932,10 @@ class Desktop:
             self.show_conversation();self.update_script_download_button()
             self.status.set('已恢复并刷新 ' + model + ' 的正文；完整剧本可下载保存。')
         from stage_execution_service import reply_to_writing
-        self.async_(lambda: reply_to_writing(self.root, creative), received,
-                    label=model + ' 模型正在重新生成正文…')
+        self.submit_idea_api_request(
+            project, token, cancelled,
+            lambda: reply_to_writing(project, creative, cancelled=cancelled.is_set),
+            received, model + ' 模型正在重新生成正文…')
         return True
 
     def interrupt_script_agent(self):
@@ -1944,15 +1974,16 @@ class Desktop:
         import idea_chat
         button=getattr(self,'idea_download',None)
         if button is None or not button.winfo_exists():return False
-        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.idea_chat_context(),gateway=self.idea_chat_gateway()))
+        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway()))
         button.state(['!disabled'] if ready else ['disabled'])
         return ready
     def download_script(self):
         """用户明确下载剧本文档后，才通知三虎询问是否进入分镜阶段。"""
         import idea_chat
-        reply=idea_chat.latest_text(self.idea_chat_context(),gateway=self.idea_chat_gateway())
+        selected_model = self.idea_chat_model()
+        reply=idea_chat.latest_text(self.idea_chat_context(),model=selected_model,gateway=self.idea_chat_gateway())
         if not idea_chat.looks_like_script(reply):raise ValueError('请先让模型生成完整剧本，再下载。')
-        provider, model = idea_chat.storage_identity(self.idea_chat_model())
+        provider, model = idea_chat.storage_identity(selected_model)
         from stage_execution_service import publish_idea_creative
         saved=idea_chat.save_reply(self.idea_chat_context(),reply,provider=provider,model=model,
                                    publish=publish_idea_creative)
@@ -3640,6 +3671,8 @@ class Desktop:
                 if not is_missing_storyboard_open_error(exc):
                     raise
         self.flush_brief()
+        if self.root != (Path(path) if path else None) and self.idea_chat_controller.requesting:
+            self.interrupt_script_agent()
         self.root=Path(path) if path else None;self.studio=studio
         if path:
             # 第 68 期任务 9：把「当前项目」记进 projects.json 只是记账——记账这一步失败

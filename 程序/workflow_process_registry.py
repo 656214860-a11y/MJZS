@@ -69,6 +69,16 @@ def claim_process_slot(ticket):
 
 
 
+def cancel_slot_request(ticket):
+    """撤销单个尚未启动的申请，不影响同项目的其他请求。"""
+    with _lock:
+        for index, item in enumerate(_queued):
+            if item is ticket:
+                _queued.pop(index)
+                return True
+    return False
+
+
 def cancel_project_slot_requests(project):
     """停止项目时撤销其所有未启动的模型请求。"""
     key = str(project)

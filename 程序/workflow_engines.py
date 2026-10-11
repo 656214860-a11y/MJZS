@@ -11,7 +11,7 @@ from workflow_settings import find_program,ENGINES,skill_prompt,stage_output_con
 from workflow_process_registry import (register_process, forget_process, processes,
                                        reserve_process_slot, release_process_slot,
                                        request_process_slot, claim_process_slot,
-                                       cancel_project_slot_requests)
+                                       cancel_project_slot_requests, cancel_slot_request)
 from platform_tools import hidden_console_flags, launch_windows_app, terminate_process_tree
 from workflow_context_budget import ensure_request_context
 
@@ -44,6 +44,11 @@ def release_stage_process_slot(slot):
 def cancel_stage_slot_requests(project):
     """撤销项目尚未获得槽位的阶段模型请求。"""
     return cancel_project_slot_requests(project)
+
+
+def cancel_stage_slot_request(ticket):
+    """取消调用方持有的单个排队票据。"""
+    return cancel_slot_request(ticket)
 
 def prompt_with_settings(prompt,config,stage=None):
     extra=config.get('instructions','')
