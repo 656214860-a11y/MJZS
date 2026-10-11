@@ -467,7 +467,7 @@ def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish
 
 def extract_idea_brief(project, request):
     """显式 API 的提取请求不走剧本发布、工具写入或 HOLLMWOOD。"""
-    from idea_chat import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
+    from idea_semantic_brief_service import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
     chosen, record = selected_model(project)
     if not chosen:
         raise ValueError('当前未选择可直接对话的 API 模型')

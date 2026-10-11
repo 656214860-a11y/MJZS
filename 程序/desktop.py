@@ -1628,19 +1628,19 @@ class Desktop:
     def poll_idea_semantic_brief(self):
         pending = getattr(self, '_idea_semantic_pending', None)
         if not pending:return
-        import idea_chat
+        from idea_semantic_brief_service import SEMANTIC_BRIEF_POLL_SECONDS, SEMANTIC_BRIEF_TIMEOUT
         if (getattr(self, 'shutting_down', False) or self.page_index != PAGE['script']
                 or self._idea_semantic_key(self.draft_text()) != pending['key']):
             self._idea_semantic_pending = None
             self.status.set('输入、附件或项目已变化；未套用旧提取结果，请重新发送。')
             return
-        if time.monotonic() - pending['started'] > idea_chat.SEMANTIC_BRIEF_TIMEOUT:
+        if time.monotonic() - pending['started'] > SEMANTIC_BRIEF_TIMEOUT:
             self._idea_semantic_pending = None
             self.notifier.info('简报提取尚未返回有效结果；请检查 Agent 是否完成提取后重新发送。', modal=True)
             return
         if not pending['local'] or getattr(self, 'worker', False) or time.monotonic() < pending['next_poll']:
             return
-        pending['next_poll'] = time.monotonic() + idea_chat.SEMANTIC_BRIEF_POLL_SECONDS
+        pending['next_poll'] = time.monotonic() + SEMANTIC_BRIEF_POLL_SECONDS
         from stage_execution_service import read_idea_semantic_brief
         try:values = read_idea_semantic_brief(pending['request'])
         except (ValueError, OSError) as exc:

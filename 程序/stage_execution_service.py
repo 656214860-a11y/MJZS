@@ -411,7 +411,7 @@ def stage_idea_brief_defaults(project, *, reference=None):
 
 
 def prepare_idea_semantic_brief(project, draft, reference):
-    from idea_chat import semantic_brief_request
+    from idea_semantic_brief_service import semantic_brief_request
     return semantic_brief_request(project_context(project), draft, reference,
                                   local_mode=idea_attachment_local_mode(project))
 
@@ -425,7 +425,7 @@ def validate_idea_semantic_sources(request):
 
 def read_idea_semantic_brief(request):
     """只轮询本次唯一文件；模型尚未原子发布时继续等待。"""
-    from idea_chat import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
+    from idea_semantic_brief_service import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
     path = request['path']
     if not path.is_file():
         return None
