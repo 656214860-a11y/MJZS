@@ -390,3 +390,5 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 R1094 内部等价简化：`pet_cloud.Cloud` 三个关闭入口复用私有定位定时器取消方法，先清空重试标识再取消任务；入口顺序、返回值和异常吞并不变。`storyboard_final` 移除只原样重抛的异常包装，正式发布与工作稿退役顺序不变。不新增模块、分层关系或公开接口。
 
 `asset_gating`、`keyframe`、`keyframe_api`、`previs`、`writing_files`、`writing_roles`、`writing_workflow` 是已有分层表中未实体化的名称：可查初始树和当前树无同名模块，不能称为已迁移模块。R1028 在 `维护记录/架构统一基数.json` 的 `historical_name_audit` 登记现行职责入口；这是职责索引，不是历史重命名证明。两个迁移台账保留 `historical_name_audited` 与原基数，门禁检查缺失名称集合守恒、审计分类及现行模块/符号存在。生产层级、采用方和豁免数量均不变；不得据此宣布第 1、2 项整体完成。
+
+R1305：`writing_quality`（L2）解析自然剧本附带的四项辅助质检，核对正文证据并生成按正文 SHA256 分版本的报告；文件发布器和目录由 L3 `writing_api` / `stage_execution_service` 注入。`workflow_settings` 在完整加载四份规则时追加辅助交付契约；桌面仅监听任务指定的单一自然剧本路径。报告不进入02输入，不新增模型调用。

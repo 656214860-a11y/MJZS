@@ -34,9 +34,10 @@ REQUEST_CONTEXT_MAX_CHARS = 96_000
 class RoleExecutionError(RuntimeError):
     """某角色没有可用输出，或导演在允许次数内没有放行。"""
 
-    def __init__(self, message, *, review_failed_role=''):
+    def __init__(self, message, *, review_failed_role='', response_text=''):
         super().__init__(message)
         self.review_failed_role = review_failed_role
+        self.response_text = response_text
 
 
 class RoleCancelledError(RoleExecutionError):
@@ -410,7 +411,8 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
                 save_resume(outputs if role != 'actor' else {})
                 break
             if attempts >= int(max_revisions):
-                raise RoleExecutionError('导演未通过 %s：%s' % (role, review), review_failed_role=role)
+                raise RoleExecutionError('导演未通过 %s：%s' % (role, review), review_failed_role=role,
+                                         response_text=current)
             attempts += 1
             step += 1
             current = _revision(adapter, model, role, system, current, review, log_folder, step, emit, cancelled,

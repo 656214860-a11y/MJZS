@@ -618,6 +618,9 @@ def freeze_skills(config):
                        'chars': len(body), 'sha256': hashlib.sha256(body.encode('utf-8')).hexdigest()})
     header_config = dict(frozen, skills=[], skill='', stage_skills=[])
     frozen['frozen_skill_prompt'] = skill_prompt(header_config, inline=True) + ''.join(bodies)
+    from writing_quality import enabled, prompt as quality_prompt
+    if enabled(frozen['frozen_skill_prompt']):
+        frozen['frozen_skill_prompt'] += quality_prompt()
     from workflow_context_budget import prepare_request_context
     prepare_request_context(frozen['frozen_skill_prompt'], 'SKILL')
     frozen['skill_injection'] = {'mode': frozen.get('invocation_mode') or frozen.get('engine', ''),

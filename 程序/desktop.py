@@ -1515,7 +1515,74 @@ class Desktop:
             followup += turn
         self.open_flow_agent('writing', '剧本准备', prompt, followup, _config=config,
                              new_session=writing_restart_requested(creative))
+        from workflow_settings import skill_prompt
+        from writing_quality import enabled
+        if enabled(skill_prompt(config or current_config(self.root, 'writing'), inline=True)):
+            from workflow_tasks import natural_script_delivery_path
+            self.watch_script_quality(natural_script_delivery_path(self.root, delivery_at))
         return model, False
+
+    def show_script_quality(self, result):
+        """Keep quality notices visible without misrepresenting a model review as a pass."""
+        if not result.get('quality_summary'):
+            return
+        self._script_quality_report = (str(self.root), result.get('quality_report_path', ''))
+        self.status.set(result['quality_summary'])
+
+    def open_script_quality(self, folder=False):
+        project, path = getattr(self, '_script_quality_report', ('', ''))
+        if project == str(self.root) and path and Path(path).is_file():
+            open_path(Path(path).parent if folder else path)
+        elif folder and (project_stages.writing(self.root) / 'quality').is_dir():
+            open_path(project_stages.writing(self.root) / 'quality')
+        else:
+            self.notifier.info('本次尚无质检报告。生成自然剧本后会显示四项结果。')
+
+    def watch_script_quality(self, target):
+        """Watch only the task's exact output path; never scan historical documents."""
+        project = str(self.root)
+        ticket = object()
+        self._script_quality_watch = ticket
+        self._script_quality_pending_project = project
+        self._script_quality_result = None
+        started = time.monotonic()
+        try:
+            stat = target.stat()
+            baseline = (stat.st_mtime_ns, stat.st_size)
+        except FileNotFoundError:
+            baseline = None
+        state = {'signature': baseline, 'changed': started, 'reported': baseline}
+        def poll():
+            if (getattr(self, '_script_quality_watch', None) is not ticket or str(self.root) != project
+                    or time.monotonic() - started > 3600):
+                return
+            try:
+                stat = target.stat()
+                signature = (stat.st_mtime_ns, stat.st_size)
+                if signature != state['signature']:
+                    state.update(signature=signature, changed=time.monotonic())
+                elif signature != state['reported'] and time.monotonic() - state['changed'] >= 10:
+                    from stage_execution_service import collect_writing_quality
+                    from writing_quality import OPEN, CLOSE
+                    text = target.read_text(encoding='utf-8')
+                    if OPEN not in text or text.rstrip().endswith(CLOSE):
+                        result = collect_writing_quality(project, target)
+                        stat = target.stat()
+                        state['reported'] = state['signature'] = (stat.st_mtime_ns, stat.st_size)
+                        self.show_script_quality(result)
+                        self._script_quality_result = result
+                        import idea_chat
+                        notice = result['text'] + '\n\n' + result['quality_summary'] + '\n查看质检报告：' + result['quality_report_path']
+                        idea_chat.append(self.idea_chat_context(), 'assistant', notice,
+                                         gateway=self.idea_chat_gateway())
+                        self.show_conversation()
+                        refresh = getattr(self, 'refresh_script_list', None)
+                        if callable(refresh):refresh()
+            except (OSError, UnicodeError, ValueError) as exc:
+                # A file may still be being written. Keep the watcher, without resubmitting to a model.
+                if target.exists():self.status.set('剧本质检等待完整文件：' + str(exc))
+            self.win.after(2000, poll)
+        self.win.after(2000, poll)
 
 
     def _idea_semantic_key(self, value):
@@ -1754,6 +1821,7 @@ class Desktop:
                 self._stream_text=''
                 self.clear_thinking()
                 visible_reply = str(result.get('response_text') or result.get('text') or '')
+                self.show_script_quality(result)
                 if visible_reply.strip():
                     idea_chat.append(self.idea_chat_context(),'assistant',visible_reply,model=model,gateway=self.idea_chat_gateway(),
                                      context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
@@ -1794,7 +1862,11 @@ class Desktop:
                         self.set_hollmwood_role_status(complete=True)
                     refresh=getattr(self,'refresh_script_list',None)
                     if callable(refresh):refresh()
-                    self.pet_report('script', script_raw_saved_notice(four_roles, result.get('natural_script_path', '')))
+                    if result.get('quality_passed') is not False:
+                        self.pet_report('script', script_raw_saved_notice(four_roles, result.get('natural_script_path', '')))
+                if result.get('quality_summary'):
+                    self.show_script_quality(result)
+                    return
                 if result.get('natural_script_path'):
                     self.status.set('自然剧本已自动保存：'+result['natural_script_path'])
                 else:
@@ -1916,6 +1988,10 @@ class Desktop:
                 except (OSError, TypeError, ValueError):
                     source=None
                 if source is not None:
+                    if (getattr(self, '_script_quality_pending_project', None) == str(project)
+                            and not (getattr(self, '_script_quality_result', None) or {}).get('quality_passed')):
+                        self.status.set('自然剧本已返回，四项质检尚未完成；请查看质检报告。')
+                        continue
                     message='剧本 Agent 已保存自然剧本：'+source.name
                     if source.name == script_contract.RAW_SCRIPT_NAME:
                         message += '；Agent 未产出规范正式稿(任务书要求写入 项目剧本/)'
@@ -1964,19 +2040,22 @@ class Desktop:
             if not self.idea_chat_controller.finish_request(token):return
             if getattr(self, 'idea_send', None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
             self.update_script_interrupt_button();self.clear_thinking()
+            reply = str(result.get('response_text') or result.get('text') or '').strip()
+            if reply:
+                idea_chat.append(self.idea_chat_context(), 'assistant', reply, model=model,gateway=self.idea_chat_gateway(),
+                                 context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
+                                 skill_injection=request_model['settings']['skill_injection'])
+                self.show_conversation()
+            self.show_script_quality(result)
             if not result.get('ok'):
                 self.notifier.error(str(result.get('error') or '未收到模型回复'), title='模型调用失败')
                 self.status.set('刷新正文失败：' + str(result.get('error') or '未收到模型回复'))
                 return
-            reply = str(result.get('text') or '').strip()
             if not reply:
                 self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                 self.status.set(idea_chat.why_empty(result));return
-            idea_chat.append(self.idea_chat_context(), 'assistant', reply, model=model,gateway=self.idea_chat_gateway(),
-                             context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
-                             skill_injection=request_model['settings']['skill_injection'])
             self.show_conversation();self.update_script_download_button()
-            self.status.set('已恢复并刷新 ' + model + ' 的正文；完整剧本可下载保存。')
+            self.status.set(result.get('quality_summary') or ('已恢复并刷新 ' + model + ' 的正文；完整剧本可下载保存。'))
         from stage_execution_service import reply_to_writing
         self.submit_idea_api_request(
             project, token, cancelled,
@@ -4495,6 +4574,8 @@ class Desktop:
         open_folder_button=SecondaryButton(foot,text='剧本目录',width=script_action_width,
                                       command=lambda:self.safe(lambda:self.open_folder(project_stages.writing(self.root))))
         open_folder_button.pack(side='right',padx=(SPACING['none'],SPACING['sm']));self.idea_open_folder=open_folder_button
+        SecondaryButton(foot,text='查看质检报告',command=lambda:self.safe(self.open_script_quality)).pack(side='right')
+        SecondaryButton(foot,text='质检目录',command=lambda:self.safe(lambda:self.open_script_quality(folder=True))).pack(side='right')
         download_button.pack(side='right',padx=(SPACING['none'],SPACING['xs']))
         for action_button in foot.winfo_children():
             action_button.configure(width=script_action_width,padding=SCRIPT_ACTION_PADDING)

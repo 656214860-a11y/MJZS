@@ -16,6 +16,7 @@ import stage_config
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
 import writing_tools
+from writing_quality import enabled as quality_enabled
 
 
 def selected_model(project):
@@ -288,7 +289,8 @@ def _write_script_raw(project, text, *, publish=None):
     # 用户可见成果只能进入当前阶段目录；旧 ``writing/`` 仅作为读取兼容路径。
     from stage_path_service import write_dir
     from script_contract import require_natural_script
-    text = require_natural_script(text)
+    from writing_quality import split_response
+    text = require_natural_script(split_response(text)[0])
     if not callable(publish):
         raise TypeError('剧本成果发布需要 L3 注入发布器')
     folder = write_dir(root, 'script')
@@ -297,11 +299,12 @@ def _write_script_raw(project, text, *, publish=None):
     return target
 
 
-def _auto_save_script_raw(project, result, *, publish=None, model='', identity=None):
+def _auto_save_script_raw(project, result, *, publish=None, model='', identity=None, quality_required=False):
     """关闭四角色模式时，合格且足够长的 API 正文仍经唯一写入点发布原稿。"""
     if not isinstance(result, dict) or not result.get('ok'):
         return result
-    text = str(result.get('text') or '').strip()
+    from writing_quality import split_response
+    text = split_response(result.get('text'))[0]
     if len(text) < SCRIPT_RAW_AUTO_SAVE_MIN_CHARS:
         return result
     from script_contract import require_natural_script
@@ -318,7 +321,7 @@ def _auto_save_script_raw(project, result, *, publish=None, model='', identity=N
     if not unchanged:
         target = _write_script_raw(project, text, publish=publish)
     saved = dict(result)
-    saved.update(script_raw_path=str(target), hollmwood_enabled=False)
+    saved.update(script_raw_path=str(target), hollmwood_enabled=False, quality_required=quality_required)
     return _save_formal_script(project, saved, model=model, identity=identity, publish=publish)
 
 
@@ -358,16 +361,33 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
         raise
     except hollmwood_roles.RoleExecutionError as exc:
         # 角色请求失败是可恢复的模型结果，不应穿透异步边界变成通用“操作未完成”弹窗。
-        return {'ok': False, 'status': 0, 'model': chosen, 'text': '', 'usage': {}, 'error': str(exc),
+        failed = {'ok': False, 'status': 0, 'model': chosen, 'text': '', 'usage': {}, 'error': str(exc),
                 'context_budget': dict(adapter.context_budget), 'request_usage': dict(adapter.request_usage),
                 'hollmwood_review_failed_role': exc.review_failed_role}
+        if exc.response_text:
+            from writing_quality import split_response, publish_reports
+            from stage_path_service import write_dir
+            failed['response_text'] = split_response(exc.response_text)[0]
+            if quality_enabled(workflow_settings.skill_prompt(settings, inline=True)):
+                folder = write_dir(project, 'script')
+                try:
+                    failed.update(publish_reports(exc.response_text, folder / '未采用候选稿.md',
+                                                  folder / 'quality', publish=publish).data)
+                except OSError as save_error:
+                    failed.update(quality_passed=False, quality_summary='质检报告保存失败：' + str(save_error))
+                failed['response_text'] += '\n\n未采用候选稿。' + failed['quality_summary']
+                if failed.get('quality_report_path'):
+                    failed['response_text'] += '\n查看质检报告：' + failed['quality_report_path']
+        return failed
     if callable(cancelled) and cancelled():
         raise hollmwood_roles.RoleCancelledError('HOLLMWOOD 调用已取消')
     publish = _cancellable_publisher(publish, cancelled)
     target = _write_script_raw(project, outputs['script'], publish=publish)
     return _save_formal_script(project, {'ok': True, 'status': 200, 'model': chosen, 'text': outputs['script'],
             'usage': {}, 'context_budget': dict(adapter.context_budget), 'request_usage': dict(adapter.request_usage),
-            'script_raw_path': str(target), 'hollmwood_enabled': True}, identity=identity, publish=publish)
+            'script_raw_path': str(target), 'hollmwood_enabled': True,
+            'quality_required': quality_enabled(
+                workflow_settings.skill_prompt(settings, inline=True))}, identity=identity, publish=publish)
 
 
 def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish=None, cancelled=None):
@@ -812,7 +832,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
                    '仅当同一文件操作连续重复且没有新进展时才暂停。')
         result = _reply_with_project_tools(adapter, chosen, system, task, root, publish=publish, cancelled=cancelled)
         _ensure_reply_active(cancelled)
-        return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled)) if auto_save_enabled else result
+        return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled), quality_required=quality_enabled(system)) if auto_save_enabled else result
     messages = [{'role': 'user', 'content': task}]
     rejected = _context_budget_error(chosen, system, messages)
     if rejected:
@@ -825,7 +845,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
                           model=chosen, system=system)
     _ensure_reply_active(cancelled)
     _record_model_diagnostic(root, result)
-    return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled)) if auto_save_enabled else result
+    return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled), quality_required=quality_enabled(system)) if auto_save_enabled else result
 
 
 def _versioned_publisher(project, publish):
@@ -876,10 +896,22 @@ def _save_formal_script(project, result, *, model='', identity=None, publish):
     import idea_chat
     from project_context_factory import project_context
     from script_contract import require_natural_script
-    text = require_natural_script(result['text']).strip()
+    from writing_quality import split_response, publish_reports, OPEN
+    response = result['text']
+    text = require_natural_script(split_response(response)[0]).strip()
     provider, label = identity or idea_chat.storage_identity(model or result.get('model', ''))
     target = idea_chat.reply_document_path(project_context(project), text,
                                           provider=provider, model=label, file_type='自然剧本')
     if not target.is_file() or target.read_text(encoding='utf-8').strip() != text:
         publish(target, text + '\n', lambda value: bool(require_natural_script(value)), lambda _target: None)
-    return dict(result, natural_script_path=str(target))
+    saved = dict(result, text=text, natural_script_path=str(target))
+    if result.get('quality_required') or OPEN in response:
+        from stage_path_service import write_dir
+        try:
+            saved.update(publish_reports(response, target, write_dir(project, 'script') / 'quality', publish=publish).data)
+        except OSError as exc:
+            saved.update(quality_passed=False, quality_summary='正文已保存，质检报告保存失败：' + str(exc))
+        saved['response_text'] = text + '\n\n' + saved['quality_summary']
+        if saved.get('quality_report_path'):
+            saved['response_text'] += '\n查看质检报告：' + saved['quality_report_path']
+    return saved

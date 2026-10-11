@@ -29,7 +29,8 @@
             "video_prompt_publication",
             "workflow_context",
             "writing",
-            "writing_tools"
+            "writing_tools",
+            "writing_quality"
         ],
         "scope_audit_pending": [],
         "historical_name_audit_pending": [],
@@ -833,6 +834,12 @@
         "baseline_pending": 35,
         "items": [
             {
+                "file": "writing_quality.py",
+                "point": "62",
+                "disposition": "exempt",
+                "reason": "R1302\uff1a\u89e3\u6790\u6a21\u578b\u8fd4\u56de\u7684\u5185\u5b58\u8d28\u68c0 JSON\uff1b\u62d2\u7edd\u91cd\u590d\u952e\u4e0e\u975e\u6709\u9650\u6570\uff0c\u4e0d\u8bfb\u53d6\u914d\u7f6e\u6587\u4ef6\uff0c\u4e0d\u80fd\u6539\u7528\u6587\u4ef6\u7f13\u5b58\u3002"
+            },
+            {
                 "file": "script_workspace_service.py",
                 "point": "246",
                 "disposition": "exempt",
@@ -1086,7 +1093,7 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "988",
+                "point": "1009",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
@@ -1110,19 +1117,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1019",
+                "point": "1040",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1035",
+                "point": "1056",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "writing_api.py",
-                "point": "466",
+                "point": "486",
                 "disposition": "exempt",
                 "reason": "简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
             },
