@@ -1,6 +1,6 @@
 # 待办索引
 
-- 当前持续授权为 R1267 优化清单 O01—O48 按序完成。O01/O02 已完成，O02 正式全量 4443/4443；下一项 O03，其余尚未实施。见 [R1286](../程序/tasks_round/tasks_round_1286_result.md) 与 [完整清单](../程序/tasks_round/tasks_round_1267_result.md)。以下历史“完成后停止”不覆盖这次持续授权。
+- 当前持续授权为 R1267 优化清单 O01—O48 按序完成。O01—O03 已完成，O03 正式全量 4457/4457；下一项 O04，其余尚未实施。见 [R1291](../程序/tasks_round/tasks_round_1291_result.md) 与 [完整清单](../程序/tasks_round/tasks_round_1267_result.md)。以下历史“完成后停止”不覆盖这次持续授权。
 
 - R1265 用户授权的技能保障四项已完成、验收通过，无本轮待办；完成后停止，不从历史索引推断新任务。见 [报告](../程序/tasks_round/tasks_round_1265_result.md)。
 
