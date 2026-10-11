@@ -188,7 +188,7 @@ class InlineBriefDesktopTests(_Harness):
             def finish(_action, received, **_kwargs):
                 received(_action())
                 return 1
-            with patch('writing_api.model_label', return_value='gpt-4o'), \
+            with patch('writing_api.capture_request_model', return_value={'label': 'gpt-4o', 'model_id': 'test-model', 'record': {}}), \
                  patch('writing_api.preparation_continuation', return_value=True) as continuation, \
                  patch.object(d.idea_chat_controller, 'prepare_submission', return_value=prepared), \
                  patch('stage_execution_service.reply_to_writing', return_value=result) as reply, \
@@ -201,6 +201,7 @@ class InlineBriefDesktopTests(_Harness):
                 d.send_message()
             continuation.assert_called_once_with(d.root, '确认')
             self.assertEqual(reply.call_args.kwargs['user_message'], '确认')
+            self.assertEqual(reply.call_args.kwargs['request_model']['model_id'], 'test-model')
             self.assertEqual(reply.call_args.args[1], prepared['submission'])
             receive.assert_not_called()
             save.assert_not_called()

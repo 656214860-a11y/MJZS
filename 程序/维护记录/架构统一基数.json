@@ -827,12 +827,6 @@
                 "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
             },
             {
-                "file": "script_workspace_service.py",
-                "point": "246",
-                "disposition": "exempt",
-                "reason": "R1247\uff1a\u91c7\u7528\u8bb0\u5f55\u53d1\u5e03\u524d\u6821\u9a8c\u5185\u5b58 JSON \u6587\u672c\uff0c\u4e0d\u8bfb\u53d6\u6587\u4ef6\u3002"
-            },
-            {
                 "file": "writing_api.py",
                 "importer": "writing_api",
                 "imported": "workflow_settings",
@@ -845,6 +839,12 @@
     "count": 0,
         "baseline_pending": 35,
         "items": [
+            {
+                "file": "script_workspace_service.py",
+                "point": "246",
+                "disposition": "exempt",
+                "reason": "R1247\uff1a\u91c7\u7528\u8bb0\u5f55\u53d1\u5e03\u524d\u6821\u9a8c\u5185\u5b58 JSON \u6587\u672c\uff0c\u4e0d\u8bfb\u53d6\u6587\u4ef6\u3002"
+            },
             {
                 "file": "agent/core.py",
                 "point": "13",
