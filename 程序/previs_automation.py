@@ -70,7 +70,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
     from previs_routing import ready
     from stage_execution_service import project_context
     context=project_context(project)
-    ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(context,sid)]
+    ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(context,sid,source)]
     if not ids:
         state['summary']='没有需要 Agent 制作的镜头：简单镜头无需白模、中等镜头走线上入口，或所选镜头已就绪';return
     from workflow_settings import current,find_program,ENGINES

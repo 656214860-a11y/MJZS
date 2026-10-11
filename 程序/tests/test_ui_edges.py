@@ -2889,7 +2889,7 @@ class UiEdgeTests(unittest.TestCase):
             groups = {"simple": [], "medium": ["SH002"], "complex": ["SH001"]}
             ready_state = {"value": False}
             with patch.object(previs_routing, "partition", lambda project, source, ids: (dict(groups), {})), \
-                 patch.object(previs_routing, "ready", lambda project, sid: ready_state["value"]), \
+                 patch.object(previs_routing, "ready", lambda project, sid, source=None: ready_state["value"]), \
                  patch.object(previs_automation, "start", fake_start):
                 d.auto_previs_due = 0
                 d._tick_once()                                  # 主循环必须自己把这一批派出去
@@ -2955,7 +2955,7 @@ class UiEdgeTests(unittest.TestCase):
                 started.append(list(ids)); state["busy"] = True
             groups = {"simple": [], "medium": [], "complex": ["SH001"]}
             with patch.object(previs_routing, "partition", lambda project, source, ids: (dict(groups), {})), \
-                 patch.object(previs_routing, "ready", lambda project, sid: False), \
+                 patch.object(previs_routing, "ready", lambda project, sid, source=None: False), \
                  patch.object(previs_automation, "start", fake_start):
                 d.poll_auto_previs()                      # 首帧还缺：先不建白模
                 self.assertEqual(started, [])

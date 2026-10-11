@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O08 完成
+
+- 2026-10-12 O08：新增 `tests/test_previs.py::RoutingGateConsistencyTests` 4 条（自动→复杂、复杂→简单、跨集同镜头 ID、删除覆盖）；定向 `previs stage_parallel` 143/143、0 红；接缝 `previs stage_parallel stage_execution local_previs stage_completion white_model stage_models manual_gate row_targets ui_edges desktop` 398/398、119.2 秒、0 红；架构 `smoke_test.py --architecture` 312/312 OK；默认冒烟 8/8。回归修复仅颜色：`test_previs_monitor.py`、`test_ui_edges.py` 的 `ready` 打桩补 `source=None`。本轮号 1316 − 上次绿全量 1312 = 4 < 5，未跑全量。
+
 ## 2026-10-12 O07 完成
 
 - 收口全量：干净 master 工作树（`HEAD=b0c6716`、`HEAD:程序`=12ad4759）`run_selftests.py --all --safe`——第 1 次 4500 条／528.7 秒／21 文件红（缺嵌套子模块致写作与技能组假红；补子模块后同树定向 489/489、0 红），第 2 次 4516 条／388.1 秒／0 红，凭据 round=1312、tree=12ad4759。

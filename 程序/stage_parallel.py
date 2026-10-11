@@ -734,34 +734,46 @@ def frames_ready(project):
 def previs_ready(project):
     """SG-05：需要白模的镜头都有可播放的预演产物。"""
     row = gate_for('video')
-    from previs_routing import classify, ready
+    from previs_routing import classify, decisions_for, ready
     from project_context_factory import project_context
     context = project_context(project)
-    entries = _adopted(project)
-    if not entries:
+    adopted = _adopted(project)
+    if not adopted:
         return _result(row, True, False, '还没有已采用的分镜，先不拦')
     need = []
-    for source, shots in entries:
-        for shot in shots:
-            try:
-                level = classify(shot)[0]
-            except Exception:
-                continue
-            if level == 'complex':
-                need.append(shot.get('id') or '?')
-    if not need:
-        return _result(row, True, True, '没有需要白模的镜头', (), [str(source) for source, _ in entries])
-    missing = []
-    for sid in need:
+    for source, shots in adopted:
         try:
-            if not ready(context, sid):
+            decisions = decisions_for(context, source, shots)
+        except Exception:
+            decisions = {}
+        for shot in shots:
+            sid = shot.get('id')
+            if not sid:
+                continue
+            item = decisions.get(sid)
+            if item is None:
+                try:
+                    level = classify(shot)[0]
+                except Exception:
+                    continue
+            else:
+                level = item.get('level')
+            if level == 'complex':
+                need.append((sid, source))
+    if not need:
+        return _result(row, True, True, '没有需要白模的镜头', (), [str(source) for source, _ in adopted])
+    missing = []
+    for sid, source in need:
+        try:
+            if not ready(context, sid, source):
                 missing.append(sid)
         except Exception:
             missing.append(sid)
-    artifacts = [str(source) for source, _ in entries]
+    missing = list(dict.fromkeys(missing))
+    artifacts = [str(source) for source, _ in adopted]
     if not missing:
         return _result(row, True, True, '%d 个镜头需要白模，都有预演' % len(need), (), artifacts)
-    made = has_run(project, 'previs') or any(ready(context, sid) for sid in need)
+    made = has_run(project, 'previs') or any(ready(context, sid, source) for sid, source in need)
     if not made:
         return _result(row, True, False, '白模预演还没做，先不拦', (), artifacts)
     return _result(row, False, True, '%d 个镜头还没有白模预演' % len(missing),

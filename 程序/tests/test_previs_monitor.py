@@ -260,7 +260,7 @@ class DispatchTests(unittest.TestCase):
         self.automation = previs_automation
         self.stub(previs_routing, 'partition',
                   lambda project, source, ids: ({'simple': [], 'medium': [], 'complex': list(ids)}, {}))
-        self.stub(previs_routing, 'ready', lambda project, sid: False)
+        self.stub(previs_routing, 'ready', lambda project, sid, source=None: False)
         self.stub(workflow_settings, 'current',
                   lambda project, stage: {'engine': 'codex', 'model': 'm', 'program': '', 'skill': ''})
         self.stub(workflow_settings, 'find_program', lambda config: 'codex.exe')

@@ -765,9 +765,9 @@ def previs_entries(project, source):
     return entries(project_context(project), source)
 
 
-def previs_ready(project, shot_id):
+def previs_ready(project, shot_id, source=None):
     from previs_routing import ready
-    return ready(project_context(project), shot_id)
+    return ready(project_context(project), shot_id, source)
 
 
 def previs_records_directory(project, state):

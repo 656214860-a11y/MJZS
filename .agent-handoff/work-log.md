@@ -4,6 +4,8 @@
 
 - 2026-10-12：O07 收口全量。干净 master 工作树第 2 次 `--all --safe` 4516/4516、388.1 秒、0 红，绿凭据写入 `.git/full-safe-receipts.json`（round=1312、tree=12ad4759）；第 1 次的 21 文件红全部来自新建工作树缺嵌套子模块。
 
+- 2026-10-12：O08 完成并提交 R1316。`previs_routing.decisions_for` 成为唯一有效决策（覆盖优先），门禁 `stage_parallel.previs_ready` 改用它；`ready` 增开 `source` 按集解析并连接到 dispatch、automatic_candidates、previs_automation.start 与 L3。新增 4 条四场景一致性用例；定向 143/143、接缝 398/398、架构 312/312、默认冒烟 8/8。见 [R1316](../程序/tasks_round/tasks_round_1316_result.md)。
+
 - 2026-10-12：O06 完成并收口。修复新门禁暴露的三处测试/探针回归与 `platform_tools.tool_path` 缓存遮蔽缺陷，台账轮次 1307→1308。提交 a167b7c / 8760e41 / fbdd23d；干净内容树 0e2a2f06 全量 4504/4504 通过（无执行器绿凭据）。见 [R1307](../程序/tasks_round/tasks_round_1307_result.md)。
 
 - R1162 收尾：Claude Desktop 改为与 Codex 共用全文任务书投递；提交 db0e878、同步回执 6523465。后续问答只读确认 CLI 仍传任务文件路径，并澄清任务书与素材正文的区别；真实窗口是否完成全文粘贴仍未知。仅补交接记录，不扩展生产改动。
