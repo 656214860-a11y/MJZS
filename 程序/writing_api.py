@@ -7,7 +7,9 @@
 from pathlib import Path
 import json
 import hashlib
+import re
 from datetime import datetime
+from uuid import uuid4
 
 import model_pool
 import stage_config
@@ -581,6 +583,32 @@ def _save_preparation_state(target, state, publish):
     publish(target, payload, lambda value: value == payload, lambda _target: None)
 
 
+def _preparation_confirmation(message, stage):
+    """只接受完整确认句；明确索要的产物必须是紧邻的下一阶段。"""
+    confirmation = str(message or '').strip().rstrip('。！!').strip()
+    if confirmation in ('确认', '确定', '确认通过', '通过', '确认，继续', '确认并继续',
+                        '可以', '好的', '没问题', 'OK', 'ok',
+                        stage + '确认', stage + '确认通过', '确认' + stage):
+        return True
+    next_titles = {'项目设定': ('项目大纲', '剧本大纲', '大纲'),
+                   '剧本大纲': ('角色卡', '人物设定', '人物设定（角色卡）'),
+                   '角色卡': ('自然剧本',)}
+    match = re.fullmatch(r'(?:确认|确定)(?:通过)?\s*(?:[，,、]|并)?\s*(?:请)?(?:输出|生成)\s*(.+)', confirmation)
+    return bool(match and match.group(1) in next_titles.get(stage, ()))
+
+
+def _preserve_preparation_response(project, result, publish):
+    """保留可见正文，不登记为阶段产物，也不改变采用状态。"""
+    from stage_path_service import write_dir
+    text = str(result.get('text') or '').replace('\r\n', '\n')
+    if not text.strip():
+        return result
+    name = datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '_' + uuid4().hex + '.txt'
+    path = write_dir(project, 'script') / 'responses' / name
+    publish(path, text, lambda value: value == text, lambda _target: None)
+    return dict(result, response_path=str(path))
+
+
 def _preparation_step(project, chosen, record, settings, brief, creative, *, publish, cancelled, user_message=None, identity=None):
     """一次请求最多产出一个待确认阶段；返回 None 才可开始自然剧本。"""
     import idea_chat
@@ -591,14 +619,13 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     documents = _working_documents(state)
     if not callable(publish):
         raise TypeError('剧本准备阶段需要 L3 注入发布器')
+    response_publisher = publish
     publish = _cancellable_publisher(publish, cancelled)
     if documents and state != read_json(target):
         _save_preparation_state(target, state, publish)
     if documents and documents[-1].get('confirmed') is not True:
         stage = documents[-1]['stage']
-        confirmation = str(creative if user_message is None else user_message).strip().rstrip('。！!')
-        if confirmation in ('确认', '确认通过', '通过', '确认，继续', '确认并继续', '可以', '好的', '没问题', 'OK', 'ok',
-                            stage + '确认', stage + '确认通过', '确认' + stage):
+        if _preparation_confirmation(creative if user_message is None else user_message, stage):
             documents[-1]['confirmed'] = True
             if 'revision' in state:
                 state['documents'] = documents
@@ -641,20 +668,25 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     tokens = 32768 if str(record.get('model') or chosen).lower() in (
         'deepseek-v4-flash', 'deepseek-v4-pro') else CLAUDE_VISIBLE_OUTPUT_TOKENS
     result = adapter.chat(messages, options={'max_tokens': tokens}, model=chosen, system=system)
-    _ensure_reply_active(cancelled)
+    result = _preserve_preparation_response(project, result, response_publisher)
+    saved = '；正文已保存：' + result['response_path'] if result.get('response_path') else ''
+    try:
+        _ensure_reply_active(cancelled)
+    except RuntimeError as exc:
+        raise type(exc)(str(exc) + saved) from exc
     _record_model_diagnostic(project, result, purpose='preparation')
     if not result.get('ok'):
-        return result, None
+        return dict(result, error=str(result.get('error') or '模型调用失败') + saved), None
     text = str(result.get('text') or '').replace('\r\n', '\n').strip()
     meta = result.get('response_meta') or {}
     data = result.get('data') or {}
     choices = data.get('choices') or [{}]
     finish = meta.get('finish_reason') or data.get('stop_reason') or choices[0].get('finish_reason')
     if finish in ('length', 'max_tokens') or not text.startswith('# ' + title + '\n') or not text.endswith('待确认'):
-        return dict(result, ok=False, text='', error=stage + '输出未完成或阶段格式不符，未保存、未进入下一阶段'), None
+        return dict(result, ok=False, text='', error=stage + '输出未完成或阶段格式不符，未采用、未进入下一阶段' + saved), None
     body = text.split('\n', 1)[1].removesuffix('待确认').strip()
     if not body:
-        return dict(result, ok=False, text='', error=stage + '正文为空，未保存'), None
+        return dict(result, ok=False, text='', error=stage + '正文为空，未采用' + saved), None
     context = project_context(project)
     provider, model = identity or idea_chat.storage_identity(chosen)
     file_type = ('项目设定', '项目大纲', '角色卡')[index]
@@ -662,8 +694,11 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     document = {'stage': stage, 'path': path.relative_to(write_dir(project, 'script')).as_posix(),
                 'sha256': hashlib.sha256((text + '\n').encode('utf-8')).hexdigest(), 'confirmed': False}
     state.get('revision', state)['documents'] = documents[:index] + [document]
-    publish(path, text + '\n', lambda value: bool(value.strip()),
-            lambda _target: _save_preparation_state(target, state, publish))
+    try:
+        publish(path, text + '\n', lambda value: bool(value.strip()),
+                lambda _target: _save_preparation_state(target, state, publish))
+    except (ValueError, OSError, RuntimeError) as exc:
+        raise type(exc)(str(exc) + saved) from exc
     return dict(result, text=text, preparation_stage=stage, preparation_path=str(path)), None
 
 
