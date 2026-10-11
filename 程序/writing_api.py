@@ -202,7 +202,7 @@ def _write_script_raw(project, text, *, publish=None):
     return target
 
 
-def _auto_save_script_raw(project, result, *, publish=None):
+def _auto_save_script_raw(project, result, *, publish=None, model=''):
     """关闭四角色模式时，合格且足够长的 API 正文仍经唯一写入点发布原稿。"""
     if not isinstance(result, dict) or not result.get('ok'):
         return result
@@ -217,20 +217,19 @@ def _auto_save_script_raw(project, result, *, publish=None):
     from stage_path_service import write_dir
     target = write_dir(Path(project), 'script') / 'script_raw.md'
     try:
-        if target.is_file() and target.read_text(encoding='utf-8').strip() == text:
-            saved = dict(result)
-            saved.update(script_raw_path=str(target), hollmwood_enabled=False)
-            return saved
+        unchanged = target.is_file() and target.read_text(encoding='utf-8').strip() == text
     except OSError:
-        pass
+        unchanged = False
+    if not unchanged:
+        target = _write_script_raw(project, text, publish=publish)
     saved = dict(result)
-    saved.update(script_raw_path=str(_write_script_raw(project, text, publish=publish)), hollmwood_enabled=False)
-    return saved
+    saved.update(script_raw_path=str(target), hollmwood_enabled=False)
+    return _save_formal_script(project, saved, model=model, publish=publish)
 
 
 def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, cancelled=None, stream=None,
                      *, publish=None):
-    """以既有模型路由运行四角色协作，成功后只写 script_raw.md。"""
+    """以既有模型路由运行四角色协作，通过审核后发布原稿与正式剧本。"""
     import hollmwood_roles
     import stage_config
     import workflow_settings
@@ -265,9 +264,10 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
                 'hollmwood_review_failed_role': exc.review_failed_role}
     if callable(cancelled) and cancelled():
         raise hollmwood_roles.RoleCancelledError('HOLLMWOOD 调用已取消')
+    publish = _cancellable_publisher(publish, cancelled)
     target = _write_script_raw(project, outputs['script'], publish=publish)
-    return {'ok': True, 'status': 200, 'model': chosen, 'text': outputs['script'],
-            'usage': {}, 'script_raw_path': str(target), 'hollmwood_enabled': True}
+    return _save_formal_script(project, {'ok': True, 'status': 200, 'model': chosen, 'text': outputs['script'],
+            'usage': {}, 'script_raw_path': str(target), 'hollmwood_enabled': True}, publish=publish)
 
 
 def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish=None, cancelled=None):
@@ -566,7 +566,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
                    '仅当同一文件操作连续重复且没有新进展时才暂停。')
         result = _reply_with_project_tools(adapter, chosen, system, task, root, publish=publish, cancelled=cancelled)
         _ensure_reply_active(cancelled)
-        return _auto_save_script_raw(root, result, publish=_cancellable_publisher(publish, cancelled)) if auto_save_enabled else result
+        return _auto_save_script_raw(root, result, model=chosen, publish=_cancellable_publisher(publish, cancelled)) if auto_save_enabled else result
     messages = [{'role': 'user', 'content': task}]
     rejected = _context_budget_error(chosen, system, messages)
     if rejected:
@@ -579,7 +579,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
                           model=chosen, system=system)
     _ensure_reply_active(cancelled)
     _record_model_diagnostic(root, result)
-    return _auto_save_script_raw(root, result, publish=_cancellable_publisher(publish, cancelled)) if auto_save_enabled else result
+    return _auto_save_script_raw(root, result, model=chosen, publish=_cancellable_publisher(publish, cancelled)) if auto_save_enabled else result
 
 
 def _ensure_reply_active(cancelled):
@@ -596,3 +596,17 @@ def _cancellable_publisher(publish, cancelled):
         _ensure_reply_active(cancelled)
         return publish(*args, **kwargs)
     return guarded
+
+
+def _save_formal_script(project, result, *, model='', publish):
+    """已获准发布的自然剧本复用下载路径、同稿去重和异稿编号规则。"""
+    import idea_chat
+    from project_context_factory import project_context
+    from script_contract import require_natural_script
+    text = require_natural_script(result['text']).strip()
+    provider, label = idea_chat.storage_identity(model or result.get('model', ''))
+    target = idea_chat.reply_document_path(project_context(project), text,
+                                          provider=provider, model=label, file_type='自然剧本')
+    if not target.is_file() or target.read_text(encoding='utf-8').strip() != text:
+        publish(target, text + '\n', lambda value: bool(require_natural_script(value)), lambda _target: None)
+    return dict(result, natural_script_path=str(target))

@@ -128,6 +128,7 @@ class PerformanceTests(unittest.TestCase):
     def test_api_passes_config_identity_without_persisting_credentials(self):
         import writing_api
         from service_contract import success
+        from stage_execution_service import publish_stage_text
         with tempfile.TemporaryDirectory() as folder, \
                 patch('writing_api.PoolAdapter'), \
                 patch('stage_config.hollmwood_rules', return_value=('', '')), \
@@ -136,7 +137,8 @@ class PerformanceTests(unittest.TestCase):
                 patch('writing_api._write_script_raw', return_value=Path(folder) / 'script_raw.md'), \
                 patch('hollmwood_roles.run', return_value=success({'script': '正文'})) as run:
             for endpoint in ('one', 'two'):
-                writing_api._hollmwood_reply(folder, 'test', {'endpoint': endpoint, 'key': 'private'}, {}, {'idea': '创意'})
+                writing_api._hollmwood_reply(folder, 'test', {'endpoint': endpoint, 'key': 'private'}, {}, {'idea': '创意'},
+                                           publish=publish_stage_text)
             identities = [call.kwargs['resume_identity'] for call in run.call_args_list]
         self.assertNotEqual(*identities)
         self.assertTrue(all(len(value) == 64 and 'private' not in value for value in identities))

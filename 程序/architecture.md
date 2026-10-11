@@ -173,6 +173,8 @@ R730 将剧本准备的用户可见创意文件纳入 L3 发布器注入边界�
 
 R1087 将正式回复的纯路径计算集中到 L2 `idea_chat.reply_path_parts()`；下载保存与 L3 Agent 任务书共同使用，不通过伪发布器取路径。桌面入口显式启用正式交付条款并固定本次时间；API 默认不启用。内部工作稿保留，正式稿仍优先，三类目录和文件名规则不在调用方复制。
 
+R1244 补齐 API 自然剧本自动归档：四角色审核通过或关闭四角色后的合格正文，保留内部原稿，并由 `writing_api` 复用 `idea_chat.reply_document_path()` 计算正式稿路径，经既有 L3 注入发布器写入对应 Provider／模型／日期批次的项目剧本目录。同稿复用、异稿编号；失败或取消不进入正式发布，页面显示正式保存路径。此处是程序发布，不要求 API 模型自行写文件。
+
 R730 后架构门禁基线为 128/128，默认冒烟基线仍为 8/8。
 
 R731 将首帧删除、恢复与替换的 `episode.json` 状态发布完全纳入 L3 发布器注入边界：L2 `keyframe_lifecycle_service` 只接收图片及索引发布器，绝不保留 `save()`／`save_bytes()` 直写回退；`stage_execution_service.delete_stage_keyframe()`／`restore_stage_keyframe()`／`replace_stage_keyframe()` 分别注入 JSON 文本及 PNG 原子发布器，桌面只调用这些 L3 编排入口。镜头编号和路径校验、回收站处理、索引失败时的图片与内存状态回滚均保持不变。

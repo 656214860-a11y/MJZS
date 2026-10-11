@@ -41,9 +41,10 @@ def confirm(parent, title, message, *, dangerous=False, **_legacy_options):
     return ask_confirmation(parent, title, message, dangerous=dangerous)
 
 
-def script_raw_saved_notice(four_roles):
+def script_raw_saved_notice(four_roles, formal_path=''):
     """剧本原稿发布后的三虎提示，按本次请求实际模式区分。"""
-    return '四角色剧本已保存：script_raw.md' if four_roles else '剧本已自动保存：script_raw.md'
+    name = Path(formal_path).name if formal_path else 'script_raw.md'
+    return ('四角色剧本已保存：' if four_roles else '剧本已自动保存：') + name
 
 
 # 第 37 期第 2 条：创意栏那七个字段的名字只写一份（预置示例与灰色字段名都取它）。
@@ -1756,8 +1757,11 @@ class Desktop:
                         self.set_hollmwood_role_status(complete=True)
                     refresh=getattr(self,'refresh_script_list',None)
                     if callable(refresh):refresh()
-                    self.pet_report('script', script_raw_saved_notice(four_roles))
-                self.status.set('已收到 '+model+' 的回复；完整剧本可下载保存。')
+                    self.pet_report('script', script_raw_saved_notice(four_roles, result.get('natural_script_path', '')))
+                if result.get('natural_script_path'):
+                    self.status.set('自然剧本已自动保存：'+result['natural_script_path'])
+                else:
+                    self.status.set('已收到 '+model+' 的回复；完整剧本可下载保存。')
             def ask():
                 from stage_execution_service import reply_to_writing
                 return reply_to_writing(

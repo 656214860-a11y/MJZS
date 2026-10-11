@@ -506,6 +506,10 @@ class WritingApiTests(unittest.TestCase):
                 if index:
                     self.assertEqual(prompt.count('<director_instruction>\n节奏计划'), 1)
             self.assertEqual((project_stages.writing(project) / 'script_raw.md').read_text(encoding='utf-8'), '演员稿\n')
+            formal = Path(result['natural_script_path'])
+            self.assertEqual(formal.parent.name, '项目剧本')
+            self.assertEqual(formal.read_text(encoding='utf-8').strip(), '演员稿')
+            self.assertNotEqual(formal.name, 'script_raw.md')
             self.assertEqual(len(list((project / 'logs').glob('hollmwood_step_*.log'))), 7)
             self.assertEqual(len(list((project / 'logs' / 'model_diagnostics').glob('*.json'))), 7)
 
@@ -526,6 +530,62 @@ class WritingApiTests(unittest.TestCase):
             self.assertTrue(result['script_raw_path'])
             self.assertFalse(result['hollmwood_enabled'])
             self.assertEqual((project_stages.writing(project) / 'script_raw.md').read_text(encoding='utf-8'), text.strip() + '\n')
+            self.assertEqual(Path(result['natural_script_path']).read_text(encoding='utf-8').strip(), text.strip())
+
+    def test_api_formal_script_reuses_download_path_and_versions_changed_text(self):
+        import idea_chat
+        from project_context_factory import project_context
+        from stage_execution_service import publish_idea_creative
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            text = '# 自然剧本\n场景：雨夜照相馆\n' + self.natural_script(20).strip()
+            result = {'ok': True, 'text': text, 'model': 'DeepSeek V4 Flash'}
+            first = writing_api._auto_save_script_raw(project, result, publish=publish_stage_text)
+            formal = Path(first['natural_script_path'])
+            self.assertIn('DeepSeek', formal.name)
+            provider, model = idea_chat.storage_identity(result['model'])
+            downloaded = idea_chat.save_reply(project_context(project), text, provider=provider, model=model,
+                                             publish=publish_idea_creative)
+            self.assertEqual(downloaded, formal)
+            again = writing_api._auto_save_script_raw(project, result, publish=publish_stage_text)
+            self.assertEqual(again['natural_script_path'], str(formal))
+            changed = writing_api._auto_save_script_raw(project, dict(result, text=text + '\n阿远关上门。'),
+                                                       publish=publish_stage_text)
+            revised = Path(changed['natural_script_path'])
+            self.assertIn('DeepSeek(1)', revised.name)
+            self.assertEqual(formal.read_text(encoding='utf-8').strip(), text)
+            self.assertEqual(len(list(formal.parent.glob('*.md'))), 2)
+
+    def test_formal_publish_failure_surfaces_and_retry_archives_existing_raw(self):
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            result = {'ok': True, 'text': self.natural_script(20), 'model': 'DeepSeek V4 Flash'}
+            def fail_formal(path, *args):
+                if path.name != 'script_raw.md':
+                    raise OSError('formal publication failed')
+                return publish_stage_text(path, *args)
+            with self.assertRaisesRegex(OSError, 'formal publication failed'):
+                writing_api._auto_save_script_raw(project, result, publish=fail_formal)
+            with patch('writing_api._write_script_raw') as raw:
+                saved = writing_api._auto_save_script_raw(project, result, publish=publish_stage_text)
+            raw.assert_not_called()
+            self.assertTrue(Path(saved['natural_script_path']).is_file())
+
+    def test_cancel_at_formal_publish_does_not_create_formal_script(self):
+        import hollmwood_roles
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            cancelled = False
+            def publish(path, *args):
+                nonlocal cancelled
+                output = publish_stage_text(path, *args)
+                cancelled = True
+                return output
+            result = {'ok': True, 'text': self.natural_script(20), 'model': 'DeepSeek V4 Flash'}
+            with self.assertRaises(hollmwood_roles.RoleCancelledError):
+                writing_api._auto_save_script_raw(project, result,
+                    publish=writing_api._cancellable_publisher(publish, lambda: cancelled))
+            self.assertEqual(list(project_stages.writing(project).rglob('*自然剧本*.md')), [])
 
     def test_complete_brief_reads_formal_json_through_cache_and_observes_atomic_republish(self):
         """确认简报是正式项目数据：缓存读必须随原子发布看到新值。"""
@@ -562,6 +622,8 @@ class WritingApiTests(unittest.TestCase):
         from desktop import script_raw_saved_notice
         self.assertEqual(script_raw_saved_notice(True), '四角色剧本已保存：script_raw.md')
         self.assertEqual(script_raw_saved_notice(False), '剧本已自动保存：script_raw.md')
+        self.assertEqual(script_raw_saved_notice(True, '目录/摄影侠_自然剧本_DeepSeek.md'),
+                         '四角色剧本已保存：摄影侠_自然剧本_DeepSeek.md')
 
     def test_cancelled_hollmwood_does_not_write_script_raw(self):
         with tempfile.TemporaryDirectory() as td:
@@ -616,6 +678,8 @@ class WritingApiTests(unittest.TestCase):
             self.assertIn('导演未通过 editor', result['error'])
             self.assertEqual(chat.call_count, 7)
             self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
+            self.assertNotIn('natural_script_path', result)
+            self.assertEqual(list(project_stages.writing(project).rglob('*自然剧本*.md')), [])
 
     def test_claude_timeout_window_allows_thinking_and_visible_output(self):
         self.assertEqual(writing_api.WRITING_REQUEST_TIMEOUT, 180)
