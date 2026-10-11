@@ -1015,13 +1015,13 @@
             },
             {
                 "file": "model_pool.py",
-                "point": "559",
+                "point": "568",
                 "disposition": "exempt",
                 "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。"
             },
             {
                 "file": "model_pool.py",
-                "point": "596",
+                "point": "605",
                 "disposition": "exempt",
                 "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。"
             },
@@ -1303,13 +1303,13 @@
             },
             {
                 "file": "model_pool.py",
-                "point": "538",
+                "point": "547",
                 "disposition": "exempt",
                 "reason": "R797: model_pool is the approved model-routing authority (audit 26 whitelist), not a process-adapter pending item."
             },
             {
                 "file": "model_pool.py",
-                "point": "566",
+                "point": "575",
                 "disposition": "exempt",
                 "reason": "R797: model_pool is the approved model-routing authority (audit 26 whitelist), not a process-adapter pending item."
             },
