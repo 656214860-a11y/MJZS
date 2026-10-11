@@ -184,6 +184,7 @@ class ModelAdapter:
         if isinstance(data, dict):
             response_meta['response_id'] = str(data.get('id') or data.get('request_id') or '')
             if self.wire_api == 'messages':
+                response_meta['finish_reason'] = str(data.get('stop_reason') or '')
                 text = token_saver.anthropic_text(data)
             elif self.wire_api == 'responses':
                 response_meta['response_shape'] = sorted(str(key) for key in data.keys())

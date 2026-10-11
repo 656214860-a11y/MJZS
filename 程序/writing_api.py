@@ -289,6 +289,11 @@ def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish
         _record_model_diagnostic(project, result, purpose='tool_chat')
         if not result.get('ok'):
             return result
+        data = result.get('data') if isinstance(result.get('data'), dict) else {}
+        finish = (result.get('response_meta') or {}).get('finish_reason') or data.get('stop_reason')
+        if finish in ('length', 'max_tokens'):
+            return dict(result, ok=False, text='', error=(
+                f'模型输出额度耗尽（finish_reason={finish}）；未采用不完整回复。请缩小本次创作范围后重试。'))
         uses = _tool_uses(result)
         if not uses:
             internal = _internal_blocks(result)

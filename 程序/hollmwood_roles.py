@@ -147,7 +147,7 @@ def _empty_output_detail(result, retried=False):
         choices = data.get('choices') if isinstance(data.get('choices'), list) else []
         choice = choices[0] if choices and isinstance(choices[0], dict) else {}
         message = choice.get('message') if isinstance(choice.get('message'), dict) else {}
-        meta = {'finish_reason': str(choice.get('finish_reason') or ''),
+        meta = {'finish_reason': str(data.get('stop_reason') or choice.get('finish_reason') or ''),
                 'response_shape': sorted(str(key) for key in data.keys()),
                 'message_fields': sorted(str(key) for key in message.keys()),
                 'reasoning_fields': [key for key in ('reasoning_content', 'reasoning', 'analysis')
@@ -219,12 +219,12 @@ def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled
                        json.dumps(_empty_output_detail(result, retried=True), ensure_ascii=False, sort_keys=True),
                        publish=publish_log)
     detail = _empty_output_detail(result, retried=retried)
-    truncated = detail.get('finish_reason') == 'length'
+    truncated = detail.get('finish_reason') in ('length', 'max_tokens')
     if not (result or {}).get('ok') or not text or truncated:
         if (result or {}).get('ok') and truncated:
-            error = ('模型输出额度耗尽（finish_reason=length；max_tokens=%s）；%s；'
+            error = ('模型输出额度耗尽（finish_reason=%s；max_tokens=%s）；%s；'
                      '请缩小本次创作范围后重试。响应诊断=%s' % (
-                         max_tokens, '正文被截断，未采用' if text else '模型未返回可显示正文',
+                         detail['finish_reason'], max_tokens, '正文被截断，未采用' if text else '模型未返回可显示正文',
                          json.dumps(detail, ensure_ascii=False, sort_keys=True)))
         elif empty_retry and (result or {}).get('ok') and not text:
             detail = _empty_output_detail(result, retried=retried)
