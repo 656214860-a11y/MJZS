@@ -775,7 +775,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     identity = (request_model['provider'], request_model['label'])
     if not chosen:
         raise ValueError('当前未选择可直接对话的 API 模型')
-    import idea_chat
+    import idea_transcript
     import workflow_context
     import workflow_settings
     from workflow_tasks import script_prompt
@@ -819,7 +819,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     if brief is not None:
         task += '\n\n<brief_complete>\n' + json.dumps(brief, ensure_ascii=False, indent=2) + '\n</brief_complete>'
         task += '\n程序已核验设定、大纲、角色卡逐项确认；本次仅执行阶段④自然剧本，沿用上述已确认阶段文件。'
-    history = _recent_chat_history(idea_chat.load(
+    history = _recent_chat_history(idea_transcript.load(
         project_context(root), model=request_model['label'], gateway=idea_chat_gateway()))
     if history:
         task += '\n\n以下为本次对话之前已确认的信息：\n' + history
