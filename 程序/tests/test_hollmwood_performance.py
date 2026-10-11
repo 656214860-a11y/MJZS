@@ -137,7 +137,8 @@ class PerformanceTests(unittest.TestCase):
                 patch('writing_api._write_script_raw', return_value=Path(folder) / 'script_raw.md'), \
                 patch('hollmwood_roles.run', return_value=success({'script': '正文'})) as run:
             for endpoint in ('one', 'two'):
-                writing_api._hollmwood_reply(folder, 'test', {'endpoint': endpoint, 'key': 'private'}, {}, {'idea': '创意'},
+                writing_api._hollmwood_reply(folder, 'test', {'endpoint': endpoint, 'key': 'private'},
+                                           {'hollmwood': {'enabled': True, 'rhythm': {}, 'roles': {}}}, {'idea': '创意'},
                                            publish=publish_stage_text)
             identities = [call.kwargs['resume_identity'] for call in run.call_args_list]
         self.assertNotEqual(*identities)

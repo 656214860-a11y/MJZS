@@ -20,18 +20,24 @@ def _project_root(project=None, *, context=None):
 
 
 def cleanup_batches(folder, days=7):
-    """清理过期且已失败或结果不确定的批次记录。"""
+    """仅回收已明确失败的过期记录；未结算请求永久保留到核实闭环。"""
+    from storage_maintenance import recycle_paths
     folder = Path(folder)
     cutoff = time.time() - days * 86400
+    expired = []
     for root in (folder, folder / 'seedream'):
         if not root.is_dir():
             continue
         for path in root.glob('*.json'):
             try:
-                if path.stat().st_mtime < cutoff and read(path).get('state') in ('failed', 'uncertain'):
-                    remove_temporary_file(path)
+                data = read(path)
+                if (path.stat().st_mtime < cutoff and isinstance(data, dict)
+                        and data.get('state') == 'failed'):
+                    expired.append(path)
             except (OSError, ValueError):
-                pass
+                continue
+    if expired:
+        recycle_paths(folder, expired, '归档过期已失败资产批次；保留请求核对与恢复记录')
 
 
 def generated_plan(base):

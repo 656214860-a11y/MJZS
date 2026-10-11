@@ -39,12 +39,13 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
                         self.assertIn('正式交付路径', prompt)
 
     def api_setup(self, enabled):
+        import stage_config
+        stage_config.put(self.root, 'script', model='test-model', skills=[], hollmwood_enabled=enabled)
         brief = script_contract.brief_document({
             'story_summary': '修表师寻找父亲', 'main_characters': '林青与阿禾',
             'genre': '冒险', 'length': '12集，每集90秒'})
         for target, value in (
             ('writing_api.selected_model', ('test-model', {})),
-            ('workflow_settings.load', {}),
             ('writing_api._complete_brief', brief),
             ('stage_config.hollmwood_enabled', enabled),
             ('workflow_context.snapshot', {}),
@@ -85,7 +86,7 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
 
     def test_enabled_api_still_uses_roles_run_with_rhythm_and_rules(self):
         adapter, brief = self.api_setup(True)
-        role_rules = {'writer': '测试编剧规则'}
+        role_rules = {'director': '测试导演规则', 'writer': '测试编剧规则'}
         with patch('stage_config.hollmwood_rules', return_value=('测试节奏', '测试导演规则')), \
              patch('stage_config.hollmwood_role_rules', return_value=role_rules), \
              patch('hollmwood_roles.run', return_value=success({'script': '演员稿'})) as run, \

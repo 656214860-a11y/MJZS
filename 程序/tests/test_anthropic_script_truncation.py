@@ -82,7 +82,9 @@ class AnthropicScriptTruncationTests(unittest.TestCase):
              patch('workflow_settings.skill_prompt', return_value='规则'), \
              patch('writing_api.hollmwood_gateway', return_value={'publish_log': save_text}):
             result = writing_api._hollmwood_reply(
-                folder, 'claude-test', {}, {}, {'story_summary': '雨夜寻人'}, publish=publish)
+                folder, 'claude-test', {},
+                {'hollmwood': {'enabled': True, 'rhythm': {}, 'roles': {}}},
+                {'story_summary': '雨夜寻人'}, publish=publish)
         self.assertFalse(result['ok'])
         self.assertIn('max_tokens', result['error'])
         self.assertEqual(len(adapter.requests), 6)
