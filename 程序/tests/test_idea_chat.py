@@ -1751,6 +1751,27 @@ class BubbleLayoutTests(_Harness):
                 confirmation.assert_not_called()
             d._idea_requesting = False
 
+    def test_delete_all_targets_displayed_history_when_configuration_changed(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            displayed = d.idea_chat_model()
+            idea_chat.append(proj, 'assistant', '当前气泡中的历史', model=displayed)
+            idea_chat.append(proj, 'user', '其他模型的历史', model='另一模型')
+            d.show(0)
+            self.settle_script_page(win)
+            self.assertIn('当前气泡中的历史', self.log_text(d))
+            with patch.object(d, 'idea_chat_model', return_value='另一模型'), \
+                 patch('desktop.confirm', return_value=True):
+                self.assertEqual(d.delete_all_bubble_messages(), 1)
+                self.settle_script_page(win)
+                self.assertNotIn('当前气泡中的历史', self.log_text(d))
+                d.show_conversation()
+                self.settle_script_page(win)
+                self.assertNotIn('当前气泡中的历史', self.log_text(d))
+            self.assertEqual(idea_chat.load(proj, model=displayed), [])
+            self.assertEqual(idea_chat.load(proj, model='另一模型')[0]['text'], '其他模型的历史')
+
     def test_delete_all_removes_legacy_duplicates_and_protects_other_files(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)

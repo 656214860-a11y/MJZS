@@ -928,14 +928,16 @@ class Desktop:
         self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
         return index
     def delete_all_bubble_messages(self):
-        """删除当前模型的完整会话，含清屏隐藏的历史。"""
+        """删除当前显示模型的完整会话，含清屏隐藏的历史。"""
         if (getattr(self,'_idea_requesting',False) or getattr(self,'_script_agent_launching',False)
                 or self.script_agent_processes()):
             raise ValueError('模型正在回复，请先中断或等待完成，再删除全部信息。')
         if not self.root:return
-        model=self.idea_chat_model()
+        cached=getattr(self,'_idea_view_model_cache',None)
+        model=(cached[1] if isinstance(cached,tuple) and cached[0]==self.root and cached[1]
+               else self.idea_chat_model())
         if not confirm(self.win,'删除全部信息',
-                       '删除当前模型的全部历史对话？\n聊天记录将移入回收站，已保存的剧本和附件保留。',dangerous=True):return
+                       '删除当前显示的 '+model+' 的全部历史对话？\n聊天记录将移入回收站，已保存的剧本和附件保留。',dangerous=True):return
         if getattr(self,'_bubble_edit',None):self.finish_bubble_edit(commit=False)
         import idea_chat
         count=idea_chat.remove_all(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
