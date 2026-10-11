@@ -1565,7 +1565,7 @@ class Desktop:
                     from stage_execution_service import collect_writing_quality
                     from writing_quality import OPEN, CLOSE
                     text = target.read_text(encoding='utf-8')
-                    if OPEN not in text or text.rstrip().endswith(CLOSE):
+                    if OPEN not in text or text.rstrip().endswith(CLOSE) or time.monotonic() - state['changed'] >= 30:
                         result = collect_writing_quality(project, target)
                         stat = target.stat()
                         state['reported'] = state['signature'] = (stat.st_mtime_ns, stat.st_size)

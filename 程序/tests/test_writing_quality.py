@@ -178,6 +178,55 @@ class QualityTests(unittest.TestCase):
                 self.assertIn('四项缺失', append.call_args.args[2])
                 app.show_script_quality.assert_called_once_with(result)
 
+    def test_incomplete_desktop_envelope_notifies_without_overwriting_source(self):
+        from desktop import Desktop
+        from types import SimpleNamespace
+        from stage_execution_service import collect_writing_quality
+        from stage_path_service import write_dir
+        from test_workflow import make_project
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            target = write_dir(project, 'script') / '未完成自然剧本.md'
+            target.parent.mkdir(parents=True, exist_ok=True)
+            app = SimpleNamespace(root=project, win=Mock(), status=Mock(), show_script_quality=Mock(),
+                                  idea_chat_context=Mock(), idea_chat_gateway=Mock(), show_conversation=Mock())
+            with patch('desktop.time.monotonic', return_value=0):
+                Desktop.watch_script_quality(app, target)
+            response = '# 自然剧本\n场景：雨夜照相馆\n' + ('主角推开门，说：“你先走吧”。\n' * 80) + quality.OPEN + '{'
+            target.write_text(response, encoding='utf-8')
+            poll = app.win.after.call_args.args[1]
+            with patch('desktop.time.monotonic', return_value=1):poll()
+            with patch('desktop.time.monotonic', return_value=12), patch('idea_chat.append') as append:
+                poll()
+                append.assert_not_called()
+            with patch('desktop.time.monotonic', return_value=32), patch('idea_chat.append') as append:
+                poll()
+                poll()
+                append.assert_called_once()
+                self.assertIn('格式或证据错误', append.call_args.args[2])
+            self.assertEqual(target.read_text(encoding='utf-8'), response)
+            self.assertFalse(app._script_quality_result['quality_passed'])
+
+    def test_desktop_concurrent_write_is_never_marked_collected(self):
+        from stage_execution_service import collect_writing_quality
+        from stage_path_service import write_dir
+        from test_workflow import make_project
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            target = write_dir(project, 'script') / '自然剧本.md'
+            target.parent.mkdir(parents=True, exist_ok=True)
+            body = '# 自然剧本\n场景：雨夜照相馆\n' + ('主角推开门，说：“你先走吧”。\n' * 80)
+            target.write_text(body, encoding='utf-8')
+            original = quality.publish_reports
+            def changed(*args, **kwargs):
+                result = original(*args, **kwargs)
+                target.write_text(body + '新写入', encoding='utf-8')
+                return result
+            with patch('writing_quality.publish_reports', side_effect=changed):
+                with self.assertRaisesRegex(ValueError, '正文变化'):
+                    collect_writing_quality(project, target)
+            self.assertTrue(target.read_text(encoding='utf-8').endswith('新写入'))
+
 
 if __name__ == '__main__':
     unittest.main()
