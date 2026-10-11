@@ -40,7 +40,7 @@ def model_label(project):
 def capture_request_model(project):
     """在提交线程捕获本次路由及归属；副本只在内存中传递，不持久化凭据。"""
     from copy import deepcopy
-    from idea_chat import ChatModel
+    from idea_document_paths import ChatModel
     chosen, record = selected_model(project)
     provider = model_pool.provider_name(chosen, record) if chosen else ''
     return {'id': chosen, 'record': deepcopy(record),
@@ -584,7 +584,7 @@ def _preparation_state(project, brief):
             candidates = list(path.parent.glob('*.md'))
             if document['stage'] == '角色卡' and path.parent.name == '项目设定':
                 # 角色卡独立分类后，旧记录仍可能指向同批次的项目设定目录。
-                from idea_chat import project_document_directory
+                from idea_document_paths import project_document_directory
                 category = path.parent.parent / project_document_directory('角色卡')
                 candidates.extend(category.glob('*.md'))
             for candidate in sorted(candidates):
@@ -644,7 +644,7 @@ def _preserve_preparation_response(project, result, publish):
 
 def _preparation_step(project, chosen, record, settings, brief, creative, *, publish, cancelled, user_message=None, identity=None):
     """一次请求最多产出一个待确认阶段；返回 None 才可开始自然剧本。"""
-    import idea_chat
+    import idea_document_paths
     import workflow_settings
     from project_context_factory import project_context
     from stage_path_service import write_dir
@@ -749,9 +749,9 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
         documents[-1]['confirmed'] = True
     index, stage = selected, PREPARATION_STAGES[selected]
     context = project_context(project)
-    provider, model = identity or idea_chat.storage_identity(chosen)
+    provider, model = identity or idea_document_paths.storage_identity(chosen)
     file_type = ('项目设定', '项目大纲', '角色卡')[index]
-    path = idea_chat.reply_document_path(context, text, provider=provider, model=model, file_type=file_type)
+    path = idea_document_paths.reply_document_path(context, text, provider=provider, model=model, file_type=file_type)
     document = {'stage': stage, 'path': path.relative_to(write_dir(project, 'script')).as_posix(),
                 'sha256': hashlib.sha256((text + '\n').encode('utf-8')).hexdigest(), 'confirmed': False}
     state.get('revision', state)['documents'] = documents[:index] + [document]
@@ -893,14 +893,14 @@ def _cancellable_publisher(publish, cancelled):
 
 def _save_formal_script(project, result, *, model='', identity=None, publish):
     """已获准发布的自然剧本复用下载路径、同稿去重和异稿编号规则。"""
-    import idea_chat
+    import idea_document_paths
     from project_context_factory import project_context
     from script_contract import require_natural_script
     from writing_quality import split_response, publish_reports, OPEN
     response = result['text']
     text = require_natural_script(split_response(response)[0]).strip()
-    provider, label = identity or idea_chat.storage_identity(model or result.get('model', ''))
-    target = idea_chat.reply_document_path(project_context(project), text,
+    provider, label = identity or idea_document_paths.storage_identity(model or result.get('model', ''))
+    target = idea_document_paths.reply_document_path(project_context(project), text,
                                           provider=provider, model=label, file_type='自然剧本')
     if not target.is_file() or target.read_text(encoding='utf-8').strip() != text:
         publish(target, text + '\n', lambda value: bool(require_natural_script(value)), lambda _target: None)

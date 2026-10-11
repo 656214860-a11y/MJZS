@@ -8,7 +8,7 @@ from storyboard_contract import rules as storyboard_rules
 
 def natural_script_delivery_path(project, at):
     """Exact desktop output target, shared by the task and its receipt watcher."""
-    from idea_chat import reply_path_parts, storage_identity
+    from idea_document_paths import reply_path_parts, storage_identity
     from project_context_factory import project_context
     from project_stages import writing
     from workflow_settings import model_name
@@ -17,7 +17,7 @@ def natural_script_delivery_path(project, at):
         project_context(project), at=at, provider=provider, model=model, file_type='自然剧本'))
 
 def _agent_delivery_contract(project, at=None):
-    from idea_chat import PROJECT_DOCUMENT_DIRS, reply_path_parts, storage_identity
+    from idea_document_paths import PROJECT_DOCUMENT_DIRS, reply_path_parts, storage_identity
     from project_context_factory import project_context
     from project_stages import writing
     from workflow_settings import model_name

@@ -20,6 +20,9 @@ from pathlib import Path
 from idea_script_heuristic import looks_like_script
 from project_context import ProjectContext
 from script_contract import INLINE_REQUIRED_LABELS, PRODUCTION_LOCK_DEFINITIONS, stage_lock_requirements, stage_lock_definitions
+from idea_document_paths import (
+    PROJECT_DOCUMENT_DIRS, ChatModel, project_document_directory, project_script_filename,
+    reply_document_path, reply_path_parts, storage_identity, _file_day, _project_file_type, _storage_name)
 
 FOLDER = '创意对话'
 CHAT_NAME = '对话.json'
@@ -59,14 +62,6 @@ def folder(context):
 def history_path(root):
     """旧版统一聊天记录位置；只作为一次性兼容导入源。"""
     return folder(root) / CHAT_NAME
-
-
-class ChatModel(str):
-    """显示名携带稳定 ID；请求捕获后不再反查可能变化的模型池。"""
-    def __new__(cls, label, model_id='', provider=''):
-        value = super().__new__(cls, label)
-        value.model_id, value.provider = model_id, provider
-        return value
 
 
 def chat_model(model):
@@ -128,26 +123,6 @@ def brief_complete_path(context):
 def _stamp(at=None):
     moment = datetime.fromtimestamp(at) if at is not None else datetime.now()
     return moment.strftime('%Y%m%d_%H%M%S_%f')
-
-
-def _file_day(at=None):
-    """用户可见文件名只保留日期；会话记录仍保留精确时间供排序与显示。"""
-    moment = datetime.fromtimestamp(at) if at is not None else datetime.now()
-    return moment.strftime('%Y%m%d')
-
-
-def _file_part(value, fallback):
-    """把项目标题／集号收成一个可在 Windows 落盘的文件名片段。"""
-    text = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', str(value or '').strip())
-    text = re.sub(r'\s+', ' ', text).strip(' ._')
-    return text[:80] or fallback
-
-
-def project_script_filename(context, at=None, file_type='自然剧本', content='模型输出'):
-    """用户可见创作文件名：``项目名_文件类型_文件内容_年月日.md``。"""
-    from script_contract import stage_file_name
-    return stage_file_name(_context(context).root, _file_part(file_type, '自然剧本'),
-                           _file_part(content, '模型输出'), at=at)
 
 
 def _read_rows(path, gateway):
@@ -524,75 +499,6 @@ def restore_latest_removed(root, model=None, *, gateway=None):
     return record['row']
 
 
-def _storage_name(value, fallback):
-    """Provider／模型名转为安全且仍可辨认的 Windows 目录名。"""
-    name = re.sub(r'[<>:"/\\\\|?*\x00-\x1f]+', '_', str(value or '').strip())
-    name = re.sub(r'\s+', ' ', name).strip(' ._')
-    return name[:80] or fallback
-
-
-def storage_identity(model_label):
-    """模型显示名对应的 Provider 与模型目录名；未知模型也不会混入根目录。"""
-    if isinstance(model_label, ChatModel) and model_label.model_id:
-        return _storage_name(model_label.provider, '未知Provider'), _storage_name(model_label, '未知模型')
-    from legacy_compat import optional_model_identity
-    provider, label = optional_model_identity(model_label, Path(__file__).resolve().parent)
-    return _storage_name(provider, '未知Provider'), _storage_name(label, '未知模型')
-
-
-def reply_path_parts(root, at=None, provider='', model='', file_type='自然剧本'):
-    """纯计算下载正式稿在剧本准备阶段内的逐段路径，不创建或发布文件。"""
-    return (_storage_name(provider, '未知Provider'), _storage_name(model, '未知模型'),
-            '创意_' + _file_day(at), project_document_directory(file_type),
-            project_script_filename(_context(root), at=at, file_type=file_type, content=provider or (storage_identity(model)[0] if model else '模型输出')))
-
-
-# 前三项（设定／大纲／角色卡）是审阅参考，不保留历史版本：同一阶段目录内始终
-# 覆盖最新一份，不再按正文差异追加 (N) 序号副本。自然剧本是唯一正式交付，
-# 仍保留版本，不在本集合内。
-_OVERWRITE_FILE_TYPES = frozenset(('项目设定', '项目大纲', '角色卡'))
-
-
-def reply_document_path(context, text, at=None, provider='', model='', file_type=None):
-    """自动保存与下载共用：相同正文复用；审阅参考覆盖，正式剧本异稿递增编号。"""
-    from stage_path_service import write_dir
-    context = _context(context)
-    file_type = file_type or _project_file_type(text)
-    parts = reply_path_parts(context, at=at, provider=provider, model=model, file_type=file_type)
-    target = write_dir(context.root, 'script').joinpath(*parts)
-    value = str(text).replace('\r\n', '\n').strip()
-    # 同目录的历史命名也可复用，避免旧自动保存稿再次下载产生副本。
-    if target.parent.is_dir():
-        for existing in sorted(target.parent.glob('*.md')):
-            if existing.is_file() and existing.read_text(encoding='utf-8').strip() == value:
-                return existing
-    if file_type in _OVERWRITE_FILE_TYPES:
-        # 审阅参考稿放弃历史版本：始终覆盖该阶段最新一份，保持「一份＝最新」。
-        # 跨 创意_日期 批次也回到同一份，不因跨天续改落到新批次产生副本。
-        candidates = []
-        model_dir = target.parents[2]
-        try:
-            batches = tuple(model_dir.iterdir()) if model_dir.is_dir() else ()
-        except OSError:
-            batches = ()
-        for batch in batches:
-            folder = batch / target.parent.name
-            if not folder.is_dir():
-                continue
-            candidates.extend(path for path in folder.glob('*.md') if path.is_file())
-        if candidates:
-            return max(candidates, key=lambda path: path.stat().st_mtime)
-        return target
-    number = 0
-    while target.exists():
-        number += 1
-        suffix = '(' + str(number) + ')'
-        content = _file_part(provider or (storage_identity(model)[0] if model else ''), '模型输出')[:80 - len(suffix)] + suffix
-        target = target.with_name(project_script_filename(
-            context, at=at, file_type=file_type, content=content))
-    return target
-
-
 def save_reply(root, text, at=None, provider='', model='', *, publish=None):
     """组织确认下载的模型创意；发布由调用方注入的 L3 完成。"""
     context = _context(root)
@@ -639,45 +545,10 @@ def save_manual_creative(root, text, at=None, *, publish=None):
                                                 for directory in PROJECT_DOCUMENT_DIRS.values())},))[name]
 
 
-PROJECT_DOCUMENT_DIRS = {
-    '项目设定': '项目设定',
-    '项目大纲': '项目大纲',
-    '角色卡': '角色卡',
-    '自然剧本': '项目剧本',
-}
-
-
-def project_document_directory(file_type):
-    """返回剧本准备页用户可见文件的唯一分类目录。"""
-    return PROJECT_DOCUMENT_DIRS.get(str(file_type), '项目剧本')
-
-
 def is_project_document_text(text):
     """仅让可归入项目设定、大纲或剧本的模型正文进入项目文件。"""
     value = str(text or '').strip()
     return bool(value and any(mark in value for mark in PROJECT_CONTENT_MARKS))
-
-
-def _project_file_type(text):
-    """按正文归类保存类型；未明确归类的模型正文仍按自然剧本保存。"""
-    value = str(text or '')
-    title = value.strip().split('\n', 1)[0].lstrip('# ').strip()
-    for file_type, titles in (
-            ('角色卡', ('人物设定', '角色卡')),
-            ('项目设定', ('项目设定', '世界观', '需求梳理')),
-            ('项目大纲', ('项目大纲', '剧本大纲', '故事大纲', '分集大纲', '纲要')),
-            ('自然剧本', ('自然剧本', '项目剧本'))):
-        if any(title.startswith(heading) for heading in titles):
-            return file_type
-    if any(mark in value for mark in ('项目大纲', '故事大纲', '分集大纲', '纲要')):
-        return '项目大纲'
-    if any(mark in value for mark in ('人物设定', '角色卡')):
-        return '角色卡'
-    if any(mark in value for mark in ('项目设定', '世界观', '需求梳理')):
-        return '项目设定'
-    return '自然剧本'
-
-
 
 
 def _brief_plain_text(text, labels):

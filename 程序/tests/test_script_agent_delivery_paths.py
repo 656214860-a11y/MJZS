@@ -16,7 +16,7 @@ class AgentDeliveryPathsTests(unittest.TestCase):
     def test_agent_paths_equal_published_paths_for_every_kind(self):
         with tempfile.TemporaryDirectory() as td, patch(
                 'workflow_settings.model_name', return_value='测试模型'), patch(
-                'idea_chat.storage_identity', return_value=('Provider', 'Model')):
+                'idea_document_paths.storage_identity', return_value=('Provider', 'Model')):
             root = Path(td)
             at = 1791331200
             prompt = workflow_tasks.script_prompt(root, None, 'writing', creative_text='素材',
@@ -37,7 +37,7 @@ class AgentDeliveryPathsTests(unittest.TestCase):
 
     def test_api_default_does_not_emit_delivery_paths_or_compute_them(self):
         with tempfile.TemporaryDirectory() as td, patch(
-                'idea_chat.reply_path_parts', side_effect=AssertionError('API must not compute paths')):
+                'idea_document_paths.reply_path_parts', side_effect=AssertionError('API must not compute paths')):
             for text in (workflow_tasks.script_prompt(td, None, 'writing', creative_text='素材'),
                          workflow_tasks.script_followup(None, 'writing', project=td, creative_text='素材')):
                 self.assertNotIn('必须写入以下精确路径', text)
