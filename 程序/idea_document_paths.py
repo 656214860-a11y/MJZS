@@ -147,3 +147,29 @@ def _project_file_type(text):
     if any(mark in value for mark in ('项目设定', '世界观', '需求梳理')):
         return '项目设定'
     return '自然剧本'
+
+
+# 简报文件的唯一命名：``brief_creation.md`` 是用户可见的唯一简报源，
+# ``brief_raw.md`` 仅作旧项目只读兼容输入。
+BRIEF_CREATION_NAME = 'brief_creation.md'
+LEGACY_BRIEF_RAW_NAME = 'brief_raw.md'
+BRIEF_RAW_NAME = BRIEF_CREATION_NAME
+BRIEF_COMPLETE_NAME = 'brief_complete.json'
+
+
+def brief_raw_path(context):
+    """HOLLMWOOD 的原始用户简报（唯一文件：brief_creation.md）。"""
+    from project_stages import writing
+    return writing(_context(context).root) / BRIEF_RAW_NAME
+
+
+def legacy_brief_raw_path(context):
+    """旧项目的简报位置；仅在新文件尚未创建时导入读取。"""
+    from project_stages import writing
+    return writing(_context(context).root) / LEGACY_BRIEF_RAW_NAME
+
+
+def brief_complete_path(context):
+    """经完整性检查后才会出现的 HOLLMWOOD 输入文件。"""
+    from project_stages import writing
+    return writing(_context(context).root) / BRIEF_COMPLETE_NAME

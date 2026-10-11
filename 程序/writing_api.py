@@ -494,8 +494,8 @@ PREPARATION_STAGES = ('项目设定', '剧本大纲', '角色卡')
 
 def preparation_continuation(project, text):
     """简报完成后的普通追问/失败重试沿用简报；显式字段仍走原录入校验。"""
-    import idea_chat
-    if idea_chat.extract_brief_creation(text):
+    from idea_brief_form import extract_brief_creation
+    if extract_brief_creation(text):
         return False
     brief = _complete_brief(project)
     if brief is None:

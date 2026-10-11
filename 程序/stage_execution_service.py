@@ -399,7 +399,7 @@ def prepare_idea_attachment_selection(project, paths):
 
 def stage_idea_brief_defaults(project, *, reference=None):
     """复用本轮引用的解析副本，不再扫描目录或改变模型投递上下文。"""
-    from idea_chat import extract_brief_creation
+    from idea_brief_form import extract_brief_creation
     if reference is None:
         reference = stage_idea_attachment_reference(project)
     values = {}
@@ -1424,7 +1424,7 @@ def save_writing_production_locks(project, values, *, attachment_signature=None)
 def sync_writing_attachment_locks(project, *, reference=None):
     """仅在附档制作参数变化时同步，保留随后手动修订的值。"""
     from hashlib import sha256
-    from idea_chat import extract_brief_creation
+    from idea_brief_form import extract_brief_creation
     from script_contract import PRODUCTION_LOCK_DEFINITIONS
     workflow = stage_config.current_workflow(project)
     name = str(workflow.get('name') or '').strip()

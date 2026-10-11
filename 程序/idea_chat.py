@@ -20,20 +20,18 @@ from pathlib import Path
 from idea_script_heuristic import looks_like_script
 from project_context import ProjectContext
 from script_contract import INLINE_REQUIRED_LABELS, PRODUCTION_LOCK_DEFINITIONS, stage_lock_requirements, stage_lock_definitions
+from idea_brief_form import (
+    BRIEF_CREATION_FIELDS, brief_creation_values, extract_brief_creation, format_brief_creation,
+    inline_required_missing, inline_template_labels, merge_brief_creation,
+    strip_inline_required_markers, _brief_plain_text)
 from idea_document_paths import (
-    PROJECT_DOCUMENT_DIRS, ChatModel, project_document_directory, project_script_filename,
-    reply_document_path, reply_path_parts, storage_identity, _file_day, _project_file_type, _storage_name)
+    PROJECT_DOCUMENT_DIRS, ChatModel, brief_complete_path, brief_raw_path, legacy_brief_raw_path,
+    project_document_directory, project_script_filename, reply_document_path, reply_path_parts,
+    storage_identity, _file_day, _project_file_type, _storage_name)
 
 FOLDER = '创意对话'
 CHAT_NAME = '对话.json'
-# ``brief_creation.md`` is the one user-facing source of truth for a creation
-# brief.  ``brief_raw.md`` remains read-only compatibility input for projects
-# made before the intake form existed.
-BRIEF_CREATION_NAME = 'brief_creation.md'
-LEGACY_BRIEF_RAW_NAME = 'brief_raw.md'
-BRIEF_RAW_NAME = BRIEF_CREATION_NAME
 RAW_SCRIPT_NAME = 'script_raw.md'
-BRIEF_COMPLETE_NAME = 'brief_complete.json'
 REPLY_LIMIT = 20000          # 一次回复最多留这么多字：模型跑飞时不至于把文件写爆
 PROJECT_CONTENT_MARKS = ('项目设定', '人物设定', '世界观', '需求梳理', '项目大纲', '大纲', '纲要', '分集', '剧本', '场景', '镜头', '台词')
 _HISTORY_CACHE_LIMIT = 16
@@ -100,24 +98,6 @@ def deleted_history_path(root, model=None, provider=''):
     path = (model_history_path(root, model, provider=provider)
             if str(model or '').strip() else history_path(root))
     return path.with_name('已删除消息.json')
-
-
-def brief_raw_path(context):
-    """HOLLMWOOD 的原始用户简报（唯一文件：brief_creation.md）。"""
-    from project_stages import writing
-    return writing(_context(context).root) / BRIEF_RAW_NAME
-
-
-def legacy_brief_raw_path(context):
-    """旧项目的简报位置；仅在新文件尚未创建时导入读取。"""
-    from project_stages import writing
-    return writing(_context(context).root) / LEGACY_BRIEF_RAW_NAME
-
-
-def brief_complete_path(context):
-    """经完整性检查后才会出现的 HOLLMWOOD 输入文件。"""
-    from project_stages import writing
-    return writing(_context(context).root) / BRIEF_COMPLETE_NAME
 
 
 def _stamp(at=None):
@@ -551,36 +531,6 @@ def is_project_document_text(text):
     return bool(value and any(mark in value for mark in PROJECT_CONTENT_MARKS))
 
 
-def _brief_plain_text(text, labels):
-    """把明确的 Markdown 字段表/标题转成标签行，不推测正文含义。"""
-    names = '|'.join(re.escape(label) for label in labels)
-    lines, pending = [], ''
-    for line in str(text or '').replace('\r\r\n', '\n').splitlines():
-        cells = [cell.strip().strip('*').strip() for cell in line.strip().strip('|').split('|')]
-        if len(cells) == 2 and (cells[0] in labels or cells[0] == '设定'):
-            line = cells[0] + '：' + cells[1]
-        heading = re.fullmatch(r'\s*#{1,6}\s+(' + names + r')\s*[：:]?\s*', line)
-        if pending:
-            if not line.strip():
-                continue
-            if heading or re.match(r'\s*(?:[-*#]+\s*)?(?:' + names + r')[ *]*[：:\t]', line):
-                lines.append(pending + '：')
-            else:
-                line = pending + '：' + line.strip()
-            pending = ''
-        if heading:
-            pending = heading.group(1)
-        else:
-            lines.append(line)
-    if pending:
-        lines.append(pending + '：')
-    value = '\n'.join(lines)
-    # 只在已知字段之前还原单元格换行，不把任意正文当字段。
-    value = re.sub(r'(?:\\n|<br\s*/?>|[；;\t])\s*(?=(?:' + names + r')[ *]*[：:])', '\n', value, flags=re.I)
-    value = re.sub(r'(?m)^[ \t]*(?:设定|备注)[：:][ \t]*(?=(?:' + names + r')[ *]*[：:])', '', value)
-    return value
-
-
 def _brief_value(text, labels):
     """从用户常见的“字段：内容”写法中取值，不猜测未明说的信息。"""
     names = '|'.join(re.escape(label) for label in labels)
@@ -641,147 +591,6 @@ def _append_raw_brief(root, text, *, gateway=None):
     if value and value not in previous:
         gateway['publish_text'](path, previous.rstrip() + ('\n\n' if previous.strip() else '') + value + '\n')
     return path
-
-
-# 表单字段写在这里而不是桌面层：直接输入、表格填写、后续 HOLLMWOOD 契约
-# 都经由同一份 brief_creation.md，不会出现两套记忆或两份“原始简报”。
-BRIEF_CREATION_FIELDS = (
-    '故事集数', '单集时间', '故事画风', '故事梗概', '故事题材',
-    '故事角色', '物理特征', '故事分集', '特殊要求', '内容补充',
-)
-
-
-def format_brief_creation(values):
-    """将填写表格稳定地保存为人可读的简报文本。"""
-    source = values if isinstance(values, dict) else {}
-    labels = list(BRIEF_CREATION_FIELDS)
-    labels.extend(label for label in source if label not in labels)
-    return '\n'.join(label + '：' + str(source.get(label) or '').strip()
-                     for label in labels).rstrip() + '\n'
-
-
-def strip_inline_required_markers(text):
-    """行尾必填提示只用于显示，不进入提取、模型输入或项目文件。"""
-    return re.sub(r'[ \t]*（必填）[ \t]*(?=\r?$)', '', str(text or ''), flags=re.MULTILINE)
-
-
-def inline_template_labels(text):
-    """从示例的顶层行取得字段边界，缩进角色描述不另起字段。"""
-    return tuple(dict.fromkeys(re.findall(r'^([^\s：:][^：:\n]{0,29})[：:]',
-                                         str(text or ''), re.MULTILINE)))
-
-
-def inline_required_missing(template_text, draft_text, required_labels=INLINE_REQUIRED_LABELS,
-                            attachment_fields=None, *, stage='script',
-                            lock_definitions=PRODUCTION_LOCK_DEFINITIONS):
-    """故事字段与本阶段制作锁共用门禁；其他锁只保留为建议值。"""
-    lock_definitions = stage_lock_definitions(stage, lock_definitions)
-    lock_aliases = {item['label']: (item['label'], *item.get('aliases', ()), item['key'])
-                    for item in lock_definitions}
-    required_keys = stage_lock_requirements(stage)
-    required_labels = tuple(dict.fromkeys((*required_labels,
-        *(item['label'] for item in lock_definitions if item['key'] in required_keys))))
-    labels = tuple(dict.fromkeys((*inline_template_labels(template_text), *required_labels,
-                                 *(label for aliases in lock_aliases.values() for label in aliases))))
-    template = extract_brief_creation(strip_inline_required_markers(template_text),
-                                      extra_labels=labels, include_extra=True)
-    draft = extract_brief_creation(strip_inline_required_markers(draft_text),
-                                   extra_labels=labels, include_extra=True)
-    def normalized(fields, label):
-        return next((''.join(str(fields.get(alias) or '').split())
-                     for alias in lock_aliases.get(label, (label,))
-                     if str(fields.get(alias) or '').strip()), '')
-    return tuple(label for label in required_labels
-                 if not normalized(attachment_fields or {}, label)
-                 and (not normalized(draft, label)
-                      or normalized(draft, label) == normalized(template, label)))
-
-
-def extract_brief_creation(text, *, extra_labels=(), include_extra=False):
-    """只提取明确标注的字段，保留空值和多行；附件不会被当成指令执行。"""
-    aliases = {'集数': '故事集数', '单集时长': '单集时间', '时长': '单集时间',
-               '主要角色': '故事角色', '角色': '故事角色', '人物设定': '故事角色',
-               '题材类型': '故事题材', '题材': '故事题材', '画风': '故事画风',
-               '外貌特征': '物理特征', '故事概述': '故事梗概',
-               '故事主线': '故事梗概', '故事主体': '故事梗概', '剧情': '故事梗概',
-               '故事主题': '故事题材', '类型': '故事题材', '风格': '故事题材',
-               '故事人物': '故事角色', '角色物理特征': '物理特征',
-               '外貌': '物理特征', '形象': '物理特征', '额外要求': '特殊要求', '要求': '特殊要求'}
-    # XLSX 转换稿保留列间制表符；字段可能在“设定”等说明列之后。
-    lock_labels = tuple(label for item in PRODUCTION_LOCK_DEFINITIONS
-                        for label in (item['label'], *item.get('aliases', ()), item['key']))
-    labels = tuple(dict.fromkeys((*BRIEF_CREATION_FIELDS, '篇幅', *aliases, *extra_labels, *lock_labels)))
-    label_pattern = '|'.join(re.escape(label) for label in labels)
-    fields, active = {}, None
-    for line in _brief_plain_text(text, labels).splitlines():
-        match = re.search(r'(?:^|\t)[ ]*(?:[-*#]+[ \t]*)?(' + label_pattern
-                          + r')[ *]*[：:\t][ \t]*(.*)$', line)
-        if match:
-            label = match.group(1).strip().strip('*').strip()
-            canonical = aliases.get(label, label)
-            if canonical in (*BRIEF_CREATION_FIELDS, '篇幅') or (include_extra and label in (*extra_labels, *lock_labels)):
-                active = canonical
-                fields[active] = match.group(2)
-                nested = re.match(r'[ *]*(?:' + label_pattern + r')[ *]*[：:]', match.group(2))
-                if nested:
-                    fields.update(extract_brief_creation(match.group(2), extra_labels=extra_labels, include_extra=include_extra))
-                    active = None
-                continue
-            if label in labels:
-                active = None
-                continue
-        if active:
-            fields[active] += '\n' + line
-    length = fields.pop('篇幅', '')
-    # 旧简报的篇幅可同时声明集数和单集时长；没有明确时长时不猜默认值。
-    for label, pattern in (('故事集数', r'\d+\s*集'),
-                           ('单集时间', r'(?:每集|单集)[：:\s]*(\d+(?:\.\d+)?\s*(?:分钟|秒|minutes?|min|s))')):
-        match = re.search(pattern, length, re.I)
-        if match:
-            fields.setdefault(label, match.group(match.lastindex or 0))
-    return {label: value.strip() for label, value in fields.items()}
-
-
-def merge_brief_creation(text, values):
-    """只补空字段，保留手填正文、别名、未知字段和原有布局。"""
-    source = str(text or '')
-    current = extract_brief_creation(source, extra_labels=tuple(values), include_extra=True)
-    for label, raw in values.items():
-        value = str(raw or '').strip()
-        if not value or current.get(label):continue
-        replaced = False
-        for match in re.finditer(r'(?m)^([^\r\n：:]+)[：:][ \t]*(?=\r?$)', source):
-            field = extract_brief_creation(match.group(1) + '：value', extra_labels=tuple(values), include_extra=True)
-            if label in field:
-                source = source[:match.end()] + value + source[match.end():]
-                replaced = True
-                break
-        if not replaced:
-            source += ('\n' if source and not source.endswith('\n') else '') + label + '：' + value
-        current[label] = value
-    return source
-
-
-def brief_creation_values(root, extra_text='', *, attachment_values=None, extra_labels=(), attachment_reference=None):
-    """读取上次填写内容；当前未发送文本可覆盖同名字段。"""
-    path = brief_raw_path(root)
-    if path.is_file():
-        source = path.read_text(encoding='utf-8')
-    else:
-        legacy = legacy_brief_raw_path(root)
-        source = legacy.read_text(encoding='utf-8') if legacy.is_file() else ''
-    current = str(extra_text or '').strip()
-    extracted = dict(attachment_values or {})
-    for text in (attachment_reference or {}).get('brief_texts', ()):
-        for label, value in extract_brief_creation(text, extra_labels=extra_labels).items():
-            extracted.setdefault(label, value)
-    values = {label: str(extracted.get(label, '')) for label in BRIEF_CREATION_FIELDS}
-    values.update(extract_brief_creation(source, extra_labels=extra_labels))
-    current_fields = extract_brief_creation(current, extra_labels=extra_labels)
-    values.update(current_fields)
-    if current and not current_fields and not any(values.values()):
-        values['故事梗概'] = current
-    return values
 
 
 def save_brief_creation(root, values, *, gateway=None):

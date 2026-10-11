@@ -724,7 +724,7 @@ class Desktop:
         if box is None or not box.winfo_exists():return ''
         start,end=self.idea_draft_range()
         try:
-            from idea_chat import strip_inline_required_markers
+            from idea_brief_form import strip_inline_required_markers
             return strip_inline_required_markers(box.get(start,end))
         except tk.TclError:return ''
     def preserve_idea_draft(self):
