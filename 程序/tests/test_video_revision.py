@@ -1,0 +1,159 @@
+"""显式返工保留旧成果；本地/云端及单镜/批量共享安全提交口径。"""
+import copy
+import tempfile
+import unittest
+from contextlib import ExitStack
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
+from agent.core import save, read
+from engine import Studio
+from local_video import LocalStudio
+from video_task_state import submission_block_reason
+
+
+class VideoRevisionTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+
+    def studio(self, cls, versions):
+        studio = object.__new__(cls)
+        studio.root = self.root
+        studio.db = self.root / 'data/state.json'
+        studio.episode_path = self.root / 'episode.json'
+        studio.cfg = {'live_enabled': True, 'ffmpeg': 'ffmpeg', 'ffprobe': 'ffprobe'}
+        studio.episode = {'shots': [{'id': 'SH001', 'duration': 5, 'video_prompt': 'new prompt'}]}
+        studio.frame = Mock(return_value=self.root / 'frame.png')
+        studio.remaining = Mock(return_value=100)
+        save(studio.db, {'shots': {'SH001': copy.deepcopy(versions)}})
+        return studio
+
+    def dependencies(self, studio):
+        stack = ExitStack()
+        self.addCleanup(stack.close)
+        stack.enter_context(patch('white_model.validate_video_submission', return_value=None))
+        if isinstance(studio, LocalStudio):
+            api = Mock(url='http://127.0.0.1:8189')
+            api.call.return_value = {'prompt_id': 'local-new-task'}
+            api.upload.return_value = 'frame.png'
+            stack.enter_context(patch('local_video.LocalAPI', return_value=api))
+            stack.enter_context(patch('local_video.prepare_graph', return_value=({'114': {'inputs': {}}}, {})))
+            stack.enter_context(patch('local_video.png_size', return_value=(32, 32)))
+            stack.enter_context(patch('h3_reference_adapter.attach', return_value=[]))
+            stack.enter_context(patch('native_apps.open_comfy'))
+            stack.enter_context(patch('native_apps.wait_comfy'))
+            stack.enter_context(patch('local_video.preflight'))
+            stack.enter_context(patch('local_video.command'))
+        else:
+            api = Mock()
+            api.payload.return_value = {'prompt': 'new prompt'}
+            api.submit.return_value = 'cloud-new-task'
+            studio.client = Mock(return_value=api)
+            prepared = dict(studio.shot('SH001'), _reference_mode='first_frame', _asset_references=[])
+            stack.enter_context(patch('api_models.ensure_cloud_model'))
+            stack.enter_context(patch('agent.shot_assets.prepare', return_value=prepared))
+            stack.enter_context(patch('engine.command'))
+        return api
+
+    def test_revise_creates_new_version_and_preserves_old_for_both_backends(self):
+        for cls in (Studio, LocalStudio):
+            with self.subTest(backend=cls.__name__):
+                old = {'version': 1, 'state': 'downloaded', 'review': 'revise', 'file': 'data/SH001/v001/SH001.mp4'}
+                source = self.root / old['file']
+                source.parent.mkdir(parents=True, exist_ok=True)
+                source.write_bytes(b'old-content')
+                studio = self.studio(cls, [old])
+                api = self.dependencies(studio)
+                studio.submit('SH001')
+                versions = studio.state()['shots']['SH001']
+                self.assertEqual(versions[0], old)
+                self.assertEqual(source.read_bytes(), b'old-content')
+                self.assertEqual(len(versions), 2)
+                self.assertEqual(versions[-1]['version'], 2)
+                self.assertEqual(versions[-1]['state'], 'queued')
+                self.assertEqual(versions[-1]['review'], 'pending')
+                with self.assertRaisesRegex(ValueError, '未完成|不确定'):
+                    studio.submit('SH001')
+                (api.call if cls is LocalStudio else api.submit).assert_called_once()
+
+    def test_pass_pending_and_unknown_never_resubmit(self):
+        for cls in (Studio, LocalStudio):
+            for review in ('pass', 'pending', 'revise'):
+                versions = [{'version': 1, 'state': 'downloaded', 'review': review}]
+                if review == 'revise': versions.append({'version': 2, 'state': 'unknown'})
+                with self.subTest(backend=cls.__name__, review=review):
+                    studio = self.studio(cls, versions)
+                    api = self.dependencies(studio)
+                    with self.assertRaises(ValueError): studio.submit('SH001')
+                    self.assertEqual(studio.state()['shots']['SH001'], versions)
+                    api.submit.assert_not_called()
+                    api.call.assert_not_called()
+
+    def test_failed_rework_can_retry_but_any_unresolved_history_blocks(self):
+        rejected = [{'state': 'downloaded', 'review': 'revise'}, {'state': 'rejected'}]
+        self.assertEqual(submission_block_reason(rejected), '')
+        self.assertTrue(submission_block_reason([{'state': 'unknown'}, {'state': 'downloaded', 'review': 'revise'}]))
+        self.assertTrue(submission_block_reason([{'state': 'downloaded', 'review': 'pass'}, {'state': 'failed'}]))
+
+    def test_batch_filters_same_as_manual_gate(self):
+        from app import pending_checked_shots
+        records = {'new': [], 'revise': [{'state': 'downloaded', 'review': 'revise'}],
+                   'pass': [{'state': 'downloaded', 'review': 'pass'}],
+                   'pending': [{'state': 'downloaded', 'review': 'pending'}],
+                   'unknown': [{'state': 'downloaded', 'review': 'revise'}, {'state': 'unknown'}]}
+        studio = SimpleNamespace(episode={'shots': [{'id': sid} for sid in records]}, state=lambda: {'shots': records})
+        self.assertEqual(pending_checked_shots(studio, list(records)), ['new', 'revise'])
+
+    def test_single_button_allows_explicit_revise_and_retains_pass_skip(self):
+        from app import App
+        for review in ('revise', 'pass', 'pending'):
+            with self.subTest(review=review):
+                studio = self.studio(LocalStudio, [{'state': 'downloaded', 'review': review}])
+                studio.submit = Mock(return_value='queued')
+                app = SimpleNamespace(studio=studio, sid=lambda: 'SH001', edit_checks={'SH001': True},
+                    write=Mock(), ensure_frame=Mock(return_value=True), prompt=Mock(), save_options=Mock(),
+                    local_submit_error={}, progress_text=Mock(), task_progress=Mock(), local_messages=Mock())
+                app.prompt.get.return_value = 'new prompt'
+                app.run = lambda work: work()
+                with patch('app.assert_prompt_editable'):
+                    App.generate(app)
+                self.assertEqual(studio.submit.call_count, 1 if review == 'revise' else 0)
+
+    def test_batch_button_only_submits_revise_and_confirms_its_cost(self):
+        from app import App
+        for cls in (Studio, LocalStudio):
+            with self.subTest(backend=cls.__name__):
+                studio = self.studio(cls, [{'state': 'downloaded', 'review': 'revise'}])
+                studio.episode['shots'] += [{'id': 'SH002', 'duration': 8}, {'id': 'SH003', 'duration': 9}]
+                state = studio.state()
+                state['shots']['SH002'] = [{'state': 'downloaded', 'review': 'pass'}]
+                state['shots']['SH003'] = [{'state': 'unknown'}]
+                save(studio.db, state)
+                studio.submit = Mock(return_value='queued')
+                app = SimpleNamespace(studio=studio, sid=lambda: 'SH001', prompt=Mock(),
+                                      write=Mock(), confirm_submit=Mock(return_value=True))
+                app.prompt.get.return_value = 'new prompt'
+                app.run = lambda work: work()
+                with patch('app.work_targets', return_value=(['SH001', 'SH002', 'SH003'], 'checked')):
+                    App.generate_checked(app)
+                studio.submit.assert_called_once_with('SH001')
+                if cls is Studio:
+                    self.assertEqual(app.confirm_submit.call_args.args[2], 5)
+                else:
+                    app.confirm_submit.assert_not_called()
+
+    def test_local_auto_plan_polls_rework_but_never_starts_it_automatically(self):
+        from local_video import auto_plan
+        old = {'state': 'downloaded', 'review': 'revise'}
+        studio = self.studio(LocalStudio, [old])
+        plan = auto_plan(self.root, studio.episode_path, studio=studio)
+        self.assertEqual(plan[0], [])
+        self.assertTrue(plan[2])
+        for state in ('queued', 'running', 'unknown', 'succeeded'):
+            save(studio.db, {'shots': {'SH001': [old, {'state': state}]}})
+            plan = auto_plan(self.root, studio.episode_path, studio=studio)
+            self.assertEqual(plan[0], [])
+            self.assertEqual(plan[1], ['SH001'])

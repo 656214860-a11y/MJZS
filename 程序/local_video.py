@@ -113,9 +113,9 @@ class LocalStudio(Studio):
         validate_video_submission(self,sid)
         with self.lock():
             st=self.state();versions=st['shots'][sid];shot=self.shot(sid)
-            if any(v.get('state')=='downloaded' for v in versions):raise ValueError('此镜头视频已就绪，不重复提交')
-            if versions and versions[-1]['state'] not in ('downloaded','failed','rejected'):raise ValueError('该镜头有未完成任务，先查询或恢复编号，不重复提交')
-            if versions and versions[-1]['state'] not in ('failed','rejected') and versions[-1].get('review')!='revise':raise ValueError('重做前请先标记需修改')
+            from video_task_state import submission_block_reason
+            blocked=submission_block_reason(versions)
+            if blocked:raise ValueError(blocked)
             graph,options=prepare_graph(self.root,self.cfg,shot);api=LocalAPI(options.get('url','http://127.0.0.1:8189'))
             frame=self.frame(shot)
             fw,fh=png_size(frame)
@@ -271,12 +271,12 @@ def auto_plan(project,source,studio=None):
     st=studio.state();submit=[];poll=[];skipped=[]
     for shot in studio.episode.get('shots',[]):
         sid=shot['id'];versions=st.get('shots',{}).get(sid) or []
+        if versions and versions[-1].get('state') in ACTIVE:poll.append(sid);continue
         if any(v.get('state')=='downloaded' for v in versions):
             if versions[-1].get('review')=='revise':skipped.append((sid,'已标记需修改，请手动重做'))
             continue
         if versions:
             last=versions[-1]
-            if last.get('state') in ACTIVE:poll.append(sid);continue
             if last.get('state') in ('failed','rejected'):
                 skipped.append((sid,'上次本地生成未完成（'+str(last.get('state'))+'），请查看 ComfyUI 后手动重做'));continue
             skipped.append((sid,'上次任务状态异常（'+str(last.get('state') or '未知')+'），请先核实旧任务'));continue

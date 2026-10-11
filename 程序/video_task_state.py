@@ -49,3 +49,13 @@ def elapsed_text(version,now):
     if not isinstance(started,(int,float)):return ''
     total=max(0,int(now-started));minutes,seconds=divmod(total,60)
     return f' · 已等待 {minutes}分{seconds:02}秒'
+
+
+def submission_block_reason(versions):
+    """只判断显式生成请求；返工保留旧版，未决任务禁止再次提交。"""
+    if any(version.get('state') not in ('downloaded', 'failed', 'rejected') for version in versions):
+        return '此镜头已有未完成或结果不确定的任务，只能查询或恢复编号'
+    downloaded = next((version for version in reversed(versions) if version.get('state') == 'downloaded'), None)
+    if downloaded is not None and downloaded.get('review') != 'revise':
+        return '此镜头视频已就绪；重做前请先标记需修改，旧版本会保留'
+    return ''

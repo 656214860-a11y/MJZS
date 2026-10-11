@@ -225,12 +225,9 @@ class Studio:
         with self.lock():
             if not self.cfg['live_enabled']: raise ValueError('当前为离线模式；请在设置中开启联网操作')
             st=self.state(); versions=st['shots'][sid]; shot=self.shot(sid)
-            if any(v.get('state')=='downloaded' for v in versions):
-                raise ValueError('此镜头视频已就绪，不重复提交')
-            if versions and versions[-1]['state'] not in ('downloaded','failed','rejected'):
-                raise ValueError('此镜头已有未完成或结果不确定的任务，只能查询或恢复编号')
-            if versions and versions[-1]['state'] not in ('failed','rejected') and versions[-1].get('review')!='revise':
-                raise ValueError('重做前请先标记“需修改”；旧版本会保留')
+            from video_task_state import submission_block_reason
+            blocked=submission_block_reason(versions)
+            if blocked:raise ValueError(blocked)
             if shot['duration']>self.remaining(): raise ValueError('超过可用制作秒数；备用额度不会自动动用')
             command([self.cfg['ffmpeg'],'-version']); command([self.cfg['ffprobe'],'-version'])
             from agent.shot_assets import prepare

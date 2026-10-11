@@ -14,7 +14,7 @@ from storyboard_paths import media_root, project_root
 from responsive_ui import FlowBar,QuietVar,configure_check_column,CheckboxColumn,fit_columns_by_content,fit_row_height,row_height_for
 from local_video import open_studio,LocalStudio,settings_window
 from project_naming import dated_path
-from video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text
+from video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
 from video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS
 import project_settings
 import asset_thumbs
@@ -58,16 +58,14 @@ PICK_ROWS=6
 
 
 def pending_checked_shots(studio, checked_ids):
-    """从勾选镜头中筛出仍需提交的：跳过已提交、排队/生成中、已就绪及已删除的镜头。"""
+    """从勾选镜头中筛出仍需提交的：只允许首次提交、明确失败重试及需修改成果返工。"""
     st = studio.state(); todo = []
     existing = {s['id'] for s in studio.episode['shots'] if isinstance(s, dict) and s.get('id')}
     for sid in checked_ids:
         if sid not in existing:
             continue
         versions = st['shots'].get(sid, [])
-        if versions and versions[-1].get('state') in ('queued','running','succeeded','unknown','submitting'):
-            continue
-        if any(v.get('state') == 'downloaded' for v in versions):
+        if submission_block_reason(versions):
             continue
         todo.append(sid)
     return todo
@@ -1239,8 +1237,9 @@ class App:
         if versions and versions[-1].get('state') in ('queued','running','succeeded','unknown','submitting'):
             self.update_progress();self.next_poll=0
             self.write('此镜头已有提交记录，已继续跟踪；不会重复提交。');return
-        if any(v.get('state')=='downloaded' for v in versions):
-            self.write(sid+' 视频已就绪，本次跳过，不重复提交。');return
+        blocked=submission_block_reason(versions)
+        if blocked:
+            self.write(sid+' '+blocked);return
         if getattr(self,'optimizer_busy',False):raise ValueError('MCP 正在优化提示词，请完成后再生成视频')
         assert_prompt_editable(self,sid)
         if not self.ensure_frame(sid):return
