@@ -2,6 +2,7 @@
 import json
 import os
 import struct
+import math
 from .core import command
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -44,6 +45,48 @@ def png_size(path):
 
 def probe(path, cfg):
     return json.loads(command([cfg["ffprobe"], "-v", "error", "-show_streams", "-show_format", "-of", "json", path]))
+
+
+class MediaValidationError(ValueError):
+    """输入媒体不符合可导入契约，可向页面展示修复提示。"""
+
+
+def media_facts(kind, data):
+    """实际流类型、有限正时长和画面尺寸的公共技术口径。"""
+    if kind not in ('audio', 'video'):
+        raise ValueError('不支持的媒体类型')
+    if not isinstance(data, dict) or not isinstance(data.get('format'), dict) or not isinstance(data.get('streams'), list):
+        raise MediaValidationError('媒体探测结果不完整')
+    matching = [item for item in data['streams'] if isinstance(item, dict) and item.get('codec_type') == kind
+                and not (kind == 'video' and (item.get('disposition') or {}).get('attached_pic'))]
+    try:
+        duration = float(data['format'].get('duration', 0))
+        sized = kind == 'audio' or any(int(item.get('width', 0)) > 0 and int(item.get('height', 0)) > 0 for item in matching)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise MediaValidationError('媒体时长或画面尺寸无效') from exc
+    if not matching or not math.isfinite(duration) or duration <= 0 or not sized:
+        raise MediaValidationError('媒体缺少有效%s流、时长或画面尺寸' % ('音频' if kind == 'audio' else '视频'))
+    return {'kind': kind, 'duration': duration, 'passed': True}
+
+
+def validate_import(path, cfg, kind):
+    """导入时探测并完整解码一次；不将截断文件发布为正式成果。"""
+    if not cfg.get('ffprobe') or not cfg.get('ffmpeg'):
+        raise MediaValidationError('请先配置 FFmpeg 和 FFprobe，再导入媒体文件')
+    try:
+        data = probe(path, cfg)
+        facts = media_facts(kind, data)
+        if kind == 'video' and cfg.get('require_audio', True) and not any(
+                item.get('codec_type') == 'audio' for item in data['streams'] if isinstance(item, dict)):
+            raise MediaValidationError('成片缺少必要音轨；无声项目请先将 require_audio 配置为 false')
+        maps = ['-map', '0:a'] if kind == 'audio' else ['-map', '0:v', '-map', '0:a?']
+        command([cfg['ffmpeg'], '-nostdin', '-v', 'error', '-xerror', '-err_detect', 'explode',
+                 '-i', path, *maps, '-f', 'null', '-'])
+        return dict(facts, decoded=True)
+    except MediaValidationError:
+        raise
+    except (RuntimeError, OSError, ValueError) as exc:
+        raise MediaValidationError('媒体无法完整解码，请检查文件是否损坏或工具配置是否有效') from exc
 
 
 def check(path, duration, cfg, strict=False):

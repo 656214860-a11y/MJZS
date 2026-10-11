@@ -14,8 +14,11 @@ class AudioImportBoundaryTests(unittest.TestCase):
                      and isinstance(node.func, ast.Name) and node.func.id == 'import_stage_audio']
         self.assertEqual(len(delegated), 1)
         orchestration = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
-        self.assertIn('return import_audio(project, source, publish=publish_stage_bytes)', orchestration,
-                      '生产音频导入必须由 L3 注入统一二进制发布器')
+        self.assertIn("return import_audio(project, source, publish=media_import_publisher(project, 'audio'))", orchestration,
+                      '生产音频导入必须由 L3 注入统一媒体校验及流式发布器')
+        self.assertIn('return copy_file_new(target, source, lambda temporary: validate_import(temporary, config, kind))', orchestration)
+        domain = (ROOT / 'audio_import_service.py').read_text(encoding='utf-8')
+        self.assertNotIn('read_bytes(', domain, '媒体导入不能整文件读入内存')
         prohibited = {'copy2', 'save', 'save_bytes', 'write_text', 'write_bytes', 'remove_temporary_file'}
         direct = [node.lineno for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Name) and node.func.id in prohibited]

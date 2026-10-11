@@ -10,7 +10,8 @@ class DeliveryImportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder) / 'project'; root.mkdir()
             source = Path(folder) / 'master.mp4'; source.write_bytes(b'video')
-            result = import_delivery_master(root, source)
+            with patch('agent.media.validate_import', return_value={'decoded': True}):
+                result = import_delivery_master(root, source)
             self.assertTrue(result.ok)
             target = result.data
             self.assertEqual(target.parent, project_context(root).stage_resolver('delivery'))
@@ -37,10 +38,9 @@ class DeliveryImportTests(unittest.TestCase):
             source = Path(folder) / 'master.mp4'; source.write_bytes(b'video')
             calls = []
 
-            def publish(target, data, validate, update_index):
-                calls.append((target, data, validate(data)))
-                target.write_bytes(data)
-                update_index(target)
+            def publish(target, source):
+                calls.append((target, source))
+                target.write_bytes(source.read_bytes())
 
             result = import_final_master(project_context(root), source, publish=publish)
             self.assertTrue(result.ok)
@@ -48,7 +48,7 @@ class DeliveryImportTests(unittest.TestCase):
             self.assertEqual(target.parent, project_context(root).stage_resolver('delivery'))
             self.assertEqual(target.read_bytes(), b'video')
             self.assertEqual(len(calls), 1)
-            self.assertEqual(calls[0][1:], (b'video', True))
+            self.assertEqual(calls[0][1:], (source,))
 
     def test_filesystem_failure_is_a_non_displayable_system_result(self):
         from service_contract import SystemError

@@ -55,17 +55,8 @@ def _media_path(root, stage, value):
 
 def _technical_media(stage, data):
     """探测结果必须有真实流和有限正时长，不能把扩展名当技术验收。"""
-    kind = 'audio' if stage == 'audio' else 'video'
-    if not isinstance(data, dict) or not isinstance(data.get('format'), dict) or not isinstance(data.get('streams'), list):
-        raise ValueError('媒体探测结果不完整')
-    streams = data.get('streams', [])
-    matching = [item for item in streams if isinstance(item, dict) and item.get('codec_type') == kind]
-    duration = float(data.get('format', {}).get('duration', 0))
-    if not matching or not math.isfinite(duration) or duration <= 0:
-        raise ValueError('媒体没有有效的%s流或时长' % ('音频' if kind == 'audio' else '视频'))
-    if kind == 'video' and not any(int(item.get('width', 0)) > 0 and int(item.get('height', 0)) > 0 for item in matching):
-        raise ValueError('视频没有有效画面尺寸')
-    return {'kind': kind, 'duration': duration, 'passed': True}
+    from agent.media import media_facts
+    return media_facts('audio' if stage == 'audio' else 'video', data)
 
 
 def prepare_media_completion(root, stage, paths, *, scope=None):

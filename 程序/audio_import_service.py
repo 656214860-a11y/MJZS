@@ -3,6 +3,7 @@ import uuid
 import logging
 from pathlib import Path
 from service_contract import SystemError, UserError, success
+from agent.media import MediaValidationError
 
 
 _SUFFIXES = {'.wav', '.mp3', '.m4a', '.aac'}
@@ -30,11 +31,9 @@ def import_audio(project, source, *, publish, stage='audio'):
             folder = audio(project)
         folder.mkdir(parents=True, exist_ok=True)
         destination = folder / (source.stem + '_' + uuid.uuid4().hex[:6] + suffix)
-        expected_size = source.stat().st_size
-        data = source.read_bytes()
-        publish(destination, data,
-                lambda raw: bool(raw) and len(raw) == expected_size,
-                lambda _target: None)
+        publish(destination, source)
+    except MediaValidationError as exc:
+        return UserError(str(exc))
     except OSError:
         LOGGER.exception('音频导入失败')
         return SystemError('音频导入失败，请检查源文件、文件权限和磁盘空间后重试。')

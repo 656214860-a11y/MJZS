@@ -13,11 +13,13 @@ class DeliveryImportBoundaryTests(unittest.TestCase):
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call) and getattr(node.func, 'id', '') == 'import_delivery_master']
         self.assertEqual(len(calls), 1)
         service = open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8').read()
-        self.assertIn('publish=publish_stage_bytes', service,
-                      '生产交付导入必须由 L3 注入统一二进制发布器')
+        self.assertIn("publish=media_import_publisher(project, 'video')", service,
+                      '生产交付导入必须由 L3 注入统一媒体校验及流式发布器')
+        self.assertIn('return copy_file_new(target, source, lambda temporary: validate_import(temporary, config, kind))', service)
         self.assertNotIn('copy2', ast.get_source_segment(open(os.path.join(ROOT, 'desktop.py'), encoding='utf-8').read(), method))
 
     def test_l2_requires_l3_publisher_without_copy_fallback(self):
         service = open(os.path.join(ROOT, 'delivery_import_service.py'), encoding='utf-8').read()
         self.assertIn("if not callable(publish):", service)
         self.assertNotIn('shutil.copy2', service)
+        self.assertNotIn('read_bytes(', service, '成片导入不能整文件读入内存')

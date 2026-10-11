@@ -853,13 +853,13 @@
             },
             {
                 "file": "agent/core.py",
-                "point": "164",
+                "point": "197",
                 "disposition": "exempt",
                 "reason": "\u5199\u5165\u6743\u5a01\u81ea\u8eab"
             },
             {
                 "file": "agent/media.py",
-                "point": "46",
+                "point": "47",
                 "disposition": "exempt",
                 "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
             },
@@ -1093,7 +1093,7 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "974",
+                "point": "988",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
@@ -1117,13 +1117,13 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1005",
+                "point": "1019",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1021",
+                "point": "1035",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },

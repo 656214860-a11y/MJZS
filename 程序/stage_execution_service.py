@@ -118,7 +118,7 @@ def animatic_reference_paths(project):
 
 def import_animatic_audio(project, source):
     from audio_import_service import import_audio
-    return import_audio(project, source, publish=publish_stage_bytes, stage='animatic')
+    return import_audio(project, source, publish=media_import_publisher(project, 'audio'), stage='animatic')
 
 
 def animatic_video(project):
@@ -145,7 +145,7 @@ def import_delivery_master(project, source, *, settings_snapshot=None, cache=Non
     from delivery_import_service import import_final_master
     return import_final_master(
         project_context(project, settings_snapshot=settings_snapshot, cache=cache), source,
-        publish=publish_stage_bytes)
+        publish=media_import_publisher(project, 'video'))
 
 
 def local_video_settings_gateway():
@@ -205,9 +205,23 @@ def poll_pet_test_check(session, project, at=None):
 
 
 def import_stage_audio(project, source):
-    """音频导入编排：L3 注入唯一二进制发布器。"""
+    """音频导入编排：L3 注入校验与有界文件发布器。"""
     from audio_import_service import import_audio
-    return import_audio(project, source, publish=publish_stage_bytes)
+    return import_audio(project, source, publish=media_import_publisher(project, 'audio'))
+
+
+def media_import_publisher(project, kind):
+    """冻结媒体工具配置，在临时副本校验成功后原子发布新文件。"""
+    from agent.core import copy_file_new, read
+    from agent.media import validate_import
+    from platform_tools import tool_path
+    def publish(target, source):
+        config_path = Path(project) / 'config.json'
+        config = dict(read(config_path)) if config_path.is_file() else {}
+        for name in ('ffmpeg', 'ffprobe'):
+            config[name] = config.get(name) or tool_path(name)
+        return copy_file_new(target, source, lambda temporary: validate_import(temporary, config, kind))
+    return publish
 
 
 def export_stage_srt(project, episode):

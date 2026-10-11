@@ -5,6 +5,7 @@ from pathlib import Path
 
 from project_context import ProjectContext
 from service_contract import SystemError, UserError, success
+from agent.media import MediaValidationError
 
 
 ALLOWED_SUFFIXES = frozenset({'.mp4', '.mov'})
@@ -26,7 +27,9 @@ def import_final_master(context, source, publish=None):
         target_dir = context.stage_resolver('delivery')
         target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / (source.stem + '_' + uuid.uuid4().hex[:6] + source.suffix)
-        publish(target, source.read_bytes(), lambda raw: bool(raw), lambda _target: None)
+        publish(target, source)
+    except MediaValidationError as exc:
+        return UserError(str(exc))
     except (OSError, ValueError) as exc:
         LOGGER.exception('最终成片发布失败')
         return SystemError(str(exc))

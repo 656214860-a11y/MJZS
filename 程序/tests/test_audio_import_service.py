@@ -17,8 +17,9 @@ class AudioImportServiceTests(unittest.TestCase):
         self.source.write_bytes(b'audio bytes')
 
     def test_imports_audio_to_the_numbered_audio_stage(self):
-        def publish(target, data, validate, update_index):
-            self.assertTrue(validate(data)); target.write_bytes(data); update_index(target)
+        def publish(target, source):
+            self.assertEqual(source, self.source)
+            target.write_bytes(source.read_bytes())
         with patch('audio_import_service.uuid.uuid4') as created:
             created.return_value.hex = 'abcdef123456'
             result = audio_import_service.import_audio(self.root, self.source, publish=publish)
@@ -46,10 +47,9 @@ class AudioImportServiceTests(unittest.TestCase):
     def test_accepts_injected_publisher_for_formal_release(self):
         calls = []
 
-        def publish(target, data, validate, update_index):
-            calls.append((target, data, validate(data)))
-            target.write_bytes(data)
-            update_index(target)
+        def publish(target, source):
+            calls.append((target, source))
+            target.write_bytes(source.read_bytes())
 
         with patch('audio_import_service.uuid.uuid4') as created:
             created.return_value.hex = 'abcdef123456'
@@ -59,7 +59,7 @@ class AudioImportServiceTests(unittest.TestCase):
 
         self.assertEqual(target.read_bytes(), b'audio bytes')
         self.assertEqual(len(calls), 1)
-        self.assertEqual(calls[0][1:], (b'audio bytes', True))
+        self.assertEqual(calls[0][1:], (self.source,))
 
     def test_read_or_publish_failure_returns_system_error(self):
         publisher = Mock(side_effect=OSError('private detail'))
@@ -70,7 +70,7 @@ class AudioImportServiceTests(unittest.TestCase):
         self.assertIsNone(result.data)
         self.assertEqual(self.source.read_bytes(), b'audio bytes')
         publisher = Mock()
-        with patch.object(Path, 'read_bytes', side_effect=OSError('private detail')):
+        with patch.object(Path, 'stat', side_effect=OSError('private detail')):
             with self.assertLogs('audio_import_service', level='ERROR'):
                 result = audio_import_service.import_audio(self.root, self.source, publish=publisher)
         self.assertIsInstance(result, SystemError)
@@ -94,6 +94,7 @@ class AudioImportServiceTests(unittest.TestCase):
         with patch('stage_workspace_service.ensure_audio_workspace', return_value=success((self.root, self.root))):
             for result in [SystemError('导入失败'), success(self.source)]:
                 app = Mock()
+                app.async_.side_effect = lambda work, done: done(work())
                 dialog.return_value.open_file.return_value = str(self.source)
                 with patch('stage_execution_service.import_stage_audio', return_value=result):
                     if result.ok:

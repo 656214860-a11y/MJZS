@@ -7112,10 +7112,12 @@ class Desktop:
         p=FileDialog(self.win).open_file(initialdir=folder,filetypes=[('音频','*.wav *.mp3 *.m4a *.aac')])
         if not p:return
         from stage_execution_service import import_stage_audio
-        result=import_stage_audio(self.root,p)
-        if not result.ok:raise ValueError(result.reason)
-        dest=result.data
-        self.status.set('音频已导入：'+str(dest))
+        project=self.root
+        def work():
+            result=import_stage_audio(project,p)
+            if not result.ok:raise ValueError(result.reason)
+            return result.data
+        self.async_(work,lambda dest:self.status.set('音频已导入：'+str(dest)))
     def subtitle_rows(self):
         """按剧本对白时间算出 SRT 行；没有对白时抛 ValueError。只读文件、不碰界面，可在工作线程里用。"""
         from subtitle_timing import srt_rows

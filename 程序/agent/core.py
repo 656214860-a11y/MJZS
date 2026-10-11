@@ -127,6 +127,39 @@ def fingerprint(obj):
     return hashlib.sha256(json.dumps(obj, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
+def copy_file_new(path, source, validate):
+    """有界复制、校验临时副本后原子创建；碰撞或失败绝不覆盖旧成果。"""
+    if not callable(validate):
+        raise TypeError('文件发布需要校验器')
+    path, source = Path(path), Path(source)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = temporary_path(path)
+    initial = source.stat()
+    digest = hashlib.sha256()
+    try:
+        with source.open('rb') as src, temp.open('xb') as dst:
+            for block in iter(lambda: src.read(1024 * 1024), b''):
+                dst.write(block)
+                digest.update(block)
+            dst.flush()
+            os.fsync(dst.fileno())
+        after = source.stat()
+        if (initial.st_size != after.st_size or initial.st_mtime_ns != after.st_mtime_ns
+                or temp.stat().st_size != initial.st_size or file_hash(source) != digest.hexdigest()):
+            raise OSError('复制期间源文件发生变化，请重试')
+        if validate(temp) is False:
+            raise ValueError('文件校验未通过，未发布成果')
+        if file_hash(temp) != digest.hexdigest():
+            raise OSError('校验期间临时文件发生变化，未发布成果')
+        os.link(temp, path)
+        from file_cache import published
+        published(path)
+        return path
+    finally:
+        if temp.exists():
+            temp.unlink()
+
+
 def file_hash(path):
     h = hashlib.sha256()
     with Path(path).open("rb") as f:
