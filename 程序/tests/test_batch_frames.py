@@ -105,8 +105,8 @@ class BatchFailureRecoveryTests(unittest.TestCase):
     """某镜生成失败时不再中断整批；确定的失败标记 failed，下次运行会重新提交。"""
 
     def png(self, width=768, height=768):
-        import struct
-        return b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\rIHDR" + struct.pack(">II", width, height) + b"\x00" * 8
+        from tests.image_fixtures import png
+        return png((width, height))
 
     def setup_project(self, td):
         import json
@@ -144,7 +144,17 @@ class BatchFailureRecoveryTests(unittest.TestCase):
                 raise AssertionError("本测试不使用参考图")
 
         original = (bf.preflight, bf.shot_inputs)
-        bf.preflight = lambda src, config: (src, Fake(), {}, shots, [])
+        # 真实 preflight 会跳过已有首帧的镜头；这里照做，否则第二次运行时
+        # 已成功的镜头会因 shot 增加了首帧证据字段而被当成新任务重复提交。
+        def fake_preflight(src, config):
+            rows = json.loads(Path(src).read_text(encoding="utf-8-sig"))["shots"]
+            pending = [row for row in rows
+                       if not row.get("frame_deleted")
+                       and not (Path(src).parent / row["frame"]).is_file()]
+            skipped = ["%s：已有首帧，跳过" % row["id"] for row in rows if row not in pending]
+            return (src, Fake(), {}, pending, skipped)
+
+        bf.preflight = fake_preflight
         bf.shot_inputs = lambda shot, base, assets: ("提示词 " + shot["id"], [])
         try:
             lines = []

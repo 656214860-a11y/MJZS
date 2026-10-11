@@ -679,6 +679,10 @@ def frames_ready(project):
     """SG-04：每个镜头的首帧都在，且不是空文件。"""
     row = gate_for('previs')
     from storyboard_paths import media_root
+    from keyframe_evidence import frame_problem
+    from file_cache import read_json
+    from stage_config import workflow_lock
+    aspect = workflow_lock(project).get('aspect_ratio')
     entries = _adopted(project)
     if not entries:
         return _result(row, True, False, '还没有已采用的分镜，先不拦')
@@ -692,6 +696,7 @@ def frames_ready(project):
         artifacts.append(str(source))
         total += len(shots)
         base = media_root(source).resolve()
+        episode = read_json(source) if Path(source).is_file() else {}
         for shot in shots:
             sid = shot.get('id') or '?'
             frame = shot.get('frame')
@@ -711,15 +716,19 @@ def frames_ready(project):
                     any_frame = True
                     if not path.stat().st_size:
                         problems.append('%s 的首帧是空文件：%s' % (sid, path.name))
+                    else:
+                        problem = frame_problem(source, episode, shot, path, aspect_ratio=aspect)
+                        if problem:
+                            problems.append('%s：%s' % (sid, problem))
             except (OSError, ValueError, RuntimeError):
                 problems.append('%s 的首帧路径无法读取' % sid)
     if not total:
         return _result(row, True, False, '已采用分镜没有镜头，不能确认首帧完成', (), artifacts)
     if not problems:
-        return _result(row, True, True, '%d 个镜头的首帧都在' % total, (), artifacts)
+        return _result(row, True, True, '%d 个镜头的首帧都在且校验通过' % total, (), artifacts)
     if not (any_frame or has_run(project, 'keyframe')):
         return _result(row, True, False, '首帧管理还没做，先不拦', problems[:20], artifacts)
-    return _result(row, False, True, '%d 个镜头缺首帧' % len(problems), problems[:20], artifacts)
+    return _result(row, False, True, '%d 个镜头缺首帧或首帧待复核' % len(problems), problems[:20], artifacts)
 
 
 def previs_ready(project):

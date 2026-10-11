@@ -409,11 +409,18 @@ class GateTests(unittest.TestCase):
 
     def test_frame_completion_checks_all_episodes_and_preserves_files(self):
         from unittest.mock import patch
+        from tests.image_fixtures import png
+        from keyframe_evidence import make_evidence
+        from agent.core import save
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             good = root / 'good.png'
-            good.write_bytes(b'image')
+            raw = png()
+            good.write_bytes(raw)
             first = (root / 'ep1.json', [{'id': 'S001', 'frame': 'good.png'}])
+            episode = {'shots': first[1]}
+            first[1][0]['frame_evidence'] = make_evidence(first[0], episode, first[1][0], good)
+            save(first[0], episode)
             second = (root / 'ep2.json', [{'id': 'S001'}])
             with patch.object(spec, '_adopted', return_value=[first, second]), \
                     patch.object(spec, 'has_run', return_value=False), \
@@ -424,7 +431,7 @@ class GateTests(unittest.TestCase):
                 result = spec.frames_ready(root)
                 self.assertTrue(result['ok'])
                 self.assertTrue(result['started'])
-            self.assertEqual(good.read_bytes(), b'image')
+            self.assertEqual(good.read_bytes(), raw)
 
     def test_the_audit_lists_all_five_gates(self):
         with tempfile.TemporaryDirectory() as td:

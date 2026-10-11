@@ -149,6 +149,8 @@ def run_seedream(source, shots, options, log, stop=None):
         if len(images) > 10:
             failed.append(sid + '：参考图超过 10 张'); log(sid + '：参考图超过 10 张，Seedream 每项最多 10 张'); continue
         payload = _seedream_payload(profile['model'], prompt, aspect, images)
+        from keyframe_evidence import source_evidence
+        frozen_source = source_evidence(source, episode, current)
         save(record_file, {'state': 'sending', 'model': profile['model'], 'shot_id': sid})
         try:
             raw = request_image(profile, payload)
@@ -158,10 +160,21 @@ def run_seedream(source, shots, options, log, stop=None):
         temp = folder / (sid + '_seedream.png')
         try:
             save_bytes(temp, _to_png(raw))
-            dest = register(source, {'shot_id': sid, 'shot_signature': fingerprint(current), 'output': sid + '.png'}, temp)
+            dest = register(source, {'shot_id': sid, 'shot_signature': fingerprint(current), 'output': sid + '.png',
+                                    'source_evidence': frozen_source, 'aspect_ratio': aspect}, temp)
         except Exception as exc:
-            save(record_file, {'state': 'failed', 'model': profile['model'], 'shot_id': sid, 'error': str(exc)})
-            failed.append(sid + '：' + str(exc)); log(sid + '：' + str(exc)); continue
+            # 已拿到响应（可能已扣费）却未能登记：保留图片并标记待核实，绝不按 failed 自动重投，避免重复扣费。
+            pending = folder / (sid + '_待确认.png')
+            try:
+                if temp.is_file():
+                    save_bytes(pending, temp.read_bytes())
+            except OSError:
+                pass
+            kept = pending.is_file()
+            save(record_file, {'state': 'uncertain', 'model': profile['model'], 'shot_id': sid,
+                               'error': str(exc), 'file': str(pending) if kept else ''})
+            blocked.append(sid + '（结果待核实，未重复提交' + ('，图片 ' + pending.name if kept else '') + '，记录 ' + record_file.name + '）')
+            log(sid + '：' + str(exc) + ('；图片保留在 ' + pending.name + '，请核实后导入，未重复提交' if kept else '；请核实，未重复提交')); continue
         finally:
             remove_temporary_file(temp)
         save(record_file, {'state': 'completed', 'model': profile['model'], 'shot_id': sid, 'file': str(dest)})

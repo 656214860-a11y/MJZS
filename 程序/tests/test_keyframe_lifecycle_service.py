@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import keyframe_lifecycle_service
 from agent.core import read, save
+from tests.image_fixtures import png
 from stage_execution_service import (
     delete_stage_keyframe, replace_stage_keyframe, restore_stage_keyframe,
 )
@@ -56,9 +57,9 @@ class KeyframeLifecycleServiceTests(unittest.TestCase):
 
     def test_replaces_frame_and_recycles_previous_version(self):
         result = replace_stage_keyframe(
-            self.base, self.source, self.episode, self.episode['shots'][0], b'\x89PNG\r\n\x1a\nnew')
+            self.base, self.source, self.episode, self.episode['shots'][0], png())
         self.assertTrue(result.ok)
-        self.assertEqual(self.image.read_bytes(), b'\x89PNG\r\n\x1a\nnew')
+        self.assertEqual(self.image.read_bytes(), png())
         recycle = self.base / '工作流任务/回收站'
         self.assertTrue(any(path.name == 'SH001.png' for path in recycle.rglob('*') if path.is_file()))
 
@@ -66,7 +67,7 @@ class KeyframeLifecycleServiceTests(unittest.TestCase):
         previous = self.image.read_bytes()
         with patch('stage_execution_service.publish_keyframe_episode', side_effect=OSError('磁盘不可用')):
             result = replace_stage_keyframe(
-                self.base, self.source, self.episode, self.episode['shots'][0], b'\x89PNG\r\n\x1a\nnew')
+                self.base, self.source, self.episode, self.episode['shots'][0], png())
         self.assertFalse(result.ok)
         self.assertEqual(self.image.read_bytes(), previous)
         self.assertNotIn('frame_deleted', self.episode['shots'][0])
@@ -75,7 +76,7 @@ class KeyframeLifecycleServiceTests(unittest.TestCase):
         shot = self.episode['shots'][0]
         with patch('stage_execution_service.publish_keyframe_episode', side_effect=OSError('索引失败')):
             result = replace_stage_keyframe(
-                self.base, self.source, self.episode, shot, b'\x89PNG\r\n\x1a\nnew')
+                self.base, self.source, self.episode, shot, png())
         self.assertFalse(result.ok)
 
         self.assertEqual(self.image.read_bytes(), b'png')
@@ -87,7 +88,7 @@ class KeyframeLifecycleServiceTests(unittest.TestCase):
             keyframe_lifecycle_service.delete_keyframe(self.base, self.source, self.episode, shot)
         with self.assertRaisesRegex(TypeError, 'L3'):
             keyframe_lifecycle_service.replace_keyframe(
-                self.base, self.source, self.episode, shot, b'\x89PNG\r\n\x1a\nnew')
+                self.base, self.source, self.episode, shot, png())
 
     def test_invalid_user_input_returns_user_error(self):
         result = delete_stage_keyframe(

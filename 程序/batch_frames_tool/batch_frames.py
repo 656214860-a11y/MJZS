@@ -193,6 +193,7 @@ def _failed(record,job,message):
     raise ValueError(message)
 
 def _run(source,cfg,log,stop):
+    from keyframe_evidence import source_evidence, make_evidence
     failed=0
     source,client,assets,shots,skipped=preflight(source,cfg)
     for item in skipped:log(item)
@@ -208,9 +209,11 @@ def _run(source,cfg,log,stop):
             if job.get('state')=='failed':
                 log(shot['id']+'：上次生成失败，本次重新提交（'+str(job.get('error',''))[:60]+'）');job={}
             if not job:
+                frozen_source=source_evidence(source,read(source),shot)
                 uploaded=[client.upload(p) for p in images]
                 workflow=graph(prompt,uploaded,cfg,int(signature[:12],16))
-                job={'state':'submitting','source':str(source),'shot':shot['id'],'signature':signature,'workflow':workflow}
+                job={'state':'submitting','source':str(source),'shot':shot['id'],'signature':signature,'workflow':workflow,
+                     'source_evidence':frozen_source}
                 save(record,job)
                 client_id=uuid.uuid4().hex
                 try:
@@ -238,6 +241,11 @@ def _run(source,cfg,log,stop):
             item=results[0];raw=client.request('/view?'+urlencode({k:item.get(k,'') for k in ('filename','subfolder','type')}),raw=True)
             if not raw.startswith(b'\x89PNG\r\n\x1a\n') or len(raw)<24:_failed(record,job,'输出不是PNG图片')
             if struct.unpack('>II',raw[16:24])!=(cfg['width'],cfg['height']):_failed(record,job,'输出尺寸不符合设置，请检查工作流宽度/高度')
+            from keyframe_evidence import image_facts
+            try:
+                image_facts(raw)
+            except ValueError as exc:
+                _failed(record,job,str(exc))
             frames=media_root(source)/'frames';frames.mkdir(exist_ok=True)
             dest=frames/(shot['id']+'.png')
             if dest.exists():dest=frames/(shot['id']+'_'+uuid.uuid4().hex[:8]+'.png')
@@ -246,7 +254,11 @@ def _run(source,cfg,log,stop):
             save_bytes(dest,raw)
             latest=read(source);current=next(s for s in latest['shots'] if s['id']==shot['id'])
             if current!=shot:raise ValueError('生成期间镜头JSON已变化，图片已保存但未覆盖关联：'+str(dest))
+            if not isinstance(job.get('source_evidence'),dict):_failed(record,job,'旧首帧任务缺少来源版本，图片已保留，请重新生成或导入确认：'+str(dest))
+            evidence=make_evidence(source,latest,current,raw,expected_size=(cfg['width'],cfg['height']),
+                                   frozen_source=job['source_evidence'])
             current['frame']=dest.relative_to(media_root(source)).as_posix()
+            current['frame_evidence']=evidence
             backup=folder/(source.stem+'_before_'+uuid.uuid4().hex[:8]+'.json');save_bytes(backup,source.read_bytes())
             save(source,latest);job.update(state='downloaded',file=str(dest));save(record,job)
             log(shot['id']+'：已保存并关联 '+dest.name)

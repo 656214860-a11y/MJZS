@@ -10,6 +10,7 @@ os.chdir(HERE)
 
 from agent.core import read
 from keyframe_import import register, fingerprint
+from keyframe_evidence import source_evidence
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
 
@@ -62,7 +63,8 @@ class WatchTests(unittest.TestCase):
         manifest = folder / "批次.json"
         manifest.write_text(json.dumps({"source": str(src), "items": [
             {"shot_id": "SH001", "state": "pending", "output": output,
-             "shot_signature": fingerprint(ep["shots"][0])}]}, ensure_ascii=False), encoding="utf-8")
+             "shot_signature": fingerprint(ep["shots"][0]),
+             "source_evidence": source_evidence(src, ep, ep['shots'][0])}]}, ensure_ascii=False), encoding="utf-8")
         return manifest
 
     def test_poll_imports_ready_frame_without_reading_whole_file(self):
@@ -98,7 +100,7 @@ class RegisterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj, src, ep = make_source(td)
             img = Path(td) / "frame.png"; img.write_bytes(PNG)
-            item = {"shot_id": "SH001", "shot_signature": fingerprint(ep["shots"][0])}
+            item = {"shot_id": "SH001", "shot_signature": fingerprint(ep["shots"][0]), "source_evidence": source_evidence(src, ep, ep["shots"][0])}
             dest = register(src, item, img)
             self.assertTrue(dest.is_file())
             new_frame = read(src)["shots"][0]["frame"]
@@ -125,7 +127,7 @@ class RegisterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj, src, ep = make_source(td)
             img = Path(td) / "frame.png"; img.write_bytes(b"not png")
-            item = {"shot_id": "SH001", "shot_signature": fingerprint(ep["shots"][0])}
+            item = {"shot_id": "SH001", "shot_signature": fingerprint(ep["shots"][0]), "source_evidence": source_evidence(src, ep, ep["shots"][0])}
             with self.assertRaises(ValueError):
                 register(src, item, img)
 
@@ -134,7 +136,7 @@ class RegisterTests(unittest.TestCase):
             proj, src, ep = make_source(td)
             before = src.read_bytes()
             img = Path(td) / "frame.png"; img.write_bytes(PNG)
-            item = {"shot_id": "SH001", "shot_signature": fingerprint(ep["shots"][0])}
+            item = {"shot_id": "SH001", "shot_signature": fingerprint(ep["shots"][0]), "source_evidence": source_evidence(src, ep, ep["shots"][0])}
             with patch('keyframe_import.save', side_effect=OSError('磁盘已满')):
                 with self.assertRaises(OSError): register(src, item, img)
             self.assertEqual(src.read_bytes(), before)
