@@ -24,6 +24,25 @@ from test_workflow import make_project
 
 
 class WritingApiTests(unittest.TestCase):
+    def test_request_keeps_model_and_publication_identity_after_selection_changes(self):
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o')
+            from agent.core import save
+            save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
+            records = model_pool.default_pool()
+            with patch('writing_api.model_pool.pool', return_value=records):
+                request = writing_api.capture_request_model(project)
+                original_label = request['label']
+                stage_config.put(project, 'script', model='deepseek-v4-flash')
+                records['gpt-4o']['label'] = '请求发出后改名'
+                with patch('writing_api.PoolAdapter.chat', return_value={
+                        'ok': True, 'text': '# 项目设定\n都市雨夜，少年追查底片。\n待确认'}) as chat:
+                    result = writing_api.reply(project, '开始', publish=publish_stage_text, request_model=request)
+            self.assertEqual(chat.call_args.kwargs['model'], 'gpt-4o')
+            self.assertIn(original_label, Path(result['preparation_path']).parts)
+            self.assertNotIn('请求发出后改名', Path(result['preparation_path']).parts)
+
     @staticmethod
     def confirmed_preparation(project):
         """四角色专项的前置 fixture：三份真实文件及各自确认版本。"""

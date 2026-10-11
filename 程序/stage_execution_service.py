@@ -248,11 +248,17 @@ def export_stage_dialogue_script(project, episode, assets):
     return export_dialogue_script(project, episode, assets, publish=publish_stage_text)
 
 
-def reply_to_writing(project, creative, progress=None, cancelled=None, stream=None, *, user_message=None):
+def adopt_natural_script(project, source_path):
+    """为显式采用的自然剧本版本注入统一发布器。"""
+    from script_workspace_service import adopt_natural_script as adopt
+    return adopt(project, source_path, publish=publish_stage_text)
+
+
+def reply_to_writing(project, creative, progress=None, cancelled=None, stream=None, *, user_message=None, request_model=None):
     """剧本模型调用编排：为所有可见剧本成果注入统一发布器。"""
     from writing_api import reply
     return reply(project, creative, progress=progress, cancelled=cancelled, stream=stream,
-                 publish=publish_stage_text, user_message=user_message)
+                 publish=publish_stage_text, user_message=user_message, request_model=request_model)
 
 
 def desktop_settings_gateway():

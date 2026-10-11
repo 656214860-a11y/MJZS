@@ -181,6 +181,10 @@ def record(value, model_id=''):
     item['provider'] = item['provider'] or DEFAULT_PROVIDER
     item['capabilities'] = capabilities_of(source.get('capabilities'))
     item['context_length'] = context_length_of(source.get('context_length'))
+    if isinstance(source.get('history_locations'), list):
+        item['history_locations'] = [dict(label=str(entry['label']), provider=str(entry['provider']))
+                                     for entry in source['history_locations'] if isinstance(entry, dict)
+                                     and entry.get('label') and entry.get('provider')]
     try:
         item['cost'] = max(1, min(3, int(source.get('cost') or 1)))
     except (TypeError, ValueError):
@@ -438,7 +442,16 @@ def upsert(data, value, model_id=""):
     if not key:
         raise ValueError('模型 ID 不能为空')
     items = pool(data)
-    items[key] = record(value, key)
+    previous = items.get(key, {})
+    updated = record(value, key)
+    locations = list(previous.get('history_locations') or [])
+    if previous and (previous.get('label'), provider_name(key, previous)) != (updated['label'], provider_name(key, updated)):
+        old_location = {'label': previous['label'], 'provider': provider_name(key, previous)}
+        if old_location not in locations:
+            locations.append(old_location)
+    if locations:
+        updated['history_locations'] = locations
+    items[key] = updated
     result = dict(data)
     result['models'] = items
     return result

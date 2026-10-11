@@ -1071,13 +1071,13 @@ class PanelTests(unittest.TestCase):
         self.assertIn('生产模型读取失败', label)
         self.assertIn('模型清单不可读', label)
 
-    def test_confirming_script_model_only_saves_without_refreshing_or_sending(self):
+    def test_confirming_script_model_saves_and_refreshes_history_without_sending(self):
         window = tk.Toplevel(self.win)
         self.desktop.refresh_script_chat_for_selected_model = mock.Mock()
         panel = skill_panel.Panel(window, self.desktop, 'script')
         panel.set_model('deepseek-v4-flash')
         panel.confirm_button.invoke()
-        self.desktop.refresh_script_chat_for_selected_model.assert_not_called()
+        self.desktop.refresh_script_chat_for_selected_model.assert_called_once_with()
         self.assertEqual(stage_config.get(self.desktop.root, 'script')['model'], 'deepseek-v4-flash')
         self.assertFalse(window.winfo_exists())
 

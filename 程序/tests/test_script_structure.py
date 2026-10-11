@@ -65,6 +65,27 @@ class ScriptStructureTests(unittest.TestCase):
                         contract.write_structured_script(root)
             record.assert_not_called()
 
+    def test_multiple_model_drafts_require_explicit_adoption_and_pin_content(self):
+        from stage_execution_service import adopt_natural_script
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            first = root / '01剧本准备' / '甲' / '模型甲' / '创意_20261011' / '项目剧本' / '甲.md'
+            second = root / '01剧本准备' / '乙' / '模型乙' / '创意_20261011' / '项目剧本' / '乙.md'
+            first.parent.mkdir(parents=True); second.parent.mkdir(parents=True)
+            first.write_text(RAW, encoding='utf-8')
+            second.write_text(RAW + '\n另一版结尾。', encoding='utf-8')
+            self.assertIsNone(contract.resolve_script_source(root))
+            adopt_natural_script(root, first)
+            self.assertEqual(contract.resolve_script_source(root), first)
+            second.write_text(RAW + '\n再次更新的另一版。', encoding='utf-8')
+            self.assertEqual(contract.resolve_script_source(root), first)
+            first.write_text(RAW + '\n已修改采用版本。', encoding='utf-8')
+            self.assertIsNone(contract.resolve_script_source(root))
+            adopt_natural_script(root, first)
+            self.assertEqual(contract.resolve_script_source(root), first)
+            first.unlink()
+            self.assertIsNone(contract.resolve_script_source(root))
+
     def test_downloaded_script_from_preparation_is_used_when_script_raw_is_absent(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

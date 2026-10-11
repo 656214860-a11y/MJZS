@@ -1,7 +1,7 @@
 """普通阶段对话的推理与可见正文共享输出预算回归。"""
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import writing_api
 from model_router import PoolAdapter
@@ -9,6 +9,33 @@ from test_workflow import make_project
 
 
 class WritingOutputBudgetTests(unittest.TestCase):
+    def test_context_budget_reserves_output_and_rejects_before_transport(self):
+        raw = Mock()
+        adapter = writing_api.WritingRequestAdapter(raw, {'context_length': 8000}, 'small')
+        result = adapter.chat([{'role': 'user', 'content': '中' * 2200}],
+                              options={'max_tokens': 4096}, system='规则')
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['reason'], 'context_budget_exceeded')
+        raw.chat.assert_not_called()
+        self.assertEqual(result['context_budget']['output_reserved'], 4096)
+
+    def test_usage_accumulates_calls_and_absent_values_remain_unknown(self):
+        raw = Mock()
+        raw.chat.return_value = {'ok': True, 'text': '正文', 'usage': {
+            'prompt_tokens': 100, 'completion_tokens': 20, 'cached_tokens': 0},
+            'data': {'usage': {'prompt_tokens': 100, 'completion_tokens': 20}}}
+        adapter = writing_api.WritingRequestAdapter(raw, {'context_length': 128000}, 'large')
+        adapter.chat([{'role': 'user', 'content': '测试'}], options={'max_tokens': 4096})
+        result = adapter.chat([{'role': 'user', 'content': '继续'}], options={'max_tokens': 4096})
+        self.assertEqual(result['request_usage']['prompt_tokens'], 200)
+        self.assertEqual(result['request_usage']['completion_tokens'], 40)
+        self.assertIsNone(result['request_usage']['cached_tokens'])
+        raw.chat.return_value = {'ok': True, 'text': '正文', 'usage': {
+            'prompt_tokens': 0, 'completion_tokens': 0}, 'data': {}}
+        result = adapter.chat([])
+        self.assertIsNone(result['request_usage']['prompt_tokens'])
+        self.assertEqual(result['request_usage']['calls'], 3)
+
     def call_reply(self, model, creative='确认', text='# 剧本大纲\n雨夜追查底片。\n待确认'):
         payloads = []
 

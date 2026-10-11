@@ -827,6 +827,12 @@
                 "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
             },
             {
+                "file": "script_workspace_service.py",
+                "point": "246",
+                "disposition": "exempt",
+                "reason": "R1247\uff1a\u91c7\u7528\u8bb0\u5f55\u53d1\u5e03\u524d\u6821\u9a8c\u5185\u5b58 JSON \u6587\u672c\uff0c\u4e0d\u8bfb\u53d6\u6587\u4ef6\u3002"
+            },
+            {
                 "file": "writing_api.py",
                 "importer": "writing_api",
                 "imported": "workflow_settings",
@@ -1009,13 +1015,13 @@
             },
             {
                 "file": "model_pool.py",
-                "point": "546",
+                "point": "559",
                 "disposition": "exempt",
                 "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。"
             },
             {
                 "file": "model_pool.py",
-                "point": "583",
+                "point": "596",
                 "disposition": "exempt",
                 "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。"
             },
@@ -1087,7 +1093,7 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "951",
+                "point": "957",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
@@ -1111,19 +1117,19 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "982",
+                "point": "988",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "998",
+                "point": "1004",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "writing_api.py",
-                "point": "367",
+                "point": "436",
                 "disposition": "exempt",
                 "reason": "简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
             },

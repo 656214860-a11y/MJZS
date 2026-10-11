@@ -164,7 +164,7 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
             self.assertEqual(first.name, row.name)
             self.assertIsInstance(row.modified_at, float)
 
-    def test_structure_documents_prioritize_current_stage_and_keep_legacy_fallback(self):
+    def test_structure_documents_list_current_and_legacy_without_silently_adopting(self):
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp)
             current = project / '01剧本准备' / '新剧本.md'
@@ -177,7 +177,7 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
             os.utime(current, (2000, 2000))
 
             result = script_structure_documents(project)
-            self.assertEqual(current, result.source)
+            self.assertIsNone(result.source)
             self.assertEqual((current, legacy), result.source_documents)
             self.assertEqual(project / '01剧本准备', result.source_directory)
             self.assertEqual(project / '02剧本结构', result.output_directory)

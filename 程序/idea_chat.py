@@ -67,9 +67,39 @@ def history_path(root):
     return folder(root) / CHAT_NAME
 
 
+class ChatModel(str):
+    """显示名携带稳定 ID；请求捕获后不再反查可能变化的模型池。"""
+    def __new__(cls, label, model_id='', provider=''):
+        value = super().__new__(cls, label)
+        value.model_id, value.provider = model_id, provider
+        return value
+
+
+def chat_model(model):
+    if isinstance(model, ChatModel):
+        return model
+    import model_pool
+    shown = str(model or '').strip()
+    records = model_pool.pool(program=Path(__file__).resolve().parent)
+    matches = [key for key, record in records.items() if record.get('label') == shown]
+    key = shown if shown in records else (matches[0] if len(matches) == 1 else '')
+    if len(matches) > 1 and not key:
+        raise ValueError('模型显示名重复，请通过模型 ID 选择会话')
+    record = records.get(key, {})
+    return ChatModel(str(record.get('label') or shown), key,
+                     model_pool.provider_name(key, record) if key else '')
+
+
 def model_history_path(context, model, provider=''):
     """当前模型的唯一聊天记录位置：不再混放在剧本准备根目录。"""
-    provider_name, model_name = (storage_identity(model) if not provider else
+    identity = chat_model(model) if not provider else ChatModel(str(model))
+    if identity.model_id and not provider:
+        import hashlib
+        provider_name = '模型会话'
+        model_name = (_storage_name(identity.model_id, '模型') + '--' +
+                      hashlib.sha256(identity.model_id.encode('utf-8')).hexdigest()[:12])
+    else:
+        provider_name, model_name = (storage_identity(model) if not provider else
                                  (_storage_name(provider, '未知Provider'),
                                   _storage_name(model, '未知模型')))
     from project_stages import writing
@@ -242,14 +272,53 @@ def _all_rows(root, model=None, provider='', *, gateway=None):
                 fingerprints.add(fingerprint)
                 unique.append(row)
         return unique
-    current = model_history_path(root, key, provider=provider)
+    identity = chat_model(model)
+    current = model_history_path(root, identity, provider=provider)
+    legacy_labels = {key, str(identity)}
+    # 旧显示名目录只作一次性迁移源。先发布新副本，再清空旧记录；失败可重试。
+    if identity.model_id and not provider:
+        import model_pool
+        records = model_pool.pool(program=Path(__file__).resolve().parent)
+        locations = records.get(identity.model_id, {}).get('history_locations', [])
+        legacy_labels.update(entry['label'] for entry in locations)
+        old_paths = [model_history_path(root, str(identity), provider=identity.provider or '未知Provider')]
+        old_paths.extend(model_history_path(root, entry['label'], provider=entry['provider']) for entry in locations)
+        migration_paths = [(old, current) for old in dict.fromkeys(old_paths)]
+        migration_paths.extend((old.with_name('已删除消息.json'), current.with_name('已删除消息.json'))
+                               for old in dict.fromkeys(old_paths))
+        for source, target in migration_paths:
+            legacy = gateway['read_json'](source) if source.is_file() else {}
+            legacy_rows = legacy.get('messages', []) if isinstance(legacy, dict) else []
+            legacy_rows = [row for row in legacy_rows if isinstance(row, dict)]
+            if legacy_rows and source != target:
+                owners = set()
+                for model_id, record in records.items():
+                    candidates = [{'label': record.get('label') or model_id,
+                                   'provider': model_pool.provider_name(model_id, record)}]
+                    candidates.extend(record.get('history_locations') or [])
+                    if any(model_history_path(root, entry['label'], provider=entry['provider']).parent == source.parent
+                           for entry in candidates):
+                        owners.add(model_id)
+                if owners - {identity.model_id}:
+                    raise ValueError('旧历史目录对应多个模型，无法确定归属；原记录已保留，请先核对模型身份。')
+                existing = gateway['read_json'](target) if target.is_file() else {}
+                migrated = list(existing.get('messages', [])) if isinstance(existing, dict) else []
+                for row in legacy_rows:
+                    item = dict(row, model_id=identity.model_id)
+                    if isinstance(item.get('row'), dict):
+                        item['row'] = dict(item['row'], model_id=identity.model_id)
+                    if item not in migrated:
+                        migrated.append(item)
+                gateway['publish_json'](target, {'version': 2, 'model_id': identity.model_id, 'messages': migrated})
+                gateway['publish_json'](source, {'version': 2, 'migrated_to': str(target.relative_to(_context(root).root)), 'messages': []})
     rows = _read_rows(current, gateway)
-    if rows:
+    if rows or current.exists():
         return rows
     # 历史版本把所有模型写进一份根目录 JSON；首次切到模型页时只导入它自己的
     # 记录，避免不同 Provider 的聊天页再度串线。
     legacy = _read_rows(history_path(root), gateway)
-    selected = [row for row in legacy if str(row.get('model') or '').strip() == key]
+    selected = [row for row in legacy if (row.get('model_id') == identity.model_id
+                if row.get('model_id') and identity.model_id else str(row.get('model') or '') in legacy_labels)]
     if not selected and legacy and not any(str(row.get('model') or '').strip() for row in legacy):
         selected = legacy
     if selected:
@@ -258,7 +327,7 @@ def _all_rows(root, model=None, provider='', *, gateway=None):
         selected_fingerprints = {json.dumps(row, ensure_ascii=False, sort_keys=True) for row in selected}
         remaining = [row for row in legacy
                      if json.dumps(row, ensure_ascii=False, sort_keys=True) not in selected_fingerprints]
-        save_rows(root, selected, model=key, provider=provider, gateway=gateway)
+        save_rows(root, selected, model=identity, provider=provider, gateway=gateway)
         if remaining != legacy:
             save_rows(root, remaining, gateway=gateway)
     return selected
@@ -270,7 +339,7 @@ def load(root, model=None, *, gateway=None):
     key = str(model or '').strip()
     if not key:
         return rows
-    selected = [row for row in rows if str(row.get('model') or '').strip() == key]
+    selected = [rows[index] for index in _row_indexes(rows, model)]
     if selected:
         return selected
     # 旧版本的对话没有 model 字段。仅当整个文件都是这种旧格式时才展示它，
@@ -280,14 +349,32 @@ def load(root, model=None, *, gateway=None):
     return []
 
 
-def append(root, role, text, at=None, model=None, *, gateway=None):
+def append(root, role, text, at=None, model=None, *, gateway=None, context_budget=None, request_usage=None):
     """记一轮对话（读回来再追加，原子写：写坏一次不会把整段对话丢掉）。"""
     rows = _all_rows(root, model=model, gateway=gateway)
     row = {'role': str(role), 'text': str(text), 'at': _stamp(at)}
+    if isinstance(context_budget, dict):row['context_budget'] = dict(context_budget)
+    if isinstance(request_usage, dict):row['request_usage'] = dict(request_usage)
     if str(model or '').strip():
-        row['model'] = str(model).strip()
+        identity = chat_model(model)
+        row['model'] = str(identity)
+        if identity.model_id:row['model_id'] = identity.model_id
     rows.append(row)
     return save_rows(root, rows, model=model, gateway=gateway)
+
+
+def usage_summary(rows):
+    """仅概述当前模型最近一次已保存回复；缺报不能伪装成零消耗。"""
+    row = next((row for row in reversed(rows) if row.get('role') == 'assistant'), {})
+    budget, usage = row.get('context_budget') or {}, row.get('request_usage') or {}
+    if not budget and not usage:
+        return '本模型暂无用量记录'
+    def shown(value):
+        return str(value) if value is not None else '未提供'
+    return ('上次请求：输入估算 ' + shown(budget.get('input_tokens')) + ' token / 容量 '
+            + shown(budget.get('context_limit')) + '；输出预留 ' + shown(budget.get('output_reserved'))
+            + '；API 实报输入/输出/缓存：' + '/'.join(shown(usage.get(key)) for key in
+                ('prompt_tokens', 'completion_tokens', 'cached_tokens')))
 
 
 def compact_context(root, model=None, *, gateway=None):
@@ -334,7 +421,7 @@ def repair_internal_replies(root, model=None, *, gateway=None):
     """清理历史中的 Claude 内部块，并返回最后一条可安全补发的用户创意。"""
     rows = _all_rows(root, model=model, gateway=gateway)
     key = str(model or '').strip()
-    selected = set(_row_indexes(rows, key))
+    selected = set(_row_indexes(rows, model))
     repaired = []
     changed = False
     latest_user = ''
@@ -367,6 +454,11 @@ def repair_internal_replies(root, model=None, *, gateway=None):
 def save_rows(root, rows, model=None, provider='', *, gateway=None):
     """原子保存完整对话；编辑、删除和追加共用这一条落盘路径。"""
     gateway = _require_gateway(gateway)
+    identity = chat_model(model) if str(model or '').strip() else None
+    if identity is not None and identity.model_id:
+        rows = [dict(row, model_id=identity.model_id)
+                if not row.get('model_id') and str(row.get('model') or '') in ('', str(identity), identity.model_id)
+                else dict(row) for row in rows]
     path = model_history_path(root, model, provider=provider) if str(model or '').strip() else history_path(root)
     gateway['publish_json'](path, {'version': 1, 'messages': rows})
     try:
@@ -385,8 +477,10 @@ def _row_indexes(rows, model=None):
     key = str(model or '').strip()
     if not key:
         return list(range(len(rows)))
+    identity = chat_model(model)
     selected = [index for index, row in enumerate(rows)
-                if str(row.get('model') or '').strip() == key]
+                if ((row.get('model_id') == identity.model_id) if row.get('model_id') and identity.model_id
+                    else str(row.get('model') or '').strip() in (key, str(identity)))]
     if selected:
         return selected
     if rows and not any(str(row.get('model') or '').strip() for row in rows):
@@ -425,7 +519,7 @@ def remove(root, index, model=None, *, gateway=None):
     records = history.get('messages') if isinstance(history, dict) else []
     records = records if isinstance(records, list) else []
     records.append({'row': removed, 'index': original_index,
-                    'model': str(model or '').strip(), 'deleted_at': _stamp()})
+                    'model': str(model or '').strip(), 'model_id': chat_model(model).model_id, 'deleted_at': _stamp()})
     gateway['publish_json'](trash, {'version': 1, 'messages': records[-100:]})
     return save_rows(root, rows, model=model, gateway=gateway)
 
@@ -461,6 +555,7 @@ def remove_all(root, model, *, gateway=None):
 def restore_latest_removed(root, model=None, *, gateway=None):
     """恢复当前会话最近删除的一条消息，其他模型的删除记录不相互串入。"""
     gateway = _require_gateway(gateway)
+    _all_rows(root, model=model, gateway=gateway)
     trash = deleted_history_path(root, model=model)
     try:
         history = gateway['read_json'](trash) if trash.is_file() else {}
@@ -470,8 +565,10 @@ def restore_latest_removed(root, model=None, *, gateway=None):
     key = str(model or '').strip()
     if not isinstance(records, list):
         records = []
+    identity = chat_model(model)
     choices = [i for i, record in enumerate(records)
-               if isinstance(record, dict) and str(record.get('model') or '') == key
+               if isinstance(record, dict) and ((record.get('model_id') == identity.model_id)
+                   if record.get('model_id') and identity.model_id else str(record.get('model') or '') == key)
                and isinstance(record.get('row'), dict)]
     if not choices:
         raise ValueError('没有可恢复的对话删除记录')
@@ -493,6 +590,8 @@ def _storage_name(value, fallback):
 
 def storage_identity(model_label):
     """模型显示名对应的 Provider 与模型目录名；未知模型也不会混入根目录。"""
+    if isinstance(model_label, ChatModel) and model_label.model_id:
+        return _storage_name(model_label.provider, '未知Provider'), _storage_name(model_label, '未知模型')
     from legacy_compat import optional_model_identity
     provider, label = optional_model_identity(model_label, Path(__file__).resolve().parent)
     return _storage_name(provider, '未知Provider'), _storage_name(label, '未知模型')

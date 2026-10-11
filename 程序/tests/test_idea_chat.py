@@ -80,12 +80,74 @@ class FakeClient:
 
 
 class SavingTests(unittest.TestCase):
+    def test_model_rename_keeps_history_and_deleted_message_identity(self):
+        import model_pool
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            records = model_pool.default_pool()
+            with patch('model_pool.pool', return_value=records):
+                old_label = records['gpt-4o']['label']
+                idea_chat.append(proj, 'assistant', '改名前的正文', model=old_label)
+                original = idea_chat.model_history_path(proj, old_label)
+                idea_chat.remove(proj, 0, model=old_label)
+                records['gpt-4o']['label'] = '我的新名字'
+                self.assertEqual(idea_chat.model_history_path(proj, '我的新名字'), original)
+                idea_chat.restore_latest_removed(proj, model='我的新名字')
+                self.assertEqual(idea_chat.load(proj, model='我的新名字')[0]['text'], '改名前的正文')
+                idea_chat.append(proj, 'user', '改名后的正文', model='我的新名字')
+                self.assertEqual(len(idea_chat.load(proj, model='gpt-4o')), 2)
+
+    def test_legacy_display_folder_migrates_history_and_recycle_bin_once(self):
+        import model_pool
+        with tempfile.TemporaryDirectory() as td, patch('model_pool.pool', return_value=model_pool.default_pool()):
+            identity = idea_chat.chat_model('gpt-4o')
+            old = idea_chat.model_history_path(td, str(identity), provider=identity.provider)
+            old.parent.mkdir(parents=True)
+            row = {'role': 'user', 'text': '旧消息', 'model': str(identity), 'at': 'x'}
+            old.write_text(json.dumps({'messages': [row]}), encoding='utf-8')
+            old.with_name('已删除消息.json').write_text(json.dumps({'messages': [
+                {'model': str(identity), 'index': 1, 'row': dict(row, text='已删消息')}
+            ]}), encoding='utf-8')
+            self.assertEqual(len(idea_chat.load(td, model=identity)), 1)
+            idea_chat.restore_latest_removed(td, model=identity)
+            self.assertEqual([r['text'] for r in idea_chat.load(td, model=identity)], ['旧消息', '已删消息'])
+            idea_chat.remove_all(td, model=identity)
+            self.assertEqual(idea_chat.load(td, model=identity), [])
+            self.assertEqual(json.loads(old.read_text(encoding='utf-8'))['messages'], [])
+
+    def test_rename_before_first_read_preserves_legacy_folder_lookup(self):
+        import model_pool
+        with tempfile.TemporaryDirectory() as td:
+            records = model_pool.default_pool()
+            old = records['gpt-4o']
+            path = idea_chat.model_history_path(td, old['label'], provider=model_pool.provider_name('gpt-4o', old))
+            path.parent.mkdir(parents=True)
+            path.write_text(json.dumps({'messages': [{'role': 'user', 'text': '尚未迁移', 'model': old['label']}]}), encoding='utf-8')
+            changed = model_pool.upsert({'models': records}, dict(old, label='新名称'), 'gpt-4o')
+            with patch('model_pool.pool', return_value=changed['models']):
+                self.assertEqual([r['text'] for r in idea_chat.load(td, model='gpt-4o')], ['尚未迁移'])
+
+    def test_ambiguous_legacy_folder_is_not_assigned_to_either_model(self):
+        import model_pool
+        with tempfile.TemporaryDirectory() as td:
+            records = {'first': dict(model='first', label='同名', provider='GPT'),
+                       'second': dict(model='second', label='同名', provider='GPT')}
+            old = idea_chat.model_history_path(td, '同名', provider='GPT')
+            old.parent.mkdir(parents=True)
+            content = json.dumps({'messages': [{'role': 'user', 'text': '旧记录', 'model': '同名'}]})
+            old.write_text(content, encoding='utf-8')
+            with patch('model_pool.pool', return_value=records):
+                with self.assertRaisesRegex(ValueError, '无法确定'):
+                    idea_chat.load(td, model='first')
+            self.assertEqual(old.read_text(encoding='utf-8'), content)
+
     def download_page(self, root, model):
         page = SimpleNamespace(
             idea_chat_context=lambda: project_context(root),
             idea_chat_gateway=idea_chat_gateway, idea_chat_model=lambda: model,
             idea_download=Mock(), close_dialog=Mock(), status=Mock(), pet=Mock())
         page.update_script_download_button = lambda: Desktop.update_script_download_button(page)
+        page.displayed_chat_model = lambda: Desktop.displayed_chat_model(page)
         return page
 
     def test_download_uses_current_model_latest_reply_and_identity(self):
@@ -496,13 +558,13 @@ class SavingTests(unittest.TestCase):
             self.assertEqual([row['text'] for row in idea_chat.load(td, model='DeepSeek V4 Flash')],
                              ['旧模型的创意', '旧模型的回复'])
 
-    def test_model_history_is_stored_under_its_provider_and_imports_legacy_rows(self):
+    def test_model_history_is_stored_by_stable_id_and_imports_legacy_rows(self):
         with tempfile.TemporaryDirectory() as td:
             idea_chat.append(td, 'user', '旧位置的 DeepSeek 创意', model='DeepSeek V4 Flash')
             path = idea_chat.model_history_path(td, 'DeepSeek V4 Flash')
             self.assertTrue(path.is_file())
-            self.assertIn('DeepSeek', path.parts)
-            self.assertIn('DeepSeek V4 Flash', path.parts)
+            self.assertIn('模型会话', path.parts)
+            self.assertTrue(path.parent.parent.name.startswith('deepseek-v4-flash--'))
             legacy = idea_chat.history_path(td)
             legacy.parent.mkdir(parents=True, exist_ok=True)
             legacy.write_text(json.dumps({'messages': [
@@ -1270,12 +1332,14 @@ class SendMessageTests(_Harness):
             pending, published = [], []
             d.async_ = lambda fn, done=None, **kwargs: pending.append((fn, done)) or 1
             with patch('idea_chat.repair_internal_replies', return_value={'retry_creative': '恢复创意'}), \
-                    patch('writing_api.model_label', return_value='DeepSeek V4 Flash'), \
+                    patch('writing_api.capture_request_model', return_value={
+                        'id': 'deepseek-v4-flash', 'record': {}, 'label': 'DeepSeek V4 Flash', 'provider': 'DeepSeek'}), \
                     patch.object(d, 'show_conversation'), patch.object(d, 'refresh_script_list'):
                 d.refresh_script_workspace()
             def reply(project, creative, **kwargs):
                 self.assertEqual(project, proj)
                 self.assertEqual(creative, '恢复创意')
+                self.assertEqual(kwargs['request_model']['id'], 'deepseek-v4-flash')
                 cancelled = kwargs.get('cancelled')
                 self.assertTrue(callable(cancelled), '恢复调用必须收到取消回调')
                 self.assertFalse(cancelled())
@@ -1772,6 +1836,33 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(idea_chat.load(proj, model=displayed), [])
             self.assertEqual(idea_chat.load(proj, model='另一模型')[0]['text'], '其他模型的历史')
 
+    def test_message_actions_target_displayed_model_after_configuration_changed(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            displayed = d.idea_chat_model()
+            idea_chat.append(proj, 'assistant', '当前气泡正文', model=displayed,
+                             context_budget={'input_tokens': 123, 'context_limit': 64000, 'output_reserved': 4096},
+                             request_usage={'prompt_tokens': 110, 'completion_tokens': 30, 'cached_tokens': None})
+            idea_chat.append(proj, 'assistant', '另一模型正文', model='另一模型')
+            d.show(0)
+            self.settle_script_page(win)
+            self.assertIn('输入估算 123', d.idea_usage_label.cget('text'))
+            with patch.object(d, 'idea_chat_model', return_value='另一模型'):
+                with patch('prompt_window.copy_text', return_value='') as copied:
+                    self.assertEqual(d.copy_bubble_message(0), '当前气泡正文')
+                    self.assertEqual(copied.call_args.args[1], '当前气泡正文')
+                d.delete_bubble_message(0)
+                self.assertEqual(idea_chat.load(proj, model=displayed), [])
+                d.restore_latest_bubble_message()
+                self.assertEqual(idea_chat.load(proj, model=displayed)[0]['text'], '当前气泡正文')
+                self.assertEqual(idea_chat.load(proj, model='另一模型')[0]['text'], '另一模型正文')
+                d.refresh_script_chat_for_selected_model()
+                self.settle_script_page(win)
+                self.assertIn('另一模型正文', self.log_text(d))
+                self.assertNotIn('当前气泡正文', self.log_text(d))
+                self.assertEqual(d.idea_usage_label.cget('text'), '本模型暂无用量记录')
+
     def test_delete_all_removes_legacy_duplicates_and_protects_other_files(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
@@ -1984,8 +2075,12 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'user', '请帮我构思')
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            d.show_thinking('DeepSeek Chat'); win.update()
-            self.assertIn('DeepSeek Chat 模型正在思考…', self.log_text(d))
+            model = d.displayed_chat_model()
+            d.show_thinking(model); win.update()
+            self.assertIn(model + ' 模型正在思考…', self.log_text(d))
+            d._idea_view_model_cache = (d.root, '另一个模型')
+            d.show_conversation(); win.update()
+            self.assertNotIn('模型正在思考…', self.log_text(d))
             d.clear_thinking(); win.update()
             self.assertNotIn('模型正在思考…', self.log_text(d))
 

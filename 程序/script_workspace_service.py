@@ -231,6 +231,22 @@ def script_structure_documents(project):
     return ScriptStructureDocuments(source_directory, output_directory, source, target, sources, outputs)
 
 
+def adopt_natural_script(project, source_path, *, publish):
+    """采用明确选中的自然剧本内容版本，经 L3 发布台账。"""
+    import hashlib
+    import json
+    import script_contract
+    root = Path(project).resolve()
+    source = selected_workspace_document(script_contract.natural_script_paths(root), source_path)
+    script_contract.require_natural_script(source.read_text(encoding='utf-8'))
+    record = {'path': source.relative_to(root).as_posix(),
+              'sha256': hashlib.sha256(source.read_bytes()).hexdigest()}
+    publish(script_contract.natural_script_selection_path(root),
+            json.dumps(record, ensure_ascii=False, indent=2) + '\n',
+            lambda text: json.loads(text) == record, lambda _path: None)
+    return source
+
+
 def selected_workspace_document(available_paths, selected_path):
     """校验页面树控件的文件选择仍属于当前可见工作区文件集。"""
     if not selected_path:

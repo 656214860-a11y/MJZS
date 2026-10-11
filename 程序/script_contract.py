@@ -201,11 +201,35 @@ def natural_script_paths(project):
     return tuple(visible)
 
 
+def natural_script_selection_path(project):
+    """项目采用版本台账；共享成果与模型聊天分区分别管理。"""
+    from stage_path_service import write_dir
+    return write_dir(project, 'script') / 'natural_script_selection.json'
+
+
 def resolve_script_source(project):
-    """优先使用用户可见的最新自然剧本；仅旧项目才回退内部 script_raw.md。"""
+    """优先采用用户确认的内容版本；多份候选不得按修改时间自动替换。"""
     paths = natural_script_paths(project)
-    if paths:
+    selection_path = natural_script_selection_path(project)
+    if selection_path.exists():
+        selection = read(selection_path)
+        if not isinstance(selection, dict):
+            return None
+        source = (Path(project) / str(selection.get('path') or '')).resolve()
+        if not source.is_relative_to(Path(project).resolve()) or not source.is_file():
+            return None
+        from stage_path_service import read_dirs
+        if not any(source.is_relative_to(folder.resolve()) for folder in read_dirs(project, 'script')):
+            return None
+        content = source.read_bytes()
+        if (hashlib.sha256(content).hexdigest() != selection.get('sha256')
+                or not is_natural_script(content.decode('utf-8', errors='ignore'))):
+            return None
+        return source
+    if len(paths) == 1:
         return paths[0]
+    if paths:
+        return None
     from stage_path_service import read_dirs
     for primary in (folder / RAW_SCRIPT_NAME for folder in read_dirs(project, 'script')):
         try:

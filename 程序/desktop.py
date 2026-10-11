@@ -898,6 +898,11 @@ class Desktop:
         except tk.TclError:
             return None
         return self.safe(lambda:self.start_bubble_edit(event,click['index'],click['name']))
+    def displayed_chat_model(self):
+        """所有气泡操作绑定已显示会话，不随未刷新的配置漂移。"""
+        cached=getattr(self,'_idea_view_model_cache',None)
+        return (cached[1] if isinstance(cached,tuple) and cached[0]==self.root and cached[1]
+                else self.idea_chat_model())
     def copy_bubble_message(self,index):
         """右键“复制整条信息”：只取持久化的正文，不把界面元信息混进去。"""
         if index == 'example':
@@ -909,7 +914,7 @@ class Desktop:
             if reason:return None
             return text
         import idea_chat
-        rows=idea_chat.load(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
+        rows=idea_chat.load(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
         if not 0<=index<len(rows):return None
         text=str(rows[index].get('text') or '')
         if not text:return None
@@ -921,7 +926,7 @@ class Desktop:
     def delete_bubble_message(self,index):
         """右键“删除整条信息”：移出当前对话，并保留最近删除恢复记录。"""
         import idea_chat
-        model=self.idea_chat_model()
+        model=self.displayed_chat_model()
         rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
         if not 0<=index<len(rows):return None
         idea_chat.remove(self.idea_chat_context(),index,model=model,gateway=self.idea_chat_gateway())
@@ -933,9 +938,7 @@ class Desktop:
                 or self.script_agent_processes()):
             raise ValueError('模型正在回复，请先中断或等待完成，再删除全部信息。')
         if not self.root:return
-        cached=getattr(self,'_idea_view_model_cache',None)
-        model=(cached[1] if isinstance(cached,tuple) and cached[0]==self.root and cached[1]
-               else self.idea_chat_model())
+        model=self.displayed_chat_model()
         if not confirm(self.win,'删除全部信息',
                        '删除当前显示的 '+model+' 的全部历史对话？\n聊天记录将移入回收站，已保存的剧本和附件保留。',dangerous=True):return
         if getattr(self,'_bubble_edit',None):self.finish_bubble_edit(commit=False)
@@ -948,7 +951,7 @@ class Desktop:
     def restore_latest_bubble_message(self):
         """恢复当前模型聊天页最近删除的一条完整消息。"""
         import idea_chat
-        row=idea_chat.restore_latest_removed(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
+        row=idea_chat.restore_latest_removed(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
         self.show_conversation();self.status.set('已恢复最近删除的整条信息')
         return row
     def clear_bubble_view(self):
@@ -956,7 +959,7 @@ class Desktop:
         if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
         import idea_chat
         from collections import Counter
-        model=self.idea_chat_model()
+        model=self.displayed_chat_model()
         rows=idea_chat.compact_context(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway()) if self.root else []
         hidden=getattr(self,'_idea_hidden_messages',{})
         hidden[self.bubble_view_key(model)]=Counter(json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False) for row in rows)
@@ -976,7 +979,8 @@ class Desktop:
         self.status.set('已清屏并压缩历史上下文（本地摘录）；完整聊天已保留，点击“刷新”可重新显示。')
     def bubble_view_key(self,model):
         """清屏范围按项目和模型隔离，只在本次应用会话内保存。"""
-        return (str(Path(self.root).resolve()) if self.root else '',str(model or '').strip())
+        return (str(Path(self.root).resolve()) if self.root else '',
+                getattr(model, 'model_id', '') or str(model or '').strip())
     def open_bubble_menu(self,event):
         """消息右键菜单；点击标题、正文或展开控件都能定位同一条消息。"""
         if getattr(self,'_bubble_edit',None):
@@ -1203,7 +1207,8 @@ class Desktop:
         ranges=box.tag_ranges(name)
         if len(ranges)<2:return 'break'
         import idea_chat
-        rows=idea_chat.load(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway())
+        model=self.displayed_chat_model()
+        rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
         if not 0<=index<len(rows):
             raise ValueError('这条对话已不存在，请刷新后重试')
         # 折叠的长消息进入编辑时先还原全文，避免只修改预览那几行。
@@ -1217,7 +1222,8 @@ class Desktop:
         start,end='bubble_edit_start','bubble_edit_end'
         box.mark_set(start,ranges[0]);box.mark_gravity(start,'left')
         box.mark_set(end,body_end);box.mark_gravity(end,'right')
-        self._bubble_edit={'box':box,'index':index,'start':start,'end':end,'original':original}
+        self._bubble_edit={'box':box,'index':index,'start':start,'end':end,'original':original,
+                           'model':model,'context':self.idea_chat_context()}
         try:box.mark_set('insert',box.index('@%d,%d'%(event.x,event.y)))
         except tk.TclError:box.mark_set('insert',start)
         box.focus_set()
@@ -1241,9 +1247,9 @@ class Desktop:
             self.show_conversation()
             return 'break'
         import idea_chat
-        model=self.idea_chat_model()
-        if value:idea_chat.replace(self.idea_chat_context(),edit['index'],value,model=model,gateway=self.idea_chat_gateway());notice='已修改这条对话'
-        else:idea_chat.remove(self.idea_chat_context(),edit['index'],model=model,gateway=self.idea_chat_gateway());notice='已删除这条对话'
+        model=edit['model']
+        if value:idea_chat.replace(edit['context'],edit['index'],value,model=model,gateway=self.idea_chat_gateway());notice='已修改这条对话'
+        else:idea_chat.remove(edit['context'],edit['index'],model=model,gateway=self.idea_chat_gateway());notice='已删除这条对话'
         self.show_conversation()
         self.status.set(notice)
         return 'break'
@@ -1307,7 +1313,7 @@ class Desktop:
             box.tag_bind(name,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
     def show_thinking(self,model):
         """模型正在请求时，在最近一条消息下方放临时状态；不会写入对话记录。"""
-        self._thinking_model=str(model or 'AI 助手').strip()
+        self._thinking_model=model if str(model or '').strip() else 'AI 助手'
         self.show_conversation()
     def clear_thinking(self):
         if getattr(self,'_thinking_model',''):
@@ -1420,8 +1426,11 @@ class Desktop:
         box.delete('1.0','end')
         def finish():
             if not alive():return
+            usage_label = getattr(self, 'idea_usage_label', None)
+            if usage_label is not None and usage_label.winfo_exists():
+                usage_label.configure(text=idea_chat.usage_summary(rows))
             thinking=getattr(self,'_thinking_model','')
-            if thinking:
+            if thinking and self.bubble_view_key(thinking) == self.bubble_view_key(self.displayed_chat_model()):
                 name='bubble_thinking'
                 left,right=self.bubble_margins(box,thinking,False)
                 self._bubble_rows.append((name,thinking,False))
@@ -1464,7 +1473,9 @@ class Desktop:
         box = getattr(self, 'idea_log', None)
         if box is None or not box.winfo_exists():
             return False
-        self._idea_view_model_cache=None
+        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
+        self._idea_view_model_request=getattr(self,'_idea_view_model_request',0)+1
+        self._idea_view_model_cache=(self.root,self.idea_chat_model())
         self.show_conversation()
         self.update_script_download_button()
         return True
@@ -1635,7 +1646,8 @@ class Desktop:
         prepared=self.idea_chat_controller.prepare_submission(self.root, value, is_example=False)
         import idea_chat
         import writing_api
-        direct_model = writing_api.model_label(self.root)
+        request_model = writing_api.capture_request_model(self.root)
+        direct_model = request_model['label']
         continuing = bool(direct_model and prepared and
                           writing_api.preparation_continuation(self.root, value))
         import stage_config, workflow_settings
@@ -1746,7 +1758,8 @@ class Desktop:
                 if not reply:
                     self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                     self.status.set(idea_chat.why_empty(result));return
-                idea_chat.append(self.idea_chat_context(),'assistant',reply,model=model,gateway=self.idea_chat_gateway())
+                idea_chat.append(self.idea_chat_context(),'assistant',reply,model=model,gateway=self.idea_chat_gateway(),
+                                 context_budget=result.get('context_budget'), request_usage=result.get('request_usage'))
                 self.show_conversation();self.update_script_download_button()
                 if result.get('preparation_path'):
                     refresh=getattr(self,'refresh_script_list',None)
@@ -1767,7 +1780,7 @@ class Desktop:
             def ask():
                 from stage_execution_service import reply_to_writing
                 return reply_to_writing(
-                    project, submission, user_message=value, progress=report_role,
+                    project, submission, user_message=value, progress=report_role, request_model=request_model,
                     cancelled=cancelled.is_set,
                     stream=lambda chunk:self.hollmwood_progress.put(
                         (async_ticket['value'],'actor_stream',chunk)))
@@ -1908,7 +1921,8 @@ class Desktop:
         if callable(refresh):
             refresh()
         creative = repaired.get('retry_creative') or ''
-        model = writing_api.model_label(self.root)
+        request_model = writing_api.capture_request_model(self.root)
+        model = request_model['label']
         if not creative:
             self.status.set('已刷新对话和剧本文件列表。')
             return True
@@ -1934,13 +1948,15 @@ class Desktop:
             if not reply:
                 self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                 self.status.set(idea_chat.why_empty(result));return
-            idea_chat.append(self.idea_chat_context(), 'assistant', reply, model=model,gateway=self.idea_chat_gateway())
+            idea_chat.append(self.idea_chat_context(), 'assistant', reply, model=model,gateway=self.idea_chat_gateway(),
+                             context_budget=result.get('context_budget'), request_usage=result.get('request_usage'))
             self.show_conversation();self.update_script_download_button()
             self.status.set('已恢复并刷新 ' + model + ' 的正文；完整剧本可下载保存。')
         from stage_execution_service import reply_to_writing
         self.submit_idea_api_request(
             project, token, cancelled,
-            lambda: reply_to_writing(project, creative, cancelled=cancelled.is_set),
+            lambda: reply_to_writing(project, creative, cancelled=cancelled.is_set,
+                                     request_model=request_model),
             received, model + ' 模型正在重新生成正文…')
         return True
 
@@ -1980,13 +1996,13 @@ class Desktop:
         import idea_chat
         button=getattr(self,'idea_download',None)
         if button is None or not button.winfo_exists():return False
-        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.idea_chat_context(),model=self.idea_chat_model(),gateway=self.idea_chat_gateway()))
+        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway()))
         button.state(['!disabled'] if ready else ['disabled'])
         return ready
     def download_script(self):
         """用户明确下载剧本文档后，才通知三虎询问是否进入分镜阶段。"""
         import idea_chat
-        selected_model = self.idea_chat_model()
+        selected_model = self.displayed_chat_model()
         reply=idea_chat.latest_text(self.idea_chat_context(),model=selected_model,gateway=self.idea_chat_gateway())
         if not idea_chat.looks_like_script(reply):raise ValueError('请先让模型生成完整剧本，再下载。')
         provider, model = idea_chat.storage_identity(selected_model)
@@ -4336,6 +4352,9 @@ class Desktop:
         composer=ttk.Frame(talk);composer.pack(side='bottom',fill='x',pady=(SPACING['none'],SPACING['xs']))
         self.idea_composer_label=ttk.Label(composer,text='输入想法/上传附件---->enter/发送',style='Muted.TLabel')
         self.idea_composer_label.pack(anchor='w')
+        self.idea_usage_label = ttk.Label(composer, text='本模型暂无用量记录', style='Muted.TLabel')
+        self.idea_usage_label.pack(anchor='w')
+        composer.bind('<Configure>', lambda event: self.idea_usage_label.configure(wraplength=max(1, event.width)), add='+')
         input_row=ttk.Frame(composer);input_row.pack(fill='x')
         input_box=TextArea(input_row,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
                           font=FONTS['body'],relief='solid',bd=1,padx=SPACING['md'],pady=SPACING['sm'])
@@ -4799,6 +4818,10 @@ class Desktop:
                 raise OSError('部分文件未能移入回收站，请刷新后重试')
             fill_script_list()
             self.status.set('已移入回收站 '+str(len(paths))+' 份剧本文件')
+        def adopt_script():
+            from stage_execution_service import adopt_natural_script
+            adopted=adopt_natural_script(self.root,selected_script())
+            self.status.set('已采用自然剧本：'+adopted.name+'；后续结构化使用此版本')
         def script_menu(tree,event):
             row=tree.identify_row(event.y)
             if not row:return
@@ -4809,6 +4832,8 @@ class Desktop:
             # 第 46 期第 1 条：内容框的右键一律是「查看／…／删除」这一套，剧本表原来只有改名与删除。
             menu.command('查看',lambda:self.safe(open_script_file))
             menu.command('重命名',lambda:self.safe(rename_script))
+            if tree is script_trees.get('script'):
+                menu.command('采用此剧本',lambda:self.safe(adopt_script))
             menu.command('删除',lambda:self.safe(delete_script))
             return menu.popup(event)
         for tree in script_trees.values():
@@ -5021,14 +5046,15 @@ class Desktop:
             return box
         self.script_structure_source_box = content_box(
             split_area,
-            '自然剧本', '自然剧本目录（01剧本准备）', structure.source_documents, source,
+            '自然剧本（采用：'+source.name+'）' if source else '自然剧本（待选择采用版本）',
+            '自然剧本目录（01剧本准备）', structure.source_documents, source,
             '尚未找到剧本准备阶段的剧本。请先生成、下载或导入剧本。',
             'script_structure_source_preview', editable=source is not None)
         self.script_structure_source_box.grid(row=0, column=0, sticky='nsew', pady=(SPACING["xs"], SPACING["none"]))
         actions = FlowBar(split_area); actions.grid(row=1, column=0, sticky='ew', pady=(SPACING["sm"], SPACING["xs"]))
         def start_structure():
             if script_contract.resolve_script_source(self.root) is None:
-                raise ValueError('请先在“剧本准备”生成、下载或导入剧本。')
+                raise ValueError('请先选择自然剧本并点击“采用选中剧本”；已采用文件被修改或删除后须重新采用。')
             started = self.pet_script_structure_batch(trigger='manual', refresh_page=True)
             if not started:
                 raise ValueError('剧本结构正在执行，或三虎自动化暂不可用。')
@@ -5036,6 +5062,15 @@ class Desktop:
         from stage_models import manual_command
         action_group = ttk.Frame(actions)
         action_group.pack(anchor='center', pady=SPACING["xs"])
+        def adopt_source():
+            from stage_execution_service import adopt_natural_script
+            selected = self.script_structure_source_preview_files.selection()
+            if not selected:raise ValueError('请先选择一份自然剧本。')
+            adopted = adopt_natural_script(self.root, selected[0])
+            self.status.set('已采用自然剧本：'+adopted.name)
+            self.show(self.page_index)
+        SecondaryButton(action_group, text='采用选中剧本', command=lambda:self.safe(adopt_source)).pack(
+            side='left', padx=(SPACING['none'], SPACING['xs']))
         manual = PrimaryButton(action_group, text='手动制作结构剧本', width=STAGE_ACTION_WIDTH,
                                command=lambda:self.safe(manual_command(self, 'script_structure', start_structure, self.win)))
         manual.pack(side='left', padx=(SPACING["none"], SPACING["xs"])); self.script_structure_manual_button = manual
