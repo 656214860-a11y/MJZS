@@ -1150,10 +1150,11 @@ class UiEdgeTests(unittest.TestCase):
             writing = writing(proj)
             writing.mkdir(exist_ok=True)
             creative = writing / "测试Provider" / "测试模型" / "创意_20260926"
-            for folder in ("项目设定", "项目大纲", "项目剧本"):
+            for folder in ("项目设定", "项目大纲", "角色卡", "项目剧本"):
                 (creative / folder).mkdir(parents=True, exist_ok=True)
             (creative / "项目设定" / "项目设定_测试.md").write_text("设定", encoding="utf-8")
             (creative / "项目大纲" / "项目大纲_测试.md").write_text("大纲", encoding="utf-8")
+            (creative / "角色卡" / "角色卡_测试.md").write_text("角色卡", encoding="utf-8")
             (creative / "项目剧本" / "项目剧本_测试.md").write_text("剧本", encoding="utf-8")
             (writing / "script.md").write_text("后续的结构化剧本", encoding="utf-8")
             (writing / "brief_raw.md").write_text("用户发送的信息", encoding="utf-8")
@@ -1183,8 +1184,9 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(str(d.script_box.winfo_class()), "TFrame")
             self.assertTrue(d.script_box.winfo_ismapped(),
                             "发现已有剧本文件时，三列表容器与列头必须保持可见")
-            self.assertEqual(set(d.script_trees), {"setting", "outline", "script"})
-            for category, title in (("setting", "项目设定"), ("outline", "项目大纲"), ("script", "项目剧本")):
+            self.assertEqual(set(d.script_trees), {"setting", "outline", "character", "script"})
+            for category, title in (("setting", "项目设定"), ("outline", "项目大纲"),
+                                    ("character", "角色卡"), ("script", "项目剧本")):
                 tree = d.script_trees[category]
                 self.assertEqual(str(tree.heading("name", "text")), title)
                 self.assertEqual(tuple(tree["columns"]), ("name",))
@@ -1199,6 +1201,7 @@ class UiEdgeTests(unittest.TestCase):
             }
             self.assertEqual(names["setting"], ["项目设定_测试.md"])
             self.assertEqual(names["outline"], ["项目大纲_测试.md"])
+            self.assertEqual(names["character"], ["角色卡_测试.md"])
             self.assertEqual(names["script"], ["项目剧本_测试.md"])
             self.assertNotIn("script.md", names["script"], "剧本结构阶段产物不应出现在剧本准备页")
             for tree in d.script_trees.values():

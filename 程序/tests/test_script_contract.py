@@ -111,7 +111,6 @@ class AuditTests(unittest.TestCase):
         self.assertEqual([row["skill"] for row in rows],
                          ["screenplay-production-line", "screenplay-writer",
                           "script-character-extraction", "script-dialogue-polish",
-                          "script-emotion-curve",
                           "script-forging", "script-structured-generation",
                           "script-worldbuilding", "短剧编剧搭子", "编剧技能集"])
         self.assertEqual(sc.unlisted_skills(HERE), (), "剧本阶段的 SKILL 都要有审计行")
@@ -128,8 +127,7 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(sorted(sc.CATEGORIES),
                          sorted(["核心", "支撑", "重叠", "冗余"]))
         by_skill = dict((row["skill"], row["category"]) for row in sc.audit_rows(HERE))
-        for skill in ("script-structured-generation", "script-character-extraction",
-                      "script-emotion-curve"):
+        for skill in ("script-structured-generation", "script-character-extraction"):
             self.assertEqual(by_skill[skill], "核心", skill)
         self.assertEqual(by_skill["script-dialogue-polish"], "重叠")
         self.assertEqual(by_skill["script-worldbuilding"], "支撑")
@@ -385,7 +383,7 @@ class MergeTests(unittest.TestCase):
             self.assertIsNotNone(registry.getById(skill), skill)
         script_names = {skill.name for skill in registry.getByStage("script")}
         structure_names = {skill.name for skill in registry.getByStage("script_structure")}
-        self.assertIn("script-emotion-curve", script_names)
+        self.assertIn("pipeline-script-preparation", script_names)
         self.assertTrue({"script-character-extraction", "script-dialogue-polish",
                          "script-structured-generation", "script-worldbuilding"} <= structure_names)
 

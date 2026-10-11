@@ -78,8 +78,8 @@ class WritingApiTests(unittest.TestCase):
                  patch('writing_api._hollmwood_reply', return_value={'ok': True, 'text': '自然剧本'}) as roles:
                 first = writing_api.reply(project, '开始', publish=publish_stage_text)
                 revised = writing_api.reply(project, '不要确认，先改设定', publish=publish_stage_text)
-                self.assertNotEqual(first['preparation_path'], revised['preparation_path'])
-                self.assertIn('旧设定', Path(first['preparation_path']).read_text(encoding='utf-8'))
+                self.assertEqual(first['preparation_path'], revised['preparation_path'])
+                self.assertIn('修订设定', Path(first['preparation_path']).read_text(encoding='utf-8'))
                 self.assertEqual(revised['preparation_stage'], '项目设定')
                 outline = writing_api.reply(project, '确认', publish=publish_stage_text)
                 self.assertEqual(outline['preparation_stage'], '剧本大纲')
@@ -164,8 +164,8 @@ class WritingApiTests(unittest.TestCase):
                 result = reply_to_writing(project, '确认\n附件正文：故事梗概：雨夜', user_message='确认')
             self.assertEqual(result['preparation_stage'], '剧本大纲')
             self.assertIn('附件正文：故事梗概：雨夜', chat.call_args.args[0][0]['content'])
-            self.assertNotEqual(first['preparation_path'], revised['preparation_path'])
-            self.assertIn('初始设定', Path(first['preparation_path']).read_text(encoding='utf-8'))
+            self.assertEqual(first['preparation_path'], revised['preparation_path'])
+            self.assertIn('修改设定', Path(first['preparation_path']).read_text(encoding='utf-8'))
 
     def test_missing_stage_relinks_identical_download_before_confirmation(self):
         import json
@@ -299,6 +299,22 @@ class WritingApiTests(unittest.TestCase):
                         writing_api.reply(project, '开始', publish=publish_stage_text)
                 chat.assert_not_called()
                 roles.assert_not_called()
+
+    def test_confirmed_document_tolerates_trailing_newline_difference(self):
+        """自动保存追加末尾换行、旧下载不写换行；仅换行差异不得误报原确认失效。"""
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o')
+            save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
+            self.confirmed_preparation(project)
+            path = project_stages.writing(project) / '角色卡.md'
+            path.write_text(path.read_text(encoding='utf-8').rstrip('\n'), encoding='utf-8')
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat') as chat, patch('writing_api._hollmwood_reply') as roles:
+                self.assertTrue(writing_api.preparation_continuation(project, '确认'))
+            chat.assert_not_called()
+            roles.assert_not_called()
 
     def test_changed_brief_restarts_preparation(self):
         from agent.core import save

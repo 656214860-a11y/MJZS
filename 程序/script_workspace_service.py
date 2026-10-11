@@ -19,6 +19,7 @@ LOGGER = logging.getLogger(__name__)
 SCRIPT_CATEGORIES = {
     'setting': '项目设定',
     'outline': '项目大纲',
+    'character': '角色卡',
     'script': '项目剧本',
 }
 VISIBLE_SUFFIXES = frozenset({'.md', '.txt', '.docx'})

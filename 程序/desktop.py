@@ -4487,7 +4487,7 @@ class Desktop:
         # 会把其他两列留空。独立列表保持每一类从上到下的文件名排序。
         script_lists=ttk.Frame(script_box);script_lists.grid(row=0,column=0,sticky='nsew')
         script_box.columnconfigure(0,weight=1);script_box.rowconfigure(0,weight=1)
-        categories=(('setting','项目设定'),('outline','项目大纲'),('script','项目剧本'))
+        categories=(('setting','项目设定'),('outline','项目大纲'),('character','角色卡'),('script','项目剧本'))
         script_trees={}
         for column,(category,title) in enumerate(categories):
             script_lists.columnconfigure(column,weight=1,uniform='script-files')
@@ -4497,7 +4497,7 @@ class Desktop:
             configure_check_column(tree)
             tree.heading('name',text=title)
             tree.column('name',width=180,minwidth=100,stretch=True)
-            table.grid(row=0,column=column,sticky='nsew',padx=(SPACING['none'],SPACING['xs']) if column<2 else SPACING['none'])
+            table.grid(row=0,column=column,sticky='nsew',padx=(SPACING['none'],SPACING['xs']) if column < len(categories)-1 else SPACING['none'])
             script_trees[category]=tree
         self.script_trees=script_trees
         # 兼容旧的页面外部访问：script_tree 指向项目剧本这一列。

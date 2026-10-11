@@ -37,7 +37,8 @@ class WritingStageInstructionsTests(unittest.TestCase):
 
     def test_role_card_heading_uses_existing_classifier(self):
         from idea_chat import _project_file_type
-        self.assertEqual(_project_file_type('# 人物设定：角色卡\n姓名：林青'), '项目设定')
+        self.assertEqual(_project_file_type('# 人物设定：角色卡\n姓名：林青'), '角色卡')
+        self.assertEqual(_project_file_type('# 项目设定\n都市雨夜'), '项目设定')
 
     def test_skill_scopes_template_to_first_four_stages(self):
         program = Path(__file__).resolve().parents[1]

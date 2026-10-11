@@ -117,7 +117,7 @@ def _terms(text):
 def _foreign(line):
     plain = _BRANDS.sub('', _TOKEN.sub('', line)).removeprefix('名称：').removeprefix('简介：')
     plain = re.sub(r'`[^`]+`|\b[\w-]+\.(?:md|jpg|webp|io)\b|\b[a-z0-9]+(?:-[a-z0-9]+)+\b', '', plain)
-    plain = re.sub(r'\b(?:Fountain|Faber|Toonflow|BiFish|DuoDrama|Seedance|Cloudflare|Tk|Resolve|Rec|HEVC|Main|id|kind|state|conflicts|priority|resolution|detail|ok|drift|triplets|anchor|jpg|webp)\b', '', plain)
+    plain = re.sub(r'\b(?:Fountain|Faber|Toonflow|BiFish|DuoDrama|Seedance|Cloudflare|Tk|Resolve|Rec|HEVC|Main|id|kind|state|conflicts|priority|resolution|detail|ok|drift|triplets|anchor|jpg|webp|Premise|Structure|Beat|Entity|Page)\b', '', plain)
     # 剩余自然语言单词才需要模型；字段标识、品牌与技术缩写可以保留。
     words = re.findall(r'\b[A-Za-z][a-z]+\b', plain)
     return bool(words and (len(words) >= 2 or not re.search(r'[\u3400-\u9fff]', plain)))

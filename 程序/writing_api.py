@@ -420,7 +420,11 @@ def _preparation_state(project, brief):
                     document['sha256'] = digest
                     text = value
                     break
-        if not text.strip() or hashlib.sha256(text.encode('utf-8')).hexdigest() != document['sha256']:
+        # 旧版下载不写末尾换行、自动保存会追加一个；其余字符必须一致。仅正文
+        # 被真正改动或删除才判失效，换行口径差异不再误报“文件已删除或修改”。
+        digest = hashlib.sha256(text.encode('utf-8')).hexdigest()
+        with_newline = hashlib.sha256((text + '\n').encode('utf-8')).hexdigest()
+        if not text.strip() or document['sha256'] not in (digest, with_newline):
             raise ValueError(document['stage'] + '文件已删除或修改，原确认失效；请恢复已审阅文件后继续')
         texts.append(text)
     return target, state, texts
@@ -491,7 +495,7 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
         return dict(result, ok=False, text='', error=stage + '正文为空，未保存'), None
     context = project_context(project)
     provider, model = idea_chat.storage_identity(model_label(project))
-    file_type = '项目大纲' if index == 1 else '项目设定'
+    file_type = ('项目设定', '项目大纲', '角色卡')[index]
     path = idea_chat.reply_document_path(context, text, provider=provider, model=model, file_type=file_type)
     document = {'stage': stage, 'path': path.relative_to(write_dir(project, 'script')).as_posix(),
                 'sha256': hashlib.sha256((text + '\n').encode('utf-8')).hexdigest(), 'confirmed': False}

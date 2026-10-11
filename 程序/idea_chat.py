@@ -505,8 +505,14 @@ def reply_path_parts(root, at=None, provider='', model='', file_type='自然剧�
             project_script_filename(_context(root), at=at, file_type=file_type, content=provider or (storage_identity(model)[0] if model else '模型输出')))
 
 
+# 前三项（设定／大纲／角色卡）是审阅参考，不保留历史版本：同一阶段目录内始终
+# 覆盖最新一份，不再按正文差异追加 (N) 序号副本。自然剧本是唯一正式交付，
+# 仍保留版本，不在本集合内。
+_OVERWRITE_FILE_TYPES = frozenset(('项目设定', '项目大纲', '角色卡'))
+
+
 def reply_document_path(context, text, at=None, provider='', model='', file_type=None):
-    """自动保存与下载共用：相同正文复用，异稿在 Provider 名后递增编号。"""
+    """自动保存与下载共用：相同正文复用；审阅参考覆盖，正式剧本异稿递增编号。"""
     from stage_path_service import write_dir
     context = _context(context)
     file_type = file_type or _project_file_type(text)
@@ -518,6 +524,23 @@ def reply_document_path(context, text, at=None, provider='', model='', file_type
         for existing in sorted(target.parent.glob('*.md')):
             if existing.is_file() and existing.read_text(encoding='utf-8').strip() == value:
                 return existing
+    if file_type in _OVERWRITE_FILE_TYPES:
+        # 审阅参考稿放弃历史版本：始终覆盖该阶段最新一份，保持「一份＝最新」。
+        # 跨 创意_日期 批次也回到同一份，不因跨天续改落到新批次产生副本。
+        candidates = []
+        model_dir = target.parents[2]
+        try:
+            batches = tuple(model_dir.iterdir()) if model_dir.is_dir() else ()
+        except OSError:
+            batches = ()
+        for batch in batches:
+            folder = batch / target.parent.name
+            if not folder.is_dir():
+                continue
+            candidates.extend(path for path in folder.glob('*.md') if path.is_file())
+        if candidates:
+            return max(candidates, key=lambda path: path.stat().st_mtime)
+        return target
     number = 0
     while target.exists():
         number += 1
@@ -544,7 +567,8 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None):
         value = require_natural_script(value)
     from stage_path_service import write_dir
     path = reply_document_path(context, value, at=at, provider=provider, model=model, file_type=file_type)
-    if path.is_file():
+    # 正文与既有文件一致才复用；审阅参考稿（设定／大纲／角色卡）正文变了要覆盖写入。
+    if path.is_file() and path.read_text(encoding='utf-8', errors='ignore').strip() == value:
         return path
     parts = path.relative_to(write_dir(context.root, 'script')).parts
     folder = '/'.join(parts[:-2])
@@ -576,6 +600,7 @@ def save_manual_creative(root, text, at=None, *, publish=None):
 PROJECT_DOCUMENT_DIRS = {
     '项目设定': '项目设定',
     '项目大纲': '项目大纲',
+    '角色卡': '角色卡',
     '自然剧本': '项目剧本',
 }
 
@@ -596,14 +621,17 @@ def _project_file_type(text):
     value = str(text or '')
     title = value.strip().split('\n', 1)[0].lstrip('# ').strip()
     for file_type, titles in (
-            ('项目设定', ('项目设定', '人物设定', '世界观', '需求梳理')),
+            ('角色卡', ('人物设定', '角色卡')),
+            ('项目设定', ('项目设定', '世界观', '需求梳理')),
             ('项目大纲', ('项目大纲', '剧本大纲', '故事大纲', '分集大纲', '纲要')),
             ('自然剧本', ('自然剧本', '项目剧本'))):
         if any(title.startswith(heading) for heading in titles):
             return file_type
     if any(mark in value for mark in ('项目大纲', '故事大纲', '分集大纲', '纲要')):
         return '项目大纲'
-    if any(mark in value for mark in ('项目设定', '人物设定', '世界观', '需求梳理')):
+    if any(mark in value for mark in ('人物设定', '角色卡')):
+        return '角色卡'
+    if any(mark in value for mark in ('项目设定', '世界观', '需求梳理')):
         return '项目设定'
     return '自然剧本'
 

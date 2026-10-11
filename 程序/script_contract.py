@@ -26,7 +26,7 @@
 | manifest | 产出 SKILL | 这一步在哪一阶段 |
 |:---|:---|:---|
 | character_manifest.json／scene_manifest.json／prop_manifest.json | script-character-extraction（角色与设定提取） | 剧本结构 |
-| emotion_curve.json | script-emotion-curve（情绪曲线标注） | 剧本准备 |
+| emotion_curve.json | pipeline-script-preparation（全流程AIGC·剧本） | 剧本准备 |
 | scene_breakdown.json | storyboard-scene-breakdown（场次拆分） | 初步分镜 |
 
 场次拆分那个 SKILL 归在「初步分镜」，产物按契约落在 00_script/output（剧本阶段自己再核对一遍），
@@ -245,7 +245,7 @@ def stage_file_name(project, file_type, content, at=None):
                                _file_name_part(content, '内容'), day)
 
 
-_STAGE_FILE_TYPES = ('自然剧本', '项目大纲', '项目设定', '结构剧本')
+_STAGE_FILE_TYPES = ('自然剧本', '项目大纲', '项目设定', '角色卡', '结构剧本')
 _STAGE_FILE_PATTERN = re.compile(
     r'^(?P<project>.+)_(?P<file_type>%s)_(?P<content>.+)_(?P<date>\d{8})(?:_(?P<serial>\d+))?\.md$'
     % '|'.join(re.escape(value) for value in _STAGE_FILE_TYPES), re.I)
@@ -677,7 +677,7 @@ PRODUCERS = {
     'scene_manifest.json': ('script-character-extraction', STAGE),
     'prop_manifest.json': ('script-character-extraction', STAGE),
     'scene_breakdown.json': ('storyboard-scene-breakdown', STAGE),
-    'emotion_curve.json': ('script-emotion-curve', STAGE)}
+    'emotion_curve.json': ('pipeline-script-preparation', STAGE)}
 PRODUCER_SKILLS = tuple(sorted({skill for skill, _folder in PRODUCERS.values()}))
 
 # ── 编号口径（任务 7）────────────────────────────────────────────────────────
@@ -718,8 +718,6 @@ AUDIT = (
      '剧本正稿的唯一产出者，拆镜、配音、字幕都读它；三类 manifest 的字段由它定型'),
     ('script-character-extraction', '核心', '剧本结构 · 角色与设定提取',
      '角色／场景／道具三条资产链路的唯一入口，直接支撑「资产」可控性'),
-    ('script-emotion-curve', '核心', '剧本准备 · 情绪曲线标注',
-     '只标注不改词，支撑「分镜」的镜头长短与语气；每场一条强度加钩子'),
     ('script-dialogue-polish', '重叠', 'script-structured-generation（台词那一段）',
      '台词本来就是正稿的一部分，润色结果没有独立的消费方，不单独出文件'),
     ('script-worldbuilding', '支撑', '剧本结构 · script-structured-generation（设定那一段）',

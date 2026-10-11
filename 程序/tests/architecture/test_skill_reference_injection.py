@@ -181,7 +181,7 @@ class SkillReferenceInjectionTests(unittest.TestCase):
                 self.assertIn(heading, text, '%s 缺目标章节 %s' % (relative, heading))
 
     def test_emotion_curve_uses_the_12_beat_source_not_the_old_scene_jump_rule(self):
-        text = (SKILLS / '01 剧本准备SKILL/script-emotion-curve.skill.md').read_text(encoding='utf-8')
+        text = (SKILLS / '01 剧本准备SKILL/pipeline-script-preparation.skill.md').read_text(encoding='utf-8')
         self.assertIn('emotion-beat-curve.md#一-12-关键节拍点量化模型010-分', text)
         self.assertIn('12 个关键节拍', text)
         self.assertIn('第 9 节拍须为全片最高峰且不低于 9.5', text)

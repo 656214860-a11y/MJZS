@@ -221,7 +221,7 @@ class SavingTests(unittest.TestCase):
             self.assertEqual(reply.parent.parent.parent.parent.name, '未知Provider')
             self.assertEqual(reply.parent.parent.parent.parent.parent, writing_dir(td))
             self.assertEqual({path.name for path in reply.parent.parent.iterdir() if path.is_dir()},
-                             {'项目设定', '项目大纲', '项目剧本'})
+                             {'项目设定', '项目大纲', '角色卡', '项目剧本'})
             self.assertEqual(idea_chat.latest_reply(td), reply)
             with self.assertRaises(ValueError):
                 idea_chat.save_reply(td, '   ')
@@ -268,7 +268,7 @@ class SavingTests(unittest.TestCase):
             self.assertEqual(idea_chat.storage_identity('DeepSeek V4 Flash'),
                              ('DeepSeek', 'DeepSeek V4 Flash'))
 
-    def test_download_reuses_identical_content_and_numbers_changed_content_after_model(self):
+    def test_review_drafts_overwrite_in_place_while_natural_script_keeps_versions(self):
         with tempfile.TemporaryDirectory() as td:
             options = dict(at=0, provider='DeepSeek', model='DeepSeek V4 Flash', publish=publish_idea_creative)
             first = idea_chat.save_reply(td, '# 项目设定\n第一版', **options)
@@ -279,10 +279,29 @@ class SavingTests(unittest.TestCase):
             second = idea_chat.save_reply(td, '# 项目设定\n第二版', **options)
             third = idea_chat.save_reply(td, '# 项目设定\n第三版', **options)
             self.assertEqual(first.name, Path(td).name + '_项目设定_DeepSeek_19700101.md')
-            self.assertEqual(second.name, Path(td).name + '_项目设定_DeepSeek(1)_19700101.md')
-            self.assertEqual(third.name, Path(td).name + '_项目设定_DeepSeek(2)_19700101.md')
-            self.assertEqual(idea_chat.save_reply(td, '# 项目设定\n第二版', **options), second)
-            self.assertIn('第一版', first.read_text(encoding='utf-8'))
+            # 前三项审阅参考放弃历史版本：同一路径覆盖，不再追加 (N) 序号。
+            self.assertEqual(second, first)
+            self.assertEqual(third, first)
+            self.assertEqual(first.read_text(encoding='utf-8').strip(), '# 项目设定\n第三版')
+            # 同一正文复用不重写，正文改变则覆盖为最新一版。
+            self.assertEqual(idea_chat.save_reply(td, '# 项目设定\n第二版', **options), first)
+            self.assertEqual(first.read_text(encoding='utf-8').strip(), '# 项目设定\n第二版')
+            # 自然剧本是唯一正式交付，仍保留版本：异稿追加 (N)，不覆盖。
+            script = idea_chat.save_reply(td, '第1集\n场景：夜 外街道\n阿明：开始。', **options)
+            script_v2 = idea_chat.save_reply(td, '第1集\n场景：夜 外街道\n阿明：开始。\n阿明：继续。', **options)
+            self.assertNotEqual(script, script_v2)
+            self.assertIn('(1)', script_v2.name)
+
+    def test_review_draft_overwrite_spans_creative_batches(self):
+        with tempfile.TemporaryDirectory() as td:
+            options = dict(provider='DeepSeek', model='DeepSeek V4 Flash', publish=publish_idea_creative)
+            first = idea_chat.save_reply(td, '# 项目设定\n第一版', at=0, **options)
+            second = idea_chat.save_reply(td, '# 项目设定\n第二版', at=86400, **options)
+            # 跨天续改仍覆盖同一份，不落到新批次产生副本。
+            self.assertEqual(second, first)
+            self.assertIn('创意_19700101', second.as_posix())
+            self.assertEqual(second.read_text(encoding='utf-8').strip(), '# 项目设定\n第二版')
+            self.assertFalse((second.parents[2] / '创意_19700102').exists())
 
     def test_download_reuses_auto_saved_setting_with_outline_reference_and_preserves_full_text(self):
         from stage_execution_service import publish_stage_text
@@ -769,7 +788,8 @@ class SendMessageTests(_Harness):
             win.deiconify()
             self.settle_script_page(win, .4)
             self.assertTrue(d.script_box.winfo_ismapped(), '没有文件也保留分类标题栏')
-            for category, title in (('setting', '项目设定'), ('outline', '项目大纲'), ('script', '项目剧本')):
+            for category, title in (('setting', '项目设定'), ('outline', '项目大纲'),
+                                    ('character', '角色卡'), ('script', '项目剧本')):
                 tree = d.script_trees[category]
                 self.assertEqual(tree.heading('name')['text'], title)
                 self.assertTrue(tree.winfo_ismapped())

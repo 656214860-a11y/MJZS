@@ -125,10 +125,10 @@ class RegistryTests(unittest.TestCase):
         """验收：既有 SKILL 保留，并为 13 个阶段各登记一个全流程编排 SKILL。"""
         reg = skill_registry.default_registry()
         reg.scan(force=True)
-        self.assertEqual(reg.count(), 74)
+        self.assertEqual(reg.count(), 73)
         self.assertEqual(len(reg.stages()), 13)
         expected_by_stage = {
-            'script': 7, 'script_structure': 5, 'storyboard': 6, 'animatic': 1, 'assets': 6,
+            'script': 6, 'script_structure': 5, 'storyboard': 6, 'animatic': 1, 'assets': 6,
             'continuity': 6, 'final': 6, 'keyframe': 6, 'previs': 7,
             'video': 5, 'audio': 6, 'edit': 7, 'delivery': 6,
         }
@@ -320,14 +320,14 @@ class RegistryTests(unittest.TestCase):
         """
         real = skill_registry.default_registry()
         real.scan(force=True)
-        self.assertEqual(real.count(), 74)
+        self.assertEqual(real.count(), 73)
         with tempfile.TemporaryDirectory() as td:
             program = Path(td) / '程序'
             write_skill(program / 'skills' / '05资产管理SKILL', 'probe-one', stage='资产管理')
             other = skill_registry.default_registry(program)
             self.assertEqual([item.name for item in other.getAll()], ['probe-one'])
             self.assertIs(skill_registry.default_registry(), real, '不带参数仍是程序目录那一份')
-            self.assertEqual(skill_registry.default_registry().count(), 74)
+            self.assertEqual(skill_registry.default_registry().count(), 73)
         self.assertEqual([item.name for item in skill_registry.default_registry().getByStage('keyframe')],
                          ['firstframe-auto-fill', 'firstframe-batch', 'firstframe-quality',
                           'firstframe-retry', 'firstframe-thumbnail', 'pipeline-keyframe'])
