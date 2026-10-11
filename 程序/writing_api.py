@@ -621,7 +621,7 @@ def _preserve_preparation_response(project, result, publish):
     name = datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '_' + uuid4().hex + '.txt'
     path = write_dir(project, 'script') / 'responses' / name
     publish(path, text, lambda value: value == text, lambda _target: None)
-    return dict(result, response_path=str(path))
+    return dict(result, response_path=str(path), response_text=str(result.get('text') or ''))
 
 
 def _preparation_step(project, chosen, record, settings, brief, creative, *, publish, cancelled, user_message=None, identity=None):
@@ -683,7 +683,11 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     tokens = 32768 if str(record.get('model') or chosen).lower() in (
         'deepseek-v4-flash', 'deepseek-v4-pro') else CLAUDE_VISIBLE_OUTPUT_TOKENS
     result = adapter.chat(messages, options={'max_tokens': tokens}, model=chosen, system=system)
-    result = _preserve_preparation_response(project, result, response_publisher)
+    try:
+        result = _preserve_preparation_response(project, result, response_publisher)
+    except OSError as exc:
+        return dict(result, ok=False, response_text=str(result.get('text') or ''),
+                    error='正文保存失败，未采用：' + str(exc)), None
     saved = '；正文已保存：' + result['response_path'] if result.get('response_path') else ''
     try:
         _ensure_reply_active(cancelled)
@@ -713,7 +717,9 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
         publish(path, text + '\n', lambda value: bool(value.strip()),
                 lambda _target: _save_preparation_state(target, state, publish))
     except (ValueError, OSError, RuntimeError) as exc:
-        raise type(exc)(str(exc) + saved) from exc
+        failure = type(exc)(str(exc) + saved)
+        failure.rejected_response = dict(result, ok=False, text='', error=str(failure))
+        raise failure from exc
     return dict(result, text=text, preparation_stage=stage, preparation_path=str(path)), None
 
 

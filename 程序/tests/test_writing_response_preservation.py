@@ -48,6 +48,7 @@ class WritingResponsePreservationTests(unittest.TestCase):
                 result = self.call(body, **extra)
                 self.assertFalse(result['ok'])
                 self.assertEqual(result['text'], '')
+                self.assertEqual(result['response_text'], body)
                 self.assertEqual(Path(result['response_path']).read_bytes(), body.encode('utf-8'))
                 self.assertIn(result['response_path'], result['error'])
                 self.assertEqual(self.target.read_bytes(), before)
@@ -66,6 +67,19 @@ class WritingResponsePreservationTests(unittest.TestCase):
         self.assertEqual(len(saved), 1)
         self.assertEqual(saved[0].read_text(encoding='utf-8'), body)
         self.assertEqual(self.target.read_bytes(), before)
+
+    def test_publication_failure_returns_visible_body_through_service(self):
+        from stage_execution_service import reply_to_writing
+        restart_writing_preparation(self.project, '项目设定')
+        body = '# 项目设定\n可见正文。\n待确认'
+        def changed(*args, **kwargs):
+            stage_config.put(self.project, 'script', model='deepseek-v4-flash')
+            return {'ok': True, 'text': body}
+        with patch('writing_api.PoolAdapter.chat', side_effect=changed):
+            result = reply_to_writing(self.project, '重写')
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['response_text'], body)
+        self.assertNotIn('preparation_path', result)
 
     def test_success_keeps_original_body_and_unique_backups(self):
         restart_writing_preparation(self.project, '项目设定')

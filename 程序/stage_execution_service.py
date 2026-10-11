@@ -263,8 +263,15 @@ def restart_writing_preparation(project, stage):
 def reply_to_writing(project, creative, progress=None, cancelled=None, stream=None, *, user_message=None, request_model=None):
     """剧本模型调用编排：为所有可见剧本成果注入统一发布器。"""
     from writing_api import reply
-    return reply(project, creative, progress=progress, cancelled=cancelled, stream=stream,
-                 publish=publish_stage_text, user_message=user_message, request_model=request_model)
+    try:
+        return reply(project, creative, progress=progress, cancelled=cancelled, stream=stream,
+                     publish=publish_stage_text, user_message=user_message, request_model=request_model)
+    except (ValueError, OSError, RuntimeError) as exc:
+        from hollmwood_roles import RoleCancelledError
+        response = getattr(exc, 'rejected_response', None)
+        if isinstance(exc, RoleCancelledError) or response is None:
+            raise
+        return response
 
 
 def desktop_settings_gateway():

@@ -1745,6 +1745,12 @@ class Desktop:
                 self.update_script_interrupt_button()
                 self._stream_text=''
                 self.clear_thinking()
+                visible_reply = str(result.get('response_text') or result.get('text') or '')
+                if visible_reply.strip():
+                    idea_chat.append(self.idea_chat_context(),'assistant',visible_reply,model=model,gateway=self.idea_chat_gateway(),
+                                     context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
+                                     skill_injection=request_model['settings']['skill_injection'])
+                    self.show_conversation()
                 if not result.get('ok'):
                     error=str(result.get('error') or '未收到模型回复')
                     transient=any(mark in error for mark in ('URLError', 'SSLError', 'SSLEOF', 'UNEXPECTED_EOF'))
@@ -1768,9 +1774,6 @@ class Desktop:
                 if not reply:
                     self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
                     self.status.set(idea_chat.why_empty(result));return
-                idea_chat.append(self.idea_chat_context(),'assistant',reply,model=model,gateway=self.idea_chat_gateway(),
-                                 context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
-                                 skill_injection=request_model['settings']['skill_injection'])
                 self.show_conversation();self.update_script_download_button()
                 if result.get('preparation_path'):
                     refresh=getattr(self,'refresh_script_list',None)

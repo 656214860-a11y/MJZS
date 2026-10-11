@@ -189,7 +189,7 @@ class InlineBriefDesktopTests(_Harness):
             def finish(_action, received, **_kwargs):
                 received(_action())
                 return 1
-            with patch('writing_api.capture_request_model', return_value={'label': 'gpt-4o', 'model_id': 'test-model', 'record': {}}), \
+            with patch('writing_api.capture_request_model', return_value={'id': 'gpt-4o', 'label': 'gpt-4o', 'model_id': 'test-model', 'record': {}}), \
                  patch('writing_api.preparation_continuation', return_value=True) as continuation, \
                  patch.object(d.idea_chat_controller, 'prepare_submission', return_value=prepared), \
                  patch('stage_execution_service.reply_to_writing', return_value=result) as reply, \
@@ -210,6 +210,33 @@ class InlineBriefDesktopTests(_Harness):
             refresh.assert_called_once()
             self.assertIn('剧本大纲已保存', d.status.get())
             self.assertIn('确认', d.status.get())
+
+    def test_rejected_response_is_shown_once_without_refreshing_official_documents(self):
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            d.show(0); self.settle_script_page(win)
+            d.idea_input.insert('1.0', '确认')
+            body = '模型返回的完整可见正文，但标题格式不符。'
+            result = {'ok': False, 'text': '', 'response_text': body, 'error': '阶段格式不符，未采用'}
+            prepared = {'submission': '确认', 'visible_value': '确认',
+                        'attachments': {'context': '', 'names': [], 'brief_texts': []}}
+            def finish(action, received, **kwargs):
+                received(action())
+                return 1
+            with patch('writing_api.capture_request_model', return_value={'id': 'gpt-4o', 'label': 'gpt-4o', 'record': {}}), \
+                 patch('writing_api.preparation_continuation', return_value=True), \
+                 patch.object(d.idea_chat_controller, 'prepare_submission', return_value=prepared), \
+                 patch('stage_execution_service.reply_to_writing', return_value=result), \
+                 patch('idea_chat.append', wraps=idea_chat.append) as append, \
+                 patch.object(d, 'refresh_script_list') as refresh, \
+                 patch.object(d, 'async_', side_effect=finish), \
+                 patch('workflow_engines.request_stage_process_slot', return_value={'state': 'granted', 'slot': 'test'}):
+                d.send_message()
+            replies = [call for call in append.call_args_list if call.args[1] == 'assistant']
+            self.assertEqual(len(replies), 1)
+            self.assertEqual(replies[0].args[2], body)
+            refresh.assert_not_called()
+            self.assertIn('未采用', d.status.get())
 
     def test_missing_dialog_saves_all_fields_then_explicit_resend(self):
         with tempfile.TemporaryDirectory() as td:
@@ -344,11 +371,13 @@ class InlineBriefDesktopTests(_Harness):
             # Even identical user-entered values are real input, not implicit sample data.
             d.idea_template = draft()
             d.idea_input.insert('1.0', draft())
+            import writing_api
+            expected_config = writing_api.capture_request(d.root)['settings']
             with patch.object(d, 'start_script_workflow', return_value=('Codex', False)) as launch, \
                     patch.object(d.notifier, 'info') as notice, \
                     patch('idea_chat.inline_required_missing', wraps=idea_chat.inline_required_missing) as missing:
                 d.send_message()
-            launch.assert_called_once_with(draft())
+            launch.assert_called_once_with(draft(), config=expected_config)
             notice.assert_not_called()
             self.assertIsNone(missing.call_args.args[0])
 
