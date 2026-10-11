@@ -112,7 +112,7 @@ class InlineBriefTests(unittest.TestCase):
                              {'aspect_ratio': '9:16', 'video_model_version': 'MiniMax H3',
                               'delivery_format': '只要 markdown 文档'})
 
-    def test_coordinator_edits_locks_and_keeps_deviation_badge(self):
+    def test_coordinator_refreshes_editable_locks_without_save_badge(self):
         from skill_panel import Panel
         name, preset = next(iter(workflow_settings.WORKFLOW_PRESETS.items()))
         view = SimpleNamespace(project=lambda: 'unused', workflow_choice=Mock(),
@@ -123,13 +123,11 @@ class InlineBriefTests(unittest.TestCase):
                 patch('stage_config.workflow_deviation_count', return_value=2), \
                 patch('stage_execution_service.sync_writing_attachment_locks'):
             Panel.refresh_workflow(view)
-        text = view.workflow_summary.configure.call_args.kwargs['text']
-        self.assertTrue(text.startswith('制作锁'))
         for item in preset['locks']:
             view.lock_inputs[item['key']].insert.assert_called_once_with(
                 0, '9:16' if item['key'] == 'aspect_ratio' else '')
-        self.assertIn('2 个阶段已本地修改', text)
-        view.workflow_summary.bind.assert_called_once()
+        view.workflow_summary.configure.assert_not_called()
+        view.workflow_summary.bind.assert_not_called()
         self.assertFalse(hasattr(Panel, 'open_workflow_brief'))
 
     def test_every_empty_or_unchanged_value_is_missing_in_order(self):

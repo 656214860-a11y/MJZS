@@ -810,32 +810,33 @@ class Panel(ttk.Frame):
         self.workflow_box = SelectBox(row, textvariable=self.workflow_choice, values=names)
         self.workflow_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
-        self.workflow_summary = ProgressLabel(row, text='制作锁')
-        self.workflow_summary.pack(side='left', padx=(0, SPACING['sm']))
         from script_contract import PRODUCTION_LOCK_DEFINITIONS
-        self.lock_row = ttk.Frame(parent or self)
-        self.lock_row.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
+        self.lock_row = ttk.Frame(row)
+        self.lock_row.pack(side='left')
         self.lock_inputs = {}
         for column, item in enumerate(PRODUCTION_LOCK_DEFINITIONS):
             field = ttk.Frame(self.lock_row)
             field.grid(row=0, column=column, sticky='ew', padx=SPACING['xs'])
             self.lock_row.columnconfigure(column, weight=1)
             ttk.Label(field, text=item['label']).pack(side='left')
-            entry = LineInput(field, width=14)
+            entry = LineInput(field, width=6 if item['key'] == 'aspect_ratio' else 12)
             entry.pack(side='left', fill='x', expand=True, padx=SPACING['xs'])
-            entry.bind('<Return>', lambda event: self.save_workflow_locks())
+            for event in ('<Return>', '<KeyRelease>', '<FocusOut>'):
+                entry.bind(event, lambda _event: self.save_workflow_locks())
             self.lock_inputs[item['key']] = entry
-        SecondaryButton(self.lock_row, text='保存制作锁', command=self.save_workflow_locks).grid(
-            row=0, column=len(self.lock_inputs), padx=SPACING['xs'])
+        self._saved_workflow_locks = {}
 
     def save_workflow_locks(self):
         from stage_execution_service import save_writing_production_locks
+        values = {key: entry.get() for key, entry in self.lock_inputs.items()}
+        if values == self._saved_workflow_locks:
+            return 'break'
         try:
-            save_writing_production_locks(self.project(),
-                                         {key: entry.get() for key, entry in self.lock_inputs.items()})
+            save_writing_production_locks(self.project(), values)
         except (ValueError, OSError) as exc:
             self.state.configure(text='制作锁保存失败：' + str(exc))
             return 'break'
+        self._saved_workflow_locks = values
         self.state.configure(text='制作锁已保存；已生成文件不变，后续创作使用新参数。')
         return 'break'
 
@@ -856,21 +857,7 @@ class Panel(ttk.Frame):
             entry.insert(0, str(locks.get(key) or ''))
             if not name:
                 entry.state(['disabled'])
-        if not name:
-            self.workflow_summary.configure(text='制作锁：未使用统筹')
-            self.workflow_summary.unbind('<Button-1>')
-            return
-        preset = workflow_settings.WORKFLOW_PRESETS[name]
-        deviation = stage_config.workflow_deviation_count(self.project(), preset)
-        status = '制作锁（修改后按 Enter 或保存）'
-        if deviation:
-            status += ' · %d 个阶段已本地修改' % deviation
-        self.workflow_summary.configure(text=status)
-        if deviation:
-            self.workflow_summary.bind('<Button-1>',
-                                       lambda _event: self.show_workflow_differences(preset))
-        else:
-            self.workflow_summary.unbind('<Button-1>')
+        self._saved_workflow_locks = {key: entry.get() for key, entry in self.lock_inputs.items()}
 
     def show_workflow_differences(self, preset):
         """偏离徽标只读展开，避免把用户本地勾选误当作可自动覆盖的数据。"""
