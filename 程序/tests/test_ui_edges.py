@@ -1056,7 +1056,8 @@ class UiEdgeTests(unittest.TestCase):
             self.assertNotIn("对话AI", texts, "独立标题应移除，让聊天框上移")
             self.assertEqual(d.idea_log.master.master.winfo_class(), "TFrame",
                              "使用无标题容器，避免 LabelFrame 保留标题行高度")
-            self.assertIn("输入想法→点击发送", texts, "输入区提示应使用当前简洁文案")
+            self.assertIn("输入想法/上传附件---->enter/发送", texts,
+                          "输入区提示应包含附件入口以及 Enter/发送两种提交方式")
             for gone in ("当前剧本目录", "创作入口", "文件操作",
                          "在下面的对话框写想法", "对话框（在这里写"):
                 self.assertNotIn(gone, joined, "这一处文字要删掉：%s" % gone)
