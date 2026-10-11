@@ -3336,6 +3336,28 @@ class ModelPoolTests(PetTestCase):
         self.assertEqual(combos[2].get(), 'DeepSeek V4 Pro')
         self.assertEqual(combos[3].get(), 'DeepSeek V4 Flash')
 
+    def test_saving_claude_code_refreshes_the_open_stage_vendor_dropdown(self):
+        from unittest.mock import patch
+        import skill_panel
+        import workflow_settings
+        workflow_settings.clear_desktop_installation_cache()
+        self.addCleanup(workflow_settings.clear_desktop_installation_cache)
+        finder = patch.object(workflow_settings, 'find_program', return_value='test-claude.exe')
+        finder.start()
+        self.addCleanup(finder.stop)
+        panel = skill_panel.Panel(self.win, self.fake, 'script')
+        self.addCleanup(panel.destroy)
+        panel.set_model('claude-desktop')
+        self.pet.save_pool({'label': 'Claude Code Cli', 'model': 'claude code',
+                            'provider': 'desktop'})
+        self.assertEqual(panel.provider.get(), 'Anthropic')
+        self.assertEqual(panel.model_id(), 'claude-desktop')
+        self.assertIn('Claude Code Cli', list(panel.models.cget('values')))
+        panel.set_model('claude code')
+        self.assertEqual(panel.provider.get(), 'Anthropic')
+        self.assertEqual(panel.model_id(), 'claude code')
+        self.assertEqual(model_pool.desktop_engine(panel.model_id()), 'claude')
+
     def test_the_manager_adds_and_deletes_a_model(self):
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
@@ -3357,6 +3379,17 @@ class ModelPoolTests(PetTestCase):
         self.assertEqual(win._pet_delete_one(), 'delete-target')
         self.assertNotIn('delete-target', self.pet.agent_model_records())
         self.assertNotIn('delete-target', model_pool.pool(program=self.pet.program))
+
+    def test_manager_can_delete_builtin_claude_desktop(self):
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        self.pet.asker = lambda _title, _text: True
+        win._pet_tree.selection_set('claude-desktop-app')
+        self.assertEqual(win._pet_delete_one(), 'claude-desktop-app')
+        self.assertNotIn('claude-desktop-app', self.pet.agent_model_records())
+        self.assertNotIn('claude-desktop-app', model_pool.pool(program=self.pet.program))
+        win._pet_reload()
+        self.assertNotIn('claude-desktop-app', win._pet_tree.get_children())
 
     def test_the_manager_refills_a_custom_provider_name(self):
         """自定义厂商保存后重新选中，输入框必须仍显示用户填写的名字。"""

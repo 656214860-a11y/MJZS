@@ -107,7 +107,13 @@ def default_pool():
 
 def desktop_engine(model_id):
     """模型池中的桌面 Agent id → 工作流引擎；普通 API 模型返回空串。"""
-    return DESKTOP_ENGINES.get(str(model_id or '').strip(), '')
+    name = str(model_id or '').strip()
+    if name in DESKTOP_ENGINES:
+        return DESKTOP_ENGINES[name]
+    # 模型管理允许手填 ID；Claude Code 的常用写法仍是同一个 CLI，
+    # 不按 claude 前缀猜测，避免把 Claude API 或桌面应用误识别为 CLI。
+    alias = re.sub(r'[\s_-]+', '-', name.casefold())
+    return 'claude' if alias in ('claude-code', 'claude-code-cli') else ''
 
 
 def provider_name(model_id, value):
@@ -229,9 +235,10 @@ def pool(config=None, program=None):
         item = record(value, model_id)
         if item['model']:
             out[str(model_id)] = item
-    # 桌面 Agent 是内建调用目标，不能因为用户保存过 API 模型池就从阶段配置里消失。
+    # 旧配置补齐桌面入口，但尊重用户在模型管理中明确删除的记录。
+    deleted = data.get('deleted_desktop_models') or []
     for model_id, value in BUILTIN:
-        if model_id in DESKTOP_ENGINES and model_id not in out:
+        if model_id in DESKTOP_ENGINES and model_id not in out and model_id not in deleted:
             out[model_id] = record(value, model_id)
     return ordered(out)
 
@@ -454,6 +461,8 @@ def upsert(data, value, model_id=""):
     items[key] = updated
     result = dict(data)
     result['models'] = items
+    if key in DESKTOP_ENGINES and 'deleted_desktop_models' in result:
+        result['deleted_desktop_models'] = [item for item in result['deleted_desktop_models'] if item != key]
     return result
 
 
@@ -461,11 +470,11 @@ def remove(data, model_id):
     """从配置里删掉一条；返回新的配置对象。"""
     items = pool(data)
     key = str(model_id or '').strip()
-    if key in DESKTOP_ENGINES:
-        raise ValueError('桌面 Agent 是内建调用目标，不能从模型池删除')
     items.pop(key, None)
     result = dict(data)
     result['models'] = items
+    if key in DESKTOP_ENGINES:
+        result['deleted_desktop_models'] = sorted(set(data.get('deleted_desktop_models') or []) | {key})
     return result
 
 

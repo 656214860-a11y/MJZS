@@ -91,11 +91,35 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(model_pool.desktop_engine('claude-desktop'), 'claude')
         self.assertEqual(model_pool.status(pool['chatgpt-desktop']), (True, '桌面 Agent'))
 
+    def test_custom_claude_code_ids_use_the_claude_vendor_and_engine(self):
+        for name in ('claude code', 'Claude Code', 'claude-code', 'claude_code', 'Claude Code Cli'):
+            with self.subTest(name=name):
+                item = model_pool.record({'model': name, 'provider': 'desktop'})
+                self.assertEqual(model_pool.provider_name(name, item), 'Anthropic')
+                self.assertEqual(model_pool.desktop_engine(name), 'claude')
+        self.assertEqual(model_pool.desktop_engine('claude-desktop-app'), 'claude-desktop-app')
+        self.assertEqual(model_pool.desktop_engine('claude-opus-5.5'), '')
+        self.assertEqual(model_pool.desktop_engine('my-claude-code-server'), '')
+
     def test_the_stored_pool_is_authoritative(self):
         data = {'models': {'mine': {'model': 'my-model', 'base_url': 'https://example.test/v1',
                                     'key_env': 'K'}}}
         self.assertEqual(list(model_pool.pool(config=data)), ['chatgpt-desktop', 'claude-desktop', 'claude-desktop-app', 'mine'],
                          '内建桌面 Agent 固定展示在前，用户保存的 API 模型保持可选')
+
+    def test_explicit_desktop_deletion_survives_reload_and_other_saves(self):
+        for target in model_pool.DESKTOP_ENGINES:
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as td:
+                data = model_pool.remove({}, target)
+                model_pool.store(data, td)
+                self.assertNotIn(target, model_pool.pool(program=td))
+                self.assertTrue(set(model_pool.DESKTOP_ENGINES) - {target} <= set(model_pool.pool(program=td)))
+                data = model_pool.upsert(model_pool.raw(td), {'model': 'custom', 'label': 'Custom'})
+                model_pool.store(data, td)
+                self.assertNotIn(target, model_pool.pool(program=td))
+                restored = model_pool.upsert(data, model_pool.default_pool()[target], target)
+                self.assertIn(target, model_pool.pool(restored))
+                self.assertNotIn(target, restored.get('deleted_desktop_models', []))
 
     def test_the_four_task_fields_come_from_the_config(self):
         data = {'agent': {'models': {'default': 'x', 'chat': 'y', 'escalate': 'z', 'fallback': 'w'}}}
