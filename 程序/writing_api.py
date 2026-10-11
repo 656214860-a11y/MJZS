@@ -407,7 +407,13 @@ def _preparation_state(project, brief):
         text = path.read_text(encoding='utf-8') if path.is_file() else ''
         if not path.exists():
             # 旧版自动保存与下载名称不同；仅重定位同目录、同正文的副本。
-            for candidate in sorted(path.parent.glob('*.md')):
+            candidates = list(path.parent.glob('*.md'))
+            if document['stage'] == '角色卡' and path.parent.name == '项目设定':
+                # 角色卡独立分类后，旧记录仍可能指向同批次的项目设定目录。
+                from idea_chat import project_document_directory
+                category = path.parent.parent / project_document_directory('角色卡')
+                candidates.extend(category.glob('*.md'))
+            for candidate in sorted(candidates):
                 resolved = candidate.resolve()
                 if not resolved.is_relative_to(folder.resolve()) or not resolved.is_file():
                     continue

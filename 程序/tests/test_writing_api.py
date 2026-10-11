@@ -204,6 +204,48 @@ class WritingApiTests(unittest.TestCase):
                 self.assertEqual(copy.read_bytes(), copy_before)
                 self.assertFalse(old.exists())
 
+    def test_relocated_character_card_relinks_only_identical_current_category(self):
+        import json
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o')
+            folder = project_stages.writing(project)
+            save(folder / 'brief_complete.json', self.complete_brief())
+            self.confirmed_preparation(project)
+            ledger = folder / 'preparation_state.json'
+            state = json.loads(ledger.read_text(encoding='utf-8'))
+            card = state['documents'][-1]
+            source = folder / card['path']
+            text = source.read_text(encoding='utf-8')
+            source.unlink()
+            batch = folder / 'GPT' / 'GPT-4o' / '创意_20261011'
+            card.update(path=(batch / '项目设定' / '旧角色卡.md').relative_to(folder).as_posix(),
+                        confirmed=False)
+            save(ledger, state)
+            moved = batch / '角色卡' / '角色卡.md'
+            moved.parent.mkdir(parents=True)
+            moved.write_text(text, encoding='utf-8')
+            before = ledger.read_bytes()
+            self.assertTrue(writing_api.preparation_continuation(project, '确认'))
+            self.assertEqual(ledger.read_bytes(), before)
+            moved.write_text('已修改的角色卡', encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, '原确认失效'):
+                writing_api.preparation_continuation(project, '确认')
+            moved.unlink()
+            with self.assertRaisesRegex(ValueError, '原确认失效'):
+                writing_api.preparation_continuation(project, '确认')
+            moved.write_text(text, encoding='utf-8')
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api._hollmwood_reply', return_value={'ok': True, 'text': '自然剧本'}) as roles:
+                writing_api.reply(project, '确认', publish=publish_stage_text)
+            roles.assert_called_once()
+            current = json.loads(ledger.read_text(encoding='utf-8'))['documents'][-1]
+            self.assertEqual(current['path'], moved.relative_to(folder).as_posix())
+            self.assertEqual(current['sha256'], card['sha256'])
+            self.assertTrue(current['confirmed'])
+            self.assertEqual(moved.read_text(encoding='utf-8'), text)
+
     def test_relink_requires_matching_content_and_persists_before_roles(self):
         import json
         from agent.core import save
