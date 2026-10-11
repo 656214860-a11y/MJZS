@@ -627,10 +627,17 @@ def refresh_storyboard_studios(desktop, project):
     return refresh_open_studios(desktop, project_context(project))
 
 
-def white_model_shot_directory(project, sid, workspace_path=None):
-    """L3 为白模镜头工作目录解析注入项目上下文。"""
+def white_model_shot_directory(project, sid, workspace_path=None, source=None):
+    """L3 为白模镜头工作目录解析注入项目上下文；source 明确本次是哪一集。"""
     from white_model_service import shot_directory
-    return shot_directory(project_context(project), sid, workspace_path)
+    return shot_directory(project_context(project), sid, workspace_path, source)
+
+
+def migrate_white_model_directories(project):
+    """L3 为白模旧目录迁移注入项目上下文与正式发布器。"""
+    from agent.core import save
+    from white_model_service import migrate_legacy_directories
+    return migrate_legacy_directories(project_context(project), publish=save)
 
 
 def run_tts_lines(lines, folder, generate=None, report=None, stop=None):

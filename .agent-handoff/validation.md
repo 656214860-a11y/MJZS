@@ -1,5 +1,12 @@
 # 验证证据
 
+## 2026-10-12 O07 完成
+
+- 定向：新增 `tests/test_white_model_identity.py` 12 条＋ `white_model_identity previs` 相关 136/136、5.0 秒、0 红。
+- 接缝：`white_model previs project stage_execution local_previs desktop stage_parallel stage_completion storyboard keyframe asset` 669/669、48.9 秒、0 红（`test_desktop_startup_perf` 本轮通过）。
+- 门禁：默认冒烟 8/8；`smoke_test.py --architecture` 312/312（首次 311/312，因本轮在 `stage_execution_service.py` 插入 7 行使 `架构统一基数.json` 第四项三处豁免行号漂移，同步行号后全绿）。
+- 全量：见 [R1312](../程序/tasks_round/tasks_round_1312_result.md) 文末；按用户 2026-10-12 指令只在收口跑一次，先查 7 天内同内容树绿凭据（无），本轮未命中 AGENTS §5 升级条件。
+
 ## 2026-10-12 O06 完成
 
 定向 591/591（含接缝）、修复后相关 128/128、默认冒烟 8/8。第 1 次全量（树 e0df829a）4 文件红，均为夹具/环境；第 2 次全量（树 0e2a2f06）4504/4504、536.7 秒通过，但检出为 detached 工作树，执行器未写绿凭据；第 3 次全量为取凭据在 master 临时工作树重跑，行至性能用例被并发活动中断退出 1，未取得凭据，不再重跑。O05 历史全量不覆盖本轮树。详见 [R1307](../程序/tasks_round/tasks_round_1307_result.md)。

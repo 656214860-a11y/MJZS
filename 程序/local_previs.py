@@ -64,7 +64,7 @@ def online_window(desktop, source, ids):
                            else ('白模制作说明复制失败（' + reason + '），请手动选中复制；线上工作台已打开。')))
     def import_result():
         try:
-            sid = selected.get(); target = wm.import_media(wm.shot_directory(desktop.root, sid), sid, win)
+            sid = selected.get(); target = wm.import_media(wm.shot_directory(desktop.root, sid, source), sid, win)
             if target:
                 desktop.status.set(sid + ' 白模已导入：' + str(target))
         except Exception as exc:
@@ -83,6 +83,14 @@ def show(desktop):
     shots=read_json(source).get('shots',[])
     state=getattr(desktop,'previs_jobs',None)
     if state is None:state={'busy':False,'status':{},'selected':set()};desktop.previs_jobs=state
+    if not state.get('busy'):
+        # 旧项目的白模成果还在旧目录：打开本页时一次性迁入项目身份目录（可重复、不覆盖、
+        # 中途失败原样搬回）。项目已有身份或有任务在跑时不动任何文件。
+        try:
+            from stage_execution_service import migrate_white_model_directories
+            moved=migrate_white_model_directories(project).get('moved')
+            if moved:state['summary']='已把 %d 个旧白模目录迁入项目身份目录，原成果未覆盖'%len(moved)
+        except Exception as exc:state['summary']='白模目录迁移未执行：'+str(exc)
     body=ttk.Frame(desktop.content);body.pack(fill='both',expand=True)
     decisions=previs_entries(project,source)
     DescriptionBlock(body,text='简单／固定动作：无需白模；中等动作：线上简单制作；复杂动作：Agent 自动制作。',wraplength=920).pack(anchor='w')
@@ -111,7 +119,7 @@ def show(desktop):
         level=(decisions.get(sid) or {}).get('level')
         if level in (None,'simple'):return False
         try:
-            record=wm.read_record(white_model_shot_directory(project,sid))
+            record=wm.read_record(white_model_shot_directory(project,sid,source=source))
         except Exception:
             return True
         preview=record.get('preview')
@@ -251,7 +259,7 @@ def show(desktop):
     views=FlowBar(body);views.pack(fill='x',pady=SPACING['xs'])
     def open_file(field):
         try:
-            sid=current();record=wm.read_record(white_model_shot_directory(project,sid));path=Path(record.get(field,''))
+            sid=current();record=wm.read_record(white_model_shot_directory(project,sid,source=source));path=Path(record.get(field,''))
             if not path.is_file():raise ValueError('请先创建相应工程或视频')
             if field=='project_file':
                 from native_apps import open_blender
@@ -262,7 +270,7 @@ def show(desktop):
     SecondaryButton(views,text='打开工程调整',command=lambda:open_file('project_file')).pack(side='left',padx=SPACING['xs'])
     def open_current_directory():
         try:
-            folder=white_model_shot_directory(project,current())
+            folder=white_model_shot_directory(project,current(),source=source)
             folder.mkdir(parents=True,exist_ok=True)
             open_path(folder)
         except Exception as exc:
@@ -276,7 +284,7 @@ def show(desktop):
         current_state=state['status'].get(key(sid))
         if current_state and state.get('busy'):return current_state
         try:
-            record=wm.read_record(white_model_shot_directory(project,sid))
+            record=wm.read_record(white_model_shot_directory(project,sid,source=source))
             if record.get('preview') and Path(record['preview']).is_file():return '已就绪'
             if record.get('project_file') and Path(record['project_file']).is_file():return '工程已生成，待导出视频'
             level=decisions[sid]['level']

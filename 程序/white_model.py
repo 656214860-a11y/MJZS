@@ -67,9 +67,9 @@ def project_for_app(app):
 # 键里带上 workspace 的实际值，所以测试里替换 workspace、或用户中途装好 Blender，缓存立刻失效。
 _BASE_CACHE = _service._BASE_CACHE
 _DIR_CACHE = _service._DIR_CACHE
-def shot_directory(project,sid):
+def shot_directory(project,sid,source=None):
     from project_context_factory import project_context
-    return _service.shot_directory(project_context(project),sid,workspace())
+    return _service.shot_directory(project_context(project),sid,workspace(),source)
 
 def find_blender(refresh=False):
     return _service.find_blender(refresh)

@@ -8,9 +8,9 @@ from storyboard_paths import media_root
 import white_model_service as wm
 from platform_tools import hidden_console_flags
 
-def verify(project,sid,seconds):
+def verify(project,sid,seconds,source=None):
     from stage_execution_service import white_model_shot_directory
-    root=white_model_shot_directory(project,sid)
+    root=white_model_shot_directory(project,sid,source=source)
     data=wm.read_record(root)
     paths=[Path(data.get(k,'')) for k in ('preview','project_file')]
     if not all(p.is_file() and p.stat().st_size for p in paths):return False
@@ -120,7 +120,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
                 state['summary']=f'{i+1}/{len(shots)} · {sid} 自动制作中'
                 state['status'][key]=engine_name+' 制作中';state['progress'][key]='running';result[sid]={'state':'running'};persist()
                 try:
-                    if verify(project,sid,shot.get('duration',5)):
+                    if verify(project,sid,shot.get('duration',5),source=source):
                         result[sid]={'state':'ready','reused':True};state['status'][key]='已就绪';state['progress'][key]='ready';completed+=1;continue
                     prompt=prepare_batch(project,snapshot,[sid],call_config=call_config)
                     prompt+=f' 原始分镜路径为 {source}，首帧等frame相对路径以 {media_root(source)} 为素材基准；资产路径以各自assets.json所在目录为基准，不能相对于任务快照目录解析。'
@@ -133,11 +133,11 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
                              '在正式动画渲染前调用；此模块会按实际写出帧数原子更新进度。'
                              '不要模拟百分比。分段渲染时应汇总已完成帧数和总帧数，写入相同JSON的shot_id、stage=render、completed、total字段。')
                     from stage_execution_service import white_model_shot_directory
-                    output=white_model_shot_directory(project,sid);output.mkdir(parents=True,exist_ok=True)
+                    output=white_model_shot_directory(project,sid,source=source);output.mkdir(parents=True,exist_ok=True)
                     from workflow_engines import run_background
                     run_background(call_config,project,output,batch/(sid+'_制作报告.txt'),batch/(sid+'_运行日志.txt'),prompt)
                     state['progress'][key]='validating';state['status'][key]='校验视频中'
-                    if not verify(project,sid,shot.get('duration',5)):raise ValueError('输出未通过校验，请查看制作报告')
+                    if not verify(project,sid,shot.get('duration',5),source=source):raise ValueError('输出未通过校验，请查看制作报告')
                     result[sid]={'state':'ready'};state['status'][key]='已就绪';state['progress'][key]='ready';completed+=1
                 except Exception as exc:
                     if state.get('stop'):

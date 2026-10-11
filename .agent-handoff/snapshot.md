@@ -1,11 +1,11 @@
 # 当前快照
 
-## 2026-10-12：O06 完成，继续 O07
+## 2026-10-12：O07 完成，继续 O08
 
-- 按 R1267 清单 O01→O48 顺序逐个完成。O01—O05 已完成（R1303），**O06 已完成（R1307）**，O07 起继续。
-- O06（首帧图片可用性与版本校验）：新增 L2 `keyframe_evidence.py` —— PNG 块 CRC、FFmpeg `-err_detect explode` 完整解码、尺寸/画幅、按内容摘要缓存解码事实；`source_evidence`/`make_evidence`/`frame_problem` 记录并核对分镜、提示词与参考资产版本；接入 `keyframe_lifecycle_service.replace_keyframe`、`keyframe_import.register`/`publish_frame_reference`、`keyframe_comfy.run_seedream`、`batch_frames_tool/batch_frames._run`、`stage_parallel.frames_ready`（SG-04 收紧）。
-- 收口修复：`test_pet_ui`、`test_aspect_ratio_priority`、`探针_阶段门禁端到端.py` 改用真实可解码 PNG 并登记 `frame_evidence`（探针另补 config.json、已登记资产表与角色/场景图片，并修正内嵌 base64 PNG 的损坏 IDAT CRC）；`platform_tools.tool_path` 未命中不再把 None 写进缓存，否则先发生的无兜底查询会让后续带兜底的调用拿到 None（首帧完整解码 TypeError）。
-- 验证证据：定向（含接缝）591/591、修复后相关 128/128、默认冒烟 8/8；干净内容树 `0e2a2f06` 全量 4504/4504、536.7 秒通过。**执行器未写绿凭据**：`save_full_safe_verification` 要求检出在 master 分支，本轮全量在 detached 工作树；`full-safe-receipts.json` 仍为 R1306/tree 48d5df7e。全量细节见 [R1307](../程序/tasks_round/tasks_round_1307_result.md)。
-- 提交：实现 `a167b7c`、回归与台账 `8760e41`、`tool_path` `fbdd23d`；`project_status.md` 当前轮次 1308。
-- 工作区：主树另有他人未提交改动（`程序/idea_chat.py`、`程序/idea_attachments.py`）与用户改动 `程序/配置/SKILL/预设.json`，不读取、不暂存、不覆盖；同时有并发车道在跑 `程序/smoke_test.py --architecture`，全量/提交前先看 `git status` 与本机进程。
-- 下一步：O07（白模工作目录缺项目唯一身份与集维度，P1）。验证策略：默认只跑 `run_selftests.py -k <本轮模块>` + 默认冒烟；收口/合入 master 才全量，且用 master 分支临时工作树取凭据；全量失败先按定位文件定向修绿，只复验一次。
+- 按 R1267 清单 O01→O48 顺序逐个完成。O01—O05 已完成（R1303）、O06 已完成（R1307）、**O07 已完成（R1312）**，下一项 O08。
+- O07（白模工作目录缺项目唯一身份与集维度）：`white_model_service` 目录改为「工作区／项目身份／集／镜头」——身份取项目 `config.json` 的 `project_id`（随项目改名／移动走），集号按 `EP…_` 前缀 → 本次传入 `source` → `ui_settings` 聚焦分镜 → 配置 `episode_file` 判定，项目移动后按阶段目录名在项目内重定位；没有身份时仍用旧布局，旧成果只读兼容。`projects.create` 新建项目即写 `project_id`。`migrate_legacy_directories`＋L3 包装器把旧目录迁入身份布局：可重复、不覆盖、失败原样回滚，清单落 `工作流任务/白模目录迁移/<时间>/迁移清单.json` 并记来源版本；白模页（09）打开时在无任务运行时调用一次。
+- 验证证据：定向 `white_model_identity`（新增 12 条）与 `white_model/previs/project` 相关 136/136；接缝 `white_model previs project stage_execution local_previs desktop stage_parallel stage_completion storyboard keyframe asset` 669/669、48.9 秒、0 红；默认冒烟 8/8；架构门禁 312/312（同步 `架构统一基数.json` 第四项行号漂移）。全量结论见 [R1312](../程序/tasks_round/tasks_round_1312_result.md)。
+- 工作区：主树另有他人**已暂存**改动（`程序/idea_chat.py`、`程序/idea_attachments.py`、`程序/配置/SKILL/预设.json`）与未跟踪 `outputs/` 目录，不读取、不暂存、不覆盖；**任何提交只能点名自己的路径**（`git commit -m "R<n>: …" -- <paths>`），否则会连带他人 WIP。
+- 中央轮次已到 1312（并行车道此前领走 1309—1311）；`round_claim.py next` 要求工作树干净，本树因他人在做工不干净，本轮从干净临时 worktree `%TEMP%/o07-claim` 领取；`git worktree list` 里还留着多个历史 master 工作树（o06-fullsafe-master、r1248/r1249/r1256 等）。
+- 下一步：O08（P1，S/M）——`previs_routing.py:51` 合并 `episode|shot` 手工覆盖，`stage_parallel.py:726` 直接 `classify(shot)`，页面与门禁可能不一致；验收「自动→复杂、复杂→简单、跨集相同镜头 ID、删除覆盖」四场景显示／调度／门禁一致。默认只跑 `-k previs stage_parallel` + 默认冒烟。
+- 验证策略（O06—O48）：默认只跑 `run_selftests.py -k <本轮模块>` + 默认冒烟；全量只在收口／合入 master 前跑一次，且用 master 分支临时工作树取凭据；全量失败先按定位文件定向修绿，只复验一次；`test_desktop_startup_perf` 属已知阈值抖动，定向复测 3 次取多数，不作为拦截条件（归 O48）。
