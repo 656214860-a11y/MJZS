@@ -2098,17 +2098,19 @@ class Desktop:
     def update_script_download_button(self):
         """只有模型给出完整剧本后才允许下载；首次回复绝不弹完成框。"""
         import idea_chat
+        from idea_script_heuristic import looks_like_script
         button=getattr(self,'idea_download',None)
         if button is None or not button.winfo_exists():return False
-        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway()))
+        ready=not getattr(self,'_idea_requesting',False) and looks_like_script(idea_chat.latest_text(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway()))
         button.state(['!disabled'] if ready else ['disabled'])
         return ready
     def download_script(self):
         """用户明确下载剧本文档后，才通知三虎询问是否进入分镜阶段。"""
         import idea_chat
+        from idea_script_heuristic import looks_like_script
         selected_model = self.displayed_chat_model()
         reply=idea_chat.latest_text(self.idea_chat_context(),model=selected_model,gateway=self.idea_chat_gateway())
-        if not idea_chat.looks_like_script(reply):raise ValueError('请先让模型生成完整剧本，再下载。')
+        if not looks_like_script(reply):raise ValueError('请先让模型生成完整剧本，再下载。')
         provider, model = idea_chat.storage_identity(selected_model)
         from stage_execution_service import publish_idea_creative
         saved=idea_chat.save_reply(self.idea_chat_context(),reply,provider=provider,model=model,

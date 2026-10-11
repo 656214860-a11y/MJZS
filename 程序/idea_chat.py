@@ -17,6 +17,7 @@ import re
 from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
+from idea_script_heuristic import looks_like_script
 from project_context import ProjectContext
 from script_contract import INLINE_REQUIRED_LABELS, PRODUCTION_LOCK_DEFINITIONS, stage_lock_requirements, stage_lock_definitions
 
@@ -31,9 +32,6 @@ BRIEF_RAW_NAME = BRIEF_CREATION_NAME
 RAW_SCRIPT_NAME = 'script_raw.md'
 BRIEF_COMPLETE_NAME = 'brief_complete.json'
 REPLY_LIMIT = 20000          # 一次回复最多留这么多字：模型跑飞时不至于把文件写爆
-# 第 65 期任务 9：一段回复像不像「一份能开拍的剧本」——够长 ＋ 至少两个剧本要素。
-SCRIPT_MARKS = ('场景', '镜头', '分镜', '台词', '角色', '第一集', '第 1 集', '第1集')
-SCRIPT_MIN = 300
 PROJECT_CONTENT_MARKS = ('项目设定', '人物设定', '世界观', '需求梳理', '项目大纲', '大纲', '纲要', '分集', '剧本', '场景', '镜头', '台词')
 _HISTORY_CACHE_LIMIT = 16
 _history_cache = OrderedDict()
@@ -1167,14 +1165,6 @@ def _history_excerpt(rows, char_limit):
             excerpts.append(item)
     summary = '较早对话摘录（完整记录保存在本地）：\n' + '\n'.join(excerpts)
     return summary[:max(0, char_limit)]
-
-
-def looks_like_script(text):
-    """第 65 期任务 9：这段回复像不像一份能开拍的剧本（给界面决定要不要弹「保存剧本」）。"""
-    value = str(text or '').strip()
-    if len(value) < SCRIPT_MIN:
-        return False
-    return sum(1 for mark in SCRIPT_MARKS if mark in value) >= 2
 
 
 def latest_text(root, model=None, *, gateway=None):
