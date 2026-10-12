@@ -5,7 +5,7 @@
 ## 三个必答
 - 本轮类型：功能轮（§3.1）——页面文字层级由局部 `ttk.Label(font=/foreground=/style='Muted.TLabel')` 收口到 `ui_widgets.HintLabel／DescriptionBlock／ProgressLabel`，标题改用 `style='Tokens.Title.TLabel'`；本批为单页粒度迁移第 1 批。
 - 测试：定向 `run_selftests.py -k "keyframe batch_frames asset_batch ui_theme ui_edges video_ui text_component"` **333 条 / 0 文件红 / 220.1 秒**；默认冒烟 `smoke_test.py` **8/8**；`py_compile` 3 文件 OK；架构 `smoke_test.py --architecture` **325/325**（收口干净 master 全量后复核）。
-- 欠账：1380 − 1375 = 5 **≥ 5 命中 §5 五轮规则，强制收口全量** `run_selftests.py --all --safe`（在干净 master 工作树执行；结果补记）。文字层级**完成全量覆盖审计**（见审计表）。
+- 欠账：1380 − 1375 = 5 **≥ 5 命中 §5 五轮规则，强制收口全量** `run_selftests.py --all --safe`（在干净 master 工作树执行）：**4967/4967、631.2 秒、0 红**（凭据 round=1380、tree f62cd088，last_full_safe_all_round=1380）。。文字层级**完成全量覆盖审计**（见审计表）。
 
 ## 范围与口径
 - 组件语义（`ui_components.md` §文字组件）：`HintLabel` 短提示（≤20 字）、`DescriptionBlock` 可折行功能说明（≤60 字）、`ProgressLabel` 单行状态/进度（≤40 字）；视觉规格（font／foreground／wraplength／anchor／justify／padding）由 `ui_tokens` 的 `TEXT_HINT／TEXT_DESC／TEXT_PROGRESS` 唯一决定，页面不得覆写。
@@ -29,7 +29,7 @@
 - 定向 `run_selftests.py -k "keyframe batch_frames asset_batch ui_theme ui_edges video_ui text_component"`：**333 条、0 文件红、220.1 秒**。
 - 默认冒烟 `smoke_test.py`：**8/8**；`py_compile asset_batch.py keyframe_comfy.py tests/architecture/test_text_component_boundary.py` OK。
 - 架构 `smoke_test.py --architecture`：**325/325、0 红**（与原 323 相比 +0：仅在既有 dict 增两项，未增删门禁文件）。
-- 收口全量（§5 五轮规则，干净 master）：结果补记。
+- 收口全量（§5 五轮规则，干净 master `run_selftests.py --all --safe`）：**4967/4967、631.2 秒、0 红**（凭据 round=1380、tree f62cd088；`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 均通过，无阈值抖动）。
 - 新增 `skipTest`：无。
 
 ## 文字层级覆盖审计表（全量站点，收口）
@@ -40,7 +40,7 @@
 - 续跟计划：按单页粒度（参照 R932–R960／R1378–R1379 卡片节奏），每轮触达某页时迁移该页说明／状态／标题文字并加入 `TEXT_PAGE_COMPONENTS`；不整仓机械替换。
 
 ## 全量判定
-- 1380 − last_full_safe_all_round(1375) = 5 ≥ 5 → §5 五轮规则命中，`test_round_baselines.test_full_safe_all_is_required_every_five_rounds` 强制要求收口全量；在干净 master 工作树执行 `run_selftests.py --all --safe`（结果补记）。
+- 1380 − last_full_safe_all_round(1375) = 5 ≥ 5 → §5 五轮规则命中，`test_round_baselines.test_full_safe_all_is_required_every_five_rounds` 强制要求收口全量；在干净 master 工作树执行 `run_selftests.py --all --safe`：**4967/4967、631.2 秒、0 红**（凭据 round=1380、tree f62cd088，last_full_safe_all_round=1380；架构门禁在同树复核 325/325）。
 
 ## 提交
 - 内容：`程序/asset_batch.py`、`程序/keyframe_comfy.py`、`程序/tests/architecture/test_text_component_boundary.py`。
