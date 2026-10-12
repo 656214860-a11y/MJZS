@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O30 完成
+
+- 2026-10-12 O30：`subtitle_timing.py`（L1）新增 `calibrate_entries(episode, audio=None)`（镜内按 `line_weight` 句长或真实音频秒数／对齐区间重排；超镜头整镜压缩记 `overflow`；输出 `mode`／`calibrated`／`audio`／`uncalibrated`／`source`）、`validate_entries(entries, total=None)`（非有限／负数／反向／重叠／越界抛 ValueError）、`rows_from_entries`、`line_weight`；`srt_rows(episode, audio=None)` 改用校准轴并先校验（仍返回 `(rows, estimated)`）；`timed_entries` 等分估算行为不变。`subtitle_export_service.py`（L2）`export_srt`／`export_dialogue_script` 改用校准轴并返回 `(target, report)`，`export_srt` 另写 `字幕校准.json`，新增 `pending_calibration`／`export_calibration`；`desktop.py` `subtitles`／`dialogue_script` 按 report 提示。`tests/test_subtitle_calibration.py`（新）23 条；`tests/test_subtitle_export_service.py` 契约更新为 `(target, report)`。定向 `-k subtitle ui_edges skill handoff stage tts` 690/690、架构门禁 312/312（含 `test_subtitle_export_publication_boundary`）、默认冒烟 8/8，全 0 红；未新增裸 `json.loads`／L2 直写／动态导入／顶层模块／`skipTest`，`desktop.py` 唯一 TODO 仍在 2753。1355 − 1351 = 4 < 5 且未命中 §5，本轮不跑全量；上次绿全量 1351（tree c97c1336），下一欠账点 1356。
+
 ## 2026-10-12 O29 完成
 
 - 2026-10-12 O29：`pet_llm.py`（L1）新增 `RequestLedger`（`reserve`／`link`／`settle`／`mark_unknown`／`cancel`／`report`／`price`／`save`／`load`）＋ `REQUEST_LEDGER_PATH`／`REQUEST_KINDS`／`REQUEST_STATES`／`REQUEST_MODES`；`model_pool.py` `probe(..., ledger=None)` 增 `PROBE_USAGE_NOTE` 与返回体 `usage_note`，有 ledger 时对探测记未知；`pet_models_ui.py` `probe_line` 附探测提示。`tests/test_request_ledger.py`（新）11 条：幂等预留／重试不重复结算／usage 汇总与缺量未知／缺量不显免费／同远端任务唯一账单／取消不伪造退款／取消已预留转未知／分列 kinds／可选带日期价格表与缺费率／save-load 往返／探测标注。定向 `-k request_ledger pet_llm model_router pet_models_ui` 73/73、架构门禁 312/312、默认冒烟 8/8，全 0 红；未新增裸 `json.loads`（`model_pool.py` 两处响应体解析行号 568→576、605→613 已在 `维护记录/架构统一基数.json` 第四项同步登记，仍 exempt）／L2 直写／动态导入／顶层模块，棘轮均绿。1354 − 1351 = 3 < 5 且未命中 §5，本轮不跑全量；上次绿全量 1351（tree c97c1336），下一欠账点 1356。

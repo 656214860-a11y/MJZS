@@ -7256,16 +7256,28 @@ class Desktop:
         from stage_execution_service import export_stage_srt
         result=export_stage_srt(self.root,self.current_episode())
         if not result.ok:raise ValueError(result.reason)
-        p,estimated=result.data
-        if estimated:self.status.set('字幕时间按镜头时长自动均分，属草稿，请在剪映中听校。')
+        p,report=result.data
+        # 字幕轴来自校准报告：按实际配音校准了就说清楚，仍是估算的就把未校准句数列出来。
+        if not isinstance(report,dict):
+            self.status.set('字幕时间按镜头时长估算，属草稿，请在剪映中听校。' if report else '字幕时间已按分镜时间生成。')
+        else:
+            pending=report.get('uncalibrated') or []
+            if pending:
+                basis='句长' if report.get('mode')=='length' else '镜头时长'
+                self.status.set('字幕时间暂按%s估算，还有 %d 句未按实际配音校准，导出前请先听校。'%(basis,len(pending)))
+            else:
+                self.status.set('字幕时间已按实际配音／作者标注校准，共 %d 句。'%report.get('calibrated',0))
         return p
     def dialogue_script(self):
         """Export a readable dialogue script with speaker names and timing for dubbing."""
         from stage_execution_service import export_stage_dialogue_script
         result=export_stage_dialogue_script(self.root,self.current_episode(),self.dialogue_assets())
         if not result.ok:raise ValueError(result.reason)
-        p,estimated=result.data
-        if estimated:self.status.set('对白时间按镜头时长自动均分，属草稿，请在剪映中听校。')
+        p,report=result.data
+        if not isinstance(report,dict):
+            if report:self.status.set('对白时间按镜头时长估算，属草稿，请在剪映中听校。')
+        elif report.get('uncalibrated'):
+            self.status.set('对白时间暂按句长估算，还有 %d 句未按实际配音校准，请先听校。'%len(report['uncalibrated']))
         return p
 
     def editing(self):
