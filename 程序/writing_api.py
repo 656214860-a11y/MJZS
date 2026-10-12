@@ -509,6 +509,80 @@ def _working_documents(state):
     return state.get('revision', state)['documents']
 
 
+_PREPARATION_STAGE_WORDS = (
+    ('项目设定', ('项目设定', '设定')),
+    ('剧本大纲', ('剧本大纲', '大纲', '纲要')),
+    ('角色卡', ('角色卡', '人物设定（角色卡）', '人物设定', '人物卡')),
+)
+_PREPARATION_STAGE_ALT = '|'.join(sorted(
+    (word for _stage, words in _PREPARATION_STAGE_WORDS for word in words), key=len, reverse=True))
+_PREPARATION_BACK = re.compile(
+    r'(?:请)?(?:把|将)?(?:回到|返回|退回|重新回到|重回|切回)\s*(?:'
+    + _PREPARATION_STAGE_ALT + r')\s*(?:阶段)?\s*'
+    + r'(?:重新创作|重新写|重写|重新生成|重新输出|重做|重来|再来|从头写)?'
+    + r'\s*(?:一遍|一次)?')
+_PREPARATION_REWRITE = re.compile(
+    r'(?:请)?(?:把|将)?(?:' + _PREPARATION_STAGE_ALT
+    + r')\s*(?:阶段)?\s*(?:要|需要|需|得|全部|整个|从头)?\s*'
+    + r'(?:推翻|推倒|重写|重做|重来|重新写|重新创作|重新生成|重新输出)'
+    + r'\s*(?:一遍|一次|重来|重新来)?')
+_PREPARATION_AFFIRMATIVE = frozenset(
+    word.casefold() for word in ('确认', '确定', '是', '是的', '对', '对的',
+                                 '好', '好的', '可以', '继续', '同意',
+                                 '执行', '确认重写', 'yes', 'y', 'ok'))
+
+
+def _preparation_stage_alias(text):
+    """原话点名的最长阶段别名对应的阶段；未点名阶段返回 None。"""
+    found = None
+    for stage, words in _PREPARATION_STAGE_WORDS:
+        for word in words:
+            if word in text and (found is None or len(word) > found[0]):
+                found = (len(word), stage)
+    return None if found is None else found[1]
+
+
+def preparation_restart_intent(text):
+    """识别“回退到已确认阶段重新创作”的开头指令并返回目标阶段，其余意图返回 None。
+
+    口径与 Agent 路径的 ``workflow_tasks.writing_restart_requested`` 一致：只看用户原话
+    的开头短语，附件或正文里的字样不算；并在其“重新创作X”短语之外，
+    补充“回到X阶段／X要重写／X推翻重来”一类回退说法，两条路径对回退意图
+    的判断保持一致。未点名阶段时无法定位回退目标，返回 None 交回原有流程。"""
+    first = str(text or '').strip().split('\n', 1)[0].strip().rstrip('。！!？?')
+    if not first:
+        return None
+    stage = _preparation_stage_alias(first)
+    if stage is None:
+        return None
+    from workflow_tasks import writing_restart_requested
+    if writing_restart_requested(first):
+        return stage
+    if _PREPARATION_BACK.fullmatch(first) or _PREPARATION_REWRITE.fullmatch(first):
+        return stage
+    return None
+
+
+def _preparation_restart_affirmative(text):
+    first = str(text or '').strip().split('\n', 1)[0].strip().rstrip('。！!？?')
+    return first.casefold() in _PREPARATION_AFFIRMATIVE
+
+
+def _preparation_rollback(stage, documents):
+    """返回回退到该阶段会失效的已确认阶段清单；目标不合法或无下游确认时返回 None。
+
+    阶段有效性沿用 ``_preparation_state`` 已按 SHA256 校验过的 ``confirmed`` 标记，
+    不另写失效判断。"""
+    if stage not in PREPARATION_STAGES:
+        return None
+    index = PREPARATION_STAGES.index(stage)
+    prefix = documents[:index]
+    if len(prefix) != index or any(doc.get('confirmed') is not True for doc in prefix):
+        return None
+    invalidated = [doc['stage'] for doc in documents[index:] if doc.get('confirmed') is True]
+    return invalidated or None
+
+
 def restart_preparation(project, stage, *, publish):
     """显式从指定阶段重写；None 放弃未确认重写，恢复原采用版本。"""
     brief = _complete_brief(project)
@@ -656,6 +730,31 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     publish = _cancellable_publisher(publish, cancelled)
     if documents and state != read_json(target):
         _save_preparation_state(target, state, publish)
+    message = creative if user_message is None else user_message
+    pending_restart = state.get('pending_restart')
+    if isinstance(pending_restart, dict) and _preparation_restart_affirmative(message):
+        # 二次确认后才真正回退；失效与否由 restart_preparation 自行校验。
+        confirmed_stage = pending_restart.get('stage')
+        state.pop('pending_restart', None)
+        _save_preparation_state(target, state, response_publisher)
+        if confirmed_stage in PREPARATION_STAGES:
+            restart_preparation(project, confirmed_stage, publish=response_publisher)
+            target, state, texts = _preparation_state(project, brief)
+            documents = _working_documents(state)
+    else:
+        requested = preparation_restart_intent(message)
+        invalidated = _preparation_rollback(requested, documents) if requested else None
+        if invalidated:
+            state['pending_restart'] = {'stage': requested, 'invalidates': invalidated}
+            _save_preparation_state(target, state, response_publisher)
+            notice = ('回退到「' + requested + '」重新创作，会使已确认的「'
+                      + '」「'.join(invalidated) + '」失效，需要重新确认。\n'
+                      '回复“确认”即从该阶段重写；回复其他内容则保持现状。')
+            return {'ok': True, 'text': notice, 'response_text': notice,
+                    'preparation_restart_pending': requested}, None
+        if isinstance(pending_restart, dict):
+            state.pop('pending_restart', None)
+            _save_preparation_state(target, state, response_publisher)
     index = len(documents) if not documents or documents[-1].get('confirmed') is True else len(documents) - 1
     if index == len(PREPARATION_STAGES):
         return None, dict(zip(PREPARATION_STAGES, texts))
