@@ -13,6 +13,7 @@ from pathlib import Path
 from storyboard_paths import media_root, project_root
 from responsive_ui import FlowBar,QuietVar,configure_check_column,CheckboxColumn,fit_columns_by_content,fit_row_height,row_height_for
 from local_video import open_studio,LocalStudio,settings_window
+from engine import review_label
 from project_naming import dated_path
 from video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
 from video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS
@@ -780,7 +781,7 @@ class App:
             # 第 55 期第 3 条起由盖图那一层自己做（盖上收走、撤掉写回）；这里照旧写「已就绪」／
             # 「请回05准备」——原来为了判这一点逐镜解一遍首帧，白解。
             frame_text='已就绪' if ready else '请回05准备'
-            self.tree.insert('',tk.END,iid=s['id'],text='',image=self.edit_icons[int(self.edit_checks.setdefault(s['id'],False))],values=(s['id'],s['title'],self.asset_cell_text(s['id']),s['duration'],frame_text,state_label,'未开始','未开始',{'pass':'通过','revise':'需修改'}.get(v.get('review'),'待验收'),len(vs),'已就绪' if self.white_model_ready(s['id']) else '待制作'),tags=('completed',) if v.get('state')=='downloaded' else ())
+            self.tree.insert('',tk.END,iid=s['id'],text='',image=self.edit_icons[int(self.edit_checks.setdefault(s['id'],False))],values=(s['id'],s['title'],self.asset_cell_text(s['id']),s['duration'],frame_text,state_label,'未开始','未开始',review_label(v),len(vs),'已就绪' if self.white_model_ready(s['id']) else '待制作'),tags=('completed',) if v.get('state')=='downloaded' else ())
         self.refresh_shared_progress()
         self.fit_shot_columns()
         self.shot_thumbs_refresh()          # 第 53 期第 5 条：行重建之后缩略图跟着重排

@@ -158,6 +158,34 @@ class AutoReviewTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 st.assemble()
 
+    def test_auto_review_is_not_content_review(self):
+        """技术正确不等于内容审核通过：无人值守只做技术放行，面板必须分开说。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj, st, _message = self.run_download(td, auto=True)
+            v = st.state()["shots"]["SH001"][-1]
+            self.assertEqual(engine.review_source(v), "auto")
+            self.assertFalse(engine.content_reviewed(v))
+            self.assertEqual(engine.review_label(v), "技术自动放行（未做内容审核）")
+            # 自动技术放行仍算「已验收」，既有自动拼接默认不被暗改。
+            self.assertEqual(len(engine.approved_versions([v])), 1)
+
+    def test_user_review_marks_content_reviewed(self):
+        """用户显式点「通过」才算内容审核，并在面板标成已确认。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj, st, _message = self.run_download(td, auto=True)
+            st.review("SH001", "pass", "人工确认内容无误")
+            v = st.state()["shots"]["SH001"][-1]
+            self.assertEqual(engine.review_source(v), "user")
+            self.assertTrue(engine.content_reviewed(v))
+            self.assertEqual(engine.review_label(v), "通过（您已确认内容）")
+
+    def test_legacy_records_infer_review_source(self):
+        """老记录没有 review_by：按旧前缀认出自动放行，认不出的按真人验收。"""
+        self.assertEqual(engine.review_source({"review": "pass", "review_note": "无人值守自动验收：技术质检通过"}), "auto")
+        self.assertEqual(engine.review_source({"review": "pass", "review_note": "人工确认"}), "user")
+        self.assertEqual(engine.review_source({"review": "pass"}), "user")
+        self.assertEqual(engine.review_source({"review": "pending"}), "")
+
     def test_setting_keeps_other_ui_keys(self):
         with tempfile.TemporaryDirectory() as td:
             proj = build_project(td)

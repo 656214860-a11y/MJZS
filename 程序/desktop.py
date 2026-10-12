@@ -10,7 +10,7 @@ from agent.core import read,save,save_text,save_bytes
 import project_settings
 from projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
 from responsive_ui import FlowBar,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
-from engine import approved_versions
+from engine import approved_versions, review_label
 from local_video import open_studio,skip_summary
 from app import App
 from integrations import comfy_executable
@@ -7408,8 +7408,10 @@ class Desktop:
             vs=st['shots'][s['id']];v=vs[-1] if vs else {}
             state=LABELS.get(v.get('state'),v.get('state') or '未提交')
             qc={True:'通过',False:'未通过'}.get(v.get('qc_pass'),'未检查')
-            review={'pass':'通过','revise':'需修改'}.get(v.get('review'),'待验收')
-            lines.append(f'{s["id"]}  {s["title"]}  | 状态 {state} | 技术QC {qc} | 验收 {review}')
+            review=review_label(v)
+            adopted=approved_versions(vs)
+            adopted_text=('v%s'%adopted[-1]['version']) if adopted else '无'
+            lines.append(f'{s["id"]}  {s["title"]}  | 状态 {state} | 技术QC {qc} | 验收 {review} | 采用 {adopted_text}')
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
         delivery_button('导入剪映最终成片',self.final_import,primary=True)
         delivery_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))

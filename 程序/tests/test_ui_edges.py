@@ -397,6 +397,8 @@ class UiEdgeTests(unittest.TestCase):
                         walk(child)
                 walk(d.content)
                 self.assertTrue(any("技术QC 通过" in box and "验收 通过" in box for box in boxes), boxes)
+                # O27：质量面板加「采用」列，把技术合格／内容验收／实际采用版本分开。
+                self.assertTrue(any("采用 v1" in box for box in boxes), boxes)
             finally:
                 win.destroy()
 

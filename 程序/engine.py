@@ -14,8 +14,42 @@ from project_naming import dated_path
 from legacy_compat import resolved_storyboard_alias
 
 def approved_versions(versions):
-    """已下载＋技术质检通过＋已验收的版本；自动粗剪、手动拼装与交接包共用同一口径。"""
+    """已下载＋技术质检通过＋已验收的版本；自动粗剪、手动拼装与交接包共用同一口径。
+
+    `review` 为 `pass` 含无人值守的自动技术放行，不等于真人看过内容（见 `content_reviewed`）。
+    """
     return [v for v in versions or [] if v.get('review')=='pass' and v.get('state')=='downloaded' and v.get('qc_pass')]
+
+REVIEW_PENDING='pending'
+REVIEW_PASS='pass'
+REVIEW_REVISE='revise'
+AUTO_REVIEW_MARK='无人值守自动验收'
+AUTO_REVIEW_NOTE=AUTO_REVIEW_MARK+'：技术质检通过，未做内容审核，等您确认内容'
+
+def review_source(version):
+    """这条验收是谁给的：'user' 真人点过，'auto' 无人值守按设置自动放行，'' 还没验收。
+
+    老记录没有 `review_by`，按 `review_note` 是否以自动标记开头回推：认不出来就当真人验收（保守取“已审”）。
+    """
+    value=(version or {}).get('review')
+    if value not in (REVIEW_PASS,REVIEW_REVISE):return ''
+    by=(version or {}).get('review_by')
+    if by in ('user','auto'):return by
+    note=str((version or {}).get('review_note') or '')
+    return 'auto' if note.startswith(AUTO_REVIEW_MARK) else 'user'
+
+def content_reviewed(version):
+    """内容审核是否真做过：只有真人点过「通过」才算；自动技术放行不算。"""
+    return (version or {}).get('review')==REVIEW_PASS and review_source(version)=='user'
+
+def review_label(version):
+    """质量面板那一格：把「技术合格」与「内容审核」分开说清。"""
+    value=(version or {}).get('review')
+    if value==REVIEW_PASS:
+        return '通过（您已确认内容）' if review_source(version)=='user' else '技术自动放行（未做内容审核）'
+    if value==REVIEW_REVISE:return '需修改'
+    return '待验收'
+
 
 def episode_file_of(project,cfg,episode_file=None):
     """第 45 期：工作集里那份镜头 JSON 到底在哪一份——配置、改名映射、定稿目录挨个找。
@@ -309,15 +343,16 @@ class Studio:
                 report=check(dest,v['seconds'],{**self.cfg,'require_audio':v.get('generate_audio',True)})
                 command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',dest,'-f','null','-'])
                 if not report['errors'] and project_settings.auto_review(self.root):
-                    # 无人值守：技术质检通过即验收，让下载→质检→验收→剪辑可以连续跑完。
-                    v.update(review='pass',review_note='无人值守自动验收：技术质检通过')
+                    # 无人值守：技术质检通过即自动放行，让下载→质检→验收→剪辑可以连续跑完。
+                    # 这是技术放行、不是内容审核——沿用旧记录前缀，面板会另说是谁点的。
+                    v.update(review=REVIEW_PASS,review_by='auto',review_note=AUTO_REVIEW_NOTE)
             except Exception as e:
                 self.publish_downloaded_video(st,sid,v,dest,qc_error=e)
                 return '视频已下载：'+str(dest)+'；质检未完成，请检查FFmpeg设置后再验收。'
             self.publish_downloaded_video(st,sid,v,dest,report)
             total=int(v['finished_at']-v.get('created',v['finished_at']))
             if not v['qc_pass']:note='；'.join(report['errors'])
-            elif v.get('review')=='pass':note='技术检查通过，已按自动验收设置通过'
+            elif v.get('review')==REVIEW_PASS:note='技术检查通过，已按自动验收设置放行（未做内容审核）'
             else:note='技术检查通过，等您验收'
             return f'已下载（总耗时 {total//60}分{total%60:02}秒）：'+str(dest)+'；'+note
 
@@ -328,7 +363,7 @@ class Studio:
             v=vs[-1]
             if value=='pass' and (v['state']!='downloaded' or not v.get('qc_pass')): raise ValueError('仅下载且技术合格的版本可通过')
             if value not in ('pass','revise'): raise ValueError('无效验收值')
-            v.update(review=value,review_note=note); save(self.db,st)
+            v.update(review=value,review_by='user',review_note=note); save(self.db,st)
 
     def review_many(self,shot_ids,value,note=''):
         """按镜头批量验收：逐镜汇总结果，单镜不合格只跳过，不中断整批。"""
