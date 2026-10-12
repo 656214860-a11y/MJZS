@@ -35,7 +35,7 @@
 - 全量：**不跑**（见「三个必答」）。
 
 ## 提交
-- 内容＋报告＋接力：一次提交，hash 见后续补记。
+- 内容＋报告＋接力：一次提交 `fdb1daf`（9 文件：`tests/architecture/_scan.py`＋4 个门禁测试＋本报告＋`程序/project_status.md`＋`.agent-handoff/backlog.md`／`snapshot.md`）。
 
 ## 复盘：路线图 v1 §三
 - 7 项中 **6 项已收口**（其中第 2／5／6 项本轮由「根目录门禁」升为「递归门禁」，覆盖 `batch_frames_tool/`／`agent/`／`scripts/` 等子目录）；**1 项（第 4 项 项目进入路径）登记为待办**。

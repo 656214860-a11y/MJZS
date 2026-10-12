@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1390 本轮实测：§三 覆盖率门禁递归对齐（`_scan.production_files_recursive`）；定向 4 文件 8/8、默认冒烟 8/8、架构 `smoke_test.py --architecture` 336/336（数量不变，改既有门禁）。1390−1386=4<5 且未命中 §5 升级条件，**不跑全量**（最近绿全量 R1387 `tree=000477da…`）。提交 hash 见补记。详见 [R1390](tasks_round/tasks_round_1390_result.md)。
+R1390 本轮实测：§三 覆盖率门禁递归对齐（`_scan.production_files_recursive`）；定向 4 文件 8/8、默认冒烟 8/8、架构 `smoke_test.py --architecture` 336/336（数量不变，改既有门禁）。1390−1386=4<5 且未命中 §5 升级条件，**不跑全量**（最近绿全量 R1387 `tree=000477da…`）。提交 `fdb1daf`。详见 [R1390](tasks_round/tasks_round_1390_result.md)。
 
 R1389 本轮实测：新增 `test_token_boundary.py` 5/5；默认冒烟 8/8；架构 `smoke_test.py --architecture` 336/336（331→336，+5）。1389−1386=3<5 且未命中 §5 升级条件（无启动路径／Tk 控件生命周期／删除语义／层级登记表改动），**不跑全量**（最近绿全量 R1387 `tree=000477da…`）。提交 `c8dbdb0`。详见 [R1389](tasks_round/tasks_round_1389_result.md)。
 
