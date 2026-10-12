@@ -1,12 +1,15 @@
 # 当前快照
 
-## 2026-10-12：O44 完成，继续 O45
-- 按 R1267 清单 O01→O48 顺序逐个完成。O01—O43 已完成，**O44 已完成（R1371）**，下一项 O45（把分发声明变为可复验的干净安装流程，P2／事实·验证，M/L）。
-- O44（保留安全机制，补可诊断但不泄露的状态区分）：`model_secrets.py`（L1）新增 `_BLOB_HEADER`（DPAPI 密文头＝版本号 4B＋provider GUID 16B）＋`READY`／`UNCONFIGURED`／`OTHER_USER`／`CORRUPT`／`AUTH_FAILED`＋`_STATE_TEXT`、`looks_like_blob()`、`diagnose(name, program, root)`（缺文件／空名字→`unconfigured`；读不出或头不是 DPAPI 头→`corrupt`；头对但解不开→`other-user`；解得开→`ready`；返回 `{'name','path','state','ok','text'}`，**不含密钥**）、`verdict(..., error_class='')`（本机没配好以本机为准，本机 `ready` 且 `error_class∈{auth,authentication,unauthorized}` 才报 `auth`），`load`／`save`／`clear` 等原有契约不变。`diagnostic_capture.py`（L1）新增 `redact()`／`retention_note()`／`preview_detail()`（白名单＋`bytes`／`modified`／`keep_days`＝`log_maintenance.RETENTION_DAYS`／`expires_at`／`expired`，只看不删）与 URL 查询参数脱敏分支（`?api_key=`／`&token=`／`?signature=`）。`model_diagnostics.py`（L1）新增 `_scrub()`，让 `context`／`response_meta` 的字符串落盘前先脱敏。见 [R1371](../程序/tasks_round/tasks_round_1371_result.md)。
-- O44 契约变化：`load`／`save`／`clear`／`path`／`redacted`／`preview`／`export`／`event` 输出全不变，只新增函数与常量；新增同层 import `diagnostic_capture → log_maintenance`、`model_diagnostics → diagnostic_capture`（L1→L1，不越层）；未新增顶层模块／裸 `json.loads`／`skipTest`／删除路径；架构 312/312。
-- O44 验证证据：新增 `tests/test_secret_status_diagnostics.py` 13/13；定向 `-k secret_status_diagnostics diagnostic_capture model_diagnostics model_pool pet_llm writing_api hollmwood_roles pet_settings` 269 条、仅 `test_model_pool` 1 条红（claude-desktop「未安装」，已用路径限定 `git stash` 复现：不加载本改动同样红＝既知主树环境项）；`-k test_api test_recycle` 全绿；架构 312/312；默认冒烟 8/8。
-- O44 边界：`other-user`／`corrupt` 用密文头启发式（头好中段坏会归 `other-user`，但绝不归 `ready`）；`preview_detail` 只显示保留期限不删文件（轮转仍归 `log_maintenance`）；`verdict` 依赖调用方已分好的 `error_class`；本轮未读任何真实明文密钥（测试全用假 `PROTECTOR`）。
-- O44 全量：1371−1370=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量 4912/4912、0 红、752.38 秒（干净 master 工作树 `o44-fullsafe-master`，`--all --safe`；凭据 round=1371、tree=de0084a9…（＝`HEAD:程序`）、at=2026-10-12T17:26:20、last_full_safe_all_round=1371；4912−4899=13＝本轮新增用例；`test_desktop_startup_perf`／`test_perf_baseline` 本轮绿、无抖动，无二次全量）。
+## 2026-10-12：O45 完成，继续 O46
+- 按 R1267 清单 O01→O48 顺序逐个完成。O01—O44 已完成，**O45 已完成（R1372）**，下一项 O46（模块治理和性能按热点逐段推进，P3／事实·建议，M/L）。
+- O45（把分发声明变为可复验的干净安装流程）：新增 `程序/scripts/distribution_build.py`——`parse_manifest` 从 `distribution_manifest.md` 两张表取反引号模式（声明唯一来源）；`pattern_regex`（`**` 跨目录、`*` 不跨、目录以 `/` 结尾＝整棵子树）；`plan(root, manifest)` 分「keep／excluded／undecided」三桶；`build(destination, ...)` 只把清单内文件复制到**全新**输出目录并写 `分发清单.json`（版本＋逐文件 sha256＋字节数；拒绝输出到源目录内部、拒绝覆盖非空目录、拒绝未决定未清时静默继续），全程不删除不移动、源目录零改动；`verify(destination, ...)` 校验「输出零排除项／必需入口齐全／摘要自洽／`程序/skills/00全流程SKILL/jingju-skills` 整包仍在」。精化 `distribution_manifest.md`（补保留：生产 `程序/*.py`／`程序/agent/**`／说明／附加工具／batch_frames_tool／用户说明与图标；补排除：`.wt/**`／`.agent-handoff|.claude|.codex/**`／`outputs/**`／程序本地产物／`程序/logs/**`／`程序/.*.out`／`维护记录/**`／开发文档），并加「可复验构建器」一节。见 [R1372](../程序/tasks_round/tasks_round_1372_result.md)。
+- O45 实测与边界：真实开发目录 `--plan` → keep 1170／excluded 4684／undecided 36（未决定项故意留给人工，不是欠账）；本轮**未**在真实目录执行 `--build`（只用临时合成树验证）；新 Windows 用户／非管理员／离线链路／覆盖式升级这些验收**未实机验证**；jingju 按「保留整包并校验存在」处理（代码仍引用它）。
+- O45 契约变化：只新增 `scripts/` 工具与新测试、扩清单文档，未改任何运行期模块／配置默认值／界面；`scripts/` 不参与分层扫描（未改 `_layers.py`），但会被 `test_unification_ratchet` 扫到——读摘要改用 `agent.core.read_json`（裸 `json.loads` 会被判「未登记新增债务」）。
+- O45 验证证据：新增 `tests/test_distribution_build.py` 12/12；定向 `-k distribution_build` 12/12；架构 312/312；默认冒烟 8/8。
+- O45 全量：1372−1371=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量结果待收尾补记。
+
+## 2026-10-12：O44 完成（历史）
+- O44 = R1371（密钥四态可诊断＋诊断预览与回显脱敏）；全量 4912/4912、0 红、752.38 秒（凭据 round=1371、tree=de0084a9…）。详情见 [R1371](../程序/tasks_round/tasks_round_1371_result.md)。
 
 ## 2026-10-12：R1335 并入 master（阶段④分集增量上下文）
 - 分支 `codex/episode-incremental-context` 已合入 master。`script_contract.split_script_episodes`＋分集账本 `write_dir(project,'script')/剧本分集增量账本.json`（每集 sha256＋based_on 其余集快照）；`writing_api.reply()` 前注入「只贴改动集正文」、唯一发布点 `_save_formal_script()` 后更新账本；`workflow_tasks._episode_change_notice()` 只给本地 Agent 报集号；首次／无账本退化为全量。见 [R1335](../程序/tasks_round/tasks_round_1335_result.md)。
