@@ -95,7 +95,7 @@ def prepare_reference(workspace, prompt, model, settings, *, publish, client=Non
 
 
 def build_bundle(context, source, references, audio, settings, *, publish, write_temporary, render=local_sketch,
-                 assemble=None, run_batches=None, workspace=None):
+                 assemble=None, run_batches=None, workspace=None, spec=None):
     """所有生成发生在暂存区；整包验证后才交给发布器。"""
     if not isinstance(context, ProjectContext) or not callable(publish):
         raise TypeError('分镜预演需要 L3 注入上下文与发布器')
@@ -152,7 +152,7 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
         images = dict(pair for group in generated for pair in group)
         video = assemble([images[row['id']] for row in shots], [row['seconds'] for row in shots],
                          audio, scratch / 'animatic.mp4', ffmpeg=settings['ffmpeg'], ffprobe=settings['ffprobe'],
-                         write_temporary=write_temporary)
+                         write_temporary=write_temporary, spec=spec)
         artifacts = {'assets/animatic.mp4': Path(video).read_bytes(),
                      'assets/temporary_audio' + audio.suffix.lower(): audio.read_bytes()}
         for shot in shots:
@@ -180,7 +180,7 @@ def evidence(project, *, require_confirmation=True):
         if not isinstance(manifest, dict) or manifest.get('kind') != 'animatic':
             raise ValueError('尚无 Animatic 成果')
         source = (root / manifest['source']).resolve()
-        if not source.is_relative_to(root) or digest(source.read_bytes()) != manifest['source_sha256']:
+        if not source.is_relative_to(root) or file_cache.file_digest(source) != manifest['source_sha256']:
             raise ValueError('分镜已变化，需要重新预演')
         files = manifest['files']
         if not files or manifest['video'] not in files or manifest['audio'] not in files:
@@ -189,7 +189,7 @@ def evidence(project, *, require_confirmation=True):
             path = (folder / name).resolve()
             if not path.is_relative_to(folder) or not path.is_file() or not path.stat().st_size:
                 raise ValueError('预演成果缺失或路径越界')
-            if digest(path.read_bytes()) != expected:
+            if file_cache.file_digest(path) != expected:
                 raise ValueError('预演成果已变化，需要重新生成并确认')
         if not manifest.get('shots') or any(row.get('image') not in files for row in manifest['shots']):
             raise ValueError('预演镜头图不完整')

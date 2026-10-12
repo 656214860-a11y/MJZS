@@ -15,6 +15,7 @@ model_router.select，问不出就照旧往下走（工具不吃模型）。
 
 一句话：编排器只管「顺序、预算、确认、汇总」，真正干活的仍是 skill_tools 后面那些子模块。
 """
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -39,6 +40,9 @@ STOP_STATUSES = (PAGE, INPUT, PENDING, BUDGET)
 PARAM_KEYS = ('project', 'episode', 'shots', 'shot', 'shotId', 'stage', 'model',
               'selection', 'assets', 'studio', 'selection_key')
 PROJECT_STATUS_FILE = 'sanhu_project_status.json'
+# O43：检查点格式版本。旧检查点没有 version，一律当「需人工核实」处理，不假设它和
+# 现在的步骤／技能集对得上；版本只在检查点结构变化时 +1。
+CHECKPOINT_VERSION = 2
 
 
 def verified_stage_output(project, stage):
@@ -88,6 +92,18 @@ def save_project_status(status, project=None):
     from agent.core import save_text
     save_text(path, json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + '\n')
     return data
+
+
+def checkpoint_digest(stage, step, step_name):
+    """检查点身份摘要：阶段＋步骤序号＋步骤名。
+
+    O43：恢复预览用它判断「这一步还是不是当初那一步」——步骤重排、模板步骤改名或技能集
+    改动导致步骤名变化时摘要就换一串。技能名相同的原地替换摘不出来，那种情况以磁盘成果
+    与采用台账为准（见 resume_preview 的 artifact_verified）。
+    """
+    body = json.dumps({'stage': str(stage or ''), 'step': int(step or 0),
+                       'step_name': str(step_name or '')}, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(body.encode('utf-8')).hexdigest()[:32]
 
 
 class Run(dict):
@@ -303,8 +319,11 @@ class Orchestrator:
             return '、'.join('%s=%s' % (key, out[key]) for key in sorted(out)[:4])[:160]
         return str(out)[:160]
 
-    def before_step(self, stage, step):
-        """每个 SKILL 实际执行前记录可恢复检查点。"""
+    def before_step(self, stage, step, skills=None):
+        """每个 SKILL 实际执行前记录可恢复检查点（O43：带格式版本、项目身份与步骤摘要）。
+
+        检查点写不进去就抛，调用方据此在动手之前收场——付费动作绝不先于检查点落盘。
+        """
         stage_id = str(getattr(stage, 'id', None) or getattr(stage, 'stage', None) or stage or '')
         try:
             step_index = int(getattr(step, 'index', None) or 0)
@@ -313,15 +332,30 @@ class Orchestrator:
         if step_index < 1:
             raise ValueError('检查点步骤序号必须从 1 开始')
         step_name = str(getattr(step, 'name', None) or getattr(step, 'displayName', None) or step or '')
-        self.status['current_stage'] = stage_id
-        self.status['checkpoint'] = {
+        try:
+            at = float(self.clock())
+        except (TypeError, ValueError):
+            at = 0.0
+        checkpoint = {
             'stage': stage_id,
             'step': step_index,
             'step_name': step_name,
             'completed_steps': list(range(1, step_index)),
+            'version': CHECKPOINT_VERSION,
+            'at': at,
+            'project': str(self.project or ''),
+            'skills': [str(name) for name in (skills or [])],
+            'digest': checkpoint_digest(stage_id, step_index, step_name),
         }
-        save_project_status(self.status, self.project)
-        return dict(self.status['checkpoint'])
+        # 写成功才认这份内存状态：写失败（磁盘满／没权限）时不许留下一个没落盘的检查点，
+        # 也不许接着往下跑付费动作（save_project_status 会抛，调用方据此收场）。
+        pending = dict(self.status)
+        pending['current_stage'] = stage_id
+        pending['checkpoint'] = checkpoint
+        save_project_status(pending, self.project)
+        self.status.clear()
+        self.status.update(pending)
+        return dict(checkpoint)
 
     def clear_checkpoint(self, stage):
         """阶段成功收尾后清掉自己的检查点，避免下次启动误报中断。"""
@@ -385,6 +419,109 @@ class Orchestrator:
             return 1
         return False
 
+    def resume_preview(self, context=None):
+        """恢复预览（只读）：核对中断检查点与现在的项目／步骤／技能，给一份续跑计划（O43）。
+
+        与 recover_from_checkpoint 的区别在「核对」而不只是「问」：先把检查点格式版本、项目
+        身份、步骤摘要与磁盘成果都比一遍，再按步骤给出「续做／跳过／需人工核实」。
+
+        两个「完成」分得很清楚：
+        - **工具调用完成**：检查点里的 completed_steps 只说明那几步的工具跑过了；
+        - **阶段成果完成**：以 verified_stage_output 为准（磁盘上真有可采用的成果）。
+        版本／项目／步骤摘要任何一条对不上都标「需人工核实」，不自动续跑；已存在可验证阶段
+        成果时整段标「跳过」，不重复付费、不重复发布。本方法不改状态、不写文件、不发事件。
+        """
+        checkpoint = self.status.get('checkpoint') if isinstance(self.status, dict) else None
+        if not isinstance(checkpoint, dict):
+            return {'found': False, 'stage': '', 'stage_name': '', 'step': 0, 'step_name': '',
+                    'total_steps': 0, 'version': None, 'version_ok': False, 'project': '',
+                    'project_ok': False, 'digest_ok': False, 'scope_ok': False, 'skills': [],
+                    'artifact_verified': False, 'tools_done': [], 'steps': [],
+                    'continue_count': 0, 'skip_count': 0, 'verify_count': 0, 'paid': [],
+                    'lines': ['没有中断检查点：本次从头开始，不涉及恢复。'],
+                    'text': '没有中断检查点：本次从头开始，不涉及恢复。'}
+        stage_id = str(checkpoint.get('stage') or '')
+        steps = list(self._template_steps(stage_id) or self.registry.getByStage(stage_id))
+        total = len(steps)
+        try:
+            step_index = int(checkpoint.get('step') or 0)
+        except (TypeError, ValueError):
+            step_index = 0
+
+        def name_at(index):
+            if 1 <= index <= total:
+                item = steps[index - 1]
+                return str(getattr(item, 'name', None) or getattr(item, 'displayName', '') or '')
+            return ''
+
+        step_name = str(checkpoint.get('step_name') or name_at(step_index))
+        recorded_project = str(checkpoint.get('project') or '')
+        version_ok = checkpoint.get('version') == CHECKPOINT_VERSION
+        # 旧检查点没有 project 键：记不清就不当成「另一个项目」，交给版本检查去提示。
+        project_ok = (not recorded_project) or recorded_project == str(self.project or '')
+        scope_ok = bool(stage_id) and 1 <= step_index <= total
+        digest = checkpoint.get('digest')
+        digest_ok = bool(digest) and scope_ok and digest == checkpoint_digest(
+            stage_id, step_index, name_at(step_index))
+        artifact_verified = bool(verified_stage_output(self.project, stage_id))
+
+        plan = []
+        for index in range(1, total + 1):
+            if not scope_ok:
+                verdict, reason = 'verify', '检查点步骤 %d 落在当前 %d 步之外，需人工核实' % (step_index, total)
+            elif index < step_index:
+                verdict, reason = 'skip', '检查点之前的步骤：工具已跑过（工具调用完成，不等于成果已采用）'
+            elif index > step_index and artifact_verified:
+                verdict, reason = 'skip', '该阶段成果已验证，不重复执行'
+            elif index > step_index:
+                verdict, reason = 'continue', '后续步骤'
+            elif not version_ok:
+                verdict, reason = 'verify', '检查点由旧版格式写入，需人工核实'
+            elif not project_ok:
+                verdict, reason = 'verify', '检查点属于另一个项目，需人工核实'
+            elif not scope_ok or not digest_ok:
+                verdict, reason = 'verify', '这一步与现在的步骤／技能集对不上，需人工核实'
+            elif artifact_verified:
+                verdict, reason = 'skip', '该阶段成果已验证，不重复执行这一步'
+            else:
+                verdict, reason = 'continue', '从这一步续做'
+            plan.append({'index': index, 'name': name_at(index), 'verdict': verdict, 'reason': reason})
+
+        counts = {key: sum(1 for row in plan if row['verdict'] == key)
+                  for key in ('continue', 'skip', 'verify')}
+        paid = sorted({item.name for item in self.registry.getByStage(stage_id)
+                       if getattr(item, 'paid', False)})
+        tools_done = [index for index in range(1, step_index) if 1 <= index <= total]
+        stage_name = pet_bus.STAGE_NAMES.get(stage_id, stage_id)
+        lines = ['【恢复预览】阶段：%s，步骤 %d/%d：%s' % (stage_name or stage_id, step_index, total,
+                                                          step_name or '—'),
+                 '【恢复预览】将续做 %d 步、跳过 %d 步、需人工核实 %d 步。' % (
+                     counts['continue'], counts['skip'], counts['verify'])]
+        if not version_ok:
+            lines.append('【恢复预览】检查点由旧版格式写入（版本 %s，当前 %d）：请人工核实步骤边界后再续跑。' % (
+                checkpoint.get('version'), CHECKPOINT_VERSION))
+        if not project_ok:
+            lines.append('【恢复预览】检查点属于「%s」，与当前项目「%s」不一致。' % (
+                recorded_project, self.project))
+        if version_ok and project_ok and (not scope_ok or not digest_ok):
+            lines.append('【恢复预览】这一步与现在的步骤／技能集对不上，需人工核实后再续跑。')
+        if artifact_verified:
+            lines.append('【恢复预览】该阶段成果已验证（阶段成果完成）：整段跳过，不重复付费、不重复发布。')
+        elif tools_done:
+            lines.append('【恢复预览】已完成的是工具调用（步骤 %s），尚未确认阶段成果。' % '、'.join(
+                str(index) for index in tools_done))
+        if paid:
+            lines.append('【恢复预览】本阶段含付费步骤：%s；只有标「续做」的才会重新提交。' % '、'.join(paid))
+        return {'found': True, 'stage': stage_id, 'stage_name': stage_name, 'step': step_index,
+                'step_name': step_name, 'total_steps': total, 'version': checkpoint.get('version'),
+                'version_ok': version_ok, 'project': recorded_project,
+                'project_ok': project_ok, 'digest_ok': digest_ok, 'scope_ok': scope_ok,
+                'skills': [str(name) for name in (checkpoint.get('skills') or [])],
+                'artifact_verified': artifact_verified, 'tools_done': tools_done, 'steps': plan,
+                'continue_count': counts['continue'], 'skip_count': counts['skip'],
+                'verify_count': counts['verify'], 'paid': paid,
+                'lines': lines, 'text': '\n'.join(lines)}
+
     def execute(self, sid, context=None):
         """跑一个 SKILL：返回一条结果（字典）。任何一步出岔子都只记在结果里。"""
         context = context if isinstance(context, dict) else {}
@@ -411,7 +548,7 @@ class Orchestrator:
                 self.errors.append((item.name, str(exc)))
         try:
             template_step = context.get('_template_step')
-            self.before_step(item.stage, template_step or self._checkpoint_step(item))
+            self.before_step(item.stage, template_step or self._checkpoint_step(item), [item.name])
         except (OSError, TypeError, ValueError) as exc:
             self.errors.append((item.name + '.checkpoint', str(exc)))
             return self._result(item.name, FAILED, False, detail='检查点写入失败：%s' % exc,
@@ -553,7 +690,7 @@ class Orchestrator:
                     emit('【警告】未确认，已跳过%s' % step.name)
                     continue
             try:
-                self.before_step(template.stage_id, step)
+                self.before_step(template.stage_id, step, [str(name) for name in group])
                 step_context = dict(context, _template_step=step)
                 if callable(execute_action):
                     outcome = execute_action(step.action, step_context)

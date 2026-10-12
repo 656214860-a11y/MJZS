@@ -242,5 +242,46 @@ class WallDialogTests(unittest.TestCase):
         self.assertIn('勾选', str(warnings[0]))
 
 
+    def test_wall_shows_license_basis_and_collection_date(self):
+        win = self.open_wall([candidate(license_url='https://creativecommons.org/licenses/by/4.0/',
+                                        collected_at='2026-10-12')])
+        table = self.table(win)
+        values = table.item(table.get_children()[0], 'values')
+        self.assertEqual(str(values[6]), 'https://creativecommons.org/licenses/by/4.0/')
+        self.assertEqual(str(values[7]), '2026-10-12')
+
+    def test_conflicting_sources_are_flagged_with_alt_count(self):
+        win = self.open_wall([candidate(url='https://a/1.png'),
+                              candidate(url='https://b/2.png', license='CC BY-NC')])
+        table = self.table(win)
+        rows = table.get_children()
+        self.assertEqual(len(rows), 1)                   # 同图只展示一条
+        values = table.item(rows[0], 'values')
+        self.assertIn('不一致', str(values[8]))           # 状态列说明来源冲突
+        self.assertEqual(str(values[9]), '1')            # 同图来源：另有 1 个
+
+    def test_dropping_a_candidate_leaves_imported_assets_untouched(self):
+        from unittest.mock import patch as mock
+        import cell_hover
+        base = self.library({'CHAR_001': {'name': '银发少女'}})
+        search.adopt(base, 'CHAR_001', [candidate()], fetch=lambda url: png())
+        plan = base / 'assets/资产清单/assets.json'
+        before = plan.read_bytes()
+        win = self.open_wall([candidate(), candidate(url='https://b/2.png', title='第二张')], base=base)
+        table = self.table(win)
+        rows = table.get_children()
+        self.assertEqual(len(rows), 2)
+        self.win.deiconify(); win.deiconify(); self.win.update()
+        made = []
+        with mock.object(cell_hover.tk, 'Menu', lambda *a, **k: (made.append(_Popup()), made[-1])[1]):
+            x, y, width, height = table.bbox(rows[1], '#5')
+            table.event_generate('<Button-3>', x=int(x + width // 2), y=int(y + height // 2))
+            self.win.update()
+            made[-1].items[1][1]()                       # 删除：只剔右键那一行
+        self.win.update()
+        self.assertEqual(list(table.get_children()), [rows[0]])
+        self.assertEqual(plan.read_bytes(), before)      # 剔除候选不改已入库资产
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=1)

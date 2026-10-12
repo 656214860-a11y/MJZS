@@ -30,7 +30,7 @@ def install_ui_presenters(execution_presenter, plan_presenter, confirmation_pres
 
 
 def _run_script_structure(desktop, project, names, trigger):
-    """Writer 提取、Editor 审校并按反馈返工后，才把结构化正稿写入 script.md。"""
+    """本地规则提取、规则校验并按反馈重提取后，才把结构化正稿写入 script.md（不调用模型）。"""
     import script_contract
     from stage_execution_service import build_orchestrator, publish_stage_text, stage_context
     state = {}
@@ -46,24 +46,25 @@ def _run_script_structure(desktop, project, names, trigger):
             return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': '已读取 ' + state['source_name']}
         if action == 'writer_extract_structure':
             state['structured'] = script_contract.structure_script(state.get('raw', ''), state.get('source_name', script_contract.RAW_SCRIPT_NAME))
-            return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': 'Writer 已提取角色、场景、道具和分场'}
+            return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': '规则提取完成：角色、场景、道具和分场（本地规则，未调用模型）'}
         if action == 'editor_review_structure':
             state['review'] = script_contract.review_structured_script(state.get('raw', ''), state.get('structured', ''))
             notes = state['review']['feedback']
-            detail = 'Editor 审校通过' if state['review']['approved'] else 'Editor 要求修正：' + '；'.join(notes)
+            detail = ('规则校验通过（未调用模型）' if state['review']['approved']
+                      else '规则校验要求修正：' + '；'.join(notes))
             return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': detail}
         if action == 'writer_revise_structure':
-            review = state.get('review') or {'approved': False, 'feedback': ('未完成 Editor 审校。',)}
+            review = state.get('review') or {'approved': False, 'feedback': ('未完成规则校验。',)}
             if review['approved']:
-                return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': 'Editor 已通过，Writer 无需返工'}
+                return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': '规则校验已通过，无需重新提取'}
             state['structured'] = script_contract.revise_structured_script(
                 state.get('raw', ''), review['feedback'], state.get('source_name', script_contract.RAW_SCRIPT_NAME))
-            return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': 'Writer 已按 Editor 反馈重新提取'}
+            return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': '已按反馈用本地规则重新提取'}
         if action == 'editor_final_review':
             review = script_contract.review_structured_script(state.get('raw', ''), state.get('structured', ''))
             if not review['approved']:
-                raise ValueError('Editor 复审未通过：' + '；'.join(review['feedback']))
-            return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': 'Editor 复审通过，可写入正稿'}
+                raise ValueError('规则复审未通过：' + '；'.join(review['feedback']))
+            return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': '规则复审通过，可写入正稿'}
         if action == 'write_structured_script':
             target = script_contract.write_structured_script(
                 project, state.get('structured'), state.get('source'), publisher=publish_stage_text)

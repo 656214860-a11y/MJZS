@@ -168,7 +168,7 @@ class DialogTests(unittest.TestCase):
             shown = [w for w in self.widgets(dialog, ttk.Label)
                      if str(w.cget("textvariable")) and dialog.getvar(str(w.cget("textvariable"))) == current_model(app.root)]
             self.assertEqual(len(shown), 1)                            # 「模型」那一行只读显示当前模型
-            frames = [str(w.cget("text")) for w in self.widgets(dialog, ttk.LabelFrame)]
+            frames = [str(w.cget("text")) for w in self.widgets(dialog, ttk.Label)]
             self.assertTrue(any("ComfyUI" in text for text in frames))
             self.assertFalse(any("Agent" in text for text in frames))  # 不再有重复的 Agent 接口框
             table = [w for w in self.widgets(dialog, ttk.Treeview)][0]

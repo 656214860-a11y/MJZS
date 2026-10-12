@@ -158,6 +158,34 @@ class AutoReviewTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 st.assemble()
 
+    def test_auto_review_is_not_content_review(self):
+        """技术正确不等于内容审核通过：无人值守只做技术放行，面板必须分开说。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj, st, _message = self.run_download(td, auto=True)
+            v = st.state()["shots"]["SH001"][-1]
+            self.assertEqual(engine.review_source(v), "auto")
+            self.assertFalse(engine.content_reviewed(v))
+            self.assertEqual(engine.review_label(v), "技术自动放行（未做内容审核）")
+            # 自动技术放行仍算「已验收」，既有自动拼接默认不被暗改。
+            self.assertEqual(len(engine.approved_versions([v])), 1)
+
+    def test_user_review_marks_content_reviewed(self):
+        """用户显式点「通过」才算内容审核，并在面板标成已确认。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj, st, _message = self.run_download(td, auto=True)
+            st.review("SH001", "pass", "人工确认内容无误")
+            v = st.state()["shots"]["SH001"][-1]
+            self.assertEqual(engine.review_source(v), "user")
+            self.assertTrue(engine.content_reviewed(v))
+            self.assertEqual(engine.review_label(v), "通过（您已确认内容）")
+
+    def test_legacy_records_infer_review_source(self):
+        """老记录没有 review_by：按旧前缀认出自动放行，认不出的按真人验收。"""
+        self.assertEqual(engine.review_source({"review": "pass", "review_note": "无人值守自动验收：技术质检通过"}), "auto")
+        self.assertEqual(engine.review_source({"review": "pass", "review_note": "人工确认"}), "user")
+        self.assertEqual(engine.review_source({"review": "pass"}), "user")
+        self.assertEqual(engine.review_source({"review": "pending"}), "")
+
     def test_setting_keeps_other_ui_keys(self):
         with tempfile.TemporaryDirectory() as td:
             proj = build_project(td)
@@ -171,6 +199,48 @@ class AutoReviewTests(unittest.TestCase):
             self.assertFalse(project_settings.set_auto_review(proj, False))
             self.assertFalse(project_settings.auto_review(proj))
             self.assertEqual(json.loads(ui.read_text(encoding="utf-8")).get("adopted_storyboards"), ["storyboard/x.json"])
+
+
+class DownloadResumeTests(unittest.TestCase):
+    """O28：下载中断后再次查询续取，不重新生成、不重投新版本。"""
+
+    def test_download_failure_resumes_without_resubmitting(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = build_project(td)
+            mp4 = Path(td) / "clip.mp4"
+            subprocess.run([FFMPEG, "-y", "-v", "error",
+                            "-f", "lavfi", "-i", "color=c=black:s=640x360:d=5",
+                            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:d=5",
+                            "-c:v", "libx264", "-c:a", "aac", "-shortest", str(mp4)], check=True)
+
+            attempts = []
+            class Adapter(FakeAdapter):
+                def __init__(self, cfg):
+                    super().__init__(cfg)
+                    self.video = mp4.read_bytes()
+                def poll(self, task_id):
+                    return {"status": "succeeded", "url": "https://example.com/v.mp4"}
+                def download_video(self, task_id, dest):
+                    attempts.append(dest)
+                    if len(attempts) == 1:
+                        raise RuntimeError("network reset")
+                    Path(dest).write_bytes(self.video)
+
+            st = engine.Studio(proj, factory=Adapter)
+            st.submit("SH001")
+            with self.assertRaises(RuntimeError):
+                st.poll("SH001")
+            versions = st.state()["shots"]["SH001"]
+            self.assertEqual(len(versions), 1)              # 不重投：没有新版本
+            self.assertEqual(versions[-1]["state"], "succeeded")
+            self.assertTrue(versions[-1].get("download_error"))
+            self.assertTrue(versions[-1].get("charged"))
+            # 再次查询：续取成功，仍然只有一个版本，远端任务没有被重发。
+            message = st.poll("SH001")
+            self.assertIn("已下载", message)
+            versions = st.state()["shots"]["SH001"]
+            self.assertEqual(len(versions), 1)
+            self.assertEqual(versions[-1]["state"], "downloaded")
 
 
 class AutoEditReadyTests(unittest.TestCase):
@@ -400,6 +470,15 @@ class PartialAssembleTests(unittest.TestCase):
             self.assertEqual([item.split()[0] for item in report["skipped"]], [ids[2]])
             manifest = json.loads((master.parent / "edit_manifest.json").read_text(encoding="utf-8"))
             self.assertEqual([item["shot"] for item in manifest], ids[:2])
+            # 粗剪覆盖率写进报告与可恢复清单：包含/缺失镜头与总时长都能被界面和交付核对。
+            self.assertEqual(report["included"], ids[:2])
+            self.assertEqual(report["expected"], 3)
+            self.assertEqual(report["duration"], 10.0)
+            bundle = json.loads((master.parent / "edit_bundle.json").read_text(encoding="utf-8"))
+            self.assertEqual(bundle["master"], "MASTER.mp4")
+            self.assertEqual([item["shot"] for item in bundle["manifest"]], ids[:2])
+            self.assertEqual(bundle["coverage"]["included"], ids[:2])
+            self.assertEqual(bundle["coverage"]["expected"], 3)
 
     def test_partial_assemble_needs_at_least_one_shot(self):
         with tempfile.TemporaryDirectory() as td:

@@ -55,7 +55,7 @@ def show(parent,title,text,status=None,receipt='',empty_text='',empty_hint='',so
         # 复制成功后关闭本窗口：与其他提示词复制窗口保持一致；剪贴板归主窗口所有，关窗不会丢内容。
         reason=copy_text(parent.winfo_toplevel(),text)
         if reason:
-            notify(win, "复制失败，请重试："+reason, level='error', title="复制提示词", status=status);return
+            notify(win, "复制失败："+reason+"，请重试", level='error', title="复制提示词", status=status);return
         if status is not None and receipt:status.set(receipt)
         win.destroy()
     action=PrimaryButton(win.actions,text=button,command=copy)

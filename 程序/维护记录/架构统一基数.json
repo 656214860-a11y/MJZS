@@ -906,13 +906,13 @@
             },
             {
                 "file": "batch_frames_tool/batch_frames.py",
-                "point": "13",
+                "point": "14",
                 "disposition": "exempt",
                 "reason": "\u72ec\u7acb\u6279\u5e27\u5de5\u5177\u7684\u672c\u5730\u914d\u7f6e\u8bfb\u5199\uff0c\u975e\u8fd0\u884c\u671f L2"
             },
             {
                 "file": "batch_frames_tool/batch_frames.py",
-                "point": "77",
+                "point": "78",
                 "disposition": "exempt",
                 "reason": "\u72ec\u7acb\u6279\u5e27\u5de5\u5177\u7684\u672c\u5730\u914d\u7f6e\u8bfb\u5199\uff0c\u975e\u8fd0\u884c\u671f L2"
             },
@@ -990,13 +990,13 @@
             },
             {
                 "file": "file_cache.py",
-                "point": "53",
+                "point": "55",
                 "disposition": "exempt",
                 "reason": "\u7f13\u5b58\u6743\u5a01\u81ea\u8eab"
             },
             {
                 "file": "file_cache.py",
-                "point": "112",
+                "point": "141",
                 "disposition": "exempt",
                 "reason": "R831：缓存权威集中执行带前后签名校验的稳定工作 JSON 快照读取。"
             },
@@ -1020,13 +1020,13 @@
             },
             {
                 "file": "model_pool.py",
-                "point": "581",
+                "point": "821",
                 "disposition": "exempt",
                 "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。"
             },
             {
                 "file": "model_pool.py",
-                "point": "621",
+                "point": "861",
                 "disposition": "exempt",
                 "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。"
             },
@@ -1038,7 +1038,7 @@
             },
             {
                 "file": "previs_automation.py",
-                "point": "21",
+                "point": "23",
                 "disposition": "exempt",
                 "reason": "\u7f51\u7edc\u54cd\u5e94\u89e3\u6790"
             },
@@ -1098,13 +1098,13 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1010",
+                "point": "1044",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存 JSON 文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "108",
+                "point": "109",
                 "disposition": "exempt",
                 "reason": "R1124：发布器对内存确认文本的 JSON 校验，不读取文件。"
             },
@@ -1122,21 +1122,21 @@
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1041",
+                "point": "1075",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "stage_execution_service.py",
-                "point": "1057",
+                "point": "1091",
                 "disposition": "exempt",
                 "reason": "R830：原子发布前对内存标记文本的校验，不读取文件。"
             },
             {
                 "file": "writing_api.py",
-                "point": "486",
+                "point": "548",
                 "disposition": "exempt",
-                "reason": "简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
+                "reason": "R1335 合入：阶段④分集增量接入使该 json.loads 行号由 512 平移至 548；仍是简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
             },
             {
                 "file": "stage_parallel.py",

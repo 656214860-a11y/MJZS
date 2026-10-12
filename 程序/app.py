@@ -4,6 +4,7 @@
 # here avoids loading OpenSSL merely because the desktop shell starts.
 import hash_backend
 hash_backend.install()
+import pet_bus
 import queue
 import threading
 import time
@@ -13,15 +14,16 @@ from pathlib import Path
 from storyboard_paths import media_root, project_root
 from responsive_ui import FlowBar,QuietVar,configure_check_column,CheckboxColumn,fit_columns_by_content,fit_row_height,row_height_for
 from local_video import open_studio,LocalStudio,settings_window
+from engine import review_label
 from project_naming import dated_path
 from video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
-from video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS
+from video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
 import project_settings
 import asset_thumbs
 import ui_plugin_registry
 from platform_tools import open_path
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import (SelectBox, BaseDialog, Card, ContextMenu, DataTable, LineInput, NotificationDispatcher,
+from ui_widgets import (SelectBox, BaseDialog, Card, BusyState, ContextMenu, DataTable, LineInput, NotificationDispatcher,
                         ask_confirmation,
                         PrimaryButton, SecondaryButton, TextArea)
 from ui_dialogs import FileDialog
@@ -343,6 +345,7 @@ class App:
         ttk.Label(progress_line,textvariable=self.shared_progress,style='Muted.TLabel',anchor='e').pack(side='right')
         ttk.Label(progress_line,textvariable=self.progress_text,wraplength=700,justify='left').pack(side='left',fill='x',expand=True)
         self.task_progress=ttk.Progressbar(self.footer,mode='indeterminate');self.task_progress.pack(fill='x',padx=SPACING['sm'],pady=(SPACING['xs'],SPACING['xs']))
+        self.busy_state=BusyState(self.progress_text,self.task_progress)
         log_box=tk.Frame(self.footer,bg=COLORS['background_card'],highlightthickness=1,highlightbackground=COLORS['border_default'])
         log_box.pack(fill='x',padx=SPACING['sm'],pady=SPACING['xs']);self.log_box=log_box
         log_actions=tk.Frame(log_box,bg=COLORS['background_card']);log_actions.pack(fill='x')
@@ -574,7 +577,7 @@ class App:
         try:
             if self.busy:raise ValueError('当前正在提交，请完成后再修改白模选项')
             assert_prompt_editable(self,sid)
-            if var.get() and not self.white_model_ready(sid):raise ValueError('白模待制作，请先到第06步生成白模视频，再刷新白模')
+            if var.get() and not self.white_model_ready(sid):raise ValueError('白模待制作，请先到'+pet_bus.stage_step('previs')+'生成白模视频，再刷新白模')
             from stage_execution_service import save_stage_white_model_upload
             with self.studio.lock():
                 self.studio.episode=save_stage_white_model_upload(self.studio.episode_path,sid,var.get())
@@ -675,7 +678,7 @@ class App:
         shot=next((s for s in episode['shots'] if s['id']==sid),None)
         if shot is None:raise ValueError('此镜头已从分镜中移除，请刷新列表：'+sid)
         path=self.studio.frame(shot,required=False)
-        if shot.get('frame_deleted') or not path.is_file():raise ValueError(sid+' 还没有首帧图片，请先到第05步制作')
+        if shot.get('frame_deleted') or not path.is_file():raise ValueError(sid+' 还没有首帧图片，请先到'+pet_bus.stage_step('keyframe')+'制作')
         open_path(path)
     def video_column(self,name):
         """这一列的表头编号（第 54 期第 3 条：右键要按格子认列，不能写死）。"""
@@ -780,7 +783,7 @@ class App:
             # 第 55 期第 3 条起由盖图那一层自己做（盖上收走、撤掉写回）；这里照旧写「已就绪」／
             # 「请回05准备」——原来为了判这一点逐镜解一遍首帧，白解。
             frame_text='已就绪' if ready else '请回05准备'
-            self.tree.insert('',tk.END,iid=s['id'],text='',image=self.edit_icons[int(self.edit_checks.setdefault(s['id'],False))],values=(s['id'],s['title'],self.asset_cell_text(s['id']),s['duration'],frame_text,state_label,'未开始','未开始',{'pass':'通过','revise':'需修改'}.get(v.get('review'),'待验收'),len(vs),'已就绪' if self.white_model_ready(s['id']) else '待制作'),tags=('completed',) if v.get('state')=='downloaded' else ())
+            self.tree.insert('',tk.END,iid=s['id'],text='',image=self.edit_icons[int(self.edit_checks.setdefault(s['id'],False))],values=(s['id'],s['title'],self.asset_cell_text(s['id']),s['duration'],frame_text,state_label,'未开始','未开始',review_label(v),len(vs),'已就绪' if self.white_model_ready(s['id']) else '待制作'),tags=('completed',) if v.get('state')=='downloaded' else ())
         self.refresh_shared_progress()
         self.fit_shot_columns()
         self.shot_thumbs_refresh()          # 第 53 期第 5 条：行重建之后缩略图跟着重排
@@ -1014,9 +1017,9 @@ class App:
         selected=self.tree.selection()
         if not selected:return
         sid=selected[0];versions=self.studio.state()['shots'].get(sid,[]);v=versions[-1] if versions else {}
-        self.task_progress.stop()
+        self.busy_state.set_busy(False)
         if self.local_submit_sid==sid:
-            self.task_progress.start(15);return
+            self.busy_state.set_busy(True,progress_interval=15);return
         if sid in self.local_submit_error and not v.get('task_id'):
             self.progress_text.set(sid+' · 提交失败：'+self.local_submit_error[sid]);return
         if v.get('state')=='downloaded' and v.get('file') and (self.root/v['file']).is_file():
@@ -1027,12 +1030,12 @@ class App:
         elif v.get('state') in ('unknown','submitting') and not v.get('task_id'):
             self.progress_text.set(sid+' · 提交结果待核实：未收到任务编号。点“恢复任务编号”，从服务商控制台粘贴编号。不会自动重发。')
         elif v.get('task_id') and v.get('state') in ('queued','running','succeeded','unknown','submitting'):
-            self.task_progress.start(15)
+            self.busy_state.set_busy(True,progress_interval=15)
             self.progress_text.set(sid+' · '+{'queued':'排队中','running':'生成中','succeeded':'正在下载'}.get(v['state'],'正在恢复查询')+elapsed_text(v,time.time())+'；自动跟踪。任务编号：'+v['task_id'])
         else:
             pending=[shot_id for shot_id,records in self.studio.state()['shots'].items() if shot_id!=sid and records and records[-1].get('state') in ('queued','running','succeeded','unknown','submitting')]
             if self.local_submit_sid and self.local_submit_sid!=sid and self.local_submit_sid not in pending:pending.append(self.local_submit_sid)
-            detail=sid+' · '+LABELS.get(v.get('state'),'未提交；点击生成按钮才会提交')
+            detail=sid+' · '+status_detail(v)
             if pending:detail+='\n后台跟踪：'+'、'.join(pending)+'（切换查看不会提交当前镜头）'
             self.progress_text.set(detail)
     def auto_poll(self):
@@ -1067,7 +1070,7 @@ class App:
         if path.is_file() and not shot.get('frame_deleted'):return True
         callback=getattr(self,'missing_frame_callback',None)
         if callback:
-            self.write(sid+' 缺少首帧，已转到第05步；本次未提交视频生成。')
+            self.write(sid+' 缺少首帧，已转到'+pet_bus.stage_step('keyframe')+'；本次未提交视频生成。')
             callback(sid);return False
         self.studio.frame(shot)
         return False
@@ -1247,7 +1250,7 @@ class App:
             self.save_prompt()
         if isinstance(self.studio,LocalStudio):
             sid=self.sid();self.save_options();self.local_submit_sid=sid;self.local_submit_error.pop(sid,None)
-            self.progress_text.set(sid+' · 正在准备提交…');self.task_progress.start(15)
+            self.progress_text.set(sid+' · 正在准备提交…');self.busy_state.set_busy(True,progress_interval=15)
             self.write('手动提交已锁定镜头：'+sid);studio=self.studio
             self.run(lambda sid=sid,studio=studio:studio.submit(sid,progress=lambda text:self.local_messages.put((sid,text))));return
         self.save_options()

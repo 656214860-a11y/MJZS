@@ -114,7 +114,7 @@ class DescriptorTests(unittest.TestCase):
             with self.assertRaises(ValueError) as caught:
                 self.call(td)
         self.assertIn('不存在', str(caught.exception))
-        self.assertIn('第06步', str(caught.exception))
+        self.assertIn('第09步', str(caught.exception))
 
     def test_a_record_without_preview_is_stopped(self):
         with tempfile.TemporaryDirectory() as td:
@@ -123,7 +123,7 @@ class DescriptorTests(unittest.TestCase):
                 self.call(td)
 
     def test_a_wrong_suffix_is_stopped(self):
-        """上传路上是拿在手里的那一份（盘上记录另有第 06 步的分类规则，见下一条）。"""
+        """上传路上是拿在手里的那一份（盘上记录另有白模预演阶段的分类规则，见下一条）。"""
         with tempfile.TemporaryDirectory() as td:
             row = {'shot_id': 'SH001', 'preview': str(mp4_file(td, name='白模预演.avi'))}
             with self.assertRaises(ValueError) as caught:
@@ -131,7 +131,7 @@ class DescriptorTests(unittest.TestCase):
         self.assertIn('mp4', str(caught.exception))
 
     def test_a_project_file_is_not_mistaken_for_a_preview(self):
-        """第 06 步把非视频的 preview 归到 project_file（.blend 工程），这儿不算参考视频。"""
+        """白模预演阶段把非视频的 preview 归到 project_file（.blend 工程），这儿不算参考视频。"""
         with tempfile.TemporaryDirectory() as td:
             self.record(td, preview=mp4_file(td, name='白模预演.blend'))
             with self.assertRaises(ValueError) as caught:

@@ -5,12 +5,13 @@ from file_cache import remove_temporary_file
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要发本机 HTTP 时用得到——都改成函数内 import。
 from urllib.parse import urlparse,urlencode,quote
-from engine import Studio
+from engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE
 from agent.core import read,save,file_hash,command,fingerprint,temporary_path,replace
 from agent.media import check, png_size
 import project_settings
 from ui_tokens import SPACING
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton
+import pet_bus
 
 def model_name(cfg=None):
     """本地视频当前使用的模型：取已保存工作流的文件名，未配置时按默认 H3 显示。"""
@@ -207,13 +208,13 @@ class LocalStudio(Studio):
                 if picture and v.get('source_aspect') and abs((picture['width']/picture['height'])/v['source_aspect']-1)>0.04:report['errors'].append('视频比例与首帧不一致')
                 command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',dest,'-f','null','-'])
                 if not report['errors'] and __import__('pet_ui').should_auto_run(self, self.root, 'auto_review'):
-                    v.update(review='pass',review_note='无人值守自动验收：技术质检通过')
+                    v.update(review=REVIEW_PASS,review_by='auto',review_note=AUTO_REVIEW_NOTE)
             except Exception as exc:
                 self.publish_downloaded_video(st,sid,v,dest,qc_error=exc)
                 return '本地视频已取回；质检未完成，请检查FFmpeg设置后再验收'
             self.publish_downloaded_video(st,sid,v,dest,report)
             if report['errors']:return '本地视频已取回；QC未通过：'+'；'.join(report['errors'])
-            return '本地视频已取回；'+('已按自动验收设置通过' if v.get('review')=='pass' else '技术QC通过，待您验收')
+            return '本地视频已取回；'+('已按自动验收设置放行（未做内容审核）' if v.get('review')==REVIEW_PASS else '技术QC通过，待您验收')
 
     def note_failure(self,sid,error):
         """把无人值守提交失败记成一条失败版本：下一轮按失败跳过，不反复重提，等用户看报告处理。"""
@@ -281,7 +282,7 @@ def auto_plan(project,source,studio=None):
                 skipped.append((sid,'上次本地生成未完成（'+str(last.get('state'))+'），请查看 ComfyUI 后手动重做'));continue
             skipped.append((sid,'上次任务状态异常（'+str(last.get('state') or '未知')+'），请先核实旧任务'));continue
         if shot.get('video_deleted'):skipped.append((sid,'镜头视频已删除，已跳过'));continue
-        if not studio.frame(shot,required=False).is_file():skipped.append((sid,'尚无首帧，先在第05步生成或导入'));continue
+        if not studio.frame(shot,required=False).is_file():skipped.append((sid,'尚无首帧，先在'+pet_bus.stage_step('keyframe')+'生成或导入'));continue
         submit.append(sid)
     return submit,poll,skipped
 

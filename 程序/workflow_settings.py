@@ -8,6 +8,7 @@ from tkinter import ttk
 import tkinter as tk
 from agent.core import save
 from file_cache import read_json
+import skill_registry
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
@@ -546,48 +547,106 @@ def validate_selected_skills(project, stage):
             raise ValueError(f'已勾选的 SKILL 未加载：{name}；已阻止发送，请重新确认阶段配置。')
 
 
-def _inline_skill(path, *, cap=96000, strict=False):
-    """API 发送快照：技能及目录边界内的直接引用，不递归加载引用。"""
-    from html import escape
-    from urllib.parse import unquote, urlsplit
-    import skill_registry
+def _reference_row(entry, reference, status, depth=1):
+    """引用闭包里的一行：目标、类型、结果与深度（1＝直接引用，2＝引用文件里再出现）。"""
+    row = {'kind': entry['kind'], 'status': status, 'target': entry['raw'], 'depth': depth}
+    if reference is not None:
+        row['path'] = str(reference)
+    return row
 
+
+def _nested_references(reference, body, seen, root):
+    """引用文件里再出现的链接：只登记、不展开（明确不递归加载）。"""
+    out = []
+    for entry in skill_registry.reference_targets(body):
+        relative = entry['path']
+        if relative is None:
+            out.append(_reference_row(entry, None, entry['kind'], 2))
+            continue
+        if relative.is_absolute():
+            out.append(_reference_row(entry, relative, 'absolute', 2))
+            continue
+        target = (reference.parent / relative).resolve()
+        if target in seen:
+            status = 'cycle'
+        elif not target.is_relative_to(root):
+            status = 'outside'
+        elif not target.is_file():
+            status = 'missing'
+        else:
+            status = 'nested'
+        out.append(_reference_row(entry, target, status, 2))
+    return out
+
+
+def _skill_blocks(path, *, strict):
+    """走一遍技能正文与它的直接引用；返回 (正文, 元数据, 分块, 引用闭包)。
+
+    闭包是「实际发生了什么」的唯一记录：inlined（已内联）、duplicate（重复）、
+    outside（越界）、missing（缺失）、resource（图片／脚本等资源）、remote（外部地址）、
+    anchor（纯锚点）、absolute（绝对路径），以及 depth=2 的嵌套项：nested（未展开）、
+    cycle（回指已加载文件）、outside、missing。只加载直接引用，不递归。
+    """
     path = Path(path).resolve()
     text = path.read_text(encoding='utf-8-sig')
     meta, content = skill_registry.parse(text, source=str(path))
     if strict and not content.strip():
         raise ValueError(f'已勾选的 SKILL 内容为空，已阻止发送：{path}')
-    name = str(meta.get('name') or path.parent.name)
-    opening = f'<skill name="{escape(name, quote=True)}">\n'
-    closing = '\n</skill>'
     blocks = [(path, f'<!-- 来源: {path} -->\n{text}')]
+    closure, seen = [], {path}
     root = skill_registry.default_root().resolve()
-    seen = {path}
-    for match in re.finditer(r'\]\(\s*(<[^>]+>|[^)]+)\s*\)', text):
-        link = match.group(1).strip()
-        if link.startswith('<'):
-            link = link[1:-1]
-        else:
-            link = re.sub(r'\s+[\"\'][^\"\']*[\"\']\s*$', '', link)
-        parts = urlsplit(link.replace('\\', '/'))
-        relative = Path(unquote(parts.path))
-        if parts.scheme or parts.netloc or not parts.path or relative.is_absolute():
+    for entry in skill_registry.reference_targets(text):
+        relative = entry['path']
+        if relative is None:
+            closure.append(_reference_row(entry, None, entry['kind']))
+            continue
+        if relative.is_absolute():
+            closure.append(_reference_row(entry, relative, 'absolute'))
             continue
         reference = (path.parent / relative).resolve()
-        if strict and reference.suffix.lower() in ('.md', '.txt') and not (
-                reference.is_relative_to(root) or reference.is_relative_to(path.parent)):
+        markdown = entry['kind'] == 'markdown'
+        within_root = reference.is_relative_to(root)
+        within_folder = reference.is_relative_to(path.parent)
+        if markdown and strict and not (within_root or within_folder):
+            closure.append(_reference_row(entry, reference, 'outside'))
             raise ValueError(f'SKILL 引用超出允许目录，已阻止发送：{reference}')
-        if (reference.suffix.lower() not in ('.md', '.txt')
-                or not (reference.is_relative_to(root) or (strict and reference.is_relative_to(path.parent)))
-                or reference in seen):
+        if not markdown:
+            closure.append(_reference_row(entry, reference, 'resource'))
+            continue
+        if not (within_root or (strict and within_folder)):
+            closure.append(_reference_row(entry, reference, 'outside'))
+            continue
+        if reference in seen:
+            closure.append(_reference_row(entry, reference, 'duplicate'))
             continue
         seen.add(reference)
-        body = reference.read_text(encoding='utf-8-sig')
+        try:
+            body = reference.read_text(encoding='utf-8-sig')
+        except OSError as exc:
+            closure.append(_reference_row(entry, reference, 'missing'))
+            raise ValueError(f'SKILL 引用缺失，已阻止发送：{reference}（{exc}）') from exc
         blocks.append((reference, f'\n\n## 引用: {reference.name}\n{body}'))
-    complete = opening + ''.join(body for _, body in blocks) + closing
-    if len(complete) <= cap:
-        return complete
-    raise ValueError(f'SKILL 内容超过 {cap:,} 字符，已阻止发送：{path}；请减少所选技能或缩短内容。')
+        closure.append(_reference_row(entry, reference, 'inlined'))
+        closure.extend(_nested_references(reference, body, seen, root))
+    return text, meta, blocks, closure
+
+
+def _inline_skill_report(path, *, cap=96000, strict=False):
+    """内联技能正文，并给出「实际加载了什么」的引用闭包，供请求快照留凭据。"""
+    from html import escape
+    _text, meta, blocks, closure = _skill_blocks(path, strict=strict)
+    name = str(meta.get('name') or Path(path).resolve().parent.name)
+    complete = (f'<skill name="{escape(name, quote=True)}">\n'
+                + ''.join(body for _, body in blocks) + '\n</skill>')
+    if len(complete) > cap:
+        raise ValueError(f'SKILL 内容超过 {cap:,} 字符，已阻止发送：{Path(path).resolve()}；'
+                         '请减少所选技能或缩短内容。')
+    return complete, closure
+
+
+def _inline_skill(path, *, cap=96000, strict=False):
+    """API 发送快照：技能及目录边界内的直接引用，不递归加载引用。"""
+    return _inline_skill_report(path, cap=cap, strict=strict)[0]
 
 
 def freeze_skills(config):
@@ -601,7 +660,7 @@ def freeze_skills(config):
     if frozen.get('hollmwood', {}).get('enabled') and not frozen['hollmwood'].get('rhythm'):
         from hollmwood_roles import load_rhythm_template
         frozen['hollmwood']['rhythm'] = load_rhythm_template()
-    selected, loaded, bodies, seen = [], [], [], set()
+    selected, loaded, bodies, references, seen = [], [], [], [], set()
     for item in [*(frozen.get('stage_skills') or ()), *skills_of(frozen)]:
         path = Path(item).resolve()
         identity = os.path.normcase(str(path))
@@ -610,12 +669,14 @@ def freeze_skills(config):
         seen.add(identity)
         selected.append(str(path))
         try:
-            body = _inline_skill(path, strict=True)
-        except (OSError, UnicodeError) as exc:
+            body, closure = _inline_skill_report(path, strict=True)
+        except (OSError, UnicodeError, ValueError) as exc:
             raise ValueError(f'已勾选的 SKILL 或其引用未加载：{path}；已阻止发送。{exc}') from exc
         bodies.append(body)
         loaded.append({'path': str(path), 'name': unescape(body.split('"', 2)[1]),
                        'chars': len(body), 'sha256': hashlib.sha256(body.encode('utf-8')).hexdigest()})
+        # 引用闭包按技能归属，随请求一起冻结，历史记录可核对「实际加载了什么」。
+        references.extend(dict(row, skill=str(path)) for row in closure)
     header_config = dict(frozen, skills=[], skill='', stage_skills=[])
     frozen['frozen_skill_prompt'] = skill_prompt(header_config, inline=True) + ''.join(bodies)
     from writing_quality import enabled, prompt as quality_prompt
@@ -626,7 +687,8 @@ def freeze_skills(config):
     frozen['skill_injection'] = {'mode': frozen.get('invocation_mode') or frozen.get('engine', ''),
                                 'engine': frozen.get('engine', ''),
                                 'model': frozen.get('model', ''),
-                                'selected': selected, 'loaded': loaded}
+                                'selected': selected, 'loaded': loaded,
+                                'references': references}
     return frozen
 
 

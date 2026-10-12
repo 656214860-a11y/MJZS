@@ -1,34 +1,12 @@
 {
  "architecture": {
-  "elapsed_seconds": 33.442,
-  "failed_modules": [
-   "architecture.test_service_return_contract",
-   "architecture.test_todo_comment_snapshot",
-   "architecture.test_unification_ratchet"
-  ],
+  "elapsed_seconds": 25.919,
+  "failed_modules": [],
   "test_count": 312,
   "unit_count": 104,
-  "updated_at": "2026-10-12T03:44:35"
+  "updated_at": "2026-10-12T08:08:40"
  },
  "full_safe_verified_trees": [
-  {
-   "at": "2026-10-07T22:31:16",
-   "round": 1101,
-   "seconds": 349.289,
-   "tree": "7f94b4ea33d822a128669cd19a7513a5dc2e90fa"
-  },
-  {
-   "at": "2026-10-07T23:51:56",
-   "round": 1103,
-   "seconds": 407.773,
-   "tree": "f31f407c80587c2283d3a3ad63616faf29c37f2b"
-  },
-  {
-   "at": "2026-10-08T00:39:52",
-   "round": 1107,
-   "seconds": 405.661,
-   "tree": "9268c94e2545aee839058ac05c35883b23abde42"
-  },
   {
    "at": "2026-10-08T01:01:14",
    "round": 1110,
@@ -190,6 +168,24 @@
    "round": 1301,
    "seconds": 512.262,
    "tree": "cd7b00f8d04604fa3eaa4d6c207bd486f2420614"
+  },
+  {
+   "at": "2026-10-12T04:23:57",
+   "round": 1306,
+   "seconds": 471.384,
+   "tree": "48d5df7e2686c725defdc4401177ccb9317bd36a"
+  },
+  {
+   "at": "2026-10-12T07:19:48",
+   "round": 1312,
+   "seconds": 388.122,
+   "tree": "12ad47599c087ce3f4b8eddccade3044528cc186"
+  },
+  {
+   "at": "2026-10-12T08:06:44",
+   "round": 1322,
+   "seconds": 437.406,
+   "tree": "42e782eaafa5509d1d5029a8f46be97281d83192"
   }
  ],
  "gui": {
@@ -214,7 +210,7 @@
   "updated_at": "2026-10-01T04:01:41"
  },
  "last_full_safe_all_at": "2026-10-03",
- "last_full_safe_all_round": 1301,
+ "last_full_safe_all_round": 1322,
  "service": {
   "elapsed_seconds": 24.89,
   "failed_modules": [],

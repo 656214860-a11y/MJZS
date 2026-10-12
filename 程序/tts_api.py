@@ -24,7 +24,8 @@ def settings_path():
 
 
 def read_settings():
-    defaults = {"base_url": DEFAULT_URL, "model": DEFAULT_MODEL, "voice": "alloy", "encrypted_key": "", "voices": {}, "speeds": {}}
+    defaults = {"base_url": DEFAULT_URL, "model": DEFAULT_MODEL, "voice": "alloy", "encrypted_key": "",
+                "voices": {}, "speeds": {}, "voice_version": 0}
     data = read_json(settings_path())
     return {**defaults, **data} if isinstance(data, dict) else defaults
 
@@ -89,6 +90,8 @@ def save_key(base_url, model, voice, key, voices=None, speeds=None, *, gateway=N
     if voices is not None:
         if not isinstance(voices, dict):
             raise ValueError("角色音色映射必须为 JSON 对象，例如 {'CHAR_001': 'voice_a'}")
+        if data.get("voices") != voices:
+            data["voice_version"] = int(data.get("voice_version") or 0) + 1
         data["voices"] = voices
     if speeds is not None:
         if not isinstance(speeds, dict):
@@ -134,19 +137,137 @@ def coerce_speed(value):
     return max(0.25, min(4.0, speed))
 
 
-def build_lines(entries, assets=None, voices=None, speeds=None):
-    """把 timed_entries 的 (shot_id, speaker, text, start, end) 整理为逐句配音清单。"""
+AUDIO_KINDS = ("dialogue", "narration", "bgm", "sfx", "full")
+AUDIO_KIND_LABELS = {"dialogue": "对白", "narration": "旁白", "bgm": "BGM", "sfx": "音效", "full": "整轨"}
+AUDIO_KIND_PREFIXES = {"narration": "旁白_", "bgm": "BGM_", "sfx": "音效_", "full": "整轨_"}
+
+
+def audio_kind(name):
+    """从文件名推断音轨用途；认不出按对白算（旧文件与直接落盘成果的默认口径）。"""
+    text = str(name or "")
+    for kind, prefix in AUDIO_KIND_PREFIXES.items():
+        if prefix and text.startswith(prefix):
+            return kind
+    return "dialogue"
+
+
+def marked_audio_name(stem, kind):
+    """给非对白音轨一个可识别的用途前缀；对白保持原名（不破坏既有文件口径）。"""
+    kind = kind if kind in AUDIO_KINDS else "dialogue"
+    return AUDIO_KIND_PREFIXES.get(kind, "") + str(stem)
+
+
+
+def voice_for(voices, speaker, name=""):
+    """角色到音色的解析：按稳定角色 ID 优先，再退回显示名；都不命中给空串（用默认音色）。"""
+    voices = voices if isinstance(voices, dict) else {}
+    return voices.get(speaker) or voices.get(name) or ""
+
+
+def missing_voices(entries, assets=None, voices=None):
+    """列出「有台词但没配到音色」的角色（按稳定 ID 去重），供配音前检查。"""
+    assets = assets if isinstance(assets, dict) else {}
+    voices = voices if isinstance(voices, dict) else {}
+    missing = {}
+    for entry in entries or ():
+        try:
+            _sid, speaker, _text, _start, _end = entry
+        except (TypeError, ValueError):
+            continue
+        speaker = str(speaker or "")
+        if not speaker:
+            continue
+        item = assets.get(speaker) if isinstance(assets.get(speaker), dict) else {}
+        name = str(item.get("name") or "")
+        if not voice_for(voices, speaker, name):
+            missing.setdefault(speaker, name or speaker)
+    return [{"speaker": key, "name": value} for key, value in missing.items()]
+
+
+def silent_lines(entries):
+    """台词文本为空或只有空白的行：静音台词不该混进配音清单（按 ID／镜头列出）。"""
+    silent = []
+    for entry in entries or ():
+        try:
+            sid, speaker, text, _start, _end = entry
+        except (TypeError, ValueError):
+            continue
+        if not str(text or "").strip():
+            silent.append({"shot": str(sid or ""), "speaker": str(speaker or "")})
+    return silent
+
+
+def voice_snapshot(settings=None):
+    """当前角色音色映射的快照：逐角色的音色、语速与映射版本号。"""
+    settings = settings if isinstance(settings, dict) else read_settings()
+    voices = settings.get("voices") if isinstance(settings.get("voices"), dict) else {}
+    speeds = settings.get("speeds") if isinstance(settings.get("speeds"), dict) else {}
+    return {"version": int(settings.get("voice_version") or 0),
+            "voices": {key: {"voice": value, "speed": coerce_speed(speeds.get(key))}
+                       for key, value in voices.items()}}
+
+
+
+LINE_IDENTITY_FIELDS = ("shot_id", "text", "voice", "speed", "model", "endpoint")
+
+
+def request_identity(settings, voice="", speed=1.0):
+    """一次合成请求的身份（不含密钥）：服务商端点、模型唯一 ID、音色与采样参数。
+
+    O12：缓存身份不能再只看台词／音色／语速——换了模型或换了服务商就是另一份缓存。
+    """
+    settings = settings if isinstance(settings, dict) else {}
+    return {"endpoint": str(settings.get("base_url") or "").strip().rstrip("/"),
+            "model": str(settings.get("model") or "").strip(),
+            "voice": str(voice or "").strip(),
+            "speed": coerce_speed(speed)}
+
+
+def batch_identity(lines):
+    """这一批清单用哪套配置（不含密钥）：端点、模型，以及逐句用到的音色与语速。"""
+    def collect(key, coerce):
+        return sorted({coerce(line.get(key)) for line in lines or ()})
+    return {"endpoints": collect("endpoint", str),
+            "models": collect("model", str),
+            "voices": collect("voice", str),
+            "speeds": collect("speed", coerce_speed)}
+
+
+def freeze_settings(lines, settings=None):
+    """批次开始时冻结的有效配置（不含密钥）：清单里写死的端点／模型优先。
+
+    清单是空的话才退回读当前设置。这样长批次中途改设置，这一批仍按开批时那一套跑，
+    不会一半旧模型一半新模型（O12）。
+    """
+    frozen = dict(settings) if isinstance(settings, dict) and settings else read_settings()
+    for field, key in (("endpoint", "base_url"), ("model", "model")):
+        values = {str(line.get(field) or "") for line in lines or ()}
+        if len(values) == 1:
+            value = values.pop()
+            if value:
+                frozen[key] = value
+    return frozen
+
+
+def build_lines(entries, assets=None, voices=None, speeds=None, *, settings=None):
+    """把 timed_entries 的 (shot_id, speaker, text, start, end) 整理为逐句配音清单。
+
+    每句同时记下这次请求的身份（端点／模型／音色／语速，不含密钥，O12）：换了模型或换了
+    服务商就是另一份缓存，续跑时不会把旧配置生成的语音当成新配置的成品。
+    """
     assets = assets if isinstance(assets, dict) else {}
     voices = voices if isinstance(voices, dict) else {}
     speeds = speeds if isinstance(speeds, dict) else {}
+    settings = settings if isinstance(settings, dict) else {}
     lines = []
     for sid, speaker, text, start, end in entries:
         item = assets.get(speaker) if isinstance(assets.get(speaker), dict) else {}
         name = str(item.get("name") or speaker or "未注明角色")
-        voice = voices.get(speaker) or voices.get(name) or ""
+        voice = voice_for(voices, speaker, name)
         speed = coerce_speed(speeds.get(speaker) or speeds.get(name))
         lines.append({"shot_id": sid, "speaker": speaker, "name": name, "text": text,
-                      "start": start, "end": end, "voice": voice, "speed": speed})
+                      "start": start, "end": end,
+                      **request_identity(settings, voice, speed)})
     return lines
 
 
@@ -156,9 +277,10 @@ def build_script(entries, assets=None):
 
 
 def script_signature(text, settings=None):
-    """整段配音的内容指纹：台词、模型或音色变了才需要重新付费合成。"""
+    """整段配音的内容指纹：台词、模型、音色或服务商端点变了才需重新付费合成。"""
     settings = settings if isinstance(settings, dict) else read_settings()
-    payload_ = {"text": text, "model": settings.get("model"), "voice": settings.get("voice")}
+    payload_ = {"text": text, "model": settings.get("model"), "voice": settings.get("voice"),
+                "endpoint": str(settings.get("base_url") or "").strip().rstrip("/")}
     return hashlib.sha256(json.dumps(payload_, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
 
 
@@ -169,7 +291,7 @@ def reusable_full_track(context, signature):
     previous = read_json(marker) if marker.is_file() else {}
     path = Path(previous.get('file', '')) if isinstance(previous, dict) else Path()
     if (isinstance(previous, dict) and previous.get('signature') == signature
-            and previous.get('file') and path.is_file()):
+            and previous.get('file') and path.is_file() and path.stat().st_size > 0):
         return path
     return None
 
@@ -186,21 +308,28 @@ def publish_full_track(context, signature, raw, *, gateway=None):
     return path
 
 
-def batch_signature(lines):
-    """逐句配音批次的内容指纹：文本、配音、语速或时间轴变化就算新批次。"""
-    return hashlib.sha256(json.dumps(lines, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+def batch_signature(lines, episode=None):
+    """逐句配音批次的内容指纹：文本、配音、语速或时间轴变化就算新批次。
+
+    给了 episode 就把集标识一并纳入指纹：两集同名台词／音色不会共用同一批缓存目录
+    （不给 episode 时与旧口径完全一致，老缓存仍可续用）。
+    """
+    payload = list(lines or ())
+    if episode:
+        payload = ["#episode:" + str(episode), *payload]
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
 
 
 def _save(path, data, *, gateway=None):
     _require_gateway(gateway, "publish_json")["publish_json"](path, data)
 
 
-def resume_folder(root, lines):
-    """同内容的旧逐句配音目录：可续跑，已成功的句子不重复合成（避免重复扣费）。"""
+def resume_folder(root, lines, episode=None):
+    """同内容（且同一集）的旧逐句配音目录：可续跑，已成功的句子不重复合成（避免重复扣费）。"""
     base = Path(root)
     if not base.is_dir():
         return None
-    signature = batch_signature(lines)
+    signature = batch_signature(lines, episode)
     for record in sorted(base.glob("*/批次.json"), reverse=True):
         data = read_json(record)
         if isinstance(data, dict) and data.get("signature") == signature:
@@ -214,10 +343,28 @@ def line_name(index, line):
 
 
 def line_done(manifest, index, line, folder):
-    """这一句是否已有可用成品：续跑与付费预览共用同一口径，避免两处判断走偏。"""
+    """这一句是否已有可用成品：续跑与付费预览共用同一口径，避免两处判断走偏。
+
+    O12：身份要对得上（含端点与模型），并且要复核写入时记下的 sha256——只判「文件在不在」
+    会把截断或损坏的成品当成已生成；旧清单没记摘要时退回「文件非空」。
+    """
     previous = manifest[index - 1] if index <= len(manifest) and isinstance(manifest[index - 1], dict) else {}
-    same = all(previous.get(key) == line.get(key) for key in ("shot_id", "text", "voice", "speed"))
-    return bool(same and previous.get("state") == "ok" and previous.get("file") and (Path(folder) / previous["file"]).is_file())
+    same = all(previous.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)
+    if not (same and previous.get("state") == "ok" and previous.get("file")):
+        return False
+    path = Path(folder) / str(previous["file"])
+    if not path.is_file():
+        return False
+    digest = str(previous.get("sha256") or "")
+    if not digest:
+        try:
+            return path.stat().st_size > 0
+        except OSError:
+            return False
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest() == digest
+    except OSError:
+        return False
 
 
 def publish_line(folder, manifest, index, line, raw, *, gateway=None):
@@ -226,7 +373,8 @@ def publish_line(folder, manifest, index, line, raw, *, gateway=None):
     name = line_name(index, line)
     publish = _require_gateway(gateway, "publish_json", "publish_bytes")
     publish["publish_bytes"](folder / name, raw)
-    entry = {**line, "file": name, "state": "ok"}
+    entry = {**line, "file": name, "state": "ok",
+             "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
     if index <= len(manifest):
         manifest[index - 1] = entry
     else:
@@ -244,7 +392,7 @@ def pending_lines(lines, folder):
     return [index for index, line in enumerate(lines, 1) if not line_done(manifest, index, line, folder)]
 
 
-def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=None):
+def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=None, settings=None, episode=None):
     """逐句合成到 folder：每句完成后立即写清单，已成功的句子直接沿用。
 
     中断或报错后再次运行会接续同一批次，只补做缺的句子，不重复扣费。
@@ -252,11 +400,16 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
     """
     publish = _require_gateway(gateway, "publish_json", "publish_bytes")
     folder = Path(folder); folder.mkdir(parents=True, exist_ok=True)
-    generate = generate or synthesize
+    # 批次一开始就把配置冻结下来：长批次中途改设置，这一批仍按开批时那一套跑，不混用两套（O12）。
+    frozen = freeze_settings(lines, settings)
+    if generate is None:
+        generate = lambda text, speed=1.0, voice=None: synthesize(
+            text, speed=speed, voice=voice, settings=frozen)
     manifest = read_json(folder / "时间轴.json")
     if not isinstance(manifest, list):
         manifest = []
-    _save(folder / "批次.json", {"signature": batch_signature(lines), "lines": len(lines)}, gateway=publish)
+    _save(folder / "批次.json", {"signature": batch_signature(lines, episode), "lines": len(lines),
+                                 "identity": batch_identity(lines), "episode": str(episode or "")}, gateway=publish)
     ok = reused = failed = 0
     for index, line in enumerate(lines, 1):
         if stop is not None and stop.is_set():
@@ -296,7 +449,7 @@ def no_redirect():
     return NoRedirect()
 
 
-def synthesize(text, speed=1.0, voice=None):
+def synthesize(text, speed=1.0, voice=None, *, settings=None):
     from urllib.request import Request, build_opener        # 第 34 期第 9 条：HTTP 栈按需加载
     from urllib.error import HTTPError
     if not isinstance(text, str) or not text.strip():
@@ -304,7 +457,7 @@ def synthesize(text, speed=1.0, voice=None):
     speed = coerce_speed(speed)
     if len(text) > 4000:
         raise ValueError('单次合成文本过长（超过4000字），请改用“逐句配音”分句生成')
-    settings = read_settings()
+    settings = settings if isinstance(settings, dict) else read_settings()
     key = load_key()
     if not key:
         raise ValueError("请先在“配音设置”保存 API Key")

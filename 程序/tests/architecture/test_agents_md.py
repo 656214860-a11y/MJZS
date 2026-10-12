@@ -1,12 +1,13 @@
 """AGENTS、地图与架构文档不得漂移于运行时阶段和静态门禁。"""
 from __future__ import annotations
 
+import ast
 import re
 import unittest
 from pathlib import Path
 
 import pet_bus
-from tests.architecture._scan import ROOT
+from tests.architecture._scan import ROOT, production_files
 from tests.architecture._layers import LAYERS
 from tests.architecture.test_path_authority import _WHITELIST as PATH_AUTHORITIES
 from tests.architecture.test_remove_authority import _WHITELIST as REMOVE_AUTHORITIES
@@ -31,6 +32,17 @@ def _section(text: str, heading: str) -> str:
 
 def _stage_counts(text: str) -> set[int]:
     return {int(count) for count in re.findall(r'(\d+)\s*(?:个制作)?阶段', text)}
+
+
+def _table_rows(section: str) -> list[list[str]]:
+    """取 Markdown 表格的数据行（含表头，跳过 |---| 分隔行）。"""
+    rows = []
+    for line in section.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith('|') or set(stripped) <= set('|-: '):
+            continue
+        rows.append([cell.strip() for cell in stripped.strip('|').split('|')])
+    return rows
 
 
 class AgentsMdConsistencyTests(unittest.TestCase):
@@ -96,6 +108,37 @@ class AgentsMdConsistencyTests(unittest.TestCase):
         expected = {len(pet_bus.STAGES)}
         for path in (AGENTS, PROJECT_MAP, ARCHITECTURE):
             self.assertEqual(_stage_counts(_read(path)), expected, path.name)
+
+    def test_architecture_stage_table_matches_bus_order(self) -> None:
+        """architecture.md 第 4 节阶段表必须与 pet_bus.STAGES 同序、同编号、同名。"""
+        section = _read(ARCHITECTURE).split('唯一阶段定义来源', 1)[1].split('## 5. 并行配置', 1)[0]
+        rows = _table_rows(section)[1:]
+        self.assertEqual([row[0] for row in rows],
+                         ['%02d' % (index + 1) for index in range(len(pet_bus.STAGES))])
+        self.assertEqual([row[1].strip('`') for row in rows], list(pet_bus.STAGES))
+        self.assertEqual([row[2] for row in rows],
+                         [pet_bus.stage_name(stage) for stage in pet_bus.STAGES])
+
+    def test_architecture_parallel_table_matches_bus_order(self) -> None:
+        """architecture.md 第 5 节并行表必须逐行与 pet_bus.STAGES 对齐，不得缺 animatic。"""
+        section = _read(ARCHITECTURE).split('## 5. 并行配置', 1)[1].split('## 6. 模型路由配置', 1)[0]
+        self.assertEqual([row[0] for row in _table_rows(section)[1:]], list(pet_bus.STAGES))
+
+    def test_stage_step_labels_in_production_derive_from_authority(self) -> None:
+        """生产文案里的「第 N 步」只能由 pet_bus.stage_step 现算；资产子步骤固定编号除外。"""
+        allowed = {'asset_prompt_rules.py', 'asset_reference_prompts.py', 'asset_batch_service.py'}
+        pattern = re.compile(r'第\s*0?\d{1,2}\s*步')
+        offenders = {}
+        for path in production_files():
+            tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+            hits = sorted({node.value for node in ast.walk(tree)
+                           if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                           and pattern.search(node.value)})
+            if hits:
+                offenders[path.name] = hits
+        self.assertLessEqual(
+            set(offenders), allowed,
+            '阶段步号必须由 pet_bus.stage_step 生成，不得写死：' + repr(sorted(set(offenders) - allowed)))
 
     def test_desktop_route_documentation_matches_current_contract(self) -> None:
         architecture = _read(ARCHITECTURE)

@@ -397,6 +397,8 @@ class UiEdgeTests(unittest.TestCase):
                         walk(child)
                 walk(d.content)
                 self.assertTrue(any("技术QC 通过" in box and "验收 通过" in box for box in boxes), boxes)
+                # O27：质量面板加「采用」列，把技术合格／内容验收／实际采用版本分开。
+                self.assertTrue(any("采用 v1" in box for box in boxes), boxes)
             finally:
                 win.destroy()
 
@@ -613,7 +615,7 @@ class UiEdgeTests(unittest.TestCase):
 
 
     def test_file_table_click_rules(self):
-        """第2步内容框点击：文本格单击勾选、再点取消；带链接的格子先勾选再打开，已勾选只打开不取消。"""
+        """初步分镜页内容框点击：文本格单击勾选、再点取消；带链接的格子先勾选再打开，已勾选只打开不取消。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
@@ -1254,7 +1256,7 @@ class UiEdgeTests(unittest.TestCase):
                 "TPanedwindow",
             )
             self.assertEqual(str(d.script_structure_info_label.cget("justify")), "right")
-            self.assertIn("剧本整理：Writer 提取人物", str(d.script_structure_info_label.cget("text")))
+            self.assertIn("剧本整理：本地规则提取人物", str(d.script_structure_info_label.cget("text")))
             self.assertTrue(d.stage_button.winfo_exists(), "阶段配置按钮应在两内容框之间的操作行")
             output_position = d.script_structure_output_preview.yview()[0]
             d.script_structure_source_preview.yview_moveto(0.62); win.update()
@@ -2328,7 +2330,7 @@ class UiEdgeTests(unittest.TestCase):
             self.assertTrue(project_settings.auto_adopt(proj))
             self.assertTrue(d.pet.should_auto_run('auto_adopt'))
             self.assertEqual(d.pet.mode, 'auto')
-            # 资产先补齐：采用之后状态栏要能指出下一道人工闸口（第04步定稿）
+            # 资产先补齐：采用之后状态栏要能指出下一道人工闸口（分镜定稿页）
             (proj / "episode" / "assets").mkdir(exist_ok=True)
             (proj / "episode" / "assets.json").write_text(json.dumps({
                 "CHAR_001": {"image": "assets/CHAR_001.png"},
@@ -2347,8 +2349,8 @@ class UiEdgeTests(unittest.TestCase):
             self.assertIn(fresh.name, d.status.get())
             # 两份分镜都从 SH001 开始，编号与剧本顺序不一致：无人值守时只靠状态栏这句提示
             self.assertIn("重排镜头编号", d.status.get())
-            # 采用之后资产已齐：状态栏必须指出下一道人工闸口（第04步定稿），否则无人值守会静默停住
-            self.assertIn("第04步", d.status.get())
+            # 采用之后资产已齐：状态栏必须指出下一道人工闸口（分镜定稿页），否则无人值守会静默停住
+            self.assertIn("第07步", d.status.get())
             self.assertFalse(d.auto_adopt_pending)
             # 切回手动后主循环不再扫描：「手动采用分镜」保持手动。
             d.pet.set_mode('manual')
@@ -2514,7 +2516,7 @@ class UiEdgeTests(unittest.TestCase):
             d._tick_once()
             self.assertIn("自动交接包已整理", d.status.get())
             self.assertEqual(sorted(p.name for p in folder.iterdir()),
-                             ["001_SH001.mp4", "交接包标记.json", "导入剪映说明.txt", "镜头顺序.json"])
+                             ["001_SH001.mp4", "交接包标记.json", "交接包清单.json", "导入剪映说明.txt", "镜头顺序.json"])
             manifest = json.loads((folder / "镜头顺序.json").read_text(encoding="utf-8"))
             self.assertEqual([row["shot"] for row in manifest], ["SH001"])
             marker = json.loads((editing(proj) / "自动交接.json").read_text(encoding="utf-8"))
@@ -2535,7 +2537,7 @@ class UiEdgeTests(unittest.TestCase):
             d._tick_once()
             self.assertTrue(folder.is_dir())
             self.assertEqual(sorted(p.name for p in folder.iterdir()),
-                             ["001_SH001.mp4", "导入剪映说明.txt", "镜头顺序.json"])
+                             ["001_SH001.mp4", "交接包清单.json", "导入剪映说明.txt", "镜头顺序.json"])
             self.assertIn("自动整理交接包未完成", d.status.get())
 
 
@@ -2889,7 +2891,7 @@ class UiEdgeTests(unittest.TestCase):
             groups = {"simple": [], "medium": ["SH002"], "complex": ["SH001"]}
             ready_state = {"value": False}
             with patch.object(previs_routing, "partition", lambda project, source, ids: (dict(groups), {})), \
-                 patch.object(previs_routing, "ready", lambda project, sid: ready_state["value"]), \
+                 patch.object(previs_routing, "ready", lambda project, sid, source=None: ready_state["value"]), \
                  patch.object(previs_automation, "start", fake_start):
                 d.auto_previs_due = 0
                 d._tick_once()                                  # 主循环必须自己把这一批派出去
@@ -2955,7 +2957,7 @@ class UiEdgeTests(unittest.TestCase):
                 started.append(list(ids)); state["busy"] = True
             groups = {"simple": [], "medium": [], "complex": ["SH001"]}
             with patch.object(previs_routing, "partition", lambda project, source, ids: (dict(groups), {})), \
-                 patch.object(previs_routing, "ready", lambda project, sid: False), \
+                 patch.object(previs_routing, "ready", lambda project, sid, source=None: False), \
                  patch.object(previs_automation, "start", fake_start):
                 d.poll_auto_previs()                      # 首帧还缺：先不建白模
                 self.assertEqual(started, [])
@@ -2973,8 +2975,8 @@ class UiEdgeTests(unittest.TestCase):
                 self.assertEqual(started, [["SH001"], ["SH001"]])
 
 
-    def test_final_storyboard_hint_points_to_step04(self):
-        """工作稿引用的资产都已导入时提示可到第04步生成定稿；资产没齐或已经是定稿时不提示。"""
+    def test_final_storyboard_hint_points_to_step07(self):
+        """工作稿引用的资产都已导入时提示可到分镜定稿页生成定稿；资产没齐或已经是定稿时不提示。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
@@ -3000,7 +3002,7 @@ class UiEdgeTests(unittest.TestCase):
             source = storyboard_stage(proj) / "分镜文档" / "episode.json"
             with patch.object(asset_batch_state_service, "ready_asset_ids", lambda base: {"CHAR_001", "LOC_001"}):
                 hint = d.final_storyboard_hint()
-            self.assertIn("第04步", hint)
+            self.assertIn("第07步", hint)
             self.assertIn("回收站", hint)                      # 提示里写明会移动工作稿
             with patch.object(asset_batch_state_service, "ready_asset_ids", lambda base: set()):
                 self.assertEqual(d.final_storyboard_hint(), "")   # 资产没齐：先补资产
@@ -3407,7 +3409,7 @@ class UiEdgeTests(unittest.TestCase):
                     done(value)
             desktop_module.Desktop.async_ = sync
             calls = []
-            def fake_synthesize(text, speed=1.0, voice=None):
+            def fake_synthesize(text, speed=1.0, voice=None, **_kwargs):
                 calls.append(text); return b"audio"
             asked = []
             def refuse(_parent, title, message, **kwargs):
@@ -3464,7 +3466,7 @@ class UiEdgeTests(unittest.TestCase):
                     done(value)
             desktop_module.Desktop.async_ = sync
             calls = []
-            def fake_synthesize(text, speed=1.0, voice=None):
+            def fake_synthesize(text, speed=1.0, voice=None, **_kwargs):
                 calls.append(text); return b"audio"
             with patch.object(tts_api, "synthesize", fake_synthesize):
                 d.generate_tts()
@@ -3989,7 +3991,7 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(assembled, [1])                          # 同一批验收只粗剪一次
             self.assertTrue((editing_stage(proj) / "自动粗剪.json").is_file())
             self.assertEqual(sorted(p.name for p in folder.iterdir()),
-                             ["001_SH001.mp4", "交接包标记.json", "导入剪映说明.txt", "镜头顺序.json"])
+                             ["001_SH001.mp4", "交接包标记.json", "交接包清单.json", "导入剪映说明.txt", "镜头顺序.json"])
             self.assertEqual(Path(d.studio.episode_path).resolve(), source.resolve())   # 工作集一路跟随当前分镜
             steps = [next((i for i, text in enumerate(lines) if needle in text), None)
                      for needle in ("无人值守自动补视频", "自动粗剪完成", "自动交接包已整理")]
@@ -4181,7 +4183,7 @@ class UiEdgeTests(unittest.TestCase):
             self.assertTrue((proj / "data" / "clips" / "SH001.mp4").is_file())
             self.assertTrue((editing_stage(proj) / "自动粗剪.json").is_file())
             self.assertEqual(sorted(p.name for p in folder.iterdir()),
-                             ["001_SH001.mp4", "交接包标记.json", "导入剪映说明.txt", "镜头顺序.json"])
+                             ["001_SH001.mp4", "交接包标记.json", "交接包清单.json", "导入剪映说明.txt", "镜头顺序.json"])
             # 工作集一路跟到定稿：09/10 不能还按旧工作稿执行
             self.assertEqual(Path(d.studio.episode_path).parent.name, finals[0].name)
             for needle in ("已自动生成定稿", "首帧批次结束", "自动补视频", "自动粗剪完成", "自动交接包已整理"):
@@ -4820,10 +4822,13 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
         self.assertEqual(sources["engine.py"].count(self.PREDICATE), 1)
 
     def test_approval_consumers_use_the_shared_helper(self):
-        """engine 的两处筛选与 desktop 的交接包都必须调用同一个助手函数。"""
+        """engine 的两处筛选、进度与交付界面都必须走同一个「采用版」助手，别再各挑各的版本。"""
         sources = self.program_sources()
         self.assertRegex(sources["desktop.py"], r"from engine import [^\n]*\bapproved_versions\b")
-        self.assertEqual(sources["engine.py"].count("approved_versions(st['shots'].get(shot['id']))"), 2)
+        self.assertRegex(sources["desktop.py"], r"from engine import [^\n]*\badoption_summary\b")
+        # 自动粗剪与手动拼装都收敛到 adopted_edit_version；approved_versions 只留一处实现。
+        self.assertEqual(sources["engine.py"].count("adopted_edit_version(st['shots'].get(shot['id'])"), 2)
+        self.assertEqual(sources["engine.py"].count("approved_versions(st['shots'].get(shot['id']))"), 0)
 
 
 class EngineNameFallbackTests(unittest.TestCase):

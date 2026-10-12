@@ -8,6 +8,7 @@ from storyboard_paths import media_root
 from urllib.request import Request,build_opener,HTTPRedirectHandler,ProxyHandler
 from urllib.error import HTTPError,URLError
 from urllib.parse import urlparse,urlencode
+import pet_bus
 
 def read(p):
     try:return json.loads(Path(p).read_text(encoding='utf-8-sig'))
@@ -114,7 +115,7 @@ def shot_inputs(shot,base,assets):
     images=[];labels=[]
     for aid in ids:
         if isinstance(aid,dict):aid=aid.get('id') or aid.get('name')
-        if not isinstance(aid,str):raise ValueError('资产编号格式不正确，请先在第4步刷新定稿JSON')
+        if not isinstance(aid,str):raise ValueError('资产编号格式不正确，请先在'+pet_bus.stage_step('final')+'刷新定稿JSON')
         entry=assets.get(aid,{})
         if not entry:
             matches=[v for v in assets.values() if v.get('name')==aid or aid in v.get('aliases',[])]

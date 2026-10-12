@@ -84,6 +84,10 @@ def prepare_media_completion(root, stage, paths, *, scope=None):
                         'size': path.stat().st_size, 'validation': validation})
     if not outputs:
         raise ValueError('请至少选择一份本阶段媒体成果；字幕或压缩包不能替代媒体')
+    if stage == 'audio':
+        from tts_api import audio_kind
+        if not any(audio_kind(Path(output['path']).name) == 'dialogue' for output in outputs):
+            raise ValueError('所选音频都不是对白音轨（只有 BGM／音效／旁白），不能代替对白配音完成核验')
     data = {'schema': 1, 'stage': stage, 'scope': scope, 'status': 'pending_review', 'outputs': outputs}
     _validate_media_completion(root, stage, data, require_review=False)
     return data

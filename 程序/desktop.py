@@ -10,7 +10,7 @@ from agent.core import read,save,save_text,save_bytes
 import project_settings
 from projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
 from responsive_ui import FlowBar,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
-from engine import approved_versions
+from engine import approved_versions, review_label, adoption_summary
 from local_video import open_studio,skip_summary
 from app import App
 from integrations import comfy_executable
@@ -23,14 +23,14 @@ import pet_ui
 import project_stages
 import ui_plugin_registry
 import stage_handler_registry
-from platform_tools import launch_windows_app, open_path, open_target, tcp_listener
+from platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from desktop_startup_service import DesktopStartupController
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler
-from idea_chat_controller import IdeaChatController
+from idea_chat_controller import IdeaChatController, bubble_timestamp, collapse_preview, speaker_name
 from ui_tokens import COLORS, FONTS, SPACING, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
-from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMenu, DataTable, NotificationDispatcher,
+from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
@@ -83,8 +83,7 @@ BUBBLE_LINE=13         # 量不出字宽时的兜底：一个字大约这么宽
 BUBBLE_MAX_RATIO=0.72  # 第 71 期任务 6：字再多，色块也不铺满整行，一行才看得下去
 BUBBLE_SLACK=26        # 量字宽只是估算（字号、全角半角都有出入），留一截余地，
                        # 免得一句话末了一个字被挤到下一行
-BUBBLE_COLLAPSE_CHARS=360
-BUBBLE_COLLAPSE_LINES=8
+# 折叠阈值现由 L3 idea_chat_controller 持有（bubble_preview 的实现搬过去）。
 # 第 71 期任务 5／6：剧本准备页的创意框摆几行——窗口再矮也留 TALK_MIN_LINES 行，
 # 字再多、窗口再高也不超过 TALK_MAX_LINES 行（一次铺满半页纸就不好操作了）；
 TALK_MIN_LINES=6
@@ -813,25 +812,14 @@ class Desktop:
             return max(0,width-BUBBLE_GAP-body),BUBBLE_GAP
         return BUBBLE_GAP,max(0,width-BUBBLE_GAP-body)
     def bubble_time(self,at):
-        """气泡上面那一行小字：这条是什么时候说的（认不出格式就空着）。"""
-        from datetime import datetime
-        for shape in ('%Y%m%d_%H%M%S_%f','%Y%m%d_%H%M%S'):
-            try:return datetime.strptime(str(at),shape).strftime('%m-%d %H:%M')
-            except (ValueError,TypeError):continue
-        return ''
+        """气泡上面那一行小字（实现搬到 L3 idea_chat_controller，入口不变）。"""
+        return bubble_timestamp(at)
     def bubble_preview(self,text):
-        """过长的消息先给紧凑预览；完整内容仍在内存和对话 JSON 中。"""
-        raw=str(text).strip()
-        lines=raw.splitlines()
-        if len(raw)<=BUBBLE_COLLAPSE_CHARS and len(lines)<=BUBBLE_COLLAPSE_LINES:
-            return raw,False
-        preview='\n'.join(lines[:BUBBLE_COLLAPSE_LINES])
-        if len(preview)>BUBBLE_COLLAPSE_CHARS:
-            preview=preview[:BUBBLE_COLLAPSE_CHARS].rsplit('\n',1)[0]
-        return preview.rstrip()+'…',True
+        """过长的消息先给紧凑预览（实现搬到 L3 idea_chat_controller，入口不变）。"""
+        return collapse_preview(text)
     def model_name(self,row):
-        if str(row.get('role'))=='user':return '您'
-        return '对话AI · '+str(row.get('model') or 'AI 助手').strip()
+        """对话气泡的署名（实现搬到 L3 idea_chat_controller，入口不变）。"""
+        return speaker_name(row)
     def toggle_bubble(self,box,name):
         """点击“展开全文／收起”只改当前气泡的正文，不重建输入区。"""
         record=getattr(self,'_bubble_full',{}).get(name)
@@ -1451,6 +1439,10 @@ class Desktop:
             usage_label = getattr(self, 'idea_usage_label', None)
             if usage_label is not None and usage_label.winfo_exists():
                 usage_label.configure(text=idea_chat.usage_summary(rows))
+            session_label = getattr(self, 'idea_session_label', None)
+            if session_label is not None and session_label.winfo_exists():
+                from writing_api import chat_session_summary
+                session_label.configure(text=chat_session_summary(self.root, model) if self.root else '')
             thinking=getattr(self,'_thinking_model','')
             if thinking and self.bubble_view_key(thinking) == self.bubble_view_key(self.displayed_chat_model()):
                 name='bubble_thinking'
@@ -1836,6 +1828,7 @@ class Desktop:
             self._stream_text=''
             self.show_thinking(model)
             def received(result):
+                from writing_api import preparation_reply_message
                 if not self.idea_chat_controller.finish_request(token):return
                 if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
                 self.update_script_interrupt_button()
@@ -1861,7 +1854,7 @@ class Desktop:
                     if kind not in ('auth', 'budget', 'client'):
                         LOGGER.warning('模型调用失败（kind=%s）：%s', kind or 'missing', error)
                     self.set_hollmwood_role_status(review_failed=result.get('hollmwood_review_failed_role', ''))
-                    self.status.set(message)
+                    self.status.set(preparation_reply_message(result) or message)
                     if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
                         self.notifier.error(message, title='请求校验未通过')
                     # 直接 API 模型与桌面 Agent 共用“剧本准备”这个自动阶段。
@@ -1882,7 +1875,7 @@ class Desktop:
                 if result.get('preparation_path'):
                     refresh=getattr(self,'refresh_script_list',None)
                     if callable(refresh):refresh()
-                    self.status.set(result['preparation_stage']+'已保存，请审阅后回复“确认”；需要修改请直接说明。')
+                    self.status.set(preparation_reply_message(result) or (result['preparation_stage']+'已保存，请审阅后回复“确认”；需要修改请直接说明。'))
                     return
                 if result.get('script_raw_path'):
                     four_roles = result.get('hollmwood_enabled', True)
@@ -1896,7 +1889,7 @@ class Desktop:
                     self.show_script_quality(result)
                     return
                 if result.get('natural_script_path'):
-                    self.status.set('自然剧本已自动保存：'+result['natural_script_path'])
+                    self.status.set(preparation_reply_message(result) or ('自然剧本已自动保存：'+result['natural_script_path']))
                 else:
                     self.status.set('已收到 '+model+' 的回复；完整剧本可下载保存。')
             def ask():
@@ -2105,7 +2098,7 @@ class Desktop:
         if not api_active and not processes and not launching:
             self.status.set('当前没有可中断的剧本 Agent 调用。')
             return False
-        self._async_ticket+=1;self.background_tasks.cancel()
+        self._async_ticket+=1;self.background_tasks.cancel(costly=bool(api_active))
         self.worker=False;self.busy_state.set_busy(False)
         self.idea_chat_controller.cancel_request()
         self._stream_text=''
@@ -2125,7 +2118,7 @@ class Desktop:
         self.flow_processes=sessions
         self.update_script_interrupt_button()
         detail=('，已结束进程 '+', '.join(stopped)) if stopped else ''
-        self.status.set('已中断剧本 Agent 调用'+detail+'；API 请求将不再进入后续角色或落盘，可修改创意后重新发送。')
+        info=self.background_tasks.cancellation_status() if api_active else None;notice=(' '+info['text']) if info is not None else '';preserved='已返回正文会归档到 responses/ 供核对；' if api_active else '';self.status.set('已中断剧本 Agent 调用'+detail+'；'+preserved+'本机不再把这次回复写入界面或正式采用，可修改创意后重新发送。'+notice)
         return True
     def update_script_download_button(self):
         """只有模型给出完整剧本后才允许下载；首次回复绝不弹完成框。"""
@@ -2320,7 +2313,7 @@ class Desktop:
                            ('未通过' if index==failed_index else '未开始'))
                           for index,role in enumerate(roles))
             text='  ·  '.join(label+'：'+states[key] for key,label in labels.items())
-        elif complete:text='导演：已完成  ·  编剧：已完成  ·  编辑：已完成  ·  演员：已完成'
+        elif complete:text='导演：已通过  ·  编剧：已通过  ·  编辑：已通过  ·  演员：已通过（规则合格；创意满意由您确认）'
         else:text='  ·  '.join(label+'：'+('工作中' if key==active else ('待命' if active else '等待')) for key,label in labels.items())
         try:variable.set(text)
         except (tk.TclError,AttributeError):pass
@@ -2578,7 +2571,7 @@ class Desktop:
                 else:
                     self.auto_final_signature=signature;self.auto_final_notice=None;self.auto_final_error=''
                     self.kick_unattended('auto_final')
-                    # 收尾会重建第04步页面，所以先做收尾再写状态栏，顺序反了用户就看不到结果。
+                    # 收尾会重建分镜定稿页面，所以先做收尾再写状态栏，顺序反了用户就看不到结果。
                     text='已自动生成定稿。'+applied
                     self.status.set(text)
                     if getattr(getattr(self.pet,'auto',None),'active',None)=='final':
@@ -2764,7 +2757,7 @@ class Desktop:
         except queue.Empty:pass
         try:
             ticket,ok,value,done=self.q.get_nowait()
-            if ticket!=self._async_ticket or not self.background_tasks.finish(ticket, succeeded=ok):return
+            if not self.background_tasks.finish(ticket, succeeded=ok) or ticket!=self._async_ticket:return
             self.worker=False;self.busy_state.set_busy(False)
             if ok and done:done(value)
             elif ok:self.status.set(str(value))
@@ -2830,7 +2823,7 @@ class Desktop:
         """无人值守：当前分镜还是工作稿、且引用资产都已导入时，自动生成定稿。
 
         定稿会把工作稿移入回收站（回收站留有恢复位置，可恢复），所以这条路径必须由用户在
-        第04步显式勾选才走；同一份工作稿只生成一次，资产没齐时在状态栏和 04 页那条提示条
+        分镜定稿页显式勾选才走；同一份工作稿只生成一次，资产没齐时在状态栏和定稿页那条提示条
         上说清缺什么（提示条上还有一颗「立即重试」，见 auto_final_state／retry_auto_final），
         失败退避 5 分钟后重试，定稿接管后当前分镜变成定稿目录，轮询自然停下。
         """
@@ -2969,7 +2962,7 @@ class Desktop:
             return '自动定稿重试失败：'+str(exc)
 
     def final_storyboard_hint(self,source=None):
-        """当前分镜还是工作稿、且引用的资产都已导入时，提示可以去第04步生成定稿。
+        """当前分镜还是工作稿、且引用的资产都已导入时，提示可以去分镜定稿页生成定稿。
 
         只提示不自动做：生成定稿会把工作稿移入回收站（用户可见的改动），按约定必须由人确认。
         """
@@ -2982,7 +2975,7 @@ class Desktop:
         shots=episode.get('shots',[]) if isinstance(episode,dict) else []
         if not shots:return ''
         if self.final_missing_assets(source):return ''
-        return '；当前分镜引用的资产都已导入，可在第04步「分镜定稿」生成定稿（定稿接管后续流程，工作稿移入回收站）'
+        return '；当前分镜引用的资产都已导入，可在'+pet_bus.stage_step('final')+'「分镜定稿」生成定稿（定稿接管后续流程，工作稿移入回收站）'
     def reconcile_storyboards(self):
         """启动对账（第 62 期任务 7）：强制关闭后重开，把已完成的分镜同步进工作集。
 
@@ -3663,7 +3656,7 @@ class Desktop:
             # 第 47 期第 7 条：原来这里只弹一句「请等待…结束后退出」就什么都不做——白模那一批
             # 卡住时用户就再也关不掉程序了（用户报的「无法关闭程序」）。现在问一句：答「是」就把
             # 还在跑的进程收掉再退；答「否」照旧守着，等这一步自己结束。
-            if not confirm(self.win, '仍在处理', reason+'。\n\n现在强制关闭程序吗？\n中断这一步不会删掉已经做好的成果，下次打开可以接着做。', dangerous=True):return
+            if not confirm(self.win, '仍在处理', reason+'。\n\n现在强制关闭程序吗？\n中断这一步不会删掉已经做好的成果，下次打开可以接着做。\n若正在调用付费模型或线上任务，中断不会撤销远端调用，仍可能继续执行并按实际用量计费。', dangerous=True):return
             return self.force_quit()
         if self.pet_hides_instead_of_quitting():return
         self._closing=True
@@ -4116,7 +4109,7 @@ class Desktop:
                 target=Path(path);linked=True
             message=(f"{item.get('name','项目')}\n{target}\n\n"
                      +('这是一条项目目录链接。只会删除链接和项目登记，不会删除链接指向的真实目录。是否删除？'
-                       if linked else '将把这个项目文件夹及全部素材移入项目库回收站。是否继续？'))
+                       if linked else '将把这个项目文件夹及全部素材移入项目库回收站（可恢复，不是永久清除；同一块磁盘上回收不等于释放空间）。是否继续？'))
             if not confirm(popup, '移入项目回收站',
                     message,
                     dangerous=True):return
@@ -4180,7 +4173,7 @@ class Desktop:
         tree.bind('<Double-1>',enter);tree.bind('<Return>',enter)
         popup.bind('<Escape>',lambda e:popup.destroy());popup.grab_set();tree.focus_set()
     def project_home(self):
-        self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。')
+        self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
         tree=ttk.Treeview(self.content,show='tree',height=13,selectmode='browse');tree.pack(fill='both',expand=True,pady=12);self.fill_projects(tree)
         self._project_home_tree=tree
         tree.bind('<Button-3>',lambda e:self.project_menu(e,tree))
@@ -4191,7 +4184,15 @@ class Desktop:
         self.button(self.content,'进入选中的项目 →',enter)
         self.button(self.content,'＋ 创建新项目',self.new)
         self.button(self.content,'恢复回收站内容…',self.open_recycle_recovery)
+        self.button(self.content,'重建项目索引',self.rebuild_project_index)
         self.button(self.content,'导出诊断包…',self.export_diagnostics_package)
+    def rebuild_project_index(self):
+        """按磁盘事实重建项目索引：补登新目录、移除失效登记；不移动或删除任何项目文件。"""
+        outcome=self._project_result_data(self.projects.rebuild_registry())
+        self.reload()
+        self.status.set('已重建项目索引：补登 %d 个、移除失效 %d 个（未改动磁盘文件）'
+                        % (len(outcome.get('added',[])),len(outcome.get('dropped',[]))))
+        return outcome
     def set_project_status(self,item,status):
         self._project_result_data(self.projects.set_status(item['path'],status));self.reload()
         if self.root:self.list.selection_set(str(self.root))
@@ -4340,7 +4341,7 @@ class Desktop:
         if index in (PAGE['keyframe'],PAGE['previs']) or (index==PAGE['video'] and not choosing_video):
             from storyboard_selection import prefs
             if prefs(self.root).get('adopted_storyboards')==[]:
-                message='请先在第2步采用一份或多份分镜 JSON。'
+                message='请先在'+pet_bus.stage_step('storyboard')+'采用一份或多份分镜 JSON。'
                 # 不能只写到底部状态栏：视频工作台被阻止时，用户的视线仍在当前内容区。
                 ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=16,pady=18)
                 self.note(message)
@@ -4444,8 +4445,9 @@ class Desktop:
                 ('LobeHub','https://lobehub.com/','AI助手与Agent工作空间，组织对话和工作流。'),
                 ('SkillsMP','https://skillsmp.com/zh','搜索Agent技能，查看技能说明与源代码入口。')])]
         for category,sites in groups:
-            group=ttk.LabelFrame(self.content,text=category,padding=8)
+            group=Card(self.content,padding=8)
             group.pack(fill='x',pady=5)
+            ttk.Label(group,text=category).grid(row=0,column=0,columnspan=2,sticky='w')
             cards=[]
             for name,url,description in sites:
                 card=ttk.Frame(group,padding=(4,3))
@@ -4464,11 +4466,11 @@ class Desktop:
                 box.site_layout=layout
                 for col in range(2):box.columnconfigure(col,weight=1 if col<columns else 0,uniform='sites' if col<columns else '',minsize=0)
                 for index,(card,link,detail) in enumerate(items):
-                    card.grid(row=index//columns,column=index%columns,sticky='nsew',padx=(0,8) if columns==2 and index%2==0 else 0,pady=4)
+                    card.grid(row=index//columns+1,column=index%columns,sticky='nsew',padx=(0,8) if columns==2 and index%2==0 else 0,pady=4)
                     link.configure(wraplength=available);detail.configure(wraplength=available)
             group.bind('<Configure>',arrange)
             # Mount cards before the first layout event; width is then set by the page.
-            for index,(card,_,_) in enumerate(cards):card.grid(row=index//2,column=index%2,sticky='nsew')
+            for index,(card,_,_) in enumerate(cards):card.grid(row=index//2+1,column=index%2,sticky='nsew')
     def writing(self):
         from script_workspace_service import ensure_script_workspace
         result=ensure_script_workspace(self.root)
@@ -4496,6 +4498,9 @@ class Desktop:
         self.idea_usage_label = ttk.Label(composer, text='本模型暂无用量记录', style='Muted.TLabel')
         self.idea_usage_label.pack(anchor='w')
         composer.bind('<Configure>', lambda event: self.idea_usage_label.configure(wraplength=max(1, event.width)), add='+')
+        self.idea_session_label = ttk.Label(composer, text='', style='Muted.TLabel')
+        self.idea_session_label.pack(anchor='w')
+        composer.bind('<Configure>', lambda event: self.idea_session_label.configure(wraplength=max(1, event.width)), add='+')
         input_row=ttk.Frame(composer);input_row.pack(fill='x')
         input_box=TextArea(input_row,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
                           font=FONTS['body'],relief='solid',bd=1,padx=SPACING['md'],pady=SPACING['sm'])
@@ -5019,7 +5024,7 @@ class Desktop:
         split_area.columnconfigure(0, weight=1)
         split_area.rowconfigure(0, weight=1, uniform='script_structure_preview')
         split_area.rowconfigure(2, weight=1, uniform='script_structure_preview')
-        structure_note = ('剧本整理：Writer 提取人物、场景、道具、事件、冲突、台词与分场要素，Editor 审校完整性和一致性后输出结构剧本；'
+        structure_note = ('剧本整理：本地规则提取人物、场景、道具、事件、冲突、台词与分场要素，再由规则校验完整性和一致性后输出结构剧本（未调用模型）；'
                           '不切镜头、不生成分镜 JSON，也不会改动自然语言原稿。')
         from script_preview_service import LOADING_PREVIEW, preview_chunks, read_preview, should_load_async
         def content_box(parent, title, file_heading, documents, active_path, empty, attribute, editable=True):
@@ -5309,20 +5314,20 @@ class Desktop:
                     open_blender()
                 if intake_only:
                     # 提取阶段不得附加“直接生成剧本”的 SKILL/阶段交付指令。
-                    full,budget=prepare_request_context(prompt,stage,'brief_intake')
-                    continuation,continuation_budget=prepare_request_context(followup,stage,'brief_intake')
+                    full,budget=prepare_request_context(prompt,stage,'brief_intake',report=True)
+                    continuation,continuation_budget=prepare_request_context(followup,stage,'brief_intake',report=True)
                 elif bounded_writing:
                     full,budget=prepare_request_context(
-                        prompt_with_settings(prompt,config,stage=stage),stage,'explicit_writing_inputs')
+                        prompt_with_settings(prompt,config,stage=stage),stage,'explicit_writing_inputs',report=True)
                     continuation,continuation_budget=prepare_request_context(
-                        prompt_with_settings(followup,config,stage=stage),stage,'explicit_writing_inputs')
+                        prompt_with_settings(followup,config,stage=stage),stage,'explicit_writing_inputs',report=True)
                 else:
                     context,strategy=request_stage_instruction(project,stage,data)
                     full,budget=prepare_request_context(
-                        prompt_with_settings(context+prompt,config,stage=stage),stage,strategy)
+                        prompt_with_settings(context+prompt,config,stage=stage),stage,strategy,report=True)
                     continuation,continuation_budget=prepare_request_context(
                         prompt_with_settings(continuation_instruction(project,stage,data)+followup,config,stage=stage),
-                        stage,'continuation_summary')
+                        stage,'continuation_summary',report=True)
                 finish(receipt,'preparing','',skill_injection=config.get('skill_injection'),context_budget={
                     'initial':budget,'continuation':continuation_budget})
                 if native_claude:
@@ -5641,6 +5646,7 @@ class Desktop:
                                                  '全部通过' if passed else '有待办')
         def make():
             self.write_continuity_ledger(ledger)
+            self.sync_continuity_issues(ledger)
             self.pet_report('continuity','连贯性清单已生成：'+line()+'。')
             self.status.set('连贯性清单已生成并落盘：'+line())
             self.show(PAGE['continuity'])
@@ -5665,8 +5671,9 @@ class Desktop:
             620／700 像素，界面一窄就被挤没、界面一宽又留一大片白。detail 写某一列时，
             点这一列的格子弹一扇只读窗把整段字显示全（表格格子放不下长说明）。
             """
-            frame=ttk.LabelFrame(self.content,text=title,padding=4)
+            frame=Card(self.content,padding=4)
             frame.pack(fill='both',expand=True,pady=(4,0))
+            ttk.Label(frame,text=title).pack(anchor='w')
             table=DataTable(frame,columns=columns,show='headings',height=height,
                             selectmode='browse',empty_text='暂无'+title)
             tree=table.tree
@@ -5713,8 +5720,19 @@ class Desktop:
         table_of('跨批次与三元组校验',
                  [('kind','项目',110),('id','编号',150),('result','结论',100),('detail','说明',700)],
                  checks,min(8,max(2,len(checks))),detail='detail')
+        issue_rows=self.continuity_issue_rows(ledger)
+        if issue_rows:
+            table_of('问题闭环',
+                     [('id','编号',130),('kind','类型',110),('severity','严重度',60),
+                      ('state','状态',80),('where','涉及镜头/资产',170),('evidence','证据',560)],
+                     [(row.get('id') or '',row.get('kind_label') or '',row.get('severity') or '',
+                       row.get('state_label') or '',
+                       '、'.join([str(item) for item in (row.get('shots') or [])+(row.get('assets') or [])]) or '—',
+                       row.get('evidence') or row.get('detail') or '')
+                      for row in issue_rows],min(8,max(2,len(issue_rows))),detail='evidence')
         problems=list(summary.get('problems') or [])
-        foot=ttk.LabelFrame(self.content,text='待办与裁决',padding=4);foot.pack(fill='x',pady=(4,0))
+        foot=Card(self.content,padding=4);foot.pack(fill='x',pady=(4,0))
+        ttk.Label(foot,text='待办与裁决').pack(anchor='w')
         if problems:
             for text in problems[:8]:ttk.Label(foot,text='· '+text,wraplength=760,justify='left').pack(anchor='w')
         else:
@@ -5732,10 +5750,16 @@ class Desktop:
                       wraplength=760,justify='left').pack(anchor='w')
             choice=item['candidates'][item.get('recommended',0)]
             PrimaryButton(box,text='采用推荐',
-                       command=lambda key=item['key'],value=choice:self.safe(
+                       command=lambda key=item['key'],value=choice,digest=item.get('digest',''):self.safe(
                            lambda:self.pick_gate(key,value,
-                               lambda:self.show(PAGE['continuity'])))).pack(anchor='w')
-    def pick_gate(self,key,choice,again=None):
+                               lambda:self.show(PAGE['continuity']),digest))).pack(anchor='w')
+        for row in [item for item in issue_rows if item.get('state')=='open']:
+            box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=2)
+            ttk.Label(box,text='%s %s：%s'%(row.get('severity') or '',row.get('id') or '',
+                                          row.get('detail') or ''),wraplength=760,justify='left').pack(anchor='w')
+            SecondaryButton(box,text='忽略（写明理由）',
+                            command=lambda iid=row.get('id'):self.safe(lambda:self.ignore_continuity_issue(iid))).pack(anchor='w')
+    def pick_gate(self,key,choice,again=None,digest=''):
         """记一次人工确认，顺手把选择写进资产、再刷面板（第 64 期任务 6）。
 
         原来只调用 record()：选择进的是 gate_confirmations.json，资产清单里该写的
@@ -5745,10 +5769,32 @@ class Desktop:
         from stage_execution_service import record_stage_confirmation
         from stage_execution_service import apply_asset_plan_gate_choice
         apply_asset_plan_gate_choice(self.root,key,choice)
-        path=record_stage_confirmation(self.root,key,choice)
+        path=record_stage_confirmation(self.root,key,choice,digest=digest)
         if again:again()                      # 先重建页面（重建会重置状态栏），再写状态栏
         self.status.set('已确认：'+str(choice))
         return path
+    def continuity_issue_rows(self,ledger):
+        """问题闭环视图：登记表与本次台账合并后的行（只读，不落盘）。"""
+        from stage_execution_service import continuity_issue_report
+        try:return list(continuity_issue_report(self.root,ledger))
+        except (ValueError,OSError,TypeError,AttributeError,KeyError):return []
+    def sync_continuity_issues(self,ledger=None):
+        """把本次问题并进 03_continuity/output/continuity_issues.json（跟「手动生成」同一次做）。"""
+        from stage_execution_service import sync_continuity_issues
+        try:return list(sync_continuity_issues(self.root,ledger))
+        except (ValueError,OSError,TypeError,AttributeError,KeyError) as exc:
+            self.status.set('问题闭环台账没写成：'+str(exc));return []
+    def ignore_continuity_issue(self,iid):
+        """忽略一条问题：必须先写理由（记下当时那一版证据），再刷新页面。"""
+        reason=simpledialog.askstring('忽略这条问题','忽略这条问题的理由：',parent=self.win)
+        if reason is None:return
+        reason=str(reason).strip()
+        if not reason:
+            self.status.set('没写理由，这条问题不忽略。');return
+        from stage_execution_service import decide_continuity_issue
+        decide_continuity_issue(self.root,iid,'ignored',reason)
+        self.status.set('已忽略 '+str(iid)+'（理由与作用版本已记录）。')
+        self.show(PAGE['continuity'])
     def gate_level(self):
         """三虎当前那一档（hint／semi／auto）。读不出来按 hint 算——绝不替用户做主。"""
         import pet_agent
@@ -5790,7 +5836,7 @@ class Desktop:
             # 写资产清单或确认账本失败不能伪装成“这条已经处理过”。交给外层
             # _poll_auto_due 的节流与可见错误反馈，下一拍才会重试。
             apply_asset_plan_gate_choice(self.root,key,choice)
-            record_stage_confirmation(self.root,key,choice,by=AUTO)
+            record_stage_confirmation(self.root,key,choice,by=AUTO,digest=str(item.get('digest') or ''))
             done+=1
         if done:
             text='已按推荐处理 %d 条待办：锚点、正典板与连贯性裁决。'%done
@@ -6443,7 +6489,7 @@ class Desktop:
         show_final(self)
     def make_final_storyboard(self,source=None):
         if source is None:source=self.current_frame_json()
-        if not source or not Path(source).is_file():raise ValueError('请先到第3步选择第2步生成的JSON并同步资产清单')
+        if not source or not Path(source).is_file():raise ValueError('请先到'+pet_bus.stage_step('assets')+'选择'+pet_bus.stage_step('storyboard')+'生成的JSON并同步资产清单')
         from storyboard_final_controller import finalize_stage_storyboard
         if self.worker or any(getattr(v,'busy',False) for v in self.video_sessions.values()):raise ValueError('请等待当前制作任务结束后再生成定稿')
         project=self.root;episode=self.asset_base()
@@ -6452,7 +6498,7 @@ class Desktop:
             self.pet_report('final',self.apply_final(project,folder))
         self.async_(lambda:finalize_stage_storyboard(project,episode,source),done)
     def apply_final(self,project,folder):
-        """定稿生成后的公共收尾：刷新已打开的工作集、记住当前分镜、写偏好并重建第04步页面。
+        """定稿生成后的公共收尾：刷新已打开的工作集、记住当前分镜、写偏好并重建分镜定稿页面。
 
         手动「同步资产 · 生成定稿」和无人值守自动定稿共用这一份收尾，行为不会走偏。
         """
@@ -6465,7 +6511,7 @@ class Desktop:
             self.remember_frame_json(final_source)
             from storyboard_selection import remember_final_view
             remember_final_view(project, final_source)
-            # 只在用户本来就在第04步时重建页面：无人值守不该把人从别的页面拽走（手动按钮本来就在这一页）。
+            # 只在用户本来就在分镜定稿页时重建页面：无人值守不该把人从别的页面拽走（手动按钮本来就在这一页）。
             if getattr(self,'page_index',None)==PAGE['final']:self.show(PAGE['final'])
         return 'JSON已刷新：'+str(folder)+f'；另有 {missing} 项资产待补齐。'
     def sync_working_episode(self):
@@ -6503,7 +6549,7 @@ class Desktop:
         kind,result=import_asset_image(Desktop.asset_write_base(self),self.root,aid,p,self.asset_requirements(),gateway=Desktop.asset_batch_gateway())
         self.asset_kind=kind;self.show(PAGE['assets']);self.status.set(result)
     # 第 50 期第 1 条：原来那颗「选择镜头 JSON」删掉——首帧页看的永远是「当前分镜」，
-    # 也就是第 02 步采用的那一份（自动认领见 current_frame_json），不用在这儿再挑一遍。
+    # 也就是初步分镜页采用的那一份（自动认领见 current_frame_json），不用在这儿再挑一遍。
     def focus_missing_frame(self,source,sid):
         from storyboard_selection import focus
         focus(self.root,source)
@@ -7013,11 +7059,13 @@ class Desktop:
         lead.pack(anchor='w',pady=(2,8))
         # 折行交给 _fit_content_now：它按内容框的实际宽度重排所有带 wraplength 的标签。
         # 自己再绑一个 <Configure> 会和它打架——标签按被压窄后的宽度折行，越折越窄。
-        facts=ttk.LabelFrame(self.content,text='开工前先确认',padding=14);facts.pack(fill='x',pady=(0,10))
+        facts=Card(self.content,padding=14);facts.pack(fill='x',pady=(0,10))
+        ttk.Label(facts,text='开工前先确认').grid(row=0,column=0,columnspan=2,sticky='w')
         for row,(label,value) in enumerate(confirm_rows(self)):
-            ttk.Label(facts,text=label,width=10).grid(row=row,column=0,sticky='nw',pady=3)
-            ttk.Label(facts,text=value,wraplength=640,justify='left',style='Muted.TLabel').grid(row=row,column=1,sticky='w',pady=3)
-        local=ttk.LabelFrame(self.content,text='本地生成',padding=16);local.pack(fill='x',pady=(0,10))
+            ttk.Label(facts,text=label,width=10).grid(row=row+1,column=0,sticky='nw',pady=3)
+            ttk.Label(facts,text=value,wraplength=640,justify='left',style='Muted.TLabel').grid(row=row+1,column=1,sticky='w',pady=3)
+        local=Card(self.content,padding=16);local.pack(fill='x',pady=(0,10))
+        ttk.Label(local,text='本地生成').pack(anchor='w')
         ttk.Label(local,text='用本机 ComfyUI 与已安装的视频模型出片，不花云端额度；缺视频的镜头可以交给无人值守自动补。',
                   wraplength=650,justify='left',style='Muted.TLabel').pack(anchor='w')
         self.pet.auto_variable('auto_video_var')
@@ -7030,8 +7078,9 @@ class Desktop:
         ttk.Label(local,textvariable=state,style='Muted.TLabel').pack(anchor='w',pady=(4,0))
         PrimaryButton(local,text='进入本地生成',
                    command=lambda:self.safe(lambda:self.show(PAGE['video'],video_mode='local'))).pack(anchor='w',pady=(12,0))
-        cloud=ttk.LabelFrame(self.content,text='线上生成',padding=16);cloud.pack(fill='x')
-        ttk.Label(cloud,text='用万相 / Seedance API 出片，按秒计费；读取第 05 步的镜头与首帧，提交前会先问一次。',
+        cloud=Card(self.content,padding=16);cloud.pack(fill='x')
+        ttk.Label(cloud,text='线上生成').pack(anchor='w')
+        ttk.Label(cloud,text='用万相 / Seedance API 出片，按秒计费；读取已采用分镜的镜头与首帧，提交前会先问一次。',
                   wraplength=650,justify='left',style='Muted.TLabel').pack(anchor='w')
         entry=FlowBar(cloud);entry.pack(fill='x',pady=(12,0))
         PrimaryButton(entry,text='进入线上生成',
@@ -7141,13 +7190,16 @@ class Desktop:
         self.async_(work)
     def generate_tts_per_line(self):
         import tts_api
-        entries,estimated=self.dialogue_entries();assets=self.dialogue_assets()
+        episode=self.current_episode()
+        entries,estimated=self.dialogue_entries(episode);assets=self.dialogue_assets()
         if not entries:raise ValueError('当前分镜没有对白，无法生成配音')
         tts_settings=tts_api.read_settings()
-        lines=tts_api.build_lines(entries,assets,tts_settings.get('voices'),tts_settings.get('speeds'))
+        lines=tts_api.build_lines(entries,assets,tts_settings.get('voices'),tts_settings.get('speeds'),settings=tts_settings)
         from project_stages import audio
         folder=audio(self.root)/'配音分句'
-        out=tts_api.resume_folder(folder,lines);resumed=out is not None
+        # 同一项目可有多集：把集标识纳入批次指纹，两集同名台词／音色不会共用缓存目录。
+        token=(episode.get('episode_id') or episode.get('id')) if isinstance(episode,dict) else None
+        out=tts_api.resume_folder(folder,lines,token);resumed=out is not None
         out=out or dated_path(folder,'配音批次')
         # 付费闸口：逐句配音按句计费，点一次会发出「待合成句数」个请求。先在点按钮时把要花多少、
         # 有多少句沿用已生成文件摊开确认，取消时一句都不提交（沿用判定与批次内部同一口径）。
@@ -7161,7 +7213,7 @@ class Desktop:
             self.status.set('已取消逐句配音：未提交任何句子，也没有产生费用');return
         def work():
             from stage_execution_service import run_tts_lines
-            ok,reused,failed=run_tts_lines(lines,out)
+            ok,reused,failed=run_tts_lines(lines,out,episode=token)
             note=f'逐句配音完成：成功 {ok}/{len(lines)}，失败 {failed}'
             if reused:note+=f'（沿用已生成 {reused} 句，未重复扣费）'
             if resumed:note+='；已接续上次未完成的批次'
@@ -7246,16 +7298,28 @@ class Desktop:
         from stage_execution_service import export_stage_srt
         result=export_stage_srt(self.root,self.current_episode())
         if not result.ok:raise ValueError(result.reason)
-        p,estimated=result.data
-        if estimated:self.status.set('字幕时间按镜头时长自动均分，属草稿，请在剪映中听校。')
+        p,report=result.data
+        # 字幕轴来自校准报告：按实际配音校准了就说清楚，仍是估算的就把未校准句数列出来。
+        if not isinstance(report,dict):
+            self.status.set('字幕时间按镜头时长估算，属草稿，请在剪映中听校。' if report else '字幕时间已按分镜时间生成。')
+        else:
+            pending=report.get('uncalibrated') or []
+            if pending:
+                basis='句长' if report.get('mode')=='length' else '镜头时长'
+                self.status.set('字幕时间暂按%s估算，还有 %d 句未按实际配音校准，导出前请先听校。'%(basis,len(pending)))
+            else:
+                self.status.set('字幕时间已按实际配音／作者标注校准，共 %d 句。'%report.get('calibrated',0))
         return p
     def dialogue_script(self):
         """Export a readable dialogue script with speaker names and timing for dubbing."""
         from stage_execution_service import export_stage_dialogue_script
         result=export_stage_dialogue_script(self.root,self.current_episode(),self.dialogue_assets())
         if not result.ok:raise ValueError(result.reason)
-        p,estimated=result.data
-        if estimated:self.status.set('对白时间按镜头时长自动均分，属草稿，请在剪映中听校。')
+        p,report=result.data
+        if not isinstance(report,dict):
+            if report:self.status.set('对白时间按镜头时长估算，属草稿，请在剪映中听校。')
+        elif report.get('uncalibrated'):
+            self.status.set('对白时间暂按句长估算，还有 %d 句未按实际配音校准，请先听校。'%len(report['uncalibrated']))
         return p
 
     def editing(self):
@@ -7275,7 +7339,7 @@ class Desktop:
         self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(_edit_bar,self,PAGE['edit'])
         self.stage_button.configure(style='Tokens.Primary.TButton')
         self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
-        self.note('自动粗剪只拼装已验收的镜头：未验收的镜头会被跳过并列在状态栏，不再因为个别镜头卡住整集。剪映负责精剪、音量、字幕和转场；交接包保留镜头顺序。')
+        self.note('自动粗剪只拼装已验收的镜头：未验收的镜头会被跳过并列在状态栏，不再因为个别镜头卡住整集。剪映负责精剪、音量、字幕和转场；交接包保留镜头顺序。素材交接包只给有序视频与字幕，不是剪映草稿，可用「校验交接包」离线核对。本次输出规格：%s（等比缩放＋居中留边，不裁切）。'%controller.output_spec_text())
         edit_buttons=[]
         def edit_button(text,command,primary=False):
             """保留共享事件封装，只让后期页采用统一的视觉组件样式。"""
@@ -7294,9 +7358,10 @@ class Desktop:
         edit_buttons.append(edit_button('整理剪映素材交接包',lambda:self.async_(self.handoff,open_path)))
         has_downloaded=controller.has_downloaded_video()
         for button in edit_buttons:button.configure(state='normal' if has_downloaded else 'disabled')
-        if not has_downloaded:self.note('还没有已下载的镜头视频，自动粗剪与交接包暂不可用；请先在第07步生成并下载视频。')
+        if not has_downloaded:self.note('还没有已下载的镜头视频，自动粗剪与交接包暂不可用；请先在'+pet_bus.stage_step('video')+'生成并下载视频。')
         edit_button('启动剪映',self.launch_editor)
         edit_button('打开后期目录',lambda:open_path(edit_dir))
+        edit_button('校验交接包',self.verify_handoff)
         edit_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('edit'))
         f=edit_dir/'剪辑优化清单.md'
         from file_cache import read_text
@@ -7326,15 +7391,8 @@ class Desktop:
                 return executable
         return None
     def find_editor_shortcut(self):
-        """在后台查找开始菜单中的剪映快捷方式。"""
-        for root in (Path(os.environ.get('APPDATA',''))/'Microsoft/Windows/Start Menu/Programs',
-                     Path(os.environ.get('PROGRAMDATA',''))/'Microsoft/Windows/Start Menu/Programs'):
-            if not root.is_dir():
-                continue
-            for shortcut in root.glob('**/*剪映专业版*.lnk'):
-                if '卸载' not in shortcut.name:
-                    return shortcut
-        return None
+        """在后台查找开始菜单中的剪映快捷方式（实现搬到 L0 platform_tools，入口不变）。"""
+        return find_editor_shortcut()
     def launch_editor(self):
         executable=self.find_editor()
         if executable is not None:
@@ -7370,6 +7428,24 @@ class Desktop:
         from stage_execution_service import publish_stage_handoff_bundle
         return publish_stage_handoff_bundle(self.root, self.studio.episode['shots'], rows,
                                             subtitle, auto)
+    def verify_handoff(self):
+        """离线校验一个已解包的交接包：选目录、照清单核对文件，如实报缺项与被改文件。"""
+        folder=FileDialog(self.win).directory(title='选择已解包的交接包目录')
+        if not folder:return
+        def work():
+            from stage_execution_service import verify_handoff_bundle
+            return verify_handoff_bundle(folder)
+        def done(report):
+            label=report.get('label') or '素材交接包'
+            if report.get('ok'):
+                missing=report.get('missing') or []
+                text='交接包校验通过：%s，共 %d 个文件'%(label,report.get('count',0))
+                if missing:text+='；清单声明缺 '+'、'.join(str(item) for item in missing)+' 镜（素材交接包允许缺镜）'
+                self.status.set(text)
+                return
+            self.status.set('交接包校验未通过：'+'；'.join(report.get('problems') or ['未知问题']))
+        self.async_(work,done)
+
     def delivery(self):
         from stage_workspace_service import ensure_delivery_workspace
         result=ensure_delivery_workspace(self.root)
@@ -7392,20 +7468,30 @@ class Desktop:
             button.configure(style='Tokens.Primary.TButton' if primary else 'Tokens.Secondary.TButton')
             button.pack_configure(pady=SPACING['xs'])
             return button
-        from video_progress import LABELS
+        from video_progress import LABELS, status_next
         st=self.studio.state();lines=[]
         for s in self.studio.episode['shots']:
-            vs=st['shots'][s['id']];v=vs[-1] if vs else {}
+            # 采用列必须与真实成片来源同一版：最新版失败但旧版通过时，仍显示进了成片的旧版。
+            summary=adoption_summary(self.root,st['shots'][s['id']])
+            v=summary['source']
             state=LABELS.get(v.get('state'),v.get('state') or '未提交')
             qc={True:'通过',False:'未通过'}.get(v.get('qc_pass'),'未检查')
-            review={'pass':'通过','revise':'需修改'}.get(v.get('review'),'待验收')
-            lines.append(f'{s["id"]}  {s["title"]}  | 状态 {state} | 技术QC {qc} | 验收 {review}')
+            review=review_label(v)
+            if summary['adopted'] is not None:
+                adopted_text='v%s'%summary['adopted']['version']
+                if not summary['latest_is_adopted'] and summary['latest']:
+                    adopted_text+='；最新 v%s 未采用'%summary['latest'].get('version')
+                step=''
+            else:
+                adopted_text='无' if not summary['reason_text'] else '无（%s）'%summary['reason_text']
+                step=status_next(v)
+            lines.append(f'{s["id"]}  {s["title"]}  | 状态 {state} | 技术QC {qc} | 验收 {review} | 采用 {adopted_text}'+(' | 下一步 '+step if step else ''))
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
         delivery_button('导入剪映最终成片',self.final_import,primary=True)
         delivery_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))
         delivery_button('打开交付目录',lambda:open_path(delivery_dir))
         delivery_button('打开自动剪辑与QC报告目录',lambda:self.open_folder(export_dir))
-    def open_folder(self,p):p.mkdir(exist_ok=True);open_path(p)
+    def open_folder(self,p):open_directory(p)
     def final_import(self):
         from stage_workspace_service import ensure_delivery_workspace
         result=ensure_delivery_workspace(self.root)

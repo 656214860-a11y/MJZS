@@ -8,6 +8,7 @@ from storyboard_paths import project_root
 import white_model_service as _service
 from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, notify
+import pet_bus
 
 TOOLS = (
     ('打开 LensBlock 白模工作台', 'https://ilcaretz.github.io/lensblock/'),
@@ -30,7 +31,7 @@ def choose_previs(desktop):
     episode = read_json(source)
     ids = [str(shot['id']) for shot in episode.get('shots', []) if shot.get('id')]
     if not ids:
-        raise ValueError('当前分镜中没有镜头，请先完成第04步分镜定稿')
+        raise ValueError('当前分镜中没有镜头，请先完成'+pet_bus.stage_step('final')+'分镜定稿')
     picker = BaseDialog(desktop.win, '选择要预演的镜头', geometry='420x150', modal=False, chrome=False)
     picker.lift()
     body = Card(picker); body.pack(fill='both', expand=True, padx=16, pady=16)
@@ -67,18 +68,30 @@ def project_for_app(app):
 # 键里带上 workspace 的实际值，所以测试里替换 workspace、或用户中途装好 Blender，缓存立刻失效。
 _BASE_CACHE = _service._BASE_CACHE
 _DIR_CACHE = _service._DIR_CACHE
-def shot_directory(project,sid):
+def shot_directory(project,sid,source=None):
     from project_context_factory import project_context
-    return _service.shot_directory(project_context(project),sid,workspace())
+    return _service.shot_directory(project_context(project),sid,workspace(),source)
 
 def find_blender(refresh=False):
     return _service.find_blender(refresh)
 
 
-# 「白模项目」目录只跟 Blender 位置有关：解析一次后按位置缓存，之后是纯查表。
+# 「白模项目」目录改成可配置的用户数据目录（不再跟着 Blender 安装位置）：解析一次后按目录缓存。
 _WORKSPACE_CACHE = _service._WORKSPACE_CACHE
 def workspace():
     return _service.workspace()
+
+def environment_summary(include_version=False):
+    return _service.environment_summary(include_version=include_version)
+
+def diagnose():
+    return _service.diagnose()
+
+def diagnose_text(report=None):
+    return _service.diagnose_text(report)
+
+def workspace_settings_path():
+    return _service.settings_path()
 
 def open_previs(desktop,sid=None):
     sid = sid or (desktop.video.sid() if desktop.video else None)

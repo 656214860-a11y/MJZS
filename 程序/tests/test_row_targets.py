@@ -345,7 +345,7 @@ class KeyframePageTests(PageHelpers):
 
 
 class StoryboardPageTests(PageHelpers):
-    """剧本准备页（第 2 步）：采用／取消采用／删除都按统一口径取「选中」的那几份。"""
+    """初步分镜页（第 03 步）：采用／取消采用／删除都按统一口径取「选中」的那几份。"""
 
     def test_the_highlighted_file_counts_as_selected(self):
         import desktop as desktop_module

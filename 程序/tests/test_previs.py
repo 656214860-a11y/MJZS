@@ -464,5 +464,187 @@ class ForceStopTests(unittest.TestCase):
             self.assertIn("已强制停止", state["summary"])
 
 
+class RoutingGateConsistencyTests(unittest.TestCase):
+    """O08：页面、调度与阶段门禁共用一个有效决策，手工覆盖必须同时改变三者。"""
+
+    def setUp(self):
+        from unittest.mock import patch
+        import white_model_service
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        base = Path(self.temp.name)
+        self.root = base / "p"
+        self.root.mkdir(parents=True)
+        self.space = base / "space"
+        for cache in (white_model_service._BASE_CACHE, white_model_service._DIR_CACHE):
+            cache.clear()
+            self.addCleanup(cache.clear)
+        patcher = patch.object(white_model_service, "workspace", lambda: self.space)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    @staticmethod
+    def moving(sid):
+        return {"id": sid, "action": "他追逐并抢夺道具", "camera": "跟拍"}
+
+    @staticmethod
+    def still(sid):
+        return {"id": sid, "action": "他站在原地说话", "camera": "固定"}
+
+    def identity(self, project_id="pid"):
+        (self.root / "config.json").write_text(json.dumps({"project_id": project_id}, ensure_ascii=False),
+                                               encoding="utf-8")
+
+    def episode(self, episode_id, shots):
+        path = self.root / "storyboard" / (episode_id + ".json")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"episode_id": episode_id, "title": episode_id, "shots": shots},
+                                   ensure_ascii=False), encoding="utf-8")
+        return path
+
+    def adopt(self, sources):
+        (self.root / "ui_settings.json").write_text(
+            json.dumps({"adopted_storyboards": [str(path) for path in sources]}, ensure_ascii=False),
+            encoding="utf-8")
+
+    def override(self, mapping):
+        target = self.root / "data" / "白模复杂度设置.json"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(json.dumps(mapping, ensure_ascii=False), encoding="utf-8")
+        return target
+
+    def mark_ready(self, source, sid):
+        from stage_execution_service import white_model_shot_directory
+        from white_model_service import source_digest
+        directory = white_model_shot_directory(self.root, sid, source=source)
+        directory.mkdir(parents=True, exist_ok=True)
+        media = directory / (sid + "_白模预演.mp4")
+        media.write_bytes(b"preview")
+        stat = media.stat()
+        (directory / "预演记录.json").write_text(json.dumps({
+            "preview": str(media),
+            "evidence": {"source": str(source), "source_sha256": source_digest(source, sid),
+                         "preview_bytes": stat.st_size, "preview_mtime_ns": stat.st_mtime_ns,
+                         "media": {"video": True}}}, ensure_ascii=False), encoding="utf-8")
+
+    def decisions(self, source):
+        from stage_execution_service import previs_entries
+        return previs_entries(self.root, source)
+
+    def scheduling(self, source, ids):
+        from previs_routing import partition
+        groups, _decisions = partition(project_context(self.root), source, ids)
+        return groups
+
+    def gate(self):
+        import stage_parallel
+        return stage_parallel.previs_ready(self.root)
+
+    def test_manual_complex_override_reaches_display_scheduling_and_gate(self):
+        source = self.episode("EP001", [self.still("SH001"), self.still("SH002")])
+        self.adopt([source])
+        self.override({"EP001|SH001": "complex"})
+        self.mark_ready(source, "SH001")
+        entries = self.decisions(source)
+        self.assertEqual((entries["SH001"]["level"], entries["SH001"]["override"]), ("complex", "complex"))
+        self.assertEqual(entries["SH002"]["level"], "simple")
+        self.assertEqual(self.scheduling(source, ["SH001", "SH002"])["complex"], ["SH001"])
+        result = self.gate()
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["detail"], "1 个镜头需要白模，都有预演")
+
+    def test_manual_simple_override_clears_the_gate_requirement(self):
+        source = self.episode("EP001", [self.moving("SH001")])
+        self.adopt([source])
+        self.override({"EP001|SH001": "simple"})
+        entries = self.decisions(source)
+        self.assertEqual((entries["SH001"]["level"], entries["SH001"]["override"]), ("simple", "simple"))
+        self.assertEqual(self.scheduling(source, ["SH001"])["simple"], ["SH001"])
+        result = self.gate()
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["detail"], "没有需要白模的镜头")
+
+    def test_same_shot_id_in_two_episodes_follows_each_episodes_own_override(self):
+        self.identity()
+        first = self.episode("EP001", [self.moving("SH001")])
+        second = self.episode("EP002", [self.moving("SH001")])
+        self.adopt([first, second])
+        self.override({"EP001|SH001": "simple"})
+        self.mark_ready(second, "SH001")
+        self.assertNotEqual(self.decisions(first)["SH001"]["level"], self.decisions(second)["SH001"]["level"])
+        self.assertEqual(self.decisions(first)["SH001"]["level"], "simple")
+        self.assertEqual(self.decisions(second)["SH001"]["level"], "complex")
+        result = self.gate()
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["detail"], "1 个镜头需要白模，都有预演")
+
+    def test_removing_the_override_restores_the_automatic_decision_everywhere(self):
+        source = self.episode("EP001", [self.moving("SH001")])
+        self.adopt([source])
+        self.override({"EP001|SH001": "simple"})
+        self.assertEqual(self.gate()["detail"], "没有需要白模的镜头")
+        from agent.core import read, save
+        from previs_routing import set_override
+        set_override(project_context(self.root), source, "SH001", "auto", publish=save)
+        self.assertNotIn("EP001|SH001", read(self.root / "data" / "白模复杂度设置.json"))
+        self.assertEqual((self.decisions(source)["SH001"]["level"], self.decisions(source)["SH001"]["override"]),
+                         ("complex", "auto"))
+        self.mark_ready(source, "SH001")
+        result = self.gate()
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["detail"], "1 个镜头需要白模，都有预演")
+
+
+class PrevisEvidenceTests(unittest.TestCase):
+    """O09：白模就绪绑定来源分镜与预演文件，版本变化只判过期、不删成果。"""
+
+    def write_episode(self, path, action):
+        path.write_text(json.dumps({"episode_id": "EP001", "title": "T", "shots": [
+            {"id": "SH001", "title": "镜头", "action": action, "camera": "固定", "duration": 5}]},
+            ensure_ascii=False), encoding="utf-8")
+
+    def bound(self, td, action="站在原地说话"):
+        proj = Path(td) / "p"; proj.mkdir()
+        source = proj / "episode.json"; self.write_episode(source, action)
+        from stage_execution_service import white_model_shot_directory, record_previs_evidence
+        directory = white_model_shot_directory(proj, "SH001", source=source)
+        directory.mkdir(parents=True, exist_ok=True)
+        media = directory / "SH001_白模预演.mp4"; media.write_bytes(b"preview-bytes")
+        (directory / "预演记录.json").write_text(
+            json.dumps({"preview": str(media)}, ensure_ascii=False), encoding="utf-8")
+        record_previs_evidence(proj, "SH001", source, media={"duration": 5.0, "has_video": True})
+        return proj, source, media
+
+    def ready(self, proj, source):
+        from stage_execution_service import previs_ready
+        return previs_ready(proj, "SH001", source)
+
+    def test_source_change_or_media_replacement_invalidates_readiness(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj, source, media = self.bound(td)
+            self.assertTrue(self.ready(proj, source))                 # 来源未变：复用
+            self.write_episode(source, "追逐并转身奔跑，抢夺道具")
+            self.assertFalse(self.ready(proj, source))                # 改了镜头调度：旧就绪失效
+            self.write_episode(source, "站在原地说话")
+            self.assertTrue(self.ready(proj, source))
+            media.write_bytes(b"a-different-and-longer-preview")
+            self.assertFalse(self.ready(proj, source))                # 预演文件被替换：旧就绪失效
+            self.assertTrue(media.is_file())                          # 只判过期，不删除成果
+
+    def test_unbound_record_needs_a_source_to_judge(self):
+        from previs_routing import ready
+        with tempfile.TemporaryDirectory() as td:
+            proj = Path(td) / "p"; proj.mkdir()
+            source = proj / "episode.json"; self.write_episode(source, "站在原地说话")
+            from stage_execution_service import white_model_shot_directory
+            directory = white_model_shot_directory(proj, "SH001", source=source)
+            directory.mkdir(parents=True, exist_ok=True)
+            media = directory / "SH001_白模预演.mp4"; media.write_bytes(b"legacy")
+            (directory / "预演记录.json").write_text(
+                json.dumps({"preview": str(media)}, ensure_ascii=False), encoding="utf-8")
+            self.assertFalse(ready(project_context(proj), "SH001", source))   # 旧成果没绑来源：先重新校验
+            self.assertTrue(ready(project_context(proj), "SH001"))            # 不知道来源时退回只验文件
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

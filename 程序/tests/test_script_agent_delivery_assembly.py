@@ -38,6 +38,25 @@ class ScriptPromptAssemblyTests(unittest.TestCase):
                         self.assertEqual(prompt.count('全局节奏模板（每个角色都必须遵守）：\n测试节奏'), int(enabled))
                         self.assertIn('正式交付路径', prompt)
 
+    def test_agent_prompt_only_lists_changed_episode_numbers(self):
+        from stage_path_service import write_dir
+        original = '# 第1集：起风\n第一集正文\n\n# 第2集：雨后\n第二集正文\n'
+        folder = write_dir(self.root, 'script')
+        folder.mkdir(parents=True, exist_ok=True)
+        target = folder / '项目_自然剧本_正稿_20261012.md'
+        target.write_text(original, encoding='utf-8')
+        with patch('workflow_tasks._agent_delivery_contract', return_value='正式交付路径'):
+            first = script_prompt(self.root, None, 'writing', creative_text='素材', agent_delivery=True)
+            script_contract.record_episode_ledger(self.root, original, previous_text='')
+            target.write_text(original.replace('第二集正文', '第二集改过的正文'), encoding='utf-8')
+            second = script_prompt(self.root, None, 'writing', creative_text='素材', agent_delivery=True)
+        self.assertIn('尚无分集增量基线', first)
+        self.assertNotIn('第二集正文', first)
+        self.assertNotIn('第二集改过的正文', second)
+        notice = next(line for line in second.splitlines() if line.startswith('【分集改动】'))
+        self.assertIn('第2集', notice)
+        self.assertNotIn('第1集', notice)
+
     def api_setup(self, enabled):
         import stage_config
         stage_config.put(self.root, 'script', model='test-model', skills=[], hollmwood_enabled=enabled)

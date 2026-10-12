@@ -8,9 +8,16 @@ from pathlib import Path
 from uuid import uuid4
 
 from agent.core import save
+from diagnostic_capture import redact
 
 
 _USAGE_KEYS = ('prompt_tokens', 'completion_tokens', 'cached_tokens', 'total_tokens')
+
+
+def _scrub(meta):
+    """服务端回显的字符串一律先脱敏再落盘：诊断文件不能变成凭据副本。"""
+    return {str(key): (redact(value) if isinstance(value, str) else value)
+            for key, value in dict(meta).items()}
 
 
 def _metadata(result):
@@ -37,12 +44,12 @@ def _metadata(result):
 def event(result, context=None, at=None):
     """从路由结果提取白名单元数据；不返回或保存请求/响应/推理正文。"""
     result = dict(result or {})
-    meta = _metadata(result)
+    meta = _scrub(_metadata(result))
     usage = dict(result.get('usage') or {})
     stamp = at or datetime.now()
     return {
         'at': stamp.strftime('%Y-%m-%dT%H:%M:%S'),
-        'context': {str(key): str(value) for key, value in dict(context or {}).items()
+        'context': {str(key): redact(value) for key, value in dict(context or {}).items()
                     if value not in (None, '')},
         'ok': bool(result.get('ok')),
         'status': result.get('status'),

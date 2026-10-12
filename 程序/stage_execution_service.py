@@ -90,7 +90,8 @@ def run_animatic(project, source, references, audio=None, settings=None):
         return publish_animatic_bundle(project, artifacts, validate=lambda items: all(raw for _, raw in items))
 
     return build_bundle(project_context(project), source, references, audio, settings,
-                        publish=publish, write_temporary=save_bytes, run_batches=batches, workspace=workspace)
+                        publish=publish, write_temporary=save_bytes, run_batches=batches, workspace=workspace,
+                        spec=animatic_preview_spec(project))
 
 
 def confirm_animatic(project, *, rhythm, duration, dialogue_sync):
@@ -279,7 +280,7 @@ def reply_to_writing(project, creative, progress=None, cancelled=None, stream=No
     from writing_api import reply
     try:
         return reply(project, creative, progress=progress, cancelled=cancelled, stream=stream,
-                     publish=publish_stage_text, user_message=user_message, request_model=request_model)
+                     publish=publish_stage_text, archive=publish_response_archive, user_message=user_message, request_model=request_model)
     except (ValueError, OSError, RuntimeError) as exc:
         from hollmwood_roles import RoleCancelledError
         response = getattr(exc, 'rejected_response', None)
@@ -627,15 +628,22 @@ def refresh_storyboard_studios(desktop, project):
     return refresh_open_studios(desktop, project_context(project))
 
 
-def white_model_shot_directory(project, sid, workspace_path=None):
-    """L3 为白模镜头工作目录解析注入项目上下文。"""
+def white_model_shot_directory(project, sid, workspace_path=None, source=None):
+    """L3 为白模镜头工作目录解析注入项目上下文；source 明确本次是哪一集。"""
     from white_model_service import shot_directory
-    return shot_directory(project_context(project), sid, workspace_path)
+    return shot_directory(project_context(project), sid, workspace_path, source)
 
 
-def run_tts_lines(lines, folder, generate=None, report=None, stop=None):
+def migrate_white_model_directories(project):
+    """L3 为白模旧目录迁移注入项目上下文与正式发布器。"""
+    from agent.core import save
+    from white_model_service import migrate_legacy_directories
+    return migrate_legacy_directories(project_context(project), publish=save)
+
+
+def run_tts_lines(lines, folder, generate=None, report=None, stop=None, episode=None):
     from tts_api import run_lines
-    return run_lines(lines, folder, generate, report, stop, gateway=tts_gateway())
+    return run_lines(lines, folder, generate, report, stop, gateway=tts_gateway(), episode=episode)
 
 
 def cloud_video_gateway():
@@ -695,10 +703,10 @@ def confirm_gates_gateway():
     return {'publish_json': save}
 
 
-def record_stage_confirmation(project, key, choice='', by='human'):
-    """记录确认门禁；L4 不得自行装配或直写确认账本。"""
+def record_stage_confirmation(project, key, choice='', by='human', state='applied', digest=''):
+    """记录确认门禁；L4 不得自行装配或直写确认账本。state 见 confirm_gates.record。"""
     from confirm_gates import record
-    return record(project, key, choice, by=by,
+    return record(project, key, choice, by=by, state=state, digest=digest,
                   publish=confirm_gates_gateway()['publish_json'],
                   context=project_context(project))
 
@@ -710,10 +718,24 @@ def forget_stage_confirmation(project, key):
                   context=project_context(project))
 
 
-def adopt_asset_plan_choice(project, key, choice):
-    """先确认、再采用；第二步失败保留已有确认，不虚构跨文件事务。"""
-    record_stage_confirmation(project, key, choice)
-    return apply_asset_plan_gate_choice(project, key, choice)
+def adopt_asset_plan_choice(project, key, choice, digest=''):
+    """准备→落盘→确认走完一条路：只有落盘成功才把确认记成 applied。
+
+    先记 pending：进程中断只留下 pending，候选会重新摆出、可再点一次；落盘失败记 failed，
+    同样不算确认完成。任何一步没走完，都不会出现「未采用却已审核通过」（O10）。
+    """
+    from confirm_gates import APPLIED, FAILED, PENDING
+    record_stage_confirmation(project, key, choice, state=PENDING, digest=digest)
+    try:
+        result = apply_asset_plan_gate_choice(project, key, choice)
+    except Exception:
+        try:
+            record_stage_confirmation(project, key, choice, state=FAILED, digest=digest)
+        except Exception:
+            pass
+        raise
+    record_stage_confirmation(project, key, choice, state=APPLIED, digest=digest)
+    return result
 
 
 def reopen_asset_plan_choices(project, aid):
@@ -758,9 +780,17 @@ def previs_entries(project, source):
     return entries(project_context(project), source)
 
 
-def previs_ready(project, shot_id):
+def previs_ready(project, shot_id, source=None):
     from previs_routing import ready
-    return ready(project_context(project), shot_id)
+    return ready(project_context(project), shot_id, source)
+
+
+def record_previs_evidence(project, sid, source, media=None):
+    """L3 为白模就绪登记注入项目上下文与正式发布器。"""
+    from agent.core import save
+    from white_model_service import record_evidence
+    root = white_model_shot_directory(project, sid, source=source)
+    return record_evidence(root, sid, source, publish=save, media=media)
 
 
 def previs_records_directory(project, state):
@@ -917,8 +947,8 @@ def save_stage_editing_checklist(project, text):
     return result.data
 
 
-def publish_handoff_bundle(project, name, artifacts, *, auto=False):
-    """交接包发布编排：L3 负责目录切换、字节发布与旧自动包回收。"""
+def publish_handoff_bundle(project, name, artifacts, *, auto=False, summary=None):
+    """交接包发布编排：L3 负责目录切换、字节发布、可校验清单登记与旧自动包回收。"""
     root = Path(project).resolve()
     edit_dir = write_dir(root, 'edit')
     final = edit_dir / str(name)
@@ -941,6 +971,10 @@ def publish_handoff_bundle(project, name, artifacts, *, auto=False):
         if data is None:
             data = Path(item['source']).read_bytes()
         payload[target] = bytes(data)
+    from handoff_service import BUNDLE_MANIFEST_NAME, build_bundle_manifest
+    manifest = build_bundle_manifest(summary, [{'name': Path(target).name, 'data': data}
+                                               for target, data in payload.items()])
+    payload[output / BUNDLE_MANIFEST_NAME] = json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8')
     publish_stage_bundle(payload, lambda _items: True, lambda: None)
     if auto:
         if final.exists():
@@ -1071,6 +1105,31 @@ def publish_stage_handoff_bundle(project, shots, rows, subtitle=None, auto=False
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
+
+
+def verify_handoff_bundle(folder):
+    """离线校验一个已解包的交接包：读清单、按清单核对每个文件，只读不改。"""
+    from handoff_service import BUNDLE_MANIFEST_NAME, verify_manifest
+    folder = Path(folder).resolve()
+    manifest_path = folder / BUNDLE_MANIFEST_NAME
+    if not manifest_path.is_file():
+        return {'ok': False, 'problems': ['缺少交接包清单，无法离线校验：' + BUNDLE_MANIFEST_NAME],
+                'missing': [], 'count': 0, 'label': ''}
+    try:
+        manifest = file_cache.read_json(manifest_path)
+    except (OSError, ValueError):
+        manifest = None
+    if manifest is None:
+        return {'ok': False, 'problems': ['交接包清单读不出来或格式坏了'], 'missing': [], 'count': 0, 'label': ''}
+
+    def probe(name):
+        path = (folder / str(name)).resolve()
+        if not path.is_relative_to(folder):
+            raise OSError('交接包条目越界：' + str(name))
+        if not path.is_file():
+            raise OSError('交接包文件缺失：' + str(name))
+        return path.stat().st_size, file_cache.file_digest(path)
+    return verify_manifest(manifest, probe)
 
 
 def _model_ids(desktop, stage):
@@ -1450,3 +1509,71 @@ def sync_writing_attachment_locks(project, *, reference=None):
     signature = sha256(json.dumps(values, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
     if workflow.get('lock_attachment_signatures', {}).get(name) != signature:
         save_writing_production_locks(project, values, attachment_signature=signature)
+
+
+def storyboard_adoption_impact(project, paths):
+    """L3 注入项目上下文：候选分镜相对已采用分镜的只读影响预览。"""
+    from storyboard_catalog_service import adoption_impact
+    return adoption_impact(project_context(project), paths)
+
+
+def asset_impact(project, aid, *, episode_dir=''):
+    """L3 门面：资产变更影响视图（只读）。"""
+    from asset_plan import asset_impact as _impact
+    return _impact(project, aid, episode_dir=episode_dir)
+
+
+def asset_deletion_references(project, aid, *, episode_dir=''):
+    """L3 门面：删除资产前要先看的引用清单（只读）。"""
+    from asset_plan import deletion_references as _references
+    return _references(project, aid, episode_dir=episode_dir)
+
+
+def continuity_issue_report(project, ledger=None):
+    """L3 门面：连贯性问题闭环视图（只读，不落盘）。"""
+    from continuity_ledger import issues, merge_issues, read_issues
+    from continuity_ledger import read as read_ledger
+    data = ledger if isinstance(ledger, dict) and ledger else read_ledger(project)
+    _register, rows = merge_issues(read_issues(project), issues(data))
+    return rows
+
+
+def sync_continuity_issues(project, ledger=None):
+    """L3 门面：算一遍问题并落盘 03_continuity/output/continuity_issues.json。"""
+    from agent.core import save
+    from continuity_ledger import read as read_ledger
+    from continuity_ledger import sync_issues
+    data = ledger if isinstance(ledger, dict) and ledger else read_ledger(project)
+    return sync_issues(project, data, publish=save)
+
+
+def decide_continuity_issue(project, issue_id, decision, reason='', by='人工'):
+    """L3 门面：记一条问题的处理决定（忽略必须写理由）。"""
+    from agent.core import save
+    from continuity_ledger import decide_issue
+    return decide_issue(project, issue_id, decision, reason, by=by, publish=save)
+
+
+def animatic_preview_spec(project):
+    """预演低清规格：画幅跟项目制作锁，分辨率与帧率保持低配；与正式交付规格同源。"""
+    import stage_config
+    from script_contract import preview_spec
+    return preview_spec(stage_config.workflow_lock(Path(project)))
+
+
+def publish_response_archive(project, text):
+    """把模型已返回的可见正文归档到 01剧本准备/responses/，返回归档路径。
+
+    只归档，不登记为阶段成果，也不改变采用状态；取消、迟到返回或格式不合格的
+    正文同样留副本，供用户对照「原始响应已保存」。空正文不建文件。
+    """
+    from datetime import datetime
+    from uuid import uuid4
+    from stage_path_service import write_dir
+    value = str(text or '').replace('\r\n', '\n')
+    if not value.strip():
+        return ''
+    target = write_dir(project, 'script') / 'responses' / (
+        datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '_' + uuid4().hex + '.txt')
+    publish_stage_text(target, value, lambda published: published == value, lambda _target: None)
+    return str(target)

@@ -143,6 +143,9 @@ def run_probe():
             preview.write_bytes(b"stage-gate-e2e-preview")
             white_model_service.write_record(
                 shot_dir, {"shot_id": "SH001", "preview": str(preview)}, publish=save)
+            # 预演就绪现在要绑定采用分镜摘要（O09）：只有预演视频的记录不再算就绪。
+            white_model_service.record_evidence(shot_dir, "SH001", source, publish=save,
+                                                preview=preview)
             verify_gate("SG-05", "previs", "video")
         finally:
             white_model_service.workspace = original_workspace

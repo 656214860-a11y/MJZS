@@ -207,6 +207,191 @@ def natural_script_selection_path(project):
     return write_dir(project, 'script') / 'natural_script_selection.json'
 
 
+# ── 分集增量账本：自然剧本按集解析与变更追踪 ─────────────────────────────────
+# 阶段④的自然剧本按 `# 第{集数}集：{标题}` 分段输出。这里提供一条与 02 结构剧本
+# 场次解析完全平行的能力，只回答「哪几集相对上次生成有改动」，不替换、不参与
+# structure_script() 的场次整理。
+EPISODE_LEDGER_NAME = '剧本分集增量账本.json'
+UNSPLIT_EPISODE_KEY = '未分集'
+_EPISODE_HEADING = re.compile(
+    r'(?m)^[ \t]*(?:#{1,6}[ \t]*)?第[ \t]*(\d{1,4})[ \t]*集[ \t]*[：:]?[ \t]*(.*?)[ \t]*\r?$')
+
+
+def split_script_episodes(text):
+    """按「第N集」标题把正文切成有序分集。
+
+    返回 ``{集号: 正文块}``：集号是 ``int``，正文块保留标题行本身，便于追溯。
+    标题容错全半角冒号、零填充、标题文字缺失与 ``#`` 级数；正文开头若还有标题
+    之前的整段文字，记到 ``UNSPLIT_EPISODE_KEY`` 一项。解析不出任何集号标题时，
+    整篇作为一项「未分集」返回，不报错也不丢正文；空正文返回空字典。
+
+    同一集号重复出现时保留首次出现的正文块，不把两次生成静默合并。
+    """
+    raw = str(text or '').replace('\r\n', '\n').replace('\r', '\n')
+    hits = list(_EPISODE_HEADING.finditer(raw))
+    if not hits:
+        stripped = raw.strip()
+        return {UNSPLIT_EPISODE_KEY: stripped} if stripped else {}
+    episodes = {}
+    preamble = raw[:hits[0].start()].strip()
+    if preamble:
+        episodes[UNSPLIT_EPISODE_KEY] = preamble
+    for position, match in enumerate(hits):
+        end = hits[position + 1].start() if position + 1 < len(hits) else len(raw)
+        body = raw[match.start():end].strip()
+        number = int(match.group(1))
+        if body and number not in episodes:
+            episodes[number] = body
+    return episodes
+
+
+def episode_digest(text):
+    """单集正文的内容指纹；首尾空白与换行口径不影响判定。"""
+    body = str(text or '').replace('\r\n', '\n').replace('\r', '\n').strip()
+    return hashlib.sha256(body.encode('utf-8')).hexdigest()
+
+
+def episode_label(number):
+    """分集的用户可读称谓；未分集返回「未分集正文」。"""
+    return '未分集正文' if number == UNSPLIT_EPISODE_KEY else '第%s集' % number
+
+
+def episode_ledger_path(project):
+    """分集增量账本路径；与自然剧本采用台账同目录、同阶段写入目录。"""
+    from stage_path_service import write_dir
+    return write_dir(project, 'script') / EPISODE_LEDGER_NAME
+
+
+def read_episode_ledger(project):
+    """读分集增量账本；缺失、损坏或格式不符时返回空账本，绝不阻断生成。"""
+    path = episode_ledger_path(project)
+    try:
+        payload = read(path) if path.is_file() else {}
+    except (OSError, ValueError):
+        payload = {}
+    episodes = payload.get('episodes') if isinstance(payload, dict) else None
+    clean = {}
+    for number, entry in (episodes or {}).items():
+        if not isinstance(entry, dict) or not isinstance(entry.get('sha256'), str) or not entry['sha256']:
+            continue
+        based = entry.get('based_on')
+        clean[str(number)] = {
+            'sha256': entry['sha256'],
+            'based_on': {str(key): value for key, value in (based or {}).items()
+                         if isinstance(value, str) and value},
+        }
+    return {'version': 1, 'episodes': clean}
+
+
+def write_episode_ledger(project, ledger):
+    """原子写入分集增量账本；调用方负责在失败时不阻断本次生成。"""
+    from agent.core import save
+    path = episode_ledger_path(project)
+    save(path, ledger)
+    return path
+
+
+def episode_change_report(text, ledger=None):
+    """把当前分集与账本比对，返回 ``(changed, unchanged)`` 两个有序映射。
+
+    账本缺失或某一集从未记录时，该集算作变化；首次使用时全部集都变化，等价于
+    旧的全量参考行为。
+    """
+    episodes = split_script_episodes(text)
+    known = (ledger or {}).get('episodes') or {}
+    changed, unchanged = {}, {}
+    for number, body in episodes.items():
+        entry = known.get(str(number))
+        if isinstance(entry, dict) and entry.get('sha256') == episode_digest(body):
+            unchanged[number] = body
+        else:
+            changed[number] = body
+    return changed, unchanged
+
+
+def episode_reference_block(text, ledger=None):
+    """构造模型 prompt 的「参考改动」段：只贴变化的集正文。
+
+    未变化的集只列出集号，不重复正文；账本缺失或从未记录（首次使用）时退化为
+    把现有全部集正文都当作参考改动，等价于旧的全量行为。没有正文时返回空串。
+    """
+    if not str(text or '').strip():
+        return ''
+    changed, unchanged = episode_change_report(text, ledger)
+    if not changed and not unchanged:
+        return ''
+    known = (ledger or {}).get('episodes') or {}
+    first_use = not any(str(number) in known for number in (list(changed) + list(unchanged)))
+    total = len(changed) + len(unchanged)
+    if first_use:
+        lines = ['【分集增量参考】尚未建立分集变更基线；以下为当前全部已有集正文（首次记录）。']
+        marker = '（当前版本）内容如下：'
+    else:
+        lines = ['【分集增量参考】当前自然剧本共 %d 集；只提供相对上次生成有改动的集正文。' % total]
+        marker = '已修改，内容如下：'
+    for number, body in changed.items():
+        lines.append(episode_label(number) + marker)
+        lines.append(body)
+    if unchanged:
+        lines.append('（未变化的集：' + '、'.join(episode_label(number) for number in unchanged)
+                     + '；正文不重复提供，沿用已确认版本。）')
+    return '\n'.join(lines)
+
+
+def script_episode_baseline(project):
+    """当前分集比对基准正文：优先采用版本，其次最新自然剧本，最后内部工作稿。
+
+    用户手改自然剧本会让采用台账的哈希失效，因此这里不把采用台账当唯一依据，
+    只取「最新一份可见自然剧本」的正文；都读不到时返回空串。
+    """
+    try:
+        source = resolve_script_source(project)
+    except (OSError, ValueError):
+        source = None
+    candidates = [source] if source is not None else []
+    try:
+        candidates.extend(natural_script_paths(project))
+    except (OSError, ValueError):
+        pass
+    from stage_path_service import write_dir
+    candidates.append(write_dir(project, 'script') / RAW_SCRIPT_NAME)
+    for path in candidates:
+        try:
+            if path.is_file() and path.stat().st_size:
+                return path.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+    return ''
+
+
+def record_episode_ledger(project, text, previous_text=''):
+    """调用后更新账本：记录各集当前 sha256 与生成时其余各集的 sha256 快照。
+
+    ``previous_text`` 是本次生成前的剧本正文（模型实际依据的版本）；有变化或新
+    出现的集，其 ``based_on`` 取该版本其余各集的指纹；未变化的集保留已有记录。
+    没有可解析正文时不改动账本。
+    """
+    episodes = split_script_episodes(text)
+    ledger = read_episode_ledger(project)
+    if not episodes:
+        return ledger
+    known = ledger['episodes']
+    before = {str(number): episode_digest(body)
+              for number, body in split_script_episodes(previous_text).items()}
+    updated = {}
+    for number, body in episodes.items():
+        key = str(number)
+        digest = episode_digest(body)
+        if key in known and known[key]['sha256'] == digest:
+            updated[key] = dict(known[key])
+            continue
+        updated[key] = {'sha256': digest,
+                        'based_on': {other: value for other, value in before.items() if other != key}}
+    ledger = {'version': 1, 'episodes': updated}
+    write_episode_ledger(project, ledger)
+    return ledger
+
+
 def resolve_script_source(project):
     """优先采用用户确认的内容版本；多份候选不得按修改时间自动替换。"""
     paths = natural_script_paths(project)
@@ -416,35 +601,88 @@ def _source_label(project, source):
     return source.resolve().relative_to(root).as_posix()
 
 
+_FEATURES = ('岁', '发', '眼', '肤', '身', '高', '矮')
+_ALIAS = re.compile(r'(?:又名|别名|绰号|昵称)[：:]?\s*([^\s，。；、）)]{1,12})')
+_FLASHBACK = ('回忆', '闪回', '倒叙', '梦境', '梦里')
+_UNTAGGED_SPEAKERS = '待确认（原稿本场未出现“人物名：对白”标签）'
+_RULE_NOTE = ('> 生成方式：本地规则提取（未调用模型）；未标明的字段来自原稿，'
+              '标「待确认」的是原稿未明确、需人工补充的制作信息。')
+_COMPLETENESS_NOTE = '> 结构合法不等于制作信息齐全：待确认项由人工补充，程序不臆造。'
+
+
+def _alias_of(raw, name):
+    """只认原稿明确声明的别名；没有就标待确认，绝不从上下文编造。"""
+    for line in raw.splitlines():
+        if name in line:
+            match = _ALIAS.search(line)
+            if match and match.group(1).strip():
+                return match.group(1).strip() + '（来源：原稿声明）'
+    return '待确认（原稿未明确）'
+
+
+def _character_id(name):
+    """按角色名生成稳定的跨集 ID：同一名字在任何一集得到同一串。"""
+    digest = hashlib.sha1(str(name).encode('utf-8')).hexdigest()[:8]
+    return 'char-%s（程序按角色名生成，仅作跨集引用；可人工改名）' % digest
+
+
+def _same_name_note(scenes, name):
+    """同名不同人只在原稿特征互相矛盾时提醒，不凭猜测拆角色。"""
+    features = {_first_sentence(body, _FEATURES) for _title, body in scenes if name in body}
+    features.discard('待确认（原稿未明确）')
+    if len(features) > 1:
+        return '原稿中「%s」在不同场次特征不一致，可能是同名不同人（待确认）。' % name
+    return ''
+
+
+def _scene_timeline(body):
+    """只在原稿出现回忆／闪回等关键词时标注，并点明这是关键词识别、仍需确认。"""
+    if any(word in body for word in _FLASHBACK):
+        return '回忆／闪回（待确认：原稿未逐场标注，仅按关键词识别）'
+    return ''
+
+
 def structure_script(raw_text, source_name=RAW_SCRIPT_NAME):
-    """把自然语言原稿整理成供下游读取的 Markdown 正稿，不修改原始文本也不建立新 JSON 契约。"""
+    """按本地规则把自然语言原稿整理成 Markdown 正稿；不调用模型，也不改动原始文本。"""
     raw = str(raw_text or '').strip()
     if not raw:
         raise ValueError('writing/script_raw.md 为空，无法整理结构化剧本。')
     scenes = _scene_blocks(raw)
     characters = _unique(name for _title, body in scenes for name in _speakers(body))
     props = _unique(match.group(1).strip() for match in re.finditer(r'(?:道具|物品)[：:]?\s*([^，。；\n]{1,30})', raw))
-    lines = ['# 结构化剧本', '', '> 来源：`%s`（原稿保持不变）' % source_name, '', '## 角色档案', '']
+    lines = ['# 结构化剧本', '', '> 来源：`%s`（原稿保持不变）' % source_name, _RULE_NOTE, _COMPLETENESS_NOTE,
+             '', '## 角色档案', '']
     if characters:
         for name in characters:
             related = '\n'.join(body for _title, body in scenes if name in body)
             lines += ['### ' + name,
-                      '- 物理特征：' + _first_sentence(related, ('岁', '发', '眼', '肤', '身', '高', '矮')),
+                      '- 别名：' + _alias_of(raw, name),
+                      '- 跨集 ID：' + _character_id(name),
+                      '- 物理特征：' + _first_sentence(related, _FEATURES),
                       '- 默认服装：' + _first_sentence(related, _CLOTHING),
-                      '- 换装需求：待确认（原稿未明确）', '']
+                      '- 换装需求：待确认（原稿未明确）']
+            note = _same_name_note(scenes, name)
+            if note:
+                lines.append('- 同名提醒：' + note)
+            lines.append('')
     else:
-        lines += ['- 待确认：原稿未发现“人物名：对白”格式的角色。', '']
+        lines += ['- 待确认：原稿未出现“人物名：对白”标签，未能识别角色；请人工补充角色档案。', '']
     lines += ['## 场景档案', '']
     for order, (title, body) in enumerate(scenes, 1):
         lines += ['### 场景 %02d：%s' % (order, title),
                   '- 空间锚点：' + _first_sentence(body, ('内', '外', '店', '家', '学校', '街', '楼', '房', '站')),
                   '- 光照方向：' + _first_sentence(body, ('光', '夜', '晨', '晚', '日', '灯')),
-                  '- 尺度参考：待确认（原稿未明确）', '']
+                  '- 尺度参考：待确认（原稿未明确）']
+        timeline = _scene_timeline(body)
+        if timeline:
+            lines.append('- 时间线：' + timeline)
+        lines.append('')
     lines += ['## 道具档案', '']
-    lines += (['- ' + item + '：尺寸、材质、持有者待确认。' for item in props] or ['- 待确认：原稿未明确关键道具。'])
+    lines += (['- ' + item + '：尺寸、材质、持有者待确认（来源：原稿声明）。' for item in props]
+              or ['- 待确认：原稿未明确关键道具。'])
     lines += ['', '## 分场剧本', '']
     for order, (title, body) in enumerate(scenes, 1):
-        participants = '、'.join(_speakers(body)) or '待确认'
+        participants = '、'.join(_speakers(body)) or _UNTAGGED_SPEAKERS
         mood = _first_sentence(body, _EMOTIONS)
         lines += ['### 场次 %02d：%s' % (order, title), '- 出场角色：' + participants,
                   '- 情绪基调：' + mood, '- 起始状态：待确认（原稿未明确）',
@@ -474,7 +712,7 @@ def _declared_props(raw):
 
 
 def review_structured_script(raw_text, structured_text):
-    """Editor 审校 Writer 提取结果，返回可展示的反馈；不改动任何文件。"""
+    """本地规则校验提取结果，返回可展示的反馈；不调用模型、不改动任何文件。"""
     raw = str(raw_text or '').strip()
     structured = str(structured_text or '').strip()
     feedback = []
@@ -482,6 +720,8 @@ def review_structured_script(raw_text, structured_text):
     for heading in required:
         if '## ' + heading not in structured:
             feedback.append('缺少「%s」区块。' % heading)
+    if '本地规则提取' not in structured:
+        feedback.append('结构剧本未标明生成方式为本地规则提取（未调用模型）。')
     scenes = _scene_blocks(raw) if raw else ()
     characters = _unique(name for _title, body in scenes for name in _speakers(body))
     character_archive = _section(structured, '角色档案')
@@ -497,6 +737,10 @@ def review_structured_script(raw_text, structured_text):
             feedback.append('角色「%s」缺少物理特征。' % name)
         if '- 默认服装：' not in card:
             feedback.append('角色「%s」缺少默认服装。' % name)
+        if '- 别名：' not in card:
+            feedback.append('角色「%s」缺少别名项（应保留出处或标待确认）。' % name)
+        if '- 跨集 ID：' not in card:
+            feedback.append('角色「%s」缺少跨集 ID。' % name)
     scene_archive = _section(structured, '场景档案')
     if scenes and scene_archive.count('### 场景 ') < len(scenes):
         feedback.append('场景档案数量少于原稿场次，需补全空间、光照和尺度信息。')
@@ -517,7 +761,7 @@ def review_structured_script(raw_text, structured_text):
 
 
 def revise_structured_script(raw_text, feedback, source_name=RAW_SCRIPT_NAME):
-    """Writer 根据 Editor 反馈重新提取；源稿矛盾保留给用户修正，绝不臆造事实。"""
+    """按反馈用本地规则重新提取；源稿矛盾保留给用户修正，绝不臆造事实。"""
     notes = tuple(feedback or ())
     conflicts = [note for note in notes if '互相矛盾的尺寸' in note]
     if conflicts:
@@ -580,6 +824,8 @@ STAGE_LOCK_REQUIREMENTS = {
 }
 PRODUCTION_LOCK_DEFINITIONS = (
     {'key': 'aspect_ratio', 'label': '画幅', 'aliases': ('故事画幅',), 'options': ['16:9', '9:16', '21:9', '1:1']},
+    {'key': 'resolution', 'label': '分辨率', 'aliases': ('输出分辨率',), 'options': ['1920x1080', '1080x1920', '2560x1080', '1080x1080']},
+    {'key': 'fps', 'label': '帧率', 'aliases': ('输出帧率',), 'options': ['24', '25', '30', '60']},
     {'key': 'delivery_format', 'label': '交付形态', 'aliases': (), 'options': ['只要离线看板', '只要 markdown 文档', '两者都交付']},
     {'key': 'video_model_version', 'label': '视频模型版本', 'aliases': ('视频模型',), 'options': ['Seedance 2.5', 'Seedance 2.0', 'MiniMax H3']},
 )
@@ -1193,3 +1439,110 @@ def merge_problems(program=None):
     """收口体检：归属者声明过这个子步骤、并回来的产物有真实落点（正常是空表）。"""
     from importlib import import_module
     return import_module('script_skill_report').merge_problems(program)
+
+
+
+# O32：正式交付规格与预演预览规格分开。规格来自项目制作锁（brief.production_locks 与统筹
+# workflow.lock 同源）；缺省才回落到出厂默认。预演只降分辨率与帧率，画幅仍跟项目，
+# 保证竖屏／方屏／宽幅输入都不会被默默压成横屏（等比缩小后居中留边，绝不裁切）。
+OUTPUT_SPEC_DEFAULTS = {'aspect_ratio': '16:9', 'resolution': '1920x1080', 'fps': 30}
+PREVIEW_SHORT_EDGE = 720
+PREVIEW_FPS = 24
+LOUDNESS_DEFAULTS = {'i': -16, 'tp': -1.5, 'lra': 11}
+
+
+def parse_ratio(text):
+    """'16:9' -> (16.0, 9.0)；认不出来返回 None。"""
+    parts = str(text or '').strip().split(':')
+    if len(parts) != 2:
+        return None
+    try:
+        width, height = (float(part) for part in parts)
+    except ValueError:
+        return None
+    return (width, height) if width > 0 and height > 0 else None
+
+
+def parse_resolution(text):
+    """'1920x1080' -> (1920, 1080)；认不出来返回 None。"""
+    match = re.fullmatch(r'\s*(\d{2,5})\s*[xX*]\s*(\d{2,5})\s*', str(text or ''))
+    if not match:
+        return None
+    width, height = int(match.group(1)), int(match.group(2))
+    return (width, height) if width > 0 and height > 0 else None
+
+
+def _even(value):
+    """H.264 yuv420p 要求宽高是偶数；就近取偶，至少 2。"""
+    value = max(2, int(round(float(value))))
+    return value if value % 2 == 0 else value + 1
+
+
+def _fit_ratio(width, height, short_edge):
+    """按短边缩放：横屏定高、竖屏定宽、方屏同边。"""
+    if width >= height:
+        return _even(width * short_edge / height), _even(short_edge)
+    return _even(short_edge), _even(height * short_edge / width)
+
+
+def _fps(value, fallback):
+    try:
+        number = float(str(value).strip())
+    except (TypeError, ValueError):
+        number = float(fallback)
+    if not 1 <= number <= 120:
+        number = float(fallback)
+    return int(round(number)) if abs(number - round(number)) < 0.01 else round(number, 3)
+
+
+def resolve_output_spec(locks=None):
+    """正式交付规格：画幅／分辨率／帧率。
+
+    三者都优先取锁里的显式值；分辨率没写就按画幅与 1080 短边推算，保证成片盒子跟项目画幅
+    一致。锁里没写帧率时用出厂默认。锁第二层键由统筹定义，本契约不列举，故 resolution／fps
+    只是可选覆盖，不影响既有画幅优先级。
+    """
+    locks = locks if isinstance(locks, dict) else {}
+    ratio = parse_ratio(locks.get('aspect_ratio')) or parse_ratio(OUTPUT_SPEC_DEFAULTS['aspect_ratio'])
+    declared = parse_resolution(locks.get('resolution'))
+    if declared:
+        width, height = _even(declared[0]), _even(declared[1])
+    else:
+        width, height = _fit_ratio(ratio[0], ratio[1], 1080)
+    return {'aspect_ratio': '%g:%g' % ratio, 'resolution': '%dx%d' % (width, height),
+            'width': width, 'height': height,
+            'fps': _fps(locks.get('fps'), OUTPUT_SPEC_DEFAULTS['fps']),
+            'loudness': dict(LOUDNESS_DEFAULTS)}
+
+
+def preview_spec(locks=None):
+    """预演预览规格：只把分辨率与帧率降下来，画幅仍跟项目（16:9 仍是 1280x720／24）。"""
+    spec = resolve_output_spec(locks)
+    width, height = _fit_ratio(*(parse_ratio(spec['aspect_ratio']) or (16, 9)), PREVIEW_SHORT_EDGE)
+    return dict(spec, resolution='%dx%d' % (width, height), width=width, height=height, fps=PREVIEW_FPS)
+
+
+def output_filter(spec):
+    """把任意输入等比缩小后居中留边（letterbox）到规格盒子；只留边不裁切。"""
+    width, height, fps = spec['width'], spec['height'], spec['fps']
+    return ('scale=%d:%d:force_original_aspect_ratio=decrease,'
+            'pad=%d:%d:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=%s,format=yuv420p'
+            % (width, height, width, height, fps))
+
+
+def loudness_filter(spec):
+    """音量规则跟着输出规格走，不再散落在编码参数里。"""
+    loudness = spec.get('loudness') or LOUDNESS_DEFAULTS
+    return 'loudnorm=I=%s:TP=%s:LRA=%s' % (loudness.get('i', -16), loudness.get('tp', -1.5),
+                                           loudness.get('lra', 11))
+
+
+def overlay_metrics(spec):
+    """成片内嵌说明字幕的安全边距与字号：随输出高度等比，竖屏不会被裁。"""
+    edge = max(8, int(round(spec['height'] * 0.042)))
+    return {'fontsize': max(12, int(round(spec['height'] * 0.039))), 'x': edge, 'y': edge}
+
+
+def describe_output_spec(spec):
+    """给界面／报告的一行实际规格。"""
+    return '%s · %sfps · %s' % (spec['resolution'], spec['fps'], spec['aspect_ratio'])

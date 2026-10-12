@@ -86,18 +86,43 @@ def partition(context,source,ids):
     return groups,decisions
 
 
-def ready(context,sid):
+def decisions_for(context,source,shots):
+    """页面、调度与阶段门禁共用的唯一有效决策：手工覆盖优先，读不到时退回自动分类。"""
+    context=_context(context)
+    saved=entries(context,source)
+    result={}
+    for shot in shots or []:
+        if not isinstance(shot,dict) or not shot.get('id'):
+            continue
+        sid=shot['id'];item=saved.get(sid)
+        if item is None:
+            level,reason=classify(shot)
+            item={'level':level,'reason':reason,'route':ROUTES[level],'override':'auto'}
+        result[sid]=item
+    return result
+
+
+def ready(context,sid,source=None):
+    """这一镜的预演是否就绪：来源分镜与预演文件都未变才算，变过只判过期、不删成果。"""
     context=_context(context)
     import white_model_service as wm
     try:
-        value=wm.read_record(wm.shot_directory(context,sid)).get('preview')
+        record=wm.read_record(wm.shot_directory(context,sid,source=source))
     except (OSError,ValueError):
         return False
+    value=record.get('preview')
     path=Path(value) if value else None
     try:
-        return bool(path and path.is_file() and path.stat().st_size and path.suffix.lower() in ('.mp4','.mov','.webm'))
+        if not (path and path.is_file() and path.stat().st_size and path.suffix.lower() in ('.mp4','.mov','.webm')):
+            return False
     except OSError:
         return False
+    state=wm.evidence_state(record,path,source,sid)
+    if state=='changed':
+        return False
+    if state=='unbound' and source and sid:
+        return False   # 旧成果没登记来源：先重新校验／制作一次，登记后才复用
+    return True
 
 
 def automatic_candidates(context, source, shots, wait_for_frames=False, pending_frame_ids=None):
@@ -107,7 +132,7 @@ def automatic_candidates(context, source, shots, wait_for_frames=False, pending_
     if not ids:
         return {'pending': [], 'medium': [], 'waiting': []}
     groups, _decisions = partition(context, source, ids)
-    pending = [sid for sid in groups['complex'] if not ready(context, sid)]
+    pending = [sid for sid in groups['complex'] if not ready(context, sid, source)]
     waiting = []
     if pending and wait_for_frames and callable(pending_frame_ids):
         without_frame = set(pending_frame_ids(shots))
@@ -147,7 +172,7 @@ def dispatch(context,source,ids,state,monitor=False,start_complex=None,*,publish
     if state.get('busy'):raise ValueError('已有白模任务运行中')
     root=context.root
     groups,decisions=partition(context,source,ids)
-    completed=[sid for sid in ids if ready(context,sid)]
+    completed=[sid for sid in ids if ready(context,sid,source)]
     for level in groups:groups[level]=[sid for sid in groups[level] if sid not in completed]
     folder=root/'工作流任务/白模分流记录'/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     publish(folder/'分流结果.json',{'source':str(source),'groups':groups,'ready_skipped':completed,'decisions':{sid:decisions[sid] for sid in ids}})
@@ -181,5 +206,3 @@ def records_directory(context,state):
         if (root/name).is_dir():candidates.extend(p for p in (root/name).iterdir() if p.is_dir())
     if candidates:return max(candidates,key=lambda p:p.stat().st_mtime_ns)
     folder=root/'白模分流记录';folder.mkdir(parents=True,exist_ok=True);return folder
-
-

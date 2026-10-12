@@ -53,8 +53,8 @@ class SubtitleExportServiceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             result = export_stage_srt(folder, EPISODE)
             self.assertTrue(result.ok)
-            target, estimated = result.data
-            self.assertFalse(estimated)
+            target, report = result.data
+            self.assertFalse(report['estimated'])
             self.assertTrue(target.is_file())
             self.assertIn('00:00:00,000 --> 00:00:02,000', target.read_text(encoding='utf-8-sig'))
 
@@ -62,8 +62,8 @@ class SubtitleExportServiceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             result = export_stage_dialogue_script(folder, EPISODE, {'A': {'name': '阿明'}})
             self.assertTrue(result.ok)
-            target, estimated = result.data
-            self.assertFalse(estimated)
+            target, report = result.data
+            self.assertFalse(report['estimated'])
             self.assertTrue(target.is_file())
             self.assertIn('SH001  初见', target.read_text(encoding='utf-8-sig'))
             self.assertIn('阿明（0.0-2.0秒）：你好', target.read_text(encoding='utf-8-sig'))
@@ -83,8 +83,8 @@ class SubtitleExportServiceTests(unittest.TestCase):
 
         result = export_srt('project', EPISODE, publish=publish)
         self.assertTrue(result.ok)
-        target, estimated = result.data
-        self.assertFalse(estimated)
+        target, report = result.data
+        self.assertFalse(report['estimated'])
         self.assertEqual(target, published[0][0])
         self.assertTrue(published[0][2])
         self.assertEqual(published[0][3], 'utf-8-sig')

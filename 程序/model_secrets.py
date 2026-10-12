@@ -24,6 +24,22 @@ LABEL = '模型 API Key'                      # 只用于 DPAPI 报错时的中�
 KEEP = 4                                    # 日志／界面里露出的位数（规格：前 4 位 ＋ ****）
 
 
+# O44：把「没配 / 换过 Windows 用户 / 文件坏了」分开说，但一个字节的密钥都不返回。
+# DPAPI 密文头 = 版本号(4B, 小端 1) ＋ provider GUID(16B)；头不对就是文件坏了或不是本程序写的。
+_BLOB_HEADER = bytes.fromhex('01000000d08c9ddf0115d1118c7a00c04fc297eb')
+READY = 'ready'
+UNCONFIGURED = 'unconfigured'
+OTHER_USER = 'other-user'
+CORRUPT = 'corrupt'
+AUTH_FAILED = 'auth'
+_STATE_TEXT = {
+    READY: '本机密钥可用',
+    UNCONFIGURED: '还没配置本机密钥',
+    OTHER_USER: '当前 Windows 用户解不开（换过用户或系统密钥变了），需要重新保存',
+    CORRUPT: '密钥文件损坏或不是本程序写的，需要重新保存',
+    AUTH_FAILED: '本机密钥已配置，但服务端拒绝（无效／无权限／过期），需要重新设置',
+}
+
 def protect(data, decrypt=False, label='模型 API Key'):
     """Windows DPAPI 加解密；仅由密钥存储层实现，供应商模块不参与。"""
     from ctypes import wintypes
@@ -77,6 +93,46 @@ def redacted(value):
     text = str(value or '')
     return (text[:KEEP] + '****') if len(text) > KEEP else '****'
 
+
+def looks_like_blob(data):
+    """是不是一段 DPAPI 密文：头 20 字节是版本号和 provider GUID 才算。"""
+    raw = bytes(data or b'')
+    return len(raw) >= len(_BLOB_HEADER) and raw[:len(_BLOB_HEADER)] == _BLOB_HEADER
+
+
+def _state_report(name, target, state):
+    return {'name': str(name or ''), 'path': str(target), 'state': state,
+            'ok': state == READY, 'text': _STATE_TEXT[state]}
+
+
+def diagnose(name, program=None, root=None):
+    """只说本机密钥「能不能用、为什么不能用」：没配／换过用户／文件坏了／可用，绝不返回密钥。"""
+    target = path(name, program, root)
+    if not safe_name(name) or not target.is_file():
+        return _state_report(name, target, UNCONFIGURED)
+    try:
+        data = target.read_bytes()
+    except OSError:
+        return _state_report(name, target, CORRUPT)
+    try:
+        PROTECTOR(data, decrypt=True, label=LABEL).decode('utf-8')
+    except Exception:
+        # 头对得上＝是别的用户写的密文；头都不对＝文件损坏或根本不是本程序的密钥。
+        return _state_report(name, target, OTHER_USER if looks_like_blob(data) else CORRUPT)
+    return _state_report(name, target, READY)
+
+
+def verdict(name, program=None, root=None, error_class=''):
+    """把本机密钥状态和服务端结果合成一个可诊断结论；仍然只有状态，没有密钥。
+
+    ``error_class`` 用调用方已经分好的类别（``pet_agent.classify``／``model_router`` 的
+    ``auth``／``authentication``）：本机没配好时以本机原因为准，本机可用而服务端拒了才报鉴权失败。
+    """
+    local = diagnose(name, program, root)
+    if local['state'] == READY and str(error_class or '').strip().lower() in (
+            'auth', 'authentication', 'unauthorized'):
+        return _state_report(name, local['path'], AUTH_FAILED)
+    return local
 
 def load(name, program=None, root=None):
     """读回那把密钥（只有当前 Windows 用户解得开）；没有、坏了、名字为空都当空串。"""

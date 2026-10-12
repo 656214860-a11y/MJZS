@@ -18,6 +18,7 @@ from model_router import ModelAdapter
 from script_contract import RHYTHM_TEMPLATE_PATH
 from file_cache import read_json
 from service_contract import SystemError, success
+from workflow_context_budget import budget_advice, budget_sections, context_budget_report
 
 
 ROLE_ORDER = ('director', 'writer', 'editor', 'actor')
@@ -32,12 +33,19 @@ REQUEST_CONTEXT_MAX_CHARS = 96_000
 
 
 class RoleExecutionError(RuntimeError):
-    """某角色没有可用输出，或导演在允许次数内没有放行。"""
+    """某角色没有可用输出，或导演在允许次数内没有放行。
 
-    def __init__(self, message, *, review_failed_role='', response_text=''):
+    ``review_basis`` 记录判定所用的冻结输入摘要，``review_records`` 保留逐条审核
+    结论；失败后据此追溯“依据哪份 brief／SKILL 判退”，而不是重开一次创作。
+    """
+
+    def __init__(self, message, *, review_failed_role='', response_text='', review_basis=None,
+                 review_records=()):
         super().__init__(message)
         self.review_failed_role = review_failed_role
         self.response_text = response_text
+        self.review_basis = dict(review_basis) if review_basis else {}
+        self.review_records = list(review_records or ())
 
 
 class RoleCancelledError(RoleExecutionError):
@@ -62,14 +70,29 @@ def _ensure_active(cancelled):
         raise RoleCancelledError('HOLLMWOOD 调用已取消')
 
 
-def _ensure_context_budget(role, system, prompt, log_folder, step, *, publish_log=None):
-    """在模型调用前拒绝过长上下文，避免推理字段耗尽可见输出。"""
+def _ensure_context_budget(role, system, prompt, log_folder, step, *, publish_log=None,
+                           context_limit=None, output_reserved=0):
+    """在模型调用前拒绝过长上下文，避免推理字段耗尽可见输出。
+
+    字符上限是硬保护；给了模型上下文窗口时，再按分项 token 预估检查「输入 + 输出
+    预留 + 余量」是否超出窗口，超限直接报错，而不是静默截断 SKILL 或剧本。
+    """
     size = len(str(system or '')) + len(str(prompt or ''))
-    if size <= REQUEST_CONTEXT_MAX_CHARS:
+    report = context_budget_report(budget_sections(system=system, stage=prompt),
+                                   context_limit=context_limit, output_reserved=output_reserved,
+                                   stage='%s 角色' % role)
+    if size <= REQUEST_CONTEXT_MAX_CHARS and not report['exceeded']:
         return
-    error = ('上下文过长：%s 角色请求为 %d 字符，超过 %d 字符安全预算；'
-             '请缩短简报、节奏模板或编剧角色 SKILL 指令后重试。' %
-             (role, size, REQUEST_CONTEXT_MAX_CHARS))
+    if size > REQUEST_CONTEXT_MAX_CHARS:
+        error = ('上下文过长：%s 角色请求为 %d 字符，超过 %d 字符安全预算；'
+                 '请缩短简报、节奏模板或编剧角色 SKILL 指令后重试。' %
+                 (role, size, REQUEST_CONTEXT_MAX_CHARS))
+    else:
+        error = ('上下文过长：%s 角色估算 %d token（输入 %d + 输出预留 %d + 余量 %d）'
+                 '超过模型上下文 %d；请缩短简报、拆成多次执行或缩小本次创作范围。' %
+                 (role, report['projected_tokens'], report['input_tokens'],
+                  report['output_reserved'], report['safety_margin'], report['context_limit']))
+    error += budget_advice(report)
     _write_log(log_folder, step, str(role) + '_context_rejected', error, publish=publish_log)
     raise RoleExecutionError('%s 角色执行失败：%s' % (role, error))
 
@@ -166,7 +189,24 @@ def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled
     if not isinstance(adapter, ModelAdapter):
         raise TypeError('HOLLMWOOD 必须接收 model_router 的 ModelAdapter')
     _ensure_active(cancelled)
-    _ensure_context_budget(role, system, prompt, log_folder, step, publish_log=publish_log)
+    record = getattr(adapter, 'record', None)
+    context_limit = None
+    if isinstance(record, dict):
+        try:
+            context_limit = int(str(record.get('context_length') or '').strip()) or None
+        except (TypeError, ValueError):
+            context_limit = None
+    # 调用前按最坏情况预留输出额度，避免推理字段挤占正文后误报「模型没返回内容」。
+    reserved = (CONTENT_ROLE_MAX_TOKENS
+                if role in ('writer', 'editor', 'actor',
+                            'writer_revision', 'editor_revision', 'actor_revision')
+                else 4096)
+    if str(role) == 'director' or str(role).startswith('director_review'):
+        reserved = max(reserved, DIRECTOR_RETRY_MAX_TOKENS)
+    if str(model).lower() in ('deepseek-v4-flash', 'deepseek-v4-pro'):
+        reserved = max(reserved, DEEPSEEK_V4_MAX_TOKENS)
+    _ensure_context_budget(role, system, prompt, log_folder, step, publish_log=publish_log,
+                           context_limit=context_limit, output_reserved=reserved)
     if emit:
         emit(role, step)
     # 首个导演规划和导演审核只要返回空正文才补发一次；网络/协议错误不重试，避免放大失败或费用。
@@ -283,14 +323,43 @@ def default_role_rules(role):
 
 def _revision(adapter, model, role, system, original, review, log_folder, step, emit, cancelled=None,
               *, publish_log=None, context=''):
-    prompt = context + ('请根据导演退回意见重写完整剧本。\n\n<director_review>\n%s\n</director_review>'
-              '\n\n<previous_script>\n%s\n</previous_script>' % (review, original))
+    prompt = context + ('只修改下列导演退回意见中逐条指出的问题及其直接影响范围；未指出的部分保持原样，'
+                        '不要顺带重写、改写，也不要重复粘贴节奏规则或角色规则。\n\n'
+                        '<director_review>\n%s\n</director_review>'
+                        '\n\n<previous_script>\n%s\n</previous_script>' % (review, original))
     return _ask(adapter, model, role + '_revision', system, prompt, log_folder, step, emit, cancelled,
                 publish_log=publish_log)
 
 
 def _resume_digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
+
+
+def _text_digest(value):
+    """冻结输入的正文摘要：同一份正文在任何机器上得到同一串，用于追溯审核依据。"""
+    return hashlib.sha256(str(value or '').encode('utf-8')).hexdigest()
+
+
+def _review_basis(brief, skill_instructions, rhythm_constraints, review_system):
+    """记录审核实际依据的冻结输入摘要，而不是复述规则正文。"""
+    return {'brief_sha256': _text_digest(brief),
+            'skill_sha256': _text_digest(str(skill_instructions).strip()),
+            'rhythm_sha256': _text_digest(rhythm_constraints),
+            'review_system_sha256': _text_digest(review_system)}
+
+
+# 模型只能判定“规则合格”；创意满意必须由用户在阶段面板确认，不能由 APPROVED 代替。
+REVIEW_SCOPE = '模型审核只判定规则层面是否合格；创意满意由用户在阶段面板确认。'
+
+
+def _review_record(role, attempt, review, approved, *, resumed=False):
+    """逐条留痕：位置、违反的规则、修订建议与通过条件都保留在审核原文里。"""
+    return {'role': role, 'attempt': int(attempt),
+            'verdict': 'approved' if approved else 'revise',
+            'rule_compliant': bool(approved),
+            'creative_signoff': 'pending_user_confirmation',
+            'resumed': bool(resumed),
+            'review_text': str(review or '').strip()}
 
 
 def _load_resume(path, fingerprint):
@@ -356,9 +425,11 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
     review_system = (_director_review_system() + director_constraints + shared_constraints
                      + '\n审核回复保持简短，不复述剧本、简报或检查过程：'
                      '通过只输出 APPROVED 和一句理由；退回以 REVISE: 开头，'
-                     '逐条指出位置、问题及可执行修改，每条不超过两句；'
+                     '逐条指出位置、问题（违反的规则，若适用）、可执行修订建议和通过条件，每条不超过两句；'
                      '总篇幅优先控制在 300 字以内。'
                      '相同问题合并描述，但不得遗漏影响通过的独立问题。不要代写完整剧本。')
+    basis = _review_basis(brief, skill_instructions, rhythm_constraints, review_system)
+    reviews = []
     brief_context = '<brief_complete>\n%s\n</brief_complete>\n\n' % brief
     fingerprint = _resume_digest([resume_identity, model, brief, director_system, writer_system,
                                   editor_system, actor_system, review_system, int(max_revisions)])
@@ -389,6 +460,7 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
     for role, system in stages:
         if role in outputs:
             current = outputs[role]
+            reviews.append(_review_record(role, 0, '', True, resumed=True))
             step += 2
             if callable(emit):
                 emit('director_review_' + role, step)
@@ -406,18 +478,22 @@ def _run(adapter, model, brief_complete, rhythm_template=None, log_folder='logs'
                           script_context + ('请审核 %s 的候选剧本。\n\n<candidate>\n%s\n</candidate>' %
                            (role, current)),
                           log_folder, step, emit, cancelled, publish_log=publish_log)
-            if _approved(review):
+            approved = _approved(review)
+            reviews.append(_review_record(role, attempts, review, approved))
+            if approved:
                 outputs[role] = current
                 save_resume(outputs if role != 'actor' else {})
                 break
             if attempts >= int(max_revisions):
                 raise RoleExecutionError('导演未通过 %s：%s' % (role, review), review_failed_role=role,
-                                         response_text=current)
+                                         response_text=current, review_basis=basis,
+                                         review_records=reviews)
             attempts += 1
             step += 1
             current = _revision(adapter, model, role, system, current, review, log_folder, step, emit, cancelled,
                                 publish_log=publish_log, context=script_context)
     outputs['script'] = outputs['actor']
+    outputs['review_audit'] = {'basis': basis, 'scope': REVIEW_SCOPE, 'records': reviews}
     return outputs
 
 

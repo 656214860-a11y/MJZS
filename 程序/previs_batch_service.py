@@ -25,7 +25,7 @@ def prepare_batch(project, source, ids, call_config=None):
         'source': str(source), 'project': str(project),
         'blender': str(white_model_service.find_blender() or ''),
         'shots': [{'storyboard': shot, 'assets': assets(source, shot),
-                   'output_dir': str(white_model_shot_directory(project, shot['id']))}
+                   'output_dir': str(white_model_shot_directory(project, shot['id'], source=source))}
                   for shot in shots],
     }
     from agent.core import save

@@ -12,10 +12,108 @@ from agent.media import check, probe
 import project_settings
 from project_naming import dated_path
 from legacy_compat import resolved_storyboard_alias
+import pet_bus
 
 def approved_versions(versions):
-    """已下载＋技术质检通过＋已验收的版本；自动粗剪、手动拼装与交接包共用同一口径。"""
+    """已下载＋技术质检通过＋已验收的版本；自动粗剪、手动拼装与交接包共用同一口径。
+
+    `review` 为 `pass` 含无人值守的自动技术放行，不等于真人看过内容（见 `content_reviewed`）。
+    """
     return [v for v in versions or [] if v.get('review')=='pass' and v.get('state')=='downloaded' and v.get('qc_pass')]
+
+REVIEW_PENDING='pending'
+REVIEW_PASS='pass'
+REVIEW_REVISE='revise'
+AUTO_REVIEW_MARK='无人值守自动验收'
+AUTO_REVIEW_NOTE=AUTO_REVIEW_MARK+'：技术质检通过，未做内容审核，等您确认内容'
+QC_NAME='qc.json'
+EDIT_MANIFEST_NAME='edit_manifest.json'
+EDIT_BUNDLE_NAME='edit_bundle.json'
+
+def review_source(version):
+    """这条验收是谁给的：'user' 真人点过，'auto' 无人值守按设置自动放行，'' 还没验收。
+
+    老记录没有 `review_by`，按 `review_note` 是否以自动标记开头回推：认不出来就当真人验收（保守取“已审”）。
+    """
+    value=(version or {}).get('review')
+    if value not in (REVIEW_PASS,REVIEW_REVISE):return ''
+    by=(version or {}).get('review_by')
+    if by in ('user','auto'):return by
+    note=str((version or {}).get('review_note') or '')
+    return 'auto' if note.startswith(AUTO_REVIEW_MARK) else 'user'
+
+def content_reviewed(version):
+    """内容审核是否真做过：只有真人点过「通过」才算；自动技术放行不算。"""
+    return (version or {}).get('review')==REVIEW_PASS and review_source(version)=='user'
+
+def review_label(version):
+    """质量面板那一格：把「技术合格」与「内容审核」分开说清。"""
+    value=(version or {}).get('review')
+    if value==REVIEW_PASS:
+        return '通过（您已确认内容）' if review_source(version)=='user' else '技术自动放行（未做内容审核）'
+    if value==REVIEW_REVISE:return '需修改'
+    return '待验收'
+
+ADOPT_UNAPPROVED='unapproved'
+ADOPT_MISSING='missing'
+ADOPT_REPLACED='replaced'
+ADOPT_UNREADABLE='unreadable'
+ADOPT_REASON_TEXT={ADOPT_UNAPPROVED:'尚未验收',ADOPT_MISSING:'视频文件缺失',
+                   ADOPT_REPLACED:'视频已被替换，需重新验收',ADOPT_UNREADABLE:'视频无法读取'}
+
+def adopted_edit_version(versions, root=None):
+    """本镜真正会进成片的那一版：已下载＋技术合格＋已验收的最后一条，且文件在、内容与验收摘要一致。
+
+    返回 ``(version, reason)``：取到就是 ``(v, '')``；取不到时 ``version`` 为 None，``reason``
+    说明原因（``unapproved``／``missing``／``replaced``／``unreadable``）。自动粗剪、进度与交付界面
+    共用这一个口径，界面显示的「采用」才和真实成片来源一致，不会按「最新版」或「只要审核过」各说各的。
+    """
+    approved=approved_versions(versions)
+    if not approved:return None,ADOPT_UNAPPROVED
+    version=approved[-1]
+    if root is None:return version,''
+    path=Path(root)/str(version.get('file') or '')
+    try:
+        if not path.is_file():return None,ADOPT_MISSING
+        if file_hash(path)!=version.get('sha256'):return None,ADOPT_REPLACED
+    except OSError:
+        return None,ADOPT_UNREADABLE
+    return version,''
+
+def adoption_summary(root, versions):
+    """进度／交付界面每一镜那一行的事实：实际采用哪一版、最新版为什么没被采用。
+
+    ``source`` 是要显示状态的那一版：有采用就用采用版，没有才退回最新版（与旧界面一致）。
+    ``latest_is_adopted`` 为假说明最新版没进成片，界面必须写出来，否则用户会以为最新版已经进了成片。
+    这里只给原始事实，文案由界面拼。
+    """
+    versions=list(versions or [])
+    adopted,reason=adopted_edit_version(versions,root)
+    latest=versions[-1] if versions else None
+    return {'source':adopted if adopted is not None else (latest or {}),
+            'adopted':adopted,'latest':latest,
+            'latest_is_adopted':adopted is not None and latest is adopted,
+            'reason':reason,'reason_text':ADOPT_REASON_TEXT.get(reason,'')}
+
+def read_edit_bundle(out):
+    """读成片目录里那份可恢复的发布清单；还没写过 bundle 的老成片退回两份索引。
+
+    返回 ``{'master','master_sha256','manifest','qc','coverage'}``；什么都读不出时返回 None。
+    只读、不猜：成片名与摘要都来自磁盘上的记录，界面和交付据此核对真实成片来源。
+    """
+    out=Path(out)
+    try:
+        data=read(out/EDIT_BUNDLE_NAME)
+    except (OSError,ValueError):
+        data=None
+    if isinstance(data,dict) and data.get('master'):return data
+    try:
+        manifest=read(out/EDIT_MANIFEST_NAME)
+    except (OSError,ValueError):
+        manifest=None
+    if not isinstance(manifest,list):return None
+    return {'master':'MASTER.mp4','master_sha256':'','manifest':manifest,'qc':None,'coverage':{},'legacy':True}
+
 
 def episode_file_of(project,cfg,episode_file=None):
     """第 45 期：工作集里那份镜头 JSON 到底在哪一份——配置、改名映射、定稿目录挨个找。
@@ -93,7 +191,7 @@ class Studio:
         self.episode_dir=self.episode_path.parent
         if not self.episode_path.is_file():
             raise ValueError('项目里找不到镜头 JSON（episode.json）：'+str(self.episode_path)
-                             +'；请在第 2 步重新采用一份分镜 JSON 后再进入后续步骤。')
+                             +'；请在'+pet_bus.stage_step('storyboard')+'重新采用一份分镜 JSON 后再进入后续步骤。')
         if episode_file is None:self.remember_episode()
         self.media_dir=media_root(self.episode_path)
         self.episode=read(self.episode_path)
@@ -142,7 +240,7 @@ class Studio:
         if not path.is_relative_to(self.media_dir):
             raise ValueError('首帧路径超出素材目录，已阻止访问：'+shot['id'])
         if required and (shot.get('frame_deleted') or not path.is_file()):
-            raise ValueError(shot['id']+' 尚未生成／导入首帧，请到第05步选择此镜头，生成或导入图片后再制作视频。')
+            raise ValueError(shot['id']+' 尚未生成／导入首帧，请到'+pet_bus.stage_step('keyframe')+'选择此镜头，生成或导入图片后再制作视频。')
         return path
 
     @contextmanager
@@ -304,20 +402,24 @@ class Studio:
                 elif not url:raise ValueError('服务商没有返回视频地址')
                 else:download(url,dest)
             except ValueError:raise RuntimeError('云端任务已成功但没有返回视频地址；请在服务商控制台核对并手动下载，不要重复提交') from None
-            except Exception: raise RuntimeError('下载中断；任务已成功，再次查询可续取，不会重新生成') from None
+            except Exception:
+                # O28：记下取回失败但保留 succeeded 状态；再查询即续取，不重生成、不重投。
+                v['download_error']='下载中断；任务已成功，再次查询可续取，不会重新生成';save(self.db,st)
+                raise RuntimeError(v['download_error']) from None
             try:
                 report=check(dest,v['seconds'],{**self.cfg,'require_audio':v.get('generate_audio',True)})
                 command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',dest,'-f','null','-'])
                 if not report['errors'] and project_settings.auto_review(self.root):
-                    # 无人值守：技术质检通过即验收，让下载→质检→验收→剪辑可以连续跑完。
-                    v.update(review='pass',review_note='无人值守自动验收：技术质检通过')
+                    # 无人值守：技术质检通过即自动放行，让下载→质检→验收→剪辑可以连续跑完。
+                    # 这是技术放行、不是内容审核——沿用旧记录前缀，面板会另说是谁点的。
+                    v.update(review=REVIEW_PASS,review_by='auto',review_note=AUTO_REVIEW_NOTE)
             except Exception as e:
                 self.publish_downloaded_video(st,sid,v,dest,qc_error=e)
                 return '视频已下载：'+str(dest)+'；质检未完成，请检查FFmpeg设置后再验收。'
             self.publish_downloaded_video(st,sid,v,dest,report)
             total=int(v['finished_at']-v.get('created',v['finished_at']))
             if not v['qc_pass']:note='；'.join(report['errors'])
-            elif v.get('review')=='pass':note='技术检查通过，已按自动验收设置通过'
+            elif v.get('review')==REVIEW_PASS:note='技术检查通过，已按自动验收设置放行（未做内容审核）'
             else:note='技术检查通过，等您验收'
             return f'已下载（总耗时 {total//60}分{total%60:02}秒）：'+str(dest)+'；'+note
 
@@ -328,7 +430,7 @@ class Studio:
             v=vs[-1]
             if value=='pass' and (v['state']!='downloaded' or not v.get('qc_pass')): raise ValueError('仅下载且技术合格的版本可通过')
             if value not in ('pass','revise'): raise ValueError('无效验收值')
-            v.update(review=value,review_note=note); save(self.db,st)
+            v.update(review=value,review_by='user',review_note=note); save(self.db,st)
 
     def review_many(self,shot_ids,value,note=''):
         """按镜头批量验收：逐镜汇总结果，单镜不合格只跳过，不中断整批。"""
@@ -362,19 +464,13 @@ class Studio:
         才给出指纹；否则返回 (None, 未就绪原因列表)，由调用方决定何时再试。
         """
         st=self.state();rows=[];waiting=[]
+        waiting_text={ADOPT_UNAPPROVED:' 尚未验收',ADOPT_MISSING:' 视频文件缺失',
+                      ADOPT_REPLACED:' 视频已被替换，需重新验收',ADOPT_UNREADABLE:' 视频无法读取'}
         for shot in self.episode['shots']:
             if shot.get('video_deleted'):continue
-            approved=approved_versions(st['shots'].get(shot['id']))
-            if not approved:
-                waiting.append(shot['id']+' 尚未验收');continue
-            v=approved[-1];path=self.root/v['file']
-            if not path.is_file():
-                waiting.append(shot['id']+' 视频文件缺失');continue
-            try:
-                if file_hash(path)!=v['sha256']:
-                    waiting.append(shot['id']+' 视频已被替换，需重新验收');continue
-            except OSError:
-                waiting.append(shot['id']+' 视频无法读取');continue
+            v,reason=adopted_edit_version(st['shots'].get(shot['id']),self.root)
+            if v is None:
+                waiting.append(shot['id']+waiting_text.get(reason,' 视频不可用'));continue
             rows.append({'shot':shot['id'],'version':v['version'],'sha256':v['sha256']})
         if waiting:return None,waiting
         if not rows:return None,['本集没有可剪辑的镜头']
@@ -390,19 +486,25 @@ class Studio:
             if selected is not None and (not selected or selected-available):raise ValueError('勾选镜头为空或已失效，请重新选择')
             for shot in self.episode['shots']:
                 if shot.get('video_deleted') or (selected is not None and shot['id'] not in selected):continue
-                approved=approved_versions(st['shots'].get(shot['id']))
-                if not approved:
-                    if not skip_unready: raise ValueError(shot['id']+'缺少已下载、质检及验收通过的视频，请先验收或取消勾选')
-                    skipped.append(shot['id']+' 缺少已下载、质检及验收通过的视频');continue
-                v=approved[-1]; path=self.root/v['file']
-                if not path.is_file():
-                    if not skip_unready: raise ValueError(shot['id']+'的视频文件缺失，请重新生成或取消勾选')
-                    skipped.append(shot['id']+' 的视频文件缺失');continue
-                if file_hash(path)!=v['sha256']:
+                v,reason=adopted_edit_version(st['shots'].get(shot['id']),self.root)
+                if v is None:
+                    if reason==ADOPT_UNAPPROVED:
+                        if not skip_unready: raise ValueError(shot['id']+'缺少已下载、质检及验收通过的视频，请先验收或取消勾选')
+                        skipped.append(shot['id']+' 缺少已下载、质检及验收通过的视频');continue
+                    if reason==ADOPT_MISSING:
+                        if not skip_unready: raise ValueError(shot['id']+'的视频文件缺失，请重新生成或取消勾选')
+                        skipped.append(shot['id']+' 的视频文件缺失');continue
+                    if reason==ADOPT_UNREADABLE:
+                        if not skip_unready: raise ValueError(shot['id']+'的视频无法读取，请重新生成或取消勾选')
+                        skipped.append(shot['id']+' 的视频无法读取');continue
                     if not skip_unready: raise ValueError('视频已被替换，请重新验收')
                     skipped.append(shot['id']+' 的视频已被替换，需重新验收');continue
-                chosen.append((shot,v,path))
-            if report is not None:report['skipped']=skipped
+                chosen.append((shot,v,self.root/v['file']))
+            coverage={'included':[shot['id'] for shot,_,_ in chosen],
+                      'expected':len(available if selected is None else selected),
+                      'duration':round(sum(float(shot.get('duration') or 0) for shot,_,_ in chosen),3),
+                      'skipped':list(skipped)}
+            if report is not None:report.update(coverage)
             if not chosen:
                 if skipped:raise ValueError('没有可剪辑的镜头；'+'；'.join(skipped))
                 raise ValueError('没有可剪辑的镜头')
@@ -414,40 +516,55 @@ class Studio:
             parent=exports(self.root);parent.mkdir(parents=True,exist_ok=True)
             out=dated_path(parent,label)
             out.mkdir()
-        return self._encode(chosen,out)
+        return self._encode(chosen,out,coverage)
 
     def publish_edit_bundle(self, out, master, report, chosen):
-        """成片完整发布后，再登记与其绑定的质检报告和剪辑清单。"""
+        """成片完整发布后，再登记与其绑定的质检报告和剪辑清单。
+
+        先把「成片＋质检＋来源清单」合成一份 ``edit_bundle.json`` 一次性原子落盘，再写两份可读索引。
+        索引任一份写失败都能靠这份 bundle 恢复，不会再出现「有清单没质检」或反过来的半份成果；
+        界面和交付据此核对真实成片来源。
+        """
         out = Path(out).resolve()
         master = Path(master).resolve()
         if not master.is_file() or not master.is_relative_to(out):
             raise ValueError('成片尚未安全发布，不能登记剪辑成果')
-        save(out/'qc.json', report)
-        save(out/'edit_manifest.json', [
+        manifest = [
             {'shot': shot['id'], 'version': version['version'], 'sha256': version['sha256']}
             for shot, version, _ in chosen
-        ])
+        ]
+        save(out/EDIT_BUNDLE_NAME, {
+            'master': master.name, 'master_sha256': file_hash(master),
+            'output_spec': report.get('output_spec'), 'qc': report,
+            'manifest': manifest, 'coverage': report.get('coverage') or {},
+            'published_at': time.time(),
+        })
+        save(out/QC_NAME, report)
+        save(out/EDIT_MANIFEST_NAME, manifest)
 
-    def _encode(self,chosen,out):
+    def _encode(self,chosen,out,coverage=None):
         # 编码放在项目锁之外：ffmpeg 可能持续几分钟，占着锁会让同时进行的下载／验收全部报「另一操作正在运行」。
+        from script_contract import output_filter,loudness_filter,overlay_metrics
+        spec=self.output_spec()
         listing=[]
         for shot,v,path in chosen:
             dest=out/(shot['id']+'.mp4')
-            vf='scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p'
+            vf=output_filter(spec)
             if shot.get('post_overlay'):
                 import shutil
                 font_source='C:/Windows/Fonts/msyh.ttc'
                 if Path(font_source).is_file():
                     shutil.copyfile(font_source,out/'font.ttc')
                     save_text(out/'label.txt', shot['post_overlay'])
-                    vf+=',drawtext=fontfile=font.ttc:textfile=label.txt:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.6:x=30:y=30'
+                    metrics=overlay_metrics(spec)
+                    vf+=',drawtext=fontfile=font.ttc:textfile=label.txt:fontsize=%d:fontcolor=white:box=1:boxcolor=black@0.6:x=%d:y=%d'%(metrics['fontsize'],metrics['x'],metrics['y'])
             from agent.media import probe
             streams=probe(path,self.cfg).get('streams',[])
             has_audio=any(stream.get('codec_type')=='audio' for stream in streams)
             args=[self.cfg['ffmpeg'],'-y','-v','error','-i',path]
             if not has_audio:args+=['-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=48000']
             args+=['-map','0:v:0','-map','0:a:0' if has_audio else '1:a:0','-vf',vf]
-            if has_audio:args+=['-af','loudnorm=I=-16:TP=-1.5:LRA=11']
+            if has_audio:args+=['-af',loudness_filter(spec)]
             else:args+=['-shortest']
             args+=['-ar','48000','-ac','2','-c:v','libx264','-preset','fast','-crf','20','-c:a','aac',dest]
             command(args,cwd=out)
@@ -460,7 +577,8 @@ class Studio:
         try:
             command([self.cfg['ffmpeg'],'-v','error','-f','concat','-safe','1','-i','concat.txt','-c','copy','-movflags','+faststart',pending_master],cwd=out)
             command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',pending_master,'-f','null','-'])
-            report=check(pending_master,sum(s['duration'] for s,_,_ in chosen),self.cfg)
+            report=check(pending_master,sum(s['duration'] for s,_,_ in chosen),self.cfg);report['output_spec']=spec
+            if coverage is not None:report['coverage']=coverage
             replace(pending_master, master)
         finally:
             if pending_master.exists():
@@ -469,3 +587,13 @@ class Studio:
         self.publish_edit_bundle(out, master, report, chosen)
         if report['errors']: raise ValueError('成片技术检查未通过，报告已保存')
         return str(master)
+    def output_spec(self):
+        """本项目的正式交付规格：画幅／分辨率／帧率来自制作锁，缺省才用出厂默认。"""
+        from stage_config import workflow_lock
+        from script_contract import resolve_output_spec
+        return resolve_output_spec(workflow_lock(self.root))
+
+    def output_spec_text(self):
+        """给界面的一行实际规格（导出前显示「实际怎么出」）。"""
+        from script_contract import describe_output_spec
+        return describe_output_spec(self.output_spec())

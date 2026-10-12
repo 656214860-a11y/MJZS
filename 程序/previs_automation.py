@@ -8,19 +8,27 @@ from storyboard_paths import media_root
 import white_model_service as wm
 from platform_tools import hidden_console_flags
 
-def verify(project,sid,seconds):
+def verify(project,sid,seconds,source=None):
+    """媒体可播放且来源未变才算通过；通过后登记来源摘要与媒体事实，供复用与失效判定。"""
     from stage_execution_service import white_model_shot_directory
-    root=white_model_shot_directory(project,sid)
+    root=white_model_shot_directory(project,sid,source=source)
     data=wm.read_record(root)
     paths=[Path(data.get(k,'')) for k in ('preview','project_file')]
     if not all(p.is_file() and p.stat().st_size for p in paths):return False
+    if wm.evidence_state(data,paths[0],source,sid)=='changed':return False
     from integrations import tool_path
     probe=tool_path('ffprobe','D:/Tools/ffmpeg/bin/ffprobe.exe')
     result=subprocess.run([probe,'-v','error','-show_streams','-show_format','-of','json',str(paths[0])],capture_output=True,text=True,encoding='utf-8',timeout=30,creationflags=hidden_console_flags())
     if result.returncode:return False
     media=json.loads(result.stdout)
-    return (any(s.get('codec_type')=='video' for s in media.get('streams',[]))
-            and abs(float(media.get('format',{}).get('duration',0))-float(seconds))<=.5)
+    duration=float(media.get('format',{}).get('duration',0))
+    if not (any(s.get('codec_type')=='video' for s in media.get('streams',[]))
+            and abs(duration-float(seconds))<=.5):return False
+    if wm.evidence_state(data,paths[0],source,sid)!='ok':
+        wm.record_evidence(root,sid,source,publish=save,preview=paths[0],
+                           media={'duration':duration,'has_video':True})
+    return True
+
 
 def select_agent_shots(project,source,ids,state):
     """只把复杂动作交给 Agent：简单镜头无需白模、中等镜头走线上入口，都只跳过、不中断整批。"""
@@ -70,7 +78,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
     from previs_routing import ready
     from stage_execution_service import project_context
     context=project_context(project)
-    ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(context,sid)]
+    ids=[sid for sid in select_agent_shots(project,source,ids,state) if not ready(context,sid,source)]
     if not ids:
         state['summary']='没有需要 Agent 制作的镜头：简单镜头无需白模、中等镜头走线上入口，或所选镜头已就绪';return
     from workflow_settings import current,find_program,ENGINES
@@ -120,7 +128,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
                 state['summary']=f'{i+1}/{len(shots)} · {sid} 自动制作中'
                 state['status'][key]=engine_name+' 制作中';state['progress'][key]='running';result[sid]={'state':'running'};persist()
                 try:
-                    if verify(project,sid,shot.get('duration',5)):
+                    if verify(project,sid,shot.get('duration',5),source=source):
                         result[sid]={'state':'ready','reused':True};state['status'][key]='已就绪';state['progress'][key]='ready';completed+=1;continue
                     prompt=prepare_batch(project,snapshot,[sid],call_config=call_config)
                     prompt+=f' 原始分镜路径为 {source}，首帧等frame相对路径以 {media_root(source)} 为素材基准；资产路径以各自assets.json所在目录为基准，不能相对于任务快照目录解析。'
@@ -133,11 +141,11 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
                              '在正式动画渲染前调用；此模块会按实际写出帧数原子更新进度。'
                              '不要模拟百分比。分段渲染时应汇总已完成帧数和总帧数，写入相同JSON的shot_id、stage=render、completed、total字段。')
                     from stage_execution_service import white_model_shot_directory
-                    output=white_model_shot_directory(project,sid);output.mkdir(parents=True,exist_ok=True)
+                    output=white_model_shot_directory(project,sid,source=source);output.mkdir(parents=True,exist_ok=True)
                     from workflow_engines import run_background
                     run_background(call_config,project,output,batch/(sid+'_制作报告.txt'),batch/(sid+'_运行日志.txt'),prompt)
                     state['progress'][key]='validating';state['status'][key]='校验视频中'
-                    if not verify(project,sid,shot.get('duration',5)):raise ValueError('输出未通过校验，请查看制作报告')
+                    if not verify(project,sid,shot.get('duration',5),source=source):raise ValueError('输出未通过校验，请查看制作报告')
                     result[sid]={'state':'ready'};state['status'][key]='已就绪';state['progress'][key]='ready';completed+=1
                 except Exception as exc:
                     if state.get('stop'):

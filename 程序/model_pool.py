@@ -35,6 +35,28 @@ DEFAULT_WIRE = 'chat'
 # 第 65 期任务 8：「测试连接」发的是最小一次请求，原来是 1 个 token，有些服务商拒收
 # 这么小的值（回了 400 就说这条模型不可用）。统一改成 16。
 PROBE_TOKENS = 16
+# O29：探测会真的发一次最小请求，用量不读回来——标清楚可能产生用量，别让人以为免费。
+PROBE_USAGE_NOTE = '测试连接会真实发一次最小请求，可能产生用量'
+# O37：「连接成功」不等于「完整工作流可用」。最小请求只证明地址、鉴权与协议握手；
+# 长文本、流式、中断、工具与阶段文档都得另跑一次真实任务才算数。结果按这五个维度分开报。
+PROBE_DIMENSIONS = (('connectivity', '连通性'), ('protocol', '协议兼容'),
+                    ('model_id', '模型标识'), ('capabilities', '能力声明'),
+                    ('full_task', '完整任务'))
+PROBE_DIMENSION_LABELS = dict(PROBE_DIMENSIONS)
+PROBE_FULL_TASK_STATE = '未验证'
+PROBE_FULL_TASK_NOTE = ('测试连接只发一次最小请求，只证明连通与鉴权；'
+                        '长文本、流式、中断、工具与阶段文档要另跑完整任务')
+# 每种协议「一次能用的响应」应该长什么样：HTTP 200 但形状对不上，就是「伪兼容协议」。
+PROBE_WIRE_FIELDS = {'chat': ('choices', 'output_text'),
+                     'responses': ('output', 'output_text'),
+                     'messages': ('content', 'stop_reason', 'type')}
+# 小样本验证：用户点名才发一次真实短请求，看正文有没有真的回来、有没有被长度截断。
+VERIFY_TOKENS = 64
+SAMPLE_PROMPT = '只回答两个字：收到'
+# 长度上限截断的 finish_reason：正文只回来一半，完整任务算没通过。
+TASK_TRUNCATED = ('length', 'max_tokens', 'max_output_tokens')
+# 每条模型最近一次完整任务的结果（只存元数据与配置版本，不存正文）。
+HEALTH_KEY = 'model_health'
 # Provider 只登记「这条是谁家的」：真发请求仍看 wire_api（默认 OpenAI 兼容），所以它只是标签。
 PROVIDERS = (('openai-compatible', 'openai-compatible'), ('anthropic', 'anthropic'),
              ('custom', '自定义'))
@@ -513,43 +535,261 @@ def patch_for(model_id, records=None, config=None, program=None):
     return patch
 
 
-def probe(value, transport=None, program=None, timeout=8):
-    """测试连接：拿这一条发最小一次请求（16 个 token），不写盘、不记账。
+def config_version(value, program=None):
+    """配置版本：这一条模型当前生效的协议／地址／模型 ID／密钥名（不含密钥值）。
 
-    顺带把这一趟的耗时量出来（规格里那成功一句要报延迟）；结果里带 'ms'。"""
+    换了协议、地址、模型 ID 或密钥名，版本就变——「最近完整任务结果」据此判断是不是
+    同一条配置跑出来的，避免拿旧绿灯替新配置背书。
+    """
     item = record(value)
-    ok, why = status(item, program)
-    if not ok:
-        return {'ok': False, 'status': 0, 'error': why, 'model': item['model'], 'url': ''}
-    try:
-        url = normalize_url(item['base_url'])
-    except ValueError as exc:
-        return {'ok': False, 'status': 0, 'error': str(exc), 'model': item['model'], 'url': ''}
+    return '%s · %s · %s · %s' % (item['wire_api'], item['base_url'] or '（无地址）',
+                                  item['model'] or '（无模型 ID）', item['key_env'] or '（无密钥名）')
+
+
+def request_spec(item, program=None, tokens=PROBE_TOKENS, prompt='ping'):
+    """一次请求的地址／请求体／请求头：测试连接与小样本验证共用同一份拼法。"""
+    url = normalize_url(item['base_url'])
+    messages = [{'role': 'user', 'content': prompt}]
     if item['wire_api'] == 'responses':
         url = url + '/responses'
-        body = {'model': item['model'], 'max_output_tokens': PROBE_TOKENS,
-                'input': [{'role': 'user', 'content': 'ping'}]}
+        body = {'model': item['model'], 'max_output_tokens': tokens, 'input': messages}
     elif item['wire_api'] == 'messages':
         # 第 66 期：Anthropic 原生那一档——地址、鉴权头、版本头都与 OpenAI 兼容那档不同。
         url = token_saver.anthropic_messages_endpoint(url)
-        body = {'model': item['model'], 'max_tokens': PROBE_TOKENS,
-                'messages': [{'role': 'user', 'content': 'ping'}]}
+        body = {'model': item['model'], 'max_tokens': tokens, 'messages': messages}
     else:
         url = url + item['path']
-        body = {'model': item['model'], 'max_tokens': PROBE_TOKENS,
-                'messages': [{'role': 'user', 'content': 'ping'}]}
-    send = transport or http_transport
+        body = {'model': item['model'], 'max_tokens': tokens, 'messages': messages}
     head = (token_saver.anthropic_headers(key_of(item, program)) if item['wire_api'] == 'messages'
             else {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key_of(item, program)})
+    return url, body, head
+
+
+def body_signals(result):
+    """从传输结果里只取元数据：响应形状、服务端模型标识、有没有正文、有没有推理字段。
+
+    与本项目「诊断不存正文」的口径一致：这里只算长度与字段名，绝不把正文带出去。
+    """
+    data = result.get('data') if isinstance(result, dict) else None
+    signals = {'shape': [], 'response_model': '', 'has_text': False,
+               'reasoning_fields': [], 'finish_reason': '', 'content_length': 0}
+    if not isinstance(data, dict):
+        return signals
+    signals['shape'] = sorted(str(key) for key in data.keys())
+    signals['response_model'] = str(data.get('model') or data.get('model_id') or '')
+    signals['finish_reason'] = str(data.get('stop_reason') or data.get('status') or '')
+    text = ''
+    choices = data.get('choices')
+    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+        choice = choices[0]
+        signals['finish_reason'] = str(choice.get('finish_reason') or signals['finish_reason'])
+        message = choice.get('message') if isinstance(choice.get('message'), dict) else {}
+        signals['reasoning_fields'] = [key for key in ('reasoning_content', 'reasoning', 'analysis')
+                                       if message.get(key) not in (None, '', [], {})]
+        content = message.get('content')
+        if isinstance(content, str):
+            text = content
+        elif isinstance(content, list):
+            text = ''.join(str(block.get('text') or '') for block in content if isinstance(block, dict))
+    if not text:
+        text = str(data.get('output_text') or data.get('content') or '')
+    blocks = data.get('content')                       # Anthropic messages 原生形状
+    if isinstance(blocks, list):
+        pieces = [block for block in blocks if isinstance(block, dict)]
+        thinking = [block.get('type') for block in pieces
+                    if block.get('type') in ('thinking', 'redacted_thinking')]
+        if thinking:
+            signals['reasoning_fields'] = thinking
+        text = text or ''.join(str(block.get('text') or '') for block in pieces
+                               if block.get('type') == 'text')
+    signals['has_text'] = bool(str(text).strip())
+    signals['content_length'] = len(str(text))
+    return signals
+
+
+def _full_task_check(result, signals, ok, full):
+    """「完整任务」这一维：最小探测永远未验证；跑了完整任务才按正文与截断判。"""
+    if not full:
+        return {'ok': None, 'detail': PROBE_FULL_TASK_STATE + ' · ' + PROBE_FULL_TASK_NOTE}
+    if not ok:
+        error = str(result.get('error') or '')
+        if '取消' in error or '中断' in error:
+            return {'ok': False, 'detail': '流式／请求被中断，完整任务没跑完：' + (error or '未知原因')}
+        return {'ok': False, 'detail': '完整任务没跑通：' + (error or '没有响应')}
+    if not signals['has_text']:
+        return {'ok': False, 'detail': '请求成功但正文是空的（可能只有推理），完整任务拿不到内容'}
+    if str(signals['finish_reason']).lower() in TASK_TRUNCATED:
+        return {'ok': False, 'detail': '正文被长度上限截断（finish_reason=%s）' % signals['finish_reason']}
+    return {'ok': True, 'detail': '正文 %d 字，finish_reason=%s'
+            % (signals['content_length'], signals['finish_reason'] or '未报')}
+
+
+def classify(item, result, full=False):
+    """把一次请求结果拆成五个维度；「连通」与「完整工作流可用」分开，不互相冒充。
+
+    full=False（测试连接的最小请求）：完整任务一维恒为「未验证」。
+    full=True（小样本验证跑过真实任务）：按正文、截断、模型标识与服务端实况判定。
+    """
+    signals = body_signals(result)
+    ok = bool(result.get('ok'))
+    status = result.get('status')
+    wire = item.get('wire_api') or DEFAULT_WIRE
+    if ok:
+        connectivity = {'ok': True, 'detail': ('HTTP %s' % status) if status else '已连上'}
+    else:
+        reason = str(result.get('error') or '没有响应')
+        connectivity = {'ok': False, 'detail': (('HTTP %s · ' % status) if status else '') + reason}
+    fields = PROBE_WIRE_FIELDS.get(wire, ())
+    matched = [field for field in fields if field in signals['shape']]
+    if not ok:
+        protocol = {'ok': None, 'detail': '未取到响应，协议无法判断'}
+    elif matched:
+        protocol = {'ok': True, 'detail': '%s · %s 对得上' % (wire, '／'.join(matched))}
+    else:
+        protocol = {'ok': False, 'detail': '回了 %s 但没有 %s 字段，疑似「伪兼容协议」'
+                                           % (status, '／'.join(fields))}
+    requested = str(item.get('model') or '')
+    returned = signals['response_model']
+    if not ok:
+        model_id = {'ok': None, 'detail': '未取到响应，模型标识无法核对'}
+    elif not returned:
+        model_id = {'ok': None, 'detail': '响应没带 model 字段，模型标识无法核对'}
+    elif returned == requested:
+        model_id = {'ok': True, 'detail': returned}
+    else:
+        model_id = {'ok': False, 'detail': '请求的是 %s，服务端回的是 %s' % (requested, returned)}
+    declared = capability_text(item)
+    if not ok:
+        capabilities = {'ok': None, 'detail': declared or '未声明能力标签'}
+    elif signals['reasoning_fields'] and not signals['has_text']:
+        capabilities = {'ok': False, 'detail': (declared + ' · ' if declared else '')
+                        + '仅返回推理（%s），没有正文' % '／'.join(signals['reasoning_fields'])}
+    else:
+        capabilities = {'ok': True, 'detail': declared or '未声明能力标签'}
+    checks = {'connectivity': connectivity, 'protocol': protocol, 'model_id': model_id,
+              'capabilities': capabilities,
+              'full_task': _full_task_check(result, signals, ok, full)}
+    return [{'key': key, 'label': PROBE_DIMENSION_LABELS[key], 'ok': checks[key]['ok'],
+             'detail': checks[key]['detail']} for key, _label in PROBE_DIMENSIONS]
+
+
+def probe_summary(checks):
+    """五个维度 → 一句话（连通性：通过；协议兼容：异常；完整任务：未验证）。"""
+    marks = {True: '通过', False: '异常'}
+    return '；'.join('%s：%s' % (entry['label'], marks.get(entry['ok'], '未验证')) for entry in checks)
+
+
+def health(config=None, program=None):
+    """每条模型最近一次「完整任务」（小样本验证）的结果，按模型 id 存；只存元数据，不存正文。"""
+    data = raw(program, config)
+    stored = data.get(HEALTH_KEY)
+    if not isinstance(stored, dict):
+        return {}
+    return {str(key): dict(value) for key, value in stored.items() if isinstance(value, dict)}
+
+
+def health_of(value, config=None, program=None):
+    return health(config, program).get(model_id_of(value), {})
+
+
+def record_health(value, outcome, program=None):
+    """把一次完整任务结果记到这一条模型名下（读改写合并；只留元数据与配置版本）。"""
+    model_id = model_id_of(value)
+    if not model_id:
+        return {}
+    source = outcome or {}
+    entry = {'at': str(source.get('at') or ''), 'ok': bool(source.get('ok')),
+             'config_version': str(source.get('config_version') or ''),
+             'content_length': int(source.get('content_length') or 0),
+             'finish_reason': str(source.get('finish_reason') or ''),
+             'error': str(source.get('error') or '')}
+    data = raw(program)
+    table = health(program=program)
+    table[model_id] = entry
+    data[HEALTH_KEY] = table
+    store(data, program)
+    return entry
+
+
+def probe(value, transport=None, program=None, timeout=8, ledger=None):
+    """测试连接：拿这一条发最小一次请求（16 个 token），不写盘、不记账。
+
+    第 O37：结果分五层报——连通性／协议兼容／模型标识／能力声明／完整任务。
+    「连接成功」只代表这次最小请求通了；完整工作流（长文本、流式、中断、工具、
+    阶段文档）永远标「未验证」，不会被这条绿灯冒充。规格里那句延迟仍在，带 'ms'。
+    """
+    item = record(value)
+
+    def finish(result):
+        answer = dict(result or {})
+        answer.setdefault('model', item['model'])
+        answer.setdefault('url', '')
+        answer.setdefault('ms', 0)
+        answer.setdefault('usage_note', PROBE_USAGE_NOTE)
+        answer['config_version'] = config_version(item)
+        answer['signals'] = body_signals(answer)
+        answer['checks'] = classify(item, answer, full=False)
+        answer['summary'] = probe_summary(answer['checks'])
+        answer['full_task'] = PROBE_FULL_TASK_STATE
+        return answer
+
+    ok, why = status(item, program)
+    if not ok:
+        return finish({'ok': False, 'status': 0, 'error': why})
+    try:
+        url, body, head = request_spec(item, program, PROBE_TOKENS, 'ping')
+    except ValueError as exc:
+        return finish({'ok': False, 'status': 0, 'error': str(exc)})
+    send = transport or http_transport
     started = time.time()
+    request_id = 'probe:%s:%d' % (item['model'], int(started * 1000))
     try:
         result = dict(send(url, body, head, timeout) or {})
     except Exception as exc:                      # 网络层抛异常也要变成一句话，不丢给界面线程
-        return {'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc),
-                'model': item['model'], 'url': url, 'ms': elapsed_ms(started)}
-    return {'ok': bool(result.get('ok')), 'status': result.get('status'),
-            'error': result.get('error'), 'model': item['model'], 'url': url,
-            'ms': elapsed_ms(started)}
+        if ledger is not None:
+            ledger.mark_unknown(request_id, reason=PROBE_USAGE_NOTE)
+        return finish({'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc),
+                       'url': url, 'ms': elapsed_ms(started)})
+    if ledger is not None:
+        ledger.mark_unknown(request_id, reason=PROBE_USAGE_NOTE)
+    return finish({'ok': bool(result.get('ok')), 'status': result.get('status'),
+                   'error': result.get('error'), 'url': url, 'ms': elapsed_ms(started),
+                   'data': result.get('data')})
+
+
+def verify_sample(value, transport=None, program=None, timeout=15, prompt=None, max_tokens=VERIFY_TOKENS):
+    """小样本验证：用户点名时才发一次真实短请求，把「完整任务」这一层跑出来。
+
+    与「测试连接」分工：测试连接只证明连通与鉴权；这里看正文有没有真的回来（不是
+    只有推理）、有没有被长度上限截断、服务端报的模型与请求是否一致。默认不自动跑，
+    也不批量跑——只在用户对某一条点「小样本验证」时发这一次，避免产生大量费用。
+    """
+    item = record(value)
+    outcome = {'at': time.strftime('%Y-%m-%dT%H:%M:%S'), 'ok': False, 'model': item['model'],
+               'config_version': config_version(item), 'content_length': 0,
+               'finish_reason': '', 'error': '', 'checks': []}
+    ok, why = status(item, program)
+    if not ok:
+        result = {'ok': False, 'error': why}
+    else:
+        try:
+            url, body, head = request_spec(item, program, max_tokens, prompt or SAMPLE_PROMPT)
+        except ValueError as exc:
+            result = {'ok': False, 'error': str(exc)}
+        else:
+            send = transport or http_transport
+            try:
+                result = dict(send(url, body, head, timeout) or {})
+            except Exception as exc:
+                result = {'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc)}
+    signals = body_signals(result)
+    result['signals'] = signals
+    outcome['checks'] = classify(item, result, full=True)
+    outcome['content_length'] = signals['content_length']
+    outcome['finish_reason'] = signals['finish_reason']
+    outcome['ok'] = bool(result.get('ok')) and signals['has_text']
+    outcome['error'] = '' if outcome['ok'] else str(result.get('error') or '请求成功但没有正文')
+    return outcome
 
 
 def _http_error_kind(status):

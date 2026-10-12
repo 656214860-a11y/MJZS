@@ -27,7 +27,8 @@ from agent.core import read
 from platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, DescriptionBlock, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
+from ui_widgets import BaseDialog, Card, DescriptionBlock, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
+import pet_bus
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
 ZOOM_SIZE = 900                      # 点一下放大后的长边（不放大原图，只按原分辨率显示）
@@ -243,10 +244,14 @@ def delete_variant(desktop, aid, state_id):
     return rows
 
 
-def _pick(desktop, key, choice, aid):
-    """采用一个候选：记一次确认 ＋ 把选择真正写进资产清单，然后重建这一页。"""
+def _pick(desktop, key, choice, aid, digest=''):
+    """采用一个候选：准备→落盘→确认一条路走完（O10）；只有落盘成功才报已采用。"""
     from stage_execution_service import adopt_asset_plan_choice
-    adopt_asset_plan_choice(desktop.root, key, choice)
+    try:
+        adopt_asset_plan_choice(desktop.root, key, choice, digest)
+    except Exception as error:
+        raise RuntimeError('采用没有完成：确认没有生效，候选还留着，可再点一次（'
+                           + str(error) + '）') from error
     _complete(desktop, aid, '已采用：' + str(choice)[:60] + '（已写进资产 JSON）')
 
 
@@ -258,7 +263,8 @@ def _gates_block(desktop, aid):
     """
     from confirm_gates import run
     registry = desktop.asset_requirements()
-    box = ttk.LabelFrame(desktop.content, text='待确认（Agent 已预筛，点一下采用）', padding=6)
+    box = Card(desktop.content)
+    ttk.Label(box, text='待确认（Agent 已预筛，点一下采用）').pack(anchor='w')
     rows = []
     for gate_id in ('G-05', 'G-06'):
         try:
@@ -283,13 +289,13 @@ def _gates_block(desktop, aid):
             ttk.Label(row, text='候选' + str(index + 1) + ' ' + str(candidate),
                       wraplength=760, justify='left').pack(side='left')
             SecondaryButton(row, text='采用',
-                       command=lambda key=item['key'], value=candidate:
-                       desktop.safe(lambda: _pick(desktop, key, value, aid))).pack(side='left', padx=6)
+                       command=lambda key=item['key'], value=candidate, digest=item.get('digest', ''):
+                       desktop.safe(lambda: _pick(desktop, key, value, aid, digest))).pack(side='left', padx=6)
         DescriptionBlock(box, text='理由：' + str(item.get('reason') or '')).pack(anchor='w', padx=(10, 0))
         recommended = item['candidates'][item.get('recommended', 0)]
         PrimaryButton(box, text='采用推荐（候选' + str(int(item.get('recommended', 0)) + 1) + '）',
-                   command=lambda key=item['key'], value=recommended:
-                   desktop.safe(lambda: _pick(desktop, key, value, aid))).pack(anchor='w', pady=(2, 6))
+                   command=lambda key=item['key'], value=recommended, digest=item.get('digest', ''):
+                   desktop.safe(lambda: _pick(desktop, key, value, aid, digest))).pack(anchor='w', pady=(2, 6))
     return box
 
 
@@ -314,7 +320,8 @@ def _header(desktop, aid, asset):
 def _board_block(desktop, aid, asset):
     """区域 2：正典板展示区（角色 7 格，场景／道具各一格宽幅参考图）。"""
     from asset_contract import cells
-    box = ttk.LabelFrame(desktop.content, text='正典板', padding=6)
+    box = Card(desktop.content)
+    ttk.Label(box, text='正典板').pack(anchor='w')
     box.pack(fill='x', pady=(4, 0))
     grid = ttk.Frame(box)
     grid.pack(fill='x')
@@ -372,16 +379,19 @@ def _board_block(desktop, aid, asset):
 
 def _anchor_block(desktop, aid, asset):
     from asset_contract import card_lines
-    box = ttk.LabelFrame(desktop.content, text='锚点字符串', padding=6)
+    box = Card(desktop.content)
+    ttk.Label(box, text='锚点字符串').pack(anchor='w')
     box.pack(fill='x', pady=(4, 0))
     anchor = str(asset.get('character_anchor') or asset.get('base_anchor') or '').strip()
     ttk.Label(box, text=anchor or '（还没定稿：用下面的候选点一下，或点「编辑」自己写）',
               wraplength=760, justify='left', foreground='#1a7f37' if anchor else '#8a8a8a').pack(anchor='w')
     row = ttk.Frame(box)
     row.pack(fill='x', pady=(4, 0))
+    def copy_anchor():
+        reason = desktop.copy_text(anchor)
+        desktop.status.set('复制失败：' + reason if reason else '锚点字符串已复制')
     SecondaryButton(row, text='复制',
-               command=lambda: desktop.safe(lambda: (desktop.copy_text(anchor),
-                                                     desktop.status.set('锚点字符串已复制')))).pack(side='left')
+               command=lambda: desktop.safe(copy_anchor)).pack(side='left')
     SecondaryButton(row, text='编辑',
                command=lambda: desktop.safe(lambda: edit_anchor(desktop, aid))).pack(side='left', padx=6)
     for title, text in card_lines(asset):
@@ -393,7 +403,8 @@ def _anchor_block(desktop, aid, asset):
 
 def _role_block(desktop, aid, asset):
     from asset_contract import DEFAULT_EXCLUDE, DEFAULT_RESPONSIBILITY
-    box = ttk.LabelFrame(desktop.content, text='参考职责声明', padding=6)
+    box = Card(desktop.content)
+    ttk.Label(box, text='参考职责声明').pack(anchor='w')
     box.pack(fill='x', pady=(4, 0))
     role = str(asset.get('reference_role') or DEFAULT_RESPONSIBILITY)
     exclude = str(asset.get('reference_exclude') or DEFAULT_EXCLUDE)
@@ -410,7 +421,8 @@ def _variants_block(desktop, aid, asset):
     rows = state_variants(asset)
     box = ttk.Frame(desktop.content)
     box.pack(fill='x', pady=(4, 0))
-    body = ttk.LabelFrame(desktop.content, text='状态变体', padding=6)
+    body = Card(desktop.content)
+    ttk.Label(body, text='状态变体').pack(anchor='w')
     state = {'open': False}
     def toggle():
         state['open'] = not state['open']
@@ -485,7 +497,8 @@ def _raw_block(desktop, aid):
     """区域 6：原始 JSON（折叠；只读，便于核对）。"""
     holder = ttk.Frame(desktop.content)
     holder.pack(fill='x', pady=(4, 8))
-    body = ttk.LabelFrame(desktop.content, text='原始数据', padding=6)
+    body = Card(desktop.content)
+    ttk.Label(body, text='原始数据').pack(anchor='w')
     state = {'open': False}
     def toggle():
         state['open'] = not state['open']
@@ -526,8 +539,14 @@ def show(desktop, aid):
                    command=lambda: desktop.safe(desktop.close_asset_detail)).pack(anchor='w',padx=8)
         return None
     _header(desktop, aid, asset)
-    desktop.note('这一页只摆这一项资产：正典板、锚点、参考职责与状态变体都在这里改；'
-                 '改完立刻写进资产清单 assets.json，主页面同步刷新。')
+    note = ('这一页只摆这一项资产：正典板、锚点、参考职责与状态变体都在这里改；'
+            '改完立刻写进资产清单 assets.json，主页面同步刷新。')
+    try:
+        from stage_execution_service import asset_impact
+        note += asset_impact_note(asset_impact(desktop.root, aid))
+    except (OSError, ValueError):
+        pass
+    desktop.note(note)
     _gates_block(desktop, aid)
     _board_block(desktop, aid, asset)
     if aid.startswith('CHAR_'):
@@ -580,9 +599,9 @@ def _roster_role(desktop, aid, asset):
     """一个角色一块：正典板那几格 ＋ 换状态那几条（场景／道具只有正典板）。"""
     from asset_contract import cells, state_variants
     base = _base(desktop)
-    box = ttk.LabelFrame(desktop.content, padding=6,
-                         text=aid + ' · ' + str(asset.get('name') or aid) + '　'
-                              + TYPE_NAMES.get(aid.split('_')[0], '资产'))
+    box = Card(desktop.content)
+    ttk.Label(box, text=aid + ' · ' + str(asset.get('name') or aid) + '　'
+                       + TYPE_NAMES.get(aid.split('_')[0], '资产')).pack(anchor='w')
     box.pack(fill='x', pady=(4, 0))
     grid = cells(asset)
     board = ttk.Frame(box)
@@ -638,9 +657,27 @@ def show_roster(desktop):
     ttk.Label(head, text='资产清单', font=('Microsoft YaHei UI', 13, 'bold')).pack(side='left')
     ttk.Label(head, text='　共 ' + str(len(rows)) + ' 项').pack(side='left')
     if not rows:
-        desktop.note('这个项目还没有资产清单：先到第2步采用一份分镜，回来点「手动制作资产」。')
+        desktop.note('这个项目还没有资产清单：先到'+pet_bus.stage_step('storyboard')+'采用一份分镜，回来点「手动制作资产」。')
         return []
     desktop.note('正典板与换状态面板都取自资产清单 assets.json；点小图放大，要改内容点每一项下面的「编辑这一项」。')
     for aid, asset in rows:
         _roster_role(desktop, aid, asset)
     return [aid for aid, _asset in rows]
+
+
+def asset_impact_note(impact):
+    """资产详情页顶部的只读影响提示：被哪些采用镜头引用、要复核什么、能否回收。"""
+    if not isinstance(impact, dict):
+        return ''
+    if impact.get('orphan'):
+        return '　当前没有采用镜头引用这一项（属可回收的孤立资产）。'
+    if not impact.get('references'):
+        return ''
+    parts = ['被 %d 个采用镜头引用' % len(impact['references'])]
+    if impact.get('files'):
+        parts.append('改动需复核 %d 个首帧' % len(impact['files']))
+    if impact.get('videos'):
+        parts.append('%d 段视频受影响' % len(impact['videos']))
+    if impact.get('variants'):
+        parts.append('%d 个状态变体' % len(impact['variants']))
+    return '　' + '；'.join(parts) + '。改正典前先核对引用镜头，改状态变体不动正典。'

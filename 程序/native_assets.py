@@ -307,7 +307,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
 def attach_controls(app, win, form, footer, project, base, selection, status, reload_rows, context_matches):
     import tkinter as tk
     from tkinter import ttk, messagebox
-    from ui_widgets import SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
+    from ui_widgets import BusyState, Card, SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
     from responsive_ui import FlowBar
     progress_text=tk.StringVar()
     events=queue.Queue()
@@ -315,14 +315,15 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
     prefs=read(prefsfile) if prefsfile.is_file() else {}
     saved=prefs.get('asset_workflow',{})
     model=tk.StringVar(value=saved.get('model',LOCAL));aspect=tk.StringVar(value=saved.get('aspect_ratio','1:1'))
-    config=ttk.LabelFrame(form,text='生图模型',padding=10);config.pack(fill='x',padx=14,pady=10)
+    config=Card(form);config.pack(fill='x',padx=14,pady=10)
     config.columnconfigure(1,weight=1)
-    ttk.Label(config,text='模型').grid(row=0,column=0,sticky='w',padx=(0,8))
-    selector=SelectBox(config,textvariable=model,values=MODELS);selector.grid(row=0,column=1,sticky='ew',padx=4)
-    ttk.Label(config,text='画幅').grid(row=0,column=2,padx=(12,4))
-    shape=SelectBox(config,textvariable=aspect,values=['1:1','9:16','16:9']);shape.grid(row=0,column=3,padx=4)
+    ttk.Label(config,text='生图模型').grid(row=0,column=0,columnspan=4,sticky='w')
+    ttk.Label(config,text='模型').grid(row=1,column=0,sticky='w',padx=(0,8))
+    selector=SelectBox(config,textvariable=model,values=MODELS);selector.grid(row=1,column=1,sticky='ew',padx=4)
+    ttk.Label(config,text='画幅').grid(row=1,column=2,padx=(12,4))
+    shape=SelectBox(config,textvariable=aspect,values=['1:1','9:16','16:9']);shape.grid(row=1,column=3,padx=4)
     hint=tk.StringVar();account_text=tk.StringVar(value='云模型账号 / 密钥')
-    ProgressLabel(config,textvariable=hint,wraplength=730).grid(row=1,column=0,columnspan=4,sticky='w',pady=8)
+    ProgressLabel(config,textvariable=hint,wraplength=730).grid(row=2,column=0,columnspan=4,sticky='w',pady=8)
     def update_hint():
         account_text.set('火山 API 设置' if model.get()=='Seedream 5.0 Pro' else '云模型账号 / 密钥')
         if model.get()=='Seedream 5.0 Pro':
@@ -343,7 +344,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
         else:
             from cloud_assets import settings
             settings(win)
-    SecondaryButton(config,textvariable=account_text,command=lambda:app.safe(account)).grid(row=2,column=0,columnspan=2,sticky='w')
+    SecondaryButton(config,textvariable=account_text,command=lambda:app.safe(account)).grid(row=3,column=0,columnspan=2,sticky='w')
     update_hint()
     check_stop=threading.Event()
     gen_stop=threading.Event()
@@ -354,7 +355,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
         if not app.launch_comfy():return
         progress_text.set('正在检测本地 ComfyUI…（可取消）')
         url=app.settings.get('comfy_url','http://127.0.0.1:8188')
-        check_stop.clear();progress.start(15);cancel_button.configure(text='取消检测');cancel_button.state(['!disabled'])
+        check_stop.clear();busy.set_busy(True,progress_interval=15);cancel_button.configure(text='取消检测');cancel_button.state(['!disabled'])
         def probe():
             from comfy_service import Comfy
             from urllib.error import HTTPError                  # 第 34 期第 9 条：HTTP 栈按需加载
@@ -384,12 +385,13 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                 time.sleep(1)
             return '已取消检测'
         def done(result):
-            progress.stop();cancel_button.state(['disabled']);cancel_button.configure(text='取消检测');progress_text.set(result)
+            busy.set_busy(False);cancel_button.state(['disabled']);cancel_button.configure(text='取消检测');progress_text.set(result)
             if result.startswith('ComfyUI 已连接'):
                 app.safe(start)
         app.async_(probe,done,show_progress=False)
     progress=ttk.Progressbar(form,mode='indeterminate');progress.pack(fill='x',padx=14,pady=6)
     ProgressLabel(form,textvariable=progress_text,wraplength=760,justify='left').pack(anchor='w',padx=14,pady=(0,4))
+    busy=BusyState(progress_text,progress)
     def poll():
         if not win.winfo_exists():return
         try:
@@ -416,15 +418,14 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                 progress_text.set('请先保存 Comfy API Key，或切换到 Seedream 5.0 Pro（使用火山方舟 Seedream Key）。');account();return
         if options['model']!='Seedream 5.0 Pro':
             if not app.launch_comfy(silent=True):return             # 第 62 期任务 8：静默拉起，不弹选择框
-        progress_text.set('正在启动制图：'+options['model']);progress.start(15)
-        selector.state(['disabled']);shape.state(['disabled'])
+        progress_text.set('正在启动制图：'+options['model']);busy.set_busy(True,controls=[selector,shape],progress_interval=15)
         gen_stop.clear();cancel_button.configure(text='停止制图');cancel_button.state(['!disabled'])
         url=app.settings.get('comfy_url','http://127.0.0.1:8188')
         def finished(result):
             app.status.set(result)
             try:
                 if win.winfo_exists():
-                    progress.stop();selector.state(['!disabled']);shape.state(['!disabled'])
+                    busy.set_busy(False)
                     cancel_button.state(['disabled']);cancel_button.configure(text='取消检测')
                     while not events.empty():events.get_nowait()
                     reload_rows();progress_text.set(result)

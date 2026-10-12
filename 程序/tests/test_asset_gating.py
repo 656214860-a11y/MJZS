@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """资产勾选门禁回归：
-1) 资产管理页（第 3 步）资产编号列勾选框；无勾选时禁用资产表下方的
+1) 资产管理页（第 05 步）资产编号列勾选框；无勾选时禁用资产表下方的
    制作/导入按钮（参考图目录/打开 ComfyUI 及顶部
    检查提示词/识别背景人物不受限）；
 2) 资产图片制作窗口：只剩「启动并检测／取消检测」，随勾选禁用，紧邻进度条下方；
@@ -544,7 +544,7 @@ class NativeAssetsGatingTests(_TkHarness):
             d, proj = self.desktop(td)
             form = self.attach(d, proj, selection=lambda: [])
             kinds = [type(w).__name__ for w in form.winfo_children()]
-            self.assertEqual(kinds, ["Labelframe", "Progressbar", "ProgressLabel", "FlowBar"])
+            self.assertEqual(kinds, ["Card", "Progressbar", "ProgressLabel", "FlowBar"])
             bar = form.winfo_children()[3]
             texts = [b.cget("text") for b in bar.winfo_children()]
             self.assertEqual(texts, ["启动并检测", "取消检测"])

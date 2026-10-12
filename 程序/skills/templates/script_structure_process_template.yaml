@@ -9,19 +9,19 @@ steps:
     action: read_script_raw
     needs_confirmation: false
   - index: 2
-    name: Writer 提取结构化要素
+    name: 规则提取结构化要素（本地规则，不调用模型）
     action: writer_extract_structure
     needs_confirmation: false
   - index: 3
-    name: Editor 审校完整性与一致性
+    name: 规则校验完整性与一致性
     action: editor_review_structure
     needs_confirmation: false
   - index: 4
-    name: Writer 根据反馈修正
+    name: 按反馈用本地规则重新提取
     action: writer_revise_structure
     needs_confirmation: false
   - index: 5
-    name: Editor 复审
+    name: 规则复审
     action: editor_final_review
     needs_confirmation: false
   - index: 6

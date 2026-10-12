@@ -589,13 +589,13 @@ class PetUiWiringTests(unittest.TestCase):
 
     def test_the_gate_sentence_comes_from_the_agent(self):
         pet = self.pet()
-        pet.agent = type('A', (), {'blocked_reason': lambda self, stage: '资产没锁完'})()
+        pet.agent = type('A', (), {'blocked_reason': lambda self, stage, **kw: '资产没锁完'})()
         self.assertEqual(pet.gate_reason('continuity'), '资产没锁完')
 
     def test_a_broken_agent_never_takes_the_page_down(self):
         pet = self.pet()
 
-        def boom(stage):
+        def boom(stage, **kw):
             raise RuntimeError('读不出来')
         pet.agent = type('A', (), {'blocked_reason': boom, 'parallel_snapshot': boom})()
         self.assertEqual(pet.gate_reason('continuity'), '')

@@ -77,6 +77,11 @@ class WritingResponsePreservationTests(unittest.TestCase):
                 self.assertEqual(result['response_text'], body)
                 self.assertEqual(Path(result['response_path']).read_bytes(), body.encode('utf-8'))
                 self.assertIn(result['response_path'], result['error'])
+                self.assertEqual(result['preparation_status'], '原始响应已保存')
+                self.assertEqual(result['preparation_reject'], '截断' if extra else '格式不合格')
+                message = writing_api.preparation_reply_message(result)
+                self.assertIn('responses/', message)
+                self.assertIn('不等于正式采用', message)
                 self.assertEqual(self.target.read_bytes(), before)
 
     def test_version_conflict_preserves_body_and_rejects_publication(self):
@@ -87,7 +92,7 @@ class WritingResponsePreservationTests(unittest.TestCase):
             stage_config.put(self.project, 'script', model='deepseek-v4-flash')
             return {'ok': True, 'text': body}
         with patch('writing_api.PoolAdapter.chat', side_effect=changed):
-            with self.assertRaisesRegex(ValueError, '本次结果未采用.*正文已保存'):
+            with self.assertRaisesRegex(ValueError, '本次结果未采用.*原始响应已保存'):
                 writing_api.reply(self.project, '重写', publish=publish_stage_text)
         saved = list((self.target.parent / 'responses').glob('*.txt'))
         self.assertEqual(len(saved), 1)
@@ -106,6 +111,8 @@ class WritingResponsePreservationTests(unittest.TestCase):
         self.assertFalse(result['ok'])
         self.assertEqual(result['response_text'], body)
         self.assertNotIn('preparation_path', result)
+        self.assertEqual(result['preparation_status'], '因版本变化未采用')
+        self.assertIn('不等于正式采用', writing_api.preparation_reply_message(result))
 
     def test_success_keeps_original_body_and_unique_backups(self):
         restart_writing_preparation(self.project, '项目设定')
@@ -135,7 +142,7 @@ class WritingResponsePreservationTests(unittest.TestCase):
             stopped = True
             return {'ok': True, 'text': '# 项目设定\n已返回的正文。\n待确认'}
         with patch('writing_api.PoolAdapter.chat', side_effect=returned):
-            with self.assertRaisesRegex(RoleCancelledError, '正文已保存'):
+            with self.assertRaisesRegex(RoleCancelledError, '原始响应已保存'):
                 writing_api.reply(self.project, '重写', publish=publish_stage_text,
                                   cancelled=lambda: stopped)
         self.assertEqual(self.target.read_bytes(), before)
@@ -176,3 +183,59 @@ class WritingResponsePreservationTests(unittest.TestCase):
         self.assertFalse(result['ok'])
         self.assertEqual(self.target.read_bytes(), before)
         self.assertIn('未完成的大纲', result['response_text'])
+
+
+class PreparationReplyStateTests(unittest.TestCase):
+    setUp = test_writing_restart.WritingRestartTests.setUp
+
+    def call(self, text, creative='重写', **extra):
+        with patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': text, **extra}) as chat:
+            result = writing_api.reply(self.project, creative, publish=publish_stage_text)
+            self.assertEqual(chat.call_count, 1)
+            return result
+
+    def test_state_helper_distinguishes_the_four_reply_classes(self):
+        self.assertEqual(writing_api.preparation_reply_state(
+            {'ok': False, 'response_path': '/x/r.txt'})['state'], '原始响应已保存')
+        self.assertEqual(writing_api.preparation_reply_state(
+            {'ok': True, 'preparation_path': '/x/s.md'})['state'], '阶段稿待确认')
+        self.assertEqual(writing_api.preparation_reply_state(
+            {'ok': True, 'natural_script_path': '/x/n.md'})['state'], '已采用')
+        self.assertEqual(writing_api.preparation_reply_state(
+            {'ok': False, 'preparation_status': '因版本变化未采用', 'response_path': '/x/r.txt'})['state'],
+            '因版本变化未采用')
+        self.assertEqual(writing_api.preparation_reply_state({'ok': False, 'error': 'x'})['state'], '')
+        self.assertEqual(writing_api.preparation_reply_message({'ok': False, 'error': 'x'}), '')
+
+    def test_confirmation_success_reports_pending_stage_draft(self):
+        restart_writing_preparation(self.project, '项目设定')
+        result = self.call('# 项目设定\n完整设定。\n待确认', '确认')
+        self.assertTrue(result['ok'])
+        info = writing_api.preparation_reply_state(result)
+        self.assertEqual(info['state'], '阶段稿待确认')
+        self.assertEqual(info['file'], result['preparation_path'])
+        message = writing_api.preparation_reply_message(result)
+        self.assertIn('待确认', message)
+        self.assertIn('确认', message)
+
+    def test_late_reply_after_cancel_reports_archive_in_error(self):
+        from hollmwood_roles import RoleCancelledError
+        restart_writing_preparation(self.project, '项目设定')
+        before = self.target.read_bytes()
+        stopped = False
+        def returned(*args, **kwargs):
+            nonlocal stopped
+            stopped = True
+            return {'ok': True, 'text': '# 项目设定\n取消后迟到的正文。\n待确认'}
+        with patch('writing_api.PoolAdapter.chat', side_effect=returned):
+            with self.assertRaises(RoleCancelledError) as caught:
+                writing_api.reply(self.project, '重写', publish=publish_stage_text,
+                                  cancelled=lambda: stopped)
+        message = str(caught.exception)
+        self.assertIn('原始响应已保存', message)
+        self.assertIn('不等于正式采用', message)
+        saved = list((self.target.parent / 'responses').glob('*.txt'))
+        self.assertEqual(len(saved), 1)
+        self.assertIn(str(saved[0]), message)
+        self.assertEqual(self.target.read_bytes(), before)
+

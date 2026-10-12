@@ -10,13 +10,20 @@
 - 测试：新增 `tests/image_fixtures.py`（真实 PNG 夹具）与 `tests/test_keyframe_evidence.py`；同步 `test_keyframe`、`test_keyframe_lifecycle_service`、`test_stage_parallel`、`test_batch_frames`；登记 L2 模块并同步 `维护记录/架构统一基数.json` 豁免清单（`exempt_count` 34→35）。
 
 ## 验证
-- 定向：`keyframe_evidence keyframe_lifecycle_service test_keyframe stage_parallel batch_frames test_layers test_unification_ratchet` 153/153、3.8 秒、0 红。
-- 默认冒烟 8/8；架构门禁 312/312。
-- 干净树 `--all --safe`：待执行，结果随后回填。
+- 定向（修复前）：`keyframe_evidence keyframe_lifecycle_service test_keyframe stage_parallel batch_frames test_layers test_unification_ratchet` 153/153、3.8 秒、0 红；默认冒烟 8/8；架构门禁 312/312。
+- 第 1 次全量（干净 detached 工作树，`HEAD:程序`=e0df829a）：4504 条、566.7 秒、4 文件红——`test_pet_ui`（空头 PNG 夹具不再满足新门禁）、`test_aspect_ratio_priority`（mock 未提供来源证据）、`test_stage_gate_e2e_probe`（探针首帧无证据，且内嵌 base64 PNG 的 IDAT CRC 实际损坏）、`test_asset_gating`（并行下的 Tk 计时抖动，定向 18/18 绿）。全部为测试夹具／环境问题，未改业务逻辑。
+- 第 2 次全量（干净 detached 工作树，`HEAD:程序`=0e2a2f06）：4504 条、536.7 秒、0 红、ALL TESTS PASSED。执行器未写绿凭据：`save_full_safe_verification` 要求当前检出在 `master` 分支，而该工作树是 detached HEAD；`full-safe-receipts.json` 仍停在 R1306/tree 48d5df7e。
+- 第 3 次全量（同一内容树 0e2a2f06，master 分支临时工作树，目的只是取得正式凭据）：并行阶段全部通过后，行至串行性能用例 `test_desktop_startup_perf` 时主进程被并发活动中断（另一条工作车道同一时刻在跑 `程序/smoke_test.py --architecture`），退出 1、无汇总；残留全量锁持有人已退出并回收。按"不反复重跑赌稳定"，不再重跑。
+- 收口回归修复后：`test_context keyframe_evidence test_keyframe test_stage_execution_service test_asset_gating` 128/128、18.3 秒、0 红；接缝相关 `pet_ui stage_gate_e2e_probe aspect_ratio_priority` 591 条、38.0 秒、0 红。
+
+## 收口修复（本轮引入／暴露的回归）
+- `tests/test_pet_ui.py`、`tests/test_aspect_ratio_priority.py`、`维护记录/基准脚本/探针_阶段门禁端到端.py`：夹具改为真实可解码 PNG 并登记 `frame_evidence`；探针补 `config.json`、已登记资产表与角色／场景图片；修正内嵌 base64 PNG 的损坏 IDAT CRC。断言语义未削弱。
+- `platform_tools.tool_path`：只缓存 `which` 结果，未命中不再把 None 写死进缓存；否则先发生的无兜底查询（`stage_execution_service`）会让后续带兜底的调用拿到 None，首帧完整解码就会把 None 交给 subprocess 抛 TypeError。这是 O06 新增解码暴露出的真实潜在缺陷。
+- 台账：`project_status.md` 当前轮次 1307→1308，满足 AGENTS 2.5 规则 27（N = M + 1）。
 
 ## 风险与边界
 - 未实发 Seedream/Comfy 外部调用、未重启应用；证据校验属技术核验，不替代内容审核。
 - 手动替换传入的内存 episode 与磁盘不一致时仍按调用方视图发布（沿用 delete/restore 既有模式，本轮未改）。
 - Seedream 参考图哈希计算与实际上传之间存在极短 TOCTOU 窗口，本轮记录来源时点，未消除。
 
-[TASK_FAILED] 待干净树安全全量回归后收尾。
+[TASK_COMPLETE] 实现 a167b7c／回归修复与台账 8760e41／tool_path fbdd23d；定向与默认冒烟绿，干净内容树 0e2a2f06 全量 4504/4504 通过（无执行器绿凭据，原因见"验证"）。

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """分镜文件读缓存自检：同一个文件在一次页面重排里只解析一次。运行：python test_file_cache.py"""
-import ast, json, os, sys, tempfile, unittest
+import ast, hashlib, json, os, sys, tempfile, unittest
+from unittest.mock import patch
 from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -16,6 +17,31 @@ def write_episode(path, episode_id, shots):
             "shots": [{"id": sid, "title": sid} for sid in shots]}
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     return path
+
+
+class FileDigestTests(unittest.TestCase):
+    def setUp(self):
+        file_cache.clear()
+
+    def test_streaming_digest_matches_sha256_and_reuses_cache(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "big.bin"
+            payload = b"x" * (1024 * 1024 * 3 + 7)
+            path.write_bytes(payload)
+            expected = hashlib.sha256(payload).hexdigest()
+            self.assertEqual(file_cache.file_digest(path), expected)
+            with patch.object(Path, "open", side_effect=AssertionError("缓存命中后不应再打开文件")):
+                self.assertEqual(file_cache.file_digest(path), expected)
+
+    def test_digest_refreshes_after_content_change_and_invalidate(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "media.mp4"
+            path.write_bytes(b"first")
+            first = file_cache.file_digest(path)
+            path.write_bytes(b"second")
+            self.assertNotEqual(file_cache.file_digest(path), first)
+            file_cache.invalidate(path)
+            self.assertEqual(file_cache.file_digest(path), hashlib.sha256(b"second").hexdigest())
 
 
 class ReadJsonTests(unittest.TestCase):
@@ -235,6 +261,23 @@ class RepeatReadTests(unittest.TestCase):
                              [final.resolve()])
             source.unlink(); file_cache.clear()
             self.assertEqual(storyboard_files.catalog(project, 'storyboard'), [])
+
+    def test_stale_final_stays_visible_and_is_tagged_source_changed(self):
+        """原稿同路径内容变了只标过期，不隐藏、不覆盖用户成品。"""
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td) / 'p'
+            source = project / '02剧本结构' / '结构剧本' / 'p_结构剧本_正稿_20260927.md'
+            source.parent.mkdir(parents=True)
+            source.write_text('# 结构剧本', encoding='utf-8')
+            final = write_episode(project / '06分镜定稿' / '分镜' /
+                                  'EP001_分镜定稿_20260927' / 'episode.json', 'EP001', ['SH001'])
+            from artifact_lineage import record
+            record(project, final, source, 'final_storyboard')
+            source.write_text('# 结构剧本（用户改过）', encoding='utf-8')
+            file_cache.clear()
+            entries = storyboard_files.catalog(project, 'storyboard')
+            self.assertEqual([entry['path'] for entry in entries], [final.resolve()])
+            self.assertIn('来源已变更', entries[0]['title'])
 
     def test_final_lineage_prefers_stable_structured_script_over_working_json(self):
         with tempfile.TemporaryDirectory() as td:

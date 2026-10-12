@@ -402,9 +402,9 @@ def _export(context):
 READY = {
     'script_contract.structure_script': (_structure_script, 'script_contract.structure_script：解析已确认原稿'),
     'script_contract.review_structured_script': (_review_structured_script,
-                                                  'script_contract.review_structured_script：Editor 审校提取完整性'),
+                                                  'script_contract.review_structured_script：规则校验提取完整性（未调用模型）'),
     'script_contract.revise_structured_script': (_revise_structured_script,
-                                                  'script_contract.revise_structured_script：Writer 按审校反馈重提取'),
+                                                  'script_contract.revise_structured_script：按审校反馈用本地规则重提取'),
     'script_contract.write_structured_script': (_write_structured_script,
                                                 'script_contract.write_structured_script：原子写入结构化剧本'),
     'script.validate': (_episode_validate, 'writing.validate_episode：交付 JSON 契约校验'),

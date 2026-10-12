@@ -504,10 +504,53 @@ def gate_ids():
     return GATE_IDS
 
 
+# ── 门禁语义（O24）：浏览／补录／旧项目兼容 与 正式自动生产 分开 ──────────────────
+BROWSE = 'browse'          # 浏览／补录／旧项目兼容：上游没开始就放行（旧规矩，默认）
+PRODUCTION = 'production'  # 正式自动生产（无人值守）：上游没开始＝前置条件缺失，要豁免才放行
+MODES = (BROWSE, PRODUCTION)
+PASS, UPSTREAM_BLANK, BLOCKED = 'pass', 'upstream-blank', 'blocked'
+VERDICT_LABELS = {PASS: '通过', UPSTREAM_BLANK: '上游未开始', BLOCKED: '挡住'}
+EXEMPT_STATES = ('skipped',)   # 用户显式把某个上游阶段标为「已跳过」＝主动豁免
+
+
+def verdict_label(result):
+    """这条门禁的结论：通过／上游未开始／挡住。"""
+    return VERDICT_LABELS.get(str((result or {}).get('verdict')), '')
+
+
+def upstream_exempt(project, stage):
+    """上游是不是被用户显式跳过（skipped）——只有这种才算「主动豁免」。"""
+    row = gate_for(stage)
+    return bool(row) and stage_state(project, row['from']) in EXEMPT_STATES
+
+
+def _apply_mode(result, mode, project):
+    """按口径解释同一条门禁结论：浏览放行；正式生产下「上游未开始」＝前置条件缺失。"""
+    result = dict(result)
+    result['mode'] = str(mode) if str(mode) in MODES else BROWSE
+    result.setdefault('exempt', False)
+    result.setdefault('missing', ())
+    if result.get('verdict') == UPSTREAM_BLANK and result['mode'] == PRODUCTION:
+        if upstream_exempt(project, result['to']):
+            result['exempt'] = True
+        else:
+            result['ok'] = False
+            result['missing'] = (str(result.get('from') or ''),)
+    return result
+
+
+def production_ready(project, stage):
+    """正式自动生产口径的门禁结论：上游没开始且没豁免就不通过，并点明缺哪一步。"""
+    return evaluate(project, stage, mode=PRODUCTION)
+
+
 def _result(row, ok, started, detail, problems=(), artifacts=()):
+    ok, started = bool(ok), bool(started)
+    verdict = BLOCKED if not ok else (PASS if started else UPSTREAM_BLANK)
     return {'id': row['id'], 'from': row['from'], 'to': row['to'], 'title': row['title'],
-            'condition': row['condition'], 'reject': row['reject'], 'ok': bool(ok),
-            'started': bool(started), 'detail': str(detail or ''), 'problems': tuple(problems),
+            'condition': row['condition'], 'reject': row['reject'], 'ok': ok,
+            'started': started, 'verdict': verdict, 'mode': BROWSE, 'exempt': False,
+            'missing': (), 'detail': str(detail or ''), 'problems': tuple(problems),
             'artifacts': tuple(str(item) for item in artifacts)}
 
 
@@ -515,6 +558,9 @@ def blocked_text(result):
     """这条门禁没过时面板要写的那一句（一句话说清缺什么、去哪儿补）。"""
     if result is None or result['ok']:
         return ''
+    if result.get('verdict') == UPSTREAM_BLANK:
+        return ('正式自动生产不能跳过「%s」：这一步还没开始，也没被标为可跳过。请先做这一步，'
+                '或到阶段面板把它标记为「已跳过」。' % label(result['from']))
     head = '%s 还没做完：%s' % (label(result['from']), result['detail'] or result['condition'])
     return head + '。' + result['reject']
 
@@ -629,9 +675,11 @@ def assets_locked(project):
 
 
 def ledger_ready(project):
-    """SG-02：连贯性台账已生成、没有未裁决的待办。"""
+    """SG-02：连贯性台账已生成、没有未裁决的待办（被人工忽略的问题不再拦）。"""
     row = gate_for('final')
     from continuity_ledger import gate as ledger_gate
+    from continuity_ledger import issue_gate
+    from continuity_ledger import issues
     from continuity_ledger import read as read_ledger
     try:
         ledger = read_ledger(project)
@@ -640,6 +688,18 @@ def ledger_ready(project):
     if not isinstance(ledger, dict) or not ledger:
         return _result(row, True, False, '连贯性台账还没生成（这一步还没做），先不拦')
     ok, problems = ledger_gate(ledger)
+    if not ok:
+        try:
+            current = issues(ledger)
+            closed, blocking = issue_gate(project, ledger)
+        except Exception:
+            current, closed, blocking = (), False, ()
+        # 只有「本轮真的算出了问题行、且全部都不是待处理」才放行；台账说有问题是问题行
+        # 算不出来的情况（格式异常）不擅自放行。
+        if closed and current:
+            ok, problems = True, ()
+        elif blocking:
+            problems = tuple(item.get('detail') or item.get('id') or '' for item in blocking)
     detail = '台账已生成' if ok else '台账里还有 %d 条未裁决的待办' % len(problems)
     return _result(row, ok, True, detail, problems, [str(project) + '/03_continuity/output/continuity_ledger.json'])
 
@@ -734,48 +794,61 @@ def frames_ready(project):
 def previs_ready(project):
     """SG-05：需要白模的镜头都有可播放的预演产物。"""
     row = gate_for('video')
-    from previs_routing import classify, ready
+    from previs_routing import classify, decisions_for, ready
     from project_context_factory import project_context
     context = project_context(project)
-    entries = _adopted(project)
-    if not entries:
+    adopted = _adopted(project)
+    if not adopted:
         return _result(row, True, False, '还没有已采用的分镜，先不拦')
     need = []
-    for source, shots in entries:
-        for shot in shots:
-            try:
-                level = classify(shot)[0]
-            except Exception:
-                continue
-            if level == 'complex':
-                need.append(shot.get('id') or '?')
-    if not need:
-        return _result(row, True, True, '没有需要白模的镜头', (), [str(source) for source, _ in entries])
-    missing = []
-    for sid in need:
+    for source, shots in adopted:
         try:
-            if not ready(context, sid):
+            decisions = decisions_for(context, source, shots)
+        except Exception:
+            decisions = {}
+        for shot in shots:
+            sid = shot.get('id')
+            if not sid:
+                continue
+            item = decisions.get(sid)
+            if item is None:
+                try:
+                    level = classify(shot)[0]
+                except Exception:
+                    continue
+            else:
+                level = item.get('level')
+            if level == 'complex':
+                need.append((sid, source))
+    if not need:
+        return _result(row, True, True, '没有需要白模的镜头', (), [str(source) for source, _ in adopted])
+    missing = []
+    for sid, source in need:
+        try:
+            if not ready(context, sid, source):
                 missing.append(sid)
         except Exception:
             missing.append(sid)
-    artifacts = [str(source) for source, _ in entries]
+    missing = list(dict.fromkeys(missing))
+    artifacts = [str(source) for source, _ in adopted]
     if not missing:
         return _result(row, True, True, '%d 个镜头需要白模，都有预演' % len(need), (), artifacts)
-    made = has_run(project, 'previs') or any(ready(context, sid) for sid in need)
+    made = has_run(project, 'previs') or any(ready(context, sid, source) for sid, source in need)
     if not made:
         return _result(row, True, False, '白模预演还没做，先不拦', (), artifacts)
     return _result(row, False, True, '%d 个镜头还没有白模预演' % len(missing),
                    ['缺预演：' + '、'.join(map(str, missing[:6]))], artifacts)
 
 
-def evaluate(project, stage):
-    """进入某个阶段前的门禁结论；没有门禁的阶段返回一个「通过」的空结果。"""
+def evaluate(project, stage, *, mode=BROWSE):
+    """进入某个阶段前的门禁结论（默认浏览口径）；mode 见 BROWSE／PRODUCTION。"""
     row = gate_for(stage)
     if row is None:
-        return {'id': '', 'from': '', 'to': str(stage or ''), 'title': '无门禁', 'condition': '这一步没有前置门禁',
-                'reject': '', 'ok': True, 'started': False, 'detail': '没有前置门禁', 'problems': (),
-                'artifacts': ()}
-    return globals()[row['check']](project)
+        return _apply_mode({'id': '', 'from': '', 'to': str(stage or ''), 'title': '无门禁',
+                            'condition': '这一步没有前置门禁', 'reject': '', 'ok': True,
+                            'started': False, 'verdict': PASS, 'detail': '没有前置门禁',
+                            'problems': (), 'artifacts': ()}, mode, project)
+    return _apply_mode(globals()[row['check']](project), mode, project)
 
 
 def blocked_stages(project, stage):
@@ -797,7 +870,7 @@ def audit_text(project):
     for result in audit(project):
         state = '通过' if result['ok'] else ('挡住：' + result['detail'])
         if result['ok'] and not result['started']:
-            state = '上游还没开始（不拦）'
+            state = '上游还没开始（浏览放行；正式自动生产要先做上游或标为已跳过）'
         lines.append('| %s %s | %s → %s | %s | %s |'
                      % (result['id'], result['title'], label(result['from']), label(result['to']),
                         result['condition'], state))
@@ -832,6 +905,8 @@ def page_lines(project, stage):
         state = blocked_text(result)
     elif result['started']:
         state = '通过（%s）' % result['detail']
+    elif upstream_exempt(project, stage):
+        state = '上游没开始，但已被标为可跳过（不算通过）'
     else:
-        state = '上游还没开始，不拦'
+        state = '上游还没开始，不拦（浏览／补录可用；正式自动生产需先做上游）'
     return (head, '门禁：%s %s %s' % (gate['id'], gate['title'], state))

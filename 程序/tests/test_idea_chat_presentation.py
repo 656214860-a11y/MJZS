@@ -1,0 +1,74 @@
+# -*- coding: utf-8 -*-
+"""O46：创意对话气泡的纯展示逻辑搬到 L3 后，实现与 L4 入口都要有回归。"""
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+import idea_chat_controller as icc
+from desktop import Desktop
+
+
+class BubbleTimestampTests(unittest.TestCase):
+    def test_reads_both_supported_stamp_shapes(self):
+        self.assertEqual(icc.bubble_timestamp('20261012_081530'), '10-12 08:15')
+        self.assertEqual(icc.bubble_timestamp('20261012_081530_123456'), '10-12 08:15')
+
+    def test_unrecognised_stamp_is_blank(self):
+        for value in ('', None, 'nope', 20261012):
+            with self.subTest(value=value):
+                self.assertEqual(icc.bubble_timestamp(value), '')
+
+
+class CollapsePreviewTests(unittest.TestCase):
+    def test_short_message_is_returned_whole(self):
+        self.assertEqual(icc.collapse_preview('  hi  '), ('hi', False))
+
+    def test_overlong_message_is_folded_to_the_char_budget(self):
+        preview, folded = icc.collapse_preview('x' * 500)
+        self.assertTrue(folded)
+        self.assertEqual(preview, 'x' * icc.BUBBLE_COLLAPSE_CHARS + '…')
+
+    def test_too_many_lines_are_folded_to_the_line_budget(self):
+        preview, folded = icc.collapse_preview('\n'.join('行%d' % i for i in range(20)))
+        self.assertTrue(folded)
+        self.assertEqual(preview, '\n'.join('行%d' % i for i in range(icc.BUBBLE_COLLAPSE_LINES)) + '…')
+
+
+class SpeakerNameTests(unittest.TestCase):
+    def test_user_is_addressed_as_you(self):
+        self.assertEqual(icc.speaker_name({'role': 'user', 'model': 'X'}), '您')
+
+    def test_assistant_uses_model_name_with_fallback(self):
+        self.assertEqual(icc.speaker_name({'role': 'assistant', 'model': ' DeepSeek V4 Pro '}),
+                         '对话AI · DeepSeek V4 Pro')
+        self.assertEqual(icc.speaker_name({'role': 'assistant'}), '对话AI · AI 助手')
+
+
+class DesktopDelegationTests(unittest.TestCase):
+    """L4 只保留入口：搬到 L0/L3 的实现换了，口径也不能变（无 self 的裸入口可直呼）。"""
+
+    view = object()
+
+    def test_bubble_helpers_match_the_l3_functions(self):
+        row = {'role': 'assistant', 'model': 'M'}
+        self.assertEqual(Desktop.bubble_time(self.view, '20261012_081530'),
+                         icc.bubble_timestamp('20261012_081530'))
+        self.assertEqual(Desktop.bubble_preview(self.view, 'x' * 500), icc.collapse_preview('x' * 500))
+        self.assertEqual(Desktop.model_name(self.view, row), icc.speaker_name(row))
+
+    def test_open_folder_delegates_to_the_platform_adapter(self):
+        import desktop
+        with patch.object(desktop, 'open_directory') as open_directory:
+            Desktop.open_folder(self.view, Path('somewhere'))
+        open_directory.assert_called_once_with(Path('somewhere'))
+
+    def test_shortcut_lookup_delegates_to_the_platform_adapter(self):
+        import desktop
+        sentinel = Path('C:/found.lnk')
+        with patch.object(desktop, 'find_editor_shortcut', return_value=sentinel) as find:
+            self.assertEqual(Desktop.find_editor_shortcut(self.view), sentinel)
+        find.assert_called_once_with()
+
+
+if __name__ == '__main__':
+    unittest.main()

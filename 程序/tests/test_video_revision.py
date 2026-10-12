@@ -11,6 +11,7 @@ from agent.core import save, read
 from engine import Studio
 from local_video import LocalStudio
 from video_task_state import submission_block_reason
+from ui_widgets import BusyState
 
 
 class VideoRevisionTests(unittest.TestCase):
@@ -115,7 +116,8 @@ class VideoRevisionTests(unittest.TestCase):
                 studio.submit = Mock(return_value='queued')
                 app = SimpleNamespace(studio=studio, sid=lambda: 'SH001', edit_checks={'SH001': True},
                     write=Mock(), ensure_frame=Mock(return_value=True), prompt=Mock(), save_options=Mock(),
-                    local_submit_error={}, progress_text=Mock(), task_progress=Mock(), local_messages=Mock())
+                    local_submit_error={}, progress_text=Mock(), task_progress=Mock(), local_messages=Mock(),
+                    busy_state=BusyState(Mock(), Mock()))
                 app.prompt.get.return_value = 'new prompt'
                 app.run = lambda work: work()
                 with patch('app.assert_prompt_editable'):

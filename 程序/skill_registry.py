@@ -18,6 +18,7 @@ dependsOn／conflictsWith／parallelizable／paid／input／output／constraints
 import re
 import time
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 from pet_bus import STAGES, STAGE_NAMES
 
@@ -400,13 +401,62 @@ def validate_skill(skill, known=()):
     return out
 
 
-def external_references(skill, known=()):
-    """dependsOn 里不在注册表里的名字：按「子模块／外部步骤」看，不算错，但要在报告里说清楚。
+REFERENCE_SUFFIXES = ('.md', '.txt')
+
+# 行内链接：可选尖括号包裹、可选标题；只做文本解析，不碰文件系统。
+_LINK_RE = re.compile(r'\]\(\s*(<[^>]+>|[^)]+)\s*\)')
+
+
+def reference_targets(text):
+    """Markdown 行内链接的目标，按出现顺序返回。
+
+    kind 区分：markdown（可内联的 .md／.txt 文档引用）、other（图片、脚本等资源或工具）、
+    remote（带协议或主机名的外部地址）、anchor（纯锚点）。path 为未解析的相对路径。
+    """
+    out = []
+    for match in _LINK_RE.finditer(text or ''):
+        link = match.group(1).strip()
+        if link.startswith('<'):
+            link = link[1:-1]
+        else:
+            link = re.sub(r'''\s+["'][^"']*["']\s*$''', '', link)
+        parts = urlsplit(link.replace('\\', '/'))
+        if parts.scheme or parts.netloc:
+            out.append({'raw': link, 'kind': 'remote', 'path': None})
+            continue
+        if not parts.path:
+            out.append({'raw': link, 'kind': 'anchor', 'path': None})
+            continue
+        relative = Path(unquote(parts.path))
+        kind = 'markdown' if relative.suffix.lower() in REFERENCE_SUFFIXES else 'other'
+        out.append({'raw': link, 'kind': kind, 'path': relative, 'fragment': parts.fragment})
+    return out
+
+
+def classify_dependencies(skill, known=()):
+    """把 dependsOn 拆成两类：在册的技能依赖，与未在册的外部子模块／步骤。
 
     规格里的 asset-auto-fill 就依赖 asset-search／asset-rank／asset-dedupe／asset-candidate-wall
-    这几步子模块（不是 SKILL），所以这里不拦，只把它们列出来。
+    这几步子模块（不是 SKILL），所以「外部」不算错误，只如实列出。
     """
-    return [other for other in skill.dependsOn if other != skill.name and other not in known]
+    registered, external = [], []
+    for other in skill.dependsOn:
+        if other == skill.name:
+            continue
+        (registered if other in known else external).append(other)
+    return {'skill': registered, 'external': external}
+
+
+def dependency_report(skill, known=()):
+    """一个 SKILL 的依赖面：技能依赖、外部子模块／步骤、可执行工具（tools 字段）。"""
+    kinds = classify_dependencies(skill, known)
+    return {'skill': kinds['skill'], 'external': kinds['external'],
+            'tools': [str(item) for item in skill.tools]}
+
+
+def external_references(skill, known=()):
+    """dependsOn 里不在注册表里的名字（子模块／外部步骤）：不算错，只如实列出。"""
+    return classify_dependencies(skill, known)['external']
 
 
 class Registry:

@@ -22,7 +22,10 @@ def _project_write_result(operation):
             return success(operation(*args, **kwargs))
         except OSError as exc:
             _LOG.exception('项目登记写入失败：%s', operation.__name__)
-            return SystemError('项目登记未能保存，请检查磁盘或文件占用后重试。',
+            # 删除路径在回收已发生但登记未落盘时挂上 ui_message：界面必须给出重建索引的指引，
+            # 不能只说一句通用失败，否则用户无法把「内容在回收站、登记还是旧条目」对上。
+            reason=getattr(exc,'ui_message','') or '项目登记未能保存，请检查磁盘或文件占用后重试。'
+            return SystemError(reason,
                                data={'cause': str(exc), 'operation': operation.__name__})
     return wrapped
 
@@ -48,11 +51,9 @@ def _same_renamed_prefix(left,right):
     return bool(left_date and right_date and left_date.group(1)==right_date.group(1)
                 and _slug(left)==_slug(right))
 
-def reconcile_missing(projects_info, base):
-    """只扫项目库一级，找回资源管理器改名后失效的登记。无 Tk、无写入。"""
-    base=Path(base); info=copy.deepcopy(projects_info); missing=[x for x in info.get('projects',[]) if not Path(x.get('path','')).is_dir()]
-    if not missing:return {'state':'none','info':info,'matches':{}}
-    candidates=[]
+def _discover_candidates(base):
+    """扫项目库一级里可识别为项目的目录（含 config 或阶段骨架），回收站永不回流。"""
+    base=Path(base); candidates=[]
     for p in base.iterdir():
         # ``工作流任务`` 是项目库内回收站；历史回收站绝不回流到下一轮扫描。
         if not p.is_dir() or p.name=='工作流任务' or '工作流任务' in p.parts:continue
@@ -61,6 +62,14 @@ def reconcile_missing(projects_info, base):
         try:data=cached_read_json(cfg) if cfg.is_file() else {}
         except (OSError,ValueError):continue
         candidates.append((p,data if isinstance(data,dict) else {}))
+    return candidates
+
+
+def reconcile_missing(projects_info, base):
+    """只扫项目库一级，找回资源管理器改名后失效的登记。无 Tk、无写入。"""
+    base=Path(base); info=copy.deepcopy(projects_info); missing=[x for x in info.get('projects',[]) if not Path(x.get('path','')).is_dir()]
+    if not missing:return {'state':'none','info':info,'matches':{}}
+    candidates=_discover_candidates(base)
     matches={}
     for item in missing:
         old=Path(item['path']); found=[]
@@ -292,10 +301,7 @@ class Projects:
         """普通目录已不存在时只清登记，绝不尝试移动或删除磁盘文件。"""
         if Path(path).exists():raise ValueError('项目目录仍存在，请使用“删除选中项目”移入回收站')
         if path not in [x.get('path') for x in self.info.get('projects',[])]:raise ValueError('项目未登记')
-        info=copy.deepcopy(self.info)
-        info['projects']=[x for x in info['projects'] if x.get('path')!=path]
-        if info.get('active')==path:info['active']=info['projects'][0]['path'] if info['projects'] else None
-        self._publish_json(self.registry,info);self.info=info
+        self._drop_registration_entry(path,message='失效项目登记未清除，请稍后重试或“重建项目索引”。')
     @_project_write_result
     def set_status(self,path,status):
         if status not in ('making','completed'):raise ValueError('无效的项目状态')
@@ -313,6 +319,26 @@ class Projects:
             raise ValueError('只允许删除项目根目录下的独立项目，拒绝链接或越界路径')
         return target
 
+    def _drop_registration_entry(self,path,*,message=None):
+        """把一条项目登记移出索引并发布；失败时内存回退到磁盘事实。
+
+        删除／清除路径必须先保证界面与磁盘登记一致：登记发布失败时不能让内存先
+        显示成“已删除”，否则界面会与磁盘事实相反，用户会误以为项目内容也没了。
+        message 用于回收已发生、但登记未落盘时给用户重建索引的指引。
+        """
+        previous=self.info
+        info=copy.deepcopy(self.info)
+        info['projects']=[x for x in info['projects'] if x.get('path')!=path]
+        if info.get('active')==path:info['active']=info['projects'][0]['path'] if info['projects'] else None
+        try:
+            self._publish_json(self.registry,info)
+        except OSError as exc:
+            self.info=previous
+            if message:exc.ui_message=message
+            raise
+        self.info=info
+        return info
+
     @_project_write_result
     def delete(self,path):
         target=self.deletion_target(path)
@@ -327,9 +353,7 @@ class Projects:
             raise ValueError('项目目录仍被占用，项目入口未删除。请关掉占用它的窗口后重试。') from exc
         if not records or target.exists():
             raise ValueError('项目未能安全移入回收站，项目入口已保留。')
-        self.info['projects']=[x for x in self.info['projects'] if x['path']!=path]
-        if self.info['active']==path:self.info['active']=self.info['projects'][0]['path'] if self.info['projects'] else None
-        self._publish_json(self.registry,self.info)
+        self._drop_registration_entry(path,message='项目内容已移入回收站，但项目登记未更新：请在项目选择窗点“重新查找项目”或“重建项目索引”恢复索引；项目内容仍可从回收站恢复。')
     @_project_write_result
     def unlink_registered_project(self,path):
         """只移除登记项目自身的目录链接，绝不递归进入它指向的真实目录。"""
@@ -343,9 +367,7 @@ class Projects:
         except OSError as exc:
             raise ValueError('项目链接仍被占用，项目入口未删除。请关闭占用它的窗口后重试。') from exc
         if raw.exists() or raw.is_symlink():raise ValueError('项目链接未能删除，项目入口已保留。')
-        self.info['projects']=[x for x in self.info['projects'] if x['path']!=path]
-        if self.info['active']==path:self.info['active']=self.info['projects'][0]['path'] if self.info['projects'] else None
-        self._publish_json(self.registry,self.info)
+        self._drop_registration_entry(path,message='项目链接已移除，但项目登记未更新：请在项目选择窗点“重建项目索引”恢复索引。')
     @_project_write_result
     def create(self,name,source=None):
         name=name.strip()
@@ -381,7 +403,8 @@ class Projects:
         else:
             ep={'episode_id':'EP001','title':name,'shots':[{'id':'SH001','title':'待编写','duration':5,'characters':['CHAR_001'],'location':'LOC_001','frame':'frames/SH001.png','video_prompt':'待填写镜头画面、动作和对白','dialogue':[]}]}
         self._publish_json(story/'episode.json',ep);self._publish_json(base/'assets.json',assets or {})
-        cfg.update(episode_dir=str(story),episode_file=str(story/'episode.json'),asset_library_dir='05资产管理',live_enabled=False,budget_seconds=0,reserve_seconds=0,video_backend='comfy')
+        # 项目稳定身份：新建项目当场定下 UUID，白模等对外目录按身份隔离，不受重名或改名影响。
+        cfg.update(project_id=uuid.uuid4().hex,episode_dir=str(story),episode_file=str(story/'episode.json'),asset_library_dir='05资产管理',live_enabled=False,budget_seconds=0,reserve_seconds=0,video_backend='comfy')
         self._publish_json(dst/'config.json',cfg);self.organize(dst)
         self.info['projects'].append({'name':name,'path':str(dst),'created_at':datetime.now().timestamp()});self.info['active']=str(dst);self._publish_json(self.registry,self.info)
         return dst
@@ -410,3 +433,34 @@ class Projects:
             self._publish_json(self.registry, info)
             self.info = info
         return added
+
+    @_project_write_result
+    def rebuild_registry(self):
+        """按磁盘事实重建项目索引：保留仍在的登记、移除失效登记、补登新目录。
+
+        用于登记写失败后的索引重建，或登记与磁盘漂移后的恢复。只读写项目库一级
+        目录与登记文件，不移动、不删除任何项目内容；回收站（工作流任务）永不回流。
+        被移动的项目若要保留状态请改用“重新查找项目”。
+        """
+        base=self.base.resolve()
+        kept,dropped,added=[],[],[]
+        projects=[]
+        for item in self.info.get('projects',[]):
+            path=str(item.get('path') or '')
+            if path and Path(path).is_dir():
+                projects.append(item);kept.append(path)
+            else:
+                dropped.append(path)
+        known={str(item.get('path') or '') for item in projects}
+        for cpath,_data in _discover_candidates(base):
+            candidate=str(cpath)
+            if candidate in known:continue
+            projects.append({'name':_slug(cpath),'path':candidate,'created_at':cpath.stat().st_mtime})
+            known.add(candidate);added.append(candidate)
+        active=self.info.get('active')
+        if active not in known:active=projects[0]['path'] if projects else None
+        if not dropped and not added and active==self.info.get('active'):
+            return {'kept':kept,'dropped':dropped,'added':added,'changed':False}
+        info=copy.deepcopy(self.info);info['projects']=projects;info['active']=active
+        self._publish_json(self.registry,info);self.info=info
+        return {'kept':kept,'dropped':dropped,'added':added,'changed':True}

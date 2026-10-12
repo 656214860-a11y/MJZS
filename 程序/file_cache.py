@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import shutil
+import tempfile
 from pathlib import Path
 from agent.core import read  # 兼容仍由外部替换的历史测试钩子。
 
@@ -19,6 +20,7 @@ def _key(path):
 _CACHE = {}
 _TEXT_CACHE = {}
 _BYTES_CACHE = {}
+_DIGEST_CACHE = {}
 
 
 def _digest(data):
@@ -96,6 +98,33 @@ def read_bytes(path):
     return data
 
 
+def file_digest(path):
+    """流式 sha256 校验和（十六进制），按文件签名缓存；从不把整份文件读进内存。
+
+    animatic 这类成果含整段视频与音频，反复校验时若用 read_bytes＋sha256 会把大媒体
+    整份读进内存。这里只按 1 MiB 块喂给 sha256，并按 (mtime_ns, size) 复用上一次结果，
+    未改动的大文件不会重复计算。
+    """
+    path = Path(path)
+    key = _key(path)
+    try:
+        stat = path.stat()
+    except OSError:
+        _DIGEST_CACHE.pop(key, None)
+        raise
+    token = (stat.st_mtime_ns, stat.st_size)
+    hit = _DIGEST_CACHE.get(key)
+    if hit is not None and hit[0] == token:
+        return hit[1]
+    digest = hashlib.sha256()
+    with path.open('rb') as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b''):
+            digest.update(block)
+    value = digest.hexdigest()
+    _DIGEST_CACHE[key] = (token, value)
+    return value
+
+
 def read_stable_json_snapshot(path):
     """读取写入中的工作 JSON，并确认本次读取前后文件签名没有变化。
 
@@ -116,6 +145,7 @@ def clear():
     _CACHE.clear()
     _TEXT_CACHE.clear()
     _BYTES_CACHE.clear()
+    _DIGEST_CACHE.clear()
 
 
 def invalidate(path):
@@ -127,6 +157,7 @@ def invalidate(path):
     key = _key(path)
     removed = _CACHE.pop(key, None) is not None
     removed = _BYTES_CACHE.pop(key, None) is not None or removed
+    removed = _DIGEST_CACHE.pop(key, None) is not None or removed
     for text_key in tuple(_TEXT_CACHE):
         if text_key[0] == key:
             _TEXT_CACHE.pop(text_key, None)
@@ -164,6 +195,31 @@ def remove_temporary_file(path):
         return True
     except OSError:
         return False
+
+
+def probe_writable(path, *, create=True):
+    """检查目录能否落文件：试建（可选）并写一个探针文件，成功即删除。
+
+    这是「先问能不能写」的最小主机适配。目录不存在时 ``create=False`` 只看最近一个已存在
+    父目录，不建任何目录；失败原样抛 ``OSError``，由调用方翻成用户提示。实际写入留在这一层，
+    领域服务（L2）不直接写盘。
+    """
+    path = Path(path); target = path
+    if not path.exists():
+        if not create:
+            for parent in path.parents:
+                if parent.exists():
+                    target = parent
+                    break
+            else:
+                raise FileNotFoundError(2, '路径所在盘符或目录不存在', str(path))
+        else:
+            path.mkdir(parents=True, exist_ok=True)
+            target = path
+    descriptor, temporary = tempfile.mkstemp(prefix='.write-probe-', dir=str(target))
+    os.close(descriptor)
+    remove_temporary_file(temporary)
+    return True
 
 
 def remove_temporary_tree(path):

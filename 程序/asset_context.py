@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 from agent.core import read
 from project_context import ProjectContext
+import pet_bus
 
 
 def _project_root(project=None, *, context=None):
@@ -67,7 +68,7 @@ def active_source(project=None, storyboard=None, fallback=None, *, context=None)
         return path
     for path in (default_source(context),library_dir(project,fallback, context=context)/'episode.json'):
         if path.is_file():return path.resolve()
-    raise ValueError('尚未采用分镜JSON，请先在第2步点「手动采用分镜」')
+    raise ValueError('尚未采用分镜JSON，请先在'+pet_bus.stage_step('storyboard')+'点「手动采用分镜」')
 
 
 def references(shot):
@@ -99,3 +100,44 @@ def scope_sources(project=None,scope='all', *, context=None):
         current=active_source(project, context=context)
         return [current] if current in result else [result[0]]
     return result
+
+
+_SHOT_REFERENCE_FIELDS = (('characters', 'CHAR'), ('props', 'PROP'),
+                          ('first_frame_assets', ''), ('location', 'LOC'))
+
+
+def _reference_fields(shot, aid):
+    """这一项资产在这个镜头里从哪些字段被引用（找不到返回空列表）。"""
+    target = str(aid or '').strip()
+    fields = []
+    for key, _prefix in _SHOT_REFERENCE_FIELDS:
+        values = shot.get(key)
+        values = values if isinstance(values, list) else [values] if values else []
+        for value in values:
+            value = (value.get('id') or value.get('name')) if isinstance(value, dict) else value
+            if isinstance(value, str) and value.strip() == target:
+                fields.append(key)
+                break
+    return fields
+
+
+def referencing_shots(shots, aid):
+    """哪些镜头引用了这一项资产：返回 ``[{'id', 'fields'}]``，fields 说明命中字段。
+
+    与 :func:`references` 同口径（先 normalize_shot 再取声明资产）；用于「改动会影响哪些
+    镜头」的只读影响视图，不写盘、不改镜头编号。
+    """
+    from prop_assets import normalize_shot
+    target = str(aid or '').strip()
+    rows = []
+    if not target:
+        return rows
+    for index, shot in enumerate(shots or [], 1):
+        if not isinstance(shot, dict):
+            continue
+        normalized = normalize_shot(shot)
+        if not any(value == target for _kind, value in references(normalized)):
+            continue
+        identifier = str(normalized.get('id') or shot.get('id') or '').strip() or '#%d' % index
+        rows.append({'id': identifier, 'fields': _reference_fields(normalized, target)})
+    return rows

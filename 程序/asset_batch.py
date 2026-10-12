@@ -10,9 +10,9 @@ import tk_timers
 import ui_plugin_registry
 from responsive_ui import FlowBar, scroll_form
 from platform_tools import open_target
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import COLORS, SPACING
 from ui_dialogs import FileDialog
-from ui_widgets import SelectBox, BaseDialog, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
+from ui_widgets import SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
 from asset_batch_service import (
     KINDS, asset_prompt as _asset_prompt, register_image as _register_image,
     image_ready as _image_ready, batch_complete as _batch_complete,
@@ -139,7 +139,7 @@ def show(app,engine="comfy",selected_ids=None):
     footer=ttk.Frame(win);footer.pack(side='bottom',fill='x')
     viewport=ttk.Frame(win);viewport.pack(side='top',fill='both',expand=True)
     view=scroll_form(viewport,bg=COLORS['background_primary']);form=view.form     # 滚动表单区与首帧制作共用一份实现
-    ttk.Label(form,text='选择资产类别 → 开始批量生成 → 按编号和名称自动导入',font=FONTS['title']).pack(anchor='w',padx=SPACING['lg'],pady=SPACING['md'])
+    ttk.Label(form,text='选择资产类别 → 开始批量生成 → 按编号和名称自动导入',style='Tokens.Title.TLabel').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['md'])
     DescriptionBlock(form,text='生成范围：'+scope_text+'；道具仅制作关键道具，普通道具随画面生成；已导入图片自动跳过。').pack(anchor='w',padx=SPACING['lg'])
     if qwen_images:DescriptionBlock(form,text='由 Qwen 按所选 Skill 核对提示词和参考图，再调用本机 ComfyUI 生图并自动导入。').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['xs'])
     types=ttk.Frame(form);types.pack(fill='x',padx=SPACING['lg'],pady=SPACING['sm']);checks={}
@@ -240,11 +240,12 @@ def show(app,engine="comfy",selected_ids=None):
         open_target('https://www.midjourney.com/create')
         status.set('Midjourney 为手动制作入口；生成后使用“导入资产图片”导入，当前不提供官方公开 API。')
     SecondaryButton(chooser,text='Midjourney（手动）',command=open_midjourney).pack(side='left',padx=SPACING['xs'])
-    config=ttk.LabelFrame(form,text='ComfyUI 连接与本地工作流',padding=SPACING['sm']);config.pack(fill='x',padx=SPACING['lg'],pady=SPACING['sm']);config.columnconfigure(1,weight=1)
+    config=Card(form,padding=SPACING['sm']);config.pack(fill='x',padx=SPACING['lg'],pady=SPACING['sm']);config.columnconfigure(1,weight=1)
+    ttk.Label(config,text='ComfyUI 连接与本地工作流').grid(row=0,column=0,columnspan=2,sticky='w',pady=(0,SPACING['xs']))
     values={key:tk.StringVar(value=value) for key,value in defaults.items()}
     def work_options():
         return controller.options({key:value.get() for key,value in values.items()}, current_model(project), aspect.get(), quality.get())
-    for i,(key,label) in enumerate([('url','本机地址'),('model','基础模型'),('workflow','API 工作流（可选）'),('node','提示词节点编号'),('field','提示词字段')]):
+    for i,(key,label) in enumerate([('url','本机地址'),('model','基础模型'),('workflow','API 工作流（可选）'),('node','提示词节点编号'),('field','提示词字段')], start=1):
         ttk.Label(config,text=label).grid(row=i,column=0,sticky='w',padx=SPACING['xs'],pady=SPACING['xs'])
         field=SelectBox(config,textvariable=values[key], state='normal') if key=='model' else LineInput(config,textvariable=values[key])
         field.grid(row=i,column=1,sticky='ew',padx=SPACING['xs'])

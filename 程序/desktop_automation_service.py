@@ -92,6 +92,10 @@ class DesktopAutomationScheduler:
                 self._schedule(name)
 
 
+# 迟到结果登记的条数上限（取消说明的三态记录同样有界）。
+LATE_RESULT_LIMIT = 8
+
+
 class BackgroundTaskLifecycle:
     """桌面单一主动后台任务的代次、取消与收尾判定。
 
@@ -101,11 +105,20 @@ class BackgroundTaskLifecycle:
 
     def __init__(self):
         self._active_ticket = None
+        self._seen = []
+        self._facts = None
+        self._cancel = None
+        self._late = []
         self._last = None
 
-    def submit(self, ticket):
+    def submit(self, ticket, *, remote_task_id=None, costly=False):
+        """登记当前代次；有成本或远端任务同时记下可查询编号，供取消时说明。"""
         self.cancel()
         self._active_ticket = ticket
+        self._facts = {'remote_task_id': (str(remote_task_id) if remote_task_id else None),
+                       'costly': bool(costly)}
+        self._seen.append(ticket)
+        del self._seen[:-LATE_RESULT_LIMIT]
         self._last = {'ticket': ticket, 'state': 'running'}
         return ticket
 
@@ -114,18 +127,76 @@ class BackgroundTaskLifecycle:
 
     def finish(self, ticket, *, succeeded):
         if not self.accepts(ticket):
+            # 迟到的结果既不进界面，也不被静默丢弃：留一条可查询的隔离登记。
+            self._record_late(ticket, succeeded)
             return False
         self._active_ticket = None
+        self._facts = None
         self._last = {'ticket': ticket, 'state': 'succeeded' if succeeded else 'failed'}
         return True
 
-    def cancel(self, ticket=None):
+    def cancel(self, ticket=None, *, costly=False, remote_task_id=None,
+               remote_cancel_requested=False, remote_cancel_confirmed=False):
+        """取消只代表本机停止等待；远端是否已停、是否计费须由调用方核对后再声明。"""
         if self._active_ticket is None or (ticket is not None and ticket != self._active_ticket):
             return False
         cancelled = self._active_ticket
+        facts = self._facts or {}
+        remote = str(remote_task_id) if remote_task_id else facts.get('remote_task_id')
+        costs = bool(costly or facts.get('costly') or remote)
         self._active_ticket = None
+        self._facts = None
         self._last = {'ticket': cancelled, 'state': 'cancelled'}
+        if costs or remote_cancel_requested or remote_cancel_confirmed:
+            self._cancel = {'ticket': cancelled, 'remote_task_id': remote, 'costly': costs,
+                            'remote_cancel_requested': bool(remote_cancel_requested),
+                            'remote_cancel_confirmed': bool(remote_cancel_confirmed)}
         return True
+
+    def cancellation_status(self, ticket=None):
+        """把取消说成可核对的事实，而不是一句「已取消」。
+
+        返回本机状态、远端三态（confirmed 已确认／pending 已请求未确认／
+        not-requested 未请求／unknown 未知）、可查询编号，以及给界面直接用的说明
+        文字；没有成本或远端信息时返回 None（普通任务保持旧的取消语义）。
+        """
+        record = self._cancel
+        if record is None or (ticket is not None and ticket != record['ticket']):
+            return None
+        if record['remote_cancel_confirmed']:
+            remote = 'confirmed'
+        elif record['remote_cancel_requested']:
+            remote = 'pending'
+        elif record['remote_task_id']:
+            remote = 'not-requested'
+        else:
+            remote = 'unknown'
+        parts = ['本机已停止等待这一批结果。']
+        if remote == 'confirmed':
+            parts.append('远端取消已确认。')
+        elif remote == 'pending':
+            parts.append('已请求远端取消，尚未收到远端确认；远端仍可能继续执行。')
+        elif remote == 'not-requested':
+            parts.append('未向远端发出取消请求；远端仍可能继续执行。')
+        else:
+            parts.append('未登记远端任务编号，无法确认远端状态；远端仍可能继续执行。')
+        if record['costly'] and remote != 'confirmed':
+            parts.append('远端确认前不能当作未计费，最终用量以远端账单为准。')
+        ids = ['本机批次 ' + str(record['ticket'])]
+        if record['remote_task_id']:
+            ids.append('远端任务 ' + str(record['remote_task_id']))
+        parts.append('可查询编号：' + '、'.join(ids) + '。')
+        return dict(record, local='stopped', remote=remote, text=''.join(parts))
+
+    def late_results(self):
+        """被拒绝的迟到结果登记；既不进界面，也不被静默丢弃。"""
+        return [dict(item) for item in self._late]
 
     def snapshot(self):
         return dict(self._last) if self._last is not None else None
+
+    def _record_late(self, ticket, succeeded):
+        if ticket not in self._seen:
+            return
+        self._late.append({'ticket': ticket, 'succeeded': bool(succeeded)})
+        del self._late[:-LATE_RESULT_LIMIT]

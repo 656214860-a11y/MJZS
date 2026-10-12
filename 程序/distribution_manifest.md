@@ -15,6 +15,8 @@
 | `程序/app.py`、`程序/desktop.py` 及其生产 Python 模块 | 主界面与业务实现。 |
 | `程序/assets/`、`程序/skills/`、`程序/workflows/`、`程序/data/` | 内置资源、SKILL、流程和内置数据。 |
 | `程序/配置/` 与程序随附说明 | 默认配置和面向用户的资料。 |
+| `程序/*.py`（生产 Python 模块）、`程序/agent/**`、`程序/说明/**`、`程序/附加工具/**`、`程序/batch_frames_tool/**` | 主界面之外的生产模块、随附说明与独立批处理小工具。 |
+| `使用说明.md`、`使用说明.txt`、`漫剧制作助手.ico`、`漫剧制作助手_图标_629c80fc.ico` | 面向用户的说明与程序图标。 |
 
 ## 必须排除
 
@@ -29,8 +31,12 @@
 | `程序/.selftmp/**`、`.selftmp/**` | 临时产物 | 可再生的自检或维护临时文件。 |
 | `程序/**/__pycache__/**`、`程序/**/*.pyc` | 字节码缓存 | 可由解释器重新生成。 |
 | `程序/**/.git/**` | 源控制元数据 | 不属于运行时。 |
-| `程序/logs/**/*.log`、`启动错误.log` | 历史运行日志 | 正式副本不携带既有日志；运行期仍按现有行为创建日志。 |
+| `程序/logs/**`、`启动错误.log`、`程序/.*.out` | 历史运行日志与自检输出 | 正式副本不携带既有日志；运行期仍按现有行为创建日志。 |
 | `程序/private/**` | 本机私有数据 | 不得随分发副本携带私有配置或密钥副本。 |
+| `.agent-handoff/**`、`.claude/**`、`.codex/**`、`outputs/**` | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
+| `.wt/**`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`AGENT_HANDOFF.md`、`AGENT_SESSION_PROMPTS.md`、`CLAUDE.md`、`GLOSSARY.md`、`reorganize_install.py` | 开发/代理资料 | 不是运行时内容。 |
+| `程序/.*.err`、`程序/.*.out`、`程序/.*.log`、`维护记录/**` | 自检与维护产物 | 可再生成的诊断输出。 |
+| `程序/outputs/**`、`程序/工作流任务/**`、`程序/episode/**`、`程序/tasks/**`、`程序/_supervisor/**` | 本地运行产物 | 可再生产物，不随分发副本携带。 |
 | `升级备份/**` | 本机维护产物 | 不属于正式运行所需内容。 |
 
 ## 运行期维护与分发的区别
@@ -40,3 +46,15 @@
 ## 后续构建器约束
 
 未来的构建器必须先根据本清单生成候选文件集并报告命中项，再复制到新的输出目录；不得对开发目录执行原地删除、移动或重命名。构建校验应确认“必须保留”入口存在，并确认“必须排除”模式在输出中为零项。
+
+## 可复验构建器
+
+`程序/scripts/distribution_build.py` 按本清单工作，只读源目录、只往新的输出目录写：
+
+    python.exe -B scripts\distribution_build.py --plan
+    python.exe -B scripts\distribution_build.py --build --destination <新目录>
+    python.exe -B scripts\distribution_build.py --verify --destination <新目录>
+
+- `--plan` 生成候选文件集并报告三类命中：清单要保留的、清单要排除的、以及清单没提、需要人工决定的（避免悄悄漏文件）。
+- `--build` 拒绝把输出写到开发目录内部、拒绝覆盖非空目录、拒绝在还有未决定文件时静默继续；输出里写 `分发清单.json`（版本＋逐文件 sha256）。
+- `--verify` 校验输出里没有排除项、必需入口齐全、摘要自洽，并确认 `程序/skills/00全流程SKILL/jingju-skills` 整包仍在（安装验收的隔离要求）。

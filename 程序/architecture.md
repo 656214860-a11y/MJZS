@@ -247,18 +247,19 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 
 | 序号  | ID                 | 阶段    | 核心产物                                             |
 | ---:| ------------------ | ----- | ------------------------------------------------ |
-| 00  | `script`           | 剧本准备  | 剧本/设定、五类 manifest、离线编剧任务书成果包。                    |
-| 01  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；当前 MD 目录为 `02剧本结构/docs/`，具体读写目标由 `script_contract` 解析。 |
-| 02  | `storyboard`       | 初步分镜  | `storyboard_draft.json`。                         |
-| 03  | `assets`           | 资产管理  | `assets.json`、正典板、锚点。                            |
-| 04  | `continuity`       | 连贯性清单 | `continuity_ledger.json`、检查清单。                   |
-| 05  | `final`            | 分镜定稿  | 采用分镜、提示词、批次 ID。                                  |
-| 06  | `keyframe`         | 首帧管理  | 非空首帧、`keyframe_manifest.json`。                   |
-| 07  | `previs`           | 白模预演  | 可播放预演、`previs_manifest.json`。                    |
-| 08  | `video`            | 视频生成  | 视频任务/片段、`video_manifest.json`。                   |
-| 09  | `audio`            | 配音与字幕 | 音轨、字幕、`audio_manifest.json`。                     |
-| 10  | `edit`             | 后期剪辑  | 预览/成片、`edit_manifest.json`。                      |
-| 11  | `delivery`         | 质检与交付 | 报告、交付包、`delivery_manifest.json`。                 |
+| 01  | `script`           | 剧本准备  | 剧本/设定、五类 manifest、离线编剧任务书成果包。                    |
+| 02  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；当前 MD 目录为 `02剧本结构/docs/`，具体读写目标由 `script_contract` 解析。 |
+| 03  | `storyboard`       | 初步分镜  | `storyboard_draft.json`。                         |
+| 04  | `animatic`         | 分镜预演  | 参考图与分镜提示词生成的预演草图、Animatic、`animatic_manifest.json`。 |
+| 05  | `assets`           | 资产管理  | `assets.json`、正典板、锚点。                            |
+| 06  | `continuity`       | 连贯性清单 | `continuity_ledger.json`、检查清单。                   |
+| 07  | `final`            | 分镜定稿  | 采用分镜、提示词、批次 ID。                                  |
+| 08  | `keyframe`         | 首帧管理  | 非空首帧、`keyframe_manifest.json`。                   |
+| 09  | `previs`           | 白模预演  | 可播放预演、`previs_manifest.json`。                    |
+| 10  | `video`            | 视频生成  | 视频任务/片段、`video_manifest.json`。                   |
+| 11  | `audio`            | 配音与字幕 | 音轨、字幕、`audio_manifest.json`。                     |
+| 12  | `edit`             | 后期剪辑  | 预览/成片、`edit_manifest.json`。                      |
+| 13  | `delivery`         | 质检与交付 | 报告、交付包、`delivery_manifest.json`。                 |
 
 三虎逐步发布 `stage.started/completed/failed/retrying/executing/paused` 等事件，记录检查点，支持恢复；手动模式仅在模板标记确认的步骤等待用户，全自动模式不等待但逐步播报。门禁为资产/锚点 → SG01 → 连贯性 → SG02 → 定稿 → SG03 → 首帧 → SG04 → 预演 → SG05 → 视频。
 
@@ -271,6 +272,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | script           | 无     | 1    | 否    | 2 次，阻塞。   |
 | script_structure | 无     | 1    | 否    | 2 次，阻塞。   |
 | storyboard       | scene | 3    | 是    | 2 次，阻塞。   |
+| animatic         | batch | 3    | 是    | 2 次，转人工。  |
 | assets           | asset | 5    | 是    | 2 次，阻塞。   |
 | continuity       | 无     | 1    | 否    | 2 次，阻塞。   |
 | final            | 无     | 1    | 否    | 2 次，阻塞。   |
@@ -322,6 +324,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 剧本准备  | 创意、剧本阶段输入、接续                | 创意简报、台词润色、情绪曲线                                                  | Markdown、JSON     |
 | 剧本结构  | 权威服务解析的剧本原稿、创意简报 | 结构剧本（角色/场景/道具/分场内容）；当前 MD 位于编号阶段 docs/，旧 writing/ 只读兼容；既有提取 SKILL 可另产出 manifest、世界观 | Markdown、JSON     |
 | 初步分镜  | 已确认剧本                        | 场次、分镜初稿                                                         | JSON              |
+| 分镜预演  | 分镜初稿、共享参考图、临时声音 | 预演草图、Animatic、`animatic_manifest.json` | 视频、JSON |
 | 资产管理  | 分镜、资产需求、参考图                  | 资产表、正典板、锚点                                                      | JSON、图片           |
 | 连贯性清单 | 分镜、资产、锚点                     | 台账、冲突/修复清单                                                      | JSON              |
 | 分镜定稿  | 初稿、资产、台账                     | 采用分镜、提示词、批次                                                     | JSON、Markdown     |

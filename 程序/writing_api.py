@@ -17,6 +17,8 @@ from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
 import writing_tools
 from writing_quality import enabled as quality_enabled
+from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
+                                     context_budget_report, text_fingerprint)
 
 
 def selected_model(project):
@@ -77,7 +79,7 @@ MAX_REPEATED_READ_REQUESTS = 4
 CHAT_HISTORY_CHAR_LIMIT = 12000
 # 远端模型的输入上限并不等同于本地聊天记录的保存上限。超过此值时明确拒绝，
 # 避免推理字段挤占正文后被误报成“模型没有返回内容”。
-DIRECT_REQUEST_CONTEXT_MAX_CHARS = 96000
+DIRECT_REQUEST_CONTEXT_MAX_CHARS = REQUEST_CONTEXT_MAX_CHARS
 # 防止普通短对话通过通用 API 回复时覆盖已有完整剧本原稿。
 SCRIPT_RAW_AUTO_SAVE_MIN_CHARS = 800
 EMPTY_RESPONSE_LOG = Path(__file__).resolve().parent / 'logs' / 'claude_empty_response.log'
@@ -182,15 +184,23 @@ def _request_context_size(system, messages):
     return total
 
 
+def _messages_text(messages):
+    """把实际发送的消息体拼成一份可计数文本（不改变内容）。"""
+    return ''.join(json.dumps(message, ensure_ascii=False, default=str) for message in (messages or ()))
+
+
 def _context_budget_error(chosen, system, messages):
+    """字符硬保护：超限直接拒发，并说明主要占用与可拆分方向。"""
     size = _request_context_size(system, messages)
     if size <= DIRECT_REQUEST_CONTEXT_MAX_CHARS:
         return None
+    report = context_budget_report(
+        budget_sections(system=system, history=_messages_text(messages)), stage='剧本对话')
     return {
         'ok': False, 'status': 0, 'model': chosen, 'text': '', 'usage': {},
         'reason': 'context_budget_exceeded',
-        'error': ('本次剧本对话上下文过长（%d 字符，当前上限 %d）；请缩短创意、规则或最近对话后重试。'
-                  % (size, DIRECT_REQUEST_CONTEXT_MAX_CHARS)),
+        'error': ('本次剧本对话上下文过长（%d 字符，当前上限 %d）；请缩短创意、规则或最近对话后重试。%s'
+                  % (size, DIRECT_REQUEST_CONTEXT_MAX_CHARS, budget_advice(report))),
     }
 
 
@@ -207,24 +217,36 @@ class WritingRequestAdapter(ModelAdapter):
 
     def _call(self, method, messages, options=None, model='', system='', **kwargs):
         import model_pool
-        def estimate(text):
-            text = str(text or '')
-            ascii_count = sum(ord(char) < 128 for char in text)
-            return (ascii_count + 2) // 3 + (len(text) - ascii_count) * 2
         options = options or {}
         limit = model_pool.context_length_of(self.record.get('context_length')) or None
         reserved = max(0, int(options.get('max_tokens') or 0))
-        rules = estimate(system) + estimate(json.dumps(options.get('tools') or [], ensure_ascii=False))
-        body = sum(estimate(json.dumps(message, ensure_ascii=False)) + 12 for message in messages)
-        margin = max(512, int(limit * .05)) if limit else 0
-        self.context_budget = {'estimated': True, 'rules_tokens': rules, 'messages_tokens': body,
-                               'input_tokens': rules + body, 'context_limit': limit,
-                               'output_reserved': reserved, 'safety_margin': margin}
+        sections = budget_sections(
+            system=system,
+            tools=json.dumps(options.get('tools'), ensure_ascii=False) if options.get('tools') else '',
+            history=_messages_text(messages))
+        report = context_budget_report(sections, context_limit=limit, output_reserved=reserved,
+                                       stage='剧本对话')
+        self.context_budget = {
+            'estimated': True,
+            'rules_tokens': report['sections'].get('system', 0) + report['sections'].get('tools', 0),
+            'messages_tokens': report['sections'].get('history', 0),
+            'input_tokens': report['input_tokens'],
+            'context_limit': limit,
+            'output_reserved': reserved,
+            'safety_margin': report['safety_margin'],
+            'projected_tokens': report['projected_tokens'],
+            'sections': report['sections'],
+            'dominant': report['dominant'],
+            'char_limit': report['char_limit'],
+            'fingerprint': text_fingerprint(str(system or '') + _messages_text(messages)),
+        }
         rejected = _context_budget_error(model or self.chosen, system, messages)
-        if not rejected and limit and rules + body + reserved + margin > limit:
+        if not rejected and report['exceeded']:
             rejected = {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
                         'reason': 'context_budget_exceeded',
-                        'error': f'估算输入 {rules + body} token，加输出预留 {reserved} 和余量 {margin} 超过模型上下文 {limit}；请压缩历史或缩短输入。'}
+                        'error': (f'估算输入 {report["input_tokens"]:,} token，加输出预留 {reserved:,}'
+                                  f' 和余量 {report["safety_margin"]:,} 超过模型上下文 {limit:,}；'
+                                  '请压缩历史或缩短输入。' + budget_advice(report))}
         if rejected:
             return dict(rejected, context_budget=dict(self.context_budget), request_usage=dict(self.request_usage))
         result = getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
@@ -299,6 +321,38 @@ def _write_script_raw(project, text, *, publish=None):
     return target
 
 
+def _episode_baseline_text(project):
+    """阶段④的当前剧本正文；读取问题一律退化为空串，绝不阻断生成。"""
+    try:
+        from script_contract import script_episode_baseline
+        return script_episode_baseline(project)
+    except (OSError, ValueError, TypeError):
+        return ''
+
+
+def _episode_reference_hint(project):
+    """阶段④参考改动：只贴变化的集正文，未变化的集只给集号，不重复正文。"""
+    try:
+        from script_contract import (episode_reference_block, read_episode_ledger,
+                                     script_episode_baseline)
+        baseline = script_episode_baseline(project)
+        if not baseline.strip():
+            return ''
+        block = episode_reference_block(baseline, read_episode_ledger(project))
+        return '\n\n' + block if block else ''
+    except (OSError, ValueError, TypeError):
+        return ''
+
+
+def _record_episode_ledger(project, text, previous_text=''):
+    """调用后更新分集增量账本；账本问题绝不阻断剧本交付。"""
+    try:
+        from script_contract import record_episode_ledger
+        return record_episode_ledger(project, text, previous_text=previous_text)
+    except (OSError, ValueError, TypeError):
+        return None
+
+
 def _auto_save_script_raw(project, result, *, publish=None, model='', identity=None, quality_required=False):
     """关闭四角色模式时，合格且足够长的 API 正文仍经唯一写入点发布原稿。"""
     if not isinstance(result, dict) or not result.get('ok'):
@@ -318,11 +372,13 @@ def _auto_save_script_raw(project, result, *, publish=None, model='', identity=N
         unchanged = target.is_file() and target.read_text(encoding='utf-8').strip() == text
     except OSError:
         unchanged = False
+    baseline = _episode_baseline_text(project)
     if not unchanged:
         target = _write_script_raw(project, text, publish=publish)
     saved = dict(result)
     saved.update(script_raw_path=str(target), hollmwood_enabled=False, quality_required=quality_required)
-    return _save_formal_script(project, saved, model=model, identity=identity, publish=publish)
+    return _save_formal_script(project, saved, model=model, identity=identity, publish=publish,
+                               previous_script=baseline)
 
 
 def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, cancelled=None, stream=None,
@@ -363,7 +419,10 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
         # 角色请求失败是可恢复的模型结果，不应穿透异步边界变成通用“操作未完成”弹窗。
         failed = {'ok': False, 'status': 0, 'model': chosen, 'text': '', 'usage': {}, 'error': str(exc),
                 'context_budget': dict(adapter.context_budget), 'request_usage': dict(adapter.request_usage),
-                'hollmwood_review_failed_role': exc.review_failed_role}
+                'hollmwood_review_failed_role': exc.review_failed_role,
+                'hollmwood_review_audit': {'basis': dict(getattr(exc, 'review_basis', None) or {}),
+                                           'scope': hollmwood_roles.REVIEW_SCOPE,
+                                           'records': list(getattr(exc, 'review_records', None) or [])}}
         if exc.response_text:
             from writing_quality import split_response, publish_reports
             from stage_path_service import write_dir
@@ -382,12 +441,15 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
     if callable(cancelled) and cancelled():
         raise hollmwood_roles.RoleCancelledError('HOLLMWOOD 调用已取消')
     publish = _cancellable_publisher(publish, cancelled)
+    baseline = _episode_baseline_text(project)
     target = _write_script_raw(project, outputs['script'], publish=publish)
     return _save_formal_script(project, {'ok': True, 'status': 200, 'model': chosen, 'text': outputs['script'],
             'usage': {}, 'context_budget': dict(adapter.context_budget), 'request_usage': dict(adapter.request_usage),
             'script_raw_path': str(target), 'hollmwood_enabled': True,
+            'hollmwood_review_audit': outputs.get('review_audit') or {},
             'quality_required': quality_enabled(
-                workflow_settings.skill_prompt(settings, inline=True))}, identity=identity, publish=publish)
+                workflow_settings.skill_prompt(settings, inline=True))}, identity=identity, publish=publish,
+            previous_script=baseline)
 
 
 def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish=None, cancelled=None):
@@ -623,6 +685,109 @@ def preparation_file_labels(project):
     return labels
 
 
+PREPARATION_REPLY_STATES = ('已采用', '阶段稿待确认', '原始响应已保存', '因版本变化未采用')
+
+
+def preparation_reply_state(result):
+    """一次剧本回复的唯一状态判据：气泡、状态栏与剧本列表共用。
+
+    只说明这一次回复落在哪里、下一步做什么，不代表正式采用；未采用的回复把
+    file 指向 responses/ 归档，而不是正式剧本目录。
+    """
+    if not isinstance(result, dict):
+        return {'state': '', 'file': '', 'reason': '', 'next_step': ''}
+    state = str(result.get('preparation_status') or '')
+    if state not in PREPARATION_REPLY_STATES:
+        if result.get('natural_script_path'):
+            state = '已采用'
+        elif result.get('preparation_path'):
+            state = '阶段稿待确认'
+        elif result.get('response_path'):
+            state = '原始响应已保存'
+        else:
+            state = ''
+    reason = str(result.get('preparation_reject') or '')
+    if state == '已采用':
+        return {'state': state, 'file': str(result.get('natural_script_path') or ''), 'reason': reason,
+                'next_step': '这是已发布的正式剧本文件；如需定为本集当前采用稿，请在剧本列表中确认采用。'}
+    if state == '阶段稿待确认':
+        return {'state': state, 'file': str(result.get('preparation_path') or ''), 'reason': reason,
+                'next_step': '这是待确认的阶段工作稿，尚未正式采用；审阅后回复“确认”推进下一阶段，需要修改请直接说明。'}
+    if state == '原始响应已保存':
+        return {'state': state, 'file': str(result.get('response_path') or ''), 'reason': reason,
+                'next_step': '本次回复只作为未采用归档保存，不会自动采用；请修正后重新发送本阶段。'}
+    if state == '因版本变化未采用':
+        return {'state': state, 'file': str(result.get('response_path') or ''), 'reason': reason,
+                'next_step': '阶段文件或模型已变化，本次结果原样未采用；请按当前版本重新发送。'}
+    return {'state': '', 'file': '', 'reason': reason, 'next_step': ''}
+
+
+def preparation_reply_message(result):
+    """把状态、落点与下一步合成一句可显示的话；无明确状态时返回空串。"""
+    info = preparation_reply_state(result)
+    state = info['state']
+    if not state:
+        return ''
+    if state == '已采用':
+        return '已采用为正式剧本：' + info['file'] + '；' + info['next_step']
+    if state == '阶段稿待确认':
+        stage = str(result.get('preparation_stage') or '阶段稿')
+        return stage + '已保存（待确认，尚未正式采用）：' + info['file'] + '；' + info['next_step']
+    if state == '原始响应已保存':
+        detail = '（' + info['reason'] + '）' if info['reason'] else ''
+        return ('原始响应已保存为未采用归档' + detail + '：' + info['file']
+                + '；该文件在 responses/ 归档目录，不等于正式采用。' + info['next_step'])
+    return ('本次结果因版本变化未采用；原始响应归档于 ' + info['file']
+            + '（不等于正式采用）。' + info['next_step'])
+
+
+def chat_session_overview(project, model=None):
+    """说明创意对话涉及的四个维度：会话模型与调用方式、本次请求身份、上下文来源
+    与项目共享成果。只读：不切换会话、不复制权威稿、也不改变任何采用状态。"""
+    import idea_chat
+    from stage_path_service import write_dir
+    chosen = selected_model(project)[0] if model is None else model
+    engine = model_pool.desktop_engine(chosen)
+    invocation = ('桌面 Agent（' + engine + '）') if engine else ('API 直连' if chosen else '未选择模型')
+    provider_dir, model_dir = idea_chat.storage_identity(chosen) if chosen else ('', '')
+    folder = write_dir(project, 'script')
+    target = folder / 'preparation_state.json'
+    state = read_json(target) if target.is_file() else {}
+    confirmed = len([doc for doc in state.get('documents', [])
+                     if isinstance(doc, dict) and doc.get('confirmed') is True])
+    from script_contract import natural_script_selection_path
+    selection = natural_script_selection_path(project)
+    adopted = read_json(selection) if selection.is_file() else {}
+    if adopted.get('path'):
+        adopted_label = '已采用自然剧本'
+    elif adopted.get('reason'):
+        adopted_label = '自然剧本待重新采用'
+    else:
+        adopted_label = '尚未采用自然剧本'
+    return {
+        'model': str(getattr(chosen, 'model_id', '') or chosen or '未选择模型'),
+        'invocation': invocation,
+        'request_identity': (provider_dir + '／' + model_dir) if model_dir else '未确定',
+        'context': '本模型的对话记录（按模型隔离）＋ 项目共享成果',
+        'shared_confirmed_documents': confirmed,
+        'adopted_script': adopted_label,
+        'notes': (
+            '对话记录（含 token 用量估算）按模型分开：切换模型只换本模型的会话，不串入其他模型的历史，也不改变项目成果。',
+            '已确认阶段文件与自然剧本采用是项目共享成果：切模型既不隐藏，也不复制成第二套权威稿。',
+            '清屏只压缩当前模型的对话上下文；要彻底重开，用「删除全部信息」把本模型对话移入回收站，项目成果保留。',
+        ),
+    }
+
+
+def chat_session_summary(project, model=None):
+    """一行说明当前会话模型/调用方式、请求身份、上下文来源与采用状态。"""
+    info = chat_session_overview(project, model=model)
+    return ('当前会话：' + info['model'] + '（' + info['invocation'] + '）；请求身份：'
+            + info['request_identity'] + '；上下文：' + info['context']
+            + '（已确认阶段文件 ' + str(info['shared_confirmed_documents']) + ' 份）；'
+            + info['adopted_script'] + '。切换模型只换对话记录，不隐藏也不复制项目成果。')
+
+
 def _preparation_state(project, brief):
     """简报不是阶段完成凭据；确认必须绑定实际落盘的那一版正文。"""
     from copy import deepcopy
@@ -801,14 +966,19 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     except OSError as exc:
         return dict(result, ok=False, response_text=str(result.get('text') or ''),
                     error='正文保存失败，未采用：' + str(exc)), None
-    saved = '；正文已保存：' + result['response_path'] if result.get('response_path') else ''
+    saved = ('；原始响应已保存（responses/ 归档，不等于正式采用）：' + result['response_path']
+             if result.get('response_path') else '')
     try:
         _ensure_reply_active(cancelled)
     except RuntimeError as exc:
         raise type(exc)(str(exc) + saved) from exc
     _record_model_diagnostic(project, result, purpose='preparation')
     if not result.get('ok'):
-        return dict(result, error=str(result.get('error') or '模型调用失败') + saved), None
+        failed = dict(result, error=str(result.get('error') or '模型调用失败') + saved)
+        if result.get('response_path'):
+            failed['preparation_status'] = '原始响应已保存'
+            failed['preparation_reject'] = '模型调用未成功'
+        return failed, None
     meta = result.get('response_meta') or {}
     data = result.get('data') or {}
     choices = data.get('choices') or [{}]
@@ -824,7 +994,13 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
             selected, text = candidate, document_text
             break
     if finish in ('length', 'max_tokens') or (selected is None and not natural):
-        return dict(result, ok=False, text='', error=stage + '输出未完成或阶段格式不符，未采用、未进入下一阶段' + saved), None
+        rejected = dict(result, ok=False, text='',
+                        error=stage + '输出未完成或阶段格式不符，未采用、未进入下一阶段' + saved)
+        if result.get('response_path'):
+            rejected['preparation_status'] = '原始响应已保存'
+            rejected['preparation_reject'] = (
+                '截断' if finish in ('length', 'max_tokens') else '格式不合格')
+        return rejected, None
     advancing = natural or selected > index
     def save_decision():
         if advancing and 'revision' in state:
@@ -843,7 +1019,11 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
         return None, dict(zip(PREPARATION_STAGES, texts))
     body = text.split('\n', 1)[1].removesuffix('待确认').strip()
     if not body:
-        return dict(result, ok=False, text='', error=stage + '正文为空，未采用' + saved), None
+        rejected = dict(result, ok=False, text='', error=stage + '正文为空，未采用' + saved)
+        if result.get('response_path'):
+            rejected['preparation_status'] = '原始响应已保存'
+            rejected['preparation_reject'] = '正文为空'
+        return rejected, None
     if advancing:
         documents[-1]['confirmed'] = True
     index, stage = selected, PREPARATION_STAGES[selected]
@@ -859,12 +1039,14 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
                 lambda _target: save_decision())
     except (ValueError, OSError, RuntimeError) as exc:
         failure = type(exc)(str(exc) + saved)
-        failure.rejected_response = dict(result, ok=False, text='', error=str(failure))
+        failure.rejected_response = dict(result, ok=False, text='', error=str(failure),
+                                         preparation_status='因版本变化未采用')
         raise failure from exc
-    return dict(result, text=text, preparation_stage=stage, preparation_path=str(path)), None
+    return dict(result, text=text, preparation_stage=stage, preparation_path=str(path),
+                preparation_status='阶段稿待确认'), None
 
 
-def reply(project, creative, progress=None, cancelled=None, stream=None, *, publish=None, user_message=None, request_model=None):
+def reply(project, creative, progress=None, cancelled=None, stream=None, *, publish=None, archive=None, user_message=None, request_model=None):
     """以剧本工作流的上下文、SKILL 和用户创意请求一次 API 回复。"""
     _ensure_reply_active(cancelled)
     root = Path(project)
@@ -900,7 +1082,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
         # 已完成的结构化简报仍是四角色协作的主契约；本轮聊天输入（含桌面端
         # 已受控读取的文本附档）作为补充材料一并交给各角色，不能在这里丢掉。
         complete_brief = dict(brief)
-        supplement = str(creative or '').strip()
+        supplement = str(creative or '').strip() + _episode_reference_hint(root)
         if supplement:
             complete_brief['本轮补充素材'] = supplement
         return _hollmwood_reply(root, chosen, record, settings, complete_brief,
@@ -918,6 +1100,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     if brief is not None:
         task += '\n\n<brief_complete>\n' + json.dumps(brief, ensure_ascii=False, indent=2) + '\n</brief_complete>'
         task += '\n程序已核验设定、大纲、角色卡逐项确认；本次仅执行阶段④自然剧本，沿用上述已确认阶段文件。'
+        task += _episode_reference_hint(root)
     history = _recent_chat_history(idea_transcript.load(
         project_context(root), model=request_model['label'], gateway=idea_chat_gateway()))
     if history:
@@ -930,7 +1113,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
                    '本轮成果只能写入当前项目的 writing/。资产清单属于后续资产阶段，本阶段不读取、不写入、也不报告其为空。'
                    '仅当同一文件操作连续重复且没有新进展时才暂停。')
         result = _reply_with_project_tools(adapter, chosen, system, task, root, publish=publish, cancelled=cancelled)
-        _ensure_reply_active(cancelled)
+        _archive_then_require_active(root, result, archive, cancelled)
         return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled), quality_required=quality_enabled(system)) if auto_save_enabled else result
     messages = [{'role': 'user', 'content': task}]
     rejected = _context_budget_error(chosen, system, messages)
@@ -942,7 +1125,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
         'deepseek-v4-flash', 'deepseek-v4-pro') else 4096
     result = adapter.chat(messages, options={'max_tokens': tokens},
                           model=chosen, system=system)
-    _ensure_reply_active(cancelled)
+    _archive_then_require_active(root, result, archive, cancelled)
     _record_model_diagnostic(root, result)
     return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled), quality_required=quality_enabled(system)) if auto_save_enabled else result
 
@@ -974,6 +1157,35 @@ def _versioned_publisher(project, publish):
     return guarded
 
 
+def _archive_returned_response(project, result, archive):
+    """把已返回的可见正文交给注入的归档通道；无通道或空正文时不建档。
+
+    归档是尽力而为：写盘失败不阻断本轮正文交付，也不改变采用状态。
+    """
+    if not callable(archive):
+        return ''
+    text = str((result or {}).get('text') or '')
+    if not text.strip():
+        return ''
+    try:
+        return str(archive(project, text) or '')
+    except OSError:
+        return ''
+
+
+def _archive_note(path):
+    return '' if not path else '；原始响应已保存（responses/ 归档，不等于正式采用）：' + str(path)
+
+
+def _archive_then_require_active(project, result, archive, cancelled):
+    """先给已返回的正文留档，再检查取消；取消时把归档位置附在错误里，不静默丢弃。"""
+    saved = _archive_returned_response(project, result, archive)
+    try:
+        _ensure_reply_active(cancelled)
+    except RuntimeError as exc:
+        raise type(exc)(str(exc) + _archive_note(saved)) from exc
+    return saved
+
 def _ensure_reply_active(cancelled):
     if callable(cancelled) and cancelled():
         from hollmwood_roles import RoleCancelledError
@@ -990,7 +1202,7 @@ def _cancellable_publisher(publish, cancelled):
     return guarded
 
 
-def _save_formal_script(project, result, *, model='', identity=None, publish):
+def _save_formal_script(project, result, *, model='', identity=None, publish, previous_script=None):
     """已获准发布的自然剧本复用下载路径、同稿去重和异稿编号规则。"""
     import idea_document_paths
     from project_context_factory import project_context
@@ -998,11 +1210,13 @@ def _save_formal_script(project, result, *, model='', identity=None, publish):
     from writing_quality import split_response, publish_reports, OPEN
     response = result['text']
     text = require_natural_script(split_response(response)[0]).strip()
+    baseline = _episode_baseline_text(project) if previous_script is None else previous_script
     provider, label = identity or idea_document_paths.storage_identity(model or result.get('model', ''))
     target = idea_document_paths.reply_document_path(project_context(project), text,
                                           provider=provider, model=label, file_type='自然剧本')
     if not target.is_file() or target.read_text(encoding='utf-8').strip() != text:
         publish(target, text + '\n', lambda value: bool(require_natural_script(value)), lambda _target: None)
+    _record_episode_ledger(project, text, baseline)
     saved = dict(result, text=text, natural_script_path=str(target))
     if result.get('quality_required') or OPEN in response:
         from stage_path_service import write_dir

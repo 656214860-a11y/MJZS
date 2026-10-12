@@ -23,7 +23,8 @@ FORBIDDEN_CALLS_BY_MODULE = {
 ALLOWED_ADAPTER_IMPORTS = {
     'desktop': {
         'platform_tools': frozenset({'launch_windows_app', 'open_path', 'open_target',
-                                     'tcp_listener', 'terminate_process_tree'}),
+                                     'tcp_listener', 'terminate_process_tree',
+                                     'find_editor_shortcut', 'open_directory'}),
         'native_apps': frozenset({'open_blender', 'force_close_comfy', 'open_comfy'}),
     },
     'storyboard_files': {'platform_tools': frozenset({'open_path'})},

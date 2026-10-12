@@ -1,5 +1,5 @@
 """Conservative project cleanup; run only after the UI has closed."""
-import os, shutil, subprocess, sys, time
+import os, shutil, subprocess, sys, time, uuid
 from pathlib import Path
 from agent.core import save
 from file_cache import recycled, read_json
@@ -17,6 +17,36 @@ def downloads_root():
     return Path("D:/漫剧下载") / "项目"
 AGE_SECONDS=7*24*3600
 PENDING={'queued','running','succeeded','unknown','submitting'}
+MANIFEST_NAME='恢复位置.json'
+BATCH_PREFIX='自动维护_'
+# O38：回收批次要「写前计划 → 逐项状态 → 最终提交」，中断后还能恢复或撤回。
+# 批次状态：planned（写前清单已落盘，尚未搬完）／committed（全部搬完，可恢复）／
+# rolled_back（整批撤回，原文件已回原位）。逐项状态：planned／moved／failed／undone。
+BATCH_PLANNED='planned'
+BATCH_COMMITTED='committed'
+BATCH_ROLLED_BACK='rolled_back'
+ITEM_PLANNED='planned'
+ITEM_MOVED='moved'
+ITEM_FAILED='failed'
+ITEM_UNDONE='undone'
+# O39：清理老视频前先查成果引用图，只清真正无引用的旧版。
+# 成片来源清单的文件名权威在 engine（L3）；L1 不能向上导入，故在此复名并由架构测试锁死一致。
+EXPORT_MANIFEST_NAMES=('edit_bundle.json','edit_manifest.json')
+# 已定局状态：只有这三种旧版本才可以进入回收候选；其余（含空）一律按「未结算」留住。
+SETTLED_STATES=frozenset(('downloaded','failed','rejected'))
+RETAIN_UNSETTLED='unsettled'
+RETAIN_LOCKED='locked'
+RETAIN_EDIT_SOURCE='edit_source'
+RETAIN_APPROVED='approved'
+RETAIN_LATEST='latest'
+RETAIN_FRESH='fresh'
+RETAIN_REASONS={RETAIN_UNSETTLED:'任务未结算，等结果取回或查询',
+                RETAIN_LOCKED:'用户锁定该版本',
+                RETAIN_EDIT_SOURCE:'已进入已发布成片的来源清单',
+                RETAIN_APPROVED:'已验收通过的采用版本',
+                RETAIN_LATEST:'该镜头最新版本',
+                RETAIN_FRESH:'未到保留期（不足 7 天）'}
+VERSION_CLEAN_REASON='超过保留期，且未被采用、未进成片来源、未锁定、任务已定局'
 
 def launch_cleanup(app_root=None):
     program=Path(app_root or PROGRAM)
@@ -71,12 +101,26 @@ def read_recycle_batch(root, batch):
         'batch': batch,
         'created_at': str(data.get('created_at', '')) if isinstance(data, dict) else '',
         'reason': str(data.get('reason', '')) if isinstance(data, dict) else '',
+        'state': str(data.get('state', '')) if isinstance(data, dict) else '',
         'items': items,
     }
 
 
-def _recycle(path, root, batch):
-    """把受控项目内文件移动到回收站，返回恢复记录而非永久删除。"""
+def batch_name(now=None):
+    """批次目录名：秒级时间给人看，UUID 后缀保证同一秒并发也各成一个独立批次。"""
+    stamp=time.strftime('%Y%m%d_%H%M%S',time.localtime(now if now is not None else time.time()))
+    return BATCH_PREFIX+stamp+'_'+uuid.uuid4().hex[:8]
+
+
+def _write_batch_manifest(batch, state, records, reason, created_at):
+    """把批次清单原子落盘（agent.core.save）：写前计划与逐项状态都靠它保命。"""
+    save(Path(batch)/MANIFEST_NAME,
+         {'created_at':str(created_at or ''),'reason':str(reason),'state':state,
+          'items':[dict(record) for record in records]})
+
+
+def plan_recycle(path, root, batch):
+    """写前计划：只算这一项该去哪，不移动文件；越界／链接／不存在／目标已占一律返回 None。"""
     path=Path(path)
     root=Path(root)
     if path.is_symlink() or path.is_junction() or not _within(path,root):return None
@@ -84,29 +128,77 @@ def _recycle(path, root, batch):
     relative=path.resolve().relative_to(root.resolve())
     target=Path(batch) / relative
     if target.exists():return None
+    return {'source':relative.as_posix(),'recycle_path':target.relative_to(root).as_posix(),
+            'status':ITEM_PLANNED,'error':''}
+
+
+def move_planned(record, root, batch):
+    """按计划把这一项移进回收站；成功把状态改成 moved，失败原样抛出给调用方。"""
+    root=Path(root)
+    source=root/str(record['source'])
+    target=root/str(record['recycle_path'])
     target.parent.mkdir(parents=True,exist_ok=True)
-    shutil.move(str(path),str(target))
-    return {'source':relative.as_posix(),'recycle_path':target.relative_to(root).as_posix()}
+    shutil.move(str(source),str(target))
+    record['status']=ITEM_MOVED
+    record['error']=''
+    return record
+
+
+def _undo_moves(records, root):
+    """把本批已进回收站（status=moved，或中断时仍记 planned）的项移回原位置。
+
+    以“文件是否真的在回收站里”为准：被占用、已不在的跳过，绝不覆盖用户新文件；
+    planned 也纳入，是因为进程可能在“移完再更新清单”之间中断，此时文件已在回收站。
+    """
+    root=Path(root)
+    restored=[]
+    for record in reversed(list(records)):
+        if not isinstance(record,dict) or record.get('status') not in (ITEM_MOVED,ITEM_PLANNED):continue
+        source=root/str(record.get('recycle_path') or '')
+        target=root/str(record.get('source') or '')
+        if not (source.is_file() or source.is_dir()) or target.exists():continue
+        try:
+            target.parent.mkdir(parents=True,exist_ok=True)
+            source.rename(target)
+        except OSError:
+            continue
+        record['status']=ITEM_UNDONE
+        restored.append(target)
+    return restored
 
 
 def recycle_paths(root, paths, reason, now=None):
-    """供用户可见的删除入口复用的受控回收接口。"""
+    """供用户可见的删除入口复用的受控回收接口。
+
+    O38：先把写前计划（UUID 批次、逐项状态 state=planned）原子落盘，再逐项移动并随时更新
+    清单，全部搬完才写 state=committed。任一项移动失败就撤回本批已移动项、写明失败原因后
+    再抛出原异常；进程中断时清单已带逐项状态（恢复按文件是否真的在回收站里判断），可经
+    restore_recycle_batch 恢复已搬走的项，或经 rollback_recycle_batch 撤回整批。
+    始终只移动、不永久删除。
+    """
     root=Path(root).resolve(); now=now or time.time()
-    batch=_recycle_base(root)/('自动维护_'+time.strftime('%Y%m%d_%H%M%S',time.localtime(now)))
-    records=[]
-    for path in paths:
-        record=_recycle(path,root,batch)
-        if record is not None:records.append(record)
-    if records:
-        manifest=batch/'恢复位置.json'
-        try:previous=read_json(manifest) if manifest.is_file() else {}
-        except (OSError,ValueError):previous={}
-        previous['created_at']=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now))
-        previous['reason']=str(reason)
-        previous['items']=[*previous.get('items',[]),*records]
-        save(manifest,previous)
-        recycled((root / record['source'], root / record['recycle_path']) for record in records)
-    return records
+    batch=_recycle_base(root)/batch_name(now)
+    created_at=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now))
+    records=[record for record in (plan_recycle(path,root,batch) for path in paths) if record is not None]
+    if not records:return []
+    batch.mkdir(parents=True,exist_ok=True)
+    _write_batch_manifest(batch,BATCH_PLANNED,records,reason,created_at)     # 写前计划先落盘
+    moved=[]
+    try:
+        for record in records:
+            move_planned(record,root,batch)
+            _write_batch_manifest(batch,BATCH_PLANNED,records,reason,created_at)  # 逐项状态
+            moved.append(record)
+    except OSError as exc:
+        record['status']=ITEM_FAILED
+        record['error']=type(exc).__name__+'：'+str(exc)
+        _undo_moves(records,root)
+        _write_batch_manifest(batch,BATCH_ROLLED_BACK,records,reason,created_at)
+        recycled((root/str(item['source']),root/str(item['recycle_path'])) for item in records)
+        raise
+    _write_batch_manifest(batch,BATCH_COMMITTED,records,reason,created_at)
+    recycled((root/record['source'],root/record['recycle_path']) for record in moved)
+    return moved
 
 
 def restore_recycle_batch(root, batch, sources=None):
@@ -139,6 +231,12 @@ def restore_recycle_batch(root, batch, sources=None):
         target_text = row.get('source', row.get('original'))
         if wanted is not None and str(target_text or '').replace('\\', '/') not in wanted:
             continue
+        if str(row.get('status') or ITEM_MOVED) in (ITEM_PLANNED, ITEM_FAILED):
+            # 写前计划里没搬成功的项（中断后状态未更新或明确 failed）：只要回收站里确实没有
+            # 这个文件，就不算可恢复内容，不能让一条没搬成的记录挡住同批其余项。
+            planned = root / str(source_text or '')
+            if '..' not in planned.parts and not (planned.is_file() or planned.is_dir()):
+                continue
         source = _restore_location(root, source_text)
         target = _restore_location(root, target_text)
         if (not source.is_relative_to(batch) or not target.is_relative_to(root)
@@ -171,6 +269,38 @@ def restore_recycle_batch(root, batch, sources=None):
     return [target for _source, target in moves]
 
 
+def rollback_recycle_batch(root, batch):
+    """撤回一个中断／未提交的回收批次：把已移动项移回原位置。
+
+    只认写前记录过的批次（清单带 state）：state=committed 已提交，不能撤回请改用恢复；
+    原位置被占用或文件已不在的项如实跳过，不覆盖用户新文件；始终不永久删除任何内容。
+    """
+    root=Path(root).resolve()
+    batch=_restore_location(root,batch,'恢复批次不在当前项目回收站中')
+    base=_recycle_base(root).resolve()
+    if not batch.is_relative_to(base):
+        raise ValueError('恢复批次不在当前项目回收站中')
+    try:
+        data=read_json(batch/MANIFEST_NAME)
+    except (OSError,ValueError) as exc:
+        raise ValueError('恢复清单无法读取：'+str(exc)) from exc
+    if not isinstance(data,dict):
+        raise ValueError('恢复清单格式无效')
+    state=str(data.get('state') or '')
+    if not state:
+        raise ValueError('这批没有写前记录，不能撤回；请用恢复')
+    if state==BATCH_COMMITTED:
+        raise ValueError('已提交的回收批次不能撤回，请用恢复')
+    rows=data.get('items')
+    if not isinstance(rows,list) or not rows:
+        raise ValueError('恢复清单为空')
+    restored=_undo_moves(rows,root)
+    _write_batch_manifest(batch,BATCH_ROLLED_BACK,rows,data.get('reason'),data.get('created_at'))
+    recycled((root/str(row.get('source') or ''),root/str(row.get('recycle_path') or ''))
+             for row in rows if isinstance(row,dict))
+    return restored
+
+
 def restore_latest_recycled_path(root, path):
     """仅恢复 ``path`` 最近一次回收记录，不连带恢复同批其他用户文件。"""
     root = Path(root).resolve()
@@ -187,6 +317,8 @@ def restore_latest_recycled_path(root, path):
             data = read_json(manifest)
         except (OSError, ValueError):
             continue
+        if isinstance(data, dict) and str(data.get('state') or '') == BATCH_ROLLED_BACK:
+            continue                                   # 已撤回的批次不是可恢复内容
         rows = data.get('items', data.get('files', [])) if isinstance(data, dict) else []
         if any(isinstance(row, dict) and str(row.get('source', row.get('original', ''))).replace('\\', '/') == relative for row in rows):
             return restore_recycle_batch(root, batch, sources=(relative,))
@@ -208,6 +340,8 @@ def restore_latest_recycled_child(root, parent, stem, suffixes):
                 data = read_json(manifest)
             except (OSError, ValueError):
                 continue
+            if isinstance(data, dict) and str(data.get('state') or '') == BATCH_ROLLED_BACK:
+                continue                               # 已撤回的批次不是可恢复内容
             rows = data.get('items', data.get('files', [])) if isinstance(data, dict) else []
             for row in rows:
                 if not isinstance(row, dict):
@@ -336,17 +470,83 @@ def clear_generated_workflow_state(project_root, state_path, filename):
     except OSError:
         return False
 
+def edit_source_versions(root):
+    """已发布成片（剪辑／交付）清单里被引用的视频版本。
+
+    只读 ``13质检交付/导出成片`` 下的成片清单（``edit_bundle.json``，老成片退回
+    ``edit_manifest.json``）：成片来源的权威仍归 engine 的剪辑清单，这里只为「删前先查引用」
+    读出被引用的 ``(镜头, 版本)`` 与 ``(镜头, sha256)``，不重写、不删除任何成片记录。
+    """
+    root=Path(root)
+    pairs=set();digests=set()
+    try:
+        from project_stages import exports
+        parent=exports(root)
+    except (OSError,ValueError):
+        return pairs,digests
+    if not parent.is_dir():return pairs,digests
+    for name in EXPORT_MANIFEST_NAMES:
+        for manifest in parent.rglob(name):
+            try:data=read_json(manifest)
+            except (OSError,ValueError):continue
+            rows=data.get('manifest') if isinstance(data,dict) else data
+            if not isinstance(rows,list):continue
+            for row in rows:
+                if not isinstance(row,dict):continue
+                shot=str(row.get('shot') or '')
+                if not shot:continue
+                try:pairs.add((shot,int(row.get('version'))))
+                except (TypeError,ValueError):pass
+                digest=str(row.get('sha256') or '')
+                if digest:digests.add((shot,digest))
+    return pairs,digests
+
+
+def version_retention(version, shot, newest, referenced, digests, now):
+    """这一版该留还是可回收：返回保留原因，可以回收时返回空串。
+
+    保留口径（任一成立即留，给出原因）：任务未结算（含未知状态）／用户锁定／已进已发布成片
+    来源（按 ``(镜头, 版本)`` 或 ``(镜头, sha256)`` 命中）／已验收通过（含无人值守自动放行，
+    旧版被采用也必须留住）／该镜头最新版本／不足保留期。全部不成立才可回收。
+    """
+    state=str((version or {}).get('state') or '')
+    if state in PENDING or state not in SETTLED_STATES:return RETAIN_UNSETTLED
+    if (version or {}).get('locked'):return RETAIN_LOCKED
+    digest=str((version or {}).get('sha256') or '')
+    if (str(shot),(version or {}).get('version')) in referenced:return RETAIN_EDIT_SOURCE
+    if digest and (str(shot),digest) in digests:return RETAIN_EDIT_SOURCE
+    if (version or {}).get('review')=='pass':return RETAIN_APPROVED
+    if (version or {}).get('version')==newest:return RETAIN_LATEST
+    try:
+        created=float((version or {}).get('created'))
+    except (TypeError,ValueError):
+        return RETAIN_FRESH
+    return RETAIN_FRESH if now-created<AGE_SECONDS else ''
+
+
 def clean_project(root,now=None):
     root=Path(root).resolve();now=now or time.time();removed=[];records=[]
     if root.parent!=downloads_root().resolve() or not (root/'config.json').is_file():return removed
-    stamp=time.strftime('%Y%m%d_%H%M%S',time.localtime(now))
     recycle_base=_recycle_base(root)
-    batch=recycle_base/('自动维护_'+stamp)
+    batch=recycle_base/batch_name(now)
+    created_at=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now))
 
     def recycle(path):
-        record=_recycle(path,root,batch)
+        record=plan_recycle(path,root,batch)
         if record is None:return False
-        records.append(record);removed.append(Path(record['source']));return True
+        records.append(record)
+        batch.mkdir(parents=True,exist_ok=True)
+        _write_batch_manifest(batch,BATCH_PLANNED,records,'自动维护',created_at)   # 写前计划先落盘
+        try:
+            move_planned(record,root,batch)
+        except OSError as exc:
+            # 单项移动失败如实记 failed 与原因后再抛出，其余项交给调用方继续清理。
+            record['status']=ITEM_FAILED
+            record['error']=type(exc).__name__+'：'+str(exc)
+            _write_batch_manifest(batch,BATCH_PLANNED,records,'自动维护',created_at)
+            raise
+        _write_batch_manifest(batch,BATCH_PLANNED,records,'自动维护',created_at)   # 逐项状态
+        removed.append(Path(record['source']));return True
 
     # Closing the assistant clears every explicitly named history directory.
     # Active creative folders, current storyboards and final outputs are untouched.
@@ -358,24 +558,30 @@ def clean_project(root,now=None):
         except OSError:
             # An occupied history must not prevent cleanup of the other folders.
             continue
-    # Completed generation versions: retain newest per shot and all unfinished jobs.
-    for ledger in list(root.glob('**/data/state.json'))+list(root.glob('**/06_本地生成/state.json')):
-        if not _within(ledger,root):continue
+    # Completed generation versions: retain newest per shot, all unfinished jobs, every adopted
+    # version and everything a published cut still references (O39：删前先查成果引用图)。
+    referenced,digests=edit_source_versions(root)
+    ledgers=list(root.glob('**/data/state.json'))+list(root.glob('**/06_本地生成/state.json'))
+    for ledger in ledgers:
+        # 回收区里的旧台账不是生产目录：既不能再按它清理，也不能碰回收站里的东西。
+        if not _within(ledger,root) or _within(ledger,recycle_base):continue
         try:state=read_json(ledger)
         except (OSError,ValueError):continue
         dirty=False
         for shot_id,versions in state.get('shots',{}).items():
             if not isinstance(versions,list) or len(versions)<2:continue
-            newest=max(v.get('version',0) for v in versions)
+            newest=max((v.get('version',0) for v in versions if isinstance(v,dict)),default=0)
             for version in versions:
-                if version.get('version')==newest or version.get('state') in PENDING or version.get('cleaned_at'):continue
-                if now-float(version.get('created',now))<AGE_SECONDS:continue
+                if not isinstance(version,dict) or version.get('cleaned_at'):continue
+                if version_retention(version,shot_id,newest,referenced,digests,now):continue
+                number=version.get('version')
+                if not isinstance(number,int):continue
                 if version.get('output_dir'):
                     folder=(ledger.parent.parent/version['output_dir']).resolve()
                 else:
-                    folder=ledger.parent/shot_id/f"v{version['version']:03}"
+                    folder=ledger.parent/shot_id/f"v{number:03}"
                 if folder.is_dir() and recycle(folder):
-                    version.update(cleaned_at=now,file=None,qc_pass=False);dirty=True
+                    version.update(cleaned_at=now,file=None,qc_pass=False,cleaned_reason=VERSION_CLEAN_REASON);dirty=True
         if dirty:
             save(ledger,state)                  # 原子写只有 agent.core.save 一份
     # Empty accidental folders only. Keep the named workflow stages visible.
@@ -386,8 +592,7 @@ def clean_project(root,now=None):
                     if not any(folder.iterdir()):folder.rmdir();removed.append(folder)
                 except OSError:pass
     if records:
-        save(batch/'恢复位置.json',{'created_at':time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now)),
-                                  'reason':'自动维护','items':records})
+        _write_batch_manifest(batch,BATCH_COMMITTED,records,'自动维护',created_at)
     return removed
 
 def main():

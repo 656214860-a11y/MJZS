@@ -1317,7 +1317,7 @@
     },
     {
       "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_final_storyboard_hint_points_to_step04",
+      "test": "UiEdgeTests.test_final_storyboard_hint_points_to_step07",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -1916,6 +1916,15 @@
       "kind": "平台限制",
       "reason_constant": "PLATFORM_DIRECTORY_LINK",
       "reason": "当前环境不支持目录链接；支持目录链接时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_keyframe_batch_plan.py",
+      "test": "DialogPlanTests.test_the_window_shows_the_batch_intent_and_plan_preview",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
       "reference": ""
     }
   ]

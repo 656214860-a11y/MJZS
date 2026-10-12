@@ -301,5 +301,88 @@ class RolesTests(unittest.TestCase):
         self.assertEqual(len(adapter.systems), 1, '取消后不再启动后续角色')
 
 
+class ReviewTraceabilityTests(unittest.TestCase):
+    """O16：审核结论要能追到冻结输入，返工只针对明确问题。"""
+
+    PASS_ANSWERS = ('节奏计划', '编剧稿', 'APPROVED 编剧通过', '编辑稿',
+                    'APPROVED 编辑通过', '演员稿', 'APPROVED 演员通过')
+
+    def test_same_frozen_inputs_share_one_review_basis(self):
+        snapshots = []
+        for _ in range(2):
+            with tempfile.TemporaryDirectory() as folder:
+                adapter = FakeAdapter(self.PASS_ANSWERS)
+                result = roles.run(adapter, 'test-model', {'单集时间': '90秒', '确认事实': '简报标记'},
+                                   rhythm_template='全局节奏标记', log_folder=folder,
+                                   skill_instructions='SKILL 标记', output_contract='契约标记',
+                                   publish_log=save_text)
+                snapshots.append(result.data['review_audit']['basis'])
+        self.assertEqual(snapshots[0], snapshots[1])
+        self.assertEqual(set(snapshots[0]), {'brief_sha256', 'skill_sha256',
+                                             'rhythm_sha256', 'review_system_sha256'})
+        self.assertTrue(all(len(value) == 64 for value in snapshots[0].values()))
+
+    def test_review_records_keep_rule_compliance_apart_from_creative_signoff(self):
+        answers = ('节奏计划', '编剧稿',
+                   'REVISE: 第3场动机断裂，违反人物连贯规则；补一句过渡；通过条件：动机可解释',
+                   '编剧修订稿', 'APPROVED 规则合格', '编辑稿', 'APPROVED 编辑通过',
+                   '演员稿', 'APPROVED 演员通过')
+        with tempfile.TemporaryDirectory() as folder:
+            adapter = FakeAdapter(answers)
+            result = roles.run(adapter, 'test-model', '创意', rhythm_template='节奏',
+                               log_folder=folder, publish_log=save_text)
+        audit = result.data['review_audit']
+        self.assertEqual(audit['scope'], roles.REVIEW_SCOPE)
+        self.assertEqual([record['role'] for record in audit['records']],
+                         ['writer', 'writer', 'editor', 'actor'])
+        writer_records = [record for record in audit['records'] if record['role'] == 'writer']
+        self.assertEqual([record['verdict'] for record in writer_records], ['revise', 'approved'])
+        self.assertEqual([record['rule_compliant'] for record in writer_records], [False, True])
+        self.assertEqual([record['attempt'] for record in writer_records], [0, 1])
+        self.assertTrue(all(record['creative_signoff'] == 'pending_user_confirmation'
+                            for record in audit['records']))
+        self.assertIn('通过条件', writer_records[0]['review_text'])
+
+    def test_revision_only_targets_listed_issues_without_reinjecting_rhythm(self):
+        answers = ('节奏计划', '编剧稿', 'REVISE: 第2场节奏拖沓', '编剧修订稿', 'APPROVED 规则合格',
+                   '编辑稿', 'APPROVED 编辑通过', '演员稿', 'APPROVED 演员通过')
+        with tempfile.TemporaryDirectory() as folder:
+            adapter = FakeAdapter(answers)
+            roles.run(adapter, 'test-model', '创意', rhythm_template='全局节奏标记',
+                      log_folder=folder, publish_log=save_text)
+        revision_index = 3
+        self.assertIn('只修改', adapter.prompts[revision_index])
+        self.assertIn('<director_review>\nREVISE: 第2场节奏拖沓', adapter.prompts[revision_index])
+        self.assertNotIn('全局节奏标记', adapter.prompts[revision_index])
+        self.assertEqual(adapter.systems[revision_index].count('全局节奏标记'), 1)
+
+    def test_rejected_review_carries_basis_and_records(self):
+        answers = ('节奏计划', '编剧稿', 'REVISE: 缺钩子', '重写稿', 'REVISE: 仍缺钩子')
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaises(roles.RoleExecutionError) as caught:
+                roles.run(FakeAdapter(answers), 'test-model', '创意', rhythm_template='节奏',
+                          log_folder=folder, max_revisions=1, publish_log=save_text)
+        error = caught.exception
+        self.assertEqual(error.review_failed_role, 'writer')
+        self.assertEqual(set(error.review_basis),
+                         {'brief_sha256', 'skill_sha256', 'rhythm_sha256', 'review_system_sha256'})
+        self.assertEqual([record['verdict'] for record in error.review_records], ['revise', 'revise'])
+        self.assertIn('仍缺钩子', error.review_records[-1]['review_text'])
+
+    def test_resumed_prefix_is_recorded_as_previously_approved(self):
+        with tempfile.TemporaryDirectory() as folder:
+            options = dict(model='test-model', brief_complete='创意', log_folder=folder,
+                           publish_log=save_text, resume_identity='config')
+            with self.assertRaises(roles.RoleExecutionError):
+                roles.run(FakeAdapter(['节奏计划', '编剧稿', 'APPROVED', '编辑稿',
+                                       'REVISE: 动机', '编辑修订', 'REVISE: 仍不连贯']), **options)
+            adapter = FakeAdapter(['编辑修订稿', 'APPROVED', '演员稿', 'APPROVED'])
+            result = roles.run(adapter, **options)
+        records = result.data['review_audit']['records']
+        self.assertEqual([(record['role'], record['verdict'], record['resumed']) for record in records],
+                         [('writer', 'approved', True), ('editor', 'approved', False),
+                          ('actor', 'approved', False)])
+
+
 if __name__ == '__main__':
     unittest.main()
