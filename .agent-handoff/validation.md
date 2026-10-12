@@ -1,3 +1,9 @@
+## 2026-10-12 R1381 弹窗门禁递归化
+
+- 类型：修复轮（§3.2）。`tests/architecture/test_dialog_boundary.py`：扫描 `ROOT.glob` → `ROOT.rglob`，排除 `{tests,tasks_round,维护记录,.git,__pycache__}`，保留 `TOPLEVEL_OWNERS`；谓词加名字式识别；+1 canary。
+- 结果：该文件 6/6；定向 `-k "dialog prompt_window qwen tts_settings cloud_assets"` 24/24、0 文件红；默认冒烟 8/8；架构 `--architecture` 326/326（原 325），0 红。
+- 全生产模块（含子目录）裸 `Toplevel` = 0（仅 `ui_widgets.py` 除外）；未跑全量（1<5 且未命中 §5），无欠账。
+
 ## 2026-10-12 UI 统一入口覆盖轮完成（R1376—R1380）
 
 - R1376 忙碌态／R1377 文案与复制／R1378-R1379 卡片容器／R1380 文字层级；各轮定向＋默认冒烟 8/8、0 红；架构 315→320→321→323→325。
