@@ -35,7 +35,7 @@
 
 ## 提交
 - 内容：`37ed5bc`（新门禁测试＋`AGENTS.md` §5 清单）。
-- 报告／状态／接力：见后续补记。
+- 报告／状态／接力：`bcf1d21`（本报告＋`project_status.md`＋`.agent-handoff/` 5 文件：backlog／risks／snapshot／validation／work-log）。
 
 ## 复盘：路线图 v1 §三
 - 7 项全部收口（第 4 项本轮收口）。无新增缺口。
