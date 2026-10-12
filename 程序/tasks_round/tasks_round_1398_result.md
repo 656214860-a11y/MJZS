@@ -9,13 +9,13 @@
 用户改过阶段文件正文后，原确认记录（路径/SHA256）即失效，对话路径会以
 「文件已删除或修改，原确认失效」拒发。新增显式入口把**磁盘上的当前文件**登记为该阶段的确认输出：
 
-- L2 writing_api.confirm_preparation_document(project, stage, path, *, publish)：按当前正文重算 SHA256，写 working 集合（有 evision 时写 evision.documents），不改文件本体；返回本次失效的下游阶段元组。
+- L2 writing_api.confirm_preparation_document(project, stage, path, *, publish)：按当前正文重算 SHA256，写 working 集合（有 evision 时写 evision.documents），不改文件本体；返回本次失效的下游阶段元组。
 - L3 stage_execution_service.confirm_writing_preparation(project, stage, path)：注入 publish_stage_text，桌面不直接写确认台账。
 - L4 desktop.script_menu：项目设定／剧本大纲／角色卡三列右键新增「作为确认输出文件」（项目剧本列不适用），执行前二次确认并说明会清除其后确认记录。
 
 ## 边界与不变量
 
-- 不执行 estart_preparation 语义之外的替换：只登记选中文件，不删除、不移动任何文件。
+- 不执行 estart_preparation 语义之外的替换：只登记选中文件，不删除、不移动任何文件。
 - 不跳阶段：前置阶段未确认时拒绝登记（与既有「不能跳阶段」一致）。
 - 只接受剧本准备目录内的非空文件（路径权威：stage_path_service.write_dir）。
 - 架构统一基数第四项 3 处 point 随行号位移重钉为 1050／1081／1097。

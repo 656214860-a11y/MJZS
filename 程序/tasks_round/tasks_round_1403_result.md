@@ -40,3 +40,16 @@
 - 合并提交 75a148d 的 `程序/project_status.md` 误删了 master 侧 26 条 O 系列记录（R1357…R1312，含 R1338／R1339／R1340）；本轮按「以 master 版本为底、只加分支新增、不删 master 记录」重建：相对合并前 master `e1cfbdb` 仅 1 行差异（轮次头 1403→1404），相对 75a148d 纯新增 52 行。提交 `c7cdd96`。
 - 本次实测：默认冒烟 **8/8**；定向 `smoke_test.py --affected idea_chat writing_api stage_execution_service desktop workflow` **8 项 7 绿 1 红**，唯一红为既有环境红 `test_stage_model_selects_the_matching_desktop_agent`（期望「Claude Code」，本机配置为「Claude Desktop」，干净 master 同配置复现，非本轮引入）；架构门禁 `smoke_test.py --architecture` **341/341**（164.1 秒）。
 - 全量：本轮改 `tests/architecture/_layers.py`，按 §5 需当次 `run_selftests.py --all --safe`。此前两次后台全量（01:43／01:54）**未写入** common-dir `full-safe-receipts.json`（最新绿凭据仍为 R1400／tree `60d4e23d`），故 **R1403 全量仍未验证**，待补。
+
+## 合入后修复（同轮 R1403 追加提交）
+
+第一轮全量（干净 master `o07-fullsafe-master`，5006 条、526.7 秒）2 个文件有红，均为本次合入内容带入，已就地最小修复：
+
+- `tests/test_line_endings.py`：新增的 `tasks_round/tasks_round_1398_result.md` 有 3 处落单 CR（`restore`／`revision`／`restart` 前的反斜杠被写成了回车），已改为纯 LF，与同目录其他结果文件一致。
+- `tests/test_core.py::test_stage_model_sync_failure_is_visible_without_blocking_open`：`desktop.py::_tick_stage_model_sync_result` 把「项目模型同步未完成：…」泛化成「系统内部错误，已记录日志」。该处不是模型调用失败（`skill_panel.sync_models` 抛 OSError，生产者只会给 `kind='bug'`），任务书的 kind 映射不适用；恢复 master 的具体文案，同时保留原始 error 写日志。
+
+复验：定向 `--affected core line_endings` 9/9、0 红；架构门禁 341/341。断言未动。
+
+## 合并内容丢失修复
+
+`程序/project_status.md` 在合并时丢了 master 的 52 行正文（R1345—R1357 长条目：`e1cfbdb` 有、合并结果 `75a148d` 无）。已按 master 原文逐字恢复（恢复后 1772 行＝master 行数），与本轮轮次头改动相容。

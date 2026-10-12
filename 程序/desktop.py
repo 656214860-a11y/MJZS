@@ -3978,10 +3978,8 @@ class Desktop:
         except queue.Empty:return
         if generation!=self._stage_model_sync_generation or target!=self.root:return
         if isinstance(result,dict) and result.get('error'):
-            text, log_only = model_error_display(result)
-            if log_only:
-                LOGGER.warning('项目模型同步失败（kind=%s）：%s', result.get('kind') or 'missing', result['error'])
-            self.status.set(text)
+            LOGGER.warning('项目模型同步失败：%s', result['error'])
+            self.status.set('项目模型同步未完成：%s；请稍后重试。' % result['error'])
             return
         if result:self.status.set('已同步项目模型：'+'、'.join(result))
     def import_generated_assets(self):
