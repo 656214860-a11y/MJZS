@@ -49,7 +49,7 @@
 
 ## 提交
 - 内容提交：**`4cb02d3`**（26 files，仅本轮路径，未混入主树他人已暂存 WIP）。
-- 报告与状态／接力：另一次提交（hash 见后续补记）。
+- 报告与状态／接力：**`580d043`**（7 files：本结果文件＋`project_status.md`＋`.agent-handoff/` snapshot／backlog／risks／work-log／validation）。
 
 ## 复盘：路线图 §二 第 15 项「阶段显示」
 - 完成判据原文「任何阶段名称展示均从权威表取值」。本轮做到：**所有此前漂移的用户可见展示位点改为由 `pet_bus.stage_label`／`stage_step` 现算**；**全生产模块写死的「NN 阶段名」编号受门禁约束必须等于权威步号**。

@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1386 当前实测：`pet_bus.stage_label` 新入口＋阶段编号漂移纠正；定向 1275/1275、0 文件红、305.5 秒；默认冒烟 8/8；架构 `smoke_test.py --architecture` 329/329（326→329，+3 门禁）。路线图条目收口（§5）触发全量：干净 master 工作树 `o07-fullsafe-master`（`git reset --hard master`→`4cb02d3`）跑 `run_selftests.py --all --safe` **4971/4971、0 红、534.1 秒**（凭据 round=1382、tree=`d9aee73c…`＝内容提交 `4cb02d3:程序`；同一内容树不重跑第二次）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 均无阈值抖动。提交内容 `4cb02d3`。详见 [R1386](tasks_round/tasks_round_1386_result.md)。
+R1386 当前实测：`pet_bus.stage_label` 新入口＋阶段编号漂移纠正；定向 1275/1275、0 文件红、305.5 秒；默认冒烟 8/8；架构 `smoke_test.py --architecture` 329/329（326→329，+3 门禁）。路线图条目收口（§5）触发全量：干净 master 工作树 `o07-fullsafe-master`（`git reset --hard master`→`4cb02d3`）跑 `run_selftests.py --all --safe` **4971/4971、0 红、534.1 秒**（凭据 round=1382、tree=`d9aee73c…`＝内容提交 `4cb02d3:程序`；同一内容树不重跑第二次）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 均无阈值抖动。提交内容 `4cb02d3`；报告／状态／接力 `580d043`。详见 [R1386](tasks_round/tasks_round_1386_result.md)。
 
 R1381 实测：`tests/architecture/test_dialog_boundary` 6/6（含新 canary）、定向 `-k "dialog prompt_window qwen tts_settings cloud_assets"` 24/24、默认冒烟 8/8、架构 `smoke_test.py --architecture` 326/326（原 325，+1）0 红。本轮只改架构门禁与文档、不改生产代码；1381−1380=1<5 且未命中 §5 升级条件（无启动路径／Tk 控件生命周期／删除语义／层级登记表改动），不跑全量；R1380 全量 4967/4967 为历史凭据（tree 不同不复用）。提交 `3ced47d`。详见 [R1381](tasks_round/tasks_round_1381_result.md)。
 
