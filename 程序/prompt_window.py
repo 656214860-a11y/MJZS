@@ -11,6 +11,7 @@ import re
 
 from clipboard_lock import hold as hold_clipboard
 from ui_widgets import BaseDialog, PrimaryButton, TextArea, notify
+from ui_tokens import SPACING
 
 
 _SECRET_VALUE = re.compile(r"(?i)(\b(?:api[_-]?key|secret|token|password)\s*[=:]\s*)([^\s,;]+)|\bsk-[A-Za-z0-9_-]{8,}")
@@ -43,8 +44,8 @@ def show(parent,title,text,status=None,receipt='',empty_text='',empty_hint='',so
     """弹出只读提示词窗口：复制成功写剪贴板并关窗；没有提示词时保持打开且禁用复制。"""
     win=BaseDialog(parent,title,geometry=geometry,modal=False)
     content=win.content
-    if source:ttk.Label(content,text=source,wraplength=760).pack(anchor='w',padx=12,pady=(8,0))
-    box=TextArea(content,wrap="word",padx=12,pady=12)
+    if source:ttk.Label(content,text=source,wraplength=760).pack(anchor='w',padx=SPACING['md'],pady=(8,0))
+    box=TextArea(content,wrap="word",padx=SPACING['md'],pady=SPACING['md'])
     if scrollbar:
         bar=ttk.Scrollbar(content,orient="vertical",command=box.yview)
         box.configure(yscrollcommand=bar.set);bar.pack(side="right",fill="y")

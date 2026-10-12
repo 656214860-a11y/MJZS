@@ -29,6 +29,7 @@ from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, Card, DescriptionBlock, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
 import pet_bus
+from ui_tokens import COLORS, SPACING
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
 ZOOM_SIZE = 900                      # 点一下放大后的长边（不放大原图，只按原分辨率显示）
@@ -52,7 +53,7 @@ def _open_zoom(desktop, path, title=''):
             source.focus_set()
     win = BaseDialog(desktop.win, title or Path(path).name, modal=False, chrome=False,
                      on_close=restore_focus)
-    tk.Label(win, image=image).pack(padx=8, pady=8)
+    tk.Label(win, image=image).pack(padx=SPACING['sm'], pady=SPACING['sm'])
     win.image = image                        # 图元必须留引用，否则画面上只剩空框
     close = SecondaryButton(win, text='关闭', command=win.close)
     close.pack(pady=(0, 8))
@@ -313,7 +314,7 @@ def _header(desktop, aid, asset):
     ttk.Label(head, text='　' + ('已锁定' if locked else '未锁定'),
               foreground='#1a7f37' if locked else '#b54708').pack(side='left')
     SecondaryButton(head, text='解锁' if locked else '锁定',
-               command=lambda: desktop.safe(lambda: toggle_lock(desktop, aid))).pack(side='left', padx=8, pady=2)
+               command=lambda: desktop.safe(lambda: toggle_lock(desktop, aid))).pack(side='left', padx=SPACING['sm'], pady=2)
     return head
 
 
@@ -329,7 +330,7 @@ def _board_block(desktop, aid, asset):
     for index, cell in enumerate(cells(asset)):
         row, column = divmod(index, 4)
         holder = ttk.Frame(grid)
-        holder.grid(row=row, column=column, padx=4, pady=4, sticky='nw')
+        holder.grid(row=row, column=column, padx=SPACING['xs'], pady=SPACING['xs'], sticky='nw')
         ttk.Label(holder, text=cell['label'],
                   foreground='#1a7f37' if cell['ready'] else '#8a8a8a').pack(anchor='w')
         image = None
@@ -366,14 +367,14 @@ def _board_block(desktop, aid, asset):
         if cell['ready']:
             SecondaryButton(buttons, text='清除',
                        command=lambda view=cell['view']:
-                       desktop.safe(lambda: clear_view(desktop, aid, view))).pack(side='left', padx=4)
+                       desktop.safe(lambda: clear_view(desktop, aid, view))).pack(side='left', padx=SPACING['xs'])
     foot = ttk.Frame(box)
     foot.pack(fill='x', pady=(4, 0))
     PrimaryButton(foot, text='重新生成',
                command=lambda: desktop.safe(lambda: regenerate(desktop, aid))).pack(side='left')
     board = str(asset.get('canonical_board') or '').strip()
     note = '当前方案：' + board if board else '还没选定：点「重新生成」把 Agent 预筛的候选摆出来'
-    DescriptionBlock(foot, text=note).pack(side='left', padx=8)
+    DescriptionBlock(foot, text=note).pack(side='left', padx=SPACING['sm'])
     return box
 
 
@@ -467,13 +468,13 @@ def _variants_block(desktop, aid, asset):
                   justify='left').pack(side='left')
         SecondaryButton(line, text='缩略图',
                    command=lambda sid=item['state_id']:
-                   desktop.safe(lambda: _bind_variant_image(desktop, aid, sid))).pack(side='left', padx=4)
+                   desktop.safe(lambda: _bind_variant_image(desktop, aid, sid))).pack(side='left', padx=SPACING['xs'])
         SecondaryButton(line, text='编辑',
                    command=lambda sid=item['state_id']:
                    desktop.safe(lambda: edit_variant(desktop, aid, sid))).pack(side='left')
         SecondaryButton(line, text='删除',
                    command=lambda sid=item['state_id']:
-                   desktop.safe(lambda: delete_variant(desktop, aid, sid))).pack(side='left', padx=4)
+                   desktop.safe(lambda: delete_variant(desktop, aid, sid))).pack(side='left', padx=SPACING['xs'])
     SecondaryButton(body, text='新增状态变体',
                command=lambda: desktop.safe(lambda: add_variant(desktop, aid))).pack(anchor='w', pady=(6, 0))
     return box
@@ -517,7 +518,7 @@ def _raw_block(desktop, aid):
         text = json.dumps(row if row is not None else {}, ensure_ascii=False, indent=2)
     except (OSError, ValueError):
         text = '（读不出来）'
-    view = TextArea(body, wrap='none', height=12, bg='#ffffff', fg='#243247', padx=10, pady=10)
+    view = TextArea(body, wrap='none', height=12, bg=COLORS['background_card'], fg='#243247', padx=10, pady=10)
     view.insert('1.0', text)
     view.configure(state='disabled')
     view.pack(fill='both', expand=True)
@@ -534,9 +535,9 @@ def show(desktop, aid):
         # 状态栏会在页面重排时被覆盖；错误必须同时留在当前页面，用户和自动化测试
         # 都能看到这次打开失败的原因。
         desktop.note(message)
-        ttk.Label(desktop.content,text=message,style='Muted.TLabel',wraplength=640).pack(anchor='w',padx=8,pady=(8,4))
+        ttk.Label(desktop.content,text=message,style='Muted.TLabel',wraplength=640).pack(anchor='w',padx=SPACING['sm'],pady=(8,4))
         SecondaryButton(desktop.content, text='← 返回资产管理',
-                   command=lambda: desktop.safe(desktop.close_asset_detail)).pack(anchor='w',padx=8)
+                   command=lambda: desktop.safe(desktop.close_asset_detail)).pack(anchor='w',padx=SPACING['sm'])
         return None
     _header(desktop, aid, asset)
     note = ('这一页只摆这一项资产：正典板、锚点、参考职责与状态变体都在这里改；'

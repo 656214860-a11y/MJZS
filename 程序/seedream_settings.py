@@ -7,6 +7,7 @@ import tk_timers
 from ui_widgets import (SelectBox, Card, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
 from ui_widgets import BaseDialog
+from ui_tokens import SPACING
 
 
 def confirm_unsettled(parent,folder,values,what='镜头'):
@@ -28,7 +29,7 @@ def confirm_unsettled(parent,folder,values,what='镜头'):
 
 def show(parent,on_saved=None):
     win=BaseDialog(parent,'Seedream 5.0 Pro · 火山 API',geometry='760x420',minsize=(620,390),modal=False,chrome=False);win.withdraw()
-    body=Card(win);body.pack(fill='both',expand=True,padx=16,pady=16);body.columnconfigure(1,weight=1)
+    body=Card(win);body.pack(fill='both',expand=True,padx=SPACING['lg'],pady=SPACING['lg']);body.columnconfigure(1,weight=1)
     DescriptionBlock(body,text='使用您自己的火山方舟 API Key，费用计入火山账户，无需 Comfy 余额。',wraplength=690).grid(row=0,column=0,columnspan=3,sticky='w',pady=(0,12))
     values={key:tk.StringVar(value=value) for key,value in {'base_url':api.DEFAULT_URL,'model':'','api_key':''}.items()}
     current=['']
@@ -41,7 +42,7 @@ def show(parent,on_saved=None):
     for row,key,label in [(1,'base_url','API 根地址'),(2,'model','模型 ID'),(3,'api_key','火山 API Key')]:
         ttk.Label(body,text=label).grid(row=row,column=0,sticky='w',padx=(0,12))
         LineInput(body,textvariable=values[key],show='•' if key=='api_key' else '').grid(row=row,column=1,columnspan=2,sticky='ew',pady=6)
-    DescriptionBlock(body,text='模型 ID 填写火山控制台已开通的实际值，也支持推理接入点 ID。\n支持纯提示词或最多 10 张分类参考图；每项生成一张，批量顺序执行。',wraplength=690).grid(row=4,column=0,columnspan=3,sticky='w',pady=8)
+    DescriptionBlock(body,text='模型 ID 填写火山控制台已开通的实际值，也支持推理接入点 ID。\n支持纯提示词或最多 10 张分类参考图；每项生成一张，批量顺序执行。',wraplength=690).grid(row=4,column=0,columnspan=3,sticky='w',pady=SPACING['sm'])
     ttk.Label(body,text='已保存模型').grid(row=5,column=0,sticky='w')
     selected=tk.StringVar();choices={}
     dropdown=SelectBox(body,textvariable=selected);dropdown.grid(row=5,column=1,sticky='ew',pady=6)
@@ -55,7 +56,7 @@ def show(parent,on_saved=None):
         if selected.get() in choices:fill(choices[selected.get()])
     dropdown.bind('<<ComboboxSelected>>',choose);refresh()
     status=tk.StringVar(value='密钥加密保存到本机；保存配置不会发起付费生成。')
-    ProgressLabel(body,textvariable=status,wraplength=690).grid(row=6,column=0,columnspan=3,sticky='w',pady=8)
+    ProgressLabel(body,textvariable=status,wraplength=690).grid(row=6,column=0,columnspan=3,sticky='w',pady=SPACING['sm'])
     def remove():
         key=choices.get(selected.get())
         if not key:return
