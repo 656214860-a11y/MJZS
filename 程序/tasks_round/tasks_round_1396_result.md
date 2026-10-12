@@ -25,7 +25,7 @@
 
 ## 提交
 - 内容：`ac01f9f`（`asset_reference_images.py`）。
-- 报告／状态／接力：本轮收尾提交。
+- 报告／状态／接力：`d5aeffc`（本文件＋`project_status.md`＋`.agent-handoff/` 4 文件）。
 
 ## 复盘
 - 已收口：参考图页内联间距中可证明等价于 token 的 13 处全部迁移，棘轮计数 18→5。

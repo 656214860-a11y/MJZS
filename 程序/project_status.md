@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1396 本轮实测：UI 路线图 §一 第 2 项（设计 token）单页迁移——`asset_reference_images.py` 13 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token（`SPACING['md']`×11、`SPACING['xs']`×2），**零视觉变更**（取值相等且间距与调色板无关）；`test_token_boundary` 该文件数字间距 18→5。定向 `test_reference_images`＋`test_token_boundary` 26/26、默认冒烟 8/8、架构 341/341。1396−1394=2<5 且未命中 §5 升级条件，**不跑全量**。提交内容 `ac01f9f`。详见 [R1396](tasks_round/tasks_round_1396_result.md)。
+R1396 本轮实测：UI 路线图 §一 第 2 项（设计 token）单页迁移——`asset_reference_images.py` 13 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token（`SPACING['md']`×11、`SPACING['xs']`×2），**零视觉变更**（取值相等且间距与调色板无关）；`test_token_boundary` 该文件数字间距 18→5。定向 `test_reference_images`＋`test_token_boundary` 26/26、默认冒烟 8/8、架构 341/341。1396−1394=2<5 且未命中 §5 升级条件，**不跑全量**。提交内容 `ac01f9f`；报告／状态／接力 `d5aeffc`。详见 [R1396](tasks_round/tasks_round_1396_result.md)。
 
 R1395 本轮实测：出站 HTTP 收口（`platform_tools.open_https`；覆盖率审计26 清零）；定向 7/7、默认冒烟 8/8、架构 341/341。**1395−1390=5 命中 §5 五轮规则**：干净 master 工作树 `o07-fullsafe-master`（`git reset --hard master`→`d93993e`）跑 `run_selftests.py --all --safe` **4983 条、602.9 秒、0 文件有红**（凭据 tree=`886cfd07…`＝内容提交 `d93993e:程序`；`last_full_safe_all_round` 刷新为 1394）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 均无阈值抖动。提交内容 `d93993e`；报告／状态／接力 `0e5dd5d`。详见 [R1395](tasks_round/tasks_round_1395_result.md)。
 
