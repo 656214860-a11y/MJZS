@@ -5,7 +5,7 @@
 ## 三个必答
 - 本轮类型：功能轮（默认）。
 - 测试：定向 `-k audio_role_binding` 18/18；关联 `-k tts audio stage_completion media_import ui_edges skill stage_execution` 427/427；架构门禁 312/312；默认冒烟 8/8，全 0 红。
-- 欠账：O31 关闭，清单剩 O32—O48；1356 − 1351 = 5 ≥ 5 **命中五轮全量欠账**。收口全量结果见文末「收口全量」。
+- 欠账：O31 关闭，清单剩 O32—O48；1356 − 1351 = 5 ≥ 5 **命中五轮全量欠账**。干净 master 工作树（HEAD=0fdc358）**第 1 次全量**：4749 条／414.7 秒／1 个文件红——`tests/test_copy_rules.py` 第三人称文案规则命中 `video_progress.py:94` 的 `STATUS_NEXT['review_pending']='人工验收'`（R1353/O28 引入，当时只跑定向未覆盖文案规则；本轮 O31 改动未触碰该文件）。定向把该值改为第二人称 `'等您验收'`（`-k copy_rules video_task_status` 27/27 绿）后复验。**第 2 次全量**：干净 master 工作树（HEAD=1633fbe）`run_selftests.py --all --safe` 4749 条／425.3 秒／0 文件红（`test_desktop_startup_perf` 14.0 秒、`test_perf_baseline` 21.2 秒均过，未出现已知阈值抖动）；凭据刷新 round=1356、tree=006d0295，`last_full_safe_all_round`=1356。
 
 ## 目标（R1267 清单 O31）
 - 依据：`tts_api.py` 支持说话人、voice、speed；`audio_import_service.py` 有音频归档但通用完成判断不足。
@@ -41,4 +41,6 @@
 - 未实发模型请求、未真实点界面（Tk 用例经 `-k ui_edges` 通过）；未改启动路径／Tk 控件生命周期销毁重建／删除语义／层级登记表（`tts_api` L1、`audio_import_service`／`stage_completion_service` L2、`stage_execution_service` L3、`desktop` L4 均在表内）。
 
 ## 收口全量
-- _（本轮五轮欠账，收口在干净 master 工作树跑 `run_selftests.py --all --safe`；结果待回填）_
+- 干净 master 工作树、`run_selftests.py --all --safe`，五轮欠账点（1356 − 1351 = 5）。
+- **第 1 次全量**（HEAD=0fdc358）：4749 条／414.7 秒／1 个文件红——`video_progress.py:94` 的 `review_pending` 下一步文案 `人工验收` 命中第三人称禁词（R1353/O28 遗留，当时定向未覆盖；本轮 O31 未触碰该文件）。定向改为 `等您验收`（`-k copy_rules video_task_status` 27/27 绿）。
+- **第 2 次全量**（HEAD=1633fbe）：4749 条／425.3 秒／0 文件红；`test_desktop_startup_perf` 14.0 秒、`test_perf_baseline` 21.2 秒均过，未出现已知阈值抖动。凭据刷新 round=1356、tree=006d0295，`last_full_safe_all_round`=1356（下一欠账点 1361）。
