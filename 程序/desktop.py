@@ -4931,13 +4931,20 @@ class Desktop:
             dest=result.data
             if dest==path:return
             fill_script_list();self.status.set('已重命名：'+dest.name)
+        def confirmed_note(paths):
+            # 删掉已确认阶段文件会让剧本准备的确认失效，删前点明。
+            import writing_api
+            confirmed=writing_api.confirmed_preparation_files(self.root)
+            hits=[confirmed[p.resolve()]+'：'+p.name for p in paths if p.resolve() in confirmed]
+            if not hits:return ''
+            return '\n\n注意：以下是剧本准备已确认的阶段文件，删除后该阶段确认失效，需要恢复或重新确认才能继续：\n'+'\n'.join(hits)
         def delete_script():
             path=selected_script()
             all_files=[item for tree in script_trees.values() for item in tree.get_children()]
             if len(all_files)==1:
                 if not confirm_project_removal_from_last_script(self.win,[path.name]):return
             else:
-                prompt=f'确定将 {path.name} 移入项目回收站吗？\n\n可在对应页面恢复最近删除。'
+                prompt=f'确定将 {path.name} 移入项目回收站吗？\n\n可在对应页面恢复最近删除。'+confirmed_note([path])
                 title='移入回收站'
                 if not confirm(self.win,title,prompt,dangerous=True):return
             if len(all_files)==1:
@@ -4956,7 +4963,7 @@ class Desktop:
                 if not confirm_project_removal_from_last_script(self.win,[path.name for path in paths]):return
             else:
                 title='移入回收站'
-                prompt='确定将选中的 '+str(len(paths))+' 份剧本文件移入项目回收站吗？\n\n'+names+'\n\n可在对应页面恢复最近删除。'
+                prompt='确定将选中的 '+str(len(paths))+' 份剧本文件移入项目回收站吗？\n\n'+names+'\n\n可在对应页面恢复最近删除。'+confirmed_note(paths)
                 if not confirm(self.win,title,prompt,dangerous=True):return
             if selection.deletes_all:
                 item=next((dict(p) for p in self.projects.info['projects'] if p['path']==str(self.root)),None)
@@ -4980,20 +4987,20 @@ class Desktop:
                 raise ValueError('请先在阶段配置中选择 API 模型')
             restart_writing_preparation(self.root,stage)
             fill_script_list()
-            self.status.set(('已从'+stage+'重新创作；请发送创作要求，新稿确认前保留原采用版本')
-                            if stage else '已放弃未确认重写，恢复原采用版本')
+            self.status.set(('开始重写'+stage+'：请发送创作要求，新稿定稿前原稿照常可用')
+                            if stage else '已放弃重写，恢复原稿')
         def confirm_document(stage):
-            """把用户改过的当前文件登记为该阶段确认输出；靠前阶段会清除其后确认记录。"""
+            """把用户改过的当前文件设为该阶段定稿；之后各阶段的定稿会失效。"""
             path=selected_script()
             from stage_execution_service import confirm_writing_preparation
-            if not confirm(self.win,'作为确认输出文件',
-                           '把当前文件登记为「'+stage+'」的确认输出？\n\n'+path.name+
-                           '\n\n将以该文件当前正文重算指纹；本阶段之后的确认记录（如有）会被清除，需要重新确认。'):
+            if not confirm(self.win,'设为'+stage+'定稿',
+                           '把这份文件设为「'+stage+'」的定稿？\n\n'+path.name+
+                           '\n\n以文件当前内容为准；「'+stage+'」之后已定稿的阶段需要重新确认。'):
                 return
             invalidated=confirm_writing_preparation(self.root,stage,path)
             fill_script_list()
-            self.status.set('已将'+path.name+'登记为「'+stage+'」的确认输出'+
-                            ('；「'+'」「'.join(invalidated)+'」的确认已失效' if invalidated else ''))
+            self.status.set('已把'+path.name+'设为「'+stage+'」定稿'+
+                            ('；「'+'」「'.join(invalidated)+'」需要重新确认' if invalidated else ''))
         def script_menu(tree,event):
             row=tree.identify_row(event.y)
             if not row:return
@@ -5009,9 +5016,9 @@ class Desktop:
             else:
                 stages={'setting':'项目设定','outline':'剧本大纲','character':'角色卡'}
                 stage=next(stages[key] for key in stages if tree is script_trees.get(key))
-                menu.command('从本阶段重新创作',lambda:self.safe(lambda:restart_preparation(stage)))
-                menu.command('放弃未确认重写',lambda:self.safe(lambda:restart_preparation(None)))
-                menu.command('作为确认输出文件',lambda:self.safe(lambda:confirm_document(stage)))
+                menu.command('重写'+stage,lambda:self.safe(lambda:restart_preparation(stage)))
+                menu.command('放弃重写，恢复原稿',lambda:self.safe(lambda:restart_preparation(None)))
+                menu.command('设为'+stage+'定稿',lambda:self.safe(lambda:confirm_document(stage)))
             menu.command('删除',lambda:self.safe(delete_script))
             return menu.popup(event)
         for tree in script_trees.values():

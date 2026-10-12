@@ -103,5 +103,32 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
                 self.project, '项目设定', path, publish=publish_stage_text)
 
 
+class ConfirmedPreparationFilesTests(unittest.TestCase):
+    """删除前提示所需的只读查询：采用版本与重写草稿里已确认的文件都要列出。"""
+
+    setUp = ConfirmPreparationDocumentTests.setUp
+    write_state = ConfirmPreparationDocumentTests.write_state
+
+    def test_lists_confirmed_files_from_documents_and_revision(self):
+        adopted, setting = confirmed(self.project, '项目设定', '项目设定/旧.md', '# 项目设定\n旧\n')
+        draft, outline = confirmed(self.project, '剧本大纲', '剧本大纲/大纲.md', '# 剧本大纲\n三幕\n')
+        pending, card = confirmed(self.project, '角色卡', '角色卡/卡.md', '# 角色卡\n少年\n')
+        card['confirmed'] = False
+        target = self.write_state([setting])
+        state = writing_api.read_json(target)
+        state['revision'] = {'documents': [setting, outline, card]}
+        save(target, state)
+        found = writing_api.confirmed_preparation_files(self.project)
+        self.assertEqual(found, {adopted.resolve(): '项目设定', draft.resolve(): '剧本大纲'})
+        self.assertNotIn(pending.resolve(), found)
+
+    def test_missing_or_broken_state_returns_empty(self):
+        self.assertEqual(writing_api.confirmed_preparation_files(self.project), {})
+        target = preparation_folder(self.project) / 'preparation_state.json'
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text('[1, 2]', encoding='utf-8')
+        self.assertEqual(writing_api.confirmed_preparation_files(self.project), {})
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -571,6 +571,28 @@ def _working_documents(state):
     return state.get('revision', state)['documents']
 
 
+def confirmed_preparation_files(project):
+    """只读：已确认阶段文件的绝对路径→阶段名（采用版本与重写草稿都算），供删除前提示。"""
+    from stage_path_service import write_dir
+    folder = write_dir(project, 'script')
+    target = folder / 'preparation_state.json'
+    try:
+        state = read_json(target) if target.is_file() else None
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(state, dict):
+        return {}
+    revision = state.get('revision')
+    groups = [state.get('documents'), revision.get('documents') if isinstance(revision, dict) else None]
+    found = {}
+    for documents in groups:
+        for document in documents if isinstance(documents, list) else ():
+            if (isinstance(document, dict) and document.get('confirmed') is True
+                    and isinstance(document.get('path'), str) and isinstance(document.get('stage'), str)):
+                found[(folder / document['path']).resolve()] = document['stage']
+    return found
+
+
 _PREPARATION_STAGE_WORDS = (
     ('项目设定', ('项目设定', '设定')),
     ('剧本大纲', ('剧本大纲', '大纲', '纲要')),
@@ -638,8 +660,7 @@ def _preparation_rollback(stage, documents):
     if stage not in PREPARATION_STAGES:
         return None
     index = PREPARATION_STAGES.index(stage)
-    prefix = documents[:index]
-    if len(prefix) != index or any(doc.get('confirmed') is not True for doc in prefix):
+    if _confirmed_prefix(documents, index) is None:
         return None
     invalidated = [doc['stage'] for doc in documents[index:] if doc.get('confirmed') is True]
     return invalidated or None
@@ -656,12 +677,22 @@ def restart_preparation(project, stage, *, publish):
     else:
         if stage not in PREPARATION_STAGES:
             raise ValueError('请选择项目设定、剧本大纲或角色卡')
-        index = PREPARATION_STAGES.index(stage)
-        prefix = state['documents'][:index]
-        if len(prefix) != index or any(doc.get('confirmed') is not True for doc in prefix):
+        prefix = _confirmed_prefix(state['documents'], PREPARATION_STAGES.index(stage))
+        if prefix is None:
             raise ValueError('请先确认所选阶段之前的文件')
         state['revision'] = {'documents': prefix}
     _save_preparation_state(target, state, publish)
+
+
+def _confirmed_prefix(documents, index):
+    """该阶段之前的记录必须齐全且都已确认；满足时返回这段前缀，否则 None。"""
+    prefix = documents[:index]
+    if len(prefix) != index or any(not isinstance(doc, dict) or doc.get('confirmed') is not True
+                                   for doc in prefix):
+        return None
+    return prefix
+
+
 def confirm_preparation_document(project, stage, path, *, publish):
     """把磁盘上的当前文件登记为该阶段的确认输出；只重算正文指纹，不改文件本体。"""
     if not callable(publish):
@@ -694,9 +725,8 @@ def confirm_preparation_document(project, stage, path, *, publish):
         raise ValueError('剧本准备重写记录无效')
     if not isinstance(documents, list):
         raise ValueError('剧本准备阶段记录无效，不能确认输出')
-    prefix = documents[:index]
-    if index > len(documents) or len(prefix) != index or any(
-            not isinstance(doc, dict) or doc.get('confirmed') is not True for doc in prefix):
+    prefix = _confirmed_prefix(documents, index)
+    if prefix is None:
         raise ValueError('请先确认所选阶段之前的文件')
     invalidated = tuple(PREPARATION_STAGES[position]
                         for position, doc in enumerate(documents[index + 1:], start=index + 1)

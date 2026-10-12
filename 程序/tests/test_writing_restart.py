@@ -199,7 +199,7 @@ class WritingRestartTests(unittest.TestCase):
             menu.reset_mock()
             namespace['script_menu'](trees[category], SimpleNamespace(y=0))
             actions = {call.args[0]: call.args[1] for call in menu.command.call_args_list}
-            actions['从本阶段重新创作']()
+            actions['重写' + stage]()
             restart.assert_called_with(stage)
-            actions['放弃未确认重写']()
+            actions['放弃重写，恢复原稿']()
             restart.assert_called_with(None)
