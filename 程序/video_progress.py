@@ -91,7 +91,7 @@ STATUS_LABELS={'submitting':'提交中','unknown':'结果不确定','queued':'�
 STATUS_NEXT={'submitting':'继续查询，不要重投','unknown':'核对任务编号，不要重投',
              'queued':'继续查询','running':'继续查询','downloading':'继续查询并取回',
              'download_failed':'再次查询即可续取，不会重新生成','qc_failed':'检查设置后显式重做',
-             'review_pending':'人工验收','adopted':'无需操作','failed':'看错误后显式重做',
+             'review_pending':'等您验收','adopted':'无需操作','failed':'看错误后显式重做',
              'rejected':'改参数或提示词后显式重做','missing_file':'重新取回或重新生成'}
 # 错误只归到用户能行动的一类，不猜具体供应商文案。
 ERROR_LABELS={'auth':'鉴权','quota':'限额','protocol':'模型协议','refused':'内容拒绝',
