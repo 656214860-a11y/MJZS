@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -169,9 +168,10 @@ def file_hash(path):
 
 
 def command(args, cwd=None):
+    import platform_tools       # 第 34 期第 9 条：按需加载，保持启动路径轻量
     try:
-        r = subprocess.run([str(x) for x in args], capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", cwd=cwd, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        r = platform_tools.run_process([str(x) for x in args], capture_output=True, text=True,
+                                       encoding="utf-8", errors="replace", cwd=cwd)
     except FileNotFoundError:
         raise RuntimeError(f"找不到程序 {args[0]}，请安装或在 config.json 填绝对路径") from None
     if r.returncode:

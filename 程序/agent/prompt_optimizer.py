@@ -1,5 +1,6 @@
 """Nonblocking desktop integration; no API call on opening settings."""
 import json,subprocess,threading,queue,re
+import platform_tools
 from pathlib import Path
 from storyboard_paths import media_root
 from urllib.parse import urlparse
@@ -169,8 +170,8 @@ def start(app,source_prompt=None):
     results=queue.Queue();app.optimizer_busy=True;app.write('Prompt Optimizer MCP 正在优化，可切换其他页面。')
     def work():
         try:
-            proc=subprocess.run([cfg.get('python'),str(ROOT/'agent/optimizer_mcp_bridge.py')],input=json.dumps(data),
-                capture_output=True,text=True,encoding='utf-8',timeout=125,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+            proc=platform_tools.run_process([cfg.get('python'),str(ROOT/'agent/optimizer_mcp_bridge.py')],input=json.dumps(data),
+                capture_output=True,text=True,encoding='utf-8',timeout=125)
             response=json.loads(proc.stdout)
             if proc.returncode or response.get('error'):
                 results.put((False,response.get('error','MCP 服务未正常退出，请检查安装路径与依赖。')));return
