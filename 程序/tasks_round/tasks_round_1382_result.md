@@ -44,4 +44,4 @@ R1375（O48）只把 24 处用户可见「第N步」收口到 `pet_bus.stage_ste
 - 定向建议：`run_selftests.py -k "stage_parallel skill_tools keyframe_batch pet_ui video_ui text_component skills stage_display"` ＋ 默认冒烟；结构治理／加门禁时跑 `smoke_test.py --architecture`。
 
 ## 提交
-- 本轮文档与状态改动已提交（见 `project_status.md` 轮次头与接力文件的 commit hash 补记）。
+- 本轮文档与状态改动已提交：**内容提交 `6c2c399`**（7 files changed，仅本轮 7 个路径，未混入主树他人已暂存 WIP）；hash 补记见后续提交。
