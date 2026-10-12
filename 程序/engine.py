@@ -468,24 +468,27 @@ class Studio:
 
     def _encode(self,chosen,out):
         # 编码放在项目锁之外：ffmpeg 可能持续几分钟，占着锁会让同时进行的下载／验收全部报「另一操作正在运行」。
+        from script_contract import output_filter,loudness_filter,overlay_metrics
+        spec=self.output_spec()
         listing=[]
         for shot,v,path in chosen:
             dest=out/(shot['id']+'.mp4')
-            vf='scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p'
+            vf=output_filter(spec)
             if shot.get('post_overlay'):
                 import shutil
                 font_source='C:/Windows/Fonts/msyh.ttc'
                 if Path(font_source).is_file():
                     shutil.copyfile(font_source,out/'font.ttc')
                     save_text(out/'label.txt', shot['post_overlay'])
-                    vf+=',drawtext=fontfile=font.ttc:textfile=label.txt:fontsize=28:fontcolor=white:box=1:boxcolor=black@0.6:x=30:y=30'
+                    metrics=overlay_metrics(spec)
+                    vf+=',drawtext=fontfile=font.ttc:textfile=label.txt:fontsize=%d:fontcolor=white:box=1:boxcolor=black@0.6:x=%d:y=%d'%(metrics['fontsize'],metrics['x'],metrics['y'])
             from agent.media import probe
             streams=probe(path,self.cfg).get('streams',[])
             has_audio=any(stream.get('codec_type')=='audio' for stream in streams)
             args=[self.cfg['ffmpeg'],'-y','-v','error','-i',path]
             if not has_audio:args+=['-f','lavfi','-i','anullsrc=channel_layout=stereo:sample_rate=48000']
             args+=['-map','0:v:0','-map','0:a:0' if has_audio else '1:a:0','-vf',vf]
-            if has_audio:args+=['-af','loudnorm=I=-16:TP=-1.5:LRA=11']
+            if has_audio:args+=['-af',loudness_filter(spec)]
             else:args+=['-shortest']
             args+=['-ar','48000','-ac','2','-c:v','libx264','-preset','fast','-crf','20','-c:a','aac',dest]
             command(args,cwd=out)
@@ -498,7 +501,7 @@ class Studio:
         try:
             command([self.cfg['ffmpeg'],'-v','error','-f','concat','-safe','1','-i','concat.txt','-c','copy','-movflags','+faststart',pending_master],cwd=out)
             command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',pending_master,'-f','null','-'])
-            report=check(pending_master,sum(s['duration'] for s,_,_ in chosen),self.cfg)
+            report=check(pending_master,sum(s['duration'] for s,_,_ in chosen),self.cfg);report['output_spec']=spec
             replace(pending_master, master)
         finally:
             if pending_master.exists():
@@ -507,3 +510,13 @@ class Studio:
         self.publish_edit_bundle(out, master, report, chosen)
         if report['errors']: raise ValueError('成片技术检查未通过，报告已保存')
         return str(master)
+    def output_spec(self):
+        """本项目的正式交付规格：画幅／分辨率／帧率来自制作锁，缺省才用出厂默认。"""
+        from stage_config import workflow_lock
+        from script_contract import resolve_output_spec
+        return resolve_output_spec(workflow_lock(self.root))
+
+    def output_spec_text(self):
+        """给界面的一行实际规格（导出前显示「实际怎么出」）。"""
+        from script_contract import describe_output_spec
+        return describe_output_spec(self.output_spec())

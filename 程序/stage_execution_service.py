@@ -90,7 +90,8 @@ def run_animatic(project, source, references, audio=None, settings=None):
         return publish_animatic_bundle(project, artifacts, validate=lambda items: all(raw for _, raw in items))
 
     return build_bundle(project_context(project), source, references, audio, settings,
-                        publish=publish, write_temporary=save_bytes, run_batches=batches, workspace=workspace)
+                        publish=publish, write_temporary=save_bytes, run_batches=batches, workspace=workspace,
+                        spec=animatic_preview_spec(project))
 
 
 def confirm_animatic(project, *, rhythm, duration, dialogue_sync):
@@ -1522,3 +1523,10 @@ def decide_continuity_issue(project, issue_id, decision, reason='', by='人工')
     from agent.core import save
     from continuity_ledger import decide_issue
     return decide_issue(project, issue_id, decision, reason, by=by, publish=save)
+
+
+def animatic_preview_spec(project):
+    """预演低清规格：画幅跟项目制作锁，分辨率与帧率保持低配；与正式交付规格同源。"""
+    import stage_config
+    from script_contract import preview_spec
+    return preview_spec(stage_config.workflow_lock(Path(project)))

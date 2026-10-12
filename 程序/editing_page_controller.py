@@ -29,3 +29,13 @@ class EditingPageController:
         if not skipped:
             return ''
         return '已跳过 ' + str(len(skipped)) + ' 个未就绪镜头：' + '；'.join(skipped) + '；成片：' + str(path)
+
+    def output_spec_text(self):
+        """本页要显示的实际输出规格；拿不到就留空，页面照常可用。"""
+        getter = getattr(self.studio, 'output_spec_text', None)
+        if not callable(getter):
+            return ''
+        try:
+            return str(getter() or '')
+        except (OSError, ValueError):
+            return ''

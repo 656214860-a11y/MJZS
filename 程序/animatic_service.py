@@ -95,7 +95,7 @@ def prepare_reference(workspace, prompt, model, settings, *, publish, client=Non
 
 
 def build_bundle(context, source, references, audio, settings, *, publish, write_temporary, render=local_sketch,
-                 assemble=None, run_batches=None, workspace=None):
+                 assemble=None, run_batches=None, workspace=None, spec=None):
     """所有生成发生在暂存区；整包验证后才交给发布器。"""
     if not isinstance(context, ProjectContext) or not callable(publish):
         raise TypeError('分镜预演需要 L3 注入上下文与发布器')
@@ -152,7 +152,7 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
         images = dict(pair for group in generated for pair in group)
         video = assemble([images[row['id']] for row in shots], [row['seconds'] for row in shots],
                          audio, scratch / 'animatic.mp4', ffmpeg=settings['ffmpeg'], ffprobe=settings['ffprobe'],
-                         write_temporary=write_temporary)
+                         write_temporary=write_temporary, spec=spec)
         artifacts = {'assets/animatic.mp4': Path(video).read_bytes(),
                      'assets/temporary_audio' + audio.suffix.lower(): audio.read_bytes()}
         for shot in shots:

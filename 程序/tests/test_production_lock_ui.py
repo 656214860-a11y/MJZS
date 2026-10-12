@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import skill_panel
+import script_contract
 import stage_config
 
 
@@ -41,7 +42,7 @@ class ProductionLockUITests(unittest.TestCase):
             self.assertLess(int(entry.cget('width')), 14)
         self.assertIs(panel.lock_row.master, panel.workflow_box.master)
         self.assertFalse(hasattr(panel, 'workflow_summary'))
-        self.assertEqual(len(panel.lock_row.winfo_children()), 3)
+        self.assertEqual(len(panel.lock_row.winfo_children()), len(script_contract.PRODUCTION_LOCK_DEFINITIONS))
         entry = panel.lock_inputs['aspect_ratio']
         self.assertEqual(entry.get(), '9:16')
         entry.delete(0, 'end')

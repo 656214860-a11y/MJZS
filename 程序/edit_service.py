@@ -63,7 +63,7 @@ def automatic_assemble_decision(signature, digest, previous_signature, completed
     return {'action': 'dispatch', 'signature': signature}
 
 
-def assemble_image_timeline(images, durations, audio, destination, *, ffmpeg, ffprobe, write_temporary, run=None):
+def assemble_image_timeline(images, durations, audio, destination, *, ffmpeg, ffprobe, write_temporary, run=None, spec=None):
     """仅在调用方暂存区合成图片时间线；不登记正式视频或绕过 L3 发布器。"""
     import json
     import math
@@ -78,9 +78,9 @@ def assemble_image_timeline(images, durations, audio, destination, *, ffmpeg, ff
     for index, (source, seconds) in enumerate(zip(images, durations)):
         segment = destination.parent / f'segment_{index:04d}.mp4'
         execute([str(ffmpeg), '-nostdin', '-y', '-v', 'error', '-loop', '1', '-i', str(source),
-                 '-t', str(seconds), '-vf',
-                 'scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1',
-                 '-r', '24', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', str(segment)],
+                 '-t', str(seconds), '-vf', preview_filter(spec),
+                 '-r', str(preview_fps(spec)),
+                 '-c:v', 'libx264', '-pix_fmt', 'yuv420p', str(segment)],
                 check=True, capture_output=True, timeout=600)
         segments.append(segment.name)
     listing = destination.parent / 'animatic_concat.txt'
@@ -100,3 +100,15 @@ def assemble_image_timeline(images, durations, audio, destination, *, ffmpeg, ff
     execute([str(ffmpeg), '-nostdin', '-v', 'error', '-xerror', '-i', str(destination),
              '-f', 'null', '-'], check=True, capture_output=True, timeout=600)
     return destination
+
+
+def preview_filter(spec=None):
+    """预演只降分辨率与帧率，画幅仍跟项目；不给规格就回到历史的 1280x720。"""
+    from script_contract import output_filter, preview_spec
+    return output_filter(preview_spec() if spec is None else spec)
+
+
+def preview_fps(spec=None):
+    """预演帧率：不给规格时是 24。"""
+    from script_contract import preview_spec
+    return (preview_spec() if spec is None else spec)['fps']
