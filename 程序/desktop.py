@@ -1433,6 +1433,10 @@ class Desktop:
             usage_label = getattr(self, 'idea_usage_label', None)
             if usage_label is not None and usage_label.winfo_exists():
                 usage_label.configure(text=idea_chat.usage_summary(rows))
+            session_label = getattr(self, 'idea_session_label', None)
+            if session_label is not None and session_label.winfo_exists():
+                from writing_api import chat_session_summary
+                session_label.configure(text=chat_session_summary(self.root, model) if self.root else '')
             thinking=getattr(self,'_thinking_model','')
             if thinking and self.bubble_view_key(thinking) == self.bubble_view_key(self.displayed_chat_model()):
                 name='bubble_thinking'
@@ -4460,6 +4464,9 @@ class Desktop:
         self.idea_usage_label = ttk.Label(composer, text='本模型暂无用量记录', style='Muted.TLabel')
         self.idea_usage_label.pack(anchor='w')
         composer.bind('<Configure>', lambda event: self.idea_usage_label.configure(wraplength=max(1, event.width)), add='+')
+        self.idea_session_label = ttk.Label(composer, text='', style='Muted.TLabel')
+        self.idea_session_label.pack(anchor='w')
+        composer.bind('<Configure>', lambda event: self.idea_session_label.configure(wraplength=max(1, event.width)), add='+')
         input_row=ttk.Frame(composer);input_row.pack(fill='x')
         input_box=TextArea(input_row,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
                           font=FONTS['body'],relief='solid',bd=1,padx=SPACING['md'],pady=SPACING['sm'])

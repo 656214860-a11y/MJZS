@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O14 完成并提交 R1338。会话维度说明：`writing_api.chat_session_overview`／`chat_session_summary`（只读）给出会话模型与调用方式（API 直连／桌面 Agent）、请求身份（Provider／模型）、上下文来源（按模型隔离的对话记录）、已确认阶段文件数与自然剧本采用状态；桌面剧本页新增只读标签 `idea_session_label` 并随模型切换刷新。定向 131/131、关联全绿、架构全绿、`desktop_startup_perf` 14/14、默认冒烟 8/8、0 红。见 [R1338](../程序/tasks_round/tasks_round_1338_result.md)。
+
 - 2026-10-12：O13 收口安全全量。干净 master 工作树 `run_selftests.py --all --safe` 第 1 次即绿：4542 条用例／385.8 秒／0 文件红（`test_desktop_startup_perf` 13.0 秒、`test_perf_baseline` 20.4 秒 均过）；凭据 round=1336、tree=d934dd21，`last_full_safe_all_round` 刷到 1336。见 [R1336](../程序/tasks_round/tasks_round_1336_result.md)。
 
 - 2026-10-12：O13 完成并提交 R1336。剧本准备回复状态：`writing_api.preparation_reply_state`／`preparation_reply_message` 给出四态（已采用／阶段稿待确认／原始响应已保存／因版本变化未采用）＋落点＋下一步；`_preparation_step` 在格式不合格／截断／正文为空／模型失败／版本变化各分支打状态与原因标签，`saved` 与取消后迟到的错误都点明 responses/ 归档不等于正式采用；桌面 `received` 三处状态栏改用同一判据。定向 139/139、关联 46/46、桌面 115/115、架构 22/22、默认冒烟 8/8、0 红。见 [R1336](../程序/tasks_round/tasks_round_1336_result.md)。

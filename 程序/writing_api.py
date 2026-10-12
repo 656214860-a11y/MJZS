@@ -605,6 +605,53 @@ def preparation_reply_message(result):
             + '（不等于正式采用）。' + info['next_step'])
 
 
+def chat_session_overview(project, model=None):
+    """说明创意对话涉及的四个维度：会话模型与调用方式、本次请求身份、上下文来源
+    与项目共享成果。只读：不切换会话、不复制权威稿、也不改变任何采用状态。"""
+    import idea_chat
+    from stage_path_service import write_dir
+    chosen = selected_model(project)[0] if model is None else model
+    engine = model_pool.desktop_engine(chosen)
+    invocation = ('桌面 Agent（' + engine + '）') if engine else ('API 直连' if chosen else '未选择模型')
+    provider_dir, model_dir = idea_chat.storage_identity(chosen) if chosen else ('', '')
+    folder = write_dir(project, 'script')
+    target = folder / 'preparation_state.json'
+    state = read_json(target) if target.is_file() else {}
+    confirmed = len([doc for doc in state.get('documents', [])
+                     if isinstance(doc, dict) and doc.get('confirmed') is True])
+    from script_contract import natural_script_selection_path
+    selection = natural_script_selection_path(project)
+    adopted = read_json(selection) if selection.is_file() else {}
+    if adopted.get('path'):
+        adopted_label = '已采用自然剧本'
+    elif adopted.get('reason'):
+        adopted_label = '自然剧本待重新采用'
+    else:
+        adopted_label = '尚未采用自然剧本'
+    return {
+        'model': str(getattr(chosen, 'model_id', '') or chosen or '未选择模型'),
+        'invocation': invocation,
+        'request_identity': (provider_dir + '／' + model_dir) if model_dir else '未确定',
+        'context': '本模型的对话记录（按模型隔离）＋ 项目共享成果',
+        'shared_confirmed_documents': confirmed,
+        'adopted_script': adopted_label,
+        'notes': (
+            '对话记录（含 token 用量估算）按模型分开：切换模型只换本模型的会话，不串入其他模型的历史，也不改变项目成果。',
+            '已确认阶段文件与自然剧本采用是项目共享成果：切模型既不隐藏，也不复制成第二套权威稿。',
+            '清屏只压缩当前模型的对话上下文；要彻底重开，用「删除全部信息」把本模型对话移入回收站，项目成果保留。',
+        ),
+    }
+
+
+def chat_session_summary(project, model=None):
+    """一行说明当前会话模型/调用方式、请求身份、上下文来源与采用状态。"""
+    info = chat_session_overview(project, model=model)
+    return ('当前会话：' + info['model'] + '（' + info['invocation'] + '）；请求身份：'
+            + info['request_identity'] + '；上下文：' + info['context']
+            + '（已确认阶段文件 ' + str(info['shared_confirmed_documents']) + ' 份）；'
+            + info['adopted_script'] + '。切换模型只换对话记录，不隐藏也不复制项目成果。')
+
+
 def _preparation_state(project, brief):
     """简报不是阶段完成凭据；确认必须绑定实际落盘的那一版正文。"""
     from copy import deepcopy

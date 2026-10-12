@@ -2160,6 +2160,51 @@ class ComposerLayoutTests(_Harness):
             self.assertNotIn('手动制作剧本', labels)
             self.assertEqual(d.idea_send.cget('text'), '发送')
 
+    def test_session_label_explains_dimensions_and_follows_model_switch(self):
+        """O14：界面要说明会话模型/调用方式、请求身份、上下文与项目共享成果。"""
+        with tempfile.TemporaryDirectory() as td:
+            d, win = self.desktop(make_minimal_project(td))
+            self.sync_async(d)
+            d.show(0)
+            self.settle_script_page(win)
+            text = d.idea_session_label.cget('text')
+            self.assertIn('当前会话：', text)
+            self.assertIn('按模型隔离', text)
+            self.assertIn('不隐藏也不复制项目成果', text)
+            with patch.object(d, 'idea_chat_model', return_value='另一模型'):
+                d.refresh_script_chat_for_selected_model()
+                self.settle_script_page(win)
+                self.assertIn('另一模型', d.idea_session_label.cget('text'))
+
+
+class SessionOverviewTests(unittest.TestCase):
+    """O14：只读说明把会话、请求身份、上下文与项目共享成果分开。"""
+
+    def test_overview_separates_session_context_and_adoption(self):
+        import writing_api
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            folder = writing_dir(proj)
+            (folder / '项目设定').mkdir(parents=True, exist_ok=True)
+            save(folder / '项目设定' / '设定.md', '# 项目设定\n内容\n')
+            save(folder / 'preparation_state.json', {
+                'version': 1, 'brief_hash': 'x',
+                'documents': [{'path': '项目设定/设定.md', 'stage': '项目设定',
+                               'sha256': 'y', 'confirmed': True}]})
+            info = writing_api.chat_session_overview(proj, 'gpt-4o')
+            self.assertEqual(info['model'], 'gpt-4o')
+            self.assertEqual(info['invocation'], 'API 直连')
+            self.assertIn('按模型隔离', info['context'])
+            self.assertEqual(info['shared_confirmed_documents'], 1)
+            self.assertEqual(info['adopted_script'], '尚未采用自然剧本')
+            self.assertEqual(writing_api.chat_session_overview(proj, 'claude-code')['invocation'],
+                             '桌面 Agent（claude）')
+            summary = writing_api.chat_session_summary(proj, 'gpt-4o')
+            self.assertIn('gpt-4o', summary)
+            self.assertIn('已确认阶段文件 1 份', summary)
+            self.assertIn('不隐藏也不复制项目成果', summary)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

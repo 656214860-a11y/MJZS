@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O14 完成
+
+- 2026-10-12 O14：新增 `tests/test_idea_chat.py::SessionOverviewTests` 1 条（`gpt-4o`＝API 直连、`claude-code`＝桌面 Agent（claude），已确认阶段文件 1 份，摘要含模型名与「不隐藏也不复制项目成果」）；新增 Tk 用例 `ComposerLayoutTests::test_session_label_explains_dimensions_and_follows_model_switch`（首帧含「当前会话：」「按模型隔离」，切「另一模型」后标签更新）。定向 `-k idea_chat` 131/131、关联 `-k ui_edges idea_inline_brief writing` 全绿、架构相关全绿、`-k desktop_startup_perf` 14/14（13.3 秒）、默认冒烟 8/8，全 0 红。`desktop.py` 增 Tk 标签 → TODO 注释快照行号 2749→2753。本轮 1338 − 1336 = 2 < 5，不跑全量。
+
 ## 2026-10-12 O13 收口全量
 
 - 2026-10-12 O13 收口：干净 master 工作树（`o07-fullsafe-master`，HEAD=baf816c）`run_selftests.py --all --safe` 第 1 次 4542 条用例／385.8 秒／0 文件红；`test_desktop_startup_perf` 13.0 秒、`test_perf_baseline` 20.4 秒均通过，未出现已知阈值抖动。内容树全量凭据刷新 round=1336、tree=d934dd219a8ff155f7330220e12081af3f4efabc。收口文档提交在绿凭据之后，文档树与凭据树不同树。
