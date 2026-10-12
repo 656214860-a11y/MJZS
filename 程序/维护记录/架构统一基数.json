@@ -1567,20 +1567,20 @@
         "items": []
     },
     "\u8986\u76d6\u7387\u5ba1\u8ba126": {
-        "count": 2,
+        "count": 0,
         "baseline_pending": 2,
         "items": [
             {
                 "file": "agent/core.py",
                 "point": "189",
-                "disposition": "pending",
-                "reason": "R1393：agent 包 HTTP 传输 request() 直接 urllib.request.urlopen，未经模型池／platform_tools 边界；需语义裁定。"
+                "disposition": "migrated",
+                "reason": "R1395：request() 出站调用收口至 platform_tools.open_https（唯一出站 HTTP 入口）；错误分类与密钥脱敏不变。"
             },
             {
                 "file": "agent/core.py",
                 "point": "208",
-                "disposition": "pending",
-                "reason": "R1393：agent 包 HTTPS 下载 download() 直接 urllib.request.urlopen，未经权威传输入口；需语义裁定。"
+                "disposition": "migrated",
+                "reason": "R1395：download() 出站调用收口至 platform_tools.open_https；HTTPS 强制、重定向校验、1GB 上限与原子发布不变。"
             },
             {
                 "file": "api_endpoints.py",

@@ -180,13 +180,13 @@ def command(args, cwd=None):
 
 
 def request(url, payload=None, headers=None, raw=False):
-    import urllib.request, urllib.error        # 第 34 期第 9 条：HTTP 栈按需加载
+    import platform_tools, urllib.error    # 第 34 期第 9 条：HTTP 栈按需加载
     data = None if payload is None else json.dumps(payload).encode()
     h = dict(headers or {})
     if data is not None:
         h["Content-Type"] = "application/json"
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, data=data, headers=h), timeout=60) as r:
+        with platform_tools.open_https(url, data=data, headers=h, timeout=60) as r:
             body = r.read()
     except urllib.error.HTTPError as e:
         raise RuntimeError(f"HTTP {e.code}，请检查服务配置/余额/权限；未打印响应以保护密钥") from None
@@ -198,14 +198,14 @@ def request(url, payload=None, headers=None, raw=False):
 
 
 def download(url, dest):
-    import urllib.request                       # 第 34 期第 9 条：HTTP 栈按需加载
+    import platform_tools                       # 第 34 期第 9 条：HTTP 栈按需加载
     if not url.startswith("https://"):
         raise ValueError("云视频下载链接必须使用 HTTPS")
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = temporary_path(dest, '.download')
     try:
-        with urllib.request.urlopen(url, timeout=120) as r, tmp.open("wb") as f:
+        with platform_tools.open_https(url, timeout=120) as r, tmp.open("wb") as f:
             if not r.geturl().startswith("https://"):
                 raise ValueError("拒绝非 HTTPS 下载重定向")
             total = 0
