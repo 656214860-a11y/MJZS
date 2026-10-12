@@ -2,7 +2,7 @@
 
 ## 2026-10-12 O22 完成
 
-- 2026-10-12 O22：新增 `tests/test_asset_impact.py` 10 条（`referencing_shots` 命中字段命名/`location`+`props` 可命中/未知资产不命中；受引用资产带镜头与首帧文件且 `protected`、孤立资产 `orphan` 可回收、`canon`/`variants` 只读回显、非法编号 `ValueError`、删除引用清单列出镜头并警示、孤立资产删除清单为空；写状态变体不覆盖正典键）。定向 `-k asset_impact asset_context asset_plan asset_detail asset_reference` 64/64、`test_todo_comment_snapshot`＋`test_unification_ratchet` 5/5、架构 312/312、默认冒烟 8/8，全 0 红。未增删 `json.loads`（台账未平移）。1346 − 1341 = 5 ≥ 5，收口跑一次干净 master 全量。
+- 2026-10-12 O22：新增 `tests/test_asset_impact.py` 10 条（`referencing_shots` 命中字段命名/`location`+`props` 可命中/未知资产不命中；受引用资产带镜头与首帧文件且 `protected`、孤立资产 `orphan` 可回收、`canon`/`variants` 只读回显、非法编号 `ValueError`、删除引用清单列出镜头并警示、孤立资产删除清单为空；写状态变体不覆盖正典键）。定向 `-k asset_impact asset_context asset_plan asset_detail asset_reference` 64/64、`test_todo_comment_snapshot`＋`test_unification_ratchet` 5/5、架构 312/312、默认冒烟 8/8，全 0 红。未增删 `json.loads`（台账未平移）。1346 − 1341 = 5 ≥ 5；收口安全全量第 1 次 4610/4610、410.3 秒、0 红（凭据 round=1346、tree=3488e392，last_full_safe_all_round=1346）。
 
 ## 2026-10-12 O21 完成
 

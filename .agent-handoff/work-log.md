@@ -1,6 +1,8 @@
 # 近期工作
 
-- 2026-10-12：O22 完成并提交 R1346。资产正典、变体与镜头引用的变更影响视图：`asset_plan` 新增只读 `asset_impact`（正典 `canonical_board`／`character_anchor`、`state_variants`、被哪些采用镜头哪些字段引用、需复核首帧、受影响已生成视频、`orphan`/`protected`）与 `deletion_references`（删前引用清单＋警示），`asset_context.referencing_shots` 与 `references` 同口径，`stage_execution_service` 补 L3 门面，资产详情页顶部提示被引用/可回收；改变体不覆盖正典、删除受引用资产先给引用列表、孤立资产可回收（依赖 O18；O39 回收侧未完成）。新增 10 条用例，定向 64/64、注释快照＋统一棘轮 5/5、架构 312/312、默认冒烟 8/8，0 红（1346−1341=5≥5，收口补全量）。见 [R1346](../程序/tasks_round/tasks_round_1346_result.md)。
+- 2026-10-12：O22 收口安全全量。干净 master 工作树 `run_selftests.py --all --safe` 第 1 次即绿：4610 条用例／410.3 秒／0 文件红（`test_desktop_startup_perf` 13.5 秒、`test_perf_baseline` 20.0 秒均过）；凭据 round=1346、tree=3488e392，`last_full_safe_all_round` 刷到 1346。见 [R1346](../程序/tasks_round/tasks_round_1346_result.md)。
+
+- 2026-10-12：O22 完成并提交 R1346。资产正典、变体与镜头引用的变更影响视图：`asset_plan` 新增只读 `asset_impact`（正典 `canonical_board`／`character_anchor`、`state_variants`、被哪些采用镜头哪些字段引用、需复核首帧、受影响已生成视频、`orphan`/`protected`）与 `deletion_references`（删前引用清单＋警示），`asset_context.referencing_shots` 与 `references` 同口径，`stage_execution_service` 补 L3 门面，资产详情页顶部提示被引用/可回收；改变体不覆盖正典、删除受引用资产先给引用列表、孤立资产可回收（依赖 O18；O39 回收侧未完成）。新增 10 条用例，定向 64/64、注释快照＋统一棘轮 5/5、架构 312/312、默认冒烟 8/8，0 红（1346−1341=5≥5；收口安全全量 4610/4610、410.3 秒、0 红，凭据 round=1346、tree=3488e392）。见 [R1346](../程序/tasks_round/tasks_round_1346_result.md)。
 
 - 2026-10-12：O21 完成并提交 R1345。资产检索与候选墙完善可追溯性和批量决策：`asset_reference_search` 新增 `score_parts`（五项分项，`score` 由分项派生）、`explain`/`_state`/`STATE_NOTES`（八态＋说明）、`suppressed`（低分/同图重复逐条解释）；`rank` 记同图来源 `alts` 与 `conflict`；`normalize`/`_credit` 增 `collected_at`（来源失效仍可查当时记录）；`reference_wall` 新增许可依据/采集日期/状态/同图来源四列并在状态栏说明挡下候选，剔除候选不影响已入库资产。新增 search 16 条＋wall 3 条用例，定向 118/118、锚定全绿、架构 312/312、默认冒烟 8/8，0 红（1345−1341<5 且未命中 §5 不跑全量）。见 [R1345](../程序/tasks_round/tasks_round_1345_result.md)。
 

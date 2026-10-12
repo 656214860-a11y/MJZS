@@ -33,7 +33,7 @@
 - 定向 `-k asset_impact asset_context asset_plan asset_detail asset_reference` 64/64；注释快照＋统一棘轮 5/5（`asset_detail` 冻结关键词注释行号未平移）；架构门禁 312/312；默认冒烟 8/8，0 红。
 
 ## 收口安全全量
-- 1346 − 1341 = 5 ≥ 5，需在干净 master 工作树跑一次 `run_selftests.py --all --safe`。结果见下方更新。
+- 干净 master 工作树（`o07-fullsafe-master`，HEAD=75165e5）`run_selftests.py --all --safe` 第 1 次即绿：4610 条用例／410.3 秒／0 文件红（`test_desktop_startup_perf` 13.5 秒、`test_perf_baseline` 20.0 秒均已通过，未出现已知阈值抖动）；凭据刷新 round=1346、tree=3488e392，`last_full_safe_all_round` 刷到 1346。收口文档提交在绿凭据之后，文档树与凭据树不同树（同 O09/O10/O13/O17 口径）。
 
 ## 边界
 - 影响视图「引用」只算采用分镜对资产的直接引用（`characters`／`props`／`location`／`first_frame_assets`）；`shot.costume_id` 视为状态变体选择，不计为对某项资产的引用，避免把换装当「引用了服装资产」。
