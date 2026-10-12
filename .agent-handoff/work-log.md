@@ -1,6 +1,8 @@
 # 近期工作
 
-- 2026-10-12：O09 完成并提交 R1322。就绪绑定来源分镜摘要与预演文件：`white_model_service` 新增 `shot_digest`／`source_digest`／`evidence_state`／`record_evidence`，`previs_routing.ready` 按证据失效，`previs_automation.verify` 校验通过即登记，`local_previs` 状态列与导入共用。定向 138/138、关联 172/172、默认冒烟 8/8；另赶上 R1318 欠的五轮全量。见 [R1322](../程序/tasks_round/tasks_round_1322_result.md)。
+- 2026-10-12：O09 完成并提交 R1322。就绪绑定来源分镜摘要与预演文件：`white_model_service` 新增 `shot_digest`／`source_digest`／`evidence_state`／`record_evidence`，`previs_routing.ready` 按证据失效，`previs_automation.verify` 校验通过即登记，`local_previs` 状态列与导入共用。定向 138/138、关联 172/172、默认冒烟 8/8、架构 312/312。
+
+- 2026-10-12：O09 收口安全全量。干净 master 工作树第 1 次 4522/475.5 秒／1 文件红（SG-05 探针夹具只写 preview，同符新语义），定向补 `record_evidence`（R1328）后第 2 次 4522 条〈437.4 秒、0 红，凭据 round=1322、tree=42e782ea，`last_full_safe_all_round` 刷到 1322。见 [R1322](../程序/tasks_round/tasks_round_1322_result.md)。
 
 - 2026-10-12：O07 完成并收口。白模镜头目录加项目身份与集维度（`white_model_service`）、新建项目即写 `project_id`、旧目录迁移（可重复／不覆盖／失败回滚＋来源版本清单）、白模页打开时调用一次；同步 `架构统一基数.json` 第四项三处行号。定向与接缝 805 条、默认冒烟 8/8、架构 312/312。见 [R1312](../程序/tasks_round/tasks_round_1312_result.md)。
 

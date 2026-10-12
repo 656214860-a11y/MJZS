@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-R1322：O09 白模就绪绑定来源版本与预演文件。`white_model_service` 新增 `shot_digest`／`source_digest`／`evidence_state`／`record_evidence`：登记采用分镜的镜头调度摘要与预演文件的字节数／mtime／媒体事实；`previs_routing.ready` 按证据收口（来源或文件变过即失效，不知道来源时保持旧口径），`previs_automation.verify` 校验通过即登记，白模页状态列与线上导入共用同一判据。定向 138/138、关联 172/172、默认冒烟 8/8；架构 311/312（1 红为 R1318 欠的五轮全量，本轮收口补跑）。见 tasks_round/tasks_round_1322_result.md。
+R1322：O09 白模就绪绑定来源版本与预演文件。`white_model_service` 新增 `shot_digest`／`source_digest`／`evidence_state`／`record_evidence`：登记采用分镜的镜头调度摘要与预演文件的字节数／mtime／媒体事实；`previs_routing.ready` 按证据收口（来源或文件变过即失效，不知道来源时保持旧口径），`previs_automation.verify` 校验通过即登记，白模页状态列与线上导入共用同一判据。定向 138/138、关联 172/172、默认冒烟 8/8；架构 312/312；收口安全全量 4522/4522（0 红，tree 42e782ea，顺带清掉 R1318 欠的五轮全量）。见 tasks_round/tasks_round_1322_result.md。
 
 R1318：O08 白模复杂度手工覆盖在页面、调度与阶段门禁之间统一。新增 `previs_routing.decisions_for` 作唯一有效决策（覆盖优先，读不到来源时退回 classify），门禁 `stage_parallel.previs_ready` 改用它；`ready` 增开 `source` 按集解析白模目录，`dispatch`／`automatic_candidates`／`previs_automation.start`／L3 `previs_ready` 一并传本次集。跨集同镜头 ID、删除覆盖、自动↔手工切换四场景显示／调度／门禁一致。定向 143/143、接缝 398/398、架构 312/312、默认冒烟 8/8；本轮号 1318 − 上次绿全量 1312 = 4 < 5，未跑全量。见 tasks_round/tasks_round_1318_result.md。
 
@@ -12,7 +12,7 @@ R1297：Claude CLI 开启 HOLLMWOOD 时由程序逐角色调用并审核，正�
 
 R1288：Claude CLI 剧本准备限定输入已同步 45884c8；附件仅引用 Markdown，取消全项目扫描/索引注入，阶段①不读取旧 brief；连续确认按独立请求去重。关联 178/178、核心 34/34、冒烟 8/8；架构唯一行号失败修正后 5/5。未实发模型/重启，需重启助手加载；见 tasks_round/tasks_round_1288_result.md。
 
-更新：2026-10-12｜当前轮次：1323（R1322 O09 白模就绪绑定来源与预演文件：shot_digest／source_digest／evidence_state／record_evidence，ready 按证据失效、verify 通过即登记，白模页状态与导入共用；定向 138/138、关联 172/172、默认冒烟 8/8，收口全量见 R1322 报告。R1318 O08 白模复杂度路由统一：decisions_for 唯一有效决策、ready 按集解析；定向 143/143、接缝 398/398、架构 312/312、冒烟 8/8。R1312 O07 白模目录身份与集隔离：项目身份／集／镜头三级目录，旧布局只读兼容＋可重复、不覆盖、失败回滚的迁移；定向与接缝 805 条全绿、默认冒烟 8/8、架构门禁 312/312、收口全量 4516/4516（0 红，tree 12ad4759）。O01—O07 已完成，O09 起继续按序推进。）
+更新：2026-10-12｜当前轮次：1323（R1322 O09 白模就绪绑定来源与预演文件：shot_digest／source_digest／evidence_state／record_evidence，ready 按证据失效、verify 通过即登记，白模页状态与导入共用；定向 138/138、关联 172/172、默认冒烟 8/8，收口安全全量 4522/4522、0 红（tree 42e782ea，见 R1322 报告）。R1318 O08 白模复杂度路由统一：decisions_for 唯一有效决策、ready 按集解析；定向 143/143、接缝 398/398、架构 312/312、冒烟 8/8。R1312 O07 白模目录身份与集隔离：项目身份／集／镜头三级目录，旧布局只读兼容＋可重复、不覆盖、失败回滚的迁移；定向与接缝 805 条全绿、默认冒烟 8/8、架构门禁 312/312、收口全量 4516/4516（0 红，tree 12ad4759）。O01—O07 已完成，O09 起继续按序推进。）
 
 R1283：Claude CLI 明确重新创作新建会话，限制旧资料读取；定向 133/133、冒烟 8/8，架构唯一行号失败修正后原文件 2/2。实现 fcc39ae 已同步，未重跑全量，需重启加载。见 tasks_round/tasks_round_1283_result.md。
 

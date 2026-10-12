@@ -2,7 +2,7 @@
 
 ## 2026-10-12 O09 完成
 
-- 2026-10-12 O09：新增 `tests/test_previs.py::PrevisEvidenceTests` 2 条（改调度失效／改回复用／换文件失效且不删成果／旧记录无来源时退回旧口径）；定向 `-k previs white_model` 138/138、关联 `-k stage_execution_service stage_parallel` 57/57 与 `-k ui_edges` 115/115、默认冒烟 8/8，全 0 红。架构 `smoke_test.py --architecture` 311/312，唯一红 `test_full_safe_all_is_required_every_five_rounds`（R1318 欠五轮全量，非本项改动），本轮收口在干净 master 工作树补跑。台账 `架构统一基数.json` 第四项三处行号随插入平移（exempt 不变）。
+- 2026-10-12 O09：新增 `tests/test_previs.py::PrevisEvidenceTests` 2 条（改调度失效／改回复用／换文件失效且不删成果／旧记录无来源时退回旧口径）；定向 `-k previs white_model` 138/138、关联 `-k stage_execution_service stage_parallel` 57/57 与 `-k ui_edges` 115/115、默认冒烟 8/8，全 0 红。架构（干净 master 工作树 `--layer architecture --all`）312/312、0 红。台账 `架构统一基数.json` 第四项三处行号随插入平移（exempt 不变）。
 
 ## 2026-10-12 O08 完成
 
