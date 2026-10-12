@@ -1,5 +1,11 @@
 # 当前快照
 
+## 2026-10-13：UI 路线图 §一 第 2 项（设计 token）desktop.py 内联间距（R1401，功能轮 §3.1）
+- 范围＝零视觉变更子集的一页：`desktop.py` 13 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token（4×2／8×2／12×3／16×6）；该模块已 `from ui_tokens import COLORS, FONTS, SPACING, …`，**无新增 import、行数 7498 不变、无行号平移**。
+- 未动 hex（31 处内联色属旧调色板决策；`#ffffff` 大小写等值会与 `test_idea_chat` 字面量断言冲突）。
+- 验证：默认冒烟 8/8、架构 341/341；**命中 §5**（启动路径＋五轮）→ 干净 master 全量 **4983/4983、558.1 秒、0 红**（凭据 tree=`60d4e23d…`＝`a8a0803:程序`，last_full 1396→1400）。提交内容 `a8a0803`。
+- **决策-free 子集基本耗尽**：仅余 `agent/prompt_optimizer.py`（10，agent 层须另评）；其余 hex／103 处旧色／非 token 间距／文字层级全部待调色板三选一。
+
 ## 2026-10-13：UI 路线图 §一 第 2 项（设计 token）第 3 批单页迁移（R1400，功能轮 §3.1）
 - 范围＝零视觉变更子集第 3 批：`keyframe_comfy.py`／`workflow_settings.py`／`white_model.py`／`native_assets.py`／`background_characters.py` 24 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token；`keyframe_comfy.py` 1 处等值 `#ffffff→COLORS['background_card']`。
 - 验证：定向 168/168、默认冒烟 8/8、架构 341/341；1400−1396=4<5 且未命中 §5 → 不跑全量（最近绿全量 R1399）。提交内容 `e81df9c`。
