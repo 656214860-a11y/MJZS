@@ -5,7 +5,7 @@ import ast
 import unittest
 
 from tests.architecture._layers import LAYERS
-from tests.architecture._scan import module_name, parse, production_files
+from tests.architecture._scan import module_name, parse, production_files_recursive
 
 
 _COMPLETION_EVENT = 'stage.completed'
@@ -42,7 +42,7 @@ class CompletionGateTests(unittest.TestCase):
     def test_completion_events_are_not_emitted_by_ui_or_agent_modules(self) -> None:
         """UI/Agent 不能以文字或页面提示直接宣告阶段完成。"""
         violations = []
-        for path in production_files():
+        for path in production_files_recursive():
             tree = parse(path)
             if LAYERS.get(module_name(path)) != 4 and not module_name(path).startswith('agent'):
                 continue
@@ -58,7 +58,7 @@ class CompletionGateTests(unittest.TestCase):
     def test_completion_event_senders_depend_on_completion_service(self) -> None:
         """任何发送者须显式依赖产物核验服务，而非模型文字。"""
         violations = []
-        for path in production_files():
+        for path in production_files_recursive():
             tree = parse(path)
             if any(isinstance(node, ast.Call) and _is_completion_emit(node) for node in ast.walk(tree)):
                 if module_name(path) != 'stage_completion_service' and not _imports_completion_service(tree):

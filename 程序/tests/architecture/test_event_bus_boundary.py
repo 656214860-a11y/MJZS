@@ -5,7 +5,7 @@ import ast
 import unittest
 from pathlib import Path
 
-from tests.architecture._scan import parse, production_files
+from tests.architecture._scan import parse, production_files_recursive
 
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -51,7 +51,7 @@ def _broadcaster_calls(tree: ast.Module) -> list[int]:
 class EventBusBoundaryTests(unittest.TestCase):
     def test_only_pet_bus_implements_direct_bus_emit(self) -> None:
         violations = []
-        for path in production_files():
+        for path in production_files_recursive():
             if path.name == _TRUSTED_TRANSPORT:
                 continue
             violations.extend(f'{path.name}:{line}' for line in _direct_bus_emits(parse(path)))
@@ -63,7 +63,7 @@ class EventBusBoundaryTests(unittest.TestCase):
 
     def test_only_declared_wrappers_are_allowed(self) -> None:
         actual = {}
-        for path in production_files():
+        for path in production_files_recursive():
             function = _function(parse(path), '_emit')
             if function is not None:
                 actual[path.name] = function
@@ -77,7 +77,7 @@ class EventBusBoundaryTests(unittest.TestCase):
 
     def test_broadcaster_is_text_log_not_cross_module_state_bus(self) -> None:
         violations = []
-        for path in production_files():
+        for path in production_files_recursive():
             if path.name in _BROADCAST_CALLERS:
                 continue
             violations.extend(f'{path.name}:{line}' for line in _broadcaster_calls(parse(path)))
