@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1402 本轮实测：UI 路线图 §一 第 2 项（设计 token）末页迁移——`agent/prompt_optimizer.py` 10 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token（**零视觉变更**）＋行号平移同步（架构统一基数 第四项 175→176、覆盖率审计21 位点 173→174）；`test_token_boundary` 计数 16→6。定向 8/8、默认冒烟 8/8、架构 341/341。1402−1400=2<5 且未命中 §5，**不跑全量**（最近绿全量 R1401 `tree=60d4e23d…`）。提交内容 `8274dee`。详见 [R1402](tasks_round/tasks_round_1402_result.md)。
+R1402 本轮实测：UI 路线图 §一 第 2 项（设计 token）末页迁移——`agent/prompt_optimizer.py` 10 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token（**零视觉变更**）＋行号平移同步（架构统一基数 第四项 175→176、覆盖率审计21 位点 173→174）；`test_token_boundary` 计数 16→6。定向 8/8、默认冒烟 8/8、架构 341/341。1402−1400=2<5 且未命中 §5，**不跑全量**（最近绿全量 R1401 `tree=60d4e23d…`）。提交内容 `8274dee`；报告／状态／接力 `0962173`。详见 [R1402](tasks_round/tasks_round_1402_result.md)。
 
 R1401 本轮实测：UI 路线图 §一 第 2 项（设计 token）`desktop.py` 内联间距迁移——13 处 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token（**零视觉变更**；无新增 import、行数 7498 不变、无行号平移）；`test_token_boundary` `desktop.py` 计数 40→27。默认冒烟 8/8、架构 341/341。**命中 §5（启动路径，且 1401−1396=5）**：干净 master `o07-fullsafe-master` `--all --safe` 4983/4983、558.1 秒、0 红（凭据 tree=`60d4e23d…`＝`a8a0803:程序`，`last_full_safe_all_round` 1396→1400）。提交内容 `a8a0803`；报告／状态／接力 `71b7d3f`。详见 [R1401](tasks_round/tasks_round_1401_result.md)。
 
