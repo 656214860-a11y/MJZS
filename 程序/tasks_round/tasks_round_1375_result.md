@@ -56,9 +56,10 @@
 ## 全量判定
 - 1375 − last_full_safe_all_round(1374) = 1 < 5；但 O48 为 R1267 路线图收口项，§5 规定「路线图条目收口」须跑 `run_selftests.py --all --safe`，故收口跑全量。
 - 复用检查：`.git/full-safe-receipts.json` 最近绿凭据 round=1374、tree=4778c99e…（7 日内，＝当前 `HEAD:程序`）；但本轮改了生产代码与文档，内容树将变，不能复用。
-- 全量结果：（收尾补记）
+- 全量结果：在干净 master 谱系工作树 `o07-fullsafe-master`（`git worktree list` 里 HEAD 指向 `refs/heads/master` 使 `is_master_checkout()` 为真；收口前 `git reset --hard HEAD` 到 `afcc0a4`，并把 `.agent-handoff/backlog.md` 的字节同步成仓库期望形态使 `git status --porcelain` 为空）跑 `--all --safe`：**4957/4957、0 红、715.1 秒**（首次即绿，无二次全量）。写凭据 `round=1375`、`tree=c3df6a57f58964034874777125dc038c6771b0b8`（＝`afcc0a4:程序`，与 `HEAD:程序` 一致）、`at=2026-10-12T19:33:12`、`last_full_safe_all_round=1375`。4957 − 4954 = 3 即本轮新增架构用例数；`test_desktop_startup_perf`（14 条 16.3 秒）／`test_perf_baseline`（9 条 26.5 秒）本轮均绿、无阈值抖动。
 
 ## 提交
 - 本轮改动：13 个生产模块 ＋ `程序/pet_bus.py`、`程序/architecture.md`、`程序/README.md`、`程序/tests/architecture/test_agents_md.py`、8 个测试文件、`程序/维护记录/{架构统一基数.json,skip台账.json,TODO注释快照_20261003.json}`；报告与状态页、4 个接力文件。
-- 内容提交：（收尾补记）
-- 报告与接力提交：（收尾补记）
+- 内容提交：`d5de4df`（29 文件：`pet_bus.py`、13 个生产模块、`architecture.md`、`README.md`、`tests/architecture/test_agents_md.py`、8 个受影响测试、`维护记录` 三份登记；未含主树他人已暂存的 `程序/idea_chat.py`／`程序/idea_attachments.py`／`程序/配置/SKILL/预设.json`）。
+- 报告与接力提交：`afcc0a4`（`tasks_round_1375_result.md`、`project_status.md`、`.agent-handoff/{snapshot,work-log,validation,backlog}.md`）。
+- 收尾提交：本提交把「全量结果」与「提交号」补记进报告与接力文件（沿用同一轮次 R1375，中央 `last_claimed` 仍为 1375）。
