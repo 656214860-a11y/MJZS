@@ -1,3 +1,7 @@
+## 2026-10-12 O43 完成
+
+- 2026-10-12 O43：`skill_orchestrator.py`（L3）新增 `CHECKPOINT_VERSION`／`checkpoint_digest()`；`before_step(..., skills=None)` 写 `version`／`at`／`project`／`skills`／`digest` 且「写成功才认内存状态」；新增只读 `resume_preview()`（`continue`／`skip`／`verify` 逐步判定＋工具调用完成/阶段成果完成分开＋`paid` 列表＋`text`）。测试：新增 `tests/test_resume_preview.py` 12/12；定向 `-k resume_preview skill_registry skill_budget skill_templates skills workflow_settings workflow_tasks pet_agent pet_state stage_flow` 318/318；`-k test_pet_ui skill_panel` 586/586；架构 312/312；默认冒烟 8/8；`test_workflow` 主树 1 条红为既知主树环境项。全量：1370−1369=1<5、未命中 §5，收口在干净 master 跑一次 `--all --safe`（结果待收尾补记）。
+
 ## 2026-10-12 O42 完成
 
 - 2026-10-12 O42：`pet_bus.py`（L0）新增 `PENDING_LIMIT`／`ERROR_LIMIT`／`ERROR_PERSIST_LIMIT`／`SHEDDABLE_EVENTS`／`is_sheddable`；`Bus.publish` 入队前合并重复上报（记 `dropped`）、待处理数到 `pending_limit` 时只让 `SHEDDABLE_EVENTS`（`stage.executing`／`notify.aggregate`）让路（记 `shed`），终态与 `stage.paused` 永不丢弃；`errors` 有界环形＋`errors_total`＋`bus.subscriber.error` 持久诊断；新增 `pending`／`water`／`stats()`／`unsubscribe`／`release`。测试：新增 `tests/test_pet_bus_backpressure.py` 15/15；定向 `-k pet_bus pet_agent pet_state stage_flow skill_orchestrator` 186/186；`-k test_pet_ui test_pet_cloud` 606/606；架构 `--layer architecture --all` 312/312；默认冒烟 8/8；0 红。合成测量：重复上报 200000 条 `qsize()==1`、异常 20000 次 `len(errors)==64`。全量：1369−1368=1<5、未命中 §5，收口在干净 master 谱系工作树 `o42-fullsafe-master` 跑一次 `--all --safe`：4887/4887、0 红、547.7 秒，凭据 `round=1369`、`tree=0ed4726b…`、`last_full_safe_all_round=1369`。

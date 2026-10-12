@@ -1,6 +1,8 @@
 # 待办索引
 
-- 按 R1267 清单顺序推进：O01—O42 已完成（O41 = R1368、O42 = R1369），下一项 O43（自动流程统一检查点版本、幂等和恢复预览，P2／建议·验证，M）；O43—O48 未启动。逐项 `[TASK_COMPLETE]` 后自动接下一项，不跳过未完成项。
+- 按 R1267 清单顺序推进：O01—O43 已完成（O42 = R1369、O43 = R1370），下一项 O44（保留安全机制，补可诊断但不泄露的状态区分，P2／事实·建议，S/M）；O44—O48 未启动。逐项 `[TASK_COMPLETE]` 后自动接下一项，不跳过未完成项。
+
+- O43 后备注（非本轮欠账）：`resume_preview()` 已实现并测试但未接界面（`pet_ui` 含冻结行号注释，接线要另用等行数技巧或改 TODO 快照）；步骤摘要只覆盖阶段＋序号＋步骤名（L3 不能取 L4 的模型/SKILL 冻结摘要）；`artifact_verified` 只认 script／script_structure 两段。
 
 - O42 后备注（非本轮欠账）：背压只让 `stage.executing`／`notify.aggregate` 在待处理数 ≥ `PENDING_LIMIT`(=1024) 时让路，不同事件仍软上限（未做硬丢）；`unsubscribe`／`release` 已提供并测试但未接入 `pet_ui`（含冻结行号注释，且现无订阅累积）；订阅者异常持久诊断按 `ERROR_PERSIST_LIMIT`(=128) 封顶。
 
