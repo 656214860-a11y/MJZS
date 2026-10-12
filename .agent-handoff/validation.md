@@ -1,6 +1,6 @@
 ## 2026-10-12 O44 完成
 
-- 2026-10-12 O44：`model_secrets.py`（L1）新增 `_BLOB_HEADER`／五状态常量／`looks_like_blob`／`diagnose`／`verdict`；`diagnostic_capture.py`（L1）新增 `redact`／`retention_note`／`preview_detail`（含 keep_days／expires_at／expired）与 URL 查询参数脱敏分支；`model_diagnostics.py`（L1）新增 `_scrub`（context／response_meta 落盘前脱敏）。测试：新增 `tests/test_secret_status_diagnostics.py` 13/13；定向 `-k secret_status_diagnostics diagnostic_capture model_diagnostics model_pool pet_llm writing_api hollmwood_roles pet_settings` 269 条、仅 test_model_pool 1 条既知主树环境红（路径限定 git stash 复现：与本改动无关）、`-k test_api test_recycle` 全绿；架构 312/312；默认冒烟 8/8。全量：1371−1370=1<5、未命中 §5，收口在干净 master 跑一次 `--all --safe`（结果待收尾补记）。
+- 2026-10-12 O44：`model_secrets.py`（L1）新增 `_BLOB_HEADER`／五状态常量／`looks_like_blob`／`diagnose`／`verdict`；`diagnostic_capture.py`（L1）新增 `redact`／`retention_note`／`preview_detail`（含 keep_days／expires_at／expired）与 URL 查询参数脱敏分支；`model_diagnostics.py`（L1）新增 `_scrub`（context／response_meta 落盘前脱敏）。测试：新增 `tests/test_secret_status_diagnostics.py` 13/13；定向 `-k secret_status_diagnostics diagnostic_capture model_diagnostics model_pool pet_llm writing_api hollmwood_roles pet_settings` 269 条、仅 test_model_pool 1 条既知主树环境红（路径限定 git stash 复现：与本改动无关）、`-k test_api test_recycle` 全绿；架构 312/312；默认冒烟 8/8。全量：1371−1370=1<5、未命中 §5，收口在干净 master 跑一次 `--all --safe`（4912/4912、0 红、752.38 秒，凭据 round=1371、tree=de0084a9…）。
 
 ## 2026-10-12 O43 完成
 

@@ -6,7 +6,7 @@
 - O44 契约变化：`load`／`save`／`clear`／`path`／`redacted`／`preview`／`export`／`event` 输出全不变，只新增函数与常量；新增同层 import `diagnostic_capture → log_maintenance`、`model_diagnostics → diagnostic_capture`（L1→L1，不越层）；未新增顶层模块／裸 `json.loads`／`skipTest`／删除路径；架构 312/312。
 - O44 验证证据：新增 `tests/test_secret_status_diagnostics.py` 13/13；定向 `-k secret_status_diagnostics diagnostic_capture model_diagnostics model_pool pet_llm writing_api hollmwood_roles pet_settings` 269 条、仅 `test_model_pool` 1 条红（claude-desktop「未安装」，已用路径限定 `git stash` 复现：不加载本改动同样红＝既知主树环境项）；`-k test_api test_recycle` 全绿；架构 312/312；默认冒烟 8/8。
 - O44 边界：`other-user`／`corrupt` 用密文头启发式（头好中段坏会归 `other-user`，但绝不归 `ready`）；`preview_detail` 只显示保留期限不删文件（轮转仍归 `log_maintenance`）；`verdict` 依赖调用方已分好的 `error_class`；本轮未读任何真实明文密钥（测试全用假 `PROTECTOR`）。
-- O44 全量：1371−1370=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量结果待收尾补记。
+- O44 全量：1371−1370=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量 4912/4912、0 红、752.38 秒（干净 master 工作树 `o44-fullsafe-master`，`--all --safe`；凭据 round=1371、tree=de0084a9…（＝`HEAD:程序`）、at=2026-10-12T17:26:20、last_full_safe_all_round=1371；4912−4899=13＝本轮新增用例；`test_desktop_startup_perf`／`test_perf_baseline` 本轮绿、无抖动，无二次全量）。
 
 ## 2026-10-12：R1335 并入 master（阶段④分集增量上下文）
 - 分支 `codex/episode-incremental-context` 已合入 master。`script_contract.split_script_episodes`＋分集账本 `write_dir(project,'script')/剧本分集增量账本.json`（每集 sha256＋based_on 其余集快照）；`writing_api.reply()` 前注入「只贴改动集正文」、唯一发布点 `_save_formal_script()` 后更新账本；`workflow_tasks._episode_change_notice()` 只给本地 Agent 报集号；首次／无账本退化为全量。见 [R1335](../程序/tasks_round/tasks_round_1335_result.md)。
