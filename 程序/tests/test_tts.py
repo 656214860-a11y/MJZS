@@ -368,5 +368,97 @@ class TtsBatchResumeTests(unittest.TestCase):
             self.assertEqual([self.lines(3)[index - 1]["text"] for index in preview], calls)
 
 
+class TtsBatchIdentityTests(unittest.TestCase):
+    """O12：批次身份含端点／模型／音色／语速，开批冻结，换配置不算旧缓存，损坏音频不续用。"""
+
+    ENTRIES = [("SH001", "CHAR_001", "你好", 0.0, 1.0)]
+
+    def _settings(self, model="tts-a", endpoint="https://a.example/v1"):
+        return {"base_url": endpoint, "model": model, "voice": "alloy"}
+
+    def test_build_lines_records_the_request_identity(self):
+        lines = tts_api.build_lines(self.ENTRIES, {}, settings=self._settings())
+        self.assertEqual(lines[0]["model"], "tts-a")
+        self.assertEqual(lines[0]["endpoint"], "https://a.example/v1")
+        self.assertEqual(lines[0]["voice"], "")
+        self.assertEqual(lines[0]["speed"], 1.0)
+
+    def test_mid_batch_settings_change_does_not_mix_configs(self):
+        state = {"settings": self._settings()}
+        seen = []
+
+        def fake_synthesize(text, speed=1.0, voice=None, *, settings=None):
+            current = settings if isinstance(settings, dict) else tts_api.read_settings()
+            seen.append(current.get("model"))
+            state["settings"] = self._settings(model="tts-b", endpoint="https://b.example/v1")
+            return b"audio"
+
+        lines = tts_api.build_lines(self.ENTRIES * 2, {}, settings=state["settings"])
+        with tempfile.TemporaryDirectory() as td:
+            with patch.object(tts_api, "read_settings", side_effect=lambda: dict(state["settings"])), \
+                 patch.object(tts_api, "synthesize", side_effect=fake_synthesize):
+                self.assertEqual(tts_api.run_lines(lines, Path(td), gateway=_gateway()), (2, 0, 0))
+        self.assertEqual(seen, ["tts-a", "tts-a"], "开批时冻结的配置说了算，中途改设置不影响这一批")
+
+    def test_switching_the_model_or_endpoint_invalidates_the_cache(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td); folder = base / "批一"
+            first = tts_api.build_lines(self.ENTRIES, {}, settings=self._settings())
+            tts_api.run_lines(first, folder, generate=lambda *a, **k: b"audio", gateway=_gateway())
+            self.assertEqual(tts_api.pending_lines(first, folder), [])
+            self.assertEqual(tts_api.resume_folder(base, tts_api.build_lines(
+                self.ENTRIES, {}, settings=self._settings())), folder, "同配置同内容仍可续跑")
+            other_model = tts_api.build_lines(self.ENTRIES, {}, settings=self._settings(model="tts-b"))
+            self.assertIsNone(tts_api.resume_folder(base, other_model), "换模型就是另一份缓存")
+            self.assertEqual(tts_api.pending_lines(other_model, folder), [1], "旧成品不算新模型的成品")
+            other_endpoint = tts_api.build_lines(self.ENTRIES, {},
+                                                 settings=self._settings(endpoint="https://b.example/v1"))
+            self.assertIsNone(tts_api.resume_folder(base, other_endpoint), "换服务商也是另一份缓存")
+
+    def test_a_corrupted_line_is_not_reused(self):
+        with tempfile.TemporaryDirectory() as td:
+            folder = Path(td)
+            lines = tts_api.build_lines(self.ENTRIES, {}, settings=self._settings())
+            tts_api.run_lines(lines, folder, generate=lambda *a, **k: b"audio-bytes", gateway=_gateway())
+            self.assertEqual(tts_api.pending_lines(lines, folder), [])
+            name = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]["file"]
+            (folder / name).write_bytes(b"truncated")
+            self.assertEqual(tts_api.pending_lines(lines, folder), [1], "摘要对不上就要重新合成")
+            (folder / name).write_bytes(b"")
+            self.assertEqual(tts_api.pending_lines(lines, folder), [1], "空文件不算成品")
+
+    def test_a_legacy_manifest_without_digest_still_counts_when_non_empty(self):
+        with tempfile.TemporaryDirectory() as td:
+            folder = Path(td)
+            lines = tts_api.build_lines(self.ENTRIES, {}, settings=self._settings())
+            name = tts_api.line_name(1, lines[0])
+            (folder / name).write_bytes(b"old-audio")
+            self.assertEqual(tts_api.pending_lines(lines, folder), [1], "没有清单就还没成品")
+            tts_api._save(folder / "时间轴.json", [{**lines[0], "file": name, "state": "ok"}],
+                          gateway=_gateway())
+            self.assertEqual(tts_api.pending_lines(lines, folder), [], "旧清单没记摘要，文件非空即沿用")
+            (folder / name).write_bytes(b"")
+            self.assertEqual(tts_api.pending_lines(lines, folder), [1], "旧清单也要文件非空")
+
+    def test_no_secret_enters_the_signature_manifest_or_batch_record(self):
+        settings = dict(self._settings(), encrypted_key="CIPHER", api_key="sk-secret", voices={"CHAR_001": "v"})
+        lines = tts_api.build_lines(self.ENTRIES, {}, settings=settings)
+        with tempfile.TemporaryDirectory() as td:
+            folder = Path(td)
+            tts_api.run_lines(lines, folder, generate=lambda *a, **k: b"audio", gateway=_gateway())
+            batch = json.loads((folder / "批次.json").read_text(encoding="utf-8"))
+        blob = json.dumps({"lines": lines, "batch": batch}, ensure_ascii=False)
+        self.assertNotIn("sk-secret", blob)
+        self.assertNotIn("CIPHER", blob)
+        self.assertEqual(batch["identity"]["models"], ["tts-a"])
+        self.assertEqual(batch["identity"]["endpoints"], ["https://a.example/v1"])
+        plain = tts_api.script_signature("你好", self._settings())
+        self.assertEqual(plain, tts_api.script_signature("你好", settings), "密钥不参与整段指纹")
+        self.assertNotEqual(plain, tts_api.script_signature("你好", self._settings(model="tts-b")))
+        self.assertNotEqual(plain, tts_api.script_signature(
+            "你好", self._settings(endpoint="https://b.example/v1")))
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

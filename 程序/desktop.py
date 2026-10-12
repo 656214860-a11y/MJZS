@@ -7107,7 +7107,7 @@ class Desktop:
         entries,estimated=self.dialogue_entries();assets=self.dialogue_assets()
         if not entries:raise ValueError('当前分镜没有对白，无法生成配音')
         tts_settings=tts_api.read_settings()
-        lines=tts_api.build_lines(entries,assets,tts_settings.get('voices'),tts_settings.get('speeds'))
+        lines=tts_api.build_lines(entries,assets,tts_settings.get('voices'),tts_settings.get('speeds'),settings=tts_settings)
         from project_stages import audio
         folder=audio(self.root)/'配音分句'
         out=tts_api.resume_folder(folder,lines);resumed=out is not None

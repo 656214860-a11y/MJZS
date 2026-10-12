@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O12 完成
+
+- 2026-10-12 O12：新增 `tests/test_tts.py::TtsBatchIdentityTests` 6 条（清单记身份／中途改设置不混用／换模型与换端点失效旧缓存／截断与空文件不续用／旧清单无摘要时文件非空即沿用／密钥不入指纹清单批次记录）；定向 `-k tts` 49/49、`-k tts audio animatic subtitle` 全绿、关联 `-k ui_edges` 115/115、架构相关 `-k unification_ratchet json_io_boundary layers tts_publication_boundary todo_comment_snapshot` 12/12、默认冒烟 8/8，全 0 红。夹具 `fake_synthesize` 跟随新签名补 `**_kwargs`（`tests/test_ui_edges.py` 两处，只改夹具）。本轮 1334−1330=4<5，不跑全量。
+
 ## 2026-10-12 O11 完成
 
 - 2026-10-12 O11：新增 `tests/test_confirm_gates.py::ConfirmationBindingTests` 5 条（换候选只失效那一个角色且门禁重问／改冲突优先级重问／跨集同批次 ID 内容不同即复核／无关字段不扰动／旧记录无摘要仍算已确认）；定向 `-k confirm_gates asset_detail stage_wiring asset_plan` 101/101、接缝 `-k ui_edges stage_execution stage_parallel` 172/172、架构相关 `-k unification_ratchet confirm_gates_json_boundary todo_comment_snapshot layers no_circular_import stage_paths` 15/15、默认冒烟 8/8，全 0 红。台账无变化（`stage_execution_service.py` json.loads 仍 108/1039/1070/1086）。本轮 1333−1330=3<5，不跑全量。

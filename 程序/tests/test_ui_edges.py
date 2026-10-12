@@ -3407,7 +3407,7 @@ class UiEdgeTests(unittest.TestCase):
                     done(value)
             desktop_module.Desktop.async_ = sync
             calls = []
-            def fake_synthesize(text, speed=1.0, voice=None):
+            def fake_synthesize(text, speed=1.0, voice=None, **_kwargs):
                 calls.append(text); return b"audio"
             asked = []
             def refuse(_parent, title, message, **kwargs):
@@ -3464,7 +3464,7 @@ class UiEdgeTests(unittest.TestCase):
                     done(value)
             desktop_module.Desktop.async_ = sync
             calls = []
-            def fake_synthesize(text, speed=1.0, voice=None):
+            def fake_synthesize(text, speed=1.0, voice=None, **_kwargs):
                 calls.append(text); return b"audio"
             with patch.object(tts_api, "synthesize", fake_synthesize):
                 d.generate_tts()
