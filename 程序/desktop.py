@@ -4084,7 +4084,7 @@ class Desktop:
                 target=Path(path);linked=True
             message=(f"{item.get('name','项目')}\n{target}\n\n"
                      +('这是一条项目目录链接。只会删除链接和项目登记，不会删除链接指向的真实目录。是否删除？'
-                       if linked else '将把这个项目文件夹及全部素材移入项目库回收站。是否继续？'))
+                       if linked else '将把这个项目文件夹及全部素材移入项目库回收站（可恢复，不是永久清除；同一块磁盘上回收不等于释放空间）。是否继续？'))
             if not confirm(popup, '移入项目回收站',
                     message,
                     dangerous=True):return
@@ -4148,7 +4148,7 @@ class Desktop:
         tree.bind('<Double-1>',enter);tree.bind('<Return>',enter)
         popup.bind('<Escape>',lambda e:popup.destroy());popup.grab_set();tree.focus_set()
     def project_home(self):
-        self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。')
+        self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
         tree=ttk.Treeview(self.content,show='tree',height=13,selectmode='browse');tree.pack(fill='both',expand=True,pady=12);self.fill_projects(tree)
         self._project_home_tree=tree
         tree.bind('<Button-3>',lambda e:self.project_menu(e,tree))
@@ -4159,7 +4159,15 @@ class Desktop:
         self.button(self.content,'进入选中的项目 →',enter)
         self.button(self.content,'＋ 创建新项目',self.new)
         self.button(self.content,'恢复回收站内容…',self.open_recycle_recovery)
+        self.button(self.content,'重建项目索引',self.rebuild_project_index)
         self.button(self.content,'导出诊断包…',self.export_diagnostics_package)
+    def rebuild_project_index(self):
+        """按磁盘事实重建项目索引：补登新目录、移除失效登记；不移动或删除任何项目文件。"""
+        outcome=self._project_result_data(self.projects.rebuild_registry())
+        self.reload()
+        self.status.set('已重建项目索引：补登 %d 个、移除失效 %d 个（未改动磁盘文件）'
+                        % (len(outcome.get('added',[])),len(outcome.get('dropped',[]))))
+        return outcome
     def set_project_status(self,item,status):
         self._project_result_data(self.projects.set_status(item['path'],status));self.reload()
         if self.root:self.list.selection_set(str(self.root))
