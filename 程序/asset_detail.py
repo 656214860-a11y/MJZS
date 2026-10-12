@@ -384,9 +384,11 @@ def _anchor_block(desktop, aid, asset):
               wraplength=760, justify='left', foreground='#1a7f37' if anchor else '#8a8a8a').pack(anchor='w')
     row = ttk.Frame(box)
     row.pack(fill='x', pady=(4, 0))
+    def copy_anchor():
+        reason = desktop.copy_text(anchor)
+        desktop.status.set('复制失败：' + reason if reason else '锚点字符串已复制')
     SecondaryButton(row, text='复制',
-               command=lambda: desktop.safe(lambda: (desktop.copy_text(anchor),
-                                                     desktop.status.set('锚点字符串已复制')))).pack(side='left')
+               command=lambda: desktop.safe(copy_anchor)).pack(side='left')
     SecondaryButton(row, text='编辑',
                command=lambda: desktop.safe(lambda: edit_anchor(desktop, aid))).pack(side='left', padx=6)
     for title, text in card_lines(asset):

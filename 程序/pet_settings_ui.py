@@ -476,7 +476,7 @@ def dev_page(frame, pet):
         from prompt_window import copy_text
         reason = copy_text(pet.win, DEVELOPER_MAIL)
         if reason:
-            hint.set('复制失败，请手动选中复制：%s（%s）' % (DEVELOPER_MAIL, reason))
+            hint.set('复制失败：%s（%s）；请手动选中复制' % (DEVELOPER_MAIL, reason))
         else:
             hint.set('邮箱已复制：' + DEVELOPER_MAIL)
         return DEVELOPER_MAIL

@@ -61,7 +61,7 @@ def online_window(desktop, source, ids):
         reason = copy_text(desktop.win, text.get('1.0', 'end-1c'))
         wm.webbrowser.open(wm.TOOLS[0][1])
         desktop.status.set(selected.get() + (('白模制作说明已复制；在线上工作台制作后导入。') if not reason
-                           else ('白模制作说明复制失败（' + reason + '），请手动选中复制；线上工作台已打开。')))
+                           else ('白模制作说明复制失败：' + reason + '；请手动选中复制；线上工作台已打开。')))
     def import_result():
         try:
             sid = selected.get(); target = wm.import_media(wm.shot_directory(desktop.root, sid, source), sid, win)
