@@ -5280,20 +5280,20 @@ class Desktop:
                     open_blender()
                 if intake_only:
                     # 提取阶段不得附加“直接生成剧本”的 SKILL/阶段交付指令。
-                    full,budget=prepare_request_context(prompt,stage,'brief_intake')
-                    continuation,continuation_budget=prepare_request_context(followup,stage,'brief_intake')
+                    full,budget=prepare_request_context(prompt,stage,'brief_intake',report=True)
+                    continuation,continuation_budget=prepare_request_context(followup,stage,'brief_intake',report=True)
                 elif bounded_writing:
                     full,budget=prepare_request_context(
-                        prompt_with_settings(prompt,config,stage=stage),stage,'explicit_writing_inputs')
+                        prompt_with_settings(prompt,config,stage=stage),stage,'explicit_writing_inputs',report=True)
                     continuation,continuation_budget=prepare_request_context(
-                        prompt_with_settings(followup,config,stage=stage),stage,'explicit_writing_inputs')
+                        prompt_with_settings(followup,config,stage=stage),stage,'explicit_writing_inputs',report=True)
                 else:
                     context,strategy=request_stage_instruction(project,stage,data)
                     full,budget=prepare_request_context(
-                        prompt_with_settings(context+prompt,config,stage=stage),stage,strategy)
+                        prompt_with_settings(context+prompt,config,stage=stage),stage,strategy,report=True)
                     continuation,continuation_budget=prepare_request_context(
                         prompt_with_settings(continuation_instruction(project,stage,data)+followup,config,stage=stage),
-                        stage,'continuation_summary')
+                        stage,'continuation_summary',report=True)
                 finish(receipt,'preparing','',skill_injection=config.get('skill_injection'),context_budget={
                     'initial':budget,'continuation':continuation_budget})
                 if native_claude:

@@ -17,6 +17,8 @@ from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
 import writing_tools
 from writing_quality import enabled as quality_enabled
+from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
+                                     context_budget_report, text_fingerprint)
 
 
 def selected_model(project):
@@ -77,7 +79,7 @@ MAX_REPEATED_READ_REQUESTS = 4
 CHAT_HISTORY_CHAR_LIMIT = 12000
 # 远端模型的输入上限并不等同于本地聊天记录的保存上限。超过此值时明确拒绝，
 # 避免推理字段挤占正文后被误报成“模型没有返回内容”。
-DIRECT_REQUEST_CONTEXT_MAX_CHARS = 96000
+DIRECT_REQUEST_CONTEXT_MAX_CHARS = REQUEST_CONTEXT_MAX_CHARS
 # 防止普通短对话通过通用 API 回复时覆盖已有完整剧本原稿。
 SCRIPT_RAW_AUTO_SAVE_MIN_CHARS = 800
 EMPTY_RESPONSE_LOG = Path(__file__).resolve().parent / 'logs' / 'claude_empty_response.log'
@@ -182,15 +184,23 @@ def _request_context_size(system, messages):
     return total
 
 
+def _messages_text(messages):
+    """把实际发送的消息体拼成一份可计数文本（不改变内容）。"""
+    return ''.join(json.dumps(message, ensure_ascii=False, default=str) for message in (messages or ()))
+
+
 def _context_budget_error(chosen, system, messages):
+    """字符硬保护：超限直接拒发，并说明主要占用与可拆分方向。"""
     size = _request_context_size(system, messages)
     if size <= DIRECT_REQUEST_CONTEXT_MAX_CHARS:
         return None
+    report = context_budget_report(
+        budget_sections(system=system, history=_messages_text(messages)), stage='剧本对话')
     return {
         'ok': False, 'status': 0, 'model': chosen, 'text': '', 'usage': {},
         'reason': 'context_budget_exceeded',
-        'error': ('本次剧本对话上下文过长（%d 字符，当前上限 %d）；请缩短创意、规则或最近对话后重试。'
-                  % (size, DIRECT_REQUEST_CONTEXT_MAX_CHARS)),
+        'error': ('本次剧本对话上下文过长（%d 字符，当前上限 %d）；请缩短创意、规则或最近对话后重试。%s'
+                  % (size, DIRECT_REQUEST_CONTEXT_MAX_CHARS, budget_advice(report))),
     }
 
 
@@ -207,24 +217,36 @@ class WritingRequestAdapter(ModelAdapter):
 
     def _call(self, method, messages, options=None, model='', system='', **kwargs):
         import model_pool
-        def estimate(text):
-            text = str(text or '')
-            ascii_count = sum(ord(char) < 128 for char in text)
-            return (ascii_count + 2) // 3 + (len(text) - ascii_count) * 2
         options = options or {}
         limit = model_pool.context_length_of(self.record.get('context_length')) or None
         reserved = max(0, int(options.get('max_tokens') or 0))
-        rules = estimate(system) + estimate(json.dumps(options.get('tools') or [], ensure_ascii=False))
-        body = sum(estimate(json.dumps(message, ensure_ascii=False)) + 12 for message in messages)
-        margin = max(512, int(limit * .05)) if limit else 0
-        self.context_budget = {'estimated': True, 'rules_tokens': rules, 'messages_tokens': body,
-                               'input_tokens': rules + body, 'context_limit': limit,
-                               'output_reserved': reserved, 'safety_margin': margin}
+        sections = budget_sections(
+            system=system,
+            tools=json.dumps(options.get('tools'), ensure_ascii=False) if options.get('tools') else '',
+            history=_messages_text(messages))
+        report = context_budget_report(sections, context_limit=limit, output_reserved=reserved,
+                                       stage='剧本对话')
+        self.context_budget = {
+            'estimated': True,
+            'rules_tokens': report['sections'].get('system', 0) + report['sections'].get('tools', 0),
+            'messages_tokens': report['sections'].get('history', 0),
+            'input_tokens': report['input_tokens'],
+            'context_limit': limit,
+            'output_reserved': reserved,
+            'safety_margin': report['safety_margin'],
+            'projected_tokens': report['projected_tokens'],
+            'sections': report['sections'],
+            'dominant': report['dominant'],
+            'char_limit': report['char_limit'],
+            'fingerprint': text_fingerprint(str(system or '') + _messages_text(messages)),
+        }
         rejected = _context_budget_error(model or self.chosen, system, messages)
-        if not rejected and limit and rules + body + reserved + margin > limit:
+        if not rejected and report['exceeded']:
             rejected = {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
                         'reason': 'context_budget_exceeded',
-                        'error': f'估算输入 {rules + body} token，加输出预留 {reserved} 和余量 {margin} 超过模型上下文 {limit}；请压缩历史或缩短输入。'}
+                        'error': (f'估算输入 {report["input_tokens"]:,} token，加输出预留 {reserved:,}'
+                                  f' 和余量 {report["safety_margin"]:,} 超过模型上下文 {limit:,}；'
+                                  '请压缩历史或缩短输入。' + budget_advice(report))}
         if rejected:
             return dict(rejected, context_budget=dict(self.context_budget), request_usage=dict(self.request_usage))
         result = getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)

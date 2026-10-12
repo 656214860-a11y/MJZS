@@ -18,6 +18,7 @@ from model_router import ModelAdapter
 from script_contract import RHYTHM_TEMPLATE_PATH
 from file_cache import read_json
 from service_contract import SystemError, success
+from workflow_context_budget import budget_advice, budget_sections, context_budget_report
 
 
 ROLE_ORDER = ('director', 'writer', 'editor', 'actor')
@@ -69,14 +70,29 @@ def _ensure_active(cancelled):
         raise RoleCancelledError('HOLLMWOOD 调用已取消')
 
 
-def _ensure_context_budget(role, system, prompt, log_folder, step, *, publish_log=None):
-    """在模型调用前拒绝过长上下文，避免推理字段耗尽可见输出。"""
+def _ensure_context_budget(role, system, prompt, log_folder, step, *, publish_log=None,
+                           context_limit=None, output_reserved=0):
+    """在模型调用前拒绝过长上下文，避免推理字段耗尽可见输出。
+
+    字符上限是硬保护；给了模型上下文窗口时，再按分项 token 预估检查「输入 + 输出
+    预留 + 余量」是否超出窗口，超限直接报错，而不是静默截断 SKILL 或剧本。
+    """
     size = len(str(system or '')) + len(str(prompt or ''))
-    if size <= REQUEST_CONTEXT_MAX_CHARS:
+    report = context_budget_report(budget_sections(system=system, stage=prompt),
+                                   context_limit=context_limit, output_reserved=output_reserved,
+                                   stage='%s 角色' % role)
+    if size <= REQUEST_CONTEXT_MAX_CHARS and not report['exceeded']:
         return
-    error = ('上下文过长：%s 角色请求为 %d 字符，超过 %d 字符安全预算；'
-             '请缩短简报、节奏模板或编剧角色 SKILL 指令后重试。' %
-             (role, size, REQUEST_CONTEXT_MAX_CHARS))
+    if size > REQUEST_CONTEXT_MAX_CHARS:
+        error = ('上下文过长：%s 角色请求为 %d 字符，超过 %d 字符安全预算；'
+                 '请缩短简报、节奏模板或编剧角色 SKILL 指令后重试。' %
+                 (role, size, REQUEST_CONTEXT_MAX_CHARS))
+    else:
+        error = ('上下文过长：%s 角色估算 %d token（输入 %d + 输出预留 %d + 余量 %d）'
+                 '超过模型上下文 %d；请缩短简报、拆成多次执行或缩小本次创作范围。' %
+                 (role, report['projected_tokens'], report['input_tokens'],
+                  report['output_reserved'], report['safety_margin'], report['context_limit']))
+    error += budget_advice(report)
     _write_log(log_folder, step, str(role) + '_context_rejected', error, publish=publish_log)
     raise RoleExecutionError('%s 角色执行失败：%s' % (role, error))
 
@@ -173,7 +189,24 @@ def _ask(adapter, model, role, system, prompt, log_folder, step, emit, cancelled
     if not isinstance(adapter, ModelAdapter):
         raise TypeError('HOLLMWOOD 必须接收 model_router 的 ModelAdapter')
     _ensure_active(cancelled)
-    _ensure_context_budget(role, system, prompt, log_folder, step, publish_log=publish_log)
+    record = getattr(adapter, 'record', None)
+    context_limit = None
+    if isinstance(record, dict):
+        try:
+            context_limit = int(str(record.get('context_length') or '').strip()) or None
+        except (TypeError, ValueError):
+            context_limit = None
+    # 调用前按最坏情况预留输出额度，避免推理字段挤占正文后误报「模型没返回内容」。
+    reserved = (CONTENT_ROLE_MAX_TOKENS
+                if role in ('writer', 'editor', 'actor',
+                            'writer_revision', 'editor_revision', 'actor_revision')
+                else 4096)
+    if str(role) == 'director' or str(role).startswith('director_review'):
+        reserved = max(reserved, DIRECTOR_RETRY_MAX_TOKENS)
+    if str(model).lower() in ('deepseek-v4-flash', 'deepseek-v4-pro'):
+        reserved = max(reserved, DEEPSEEK_V4_MAX_TOKENS)
+    _ensure_context_budget(role, system, prompt, log_folder, step, publish_log=publish_log,
+                           context_limit=context_limit, output_reserved=reserved)
     if emit:
         emit(role, step)
     # 首个导演规划和导演审核只要返回空正文才补发一次；网络/协议错误不重试，避免放大失败或费用。
