@@ -2291,7 +2291,7 @@ class Desktop:
                            ('未通过' if index==failed_index else '未开始'))
                           for index,role in enumerate(roles))
             text='  ·  '.join(label+'：'+states[key] for key,label in labels.items())
-        elif complete:text='导演：已完成  ·  编剧：已完成  ·  编辑：已完成  ·  演员：已完成'
+        elif complete:text='导演：已通过  ·  编剧：已通过  ·  编辑：已通过  ·  演员：已通过（规则合格；创意满意由您确认）'
         else:text='  ·  '.join(label+'：'+('工作中' if key==active else ('待命' if active else '等待')) for key,label in labels.items())
         try:variable.set(text)
         except (tk.TclError,AttributeError):pass

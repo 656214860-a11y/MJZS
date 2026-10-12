@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O16 完成并提交 R1340。四角色审核依据与修订范围：`hollmwood_roles._run` 每次算 `review_basis`（brief／SKILL／节奏／审核 system 四组 sha256）与逐条 `review_records`（位置／违反规则／修订建议／通过条件都保留在审核原文），`review_audit.scope`＋`creative_signoff` 区分「规则合格」与「创意满意」；返工 prompt 只针对退回意见里的明确问题且不重复注入节奏；失败异常与 API 成功/失败结果带 `hollmwood_review_audit`；桌面完成文案点明「规则合格；创意满意由您确认」。定向 51/51、关联 139/139、idea_chat 全绿、stage_prompt_governance 15/15、copy_rules 14/14、todo_comment 2/2、默认冒烟 8/8、0 红。见 [R1340](../程序/tasks_round/tasks_round_1340_result.md)。
+
 - 2026-10-12：O15 完成并提交 R1339（验证项）。核对各生成入口都消费发送边界一次捕获的请求快照：直连 API `capture_request`→`freeze_skills`；桌面 Agent 投递唯一入口 `open_flow_agent` 在 `build()` 前捕获 `config`，writing 分支 `validate_selected_skills`＋`freeze_skills`；手动任务书不发模型请求；媒体生成冻结由 O12 关闭。新增 `tests/test_request_freeze_entries.py` 3 条（冻结后改配置只影响新任务／两入口摘要一致／静态入口与捕获顺序），未改生产逻辑。定向 3/3、关联全绿、默认冒烟 8/8、0 红。见 [R1339](../程序/tasks_round/tasks_round_1339_result.md)。
 
 - 2026-10-12：O14 完成并提交 R1338。会话维度说明：`writing_api.chat_session_overview`／`chat_session_summary`（只读）给出会话模型与调用方式（API 直连／桌面 Agent）、请求身份（Provider／模型）、上下文来源（按模型隔离的对话记录）、已确认阶段文件数与自然剧本采用状态；桌面剧本页新增只读标签 `idea_session_label` 并随模型切换刷新。定向 131/131、关联全绿、架构全绿、`desktop_startup_perf` 14/14、默认冒烟 8/8、0 红。见 [R1338](../程序/tasks_round/tasks_round_1338_result.md)。

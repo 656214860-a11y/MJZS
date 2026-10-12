@@ -45,5 +45,24 @@ class HollmwoodQueueTests(unittest.TestCase):
         self.assertEqual(app.status.values, [])
 
 
+class _Variable:
+    def __init__(self):
+        self.value = ''
+
+    def set(self, value):
+        self.value = value
+
+
+class HollmwoodStatusTextTests(unittest.TestCase):
+    def test_complete_status_separates_rule_compliance_from_creative_signoff(self):
+        app = Desktop.__new__(Desktop)
+        app.hollmwood_role_status = _Variable()
+        text = app.set_hollmwood_role_status(complete=True)
+        self.assertEqual(app.hollmwood_role_status.value, text)
+        self.assertIn('规则合格', text)
+        self.assertIn('创意满意', text)
+        self.assertNotIn('你', text)
+
+
 if __name__ == '__main__':
     unittest.main()

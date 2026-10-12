@@ -1130,7 +1130,7 @@
             },
             {
                 "file": "writing_api.py",
-                "point": "486",
+                "point": "490",
                 "disposition": "exempt",
                 "reason": "简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
             },

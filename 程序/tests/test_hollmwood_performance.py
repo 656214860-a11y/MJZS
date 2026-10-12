@@ -143,3 +143,44 @@ class PerformanceTests(unittest.TestCase):
             identities = [call.kwargs['resume_identity'] for call in run.call_args_list]
         self.assertNotEqual(*identities)
         self.assertTrue(all(len(value) == 64 and 'private' not in value for value in identities))
+    def test_api_surfaces_review_audit_and_keeps_rule_scope(self):
+        import writing_api
+        from service_contract import success
+        from stage_execution_service import publish_stage_text
+        audit = {'basis': {'brief_sha256': 'a' * 64}, 'scope': '规则合格',
+                 'records': [{'role': 'writer', 'verdict': 'approved'}]}
+        with tempfile.TemporaryDirectory() as folder, \
+                patch('writing_api.PoolAdapter'), \
+                patch('stage_config.hollmwood_rules', return_value=('', '')), \
+                patch('stage_config.hollmwood_role_rules', return_value={}), \
+                patch('workflow_settings.skill_prompt', return_value=''), \
+                patch('writing_api._write_script_raw', return_value=Path(folder) / 'script_raw.md'), \
+                patch('writing_api._save_formal_script',
+                      side_effect=lambda project, result, **kwargs: result), \
+                patch('hollmwood_roles.run', return_value=success({'script': '正文', 'review_audit': audit})):
+            result = writing_api._hollmwood_reply(folder, 'test', {'endpoint': 'e', 'key': 'k'},
+                                                 {'hollmwood': {'enabled': True, 'rhythm': {}, 'roles': {}}},
+                                                 {'idea': '创意'}, publish=publish_stage_text)
+        self.assertEqual(result['hollmwood_review_audit'], audit)
+
+    def test_api_failure_payload_carries_review_basis(self):
+        import writing_api
+        from stage_execution_service import publish_stage_text
+        with tempfile.TemporaryDirectory() as folder, \
+                patch('writing_api.PoolAdapter'), \
+                patch('stage_config.hollmwood_rules', return_value=('', '')), \
+                patch('stage_config.hollmwood_role_rules', return_value={}), \
+                patch('workflow_settings.skill_prompt', return_value=''), \
+                patch('hollmwood_roles.run', side_effect=roles.RoleExecutionError(
+                    '导演未通过 editor：REVISE: 不连贯', review_failed_role='editor',
+                    review_basis={'brief_sha256': 'b' * 64},
+                    review_records=[{'role': 'editor', 'verdict': 'revise'}])):
+            result = writing_api._hollmwood_reply(folder, 'test', {'endpoint': 'e', 'key': 'k'},
+                                                 {'hollmwood': {'enabled': True, 'rhythm': {}, 'roles': {}}},
+                                                 {'idea': '创意'}, publish=publish_stage_text)
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['hollmwood_review_failed_role'], 'editor')
+        self.assertEqual(result['hollmwood_review_audit']['basis'], {'brief_sha256': 'b' * 64})
+        self.assertEqual(result['hollmwood_review_audit']['scope'], roles.REVIEW_SCOPE)
+        self.assertEqual(result['hollmwood_review_audit']['records'],
+                         [{'role': 'editor', 'verdict': 'revise'}])

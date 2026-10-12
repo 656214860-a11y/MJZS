@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O16 完成
+
+- 2026-10-12 O16：新增 `tests/test_hollmwood_roles.py::ReviewTraceabilityTests` 5 条（同一冻结输入 `review_basis` 四键一致且为 64 位摘要；记录区分规则合格/创意满意并保留退回原文与通过条件；返工 prompt 只含明确问题、节奏正文只在 system 出现一次、prompt 不含节奏；最终判退异常带 basis 与 records；断点恢复前缀记为「上一轮已审核通过」）；`tests/test_hollmwood_performance.py` 2 条（成功结果透出 `hollmwood_review_audit`；失败结果带 basis/scope/records）；`tests/test_hollmwood_ui_queue.py` 1 条（完成文案区分规则合格与创意满意、仍用「您」）。定向 `-k hollmwood` 51/51、关联 `-k writing` 139/139、`-k idea_chat` 全绿、`-k stage_prompt_governance` 15/15、`-k copy_rules` 14/14、`-k todo_comment` 2/2、默认冒烟 8/8，全 0 红。`writing_api.py` 加行后第 4 项 `json.loads` 台账 486→490（已同步），`-k unification_ratchet` 3/3 复验通过；`desktop.py` 只改 1 行文案，行数不变（TODO 注释快照 2753 未平移）。本轮 1340 − 1336 = 4 < 5，且未命中 §5 升级条件，不跑全量。
+
 ## 2026-10-12 O15 完成
 
 - 2026-10-12 O15：新增 `tests/test_request_freeze_entries.py` 3 条（`capture_request` 冻结后改技能文件与阶段配置只影响新任务、同一次捕获的 `frozen_skill_prompt` 与 sha256 摘要不变；直连 API 与桌面 Agent 两入口对同一技能 `selected`／`loaded.sha256` 一致；静态核对 desktop 直连走 `capture_request`、writing 投递走 `validate_selected_skills`＋`freeze_skills`、`open_flow_agent` 的 `current(...)` 先于 `def build()`、桌面 `launch_interactive(` 仅一处）。定向 `-k request_freeze_entries` 3/3、关联 `-k workflow_settings request_freeze_entries writing` 全绿、默认冒烟 8/8，全 0 红。未改生产代码，台账不变。本轮 1339 − 1336 = 3 < 5，不跑全量。

@@ -363,7 +363,10 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
         # 角色请求失败是可恢复的模型结果，不应穿透异步边界变成通用“操作未完成”弹窗。
         failed = {'ok': False, 'status': 0, 'model': chosen, 'text': '', 'usage': {}, 'error': str(exc),
                 'context_budget': dict(adapter.context_budget), 'request_usage': dict(adapter.request_usage),
-                'hollmwood_review_failed_role': exc.review_failed_role}
+                'hollmwood_review_failed_role': exc.review_failed_role,
+                'hollmwood_review_audit': {'basis': dict(getattr(exc, 'review_basis', None) or {}),
+                                           'scope': hollmwood_roles.REVIEW_SCOPE,
+                                           'records': list(getattr(exc, 'review_records', None) or [])}}
         if exc.response_text:
             from writing_quality import split_response, publish_reports
             from stage_path_service import write_dir
@@ -386,6 +389,7 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
     return _save_formal_script(project, {'ok': True, 'status': 200, 'model': chosen, 'text': outputs['script'],
             'usage': {}, 'context_budget': dict(adapter.context_budget), 'request_usage': dict(adapter.request_usage),
             'script_raw_path': str(target), 'hollmwood_enabled': True,
+            'hollmwood_review_audit': outputs.get('review_audit') or {},
             'quality_required': quality_enabled(
                 workflow_settings.skill_prompt(settings, inline=True))}, identity=identity, publish=publish)
 
