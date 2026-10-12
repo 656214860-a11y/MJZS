@@ -25,7 +25,7 @@
 
 ## 提交
 - 内容：`4ed81e9`（4 页＋两个行号基线）。
-- 报告／状态／接力：本轮收尾提交。
+- 报告／状态／接力：`d6dd313`（本文件＋`project_status.md`＋`.agent-handoff/` 4 文件）。
 
 ## 复盘
 - 已收口：四页可证明等价于 token 的内联间距／1 色全部迁移；`test_token_boundary` 对应计数下降（`asset_detail.py` 21→10、`prompt_window.py` 3→0、`qwen_setup.py` 9→6、`seedream_settings.py` 9→5；HEX `asset_detail.py` 21→20）。
