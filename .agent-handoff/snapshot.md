@@ -1,6 +1,12 @@
 # 当前快照
 
-## 2026-10-12：O46 完成，继续 O47
+## 2026-10-12：O47 完成，继续 O48
+- 按 R1267 清单 O01→O48 顺序逐个完成。O01—O46 已完成，**O47 已完成（R1374）**，下一项 O48（13 阶段、文档与界面标签使用一致权威源，P2／事实·建议，S/M）。
+- O47（关键真实链路集成测试）= R1374：**无生产代码改动**，只新增 `tests/test_critical_chains.py` 17 条（合成数据＋注入传输／发布器，不调用真实付费 API、不依赖 Tk）。链路 A 回收站（O38/O39）：`recycle_paths` 提交／失败注入整批 `rolled_back`→`restore_recycle_batch` 复原字节、`version_retention` 六类保留原因、`edit_source_versions` 读 `13质检交付/导出成片` 的 `edit_bundle.json`、`clean_project` 只处理下载根下带 `config.json` 的项目且回收不永久删除；链路 B 模型请求链：URL／请求头／payload 冻结、密钥不入 payload、`response_meta` 白名单、`usage_of` 映射 `cached_tokens`、`model_diagnostics.record` 落盘不含任何正文、超时 `error_class=timeout` 不抛；链路 C 导入→完成证据（O02/O03）：`import_audio` 落 `11配音与字幕/音频` 且源文件保留、导入≠完成、非对白不能顶替对白、`prepare→confirm` 后才完成、`import_delivery_master` 落交付阶段；链路 D 剧本→结构→分镜：`write_structured_script` 由本地规则生成结构稿、`verified_stage_output(script_structure)` 真、`completion_evidence(storyboard)` 要有采用且含镜头；O04 `video_task_state.submission_block_reason` 区分需修改返工／未决禁投；O05/O06 `stage_parallel.frames_ready` 逐项报未配置／已删除／越界／缺失／空文件／损坏 PNG。见 [R1374](../程序/tasks_round/tasks_round_1374_result.md)。
+- O47 验证证据：新增 17/17；定向 `-k critical_chains recycle audio_import stage_completion delivery_import script_contract stage_flow` 187/187、架构 312/312、默认冒烟 8/8，0 红。实测契约事实：`completion_evidence` 对 script/script_structure/storyboard 的返回 detail 是固定「未找到」文案，判定只看 ok；`stage_parallel.frames_ready` 在无可用帧且 keyframe 未跑过时按「上游还没做先不拦」放行，故用例需含真实非空帧文件。
+- O47 全量：1374−1373=1<5 且未命中 §5（只新增测试），收口在干净 master 工作树跑一次 `--all --safe`：全量待收尾补记。
+
+## 2026-10-12：O46 完成（历史）
 - 按 R1267 清单 O01→O48 顺序逐个完成。O01—O45 已完成，**O46 已完成（R1373）**，下一项 O47（测试从"数量多"补到关键真实链路，P2／验证·建议，M/L）。
 - O46（模块治理与热点性能按段推进）= R1373：先测七条热点路径——Tk 侧复用 基准_启动与页面.py full（启动 ready 735.1→714.8ms、首帧 297.7→289.0ms、缩略图冷 2.8ms、300 资产页 1837.9→1515.5ms、滚动 20 步 0.2ms），缺的换项目／刷新目录／长对话／媒体导入新增无 Tk 探针 `基准_热点路径.py`（≤16ms）；纯服务层无瓶颈 → 不做全项目异步化。再做两段保持入口的迁移：`platform_tools`（L0）新增 `open_directory`／`find_editor_shortcut`，`desktop` 的 `find_editor_shortcut`／`open_folder` 变 1 行入口；`idea_chat_controller`（L3）接管 `bubble_timestamp`／`collapse_preview`／`speaker_name`，`desktop` 的 `bubble_time`／`bubble_preview`／`model_name` 变 1 行入口（desktop 7510→7491 行）。见 [R1373](../程序/tasks_round/tasks_round_1373_result.md)。
 - O46 同步项：`tests/architecture/test_migrated_ui_boundaries.py` 适配入口集合登记 `find_editor_shortcut`／`open_directory`；`维护记录/TODO注释快照_20261003.json` 的 desktop.py 行号 2753→2741 平移（注释集合不变，沿 R1330 做法）。
