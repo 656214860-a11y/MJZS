@@ -16,8 +16,8 @@ from keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
                                        KEYFRAME_MODELS)
-from ui_widgets import (SelectBox, BaseDialog, Card, DataTable, LineInput, PrimaryButton, SecondaryButton,
-                        TextArea, ask_confirmation, notify)
+from ui_widgets import (SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, LineInput, PrimaryButton,
+                        ProgressLabel, SecondaryButton, TextArea, ask_confirmation, notify)
 
 CONFIG_FILE = Path(__file__).with_name('batch_frames_tool') / 'config.json'
 # Compatibility exports for callers and existing project extensions.
@@ -244,9 +244,9 @@ def show(app, source, initial=None):
     view = scroll_form(viewport, bg='#f3f6fa')
     form = view.form                      # 滚动表单区与批量资产共用一份实现
 
-    ttk.Label(form, text='勾选镜头 → 开始逐镜生成 → 按镜头编号自动导入', font=('Microsoft YaHei UI', 12, 'bold')).pack(anchor='w', padx=14, pady=12)
-    ttk.Label(form, text=scope + '；只处理尚未有首帧的镜头。').pack(anchor='w', padx=14)
-    ttk.Label(form, text='提示词沿用镜头 JSON 的 frame_prompt，参考图沿用资产图片；缺少参考图或提示词的镜头会被列出并跳过。', style='Muted.TLabel').pack(anchor='w', padx=14, pady=4)
+    ttk.Label(form, text='勾选镜头 → 开始逐镜生成 → 按镜头编号自动导入', style='Tokens.Title.TLabel').pack(anchor='w', padx=14, pady=12)
+    DescriptionBlock(form, text=scope + '；只处理尚未有首帧的镜头。').pack(anchor='w', padx=14)
+    DescriptionBlock(form, text='提示词沿用镜头 JSON 的 frame_prompt，参考图沿用资产图片；缺少参考图或提示词的镜头会被列出并跳过。').pack(anchor='w', padx=14, pady=4)
     table_shell = DataTable(form, columns=[
         ('shot', '镜头号', 130), ('title', '内容', 150),
         ('references', '参考图', 70), ('prompt', '首帧提示词', 430),
@@ -279,10 +279,9 @@ def show(app, source, initial=None):
     table.bind('<Configure>', lambda event: fit_columns(event.width), add='+')
     table_shell.pack(fill='x', padx=14)
     status = tk.StringVar()
-    ttk.Label(form, textvariable=status, wraplength=830, justify='left').pack(anchor='w', padx=14, pady=6)
+    ProgressLabel(form, textvariable=status).pack(anchor='w', padx=14, pady=6)
     plan_note = tk.StringVar()
-    ttk.Label(form, textvariable=plan_note, wraplength=830, justify='left',
-              style='Muted.TLabel').pack(anchor='w', padx=14)
+    DescriptionBlock(form, textvariable=plan_note).pack(anchor='w', padx=14)
     rows = {shot['id']: shot for shot in pending_shots(episode.get('shots'), base)}
     excluded = set()
     if initial is not None:

@@ -13,6 +13,8 @@ TEXT_PAGE_COMPONENTS = {
     "seedream_settings.py": ("DescriptionBlock", "ProgressLabel"),
     "qwen_setup.py": ("DescriptionBlock", "ProgressLabel"),
     "tts_settings.py": ("DescriptionBlock", "ProgressLabel"),
+    "asset_batch.py": ("DescriptionBlock", "ProgressLabel"),
+    "keyframe_comfy.py": ("DescriptionBlock", "ProgressLabel"),
 }
 FORBIDDEN_OPTIONS = frozenset({"font", "foreground", "fg"})
 

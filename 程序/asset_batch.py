@@ -10,7 +10,7 @@ import tk_timers
 import ui_plugin_registry
 from responsive_ui import FlowBar, scroll_form
 from platform_tools import open_target
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import COLORS, SPACING
 from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
 from asset_batch_service import (
@@ -139,7 +139,7 @@ def show(app,engine="comfy",selected_ids=None):
     footer=ttk.Frame(win);footer.pack(side='bottom',fill='x')
     viewport=ttk.Frame(win);viewport.pack(side='top',fill='both',expand=True)
     view=scroll_form(viewport,bg=COLORS['background_primary']);form=view.form     # 滚动表单区与首帧制作共用一份实现
-    ttk.Label(form,text='选择资产类别 → 开始批量生成 → 按编号和名称自动导入',font=FONTS['title']).pack(anchor='w',padx=SPACING['lg'],pady=SPACING['md'])
+    ttk.Label(form,text='选择资产类别 → 开始批量生成 → 按编号和名称自动导入',style='Tokens.Title.TLabel').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['md'])
     DescriptionBlock(form,text='生成范围：'+scope_text+'；道具仅制作关键道具，普通道具随画面生成；已导入图片自动跳过。').pack(anchor='w',padx=SPACING['lg'])
     if qwen_images:DescriptionBlock(form,text='由 Qwen 按所选 Skill 核对提示词和参考图，再调用本机 ComfyUI 生图并自动导入。').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['xs'])
     types=ttk.Frame(form);types.pack(fill='x',padx=SPACING['lg'],pady=SPACING['sm']);checks={}
