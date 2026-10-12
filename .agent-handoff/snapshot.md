@@ -6,7 +6,7 @@
 - O45 实测与边界：真实开发目录 `--plan` → keep 1170／excluded 4684／undecided 36（未决定项故意留给人工，不是欠账）；本轮**未**在真实目录执行 `--build`（只用临时合成树验证）；新 Windows 用户／非管理员／离线链路／覆盖式升级这些验收**未实机验证**；jingju 按「保留整包并校验存在」处理（代码仍引用它）。
 - O45 契约变化：只新增 `scripts/` 工具与新测试、扩清单文档，未改任何运行期模块／配置默认值／界面；`scripts/` 不参与分层扫描（未改 `_layers.py`），但会被 `test_unification_ratchet` 扫到——读摘要改用 `agent.core.read_json`（裸 `json.loads` 会被判「未登记新增债务」）。
 - O45 验证证据：新增 `tests/test_distribution_build.py` 12/12；定向 `-k distribution_build` 12/12；架构 312/312；默认冒烟 8/8。
-- O45 全量：1372−1371=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量结果待收尾补记。
+- O45 全量：1372−1371=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量 4924/4924、0 红、688.63 秒（干净 master 工作树 `o45-fullsafe-master`，凭据 round=1372、tree=71554aa7…＝`HEAD:程序`、at=2026-10-12T17:44:31、last_full_safe_all_round=1372；4924−4912=12＝本轮新增用例；无阈值抖动）。
 
 ## 2026-10-12：O44 完成（历史）
 - O44 = R1371（密钥四态可诊断＋诊断预览与回显脱敏）；全量 4912/4912、0 红、752.38 秒（凭据 round=1371、tree=de0084a9…）。详情见 [R1371](../程序/tasks_round/tasks_round_1371_result.md)。

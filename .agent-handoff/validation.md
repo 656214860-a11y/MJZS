@@ -1,6 +1,6 @@
 ## 2026-10-12 O45 完成
 
-- 2026-10-12 O45：新增 `程序/scripts/distribution_build.py`（`parse_manifest`／`pattern_regex`／`plan`／`build`／`verify`／CLI `--plan|--build|--verify`），精化 `程序/distribution_manifest.md`（补保留／排除行＋「可复验构建器」一节）。实测 `--plan`：keep 1170／excluded 4684／undecided 36。测试：新增 `tests/test_distribution_build.py` 12/12；定向 `-k distribution_build` 12/12；架构 312/312；默认冒烟 8/8。未命中 §5（只新增 scripts/ 工具与文档）。全量：1372−1371=1<5，收口在干净 master 跑一次 `--all --safe`（结果待收尾补记）。
+- 2026-10-12 O45：新增 `程序/scripts/distribution_build.py`（`parse_manifest`／`pattern_regex`／`plan`／`build`／`verify`／CLI `--plan|--build|--verify`），精化 `程序/distribution_manifest.md`（补保留／排除行＋「可复验构建器」一节）。实测 `--plan`：keep 1170／excluded 4684／undecided 36。测试：新增 `tests/test_distribution_build.py` 12/12；定向 `-k distribution_build` 12/12；架构 312/312；默认冒烟 8/8。未命中 §5（只新增 scripts/ 工具与文档）。全量：1372−1371=1<5，收口在干净 master 跑一次 `--all --safe`（4924/4924、0 红、688.63 秒；凭据 round=1372、tree=71554aa7…＝`HEAD:程序`、last_full_safe_all_round=1372）。
 
 ## 2026-10-12 O44 完成
 

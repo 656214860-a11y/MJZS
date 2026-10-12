@@ -46,9 +46,9 @@
 ## 全量判定
 - 1372 − last_full_safe_all_round(1371) = 1 < 5，无五轮欠账；改动未命中 §5（无启动路径／Tk 控件生命周期／删除语义／层级登记表；只新增 `scripts/` 工具与文档）。
 - 复用检查：`.git/full-safe-receipts.json` 最近绿凭据为 round=1371、tree=de0084a9…（2026-10-12，7 日内），但本轮新增测试与脚本、改了 `distribution_manifest.md`，`HEAD:程序` 内容树不同，不能复用。
-- 全量结果：待收尾补记。
+- 全量结果：在干净 master 谱系工作树 `o45-fullsafe-master`（`git worktree add --detach b4bcbee`，已预置 4 个嵌套仓库与 3 个被忽略运行文件、`git status` 干净、HEAD 指向 `refs/heads/master` 使 `is_master_checkout()` 为真）跑 `--all --safe`：**4924/4924、0 红、688.63 秒**，写凭据 `round=1372`、`tree=71554aa7f71e2525fadaa024897ea7116ec7f5ee`（＝报告提交 `b4bcbee:程序`，与 `HEAD:程序` 一致）、`at=2026-10-12T17:44:31`、`last_full_safe_all_round=1372`。4924 − 4912 = 12 即本轮新增用例数；`test_desktop_startup_perf`／`test_perf_baseline` 本轮均绿、无阈值抖动，未出现二次全量。
 
 ## 提交
 - 本轮改动：`程序/scripts/distribution_build.py`（新）、`程序/tests/test_distribution_build.py`（新）、`程序/distribution_manifest.md`、`程序/tasks_round/tasks_round_1372_result.md`（新）、`程序/project_status.md`、`.agent-handoff/{snapshot,work-log,validation,backlog}.md`。
-- 内容提交：待收尾补记（只含 `程序/scripts/distribution_build.py`／`程序/tests/test_distribution_build.py`／`程序/distribution_manifest.md`；未含主树他人已暂存的 `程序/idea_chat.py`／`程序/idea_attachments.py`／`程序/配置/SKILL/预设.json`）。
-- 提交状态：待收尾补记。
+- 内容提交：76ac624（只含 `程序/scripts/distribution_build.py`／`程序/tests/test_distribution_build.py`／`程序/distribution_manifest.md`；未含主树他人已暂存的 `程序/idea_chat.py`／`程序/idea_attachments.py`／`程序/配置/SKILL/预设.json`）。
+- 提交状态：内容提交 76ac624（只含 `程序/scripts/distribution_build.py`／`程序/tests/test_distribution_build.py`／`程序/distribution_manifest.md`；未含主树他人已暂存的 `程序/idea_chat.py`／`程序/idea_attachments.py`／`程序/配置/SKILL/预设.json`）；报告与接力提交 b4bcbee（`tasks_round_1372_result.md`、`project_status.md`、`.agent-handoff/{snapshot,work-log,validation,backlog}.md`）；本收尾提交把「全量结果」与「提交号」补记进报告与接力文件（沿用同一轮次 R1372，中央 `last_claimed` 仍为 1372）。
