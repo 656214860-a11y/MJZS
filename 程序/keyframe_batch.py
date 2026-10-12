@@ -31,6 +31,192 @@ def frame_prompt(shot,assets=None):
     ordinary=inline_text(shot,assets)
     return prompt+('\n'+ordinary if ordinary else '')
 
+# ── 一次首帧批次的统一计划（O25）────────────────────────────────────────────
+# 三种意图分开说清楚：只补缺失（从没生成过）、重试失败（提交过、没成）、显式替换（点名重做已有首帧）。
+MODE_MISSING = 'missing'
+MODE_RETRY = 'retry'
+MODE_REPLACE = 'replace'
+BATCH_MODES = (MODE_MISSING, MODE_RETRY, MODE_REPLACE)
+MODE_LABELS = {MODE_MISSING: '只补缺失', MODE_RETRY: '重试失败', MODE_REPLACE: '显式替换'}
+
+STATE_DONE = 'done'
+STATE_MISSING = 'missing'
+STATE_EMPTY = 'empty'
+STATE_DELETED = 'deleted'
+STATE_UNSET = 'unset'
+STATE_OUTSIDE = 'outside'
+STATE_NOTES = {
+    STATE_DONE: '已有可用首帧，不重复生成',
+    STATE_MISSING: '还没有首帧',
+    STATE_EMPTY: '首帧是空文件：请先在 04 首帧管理删除后重做',
+    STATE_DELETED: '首帧已删除：后台补帧不复活，请先在 04 首帧管理恢复',
+    STATE_UNSET: '未配置首帧路径，无法生成',
+    STATE_OUTSIDE: '首帧路径越界当前目录，拒绝生成',
+}
+ATTEMPT_NOTES = {'sending': '提交中', 'uncertain': '结果待核实（可能已扣费）',
+                 'completed': '记录称已完成，但首帧文件不可用', 'pending': '待派发',
+                 'cancelled': '上次已放弃'}
+
+
+def frame_state(base, shot):
+    """一镜的首帧现状：done／missing／empty／deleted／unset／outside（与门禁同口径）。"""
+    if not isinstance(shot, dict):
+        return STATE_UNSET
+    if shot.get('frame_deleted'):
+        return STATE_DELETED
+    frame = shot.get('frame')
+    if not isinstance(frame, str) or not frame.strip():
+        return STATE_UNSET
+    try:
+        base = Path(base).resolve()
+        path = (base / frame).resolve()
+    except (OSError, ValueError):
+        return STATE_OUTSIDE
+    if not path.is_relative_to(base):
+        return STATE_OUTSIDE
+    try:
+        if not path.is_file():
+            return STATE_MISSING
+        return STATE_DONE if path.stat().st_size else STATE_EMPTY
+    except OSError:
+        return STATE_MISSING
+
+
+def record_attempts(source):
+    """这一集已经提交过的首帧生成记录：镜头编号 -> 最近一次状态（结果待核实一并带上）。"""
+    folder = Path(source).resolve().parent / '首帧任务'
+    out = {}
+    if not folder.is_dir():
+        return out
+    for path in sorted(folder.glob('seedream_*.json')):
+        try:
+            data = read_json(path)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        sid = str(data.get('shot_id') or path.stem.split('_', 1)[-1])
+        state = str(data.get('state') or '').strip().lower()
+        if sid and state:
+            out[sid] = state
+    return out
+
+
+def _attempt_state(attempts, sid):
+    if callable(attempts):
+        try:
+            value = attempts(sid)
+        except Exception:
+            return ''
+    elif isinstance(attempts, dict):
+        value = attempts.get(sid)
+    else:
+        return ''
+    return str(value or '').strip().lower()
+
+
+def _shot_references(shot, references=None):
+    if callable(references):
+        try:
+            return [str(value) for value in (references(shot) or [])]
+        except Exception:
+            return []
+    try:
+        from asset_context import references as lookup
+        return [str(value) for _kind, value in lookup(shot)]
+    except Exception:
+        return []
+
+
+def _target(shot, intent, state, attempted, references, prompt):
+    refs = _shot_references(shot, references)
+    try:
+        text = prompt(shot) if callable(prompt) else frame_prompt(shot)
+    except Exception:
+        text = ''
+    note = ''
+    if intent == MODE_RETRY:
+        note = '上次提交：' + ATTEMPT_NOTES.get(attempted, attempted or '未知')
+    elif intent == MODE_REPLACE:
+        note = '显式替换：会覆盖已有首帧（先经 04 首帧管理的删除／导入）'
+    return {'shot_id': str(shot['id']), 'title': shot.get('title', ''), 'intent': intent,
+            'intent_label': MODE_LABELS[intent], 'state': state, 'note': note,
+            'references': refs, 'reference_count': len(refs), 'prompt': str(text or ''),
+            'will_replace': intent == MODE_REPLACE}
+
+
+def batch_plan(source, *, shot_ids=None, mode=MODE_MISSING, model='', attempts=None,
+               references=None, prompt=None):
+    """提交前统一的目标集：本集／勾选镜头／跳过原因／实际模型与参考图／三种意图。
+
+    - 只用这一份 source，不跨集（切集＝换 source）；
+    - 只补缺失（missing）：从没提交过的镜头；已经提交过的镜头不在这里，避免为「结果待核实」
+      的旧任务重复付费（要重试请用「重试失败」）；
+    - 重试失败（retry）：有生成记录、仍缺可用首帧的镜头；
+    - 显式替换（replace）：点名（shot_ids）且已有可用首帧的镜头，说明会覆盖重做；
+    - 已删除（frame_deleted）在任何模式下都不进目标集——后台补帧不复活用户的删除。
+    """
+    mode = str(mode or MODE_MISSING)
+    if mode not in BATCH_MODES:
+        raise ValueError('未知的首帧批次模式：' + mode)
+    source = Path(source).resolve()
+    episode = read_json(source)
+    if not isinstance(episode, dict) or not isinstance(episode.get('shots'), list):
+        raise ValueError('镜头JSON格式错误：顶层须为对象且 shots 为数组')
+    base = media_root(source).resolve()
+    wanted = None if shot_ids is None else {str(sid) for sid in shot_ids}
+    attempts = record_attempts(source) if attempts is None else attempts
+    plan = {'source': str(source), 'episode': str(episode.get('episode_id') or source.stem),
+            'mode': mode, 'mode_label': MODE_LABELS[mode], 'model': str(model or ''),
+            'targets': [], 'skipped': []}
+    for shot in episode['shots']:
+        if not isinstance(shot, dict) or not shot.get('id'):
+            continue
+        sid = str(shot['id'])
+        if wanted is not None and sid not in wanted:
+            continue
+        state = frame_state(base, shot)
+        if state in (STATE_DELETED, STATE_UNSET, STATE_OUTSIDE, STATE_EMPTY):
+            plan['skipped'].append({'shot_id': sid, 'title': shot.get('title', ''),
+                                    'state': state, 'reason': STATE_NOTES[state]})
+            continue
+        attempted = _attempt_state(attempts, sid)
+        if state == STATE_DONE:
+            if mode == MODE_REPLACE and wanted is not None:
+                plan['targets'].append(_target(shot, MODE_REPLACE, state, attempted, references, prompt))
+            else:
+                plan['skipped'].append({'shot_id': sid, 'title': shot.get('title', ''),
+                                        'state': state, 'reason': STATE_NOTES[state]})
+            continue
+        intent = MODE_RETRY if attempted else MODE_MISSING
+        if intent != mode:
+            why = ('上次提交过（' + ATTEMPT_NOTES.get(attempted, attempted) + '），只补缺失不重复提交；'
+                   '要重试请选「重试失败」') if intent == MODE_RETRY else '没有失败记录，属于「只补缺失」'
+            plan['skipped'].append({'shot_id': sid, 'title': shot.get('title', ''),
+                                    'state': state, 'reason': why})
+            continue
+        plan['targets'].append(_target(shot, intent, state, attempted, references, prompt))
+    plan['counts'] = {'targets': len(plan['targets']), 'skipped': len(plan['skipped'])}
+    return plan
+
+
+def plan_summary(plan):
+    """一行说清这一批：意图／本集／模型／目标镜头／跳过原因。"""
+    targets = plan.get('targets') or []
+    skipped = plan.get('skipped') or []
+    head = '%s · %s · 模型 %s · 目标 %d 镜' % (
+        plan.get('mode_label') or '', plan.get('episode') or '',
+        plan.get('model') or '（未指定）', len(targets))
+    if targets:
+        head += '：' + '、'.join(item['shot_id'] for item in targets[:8])
+        head += '…' if len(targets) > 8 else ''
+    if skipped:
+        head += '；跳过 %d 镜——%s' % (len(skipped), '；'.join(
+            item['shot_id'] + '（' + item['reason'] + '）' for item in skipped[:6]))
+        head += '…' if len(skipped) > 6 else ''
+    return head
+
+
 def candidates(source,shot_id=None,shot_ids=None):
     source=Path(source).resolve();episode=read_json(source);base=media_root(source)
     if not isinstance(episode,dict) or not isinstance(episode.get('shots'),list):raise ValueError('镜头JSON格式错误：顶层须为对象且 shots 为数组')

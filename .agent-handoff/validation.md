@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O25 完成
+
+- 2026-10-12 O25：新增 `tests/test_keyframe_batch_plan.py` 15 条（`missing` 只取从没提交过的缺帧镜头／提交过的跳过不重付费／`deleted`·`empty`·`unset`·`outside` 跳过并给原因；`retry` 只取有记录仍缺帧；`replace` 只对点名且已有可用首帧；切集换 source 不跨集；`plan_summary` 文案；`pending_shots` 口径；Tk `DialogPlanTests` 显示「批次意图」下拉与目标集预览）。新增一条 Tk 平台限制，同步 `维护记录/skip台账.json`（+1，手写插入不整份重写）。定向 `-k batch_plan keyframe` 93/93、`-k keyframe previs stage_execution` 全绿、`-k batch_frames todo_comment_snapshot unification_ratchet coverage_audit_ratchet` 27/27、`tests.architecture.test_skip_hygiene` 3/3、架构 312/312、默认冒烟 8/8，全 0 红。1350 − 1346 = 4 < 5 且未命中 §5，本轮不跑全量。
+
 ## 2026-10-12 O24 完成
 
 - 2026-10-12 O24：新增 `tests/test_stage_gate_modes.py` 14 条（默认浏览放行且各 `*_ready` 口径不变；正式生产把「上游未开始」当作缺前置并点明缺哪一步、怎么豁免；上游标 `skipped`＝主动豁免；两种口径只差「上游未开始」这一种；真问题两口径都拦；台账格式异常不静默放行；结论标签；页面/审计文案；`Agent` 默认浏览口径与档位无关＋显式 `PRODUCTION` 拦截＋`skipped` 豁免；`Pet.gate_reason` 链在推要 `PRODUCTION`、浏览要 `BROWSE`、分镜历史豁免仍优先）。`tests/test_stage_parallel.py` 两处桩函数放宽为接受可选 `mode` 关键字（断言不变）。定向 `-k stage_parallel stage_flow pet_agent stage_completion` 192/192、`-k stage_gate` 18/18、`-k todo_comment_snapshot unification_ratchet coverage_audit_ratchet` 9/9（pet_ui 快照行号 2792→2801）、架构 312/312、默认冒烟 8/8，全 0 红。1348 − 1346 = 2 < 5 且未命中 §5，本轮不跑全量。

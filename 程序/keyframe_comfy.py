@@ -11,7 +11,8 @@ from platform_tools import open_path
 import ui_plugin_registry
 from responsive_ui import FlowBar, CHECK_COLUMN_WIDTH, configure_check_column, refresh_check_heading, scroll_form
 from storyboard_paths import media_root
-from keyframe_batch import frame_prompt
+from keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING,
+                            batch_plan, frame_prompt, frame_state, plan_summary)
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
                                        KEYFRAME_MODELS)
@@ -82,12 +83,10 @@ def pending_shots(shots, base):
     base = Path(base).resolve()
     result = []
     for shot in shots if isinstance(shots, list) else []:
-        if not isinstance(shot, dict) or not shot.get('id') or not shot.get('frame'):
+        if not isinstance(shot, dict) or not shot.get('id'):
             continue
-        path = (base / shot['frame']).resolve()
-        if shot.get('frame_deleted') or not path.is_relative_to(base) or path.is_file():
-            continue
-        result.append(shot)
+        if frame_state(base, shot) == STATE_MISSING:
+            result.append(shot)
     return result
 
 
@@ -209,7 +208,10 @@ def auto_batch(source, log, stop=None):
         log('本地 ComfyUI 未运行，正在启动…')
         native_apps.open_comfy()          # 未配置程序时给出明确错误，不静默失败
         native_apps.wait_comfy(values['url'], log, timeout=120, cancelled=stop.is_set)
-    before = [shot['id'] for shot in pending_shots(read(source).get('shots'), media_root(source))]
+    plan = batch_plan(source, mode=MODE_MISSING, model=values.get('model', ''))
+    for item in plan['skipped']:
+        log('跳过 ' + item['shot_id'] + '：' + item['reason'])
+    before = [item['shot_id'] for item in plan['targets']]
     engine().run(source, values, log, stop)
     still = [shot['id'] for shot in pending_shots(read(source).get('shots'), media_root(source)) if shot['id'] in before]
     summary = f'无人值守首帧批次结束：处理 {len(before)} 镜，已生成 {len(before) - len(still)} 镜'
@@ -278,6 +280,9 @@ def show(app, source, initial=None):
     table_shell.pack(fill='x', padx=14)
     status = tk.StringVar()
     ttk.Label(form, textvariable=status, wraplength=830, justify='left').pack(anchor='w', padx=14, pady=6)
+    plan_note = tk.StringVar()
+    ttk.Label(form, textvariable=plan_note, wraplength=830, justify='left',
+              style='Muted.TLabel').pack(anchor='w', padx=14)
     rows = {shot['id']: shot for shot in pending_shots(episode.get('shots'), base)}
     excluded = set()
     if initial is not None:
@@ -315,6 +320,10 @@ def show(app, source, initial=None):
         if incomplete:
             note += '；' + str(len(incomplete)) + ' 镜需补齐参考图或首帧提示词：' + '、'.join(incomplete[:8]) + ('…' if len(incomplete) > 8 else '')
         status.set(note)
+        try:
+            plan_note.set(plan_summary(current_plan()))
+        except Exception as exc:
+            plan_note.set('目标集预览不可用：%s' % exc)
 
     def toggle(sids):
         for sid in sids:
@@ -355,6 +364,7 @@ def show(app, source, initial=None):
     table.bind('<Button-1>', click_check)
     table.bind('<space>', space_check)
     model = tk.StringVar(value=current_model(project))
+    mode_var = tk.StringVar(value=MODE_LABELS[MODE_MISSING])
     choices = {}
     # 统筹制作锁只给默认初值；用户已保存的首帧偏好仍是第二优先级。
     from asset_contract import resolve_aspect_ratio
@@ -388,6 +398,12 @@ def show(app, source, initial=None):
     ttk.Label(model_box, text='画幅').grid(row=0, column=2, padx=(12, 4))
     shape = SelectBox(model_box, textvariable=aspect, values=list(ASPECTS), state='disabled', width=8)
     shape.grid(row=0, column=3, padx=4)
+    ttk.Label(model_box, text='批次意图').grid(row=0, column=4, padx=(12, 4))
+    mode_box = SelectBox(model_box, textvariable=mode_var,
+                         values=[MODE_LABELS[key] for key in (MODE_MISSING, MODE_RETRY)],
+                         state='readonly', width=10)
+    mode_box.grid(row=0, column=5, padx=4)
+    mode_box.bind('<<ComboboxSelected>>', lambda event: refresh())
     hint = tk.StringVar()
     ttk.Label(model_box, textvariable=hint, wraplength=800, justify='left').grid(row=1, column=0, columnspan=4, sticky='w', pady=8)
     account = SecondaryButton(model_box, text='火山 API 设置')
@@ -535,22 +551,52 @@ def show(app, source, initial=None):
         values['workflow_lock'] = locked
         return values
 
+    def current_mode():
+        label = mode_var.get()
+        for key, text in MODE_LABELS.items():
+            if text == label:
+                return key
+        return MODE_MISSING
+
+    def current_plan():
+        """提交前那份统一目标集：本集、勾选镜头、跳过原因、模型与参考图。"""
+        return batch_plan(source, shot_ids=[shot['id'] for shot in pending()],
+                          mode=current_mode(), model=model.get())
+
+    def log_plan(plan):
+        """把这一批的意图、目标与逐镜跳过原因写进日志，让用户提交前就看清。"""
+        if not plan:
+            return
+        log_lines(plan_summary(plan))
+        for item in plan.get('skipped', ()):
+            log_lines('跳过 ' + str(item.get('shot_id')) + '：' + str(item.get('reason')))
+
     def check_values():
         shots = pending()
         if not shots:
             raise ValueError('请至少勾选一个待生成首帧的镜头')
+        plan = current_plan()
+        wanted = {item['shot_id'] for item in plan['targets']}
+        shots = [shot for shot in shots if shot['id'] in wanted]
+        if not shots:
+            details = '；'.join(item['shot_id'] + '（' + item['reason'] + '）'
+                               for item in plan['skipped'][:5])
+            raise ValueError('本次意图「' + MODE_LABELS[current_mode()] + '」没有可提交的镜头'
+                             + ('：' + details if details else ''))
         current = kind()
         if current == 'agent':
-            return {'shots': shots, 'model': model.get(), 'engine': engine_of()}
+            return {'shots': shots, 'model': model.get(), 'engine': engine_of(), 'plan': plan}
         if current == 'cloud':
             from seedream_api import load_profile
             profile = load_profile()
             return {'shots': shots, 'model': SEEDREAM, 'aspect_ratio': aspect.get(),
-                    'workflow_lock': locked, 'seedream_profile': profile['profile_id']}
+                    'workflow_lock': locked, 'seedream_profile': profile['profile_id'],
+                    'plan': plan}
         values = options()
+        values['shot_ids'] = [shot['id'] for shot in shots]   # 只提交本次意图要的镜头
         if not all((values['model'], values['text_encoder'], values['vae'])):
             raise ValueError('请先填写或检测图像模型、文本编码器和 VAE 名称')
-        return {'shots': shots, 'model': LOCAL_MODEL, 'batch': values}
+        return {'shots': shots, 'model': LOCAL_MODEL, 'batch': values, 'plan': plan}
 
     def save_api():
         values = options()
@@ -671,11 +717,13 @@ def show(app, source, initial=None):
         if checked.get('engine'):
             log_clear()
             log_lines('首帧 Agent · ' + model.get() + ' · 共 ' + str(len(checked['shots'])) + ' 镜')
+            log_plan(checked.get('plan'))
             launch_agent(checked['shots'])
             return
         if checked['model'] == SEEDREAM:
             log_clear()
             log_lines('Seedream 5.0 Pro · 共 ' + str(len(checked['shots'])) + ' 镜')
+            log_plan(checked.get('plan'))
             from seedream_settings import confirm_unsettled
             confirmed = confirm_unsettled(win, source.parent / '首帧任务', [shot['id'] for shot in checked['shots']], '镜头')
             if confirmed:
@@ -687,6 +735,7 @@ def show(app, source, initial=None):
                 return
             log_clear()
             log_lines('本地 ComfyUI · ' + str(len(values['shot_ids'])) + ' 镜')
+            log_plan(checked.get('plan'))
         busy = True
         stop.clear()
         buttons()
