@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1389 本轮实测：新增 `test_token_boundary.py` 5/5；默认冒烟 8/8；架构 `smoke_test.py --architecture` 336/336（331→336，+5）。1389−1386=3<5 且未命中 §5 升级条件（无启动路径／Tk 控件生命周期／删除语义／层级登记表改动），**不跑全量**（最近绿全量 R1387 `tree=000477da…`）。提交 hash 见补记。详见 [R1389](tasks_round/tasks_round_1389_result.md)。
+R1389 本轮实测：新增 `test_token_boundary.py` 5/5；默认冒烟 8/8；架构 `smoke_test.py --architecture` 336/336（331→336，+5）。1389−1386=3<5 且未命中 §5 升级条件（无启动路径／Tk 控件生命周期／删除语义／层级登记表改动），**不跑全量**（最近绿全量 R1387 `tree=000477da…`）。提交 `c8dbdb0`。详见 [R1389](tasks_round/tasks_round_1389_result.md)。
 
 R1388 只读诊断实测：设计 token 内联视觉常量审计（269 个生产 .py）。默认冒烟 `smoke_test.py` 8/8（只读诊断 §5 默认不跑测试；此为该轮陈述基线的附加冒烟，不计验收）。**不跑全量**（距最近绿全量 R1387 `tree=000477da…`、`last_full_safe_all_round=1386` 仅 2 轮，且本轮无生产改动）。不改生产代码/测试/台账/路线图。提交 `7377586`。详见 [R1388](tasks_round/tasks_round_1388_result.md)。
 

@@ -27,7 +27,7 @@
 - 全量：**不跑**（见「三个必答」；本轮无生产改动、欠账 3<5）。
 
 ## 提交
-- 内容＋报告：一次提交（`test_token_boundary.py`＋`AGENTS.md`＋结果文件＋`project_status.md`＋接力），hash 见后续补记。
+- 内容＋报告＋接力：**`c8dbdb0`**（9 files：`test_token_boundary.py`＋`AGENTS.md`＋本结果文件＋`project_status.md`＋`.agent-handoff/` snapshot／backlog／risks／work-log／validation）。
 
 ## 复盘：路线图 v1 §一 第 2 项「设计 token」
 - 完成判据原文「页面是否仍内联视觉常量待审计」。本轮把「待审计」升级为「受棘轮约束」：内联 hex 与数字 padx/pady 两类**不允许新增**，为后续逐页迁移提供可测目标。
