@@ -11,10 +11,11 @@ import re
 import threading
 import traceback
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from agent.core import read_json, save_bytes, save_text
+from log_maintenance import RETENTION_DAYS
 
 
 PROGRAM = Path(__file__).resolve().parent
@@ -23,11 +24,17 @@ ERROR_LOG = LOGS / "启动错误.log"
 STATE_FILE = LOGS / "diagnostics" / "latest.json"
 _SECRET = re.compile(
     r"(?i)(?:api[ _-]?key|secret|token|password|credential)\s*[:=]\s*[^\s,;}]+|"
-    r"authorization\s*[:=]\s*bearer\s+[^\s,;}]+"
+    r"authorization\s*[:=]\s*bearer\s+[^\s,;}]+|"
+    r"[?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|password|"
+    r"signature|sig)=[^&\s,;}\"']+"
 )
 _PRIVATE_NAME = re.compile(r"(?i)(?:\.env$|\.dpapi$|private|credential|secret)")
 _LOCK = threading.Lock()
 
+
+def redact(value: object) -> str:
+    """给别的模块共用的脱敏入口：同样的规则，同样的替换词。"""
+    return _clean(value)
 
 def _state() -> dict:
     try:
@@ -93,6 +100,29 @@ def export_candidates() -> tuple[Path, ...]:
 def preview() -> tuple[str, ...]:
     return tuple(str(path) for path in export_candidates())
 
+
+def retention_note() -> str:
+    """把保留期限说清楚：程序日志按 log_maintenance 的政策保留这么多天。"""
+    return "程序日志保留 %d 天（按 log_maintenance 政策）；导出只含下面白名单文件，不含项目与密钥。" % RETENTION_DAYS
+
+
+def preview_detail() -> tuple[dict, ...]:
+    """诊断预览：白名单文件 ＋ 大小／修改时间／保留期限；只看不动文件。"""
+    now = datetime.now()
+    rows = []
+    for path in export_candidates():
+        try:
+            stat = path.stat()
+        except OSError:
+            continue
+        modified = datetime.fromtimestamp(stat.st_mtime)
+        expires = modified + timedelta(days=RETENTION_DAYS)
+        rows.append({"name": path.name, "path": str(path), "bytes": stat.st_size,
+                     "modified": modified.isoformat(timespec="seconds"),
+                     "keep_days": RETENTION_DAYS,
+                     "expires_at": expires.isoformat(timespec="seconds"),
+                     "expired": expires <= now})
+    return tuple(rows)
 
 def _safe_member(path: Path) -> str:
     if _PRIVATE_NAME.search(path.name):
