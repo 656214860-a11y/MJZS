@@ -132,7 +132,7 @@
 
     **全量触发条件**：统一见 §5；计数行为以 `run_selftests.full_safe_required()` 与 `tests/architecture/test_round_baselines.py` 为核对依据，不在本节重复设置周期。
 
-    **并行硬规则**：同一时刻活跃 `codex/*` 车道 ≤2（用户可临时降到 1，冻结期内只有主树可提交）；一个队列 id 全局只允许一条线持有（权威队列＝Git common-dir/`maintenance-queue.json`，工作树内为只读快照）；分支 ahead>10 必须先回合或 rebase，否则 `round_claim.py next` 拒绝领号；detached HEAD 工作树不得开工；分支 behind>20 或 ahead=0 且 48 小时无活动即列入待回收。回收前保存未提交内容、核验活跃租约；用 `维护记录/基准脚本/worktree_ledger.py --plan` 生成计划，删除须用户逐条确认，台账不自动删除。
+    **并行硬规则**：同一时刻活跃 `codex/*` 车道默认 1 条，经用户同意可升到 2 条（上限 2；冻结期内只有主树可提交）；一个队列 id 全局只允许一条线持有（权威队列＝Git common-dir/`maintenance-queue.json`，工作树内为只读快照）；分支 ahead>10 必须先回合或 rebase，否则 `round_claim.py next` 拒绝领号；detached HEAD 工作树不得开工；分支 behind>20 或 ahead=0 且 48 小时无活动即列入待回收。回收前保存未提交内容、核验活跃租约；用 `维护记录/基准脚本/worktree_ledger.py --plan` 生成计划，删除须用户逐条确认，台账不自动删除。
 
     **检查点**：认领因脏树拒绝时，先区分本轮改动与用户既有改动；只对授权文件建立可恢复检查点。创建分支本身不保存未提交内容，不得把用户改动混入 WIP 提交。大规模跨文件修改应分阶段建立检查点，检查点不等于任务完成。
 
@@ -176,6 +176,13 @@
 39. 用户要求回滚时，Codex 优先用 `git revert` 保留历史，而非 `git reset --hard`。
 40. 每轮结果文件 `tasks_round_N_result.md` 中记录本轮是否已提交，以及 commit hash（若已提交）。
 41. 协作 hooks 源码位于 `维护记录/基准脚本/hooks/`；每个工作树初始化后运行 `维护记录/基准脚本/install_git_hooks.py` 安装到共享 Git hooks。提交包含非默认文档的 `程序/` 文件时，必须显式设置 `CODEX_STAGE_ALLOWLIST`（分号分隔 repo 相对路径）；禁止用 `git add -A` 绕过最小暂存清单。仅 master 可提交 `project_status.md`。
+
+    非 master 分支／worktree 也不得写 `.agent-handoff/backlog.md` 与 `.agent-handoff/snapshot.md`；分支记录只写 `程序/tasks_round/tasks_round_<n>_result.md`，合入 master 后单独提交一次补进 `project_status.md`（提交信息 `R<n>: 补记分支 <分支名> 的轮次记录`）。
+
+    合并时上述共享状态文件不得整块取一边，必须保留双方全部记录；合并提交后把下列命令的原始输出贴进结果文件，只写「已解决冲突」不算通过——第一条输出必须为空，第二条轮次号必须是两边的并集：
+
+    - `git diff <合并前master>..HEAD -- 程序/project_status.md | grep '^-' | grep -v '^---' | grep -v '当前轮次：'`（表头「当前轮次」行每轮都会改，故排除）
+    - `git show HEAD:程序/project_status.md | grep -oE '^R[0-9]+' | sort -u`
 
 ## 3. 轮次类型
 
