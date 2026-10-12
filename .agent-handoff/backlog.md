@@ -1,6 +1,6 @@
 # 待办索引
 
-## 当前阻塞与待办（2026-10-12 复核，R1376—R1380 收尾后）
+## 当前阻塞与待办（2026-10-12 复核，R1381—R1382 收尾后）
 
 - 阻塞·需用户输入／外部条件（未满足不得勾选，也不自动开工）：
   - 白模视频真实上传验收 —— 需用户指定已采用且已生成预演视频的镜头并授权发送素材。
@@ -10,6 +10,7 @@
   - P3-2 兼容 facade 退役 —— 先查生产调用方，统一淘汰日 2027-03-31。
 - 可执行待办·无外部前置（按单项／单页粒度推进，验收以各自「完成判据／原报告」为准）：
   - UI 统一入口路线图 v1：卡片容器／文字层级／忙碌态／文案与复制 已全站收口（R1376—R1380）；弹窗门禁已递归化（R1381，全生产模块 0 裸窗）。**R1381 复核校正**：表格／输入／下拉／提示／右键菜单／文件选择／快捷键／Tooltip／图标／滚动条 均已递归零容忍收口；真正剩余＝阶段显示（仅查 `desktop` 生成源）／设计 token 内联视觉常量／§三 覆盖率审计 7 项；文字层级旧页面为已登记 backlog。**按钮亦已站点清零**（用 `raw_button_calls` 扫全部生产模块 = 0 裸 `tk/ttk.Button`），但 `test_button_boundary` 仍是固定页清单，可收紧为递归零容忍（与 R1381 弹窗门禁同法）。
+  - **R1382 只读审计·新待办（未实现）**：生产文案「NN 阶段名」过期编号（旧编号未随 animatic 插入整体偏移）。权威＝pet_bus.STAGES／STAGE_NAMES；导航标签＝desktop.PAGES。排除 stage_path_service.LEGACY_NUMBERED 后命中生产 14 文件 97 处（skill_tools.py 56／desktop.py 15／stage_parallel.py 5／keyframe_batch.py 4／pet_ui.py 4／app.py 3／asset_detail.py 与 skill_panel.py 各 2／animatic_service.py·asset_contract.py·continuity_ledger.py·prompt_window.py·storyboard_files.py·ui_theme.py 各 1）＋tests/ 19 文件 56 处。用户可见：keyframe_batch.py:51/52/141/236、desktop.py:2484/7015/7058、pet_ui.py:2956/2959、stage_parallel.py:477/480/483/486/489、skill_tools.py PAGES。已有 test_stage_display_boundary.py 只查 desktop.PAGES 生成源。对应路线图 §二 第 15 项「阶段显示」。
   - 优化待办队列未完成项：J20／J22／J23／J24／J25／J26，及「后续报告执行项」R1068 真实清理（仅 CRT-026/027/028，逐项批准）、R1052 J3（测得同步 I/O 阻塞才做）、R1059 J19 后续（迁移须明确批准）。
   - O 系列后备注：O35／O36／O37／O38／O39／O40／O41／O42／O43／O46（各自边界见本条以下各段）。
 - 已收口、不构成继续授权：R1267 清单 O01—O48 全部完成；UI 统一入口覆盖轮 4 项完成。以下历史段落仅为记忆索引。

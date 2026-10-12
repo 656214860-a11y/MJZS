@@ -1,5 +1,12 @@
 # 当前快照
 
+## 2026-10-12：状态接续轮 — 更新阻塞与待办（R1382，§3.11）
+- 按用户要求更新 project_status.md 的「已知阻塞与待办」与接力状态；**本轮不改生产代码、无功能改动、未跑全量**（未触生产文件、未命中 §5）。默认冒烟 smoke_test.py 8/8。
+- **只读审计（登记为待办，未实现）**：生产文案散落的「NN 阶段名」仍是旧编号（R1375 只收了 24 处「第N步」）。排除 stage_path_service.LEGACY_NUMBERED（旧目录只读兼容）后命中生产 **14 文件 97 处**（skill_tools.py 56／desktop.py 15／stage_parallel.py 5／keyframe_batch.py 4／pet_ui.py 4／app.py 3／其余 6 文件各 1–2）＋tests/ **19 文件 56 处**。权威＝pet_bus.STAGES 顺序（01 剧本准备…13 质检与交付）／STAGE_NAMES；导航标签＝desktop.PAGES 的 f'{index:02d}  {stage_name(stage)}'。
+- 用户可见字符串：keyframe_batch.py:51/52/141/236（04→08）、desktop.py:2484（02→03）、desktop.py:7015/7058（08→10）、pet_ui.py:2956/2959、stage_parallel.py:477–489、skill_tools.py PAGES 说明列；勿误改 stage_path_service.py:26–28（LEGACY）与 desktop.py:5180/5212（01/02 正确）。
+- 现有门禁 tests/architecture/test_stage_display_boundary.py 只校验 desktop.PAGES 生成源，未覆盖散落字符串；修复轮须加门禁并同轮改 tests/ 的 56 处断言。对应路线图 §二 第 15 项「阶段显示」。
+- 下一轮候选：按 §3.2 修复轮纠正上述编号＋新增架构门禁；其后把仍是「固定页清单」的 test_button_boundary 按 R1381 同法收紧为递归零容忍，及设计 token 内联视觉常量／§三 覆盖率审计 7 项。
+
 ## 2026-10-12：UI 统一入口覆盖轮 — 弹窗门禁递归化收口（R1381，修复轮 §3.2）
 - `tests/architecture/test_dialog_boundary.py` 全局门禁由 `ROOT.glob('*.py')` 改 `ROOT.rglob('*.py')`（覆盖 `batch_frames_tool/`／`agent/`／`scripts/` 等子目录，对齐 R922「递归审计」口径）；裸窗谓词由「属性式」扩为「属性式 ∪ `from tkinter import Toplevel` 名字式」，并加镜像 canary。全生产模块裸构造 `Toplevel` = 0（仅 `ui_widgets.py` 统一基类自身除外）。
 - 验证：`test_dialog_boundary` 6/6、定向 24/24、默认冒烟 8/8、架构 326/326（+1），0 红；1381−1380=1<5 且未命中 §5 升级条件，不跑全量。见 [R1381](../程序/tasks_round/tasks_round_1381_result.md)。

@@ -1,3 +1,10 @@
+## 2026-10-12 R1382 状态接续轮（只读审计 + 状态/接力更新）
+
+- 类型：状态接续轮（§3.11）。不改生产代码，只更新 project_status.md「已知阻塞与待办」、接力文件与结果报告；未触生产文件，故 §5 无升级触发。
+- 默认冒烟 smoke_test.py：8/8、0 失败（含「13 个制作阶段路由仍完整」，确认权威序与显示名）。
+- 只读审计：生产文案「NN 阶段名」过期编号；扫描口径＝对 pet_bus.STAGE_NAMES 每个显示名匹配 (\d{1,2})\s*名称，序号≠STAGES 序即命中，排除 stage_path_service.LEGACY_NUMBERED。结果＝生产 14 文件 97 处＋tests/ 19 文件 56 处（登记为待办，未实现）。
+- 未跑全量（无生产改动、未命中 §5；最近绿全量 R1380、tree=f62cd088、last_full_safe_all_round=1380，且 1382−1380=2<5）。
+
 ## 2026-10-12 R1381 弹窗门禁递归化
 
 - 类型：修复轮（§3.2）。`tests/architecture/test_dialog_boundary.py`：扫描 `ROOT.glob` → `ROOT.rglob`，排除 `{tests,tasks_round,维护记录,.git,__pycache__}`，保留 `TOPLEVEL_OWNERS`；谓词加名字式识别；+1 canary。
