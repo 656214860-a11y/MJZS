@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1381 当前实测：`tests/architecture/test_dialog_boundary` 6/6（含新 canary）、定向 `-k "dialog prompt_window qwen tts_settings cloud_assets"` 24/24、默认冒烟 8/8、架构 `smoke_test.py --architecture` 326/326（原 325，+1）0 红。本轮只改架构门禁与文档、不改生产代码；1381−1380=1<5 且未命中 §5 升级条件（无启动路径／Tk 控件生命周期／删除语义／层级登记表改动），不跑全量；R1380 全量 4967/4967 为历史凭据（tree 不同不复用）。详见 [R1381](tasks_round/tasks_round_1381_result.md)。
+R1381 当前实测：`tests/architecture/test_dialog_boundary` 6/6（含新 canary）、定向 `-k "dialog prompt_window qwen tts_settings cloud_assets"` 24/24、默认冒烟 8/8、架构 `smoke_test.py --architecture` 326/326（原 325，+1）0 红。本轮只改架构门禁与文档、不改生产代码；1381−1380=1<5 且未命中 §5 升级条件（无启动路径／Tk 控件生命周期／删除语义／层级登记表改动），不跑全量；R1380 全量 4967/4967 为历史凭据（tree 不同不复用）。提交 `3ced47d`。详见 [R1381](tasks_round/tasks_round_1381_result.md)。
 
 R1265 当前实测：受影响 458/458、冒烟 9/9；本轮架构首次 307/311，行号/轮次/周期四项问题修复后相关 10/10 复验通过。历史真实全量 R1264（干净 master a521730，4389/4389、413.396 秒）不覆盖本次实现；1265−1264=1，无升级项，不重复全量。完整证据见 tasks_round/tasks_round_1265_result.md。
 

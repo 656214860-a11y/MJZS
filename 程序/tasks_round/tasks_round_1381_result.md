@@ -23,4 +23,4 @@
 
 ## 产出与提交
 - 改动文件：`tests/architecture/test_dialog_boundary.py`（门禁递归化＋谓词加固＋canary）、`project_status.md`（轮次头／已知阻塞与待办校正／验证基线）、本轮报告与接力记录。
-- 提交：本轮内容、报告与状态页同一次收尾提交；commit hash 见文末补记。
+- 提交：本轮内容、报告与状态页同一次收尾提交 = `3ced47d`（R1381）。
