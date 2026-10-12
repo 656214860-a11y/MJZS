@@ -10,11 +10,18 @@ _SUFFIXES = {'.wav', '.mp3', '.m4a', '.aac'}
 LOGGER = logging.getLogger(__name__)
 
 
-def import_audio(project, source, *, publish, stage='audio'):
-    """Copy one non-empty supported audio file into the authoritative stage directory."""
+def import_audio(project, source, *, publish, stage='audio', kind='dialogue'):
+    """Copy one non-empty supported audio file into the authoritative stage directory.
+
+    ``kind`` 标明音轨用途（对白／旁白／BGM／音效／整轨）：非对白音轨加可识别前缀，
+    完成核验据此判断「导入 BGM 不能算作对白已完成」。
+    """
     from stage_path_service import write_dir
+    from tts_api import AUDIO_KINDS, marked_audio_name
     if stage not in ('audio', 'animatic'):
         raise ValueError('不支持的音频导入阶段')
+    if kind not in AUDIO_KINDS:
+        raise ValueError('不支持的音频用途：' + str(kind))
     if not callable(publish):
         raise TypeError('音频导入发布必须由 L3 注入。')
     try:
@@ -30,7 +37,7 @@ def import_audio(project, source, *, publish, stage='audio'):
             from project_stages import audio
             folder = audio(project)
         folder.mkdir(parents=True, exist_ok=True)
-        destination = folder / (source.stem + '_' + uuid.uuid4().hex[:6] + suffix)
+        destination = folder / (marked_audio_name(source.stem, kind) + '_' + uuid.uuid4().hex[:6] + suffix)
         publish(destination, source)
     except MediaValidationError as exc:
         return UserError(str(exc))

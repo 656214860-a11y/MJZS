@@ -640,9 +640,9 @@ def migrate_white_model_directories(project):
     return migrate_legacy_directories(project_context(project), publish=save)
 
 
-def run_tts_lines(lines, folder, generate=None, report=None, stop=None):
+def run_tts_lines(lines, folder, generate=None, report=None, stop=None, episode=None):
     from tts_api import run_lines
-    return run_lines(lines, folder, generate, report, stop, gateway=tts_gateway())
+    return run_lines(lines, folder, generate, report, stop, gateway=tts_gateway(), episode=episode)
 
 
 def cloud_video_gateway():

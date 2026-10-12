@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O31 完成并提交 R1356（含五轮欠账全量）。声音角色映射与音轨用途绑定到具体集/用途：`tts_api`（L1）新增 `voice_for`／`missing_voices`／`silent_lines`／`voice_snapshot`／`AUDIO_KINDS`／`audio_kind`／`marked_audio_name`，`save_key` 音色变化自增 `voice_version`，`batch_signature`／`resume_folder`／`run_lines` 增至集标识（两集同名不串、旧指纹不变）；`audio_import_service.import_audio(kind=)` 非对白加前缀；`stage_completion_service` 要求对白音轨（BGM 不算完成）；`desktop` 带集 token；新增 18 条用例，定向 18/18＋关联 427/427、架构 312/312、默认冒烟 8/8，0 红；五轮欠账收口跑干净 master `--all --safe`。见 [R1356](../程序/tasks_round/tasks_round_1356_result.md)。
+
 - 2026-10-12：O30 完成并提交 R1355。字幕估算轴与实际音频轴建立校准流程：`subtitle_timing.py`（L1）新增 `calibrate_entries`（镜内按句长／真实音频重排，超镜头压缩记 overflow）／`validate_entries`（非有限·负数·反向·重叠·越界报错）／`rows_from_entries`，`srt_rows` 改用校准轴，`timed_entries` 等分估算保持不变；`subtitle_export_service.py`（L2）导出返回 `(target, report)` 并写 `字幕校准.json`，新增 `pending_calibration`／`export_calibration`；`desktop.py` 导出后提示已校准或未校准句数；新增 23 条用例，定向 690/690、架构 312/312、默认冒烟 8/8，0 红（1355−1351=4<5 且未命中 §5，本轮不跑全量）。见 [R1355](../程序/tasks_round/tasks_round_1355_result.md)。
 
 - 2026-10-12：O29 完成并提交 R1354。预算由多个计数器汇总为请求级可对账记录：`pet_llm.py`（L1）新增 `RequestLedger`（`reserve` 幂等／`link` 同一远端任务唯一账单／`settle` 缺量转未知／`cancel` 不伪造远端退款／`report` 按 token·秒·次数分列不跨量纲相加、可选带时间价格表），`model_pool.probe` 增 `ledger` 与 `PROBE_USAGE_NOTE`（探测「可能产生用量」并记未知）、`pet_models_ui` 文案标注；新增 11 条用例，定向 73/73、架构 312/312、默认冒烟 8/8，0 红（1354−1351=3<5 且未命中 §5，本轮不跑全量）。见 [R1354](../程序/tasks_round/tasks_round_1354_result.md)。

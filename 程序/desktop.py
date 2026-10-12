@@ -7151,13 +7151,16 @@ class Desktop:
         self.async_(work)
     def generate_tts_per_line(self):
         import tts_api
-        entries,estimated=self.dialogue_entries();assets=self.dialogue_assets()
+        episode=self.current_episode()
+        entries,estimated=self.dialogue_entries(episode);assets=self.dialogue_assets()
         if not entries:raise ValueError('当前分镜没有对白，无法生成配音')
         tts_settings=tts_api.read_settings()
         lines=tts_api.build_lines(entries,assets,tts_settings.get('voices'),tts_settings.get('speeds'),settings=tts_settings)
         from project_stages import audio
         folder=audio(self.root)/'配音分句'
-        out=tts_api.resume_folder(folder,lines);resumed=out is not None
+        # 同一项目可有多集：把集标识纳入批次指纹，两集同名台词／音色不会共用缓存目录。
+        token=(episode.get('episode_id') or episode.get('id')) if isinstance(episode,dict) else None
+        out=tts_api.resume_folder(folder,lines,token);resumed=out is not None
         out=out or dated_path(folder,'配音批次')
         # 付费闸口：逐句配音按句计费，点一次会发出「待合成句数」个请求。先在点按钮时把要花多少、
         # 有多少句沿用已生成文件摊开确认，取消时一句都不提交（沿用判定与批次内部同一口径）。
@@ -7171,7 +7174,7 @@ class Desktop:
             self.status.set('已取消逐句配音：未提交任何句子，也没有产生费用');return
         def work():
             from stage_execution_service import run_tts_lines
-            ok,reused,failed=run_tts_lines(lines,out)
+            ok,reused,failed=run_tts_lines(lines,out,episode=token)
             note=f'逐句配音完成：成功 {ok}/{len(lines)}，失败 {failed}'
             if reused:note+=f'（沿用已生成 {reused} 句，未重复扣费）'
             if resumed:note+='；已接续上次未完成的批次'
