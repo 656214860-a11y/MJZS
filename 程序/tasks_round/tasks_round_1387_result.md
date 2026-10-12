@@ -28,7 +28,7 @@
 
 ## 提交
 - 内容提交：**`d5f597f`**（1 file：`tests/architecture/test_button_boundary.py`）。
-- 报告与状态／接力：另一次提交（hash 见后续补记）。
+- 报告与状态／接力：**`ec2320b`**（7 files：本结果文件＋`project_status.md`＋`.agent-handoff/` snapshot／backlog／risks／work-log／validation）。
 
 ## 复盘：路线图 v1 §一 第 1 项「按钮」
 - 完成判据原文「全页面覆盖率待审计」。本轮做到：**门禁口径由「固定页清单」升为「递归全生产零容忍」**，覆盖子目录，任何新增／迁移页面出现裸 `tk/ttk.Button` 都会被捕获；站点实测 0 命中，即全页面覆盖率经门禁固化。

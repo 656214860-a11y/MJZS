@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1387 当前实测：按钮门禁递归零容忍（`test_button_boundary` +2）；定向 25/25、默认冒烟 8/8、架构 `smoke_test.py --architecture` 331/331（329→331）。**1387−1382=5≥5 命中 §5 五轮规则**：干净 master 工作树 `o07-fullsafe-master`（`git reset --hard master`→`d5f597f`）跑 `run_selftests.py --all --safe` **4973 条、572.5 秒、0 文件有红**（凭据 round=1386、tree=`000477da…`＝内容提交 `d5f597f:程序`；`last_full_safe_all_round` 刷新为 1386）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 均无阈值抖动。提交内容 `d5f597f`。详见 [R1387](tasks_round/tasks_round_1387_result.md)。
+R1387 当前实测：按钮门禁递归零容忍（`test_button_boundary` +2）；定向 25/25、默认冒烟 8/8、架构 `smoke_test.py --architecture` 331/331（329→331）。**1387−1382=5≥5 命中 §5 五轮规则**：干净 master 工作树 `o07-fullsafe-master`（`git reset --hard master`→`d5f597f`）跑 `run_selftests.py --all --safe` **4973 条、572.5 秒、0 文件有红**（凭据 round=1386、tree=`000477da…`＝内容提交 `d5f597f:程序`；`last_full_safe_all_round` 刷新为 1386）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 均无阈值抖动。提交内容 `d5f597f`；报告／状态／接力 `ec2320b`。详见 [R1387](tasks_round/tasks_round_1387_result.md)。
 
 R1386 实测：`pet_bus.stage_label` 新入口＋阶段编号漂移纠正；定向 1275/1275、0 文件红、305.5 秒；默认冒烟 8/8；架构 `smoke_test.py --architecture` 329/329（326→329，+3 门禁）。路线图条目收口（§5）触发全量：干净 master 工作树 `o07-fullsafe-master`（`git reset --hard master`→`4cb02d3`）跑 `run_selftests.py --all --safe` **4971/4971、0 红、534.1 秒**（凭据 round=1382、tree=`d9aee73c…`＝内容提交 `4cb02d3:程序`；同一内容树不重跑第二次）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 均无阈值抖动。提交内容 `4cb02d3`；报告／状态／接力 `580d043`。详见 [R1386](tasks_round/tasks_round_1386_result.md)。
 
