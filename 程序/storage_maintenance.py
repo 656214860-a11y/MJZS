@@ -29,6 +29,24 @@ ITEM_PLANNED='planned'
 ITEM_MOVED='moved'
 ITEM_FAILED='failed'
 ITEM_UNDONE='undone'
+# O39：清理老视频前先查成果引用图，只清真正无引用的旧版。
+# 成片来源清单的文件名权威在 engine（L3）；L1 不能向上导入，故在此复名并由架构测试锁死一致。
+EXPORT_MANIFEST_NAMES=('edit_bundle.json','edit_manifest.json')
+# 已定局状态：只有这三种旧版本才可以进入回收候选；其余（含空）一律按「未结算」留住。
+SETTLED_STATES=frozenset(('downloaded','failed','rejected'))
+RETAIN_UNSETTLED='unsettled'
+RETAIN_LOCKED='locked'
+RETAIN_EDIT_SOURCE='edit_source'
+RETAIN_APPROVED='approved'
+RETAIN_LATEST='latest'
+RETAIN_FRESH='fresh'
+RETAIN_REASONS={RETAIN_UNSETTLED:'任务未结算，等结果取回或查询',
+                RETAIN_LOCKED:'用户锁定该版本',
+                RETAIN_EDIT_SOURCE:'已进入已发布成片的来源清单',
+                RETAIN_APPROVED:'已验收通过的采用版本',
+                RETAIN_LATEST:'该镜头最新版本',
+                RETAIN_FRESH:'未到保留期（不足 7 天）'}
+VERSION_CLEAN_REASON='超过保留期，且未被采用、未进成片来源、未锁定、任务已定局'
 
 def launch_cleanup(app_root=None):
     program=Path(app_root or PROGRAM)
@@ -452,6 +470,60 @@ def clear_generated_workflow_state(project_root, state_path, filename):
     except OSError:
         return False
 
+def edit_source_versions(root):
+    """已发布成片（剪辑／交付）清单里被引用的视频版本。
+
+    只读 ``13质检交付/导出成片`` 下的成片清单（``edit_bundle.json``，老成片退回
+    ``edit_manifest.json``）：成片来源的权威仍归 engine 的剪辑清单，这里只为「删前先查引用」
+    读出被引用的 ``(镜头, 版本)`` 与 ``(镜头, sha256)``，不重写、不删除任何成片记录。
+    """
+    root=Path(root)
+    pairs=set();digests=set()
+    try:
+        from project_stages import exports
+        parent=exports(root)
+    except (OSError,ValueError):
+        return pairs,digests
+    if not parent.is_dir():return pairs,digests
+    for name in EXPORT_MANIFEST_NAMES:
+        for manifest in parent.rglob(name):
+            try:data=read_json(manifest)
+            except (OSError,ValueError):continue
+            rows=data.get('manifest') if isinstance(data,dict) else data
+            if not isinstance(rows,list):continue
+            for row in rows:
+                if not isinstance(row,dict):continue
+                shot=str(row.get('shot') or '')
+                if not shot:continue
+                try:pairs.add((shot,int(row.get('version'))))
+                except (TypeError,ValueError):pass
+                digest=str(row.get('sha256') or '')
+                if digest:digests.add((shot,digest))
+    return pairs,digests
+
+
+def version_retention(version, shot, newest, referenced, digests, now):
+    """这一版该留还是可回收：返回保留原因，可以回收时返回空串。
+
+    保留口径（任一成立即留，给出原因）：任务未结算（含未知状态）／用户锁定／已进已发布成片
+    来源（按 ``(镜头, 版本)`` 或 ``(镜头, sha256)`` 命中）／已验收通过（含无人值守自动放行，
+    旧版被采用也必须留住）／该镜头最新版本／不足保留期。全部不成立才可回收。
+    """
+    state=str((version or {}).get('state') or '')
+    if state in PENDING or state not in SETTLED_STATES:return RETAIN_UNSETTLED
+    if (version or {}).get('locked'):return RETAIN_LOCKED
+    digest=str((version or {}).get('sha256') or '')
+    if (str(shot),(version or {}).get('version')) in referenced:return RETAIN_EDIT_SOURCE
+    if digest and (str(shot),digest) in digests:return RETAIN_EDIT_SOURCE
+    if (version or {}).get('review')=='pass':return RETAIN_APPROVED
+    if (version or {}).get('version')==newest:return RETAIN_LATEST
+    try:
+        created=float((version or {}).get('created'))
+    except (TypeError,ValueError):
+        return RETAIN_FRESH
+    return RETAIN_FRESH if now-created<AGE_SECONDS else ''
+
+
 def clean_project(root,now=None):
     root=Path(root).resolve();now=now or time.time();removed=[];records=[]
     if root.parent!=downloads_root().resolve() or not (root/'config.json').is_file():return removed
@@ -486,24 +558,30 @@ def clean_project(root,now=None):
         except OSError:
             # An occupied history must not prevent cleanup of the other folders.
             continue
-    # Completed generation versions: retain newest per shot and all unfinished jobs.
-    for ledger in list(root.glob('**/data/state.json'))+list(root.glob('**/06_本地生成/state.json')):
-        if not _within(ledger,root):continue
+    # Completed generation versions: retain newest per shot, all unfinished jobs, every adopted
+    # version and everything a published cut still references (O39：删前先查成果引用图)。
+    referenced,digests=edit_source_versions(root)
+    ledgers=list(root.glob('**/data/state.json'))+list(root.glob('**/06_本地生成/state.json'))
+    for ledger in ledgers:
+        # 回收区里的旧台账不是生产目录：既不能再按它清理，也不能碰回收站里的东西。
+        if not _within(ledger,root) or _within(ledger,recycle_base):continue
         try:state=read_json(ledger)
         except (OSError,ValueError):continue
         dirty=False
         for shot_id,versions in state.get('shots',{}).items():
             if not isinstance(versions,list) or len(versions)<2:continue
-            newest=max(v.get('version',0) for v in versions)
+            newest=max((v.get('version',0) for v in versions if isinstance(v,dict)),default=0)
             for version in versions:
-                if version.get('version')==newest or version.get('state') in PENDING or version.get('cleaned_at'):continue
-                if now-float(version.get('created',now))<AGE_SECONDS:continue
+                if not isinstance(version,dict) or version.get('cleaned_at'):continue
+                if version_retention(version,shot_id,newest,referenced,digests,now):continue
+                number=version.get('version')
+                if not isinstance(number,int):continue
                 if version.get('output_dir'):
                     folder=(ledger.parent.parent/version['output_dir']).resolve()
                 else:
-                    folder=ledger.parent/shot_id/f"v{version['version']:03}"
+                    folder=ledger.parent/shot_id/f"v{number:03}"
                 if folder.is_dir() and recycle(folder):
-                    version.update(cleaned_at=now,file=None,qc_pass=False);dirty=True
+                    version.update(cleaned_at=now,file=None,qc_pass=False,cleaned_reason=VERSION_CLEAN_REASON);dirty=True
         if dirty:
             save(ledger,state)                  # 原子写只有 agent.core.save 一份
     # Empty accidental folders only. Keep the named workflow stages visible.
