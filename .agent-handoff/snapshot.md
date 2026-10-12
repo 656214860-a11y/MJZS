@@ -1,5 +1,15 @@
 # 当前快照
 
+## 2026-10-12：UI 统一入口覆盖轮完成（R1376—R1380，路线图 4 项全收口）
+- 范围＝`程序/维护记录/UI统一入口路线图_v1.md` 尚未收口的 4 项：卡片容器、文字层级、忙碌态（提交/取消/成功/失败/迟到结果全链路）、文案与复制。用户 5 条硬要求：先读 `程序/AGENTS.md` §0/§2/§5 定轮型；单页粒度分批迁移（不整仓机械替换）；验收以各项「完成判据」原文为准、收口写「完成全量覆盖审计」；测试按 §5 触发表、不因收尾跑全量兜底；完成/暂停都更新接力。
+- R1376 忙碌态：`app.py`／`native_assets.py` 的进度条 `start/stop` 收口到 `BusyState.set_busy`；`tests/architecture/test_busy_state_boundary.py` 7 条（含「生产代码 `ttk.Progressbar` 的 `.start/.stop` 只许出现在 `ui_widgets.py`」零容忍门禁）。架构 315→320。
+- R1377 文案与复制：4 处复制失败术语统一为「复制失败：…」，禁止「复制成功／成功复制」；修正 `asset_detail.py` 锚点复制失败被成功文案覆盖的缺陷；`test_copy_entry_boundary.py` 增递归生产扫描。架构 320→321。
+- R1378＋R1379 卡片容器：页面级信息/操作单元承载区 `ttk.LabelFrame`→`ui_widgets.Card`（标题改卡内标签）。R1378 迁 asset_detail(7)/native_assets/asset_batch；R1379 迁 keyframe_comfy(2 窗)/desktop(6 区：参考网站分类导航、连续性表格框、待办与裁决、开工前先确认、本地生成、线上生成)。架构 321→323→325。全站点审计：21 页已用 Card，其余（white_model/workflow_settings/cloud_video 的卡内小节、skill_panel 锁定几何阅读区、batch_frames_tool 独立脚本）豁免。**卡片容器完成全量覆盖审计**。
+- R1380 文字层级：asset_batch/keyframe_comfy 的功能说明→`DescriptionBlock`、状态行→`ProgressLabel`、标题→`style='Tokens.Title.TLabel'`；`test_text_component_boundary.py` 的 `TEXT_PAGE_COMPONENTS` 增这两页（7 页门禁固化）。全站点审计：组件内部/主题/自绘、缩略图窄格豁免；标题层级无语义组件（登记改用 `Tokens.Title.TLabel`）；其余说明文字按单页粒度续跟（backlog）。**文字层级完成全量覆盖审计**。
+- 验证：各轮定向＋默认冒烟 `smoke_test.py` 8/8，0 红。**R1380 命中 §5 五轮规则（1380−1375=5≥5）**，收口在干净 master 工作树 `o07-fullsafe-master` 跑 `run_selftests.py --all --safe`：**4967/4967、0 红、631.2 秒**（首次即绿）；凭据 round=1380、tree=f62cd088…＝`HEAD:程序`、last_full_safe_all_round=1380；同树架构门禁 325/325；`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 无阈值抖动。
+- 提交：R1376 a44ad5c、R1377 ef25cde、R1378 dd87f02、R1379 6bdbc0f、R1380 e25c70d（内容）＋633eb4e（补记全量结果）。`project_status.md` 当前轮次＝1381。
+- 下一步：路线图 4 项已全收口、无待办；R1267 清单 O01—O48 亦已全完成。文字层级旧页面 backlog（见 R1380 审计表）按单页粒度滚动迁移，非阻塞。等用户新指令。
+
 ## 2026-10-12：O48 完成 — R1267 清单 O01—O48 全部收口
 - 按 R1267 清单 O01→O48 顺序逐个完成。**O48 已完成（R1375），R1267 清单全部完成**。
 - O48（13 阶段、文档与界面标签使用一致权威源）= R1375：`pet_bus.py`（L0）新增 `stage_step(stage)`（按 `STAGES` 顺序给两位步号，与阶段目录、导航页 `PAGES` 同源，未知阶段空串）；13 个生产模块（`app`／`asset_context`／`asset_detail`／`batch_frames_tool/batch_frames`／`desktop`／`engine`／`local_video`／`storyboard_files`／`storyboard_selection`／`video_navigation`／`white_model`／`white_model_ref`／`agent/shot_assets`）的用户可见文案改由它现算，纠正 R1124 前旧步号（分镜 02→03、资产 03→05、定稿 04→07、首帧 05→08、白模 06→09、视频 07→10，共 24 处）；`architecture.md` §4 阶段表 12 行错位→13 行（序号 01—13／ID／中文名逐行＝`pet_bus.STAGES`／`stage_name`）、§5 并行表与 §8 输入输出表各补 `animatic` 成 13 行；`README.md` 第 61 期历史目录树加一行「历史记录」指回 PROJECT_MAP 与 `pet_bus.STAGES`（不动历史正文）。**不改业务逻辑、门禁、路径、分层；不重排页面**。见 [R1375](../程序/tasks_round/tasks_round_1375_result.md)。
