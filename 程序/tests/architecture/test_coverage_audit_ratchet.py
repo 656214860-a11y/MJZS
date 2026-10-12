@@ -1,4 +1,9 @@
-"""覆盖率审计的固定谓词、三源同源与双向棘轮。"""
+"""覆盖率审计的固定谓词、三源同源与双向棘轮。
+
+扫描范围＝产品运行时生产模块（R1393 起）：根目录生产 .py 加上 `agent/`／`batch_frames_tool/`
+等被产品实际导入的运行时子包，排除 `skills/`／`scripts/`／`reference/`／`outputs/`／`附加工具/`
+非产品目录。台账键为相对 `程序/` 的 posix 路径（根目录文件即文件名）。
+"""
 from __future__ import annotations
 import ast
 import unittest
@@ -6,7 +11,7 @@ import json
 import re
 from pathlib import Path
 from pet_bus import CONTRACT
-from tests.architecture._scan import parse, production_files
+from tests.architecture._scan import parse, production_runtime_files
 ROOT=Path(__file__).resolve().parents[2]
 CANARY=Path(__file__).with_name('_canary')
 # 21 白名单：明确的平台适配器／外部工具；其余 OS 进程调用须报告。
@@ -19,6 +24,12 @@ P24={'ui_plugin_registry','stage_handler_registry','clipboard_lock'}
 LEDGER=ROOT/'维护记录'/'架构统一基数.json'
 CRITERIA=ROOT/'维护记录'/'覆盖率审计判据_20261001.md'
 AUDIT_SECTIONS={'20':'覆盖率审计20','21':'覆盖率审计21','24':'覆盖率审计24','25':'覆盖率审计25','26':'覆盖率审计26'}
+def _key(path):
+    """台账用的文件标识：相对 程序/ 的 posix 路径（根目录文件即文件名）。"""
+    try:
+        return path.relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.name
 def dot(n):
     if isinstance(n,ast.Name): return n.id
     if isinstance(n,ast.Attribute):
@@ -56,7 +67,7 @@ def _json_replace_calls(function):
 
 def scan(kind, paths=None):
     out=set()
-    for p in (production_files() if paths is None else paths):
+    for p in (production_runtime_files() if paths is None else paths):
         tree=parse(p) if paths is None else ast.parse(p.read_text(encoding='utf-8'))
         functions={node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
         if kind == '20':
@@ -67,7 +78,7 @@ def scan(kind, paths=None):
                 # agent.core 的原子发布由签名变化自动换代缓存；只有绕过该入口的
                 # replace_file 是“外部覆写”，必须显式广播失效事件。
                 if replaces and publishes < replaces:
-                    out.add(f'{p.name}:{function.lineno}')
+                    out.add(f'{_key(p)}:{function.lineno}')
             continue
         for n in ast.walk(tree):
             if not isinstance(n,ast.Call): continue
@@ -75,7 +86,7 @@ def scan(kind, paths=None):
             dynamic_target=_dynamic_target(n)
             event_kind = _event_kind(n, name)
             hit=(kind=='21' and name in {'subprocess.run','subprocess.Popen','os.startfile'} and mod not in P21) or (kind=='22' and name in {'os.remove','os.unlink','shutil.rmtree'} and mod not in {'storage_maintenance','file_cache','asset_batch_lifecycle','storyboard_lifecycle'}) or (kind=='24' and name in {'__import__','import_module','importlib.import_module'} and mod not in P24 and (dynamic_target is None or 'plugin' in dynamic_target.lower() or 'handler' in dynamic_target.lower())) or (kind=='25' and (name == 'pet_bus.emit_safe' or (name or '').endswith('._emit')) and event_kind is not None and event_kind not in CONTRACT) or (kind=='26' and name in {'requests.get','requests.post','urllib.request.urlopen'} and mod not in P26)
-            if hit: out.add(f'{p.name}:{n.lineno}')
+            if hit: out.add(f'{_key(p)}:{n.lineno}')
     return out
 class CoverageAuditCanaryTests(unittest.TestCase):
     def test_each_predicate_hits_canary(self):

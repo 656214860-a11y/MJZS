@@ -30,6 +30,20 @@ def production_files() -> tuple[Path, ...]:
     return tuple(sorted(path for path in ROOT.glob("*.py")
                         if not path.stem.startswith("test") and path.stem not in _EXCLUDED_STEMS))
 
+# 非产品目录：技能随附脚本、开发／维护脚本、参考资料、构建产物与外部附加工具。
+# 它们是独立工具，不属于产品运行时，不参与「正式资源目标」类审计的扫描范围。
+NON_PRODUCT_PARTS = frozenset({"skills", "scripts", "reference", "outputs", "附加工具"})
+
+
+def production_runtime_files() -> tuple[Path, ...]:
+    """产品运行时生产模块：递归口径再排除非产品目录。
+
+    与根目录口径相比，这里补上 agent/ 等被产品模块实际导入的运行时子包；
+    与递归口径相比，去掉 skills/／scripts/／reference/／outputs/／附加工具/ 这些非产品目录。
+    """
+    return tuple(path for path in production_files_recursive()
+                 if not NON_PRODUCT_PARTS.intersection(path.relative_to(ROOT).parts))
+
 def module_name(path: Path) -> str:
     return path.stem
 
