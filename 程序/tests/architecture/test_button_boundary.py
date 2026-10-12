@@ -7,6 +7,13 @@ import unittest
 from tests.architecture._scan import ROOT, parse
 
 
+# 统一控件基类自身允许构造 tk/ttk.Button；其余生产模块一律经
+# PrimaryButton／SecondaryButton 等语义组件（ui_widgets）。
+BUTTON_OWNERS = {'ui_widgets.py'}
+# 与 test_dialog_boundary 一致：测试、轮次记录与维护记录不参与生产门禁。
+EXCLUDED_PARTS = {'tests', 'tasks_round', '维护记录', '.git', '__pycache__'}
+
+
 def raw_button_calls(tree):
     """解析静态名称链；不声称覆盖 getattr、动态导入或跨函数数据流。"""
     names = {}
@@ -147,3 +154,30 @@ class ButtonBoundaryTests(unittest.TestCase):
                          'from another_library import Button\n'
                          'B(root)\nSecondaryButton(root)\nButton(root)\n')
         self.assertEqual(raw_button_calls(tree), [])
+
+    def test_production_modules_use_semantic_buttons(self):
+        """递归扫描全部生产模块（含 batch_frames_tool/、agent/ 等子目录）：不得出现裸 tk/ttk.Button。"""
+        actual = {}
+        for path in ROOT.rglob('*.py'):
+            relative = path.relative_to(ROOT)
+            if any(part in EXCLUDED_PARTS for part in relative.parts):
+                continue
+            if path.name in BUTTON_OWNERS:
+                continue
+            lines = [node.lineno for node in raw_button_calls(parse(path))]
+            if lines:
+                actual[str(relative)] = lines
+        self.assertEqual(actual, {},
+                         '业务层按钮必须经 ui_widgets 语义组件（PrimaryButton／SecondaryButton 等）：'
+                         + str(actual))
+
+    def test_recursive_scan_covers_subdirectories(self):
+        """镜像 canary：确认扫描范围覆盖子目录模块，门禁不是「只扫根目录」的假阴性空集。"""
+        scanned = []
+        for path in ROOT.rglob('*.py'):
+            relative = path.relative_to(ROOT)
+            if any(part in EXCLUDED_PARTS for part in relative.parts):
+                continue
+            scanned.append(relative)
+        self.assertTrue(any(len(part.parts) > 1 for part in scanned),
+                        '递归扫描须覆盖子目录模块（如 batch_frames_tool/、agent/）')
