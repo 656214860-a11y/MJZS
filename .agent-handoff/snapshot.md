@@ -1,5 +1,13 @@
 # 当前快照
 
+## 2026-10-13：出站 HTTP 收口到 platform_tools.open_https（R1395，修复轮 §3.2）
+- 范围＝R1393 登记的 4 条 agent 真候选中「网络传输」2 条（覆盖率审计26）。
+- 裁定：两处调用点均为应用自身资产 I/O（参考图／云端视频下载）非模型路由；`download()` 依赖 `agent.core` 原子发布权威不能外移 → 只把出站调用收口到宿主适配层（同 R1394／R832）。
+- 实现：`platform_tools` 新增 `open_https(url,*,timeout=60,data=None,headers=None)`（惰性 import urllib.request）；`agent/core.py` `request()`／`download()` 改经它（错误分类、HTTPS 强制、`geturl()` 重定向校验、1GB 上限、原子发布不变）。
+- 台账／判据：`覆盖率审计26` 两条 pending→migrated、count 2→0；判据第 26 项真候选 2→0。
+- 验证：定向 7/7、默认冒烟 8/8、架构 341/341；命中 §5 五轮 → 干净 master 全量 **4983/4983、602.9 秒、0 红**（凭据 tree=886cfd07…＝`d93993e:程序`，last_full 1390→1394）。提交 `d93993e`。4 条 agent 真候选全部裁定完毕。
+- 下一轮候选：① secret sink（第 27 项）是否同批递归化；② 设计 token 迁移（卡在调色板决策，需用户确认）；③ 旧页面文字层级 backlog；④ `probe_http_endpoint` 是否并入 `open_https`。
+
 ## 2026-10-13：agent 进程原语收口到 platform_tools（R1394，修复轮 §3.2）
 - 范围＝R1393 登记的 4 条 agent 真候选中「进程原语」2 条（覆盖率审计21）。
 - 实现（生产代码，最小改动，行为不变）：`agent/core.py` `command()`：`subprocess.run` → `platform_tools.run_process`（惰性 import、移除模块级 `import subprocess`）；`agent/prompt_optimizer.py` MCP 桥子进程同改（模块级 import，保留 `subprocess` 供 `TimeoutExpired`／`SubprocessError`）。

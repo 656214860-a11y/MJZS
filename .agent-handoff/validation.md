@@ -1,3 +1,12 @@
+## 2026-10-13 R1395 出站 HTTP 收口到 platform_tools.open_https（修复轮 §3.2）
+
+- 类型：修复轮（§3.2），新增 platform_tools 出站 HTTP 入口 + 改 2 处 agent/core 调用 + 台账／判据同步。
+- 实现：`platform_tools.open_https(url,*,timeout=60,data=None,headers=None)`（惰性 import urllib.request）；`agent/core.py` `request()`／`download()` 出站调用改经它，行为/错误分类/发布语义不变。
+- 台账／判据：`覆盖率审计26` pending→migrated（2 条）、count 2→0；判据第 26 项真候选 2→0。
+- 定向 `tests.architecture.test_coverage_audit_ratchet`＋`test_unification_ratchet`：**7/7**。默认冒烟：**8/8**。架构：**341/341**（数量不变）。运行期本地 HTTP 服务下 `request` 返回预期 JSON。
+- **全量（§5 五轮必需，1395−1390=5）**：干净 master `o07-fullsafe-master`（reset→`d93993e`）`run_selftests.py --all --safe` **4983 条、602.9 秒、0 文件有红、ALL TESTS PASSED**；凭据 tree=`886cfd07…`，`last_full_safe_all_round` 1390→1394。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 无阈值抖动。
+- 提交：内容 `d93993e`；报告／状态／接力本轮收尾提交。
+
 ## 2026-10-13 R1394 agent 进程原语收口到 platform_tools（修复轮 §3.2）
 
 - 类型：修复轮（§3.2），改 2 处生产模块进程调用 + 台账／判据同步。

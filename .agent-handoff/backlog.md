@@ -1,6 +1,6 @@
 # 待办索引
 
-## 当前阻塞与待办（2026-10-13 复核，R1381—R1394；R1394 内容 `a966c41` 已提交）
+## 当前阻塞与待办（2026-10-13 复核，R1381—R1395；R1395 内容 `d93993e` 已提交）
 
 - 阻塞·需用户输入／外部条件（未满足不得勾选，也不自动开工）：
   - 白模视频真实上传验收 —— 需用户指定已采用且已生成预演视频的镜头并授权发送素材。
@@ -14,7 +14,8 @@
   - **【已收口·R1390／R1391】§三 覆盖率审计**：7 项全部收口（第 2 事件总线／第 5 删除／第 6 阶段完成 R1390 由根目录门禁升为递归门禁 `production_files_recursive`；第 1 配置读写／第 3 缓存失效／第 7 SKILL 说明与标签 已有门禁；**第 4 项「项目进入路径」R1391 新增 `tests/architecture/test_project_entry_boundary.py` 覆盖门禁**：冻结 `desktop.py` 进入入口集合＋首帧必经 `DesktopStartupController`＋当天选择委托 `desktop_settings_service`，架构 336→341、全量 4983/4983）。见 [R1390](../程序/tasks_round/tasks_round_1390_result.md)／[R1391](../程序/tasks_round/tasks_round_1391_result.md)。
   - **【已收口·R1393】覆盖率审计棘轮递归化**：`test_coverage_audit_ratchet.scan()` 由根目录口径（`production_files`）改产品运行时口径（新 `_scan.production_runtime_files`：递归再排除 skills／scripts／reference／outputs／附加工具，239 个运行时模块），台账键改相对路径；`覆盖率审计21/26` 各 +2 pending，判据文档第 21／26 行真候选 0→2。见 [R1393](../程序/tasks_round/tasks_round_1393_result.md)。
   - **【已收口·R1394】agent 包进程原语**：`agent/core.py` `command()` 与 `agent/prompt_optimizer.py` MCP 桥子进程两条已收口到 `platform_tools.run_process`（前者惰性 import、后者模块级 import，行为与异常类型不变）；台账 `覆盖率审计21` 待办清零、棘轮双向相等，agent 包再现裸 `subprocess.run` 会被立即拦下。见 [R1394](../程序/tasks_round/tasks_round_1394_result.md)。
-  - **【待裁定·R1393】agent 包网络传输**：`agent/core.py:189`（`request()`）／`:208`（`download()`）直接 `urllib.request.urlopen`（覆盖率审计26，2 条 pending），待裁定是否认定 agent 包为权威传输适配器或须收口（拟经模型池／`platform_tools`）；secret sink（第 27 项）仍为根目录口径，是否同批递归化待评估。
+  - **【已收口·R1395】agent 包网络传输**：`agent/core.py` `request()`／`download()` 的出站调用已收口到 `platform_tools.open_https`（唯一出站 HTTP 入口）；裁定依据＝两处均为应用自身资产 I/O 非模型路由，且 `download()` 依赖 `agent.core` 原子发布权威不能外移。台账 `覆盖率审计26` 待办清零、棘轮双向相等。见 [R1395](../程序/tasks_round/tasks_round_1395_result.md)。
+  - secret sink（覆盖率审计 27）仍为根目录口径，是否同批递归化待评估。
   - **【已收口·R1386】生产文案阶段编号漂移（R1382 登记 → R1386 修复轮）**：`pet_bus.stage_label` 为「NN 阶段名」唯一权威、6 个展示位点改现算、`test_stage_display_boundary` 新增编号一致性／位点冻结／导航序对齐 3 条门禁（架构 326→329）；定向 1275/1275、默认冒烟 8/8、干净 master 全量 4971/4971、0 红（tree=d9aee73c＝`4cb02d3:程序`）；审计口径更正 97→96（删 animatic_service.py:1 的 L2 层级前缀误报）。原登记明细（历史）：生产文案「NN 阶段名」过期编号（旧编号未随 animatic 插入整体偏移）。权威＝pet_bus.STAGES／STAGE_NAMES；导航标签＝desktop.PAGES。排除 stage_path_service.LEGACY_NUMBERED 后命中生产 14 文件 97 处（skill_tools.py 56／desktop.py 15／stage_parallel.py 5／keyframe_batch.py 4／pet_ui.py 4／app.py 3／asset_detail.py 与 skill_panel.py 各 2／animatic_service.py·asset_contract.py·continuity_ledger.py·prompt_window.py·storyboard_files.py·ui_theme.py 各 1）＋tests/ 19 文件 56 处。用户可见：keyframe_batch.py:51/52/141/236、desktop.py:2484/7015/7058、pet_ui.py:2956/2959、stage_parallel.py:477/480/483/486/489、skill_tools.py PAGES。已有 test_stage_display_boundary.py 只查 desktop.PAGES 生成源。对应路线图 §二 第 15 项「阶段显示」。
   - 优化待办队列未完成项：J20／J22／J23／J24／J25／J26，及「后续报告执行项」R1068 真实清理（仅 CRT-026/027/028，逐项批准）、R1052 J3（测得同步 I/O 阻塞才做）、R1059 J19 后续（迁移须明确批准）。
   - O 系列后备注：O35／O36／O37／O38／O39／O40／O41／O42／O43／O46（各自边界见本条以下各段）。
