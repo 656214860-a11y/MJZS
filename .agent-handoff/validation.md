@@ -1,3 +1,11 @@
+## 2026-10-13 R1396 UI 路线图 §一 第 2 项（设计 token）单页迁移（功能轮 §3.1）
+
+- 类型：功能轮（§3.1），只改 1 个生产模块的内联间距字面量＋1 处 import；不改业务/阶段/路径/分层，不改颜色/字体。
+- 内容：`asset_reference_images.py` 13 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token；新增 `from ui_tokens import SPACING`（纯数据、无环、不新增启动图节点）。零视觉变更（取值相等且间距与调色板无关）。
+- 定向 `tests.test_reference_images`＋`tests.architecture.test_token_boundary`：**26/26**。默认冒烟 **8/8**。架构 **341/341**（数量不变）。`test_token_boundary` 该文件数字 `padx/pady` 计数 18→5。
+- 不跑全量：`1396−1394=2<5` 且未命中 §5 升级条件。最近绿全量 R1395 `tree=886cfd07…`（4983/4983）。
+- 提交：内容 `ac01f9f`；报告／状态／接力本轮收尾提交。
+
 ## 2026-10-13 接力收尾 — 更新项目阻塞项与待办任务清单（R1395 已收口）
 
 - 类型：接力收尾（纯文档），不改生产代码／测试／台账／路线图。

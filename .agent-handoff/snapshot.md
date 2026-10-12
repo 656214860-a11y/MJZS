@@ -1,5 +1,12 @@
 # 当前快照
 
+## 2026-10-13：UI 路线图 §一 第 2 项（设计 token）单页迁移（R1396，功能轮 §3.1）
+- 范围＝设计 token 迁移中**可证明零视觉变更**的子集、单页粒度：`asset_reference_images.py` 13 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改从 token 取值（`SPACING['md']`×11、`SPACING['xs']`×2），新增 `from ui_tokens import SPACING`。
+- 依据：取值完全相等 → 渲染不变；间距与调色板无关 → 与「调色板三选一」决议互不冲突。未触碰任何颜色（此文件无内联 hex）。
+- 验证：定向 `test_reference_images`＋`test_token_boundary` 26/26、默认冒烟 8/8、架构 341/341；`test_token_boundary` 该文件数字间距 18→5。1396−1394=2<5 且未命中 §5 → 不跑全量（最近绿全量 R1395 `tree=886cfd07…`）。提交内容 `ac01f9f`。
+- 未做（需用户决策）：hex 颜色（仅 8 处等于现有 token）、103 处旧 `ui_theme` 调色板值、非 token 间距值、旧页面文字层级 —— 均需先对设计 token 调色板三选一。
+- 下一轮候选：同法继续 100% 可判定的单页（如 `prompt_window.py` 3/3、`native_assets.py` 3/9）。
+
 ## 2026-10-13：出站 HTTP 收口到 platform_tools.open_https（R1395，修复轮 §3.2）
 - 范围＝R1393 登记的 4 条 agent 真候选中「网络传输」2 条（覆盖率审计26）。
 - 裁定：两处调用点均为应用自身资产 I/O（参考图／云端视频下载）非模型路由；`download()` 依赖 `agent.core` 原子发布权威不能外移 → 只把出站调用收口到宿主适配层（同 R1394／R832）。
