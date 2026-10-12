@@ -1,5 +1,12 @@
 # 当前快照
 
+## 2026-10-13：UI 路线图 §一 第 2 项（设计 token）第 3 批单页迁移（R1400，功能轮 §3.1）
+- 范围＝零视觉变更子集第 3 批：`keyframe_comfy.py`／`workflow_settings.py`／`white_model.py`／`native_assets.py`／`background_characters.py` 24 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token；`keyframe_comfy.py` 1 处等值 `#ffffff→COLORS['background_card']`。
+- 验证：定向 168/168、默认冒烟 8/8、架构 341/341；1400−1396=4<5 且未命中 §5 → 不跑全量（最近绿全量 R1399）。提交内容 `e81df9c`。
+- 同轮缺陷：首版脚本误判 import 存在性（扫全文而非 import 行）→ 5 页缺 import、5 条 NameError，已同轮修绿；教训记入报告。
+- **决策-free 子集接近耗尽**：仅余 `agent/prompt_optimizer.py`（10）与 `desktop.py`（13，启动路径须另评 §5）；其余为 0 值间距。
+- 未做（需用户决策）：hex 其余 6 处、103 处旧调色板值、非 token 间距值、旧页面文字层级 —— 待设计 token 调色板三选一。
+
 ## 2026-10-13：UI 路线图 §一 第 2 项（设计 token）第 2 批单页迁移（R1399，功能轮 §3.1）
 - 范围＝零视觉变更子集第 2 批：`asset_detail.py`／`prompt_window.py`／`qwen_setup.py`／`seedream_settings.py` 21 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token；`asset_detail.py` 1 处等值 `#ffffff→COLORS['background_card']`。
 - 行号平移同步：TODO注释快照 `asset_detail.py` 353→354；架构统一基数 第四项 `qwen_setup.py` 48→49、170→171。

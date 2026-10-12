@@ -1,3 +1,12 @@
+## 2026-10-13 R1400 UI 路线图 §一 第 2 项（设计 token）第 3 批单页迁移（功能轮 §3.1）
+
+- 类型：功能轮（§3.1），5 个生产页内联常量等值改用 token＋各页 1 处 import；不改业务/阶段/路径/分层、不改字体，颜色仅等值提换。
+- 内容：24 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）→ `SPACING[...]`；`keyframe_comfy.py` 1 处 `bg='#ffffff'`→`COLORS['background_card']`。
+- 定向 `test_keyframe_comfy`＋`test_previs`＋`test_assets`＋`test_auto_import`＋`test_workflow_settings_cache`＋架构 3 项：**168/168**。默认冒烟 **8/8**。架构 **341/341**。
+- 同轮缺陷：首版替换脚本按「整文件出现该名」判定 import 存在性 → 替换后正文含 `SPACING` 被误判、5 页缺 import（`test_keyframe_comfy` 5 条 `NameError`）；改为只按 `from ui_tokens …` 行判定后补齐，复验全绿。
+- 不跑全量：`1400−1396=4<5` 且未命中 §5 升级条件。最近绿全量 R1399 `tree=250b6384…`（4983/4983）。
+- 提交：内容 `e81df9c`；报告／状态／接力本轮收尾提交。
+
 ## 2026-10-13 R1399 UI 路线图 §一 第 2 项（设计 token）第 2 批单页迁移（功能轮 §3.1）
 
 - 类型：功能轮（§3.1），4 个生产页内联常量等值改用 token＋各页 1 处 import；不改业务/阶段/路径/分层、不改字体，颜色仅等值提换。
