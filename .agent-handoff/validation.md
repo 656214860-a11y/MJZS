@@ -1,3 +1,10 @@
+## 2026-10-12 R1389 设计 token 内联常量棘轮门禁（修复轮 §3.2）
+
+- 类型：修复轮（§3.2）。新增 `tests/architecture/test_token_boundary.py`（5 条）：内联 hex 与数字 padx/pady 按文件棘轮「只减不增」（新增文件即违规）；权威 ui_tokens/ui_theme/ui_widgets/ui_icons 与 skills 脚本豁免；基线＝R1388 审计值（hex 111/8、padx/pady 213/19）。`AGENTS.md` §5 清单补该文件。不改生产代码。
+- 未纳入棘轮：数字 font/wraplength/width/height 候选 189/32（width/height 部分属布局），只审计。
+- 定向 `tests.architecture.test_token_boundary`：**5/5**。默认冒烟 `smoke_test.py`：**8/8**。架构 `smoke_test.py --architecture`：**336/336**（331→336）。
+- 不跑全量：`1389−1386=3<5` 且未命中 §5 升级条件（无启动路径／Tk 生命周期／删除语义／层级表改动）。最近绿全量 R1387 `tree=000477da…`。
+
 ## 2026-10-12 R1388 设计 token 内联视觉常量审计（只读诊断 §3.5）
 
 - 类型：只读诊断轮（§3.5）。只读扫描 269 个生产 `.py`；不改生产代码/测试/台账/路线图。

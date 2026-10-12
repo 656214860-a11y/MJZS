@@ -1,6 +1,6 @@
 # 待办索引
 
-## 当前阻塞与待办（2026-10-12 复核，R1381—R1388 收尾后）
+## 当前阻塞与待办（2026-10-12 复核，R1381—R1389 收尾后）
 
 - 阻塞·需用户输入／外部条件（未满足不得勾选，也不自动开工）：
   - 白模视频真实上传验收 —— 需用户指定已采用且已生成预演视频的镜头并授权发送素材。
@@ -10,7 +10,7 @@
   - P3-2 兼容 facade 退役 —— 先查生产调用方，统一淘汰日 2027-03-31。
 - 可执行待办·无外部前置（按单项／单页粒度推进，验收以各自「完成判据／原报告」为准）：
   - UI 统一入口路线图 v1：卡片容器／文字层级／忙碌态／文案与复制 已全站收口（R1376—R1380）；弹窗门禁已递归化（R1381，全生产模块 0 裸窗）。**R1381 复核校正**：表格／输入／下拉／提示／右键菜单／文件选择／快捷键／Tooltip／图标／滚动条 均已递归零容忍收口；真正剩余＝设计 token 内联视觉常量／§三 覆盖率审计 7 项（阶段显示已由 R1386 收口）；文字层级旧页面为已登记 backlog。**按钮已由 R1387 收口**：`test_button_boundary` 由固定页清单升为递归零容忍（`ROOT.rglob`，含子目录，豁免 `ui_widgets.py`），站点实测 269 个生产 `.py` 0 裸 `tk/ttk.Button`，架构 331/331。
-  - **【已审计未实现·R1388】设计 token 内联视觉常量**（路线图 §一 第 2 项）：业务页内联 hex **111 处/8 文件**（pet_ui 45／desktop 31／asset_detail 21／cell_hover 6／keyframe_comfy 3／app 2／storyboard_table_ui 2／previs_monitor 1）、数字 padx/pady **213 处/19 文件**、数字字号尺寸候选 **189 处/32 文件**；**双调色板风险**：ui_tokens.py（14 hex）与 ui_theme.py（53 hex）各自硬编码且 ui_theme 未 import ui_tokens。现状无 token 专用门禁。收口路径：先统一调色板→逐页迁 hex→新增 `test_token_boundary.py` 棘轮门禁（只减不增）；padx/pady 与字号按单页粒度另批。明细见 [R1388](../程序/tasks_round/tasks_round_1388_result.md)。
+  - **【已审计未实现·R1388】设计 token 内联视觉常量**（路线图 §一 第 2 项）：业务页内联 hex **111 处/8 文件**（pet_ui 45／desktop 31／asset_detail 21／cell_hover 6／keyframe_comfy 3／app 2／storyboard_table_ui 2／previs_monitor 1）、数字 padx/pady **213 处/19 文件**、数字字号尺寸候选 **189 处/32 文件**；**双调色板风险**：ui_tokens.py（14 hex）与 ui_theme.py（53 hex）各自硬编码且 ui_theme 未 import ui_tokens。现状无 token 专用门禁。**R1389 已加棘轮门禁** `tests/architecture/test_token_boundary.py`（内联 hex 与数字 padx/pady 按文件「只减不增」，新增文件即违规；架构 336/336）；**迁移仍待做**：先统一调色板（ui_theme 复用 ui_tokens，可能改视觉须先确认）→逐页迁 hex→padx/pady 与字号按单页粒度另批。明细见 [R1388](../程序/tasks_round/tasks_round_1388_result.md)／[R1389](../程序/tasks_round/tasks_round_1389_result.md)。
   - **【已收口·R1386】生产文案阶段编号漂移（R1382 登记 → R1386 修复轮）**：`pet_bus.stage_label` 为「NN 阶段名」唯一权威、6 个展示位点改现算、`test_stage_display_boundary` 新增编号一致性／位点冻结／导航序对齐 3 条门禁（架构 326→329）；定向 1275/1275、默认冒烟 8/8、干净 master 全量 4971/4971、0 红（tree=d9aee73c＝`4cb02d3:程序`）；审计口径更正 97→96（删 animatic_service.py:1 的 L2 层级前缀误报）。原登记明细（历史）：生产文案「NN 阶段名」过期编号（旧编号未随 animatic 插入整体偏移）。权威＝pet_bus.STAGES／STAGE_NAMES；导航标签＝desktop.PAGES。排除 stage_path_service.LEGACY_NUMBERED 后命中生产 14 文件 97 处（skill_tools.py 56／desktop.py 15／stage_parallel.py 5／keyframe_batch.py 4／pet_ui.py 4／app.py 3／asset_detail.py 与 skill_panel.py 各 2／animatic_service.py·asset_contract.py·continuity_ledger.py·prompt_window.py·storyboard_files.py·ui_theme.py 各 1）＋tests/ 19 文件 56 处。用户可见：keyframe_batch.py:51/52/141/236、desktop.py:2484/7015/7058、pet_ui.py:2956/2959、stage_parallel.py:477/480/483/486/489、skill_tools.py PAGES。已有 test_stage_display_boundary.py 只查 desktop.PAGES 生成源。对应路线图 §二 第 15 项「阶段显示」。
   - 优化待办队列未完成项：J20／J22／J23／J24／J25／J26，及「后续报告执行项」R1068 真实清理（仅 CRT-026/027/028，逐项批准）、R1052 J3（测得同步 I/O 阻塞才做）、R1059 J19 后续（迁移须明确批准）。
   - O 系列后备注：O35／O36／O37／O38／O39／O40／O41／O42／O43／O46（各自边界见本条以下各段）。

@@ -1,5 +1,11 @@
 # 当前快照
 
+## 2026-10-12：UI 统一入口覆盖轮 — 设计 token 内联常量棘轮门禁（R1389，修复轮 §3.2）
+- 承接 R1388 只读审计（路线图 §一 第 2 项「设计 token」）：新增 `tests/architecture/test_token_boundary.py`（5 条）——`hex_color_count`／`numeric_padding_count` 两谓词，业务页内联 hex 与数字 `padx/pady` 按文件**棘轮「只减不增」**（新增文件即违规）；权威 `ui_tokens/ui_theme/ui_widgets/ui_icons` 与 `skills` 独立脚本豁免；基线＝R1388 审计值（hex 111 处/8 文件、padx/pady 213 处/19 文件）。`AGENTS.md` §5 清单补该文件。**不改生产代码。**
+- 未纳入棘轮：数字 `font/wraplength/width/height` 候选 189 处/32 文件（`width/height` 部分属布局），只审计。
+- 验证：定向 **5/5**、默认冒烟 **8/8**、架构 **331→336**；`1389−1386=3<5` 且未命中 §5 升级条件 → **不跑全量**（最近绿全量 R1387 `tree=000477da…`）。
+- 下一轮候选（backlog）：① 先确认再统一调色板（`ui_theme.py` 复用 `ui_tokens`，**可能改视觉**）；② 逐页迁 hex（8 文件 111 处）；③ padx/pady（19 文件 213 处）与字号按单页粒度另批；④ §三 覆盖率审计 7 项。
+
 ## 2026-10-12：只读诊断 — 设计 token 内联视觉常量审计（R1388，§3.5）
 - 范围＝路线图 v1 §一 第 2 项「设计 token」（审计点原文「页面是否仍内联视觉常量待审计」）。扫描 269 个生产 `.py`（排除 tests／tasks_round／维护记录）：**业务页内联 hex 111 处/8 文件**（pet_ui 45／desktop 31／asset_detail 21／cell_hover 6／keyframe_comfy 3／app 2／storyboard_table_ui 2／previs_monitor 1）、**数字 padx/pady 213 处/19 文件**、**数字字号尺寸候选 189 处/32 文件**。
 - **双调色板风险**：`ui_tokens.py`（14 hex）与 `ui_theme.py`（53 hex）各自硬编码，`ui_theme.py` **未** import `ui_tokens`；全生产仅 `desktop.py` import `ui_theme`，`ui_tokens` 被 14 个模块 import。同一 hex 多点重复 → 改色易漂移。现状 `tests/architecture` 无 token 专用门禁（仅 scrollbar theme）。
