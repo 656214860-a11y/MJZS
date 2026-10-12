@@ -1,3 +1,11 @@
+## 2026-10-13 R1399 UI 路线图 §一 第 2 项（设计 token）第 2 批单页迁移（功能轮 §3.1）
+
+- 类型：功能轮（§3.1），4 个生产页内联常量等值改用 token＋各页 1 处 import；不改业务/阶段/路径/分层、不改字体，颜色仅等值提换。
+- 内容：21 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）→ `SPACING['xs'/'sm'/'md']`；`asset_detail.py` 1 处 `bg='#ffffff'`→`COLORS['background_card']`。行号平移同步 2 个基线（TODO注释快照／架构统一基数 第四项）。
+- 定向 `test_asset_detail`＋`test_asset_detail_service`＋`test_token_boundary`：**50/50**；`test_api`＋`test_copy_text`＋`test_seedream_direct`：**70/70**。默认冒烟 **8/8**。架构 **341/341**（首次 2 红＝行号平移，定向修绿后复验第 2 次全绿）。
+- **全量（§5 五轮必需，1399−1394=5）**：干净 master `o07-fullsafe-master`（reset→`4ed81e9`）`run_selftests.py --all --safe` **4983 条、609.6 秒、0 文件有红、ALL TESTS PASSED**；凭据 tree=`250b6384…`＝`4ed81e9:程序`，`last_full_safe_all_round` 1394→1396。
+- 提交：内容 `4ed81e9`；报告／状态／接力本轮收尾提交。注：本轮原领 1397，被并行轮占用，改领 1399。
+
 ## 2026-10-13 R1396 UI 路线图 §一 第 2 项（设计 token）单页迁移（功能轮 §3.1）
 
 - 类型：功能轮（§3.1），只改 1 个生产模块的内联间距字面量＋1 处 import；不改业务/阶段/路径/分层，不改颜色/字体。

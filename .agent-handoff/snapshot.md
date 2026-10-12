@@ -1,5 +1,12 @@
 # 当前快照
 
+## 2026-10-13：UI 路线图 §一 第 2 项（设计 token）第 2 批单页迁移（R1399，功能轮 §3.1）
+- 范围＝零视觉变更子集第 2 批：`asset_detail.py`／`prompt_window.py`／`qwen_setup.py`／`seedream_settings.py` 21 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token；`asset_detail.py` 1 处等值 `#ffffff→COLORS['background_card']`。
+- 行号平移同步：TODO注释快照 `asset_detail.py` 353→354；架构统一基数 第四项 `qwen_setup.py` 48→49、170→171。
+- 验证：定向 50/50＋70/70、默认冒烟 8/8、架构 341/341（首次 2 红＝行号平移，同步后复验全绿）；**命中 §5 五轮** → 干净 master `o07-fullsafe-master` 全量 **4983/4983、609.6 秒、0 红**（凭据 tree=`250b6384…`＝`4ed81e9:程序`，last_full 1394→1396）。提交内容 `4ed81e9`。
+- 说明：本轮原领 1397，提交前中央号被并行轮推进到 1398，改领 1399；1397／1398 未由本会话产生提交。
+- 未做（需用户决策）：hex（全站仅 8 处等于现有 token）、103 处旧调色板值、非 token 间距值、旧页面文字层级。下一轮候选：`workflow_settings.py`／`native_assets.py`／`background_characters.py` 等剩余决策-free 页。
+
 ## 2026-10-13：UI 路线图 §一 第 2 项（设计 token）单页迁移（R1396，功能轮 §3.1）
 - 范围＝设计 token 迁移中**可证明零视觉变更**的子集、单页粒度：`asset_reference_images.py` 13 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改从 token 取值（`SPACING['md']`×11、`SPACING['xs']`×2），新增 `from ui_tokens import SPACING`。
 - 依据：取值完全相等 → 渲染不变；间距与调色板无关 → 与「调色板三选一」决议互不冲突。未触碰任何颜色（此文件无内联 hex）。
