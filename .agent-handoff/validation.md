@@ -1,3 +1,10 @@
+## 2026-10-12 R1388 设计 token 内联视觉常量审计（只读诊断 §3.5）
+
+- 类型：只读诊断轮（§3.5）。只读扫描 269 个生产 `.py`；不改生产代码/测试/台账/路线图。
+- 发现：业务页内联 hex **111 处/8 文件**；数字 padx/pady **213 处/19 文件**；数字 font/wraplength/width/height 候选 **189 处/32 文件**；ui_tokens（14 hex）与 ui_theme（53 hex）双调色板并存且 ui_theme 未 import ui_tokens；无 token 专用门禁。
+- 测试：§5 只读诊断默认不跑测试；附加默认冒烟 `smoke_test.py` 8/8（不计验收）。**不跑全量**（距最近绿全量 R1387 `tree=000477da…`、`last_full_safe_all_round=1386` 仅 2 轮，无生产改动）。
+- 登记 backlog：先统一调色板、逐页迁 hex、加 `test_token_boundary.py` 棘轮门禁（只减不增）；padx/pady 与字号按单页粒度另批。
+
 ## 2026-10-12 R1387 按钮门禁递归零容忍（修复轮 §3.2）
 
 - 类型：修复轮（§3.2），只改架构门禁测试文件，不改生产代码。`test_button_boundary` 由「固定页清单」升为「递归零容忍」：`BUTTON_OWNERS={'ui_widgets.py'}`＋`EXCLUDED_PARTS`；`test_production_modules_use_semantic_buttons`（`ROOT.rglob('*.py')`、裸 `tk/ttk.Button` 零容忍）＋`test_recursive_scan_covers_subdirectories` canary。

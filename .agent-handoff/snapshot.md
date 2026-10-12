@@ -1,5 +1,12 @@
 # 当前快照
 
+## 2026-10-12：只读诊断 — 设计 token 内联视觉常量审计（R1388，§3.5）
+- 范围＝路线图 v1 §一 第 2 项「设计 token」（审计点原文「页面是否仍内联视觉常量待审计」）。扫描 269 个生产 `.py`（排除 tests／tasks_round／维护记录）：**业务页内联 hex 111 处/8 文件**（pet_ui 45／desktop 31／asset_detail 21／cell_hover 6／keyframe_comfy 3／app 2／storyboard_table_ui 2／previs_monitor 1）、**数字 padx/pady 213 处/19 文件**、**数字字号尺寸候选 189 处/32 文件**。
+- **双调色板风险**：`ui_tokens.py`（14 hex）与 `ui_theme.py`（53 hex）各自硬编码，`ui_theme.py` **未** import `ui_tokens`；全生产仅 `desktop.py` import `ui_theme`，`ui_tokens` 被 14 个模块 import。同一 hex 多点重复 → 改色易漂移。现状 `tests/architecture` 无 token 专用门禁（仅 scrollbar theme）。
+- **未收口**，登记 backlog：先统一调色板（ui_theme 复用 ui_tokens）、再逐页迁 8 个文件的 111 处 hex；新增 `test_token_boundary.py` 棘轮门禁（按文件冻结、只减不增、权威与 skills 脚本白名单）；padx/pady 与字号按单页粒度另批。
+- 本轮只读：不改生产代码/测试/台账/路线图；默认冒烟 8/8（§5 只读诊断默认不跑测试）；**不跑全量**（距最近绿全量 R1387 仅 2 轮）。报告见 [R1388](../程序/tasks_round/tasks_round_1388_result.md)。
+- 下一轮候选：R1389 修复轮＝先统一调色板 + 逐页迁 hex + 加 token 棘轮门禁（第一批）。
+
 ## 2026-10-12：UI 统一入口覆盖轮 — 按钮门禁递归零容忍（R1387，修复轮 §3.2）
 - 承接 R1381 复核校正 backlog：`test_button_boundary` 仍是「固定页清单」。本轮按路线图 v1 §一 第 1 项「按钮」（审计点原文「全页面覆盖率待审计」）把门禁收紧为「递归零容忍」，与 R1381 弹窗门禁同法。
 - `tests/architecture/test_button_boundary.py`：新增 `BUTTON_OWNERS={'ui_widgets.py'}`（统一基类自身允许）与 `EXCLUDED_PARTS`（与 test_dialog_boundary 一致）；新增 `test_production_modules_use_semantic_buttons`（`ROOT.rglob('*.py')` 递归扫全部生产模块，裸 `tk/ttk.Button` 零容忍）与 `test_recursive_scan_covers_subdirectories`（镜像 canary）；保留既有逐页语义组件断言。**不改生产代码。**
