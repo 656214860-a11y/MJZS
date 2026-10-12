@@ -1197,7 +1197,7 @@ R1265：用户授权四项技能保障已完成，无本轮功能待办。超过
 
 UI 统一入口已存在且有多批历史迁移。R1031 的 4 处 tk.Button 候选已由 [R1041](tasks_round/tasks_round_1041_result.md) 完成迁移；50 个带字体/颜色标签是历史扫描候选，R1051 只完成资产详情的 5 处说明文字迁移，不能据此宣布全页面统一。架构第 3、4 项台账 pending 已为空，不再将其写作当前迁移主线。R1032 的“本次清单停止”是当时范围；后续 R1036 队列有独立授权与验收记录，不受该历史停止语句误导。
 
-更新（R1376—R1380，UI 统一入口覆盖轮）：路线图 v1 中此前未收口的 4 项已按各自完成判据收口并**完成全量覆盖审计**——卡片容器（页面级承载区 `ttk.LabelFrame`→`ui_widgets.Card`，21 页已用 Card，其余为卡内小节／锁定几何阅读区／独立工具脚本豁免）、文字层级（说明→`DescriptionBlock`、状态→`ProgressLabel`、标题→`Tokens.Title.TLabel`，7 页门禁固化于 `tests/architecture/test_text_component_boundary.py`）、忙碌态（提交/取消/成功/失败/迟到结果全链路收口到 `BusyState.set_busy`，生产 `ttk.Progressbar.start/stop` 零容忍门禁）、文案与复制（复制失败固定术语＋递归生产扫描门禁）。R1380 命中 §5 五轮规则，干净 master 全量 4967/4967、0 红；架构 325/325。R1381 复核校正：**上述「其余项均未收口」为高估**——路线图其余待审计项多数早已由递归零容忍门禁收口（表格 `test_data_table_boundary` 固定 `{'desktop.py': 3}`，项目树为唯一语义例外；输入／下拉／提示／右键菜单／文件选择／快捷键／Tooltip／图标／滚动条／文案与复制／忙碌态 均为递归 `violations==[]`；弹窗由 R883／R922 收口，R1381 再把 `test_dialog_boundary` 门禁递归化）。**真正剩余**的只剩尚无专用门禁的项：设计 token 内联视觉常量（R1388 只读审计：业务页 111 处内联 hex／8 文件、213 处数字 padx/pady／19 文件、189 处数字字号尺寸候选／32 文件，且 ui_tokens 与 ui_theme 双调色板并存）、§三 覆盖率审计 7 项（R1390 裁定 6 项已收口，仅第 4 项「项目进入路径」缺覆盖门禁）。阶段显示已由 R1386 收口（`pet_bus.stage_label` 现算＋`test_stage_display_boundary` 编号一致性／位点冻结门禁）；按钮门禁已由 R1387 由「固定页清单」收紧为递归零容忍（全生产 269 模块 0 裸 `tk/ttk.Button`，架构 331/331）。按路线图各项「完成判据」逐页推进。文字层级旧页面为已登记 backlog。完成依据见 [R1376](tasks_round/tasks_round_1376_result.md)–[R1381](tasks_round/tasks_round_1381_result.md)，范围与判据以 `维护记录/UI统一入口路线图_v1.md` 为准。
+更新（R1376—R1380，UI 统一入口覆盖轮）：路线图 v1 中此前未收口的 4 项已按各自完成判据收口并**完成全量覆盖审计**——卡片容器（页面级承载区 `ttk.LabelFrame`→`ui_widgets.Card`，21 页已用 Card，其余为卡内小节／锁定几何阅读区／独立工具脚本豁免）、文字层级（说明→`DescriptionBlock`、状态→`ProgressLabel`、标题→`Tokens.Title.TLabel`，7 页门禁固化于 `tests/architecture/test_text_component_boundary.py`）、忙碌态（提交/取消/成功/失败/迟到结果全链路收口到 `BusyState.set_busy`，生产 `ttk.Progressbar.start/stop` 零容忍门禁）、文案与复制（复制失败固定术语＋递归生产扫描门禁）。R1380 命中 §5 五轮规则，干净 master 全量 4967/4967、0 红；架构 325/325。R1381 复核校正：**上述「其余项均未收口」为高估**——路线图其余待审计项多数早已由递归零容忍门禁收口（表格 `test_data_table_boundary` 固定 `{'desktop.py': 3}`，项目树为唯一语义例外；输入／下拉／提示／右键菜单／文件选择／快捷键／Tooltip／图标／滚动条／文案与复制／忙碌态 均为递归 `violations==[]`；弹窗由 R883／R922 收口，R1381 再把 `test_dialog_boundary` 门禁递归化）。**真正剩余**的只剩尚无专用门禁的项：设计 token 内联视觉常量（R1388 只读审计：业务页 111 处内联 hex／8 文件、213 处数字 padx/pady／19 文件、189 处数字字号尺寸候选／32 文件，且 ui_tokens 与 ui_theme 双调色板并存）、§三 覆盖率审计 7 项（R1390 裁定 6 项收口、R1391 收口第 4 项「项目进入路径」，7 项全部收口）。阶段显示已由 R1386 收口（`pet_bus.stage_label` 现算＋`test_stage_display_boundary` 编号一致性／位点冻结门禁）；按钮门禁已由 R1387 由「固定页清单」收紧为递归零容忍（全生产 269 模块 0 裸 `tk/ttk.Button`，架构 331/331）。按路线图各项「完成判据」逐页推进。文字层级旧页面为已登记 backlog。完成依据见 [R1376](tasks_round/tasks_round_1376_result.md)–[R1381](tasks_round/tasks_round_1381_result.md)，范围与判据以 `维护记录/UI统一入口路线图_v1.md` 为准。
 
 ### 【已完成·R1386】生产文案阶段编号漂移（R1382 只读审计 → R1386 修复轮收口）
 
@@ -1225,6 +1225,19 @@ UI 统一入口已存在且有多批历史迁移。R1031 的 4 处 tk.Button 候
 - 收口判据（路线图 §三 第 4 项原文「所有项目进入路径可由同一控制器与设置服务审计」）：新增覆盖门禁（desktop 项目进入相关方法不得绕过 `startup_controller`）并证明扫描为空。
 - 状态：**R1391 已收口**——新增 `tests/architecture/test_project_entry_boundary.py`（5 条）冻结项目进入入口集合、断言首帧首次选择必经 `DesktopStartupController`、当天选择委托 `desktop_settings_service`；架构 336→341、全量 4983/4983。见 [R1391](tasks_round/tasks_round_1391_result.md)。
 
+### 【已收口·R1393】覆盖率审计棘轮口径递归化（R1390 §三 后续）
+
+- 现象：R1390 只把删除／事件总线／阶段完成三类门禁升为递归；覆盖率审计棘轮仍走 `production_files()`（仅根目录），对 `agent/`（被 30+ 产品模块导入的运行时子包）失明。
+- 实现（**不改生产代码**）：`tests/architecture/_scan.py` 新增 `NON_PRODUCT_PARTS`＋`production_runtime_files()`（递归再排除 skills／scripts／reference／outputs／附加工具，239 个运行时模块）；`test_coverage_audit_ratchet.scan()` 默认范围改它、台账键改相对路径 `_key()`；`维护记录/架构统一基数.json` 覆盖率审计21／26 各 +2 pending（count 21→2、26→2；26 baseline_pending 1→2）；判据文档第 21／26 行真候选 0→2。
+- 新暴露真候选（pending 待裁定）：`agent/core.py:173`／`agent/prompt_optimizer.py:172`（进程）、`agent/core.py:189/208`（网络）。
+- 验证：定向 7/7、默认冒烟 8/8、架构 341/341；1393−1390=3<5 且未命中 §5 升级条件，不跑全量。见 [R1393](tasks_round/tasks_round_1393_result.md)。
+
+### 【待裁定·R1393 → 拟 R1394】agent 包进程／网络真候选
+
+- 4 条 pending：`agent/core.py:173`（`command()` 直接 subprocess）、`agent/prompt_optimizer.py:172`（MCP 桥直接 subprocess）、`agent/core.py:189/208`（`request()`／`download()` 直接 urllib）。
+- 拟定收口（拟 R1394）：按项目惯例「页面／业务层 OS 进程调用收口到 `platform_tools`」，把 2 处 subprocess 经 `platform_tools.run_process` 收口（惰性 import；`platform_tools` 不 import `agent`，无环；`run_process` 会 `str(cwd)` 并 setdefault `creationflags=hidden_console_flags()`，异常类型不变）；2 处 HTTPS 传输待裁定是否认定 agent 包为权威适配器或须收口。台账 `覆盖率审计21` 对应 pending 2→0。
+- 另：secret sink（覆盖率审计 27）仍为根目录口径，是否同批递归化待评估。
+
 ### 项目优化清单（R1058 事实校正）
 
 以下是当前待办的优先级索引，不新增执行授权；每轮只处理一类任务。优先级是建议顺序，不代表未验证项已被认定为缺陷。
@@ -1235,6 +1248,7 @@ UI 统一入口已存在且有多批历史迁移。R1031 的 4 处 tk.Button 候
 | 已完成本次审计/核验 | 依赖与历史名称、后台生命周期、文档事实、C4 | R1027–R1032 证据保留；不等于全页面 UI 或全部技术债清零，不重复迁移已采用服务。 |
 | 隔离场景已验收；真实环境边界保留 | 启动、同日续开、项目改名认领、幽灵条目 | [R1043](tasks_round/tasks_round_1043_result.md) 验证空项目取消恢复，[R1044](tasks_round/tasks_round_1044_result.md) 验证同日续开，[R1048](tasks_round/tasks_round_1048_result.md) 验证改名认领；[R1050](tasks_round/tasks_round_1050_result.md) 以隐藏 Tk／服务集成验证幽灵登记同步，不是新增实机视觉验收。真实项目、旧运行实例和三虎重启阅读体验未据此关闭。 |
 | 已完成 / 不重复立项 | 4 处 tk.Button 统一入口 | [R1040](tasks_round/tasks_round_1040_result.md) 完成图标适配，[R1041](tasks_round/tasks_round_1041_result.md) 完成 3 模块 4 处迁移及别名门禁；原行号仅为 R1035 历史定位，不再作为当前待迁移清单。 |
+| 已完成 / 已入门禁 | 覆盖率审计棘轮递归化（产品运行时子包） | [R1393](tasks_round/tasks_round_1393_result.md) 把 `test_coverage_audit_ratchet` 扫描范围由根目录改产品运行时口径（239 模块），覆盖率审计21／26 各 +2 pending；新暴露 4 条 agent 真候选（进程／网络，待裁定）。 |
 | P2 / 部分完成，余项待分类 | 文字层级、Card/token、焦点与忙碌反馈 | [R1051](tasks_round/tasks_round_1051_result.md) 完成资产详情 5 处普通说明；[R1052](tasks_round/tasks_round_1052_result.md) 仅完成 Busy／焦点覆盖矩阵，不代表缺口已修。标题、状态色、窄格文字及后续交互修复仍需独立范围，不批量机械替换。 |
 | P2 / 持续守护 | 性能、服务契约与上下文覆盖 | 保留现行棘轮和同条件性能验证；新增实际服务再纳入，不因历史名称重复造模块或迁移。 |
 | 条件阻塞 | 白模视频真实上传验收 | 等待用户指定镜头和授权发送素材；不自行上传。 |
