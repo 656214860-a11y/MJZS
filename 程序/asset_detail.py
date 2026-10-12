@@ -244,9 +244,13 @@ def delete_variant(desktop, aid, state_id):
 
 
 def _pick(desktop, key, choice, aid):
-    """采用一个候选：记一次确认 ＋ 把选择真正写进资产清单，然后重建这一页。"""
+    """采用一个候选：准备→落盘→确认一条路走完（O10）；只有落盘成功才报已采用。"""
     from stage_execution_service import adopt_asset_plan_choice
-    adopt_asset_plan_choice(desktop.root, key, choice)
+    try:
+        adopt_asset_plan_choice(desktop.root, key, choice)
+    except Exception as error:
+        raise RuntimeError('采用没有完成：确认没有生效，候选还留着，可再点一次（'
+                           + str(error) + '）') from error
     _complete(desktop, aid, '已采用：' + str(choice)[:60] + '（已写进资产 JSON）')
 
 

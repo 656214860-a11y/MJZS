@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O10 完成并提交 R1330。采用事务化：`confirm_gates` 相位 pending／applied／failed、`pending()` 只认 applied（旧记录无 state 按已确认），`stage_execution_service.adopt_asset_plan_choice` 先记 pending → 落盘 → 成功记 applied，失败记 failed、中断留 pending，`asset_detail._pick` 失败给恢复提示。定向 96/96、架构棘轮 5/5、默认冒烟 8/8、0 红。收口安全全量见 [R1330](../程序/tasks_round/tasks_round_1330_result.md)。
+
 - 2026-10-12：O09 完成并提交 R1322。就绪绑定来源分镜摘要与预演文件：`white_model_service` 新增 `shot_digest`／`source_digest`／`evidence_state`／`record_evidence`，`previs_routing.ready` 按证据失效，`previs_automation.verify` 校验通过即登记，`local_previs` 状态列与导入共用。定向 138/138、关联 172/172、默认冒烟 8/8、架构 312/312。
 
 - 2026-10-12：O09 收口安全全量。干净 master 工作树第 1 次 4522/475.5 秒／1 文件红（SG-05 探针夹具只写 preview，同符新语义），定向补 `record_evidence`（R1328）后第 2 次 4522 条〈437.4 秒、0 红，凭据 round=1322、tree=42e782ea，`last_full_safe_all_round` 刷到 1322。见 [R1322](../程序/tasks_round/tasks_round_1322_result.md)。

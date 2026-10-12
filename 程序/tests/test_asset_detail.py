@@ -357,7 +357,8 @@ class OperationCompletionTests(unittest.TestCase):
                 asset_detail._complete(SimpleNamespace(status=status), 'CHAR_001', 'success')
         status.set.assert_not_called()
 
-    def test_pick_second_step_failure_preserves_confirmation_without_refresh(self):
+    def test_pick_second_step_failure_never_counts_as_confirmed(self):
+        """O10：第二步失败只留 failed，不许留「已确认」，页面也不许报成功。"""
         from types import SimpleNamespace
         import stage_execution_service as execution
         events = []
@@ -365,12 +366,13 @@ class OperationCompletionTests(unittest.TestCase):
         def fail(*args):
             events.append('apply')
             raise OSError('apply failed')
-        with mock.patch.object(execution, 'record_stage_confirmation', side_effect=lambda *args: events.append('record')), \
+        with mock.patch.object(execution, 'record_stage_confirmation',
+                               side_effect=lambda *args, **kwargs: events.append('record')), \
                 mock.patch.object(execution, 'apply_asset_plan_gate_choice', side_effect=fail), \
                 mock.patch.object(asset_detail, '_reload') as refresh:
-            with self.assertRaisesRegex(OSError, 'apply failed'):
+            with self.assertRaisesRegex(RuntimeError, 'apply failed'):
                 asset_detail._pick(desktop, 'anchor:CHAR_001', 'choice', 'CHAR_001')
-        self.assertEqual(events, ['record', 'apply'])
+        self.assertEqual(events, ['record', 'apply', 'record'], '待办→落盘→失败')
         refresh.assert_not_called()
         desktop.status.set.assert_not_called()
 
@@ -381,7 +383,7 @@ class OperationCompletionTests(unittest.TestCase):
         with mock.patch.object(execution, 'record_stage_confirmation', side_effect=OSError('record failed')), \
                 mock.patch.object(execution, 'apply_asset_plan_gate_choice') as apply, \
                 mock.patch.object(asset_detail, '_reload') as refresh:
-            with self.assertRaisesRegex(OSError, 'record failed'):
+            with self.assertRaisesRegex(RuntimeError, 'record failed'):
                 asset_detail._pick(desktop, 'anchor:CHAR_001', 'choice', 'CHAR_001')
         apply.assert_not_called()
         refresh.assert_not_called()

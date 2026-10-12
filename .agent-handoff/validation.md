@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O10 完成
+
+- 2026-10-12 O10：新增 `tests/test_confirm_gates.py::AdoptTransactionTests` 6 条（落盘失败留 failed 且门禁不通过／应用前中断留 pending／成功记 applied 不再问／重复点击幂等／旧记录无 state 按 applied／未知 key 空相位），改 `tests/test_asset_detail.py` 两条（第二步失败事件 `['record','apply','record']` 且不刷新不报成功；第一步失败不落盘）；定向 `-k confirm_gates asset_detail stage_wiring asset_plan` 96/96、架构棘轮 `-k unification_ratchet confirm_gates_json_boundary` 5/5、默认冒烟 8/8，全 0 红。台账 `架构统一基数.json` 第四项三处行号随 adopt 加长平移（1025/1056/1072→1039/1070/1086，exempt 不变）。
+
 ## 2026-10-12 O09 完成
 
 - 2026-10-12 O09：新增 `tests/test_previs.py::PrevisEvidenceTests` 2 条（改调度失效／改回复用／换文件失效且不删成果／旧记录无来源时退回旧口径）；定向 `-k previs white_model` 138/138、关联 `-k stage_execution_service stage_parallel` 57/57 与 `-k ui_edges` 115/115、默认冒烟 8/8，全 0 红。架构（干净 master 工作树 `--layer architecture --all`）312/312、0 红。台账 `架构统一基数.json` 第四项三处行号随插入平移（exempt 不变）。

@@ -5,7 +5,8 @@
 通得过也拦得住；③ 主观门禁每条给 2 个候选＋推荐理由，且**同一角色／同一批次只问一次**
 （人工点击量从每镜审核降到每角色一次）；④ 确认记录落在 03_continuity/output 并真的去重。
 """
-import os, sys, tempfile, unittest
+import json, os, sys, tempfile, unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -190,6 +191,78 @@ class SubjectiveTests(unittest.TestCase):
         items = ({"key": "anchor:CHAR_001"}, {"key": "anchor:CHAR_001"})
         self.assertEqual(len(cg.pending("", items)), 1)
         self.assertEqual(len(cg.pending("", ({"title": "没钥匙"},))), 1)
+
+
+class AdoptTransactionTests(unittest.TestCase):
+    """O10：准备→落盘→确认是一条可恢复事务，只有落盘成功才计人工确认完成。"""
+
+    KEY = "anchor:CHAR_001"
+
+    def _items(self, key=None):
+        return ({"key": key or self.KEY},)
+
+    def test_apply_failure_leaves_failed_never_confirmed(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            import stage_execution_service as execution
+            with mock.patch.object(execution, "apply_asset_plan_gate_choice",
+                                   side_effect=OSError("磁盘已满")):
+                with self.assertRaisesRegex(OSError, "磁盘已满"):
+                    execution.adopt_asset_plan_choice(td, self.KEY, "候选一")
+            self.assertEqual(cg.state_of(td, self.KEY), cg.FAILED)
+            self.assertEqual(len(cg.pending(td, self._items())), 1, "失败后不许当成已确认")
+            self.assertFalse(cg.run("G-05", project=td,
+                                    assets={"CHAR_001": {"name": "主角"}})["passed"],
+                             "未采用就不能算人工审核通过")
+
+    def test_interrupted_before_apply_stays_pending(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            import stage_execution_service as execution
+            with mock.patch.object(execution, "apply_asset_plan_gate_choice",
+                                   side_effect=KeyboardInterrupt()):
+                with self.assertRaises(KeyboardInterrupt):
+                    execution.adopt_asset_plan_choice(td, self.KEY, "候选一")
+            self.assertEqual(cg.state_of(td, self.KEY), cg.PENDING, "中断只留下待办")
+            self.assertEqual(len(cg.pending(td, self._items())), 1)
+
+    def test_success_marks_applied_and_stops_asking(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            import stage_execution_service as execution
+            with mock.patch.object(execution, "apply_asset_plan_gate_choice",
+                                   return_value={"character_anchor": "候选一"}):
+                result = execution.adopt_asset_plan_choice(td, self.KEY, "候选一")
+            self.assertEqual(result, {"character_anchor": "候选一"})
+            self.assertEqual(cg.state_of(td, self.KEY), cg.APPLIED)
+            self.assertEqual(cg.pending(td, self._items()), ())
+
+    def test_double_click_is_idempotent_and_applied(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            import stage_execution_service as execution
+            with mock.patch.object(execution, "apply_asset_plan_gate_choice",
+                                   return_value=None) as apply:
+                execution.adopt_asset_plan_choice(td, "conflict:B01", "候选一")
+                execution.adopt_asset_plan_choice(td, "conflict:B01", "候选一")
+            self.assertEqual(apply.call_count, 2)
+            self.assertEqual(cg.state_of(td, "conflict:B01"), cg.APPLIED)
+            self.assertEqual(cg.pending(td, self._items("conflict:B01")), ())
+
+    def test_a_record_without_state_is_treated_as_applied(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            cg.confirm_path(td).write_text(
+                json.dumps({"version": 1, "confirmed": {
+                    self.KEY: {"choice": "旧记录", "by": "人工"}}}, ensure_ascii=False),
+                encoding="utf-8")
+            self.assertEqual(cg.state_of(td, self.KEY), cg.APPLIED)
+            self.assertEqual(cg.pending(td, self._items()), ())
+
+    def test_state_of_unknown_key_is_blank(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            self.assertEqual(cg.state_of(td, "anchor:没有这个"), "")
 
 
 if __name__ == "__main__":

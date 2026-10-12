@@ -28,6 +28,9 @@ OBJECTIVE = '客观'
 SUBJECTIVE = '主观'
 AUTO = 'Agent'
 HUMAN = '人工'
+PENDING = 'pending'
+APPLIED = 'applied'
+FAILED = 'failed'
 CONFIRM_NAME = 'gate_confirmations.json'
 FOLDER = '03_continuity'
 
@@ -303,11 +306,16 @@ def confirmations(project=None, *, context=None):
     return out if isinstance(out, dict) else {}
 
 
-def record(project, key, choice='', by=HUMAN, *, publish, context=None):
-    """记一次人工确认；正式发布器必须由 L3 注入。"""
+def record(project, key, choice='', by=HUMAN, *, publish, context=None, state=APPLIED):
+    """记一次人工确认；正式发布器必须由 L3 注入。
+
+    ``state`` 记这一步走到哪：pending（已记待办、还没落盘）／applied（落盘成功，才算确认完成）／
+    failed（落盘失败）。只有 applied 会被 ``pending()`` 当成已点过，pending／failed 会重新摆出候选，
+    这样「未采用却已审核通过」不会发生（O10）。
+    """
     path = confirm_path(project, context=context)
     data = {'version': 1, 'confirmed': dict(confirmations(project, context=context))}
-    data['confirmed'][str(key)] = {'choice': str(choice), 'by': str(by)}
+    data['confirmed'][str(key)] = {'choice': str(choice), 'by': str(by), 'state': str(state)}
     publish(path, data)
     return path
 
@@ -321,13 +329,31 @@ def forget(project, key, *, publish, context=None):
     return path
 
 
+def _is_done(row):
+    """一条确认是否算「已点过」：只有 applied 算；pending／failed 与缺记录一样视同未确认。
+
+    旧记录没有 state（升级前的格式）按已采用处理，避免把人已点过的门禁重新问一遍。
+    """
+    if not isinstance(row, dict):
+        return False
+    return str(row.get('state') or APPLIED) not in (PENDING, FAILED)
+
+
+def state_of(project, key, *, context=None):
+    """一条确认当前走到哪一步：applied／pending／failed；没有记录返回空串。"""
+    row = confirmations(project, context=context).get(str(key))
+    if not isinstance(row, dict):
+        return ''
+    return str(row.get('state') or APPLIED)
+
+
 def pending(project, items, *, context=None):
     """还没点过的候选（同 key 只留一条——这就是「每角色一次」）。"""
     done = confirmations(project, context=context) if project or context is not None else {}
     out, seen = [], set()
     for item in items or ():
         key = str((item or {}).get('key') or '')
-        if key and (key in done or key in seen):
+        if key and (_is_done(done.get(key)) or key in seen):
             continue
         seen.add(key)
         out.append(item)
