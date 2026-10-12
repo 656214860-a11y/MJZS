@@ -31,9 +31,10 @@
 - 命令：`smoke_test.py --architecture`（架构 341/341）、`smoke_test.py --affected idea_chat writing_api stage_execution_service desktop workflow`（`workflow` 单项复现：仅 1 条环境相关红）、`smoke_test.py`（默认冒烟 8/8）、`run_selftests.py --all --safe`（干净 master 工作树）。
 - 本轮已提交：是（合并提交；commit hash 与全量凭据待后续「报告与状态页补记」同轮提交记录）。
 
-## 全量凭据（待补记）
+## 全量凭据
 
-- 待补：`run_selftests.py --all --safe` 的用例数、耗时、红数与凭据 tree。
+- 干净 master 工作树 `o07-fullsafe-master`（reset→`5c0db58`）`run_selftests.py --all --safe`：**5006/5006、557.3 秒、0 文件有红、ALL TESTS PASSED**；凭据 `{round: 1403, seconds: 557.302, at: 2026-10-13T02:20:37, tree: f44ace21…}`，`last_full_safe_all_round` 刷新为 1403。
+- 首次全量（合入提交 `75a148d`）为 5006 条中 2 个文件有红（见「合入后修复」），修复并定向复验后第二次全量即绿。
 
 ## 报告补记：project_status.md 修正与验证（c7cdd96）
 
