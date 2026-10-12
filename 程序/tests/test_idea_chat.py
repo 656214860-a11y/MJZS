@@ -1008,7 +1008,7 @@ class SendMessageTests(_Harness):
             d.show(0); win.update()
             buttons = [child for child in d.idea_row.winfo_children()
                        if isinstance(child, ttk.Button)]
-            action_labels = {'发送', '中断', '刷新', '下载剧本', '剧本目录', '删除剧本', '添加剧本'}
+            action_labels = {'发送', '中断', '刷新', '下载文件', '下载设定', '下载大纲', '下载角色卡', '下载剧本', '剧本目录', '删除剧本', '添加剧本'}
             labels = {button.cget('text') for button in buttons}
             self.assertTrue({'中断', '剧本目录', '删除剧本', '添加剧本'} <= labels)
             for button in buttons:

@@ -2142,21 +2142,22 @@ class Desktop:
         info=self.background_tasks.cancellation_status() if api_active else None;notice=(' '+info['text']) if info is not None else '';preserved='已返回正文会归档到 responses/ 供核对；' if api_active else '';self.status.set('已中断剧本 Agent 调用'+detail+'；'+preserved+'本机不再把这次回复写入界面或正式采用，可修改创意后重新发送。'+notice)
         return True
     def update_script_download_button(self):
-        """只有模型给出完整剧本后才允许下载；首次回复绝不弹完成框。"""
+        """按当前模型输出的类型启用下载（设定／大纲／角色卡／剧本），按钮文字随之变化；首次回复绝不弹完成框。"""
         import idea_chat
-        from idea_script_heuristic import looks_like_script
         button=getattr(self,'idea_download',None)
         if button is None or not button.winfo_exists():return False
-        ready=not getattr(self,'_idea_requesting',False) and looks_like_script(idea_chat.latest_text(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway()))
-        button.state(['!disabled'] if ready else ['disabled'])
-        return ready
+        kind='' if getattr(self,'_idea_requesting',False) else idea_chat.download_kind(
+            idea_chat.latest_text(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway()))
+        button.configure(text='下载'+(kind or '文件'))
+        button.state(['!disabled'] if kind else ['disabled'])
+        return bool(kind)
     def download_script(self):
-        """用户明确下载剧本文档后，才通知三虎询问是否进入分镜阶段。"""
+        """下载当前模型输出（设定／大纲／角色卡／剧本）；只有剧本下载后才通知三虎询问是否进入分镜。"""
         import idea_chat
-        from idea_script_heuristic import looks_like_script
         selected_model = self.displayed_chat_model()
         reply=idea_chat.latest_text(self.idea_chat_context(),model=selected_model,gateway=self.idea_chat_gateway())
-        if not looks_like_script(reply):raise ValueError('请先让模型生成完整剧本，再下载。')
+        kind=idea_chat.download_kind(reply)
+        if not kind:raise ValueError('请先让模型生成完整剧本（或设定、大纲、角色卡），再下载。')
         provider, model = idea_chat.storage_identity(selected_model)
         from stage_execution_service import publish_idea_creative
         saved=idea_chat.save_reply(self.idea_chat_context(),reply,provider=provider,model=model,
@@ -2165,9 +2166,9 @@ class Desktop:
         self.close_dialog()
         refresh=getattr(self,'refresh_script_list',None)
         if callable(refresh):refresh()
-        self.status.set('剧本已下载：'+saved.name)
+        self.status.set(kind+'已下载：'+saved.name)
         listener=getattr(self.pet,'script_downloaded',None)
-        if callable(listener):listener(saved)
+        if kind=='剧本' and callable(listener):listener(saved)
         self.update_script_download_button()
         return saved
     def confirm_script(self):
@@ -4628,7 +4629,7 @@ class Desktop:
         interrupt_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']));interrupt_button.state(['disabled']);self.idea_interrupt=interrupt_button
         refresh_button=SecondaryButton(foot,text='刷新',width=script_action_width,command=lambda:self.safe(self.refresh_script_workspace))
         refresh_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']));self.idea_refresh=refresh_button
-        download_button=SecondaryButton(foot,text='下载剧本',width=script_action_width,command=lambda:self.safe(self.download_script))
+        download_button=SecondaryButton(foot,text='下载文件',width=script_action_width,command=lambda:self.safe(self.download_script))
         download_button.state(['disabled']);self.idea_download=download_button
         SecondaryButton(foot,text='添加剧本',width=script_action_width,
                    command=lambda:self.safe(self.import_json)).pack(side='right')

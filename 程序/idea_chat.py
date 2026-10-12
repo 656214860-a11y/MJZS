@@ -31,7 +31,7 @@ from idea_transcript import (
 
 RAW_SCRIPT_NAME = 'script_raw.md'
 REPLY_LIMIT = 20000          # 一次回复最多留这么多字：模型跑飞时不至于把文件写爆
-PROJECT_CONTENT_MARKS = ('项目设定', '人物设定', '世界观', '需求梳理', '项目大纲', '大纲', '纲要', '分集', '剧本', '场景', '镜头', '台词')
+PROJECT_CONTENT_MARKS = ('项目设定', '人物设定', '角色卡', '世界观', '需求梳理', '项目大纲', '大纲', '纲要', '分集', '剧本', '场景', '镜头', '台词')
 
 
 def _context(value):
@@ -85,7 +85,7 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None):
     if not value:
         raise ValueError('模型没有输出文字，未写入创意文件')
     if not is_project_document_text(value):
-        raise ValueError('模型回复不是项目设定、大纲或剧本，未写入项目文件')
+        raise ValueError('模型回复不是项目设定、大纲、角色卡或剧本，未写入项目文件')
     if not callable(publish):
         raise TypeError('模型创意文件需要由 L3 注入发布器。')
     file_type = _project_file_type(value)
@@ -124,8 +124,26 @@ def save_manual_creative(root, text, at=None, *, publish=None):
                                                 for directory in PROJECT_DOCUMENT_DIRS.values())},))[name]
 
 
+# 下载按钮上的短名：保存类型 → 按钮文字。
+DOWNLOAD_LABELS = {'项目设定': '设定', '项目大纲': '大纲', '角色卡': '角色卡', '自然剧本': '剧本'}
+
+
+def download_kind(text):
+    """当前模型输出能下载成哪一类文件（设定／大纲／角色卡／剧本）；不能下载返回空串。
+
+    剧本仍要求完整剧本结构；设定、大纲、角色卡按标题归类即可下载审阅。
+    """
+    value = str(text or '').strip()
+    if not is_project_document_text(value):
+        return ''
+    file_type = _project_file_type(value)
+    if file_type == '自然剧本' and not looks_like_script(value):
+        return ''
+    return DOWNLOAD_LABELS.get(file_type, '')
+
+
 def is_project_document_text(text):
-    """仅让可归入项目设定、大纲或剧本的模型正文进入项目文件。"""
+    """仅让可归入项目设定、大纲、角色卡或剧本的模型正文进入项目文件。"""
     value = str(text or '').strip()
     return bool(value and any(mark in value for mark in PROJECT_CONTENT_MARKS))
 
