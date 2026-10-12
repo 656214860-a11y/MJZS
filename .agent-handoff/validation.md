@@ -1,3 +1,11 @@
+## 2026-10-12 R1393 覆盖率审计棘轮口径递归化（修复轮 §3.2）
+
+- 类型：修复轮（§3.2），只改架构扫描辅助／覆盖率审计棘轮与台账／判据文档，不改生产代码。
+- 实现：`_scan.production_runtime_files()`（递归再排除 skills／scripts／reference／outputs／附加工具，239 模块）；`scan()` 默认范围改它、台账键改相对 `程序/` 的 posix 路径 `_key()`；台账覆盖率审计21／26 各 +2 pending（count 21→2、26→2、26 baseline_pending 1→2）；判据文档第 21／26 行真候选 0→2。
+- 新暴露真候选（pending）：`agent/core.py:173`、`agent/prompt_optimizer.py:172`（subprocess）；`agent/core.py:189`／`208`（urllib）。
+- 定向 `tests.architecture.test_coverage_audit_ratchet`＋`test_unification_ratchet`：**7/7**。默认冒烟 `smoke_test.py`：**8/8**。架构 `smoke_test.py --architecture`：**341/341**（数量不变）。
+- 不跑全量：`1393−1390=3<5` 且未命中 §5 升级条件（无启动路径／Tk 生命周期／删除语义／层级表改动）。最近绿全量 R1391 `tree=a8cfd2f0…`。
+
 ## 2026-10-12 R1391 项目进入路径覆盖门禁（修复轮 §3.2）
 
 - 类型：修复轮（§3.2），只新增架构门禁测试与 `AGENTS.md` §5 清单登记，不改生产代码。

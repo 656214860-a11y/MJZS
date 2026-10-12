@@ -1,6 +1,7 @@
 # 风险与未知
 
 
+- 2026-10-12 R1393（修复轮·审计口径）：覆盖率审计棘轮已由根目录扩到产品运行时子包，新暴露 **4 条 agent 真候选**（`agent/core.py:173`／`agent/prompt_optimizer.py:172` 直接 subprocess；`agent/core.py:189/208` 直接 urllib），已登记 pending、**未收口**——是否具备与 `model_pool`／`platform_tools` 同等的权威适配器地位尚无裁定，不得据此认定它们「安全」或「已审计通过」。另：`production_runtime_files()` 以目录白名单排除非产品目录，若将来新增运行时子包（新目录名）需同步登记，否则仍会漏扫。
 - 2026-10-12 R1391（修复轮·**§三 7/7 收口**）：项目进入路径覆盖门禁已闭环——新增 `tests/architecture/test_project_entry_boundary.py`（5 条）冻结 `desktop.py` 直接 `self.load(...)` 的进入入口集合（open_project_or_cleanup／_choose_project_impl／new／import_json／enter）、断言首帧首次选择必经 `DesktopStartupController`、当天选择经 `desktop_settings_service`（委托 `publish_desktop_preferences`）。**边界（非阻塞）**：门禁为静态 AST 断言，不覆盖 `getattr` 动态分派或运行期注入的入口；冻结表新增／改名进入路径会失败，属刻意棘轮，须同轮登记。全量命中 §5 五轮（1391−1386=5）：4983/4983、0 红、546.4 秒（tree=a8cfd2f0…＝`37ed5bc:程序`）。
 - 2026-10-12 R1390（修复轮·**§三 6/7 项已收口**）：§三 覆盖率审计的门禁口径漂移已闭环——`_scan.production_files_recursive()` 把删除／事件总线／阶段完成三类门禁从「根目录」升为「递归覆盖子目录」。**残留缺口（非阻塞、已登记待办）**＝第 4 项「项目进入路径」（`DesktopStartupController`）无架构覆盖门禁；另：其余仍走 `production_files()`（根目录）的门禁（coverage ratchet 的 20/21/22/24/25/26 段、`test_json_io`／table 等）是否同批递归化未评估，须逐段核子目录候选。本轮全量未跑（1390−1386=4<5 且未命中 §5 升级条件），最近绿全量为 R1387 `tree=000477da…`。
 - 2026-10-12 R1389（修复轮·已加棘轮）：`test_token_boundary.py` 已冻结内联 hex 与数字 padx/pady 的按文件计数（只减不增、新增文件即违规），规则 34 由此有了自动化下限。残留（非阻塞）：实际迁移（111 hex＋213 padx/pady → token）尚未做；调色板统一（ui_theme 复用 ui_tokens）可能改变视觉，须先确认；数字 font/width/height 候选未纳入棘轮。

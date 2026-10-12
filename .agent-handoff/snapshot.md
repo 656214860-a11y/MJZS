@@ -1,5 +1,13 @@
 # 当前快照
 
+## 2026-10-12：覆盖率审计棘轮口径递归化（R1393，修复轮 §3.2）
+- 范围＝R1390 登记待办「其余根目录口径门禁（coverage ratchet 20/21/22/24/25/26）是否同批递归化」的逐段评估与执行。**不改生产代码。**
+- 评估：全递归实测新增 kind 21＝9／22＝2／26＝2，其中 skills／scripts／reference／outputs 属非产品目录；剔除非产品后新命中仅 agent 包 4 条。
+- 实现：`_scan.py` 新增 `NON_PRODUCT_PARTS`＋`production_runtime_files()`（239 个运行时模块）；`test_coverage_audit_ratchet.scan()` 默认范围改它、台账键改相对路径 `_key()`；`架构统一基数.json` 覆盖率审计21／26 各 +2 pending（count 21→2、26→2）；判据文档第 21／26 行真候选 0→2。
+- 新暴露真候选（pending 待裁定）：`agent/core.py:173`、`agent/prompt_optimizer.py:172`（subprocess）；`agent/core.py:189`／`208`（urllib）。
+- 验证：定向 **7/7**、默认冒烟 **8/8**、架构 **341/341**（数量不变）；`1393−1390=3<5` 且未命中 §5 升级条件 → **不跑全量**。
+- 下一轮候选：① 4 条 agent 真候选裁定／收口；② secret sink（第 27 项）是否同批递归化；③ 设计 token 迁移（**卡在调色板决策，需用户确认**）；④ 旧页面文字层级 backlog。
+
 ## 2026-10-12：UI 路线图 §三 第 4 项 — 项目进入路径覆盖门禁（R1391，修复轮 §3.2）
 - 范围＝路线图 v1 §三「已存在权威，仅需审计覆盖率」第 4 项「项目选择／切换」（权威＝`DesktopStartupController`／`desktop_settings_service`）——承接 R1390 登记的缺口「缺『所有项目进入路径必经控制器』的架构覆盖门禁」。**不改生产代码。**
 - 实现：新增 `tests/architecture/test_project_entry_boundary.py`（5 条）：① 静态冻结 `desktop.py` 直接 `self.load(...)` 的入口集合（进入＝open_project_or_cleanup／_choose_project_impl／new／import_json／enter；关闭＝gone／completed），新增未登记进入路径即失败；② 每条进入路径必须经当天选择记忆；③ `DesktopStartupController` 单次装配并绑定 `choose_project=self.choose_project`／`before_project_choice=self._after_first_paint`；④ 当天选择委托 `publish_desktop_preferences`（不直接写 settings_file）；⑤ 控制器模块不 import tkinter。`AGENTS.md` §5 清单补该文件。
