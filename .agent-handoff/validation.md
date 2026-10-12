@@ -1,3 +1,11 @@
+## 2026-10-12 R1387 按钮门禁递归零容忍（修复轮 §3.2）
+
+- 类型：修复轮（§3.2），只改架构门禁测试文件，不改生产代码。`test_button_boundary` 由「固定页清单」升为「递归零容忍」：`BUTTON_OWNERS={'ui_widgets.py'}`＋`EXCLUDED_PARTS`；`test_production_modules_use_semantic_buttons`（`ROOT.rglob('*.py')`、裸 `tk/ttk.Button` 零容忍）＋`test_recursive_scan_covers_subdirectories` canary。
+- 站点实测：269 个生产 `.py` 除 `ui_widgets.py` 外 0 命中。
+- 定向 `tests.architecture.test_button_boundary`：**25/25**（原 23）。默认冒烟 `smoke_test.py`：**8/8**。架构 `smoke_test.py --architecture`：**331/331**（329→331）。
+- 全量（§5 五轮规则 1387−1382=5 触发）：干净 master 工作树 `o07-fullsafe-master` `run_selftests.py --all --safe` **4973 条、572.5 秒、0 文件有红**（凭据 round=1386、tree=`000477da…`＝`d5f597f:程序`；`last_full_safe_all_round` 刷新为 1386）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 无抖动。
+- 提交：内容 `d5f597f`；报告／状态／接力另一次提交。
+
 ## 2026-10-12 R1386 阶段显示收口（修复轮 §3.2）
 
 - 类型：修复轮（§3.2）。新增权威入口 `pet_bus.stage_label(stage)`＝`'%02d %s' % (STAGES.index+1, STAGE_NAMES[stage])`，6 个用户可见展示位点（keyframe_batch 4／stage_parallel GATES SG-01..05／pet_ui gaps／desktop 视频页标题×2＋镜头编号提示／skill_tools 导出 note）改由它现算；生产注释／docstring 过期编号按权威序纠正；不改业务逻辑／阶段／路径／分层。

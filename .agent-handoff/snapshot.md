@@ -1,5 +1,12 @@
 # 当前快照
 
+## 2026-10-12：UI 统一入口覆盖轮 — 按钮门禁递归零容忍（R1387，修复轮 §3.2）
+- 承接 R1381 复核校正 backlog：`test_button_boundary` 仍是「固定页清单」。本轮按路线图 v1 §一 第 1 项「按钮」（审计点原文「全页面覆盖率待审计」）把门禁收紧为「递归零容忍」，与 R1381 弹窗门禁同法。
+- `tests/architecture/test_button_boundary.py`：新增 `BUTTON_OWNERS={'ui_widgets.py'}`（统一基类自身允许）与 `EXCLUDED_PARTS`（与 test_dialog_boundary 一致）；新增 `test_production_modules_use_semantic_buttons`（`ROOT.rglob('*.py')` 递归扫全部生产模块，裸 `tk/ttk.Button` 零容忍）与 `test_recursive_scan_covers_subdirectories`（镜像 canary）；保留既有逐页语义组件断言。**不改生产代码。**
+- 站点实测：递归 269 个生产 `.py`，除 `ui_widgets.py`（7 处基类自身）外 **0 命中**（站点早已清零，缺的只是门禁口径）。
+- 验证：定向 **25/25**（原 23）、默认冒烟 **8/8**、架构 **329→331**；**命中 §5 五轮规则（1387−1382=5）**，收口在干净 master 工作树 `o07-fullsafe-master` 跑 `run_selftests.py --all --safe`：**4973 条、572.5 秒、0 文件有红**（凭据 `round=1386`、`tree=000477da…`＝内容提交 `d5f597f:程序`；`last_full_safe_all_round` 刷新为 1386）。提交内容 **`d5f597f`**。
+- 下一轮候选（backlog）：设计 token 内联视觉常量；§三 覆盖率审计 7 项。测试按 §5。
+
 ## 2026-10-12：UI 统一入口覆盖轮 — 阶段显示收口（R1386，修复轮 §3.2）
 - 承接 R1382 只读审计登记的待办「生产文案阶段编号漂移」，对应 `维护记录/UI统一入口路线图_v1.md` §二 第 15 项「阶段显示」（完成判据原文「任何阶段名称展示均从权威表取值」）。
 - 新增唯一权威入口 `pet_bus.stage_label(stage)`＝`'%02d %s' % (STAGES.index+1, STAGE_NAMES[stage])`（未知阶段退回 `stage_name`；步号与 `desktop.PAGES` 同源）。keyframe_batch（4）／stage_parallel（GATES SG-01..05）／pet_ui（gaps 气泡）／desktop（视频页标题×2、镜头编号提示）／skill_tools（导出 note）改由它现算；`skill_panel.stage_label` 退化为薄封装。生产注释／docstring 过期编号按权威序纠正（资产 03→05／连贯性 04→06／定稿 05→07／首帧 06→08／白模 07→09／视频 08→10／配音 09→11／剪辑 10→12／质检 11→13）；`skill_tools.PAGES` 去掉已死旧编号前缀（行为不变）。**不改** `stage_path_service.LEGACY_NUMBERED`／`desktop.PAGES`／`stage_layout.STAGES`。

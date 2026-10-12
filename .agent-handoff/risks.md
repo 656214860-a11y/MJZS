@@ -1,6 +1,7 @@
 # 风险与未知
 
 
+- 2026-10-12 R1387（修复轮·已加固）：`test_button_boundary` 已由固定页清单升为递归零容忍（`ROOT.rglob`，豁免 `ui_widgets.py` 统一基类自身）。已知边界（同 R1381 弹窗门禁）：谓词是**静态**解析，不覆盖 `getattr`／动态导入／跨函数数据流；如需彻底封锁需运行时钩子，成本高、收益低，暂不做。
 - 2026-10-12 R1386（修复轮·**已收口**）：R1382 登记的「生产文案阶段编号漂移」风险已闭环——`pet_bus.stage_label` 成为「NN 阶段名」唯一权威、6 个展示位点改现算、`test_stage_display_boundary` 新增编号一致性／位点冻结／导航序对齐 3 条门禁（架构 326→329），全生产模块写死「NN 阶段名」编号受门禁约束必须等于权威步号。残留（非阻塞、判收益为零故不做）：阶段目录名（`05资产管理` 这类，同时是磁盘路径）仍是 `stage_layout.STAGES` 声明式常量，未改运行时拼接，门禁以「编号必须正确」覆盖。
 - 2026-10-12 R1382（状态接续轮·只读审计、已由 R1386 收口）：生产文案阶段编号存在系统性漂移——R1375 只把 24 处「第N步」收口到 pet_bus.stage_step，散落的「NN 阶段名」未同批处理，且无门禁覆盖（test_stage_display_boundary 只查 desktop.PAGES 的生成源）。修复须同轮同步 tests/ 19 文件 56 处断言；stage_path_service.LEGACY_NUMBERED 与 desktop.py:5180/5212 为正确编号，勿误改。本轮不改生产代码、未命中 §5、未跑全量。
 - 2026-10-12 R1381（弹窗门禁递归化）：`test_dialog_boundary` 现按 `ROOT.rglob('*.py')` 扫描全部生产模块（排除 `tests`／`tasks_round`／`维护记录`／`.git`／`__pycache__`），并识别 `from tkinter import Toplevel` 名字式构造；`TOPLEVEL_OWNERS={ui_widgets.py, ui_theme.py, run_selftests.py}` 仍属例外。结论「全生产模块 0 裸窗」只覆盖 AST 直接构造调用，不含 `getattr(tk, 'Toplevel')()` 一类动态构造；`simpledialog.askstring`（`asset_detail.py`／`desktop.py`／`pet_ui.py`／`skill_panel.py` 共 16 处）仍为系统输入弹窗，**未纳入本轮弹窗统一**，属未迁移条目。
