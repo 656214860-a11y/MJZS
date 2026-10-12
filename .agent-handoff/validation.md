@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O22 完成
+
+- 2026-10-12 O22：新增 `tests/test_asset_impact.py` 10 条（`referencing_shots` 命中字段命名/`location`+`props` 可命中/未知资产不命中；受引用资产带镜头与首帧文件且 `protected`、孤立资产 `orphan` 可回收、`canon`/`variants` 只读回显、非法编号 `ValueError`、删除引用清单列出镜头并警示、孤立资产删除清单为空；写状态变体不覆盖正典键）。定向 `-k asset_impact asset_context asset_plan asset_detail asset_reference` 64/64、`test_todo_comment_snapshot`＋`test_unification_ratchet` 5/5、架构 312/312、默认冒烟 8/8，全 0 红。未增删 `json.loads`（台账未平移）。1346 − 1341 = 5 ≥ 5，收口跑一次干净 master 全量。
+
 ## 2026-10-12 O21 完成
 
 - 2026-10-12 O21：`tests/test_reference_search.py` 新增 5 组（分项结构/总分=分项和/`score` 与分项一致；缺地址/缺来源/缺许可/低分/不可商用/可入库六态＋note；许可依据与采集日期随条目、同图不同源记进 `alts`、许可冲突标 `source_conflict`、同许可不算冲突；低分与同图落后分逐条解释、已上墙不重复列；credit 记 license_url/collected_at 且 `rank`/`suppressed` 对已入库资产只读）。`tests/test_reference_wall.py` 新增 3 条（图墙显示许可依据与采集日期列；同图冲突只展示一条且状态提示「不一致」、同图来源为 1；右键剔除候选后 assets.json 字节不变）。定向 `-k reference` 118/118、锚定 `-k asset_detail asset_plan asset_reference workflow_context skill_tools` 全绿、架构 312/312、默认冒烟 8/8，全 0 红。未增删 `json.loads`（台账未平移）。1345 − 1341 = 4 < 5 且未命中 §5，本轮不跑全量。

@@ -530,8 +530,14 @@ def show(desktop, aid):
                    command=lambda: desktop.safe(desktop.close_asset_detail)).pack(anchor='w',padx=8)
         return None
     _header(desktop, aid, asset)
-    desktop.note('这一页只摆这一项资产：正典板、锚点、参考职责与状态变体都在这里改；'
-                 '改完立刻写进资产清单 assets.json，主页面同步刷新。')
+    note = ('这一页只摆这一项资产：正典板、锚点、参考职责与状态变体都在这里改；'
+            '改完立刻写进资产清单 assets.json，主页面同步刷新。')
+    try:
+        from stage_execution_service import asset_impact
+        note += asset_impact_note(asset_impact(desktop.root, aid))
+    except (OSError, ValueError):
+        pass
+    desktop.note(note)
     _gates_block(desktop, aid)
     _board_block(desktop, aid, asset)
     if aid.startswith('CHAR_'):
@@ -648,3 +654,21 @@ def show_roster(desktop):
     for aid, asset in rows:
         _roster_role(desktop, aid, asset)
     return [aid for aid, _asset in rows]
+
+
+def asset_impact_note(impact):
+    """资产详情页顶部的只读影响提示：被哪些采用镜头引用、要复核什么、能否回收。"""
+    if not isinstance(impact, dict):
+        return ''
+    if impact.get('orphan'):
+        return '　当前没有采用镜头引用这一项（属可回收的孤立资产）。'
+    if not impact.get('references'):
+        return ''
+    parts = ['被 %d 个采用镜头引用' % len(impact['references'])]
+    if impact.get('files'):
+        parts.append('改动需复核 %d 个首帧' % len(impact['files']))
+    if impact.get('videos'):
+        parts.append('%d 段视频受影响' % len(impact['videos']))
+    if impact.get('variants'):
+        parts.append('%d 个状态变体' % len(impact['variants']))
+    return '　' + '；'.join(parts) + '。改正典前先核对引用镜头，改状态变体不动正典。'

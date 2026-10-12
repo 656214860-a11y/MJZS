@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O22 完成并提交 R1346。资产正典、变体与镜头引用的变更影响视图：`asset_plan` 新增只读 `asset_impact`（正典 `canonical_board`／`character_anchor`、`state_variants`、被哪些采用镜头哪些字段引用、需复核首帧、受影响已生成视频、`orphan`/`protected`）与 `deletion_references`（删前引用清单＋警示），`asset_context.referencing_shots` 与 `references` 同口径，`stage_execution_service` 补 L3 门面，资产详情页顶部提示被引用/可回收；改变体不覆盖正典、删除受引用资产先给引用列表、孤立资产可回收（依赖 O18；O39 回收侧未完成）。新增 10 条用例，定向 64/64、注释快照＋统一棘轮 5/5、架构 312/312、默认冒烟 8/8，0 红（1346−1341=5≥5，收口补全量）。见 [R1346](../程序/tasks_round/tasks_round_1346_result.md)。
+
 - 2026-10-12：O21 完成并提交 R1345。资产检索与候选墙完善可追溯性和批量决策：`asset_reference_search` 新增 `score_parts`（五项分项，`score` 由分项派生）、`explain`/`_state`/`STATE_NOTES`（八态＋说明）、`suppressed`（低分/同图重复逐条解释）；`rank` 记同图来源 `alts` 与 `conflict`；`normalize`/`_credit` 增 `collected_at`（来源失效仍可查当时记录）；`reference_wall` 新增许可依据/采集日期/状态/同图来源四列并在状态栏说明挡下候选，剔除候选不影响已入库资产。新增 search 16 条＋wall 3 条用例，定向 118/118、锚定全绿、架构 312/312、默认冒烟 8/8，0 红（1345−1341<5 且未命中 §5 不跑全量）。见 [R1345](../程序/tasks_round/tasks_round_1345_result.md)。
 
 - 2026-10-12：O20 完成并提交 R1344。保留 Animatic 强校验并降低大媒体重复读取成本：`file_cache.file_digest` 按 1 MiB 分块流式 sha256 并按 `(mtime_ns,size)` 缓存（`clear`/`invalidate` 同步清理），`animatic_service.evidence` 源分镜与全体成果改用流式摘要、不再整份读媒体；三项人工确认与「发布前不得代签」不变。实测 64 MiB 文件峰值内存 64.1→2.1 MiB、重复校验 114ms→0.21ms。台账第四项 `file_cache.py` 两处 json.loads 行号平移（53→54、112→140）已同步。新增 3 条用例，定向 41/41、锚定 117/117、架构 312/312、默认冒烟 8/8，0 红（1344−1341<5 且未命中 §5 不跑全量）。见 [R1344](../程序/tasks_round/tasks_round_1344_result.md)。

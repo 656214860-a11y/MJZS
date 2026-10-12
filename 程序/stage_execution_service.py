@@ -1485,3 +1485,15 @@ def storyboard_adoption_impact(project, paths):
     """L3 注入项目上下文：候选分镜相对已采用分镜的只读影响预览。"""
     from storyboard_catalog_service import adoption_impact
     return adoption_impact(project_context(project), paths)
+
+
+def asset_impact(project, aid, *, episode_dir=''):
+    """L3 门面：资产变更影响视图（只读）。"""
+    from asset_plan import asset_impact as _impact
+    return _impact(project, aid, episode_dir=episode_dir)
+
+
+def asset_deletion_references(project, aid, *, episode_dir=''):
+    """L3 门面：删除资产前要先看的引用清单（只读）。"""
+    from asset_plan import deletion_references as _references
+    return _references(project, aid, episode_dir=episode_dir)

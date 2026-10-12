@@ -249,3 +249,75 @@ def update_planned(episode_dir,aid,values,*,gateway=None):
     return _update_planned(episode_dir, aid, values, gateway=gateway)
 
 
+def _adopted_storyboard_shots(project):
+    """采用分镜里的 (episode_id, 分镜路径, 镜头)，读不动或没有采用就跳过。"""
+    from file_cache import read_json
+    from storyboard_adoption_contract import adopted
+    rows = []
+    for path in adopted(project):
+        try:
+            data = read_json(path)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        episode = str(data.get('episode_id') or Path(path).stem)
+        for shot in data.get('shots') or []:
+            if isinstance(shot, dict):
+                rows.append((episode, Path(path).resolve(), shot))
+    return rows
+
+
+def asset_impact(project, aid, *, episode_dir=''):
+    """只读变更影响视图：一项资产的正典/变体、被哪些采用镜头引用、改了要复核什么、能否回收。
+
+    依赖采用分镜与项目任务状态；不写盘、不改资产、不删文件。``orphan`` 为真表示当前没有
+    采用镜头引用它（可回收），``protected`` 为真表示被采用镜头引用（改动需先核对）。
+    """
+    from asset_context import referencing_shots
+    from asset_contract import state_variants
+    from storyboard_catalog_service import _generated_video_shots
+    from storyboard_paths import media_root
+    project = Path(project).resolve()
+    aid = str(aid or '').strip()
+    if not re.fullmatch(r'(CHAR|LOC|PROP)_\d{3,}', aid):
+        raise ValueError('资产编号不正确：' + (aid or '（空）'))
+    file = plan_file(project, episode_dir)
+    plan = read(file) if file.is_file() else {}
+    entry = plan.get(aid) if isinstance(plan, dict) and isinstance(plan.get(aid), dict) else {}
+    generated = _generated_video_shots(project)
+    references, files, shots = [], [], set()
+    for episode, path, shot in _adopted_storyboard_shots(project):
+        rows = referencing_shots([shot], aid)
+        if not rows:
+            continue
+        shots.add(rows[0]['id'])
+        references.append({'episode': episode, 'shot': rows[0]['id'], 'fields': rows[0]['fields']})
+        name = str(shot.get('frame') or '').strip()
+        if name:
+            try:
+                frame = media_root(path) / name
+            except OSError:
+                frame = None
+            if frame is not None and frame.is_file():
+                files.append(str(frame))
+    return {'aid': aid, 'in_plan': bool(entry), 'adopted': bool(references),
+            'orphan': not references, 'protected': bool(references),
+            'canon': {'board': str(entry.get('canonical_board') or '').strip(),
+                      'anchor': str(entry.get('character_anchor') or entry.get('base_anchor') or '').strip()},
+            'variants': [{'state_id': row['state_id'], 'name': row['name']} for row in state_variants(entry)],
+            'references': references, 'files': sorted(set(files)),
+            'videos': sorted(sid for sid in shots if sid in generated)}
+
+
+def deletion_references(project, aid, *, episode_dir=''):
+    """删除这一项资产前要看的引用清单：引用镜头、需复核文件、是否受保护。"""
+    impact = asset_impact(project, aid, episode_dir=episode_dir)
+    shots = [row['shot'] for row in impact['references']]
+    if impact['protected']:
+        head = '、'.join(shots[:6]) + ('…' if len(shots) > 6 else '')
+        summary = '被 %d 个采用镜头引用（%s），删除前请先解除引用或改用替换。' % (len(shots), head)
+    else:
+        summary = '当前没有采用镜头引用，属可回收的孤立资产。'
+    return {'aid': impact['aid'], 'protected': impact['protected'], 'shots': shots,
+            'files': impact['files'], 'videos': impact['videos'], 'summary': summary}
