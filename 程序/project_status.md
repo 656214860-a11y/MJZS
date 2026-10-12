@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1393 本轮实测：覆盖率审计棘轮递归化（`production_runtime_files`）；定向 7/7、默认冒烟 8/8、架构 `smoke_test.py --architecture` 341/341（数量不变，改既有门禁）。1393−1390=3<5 且未命中 §5 升级条件，**不跑全量**（最近绿全量 R1391 `tree=a8cfd2f0…`）。提交 hash 见补记。详见 [R1393](tasks_round/tasks_round_1393_result.md)。
+R1393 本轮实测：覆盖率审计棘轮递归化（`production_runtime_files`）；定向 7/7、默认冒烟 8/8、架构 `smoke_test.py --architecture` 341/341（数量不变，改既有门禁）。1393−1390=3<5 且未命中 §5 升级条件，**不跑全量**（最近绿全量 R1391 `tree=a8cfd2f0…`）。提交 `8f1a1fc`。详见 [R1393](tasks_round/tasks_round_1393_result.md)。
 
 R1391 本轮实测：新增 `test_project_entry_boundary.py` 5/5；默认冒烟 8/8；架构 `smoke_test.py --architecture` 341/341（336→341，+5）。1391−1386=5 命中 §5 五轮规则 → 干净 master 工作树 `o07-fullsafe-master` `run_selftests.py --all --safe` 4983 条、546.4 秒、0 文件有红（凭据 round=1390、tree=a8cfd2f0…＝`37ed5bc:程序`；`last_full_safe_all_round` 刷新为 1390）。
 
