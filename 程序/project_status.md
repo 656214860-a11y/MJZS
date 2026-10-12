@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1395 本轮实测：出站 HTTP 收口（`platform_tools.open_https`；覆盖率审计26 清零）；定向 7/7、默认冒烟 8/8、架构 341/341。**1395−1390=5 命中 §5 五轮规则**：干净 master 工作树 `o07-fullsafe-master`（`git reset --hard master`→`d93993e`）跑 `run_selftests.py --all --safe` **4983 条、602.9 秒、0 文件有红**（凭据 tree=`886cfd07…`＝内容提交 `d93993e:程序`；`last_full_safe_all_round` 刷新为 1394）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 均无阈值抖动。提交内容 `d93993e`。详见 [R1395](tasks_round/tasks_round_1395_result.md)。
+R1395 本轮实测：出站 HTTP 收口（`platform_tools.open_https`；覆盖率审计26 清零）；定向 7/7、默认冒烟 8/8、架构 341/341。**1395−1390=5 命中 §5 五轮规则**：干净 master 工作树 `o07-fullsafe-master`（`git reset --hard master`→`d93993e`）跑 `run_selftests.py --all --safe` **4983 条、602.9 秒、0 文件有红**（凭据 tree=`886cfd07…`＝内容提交 `d93993e:程序`；`last_full_safe_all_round` 刷新为 1394）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 均无阈值抖动。提交内容 `d93993e`；报告／状态／接力 `0e5dd5d`。详见 [R1395](tasks_round/tasks_round_1395_result.md)。
 
 R1394 本轮实测：agent 进程原语收口（`platform_tools.run_process`；覆盖率审计21 清零）；定向 7/7、默认冒烟 8/8、架构 `smoke_test.py --architecture` 341/341（数量不变，改既有门禁）。1394−1390=4<5 且未命中 §5 升级条件，**不跑全量**（最近绿全量 R1391 `tree=a8cfd2f0…`）。提交内容 `a966c41`；报告／状态／接力 `0c1e471`。详见 [R1394](tasks_round/tasks_round_1394_result.md)。
 
