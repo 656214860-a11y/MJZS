@@ -295,10 +295,10 @@ class Desktop:
         self.settings_gear_layer=win
         self.settings_gear_position=(138,11)
         ttk.Label(side,text='我的项目').pack(anchor='w',pady=(8,0))
-        self.list=ttk.Treeview(side,show='tree',height=3,selectmode='browse',style='Project.Treeview');self.list.column('#0',width=136,minwidth=96,stretch=True);self.list.pack(fill='x',pady=4)
+        self.list=ttk.Treeview(side,show='tree',height=3,selectmode='browse',style='Project.Treeview');self.list.column('#0',width=136,minwidth=96,stretch=True);self.list.pack(fill='x',pady=SPACING['xs'])
         self.list.bind('<<TreeviewSelect>>',self.switch);self.list.bind('<Button-3>',self.project_menu)
         self.button(side,'+ 新建项目',self.new);self.button(side,'打开项目目录',self.open_current_project)
-        ttk.Separator(side).pack(fill='x',pady=8)
+        ttk.Separator(side).pack(fill='x',pady=SPACING['sm'])
         self.nav=[]
         self.asset_list_button=None
         for i,title in enumerate(PAGES):
@@ -4102,10 +4102,10 @@ class Desktop:
             if not choices:
                 notice.set('没有找到可认领的目录；可只清除这条失效登记。');return
             picker=BaseDialog(popup,'选择重新找到的项目目录',modal=False,chrome=False)
-            ttk.Label(picker,text='找到多个候选目录，请确认实际项目：').pack(anchor='w',padx=16,pady=(16,8))
+            ttk.Label(picker,text='找到多个候选目录，请确认实际项目：').pack(anchor='w',padx=SPACING['lg'],pady=(16,8))
             candidate=tk.StringVar(value=choices[0])
             for value in choices:
-                ttk.Radiobutton(picker,text=value,variable=candidate,value=value).pack(anchor='w',padx=16,pady=3)
+                ttk.Radiobutton(picker,text=value,variable=candidate,value=value).pack(anchor='w',padx=SPACING['lg'],pady=3)
             def claim():
                 try:claimed=self._project_result_data(self.projects.reconcile_missing(old,selected=candidate.get()))
                 except Exception as exc:
@@ -4113,7 +4113,7 @@ class Desktop:
                 picker.destroy();self.reload();self.fill_projects(tree)
                 new=claimed['path'];tree.selection_set(new);tree.see(new)
                 notice.set('已按新位置同步项目登记。')
-            PrimaryButton(picker,text='认领此目录',command=claim).pack(pady=16)
+            PrimaryButton(picker,text='认领此目录',command=claim).pack(pady=SPACING['lg'])
         def enter(event=None):
             selected=tree.selection()
             if not selected or selected[0].startswith('group:'):return
@@ -4137,7 +4137,7 @@ class Desktop:
         popup.bind('<Escape>',lambda e:popup.destroy());popup.grab_set();tree.focus_set()
     def project_home(self):
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
-        tree=ttk.Treeview(self.content,show='tree',height=13,selectmode='browse');tree.pack(fill='both',expand=True,pady=12);self.fill_projects(tree)
+        tree=ttk.Treeview(self.content,show='tree',height=13,selectmode='browse');tree.pack(fill='both',expand=True,pady=SPACING['md']);self.fill_projects(tree)
         self._project_home_tree=tree
         tree.bind('<Button-3>',lambda e:self.project_menu(e,tree))
         def enter(event=None):
@@ -4306,7 +4306,7 @@ class Desktop:
             if prefs(self.root).get('adopted_storyboards')==[]:
                 message='请先在'+pet_bus.stage_step('storyboard')+'采用一份或多份分镜 JSON。'
                 # 不能只写到底部状态栏：视频工作台被阻止时，用户的视线仍在当前内容区。
-                ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=16,pady=18)
+                ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'],pady=18)
                 self.note(message)
                 self.fit_content()
                 return
@@ -4320,8 +4320,8 @@ class Desktop:
             # Windows 因而一直只能显示旧页。先摆出当前阶段的轻量壳，等一个
             # 确定的绘制时隙后才创建聊天、文件表和它们的绑定。
             target=self.root
-            ttk.Label(self.content,text='剧本准备',font=('Microsoft YaHei UI',16,'bold')).pack(anchor='w',padx=16,pady=(18,6))
-            ttk.Label(self.content,text='正在打开剧本准备…',style='Muted.TLabel').pack(anchor='w',padx=16)
+            ttk.Label(self.content,text='剧本准备',font=('Microsoft YaHei UI',16,'bold')).pack(anchor='w',padx=SPACING['lg'],pady=(18,6))
+            ttk.Label(self.content,text='正在打开剧本准备…',style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'])
             self.status.set('正在打开剧本准备…')
             self.fit_content()
             def build_startup_script_page():
@@ -4369,7 +4369,7 @@ class Desktop:
         self.canvas.yview_moveto(max(0.0,min(1.0,offset/height)))
 
     def text(self,value,height=10):
-        t=TextArea(self.content,bg='#ffffff',fg='#243247',insertbackground='#3564a8',height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=12,pady=12);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=8);bind_show_all(t,after=self.fit_content);return t
+        t=TextArea(self.content,bg='#ffffff',fg='#243247',insertbackground='#3564a8',height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t
     def note(self,value):
         """把页面操作说明写入共享绿色信息栏，不再额外占一行。"""
         text=' '.join(str(value or '').split())
@@ -4429,7 +4429,7 @@ class Desktop:
                 box.site_layout=layout
                 for col in range(2):box.columnconfigure(col,weight=1 if col<columns else 0,uniform='sites' if col<columns else '',minsize=0)
                 for index,(card,link,detail) in enumerate(items):
-                    card.grid(row=index//columns+1,column=index%columns,sticky='nsew',padx=(0,8) if columns==2 and index%2==0 else 0,pady=4)
+                    card.grid(row=index//columns+1,column=index%columns,sticky='nsew',padx=(0,8) if columns==2 and index%2==0 else 0,pady=SPACING['xs'])
                     link.configure(wraplength=available);detail.configure(wraplength=available)
             group.bind('<Configure>',arrange)
             # Mount cards before the first layout event; width is then set by the page.
