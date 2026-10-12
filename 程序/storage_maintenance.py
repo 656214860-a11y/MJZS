@@ -1,5 +1,5 @@
 """Conservative project cleanup; run only after the UI has closed."""
-import os, shutil, subprocess, sys, time
+import os, shutil, subprocess, sys, time, uuid
 from pathlib import Path
 from agent.core import save
 from file_cache import recycled, read_json
@@ -17,6 +17,18 @@ def downloads_root():
     return Path("D:/漫剧下载") / "项目"
 AGE_SECONDS=7*24*3600
 PENDING={'queued','running','succeeded','unknown','submitting'}
+MANIFEST_NAME='恢复位置.json'
+BATCH_PREFIX='自动维护_'
+# O38：回收批次要「写前计划 → 逐项状态 → 最终提交」，中断后还能恢复或撤回。
+# 批次状态：planned（写前清单已落盘，尚未搬完）／committed（全部搬完，可恢复）／
+# rolled_back（整批撤回，原文件已回原位）。逐项状态：planned／moved／failed／undone。
+BATCH_PLANNED='planned'
+BATCH_COMMITTED='committed'
+BATCH_ROLLED_BACK='rolled_back'
+ITEM_PLANNED='planned'
+ITEM_MOVED='moved'
+ITEM_FAILED='failed'
+ITEM_UNDONE='undone'
 
 def launch_cleanup(app_root=None):
     program=Path(app_root or PROGRAM)
@@ -71,12 +83,26 @@ def read_recycle_batch(root, batch):
         'batch': batch,
         'created_at': str(data.get('created_at', '')) if isinstance(data, dict) else '',
         'reason': str(data.get('reason', '')) if isinstance(data, dict) else '',
+        'state': str(data.get('state', '')) if isinstance(data, dict) else '',
         'items': items,
     }
 
 
-def _recycle(path, root, batch):
-    """把受控项目内文件移动到回收站，返回恢复记录而非永久删除。"""
+def batch_name(now=None):
+    """批次目录名：秒级时间给人看，UUID 后缀保证同一秒并发也各成一个独立批次。"""
+    stamp=time.strftime('%Y%m%d_%H%M%S',time.localtime(now if now is not None else time.time()))
+    return BATCH_PREFIX+stamp+'_'+uuid.uuid4().hex[:8]
+
+
+def _write_batch_manifest(batch, state, records, reason, created_at):
+    """把批次清单原子落盘（agent.core.save）：写前计划与逐项状态都靠它保命。"""
+    save(Path(batch)/MANIFEST_NAME,
+         {'created_at':str(created_at or ''),'reason':str(reason),'state':state,
+          'items':[dict(record) for record in records]})
+
+
+def plan_recycle(path, root, batch):
+    """写前计划：只算这一项该去哪，不移动文件；越界／链接／不存在／目标已占一律返回 None。"""
     path=Path(path)
     root=Path(root)
     if path.is_symlink() or path.is_junction() or not _within(path,root):return None
@@ -84,29 +110,77 @@ def _recycle(path, root, batch):
     relative=path.resolve().relative_to(root.resolve())
     target=Path(batch) / relative
     if target.exists():return None
+    return {'source':relative.as_posix(),'recycle_path':target.relative_to(root).as_posix(),
+            'status':ITEM_PLANNED,'error':''}
+
+
+def move_planned(record, root, batch):
+    """按计划把这一项移进回收站；成功把状态改成 moved，失败原样抛出给调用方。"""
+    root=Path(root)
+    source=root/str(record['source'])
+    target=root/str(record['recycle_path'])
     target.parent.mkdir(parents=True,exist_ok=True)
-    shutil.move(str(path),str(target))
-    return {'source':relative.as_posix(),'recycle_path':target.relative_to(root).as_posix()}
+    shutil.move(str(source),str(target))
+    record['status']=ITEM_MOVED
+    record['error']=''
+    return record
+
+
+def _undo_moves(records, root):
+    """把本批已进回收站（status=moved，或中断时仍记 planned）的项移回原位置。
+
+    以“文件是否真的在回收站里”为准：被占用、已不在的跳过，绝不覆盖用户新文件；
+    planned 也纳入，是因为进程可能在“移完再更新清单”之间中断，此时文件已在回收站。
+    """
+    root=Path(root)
+    restored=[]
+    for record in reversed(list(records)):
+        if not isinstance(record,dict) or record.get('status') not in (ITEM_MOVED,ITEM_PLANNED):continue
+        source=root/str(record.get('recycle_path') or '')
+        target=root/str(record.get('source') or '')
+        if not (source.is_file() or source.is_dir()) or target.exists():continue
+        try:
+            target.parent.mkdir(parents=True,exist_ok=True)
+            source.rename(target)
+        except OSError:
+            continue
+        record['status']=ITEM_UNDONE
+        restored.append(target)
+    return restored
 
 
 def recycle_paths(root, paths, reason, now=None):
-    """供用户可见的删除入口复用的受控回收接口。"""
+    """供用户可见的删除入口复用的受控回收接口。
+
+    O38：先把写前计划（UUID 批次、逐项状态 state=planned）原子落盘，再逐项移动并随时更新
+    清单，全部搬完才写 state=committed。任一项移动失败就撤回本批已移动项、写明失败原因后
+    再抛出原异常；进程中断时清单已带逐项状态（恢复按文件是否真的在回收站里判断），可经
+    restore_recycle_batch 恢复已搬走的项，或经 rollback_recycle_batch 撤回整批。
+    始终只移动、不永久删除。
+    """
     root=Path(root).resolve(); now=now or time.time()
-    batch=_recycle_base(root)/('自动维护_'+time.strftime('%Y%m%d_%H%M%S',time.localtime(now)))
-    records=[]
-    for path in paths:
-        record=_recycle(path,root,batch)
-        if record is not None:records.append(record)
-    if records:
-        manifest=batch/'恢复位置.json'
-        try:previous=read_json(manifest) if manifest.is_file() else {}
-        except (OSError,ValueError):previous={}
-        previous['created_at']=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now))
-        previous['reason']=str(reason)
-        previous['items']=[*previous.get('items',[]),*records]
-        save(manifest,previous)
-        recycled((root / record['source'], root / record['recycle_path']) for record in records)
-    return records
+    batch=_recycle_base(root)/batch_name(now)
+    created_at=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now))
+    records=[record for record in (plan_recycle(path,root,batch) for path in paths) if record is not None]
+    if not records:return []
+    batch.mkdir(parents=True,exist_ok=True)
+    _write_batch_manifest(batch,BATCH_PLANNED,records,reason,created_at)     # 写前计划先落盘
+    moved=[]
+    try:
+        for record in records:
+            move_planned(record,root,batch)
+            _write_batch_manifest(batch,BATCH_PLANNED,records,reason,created_at)  # 逐项状态
+            moved.append(record)
+    except OSError as exc:
+        record['status']=ITEM_FAILED
+        record['error']=type(exc).__name__+'：'+str(exc)
+        _undo_moves(records,root)
+        _write_batch_manifest(batch,BATCH_ROLLED_BACK,records,reason,created_at)
+        recycled((root/str(item['source']),root/str(item['recycle_path'])) for item in records)
+        raise
+    _write_batch_manifest(batch,BATCH_COMMITTED,records,reason,created_at)
+    recycled((root/record['source'],root/record['recycle_path']) for record in moved)
+    return moved
 
 
 def restore_recycle_batch(root, batch, sources=None):
@@ -139,6 +213,12 @@ def restore_recycle_batch(root, batch, sources=None):
         target_text = row.get('source', row.get('original'))
         if wanted is not None and str(target_text or '').replace('\\', '/') not in wanted:
             continue
+        if str(row.get('status') or ITEM_MOVED) in (ITEM_PLANNED, ITEM_FAILED):
+            # 写前计划里没搬成功的项（中断后状态未更新或明确 failed）：只要回收站里确实没有
+            # 这个文件，就不算可恢复内容，不能让一条没搬成的记录挡住同批其余项。
+            planned = root / str(source_text or '')
+            if '..' not in planned.parts and not (planned.is_file() or planned.is_dir()):
+                continue
         source = _restore_location(root, source_text)
         target = _restore_location(root, target_text)
         if (not source.is_relative_to(batch) or not target.is_relative_to(root)
@@ -171,6 +251,38 @@ def restore_recycle_batch(root, batch, sources=None):
     return [target for _source, target in moves]
 
 
+def rollback_recycle_batch(root, batch):
+    """撤回一个中断／未提交的回收批次：把已移动项移回原位置。
+
+    只认写前记录过的批次（清单带 state）：state=committed 已提交，不能撤回请改用恢复；
+    原位置被占用或文件已不在的项如实跳过，不覆盖用户新文件；始终不永久删除任何内容。
+    """
+    root=Path(root).resolve()
+    batch=_restore_location(root,batch,'恢复批次不在当前项目回收站中')
+    base=_recycle_base(root).resolve()
+    if not batch.is_relative_to(base):
+        raise ValueError('恢复批次不在当前项目回收站中')
+    try:
+        data=read_json(batch/MANIFEST_NAME)
+    except (OSError,ValueError) as exc:
+        raise ValueError('恢复清单无法读取：'+str(exc)) from exc
+    if not isinstance(data,dict):
+        raise ValueError('恢复清单格式无效')
+    state=str(data.get('state') or '')
+    if not state:
+        raise ValueError('这批没有写前记录，不能撤回；请用恢复')
+    if state==BATCH_COMMITTED:
+        raise ValueError('已提交的回收批次不能撤回，请用恢复')
+    rows=data.get('items')
+    if not isinstance(rows,list) or not rows:
+        raise ValueError('恢复清单为空')
+    restored=_undo_moves(rows,root)
+    _write_batch_manifest(batch,BATCH_ROLLED_BACK,rows,data.get('reason'),data.get('created_at'))
+    recycled((root/str(row.get('source') or ''),root/str(row.get('recycle_path') or ''))
+             for row in rows if isinstance(row,dict))
+    return restored
+
+
 def restore_latest_recycled_path(root, path):
     """仅恢复 ``path`` 最近一次回收记录，不连带恢复同批其他用户文件。"""
     root = Path(root).resolve()
@@ -187,6 +299,8 @@ def restore_latest_recycled_path(root, path):
             data = read_json(manifest)
         except (OSError, ValueError):
             continue
+        if isinstance(data, dict) and str(data.get('state') or '') == BATCH_ROLLED_BACK:
+            continue                                   # 已撤回的批次不是可恢复内容
         rows = data.get('items', data.get('files', [])) if isinstance(data, dict) else []
         if any(isinstance(row, dict) and str(row.get('source', row.get('original', ''))).replace('\\', '/') == relative for row in rows):
             return restore_recycle_batch(root, batch, sources=(relative,))
@@ -208,6 +322,8 @@ def restore_latest_recycled_child(root, parent, stem, suffixes):
                 data = read_json(manifest)
             except (OSError, ValueError):
                 continue
+            if isinstance(data, dict) and str(data.get('state') or '') == BATCH_ROLLED_BACK:
+                continue                               # 已撤回的批次不是可恢复内容
             rows = data.get('items', data.get('files', [])) if isinstance(data, dict) else []
             for row in rows:
                 if not isinstance(row, dict):
@@ -339,14 +455,26 @@ def clear_generated_workflow_state(project_root, state_path, filename):
 def clean_project(root,now=None):
     root=Path(root).resolve();now=now or time.time();removed=[];records=[]
     if root.parent!=downloads_root().resolve() or not (root/'config.json').is_file():return removed
-    stamp=time.strftime('%Y%m%d_%H%M%S',time.localtime(now))
     recycle_base=_recycle_base(root)
-    batch=recycle_base/('自动维护_'+stamp)
+    batch=recycle_base/batch_name(now)
+    created_at=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now))
 
     def recycle(path):
-        record=_recycle(path,root,batch)
+        record=plan_recycle(path,root,batch)
         if record is None:return False
-        records.append(record);removed.append(Path(record['source']));return True
+        records.append(record)
+        batch.mkdir(parents=True,exist_ok=True)
+        _write_batch_manifest(batch,BATCH_PLANNED,records,'自动维护',created_at)   # 写前计划先落盘
+        try:
+            move_planned(record,root,batch)
+        except OSError as exc:
+            # 单项移动失败如实记 failed 与原因后再抛出，其余项交给调用方继续清理。
+            record['status']=ITEM_FAILED
+            record['error']=type(exc).__name__+'：'+str(exc)
+            _write_batch_manifest(batch,BATCH_PLANNED,records,'自动维护',created_at)
+            raise
+        _write_batch_manifest(batch,BATCH_PLANNED,records,'自动维护',created_at)   # 逐项状态
+        removed.append(Path(record['source']));return True
 
     # Closing the assistant clears every explicitly named history directory.
     # Active creative folders, current storyboards and final outputs are untouched.
@@ -386,8 +514,7 @@ def clean_project(root,now=None):
                     if not any(folder.iterdir()):folder.rmdir();removed.append(folder)
                 except OSError:pass
     if records:
-        save(batch/'恢复位置.json',{'created_at':time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now)),
-                                  'reason':'自动维护','items':records})
+        _write_batch_manifest(batch,BATCH_COMMITTED,records,'自动维护',created_at)
     return removed
 
 def main():

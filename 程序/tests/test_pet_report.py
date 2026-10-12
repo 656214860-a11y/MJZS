@@ -276,9 +276,14 @@ class WeeklyTests(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in removed), sorted(expired))
             self.assertEqual(sorted(p.name for p in folder.glob('*.md')), sorted(retained))
             from storage_maintenance import recycle_base, read_recycle_batch, restore_recycle_batch
-            batch = next(recycle_base(proj).iterdir())
-            self.assertEqual(len(read_recycle_batch(proj, batch)['items']), 2)
-            restore_recycle_batch(proj, batch)
+            # O38 起每次 recycle_paths 调用都是独立批次（同秒并发不再合并进同一份清单）；
+            # 这里只断言两条过期日报都进了回收站且能原样恢复，不再依赖“同秒合并”这一旧实现细节。
+            batches = list(recycle_base(proj).iterdir())
+            reclaimed = {row['source'] for batch in batches
+                         for row in read_recycle_batch(proj, batch)['items']}
+            self.assertEqual(len(reclaimed), 2)
+            for batch in batches:
+                restore_recycle_batch(proj, batch)
             for name in expired:
                 self.assertEqual((folder / name).read_text(encoding='utf-8'), name)
 
