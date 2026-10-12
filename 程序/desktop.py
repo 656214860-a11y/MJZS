@@ -1,5 +1,5 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
-import os, shutil, queue, threading, subprocess, time, uuid, hashlib, re, json
+import os, shutil, queue, threading, subprocess, time, uuid, hashlib, re, json, logging
 from datetime import date
 from pathlib import Path
 from file_cache import remove_temporary_file
@@ -34,6 +34,7 @@ from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMen
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
+LOGGER=logging.getLogger(__name__)
 
 
 def confirm(parent, title, message, *, dangerous=False, **_legacy_options):
@@ -45,6 +46,23 @@ def script_raw_saved_notice(four_roles, formal_path=''):
     """剧本原稿发布后的三虎提示，按本次请求实际模式区分。"""
     name = Path(formal_path).name if formal_path else 'script_raw.md'
     return ('四角色剧本已保存：' if four_roles else '剧本已自动保存：') + name
+
+
+def model_error_display(result, default='未收到模型回复'):
+    """按 kind 把模型调用失败翻成用户可见文案：返回 (文案, 是否只写日志不进弹窗)。
+
+    鉴权／预算／请求本身（client）是用户可自行处理或与本次请求相关的提示，沿用原始
+    error；网络／服务端只在界面给统一的重试提示，原始 error 写日志；编程错误（bug）
+    与旧记录缺失 kind 时统一给内部错误提示，原文同样只写日志。
+    """
+    payload = result if isinstance(result, dict) else {}
+    raw = str(payload.get('error') or default)
+    kind = str(payload.get('kind') or '')
+    if kind in ('auth', 'budget', 'client'):
+        return raw, False
+    if kind in ('network', 'server'):
+        return '模型暂时无法响应，请稍后重试', True
+    return '系统内部错误，已记录日志', True
 
 
 # 第 37 期第 2 条：创意栏那七个字段的名字只写一份（预置示例与灰色字段名都取它）。
@@ -1611,12 +1629,15 @@ class Desktop:
                 project = self.root
                 def extract():
                     try:return {'values': writing_api.extract_idea_brief(project, request)}
-                    except (ValueError, OSError) as exc:return {'error': str(exc)}
+                    except (ValueError, OSError) as exc:return {'error': str(exc), 'kind': 'client'}
                 def received(result):
                     if getattr(self, '_idea_semantic_pending', None) is not pending:return
                     if result.get('error'):
                         self._idea_semantic_pending = None
-                        self.notifier.info(result['error'], modal=True)
+                        text, log_only = model_error_display(result)
+                        if log_only:
+                            LOGGER.warning('简报语义提取失败（kind=%s）：%s', result.get('kind') or 'missing', result['error'])
+                        self.notifier.info(text, modal=True)
                     else:self.finish_idea_semantic_brief(pending, result['values'])
                 self.async_(extract, received, label='模型正在读取附档并提取创作信息…')
         except Exception:
@@ -1829,9 +1850,16 @@ class Desktop:
                     self.show_conversation()
                 if not result.get('ok'):
                     error=str(result.get('error') or '未收到模型回复')
-                    transient=any(mark in error for mark in ('URLError', 'SSLError', 'SSLEOF', 'UNEXPECTED_EOF'))
-                    message=('网络连接被模型网关中断，未生成内容；请点击发送重试。'
-                             if transient else '模型调用未完成：'+error)
+                    kind=('budget' if result.get('reason') == 'context_budget_exceeded'
+                          else str(result.get('kind') or ''))
+                    if kind in ('network', 'server'):
+                        message='模型暂时无法响应，请稍后重试'
+                    elif kind in ('auth', 'budget', 'client'):
+                        message='模型调用未完成：'+error
+                    else:
+                        message='系统内部错误，已记录日志'
+                    if kind not in ('auth', 'budget', 'client'):
+                        LOGGER.warning('模型调用失败（kind=%s）：%s', kind or 'missing', error)
                     self.set_hollmwood_role_status(review_failed=result.get('hollmwood_review_failed_role', ''))
                     self.status.set(message)
                     if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
@@ -2048,8 +2076,12 @@ class Desktop:
                 self.show_conversation()
             self.show_script_quality(result)
             if not result.get('ok'):
-                self.notifier.error(str(result.get('error') or '未收到模型回复'), title='模型调用失败')
-                self.status.set('刷新正文失败：' + str(result.get('error') or '未收到模型回复'))
+                text, log_only = model_error_display(result)
+                if log_only:
+                    LOGGER.warning('刷新正文模型调用失败（kind=%s）：%s', result.get('kind') or 'missing',
+                                   result.get('error'))
+                self.notifier.error(text, title='模型调用失败')
+                self.status.set('刷新正文失败：' + text)
                 return
             if not reply:
                 self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
@@ -3945,7 +3977,7 @@ class Desktop:
             try:result=self.sync_stage_models(target)
             except (OSError,ValueError,TypeError,KeyError) as exc:
                 # 工作线程只带错误结果回主线程；不能在这里直接操作 Tk 状态栏。
-                result={'error':str(exc)}
+                result={'error':str(exc), 'kind': 'bug'}
             self._stage_model_sync_results.put((generation,target,result))
         threading.Thread(target=work,daemon=True).start()
     def _tick_stage_model_sync_result(self):
@@ -3953,7 +3985,10 @@ class Desktop:
         except queue.Empty:return
         if generation!=self._stage_model_sync_generation or target!=self.root:return
         if isinstance(result,dict) and result.get('error'):
-            self.status.set('项目模型同步未完成：%s；请稍后重试。' % result['error'])
+            text, log_only = model_error_display(result)
+            if log_only:
+                LOGGER.warning('项目模型同步失败（kind=%s）：%s', result.get('kind') or 'missing', result['error'])
+            self.status.set(text)
             return
         if result:self.status.set('已同步项目模型：'+'、'.join(result))
     def import_generated_assets(self):

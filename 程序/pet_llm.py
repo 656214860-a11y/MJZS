@@ -12,6 +12,7 @@
 传输函数可注入：测试与离线环境完全不联网。
 """
 import json
+import logging
 import hashlib
 import os
 import time
@@ -21,6 +22,8 @@ import token_saver
 from agent.core import save
 from pet_bus import read_json
 from api_endpoints import configured_key, normalize_url
+
+LOGGER = logging.getLogger(__name__)
 
 PROGRAM = Path(__file__).resolve().parent
 CONFIG_PATH = ('配置', '宠物', '配置.json')
@@ -415,7 +418,7 @@ class Client:
         try:
             budget = (cfg.get('budget') or {}).get('tokens_per_day')
             if self.ledger.over_budget(budget, at):
-                return {'ok': False, 'status': 0, 'error': 'Token 预算已用完，已暂停自动调用', 'model': None,
+                return {'ok': False, 'status': 0, 'kind': 'budget', 'error': 'Token 预算已用完，已暂停自动调用', 'model': None,
                         'degraded': False, 'budget': True, 'usage': usage_of(None), 'request': None}
             tier, _limit = choose(task, cfg)
             send = transport or self.transport
@@ -452,9 +455,11 @@ class Client:
                                'degraded': degraded, 'urgent': bool(urgent)})
             reply = {'ok': bool(result.get('ok')), 'status': result.get('status'), 'error': result.get('error'),
                      'data': result.get('data'), 'model': model, 'degraded': degraded, 'budget': False,
-                     'usage': usage, 'request': payload, 'url': url}
+                     'usage': usage, 'request': payload, 'url': url, 'kind': result.get('kind')}
             self._record_diagnostic(reply, task, tier, cfg)
             return reply
         except Exception as exc:                     # 界面线程调用：出错也要给出结构化结果，不抛异常
-            return {'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc), 'model': None,
+            LOGGER.exception('模型调用异常')
+            return {'ok': False, 'status': 0, 'kind': 'bug', 'error': type(exc).__name__ + '：' + str(exc),
+                    'model': None,
                     'degraded': False, 'budget': False, 'usage': usage_of(None), 'request': None}
