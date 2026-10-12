@@ -1,3 +1,12 @@
+## 2026-10-12 R1391 项目进入路径覆盖门禁（修复轮 §3.2）
+
+- 类型：修复轮（§3.2），只新增架构门禁测试与 `AGENTS.md` §5 清单登记，不改生产代码。
+- 实现：新增 `tests/architecture/test_project_entry_boundary.py`（5 条）：冻结 `desktop.py` 直接 `self.load(...)` 的进入入口集合（进入 open_project_or_cleanup／_choose_project_impl／new／import_json／enter；关闭 gone／completed）；每条进入路径必须经当天选择记忆；`DesktopStartupController` 单次装配并绑定 `choose_project`／`before_project_choice`；当天选择委托 `publish_desktop_preferences`；控制器模块不 import tkinter。
+- 反向验证（mutation）：向 `switch()` 注入未登记 `self.load(path)` → `entering` 多出 `switch`，门禁失败。
+- 定向 `tests.architecture.test_project_entry_boundary`：**5/5**。默认冒烟 `smoke_test.py`：**8/8**。架构 `smoke_test.py --architecture`：**341/341**（336→341，+5）。
+- 全量（§5 五轮规则 1391−1386=5 触发）：干净 master 工作树 `o07-fullsafe-master` `run_selftests.py --all --safe` **4983 条、546.4 秒、0 文件有红**；`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 无抖动。凭据 `{round:1390, tree:a8cfd2f0…, at:2026-10-12T23:44:43}`＝`37ed5bc:程序`；`last_full_safe_all_round` 刷新为 1390。
+- 提交：内容 `37ed5bc`；报告／状态／接力见后续补记。§三 7 项全部收口。
+
 ## 2026-10-12 R1390 §三 覆盖率门禁口径对齐递归（修复轮 §3.2）
 
 - 类型：修复轮（§3.2），只改架构门禁测试文件与新 `_scan` 辅助，不改生产代码。

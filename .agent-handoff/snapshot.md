@@ -1,5 +1,12 @@
 # 当前快照
 
+## 2026-10-12：UI 路线图 §三 第 4 项 — 项目进入路径覆盖门禁（R1391，修复轮 §3.2）
+- 范围＝路线图 v1 §三「已存在权威，仅需审计覆盖率」第 4 项「项目选择／切换」（权威＝`DesktopStartupController`／`desktop_settings_service`）——承接 R1390 登记的缺口「缺『所有项目进入路径必经控制器』的架构覆盖门禁」。**不改生产代码。**
+- 实现：新增 `tests/architecture/test_project_entry_boundary.py`（5 条）：① 静态冻结 `desktop.py` 直接 `self.load(...)` 的入口集合（进入＝open_project_or_cleanup／_choose_project_impl／new／import_json／enter；关闭＝gone／completed），新增未登记进入路径即失败；② 每条进入路径必须经当天选择记忆；③ `DesktopStartupController` 单次装配并绑定 `choose_project=self.choose_project`／`before_project_choice=self._after_first_paint`；④ 当天选择委托 `publish_desktop_preferences`（不直接写 settings_file）；⑤ 控制器模块不 import tkinter。`AGENTS.md` §5 清单补该文件。
+- 反向验证（mutation）：向 `switch()` 注入未登记 `self.load(path)` → 门禁识别 `entering` 多出 `switch` 并失败。
+- 验证：定向 **5/5**、默认冒烟 **8/8**、架构 **336→341**；**命中 §5 五轮规则（1391−1386=5）**，干净 master 工作树 `o07-fullsafe-master` `--all --safe` **4983 条、546.4 秒、0 红**（凭据 round=1390、tree=a8cfd2f0…＝内容提交 `37ed5bc:程序`；`last_full_safe_all_round` 刷新为 1390）。提交内容 `37ed5bc`。
+- §三 7 项全部收口。下一轮候选（backlog）：① 设计 token 迁移（先统一调色板，可能改视觉须先确认）；② 其余走根目录口径的门禁（coverage ratchet 20/21/22/24/25/26、json_io/table 等）是否同批递归化（需逐段评估子目录候选）；③ 优化队列条件项（J20／J22—J26、R1068 真实清理等）。
+
 ## 2026-10-12：UI 路线图 §三 覆盖率审计 — 门禁口径对齐递归（R1390，修复轮 §3.2）
 - 范围＝路线图 v1 §三「已存在权威，仅需审计覆盖率（7 项）」。
 - 实现（**不改生产代码**）：`_scan.py` 新增 `production_files_recursive()`（递归口径，与 `production_files()` 同语义：排除 tests／tasks_round／维护记录／.git／__pycache__ 与 smoke_test／run_selftests／selftest_sandbox 及 test* 前缀）；`test_deletion_gateway`／`test_remove_authority`（对程序 scripts/ 开发脚本显式豁免 `_DEV_SCRIPT_PARTS`）／`test_completion_gate`（2 处）／`test_event_bus_boundary`（3 处）改递归扫描。

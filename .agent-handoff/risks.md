@@ -1,6 +1,7 @@
 # 风险与未知
 
 
+- 2026-10-12 R1391（修复轮·**§三 7/7 收口**）：项目进入路径覆盖门禁已闭环——新增 `tests/architecture/test_project_entry_boundary.py`（5 条）冻结 `desktop.py` 直接 `self.load(...)` 的进入入口集合（open_project_or_cleanup／_choose_project_impl／new／import_json／enter）、断言首帧首次选择必经 `DesktopStartupController`、当天选择经 `desktop_settings_service`（委托 `publish_desktop_preferences`）。**边界（非阻塞）**：门禁为静态 AST 断言，不覆盖 `getattr` 动态分派或运行期注入的入口；冻结表新增／改名进入路径会失败，属刻意棘轮，须同轮登记。全量命中 §5 五轮（1391−1386=5）：4983/4983、0 红、546.4 秒（tree=a8cfd2f0…＝`37ed5bc:程序`）。
 - 2026-10-12 R1390（修复轮·**§三 6/7 项已收口**）：§三 覆盖率审计的门禁口径漂移已闭环——`_scan.production_files_recursive()` 把删除／事件总线／阶段完成三类门禁从「根目录」升为「递归覆盖子目录」。**残留缺口（非阻塞、已登记待办）**＝第 4 项「项目进入路径」（`DesktopStartupController`）无架构覆盖门禁；另：其余仍走 `production_files()`（根目录）的门禁（coverage ratchet 的 20/21/22/24/25/26 段、`test_json_io`／table 等）是否同批递归化未评估，须逐段核子目录候选。本轮全量未跑（1390−1386=4<5 且未命中 §5 升级条件），最近绿全量为 R1387 `tree=000477da…`。
 - 2026-10-12 R1389（修复轮·已加棘轮）：`test_token_boundary.py` 已冻结内联 hex 与数字 padx/pady 的按文件计数（只减不增、新增文件即违规），规则 34 由此有了自动化下限。残留（非阻塞）：实际迁移（111 hex＋213 padx/pady → token）尚未做；调色板统一（ui_theme 复用 ui_tokens）可能改变视觉，须先确认；数字 font/width/height 候选未纳入棘轮。
 - 2026-10-12 R1388（只读诊断·已登记 backlog）：设计 token 存在**双调色板漂移风险**——`ui_tokens.py`（14 hex）与 `ui_theme.py`（53 hex）各自硬编码且 `ui_theme.py` 未 import `ui_tokens`；业务页另有 111 处内联 hex（8 文件）、213 处数字 padx/pady（19 文件）、189 处数字字号尺寸候选（32 文件），且无 token 专用门禁。风险：改色/改间距须多点同改，易漏改漂移；规则 34 当前零自动化覆盖。缓解：下一修复轮先统一调色板，再加 `test_token_boundary.py` 棘轮冻结（只减不增）。
