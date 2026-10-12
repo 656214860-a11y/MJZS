@@ -2078,7 +2078,7 @@ class Desktop:
         if not api_active and not processes and not launching:
             self.status.set('当前没有可中断的剧本 Agent 调用。')
             return False
-        self._async_ticket+=1;self.background_tasks.cancel()
+        self._async_ticket+=1;self.background_tasks.cancel(costly=bool(api_active))
         self.worker=False;self.busy_state.set_busy(False)
         self.idea_chat_controller.cancel_request()
         self._stream_text=''
@@ -2098,7 +2098,7 @@ class Desktop:
         self.flow_processes=sessions
         self.update_script_interrupt_button()
         detail=('，已结束进程 '+', '.join(stopped)) if stopped else ''
-        self.status.set('已中断剧本 Agent 调用'+detail+'；API 请求将不再进入后续角色或落盘，可修改创意后重新发送。')
+        info=self.background_tasks.cancellation_status() if api_active else None;notice=(' '+info['text']) if info is not None else '';preserved='已返回正文会归档到 responses/ 供核对；' if api_active else '';self.status.set('已中断剧本 Agent 调用'+detail+'；'+preserved+'本机不再把这次回复写入界面或正式采用，可修改创意后重新发送。'+notice)
         return True
     def update_script_download_button(self):
         """只有模型给出完整剧本后才允许下载；首次回复绝不弹完成框。"""
@@ -2735,7 +2735,7 @@ class Desktop:
         except queue.Empty:pass
         try:
             ticket,ok,value,done=self.q.get_nowait()
-            if ticket!=self._async_ticket or not self.background_tasks.finish(ticket, succeeded=ok):return
+            if not self.background_tasks.finish(ticket, succeeded=ok) or ticket!=self._async_ticket:return
             self.worker=False;self.busy_state.set_busy(False)
             if ok and done:done(value)
             elif ok:self.status.set(str(value))
@@ -3634,7 +3634,7 @@ class Desktop:
             # 第 47 期第 7 条：原来这里只弹一句「请等待…结束后退出」就什么都不做——白模那一批
             # 卡住时用户就再也关不掉程序了（用户报的「无法关闭程序」）。现在问一句：答「是」就把
             # 还在跑的进程收掉再退；答「否」照旧守着，等这一步自己结束。
-            if not confirm(self.win, '仍在处理', reason+'。\n\n现在强制关闭程序吗？\n中断这一步不会删掉已经做好的成果，下次打开可以接着做。', dangerous=True):return
+            if not confirm(self.win, '仍在处理', reason+'。\n\n现在强制关闭程序吗？\n中断这一步不会删掉已经做好的成果，下次打开可以接着做。\n若正在调用付费模型或线上任务，中断不会撤销远端调用，仍可能继续执行并按实际用量计费。', dangerous=True):return
             return self.force_quit()
         if self.pet_hides_instead_of_quitting():return
         self._closing=True

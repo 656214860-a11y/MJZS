@@ -280,7 +280,7 @@ def reply_to_writing(project, creative, progress=None, cancelled=None, stream=No
     from writing_api import reply
     try:
         return reply(project, creative, progress=progress, cancelled=cancelled, stream=stream,
-                     publish=publish_stage_text, user_message=user_message, request_model=request_model)
+                     publish=publish_stage_text, archive=publish_response_archive, user_message=user_message, request_model=request_model)
     except (ValueError, OSError, RuntimeError) as exc:
         from hollmwood_roles import RoleCancelledError
         response = getattr(exc, 'rejected_response', None)
@@ -1559,3 +1559,21 @@ def animatic_preview_spec(project):
     import stage_config
     from script_contract import preview_spec
     return preview_spec(stage_config.workflow_lock(Path(project)))
+
+
+def publish_response_archive(project, text):
+    """把模型已返回的可见正文归档到 01剧本准备/responses/，返回归档路径。
+
+    只归档，不登记为阶段成果，也不改变采用状态；取消、迟到返回或格式不合格的
+    正文同样留副本，供用户对照「原始响应已保存」。空正文不建文件。
+    """
+    from datetime import datetime
+    from uuid import uuid4
+    from stage_path_service import write_dir
+    value = str(text or '').replace('\r\n', '\n')
+    if not value.strip():
+        return ''
+    target = write_dir(project, 'script') / 'responses' / (
+        datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '_' + uuid4().hex + '.txt')
+    publish_stage_text(target, value, lambda published: published == value, lambda _target: None)
+    return str(target)

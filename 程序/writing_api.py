@@ -947,7 +947,7 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
                 preparation_status='阶段稿待确认'), None
 
 
-def reply(project, creative, progress=None, cancelled=None, stream=None, *, publish=None, user_message=None, request_model=None):
+def reply(project, creative, progress=None, cancelled=None, stream=None, *, publish=None, archive=None, user_message=None, request_model=None):
     """以剧本工作流的上下文、SKILL 和用户创意请求一次 API 回复。"""
     _ensure_reply_active(cancelled)
     root = Path(project)
@@ -1014,7 +1014,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
                    '本轮成果只能写入当前项目的 writing/。资产清单属于后续资产阶段，本阶段不读取、不写入、也不报告其为空。'
                    '仅当同一文件操作连续重复且没有新进展时才暂停。')
         result = _reply_with_project_tools(adapter, chosen, system, task, root, publish=publish, cancelled=cancelled)
-        _ensure_reply_active(cancelled)
+        _archive_then_require_active(root, result, archive, cancelled)
         return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled), quality_required=quality_enabled(system)) if auto_save_enabled else result
     messages = [{'role': 'user', 'content': task}]
     rejected = _context_budget_error(chosen, system, messages)
@@ -1026,7 +1026,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
         'deepseek-v4-flash', 'deepseek-v4-pro') else 4096
     result = adapter.chat(messages, options={'max_tokens': tokens},
                           model=chosen, system=system)
-    _ensure_reply_active(cancelled)
+    _archive_then_require_active(root, result, archive, cancelled)
     _record_model_diagnostic(root, result)
     return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled), quality_required=quality_enabled(system)) if auto_save_enabled else result
 
@@ -1057,6 +1057,35 @@ def _versioned_publisher(project, publish):
         return publish(path, text, validate, published, *args, **kwargs)
     return guarded
 
+
+def _archive_returned_response(project, result, archive):
+    """把已返回的可见正文交给注入的归档通道；无通道或空正文时不建档。
+
+    归档是尽力而为：写盘失败不阻断本轮正文交付，也不改变采用状态。
+    """
+    if not callable(archive):
+        return ''
+    text = str((result or {}).get('text') or '')
+    if not text.strip():
+        return ''
+    try:
+        return str(archive(project, text) or '')
+    except OSError:
+        return ''
+
+
+def _archive_note(path):
+    return '' if not path else '；原始响应已保存（responses/ 归档，不等于正式采用）：' + str(path)
+
+
+def _archive_then_require_active(project, result, archive, cancelled):
+    """先给已返回的正文留档，再检查取消；取消时把归档位置附在错误里，不静默丢弃。"""
+    saved = _archive_returned_response(project, result, archive)
+    try:
+        _ensure_reply_active(cancelled)
+    except RuntimeError as exc:
+        raise type(exc)(str(exc) + _archive_note(saved)) from exc
+    return saved
 
 def _ensure_reply_active(cancelled):
     if callable(cancelled) and cancelled():
