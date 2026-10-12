@@ -127,16 +127,51 @@ def status_text(record, program):
     return '可用 · %s' % record['model']
 
 
+def probe_breakdown(result, record, program=None):
+    """把「测试连接」拆开说明：连通／协议／模型标识／能力／完整任务，另附配置版本与最近完整任务。"""
+    marks = {True: '通过', False: '异常'}
+    lines = ['%s：%s%s' % (entry['label'], marks.get(entry['ok'], '未验证'),
+                           (' · ' + entry['detail']) if entry.get('detail') else '')
+             for entry in (result.get('checks') or [])]
+    version = result.get('config_version')
+    if version:
+        lines.append('配置版本：' + version)
+    latest = model_pool.health_of(record, program=program)
+    if latest:
+        stamp = latest.get('at') or '（未记时间）'
+        tail = latest.get('error') or ('正文 %s 字' % latest.get('content_length'))
+        lines.append('最近完整任务：%s · %s · %s'
+                     % (stamp, '通过' if latest.get('ok') else '失败', tail))
+    else:
+        lines.append('最近完整任务：还没跑过（点「小样本验证」会发一次真实短请求）')
+    return '\n'.join(lines)
+
+
 def probe_line(record, pet):
-    """测一条连接：发一次最小请求，结果翻成人话。"""
-    result = model_pool.probe(record, transport_of(pet), program_of(pet))
+    """测一条连接：发一次最小请求，结果翻成人话；再分项说清这趟证明了什么、没证明什么。"""
+    program = program_of(pet)
+    result = model_pool.probe(record, transport_of(pet), program)
     name = record.get('label') or record.get('model') or '这一条'
     if result.get('ok'):
         note = result.get('usage_note') or ''
-        return '%s：连接成功，延迟 %d ms' % (name, int(result.get('ms') or 0)) + ('（' + note + '）' if note else '')
-    status = result.get('status')
-    reason = result.get('error') or '没有响应'
-    return '%s：%s%s' % (name, ('HTTP %s · ' % status) if status else '', reason)
+        head = '%s：连接成功，延迟 %d ms' % (name, int(result.get('ms') or 0))
+        head = head + ('（' + note + '）' if note else '')
+    else:
+        status = result.get('status')
+        reason = result.get('error') or '没有响应'
+        head = '%s：%s%s' % (name, ('HTTP %s · ' % status) if status else '', reason)
+    return head + '\n' + probe_breakdown(result, record, program)
+
+
+def verify_line(record, pet):
+    """小样本验证：用户点名才发一次真实短请求，跑完把「最近完整任务结果」记下来。"""
+    program = program_of(pet)
+    outcome = model_pool.verify_sample(record, transport_of(pet), program)
+    model_pool.record_health(record, outcome, program)
+    name = record.get('label') or record.get('model') or '这一条'
+    verdict = '通过' if outcome.get('ok') else '没通过'
+    tail = outcome.get('error') or ('正文 %s 字' % outcome.get('content_length'))
+    return '%s：完整任务%s · %s（配置版本 %s）' % (name, verdict, tail, outcome.get('config_version'))
 
 
 def open_settings(pet):
@@ -224,9 +259,20 @@ def settings_page(parent, pet, close=None, with_manager=True):
             hint.set('池里还没有可测的模型，先去「模型管理」加一条。')
             return []
         lines = [probe_line(records[name], pet) for name in seen]
-        hint.set('；'.join(lines))
+        hint.set('\n\n'.join(lines))
         refresh()
         return lines
+
+    def probe_sample():
+        """小样本验证：只在「默认模型」这一条上发一次真实短请求，跑完记下最近完整任务。"""
+        model_id = model_of('default')
+        if model_id == model_pool.AUTO or model_id not in records:
+            hint.set('先在「默认模型」里选一条具体模型，再点「小样本验证」。')
+            return None
+        line = verify_line(records[model_id], pet)
+        hint.set(line)
+        refresh()
+        return line
 
     def save():
         chosen = {key: model_of(key) for key, _label, _note in model_pool.TASK_FIELDS}
@@ -249,12 +295,15 @@ def settings_page(parent, pet, close=None, with_manager=True):
     bar = ttk.Frame(body)
     bar.grid(row=row, column=0, columnspan=3, sticky='ew', pady=(SPACING['md'], 0))
     SecondaryButton(bar, text='测试连接', command=probe_all).pack(side='left')
+    SecondaryButton(bar, text='小样本验证',
+                    command=probe_sample).pack(side='left', padx=(SPACING['sm'], 0))
     SecondaryButton(bar, text='重置', command=reset).pack(side='right', padx=(0, SPACING['sm']))
     PrimaryButton(bar, text='保存', command=save).pack(side='right', padx=(0, SPACING['sm']))
     if close is not None:
         SecondaryButton(bar, text='关闭', command=close).pack(side='right')
     return {'hint': hint, 'refresh': refresh, 'picked': picked, 'states': states, 'records': records,
-            'choice_groups': choices, 'probe_all': probe_all, 'save': save, 'reset': reset,
+            'choice_groups': choices, 'probe_all': probe_all, 'probe_sample': probe_sample,
+            'save': save, 'reset': reset,
             'manager': manager_button}
 
 
