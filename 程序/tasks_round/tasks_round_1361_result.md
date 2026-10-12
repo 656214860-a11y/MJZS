@@ -46,4 +46,6 @@
 - 环境项（非本轮改动）：主树 程序/配置/宠物/配置.json 是未跟踪的本地用户配置，把 claude-desktop 标签覆盖成「Claude Desktop」，使 test_workflow／test_model_pool 的桌面模型用例在主树红；干净工作树绿。
 
 ## 全量（收口补记）
-- 待跑：干净 master 工作树 o07-fullsafe-master 上 run_selftests.py --all --safe。
+- 第 1 次：干净 master 工作树 o07-fullsafe-master（HEAD f95c889，工作树干净）run_selftests.py --all --safe，ALL TESTS PASSED、0 红，404.452 秒；绿凭据写入 .git/full-safe-receipts.json（round=1361、tree=3e20f7c4b6a743ce8718878c15163c8cb1a8afec、last_full_safe_all_round=1361）。
+- 用例数：上轮绿全量 1356 为 4749 条；本轮仅新增 tests/test_context_budget_model.py 14 条、未改动既有用例数，全量共 4763 条（收口运行仅保留末段输出，此处按「上轮基线＋本轮新增」列示）。
+- 与已知抖动项区分：本轮未出现 test_desktop_startup_perf／test_perf_baseline 阈值失败，无需定向复测。
