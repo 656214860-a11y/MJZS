@@ -81,6 +81,22 @@ class CardBoundaryTests(unittest.TestCase):
                      and isinstance(node.func, ast.Name) and node.func.id == "Card"]
             self.assertTrue(calls, f"{filename} 的配置承载区必须使用统一 Card")
 
+    def test_keyframe_comfy_windows_use_card(self):
+        """首帧 ComfyUI 窗的两个配置单元（生成模型与接口、ComfyUI 连接与模型接口）统一用 Card。"""
+        tree = parse(ROOT / "keyframe_comfy.py")
+        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+                        and node.name == "show")
+        calls = [node for node in ast.walk(function) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name) and node.func.id == "Card"]
+        self.assertGreaterEqual(len(calls), 2, "首帧 ComfyUI 窗的配置单元必须使用统一 Card")
+
+    def test_desktop_pages_use_card_for_content_groups(self):
+        """桌面页的分类导航、连续性与视频主页信息承载区统一用 Card（标题行改为卡内标签）。"""
+        tree = parse(ROOT / "desktop.py")
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name) and node.func.id == "Card"]
+        self.assertGreaterEqual(len(calls), 6, "桌面页的信息块必须使用统一 Card")
+
     def _assert_settings_card(self, filename, function_name="show"):
         tree = parse(ROOT / filename)
         imported = {

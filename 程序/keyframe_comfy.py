@@ -16,7 +16,7 @@ from keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
                                        SEEDREAM_KEYFRAME_MODEL,
                                        KEYFRAME_MODELS)
-from ui_widgets import (SelectBox, BaseDialog, DataTable, LineInput, PrimaryButton, SecondaryButton,
+from ui_widgets import (SelectBox, BaseDialog, Card, DataTable, LineInput, PrimaryButton, SecondaryButton,
                         TextArea, ask_confirmation, notify)
 
 CONFIG_FILE = Path(__file__).with_name('batch_frames_tool') / 'config.json'
@@ -386,33 +386,34 @@ def show(app, source, initial=None):
     closed = [False]
     poll_id = None
     agent_stamp = [0]
-    model_box = ttk.LabelFrame(form, text='生成模型与接口', padding=8)
+    model_box = Card(form)
     model_box.pack(fill='x', padx=14, pady=6)
     model_box.columnconfigure(1, weight=1)
+    ttk.Label(model_box, text='生成模型与接口').grid(row=0, column=0, columnspan=6, sticky='w')
     # 第 46 期第 7 条：这一格原来是一个「模型」下拉框（本地 ComfyUI／Seedream／首帧 Agent 引擎
     # 三条模型都摆在这儿，与阶段配置的模型下拉重复）。现在只剩只读的一行——挑模型的地方只有
     # 阶段配置那一处，右边留一颗「阶段配置」就地打开它（与页面上那颗按钮同一个面板）。
-    ttk.Label(model_box, text='模型').grid(row=0, column=0, sticky='w', padx=(0, 6))
+    ttk.Label(model_box, text='模型').grid(row=1, column=0, sticky='w', padx=(0, 6))
     selector = ttk.Label(model_box, textvariable=model, anchor='w')
-    selector.grid(row=0, column=1, sticky='w')
-    ttk.Label(model_box, text='画幅').grid(row=0, column=2, padx=(12, 4))
+    selector.grid(row=1, column=1, sticky='w')
+    ttk.Label(model_box, text='画幅').grid(row=1, column=2, padx=(12, 4))
     shape = SelectBox(model_box, textvariable=aspect, values=list(ASPECTS), state='disabled', width=8)
-    shape.grid(row=0, column=3, padx=4)
-    ttk.Label(model_box, text='批次意图').grid(row=0, column=4, padx=(12, 4))
+    shape.grid(row=1, column=3, padx=4)
+    ttk.Label(model_box, text='批次意图').grid(row=1, column=4, padx=(12, 4))
     mode_box = SelectBox(model_box, textvariable=mode_var,
                          values=[MODE_LABELS[key] for key in (MODE_MISSING, MODE_RETRY)],
                          state='readonly', width=10)
-    mode_box.grid(row=0, column=5, padx=4)
+    mode_box.grid(row=1, column=5, padx=4)
     mode_box.bind('<<ComboboxSelected>>', lambda event: refresh())
     hint = tk.StringVar()
-    ttk.Label(model_box, textvariable=hint, wraplength=800, justify='left').grid(row=1, column=0, columnspan=4, sticky='w', pady=8)
+    ttk.Label(model_box, textvariable=hint, wraplength=800, justify='left').grid(row=2, column=0, columnspan=4, sticky='w', pady=8)
     account = SecondaryButton(model_box, text='火山 API 设置')
-    account.grid(row=2, column=0, sticky='w')
+    account.grid(row=3, column=0, sticky='w')
     skill_button = SecondaryButton(model_box, text='Skill 调用设置')
-    skill_button.grid(row=2, column=1, sticky='w')
+    skill_button.grid(row=3, column=1, sticky='w')
     stage_button = SecondaryButton(model_box, text='阶段配置',
                               command=lambda: app.safe(open_stage_config))
-    stage_button.grid(row=2, column=2, sticky='w', padx=6)
+    stage_button.grid(row=3, column=2, sticky='w', padx=6)
 
     def build_choices():
         """把「阶段配置 → 模型」里挑的那一档翻成 (种类, 引擎)：本地 ComfyUI／Seedream／首帧 Agent。
@@ -446,20 +447,21 @@ def show(app, source, initial=None):
 
     def engine_of():
         return choices.get(model.get(), (None, None))[1]
-    local_box = ttk.LabelFrame(form, text='ComfyUI 连接与模型接口', padding=8)
+    local_box = Card(form)
     local_box.columnconfigure(1, weight=1)
-    ttk.Label(local_box, text='图片格式').grid(row=0, column=0, sticky='w', padx=4, pady=2)
-    SelectBox(local_box, textvariable=ratio, values=list(FORMATS)).grid(row=0, column=1, sticky='w', padx=4)
+    ttk.Label(local_box, text='ComfyUI 连接与模型接口').grid(row=0, column=0, columnspan=2, sticky='w')
+    ttk.Label(local_box, text='图片格式').grid(row=1, column=0, sticky='w', padx=4, pady=2)
+    SelectBox(local_box, textvariable=ratio, values=list(FORMATS)).grid(row=1, column=1, sticky='w', padx=4)
     fields = {}
     for index, (key, label, variable) in enumerate(
             [('url', '本机地址', url), ('model', '图像模型', model_name), ('text_encoder', '文本编码器', encoder), ('vae', 'VAE', vae)], start=1):
-        ttk.Label(local_box, text=label).grid(row=index, column=0, sticky='w', padx=4, pady=2)
+        ttk.Label(local_box, text=label).grid(row=index + 1, column=0, sticky='w', padx=4, pady=2)
         field = LineInput(local_box, textvariable=variable) if key == 'url' else SelectBox(local_box, textvariable=variable, state='normal')
-        field.grid(row=index, column=1, sticky='ew', padx=4)
+        field.grid(row=index + 1, column=1, sticky='ew', padx=4)
         fields[key] = field
-    PrimaryButton(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=1, column=2, padx=6)
-    SecondaryButton(local_box, text='启动并检测', command=lambda: app.safe(detect)).grid(row=2, column=2, padx=6)
-    SecondaryButton(local_box, text='删除模型', command=lambda: app.safe(delete_model)).grid(row=3, column=2, padx=6)
+    PrimaryButton(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=2, column=2, padx=6)
+    SecondaryButton(local_box, text='启动并检测', command=lambda: app.safe(detect)).grid(row=3, column=2, padx=6)
+    SecondaryButton(local_box, text='删除模型', command=lambda: app.safe(delete_model)).grid(row=4, column=2, padx=6)
     log = TextArea(form, height=7, wrap='word', state='disabled', bg='#ffffff', fg='#243247', font=('Microsoft YaHei UI', 10), padx=10, pady=8)
     log.pack(fill='both', expand=True, padx=14, pady=6)
 

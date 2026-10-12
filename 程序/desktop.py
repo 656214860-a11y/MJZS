@@ -30,7 +30,7 @@ from idea_chat_controller import IdeaChatController, bubble_timestamp, collapse_
 from ui_tokens import COLORS, FONTS, SPACING, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
-from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMenu, DataTable, NotificationDispatcher,
+from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
@@ -4408,8 +4408,9 @@ class Desktop:
                 ('LobeHub','https://lobehub.com/','AI助手与Agent工作空间，组织对话和工作流。'),
                 ('SkillsMP','https://skillsmp.com/zh','搜索Agent技能，查看技能说明与源代码入口。')])]
         for category,sites in groups:
-            group=ttk.LabelFrame(self.content,text=category,padding=8)
+            group=Card(self.content,padding=8)
             group.pack(fill='x',pady=5)
+            ttk.Label(group,text=category).grid(row=0,column=0,columnspan=2,sticky='w')
             cards=[]
             for name,url,description in sites:
                 card=ttk.Frame(group,padding=(4,3))
@@ -4428,11 +4429,11 @@ class Desktop:
                 box.site_layout=layout
                 for col in range(2):box.columnconfigure(col,weight=1 if col<columns else 0,uniform='sites' if col<columns else '',minsize=0)
                 for index,(card,link,detail) in enumerate(items):
-                    card.grid(row=index//columns,column=index%columns,sticky='nsew',padx=(0,8) if columns==2 and index%2==0 else 0,pady=4)
+                    card.grid(row=index//columns+1,column=index%columns,sticky='nsew',padx=(0,8) if columns==2 and index%2==0 else 0,pady=4)
                     link.configure(wraplength=available);detail.configure(wraplength=available)
             group.bind('<Configure>',arrange)
             # Mount cards before the first layout event; width is then set by the page.
-            for index,(card,_,_) in enumerate(cards):card.grid(row=index//2,column=index%2,sticky='nsew')
+            for index,(card,_,_) in enumerate(cards):card.grid(row=index//2+1,column=index%2,sticky='nsew')
     def writing(self):
         from script_workspace_service import ensure_script_workspace
         result=ensure_script_workspace(self.root)
@@ -5633,8 +5634,9 @@ class Desktop:
             620／700 像素，界面一窄就被挤没、界面一宽又留一大片白。detail 写某一列时，
             点这一列的格子弹一扇只读窗把整段字显示全（表格格子放不下长说明）。
             """
-            frame=ttk.LabelFrame(self.content,text=title,padding=4)
+            frame=Card(self.content,padding=4)
             frame.pack(fill='both',expand=True,pady=(4,0))
+            ttk.Label(frame,text=title).pack(anchor='w')
             table=DataTable(frame,columns=columns,show='headings',height=height,
                             selectmode='browse',empty_text='暂无'+title)
             tree=table.tree
@@ -5692,7 +5694,8 @@ class Desktop:
                        row.get('evidence') or row.get('detail') or '')
                       for row in issue_rows],min(8,max(2,len(issue_rows))),detail='evidence')
         problems=list(summary.get('problems') or [])
-        foot=ttk.LabelFrame(self.content,text='待办与裁决',padding=4);foot.pack(fill='x',pady=(4,0))
+        foot=Card(self.content,padding=4);foot.pack(fill='x',pady=(4,0))
+        ttk.Label(foot,text='待办与裁决').pack(anchor='w')
         if problems:
             for text in problems[:8]:ttk.Label(foot,text='· '+text,wraplength=760,justify='left').pack(anchor='w')
         else:
@@ -7019,11 +7022,13 @@ class Desktop:
         lead.pack(anchor='w',pady=(2,8))
         # 折行交给 _fit_content_now：它按内容框的实际宽度重排所有带 wraplength 的标签。
         # 自己再绑一个 <Configure> 会和它打架——标签按被压窄后的宽度折行，越折越窄。
-        facts=ttk.LabelFrame(self.content,text='开工前先确认',padding=14);facts.pack(fill='x',pady=(0,10))
+        facts=Card(self.content,padding=14);facts.pack(fill='x',pady=(0,10))
+        ttk.Label(facts,text='开工前先确认').grid(row=0,column=0,columnspan=2,sticky='w')
         for row,(label,value) in enumerate(confirm_rows(self)):
-            ttk.Label(facts,text=label,width=10).grid(row=row,column=0,sticky='nw',pady=3)
-            ttk.Label(facts,text=value,wraplength=640,justify='left',style='Muted.TLabel').grid(row=row,column=1,sticky='w',pady=3)
-        local=ttk.LabelFrame(self.content,text='本地生成',padding=16);local.pack(fill='x',pady=(0,10))
+            ttk.Label(facts,text=label,width=10).grid(row=row+1,column=0,sticky='nw',pady=3)
+            ttk.Label(facts,text=value,wraplength=640,justify='left',style='Muted.TLabel').grid(row=row+1,column=1,sticky='w',pady=3)
+        local=Card(self.content,padding=16);local.pack(fill='x',pady=(0,10))
+        ttk.Label(local,text='本地生成').pack(anchor='w')
         ttk.Label(local,text='用本机 ComfyUI 与已安装的视频模型出片，不花云端额度；缺视频的镜头可以交给无人值守自动补。',
                   wraplength=650,justify='left',style='Muted.TLabel').pack(anchor='w')
         self.pet.auto_variable('auto_video_var')
@@ -7036,7 +7041,8 @@ class Desktop:
         ttk.Label(local,textvariable=state,style='Muted.TLabel').pack(anchor='w',pady=(4,0))
         PrimaryButton(local,text='进入本地生成',
                    command=lambda:self.safe(lambda:self.show(PAGE['video'],video_mode='local'))).pack(anchor='w',pady=(12,0))
-        cloud=ttk.LabelFrame(self.content,text='线上生成',padding=16);cloud.pack(fill='x')
+        cloud=Card(self.content,padding=16);cloud.pack(fill='x')
+        ttk.Label(cloud,text='线上生成').pack(anchor='w')
         ttk.Label(cloud,text='用万相 / Seedance API 出片，按秒计费；读取已采用分镜的镜头与首帧，提交前会先问一次。',
                   wraplength=650,justify='left',style='Muted.TLabel').pack(anchor='w')
         entry=FlowBar(cloud);entry.pack(fill='x',pady=(12,0))

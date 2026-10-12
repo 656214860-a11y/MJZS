@@ -951,7 +951,7 @@ class VideoHomePageTests(unittest.TestCase):
             labels = widget_texts(d.content, ttk.Label)
             self.assertNotIn("选择分镜", labels)
             self.assertFalse([text for text in labels if "然后按步骤" in text])
-            self.assertIn("开工前先确认", widget_texts(d.content, ttk.LabelFrame))
+            self.assertIn("开工前先确认", widget_texts(d.content, ttk.Label))
             self.assertTrue([text for text in labels if "尚未采用分镜" in text])
             entries = [b for b in widget_list(d.content, ttk.Button)
                        if str(b.cget("text")) in ("进入本地生成", "进入线上生成")]
