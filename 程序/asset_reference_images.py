@@ -15,6 +15,7 @@ from cell_hover import CellHover,CellImages,ZOOM_SIZE
 from responsive_ui import row_height_for
 from ui_widgets import (SelectBox, BaseDialog, DataTable, DescriptionBlock, PrimaryButton,
                         ProgressLabel, SecondaryButton, TextArea)
+from ui_tokens import SPACING
 
 REF_THUMB=asset_thumbs.DEFAULT_SIZE          # 缩略图长边：与资产页那一列同尺寸
 # 第 58 期第 2 条：行高按格子里最高的那点内容算（这一张就是缩略图）——
@@ -379,8 +380,8 @@ def show(app,aid):
     asset=read(file)[aid]
 
     win=BaseDialog(app.win,'',modal=False,chrome=False);win.withdraw();win.title('参考图 + 提示词 · '+aid+' '+asset.get('name',aid));win.geometry('800x500');win.transient(app.win)
-    DescriptionBlock(win,text='参考图可选，可添加多张并指定用途；不添加时仅按提示词生成。支持 PNG／JPG／WebP。',wraplength=750).pack(anchor='w',padx=12,pady=10)
-    rolebar=FlowBar(win);rolebar.pack(fill='x',padx=12,pady=4)
+    DescriptionBlock(win,text='参考图可选，可添加多张并指定用途；不添加时仅按提示词生成。支持 PNG／JPG／WebP。',wraplength=750).pack(anchor='w',padx=SPACING['md'],pady=10)
+    rolebar=FlowBar(win);rolebar.pack(fill='x',padx=SPACING['md'],pady=SPACING['xs'])
     ttk.Label(rolebar,text='参考用途').pack(side='left')
     choices=ROLE_GROUPS[aid.split('_')[0]]
     rolevar=tk.StringVar(value=choices[0])
@@ -393,17 +394,17 @@ def show(app,aid):
     ttk.Label(rolebar,text='显示分类').pack(side='left',padx=(12,0))
     filtervar=tk.StringVar(value='全部')
     filterbox=SelectBox(rolebar,textvariable=filtervar,values=('全部',*choices,'待分类'))
-    filterbox.pack(side='left',padx=4)
+    filterbox.pack(side='left',padx=SPACING['xs'])
     table_shell=DataTable(win,columns=[('file','已绑定参考图',600),('role','参考用途',110)],
                           show='headings',selectmode='extended',height=5,
                           empty_text='暂无已绑定参考图')
     table=table_shell.tree
     table.heading('role',text='参考用途');table.column('role',width=110,stretch=False)
-    table.heading('file',text='已绑定参考图');table.column('file',width=600);table_shell.pack(fill='x',padx=12)
+    table.heading('file',text='已绑定参考图');table.column('file',width=600);table_shell.pack(fill='x',padx=SPACING['md'])
     auto_columns(table)
-    status=tk.StringVar();ProgressLabel(win,textvariable=status).pack(anchor='w',padx=12,pady=5)
+    status=tk.StringVar();ProgressLabel(win,textvariable=status).pack(anchor='w',padx=SPACING['md'],pady=5)
 
-    prompt=TextArea(win,height=9,wrap='word');prompt.insert('1.0',display_prompt(asset));prompt.configure(state='disabled');prompt.pack(fill='both',expand=True,padx=12)
+    prompt=TextArea(win,height=9,wrap='word');prompt.insert('1.0',display_prompt(asset));prompt.configure(state='disabled');prompt.pack(fill='both',expand=True,padx=SPACING['md'])
 
     def guard():
 
@@ -455,7 +456,7 @@ def show(app,aid):
 
         guard();unbind(base,aid,selected_values());changed()
 
-    buttons=FlowBar(win);buttons.pack(fill='x',padx=12,pady=10)
+    buttons=FlowBar(win);buttons.pack(fill='x',padx=SPACING['md'],pady=10)
 
     for label,fn,button_type in [('添加参考图',add,PrimaryButton),('查看参考图',preview,SecondaryButton),('移除绑定',remove,SecondaryButton),('打开待导入目录',lambda:open_path(inbox(base,CATEGORIES[aid.split('_')[0]])),SecondaryButton)]:
         button_type(buttons,text=label,command=lambda f=fn:app.safe(f)).pack(side='left')
@@ -481,8 +482,8 @@ def view_references(app, aid):
     asset=read(file)[aid];category=CATEGORIES.get(aid.split('_')[0],'未知')
     roles=ROLE_GROUPS.get(aid.split('_')[0],())
     win=BaseDialog(app.win,'',modal=False,chrome=False);win.withdraw();win.title(f'参考图 · {aid} {asset.get("name",aid)}');win.geometry('760x480');win.minsize(560,380);win.transient(app.win)
-    ttk.Label(win,text=f'编号：{aid}　类别：{category}　名称：{asset.get("name",aid)}',font=('Microsoft YaHei UI',11,'bold')).pack(anchor='w',padx=12,pady=(12,6))
-    bar=FlowBar(win);bar.pack(fill='x',padx=12,pady=(0,4))
+    ttk.Label(win,text=f'编号：{aid}　类别：{category}　名称：{asset.get("name",aid)}',font=('Microsoft YaHei UI',11,'bold')).pack(anchor='w',padx=SPACING['md'],pady=(12,6))
+    bar=FlowBar(win);bar.pack(fill='x',padx=SPACING['md'],pady=(0,4))
     ttk.Label(bar,text='显示分类').pack(side='left')
     filtervar=tk.StringVar(value='全部')
     filterbox=SelectBox(bar,textvariable=filtervar,values=('全部',*roles,'待分类'))
@@ -571,9 +572,9 @@ def view_references(app, aid):
         button_type(buttons,text=label,command=lambda f=fn:app.safe(f)).pack(side='left',padx=(0,4))
     # 按钮与状态行先落位（bottom），内容框最后 pack 去吃掉剩下的空间：窗口再矮也是内容框
     # 先让步，不会是这三个按钮消失。
-    buttons.pack(side='bottom',fill='x',padx=12,pady=(0,10))
-    status_label.pack(side='bottom',anchor='w',padx=12,pady=6)
-    table_shell.pack(fill='both',expand=True,padx=12)
+    buttons.pack(side='bottom',fill='x',padx=SPACING['md'],pady=(0,10))
+    status_label.pack(side='bottom',anchor='w',padx=SPACING['md'],pady=6)
+    table_shell.pack(fill='both',expand=True,padx=SPACING['md'])
     filterbox.bind('<<ComboboxSelected>>',lambda event:refresh())
     table.bind('<Double-1>',lambda e:app.safe(preview))
     win.update_idletasks()
