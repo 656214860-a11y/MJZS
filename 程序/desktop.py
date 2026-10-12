@@ -27,7 +27,7 @@ from platform_tools import find_editor_shortcut, launch_windows_app, open_direct
 from desktop_startup_service import DesktopStartupController
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler
 from idea_chat_controller import IdeaChatController, bubble_timestamp, collapse_preview, speaker_name
-from ui_tokens import COLORS, FONTS, SPACING, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING
+from ui_tokens import COLORS, FONTS, SPACING, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
 from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
@@ -4746,6 +4746,8 @@ class Desktop:
         self.script_tree=script_trees['script']
         script_tree=script_trees['setting']
         from responsive_ui import display_lines,font_linespace,row_height_of,GROWABLE_FLOOR
+        # 状态标记放在文件名前面：列窄时被截掉的是文件名尾巴，不是[已确认]/[待确认]。
+        ttk.Style(script_tree).configure('Script.Treeview',font=SCRIPT_FILE_FONT)
         fit_row_height(script_tree, style='Script.Treeview')
         # 第 71 期任务 5：这一页「除了创意框」固定要占的高度，建页面时量一次就定下来——
         # 每拍现算的话，创意框自己改行数会牵动下面文件框的行数，两边互相追着改，界面一直抖。
@@ -4895,7 +4897,7 @@ class Desktop:
                     label=file_labels.get(str(Path(row.item_id).resolve()),file_labels.get(row.category,''))
                     script_trees[row.category].insert('', 'end', iid=row.item_id, text='',
                         image=self.win._tick_images[int(row.item_id in checked_scripts)],
-                        values=(row.name+(' ['+label+']' if label else ''),))
+                        values=(('['+label+'] ' if label else '')+row.name,))
                 if finished:
                     finish();return
                 keep_script_headers_visible()
