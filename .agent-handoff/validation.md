@@ -1,3 +1,9 @@
+## 2026-10-13 接力收尾 — 更新项目阻塞项与待办任务清单（R1395 已收口）
+
+- 类型：接力收尾（纯文档），不改生产代码／测试／台账／路线图。
+- 内容：`程序/project_status.md`「已知阻塞与待办」将 R1393「【待裁定·R1393 → 拟 R1394】agent 包进程／网络真候选」收口为「【已收口·R1394／R1395】agent 包进程原语与出站 HTTP 真候选」（进程 2 处→`platform_tools.run_process`、出站 2 处→`platform_tools.open_https`；覆盖率审计21／26 清零、判据第 21／26 项真候选 0）；状态表覆盖率审计棘轮行补 R1394／R1395 收口结论。`.agent-handoff/backlog.md`／`snapshot.md` 已由前两轮接力收尾更新至 R1395，无需再改。
+- 校验：`tests.architecture.test_round_baselines`（被断言文件，含 `project_status.md` 轮次头＝最新结果轮次+1）＋默认冒烟 `smoke_test.py`；纯文档无行为变更，不跑全量／架构全表。最近绿全量 R1395 `tree=886cfd07…`（4983/4983）。
+
 ## 2026-10-13 R1395 出站 HTTP 收口到 platform_tools.open_https（修复轮 §3.2）
 
 - 类型：修复轮（§3.2），新增 platform_tools 出站 HTTP 入口 + 改 2 处 agent/core 调用 + 台账／判据同步。

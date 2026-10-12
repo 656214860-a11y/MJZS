@@ -1236,10 +1236,12 @@ UI 统一入口已存在且有多批历史迁移。R1031 的 4 处 tk.Button 候
 - 新暴露真候选（pending 待裁定）：`agent/core.py:173`／`agent/prompt_optimizer.py:172`（进程）、`agent/core.py:189/208`（网络）。
 - 验证：定向 7/7、默认冒烟 8/8、架构 341/341；1393−1390=3<5 且未命中 §5 升级条件，不跑全量。见 [R1393](tasks_round/tasks_round_1393_result.md)。
 
-### 【待裁定·R1393 → 拟 R1394】agent 包进程／网络真候选
+### 【已收口·R1394／R1395】agent 包进程原语与出站 HTTP 真候选
 
-- 4 条 pending：`agent/core.py:173`（`command()` 直接 subprocess）、`agent/prompt_optimizer.py:172`（MCP 桥直接 subprocess）、`agent/core.py:189/208`（`request()`／`download()` 直接 urllib）。
-- 拟定收口（拟 R1394）：按项目惯例「页面／业务层 OS 进程调用收口到 `platform_tools`」，把 2 处 subprocess 经 `platform_tools.run_process` 收口（惰性 import；`platform_tools` 不 import `agent`，无环；`run_process` 会 `str(cwd)` 并 setdefault `creationflags=hidden_console_flags()`，异常类型不变）；2 处 HTTPS 传输待裁定是否认定 agent 包为权威适配器或须收口。台账 `覆盖率审计21` 对应 pending 2→0。
+- 范围＝R1393 新暴露的 4 条 pending：`agent/core.py:173`、`agent/prompt_optimizer.py:172`（subprocess）；`agent/core.py:189/208`（urllib）。
+- R1394 已收口 2 处 subprocess：`agent/core.py` `command()` 改经 `platform_tools.run_process`（惰性 import、移除模块级 `import subprocess`）；`agent/prompt_optimizer.py` MCP 桥子进程同改（模块级 import，保留 `subprocess` 供 `TimeoutExpired`／`SubprocessError`）。行为与异常类型不变；台账 `覆盖率审计21` 两条 pending→migrated、count 2→0，`第四项` `json.loads` 行号平移（core 13→12、prompt_optimizer 174→175）；判据第 21 项真候选 2→0。
+- R1395 已收口 2 处 HTTPS：`platform_tools` 新增唯一出站 HTTP 入口 `open_https(url,*,timeout=60,data=None,headers=None)`，`agent/core.py` `request()`／`download()` 改经它（错误分类、密钥脱敏、HTTPS 强制、`geturl()` 重定向校验、1GB 上限、原子发布不变）。裁定：两处均为应用自身资产 I/O（参考图／云端视频下载）非模型路由，且 `download()` 依赖 `agent.core` 原子发布权威不能外移 → 只把出站调用收口到宿主适配层。台账 `覆盖率审计26` 两条 pending→migrated、count 2→0；判据第 26 项真候选 2→0。
+- 结果：**覆盖率审计 21／26 真候选全部清零**，双向棘轮相等（再现裸 `subprocess.run`／`urllib.request.urlopen` 会被立即拦下）；占位类型 20／24／25 无真候选。见 [R1394](tasks_round/tasks_round_1394_result.md)／[R1395](tasks_round/tasks_round_1395_result.md)。
 - 另：secret sink（覆盖率审计 27）仍为根目录口径，是否同批递归化待评估。
 
 ### 项目优化清单（R1058 事实校正）
@@ -1252,7 +1254,7 @@ UI 统一入口已存在且有多批历史迁移。R1031 的 4 处 tk.Button 候
 | 已完成本次审计/核验 | 依赖与历史名称、后台生命周期、文档事实、C4 | R1027–R1032 证据保留；不等于全页面 UI 或全部技术债清零，不重复迁移已采用服务。 |
 | 隔离场景已验收；真实环境边界保留 | 启动、同日续开、项目改名认领、幽灵条目 | [R1043](tasks_round/tasks_round_1043_result.md) 验证空项目取消恢复，[R1044](tasks_round/tasks_round_1044_result.md) 验证同日续开，[R1048](tasks_round/tasks_round_1048_result.md) 验证改名认领；[R1050](tasks_round/tasks_round_1050_result.md) 以隐藏 Tk／服务集成验证幽灵登记同步，不是新增实机视觉验收。真实项目、旧运行实例和三虎重启阅读体验未据此关闭。 |
 | 已完成 / 不重复立项 | 4 处 tk.Button 统一入口 | [R1040](tasks_round/tasks_round_1040_result.md) 完成图标适配，[R1041](tasks_round/tasks_round_1041_result.md) 完成 3 模块 4 处迁移及别名门禁；原行号仅为 R1035 历史定位，不再作为当前待迁移清单。 |
-| 已完成 / 已入门禁 | 覆盖率审计棘轮递归化（产品运行时子包） | [R1393](tasks_round/tasks_round_1393_result.md) 把 `test_coverage_audit_ratchet` 扫描范围由根目录改产品运行时口径（239 模块），覆盖率审计21／26 各 +2 pending；新暴露 4 条 agent 真候选（进程／网络，待裁定）。 |
+| 已完成 / 已入门禁 | 覆盖率审计棘轮递归化（产品运行时子包） | [R1393](tasks_round/tasks_round_1393_result.md) 把 `test_coverage_audit_ratchet` 扫描范围由根目录改产品运行时口径（239 模块），覆盖率审计21／26 各 +2 pending；[R1394](tasks_round/tasks_round_1394_result.md)／[R1395](tasks_round/tasks_round_1395_result.md) 已把新暴露的 4 条 agent 真候选全部收口（进程→`platform_tools.run_process`、出站→`platform_tools.open_https`），覆盖率审计21／26 各清零。 |
 | P2 / 部分完成，余项待分类 | 文字层级、Card/token、焦点与忙碌反馈 | [R1051](tasks_round/tasks_round_1051_result.md) 完成资产详情 5 处普通说明；[R1052](tasks_round/tasks_round_1052_result.md) 仅完成 Busy／焦点覆盖矩阵，不代表缺口已修。标题、状态色、窄格文字及后续交互修复仍需独立范围，不批量机械替换。 |
 | P2 / 持续守护 | 性能、服务契约与上下文覆盖 | 保留现行棘轮和同条件性能验证；新增实际服务再纳入，不因历史名称重复造模块或迁移。 |
 | 条件阻塞 | 白模视频真实上传验收 | 等待用户指定镜头和授权发送素材；不自行上传。 |
