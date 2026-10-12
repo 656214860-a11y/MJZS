@@ -10,7 +10,7 @@
 - O42 契约变化：`CONTRACT`／`event`／`identify`／`emit_safe` 不变；`touched`／`dropped` 语义不变（`test_pet_bus` 既有 18 条照旧通过）；默认参数、水位以下、非重复场景的入队与分发逐字不变；未新增顶层模块／裸 `json.loads`／L2 直写／`skipTest`，未改 `维护记录/架构统一基数.json` 与 `TODO注释快照_20261003.json`（`pet_bus.py` 无冻结关键词注释，新增行不引起行号漂移）。
 - O42 验证证据：新增 `tests/test_pet_bus_backpressure.py` 15/15；定向 `-k pet_bus pet_agent pet_state stage_flow skill_orchestrator` 186/186；主消费者 `-k test_pet_ui test_pet_cloud` 606/606；架构 `--layer architecture --all` 312/312；默认冒烟 `smoke_test.py` 8/8；0 红。
 - O42 测量（合成风暴）：重复上报 200000 条 → `qsize()==1`、0.50 µs/条；不同事件 50000 条 `publish` 11.45 µs/条、`pump` 2.95 µs/条（每拍 200 条约 0.6 ms）；订阅者异常 20000 次 → `len(errors)==64`、`errors_total==20000`。结论：能撑大内存的两条路径（重复上报、异常累积）已受控且可测；不同事件队列规模由生产者事件数决定，未观测到线上泄漏，故不做有损丢弃。
-- O42 全量：1369−1368=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量结果待收尾补记。
+- O42 全量：1369−1368=1<5 无五轮欠账且未命中 §5，收口在干净 master 谱系工作树 `o42-fullsafe-master` 跑一次 `--all --safe`：第 1 次 4887/4887、0 红、547.7 秒，凭据 `round=1369`、`tree=0ed4726b…`（＝报告提交 `8a28e9a:程序`）、`last_full_safe_all_round=1369`；阈值类用例本轮均绿。
 
 ## 2026-10-12：O40 完成（历史）
 

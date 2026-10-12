@@ -58,9 +58,9 @@
 ## 全量判定
 - 1369 − last_full_safe_all_round(1368) = 1 < 5，无五轮欠账；改动未命中 §5（无启动路径／Tk 控件生命周期／删除语义／层级登记表；`pet_bus.py` 是纯标准库 L0，未碰 Tk）。
 - 复用检查：`.git/full-safe-receipts.json` 最近绿凭据为 round=1368、tree=dd48d82b…（2026-10-12，7 日内），但本轮改了 `pet_bus.py` 并新增测试，`HEAD:程序` 内容树不同，不能复用。
-- 全量结果：待收尾补记。
+- 全量结果：在干净 master 谱系工作树 `o42-fullsafe-master`（`git worktree add --detach 8a28e9a`，已预置 4 个嵌套仓库与 3 个被忽略运行文件、`git status` 干净；再把 HEAD 指向 `refs/heads/master` 使 `is_master_checkout()` 为真）跑 `--all --safe`：4887/4887、0 红、547.7 秒，并写凭据 `round=1369`、`tree=0ed4726bfd98c4835d61833a16ea7eabb81ecdb1`（＝报告提交 `8a28e9a:程序`，与当前 `HEAD:程序` 一致）、`at=2026-10-12T16:39:10`、`last_full_safe_all_round=1369`。4887 − 4872 = 15 即本轮新增用例数；`test_desktop_startup_perf`／`test_perf_baseline` 本轮均绿、无阈值抖动；未出现二次全量。
 
 ## 提交
 - 本轮改动：`程序/pet_bus.py`、`程序/tests/test_pet_bus_backpressure.py`（新）、`程序/tasks_round/tasks_round_1369_result.md`（新）、`程序/project_status.md`、`.agent-handoff/{snapshot,work-log,validation,backlog,risks}.md`。
-- 内容提交：待收尾补记（只含 `程序/pet_bus.py` 与 `程序/tests/test_pet_bus_backpressure.py`；未含主树他人已暂存的 `程序/idea_chat.py`／`程序/idea_attachments.py`／`程序/配置/SKILL/预设.json`）。
-- 提交状态：待收尾补记。
+- 内容提交 `c3ae62f`（只含 `程序/pet_bus.py` 与 `程序/tests/test_pet_bus_backpressure.py`；未含主树他人已暂存的 `程序/idea_chat.py`／`程序/idea_attachments.py`／`程序/配置/SKILL/预设.json`）。
+- 提交状态：内容提交 `c3ae62f`（`程序/pet_bus.py`、`程序/tests/test_pet_bus_backpressure.py`）；报告与接力提交 `8a28e9a`（`tasks_round_1369_result.md`、`project_status.md`、`.agent-handoff/{snapshot,work-log,validation,backlog,risks}.md`）；收尾提交记入全量结果与提交号（沿用同一轮次 R1369，中央 `last_claimed` 仍为 1369）。
