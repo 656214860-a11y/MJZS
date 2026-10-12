@@ -273,6 +273,12 @@ def restart_writing_preparation(project, stage):
     """显式重写入口复用阶段发布器，不由桌面直接写确认台账。"""
     from writing_api import restart_preparation
     return restart_preparation(project, stage, publish=publish_stage_text)
+def confirm_writing_preparation(project, stage, path):
+    """显式把当前文件登记为该阶段确认输出的编排入口，复用统一阶段发布器。"""
+    from writing_api import confirm_preparation_document
+    return confirm_preparation_document(project, stage, path, publish=publish_stage_text)
+
+
 
 
 def reply_to_writing(project, creative, progress=None, cancelled=None, stream=None, *, user_message=None, request_model=None):

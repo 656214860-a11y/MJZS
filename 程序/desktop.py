@@ -4984,6 +4984,18 @@ class Desktop:
             fill_script_list()
             self.status.set(('已从'+stage+'重新创作；请发送创作要求，新稿确认前保留原采用版本')
                             if stage else '已放弃未确认重写，恢复原采用版本')
+        def confirm_document(stage):
+            """把用户改过的当前文件登记为该阶段确认输出；靠前阶段会清除其后确认记录。"""
+            path=selected_script()
+            from stage_execution_service import confirm_writing_preparation
+            if not confirm(self.win,'作为确认输出文件',
+                           '把当前文件登记为「'+stage+'」的确认输出？\n\n'+path.name+
+                           '\n\n将以该文件当前正文重算指纹；本阶段之后的确认记录（如有）会被清除，需要重新确认。'):
+                return
+            invalidated=confirm_writing_preparation(self.root,stage,path)
+            fill_script_list()
+            self.status.set('已将'+path.name+'登记为「'+stage+'」的确认输出'+
+                            ('；「'+'」「'.join(invalidated)+'」的确认已失效' if invalidated else ''))
         def script_menu(tree,event):
             row=tree.identify_row(event.y)
             if not row:return
@@ -5001,6 +5013,7 @@ class Desktop:
                 stage=next(stages[key] for key in stages if tree is script_trees.get(key))
                 menu.command('从本阶段重新创作',lambda:self.safe(lambda:restart_preparation(stage)))
                 menu.command('放弃未确认重写',lambda:self.safe(lambda:restart_preparation(None)))
+                menu.command('作为确认输出文件',lambda:self.safe(lambda:confirm_document(stage)))
             menu.command('删除',lambda:self.safe(delete_script))
             return menu.popup(event)
         for tree in script_trees.values():
