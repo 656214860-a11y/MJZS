@@ -1242,7 +1242,7 @@ class SendMessageTests(_Harness):
             self.assertEqual(tree.item('attachments', 'values'),
                              tuple('☐ ' + source.name for source in sources))
             self.assertEqual(len(tree.get_children()), 1)
-            self.assertEqual(d.idea_uploaded_heading.cget('text'), '已传附档')
+            self.assertFalse(hasattr(d, 'idea_uploaded_heading'))
             self.assertEqual(d.idea_composer_label.cget('text'), '输入想法/上传附件---->enter/发送')
             self.assertEqual(d.idea_attachment_delete_button.winfo_rootx(),
                              d.idea_attachment_button.winfo_rootx())
@@ -2199,7 +2199,7 @@ class SessionOverviewTests(unittest.TestCase):
             self.assertEqual(info['shared_confirmed_documents'], 1)
             self.assertEqual(info['adopted_script'], '尚未采用自然剧本')
             self.assertEqual(writing_api.chat_session_overview(proj, 'claude-code')['invocation'],
-                             '桌面 Agent（claude）')
+                             '本机 CLI（claude）')
             summary = writing_api.chat_session_summary(proj, 'gpt-4o')
             self.assertIn('gpt-4o', summary)
             self.assertIn('已确认阶段文件 1 份', summary)

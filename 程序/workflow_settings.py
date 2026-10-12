@@ -479,8 +479,36 @@ def hollmwood_prompt(config, stage=None):
     return '\n'.join(parts) + '\n'
 
 
+_STORE_PACKAGE=re.compile(r'^(?P<head>.*\\WindowsApps\\)(?P<name>[^\\_]+)_[^\\_]+_(?P<arch>[^\\_]+)__(?P<publisher>[^\\]+)\\(?P<rest>.+)$',re.I)
+_STORE_PACKAGES_KEY=r'Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages'
+
+
+def current_store_program(program):
+    """商店应用目录名带版本号，应用自动更新后已保存的路径即失效。
+    WindowsApps 不可列目录，改从注册表的已装包清单找同名同发布者的现行版本。"""
+    program=str(program or '')
+    match=_STORE_PACKAGE.match(program)
+    if not match or Path(program).is_file():return program
+    prefix=(match['name']+'_').casefold();suffix=('_'+match['arch']+'__'+match['publisher']).casefold()
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,_STORE_PACKAGES_KEY) as key:
+            names=[];index=0
+            while True:
+                try:names.append(winreg.EnumKey(key,index))
+                except OSError:break
+                index+=1
+    except (ImportError,OSError):return program
+    def version(name):
+        return tuple(int(part) for part in name[len(prefix):-len(suffix)].split('.') if part.isdigit())
+    for name in sorted((n for n in names if n.casefold().startswith(prefix) and n.casefold().endswith(suffix)),key=version,reverse=True):
+        candidate=Path(match['head']+name)/match['rest']
+        if candidate.is_file():return str(candidate)
+    return program
+
+
 def find_program(config):
-    if config['program']:return config['program']
+    if config['program']:return current_store_program(config['program'])
     if config['engine'] == 'claude-desktop-app':
         local = Path(os.environ.get('LOCALAPPDATA', ''))
         candidates = [local/'AnthropicClaude/claude.exe', local/'Programs/Claude/Claude.exe']
@@ -523,7 +551,7 @@ def desktop_model_label(model_id, label):
     if not engine:return str(label or '')
     configured=model_pool.pool(program=Path(__file__).resolve().parent).get(model_id, {}).get('program', '')
     if configured:
-        return str(label or '')+('（未安装）' if not Path(configured).is_file() else '')
+        return str(label or '')+('（未安装）' if not Path(current_store_program(configured)).is_file() else '')
     if engine not in _DESKTOP_INSTALLATION_CACHE:
         try:find_program({'engine':engine,'program':''})
         except Exception:_DESKTOP_INSTALLATION_CACHE[engine]=False
@@ -693,6 +721,16 @@ def freeze_skills(config):
     return frozen
 
 
+def _lock_fallback(key, value):
+    """下拉以外的手填值若契约登记了兜底说明，附在该制作锁行尾。"""
+    for item in PRODUCTION_LOCK_DEFINITIONS:
+        if item['key'] == key and item.get('fallback'):
+            known = {str(option).replace(' ', '').casefold() for option in item.get('options') or ()}
+            if str(value).replace(' ', '').casefold() not in known:
+                return '（' + item['fallback'] + '）'
+    return ''
+
+
 def skill_prompt(config, stage=None, inline=False):
     """桌面使用路径引用；直连 API 按需内联技能及直接引用的发送快照。"""
     if 'frozen_skill_prompt' in config:
@@ -700,7 +738,7 @@ def skill_prompt(config, stage=None, inline=False):
     stage = lock_stage(stage if stage is not None else config.get('stage'))
     locks = config.get('workflow_lock') or {}
     required = STAGE_LOCK_REQUIREMENTS.get(stage)
-    header = ''.join('制作锁：%s=%s\n' % (key, value) for key, value in locks.items()
+    header = ''.join('制作锁：%s=%s%s\n' % (key, value, _lock_fallback(key, value)) for key, value in locks.items()
                      if str(value).strip() and (required is None or key in required))
     coordinator = str(config.get('workflow_skill_prompt') or '')
     if coordinator and not coordinator.endswith('\n'):

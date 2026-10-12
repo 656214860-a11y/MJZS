@@ -164,6 +164,24 @@ def provider_name(model_id, value):
     return PROVIDER_LABELS.get(configured, configured or '自定义')
 
 
+# 显示名推断里需要整体大写的厂商缩写。
+LABEL_ACRONYMS = {'gpt': 'GPT', 'glm': 'GLM', 'api': 'API', 'cli': 'CLI', 'vl': 'VL', 'ai': 'AI'}
+
+
+def suggest_label(model, records=None):
+    """按模型 ID 推断显示名：先认池里／出厂已有的同名模型，认不出就把 ID 分词首字母大写。"""
+    name = str(model or '').strip()
+    if not name:
+        return ''
+    known = dict(BUILTIN)
+    known.update(records or {})
+    for item in known.values():
+        if str((item or {}).get('model') or '').strip().casefold() == name.casefold() and item.get('label'):
+            return str(item['label'])
+    words = [part for part in re.split(r'[-_\s]+', name) if part]
+    return ' '.join(LABEL_ACRONYMS.get(word.casefold(), word[:1].upper() + word[1:]) for word in words)
+
+
 def capabilities_of(value):
     """能力标签：认得的留着（按登记表排序、去重），认不出来的一律丢。
 

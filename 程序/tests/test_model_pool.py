@@ -139,6 +139,11 @@ class RecordTests(unittest.TestCase):
 
     def test_desktop_options_are_marked_only_when_the_shared_probe_cannot_find_them(self):
         pool = model_pool.default_pool()
+        # 与本机真实模型池隔离：用户配置过的程序路径不能左右「未安装」判据。
+        isolated = patch('model_pool.pool', return_value=pool)
+        isolated.start()
+        self.addCleanup(isolated.stop)
+        workflow_settings.clear_desktop_installation_cache()
         with patch('workflow_settings.find_program', return_value='C:/Apps/agent.exe'):
             labels = dict(model_pool.options(pool, labeler=workflow_settings.desktop_model_label))
         self.assertNotIn('未安装', labels['chatgpt-desktop'])

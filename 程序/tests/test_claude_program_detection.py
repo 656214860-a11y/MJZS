@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+import unittest.mock
 from unittest.mock import patch
 
 import workflow_settings as settings
@@ -47,3 +48,23 @@ class ClaudeProgramDetectionTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class StoreProgramUpdateTests(unittest.TestCase):
+    def test_stale_store_version_path_follows_installed_package(self):
+        with tempfile.TemporaryDirectory() as folder:
+            apps = Path(folder) / 'WindowsApps'
+            current = apps / 'Claude_2.31226.1.0_x64__pzs8sxrjxfjjc/app/claude.exe'
+            current.parent.mkdir(parents=True)
+            current.write_bytes(b'test-only')
+            stale = str(apps / 'Claude_2.31226.0.0_x64__pzs8sxrjxfjjc/app/claude.exe')
+            names = ['Other_1.0.0.0_x64__pzs8sxrjxfjjc', 'Claude_2.31226.1.0_x64__pzs8sxrjxfjjc']
+            fake = unittest.mock.MagicMock()
+            fake.EnumKey.side_effect = lambda key, index: names[index] if index < len(names) else (_ for _ in ()).throw(OSError())
+            with patch.dict('sys.modules', {'winreg': fake}):
+                self.assertEqual(settings.find_program({'engine': 'claude', 'program': stale}), str(current))
+                current.unlink()
+                self.assertEqual(settings.current_store_program(stale), stale)
+
+    def test_non_store_and_existing_paths_unchanged(self):
+        self.assertEqual(settings.current_store_program('chosen.exe'), 'chosen.exe')

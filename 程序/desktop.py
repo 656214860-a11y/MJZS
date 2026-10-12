@@ -828,18 +828,35 @@ class Desktop:
         if len(ranges)<2:return 'break'
         was_disabled=str(box.cget('state'))=='disabled'
         if was_disabled:box.configure(state='normal')
+        # 记住视口顶端那一行：整段先删后插会让 Text 一拍内塌缩再撑开，视口跳到空白处。
+        try:top=box.index('@0,0')
+        except tk.TclError:top=None
+        start=str(ranges[0])
         try:
             record['expanded']=not record['expanded']
             shown=record['text'] if record['expanded'] else record['preview']
-            box.delete(ranges[0],ranges[-1])
-            box.insert(ranges[0],shown+'\n',name)
+            # 先插新正文再删旧正文，内容高度不会瞬间归零。
+            box.insert(ranges[-1],shown+'\n',name)
+            box.delete(start,ranges[-1])
             toggle=name+'_toggle'
             spans=box.tag_ranges(toggle)
             if len(spans)>=2:
-                box.delete(spans[0],spans[-1])
-                box.insert(spans[0],('收起' if record['expanded'] else '展开全文')+'\n',toggle)
+                end=spans[-1]
+                box.insert(end,('收起' if record['expanded'] else '展开全文')+'\n',toggle)
+                box.delete(spans[0],end)
         finally:
             if was_disabled:box.configure(state='disabled')
+        try:
+            if record['expanded'] or top is None:
+                # 展开：视口不动，正文往下长，和微信一样原地展开。
+                if top is not None:box.yview(top)
+            elif box.compare(start,'<',top):
+                # 收起：气泡开头已滚出视口时，把视口拉回这条气泡开头，不留空白。
+                box.yview(start+' linestart -3 lines')
+            else:
+                box.yview(top)
+        except tk.TclError:
+            pass
         return 'break'
     def bubble_target_at(self,box,event):
         """鼠标位置对应的真实消息；元信息和“展开全文”也归回它所属的气泡。"""
@@ -1439,10 +1456,14 @@ class Desktop:
             usage_label = getattr(self, 'idea_usage_label', None)
             if usage_label is not None and usage_label.winfo_exists():
                 usage_label.configure(text=idea_chat.usage_summary(rows))
+                tip = getattr(self, 'idea_usage_tip', None)
+                if tip is not None:tip.text = usage_label.cget('text')
             session_label = getattr(self, 'idea_session_label', None)
             if session_label is not None and session_label.winfo_exists():
                 from writing_api import chat_session_summary
                 session_label.configure(text=chat_session_summary(self.root, model) if self.root else '')
+                tip = getattr(self, 'idea_session_tip', None)
+                if tip is not None:tip.text = session_label.cget('text')
             thinking=getattr(self,'_thinking_model','')
             if thinking and self.bubble_view_key(thinking) == self.bubble_view_key(self.displayed_chat_model()):
                 name='bubble_thinking'
@@ -4488,17 +4509,21 @@ class Desktop:
         # 动作栏与其余制作阶段共用可换行布局。普通 pack 的左右两组按钮会在窗口
         # 变窄时互相挤压，最后把“删除剧本”裁成一个字；FlowBar 会按可用宽度分行，
         # 每颗按钮始终保留自己的完整文字宽度。
+        # 用量与会话说明合成页面最底部的单行状态栏：不换行、放不下就截断，悬停看全文，
+        # 不再夹在提示与输入框之间把聊天区往上挤。
+        status_row=ttk.Frame(talk);status_row.pack(side='bottom',fill='x',pady=SPACING['none'])
+        self.idea_usage_label = ttk.Label(status_row, text='本模型暂无用量记录', style='Muted.TLabel')
+        self.idea_usage_label.pack(side='left')
+        self.idea_usage_tip = Tooltip(self.idea_usage_label, '本模型暂无用量记录')
+        ttk.Label(status_row, text=' · ', style='Muted.TLabel').pack(side='left')
+        self.idea_session_label = ttk.Label(status_row, text='', style='Muted.TLabel')
+        self.idea_session_label.pack(side='left', fill='x', expand=True)
+        self.idea_session_tip = Tooltip(self.idea_session_label, '')
         foot=FlowBar(talk);foot.pack(side='bottom',fill='x',pady=SPACING['none'])
         # 输入框与操作栏保留极小缓冲带，视觉仍紧凑，同时避免鼠标落点贴边误触发送。
         composer=ttk.Frame(talk);composer.pack(side='bottom',fill='x',pady=(SPACING['none'],SPACING['xs']))
         self.idea_composer_label=ttk.Label(composer,text='输入想法/上传附件---->enter/发送',style='Muted.TLabel')
         self.idea_composer_label.pack(anchor='w')
-        self.idea_usage_label = ttk.Label(composer, text='本模型暂无用量记录', style='Muted.TLabel')
-        self.idea_usage_label.pack(anchor='w')
-        composer.bind('<Configure>', lambda event: self.idea_usage_label.configure(wraplength=max(1, event.width)), add='+')
-        self.idea_session_label = ttk.Label(composer, text='', style='Muted.TLabel')
-        self.idea_session_label.pack(anchor='w')
-        composer.bind('<Configure>', lambda event: self.idea_session_label.configure(wraplength=max(1, event.width)), add='+')
         input_row=ttk.Frame(composer);input_row.pack(fill='x')
         input_box=TextArea(input_row,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
                           font=FONTS['body'],relief='solid',bd=1,padx=SPACING['md'],pady=SPACING['sm'])
@@ -4527,8 +4552,6 @@ class Desktop:
         self.idea_attachment_delete_button.state(['disabled'])
         uploaded_content=ttk.Frame(self.idea_uploaded_panel)
         uploaded_content.pack(side='left',fill='x',expand=True)
-        self.idea_uploaded_heading=ttk.Label(uploaded_content,text='已传附档',style='Muted.TLabel')
-        self.idea_uploaded_heading.pack(fill='x')
         self.idea_uploaded_table=DataTable(
             uploaded_content,columns=[],height=1,show='',selectmode='none',
             style='Compact.Tokens.DataTable.Treeview',auto_hide_scrollbars=True)

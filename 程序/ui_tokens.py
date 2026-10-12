@@ -64,6 +64,8 @@ TOOLTIP_FOREGROUND = COLORS["text_primary"]
 TOOLTIP_BACKGROUND = COLORS["background_card"]
 TOOLTIP_BORDER = COLORS["border_default"]
 TOOLTIP_BORDER_WIDTH = 1
+# 长说明（如会话摘要）折行显示，避免单行浮层伸出屏幕。
+TOOLTIP_WRAPLENGTH = 480
 
 # TScrollbar 的视觉只由 ui_theme.apply() 消费；页面只建立标准 ttk.Scrollbar。
 SCROLLBAR_THUMB = "#C6D2E1"

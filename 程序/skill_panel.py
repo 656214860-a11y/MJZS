@@ -36,7 +36,7 @@ from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
-                        TextArea, LineInput,
+                        TextArea,
                         SecondaryButton, Tooltip, ask_confirmation, notify)
 from ui_dialogs import FileDialog
 
@@ -817,9 +817,11 @@ class Panel(ttk.Frame):
             field.grid(row=0, column=column, sticky='ew', padx=SPACING['xs'])
             self.lock_row.columnconfigure(column, weight=1)
             ttk.Label(field, text=item['label']).pack(side='left')
-            entry = LineInput(field, width=6 if item['key'] == 'aspect_ratio' else 12)
+            # 可编辑下拉：常用值直接选，少见参数仍可手填；选项唯一来源是契约定义。
+            entry = SelectBox(field, values=item.get('options') or (), state='normal',
+                              width=6 if item['key'] in ('aspect_ratio', 'fps') else 12)
             entry.pack(side='left', fill='x', expand=True, padx=SPACING['xs'])
-            for event in ('<Return>', '<KeyRelease>', '<FocusOut>'):
+            for event in ('<Return>', '<KeyRelease>', '<FocusOut>', '<<ComboboxSelected>>'):
                 entry.bind(event, lambda _event: self.save_workflow_locks())
             self.lock_inputs[item['key']] = entry
         self._saved_workflow_locks = {}
@@ -880,20 +882,45 @@ class Panel(ttk.Frame):
         dialog = BaseDialog(self.winfo_toplevel(), '切换统筹' if switching else '套用统筹建议',
                             modal=False, chrome=False); dialog.resizable(True, True)
         body = ttk.Frame(dialog, padding=12); body.pack(fill='both', expand=True)
-        DescriptionBlock(body, text='勾选后确认，将替换该阶段的 SKILL；未勾选的阶段保留。仅空阶段默认勾选。').pack(fill='x')
+        DescriptionBlock(body, text=(
+            '「' + choice + '」为每个制作阶段推荐了一组 SKILL（制作规范）。下表逐阶段对照'
+            '「现在用的」和「统筹建议」：\n'
+            '· 勾选「用建议替换」→ 该阶段改用统筹建议的 SKILL；\n'
+            '· 不勾 → 该阶段保持现在的 SKILL 不变。\n'
+            '还没选过 SKILL 的空阶段已默认勾选；点「确认套用」才会生效。')).pack(fill='x')
+        names = {}
+        def shown(skills, empty):
+            """SKILL id 换成注册表里的中文显示名，用户不必认英文 id。"""
+            labels = []
+            for sid in skills:
+                if sid not in names:
+                    item = self.registry.getById(sid) if getattr(self, 'registry', None) else None
+                    names[sid] = registered_skill_checkbox_label(item) if item else sid
+                labels.append(names[sid])
+            return '\n'.join(labels) or empty
+        table = ttk.Frame(body); table.pack(fill='x', pady=(SPACING['md'], 0))
+        headers = ['阶段', '现在用的 SKILL', '统筹建议的 SKILL', '是否替换']
+        if switching:
+            headers.insert(1, '上一个统筹的建议')
+        for column, text in enumerate(headers):
+            ttk.Label(table, text=text, style='Muted.TLabel').grid(
+                row=0, column=column, sticky='w', padx=(0, SPACING['lg']), pady=(0, SPACING['xs']))
+        table.columnconfigure(len(headers) - 2, weight=1)
         choices = {}
-        for stage, values in rows.items():
+        for row, (stage, values) in enumerate(rows.items(), start=1):
             current, suggested = values['current'], values['suggested']
             # 默认保留已有选择，但允许用户显式选择替换。
             value = tk.BooleanVar(value=not current and bool(suggested))
             choices[stage] = value
-            old_suggested = old_preset.get('stage_skills', {}).get(stage, ())
-            label = '%s｜旧建议：%s｜当前：%s｜新建议：%s' % (
-                STAGE_NAMES.get(stage, stage), '、'.join(old_suggested) or '无',
-                '、'.join(current) or '空', '、'.join(suggested) or '空')
-            suffix = '（已一致，无需重复套用）' if current == suggested else '（勾选以套用）'
-            ttk.Checkbutton(body, text=label + suffix, variable=value).pack(
-                                anchor='w', pady=(SPACING['xs'], 0))
+            cells = [STAGE_NAMES.get(stage, stage), shown(current, '（空）'), shown(suggested, '（无建议）')]
+            if switching:
+                cells.insert(1, shown(old_preset.get('stage_skills', {}).get(stage, ()), '（无）'))
+            for column, text in enumerate(cells):
+                ttk.Label(table, text=text, justify='left').grid(
+                    row=row, column=column, sticky='nw', padx=(0, SPACING['lg']), pady=SPACING['xs'])
+            same = current == suggested
+            ttk.Checkbutton(table, text='已一致，无需重复套用' if same else '用建议替换',
+                            variable=value).grid(row=row, column=len(cells), sticky='nw', pady=SPACING['xs'])
         actions = ttk.Frame(body); actions.pack(fill='x', pady=(SPACING['md'], 0))
         def apply_selected():
             workflow = dict(old)

@@ -10,7 +10,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_FIELD_BACKGROUND,
                        DIALOG_CONTENT_PADDING, DIALOG_TITLE_FONT,
                        TOOLTIP_BACKGROUND, TOOLTIP_BORDER, TOOLTIP_BORDER_WIDTH, TOOLTIP_DELAY_MS,
                        TOOLTIP_FONT, TOOLTIP_FOREGROUND, TOOLTIP_OFFSET,
-                       TOOLTIP_PADDING,
+                       TOOLTIP_PADDING, TOOLTIP_WRAPLENGTH,
                        TABLE_EMPTY_PADDING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TABLE_COMPACT_HEADER_PADDING,
                        TABLE_ROW_HEIGHT, INPUT_BACKGROUND, INPUT_BORDER,
                        INPUT_BORDER_WIDTH, INPUT_ERROR_BORDER, INPUT_FONT,
@@ -796,10 +796,20 @@ class Tooltip:
             tip.configure(background=TOOLTIP_BORDER)
             label = tk.Label(tip, text=self.text, font=TOOLTIP_FONT,
                              fg=TOOLTIP_FOREGROUND, bg=TOOLTIP_BACKGROUND,
-                             padx=TOOLTIP_PADDING[0], pady=TOOLTIP_PADDING[1])
+                             padx=TOOLTIP_PADDING[0], pady=TOOLTIP_PADDING[1],
+                             wraplength=TOOLTIP_WRAPLENGTH, justify="left")
             label.pack(padx=TOOLTIP_BORDER_WIDTH, pady=TOOLTIP_BORDER_WIDTH)
             x, y = self._position or (self.widget.winfo_rootx() + TOOLTIP_OFFSET,
                                       self.widget.winfo_rooty() + TOOLTIP_OFFSET)
+            # 贴近屏幕底边／右边的控件（如页面底部状态栏）改向上／向左展开，浮层不出屏。
+            try:
+                tip.update_idletasks()
+                width, height = tip.winfo_reqwidth(), tip.winfo_reqheight()
+                if y + height > tip.winfo_screenheight():
+                    y = max(0, y - height - 2 * TOOLTIP_OFFSET)
+                x = max(0, min(x, tip.winfo_screenwidth() - width))
+            except AttributeError:
+                pass  # 测试替身不提供几何查询时保持原定位。
             tip.geometry("+%d+%d" % (x, y))
             self._window = tip
             return tip

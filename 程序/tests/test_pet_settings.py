@@ -439,11 +439,17 @@ class ManagerProviderTests(SettingsCase):
         self.addCleanup(win.destroy)
         tree = win._pet_tree
         rows = [tree.item(row, 'values') for row in tree.get_children()]
-        labels = [str(row[0]) for row in rows]
-        providers = {str(row[0]): str(row[1]) for row in rows}
-        self.assertEqual(labels, sorted(labels, key=str.casefold))
+        # 列顺序：Provider／模型 ID／显示名；同一 Provider 只在分组首行写名字。
+        providers, last = {}, ''
+        for row in rows:
+            last = str(row[0]) or last
+            providers[str(row[2])] = last
+        heads = [str(row[0]) for row in rows if str(row[0])]
+        self.assertEqual(heads, sorted(set(heads), key=str.casefold), '每个 Provider 只出现一次且按名排序')
         self.assertEqual(providers['ChatGPT Desktop · Codex'], 'GPT')
         self.assertEqual(providers['GPT-4o'], 'GPT')
+        gpt = [str(row[2]) for row in rows if providers[str(row[2])] == 'GPT']
+        self.assertEqual(gpt, sorted(gpt, key=str.casefold))
         self.assertEqual(str(win._pet_manager_hint_label.cget('style')), 'PaleGreenHint.TLabel')
 
 

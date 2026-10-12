@@ -43,7 +43,7 @@ NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶
 NOTE_MANAGER = '本地模型配置应用安装路径；API 模型配置接口与密钥。'
 # 列表那一行照规格那张表：显示名／Provider／模型 ID／能力标签／状态，另加两个用得上又不好猜的
 # （API 根地址、密钥名）。协议在下面表单里选，列表不再占一格。
-COLUMNS = (('label', '显示名', 120), ('provider', 'Provider', 100), ('model', '模型 ID', 140),
+COLUMNS = (('provider', 'Provider', 100), ('model', '模型 ID', 140), ('label', '显示名', 120),
            ('capabilities', '能力标签', 170), ('base_url', 'API 根地址', 190),
            ('wire_api', '协议', 80), ('key_env', '密钥名', 130), ('state', '状态', 120))
 FORM_FIELDS = (('label', '显示名'), ('model', '模型 ID'), ('base_url', 'API 根地址'),
@@ -345,8 +345,8 @@ def open_manager(pet):
         entries[key] = entry
         return index + 1
 
-    # 表单次序照规格那张表：显示名、Provider、根地址、密钥、模型 ID、协议、能力标签、上下文、备注。
-    index = text_row(0, 'label', '显示名')
+    # 表单次序：Provider、模型 ID、显示名（按 ID 自动推断）、根地址、密钥、协议、能力标签、上下文、备注。
+    index = 0
     ttk.Label(form, text='Provider').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
     # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
     # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
@@ -363,8 +363,11 @@ def open_manager(pet):
             model_pool.id_of_label(provider.get(), model_pool.PROVIDERS))
         wire.set(model_pool.WIRE_LABELS.get(value, model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
     provider_box.bind('<<ComboboxSelected>>', match_wire)
+    provider_box.bind('<<ComboboxSelected>>', lambda event: detect_program(), add='+')
 
-    index = text_row(index + 1, 'base_url', 'API 根地址')
+    index = text_row(index + 1, 'model', '模型 ID')
+    index = text_row(index, 'label', '显示名')
+    index = text_row(index, 'base_url', 'API 根地址')
     index = text_row(index, 'key_env', '密钥名（.env 里的变量名）')
     # 规格里的第二种放法：密钥直接输进来，用系统加密存本机（明文不落盘、配置 JSON 里不写）。
     ttk.Label(form, text='直接输入密钥').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
@@ -374,12 +377,10 @@ def open_manager(pet):
     key_entry.pack(side='left')
     SecondaryButton(key_row, text='保存到本机', command=lambda: local_save()).pack(side='left', padx=(SPACING['sm'], 0))
     SecondaryButton(key_row, text='清除本机密钥', command=lambda: local_clear()).pack(side='left', padx=(SPACING['xs'], 0))
-    index += 1
+    # 密钥状态紧跟在按钮后面，不再单独占一行。
     key_state = tk.StringVar(value='')
-    ttk.Label(form, textvariable=key_state, style='Muted.TLabel').grid(
-        row=index, column=1, sticky='w')
+    ttk.Label(key_row, textvariable=key_state, style='Muted.TLabel').pack(side='left', padx=(SPACING['sm'], 0))
     index += 1
-    index = text_row(index, 'model', '模型 ID')
     ttk.Label(form, text='协议').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
     SelectBox(form, textvariable=wire,
                  values=[label for _value, label in model_pool.WIRE_APIS]).grid(
@@ -396,13 +397,13 @@ def open_manager(pet):
     index = text_row(index + 1, 'context_length', '上下文长度（可选）')
     text_row(index, 'note', '备注（可选）')
     hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
-    api_rows = {2, 3, 4, 5, 7}
+    api_rows = {3, 4, 5, 6}
     api_controls = [widget for widget in form.winfo_children()
                     if int(widget.grid_info().get('row', -1)) in api_rows]
     program_label = ttk.Label(form, text='应用安装路径')
-    program_label.grid(row=2, column=0, sticky='w', padx=(0, SPACING['md']))
+    program_label.grid(row=3, column=0, sticky='w', padx=(0, SPACING['md']))
     program_row = ttk.Frame(form)
-    program_row.grid(row=2, column=1, sticky='ew')
+    program_row.grid(row=3, column=1, sticky='ew')
     program_row.columnconfigure(0, weight=1)
     program_entry = LineInput(program_row, style='ModelManager.TEntry')
     program_entry.grid(row=0, column=0, sticky='ew')
@@ -412,8 +413,27 @@ def open_manager(pet):
         if path:
             program_entry.delete(0, 'end')
             program_entry.insert(0, path)
-    SecondaryButton(program_row, text='浏览…', command=browse_program).grid(
+    def detect_program(event=None, quiet=True):
+        """本地 desktop／CLI：按模型 ID 对应的引擎自动搜寻安装路径；框里已有路径不覆盖。"""
+        if provider.get().strip() != 'desktop' or program_entry.get().strip():
+            return None
+        from workflow_settings import find_program
+        engine = model_pool.desktop_engine(state['id']) or model_pool.desktop_engine(
+            entries['model'].get().strip()) or entries['model'].get().strip()
+        if not engine:
+            return None
+        try:
+            path = find_program({'engine': engine, 'program': ''})
+        except (ValueError, KeyError, OSError) as exc:
+            if not quiet:hint.set('未自动找到安装路径：%s' % exc)
+            return None
+        program_entry.insert(0, path)
+        hint.set('已自动找到安装路径：%s；确认后点「保存这条」。' % path)
+        return path
+    SecondaryButton(program_row, text='自动搜寻', command=lambda: detect_program(quiet=False)).grid(
         row=0, column=1, padx=(SPACING['xs'], 0))
+    SecondaryButton(program_row, text='浏览…', command=browse_program).grid(
+        row=0, column=2, padx=(SPACING['xs'], 0))
     def refresh_connection_fields(*_args):
         local = provider.get().strip() == 'desktop'
         for widget in api_controls:
@@ -421,6 +441,20 @@ def open_manager(pet):
         for widget in (program_label, program_row):
             widget.grid() if local else widget.grid_remove()
         probe_button.configure(text='检查程序' if local else '测试连接')
+    auto_label = {'text': ''}
+
+    def fill_label(event=None):
+        """填模型 ID 时自动推断显示名；用户手改过的显示名不覆盖。"""
+        current = entries['label'].get().strip()
+        if current and current != auto_label['text']:
+            return None
+        guess = model_pool.suggest_label(entries['model'].get(), pet.agent_model_records())
+        entries['label'].delete(0, 'end')
+        entries['label'].insert(0, guess)
+        auto_label['text'] = guess
+        return guess
+    entries['model'].bind('<KeyRelease>', fill_label, add='+')
+    entries['model'].bind('<FocusOut>', detect_program, add='+')
     manager_hint = ttk.Label(body, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=860)
     manager_hint.grid(
         row=4, column=0, columnspan=2, sticky='w', pady=(SPACING['xs'], SPACING['xs']))
@@ -437,10 +471,15 @@ def open_manager(pet):
                                                           key=str.casefold)])
         tree.delete(*tree.get_children())
         records = pet.agent_model_records()
-        for model_id, item in sorted(records.items(), key=lambda pair: (
-                str(pair[1].get('label') or '').casefold(), pair[0])):
+        rows = sorted(((model_pool.provider_name(model_id, item), model_id, item)
+                       for model_id, item in records.items()),
+                      key=lambda row: (row[0].casefold(), str(row[2].get('label') or '').casefold(), row[1]))
+        last = None
+        for name, model_id, item in rows:
+            # 同一 Provider 只在分组第一行写名字，后面留空，读起来像合并单元格。
+            shown, last = ('' if name == last else name), name
             tree.insert('', 'end', iid=model_id,
-                        values=(item['label'], model_pool.provider_name(model_id, item), item['model'],
+                        values=(shown, item['model'], item['label'],
                                 model_pool.capability_text(item['capabilities']),
                                 item['base_url'],
                                 model_pool.WIRE_LABELS.get(item['wire_api'], item['wire_api']),

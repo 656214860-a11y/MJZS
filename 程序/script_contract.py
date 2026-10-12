@@ -823,11 +823,16 @@ STAGE_LOCK_REQUIREMENTS = {
     'previs': ('aspect_ratio', 'video_model_version', 'delivery_format'),
 }
 PRODUCTION_LOCK_DEFINITIONS = (
-    {'key': 'aspect_ratio', 'label': '画幅', 'aliases': ('故事画幅',), 'options': ['16:9', '9:16', '21:9', '1:1']},
-    {'key': 'resolution', 'label': '分辨率', 'aliases': ('输出分辨率',), 'options': ['1920x1080', '1080x1920', '2560x1080', '1080x1080']},
-    {'key': 'fps', 'label': '帧率', 'aliases': ('输出帧率',), 'options': ['24', '25', '30', '60']},
-    {'key': 'delivery_format', 'label': '交付形态', 'aliases': (), 'options': ['只要离线看板', '只要 markdown 文档', '两者都交付']},
-    {'key': 'video_model_version', 'label': '视频模型版本', 'aliases': ('视频模型',), 'options': ['Seedance 2.5', 'Seedance 2.0', 'MiniMax H3']},
+    # options 是界面下拉的常用值，不是白名单；画幅、交付形态、视频模型与 AIGC 全流程 SKILL 的 A/B/C 锁对齐。
+    {'key': 'aspect_ratio', 'label': '画幅', 'aliases': ('故事画幅',), 'options': ['9:16', '16:9', '21:9', '1:1']},
+    {'key': 'resolution', 'label': '分辨率', 'aliases': ('输出分辨率',), 'options': [
+        '1080x1920', '1920x1080', '720x1280', '1280x720', '480x854', '854x480', '1440x2560', '2560x1440',
+        '2160x3840', '3840x2160', '2560x1080', '1080x1080']},
+    {'key': 'fps', 'label': '帧率', 'aliases': ('输出帧率',), 'options': ['24', '25', '30', '50', '60']},
+    {'key': 'delivery_format', 'label': '交付形态', 'aliases': (), 'options': ['两者都交付', '只要离线看板', '只要 markdown 文档']},
+    {'key': 'video_model_version', 'label': '视频模型版本', 'aliases': ('视频模型',), 'options': ['Seedance 2.5', 'Seedance 2.0', 'MiniMax H3', '即梦 3.0'],
+     # 手填了下拉以外的模型：统筹 SKILL 没有它的专用语法，提示词退回 SKILL 默认格式，不现编格式。
+     'fallback': '统筹 SKILL 未适配该模型，提示词按 SKILL 默认格式撰写（七段式，Seedance 2.5 语法）'},
 )
 
 # 提取范围独立于必填范围：建议值仍保留，不因阶段门禁收窄而丢失。

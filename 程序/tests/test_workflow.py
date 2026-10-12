@@ -782,6 +782,12 @@ class DesktopModelPoolTests(unittest.TestCase):
     def test_stage_model_selects_the_matching_desktop_agent(self):
         import stage_config
         import workflow_settings
+        import model_pool
+        from unittest.mock import patch
+        # 与本机真实模型池隔离：用户改过的显示名不能左右这条断言。
+        isolated = patch('model_pool.pool', return_value=model_pool.default_pool())
+        isolated.start()
+        self.addCleanup(isolated.stop)
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             stage_config.put(proj, 'script', model='claude-desktop')

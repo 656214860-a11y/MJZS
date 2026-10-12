@@ -824,7 +824,7 @@ def chat_session_overview(project, model=None):
     from stage_path_service import write_dir
     chosen = selected_model(project)[0] if model is None else model
     engine = model_pool.desktop_engine(chosen)
-    invocation = ('桌面 Agent（' + engine + '）') if engine else ('API 直连' if chosen else '未选择模型')
+    invocation = ('本机 CLI（' + engine + '）') if engine else ('API 直连' if chosen else '未选择模型')
     provider_dir, model_dir = idea_chat.storage_identity(chosen) if chosen else ('', '')
     folder = write_dir(project, 'script')
     target = folder / 'preparation_state.json'
