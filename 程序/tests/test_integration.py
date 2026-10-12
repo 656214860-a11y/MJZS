@@ -470,6 +470,15 @@ class PartialAssembleTests(unittest.TestCase):
             self.assertEqual([item.split()[0] for item in report["skipped"]], [ids[2]])
             manifest = json.loads((master.parent / "edit_manifest.json").read_text(encoding="utf-8"))
             self.assertEqual([item["shot"] for item in manifest], ids[:2])
+            # 粗剪覆盖率写进报告与可恢复清单：包含/缺失镜头与总时长都能被界面和交付核对。
+            self.assertEqual(report["included"], ids[:2])
+            self.assertEqual(report["expected"], 3)
+            self.assertEqual(report["duration"], 10.0)
+            bundle = json.loads((master.parent / "edit_bundle.json").read_text(encoding="utf-8"))
+            self.assertEqual(bundle["master"], "MASTER.mp4")
+            self.assertEqual([item["shot"] for item in bundle["manifest"]], ids[:2])
+            self.assertEqual(bundle["coverage"]["included"], ids[:2])
+            self.assertEqual(bundle["coverage"]["expected"], 3)
 
     def test_partial_assemble_needs_at_least_one_shot(self):
         with tempfile.TemporaryDirectory() as td:

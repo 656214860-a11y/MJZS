@@ -4822,10 +4822,13 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
         self.assertEqual(sources["engine.py"].count(self.PREDICATE), 1)
 
     def test_approval_consumers_use_the_shared_helper(self):
-        """engine 的两处筛选与 desktop 的交接包都必须调用同一个助手函数。"""
+        """engine 的两处筛选、进度与交付界面都必须走同一个「采用版」助手，别再各挑各的版本。"""
         sources = self.program_sources()
         self.assertRegex(sources["desktop.py"], r"from engine import [^\n]*\bapproved_versions\b")
-        self.assertEqual(sources["engine.py"].count("approved_versions(st['shots'].get(shot['id']))"), 2)
+        self.assertRegex(sources["desktop.py"], r"from engine import [^\n]*\badoption_summary\b")
+        # 自动粗剪与手动拼装都收敛到 adopted_edit_version；approved_versions 只留一处实现。
+        self.assertEqual(sources["engine.py"].count("adopted_edit_version(st['shots'].get(shot['id'])"), 2)
+        self.assertEqual(sources["engine.py"].count("approved_versions(st['shots'].get(shot['id']))"), 0)
 
 
 class EngineNameFallbackTests(unittest.TestCase):

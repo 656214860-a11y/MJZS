@@ -10,7 +10,7 @@ from agent.core import read,save,save_text,save_bytes
 import project_settings
 from projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
 from responsive_ui import FlowBar,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
-from engine import approved_versions, review_label
+from engine import approved_versions, review_label, adoption_summary
 from local_video import open_studio,skip_summary
 from app import App
 from integrations import comfy_executable
@@ -7420,13 +7420,20 @@ class Desktop:
         from video_progress import LABELS, status_next
         st=self.studio.state();lines=[]
         for s in self.studio.episode['shots']:
-            vs=st['shots'][s['id']];v=vs[-1] if vs else {}
+            # 采用列必须与真实成片来源同一版：最新版失败但旧版通过时，仍显示进了成片的旧版。
+            summary=adoption_summary(self.root,st['shots'][s['id']])
+            v=summary['source']
             state=LABELS.get(v.get('state'),v.get('state') or '未提交')
             qc={True:'通过',False:'未通过'}.get(v.get('qc_pass'),'未检查')
             review=review_label(v)
-            adopted=approved_versions(vs)
-            adopted_text=('v%s'%adopted[-1]['version']) if adopted else '无'
-            step=status_next(v) if adopted_text=='无' else ''
+            if summary['adopted'] is not None:
+                adopted_text='v%s'%summary['adopted']['version']
+                if not summary['latest_is_adopted'] and summary['latest']:
+                    adopted_text+='；最新 v%s 未采用'%summary['latest'].get('version')
+                step=''
+            else:
+                adopted_text='无' if not summary['reason_text'] else '无（%s）'%summary['reason_text']
+                step=status_next(v)
             lines.append(f'{s["id"]}  {s["title"]}  | 状态 {state} | 技术QC {qc} | 验收 {review} | 采用 {adopted_text}'+(' | 下一步 '+step if step else ''))
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
         delivery_button('导入剪映最终成片',self.final_import,primary=True)
