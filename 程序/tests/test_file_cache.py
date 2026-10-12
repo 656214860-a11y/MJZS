@@ -236,6 +236,23 @@ class RepeatReadTests(unittest.TestCase):
             source.unlink(); file_cache.clear()
             self.assertEqual(storyboard_files.catalog(project, 'storyboard'), [])
 
+    def test_stale_final_stays_visible_and_is_tagged_source_changed(self):
+        """原稿同路径内容变了只标过期，不隐藏、不覆盖用户成品。"""
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td) / 'p'
+            source = project / '02剧本结构' / '结构剧本' / 'p_结构剧本_正稿_20260927.md'
+            source.parent.mkdir(parents=True)
+            source.write_text('# 结构剧本', encoding='utf-8')
+            final = write_episode(project / '06分镜定稿' / '分镜' /
+                                  'EP001_分镜定稿_20260927' / 'episode.json', 'EP001', ['SH001'])
+            from artifact_lineage import record
+            record(project, final, source, 'final_storyboard')
+            source.write_text('# 结构剧本（用户改过）', encoding='utf-8')
+            file_cache.clear()
+            entries = storyboard_files.catalog(project, 'storyboard')
+            self.assertEqual([entry['path'] for entry in entries], [final.resolve()])
+            self.assertIn('来源已变更', entries[0]['title'])
+
     def test_final_lineage_prefers_stable_structured_script_over_working_json(self):
         with tempfile.TemporaryDirectory() as td:
             project = Path(td) / 'p'

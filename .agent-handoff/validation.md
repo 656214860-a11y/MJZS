@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O18 完成
+
+- 2026-10-12 O18：新增 `tests/test_artifact_lineage.py` 10 条（同路径内容变更标 stale 但仍 available、恢复回 current；改无关文件不失效；删源标 missing 且 unavailable；无账本 UNKNOWN 且 available None；旧单来源账本可读；多来源逐角色状态；重记覆盖旧来源；`affected` 只列非 current 且按 source 过滤；`adopt` 后 current；结构/分镜/首帧/白模/音频/剪辑六类都能登记并检出过期）；`tests/test_file_cache.py` 增 1 条（定稿来源变更后仍在目录且标题含「来源已变更」）。定向 `-k artifact_lineage file_cache storyboard script_structure script_contract` 136/136、架构门禁 312/312、默认冒烟 8/8，全 0 红。未动 `script_contract.py`／`storyboard_final.py` 登记调用点，未增删 `json.loads`（台账未平移）。1342 − 1341 = 1 < 5，本轮不跑全量。
+
 ## 2026-10-12 O17 收口全量
 
 - 2026-10-12 O17 收口：干净 master 工作树（`o07-fullsafe-master`，HEAD=00d3a80）`run_selftests.py --all --safe` 第 1 次即绿：4561 条用例／420.2 秒／0 文件红；`test_desktop_startup_perf` 13.6 秒、`test_perf_baseline` 22.4 秒均通过，未出现已知阈值抖动。内容树全量凭据刷新 round=1341、tree=06c23252d59254ca25619e76b7de8c650cd23749。收口文档提交在绿凭据之后，文档树与凭据树不同树。

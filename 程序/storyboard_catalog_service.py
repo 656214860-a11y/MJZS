@@ -234,7 +234,7 @@ def _is_initial_storyboard(data):
 
 def catalog(context, kind, ignored=IGNORED):
     """Build the script/storyboard catalog without importing Tk page code."""
-    from artifact_lineage import source_available
+    from artifact_lineage import MISSING, STALE, check
     from file_cache import read_json
     from project_stages import writing, structure, storyboard, stage
     from storyboard_paths import is_final_dir
@@ -270,6 +270,10 @@ def catalog(context, kind, ignored=IGNORED):
         if kind == 'script' and _is_structured_name(path) and resolved != current_structured:
             continue
         title = ('结构剧本（旧版）' if kind == 'script' and resolved == current_structured and path.name.casefold() == 'script.md' else path.stem)
+        if kind == 'script' and current_structured is not None and resolved == current_structured:
+            # 原稿改动只把下游结构稿标成过期，不隐藏、不改写用户成品。
+            if check(project, resolved)['status'] == STALE:
+                title += ' · 原稿已变更'
         data = None
         if path.suffix.lower() == '.json':
             try:
@@ -279,7 +283,8 @@ def catalog(context, kind, ignored=IGNORED):
                 if _is_initial_storyboard(data):
                     continue
                 final_candidate = any(is_final_dir(part) for part in path.relative_to(root).parts)
-                if final_candidate and source_available(project, path) is False:
+                report = check(project, path) if final_candidate else None
+                if report is not None and report['status'] == MISSING:
                     continue
                 linked = board_source_script(context, path)
                 if not final_candidate and str(data.get('source_script') or '').strip() and (not linked or not linked.is_file()):
@@ -288,6 +293,8 @@ def catalog(context, kind, ignored=IGNORED):
                 title += ' · 定稿' if final_candidate else ' · 分镜工作稿'
                 if duration_gap(data) is not None:
                     title += ' · 时长不符'
+                if report is not None and report['status'] == STALE:
+                    title += ' · 来源已变更'
             except (OSError, ValueError):
                 continue
         created = getattr(stat, 'st_birthtime', stat.st_mtime)
