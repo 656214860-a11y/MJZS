@@ -5,7 +5,7 @@
 - 实现（**不改生产代码**）：`_scan.py` 新增 `production_files_recursive()`（递归口径，与 `production_files()` 同语义：排除 tests／tasks_round／维护记录／.git／__pycache__ 与 smoke_test／run_selftests／selftest_sandbox 及 test* 前缀）；`test_deletion_gateway`／`test_remove_authority`（对程序 scripts/ 开发脚本显式豁免 `_DEV_SCRIPT_PARTS`）／`test_completion_gate`（2 处）／`test_event_bus_boundary`（3 处）改递归扫描。
 - **§三 7 项裁定**：6 项已收口（第 2 事件总线／第 5 删除／第 6 阶段完成本轮由根目录门禁升为递归门禁；第 1 配置读写／第 3 缓存失效／第 7 SKILL 说明标签已有门禁）；**1 项缺口**＝第 4 项「项目进入路径」（`DesktopStartupController`）缺架构覆盖门禁 → 登记待办。
 - 子目录实测影响：删除仅 `scripts/clean_dev.py`（已豁免）、`stage.completed` 0、直调 `bus.emit` 0、`_emit` 包装器仍仅 pet_agent／pet_ui。
-- 验证：定向 4 文件 **8/8**、默认冒烟 **8/8**、架构 **336/336**；`1390−1386=4<5` 且未命中 §5 升级条件 → **不跑全量**。提交 hash 见 [R1390](../程序/tasks_round/tasks_round_1390_result.md)。
+- 验证：定向 4 文件 **8/8**、默认冒烟 **8/8**、架构 **336/336**；`1390−1386=4<5` 且未命中 §5 升级条件 → **不跑全量**。提交 `fdb1daf`（报告／状态页补记 `c7e40e8`）。详见 [R1390](../程序/tasks_round/tasks_round_1390_result.md)。
 - 下一轮候选：① 第 4 项项目进入路径覆盖门禁；② 其余走根目录口径的门禁（coverage ratchet 20/21/22/24/25/26、json_io/table 等）是否同批递归化（需逐段评估子目录候选）；③ 设计 token 迁移（须先确认调色板）。
 
 ## 2026-10-12：UI 统一入口覆盖轮 — 设计 token 内联常量棘轮门禁（R1389，修复轮 §3.2）

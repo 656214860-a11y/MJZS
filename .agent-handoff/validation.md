@@ -1,3 +1,12 @@
+## 2026-10-12 R1390 §三 覆盖率门禁口径对齐递归（修复轮 §3.2）
+
+- 类型：修复轮（§3.2），只改架构门禁测试文件与新 `_scan` 辅助，不改生产代码。
+- 实现：`_scan.production_files_recursive()`（递归口径，排除 tests／tasks_round／维护记录／.git／__pycache__ 与 smoke_test／run_selftests／selftest_sandbox 及 test* 前缀）；`test_deletion_gateway`／`test_remove_authority`（程序 scripts/ 开发脚本显式豁免 `_DEV_SCRIPT_PARTS`）／`test_completion_gate`（2 处）／`test_event_bus_boundary`（3 处）改递归扫描。
+- §三 7 项裁定：6 项已收口（第 2 事件总线／第 5 删除／第 6 阶段完成＝本轮升递归；第 1 配置读写／第 3 缓存失效／第 7 SKILL 说明标签＝已有门禁）；1 缺口＝第 4 项项目进入路径（`DesktopStartupController`）缺架构覆盖门禁（登记待办）。
+- 验证：定向 `tests.architecture`（4 文件）**8/8**；默认冒烟 `smoke_test.py` **8/8**；架构 `smoke_test.py --architecture` **336/336**（数量不变，改既有门禁）。
+- 不跑全量：`1390−1386=4<5` 且未命中 §5 升级条件（无启动路径／Tk 生命周期／删除语义／层级表改动）。最近绿全量 R1387 `tree=000477da…`。
+- 提交：内容＋报告＋接力 `fdb1daf`（含 `.agent-handoff/backlog.md`／`snapshot.md`）；报告与状态页补记 `c7e40e8`；本轮刷新阻塞项／待办清单（`.agent-handoff/risks.md`／`backlog.md`）。
+
 ## 2026-10-12 R1389 设计 token 内联常量棘轮门禁（修复轮 §3.2）
 
 - 类型：修复轮（§3.2）。新增 `tests/architecture/test_token_boundary.py`（5 条）：内联 hex 与数字 padx/pady 按文件棘轮「只减不增」（新增文件即违规）；权威 ui_tokens/ui_theme/ui_widgets/ui_icons 与 skills 脚本豁免；基线＝R1388 审计值（hex 111/8、padx/pady 213/19）。`AGENTS.md` §5 清单补该文件。不改生产代码。
