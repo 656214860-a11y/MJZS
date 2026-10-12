@@ -4,11 +4,13 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import uuid
 from datetime import datetime
 from pathlib import Path
 
-from file_cache import read_json, remove_temporary_file
+from file_cache import probe_writable, read_json, remove_temporary_file
+from platform_tools import run_process
 from project_naming import dated_path
 from project_context import ProjectContext
 
@@ -16,6 +18,12 @@ _BLENDER_CACHE = []
 _WORKSPACE_CACHE = {}
 _BASE_CACHE = {}
 _DIR_CACHE = {}
+_SETTINGS_CACHE = {}
+_VERSION_CACHE = {}
+SETTINGS_NAME = 'white_model_settings.json'
+SETTINGS_ENV = 'MANJU_WHITE_MODEL_SETTINGS'
+WORKSPACE_ENV = 'MANJU_WHITE_MODEL_WORKSPACE'
+BLENDER_ENV = 'MANJU_BLENDER_EXE'
 _UNSAFE_SEGMENT = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
@@ -273,24 +281,175 @@ def save_previs_notes(root, sid, notes, *, publish):
                  'updated_at': datetime.now().isoformat(timespec='seconds')})
     write_record(root, data, publish=publish)
 
-def find_blender(refresh=False):
-    if _BLENDER_CACHE and not refresh: return _BLENDER_CACHE[0]
-    choices = [Path('E:/Blender/blender.exe'), Path('D:/Blender/blender.exe')]
+def user_data_dir():
+    """用户级数据目录：优先 LOCALAPPDATA，退回用户主目录（与 TTS／Seedream 设置同一口径）。"""
+    return Path(os.environ.get('LOCALAPPDATA') or Path.home()) / '漫剧制作助手'
+
+def settings_path():
+    """白模设置文件位置：可用 ``MANJU_WHITE_MODEL_SETTINGS`` 指到别处。"""
+    override = str(os.environ.get(SETTINGS_ENV) or '').strip()
+    return Path(override) if override else user_data_dir() / SETTINGS_NAME
+
+def read_settings(refresh=False):
+    """读白模设置；不存在或损坏都当没有，绝不让它挡住页面。"""
+    path = settings_path(); key = str(path)
+    if not refresh and key in _SETTINGS_CACHE: return _SETTINGS_CACHE[key]
+    data = _json_quiet(path)
+    result = data if isinstance(data, dict) else {}
+    if len(_SETTINGS_CACHE) >= 256: _SETTINGS_CACHE.clear()
+    _SETTINGS_CACHE[key] = result
+    return result
+
+def default_workspace():
+    """默认成果目录：用户数据目录下的「白模项目」。
+
+    旧版默认把成果建在 Blender 安装目录旁（Program Files 下标准用户往往不可写），
+    这里改成用户可写目录，让「工具可执行文件」与「用户成果」分开；旧位置由
+    :func:`legacy_workspaces` 只读发现，不自动写入、不删旧文件。
+    """
+    return (user_data_dir() / '白模项目').resolve()
+
+def configured_workspace():
+    """用户配置的成果目录：环境变量优先，其次设置文件里的 ``workspace``。"""
+    value = os.environ.get(WORKSPACE_ENV)
+    if not str(value or '').strip():
+        value = read_settings().get('workspace')
+    text = str(value or '').strip()
+    return Path(text) if text else None
+
+def workspace():
+    """成果目录：配置优先，否则用户数据目录；按目录缓存，绝不指向 Blender 安装目录。"""
+    target = configured_workspace() or default_workspace()
+    key = str(target)
+    cached = _WORKSPACE_CACHE.get(key)
+    if cached is None:
+        cached = target.resolve()
+        _WORKSPACE_CACHE.clear(); _WORKSPACE_CACHE[key] = cached
+    return cached
+
+def blender_candidates():
+    """候选 blender.exe，按优先级：配置 → PATH → 常见盘符 → 两个 Program Files。只读发现。"""
+    choices = []
+    settings = read_settings()
+    for value in (os.environ.get(BLENDER_ENV), settings.get('blender')):
+        text = str(value or '').strip()
+        if text: choices.append(Path(text))
     found = shutil.which('blender')
-    if found: choices.insert(0, Path(found))
+    if found: choices.append(Path(found))
+    choices.extend([Path('D:/Blender/blender.exe'), Path('E:/Blender/blender.exe')])
     base = Path(os.environ.get('ProgramFiles', 'C:/Program Files')) / 'Blender Foundation'
     if base.is_dir(): choices.extend(sorted(base.glob('*/blender.exe'), reverse=True))
-    result = next((path for path in choices if path.is_file()), None)
+    other = os.environ.get('ProgramFiles(x86)')
+    if other:
+        alt = Path(other) / 'Blender Foundation'
+        if alt.is_dir(): choices.extend(sorted(alt.glob('*/blender.exe'), reverse=True))
+    return choices
+
+def find_blender(refresh=False):
+    if _BLENDER_CACHE and not refresh: return _BLENDER_CACHE[0]
+    result = next((path for path in blender_candidates() if path.is_file()), None)
     _BLENDER_CACHE[:] = [result]
     return result
 
-def workspace():
-    blender = find_blender(); key = str(blender) if blender else ''
-    cached = _WORKSPACE_CACHE.get(key)
-    if cached is None:
-        cached = ((blender.parent if blender else Path('E:/Blender')) / '白模项目').resolve()
-        _WORKSPACE_CACHE.clear(); _WORKSPACE_CACHE[key] = cached
-    return cached
+def _os_hint(exc):
+    """把操作系统错误翻成可执行的一句话。"""
+    code = getattr(exc, 'winerror', None) or getattr(exc, 'errno', None)
+    if code in (5, 13):
+        return '没有写入权限（可改用用户目录，或让管理员放开该目录）'
+    if isinstance(exc, FileNotFoundError) or code == 2:
+        return '盘符或目录不存在（例如本机没有该盘）'
+    return '系统返回：' + str(exc)
+
+def write_check(path, *, create=True):
+    """让 L1 试写一个探针文件判断目录能否落成果，返回 ``(可写, 说明)``；探针随即删除。
+
+    ``create=False`` 时不动手建目录：目录还不存在就只看最近一个已存在父目录是否可写，
+    供每次打开页面时的轻量检查使用。真正的写入在 :func:`file_cache.probe_writable`。
+    """
+    try:
+        probe_writable(Path(path), create=create)
+    except OSError as exc:
+        return False, '目录不可写：' + _os_hint(exc)
+    return True, ''
+
+def blender_version(exe, *, run=None):
+    """读 blender.exe 的版本号；读不出来返回空串（版本不是可用性的前提）。"""
+    if not exe: return ''
+    key = str(exe)
+    if key in _VERSION_CACHE: return _VERSION_CACHE[key]
+    text = ''
+    try:
+        result = run_process([key, '--version'], capture_output=True, timeout=15, run=run)
+        raw = getattr(result, 'stdout', b'') or b''
+        text = raw.decode('utf-8', 'replace') if isinstance(raw, (bytes, bytearray)) else str(raw)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        text = ''
+    match = re.search(r'Blender\s+([0-9][0-9.]*)', text)
+    version = match.group(1) if match else ''
+    if len(_VERSION_CACHE) >= 64: _VERSION_CACHE.clear()
+    _VERSION_CACHE[key] = version
+    return version
+
+def legacy_workspaces(workspace_path=None):
+    """旧布局成果目录（只读发现）：旧版默认把「白模项目」建在 Blender 安装目录旁。"""
+    current = Path(workspace_path).resolve() if workspace_path is not None else workspace()
+    found, seen = [], set()
+    for exe in blender_candidates():
+        if exe is None: continue
+        candidate = exe.parent / '白模项目'
+        key = str(candidate)
+        if key in seen or candidate.resolve() == current: continue
+        seen.add(key)
+        if candidate.is_dir(): found.append(candidate.resolve())
+    return found
+
+def environment_summary(include_version=False):
+    """一行环境摘要给页面显示：成果目录＋写权限＋Blender；默认不跑版本探测。"""
+    target = workspace()
+    writable, reason = write_check(target, create=False)
+    exe = find_blender()
+    blender = ('未检测到 Blender（可只准备脚本）' if exe is None
+               else 'Blender ' + (blender_version(exe) if include_version else '已找到'))
+    text = '成果目录：' + str(target) + '（' + ('可写' if writable else '不可写：' + reason) + '）；' + blender
+    legacy = legacy_workspaces(target)
+    if legacy: text += '　·　发现旧成果目录（只读）：' + '、'.join(str(item) for item in legacy)
+    return text
+
+def diagnose(workspace_path=None, blender=None, run=None):
+    """首次配置检查：Blender 版本＋成果目录写权限＋可执行提示。只读，不写作品。"""
+    exe = blender if blender is not None else find_blender()
+    target = Path(workspace_path).resolve() if workspace_path is not None else workspace()
+    writable, reason = write_check(target)
+    version = blender_version(exe, run=run)
+    issues, hints = [], []
+    if exe is None:
+        issues.append('未检测到 Blender')
+        hints.append('请安装 Blender，或在设置里指定 blender：' + str(settings_path()))
+    if not writable:
+        issues.append('成果目录不可写（' + reason + '）')
+        hints.append('请在设置里把 workspace 指到用户可写目录：' + str(settings_path())
+                     + '（例如 ' + str(default_workspace()) + '）；不会把成果写进程序安装区。')
+    legacy = legacy_workspaces(target)
+    if legacy:
+        hints.append('旧目录里还有白模成果，可在设置里把 workspace 指过去，或手工搬移：'
+                     + '、'.join(str(item) for item in legacy))
+    return {'blender': str(exe) if exe else '', 'blender_version': version,
+            'workspace': str(target),
+            'workspace_source': 'configured' if configured_workspace() else 'default',
+            'writable': writable, 'write_issue': reason, 'legacy': [str(item) for item in legacy],
+            'settings': str(settings_path()), 'issues': issues, 'hints': hints}
+
+def diagnose_text(report=None):
+    """把 :func:`diagnose` 的结果排成多行文本，给通知框显示。"""
+    data = report if report is not None else diagnose()
+    lines = ['成果目录：' + data['workspace'] + '（' + ('可写' if data['writable'] else '不可写') + '）',
+             'Blender：' + ((data['blender'] + '（版本 ' + (data['blender_version'] or '未知') + '）')
+                            if data['blender'] else '未检测到'),
+             '设置文件：' + data['settings']]
+    if data['legacy']: lines.append('旧成果目录（只读）：' + '、'.join(data['legacy']))
+    lines.extend('· ' + hint for hint in data['hints'])
+    if not data['hints']: lines.append('· 环境正常，无需处理')
+    return '\n'.join(lines)
 
 def shot_directory(context, sid, workspace_path=None, source=None):
     """这一镜的白模目录：项目身份／集／镜头；没有项目身份时沿用旧布局。"""

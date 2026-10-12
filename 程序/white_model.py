@@ -75,10 +75,22 @@ def find_blender(refresh=False):
     return _service.find_blender(refresh)
 
 
-# 「白模项目」目录只跟 Blender 位置有关：解析一次后按位置缓存，之后是纯查表。
+# 「白模项目」目录改成可配置的用户数据目录（不再跟着 Blender 安装位置）：解析一次后按目录缓存。
 _WORKSPACE_CACHE = _service._WORKSPACE_CACHE
 def workspace():
     return _service.workspace()
+
+def environment_summary(include_version=False):
+    return _service.environment_summary(include_version=include_version)
+
+def diagnose():
+    return _service.diagnose()
+
+def diagnose_text(report=None):
+    return _service.diagnose_text(report)
+
+def workspace_settings_path():
+    return _service.settings_path()
 
 def open_previs(desktop,sid=None):
     sid = sid or (desktop.video.sid() if desktop.video else None)

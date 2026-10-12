@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import shutil
+import tempfile
 from pathlib import Path
 from agent.core import read  # 兼容仍由外部替换的历史测试钩子。
 
@@ -194,6 +195,31 @@ def remove_temporary_file(path):
         return True
     except OSError:
         return False
+
+
+def probe_writable(path, *, create=True):
+    """检查目录能否落文件：试建（可选）并写一个探针文件，成功即删除。
+
+    这是「先问能不能写」的最小主机适配。目录不存在时 ``create=False`` 只看最近一个已存在
+    父目录，不建任何目录；失败原样抛 ``OSError``，由调用方翻成用户提示。实际写入留在这一层，
+    领域服务（L2）不直接写盘。
+    """
+    path = Path(path); target = path
+    if not path.exists():
+        if not create:
+            for parent in path.parents:
+                if parent.exists():
+                    target = parent
+                    break
+            else:
+                raise FileNotFoundError(2, '路径所在盘符或目录不存在', str(path))
+        else:
+            path.mkdir(parents=True, exist_ok=True)
+            target = path
+    descriptor, temporary = tempfile.mkstemp(prefix='.write-probe-', dir=str(target))
+    os.close(descriptor)
+    remove_temporary_file(temporary)
+    return True
 
 
 def remove_temporary_tree(path):

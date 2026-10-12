@@ -986,13 +986,13 @@
             },
             {
                 "file": "file_cache.py",
-                "point": "54",
+                "point": "55",
                 "disposition": "exempt",
                 "reason": "\u7f13\u5b58\u6743\u5a01\u81ea\u8eab"
             },
             {
                 "file": "file_cache.py",
-                "point": "140",
+                "point": "141",
                 "disposition": "exempt",
                 "reason": "R831：缓存权威集中执行带前后签名校验的稳定工作 JSON 快照读取。"
             },

@@ -98,6 +98,18 @@ def show(desktop):
     DescriptionBlock(body,text='优先读取分镜的复杂度标注；未标注时自动判断。选中镜头可手动调整。').pack(
         anchor='w', pady=SPACING['xs']
     )
+    # O26：成果目录与 Blender 分开，且成果目录来自可配置的用户数据目录；这里给一行只读检查结果，
+    # 「白模环境检查」按需跑一次完整检查（版本＋写权限），打开页面的每次刷新只做轻量判断。
+    env_line=tk.StringVar(value='')
+    def refresh_environment():
+        try:env_line.set(wm.environment_summary())
+        except Exception:env_line.set('白模环境检查暂不可用')
+    def check_environment():
+        notify(desktop.win,wm.diagnose_text(),title='白模环境检查')
+    env_row=ttk.Frame(body);env_row.pack(fill='x',pady=SPACING['xs'])
+    SecondaryButton(env_row,text='白模环境检查',command=lambda:desktop.safe(check_environment)).pack(side='left')
+    ProgressLabel(env_row,textvariable=env_line,wraplength=780).pack(side='left',padx=SPACING['sm'])
+    refresh_environment()
     tablebox=ttk.Frame(body);tablebox.pack(fill='both',expand=True,pady=SPACING['sm'])
     # 第 47 期第 5 条：用户点名删掉「制作进度」那一栏——进度条整列撤掉，状态那一栏照旧说事。
     table_shell=DataTable(tablebox,columns=[
