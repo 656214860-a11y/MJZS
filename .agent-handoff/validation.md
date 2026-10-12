@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O15 完成
+
+- 2026-10-12 O15：新增 `tests/test_request_freeze_entries.py` 3 条（`capture_request` 冻结后改技能文件与阶段配置只影响新任务、同一次捕获的 `frozen_skill_prompt` 与 sha256 摘要不变；直连 API 与桌面 Agent 两入口对同一技能 `selected`／`loaded.sha256` 一致；静态核对 desktop 直连走 `capture_request`、writing 投递走 `validate_selected_skills`＋`freeze_skills`、`open_flow_agent` 的 `current(...)` 先于 `def build()`、桌面 `launch_interactive(` 仅一处）。定向 `-k request_freeze_entries` 3/3、关联 `-k workflow_settings request_freeze_entries writing` 全绿、默认冒烟 8/8，全 0 红。未改生产代码，台账不变。本轮 1339 − 1336 = 3 < 5，不跑全量。
+
 ## 2026-10-12 O14 完成
 
 - 2026-10-12 O14：新增 `tests/test_idea_chat.py::SessionOverviewTests` 1 条（`gpt-4o`＝API 直连、`claude-code`＝桌面 Agent（claude），已确认阶段文件 1 份，摘要含模型名与「不隐藏也不复制项目成果」）；新增 Tk 用例 `ComposerLayoutTests::test_session_label_explains_dimensions_and_follows_model_switch`（首帧含「当前会话：」「按模型隔离」，切「另一模型」后标签更新）。定向 `-k idea_chat` 131/131、关联 `-k ui_edges idea_inline_brief writing` 全绿、架构相关全绿、`-k desktop_startup_perf` 14/14（13.3 秒）、默认冒烟 8/8，全 0 红。`desktop.py` 增 Tk 标签 → TODO 注释快照行号 2749→2753。本轮 1338 − 1336 = 2 < 5，不跑全量。

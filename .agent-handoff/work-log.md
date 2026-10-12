@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O15 完成并提交 R1339（验证项）。核对各生成入口都消费发送边界一次捕获的请求快照：直连 API `capture_request`→`freeze_skills`；桌面 Agent 投递唯一入口 `open_flow_agent` 在 `build()` 前捕获 `config`，writing 分支 `validate_selected_skills`＋`freeze_skills`；手动任务书不发模型请求；媒体生成冻结由 O12 关闭。新增 `tests/test_request_freeze_entries.py` 3 条（冻结后改配置只影响新任务／两入口摘要一致／静态入口与捕获顺序），未改生产逻辑。定向 3/3、关联全绿、默认冒烟 8/8、0 红。见 [R1339](../程序/tasks_round/tasks_round_1339_result.md)。
+
 - 2026-10-12：O14 完成并提交 R1338。会话维度说明：`writing_api.chat_session_overview`／`chat_session_summary`（只读）给出会话模型与调用方式（API 直连／桌面 Agent）、请求身份（Provider／模型）、上下文来源（按模型隔离的对话记录）、已确认阶段文件数与自然剧本采用状态；桌面剧本页新增只读标签 `idea_session_label` 并随模型切换刷新。定向 131/131、关联全绿、架构全绿、`desktop_startup_perf` 14/14、默认冒烟 8/8、0 红。见 [R1338](../程序/tasks_round/tasks_round_1338_result.md)。
 
 - 2026-10-12：O13 收口安全全量。干净 master 工作树 `run_selftests.py --all --safe` 第 1 次即绿：4542 条用例／385.8 秒／0 文件红（`test_desktop_startup_perf` 13.0 秒、`test_perf_baseline` 20.4 秒 均过）；凭据 round=1336、tree=d934dd21，`last_full_safe_all_round` 刷到 1336。见 [R1336](../程序/tasks_round/tasks_round_1336_result.md)。
