@@ -1,5 +1,7 @@
 # 项目状态（可独立接续）
 
+R1348：O24「尚未开始先不拦」的兼容策略与正式自动生产分开。`stage_parallel` 新增 `BROWSE`（默认，浏览/补录/旧项目）与 `PRODUCTION`（无人值守）两种口径及 `verdict`/`mode`/`exempt`/`missing` 字段：只有「上游未开始」在正式生产下当前置条件缺失（上游标 `skipped` 即主动豁免），真问题（上游做了没做全）两口径都拦；`Agent.gate` 默认浏览口径不再随持久档位漂移，`Pet.gate_reason` 按自动链是否在推选口径。定向 192/192＋门禁 18/18、快照棘轮 9/9、架构 312/312、默认冒烟 8/8，0 红；1348 − 1346 = 2 < 5 且未命中 §5，本轮不跑全量。见 tasks_round/tasks_round_1348_result.md。
+
 R1347：O23 连贯性问题从发现到解除的闭环。`continuity_ledger` 新增结构化 `issues`（稳定编号 `CI-<kind>-<scope>`、涉及镜头/资产、证据、严重度）与 `03_continuity/output/continuity_issues.json` 登记表（`merge_issues`／`sync_issues`／`decide_issue`／`issue_gate`）：同一问题不重复新增、修好解除、解除后再现重开、证据变化重开且清空决定；人工忽略必须写理由并记下作用版本（当时证据摘要）；`stage_parallel.ledger_ready` 改用 `issue_gate`（忽略后不再拦）；`stage_execution_service` 补 L3 门面；桌面连贯性页新增「问题闭环」表与「忽略（写明理由）」按钮。定向 124/124＋160/160、架构 312/312、默认冒烟 8/8，0 红；1347 − 1346 = 1 < 5 且未命中 §5，本轮不跑全量。见 tasks_round/tasks_round_1347_result.md。
 
 R1346：O22 资产正典、变体与镜头引用提供变更影响视图。`asset_plan` 新增只读 `asset_impact`（正典 `canonical_board`／`character_anchor`、`state_variants`、被哪些采用镜头哪些字段引用、需复核首帧、受影响已生成视频、`orphan`／`protected`）与 `deletion_references`（删前引用清单＋警示），`asset_context.referencing_shots` 与 `references` 同口径，`stage_execution_service` 补 L3 门面，资产详情页顶部提示被引用／可回收；改变体不覆盖正典、删除受引用资产先给引用列表、孤立资产可回收（依赖 O18；O39 回收侧未完成）。定向 64/64、注释快照＋统一棘轮 5/5、架构 312/312、默认冒烟 8/8，0 红；1346 − 1341 = 5 ≥ 5；收口安全全量第 1 次 4610/4610、410.3 秒、0 红（凭据 round=1346、tree=3488e392，last_full_safe_all_round=1346）。见 tasks_round/tasks_round_1346_result.md。
@@ -40,7 +42,7 @@ R1297：Claude CLI 开启 HOLLMWOOD 时由程序逐角色调用并审核，正�
 
 R1288：Claude CLI 剧本准备限定输入已同步 45884c8；附件仅引用 Markdown，取消全项目扫描/索引注入，阶段①不读取旧 brief；连续确认按独立请求去重。关联 178/178、核心 34/34、冒烟 8/8；架构唯一行号失败修正后 5/5。未实发模型/重启，需重启助手加载；见 tasks_round/tasks_round_1288_result.md。
 
-更新：2026-10-12｜当前轮次：1348（R1347 O23 连贯性问题从发现到解除的闭环：`continuity_ledger` 新增结构化 `issues`（稳定编号/涉及镜头资产/证据/严重度）与 `continuity_issues.json` 登记表（不重复新增、修好解除、再变重开、忽略要理由并记作用版本），`stage_parallel.ledger_ready` 改用 `issue_gate`，`stage_execution_service` 补 L3 门面，桌面连贯性页加「问题闭环」表与「忽略（写明理由）」按钮；定向 124/124＋160/160、架构 312/312、默认冒烟 8/8，0 红，本轮不跑全量（1347−1346=1<5 且未命中 §5）。R1346 O22 资产变更影响视图（收口全量 4610/4610 绿）；R1345 O21 资产检索与候选墙可追溯性和批量决策；R1344 O20 Animatic 流式摘要；R1343 O19 采用差异与影响预览；R1342 O18 来源账本「仍是这个版本」；R1341 O17 结构形式合格与内容完备分开。O01—O23 已完成，O24 起继续按序推进。）
+更新：2026-10-12｜当前轮次：1349（R1348 O24「尚未开始先不拦」与正式自动生产分开：`stage_parallel` 新增 `BROWSE`（默认，浏览/补录/旧项目）/`PRODUCTION`（无人值守）两种口径，只有「上游未开始」在正式生产下当前置条件缺失（上游标 `skipped` 即豁免），`Agent.gate` 默认浏览口径、`Pet.gate_reason` 按自动链是否在推选口径；定向 192/192＋门禁 18/18、快照棘轮 9/9、架构 312/312、默认冒烟 8/8，0 红，本轮不跑全量（1348−1346=2<5 且未命中 §5）。R1347 O23 连贯性问题从发现到解除的闭环：`continuity_ledger` 新增结构化 `issues`（稳定编号/涉及镜头资产/证据/严重度）与 `continuity_issues.json` 登记表（不重复新增、修好解除、再变重开、忽略要理由并记作用版本），`stage_parallel.ledger_ready` 改用 `issue_gate`，`stage_execution_service` 补 L3 门面，桌面连贯性页加「问题闭环」表与「忽略（写明理由）」按钮；定向 124/124＋160/160、架构 312/312、默认冒烟 8/8，0 红，本轮不跑全量（1347−1346=1<5 且未命中 §5）。R1346 O22 资产变更影响视图（收口全量 4610/4610 绿）；R1345 O21 资产检索与候选墙可追溯性和批量决策；R1344 O20 Animatic 流式摘要；R1343 O19 采用差异与影响预览；R1342 O18 来源账本「仍是这个版本」；R1341 O17 结构形式合格与内容完备分开。O01—O24 已完成，O25 起继续按序推进。）
 
 R1283：Claude CLI 明确重新创作新建会话，限制旧资料读取；定向 133/133、冒烟 8/8，架构唯一行号失败修正后原文件 2/2。实现 fcc39ae 已同步，未重跑全量，需重启加载。见 tasks_round/tasks_round_1283_result.md。
 

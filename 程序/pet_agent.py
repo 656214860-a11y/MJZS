@@ -931,18 +931,25 @@ class Agent:
             return {'limit': stage_parallel.GLOBAL_LIMIT, 'running': 0, 'slowed': 0,
                     'stages': {}, 'tickets': ()}
 
-    def gate(self, stage):
-        """进入某一步之前要过的门禁（上游真的做了却没做全才挡，见 stage_parallel）。"""
+    def gate(self, stage, *, mode=None):
+        """进入某一步之前要过的门禁（上游真的做了却没做全才挡，见 stage_parallel）。
+
+        默认浏览口径（上游没开始＝放行），旧项目／补录因此打得开；无人值守的自动链在
+        pet_ui.gate_reason 里显式传 stage_parallel.PRODUCTION，上游没开始就当前置条件缺失，
+        除非用户把那一步标成「已跳过」（O24：两种语义分开）。
+        """
+        chosen = str(mode or stage_parallel.BROWSE)
         try:
-            return stage_parallel.evaluate(self.project, stage)
+            return stage_parallel.evaluate(self.project, stage, mode=chosen)
         except Exception as exc:
             self.errors.append(('gate', str(exc)))
             return {'id': '', 'from': '', 'to': str(stage or ''), 'title': '门禁', 'ok': True,
-                    'started': False, 'detail': '门禁暂时读不出来：%s' % exc, 'problems': (), 'artifacts': ()}
+                    'started': False, 'verdict': stage_parallel.PASS, 'mode': chosen, 'exempt': False,
+                    'missing': (), 'detail': '门禁暂时读不出来：%s' % exc, 'problems': (), 'artifacts': ()}
 
-    def blocked_reason(self, stage):
+    def blocked_reason(self, stage, *, mode=None):
         """被门禁挡住就返回一句人话（缺什么、去哪儿补）；没挡住返回空串。"""
-        return stage_parallel.blocked_text(self.gate(stage))
+        return stage_parallel.blocked_text(self.gate(stage, mode=mode))
 
     def log_stage(self, stage, task, status, detail='', at=None):
         """按统一格式记一条到 <阶段目录>/logs/agent_logs.jsonl（写不进去也不报错）。"""

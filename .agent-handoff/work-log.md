@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O24 完成并提交 R1348。「尚未开始先不拦」的兼容策略与正式自动生产分开：`stage_parallel` 新增 `BROWSE`（默认，浏览/补录/旧项目）与 `PRODUCTION`（无人值守）两种口径及 `verdict`/`mode`/`exempt`/`missing` 字段，`_apply_mode` 只把「上游未开始」在正式生产下改成前置条件缺失（上游标 `skipped` 即豁免），真问题两口径都拦；`Agent.gate` 默认浏览口径不再随持久档位漂移，`Pet.gate_reason` 按自动链是否在推选口径；`ledger_ready` 加固为「算不出问题行不静默放行」。新增 14 条用例，定向 192/192＋门禁 18/18、快照棘轮 9/9、架构 312/312、默认冒烟 8/8，0 红（1348−1346=2<5 且未命中 §5，本轮不跑全量）。见 [R1348](../程序/tasks_round/tasks_round_1348_result.md)。
+
 - 2026-10-12：O23 完成并提交 R1347。连贯性问题从发现到解除的闭环：`continuity_ledger` 新增结构化 `issues`（稳定编号 `CI-<kind>-<scope>`、涉及镜头/资产、证据、严重度）与 `03_continuity/output/continuity_issues.json` 登记表（`merge_issues`／`sync_issues`／`decide_issue`／`issue_gate`）：同一问题不重复新增、修好解除、解除后再现重开、证据变化重开且清空决定；人工忽略必须写理由并记下作用版本；`stage_parallel.ledger_ready` 改用 `issue_gate`（忽略后不再拦）；`stage_execution_service` 补 L3 门面；桌面连贯性页新增「问题闭环」表与「忽略（写明理由）」按钮。新增 20 条用例，定向 124/124＋160/160、架构 312/312、默认冒烟 8/8，0 红（1347−1346=1<5 且未命中 §5，本轮不跑全量）。见 [R1347](../程序/tasks_round/tasks_round_1347_result.md)。
 
 - 2026-10-12：O22 收口安全全量。干净 master 工作树 `run_selftests.py --all --safe` 第 1 次即绿：4610 条用例／410.3 秒／0 文件红（`test_desktop_startup_perf` 13.5 秒、`test_perf_baseline` 20.0 秒均过）；凭据 round=1346、tree=3488e392，`last_full_safe_all_round` 刷到 1346。见 [R1346](../程序/tasks_round/tasks_round_1346_result.md)。

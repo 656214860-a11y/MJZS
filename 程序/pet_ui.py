@@ -48,6 +48,7 @@ import pet_report
 import pet_state
 import stage_handler_registry
 import stage_flow
+import stage_parallel
 import token_saver
 from pet_settings_contract import LEVEL_NOTES
 from ui_widgets import ContextMenu, ask_confirmation
@@ -1497,14 +1498,22 @@ class Pet:
                 self.errors.append(('release', str(exc)))
 
     def gate_reason(self, stage):
-        """这一步的上游门禁（第 63 期任务 3.2）：挡住了给一句人话，没挡住给空串。"""
+        """这一步的上游门禁（第 63 期任务 3.2）：挡住了给一句人话，没挡住给空串。
+
+        O24：把「正式自动生产」和「浏览／补录／旧项目兼容」分开——自动链在推（无人值守）时
+        用正式生产口径：上游「还没开始」也当前置条件缺失拦住，除非用户显式把那一步标成
+        「已跳过」；链没在推时沿用旧的浏览口径，旧项目不会因为严格门禁打不开。
+        """
         # 结构剧本是分镜唯一的文件级上游。历史项目可能有成品却未留
         # script_structure.completed 事件；该情况下不要让状态机的旧账阻断
         # 自动派发，后面的阶段仍照常由各自真实产物门禁控制。
         if stage == 'storyboard' and self.has_structured_script(getattr(self.desktop, 'root', None)):
             return ''
+        chain = getattr(self, 'auto', None)
+        mode = (stage_parallel.PRODUCTION if getattr(chain, 'armed', False)
+                else stage_parallel.BROWSE)
         try:
-            return str(self.agent.blocked_reason(stage) or '')
+            return str(self.agent.blocked_reason(stage, mode=mode) or '')
         except Exception as exc:
             self.errors.append(('gate', str(exc)))
             return ''

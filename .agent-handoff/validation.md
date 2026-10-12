@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O24 完成
+
+- 2026-10-12 O24：新增 `tests/test_stage_gate_modes.py` 14 条（默认浏览放行且各 `*_ready` 口径不变；正式生产把「上游未开始」当作缺前置并点明缺哪一步、怎么豁免；上游标 `skipped`＝主动豁免；两种口径只差「上游未开始」这一种；真问题两口径都拦；台账格式异常不静默放行；结论标签；页面/审计文案；`Agent` 默认浏览口径与档位无关＋显式 `PRODUCTION` 拦截＋`skipped` 豁免；`Pet.gate_reason` 链在推要 `PRODUCTION`、浏览要 `BROWSE`、分镜历史豁免仍优先）。`tests/test_stage_parallel.py` 两处桩函数放宽为接受可选 `mode` 关键字（断言不变）。定向 `-k stage_parallel stage_flow pet_agent stage_completion` 192/192、`-k stage_gate` 18/18、`-k todo_comment_snapshot unification_ratchet coverage_audit_ratchet` 9/9（pet_ui 快照行号 2792→2801）、架构 312/312、默认冒烟 8/8，全 0 红。1348 − 1346 = 2 < 5 且未命中 §5，本轮不跑全量。
+
 ## 2026-10-12 O23 完成
 
 - 2026-10-12 O23：新增 `tests/test_continuity_issues.py` 20 条（稳定编号＋证据＋严重度／同一台账编号稳定／不同批次不串号／干净台账无问题；不重复新增／修好解除／解除后再现重开／忽略后证据变了重开且清空决定；忽略必须理由／决定记理由与作用版本／未知编号与非法决定拒收／重新打开清忽略；只读预览不写盘／注入发布器才落盘／无登记表读成空／门禁只拦待处理／修好清空／`stage_parallel.ledger_ready` 忽略后放行）。定向 `-k continuity stage_parallel confirm_gates` 124/124、`-k ui_edges todo_comment unification_ratchet desktop` 160/160、架构 312/312、默认冒烟 8/8，全 0 红。未增删 `json.loads`（台账未平移）。1347 − 1346 = 1 < 5 且未命中 §5，本轮不跑全量。

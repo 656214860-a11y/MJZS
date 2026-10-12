@@ -22,7 +22,7 @@
     },
     {
       "file": "pet_ui.py",
-      "line": 2792,
+      "line": 2801,
       "scope": "firstframe_batch",
       "comment": "「无分镜／没有缺口／暂时无法派发」收成明确阶段事件；无参数接缝仍兼容。",
       "classification": "C",
