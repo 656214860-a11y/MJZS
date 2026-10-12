@@ -5,7 +5,7 @@
 ## 三个必答
 - 本轮类型：功能轮（默认）。
 - 测试：定向 `-k white_model previs native_apps` 160/160；`-k white_model_workspace file_cache` 47/47；`-k ui_edges core paths stage_flow stage_parallel notification` 360/360（含渲染白模页的 Tk 用例）；`-k stage_execution stdlib_closure import_error` 20/20；`-k todo_comment_snapshot unification_ratchet coverage_audit_ratchet skip_hygiene` 全绿；架构门禁 312/312；默认冒烟 8/8，全 0 红。
-- 欠账：O26 关闭，清单剩 O27—O48；1351 − 1346 = 5 ≥ 5，本轮命中五轮一次的全量欠账，需在干净 master 工作树跑一次 `run_selftests.py --all --safe`。结果见下方更新。
+- 欠账：O26 关闭，清单剩 O27—O48；1351 − 1346 = 5 ≥ 5，本轮命中五轮一次的全量欠账。干净 master 工作树（HEAD=a40426f）**第 1 次全量**：4680 条／419.9 秒／1 个文件红——`tests/test_copy_rules.py` 第三人称文案规则命中 `continuity_ledger.py:596` 历史备注 `人工处理`（R1347 遗留，当时定向用例未覆盖；本轮改动未触碰该文件）。按整改路线定向把该短语改为 `人工关闭`（`-k copy_rules continuity` 54/54 绿）后复验一次全量，结果见下方更新。
 
 ## 目标（R1267 清单 O26）
 - 证据：`white_model_service.py`（清单所引 `:77`／`:88` 附近）查找固定盘符／安装路径，默认在 Blender 安装目录旁或 `E:/Blender` 下建工作区。

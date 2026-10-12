@@ -593,7 +593,7 @@ def decide_issue(project, issue_id, decision, reason='', by=HUMAN, *, publish, n
                        'digest': str(row.get('digest') or ''), 'at': str(now or '')}
     history = list(row.get('history') or [])
     history.append({'at': str(now or ''), 'state': decision,
-                    'note': reason or ('人工重新打开' if decision == OPEN else '人工处理')})
+                    'note': reason or ('人工重新打开' if decision == OPEN else '人工关闭')})
     row['history'] = history[-20:]
     register[str(issue_id)] = row
     publish(issues_path(project), {'version': 1, 'issues': register})
