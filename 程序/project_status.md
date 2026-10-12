@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-R1330：O10 资产「确认并采用」改为可恢复事务。`confirm_gates` 新增相位 pending／applied／failed，`pending()` 只把 applied 当已确认；`adopt_asset_plan_choice` 改成「先记 pending → 落盘 → 成功记 applied」，失败记 failed、中断留 pending，都不再算人工确认；`asset_detail._pick` 失败给出「可再点一次」的恢复提示。定向 96/96、架构棘轮 5/5、默认冒烟 8/8；收口安全全量见 tasks_round/tasks_round_1330_result.md。
+R1330：O10 资产「确认并采用」改为可恢复事务。`confirm_gates` 新增相位 pending／applied／failed，`pending()` 只把 applied 当已确认；`adopt_asset_plan_choice` 改成「先记 pending → 落盘 → 成功记 applied」，失败记 failed、中断留 pending，都不再算人工确认；`asset_detail._pick` 失败给出「可再点一次」的恢复提示。定向 96/96、架构棘轮 5/5、默认冒烟 8/8；收口安全全量第 1 次 4528 条唯一红是 TODO 注释快照行号平移（定向修绿）后第 2 次 4528/4528、0 红（tree 3281c7c7）。见 tasks_round/tasks_round_1330_result.md。
 
 R1322：O09 白模就绪绑定来源版本与预演文件。`white_model_service` 新增 `shot_digest`／`source_digest`／`evidence_state`／`record_evidence`：登记采用分镜的镜头调度摘要与预演文件的字节数／mtime／媒体事实；`previs_routing.ready` 按证据收口（来源或文件变过即失效，不知道来源时保持旧口径），`previs_automation.verify` 校验通过即登记，白模页状态列与线上导入共用同一判据。定向 138/138、关联 172/172、默认冒烟 8/8；架构 312/312；收口安全全量 4522/4522（0 红，tree 42e782ea，顺带清掉 R1318 欠的五轮全量）。见 tasks_round/tasks_round_1322_result.md。
 
@@ -14,7 +14,7 @@ R1297：Claude CLI 开启 HOLLMWOOD 时由程序逐角色调用并审核，正�
 
 R1288：Claude CLI 剧本准备限定输入已同步 45884c8；附件仅引用 Markdown，取消全项目扫描/索引注入，阶段①不读取旧 brief；连续确认按独立请求去重。关联 178/178、核心 34/34、冒烟 8/8；架构唯一行号失败修正后 5/5。未实发模型/重启，需重启助手加载；见 tasks_round/tasks_round_1288_result.md。
 
-更新：2026-10-12｜当前轮次：1331（R1330 O10 采用事务化：confirm_gates 相位 pending／applied／failed，只有落盘成功算确认完成；adopt 先记 pending 再落盘、失败记 failed、中断留 pending；定向 96/96、默认冒烟 8/8。R1322 O09 白模就绪绑定来源与预演文件：shot_digest／source_digest／evidence_state／record_evidence，ready 按证据失效、verify 通过即登记；定向 138/138、关联 172/172、默认冒烟 8/8，收口安全全量 4522/4522、0 红（tree 42e782ea）。R1318 O08 白模复杂度路由统一：decisions_for 唯一有效决策、ready 按集解析；定向 143/143、接缝 398/398、架构 312/312。R1312 O07 白模目录身份与集隔离。O01—O09 已完成，O11 起继续按序推进。）
+更新：2026-10-12｜当前轮次：1331（R1330 O10 采用事务化：confirm_gates 相位 pending／applied／failed，只有落盘成功算确认完成；adopt 先记 pending 再落盘、失败记 failed、中断留 pending；定向 96/96、默认冒烟 8/8。R1322 O09 白模就绪绑定来源与预演文件：shot_digest／source_digest／evidence_state／record_evidence，ready 按证据失效、verify 通过即登记；定向 138/138、关联 172/172、默认冒烟 8/8，收口安全全量 4522/4522、0 红（tree 42e782ea）。R1318 O08 白模复杂度路由统一：decisions_for 唯一有效决策、ready 按集解析；定向 143/143、接缝 398/398、架构 312/312。R1312 O07 白模目录身份与集隔离。O01—O09 已完成，O11 起继续按序推进。R1330 O10 收口安全全量 4528/4528、0 红（tree 3281c7c7，round=1330）。）
 
 R1283：Claude CLI 明确重新创作新建会话，限制旧资料读取；定向 133/133、冒烟 8/8，架构唯一行号失败修正后原文件 2/2。实现 fcc39ae 已同步，未重跑全量，需重启加载。见 tasks_round/tasks_round_1283_result.md。
 

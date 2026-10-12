@@ -2,7 +2,8 @@
 
 ## 2026-10-12 O10 完成
 
-- 2026-10-12 O10：新增 `tests/test_confirm_gates.py::AdoptTransactionTests` 6 条（落盘失败留 failed 且门禁不通过／应用前中断留 pending／成功记 applied 不再问／重复点击幂等／旧记录无 state 按 applied／未知 key 空相位），改 `tests/test_asset_detail.py` 两条（第二步失败事件 `['record','apply','record']` 且不刷新不报成功；第一步失败不落盘）；定向 `-k confirm_gates asset_detail stage_wiring asset_plan` 96/96、架构棘轮 `-k unification_ratchet confirm_gates_json_boundary` 5/5、默认冒烟 8/8，全 0 红。台账 `架构统一基数.json` 第四项三处行号随 adopt 加长平移（1025/1056/1072→1039/1070/1086，exempt 不变）。
+- 2026-10-12 O10：新增 `tests/test_confirm_gates.py::AdoptTransactionTests` 6 条（落盘失败留 failed 且门禁不通过／应用前中断留 pending／成功记 applied 不再问／重复点击幂等／旧记录无 state 按 applied／未知 key 空相位），改 `tests/test_asset_detail.py` 两条（第二步失败事件 `['record','apply','record']` 且不刷新不报成功；第一步失败不落盘）；定向 `-k confirm_gates asset_detail stage_wiring asset_plan` 96/96、架构棘轮 `-k unification_ratchet confirm_gates_json_boundary` 5/5、默认冒烟 8/8，全 0 红。台账 `架构统一基数.json` 第四项三处行号随 adopt 加长平移（1025/1056/1072→1039/1070/1086，exempt 不变），`TODO注释快照_20261003.json` 的 asset_detail.py 注释行号 346→350。
+- 2026-10-12 O10 收口全量（干净 master 工作树 `--all --safe`）：第 1 次 4528 条／445.5 秒／1 文件红（`architecture.test_todo_comment_snapshot` 行号平移，定向 2/2 修绿）→ 第 2 次 4528 条／449.2 秒／0 红，绿凭据 round=1330、tree=3281c7c7，`last_full_safe_all_round`=1330。文档收尾在绿凭据之后，非同树全量。
 
 ## 2026-10-12 O09 完成
 
