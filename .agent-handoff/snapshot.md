@@ -4,7 +4,7 @@
 - `tests/architecture/test_dialog_boundary.py` 全局门禁由 `ROOT.glob('*.py')` 改 `ROOT.rglob('*.py')`（覆盖 `batch_frames_tool/`／`agent/`／`scripts/` 等子目录，对齐 R922「递归审计」口径）；裸窗谓词由「属性式」扩为「属性式 ∪ `from tkinter import Toplevel` 名字式」，并加镜像 canary。全生产模块裸构造 `Toplevel` = 0（仅 `ui_widgets.py` 统一基类自身除外）。
 - 验证：`test_dialog_boundary` 6/6、定向 24/24、默认冒烟 8/8、架构 326/326（+1），0 红；1381−1380=1<5 且未命中 §5 升级条件，不跑全量。见 [R1381](../程序/tasks_round/tasks_round_1381_result.md)。
 - **重要校正（R1381 复核）**：路线图其余待审计项多数**早已递归零容忍收口**（表格／输入／下拉／提示／右键菜单／文件选择／快捷键／Tooltip／图标／滚动条／文案与复制／忙碌态 均为 `violations==[]`）。此前 backlog 列「~22 项未收口」为**高估**，已更正。
-- 下一轮候选（按路线图「推进纪律」第一批继续）：§一.1 按钮未列页迁移／§二.2 表格未列页／§二.3 输入未列页；或 §一.2 设计 token 内联视觉常量审计、§三 覆盖率审计 7 项。
+- 下一轮候选：把仍是「固定页清单」的门禁（`test_button_boundary`；站点实测裸 `tk/ttk.Button`＝0）按 R1381 同法收紧为递归零容忍；其后处理 阶段显示（仅查 `desktop` 生成源）／设计 token 内联视觉常量／§三 覆盖率审计 7 项。
 ## 2026-10-12：会话收尾（R1376—R1380 已收口，无待办）
 - 本次仅做收尾复核并记录：确认 R1376—R1380（UI 统一入口覆盖轮：忙碌态／文案与复制／卡片容器／文字层级）已全部提交并收口，本次会话未新增功能改动、未改任何生产代码或测试。
 - 状态一致：`程序/project_status.md` 当前轮次＝1381；中央 `.git/round-counter.json` `last_claimed=1380`；R1267 清单 O01—O48 全完成。
