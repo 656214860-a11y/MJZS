@@ -253,7 +253,7 @@ def uploaded(context, limit=None, *, local_mode=False):
         else:
             paths.add(path)
     paths = sorted(paths, key=lambda item: item.stat().st_mtime, reverse=True)
-    return tuple(paths[:limit] if limit else paths)
+    return tuple(paths[:limit] if limit is not None else paths)
 
 
 def brief_sources(context, reference):
@@ -352,15 +352,12 @@ def prepare(paths, *, local_mode=False, context=None, markdown_only=False):
         if not text:
             raise ValueError('附档为空：' + path.name)
         remaining = MAX_TOTAL_CHARS - used
-        if remaining <= 0:
+        if remaining <= 0 or len(text) > remaining:
             raise ValueError('附档总内容超过 %d 字，请减少文件或内容。' % MAX_TOTAL_CHARS)
-        clipped = text[:remaining]
-        used += len(clipped)
+        used += len(text)
         names.append(path.name)
-        details.append((path.name, len(clipped)))
-        parts.append('【附档：%s】\n<attachment_text>\n%s\n</attachment_text>' % (path.name, clipped))
-        if len(clipped) < len(text):
-            raise ValueError('附档总内容超过 %d 字，请减少文件或内容。' % MAX_TOTAL_CHARS)
+        details.append((path.name, len(text)))
+        parts.append('【附档：%s】\n<attachment_text>\n%s\n</attachment_text>' % (path.name, text))
     return {'paths': selected, 'names': tuple(names), 'details': tuple(details),
             'context': '\n\n'.join(parts)}
 

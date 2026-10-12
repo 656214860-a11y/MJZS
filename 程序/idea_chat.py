@@ -280,7 +280,6 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
         return result
     document = brief_document(fields)
     # 统筹锁在简报和项目投影中各保留一份：前者供人/模型阅读，后者供页面程序查询。
-    name = str(workflow.get('name') or '').strip()
     if name:
         locks = fields['production_locks']
         if locks:

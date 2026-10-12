@@ -12,7 +12,9 @@
     "script": {
       "最强编剧模型": {
         "model": "claude-opus-5.5",
-        "skills": []
+        "skills": [
+          "pipeline-script-preparation"
+        ]
       },
       "测试模型": {
         "model": "deepseek-v4-pro-0813",
