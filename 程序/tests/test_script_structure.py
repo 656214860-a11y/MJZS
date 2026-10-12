@@ -207,5 +207,59 @@ class ScriptStructureTests(unittest.TestCase):
             contract.revise_structured_script(raw, review['feedback'])
 
 
+class ExtractionProvenanceTests(unittest.TestCase):
+    """O17：本地规则提取要标出处与待确认，结构合法不等于制作信息齐全。"""
+
+    def test_structure_is_labelled_as_local_rules_not_a_model(self):
+        text = contract.structure_script(RAW)
+        self.assertIn('本地规则提取（未调用模型）', text)
+        self.assertIn('结构合法不等于制作信息齐全', text)
+        from types import SimpleNamespace
+        import stage_exec
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'writing').mkdir()
+            (root / 'writing' / contract.RAW_SCRIPT_NAME).write_text(RAW, encoding='utf-8')
+            run = stage_exec.run(SimpleNamespace(root=root, errors=[], bus=None, app=None), 'script_structure')
+        details = ' '.join(str(row.get('detail', '')) for row in run['results'])
+        self.assertIn('未调用模型', details)
+        self.assertNotIn('Writer 已提取', details)
+
+    def test_untagged_dialogue_and_unknown_props_keep_pending_status(self):
+        raw = '场景 1：夜，空房间\n门被风吹开。\n道具：旧钥匙\n'
+        text = contract.structure_script(raw)
+        self.assertIn('待确认（原稿本场未出现“人物名：对白”标签）', text)
+        self.assertIn('请人工补充角色档案', text)
+        self.assertIn('- 旧钥匙：尺寸、材质、持有者待确认（来源：原稿声明）。', text)
+
+    def test_alias_and_cross_episode_id_keep_source(self):
+        raw = '场景 1：日，教室\n林小满，又名小满，是班长。\n林小满：我来了。\n'
+        first = contract.structure_script(raw, source_name='第01集.md')
+        second = contract.structure_script(raw, source_name='第09集.md')
+        self.assertIn('- 别名：小满（来源：原稿声明）', first)
+        ids = [line for line in first.splitlines() if line.startswith('- 跨集 ID：')]
+        self.assertEqual(ids, [line for line in second.splitlines() if line.startswith('- 跨集 ID：')])
+        self.assertRegex(ids[0], r'^- 跨集 ID：char-[0-9a-f]{8}（程序按角色名生成')
+
+    def test_flashback_scene_is_marked_pending(self):
+        raw = '场景 1：夜，雨中\n这是三年前的回忆。\n林小满：那次你说过会回来。\n'
+        text = contract.structure_script(raw)
+        self.assertIn('- 时间线：回忆／闪回（待确认：原稿未逐场标注，仅按关键词识别）', text)
+
+    def test_same_name_conflicting_features_are_flagged(self):
+        raw = ('场景 1：日，教室\n小李：我十八岁。\n\n'
+               '场景 2：夜，街头\n小李：三十岁的男人独自站着。\n')
+        text = contract.structure_script(raw)
+        self.assertIn('- 同名提醒：原稿中「小李」在不同场次特征不一致，可能是同名不同人（待确认）。', text)
+
+    def test_rule_review_requires_provenance_but_accepts_pending_fields(self):
+        text = contract.structure_script(RAW)
+        self.assertTrue(contract.review_structured_script(RAW, text)['approved'])
+        without_id = text.replace('- 跨集 ID：', '- 编号：', 1)
+        review = contract.review_structured_script(RAW, without_id)
+        self.assertFalse(review['approved'])
+        self.assertTrue(any('跨集 ID' in note for note in review['feedback']))
+
+
 if __name__ == '__main__':
     unittest.main()

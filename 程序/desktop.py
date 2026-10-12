@@ -4990,7 +4990,7 @@ class Desktop:
         split_area.columnconfigure(0, weight=1)
         split_area.rowconfigure(0, weight=1, uniform='script_structure_preview')
         split_area.rowconfigure(2, weight=1, uniform='script_structure_preview')
-        structure_note = ('剧本整理：Writer 提取人物、场景、道具、事件、冲突、台词与分场要素，Editor 审校完整性和一致性后输出结构剧本；'
+        structure_note = ('剧本整理：本地规则提取人物、场景、道具、事件、冲突、台词与分场要素，再由规则校验完整性和一致性后输出结构剧本（未调用模型）；'
                           '不切镜头、不生成分镜 JSON，也不会改动自然语言原稿。')
         from script_preview_service import LOADING_PREVIEW, preview_chunks, read_preview, should_load_async
         def content_box(parent, title, file_heading, documents, active_path, empty, attribute, editable=True):

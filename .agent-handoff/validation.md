@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O17 完成
+
+- 2026-10-12 O17：新增 `tests/test_script_structure.py::ExtractionProvenanceTests` 6 条（结构稿标本地规则提取且阶段 detail 不再写 Writer 已提取；无对白标签与未知道具尺寸保留待确认/出处；别名与跨集 ID 保留出处且跨集稳定；回忆场景标时间线待确认；同名特征矛盾给同名提醒；规则校验要求出处但仍接受待确认字段）。`test_ui_edges` 结构页说明断言同步为「本地规则提取」。定向 `-k script_structure script_contract stage_templates` 71/71、`-k ui_edges` 全绿、`-k skills` 全绿、`-k agents_md todo_comment line_endings structured_script_write_boundary json_io_boundary unification_ratchet` 35/35、`-k copy_rules` 14/14、默认冒烟 8/8，全 0 红。`desktop.py` 只改 1 行文案，行数不变（TODO 注释快照 2753 未平移）。本轮 1341 − 1336 = 5 ≥ 5，收口须补一次干净 master 全量。
+
 ## 2026-10-12 O16 完成
 
 - 2026-10-12 O16：新增 `tests/test_hollmwood_roles.py::ReviewTraceabilityTests` 5 条（同一冻结输入 `review_basis` 四键一致且为 64 位摘要；记录区分规则合格/创意满意并保留退回原文与通过条件；返工 prompt 只含明确问题、节奏正文只在 system 出现一次、prompt 不含节奏；最终判退异常带 basis 与 records；断点恢复前缀记为「上一轮已审核通过」）；`tests/test_hollmwood_performance.py` 2 条（成功结果透出 `hollmwood_review_audit`；失败结果带 basis/scope/records）；`tests/test_hollmwood_ui_queue.py` 1 条（完成文案区分规则合格与创意满意、仍用「您」）。定向 `-k hollmwood` 51/51、关联 `-k writing` 139/139、`-k idea_chat` 全绿、`-k stage_prompt_governance` 15/15、`-k copy_rules` 14/14、`-k todo_comment` 2/2、默认冒烟 8/8，全 0 红。`writing_api.py` 加行后第 4 项 `json.loads` 台账 486→490（已同步），`-k unification_ratchet` 3/3 复验通过；`desktop.py` 只改 1 行文案，行数不变（TODO 注释快照 2753 未平移）。本轮 1340 − 1336 = 4 < 5，且未命中 §5 升级条件，不跑全量。

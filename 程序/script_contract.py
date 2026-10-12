@@ -416,35 +416,88 @@ def _source_label(project, source):
     return source.resolve().relative_to(root).as_posix()
 
 
+_FEATURES = ('岁', '发', '眼', '肤', '身', '高', '矮')
+_ALIAS = re.compile(r'(?:又名|别名|绰号|昵称)[：:]?\s*([^\s，。；、）)]{1,12})')
+_FLASHBACK = ('回忆', '闪回', '倒叙', '梦境', '梦里')
+_UNTAGGED_SPEAKERS = '待确认（原稿本场未出现“人物名：对白”标签）'
+_RULE_NOTE = ('> 生成方式：本地规则提取（未调用模型）；未标明的字段来自原稿，'
+              '标「待确认」的是原稿未明确、需人工补充的制作信息。')
+_COMPLETENESS_NOTE = '> 结构合法不等于制作信息齐全：待确认项由人工补充，程序不臆造。'
+
+
+def _alias_of(raw, name):
+    """只认原稿明确声明的别名；没有就标待确认，绝不从上下文编造。"""
+    for line in raw.splitlines():
+        if name in line:
+            match = _ALIAS.search(line)
+            if match and match.group(1).strip():
+                return match.group(1).strip() + '（来源：原稿声明）'
+    return '待确认（原稿未明确）'
+
+
+def _character_id(name):
+    """按角色名生成稳定的跨集 ID：同一名字在任何一集得到同一串。"""
+    digest = hashlib.sha1(str(name).encode('utf-8')).hexdigest()[:8]
+    return 'char-%s（程序按角色名生成，仅作跨集引用；可人工改名）' % digest
+
+
+def _same_name_note(scenes, name):
+    """同名不同人只在原稿特征互相矛盾时提醒，不凭猜测拆角色。"""
+    features = {_first_sentence(body, _FEATURES) for _title, body in scenes if name in body}
+    features.discard('待确认（原稿未明确）')
+    if len(features) > 1:
+        return '原稿中「%s」在不同场次特征不一致，可能是同名不同人（待确认）。' % name
+    return ''
+
+
+def _scene_timeline(body):
+    """只在原稿出现回忆／闪回等关键词时标注，并点明这是关键词识别、仍需确认。"""
+    if any(word in body for word in _FLASHBACK):
+        return '回忆／闪回（待确认：原稿未逐场标注，仅按关键词识别）'
+    return ''
+
+
 def structure_script(raw_text, source_name=RAW_SCRIPT_NAME):
-    """把自然语言原稿整理成供下游读取的 Markdown 正稿，不修改原始文本也不建立新 JSON 契约。"""
+    """按本地规则把自然语言原稿整理成 Markdown 正稿；不调用模型，也不改动原始文本。"""
     raw = str(raw_text or '').strip()
     if not raw:
         raise ValueError('writing/script_raw.md 为空，无法整理结构化剧本。')
     scenes = _scene_blocks(raw)
     characters = _unique(name for _title, body in scenes for name in _speakers(body))
     props = _unique(match.group(1).strip() for match in re.finditer(r'(?:道具|物品)[：:]?\s*([^，。；\n]{1,30})', raw))
-    lines = ['# 结构化剧本', '', '> 来源：`%s`（原稿保持不变）' % source_name, '', '## 角色档案', '']
+    lines = ['# 结构化剧本', '', '> 来源：`%s`（原稿保持不变）' % source_name, _RULE_NOTE, _COMPLETENESS_NOTE,
+             '', '## 角色档案', '']
     if characters:
         for name in characters:
             related = '\n'.join(body for _title, body in scenes if name in body)
             lines += ['### ' + name,
-                      '- 物理特征：' + _first_sentence(related, ('岁', '发', '眼', '肤', '身', '高', '矮')),
+                      '- 别名：' + _alias_of(raw, name),
+                      '- 跨集 ID：' + _character_id(name),
+                      '- 物理特征：' + _first_sentence(related, _FEATURES),
                       '- 默认服装：' + _first_sentence(related, _CLOTHING),
-                      '- 换装需求：待确认（原稿未明确）', '']
+                      '- 换装需求：待确认（原稿未明确）']
+            note = _same_name_note(scenes, name)
+            if note:
+                lines.append('- 同名提醒：' + note)
+            lines.append('')
     else:
-        lines += ['- 待确认：原稿未发现“人物名：对白”格式的角色。', '']
+        lines += ['- 待确认：原稿未出现“人物名：对白”标签，未能识别角色；请人工补充角色档案。', '']
     lines += ['## 场景档案', '']
     for order, (title, body) in enumerate(scenes, 1):
         lines += ['### 场景 %02d：%s' % (order, title),
                   '- 空间锚点：' + _first_sentence(body, ('内', '外', '店', '家', '学校', '街', '楼', '房', '站')),
                   '- 光照方向：' + _first_sentence(body, ('光', '夜', '晨', '晚', '日', '灯')),
-                  '- 尺度参考：待确认（原稿未明确）', '']
+                  '- 尺度参考：待确认（原稿未明确）']
+        timeline = _scene_timeline(body)
+        if timeline:
+            lines.append('- 时间线：' + timeline)
+        lines.append('')
     lines += ['## 道具档案', '']
-    lines += (['- ' + item + '：尺寸、材质、持有者待确认。' for item in props] or ['- 待确认：原稿未明确关键道具。'])
+    lines += (['- ' + item + '：尺寸、材质、持有者待确认（来源：原稿声明）。' for item in props]
+              or ['- 待确认：原稿未明确关键道具。'])
     lines += ['', '## 分场剧本', '']
     for order, (title, body) in enumerate(scenes, 1):
-        participants = '、'.join(_speakers(body)) or '待确认'
+        participants = '、'.join(_speakers(body)) or _UNTAGGED_SPEAKERS
         mood = _first_sentence(body, _EMOTIONS)
         lines += ['### 场次 %02d：%s' % (order, title), '- 出场角色：' + participants,
                   '- 情绪基调：' + mood, '- 起始状态：待确认（原稿未明确）',
@@ -474,7 +527,7 @@ def _declared_props(raw):
 
 
 def review_structured_script(raw_text, structured_text):
-    """Editor 审校 Writer 提取结果，返回可展示的反馈；不改动任何文件。"""
+    """本地规则校验提取结果，返回可展示的反馈；不调用模型、不改动任何文件。"""
     raw = str(raw_text or '').strip()
     structured = str(structured_text or '').strip()
     feedback = []
@@ -482,6 +535,8 @@ def review_structured_script(raw_text, structured_text):
     for heading in required:
         if '## ' + heading not in structured:
             feedback.append('缺少「%s」区块。' % heading)
+    if '本地规则提取' not in structured:
+        feedback.append('结构剧本未标明生成方式为本地规则提取（未调用模型）。')
     scenes = _scene_blocks(raw) if raw else ()
     characters = _unique(name for _title, body in scenes for name in _speakers(body))
     character_archive = _section(structured, '角色档案')
@@ -497,6 +552,10 @@ def review_structured_script(raw_text, structured_text):
             feedback.append('角色「%s」缺少物理特征。' % name)
         if '- 默认服装：' not in card:
             feedback.append('角色「%s」缺少默认服装。' % name)
+        if '- 别名：' not in card:
+            feedback.append('角色「%s」缺少别名项（应保留出处或标待确认）。' % name)
+        if '- 跨集 ID：' not in card:
+            feedback.append('角色「%s」缺少跨集 ID。' % name)
     scene_archive = _section(structured, '场景档案')
     if scenes and scene_archive.count('### 场景 ') < len(scenes):
         feedback.append('场景档案数量少于原稿场次，需补全空间、光照和尺度信息。')
@@ -517,7 +576,7 @@ def review_structured_script(raw_text, structured_text):
 
 
 def revise_structured_script(raw_text, feedback, source_name=RAW_SCRIPT_NAME):
-    """Writer 根据 Editor 反馈重新提取；源稿矛盾保留给用户修正，绝不臆造事实。"""
+    """按反馈用本地规则重新提取；源稿矛盾保留给用户修正，绝不臆造事实。"""
     notes = tuple(feedback or ())
     conflicts = [note for note in notes if '互相矛盾的尺寸' in note]
     if conflicts:

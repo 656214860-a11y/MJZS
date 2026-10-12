@@ -1,5 +1,7 @@
 # 项目状态（可独立接续）
 
+R1341：O17 剧本结构把「形式合格」与「内容完备」分开。`script_contract.structure_script` 头部标明「本地规则提取（未调用模型）」与「结构合法不等于制作信息齐全」；角色卡新增别名（只认原稿声明）与跨集 ID（`char-xxxxxxxx`，同名跨集稳定，可人工改名）；无对白标签、未知道具尺寸、回忆场景（关键词识别）与同名特征矛盾都保留出处或标待确认，程序不臆造。`review_structured_script` 只要求出处字段存在、不要求待确认项填满（原稿冲突尺寸仍阻断）。模板步骤、`stage_exec` 执行器 detail、桌面结构页说明与 `skill_tools` 描述统一改为「规则提取／规则校验（未调用模型）」。定向 71/71、ui_edges 与 skills 全绿、架构相关 35/35、copy_rules 14/14、默认冒烟 8/8，0 红；1341 − 1336 = 5 ≥ 5，收口补一次干净 master 全量。见 tasks_round/tasks_round_1341_result.md。
+
 R1340：O16 四角色审核结果可定位的依据与修订范围。`hollmwood_roles._run` 每次算 `review_basis`（brief／SKILL／节奏／审核 system 四组 sha256）并逐条记 `review_records`（role／attempt／verdict／rule_compliant／creative_signoff／review_text），`review_audit.scope` 点明「APPROVED 只等于规则合格，创意满意由用户在阶段面板确认」；审核 system 收口要求退回逐条给「位置／违反规则／修订建议／通过条件」；返工 prompt 只针对退回意见里的明确问题且不重复注入节奏；`RoleExecutionError` 与 `writing_api` 成功/失败结果都带 `hollmwood_review_audit`；桌面完成文案改为「…已通过（规则合格；创意满意由您确认）」。定向 51/51、关联 139/139、idea_chat 全绿、stage_prompt_governance 15/15、copy_rules 14/14、todo_comment 2/2、默认冒烟 8/8，0 红；1340 − 1336 = 4 < 5，且未命中 §5 升级条件，本轮不跑全量。见 tasks_round/tasks_round_1340_result.md。
 
 R1339：O15 请求冻结与「已加载」清单核对各生成入口。核对结论：直连 API（`capture_request`→`freeze_skills`）与桌面 Agent 投递（唯一入口 `open_flow_agent`，writing 分支 `validate_selected_skills`＋`freeze_skills`）都消费发送边界一次捕获的快照（含 sha256 版本摘要、不含密钥）；手动任务书不发模型请求；媒体生成的批次冻结由 O12 关闭；`idea_chat.skill_injection_summary` 已在气泡展示「已勾选／本次实际加载」。新增 `tests/test_request_freeze_entries.py` 3 条入口差异测试，未改生产逻辑。定向 3/3、关联全绿、默认冒烟 8/8，0 红；1339 − 1336 = 3 < 5，本轮不跑全量。见 tasks_round/tasks_round_1339_result.md。
@@ -26,7 +28,7 @@ R1297：Claude CLI 开启 HOLLMWOOD 时由程序逐角色调用并审核，正�
 
 R1288：Claude CLI 剧本准备限定输入已同步 45884c8；附件仅引用 Markdown，取消全项目扫描/索引注入，阶段①不读取旧 brief；连续确认按独立请求去重。关联 178/178、核心 34/34、冒烟 8/8；架构唯一行号失败修正后 5/5。未实发模型/重启，需重启助手加载；见 tasks_round/tasks_round_1288_result.md。
 
-更新：2026-10-12｜当前轮次：1341（R1340 O16 四角色审核依据与修订范围；R1339 O15 请求冻结入口核对；R1338 O14 会话维度说明；R1336 O13 剧本准备回复状态；R1334 O12 TTS 批次冻结与缓存身份：逐句身份含端点／模型／音色／语速，开批冻结、摘要复核、整段指纹加端点；定向 49/49、关联 115/115、架构 12/12、默认冒烟 8/8，本轮不跑全量（1334−1330=4<5）。R1333 O11 确认绑定内容摘要（定向 101/101、接缝 172/172）。R1330 O10 采用事务化；收口安全全量 4528/4528、0 红（tree 3281c7c7）。R1322 O09 白模就绪绑定来源；R1318 O08 白模复杂度路由统一；R1312 O07 白模目录身份与集隔离。O01—O16 已完成，O17 起继续按序推进。）
+更新：2026-10-12｜当前轮次：1342（R1341 O17 结构形式合格与内容完备分开；R1340 O16 四角色审核依据与修订范围；R1339 O15 请求冻结入口核对；R1338 O14 会话维度说明；R1336 O13 剧本准备回复状态；R1334 O12 TTS 批次冻结与缓存身份：逐句身份含端点／模型／音色／语速，开批冻结、摘要复核、整段指纹加端点；定向 49/49、关联 115/115、架构 12/12、默认冒烟 8/8，本轮不跑全量（1334−1330=4<5）。R1333 O11 确认绑定内容摘要（定向 101/101、接缝 172/172）。R1330 O10 采用事务化；收口安全全量 4528/4528、0 红（tree 3281c7c7）。R1322 O09 白模就绪绑定来源；R1318 O08 白模复杂度路由统一；R1312 O07 白模目录身份与集隔离。O01—O17 已完成，O18 起继续按序推进。）
 
 R1283：Claude CLI 明确重新创作新建会话，限制旧资料读取；定向 133/133、冒烟 8/8，架构唯一行号失败修正后原文件 2/2。实现 fcc39ae 已同步，未重跑全量，需重启加载。见 tasks_round/tasks_round_1283_result.md。
 

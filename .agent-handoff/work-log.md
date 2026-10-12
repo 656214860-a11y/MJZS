@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O17 完成并提交 R1341。剧本结构「形式合格」与「内容完备」分开：`script_contract.structure_script` 标「本地规则提取（未调用模型）」＋「结构合法≠信息齐全」，角色卡加别名与跨集 ID（同名跨集稳定），无对白标签／未知道具尺寸／回忆场景／同名矛盾保留出处或待确认；`review_structured_script` 只要求出处字段、不要求待确认填满；模板步骤／`stage_exec` detail／桌面说明／`skill_tools` 描述统一为「规则提取／规则校验（未调用模型）」。定向 71/71、ui_edges 与 skills 全绿、架构相关 35/35、copy_rules 14/14、默认冒烟 8/8、0 红。见 [R1341](../程序/tasks_round/tasks_round_1341_result.md)。
+
 - 2026-10-12：O16 完成并提交 R1340。四角色审核依据与修订范围：`hollmwood_roles._run` 每次算 `review_basis`（brief／SKILL／节奏／审核 system 四组 sha256）与逐条 `review_records`（位置／违反规则／修订建议／通过条件都保留在审核原文），`review_audit.scope`＋`creative_signoff` 区分「规则合格」与「创意满意」；返工 prompt 只针对退回意见里的明确问题且不重复注入节奏；失败异常与 API 成功/失败结果带 `hollmwood_review_audit`；桌面完成文案点明「规则合格；创意满意由您确认」。定向 51/51、关联 139/139、idea_chat 全绿、stage_prompt_governance 15/15、copy_rules 14/14、todo_comment 2/2、默认冒烟 8/8、0 红。见 [R1340](../程序/tasks_round/tasks_round_1340_result.md)。
 
 - 2026-10-12：O15 完成并提交 R1339（验证项）。核对各生成入口都消费发送边界一次捕获的请求快照：直连 API `capture_request`→`freeze_skills`；桌面 Agent 投递唯一入口 `open_flow_agent` 在 `build()` 前捕获 `config`，writing 分支 `validate_selected_skills`＋`freeze_skills`；手动任务书不发模型请求；媒体生成冻结由 O12 关闭。新增 `tests/test_request_freeze_entries.py` 3 条（冻结后改配置只影响新任务／两入口摘要一致／静态入口与捕获顺序），未改生产逻辑。定向 3/3、关联全绿、默认冒烟 8/8、0 红。见 [R1339](../程序/tasks_round/tasks_round_1339_result.md)。

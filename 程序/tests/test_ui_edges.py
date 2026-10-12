@@ -1254,7 +1254,7 @@ class UiEdgeTests(unittest.TestCase):
                 "TPanedwindow",
             )
             self.assertEqual(str(d.script_structure_info_label.cget("justify")), "right")
-            self.assertIn("剧本整理：Writer 提取人物", str(d.script_structure_info_label.cget("text")))
+            self.assertIn("剧本整理：本地规则提取人物", str(d.script_structure_info_label.cget("text")))
             self.assertTrue(d.stage_button.winfo_exists(), "阶段配置按钮应在两内容框之间的操作行")
             output_position = d.script_structure_output_preview.yview()[0]
             d.script_structure_source_preview.yview_moveto(0.62); win.update()
