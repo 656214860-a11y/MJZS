@@ -6,6 +6,7 @@ from pathlib import Path
 from agent.core import read, save
 from responsive_ui import scroll_form
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
+from ui_tokens import SPACING
 
 # 名称/别名匹配（高置信，命中的会展示给用户二次确认）
 NAME_KEYWORDS = (
@@ -141,7 +142,7 @@ def show(desktop):
     SecondaryButton(top, text='全选', command=lambda: set_all(True)).pack(side='left', padx=(0, 6))
     SecondaryButton(top, text='全不选', command=lambda: set_all(False)).pack(side='left')
 
-    body = ttk.Frame(card); body.pack(fill='both', expand=True, pady=4)
+    body = ttk.Frame(card); body.pack(fill='both', expand=True, pady=SPACING['xs'])
     view = scroll_form(body); inner = view.form
 
     for c in candidates:

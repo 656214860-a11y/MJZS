@@ -11,6 +11,7 @@ from platform_tools import open_path
 import ui_plugin_registry
 from responsive_ui import FlowBar, CHECK_COLUMN_WIDTH, configure_check_column, refresh_check_heading, scroll_form
 from storyboard_paths import media_root
+from ui_tokens import COLORS, SPACING
 from keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING,
                             batch_plan, frame_prompt, frame_state, plan_summary)
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
@@ -244,9 +245,9 @@ def show(app, source, initial=None):
     view = scroll_form(viewport, bg='#f3f6fa')
     form = view.form                      # 滚动表单区与批量资产共用一份实现
 
-    ttk.Label(form, text='勾选镜头 → 开始逐镜生成 → 按镜头编号自动导入', style='Tokens.Title.TLabel').pack(anchor='w', padx=14, pady=12)
+    ttk.Label(form, text='勾选镜头 → 开始逐镜生成 → 按镜头编号自动导入', style='Tokens.Title.TLabel').pack(anchor='w', padx=14, pady=SPACING['md'])
     DescriptionBlock(form, text=scope + '；只处理尚未有首帧的镜头。').pack(anchor='w', padx=14)
-    DescriptionBlock(form, text='提示词沿用镜头 JSON 的 frame_prompt，参考图沿用资产图片；缺少参考图或提示词的镜头会被列出并跳过。').pack(anchor='w', padx=14, pady=4)
+    DescriptionBlock(form, text='提示词沿用镜头 JSON 的 frame_prompt，参考图沿用资产图片；缺少参考图或提示词的镜头会被列出并跳过。').pack(anchor='w', padx=14, pady=SPACING['xs'])
     table_shell = DataTable(form, columns=[
         ('shot', '镜头号', 130), ('title', '内容', 150),
         ('references', '参考图', 70), ('prompt', '首帧提示词', 430),
@@ -397,15 +398,15 @@ def show(app, source, initial=None):
     selector.grid(row=1, column=1, sticky='w')
     ttk.Label(model_box, text='画幅').grid(row=1, column=2, padx=(12, 4))
     shape = SelectBox(model_box, textvariable=aspect, values=list(ASPECTS), state='disabled', width=8)
-    shape.grid(row=1, column=3, padx=4)
+    shape.grid(row=1, column=3, padx=SPACING['xs'])
     ttk.Label(model_box, text='批次意图').grid(row=1, column=4, padx=(12, 4))
     mode_box = SelectBox(model_box, textvariable=mode_var,
                          values=[MODE_LABELS[key] for key in (MODE_MISSING, MODE_RETRY)],
                          state='readonly', width=10)
-    mode_box.grid(row=1, column=5, padx=4)
+    mode_box.grid(row=1, column=5, padx=SPACING['xs'])
     mode_box.bind('<<ComboboxSelected>>', lambda event: refresh())
     hint = tk.StringVar()
-    ttk.Label(model_box, textvariable=hint, wraplength=800, justify='left').grid(row=2, column=0, columnspan=4, sticky='w', pady=8)
+    ttk.Label(model_box, textvariable=hint, wraplength=800, justify='left').grid(row=2, column=0, columnspan=4, sticky='w', pady=SPACING['sm'])
     account = SecondaryButton(model_box, text='火山 API 设置')
     account.grid(row=3, column=0, sticky='w')
     skill_button = SecondaryButton(model_box, text='Skill 调用设置')
@@ -449,19 +450,19 @@ def show(app, source, initial=None):
     local_box = Card(form)
     local_box.columnconfigure(1, weight=1)
     ttk.Label(local_box, text='ComfyUI 连接与模型接口').grid(row=0, column=0, columnspan=2, sticky='w')
-    ttk.Label(local_box, text='图片格式').grid(row=1, column=0, sticky='w', padx=4, pady=2)
-    SelectBox(local_box, textvariable=ratio, values=list(FORMATS)).grid(row=1, column=1, sticky='w', padx=4)
+    ttk.Label(local_box, text='图片格式').grid(row=1, column=0, sticky='w', padx=SPACING['xs'], pady=2)
+    SelectBox(local_box, textvariable=ratio, values=list(FORMATS)).grid(row=1, column=1, sticky='w', padx=SPACING['xs'])
     fields = {}
     for index, (key, label, variable) in enumerate(
             [('url', '本机地址', url), ('model', '图像模型', model_name), ('text_encoder', '文本编码器', encoder), ('vae', 'VAE', vae)], start=1):
-        ttk.Label(local_box, text=label).grid(row=index + 1, column=0, sticky='w', padx=4, pady=2)
+        ttk.Label(local_box, text=label).grid(row=index + 1, column=0, sticky='w', padx=SPACING['xs'], pady=2)
         field = LineInput(local_box, textvariable=variable) if key == 'url' else SelectBox(local_box, textvariable=variable, state='normal')
-        field.grid(row=index + 1, column=1, sticky='ew', padx=4)
+        field.grid(row=index + 1, column=1, sticky='ew', padx=SPACING['xs'])
         fields[key] = field
     PrimaryButton(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=2, column=2, padx=6)
     SecondaryButton(local_box, text='启动并检测', command=lambda: app.safe(detect)).grid(row=3, column=2, padx=6)
     SecondaryButton(local_box, text='删除模型', command=lambda: app.safe(delete_model)).grid(row=4, column=2, padx=6)
-    log = TextArea(form, height=7, wrap='word', state='disabled', bg='#ffffff', fg='#243247', font=('Microsoft YaHei UI', 10), padx=10, pady=8)
+    log = TextArea(form, height=7, wrap='word', state='disabled', bg=COLORS['background_card'], fg='#243247', font=('Microsoft YaHei UI', 10), padx=10, pady=SPACING['sm'])
     log.pack(fill='both', expand=True, padx=14, pady=6)
 
     def log_lines(text):
@@ -763,7 +764,7 @@ def show(app, source, initial=None):
     except Exception:
         pass
     bar = FlowBar(footer)
-    bar.pack(fill='x', padx=14, pady=8)
+    bar.pack(fill='x', padx=14, pady=SPACING['sm'])
     start_button = PrimaryButton(bar, text='开始逐镜生成', command=lambda: app.safe(start))
     start_button.pack(side='left')
     halt = SecondaryButton(bar, text='停止后续镜头', command=stop_request)

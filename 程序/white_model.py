@@ -9,6 +9,7 @@ import white_model_service as _service
 from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, notify
 import pet_bus
+from ui_tokens import SPACING
 
 TOOLS = (
     ('打开 LensBlock 白模工作台', 'https://ilcaretz.github.io/lensblock/'),
@@ -34,7 +35,7 @@ def choose_previs(desktop):
         raise ValueError('当前分镜中没有镜头，请先完成'+pet_bus.stage_step('final')+'分镜定稿')
     picker = BaseDialog(desktop.win, '选择要预演的镜头', geometry='420x150', modal=False, chrome=False)
     picker.lift()
-    body = Card(picker); body.pack(fill='both', expand=True, padx=16, pady=16)
+    body = Card(picker); body.pack(fill='both', expand=True, padx=SPACING['lg'], pady=SPACING['lg'])
     ttk.Label(body, text='选择要制作白模预演的镜头：').pack(anchor='w', pady=(0,8))
     selected = tk.StringVar(value=ids[0])
     choice = SelectBox(body, textvariable=selected, values=ids)
@@ -143,7 +144,7 @@ def open_previs(desktop,sid=None):
     notes.insert('1.0', saved.get('notes', ''))
     path_text = tk.StringVar(value=saved.get('preview') or '尚未导入预演视频')
     project_text = tk.StringVar(value=saved.get('project_file') or '尚未导入白模工程')
-    ttk.Label(body, textvariable=path_text, wraplength=710).pack(anchor='w', pady=8)
+    ttk.Label(body, textvariable=path_text, wraplength=710).pack(anchor='w', pady=SPACING['sm'])
     ttk.Label(body,textvariable=project_text,wraplength=710).pack(anchor='w',pady=2)
     def save():
         from white_model_persistence_controller import save_notes
@@ -159,7 +160,7 @@ def open_previs(desktop,sid=None):
     def guarded(fn):
         try: fn()
         except Exception as exc: notify(win, str(exc), level='error', title='白模预演', status=desktop.status)
-    row = ttk.Frame(body); row.pack(fill='x', pady=8)
+    row = ttk.Frame(body); row.pack(fill='x', pady=SPACING['sm'])
     SecondaryButton(row, text='导入预演视频/工程', command=lambda: guarded(import_preview)).pack(side='left', padx=(0, 7))
     PrimaryButton(row, text='保存备注', command=lambda: guarded(save)).pack(side='left', padx=(0, 7))
     SecondaryButton(row, text='打开本镜头目录', command=lambda: open_path(root)).pack(side='left')

@@ -16,6 +16,7 @@ from agent.core import read, save, save_bytes
 from comfy_service import Comfy
 from cloud_assets import MODELS as CLOUD_MODELS
 import tk_timers
+from ui_tokens import SPACING
 
 
 
@@ -319,11 +320,11 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
     config.columnconfigure(1,weight=1)
     ttk.Label(config,text='生图模型').grid(row=0,column=0,columnspan=4,sticky='w')
     ttk.Label(config,text='模型').grid(row=1,column=0,sticky='w',padx=(0,8))
-    selector=SelectBox(config,textvariable=model,values=MODELS);selector.grid(row=1,column=1,sticky='ew',padx=4)
+    selector=SelectBox(config,textvariable=model,values=MODELS);selector.grid(row=1,column=1,sticky='ew',padx=SPACING['xs'])
     ttk.Label(config,text='画幅').grid(row=1,column=2,padx=(12,4))
-    shape=SelectBox(config,textvariable=aspect,values=['1:1','9:16','16:9']);shape.grid(row=1,column=3,padx=4)
+    shape=SelectBox(config,textvariable=aspect,values=['1:1','9:16','16:9']);shape.grid(row=1,column=3,padx=SPACING['xs'])
     hint=tk.StringVar();account_text=tk.StringVar(value='云模型账号 / 密钥')
-    ProgressLabel(config,textvariable=hint,wraplength=730).grid(row=2,column=0,columnspan=4,sticky='w',pady=8)
+    ProgressLabel(config,textvariable=hint,wraplength=730).grid(row=2,column=0,columnspan=4,sticky='w',pady=SPACING['sm'])
     def update_hint():
         account_text.set('火山 API 设置' if model.get()=='Seedream 5.0 Pro' else '云模型账号 / 密钥')
         if model.get()=='Seedream 5.0 Pro':
