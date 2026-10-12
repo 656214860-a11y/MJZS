@@ -1,3 +1,9 @@
+## 2026-10-12 O48 完成
+
+- 2026-10-12 O48（R1375）：`pet_bus.stage_step(stage)` 成为阶段步号唯一权威（按 `STAGES` 顺序两位步号，与阶段目录／导航页同源）；13 个生产模块的用户可见文案改由它现算，纠正旧步号（分镜 02→03、资产 03→05、定稿 04→07、首帧 05→08、白模 06→09、视频 07→10，共 24 处）。`architecture.md` §4／§5／§8 三表补齐为 13 行并与 `pet_bus.STAGES`／`stage_parallel.CONFIG` 同源，`README.md` 历史目录树加「历史记录」提示（不动历史正文）。
+- 测试：架构 `smoke_test.py --architecture` **315/315**（原 312，+3 新用例：阶段表逐行同源／并行表逐行同源／生产文案「第N步」只许来自 `pet_bus.stage_step`）；定向 `-k "video white_model project_open row_targets asset workflow ui_edges pet_ui engine storyboard local_video batch_frames critical_chains shot_assets"` **1456 条／386.7 秒**，仅 1 红为既有环境相关（`test_workflow` 桌面模型标签：主树未跟踪模型池把 `claude-desktop` 标成「Claude Desktop」，出厂池为「Claude Code」；干净工作树单跑为绿）；交互验收 `tests.test_asset_detail tests.test_ui_theme tests.test_ui_widgets_inputs tests.test_idea_chat tests.test_video_ui` **244/244**（`tk scaling` 1.0／1.5／2.0、`<Return>` 发送、takefocus／焦点回归、禁用控件说明）；默认冒烟 **8/8**。
+- 登记平移：`架构统一基数.json` 第四项 `batch_frames.py` point 13→14／77→78；`TODO注释快照_20261003.json` `asset_detail.py` 350→351；`skip台账.json` 用例更名 `..._points_to_step04`→`..._points_to_step07`。
+- 全量：1375−1374=1<5，但 O48 为 R1267 路线图收口项（§5）→ 收口在干净 master `o07-fullsafe-master` 跑 `--all --safe`；结果见 R1375 报告「全量判定」。
 ## 2026-10-12 O47 完成
 
 - 2026-10-12 O47：新增 `程序/tests/test_critical_chains.py` 17 条（链路 A 回收站 O38/O39、链路 B 模型请求链、链路 C 导入→完成证据 O02/O03、链路 D 剧本→结构→分镜、O04 返工门禁、O05/O06 首帧门禁）；无生产代码改动。测试：`-k critical_chains` 17/17；定向 `-k critical_chains recycle audio_import stage_completion delivery_import script_contract stage_flow` 187/187；架构 312/312；默认冒烟 8/8，0 红。未命中 §5（只新增测试文件）。全量：1374−1373=1<5，收口在干净 master 跑一次 `--all --safe`（4954/4954、0 红、665.09 秒；凭据 round=1374、tree=4778c99e…＝`HEAD:程序`、last_full_safe_all_round=1374；4954−4937=17＝本轮新增用例）。
