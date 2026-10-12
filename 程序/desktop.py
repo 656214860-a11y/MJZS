@@ -5612,6 +5612,7 @@ class Desktop:
                                                  '全部通过' if passed else '有待办')
         def make():
             self.write_continuity_ledger(ledger)
+            self.sync_continuity_issues(ledger)
             self.pet_report('continuity','连贯性清单已生成：'+line()+'。')
             self.status.set('连贯性清单已生成并落盘：'+line())
             self.show(PAGE['continuity'])
@@ -5684,6 +5685,16 @@ class Desktop:
         table_of('跨批次与三元组校验',
                  [('kind','项目',110),('id','编号',150),('result','结论',100),('detail','说明',700)],
                  checks,min(8,max(2,len(checks))),detail='detail')
+        issue_rows=self.continuity_issue_rows(ledger)
+        if issue_rows:
+            table_of('问题闭环',
+                     [('id','编号',130),('kind','类型',110),('severity','严重度',60),
+                      ('state','状态',80),('where','涉及镜头/资产',170),('evidence','证据',560)],
+                     [(row.get('id') or '',row.get('kind_label') or '',row.get('severity') or '',
+                       row.get('state_label') or '',
+                       '、'.join([str(item) for item in (row.get('shots') or [])+(row.get('assets') or [])]) or '—',
+                       row.get('evidence') or row.get('detail') or '')
+                      for row in issue_rows],min(8,max(2,len(issue_rows))),detail='evidence')
         problems=list(summary.get('problems') or [])
         foot=ttk.LabelFrame(self.content,text='待办与裁决',padding=4);foot.pack(fill='x',pady=(4,0))
         if problems:
@@ -5706,6 +5717,12 @@ class Desktop:
                        command=lambda key=item['key'],value=choice,digest=item.get('digest',''):self.safe(
                            lambda:self.pick_gate(key,value,
                                lambda:self.show(PAGE['continuity']),digest))).pack(anchor='w')
+        for row in [item for item in issue_rows if item.get('state')=='open']:
+            box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=2)
+            ttk.Label(box,text='%s %s：%s'%(row.get('severity') or '',row.get('id') or '',
+                                          row.get('detail') or ''),wraplength=760,justify='left').pack(anchor='w')
+            SecondaryButton(box,text='忽略（写明理由）',
+                            command=lambda iid=row.get('id'):self.safe(lambda:self.ignore_continuity_issue(iid))).pack(anchor='w')
     def pick_gate(self,key,choice,again=None,digest=''):
         """记一次人工确认，顺手把选择写进资产、再刷面板（第 64 期任务 6）。
 
@@ -5720,6 +5737,28 @@ class Desktop:
         if again:again()                      # 先重建页面（重建会重置状态栏），再写状态栏
         self.status.set('已确认：'+str(choice))
         return path
+    def continuity_issue_rows(self,ledger):
+        """问题闭环视图：登记表与本次台账合并后的行（只读，不落盘）。"""
+        from stage_execution_service import continuity_issue_report
+        try:return list(continuity_issue_report(self.root,ledger))
+        except (ValueError,OSError,TypeError,AttributeError,KeyError):return []
+    def sync_continuity_issues(self,ledger=None):
+        """把本次问题并进 03_continuity/output/continuity_issues.json（跟「手动生成」同一次做）。"""
+        from stage_execution_service import sync_continuity_issues
+        try:return list(sync_continuity_issues(self.root,ledger))
+        except (ValueError,OSError,TypeError,AttributeError,KeyError) as exc:
+            self.status.set('问题闭环台账没写成：'+str(exc));return []
+    def ignore_continuity_issue(self,iid):
+        """忽略一条问题：必须先写理由（记下当时那一版证据），再刷新页面。"""
+        reason=simpledialog.askstring('忽略这条问题','忽略这条问题的理由：',parent=self.win)
+        if reason is None:return
+        reason=str(reason).strip()
+        if not reason:
+            self.status.set('没写理由，这条问题不忽略。');return
+        from stage_execution_service import decide_continuity_issue
+        decide_continuity_issue(self.root,iid,'ignored',reason)
+        self.status.set('已忽略 '+str(iid)+'（理由与作用版本已记录）。')
+        self.show(PAGE['continuity'])
     def gate_level(self):
         """三虎当前那一档（hint／semi／auto）。读不出来按 hint 算——绝不替用户做主。"""
         import pet_agent

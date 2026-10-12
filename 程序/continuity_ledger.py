@@ -405,3 +405,203 @@ def gate(ledger):
     """门禁结论：(通过吗, 待办列表)。"""
     problems = tuple((ledger.get('summary') or {}).get('problems') or [])
     return (not problems), problems
+
+
+# ── 问题闭环（O23）：发现 → 处理决定 → 解除／重开，登记在 03_continuity/output/continuity_issues.json ──
+ISSUE_NAME = 'continuity_issues.json'
+OPEN, IGNORED, RESOLVED = 'open', 'ignored', 'resolved'
+ISSUE_STATES = (OPEN, IGNORED, RESOLVED)
+HUMAN = '人工'
+SEVERITIES = {'conflict': '高', 'triplet': '高', 'drift': '中', 'cross_batch': '中'}
+ISSUE_KINDS = {'conflict': '职责自相矛盾', 'triplet': '三元组不一致',
+               'drift': '锚点漂移', 'cross_batch': '跨批次不一致'}
+STATE_LABELS = {OPEN: '待处理', IGNORED: '已忽略', RESOLVED: '已解除'}
+
+
+def _issue_digest(kind, scope, detail, shots, assets):
+    import hashlib
+    text = '\x1f'.join([str(kind), str(scope), str(detail), '|'.join(shots), '|'.join(assets)])
+    return hashlib.sha1(text.encode('utf-8')).hexdigest()[:12]
+
+
+def _issue(kind, scope, shots, assets, detail):
+    """一条结构化问题：稳定编号 ＋ 涉及镜头/资产 ＋ 证据 ＋ 严重程度。"""
+    shots = [str(item).strip() for item in (shots or []) if str(item or '').strip()]
+    assets = [str(item).strip() for item in (assets or []) if str(item or '').strip()]
+    detail = str(detail or '')
+    evidence = '；'.join(text for text in (
+        ('涉及镜头：' + '、'.join(shots)) if shots else '',
+        ('涉及资产：' + '、'.join(assets)) if assets else '',
+        detail) if text)
+    return {'id': 'CI-%s-%s' % (kind, scope or 'NA'), 'kind': kind,
+            'kind_label': ISSUE_KINDS.get(kind, kind), 'severity': SEVERITIES.get(kind, '中'),
+            'shots': shots, 'assets': assets, 'detail': detail, 'evidence': evidence,
+            'digest': _issue_digest(kind, scope, detail, shots, assets)}
+
+
+def issues(ledger):
+    """台账里没过的那几条变成结构化问题：编号稳定（含批次），同一份台账算出来总是一样。"""
+    out = []
+    blocks = {str(block.get('batch_id') or ''): block for block in ledger.get('batches') or []}
+    for row in ledger.get('triplets') or []:
+        if row.get('ok'):
+            continue
+        batch = str(row.get('batch_id') or '')
+        block = blocks.get(batch) or {}
+        out.append(_issue('triplet', batch, block.get('shot_ids'),
+                          [row.get('scene_id')] + list(row.get('character_ids') or []),
+                          row.get('detail')))
+    for row in ledger.get('cross_batch') or []:
+        if row.get('ok'):
+            continue
+        out.append(_issue('cross_batch', '%s-%s' % (row.get('id') or 'NA', row.get('state') or ''),
+                          [], [row.get('id')], row.get('detail')))
+    seen = {}
+    for row in ledger.get('conflicts') or []:
+        if row.get('kind') != '职责自相矛盾':
+            continue
+        shot = str(row.get('shot_id') or '')
+        seen[shot] = seen.get(shot, 0) + 1
+        scope = shot if seen[shot] == 1 else '%s-%d' % (shot, seen[shot])
+        out.append(_issue('conflict', scope, [row.get('shot_id')], [], row.get('detail')))
+    for row in ledger.get('drift') or []:
+        if row.get('ok'):
+            continue
+        out.append(_issue('drift', '%s-%s' % (row.get('id') or 'NA', row.get('state') or ''),
+                          [], [row.get('id')], row.get('detail')))
+    return tuple(out)
+
+
+def issues_path(project):
+    """问题闭环登记表落在 03_continuity/output/continuity_issues.json。"""
+    import stage_layout
+    return stage_layout.paths(project, '03_continuity')['output'] / ISSUE_NAME
+
+
+def read_issues(project):
+    """已经登记过的问题（编号 → 记录）；没有或读不动就给空表。"""
+    path = issues_path(project)
+    if not path.is_file():
+        from stage_path_service import read_file
+        path = read_file(project, 'continuity', 'output', ISSUE_NAME)
+    if not path.is_file():
+        return {}
+    try:
+        data = read_json(path)
+    except (OSError, ValueError):
+        return {}
+    rows = data.get('issues') if isinstance(data, dict) else None
+    return dict(rows) if isinstance(rows, dict) else {}
+
+
+def _report_rows(register):
+    """登记表 → 报告行：待处理在前（严重度高的再前），然后已忽略、已解除。"""
+    order = {OPEN: 0, IGNORED: 1, RESOLVED: 2}
+    rows = []
+    for value in (register or {}).values():
+        if not isinstance(value, dict):
+            continue
+        item = dict(value)
+        item['state_label'] = STATE_LABELS.get(str(item.get('state')), str(item.get('state') or ''))
+        decision = item.get('decision') if isinstance(item.get('decision'), dict) else {}
+        item['reason'] = str(decision.get('reason') or '')
+        rows.append(item)
+    rows.sort(key=lambda row: (order.get(str(row.get('state')), 9),
+                               row.get('severity') != '高', str(row.get('id') or '')))
+    return rows
+
+
+def merge_issues(register, current, *, now=''):
+    """把本轮算出的问题并进登记表（纯函数）。返回 (新登记表, 报告行)。
+
+    同一编号不会重复新增；本轮没有、原来待处理／已忽略的置为已解除（修好解除）；
+    已解除的重新出现 → 重开；已忽略的证据变了 → 重开（原忽略只对当时那一版证据有效）。
+    """
+    existing = dict(register) if isinstance(register, dict) else {}
+    stamp = str(now or '')
+    seen = set()
+    for raw in current or []:
+        item = dict(raw) if isinstance(raw, dict) else {}
+        iid = str(item.get('id') or '')
+        if not iid:
+            continue
+        seen.add(iid)
+        previous = existing.get(iid) if isinstance(existing.get(iid), dict) else {}
+        state = str(previous.get('state') or OPEN)
+        digest = str(previous.get('digest') or '')
+        history = list(previous.get('history') or [])
+        decision = dict(previous.get('decision') or {}) if isinstance(previous.get('decision'), dict) else {}
+        note = ''
+        if not previous:
+            item['state'] = OPEN
+            note = '首次发现'
+        elif state == RESOLVED:
+            item['state'] = OPEN
+            note = '曾经解除，这次检查又出现'
+        elif state == IGNORED and digest and digest != str(item.get('digest') or ''):
+            item['state'] = OPEN
+            note = '忽略时依据的那一版证据已变化，需要重新决定'
+            decision = {}
+        elif state == IGNORED:
+            item['state'] = IGNORED
+        else:
+            item['state'] = OPEN
+        item['decision'] = decision
+        item['first_seen'] = str(previous.get('first_seen') or stamp)
+        item['last_seen'] = stamp or str(previous.get('last_seen') or '')
+        if note:
+            history.append({'at': item['last_seen'], 'state': item['state'], 'note': note})
+        item['history'] = history[-20:]
+        existing[iid] = item
+    for iid, value in list(existing.items()):
+        if iid in seen or not isinstance(value, dict):
+            continue
+        if str(value.get('state') or OPEN) in (OPEN, IGNORED):
+            row = dict(value)
+            row['state'] = RESOLVED
+            row['last_seen'] = stamp or str(row.get('last_seen') or '')
+            history = list(row.get('history') or [])
+            history.append({'at': row['last_seen'], 'state': RESOLVED, 'note': '这次检查里已不再出现'})
+            row['history'] = history[-20:]
+            existing[iid] = row
+    return existing, _report_rows(existing)
+
+
+def sync_issues(project, ledger, *, publish=None, now=''):
+    """读台账 → 算问题 → 并入登记表；只有 L3 注入 publish 才落盘，不注入就只读预览。"""
+    register, rows = merge_issues(read_issues(project), issues(ledger), now=now)
+    if publish is not None:
+        publish(issues_path(project), {'version': 1, 'issues': register})
+    return rows
+
+
+def decide_issue(project, issue_id, decision, reason='', by=HUMAN, *, publish, now=''):
+    """记一条人工处理决定。忽略必须写明理由，并记下作用的证据版本（当时那一版摘要）。"""
+    decision = str(decision or '').strip().lower()
+    if decision not in (OPEN, IGNORED):
+        raise ValueError('处理决定只能是 open／ignored：' + str(decision or '（空）'))
+    reason = str(reason or '').strip()
+    if decision == IGNORED and not reason:
+        raise ValueError('忽略一条问题必须写明理由（为什么可以不管）。')
+    register = read_issues(project)
+    row = register.get(str(issue_id))
+    if not isinstance(row, dict):
+        raise ValueError('没有这条问题：' + str(issue_id or '（空）'))
+    row = dict(row)
+    row['state'] = decision
+    row['decision'] = {'value': decision, 'reason': reason, 'by': str(by or HUMAN),
+                       'digest': str(row.get('digest') or ''), 'at': str(now or '')}
+    history = list(row.get('history') or [])
+    history.append({'at': str(now or ''), 'state': decision,
+                    'note': reason or ('人工重新打开' if decision == OPEN else '人工处理')})
+    row['history'] = history[-20:]
+    register[str(issue_id)] = row
+    publish(issues_path(project), {'version': 1, 'issues': register})
+    return _report_rows(register)
+
+
+def issue_gate(project, ledger, *, now=''):
+    """闭环之后还拦不拦：只有「待处理」算没解决；已忽略与已解除都放行。"""
+    rows = sync_issues(project, ledger, now=now)
+    blocking = [row for row in rows if str(row.get('state')) == OPEN]
+    return (not blocking), tuple(blocking)

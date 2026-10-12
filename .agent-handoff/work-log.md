@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O23 完成并提交 R1347。连贯性问题从发现到解除的闭环：`continuity_ledger` 新增结构化 `issues`（稳定编号 `CI-<kind>-<scope>`、涉及镜头/资产、证据、严重度）与 `03_continuity/output/continuity_issues.json` 登记表（`merge_issues`／`sync_issues`／`decide_issue`／`issue_gate`）：同一问题不重复新增、修好解除、解除后再现重开、证据变化重开且清空决定；人工忽略必须写理由并记下作用版本；`stage_parallel.ledger_ready` 改用 `issue_gate`（忽略后不再拦）；`stage_execution_service` 补 L3 门面；桌面连贯性页新增「问题闭环」表与「忽略（写明理由）」按钮。新增 20 条用例，定向 124/124＋160/160、架构 312/312、默认冒烟 8/8，0 红（1347−1346=1<5 且未命中 §5，本轮不跑全量）。见 [R1347](../程序/tasks_round/tasks_round_1347_result.md)。
+
 - 2026-10-12：O22 收口安全全量。干净 master 工作树 `run_selftests.py --all --safe` 第 1 次即绿：4610 条用例／410.3 秒／0 文件红（`test_desktop_startup_perf` 13.5 秒、`test_perf_baseline` 20.0 秒均过）；凭据 round=1346、tree=3488e392，`last_full_safe_all_round` 刷到 1346。见 [R1346](../程序/tasks_round/tasks_round_1346_result.md)。
 
 - 2026-10-12：O22 完成并提交 R1346。资产正典、变体与镜头引用的变更影响视图：`asset_plan` 新增只读 `asset_impact`（正典 `canonical_board`／`character_anchor`、`state_variants`、被哪些采用镜头哪些字段引用、需复核首帧、受影响已生成视频、`orphan`/`protected`）与 `deletion_references`（删前引用清单＋警示），`asset_context.referencing_shots` 与 `references` 同口径，`stage_execution_service` 补 L3 门面，资产详情页顶部提示被引用/可回收；改变体不覆盖正典、删除受引用资产先给引用列表、孤立资产可回收（依赖 O18；O39 回收侧未完成）。新增 10 条用例，定向 64/64、注释快照＋统一棘轮 5/5、架构 312/312、默认冒烟 8/8，0 红（1346−1341=5≥5；收口安全全量 4610/4610、410.3 秒、0 红，凭据 round=1346、tree=3488e392）。见 [R1346](../程序/tasks_round/tasks_round_1346_result.md)。

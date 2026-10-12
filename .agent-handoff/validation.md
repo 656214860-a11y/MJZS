@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O23 完成
+
+- 2026-10-12 O23：新增 `tests/test_continuity_issues.py` 20 条（稳定编号＋证据＋严重度／同一台账编号稳定／不同批次不串号／干净台账无问题；不重复新增／修好解除／解除后再现重开／忽略后证据变了重开且清空决定；忽略必须理由／决定记理由与作用版本／未知编号与非法决定拒收／重新打开清忽略；只读预览不写盘／注入发布器才落盘／无登记表读成空／门禁只拦待处理／修好清空／`stage_parallel.ledger_ready` 忽略后放行）。定向 `-k continuity stage_parallel confirm_gates` 124/124、`-k ui_edges todo_comment unification_ratchet desktop` 160/160、架构 312/312、默认冒烟 8/8，全 0 红。未增删 `json.loads`（台账未平移）。1347 − 1346 = 1 < 5 且未命中 §5，本轮不跑全量。
+
 ## 2026-10-12 O22 完成
 
 - 2026-10-12 O22：新增 `tests/test_asset_impact.py` 10 条（`referencing_shots` 命中字段命名/`location`+`props` 可命中/未知资产不命中；受引用资产带镜头与首帧文件且 `protected`、孤立资产 `orphan` 可回收、`canon`/`variants` 只读回显、非法编号 `ValueError`、删除引用清单列出镜头并警示、孤立资产删除清单为空；写状态变体不覆盖正典键）。定向 `-k asset_impact asset_context asset_plan asset_detail asset_reference` 64/64、`test_todo_comment_snapshot`＋`test_unification_ratchet` 5/5、架构 312/312、默认冒烟 8/8，全 0 红。未增删 `json.loads`（台账未平移）。1346 − 1341 = 5 ≥ 5；收口安全全量第 1 次 4610/4610、410.3 秒、0 红（凭据 round=1346、tree=3488e392，last_full_safe_all_round=1346）。

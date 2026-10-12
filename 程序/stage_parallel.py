@@ -629,9 +629,10 @@ def assets_locked(project):
 
 
 def ledger_ready(project):
-    """SG-02：连贯性台账已生成、没有未裁决的待办。"""
+    """SG-02：连贯性台账已生成、没有未裁决的待办（被人工忽略的问题不再拦）。"""
     row = gate_for('final')
     from continuity_ledger import gate as ledger_gate
+    from continuity_ledger import issue_gate
     from continuity_ledger import read as read_ledger
     try:
         ledger = read_ledger(project)
@@ -640,6 +641,15 @@ def ledger_ready(project):
     if not isinstance(ledger, dict) or not ledger:
         return _result(row, True, False, '连贯性台账还没生成（这一步还没做），先不拦')
     ok, problems = ledger_gate(ledger)
+    if not ok:
+        try:
+            closed, blocking = issue_gate(project, ledger)
+        except Exception:
+            closed, blocking = False, ()
+        if closed:
+            ok, problems = True, ()           # 待处理的都处理完了（人工忽略／已解除）就不拦
+        elif blocking:
+            problems = tuple(item.get('detail') or item.get('id') or '' for item in blocking)
     detail = '台账已生成' if ok else '台账里还有 %d 条未裁决的待办' % len(problems)
     return _result(row, ok, True, detail, problems, [str(project) + '/03_continuity/output/continuity_ledger.json'])
 
