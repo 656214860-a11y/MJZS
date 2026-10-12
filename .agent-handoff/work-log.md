@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O17 收口安全全量。干净 master 工作树 `run_selftests.py --all --safe` 第 1 次即绿：4561 条用例／420.2 秒／0 文件红（`test_desktop_startup_perf` 13.6 秒、`test_perf_baseline` 22.4 秒均过）；凭据 round=1341、tree=06c23252，`last_full_safe_all_round` 刷到 1341。见 [R1341](../程序/tasks_round/tasks_round_1341_result.md)。
+
 - 2026-10-12：O17 完成并提交 R1341。剧本结构「形式合格」与「内容完备」分开：`script_contract.structure_script` 标「本地规则提取（未调用模型）」＋「结构合法≠信息齐全」，角色卡加别名与跨集 ID（同名跨集稳定），无对白标签／未知道具尺寸／回忆场景／同名矛盾保留出处或待确认；`review_structured_script` 只要求出处字段、不要求待确认填满；模板步骤／`stage_exec` detail／桌面说明／`skill_tools` 描述统一为「规则提取／规则校验（未调用模型）」。定向 71/71、ui_edges 与 skills 全绿、架构相关 35/35、copy_rules 14/14、默认冒烟 8/8、0 红。见 [R1341](../程序/tasks_round/tasks_round_1341_result.md)。
 
 - 2026-10-12：O16 完成并提交 R1340。四角色审核依据与修订范围：`hollmwood_roles._run` 每次算 `review_basis`（brief／SKILL／节奏／审核 system 四组 sha256）与逐条 `review_records`（位置／违反规则／修订建议／通过条件都保留在审核原文），`review_audit.scope`＋`creative_signoff` 区分「规则合格」与「创意满意」；返工 prompt 只针对退回意见里的明确问题且不重复注入节奏；失败异常与 API 成功/失败结果带 `hollmwood_review_audit`；桌面完成文案点明「规则合格；创意满意由您确认」。定向 51/51、关联 139/139、idea_chat 全绿、stage_prompt_governance 15/15、copy_rules 14/14、todo_comment 2/2、默认冒烟 8/8、0 红。见 [R1340](../程序/tasks_round/tasks_round_1340_result.md)。

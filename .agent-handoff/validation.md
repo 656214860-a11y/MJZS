@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O17 收口全量
+
+- 2026-10-12 O17 收口：干净 master 工作树（`o07-fullsafe-master`，HEAD=00d3a80）`run_selftests.py --all --safe` 第 1 次即绿：4561 条用例／420.2 秒／0 文件红；`test_desktop_startup_perf` 13.6 秒、`test_perf_baseline` 22.4 秒均通过，未出现已知阈值抖动。内容树全量凭据刷新 round=1341、tree=06c23252d59254ca25619e76b7de8c650cd23749。收口文档提交在绿凭据之后，文档树与凭据树不同树。
+
 ## 2026-10-12 O17 完成
 
 - 2026-10-12 O17：新增 `tests/test_script_structure.py::ExtractionProvenanceTests` 6 条（结构稿标本地规则提取且阶段 detail 不再写 Writer 已提取；无对白标签与未知道具尺寸保留待确认/出处；别名与跨集 ID 保留出处且跨集稳定；回忆场景标时间线待确认；同名特征矛盾给同名提醒；规则校验要求出处但仍接受待确认字段）。`test_ui_edges` 结构页说明断言同步为「本地规则提取」。定向 `-k script_structure script_contract stage_templates` 71/71、`-k ui_edges` 全绿、`-k skills` 全绿、`-k agents_md todo_comment line_endings structured_script_write_boundary json_io_boundary unification_ratchet` 35/35、`-k copy_rules` 14/14、默认冒烟 8/8，全 0 红。`desktop.py` 只改 1 行文案，行数不变（TODO 注释快照 2753 未平移）。本轮 1341 − 1336 = 5 ≥ 5，收口须补一次干净 master 全量。

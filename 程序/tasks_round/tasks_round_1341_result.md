@@ -39,7 +39,7 @@
 - 定向/关联/冒烟见三个必答，全 0 红。
 
 ## 收口安全全量
-- 1341 − 1336 = 5 ≥ 5，需在干净 master 工作树跑一次 `run_selftests.py --all --safe`。结果见下方更新。
+- 干净 master 工作树（`o07-fullsafe-master`，HEAD=00d3a80）`run_selftests.py --all --safe` 第 1 次即绿：4561 条用例／420.2 秒／0 文件红（`test_desktop_startup_perf` 13.6 秒、`test_perf_baseline` 22.4 秒均已通过，未出现已知阈值抖动）；内容树全量凭据刷新 round=1341、tree=06c23252，`last_full_safe_all_round` 刷到 1341。收口文档提交在绿凭据之后，文档树与凭据树不同树（同 O09／O10／O13 口径）。
 
 ## 风险与边界
 - 别名只认原稿明确声明；跨集 ID 是程序按角色名哈希，人物改名会换新 ID（可人工改名，不做静默迁移）。
