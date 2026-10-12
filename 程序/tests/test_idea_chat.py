@@ -416,7 +416,7 @@ class SavingTests(unittest.TestCase):
 
     def test_non_project_model_reply_is_not_saved_as_a_project_file(self):
         with tempfile.TemporaryDirectory() as td:
-            with self.assertRaisesRegex(ValueError, '不是项目设定、大纲或剧本'):
+            with self.assertRaisesRegex(ValueError, '不是项目设定、大纲、角色卡或剧本'):
                 idea_chat.save_reply(td, '你好，我正在思考。', publish=publish_idea_creative)
 
     def test_brief_intake_writes_raw_then_complete_only_after_required_fields(self):

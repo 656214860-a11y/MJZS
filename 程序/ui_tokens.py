@@ -115,3 +115,16 @@ TEXT_PROGRESS = {
     "padding": (SPACING["sm"], SPACING["xs"]),
     "max_chars": 40,
 }
+
+# 启动画面：深色影院底＋胶片条＋播放键，主窗口画好前先顶上。
+SPLASH_SIZE = (560, 320)
+SPLASH_BACKGROUND = "#0F172A"
+SPLASH_FILM = "#1E293B"
+SPLASH_FILM_HOLE = "#334155"
+SPLASH_ACCENT = "#38BDF8"
+SPLASH_ACCENT_ALT = "#A78BFA"
+SPLASH_TITLE = "#F8FAFC"
+SPLASH_SUBTITLE = "#94A3B8"
+SPLASH_TITLE_FONT = ("Microsoft YaHei UI", 22, "bold")
+SPLASH_SUBTITLE_FONT = ("Microsoft YaHei UI", 10)
+SPLASH_FRAME_MS = 33

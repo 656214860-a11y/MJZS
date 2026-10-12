@@ -792,11 +792,17 @@ class Desktop:
         return face
     def text_width(self,text):
         """这一段字自然有多宽（像素）。"""
-        lines=str(text).splitlines() or ['']
+        cache=self.__dict__.setdefault('_text_widths',{})
+        key=str(text)
+        if key in cache:return cache[key]
+        lines=key.splitlines() or ['']
         face=self.bubble_font()
         if face is None:return BUBBLE_LINE*max(len(line) for line in lines)
-        try:return max(int(face.measure(line)) for line in lines)
+        try:width=max(int(face.measure(line)) for line in set(lines))
         except Exception:return BUBBLE_LINE*max(len(line) for line in lines)
+        if len(cache)>512:cache.clear()
+        cache[key]=width
+        return width
     def bubble_margins(self,box,text,mine):
         """第 69 期任务 1：一条气泡的左右边距——量出这段字的宽窄，把色块贴着字放，
         于是每条气泡长短不一、左右错落，看起来才是聊天。

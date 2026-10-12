@@ -1031,3 +1031,105 @@ def install_stage_presenters():
 
 
 install_stage_presenters()
+
+
+import time as _time
+import ui_tokens as T
+
+SPLASH_STEPS = ('正在唤醒创作引擎…', '载入分镜与资产模块…', '搭建工作台…', '渲染界面…', '准备就绪')
+
+
+class Splash:
+    """启动画面：主窗口还在搭建时先顶上一张「AI 视频」主题的封面（胶片条＋播放键＋进度）。
+
+    主线程被搭建工作占住时动画会停，所以每一步 step() 都主动推一帧。"""
+    def __init__(self, master):
+        width, height = T.SPLASH_SIZE
+        self.width, self.height = width, height
+        self.win = tk.Toplevel(master)
+        self.win.overrideredirect(True)
+        self.win.attributes('-topmost', True)
+        x = (self.win.winfo_screenwidth() - width) // 2
+        y = (self.win.winfo_screenheight() - height) // 2
+        self.win.geometry(f'{width}x{height}+{x}+{y}')
+        self.canvas = tk.Canvas(self.win, width=width, height=height, bg=T.SPLASH_BACKGROUND,
+                                highlightthickness=0, bd=0)
+        self.canvas.pack(fill='both', expand=True)
+        self.start = _time.perf_counter()
+        self.progress = 0.0
+        self.target = 0.0
+        self._job = None
+        self._draw_static()
+        self._tick()
+        self.win.update()
+
+    def _draw_static(self):
+        c, w, h = self.canvas, self.width, self.height
+        strip = T.SPACING['2xl'] + T.SPACING['sm']
+        for top in (0, h - strip):
+            c.create_rectangle(0, top, w, top + strip, fill=T.SPLASH_FILM, width=0)
+        self.holes = []
+        hole, gap = T.SPACING['md'], T.SPACING['2xl']
+        for i in range(w // gap + 2):
+            for top in (T.SPACING['sm'] + T.SPACING['xs'], h - strip + T.SPACING['sm'] + T.SPACING['xs']):
+                self.holes.append(c.create_rectangle(i * gap, top, i * gap + hole, top + hole,
+                                                     fill=T.SPLASH_FILM_HOLE, width=0))
+        cx, cy, r = w // 2, h // 2 - T.SPACING['xl'], T.SPACING['xl'] + T.SPACING['sm']
+        self.ring = c.create_arc(cx - r, cy - r, cx + r, cy + r, start=90, extent=300,
+                                 style='arc', outline=T.SPLASH_ACCENT, width=3)
+        tri = r // 2
+        c.create_polygon(cx - tri // 2, cy - tri, cx - tri // 2, cy + tri, cx + tri, cy,
+                         fill=T.SPLASH_ACCENT_ALT, outline='')
+        c.create_text(cx, cy + r + T.SPACING['xl'], text='漫剧制作助手', fill=T.SPLASH_TITLE,
+                      font=T.SPLASH_TITLE_FONT)
+        c.create_text(cx, cy + r + T.SPACING['xl'] * 2 + T.SPACING['md'], text='AI 漫剧 · 从剧本到成片',
+                      fill=T.SPLASH_SUBTITLE, font=T.SPLASH_SUBTITLE_FONT)
+        bar_y = h - strip - T.SPACING['lg']
+        self.bar_box = (T.SPACING['2xl'] * 2, bar_y, w - T.SPACING['2xl'] * 2)
+        left, y, right = self.bar_box
+        c.create_line(left, y, right, y, fill=T.SPLASH_FILM, width=4, capstyle='round')
+        self.bar = c.create_line(left, y, left, y, fill=T.SPLASH_ACCENT, width=4, capstyle='round')
+        self.status = c.create_text(w // 2, y - T.SPACING['lg'] - T.SPACING['xs'], text=SPLASH_STEPS[0],
+                                    fill=T.SPLASH_SUBTITLE, font=T.SPLASH_SUBTITLE_FONT)
+
+    def _frame(self):
+        elapsed = _time.perf_counter() - self.start
+        c = self.canvas
+        gap = T.SPACING['2xl']
+        shift = int(elapsed * 60) % gap
+        offset = shift - getattr(self, '_shift', 0)
+        self._shift = shift
+        for item in self.holes:
+            c.move(item, offset, 0)
+        c.itemconfigure(self.ring, start=(90 - elapsed * 240) % 360)
+        # 空闲时进度条朝目标缓动；step() 会直接跳到目标，主线程忙时也看得见推进。
+        self.progress += (self.target - self.progress) * 0.18
+        left, y, right = self.bar_box
+        c.coords(self.bar, left, y, left + (right - left) * min(1.0, self.progress), y)
+
+    def _tick(self):
+        if not self.win.winfo_exists():
+            return
+        self._frame()
+        self._job = self.win.after(T.SPLASH_FRAME_MS, self._tick)
+
+    def step(self, index):
+        """推进到第 index 步（0 起），并立刻刷一帧。"""
+        if not self.win.winfo_exists():
+            return
+        index = max(0, min(index, len(SPLASH_STEPS) - 1))
+        self.target = self.progress = (index + 1) / len(SPLASH_STEPS)
+        self.canvas.itemconfigure(self.status, text=SPLASH_STEPS[index])
+        self._frame()
+        self.win.update()
+
+    def close(self):
+        if self._job is not None:
+            try:
+                self.win.after_cancel(self._job)
+            except tk.TclError:
+                pass
+        try:
+            self.win.destroy()
+        except tk.TclError:
+            pass

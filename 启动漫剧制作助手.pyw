@@ -33,8 +33,24 @@ try:
     sys.path.insert(0,str(program))
     os.chdir(program)
     import tkinter as tk
+    window=tk.Tk();window.attributes('-alpha',0)
+    # 主窗口搭好、首帧画完前保持透明，先顶上启动画面，避免白屏和半成品闪现。
+    try:
+        from ui_widgets import Splash
+        splash=Splash(window)
+    except Exception:
+        splash=None
+    def step(index):
+        if splash:splash.step(index)
+    step(1)
     from desktop import Desktop
-    window=tk.Tk();Desktop(window,root=program)
+    step(2)
+    Desktop(window,root=program)
+    step(3)
+    window.update()
+    step(4)
+    if splash:splash.close()
+    window.attributes('-alpha',1);window.lift()
     def activate_existing():
         if kernel.WaitForSingleObject(activation,0)==0:
             window.deiconify();window.attributes('-alpha',1);window.lift()

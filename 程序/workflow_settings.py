@@ -490,15 +490,17 @@ def current_store_program(program):
     match=_STORE_PACKAGE.match(program)
     if not match or Path(program).is_file():return program
     prefix=(match['name']+'_').casefold();suffix=('_'+match['arch']+'__'+match['publisher']).casefold()
+    from platform_tools import windows_registry
+    winreg=windows_registry()
+    if winreg is None:return program
     try:
-        import winreg
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER,_STORE_PACKAGES_KEY) as key:
             names=[];index=0
             while True:
                 try:names.append(winreg.EnumKey(key,index))
                 except OSError:break
                 index+=1
-    except (ImportError,OSError):return program
+    except OSError:return program
     def version(name):
         return tuple(int(part) for part in name[len(prefix):-len(suffix)].split('.') if part.isdigit())
     for name in sorted((n for n in names if n.casefold().startswith(prefix) and n.casefold().endswith(suffix)),key=version,reverse=True):
