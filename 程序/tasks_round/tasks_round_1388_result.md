@@ -50,4 +50,4 @@ Top：`desktop.py` 41、`pet_settings_ui.py` 18、`pet_ui.py` 18、`skill_panel.
 - 本轮只读，未改任何文件；已登记为 backlog（见 `project_status.md`「已知阻塞与待办」与 `.agent-handoff/backlog.md`）。
 
 ## 提交
-- 本轮为只读诊断：结果文件＋状态页＋接力记录一次提交（hash 见后续补记）。
+- 本轮为只读诊断：结果文件＋状态页＋接力记录一次提交 **`7377586`**（7 files）。

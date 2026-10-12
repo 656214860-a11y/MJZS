@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1388 只读诊断实测：设计 token 内联视觉常量审计（269 个生产 .py）。默认冒烟 `smoke_test.py` 8/8（只读诊断 §5 默认不跑测试；此为该轮陈述基线的附加冒烟，不计验收）。**不跑全量**（距最近绿全量 R1387 `tree=000477da…`、`last_full_safe_all_round=1386` 仅 2 轮，且本轮无生产改动）。不改生产代码/测试/台账/路线图。详见 [R1388](tasks_round/tasks_round_1388_result.md)。
+R1388 只读诊断实测：设计 token 内联视觉常量审计（269 个生产 .py）。默认冒烟 `smoke_test.py` 8/8（只读诊断 §5 默认不跑测试；此为该轮陈述基线的附加冒烟，不计验收）。**不跑全量**（距最近绿全量 R1387 `tree=000477da…`、`last_full_safe_all_round=1386` 仅 2 轮，且本轮无生产改动）。不改生产代码/测试/台账/路线图。提交 `7377586`。详见 [R1388](tasks_round/tasks_round_1388_result.md)。
 
 R1387 实测：按钮门禁递归零容忍（`test_button_boundary` +2）；定向 25/25、默认冒烟 8/8、架构 `smoke_test.py --architecture` 331/331（329→331）。**1387−1382=5≥5 命中 §5 五轮规则**：干净 master 工作树 `o07-fullsafe-master`（`git reset --hard master`→`d5f597f`）跑 `run_selftests.py --all --safe` **4973 条、572.5 秒、0 文件有红**（凭据 round=1386、tree=`000477da…`＝内容提交 `d5f597f:程序`；`last_full_safe_all_round` 刷新为 1386）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 均无阈值抖动。提交内容 `d5f597f`；报告／状态／接力 `ec2320b`。详见 [R1387](tasks_round/tasks_round_1387_result.md)。
 
