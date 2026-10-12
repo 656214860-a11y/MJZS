@@ -1,6 +1,6 @@
 ## 2026-10-12 O43 完成
 
-- 2026-10-12 O43：`skill_orchestrator.py`（L3）新增 `CHECKPOINT_VERSION`／`checkpoint_digest()`；`before_step(..., skills=None)` 写 `version`／`at`／`project`／`skills`／`digest` 且「写成功才认内存状态」；新增只读 `resume_preview()`（`continue`／`skip`／`verify` 逐步判定＋工具调用完成/阶段成果完成分开＋`paid` 列表＋`text`）。测试：新增 `tests/test_resume_preview.py` 12/12；定向 `-k resume_preview skill_registry skill_budget skill_templates skills workflow_settings workflow_tasks pet_agent pet_state stage_flow` 318/318；`-k test_pet_ui skill_panel` 586/586；架构 312/312；默认冒烟 8/8；`test_workflow` 主树 1 条红为既知主树环境项。全量：1370−1369=1<5、未命中 §5，收口在干净 master 跑一次 `--all --safe`（结果待收尾补记）。
+- 2026-10-12 O43：`skill_orchestrator.py`（L3）新增 `CHECKPOINT_VERSION`／`checkpoint_digest()`；`before_step(..., skills=None)` 写 `version`／`at`／`project`／`skills`／`digest` 且「写成功才认内存状态」；新增只读 `resume_preview()`（`continue`／`skip`／`verify` 逐步判定＋工具调用完成/阶段成果完成分开＋`paid` 列表＋`text`）。测试：新增 `tests/test_resume_preview.py` 12/12；定向 `-k resume_preview skill_registry skill_budget skill_templates skills workflow_settings workflow_tasks pet_agent pet_state stage_flow` 318/318；`-k test_pet_ui skill_panel` 586/586；架构 312/312；默认冒烟 8/8；`test_workflow` 主树 1 条红为既知主树环境项。全量：1370−1369=1<5、未命中 §5，收口在干净 master 跑一次 `--all --safe`（4899/4899、0 红、963.97 秒，凭据 round=1370、tree=4a7be90a…）。
 
 ## 2026-10-12 O42 完成
 

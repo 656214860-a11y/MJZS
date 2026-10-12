@@ -10,7 +10,7 @@
 - O43 契约变化：`before_step` 新增仅关键字可选 `skills`（缺省等价旧调用）；`checkpoint` 只**新增**键，旧键与取值不变（`test_skills` 既有断言照旧）；`resume_preview` 纯读、不改状态不写文件不发事件；旧格式检查点不删只标「需人工核实」，`project` 键缺失不误报跨项目。未新增顶层模块／裸 `json.loads`／L2 直写／`skipTest`，未新增业务 import（只用标准库 `hashlib`），故 `_layers.py` 与 `架构统一基数.json`（层级豁免按三元组记、不含行号）无需同步；`skill_orchestrator.py` 无冻结关键词注释，TODO 快照不受影响；架构门禁 312/312。
 - O43 验证证据：新增 `tests/test_resume_preview.py` 12/12；定向 `-k resume_preview skill_registry skill_budget skill_templates skills workflow_settings workflow_tasks pet_agent pet_state stage_flow` 318/318；Tk 消费者 `-k test_pet_ui skill_panel` 586/586；架构 `--layer architecture --all` 312/312；默认冒烟 `smoke_test.py` 8/8；0 红。`test_workflow` 在主树 1 条红是既知主树环境项（未跟踪 `程序/配置/宠物/配置.json`），干净工作树全量绿。
 - O43 边界：步骤摘要只覆盖**阶段＋序号＋步骤名**（L3 不能 import L4 的 `workflow_settings` 取模型/SKILL 冻结摘要），同名原地替换 SKILL 摘不出来；`resume_preview` **未接界面**，目前是结构化输出；`artifact_verified` 只认 script／script_structure 两段，其他阶段剩余步骤一律 `continue`；断电恢复未实机验收。
-- O43 全量：1370−1369=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量结果待收尾补记。
+- O43 全量：1370−1369=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`，全量 4899/4899、0 红、963.97 秒（干净 master 工作树 `o43-fullsafe-master`，`--all --safe`；凭据 round=1370、tree=4a7be90a…（＝`HEAD:程序`）、at=2026-10-12T17:04:56、last_full_safe_all_round=1370；4899−4887=12＝本轮新增用例；`test_desktop_startup_perf`／`test_perf_baseline` 本轮绿、无抖动，无二次全量）。
 
 ## 2026-10-12：O40 完成（历史）
 
