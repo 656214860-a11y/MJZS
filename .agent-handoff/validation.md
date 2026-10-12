@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O21 完成
+
+- 2026-10-12 O21：`tests/test_reference_search.py` 新增 5 组（分项结构/总分=分项和/`score` 与分项一致；缺地址/缺来源/缺许可/低分/不可商用/可入库六态＋note；许可依据与采集日期随条目、同图不同源记进 `alts`、许可冲突标 `source_conflict`、同许可不算冲突；低分与同图落后分逐条解释、已上墙不重复列；credit 记 license_url/collected_at 且 `rank`/`suppressed` 对已入库资产只读）。`tests/test_reference_wall.py` 新增 3 条（图墙显示许可依据与采集日期列；同图冲突只展示一条且状态提示「不一致」、同图来源为 1；右键剔除候选后 assets.json 字节不变）。定向 `-k reference` 118/118、锚定 `-k asset_detail asset_plan asset_reference workflow_context skill_tools` 全绿、架构 312/312、默认冒烟 8/8，全 0 红。未增删 `json.loads`（台账未平移）。1345 − 1341 = 4 < 5 且未命中 §5，本轮不跑全量。
+
 ## 2026-10-12 O20 完成
 
 - 2026-10-12 O20：新增 `tests/test_file_cache.py::FileDigestTests` 2 条（`file_digest` 与 `hashlib.sha256` 整份结果一致且第二次命中不再打开文件；内容变化后刷新、`invalidate()` 后重算）＋ `tests/test_animatic_service.py` 1 条（确认后对 `.mp4/.wav/.png` 的 `Path.read_bytes` 打补丁抛错、清缓存后 `evidence` 仍 True，证明成果校验不再整份读媒体）。定向 `-k animatic file_cache` 41/41、锚定 `-k animatic_timeline stage_completion previs` 117/117、架构 312/312、默认冒烟 8/8，全 0 红。台账第四项 `file_cache.py` 两处 json.loads 行号平移（53→54、112→140）已同步，`-k unification_ratchet` 3/3。实测 64 MiB 文件：旧法峰值 64.1 MiB／114ms，新法冷算 2.1 MiB／118.7ms、命中 0.002 MiB／0.211ms。1344 − 1341 = 3 < 5 且未命中 §5，本轮不跑全量。

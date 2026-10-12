@@ -69,11 +69,15 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
     table_shell = DataTable(table_box, columns=[
         ('score', '分数', 60), ('license', '许可', 150), ('commercial', '可商用', 70),
         ('title', '标题', 240), ('page', '来源页', 240), ('reasons', '打分理由', 460),
+        ('license_url', '许可依据', 200), ('collected_at', '采集日期', 110),
+        ('state', '状态', 190), ('alts', '同图来源', 90),
     ], show='tree headings', height=12, selectmode='browse', empty_text='暂无参考图候选')
     table = table_shell.tree
     configure_check_column(table)
     for key, title, width in [('score', '分数', 60), ('license', '许可', 150), ('commercial', '可商用', 70),
-                              ('title', '标题', 240), ('page', '来源页', 240), ('reasons', '打分理由', 460)]:
+                              ('title', '标题', 240), ('page', '来源页', 240), ('reasons', '打分理由', 460),
+                              ('license_url', '许可依据', 200), ('collected_at', '采集日期', 110),
+                              ('state', '状态', 190), ('alts', '同图来源', 90)]:
         table.heading(key, text=title); table.column(key, width=width, minwidth=50)
     auto_columns(table)
     table_shell.pack(fill='both', expand=True)
@@ -103,6 +107,20 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
         except (TypeError, ValueError):
             return search.DEFAULT_THRESHOLD, search.DEFAULT_LIMIT
 
+    def blocked_note(aid_value, threshold):
+        """把被挡在图墙外的候选按状态计数，写进状态栏，说明「为什么没显示」。"""
+        blocked = [row for row in search.suppressed(candidates, assets.get(aid_value) or {}, threshold)
+                   if row['url'] not in dropped]
+        if not blocked:
+            return ''
+        counts = {}
+        for row in blocked:
+            counts[row['state']] = counts.get(row['state'], 0) + 1
+        labels = {'low_score': '低分', 'duplicate': '同图重复', 'missing_license': '缺许可',
+                  'missing_source': '缺来源', 'missing_url': '缺地址', 'non_commercial': '不可商用'}
+        detail = '、'.join(f'{labels.get(key, key)} {count}' for key, count in sorted(counts.items()))
+        return f' 已挡下 {len(blocked)} 张（{detail}）。'
+
     def reload(event=None):
         aid_value, _role = current()
         threshold, limit = numbers()
@@ -116,10 +134,14 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
                          values=('%.0f' % item['score'], item['license'],
                                  '可商用' if item['commercial'] else '不可商用',
                                  item['title'] or '（没有标题）', item['page'] or '（没有来源页）',
-                                 '；'.join(item['reasons'])))
+                                 '；'.join(item['reasons']),
+                                 item['license_url'] or '（没有许可链接）',
+                                 item['collected_at'] or '（未记录）',
+                                 item['note'], str(len(item['alts'])) if item['alts'] else '—'))
         box.refresh_header()
         status.set(f'候选 {len(state["items"])} 张（阈值 {threshold}，最多 {limit}）：'
-                   f'可商用的默认已勾上；未声明许可的不入库，勾了也会被跳过。')
+                   f'可商用的默认已勾上；未声明许可的不入库，勾了也会被跳过。'
+                   + blocked_note(aid_value, threshold))
 
     def finish(result):
         skipped = result.get('skipped') or []

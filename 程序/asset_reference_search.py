@@ -65,6 +65,7 @@ def normalize(candidate):
             'author': str(item.get('author') or item.get('owner') or '').strip(),
             'license': str(license_text).strip(),
             'license_url': str(item.get('license_url') or '').strip(),
+            'collected_at': str(item.get('collected_at') or item.get('fetched_at') or item.get('date') or '').strip(),
             'commercial': bool(commercial),
             'width': _int(item.get('width')), 'height': _int(item.get('height')),
             'bytes': _int(item.get('bytes')),
@@ -140,37 +141,75 @@ def _shape(width, height):
     return 6, f'长宽比 {ratio:.2f} 偏极端'
 
 
-def score(candidate, asset):
-    """0–100 确定性打分，并给出人话理由（图墙上直接显示，便于用户复核）。"""
+def score_parts(candidate, asset):
+    """0-100 的逐项打分：每项给名称、得分与说明，供图墙逐项复核与事后追溯。"""
     item = normalize(candidate)
-    reasons = []
-    value, why = _sharpness(item['width'], item['height'])
-    reasons.append(why)
+    parts = []
+    points, why = _sharpness(item['width'], item['height'])
+    parts.append({'label': '清晰度', 'points': points, 'note': why})
     if prompt_words(asset):
         words = keywords(asset)
         text = ' '.join([item['title'], *item['tags']]).casefold()
         hits = [word for word in words if word in text]
         bonus = min(30, round(30 * len(hits) / min(len(words), 6)))
-        if hits:
-            reasons.append('命中提示词：' + '、'.join(hits[:5]))
-        else:
-            reasons.append('标题与标签里没有提示词特征')
+        note = ('命中提示词：' + '、'.join(hits[:5])) if hits else '标题与标签里没有提示词特征'
+        parts.append({'label': '提示词命中', 'points': bonus, 'note': note})
     else:
-        bonus = 15
-        reasons.append('资产还没有图片提示词，只能按清晰度和许可判断')
-    value += bonus
-    part, why = _shape(item['width'], item['height'])
-    value += part
-    reasons.append(why)
-    value += 10 if item['page'] and item['author'] else (6 if item['page'] else 0)
-    reasons.append('来源页与作者齐全' if item['page'] and item['author'] else ('只有来源页，缺作者' if item['page'] else '没有来源页'))
+        parts.append({'label': '提示词命中', 'points': 15, 'note': '资产还没有图片提示词，只能按清晰度和许可判断'})
+    points, why = _shape(item['width'], item['height'])
+    parts.append({'label': '构图比例', 'points': points, 'note': why})
+    points = 10 if item['page'] and item['author'] else (6 if item['page'] else 0)
+    note = '来源页与作者齐全' if item['page'] and item['author'] else ('只有来源页，缺作者' if item['page'] else '没有来源页')
+    parts.append({'label': '来源完整度', 'points': points, 'note': note})
     if item['commercial']:
-        value += 10
-        reasons.append(f'许可 {item["license"]}，可商用')
+        points, note = 10, f'许可 {item["license"]}，可商用'
     else:
-        value += 4 if item['license'] else 0
-        reasons.append(f'许可 {item["license"]}，不可商用' if item['license'] else '没有声明许可，不能入库')
-    return min(100, max(0, value)), reasons
+        points = 4 if item['license'] else 0
+        note = f'许可 {item["license"]}，不可商用' if item['license'] else '没有声明许可，不能入库'
+    parts.append({'label': '许可', 'points': points, 'note': note})
+    return min(100, max(0, sum(part['points'] for part in parts))), parts
+
+
+def score(candidate, asset):
+    """0-100 确定性打分，并给出人话理由（图墙上直接显示，便于用户复核）。"""
+    value, parts = score_parts(candidate, asset)
+    return value, [part['note'] for part in parts]
+
+
+STATE_NOTES = {
+    'adoptable': '来源与许可齐全，可商用',
+    'missing_url': '候选没有图片地址',
+    'missing_source': '缺少来源页，无法追溯出处，不能入库',
+    'missing_license': '未声明许可，不能入库',
+    'non_commercial': '许可不允许商用，默认不入库',
+    'source_conflict': '同图多来源的许可不一致，需人工核对',
+    'duplicate': '同图已有更高分来源，未重复展示',
+    'low_score': '得分低于阈值，默认不上墙',
+}
+
+
+def _state(item, value, threshold):
+    """单个候选最有解释力的状态：缺地址／缺来源／缺许可／低分／不可商用 优先于「可入库」。"""
+    if not item['url']:
+        return 'missing_url'
+    if not item['page']:
+        return 'missing_source'
+    if not item['license']:
+        return 'missing_license'
+    if value < _int(threshold):
+        return 'low_score'
+    if not item['commercial']:
+        return 'non_commercial'
+    return 'adoptable'
+
+
+def explain(candidate, asset, threshold=DEFAULT_THRESHOLD):
+    """候选的可解释视图：分项、状态与人话说明；图墙与批量决策共用同一判据。"""
+    item = normalize(candidate)
+    value, parts = score_parts(item, asset)
+    state = _state(item, value, threshold)
+    return {'score': value, 'breakdown': parts, 'state': state, 'note': STATE_NOTES[state],
+            'reasons': [part['note'] for part in parts]}
 
 
 def fingerprint(candidate):
@@ -183,18 +222,61 @@ def fingerprint(candidate):
 
 
 def rank(candidates, asset, threshold=DEFAULT_THRESHOLD, limit=DEFAULT_LIMIT):
-    """候选图墙的内容：打分 → 同图去重 → 阈值 → 按分排序截断。"""
-    best = {}
+    """候选图墙的内容：打分 → 同图去重（记同图其它来源）→ 阈值 → 按分排序截断。"""
+    groups, order = {}, []
     for candidate in candidates or []:
         item = normalize(candidate)
-        value, reasons = score(item, asset)
-        entry = {**item, 'score': value, 'reasons': reasons, 'fingerprint': fingerprint(item)}
-        key = entry['fingerprint']
-        if key not in best or entry['score'] > best[key]['score']:
-            best[key] = entry
-    kept = [item for item in best.values() if item['score'] >= _int(threshold)]
+        value, parts = score_parts(item, asset)
+        entry = {**item, 'score': value, 'breakdown': parts,
+                 'reasons': [part['note'] for part in parts],
+                 'fingerprint': fingerprint(item), 'alts': []}
+        if entry['fingerprint'] not in groups:
+            groups[entry['fingerprint']] = []
+            order.append(entry['fingerprint'])
+        groups[entry['fingerprint']].append(entry)
+    kept = []
+    for key in order:
+        group = groups[key]
+        group.sort(key=lambda entry: -entry['score'])          # 稳定排序：同分保留先出现的来源
+        best = group[0]
+        best['alts'] = [{'url': other['url'], 'page': other['page'], 'author': other['author'],
+                         'license': other['license'], 'commercial': other['commercial'],
+                         'collected_at': other['collected_at']} for other in group[1:]]
+        best['conflict'] = any(alt['commercial'] != best['commercial'] or alt['license'] != best['license']
+                               for alt in best['alts'])
+        state = _state(best, best['score'], threshold)
+        if state == 'adoptable' and best['conflict']:
+            state = 'source_conflict'
+        best['state'], best['note'] = state, STATE_NOTES[state]
+        if best['score'] >= _int(threshold):
+            kept.append(best)
     kept.sort(key=lambda item: (-item['score'], item['url']))
     return kept[:max(0, _int(limit) if limit is not None else DEFAULT_LIMIT)]
+
+
+def suppressed(candidates, asset, threshold=DEFAULT_THRESHOLD):
+    """被「缺许可／低分／同图重复」挡在图墙外的候选：逐条给可解释状态，解释「为什么没上墙」。"""
+    groups, order = {}, []
+    for candidate in candidates or []:
+        item = normalize(candidate)
+        value, _parts = score_parts(item, asset)
+        key = fingerprint(item)
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append((value, item))
+    out = []
+    for key in order:
+        pairs = groups[key]
+        pairs.sort(key=lambda pair: -pair[0])
+        best_value, best = pairs[0]
+        for value, item in pairs[1:]:
+            out.append({'url': item['url'], 'score': value, 'state': 'duplicate',
+                        'note': f'同图已有更高分来源：{best["url"]}'})
+        state = _state(best, best_value, threshold)
+        if state != 'adoptable':
+            out.append({'url': best['url'], 'score': best_value, 'state': state, 'note': STATE_NOTES[state]})
+    return out
 
 
 def search(transport, asset, threshold=DEFAULT_THRESHOLD, limit=DEFAULT_LIMIT):
@@ -246,7 +328,7 @@ def fetch_bytes(url, timeout=60):
 def _credit(item, digest):
     return {'url': item['url'], 'page': item['page'], 'title': item['title'], 'author': item['author'],
             'license': item['license'], 'license_url': item['license_url'],
-            'commercial': item['commercial'], 'sha256': digest}
+            'collected_at': item['collected_at'], 'commercial': item['commercial'], 'sha256': digest}
 
 
 def _write_credits(base, aid, table, read, save, image_bytes):

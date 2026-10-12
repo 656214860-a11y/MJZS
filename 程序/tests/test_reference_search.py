@@ -360,5 +360,108 @@ class AdoptTests(unittest.TestCase):
             self.assertIn('入库失败', result['skipped'][0]['reason'])
 
 
+class ScorePartsTests(unittest.TestCase):
+    def test_parts_carry_label_points_and_note(self):
+        value, parts = search.score_parts(candidate(), ASSET)
+        self.assertTrue(parts)
+        for part in parts:
+            self.assertTrue(part['label'])
+            self.assertIsInstance(part['points'], int)
+            self.assertTrue(part['note'])
+        self.assertEqual(value, min(100, sum(part['points'] for part in parts)))
+
+    def test_score_reasons_match_parts(self):
+        value, parts = search.score_parts(candidate(), ASSET)
+        self.assertEqual(search.score(candidate(), ASSET), (value, [part['note'] for part in parts]))
+
+
+class ExplainTests(unittest.TestCase):
+    def test_adoptable_when_source_and_license_are_complete(self):
+        self.assertEqual(search.explain(candidate(), ASSET)['state'], 'adoptable')
+
+    def test_states_cover_missing_fields_and_low_score(self):
+        cases = {'missing_url': candidate(url=''),
+                 'missing_source': candidate(page='', source=''),
+                 'missing_license': candidate(license=''),
+                 'non_commercial': candidate(license='CC BY-NC')}
+        for state, item in cases.items():
+            self.assertEqual(search.explain(item, ASSET)['state'], state)
+        self.assertEqual(search.explain(candidate(width=600, height=800), ASSET, threshold=90)['state'], 'low_score')
+
+    def test_note_explains_the_state(self):
+        self.assertIn('未声明许可', search.explain(candidate(license=''), ASSET)['note'])
+
+
+class TraceabilityTests(unittest.TestCase):
+    def test_entry_carries_license_basis_and_collection_date(self):
+        wall = search.rank([candidate(license_url='https://creativecommons.org/licenses/by/4.0/',
+                                      collected_at='2026-10-12')], ASSET)
+        self.assertEqual(wall[0]['license_url'], 'https://creativecommons.org/licenses/by/4.0/')
+        self.assertEqual(wall[0]['collected_at'], '2026-10-12')
+        self.assertTrue(all(part['label'] for part in wall[0]['breakdown']))
+
+    def test_same_image_at_two_sources_is_recorded(self):
+        wall = search.rank([candidate(url='https://a/1.png'), candidate(url='https://b/2.png')], ASSET)
+        self.assertEqual(len(wall), 1)
+        self.assertEqual([alt['url'] for alt in wall[0]['alts']], ['https://b/2.png'])
+
+    def test_conflicting_licenses_raise_a_conflict(self):
+        wall = search.rank([candidate(url='https://a/1.png', license='CC BY'),
+                            candidate(url='https://b/2.png', license='CC BY-NC')], ASSET)
+        self.assertEqual(len(wall), 1)
+        self.assertTrue(wall[0]['conflict'])
+        self.assertEqual(wall[0]['state'], 'source_conflict')
+
+    def test_agreeing_sources_are_not_a_conflict(self):
+        wall = search.rank([candidate(url='https://a/1.png'), candidate(url='https://b/2.png')], ASSET)
+        self.assertFalse(wall[0]['conflict'])
+        self.assertEqual(wall[0]['state'], 'adoptable')
+
+
+class SuppressedTests(unittest.TestCase):
+    def test_low_score_candidate_is_explained(self):
+        self.assertEqual([row['state'] for row in search.suppressed([candidate(width=600, height=800)], ASSET)],
+                         ['low_score'])
+
+    def test_duplicate_loser_points_at_the_kept_source(self):
+        suppressed = search.suppressed([candidate(url='https://a/1.png'),
+                                        candidate(url='https://b/2.png', license='CC BY-NC')], ASSET)
+        row = next(item for item in suppressed if item['state'] == 'duplicate')
+        self.assertEqual(row['url'], 'https://b/2.png')
+        self.assertIn('https://a/1.png', row['note'])
+
+    def test_missing_license_candidate_is_explained(self):
+        suppressed = search.suppressed([candidate(url='https://x/9.png', title='另一张', license='')], ASSET)
+        self.assertEqual([row['state'] for row in suppressed], ['missing_license'])
+
+    def test_kept_candidates_are_not_listed_as_suppressed(self):
+        self.assertEqual(search.suppressed([candidate()], ASSET), [])
+
+
+class CreditTraceabilityTests(unittest.TestCase):
+    def test_credit_records_license_basis_and_collection_date(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = project(td)
+            search.adopt(base, 'CHAR_001',
+                         [candidate(license_url='https://creativecommons.org/licenses/by/4.0/',
+                                    collected_at='2026-10-12')], fetch=lambda url: png())
+            record = next(iter(json.loads((base / search.CREDITS).read_text(encoding='utf-8')).values()))
+            self.assertEqual(record['license_url'], 'https://creativecommons.org/licenses/by/4.0/')
+            self.assertEqual(record['collected_at'], '2026-10-12')
+            self.assertEqual(record['page'], 'https://example.com/a')
+
+    def test_ranking_is_read_only_for_imported_assets(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = project(td)
+            search.adopt(base, 'CHAR_001', [candidate()], fetch=lambda url: png())
+            plan = base / 'assets/资产清单/assets.json'
+            credit = base / search.CREDITS
+            before = (plan.read_bytes(), credit.read_bytes())
+            picks = [candidate(), candidate(url='https://b/2.png', license='CC BY-NC')]
+            search.rank(picks, ASSET)
+            search.suppressed(picks, ASSET)
+            self.assertEqual((plan.read_bytes(), credit.read_bytes()), before)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=1)
