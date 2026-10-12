@@ -66,6 +66,21 @@ class CardBoundaryTests(unittest.TestCase):
     def test_white_model_workspace_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("white_model.py", "open_previs")
 
+    def test_asset_detail_page_blocks_use_card(self):
+        """资产详情页的六个信息／操作单元（正典板、锚点、职责、变体、原始数据、待确认）统一用 Card。"""
+        tree = parse(ROOT / "asset_detail.py")
+        calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name) and node.func.id == "Card"]
+        self.assertGreaterEqual(len(calls), 7, "资产详情页的信息块必须使用统一 Card")
+
+    def test_native_assets_and_asset_batch_forms_use_card(self):
+        """原生资产窗与批量资产表单的配置区统一用 Card（标题行改为卡内标签）。"""
+        for filename in ("native_assets.py", "asset_batch.py"):
+            tree = parse(ROOT / filename)
+            calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                     and isinstance(node.func, ast.Name) and node.func.id == "Card"]
+            self.assertTrue(calls, f"{filename} 的配置承载区必须使用统一 Card")
+
     def _assert_settings_card(self, filename, function_name="show"):
         tree = parse(ROOT / filename)
         imported = {

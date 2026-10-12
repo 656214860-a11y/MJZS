@@ -307,7 +307,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
 def attach_controls(app, win, form, footer, project, base, selection, status, reload_rows, context_matches):
     import tkinter as tk
     from tkinter import ttk, messagebox
-    from ui_widgets import BusyState, SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
+    from ui_widgets import BusyState, Card, SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
     from responsive_ui import FlowBar
     progress_text=tk.StringVar()
     events=queue.Queue()
@@ -315,14 +315,15 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
     prefs=read(prefsfile) if prefsfile.is_file() else {}
     saved=prefs.get('asset_workflow',{})
     model=tk.StringVar(value=saved.get('model',LOCAL));aspect=tk.StringVar(value=saved.get('aspect_ratio','1:1'))
-    config=ttk.LabelFrame(form,text='生图模型',padding=10);config.pack(fill='x',padx=14,pady=10)
+    config=Card(form);config.pack(fill='x',padx=14,pady=10)
     config.columnconfigure(1,weight=1)
-    ttk.Label(config,text='模型').grid(row=0,column=0,sticky='w',padx=(0,8))
-    selector=SelectBox(config,textvariable=model,values=MODELS);selector.grid(row=0,column=1,sticky='ew',padx=4)
-    ttk.Label(config,text='画幅').grid(row=0,column=2,padx=(12,4))
-    shape=SelectBox(config,textvariable=aspect,values=['1:1','9:16','16:9']);shape.grid(row=0,column=3,padx=4)
+    ttk.Label(config,text='生图模型').grid(row=0,column=0,columnspan=4,sticky='w')
+    ttk.Label(config,text='模型').grid(row=1,column=0,sticky='w',padx=(0,8))
+    selector=SelectBox(config,textvariable=model,values=MODELS);selector.grid(row=1,column=1,sticky='ew',padx=4)
+    ttk.Label(config,text='画幅').grid(row=1,column=2,padx=(12,4))
+    shape=SelectBox(config,textvariable=aspect,values=['1:1','9:16','16:9']);shape.grid(row=1,column=3,padx=4)
     hint=tk.StringVar();account_text=tk.StringVar(value='云模型账号 / 密钥')
-    ProgressLabel(config,textvariable=hint,wraplength=730).grid(row=1,column=0,columnspan=4,sticky='w',pady=8)
+    ProgressLabel(config,textvariable=hint,wraplength=730).grid(row=2,column=0,columnspan=4,sticky='w',pady=8)
     def update_hint():
         account_text.set('火山 API 设置' if model.get()=='Seedream 5.0 Pro' else '云模型账号 / 密钥')
         if model.get()=='Seedream 5.0 Pro':
@@ -343,7 +344,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
         else:
             from cloud_assets import settings
             settings(win)
-    SecondaryButton(config,textvariable=account_text,command=lambda:app.safe(account)).grid(row=2,column=0,columnspan=2,sticky='w')
+    SecondaryButton(config,textvariable=account_text,command=lambda:app.safe(account)).grid(row=3,column=0,columnspan=2,sticky='w')
     update_hint()
     check_stop=threading.Event()
     gen_stop=threading.Event()

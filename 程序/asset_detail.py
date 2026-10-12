@@ -27,7 +27,7 @@ from agent.core import read
 from platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, DescriptionBlock, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
+from ui_widgets import BaseDialog, Card, DescriptionBlock, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
 import pet_bus
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
@@ -263,7 +263,8 @@ def _gates_block(desktop, aid):
     """
     from confirm_gates import run
     registry = desktop.asset_requirements()
-    box = ttk.LabelFrame(desktop.content, text='待确认（Agent 已预筛，点一下采用）', padding=6)
+    box = Card(desktop.content)
+    ttk.Label(box, text='待确认（Agent 已预筛，点一下采用）').pack(anchor='w')
     rows = []
     for gate_id in ('G-05', 'G-06'):
         try:
@@ -319,7 +320,8 @@ def _header(desktop, aid, asset):
 def _board_block(desktop, aid, asset):
     """区域 2：正典板展示区（角色 7 格，场景／道具各一格宽幅参考图）。"""
     from asset_contract import cells
-    box = ttk.LabelFrame(desktop.content, text='正典板', padding=6)
+    box = Card(desktop.content)
+    ttk.Label(box, text='正典板').pack(anchor='w')
     box.pack(fill='x', pady=(4, 0))
     grid = ttk.Frame(box)
     grid.pack(fill='x')
@@ -377,7 +379,8 @@ def _board_block(desktop, aid, asset):
 
 def _anchor_block(desktop, aid, asset):
     from asset_contract import card_lines
-    box = ttk.LabelFrame(desktop.content, text='锚点字符串', padding=6)
+    box = Card(desktop.content)
+    ttk.Label(box, text='锚点字符串').pack(anchor='w')
     box.pack(fill='x', pady=(4, 0))
     anchor = str(asset.get('character_anchor') or asset.get('base_anchor') or '').strip()
     ttk.Label(box, text=anchor or '（还没定稿：用下面的候选点一下，或点「编辑」自己写）',
@@ -400,7 +403,8 @@ def _anchor_block(desktop, aid, asset):
 
 def _role_block(desktop, aid, asset):
     from asset_contract import DEFAULT_EXCLUDE, DEFAULT_RESPONSIBILITY
-    box = ttk.LabelFrame(desktop.content, text='参考职责声明', padding=6)
+    box = Card(desktop.content)
+    ttk.Label(box, text='参考职责声明').pack(anchor='w')
     box.pack(fill='x', pady=(4, 0))
     role = str(asset.get('reference_role') or DEFAULT_RESPONSIBILITY)
     exclude = str(asset.get('reference_exclude') or DEFAULT_EXCLUDE)
@@ -417,7 +421,8 @@ def _variants_block(desktop, aid, asset):
     rows = state_variants(asset)
     box = ttk.Frame(desktop.content)
     box.pack(fill='x', pady=(4, 0))
-    body = ttk.LabelFrame(desktop.content, text='状态变体', padding=6)
+    body = Card(desktop.content)
+    ttk.Label(body, text='状态变体').pack(anchor='w')
     state = {'open': False}
     def toggle():
         state['open'] = not state['open']
@@ -492,7 +497,8 @@ def _raw_block(desktop, aid):
     """区域 6：原始 JSON（折叠；只读，便于核对）。"""
     holder = ttk.Frame(desktop.content)
     holder.pack(fill='x', pady=(4, 8))
-    body = ttk.LabelFrame(desktop.content, text='原始数据', padding=6)
+    body = Card(desktop.content)
+    ttk.Label(body, text='原始数据').pack(anchor='w')
     state = {'open': False}
     def toggle():
         state['open'] = not state['open']
@@ -593,9 +599,9 @@ def _roster_role(desktop, aid, asset):
     """一个角色一块：正典板那几格 ＋ 换状态那几条（场景／道具只有正典板）。"""
     from asset_contract import cells, state_variants
     base = _base(desktop)
-    box = ttk.LabelFrame(desktop.content, padding=6,
-                         text=aid + ' · ' + str(asset.get('name') or aid) + '　'
-                              + TYPE_NAMES.get(aid.split('_')[0], '资产'))
+    box = Card(desktop.content)
+    ttk.Label(box, text=aid + ' · ' + str(asset.get('name') or aid) + '　'
+                       + TYPE_NAMES.get(aid.split('_')[0], '资产')).pack(anchor='w')
     box.pack(fill='x', pady=(4, 0))
     grid = cells(asset)
     board = ttk.Frame(box)
