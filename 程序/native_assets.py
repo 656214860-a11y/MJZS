@@ -307,7 +307,7 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
 def attach_controls(app, win, form, footer, project, base, selection, status, reload_rows, context_matches):
     import tkinter as tk
     from tkinter import ttk, messagebox
-    from ui_widgets import SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
+    from ui_widgets import BusyState, SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
     from responsive_ui import FlowBar
     progress_text=tk.StringVar()
     events=queue.Queue()
@@ -354,7 +354,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
         if not app.launch_comfy():return
         progress_text.set('正在检测本地 ComfyUI…（可取消）')
         url=app.settings.get('comfy_url','http://127.0.0.1:8188')
-        check_stop.clear();progress.start(15);cancel_button.configure(text='取消检测');cancel_button.state(['!disabled'])
+        check_stop.clear();busy.set_busy(True,progress_interval=15);cancel_button.configure(text='取消检测');cancel_button.state(['!disabled'])
         def probe():
             from comfy_service import Comfy
             from urllib.error import HTTPError                  # 第 34 期第 9 条：HTTP 栈按需加载
@@ -384,12 +384,13 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                 time.sleep(1)
             return '已取消检测'
         def done(result):
-            progress.stop();cancel_button.state(['disabled']);cancel_button.configure(text='取消检测');progress_text.set(result)
+            busy.set_busy(False);cancel_button.state(['disabled']);cancel_button.configure(text='取消检测');progress_text.set(result)
             if result.startswith('ComfyUI 已连接'):
                 app.safe(start)
         app.async_(probe,done,show_progress=False)
     progress=ttk.Progressbar(form,mode='indeterminate');progress.pack(fill='x',padx=14,pady=6)
     ProgressLabel(form,textvariable=progress_text,wraplength=760,justify='left').pack(anchor='w',padx=14,pady=(0,4))
+    busy=BusyState(progress_text,progress)
     def poll():
         if not win.winfo_exists():return
         try:
@@ -416,15 +417,14 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                 progress_text.set('请先保存 Comfy API Key，或切换到 Seedream 5.0 Pro（使用火山方舟 Seedream Key）。');account();return
         if options['model']!='Seedream 5.0 Pro':
             if not app.launch_comfy(silent=True):return             # 第 62 期任务 8：静默拉起，不弹选择框
-        progress_text.set('正在启动制图：'+options['model']);progress.start(15)
-        selector.state(['disabled']);shape.state(['disabled'])
+        progress_text.set('正在启动制图：'+options['model']);busy.set_busy(True,controls=[selector,shape],progress_interval=15)
         gen_stop.clear();cancel_button.configure(text='停止制图');cancel_button.state(['!disabled'])
         url=app.settings.get('comfy_url','http://127.0.0.1:8188')
         def finished(result):
             app.status.set(result)
             try:
                 if win.winfo_exists():
-                    progress.stop();selector.state(['!disabled']);shape.state(['!disabled'])
+                    busy.set_busy(False)
                     cancel_button.state(['disabled']);cancel_button.configure(text='取消检测')
                     while not events.empty():events.get_nowait()
                     reload_rows();progress_text.set(result)

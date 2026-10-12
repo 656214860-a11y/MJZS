@@ -23,7 +23,7 @@ import asset_thumbs
 import ui_plugin_registry
 from platform_tools import open_path
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import (SelectBox, BaseDialog, Card, ContextMenu, DataTable, LineInput, NotificationDispatcher,
+from ui_widgets import (SelectBox, BaseDialog, Card, BusyState, ContextMenu, DataTable, LineInput, NotificationDispatcher,
                         ask_confirmation,
                         PrimaryButton, SecondaryButton, TextArea)
 from ui_dialogs import FileDialog
@@ -345,6 +345,7 @@ class App:
         ttk.Label(progress_line,textvariable=self.shared_progress,style='Muted.TLabel',anchor='e').pack(side='right')
         ttk.Label(progress_line,textvariable=self.progress_text,wraplength=700,justify='left').pack(side='left',fill='x',expand=True)
         self.task_progress=ttk.Progressbar(self.footer,mode='indeterminate');self.task_progress.pack(fill='x',padx=SPACING['sm'],pady=(SPACING['xs'],SPACING['xs']))
+        self.busy_state=BusyState(self.progress_text,self.task_progress)
         log_box=tk.Frame(self.footer,bg=COLORS['background_card'],highlightthickness=1,highlightbackground=COLORS['border_default'])
         log_box.pack(fill='x',padx=SPACING['sm'],pady=SPACING['xs']);self.log_box=log_box
         log_actions=tk.Frame(log_box,bg=COLORS['background_card']);log_actions.pack(fill='x')
@@ -1016,9 +1017,9 @@ class App:
         selected=self.tree.selection()
         if not selected:return
         sid=selected[0];versions=self.studio.state()['shots'].get(sid,[]);v=versions[-1] if versions else {}
-        self.task_progress.stop()
+        self.busy_state.set_busy(False)
         if self.local_submit_sid==sid:
-            self.task_progress.start(15);return
+            self.busy_state.set_busy(True,progress_interval=15);return
         if sid in self.local_submit_error and not v.get('task_id'):
             self.progress_text.set(sid+' · 提交失败：'+self.local_submit_error[sid]);return
         if v.get('state')=='downloaded' and v.get('file') and (self.root/v['file']).is_file():
@@ -1029,7 +1030,7 @@ class App:
         elif v.get('state') in ('unknown','submitting') and not v.get('task_id'):
             self.progress_text.set(sid+' · 提交结果待核实：未收到任务编号。点“恢复任务编号”，从服务商控制台粘贴编号。不会自动重发。')
         elif v.get('task_id') and v.get('state') in ('queued','running','succeeded','unknown','submitting'):
-            self.task_progress.start(15)
+            self.busy_state.set_busy(True,progress_interval=15)
             self.progress_text.set(sid+' · '+{'queued':'排队中','running':'生成中','succeeded':'正在下载'}.get(v['state'],'正在恢复查询')+elapsed_text(v,time.time())+'；自动跟踪。任务编号：'+v['task_id'])
         else:
             pending=[shot_id for shot_id,records in self.studio.state()['shots'].items() if shot_id!=sid and records and records[-1].get('state') in ('queued','running','succeeded','unknown','submitting')]
@@ -1249,7 +1250,7 @@ class App:
             self.save_prompt()
         if isinstance(self.studio,LocalStudio):
             sid=self.sid();self.save_options();self.local_submit_sid=sid;self.local_submit_error.pop(sid,None)
-            self.progress_text.set(sid+' · 正在准备提交…');self.task_progress.start(15)
+            self.progress_text.set(sid+' · 正在准备提交…');self.busy_state.set_busy(True,progress_interval=15)
             self.write('手动提交已锁定镜头：'+sid);studio=self.studio
             self.run(lambda sid=sid,studio=studio:studio.submit(sid,progress=lambda text:self.local_messages.put((sid,text))));return
         self.save_options()
