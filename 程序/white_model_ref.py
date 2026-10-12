@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """白模视频当参考视频接进视频接口（第 8 轮收口）。
 
-「白模 · 上传」那一列勾上之后，这一镜的白模预演视频（第 06 步做出来的 mp4）要跟着这一次
+「白模 · 上传」那一列勾上之后，这一镜的白模预演视频（白模预演阶段做出来的 mp4）要跟着这一次
 视频生成一起提交。这一份管三件事，别处不再各写一遍：
 
 1. **认产物**：从镜头目录的 `预演记录.json` 取 `preview`，验存在／后缀／空文件／大小 → 一份描述；
@@ -16,6 +16,7 @@
 import base64
 import hashlib
 from pathlib import Path
+import pet_bus
 
 SUFFIXES = ('.mp4', '.webm', '.mov')
 MIME = {'.mp4': 'video/mp4', '.webm': 'video/webm', '.mov': 'video/quicktime'}
@@ -72,7 +73,7 @@ def unsupported_reason(provider, model):
 
 # ── 认产物 ────────────────────────────────────────────────────────────────────
 def shot_folder(project, sid):
-    """这一镜的白模目录：与第 06 步同一套口径（这一份不自己发明路径）。"""
+    """这一镜的白模目录：与白模预演阶段同一套口径（这一份不自己发明路径）。"""
     # 白模页面会把当前 Blender 工作区传给服务；这里必须经同一层，
     # 否则在自定义工作区（以及测试替换工作区）中会读到另一套目录。
     from white_model import shot_directory
@@ -98,7 +99,7 @@ def descriptor(project, sid, cfg, record=None):
     value = str(data.get('preview') or '').strip()
     path = Path(value) if value else None
     if not path or not path.is_file():
-        raise ValueError('勾选的白模视频不存在，请先到第06步制作并刷新白模')
+        raise ValueError('勾选的白模视频不存在，请先到'+pet_bus.stage_step('previs')+'制作并刷新白模')
     suffix = path.suffix.lower()
     if suffix not in SUFFIXES:
         raise ValueError('白模视频只认 mp4／webm／mov：' + path.name)

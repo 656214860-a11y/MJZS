@@ -120,7 +120,7 @@ class UnopenableProjectTests(unittest.TestCase):
                 engine.Studio(proj)
             message = str(caught.exception)
             self.assertIn("找不到镜头 JSON", message)
-            self.assertIn("第 2 步", message)
+            self.assertIn("第03步", message)
             self.assertNotIn("Errno", message)
 
     def test_a_missing_folder_is_caught_before_anything_else(self):

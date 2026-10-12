@@ -615,7 +615,7 @@ class UiEdgeTests(unittest.TestCase):
 
 
     def test_file_table_click_rules(self):
-        """第2步内容框点击：文本格单击勾选、再点取消；带链接的格子先勾选再打开，已勾选只打开不取消。"""
+        """初步分镜页内容框点击：文本格单击勾选、再点取消；带链接的格子先勾选再打开，已勾选只打开不取消。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
@@ -2330,7 +2330,7 @@ class UiEdgeTests(unittest.TestCase):
             self.assertTrue(project_settings.auto_adopt(proj))
             self.assertTrue(d.pet.should_auto_run('auto_adopt'))
             self.assertEqual(d.pet.mode, 'auto')
-            # 资产先补齐：采用之后状态栏要能指出下一道人工闸口（第04步定稿）
+            # 资产先补齐：采用之后状态栏要能指出下一道人工闸口（分镜定稿页）
             (proj / "episode" / "assets").mkdir(exist_ok=True)
             (proj / "episode" / "assets.json").write_text(json.dumps({
                 "CHAR_001": {"image": "assets/CHAR_001.png"},
@@ -2349,8 +2349,8 @@ class UiEdgeTests(unittest.TestCase):
             self.assertIn(fresh.name, d.status.get())
             # 两份分镜都从 SH001 开始，编号与剧本顺序不一致：无人值守时只靠状态栏这句提示
             self.assertIn("重排镜头编号", d.status.get())
-            # 采用之后资产已齐：状态栏必须指出下一道人工闸口（第04步定稿），否则无人值守会静默停住
-            self.assertIn("第04步", d.status.get())
+            # 采用之后资产已齐：状态栏必须指出下一道人工闸口（分镜定稿页），否则无人值守会静默停住
+            self.assertIn("第07步", d.status.get())
             self.assertFalse(d.auto_adopt_pending)
             # 切回手动后主循环不再扫描：「手动采用分镜」保持手动。
             d.pet.set_mode('manual')
@@ -2975,8 +2975,8 @@ class UiEdgeTests(unittest.TestCase):
                 self.assertEqual(started, [["SH001"], ["SH001"]])
 
 
-    def test_final_storyboard_hint_points_to_step04(self):
-        """工作稿引用的资产都已导入时提示可到第04步生成定稿；资产没齐或已经是定稿时不提示。"""
+    def test_final_storyboard_hint_points_to_step07(self):
+        """工作稿引用的资产都已导入时提示可到分镜定稿页生成定稿；资产没齐或已经是定稿时不提示。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         from unittest.mock import patch
@@ -3002,7 +3002,7 @@ class UiEdgeTests(unittest.TestCase):
             source = storyboard_stage(proj) / "分镜文档" / "episode.json"
             with patch.object(asset_batch_state_service, "ready_asset_ids", lambda base: {"CHAR_001", "LOC_001"}):
                 hint = d.final_storyboard_hint()
-            self.assertIn("第04步", hint)
+            self.assertIn("第07步", hint)
             self.assertIn("回收站", hint)                      # 提示里写明会移动工作稿
             with patch.object(asset_batch_state_service, "ready_asset_ids", lambda base: set()):
                 self.assertEqual(d.final_storyboard_hint(), "")   # 资产没齐：先补资产

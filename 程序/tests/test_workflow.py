@@ -223,7 +223,7 @@ class AdoptPendingTests(unittest.TestCase):
             self.assertFalse(project_settings.auto_previs(proj))
 
     def test_auto_final_switch_defaults_off(self):
-        """第04步自动生成定稿默认关闭：它会把工作稿移入回收站，必须由人显式勾选。"""
+        """分镜定稿页自动生成定稿默认关闭：它会把工作稿移入回收站，必须由人显式勾选。"""
         with tempfile.TemporaryDirectory() as td:
             proj = self.project(td)
             import project_settings

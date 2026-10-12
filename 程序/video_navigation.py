@@ -5,6 +5,7 @@ from tkinter import ttk
 from file_cache import read_json as read_cached_json
 from ui_tokens import COLORS, SPACING
 from ui_widgets import SecondaryButton
+import pet_bus
 
 
 def read_json(path):
@@ -102,7 +103,7 @@ def confirm_rows(desktop,project=None):
     provider,model=cloud_facts(project)
     return [
         ('分镜','已采用 %d 份，共 %d 镜'%(files,shots) if files else
-         '尚未采用分镜；本页先挑生成方式，采用分镜在第 2 步'),
+         '尚未采用分镜；本页先挑生成方式，采用分镜在'+pet_bus.stage_step('storyboard')),
         ('首帧','当前分镜已就绪 %d / %d 镜'%(ready,total) if total else '当前分镜没有镜头'),
         ('本地模型',local_model(project)+'（本机 ComfyUI，免费）'),
         ('线上模型',(provider+' · '+model) if model else '尚未配置；在「阶段配置」→「接口」里配'),

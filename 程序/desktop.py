@@ -2537,7 +2537,7 @@ class Desktop:
                 else:
                     self.auto_final_signature=signature;self.auto_final_notice=None;self.auto_final_error=''
                     self.kick_unattended('auto_final')
-                    # 收尾会重建第04步页面，所以先做收尾再写状态栏，顺序反了用户就看不到结果。
+                    # 收尾会重建分镜定稿页面，所以先做收尾再写状态栏，顺序反了用户就看不到结果。
                     text='已自动生成定稿。'+applied
                     self.status.set(text)
                     if getattr(getattr(self.pet,'auto',None),'active',None)=='final':
@@ -2789,7 +2789,7 @@ class Desktop:
         """无人值守：当前分镜还是工作稿、且引用资产都已导入时，自动生成定稿。
 
         定稿会把工作稿移入回收站（回收站留有恢复位置，可恢复），所以这条路径必须由用户在
-        第04步显式勾选才走；同一份工作稿只生成一次，资产没齐时在状态栏和 04 页那条提示条
+        分镜定稿页显式勾选才走；同一份工作稿只生成一次，资产没齐时在状态栏和定稿页那条提示条
         上说清缺什么（提示条上还有一颗「立即重试」，见 auto_final_state／retry_auto_final），
         失败退避 5 分钟后重试，定稿接管后当前分镜变成定稿目录，轮询自然停下。
         """
@@ -2928,7 +2928,7 @@ class Desktop:
             return '自动定稿重试失败：'+str(exc)
 
     def final_storyboard_hint(self,source=None):
-        """当前分镜还是工作稿、且引用的资产都已导入时，提示可以去第04步生成定稿。
+        """当前分镜还是工作稿、且引用的资产都已导入时，提示可以去分镜定稿页生成定稿。
 
         只提示不自动做：生成定稿会把工作稿移入回收站（用户可见的改动），按约定必须由人确认。
         """
@@ -2941,7 +2941,7 @@ class Desktop:
         shots=episode.get('shots',[]) if isinstance(episode,dict) else []
         if not shots:return ''
         if self.final_missing_assets(source):return ''
-        return '；当前分镜引用的资产都已导入，可在第04步「分镜定稿」生成定稿（定稿接管后续流程，工作稿移入回收站）'
+        return '；当前分镜引用的资产都已导入，可在'+pet_bus.stage_step('final')+'「分镜定稿」生成定稿（定稿接管后续流程，工作稿移入回收站）'
     def reconcile_storyboards(self):
         """启动对账（第 62 期任务 7）：强制关闭后重开，把已完成的分镜同步进工作集。
 
@@ -4304,7 +4304,7 @@ class Desktop:
         if index in (PAGE['keyframe'],PAGE['previs']) or (index==PAGE['video'] and not choosing_video):
             from storyboard_selection import prefs
             if prefs(self.root).get('adopted_storyboards')==[]:
-                message='请先在第2步采用一份或多份分镜 JSON。'
+                message='请先在'+pet_bus.stage_step('storyboard')+'采用一份或多份分镜 JSON。'
                 # 不能只写到底部状态栏：视频工作台被阻止时，用户的视线仍在当前内容区。
                 ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=16,pady=18)
                 self.note(message)
@@ -6449,7 +6449,7 @@ class Desktop:
         show_final(self)
     def make_final_storyboard(self,source=None):
         if source is None:source=self.current_frame_json()
-        if not source or not Path(source).is_file():raise ValueError('请先到第3步选择第2步生成的JSON并同步资产清单')
+        if not source or not Path(source).is_file():raise ValueError('请先到'+pet_bus.stage_step('assets')+'选择'+pet_bus.stage_step('storyboard')+'生成的JSON并同步资产清单')
         from storyboard_final_controller import finalize_stage_storyboard
         if self.worker or any(getattr(v,'busy',False) for v in self.video_sessions.values()):raise ValueError('请等待当前制作任务结束后再生成定稿')
         project=self.root;episode=self.asset_base()
@@ -6458,7 +6458,7 @@ class Desktop:
             self.pet_report('final',self.apply_final(project,folder))
         self.async_(lambda:finalize_stage_storyboard(project,episode,source),done)
     def apply_final(self,project,folder):
-        """定稿生成后的公共收尾：刷新已打开的工作集、记住当前分镜、写偏好并重建第04步页面。
+        """定稿生成后的公共收尾：刷新已打开的工作集、记住当前分镜、写偏好并重建分镜定稿页面。
 
         手动「同步资产 · 生成定稿」和无人值守自动定稿共用这一份收尾，行为不会走偏。
         """
@@ -6471,7 +6471,7 @@ class Desktop:
             self.remember_frame_json(final_source)
             from storyboard_selection import remember_final_view
             remember_final_view(project, final_source)
-            # 只在用户本来就在第04步时重建页面：无人值守不该把人从别的页面拽走（手动按钮本来就在这一页）。
+            # 只在用户本来就在分镜定稿页时重建页面：无人值守不该把人从别的页面拽走（手动按钮本来就在这一页）。
             if getattr(self,'page_index',None)==PAGE['final']:self.show(PAGE['final'])
         return 'JSON已刷新：'+str(folder)+f'；另有 {missing} 项资产待补齐。'
     def sync_working_episode(self):
@@ -6509,7 +6509,7 @@ class Desktop:
         kind,result=import_asset_image(Desktop.asset_write_base(self),self.root,aid,p,self.asset_requirements(),gateway=Desktop.asset_batch_gateway())
         self.asset_kind=kind;self.show(PAGE['assets']);self.status.set(result)
     # 第 50 期第 1 条：原来那颗「选择镜头 JSON」删掉——首帧页看的永远是「当前分镜」，
-    # 也就是第 02 步采用的那一份（自动认领见 current_frame_json），不用在这儿再挑一遍。
+    # 也就是初步分镜页采用的那一份（自动认领见 current_frame_json），不用在这儿再挑一遍。
     def focus_missing_frame(self,source,sid):
         from storyboard_selection import focus
         focus(self.root,source)
@@ -7037,7 +7037,7 @@ class Desktop:
         PrimaryButton(local,text='进入本地生成',
                    command=lambda:self.safe(lambda:self.show(PAGE['video'],video_mode='local'))).pack(anchor='w',pady=(12,0))
         cloud=ttk.LabelFrame(self.content,text='线上生成',padding=16);cloud.pack(fill='x')
-        ttk.Label(cloud,text='用万相 / Seedance API 出片，按秒计费；读取第 05 步的镜头与首帧，提交前会先问一次。',
+        ttk.Label(cloud,text='用万相 / Seedance API 出片，按秒计费；读取已采用分镜的镜头与首帧，提交前会先问一次。',
                   wraplength=650,justify='left',style='Muted.TLabel').pack(anchor='w')
         entry=FlowBar(cloud);entry.pack(fill='x',pady=(12,0))
         PrimaryButton(entry,text='进入线上生成',
@@ -7315,7 +7315,7 @@ class Desktop:
         edit_buttons.append(edit_button('整理剪映素材交接包',lambda:self.async_(self.handoff,open_path)))
         has_downloaded=controller.has_downloaded_video()
         for button in edit_buttons:button.configure(state='normal' if has_downloaded else 'disabled')
-        if not has_downloaded:self.note('还没有已下载的镜头视频，自动粗剪与交接包暂不可用；请先在第07步生成并下载视频。')
+        if not has_downloaded:self.note('还没有已下载的镜头视频，自动粗剪与交接包暂不可用；请先在'+pet_bus.stage_step('video')+'生成并下载视频。')
         edit_button('启动剪映',self.launch_editor)
         edit_button('打开后期目录',lambda:open_path(edit_dir))
         edit_button('校验交接包',self.verify_handoff)

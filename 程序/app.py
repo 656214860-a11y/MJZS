@@ -4,6 +4,7 @@
 # here avoids loading OpenSSL merely because the desktop shell starts.
 import hash_backend
 hash_backend.install()
+import pet_bus
 import queue
 import threading
 import time
@@ -575,7 +576,7 @@ class App:
         try:
             if self.busy:raise ValueError('当前正在提交，请完成后再修改白模选项')
             assert_prompt_editable(self,sid)
-            if var.get() and not self.white_model_ready(sid):raise ValueError('白模待制作，请先到第06步生成白模视频，再刷新白模')
+            if var.get() and not self.white_model_ready(sid):raise ValueError('白模待制作，请先到'+pet_bus.stage_step('previs')+'生成白模视频，再刷新白模')
             from stage_execution_service import save_stage_white_model_upload
             with self.studio.lock():
                 self.studio.episode=save_stage_white_model_upload(self.studio.episode_path,sid,var.get())
@@ -676,7 +677,7 @@ class App:
         shot=next((s for s in episode['shots'] if s['id']==sid),None)
         if shot is None:raise ValueError('此镜头已从分镜中移除，请刷新列表：'+sid)
         path=self.studio.frame(shot,required=False)
-        if shot.get('frame_deleted') or not path.is_file():raise ValueError(sid+' 还没有首帧图片，请先到第05步制作')
+        if shot.get('frame_deleted') or not path.is_file():raise ValueError(sid+' 还没有首帧图片，请先到'+pet_bus.stage_step('keyframe')+'制作')
         open_path(path)
     def video_column(self,name):
         """这一列的表头编号（第 54 期第 3 条：右键要按格子认列，不能写死）。"""
@@ -1068,7 +1069,7 @@ class App:
         if path.is_file() and not shot.get('frame_deleted'):return True
         callback=getattr(self,'missing_frame_callback',None)
         if callback:
-            self.write(sid+' 缺少首帧，已转到第05步；本次未提交视频生成。')
+            self.write(sid+' 缺少首帧，已转到'+pet_bus.stage_step('keyframe')+'；本次未提交视频生成。')
             callback(sid);return False
         self.studio.frame(shot)
         return False

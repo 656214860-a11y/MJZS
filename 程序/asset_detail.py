@@ -28,6 +28,7 @@ from platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, DescriptionBlock, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
+import pet_bus
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
 ZOOM_SIZE = 900                      # 点一下放大后的长边（不放大原图，只按原分辨率显示）
@@ -648,7 +649,7 @@ def show_roster(desktop):
     ttk.Label(head, text='资产清单', font=('Microsoft YaHei UI', 13, 'bold')).pack(side='left')
     ttk.Label(head, text='　共 ' + str(len(rows)) + ' 项').pack(side='left')
     if not rows:
-        desktop.note('这个项目还没有资产清单：先到第2步采用一份分镜，回来点「手动制作资产」。')
+        desktop.note('这个项目还没有资产清单：先到'+pet_bus.stage_step('storyboard')+'采用一份分镜，回来点「手动制作资产」。')
         return []
     desktop.note('正典板与换状态面板都取自资产清单 assets.json；点小图放大，要改内容点每一项下面的「编辑这一项」。')
     for aid, asset in rows:

@@ -4,6 +4,7 @@ import json, os, queue, threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 from agent.core import read
+import pet_bus
 from storyboard_paths import is_final_dir
 from storyboard_catalog_service import (
     IGNORED, discover_files, linked_path as _linked_path, content_preview as _content_preview, is_deliverable as _is_deliverable,
@@ -189,7 +190,7 @@ def watch_files(owner,project,refresh,interval=1500):
 def show_final(desktop):
     project=Path(desktop.root).resolve();prefs_file=project/'ui_settings.json'
     controller=FinalStoryboardController(project)
-    desktop.note('以下仅显示已采用的分镜；选择 JSON → 同步资产生成／更新定稿 → 采用定稿。要取消采用请回第2步点「手动取消采用」。')
+    desktop.note('以下仅显示已采用的分镜；选择 JSON → 同步资产生成／更新定稿 → 采用定稿。要取消采用请回'+pet_bus.stage_step('storyboard')+'点「手动取消采用」。')
     row=FlowBar(desktop.content);row.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
 
     # 第 72 期 Round 5「分镜定稿未同步分镜的可见重试」：自动定稿那条状态原来只写状态栏，
@@ -214,7 +215,7 @@ def show_final(desktop):
     retry_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']))
     assets_page=PAGE_OF['assets']
     # 切页走 after_idle：这颗按钮自己就长在要被拆掉的那一页里，事件处理途中重建页面会抖动。
-    SecondaryButton(bar,text='去第03步补资产',
+    SecondaryButton(bar,text='去'+pet_bus.stage_step('assets')+'补资产',
                     command=lambda:desktop.win.after_idle(
                         lambda:desktop.safe(lambda:desktop.show(assets_page)))).pack(
                             side='left',padx=(SPACING['none'],SPACING['xs']))
@@ -479,7 +480,7 @@ def show_final(desktop):
 
     # 第 51 期第 4 条：这一页的内容框原来挂着右键「查看／删除」，两样都去掉——
     # 「查看」与点一下这一行是同一件事，而「删除」在这页删掉的正是用户刚点开在看的那份定稿。
-    # 要删分镜 JSON 请回第 02 步（那一页的右键菜单照旧）。
+    # 要删分镜 JSON 请回初步分镜页（那一页的右键菜单照旧）。
     # 第 54 期附件二第 3 条：这一页的主动作改名「手动同步资产」（阶段简称＝定稿），
     # 并按三虎的跑没跑刷字与置灰。
     # 第 68 期任务 6：这一行按用户给的顺序重排——「手动同步资产」是执行三虎流程的子 Agent 入口，

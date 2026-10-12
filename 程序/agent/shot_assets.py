@@ -3,6 +3,7 @@ from pathlib import Path
 from storyboard_paths import media_root
 import base64, copy, hashlib, re
 from .core import read
+import pet_bus
 
 def registry(source):
     source=Path(source).resolve()
@@ -13,7 +14,7 @@ def registry(source):
             if (base/'assets.json').is_file() or (base/'assets/资产清单/assets.json').is_file():return base
     for folder in source.parents:
         if (folder/'assets.json').is_file():return folder
-    raise ValueError('找不到资产清单，请在第03步同步资产')
+    raise ValueError('找不到资产清单，请在'+pet_bus.stage_step('assets')+'同步资产')
 
 
 def asset_rows(source):
@@ -50,7 +51,7 @@ def assets(source,shot,strict=False):
         base=Path(row.get('_registry_base',Path(source).parent)).resolve()
         path=(base/row['image']).resolve() if row.get('image') else None
         ready=bool(path and path.is_relative_to(base) and path.is_file())
-        if strict and not ready:raise ValueError('资产未唯一匹配或图片缺失：'+aid+'。请先在第03步补齐、第04步同步。')
+        if strict and not ready:raise ValueError('资产未唯一匹配或图片缺失：'+aid+'。请先在'+pet_bus.stage_step('assets')+'补齐、'+pet_bus.stage_step('final')+'同步。')
         if aid not in seen:
             result.append({'id':aid,'name':str(row.get('name',value)),'path':str(path) if ready else None,'ready':ready})
             seen.add(aid)

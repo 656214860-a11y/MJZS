@@ -376,11 +376,11 @@ class AutoVideoTests(unittest.TestCase):
     def test_skip_summary_reports_every_reason_not_just_the_first(self):
         """无人值守状态栏只有一行：不同原因要按「原因 + 镜数」一起报，不能只报第一条。"""
         import local_video
-        skipped = [("SH003", "尚无首帧，先在第05步生成或导入"),
+        skipped = [("SH003", "尚无首帧，先在第08步生成或导入"),
                    ("SH004", "上次本地生成未完成（failed），请查看 ComfyUI 后手动重做"),
-                   ("SH005", "尚无首帧，先在第05步生成或导入")]
+                   ("SH005", "尚无首帧，先在第08步生成或导入")]
         summary = local_video.skip_summary(skipped)
-        self.assertIn("尚无首帧，先在第05步生成或导入 2 镜", summary)
+        self.assertIn("尚无首帧，先在第08步生成或导入 2 镜", summary)
         self.assertIn("上次本地生成未完成（failed），请查看 ComfyUI 后手动重做 1 镜", summary)
         self.assertLess(summary.index("尚无首帧"), summary.index("上次本地生成未完成"))   # 多的排前面
         many = [(str(i), "原因%d" % i) for i in range(6)]

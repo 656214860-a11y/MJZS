@@ -29,6 +29,13 @@ def stage_name(stage, fallback=None):
     return STAGE_NAMES.get(key, key if fallback is None else fallback)
 
 
+def stage_step(stage):
+    """用户在导航里看到的阶段步号；与阶段目录、页面编号同源（两位，1 起）。"""
+    key = str(stage or '')
+    index = STAGES.index(key) + 1 if key in STAGES else 0
+    return ('第%02d步' % index) if index else ''
+
+
 # 事件契约：kind → 必填负载字段。新事件必须先在这里登记，契约与实现不会各写一份。
 CONTRACT = {
     'stage.started': ('stage',),

@@ -1317,7 +1317,7 @@
     },
     {
       "file": "tests/test_ui_edges.py",
-      "test": "UiEdgeTests.test_final_storyboard_hint_points_to_step04",
+      "test": "UiEdgeTests.test_final_storyboard_hint_points_to_step07",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",

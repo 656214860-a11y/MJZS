@@ -902,13 +902,13 @@
             },
             {
                 "file": "batch_frames_tool/batch_frames.py",
-                "point": "13",
+                "point": "14",
                 "disposition": "exempt",
                 "reason": "\u72ec\u7acb\u6279\u5e27\u5de5\u5177\u7684\u672c\u5730\u914d\u7f6e\u8bfb\u5199\uff0c\u975e\u8fd0\u884c\u671f L2"
             },
             {
                 "file": "batch_frames_tool/batch_frames.py",
-                "point": "77",
+                "point": "78",
                 "disposition": "exempt",
                 "reason": "\u72ec\u7acb\u6279\u5e27\u5de5\u5177\u7684\u672c\u5730\u914d\u7f6e\u8bfb\u5199\uff0c\u975e\u8fd0\u884c\u671f L2"
             },

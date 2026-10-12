@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 from agent.core import read
 from project_context import ProjectContext
+import pet_bus
 
 
 def _project_root(project=None, *, context=None):
@@ -67,7 +68,7 @@ def active_source(project=None, storyboard=None, fallback=None, *, context=None)
         return path
     for path in (default_source(context),library_dir(project,fallback, context=context)/'episode.json'):
         if path.is_file():return path.resolve()
-    raise ValueError('尚未采用分镜JSON，请先在第2步点「手动采用分镜」')
+    raise ValueError('尚未采用分镜JSON，请先在'+pet_bus.stage_step('storyboard')+'点「手动采用分镜」')
 
 
 def references(shot):

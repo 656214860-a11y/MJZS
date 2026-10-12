@@ -11,6 +11,7 @@ from agent.media import check, png_size
 import project_settings
 from ui_tokens import SPACING
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton
+import pet_bus
 
 def model_name(cfg=None):
     """本地视频当前使用的模型：取已保存工作流的文件名，未配置时按默认 H3 显示。"""
@@ -281,7 +282,7 @@ def auto_plan(project,source,studio=None):
                 skipped.append((sid,'上次本地生成未完成（'+str(last.get('state'))+'），请查看 ComfyUI 后手动重做'));continue
             skipped.append((sid,'上次任务状态异常（'+str(last.get('state') or '未知')+'），请先核实旧任务'));continue
         if shot.get('video_deleted'):skipped.append((sid,'镜头视频已删除，已跳过'));continue
-        if not studio.frame(shot,required=False).is_file():skipped.append((sid,'尚无首帧，先在第05步生成或导入'));continue
+        if not studio.frame(shot,required=False).is_file():skipped.append((sid,'尚无首帧，先在'+pet_bus.stage_step('keyframe')+'生成或导入'));continue
         submit.append(sid)
     return submit,poll,skipped
 

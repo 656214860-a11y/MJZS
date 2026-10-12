@@ -964,7 +964,7 @@ class VideoHomePageTests(unittest.TestCase):
             # 选定方式之后才回到「先采用分镜」那道闸门：一份都没采用时不给进工作台
             d.show(PAGE['video'], video_mode="local"); win.update()
             self.assertTrue([text for text in widget_texts(d.content, ttk.Label)
-                             if "请先在第2步采用" in text])
+                             if "请先在第03步采用" in text])
 
 
 class VideoHomeLeadTests(unittest.TestCase):

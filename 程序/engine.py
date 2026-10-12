@@ -12,6 +12,7 @@ from agent.media import check, probe
 import project_settings
 from project_naming import dated_path
 from legacy_compat import resolved_storyboard_alias
+import pet_bus
 
 def approved_versions(versions):
     """已下载＋技术质检通过＋已验收的版本；自动粗剪、手动拼装与交接包共用同一口径。
@@ -190,7 +191,7 @@ class Studio:
         self.episode_dir=self.episode_path.parent
         if not self.episode_path.is_file():
             raise ValueError('项目里找不到镜头 JSON（episode.json）：'+str(self.episode_path)
-                             +'；请在第 2 步重新采用一份分镜 JSON 后再进入后续步骤。')
+                             +'；请在'+pet_bus.stage_step('storyboard')+'重新采用一份分镜 JSON 后再进入后续步骤。')
         if episode_file is None:self.remember_episode()
         self.media_dir=media_root(self.episode_path)
         self.episode=read(self.episode_path)
@@ -239,7 +240,7 @@ class Studio:
         if not path.is_relative_to(self.media_dir):
             raise ValueError('首帧路径超出素材目录，已阻止访问：'+shot['id'])
         if required and (shot.get('frame_deleted') or not path.is_file()):
-            raise ValueError(shot['id']+' 尚未生成／导入首帧，请到第05步选择此镜头，生成或导入图片后再制作视频。')
+            raise ValueError(shot['id']+' 尚未生成／导入首帧，请到'+pet_bus.stage_step('keyframe')+'选择此镜头，生成或导入图片后再制作视频。')
         return path
 
     @contextmanager

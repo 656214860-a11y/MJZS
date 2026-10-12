@@ -8,6 +8,7 @@ from storyboard_paths import project_root
 import white_model_service as _service
 from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, notify
+import pet_bus
 
 TOOLS = (
     ('打开 LensBlock 白模工作台', 'https://ilcaretz.github.io/lensblock/'),
@@ -30,7 +31,7 @@ def choose_previs(desktop):
     episode = read_json(source)
     ids = [str(shot['id']) for shot in episode.get('shots', []) if shot.get('id')]
     if not ids:
-        raise ValueError('当前分镜中没有镜头，请先完成第04步分镜定稿')
+        raise ValueError('当前分镜中没有镜头，请先完成'+pet_bus.stage_step('final')+'分镜定稿')
     picker = BaseDialog(desktop.win, '选择要预演的镜头', geometry='420x150', modal=False, chrome=False)
     picker.lift()
     body = Card(picker); body.pack(fill='both', expand=True, padx=16, pady=16)

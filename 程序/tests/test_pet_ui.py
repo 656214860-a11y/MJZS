@@ -4946,7 +4946,7 @@ class PanelTextTests(PetTestCase):
         cloud.progress(text)
         self.assertEqual(cloud._body_text(), text)
         plain = self.pet.cloud()
-        plain.progress('1. 正在做：第 05 步首帧')
+        plain.progress('1. 正在做：第 08 步首帧')
         self.assertIn(pet_cloud.NUMBER_GAP, plain._body_text())
 
     def test_every_panel_row_is_numbered_and_keeps_its_value(self):

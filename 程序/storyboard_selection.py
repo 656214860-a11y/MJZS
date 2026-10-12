@@ -6,6 +6,7 @@ from file_cache import read_json
 from project_settings import read_prefs
 from project_context_factory import project_context
 from storyboard_adoption_contract import adopted as _adopted, problem_text, resolve_source
+import pet_bus
 
 
 def _asset_plan_gateway(gateway):
@@ -123,13 +124,13 @@ def current_source(project, legacy_sources=(), fallbacks=(), remember=None):
             path = resolve_source(project_context(project), saved)
             if path.is_relative_to(project) and path.is_file():
                 return path
-            raise ValueError('上次的镜头 JSON 找不到了：' + str(path) + '。请到第 02 步重新采用一份。')
+            raise ValueError('上次的镜头 JSON 找不到了：' + str(path) + '。请到'+pet_bus.stage_step('storyboard')+'重新采用一份。')
         if isinstance(data, dict) and 'adopted_storyboards' in data:
             sources = adopted(project)
             if sources:
                 focus(project, sources[-1])
                 return sources[-1]
-            raise ValueError('尚未采用分镜JSON，请在第2步采用一份或多份JSON。')
+            raise ValueError('尚未采用分镜JSON，请在'+pet_bus.stage_step('storyboard')+'采用一份或多份JSON。')
 
     for root, value in legacy_sources:
         if Path(root).resolve() != project:
@@ -147,7 +148,7 @@ def current_source(project, legacy_sources=(), fallbacks=(), remember=None):
             if remember is not None:
                 remember(candidate)
             return candidate
-    raise ValueError('这个项目还没有分镜 JSON，请先到第 02 步采用一份。')
+    raise ValueError('这个项目还没有分镜 JSON，请先到'+pet_bus.stage_step('storyboard')+'采用一份。')
 
 
 def source_script_error(project, board):
