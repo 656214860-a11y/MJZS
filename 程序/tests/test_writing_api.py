@@ -657,6 +657,25 @@ class WritingApiTests(unittest.TestCase):
             self.assertEqual(formal.read_text(encoding='utf-8').strip(), text)
             self.assertEqual(len(list(formal.parent.glob('*.md'))), 2)
 
+    def test_episode_incremental_hint_and_ledger_round_trip(self):
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            original = ('# 第1集：起风\n第一集正文。\n'
+                        '\n# 第2集：雨后\n第二集正文。\n')
+            saved = writing_api._save_formal_script(
+                project, {'ok': True, 'text': original, 'model': 'DeepSeek V4 Flash'},
+                publish=publish_stage_text, previous_script='')
+            self.assertTrue(script_contract.episode_ledger_path(project).is_file())
+            formal = Path(saved['natural_script_path'])
+            unchanged = writing_api._episode_reference_hint(project)
+            self.assertNotIn('第一集正文。', unchanged)
+            self.assertNotIn('第二集正文。', unchanged)
+            formal.write_text(original.replace('第二集正文。', '第二集改过的正文。'), encoding='utf-8')
+            changed = writing_api._episode_reference_hint(project)
+            self.assertIn('第二集改过的正文。', changed)
+            self.assertNotIn('第一集正文。', changed)
+            self.assertIn('第2集已修改', changed)
+
     def test_formal_publish_failure_surfaces_and_retry_archives_existing_raw(self):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)

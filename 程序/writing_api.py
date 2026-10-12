@@ -299,6 +299,38 @@ def _write_script_raw(project, text, *, publish=None):
     return target
 
 
+def _episode_baseline_text(project):
+    """阶段④的当前剧本正文；读取问题一律退化为空串，绝不阻断生成。"""
+    try:
+        from script_contract import script_episode_baseline
+        return script_episode_baseline(project)
+    except (OSError, ValueError, TypeError):
+        return ''
+
+
+def _episode_reference_hint(project):
+    """阶段④参考改动：只贴变化的集正文，未变化的集只给集号，不重复正文。"""
+    try:
+        from script_contract import (episode_reference_block, read_episode_ledger,
+                                     script_episode_baseline)
+        baseline = script_episode_baseline(project)
+        if not baseline.strip():
+            return ''
+        block = episode_reference_block(baseline, read_episode_ledger(project))
+        return '\n\n' + block if block else ''
+    except (OSError, ValueError, TypeError):
+        return ''
+
+
+def _record_episode_ledger(project, text, previous_text=''):
+    """调用后更新分集增量账本；账本问题绝不阻断剧本交付。"""
+    try:
+        from script_contract import record_episode_ledger
+        return record_episode_ledger(project, text, previous_text=previous_text)
+    except (OSError, ValueError, TypeError):
+        return None
+
+
 def _auto_save_script_raw(project, result, *, publish=None, model='', identity=None, quality_required=False):
     """关闭四角色模式时，合格且足够长的 API 正文仍经唯一写入点发布原稿。"""
     if not isinstance(result, dict) or not result.get('ok'):
@@ -318,11 +350,13 @@ def _auto_save_script_raw(project, result, *, publish=None, model='', identity=N
         unchanged = target.is_file() and target.read_text(encoding='utf-8').strip() == text
     except OSError:
         unchanged = False
+    baseline = _episode_baseline_text(project)
     if not unchanged:
         target = _write_script_raw(project, text, publish=publish)
     saved = dict(result)
     saved.update(script_raw_path=str(target), hollmwood_enabled=False, quality_required=quality_required)
-    return _save_formal_script(project, saved, model=model, identity=identity, publish=publish)
+    return _save_formal_script(project, saved, model=model, identity=identity, publish=publish,
+                               previous_script=baseline)
 
 
 def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, cancelled=None, stream=None,
@@ -382,12 +416,14 @@ def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, ca
     if callable(cancelled) and cancelled():
         raise hollmwood_roles.RoleCancelledError('HOLLMWOOD 调用已取消')
     publish = _cancellable_publisher(publish, cancelled)
+    baseline = _episode_baseline_text(project)
     target = _write_script_raw(project, outputs['script'], publish=publish)
     return _save_formal_script(project, {'ok': True, 'status': 200, 'model': chosen, 'text': outputs['script'],
             'usage': {}, 'context_budget': dict(adapter.context_budget), 'request_usage': dict(adapter.request_usage),
             'script_raw_path': str(target), 'hollmwood_enabled': True,
             'quality_required': quality_enabled(
-                workflow_settings.skill_prompt(settings, inline=True))}, identity=identity, publish=publish)
+                workflow_settings.skill_prompt(settings, inline=True))}, identity=identity, publish=publish,
+            previous_script=baseline)
 
 
 def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish=None, cancelled=None):
@@ -801,7 +837,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
         # 已完成的结构化简报仍是四角色协作的主契约；本轮聊天输入（含桌面端
         # 已受控读取的文本附档）作为补充材料一并交给各角色，不能在这里丢掉。
         complete_brief = dict(brief)
-        supplement = str(creative or '').strip()
+        supplement = str(creative or '').strip() + _episode_reference_hint(root)
         if supplement:
             complete_brief['本轮补充素材'] = supplement
         return _hollmwood_reply(root, chosen, record, settings, complete_brief,
@@ -819,6 +855,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     if brief is not None:
         task += '\n\n<brief_complete>\n' + json.dumps(brief, ensure_ascii=False, indent=2) + '\n</brief_complete>'
         task += '\n程序已核验设定、大纲、角色卡逐项确认；本次仅执行阶段④自然剧本，沿用上述已确认阶段文件。'
+        task += _episode_reference_hint(root)
     history = _recent_chat_history(idea_chat.load(
         project_context(root), model=request_model['label'], gateway=idea_chat_gateway()))
     if history:
@@ -891,7 +928,7 @@ def _cancellable_publisher(publish, cancelled):
     return guarded
 
 
-def _save_formal_script(project, result, *, model='', identity=None, publish):
+def _save_formal_script(project, result, *, model='', identity=None, publish, previous_script=None):
     """已获准发布的自然剧本复用下载路径、同稿去重和异稿编号规则。"""
     import idea_chat
     from project_context_factory import project_context
@@ -900,10 +937,12 @@ def _save_formal_script(project, result, *, model='', identity=None, publish):
     response = result['text']
     text = require_natural_script(split_response(response)[0]).strip()
     provider, label = identity or idea_chat.storage_identity(model or result.get('model', ''))
+    baseline = _episode_baseline_text(project) if previous_script is None else previous_script
     target = idea_chat.reply_document_path(project_context(project), text,
                                           provider=provider, model=label, file_type='自然剧本')
     if not target.is_file() or target.read_text(encoding='utf-8').strip() != text:
         publish(target, text + '\n', lambda value: bool(require_natural_script(value)), lambda _target: None)
+    _record_episode_ledger(project, text, baseline)
     saved = dict(result, text=text, natural_script_path=str(target))
     if result.get('quality_required') or OPEN in response:
         from stage_path_service import write_dir

@@ -207,6 +207,191 @@ def natural_script_selection_path(project):
     return write_dir(project, 'script') / 'natural_script_selection.json'
 
 
+# ── 分集增量账本：自然剧本按集解析与变更追踪 ─────────────────────────────────
+# 阶段④的自然剧本按 `# 第{集数}集：{标题}` 分段输出。这里提供一条与 02 结构剧本
+# 场次解析完全平行的能力，只回答「哪几集相对上次生成有改动」，不替换、不参与
+# structure_script() 的场次整理。
+EPISODE_LEDGER_NAME = '剧本分集增量账本.json'
+UNSPLIT_EPISODE_KEY = '未分集'
+_EPISODE_HEADING = re.compile(
+    r'(?m)^[ \t]*(?:#{1,6}[ \t]*)?第[ \t]*(\d{1,4})[ \t]*集[ \t]*[：:]?[ \t]*(.*?)[ \t]*\r?$')
+
+
+def split_script_episodes(text):
+    """按「第N集」标题把正文切成有序分集。
+
+    返回 ``{集号: 正文块}``：集号是 ``int``，正文块保留标题行本身，便于追溯。
+    标题容错全半角冒号、零填充、标题文字缺失与 ``#`` 级数；正文开头若还有标题
+    之前的整段文字，记到 ``UNSPLIT_EPISODE_KEY`` 一项。解析不出任何集号标题时，
+    整篇作为一项「未分集」返回，不报错也不丢正文；空正文返回空字典。
+
+    同一集号重复出现时保留首次出现的正文块，不把两次生成静默合并。
+    """
+    raw = str(text or '').replace('\r\n', '\n').replace('\r', '\n')
+    hits = list(_EPISODE_HEADING.finditer(raw))
+    if not hits:
+        stripped = raw.strip()
+        return {UNSPLIT_EPISODE_KEY: stripped} if stripped else {}
+    episodes = {}
+    preamble = raw[:hits[0].start()].strip()
+    if preamble:
+        episodes[UNSPLIT_EPISODE_KEY] = preamble
+    for position, match in enumerate(hits):
+        end = hits[position + 1].start() if position + 1 < len(hits) else len(raw)
+        body = raw[match.start():end].strip()
+        number = int(match.group(1))
+        if body and number not in episodes:
+            episodes[number] = body
+    return episodes
+
+
+def episode_digest(text):
+    """单集正文的内容指纹；首尾空白与换行口径不影响判定。"""
+    body = str(text or '').replace('\r\n', '\n').replace('\r', '\n').strip()
+    return hashlib.sha256(body.encode('utf-8')).hexdigest()
+
+
+def episode_label(number):
+    """分集的用户可读称谓；未分集返回「未分集正文」。"""
+    return '未分集正文' if number == UNSPLIT_EPISODE_KEY else '第%s集' % number
+
+
+def episode_ledger_path(project):
+    """分集增量账本路径；与自然剧本采用台账同目录、同阶段写入目录。"""
+    from stage_path_service import write_dir
+    return write_dir(project, 'script') / EPISODE_LEDGER_NAME
+
+
+def read_episode_ledger(project):
+    """读分集增量账本；缺失、损坏或格式不符时返回空账本，绝不阻断生成。"""
+    path = episode_ledger_path(project)
+    try:
+        payload = read(path) if path.is_file() else {}
+    except (OSError, ValueError):
+        payload = {}
+    episodes = payload.get('episodes') if isinstance(payload, dict) else None
+    clean = {}
+    for number, entry in (episodes or {}).items():
+        if not isinstance(entry, dict) or not isinstance(entry.get('sha256'), str) or not entry['sha256']:
+            continue
+        based = entry.get('based_on')
+        clean[str(number)] = {
+            'sha256': entry['sha256'],
+            'based_on': {str(key): value for key, value in (based or {}).items()
+                         if isinstance(value, str) and value},
+        }
+    return {'version': 1, 'episodes': clean}
+
+
+def write_episode_ledger(project, ledger):
+    """原子写入分集增量账本；调用方负责在失败时不阻断本次生成。"""
+    from agent.core import save
+    path = episode_ledger_path(project)
+    save(path, ledger)
+    return path
+
+
+def episode_change_report(text, ledger=None):
+    """把当前分集与账本比对，返回 ``(changed, unchanged)`` 两个有序映射。
+
+    账本缺失或某一集从未记录时，该集算作变化；首次使用时全部集都变化，等价于
+    旧的全量参考行为。
+    """
+    episodes = split_script_episodes(text)
+    known = (ledger or {}).get('episodes') or {}
+    changed, unchanged = {}, {}
+    for number, body in episodes.items():
+        entry = known.get(str(number))
+        if isinstance(entry, dict) and entry.get('sha256') == episode_digest(body):
+            unchanged[number] = body
+        else:
+            changed[number] = body
+    return changed, unchanged
+
+
+def episode_reference_block(text, ledger=None):
+    """构造模型 prompt 的「参考改动」段：只贴变化的集正文。
+
+    未变化的集只列出集号，不重复正文；账本缺失或从未记录（首次使用）时退化为
+    把现有全部集正文都当作参考改动，等价于旧的全量行为。没有正文时返回空串。
+    """
+    if not str(text or '').strip():
+        return ''
+    changed, unchanged = episode_change_report(text, ledger)
+    if not changed and not unchanged:
+        return ''
+    known = (ledger or {}).get('episodes') or {}
+    first_use = not any(str(number) in known for number in (list(changed) + list(unchanged)))
+    total = len(changed) + len(unchanged)
+    if first_use:
+        lines = ['【分集增量参考】尚未建立分集变更基线；以下为当前全部已有集正文（首次记录）。']
+        marker = '（当前版本）内容如下：'
+    else:
+        lines = ['【分集增量参考】当前自然剧本共 %d 集；只提供相对上次生成有改动的集正文。' % total]
+        marker = '已修改，内容如下：'
+    for number, body in changed.items():
+        lines.append(episode_label(number) + marker)
+        lines.append(body)
+    if unchanged:
+        lines.append('（未变化的集：' + '、'.join(episode_label(number) for number in unchanged)
+                     + '；正文不重复提供，沿用已确认版本。）')
+    return '\n'.join(lines)
+
+
+def script_episode_baseline(project):
+    """当前分集比对基准正文：优先采用版本，其次最新自然剧本，最后内部工作稿。
+
+    用户手改自然剧本会让采用台账的哈希失效，因此这里不把采用台账当唯一依据，
+    只取「最新一份可见自然剧本」的正文；都读不到时返回空串。
+    """
+    try:
+        source = resolve_script_source(project)
+    except (OSError, ValueError):
+        source = None
+    candidates = [source] if source is not None else []
+    try:
+        candidates.extend(natural_script_paths(project))
+    except (OSError, ValueError):
+        pass
+    from stage_path_service import write_dir
+    candidates.append(write_dir(project, 'script') / RAW_SCRIPT_NAME)
+    for path in candidates:
+        try:
+            if path.is_file() and path.stat().st_size:
+                return path.read_text(encoding='utf-8', errors='ignore')
+        except OSError:
+            continue
+    return ''
+
+
+def record_episode_ledger(project, text, previous_text=''):
+    """调用后更新账本：记录各集当前 sha256 与生成时其余各集的 sha256 快照。
+
+    ``previous_text`` 是本次生成前的剧本正文（模型实际依据的版本）；有变化或新
+    出现的集，其 ``based_on`` 取该版本其余各集的指纹；未变化的集保留已有记录。
+    没有可解析正文时不改动账本。
+    """
+    episodes = split_script_episodes(text)
+    ledger = read_episode_ledger(project)
+    if not episodes:
+        return ledger
+    known = ledger['episodes']
+    before = {str(number): episode_digest(body)
+              for number, body in split_script_episodes(previous_text).items()}
+    updated = {}
+    for number, body in episodes.items():
+        key = str(number)
+        digest = episode_digest(body)
+        if key in known and known[key]['sha256'] == digest:
+            updated[key] = dict(known[key])
+            continue
+        updated[key] = {'sha256': digest,
+                        'based_on': {other: value for other, value in before.items() if other != key}}
+    ledger = {'version': 1, 'episodes': updated}
+    write_episode_ledger(project, ledger)
+    return ledger
+
+
 def resolve_script_source(project):
     """优先采用用户确认的内容版本；多份候选不得按修改时间自动替换。"""
     paths = natural_script_paths(project)

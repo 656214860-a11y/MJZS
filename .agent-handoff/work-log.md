@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：R1335 阶段④分集增量上下文（独立功能轮）。script_contract 新增 split_script_episodes 与分集账本 剧本分集增量账本.json（每集 sha256＋based_on 其余集快照）；writing_api.reply() 前注入只含改动集正文、_save_formal_script() 后更新账本；workflow_tasks._episode_change_notice() 只给 Agent 集号；首次／无账本退化全量。定向 5＋1＋1 全绿、默认冒烟 8/8、架构棘轮 3/3；writing_api／script_contract 红点与基线同形（缺 gitlink 假红）；全量未跑。见 [R1335](../程序/tasks_round/tasks_round_1335_result.md)。
+
 - 2026-10-12：O10 完成并提交 R1330。采用事务化：`confirm_gates` 相位 pending／applied／failed、`pending()` 只认 applied（旧记录无 state 按已确认），`stage_execution_service.adopt_asset_plan_choice` 先记 pending → 落盘 → 成功记 applied，失败记 failed、中断留 pending，`asset_detail._pick` 失败给恢复提示。定向 96/96、架构棘轮 5/5、默认冒烟 8/8、0 红。收口安全全量见 [R1330](../程序/tasks_round/tasks_round_1330_result.md)。
 
 - 2026-10-12：O09 完成并提交 R1322。就绪绑定来源分镜摘要与预演文件：`white_model_service` 新增 `shot_digest`／`source_digest`／`evidence_state`／`record_evidence`，`previs_routing.ready` 按证据失效，`previs_automation.verify` 校验通过即登记，`local_previs` 状态列与导入共用。定向 138/138、关联 172/172、默认冒烟 8/8、架构 312/312。

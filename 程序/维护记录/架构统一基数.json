@@ -1130,9 +1130,9 @@
             },
             {
                 "file": "writing_api.py",
-                "point": "486",
+                "point": "522",
                 "disposition": "exempt",
-                "reason": "简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
+                "reason": "R1331：阶段④分集增量接入使原 486 行平移至 522；仍是简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
             },
             {
                 "file": "stage_parallel.py",
