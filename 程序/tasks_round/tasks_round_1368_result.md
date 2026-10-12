@@ -57,9 +57,9 @@
 ## 全量判定
 - 1368 − last_full_safe_all_round(1367) = 1 < 5，无五轮欠账；改动未命中 §5（无启动路径／Tk 控件生命周期／删除语义／层级登记表；`interrupt_script_agent` 只改状态栏文案与取消标记，未改控件生命周期）。
 - 复用检查：`.git/full-safe-receipts.json` 最近绿凭据为 round=1367、tree=1d7630f1…（2026-10-12，7 日内），但本轮改了 `desktop.py`／`desktop_automation_service.py`／`writing_api.py`／`stage_execution_service.py` 并新增测试，`HEAD:程序` 内容树不同，不能复用。
-- 全量结果：见随后收尾提交（占位：待补）。
+- 全量结果：第 1 次在干净 master 谱系工作树 `o41-fullsafe-master`（`git worktree add --detach 467843e`，已预置 4 个嵌套仓库与 3 个被忽略运行文件、`git status` 干净）跑 `--all --safe`：**4872/4872、0 红、524.6 秒**，但该工作树是 detached HEAD，`run_selftests.is_master_checkout()` 为假，按设计**未写绿凭据**。把该工作树 HEAD 指向 `refs/heads/master`（仍停在 `467843e`、树干净）后跑**第 2 次全量** `--all --safe`：**4872/4872、0 红、537.3 秒**并写凭据。`.git/full-safe-receipts.json`：`round=1368`、`tree=dd48d82b7729c8ce00b80a9b8e5ebc1c99b8efd8`（＝内容提交 `467843e:程序`）、`at=2026-10-12T16:15:24`、`last_full_safe_all_round=1368`；`test_desktop_startup_perf`（14 条）／`test_perf_baseline`（9 条）两轮均绿，未出现阈值抖动。
 
 ## 提交
 - 本轮改动：`程序/desktop_automation_service.py`、`程序/writing_api.py`、`程序/stage_execution_service.py`、`程序/desktop.py`、`程序/tests/test_cancellation_status.py`（新）、`程序/tasks_round/tasks_round_1368_result.md`（新）、`程序/project_status.md`、`.agent-handoff/{snapshot,work-log,validation,backlog,risks}.md`。
 - 内容提交 `5752dfe`（只含 5 个程序文件：`desktop.py`／`desktop_automation_service.py`／`stage_execution_service.py`／`writing_api.py`／`tests/test_cancellation_status.py`；未含主树他人已暂存的 `程序/idea_chat.py`／`程序/idea_attachments.py`／`程序/配置/SKILL/预设.json`）。
-- 提交状态：见随后收尾提交。
+- 提交状态：内容提交 `5752dfe`（5 个程序文件：`desktop.py`／`desktop_automation_service.py`／`stage_execution_service.py`／`writing_api.py`／`tests/test_cancellation_status.py`）、`467843e`（`tasks_round_1368_result.md`＋`project_status.md`＋`.agent-handoff/*`）；收尾提交记入全量结果与提交号（沿用同一轮次 R1368，中央 `last_claimed` 仍为 1368）。
