@@ -1,3 +1,11 @@
+## 2026-10-12 R1386 阶段显示收口（修复轮 §3.2）
+
+- 类型：修复轮（§3.2）。新增权威入口 `pet_bus.stage_label(stage)`＝`'%02d %s' % (STAGES.index+1, STAGE_NAMES[stage])`，6 个用户可见展示位点（keyframe_batch 4／stage_parallel GATES SG-01..05／pet_ui gaps／desktop 视频页标题×2＋镜头编号提示／skill_tools 导出 note）改由它现算；生产注释／docstring 过期编号按权威序纠正；不改业务逻辑／阶段／路径／分层。
+- 门禁：`tests/architecture/test_stage_display_boundary.py` 新增 3 条（生产「NN 阶段名」编号==STAGES 步号，豁免 stage_path_service；6 展示位点冻结；stage_label 对齐导航序）；架构 326→**329**。
+- 定向 `run_selftests.py -k ...`：**1275 条、0 文件红、305.5 秒**。默认冒烟 `smoke_test.py`：**8/8**。
+- 全量（路线图条目收口触发 §5）：干净 master 工作树 `o07-fullsafe-master` `run_selftests.py --all --safe` **4971/4971、0 红、534.1 秒**（凭据 round=1382、tree=`d9aee73c…`＝内容提交 `4cb02d3:程序`；同一内容树不重跑第二次）。`test_desktop_startup_perf` 14/14、`test_perf_baseline` 9/9 无抖动。
+- 提交：内容 `4cb02d3`（26 files）；报告／状态／接力另一次提交。审计口径更正 97→96。
+
 ## 2026-10-12 R1382 状态接续轮（只读审计 + 状态/接力更新）
 
 - 类型：状态接续轮（§3.11）。不改生产代码，只更新 project_status.md「已知阻塞与待办」、接力文件与结果报告；未触生产文件，故 §5 无升级触发。

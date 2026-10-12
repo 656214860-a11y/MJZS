@@ -1,5 +1,14 @@
 # 当前快照
 
+## 2026-10-12：UI 统一入口覆盖轮 — 阶段显示收口（R1386，修复轮 §3.2）
+- 承接 R1382 只读审计登记的待办「生产文案阶段编号漂移」，对应 `维护记录/UI统一入口路线图_v1.md` §二 第 15 项「阶段显示」（完成判据原文「任何阶段名称展示均从权威表取值」）。
+- 新增唯一权威入口 `pet_bus.stage_label(stage)`＝`'%02d %s' % (STAGES.index+1, STAGE_NAMES[stage])`（未知阶段退回 `stage_name`；步号与 `desktop.PAGES` 同源）。keyframe_batch（4）／stage_parallel（GATES SG-01..05）／pet_ui（gaps 气泡）／desktop（视频页标题×2、镜头编号提示）／skill_tools（导出 note）改由它现算；`skill_panel.stage_label` 退化为薄封装。生产注释／docstring 过期编号按权威序纠正（资产 03→05／连贯性 04→06／定稿 05→07／首帧 06→08／白模 07→09／视频 08→10／配音 09→11／剪辑 10→12／质检 11→13）；`skill_tools.PAGES` 去掉已死旧编号前缀（行为不变）。**不改** `stage_path_service.LEGACY_NUMBERED`／`desktop.PAGES`／`stage_layout.STAGES`。
+- 门禁 `tests/architecture/test_stage_display_boundary.py` +3：生产「NN 阶段名」编号必须==`pet_bus.STAGES` 步号（豁免 `stage_path_service.py`）；6 个已迁移展示位点冻结不得退回写死；`stage_label` 对齐导航序。架构 326→**329**。
+- 验证：定向 **1275/1275、0 文件红、305.5 秒**；默认冒烟 **8/8**；路线图条目收口触发全量，在干净 master 工作树 `o07-fullsafe-master` 跑 `run_selftests.py --all --safe`：**4971/4971、0 红、534.1 秒**（凭据 `round=1382`、`tree=d9aee73c…`＝内容提交 `4cb02d3:程序`；同一内容树**不重跑第二次**）。提交内容 **`4cb02d3`**（26 files）。
+- 审计口径修正：R1382 报的生产 14 文件 97 处含 1 处误报（`animatic_service.py:1`「L2 分镜预演」的 L2 是层级前缀）；加词边界后准确＝生产 **13 文件 96 处**、`tests/` 19 文件 56 处。
+- 编号：开工领 1383，提交时中央计数被并发车道推到 1385，重领得 **1386**；1383／1384／1385 无结果文件。全量凭据 `round=1382`（跑时本轮结果未落盘，执行器取最新已完成结果号）。轮次头写 **1387**。
+- 下一轮候选（backlog）：`test_button_boundary` 由固定页清单收紧为递归零容忍（站点已 0 裸 `tk/ttk.Button`）；设计 token 内联视觉常量；§三 覆盖率审计 7 项。测试按 §5，纯服务层改动不强制全量。
+
 ## 2026-10-12：状态接续轮 — 更新阻塞与待办（R1382，§3.11）
 - 按用户要求更新 project_status.md 的「已知阻塞与待办」与接力状态；**本轮不改生产代码、无功能改动、未跑全量**（未触生产文件、未命中 §5）。默认冒烟 smoke_test.py 8/8。
 - **只读审计（登记为待办，未实现）**：生产文案散落的「NN 阶段名」仍是旧编号（R1375 只收了 24 处「第N步」）。排除 stage_path_service.LEGACY_NUMBERED（旧目录只读兼容）后命中生产 **14 文件 97 处**（skill_tools.py 56／desktop.py 15／stage_parallel.py 5／keyframe_batch.py 4／pet_ui.py 4／app.py 3／其余 6 文件各 1–2）＋tests/ **19 文件 56 处**。权威＝pet_bus.STAGES 顺序（01 剧本准备…13 质检与交付）／STAGE_NAMES；导航标签＝desktop.PAGES 的 f'{index:02d}  {stage_name(stage)}'。
