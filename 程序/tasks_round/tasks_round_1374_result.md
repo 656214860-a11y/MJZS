@@ -55,8 +55,12 @@
 - 断言均以行为与不变量为准，不锚定易漂移的行号；`completion_evidence` 的 `detail` 文案只在 `ok=False` 时有意义，故 D 链只断言 `ok`。
 
 ## 全量判定
-- 待收尾补记。
+- 1374 − last_full_safe_all_round(1373) = 1 < 5，无五轮欠账；改动未命中 §5（只新增测试文件，无启动路径、无 Tk 控件生命周期、无删除语义；`_layers.py` 未改）。
+- 复用检查：`.git/full-safe-receipts.json` 最近绿凭据为 round=1373、tree=efdd7f8a…（2026-10-12，7 日内），但本轮新增 `tests/test_critical_chains.py`，`HEAD:程序` 内容树不同，不能复用。
+- 全量结果：在干净 master 谱系工作树 `o07-fullsafe-master`（`git worktree list` 里 HEAD 指向 `refs/heads/master` 使 `is_master_checkout()` 为真；已预置 4 个嵌套仓库与 3 个被忽略运行文件、`git status --porcelain --  :/ ` 为空）跑 `--all --safe`：**4954/4954、0 红、665.09 秒**。写凭据 `round=1374`、`tree=4778c99e76b74015a0075e7a86b6e860208e493c`（＝报告提交 `725d3e8:程序`，与 `HEAD:程序` 一致）、`at=2026-10-12T18:47:48`、`last_full_safe_all_round=1374`。4954 − 4937 = 17 即本轮新增用例数；`test_desktop_startup_perf`（14 条 17.1 秒）／`test_perf_baseline`（9 条 21.6 秒）本轮均绿、无阈值抖动，未出现二次全量。
 
 ## 提交
-- 待收尾补记。
+- 本轮改动：`程序/tests/test_critical_chains.py`（新，无生产代码改动）、`程序/tasks_round/tasks_round_1374_result.md`（新）、`程序/project_status.md`、`.agent-handoff/{snapshot,work-log,validation,backlog}.md`。
+- 内容提交：a489022（只含新测试文件，未含主树他人已暂存的 `程序/idea_chat.py`／`程序/idea_attachments.py`／`程序/配置/SKILL/预设.json`）。
+- 提交状态：内容提交 a489022；报告与接力提交 725d3e8（`tasks_round_1374_result.md`、`project_status.md`、`.agent-handoff/{snapshot,work-log,validation,backlog}.md`）；本收尾提交把「全量结果」与「提交号」补记进报告与接力文件（沿用同一轮次 R1374，中央 `last_claimed` 仍为 1374）。
 
