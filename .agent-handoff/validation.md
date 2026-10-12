@@ -2,7 +2,7 @@
 
 ## 2026-10-12 O26 完成
 
-- 2026-10-12 O26：新增 `tests/test_white_model_workspace.py` 21 条（默认成果目录在用户数据目录且不等于 Blender 安装目录旁／环境变量与设置文件都能改成果目录与 blender 路径／`workspace()` 随目标变更失效／中文＋空格目录可写且探针不留痕／权限不足与缺盘符给可执行提示／轻量检查不建目录／版本读取与缓存、失败返回空串、无 exe 不执行／配置路径优先、旧盘符仍在候选表、PATH 只扫一次／旧成果目录只读发现且不误报当前目录／诊断给出缺 Blender、不可写、旧目录提示与版本，`diagnose_text` 成文）。`file_cache.py` 两处 `json.loads` 行号平移（54→55、140→141）同步 `维护记录/架构统一基数.json` 第四项。定向 `-k white_model previs native_apps` 160/160、`-k white_model_workspace file_cache` 47/47、`-k ui_edges core paths stage_flow stage_parallel notification` 360/360、`-k stage_execution stdlib_closure import_error` 20/20、注释快照／统一棘轮／覆盖率棘轮／跳过卫生全绿、架构 312/312、默认冒烟 8/8，全 0 红。1351 − 1346 = 5 ≥ 5，收口在干净 master 工作树跑一次全量（结果见下）。
+- 2026-10-12 O26：新增 `tests/test_white_model_workspace.py` 21 条（默认成果目录在用户数据目录且不等于 Blender 安装目录旁／环境变量与设置文件都能改成果目录与 blender 路径／`workspace()` 随目标变更失效／中文＋空格目录可写且探针不留痕／权限不足与缺盘符给可执行提示／轻量检查不建目录／版本读取与缓存、失败返回空串、无 exe 不执行／配置路径优先、旧盘符仍在候选表、PATH 只扫一次／旧成果目录只读发现且不误报当前目录／诊断给出缺 Blender、不可写、旧目录提示与版本，`diagnose_text` 成文）。`file_cache.py` 两处 `json.loads` 行号平移（54→55、140→141）同步 `维护记录/架构统一基数.json` 第四项。定向 `-k white_model previs native_apps` 160/160、`-k white_model_workspace file_cache` 47/47、`-k ui_edges core paths stage_flow stage_parallel notification` 360/360、`-k stage_execution stdlib_closure import_error` 20/20、注释快照／统一棘轮／覆盖率棘轮／跳过卫生全绿、架构 312/312、默认冒烟 8/8，全 0 红。1351 − 1346 = 5 ≥ 5，收口在干净 master 工作树跑全量：第 1 次 4680/4680 中 1 红（`continuity_ledger.py:596` 文案规则，R1347 遗留，定向用例当时未覆盖），把该短语改为 `人工关闭` 后第 2 次全量 4680/4680、416.2 秒、0 红（`test_desktop_startup_perf` 13.8 秒、`test_perf_baseline` 20.5 秒均过）；凭据刷新 round=1351、tree=c97c1336，`last_full_safe_all_round`=1351。
 
 ## 2026-10-12 O25 完成
 
