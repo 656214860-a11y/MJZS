@@ -549,6 +549,62 @@ def preparation_file_labels(project):
     return labels
 
 
+PREPARATION_REPLY_STATES = ('已采用', '阶段稿待确认', '原始响应已保存', '因版本变化未采用')
+
+
+def preparation_reply_state(result):
+    """一次剧本回复的唯一状态判据：气泡、状态栏与剧本列表共用。
+
+    只说明这一次回复落在哪里、下一步做什么，不代表正式采用；未采用的回复把
+    file 指向 responses/ 归档，而不是正式剧本目录。
+    """
+    if not isinstance(result, dict):
+        return {'state': '', 'file': '', 'reason': '', 'next_step': ''}
+    state = str(result.get('preparation_status') or '')
+    if state not in PREPARATION_REPLY_STATES:
+        if result.get('natural_script_path'):
+            state = '已采用'
+        elif result.get('preparation_path'):
+            state = '阶段稿待确认'
+        elif result.get('response_path'):
+            state = '原始响应已保存'
+        else:
+            state = ''
+    reason = str(result.get('preparation_reject') or '')
+    if state == '已采用':
+        return {'state': state, 'file': str(result.get('natural_script_path') or ''), 'reason': reason,
+                'next_step': '这是已发布的正式剧本文件；如需定为本集当前采用稿，请在剧本列表中确认采用。'}
+    if state == '阶段稿待确认':
+        return {'state': state, 'file': str(result.get('preparation_path') or ''), 'reason': reason,
+                'next_step': '这是待确认的阶段工作稿，尚未正式采用；审阅后回复“确认”推进下一阶段，需要修改请直接说明。'}
+    if state == '原始响应已保存':
+        return {'state': state, 'file': str(result.get('response_path') or ''), 'reason': reason,
+                'next_step': '本次回复只作为未采用归档保存，不会自动采用；请修正后重新发送本阶段。'}
+    if state == '因版本变化未采用':
+        return {'state': state, 'file': str(result.get('response_path') or ''), 'reason': reason,
+                'next_step': '阶段文件或模型已变化，本次结果原样未采用；请按当前版本重新发送。'}
+    return {'state': '', 'file': '', 'reason': reason, 'next_step': ''}
+
+
+def preparation_reply_message(result):
+    """把状态、落点与下一步合成一句可显示的话；无明确状态时返回空串。"""
+    info = preparation_reply_state(result)
+    state = info['state']
+    if not state:
+        return ''
+    if state == '已采用':
+        return '已采用为正式剧本：' + info['file'] + '；' + info['next_step']
+    if state == '阶段稿待确认':
+        stage = str(result.get('preparation_stage') or '阶段稿')
+        return stage + '已保存（待确认，尚未正式采用）：' + info['file'] + '；' + info['next_step']
+    if state == '原始响应已保存':
+        detail = '（' + info['reason'] + '）' if info['reason'] else ''
+        return ('原始响应已保存为未采用归档' + detail + '：' + info['file']
+                + '；该文件在 responses/ 归档目录，不等于正式采用。' + info['next_step'])
+    return ('本次结果因版本变化未采用；原始响应归档于 ' + info['file']
+            + '（不等于正式采用）。' + info['next_step'])
+
+
 def _preparation_state(project, brief):
     """简报不是阶段完成凭据；确认必须绑定实际落盘的那一版正文。"""
     from copy import deepcopy
@@ -702,14 +758,19 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     except OSError as exc:
         return dict(result, ok=False, response_text=str(result.get('text') or ''),
                     error='正文保存失败，未采用：' + str(exc)), None
-    saved = '；正文已保存：' + result['response_path'] if result.get('response_path') else ''
+    saved = ('；原始响应已保存（responses/ 归档，不等于正式采用）：' + result['response_path']
+             if result.get('response_path') else '')
     try:
         _ensure_reply_active(cancelled)
     except RuntimeError as exc:
         raise type(exc)(str(exc) + saved) from exc
     _record_model_diagnostic(project, result, purpose='preparation')
     if not result.get('ok'):
-        return dict(result, error=str(result.get('error') or '模型调用失败') + saved), None
+        failed = dict(result, error=str(result.get('error') or '模型调用失败') + saved)
+        if result.get('response_path'):
+            failed['preparation_status'] = '原始响应已保存'
+            failed['preparation_reject'] = '模型调用未成功'
+        return failed, None
     meta = result.get('response_meta') or {}
     data = result.get('data') or {}
     choices = data.get('choices') or [{}]
@@ -725,7 +786,13 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
             selected, text = candidate, document_text
             break
     if finish in ('length', 'max_tokens') or (selected is None and not natural):
-        return dict(result, ok=False, text='', error=stage + '输出未完成或阶段格式不符，未采用、未进入下一阶段' + saved), None
+        rejected = dict(result, ok=False, text='',
+                        error=stage + '输出未完成或阶段格式不符，未采用、未进入下一阶段' + saved)
+        if result.get('response_path'):
+            rejected['preparation_status'] = '原始响应已保存'
+            rejected['preparation_reject'] = (
+                '截断' if finish in ('length', 'max_tokens') else '格式不合格')
+        return rejected, None
     advancing = natural or selected > index
     def save_decision():
         if advancing and 'revision' in state:
@@ -744,7 +811,11 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
         return None, dict(zip(PREPARATION_STAGES, texts))
     body = text.split('\n', 1)[1].removesuffix('待确认').strip()
     if not body:
-        return dict(result, ok=False, text='', error=stage + '正文为空，未采用' + saved), None
+        rejected = dict(result, ok=False, text='', error=stage + '正文为空，未采用' + saved)
+        if result.get('response_path'):
+            rejected['preparation_status'] = '原始响应已保存'
+            rejected['preparation_reject'] = '正文为空'
+        return rejected, None
     if advancing:
         documents[-1]['confirmed'] = True
     index, stage = selected, PREPARATION_STAGES[selected]
@@ -760,9 +831,11 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
                 lambda _target: save_decision())
     except (ValueError, OSError, RuntimeError) as exc:
         failure = type(exc)(str(exc) + saved)
-        failure.rejected_response = dict(result, ok=False, text='', error=str(failure))
+        failure.rejected_response = dict(result, ok=False, text='', error=str(failure),
+                                         preparation_status='因版本变化未采用')
         raise failure from exc
-    return dict(result, text=text, preparation_stage=stage, preparation_path=str(path)), None
+    return dict(result, text=text, preparation_stage=stage, preparation_path=str(path),
+                preparation_status='阶段稿待确认'), None
 
 
 def reply(project, creative, progress=None, cancelled=None, stream=None, *, publish=None, user_message=None, request_model=None):

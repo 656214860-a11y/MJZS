@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O13 完成并提交 R1336。剧本准备回复状态：`writing_api.preparation_reply_state`／`preparation_reply_message` 给出四态（已采用／阶段稿待确认／原始响应已保存／因版本变化未采用）＋落点＋下一步；`_preparation_step` 在格式不合格／截断／正文为空／模型失败／版本变化各分支打状态与原因标签，`saved` 与取消后迟到的错误都点明 responses/ 归档不等于正式采用；桌面 `received` 三处状态栏改用同一判据。定向 139/139、关联 46/46、桌面 115/115、架构 22/22、默认冒烟 8/8、0 红。见 [R1336](../程序/tasks_round/tasks_round_1336_result.md)。
+
 - 2026-10-12：O12 完成并提交 R1334。TTS 批次冻结配置与缓存身份：`request_identity`／`freeze_settings`／`batch_identity`，逐句清单带端点／模型／音色／语速，开批冻结、沿用前 `sha256` 复核成品、整段指纹加 endpoint、批次记录带 identity（不含密钥）。定向 49/49、关联 115/115、架构 12/12、默认冒烟 8/8、0 红。见 [R1334](../程序/tasks_round/tasks_round_1334_result.md)。
 
 - 2026-10-12：O11 完成并提交 R1333。确认绑内容：`confirm_gates.content_digest` 给 G-05／G-06／G-08 候选各带摘要，`record(..., digest=)` 落摘要，`pending()` = 已确认且摘要对得上；`adopt_asset_plan_choice`／`pick_gate`／`auto_decide_gates` 三处写入路径都带摘要，旧记录无摘要按旧口径放行。定向 101/101、接缝 172/172、架构 15/15、默认冒烟 8/8、0 红。见 [R1333](../程序/tasks_round/tasks_round_1333_result.md)。

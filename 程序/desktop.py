@@ -1815,6 +1815,7 @@ class Desktop:
             self._stream_text=''
             self.show_thinking(model)
             def received(result):
+                from writing_api import preparation_reply_message
                 if not self.idea_chat_controller.finish_request(token):return
                 if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
                 self.update_script_interrupt_button()
@@ -1833,7 +1834,7 @@ class Desktop:
                     message=('网络连接被模型网关中断，未生成内容；请点击发送重试。'
                              if transient else '模型调用未完成：'+error)
                     self.set_hollmwood_role_status(review_failed=result.get('hollmwood_review_failed_role', ''))
-                    self.status.set(message)
+                    self.status.set(preparation_reply_message(result) or message)
                     if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
                         self.notifier.error(message, title='请求校验未通过')
                     # 直接 API 模型与桌面 Agent 共用“剧本准备”这个自动阶段。
@@ -1854,7 +1855,7 @@ class Desktop:
                 if result.get('preparation_path'):
                     refresh=getattr(self,'refresh_script_list',None)
                     if callable(refresh):refresh()
-                    self.status.set(result['preparation_stage']+'已保存，请审阅后回复“确认”；需要修改请直接说明。')
+                    self.status.set(preparation_reply_message(result) or (result['preparation_stage']+'已保存，请审阅后回复“确认”；需要修改请直接说明。'))
                     return
                 if result.get('script_raw_path'):
                     four_roles = result.get('hollmwood_enabled', True)
@@ -1868,7 +1869,7 @@ class Desktop:
                     self.show_script_quality(result)
                     return
                 if result.get('natural_script_path'):
-                    self.status.set('自然剧本已自动保存：'+result['natural_script_path'])
+                    self.status.set(preparation_reply_message(result) or ('自然剧本已自动保存：'+result['natural_script_path']))
                 else:
                     self.status.set('已收到 '+model+' 的回复；完整剧本可下载保存。')
             def ask():

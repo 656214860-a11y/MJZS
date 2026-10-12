@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O13 完成
+
+- 2026-10-12 O13：新增 `tests/test_writing_response_preservation.py::PreparationReplyStateTests` 3 条（状态判据区分四态／无状态消息为空串；确认成功后为「阶段稿待确认」且消息含路径与确认；取消后迟到错误含「原始响应已保存」「不等于正式采用」与归档路径且台账未变）；扩展既有 2 条（格式不合格与截断带 `原始响应已保存`＋原因标签且消息点明归档不等于正式采用；版本变化经 `reply_to_writing` 带 `因版本变化未采用`）。定向 `-k writing` 139/139、关联 `-k idea_inline_brief writing_response_preservation` 46/46、桌面 `-k ui_edges` 115/115、架构相关 22/22、默认冒烟 8/8，全 0 红。`desktop.py` 增 1 行 → TODO 注释快照 desktop.py 行号 2748→2749。本轮 1336 − 1330 = 6 ≥ 5，收口补一次干净 master 全量。
+
 ## 2026-10-12 O12 完成
 
 - 2026-10-12 O12：新增 `tests/test_tts.py::TtsBatchIdentityTests` 6 条（清单记身份／中途改设置不混用／换模型与换端点失效旧缓存／截断与空文件不续用／旧清单无摘要时文件非空即沿用／密钥不入指纹清单批次记录）；定向 `-k tts` 49/49、`-k tts audio animatic subtitle` 全绿、关联 `-k ui_edges` 115/115、架构相关 `-k unification_ratchet json_io_boundary layers tts_publication_boundary todo_comment_snapshot` 12/12、默认冒烟 8/8，全 0 红。夹具 `fake_synthesize` 跟随新签名补 `**_kwargs`（`tests/test_ui_edges.py` 两处，只改夹具）。本轮 1334−1330=4<5，不跑全量。
