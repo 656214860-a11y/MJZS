@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O29 完成并提交 R1354。预算由多个计数器汇总为请求级可对账记录：`pet_llm.py`（L1）新增 `RequestLedger`（`reserve` 幂等／`link` 同一远端任务唯一账单／`settle` 缺量转未知／`cancel` 不伪造远端退款／`report` 按 token·秒·次数分列不跨量纲相加、可选带时间价格表），`model_pool.probe` 增 `ledger` 与 `PROBE_USAGE_NOTE`（探测「可能产生用量」并记未知）、`pet_models_ui` 文案标注；新增 11 条用例，定向 73/73、架构 312/312、默认冒烟 8/8，0 红（1354−1351=3<5 且未命中 §5，本轮不跑全量）。见 [R1354](../程序/tasks_round/tasks_round_1354_result.md)。
+
 - 2026-10-12：O28 完成并提交 R1353。本地/云端任务统一可恢复状态与错误分类：`video_progress` 新增只读 `task_status`／`status_label`／`status_next`／`status_detail`／`error_kind`，把提交中/结果不确定/排队/生成中/下载中/下载失败/技术不合格/待审核/已采用统一成一套名并各给「下一步」（查询/补配置/显式重做），错误归鉴权/限额/模型协议/内容拒绝/网络/本机磁盘/未分类（本机磁盘先判，其余复用 `pet_agent.classify`）；`engine.poll` 记 `download_error`（取回失败保留 succeeded，再查询续取不重生成）；视频页状态行与交付页逐镜行显示统一状态与下一步。新增 13 条用例＋1 条下载续取集成用例，定向 332/332、架构 312/312、默认冒烟 8/8，0 红（1353−1351=2<5 且未命中 §5，本轮不跑全量）。见 [R1353](../程序/tasks_round/tasks_round_1353_result.md)。
 
 - 2026-10-12：O27 完成并提交 R1352。视频「技术合格」与「创意验收」分开：`engine.py` 新增 `review_source`／`content_reviewed`／`review_label`（`review_by` 优先、老记录按 `review_note` 前缀回推），无人值守自动放行写 `review_by='auto'`＋`AUTO_REVIEW_NOTE`，`Studio.review` 写 `review_by='user'`；`local_video.py`／`app.py`／`desktop.py` 同口径显示，交付页新增「采用」列；`approved_versions`／自动粗剪／交接包取版口径不变。新增 3 条集成用例＋交付页断言，定向 `-k integration ui_edges video` 318/318、架构 312/312、默认冒烟 8/8，0 红（1352−1351=1<5 且未命中 §5，本轮不跑全量）。见 [R1352](../程序/tasks_round/tasks_round_1352_result.md)。

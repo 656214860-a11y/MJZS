@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O29 完成
+
+- 2026-10-12 O29：`pet_llm.py`（L1）新增 `RequestLedger`（`reserve`／`link`／`settle`／`mark_unknown`／`cancel`／`report`／`price`／`save`／`load`）＋ `REQUEST_LEDGER_PATH`／`REQUEST_KINDS`／`REQUEST_STATES`／`REQUEST_MODES`；`model_pool.py` `probe(..., ledger=None)` 增 `PROBE_USAGE_NOTE` 与返回体 `usage_note`，有 ledger 时对探测记未知；`pet_models_ui.py` `probe_line` 附探测提示。`tests/test_request_ledger.py`（新）11 条：幂等预留／重试不重复结算／usage 汇总与缺量未知／缺量不显免费／同远端任务唯一账单／取消不伪造退款／取消已预留转未知／分列 kinds／可选带日期价格表与缺费率／save-load 往返／探测标注。定向 `-k request_ledger pet_llm model_router pet_models_ui` 73/73、架构门禁 312/312、默认冒烟 8/8，全 0 红；未新增裸 `json.loads`（`model_pool.py` 两处响应体解析行号 568→576、605→613 已在 `维护记录/架构统一基数.json` 第四项同步登记，仍 exempt）／L2 直写／动态导入／顶层模块，棘轮均绿。1354 − 1351 = 3 < 5 且未命中 §5，本轮不跑全量；上次绿全量 1351（tree c97c1336），下一欠账点 1356。
+
 ## 2026-10-12 O28 完成
 
 - 2026-10-12 O28：`video_progress.py` 新增 `task_status`／`status_label`／`status_next`／`status_detail`／`error_kind`／`ERROR_LABELS`／`ERROR_NEXT`（八态＋失败/拒绝/缺文件；七类错误；本机磁盘标记先判、其余复用 `pet_agent.classify`）；`engine.py` `poll` 取回失败分支记 `download_error` 且保留 `succeeded`；`app.py` 视频页状态行与 `desktop.py` 交付页逐镜行改用统一状态与下一步。`tests/test_video_task_status.py`（新）13 条；`tests/test_integration.py` 新增 `DownloadResumeTests`（取回失败只保留一版、状态 succeeded、再 poll 续取成功且仍一版）。定向 `-k video_task_status integration video ui_edges` 332/332、架构门禁 312/312、默认冒烟 8/8，全 0 红；未新增 `json.loads`／L2 直写／动态导入／顶层模块，棘轮均绿。1353 − 1351 = 2 < 5 且未命中 §5，本轮不跑全量；上次绿全量 1351（tree c97c1336），下一欠账点 1356。

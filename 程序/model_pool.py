@@ -35,6 +35,8 @@ DEFAULT_WIRE = 'chat'
 # 第 65 期任务 8：「测试连接」发的是最小一次请求，原来是 1 个 token，有些服务商拒收
 # 这么小的值（回了 400 就说这条模型不可用）。统一改成 16。
 PROBE_TOKENS = 16
+# O29：探测会真的发一次最小请求，用量不读回来——标清楚可能产生用量，别让人以为免费。
+PROBE_USAGE_NOTE = '测试连接会真实发一次最小请求，可能产生用量'
 # Provider 只登记「这条是谁家的」：真发请求仍看 wire_api（默认 OpenAI 兼容），所以它只是标签。
 PROVIDERS = (('openai-compatible', 'openai-compatible'), ('anthropic', 'anthropic'),
              ('custom', '自定义'))
@@ -513,7 +515,7 @@ def patch_for(model_id, records=None, config=None, program=None):
     return patch
 
 
-def probe(value, transport=None, program=None, timeout=8):
+def probe(value, transport=None, program=None, timeout=8, ledger=None):
     """测试连接：拿这一条发最小一次请求（16 个 token），不写盘、不记账。
 
     顺带把这一趟的耗时量出来（规格里那成功一句要报延迟）；结果里带 'ms'。"""
@@ -542,14 +544,20 @@ def probe(value, transport=None, program=None, timeout=8):
     head = (token_saver.anthropic_headers(key_of(item, program)) if item['wire_api'] == 'messages'
             else {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key_of(item, program)})
     started = time.time()
+    request_id = 'probe:%s:%d' % (item['model'], int(started * 1000))
     try:
         result = dict(send(url, body, head, timeout) or {})
     except Exception as exc:                      # 网络层抛异常也要变成一句话，不丢给界面线程
+        if ledger is not None:
+            ledger.mark_unknown(request_id, reason=PROBE_USAGE_NOTE)
         return {'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc),
-                'model': item['model'], 'url': url, 'ms': elapsed_ms(started)}
+                'model': item['model'], 'url': url, 'ms': elapsed_ms(started),
+                'usage_note': PROBE_USAGE_NOTE}
+    if ledger is not None:
+        ledger.mark_unknown(request_id, reason=PROBE_USAGE_NOTE)
     return {'ok': bool(result.get('ok')), 'status': result.get('status'),
             'error': result.get('error'), 'model': item['model'], 'url': url,
-            'ms': elapsed_ms(started)}
+            'ms': elapsed_ms(started), 'usage_note': PROBE_USAGE_NOTE}
 
 
 def http_transport(url, payload, headers, timeout):

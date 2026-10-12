@@ -458,3 +458,193 @@ class Client:
         except Exception as exc:                     # 界面线程调用：出错也要给出结构化结果，不抛异常
             return {'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc), 'model': None,
                     'degraded': False, 'budget': False, 'usage': usage_of(None), 'request': None}
+
+# ── O29 请求级可对账台账 ─────────────────────────────────────────────────────
+# 与 Token 台账分工：Token 台账算「当天花了多少」，这里回答「这一笔请求怎么回事」——
+# 请求号、调用种类、估计还是实报、预留还是结算、关联哪个远端任务。token／秒／次数
+# 各列各的，不把它们相加成金额；价格表可选，带上版本与日期；缺 usage 记「未知」而不是 0。
+REQUEST_LEDGER_PATH = ('工作流任务', '宠物', '请求台账.json')
+REQUEST_KINDS = ('tokens', 'seconds', 'images', 'videos', 'requests')
+REQUEST_STATES = ('reserved', 'settled', 'unknown', 'cancelled', 'duplicate')
+REQUEST_MODES = ('estimated', 'reported', 'unknown')
+
+
+def request_ledger_path(project):
+    return Path(project).joinpath(*REQUEST_LEDGER_PATH)
+
+
+class RequestLedger:
+    """一条请求一行：预留 → 结算／未知／取消，同一请求号只认一笔（重试不重复结算）。"""
+
+    def __init__(self, project=None, clock=time.time):
+        self.project = Path(project) if project else None
+        self.clock = clock
+        self.entries = []
+
+    def _find(self, request_id, kind=None):
+        rid = str(request_id)
+        for entry in self.entries:
+            if entry.get('id') == rid and (kind is None or entry.get('kind') == kind):
+                return entry
+        return None
+
+    def _stamp(self, at):
+        return float(self.clock() if at is None else at)
+
+    def _remote_owner(self, remote_task_id):
+        if not remote_task_id:
+            return None
+        for entry in self.entries:
+            if entry.get('remote_task_id') == remote_task_id and entry.get('state') != 'duplicate':
+                return entry
+        return None
+
+    def reserve(self, request_id, kind, amount, *, remote_task_id=None, note='', at=None):
+        """先占一笔：同一请求号＋种类只占一次；已有就原样返回（重试不重复预留）。"""
+        existing = self._find(request_id, kind)
+        if existing is not None:
+            return existing
+        entry = {'id': str(request_id), 'kind': str(kind), 'amount': float(amount or 0),
+                 'mode': 'estimated', 'state': 'reserved', 'remote_task_id': None,
+                 'note': str(note or ''), 'at': self._stamp(at), 'settled_at': None}
+        self.entries.append(entry)
+        if remote_task_id:
+            self.link(request_id, remote_task_id)
+        return entry
+
+    def link(self, request_id, remote_task_id):
+        """把请求号绑到远端任务号；同一远端任务只认第一笔账单，后来者标 duplicate。"""
+        entry = self._find(request_id)
+        if entry is None or not remote_task_id:
+            return entry
+        task = str(remote_task_id)
+        owner = self._remote_owner(task)
+        if owner is not None and owner.get('id') != entry.get('id'):
+            entry['state'] = 'duplicate'
+            entry['note'] = '同一远端任务已由请求 ' + str(owner.get('id')) + ' 记账，本笔不重复结算'
+            return entry
+        entry['remote_task_id'] = task
+        return entry
+
+    def settle(self, request_id, *, kind=None, amount=None, usage=None, mode='reported',
+               remote_task_id=None, note='', at=None):
+        """结算实报量：同一请求号只写一次，重复调用只是覆盖，不会翻倍。"""
+        entry = self._find(request_id, kind)
+        if entry is None:
+            entry = self.reserve(request_id, kind or ('tokens' if usage is not None else 'requests'), 0)
+        if entry.get('state') == 'duplicate':
+            return entry
+        if amount is None and isinstance(usage, dict):
+            total = usage.get('total_tokens')
+            if total is None:
+                total = (usage.get('prompt_tokens') or 0) + (usage.get('completion_tokens') or 0)
+            amount = total
+        if amount is None:
+            return self.mark_unknown(request_id, reason=note or '结算时没有可用量', at=at)
+        entry['amount'] = float(amount)
+        entry['mode'] = str(mode)
+        entry['state'] = 'settled'
+        entry['settled_at'] = self._stamp(at)
+        if remote_task_id:
+            entry['remote_task_id'] = str(remote_task_id)
+        if note:
+            entry['note'] = str(note)
+        return entry
+
+    def mark_unknown(self, request_id, *, reason='', at=None):
+        """用量的确不知道时记「未知」：既不记 0（会显示成免费），也不丢这笔账。"""
+        entry = self._find(request_id)
+        if entry is None:
+            entry = self.reserve(request_id, 'requests', 0)
+        if entry.get('state') == 'duplicate':
+            return entry
+        entry['state'] = 'unknown'
+        entry['mode'] = 'unknown'
+        entry['amount'] = None
+        entry['settled_at'] = self._stamp(at)
+        if reason:
+            entry['note'] = str(reason)
+        return entry
+
+    def cancel(self, request_id, *, reason='', at=None):
+        """取消只改本机记录：不伪造远端退款，也不抹掉已经实报的用量。"""
+        entry = self._find(request_id)
+        if entry is None:
+            return None
+        entry['state'] = 'cancelled'
+        entry['cancelled_at'] = self._stamp(at)
+        if entry.get('mode') != 'reported':
+            entry['mode'] = 'unknown'
+            entry['amount'] = None
+        if reason:
+            entry['note'] = str(reason)
+        return entry
+
+    def report(self, price_table=None, currency='CNY'):
+        """汇总：token／秒／次数各列各的，另给未知、重复、取消的编号；配了价格表才折算金额。"""
+        kinds = {kind: {'settled': 0.0, 'reserved': 0.0, 'unknown': 0, 'count': 0}
+                 for kind in REQUEST_KINDS}
+        unknown, duplicates, cancelled = [], [], []
+        for entry in self.entries:
+            kind = entry.get('kind')
+            bucket = kinds.setdefault(kind, {'settled': 0.0, 'reserved': 0.0, 'unknown': 0, 'count': 0})
+            state = entry.get('state')
+            if state == 'duplicate':
+                duplicates.append(entry.get('id'))
+                continue
+            bucket['count'] += 1
+            if state == 'cancelled':
+                # 取消不退款：已经实报的量继续计，没上报的算未知，都不记 0。
+                cancelled.append(entry.get('id'))
+                if entry.get('mode') == 'reported' and entry.get('amount') is not None:
+                    bucket['settled'] += float(entry['amount'])
+                else:
+                    bucket['unknown'] += 1
+                    unknown.append(entry.get('id'))
+                continue
+            if state == 'unknown' or entry.get('mode') == 'unknown':
+                bucket['unknown'] += 1
+                unknown.append(entry.get('id'))
+                continue
+            if state == 'settled':
+                bucket['settled'] += float(entry.get('amount') or 0)
+            elif state == 'reserved':
+                bucket['reserved'] += float(entry.get('amount') or 0)
+        out = {'kinds': kinds, 'unknown_ids': unknown, 'duplicate_ids': duplicates,
+               'cancelled_ids': cancelled,
+               'requests': sum(bucket['count'] for bucket in kinds.values())}
+        if price_table:
+            out['money'] = self.price(kinds, price_table, currency)
+        return out
+
+    @staticmethod
+    def price(kinds, price_table, currency='CNY'):
+        """只有配了价格表才折算金额；带上价格表的版本／日期，缺费率不猜。"""
+        table = price_table if isinstance(price_table, dict) else {}
+        rates = table.get('rates') if isinstance(table.get('rates'), dict) else {}
+        total, missing = 0.0, []
+        for kind, bucket in kinds.items():
+            rate = rates.get(kind)
+            if rate is None:
+                if bucket.get('settled') or bucket.get('reserved'):
+                    missing.append(kind)
+                continue
+            total += (bucket.get('settled', 0.0) + bucket.get('reserved', 0.0)) * float(rate)
+        return {'amount': round(total, 4), 'currency': str(table.get('currency') or currency),
+                'table_version': table.get('version'), 'table_at': table.get('at'),
+                'missing_rates': sorted(missing)}
+
+    def save(self):
+        if self.project is None:
+            return None
+        path = request_ledger_path(self.project)
+        save(path, {'updated_at': self.clock(), 'entries': self.entries})
+        return path
+
+    def load(self):
+        if self.project is None:
+            return self
+        data = read_json(request_ledger_path(self.project))
+        if isinstance(data, dict) and isinstance(data.get('entries'), list):
+            self.entries = [entry for entry in data['entries'] if isinstance(entry, dict)]
+        return self

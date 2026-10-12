@@ -132,7 +132,8 @@ def probe_line(record, pet):
     result = model_pool.probe(record, transport_of(pet), program_of(pet))
     name = record.get('label') or record.get('model') or '这一条'
     if result.get('ok'):
-        return '%s：连接成功，延迟 %d ms' % (name, int(result.get('ms') or 0))
+        note = result.get('usage_note') or ''
+        return '%s：连接成功，延迟 %d ms' % (name, int(result.get('ms') or 0)) + ('（' + note + '）' if note else '')
     status = result.get('status')
     reason = result.get('error') or '没有响应'
     return '%s：%s%s' % (name, ('HTTP %s · ' % status) if status else '', reason)
