@@ -138,6 +138,31 @@ def open_target(target):
     return open_path(value)
 
 
+def open_directory(path):
+    """确保目录存在再用宿主默认程序打开；UI 不该自己拼「建目录 + 打开」。"""
+    target = Path(path)
+    target.mkdir(exist_ok=True)
+    return open_path(target)
+
+
+_EDITOR_START_MENU = 'Microsoft/Windows/Start Menu/Programs'
+
+
+def find_editor_shortcut(name='剪映专业版', *, skip=('卸载',)):
+    """在开始菜单里找剪映专业版（或指定名）的快捷方式；跳过卸载项，找不到返回 None。
+
+    原先这段扫描长在 desktop.py（L4）里，是纯本机适配逻辑，搬到 L0 便于单独测试与复用。
+    """
+    for base in (os.environ.get('APPDATA', ''), os.environ.get('PROGRAMDATA', '')):
+        root = Path(base) / _EDITOR_START_MENU
+        if not root.is_dir():
+            continue
+        for shortcut in root.glob('**/*%s*.lnk' % name):
+            if not any(word in shortcut.name for word in skip):
+                return shortcut
+    return None
+
+
 def tcp_listener(url, *, timeout=0.3):
     """Return whether a local TCP endpoint accepts a short connection.
 

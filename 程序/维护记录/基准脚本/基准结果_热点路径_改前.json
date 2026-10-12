@@ -1,0 +1,60 @@
+{
+ "mode": "hotspot",
+ "workload": {
+  "library_projects": 24,
+  "stage_files": 1500,
+  "chat_messages": 800,
+  "media_files": 400,
+  "repeat": 3
+ },
+ "paths": {
+  "project_switch": {
+   "first_ms": 5.3,
+   "min_ms": 2.2,
+   "median_ms": 2.3,
+   "samples_ms": [
+    5.3,
+    2.3,
+    2.2
+   ],
+   "rss_delta_mb": 0.1
+  },
+  "dir_refresh": {
+   "first_ms": 15.3,
+   "min_ms": 12.3,
+   "median_ms": 13.1,
+   "samples_ms": [
+    15.3,
+    12.3,
+    13.1
+   ],
+   "rss_delta_mb": 1.8
+  },
+  "long_chat": {
+   "first_ms": 2.8,
+   "min_ms": 2.0,
+   "median_ms": 2.2,
+   "samples_ms": [
+    2.8,
+    2.2,
+    2.0
+   ],
+   "rss_delta_mb": 0.0
+  },
+  "media_import": {
+   "first_ms": 3.3,
+   "min_ms": 2.9,
+   "median_ms": 3.0,
+   "samples_ms": [
+    3.3,
+    3.0,
+    2.9
+   ],
+   "rss_delta_mb": 0.2
+  }
+ },
+ "memory": {
+  "end_mb": 27.8
+ },
+ "elapsed_total_ms": 1104.7
+}

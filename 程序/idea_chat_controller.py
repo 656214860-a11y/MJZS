@@ -5,6 +5,40 @@ import time
 from pathlib import Path
 
 
+BUBBLE_COLLAPSE_CHARS = 360
+BUBBLE_COLLAPSE_LINES = 8
+
+
+def bubble_timestamp(at):
+    """气泡上面那一行小字：这条是什么时候说的（认不出格式就空着）。"""
+    from datetime import datetime
+    for shape in ('%Y%m%d_%H%M%S_%f', '%Y%m%d_%H%M%S'):
+        try:
+            return datetime.strptime(str(at), shape).strftime('%m-%d %H:%M')
+        except (ValueError, TypeError):
+            continue
+    return ''
+
+
+def collapse_preview(text, *, chars=BUBBLE_COLLAPSE_CHARS, lines=BUBBLE_COLLAPSE_LINES):
+    """过长的消息先给紧凑预览；完整内容仍在内存和对话 JSON 中。"""
+    raw = str(text).strip()
+    rows = raw.splitlines()
+    if len(raw) <= chars and len(rows) <= lines:
+        return raw, False
+    preview = '\n'.join(rows[:lines])
+    if len(preview) > chars:
+        preview = preview[:chars].rsplit('\n', 1)[0]
+    return preview.rstrip() + '…', True
+
+
+def speaker_name(row, *, you='您', prefix='对话AI · ', fallback='AI 助手'):
+    """气泡署名：用户自己说话叫「您」，其余按模型名。"""
+    if str(row.get('role')) == 'user':
+        return you
+    return prefix + str(row.get('model') or fallback).strip()
+
+
 class IdeaChatController:
     """保存对话请求、发送节流与附档引用，不持有任何 Tk 控件。"""
 

@@ -135,3 +135,26 @@ class OpenPathTests(unittest.TestCase):
             self.assertIs(process, launch.return_value)
             launch.assert_called_once_with([str(executable)], cwd=str(executable.parent), env=None,
                                            creationflags=0)
+
+    def test_open_directory_creates_then_delegates_to_open_path(self):
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td) / 'stage'
+            with patch('platform_tools.open_path', return_value='opened') as open_path:
+                self.assertEqual(platform_tools.open_directory(target), 'opened')
+            self.assertTrue(target.is_dir())
+            open_path.assert_called_once_with(target)
+
+    def test_start_menu_scan_prefers_installed_shortcut_over_uninstaller(self):
+        with tempfile.TemporaryDirectory() as td, \
+             patch.dict(os.environ, {'APPDATA': td, 'PROGRAMDATA': str(Path(td) / 'programdata')}):
+            folder = Path(td) / 'Microsoft/Windows/Start Menu/Programs/剪映'
+            folder.mkdir(parents=True)
+            (folder / '剪映专业版卸载.lnk').write_text('', encoding='utf-8')
+            expected = folder / '剪映专业版.lnk'
+            expected.write_text('', encoding='utf-8')
+            self.assertEqual(platform_tools.find_editor_shortcut(), expected)
+
+    def test_start_menu_scan_returns_none_when_nothing_matches(self):
+        with tempfile.TemporaryDirectory() as td, \
+             patch.dict(os.environ, {'APPDATA': td, 'PROGRAMDATA': str(Path(td) / 'programdata')}):
+            self.assertIsNone(platform_tools.find_editor_shortcut())

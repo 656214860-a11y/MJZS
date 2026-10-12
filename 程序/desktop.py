@@ -23,10 +23,10 @@ import pet_ui
 import project_stages
 import ui_plugin_registry
 import stage_handler_registry
-from platform_tools import launch_windows_app, open_path, open_target, tcp_listener
+from platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from desktop_startup_service import DesktopStartupController
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler
-from idea_chat_controller import IdeaChatController
+from idea_chat_controller import IdeaChatController, bubble_timestamp, collapse_preview, speaker_name
 from ui_tokens import COLORS, FONTS, SPACING, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
@@ -65,8 +65,7 @@ BUBBLE_LINE=13         # 量不出字宽时的兜底：一个字大约这么宽
 BUBBLE_MAX_RATIO=0.72  # 第 71 期任务 6：字再多，色块也不铺满整行，一行才看得下去
 BUBBLE_SLACK=26        # 量字宽只是估算（字号、全角半角都有出入），留一截余地，
                        # 免得一句话末了一个字被挤到下一行
-BUBBLE_COLLAPSE_CHARS=360
-BUBBLE_COLLAPSE_LINES=8
+# 折叠阈值现由 L3 idea_chat_controller 持有（bubble_preview 的实现搬过去）。
 # 第 71 期任务 5／6：剧本准备页的创意框摆几行——窗口再矮也留 TALK_MIN_LINES 行，
 # 字再多、窗口再高也不超过 TALK_MAX_LINES 行（一次铺满半页纸就不好操作了）；
 TALK_MIN_LINES=6
@@ -795,25 +794,14 @@ class Desktop:
             return max(0,width-BUBBLE_GAP-body),BUBBLE_GAP
         return BUBBLE_GAP,max(0,width-BUBBLE_GAP-body)
     def bubble_time(self,at):
-        """气泡上面那一行小字：这条是什么时候说的（认不出格式就空着）。"""
-        from datetime import datetime
-        for shape in ('%Y%m%d_%H%M%S_%f','%Y%m%d_%H%M%S'):
-            try:return datetime.strptime(str(at),shape).strftime('%m-%d %H:%M')
-            except (ValueError,TypeError):continue
-        return ''
+        """气泡上面那一行小字（实现搬到 L3 idea_chat_controller，入口不变）。"""
+        return bubble_timestamp(at)
     def bubble_preview(self,text):
-        """过长的消息先给紧凑预览；完整内容仍在内存和对话 JSON 中。"""
-        raw=str(text).strip()
-        lines=raw.splitlines()
-        if len(raw)<=BUBBLE_COLLAPSE_CHARS and len(lines)<=BUBBLE_COLLAPSE_LINES:
-            return raw,False
-        preview='\n'.join(lines[:BUBBLE_COLLAPSE_LINES])
-        if len(preview)>BUBBLE_COLLAPSE_CHARS:
-            preview=preview[:BUBBLE_COLLAPSE_CHARS].rsplit('\n',1)[0]
-        return preview.rstrip()+'…',True
+        """过长的消息先给紧凑预览（实现搬到 L3 idea_chat_controller，入口不变）。"""
+        return collapse_preview(text)
     def model_name(self,row):
-        if str(row.get('role'))=='user':return '您'
-        return '对话AI · '+str(row.get('model') or 'AI 助手').strip()
+        """对话气泡的署名（实现搬到 L3 idea_chat_controller，入口不变）。"""
+        return speaker_name(row)
     def toggle_bubble(self,box,name):
         """点击“展开全文／收起”只改当前气泡的正文，不重建输入区。"""
         record=getattr(self,'_bubble_full',{}).get(name)
@@ -7360,15 +7348,8 @@ class Desktop:
                 return executable
         return None
     def find_editor_shortcut(self):
-        """在后台查找开始菜单中的剪映快捷方式。"""
-        for root in (Path(os.environ.get('APPDATA',''))/'Microsoft/Windows/Start Menu/Programs',
-                     Path(os.environ.get('PROGRAMDATA',''))/'Microsoft/Windows/Start Menu/Programs'):
-            if not root.is_dir():
-                continue
-            for shortcut in root.glob('**/*剪映专业版*.lnk'):
-                if '卸载' not in shortcut.name:
-                    return shortcut
-        return None
+        """在后台查找开始菜单中的剪映快捷方式（实现搬到 L0 platform_tools，入口不变）。"""
+        return find_editor_shortcut()
     def launch_editor(self):
         executable=self.find_editor()
         if executable is not None:
@@ -7467,7 +7448,7 @@ class Desktop:
         delivery_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))
         delivery_button('打开交付目录',lambda:open_path(delivery_dir))
         delivery_button('打开自动剪辑与QC报告目录',lambda:self.open_folder(export_dir))
-    def open_folder(self,p):p.mkdir(exist_ok=True);open_path(p)
+    def open_folder(self,p):open_directory(p)
     def final_import(self):
         from stage_workspace_service import ensure_delivery_workspace
         result=ensure_delivery_workspace(self.root)
