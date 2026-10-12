@@ -1,5 +1,12 @@
 # 当前快照
 
+## 2026-10-12：会话收尾（R1376—R1380 已收口，无待办）
+- 本次仅做收尾复核并记录：确认 R1376—R1380（UI 统一入口覆盖轮：忙碌态／文案与复制／卡片容器／文字层级）已全部提交并收口，本次会话未新增功能改动、未改任何生产代码或测试。
+- 状态一致：`程序/project_status.md` 当前轮次＝1381；中央 `.git/round-counter.json` `last_claimed=1380`；R1267 清单 O01—O48 全完成。
+- 全量凭据口径（**修正**）：R1380 全量 4967/4967、0 红、631.2 秒的 tree=f62cd088…＝该轮**内容提交 `e25c70d:程序`**，**不**等于当前 `HEAD:程序`（＝3c0d7ead…）。其后 R1380 的 3 个记账提交（`633eb4e` 报告与状态页、`452fb73` 与本次收尾提交 接力）只改 `程序/tasks_round/` 与 `程序/project_status.md`，未改生产代码。因 `latest(1380)−last_full(1380)=0<5`，`test_round_baselines.test_full_safe_all_is_required_every_five_rounds` 走 `full_safe_required=False` 提前返回、**仍绿**（已实跑该文件 5/5 OK）；若后续某轮再次要求全量，须在干净 master 工作树对新树重跑，**勿复用此凭据**（树不同）。
+- 工作区：master 仅余他人**已暂存** WIP（`程序/idea_chat.py`／`程序/idea_attachments.py`／`程序/配置/SKILL/预设.json`）与未跟踪产物（`outputs/`、`.codex/`、`.agent-handoff/archive/`、`程序/outputs/`、`程序/配置/宠物/配置.json`），不读／不改／不暂存／不覆盖；无属于本轮的未提交改动或阻塞。
+- 下一步：无待办；开工即读 `程序/AGENTS.md` §0，测试按 §5 触发表（每轮 `smoke_test.py`，结构治理轮 `--architecture`，触及 `程序/` 生产文件后命中 §5 升级条件或 ≥5 欠账才全量）；文字层级旧页面 backlog（见 R1380 审计表）按单页粒度滚动迁移，非阻塞。等用户新指令。
+
 ## 2026-10-12：UI 统一入口覆盖轮完成（R1376—R1380，路线图 4 项全收口）
 - 范围＝`程序/维护记录/UI统一入口路线图_v1.md` 尚未收口的 4 项：卡片容器、文字层级、忙碌态（提交/取消/成功/失败/迟到结果全链路）、文案与复制。用户 5 条硬要求：先读 `程序/AGENTS.md` §0/§2/§5 定轮型；单页粒度分批迁移（不整仓机械替换）；验收以各项「完成判据」原文为准、收口写「完成全量覆盖审计」；测试按 §5 触发表、不因收尾跑全量兜底；完成/暂停都更新接力。
 - R1376 忙碌态：`app.py`／`native_assets.py` 的进度条 `start/stop` 收口到 `BusyState.set_busy`；`tests/architecture/test_busy_state_boundary.py` 7 条（含「生产代码 `ttk.Progressbar` 的 `.start/.stop` 只许出现在 `ui_widgets.py`」零容忍门禁）。架构 315→320。
