@@ -16,7 +16,7 @@ from local_video import open_studio,LocalStudio,settings_window
 from engine import review_label
 from project_naming import dated_path
 from video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
-from video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS
+from video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
 import project_settings
 import asset_thumbs
 import ui_plugin_registry
@@ -1033,7 +1033,7 @@ class App:
         else:
             pending=[shot_id for shot_id,records in self.studio.state()['shots'].items() if shot_id!=sid and records and records[-1].get('state') in ('queued','running','succeeded','unknown','submitting')]
             if self.local_submit_sid and self.local_submit_sid!=sid and self.local_submit_sid not in pending:pending.append(self.local_submit_sid)
-            detail=sid+' · '+LABELS.get(v.get('state'),'未提交；点击生成按钮才会提交')
+            detail=sid+' · '+status_detail(v)
             if pending:detail+='\n后台跟踪：'+'、'.join(pending)+'（切换查看不会提交当前镜头）'
             self.progress_text.set(detail)
     def auto_poll(self):

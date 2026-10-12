@@ -201,6 +201,48 @@ class AutoReviewTests(unittest.TestCase):
             self.assertEqual(json.loads(ui.read_text(encoding="utf-8")).get("adopted_storyboards"), ["storyboard/x.json"])
 
 
+class DownloadResumeTests(unittest.TestCase):
+    """O28：下载中断后再次查询续取，不重新生成、不重投新版本。"""
+
+    def test_download_failure_resumes_without_resubmitting(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = build_project(td)
+            mp4 = Path(td) / "clip.mp4"
+            subprocess.run([FFMPEG, "-y", "-v", "error",
+                            "-f", "lavfi", "-i", "color=c=black:s=640x360:d=5",
+                            "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:d=5",
+                            "-c:v", "libx264", "-c:a", "aac", "-shortest", str(mp4)], check=True)
+
+            attempts = []
+            class Adapter(FakeAdapter):
+                def __init__(self, cfg):
+                    super().__init__(cfg)
+                    self.video = mp4.read_bytes()
+                def poll(self, task_id):
+                    return {"status": "succeeded", "url": "https://example.com/v.mp4"}
+                def download_video(self, task_id, dest):
+                    attempts.append(dest)
+                    if len(attempts) == 1:
+                        raise RuntimeError("network reset")
+                    Path(dest).write_bytes(self.video)
+
+            st = engine.Studio(proj, factory=Adapter)
+            st.submit("SH001")
+            with self.assertRaises(RuntimeError):
+                st.poll("SH001")
+            versions = st.state()["shots"]["SH001"]
+            self.assertEqual(len(versions), 1)              # 不重投：没有新版本
+            self.assertEqual(versions[-1]["state"], "succeeded")
+            self.assertTrue(versions[-1].get("download_error"))
+            self.assertTrue(versions[-1].get("charged"))
+            # 再次查询：续取成功，仍然只有一个版本，远端任务没有被重发。
+            message = st.poll("SH001")
+            self.assertIn("已下载", message)
+            versions = st.state()["shots"]["SH001"]
+            self.assertEqual(len(versions), 1)
+            self.assertEqual(versions[-1]["state"], "downloaded")
+
+
 class AutoEditReadyTests(unittest.TestCase):
     """无人值守自动粗剪：整集验收通过才拼接，同一批验收结果只拼一次，编码期间不占项目锁。"""
 

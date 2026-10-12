@@ -338,7 +338,10 @@ class Studio:
                 elif not url:raise ValueError('服务商没有返回视频地址')
                 else:download(url,dest)
             except ValueError:raise RuntimeError('云端任务已成功但没有返回视频地址；请在服务商控制台核对并手动下载，不要重复提交') from None
-            except Exception: raise RuntimeError('下载中断；任务已成功，再次查询可续取，不会重新生成') from None
+            except Exception:
+                # O28：记下取回失败但保留 succeeded 状态；再查询即续取，不重生成、不重投。
+                v['download_error']='下载中断；任务已成功，再次查询可续取，不会重新生成';save(self.db,st)
+                raise RuntimeError(v['download_error']) from None
             try:
                 report=check(dest,v['seconds'],{**self.cfg,'require_audio':v.get('generate_audio',True)})
                 command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',dest,'-f','null','-'])

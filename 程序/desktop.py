@@ -7402,7 +7402,7 @@ class Desktop:
             button.configure(style='Tokens.Primary.TButton' if primary else 'Tokens.Secondary.TButton')
             button.pack_configure(pady=SPACING['xs'])
             return button
-        from video_progress import LABELS
+        from video_progress import LABELS, status_next
         st=self.studio.state();lines=[]
         for s in self.studio.episode['shots']:
             vs=st['shots'][s['id']];v=vs[-1] if vs else {}
@@ -7411,7 +7411,8 @@ class Desktop:
             review=review_label(v)
             adopted=approved_versions(vs)
             adopted_text=('v%s'%adopted[-1]['version']) if adopted else '无'
-            lines.append(f'{s["id"]}  {s["title"]}  | 状态 {state} | 技术QC {qc} | 验收 {review} | 采用 {adopted_text}')
+            step=status_next(v) if adopted_text=='无' else ''
+            lines.append(f'{s["id"]}  {s["title"]}  | 状态 {state} | 技术QC {qc} | 验收 {review} | 采用 {adopted_text}'+(' | 下一步 '+step if step else ''))
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
         delivery_button('导入剪映最终成片',self.final_import,primary=True)
         delivery_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))

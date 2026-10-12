@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O28 完成
+
+- 2026-10-12 O28：`video_progress.py` 新增 `task_status`／`status_label`／`status_next`／`status_detail`／`error_kind`／`ERROR_LABELS`／`ERROR_NEXT`（八态＋失败/拒绝/缺文件；七类错误；本机磁盘标记先判、其余复用 `pet_agent.classify`）；`engine.py` `poll` 取回失败分支记 `download_error` 且保留 `succeeded`；`app.py` 视频页状态行与 `desktop.py` 交付页逐镜行改用统一状态与下一步。`tests/test_video_task_status.py`（新）13 条；`tests/test_integration.py` 新增 `DownloadResumeTests`（取回失败只保留一版、状态 succeeded、再 poll 续取成功且仍一版）。定向 `-k video_task_status integration video ui_edges` 332/332、架构门禁 312/312、默认冒烟 8/8，全 0 红；未新增 `json.loads`／L2 直写／动态导入／顶层模块，棘轮均绿。1353 − 1351 = 2 < 5 且未命中 §5，本轮不跑全量；上次绿全量 1351（tree c97c1336），下一欠账点 1356。
+
 ## 2026-10-12 O27 完成
 
 - 2026-10-12 O27：`engine.py` 新增 `review_source`／`content_reviewed`／`review_label` 与状态常量、`AUTO_REVIEW_MARK`／`AUTO_REVIEW_NOTE`；无人值守自动放行（`engine.py` download 分支与 `local_video.py` 取回分支）写 `review_by='auto'`＋自动 note，`Studio.review` 写 `review_by='user'`，老记录无 `review_by` 时按 `review_note` 前缀回推（认不出当真人）。`app.py`／`desktop.py` 验收列改用 `review_label`，交付页加「采用」列。`tests/test_integration.py` 新增 3 条（自动放行≠内容审核、用户通过=内容审核、老记录回推），`tests/test_ui_edges.py` 交付页断言「采用 v1」。定向 `-k integration ui_edges video` 318/318、架构门禁 312/312、默认冒烟 8/8，全 0 红；未新增 `json.loads`／L2 直写／动态导入／顶层模块，棘轮均绿。1352 − 1351 = 1 < 5 且未命中 §5，本轮不跑全量；上次绿全量 1351（tree c97c1336），下一欠账点 1356。
