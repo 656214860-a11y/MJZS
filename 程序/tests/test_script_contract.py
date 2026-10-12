@@ -400,5 +400,70 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(sc.merge_problems(HERE), ())
 
 
+class EpisodeIncrementalTests(unittest.TestCase):
+    """阶段④分集解析与增量账本：标题容错、首次退化、只看改动集。"""
+
+    def project(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        return Path(temporary.name)
+
+    def test_split_is_tolerant_and_falls_back_to_one_unsplit_block(self):
+        text = ('# 第1集：起风\n第一集正文\n\n'
+                '# 第02集: 雨后\n第二集正文\n\n'
+                '# 第3集\n第三集正文\n')
+        episodes = sc.split_script_episodes(text)
+        self.assertEqual(list(episodes), [1, 2, 3])
+        self.assertIn('第一集正文', episodes[1])
+        self.assertIn('第二集正文', episodes[2])
+        self.assertIn('第三集正文', episodes[3])
+        self.assertEqual(sc.split_script_episodes('   '), {})
+        plain = '没有分集标题的整篇正文'
+        self.assertEqual(sc.split_script_episodes(plain), {sc.UNSPLIT_EPISODE_KEY: plain})
+        block = sc.episode_reference_block(plain, None)
+        self.assertIn(plain, block)
+
+    def test_missing_ledger_degrades_to_full_reference(self):
+        text = '# 第1集：起风\n第一集正文\n\n# 第2集：雨后\n第二集正文\n'
+        block = sc.episode_reference_block(text, None)
+        self.assertIn('第一集正文', block)
+        self.assertIn('第二集正文', block)
+        self.assertIn('首次记录', block)
+
+    def test_only_changed_episodes_keep_their_text(self):
+        project = self.project()
+        original = '# 第1集：起风\n第一集正文\n\n# 第2集：雨后\n第二集正文\n'
+        sc.record_episode_ledger(project, original)
+        edited = '# 第1集：起风\n第一集正文\n\n# 第2集：雨后\n第二集改过的正文\n'
+        block = sc.episode_reference_block(edited, sc.read_episode_ledger(project))
+        self.assertIn('第二集改过的正文', block)
+        self.assertNotIn('第一集正文', block)
+        self.assertIn('第1集', block)
+        self.assertIn('第2集已修改', block)
+
+    def test_ledger_records_other_episode_snapshot(self):
+        project = self.project()
+        first = '# 第1集：起风\n甲\n\n# 第2集：雨后\n乙\n'
+        sc.record_episode_ledger(project, first)
+        second = '# 第1集：起风\n甲\n\n# 第2集：雨后\n乙改\n'
+        sc.record_episode_ledger(project, second, previous_text=first)
+        ledger = sc.read_episode_ledger(project)
+        self.assertEqual(sorted(ledger['episodes']), ['1', '2'])
+        self.assertEqual(ledger['episodes']['1']['sha256'],
+                         sc.episode_digest(sc.split_script_episodes(second)[1]))
+        self.assertEqual(ledger['episodes']['2']['based_on'],
+                         {'1': sc.episode_digest(sc.split_script_episodes(first)[1])})
+        self.assertTrue(sc.episode_ledger_path(project).is_file())
+
+    def test_broken_ledger_does_not_break_the_reference(self):
+        project = self.project()
+        path = sc.episode_ledger_path(project)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('{not json', encoding='utf-8')
+        self.assertEqual(sc.read_episode_ledger(project), {'version': 1, 'episodes': {}})
+        text = '# 第1集：起风\n第一集正文\n'
+        self.assertIn('第一集正文', sc.episode_reference_block(text, sc.read_episode_ledger(project)))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

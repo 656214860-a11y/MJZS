@@ -1,5 +1,8 @@
 # 当前快照
 
+## 2026-10-12：R1335 并入 master（阶段④分集增量上下文）
+- 分支 `codex/episode-incremental-context` 已合入 master。`script_contract.split_script_episodes`＋分集账本 `write_dir(project,'script')/剧本分集增量账本.json`（每集 sha256＋based_on 其余集快照）；`writing_api.reply()` 前注入「只贴改动集正文」、唯一发布点 `_save_formal_script()` 后更新账本；`workflow_tasks._episode_change_notice()` 只给本地 Agent 报集号；首次／无账本退化为全量。见 [R1335](../程序/tasks_round/tasks_round_1335_result.md)。
+- 未改 `skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md` 与 `structure_script()` 场次解析。
 ## 2026-10-12：O39 完成，继续 O40
 
 - 按 R1267 清单 O01→O48 顺序逐个完成。O01—O38 已完成，**O39 已完成（R1364）**，下一项 O40（项目管理、备份与清理统一空间和恢复说明，P2／建议·风险，M）。
