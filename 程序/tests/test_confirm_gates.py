@@ -265,5 +265,79 @@ class AdoptTransactionTests(unittest.TestCase):
             self.assertEqual(cg.state_of(td, "anchor:没有这个"), "")
 
 
+class ConfirmationBindingTests(unittest.TestCase):
+    """O11：确认要绑住被确认的内容，不只是名字；内容变了只失效受影响的那条。"""
+
+    def _assets(self, brief="黑短发、杏眼"):
+        return {"CHAR_001": {"name": "主角", "description": brief},
+                "CHAR_002": {"name": "配角", "description": "白衬衣"}}
+
+    @staticmethod
+    def _by_key(items):
+        return {item["key"]: item for item in items}
+
+    def test_replacing_a_candidate_reopens_only_that_character(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            from stage_execution_service import record_stage_confirmation
+            first = self._by_key(cg.anchor_candidates(assets=self._assets()))
+            for key, item in first.items():
+                record_stage_confirmation(td, key, "候选一", digest=item["digest"])
+            self.assertEqual(cg.pending(td, tuple(first.values())), ())
+            changed = self._assets("栗色卷发、圆脸")
+            second = self._by_key(cg.anchor_candidates(assets=changed))
+            left = [item["key"] for item in cg.pending(td, tuple(second.values()))]
+            self.assertEqual(left, ["anchor:CHAR_001"], "只重新问改过的那一个角色")
+            self.assertFalse(cg.run("G-05", project=td, assets=changed)["passed"],
+                             "候选换过，门禁要重新问")
+
+    def test_changing_the_conflict_priority_reopens_that_batch(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            from stage_execution_service import record_stage_confirmation
+            row = {"kind": "多图抢同一件事", "batch_id": "B01",
+                   "priority": ["@图片1", "@图片2"], "reason": "两张都抢面部"}
+            item = cg.conflict_candidates(ledger={"conflicts": [row]})[0]
+            record_stage_confirmation(td, item["key"], item["candidates"][0], digest=item["digest"])
+            self.assertEqual(cg.pending(td, (item,)), ())
+            moved = cg.conflict_candidates(ledger={"conflicts": [dict(row, priority=["@图片2", "@图片1"])]})[0]
+            self.assertEqual([i["key"] for i in cg.pending(td, (moved,))], ["conflict:B01"],
+                             "台账被外部改过优先级就要复核")
+
+    def test_two_episodes_sharing_a_batch_id_do_not_reuse_each_other(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            from stage_execution_service import record_stage_confirmation
+            first = cg.conflict_candidates(ledger={"conflicts": [
+                {"kind": "多图抢同一件事", "batch_id": "B01", "priority": ["@A", "@B"]}]})[0]
+            record_stage_confirmation(td, first["key"], first["candidates"][0], digest=first["digest"])
+            second = cg.conflict_candidates(ledger={"conflicts": [
+                {"kind": "多图抢同一件事", "batch_id": "B01", "priority": ["@C", "@D"]}]})[0]
+            self.assertEqual(first["key"], second["key"], "跨集同批次 ID 仍共用一个键")
+            self.assertEqual(len(cg.pending(td, (second,))), 1, "内容不同就必须复核（宁多问不漏放）")
+
+    def test_an_unrelated_field_change_leaves_others_alone(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            from stage_execution_service import record_stage_confirmation
+            first = self._by_key(cg.anchor_candidates(assets=self._assets()))
+            for key, item in first.items():
+                record_stage_confirmation(td, key, "候选一", digest=item["digest"])
+            assets = self._assets()
+            assets["CHAR_002"]["costume_id"] = "CST-99"
+            second = self._by_key(cg.anchor_candidates(assets=assets))
+            self.assertEqual(cg.pending(td, tuple(second.values())), (), "无关字段变化不扰动")
+
+    def test_a_legacy_confirmation_without_digest_is_kept(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            from stage_execution_service import record_stage_confirmation
+            record_stage_confirmation(td, "anchor:CHAR_001", "候选一")
+            left = [item["key"] for item in cg.pending(td, cg.anchor_candidates(assets=self._assets()))]
+            self.assertEqual(left, ["anchor:CHAR_002"],
+                             "旧记录没有摘要，按升级前口径仍然算已确认")
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

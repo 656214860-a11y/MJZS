@@ -5695,10 +5695,10 @@ class Desktop:
                       wraplength=760,justify='left').pack(anchor='w')
             choice=item['candidates'][item.get('recommended',0)]
             PrimaryButton(box,text='采用推荐',
-                       command=lambda key=item['key'],value=choice:self.safe(
+                       command=lambda key=item['key'],value=choice,digest=item.get('digest',''):self.safe(
                            lambda:self.pick_gate(key,value,
-                               lambda:self.show(PAGE['continuity'])))).pack(anchor='w')
-    def pick_gate(self,key,choice,again=None):
+                               lambda:self.show(PAGE['continuity']),digest))).pack(anchor='w')
+    def pick_gate(self,key,choice,again=None,digest=''):
         """记一次人工确认，顺手把选择写进资产、再刷面板（第 64 期任务 6）。
 
         原来只调用 record()：选择进的是 gate_confirmations.json，资产清单里该写的
@@ -5708,7 +5708,7 @@ class Desktop:
         from stage_execution_service import record_stage_confirmation
         from stage_execution_service import apply_asset_plan_gate_choice
         apply_asset_plan_gate_choice(self.root,key,choice)
-        path=record_stage_confirmation(self.root,key,choice)
+        path=record_stage_confirmation(self.root,key,choice,digest=digest)
         if again:again()                      # 先重建页面（重建会重置状态栏），再写状态栏
         self.status.set('已确认：'+str(choice))
         return path
@@ -5753,7 +5753,7 @@ class Desktop:
             # 写资产清单或确认账本失败不能伪装成“这条已经处理过”。交给外层
             # _poll_auto_due 的节流与可见错误反馈，下一拍才会重试。
             apply_asset_plan_gate_choice(self.root,key,choice)
-            record_stage_confirmation(self.root,key,choice,by=AUTO)
+            record_stage_confirmation(self.root,key,choice,by=AUTO,digest=str(item.get('digest') or ''))
             done+=1
         if done:
             text='已按推荐处理 %d 条待办：锚点、正典板与连贯性裁决。'%done

@@ -702,10 +702,10 @@ def confirm_gates_gateway():
     return {'publish_json': save}
 
 
-def record_stage_confirmation(project, key, choice='', by='human', state='applied'):
+def record_stage_confirmation(project, key, choice='', by='human', state='applied', digest=''):
     """记录确认门禁；L4 不得自行装配或直写确认账本。state 见 confirm_gates.record。"""
     from confirm_gates import record
-    return record(project, key, choice, by=by, state=state,
+    return record(project, key, choice, by=by, state=state, digest=digest,
                   publish=confirm_gates_gateway()['publish_json'],
                   context=project_context(project))
 
@@ -717,23 +717,23 @@ def forget_stage_confirmation(project, key):
                   context=project_context(project))
 
 
-def adopt_asset_plan_choice(project, key, choice):
+def adopt_asset_plan_choice(project, key, choice, digest=''):
     """准备→落盘→确认走完一条路：只有落盘成功才把确认记成 applied。
 
     先记 pending：进程中断只留下 pending，候选会重新摆出、可再点一次；落盘失败记 failed，
     同样不算确认完成。任何一步没走完，都不会出现「未采用却已审核通过」（O10）。
     """
     from confirm_gates import APPLIED, FAILED, PENDING
-    record_stage_confirmation(project, key, choice, state=PENDING)
+    record_stage_confirmation(project, key, choice, state=PENDING, digest=digest)
     try:
         result = apply_asset_plan_gate_choice(project, key, choice)
     except Exception:
         try:
-            record_stage_confirmation(project, key, choice, state=FAILED)
+            record_stage_confirmation(project, key, choice, state=FAILED, digest=digest)
         except Exception:
             pass
         raise
-    record_stage_confirmation(project, key, choice, state=APPLIED)
+    record_stage_confirmation(project, key, choice, state=APPLIED, digest=digest)
     return result
 
 

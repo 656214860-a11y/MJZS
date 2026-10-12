@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O11 完成
+
+- 2026-10-12 O11：新增 `tests/test_confirm_gates.py::ConfirmationBindingTests` 5 条（换候选只失效那一个角色且门禁重问／改冲突优先级重问／跨集同批次 ID 内容不同即复核／无关字段不扰动／旧记录无摘要仍算已确认）；定向 `-k confirm_gates asset_detail stage_wiring asset_plan` 101/101、接缝 `-k ui_edges stage_execution stage_parallel` 172/172、架构相关 `-k unification_ratchet confirm_gates_json_boundary todo_comment_snapshot layers no_circular_import stage_paths` 15/15、默认冒烟 8/8，全 0 红。台账无变化（`stage_execution_service.py` json.loads 仍 108/1039/1070/1086）。本轮 1333−1330=3<5，不跑全量。
+
 ## 2026-10-12 O10 完成
 
 - 2026-10-12 O10：新增 `tests/test_confirm_gates.py::AdoptTransactionTests` 6 条（落盘失败留 failed 且门禁不通过／应用前中断留 pending／成功记 applied 不再问／重复点击幂等／旧记录无 state 按 applied／未知 key 空相位），改 `tests/test_asset_detail.py` 两条（第二步失败事件 `['record','apply','record']` 且不刷新不报成功；第一步失败不落盘）；定向 `-k confirm_gates asset_detail stage_wiring asset_plan` 96/96、架构棘轮 `-k unification_ratchet confirm_gates_json_boundary` 5/5、默认冒烟 8/8，全 0 红。台账 `架构统一基数.json` 第四项三处行号随 adopt 加长平移（1025/1056/1072→1039/1070/1086，exempt 不变），`TODO注释快照_20261003.json` 的 asset_detail.py 注释行号 346→350。

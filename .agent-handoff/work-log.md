@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O11 完成并提交 R1333。确认绑内容：`confirm_gates.content_digest` 给 G-05／G-06／G-08 候选各带摘要，`record(..., digest=)` 落摘要，`pending()` = 已确认且摘要对得上；`adopt_asset_plan_choice`／`pick_gate`／`auto_decide_gates` 三处写入路径都带摘要，旧记录无摘要按旧口径放行。定向 101/101、接缝 172/172、架构 15/15、默认冒烟 8/8、0 红。见 [R1333](../程序/tasks_round/tasks_round_1333_result.md)。
+
 - 2026-10-12：O10 完成并提交 R1330。采用事务化：`confirm_gates` 相位 pending／applied／failed、`pending()` 只认 applied（旧记录无 state 按已确认），`stage_execution_service.adopt_asset_plan_choice` 先记 pending → 落盘 → 成功记 applied，失败记 failed、中断留 pending，`asset_detail._pick` 失败给恢复提示。定向 96/96、架构棘轮 5/5、默认冒烟 8/8、0 红。
 
 - 2026-10-12：O10 收口安全全量。干净 master 工作树第 1 次 4528/445.5 秒／1 文件红（TODO 注释快照行号随 `_pick` 加长平移 346→350），定向修绿后第 2 次 4528/449.2 秒／0 红，凭据 round=1330、tree=3281c7c7，`last_full_safe_all_round` 刷到 1330。见 [R1330](../程序/tasks_round/tasks_round_1330_result.md)。

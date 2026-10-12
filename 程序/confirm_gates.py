@@ -15,6 +15,7 @@
 三条定位（附件硬约束 3）：三虎 agent 只编排与门禁，不生成内容；门禁只判「能不能进下一阶段」，
 不改内容；不通过就把话说短，打回上一阶段或让用户点一下。
 """
+import hashlib
 from pathlib import Path
 
 from file_cache import read_json
@@ -202,6 +203,15 @@ def _validate_asset(asset, aid):
 
 
 # ── 主观门禁的候选（Agent 预筛 2 个 ＋ 推荐理由，人工点一下） ────────────────────
+def content_digest(*parts):
+    """候选内容摘要（O11）：同一件事怎么摆都是同一个串，用来判断确认有没有过期。
+
+    只喂「决定这条候选长什么样」的字段，别把确认结果本身也喂进去——否则一确认就把自己作废。
+    """
+    text = '\x1f'.join(str(part) for part in parts)
+    return hashlib.sha1(text.encode('utf-8')).hexdigest()[:12]
+
+
 def _characters(assets):
     """资产清单里的角色，按编号排序：[(编号, 资产), …]。"""
     known = assets if isinstance(assets, dict) else {}
@@ -224,7 +234,7 @@ def anchor_candidates(shots=None, assets=None, ledger=None):
                         '服装与发型变化一律走状态变体'
         out.append({'gate_id': 'G-05', 'key': 'anchor:%s' % aid, 'title': '%s 的锚点字符串' % name,
                     'candidates': (first[:160], second[:160]), 'reason': ANCHOR_REASON,
-                    'recommended': 0})
+                    'recommended': 0, 'digest': content_digest('G-05', aid, name, brief)})
     return tuple(out)
 
 
@@ -242,7 +252,8 @@ def canon_candidates(shots=None, assets=None, ledger=None):
         out.append({'gate_id': 'G-06', 'key': 'canon:%s' % aid, 'title': '%s 的正典板' % name,
                     'candidates': ('方案一：写实骨相＋冷调布光（四视角同背景色、同光照方向）',
                                    '方案二：风格化骨相＋暖调布光（四视角同背景色、同光照方向）'),
-                    'reason': CANON_REASON, 'recommended': 0})
+                    'reason': CANON_REASON, 'recommended': 0,
+                    'digest': content_digest('G-06', aid, name)})
     return tuple(out)
 
 
@@ -266,7 +277,8 @@ def conflict_candidates(shots=None, assets=None, ledger=None):
                     'title': '%s 的参考图优先级' % name,
                     'candidates': ('%s 为准（%s 退为风格补充）' % (priority[0], priority[1]),
                                    '%s 为准（%s 退为风格补充）' % (priority[1], priority[0])),
-                    'reason': row.get('reason') or CONFLICT_REASON, 'recommended': 0})
+                    'reason': row.get('reason') or CONFLICT_REASON, 'recommended': 0,
+                    'digest': content_digest('G-08', name, *priority)})
     return tuple(out)
 
 
@@ -306,7 +318,7 @@ def confirmations(project=None, *, context=None):
     return out if isinstance(out, dict) else {}
 
 
-def record(project, key, choice='', by=HUMAN, *, publish, context=None, state=APPLIED):
+def record(project, key, choice='', by=HUMAN, *, publish, context=None, state=APPLIED, digest=''):
     """记一次人工确认；正式发布器必须由 L3 注入。
 
     ``state`` 记这一步走到哪：pending（已记待办、还没落盘）／applied（落盘成功，才算确认完成）／
@@ -315,7 +327,8 @@ def record(project, key, choice='', by=HUMAN, *, publish, context=None, state=AP
     """
     path = confirm_path(project, context=context)
     data = {'version': 1, 'confirmed': dict(confirmations(project, context=context))}
-    data['confirmed'][str(key)] = {'choice': str(choice), 'by': str(by), 'state': str(state)}
+    data['confirmed'][str(key)] = {'choice': str(choice), 'by': str(by), 'state': str(state),
+                                   'digest': str(digest)}
     publish(path, data)
     return path
 
@@ -339,6 +352,13 @@ def _is_done(row):
     return str(row.get('state') or APPLIED) not in (PENDING, FAILED)
 
 
+def _digest_ok(row, item):
+    """确认绑的内容摘要还对得上吗：两头都有摘要才比，缺一边按旧口径放行。"""
+    stored = str(row.get('digest') or '')
+    current = str((item or {}).get('digest') or '')
+    return True if not stored or not current else stored == current
+
+
 def state_of(project, key, *, context=None):
     """一条确认当前走到哪一步：applied／pending／failed；没有记录返回空串。"""
     row = confirmations(project, context=context).get(str(key))
@@ -353,7 +373,7 @@ def pending(project, items, *, context=None):
     out, seen = [], set()
     for item in items or ():
         key = str((item or {}).get('key') or '')
-        if key and (_is_done(done.get(key)) or key in seen):
+        if key and ((_is_done(done.get(key)) and _digest_ok(done.get(key), item)) or key in seen):
             continue
         seen.add(key)
         out.append(item)

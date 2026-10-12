@@ -243,11 +243,11 @@ def delete_variant(desktop, aid, state_id):
     return rows
 
 
-def _pick(desktop, key, choice, aid):
+def _pick(desktop, key, choice, aid, digest=''):
     """采用一个候选：准备→落盘→确认一条路走完（O10）；只有落盘成功才报已采用。"""
     from stage_execution_service import adopt_asset_plan_choice
     try:
-        adopt_asset_plan_choice(desktop.root, key, choice)
+        adopt_asset_plan_choice(desktop.root, key, choice, digest)
     except Exception as error:
         raise RuntimeError('采用没有完成：确认没有生效，候选还留着，可再点一次（'
                            + str(error) + '）') from error
@@ -287,13 +287,13 @@ def _gates_block(desktop, aid):
             ttk.Label(row, text='候选' + str(index + 1) + ' ' + str(candidate),
                       wraplength=760, justify='left').pack(side='left')
             SecondaryButton(row, text='采用',
-                       command=lambda key=item['key'], value=candidate:
-                       desktop.safe(lambda: _pick(desktop, key, value, aid))).pack(side='left', padx=6)
+                       command=lambda key=item['key'], value=candidate, digest=item.get('digest', ''):
+                       desktop.safe(lambda: _pick(desktop, key, value, aid, digest))).pack(side='left', padx=6)
         DescriptionBlock(box, text='理由：' + str(item.get('reason') or '')).pack(anchor='w', padx=(10, 0))
         recommended = item['candidates'][item.get('recommended', 0)]
         PrimaryButton(box, text='采用推荐（候选' + str(int(item.get('recommended', 0)) + 1) + '）',
-                   command=lambda key=item['key'], value=recommended:
-                   desktop.safe(lambda: _pick(desktop, key, value, aid))).pack(anchor='w', pady=(2, 6))
+                   command=lambda key=item['key'], value=recommended, digest=item.get('digest', ''):
+                   desktop.safe(lambda: _pick(desktop, key, value, aid, digest))).pack(anchor='w', pady=(2, 6))
     return box
 
 
