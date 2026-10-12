@@ -1,3 +1,6 @@
+## 2026-10-12 O35 完成
+
+- 2026-10-12 O35：`skill_registry.py`（L3）新增 `REFERENCE_SUFFIXES`／`_LINK_RE`／`reference_targets(text)`（kind：markdown／other／remote／anchor；区分 fragment，剥离标题与尖括号，反斜杠转正斜杠）、`classify_dependencies(skill, known)`、`dependency_report(skill, known)`（skill／external／tools），`external_references` 委托同一分类。`workflow_settings.py`（L4）新增 `_reference_row`／`_nested_references`／`_skill_blocks`／`_inline_skill_report`，`_inline_skill` 变薄壳；闭包状态 inlined／duplicate／outside／missing／resource／remote／anchor／absolute 与 depth2 nested／cycle／outside／missing；缺失直接 md 引用抛 ValueError 阻止发送；`freeze_skills` 汇总 `skill_injection` 的 references 键（每个技能带 `skill` 归属）。本轮刻意不改 `idea_chat.py`（主树带他人已暂存的无关改动，避免把他人 WIP 带进提交）；闭包落在请求快照 `skill_injection`。`tests/test_skill_reference_closure.py`（新）11 条；既有测试未改动、未弱化。定向 `-k skill_ skills workflow_writing stage_prompt_governance request_freeze stage_config codex_skill_sync` 241/241、`-k test_skill_reference_closure` 11/11、`-k writing_api` 全绿、架构门禁 312/312（最终树复跑）、默认冒烟 8/8，全 0 红。未新增 skipTest／裸 json.dump／动态导入／顶层模块；`workflow_settings` 顶部新增 `import skill_registry`（L3→L4 向下）。未实发模型请求、未重启、未真实点击界面。1360 − 1356 = 4 < 5 且未命中 §5，本轮不跑全量；上次绿全量 1356（tree 006d0295、4749/4749、425.3 秒），下一欠账点 1361。
 # 验证证据
 
 ## 2026-10-12 O34 完成
