@@ -7,7 +7,7 @@
 - 契约变化：每次 `recycle_paths` 调用生成独立 UUID 批次（不再把同一秒的多次调用并进同一份清单）；多路径调用由「可能部分成功」改为整批原子（任一项失败整批撤回），单路径调用语义不变；批次名仍以 `自动维护_` 开头，「最新批次」排序与筛选前缀不变。
 - 需迁移的断言：`tests/test_pet_report.py` 周报保留期用例原断言「同一份清单里 2 条」（旧同秒合并行为）改为「两条过期日报都进回收站且可原样恢复」；生产调用方 `pet_report.prune` 未改。
 - 验证证据：新增 `tests/test_recycle_write_ahead.py` 9/9；`tests/test_pet_report.py` 71/71；定向 `-k recycle storage retention deletion_gateway remove_authority exit_maintenance force_quit pet_report video_ui` 213/213；删除调用方 `-k asset keyframe storyboard projects skill_panel stage_execution codex_skill reference_images` 441/441；架构 `--layer architecture --all` 312/312；默认冒烟 `smoke_test.py` 8/8；0 红。
-- 全量：1363−1361=2<5 无五轮欠账，但改动命中 §5（删除语义 `storage_maintenance.py`），收口在干净 master 工作树 `o07-fullsafe-master` 跑 `--all --safe`（结果与凭据见 [validation](validation.md) 与 R1363 报告）。
+- 全量：1363−1361=2<5 无五轮欠账，但改动命中 §5（删除语义 `storage_maintenance.py`），收口在干净 master 工作树 `o07-fullsafe-master` 跑 `--all --safe`：第 1 次 4832/4832、0 红、425.6 秒，凭据 `round=1363`、`tree=f19816aa…`（＝`HEAD:程序`），`last_full_safe_all_round=1363`。
 - 工作区：主树另有他人**已暂存**改动（`程序/idea_chat.py`、`程序/idea_attachments.py`、`程序/配置/SKILL/预设.json`）与未跟踪 `outputs/`、`.codex/`、`.agent-handoff/archive/`、`程序/outputs/`、`程序/配置/宠物/配置.json`，不读取、不修改、不暂存、不覆盖；提交只点名自己的路径，绝不 `git add -A`。
 - 干净 master 工作树：`o07-fullsafe-master`（与主树共享 git common dir；勿动 `o06-fullsafe*` 等）；领号／全量前先 `git reset --hard HEAD`。
 - 轮次：R1363 已在干净 master 工作树领到；`project_status.md` 的 `当前轮次` 已改为 1364（＝最新结果报告号＋1）。
