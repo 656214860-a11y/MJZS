@@ -7,6 +7,7 @@
 import hashlib
 import json
 import queue
+import threading
 import time
 from pathlib import Path
 # 宽松读 JSON 只有 agent.core.read_json 一份实现，这里再导出一次：宠物各模块只 import pet_bus。
@@ -55,6 +56,16 @@ LIVE_EVENTS = ('stage.executing', 'stage.paused')
 STAGE_NAMED = STAGE_EVENTS + LIVE_EVENTS
 SEEN_LIMIT = 512
 HISTORY_LIMIT = 64
+# O42：待处理事件上限。工作线程只 publish、界面线程每 150ms 心跳 pump 一次（每轮上限 200），
+# 生产者比这快时原来那条无界队列会一直涨。到水位后只从「可以少一条」的事件里让路（见
+# SHEDDABLE_EVENTS）：工作线程永不被阻塞，完成／失败／暂停／用户指令／预算一律不让路。
+PENDING_LIMIT = 1024
+ERROR_LIMIT = 64           # 订阅者异常在内存里只留最近这些条，累计数另记 errors_total
+ERROR_PERSIST_LIMIT = 128  # 订阅者异常写审计日志的上限：异常风暴也不得撑爆磁盘
+# 到水位后允许让路的事件：只报「这一刻在跑」和「汇总说一句」，丢了不丢状态；
+# 终态（stage.completed／stage.failed／script.completed／delivery.ready 等）与
+# stage.paused（它带着并发号的归还）都不在此列，背压永不丢它们。
+SHEDDABLE_EVENTS = ('stage.executing', 'notify.aggregate')
 
 
 def identify(kind, payload):
@@ -91,18 +102,31 @@ def emit_safe(bus, errors, kind, **payload):
         return None
 
 
+def is_sheddable(kind):
+    """这一条是不是「队列到水位时可以让路」的进度／汇总事件（见 SHEDDABLE_EVENTS）。"""
+    return str(kind or '') in SHEDDABLE_EVENTS
+
+
 class Bus:
     """线程安全的事件总线：工作线程入队，界面线程 pump 后分发并落审计日志。"""
 
-    def __init__(self, journal=None, seen_limit=SEEN_LIMIT):
+    def __init__(self, journal=None, seen_limit=SEEN_LIMIT, pending_limit=PENDING_LIMIT,
+                 error_limit=ERROR_LIMIT):
         self.queue = queue.Queue()
         self.journal = Path(journal) if journal else None
         self.seen_limit = seen_limit
+        self.pending_limit = pending_limit
+        self.error_limit = error_limit
         self.touched = 0          # 进入总线的条数（含被幂等丢掉的）
         self.delivered = 0        # 成功送达订阅者的次数
-        self.dropped = 0          # 幂等去重丢掉的条数
+        self.dropped = 0          # 幂等去重丢掉的条数（入队前合并的 + pump 时撞上已发过的）
+        self.shed = 0             # 到水位后让路丢掉的进度／汇总条数（O42 背压）
+        self.errors_total = 0     # 订阅者异常累计条数（errors 只留最近 error_limit 条）
+        self.water = 0            # 待处理事件数的历史最高水位，供验收测量
         self.history = []         # 最近事件，供进度面板与测试查看
-        self.errors = []          # 订阅者异常：记录但不影响其他订阅者
+        self.errors = []          # 订阅者异常：记录但不影响其他订阅者（有界环形）
+        self._queued = set()      # 已入队、还没 pump 的幂等键（水位与合并都看它）
+        self._lock = threading.Lock()
         self._known = set()
         self._seen = []
         self._subs = {}           # kind 或 '*' → [回调]
@@ -112,8 +136,52 @@ class Bus:
         self._subs.setdefault(kind, []).append(callback)
         return callback
 
+    def unsubscribe(self, kind, callback=None):
+        """退订：给了回调只摘那一个，不给则整类摘空；返回摘掉的回调数。
+
+        关页／换项目时把订阅释放干净——旧页面不再收事件，也不会被事件反过来唤醒。
+        """
+        callbacks = self._subs.get(kind)
+        if not callbacks:
+            return 0
+        if callback is None:
+            return len(self._subs.pop(kind))
+        kept = [item for item in callbacks if item is not callback]
+        removed = len(callbacks) - len(kept)
+        if kept:
+            self._subs[kind] = kept
+        else:
+            self._subs.pop(kind, None)
+        return removed
+
+    def release(self):
+        """释放全部订阅，返回共摘掉几个回调；换项目／关页时清干净，不残留旧订阅。"""
+        removed = sum(len(items) for items in self._subs.values())
+        self._subs = {}
+        return removed
+
     def publish(self, item):
-        """工作线程调用：只入队，不碰界面，不写盘。"""
+        """工作线程调用：只入队，不碰界面，不写盘。
+
+        入队前做两件背压的事，都不阻塞工作线程：同一件事（同一幂等键）已经在队列里就不再
+        重复入队（pump 时本来也会去重，提到这里是不让它把内存撑大）；队列到水位时只让
+        SHEDDABLE_EVENTS 里的进度／汇总事件让路并计数，终态与暂停一律照常入队。
+        """
+        kind = item.get('kind') if isinstance(item, dict) else None
+        key = item.get('id') if isinstance(item, dict) else None
+        with self._lock:
+            if key is not None and key in self._queued:
+                self.dropped += 1
+                self.touched += 1
+                return item
+            if len(self._queued) >= self.pending_limit and is_sheddable(kind):
+                self.shed += 1
+                self.touched += 1
+                return item
+            if key is not None:
+                self._queued.add(key)
+                if len(self._queued) > self.water:
+                    self.water = len(self._queued)
         self.queue.put(item)
         self.touched += 1
         return item
@@ -130,6 +198,7 @@ class Bus:
             except queue.Empty:
                 break
             count += 1
+            self._dequeued(item)
             if item['id'] in self._known:
                 self.dropped += 1
                 continue
@@ -151,9 +220,46 @@ class Bus:
             try:
                 callback(item)
             except Exception as exc:                     # 订阅者自己的问题，不能拖垮总线
-                self.errors.append((item['kind'], str(exc)))
+                self._record_error(item['kind'], str(exc))
             else:
                 self.delivered += 1
+
+    def _dequeued(self, item):
+        """出队即从待处理表里摘掉：水位回到真实值，幂等键也让位给后来的重复上报。"""
+        key = item.get('id') if isinstance(item, dict) else None
+        if key is None:
+            return
+        with self._lock:
+            self._queued.discard(key)
+
+    def _record_error(self, kind, message):
+        """订阅者异常：内存留最近 error_limit 条，累计数另记，并落一份持久诊断。"""
+        self.errors_total += 1
+        self.errors.append((kind, message))
+        extra = len(self.errors) - self.error_limit
+        if extra > 0:
+            del self.errors[:extra]
+        if self.errors_total <= ERROR_PERSIST_LIMIT:
+            self._diagnose(kind, message)
+
+    def _diagnose(self, kind, message):
+        """把订阅者异常写进审计日志：内存里的环形会被后来的覆盖，磁盘上留一份可追。
+
+        与事件同一份 jsonl（pet_agent 的 skip／submit 也记在这里）；写不进去只记一笔，
+        绝不让诊断本身把总线带崩。
+        """
+        if self.journal is None:
+            return
+        try:
+            self.journal.parent.mkdir(parents=True, exist_ok=True)
+            row = {'kind': 'bus.subscriber.error', 'at': time.time(), 'event': kind, 'error': message}
+            with self.journal.open('a', encoding='utf-8') as handle:
+                handle.write(json.dumps(row, ensure_ascii=False, sort_keys=True) + '\n')
+        except OSError as exc:
+            self.errors.append(('journal.error', str(exc)))
+            extra = len(self.errors) - self.error_limit
+            if extra > 0:
+                del self.errors[:extra]
 
     def _write(self, item):
         if self.journal is None:
@@ -161,6 +267,18 @@ class Bus:
         self.journal.parent.mkdir(parents=True, exist_ok=True)
         with self.journal.open('a', encoding='utf-8') as handle:
             handle.write(json.dumps(item, ensure_ascii=False, sort_keys=True) + '\n')
+
+    @property
+    def pending(self):
+        """还没 pump 掉的事件数（按幂等键去重后的真实水位）。"""
+        with self._lock:
+            return len(self._queued)
+
+    def stats(self):
+        """总线现状（只读）：待处理、历史最高水位与各计数，供进度面板与验收测量。"""
+        return {'pending': self.pending, 'water': self.water, 'touched': self.touched,
+                'delivered': self.delivered, 'dropped': self.dropped, 'shed': self.shed,
+                'errors': self.errors_total, 'history': len(self.history)}
 
     def stage_name(self, stage):
         return stage_name(stage)
