@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """分镜文件读缓存自检：同一个文件在一次页面重排里只解析一次。运行：python test_file_cache.py"""
-import ast, json, os, sys, tempfile, unittest
+import ast, hashlib, json, os, sys, tempfile, unittest
+from unittest.mock import patch
 from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -16,6 +17,31 @@ def write_episode(path, episode_id, shots):
             "shots": [{"id": sid, "title": sid} for sid in shots]}
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     return path
+
+
+class FileDigestTests(unittest.TestCase):
+    def setUp(self):
+        file_cache.clear()
+
+    def test_streaming_digest_matches_sha256_and_reuses_cache(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "big.bin"
+            payload = b"x" * (1024 * 1024 * 3 + 7)
+            path.write_bytes(payload)
+            expected = hashlib.sha256(payload).hexdigest()
+            self.assertEqual(file_cache.file_digest(path), expected)
+            with patch.object(Path, "open", side_effect=AssertionError("缓存命中后不应再打开文件")):
+                self.assertEqual(file_cache.file_digest(path), expected)
+
+    def test_digest_refreshes_after_content_change_and_invalidate(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "media.mp4"
+            path.write_bytes(b"first")
+            first = file_cache.file_digest(path)
+            path.write_bytes(b"second")
+            self.assertNotEqual(file_cache.file_digest(path), first)
+            file_cache.invalidate(path)
+            self.assertEqual(file_cache.file_digest(path), hashlib.sha256(b"second").hexdigest())
 
 
 class ReadJsonTests(unittest.TestCase):

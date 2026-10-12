@@ -180,7 +180,7 @@ def evidence(project, *, require_confirmation=True):
         if not isinstance(manifest, dict) or manifest.get('kind') != 'animatic':
             raise ValueError('尚无 Animatic 成果')
         source = (root / manifest['source']).resolve()
-        if not source.is_relative_to(root) or digest(source.read_bytes()) != manifest['source_sha256']:
+        if not source.is_relative_to(root) or file_cache.file_digest(source) != manifest['source_sha256']:
             raise ValueError('分镜已变化，需要重新预演')
         files = manifest['files']
         if not files or manifest['video'] not in files or manifest['audio'] not in files:
@@ -189,7 +189,7 @@ def evidence(project, *, require_confirmation=True):
             path = (folder / name).resolve()
             if not path.is_relative_to(folder) or not path.is_file() or not path.stat().st_size:
                 raise ValueError('预演成果缺失或路径越界')
-            if digest(path.read_bytes()) != expected:
+            if file_cache.file_digest(path) != expected:
                 raise ValueError('预演成果已变化，需要重新生成并确认')
         if not manifest.get('shots') or any(row.get('image') not in files for row in manifest['shots']):
             raise ValueError('预演镜头图不完整')

@@ -74,6 +74,40 @@ class AnimaticTests(unittest.TestCase):
             source.write_text('{}', encoding='utf-8')
             self.assertFalse(service.evidence(root)[0])
 
+    def test_evidence_streams_large_media_without_reading_bytes(self):
+        """大媒体校验走流式摘要：mp4／临时音频／镜头图都不再整份读进内存。"""
+        import file_cache
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'storyboard_draft.json'
+            source.write_text(json.dumps({'shots': [{'id': 's1', 'prompt': '门边的人', 'duration': 2}]}), encoding='utf-8')
+            reference = root / 'reference.png'
+            reference.write_bytes(b'reference')
+            audio = root / 'temporary.wav'
+            audio.write_bytes(b'audio')
+            def render(workspace, *_args):
+                target = workspace / 'image.png'
+                target.write_bytes(b'image')
+                return target
+            def assemble(images, durations, sound, target, **_kwargs):
+                target.write_bytes(b'video' * 65536)
+                return target
+            result = service.build_bundle(project_context(root), source, [reference], audio,
+                {'ffmpeg': 'stub', 'ffprobe': 'stub'},
+                publish=lambda artifacts: publish_animatic_bundle(root, artifacts, validate=lambda _: True),
+                write_temporary=lambda path, raw: path.write_bytes(raw), render=render, assemble=assemble)
+            self.assertTrue(result.ok)
+            from stage_execution_service import confirm_animatic
+            confirm_animatic(root, rhythm=True, duration=True, dialogue_sync=True)
+            real = Path.read_bytes
+            def guarded(self, *args, **kwargs):
+                if self.suffix.lower() in {'.mp4', '.wav', '.png'}:
+                    raise AssertionError('校验阶段不得整份读取媒体字节：' + str(self))
+                return real(self, *args, **kwargs)
+            file_cache.clear()
+            with patch.object(Path, 'read_bytes', guarded):
+                self.assertTrue(service.evidence(root)[0], '媒体改走流式摘要后仍必须校验通过')
+
     def test_render_failure_never_publishes(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

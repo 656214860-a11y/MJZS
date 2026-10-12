@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O20 完成
+
+- 2026-10-12 O20：新增 `tests/test_file_cache.py::FileDigestTests` 2 条（`file_digest` 与 `hashlib.sha256` 整份结果一致且第二次命中不再打开文件；内容变化后刷新、`invalidate()` 后重算）＋ `tests/test_animatic_service.py` 1 条（确认后对 `.mp4/.wav/.png` 的 `Path.read_bytes` 打补丁抛错、清缓存后 `evidence` 仍 True，证明成果校验不再整份读媒体）。定向 `-k animatic file_cache` 41/41、锚定 `-k animatic_timeline stage_completion previs` 117/117、架构 312/312、默认冒烟 8/8，全 0 红。台账第四项 `file_cache.py` 两处 json.loads 行号平移（53→54、112→140）已同步，`-k unification_ratchet` 3/3。实测 64 MiB 文件：旧法峰值 64.1 MiB／114ms，新法冷算 2.1 MiB／118.7ms、命中 0.002 MiB／0.211ms。1344 − 1341 = 3 < 5 且未命中 §5，本轮不跑全量。
+
 ## 2026-10-12 O19 完成
 
 - 2026-10-12 O19：新增 `tests/test_adoption_impact.py` 7 条（同文件重排只报 reordered 且文件字节不变；删镜 → 首帧+已生成视频入失效清单；仅改对白 → fields=[dialogue] 且无媒体失效；换资产/改时长 → 首帧失效；无基线 → 全部 added + `+2 镜`；预览对 ui_settings.json 与候选文件只读）。`-k adoption_impact storyboard file_cache row_targets workflow_context` 78/78、`test_ui_edges.BatchContinuationTests.test_adopt_skips_adopted_without_confirm` 1/1（Tk）、架构 312/312、默认冒烟 8/8，全 0 红。未增删 `json.loads`（台账未平移）。1343 − 1341 = 2 < 5，本轮不跑全量。
