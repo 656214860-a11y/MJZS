@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O13 收口安全全量。干净 master 工作树 `run_selftests.py --all --safe` 第 1 次即绿：4542 条用例／385.8 秒／0 文件红（`test_desktop_startup_perf` 13.0 秒、`test_perf_baseline` 20.4 秒 均过）；凭据 round=1336、tree=d934dd21，`last_full_safe_all_round` 刷到 1336。见 [R1336](../程序/tasks_round/tasks_round_1336_result.md)。
+
 - 2026-10-12：O13 完成并提交 R1336。剧本准备回复状态：`writing_api.preparation_reply_state`／`preparation_reply_message` 给出四态（已采用／阶段稿待确认／原始响应已保存／因版本变化未采用）＋落点＋下一步；`_preparation_step` 在格式不合格／截断／正文为空／模型失败／版本变化各分支打状态与原因标签，`saved` 与取消后迟到的错误都点明 responses/ 归档不等于正式采用；桌面 `received` 三处状态栏改用同一判据。定向 139/139、关联 46/46、桌面 115/115、架构 22/22、默认冒烟 8/8、0 红。见 [R1336](../程序/tasks_round/tasks_round_1336_result.md)。
 
 - 2026-10-12：O12 完成并提交 R1334。TTS 批次冻结配置与缓存身份：`request_identity`／`freeze_settings`／`batch_identity`，逐句清单带端点／模型／音色／语速，开批冻结、沿用前 `sha256` 复核成品、整段指纹加 endpoint、批次记录带 identity（不含密钥）。定向 49/49、关联 115/115、架构 12/12、默认冒烟 8/8、0 红。见 [R1334](../程序/tasks_round/tasks_round_1334_result.md)。

@@ -5,7 +5,7 @@
 ## 三个必答
 - 本轮类型：功能轮（默认）。
 - 测试：定向 139/139（`writing`）、关联 46/46（`idea_inline_brief writing_response_preservation`）、桌面 115/115（`ui_edges`）、架构相关 22/22（`todo_comment_snapshot unification_ratchet layers writing_publication_boundary writing_api_json_boundary writing_preparation_path_boundary dynamic_import_registry no_circular_import import_error_boundaries`）、默认冒烟 8/8，全 0 红。
-- 欠账：O13 关闭，清单剩 O14—O48；本轮号 1336 − 上次绿全量 1330 = 6 ≥ 5，需在收口时用干净 master 工作树补一次完整安全全量（见「验证」与「收口」）。
+- 欠账：O13 关闭，清单剩 O14—O48；本轮号 1336 − 上次绿全量 1330 = 6 ≥ 5，收口安全全量已跑：干净 master 工作树第 1 次 4542/4542、385.8 秒、0 红，凭据 round=1336、tree=d934dd21，last_full_safe_all_round 刷到 1336。
 
 ## 问题
 - 剧本准备的模型回复只把原始正文放进对话气泡；气泡里有字，但用户分不清它到底是「已归档的未采用原始响应」「待确认的阶段工作稿」还是「已发布的正式剧本」。
@@ -24,6 +24,10 @@
 - 扩展既有 2 条：格式不合格／截断的响应带 `原始响应已保存` 与原因标签、消息点明 `responses/` 归档不等于正式采用；版本变化经 `reply_to_writing` 返回的结果带 `因版本变化未采用`。
 - 定向 `-k writing` 139/139、0 红；关联 `-k idea_inline_brief writing_response_preservation` 46/46、0 红；桌面 `-k ui_edges` 115/115、0 红；架构相关 22/22、0 红；默认冒烟 8/8。
 - 台账：`desktop.py` 新增 1 行，`TODO注释快照_20261003.json` 的 desktop.py 注释行号 2748→2749 同步；`writing_api.py` 未触碰 `json.loads`（第四项 point 486 不变），`stage_execution_service.py` 未改。
+
+## 收口
+- 收口安全全量（干净 master 工作树 `o07-fullsafe-master`，`run_selftests.py --all --safe`）：第 1 次 4542 条用例、385.8 秒、0 文件红，`test_desktop_startup_perf` 与 `test_perf_baseline` 均通过；内容树全量凭据已刷新 round=1336、tree=d934dd219a8ff155f7330220e12081af3f4efabc，`last_full_safe_all_round` 刷到 1336。
+- 首跑即绿，无需定向修复；本收口文档提交在绿凭据之后，文档树与凭据树不同树（同 O09／O10 口径）。
 
 ## 风险与边界
 - 状态判据只说明「这一次回复落在哪里」，不是采用凭据；正式采用仍由 `preparation_state.json`／`natural_script_selection.json` 决定，本项不自动采用任何归档。

@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-R1336：O13 剧本准备把「对话、工作稿、正式采用」显示为明确状态。`writing_api` 新增 `preparation_reply_state`／`preparation_reply_message`：一次回复唯一状态（已采用／阶段稿待确认／原始响应已保存／因版本变化未采用），带落点文件与下一步；`_preparation_step` 在格式不合格／截断／正文为空／模型失败／版本变化各分支打状态与原因标签，`saved` 与取消后迟到的错误都点明 responses/ 归档不等于正式采用；桌面回复处理器三处状态栏改用同一判据，气泡仍显示正文。定向 139/139、关联 46/46、桌面 115/115、架构 22/22、默认冒烟 8/8，0 红；1336 − 1330 = 6 ≥ 5，收口补一次干净 master 全量。见 tasks_round/tasks_round_1336_result.md。
+R1336：O13 剧本准备把「对话、工作稿、正式采用」显示为明确状态。`writing_api` 新增 `preparation_reply_state`／`preparation_reply_message`：一次回复唯一状态（已采用／阶段稿待确认／原始响应已保存／因版本变化未采用），带落点文件与下一步；`_preparation_step` 在格式不合格／截断／正文为空／模型失败／版本变化各分支打状态与原因标签，`saved` 与取消后迟到的错误都点明 responses/ 归档不等于正式采用；桌面回复处理器三处状态栏改用同一判据，气泡仍显示正文。定向 139/139、关联 46/46、桌面 115/115、架构 22/22、默认冒烟 8/8，0 红；1336 − 1330 = 6 ≥ 5；收口安全全量第 1 次 4542/4542、385.8 秒、0 红（凭据 round=1336、tree d934dd21，last_full_safe_all_round=1336）。见 tasks_round/tasks_round_1336_result.md。
 
 R1334：O12 TTS 批次冻结配置与缓存身份。`tts_api` 新增 `request_identity`／`freeze_settings`／`batch_identity`：逐句清单带端点＋模型＋音色＋语速身份，`run_lines` 开批冻结配置，`line_done` 沿用前按 `sha256` 复核成品（旧清单退回「文件非空」），`publish_line` 记 `bytes`／`sha256`，整段指纹加 endpoint，`批次.json` 记 `identity`（不含密钥）。定向 49/49、关联 115/115、架构 12/12、默认冒烟 8/8；1334 − 1330 = 4 < 5，本轮不跑全量。见 tasks_round/tasks_round_1334_result.md。
 
