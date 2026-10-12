@@ -1847,11 +1847,11 @@ class Desktop:
                           else str(result.get('kind') or ''))
                     if kind in ('network', 'server'):
                         message='模型暂时无法响应，请稍后重试'
-                    elif kind in ('auth', 'budget', 'client'):
+                    elif kind in ('auth', 'budget', 'client', ''):
                         message='模型调用未完成：'+error
                     else:
                         message='系统内部错误，已记录日志'
-                    if kind not in ('auth', 'budget', 'client'):
+                    if kind not in ('auth', 'budget', 'client', ''):
                         LOGGER.warning('模型调用失败（kind=%s）：%s', kind or 'missing', error)
                     self.set_hollmwood_role_status(review_failed=result.get('hollmwood_review_failed_role', ''))
                     self.status.set(preparation_reply_message(result) or message)
