@@ -34,3 +34,9 @@
 ## 全量凭据（待补记）
 
 - 待补：`run_selftests.py --all --safe` 的用例数、耗时、红数与凭据 tree。
+
+## 报告补记：project_status.md 修正与验证（c7cdd96）
+
+- 合并提交 75a148d 的 `程序/project_status.md` 误删了 master 侧 26 条 O 系列记录（R1357…R1312，含 R1338／R1339／R1340）；本轮按「以 master 版本为底、只加分支新增、不删 master 记录」重建：相对合并前 master `e1cfbdb` 仅 1 行差异（轮次头 1403→1404），相对 75a148d 纯新增 52 行。提交 `c7cdd96`。
+- 本次实测：默认冒烟 **8/8**；定向 `smoke_test.py --affected idea_chat writing_api stage_execution_service desktop workflow` **8 项 7 绿 1 红**，唯一红为既有环境红 `test_stage_model_selects_the_matching_desktop_agent`（期望「Claude Code」，本机配置为「Claude Desktop」，干净 master 同配置复现，非本轮引入）；架构门禁 `smoke_test.py --architecture` **341/341**（164.1 秒）。
+- 全量：本轮改 `tests/architecture/_layers.py`，按 §5 需当次 `run_selftests.py --all --safe`。此前两次后台全量（01:43／01:54）**未写入** common-dir `full-safe-receipts.json`（最新绿凭据仍为 R1400／tree `60d4e23d`），故 **R1403 全量仍未验证**，待补。
