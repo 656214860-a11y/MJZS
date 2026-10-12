@@ -161,6 +161,185 @@ def check_adoptable(paths):
         raise ValueError('以下几份分镜还不能采用：\n' + '\n'.join(problems))
 
 
+def _shot_assets(shot):
+    """镜头引用的角色／场景／道具编号，用于判断「替换资产」。"""
+    def name(value):
+        if isinstance(value, dict):
+            return str(value.get('id') or value.get('name') or value.get('编号') or '')
+        return str(value)
+
+    def group(value):
+        values = value if isinstance(value, list) else [value] if value else []
+        return tuple(sorted(item for item in (name(v) for v in values) if item))
+
+    return (group(shot.get('characters')), group(shot.get('location')),
+            group(shot.get('props')), group(shot.get('first_frame_assets')))
+
+
+def _shot_dialogue(shot):
+    lines = shot.get('dialogue')
+    lines = lines if isinstance(lines, list) else []
+    rows = []
+    for line in lines:
+        if isinstance(line, dict):
+            rows.append((str(line.get('speaker') or line.get('character') or ''),
+                         str(line.get('text') or ''),
+                         str(line.get('start')), str(line.get('end'))))
+        else:
+            rows.append(('', str(line), '', ''))
+    return tuple(rows)
+
+
+def _shot_signature(shot):
+    return {'duration': shot.get('duration'),
+            'dialogue': _shot_dialogue(shot),
+            'assets': _shot_assets(shot),
+            'frame': str(shot.get('frame') or ''),
+            'video_prompt': str(shot.get('video_prompt') or ''),
+            'title': str(shot.get('title') or '')}
+
+
+def _shot_rows(data):
+    shots = data.get('shots') if isinstance(data, dict) else None
+    shots = shots if isinstance(shots, list) else []
+    return [(str(shot.get('id') or ''), shot, _shot_signature(shot))
+            for shot in shots if isinstance(shot, dict)]
+
+
+def _generated_video_shots(project):
+    """已生成过视频的镜头编号：项目本地与云端工作集的任务状态文件（只读）。"""
+    from file_cache import read_json
+    project = Path(project)
+    roots = [project]
+    try:
+        roots += [folder for folder in sorted((project / 'cloud_video').glob('*')) if folder.is_dir()]
+    except OSError:
+        pass
+    found = set()
+    for root in roots:
+        db = root / 'data/state.json'
+        try:
+            data = read_json(db) if db.is_file() else {}
+        except (OSError, ValueError):
+            continue
+        shots = data.get('shots') if isinstance(data, dict) else None
+        if isinstance(shots, dict):
+            found.update(str(sid) for sid, versions in shots.items() if versions)
+    return found
+
+
+def _impact_summary(episodes, frames, videos):
+    added = sum(len(row['added']) for row in episodes)
+    removed = sum(len(row['removed']) for row in episodes)
+    changed = sum(len(row['changed']) for row in episodes)
+    moved = sum(len(row['reordered']) for row in episodes)
+    parts = []
+    if added:
+        parts.append('+%d 镜' % added)
+    if removed:
+        parts.append('-%d 镜' % removed)
+    if changed:
+        parts.append('改 %d 镜' % changed)
+    if moved:
+        parts.append('重排 %d 镜' % moved)
+    if frames:
+        parts.append('%d 个首帧将失效' % len(set(frames)))
+    if videos:
+        parts.append('%d 段视频将失效' % len(set(videos)))
+    if parts:
+        return '；'.join(parts)
+    return '与已采用分镜一致' if episodes else ''
+
+
+def adoption_impact(context, paths):
+    """采用前的只读影响预览：候选分镜相对同集已采用分镜的新增／删除／改动与将失效媒体。
+
+    基线按「同路径优先、否则同 episode_id」匹配；没有基线时全部镜头算新增。逐镜用
+    稳定镜头编号对比，重排只报告、不换号。返回
+    ``{'episodes': [...], 'frames': [...], 'videos': [...], 'summary': str}``。
+    只读：不改采用清单、不改资产、不删文件、不改镜头编号。
+    """
+    from file_cache import read_json
+    from storyboard_adoption_contract import adopted as adopted_paths
+    from storyboard_paths import media_root
+    project = _context(context).root.resolve()
+    try:
+        baseline_paths = list(adopted_paths(project))
+    except (OSError, ValueError):
+        baseline_paths = []
+    baseline = []
+    for path in baseline_paths:
+        try:
+            data = read_json(path)
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            baseline.append((Path(path).resolve(), data))
+    generated = _generated_video_shots(project)
+    episodes, frames, videos = [], [], []
+    for raw in paths:
+        try:
+            candidate = Path(raw).resolve()
+            data = read_json(candidate)
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict) or not isinstance(data.get('shots'), list):
+            continue
+        base_path, base = None, None
+        for path, other in baseline:
+            if path == candidate:
+                base_path, base = path, other
+                break
+        if base is None:
+            episode_id = str(data.get('episode_id') or '')
+            for path, other in baseline:
+                if episode_id and str(other.get('episode_id') or '') == episode_id:
+                    base_path, base = path, other
+                    break
+        base_rows = _shot_rows(base) if base is not None else []
+        candidate_rows = _shot_rows(data)
+        base_ids = [sid for sid, _shot, _sig in base_rows if sid]
+        candidate_ids = [sid for sid, _shot, _sig in candidate_rows if sid]
+        base_index = {sid: (shot, sig) for sid, shot, sig in base_rows if sid}
+        added = [sid for sid in candidate_ids if sid not in base_index]
+        removed = [sid for sid in base_ids if sid not in set(candidate_ids)]
+        changed = []
+        for sid, _shot, sig in candidate_rows:
+            if not sid or sid not in base_index:
+                continue
+            fields = [field for field, value in sig.items() if value != base_index[sid][1][field]]
+            if fields:
+                changed.append({'id': sid, 'fields': fields})
+        common_base = [sid for sid in base_ids if sid in set(candidate_ids)]
+        common_candidate = [sid for sid in candidate_ids if sid in base_index]
+        reordered = [sid for index, sid in enumerate(common_candidate)
+                     if index >= len(common_base) or common_base[index] != sid]
+        invalid = set(removed)
+        invalid.update(row['id'] for row in changed
+                       if {'frame', 'assets', 'duration'} & set(row['fields']))
+        for sid in sorted(invalid):
+            shot = base_index.get(sid, ({}, {}))[0]
+            name = str((shot or {}).get('frame') or '')
+            if not name:
+                continue
+            try:
+                frame = (media_root(base_path or candidate) / name).resolve()
+            except OSError:
+                continue
+            if frame.is_file():
+                frames.append(str(frame))
+        videos.extend(sid for sid in invalid if sid in generated)
+        episodes.append({'candidate': str(candidate),
+                         'base': str(base_path) if base_path else '',
+                         'episode_id': str(data.get('episode_id') or ''),
+                         'added': added, 'removed': removed,
+                         'changed': changed, 'reordered': reordered})
+    return {'episodes': episodes,
+            'frames': sorted(set(frames)),
+            'videos': sorted(set(videos)),
+            'summary': _impact_summary(episodes, frames, videos)}
+
+
 def _is_structured_name(path):
     from script_contract import is_structured_script_file_name
     return is_structured_script_file_name(path)

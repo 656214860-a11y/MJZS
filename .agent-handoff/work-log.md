@@ -1,5 +1,7 @@
 # 近期工作
 
+- 2026-10-12：O19 完成并提交 R1343。初稿/定稿采用差异与影响预览：新增只读 `storyboard_catalog_service.adoption_impact`（同集已采用分镜为基线，逐镜稳定 ID 对比 added/removed/changed/reordered，列出将失效首帧与已生成视频镜头），经 L3/L4 门面在 `check_adoptable` 之后、采用之前把 summary 追加到状态栏（不弹窗、不改状态、不换号）；取消采用不改正式清单。新增 7 条预览用例，定向 78/78、Tk 采用用例 1/1、架构 312/312、默认冒烟 8/8，0 红（1343−1341<5 不跑全量）。见 [R1343](../程序/tasks_round/tasks_round_1343_result.md)。
+
 - 2026-10-12：O18 完成并提交 R1342。来源账本从「仍在」升级为「仍是这个版本」：`artifact_lineage` 新增 `check`/`source_status`（current/stale/missing/unknown）与多来源 `record(sources=…)`、只读 `affected`、显式 `adopt`；`source_available` 语义保留但改为派生（内容变只标过期、不隐藏、不改写成品，仅 missing 隐藏）；剧本/分镜目录对过期项显示「原稿已变更／来源已变更」。新增账本 10 条＋目录回归 1 条，覆盖结构/分镜/首帧/白模/音频/剪辑；定向 136/136、架构 312/312、默认冒烟 8/8，0 红（1342−1341<5 不跑全量）。见 [R1342](../程序/tasks_round/tasks_round_1342_result.md)。
 
 - 2026-10-12：O17 收口安全全量。干净 master 工作树 `run_selftests.py --all --safe` 第 1 次即绿：4561 条用例／420.2 秒／0 文件红（`test_desktop_startup_perf` 13.6 秒、`test_perf_baseline` 22.4 秒均过）；凭据 round=1341、tree=06c23252，`last_full_safe_all_round` 刷到 1341。见 [R1341](../程序/tasks_round/tasks_round_1341_result.md)。

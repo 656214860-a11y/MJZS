@@ -1,5 +1,9 @@
 # 验证证据
 
+## 2026-10-12 O19 完成
+
+- 2026-10-12 O19：新增 `tests/test_adoption_impact.py` 7 条（同文件重排只报 reordered 且文件字节不变；删镜 → 首帧+已生成视频入失效清单；仅改对白 → fields=[dialogue] 且无媒体失效；换资产/改时长 → 首帧失效；无基线 → 全部 added + `+2 镜`；预览对 ui_settings.json 与候选文件只读）。`-k adoption_impact storyboard file_cache row_targets workflow_context` 78/78、`test_ui_edges.BatchContinuationTests.test_adopt_skips_adopted_without_confirm` 1/1（Tk）、架构 312/312、默认冒烟 8/8，全 0 红。未增删 `json.loads`（台账未平移）。1343 − 1341 = 2 < 5，本轮不跑全量。
+
 ## 2026-10-12 O18 完成
 
 - 2026-10-12 O18：新增 `tests/test_artifact_lineage.py` 10 条（同路径内容变更标 stale 但仍 available、恢复回 current；改无关文件不失效；删源标 missing 且 unavailable；无账本 UNKNOWN 且 available None；旧单来源账本可读；多来源逐角色状态；重记覆盖旧来源；`affected` 只列非 current 且按 source 过滤；`adopt` 后 current；结构/分镜/首帧/白模/音频/剪辑六类都能登记并检出过期）；`tests/test_file_cache.py` 增 1 条（定稿来源变更后仍在目录且标题含「来源已变更」）。定向 `-k artifact_lineage file_cache storyboard script_structure script_contract` 136/136、架构门禁 312/312、默认冒烟 8/8，全 0 红。未动 `script_contract.py`／`storyboard_final.py` 登记调用点，未增删 `json.loads`（台账未平移）。1342 − 1341 = 1 < 5，本轮不跑全量。

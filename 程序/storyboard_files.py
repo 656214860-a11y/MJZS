@@ -16,6 +16,7 @@ from stage_execution_service import (
     storyboard_file_snapshot as _file_snapshot, storyboard_produced_episodes as _produced_episodes,
     storyboard_produced_scripts as _produced_scripts, storyboard_resolve_source as _resolve_source,
     storyboard_working_dir as _working_dir,
+    storyboard_adoption_impact as _adoption_impact,
 )
 from storyboard_selection import (
     remember_many as _remember_many, selected_many as _selected_many,
@@ -90,6 +91,11 @@ def file_order(path,data=None):
 def check_adoptable(paths):
     """Compatibility facade for the headless catalog service."""
     return _check_adoptable(paths)
+
+
+def adoption_impact(project,paths):
+    """采用前的只读影响预览：不改采用清单、不改文件、不改镜头编号。"""
+    return _adoption_impact(project,paths)
 
 
 def catalog(project,kind):
@@ -662,10 +668,14 @@ def show(desktop):
         # 已采用的 JSON 只跳过、不重复采用，无需确认；弹窗会挂住无人值守流程。
         if not incoming:desktop.status.set('所选 JSON 均已采用，无需重复采用');return
         check_adoptable(incoming)          # 第 62 期任务 12：不合格的先一次列清，别让用户逐份试
+        # 采用前只读预览（O19）：相对同集已采用分镜的新增／删除／改动与将失效首帧／视频，
+        # 只展示不改状态；取消采用不会改动正式采用清单，镜头编号也不重排。
+        impact=adoption_impact(project,selected_paths)
+        impact_note=('；影响预览：'+str(impact['summary'])) if impact.get('summary') else ''
         skipped=f'（另有 {len(already)} 份已采用，已跳过）' if already else ''
         desktop.adopt_frame_jsons(incoming);refresh()
         switched=desktop.sync_working_episode()
-        desktop.status.set(f'新增采用 {len(incoming)} 份{skipped}；'+controller.summary()+('；工作集已切到最新采用的分镜' if switched else '；工作集保持不变')+desktop.final_storyboard_hint()+desktop.shot_numbering_hint())
+        desktop.status.set(f'新增采用 {len(incoming)} 份{skipped}；'+controller.summary()+('；工作集已切到最新采用的分镜' if switched else '；工作集保持不变')+impact_note+desktop.final_storyboard_hint()+desktop.shot_numbering_hint())
     def remove_selected():
         desktop.remove_frame_jsons(current_selection('storyboard'));refresh();desktop.status.set('已取消所选分镜的采用；分镜文件与资产保留')
     toolbar=FlowBar(desktop.content);toolbar.pack(

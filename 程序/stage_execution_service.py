@@ -1479,3 +1479,9 @@ def sync_writing_attachment_locks(project, *, reference=None):
     signature = sha256(json.dumps(values, ensure_ascii=False, sort_keys=True).encode('utf-8')).hexdigest()
     if workflow.get('lock_attachment_signatures', {}).get(name) != signature:
         save_writing_production_locks(project, values, attachment_signature=signature)
+
+
+def storyboard_adoption_impact(project, paths):
+    """L3 注入项目上下文：候选分镜相对已采用分镜的只读影响预览。"""
+    from storyboard_catalog_service import adoption_impact
+    return adoption_impact(project_context(project), paths)
