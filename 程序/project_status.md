@@ -1057,7 +1057,7 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1394 本轮实测：agent 进程原语收口（`platform_tools.run_process`；覆盖率审计21 清零）；定向 7/7、默认冒烟 8/8、架构 `smoke_test.py --architecture` 341/341（数量不变，改既有门禁）。1394−1390=4<5 且未命中 §5 升级条件，**不跑全量**（最近绿全量 R1391 `tree=a8cfd2f0…`）。提交 `a966c41`。详见 [R1394](tasks_round/tasks_round_1394_result.md)。
+R1394 本轮实测：agent 进程原语收口（`platform_tools.run_process`；覆盖率审计21 清零）；定向 7/7、默认冒烟 8/8、架构 `smoke_test.py --architecture` 341/341（数量不变，改既有门禁）。1394−1390=4<5 且未命中 §5 升级条件，**不跑全量**（最近绿全量 R1391 `tree=a8cfd2f0…`）。提交内容 `a966c41`；报告／状态／接力 `0c1e471`。详见 [R1394](tasks_round/tasks_round_1394_result.md)。
 
 R1393 本轮实测：覆盖率审计棘轮递归化（`production_runtime_files`）；定向 7/7、默认冒烟 8/8、架构 `smoke_test.py --architecture` 341/341（数量不变，改既有门禁）。1393−1390=3<5 且未命中 §5 升级条件，**不跑全量**（最近绿全量 R1391 `tree=a8cfd2f0…`）。提交 `8f1a1fc`。详见 [R1393](tasks_round/tasks_round_1393_result.md)。
 

@@ -26,7 +26,7 @@
 
 ## 提交
 - 内容：`a966c41`（`agent/core.py`＋`agent/prompt_optimizer.py`＋`维护记录/架构统一基数.json`＋`维护记录/覆盖率审计判据_20261001.md`）。
-- 报告／状态／接力：本轮收尾提交。
+- 报告／状态／接力：`0c1e471`（本文件＋`project_status.md`＋`.agent-handoff/` 5 文件）。
 
 ## 复盘
 - 已收口：覆盖率审计21（平台适配）真候选归 0——棘轮双向相等，agent 包再出现直接 `subprocess.run` 会被 `test_coverage_audit_ratchet` 立即拦下。
