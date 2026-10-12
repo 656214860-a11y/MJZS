@@ -1,5 +1,11 @@
 # 当前快照
 
+## 2026-10-13：UI 路线图 §一 第 2 项（设计 token）末页迁移 agent/prompt_optimizer.py（R1402，功能轮 §3.1）
+- 范围＝零视觉变更子集最后一处：`agent/prompt_optimizer.py` 10 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token；新增 `from ui_tokens import SPACING`。
+- 行号平移同步：架构统一基数 第四项 `agent/prompt_optimizer.py` 175→176；覆盖率审计21 位点 173→174。
+- 验证：定向 8/8、默认冒烟 8/8、架构 341/341；1402−1400=2<5 且未命中 §5 → 不跑全量。提交内容 `8274dee`。
+- **设计 token 决策-free 子集至此全部迁完**（五轮累计 81 处：R1396 13＋R1399 21＋R1400 24＋R1401 13＋R1402 10）。再推进**必须先有调色板决议**：hex（含 `desktop.py` 31 处）、103 处旧 `ui_theme` 调色板值、非 token 间距值、旧页面文字层级全部依赖它。
+
 ## 2026-10-13：UI 路线图 §一 第 2 项（设计 token）desktop.py 内联间距（R1401，功能轮 §3.1）
 - 范围＝零视觉变更子集的一页：`desktop.py` 13 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token（4×2／8×2／12×3／16×6）；该模块已 `from ui_tokens import COLORS, FONTS, SPACING, …`，**无新增 import、行数 7498 不变、无行号平移**。
 - 未动 hex（31 处内联色属旧调色板决策；`#ffffff` 大小写等值会与 `test_idea_chat` 字面量断言冲突）。

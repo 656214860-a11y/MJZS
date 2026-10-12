@@ -1,3 +1,13 @@
+## 2026-10-13 R1402 UI 路线图 §一 第 2 项（设计 token）末页 agent/prompt_optimizer.py（功能轮 §3.1）
+
+- 类型：功能轮（§3.1），1 个生产模块 10 处内联间距字面量等值改用 token＋1 处 import；不改业务/字体/颜色。
+- 内容：10 处 `padx/pady`（值恰等于 `ui_tokens.SPACING`）→ `SPACING[...]`；新增 import；行号平移同步 2 个基线。
+- 定向 `test_unification_ratchet`＋`test_token_boundary` **8/8**；同批 `test_todo_comment_snapshot`＋`test_coverage_audit_ratchet` 行号同步后全绿（首轮 1 红＝第四项未登记 176）。默认冒烟 **8/8**。架构 **341/341**。
+- 不跑全量：`1402−1400=2<5` 且未命中 §5 升级条件。最近绿全量 R1401 `tree=60d4e23d…`（4983/4983）。
+- 提交：内容 `8274dee`；报告／状态／接力本轮收尾提交。
+
+- 里程碑：设计 token 的「决策-free 子集」全部迁完（五轮累计 81 处）；再推进需先有调色板决议。
+
 ## 2026-10-13 R1401 UI 路线图 §一 第 2 项（设计 token）desktop.py 内联间距（功能轮 §3.1）
 
 - 类型：功能轮（§3.1），1 个生产模块 13 处内联间距字面量等值改用 token；不改业务/字体/颜色，无新增 import。
