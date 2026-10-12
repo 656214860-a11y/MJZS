@@ -13,7 +13,7 @@ _register(0, "pet_bus", "hollmwood_rules", "script_contract", "script_manifest_c
           "prompt_templates", "shot_batches", "production_model_contract", "app_metadata")
 _register(1, "model_pool", "model_secrets", "pet_llm", "file_cache", "hash_backend",
           "storage_maintenance", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger")
-_register(2, "keyframe_evidence", "animatic_service", "writing_files", "writing_roles", "writing_workflow", "idea_chat", "idea_attachments",
+_register(2, "keyframe_evidence", "animatic_service", "writing_files", "writing_roles", "writing_workflow", "idea_chat", "idea_brief_form", "idea_attachments", "idea_script_heuristic", "idea_document_paths", "idea_transcript",
           "storyboard_lifecycle", "storyboard_catalog_service",
           "storyboard_edit_service",
           "asset_context", "asset_gating", "asset_batch_lifecycle",
@@ -22,7 +22,7 @@ _register(2, "keyframe_evidence", "animatic_service", "writing_files", "writing_
           "previs", "previs_routing", "previs_progress_service", "handoff_service", "edit_service", "final_service", "storyboard_adoption_service", "delivery_import_service", "confirm_gates", "recycle_recovery_service")
 _register(3, "exit_maintenance", "pet_chat_coordinator", "project_context_factory", "stage_flow", "stage_exec", "stage_parallel", "stage_config", "stage_models",
           "skill_notes", "skill_orchestrator", "skill_registry", "codex_skill_sync", "workflow", "workflow_tasks",
-          "agent_dispatch", "engine", "integrations", "project_storage", "stage_contract_report", "stage_execution_service", "desktop_startup_service", "desktop_automation_service", "idea_chat_controller",
+          "agent_dispatch", "engine", "integrations", "project_storage", "stage_contract_report", "stage_execution_service", "desktop_startup_service", "desktop_automation_service", "idea_chat_controller", "idea_semantic_brief_service",
           "writing_api", "script_skill_report", "storyboard_plan_service", "storyboard_final", "storyboard_final_controller", "storyboard_page_controller", "keyframe_page_controller", "storyboard_selection", "storyboard_catalog", "asset_batch_controller", "asset_page_controller", "editing_page_controller",
           "previs_automation", "previs_batch_service", "previs_monitor", "asset_auto_batch_service", "asset_batch_execution", "stage_completion_service", "white_model_persistence_controller")
 _register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geometry", "pet_cloud_shape", "pet_cloud_tail", "responsive_ui", "ui_theme", "ui_widgets", "ui_dialogs", "ui_shortcuts", "ui_icons", "cell_hover", "prompt_window", "asset_detail_ui", "asset_detail", "asset_batch", "native_assets", "storyboard_files", "storyboard_table_ui", "cloud_video", "local_video", "local_previs", "previs_progress", "white_model", "skill_panel", "app")

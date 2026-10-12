@@ -1,5 +1,5 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
-import os, shutil, queue, threading, subprocess, time, uuid, hashlib, re, json
+import os, shutil, queue, threading, subprocess, time, uuid, hashlib, re, json, logging
 from datetime import date
 from pathlib import Path
 from file_cache import remove_temporary_file
@@ -34,6 +34,7 @@ from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMen
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
+LOGGER=logging.getLogger(__name__)
 
 
 def confirm(parent, title, message, *, dangerous=False, **_legacy_options):
@@ -45,6 +46,23 @@ def script_raw_saved_notice(four_roles, formal_path=''):
     """剧本原稿发布后的三虎提示，按本次请求实际模式区分。"""
     name = Path(formal_path).name if formal_path else 'script_raw.md'
     return ('四角色剧本已保存：' if four_roles else '剧本已自动保存：') + name
+
+
+def model_error_display(result, default='未收到模型回复'):
+    """按 kind 把模型调用失败翻成用户可见文案：返回 (文案, 是否只写日志不进弹窗)。
+
+    鉴权／预算／请求本身（client）是用户可自行处理或与本次请求相关的提示，沿用原始
+    error；网络／服务端只在界面给统一的重试提示，原始 error 写日志；编程错误（bug）
+    与旧记录缺失 kind 时统一给内部错误提示，原文同样只写日志。
+    """
+    payload = result if isinstance(result, dict) else {}
+    raw = str(payload.get('error') or default)
+    kind = str(payload.get('kind') or '')
+    if kind in ('auth', 'budget', 'client'):
+        return raw, False
+    if kind in ('network', 'server'):
+        return '模型暂时无法响应，请稍后重试', True
+    return '系统内部错误，已记录日志', True
 
 
 # 第 37 期第 2 条：创意栏那七个字段的名字只写一份（预置示例与灰色字段名都取它）。
@@ -723,7 +741,7 @@ class Desktop:
         if box is None or not box.winfo_exists():return ''
         start,end=self.idea_draft_range()
         try:
-            from idea_chat import strip_inline_required_markers
+            from idea_brief_form import strip_inline_required_markers
             return strip_inline_required_markers(box.get(start,end))
         except tk.TclError:return ''
     def preserve_idea_draft(self):
@@ -1603,12 +1621,15 @@ class Desktop:
                 project = self.root
                 def extract():
                     try:return {'values': writing_api.extract_idea_brief(project, request)}
-                    except (ValueError, OSError) as exc:return {'error': str(exc)}
+                    except (ValueError, OSError) as exc:return {'error': str(exc), 'kind': 'client'}
                 def received(result):
                     if getattr(self, '_idea_semantic_pending', None) is not pending:return
                     if result.get('error'):
                         self._idea_semantic_pending = None
-                        self.notifier.info(result['error'], modal=True)
+                        text, log_only = model_error_display(result)
+                        if log_only:
+                            LOGGER.warning('简报语义提取失败（kind=%s）：%s', result.get('kind') or 'missing', result['error'])
+                        self.notifier.info(text, modal=True)
                     else:self.finish_idea_semantic_brief(pending, result['values'])
                 self.async_(extract, received, label='模型正在读取附档并提取创作信息…')
         except Exception:
@@ -1620,19 +1641,19 @@ class Desktop:
     def poll_idea_semantic_brief(self):
         pending = getattr(self, '_idea_semantic_pending', None)
         if not pending:return
-        import idea_chat
+        from idea_semantic_brief_service import SEMANTIC_BRIEF_POLL_SECONDS, SEMANTIC_BRIEF_TIMEOUT
         if (getattr(self, 'shutting_down', False) or self.page_index != PAGE['script']
                 or self._idea_semantic_key(self.draft_text()) != pending['key']):
             self._idea_semantic_pending = None
             self.status.set('输入、附件或项目已变化；未套用旧提取结果，请重新发送。')
             return
-        if time.monotonic() - pending['started'] > idea_chat.SEMANTIC_BRIEF_TIMEOUT:
+        if time.monotonic() - pending['started'] > SEMANTIC_BRIEF_TIMEOUT:
             self._idea_semantic_pending = None
             self.notifier.info('简报提取尚未返回有效结果；请检查 Agent 是否完成提取后重新发送。', modal=True)
             return
         if not pending['local'] or getattr(self, 'worker', False) or time.monotonic() < pending['next_poll']:
             return
-        pending['next_poll'] = time.monotonic() + idea_chat.SEMANTIC_BRIEF_POLL_SECONDS
+        pending['next_poll'] = time.monotonic() + SEMANTIC_BRIEF_POLL_SECONDS
         from stage_execution_service import read_idea_semantic_brief
         try:values = read_idea_semantic_brief(pending['request'])
         except (ValueError, OSError) as exc:
@@ -1822,9 +1843,16 @@ class Desktop:
                     self.show_conversation()
                 if not result.get('ok'):
                     error=str(result.get('error') or '未收到模型回复')
-                    transient=any(mark in error for mark in ('URLError', 'SSLError', 'SSLEOF', 'UNEXPECTED_EOF'))
-                    message=('网络连接被模型网关中断，未生成内容；请点击发送重试。'
-                             if transient else '模型调用未完成：'+error)
+                    kind=('budget' if result.get('reason') == 'context_budget_exceeded'
+                          else str(result.get('kind') or ''))
+                    if kind in ('network', 'server'):
+                        message='模型暂时无法响应，请稍后重试'
+                    elif kind in ('auth', 'budget', 'client', ''):
+                        message='模型调用未完成：'+error
+                    else:
+                        message='系统内部错误，已记录日志'
+                    if kind not in ('auth', 'budget', 'client', ''):
+                        LOGGER.warning('模型调用失败（kind=%s）：%s', kind or 'missing', error)
                     self.set_hollmwood_role_status(review_failed=result.get('hollmwood_review_failed_role', ''))
                     self.status.set(preparation_reply_message(result) or message)
                     if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
@@ -2041,8 +2069,12 @@ class Desktop:
                 self.show_conversation()
             self.show_script_quality(result)
             if not result.get('ok'):
-                self.notifier.error(str(result.get('error') or '未收到模型回复'), title='模型调用失败')
-                self.status.set('刷新正文失败：' + str(result.get('error') or '未收到模型回复'))
+                text, log_only = model_error_display(result)
+                if log_only:
+                    LOGGER.warning('刷新正文模型调用失败（kind=%s）：%s', result.get('kind') or 'missing',
+                                   result.get('error'))
+                self.notifier.error(text, title='模型调用失败')
+                self.status.set('刷新正文失败：' + text)
                 return
             if not reply:
                 self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
@@ -2091,17 +2123,19 @@ class Desktop:
     def update_script_download_button(self):
         """只有模型给出完整剧本后才允许下载；首次回复绝不弹完成框。"""
         import idea_chat
+        from idea_script_heuristic import looks_like_script
         button=getattr(self,'idea_download',None)
         if button is None or not button.winfo_exists():return False
-        ready=not getattr(self,'_idea_requesting',False) and idea_chat.looks_like_script(idea_chat.latest_text(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway()))
+        ready=not getattr(self,'_idea_requesting',False) and looks_like_script(idea_chat.latest_text(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway()))
         button.state(['!disabled'] if ready else ['disabled'])
         return ready
     def download_script(self):
         """用户明确下载剧本文档后，才通知三虎询问是否进入分镜阶段。"""
         import idea_chat
+        from idea_script_heuristic import looks_like_script
         selected_model = self.displayed_chat_model()
         reply=idea_chat.latest_text(self.idea_chat_context(),model=selected_model,gateway=self.idea_chat_gateway())
-        if not idea_chat.looks_like_script(reply):raise ValueError('请先让模型生成完整剧本，再下载。')
+        if not looks_like_script(reply):raise ValueError('请先让模型生成完整剧本，再下载。')
         provider, model = idea_chat.storage_identity(selected_model)
         from stage_execution_service import publish_idea_creative
         saved=idea_chat.save_reply(self.idea_chat_context(),reply,provider=provider,model=model,
@@ -3936,7 +3970,7 @@ class Desktop:
             try:result=self.sync_stage_models(target)
             except (OSError,ValueError,TypeError,KeyError) as exc:
                 # 工作线程只带错误结果回主线程；不能在这里直接操作 Tk 状态栏。
-                result={'error':str(exc)}
+                result={'error':str(exc), 'kind': 'bug'}
             self._stage_model_sync_results.put((generation,target,result))
         threading.Thread(target=work,daemon=True).start()
     def _tick_stage_model_sync_result(self):
@@ -3944,7 +3978,10 @@ class Desktop:
         except queue.Empty:return
         if generation!=self._stage_model_sync_generation or target!=self.root:return
         if isinstance(result,dict) and result.get('error'):
-            self.status.set('项目模型同步未完成：%s；请稍后重试。' % result['error'])
+            text, log_only = model_error_display(result)
+            if log_only:
+                LOGGER.warning('项目模型同步失败（kind=%s）：%s', result.get('kind') or 'missing', result['error'])
+            self.status.set(text)
             return
         if result:self.status.set('已同步项目模型：'+'、'.join(result))
     def import_generated_assets(self):
@@ -4947,6 +4984,18 @@ class Desktop:
             fill_script_list()
             self.status.set(('已从'+stage+'重新创作；请发送创作要求，新稿确认前保留原采用版本')
                             if stage else '已放弃未确认重写，恢复原采用版本')
+        def confirm_document(stage):
+            """把用户改过的当前文件登记为该阶段确认输出；靠前阶段会清除其后确认记录。"""
+            path=selected_script()
+            from stage_execution_service import confirm_writing_preparation
+            if not confirm(self.win,'作为确认输出文件',
+                           '把当前文件登记为「'+stage+'」的确认输出？\n\n'+path.name+
+                           '\n\n将以该文件当前正文重算指纹；本阶段之后的确认记录（如有）会被清除，需要重新确认。'):
+                return
+            invalidated=confirm_writing_preparation(self.root,stage,path)
+            fill_script_list()
+            self.status.set('已将'+path.name+'登记为「'+stage+'」的确认输出'+
+                            ('；「'+'」「'.join(invalidated)+'」的确认已失效' if invalidated else ''))
         def script_menu(tree,event):
             row=tree.identify_row(event.y)
             if not row:return
@@ -4964,6 +5013,7 @@ class Desktop:
                 stage=next(stages[key] for key in stages if tree is script_trees.get(key))
                 menu.command('从本阶段重新创作',lambda:self.safe(lambda:restart_preparation(stage)))
                 menu.command('放弃未确认重写',lambda:self.safe(lambda:restart_preparation(None)))
+                menu.command('作为确认输出文件',lambda:self.safe(lambda:confirm_document(stage)))
             menu.command('删除',lambda:self.safe(delete_script))
             return menu.popup(event)
         for tree in script_trees.values():

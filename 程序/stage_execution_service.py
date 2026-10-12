@@ -273,6 +273,12 @@ def restart_writing_preparation(project, stage):
     """显式重写入口复用阶段发布器，不由桌面直接写确认台账。"""
     from writing_api import restart_preparation
     return restart_preparation(project, stage, publish=publish_stage_text)
+def confirm_writing_preparation(project, stage, path):
+    """显式把当前文件登记为该阶段确认输出的编排入口，复用统一阶段发布器。"""
+    from writing_api import confirm_preparation_document
+    return confirm_preparation_document(project, stage, path, publish=publish_stage_text)
+
+
 
 
 def reply_to_writing(project, creative, progress=None, cancelled=None, stream=None, *, user_message=None, request_model=None):
@@ -400,7 +406,7 @@ def prepare_idea_attachment_selection(project, paths):
 
 def stage_idea_brief_defaults(project, *, reference=None):
     """复用本轮引用的解析副本，不再扫描目录或改变模型投递上下文。"""
-    from idea_chat import extract_brief_creation
+    from idea_brief_form import extract_brief_creation
     if reference is None:
         reference = stage_idea_attachment_reference(project)
     values = {}
@@ -412,7 +418,7 @@ def stage_idea_brief_defaults(project, *, reference=None):
 
 
 def prepare_idea_semantic_brief(project, draft, reference):
-    from idea_chat import semantic_brief_request
+    from idea_semantic_brief_service import semantic_brief_request
     return semantic_brief_request(project_context(project), draft, reference,
                                   local_mode=idea_attachment_local_mode(project))
 
@@ -426,7 +432,7 @@ def validate_idea_semantic_sources(request):
 
 def read_idea_semantic_brief(request):
     """只轮询本次唯一文件；模型尚未原子发布时继续等待。"""
-    from idea_chat import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
+    from idea_semantic_brief_service import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
     path = request['path']
     if not path.is_file():
         return None
@@ -1483,7 +1489,7 @@ def save_writing_production_locks(project, values, *, attachment_signature=None)
 def sync_writing_attachment_locks(project, *, reference=None):
     """仅在附档制作参数变化时同步，保留随后手动修订的值。"""
     from hashlib import sha256
-    from idea_chat import extract_brief_creation
+    from idea_brief_form import extract_brief_creation
     from script_contract import PRODUCTION_LOCK_DEFINITIONS
     workflow = stage_config.current_workflow(project)
     name = str(workflow.get('name') or '').strip()

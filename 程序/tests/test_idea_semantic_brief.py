@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import idea_chat
+import idea_semantic_brief_service
 from stage_execution_service import project_context
 from tests.test_idea_chat import _Harness
 from tests.test_ui_edges import make_minimal_project
@@ -78,15 +79,15 @@ class SemanticBriefTests(unittest.TestCase):
 
     def test_unlabelled_prose_is_extracted_by_agent_not_keyword_parser(self):
         self.assertEqual(idea_chat.extract_brief_creation(SOURCE), {})
-        values = idea_chat.semantic_brief_values(response({'request_id': 'test'}),
-                                                'test', SOURCE)
+        values = idea_semantic_brief_service.semantic_brief_values(response({'request_id': 'test'}),
+                                                                  'test', SOURCE)
         self.assertEqual(values, VALUES)
 
     def test_specific_requirements_need_verbatim_evidence(self):
         data = response({'request_id': 'test'})
         data['fields']['故事集数'] = {'value': '100集', 'evidence': SOURCE}
         data['fields']['交付形态']['evidence'] = ''
-        values = idea_chat.semantic_brief_values(data, 'test', SOURCE)
+        values = idea_semantic_brief_service.semantic_brief_values(data, 'test', SOURCE)
         self.assertNotIn('故事集数', values)
         self.assertNotIn('交付形态', values)
         self.assertEqual(values['故事题材'], '冒险悬疑')
@@ -95,13 +96,13 @@ class SemanticBriefTests(unittest.TestCase):
         for data in ({}, {'request_id': 'old', 'fields': {}},
                      {'request_id': 'test', 'fields': []}):
             with self.assertRaises(ValueError):
-                idea_chat.semantic_brief_values(data, 'test', SOURCE)
+                idea_semantic_brief_service.semantic_brief_values(data, 'test', SOURCE)
 
     def test_inferred_value_cannot_inject_another_required_field(self):
         data = response({'request_id': 'test'})
         data['fields']['故事梗概']['value'] = '追查失踪之谜\n交付形态：臆造格式'
         del data['fields']['交付形态']
-        values = idea_chat.semantic_brief_values(data, 'test', SOURCE)
+        values = idea_semantic_brief_service.semantic_brief_values(data, 'test', SOURCE)
         draft = '\n'.join(label + '：' + value for label, value in values.items())
         self.assertEqual(idea_chat.inline_required_missing(None, draft), ('交付形态',))
 
@@ -111,8 +112,8 @@ class SemanticBriefTests(unittest.TestCase):
             root = make_minimal_project(td)
             source = Path(td) / '素材.txt'
             source.write_text(SOURCE, encoding='utf-8')
-            request = idea_chat.semantic_brief_request(project_context(root), '',
-                         {'paths': (source,), 'brief_texts': (SOURCE,)}, local_mode=False)
+            request = idea_semantic_brief_service.semantic_brief_request(
+                project_context(root), '', {'paths': (source,), 'brief_texts': (SOURCE,)}, local_mode=False)
             request['path'].parent.mkdir(parents=True, exist_ok=True)
             request['path'].write_text(json.dumps(response(request)), encoding='utf-8')
             source.write_text(SOURCE + '已改动', encoding='utf-8')
@@ -122,8 +123,9 @@ class SemanticBriefTests(unittest.TestCase):
     def test_prompt_only_authorizes_extraction_and_relative_result(self):
         with tempfile.TemporaryDirectory() as td:
             context = project_context(make_minimal_project(td))
-            request = idea_chat.semantic_brief_request(context, '补充要求',
-                         {'paths': (), 'brief_texts': (SOURCE,), 'context': '【附档：输入/材料.md】'})
+            request = idea_semantic_brief_service.semantic_brief_request(
+                context, '补充要求',
+                {'paths': (), 'brief_texts': (SOURCE,), 'context': '【附档：输入/材料.md】'})
             self.assertIn('不生成剧本', request['prompt'])
             self.assertIn('不得猜测', request['prompt'])
             self.assertIn('故事题材', request['prompt'])

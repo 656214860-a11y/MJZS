@@ -159,13 +159,13 @@ class ModelAdapter:
             payload = self.payload(target, messages, options, system)
             result = self.transport(self.endpoint(), payload, self.headers(), self.timeout)
         except TimeoutError:
-            return {'ok': False, 'status': 0,
+            return {'ok': False, 'status': 0, 'kind': 'network',
                     'error': '模型响应超时，请稍后重试或切换更快模型。',
                     'error_class': 'timeout', 'model': target, 'text': '',
                     'usage': pet_llm.usage_of(None), 'data': None}
         except Exception as exc:
             error = type(exc).__name__ + '：' + str(exc)
-            return {'ok': False, 'status': 0, 'error': error, 'error_class': error_class(error),
+            return {'ok': False, 'status': 0, 'kind': 'bug', 'error': error, 'error_class': error_class(error),
                     'model': target, 'text': '', 'usage': pet_llm.usage_of(None), 'data': None}
         data = result.get('data') if isinstance(result, dict) else None
         if self.wire_api == 'messages':
@@ -230,7 +230,7 @@ class ModelAdapter:
                     text = str(data.get('output_text') or data.get('content') or '')
         response_meta['content_length'] = len(text)
         return {'ok': bool(result.get('ok')), 'status': result.get('status'), 'error': result.get('error'),
-                'model': target, 'text': text, 'usage': usage, 'data': data,
+                'kind': result.get('kind') or '', 'model': target, 'text': text, 'usage': usage, 'data': data,
                 'error_class': '' if result.get('ok') else error_class(result.get('error')),
                 'response_meta': response_meta}
 
@@ -246,13 +246,13 @@ class ModelAdapter:
         except Exception:
             return self.chat(messages, options=options, model=model, system=system)
         if str(result.get('error') or '') == '请求已取消':
-            return {'ok': False, 'status': 0, 'error': '请求已取消', 'model': target, 'text': '',
+            return {'ok': False, 'status': 0, 'kind': 'client', 'error': '请求已取消', 'model': target, 'text': '',
                     'usage': pet_llm.usage_of(None), 'data': None, 'error_class': 'cancelled',
                     'response_meta': {'requested_model': target, 'wire_api': 'chat', 'content_length': 0}}
         if not result.get('ok') or not (result.get('data') or {}).get('choices'):
             return self.chat(messages, options=options, model=model, system=system)
         text = str(result['data']['choices'][0]['message'].get('content') or '')
-        return {'ok': True, 'status': result.get('status', 200), 'error': '', 'model': target,
+        return {'ok': True, 'status': result.get('status', 200), 'error': '', 'kind': '', 'model': target,
                 'text': text, 'usage': pet_llm.usage_of(result), 'data': result.get('data'),
                 'error_class': '', 'response_meta': {'requested_model': target, 'wire_api': 'chat',
                 'response_id': '', 'finish_reason': result['data']['choices'][0].get('finish_reason') or '',

@@ -42,7 +42,7 @@ def model_label(project):
 def capture_request_model(project):
     """在提交线程捕获本次路由及归属；副本只在内存中传递，不持久化凭据。"""
     from copy import deepcopy
-    from idea_chat import ChatModel
+    from idea_document_paths import ChatModel
     chosen, record = selected_model(project)
     provider = model_pool.provider_name(chosen, record) if chosen else ''
     return {'id': chosen, 'record': deepcopy(record),
@@ -529,7 +529,7 @@ def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish
 
 def extract_idea_brief(project, request):
     """显式 API 的提取请求不走剧本发布、工具写入或 HOLLMWOOD。"""
-    from idea_chat import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
+    from idea_semantic_brief_service import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
     chosen, record = selected_model(project)
     if not chosen:
         raise ValueError('当前未选择可直接对话的 API 模型')
@@ -556,8 +556,8 @@ PREPARATION_STAGES = ('项目设定', '剧本大纲', '角色卡')
 
 def preparation_continuation(project, text):
     """简报完成后的普通追问/失败重试沿用简报；显式字段仍走原录入校验。"""
-    import idea_chat
-    if idea_chat.extract_brief_creation(text):
+    from idea_brief_form import extract_brief_creation
+    if extract_brief_creation(text):
         return False
     brief = _complete_brief(project)
     if brief is None:
@@ -569,6 +569,80 @@ def preparation_continuation(project, text):
 def _working_documents(state):
     """重新创作的草稿与当前采用版本分开，确认前不替换采用版本。"""
     return state.get('revision', state)['documents']
+
+
+_PREPARATION_STAGE_WORDS = (
+    ('项目设定', ('项目设定', '设定')),
+    ('剧本大纲', ('剧本大纲', '大纲', '纲要')),
+    ('角色卡', ('角色卡', '人物设定（角色卡）', '人物设定', '人物卡')),
+)
+_PREPARATION_STAGE_ALT = '|'.join(sorted(
+    (word for _stage, words in _PREPARATION_STAGE_WORDS for word in words), key=len, reverse=True))
+_PREPARATION_BACK = re.compile(
+    r'(?:请)?(?:把|将)?(?:回到|返回|退回|重新回到|重回|切回)\s*(?:'
+    + _PREPARATION_STAGE_ALT + r')\s*(?:阶段)?\s*'
+    + r'(?:重新创作|重新写|重写|重新生成|重新输出|重做|重来|再来|从头写)?'
+    + r'\s*(?:一遍|一次)?')
+_PREPARATION_REWRITE = re.compile(
+    r'(?:请)?(?:把|将)?(?:' + _PREPARATION_STAGE_ALT
+    + r')\s*(?:阶段)?\s*(?:要|需要|需|得|全部|整个|从头)?\s*'
+    + r'(?:推翻|推倒|重写|重做|重来|重新写|重新创作|重新生成|重新输出)'
+    + r'\s*(?:一遍|一次|重来|重新来)?')
+_PREPARATION_AFFIRMATIVE = frozenset(
+    word.casefold() for word in ('确认', '确定', '是', '是的', '对', '对的',
+                                 '好', '好的', '可以', '继续', '同意',
+                                 '执行', '确认重写', 'yes', 'y', 'ok'))
+
+
+def _preparation_stage_alias(text):
+    """原话点名的最长阶段别名对应的阶段；未点名阶段返回 None。"""
+    found = None
+    for stage, words in _PREPARATION_STAGE_WORDS:
+        for word in words:
+            if word in text and (found is None or len(word) > found[0]):
+                found = (len(word), stage)
+    return None if found is None else found[1]
+
+
+def preparation_restart_intent(text):
+    """识别“回退到已确认阶段重新创作”的开头指令并返回目标阶段，其余意图返回 None。
+
+    口径与 Agent 路径的 ``workflow_tasks.writing_restart_requested`` 一致：只看用户原话
+    的开头短语，附件或正文里的字样不算；并在其“重新创作X”短语之外，
+    补充“回到X阶段／X要重写／X推翻重来”一类回退说法，两条路径对回退意图
+    的判断保持一致。未点名阶段时无法定位回退目标，返回 None 交回原有流程。"""
+    first = str(text or '').strip().split('\n', 1)[0].strip().rstrip('。！!？?')
+    if not first:
+        return None
+    stage = _preparation_stage_alias(first)
+    if stage is None:
+        return None
+    from workflow_tasks import writing_restart_requested
+    if writing_restart_requested(first):
+        return stage
+    if _PREPARATION_BACK.fullmatch(first) or _PREPARATION_REWRITE.fullmatch(first):
+        return stage
+    return None
+
+
+def _preparation_restart_affirmative(text):
+    first = str(text or '').strip().split('\n', 1)[0].strip().rstrip('。！!？?')
+    return first.casefold() in _PREPARATION_AFFIRMATIVE
+
+
+def _preparation_rollback(stage, documents):
+    """返回回退到该阶段会失效的已确认阶段清单；目标不合法或无下游确认时返回 None。
+
+    阶段有效性沿用 ``_preparation_state`` 已按 SHA256 校验过的 ``confirmed`` 标记，
+    不另写失效判断。"""
+    if stage not in PREPARATION_STAGES:
+        return None
+    index = PREPARATION_STAGES.index(stage)
+    prefix = documents[:index]
+    if len(prefix) != index or any(doc.get('confirmed') is not True for doc in prefix):
+        return None
+    invalidated = [doc['stage'] for doc in documents[index:] if doc.get('confirmed') is True]
+    return invalidated or None
 
 
 def restart_preparation(project, stage, *, publish):
@@ -588,6 +662,52 @@ def restart_preparation(project, stage, *, publish):
             raise ValueError('请先确认所选阶段之前的文件')
         state['revision'] = {'documents': prefix}
     _save_preparation_state(target, state, publish)
+def confirm_preparation_document(project, stage, path, *, publish):
+    """把磁盘上的当前文件登记为该阶段的确认输出；只重算正文指纹，不改文件本体。"""
+    if not callable(publish):
+        raise TypeError('剧本准备阶段需要 L3 注入发布器')
+    brief = _complete_brief(project)
+    if brief is None:
+        raise ValueError('请先完成项目创作信息')
+    if stage not in PREPARATION_STAGES:
+        raise ValueError('请选择项目设定、剧本大纲或角色卡')
+    from stage_path_service import write_dir
+    folder = write_dir(project, 'script').resolve()
+    target = folder / 'preparation_state.json'
+    chosen = Path(path).resolve()
+    if not chosen.is_file():
+        raise ValueError('请选择一份已保存的阶段文件')
+    if not chosen.is_relative_to(folder):
+        raise ValueError('确认文件必须位于当前剧本准备目录内')
+    text = chosen.read_text(encoding='utf-8')
+    if not text.strip():
+        raise ValueError('文件内容为空，不能作为确认输出')
+    fingerprint = hashlib.sha256(json.dumps(brief['brief'], ensure_ascii=False,
+                                            sort_keys=True).encode('utf-8')).hexdigest()
+    state = read_json(target)
+    if not isinstance(state, dict) or state.get('brief_hash') != fingerprint:
+        state = {'version': 1, 'brief_hash': fingerprint, 'documents': []}
+    index = PREPARATION_STAGES.index(stage)
+    try:
+        documents = _working_documents(state)
+    except (KeyError, TypeError):
+        raise ValueError('剧本准备重写记录无效')
+    if not isinstance(documents, list):
+        raise ValueError('剧本准备阶段记录无效，不能确认输出')
+    prefix = documents[:index]
+    if index > len(documents) or len(prefix) != index or any(
+            not isinstance(doc, dict) or doc.get('confirmed') is not True for doc in prefix):
+        raise ValueError('请先确认所选阶段之前的文件')
+    invalidated = tuple(PREPARATION_STAGES[position]
+                        for position, doc in enumerate(documents[index + 1:], start=index + 1)
+                        if isinstance(doc, dict) and doc.get('confirmed') is True)
+    document = {'stage': stage, 'path': chosen.relative_to(folder).as_posix(),
+                'sha256': hashlib.sha256(text.encode('utf-8')).hexdigest(), 'confirmed': True}
+    state.get('revision', state)['documents'] = prefix + [document]
+    _save_preparation_state(target, state, publish)
+    return invalidated
+
+
 
 
 def preparation_file_labels(project):
@@ -749,7 +869,7 @@ def _preparation_state(project, brief):
             candidates = list(path.parent.glob('*.md'))
             if document['stage'] == '角色卡' and path.parent.name == '项目设定':
                 # 角色卡独立分类后，旧记录仍可能指向同批次的项目设定目录。
-                from idea_chat import project_document_directory
+                from idea_document_paths import project_document_directory
                 category = path.parent.parent / project_document_directory('角色卡')
                 candidates.extend(category.glob('*.md'))
             for candidate in sorted(candidates):
@@ -809,7 +929,7 @@ def _preserve_preparation_response(project, result, publish):
 
 def _preparation_step(project, chosen, record, settings, brief, creative, *, publish, cancelled, user_message=None, identity=None):
     """一次请求最多产出一个待确认阶段；返回 None 才可开始自然剧本。"""
-    import idea_chat
+    import idea_document_paths
     import workflow_settings
     from project_context_factory import project_context
     from stage_path_service import write_dir
@@ -821,6 +941,31 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
     publish = _cancellable_publisher(publish, cancelled)
     if documents and state != read_json(target):
         _save_preparation_state(target, state, publish)
+    message = creative if user_message is None else user_message
+    pending_restart = state.get('pending_restart')
+    if isinstance(pending_restart, dict) and _preparation_restart_affirmative(message):
+        # 二次确认后才真正回退；失效与否由 restart_preparation 自行校验。
+        confirmed_stage = pending_restart.get('stage')
+        state.pop('pending_restart', None)
+        _save_preparation_state(target, state, response_publisher)
+        if confirmed_stage in PREPARATION_STAGES:
+            restart_preparation(project, confirmed_stage, publish=response_publisher)
+            target, state, texts = _preparation_state(project, brief)
+            documents = _working_documents(state)
+    else:
+        requested = preparation_restart_intent(message)
+        invalidated = _preparation_rollback(requested, documents) if requested else None
+        if invalidated:
+            state['pending_restart'] = {'stage': requested, 'invalidates': invalidated}
+            _save_preparation_state(target, state, response_publisher)
+            notice = ('回退到「' + requested + '」重新创作，会使已确认的「'
+                      + '」「'.join(invalidated) + '」失效，需要重新确认。\n'
+                      '回复“确认”即从该阶段重写；回复其他内容则保持现状。')
+            return {'ok': True, 'text': notice, 'response_text': notice,
+                    'preparation_restart_pending': requested}, None
+        if isinstance(pending_restart, dict):
+            state.pop('pending_restart', None)
+            _save_preparation_state(target, state, response_publisher)
     index = len(documents) if not documents or documents[-1].get('confirmed') is True else len(documents) - 1
     if index == len(PREPARATION_STAGES):
         return None, dict(zip(PREPARATION_STAGES, texts))
@@ -929,9 +1074,9 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
         documents[-1]['confirmed'] = True
     index, stage = selected, PREPARATION_STAGES[selected]
     context = project_context(project)
-    provider, model = identity or idea_chat.storage_identity(chosen)
+    provider, model = identity or idea_document_paths.storage_identity(chosen)
     file_type = ('项目设定', '项目大纲', '角色卡')[index]
-    path = idea_chat.reply_document_path(context, text, provider=provider, model=model, file_type=file_type)
+    path = idea_document_paths.reply_document_path(context, text, provider=provider, model=model, file_type=file_type)
     document = {'stage': stage, 'path': path.relative_to(write_dir(project, 'script')).as_posix(),
                 'sha256': hashlib.sha256((text + '\n').encode('utf-8')).hexdigest(), 'confirmed': False}
     state.get('revision', state)['documents'] = documents[:index] + [document]
@@ -957,7 +1102,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     identity = (request_model['provider'], request_model['label'])
     if not chosen:
         raise ValueError('当前未选择可直接对话的 API 模型')
-    import idea_chat
+    import idea_transcript
     import workflow_context
     import workflow_settings
     from workflow_tasks import script_prompt
@@ -1002,7 +1147,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
         task += '\n\n<brief_complete>\n' + json.dumps(brief, ensure_ascii=False, indent=2) + '\n</brief_complete>'
         task += '\n程序已核验设定、大纲、角色卡逐项确认；本次仅执行阶段④自然剧本，沿用上述已确认阶段文件。'
         task += _episode_reference_hint(root)
-    history = _recent_chat_history(idea_chat.load(
+    history = _recent_chat_history(idea_transcript.load(
         project_context(root), model=request_model['label'], gateway=idea_chat_gateway()))
     if history:
         task += '\n\n以下为本次对话之前已确认的信息：\n' + history
@@ -1105,15 +1250,15 @@ def _cancellable_publisher(publish, cancelled):
 
 def _save_formal_script(project, result, *, model='', identity=None, publish, previous_script=None):
     """已获准发布的自然剧本复用下载路径、同稿去重和异稿编号规则。"""
-    import idea_chat
+    import idea_document_paths
     from project_context_factory import project_context
     from script_contract import require_natural_script
     from writing_quality import split_response, publish_reports, OPEN
     response = result['text']
     text = require_natural_script(split_response(response)[0]).strip()
-    provider, label = identity or idea_chat.storage_identity(model or result.get('model', ''))
     baseline = _episode_baseline_text(project) if previous_script is None else previous_script
-    target = idea_chat.reply_document_path(project_context(project), text,
+    provider, label = identity or idea_document_paths.storage_identity(model or result.get('model', ''))
+    target = idea_document_paths.reply_document_path(project_context(project), text,
                                           provider=provider, model=label, file_type='自然剧本')
     if not target.is_file() or target.read_text(encoding='utf-8').strip() != text:
         publish(target, text + '\n', lambda value: bool(require_natural_script(value)), lambda _target: None)

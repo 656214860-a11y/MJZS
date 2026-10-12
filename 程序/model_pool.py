@@ -792,6 +792,19 @@ def verify_sample(value, transport=None, program=None, timeout=15, prompt=None, 
     return outcome
 
 
+def _http_error_kind(status):
+    """HTTP 状态码归成受控错误类别：鉴权／服务端／请求本身，供界面按类给提示。"""
+    try:
+        code = int(status)
+    except (TypeError, ValueError):
+        return 'client'
+    if code in (401, 403):
+        return 'auth'
+    if code >= 500:
+        return 'server'
+    return 'client'
+
+
 def http_transport(url, payload, headers, timeout):
     """模型供应商通用 HTTP 传输；仅在实际请求时加载网络栈。"""
     import ssl
@@ -808,14 +821,17 @@ def http_transport(url, payload, headers, timeout):
                         'data': json.loads(raw or b'{}')}
         except urllib.error.HTTPError as exc:
             detail = exc.read()[:400].decode('utf-8', 'replace')
-            return {'ok': False, 'status': exc.code, 'error': 'HTTP ' + str(exc.code) + '：' + detail}
+            return {'ok': False, 'status': exc.code, 'kind': _http_error_kind(exc.code),
+                    'error': 'HTTP ' + str(exc.code) + '：' + detail}
         except urllib.error.URLError as exc:
             if attempt < 2 and isinstance(getattr(exc, 'reason', None), ssl.SSLEOFError):
                 time.sleep(0.25 * (attempt + 1))
                 continue
-            return {'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc)}
+            return {'ok': False, 'status': 0, 'kind': 'network',
+                    'error': type(exc).__name__ + '：' + str(exc)}
         except Exception as exc:
-            return {'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc)}
+            return {'ok': False, 'status': 0, 'kind': 'bug',
+                    'error': type(exc).__name__ + '：' + str(exc)}
 
 
 def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
