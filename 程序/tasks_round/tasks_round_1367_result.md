@@ -43,8 +43,8 @@
 ## 全量判定
 - 1367 − last_full_safe_all_round(1364) = 3 < 5，无五轮欠账；但本轮改 `projects.py` 的项目删除语义（回收成功、登记未落盘的可恢复性）且新增删除相关 UI 入口，命中当次全量升级条件，收口必须跑一次干净 master 全量。
 - 复用检查：`.git/full-safe-receipts.json` 现有最近绿凭据为 round=1364、tree=0db16c0f…（2026-10-12，7 日内），但本轮改了 `projects.py`／`desktop.py`／测试，`HEAD:程序` 内容树不同，不能复用。
-- 全量结果：见随后收尾提交（占位：待补）。
+- 全量结果：第 1 次在干净 master 工作树 `o40-fullsafe-master`（新建，未初始化 4 个嵌套仓库与 3 个被忽略的运行文件）跑 `--all --safe` 出现假红：`skills`／`writing`／`idea` 系用例因 `SKILL 引用缺失`（`screenplay-gate-engine.md` 不存在）与 `维护记录/基准历史.json` 缺文件而红，定位为**工作树环境未就绪，非本轮代码问题**。先按已知可用的 `o07-fullsafe-master` 环境把 4 个嵌套仓库（`程序/reference/HoLLMwood`、`程序/skills/00全流程SKILL/AIGC创作全流程`、`程序/skills/01 剧本准备SKILL/剧本锻造`、`程序/skills/01 剧本准备SKILL/编剧技能集`）与 3 个被忽略运行文件（`程序/logs/`、`程序/projects.json`、`程序/维护记录/基准历史.json`）补齐，定向复验受影响的 13 个模块全绿，再跑**第 2 次全量** `--all --safe`：**4859/4859、0 红、527.6 秒**。凭据已写 `.git/full-safe-receipts.json`：`round=1367`、`tree=1d7630f1df3ce72658d1918650741760e16e7f38`（已核对 ＝ `HEAD:程序`）、`at=2026-10-12T15:40:10`，`last_full_safe_all_round=1367`。`test_desktop_startup_perf`／`test_perf_baseline` 本轮均绿，未出现阈值抖动。
 
 ## 提交
 - 本轮改动：`程序/projects.py`、`程序/desktop.py`、`程序/tests/test_project_recovery.py`（新）、`程序/tasks_round/tasks_round_1367_result.md`（新）、`程序/project_status.md`、`.agent-handoff/{snapshot,work-log,validation,backlog,risks}.md`。
-- 提交状态：见随后收尾提交。
+- 提交状态：内容提交 `4494ab3`（只含本轮 10 个文件；未含主树他人已暂存的 `程序/idea_chat.py`／`程序/idea_attachments.py`／`程序/配置/SKILL/预设.json`）。全量结果（4859/4859、tree=1d7630f1）由紧随其后的收尾提交记入本报告、`project_status.md` 与接力文件（沿用同一轮次 R1367，中央 `last_claimed` 仍为 1367）。O40 原领 1365 被并行合入的 R1366（阶段④分集增量上下文）顶掉，按 `round_claim.py next` 重新领到 1367。
