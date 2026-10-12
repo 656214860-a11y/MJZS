@@ -1,13 +1,14 @@
 # 当前快照
 
-## 2026-10-12：O45 完成，继续 O46
-- 按 R1267 清单 O01→O48 顺序逐个完成。O01—O44 已完成，**O45 已完成（R1372）**，下一项 O46（模块治理和性能按热点逐段推进，P3／事实·建议，M/L）。
-- O45（把分发声明变为可复验的干净安装流程）：新增 `程序/scripts/distribution_build.py`——`parse_manifest` 从 `distribution_manifest.md` 两张表取反引号模式（声明唯一来源）；`pattern_regex`（`**` 跨目录、`*` 不跨、目录以 `/` 结尾＝整棵子树）；`plan(root, manifest)` 分「keep／excluded／undecided」三桶；`build(destination, ...)` 只把清单内文件复制到**全新**输出目录并写 `分发清单.json`（版本＋逐文件 sha256＋字节数；拒绝输出到源目录内部、拒绝覆盖非空目录、拒绝未决定未清时静默继续），全程不删除不移动、源目录零改动；`verify(destination, ...)` 校验「输出零排除项／必需入口齐全／摘要自洽／`程序/skills/00全流程SKILL/jingju-skills` 整包仍在」。精化 `distribution_manifest.md`（补保留：生产 `程序/*.py`／`程序/agent/**`／说明／附加工具／batch_frames_tool／用户说明与图标；补排除：`.wt/**`／`.agent-handoff|.claude|.codex/**`／`outputs/**`／程序本地产物／`程序/logs/**`／`程序/.*.out`／`维护记录/**`／开发文档），并加「可复验构建器」一节。见 [R1372](../程序/tasks_round/tasks_round_1372_result.md)。
-- O45 实测与边界：真实开发目录 `--plan` → keep 1170／excluded 4684／undecided 36（未决定项故意留给人工，不是欠账）；本轮**未**在真实目录执行 `--build`（只用临时合成树验证）；新 Windows 用户／非管理员／离线链路／覆盖式升级这些验收**未实机验证**；jingju 按「保留整包并校验存在」处理（代码仍引用它）。
-- O45 契约变化：只新增 `scripts/` 工具与新测试、扩清单文档，未改任何运行期模块／配置默认值／界面；`scripts/` 不参与分层扫描（未改 `_layers.py`），但会被 `test_unification_ratchet` 扫到——读摘要改用 `agent.core.read_json`（裸 `json.loads` 会被判「未登记新增债务」）。
-- O45 验证证据：新增 `tests/test_distribution_build.py` 12/12；定向 `-k distribution_build` 12/12；架构 312/312；默认冒烟 8/8。
-- O45 全量：1372−1371=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量 4924/4924、0 红、688.63 秒（干净 master 工作树 `o45-fullsafe-master`，凭据 round=1372、tree=71554aa7…＝`HEAD:程序`、at=2026-10-12T17:44:31、last_full_safe_all_round=1372；4924−4912=12＝本轮新增用例；无阈值抖动）。
+## 2026-10-12：O46 完成，继续 O47
+- 按 R1267 清单 O01→O48 顺序逐个完成。O01—O45 已完成，**O46 已完成（R1373）**，下一项 O47（测试从"数量多"补到关键真实链路，P2／验证·建议，M/L）。
+- O46（模块治理与热点性能按段推进）= R1373：先测七条热点路径——Tk 侧复用 基准_启动与页面.py full（启动 ready 735.1→714.8ms、首帧 297.7→289.0ms、缩略图冷 2.8ms、300 资产页 1837.9→1515.5ms、滚动 20 步 0.2ms），缺的换项目／刷新目录／长对话／媒体导入新增无 Tk 探针 `基准_热点路径.py`（≤16ms）；纯服务层无瓶颈 → 不做全项目异步化。再做两段保持入口的迁移：`platform_tools`（L0）新增 `open_directory`／`find_editor_shortcut`，`desktop` 的 `find_editor_shortcut`／`open_folder` 变 1 行入口；`idea_chat_controller`（L3）接管 `bubble_timestamp`／`collapse_preview`／`speaker_name`，`desktop` 的 `bubble_time`／`bubble_preview`／`model_name` 变 1 行入口（desktop 7510→7491 行）。见 [R1373](../程序/tasks_round/tasks_round_1373_result.md)。
+- O46 同步项：`tests/architecture/test_migrated_ui_boundaries.py` 适配入口集合登记 `find_editor_shortcut`／`open_directory`；`维护记录/TODO注释快照_20261003.json` 的 desktop.py 行号 2753→2741 平移（注释集合不变，沿 R1330 做法）。
+- O46 验证证据：新增 `tests/test_idea_chat_presentation.py` 10/10、`tests/test_platform_tools.py` +3（20/20）；定向 30/30、Tk 消费者 `ui_edges idea_chat unification_ratchet` 259/259、架构 312/312、默认冒烟 8/8，0 红。
+- O46 全量：1373−1372=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量结果待收尾补记。
 
+## 2026-10-12：O45 完成（历史）
+- O45 = R1372（把分发声明变为可复验的干净安装流程：新增 `程序/scripts/distribution_build.py` 的 `parse_manifest`／`plan`／`build`／`verify`＋CLI，精化 `distribution_manifest.md`，新增 `tests/test_distribution_build.py` 12 条）；全量 4924/4924、0 红、688.63 秒（凭据 round=1372、tree=71554aa7…）。详情见 [R1372](../程序/tasks_round/tasks_round_1372_result.md)。
 ## 2026-10-12：O44 完成（历史）
 - O44 = R1371（密钥四态可诊断＋诊断预览与回显脱敏）；全量 4912/4912、0 红、752.38 秒（凭据 round=1371、tree=de0084a9…）。详情见 [R1371](../程序/tasks_round/tasks_round_1371_result.md)。
 

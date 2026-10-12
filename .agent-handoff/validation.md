@@ -1,3 +1,7 @@
+## 2026-10-12 O46 完成
+
+- 2026-10-12 O46：新增无 Tk 热点探针 `程序/维护记录/基准脚本/基准_热点路径.py`（换项目／刷新目录／长对话／媒体导入；合成负载 24 项目／1500 文件／800 条消息／400 文件），结果 `基准结果_热点路径.json`；Tk 侧复用 `基准_启动与页面.py full`（改前留档 `基准结果_启动与页面_full_改前.json`）。两段保持入口的迁移：`platform_tools.py`（L0）新增 `open_directory`／`find_editor_shortcut`，`idea_chat_controller.py`（L3）新增 `bubble_timestamp`／`collapse_preview`／`speaker_name`，`desktop.py` 的 5 个入口变 1 行委托（7510→7491 行）。测试：新增 `tests/test_idea_chat_presentation.py` 10/10、`tests/test_platform_tools.py` 20/20（+3）；定向 `-k platform_tools idea_chat_presentation` 30/30；Tk 消费者 `-k ui_edges idea_chat unification_ratchet` 259/259；架构 312/312；默认冒烟 8/8，0 红。未命中 §5（无启动路径、无 Tk 控件生命周期、无删除语义、未改 `_layers.py`）。全量：1373−1372=1<5，收口在干净 master 跑一次 `--all --safe`（结果待收尾补记）。
+
 ## 2026-10-12 O45 完成
 
 - 2026-10-12 O45：新增 `程序/scripts/distribution_build.py`（`parse_manifest`／`pattern_regex`／`plan`／`build`／`verify`／CLI `--plan|--build|--verify`），精化 `程序/distribution_manifest.md`（补保留／排除行＋「可复验构建器」一节）。实测 `--plan`：keep 1170／excluded 4684／undecided 36。测试：新增 `tests/test_distribution_build.py` 12/12；定向 `-k distribution_build` 12/12；架构 312/312；默认冒烟 8/8。未命中 §5（只新增 scripts/ 工具与文档）。全量：1372−1371=1<5，收口在干净 master 跑一次 `--all --safe`（4924/4924、0 红、688.63 秒；凭据 round=1372、tree=71554aa7…＝`HEAD:程序`、last_full_safe_all_round=1372）。
