@@ -5,7 +5,7 @@
 - O46（模块治理与热点性能按段推进）= R1373：先测七条热点路径——Tk 侧复用 基准_启动与页面.py full（启动 ready 735.1→714.8ms、首帧 297.7→289.0ms、缩略图冷 2.8ms、300 资产页 1837.9→1515.5ms、滚动 20 步 0.2ms），缺的换项目／刷新目录／长对话／媒体导入新增无 Tk 探针 `基准_热点路径.py`（≤16ms）；纯服务层无瓶颈 → 不做全项目异步化。再做两段保持入口的迁移：`platform_tools`（L0）新增 `open_directory`／`find_editor_shortcut`，`desktop` 的 `find_editor_shortcut`／`open_folder` 变 1 行入口；`idea_chat_controller`（L3）接管 `bubble_timestamp`／`collapse_preview`／`speaker_name`，`desktop` 的 `bubble_time`／`bubble_preview`／`model_name` 变 1 行入口（desktop 7510→7491 行）。见 [R1373](../程序/tasks_round/tasks_round_1373_result.md)。
 - O46 同步项：`tests/architecture/test_migrated_ui_boundaries.py` 适配入口集合登记 `find_editor_shortcut`／`open_directory`；`维护记录/TODO注释快照_20261003.json` 的 desktop.py 行号 2753→2741 平移（注释集合不变，沿 R1330 做法）。
 - O46 验证证据：新增 `tests/test_idea_chat_presentation.py` 10/10、`tests/test_platform_tools.py` +3（20/20）；定向 30/30、Tk 消费者 `ui_edges idea_chat unification_ratchet` 259/259、架构 312/312、默认冒烟 8/8，0 红。
-- O46 全量：1373−1372=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量结果待收尾补记。
+- O46 全量：1373−1372=1<5 无五轮欠账且未命中 §5，收口在干净 master 工作树跑一次 `--all --safe`：全量 4937/4937、0 红、710.39 秒（干净 master 工作树 `o46-fullsafe-master`，凭据 round=1373、tree=efdd7f8a…＝`HEAD:程序`、at=2026-10-12T18:24:25、last_full_safe_all_round=1373；4937−4924=13＝本轮新增用例；无阈值抖动）。
 
 ## 2026-10-12：O45 完成（历史）
 - O45 = R1372（把分发声明变为可复验的干净安装流程：新增 `程序/scripts/distribution_build.py` 的 `parse_manifest`／`plan`／`build`／`verify`＋CLI，精化 `distribution_manifest.md`，新增 `tests/test_distribution_build.py` 12 条）；全量 4924/4924、0 红、688.63 秒（凭据 round=1372、tree=71554aa7…）。详情见 [R1372](../程序/tasks_round/tasks_round_1372_result.md)。
