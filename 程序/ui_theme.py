@@ -76,7 +76,7 @@ def apply(win):
     s.configure('Project.Treeview',rowheight=24)
 
     s.configure('Nav.TButton',anchor='w',background=BG,padding=(12,5))
-    # 第 71 期任务 2：侧栏的二级入口（「03 资产管理」下面的「资产清单」）——左边留一截缩进，
+    # 第 71 期任务 2：侧栏的二级入口（「05 资产管理」下面的「资产清单」）——左边留一截缩进，
     # 一眼看出它挂在上一格下面。
     s.configure('Sub.Nav.TButton',anchor='w',background=BG,padding=(26,4))
     s.configure('Selected.Sub.Nav.TButton',anchor='w',background=ACCENT,foreground='white',padding=(26,4))

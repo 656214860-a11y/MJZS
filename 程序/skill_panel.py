@@ -32,7 +32,7 @@ import skill_registry
 import stage_config
 import stage_models
 import ui_plugin_registry
-from pet_bus import STAGE_NAMES, read_json
+from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
@@ -307,14 +307,12 @@ def stage_for(value):
 
 
 def stage_label(stage):
-    """阶段 id → 「06 首帧管理」（认不出的原样退回，面板抬头用它）。"""
-    index = list(STAGE_NAMES).index(stage) + 1 if stage in STAGE_NAMES else 0
-    name = STAGE_NAMES.get(stage, stage)
-    return '%02d %s' % (index, name) if index else str(name)
+    """阶段 id → 「08 首帧管理」（认不出的原样退回，面板抬头用它）；权威实现见 pet_bus.stage_label。"""
+    return _bus_stage_label(stage)
 
 
 def panel_title(stage):
-    """面板抬头：阶段 id → 「阶段配置 · 06 首帧管理」。"""
+    """面板抬头：阶段 id → 「阶段配置 · 08 首帧管理」。"""
     return '阶段配置 · ' + stage_label(stage)
 
 

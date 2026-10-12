@@ -49,7 +49,7 @@ confirm = ask_confirmation
 # 所以提到模块头上（原先只在 show() 里 import，show_final 拿不到这个名字）。
 from cell_hover import CellHover
 
-# 第 45 期：05 分镜定稿那个文本框的两条体验——滚轮一格滚几行（原来 3 行，用户要「提高文字
+# 第 45 期：07 分镜定稿那个文本框的两条体验——滚轮一格滚几行（原来 3 行，用户要「提高文字
 # 下滑速度」），以及改完字停多久提醒存盘（用户要「改动文字后自动弹窗提醒是否保存」）。
 VIEWER_WHEEL_LINES=9
 VIEWER_SAVE_ASK_MS=900

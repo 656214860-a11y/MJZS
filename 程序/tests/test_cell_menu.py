@@ -420,7 +420,7 @@ class VideoShotMenuTests(unittest.TestCase):
             subject.white_model_path = lambda sid: None
             event = _Event(5, 5); event.x_root = 5; event.y_root = 5
             self.app.open_path = lambda path: opened.append(path)
-            # 「首帧」那一格：只剩首帧自己的「查看」（删除首帧只留 06 首帧管理那一页）
+            # 「首帧」那一格：只剩首帧自己的「查看」（删除首帧只留 08 首帧管理那一页）
             self.app.App.shot_menu(subject, event)
             labels = [label for label, _ in self.made[-1].items]
             self.assertEqual(labels, ["查看首帧图片"])
@@ -590,7 +590,7 @@ if __name__ == "__main__":
     unittest.main(verbosity=2)
 
 class ReferenceViewThumbTests(unittest.TestCase):
-    """第 57 期第 4／5 条：03 资产管理里「参考图」那一格点出来的那一窗。
+    """第 57 期第 4／5 条：05 资产管理里「参考图」那一格点出来的那一窗。
 
     用户要的是「分类栏右边增加缩略图栏，显示对应图片」：原来只有分类与路径两列，看的人得
     一行行按路径去认图。缩略图那一列交给盖图那一层（解不开的格式留空），单击那一格＝打开

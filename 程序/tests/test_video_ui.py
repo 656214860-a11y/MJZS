@@ -677,7 +677,7 @@ class FooterLayoutTests(unittest.TestCase):
         """第 59 期第 7 条：两行各有一颗「阶段配置」，各配各的阶段。
 
         提示词那一步走的是另一条路（Agent 出提示词），与出视频那一步不是同一份配置：
-        两颗按钮各弹各的面板，桌面端认的是视频那一颗（它才是这一页的阶段：08 视频生成）。
+        两颗按钮各弹各的面板，桌面端认的是视频那一颗（它才是这一页的阶段：10 视频生成）。
         """
         with tempfile.TemporaryDirectory() as td:
             opened = []
@@ -694,7 +694,7 @@ class FooterLayoutTests(unittest.TestCase):
             both = self.buttons(app, "阶段配置")
             self.assertEqual(len(both), 2, "两行各一颗")
             self.assertIs(app.stage_button, [b for b in both if b.master is video_row][0],
-                          "桌面端认的是视频那一颗（08 视频生成）")
+                          "桌面端认的是视频那一颗（10 视频生成）")
             self.assertIs(app.prompt_stage_button, [b for b in both if b.master is row][0],
                           "提示词那一颗是宿主传进来的那扇面板")
             app.prompt_stage_button.invoke(); app.window.update_idletasks()
@@ -1042,7 +1042,7 @@ class VideoEntryTests(unittest.TestCase):
         return d, win, proj
 
     def click_video(self, d, win):
-        """点侧栏那一颗「08  视频生成」。"""
+        """点侧栏那一颗「10  视频生成」。"""
         d.nav[PAGE['video']].invoke()
         for _ in range(3):
             win.update(); win.update_idletasks()

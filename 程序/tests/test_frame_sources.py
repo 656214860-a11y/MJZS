@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""第 68 期任务 12：06 首帧管理页在「全部分镜」下要列出已采用每一份分镜的镜头。
+"""第 68 期任务 12：08 首帧管理页在「全部分镜」下要列出已采用每一份分镜的镜头。
 
 用户原话：「全部页面->选择分镜的下拉框->『全部分镜』功能无法正确显示全部内容」。
 """
@@ -83,7 +83,7 @@ class FrameSourceTests(unittest.TestCase):
         self.desktop.root = self.proj
         self.desktop.studio = open_studio(self.proj)
         from pet_state import PAGE_OF
-        self.desktop.show(PAGE_OF['keyframe'])     # 07 首帧管理
+        self.desktop.show(PAGE_OF['keyframe'])     # 08 首帧管理
         self.win.update_idletasks()
         return self.desktop
 

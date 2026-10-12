@@ -16,6 +16,7 @@
 3. 并发上限是硬上限（全局 8，单阶段按表），挡下来的活儿排队降速，直接丢掉。
 """
 import json
+import pet_bus
 from file_cache import read_text
 import time
 from datetime import datetime
@@ -474,19 +475,19 @@ GATES = (
      'condition': 'Animatic 可播放，节奏、时长和对白同步已确认', 'reject': '先完成分镜预演并确认三项检查'},
     {'id': 'SG-01', 'from': 'assets', 'to': 'continuity', 'title': '资产锁定', 'check': 'assets_locked',
      'condition': '资产清单每一项都导入了图片，角色锚点已锁定',
-     'reject': '先到 03 资产管理 把资产补齐、锁定锚点'},
+     'reject': '先到 ' + pet_bus.stage_label('assets') + ' 把资产补齐、锁定锚点'},
     {'id': 'SG-02', 'from': 'continuity', 'to': 'final', 'title': '连贯性台账', 'check': 'ledger_ready',
      'condition': 'continuity_ledger.json 已生成，且没有未裁决的待办',
-     'reject': '先到 04 连贯性清单 生成台账、裁决冲突'},
+     'reject': '先到 ' + pet_bus.stage_label('continuity') + ' 生成台账、裁决冲突'},
     {'id': 'SG-03', 'from': 'final', 'to': 'keyframe', 'title': '批次划分', 'check': 'batches_ready',
      'condition': '每镜都写了 batch_id，每批 ≤4 镜、≤18 秒，批次内三元组一致',
-     'reject': '先到 05 分镜定稿 重新划分批次并写入 batch_id'},
+     'reject': '先到 ' + pet_bus.stage_label('final') + ' 重新划分批次并写入 batch_id'},
     {'id': 'SG-04', 'from': 'keyframe', 'to': 'previs', 'title': '首帧校验', 'check': 'frames_ready',
      'condition': '每个镜头的首帧都在，且不是空文件',
-     'reject': '先到 06 首帧管理 补上缺的首帧'},
+     'reject': '先到 ' + pet_bus.stage_label('keyframe') + ' 补上缺的首帧'},
     {'id': 'SG-05', 'from': 'previs', 'to': 'video', 'title': '预演校验', 'check': 'previs_ready',
      'condition': '需要白模的镜头都有可播放的预演产物',
-     'reject': '先到 07 白模预演 补上缺的预演，或把该镜头改成无需白模'},
+     'reject': '先到 ' + pet_bus.stage_label('previs') + ' 补上缺的预演，或把该镜头改成无需白模'},
 )
 GATE_IDS = tuple(row['id'] for row in GATES)
 

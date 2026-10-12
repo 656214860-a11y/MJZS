@@ -1136,9 +1136,9 @@
             },
             {
                 "file": "stage_parallel.py",
-                "point": "454",
+                "point": "455",
                 "disposition": "exempt",
-                "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。"
+                "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。（R1383：文件顶部加 import pet_bus 使该行由 454 平移至 455，语义不变。）"
             },
             {
                 "file": "storage_maintenance.py",

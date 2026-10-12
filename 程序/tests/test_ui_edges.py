@@ -502,7 +502,7 @@ class UiEdgeTests(unittest.TestCase):
                 win.destroy()
 
     def test_step2_rows_hug_their_content_boxes(self):
-        """第 31 期第 4/5 条：02 初步分镜页，「刷新列表」那一行与「手动制作分镜」都要紧贴下方内容框。
+        """第 31 期第 4/5 条：03 初步分镜页，「刷新列表」那一行与「手动制作分镜」都要紧贴下方内容框。
 
         内容框改用了没有标签行的 Tokens.Card.TFrame（空 TLabelframe 会白留约 19 像素），
         所以按钮行到表格顶端的距离要落在十几像素以内（改前分别是 30 / 36 像素）。
@@ -650,7 +650,7 @@ class UiEdgeTests(unittest.TestCase):
             for status_table in storyboard_tables:
                 for item in status_table.get_children():
                     self.assertEqual(list(status_table.item(item, 'tags')), [],
-                                     '02 初步分镜不应用整行已制作／已采用高亮')
+                                     '03 初步分镜不应用整行已制作／已采用高亮')
             table = [t for t in trees if t.get_children()][0]
             row = table.get_children()[0]
             on, off = str(d.win._tick_images[1]), str(d.win._tick_images[0])
@@ -931,7 +931,7 @@ class UiEdgeTests(unittest.TestCase):
                     self.assertIn(d.stage_button.winfo_manager(), ("pack", "place"),
                                   "它默认就摆在这一行里")
                     self.assertGreater(int(d.stage_button.winfo_reqheight()), 0, "按钮有真实高度，不是空壳")
-            # 第 68 期任务 6：05 分镜定稿补上了主动作「手动同步资产」，阶段配置跟着挪到那一行
+            # 第 68 期任务 6：07 分镜定稿补上了主动作「手动同步资产」，阶段配置跟着挪到那一行
             # （原来挂在页标题右边），页标题旁不再重复摆一颗。
             d.show(PAGE["final"])
             for _ in range(3):
@@ -1987,7 +1987,7 @@ class UiEdgeTests(unittest.TestCase):
                 self.assertEqual(str(hover.overlay.cget("text")), str(want))
 
     def test_the_frame_table_shows_thumbnails_in_the_file_column(self):
-        """第 53 期第 5 条：06 首帧管理「图片文件(点击查看)」那一列摆首帧缩略图。
+        """第 53 期第 5 条：08 首帧管理「图片文件(点击查看)」那一列摆首帧缩略图。
 
         解不开的图（jpg 等 Tk 不认的）照旧退回原来写的文件名——这一条一并盯住。
         """
@@ -2542,7 +2542,7 @@ class UiEdgeTests(unittest.TestCase):
 
 
     def test_renumber_shots_button_fixes_script_order(self):
-        """02 初步分镜「重排镜头编号」：批量分镜按完成顺序编号（EP002 拿到 SH020…）时，
+        """03 初步分镜「重排镜头编号」：批量分镜按完成顺序编号（EP002 拿到 SH020…）时，
         预览确认后按集号顺序重排，只改编号；编号本来就连续时只提示不改文件。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)

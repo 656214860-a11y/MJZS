@@ -246,7 +246,7 @@ class App:
         # 第 45 期：「MCP 优化」也要醒目——它是要花钱的那一步，样式表里给它留了一档琥珀色。
         # 第 58 期第 4 条：「阶段配置」摆在「手动制作提示词」右边（见下面的循环）。
         # 第 59 期第 7 条：两行各有一颗、各配各的阶段；桌面端认的 self.stage_button 改指
-        # 「手动制作视频」右边那一颗（它才是这一页的阶段：08 视频生成）。
+        # 「手动制作视频」右边那一颗（它才是这一页的阶段：10 视频生成）。
         self.stage_button=None;self.prompt_stage_button=None
         for label,action in [('手动制作提示词',self.start_prompt_skill),('MCP 优化',self.make_prompt),('MCP 设置',lambda:ui_plugin_registry.module('agent.prompt_optimizer').settings(self)),('保存提示词',self.save_prompt),('导入提示词',self.import_prompt),('当前提示词目录',self.open_prompt_folder)]:
             # MCP 优化会产生额外调用成本；保留既有警示层级，其余动作统一走 token 组件。
@@ -308,7 +308,7 @@ class App:
                           self.manual_command_factory(self,'video',self.generate,self.window),True)
         ui_plugin_registry.module('stage_flow').follow(_video_button,'video')
         # 第 59 期第 7 条：「手动制作视频」右边补回它自己的「阶段配置」。
-        # 它配的是 08 视频生成这一段（出视频的模型、视频那几个 SKILL），
+        # 它配的是 10 视频生成这一段（出视频的模型、视频那几个 SKILL），
         # 与上面提示词那一颗各管各的一步——不是重复入口。
         if self.stage_callback is not None:
             self.stage_button=ui_plugin_registry.module('skill_panel').stage_button_for(
@@ -697,7 +697,7 @@ class App:
                 # （单击这一格打开，见 open_asset_picker），这一列不再单弹菜单。
                 return empty
             if column=='#5':
-                # 第 57 期第 5 条：「删除首帧」从这一列撤掉——删首帧统一到 06 首帧管理那一页
+                # 第 57 期第 5 条：「删除首帧」从这一列撤掉——删首帧统一到 08 首帧管理那一页
                 # （那里删的是同一张图，入口留一处），这一列只留「查看首帧图片」。
                 shot=self.studio.shot(sid)
                 path=self.studio.frame(shot,required=False)

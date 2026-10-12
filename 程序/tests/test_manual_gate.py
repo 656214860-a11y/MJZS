@@ -227,7 +227,7 @@ class ManualButtonTests(PageHelpers):
     def test_the_video_button_does_not_submit_when_stopped(self):
         with tempfile.TemporaryDirectory() as td:
             d, win, proj = self.page(td)
-            # 08 视频生成：这一页的 App 由桌面建（这一页要先进「本地生成」这一侧）。
+            # 10 视频生成：这一页的 App 由桌面建（这一页要先进「本地生成」这一侧）。
             for _ in range(2):
                 d.show(PAGE_OF['video'], video_mode="local"); win.update_idletasks(); win.update()
             application = d.video

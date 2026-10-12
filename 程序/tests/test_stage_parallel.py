@@ -330,7 +330,7 @@ class GateTests(unittest.TestCase):
             self.assertIn('2 项资产还没导入图片', ' '.join(result['problems']))
             text = spec.blocked_text(result)
             self.assertIn('资产管理', text)
-            self.assertIn('先到 03 资产管理', text)
+            self.assertIn('先到 05 资产管理', text)
 
     def test_a_stage_that_never_started_is_not_a_blocker(self):
         from test_ui_edges import make_minimal_project

@@ -297,7 +297,7 @@ CLICK_MS = 220                    # 单击贴片：等这么久没有第二下�
 # 第 29 期第 5 条：用户要「删掉闲聊，只问制作流程；主动问当前页该做的事；聊天框里不用回话，
 # 点一下确认就行」。于是每一页配一句问句 ＋ 照着做的那一句话（空着回车发出去的就是它）——
 # 原先那两句随口可爱的话（CHATTER_LINES）与五句猜意图的「哈喽~」（CHAT_HELLO_LINES）一并删掉，
-# 三虎从此只谈制作流程。页序号与 desktop.PAGES 一一对应（01 剧本准备 … 12 质检与交付）。
+# 三虎从此只谈制作流程。页序号与 desktop.PAGES 一一对应（01 剧本准备 … 13 质检与交付）。
 # 第 37 期第 5 条：用户要「聊天框里不要说切到第几页了、这是 XX 页，只需询问用户」——问句里
 # 只剩一句问，页面名一个字都不提（用户自己知道在哪一页）。问句都短、都像人说的话。
 PAGE_ASKS = (
@@ -2953,10 +2953,10 @@ class Pet:
         try:
             waiting = int(counts.get('storyboards', 0)) - int(counts.get('adopted', 0))
             if waiting > 0:
-                parts.append('%d 份分镜 JSON 还没采用（02 初步分镜 → 手动采用分镜）' % waiting)
+                parts.append('%d 份分镜 JSON 还没采用（%s → 手动采用分镜）' % (waiting, pet_bus.stage_label('storyboard')))
             missing = int(counts.get('shots', 0)) - int(counts.get('frames', 0))
             if missing > 0:
-                parts.append('首帧还差 %d 个镜头（06 首帧管理 → 手动制作首帧）' % missing)
+                parts.append('首帧还差 %d 个镜头（%s → 手动制作首帧）' % (missing, pet_bus.stage_label('keyframe')))
         except (TypeError, ValueError) as exc:
             self.errors.append(('gaps.parts', str(exc)))
         return parts
@@ -3616,7 +3616,7 @@ class Pet:
         return any(question == ask for ask, _command in PAGE_ASKS + (FALLBACK_ASK,))
 
     def page_name(self, page=None):
-        """这一页叫什么（「06  首帧管理」这种）：从宿主的页表里读，读不到就退回序号。
+        """这一页叫什么（「08  首帧管理」这种）：从宿主的页表里读，读不到就退回序号。
 
         第 36 期第 6 条起名字以宿主的页表为准（desktop.PAGES），拿不到也不编。第 37 期第 5 条
         之后换页那句问句不再报页码，这里留着给别的入口（菜单、用例）用同一份口径。

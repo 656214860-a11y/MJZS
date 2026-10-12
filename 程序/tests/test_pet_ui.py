@@ -2247,13 +2247,13 @@ class BroadcastTests(PetTestCase):
         parts = self.pet.gaps(force=True)
         self.assertEqual(len(parts), 1)
         self.assertIn('3 份分镜 JSON 还没采用', parts[0])
-        self.assertIn('02 初步分镜', parts[0])
+        self.assertIn('03 初步分镜', parts[0])
 
     def test_missing_first_frames_are_reported(self):
         self.counts.update(shots=10, frames=4)
         parts = self.pet.gaps(force=True)
         self.assertIn('首帧还差 6 个镜头', parts[0])
-        self.assertIn('06 首帧管理', parts[0])
+        self.assertIn('08 首帧管理', parts[0])
 
     def test_no_gap_means_nothing_to_say(self):
         self.assertEqual(self.pet.gaps(force=True), [])
@@ -4489,7 +4489,7 @@ class ProgressBubbleTests(PetTestCase):
         self.pet.cloud().close()
         self.now += pet_ui.PROGRESS_SECONDS + 1
         self.assertEqual(self.pet.progress_voice(at=self.now), '', '一样的话不再占一次')
-        self.pet.gaps = lambda at=None, force=False: ['首帧还差 36 个镜头（06 首帧管理 → 手动制作首帧）']
+        self.pet.gaps = lambda at=None, force=False: ['首帧还差 36 个镜头（08 首帧管理 → 手动制作首帧）']
         self.pet.cloud().close()
         self.assertTrue(self.pet.progress_voice(at=self.now), '进度真变了就不算重复，照样说')
 
@@ -4719,7 +4719,7 @@ class RoundBubbleTests(PetTestCase):
         small = self.round_cloud('进度：20%')
         floor = small._body
         big = self.round_cloud('进度：剧本准备 20%\n预计剩余 12 分钟\n'
-                               '首帧还差 36 个镜头（06 首帧管理 → 手动制作首帧）')
+                               '首帧还差 36 个镜头（08 首帧管理 → 手动制作首帧）')
         self.assertGreaterEqual(big._body, floor, '字多就大一点')
         self.assertLessEqual(big._body, pet_cloud.MAX_BODY, '再长也不许撑破上限')
 
@@ -4875,7 +4875,7 @@ class StickerFitTests(PetTestCase):
         「内容比最小高度还高」的时候——框身必须就停在「内容 ＋ 内边距 ＋ 顶上那条关闭」上，
         不能再多留一截空白（原来 PUFF 200／ROUND 188／TAG 110 三档底数就是这么白的）。
         """
-        said = '进度：剧本准备 20%，预计剩余 12 分钟，首帧还差 36 个镜头（06 首帧管理 → 手动制作首帧）。'
+        said = '进度：剧本准备 20%，预计剩余 12 分钟，首帧还差 36 个镜头（08 首帧管理 → 手动制作首帧）。'
         for shape in (pet_cloud.SHAPE_PUFF, pet_cloud.SHAPE_ROUND, pet_cloud.SHAPE_TAG):
             with self.subTest(shape=shape):
                 cloud = self.framed()
@@ -6194,7 +6194,7 @@ class CloudFitTests(PetTestCase):
         self.assertLess(short, pet_cloud.shape_width(pet_cloud.SHAPE_ROUND), '一句短话不占满整条')
         x, y, w, h = cloud._text_box()
         self.assertGreater(w, 0, '收窄之后写字框仍有地方落字')
-        cloud.lines = ['进度：剧本准备 20%\n首帧还差 36 个镜头（06 首帧管理 → 手动制作首帧）']
+        cloud.lines = ['进度：剧本准备 20%\n首帧还差 36 个镜头（08 首帧管理 → 手动制作首帧）']
         cloud._render()
         self.assertGreater(cloud.width(), short, '字多了椭圆就宽一档')
         self.assertLessEqual(cloud.width(), pet_cloud.shape_width(pet_cloud.SHAPE_ROUND), '封顶')

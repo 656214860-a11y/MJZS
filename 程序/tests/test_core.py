@@ -981,7 +981,7 @@ class ValidateProfileTests(unittest.TestCase):
             self.assertIn("各镜时长合计10秒", text)
 
     def test_duration_gap_numbers_and_skip_rules(self):
-        """第 62 期任务 12：02 初步分镜的「时长不符」标记与采用校验共用这一条判定。"""
+        """第 62 期任务 12：03 初步分镜的「时长不符」标记与采用校验共用这一条判定。"""
         ep = valid_episode(2); ep["duration"] = 10
         self.assertIsNone(writing.duration_gap(ep))
         ep["duration"] = 12

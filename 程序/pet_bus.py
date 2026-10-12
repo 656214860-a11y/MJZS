@@ -36,6 +36,14 @@ def stage_step(stage):
     return ('第%02d步' % index) if index else ''
 
 
+def stage_label(stage):
+    """用户在导航里看到的页面标签（两位步号 + 空格 + 权威名称）；未知阶段退回显示名。"""
+    key = str(stage or '')
+    if key in STAGES:
+        return '%02d %s' % (STAGES.index(key) + 1, STAGE_NAMES[key])
+    return stage_name(key)
+
+
 # 事件契约：kind → 必填负载字段。新事件必须先在这里登记，契约与实现不会各写一份。
 CONTRACT = {
     'stage.started': ('stage',),

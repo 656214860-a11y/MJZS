@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""05 分镜定稿那个文本框的自检（第 45 期）。运行：python test_final_viewer.py
+"""07 分镜定稿那个文本框的自检（第 45 期）。运行：python test_final_viewer.py
 
 用户这一轮提的两条：
 - 「文本框内鼠标滑动，提高文字下滑速度」——一格滚轮滚 9 行（原来 3 行）；
@@ -261,7 +261,7 @@ class SaveReminderTests(FinalViewerCase):
 
 
 class ButtonRowTests(FinalViewerCase):
-    """第 68 期任务 6：05 分镜定稿那一行按用户给的顺序排，主动作高亮。"""
+    """第 68 期任务 6：07 分镜定稿那一行按用户给的顺序排，主动作高亮。"""
 
     def row_buttons(self):
         """这一页里所有按钮，按建的先后：[…]。"""

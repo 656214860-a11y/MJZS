@@ -1,5 +1,6 @@
 """First-frame batch entry points sharing the project's asset task."""
 import json
+import pet_bus
 from pathlib import Path
 from storyboard_paths import media_root
 from file_cache import read_json
@@ -48,8 +49,8 @@ STATE_OUTSIDE = 'outside'
 STATE_NOTES = {
     STATE_DONE: '已有可用首帧，不重复生成',
     STATE_MISSING: '还没有首帧',
-    STATE_EMPTY: '首帧是空文件：请先在 04 首帧管理删除后重做',
-    STATE_DELETED: '首帧已删除：后台补帧不复活，请先在 04 首帧管理恢复',
+    STATE_EMPTY: '首帧是空文件：请先在 ' + pet_bus.stage_label('keyframe') + ' 删除后重做',
+    STATE_DELETED: '首帧已删除：后台补帧不复活，请先在 ' + pet_bus.stage_label('keyframe') + ' 恢复',
     STATE_UNSET: '未配置首帧路径，无法生成',
     STATE_OUTSIDE: '首帧路径越界当前目录，拒绝生成',
 }
@@ -138,7 +139,7 @@ def _target(shot, intent, state, attempted, references, prompt):
     if intent == MODE_RETRY:
         note = '上次提交：' + ATTEMPT_NOTES.get(attempted, attempted or '未知')
     elif intent == MODE_REPLACE:
-        note = '显式替换：会覆盖已有首帧（先经 04 首帧管理的删除／导入）'
+        note = '显式替换：会覆盖已有首帧（先经 ' + pet_bus.stage_label('keyframe') + ' 的删除／导入）'
     return {'shot_id': str(shot['id']), 'title': shot.get('title', ''), 'intent': intent,
             'intent_label': MODE_LABELS[intent], 'state': state, 'note': note,
             'references': refs, 'reference_count': len(refs), 'prompt': str(text or ''),
@@ -233,7 +234,7 @@ def candidates(source,shot_id=None,shot_ids=None):
         frame=(base/shot['frame']).resolve()
         if not frame.is_relative_to(base):raise ValueError('首帧路径超出当前镜头目录')
         if shot.get('frame_deleted'):
-            if shot_id:raise ValueError('此镜头首帧已删除，请先用 04 首帧管理的「恢复删除的首帧」恢复')
+            if shot_id:raise ValueError('此镜头首帧已删除，请先用 ' + pet_bus.stage_label('keyframe') + ' 的「恢复删除的首帧」恢复')
             continue
         if frame.is_file():
             if shot_id:raise ValueError('此镜头已有首帧，无需重复生成；需要重做时请先删除或替换')

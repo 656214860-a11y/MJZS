@@ -302,12 +302,12 @@ class Desktop:
         self.nav=[]
         self.asset_list_button=None
         for i,title in enumerate(PAGES):
-            # 第 48 期第 3 条：点「08 视频生成」的入口逻辑——本次启动第一次点先摆「选择生成方式」
+            # 第 48 期第 3 条：点「10 视频生成」的入口逻辑——本次启动第一次点先摆「选择生成方式」
             # 那一屏；之后（用户已经选过线上或线下）再点就直接回他选的那一侧，不再反复拦在选择页上。
             # 页内切分镜、刷新列表仍直接调 show()。
             b=SecondaryButton(side,text=title,command=lambda n=i:self.go_page(n),style='Nav.TButton');b.pack(anchor='w',fill='x',pady=2);self.nav.append(b)
             if i==PAGE['assets']:
-                # 第 71 期任务 2：「03 资产管理」下面挂一级缩进的二级入口「资产清单」——
+                # 第 71 期任务 2：「05 资产管理」下面挂一级缩进的二级入口「资产清单」——
                 # 一页看完每个角色的正典板与换状态面板（见 asset_detail.show_roster）。
                 sub=SecondaryButton(side,text='资产清单',command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
                 sub.pack(anchor='w',fill='x',pady=(0,2))
@@ -334,7 +334,7 @@ class Desktop:
         # 第 30 期第 6／8 条：阶段配置那颗按钮从标题栏挪到「剧本准备」页的「创作入口」那一行，
         # 紧挨着「手动制作剧本」（按钮那时才建得出来，见 brief_editor）；这里先留个占位，别的页没有它。
         self.stage_button=None
-        # 第 33 期第 4 条：05 分镜定稿那一页没有「手动XX」，它的「阶段配置」挂在页标题右边。
+        # 第 33 期第 4 条：07 分镜定稿那一页没有「手动XX」，它的「阶段配置」挂在页标题右边。
         self.header_stage_button=None
         self.header_status.bind('<Configure>',lambda e:self.header_status.configure(wraplength=max(120,e.width)))
         self.header_model.bind('<Configure>',lambda e:self.header_model.configure(wraplength=max(120,e.width)))
@@ -2473,15 +2473,15 @@ class Desktop:
 
     def shot_numbering_hint(self):
         """编号与剧本顺序不一致时返回一句提示。只提示不自动改名：重排会改写项目里的文件名与
-        文本引用，属于用户可见的改动，必须由人在 02 初步分镜 点「重排镜头编号」确认后执行。"""
+        文本引用，属于用户可见的改动，必须由人在 03 初步分镜 点「重排镜头编号」确认后执行。"""
         import shot_numbering
         try:
-            # 看的是目录里全部分镜 JSON，而不是只看已采用的：编号错了要在 02 初步分镜 就发现，
+            # 看的是目录里全部分镜 JSON，而不是只看已采用的：编号错了要在 03 初步分镜 就发现，
             # 不必等采用之后才在下游暴露。
             from stage_execution_service import storyboard_catalog as catalog
             problems=shot_numbering.verify(self.root,[entry['path'] for entry in catalog(self.root,'storyboard')])
         except (OSError,ValueError):return ''
-        return '；镜头编号与剧本顺序不一致（'+problems[0]+'），可在 02 初步分镜 点“重排镜头编号”修正' if problems else ''
+        return '；镜头编号与剧本顺序不一致（'+problems[0]+'），可在 '+pet_bus.stage_label('storyboard')+' 点“重排镜头编号”修正' if problems else ''
     def final_missing_assets(self,source):
         """当前分镜引用的资产里还没有图片的编号集合；空集表示可以定稿。"""
         from asset_context import references
@@ -4211,7 +4211,7 @@ class Desktop:
     def go_page(self,index):
         """侧栏导航的入口（第 48 期第 3 条）。
 
-        「08 视频生成」这一格要记住用户第一次选的那一侧：本次启动第一次点它先摆「选择生成方式」，
+        「10 视频生成」这一格要记住用户第一次选的那一侧：本次启动第一次点它先摆「选择生成方式」，
         选定之后再点就直接进那一侧；想换一侧用页里的「返回生成方式」。
         """
         if index==PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
@@ -4225,7 +4225,7 @@ class Desktop:
         而拦下翻页（批次期间必须能切换页面）；程序内的其他位置仍直接调 show()，
         这样页面真出问题时会照旧抛出异常，不会被测试漏掉。
 
-        第 35 期第 4 条：video_mode 原样透给 show()——侧栏点「08 视频生成」时传 'choose'。
+        第 35 期第 4 条：video_mode 原样透给 show()——侧栏点「10 视频生成」时传 'choose'。
         """
         try:self.show(index,video_mode=video_mode)
         except Exception as exc:self.notifier.error(str(exc), title='页面无法显示')
@@ -4240,7 +4240,7 @@ class Desktop:
             self.preserve_idea_draft()
         scroll_offset=self.canvas.canvasy(0) if previous_index==index else 0
         self.page_index=index
-        # 第 71 期任务 2：资产详情页与资产清单页都是「03 资产管理」的子路由；翻到别的页就回主页面。
+        # 第 71 期任务 2：资产详情页与资产清单页都是「05 资产管理」的子路由；翻到别的页就回主页面。
         if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
 
         if index==PAGE['video']:
@@ -5593,10 +5593,10 @@ class Desktop:
         from continuity_ledger import write
         return write(self.root,self.continuity_ledger_data() if ledger is None else ledger)
     def continuity_page(self):
-        """04 连贯性清单（第 62 期任务 11）。
+        """06 连贯性清单（第 62 期任务 11）。
 
         第 61 期 v0.8 它只是资产管理页底部的一个折叠区；用户要它成为独立的一步（左侧列表
-        「03 资产管理」之下、「05 分镜定稿」之上），显示方式照首帧管理页那一套：上面一行按钮，
+        「05 资产管理」之下、「07 分镜定稿」之上），显示方式照首帧管理页那一套：上面一行按钮，
         下面按组各一张表。表里的数字全部来自同一次台账计算，页面上写的批次、镜头与结论不会
         各说各话（第 62 期任务 11 的「信息要准确」）。
         """
@@ -5829,7 +5829,7 @@ class Desktop:
     def open_asset_roster(self):
         """进「资产清单」（第 71 期任务 2）：一页看完每个角色的正典板与换状态面板。
 
-        与详情页一样挂在「03 资产管理」下面，只是不含单张表格——清单页只摆展示，
+        与详情页一样挂在「05 资产管理」下面，只是不含单张表格——清单页只摆展示，
         要改内容点每一项下面的「编辑这一项」进详情页，两页写的是同一份资产 json。
         """
         self.asset_detail_id=None;self.asset_roster=True
@@ -7012,7 +7012,7 @@ class Desktop:
         进去之后就不用再翻回来问，两个入口也改成主色按钮，一眼能看见。
         """
         from video_navigation import confirm_rows,local_model
-        self.title.configure(text='08  视频生成 · 选择生成方式')
+        self.title.configure(text=pet_bus.stage_label('video')+' · 选择生成方式')
         # 第 48 期第 2 条：这一屏不再挂「阶段配置」——选定方式后进工作台那一步也有一颗，两处是同一件事。
         # （仍是页标题右边没有入口的页面只剩 08／09／10，见 header_stage_config。）
         # 第 38 期第 2 条：「线上走」和「API（按秒计费）」之间那个空格是整句唯一的断点，
@@ -7055,7 +7055,7 @@ class Desktop:
         if mode is None:
             self.video_home()
             return
-        self.title.configure(text='08  视频生成 · '+('线上生成' if mode=='cloud' else '本地生成'))
+        self.title.configure(text=pet_bus.stage_label('video')+' · '+('线上生成' if mode=='cloud' else '本地生成'))
         from video_navigation import show_back
         show_back(self)
         top=ttk.Frame(self.content);top.pack(fill='x',pady=(0,4))

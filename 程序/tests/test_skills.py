@@ -1809,7 +1809,7 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(panel.skill_action.get(), skill_panel.MANAGE_ALL)
 
     def test_stage_label_names_the_stage(self):
-        """第 30 期第 8 条：下拉框那一列的名字（面板抬头还是「阶段配置 · 06 首帧管理」）。"""
+        """第 30 期第 8 条：下拉框那一列的名字（面板抬头还是「阶段配置 · 08 首帧管理」）。"""
         self.assertEqual(skill_panel.stage_label('keyframe'), '08 首帧管理')
         self.assertEqual(skill_panel.stage_label('没有这个'), '没有这个')
         self.assertEqual(skill_panel.panel_title('keyframe'), '阶段配置 · 08 首帧管理')
@@ -1830,7 +1830,7 @@ class PanelTests(unittest.TestCase):
             return found
 
         pickers = [w for w in walk(window)
-                   if isinstance(w, ttk.Combobox) and '06 首帧管理' in list(w.cget('values'))]
+                   if isinstance(w, ttk.Combobox) and '08 首帧管理' in list(w.cget('values'))]
         self.assertEqual(pickers, [], '面板里不再有切到别的阶段的入口')
         texts = [str(w.cget('text')) for w in walk(window) if isinstance(w, ttk.Label)]
         self.assertIn('阶段配置 · 01 剧本准备', texts, '抬头写的就是本页那一阶段的标题')
@@ -1867,18 +1867,18 @@ class PanelTests(unittest.TestCase):
         self.addCleanup(panel.destroy)
         run = {'results': [
             {'skill': 'firstframe-batch', 'status': skill_orchestrator.PAGE, 'ok': True,
-             'name': '批量首帧', 'page': 4, 'pageTitle': '06 首帧管理',
-             'detail': '这一步得回「06 首帧管理」页面上按'},
+             'name': '批量首帧', 'page': 4, 'pageTitle': '08 首帧管理',
+             'detail': '这一步得回「08 首帧管理」页面上按'},
             {'skill': 'firstframe-quality', 'status': skill_orchestrator.PAGE, 'ok': True,
-             'name': '首帧质检', 'page': 4, 'pageTitle': '06 首帧管理',
-             'detail': '这一步得回「06 首帧管理」页面上按'}],
+             'name': '首帧质检', 'page': 4, 'pageTitle': '08 首帧管理',
+             'detail': '这一步得回「08 首帧管理」页面上按'}],
             'failed': [],
             'text': '这一批 2 个 SKILL：成了 0 个，等您点头 0 个，没成 0 个。'}
         panel.report(run)
         self.assertEqual(panel.state.cget('text'), '做完了 0 个，2 个要回页面按，没成 0 个')
         reason = panel.reason.cget('text')
         self.assertIn('不算做完', reason, '得说清「为什么不算做完」')
-        self.assertIn('06 首帧管理', reason)
+        self.assertIn('08 首帧管理', reason)
         self.assertIn('批量首帧', reason)
 
     def test_the_report_counts_a_real_finish_and_a_failure(self):
