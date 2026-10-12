@@ -1,5 +1,13 @@
 # 当前快照
 
+## 2026-10-13：R1403 合并后修正 project_status.md
+- 事实：`master=75a148d` 已合入 `codex/R1308-idea-brief-split`（idea_chat 五类职责拆分，并发会话 01:42 提交）；该合并误删 master 侧 26 条 O 系列（R1357…R1312，含 R1338/R1339/R1340）。
+- 修正：以 master（`e1cfbdb`）为底、只并入分支新增（轮次头 1404）→ 提交 `c7cdd96`；报告补记 `86fecfc`。相对 `e1cfbdb` 仅 1 行差异。
+- 验证：冒烟 8/8；定向 7 绿 1 红（既有环境红）；架构 341/341。
+- 未完结：改 `_layers.py` 触发的 `--all --safe` **仍无绿凭证**（两次后台全量未写 receipts；最新绿 R1400/tree `60d4e23d`），需补。
+- 并发：第二会话同仓活动；`stash@{0}` 未 pop（避免覆盖 master 版）。
+
+
 ## 2026-10-13：UI 路线图 §一 第 2 项（设计 token）末页迁移 agent/prompt_optimizer.py（R1402，功能轮 §3.1）
 - 范围＝零视觉变更子集最后一处：`agent/prompt_optimizer.py` 10 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token；新增 `from ui_tokens import SPACING`。
 - 行号平移同步：架构统一基数 第四项 `agent/prompt_optimizer.py` 175→176；覆盖率审计21 位点 173→174。
