@@ -41,3 +41,9 @@
 - 未重启桌面应用、未做真实四角色／直连 API 端到端点击；单元与静态验证不等于真实交互验收。
 
 [TASK_COMPLETE] 阶段④自然剧本已能按集解析并记录分集增量账本；续写时只把「相对上次生成有改动」的集正文注入模型（首次／无账本退化为全量），未变集只给集号；本地 Agent 同获集号提示；三类退化场景与新增用例定向覆盖，默认冒烟 8/8。
+
+## 合入 master（R1366）
+- 按规则 27 在中央入口重新认领 R1366，把分支 `codex/episode-incremental-context` 合入 master（merge commit `f252de3`，父提交 master `9777bf4`）。
+- 冲突解析：`程序/维护记录/架构统一基数.json` 的 writing_api.py `json.loads` 行号按合并后实测定为 **548**（分支记 522、master 记 512 均已失效）；`.agent-handoff/snapshot.md`／`work-log.md` 保留 master 现状并补合入记录；其余文件自动合并无冲突。
+- 合并树实测：定向 12/12（EpisodeIncrementalTests 5＋Agent 集号 4＋架构棘轮 3）、分集往返 1/1、默认冒烟 8/8；`tests.test_script_contract`／`tests.test_writing_api` 仅既有缺 gitlink 假红（3 failure＋30 error 全部指向 `skills/00全流程SKILL/AIGC创作全流程` 未实体化）。
+- 轮次记账：未改 `program/project_status.md` 轮次头、未新建 `tasks_round_1366_result.md`——主工作树中另有并行轮次已把 `project_status.md`（当前轮次：1366）与 `tasks_round_1365_result.md` 暂存待提交，新增 1366 结果会让「当前轮次＝最新结果＋1」失衡；留待该并行轮提交后统一。
