@@ -947,8 +947,8 @@ def save_stage_editing_checklist(project, text):
     return result.data
 
 
-def publish_handoff_bundle(project, name, artifacts, *, auto=False):
-    """交接包发布编排：L3 负责目录切换、字节发布与旧自动包回收。"""
+def publish_handoff_bundle(project, name, artifacts, *, auto=False, summary=None):
+    """交接包发布编排：L3 负责目录切换、字节发布、可校验清单登记与旧自动包回收。"""
     root = Path(project).resolve()
     edit_dir = write_dir(root, 'edit')
     final = edit_dir / str(name)
@@ -971,6 +971,10 @@ def publish_handoff_bundle(project, name, artifacts, *, auto=False):
         if data is None:
             data = Path(item['source']).read_bytes()
         payload[target] = bytes(data)
+    from handoff_service import BUNDLE_MANIFEST_NAME, build_bundle_manifest
+    manifest = build_bundle_manifest(summary, [{'name': Path(target).name, 'data': data}
+                                               for target, data in payload.items()])
+    payload[output / BUNDLE_MANIFEST_NAME] = json.dumps(manifest, ensure_ascii=False, indent=2).encode('utf-8')
     publish_stage_bundle(payload, lambda _items: True, lambda: None)
     if auto:
         if final.exists():
@@ -1101,6 +1105,31 @@ def publish_stage_handoff_bundle(project, shots, rows, subtitle=None, auto=False
     if not result.ok:
         raise ValueError(result.reason)
     return result.data
+
+
+def verify_handoff_bundle(folder):
+    """离线校验一个已解包的交接包：读清单、按清单核对每个文件，只读不改。"""
+    from handoff_service import BUNDLE_MANIFEST_NAME, verify_manifest
+    folder = Path(folder).resolve()
+    manifest_path = folder / BUNDLE_MANIFEST_NAME
+    if not manifest_path.is_file():
+        return {'ok': False, 'problems': ['缺少交接包清单，无法离线校验：' + BUNDLE_MANIFEST_NAME],
+                'missing': [], 'count': 0, 'label': ''}
+    try:
+        manifest = file_cache.read_json(manifest_path)
+    except (OSError, ValueError):
+        manifest = None
+    if manifest is None:
+        return {'ok': False, 'problems': ['交接包清单读不出来或格式坏了'], 'missing': [], 'count': 0, 'label': ''}
+
+    def probe(name):
+        path = (folder / str(name)).resolve()
+        if not path.is_relative_to(folder):
+            raise OSError('交接包条目越界：' + str(name))
+        if not path.is_file():
+            raise OSError('交接包文件缺失：' + str(name))
+        return path.stat().st_size, file_cache.file_digest(path)
+    return verify_manifest(manifest, probe)
 
 
 def _model_ids(desktop, stage):

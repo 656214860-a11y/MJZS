@@ -7300,7 +7300,7 @@ class Desktop:
         self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(_edit_bar,self,PAGE['edit'])
         self.stage_button.configure(style='Tokens.Primary.TButton')
         self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
-        self.note('自动粗剪只拼装已验收的镜头：未验收的镜头会被跳过并列在状态栏，不再因为个别镜头卡住整集。剪映负责精剪、音量、字幕和转场；交接包保留镜头顺序。本次输出规格：%s（等比缩放＋居中留边，不裁切）。'%controller.output_spec_text())
+        self.note('自动粗剪只拼装已验收的镜头：未验收的镜头会被跳过并列在状态栏，不再因为个别镜头卡住整集。剪映负责精剪、音量、字幕和转场；交接包保留镜头顺序。素材交接包只给有序视频与字幕，不是剪映草稿，可用「校验交接包」离线核对。本次输出规格：%s（等比缩放＋居中留边，不裁切）。'%controller.output_spec_text())
         edit_buttons=[]
         def edit_button(text,command,primary=False):
             """保留共享事件封装，只让后期页采用统一的视觉组件样式。"""
@@ -7322,6 +7322,7 @@ class Desktop:
         if not has_downloaded:self.note('还没有已下载的镜头视频，自动粗剪与交接包暂不可用；请先在第07步生成并下载视频。')
         edit_button('启动剪映',self.launch_editor)
         edit_button('打开后期目录',lambda:open_path(edit_dir))
+        edit_button('校验交接包',self.verify_handoff)
         edit_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('edit'))
         f=edit_dir/'剪辑优化清单.md'
         from file_cache import read_text
@@ -7395,6 +7396,24 @@ class Desktop:
         from stage_execution_service import publish_stage_handoff_bundle
         return publish_stage_handoff_bundle(self.root, self.studio.episode['shots'], rows,
                                             subtitle, auto)
+    def verify_handoff(self):
+        """离线校验一个已解包的交接包：选目录、照清单核对文件，如实报缺项与被改文件。"""
+        folder=FileDialog(self.win).directory(title='选择已解包的交接包目录')
+        if not folder:return
+        def work():
+            from stage_execution_service import verify_handoff_bundle
+            return verify_handoff_bundle(folder)
+        def done(report):
+            label=report.get('label') or '素材交接包'
+            if report.get('ok'):
+                missing=report.get('missing') or []
+                text='交接包校验通过：%s，共 %d 个文件'%(label,report.get('count',0))
+                if missing:text+='；清单声明缺 '+'、'.join(str(item) for item in missing)+' 镜（素材交接包允许缺镜）'
+                self.status.set(text)
+                return
+            self.status.set('交接包校验未通过：'+'；'.join(report.get('problems') or ['未知问题']))
+        self.async_(work,done)
+
     def delivery(self):
         from stage_workspace_service import ensure_delivery_workspace
         result=ensure_delivery_workspace(self.root)

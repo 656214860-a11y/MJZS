@@ -2516,7 +2516,7 @@ class UiEdgeTests(unittest.TestCase):
             d._tick_once()
             self.assertIn("自动交接包已整理", d.status.get())
             self.assertEqual(sorted(p.name for p in folder.iterdir()),
-                             ["001_SH001.mp4", "交接包标记.json", "导入剪映说明.txt", "镜头顺序.json"])
+                             ["001_SH001.mp4", "交接包标记.json", "交接包清单.json", "导入剪映说明.txt", "镜头顺序.json"])
             manifest = json.loads((folder / "镜头顺序.json").read_text(encoding="utf-8"))
             self.assertEqual([row["shot"] for row in manifest], ["SH001"])
             marker = json.loads((editing(proj) / "自动交接.json").read_text(encoding="utf-8"))
@@ -2537,7 +2537,7 @@ class UiEdgeTests(unittest.TestCase):
             d._tick_once()
             self.assertTrue(folder.is_dir())
             self.assertEqual(sorted(p.name for p in folder.iterdir()),
-                             ["001_SH001.mp4", "导入剪映说明.txt", "镜头顺序.json"])
+                             ["001_SH001.mp4", "交接包清单.json", "导入剪映说明.txt", "镜头顺序.json"])
             self.assertIn("自动整理交接包未完成", d.status.get())
 
 
@@ -3991,7 +3991,7 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(assembled, [1])                          # 同一批验收只粗剪一次
             self.assertTrue((editing_stage(proj) / "自动粗剪.json").is_file())
             self.assertEqual(sorted(p.name for p in folder.iterdir()),
-                             ["001_SH001.mp4", "交接包标记.json", "导入剪映说明.txt", "镜头顺序.json"])
+                             ["001_SH001.mp4", "交接包标记.json", "交接包清单.json", "导入剪映说明.txt", "镜头顺序.json"])
             self.assertEqual(Path(d.studio.episode_path).resolve(), source.resolve())   # 工作集一路跟随当前分镜
             steps = [next((i for i, text in enumerate(lines) if needle in text), None)
                      for needle in ("无人值守自动补视频", "自动粗剪完成", "自动交接包已整理")]
@@ -4183,7 +4183,7 @@ class UiEdgeTests(unittest.TestCase):
             self.assertTrue((proj / "data" / "clips" / "SH001.mp4").is_file())
             self.assertTrue((editing_stage(proj) / "自动粗剪.json").is_file())
             self.assertEqual(sorted(p.name for p in folder.iterdir()),
-                             ["001_SH001.mp4", "交接包标记.json", "导入剪映说明.txt", "镜头顺序.json"])
+                             ["001_SH001.mp4", "交接包标记.json", "交接包清单.json", "导入剪映说明.txt", "镜头顺序.json"])
             # 工作集一路跟到定稿：09/10 不能还按旧工作稿执行
             self.assertEqual(Path(d.studio.episode_path).parent.name, finals[0].name)
             for needle in ("已自动生成定稿", "首帧批次结束", "自动补视频", "自动粗剪完成", "自动交接包已整理"):
