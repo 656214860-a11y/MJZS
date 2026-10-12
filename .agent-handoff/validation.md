@@ -1,3 +1,7 @@
+## 2026-10-12 O44 完成
+
+- 2026-10-12 O44：`model_secrets.py`（L1）新增 `_BLOB_HEADER`／五状态常量／`looks_like_blob`／`diagnose`／`verdict`；`diagnostic_capture.py`（L1）新增 `redact`／`retention_note`／`preview_detail`（含 keep_days／expires_at／expired）与 URL 查询参数脱敏分支；`model_diagnostics.py`（L1）新增 `_scrub`（context／response_meta 落盘前脱敏）。测试：新增 `tests/test_secret_status_diagnostics.py` 13/13；定向 `-k secret_status_diagnostics diagnostic_capture model_diagnostics model_pool pet_llm writing_api hollmwood_roles pet_settings` 269 条、仅 test_model_pool 1 条既知主树环境红（路径限定 git stash 复现：与本改动无关）、`-k test_api test_recycle` 全绿；架构 312/312；默认冒烟 8/8。全量：1371−1370=1<5、未命中 §5，收口在干净 master 跑一次 `--all --safe`（结果待收尾补记）。
+
 ## 2026-10-12 O43 完成
 
 - 2026-10-12 O43：`skill_orchestrator.py`（L3）新增 `CHECKPOINT_VERSION`／`checkpoint_digest()`；`before_step(..., skills=None)` 写 `version`／`at`／`project`／`skills`／`digest` 且「写成功才认内存状态」；新增只读 `resume_preview()`（`continue`／`skip`／`verify` 逐步判定＋工具调用完成/阶段成果完成分开＋`paid` 列表＋`text`）。测试：新增 `tests/test_resume_preview.py` 12/12；定向 `-k resume_preview skill_registry skill_budget skill_templates skills workflow_settings workflow_tasks pet_agent pet_state stage_flow` 318/318；`-k test_pet_ui skill_panel` 586/586；架构 312/312；默认冒烟 8/8；`test_workflow` 主树 1 条红为既知主树环境项。全量：1370−1369=1<5、未命中 §5，收口在干净 master 跑一次 `--all --safe`（4899/4899、0 红、963.97 秒，凭据 round=1370、tree=4a7be90a…）。
