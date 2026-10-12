@@ -40,8 +40,8 @@
 ## 全量判定
 - 1364 − last_full_safe_all_round(1363) = 1 < 5，无五轮欠账；但本轮直接改 `storage_maintenance.py`（§5 明列「删除语义」），命中当次全量升级条件，收口必须跑一次干净 master 全量。
 - 复用检查：`.git/full-safe-receipts.json` 现有最近绿凭据为 round=1363、tree=f19816aa…（2026-10-12T14:44:12，7 日内），但本轮改了 `storage_maintenance.py` 与测试，`HEAD:程序` 内容树不同，不能复用。
-- 全量结果：见收尾记录（干净 master 工作树 `o07-fullsafe-master`，`run_selftests.py --all --safe`）。
+- 全量结果：第 1 次干净 master 全量 **4844/4844、0 红、483.2 秒**（工作树 `o07-fullsafe-master`，HEAD=`597f787`），凭据已写 `.git/full-safe-receipts.json`：`round=1364`、`tree=0db16c0f39d6704ffa8b56caf674b181787b17f3`（已核对 ＝ `HEAD:程序`）、`at=2026-10-12T14:59:24`，`last_full_safe_all_round=1364`。无阈值抖动项失败（`test_desktop_startup_perf` 14 条、`test_perf_baseline` 9 条本轮均绿）。
 
 ## 提交
 - 本轮改动：`程序/storage_maintenance.py`、`程序/tests/test_video_retention.py`（新）、`程序/tasks_round/tasks_round_1364_result.md`（新）、`程序/project_status.md`、`.agent-handoff/{snapshot,work-log,validation,backlog,risks}.md`。
-- 提交状态：见下方收尾提交记录。
+- 提交状态：已提交内容提交 `597f787`（只含本轮 9 个文件；未含主树他人已暂存的 `程序/idea_chat.py`、`程序/idea_attachments.py`、`程序/配置/SKILL/预设.json`）。全量结果（4844/4844、tree=0db16c0f）由紧随其后的收尾提交记入本报告、`project_status.md` 与接力文件（沿用同一轮次 R1364，中央 `last_claimed` 仍为 1364）。
