@@ -1,5 +1,13 @@
 # 当前快照
 
+## 2026-10-13：agent 进程原语收口到 platform_tools（R1394，修复轮 §3.2）
+- 范围＝R1393 登记的 4 条 agent 真候选中「进程原语」2 条（覆盖率审计21）。
+- 实现（生产代码，最小改动，行为不变）：`agent/core.py` `command()`：`subprocess.run` → `platform_tools.run_process`（惰性 import、移除模块级 `import subprocess`）；`agent/prompt_optimizer.py` MCP 桥子进程同改（模块级 import，保留 `subprocess` 供 `TimeoutExpired`／`SubprocessError`）。
+- 台账／判据：`覆盖率审计21` 两条 pending→migrated、count 2→0；修正 `第四项` `json.loads` 行号平移（core 13→12、prompt_optimizer 174→175）；判据第 21 项真候选 2→0。
+- 验证：定向 7/7、默认冒烟 8/8、架构 341/341；运行期 `command` 复验通过；1394−1390=4<5 且未命中 §5 升级条件 → 不跑全量。提交 `a966c41`。
+- 保留待裁定：`agent/core.py:189/208`（HTTPS 传输，覆盖率审计26）。
+- 下一轮候选：① 覆盖率审计26 两条 HTTPS 传输裁定／收口；② secret sink（第 27 项）是否同批递归化；③ 设计 token 迁移（卡在调色板决策，需用户确认）；④ 旧页面文字层级 backlog。
+
 ## 2026-10-12：覆盖率审计棘轮口径递归化（R1393，修复轮 §3.2）
 - 范围＝R1390 登记待办「其余根目录口径门禁（coverage ratchet 20/21/22/24/25/26）是否同批递归化」的逐段评估与执行。**不改生产代码。**
 - 评估：全递归实测新增 kind 21＝9／22＝2／26＝2，其中 skills／scripts／reference／outputs 属非产品目录；剔除非产品后新命中仅 agent 包 4 条。
