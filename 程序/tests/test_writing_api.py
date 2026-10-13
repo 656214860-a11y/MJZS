@@ -419,6 +419,43 @@ class WritingApiTests(unittest.TestCase):
                 self.assertEqual(list(project_stages.writing(project).rglob('*.md')), [])
                 roles.assert_not_called()
 
+    def test_user_edited_pending_draft_is_revised_not_invalidated(self):
+        """待确认草稿从未被确认；用户手改后重发应以改后正文修订，已确认前置文件仍严格比对。"""
+        import json
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gpt-4o', hollmwood_enabled=False)
+            folder = project_stages.writing(project)
+            save(folder / 'brief_complete.json', self.complete_brief())
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat', side_effect=[
+                     {'ok': True, 'text': '# 项目设定\n雨夜。\n待确认'},
+                     {'ok': True, 'text': '# 剧本大纲\n追查底片。\n待确认'}]):
+                writing_api.reply(project, '开始', publish=publish_stage_text)
+                writing_api.reply(project, '确认', publish=publish_stage_text)
+            ledger = folder / 'preparation_state.json'
+            outline = folder / json.loads(ledger.read_text(encoding='utf-8'))['documents'][-1]['path']
+            outline.write_text('# 剧本大纲\n用户改成：追查失踪的胶卷。\n待确认', encoding='utf-8')
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat',
+                       return_value={'ok': True, 'text': '# 剧本大纲\n追查失踪的胶卷，雨夜收网。\n待确认'}) as chat:
+                result = writing_api.reply(project, '按我改的大纲重新输出', publish=publish_stage_text)
+            self.assertTrue(result['ok'])
+            prompt = json.dumps(chat.call_args, ensure_ascii=False, default=str)
+            self.assertIn('追查失踪的胶卷', prompt)
+            self.assertIn('用户已直接修改这份草稿', prompt)
+            documents = json.loads(ledger.read_text(encoding='utf-8'))['documents']
+            self.assertTrue(documents[0]['confirmed'])
+            self.assertFalse(documents[-1]['confirmed'])
+            setting = folder / documents[0]['path']
+            setting.write_text('# 项目设定\n未经确认的改动。\n待确认', encoding='utf-8')
+            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
+                 patch('writing_api.PoolAdapter.chat') as chat:
+                with self.assertRaisesRegex(ValueError, '原确认失效'):
+                    writing_api.reply(project, '继续', publish=publish_stage_text)
+            chat.assert_not_called()
+
     def test_deleted_or_modified_confirmed_document_blocks_roles(self):
         from agent.core import save
         for deleted in (True, False):

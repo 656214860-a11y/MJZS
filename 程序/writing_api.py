@@ -919,6 +919,12 @@ def _preparation_state(project, brief):
         # 被真正改动或删除才判失效，换行口径差异不再误报“文件已删除或修改”。
         digest = hashlib.sha256(text.encode('utf-8')).hexdigest()
         with_newline = hashlib.sha256((text + '\n').encode('utf-8')).hexdigest()
+        pending = index == len(documents) - 1 and document.get('confirmed') is not True
+        if pending and text.strip() and document['sha256'] not in (digest, with_newline):
+            # 待确认的当前草稿从未被确认过，用户手改正是要模型据此修订：
+            # 以改后正文为新基准，不判失效；已确认的前置阶段仍严格比对。
+            document['sha256'] = digest
+            document['user_edited'] = True
         if not text.strip() or document['sha256'] not in (digest, with_newline):
             raise ValueError(document['stage'] + '文件已删除或修改，原确认失效；请恢复已审阅文件后继续')
         texts.append(text)
@@ -1024,7 +1030,10 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
              '“# 人物设定（角色卡）”，末尾“待确认”。若决定进入自然剧本，且当前角色卡已获用户同意，'
              '只返回 {"next_stage":"自然剧本"}，由程序启动既有剧本生成流程，不在本轮重复撰写自然剧本。\n')
     for position, text in enumerate(texts):
-        task += '\n' + ('当前待修改草稿：' if pending and position == index else '已确认前置文件：')
+        current = pending and position == index
+        task += '\n' + ('当前待修改草稿：' if current else '已确认前置文件：')
+        if current and documents[position].get('user_edited'):
+            task += '（用户已直接修改这份草稿；以改后正文为准，保留其改动，在此基础上修订）'
         task += '\n<' + PREPARATION_STAGES[position] + '>\n' + text + '\n</' + PREPARATION_STAGES[position] + '>\n'
     task += '\n本轮用户原话（用于判断阶段意图）：\n' + str(creative if user_message is None else user_message) + '\n'
     task += '\n本次创意输入（含补充材料）：\n' + str(creative or '') + '\n'
