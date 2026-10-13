@@ -61,11 +61,11 @@ try:
         window._drama_hold_alpha=False
         window.attributes('-alpha',1);window.lift();window.focus_force()
     def loaded():
-        # 首帧完成、今日项目页与剧本准备整页都建完、没有排队中的建页任务，才算加载完。
+        # 首帧完成、今日项目页的壳摆好就揭开；剧本准备整页随后在窗口里建，
+        # 不再让用户对着启动画面多等这一段（R1413 实测约 0.5～0.8 秒）。
         if not getattr(window,'_desktop_first_paint_complete',False):return False
         if getattr(window,'_desktop_loading_project',False):return False
-        if getattr(desk,'_startup_project_page_job',None) is not None:return False
-        return getattr(desk,'_startup_script_build_job',None) is None
+        return getattr(desk,'_startup_project_page_job',None) is None
     def track():
         try:return platform_tools.window_outer_rect(int(window.wm_frame(),16))
         except (tk.TclError,ValueError):return None

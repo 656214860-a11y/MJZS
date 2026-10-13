@@ -4392,6 +4392,10 @@ class Desktop:
             self.status.set('正在打开剧本准备…')
             self.fit_content()
             def build_startup_script_page():
+                if self._startup_window_held() and not getattr(self,'shutting_down',False):
+                    # 启动画面还盖着：先让启动器揭开主窗口、露出这层轻量壳，再建整页。
+                    self._startup_script_build_job=self.win.after(15,build_startup_script_page)
+                    return
                 self._startup_script_build_job=None
                 if getattr(self,'shutting_down',False) or self.root!=target or self.page_index!=PAGE['script']:
                     # 延后建页可能因用户切页而取消；tick 的解冻不应依赖建页成功，
@@ -4407,7 +4411,7 @@ class Desktop:
                 self._schedule_project_recovery(target)
             # 不能用 after_idle：空闲队列会在 Windows 处理首帧绘制之前继续执行，
             # 仍会把完整建页压回同一帧。40ms 给出一次实际消息循环机会。
-            self._startup_script_build_job=self.win.after(10 if self._startup_window_held() else 40,build_startup_script_page)
+            self._startup_script_build_job=self.win.after(40,build_startup_script_page)
             return
         if index==PAGE['assets'] and getattr(self,'asset_roster',False):
             # 第 71 期任务 2：侧栏「资产清单」那一格摆的是清单页（每个角色的正典板与状态变体）。
