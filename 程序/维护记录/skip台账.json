@@ -578,6 +578,78 @@
       "reference": ""
     },
     {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_nav_back_reuses_page_and_restores_stage_button",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_same_page_refresh_and_plain_show_rebuild",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_project_change_drops_cache",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_hidden_page_ignores_clicks_on_other_pages",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_nav_highlight_is_drawn_before_page_builds",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_hidden_page_file_change_leaves_visible_page_alone",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_hidden_page_scan_failure_leaves_visible_status_alone",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_hidden_page_apply_failure_leaves_visible_status_alone",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
       "file": "tests/test_perf_baseline.py",
       "test": "PerfBaseline.desktop",
       "ordinal": 1,

@@ -517,6 +517,7 @@ def show(desktop):
     # Selection mutations remain a page-action boundary; the L2 service is
     # imported normally so this L4 page has no unregistered dynamic import.
     project=Path(desktop.root).resolve()
+    page_content=desktop.content
     controller=StoryboardPageController(project)
     adopted=controller.adopted
     removed=controller.prune_invalid_adoptions()
@@ -612,8 +613,9 @@ def show(desktop):
             try:
                 apply_catalogs(value, automatic=True)
             except (OSError, ValueError, KeyError) as exc:
-                desktop.status.set('分镜目录结果已过期，将在下次文件变动后重试：' + str(exc))
-        else:
+                if desktop.content is page_content:
+                    desktop.status.set('分镜目录结果已过期，将在下次文件变动后重试：' + str(exc))
+        elif desktop.content is page_content:
             desktop.status.set('分镜目录刷新失败，将在下次文件变动后重试：' + value)
     def toggle_all(kind):
         tree=tables[kind];items=list(tree.get_children());cur=checked.get(kind,set())

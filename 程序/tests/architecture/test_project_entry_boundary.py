@@ -92,7 +92,18 @@ class ProjectEntryBoundaryTests(unittest.TestCase):
                     for kw in builds[0].keywords}
         self.assertEqual(keywords.get('choose_project'), 'self.choose_project')
         self.assertEqual(keywords.get('before_project_choice'), 'self._after_first_paint')
-        self.assertEqual(source.count('self.startup_controller.start()'), 1)
+        starts = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                  and isinstance(node.func, ast.Attribute) and node.func.attr == 'start'
+                  and isinstance(node.func.value, ast.Attribute)
+                  and node.func.value.attr == 'startup_controller'
+                  and isinstance(node.func.value.value, ast.Name)
+                  and node.func.value.value.id == 'self']
+        self.assertEqual(len(starts), 1, '首帧启动控制器只允许启动一次')
+        expected_start = ast.parse(
+            'self.startup_controller.start(*((10,) if self._startup_window_held() else ()))',
+            mode='eval').body
+        self.assertEqual(ast.dump(starts[0]), ast.dump(expected_start),
+                         '托管启动窗口时延迟 10ms，否则使用控制器默认延迟')
         self.assertIn("getattr(self,'startup_controller',None)", source)
         self.assertIn('controller.cancel()', source)
 
