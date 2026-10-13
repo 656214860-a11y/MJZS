@@ -340,7 +340,10 @@ def install_window_placement(root):
 
         x=max(left,min(x,right-width));y=max(top,min(y,bottom-height))
 
-        window.geometry(f'{width}x{height}+{x}+{y}');window.update_idletasks();window.attributes('-alpha',1);window.lift()
+        window.geometry(f'{width}x{height}+{x}+{y}');window.update_idletasks()
+
+        # 启动画面盖着主窗口时由启动器决定何时显形，这里只摆位置。
+        if not getattr(window,'_drama_hold_alpha',False):window.attributes('-alpha',1);window.lift()
 
         if parent:focus_popup(window)      # 第 59 期第 13 条：弹窗摆好就点活，不留一下“白点”给用户
 

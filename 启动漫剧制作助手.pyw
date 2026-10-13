@@ -34,23 +34,43 @@ try:
     os.chdir(program)
     import tkinter as tk
     window=tk.Tk();window.attributes('-alpha',0)
-    # 主窗口搭好、首帧画完前保持透明，先顶上启动画面，避免白屏和半成品闪现。
+    # 主窗口在加载完成前一直透明（ui_theme 摆位置时也不显形），由启动画面整块盖住。
+    window._drama_hold_alpha=True
+    import platform_tools
+    def expected_rect():
+        # 与 ui_theme 首次摆放主窗口的规则一致：可用区 80%、上限 1080×740、居中。
+        area=platform_tools.work_area() or (0,0,window.winfo_screenwidth(),window.winfo_screenheight())
+        left,top,right,bottom=area
+        width=min(1080,int((right-left)*0.80));height=min(740,int((bottom-top)*0.80))
+        x,y=left+(right-left-width)//2,top+(bottom-top-height)//2
+        # Tk 的 +x+y 定的是外框左上角，只有宽高要加上标题栏与边框。
+        _,_,outer_w,outer_h=platform_tools.outer_rect_for_client(x,y,width,height)
+        return (x,y,outer_w,outer_h)
     try:
         from ui_widgets import Splash
-        splash=Splash(window)
+        splash=Splash(window,expected_rect())
     except Exception:
         splash=None
     def step(index):
         if splash:splash.step(index)
-    step(1)
     from desktop import Desktop
+    step(1)
+    desk=Desktop(window,root=program)
     step(2)
-    Desktop(window,root=program)
-    step(3)
-    window.update()
-    step(4)
-    if splash:splash.close()
-    window.attributes('-alpha',1);window.lift()
+    def reveal():
+        window._drama_hold_alpha=False
+        window.attributes('-alpha',1);window.lift();window.focus_force()
+    def loaded():
+        # 首帧完成、今日项目页与剧本准备整页都建完、没有排队中的建页任务，才算加载完。
+        if not getattr(window,'_desktop_first_paint_complete',False):return False
+        if getattr(window,'_desktop_loading_project',False):return False
+        if getattr(desk,'_startup_project_page_job',None) is not None:return False
+        return getattr(desk,'_startup_script_build_job',None) is None
+    def track():
+        try:return platform_tools.window_outer_rect(int(window.wm_frame(),16))
+        except (tk.TclError,ValueError):return None
+    if splash:splash.wait(loaded,reveal,track=track)
+    else:reveal()
     def activate_existing():
         if kernel.WaitForSingleObject(activation,0)==0:
             window.deiconify();window.attributes('-alpha',1);window.lift()
