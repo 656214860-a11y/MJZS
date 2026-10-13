@@ -2,11 +2,12 @@
 
 ## 当前授权 · R1420 接续 R1418
 
-- 缓存修复与测试隔离已通过定向验证，剩余安全全量由 [R1420 报告](../程序/tasks_round/tasks_round_1420_result.md) 接续；保留 [R1418 原始证据](../程序/tasks_round/tasks_round_1418_result.md)，验证进度见 [validation.md](validation.md)。
+- 当前授权已完成：[R1420 报告](../程序/tasks_round/tasks_round_1420_result.md) 记录 5024 项安全全量通过；[R1418 原始证据](../程序/tasks_round/tasks_round_1418_result.md) 保留恢复与首轮失败。无需自动开启新功能。
 - 本轮读取中央任务表：57 项全部 `completed`、无活跃 lease；历史队列和 O 系列后备注不等于当前待办或新实施授权。
 
 ## 独立决策与长期条件
 
+- 另一任务 R1419 的大纲重写修复已由 R1421、`643c39a` 合入；不再列为待合并任务。用户正常重启加载，实测边界见 [R1421 报告](../程序/tasks_round/tasks_round_1421_result.md)。
 - 设计 token：R1402 已完成 81 处等值间距迁移。进一步迁移待选定：①以 `ui_tokens` 为准调整视觉；②把旧值补入 token 保持视觉；③暂不迁移。见 [R1402](../程序/tasks_round/tasks_round_1402_result.md)。
 - 白模真实上传验收：需指定采用镜头及已生成预演视频，并具备发送素材授权。
 - 启动白屏：保留用户重启后的实机复验入口；旧局部验证不能证明当前真实实例已解决。
