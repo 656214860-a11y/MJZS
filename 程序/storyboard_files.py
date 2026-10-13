@@ -798,6 +798,8 @@ def show(desktop):
     tk_timers.repeat(toolbar, 60, apply_background_catalog)
     watch_files(toolbar,project,lambda:refresh(automatic=True))
     def outside_click(event):
+        # 整页缓存后这一页可能只是收起来了：别的页上的点击不能清掉这里的选择。
+        if not toolbar.winfo_ismapped():return
         widget=event.widget;ancestors=[]
         while widget is not None:
             ancestors.append(widget)

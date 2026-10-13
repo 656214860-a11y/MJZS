@@ -246,6 +246,8 @@ PAGES = [f'{index:02d}  {pet_bus.stage_name(stage)}'
 import pet_state
 PAGE=pet_state.PAGE_OF
 PAGE_SITES=len(PAGES)-1          # 「参考网站」是工具页，不进状态机
+# 侧栏切回时整页复用、不重建的页：只收自带文件监听（离开期间文件变了也会自己刷新）的页。
+CACHED_PAGES=frozenset({PAGE['storyboard']})
 
 # 无人值守链路的下游关系：某一步刚成功完成时，把它的下游节流清零，链路立刻往前走一步，
 # 而不是干等各自的 15/30/60 秒轮询周期。表必须无环：回头踢上游会让视频轮询在长时间生成
@@ -4291,7 +4293,9 @@ class Desktop:
                 self.title.configure(text=PAGES[index])
                 self.win.update_idletasks()
             except (tk.TclError,IndexError,AttributeError):pass
-        return self.go(index,video_mode=mode)
+        self._reuse_cached_page=True
+        try:return self.go(index,video_mode=mode)
+        finally:self._reuse_cached_page=False
     def go(self,index,video_mode=None):
         """侧栏导航专用：页面构建失败时给出提示，而不是留下一个空白页。
 
@@ -4304,6 +4308,42 @@ class Desktop:
         """
         try:self.show(index,video_mode=video_mode)
         except Exception as exc:self.notifier.error(str(exc), title='页面无法显示')
+    def _page_cache_for(self,index,*,same_page):
+        """整页缓存（CACHED_PAGES）：只在侧栏点回来时复用；同页重建、换项目一律作废重建。
+
+        缓存页各有一块自己的内容框（画布的子框），不挂在公共内容框下：收起来时既不显示，
+        也不会被按 self.content 遍历控件的代码数到。换页先把画布换回公共内容框。
+        """
+        base=getattr(self,'_base_content',None)
+        if base is None:base=self._base_content=self.content
+        if self.content is not base:
+            self.content=base
+            self.canvas.itemconfigure(self.content_id,window=base)
+        cache=getattr(self,'_page_cache',None)
+        if cache is None:cache=self._page_cache={}
+        for key,entry in list(cache.items()):
+            stale=entry['root']!=self.root or not entry['holder'].winfo_exists()
+            if stale or (key==index and (same_page or not getattr(self,'_reuse_cached_page',False))):
+                cache.pop(key)
+                if entry['holder'].winfo_exists():entry['holder'].destroy()
+        return cache
+    def _show_cached_page(self,index,builder,cache):
+        """建过且仍有效就直接换上（控件、文件监听都还在），否则新建一块内容框建页并留存。"""
+        entry=cache.get(index)
+        if entry is not None:
+            self.content=entry['holder']
+            self.canvas.itemconfigure(self.content_id,window=self.content)
+            self.stage_button=entry['stage_button']
+            if entry['note']:self.status.set(entry['note'])
+            return
+        holder=ttk.Frame(self.canvas)
+        holder.bind('<Configure>',self.fit_content)
+        self.content=holder
+        self.canvas.itemconfigure(self.content_id,window=holder)
+        builder()
+        note=self.status.get()
+        cache[index]={'holder':holder,'root':self.root,'stage_button':self.stage_button,
+                      'note':'' if note==str(self.root) else note}
     def show(self,index,video_mode=None):
         from video_navigation import hide_back
         hide_back(self)
@@ -4346,6 +4386,7 @@ class Desktop:
             self.video=None
         self.flush_brief()
         retained={v.window for v in self.video_sessions.values()}
+        page_cache=self._page_cache_for(index,same_page=previous_index==index)
         for c in self.content.winfo_children():
             if c in retained:c.pack_forget()
             else:c.destroy()
@@ -4430,7 +4471,9 @@ class Desktop:
             from asset_detail import show as asset_detail_page
             asset_detail_page(self,self.asset_detail_id)
         else:
-            [self.writing,self.script_structure,self.storyboard_creation,self.animatic_page,self.asset_page,self.continuity_page,self.final_storyboard,self.storyboard,self.previs,self.videos,self.audio,self.editing,self.delivery][index]()
+            builder=[self.writing,self.script_structure,self.storyboard_creation,self.animatic_page,self.asset_page,self.continuity_page,self.final_storyboard,self.storyboard,self.previs,self.videos,self.audio,self.editing,self.delivery][index]
+            if index in CACHED_PAGES:self._show_cached_page(index,builder,page_cache)
+            else:builder()
         # 页面树可能很大；强制 Tk 立刻完成两次尺寸计算会阻塞点击与绘制，启动时尤其容易
         # 被 Windows 判为无响应。交给已有的合并空闲布局：同一轮连续换页只做最后一次，
         # 内容尺寸晚到时由 _fit_again 补算，首帧也能先交还事件循环。
