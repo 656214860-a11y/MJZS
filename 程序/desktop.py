@@ -4283,6 +4283,14 @@ class Desktop:
         """
         if index==PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
         mode='choose' if (index==PAGE['video'] and not getattr(self,'video_mode_picked',False)) else None
+        if index!=getattr(self,'page_index',None):
+            # 建整页要排几百个控件，点下去到新页出来有零点几秒；先把侧栏高亮和页标题
+            # 换过去并画出来，点击当场就有反应，不会像没点中一样停在旧页上。
+            try:
+                for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
+                self.title.configure(text=PAGES[index])
+                self.win.update_idletasks()
+            except (tk.TclError,IndexError,AttributeError):pass
         return self.go(index,video_mode=mode)
     def go(self,index,video_mode=None):
         """侧栏导航专用：页面构建失败时给出提示，而不是留下一个空白页。
@@ -4430,7 +4438,17 @@ class Desktop:
             self._pending_scroll_restore=scroll_offset
             self._pending_scroll_layout=None
         self.fit_content()
-        self.pet_at_stage(index)   # 第 36 期第 6 条：换阶段了，三虎主动问一句能做什么
+        # 第 36 期第 6 条：换阶段了，三虎主动问一句能做什么。气泡重排会强制整窗同步布局，
+        # 当场播报会把新页的首帧压到它后面；等新页先画出来再说，连续换页只说最后一页。
+        job=getattr(self,'_pet_stage_job',None)
+        if job is not None:
+            try:self.win.after_cancel(job)
+            except tk.TclError:pass
+        def speak():
+            self._pet_stage_job=None
+            if self.page_index==index and not getattr(self,'shutting_down',False):self.pet_at_stage(index)
+        try:self._pet_stage_job=self.win.after(1,speak)
+        except tk.TclError:self._pet_stage_job=None
     def restore_scroll(self,offset):
         """按像素恢复滚动位置：重建后页面高度可能变了，用比例换算回同样的位置。"""
         try:region=[int(float(part)) for part in self.canvas.cget('scrollregion').split()]
@@ -4782,7 +4800,8 @@ class Desktop:
             if viewport<=1:return                      # 还没量出窗口尺寸：等下一拍
             try:
                 room=viewport-page_fixed-box_chrome
-                lines=max(TALK_MIN_LINES,min(TALK_MAX_LINES,room//talk_line,display_lines(box)))
+                cap=max(TALK_MIN_LINES,min(TALK_MAX_LINES,room//talk_line))
+                lines=max(TALK_MIN_LINES,min(cap,display_lines(box,limit=cap)))
                 if int(box.cget('height'))!=lines:
                     box.configure(height=lines)
                     # 交给已合并的空闲重排；同步递归扫描整页控件会与本次 Configure

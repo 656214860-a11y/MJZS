@@ -582,14 +582,21 @@ def auto_height(tree, container, row_height=None, padding=48, minimum=2):
     fit()
     return fit
 
-def display_lines(box):
+def display_lines(box, limit=None):
     """这个文本框在屏幕上占几行（自动换行折出来的也算）。量不出来按一行算。
 
     displaylines 会把折行算上，所以是「屏幕上真实几行」。第 71 期任务 5／6：创意框自动
     定高、以及「点一下看全部」，量的都是这一个数。
+    limit：调用方只关心「到没到这么多行」时传入；长记录只排版到第 limit 行就停，
+    返回值封顶为 limit，不再为整段历史逐行折行。
     """
     try:
-        counted=box.count('1.0','end-1c','displaylines')
+        end='end-1c'
+        if limit is not None:
+            stop=box.index('1.0 + %d displaylines' % max(1, int(limit)))
+            if box.compare(stop,'<',end):
+                return max(1, int(limit))
+        counted=box.count('1.0',end,'displaylines')
     except (TclError,AttributeError):
         return 1
     lines=counted[0] if isinstance(counted,(tuple,list)) else counted
