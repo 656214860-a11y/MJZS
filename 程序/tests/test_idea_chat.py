@@ -27,6 +27,7 @@ os.chdir(HERE)
 
 import idea_chat as _idea_chat
 import script_contract
+from ui_tokens import ICON_FOLDER
 from stage_execution_service import idea_chat_gateway, publish_idea_creative, project_context
 from desktop import Desktop, PAGE
 from project_stages import writing as writing_dir
@@ -1158,7 +1159,7 @@ class SendMessageTests(_Harness):
             self.assertEqual(len(d.idea_attachment_paths), 1)
             self.assertTrue(Path(d.idea_attachment_paths[0]).is_file())
             self.assertEqual(Path(d.idea_attachment_paths[0]).parent.name, '输入')
-            self.assertEqual(d.idea_attachment_button.cget('text'), '📁')
+            self.assertEqual(d.idea_attachment_button.cget('text'), ICON_FOLDER)
             attachment_name = Path(d.idea_attachment_paths[0]).name
             self.assertRegex(attachment_name, r'^p_附件文本_角色设定_\d{8}\.md$')
             self.assertIn('已引用：' + attachment_name, d.idea_attachment_status.get())

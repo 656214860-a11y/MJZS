@@ -15,7 +15,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_FIELD_BACKGROUND,
                        TABLE_ROW_HEIGHT, INPUT_BACKGROUND, INPUT_BORDER,
                        INPUT_BORDER_WIDTH, INPUT_ERROR_BORDER, INPUT_FONT,
                        INPUT_FOREGROUND, INPUT_PADDING_X, INPUT_PADDING_Y,
-                       INPUT_PLACEHOLDER_FOREGROUND)
+                       INPUT_PLACEHOLDER_FOREGROUND, ICON_FONT)
 
 
 def setup_styles(root):
@@ -69,6 +69,14 @@ def setup_styles(root):
                     foreground=COLORS["text_primary"], font=FONTS["body"],
                     padding=(SPACING["md"], SPACING["xs"]), borderwidth=1)
     style.map("Tokens.Secondary.TButton",
+              background=[("active", COLORS["primary_subtle"]),
+                          ("disabled", COLORS["border_default"])],
+              foreground=[("active", COLORS["primary"]),
+                          ("disabled", COLORS["text_muted"])])
+    style.configure("Tokens.Icon.TButton", background=COLORS["background_card"],
+                    foreground=COLORS["text_primary"], font=ICON_FONT,
+                    padding=(SPACING["sm"], SPACING["xs"]), borderwidth=1)
+    style.map("Tokens.Icon.TButton",
               background=[("active", COLORS["primary_subtle"]),
                           ("disabled", COLORS["border_default"])],
               foreground=[("active", COLORS["primary"]),

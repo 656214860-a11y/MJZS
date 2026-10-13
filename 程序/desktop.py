@@ -27,7 +27,7 @@ from platform_tools import find_editor_shortcut, launch_windows_app, open_direct
 from desktop_startup_service import DesktopStartupController
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler
 from idea_chat_controller import IdeaChatController, bubble_timestamp, collapse_preview, speaker_name
-from ui_tokens import COLORS, FONTS, SPACING, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT
+from ui_tokens import COLORS, FONTS, SPACING, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
 from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
@@ -4542,7 +4542,7 @@ class Desktop:
         input_row=ttk.Frame(composer);input_row.pack(fill='x')
         input_box=TextArea(input_row,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
                           font=FONTS['body'],relief='solid',bd=1,padx=SPACING['md'],pady=SPACING['sm'])
-        attach_button=SecondaryButton(input_row,text='📁',width=3,
+        attach_button=SecondaryButton(input_row,text=ICON_FOLDER,width=3,style='Tokens.Icon.TButton',
                                  command=lambda:self.safe(self.choose_idea_attachments))
         # 附件入口放在输入框左侧，先占住固定宽度；窄窗口时输入框只使用剩余空间，
         # 既方便点击，也不会把图标挤出可视区。
@@ -4560,7 +4560,7 @@ class Desktop:
                                                      style='Muted.TLabel')
         self.idea_uploaded_panel=ttk.Frame(composer)
         self.idea_attachment_delete_button=SecondaryButton(
-            self.idea_uploaded_panel,text='🗑',width=3,
+            self.idea_uploaded_panel,text=ICON_DELETE,width=3,style='Tokens.Icon.TButton',
             command=lambda:self.safe(self.delete_uploaded_idea_attachment))
         self.idea_attachment_delete_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         Tooltip(self.idea_attachment_delete_button,'删除附件（勾选后删除，可多选）')
