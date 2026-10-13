@@ -1,5 +1,9 @@
 # 项目状态（可独立接续）
 
+R1421：用户授权将 R1419 修复合入主目录；合并提交 `643c39a`，默认冒烟 8/8、受影响 93/93（16.6 秒）、受影响冒烟 9/9。原启动器重启即可加载；未自动关闭软件、未调用真实模型。保留另一任务未提交的 R1420 报告及用户 `projects.json`。详见 [R1421 合入报告](tasks_round/tasks_round_1421_result.md)。
+
+R1419：手动修改项目设定／大纲／角色卡后，显式重写采用当前前置与目标正文，不再因旧确认摘要失配而拒绝；保留原稿，普通确认及生成过程版本保护不变。实现 `4cd7581`，分支验证 93/93、默认冒烟 8/8，已由 R1421 合入 master。详见 [R1419](tasks_round/tasks_round_1419_result.md)。
+
 R1357：O32 剪辑输出规格不能固定替代项目规格。`script_contract.py`（L0）新增 `resolve_output_spec`／`preview_spec`／`output_filter`／`loudness_filter`／`overlay_metrics`／`describe_output_spec`（画幅→分辨率按 1080 短边推算、宽高取偶，等比缩小＋居中留边不裁切），`PRODUCTION_LOCK_DEFINITIONS` 增加 `resolution`／`fps`；`engine.py`（L3）`_encode` 改用项目制作锁规格（内嵌字幕字号/边距与音量随规格，`qc.json` 记 `output_spec`），新增 `output_spec`／`output_spec_text`；`edit_service.assemble_image_timeline(..., spec=)`＋`animatic_service.build_bundle(..., spec=)`＋`stage_execution_service.animatic_preview_spec` 让预演低清但画幅跟项目；后期页导出前显示实际规格。新增 15 条用例，定向 15/15＋关联 136/136、架构与端到端 66/66＋153/153＋120/120、默认冒烟全绿，0 红；1357 − 1356 = 1 < 5 且未命中 §5，本轮不跑全量。见 tasks_round/tasks_round_1357_result.md。
 
 R1356：O31 声音角色映射与音轨用途绑定到具体集/用途。`tts_api.py`（L1）新增 `AUDIO_KINDS`／`AUDIO_KIND_LABELS`（对白/旁白/BGM/音效/整轨）、`audio_kind`／`marked_audio_name`、`voice_for`（稳定角色 ID 优先、显示名兜底）、`missing_voices`／`silent_lines`／`voice_snapshot`，`save_key` 在音色变化时自增 `voice_version`；`batch_signature`／`resume_folder`／`run_lines` 增至集标识，两集同名台词不再共用缓存；`audio_import_service`（L2）`import_audio(kind=)` 给非对白加前缀；`stage_completion_service` 对白音轨要求（导入 BGM 不算对白完成）；`desktop.generate_tts_per_line` 带上当前集 token；新增 18 条用例，定向 18/18＋关联 427/427、架构 312/312、默认冒烟 8/8，0 红；1356 − 1351 = 5 ≥ 5 命中五轮欠账，收口在干净 master 跑 `--all --safe`：第 1 次 4749/4749 中 1 红（`video_progress.py:94` 文案规则，R1353 遗留，定向当时未覆盖），改第二人称后第 2 次 4749/4749、425.3 秒、0 红。见 tasks_round/tasks_round_1356_result.md。
