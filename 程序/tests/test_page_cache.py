@@ -28,7 +28,10 @@ class PageCacheTests(unittest.TestCase):
         from local_video import open_studio
         win = self.tk.Tk(); win.withdraw()
         self.addCleanup(win.destroy)
-        d = Desktop(win, root=HERE)
+        app = Path(td) / 'app'; app.mkdir()
+        d = Desktop(win, root=app)
+        # 缓存测试自行装入项目，不运行首帧后的新建／今日项目选择流程。
+        d.startup_controller.cancel()
         d.root = test_ui_edges.make_populated_project(td)
         d.studio = open_studio(d.root)
         return win, d

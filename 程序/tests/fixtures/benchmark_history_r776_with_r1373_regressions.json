@@ -1,0 +1,278 @@
+{
+  "history": [
+    {
+      "round": 776,
+      "family": "startup_page",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "cold",
+        "first_frame": true,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "first_frame_ms": 205.1,
+        "ready_total_ms": 630.8
+      },
+      "source_result": "基准结果_R776_启动_改前.json"
+    },
+    {
+      "round": 776,
+      "family": "startup_page",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "cold",
+        "first_frame": true,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "first_frame_ms": 212.2,
+        "ready_total_ms": 715.2
+      },
+      "source_result": "基准结果_R776_启动_改后.json"
+    },
+    {
+      "round": 776,
+      "family": "startup_page",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "cold",
+        "first_frame": true,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "first_frame_ms": 210.2,
+        "ready_total_ms": 831.4,
+        "asset_page_300_ms": 805.3
+      },
+      "source_result": "基准结果_R776_页面_改后.json"
+    },
+    {
+      "round": 776,
+      "family": "startup_page",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "warm",
+        "first_frame": false,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "asset_page_300_warm_ms": 603.3,
+        "thumbnail_warm_ms": 0.0
+      },
+      "source_result": "基准结果_R776_页面_改后.json"
+    },
+    {
+      "round": 776,
+      "family": "long_list",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "cold",
+        "first_frame": false,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "row_count": 300,
+        "cold_ms": 1263.5
+      },
+      "source_result": "基准结果_R776_长列表_改后.json"
+    },
+    {
+      "round": 776,
+      "family": "long_list",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "warm",
+        "first_frame": false,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "row_count": 300,
+        "warm_ms": 733.9,
+        "scroll_avg_ms": 186.17,
+        "scroll_max_ms": 482.68
+      },
+      "source_result": "基准结果_R776_长列表_改后.json"
+    },
+    {
+      "round": 776,
+      "family": "long_list",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "cold",
+        "first_frame": false,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "row_count": 1000,
+        "cold_ms": 1181.1
+      },
+      "source_result": "基准结果_R776_长列表_改后.json"
+    },
+    {
+      "round": 776,
+      "family": "long_list",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "warm",
+        "first_frame": false,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "row_count": 1000,
+        "warm_ms": 997.6,
+        "scroll_avg_ms": 217.0,
+        "scroll_max_ms": 443.44
+      },
+      "source_result": "基准结果_R776_长列表_改后.json"
+    },
+    {
+      "round": 776,
+      "family": "memory_endurance",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "warm",
+        "first_frame": false,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "tail_avg_mb": 62.6,
+        "delta_mb": -0.5,
+        "slope_mb_per_min": 0.0,
+        "widget_growth": 0
+      },
+      "source_result": "基准结果_内存长跑_1min.json"
+    }
+  ],
+  "regressions": [
+    {
+      "round": 1373,
+      "family": "startup_page",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "cold",
+        "first_frame": true,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "first_frame_ms": 297.7,
+        "ready_total_ms": 735.1,
+        "asset_page_300_ms": 1837.9
+      },
+      "source_result": "基准结果_启动与页面_full_改前.json"
+    },
+    {
+      "round": 1373,
+      "family": "startup_page",
+      "success": true,
+      "condition": {
+        "machine": {
+          "system": "fixture",
+          "release": "fixture",
+          "machine": "fixture",
+          "processor": "fixture"
+        },
+        "cache_state": "warm",
+        "first_frame": false,
+        "includes_real_credentials": false,
+        "project_name": "benchmark-history-fixture",
+        "project_path_source": "fixture",
+        "project_registered": false
+      },
+      "metrics": {
+        "asset_page_300_warm_ms": 2963.3,
+        "thumbnail_warm_ms": 0.0
+      },
+      "source_result": "基准结果_启动与页面_full_改前.json"
+    }
+  ]
+}

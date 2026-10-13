@@ -1,8 +1,8 @@
 # 待办索引
 
-## 当前授权 · R1418
+## 当前授权 · R1420 接续 R1418
 
-- 完成异步缓存测试假绿及隐藏页面错误状态串页修复，运行适用的定向验证，更新 [R1418 报告](../程序/tasks_round/tasks_round_1418_result.md)、状态页与接力文件。当前验证进度见 [validation.md](validation.md)。
+- 缓存修复与测试隔离已通过定向验证，剩余安全全量由 [R1420 报告](../程序/tasks_round/tasks_round_1420_result.md) 接续；保留 [R1418 原始证据](../程序/tasks_round/tasks_round_1418_result.md)，验证进度见 [validation.md](validation.md)。
 - 本轮读取中央任务表：57 项全部 `completed`、无活跃 lease；历史队列和 O 系列后备注不等于当前待办或新实施授权。
 
 ## 独立决策与长期条件
