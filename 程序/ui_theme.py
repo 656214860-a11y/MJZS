@@ -303,7 +303,8 @@ def install_window_placement(root):
 
         if not window.winfo_exists():return
 
-        window.update_idletasks()
+        # 主窗口的宽高由下面的工作区规则直接给出，不必先量自然尺寸；整壳布局只算一遍。
+        if parent is not None:window.update_idletasks()
 
         left,top,right,bottom=work_area(parent or window)
 

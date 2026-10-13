@@ -433,7 +433,8 @@ class Desktop:
             choose_project=self.choose_project,
             remember_timer=lambda timer:setattr(self,'_startup_timer',timer),
         )
-        self.startup_controller.start()
+        # 启动画面整块盖住、主窗口仍透明时，没有白屏可防，让步只需一次消息循环。
+        self.startup_controller.start(*((10,) if self._startup_window_held() else ()))
         self.automation_scheduler=DesktopAutomationScheduler(
             schedule_after=win.after, cancel_scheduled=win.after_cancel,
             is_stopping=lambda:getattr(self,'shutting_down',False))
@@ -2438,6 +2439,9 @@ class Desktop:
         try:
             self.status.set(prefix+str(exc))
         except Exception:pass
+    def _startup_window_held(self):
+        """启动器让主窗口保持透明、由启动画面盖住时为真。"""
+        return getattr(self.win,'_drama_hold_alpha',False) is True
     def _after_first_paint(self):
         """首帧已交给 Tk 后，才恢复会触发轮询／回填的周期 tick。"""
         self.win._desktop_first_paint_complete=True
@@ -3892,7 +3896,7 @@ class Desktop:
             # update() 仍会在首帧调用栈内建整页控件。此前这里固定等 1 秒，
             # 实际上会把项目选择页连同“正在载入”留在屏幕上，误导为启动卡死。
             # 80ms 足以交还 Windows 绘制，又不会成为一次可感知的假等待。
-            self._startup_project_page_job=self.win.after(80,show_loaded_project)
+            self._startup_project_page_job=self.win.after(10 if self._startup_window_held() else 80,show_loaded_project)
         else:
             self.show(0)
         self.asset_detail_id=None            # 第 64 期任务 13：换项目／换目录回到主页面
@@ -4403,7 +4407,7 @@ class Desktop:
                 self._schedule_project_recovery(target)
             # 不能用 after_idle：空闲队列会在 Windows 处理首帧绘制之前继续执行，
             # 仍会把完整建页压回同一帧。40ms 给出一次实际消息循环机会。
-            self._startup_script_build_job=self.win.after(40,build_startup_script_page)
+            self._startup_script_build_job=self.win.after(10 if self._startup_window_held() else 40,build_startup_script_page)
             return
         if index==PAGE['assets'] and getattr(self,'asset_roster',False):
             # 第 71 期任务 2：侧栏「资产清单」那一格摆的是清单页（每个角色的正典板与状态变体）。

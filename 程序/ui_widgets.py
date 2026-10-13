@@ -25,6 +25,15 @@ def setup_styles(root):
     after the application theme also covers legacy direct ``ttk.Button`` calls.
     """
     style = ttk.Style(root)
+    # 每个按钮/表格构造时都会调到这里；同一主题下样式已装好就不再重配
+    # （整套约 50 次 Tcl 调用，剧本准备建页时曾重复 20 次）。换主题后重新安装。
+    interp = style.tk
+    theme = style.theme_use()
+    try:
+        if str(interp.globalgetvar("drama_styles_theme")) == str(theme):
+            return
+    except tk.TclError:
+        pass
     button_options = {
         "font": FONTS["body"],
         "padding": (SPACING["md"], SPACING["xs"]),
@@ -135,6 +144,7 @@ def setup_styles(root):
     root.option_add("*TCombobox*Listbox.selectBackground", COLORS["primary"])
     root.option_add("*TCombobox*Listbox.selectForeground", COLORS["background_card"])
     root.option_add("*TCombobox.width", COMBOBOX_WIDTH)
+    interp.globalsetvar("drama_styles_theme", theme)
 
 
 class DataTable(ttk.Frame):
