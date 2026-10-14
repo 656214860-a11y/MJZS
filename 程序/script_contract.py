@@ -832,7 +832,7 @@ PRODUCTION_LOCK_DEFINITIONS = (
     {'key': 'delivery_format', 'label': '交付形态', 'aliases': (), 'options': ['两者都交付', '只要离线看板', '只要 markdown 文档']},
     {'key': 'video_model_version', 'label': '视频模型版本', 'aliases': ('视频模型',), 'options': ['Seedance 2.5', 'Seedance 2.0', 'MiniMax H3', '即梦 3.0'],
      # 手填了下拉以外的模型：统筹 SKILL 没有它的专用语法，提示词退回 SKILL 默认格式，不现编格式。
-     'fallback': '统筹 SKILL 未适配该模型，提示词按 SKILL 默认格式撰写（七段式，Seedance 2.5 语法）'},
+     'fallback': '总控 SKILL 未适配该模型，提示词按 SKILL 默认格式撰写（七段式，Seedance 2.5 语法）'},
 )
 
 # 提取范围独立于必填范围：建议值仍保留，不因阶段门禁收窄而丢失。

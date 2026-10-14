@@ -39,8 +39,9 @@ FLOW_SKILLS={
 }
 STAGE_CONFIG_STAGES={'writing':'script','storyboard':'storyboard','assets':'assets','frames':'keyframe',
                      'previs':'previs','video_prompt':'video','audio':'audio'}
-# 统筹预设是受控登记，不从外部包 frontmatter 推导执行字段。
-WORKFLOW_PRESETS={'AIGC全流程': {
+# 总控预设是受控登记，不从外部包 frontmatter 推导执行字段。R1433 起唯一来源是
+# skills/00全流程SKILL/总控.json（MASTER_MANIFEST）；下面这份只作清单缺失／损坏时的出厂兜底。
+BUILTIN_WORKFLOW_PRESETS={'AIGC全流程': {
     'package': 'skills/00全流程SKILL/AIGC创作全流程/short-drama-director/SKILL.md',
     'stage_skills': {'script':['pipeline-script-preparation'], 'script_structure':['pipeline-script-structure'],
         'storyboard':['pipeline-storyboard-draft'], 'assets':['pipeline-assets'], 'continuity':['pipeline-continuity'],
@@ -49,6 +50,64 @@ WORKFLOW_PRESETS={'AIGC全流程': {
         'delivery':['pipeline-delivery']},
     'locks': list(PRODUCTION_LOCK_DEFINITIONS),
 }}
+MASTER_MANIFEST=Path(__file__).resolve().parent/'skills'/'00全流程SKILL'/'总控.json'
+# 兼容既有调用方与测试的 patch.dict：对象身份不变，只在清单文件变化时原地刷新。
+WORKFLOW_PRESETS={}
+MASTER_MANIFEST_PROBLEMS=[]
+_MASTER_MANIFEST_STAMP={'value': object()}
+
+
+def _manifest_presets(data):
+    """把总控清单转成预设表；锁键换成契约定义，未知键与非法项记为问题而不是静默丢弃。"""
+    problems=[]
+    rows=data.get('presets') if isinstance(data,dict) else None
+    if not isinstance(rows,dict) or not rows:
+        return {},['总控清单缺少 presets']
+    definitions={item['key']:item for item in PRODUCTION_LOCK_DEFINITIONS}
+    out={}
+    for name,row in rows.items():
+        if not isinstance(row,dict) or not str(row.get('package') or '').strip():
+            problems.append('总控「%s」缺少 package' % name);continue
+        stages=row.get('stage_skills')
+        if not isinstance(stages,dict):
+            problems.append('总控「%s」的 stage_skills 不是表' % name);continue
+        keys=row.get('locks')
+        keys=list(definitions) if keys is None else [str(key) for key in keys]
+        unknown=[key for key in keys if key not in definitions]
+        if unknown:problems.append('总控「%s」有未登记的制作锁：%s' % (name,'、'.join(unknown)))
+        out[str(name)]={'package':str(row['package']),
+                        'stage_skills':{str(stage):[str(item) for item in (items or ())]
+                                        for stage,items in stages.items()},
+                        'locks':[definitions[key] for key in keys if key in definitions]}
+    return out,problems
+
+
+def refresh_workflow_presets(force=False):
+    """按总控清单刷新 WORKFLOW_PRESETS；文件没变就什么都不做。返回当前预设表。"""
+    try:
+        stat=MASTER_MANIFEST.stat();stamp=(stat.st_mtime_ns,stat.st_size)
+    except OSError:
+        stamp=None
+    if not force and stamp==_MASTER_MANIFEST_STAMP['value']:
+        return WORKFLOW_PRESETS
+    _MASTER_MANIFEST_STAMP['value']=stamp
+    presets,problems=({},['总控清单不存在：%s' % MASTER_MANIFEST]) if stamp is None else ({},[])
+    if stamp is not None:
+        try:
+            data=read_json(MASTER_MANIFEST)
+        except (OSError,UnicodeError,ValueError) as exc:
+            problems=['总控清单读不出：%s' % exc]
+        else:
+            presets,problems=_manifest_presets(data)
+    if not presets:
+        presets=copy.deepcopy(BUILTIN_WORKFLOW_PRESETS)
+        problems.append('已改用出厂内置总控')
+    WORKFLOW_PRESETS.clear();WORKFLOW_PRESETS.update(presets)
+    MASTER_MANIFEST_PROBLEMS[:]=problems
+    return WORKFLOW_PRESETS
+
+
+refresh_workflow_presets(force=True)
 _DESKTOP_INSTALLATION_CACHE={}
 
 # 预设 SKILL 可以覆盖创作风格，不能跨越当前工作阶段。该契约在运行时总是附在
@@ -432,9 +491,11 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
             'roles': stage_config.hollmwood_role_rules(project, 'script'),
         }
     name = str(workflow.get('name') or '').strip()
-    preset = WORKFLOW_PRESETS.get(name, {})
+    preset = refresh_workflow_presets().get(name, {})
     if preset:
-        profile['workflow_skill_prompt'] = '按当前阶段需要，只读取统筹 SKILL 中与本阶段交付相关的章节，不全文加载统筹 SKILL 及无关 reference：' + str(preset['package'])
+        # 总控门禁（master_skill.gate）凭这个名字判断项目是否处于总控模式。
+        profile['workflow_name'] = name
+        profile['workflow_skill_prompt'] = '按当前阶段需要，只读取总控 SKILL 中与本阶段交付相关的章节，不全文加载总控 SKILL 及无关 reference：' + str(preset['package'])
     try:
         import skill_registry
         reg = skill_registry.default_registry()
@@ -711,6 +772,36 @@ def _skill_blocks(path, *, strict):
     return text, meta, blocks, closure
 
 
+def master_gate(config, stage=None, check_references=True):
+    """总控门禁（见 master_skill 模块说明）：返回阻断原因，空串＝放行；手动与自动路径共用。"""
+    name = str(config.get('workflow_name') or '').strip()
+    if not name:
+        return ''
+    stage = lock_stage(stage if stage is not None else config.get('stage'))
+    reasons = []
+    if stage != 'script':
+        # 剧本准备的制作锁由简报采集门禁负责，不能挡住收集制作锁的那段对话。
+        preset = WORKFLOW_PRESETS.get(name, {})
+        declared = {item['key']: item.get('label') or item['key'] for item in preset.get('locks') or ()}
+        locks = config.get('workflow_lock') or {}
+        missing = [declared[key] for key in STAGE_LOCK_REQUIREMENTS.get(stage, ())
+                   if key in declared and not str(locks.get(key) or '').strip()]
+        if missing:
+            reasons.append('本阶段必填制作锁未填：' + '、'.join(missing)
+                           + '（在阶段配置的总控栏或 01 剧本准备发送框补齐）')
+    if check_references:
+        for item in [*(config.get('stage_skills') or ()), *skills_of(config)]:
+            if not item:
+                continue
+            try:
+                _skill_blocks(item, strict=True)
+            except (OSError, UnicodeError, ValueError) as exc:
+                reasons.append(str(exc))
+    if not reasons:
+        return ''
+    return '总控门禁已阻断：' + '；'.join(reasons)
+
+
 def _inline_skill_report(path, *, cap=96000, strict=False):
     """内联技能正文，并给出「实际加载了什么」的引用闭包，供请求快照留凭据。"""
     from html import escape
@@ -737,6 +828,10 @@ def freeze_skills(config):
     frozen = deepcopy(config)
     if 'frozen_skill_prompt' in frozen:
         return frozen
+    # 引用由下方逐项冻结严格核验；这里只补总控的制作锁门禁，手动与自动同样阻断。
+    blocked = master_gate(frozen, check_references=False)
+    if blocked:
+        raise ValueError(blocked)
     if frozen.get('hollmwood', {}).get('enabled') and not frozen['hollmwood'].get('rhythm'):
         from hollmwood_roles import load_rhythm_template
         frozen['hollmwood']['rhythm'] = load_rhythm_template()

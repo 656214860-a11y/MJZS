@@ -1789,7 +1789,7 @@ class PanelTests(unittest.TestCase):
         entry = panel.reset_defaults()
         self.assertEqual(entry['model'], 'auto')
         self.assertTrue(panel.vars['firstframe-quality'].get())
-        self.assertIn('统筹与制作锁未改变', panel.state.cget('text'))
+        self.assertIn('总控与制作锁未改变', panel.state.cget('text'))
 
     def test_copy_preset_requires_a_selected_preset(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')

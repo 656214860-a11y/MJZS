@@ -4043,11 +4043,22 @@ class Desktop:
                 # 工作线程只带错误结果回主线程；不能在这里直接操作 Tk 状态栏。
                 result={'error':str(exc), 'kind': 'bug'}
             self._stage_model_sync_results.put((generation,target,result))
+            # 总控（00全流程SKILL）有更新就自动同步各阶段；只把提示文字带回主线程。
+            if target is None:return
+            try:
+                from master_skill import sync as sync_master_skill
+                message=sync_master_skill(target).get('message','')
+            except (OSError,ValueError,TypeError,KeyError) as exc:
+                message='总控同步未完成：%s；请打开阶段配置重试。' % exc
+            if message:self._stage_model_sync_results.put((generation,target,{'master':message}))
         threading.Thread(target=work,daemon=True).start()
     def _tick_stage_model_sync_result(self):
         try:generation,target,result=self._stage_model_sync_results.get_nowait()
         except queue.Empty:return
         if generation!=self._stage_model_sync_generation or target!=self.root:return
+        if isinstance(result,dict) and result.get('master'):
+            self.status.set(result['master'])
+            return
         if isinstance(result,dict) and result.get('error'):
             LOGGER.warning('项目模型同步失败：%s', result['error'])
             self.status.set('项目模型同步未完成：%s；请稍后重试。' % result['error'])

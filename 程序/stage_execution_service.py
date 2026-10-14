@@ -1474,7 +1474,7 @@ def save_writing_production_locks(project, values, *, attachment_signature=None)
     workflow = config.get('workflow') or {}
     name = str(workflow.get('name') or '').strip()
     if not name:
-        raise ValueError('请先选择统筹 SKILL')
+        raise ValueError('请先在阶段配置选择总控')
     locks = stage_config.workflow_lock(project)
     locks.update(updates)
     workflow.setdefault('lock', {})[name] = locks

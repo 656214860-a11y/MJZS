@@ -7,14 +7,26 @@ from storyboard_plan_service import storyboard_work_plan
 
 
 def _workflow_lock_error(project, stage, trigger):
-    """自动剧本链须有统筹声明的全部锁；手动路径永远不拦。"""
-    if trigger != 'auto' or stage != 'script' or not project:
+    """总控门禁（制作锁）：手动与自动同样阻断。
+
+    自动剧本链须有总控声明的全部锁；其他阶段按契约 STAGE_LOCK_REQUIREMENTS 取本阶段必填锁。
+    手动剧本准备不经这里（简报采集对话本身在收集制作锁，由简报门禁负责）。
+    """
+    from script_contract import STAGE_LOCK_REQUIREMENTS
+    if not project or (stage == 'script' and trigger != 'auto'):
+        return ''
+    if stage != 'script' and not STAGE_LOCK_REQUIREMENTS.get(stage):
         return ''
     import stage_config
     import workflow_settings
     workflow = stage_config.current_workflow(project)
-    preset = workflow_settings.WORKFLOW_PRESETS.get(workflow.get('name'), {})
-    required = tuple(preset.get('locks') or ())
+    preset = workflow_settings.refresh_workflow_presets().get(workflow.get('name'), {})
+    declared = tuple(preset.get('locks') or ())
+    if stage == 'script':
+        required = declared
+    else:
+        wanted = STAGE_LOCK_REQUIREMENTS.get(stage, ())
+        required = tuple(item for item in declared if item.get('key') in wanted)
     if not required:
         return ''
     selected = stage_config.workflow_lock(project)
@@ -95,7 +107,8 @@ def start(desktop, stage, trigger='auto', fallback=None, **options):
     """三虎唯一的 L3 启动指令入口。"""
     error = _workflow_lock_error(getattr(desktop, 'root', None), stage, trigger)
     if error:
-        return _fail(desktop, stage, trigger, error)
+        # 手动路径也阻断：直接把原因交回调用方展示，不经三虎失败事件。
+        return _fail(desktop, stage, trigger, error) if trigger == 'auto' else error
     if stage == 'storyboard':
         return _start_storyboard(desktop, trigger)
     if stage == 'animatic':

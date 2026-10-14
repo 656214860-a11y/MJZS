@@ -252,7 +252,7 @@ class StagePromptGovernanceTests(unittest.TestCase):
             root = make_minimal_project(td)
             stage_config.put_workflow(root, {'name': 'AIGC全流程'})
             config = workflow_settings.current(root, 'writing')
-            self.assertIn('不全文加载统筹 SKILL', config['workflow_skill_prompt'])
+            self.assertIn('不全文加载总控 SKILL', config['workflow_skill_prompt'])
             self.assertNotIn('完整读取', config['workflow_skill_prompt'])
 
 
@@ -264,7 +264,7 @@ class UnsupportedVideoModelLockTests(unittest.TestCase):
     def test_manual_unknown_model_falls_back_to_skill_default_format(self):
         import workflow_settings
         prompt = workflow_settings.skill_prompt({'workflow_lock': {'video_model_version': '可灵 2.1'}}, stage='video')
-        self.assertIn('制作锁：video_model_version=可灵 2.1（统筹 SKILL 未适配该模型', prompt)
+        self.assertIn('制作锁：video_model_version=可灵 2.1（总控 SKILL 未适配该模型', prompt)
         self.assertIn('七段式', prompt)
         for listed in ('Seedance 2.5', 'seedance2.5', 'MiniMax H3'):
             prompt = workflow_settings.skill_prompt({'workflow_lock': {'video_model_version': listed}}, stage='video')

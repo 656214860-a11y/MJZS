@@ -61,6 +61,7 @@ ADD_MODEL_LABEL = '+ 添加模型…'
 MANAGE_ALL = '全选'
 MANAGE_NONE = '取消'
 MANAGE_ADD = '新增'
+NO_MASTER = '不使用总控'
 MANAGE_DELETE = '删除已勾选 SKILL'
 MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE)
 # 外部包只登记总入口；API 调用只会收到入口指针，不能假装会展开其中的本地子模块。
@@ -612,7 +613,7 @@ class Panel(ttk.Frame):
         self.provider = tk.StringVar(value=next(iter(self.groups), '自动选择'))
         # 第 36 期第 1／4 条：这一阶段对应的编排流程（没有就是 None）——流程 SKILL 与手动配置都要它。
         self._flow = STAGE_FLOW.get(self.stage)
-        self.workflow_choice = tk.StringVar(value='不使用统筹')
+        self.workflow_choice = tk.StringVar(value=NO_MASTER)
         self._build()
         self.bind('<Destroy>', self.cancel_skill_layout, add='+')
         _LIVE.append(self)
@@ -802,8 +803,8 @@ class Panel(ttk.Frame):
         import workflow_settings
         row = ttk.Frame(parent or self)
         row.pack(fill='x')
-        ttk.Label(row, text='统筹 SKILL', style='Muted.TLabel', width=10).pack(side='left')
-        names = list(workflow_settings.WORKFLOW_PRESETS) + ['浏览本地…', '不使用统筹']
+        ttk.Label(row, text='总控', style='Muted.TLabel', width=10).pack(side='left')
+        names = list(workflow_settings.refresh_workflow_presets()) + ['浏览本地…', NO_MASTER]
         self.workflow_box = SelectBox(row, textvariable=self.workflow_choice, values=names)
         self.workflow_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
@@ -846,9 +847,10 @@ class Panel(ttk.Frame):
             sync_writing_attachment_locks(self.project())
         except (ValueError, OSError) as exc:
             self.state.configure(text='附档制作锁同步失败：' + str(exc))
+        synced = self.sync_master_skill()
         workflow = stage_config.current_workflow(self.project())
         name = str(workflow.get('name') or '').strip()
-        self.workflow_choice.set(name if name in workflow_settings.WORKFLOW_PRESETS else '不使用统筹')
+        self.workflow_choice.set(name if name in workflow_settings.refresh_workflow_presets() else NO_MASTER)
         locks = stage_config.workflow_lock(self.project())
         for key, entry in self.lock_inputs.items():
             entry.state(['!disabled'])
@@ -857,6 +859,24 @@ class Panel(ttk.Frame):
             if not name:
                 entry.state(['disabled'])
         self._saved_workflow_locks = {key: entry.get() for key, entry in self.lock_inputs.items()}
+        if synced:
+            self.state.configure(text=synced)
+
+    def sync_master_skill(self, quiet=False):
+        """打开阶段配置时检查总控是否更新；更新了就自动同步各阶段并返回提示文字。"""
+        import master_skill
+        project = self.project()
+        if not project:
+            return ''
+        try:
+            result = master_skill.sync(project, getattr(self, 'registry', None))
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            return '总控同步未完成：%s' % exc
+        if result['stages'] and getattr(self, 'stage', None) in result['stages'] and getattr(self, 'vars', None):
+            entry = stage_config.get(project, self.stage)
+            for name, var in self.vars.items():
+                var.set(name in entry['skills'])
+        return ('；' if quiet and result['message'] else '') + result['message']
 
     def show_workflow_differences(self, preset):
         """偏离徽标只读展开，避免把用户本地勾选误当作可自动覆盖的数据。"""
@@ -865,7 +885,7 @@ class Panel(ttk.Frame):
                    if values['current'] != values['suggested']]
         if not changed:
             return
-        lines = ['统筹建议与当前阶段勾选：']
+        lines = ['总控建议与当前阶段勾选：']
         for label, values in changed:
             lines.append('%s\n当前：%s\n建议：%s' %
                          (label, '、'.join(values['current']) or '空',
@@ -878,13 +898,13 @@ class Panel(ttk.Frame):
         old = stage_config.current_workflow(self.project())
         rows = stage_config.workflow_differences(self.project(), preset)
         old_preset = workflow_settings.WORKFLOW_PRESETS.get(str(old.get('name') or ''), {})
-        dialog = BaseDialog(self.winfo_toplevel(), '切换统筹' if switching else '套用统筹建议',
+        dialog = BaseDialog(self.winfo_toplevel(), '切换总控' if switching else '套用总控建议',
                             modal=False, chrome=False); dialog.resizable(True, True)
         body = ttk.Frame(dialog, padding=12); body.pack(fill='both', expand=True)
         DescriptionBlock(body, text=(
             '「' + choice + '」为每个制作阶段推荐了一组 SKILL（制作规范）。下表逐阶段对照'
-            '「现在用的」和「统筹建议」：\n'
-            '· 勾选「用建议替换」→ 该阶段改用统筹建议的 SKILL；\n'
+            '「现在用的」和「总控建议」：\n'
+            '· 勾选「用建议替换」→ 该阶段改用总控建议的 SKILL；\n'
             '· 不勾 → 该阶段保持现在的 SKILL 不变。\n'
             '还没选过 SKILL 的空阶段已默认勾选；点「确认套用」才会生效。')).pack(fill='x')
         names = {}
@@ -898,9 +918,9 @@ class Panel(ttk.Frame):
                 labels.append(names[sid])
             return '\n'.join(labels) or empty
         table = ttk.Frame(body); table.pack(fill='x', pady=(SPACING['md'], 0))
-        headers = ['阶段', '现在用的 SKILL', '统筹建议的 SKILL', '是否替换']
+        headers = ['阶段', '现在用的 SKILL', '总控建议的 SKILL', '是否替换']
         if switching:
-            headers.insert(1, '上一个统筹的建议')
+            headers.insert(1, '上一个总控的建议')
         for column, text in enumerate(headers):
             ttk.Label(table, text=text, style='Muted.TLabel').grid(
                 row=0, column=column, sticky='w', padx=(0, SPACING['lg']), pady=(0, SPACING['xs']))
@@ -936,7 +956,7 @@ class Panel(ttk.Frame):
             dialog.destroy(); self.refresh_workflow()
             self.refresh_notes()
             self.refresh_external_package_hint()
-            self.state.configure(text='统筹已更新；未选择的阶段勾选已保留。')
+            self.state.configure(text='总控已更新；未选择的阶段勾选已保留。' + self.sync_master_skill(quiet=True))
         PrimaryButton(actions, text='确认套用', command=apply_selected).pack(side='left')
         SecondaryButton(actions, text='取消', command=lambda: (dialog.destroy(), self.refresh_workflow())).pack(side='left', padx=(SPACING['sm'], 0))
         dialog.update_idletasks()
@@ -946,10 +966,10 @@ class Panel(ttk.Frame):
     def choose_workflow(self):
         import workflow_settings
         choice = self.workflow_choice.get()
-        if choice == '不使用统筹':
+        if choice == NO_MASTER:
             stage_config.clear_workflow(self.project()); self.refresh_workflow(); return
         if choice == '浏览本地…':
-            self.workflow_choice.set('不使用统筹'); self.state.configure(text='本轮仅支持受控登记的统筹 SKILL。'); return
+            self.workflow_choice.set(NO_MASTER); self.state.configure(text='总控只认 skills/00全流程SKILL/总控.json 里登记的预设；要加新的总控请编辑该清单。'); return
         preset = workflow_settings.WORKFLOW_PRESETS.get(choice)
         if not preset: return
         previous = str(stage_config.current_workflow(self.project()).get('name') or '')
@@ -1564,11 +1584,11 @@ class Panel(ttk.Frame):
 
     def reset_defaults(self):
         """经确认后仅恢复本阶段模型与 SKILL 默认值；统筹和制作锁保持不变。"""
-        if not confirm(self.winfo_toplevel(), TITLE, '恢复本阶段的默认模型和 SKILL？\n统筹与制作锁不会改变。'):
+        if not confirm(self.winfo_toplevel(), TITLE, '恢复本阶段的默认模型和 SKILL？\n总控与制作锁不会改变。'):
             return None
         entry = stage_config.reset(self.project(), self.stage, registry=self.registry)
         self.load()
-        self.state.configure(text='已恢复本阶段默认配置；统筹与制作锁未改变。')
+        self.state.configure(text='已恢复本阶段默认配置；总控与制作锁未改变。')
         return entry
 
     def run_preset_action(self):

@@ -1221,13 +1221,13 @@
             },
             {
                 "file": "workflow_engines.py",
-                "point": "178",
+                "point": "180",
                 "disposition": "exempt",
                 "reason": "R1300：Claude CLI 子进程 stdout 内存 JSON 解码，不读取正式文件。"
             },
             {
                 "file": "workflow_engines.py",
-                "point": "219",
+                "point": "221",
                 "disposition": "exempt",
                 "reason": "\u7f51\u7edc\u54cd\u5e94\u89e3\u6790"
             },
