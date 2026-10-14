@@ -359,6 +359,8 @@ def open_manager(pet):
 
         只挂「选中了一项」，不挂失焦——用户在协议栏手改过的那一档不会被蹭掉。
         """
+        if desktop_mode():
+            return None                  # 本机程序不走 HTTP 协议，换厂商名不改协议档
         value = model_pool.wire_for_provider(
             model_pool.id_of_label(provider.get(), model_pool.PROVIDERS))
         wire.set(model_pool.WIRE_LABELS.get(value, model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
@@ -415,7 +417,7 @@ def open_manager(pet):
             program_entry.insert(0, path)
     def detect_program(event=None, quiet=True):
         """本地 desktop／CLI：按模型 ID 对应的引擎自动搜寻安装路径；框里已有路径不覆盖。"""
-        if provider.get().strip() != 'desktop' or program_entry.get().strip():
+        if not desktop_mode() or program_entry.get().strip():
             return None
         from workflow_settings import find_program
         engine = model_pool.desktop_engine(state['id']) or model_pool.desktop_engine(
@@ -434,8 +436,19 @@ def open_manager(pet):
         row=0, column=1, padx=(SPACING['xs'], 0))
     SecondaryButton(program_row, text='浏览…', command=browse_program).grid(
         row=0, column=2, padx=(SPACING['xs'], 0))
+    def desktop_mode():
+        """本机程序条目：Provider 填 desktop，或模型 ID 本身就是本机引擎。
+
+        本机 Claude／ChatGPT 的 Provider 显示厂商名（Anthropic／GPT），但调用方式由模型 ID
+        决定（model_pool.desktop_engine），表单仍是「应用安装路径」，不切成 API 地址与密钥。
+        """
+        if provider.get().strip() == 'desktop':
+            return True
+        return bool(model_pool.desktop_engine(state['id'])
+                    or model_pool.desktop_engine(entries['model'].get().strip()))
+
     def refresh_connection_fields(*_args):
-        local = provider.get().strip() == 'desktop'
+        local = desktop_mode()
         for widget in api_controls:
             widget.grid_remove() if local else widget.grid()
         for widget in (program_label, program_row):
@@ -455,6 +468,7 @@ def open_manager(pet):
         return guess
     entries['model'].bind('<KeyRelease>', fill_label, add='+')
     entries['model'].bind('<FocusOut>', detect_program, add='+')
+    entries['model'].bind('<KeyRelease>', refresh_connection_fields, add='+')
     manager_hint = ttk.Label(body, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=860)
     manager_hint.grid(
         row=4, column=0, columnspan=2, sticky='w', pady=(SPACING['xs'], SPACING['xs']))
@@ -529,7 +543,7 @@ def open_manager(pet):
         用户报「密钥名和密钥输入后没有自动保存」——原来必须再点一下「保存到本机」。框里
         是空的就什么都不做，免得点来点去把提示刷成报错。
         """
-        if provider.get().strip() == 'desktop' or not key_entry.get().strip():
+        if desktop_mode() or not key_entry.get().strip():
             return None
         try:
             return local_save()
@@ -553,8 +567,13 @@ def open_manager(pet):
         for tag, var in caps.items():
             var.set(tag in (item.get('capabilities') or []))
         saved_provider = str(item.get('provider') or '').strip()
-        provider.set(model_pool.PROVIDER_LABELS.get(
-            saved_provider, saved_provider or model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER]))
+        if saved_provider == 'desktop' and model_pool.desktop_engine(model_id):
+            # 本机 Claude／ChatGPT 显示厂商名；保存时由 read_form 按 desktop_mode 写回 desktop。
+            vendor = model_pool.provider_name(model_id, item)
+            provider.set(model_pool.PROVIDER_LABELS.get(vendor.casefold(), vendor))
+        else:
+            provider.set(model_pool.PROVIDER_LABELS.get(
+                saved_provider, saved_provider or model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER]))
         wire.set(model_pool.WIRE_LABELS.get(item.get('wire_api'), model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
         program_entry.delete(0, 'end')
         program_entry.insert(0, item.get('program') or '')
@@ -563,7 +582,8 @@ def open_manager(pet):
 
     def read_form():
         value = {key: entries[key].get().strip() for key, _label in FORM_FIELDS}
-        value['provider'] = model_pool.id_of_label(provider.get(), model_pool.PROVIDERS)
+        # 本机程序条目的存储协议仍是 desktop（model_pool.status 按它判定可用性）；界面只显示厂商名。
+        value['provider'] = 'desktop' if desktop_mode() else model_pool.id_of_label(provider.get(), model_pool.PROVIDERS)
         value['wire_api'] = model_pool.id_of_label(wire.get(), model_pool.WIRE_APIS)
         value['capabilities'] = [tag for tag, var in caps.items() if var.get()]
         value['context_length'] = entries['context_length'].get().strip()
@@ -597,12 +617,12 @@ def open_manager(pet):
 
     def save_one():
         try:
-            if provider.get().strip() == 'desktop' and program_entry.get().strip():
+            if desktop_mode() and program_entry.get().strip():
                 from pathlib import Path
                 path = Path(program_entry.get().strip()).expanduser()
                 if not path.is_absolute() or path.suffix.lower() != '.exe' or not path.is_file():
                     raise ValueError('请选择存在的应用 .exe 安装路径')
-            if provider.get().strip() != 'desktop' and key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
+            if not desktop_mode() and key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
                 local_save()
             pet.save_pool(read_form(), state['id'])
         except ValueError as exc:

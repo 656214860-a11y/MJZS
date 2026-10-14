@@ -3209,7 +3209,8 @@ class ModelPoolTests(PetTestCase):
         tree.selection_set('claude-desktop-app')
         tree.event_generate('<<TreeviewSelect>>')
         win.update()
-        self.assertEqual(win._pet_provider.get(), 'desktop')
+        # R1423 用户要求：本机 Claude 显示厂商名，表单仍是应用路径
+        self.assertEqual(win._pet_provider.get(), 'anthropic')
         self.assertEqual(win._pet_program_row.winfo_manager(), 'grid')
         self.assertTrue(all(not w.winfo_manager() for w in win._pet_api_controls))
         executable = self.pet.program / 'Claude.exe'
@@ -3222,6 +3223,46 @@ class ModelPoolTests(PetTestCase):
         self.assertEqual(model_pool.pool(program=self.pet.program)['claude-desktop-app']['program'], str(executable))
         tree.selection_set('gpt-4o')
         tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        self.assertFalse(win._pet_program_row.winfo_manager())
+        self.assertTrue(all(w.winfo_manager() == 'grid' for w in win._pet_api_controls))
+
+    def test_anthropic_provider_keeps_desktop_form_for_local_claude(self):
+        """R1423：本机 Claude 选 anthropic 仍是应用路径表单，存储协议仍为 desktop。"""
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        tree = win._pet_tree
+        tree.selection_set('claude-desktop-app')
+        tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        win._pet_provider.set('anthropic')
+        win._pet_provider_box.event_generate('<<ComboboxSelected>>')
+        win.update()
+        self.assertEqual(win._pet_program_row.winfo_manager(), 'grid')
+        self.assertTrue(all(not w.winfo_manager() for w in win._pet_api_controls))
+        executable = self.pet.program / 'Claude.exe'
+        executable.write_bytes(b'test executable; never launched')
+        win._pet_entries['program'].delete(0, 'end')
+        win._pet_entries['program'].insert(0, str(executable))
+        buttons = {str(w.cget('text')): w for w in self._walk(win, self.ttk.Button)}
+        buttons['保存这条'].invoke()
+        saved = model_pool.pool(program=self.pet.program)['claude-desktop-app']
+        self.assertEqual(saved['provider'], 'desktop')
+        self.assertEqual(saved['program'], str(executable))
+        self.assertEqual(saved['wire_api'], 'chat')
+        # 新建一条：模型 ID 是本机引擎、Provider 选 anthropic，同样显示应用路径。
+        buttons['新建一条'].invoke()
+        win._pet_entries['model'].insert(0, 'claude-desktop-app')
+        win._pet_entries['model'].event_generate('<KeyRelease>')
+        win._pet_provider.set('anthropic')
+        win.update()
+        self.assertEqual(win._pet_program_row.winfo_manager(), 'grid')
+        self.assertTrue(all(not w.winfo_manager() for w in win._pet_api_controls))
+        # 普通 Anthropic API 模型仍显示接口与密钥。
+        win._pet_entries['model'].delete(0, 'end')
+        win._pet_entries['model'].insert(0, 'claude-opus-api')
+        win._pet_entries['model'].event_generate('<KeyRelease>')
+        win._pet_provider.set('anthropic')
         win.update()
         self.assertFalse(win._pet_program_row.winfo_manager())
         self.assertTrue(all(w.winfo_manager() == 'grid' for w in win._pet_api_controls))
