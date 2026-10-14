@@ -3834,7 +3834,8 @@ class Desktop:
     def project_row_text(self,p):
         """项目行文字：当前打开的项目前加「●」，让用户随时看得出现在在哪个项目里。"""
         missing=not Path(p['path']).is_dir()
-        current=self.root is not None and Path(p['path'])==self.root
+        root=getattr(self,'root',None)
+        current=root is not None and Path(p['path'])==root
         return ('● ' if current else '')+p['name']+('（目录已失效，可右键清除登记）' if missing else '')
     def mark_current_project(self):
         """切换项目后只改行文字（不重建树，选中状态保持），并把项目名写进窗口标题。"""
@@ -3842,13 +3843,14 @@ class Desktop:
         home=getattr(self,'_project_home_tree',None)
         if home is not None and home.winfo_exists():trees.append(home)
         for tree in trees:
-            for p in self.projects.info['projects']:
+            for p in (getattr(self.projects,'info',None) or {}).get('projects',[]):
                 if tree.exists(p['path']):tree.item(p['path'],text=self.project_row_text(p))
         title='漫剧制作助手 · '+VERSION
         if self.root is not None:
             from script_contract import project_name
             title+=' · 当前项目：'+project_name(self.root)
-        self.win.title(title)
+        win=getattr(self,'win',None)
+        if win is not None:win.title(title)
     def reload(self):
         self.fill_projects(self.list)
         tree=getattr(self,'_project_home_tree',None)

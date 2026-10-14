@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -87,7 +88,22 @@ def _sync_clean_worktree(root: Path, head: str) -> Path:
     else:
         target.parent.mkdir(parents=True, exist_ok=True)
         _git("worktree", "add", "--detach", "-f", str(target), head, cwd=root)
+    _fill_embedded_repos(root, target)
     return target / PROGRAM.name
+
+
+def _fill_embedded_repos(root: Path, target: Path) -> None:
+    """本仓库把 SKILL 包等嵌套仓库登记为 gitlink（无 .gitmodules），干净检出里只是空目录。
+
+    测试需要它们的正文，所以从主工作树逐个连 .git 一起拷过去（体量十几 MB；带 .git 才不会让检出显示为脏）；目标目录已有内容就不动。"""
+    listing = _git("-c", "core.quotepath=false", "ls-files", "-s", cwd=root)
+    for line in listing.splitlines():
+        meta, _, path = line.partition(chr(9))
+        if not meta.startswith("160000"):
+            continue
+        source, destination = root / path, target / path
+        if source.is_dir() and not (destination.is_dir() and any(destination.iterdir())):
+            shutil.copytree(source, destination, dirs_exist_ok=True)
 
 
 def run() -> int:

@@ -22,3 +22,9 @@
 
 - 后台脚本的真实端到端（`.wt/ci` 对齐、全量跑完写凭据）以本轮提交触发的那一次为首次实测，结果看 `程序/logs/auto_full_safe.log`。
 - 钩子在本机 `.git/hooks` 已安装；他处克隆需运行 `install_git_hooks.py`。
+
+## 后台首次实测发现（同轮补记）
+
+- 第一次后台全量在干净检出里出 100+ 条红：本仓库的 4 个 SKILL／参考包登记为 gitlink（无 .gitmodules），检出里是空目录。`auto_full_safe.py` 增加 `_fill_embedded_repos()`，把它们连 `.git` 从主树拷入 `.wt/ci`，检出保持干净（status 无输出）。
+- 修好后第二次后台全量（555 秒、HEAD 7efd764）只剩 2 条红，均为 R1439 的回归：`test_core` 的两个旧桩对象没有 `root`／`projects.info`／`win` 属性，而 `project_row_text`／`mark_current_project` 直接访问。已改成 `getattr` 容错（装饰性标记失败不得影响打开项目），`test_core`＋`project_switch_guard`＋`project_rename_reconcile` 定向通过。教训：R1439 当时只跑了 `-k project desktop_startup ui_edges`，漏掉了 `test_core`，这正是全量欠账要兜住的那类漂移。
+- 该次全量未全绿，所以没有写凭据；本提交触发的下一次后台全量用于清账。
