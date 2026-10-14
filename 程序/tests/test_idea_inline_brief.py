@@ -116,7 +116,7 @@ class InlineBriefTests(unittest.TestCase):
         from skill_panel import Panel
         name, preset = next(iter(workflow_settings.WORKFLOW_PRESETS.items()))
         view = SimpleNamespace(project=lambda: 'unused', workflow_choice=Mock(),
-                               workflow_summary=Mock(), show_workflow_differences=Mock(),
+                               workflow_summary=Mock(), show_workflow_differences=Mock(), sync_master_skill=Mock(return_value=None),
                                lock_inputs={item['key']: Mock() for item in preset['locks']})
         with patch('stage_config.current_workflow', return_value={'name': name}), \
                 patch('stage_config.workflow_lock', return_value={'aspect_ratio': '9:16'}), \
