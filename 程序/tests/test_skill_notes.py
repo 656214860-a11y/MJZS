@@ -181,6 +181,7 @@ class SkillNotesTests(unittest.TestCase):
             registry = Mock()
             registry._stage_directory_for.return_value = target_dir
             registry.getByStage.return_value = []
+            registry.getAll.return_value = []    # R1432：外部包导入也做重名预检
             panel = SimpleNamespace(winfo_toplevel=lambda: None, registry=registry,
                                     stage='script', state=Mock(), skill_content=Mock(),
                                     build_flow_skill=Mock(), load=Mock(), refresh_notes=Mock())

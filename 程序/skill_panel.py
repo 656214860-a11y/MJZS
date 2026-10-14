@@ -17,7 +17,6 @@ SKILL 不绑定模型：这里挑的模型是「用户偏好」，model_router �
 """
 from pathlib import Path
 import re
-import shutil
 
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
@@ -1091,60 +1090,41 @@ class Panel(ttk.Frame):
         return ''
 
     def add_skill_from_file(self):
-        """显式导入单个 SKILL 到本阶段的受控注册目录。"""
+        """显式导入 SKILL 到本阶段的受控注册目录：外部包整包导入，预检、试冻结、旧版进回收站。"""
+        import skill_import_service
         source = FileDialog(self.winfo_toplevel()).open_file(title='新增 SKILL',
                                             filetypes=[('SKILL', ('*.skill.md', 'SKILL.md')), ('全部文件', '*.*')])
         if not source:
             return None
-        target_dir = self.registry._stage_directory_for(self.stage)
-        if target_dir is None:
-            self.state.configure(text='新增 SKILL 失败：未找到本阶段注册目录')
-            return None
-        external_package = Path(source).name.casefold() == 'skill.md'
-        target = target_dir / Path(source).name
-        if external_package:
-            target = target_dir / Path(source).parent.name / 'SKILL.md'
         try:
-            raw = Path(source).read_text(encoding='utf-8-sig')
-        except (OSError, UnicodeError) as exc:
-            self.state.configure(text='新增 SKILL 失败：读不出源文件（%s）' % exc)
+            plan = skill_import_service.plan_import(
+                source, self.registry._stage_directory_for(self.stage), self.stage, self.registry)
+        except skill_import_service.ImportBlocked as exc:
+            self.state.configure(text='新增 SKILL 失败：' + str(exc))
             return None
-        meta, body = skill_registry.parse(raw, source=str(source))
-        problems = []
-        if external_package:
-            # 外部包由注册表补默认元数据，只检查可显示名称。
-            if not (str(meta.get('displayName') or '').strip() or skill_registry.markdown_heading(body)):
-                problems.append('未找到可显示的技能名称')
-        else:
-            skill = skill_registry.Skill(meta, body, path=Path(source))
-            known = {item.name for item in self.registry.getAll()}
-            problems.extend(skill_registry.validate_skill(skill, known=known))
-        declared = skill_registry.stage_id(meta.get('stage', ''))
-        if declared and declared != self.stage:
-            problems.append('frontmatter 声明阶段「%s」与本阶段不一致' % declared)
-        if target.exists():
-            problems.append('目标 %s 已存在，继续将覆盖' % target.name)
-        if problems:
-            message = ('导入前发现以下问题：\n\n' + '\n'.join('· ' + p for p in problems)
+        if plan['problems']:
+            message = ('导入前发现以下问题：\n\n' + '\n'.join('· ' + p for p in plan['problems'])
                        + '\n\n仍要导入吗？')
             if not confirm(self.winfo_toplevel(), TITLE, message, dangerous=True):
                 return None
         try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, target)
-            self.registry.scan(force=True)
-            self.skills = list(self.registry.getByStage(self.stage))
-            for child in self.skill_content.winfo_children():
-                child.destroy()
-            self.vars = {}
-            self.build_flow_skill(self.skill_content)
-            self.load()
-            self.state.configure(text='已新增 SKILL：' + target.name)
-            self.refresh_notes(str(target))
-            return target
-        except OSError as exc:
+            # 回收站跟随程序目录：阶段目录位于 程序/skills/<阶段>/。
+            result = skill_import_service.perform_import(plan, plan['target_dir'].parents[1])
+        except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
             self.state.configure(text='新增 SKILL 失败：' + str(exc))
             return None
+        target = result['target']
+        self.registry.scan(force=True)
+        self.skills = list(self.registry.getByStage(self.stage))
+        for child in self.skill_content.winfo_children():
+            child.destroy()
+        self.vars = {}
+        self.build_flow_skill(self.skill_content)
+        self.load()
+        label = target.parent.name if plan['kind'] == 'package' else target.name
+        self.state.configure(text='已新增 SKILL：' + label + ('（整包导入）' if plan['kind'] == 'package' else ''))
+        self.refresh_notes(str(target))
+        return target
 
     def check_all_skills(self, value=True):
         """全选／取消全选只作用于唯一的阶段 SKILL 网格。"""
