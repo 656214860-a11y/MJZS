@@ -542,6 +542,23 @@ class Studio:
         save(out/QC_NAME, report)
         save(out/EDIT_MANIFEST_NAME, manifest)
 
+    def publish_edit_lists(self, out, chosen, spec):
+        """成片之外再给剪辑软件一份 EDL／FCPXML／分轨素材清单；失败只记日志，不影响已发布的成片。"""
+        import logging
+        from edit_export import export_texts, TRACKS_NAME
+        try:
+            clips = [{'shot': shot['id'], 'file': shot['id'] + '.mp4', 'duration': shot['duration']}
+                     for shot, _version, _path in chosen]
+            sources = {shot['id']: {'version': version.get('version'), 'sha256': version.get('sha256')}
+                       for shot, version, _path in chosen}
+            for name, content in export_texts(Path(out).name, clips, spec, sources).items():
+                if name == TRACKS_NAME:
+                    save(Path(out) / name, content)
+                else:
+                    save_text(Path(out) / name, content)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            logging.getLogger(__name__).warning('剪辑软件导出清单未生成：%s', exc)
+
     def _encode(self,chosen,out,coverage=None):
         # 编码放在项目锁之外：ffmpeg 可能持续几分钟，占着锁会让同时进行的下载／验收全部报「另一操作正在运行」。
         from script_contract import output_filter,loudness_filter,overlay_metrics
@@ -585,6 +602,7 @@ class Studio:
                 from file_cache import remove_temporary_file
                 remove_temporary_file(pending_master)
         self.publish_edit_bundle(out, master, report, chosen)
+        self.publish_edit_lists(out, chosen, spec)
         if report['errors']: raise ValueError('成片技术检查未通过，报告已保存')
         return str(master)
     def output_spec(self):

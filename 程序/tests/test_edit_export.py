@@ -1,0 +1,74 @@
+"""剪辑软件交付出口：纯文本生成，不写文件、不启动剪辑软件。"""
+import unittest
+import xml.etree.ElementTree as ET
+
+import edit_export as ex
+
+CLIPS = [{'shot': 'S01', 'file': 'S01.mp4', 'duration': 2.5},
+         {'shot': 'S02', 'file': 'S02.mp4', 'duration': 4},
+         {'shot': 'S&3', 'file': 'S3.mp4', 'duration': 0.04}]
+SPEC = {'fps': 24, 'width': 1080, 'height': 1920}
+
+
+class EditExportTests(unittest.TestCase):
+    def test_timecode_and_layout_accumulate_frames_without_drift(self):
+        self.assertEqual(ex.timecode(0, 24), '00:00:00:00')
+        self.assertEqual(ex.timecode(24 * 3661 + 5, 24), '01:01:01:05')
+        rows = ex.layout(CLIPS, 24)
+        self.assertEqual([row['frames'] for row in rows], [60, 96, 1])
+        self.assertEqual(rows[1]['start'], 60)
+        self.assertEqual(rows[-1]['end'], 157)
+        with self.assertRaises(ValueError):
+            ex.layout([{'shot': 'x', 'file': 'x', 'duration': 'abc'}], 24)
+
+    def test_edl_is_cmx3600_with_clip_names(self):
+        text = ex.build_edl('第一集', CLIPS, 24)
+        lines = text.splitlines()
+        self.assertEqual(lines[0], 'TITLE: 第一集')
+        self.assertIn('FCM: NON-DROP FRAME', lines)
+        event = [line for line in lines if line.startswith('002 ')][0]
+        self.assertTrue(event.endswith('00:00:00:00 00:00:04:00 00:00:02:12 00:00:06:12'))
+        self.assertIn('* FROM CLIP NAME: S02.mp4', lines)
+
+    def test_fcpxml_is_well_formed_and_escapes_names(self):
+        root = ET.fromstring(ex.build_fcpxml('A "B" <C>', CLIPS, SPEC))
+        self.assertEqual(root.tag, 'fcpxml')
+        fmt = root.find('./resources/format')
+        self.assertEqual((fmt.get('width'), fmt.get('height'), fmt.get('frameDuration')), ('1080', '1920', '1/24s'))
+        clips = root.findall('.//spine/asset-clip')
+        self.assertEqual([clip.get('name') for clip in clips], ['S01', 'S02', 'S&3'])
+        self.assertEqual(clips[1].get('offset'), '60/24s')
+        self.assertEqual(root.find('.//sequence').get('duration'), '157/24s')
+
+    def test_tracks_and_export_texts(self):
+        texts = ex.export_texts('t', CLIPS, SPEC, {'S01': {'version': 2, 'sha256': 'abc'}})
+        self.assertEqual(set(texts), {ex.EDL_NAME, ex.FCPXML_NAME, ex.TRACKS_NAME})
+        tracks = texts[ex.TRACKS_NAME]
+        self.assertEqual(tracks['clips'][0]['source_sha256'], 'abc')
+        self.assertIsNone(tracks['clips'][1]['source_version'])
+        self.assertEqual(tracks['total_frames'], 157)
+        with self.assertRaises(ValueError):
+            ex.export_texts('t', [], SPEC)
+
+
+class PublishEditListsTests(unittest.TestCase):
+    def test_studio_writes_three_files_and_tolerates_bad_data(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        import engine
+        chosen = [({'id': 'S01', 'duration': 2}, {'version': 1, 'sha256': 'h1'}, Path('S01.mp4'))]
+        with tempfile.TemporaryDirectory() as folder:
+            engine.Studio.publish_edit_lists(None, folder, chosen, SPEC)
+            names = sorted(path.name for path in Path(folder).iterdir())
+            self.assertEqual(names, sorted([ex.EDL_NAME, ex.FCPXML_NAME, ex.TRACKS_NAME]))
+            data = json.loads((Path(folder) / ex.TRACKS_NAME).read_text(encoding='utf-8'))
+            self.assertEqual(data['clips'][0]['source_sha256'], 'h1')
+        with tempfile.TemporaryDirectory() as folder:
+            bad = [({'id': 'S01', 'duration': 'x'}, {}, Path('S01.mp4'))]
+            engine.Studio.publish_edit_lists(None, folder, bad, SPEC)      # 只记日志，不抛
+            self.assertEqual(list(Path(folder).iterdir()), [])
+
+
+if __name__ == '__main__':
+    unittest.main()
