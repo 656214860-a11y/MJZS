@@ -102,6 +102,7 @@ class DesktopRenameReconcileTests(unittest.TestCase):
         app.projects=service
         app._project_result_data=lambda result:desktop.Desktop._project_result_data(app,result)
         app.fill_projects=lambda tree:desktop.Desktop.fill_projects(app,tree)
+        app.project_row_text=lambda p:desktop.Desktop.project_row_text(app,p)
         app.reload=lambda:desktop.Desktop.reload(app)
         rows={}
         app.list.get_children.side_effect=lambda:tuple(rows)

@@ -3830,9 +3830,25 @@ class Desktop:
             items=[p for p in self.projects.info['projects'] if p.get('status','making')==state]
             tree.insert('','end',iid='group:'+state,text=f'{label}（{len(items)}）',open=True)
             for p in sorted(items,key=lambda item:item.get('created_at',Path(item['path']).stat().st_ctime if Path(item['path']).exists() else 0)):
-                missing=not Path(p['path']).is_dir()
-                text=p['name']+('（目录已失效，可右键清除登记）' if missing else '')
-                tree.insert('group:'+state,'end',iid=p['path'],text=text)
+                tree.insert('group:'+state,'end',iid=p['path'],text=self.project_row_text(p))
+    def project_row_text(self,p):
+        """项目行文字：当前打开的项目前加「●」，让用户随时看得出现在在哪个项目里。"""
+        missing=not Path(p['path']).is_dir()
+        current=self.root is not None and Path(p['path'])==self.root
+        return ('● ' if current else '')+p['name']+('（目录已失效，可右键清除登记）' if missing else '')
+    def mark_current_project(self):
+        """切换项目后只改行文字（不重建树，选中状态保持），并把项目名写进窗口标题。"""
+        trees=[self.list]
+        home=getattr(self,'_project_home_tree',None)
+        if home is not None and home.winfo_exists():trees.append(home)
+        for tree in trees:
+            for p in self.projects.info['projects']:
+                if tree.exists(p['path']):tree.item(p['path'],text=self.project_row_text(p))
+        title='漫剧制作助手 · '+VERSION
+        if self.root is not None:
+            from script_contract import project_name
+            title+=' · 当前项目：'+project_name(self.root)
+        self.win.title(title)
     def reload(self):
         self.fill_projects(self.list)
         tree=getattr(self,'_project_home_tree',None)
@@ -3909,6 +3925,7 @@ class Desktop:
                 # 否则下次启动回到旧项目会被误认为无响应或打开错误。
                 self.status.set('项目已打开，但当前项目登记未同步：%s；请稍后重新打开项目。' % exc)
             self.list.selection_set(str(self.root));self.list.see(str(self.root))
+            self.mark_current_project()
         else:
             selected=self.list.selection()
             if selected:self.list.selection_remove(*selected)
@@ -4084,7 +4101,32 @@ class Desktop:
         selected=self.list.selection()
         if not selected or selected[0].startswith('group:'):return
         path=selected[0]
-        if Path(path)!=self.root:self.safe(lambda:self.open_project_or_cleanup(path))
+        if Path(path)!=self.root:self.safe(lambda:self.request_project_switch(path))
+    def restore_project_selection(self):
+        """侧栏高亮回到当前项目；高亮＝当前项目，用户取消或被拦下时不能留在别的行上。"""
+        if self.root is not None:self.list.selection_set(str(self.root))
+    def project_switch_blocker(self):
+        """当前项目还有任务在跑时的拦截原因；空串表示可以切换。"""
+        if self.worker:return '后台任务仍在运行'
+        if self.idea_chat_controller.requesting:return '创意对话正在等待模型回复'
+        if self.script_agent_processes():return '剧本 Agent 仍在运行'
+        return ''
+    def request_project_switch(self,path):
+        """侧栏单击不再直接切换：先拦住进行中的任务，再让用户确认；取消就留在原项目。"""
+        from script_contract import project_name
+        reason=self.project_switch_blocker()
+        if reason and self.root is not None:
+            self.restore_project_selection()
+            raise ValueError(reason+'，现在切换会让结果写不进当前项目。请等它完成或先中断，再切换项目。')
+        target=next((p['name'] for p in self.projects.info['projects'] if p['path']==path),project_name(path))
+        current=project_name(self.root) if self.root is not None else ''
+        message='切换到项目「'+target+'」？'
+        if current:message+='\n\n当前项目：「'+current+'」。切换后所有页面、文件列表与新生成的内容都归「'+target+'」。'
+        if not confirm(self.win,'切换项目',message):
+            self.restore_project_selection()
+            self.status.set('已取消切换，仍在项目「'+current+'」')
+            return False
+        return self.open_project_or_cleanup(path)
     def open_project_or_cleanup(self,path):
         """从侧栏或项目首页打开项目，并记住当天的用户选择。"""
         try:
