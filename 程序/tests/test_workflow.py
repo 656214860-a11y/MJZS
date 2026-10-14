@@ -737,10 +737,11 @@ class DesktopModelPoolTests(unittest.TestCase):
                 Desktop.open_flow_agent(desktop, 'writing', '提取', '提取简报', _config=config, intake_only=True)
             launch.assert_called_once_with('C:/Apps/Claude.exe', 'Claude Desktop')
             clipboard_text = copy.call_args.args[1]
-            self.assertEqual(clipboard_text, '提取简报')
+            # R1431：Claude Desktop 任务末尾追加「交付方式」说明（下载件沿用目标文件名）。
+            self.assertTrue(clipboard_text.startswith('提取简报\n\n【交付方式】'))
             tasks = list((proj / '工作流任务' / 'writing').glob('*.md'))
             self.assertEqual(len(tasks), 1)
-            self.assertEqual(tasks[0].read_text(encoding='utf-8'), '提取简报')
+            self.assertEqual(tasks[0].read_text(encoding='utf-8'), clipboard_text)
             self.assertEqual(clipboard_text, tasks[0].read_text(encoding='utf-8'))
             paste.assert_called_once_with(proj.name + ' 提取', clipboard_text, program='C:/Apps/Claude.exe', deadline_seconds=45)
             cli.assert_not_called()

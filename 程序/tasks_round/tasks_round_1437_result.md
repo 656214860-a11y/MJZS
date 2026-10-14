@@ -5,10 +5,11 @@
 
 | 失败 | 原因（来源） | 处理 |
 | --- | --- | --- |
-| `test_workflow` ×2 `gate_level` | R1431 让 `claude_pasted` 调 `self.gate_level()`，测试用 `SimpleNamespace` 面板缺该方法 | 两处替身补 `gate_level=lambda: 'manual'`；断言未动 |
+| `test_workflow` ×2 `gate_level`（修后第二次全量暴露同一用例还有一处陈旧断言，见下行） | R1431 让 `claude_pasted` 调 `self.gate_level()`，测试用 `SimpleNamespace` 面板缺该方法 | 两处替身补 `gate_level=lambda: 'manual'`；断言未动 |
 | `test_copy_rules.test_no_popup_goes_over_the_limit` | R1431 的 `previs_automation.py:89` 弹窗 67 字，超 45 字上限 | 文案改为"白模自动制作需后台模型：请改用 Claude Code、Codex 或 API"（39 字，同一条件、同一行为） |
 | `architecture.test_todo_comment_snapshot` | R1431 后 `desktop.py` 该注释从 2811 行移到 2846 行 | 快照行号 2811 → 2846（注释文字未变） |
 | `test_script_agent_delivery_paths` | R1434 有意把提示词改为"本机绝对路径"，测试仍断言旧措辞 | 断言改成新措辞；API 默认不含路径的反向断言同步改成新措辞（否则成了空断言）。强度未减 |
+| `test_workflow.test_native_claude_pastes_full_task…`（全量复跑才暴露） | R1431 给 Claude Desktop 任务末尾追加「【交付方式】」说明，测试仍断言剪贴板全文＝`提取简报` | 改为断言以 `提取简报\n\n【交付方式】` 开头，且任务文件内容等于剪贴板全文；断言未弱化 |
 | `test_idea_chat` ×4 | 并非单纯大小写：R1431 统一调色板后，用户气泡色 `#dff5e3`→`#DCFCE7`、危险色 `#c62828`→`#DC2626`；选中前景色 Windows 返回大写 | 改为引用 `ui_tokens.COLORS` 并忽略大小写比较，不再写死 hex |
 
 - 更正 R1436 的说法：`test_idea_chat` 4 条不是"Windows 大小写差异"，其中 3 条是 R1431 调色板契约变更后的陈旧断言。
@@ -19,4 +20,4 @@
 
 ## 测试
 
-见本轮之后补记的 Windows 全量结果。
+第一次全量（R1436 后）9 条红；本轮修后第二次全量 581 路仅剩上表新增的 1 条（已修，见下）；第三次全量结果见状态页。
