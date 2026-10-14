@@ -392,11 +392,12 @@ def pending_lines(lines, folder):
     return [index for index, line in enumerate(lines, 1) if not line_done(manifest, index, line, folder)]
 
 
-def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=None, settings=None, episode=None):
+def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=None, settings=None, episode=None,
+              on_line=None):
     """逐句合成到 folder：每句完成后立即写清单，已成功的句子直接沿用。
 
     中断或报错后再次运行会接续同一批次，只补做缺的句子，不重复扣费。
-    返回 (成功数, 沿用数, 失败数)。
+    返回 (成功数, 沿用数, 失败数)。on_line(序号, 句子, 登记项) 在每句真正合成并发布后调用（沿用的句子不调用）。
     """
     publish = _require_gateway(gateway, "publish_json", "publish_bytes")
     folder = Path(folder); folder.mkdir(parents=True, exist_ok=True)
@@ -426,6 +427,8 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
             raw = generate(line.get("text", ""), speed=line.get("speed", 1.0), voice=line.get("voice") or None)
             entry = publish_line(folder, manifest, index, line, raw, gateway=publish)
             ok += 1
+            if on_line is not None:
+                on_line(index, line, entry)
         except Exception as exc:
             entry = {**line, "file": "", "state": "failed", "error": str(exc)}
             failed += 1

@@ -653,3 +653,18 @@ class RequestLedger:
         if isinstance(data, dict) and isinstance(data.get('entries'), list):
             self.entries = [entry for entry in data['entries'] if isinstance(entry, dict)]
         return self
+
+
+def record_request(project, request_id, kind, amount, *, note='', mode='reported'):
+    """把一笔已完成的付费请求写进项目请求台账；同一 request_id＋kind 只算一笔，重复调用只覆盖。
+
+    生产路径上的记账不能影响制作：任何落盘或数据问题都只返回 None，不抛异常。
+    不传远端任务号，避免按任务号去重把同一请求的两类用量（次数与秒数）误判为重复。"""
+    try:
+        ledger = RequestLedger(project).load()
+        ledger.reserve(request_id, kind, amount, note=note)
+        ledger.settle(request_id, kind=kind, amount=amount, mode=mode, note=note)
+        ledger.save()
+        return ledger
+    except (OSError, ValueError, TypeError):
+        return None

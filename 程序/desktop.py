@@ -7335,7 +7335,7 @@ class Desktop:
             self.status.set('已取消逐句配音：未提交任何句子，也没有产生费用');return
         def work():
             from stage_execution_service import run_tts_lines
-            ok,reused,failed=run_tts_lines(lines,out,episode=token)
+            ok,reused,failed=run_tts_lines(lines,out,episode=token,project=self.root)
             note=f'逐句配音完成：成功 {ok}/{len(lines)}，失败 {failed}'
             if reused:note+=f'（沿用已生成 {reused} 句，未重复扣费）'
             if resumed:note+='；已接续上次未完成的批次'

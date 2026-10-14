@@ -647,9 +647,17 @@ def migrate_white_model_directories(project):
     return migrate_legacy_directories(project_context(project), publish=save)
 
 
-def run_tts_lines(lines, folder, generate=None, report=None, stop=None, episode=None):
+def run_tts_lines(lines, folder, generate=None, report=None, stop=None, episode=None, project=None):
     from tts_api import run_lines
-    return run_lines(lines, folder, generate, report, stop, gateway=tts_gateway(), episode=episode)
+    on_line = None
+    if project is not None:
+        from pet_llm import record_request
+
+        def on_line(index, line, entry):
+            """每句真正合成一次记一笔请求；以音频摘要区分重做，沿用的句子不会走到这里。"""
+            record_request(project, 'tts:%s:%d:%s' % (episode or '', index, str(entry.get('sha256') or '')[:12]),
+                           'requests', 1, note='配音 %s，%d 字' % (line.get('shot_id') or '', len(str(line.get('text') or ''))))
+    return run_lines(lines, folder, generate, report, stop, gateway=tts_gateway(), episode=episode, on_line=on_line)
 
 
 def cloud_video_gateway():

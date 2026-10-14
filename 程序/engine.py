@@ -291,7 +291,16 @@ class Studio:
         if qc_error is not None:version['qc_error']=str(qc_error)
         version['finished_at']=time.time()
         save(self.db,state)
+        self.record_video_usage(sid,version)
         return version
+    def record_video_usage(self,sid,version):
+        """视频成功落盘后记一笔请求台账：条数按实际下载、秒数按本镜声明时长（估算，非服务商上报）。"""
+        from pet_llm import record_request
+        try:seconds=float(self.shot(sid).get('duration') or 0)
+        except (ValueError,TypeError):seconds=0
+        base='video:%s:v%s'%(sid,version.get('version'))
+        record_request(self.root,base+':count','videos',1,note=base)
+        if seconds>0:record_request(self.root,base+':seconds','seconds',seconds,note=base,mode='estimated')
     def cloud_index(self):
         if not is_cloud_workspace(self.root):return
         grouped={}
