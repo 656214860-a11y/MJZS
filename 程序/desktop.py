@@ -5614,7 +5614,8 @@ class Desktop:
                 def claude_pasted(value):
                     finish(receipt,'prepared' if value['ok'] else 'failed',value['reason'],task_file=task_file)
                     self.status.set(value['reason'])
-                    if value['ok'] and self.gate_level()=='auto':
+                    level=getattr(self,'gate_level',None)
+                    if value['ok'] and callable(level) and level()=='auto':
                         # 全自动不拦截 Claude Desktop：它只能由用户点发送，这里明确提示，
                         # 避免自动链看似停住却没有说明；状态栏原文也会转给三虎。
                         message=('三虎全自动：'+label+' 的任务已粘贴到 Claude Desktop，'
