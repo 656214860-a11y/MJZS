@@ -314,6 +314,27 @@ def complete_task(*, common_dir: Path, queue_path: Path, task_id: str, owner: st
         return dict(item)
 
 
+def ensure_hooks(common_dir: Path) -> list[str]:
+    """协作 Git 钩子缺失或与版本受控源不一致时自动安装；失败只提示，不影响领号。
+
+    新克隆没装钩子就没有提交门禁和全量后台补跑，所以每次领号顺带自愈（钩子是版本受控文件，覆盖安全）。"""
+    try:
+        import install_git_hooks
+        stale = []
+        for name in install_git_hooks.HOOKS:
+            installed = common_dir / "hooks" / name
+            expected = (install_git_hooks.SOURCE / name).read_bytes().replace(bytes((13, 10)), bytes((10,)))
+            if not installed.is_file() or installed.read_bytes() != expected:
+                stale.append(name)
+        if stale:
+            install_git_hooks.install(common_dir)
+            print("已自动安装／更新 git 钩子：" + "、".join(stale), file=sys.stderr)
+        return stale
+    except Exception as error:     # 自愈是尽力而为
+        print("git 钩子自检失败（不影响领号）：%s" % error, file=sys.stderr)
+        return []
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=False)
@@ -342,7 +363,9 @@ def main(argv: list[str] | None = None) -> int:
         except (RuntimeError, subprocess.CalledProcessError) as error:
             print(str(error), file=sys.stderr)
             return 2
-        print(claim_next(common_dir=common_dir, tasks_round=PROGRAM / "tasks_round", root=ROOT))
+        number = claim_next(common_dir=common_dir, tasks_round=PROGRAM / "tasks_round", root=ROOT)
+        ensure_hooks(common_dir)
+        print(number)
     elif args.command in ("show", "validate"):
         payload = _load_authority(common_dir, args.queue, ROOT)
         if args.command == "show":

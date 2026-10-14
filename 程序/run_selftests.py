@@ -464,8 +464,8 @@ def count_source_rounds(commits, last_full_round, latest_round, prefix):
     return len(counted)
 
 
-def source_rounds_since(last_full_round, latest_round):
-    """读 git 历史得到源码轮次数；读不出来返回 None，由调用方退回保守的全部轮次计数。"""
+def _round_commits():
+    """读 git 历史：返回 ([(轮次, [路径])], 程序目录相对仓库根的前缀)；读不出来返回 None。"""
     try:
         root = _git_text('rev-parse', '--show-toplevel')
         prefix = os.path.relpath(HERE, root).replace(os.sep, '/') + '/'
@@ -473,12 +473,43 @@ def source_rounds_since(last_full_round, latest_round):
     except (OSError, ValueError, subprocess.SubprocessError):
         return None
     commits = []
-    for chunk in log.split('\x01'):
+    for chunk in log.split(chr(1)):
         lines = [line for line in chunk.splitlines() if line.strip()]
         matched = _ROUND_SUBJECT.match(lines[0]) if lines else None
         if matched:
             commits.append((int(matched.group(1)), lines[1:]))
+    return commits, prefix
+
+
+def source_rounds_since(last_full_round, latest_round):
+    """读 git 历史得到源码轮次数；读不出来返回 None，由调用方退回保守的全部轮次计数。"""
+    loaded = _round_commits()
+    if loaded is None:
+        return None
+    commits, prefix = loaded
     return count_source_rounds(commits, last_full_round, latest_round, prefix)
+
+
+def risk_paths(prefix):
+    """AGENTS §5 里能按路径静态判定的升级条件；Tk 控件生命周期无法静态判定，仍由人工把关。"""
+    return frozenset(('启动漫剧制作助手.pyw', '启动助手.cmd', prefix + 'storage_maintenance.py',
+                      prefix + 'tests/architecture/_layers.py'))
+
+
+def has_risk_change(commits, last_full_round, latest_round, prefix):
+    """(last_full, latest] 内是否有轮次改过启动入口、删除语义或层级登记表。"""
+    watched = risk_paths(prefix)
+    return any(last_full_round < number <= latest_round
+               and any(path.replace(chr(92), '/') in watched for path in paths)
+               for number, paths in commits)
+
+
+def risk_changed_since(last_full_round, latest_round):
+    loaded = _round_commits()
+    if loaded is None:
+        return False
+    commits, prefix = loaded
+    return has_risk_change(commits, last_full_round, latest_round, prefix)
 
 
 def receipt_checkout_allowed():
@@ -494,12 +525,13 @@ def receipt_checkout_allowed():
         return False
 
 
-def full_safe_required(latest_round, last_full_round, master_checkout, source_rounds=None):
+def full_safe_required(latest_round, last_full_round, master_checkout, source_rounds=None, risk=False):
     """欠账只属于主干提交序列，worktree 分支不产生全量欠账。
 
-    ``source_rounds`` 缺省时按全部轮次保守计数；传入则只数改过源码的轮次。"""
+    ``source_rounds`` 缺省时按全部轮次保守计数；传入则只数改过源码的轮次。``risk`` 为真（改过启动入口、
+    删除语义或层级登记表）时不等计数，立即欠一次全量。"""
     count = latest_round - last_full_round if source_rounds is None else source_rounds
-    return bool(master_checkout and count >= FULL_SAFE_ROUND_INTERVAL)
+    return bool(master_checkout and (risk or count >= FULL_SAFE_ROUND_INTERVAL))
 
 
 def full_safe_auto_due(latest_round, last_full_round, master_checkout):
@@ -508,7 +540,7 @@ def full_safe_auto_due(latest_round, last_full_round, master_checkout):
         return False
     count = source_rounds_since(last_full_round, latest_round)
     count = latest_round - last_full_round if count is None else count
-    return count >= FULL_SAFE_ROUND_INTERVAL - FULL_SAFE_AUTO_LEAD
+    return risk_changed_since(last_full_round, latest_round) or count >= FULL_SAFE_ROUND_INTERVAL - FULL_SAFE_AUTO_LEAD
 
 
 def participating_full_safe_run(round_number):

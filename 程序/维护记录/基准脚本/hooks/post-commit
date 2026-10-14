@@ -4,6 +4,7 @@
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 for py in "$root"/运行环境/Python/python.exe "$root"/运行环境/Python/python; do
   if [ -x "$py" ]; then
+    "$py" -I -B "$root/程序/scripts/auto_full_safe.py" --notice 2>/dev/null
     "$py" -I -B "$root/程序/scripts/auto_full_safe.py" --spawn >/dev/null 2>&1 &
     break
   fi

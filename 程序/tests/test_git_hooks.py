@@ -51,6 +51,21 @@ class GitHookTests(unittest.TestCase):
             subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
             self.assertEqual(self.run_hook(HOOKS / "post-commit", cwd=root).returncode, 0)
 
+    def test_claiming_a_round_heals_missing_or_stale_hooks(self):
+        sys.path.insert(0, str(SCRIPTS))
+        try:
+            spec = importlib.util.spec_from_file_location("round_claim_for_tests", SCRIPTS / "round_claim.py")
+            claim = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(claim)
+            with tempfile.TemporaryDirectory() as temporary:
+                common = Path(temporary)
+                self.assertEqual(sorted(claim.ensure_hooks(common)), sorted(install_git_hooks.HOOKS))
+                self.assertEqual(claim.ensure_hooks(common), [])
+                (common / "hooks" / "post-commit").write_bytes(b"#!/bin/sh exit 1")
+                self.assertEqual(claim.ensure_hooks(common), ["post-commit"])
+        finally:
+            sys.path.remove(str(SCRIPTS))
+
     def test_installer_writes_lf_even_from_crlf_sources(self):
         with tempfile.TemporaryDirectory() as temporary:
             source = Path(temporary) / "source"

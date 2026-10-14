@@ -41,3 +41,27 @@ class AutoFullSafeTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FailureNoticeTests(unittest.TestCase):
+    def test_red_modules_are_read_from_the_log_in_order_without_duplicates(self):
+        log = '### test_core（1 条红）\n\nx\n### test_asset_gating（2 条红）\n### test_core（3 条红）\n'
+        self.assertEqual(auto.red_modules(log), ['test_core', 'test_asset_gating'])
+
+    def test_notice_only_for_a_failed_last_run(self):
+        failed = {'head': 'abcdef1234', 'returncode': 1, 'finished_at': 't', 'red': ['test_core'], 'log': 'L'}
+        with mock.patch.object(auto, 'last_result', return_value=failed):
+            text = auto.failure_notice()
+        self.assertIn('abcdef1', text)
+        self.assertIn('test_core', text)
+        for result in ({}, {'returncode': 0}):
+            with mock.patch.object(auto, 'last_result', return_value=result):
+                self.assertEqual(auto.failure_notice(), '')
+
+    def test_notice_flag_prints_and_never_fails(self):
+        with mock.patch.object(auto, 'failure_notice', return_value='boom-text'), \
+             mock.patch('builtins.print') as shown:
+            self.assertEqual(auto.main(['--notice']), 0)
+        shown.assert_called_once_with('boom-text')
+        with mock.patch.object(auto, 'failure_notice', side_effect=RuntimeError('x')):
+            self.assertEqual(auto.main(['--notice']), 0)

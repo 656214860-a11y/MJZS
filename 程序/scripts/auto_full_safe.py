@@ -3,6 +3,7 @@
 用法（随附解释器，``-I`` 也可）：
 
 * ``--status``  只打印欠账状态，不跑任何东西。
+* ``--notice``  上次后台全量未通过时打印一句话；post-commit 钩子每次提交先跑它，红了会在提交输出里看到。
 * ``--spawn``   由 git post-commit 钩子调用：master 上欠账达到触发点（门禁线提前 2 个源码轮次）
   且没有同类任务在跑时，起一个脱离终端的后台进程；否则静默退出。钩子绝不阻塞提交。
 * ``--run``     前台执行：把 ``.wt/ci`` 对齐到当前 HEAD，跑 ``run_selftests.py --all --safe``。
@@ -13,7 +14,9 @@
 """
 from __future__ import annotations
 
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -50,6 +53,52 @@ def status() -> dict:
         "gate_at": run_selftests.FULL_SAFE_ROUND_INTERVAL,
         "auto_due": run_selftests.full_safe_auto_due(latest, last_full, master),
     }
+
+
+RESULT_NAME = "auto-full-safe-result.json"
+
+
+def _result_path() -> Path:
+    return Path(run_selftests.git_common_dir() or PROGRAM) / RESULT_NAME
+
+
+def red_modules(log_text: str) -> list[str]:
+    """从全量日志里取出有红的测试文件名（``### 名称（N 条红）`` 行），去重保序。"""
+    found = []
+    for match in re.finditer(r"^### (\S+?)（\d+ 条红）", log_text, re.M):
+        if match.group(1) not in found:
+            found.append(match.group(1))
+    return found
+
+
+def write_result(head: str, returncode: int, seconds: float) -> None:
+    try:
+        text = LOG.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        text = ""
+    payload = {"head": head, "returncode": returncode, "seconds": round(seconds),
+               "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+               "red": red_modules(text), "log": str(LOG)}
+    _result_path().write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def last_result() -> dict:
+    try:
+        value = json.loads(_result_path().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def failure_notice() -> str:
+    """上次后台全量没通过时的一句话提示；通过、没跑过或读不出来都返回空串。"""
+    result = last_result()
+    if not result or result.get("returncode") == 0:
+        return ""
+    red = "、".join(result.get("red") or []) or "见日志"
+    return ("[自动全量] 上次后台全量未通过（HEAD %s，%s，退出码 %s）：%s；日志 %s"
+            % (str(result.get("head", ""))[:7], result.get("finished_at", ""),
+               result.get("returncode"), red, result.get("log", LOG)))
 
 
 def _lock_path() -> Path:
@@ -142,8 +191,10 @@ def _run_locked() -> int:
         started = time.perf_counter()
         result = subprocess.run([sys.executable, "-B", "run_selftests.py", "--all", "--safe"],
                                 cwd=program, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
+        elapsed = time.perf_counter() - started
         log.write("\n[自动全量] 退出码 %d，用时 %.0f 秒（0＝绿且凭据已写入）\n"
-                  % (result.returncode, time.perf_counter() - started))
+                  % (result.returncode, elapsed))
+    write_result(head, result.returncode, elapsed)
     return result.returncode
 
 
@@ -151,6 +202,14 @@ def main(argv=None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if "--run" in args:
         return run()
+    if "--notice" in args:
+        try:
+            text = failure_notice()
+            if text:
+                print(text)
+        except Exception:      # 提示是附加信息，任何异常都不能影响提交
+            pass
+        return 0
     if "--spawn" in args:
         try:
             return spawn()
@@ -159,6 +218,7 @@ def main(argv=None) -> int:
     info = status()
     print("上次全量 R%(last_full)d；最新 R%(latest)d；其间改过源码的轮次 %(source_rounds)s"
           "（门禁线 %(gate_at)d）；主干 %(master)s；后台触发 %(auto_due)s" % info)
+    print(failure_notice() or "上次后台全量：通过或尚未运行")
     return 0
 
 

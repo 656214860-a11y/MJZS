@@ -345,6 +345,19 @@ class IncrementalTests(unittest.TestCase):
                 os.environ.pop('AUTO_FULL_SAFE_HEAD', None)
                 self.assertFalse(run_selftests.receipt_checkout_allowed())
 
+    def test_risk_paths_owe_a_full_run_immediately(self):
+        prefix = '程序/'
+        for path in ('启动助手.cmd', '启动漫剧制作助手.pyw', '程序/storage_maintenance.py',
+                     '程序/tests/architecture/_layers.py'):
+            with self.subTest(path=path):
+                self.assertTrue(run_selftests.has_risk_change([(105, [path])], 100, 105, prefix))
+        self.assertFalse(run_selftests.has_risk_change([(105, ['程序/desktop.py'])], 100, 105, prefix))
+        self.assertFalse(run_selftests.has_risk_change([(99, ['启动助手.cmd'])], 100, 105, prefix))
+        self.assertTrue(run_selftests.full_safe_required(101, 100, True, source_rounds=1, risk=True))
+        self.assertFalse(run_selftests.full_safe_required(101, 100, False, source_rounds=1, risk=True))
+        with mock.patch.object(run_selftests, 'source_rounds_since', return_value=0),              mock.patch.object(run_selftests, 'risk_changed_since', return_value=True):
+            self.assertTrue(run_selftests.full_safe_auto_due(101, 100, True))
+
     def test_auto_full_safe_triggers_before_the_gate(self):
         lead = run_selftests.FULL_SAFE_AUTO_LEAD
         due = run_selftests.FULL_SAFE_ROUND_INTERVAL - lead

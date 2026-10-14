@@ -60,7 +60,8 @@ class RoundBaselineTests(unittest.TestCase):
         last_full = baseline['last_full_safe_all_round']
         if not run_selftests.full_safe_required(
                 latest, last_full, run_selftests.is_master_checkout(),
-                run_selftests.source_rounds_since(last_full, latest)):
+                run_selftests.source_rounds_since(last_full, latest),
+                run_selftests.risk_changed_since(last_full, latest)):
             return
         receipt = run_selftests.verified_tree_record(
             baseline.get('full_safe_verified_trees', []), run_selftests.content_tree())
