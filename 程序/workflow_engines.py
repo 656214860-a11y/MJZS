@@ -7,7 +7,7 @@ from pathlib import Path
 from file_cache import remove_temporary_file
 from datetime import datetime
 from agent.core import save,save_text,read,temporary_path,replace
-from workflow_settings import find_program,ENGINES,skill_prompt,stage_output_contract,hollmwood_prompt
+from workflow_settings import find_program,gui_claude_program,GUI_CLAUDE_CLI_HINT,ENGINES,skill_prompt,stage_output_contract,hollmwood_prompt
 from workflow_process_registry import (register_process, forget_process, processes,
                                        reserve_process_slot, release_process_slot,
                                        request_process_slot, claim_process_slot,
@@ -71,6 +71,7 @@ def background_command(config,project,output,report):
     if config['engine'] == 'claude-desktop-app':
         raise ValueError('Claude Desktop 需要在桌面窗口中手动发送，请使用手动制作入口')
     exe=find_program(config)
+    if config['engine']=='claude' and gui_claude_program(exe):raise ValueError(GUI_CLAUDE_CLI_HINT)
     if config['engine']=='codex':
         args=[exe,'exec','--skip-git-repo-check','--sandbox','workspace-write','--cd',str(project),'--add-dir',str(output),'--color','never','-o',str(report)]
     else:
@@ -138,7 +139,10 @@ class ClaudeWritingAdapter:
             {'system': system, 'messages': messages}, ensure_ascii=False), '剧本准备')
         if self.cancelled and self.cancelled():
             return {'ok': False, 'text': '', 'error': 'Claude CLI 请求已取消'}
-        args = [find_program(self.config), '-p', '--output-format', 'json', '--tools', '',
+        program = find_program(self.config)
+        if gui_claude_program(program):
+            return {'ok': False, 'text': '', 'error': GUI_CLAUDE_CLI_HINT}
+        args = [program, '-p', '--output-format', 'json', '--tools', '',
                 '--no-session-persistence', '--disable-slash-commands', '--strict-mcp-config',
                 '--setting-sources', 'user', '--settings', '{"disableAllHooks":true}',
                 '--system-prompt', '执行输入 JSON 中的 system 规则，处理 messages，只输出本轮要求的正文。']
@@ -242,6 +246,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
     if config['engine'] == 'claude-desktop-app':
         raise ValueError('Claude Desktop 请通过桌面发送入口打开，不支持 Claude Code 命令行参数')
     exe=find_program(config);project=Path(project)
+    if config['engine']=='claude' and gui_claude_program(exe):raise ValueError(GUI_CLAUDE_CLI_HINT)
     folder=project/'工作流任务'/'交互任务'/stage/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     folder.mkdir(parents=True)
     task=folder/'任务.md';save_text(task,prompt);save(folder/'调用配置.json',config)

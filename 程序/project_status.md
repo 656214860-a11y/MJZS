@@ -1,5 +1,7 @@
 # 项目状态（可独立接续）
 
+R1425：修复轮（路线图 A）。命令行 Claude 条目误指向 Claude Desktop 图形程序时，保存被拒并说明改法，调用前直接给出明确错误而非「未返回有效 JSON」；剧本页模型调用失败统一弹窗。新增 3 项用例，Linux 副本定向通过（已知失败与未改代码一致）；命中五轮欠账，需在 Windows 补跑安全全量。新增[路线图](维护记录/路线图_20261014.md)。详见 [R1425](tasks_round/tasks_round_1425_result.md)。
+
 R1424：修复轮。模型管理「自动搜寻」识别商店版 Claude Desktop（WindowsApps，经注册表包清单，新版本优先），旧安装器路径优先不变；新增 3 项用例，Linux 副本定向通过（唯一失败依赖 Windows，未改代码同样失败）。需重启加载。详见 [R1424](tasks_round/tasks_round_1424_result.md)。
 
 R1423：修复轮。模型管理中本机 Claude／ChatGPT 条目的 Provider 显示厂商名（anthropic／GPT），改选 anthropic 仍保持「应用安装路径」表单，存储仍为 desktop；普通 Anthropic API 不变。仅改 `pet_models_ui.py` 与 `tests/test_pet_ui.py`（Provider 期望值按用户要求改为 anthropic，新增 1 项）。Linux 副本定向 20/21（唯一失败在未改代码上同样失败）、架构抽样 56/56；随附解释器冒烟未实测。需重启助手加载。详见 [R1423](tasks_round/tasks_round_1423_result.md)。
@@ -68,7 +70,7 @@ R1297：Claude CLI 开启 HOLLMWOOD 时由程序逐角色调用并审核，正�
 
 R1288：Claude CLI 剧本准备限定输入已同步 45884c8；附件仅引用 Markdown，取消全项目扫描/索引注入，阶段①不读取旧 brief；连续确认按独立请求去重。关联 178/178、核心 34/34、冒烟 8/8；架构唯一行号失败修正后 5/5。未实发模型/重启，需重启助手加载；见 tasks_round/tasks_round_1288_result.md。
 
-更新：2026-10-14｜当前轮次：1425（R1424 自动搜寻识别商店版 Claude Desktop；R1423 修复模型管理本机 Claude 的 Provider 显示与表单；R1422 已完成交接收尾；R1420 缓存修复安全全量 5024 项、0 失败，R1419 已由 R1421 合入，合并后定向验证见对应报告。历史缺失报告不补造验收。）
+更新：2026-10-14｜当前轮次：1426（R1425 CLI 失败提示与图形程序误配拦截；R1424 自动搜寻识别商店版 Claude Desktop；R1423 修复模型管理本机 Claude 的 Provider 显示与表单；R1422 已完成交接收尾；R1420 缓存修复安全全量 5024 项、0 失败，R1419 已由 R1421 合入，合并后定向验证见对应报告。历史缺失报告不补造验收。）
 
 R1283：Claude CLI 明确重新创作新建会话，限制旧资料读取；定向 133/133、冒烟 8/8，架构唯一行号失败修正后原文件 2/2。实现 fcc39ae 已同步，未重跑全量，需重启加载。见 tasks_round/tasks_round_1283_result.md。
 

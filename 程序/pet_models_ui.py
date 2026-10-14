@@ -622,6 +622,10 @@ def open_manager(pet):
                 path = Path(program_entry.get().strip()).expanduser()
                 if not path.is_absolute() or path.suffix.lower() != '.exe' or not path.is_file():
                     raise ValueError('请选择存在的应用 .exe 安装路径')
+                from workflow_settings import gui_claude_program, GUI_CLAUDE_CLI_HINT
+                engine = model_pool.desktop_engine(state['id']) or entries['model'].get().strip().lower()
+                if engine in ('claude', 'claude code') and gui_claude_program(str(path)):
+                    raise ValueError(GUI_CLAUDE_CLI_HINT)
             if not desktop_mode() and key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
                 local_save()
             pet.save_pool(read_form(), state['id'])

@@ -3267,6 +3267,26 @@ class ModelPoolTests(PetTestCase):
         self.assertFalse(win._pet_program_row.winfo_manager())
         self.assertTrue(all(w.winfo_manager() == 'grid' for w in win._pet_api_controls))
 
+    def test_cli_entry_pointing_at_claude_desktop_gui_is_rejected(self):
+        """R1425：命令行 Claude 条目不能保存为 Claude Desktop 图形程序路径。"""
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        buttons = {str(w.cget('text')): w for w in self._walk(win, self.ttk.Button)}
+        buttons['新建一条'].invoke()
+        entries = win._pet_entries
+        entries['label'].insert(0, 'Claude Code Cli')
+        entries['model'].insert(0, 'claude code')
+        win._pet_provider.set('desktop')
+        win.update()
+        gui = self.pet.program / 'WindowsApps' / 'Claude_2.1.0.0_x64__x' / 'app' / 'Claude.exe'
+        gui.parent.mkdir(parents=True)
+        gui.write_bytes(b'test executable; never launched')
+        entries['program'].delete(0, 'end')
+        entries['program'].insert(0, str(gui))
+        buttons['保存这条'].invoke()
+        self.assertIn('图形界面', win._pet_hint.get())
+        self.assertNotIn('claude code', model_pool.pool(program=self.pet.program))
+
     def model_menu(self):
         index = self.pet.menu_index['model']
         return self.pet.menu.nametowidget(self.pet.menu.entrycget(index, 'menu'))

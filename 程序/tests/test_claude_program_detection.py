@@ -128,3 +128,28 @@ class StoreDesktopDetectionTests(unittest.TestCase):
                     patch.dict(os.environ, {'LOCALAPPDATA': folder}):
                 with self.assertRaisesRegex(ValueError, '未找到 Claude Desktop'):
                     settings.find_program({'engine': 'claude-desktop-app', 'program': ''})
+
+
+class GuiCliGuardTests(unittest.TestCase):
+    """R1425：Claude Desktop 图形程序不能当命令行 claude.exe 调用。"""
+
+    def test_gui_paths_are_recognised_and_cli_paths_are_not(self):
+        gui = [r'C:\Program Files\WindowsApps\Claude_2.1.0.0_x64__x\app\Claude.exe',
+               r'C:\Users\a\AppData\Local\AnthropicClaude\app-1.0\claude.exe',
+               r'C:\Users\a\AppData\Local\Programs\Claude\Claude.exe']
+        cli = [r'C:\Users\a\.local\bin\claude.exe',
+               r'C:\Users\a\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe',
+               r'C:\Program Files\WindowsApps\Other_1_x64__x\app\other.exe', '']
+        self.assertTrue(all(settings.gui_claude_program(path) for path in gui))
+        self.assertFalse(any(settings.gui_claude_program(path) for path in cli))
+
+    def test_writing_adapter_reports_gui_program_without_launching(self):
+        import workflow_engines as engines
+        gui = r'C:\Program Files\WindowsApps\Claude_2.1.0.0_x64__x\app\Claude.exe'
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.object(engines, 'find_program', return_value=gui), \
+                patch.object(engines.subprocess, 'Popen', side_effect=AssertionError('must not launch')):
+            adapter = engines.ClaudeWritingAdapter(folder, {'engine': 'claude', 'program': gui})
+            result = adapter.chat([{'role': 'user', 'content': 'hi'}])
+        self.assertFalse(result['ok'])
+        self.assertEqual(result['error'], settings.GUI_CLAUDE_CLI_HINT)

@@ -541,6 +541,20 @@ def store_package_program(package, relative):
     return ''
 
 
+def gui_claude_program(path):
+    """路径是否 Claude Desktop 图形程序（商店版／Squirrel／Programs 安装），而非命令行 claude.exe。
+    图形程序不接受 -p／--output-format，当作 CLI 调用只会得到「未返回有效 JSON」。"""
+    text=str(path or '').replace('/','\\').lower()
+    if not text.endswith('\\claude.exe'):return False
+    return any(mark in text for mark in ('\\windowsapps\\','\\anthropicclaude\\','\\programs\\claude\\'))
+
+
+GUI_CLAUDE_CLI_HINT=('所选程序是 Claude Desktop 图形界面，不是命令行（claude.exe）。'
+                     '请在模型管理改用「Claude Desktop」条目（模型 ID claude-desktop-app），'
+                     '或把本条的程序改为命令行版 claude.exe。')
+
+
+
 def find_program(config):
     if config['program']:return current_store_program(config['program'])
     if config['engine'] == 'claude-desktop-app':

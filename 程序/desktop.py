@@ -1887,6 +1887,8 @@ class Desktop:
                     self.status.set(preparation_reply_message(result) or message)
                     if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
                         self.notifier.error(message, title='请求校验未通过')
+                    else:
+                        self.notifier.error(message, title='模型调用失败')
                     # 直接 API 模型与桌面 Agent 共用“剧本准备”这个自动阶段。
                     # 失败若只写状态栏，三虎会一直把 script 视为 active；仅当
                     # 自动链确实正在等待 script 时，才把可恢复的调用失败交给它。
