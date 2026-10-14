@@ -281,7 +281,7 @@ class Desktop:
     def __init__(self,win,root=ROOT):
         self._diagnostic_start=time.perf_counter()
         from stage_execution_service import project_registry_gateway
-        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._stream_text='';self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
+        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0
         self._legacy_project_migration_results=queue.Queue();self._legacy_project_migration_poll_id=None
         self._legacy_project_migration_started=False
@@ -1473,9 +1473,6 @@ class Desktop:
                                   lmargin1=left,lmargin2=left,rmargin=right,spacing1=2,spacing3=3,
                                   font=BUBBLE_TIME_FONT)
                 box.insert('end',thinking+' 模型正在思考…\n',name+'_thinking')
-                streamed=getattr(self,'_stream_text','')
-                if streamed:
-                    self.add_bubble(box,{'role':'assistant','model':thinking,'text':streamed+'\n\n（生成中…）'},'streaming')
             if rows:
                 try:box.see('end')
                 except tk.TclError:pass
@@ -1841,14 +1838,12 @@ class Desktop:
             async_ticket={'value':None}
             if getattr(self,'idea_send',None) is not None:self.idea_send.state(['disabled'])
             self.update_script_interrupt_button()
-            self._stream_text=''
             self.show_thinking(model)
             def received(result):
                 from writing_api import preparation_reply_message
                 if not self.idea_chat_controller.finish_request(token):return
                 if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
                 self.update_script_interrupt_button()
-                self._stream_text=''
                 self.clear_thinking()
                 visible_reply = str(result.get('response_text') or result.get('text') or '')
                 self.show_script_quality(result)
@@ -2131,7 +2126,6 @@ class Desktop:
         self._async_ticket+=1;self.background_tasks.cancel(costly=bool(api_active))
         self.worker=False;self.busy_state.set_busy(False)
         self.idea_chat_controller.cancel_request()
-        self._stream_text=''
         if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
         self.clear_thinking()
         stopped=[]

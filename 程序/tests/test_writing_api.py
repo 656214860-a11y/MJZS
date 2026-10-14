@@ -785,6 +785,13 @@ class WritingApiTests(unittest.TestCase):
             self.assertIn('TLS EOF', result['error'])
             self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
 
+    def test_claude_desktop_model_is_not_a_direct_api_model(self):
+        with tempfile.TemporaryDirectory() as td, patch('model_pool.pool', return_value=model_pool.default_pool()):
+            project = make_project(td)
+            stage_config.put(project, 'script', model='claude-desktop')
+            self.assertEqual(writing_api.selected_model(project), ('', {}))
+            self.assertEqual(writing_api.capture_request(project)['id'], '')
+
     def test_claude_timeout_window_allows_thinking_and_visible_output(self):
         self.assertEqual(writing_api.WRITING_REQUEST_TIMEOUT, 180)
 

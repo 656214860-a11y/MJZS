@@ -269,12 +269,6 @@ class WritingRequestAdapter(ModelAdapter):
 
 
 def _writing_adapter(record, chosen, *, project, settings=None, cancelled=None):
-    if model_pool.desktop_engine(chosen) == 'claude':
-        from workflow_engines import ClaudeWritingAdapter
-        if settings is None:
-            import workflow_settings
-            settings = workflow_settings.current(project, 'writing', model_snapshot=(chosen, record))
-        return WritingRequestAdapter(ClaudeWritingAdapter(project, settings, cancelled=cancelled), record, chosen)
     return WritingRequestAdapter(PoolAdapter(record, chosen, program=Path(__file__).resolve().parent,
                                             timeout=WRITING_REQUEST_TIMEOUT), record, chosen)
 
@@ -1152,7 +1146,7 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
         # 兼容旧调用方仅传模型身份；新发送入口始终传完整快照。
         workflow_settings.validate_selected_skills(root, 'writing')
         settings = workflow_settings.freeze_skills(workflow_settings.current(
-            root, 'writing', direct_api=model_pool.desktop_engine(chosen) != 'claude', model_snapshot=(chosen, record)))
+            root, 'writing', direct_api=True, model_snapshot=(chosen, record)))
     brief = _complete_brief(root)
     if brief is not None:
         preparation, confirmed = _preparation_step(
@@ -1166,13 +1160,8 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
     from workflow_context_controller import publish_writing_context
     from project_context_factory import project_context
     _ensure_reply_active(cancelled)
-    if model_pool.desktop_engine(chosen) == 'claude':
-        context = ''
-        task = ('根据本轮用户信息进行剧本准备；缺少故事环境或剧型时先询问，齐全时只输出阶段①项目设定，'
-                '末尾待确认，不跳阶段。\n本轮输入：\n' + str(creative or ''))
-    else:
-        context = publish_writing_context(root, 'writing', workflow_context.snapshot(project_context(root)))
-        task = script_prompt(root, None, 'writing', creative_text=creative)
+    context = publish_writing_context(root, 'writing', workflow_context.snapshot(project_context(root)))
+    task = script_prompt(root, None, 'writing', creative_text=creative)
     if brief is not None:
         task += '\n\n<brief_complete>\n' + json.dumps(brief, ensure_ascii=False, indent=2) + '\n</brief_complete>'
         task += '\n程序已核验设定、大纲、角色卡逐项确认；本次仅执行阶段④自然剧本，沿用上述已确认阶段文件。'

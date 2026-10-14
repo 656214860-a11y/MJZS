@@ -142,14 +142,3 @@ class GuiCliGuardTests(unittest.TestCase):
                r'C:\Program Files\WindowsApps\Other_1_x64__x\app\other.exe', '']
         self.assertTrue(all(settings.gui_claude_program(path) for path in gui))
         self.assertFalse(any(settings.gui_claude_program(path) for path in cli))
-
-    def test_writing_adapter_reports_gui_program_without_launching(self):
-        import workflow_engines as engines
-        gui = r'C:\Program Files\WindowsApps\Claude_2.1.0.0_x64__x\app\Claude.exe'
-        with tempfile.TemporaryDirectory() as folder, \
-                patch.object(engines, 'find_program', return_value=gui), \
-                patch.object(engines.subprocess, 'Popen', side_effect=AssertionError('must not launch')):
-            adapter = engines.ClaudeWritingAdapter(folder, {'engine': 'claude', 'program': gui})
-            result = adapter.chat([{'role': 'user', 'content': 'hi'}])
-        self.assertFalse(result['ok'])
-        self.assertEqual(result['error'], settings.GUI_CLAUDE_CLI_HINT)

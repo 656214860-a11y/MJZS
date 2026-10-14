@@ -108,7 +108,7 @@ class DesktopCancellationNoticeTests(unittest.TestCase):
             _async_ticket=7, background_tasks=lifecycle, worker=True,
             busy_state=SimpleNamespace(set_busy=lambda *a, **k: None),
             idea_chat_controller=SimpleNamespace(cancel_request=lambda: None),
-            _stream_text='', idea_send=None, clear_thinking=lambda: None,
+            idea_send=None, clear_thinking=lambda: None,
             flow_processes={}, update_script_interrupt_button=lambda: None,
             script_agent_processes=lambda: [], status=SimpleNamespace(set=values.append),
             root=object(),
