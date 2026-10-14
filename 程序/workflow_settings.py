@@ -509,6 +509,38 @@ def current_store_program(program):
     return program
 
 
+def store_package_program(package, relative):
+    """按已安装的商店包定位程序：WindowsApps 不可列目录，只读注册表包清单，新版本优先。"""
+    from platform_tools import windows_registry
+    winreg=windows_registry()
+    if winreg is None:return ''
+    prefix=(str(package)+'_').casefold()
+    def version(name):
+        parts=name.split('_')
+        return tuple(int(part) for part in (parts[1] if len(parts)>1 else '').split('.') if part.isdigit())
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,_STORE_PACKAGES_KEY) as key:
+            names=[];index=0
+            while True:
+                try:names.append(winreg.EnumKey(key,index))
+                except OSError:break
+                index+=1
+            for name in sorted((n for n in names if n.casefold().startswith(prefix)),key=version,reverse=True):
+                root=''
+                try:
+                    with winreg.OpenKey(key,name) as package_key:
+                        root=str(winreg.QueryValueEx(package_key,'PackageRootFolder')[0] or '')
+                except OSError:
+                    root=''
+                if not root:
+                    root=str(Path(os.environ.get('ProgramFiles') or r'C:\Program Files')/'WindowsApps'/name)
+                candidate=Path(root)/relative
+                if candidate.is_file():return str(candidate)
+    except OSError:
+        return ''
+    return ''
+
+
 def find_program(config):
     if config['program']:return current_store_program(config['program'])
     if config['engine'] == 'claude-desktop-app':
@@ -518,6 +550,9 @@ def find_program(config):
                                  key=lambda path: path.stat().st_mtime, reverse=True))
         for candidate in candidates:
             if candidate.is_file():return str(candidate)
+        # 商店版（MSIX）装在 WindowsApps，目录名带版本号，只能经注册表包清单定位。
+        store = store_package_program('Claude', Path('app')/'Claude.exe')
+        if store:return store
         raise ValueError('未找到 Claude Desktop，请在模型管理选择其 .exe')
     if config['engine']=='qwen':
         from qwen_adapter import command
