@@ -1,0 +1,132 @@
+# -*- coding: utf-8 -*-
+"""环境自检：只读核对外部依赖是否就绪，每项给出状态和下一步。
+
+检查 FFmpeg／FFprobe、ComfyUI、Blender、本机 Claude／Codex 程序、API 模型密钥。
+只读：不启动任何程序、不联网、不写文件、不返回密钥内容；可选依赖缺失只给「提示」，
+不当成故障。每个探测函数可注入，便于测试。
+"""
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+
+import comfy_runtime
+import file_cache
+import model_pool
+import white_model_service
+import workflow_settings
+
+OK, WARN, MISSING = 'ok', 'warn', 'missing'
+STATUS_TEXT = {OK: '正常', WARN: '提示', MISSING: '缺失'}
+PROGRAM = Path(__file__).resolve().parent
+DESKTOP_PROGRAMS = (('claude-desktop-app', 'Claude Desktop', '剧本准备可选「Claude Desktop」手动发送'),
+                    ('codex', 'ChatGPT / Codex', '剧本准备可选「ChatGPT Desktop · Codex」'),
+                    ('claude', 'Claude Code 命令行', '阶段工作流可选「Claude Code」命令行模型'))
+
+
+def row(key, label, status, detail, next_step=''):
+    return {'key': key, 'label': label, 'status': status, 'detail': detail, 'next': next_step}
+
+
+def _json(path):
+    try:
+        value = file_cache.read_json(path)
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def check_ffmpeg(config, which=shutil.which):
+    rows = []
+    for key, name in (('ffmpeg', 'FFmpeg'), ('ffprobe', 'FFprobe')):
+        configured = str(config.get(key) or '').strip()
+        if configured and Path(configured).is_file():
+            rows.append(row(key, name, OK, configured))
+            continue
+        found = which(key)
+        if found:
+            note = '配置的路径不存在，已改用系统 PATH 中的程序' if configured else ''
+            rows.append(row(key, name, WARN if configured else OK, found + ('；' + note if note else ''),
+                            '在 config.json 把「%s」改成实际路径' % key if configured else ''))
+        else:
+            rows.append(row(key, name, MISSING, ('配置路径不存在：' + configured) if configured else '未配置也不在 PATH',
+                            '安装 FFmpeg 后在 config.json 填写「%s」，成片合成与质检依赖它' % key))
+    return rows
+
+
+def check_comfy(settings):
+    exe = comfy_runtime.executable(settings)
+    if exe is not None:
+        return row('comfyui', 'ComfyUI 桌面程序', OK, str(exe))
+    return row('comfyui', 'ComfyUI 桌面程序', WARN, '未找到',
+               '使用本地出图／视频时，在助手点击「桌面打开 ComfyUI」选择程序；只用云端模型可忽略')
+
+
+def check_blender(find=white_model_service.find_blender):
+    exe = find()
+    if exe:
+        return row('blender', 'Blender', OK, str(exe))
+    return row('blender', 'Blender', WARN, '未找到', '需要白模预演时安装 Blender，或在白模设置里指定；不做白模可忽略')
+
+
+def check_desktop_programs(find=workflow_settings.find_program):
+    rows = []
+    for engine, label, use in DESKTOP_PROGRAMS:
+        try:
+            path = find({'engine': engine, 'program': ''})
+        except Exception as exc:
+            rows.append(row(engine, label, WARN, '未找到：%s' % exc, '需要时在模型管理点「自动搜寻」或手动选择 .exe；%s' % use))
+            continue
+        status = OK
+        detail = str(path)
+        if engine == 'claude' and workflow_settings.gui_claude_program(path):
+            status, detail = WARN, detail + '（这是图形程序，不能当命令行用）'
+        rows.append(row(engine, label, status, detail,
+                        workflow_settings.GUI_CLAUDE_CLI_HINT if status == WARN else ''))
+    return rows
+
+
+def check_model_keys(models, program=None, key_of=model_pool.key_of):
+    """API 模型的密钥是否可解析；只统计有无，不返回内容。"""
+    ready, missing = [], []
+    for model_id, item in models.items():
+        if str(item.get('provider') or '') == 'desktop' or not str(item.get('key_env') or '').strip():
+            continue
+        (ready if key_of(item, program) else missing).append(str(item.get('label') or model_id))
+    if not ready and not missing:
+        return row('keys', 'API 模型密钥', WARN, '模型池里没有需要密钥的 API 模型', '在模型管理添加并保存密钥')
+    if missing:
+        return row('keys', 'API 模型密钥', WARN if ready else MISSING,
+                   '已配置 %d 个；缺少密钥：%s' % (len(ready), '、'.join(missing)),
+                   '在模型管理选中对应模型，填写密钥后点「保存这条」；不用的模型可忽略')
+    return row('keys', 'API 模型密钥', OK, '%d 个 API 模型均已配置密钥' % len(ready))
+
+
+def run_checks(program=None, *, config=None, settings=None, models=None, which=shutil.which,
+               find_blender=white_model_service.find_blender, find_program=workflow_settings.find_program,
+               key_of=model_pool.key_of):
+    root = Path(program or PROGRAM)
+    config = config if config is not None else _json(root / 'config.json')
+    settings = settings if settings is not None else _json(root / 'desktop_settings.json')
+    models = models if models is not None else model_pool.pool(program=root)
+    rows = check_ffmpeg(config, which)
+    rows.append(check_comfy(settings))
+    rows.append(check_blender(find_blender))
+    rows.extend(check_desktop_programs(find_program))
+    rows.append(check_model_keys(models, root, key_of))
+    return rows
+
+
+def summary(rows):
+    counts = {status: sum(1 for item in rows if item['status'] == status) for status in (OK, WARN, MISSING)}
+    return '共 %d 项：正常 %d，提示 %d，缺失 %d' % (len(rows), counts[OK], counts[WARN], counts[MISSING])
+
+
+def report_text(rows=None):
+    data = rows if rows is not None else run_checks()
+    lines = [summary(data), '']
+    for item in data:
+        lines.append('[%s] %s：%s' % (STATUS_TEXT[item['status']], item['label'], item['detail']))
+        if item['next']:
+            lines.append('    下一步：' + item['next'])
+    return '\n'.join(lines)

@@ -16,6 +16,7 @@ from tkinter import ttk
 
 import pet_agent
 import pet_models_ui
+import environment_check
 import skill_budget
 import token_saver
 from pet_settings_contract import TABS, LEVEL_NOTES
@@ -481,16 +482,26 @@ def dev_page(frame, pet):
             hint.set('邮箱已复制：' + DEVELOPER_MAIL)
         return DEVELOPER_MAIL
 
+    def check_environment():
+        """环境自检：只读核对外部依赖，结果弹窗显示，不改任何设置。"""
+        from ui_widgets import notify
+        text = environment_check.report_text()
+        notify(pet.win, text, title='环境自检')
+        hint.set(environment_check.summary(environment_check.run_checks()))
+        return text
+
     bar = ttk.Frame(frame)
     bar.pack(fill='x', pady=(SPACING['md'], 0))
     SecondaryButton(bar, text='复制邮箱', command=copy_mail).pack(side='left')
+    SecondaryButton(bar, text='环境自检', command=check_environment).pack(side='left', padx=(SPACING['sm'], 0))
     ttk.Label(frame, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=700).pack(
         anchor='w', pady=(SPACING['md'], 0))
     ttk.Label(frame, text='用着不顺、要加功能、发现有错，都发这个邮箱；版本号、开发者与联系方式只在'
                           '「设置 → 开发信息」这一格维护。',
               style='Muted.TLabel', wraplength=700).pack(anchor='w', pady=(SPACING['sm'], 0))
     return {'version': version, 'mail': DEVELOPER_MAIL, 'developer': DEVELOPER_NAME,
-            'runtime': runtime_sentence(), 'hint': hint, 'copy_mail': copy_mail}
+            'runtime': runtime_sentence(), 'hint': hint, 'copy_mail': copy_mail,
+            'check_environment': check_environment}
 
 
 def skill_budget_sentence():

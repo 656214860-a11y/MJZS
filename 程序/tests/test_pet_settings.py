@@ -664,6 +664,17 @@ class DevPageTests(SettingsCase):
         self.assertIn(pet_settings_ui.DEVELOPER_MAIL, seams['hint'].get())
 
 
+    def test_environment_check_button_shows_report_without_changing_settings(self):
+        win = self.hub('dev')
+        seams = win._pet_seams['dev']
+        with mock.patch('ui_widgets.notify') as shown:
+            text = seams['check_environment']()
+        shown.assert_called_once()
+        self.assertEqual(shown.call_args.kwargs.get('title'), '环境自检')
+        self.assertIn('FFmpeg', text)
+        self.assertIn('共', seams['hint'].get())
+
+
 class BudgetWiringTests(unittest.TestCase):
     """预算落盘之后，SKILL 编排那本账读的是同一份设置（一份设置、两处都认）。"""
 
