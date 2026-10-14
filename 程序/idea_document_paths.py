@@ -129,6 +129,34 @@ def reply_document_path(context, text, at=None, provider='', model='', file_type
     return target
 
 
+def delivery_document_path(context, file_type, at=None, provider='', model=''):
+    """桌面 Agent 交付目标：本模型该类已有文件就沿用最新一份，没有才用当日新路径。
+
+    用户手改过的设定／大纲／角色卡／剧本就在这份文件里；模型重新生成时读它、覆盖它，
+    不因跨天或重试落到新的 创意_日期 批次。纯路径计算，不读写正文。
+    """
+    from stage_path_service import write_dir
+    context = _context(context)
+    parts = reply_path_parts(context, at=at, provider=provider, model=model, file_type=file_type)
+    target = write_dir(context.root, 'script').joinpath(*parts)
+    model_dir = target.parents[2]
+    candidates = []
+    try:
+        batches = tuple(model_dir.iterdir()) if model_dir.is_dir() else ()
+    except OSError:
+        batches = ()
+    for batch in batches:
+        folder = batch / target.parent.name
+        try:
+            if batch.name.startswith('创意_') and folder.is_dir():
+                candidates.extend(path for path in folder.glob('*.md') if path.is_file())
+        except OSError:
+            continue
+    if not candidates:
+        return target
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
 def _project_file_type(text):
     """按正文归类保存类型；未明确归类的模型正文仍按自然剧本保存。"""
     value = str(text or '')

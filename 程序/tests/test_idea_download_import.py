@@ -112,5 +112,24 @@ class DownloadsDirectoryTests(unittest.TestCase):
             self.assertEqual(platform_tools.downloads_directory(), Path.home() / 'Downloads')
 
 
+class DeliveryPathTests(unittest.TestCase):
+    def test_existing_edited_file_is_the_delivery_target_across_days(self):
+        from idea_document_paths import delivery_document_path
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td) / '摄影侠_20260930'
+            project.mkdir()
+            context = project_context(project)
+            first = delivery_document_path(context, '项目大纲', at=0, provider='Anthropic', model='Claude Desktop')
+            first.parent.mkdir(parents=True)
+            first.write_text('# 剧本大纲\n用户手改版', encoding='utf-8')
+            later = delivery_document_path(context, '项目大纲', at=86400 * 400,
+                                           provider='Anthropic', model='Claude Desktop')
+            self.assertEqual(later, first)
+            script = delivery_document_path(context, '自然剧本', at=86400 * 400,
+                                            provider='Anthropic', model='Claude Desktop')
+            self.assertEqual(script.parent.name, '项目剧本')
+            self.assertFalse(script.exists())
+
+
 if __name__ == '__main__':
     unittest.main()

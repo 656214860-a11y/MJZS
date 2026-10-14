@@ -17,23 +17,23 @@ def natural_script_delivery_path(project, at):
         project_context(project), at=at, provider=provider, model=model, file_type='自然剧本'))
 
 def _agent_delivery_contract(project, at=None):
-    from idea_document_paths import PROJECT_DOCUMENT_DIRS, reply_path_parts, storage_identity
+    from idea_document_paths import PROJECT_DOCUMENT_DIRS, delivery_document_path, storage_identity
     from project_context_factory import project_context
-    from project_stages import writing
     from workflow_settings import model_name
     from datetime import datetime
     at = datetime.now().timestamp() if at is None else at
     context = project_context(project)
     provider, model = storage_identity(model_name(project, 'writing'))
-    stage = writing(project).relative_to(Path(project).resolve())
-    lines = ['阶段正式交付必须写入以下精确路径,文件名不得自拟或改写：']
+    # 绝对路径：Claude Desktop 等桌面应用不以项目目录为工作目录，相对路径会被写进它自己的沙盒。
+    lines = ['阶段正式交付必须直接写入以下本机绝对路径（文件名不得自拟或改写）；已存在的文件就是当前版本，可能经用户手改：']
     for index, file_type in enumerate(reversed(PROJECT_DOCUMENT_DIRS)):
-        parts = reply_path_parts(context, at=at, provider=provider, model=model, file_type=file_type)
-        target = stage.joinpath(*parts).as_posix()
+        target = delivery_document_path(context, file_type, at=at, provider=provider, model=model).as_posix()
         lines.append(target + ('（仅当产出该类内容时使用）' if index else ''))
     lines.append('判类规则：正文含大纲/纲要→项目大纲；含人物设定/角色卡→角色卡；含项目设定/世界观/需求梳理→项目设定；剧本正文→项目剧本。')
     lines.append('角色卡标明“人物设定”，与项目设定分列不同目录；修改时覆盖更新同一份，不另存历史副本。前三项是参考文档，不是最终剧本。')
-    lines.append('修改或重新生成后，直接覆盖写入上述同一路径；若无法写入本地文件、只能提供下载文件，下载文件名必须与上述文件名完全一致（应用点“刷新”时会从下载文件夹按该文件名收回并覆盖原文件）。')
+    lines.append('修改或重新生成前，先读取上述路径中已存在的文件，以其当前内容（含用户手改）为准再改写；完成后直接覆盖写回同一路径，不另存到其他位置。')
+    lines.append('若当前环境无法访问本机文件，请提示用户在 Claude 中连接项目文件夹 ' + Path(project).resolve().as_posix()
+                 + '；实在只能提供下载文件时，下载文件名必须与上述文件名完全一致（应用会从下载文件夹按该文件名收回并覆盖原文件）。')
     return '\n'.join(lines)
 
 
