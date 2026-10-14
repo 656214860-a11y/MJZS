@@ -17,6 +17,33 @@
 | `color.danger` | `#DC2626` | 危险操作与错误 |
 | `color.success` | `#16A34A` | 成功状态 |
 | `color.warning` | `#D97706` | 警告状态 |
+| `color.text.heading` | `#374151` | 表头、分组标题文字（R1428 派生） |
+| `color.primary.hover` | `#1D4ED8` | 主色悬停/选中导航（R1428 派生） |
+| `color.primary.pressed` | `#1E40AF` | 主色按下（R1428 派生） |
+| `color.progress` | `#2563EB` | 进度条（R1428 派生） |
+| `color.secondary.bg` | `#DBEAFE` | 旧式次按钮背景（R1428 派生） |
+| `color.secondary.hover` | `#BFDBFE` | 旧式次按钮悬停（R1428 派生） |
+| `color.secondary.pressed` | `#93C5FD` | 旧式次按钮按下（R1428 派生） |
+| `color.secondary.text` | `#1E40AF` | 旧式次按钮文字（R1428 派生） |
+| `color.disabled.bg` | `#F3F4F6` | 禁用背景（R1428 派生） |
+| `color.disabled.text` | `#9CA3AF` | 禁用文字（R1428 派生） |
+| `color.border.strong` | `#D1D5DB` | 分组框、容器边框（R1428 派生） |
+| `color.header.bg` | `#F3F4F6` | 表头背景（R1428 派生） |
+| `color.trough` | `#E5E7EB` | 进度条槽（R1428 派生） |
+| `color.selection.bg` | `#DBEAFE` | 表格/单元格选中背景（R1428 派生） |
+| `color.selection.text` | `#1E3A8A` | 选中文字（R1428 派生） |
+| `color.selection.border` | `#93C5FD` | 选中描边（R1428 派生） |
+| `color.success.text` | `#15803D` | 成功文字（R1428 派生） |
+| `color.success.subtle` | `#DCFCE7` | 成功提示底色（R1428 派生） |
+| `color.warning.text` | `#B45309` | 警告文字（R1428 派生） |
+| `color.warning.hover` | `#F59E0B` | 强调按钮悬停（R1428 派生） |
+| `color.warning.pressed` | `#B45309` | 强调按钮按下（R1428 派生） |
+| `color.emphasis` | `#EA580C` | 阶段配置等醒目按钮（R1428 派生） |
+| `color.emphasis.pressed` | `#C2410C` | 醒目按钮按下（R1428 派生） |
+| `color.danger.hover` | `#B91C1C` | 危险悬停（R1428 派生） |
+| `color.danger.text` | `#991B1B` | 错误文字（R1428 派生） |
+| `color.danger.subtle` | `#FEF2F2` | 错误提示底色（R1428 派生） |
+| `color.row.done.bg` | `#F0FDF4` | 已完成行底色（R1428 派生） |
 
 ## 间距
 

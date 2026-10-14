@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,7 +15,9 @@ PROGRAM = Path(__file__).resolve().parent.parent
 SCRIPTS = PROGRAM / "维护记录" / "基准脚本"
 HOOKS = SCRIPTS / "hooks"
 INSTALLER = SCRIPTS / "install_git_hooks.py"
-SH = Path(r"C:\Program Files\Git\bin\sh.exe")
+# Windows 用 Git for Windows 自带的 sh；其他平台用 PATH 上的 sh，用例不再只能在 Windows 跑。
+_WINDOWS_SH = Path(r"C:\Program Files\Git\bin\sh.exe")
+SH = _WINDOWS_SH if _WINDOWS_SH.exists() else Path(shutil.which("sh") or _WINDOWS_SH)
 spec = importlib.util.spec_from_file_location("install_git_hooks_for_tests", INSTALLER)
 install_git_hooks = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = install_git_hooks
@@ -41,6 +44,21 @@ class GitHookTests(unittest.TestCase):
             installed = install_git_hooks.install(Path(temporary))
             self.assertEqual([path.name for path in installed], ["commit-msg", "pre-commit"])
             self.assertTrue(all(path.exists() for path in installed))
+
+    def test_installer_writes_lf_even_from_crlf_sources(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "source"
+            source.mkdir()
+            for name in install_git_hooks.HOOKS:
+                (source / name).write_bytes(b"#!/bin/sh\r\ncase x in\r\n  x) ;;\r\nesac\r\n")
+            original = install_git_hooks.SOURCE
+            install_git_hooks.SOURCE = source
+            try:
+                installed = install_git_hooks.install(Path(temporary) / "common")
+            finally:
+                install_git_hooks.SOURCE = original
+            for path in installed:
+                self.assertNotIn(b"\r\n", path.read_bytes())
 
     def test_commit_message_requires_round_prefix(self):
         with tempfile.TemporaryDirectory() as temporary:

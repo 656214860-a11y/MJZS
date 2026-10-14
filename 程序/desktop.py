@@ -73,7 +73,7 @@ IDEA_FIELDS=('故事集数','单集时间','故事画风','故事主体','故事
 # 最下面留一段给您写字，DRAFT_MARK 就是「从这儿往下才是您写的」那条线。
 DRAFT_MARK='draft'
 DRAFT_HINT='─'*18+' 写您的想法，按「发送」 '
-BUBBLE_BACK='#ffffff'  # 内容框的底色：气泡两边的留白用它刷，色块才贴着字
+BUBBLE_BACK=COLORS['background_card']  # 内容框的底色：气泡两边的留白用它刷，色块才贴着字
 BUBBLE_FONT=('Microsoft YaHei UI',10)
 BUBBLE_TIME_FONT=('Microsoft YaHei UI',9)
 BUBBLE_PAD=10          # 气泡里文字与色块边缘的距离
@@ -111,16 +111,16 @@ def confirm_project_removal_from_last_script(parent, files):
     names='\n'.join(str(name) for name in files)
     win=BaseDialog(parent, '危险操作：删除当前项目', modal=False, chrome=False)
     win.resizable(False,False)
-    border=tk.Frame(win,bg='#c62828',padx=2,pady=2);border.pack(fill='both',expand=True)
-    body=tk.Frame(border,bg='#fff5f5',padx=22,pady=18);body.pack(fill='both',expand=True)
-    tk.Label(body,text='⚠ 将删除当前项目',bg='#fff5f5',fg='#b71c1c',
+    border=tk.Frame(win,bg=COLORS['danger'],padx=2,pady=2);border.pack(fill='both',expand=True)
+    body=tk.Frame(border,bg=COLORS['danger_subtle'],padx=22,pady=18);body.pack(fill='both',expand=True)
+    tk.Label(body,text='⚠ 将删除当前项目',bg=COLORS['danger_subtle'],fg=COLORS['danger_hover'],
              font=('Microsoft YaHei UI',15,'bold')).pack(anchor='w')
     tk.Label(body,text='这是最后一份剧本。继续后会将当前项目及其全部素材移入项目库回收站。',
-             bg='#fff5f5',fg='#7f1d1d',justify='left',wraplength=500,
+             bg=COLORS['danger_subtle'],fg=COLORS['danger_text'],justify='left',wraplength=500,
              font=('Microsoft YaHei UI',10)).pack(anchor='w',pady=(10,5))
-    tk.Label(body,text=names,bg='#fff5f5',fg='#5f2120',justify='left',wraplength=500).pack(anchor='w')
+    tk.Label(body,text=names,bg=COLORS['danger_subtle'],fg=COLORS['danger_text'],justify='left',wraplength=500).pack(anchor='w')
     result={'accepted':False}
-    buttons=tk.Frame(body,bg='#fff5f5');buttons.pack(anchor='e',fill='x',pady=(18,0))
+    buttons=tk.Frame(body,bg=COLORS['danger_subtle']);buttons.pack(anchor='e',fill='x',pady=(18,0))
     def close(accepted=False):
         result['accepted']=accepted
         try:win.grab_release()
@@ -365,7 +365,7 @@ class Desktop:
         # 页面仍由画布和鼠标滚轮滚动，但不显示贴在窗口最右侧的整页长滑块。
         # 各页面共用这一层，因而无需在 11 个页面里分别隐藏；表格、对话框等局部滚动条照常保留。
         area=ttk.Frame(self.body);area.pack(fill='both',expand=True)
-        self.canvas=tk.Canvas(area,bg='#f3f6fa',highlightthickness=0)
+        self.canvas=tk.Canvas(area,bg=COLORS['background_primary'],highlightthickness=0)
         self.canvas.pack(fill='both',expand=True)
         self.page_scrollbar=None
         self.content=ttk.Frame(self.canvas);self.content_id=self.canvas.create_window(0,0,window=self.content,anchor='nw')
@@ -1303,8 +1303,8 @@ class Desktop:
         example=index == 'example'
         model_back, model_meta = self.model_chat_colors(row.get('model'))
         look=dict(justify=align,
-                  background='' if example else ('#dff5e3' if mine else model_back),
-                  foreground=COLORS['text_secondary'] if example else '#243247',
+                  background='' if example else (COLORS['success_subtle'] if mine else model_back),
+                  foreground=COLORS['text_secondary'] if example else COLORS['text_primary'],
                   lmargin1=left,lmargin2=left,rmargin=right,
                   spacing1=2,spacing2=1,spacing3=4,font=BUBBLE_FONT,wrap='word')
         # Tk 默认连边距一起刷成气泡色，那样每条都是满屏一条；把两边留白按框底的白走，
@@ -1314,7 +1314,7 @@ class Desktop:
         try:box.tag_configure(name,borderwidth=bubble_padding,relief='flat',
                               lmargincolor=margin_back,rmargincolor=margin_back,**look)
         except tk.TclError:box.tag_configure(name,**look)
-        box.tag_configure(name+'_meta',justify=align,foreground='#a1aab5' if example else (model_meta if not mine else '#718196'),
+        box.tag_configure(name+'_meta',justify=align,foreground=COLORS['text_muted'] if example else (model_meta if not mine else COLORS['text_secondary']),
                           lmargin1=left,lmargin2=left,rmargin=right,spacing1=4,spacing3=1,
                           font=BUBBLE_TIME_FONT)
         box.insert('end',self.model_name(row)+'\n',name+'_meta')
@@ -1324,7 +1324,7 @@ class Desktop:
             box.insert('end', injection+'\n', name+'_meta')
         stamp=self.bubble_time(row.get('at'))
         if stamp:
-            box.tag_configure(name+'_time',justify=align,foreground='#9aa7b7',
+            box.tag_configure(name+'_time',justify=align,foreground=COLORS['text_muted'],
                               lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=1,font=BUBBLE_TIME_FONT)
             box.insert('end',stamp+'\n',name+'_time')
         # 软件示例是用户填写前唯一的完整参考，不能被折叠；真实长对话仍保持收起功能。
@@ -1335,7 +1335,7 @@ class Desktop:
             toggle=name+'_toggle'
             # 操作在本条气泡的右下角，而非正文下方左侧；它属于 Text 内容，滚动时和
             # 对应消息一起移动，不会遮住用户正在阅读的其它消息。
-            box.tag_configure(toggle,justify='right',foreground='#3564a8',underline=True,
+            box.tag_configure(toggle,justify='right',foreground=COLORS['primary'],underline=True,
                               lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=3,
                               font=BUBBLE_TIME_FONT)
             box.insert('end','展开全文\n',toggle)
@@ -1478,7 +1478,7 @@ class Desktop:
                 name='bubble_thinking'
                 left,right=self.bubble_margins(box,thinking,False)
                 self._bubble_rows.append((name,thinking,False))
-                box.tag_configure(name+'_thinking',justify='left',foreground='#718196',
+                box.tag_configure(name+'_thinking',justify='left',foreground=COLORS['text_secondary'],
                                   lmargin1=left,lmargin2=left,rmargin=right,spacing1=2,spacing3=3,
                                   font=BUBBLE_TIME_FONT)
                 box.insert('end',thinking+' 模型正在思考…\n',name+'_thinking')
@@ -2067,6 +2067,8 @@ class Desktop:
         import writing_api
         repaired = idea_chat.repair_internal_replies(self.idea_chat_context(), model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
         getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(self.idea_chat_model()),None)
+        imported = self.import_script_downloads()
+        notice = ('已从下载文件夹更新' + '、'.join(kind + '「' + path.name + '」' for kind, path in imported) + '；') if imported else ''
         self.show_conversation()
         refresh = getattr(self, 'refresh_script_list', None)
         if callable(refresh):
@@ -2075,7 +2077,7 @@ class Desktop:
         request_model = writing_api.capture_request_model(self.root)
         model = request_model['label']
         if not creative:
-            self.status.set('已刷新对话和剧本文件列表。')
+            self.status.set(notice + '已刷新对话和剧本文件列表。')
             return True
         if not model:
             self.status.set('已移除无法显示的内部内容；请重新发送上一条创意获取正文。')
@@ -2120,6 +2122,22 @@ class Desktop:
                                      request_model=request_model),
             received, model + ' 模型正在重新生成正文…')
         return True
+
+    def import_script_downloads(self):
+        """刷新时收回 Claude Desktop 等窗口已下载到「下载」文件夹的同项目设定／大纲／角色卡／剧本：同类覆盖原文件。"""
+        import idea_chat
+        from stage_execution_service import import_downloaded_creatives
+        selected = self.displayed_chat_model()
+        if not selected:return []
+        provider, model = idea_chat.storage_identity(selected)
+        try:
+            from stage_execution_service import collect_download_inbox
+            # 先按任务书登记的目标文件名收回，再按剧本准备四段式文件名补收（如跨日重新生成）。
+            collected=[('文件', path) for path in collect_download_inbox(self.root)]
+            return collected+import_downloaded_creatives(self.idea_chat_context(), provider=provider, model=model)
+        except (OSError, ValueError) as exc:
+            LOGGER.warning('收回下载文件失败：%s', exc)
+            return []
 
     def interrupt_script_agent(self):
         """中断当前剧本 API 请求或本窗口启动的剧本 Agent，不影响其他制作阶段。"""
@@ -2531,6 +2549,23 @@ class Desktop:
         self._tick_auto_previs()
         self._tick_auto_handoff()
         self._tick_pet_events()
+        self._tick_download_inbox()
+
+    def _tick_download_inbox(self):
+        """每 5 秒把桌面 Agent 已下载到「下载」文件夹的目标文件收回项目（只在有登记时读盘）。"""
+        now=time.monotonic()
+        if self.root is None or now<getattr(self,'_download_inbox_due',0):return []
+        self._download_inbox_due=now+5
+        from stage_execution_service import collect_download_inbox
+        try:done=collect_download_inbox(self.root)
+        except (OSError, ValueError) as exc:
+            LOGGER.warning('下载收件箱收回失败：%s', exc);return []
+        if done:
+            self.status.set('已从下载文件夹放回 '+str(len(done))+' 个文件：'+'、'.join(path.name for path in done[:3])+('…' if len(done)>3 else ''))
+            if self.page_index==PAGE['script']:
+                refresh=getattr(self,'refresh_script_list',None)
+                if callable(refresh):refresh()
+        return done
 
     def _poll_auto_due(self,due_name,delay,poll,*,busy_name=None,on_error,errors):
         """把自动阶段共同的到期、节流和异常处理交给无 Tk 调度器。"""
@@ -4115,7 +4150,7 @@ class Desktop:
         ttk.Label(popup,text='选择项目后点击进入，或双击项目名称。',style='Muted.TLabel').pack(anchor='w',padx=22,pady=(0,12))
         missing_notice='项目目录不存在或已被移动，不能进入项目。可“重新查找项目”；选择清除时只清除登记，不动磁盘。'
         notice=tk.StringVar(value=missing_notice if cleanup_path else '')
-        ttk.Label(popup,textvariable=notice,foreground='#b54708',wraplength=590).pack(anchor='w',padx=22,pady=(0,8))
+        ttk.Label(popup,textvariable=notice,foreground=COLORS['warning_text'],wraplength=590).pack(anchor='w',padx=22,pady=(0,8))
         tree=ttk.Treeview(popup,show='tree',selectmode='browse');tree.pack(fill='both',expand=True,padx=22);self.fill_projects(tree)
         selected_path=cleanup_path or self.projects.info.get('active')
         if selected_path and tree.exists(selected_path):tree.selection_set(selected_path);tree.see(selected_path)
@@ -4443,10 +4478,8 @@ class Desktop:
             self.status.set('正在打开剧本准备…')
             self.fit_content()
             def build_startup_script_page():
-                if self._startup_window_held() and not getattr(self,'shutting_down',False):
-                    # 启动画面还盖着：先让启动器揭开主窗口、露出这层轻量壳，再建整页。
-                    self._startup_script_build_job=self.win.after(15,build_startup_script_page)
-                    return
+                # 启动画面还盖着时直接在幕后建完整页：揭开后用户看到的就是完整页面。
+                # 过去先揭开轻量壳再同步建页，建页期间 Windows 无法重绘，主窗口会整片发白。
                 self._startup_script_build_job=None
                 if getattr(self,'shutting_down',False) or self.root!=target or self.page_index!=PAGE['script']:
                     # 延后建页可能因用户切页而取消；tick 的解冻不应依赖建页成功，
@@ -4503,7 +4536,7 @@ class Desktop:
         self.canvas.yview_moveto(max(0.0,min(1.0,offset/height)))
 
     def text(self,value,height=10):
-        t=TextArea(self.content,bg='#ffffff',fg='#243247',insertbackground='#3564a8',height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t
+        t=TextArea(self.content,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t
     def note(self,value):
         """把页面操作说明写入共享绿色信息栏，不再额外占一行。"""
         text=' '.join(str(value or '').split())
@@ -4654,7 +4687,7 @@ class Desktop:
         dialog_scroll=ttk.Scrollbar(dialog,orient='vertical')
         dialog_scroll.pack(side='right',fill='y')
         box=TextArea(dialog,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],
-                    selectbackground='#3564a8',inactiveselectbackground='#3564a8',selectforeground='#ffffff',height=TALK_MIN_LINES,wrap='word',
+                    selectbackground=COLORS['primary'],inactiveselectbackground=COLORS['primary'],selectforeground=COLORS['background_card'],height=TALK_MIN_LINES,wrap='word',
                     font=FONTS['body'],relief='flat',padx=SPACING['md'],pady=SPACING['sm'],yscrollcommand=dialog_scroll.set)
         box.pack(side='left',fill='both',expand=True)
         dialog_scroll.configure(command=box.yview)
@@ -5454,7 +5487,15 @@ class Desktop:
                     'initial':budget,'continuation':continuation_budget})
                 if native_claude:
                     from codex_tasks import task_file_reference
+                    from stage_execution_service import register_download_inbox
+                    # Claude Desktop 常常不能直接写本机路径、只给下载文件：要求下载件沿用目标文件名，
+                    # 并登记目标，助手会从「下载」文件夹按文件名收回到原位置。
+                    full = full + ('\n\n【交付方式】优先直接写入任务中给出的目标路径；若无法写入本机文件，'
+                                   '请以可下载文件交付，文件名必须与目标路径的文件名完全一致，'
+                                   '用户下载后助手会自动放回对应位置。')
                     task_file = task_file_reference(project, stage, full)
+                    try:register_download_inbox(project, full)
+                    except (OSError, ValueError) as exc:LOGGER.warning('下载收件箱登记失败：%s', exc)
                     reference = (f'请读取并执行本次任务文件：{task_file}\n'
                                  '其中引用的 SKILL 和附件按任务需要读取，不重复加载无关内容。'
                                  '若无法读取本地文件，请提示启用文件访问并授权对应目录，或请用户上传文件；不要假定已读。')
@@ -5562,6 +5603,13 @@ class Desktop:
                 def claude_pasted(value):
                     finish(receipt,'prepared' if value['ok'] else 'failed',value['reason'],task_file=task_file)
                     self.status.set(value['reason'])
+                    if value['ok'] and self.gate_level()=='auto':
+                        # 全自动不拦截 Claude Desktop：它只能由用户点发送，这里明确提示，
+                        # 避免自动链看似停住却没有说明；状态栏原文也会转给三虎。
+                        message=('三虎全自动：'+label+' 的任务已粘贴到 Claude Desktop，'
+                                 '请切到 Claude Desktop 手动点击发送；完成后产物会自动收回。')
+                        self.status.set(message)
+                        self.notifier.warning(message,title='请手动发送')
                 self.status.set('正在将本次任务粘贴到 Claude Desktop，请检查后手动发送…')
                 self.async_(lambda:paste_existing(title,clipboard_text,program=program,deadline_seconds=45),claude_pasted)
                 return
@@ -5782,10 +5830,10 @@ class Desktop:
         SecondaryButton(bar,text='清单目录',style='Asset.TButton',
                    command=lambda:self.safe(lambda:open_path(self.continuity_folder()))).pack(side='left',padx=3,pady=2)
         head=ttk.Frame(self.content);head.pack(fill='x',pady=(2,0))
-        ttk.Label(head,text=line(),foreground='#1a7f37' if passed else '#b54708').pack(side='left')
+        ttk.Label(head,text=line(),foreground=COLORS['success_text'] if passed else COLORS['warning_text']).pack(side='left')
         file=self.continuity_folder()/'continuity_ledger.json'
         ttk.Label(head,text=('已落盘：'+file.name) if file.is_file() else '还没生成，按左边的按钮生成',
-                  foreground='#555555').pack(side='left',padx=(8,0))
+                  foreground=COLORS['text_secondary']).pack(side='left',padx=(8,0))
         def table_of(title,columns,rows,height,detail=''):
             """一张小表：抬头 ＋ 表头 ＋ 若干行（这一页的清单就是这几张表）。
 
@@ -5858,17 +5906,17 @@ class Desktop:
         if problems:
             for text in problems[:8]:ttk.Label(foot,text='· '+text,wraplength=760,justify='left').pack(anchor='w')
         else:
-            ttk.Label(foot,text='没有待办：批次、锚点与三元组都对得上。',foreground='#1a7f37').pack(anchor='w')
+            ttk.Label(foot,text='没有待办：批次、锚点与三元组都对得上。',foreground=COLORS['success_text']).pack(anchor='w')
         asks=run_stage_confirmation_gate(self.root, 'G-08', ledger=ledger).get('ask') or ()
         if asks:
             ttk.Label(foot,text='参考图优先级（每条选一个，问过就不再问）：',
-                      foreground='#b54708').pack(anchor='w',pady=(4,0))
+                      foreground=COLORS['warning_text']).pack(anchor='w',pady=(4,0))
         for item in asks:
             box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=2)
             text=' ／ '.join('候选%d %s'%(index+1,value)
                             for index,value in enumerate(item['candidates']))
             ttk.Label(box,text=item['title']+'：'+text,wraplength=760,justify='left').pack(anchor='w')
-            ttk.Label(box,text='理由：'+str(item.get('reason') or ''),foreground='#555555',
+            ttk.Label(box,text='理由：'+str(item.get('reason') or ''),foreground=COLORS['text_secondary'],
                       wraplength=760,justify='left').pack(anchor='w')
             choice=item['candidates'][item.get('recommended',0)]
             PrimaryButton(box,text='采用推荐',

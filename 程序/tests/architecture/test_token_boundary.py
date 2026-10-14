@@ -25,10 +25,9 @@ _HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 _PADDING_ARGS = frozenset({"padx", "pady", "ipadx", "ipady"})
 
 # R1389 冻结基线（R1388 审计口径，键＝相对 程序/ 的 posix 路径）。
+# R1428 统一调色板：主题与业务页迁移到 ui_tokens.COLORS；剩余为宠物插画色与监视页 HTML 样式。
 HEX_BASELINE = {
-    "app.py": 2, "asset_detail.py": 21, "cell_hover.py": 6, "desktop.py": 31,
-    "keyframe_comfy.py": 3, "pet_ui.py": 45, "previs_monitor.py": 1,
-    "storyboard_table_ui.py": 2,
+    "pet_ui.py": 45, "previs_monitor.py": 1,
 }
 PADDING_BASELINE = {
     "agent/prompt_optimizer.py": 16, "app.py": 7, "asset_detail.py": 21,

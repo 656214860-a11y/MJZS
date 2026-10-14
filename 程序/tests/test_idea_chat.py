@@ -34,6 +34,8 @@ from project_stages import writing as writing_dir
 from tests.test_ui_edges import make_minimal_project
 
 
+from ui_tokens import COLORS
+
 class _InjectedIdeaChat:
     """测试也经 L3 网关注入，保留 L2 的“无注入即拒绝”契约。"""
     _gateway_operations = frozenset({
@@ -741,7 +743,7 @@ class SendMessageTests(_Harness):
 
     def say(self, d, text):
         box = d.idea_input
-        box.configure(fg='#243247')
+        box.configure(fg=COLORS['text_primary'])
         box.delete('1.0', 'end'); box.insert('1.0', text)
 
     def test_missing_selected_skill_keeps_draft_and_does_not_start_request(self):
@@ -1698,7 +1700,7 @@ class BubbleLayoutTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.update()
             self.assertEqual(d.idea_log.tag_cget('bubble_0', 'background'), '#dff5e3')
-            self.assertEqual(d.idea_log.tag_cget('bubble_0', 'foreground'), '#243247')
+            self.assertEqual(d.idea_log.tag_cget('bubble_0', 'foreground'), COLORS['text_primary'])
 
     def test_model_chat_color_is_stable_and_distinguishes_common_models(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1727,7 +1729,7 @@ class BubbleLayoutTests(_Harness):
             d.start_bubble_edit(event, 0, 'bubble_0'); win.update()
             edit = d._bubble_edit
             self.assertEqual(d.idea_log.tag_cget('bubble_0', 'background'), '#dff5e3')
-            self.assertEqual(d.idea_log.cget('selectbackground'), '#3564a8')
+            self.assertEqual(d.idea_log.cget('selectbackground'), COLORS['primary'])
             self.assertEqual(d.idea_log.cget('selectforeground'), '#ffffff')
             d.idea_log.tag_add('sel', '%s+1c' % edit['start'], '%s+3c' % edit['start'])
             self.assertEqual(d.idea_log.get('sel.first', 'sel.last'), '始创')
@@ -1760,8 +1762,8 @@ class BubbleLayoutTests(_Harness):
             d.finish_bubble_click(click); win.update()
             self.assertIsNone(getattr(d, '_bubble_edit', None), '拖动选字不能误进入编辑')
             self.assertEqual(str(d.idea_log.cget('state')), 'normal', '聊天记录必须保持可拖选')
-            self.assertEqual(d.idea_log.cget('selectbackground'), '#3564a8')
-            self.assertEqual(d.idea_log.cget('inactiveselectbackground'), '#3564a8')
+            self.assertEqual(d.idea_log.cget('selectbackground'), COLORS['primary'])
+            self.assertEqual(d.idea_log.cget('inactiveselectbackground'), COLORS['primary'])
             self.assertEqual(d.guard_bubble_edit_key(SimpleNamespace(
                 widget=d.idea_log, keysym='a')), 'break', '未进入编辑时不可改动聊天记录')
             for keysym in ('Down', 'Prior', 'Up', 'Next', 'Home', 'End', 'Tab', 'ISO_Left_Tab'):
@@ -1789,7 +1791,7 @@ class BubbleLayoutTests(_Harness):
             d.finish_bubble_edit(commit=False); win.update()
             body = d.idea_log.tag_ranges('bubble_0')
             d.idea_log.tag_add('sel', body[0], body[1])
-            self.assertEqual(d.idea_log.cget('selectbackground'), '#3564a8')
+            self.assertEqual(d.idea_log.cget('selectbackground'), COLORS['primary'])
             self.assertEqual(d.idea_log.cget('selectforeground'), '#ffffff')
             d.notice_selected_bubble_text(SimpleNamespace(widget=d.idea_log))
             self.assertIn('按 Ctrl+C 复制', d.status.get())

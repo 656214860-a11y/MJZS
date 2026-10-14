@@ -1,4 +1,5 @@
 """遵循 ui_components.md 的 Tk 组件入口。"""
+import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -403,6 +404,26 @@ def _styles(master):
     setup_styles(master)
 
 
+SUPPRESS_MODAL_ENV = "DRAMA_SUPPRESS_MODAL"
+
+
+_REAL_DIALOGS = {name: getattr(messagebox, name) for name in ("showerror", "showwarning", "showinfo")}
+
+
+class _SilentDialogs:
+    """自检／CI 无人值守时的系统确认框替身：只走状态栏，不弹出阻塞的模态框。
+
+    用例若已把 ``messagebox.showerror`` 等替换成记录函数，仍调用该替换以便断言；
+    只有真实的 tkinter 系统框才被静默。
+    """
+
+    def __getattr__(self, name):
+        current = getattr(messagebox, name)
+        if current is _REAL_DIALOGS.get(name):
+            return lambda *_args, **_kwargs: "ok"
+        return current
+
+
 class NotificationDispatcher:
     """UI 唯一通知分发器：先落状态栏，必要时再复用系统确认框。
 
@@ -420,6 +441,10 @@ class NotificationDispatcher:
     def __init__(self, status, parent=None, dialogs=messagebox):
         self.status = status
         self.parent = parent
+        # 自检与本地 CI 设置 DRAMA_SUPPRESS_MODAL=1：默认系统框改为静默，避免模态框卡住整轮测试；
+        # 用例显式注入的 dialogs 不受影响，仍可断言弹窗行为。
+        if dialogs is messagebox and os.environ.get(SUPPRESS_MODAL_ENV) == "1":
+            dialogs = _SilentDialogs()
         self.dialogs = dialogs
 
     def notify(self, message, *, level="info", title=None, modal=False):

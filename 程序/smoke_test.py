@@ -574,6 +574,8 @@ USAGE = """用法：python smoke_test.py [--all | --safe | --affected 模块... 
 
 
 def main(argv=None):
+    # 自检子进程继承：通知分发器不弹系统模态框，避免无人值守时卡住（见 ui_widgets.SUPPRESS_MODAL_ENV）。
+    os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
     args = list(sys.argv[1:] if argv is None else argv)
     round_no, full, safe, skip_gate, listing, architecture, affected = ROUND, False, False, True, False, False, []
     index = 0

@@ -1591,3 +1591,74 @@ def publish_response_archive(project, text):
         datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '_' + uuid4().hex + '.txt')
     publish_stage_text(target, value, lambda published: published == value, lambda _target: None)
     return str(target)
+
+
+def import_downloaded_creatives(context, provider='', model=''):
+    """L3 编排：从本机「下载」文件夹收回桌面 Agent 窗口给出的同项目创作文件并发布。"""
+    from idea_chat import import_downloaded_documents
+    from platform_tools import downloads_directory
+    return import_downloaded_documents(context, downloads_directory(), provider=provider, model=model,
+                                       publish=publish_idea_creative)
+
+
+DOWNLOAD_INBOX_LEDGER = ('工作流任务', '下载收件箱.json')
+
+
+def _download_inbox_path(project):
+    return Path(project).resolve().joinpath(*DOWNLOAD_INBOX_LEDGER)
+
+
+def register_download_inbox(project, prompt, now=None):
+    """L3 编排：登记一次桌面 Agent 任务书里的目标文件，供之后从下载文件夹收回。"""
+    import time
+    from agent.core import save
+    from download_inbox import expected_targets, remaining
+    now = time.time() if now is None else now
+    targets = expected_targets(project, prompt)
+    if not targets:
+        return ()
+    ledger = _download_inbox_path(project)
+    try:
+        current = file_cache.read_json(ledger) if ledger.is_file() else {}
+    except (OSError, ValueError):
+        current = {}
+    pending = current.get('pending', []) if isinstance(current, dict) else []
+    names = {str(target) for target in targets}
+    pending = [entry for entry in remaining(pending, (), now)
+               if str(entry.get('target')) not in names]
+    pending.extend({'target': str(target), 'since': now} for target in targets)
+    save(ledger, {'version': 1, 'pending': pending})
+    return targets
+
+
+def collect_download_inbox(project, now=None, downloads=None):
+    """L3 编排：把已下载到「下载」文件夹的目标文件收回项目；返回已写入的目标路径。"""
+    import time
+    from agent.core import save, save_bytes
+    from download_inbox import match, remaining
+    ledger = _download_inbox_path(project)
+    if not ledger.is_file():
+        return []
+    now = time.time() if now is None else now
+    try:
+        current = file_cache.read_json(ledger)
+    except (OSError, ValueError):
+        return []
+    pending = current.get('pending', []) if isinstance(current, dict) else []
+    if downloads is None:
+        from platform_tools import downloads_directory
+        downloads = downloads_directory()
+    done = []
+    for source, target in match(downloads, pending, now):
+        try:
+            data = source.read_bytes()
+        except OSError:
+            continue
+        if not data:
+            continue
+        save_bytes(target, data)
+        done.append(target)
+    kept = remaining(pending, done, now)
+    if kept != pending:
+        save(ledger, {'version': 1, 'pending': kept})
+    return done

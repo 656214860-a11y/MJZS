@@ -12,6 +12,7 @@
 这一份只做文件与人话：不碰 Tk、不发网络。问模型那一趟由界面注入（自检传假函数），离线可跑。
 """
 import re
+from pathlib import Path
 from idea_script_heuristic import looks_like_script
 from project_context import ProjectContext
 from script_contract import INLINE_REQUIRED_LABELS, PRODUCTION_LOCK_DEFINITIONS, stage_lock_requirements, stage_lock_definitions
@@ -103,6 +104,94 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None):
     return publish(context.root, ({'name': name, 'data': value.encode('utf-8'),
                            'directories': tuple(folder + '/' + directory
                                                 for directory in PROJECT_DOCUMENT_DIRS.values())},))[name]
+
+
+_DOWNLOAD_COPY_SUFFIX = re.compile(r'\s*\(\d+\)(?=\.md$)', re.I)
+DOWNLOAD_IMPORT_MAX_AGE = 3 * 24 * 3600   # 只收回近三天下载的文件，不翻旧账
+
+
+def import_downloaded_documents(root, folder, provider='', model='', *, publish=None, now=None):
+    """收回用户从桌面 Agent 窗口（如 Claude Desktop）下载到「下载」文件夹的创作文件。
+
+    桌面窗口有时只给出下载文件而不直接写入任务书指定的路径；这里按四段式文件名
+    ``项目名_文件类型_内容_年月日.md``（浏览器追加的「 (N)」也认）找回同项目、同
+    Provider 的文件。每类只取最新一份，且必须比本模型该类已保存的最新文件更新、
+    正文分类与文件名一致；落盘复用 ``save_reply``：设定／大纲／角色卡覆盖同一份，
+    自然剧本同稿复用、异稿编号。下载目录里的原文件保持不动。
+
+    返回 ``[(文件类型, 已写入路径), ...]``；没有可收回的文件时返回空列表。
+    """
+    context = _context(root)
+    if not callable(publish):
+        raise TypeError('收回下载文件需要由 L3 注入发布器。')
+    import time
+    from script_contract import project_name, stage_file_info
+    from stage_path_service import write_dir
+    source = Path(folder)
+    try:
+        entries = tuple(source.glob('*.md')) if source.is_dir() else ()
+    except OSError:
+        entries = ()
+    now = time.time() if now is None else now
+    expected_project = project_name(context.root)
+    expected_provider = str(provider or '').strip()
+    newest = {}
+    for path in entries:
+        try:
+            if not path.is_file():
+                continue
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        if now - mtime > DOWNLOAD_IMPORT_MAX_AGE:
+            continue
+        info = stage_file_info(_DOWNLOAD_COPY_SUFFIX.sub('', path.name))
+        if not info or info.get('format') != 'stage-v1':
+            continue
+        file_type = info.get('file_type')
+        if info.get('project') != expected_project or file_type not in PROJECT_DOCUMENT_DIRS:
+            continue
+        content = re.sub(r'\(\d+\)$', '', str(info.get('content') or '')).strip()
+        if expected_provider and content != expected_provider:
+            continue
+        if file_type not in newest or mtime > newest[file_type][0]:
+            newest[file_type] = (mtime, path)
+    if not newest:
+        return []
+    model_dir = write_dir(context.root, 'script') / _storage_name(provider, '未知Provider') / _storage_name(model, '未知模型')
+    imported = []
+    for file_type, (mtime, path) in sorted(newest.items()):
+        latest = 0
+        category = project_document_directory(file_type)
+        try:
+            batches = tuple(model_dir.iterdir()) if model_dir.is_dir() else ()
+        except OSError:
+            batches = ()
+        for batch in batches:
+            try:
+                for existing in (batch / category).glob('*.md'):
+                    latest = max(latest, existing.stat().st_mtime)
+            except OSError:
+                continue
+        if mtime <= latest:
+            continue
+        try:
+            text = path.read_text(encoding='utf-8-sig')
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not is_project_document_text(text) or _project_file_type(text) != file_type:
+            continue
+        value = text.replace('\r\n', '\n').strip()
+        try:
+            # 正文与将覆盖的文件一致时 save_reply 不会重写；只报告真正更新的文件。
+            target = reply_document_path(context, value, provider=provider, model=model, file_type=file_type)
+            unchanged = target.is_file() and target.read_text(encoding='utf-8', errors='ignore').strip() == value
+            saved = save_reply(context, text, provider=provider, model=model, publish=publish)
+        except (OSError, ValueError):
+            continue
+        if not unchanged:
+            imported.append((file_type, Path(saved)))
+    return imported
 
 
 def save_manual_creative(root, text, at=None, *, publish=None):

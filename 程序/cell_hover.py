@@ -21,6 +21,7 @@
 要看这一格的文件双击缩略图，或者走右键菜单里的「查看」。
 """
 import inspect
+from ui_tokens import COLORS
 import tkinter as tk
 from tkinter import ttk
 from ui_widgets import ContextMenu, LineInput
@@ -274,8 +275,8 @@ class CellHover:
         self.delete=delete
         self.active=None;self.pending=None;self.editor=None
         font=ttk.Style(tree).lookup(tree.cget('style') or 'Treeview','font') or 'TkDefaultFont'
-        self.overlay=tk.Label(tree,bg='#deebfa',fg='#173d72',font=font,anchor='w',padx=3,
-                              borderwidth=0,highlightbackground='#80a5d4',highlightthickness=1,cursor='hand2')
+        self.overlay=tk.Label(tree,bg=COLORS['selection_bg'],fg=COLORS['selection_text'],font=font,anchor='w',padx=3,
+                              borderwidth=0,highlightbackground=COLORS['selection_border'],highlightthickness=1,cursor='hand2')
         for widget in (tree,self.overlay):
             widget.bind('<Motion>',self.motion,add='+')
             widget.bind('<Leave>',self.leave,add='+')
@@ -442,7 +443,7 @@ class CellImages:
     内容框一旦不在窗口角上（几页的内容框都不是），那一份坐标就整块偏出去。
     """
 
-    def __init__(self, tree, columns, provider, hover=None, background='#ffffff', forward=None, plain=None,
+    def __init__(self, tree, columns, provider, hover=None, background=COLORS['background_card'], forward=None, plain=None,
                  zoom=None, view_refresh_delay=0):
         self.tree = tree
         self.columns = tuple(columns)
@@ -612,7 +613,7 @@ class CellImages:
             return None
         host = self.tree.winfo_toplevel()
         if self.zoom_label is None or not self.zoom_label.winfo_exists():
-            self.zoom_label = tk.Label(host, borderwidth=1, relief='solid', background='#ffffff',
+            self.zoom_label = tk.Label(host, borderwidth=1, relief='solid', background=COLORS['background_card'],
                                        highlightthickness=0)
             self.bind_zoom_label(self.zoom_label)
         try:
@@ -833,7 +834,7 @@ class CellImages:
         if label is not None and label.winfo_exists():
             return label
         label = tk.Label(self.tree, borderwidth=0, padx=3, anchor='w', compound='left',
-                         background='#ffffff', cursor='hand2')
+                         background=COLORS['background_card'], cursor='hand2')
         if self.plain is not None:
             # 第 55 期第 2 条：这一格上是图，不再走高亮——鼠标移上来只把可能还亮着的旧格灭掉。
             for sequence, callback in (('<Motion>', self.plain.clear), ('<Leave>', self.plain.leave),

@@ -59,13 +59,16 @@ try:
     step(2)
     def reveal():
         window._drama_hold_alpha=False
+        # 揭开前把挂起的布局和重绘一次做完，避免透明转不透明的瞬间露出空白底色。
+        window.update_idletasks()
         window.attributes('-alpha',1);window.lift();window.focus_force()
     def loaded():
-        # 首帧完成、今日项目页的壳摆好就揭开；剧本准备整页随后在窗口里建，
-        # 不再让用户对着启动画面多等这一段（R1413 实测约 0.5～0.8 秒）。
+        # 首帧完成、今日项目页与剧本准备整页都在启动画面后建好才揭开（R1413 先揭外壳的做法会白屏）。
         if not getattr(window,'_desktop_first_paint_complete',False):return False
         if getattr(window,'_desktop_loading_project',False):return False
-        return getattr(desk,'_startup_project_page_job',None) is None
+        # 剧本准备整页在启动画面后面建完才揭开；只等外壳会让用户看到白屏。
+        return (getattr(desk,'_startup_project_page_job',None) is None
+                and getattr(desk,'_startup_script_build_job',None) is None)
     def track():
         try:return platform_tools.window_outer_rect(int(window.wm_frame(),16))
         except (tk.TclError,ValueError):return None

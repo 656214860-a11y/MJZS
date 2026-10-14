@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -26,7 +25,9 @@ def install(common_dir: Path | None = None) -> list[Path]:
     installed = []
     for name in HOOKS:
         destination = target / name
-        shutil.copyfile(SOURCE / name, destination)
+        # hooks 由 sh 执行，CRLF 会让 `esac\r` 等语句失效；无论源文件如何检出都按 LF 写入。
+        data = (SOURCE / name).read_bytes().replace(b"\r\n", b"\n")
+        destination.write_bytes(data)
         destination.chmod(destination.stat().st_mode | 0o111)
         installed.append(destination)
     return installed

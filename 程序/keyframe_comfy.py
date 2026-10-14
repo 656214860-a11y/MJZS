@@ -242,7 +242,7 @@ def show(app, source, initial=None):
     footer.pack(side='bottom', fill='x')
     viewport = ttk.Frame(win)
     viewport.pack(side='top', fill='both', expand=True)
-    view = scroll_form(viewport, bg='#f3f6fa')
+    view = scroll_form(viewport, bg=COLORS['background_primary'])
     form = view.form                      # 滚动表单区与批量资产共用一份实现
 
     ttk.Label(form, text='勾选镜头 → 开始逐镜生成 → 按镜头编号自动导入', style='Tokens.Title.TLabel').pack(anchor='w', padx=14, pady=SPACING['md'])
@@ -462,7 +462,7 @@ def show(app, source, initial=None):
     PrimaryButton(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=2, column=2, padx=6)
     SecondaryButton(local_box, text='启动并检测', command=lambda: app.safe(detect)).grid(row=3, column=2, padx=6)
     SecondaryButton(local_box, text='删除模型', command=lambda: app.safe(delete_model)).grid(row=4, column=2, padx=6)
-    log = TextArea(form, height=7, wrap='word', state='disabled', bg=COLORS['background_card'], fg='#243247', font=('Microsoft YaHei UI', 10), padx=10, pady=SPACING['sm'])
+    log = TextArea(form, height=7, wrap='word', state='disabled', bg=COLORS['background_card'], fg=COLORS['text_primary'], font=('Microsoft YaHei UI', 10), padx=10, pady=SPACING['sm'])
     log.pack(fill='both', expand=True, padx=14, pady=6)
 
     def log_lines(text):

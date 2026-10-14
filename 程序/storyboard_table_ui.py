@@ -1,5 +1,6 @@
 """Tk table adapters shared by storyboard picker pages."""
 from datetime import datetime
+from ui_tokens import COLORS
 from ui_widgets import DataTable
 from ui_shortcuts import ShortcutRegistry
 
@@ -26,7 +27,7 @@ def file_table(parent, height=4, selectmode='browse', first_label='文件 / 内�
             tree.selection_set(tree.get_children());return 'break'
         ShortcutRegistry().bind(tree, ('<Control-a>', '<Control-A>'), select_all,
                                scope='分镜文件表', name='全选文件')
-    tree.tag_configure('completed',background='#e8ecef',foreground='#1a7f37')
+    tree.tag_configure('completed',background=COLORS['row_done_bg'],foreground=COLORS['success_text'])
     auto_height(tree, area)
     def schedule_fit(event=None):
         if getattr(tree,'_fit_columns_pending',False):return

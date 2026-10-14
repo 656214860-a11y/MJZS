@@ -36,7 +36,7 @@ ROOT=Path(__file__).resolve().parent
 # 点一格弹出可勾选的下拉框——原来单摆的那张表只跟「正在编辑的那一镜」走，全选镜头号
 # 之后整栏还是只有一镜的资产亮着（用户报的那条 BUG）。
 # 第 45 期：示例／提示文字统一的灰（与「剧本准备」页创意栏那一份同一个色号）。
-PLACEHOLDER_INK='#718196'
+PLACEHOLDER_INK=COLORS['text_secondary']
 ASSET_TITLE='选择资产'
 ASSET_FIELD='assets'
 # 第 53 期第 5 条：「首帧」那一列要盖一层首帧缩略图（Tk 的 value 格只写得了文字），行高得跟着
@@ -619,7 +619,7 @@ class App:
             return brief.get('1.0','end-1c')==example
         def clear_example(event=None):
             if not example_showing():return
-            brief.delete('1.0','end');brief.configure(fg='#243247')
+            brief.delete('1.0','end');brief.configure(fg=COLORS['text_primary'])
         def brief_key(event):
             printable=bool(event.char and event.char.isprintable() and not (event.state & 0xC))
             paste=(event.state & 0x4) and event.keysym.lower()=='v'

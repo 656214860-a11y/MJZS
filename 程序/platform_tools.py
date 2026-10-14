@@ -26,6 +26,29 @@ def windows_registry():
     return winreg
 
 
+_DOWNLOADS_FOLDER_ID = '{374DE290-123F-4565-9164-39C4925E467B}'
+
+
+def downloads_directory():
+    """当前用户的「下载」文件夹。
+
+    Windows 读 User Shell Folders 里登记的下载位置（用户可能把它挪到别的盘）；
+    读不到或不是目录时退回 ``~/Downloads``。只返回路径，不创建目录。
+    """
+    registry = windows_registry()
+    if registry is not None:
+        try:
+            with registry.OpenKey(registry.HKEY_CURRENT_USER,
+                                  r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders') as key:
+                value, _kind = registry.QueryValueEx(key, _DOWNLOADS_FOLDER_ID)
+            folder = Path(os.path.expandvars(str(value)))
+            if folder.is_dir():
+                return folder
+        except OSError:
+            pass
+    return Path.home() / 'Downloads'
+
+
 def hidden_console_flags():
     """Return the host-supported flag for background commands without a console window.
 

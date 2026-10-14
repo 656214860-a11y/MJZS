@@ -83,6 +83,10 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
         state['summary']='没有需要 Agent 制作的镜头：简单镜头无需白模、中等镜头走线上入口，或所选镜头已就绪';return
     from workflow_settings import current,find_program,ENGINES
     call_config=current(project,'previs')
+    if call_config['engine']=='claude-desktop-app':
+        # 白模是逐镜无人值守后台制作；Claude Desktop 只能由用户在窗口里手动发送，
+        # 不先拦下会在建好批次、打开监视页后才逐镜失败。
+        raise ValueError('白模自动制作需要可后台运行的模型：Claude Desktop 只能手动发送，请在阶段配置改用 Claude Code、Codex 或 API 模型')
     call_config['program']=find_program(call_config)
     if call_config['engine']=='qwen':
         from qwen_setup import environment

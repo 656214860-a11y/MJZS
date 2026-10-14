@@ -283,7 +283,7 @@ def _gates_block(desktop, aid):
     for item in rows:
         line = ttk.Frame(box)
         line.pack(fill='x', anchor='w', pady=2)
-        ttk.Label(line, text=item['title'] + '：', foreground='#b54708').pack(anchor='w')
+        ttk.Label(line, text=item['title'] + '：', foreground=COLORS['warning_text']).pack(anchor='w')
         for index, candidate in enumerate(item['candidates']):
             row = ttk.Frame(box)
             row.pack(fill='x', anchor='w', padx=(10, 0))
@@ -312,7 +312,7 @@ def _header(desktop, aid, asset):
     ttk.Label(head, text='　' + TYPE_NAMES.get(aid.split('_')[0], '资产')).pack(side='left')
     locked = bool(asset.get('locked'))
     ttk.Label(head, text='　' + ('已锁定' if locked else '未锁定'),
-              foreground='#1a7f37' if locked else '#b54708').pack(side='left')
+              foreground=COLORS['success_text'] if locked else COLORS['warning_text']).pack(side='left')
     SecondaryButton(head, text='解锁' if locked else '锁定',
                command=lambda: desktop.safe(lambda: toggle_lock(desktop, aid))).pack(side='left', padx=SPACING['sm'], pady=2)
     return head
@@ -332,7 +332,7 @@ def _board_block(desktop, aid, asset):
         holder = ttk.Frame(grid)
         holder.grid(row=row, column=column, padx=SPACING['xs'], pady=SPACING['xs'], sticky='nw')
         ttk.Label(holder, text=cell['label'],
-                  foreground='#1a7f37' if cell['ready'] else '#8a8a8a').pack(anchor='w')
+                  foreground=COLORS['success_text'] if cell['ready'] else COLORS['text_muted']).pack(anchor='w')
         image = None
         thumbnail_unavailable = False
         if cell['ready']:
@@ -352,12 +352,12 @@ def _board_block(desktop, aid, asset):
             text = Path(cell['image']).name
         elif thumbnail_unavailable:
             # 文件已绑定但缩略图服务暂时没有可用图，不能误导用户以为绑定丢了。
-            ttk.Label(holder, text='（缩略图暂不可用）', foreground='#8a8a8a').pack(anchor='w')
+            ttk.Label(holder, text='（缩略图暂不可用）', foreground=COLORS['text_muted']).pack(anchor='w')
             text = Path(cell['image']).name + '（可重新选择图片）'
         else:
-            ttk.Label(holder, text='（缺图）', foreground='#8a8a8a').pack(anchor='w')
+            ttk.Label(holder, text='（缺图）', foreground=COLORS['text_muted']).pack(anchor='w')
             text = '还没绑定'
-        ttk.Label(holder, text=text, foreground='#555555', wraplength=CELL_SIZE + 40,
+        ttk.Label(holder, text=text, foreground=COLORS['text_secondary'], wraplength=CELL_SIZE + 40,
                   justify='left').pack(anchor='w')
         buttons = ttk.Frame(holder)
         buttons.pack(anchor='w')
@@ -385,7 +385,7 @@ def _anchor_block(desktop, aid, asset):
     box.pack(fill='x', pady=(4, 0))
     anchor = str(asset.get('character_anchor') or asset.get('base_anchor') or '').strip()
     ttk.Label(box, text=anchor or '（还没定稿：用下面的候选点一下，或点「编辑」自己写）',
-              wraplength=760, justify='left', foreground='#1a7f37' if anchor else '#8a8a8a').pack(anchor='w')
+              wraplength=760, justify='left', foreground=COLORS['success_text'] if anchor else COLORS['text_muted']).pack(anchor='w')
     row = ttk.Frame(box)
     row.pack(fill='x', pady=(4, 0))
     def copy_anchor():
@@ -439,7 +439,7 @@ def _variants_block(desktop, aid, asset):
     base = _base(desktop)
     if not rows:
         ttk.Label(body, text='还没有：剧本有换装需求时再新增（编号自动排 CST-01、CST-02…）',
-                  foreground='#8a8a8a').pack(anchor='w')
+                  foreground=COLORS['text_muted']).pack(anchor='w')
     for item in rows:
         line = ttk.Frame(body)
         line.pack(fill='x', anchor='w', pady=2)
@@ -462,7 +462,7 @@ def _variants_block(desktop, aid, asset):
             label.bind('<Return>', lambda _e, button=label: (button.invoke(), 'break')[1])
         else:
             label = '（缩略图暂不可用）' if thumbnail_unavailable else '（缺缩略图）'
-            ttk.Label(line, text=label, foreground='#8a8a8a', width=12).pack(side='left', padx=(0, 8))
+            ttk.Label(line, text=label, foreground=COLORS['text_muted'], width=12).pack(side='left', padx=(0, 8))
         ttk.Label(line, text=item['state_id'] + ' · ' + (item['name'] or '未命名') + '：'
                            + (item['override'] or '缺覆盖描述'), wraplength=520,
                   justify='left').pack(side='left')
@@ -518,7 +518,7 @@ def _raw_block(desktop, aid):
         text = json.dumps(row if row is not None else {}, ensure_ascii=False, indent=2)
     except (OSError, ValueError):
         text = '（读不出来）'
-    view = TextArea(body, wrap='none', height=12, bg=COLORS['background_card'], fg='#243247', padx=10, pady=10)
+    view = TextArea(body, wrap='none', height=12, bg=COLORS['background_card'], fg=COLORS['text_primary'], padx=10, pady=10)
     view.insert('1.0', text)
     view.configure(state='disabled')
     view.pack(fill='both', expand=True)
@@ -608,16 +608,16 @@ def _roster_role(desktop, aid, asset):
     board = ttk.Frame(box)
     board.pack(fill='x')
     ttk.Label(board, text='正典板', width=ROSTER_PANEL_WIDTH,
-              foreground='#344d6b').pack(side='left', anchor='n')
+              foreground=COLORS['text_heading']).pack(side='left', anchor='n')
     bound = 0
     for cell in grid:
         holder = ttk.Frame(board)
         holder.pack(side='left', padx=(0, 10), anchor='n')
         ttk.Label(holder, text=cell['label'],
-                  foreground='#1a7f37' if cell['ready'] else '#8a8a8a').pack(anchor='w')
+                  foreground=COLORS['success_text'] if cell['ready'] else COLORS['text_muted']).pack(anchor='w')
         if _roster_thumb(desktop, holder, base, cell['image'] if cell['ready'] else '',
                          aid + ' · ' + cell['label'], side='top') is None:
-            ttk.Label(holder, text='（缺图）', foreground='#8a8a8a').pack(anchor='w')
+            ttk.Label(holder, text='（缺图）', foreground=COLORS['text_muted']).pack(anchor='w')
         else:
             bound += 1
     states = state_variants(asset) if aid.startswith('CHAR_') else []
@@ -625,10 +625,10 @@ def _roster_role(desktop, aid, asset):
         panel = ttk.Frame(box)
         panel.pack(fill='x', pady=(6, 0))
         ttk.Label(panel, text='换状态', width=ROSTER_PANEL_WIDTH,
-                  foreground='#344d6b').pack(side='left', anchor='n')
+                  foreground=COLORS['text_heading']).pack(side='left', anchor='n')
         if not states:
             ttk.Label(panel, text='还没有状态变体：剧本有换装需求时，在详情页新增（编号自动排 CST-01…）',
-                      foreground='#8a8a8a').pack(side='left')
+                      foreground=COLORS['text_muted']).pack(side='left')
         for item in states:
             line = ttk.Frame(panel)
             line.pack(side='left', padx=(0, 12), anchor='n')
@@ -643,7 +643,7 @@ def _roster_role(desktop, aid, asset):
     SecondaryButton(foot, text='编辑这一项',
                command=lambda: desktop.safe(lambda: desktop.open_asset_detail(aid))).pack(side='left')
     ttk.Label(foot, text='正典板 ' + str(bound) + '/' + str(len(grid)) + ' 格已绑定 · 状态变体 '
-                         + str(len(states)) + ' 个', foreground='#555555').pack(side='left', padx=(10, 0))
+                         + str(len(states)) + ' 个', foreground=COLORS['text_secondary']).pack(side='left', padx=(10, 0))
     return box
 
 

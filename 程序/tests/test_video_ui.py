@@ -42,6 +42,8 @@ def make_project(td):
     return proj
 
 
+from ui_tokens import COLORS
+
 class FlushPromptTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1433,7 +1435,7 @@ class WritingSheetExampleTests(unittest.TestCase):
         win.update()
         self.assertNotIn("本次希望制作的故事", str(box.get("1.0", "end-1c")),
                          "示例不是真内容：一动键盘就整段让位")
-        self.assertEqual(str(box.cget("fg")), "#243247", "腾出地方以后写的是正文黑字")
+        self.assertEqual(str(box.cget("fg")), COLORS['text_primary'], "腾出地方以后写的是正文黑字")
         box.delete("1.0", "end")
         box.event_generate("<FocusOut>")
         win.update()

@@ -1,15 +1,16 @@
 """Shared lightweight pastel theme; no image downloads or animation loop."""
 
 from tkinter import ttk
+from ui_tokens import COLORS
 from responsive_ui import row_height_for,font_linespace
 
 FONT=('Microsoft YaHei UI',10)     # 全局字体（行高就按它量出来的一行算）
 
-BG='#f3f6fa'
+BG=COLORS['background_primary']
 
-INK='#243247'
+INK=COLORS['text_primary']
 
-ACCENT='#3564a8'
+ACCENT=COLORS['primary']
 
 
 
@@ -17,13 +18,13 @@ def apply(win):
 
     win.configure(bg=BG)
 
-    for pattern,value in {'*Text.background':'#ffffff','*Text.foreground':INK,
+    for pattern,value in {'*Text.background':COLORS['background_card'],'*Text.foreground':INK,
 
                           '*Text.insertBackground':ACCENT,'*Text.selectBackground':ACCENT,
 
-                          '*Text.selectForeground':'#ffffff','*Text.inactiveSelectBackground':ACCENT,
+                          '*Text.selectForeground':COLORS['background_card'],'*Text.inactiveSelectBackground':ACCENT,
 
-                          '*Toplevel.background':BG,'*Menu.background':'#ffffff',
+                          '*Toplevel.background':BG,'*Menu.background':COLORS['background_card'],
 
                           '*Menu.foreground':INK}.items():win.option_add(pattern,value)
 
@@ -35,43 +36,43 @@ def apply(win):
 
     s.configure('TFrame',background=BG)
 
-    s.configure('Card.TFrame',background='#ffffff')
+    s.configure('Card.TFrame',background=COLORS['background_card'])
 
     s.configure('TLabel',background=BG,foreground=INK)
 
-    s.configure('Muted.TLabel',foreground='#596b82')
+    s.configure('Muted.TLabel',foreground=COLORS['text_secondary'])
     # 各设置页会随操作变化的说明统一用这一档：淡绿底区别于静态说明，
     # 但仍保持深色文字，长提示与错误提示都能清楚阅读。
-    s.configure('PaleGreenHint.TLabel', background='#e6f6eb', foreground='#25633a', padding=(8, 4))
+    s.configure('PaleGreenHint.TLabel', background=COLORS['success_subtle'], foreground=COLORS['success_text'], padding=(8, 4))
 
-    s.configure('TButton',font=('Microsoft YaHei UI',9),padding=(9,5),background='#e5edf7',foreground='#294b75',borderwidth=0,focuscolor=ACCENT)
+    s.configure('TButton',font=('Microsoft YaHei UI',9),padding=(9,5),background=COLORS['secondary_bg'],foreground=COLORS['secondary_text'],borderwidth=0,focuscolor=ACCENT)
 
-    s.map('TButton',background=[('disabled','#edf1f5'),('pressed','#c6d8ef'),('active','#d5e3f4')],foreground=[('disabled','#8794a5')])
+    s.map('TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['secondary_pressed']),('active',COLORS['secondary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
 
     s.configure('Compact.TButton',font=('Microsoft YaHei UI',9),padding=(6,4))
     s.configure('Send.TButton',font=('Microsoft YaHei UI',11,'bold'),padding=(10,4),background=ACCENT,foreground='white',borderwidth=0,focuscolor=ACCENT)
-    s.map('Send.TButton',background=[('disabled','#e5edf7'),('pressed','#2b568f'),('active','#2b568f')],foreground=[('disabled','#8794a5')])
+    s.map('Send.TButton',background=[('disabled',COLORS['secondary_bg']),('pressed',COLORS['primary_hover']),('active',COLORS['primary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
 
     s.configure('Selected.Compact.TButton',font=('Microsoft YaHei UI',9),padding=(7,4),background=ACCENT,foreground='white')
 
-    s.map('Selected.Compact.TButton',background=[('active','#2b568f')],foreground=[('active','white')])
+    s.map('Selected.Compact.TButton',background=[('active',COLORS['primary_hover'])],foreground=[('active','white')])
 
     s.configure('Asset.TButton',font=('Microsoft YaHei UI',10),padding=(14,8))
 
-    s.map('Asset.TButton',background=[('disabled','#edf1f5'),('pressed','#c6d8ef'),('active','#d5e3f4')],foreground=[('disabled','#8794a5')])
+    s.map('Asset.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['secondary_pressed']),('active',COLORS['secondary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
 
     s.configure('Primary.TButton',font=('Microsoft YaHei UI',11,'bold'),background=ACCENT,foreground='white',padding=(18,8),borderwidth=0,focuscolor=ACCENT)
 
-    s.map('Primary.TButton',background=[('disabled','#edf1f5'),('pressed','#2b568f'),('active','#2b568f')],foreground=[('disabled','#8794a5')])
+    s.map('Primary.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['primary_hover']),('active',COLORS['primary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
 
     # 阶段配置与手动制作/发送属于同一操作层级：尺寸一致，暖色只表示配置语义。
-    s.configure('StageConfig.TButton',font=('Microsoft YaHei UI',11,'bold'),background='#c2601c',foreground='white',padding=(18,8),borderwidth=0,focuscolor='#c2601c')
-    s.map('StageConfig.TButton',background=[('disabled','#edf1f5'),('pressed','#9b4813'),('active','#9b4813')],foreground=[('disabled','#8794a5')])
+    s.configure('StageConfig.TButton',font=('Microsoft YaHei UI',11,'bold'),background=COLORS['emphasis'],foreground='white',padding=(18,8),borderwidth=0,focuscolor=COLORS['emphasis'])
+    s.map('StageConfig.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['emphasis_pressed']),('active',COLORS['emphasis_pressed'])],foreground=[('disabled',COLORS['disabled_text'])])
 
     # 第 45 期：用户要「按钮 MCP 优化醒目提示」。主色（蓝）已经归「手动制作提示词」，
     # 这里用琥珀色——与左上角那颗「设置」齿轮同一档，一眼就能看出这是要花钱的那一步。
-    s.configure('Highlight.TButton',font=('Microsoft YaHei UI',10,'bold'),background='#e08a1e',foreground='white',padding=(14,7),borderwidth=0,focuscolor='#e08a1e')
-    s.map('Highlight.TButton',background=[('disabled','#edf1f5'),('pressed','#b96c0c'),('active','#f0a03a')],foreground=[('disabled','#8794a5')])
+    s.configure('Highlight.TButton',font=('Microsoft YaHei UI',10,'bold'),background=COLORS['warning'],foreground='white',padding=(14,7),borderwidth=0,focuscolor=COLORS['warning'])
+    s.map('Highlight.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['warning_pressed']),('active',COLORS['warning_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
 
     s.configure('Project.Treeview',rowheight=24)
 
@@ -80,11 +81,11 @@ def apply(win):
     # 一眼看出它挂在上一格下面。
     s.configure('Sub.Nav.TButton',anchor='w',background=BG,padding=(26,4))
     s.configure('Selected.Sub.Nav.TButton',anchor='w',background=ACCENT,foreground='white',padding=(26,4))
-    s.map('Selected.Sub.Nav.TButton',background=[('active','#2b568f')],foreground=[('active','white')])
+    s.map('Selected.Sub.Nav.TButton',background=[('active',COLORS['primary_hover'])],foreground=[('active','white')])
 
     s.configure('Selected.Nav.TButton',background=ACCENT,foreground='white')
 
-    s.map('Selected.Nav.TButton',background=[('active','#2b568f')],foreground=[('active','white')])
+    s.map('Selected.Nav.TButton',background=[('active',COLORS['primary_hover'])],foreground=[('active','white')])
 
     s.configure('TEntry',fieldbackground='white',foreground=INK,padding=7)
 
@@ -97,17 +98,17 @@ def apply(win):
     # 按自己的图高设（见 responsive_ui.fit_row_height）。
     s.configure('Treeview',rowheight=row_height_for(0,font_linespace(win,FONT)),background='white',fieldbackground='white',foreground=INK,borderwidth=0)
 
-    s.configure('Treeview.Heading',background='#e8eef6',foreground='#344d6b',padding=8)
+    s.configure('Treeview.Heading',background=COLORS['header_bg'],foreground=COLORS['text_heading'],padding=8)
 
-    s.map('Treeview',background=[('selected','#d7e6f8')],foreground=[('selected','#193e6b')])
+    s.map('Treeview',background=[('selected',COLORS['selection_bg'])],foreground=[('selected',COLORS['selection_text'])])
 
     s.configure('TNotebook.Tab',padding=(14,9))
 
-    s.configure('Horizontal.TProgressbar',background='#4e8db5',troughcolor='#e5ebf2',borderwidth=0)
+    s.configure('Horizontal.TProgressbar',background=COLORS['progress'],troughcolor=COLORS['trough'],borderwidth=0)
 
-    s.configure('TLabelframe',background=BG,bordercolor='#d3dce8',relief='solid',borderwidth=1)
+    s.configure('TLabelframe',background=BG,bordercolor=COLORS['border_strong'],relief='solid',borderwidth=1)
 
-    s.configure('TLabelframe.Label',background=BG,foreground='#344d6b')
+    s.configure('TLabelframe.Label',background=BG,foreground=COLORS['text_heading'])
 
     # 第 31 期第 4/5 条：空的 TLabelframe 仍会为标签留出约 19 像素——按钮行到内容框之间
 
@@ -115,7 +116,7 @@ def apply(win):
 
     # 但没有标签行，内容框能紧贴上面的按钮行。
 
-    s.configure('Box.TFrame',background=BG,bordercolor='#d3dce8',relief='solid',borderwidth=1)
+    s.configure('Box.TFrame',background=BG,bordercolor=COLORS['border_strong'],relief='solid',borderwidth=1)
 
     from ui_tokens import (SCROLLBAR_ARROW, SCROLLBAR_BORDER_WIDTH, SCROLLBAR_THUMB,
                            SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH)
@@ -126,7 +127,7 @@ def apply(win):
 
     s.map('TEntry',bordercolor=[('focus',ACCENT)])
 
-    s.map('TCheckbutton',background=[('active',BG)],foreground=[('disabled','#8794a5')])
+    s.map('TCheckbutton',background=[('active',BG)],foreground=[('disabled',COLORS['disabled_text'])])
 
 
 
