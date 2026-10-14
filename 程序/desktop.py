@@ -7611,9 +7611,13 @@ class Desktop:
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
         delivery_button('导入剪映最终成片',self.final_import,primary=True)
         delivery_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))
+        delivery_button('选择采用版本…',lambda:self.safe(self.open_version_picker))
         delivery_button('打开交付目录',lambda:open_path(delivery_dir))
         delivery_button('打开自动剪辑与QC报告目录',lambda:self.open_folder(export_dir))
     def open_folder(self,p):open_directory(p)
+    def open_version_picker(self):
+        from version_picker import open_picker
+        return open_picker(self)
     def final_import(self):
         from stage_workspace_service import ensure_delivery_workspace
         result=ensure_delivery_workspace(self.root)

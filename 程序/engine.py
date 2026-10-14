@@ -70,7 +70,8 @@ def adopted_edit_version(versions, root=None):
     """
     approved=approved_versions(versions)
     if not approved:return None,ADOPT_UNAPPROVED
-    version=approved[-1]
+    # 用户显式锁定的版本优先；没有锁定才取最后一条已验收版本。锁定只能落在已验收版本上。
+    version=next((v for v in approved if v.get('pinned') is True),approved[-1])
     if root is None:return version,''
     path=Path(root)/str(version.get('file') or '')
     try:
@@ -93,6 +94,7 @@ def adoption_summary(root, versions):
     return {'source':adopted if adopted is not None else (latest or {}),
             'adopted':adopted,'latest':latest,
             'latest_is_adopted':adopted is not None and latest is adopted,
+            'pinned':bool(adopted is not None and adopted.get('pinned') is True),
             'reason':reason,'reason_text':ADOPT_REASON_TEXT.get(reason,'')}
 
 def read_edit_bundle(out):
@@ -431,6 +433,35 @@ class Studio:
             if value=='pass' and (v['state']!='downloaded' or not v.get('qc_pass')): raise ValueError('仅下载且技术合格的版本可通过')
             if value not in ('pass','revise'): raise ValueError('无效验收值')
             v.update(review=value,review_by='user',review_note=note); save(self.db,st)
+
+    def version_rows(self,sid):
+        """本镜全部版本的事实清单，供「选择采用版本」使用；只读。"""
+        versions=self.state()['shots'].get(sid) or []
+        adopted,_reason=adopted_edit_version(versions,self.root)
+        rows=[]
+        for v in versions:
+            rows.append({'version':v.get('version'),'state':v.get('state') or '',
+                         'qc_pass':v.get('qc_pass'),'review':review_label(v),
+                         'approved':any(v is a for a in approved_versions(versions)),
+                         'adopted':adopted is v,'pinned':v.get('pinned') is True,
+                         'file':v.get('file') or ''})
+        return rows
+
+    def pin_version(self,sid,number=None):
+        """显式采用某个已验收版本进成片（回退到旧版或固定当前版）；number=None 取消锁定、恢复取最新已验收版。
+
+        不删除、不改动任何版本文件与验收记录；只在目标版本上记 pinned，同镜其余版本清除锁定。"""
+        with self.lock():
+            st=self.state(); versions=st['shots'].get(sid)
+            if not versions:raise ValueError('没有可选择的版本')
+            target=None
+            if number is not None:
+                target=next((v for v in approved_versions(versions) if v.get('version')==number),None)
+                if target is None:raise ValueError('只有已下载、技术合格且已验收通过的版本可以采用')
+            for v in versions:v.pop('pinned',None)
+            if target is not None:target['pinned']=True
+            save(self.db,st)
+        return number
 
     def review_many(self,shot_ids,value,note=''):
         """按镜头批量验收：逐镜汇总结果，单镜不合格只跳过，不中断整批。"""
