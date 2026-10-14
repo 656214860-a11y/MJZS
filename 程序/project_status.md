@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-R1437：修复轮。清掉 R1436 之后 Windows 全量里其余 8 条红：`gate_level` 替身 ×2、白模弹窗 67 字缩到 39 字、TODO 快照行号 2811→2846、R1434 交付提示词新措辞断言（含反向断言）、`test_idea_chat` ×4 改引用 `ui_tokens.COLORS`（更正 R1436：其中 3 条是 R1431 调色板变更的陈旧断言，不是大小写）。断言未弱化；Windows 复跑结果见 [R1437](tasks_round/tasks_round_1437_result.md)。
+R1437：修复轮。清掉 R1436 之后 Windows 全量里其余 8 条红：`gate_level` 替身 ×2、白模弹窗 67 字缩到 39 字、TODO 快照行号 2811→2846、R1434 交付提示词新措辞断言（含反向断言）、`test_idea_chat` ×4 改引用 `ui_tokens.COLORS`（更正 R1436：其中 3 条是 R1431 调色板变更的陈旧断言，不是大小写）。断言未弱化；另补 `test_workflow` 对 R1431「交付方式」说明的断言。**Windows 随附解释器干净树 `--all --safe` 全量：5102 条、0 红（master 9a59a47）**，详见 [R1437](tasks_round/tasks_round_1437_result.md)。
 R1436：修复轮（仅测试夹具）。R1435 后 Windows 随附解释器全量（581 路）9 条红／7 个文件，逐条归因：仅 `test_idea_inline_brief` 一条是 R1433 引入（面板替身缺 `sync_master_skill`），已修；其余属另一任务 R1431／R1434（`gate_level` 2 项、弹窗过长、TODO 快照行号、交付提示词措辞）或 Windows 环境差异（`test_idea_chat` 4 条），未处理。全量回归仍有红，未产生绿凭据。详见 [R1436](tasks_round/tasks_round_1436_result.md)。
 R1435：性能/资源轮（用户要求提高上限）。请求与 SKILL 内联字符硬上限 96,000 → 300,000，`workflow_context_budget.REQUEST_CONTEXT_MAX_CHARS` 为唯一常量（`workflow_settings` 内联默认值、`hollmwood_roles` 改为引用，消除三处写死的 96000）；按模型上下文窗口的 token 判断不变。连贯性／分镜定稿／视频生成／质检交付 4 个总控 SKILL（9.7 万—13.5 万字）恢复可发送，总控体检 4 → 0。详见 [R1435](tasks_round/tasks_round_1435_result.md)。
 
