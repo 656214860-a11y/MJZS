@@ -20,3 +20,28 @@
 - Linux 副本（Python 3.12，非随附解释器）：`test_request_recording` 5 项通过；架构目录 341 项通过。
 - 相关模块（test_tts、test_audio_role_binding、test_video 等 366 项）对比未改动副本：失败 22 个均在未改动副本上同样出现（`msvcrt`、`LOCALAPPDATA` 等 Linux 专有原因），本轮唯一新增失败（test_video FakeStudio 缺 `record_video_usage`）已修。
 - 未运行：随附解释器冒烟、全量（欠账 1430−1420=10 轮，待 Windows 补跑）、真实 TTS／视频任务上的实机记账。
+
+
+## 补记：Windows 全量回归发现并修复 xml.sax 回归（原计划 R1431，并入本轮）
+- 触发：在 Windows 随附解释器上跑 `run_selftests.py --all --safe`（5044 条用例，668.6 秒，31 个文件有红）。
+
+#### 根因
+
+R1427 的 `edit_export.py` 使用 `xml.sax.saxutils`，而随附的精简解释器已裁掉 `xml.sax`（只保留 etree 与解析器）。`engine._encode` 在成片合成后调用 `publish_edit_lists`，其内部 import 失败，导致 `assemble` 在真实环境里直接异常。Linux 完整 Python 上不可见，所以 R1427 当时未发现；`test_stdlib_closure`、`test_integration` 在 Windows 上正确拦下。
+
+#### 修复
+
+- `edit_export.py`：自带 `escape`／`quoteattr`，不再引用 `xml.sax`；与 `saxutils` 对 `& < > " ' \n \t` 及中文逐一比对输出一致。
+- `tests/test_environment_check.py`：`check_comfy` 的「未找到」断言依赖真实机器上有没有 ComfyUI，现把 `comfy_runtime.executable` 打桩，不再依赖本机环境。
+
+#### 全量中其余红的归类（未改）
+
+- 写作／创意系列（`test_writing_*`、`test_idea_*`、`test_skills`、`test_workflow`、`test_cancellation_status`、`architecture.test_skill_reference_injection`、`test_script_contract`）：独立工作树里没有未入库的 `程序/skills` 目录，报"SKILL 引用缺失"。属验收环境缺资源，不是代码问题，需在含 skills 的主目录验证。
+- `architecture.test_round_baselines`：分支上状态页头仍写 1430，结果文件已到 1430；状态页在 master 上已更新为 1431，分支不改状态页。
+- `test_idea_chat#7`：并行池 180 秒无进展被回收，待在主目录复跑确认是否为既有慢用例。
+- 日志里的 `tcl ... unknown encoding "cp1252"` 是随附解释器在中文路径下读 Tk 包索引的噪声，非本轮引入（未验证是否一直存在）。
+
+#### Windows 测试
+
+- Linux 副本：`test_edit_export`、`test_environment_check` 通过。
+- Windows 重跑受影响的 4 个模块见下一条提交说明；全量需含 skills 的树才能完整验证。

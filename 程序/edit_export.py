@@ -7,7 +7,17 @@
 """
 from __future__ import annotations
 
-from xml.sax.saxutils import escape, quoteattr
+
+
+def escape(text):
+    """XML 文本转义。随附的精简解释器没有 xml.sax，所以不用 saxutils。"""
+    return str(text).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+
+def quoteattr(text):
+    """XML 属性值转义并加双引号，换行与制表符转成字符引用，与 saxutils.quoteattr 行为一致。"""
+    value = escape(text).replace('"', '&quot;')
+    return '"' + value.replace('\n', '&#10;').replace('\r', '&#13;').replace('\t', '&#9;') + '"'
 
 EDL_NAME = '剪辑清单.edl'
 FCPXML_NAME = '剪辑清单.fcpxml'

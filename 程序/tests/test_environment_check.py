@@ -1,5 +1,6 @@
 """环境自检：只读核对外部依赖；探测函数全部注入，不启动程序、不联网。"""
 import tempfile
+from unittest import mock
 import unittest
 from pathlib import Path
 
@@ -21,7 +22,8 @@ class EnvironmentCheckTests(unittest.TestCase):
 
     def test_optional_tools_are_hints_not_failures(self):
         with tempfile.TemporaryDirectory() as folder:
-            self.assertEqual(env.check_comfy({'comfy_exe': ''})['status'], env.WARN)
+            with mock.patch.object(env.comfy_runtime, 'executable', return_value=None):
+                self.assertEqual(env.check_comfy({'comfy_exe': ''})['status'], env.WARN)
             exe = Path(folder) / 'ComfyUI.exe'
             exe.write_bytes(b'x')
             self.assertEqual(env.check_comfy({'comfy_exe': str(exe)})['status'], env.OK)
