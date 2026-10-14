@@ -34,7 +34,7 @@ _register(0, "api_models", "frame_checks", "model_protocol", "pet_settings_contr
 _register(1, "api_endpoints", "artifact_lineage", "asset_thumbs", "broadcaster", "clipboard_lock",
           "comfy_service", "engine_probe", "h3_reference_adapter", "model_diagnostics", "model_router",
           "native_apps", "seedream_api", "token_saver", "tk_timers")
-_register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export",
+_register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export", "usage_overview",
           "desktop_settings_service", "legacy_adoption_service", "project_naming",
           "projects", "script_preview_service", "script_workspace_service", "stage_workspace_service",
           "storyboard_adoption_contract", "storyboard_rows_service",

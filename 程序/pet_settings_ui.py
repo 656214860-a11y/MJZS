@@ -18,6 +18,7 @@ import pet_agent
 import pet_models_ui
 import environment_check
 import skill_budget
+import usage_overview
 import token_saver
 from pet_settings_contract import TABS, LEVEL_NOTES
 from ui_tokens import FONTS, SPACING
@@ -296,15 +297,28 @@ def budget_page(frame, pet):
         hint.set('已填回出厂那五档，点「保存」才真的写盘。')
         return read()
 
+    def show_usage():
+        """用量总览：只读汇总当前项目已落盘的模型调用事件与请求台账。"""
+        project = token_project(pet)
+        if project is None:
+            hint.set('还没打开项目，没有可汇总的用量。')
+            return None
+        snapshot = skill_budget.for_project(project, getattr(pet, 'program', None)).snapshot()
+        text = usage_overview.report_text(usage_overview.summarize(project, snapshot))
+        from ui_widgets import notify
+        notify(pet.win, text, title='用量总览')
+        return text
+
     bar = ttk.Frame(frame)
     bar.pack(fill='x', pady=(SPACING['md'], 0))
     PrimaryButton(bar, text='保存', command=save).pack(side='left')
     SecondaryButton(bar, text='恢复默认', command=restore).pack(side='left', padx=(SPACING['sm'], 0))
+    SecondaryButton(bar, text='用量总览', command=show_usage).pack(side='left', padx=(SPACING['sm'], 0))
     ttk.Label(frame, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=700).pack(
         anchor='w', pady=(SPACING['md'], 0))
     ttk.Label(frame, text='SKILL 那本账（阶段编排）读的就是这几档：%s。' % skill_budget_sentence(),
               style='Muted.TLabel', wraplength=700).pack(anchor='w', pady=(SPACING['sm'], 0))
-    return {'hint': hint, 'fields': fields, 'save': save, 'restore': restore, 'read': read}
+    return {'hint': hint, 'fields': fields, 'save': save, 'restore': restore, 'read': read, 'show_usage': show_usage}
 
 
 NOTE_TOKEN = ('附件那六条通用优化都在这儿：固定前缀在前、推理降档、子 Agent 用 fast、压缩阈值降到 70%、'

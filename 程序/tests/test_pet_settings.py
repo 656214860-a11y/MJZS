@@ -675,6 +675,21 @@ class DevPageTests(SettingsCase):
         self.assertIn('共', seams['hint'].get())
 
 
+    def test_usage_button_reports_without_a_project_and_shows_when_open(self):
+        win = self.hub('budget')
+        seams = win._pet_seams['budget']
+        with mock.patch('pet_settings_ui.token_project', return_value=None):
+            self.assertIsNone(seams['show_usage']())
+        self.assertIn('还没打开项目', seams['hint'].get())
+        with tempfile.TemporaryDirectory() as folder, mock.patch('pet_settings_ui.token_project', return_value=Path(folder)), \
+                mock.patch('ui_widgets.notify') as shown:
+            text = seams['show_usage']()
+        shown.assert_called_once()
+        self.assertEqual(shown.call_args.kwargs.get('title'), '用量总览')
+        self.assertIn('合计：0 次', text)
+        self.assertIn('Token（每天）', text)
+
+
 class BudgetWiringTests(unittest.TestCase):
     """预算落盘之后，SKILL 编排那本账读的是同一份设置（一份设置、两处都认）。"""
 
