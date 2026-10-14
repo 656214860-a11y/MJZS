@@ -113,6 +113,16 @@ class SyncTests(unittest.TestCase):
         self.assertTrue(any('全流程包入口不存在' in item for item in problems))
         self.assertTrue(any('不在注册表里' in item for item in problems))
 
+    def test_oversized_skill_is_reported_as_inline_only_limit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            big = Path(folder) / 'big.skill.md'
+            big.write_text('---\nname: big\n---\n# 大\n' + '字' * 97000, encoding='utf-8')
+            registry = SimpleNamespace(getById=lambda sid: SimpleNamespace(path=big))
+            problems = master_skill.health({'package': 'nope', 'stage_skills': {'video': ['big']}}, registry)
+        row = next(item for item in problems if 'big' in item)
+        self.assertIn('超过内联上限', row)
+        self.assertIn('命令行 Agent 不受影响', row)
+
     def test_no_master_mode_is_a_no_op(self):
         stage_config.clear_workflow(self.project)
         self.assertEqual(master_skill.sync(self.project)['message'], '')

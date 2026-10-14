@@ -102,7 +102,12 @@ def health(preset, registry=None, program=PROGRAM):
             try:
                 workflow_settings._inline_skill_report(path, strict=True)
             except (OSError, UnicodeError, ValueError) as exc:
-                problems.append('%s：%s 无法按发送流程加载（%s）' % (stage, sid, exc))
+                if '字符，已阻止发送' in str(exc):
+                    # 超上限只影响内联发送；命令行 Agent 按路径读取，不受这条限制。
+                    problems.append('%s：%s 连同引用超过内联上限，API／Claude Desktop 发送会被阻断'
+                                    '（命令行 Agent 不受影响）' % (stage, sid))
+                else:
+                    problems.append('%s：%s 无法按发送流程加载（%s）' % (stage, sid, exc))
     return problems
 
 
@@ -158,7 +163,7 @@ def sync(project, registry=None, program=PROGRAM, now=None):
         else:
             parts.append('各阶段勾选无需调整，新内容在下次发送时生效')
     if problems:
-        parts.append('体检发现 %d 个问题，相关阶段发送会被阻断：%s' % (len(problems), '；'.join(problems[:3])
+        parts.append('体检发现 %d 个问题：%s' % (len(problems), '；'.join(problems[:3])
                                                           + ('…' if len(problems) > 3 else '')))
     return {'updated': not first, 'stages': changed, 'problems': problems, 'message': '；'.join(parts)}
 
