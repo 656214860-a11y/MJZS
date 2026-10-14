@@ -116,7 +116,7 @@ class SyncTests(unittest.TestCase):
     def test_oversized_skill_is_reported_as_inline_only_limit(self):
         with tempfile.TemporaryDirectory() as folder:
             big = Path(folder) / 'big.skill.md'
-            big.write_text('---\nname: big\n---\n# 大\n' + '字' * 97000, encoding='utf-8')
+            big.write_text('---\nname: big\n---\n# 大\n' + '字' * (workflow_settings.REQUEST_CONTEXT_MAX_CHARS + 1000), encoding='utf-8')
             registry = SimpleNamespace(getById=lambda sid: SimpleNamespace(path=big))
             problems = master_skill.health({'package': 'nope', 'stage_skills': {'video': ['big']}}, registry)
         row = next(item for item in problems if 'big' in item)

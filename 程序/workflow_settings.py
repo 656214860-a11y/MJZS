@@ -10,6 +10,7 @@ from agent.core import save
 from file_cache import read_json
 import skill_registry
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
+from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
 from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
 from ui_widgets import LineInput, TextArea
@@ -802,7 +803,7 @@ def master_gate(config, stage=None, check_references=True):
     return '总控门禁已阻断：' + '；'.join(reasons)
 
 
-def _inline_skill_report(path, *, cap=96000, strict=False):
+def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False):
     """内联技能正文，并给出「实际加载了什么」的引用闭包，供请求快照留凭据。"""
     from html import escape
     _text, meta, blocks, closure = _skill_blocks(path, strict=strict)
@@ -815,7 +816,7 @@ def _inline_skill_report(path, *, cap=96000, strict=False):
     return complete, closure
 
 
-def _inline_skill(path, *, cap=96000, strict=False):
+def _inline_skill(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False):
     """API 发送快照：技能及目录边界内的直接引用，不递归加载引用。"""
     return _inline_skill_report(path, cap=cap, strict=strict)[0]
 

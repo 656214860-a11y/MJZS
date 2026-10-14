@@ -17,6 +17,7 @@ from functools import wraps
 from model_router import ModelAdapter
 from script_contract import RHYTHM_TEMPLATE_PATH
 from file_cache import read_json
+from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
 from service_contract import SystemError, success
 from workflow_context_budget import budget_advice, budget_sections, context_budget_report
 
@@ -28,8 +29,7 @@ CONTENT_ROLE_MAX_TOKENS = 8192
 DEEPSEEK_V4_MAX_TOKENS = 32768
 # 这是请求正文的保守字符上限，而不是模型宣称的上下文窗口。中文通常接近一字一
 # token；输出额度另按模型设置，超过此值必须在调用前明确提示，不能
-# 静默截断剧本后继续创作。
-REQUEST_CONTEXT_MAX_CHARS = 96_000
+# 静默截断剧本后继续创作。与工作流请求共用 workflow_context_budget 的同一硬上限（R1434）。
 
 
 class RoleExecutionError(RuntimeError):

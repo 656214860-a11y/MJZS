@@ -100,10 +100,12 @@ class InlineSkillTests(unittest.TestCase):
             with patch('skill_registry.default_root', return_value=root):
                 with self.assertRaisesRegex(ValueError, '引用未加载'):
                     workflow_settings.freeze_skills(config)
-            skill.write_text('规则' * 30000, encoding='utf-8')
+            # R1434：长度跟随硬上限常量，两份各约一半，合计必超（断言未动）。
+            half = workflow_settings.REQUEST_CONTEXT_MAX_CHARS // 4 + 1
+            skill.write_text('规则' * half, encoding='utf-8')
             other = root / 'other' / 'SKILL.md'
             other.parent.mkdir()
-            other.write_text('依据' * 30000, encoding='utf-8')
+            other.write_text('依据' * half, encoding='utf-8')
             config['skills'].append(str(other))
             with self.assertRaisesRegex(ValueError, 'SKILL请求上下文超过'):
                 workflow_settings.freeze_skills(config)

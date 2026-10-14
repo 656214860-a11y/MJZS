@@ -5,7 +5,9 @@
 """
 import hashlib
 
-REQUEST_CONTEXT_MAX_CHARS = 96_000
+# R1434：用户要求提高上限（原 96,000）。四个总控阶段 SKILL 连同引用最大约 13.5 万字，
+# 字符上限只是最后一道硬保护；按模型真实上下文窗口的 token 判断另算，超窗口照样阻断。
+REQUEST_CONTEXT_MAX_CHARS = 300_000
 DEFAULT_OUTPUT_RESERVE_TOKENS = 4_096
 
 # 分项名称 → 展示用中文标签；错误信息、预览与历史记录都按这份口径命名。
