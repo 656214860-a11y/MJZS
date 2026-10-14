@@ -314,10 +314,35 @@ class IncrementalTests(unittest.TestCase):
                 load.assert_not_called()
 
     def test_full_safe_counter_only_applies_to_master(self):
-        for delta in (0, 3, 4, 5, 6):
+        interval = run_selftests.FULL_SAFE_ROUND_INTERVAL
+        for delta in (0, 3, interval - 1, interval, interval + 1):
             with self.subTest(delta=delta):
-                self.assertEqual(run_selftests.full_safe_required(855 + delta, 855, True), delta >= 5)
+                self.assertEqual(run_selftests.full_safe_required(855 + delta, 855, True), delta >= interval)
                 self.assertFalse(run_selftests.full_safe_required(855 + delta, 855, False))
+
+    def test_only_source_rounds_count_toward_full_safe_debt(self):
+        prefix = '程序/'
+        self.assertTrue(run_selftests.is_source_change('程序/desktop.py', prefix))
+        self.assertTrue(run_selftests.is_source_change('程序/skills/01剧本准备/a.skill.md', prefix))
+        for path in ('程序/tests/test_a.py', '程序/tasks_round/tasks_round_9_result.md',
+                     '程序/project_status.md', '程序/维护记录/测试分层基线.json',
+                     'CLAUDE.md', '程序\tests\test_a.py'):
+            with self.subTest(path=path):
+                self.assertFalse(run_selftests.is_source_change(path, prefix))
+        commits = [(101, ['程序/desktop.py']), (101, ['程序/tests/t.py']), (102, ['程序/project_status.md']),
+                   (103, ['程序/tests/t.py']), (104, ['程序/engine.py']), (90, ['程序/engine.py'])]
+        self.assertEqual(run_selftests.count_source_rounds(commits, 100, 104, prefix), 2)
+        self.assertFalse(run_selftests.full_safe_required(120, 100, True, source_rounds=7))
+        self.assertTrue(run_selftests.full_safe_required(120, 100, True, source_rounds=8))
+
+    def test_auto_full_safe_triggers_before_the_gate(self):
+        lead = run_selftests.FULL_SAFE_AUTO_LEAD
+        due = run_selftests.FULL_SAFE_ROUND_INTERVAL - lead
+        for count, expected in ((due - 1, False), (due, True)):
+            with self.subTest(count=count),                  mock.patch.object(run_selftests, 'source_rounds_since', return_value=count):
+                self.assertEqual(run_selftests.full_safe_auto_due(900, 880, True), expected)
+        with mock.patch.object(run_selftests, 'source_rounds_since', return_value=99):
+            self.assertFalse(run_selftests.full_safe_auto_due(900, 880, False))
 
     def test_full_safe_lock_rejects_active_holder_and_releases(self):
         with tempfile.TemporaryDirectory() as folder:

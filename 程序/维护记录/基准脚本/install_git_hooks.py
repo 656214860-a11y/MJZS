@@ -9,7 +9,7 @@ from pathlib import Path
 PROGRAM = Path(__file__).resolve().parents[2]
 ROOT = PROGRAM.parent
 SOURCE = Path(__file__).resolve().parent / "hooks"
-HOOKS = ("commit-msg", "pre-commit")
+HOOKS = ("commit-msg", "pre-commit", "post-commit")
 
 
 def git_common_dir(root: Path = ROOT) -> Path:

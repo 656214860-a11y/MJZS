@@ -74,6 +74,12 @@ _GUI_LOCK_DEPTH = {}
 _FULL_LOCK_DEPTH = {}
 LAYER_BASELINE_NAME = os.path.join('维护记录', '测试分层基线.json')
 FULL_SAFE_TREE_TTL = timedelta(days=7)
+# 全量欠账按「改过源码的轮次」计数：纯文档／测试／维护记录轮不计。满 INTERVAL 个才拦，
+# 提前 AUTO_LEAD 个由后台干净副本自动补跑（scripts/auto_full_safe.py），凭据先于门禁落地。
+FULL_SAFE_ROUND_INTERVAL = 8
+FULL_SAFE_AUTO_LEAD = 2
+NON_SOURCE_DIRS = ('tests/', 'tasks_round/', '维护记录/', '说明/', 'logs/')
+_ROUND_SUBJECT = re.compile(r'^R(\d+)(?:-FAIL)?[:：]')
 DATA_GLOBS = ('skills/*.skill.md', 'skills/*/*.md', 'skills/*/*/*.md')
 TEST_LAYERS = ('architecture', 'service', 'gui', 'gui-short', 'gui-e2e')
 # 这两组会连续创建完整桌面、启动后台助手，必须与短生命周期 Tk 用例隔离。
@@ -438,9 +444,58 @@ def is_master_checkout():
         return False
 
 
-def full_safe_required(latest_round, last_full_round, master_checkout):
-    """五轮计数只属于主干提交序列，worktree 分支不产生全量欠账。"""
-    return bool(master_checkout and latest_round - last_full_round >= 5)
+def is_source_change(path, prefix):
+    """路径是否算「改了源码」：程序目录内、非测试／记录／说明目录、非普通文档（skills 下的 md 是 SKILL 源）。"""
+    path = path.replace(chr(92), '/')
+    if not path.startswith(prefix):
+        return False
+    rel = path[len(prefix):]
+    if rel.startswith(NON_SOURCE_DIRS):
+        return False
+    return not (rel.endswith('.md') and not rel.startswith('skills/'))
+
+
+def count_source_rounds(commits, last_full_round, latest_round, prefix):
+    """commits 为 [(轮次, [路径])]；返回 (last_full, latest] 内至少改过一处源码的不同轮次数。"""
+    counted = set()
+    for number, paths in commits:
+        if last_full_round < number <= latest_round and any(is_source_change(p, prefix) for p in paths):
+            counted.add(number)
+    return len(counted)
+
+
+def source_rounds_since(last_full_round, latest_round):
+    """读 git 历史得到源码轮次数；读不出来返回 None，由调用方退回保守的全部轮次计数。"""
+    try:
+        root = _git_text('rev-parse', '--show-toplevel')
+        prefix = os.path.relpath(HERE, root).replace(os.sep, '/') + '/'
+        log = _git_text('-c', 'core.quotepath=false', 'log', '-n', '800', '--name-only', '--format=%x01%s')
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    commits = []
+    for chunk in log.split('\x01'):
+        lines = [line for line in chunk.splitlines() if line.strip()]
+        matched = _ROUND_SUBJECT.match(lines[0]) if lines else None
+        if matched:
+            commits.append((int(matched.group(1)), lines[1:]))
+    return count_source_rounds(commits, last_full_round, latest_round, prefix)
+
+
+def full_safe_required(latest_round, last_full_round, master_checkout, source_rounds=None):
+    """欠账只属于主干提交序列，worktree 分支不产生全量欠账。
+
+    ``source_rounds`` 缺省时按全部轮次保守计数；传入则只数改过源码的轮次。"""
+    count = latest_round - last_full_round if source_rounds is None else source_rounds
+    return bool(master_checkout and count >= FULL_SAFE_ROUND_INTERVAL)
+
+
+def full_safe_auto_due(latest_round, last_full_round, master_checkout):
+    """后台自动补跑的触发点：比门禁提前 FULL_SAFE_AUTO_LEAD 个源码轮次。"""
+    if not master_checkout:
+        return False
+    count = source_rounds_since(last_full_round, latest_round)
+    count = latest_round - last_full_round if count is None else count
+    return count >= FULL_SAFE_ROUND_INTERVAL - FULL_SAFE_AUTO_LEAD
 
 
 def participating_full_safe_run(round_number):

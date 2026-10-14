@@ -347,10 +347,14 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
 | 改动活跃逻辑     | `python smoke_test.py --affected <模块名>` | 只跑受影响测试模块，例如 `--affected idea_chat workflow` |
 | 需要增量回归     | `python smoke_test.py --gate`           | 按台账串行执行改动过的测试文件                              |
 | 结构治理轮      | `python smoke_test.py --architecture`   | 运行下列全部架构门禁；不只限于分层/循环/路径/删除                   |
-| master 提交点：本轮号 − `last_full_safe_all_round` ≥ 5／路线图条目收口 | `run_selftests.py --all --safe` | 完整安全回归；分支不累计轮次欠账 |
+| master 提交点：`last_full_safe_all_round` 之后累计 ≥ 8 个改过源码的轮次／路线图条目收口 | `run_selftests.py --all --safe` | 完整安全回归；分支不累计轮次欠账；计数口径与后台补跑见下方「全量欠账口径」 |
 | 发布前／用户明确要求 | `run_selftests.py --all --safe`         | 完整安全回归；不通过先修复                                |
 
 | 收尾时 | 核对 §2.5 轮次、认领与实际欠账 | 不伪造轮次或凭据；失败按 §8 继续处理 |
+
+**全量欠账口径（R1439，用户批准）**：唯一实现是 `run_selftests.FULL_SAFE_ROUND_INTERVAL`（8）、`source_rounds_since()`、`full_safe_required()`。只数 `last_full_safe_all_round` 之后、提交标题为 `R<n>:`／`R<n>-FAIL:` 且改过源码的轮次；纯文档、测试、`tasks_round/`、`维护记录/`、`说明/` 的轮次不计（`skills/` 下的 md 是 SKILL 源，计入）；读不出 git 历史时退回按全部轮次计。本节所列风险触发（启动路径、Tk 控件生命周期、删除语义、层级登记表）不受阈值影响，仍须当次全量。
+
+**后台自动补跑**：欠账达到门禁线前 `FULL_SAFE_AUTO_LEAD`（2）个源码轮次，master 的 git post-commit 钩子（`维护记录/基准脚本/hooks/post-commit`，由 `install_git_hooks.py` 安装）调用 `scripts/auto_full_safe.py --spawn`，在根目录 `.wt/ci` 干净分离检出上后台跑 `--all --safe`，绿凭据写入 common-dir 的 `full-safe-receipts.json`，日志在 `程序/logs/auto_full_safe.log`。钩子失败或已有同类任务在跑都静默跳过，不阻塞提交；`scripts/auto_full_safe.py --status` 查看欠账。后台全量红了不会自动改任何文件，按 §8 失败处置人工接续。
 
 纯服务或小拆分另跑 `run_selftests.py -k <本轮改动模块>`；文档整理跑文档一致性回归。跨层改动仍须覆盖架构门禁；运行全量时按下述去重规则执行。
 

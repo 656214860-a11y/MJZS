@@ -1,0 +1,11 @@
+#!/bin/sh
+# 由 install_git_hooks.py 安装到 Git common-dir/hooks/post-commit。
+# master 上全量欠账接近门禁线时，在后台干净副本补跑安全全量；任何情况都不阻塞、不影响提交。
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+for py in "$root"/运行环境/Python/python.exe "$root"/运行环境/Python/python; do
+  if [ -x "$py" ]; then
+    "$py" -I -B "$root/程序/scripts/auto_full_safe.py" --spawn >/dev/null 2>&1 &
+    break
+  fi
+done
+exit 0

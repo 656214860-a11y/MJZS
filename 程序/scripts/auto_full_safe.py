@@ -1,0 +1,138 @@
+"""后台自动补跑安全全量：在干净的分离工作树（根目录 ``.wt/ci``）上跑，不占用也不依赖用户正在编辑的工作树。
+
+用法（随附解释器，``-I`` 也可）：
+
+* ``--status``  只打印欠账状态，不跑任何东西。
+* ``--spawn``   由 git post-commit 钩子调用：master 上欠账达到触发点（门禁线提前 2 个源码轮次）
+  且没有同类任务在跑时，起一个脱离终端的后台进程；否则静默退出。钩子绝不阻塞提交。
+* ``--run``     前台执行：把 ``.wt/ci`` 对齐到当前 HEAD，跑 ``run_selftests.py --all --safe``。
+  绿了凭据由执行器写进 git common-dir 的 ``full-safe-receipts.json``，门禁凭内容树放行。
+
+欠账规则与阈值唯一权威是 ``run_selftests``（``FULL_SAFE_ROUND_INTERVAL`` 等），本脚本不另立数字。
+日志写 ``程序/logs/auto_full_safe.log``（UTF-8，被 gitignore）。
+"""
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+PROGRAM = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROGRAM))
+import run_selftests  # noqa: E402
+
+LOG = PROGRAM / "logs" / "auto_full_safe.log"
+LOCK_NAME = "auto-full-safe.lock"
+STALE_SECONDS = 3 * 3600       # 全量最长按小时计；超过即视为崩溃遗留的锁
+
+
+def _git(*args, cwd=None):
+    out = subprocess.check_output(["git", *args], cwd=cwd or PROGRAM, stderr=subprocess.DEVNULL)
+    return out.decode("utf-8", "replace").strip()
+
+
+def repo_root() -> Path:
+    return Path(_git("rev-parse", "--show-toplevel"))
+
+
+def status() -> dict:
+    document = run_selftests.load_layer_document()
+    last_full = int(document.get("last_full_safe_all_round", 0))
+    latest = run_selftests.latest_completed_round()
+    counted = run_selftests.source_rounds_since(last_full, latest)
+    master = run_selftests.is_master_checkout()
+    return {
+        "last_full": last_full, "latest": latest, "master": master,
+        "source_rounds": counted,
+        "gate_at": run_selftests.FULL_SAFE_ROUND_INTERVAL,
+        "auto_due": run_selftests.full_safe_auto_due(latest, last_full, master),
+    }
+
+
+def _lock_path() -> Path:
+    return Path(run_selftests.git_common_dir() or PROGRAM) / LOCK_NAME
+
+
+def _already_running() -> bool:
+    lock = _lock_path()
+    try:
+        age = time.time() - lock.stat().st_mtime
+        pid = int(lock.read_text(encoding="utf-8").strip() or 0)
+    except (OSError, ValueError):
+        return False
+    return age < STALE_SECONDS and bool(pid) and run_selftests._pid_is_alive(pid)
+
+
+def spawn() -> int:
+    info = status()
+    if not info["auto_due"] or _already_running():
+        return 0
+    flags = 0
+    if os.name == "nt":
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP | 0x00000008 | 0x08000000   # DETACHED | NO_WINDOW
+    subprocess.Popen([sys.executable, "-B", str(Path(__file__).resolve()), "--run"],
+                     cwd=PROGRAM, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, creationflags=flags, close_fds=True)
+    return 0
+
+
+def _sync_clean_worktree(root: Path, head: str) -> Path:
+    """让 ``.wt/ci`` 成为 HEAD 的干净分离检出；已存在就强制对齐，不存在就新建。"""
+    target = root / ".wt" / "ci"
+    if (target / ".git").exists():
+        _git("checkout", "-f", "--detach", head, cwd=target)
+        _git("clean", "-fdq", cwd=target)
+    else:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        _git("worktree", "add", "--detach", "-f", str(target), head, cwd=root)
+    return target / PROGRAM.name
+
+
+def run() -> int:
+    lock = _lock_path()
+    if _already_running():
+        print("[自动全量] 已有任务在跑，退出")
+        return 0
+    lock.write_text(str(os.getpid()), encoding="utf-8")
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        root = repo_root()
+        head = _git("rev-parse", "HEAD")
+        program = _sync_clean_worktree(root, head)
+        env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", PYTHONIOENCODING="utf-8",
+                   GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="safe.directory", GIT_CONFIG_VALUE_0="*")
+        with LOG.open("w", encoding="utf-8") as log:
+            log.write("[自动全量] 开始 %s HEAD=%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), head[:10]))
+            log.flush()
+            started = time.perf_counter()
+            result = subprocess.run([sys.executable, "-B", "run_selftests.py", "--all", "--safe"],
+                                    cwd=program, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
+            log.write("\n[自动全量] 退出码 %d，用时 %.0f 秒（0＝绿且凭据已写入）\n"
+                      % (result.returncode, time.perf_counter() - started))
+        return result.returncode
+    finally:
+        try:
+            lock.unlink()
+        except OSError:
+            pass
+
+
+def main(argv=None) -> int:
+    args = list(sys.argv[1:] if argv is None else argv)
+    if "--run" in args:
+        return run()
+    if "--spawn" in args:
+        try:
+            return spawn()
+        except Exception:      # 钩子里任何异常都不能影响提交
+            return 0
+    info = status()
+    print("上次全量 R%(last_full)d；最新 R%(latest)d；其间改过源码的轮次 %(source_rounds)s"
+          "（门禁线 %(gate_at)d）；主干 %(master)s；后台触发 %(auto_due)s" % info)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

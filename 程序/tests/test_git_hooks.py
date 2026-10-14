@@ -42,8 +42,14 @@ class GitHookTests(unittest.TestCase):
     def test_installer_copies_executable_hooks(self):
         with tempfile.TemporaryDirectory() as temporary:
             installed = install_git_hooks.install(Path(temporary))
-            self.assertEqual([path.name for path in installed], ["commit-msg", "pre-commit"])
+            self.assertEqual([path.name for path in installed], ["commit-msg", "pre-commit", "post-commit"])
             self.assertTrue(all(path.exists() for path in installed))
+
+    def test_post_commit_hook_never_blocks_a_commit(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
+            self.assertEqual(self.run_hook(HOOKS / "post-commit", cwd=root).returncode, 0)
 
     def test_installer_writes_lf_even_from_crlf_sources(self):
         with tempfile.TemporaryDirectory() as temporary:
