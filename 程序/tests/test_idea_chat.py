@@ -1626,7 +1626,7 @@ class ProjectRemovalWarningTests(_Harness):
             win.after(30, click_cancel)
             self.assertFalse(desktop_module.confirm_project_removal_from_last_script(win, ['最后一份.md']))
             self.assertEqual(len(found), 1)
-            self.assertEqual(colors, ['#c62828'])
+            self.assertEqual([c.lower() for c in colors], [COLORS['danger'].lower()])
             self.assertEqual(styles, ['Tokens.Secondary.TButton'])
 
     def test_only_explicit_recycle_accepts_and_close_paths_cancel(self):
@@ -1699,7 +1699,7 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'user', '这条由用户发送')
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            self.assertEqual(d.idea_log.tag_cget('bubble_0', 'background'), '#dff5e3')
+            self.assertEqual(d.idea_log.tag_cget('bubble_0', 'background').lower(), COLORS['success_subtle'].lower())
             self.assertEqual(d.idea_log.tag_cget('bubble_0', 'foreground'), COLORS['text_primary'])
 
     def test_model_chat_color_is_stable_and_distinguishes_common_models(self):
@@ -1728,9 +1728,9 @@ class BubbleLayoutTests(_Harness):
             event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
             d.start_bubble_edit(event, 0, 'bubble_0'); win.update()
             edit = d._bubble_edit
-            self.assertEqual(d.idea_log.tag_cget('bubble_0', 'background'), '#dff5e3')
+            self.assertEqual(d.idea_log.tag_cget('bubble_0', 'background').lower(), COLORS['success_subtle'].lower())
             self.assertEqual(d.idea_log.cget('selectbackground'), COLORS['primary'])
-            self.assertEqual(d.idea_log.cget('selectforeground'), '#ffffff')
+            self.assertEqual(d.idea_log.cget('selectforeground').lower(), COLORS['background_card'].lower())
             d.idea_log.tag_add('sel', '%s+1c' % edit['start'], '%s+3c' % edit['start'])
             self.assertEqual(d.idea_log.get('sel.first', 'sel.last'), '始创')
             d.idea_log.delete(edit['start'], edit['end'])
@@ -1792,7 +1792,7 @@ class BubbleLayoutTests(_Harness):
             body = d.idea_log.tag_ranges('bubble_0')
             d.idea_log.tag_add('sel', body[0], body[1])
             self.assertEqual(d.idea_log.cget('selectbackground'), COLORS['primary'])
-            self.assertEqual(d.idea_log.cget('selectforeground'), '#ffffff')
+            self.assertEqual(d.idea_log.cget('selectforeground').lower(), COLORS['background_card'].lower())
             d.notice_selected_bubble_text(SimpleNamespace(widget=d.idea_log))
             self.assertIn('按 Ctrl+C 复制', d.status.get())
             self.assertEqual(d.copy_selected_bubble_text(), 'break')

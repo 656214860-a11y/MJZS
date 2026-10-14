@@ -724,7 +724,8 @@ class DesktopModelPoolTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             desktop = SimpleNamespace(root=proj, worker=False, win=Mock(), status=Mock(),
-                projects=SimpleNamespace(info={'projects': []}), async_=lambda fn, done: done(fn()))
+                projects=SimpleNamespace(info={'projects': []}), async_=lambda fn, done: done(fn()),
+                gate_level=lambda: 'manual')
             config = {'engine': 'claude-desktop-app', 'program': 'C:/Apps/Claude.exe', 'model': ''}
             with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
                     patch('agent_dispatch.finish') as finish, \
@@ -759,7 +760,8 @@ class DesktopModelPoolTests(unittest.TestCase):
                 skill.write_text('LATER_SKILL_BODY', encoding='utf-8')
                 done(fn())
             desktop = SimpleNamespace(root=proj, worker=False, win=Mock(), status=Mock(),
-                projects=SimpleNamespace(info={'projects': []}), async_=async_launch)
+                projects=SimpleNamespace(info={'projects': []}), async_=async_launch,
+                gate_level=lambda: 'manual')
             config = {'engine': 'claude-desktop-app', 'program': 'C:/Apps/Claude.exe',
                       'model': '', 'stage_skills': [str(skill)]}
             with patch('agent_dispatch.claim', return_value={'duplicate': False}), \

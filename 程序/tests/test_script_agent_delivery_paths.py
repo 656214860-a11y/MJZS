@@ -23,7 +23,7 @@ class AgentDeliveryPathsTests(unittest.TestCase):
                                                   agent_delivery=True, delivery_at=at)
             followup = workflow_tasks.script_followup(None, 'writing', project=root,
                 creative_text='素材', agent_delivery=True, delivery_at=at)
-            self.assertIn('必须写入以下精确路径,文件名不得自拟或改写', prompt)
+            self.assertIn('必须直接写入以下本机绝对路径（文件名不得自拟或改写）', prompt)
             self.assertIn('仅当产出该类内容时使用', prompt)
             for body in ('项目设定：角色阿明。', '故事大纲：阿明寻找真相。',
                          '第1集\n场景：夜 外街道\n阿明：我要找到真相。\n动作：阿明推开门。'):
@@ -40,7 +40,7 @@ class AgentDeliveryPathsTests(unittest.TestCase):
                 'idea_document_paths.reply_path_parts', side_effect=AssertionError('API must not compute paths')):
             for text in (workflow_tasks.script_prompt(td, None, 'writing', creative_text='素材'),
                          workflow_tasks.script_followup(None, 'writing', project=td, creative_text='素材')):
-                self.assertNotIn('必须写入以下精确路径', text)
+                self.assertNotIn('以下本机绝对路径', text)
                 self.assertNotIn('创意_', text)
                 self.assertIn('script_raw.md', text)
 
