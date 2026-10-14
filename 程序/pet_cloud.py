@@ -140,7 +140,7 @@ GROW_STEPS = (0.45, 0.70, 0.88, 1.0)   # 气泡「长出来」的几档：从耳
 GROW_ROOM = 0.42                  # 起步时气泡偏向耳朵这么多比例
 BANNER_MS = 6000                  # 标签框（关软件前的日报／周报）渐入后停留多久
 PROGRESS_MS = 12000               # 进度圆气泡停留多久（与 pet_ui.PROGRESS_MS 同一口径）
-GREETING_MS = 11000               # 开机招呼的云朵框停留多久
+GREETING_MS = 5500                # 开机招呼的云朵框停留多久（用户要求再缩短一半，原 11000）；招呼只有两句，直接按它定，不与阅读时间底线取大
 WHEEL_PX = 30                     # 滚轮一格翻多少像素
 PET_SIZE = 64                     # 贴片画不出来时的兜底边长
 LINE_LIMIT = 40                   # 只留最近这些段，云朵不当地志
@@ -1742,7 +1742,7 @@ class Cloud:
         """
         self.lines = [GREETING]
         self._scroll = 0
-        return self.show(pinned=False, hold=self.hold_for(GREETING, GREETING_MS),
+        return self.show(pinned=False, hold=GREETING_MS,
                          focus=False, shape=SHAPE_PUFF)
 
     def whisper(self, text):

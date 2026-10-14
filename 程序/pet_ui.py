@@ -176,7 +176,7 @@ WEEKLY_FROM = 4                   # 周五（datetime.weekday：周一 0、周�
 # 时机；换了阶段也主动问一句。这两件事都按钟点节流，别反复问。
 STAGE_ASK_SECONDS = 45.0          # 同一个阶段重复问一句最短隔这么久
 REPORT_QUIET_SECONDS = 900.0      # 隔这么久没有新的制作动静＝这一波活干完了，该递日报了
-GREET_DELAY_MS = 900              # 开机招呼推迟这么久：主窗口先映射出来，云才知道往哪落
+GREET_DELAY_MS = 450              # 开机招呼推迟这么久（用户嫌招呼慢，原 900）：主窗口先映射出来，云才知道往哪落
 # 第 68 期任务 11：用户要「打招呼的聊天框关掉之后，再慢慢弹出其他信息」。招呼冒出来之后留
 # 一段安静期：这期间自动那几路（进度播报／进度气泡／主动问一句／自动推进／失败提醒）都不出声，
 # 各自的节流起算点跟着往后挪——安静期过了按正常节奏慢慢说，不会攒成一大串一起炸出来。
@@ -3308,7 +3308,7 @@ class Pet:
             self._last_broadcast = pet_cloud.GREETING
             cloud.append(message)
             cloud.show(pinned=False,
-                       hold=cloud.hold_for(message, pet_cloud.GREETING_MS),
+                       hold=pet_cloud.GREETING_MS,
                        focus=False, shape=pet_cloud.SHAPE_PUFF)
         except Exception as exc:
             self.errors.append(('greet', str(exc)))
