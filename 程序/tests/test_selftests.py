@@ -335,6 +335,16 @@ class IncrementalTests(unittest.TestCase):
         self.assertFalse(run_selftests.full_safe_required(120, 100, True, source_rounds=7))
         self.assertTrue(run_selftests.full_safe_required(120, 100, True, source_rounds=8))
 
+    def test_detached_auto_checkout_may_certify_only_its_own_head(self):
+        with mock.patch.object(run_selftests, 'is_master_checkout', return_value=False),              mock.patch.object(run_selftests, '_git_text', return_value='abc'):
+            with mock.patch.dict(os.environ, {'AUTO_FULL_SAFE_HEAD': 'abc'}):
+                self.assertTrue(run_selftests.receipt_checkout_allowed())
+            with mock.patch.dict(os.environ, {'AUTO_FULL_SAFE_HEAD': 'other'}):
+                self.assertFalse(run_selftests.receipt_checkout_allowed())
+            with mock.patch.dict(os.environ, {}, clear=False):
+                os.environ.pop('AUTO_FULL_SAFE_HEAD', None)
+                self.assertFalse(run_selftests.receipt_checkout_allowed())
+
     def test_auto_full_safe_triggers_before_the_gate(self):
         lead = run_selftests.FULL_SAFE_AUTO_LEAD
         due = run_selftests.FULL_SAFE_ROUND_INTERVAL - lead

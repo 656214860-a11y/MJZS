@@ -30,3 +30,5 @@
 - 该次全量未全绿，所以没有写凭据；本提交触发的下一次后台全量用于清账。
 - 后台全量清账：HEAD `4407068` 的干净检出上 `--all --safe` 全绿（577 秒、退出码 0），凭据已写入 common-dir，`--status` 欠账归零，架构门禁 `test_full_safe_all_is_required_after_eight_source_rounds` 随之转绿。
 - 真实提交时钩子没起进程、手动 `git hook run post-commit` 却正常：原因是钩子环境里 git 导出的 `GIT_INDEX_FILE` 等变量被子进程继承。`spawn()` 现在剔除全部 `GIT_*` 再起子进程，`run()` 的启动异常写进日志；新增 `tests/test_auto_full_safe.py`（3 条）。该修复在下一次自然提交时做端到端复核。
+- 更正：上一条「清账」不成立。577 秒那次全绿没有写凭据——`run_selftests` 只在 master 分支检出上写凭据，而 `.wt/ci` 是分离检出。新增 `receipt_checkout_allowed()`：主干检出，或环境变量 `AUTO_FULL_SAFE_HEAD` 等于当前 HEAD（由 `auto_full_safe.py` 设置）时才写；新增 1 条用例。此前 `--status` 仍显示上次全量 R1420，欠账尚未清零，待本提交触发的后台全量写入凭据后再确认。
+- 钩子端到端已确认：上一次真实提交（144b341）正确起了后台进程，说明剔除 `GIT_*` 的修复有效。

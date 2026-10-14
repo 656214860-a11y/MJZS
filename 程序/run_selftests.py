@@ -481,6 +481,19 @@ def source_rounds_since(last_full_round, latest_round):
     return count_source_rounds(commits, last_full_round, latest_round, prefix)
 
 
+def receipt_checkout_allowed():
+    """能否把本次全量写成凭据：主干检出，或 auto_full_safe 在主干 HEAD 的干净分离检出上跑。
+
+    后者无法检出 master 分支（已被主工作树占用），由脚本把它验证过的 HEAD 放进环境变量。"""
+    if is_master_checkout():
+        return True
+    expected = os.environ.get('AUTO_FULL_SAFE_HEAD', '')
+    try:
+        return bool(expected) and expected == _git_text('rev-parse', 'HEAD')
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def full_safe_required(latest_round, last_full_round, master_checkout, source_rounds=None):
     """欠账只属于主干提交序列，worktree 分支不产生全量欠账。
 
@@ -1278,7 +1291,7 @@ def main(argv=None):
             raise SystemExit(1)
         if deferred:
             return 2
-        if full_safe and not no_receipt and tree and is_master_checkout():
+        if full_safe and not no_receipt and tree and receipt_checkout_allowed():
             saved = save_full_safe_verification(tree, latest_completed_round(), elapsed)
             if saved:
                 print('内容树全量凭据已刷新：' + saved)
