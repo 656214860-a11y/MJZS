@@ -42,10 +42,10 @@ def confirm(parent, title, message, *, dangerous=False, **_legacy_options):
     return ask_confirmation(parent, title, message, dangerous=dangerous)
 
 
-def script_raw_saved_notice(four_roles, formal_path=''):
-    """剧本原稿发布后的三虎提示，按本次请求实际模式区分。"""
+def script_raw_saved_notice(formal_path=''):
+    """剧本原稿发布后的三虎提示。"""
     name = Path(formal_path).name if formal_path else 'script_raw.md'
-    return ('四角色剧本已保存：' if four_roles else '剧本已自动保存：') + name
+    return '剧本已自动保存：' + name
 
 
 def model_error_display(result, default='未收到模型回复'):
@@ -281,7 +281,7 @@ class Desktop:
     def __init__(self,win,root=ROOT):
         self._diagnostic_start=time.perf_counter()
         from stage_execution_service import project_registry_gateway
-        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self.hollmwood_progress=queue.Queue();self._stream_text='';self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self._hollmwood_poll_id=None;self.video=None
+        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._stream_text='';self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0
         self._legacy_project_migration_results=queue.Queue();self._legacy_project_migration_poll_id=None
         self._legacy_project_migration_started=False
@@ -378,9 +378,7 @@ class Desktop:
         # 重新映射后沿用既有的合并空闲布局，确保滚动区域已按恢复后的可视高度计算。
         win.bind('<Map>',self.on_window_map,add='+')
         self.progress=ttk.Progressbar(self.body,mode='indeterminate');self.progress.pack(fill='x',pady=(8,0))
-        # 全部阶段只保留一条绿色信息栏：操作说明、动态状态和 HOLLMWOOD 角色进度
-        # 汇总在这里，避免空的角色栏与状态栏上下各占一行。
-        self.hollmwood_role_status=tk.StringVar(value='')
+        # 全部阶段只保留一条绿色信息栏：操作说明与动态状态汇总在这里。
         self.status=tk.StringVar(value='就绪 · 所有项目共用一份程序')
         self.notifier=NotificationDispatcher(self.status, parent=win)
         self.file_dialog=FileDialog(win, notifier=self.notifier)
@@ -391,10 +389,7 @@ class Desktop:
         win._drama_place_notice=self.status.set
         self.banner_status=tk.StringVar(value='')
         def refresh_banner(*_unused):
-            role=self.hollmwood_role_status.get().strip()
-            message=self.status.get().strip()
-            self.banner_status.set('  ｜  '.join(part for part in (role,message) if part))
-        self.hollmwood_role_status.trace_add('write',refresh_banner)
+            self.banner_status.set(self.status.get().strip())
         self.status.trace_add('write',refresh_banner);refresh_banner()
         pet_ui.watch_status(self,self.pet)
         self.status_label=ttk.Label(self.body,textvariable=self.banner_status,
@@ -440,10 +435,6 @@ class Desktop:
         self.automation_scheduler=DesktopAutomationScheduler(
             schedule_after=win.after, cancel_scheduled=win.after_cancel,
             is_stopping=lambda:getattr(self,'shutting_down',False))
-        self.automation_scheduler.start(
-            'hollmwood_progress',100,self.poll_hollmwood_progress,
-            on_error=lambda exc:self._set_automation_error('角色进度刷新异常，已忽略：',exc),
-            remember_timer=lambda timer:setattr(self,'_hollmwood_poll_id',timer))
         self.automation_scheduler.start(
             'idea_attachments',100,self.poll_idea_attachment_preparation,
             on_error=lambda exc:self._set_automation_error('附档后台任务异常，已忽略：',exc),
@@ -1847,12 +1838,7 @@ class Desktop:
         if direct_model:
             project = self.root
             token, cancelled = self.idea_chat_controller.begin_request(cancellable=True)
-            self.set_hollmwood_role_status()
             async_ticket={'value':None}
-            def report_role(role,step):
-                current=async_ticket['value']
-                if current is not None and self.idea_chat_controller.request_is_current(token):
-                    self.hollmwood_progress.put((current,role,step))
             if getattr(self,'idea_send',None) is not None:self.idea_send.state(['disabled'])
             self.update_script_interrupt_button()
             self._stream_text=''
@@ -1883,7 +1869,6 @@ class Desktop:
                         message='系统内部错误，已记录日志'
                     if kind not in ('auth', 'budget', 'client', ''):
                         LOGGER.warning('模型调用失败（kind=%s）：%s', kind or 'missing', error)
-                    self.set_hollmwood_role_status(review_failed=result.get('hollmwood_review_failed_role', ''))
                     self.status.set(preparation_reply_message(result) or message)
                     if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
                         self.notifier.error(message, title='请求校验未通过')
@@ -1894,9 +1879,9 @@ class Desktop:
                     # 自动链确实正在等待 script 时，才把可恢复的调用失败交给它。
                     auto=getattr(getattr(self,'pet',None),'auto',None)
                     if getattr(auto,'active',None)=='script':
-                        # HOLLMWOOD 自己已经对空正文执行过受控重试；再让通用
-                        # Agent 重试只会留下一个没有新请求的 retrying 状态。因此
-                        # 直接发出终态失败，明确停在可由用户重试的剧本阶段。
+                        # 直连 API 的失败已经是终态；再让通用 Agent 重试只会留下
+                        # 一个没有新请求的 retrying 状态。因此直接发出终态失败，
+                        # 明确停在可由用户重试的剧本阶段。
                         self.pet._emit('stage.failed',stage='script',error=message)
                     return
                 reply=str(result.get('text') or '').strip()
@@ -1910,13 +1895,10 @@ class Desktop:
                     self.status.set(preparation_reply_message(result) or (result['preparation_stage']+'已保存，请审阅后回复“确认”；需要修改请直接说明。'))
                     return
                 if result.get('script_raw_path'):
-                    four_roles = result.get('hollmwood_enabled', True)
-                    if four_roles:
-                        self.set_hollmwood_role_status(complete=True)
                     refresh=getattr(self,'refresh_script_list',None)
                     if callable(refresh):refresh()
                     if result.get('quality_passed') is not False:
-                        self.pet_report('script', script_raw_saved_notice(four_roles, result.get('natural_script_path', '')))
+                        self.pet_report('script', script_raw_saved_notice(result.get('natural_script_path', '')))
                 if result.get('quality_summary'):
                     self.show_script_quality(result)
                     return
@@ -1927,10 +1909,8 @@ class Desktop:
             def ask():
                 from stage_execution_service import reply_to_writing
                 return reply_to_writing(
-                    project, submission, user_message=value, progress=report_role, request_model=request_model,
-                    cancelled=cancelled.is_set,
-                    stream=lambda chunk:self.hollmwood_progress.put(
-                        (async_ticket['value'],'actor_stream',chunk)))
+                    project, submission, user_message=value, request_model=request_model,
+                    cancelled=cancelled.is_set)
             self.submit_idea_api_request(project, token, cancelled, ask, received,
                                          model+' 模型正在思考…', async_ticket)
         else:
@@ -2329,46 +2309,6 @@ class Desktop:
             self._brief_load_results.put((generation,root,apply,path,error))
         threading.Thread(target=discover,daemon=True).start()
         return generation
-    def poll_hollmwood_progress(self):
-        """每 100ms 在 Tk 主线程消化角色进度；工作线程只允许写 Queue。"""
-        labels={'director':'导演','writer':'编剧','editor':'编辑','actor':'演员'}
-        try:
-            while True:
-                ticket,role,step=self.hollmwood_progress.get_nowait()
-                if ticket!=self._async_ticket or not getattr(self,'_idea_requesting',False):continue
-                name=labels.get(role.split('_',1)[0],role)
-                if role == 'actor_stream':
-                    self._stream_text += str(step)
-                    self.status.set('演员正在流式生成剧本…')
-                    self.show_conversation()
-                    continue
-                self.set_hollmwood_role_status(role)
-                text=name+' 正在工作…'
-                self.status.set(text)
-                if self.root:
-                    from broadcaster import Broadcaster
-                    Broadcaster(Path(self.root)/'logs'/'sanhu_progress.log').broadcast(
-                        Broadcaster.stage(1, 'HOLLMWOOD：'+text))
-        except queue.Empty:pass
-    def set_hollmwood_role_status(self, active='', complete=False, review_failed=''):
-        """在总进度条下方显示 HOLLMWOOD 四角色的当前状态。"""
-        variable=getattr(self,'hollmwood_role_status',None)
-        if variable is None:return ''
-        labels={'director':'导演','writer':'编剧','editor':'编辑','actor':'演员'}
-        active=str(active or '').split('_',1)[0]
-        if review_failed in ('writer','editor','actor'):
-            roles=('writer','editor','actor')
-            failed_index=roles.index(review_failed)
-            states={'director':'审核未通过'}
-            states.update((role,'已通过' if index<failed_index else
-                           ('未通过' if index==failed_index else '未开始'))
-                          for index,role in enumerate(roles))
-            text='  ·  '.join(label+'：'+states[key] for key,label in labels.items())
-        elif complete:text='导演：已通过  ·  编剧：已通过  ·  编辑：已通过  ·  演员：已通过（规则合格；创意满意由您确认）'
-        else:text='  ·  '.join(label+'：'+('工作中' if key==active else ('待命' if active else '等待')) for key,label in labels.items())
-        try:variable.set(text)
-        except (tk.TclError,AttributeError):pass
-        return text
     def cancel_timers(self,event=None):
         # 先停掉定时器再销毁窗口：残留的 after 回调会在 Tk 里报 invalid command name。
         if event is not None and event.widget is not self.win:return
@@ -5476,7 +5416,7 @@ class Desktop:
         from workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)
     def open_flow_agent(self,stage,label,prompt,followup=None,on_receipt=None,_config=None,*,intake_only=False,new_session=False):
-        from workflow_settings import current,hollmwood_summary
+        from workflow_settings import current,writer_style_summary
         from workflow_engines import prompt_with_settings,launch_interactive
         from agent_dispatch import signature,claim,finish,outcome,retryable
         if self.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
@@ -5558,7 +5498,7 @@ class Desktop:
                 if use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
                                    'context_budget':{'initial':budget,'continuation':continuation_budget}}
                 result=prepare_task(project,title,stage,full,followup=continuation,setup_key=setup_key,
-                                    delivery_summary='' if intake_only else hollmwood_summary(config,stage))
+                                    delivery_summary='' if intake_only else writer_style_summary(config,stage))
                 result['receipt']=receipt;result['context_budget']={
                     'initial':budget,'continuation':continuation_budget};return result
             except Exception as exc:finish(receipt,'failed',str(exc));raise

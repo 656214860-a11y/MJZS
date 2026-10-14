@@ -44,7 +44,7 @@ def _brief_plain_text(text, labels):
     return value
 
 
-# 表单字段写在这里而不是桌面层：直接输入、表格填写、后续 HOLLMWOOD 契约
+# 表单字段写在这里而不是桌面层：直接输入、表格填写、后续剧本契约
 # 都经由同一份 brief_creation.md，不会出现两套记忆或两份“原始简报”。
 BRIEF_CREATION_FIELDS = (
     '故事集数', '单集时间', '故事画风', '故事梗概', '故事题材',

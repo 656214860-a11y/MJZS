@@ -26,7 +26,7 @@ class ImportedPackagePanelTests(unittest.TestCase):
         if existing:
             stage_config.put(self.desktop.root, 'script', model='qwen-max',
                              skills=['ordinary-skill', imported.name], registry=registry,
-                             hollmwood_enabled=False)
+                             writer_style='参考好莱坞编剧')
         with mock.patch.object(skill_registry, 'default_registry', return_value=registry):
             panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
@@ -50,5 +50,5 @@ class ImportedPackagePanelTests(unittest.TestCase):
         entry = stage_config.get(self.desktop.root, 'script', registry=panel.registry)
         self.assertEqual(set(entry['skills']), {'ordinary-skill', imported.name})
         self.assertEqual(entry['model'], 'qwen-max')
-        self.assertFalse(entry[stage_config.HOLLMWOOD_ENABLED])
+        self.assertEqual(entry[stage_config.WRITER_STYLE], '参考好莱坞编剧')
         self.assertIn(imported.name, panel.selected())

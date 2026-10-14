@@ -54,7 +54,7 @@ class AgentsMdConsistencyTests(unittest.TestCase):
         clause = section.split('- 只改 ', 1)[1].split('。', 1)[0]
         modules = set(re.findall(r'`([a-z_]+)`', clause))
         self.assertEqual(modules, {'pet_bus', 'script_contract', 'asset_contract',
-                                  'stage_layout', 'storyboard_paths', 'hollmwood_rules'})
+                                  'stage_layout', 'storyboard_paths'})
         self.assertEqual({module: LAYERS[module] for module in modules},
                          dict.fromkeys(modules, 0))
         self.assertIn('不动 L1 以上', section)

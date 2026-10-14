@@ -7,7 +7,6 @@
             "asset_batch_settings_service",
             "asset_plan",
             "asset_detail_service",
-            "hollmwood_roles",
             "storyboard_storage",
             "asset_resume",
             "audio_import_service",
@@ -40,7 +39,6 @@
             "keyframe_api",
             "previs",
             "writing_files",
-            "writing_roles",
             "writing_workflow"
         ],
         "readonly_scope_audit": {
@@ -50,7 +48,7 @@
             "video_task_state": "R1293：仅读取视频任务状态并生成锁定、等待及显式提交阻断原因；submission_block_reason 仅判断传入版本，不启动、取消、重提或写入任务。",
             "storyboard_adoption_contract": "R981：只读设置、解析已有别名并校验采用路径；采用状态写入由独立服务承担。"
         },
-        "exempt_count": 42,
+        "exempt_count": 41,
         "exempt_items": [
             "usage_overview",
             "edit_export",
@@ -91,7 +89,6 @@
             "video_task_state",
             "white_model_service",
             "writing_files",
-            "writing_roles",
             "writing_workflow",
             "download_inbox"
         ]
@@ -151,7 +148,6 @@
             "keyframe_api",
             "previs",
             "writing_files",
-            "writing_roles",
             "writing_workflow"
         ],
     "pending": []
@@ -166,7 +162,6 @@
             "keyframe_api": {"keyframe_model_service": ["production_choices", "current_model"]},
             "previs": {"previs_routing": ["classify", "dispatch"], "white_model_service": ["import_previs_media", "save_previs_notes"]},
             "writing_files": {"writing_tools": ["list_files", "read_file", "write_file"], "script_workspace_service": ["iter_script_documents", "rename_script_document"]},
-            "writing_roles": {"hollmwood_roles": ["run", "default_role_rules"]},
             "writing_workflow": {"writing_api": ["reply"], "writing": ["prepare", "import_project"]}
         }
     },
@@ -431,12 +426,6 @@
                 "point": "publish_desktop_settings",
                 "disposition": "migrated",
                 "reason": "R822：桌面级偏好设置改由 L3 desktop_settings_gateway 注入正式 JSON 发布器。"
-            },
-            {
-                "file": "hollmwood_roles.py",
-                "point": "_write_log",
-                "disposition": "migrated",
-                "reason": "R822：四角色协作日志改由 L3 writing_api.hollmwood_gateway 注入正式文本发布器。"
             },
             {
                 "file": "legacy_adoption_service.py",
@@ -1137,9 +1126,9 @@
             },
             {
                 "file": "writing_api.py",
-                "point": "548",
+                "point": "474",
                 "disposition": "exempt",
-                "reason": "R1335 合入：阶段④分集增量接入使该 json.loads 行号由 512 平移至 548；仍是简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
+                "reason": "R1335 合入：阶段④分集增量接入使该 json.loads 行号由 512 平移至 548，HOLLMWOOD 框架移除后再平移至 474；仍是简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
             },
             {
                 "file": "stage_parallel.py",

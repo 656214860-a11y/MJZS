@@ -30,13 +30,26 @@ def make_project(td):
     return project
 
 
+def script_documents(chat):
+    '''自然剧本请求里随 <brief_complete> 交给模型的已确认阶段文件。'''
+    import json
+    task = chat.call_args.args[0][0]['content']
+    return json.loads(task.split('<brief_complete>', 1)[1].split('</brief_complete>', 1)[0])['已确认阶段文件']
+
+
+def script_stage_probe():
+    '''观察是否真正进入阶段④自然剧本请求（放行后仍执行原函数）。'''
+    import workflow_tasks
+    return patch('workflow_tasks.script_prompt', wraps=workflow_tasks.script_prompt)
+
+
 class WritingApiTests(unittest.TestCase):
-    def test_real_request_shares_frozen_skill_with_all_roles_and_reviews(self):
+    def test_real_request_sends_the_frozen_skill_once_in_the_system_prompt(self):
         import workflow_settings
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
-            stage_config.put(project, 'script', model='gpt-4o', skills=[], hollmwood_enabled=True)
+            stage_config.put(project, 'script', model='gpt-4o', skills=[])
             skill = Path(td) / 'SKILL.md'
             skill.write_text('本次共享规则标记', encoding='utf-8')
             config = workflow_settings.defaults('writing')
@@ -47,18 +60,16 @@ class WritingApiTests(unittest.TestCase):
             with patch('model_pool.pool', return_value=model_pool.default_pool()):
                 request = writing_api.capture_request(project)
                 skill.write_text('后来修改的规则', encoding='utf-8')
-                stage_config.put(project, 'script', model='deepseek-v4-flash', hollmwood_enabled=False)
-                replies = ['计划', self.natural_script(20), 'APPROVED', self.natural_script(20),
-                           'APPROVED', self.natural_script(20), 'APPROVED']
-                with patch('writing_api.PoolAdapter.chat', side_effect=[
-                        {'ok': True, 'text': text} for text in replies]) as chat:
+                stage_config.put(project, 'script', model='deepseek-v4-flash')
+                with patch('writing_api.PoolAdapter.chat', return_value={
+                        'ok': True, 'text': self.natural_script(20)}) as chat:
                     result = writing_api.reply(project, '开始', request_model=request, publish=publish_stage_text)
             self.assertTrue(result['ok'])
-            self.assertEqual(chat.call_count, 7)
-            for call in chat.call_args_list:
-                self.assertEqual(call.kwargs['model'], 'gpt-4o')
-                self.assertEqual(call.kwargs['system'].count('本次共享规则标记'), 1)
-                self.assertNotIn('后来修改的规则', call.kwargs['system'])
+            self.assertEqual(chat.call_count, 1)
+            call = chat.call_args
+            self.assertEqual(call.kwargs['model'], 'gpt-4o')
+            self.assertEqual(call.kwargs['system'].count('本次共享规则标记'), 1)
+            self.assertNotIn('后来修改的规则', call.kwargs['system'])
 
     def test_real_configuration_switches_and_freezes_selected_skills(self):
         import workflow_settings
@@ -137,7 +148,7 @@ class WritingApiTests(unittest.TestCase):
         state['documents'] = documents
         save(target, state)
 
-    def test_brief_alone_generates_setting_before_four_roles(self):
+    def test_brief_alone_generates_setting_before_script_stage(self):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
             stage_config.put(project, 'script', model='gpt-4o')
@@ -145,7 +156,7 @@ class WritingApiTests(unittest.TestCase):
             save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
             self.assertTrue(writing_api.preparation_continuation(project, '重试'))
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('writing_api._hollmwood_reply') as roles, \
+                 patch('workflow_tasks.script_prompt') as roles, \
                  patch('writing_api.PoolAdapter.chat', return_value={
                      'ok': True, 'text': '# 项目设定\n都市雨夜，少年追查底片。\n待确认'}) as chat:
                 result = writing_api.reply(project, '开始创作', publish=publish_stage_text)
@@ -159,7 +170,7 @@ class WritingApiTests(unittest.TestCase):
             self.assertTrue(Path(result['preparation_path']).is_file())
             self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
 
-    def test_preparation_requires_each_confirmation_and_hands_all_documents_to_roles(self):
+    def test_preparation_requires_each_confirmation_and_hands_all_documents_to_script_request(self):
         import json
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:
@@ -168,10 +179,11 @@ class WritingApiTests(unittest.TestCase):
             save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
             answers = [{'ok': True, 'text': text} for text in (
                 '# 项目设定\n旧设定。\n待确认', '# 项目设定\n修订设定。\n待确认',
-                '# 剧本大纲\n追查底片的三幕故事。\n待确认', '# 人物设定（角色卡）\n阿远的目标与弱点。\n待确认', '{"next_stage":"自然剧本"}')]
+                '# 剧本大纲\n追查底片的三幕故事。\n待确认', '# 人物设定（角色卡）\n阿远的目标与弱点。\n待确认', '{"next_stage":"自然剧本"}',
+                '自然剧本')]
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
                  patch('writing_api.PoolAdapter.chat', side_effect=answers) as chat, \
-                 patch('writing_api._hollmwood_reply', return_value={'ok': True, 'text': '自然剧本'}) as roles:
+                 script_stage_probe() as roles:
                 first = writing_api.reply(project, '开始', publish=publish_stage_text)
                 revised = writing_api.reply(project, '不要确认，先改设定', publish=publish_stage_text)
                 self.assertEqual(first['preparation_path'], revised['preparation_path'])
@@ -186,14 +198,14 @@ class WritingApiTests(unittest.TestCase):
                 result = writing_api.reply(project, '确认', publish=publish_stage_text)
             self.assertEqual(result['text'], '自然剧本')
             roles.assert_called_once()
-            documents = roles.call_args.args[4]['已确认阶段文件']
+            documents = script_documents(chat)
             self.assertEqual(list(documents), list(writing_api.PREPARATION_STAGES))
             self.assertIn('修订设定', documents['项目设定'])
             self.assertIn('阿远', documents['角色卡'])
             state = json.loads((project_stages.writing(project) / 'preparation_state.json').read_text(encoding='utf-8'))
             self.assertTrue(all(item['confirmed'] for item in state['documents']))
             self.assertEqual(len({item['path'] for item in state['documents']}), 3)
-            self.assertEqual(chat.call_count, 5)
+            self.assertEqual(chat.call_count, 6)
 
     def test_colloquial_confirmation_advances_preparation(self):
         from agent.core import save
@@ -274,7 +286,7 @@ class WritingApiTests(unittest.TestCase):
                 folder = project_stages.writing(project)
                 save(folder / 'brief_complete.json', self.complete_brief())
                 with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                     patch('writing_api._hollmwood_reply') as roles, \
+                     patch('workflow_tasks.script_prompt') as roles, \
                      patch('writing_api.PoolAdapter.chat', side_effect=[
                          {'ok': True, 'text': '# 项目设定\n雨夜照相馆。\n待确认'},
                          {'ok': True, 'text': '# 剧本大纲\n追查底片。\n待确认'}]) as chat:
@@ -333,8 +345,9 @@ class WritingApiTests(unittest.TestCase):
                 writing_api.preparation_continuation(project, '确认')
             moved.write_text(text, encoding='utf-8')
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': '{"next_stage":"自然剧本"}'}), \
-                 patch('writing_api._hollmwood_reply', return_value={'ok': True, 'text': '自然剧本'}) as roles:
+                 patch('writing_api.PoolAdapter.chat', side_effect=[
+                     {'ok': True, 'text': '{"next_stage":"自然剧本"}'}, {'ok': True, 'text': '自然剧本'}]), \
+                 script_stage_probe() as roles:
                 writing_api.reply(project, '确认', publish=publish_stage_text)
             roles.assert_called_once()
             current = json.loads(ledger.read_text(encoding='utf-8'))['documents'][-1]
@@ -343,7 +356,7 @@ class WritingApiTests(unittest.TestCase):
             self.assertTrue(current['confirmed'])
             self.assertEqual(moved.read_text(encoding='utf-8'), text)
 
-    def test_relink_requires_matching_content_and_persists_before_roles(self):
+    def test_relink_requires_matching_content_and_persists_before_script_request(self):
         import json
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:
@@ -367,17 +380,17 @@ class WritingApiTests(unittest.TestCase):
             ledger = folder / 'preparation_state.json'
             before = ledger.read_bytes()
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('writing_api.PoolAdapter.chat') as chat, \
-                 patch('writing_api._hollmwood_reply', return_value={'ok': True, 'text': '自然剧本'}) as roles:
+                 patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': '自然剧本'}) as chat, \
+                 script_stage_probe() as roles:
                 with self.assertRaisesRegex(OSError, '台账写入失败'):
                     writing_api.reply(project, '继续', publish=lambda *args: (_ for _ in ()).throw(OSError('台账写入失败')))
                 self.assertEqual(ledger.read_bytes(), before)
                 roles.assert_not_called()
                 result = writing_api.reply(project, '继续', publish=publish_stage_text)
             self.assertTrue(result['ok'])
-            chat.assert_not_called()
+            chat.assert_called_once()
             roles.assert_called_once()
-            self.assertEqual(roles.call_args.args[4]['已确认阶段文件']['项目设定'], text)
+            self.assertEqual(script_documents(chat)['项目设定'], text)
             state = json.loads(ledger.read_text(encoding='utf-8'))
             self.assertEqual(state['documents'][0]['path'], copy.name)
             self.assertTrue(all(item['confirmed'] for item in state['documents']))
@@ -386,10 +399,10 @@ class WritingApiTests(unittest.TestCase):
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
-            stage_config.put(project, 'script', model='gpt-4o', hollmwood_enabled=False)
+            stage_config.put(project, 'script', model='gpt-4o')
             save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('writing_api._hollmwood_reply') as roles, \
+                 patch('workflow_tasks.script_prompt') as roles, \
                  patch('writing_api.PoolAdapter.chat', side_effect=[
                      {'ok': True, 'text': '# 项目设定\n雨夜。\n待确认'},
                      {'ok': False, 'error': 'network'},
@@ -412,7 +425,7 @@ class WritingApiTests(unittest.TestCase):
                 save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
                 with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
                      patch('writing_api.PoolAdapter.chat', return_value=response), \
-                     patch('writing_api._hollmwood_reply') as roles:
+                     patch('workflow_tasks.script_prompt') as roles:
                     result = writing_api.reply(project, '开始', publish=publish_stage_text)
                 self.assertFalse(result['ok'])
                 self.assertFalse((project_stages.writing(project) / 'preparation_state.json').exists())
@@ -425,7 +438,7 @@ class WritingApiTests(unittest.TestCase):
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
-            stage_config.put(project, 'script', model='gpt-4o', hollmwood_enabled=False)
+            stage_config.put(project, 'script', model='gpt-4o')
             folder = project_stages.writing(project)
             save(folder / 'brief_complete.json', self.complete_brief())
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
@@ -456,7 +469,7 @@ class WritingApiTests(unittest.TestCase):
                     writing_api.reply(project, '继续', publish=publish_stage_text)
             chat.assert_not_called()
 
-    def test_deleted_or_modified_confirmed_document_blocks_roles(self):
+    def test_deleted_or_modified_confirmed_document_blocks_script_request(self):
         from agent.core import save
         for deleted in (True, False):
             with self.subTest(deleted=deleted), tempfile.TemporaryDirectory() as td:
@@ -470,7 +483,7 @@ class WritingApiTests(unittest.TestCase):
                 else:
                     path.write_text('未经确认的改动', encoding='utf-8')
                 with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                     patch('writing_api.PoolAdapter.chat') as chat, patch('writing_api._hollmwood_reply') as roles:
+                     patch('writing_api.PoolAdapter.chat') as chat, patch('workflow_tasks.script_prompt') as roles:
                     with self.assertRaisesRegex(ValueError, '原确认失效'):
                         writing_api.reply(project, '开始', publish=publish_stage_text)
                 chat.assert_not_called()
@@ -487,7 +500,7 @@ class WritingApiTests(unittest.TestCase):
             path = project_stages.writing(project) / '角色卡.md'
             path.write_text(path.read_text(encoding='utf-8').rstrip('\n'), encoding='utf-8')
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('writing_api.PoolAdapter.chat') as chat, patch('writing_api._hollmwood_reply') as roles:
+                 patch('writing_api.PoolAdapter.chat') as chat, patch('workflow_tasks.script_prompt') as roles:
                 self.assertTrue(writing_api.preparation_continuation(project, '确认'))
             chat.assert_not_called()
             roles.assert_not_called()
@@ -504,14 +517,13 @@ class WritingApiTests(unittest.TestCase):
             save(project_stages.writing(project) / 'brief_complete.json', brief)
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
                  patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': '# 项目设定\n新世界。\n待确认'}), \
-                 patch('writing_api._hollmwood_reply') as roles:
+                 patch('workflow_tasks.script_prompt') as roles:
                 result = writing_api.reply(project, '确认', publish=publish_stage_text)
             self.assertEqual(result['preparation_stage'], '项目设定')
             roles.assert_not_called()
 
     def test_cancelled_preparation_response_does_not_publish(self):
         from agent.core import save
-        from hollmwood_roles import RoleCancelledError
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
             stage_config.put(project, 'script', model='gpt-4o')
@@ -523,7 +535,7 @@ class WritingApiTests(unittest.TestCase):
                 return {'ok': True, 'text': '# 项目设定\n雨夜。\n待确认'}
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
                  patch('writing_api.PoolAdapter.chat', side_effect=respond):
-                with self.assertRaises(RoleCancelledError):
+                with self.assertRaises(writing_api.WritingCancelledError):
                     writing_api.reply(project, '开始', publish=publish_stage_text, cancelled=lambda: stopped)
             self.assertFalse((project_stages.writing(project) / 'preparation_state.json').exists())
             self.assertEqual(list(project_stages.writing(project).rglob('*.md')), [])
@@ -547,7 +559,7 @@ class WritingApiTests(unittest.TestCase):
                             raise OSError('模拟阶段记录发布失败')
                         return publish_stage_text(target, *args, **kwargs)
                     with patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': '# 项目设定\n新设定。\n待确认'}), \
-                         patch('writing_api._hollmwood_reply') as roles:
+                         patch('workflow_tasks.script_prompt') as roles:
                         with self.assertRaisesRegex(OSError, '阶段记录发布失败'):
                             writing_api.reply(project, message, publish=fail_state)
                     roles.assert_not_called()
@@ -556,32 +568,6 @@ class WritingApiTests(unittest.TestCase):
                     _, state, texts = writing_api._preparation_state(project, writing_api._complete_brief(project))
                     self.assertFalse(state['documents'][0]['confirmed'])
                     self.assertEqual(texts, [original_document.decode('utf-8').replace('\r\n', '\n')])
-
-    def test_truncated_actor_stream_fails_without_publishing_script(self):
-        with tempfile.TemporaryDirectory() as td:
-            project = make_project(td)
-            stage_config.put(project, 'script', model='gpt-4o')
-            writing = project / 'writing'
-            writing.mkdir(exist_ok=True)
-            (writing / 'brief_complete.json').write_text(
-                __import__('json').dumps(self.complete_brief(), ensure_ascii=False), encoding='utf-8')
-            answers = ('计划', '编剧稿', 'APPROVED', '编辑稿', 'APPROVED')
-            self.confirmed_preparation(project)
-            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('writing_api.PoolAdapter.chat',
-                       side_effect=[{'ok': True, 'text': text} for text in answers]) as chat, \
-                 patch('writing_api.PoolAdapter.stream', return_value={
-                     'ok': True, 'text': '未完成的演员稿',
-                     'response_meta': {'finish_reason': 'length'}}) as stream, \
-                 patch('writing_api._write_script_raw') as publish:
-                result = writing_api.reply(project, '开始创作', stream=lambda _: None,
-                                           publish=publish_stage_text)
-            self.assertFalse(result['ok'])
-            self.assertIn('actor 角色执行失败', result['error'])
-            self.assertIn('finish_reason=length', result['error'])
-            self.assertEqual(chat.call_count, 5)
-            self.assertEqual(stream.call_count, 1)
-            publish.assert_not_called()
 
     @staticmethod
     def complete_brief():
@@ -596,77 +582,61 @@ class WritingApiTests(unittest.TestCase):
         return ('雨夜的照相馆里，阿远推开门，老板抬头看见那张会发光的旧底片。'
                 '阿远压低声音说：“它显出了明天的雨。”老板握紧相机，决定陪他追查真相。\n') * length
 
-    def test_confirmed_preparation_runs_four_roles_and_writes_human_readable_script_raw(self):
+    def test_confirmed_preparation_runs_one_request_and_writes_human_readable_script_raw(self):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
             stage_config.put(project, 'script', model='gpt-4o')
             writing = project / 'writing'
             writing.mkdir(exist_ok=True)
-            brief = script_contract.brief_document({
-                'story_summary': '少年在雨夜照相馆发现会说话的底片。',
-                'main_characters': '少年阿远、照相馆老板。',
-                'genre': '都市奇幻',
-                'length': '单集 60 秒',
-            })
             (writing / 'brief_complete.json').write_text(
-                __import__('json').dumps(brief, ensure_ascii=False), encoding='utf-8')
-            answers = ('节奏计划', '编剧稿', 'APPROVED 编剧通过', '编辑稿',
-                       'APPROVED 编辑通过', '演员稿', 'APPROVED 演员通过')
+                __import__('json').dumps(self.complete_brief(), ensure_ascii=False), encoding='utf-8')
+            text = self.natural_script(20)
             self.confirmed_preparation(project)
             skill = Path(td) / 'SKILL.md'
-            skill.write_text('---\nname: api-role-test\n---\n四角色共用内联技能正文', encoding='utf-8')
+            skill.write_text('---\nname: api-skill-test\n---\n内联技能正文', encoding='utf-8')
             import workflow_settings
             from agent.core import save
             config = workflow_settings.defaults('writing')
             workflow_settings.set_skills(config['profiles']['qwen'], [str(skill)])
             save(workflow_settings.settings_path(project), {'flows': {'writing': config}})
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('writing_api.PoolAdapter.chat',
-                       side_effect=[{'ok': True, 'text': text} for text in answers]) as chat:
+                 patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': text}) as chat:
                 result = writing_api.reply(project, '开始创作', publish=publish_stage_text)
             self.assertTrue(result['ok'])
-            self.assertEqual(result['text'], '演员稿')
-            self.assertEqual(chat.call_count, 7)
-            writer_system = chat.call_args_list[1].kwargs['system']
-            self.assertIn('<skill name="api-role-test">', writer_system)
-            self.assertIn('四角色共用内联技能正文', writer_system)
-            self.assertIn(f'<!-- 来源: {skill.resolve()} -->', writer_system)
-            for index, call in enumerate(chat.call_args_list):
-                self.assertEqual(call.kwargs['system'].count('四角色共用内联技能正文'), 1)
-                self.assertEqual(call.kwargs['system'].count('<skill name="api-role-test">'), 1)
-                self.assertNotIn('请先完整读取并遵循本地技能文件', call.kwargs['system'])
-                self.assertNotIn('全局节奏模板', call.kwargs['system'])
-                prompt = call.args[0][0]['content']
-                self.assertEqual(prompt.count('<brief_complete>'), 1)
-                self.assertIn('单集 60 秒', prompt)
-                self.assertIn('已确认阶段文件', prompt)
-                self.assertIn('已确认的创作依据', prompt)
-                if index:
-                    self.assertEqual(prompt.count('<director_instruction>\n节奏计划'), 1)
-            self.assertEqual((project_stages.writing(project) / 'script_raw.md').read_text(encoding='utf-8'), '演员稿\n')
+            self.assertEqual(chat.call_count, 1)
+            system = chat.call_args.kwargs['system']
+            self.assertIn('<skill name="api-skill-test">', system)
+            self.assertEqual(system.count('内联技能正文'), 1)
+            self.assertIn(f'<!-- 来源: {skill.resolve()} -->', system)
+            self.assertNotIn('请先完整读取并遵循本地技能文件', system)
+            for obsolete in ('全局节奏模板', 'HOLLMWOOD', 'APPROVED'):
+                self.assertNotIn(obsolete, system)
+            prompt = chat.call_args.args[0][0]['content']
+            self.assertEqual(prompt.count('<brief_complete>'), 1)
+            self.assertIn('单集 60 秒', prompt)
+            self.assertIn('已确认阶段文件', prompt)
+            self.assertIn('已确认的创作依据', prompt)
+            self.assertEqual((project_stages.writing(project) / 'script_raw.md').read_text(encoding='utf-8'), text.strip() + '\n')
             formal = Path(result['natural_script_path'])
             self.assertEqual(formal.parent.name, '项目剧本')
-            self.assertEqual(formal.read_text(encoding='utf-8').strip(), '演员稿')
+            self.assertEqual(formal.read_text(encoding='utf-8').strip(), text.strip())
             self.assertNotEqual(formal.name, 'script_raw.md')
-            self.assertEqual(len(list((project / 'logs').glob('hollmwood_step_*.log'))), 7)
-            self.assertEqual(len(list((project / 'logs' / 'model_diagnostics').glob('*.json'))), 7)
+            self.assertFalse(list((project / 'logs').glob('hollmwood_step_*.log')))
+            self.assertEqual(len(list((project / 'logs' / 'model_diagnostics').glob('*.json'))), 1)
 
-    def test_disabled_hollmwood_uses_direct_api_with_complete_brief_and_auto_saves(self):
+    def test_direct_api_uses_complete_brief_and_auto_saves(self):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
-            stage_config.put(project, 'script', model='gpt-4o', hollmwood_enabled=False)
+            stage_config.put(project, 'script', model='gpt-4o')
             writing = project / 'writing'; writing.mkdir(exist_ok=True)
             (writing / 'brief_complete.json').write_text(__import__('json').dumps(self.complete_brief(), ensure_ascii=False), encoding='utf-8')
             text = self.natural_script(20)
             self.confirmed_preparation(project)
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('writing_api._hollmwood_reply') as four_roles, \
                  patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': text}) as chat:
                 result = writing_api.reply(project, '开始创作', publish=publish_stage_text)
-            four_roles.assert_not_called()
             self.assertIn('<brief_complete>', chat.call_args.args[0][0]['content'])
             self.assertTrue(result['script_raw_path'])
-            self.assertFalse(result['hollmwood_enabled'])
             self.assertEqual((project_stages.writing(project) / 'script_raw.md').read_text(encoding='utf-8'), text.strip() + '\n')
             self.assertEqual(Path(result['natural_script_path']).read_text(encoding='utf-8').strip(), text.strip())
 
@@ -729,7 +699,6 @@ class WritingApiTests(unittest.TestCase):
             self.assertTrue(Path(saved['natural_script_path']).is_file())
 
     def test_cancel_at_formal_publish_does_not_create_formal_script(self):
-        import hollmwood_roles
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
             cancelled = False
@@ -739,7 +708,7 @@ class WritingApiTests(unittest.TestCase):
                 cancelled = True
                 return output
             result = {'ok': True, 'text': self.natural_script(20), 'model': 'DeepSeek V4 Flash'}
-            with self.assertRaises(hollmwood_roles.RoleCancelledError):
+            with self.assertRaises(writing_api.WritingCancelledError):
                 writing_api._auto_save_script_raw(project, result,
                     publish=writing_api._cancellable_publisher(publish, lambda: cancelled))
             self.assertEqual(list(project_stages.writing(project).rglob('*自然剧本*.md')), [])
@@ -775,14 +744,13 @@ class WritingApiTests(unittest.TestCase):
             write.assert_not_called()
             self.assertEqual(duplicate['script_raw_path'], first['script_raw_path'])
 
-    def test_script_raw_save_notice_tracks_the_reply_mode(self):
+    def test_script_raw_save_notice_names_the_formal_script(self):
         from desktop import script_raw_saved_notice
-        self.assertEqual(script_raw_saved_notice(True), '四角色剧本已保存：script_raw.md')
-        self.assertEqual(script_raw_saved_notice(False), '剧本已自动保存：script_raw.md')
-        self.assertEqual(script_raw_saved_notice(True, '目录/摄影侠_自然剧本_DeepSeek.md'),
-                         '四角色剧本已保存：摄影侠_自然剧本_DeepSeek.md')
+        self.assertEqual(script_raw_saved_notice(), '剧本已自动保存：script_raw.md')
+        self.assertEqual(script_raw_saved_notice('目录/摄影侠_自然剧本_DeepSeek.md'),
+                         '剧本已自动保存：摄影侠_自然剧本_DeepSeek.md')
 
-    def test_cancelled_hollmwood_does_not_write_script_raw(self):
+    def test_cancelled_request_does_not_write_script_raw(self):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
             stage_config.put(project, 'script', model='gpt-4o')
@@ -796,12 +764,12 @@ class WritingApiTests(unittest.TestCase):
                 __import__('json').dumps(brief, ensure_ascii=False), encoding='utf-8')
             with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
                  patch('writing_api.PoolAdapter.chat') as chat:
-                with self.assertRaises(__import__('hollmwood_roles').RoleCancelledError):
+                with self.assertRaises(writing_api.WritingCancelledError):
                     writing_api.reply(project, '开始创作', cancelled=lambda: True)
             chat.assert_not_called()
             self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
 
-    def test_hollmwood_role_network_failure_returns_recoverable_result(self):
+    def test_network_failure_returns_recoverable_result(self):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
             stage_config.put(project, 'script', model='gpt-4o')
@@ -814,29 +782,8 @@ class WritingApiTests(unittest.TestCase):
                  patch('writing_api.PoolAdapter.chat', return_value={'ok': False, 'error': 'URLError：TLS EOF'}):
                 result = writing_api.reply(project, '开始创作', publish=publish_stage_text)
             self.assertFalse(result['ok'])
-            self.assertIn('director 角色执行失败', result['error'])
+            self.assertIn('TLS EOF', result['error'])
             self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
-
-    def test_editor_review_failure_reaches_ui_without_publishing_script(self):
-        from agent.core import save
-        with tempfile.TemporaryDirectory() as td:
-            project = make_project(td)
-            stage_config.put(project, 'script', model='gpt-4o')
-            save(project_stages.writing(project) / 'brief_complete.json', self.complete_brief())
-            self.confirmed_preparation(project)
-            answers = ('节奏计划', '编剧稿', 'APPROVED', '编辑稿',
-                       'REVISE: 人物动机不连贯', '编辑返工稿', 'REVISE: 仍不连贯')
-            with patch('writing_api.model_pool.pool', return_value=model_pool.default_pool()), \
-                 patch('writing_api.PoolAdapter.chat', side_effect=[
-                     {'ok': True, 'text': text} for text in answers]) as chat:
-                result = writing_api.reply(project, '开始创作', publish=publish_stage_text)
-            self.assertFalse(result['ok'])
-            self.assertEqual(result['hollmwood_review_failed_role'], 'editor')
-            self.assertIn('导演未通过 editor', result['error'])
-            self.assertEqual(chat.call_count, 7)
-            self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
-            self.assertNotIn('natural_script_path', result)
-            self.assertEqual(list(project_stages.writing(project).rglob('*自然剧本*.md')), [])
 
     def test_claude_timeout_window_allows_thinking_and_visible_output(self):
         self.assertEqual(writing_api.WRITING_REQUEST_TIMEOUT, 180)
@@ -863,7 +810,7 @@ class WritingApiTests(unittest.TestCase):
     def test_desktop_agent_is_not_treated_as_an_api_model(self):
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
-            stage_config.put(project, 'script', model='claude-desktop', hollmwood_enabled=False)
+            stage_config.put(project, 'script', model='claude-desktop')
             self.assertEqual(writing_api.selected_model(project), ('', {}))
 
     def test_thinking_block_is_never_rendered_as_chat_text(self):
@@ -946,7 +893,7 @@ class WritingApiTests(unittest.TestCase):
             with self.assertRaises(TypeError):
                 writing_tools.write_file(root, 'writing/程序错误.md', '正文', publish=broken)
 
-    def test_hollmwood_publication_rejects_blank_script(self):
+    def test_script_raw_publication_rejects_blank_script(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             with self.assertRaisesRegex(ValueError, '空正文'):

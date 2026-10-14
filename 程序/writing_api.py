@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""剧本准备页的受控对话与 HOLLMWOOD 编排。
+"""剧本准备页的受控对话与自然剧本发布。
 
-API 使用模型池协议；启用 HOLLMWOOD 的 Claude Code 使用无工具 CLI 请求。
+API 使用模型池协议；本机 Claude／Codex 桌面程序走桌面 Agent 通道。
 两者共用阶段确认、逐角色审核和程序发布，其他桌面 Agent 保留交互工作流。
 """
 from pathlib import Path
@@ -22,14 +22,13 @@ from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, b
 
 
 def selected_model(project):
-    """返回受控对话模型；启用 HOLLMWOOD 的 Claude CLI 也由程序编排。"""
+    """返回受控对话模型；本机桌面程序（Claude／Codex）不属于直接 API 对话。"""
     root = Path(project)
     chosen = str(stage_config.get(root, 'script').get('model') or '').strip()
     records = model_pool.pool(program=Path(__file__).resolve().parent)
     record = records.get(chosen)
     engine = model_pool.desktop_engine(chosen)
-    managed_cli = engine == 'claude' and stage_config.hollmwood_enabled(root, 'script')
-    if not chosen or chosen == model_pool.AUTO or (engine and not managed_cli) or not record:
+    if not chosen or chosen == model_pool.AUTO or engine or not record:
         return '', {}
     return chosen, record
 
@@ -95,10 +94,8 @@ def idea_chat_gateway():
     }
 
 
-def hollmwood_gateway():
-    """L3 剧本编排为四角色日志注入唯一文本发布器。"""
-    from agent.core import save_text
-    return {'publish_log': save_text}
+class WritingCancelledError(RuntimeError):
+    """用户取消后在下一次安全边界停止，不再继续请求或落盘。"""
 
 
 def _record_model_diagnostic(project, result, purpose='chat'):
@@ -306,7 +303,7 @@ def _complete_brief(project):
 
 
 def _write_script_raw(project, text, *, publish=None):
-    """HOLLMWOOD 的唯一业务落盘点：用原子替换写入人读友好的自然语言剧本。"""
+    """script_raw.md 的唯一业务落盘点：用原子替换写入人读友好的自然语言剧本。"""
     root = Path(project)
     # 用户可见成果只能进入当前阶段目录；旧 ``writing/`` 仅作为读取兼容路径。
     from stage_path_service import write_dir
@@ -354,7 +351,7 @@ def _record_episode_ledger(project, text, previous_text=''):
 
 
 def _auto_save_script_raw(project, result, *, publish=None, model='', identity=None, quality_required=False):
-    """关闭四角色模式时，合格且足够长的 API 正文仍经唯一写入点发布原稿。"""
+    """合格且足够长的 API 正文经唯一写入点发布原稿。"""
     if not isinstance(result, dict) or not result.get('ok'):
         return result
     from writing_quality import split_response
@@ -376,80 +373,9 @@ def _auto_save_script_raw(project, result, *, publish=None, model='', identity=N
     if not unchanged:
         target = _write_script_raw(project, text, publish=publish)
     saved = dict(result)
-    saved.update(script_raw_path=str(target), hollmwood_enabled=False, quality_required=quality_required)
+    saved.update(script_raw_path=str(target), quality_required=quality_required)
     return _save_formal_script(project, saved, model=model, identity=identity, publish=publish,
                                previous_script=baseline)
-
-
-def _hollmwood_reply(project, chosen, record, settings, brief, progress=None, cancelled=None, stream=None,
-                     *, publish=None, identity=None):
-    """以既有模型路由运行四角色协作，通过审核后发布原稿与正式剧本。"""
-    import hollmwood_roles
-    import stage_config
-    import workflow_settings
-    adapter = _writing_adapter(record, chosen, project=project, settings=settings, cancelled=cancelled)
-    try:
-        rules = settings['hollmwood']
-        rhythm_template, director_rules = rules['rhythm'], rules['roles'].get('director', '')
-        role_rules = rules['roles']
-        outputs = hollmwood_roles.run(
-            adapter, chosen, brief,
-            rhythm_template=rhythm_template or hollmwood_roles.load_rhythm_template(),
-            log_folder=Path(project) / 'logs',
-            skill_instructions=workflow_settings.skill_prompt(settings, inline=True),
-            output_contract=(workflow_settings.stage_output_contract('writing')
-                             + '\n程序已核验设定、大纲、角色卡逐项确认；当前仅执行阶段④自然剧本，沿用简报中的已确认阶段文件。'),
-            emit=progress,
-            cancelled=cancelled,
-            director_rules=director_rules or None,
-            role_rules=role_rules,
-            stream=stream,
-            publish_log=hollmwood_gateway()['publish_log'],
-            resume_identity=hashlib.sha256(json.dumps(
-                {'record': record, 'cli_model': settings.get('model'), 'program': settings.get('program')}
-                if model_pool.desktop_engine(chosen) == 'claude' else record,
-                sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest(),
-        )
-        if not outputs.ok:
-            raise hollmwood_roles.RoleExecutionError(outputs.reason)
-        outputs = outputs.data
-    except hollmwood_roles.RoleCancelledError:
-        raise
-    except hollmwood_roles.RoleExecutionError as exc:
-        # 角色请求失败是可恢复的模型结果，不应穿透异步边界变成通用“操作未完成”弹窗。
-        failed = {'ok': False, 'status': 0, 'model': chosen, 'text': '', 'usage': {}, 'error': str(exc),
-                'context_budget': dict(adapter.context_budget), 'request_usage': dict(adapter.request_usage),
-                'hollmwood_review_failed_role': exc.review_failed_role,
-                'hollmwood_review_audit': {'basis': dict(getattr(exc, 'review_basis', None) or {}),
-                                           'scope': hollmwood_roles.REVIEW_SCOPE,
-                                           'records': list(getattr(exc, 'review_records', None) or [])}}
-        if exc.response_text:
-            from writing_quality import split_response, publish_reports
-            from stage_path_service import write_dir
-            failed['response_text'] = split_response(exc.response_text)[0]
-            if quality_enabled(workflow_settings.skill_prompt(settings, inline=True)):
-                folder = write_dir(project, 'script')
-                try:
-                    failed.update(publish_reports(exc.response_text, folder / '未采用候选稿.md',
-                                                  folder / 'quality', publish=publish).data)
-                except OSError as save_error:
-                    failed.update(quality_passed=False, quality_summary='质检报告保存失败：' + str(save_error))
-                failed['response_text'] += '\n\n未采用候选稿。' + failed['quality_summary']
-                if failed.get('quality_report_path'):
-                    failed['response_text'] += '\n查看质检报告：' + failed['quality_report_path']
-        return failed
-    if callable(cancelled) and cancelled():
-        raise hollmwood_roles.RoleCancelledError('HOLLMWOOD 调用已取消')
-    publish = _cancellable_publisher(publish, cancelled)
-    baseline = _episode_baseline_text(project)
-    target = _write_script_raw(project, outputs['script'], publish=publish)
-    return _save_formal_script(project, {'ok': True, 'status': 200, 'model': chosen, 'text': outputs['script'],
-            'usage': {}, 'context_budget': dict(adapter.context_budget), 'request_usage': dict(adapter.request_usage),
-            'script_raw_path': str(target), 'hollmwood_enabled': True,
-            'hollmwood_review_audit': outputs.get('review_audit') or {},
-            'quality_required': quality_enabled(
-                workflow_settings.skill_prompt(settings, inline=True))}, identity=identity, publish=publish,
-            previous_script=baseline)
 
 
 def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish=None, cancelled=None):
@@ -528,7 +454,7 @@ def _reply_with_project_tools(adapter, chosen, system, task, project, *, publish
 
 
 def extract_idea_brief(project, request):
-    """显式 API 的提取请求不走剧本发布、工具写入或 HOLLMWOOD。"""
+    """显式 API 的提取请求不走剧本发布或工具写入。"""
     from idea_semantic_brief_service import SEMANTIC_BRIEF_MAX_BYTES, semantic_brief_values
     chosen, record = selected_model(project)
     if not chosen:
@@ -1206,7 +1132,7 @@ def _preparation_step(project, chosen, record, settings, brief, creative, *, pub
                 preparation_status='阶段稿待确认'), None
 
 
-def reply(project, creative, progress=None, cancelled=None, stream=None, *, publish=None, archive=None, user_message=None, request_model=None):
+def reply(project, creative, cancelled=None, *, publish=None, archive=None, user_message=None, request_model=None):
     """以剧本工作流的上下文、SKILL 和用户创意请求一次 API 回复。"""
     _ensure_reply_active(cancelled)
     root = Path(project)
@@ -1236,17 +1162,7 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
             return preparation
         brief = dict(brief, 已确认阶段文件=confirmed)
         publish = _versioned_publisher(root, publish)
-    hollmwood_active = brief is not None and settings['hollmwood']['enabled']
-    auto_save_enabled = brief is not None and not hollmwood_active
-    if hollmwood_active:
-        # 已完成的结构化简报仍是四角色协作的主契约；本轮聊天输入（含桌面端
-        # 已受控读取的文本附档）作为补充材料一并交给各角色，不能在这里丢掉。
-        complete_brief = dict(brief)
-        supplement = str(creative or '').strip() + _episode_reference_hint(root)
-        if supplement:
-            complete_brief['本轮补充素材'] = supplement
-        return _hollmwood_reply(root, chosen, record, settings, complete_brief,
-                                progress=progress, cancelled=cancelled, stream=stream, publish=publish, identity=identity)
+    auto_save_enabled = brief is not None
     from workflow_context_controller import publish_writing_context
     from project_context_factory import project_context
     _ensure_reply_active(cancelled)
@@ -1266,7 +1182,8 @@ def reply(project, creative, progress=None, cancelled=None, stream=None, *, publ
     if history:
         task += '\n\n以下为本次对话之前已确认的信息：\n' + history
     system = (workflow_settings.skill_prompt(settings, inline=True)
-              + workflow_settings.stage_output_contract('writing') + context)
+              + workflow_settings.stage_output_contract('writing')
+              + workflow_settings.writer_style_prompt(settings, 'writing') + context)
     adapter = _writing_adapter(record, chosen, project=root, settings=settings, cancelled=cancelled)
     if adapter.wire_api == 'messages':
         system += ('\n\n本次已接入受控剧本文件工具。需要读取项目内容时先列出再读取剧本文档或项目接续 JSON；'
@@ -1351,8 +1268,7 @@ def _archive_then_require_active(project, result, archive, cancelled):
 
 def _ensure_reply_active(cancelled):
     if callable(cancelled) and cancelled():
-        from hollmwood_roles import RoleCancelledError
-        raise RoleCancelledError('剧本调用已取消')
+        raise WritingCancelledError('剧本调用已取消')
 
 
 def _cancellable_publisher(publish, cancelled):

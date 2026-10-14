@@ -86,7 +86,7 @@ R1073：L3 `pet_chat_coordinator.ChatCoordinator` module 独占待单击任务�
 
 | 层       | 模块/职责                                                                                                                                                      | 判定                           |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| L0 合同   | `pet_bus`、`hollmwood_rules`、`script_contract`、`asset_contract`、`service_contract`、`project_context`、`stage_layout`、`stage_path_service`、`storyboard_paths`、`prompt_templates`、`shot_batches`、`continuity_ledger`       | `service_contract.ServiceResult` 定义四字段结果口径；`project_context.ProjectContext={root, stage_resolver, settings_snapshot, cache}` 定义项目上下文注入契约。采用方及待迁移范围以 `维护记录/架构统一基数.json` 和对应门禁为准，本表不缓存数量。两项于 2026-10-04 经用户授权解冻，按序每轮最多迁移 3 个 service，执行规则见 `维护记录/架构统一路线图_v2.md`。`pet_bus.emit_safe()` 是跨模块状态的唯一安全发送器，`pet_agent._emit()`／`pet_ui._emit()` 仅作受控转发；`broadcaster` 只写用户可见文本日志。`stage_path_service` 是新写/旧读的唯一阶段路径口径；`script_contract.save_natural_script()` 是手改自然剧本的内容闸门与原子发布口径；允许被上层依赖，不应反向依赖 UI/编排；`stage_layout.validate_stage_contract()` 保证目录阶段与 `pet_bus.STAGES` 同序；`json_md_rows()` 的人读 MD 路径只使用当前编号阶段目录下的 `docs/` |
+| L0 合同   | `pet_bus`、`script_contract`、`asset_contract`、`service_contract`、`project_context`、`stage_layout`、`stage_path_service`、`storyboard_paths`、`prompt_templates`、`shot_batches`、`continuity_ledger`       | `service_contract.ServiceResult` 定义四字段结果口径；`project_context.ProjectContext={root, stage_resolver, settings_snapshot, cache}` 定义项目上下文注入契约。采用方及待迁移范围以 `维护记录/架构统一基数.json` 和对应门禁为准，本表不缓存数量。两项于 2026-10-04 经用户授权解冻，按序每轮最多迁移 3 个 service，执行规则见 `维护记录/架构统一路线图_v2.md`。`pet_bus.emit_safe()` 是跨模块状态的唯一安全发送器，`pet_agent._emit()`／`pet_ui._emit()` 仅作受控转发；`broadcaster` 只写用户可见文本日志。`stage_path_service` 是新写/旧读的唯一阶段路径口径；`script_contract.save_natural_script()` 是手改自然剧本的内容闸门与原子发布口径；允许被上层依赖，不应反向依赖 UI/编排；`stage_layout.validate_stage_contract()` 保证目录阶段与 `pet_bus.STAGES` 同序；`json_md_rows()` 的人读 MD 路径只使用当前编号阶段目录下的 `docs/` |
 | L1 基础设施 | `model_pool`、`model_secrets`、`pet_llm`、`file_cache`、`hash_backend`、`storage_maintenance`、`workspace_maintenance`、`diagnostic_capture`、`line_endings`、`ui_tokens`                                                    | `diagnostic_capture` 仅采集程序拥有日志的脱敏现场与已知启动指标，导出固定白名单且不扫描项目目录；模型小环违反此层应无反向依赖的目标；`ui_tokens` 是 design_tokens.md 的只读代码化事实来源；本机路径/浏览器/进程和短 TCP 探测统一由 `platform_tools` 适配，不得由 UI 直连；`workspace_maintenance` 只做仓库级可再生卫生（`__pycache__`、超期 `.selftmp`、已并净的 `.wt` 工作树），用户可见删除仍唯一走 `storage_maintenance.recycle_paths()`，`git gc` 只在开发脚本 `scripts/repo_health.py`            |
 | L2 业务   | `writing*`、`idea_chat`、`idea_brief_form`、`idea_attachments`、`idea_script_heuristic`、`idea_document_paths`、`idea_transcript`、`storyboard*`、`asset*`、`keyframe*`、`video_lifecycle_service`、`cloud_video`、`local_video`、`tts_api`、`audio_import_service`、`subtitle_timing`、`subtitle_export_service`、`delivery_import_service`、`confirm_gates`、`desktop_settings_service`、`stage_workspace_service`、`legacy_adoption_service`、`recycle_recovery_service`、`white_model*`、`previs*`、`native_assets`、`handoff_service`、`edit_service`、`animatic_service`、`final_service`、`storyboard_adoption_service` | `writing.prepare()` 负责离线编剧任务书成果包在剧本准备阶段的受控发布；`idea_chat.save_manual_creative()` 负责手动创意的剧本准备分类目录、命名与原子发布；`idea_attachments.prepare()` 受控读取文本附档、限制体积与上下文，并且只向模型提交文件名与带边界的文本，不暴露本地路径；`storyboard_files.storyboard_work_plan()` 是无 Tk/Agent 的分镜输入决策服务；`storyboard_rows_service` 负责首帧行与分镜统计；`storyboard_edit_service` 负责已校验分镜 JSON 的原子编辑保存；`asset_batch_service` 负责资产生成登记、本地导入图片的校验/落盘/索引原子发布与失败回滚、资产改名的可恢复双文件同步、图片回收/恢复与索引失败回滚、无人值守资产计划、设置快照去重与重试决定；`asset_detail_service` 负责正典板视角与状态变体缩略图的格式/非空校验、原子复制、资产清单索引发布及失败回滚；`recycle_recovery_service` 只投影项目内或项目库回收清单，并且逐项/整批恢复始终委托 `storage_maintenance.restore_recycle_batch()` 的既有边界与回滚语义；`local_video_settings_service` 负责经 UI 本机预检后的 ComfyUI 工作流副本和项目设置原子发布，并在配置失败时恢复旧文件；`desktop_settings_service` 负责桌面全局项目选择、本机 ComfyUI 与剪映路径偏好的原子发布；`stage_workspace_service` 负责配音、后期和交付页面的既有阶段目录初始化；`legacy_adoption_service` 负责旧目录归位日志的原子发布；`confirm_gates` 负责门禁候选的确认记录读写，读取走 `file_cache`、写入走 `agent.core.save()`；`keyframe_lifecycle_service` 负责首帧导入替换、回收/恢复、状态发布与失败回滚；`video_lifecycle_service` 负责本地视频镜头删除标记、选项发布与失败回滚；`tts_api` 负责整段及逐句配音的媒体优先发布、幂等复用查询与可续跑时间轴登记；`audio_import_service` 负责用户选择音频的格式/非空校验、临时复制校验与原子落盘；`subtitle_export_service` 负责 SRT 与对白脚本的受控阶段目录发布及角色名渲染；`delivery_import_service` 是项目上下文与结果契约的采用方：只消费 L3 注入的 `ProjectContext`，以阶段解析器定位交付目录，不自行拼接项目路径；成功或业务失败均返回 `service_contract` 结果对象，源文件保持不动。其他待迁移范围由 `维护记录/架构统一基数.json` 登记，两项已于 2026-10-04 经用户授权解冻，后续迁移见路线图；均不导入 Tk 或配置页面。 |
 | L3 编排   | `stage_flow`、`stage_exec`、`stage_parallel`、`stage_config`、`stage_models`、`stage_handler_registry`、`skill*`、`workflow*`、`agent_dispatch`、`engine`、`integrations`、`asset_auto_batch_service`、`asset_batch_execution`、`asset_batch_controller`、`asset_page_controller`、`editing_page_controller`、`keyframe_page_controller`、`stage_completion_service`、`desktop_startup_service`、`desktop_automation_service`、`idea_chat_controller`、`idea_semantic_brief_service`、`recycle_recovery_controller`、`storyboard_final_controller`、`storyboard_page_controller` | 三虎启动唯一经 `stage_handler_registry.start()`；无人值守资产批量生成由 L3 编排服务调用执行器；`workflow_engines` 与 `codex_tasks.prepare_task()` 均须在启动进程或创建任务工件前执行统一请求上下文预算预检；`project_context_factory.project_context()` 是 `ProjectContext` 的唯一构造实现；`stage_execution_service.project_context` 静态重导出同一函数，并由交付编排注入统一二进制发布器；`stage_execution_service.publish_stage_text()`、`publish_stage_bytes()`、`publish_stage_bundle()` 均以调用方既有校验器与索引更新器完成“校验→原子发布→索引更新”，任一写入或索引失败会回滚本次成果并抛错；L2 仅接收注入发布器，不得反向导入 L3；`desktop_startup_service.DesktopStartupController` 仅编排注入的首帧延迟、空闲选择和取消回调；`desktop_automation_service.DesktopAutomationScheduler` 仅编排注入的周期回调、取消、受控异常与到期轮询，不持有 Tk 或阶段状态；`idea_chat_controller.IdeaChatController` 仅保存注入的对话请求、发送节流、附件引用和流式进度回调状态；`RecycleRecoveryController` 只汇总注入的当前项目与项目库根目录，不持有 Tk 控件，委托 L2 列表与恢复；`AssetBatchController` 保存资产批量页的表单默认值、勾选状态、模型检测与启动前门禁，只调用注入的计划及选择服务；`asset_page_controller.AssetPageController` 保存资产主页面的类别筛选、勾选初始化和批量目标判定，不持有 Tk 控件或写入项目数据；`editing_page_controller.EditingPageController` 保存后期页的视频可用性、自动粗剪报告与完成状态文案，只调用注入的工作室对象；`keyframe_page_controller.KeyframePageController` 保存首帧页多分镜行归属、首帧路径校验与按来源分批选择，不持有 Tk 控件或写入项目数据；`storyboard_final_controller.FinalStoryboardController` 保存定稿预览、编辑和镜头导航状态，只调用既有选择与原子保存边界，并可接收后台读取完成的预览结果；`storyboard_page_controller.StoryboardPageController` 保存初步分镜文件表的扫描、选择、按钮门禁和回收编排，只调用既有目录、选择和回收服务；阶段成果核验由无 Tk 服务处理，桌面视频状态经回调注入；L3 不持有 Tk 控件 |
@@ -153,7 +153,7 @@ R724 将字幕 SRT 与对白脚本两类音频阶段成果纳入 L3 发布器注
 
 R724 后架构门禁基线为 122/122，默认冒烟基线仍为 8/8。
 
-R725 将剧本模型工具、直接 API 自动保存和 HOLLMWOOD 原稿三条剧本成果路径纳入 L3 发布器注入边界：L2 `writing_tools.write_file()` 与 `writing_api._write_script_raw()` 均只接收发布器，`stage_execution_service.reply_to_writing()` 统一注入 `publish_stage_text()`，桌面不再直调 `writing_api.reply()`。无发布器的写请求明确拒绝，绝不降级直写；剧本内容闸门、路径和模型交互语义不变。
+R725 将剧本模型工具、直接 API 自动保存和 script_raw 原稿三条剧本成果路径纳入 L3 发布器注入边界：L2 `writing_tools.write_file()` 与 `writing_api._write_script_raw()` 均只接收发布器，`stage_execution_service.reply_to_writing()` 统一注入 `publish_stage_text()`，桌面不再直调 `writing_api.reply()`。无发布器的写请求明确拒绝，绝不降级直写；剧本内容闸门、路径和模型交互语义不变。
 
 R725 后架构门禁基线为 124/124，默认冒烟基线仍为 8/8。
 
@@ -219,28 +219,19 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 
 项目接续快照：`workflow_context.snapshot()` 消费由 L3 注入的 `ProjectContext`，直接调用同层 `storyboard_catalog_service.catalog()`；L2 不得反向导入编排层。桌面与剧本 API 在进入快照前装配上下文。提示词入口传入预计算 `data` 时仍接受项目路径；省略 `data` 时必须传入上下文，避免 L2 自行构造依赖。
 
-R1127：`hollmwood_rules` 为 L0 纯规则模块，统一导演／编剧／编辑／演员及导演审核正文，供 API `hollmwood_roles` 与桌面 `workflow_tasks` 共用。`script_contract.STAGE_LOCK_REQUIREMENTS` 统一阶段必填锁，`PRODUCTION_LOCK_DEFINITIONS` 统一标签与别名；剧本准备只要求交付形态，首帧／视频／白模要求三项锁，其他阶段无必填锁。提示词头部仅在白名单阶段裁剪，其他阶段保留既有锁展示。
+R1127：（`hollmwood_rules` 已随 HOLLMWOOD 框架移除，见下节）`script_contract.STAGE_LOCK_REQUIREMENTS` 统一阶段必填锁，`PRODUCTION_LOCK_DEFINITIONS` 统一标签与别名；剧本准备只要求交付形态，首帧／视频／白模要求三项锁，其他阶段无必填锁。提示词头部仅在白名单阶段裁剪，其他阶段保留既有锁展示。
 
-### HOLLMWOOD 契约权威与交接（R1182）
+### HOLLMWOOD 框架并入剧本 SKILL（已移除）
 
-`hollmwood_rules` 是 §3 的 L0 纯文本契约，也在 AGENTS §3.4 的契约轮白名单内。详细写作尺度由所选 SKILL 提供，单集时长由已确认 brief 的“单集时间”提供；默认节奏模板只保留引用占位，不复制数值或节拍规则。自然语言正文和禁止结构化交付属于角色边界；保留结尾悬念及不得擅改结局不等于重新定义 SKILL 的卡点指标。
+原 HOLLMWOOD 四角色协作（`hollmwood_roles` / `hollmwood_rules`、阶段配置「四角色协作」勾选项、导演规划与逐步审核返工、`hollmwood_step_*.log` 与角色进度条）整体移除，不再有程序编排的多次请求。角色职责并入 `skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md` 的「定向注入（00 包）」，由同一次回复内的三个内部角色承担：编剧角色审核五阶门控、编辑角色审核 12 个情绪节拍、演员角色完成台词七维诊断与语速自检；`writing_quality.prompt()` 在四份规则齐全时把同一角色分工写入辅助质检交付契约。
 
-| 接收方 | 职责及交接依据 | 交付 |
-| --- | --- | --- |
-| 导演规划 | 共享 SKILL、已确认 brief | 本集节奏指令 |
-| 编剧 | 同一 SKILL、brief、导演计划；编剧专属阶段交付契约 | 完整自然语言剧本 |
-| 编辑 | 同一 SKILL、brief、导演计划、前序剧本；修复逻辑、动机、转场 | 完整改写正文 |
-| 演员 | 同一 SKILL、brief、导演计划、前序剧本；不擅增角色或改结局 | 可表演的完整正文，作为最终交付 |
-| 导演审核 | 同一 SKILL、brief、导演计划、当前候选；动作可视化、行为连贯 | APPROVED 或 REVISE:；审核意见不混入剧本 |
-| 返工角色 | 原有共享依据、前稿、审核意见 | 修订正文并再次审核 |
-
-请求装配仍归 `hollmwood_roles`，交付契约与 SKILL 分离由 `writing_api` 完成；桌面共用 L0 常量，首发与续发仅引用一次所选 SKILL。`ROLE_ORDER`、`MAX_REVISIONS`、串行接力、审核前缀识别、预算拒绝、取消和发布边界均沿用现有实现。文档白名单修正不授权在契约轮修改这些上层生产实现。
+用户可编辑的只有项目级「编剧风格」：保存在项目 `skill_config.json` 的 `script.writer_style`（旧项目的 `hollmwood_writer_rules` 读取时迁入，下次保存即不再写出，其余 `hollmwood_*` 旧键忽略），由 `stage_config.writer_style()` 读取，`workflow_settings.writer_style_prompt()` 在剧本准备的桌面任务书与直连 API 的 system 中各注入一次，空风格不占请求。`WritingCancelledError`（`writing_api`）取代原 `RoleCancelledError`。Claude 桌面程序模型不再作为受控 CLI 对话模型，`writing_api.selected_model()` 对其返回空，走桌面 Agent 通道。
 
 ## 4. 三虎 Agent 的阶段定义
 
-R1176：四角色 API 的请求装配在 `hollmwood_roles` 共用同一份所选 SKILL；规划之后的创作、三次审核与返工都显式携带已确认简报和导演计划，不依赖模型隐式会话记忆。`writing_api` 将编剧专属阶段交付契约与共享 SKILL 分开传入。API 与桌面 `workflow_settings` 共用节奏文本投影：空文本或仅含元数据、空 rules/constraints 的占位不进入提示；自定义非空与未知格式保持原样。L0 角色规则、串行顺序、审核返工次数、取消及发布边界不变。
+R1176（历史）：四角色 API 的请求装配已随 HOLLMWOOD 框架移除，见上节。
 
-R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析模型身份、调用方式和 `workflow_settings.current()` 的有效配置；`freeze_skills()` 内联所选技能及直接 Markdown/文本引用并冻结正文，API、桌面和 HOLLMWOOD 规划／创作／审核复用该快照。失效选择、缺失引用、空技能和超出请求字符预算均阻止发送，不截断或静默省略；完整请求另沿用既有发送前预算闸门。`idea_chat` 保存脱敏的选中/加载清单、字数及 SHA-256，气泡显示本次加载结果，旧记录不伪造凭据。共享阶段成果、角色顺序、重试及发布边界不变。
+R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析模型身份、调用方式和 `workflow_settings.current()` 的有效配置；`freeze_skills()` 内联所选技能及直接 Markdown/文本引用并冻结正文，API 与桌面复用该快照。失效选择、缺失引用、空技能和超出请求字符预算均阻止发送，不截断或静默省略；完整请求另沿用既有发送前预算闸门。`idea_chat` 保存脱敏的选中/加载清单、字数及 SHA-256，气泡显示本次加载结果，旧记录不伪造凭据。共享阶段成果、角色顺序、重试及发布边界不变。
 
 
 唯一阶段定义来源：`pet_bus.STAGES`、`pet_bus.STAGE_NAMES`。
@@ -401,6 +392,6 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 
 R1094 内部等价简化：`pet_cloud.Cloud` 三个关闭入口复用私有定位定时器取消方法，先清空重试标识再取消任务；入口顺序、返回值和异常吞并不变。`storyboard_final` 移除只原样重抛的异常包装，正式发布与工作稿退役顺序不变。不新增模块、分层关系或公开接口。
 
-`asset_gating`、`keyframe`、`keyframe_api`、`previs`、`writing_files`、`writing_roles`、`writing_workflow` 是已有分层表中未实体化的名称：可查初始树和当前树无同名模块，不能称为已迁移模块。R1028 在 `维护记录/架构统一基数.json` 的 `historical_name_audit` 登记现行职责入口；这是职责索引，不是历史重命名证明。两个迁移台账保留 `historical_name_audited` 与原基数，门禁检查缺失名称集合守恒、审计分类及现行模块/符号存在。生产层级、采用方和豁免数量均不变；不得据此宣布第 1、2 项整体完成。
+`asset_gating`、`keyframe`、`keyframe_api`、`previs`、`writing_files`、`writing_workflow` 是已有分层表中未实体化的名称：可查初始树和当前树无同名模块，不能称为已迁移模块。R1028 在 `维护记录/架构统一基数.json` 的 `historical_name_audit` 登记现行职责入口；这是职责索引，不是历史重命名证明。两个迁移台账保留 `historical_name_audited` 与原基数，门禁检查缺失名称集合守恒、审计分类及现行模块/符号存在。生产层级、采用方和豁免数量均不变；不得据此宣布第 1、2 项整体完成。
 
 R1305：`writing_quality`（L2）解析自然剧本附带的四项辅助质检，核对正文证据并生成按正文 SHA256 分版本的报告；文件发布器和目录由 L3 `writing_api` / `stage_execution_service` 注入。`workflow_settings` 在完整加载四份规则时追加辅助交付契约；桌面仅监听任务指定的单一自然剧本路径。报告不进入02输入，不新增模型调用。

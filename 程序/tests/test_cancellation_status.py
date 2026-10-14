@@ -13,7 +13,7 @@ import script_contract
 import stage_config
 import writing_api
 from desktop_automation_service import BackgroundTaskLifecycle
-from hollmwood_roles import RoleCancelledError
+from writing_api import WritingCancelledError
 from stage_execution_service import publish_stage_text
 from tests.test_workflow import make_project
 
@@ -169,7 +169,7 @@ class ReturnedResponseArchiveTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         self.project = make_project(temp.name)
         stage_config.put(self.project, 'script', model='gpt-4o',
-                         skills=['pipeline-script-preparation'], hollmwood_enabled=False)
+                         skills=['pipeline-script-preparation'])
         writing = self.project / 'writing'; writing.mkdir(exist_ok=True)
         brief = script_contract.brief_document({
             'story_summary': '雨夜少年发现会说话的底片。', 'main_characters': '少年和老板',
@@ -193,7 +193,7 @@ class ReturnedResponseArchiveTests(unittest.TestCase):
             self.cancelled.set()
             return {'ok': True, 'text': self.text}
         with patch('writing_api.PoolAdapter.chat', side_effect=chat):
-            with self.assertRaises(RoleCancelledError) as caught:
+            with self.assertRaises(WritingCancelledError) as caught:
                 writing_api.reply(self.project, '创作', cancelled=self.cancelled.is_set,
                                   publish=publish_stage_text, archive=archive)
         self.assertEqual(archived, [self.text])
@@ -208,7 +208,7 @@ class ReturnedResponseArchiveTests(unittest.TestCase):
             self.cancelled.set()
             return {'ok': True, 'text': self.text}
         with patch('writing_api.PoolAdapter.chat', side_effect=chat):
-            with self.assertRaises(RoleCancelledError):
+            with self.assertRaises(WritingCancelledError):
                 writing_api.reply(self.project, '创作', cancelled=self.cancelled.is_set, publish=publish)
         publish.assert_not_called()
 

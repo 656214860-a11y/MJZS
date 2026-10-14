@@ -601,8 +601,6 @@ class Panel(ttk.Frame):
         self.skills = [item for item in self.registry.getByStage(self.stage) if not item.deprecated]
         self.vars = {}
         self.model = tk.StringVar(value=model_router.AUTO)
-        self.hollmwood_enabled_var = tk.BooleanVar(value=True)
-        self.hollmwood_editor_choice = tk.StringVar(value='选择要编辑的内容')
         self._picked = ''              # 刚才选着的那一格（点「+ 添加模型…」要退回来）
         self.preset = tk.StringVar(value=PRESET_PLACEHOLDER)
         self.preset_action = tk.StringVar(value='选择操作')
@@ -686,7 +684,7 @@ class Panel(ttk.Frame):
         self.route_hint = HintLabel(engine, text='')
         specific = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
         specific.pack(fill='x', pady=(0, section_gap))
-        self.build_hollmwood_editors(pad, specific)
+        self.build_writer_style_editor(pad, specific)
         self.build_interfaces(pad, specific)
         if not specific.winfo_children():
             specific.pack_forget()
@@ -710,60 +708,34 @@ class Panel(ttk.Frame):
         self.build_notes(pad)
         self.load()
 
-    def build_hollmwood_editors(self, pad, parent=None):
-        """仅在真正调用 HOLLMWOOD 的阶段提供规则编辑，避免无关页面出现无效入口。"""
-        if self.stage not in stage_config.HOLLMWOOD_STAGES:
+    def build_writer_style_editor(self, pad, parent=None):
+        """仅剧本阶段提供编剧风格编辑，避免无关页面出现无效入口。"""
+        if self.stage not in stage_config.WRITER_STYLE_STAGES:
             return None
         row = ttk.Frame(parent or self)
         row.pack(fill='x', pady=(SPACING['none'], pad))
-        ttk.Label(row, text='HOLLMWOOD', style='Muted.TLabel').pack(side='left')
-        ttk.Checkbutton(row, text='四角色协作', variable=self.hollmwood_enabled_var).pack(
-            side='left', padx=(SPACING['xs'], SPACING['sm']))
-        self.hollmwood_editor = SelectBox(
-            row, textvariable=self.hollmwood_editor_choice,
-            values=['选择要编辑的内容', '节奏模板', '导演规则', '编剧规则', '编辑规则', '演员规则'])
-        self.hollmwood_editor.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
-        self.hollmwood_editor.bind('<<ComboboxSelected>>', lambda event: self.choose_hollmwood_editor())
-        DescriptionBlock(row, text='关闭时按所选 SKILL 直发；SKILL 指令仅作用于编剧角色。').pack(
+        ttk.Label(row, text='编剧风格', style='Muted.TLabel').pack(side='left')
+        self.writer_style_button = SecondaryButton(row, text='编辑编剧风格', width=14,
+                                                   command=self.open_writer_style_editor)
+        self.writer_style_button.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
+        DescriptionBlock(row, text='编剧角色按此风格创作并审核五阶门控，例如参考好莱坞编剧；留空则不附加风格。').pack(
             side='left', padx=(SPACING['sm'], SPACING['none']))
         return row
 
-    def choose_hollmwood_editor(self):
-        """下拉项只是编辑入口；选中后打开对应页面并复位，允许重复编辑同一项。"""
-        fields = {
-            '节奏模板': stage_config.HOLLMWOOD_RHYTHM,
-            '导演规则': stage_config.HOLLMWOOD_DIRECTOR,
-            '编剧规则': stage_config.HOLLMWOOD_WRITER,
-            '编辑规则': stage_config.HOLLMWOOD_EDITOR,
-            '演员规则': stage_config.HOLLMWOOD_ACTOR,
-        }
-        field = fields.get(self.hollmwood_editor_choice.get())
-        if field is None:
-            return None
-        self.hollmwood_editor_choice.set('选择要编辑的内容')
-        return self.open_hollmwood_editor(field)
-
-    def open_hollmwood_editor(self, field):
-        """在独立弹窗编辑项目级覆盖；不写程序内置模板，便于恢复默认。"""
+    def open_writer_style_editor(self):
+        """在独立弹窗编辑项目级编剧风格；留空即不附加，不写程序内置 SKILL。"""
         project = desktop_project(self.desktop)
         if not project:
             notify(self.winfo_toplevel(), '请先选择项目。', title=TITLE, status=getattr(self.desktop, 'status', None))
             return None
-        import hollmwood_roles
-        is_rhythm = field == stage_config.HOLLMWOOD_RHYTHM
-        labels = {stage_config.HOLLMWOOD_DIRECTOR: '导演规则', stage_config.HOLLMWOOD_WRITER: '编剧规则',
-                  stage_config.HOLLMWOOD_EDITOR: '编辑规则', stage_config.HOLLMWOOD_ACTOR: '演员规则'}
-        title = '编辑节奏模板' if is_rhythm else labels.get(field, '角色规则')
-        default = (hollmwood_roles.load_rhythm_template()
-                   if is_rhythm else hollmwood_roles.default_role_rules(next(role for role, key in {
-                       'director': stage_config.HOLLMWOOD_DIRECTOR, 'writer': stage_config.HOLLMWOOD_WRITER,
-                       'editor': stage_config.HOLLMWOOD_EDITOR, 'actor': stage_config.HOLLMWOOD_ACTOR}.items() if key == field)))
-        current = stage_config.get(project, self.stage).get(field, '') or default
+        title = '编辑编剧风格'
+        current = stage_config.writer_style(project, self.stage)
         window = BaseDialog(self.winfo_toplevel(), title + ' · ' + stage_label(self.stage),
                             minsize=(620, 430), modal=False, chrome=False)
         body = ttk.Frame(window, padding=SPACING['md'])
         body.pack(fill='both', expand=True)
-        DescriptionBlock(body, text='项目级规则：保存后仅在本项目下一次 HOLLMWOOD 四角色运行时生效。').pack(
+        DescriptionBlock(body, text='项目级风格：保存后仅在本项目下一次创作自然剧本时生效。'
+                                    '例如：参考好莱坞编剧，三幕结构清晰，每场戏有明确目标与阻碍，对白短促并带潜台词。').pack(
             anchor='w', pady=(SPACING['none'], SPACING['sm']))
         editor = TextArea(body, wrap='word', undo=True, font=FONTS['body'],
                          bg=COLORS['background_card'], fg=COLORS['text_primary'],
@@ -776,24 +748,20 @@ class Panel(ttk.Frame):
         actions = ttk.Frame(body)
         actions.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
 
-        def save_override():
-            value = editor.get('1.0', 'end-1c').strip()
-            kwargs = ({'hollmwood_rhythm_template': value} if is_rhythm else {field: value})
-            stage_config.put(project, self.stage, **kwargs)
-            self.state.configure(text=title + '已保存；下一次 HOLLMWOOD 创作将使用此规则。')
+        def save_style():
+            stage_config.put(project, self.stage, writer_style=editor.get('1.0', 'end-1c').strip())
+            self.state.configure(text=title + '已保存；下一次自然剧本创作将使用此风格。')
             window.destroy()
 
-        def restore_default():
-            kwargs = ({'hollmwood_rhythm_template': ''} if is_rhythm else {field: ''})
-            stage_config.put(project, self.stage, **kwargs)
+        def clear_style():
+            stage_config.put(project, self.stage, writer_style='')
             editor.delete('1.0', 'end')
-            editor.insert('1.0', default)
-            self.state.configure(text=title + '已恢复内置默认规则。')
+            self.state.configure(text='编剧风格已清空，不再附加项目级风格。')
 
-        PrimaryButton(actions, text='保存规则', width=12,
-                      command=save_override).pack(side='left')
-        SecondaryButton(actions, text='恢复内置默认', width=14,
-                        command=restore_default).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+        PrimaryButton(actions, text='保存风格', width=12,
+                      command=save_style).pack(side='left')
+        SecondaryButton(actions, text='清空风格', width=12,
+                        command=clear_style).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
         SecondaryButton(actions, text='取消', width=12,
                         command=window.destroy).pack(side='right')
         return window
@@ -1521,8 +1489,6 @@ class Panel(ttk.Frame):
             return None
         kept = self.drop_mismatched(entry.get('model') or model_router.AUTO, entry.get('skills'))
         self.set_model(kept or model_router.AUTO)
-        if self.stage in stage_config.HOLLMWOOD_STAGES:
-            self.hollmwood_enabled_var.set(bool(entry.get(stage_config.HOLLMWOOD_ENABLED, True)))
         chosen = set(entry.get('skills') or [])
         for name, var in self.vars.items():
             var.set(name in chosen)
@@ -1556,11 +1522,8 @@ class Panel(ttk.Frame):
         """保存阶段选择；SKILL 自动保存时用 save_model=False 保留已确认模型。"""
         project = self.project()
         names = self.selected()
-        kwargs = {}
-        if self.stage in stage_config.HOLLMWOOD_STAGES:
-            kwargs['hollmwood_enabled'] = self.hollmwood_enabled_var.get()
         entry = stage_config.put(project, self.stage, model=self.model_id() if save_model else None,
-                                 skills=names, registry=self.registry, **kwargs)
+                                 skills=names, registry=self.registry)
         if not quiet:
             self.state.configure(text='已保存：%d 个 SKILL' % len(names))
         return entry

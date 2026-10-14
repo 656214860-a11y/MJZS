@@ -9,11 +9,11 @@ def _register(layer: int, *names: str) -> None:
     for name in names:
         LAYERS[name] = layer
 
-_register(0, "pet_bus", "hollmwood_rules", "script_contract", "script_manifest_contract", "asset_contract", "episode_contract", "service_contract", "project_context", "stage_layout", "stage_path_service", "storyboard_paths", "project_stages", "platform_tools",
+_register(0, "pet_bus", "script_contract", "script_manifest_contract", "asset_contract", "episode_contract", "service_contract", "project_context", "stage_layout", "stage_path_service", "storyboard_paths", "project_stages", "platform_tools",
           "prompt_templates", "shot_batches", "production_model_contract", "app_metadata")
 _register(1, "model_pool", "model_secrets", "pet_llm", "file_cache", "hash_backend",
           "storage_maintenance", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger")
-_register(2, "keyframe_evidence", "animatic_service", "writing_files", "writing_roles", "writing_workflow", "idea_chat", "idea_brief_form", "idea_attachments", "idea_script_heuristic", "idea_document_paths", "idea_transcript", "download_inbox",
+_register(2, "keyframe_evidence", "animatic_service", "writing_files", "writing_workflow", "idea_chat", "idea_brief_form", "idea_attachments", "idea_script_heuristic", "idea_document_paths", "idea_transcript", "download_inbox",
           "storyboard_lifecycle", "storyboard_catalog_service",
           "storyboard_edit_service",
           "asset_context", "asset_gating", "asset_batch_lifecycle",
@@ -39,7 +39,7 @@ _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audi
           "projects", "script_preview_service", "script_workspace_service", "stage_workspace_service",
           "storyboard_adoption_contract", "storyboard_rows_service",
           "storyboard_storage", "subtitle_export_service", "video_lifecycle_service", "video_prompt_publication",
-          "video_task_state", "workflow_context", "writing", "writing_tools", "hollmwood_roles", "writing_quality")
+          "video_task_state", "workflow_context", "writing", "writing_tools", "writing_quality")
 _register(3, "image_agent_runner", "keyframe_model_service", "skill_budget", "skill_templates", "subtitle_export_controller",
           "stage_handler_registry", "stage_model_value", "storyboard_recycle_service", "workflow_context_controller", "workflow_engines", "recycle_recovery_controller")
 _register(4, "environment_check", "version_picker", "skill_import_service", "master_skill", "asset_prompt_rules", "asset_reference_images", "asset_reference_import", "asset_reference_prompts",

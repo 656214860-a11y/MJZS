@@ -485,12 +485,7 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     if locks:
         profile['workflow_lock'] = locks
     if stage == 'writing':
-        rhythm, _ = stage_config.hollmwood_rules(project, 'script')
-        profile['hollmwood'] = {
-            'enabled': stage_config.hollmwood_enabled(project, 'script'),
-            'rhythm': rhythm,
-            'roles': stage_config.hollmwood_role_rules(project, 'script'),
-        }
+        profile['writer_style'] = stage_config.writer_style(project, 'script')
     name = str(workflow.get('name') or '').strip()
     preset = refresh_workflow_presets().get(name, {})
     if preset:
@@ -510,35 +505,22 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     return {'engine':engine, 'stage':stage, 'display_model':display_model, **profile}
 
 
-def hollmwood_summary(config, stage=None):
-    """来自本次配置快照的可见摘要，不读取或暴露创作正文。"""
+def writer_style_summary(config, stage=None):
+    """任务书可见摘要：只说明是否带了项目级编剧风格，不暴露风格正文。"""
     stage = stage if stage is not None else config.get('stage')
-    if stage != 'writing' or 'hollmwood' not in config:
+    if stage != 'writing' or not str(config.get('writer_style') or '').strip():
         return ''
-    if config['hollmwood']['enabled']:
-        return 'HOLLMWOOD 四角色协作：已启用（导演→编剧→编辑→演员）'
-    return 'HOLLMWOOD 四角色协作：未启用；以本次设置为准，不沿用历史四角色规则。'
+    return '编剧风格：已启用本项目编剧风格（编剧角色创作并审核五阶门控）'
 
 
-def hollmwood_prompt(config, stage=None):
-    """首次与续发同源，内置规则和项目覆盖的优先级与 API 四角色一致。"""
-    summary = hollmwood_summary(config, stage)
-    if not summary:
+def writer_style_prompt(config, stage=None):
+    """项目级编剧风格；首次与续发同源，只在剧本准备阶段注入，空风格不占请求。"""
+    stage = stage if stage is not None else config.get('stage')
+    style = str(config.get('writer_style') or '').strip() if stage == 'writing' else ''
+    if not style:
         return ''
-    settings = config['hollmwood']
-    if not settings['enabled']:
-        return summary + '\n'
-    from hollmwood_rules import SINGLE_WINDOW_COLLABORATION
-    from hollmwood_roles import load_rhythm_template, rhythm_prompt
-    rhythm = rhythm_prompt(settings['rhythm'] or load_rhythm_template())
-    parts = [summary, SINGLE_WINDOW_COLLABORATION]
-    if rhythm:
-        parts.append(rhythm)
-    for role, label in (('director', '导演'), ('writer', '编剧'), ('editor', '编辑'), ('actor', '演员')):
-        override = settings['roles'].get(role, '')
-        if override:
-            parts.append('本项目' + label + '角色规则（优先遵守）：\n' + override)
-    return '\n'.join(parts) + '\n'
+    return ('本项目编剧风格（编剧角色创作与审核五阶门控时优先遵守，不改变阶段交付物与单集时长）：' + chr(10)
+            + style + chr(10))
 
 
 _STORE_PACKAGE=re.compile(r'^(?P<head>.*\\WindowsApps\\)(?P<name>[^\\_]+)_[^\\_]+_(?P<arch>[^\\_]+)__(?P<publisher>[^\\]+)\\(?P<rest>.+)$',re.I)
@@ -833,9 +815,6 @@ def freeze_skills(config):
     blocked = master_gate(frozen, check_references=False)
     if blocked:
         raise ValueError(blocked)
-    if frozen.get('hollmwood', {}).get('enabled') and not frozen['hollmwood'].get('rhythm'):
-        from hollmwood_roles import load_rhythm_template
-        frozen['hollmwood']['rhythm'] = load_rhythm_template()
     selected, loaded, bodies, references, seen = [], [], [], [], set()
     for item in [*(frozen.get('stage_skills') or ()), *skills_of(frozen)]:
         path = Path(item).resolve()

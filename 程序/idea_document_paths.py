@@ -186,7 +186,7 @@ BRIEF_COMPLETE_NAME = 'brief_complete.json'
 
 
 def brief_raw_path(context):
-    """HOLLMWOOD 的原始用户简报（唯一文件：brief_creation.md）。"""
+    """剧本准备的原始用户简报（唯一文件：brief_creation.md）。"""
     from project_stages import writing
     return writing(_context(context).root) / BRIEF_RAW_NAME
 
@@ -198,6 +198,6 @@ def legacy_brief_raw_path(context):
 
 
 def brief_complete_path(context):
-    """经完整性检查后才会出现的 HOLLMWOOD 输入文件。"""
+    """经完整性检查后才会出现的剧本准备输入文件。"""
     from project_stages import writing
     return writing(_context(context).root) / BRIEF_COMPLETE_NAME

@@ -145,7 +145,7 @@ def _first_sentence(text, words):
 
 
 def natural_script_paths(project):
-    """返回全部用户可见自然剧本，明确排除 HOLLMWOOD 的内部副本。"""
+    """返回全部用户可见自然剧本，明确排除内部工作稿副本。"""
     from stage_path_service import read_dirs
     project = Path(project)
     # 新项目只写 01剧本准备；这里保留旧 writing 的只读兼容，方便打开历史项目，
@@ -806,13 +806,13 @@ STAGE = '00_script'
 SCRIPT_SKILL_STAGES = ('script', 'script_structure')
 # stage_layout.STAGES 通过兼容键引用它，两处不会各写一份。
 
-# HOLLMWOOD 剧本准备的节奏约束是 SKILL 输入模板，不是本阶段新增产物；因此不加入
+# 剧本准备的节奏约束是 SKILL 输入模板，不是本阶段新增产物；因此不加入
 # STAGE_OUTPUTS，避免被完整性检查误判成必须生成的 manifest。后续编排器只通过这个字段
 # 引用模板，不复制路径字符串。
 RHYTHM_TEMPLATE_FIELD = 'rhythm_template'
 RHYTHM_TEMPLATE_PATH = 'skills/templates/rhythm_template.yaml'
 
-# HOLLMWOOD 的输入简报同样由本契约统一命名；创意接收层只负责从用户原话提取并落盘，
+# 剧本准备的输入简报同样由本契约统一命名；创意接收层只负责从用户原话提取并落盘，
 # 不在 idea_chat.py 再复制一套“哪些字段必须有”的判断。
 BRIEF_REQUIRED_FIELDS = ('story_summary', 'main_characters', 'genre', 'length')
 INLINE_REQUIRED_LABELS = ('故事梗概', '故事题材', '故事角色', '故事集数', '单集时间')
@@ -890,12 +890,12 @@ WORKFLOW_LOCK_SCHEMA = {
 
 
 def rhythm_template_reference():
-    """HOLLMWOOD 创意简报引用的节奏模板字段。"""
+    """创意简报引用的节奏模板字段。"""
     return {RHYTHM_TEMPLATE_FIELD: RHYTHM_TEMPLATE_PATH}
 
 
 def normalize_brief(values=None):
-    """将创意接收层的字段收敛到唯一的 HOLLMWOOD 输入简报形状。"""
+    """将创意接收层的字段收敛到唯一的剧本准备输入简报形状。"""
     source = values if isinstance(values, dict) else {}
     brief = {field: str(source.get(field) or '').strip() for field in BRIEF_FIELDS}
     locks = source.get(BRIEF_PRODUCTION_LOCKS_FIELD)
@@ -933,7 +933,7 @@ def normalize_workflow_projection(values=None):
 
 
 def brief_document(values):
-    """建立可供 HOLLMWOOD 读取的已确认简报，必填项未齐时拒绝伪造完成态。"""
+    """建立可供剧本准备读取的已确认简报，必填项未齐时拒绝伪造完成态。"""
     brief = normalize_brief(values)
     missing = missing_brief_fields(brief)
     if missing:

@@ -281,16 +281,16 @@ def confirm_writing_preparation(project, stage, path):
 
 
 
-def reply_to_writing(project, creative, progress=None, cancelled=None, stream=None, *, user_message=None, request_model=None):
+def reply_to_writing(project, creative, cancelled=None, *, user_message=None, request_model=None):
     """剧本模型调用编排：为所有可见剧本成果注入统一发布器。"""
     from writing_api import reply
     try:
-        return reply(project, creative, progress=progress, cancelled=cancelled, stream=stream,
+        return reply(project, creative, cancelled=cancelled,
                      publish=publish_stage_text, archive=publish_response_archive, user_message=user_message, request_model=request_model)
     except (ValueError, OSError, RuntimeError) as exc:
-        from hollmwood_roles import RoleCancelledError
+        from writing_api import WritingCancelledError
         response = getattr(exc, 'rejected_response', None)
-        if isinstance(exc, RoleCancelledError) or response is None:
+        if isinstance(exc, WritingCancelledError) or response is None:
             raise
         return response
 

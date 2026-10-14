@@ -12,7 +12,7 @@ import project_stages
 import script_contract
 import stage_config
 import writing_api
-from hollmwood_roles import RoleCancelledError
+from writing_api import WritingCancelledError
 from idea_chat_controller import IdeaChatController
 from stage_execution_service import publish_stage_text
 from tests.test_workflow import make_project
@@ -23,7 +23,7 @@ class WritingCancellationTests(unittest.TestCase):
         temp = tempfile.TemporaryDirectory(); self.addCleanup(temp.cleanup)
         self.project = make_project(temp.name)
         stage_config.put(self.project, 'script', model='gpt-4o',
-                         skills=['pipeline-script-preparation'], hollmwood_enabled=False)
+                         skills=['pipeline-script-preparation'])
         writing = self.project / 'writing'; writing.mkdir(exist_ok=True)
         brief = script_contract.brief_document({
             'story_summary': '雨夜少年发现会说话的底片。', 'main_characters': '少年和老板',
@@ -40,7 +40,7 @@ class WritingCancellationTests(unittest.TestCase):
         self.cancelled.set()
         with patch('writing_api.PoolAdapter.chat') as chat, \
                 patch('workflow_context_controller.publish_writing_context') as context:
-            with self.assertRaises(RoleCancelledError):
+            with self.assertRaises(WritingCancelledError):
                 writing_api.reply(self.project, '创作', cancelled=self.cancelled.is_set)
         chat.assert_not_called(); context.assert_not_called()
 
@@ -52,7 +52,7 @@ class WritingCancellationTests(unittest.TestCase):
             self.cancelled.set()
             return {'ok': True, 'text': self.text}
         with patch('writing_api.PoolAdapter.chat', side_effect=chat):
-            with self.assertRaises(RoleCancelledError):
+            with self.assertRaises(WritingCancelledError):
                 writing_api.reply(self.project, '创作', cancelled=self.cancelled.is_set,
                                   publish=publish_stage_text)
         self.assertEqual(target.read_text(encoding='utf-8'), '原有稿件')
@@ -65,7 +65,7 @@ class WritingCancellationTests(unittest.TestCase):
         publish = Mock()
         with patch('writing_api.PoolAdapter.chat', return_value={'ok': True, 'text': self.text}), \
                 patch('writing_api._write_script_raw', side_effect=cancel_before_publish):
-            with self.assertRaises(RoleCancelledError):
+            with self.assertRaises(WritingCancelledError):
                 writing_api.reply(self.project, '创作', cancelled=self.cancelled.is_set, publish=publish)
         publish.assert_not_called()
 
@@ -80,7 +80,7 @@ class WritingCancellationTests(unittest.TestCase):
             self.cancelled.set(); return self.tool_response()
         adapter = SimpleNamespace(chat=Mock(side_effect=chat))
         with patch('writing_api.writing_tools.execute') as execute:
-            with self.assertRaises(RoleCancelledError):
+            with self.assertRaises(WritingCancelledError):
                 writing_api._reply_with_project_tools(adapter, 'model', '', '创作', self.project,
                                                       cancelled=self.cancelled.is_set)
         execute.assert_not_called(); self.assertEqual(adapter.chat.call_count, 1)
@@ -90,7 +90,7 @@ class WritingCancellationTests(unittest.TestCase):
         def execute(*args, **kwargs):
             self.cancelled.set(); return {'content': '材料'}
         with patch('writing_api.writing_tools.execute', side_effect=execute) as tool:
-            with self.assertRaises(RoleCancelledError):
+            with self.assertRaises(WritingCancelledError):
                 writing_api._reply_with_project_tools(adapter, 'model', '', '创作', self.project,
                                                       cancelled=self.cancelled.is_set)
         self.assertEqual(tool.call_count, 1); self.assertEqual(adapter.chat.call_count, 1)
@@ -102,7 +102,7 @@ class WritingCancellationTests(unittest.TestCase):
             self.cancelled.set()
             kwargs['publish'](self.project / 'late.md', '迟到内容', bool, lambda _: None)
         with patch('writing_api.writing_tools.execute', side_effect=execute):
-            with self.assertRaises(RoleCancelledError):
+            with self.assertRaises(WritingCancelledError):
                 writing_api._reply_with_project_tools(adapter, 'model', '', '创作', self.project,
                                                       cancelled=self.cancelled.is_set, publish=publish)
         publish.assert_not_called()
@@ -117,7 +117,7 @@ class WritingCancellationTests(unittest.TestCase):
             return {'ok': True, 'text': self.text}
         publish = Mock()
         with patch('writing_api.PoolAdapter.chat', side_effect=chat):
-            with self.assertRaises(RoleCancelledError):
+            with self.assertRaises(WritingCancelledError):
                 writing_api.reply(self.project, '创作', cancelled=old_event.is_set, publish=publish)
         publish.assert_not_called(); self.assertTrue(controller.requesting)
 

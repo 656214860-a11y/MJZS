@@ -133,7 +133,7 @@ class WritingResponsePreservationTests(unittest.TestCase):
         self.assertFalse((self.target.parent / 'responses').exists())
 
     def test_cancel_after_response_preserves_body_without_adoption(self):
-        from hollmwood_roles import RoleCancelledError
+        from writing_api import WritingCancelledError
         restart_writing_preparation(self.project, '项目设定')
         before = self.target.read_bytes()
         stopped = False
@@ -142,7 +142,7 @@ class WritingResponsePreservationTests(unittest.TestCase):
             stopped = True
             return {'ok': True, 'text': '# 项目设定\n已返回的正文。\n待确认'}
         with patch('writing_api.PoolAdapter.chat', side_effect=returned):
-            with self.assertRaisesRegex(RoleCancelledError, '原始响应已保存'):
+            with self.assertRaisesRegex(WritingCancelledError, '原始响应已保存'):
                 writing_api.reply(self.project, '重写', publish=publish_stage_text,
                                   cancelled=lambda: stopped)
         self.assertEqual(self.target.read_bytes(), before)
@@ -219,7 +219,7 @@ class PreparationReplyStateTests(unittest.TestCase):
         self.assertIn('确认', message)
 
     def test_late_reply_after_cancel_reports_archive_in_error(self):
-        from hollmwood_roles import RoleCancelledError
+        from writing_api import WritingCancelledError
         restart_writing_preparation(self.project, '项目设定')
         before = self.target.read_bytes()
         stopped = False
@@ -228,7 +228,7 @@ class PreparationReplyStateTests(unittest.TestCase):
             stopped = True
             return {'ok': True, 'text': '# 项目设定\n取消后迟到的正文。\n待确认'}
         with patch('writing_api.PoolAdapter.chat', side_effect=returned):
-            with self.assertRaises(RoleCancelledError) as caught:
+            with self.assertRaises(WritingCancelledError) as caught:
                 writing_api.reply(self.project, '重写', publish=publish_stage_text,
                                   cancelled=lambda: stopped)
         message = str(caught.exception)

@@ -1,11 +1,9 @@
-"""阶段制作锁、SKILL 路径引用和桌面四角色共用规则。"""
+"""阶段制作锁、SKILL 路径引用和项目级编剧风格。"""
 import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-import hollmwood_roles
-import hollmwood_rules
 import idea_chat
 import script_contract as contract
 import workflow_engines
@@ -112,28 +110,17 @@ class InlineSkillTests(unittest.TestCase):
 
 
 class StagePromptGovernanceTests(unittest.TestCase):
-    def test_hollmwood_authority_and_handoff_contract(self):
-        expected = {
-            'DIRECTOR_PLAN_RULES': ('用户确认', 'SKILL', '单集时间'),
-            'WRITER_RULES': ('完整自然语言剧本', '对白字数按所选 SKILL', '结尾悬念',
-                             '禁止结构化剧本', '只输出剧本正文'),
-            'EDITOR_RULES': ('完整改写', '逻辑断裂', '人物动机', '转场', '保留导演节奏要求'),
-            'ACTOR_RULES': ('可表演', '不得新增无依据角色或改变结局卡点', '完整剧本正文'),
-            'DIRECTOR_REVIEW_RULES': ('所选 SKILL 与已确认简报', '单集时间',
-                                      '动作必须可视化', '人物行为必须连贯', 'APPROVED', 'REVISE:'),
-        }
-        for name, duties in expected.items():
-            rule = getattr(hollmwood_rules, name)
-            with self.subTest(role=name):
-                for duty in duties:
-                    self.assertIn(duty, rule)
-                self.assertEqual(hollmwood_rules.SINGLE_WINDOW_COLLABORATION.count(rule), 1)
-        text = hollmwood_rules.SINGLE_WINDOW_COLLABORATION
-        for obsolete in ('黄金', '冲突升级', '情绪转折', '反形容词', '20 字', '20字',
-                         '20 个汉字', '60–90', '60-90', '100秒', '100 秒',
-                         '≤24', '6~18', '6～18'):
-            self.assertNotIn(obsolete, text)
-        self.assertIn('最终只交付第④阶段的完整剧本正文', text)
+    def test_writer_style_prompt_is_project_scoped_and_optional(self):
+        self.assertEqual(workflow_settings.writer_style_prompt({'stage': 'writing'}), '')
+        self.assertEqual(workflow_settings.writer_style_prompt({'stage': 'writing', 'writer_style': '  '}), '')
+        config = {'stage': 'writing', 'writer_style': '参考好莱坞编剧，三幕结构清晰'}
+        prompt = workflow_settings.writer_style_prompt(config)
+        self.assertEqual(prompt.count('参考好莱坞编剧，三幕结构清晰'), 1)
+        self.assertIn('编剧角色', prompt)
+        self.assertEqual(workflow_settings.writer_style_prompt(config, 'storyboard'), '')
+        self.assertEqual(workflow_settings.writer_style_summary({'stage': 'writing'}), '')
+        self.assertIn('编剧风格', workflow_settings.writer_style_summary(config))
+        self.assertNotIn('参考好莱坞', workflow_settings.writer_style_summary(config))
 
     def test_story_fields_and_stage_lock_contract(self):
         self.assertEqual(contract.INLINE_REQUIRED_LABELS,
@@ -189,22 +176,18 @@ class StagePromptGovernanceTests(unittest.TestCase):
             path.write_text('---\nname: chosen\n---\n独有的技能正文。', encoding='utf-8')
             config = {'engine': 'codex', 'stage': 'writing', 'stage_skills': [str(path)],
                       'skills': [str(path)], 'skill': str(path),
-                      'hollmwood': {'enabled': True, 'rhythm': '测试节奏', 'roles': {}},
+                      'writer_style': '参考好莱坞编剧',
                       'workflow_lock': {'aspect_ratio': '9:16', 'video_model_version': 'Seedance', 'delivery_format': 'markdown'}}
             prompt = workflow_engines.prompt_with_settings(script_prompt(td, None, 'writing'), config)
             self.assertEqual(prompt.count(f'请使用 [$chosen]({path.as_posix()})'), 1)
             self.assertNotIn('独有的技能正文。', prompt)
             self.assertNotIn('已完整注入', prompt)
-            self.assertIn('四阶段协作', prompt)
-            self.assertIn('依据已确认简报与所选 SKILL，输出本集节奏指令', prompt)
-            self.assertIn('依据导演指令与所选 SKILL，写一集完整自然语言剧本', prompt)
+            self.assertEqual(prompt.count('参考好莱坞编剧'), 1)
+            for obsolete in ('HOLLMWOOD', '四阶段协作', '节奏指令'):
+                self.assertNotIn(obsolete, prompt)
             self.assertIn('制作锁：delivery_format=markdown', prompt)
             for unwanted in ('ComfyUI', 'Blender', '制作锁：aspect_ratio=', '制作锁：video_model_version='):
                 self.assertNotIn(unwanted, prompt)
-            for rules in (hollmwood_rules.DIRECTOR_PLAN_RULES, hollmwood_rules.WRITER_RULES,
-                          hollmwood_rules.EDITOR_RULES, hollmwood_rules.ACTOR_RULES,
-                          hollmwood_rules.DIRECTOR_REVIEW_RULES):
-                self.assertEqual(prompt.count(rules), 1)
 
     def test_selected_skills_are_path_references_for_all_engines_and_stages(self):
         with tempfile.TemporaryDirectory() as td:
@@ -230,11 +213,6 @@ class StagePromptGovernanceTests(unittest.TestCase):
                             self.assertIn('制作锁：delivery_format=markdown', prompt)
                             self.assertNotIn('制作锁：aspect_ratio=', prompt)
                             self.assertNotIn('制作锁：video_model_version=', prompt)
-
-    def test_api_role_wrappers_share_exact_rules(self):
-        for role in ('director_plan', 'writer', 'editor', 'actor', 'director_review'):
-            self.assertEqual(getattr(hollmwood_roles, '_' + role + '_system')(),
-                             getattr(hollmwood_rules, role.upper() + '_RULES'))
 
     def test_media_apps_and_header_for_other_stages(self):
         config = {'engine': 'codex', 'skill': '', 'workflow_lock': {'aspect_ratio': '9:16', 'delivery_format': 'markdown', 'custom': 'keep'}}

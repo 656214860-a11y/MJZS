@@ -49,7 +49,7 @@ DEFAULTS = {
 TIERS = ('flash', 'pro')
 MAX_OUTPUT_CEILING = 2048
 # 三虎意图模型只负责路由和短答，不能把整份剧本／资产清单塞进快照；正文创作仍走
-# writing_api / HOLLMWOOD 的独立预算。限制按字符而非估算 token，保证本地离线也可预测。
+# writing_api 的独立预算。限制按字符而非估算 token，保证本地离线也可预测。
 REQUEST_CONTEXT_MAX_CHARS = 16000
 REQUEST_DIRECTIVE_MAX_CHARS = 16000
 RETRY_DELAYS = (30, 60, 120)

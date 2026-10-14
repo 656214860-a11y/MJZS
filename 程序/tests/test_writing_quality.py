@@ -138,22 +138,20 @@ class QualityTests(unittest.TestCase):
                 self.assertTrue(quality.enabled(instructions))
                 self.assertEqual(instructions.count('【四项辅助质检交付】'), 1)
 
-    def test_four_roles_keep_seven_calls_and_rejected_body(self):
-        from test_hollmwood_roles import FakeAdapter
-        from agent.core import save_text
-        import hollmwood_roles as roles
-        response = envelope()
-        with tempfile.TemporaryDirectory() as td:
-            adapter = FakeAdapter(['计划', response, 'APPROVED', response, 'APPROVED', response, 'APPROVED'])
-            result = roles.run(adapter, 'test-model', '创意', rhythm_template='规则', log_folder=td,
-                               skill_instructions=quality.prompt(), publish_log=save_text)
-            self.assertEqual(len(adapter.prompts), 7)
-            self.assertEqual(result.data['script'], response)
-            adapter = FakeAdapter(['计划', response, 'REVISE: 情节需修改'])
-            with self.assertRaises(roles.RoleExecutionError) as caught:
-                roles.run(adapter, 'test-model', '新创意', rhythm_template='规则', log_folder=td,
-                          max_revisions=0, publish_log=save_text)
-            self.assertEqual(caught.exception.response_text, response)
+    def test_quality_prompt_assigns_each_report_to_one_review_role(self):
+        text = quality.prompt()
+        for duty in ('编剧角色审核五阶门控', '编辑角色审核 12 个情绪节拍', '演员角色完成台词七维诊断与语速检查'):
+            self.assertEqual(text.count(duty), 1, duty)
+        for obsolete in ('导演', 'APPROVED', 'REVISE', 'HOLLMWOOD'):
+            self.assertNotIn(obsolete, text)
+
+    def test_skill_defines_roles_and_editable_writer_style(self):
+        skill = Path(__file__).resolve().parents[1] / 'skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md'
+        body = skill.read_text(encoding='utf-8')
+        for duty in ('编剧风格', '编剧角色 · 剧本五阶门控', '编辑角色 · 情绪节拍曲线',
+                     '演员角色 · 台词七维诊断', '演员角色 · 台词语速自检'):
+            self.assertIn(duty, body)
+        self.assertNotIn('HOLLMWOOD', body)
 
     def test_desktop_new_file_receipt_notifies_once_without_scanning(self):
         from desktop import Desktop

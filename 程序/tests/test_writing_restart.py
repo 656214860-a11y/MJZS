@@ -141,14 +141,15 @@ class WritingRestartTests(unittest.TestCase):
             with self.subTest(stage=stage), self.assertRaises(ValueError):
                 restart_writing_preparation(self.project, stage)
 
-    def test_confirm_rewritten_character_supplies_new_text_to_four_roles(self):
+    def test_confirm_rewritten_character_supplies_new_text_to_script_request(self):
         restart_writing_preparation(self.project, '角色卡')
         self.reply('人物设定（角色卡）')
-        with patch('writing_api._hollmwood_reply', return_value={'ok': True}) as roles, \
-             patch('writing_api.PoolAdapter.chat', return_value={
-                 'ok': True, 'text': '{"next_stage": "自然剧本"}'}):
+        with patch('writing_api.PoolAdapter.chat', side_effect=[
+                {'ok': True, 'text': '{"next_stage": "自然剧本"}'},
+                {'ok': True, 'text': '短回复'}]) as chat:
             writing_api.reply(self.project, '确认', publish=publish_stage_text)
-        confirmed = roles.call_args.args[4]['已确认阶段文件']
+        task = chat.call_args_list[-1].args[0][0]['content']
+        confirmed = json.loads(task.split('<brief_complete>', 1)[1].split('</brief_complete>', 1)[0])['已确认阶段文件']
         self.assertIn('新版本', confirmed['角色卡'])
         self.assertIn('已确认的创作依据', confirmed['项目设定'])
         self.assertNotIn('revision', json.loads(self.target.read_text(encoding='utf-8')))

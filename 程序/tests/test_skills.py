@@ -981,22 +981,26 @@ class PanelTests(unittest.TestCase):
         panel.set_model('deepseek-v4-pro')
         self.assertEqual(panel.refresh_external_package_hint(), '')
 
-    def test_hollmwood_switch_is_visible_and_saved_with_the_panel(self):
+    def test_writer_style_entry_is_script_only_and_survives_panel_save(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
         def descendants(widget):
             return [child for item in widget.winfo_children()
                     for child in [item] + descendants(item)]
         controls = descendants(panel)
-        checkboxes = [child for child in controls if str(child.winfo_class()) == 'TCheckbutton'
-                      and child.cget('text') == '四角色协作']
-        self.assertEqual(len(checkboxes), 1)
-        self.assertTrue(panel.hollmwood_enabled_var.get())
-        panel.hollmwood_enabled_var.set(False)
+        buttons = [child for child in controls if str(child.winfo_class()) in ('TButton', 'Button')
+                   and child.cget('text') == '编辑编剧风格']
+        self.assertEqual(len(buttons), 1)
+        self.assertFalse([child for child in controls if str(child.winfo_class()) == 'TCheckbutton'
+                          and child.cget('text') == '四角色协作'])
+        stage_config.put(self.desktop.root, 'script', writer_style='参考好莱坞编剧')
         panel.save()
-        self.assertFalse(stage_config.hollmwood_enabled(self.desktop.root))
+        self.assertEqual(stage_config.writer_style(self.desktop.root), '参考好莱坞编剧')
         labels = [child.cget('text') for child in controls if str(child.winfo_class()) == 'TLabel']
-        self.assertTrue(any('关闭时按所选 SKILL 直发' in text for text in labels))
+        self.assertTrue(any('参考好莱坞编剧' in text for text in labels))
+        other = skill_panel.Panel(self.win, self.desktop, 'storyboard')
+        self.addCleanup(other.destroy)
+        self.assertIsNone(getattr(other, 'writer_style_button', None))
 
     def test_stage_panel_uses_compact_aligned_rows_and_short_hints(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
@@ -1028,20 +1032,28 @@ class PanelTests(unittest.TestCase):
         for name in ('TLabel', 'TCheckbutton', 'TLabelframe.Label'):
             self.assertEqual(style.lookup(name, 'font'), expected, name)
 
-    def test_hollmwood_editor_dropdown_is_above_skill_checks_and_opens_the_choice(self):
+    def test_writer_style_editor_is_above_skill_checks_and_saves_and_clears(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
         packed = list(panel.pack_slaves())
-        self.assertLess(packed.index(panel.hollmwood_editor.master.master),
+        self.assertLess(packed.index(panel.writer_style_button.master.master),
                         packed.index(panel.skill_list_outer.master.master))
         self.assertIs(panel.external_package_hint.master, panel.skill_action_row)
-        self.assertEqual(list(panel.hollmwood_editor.cget('values')),
-                         ['选择要编辑的内容', '节奏模板', '导演规则', '编剧规则', '编辑规则', '演员规则'])
-        with mock.patch.object(panel, 'open_hollmwood_editor', return_value='editor') as opened:
-            panel.hollmwood_editor_choice.set('编辑规则')
-            self.assertEqual(panel.choose_hollmwood_editor(), 'editor')
-        opened.assert_called_once_with(stage_config.HOLLMWOOD_EDITOR)
-        self.assertEqual(panel.hollmwood_editor_choice.get(), '选择要编辑的内容')
+        def descendants(widget):
+            return [child for item in widget.winfo_children()
+                    for child in [item] + descendants(item)]
+        window = panel.open_writer_style_editor()
+        self.addCleanup(lambda: window.winfo_exists() and window.destroy())
+        text = next(child for child in descendants(window) if str(child.winfo_class()) == 'Text')
+        text.insert('1.0', '  参考好莱坞编剧，三幕清晰  ')
+        next(child for child in descendants(window) if child.winfo_class() in ('TButton', 'Button')
+             and child.cget('text') == '保存风格').invoke()
+        self.assertEqual(stage_config.writer_style(self.desktop.root), '参考好莱坞编剧，三幕清晰')
+        window = panel.open_writer_style_editor()
+        self.addCleanup(lambda: window.winfo_exists() and window.destroy())
+        next(child for child in descendants(window) if child.winfo_class() in ('TButton', 'Button')
+             and child.cget('text') == '清空风格').invoke()
+        self.assertEqual(stage_config.writer_style(self.desktop.root), '')
 
     def test_stage_of_page_covers_the_production_pages(self):
         self.assertEqual([skill_panel.stage_of_page(index) for index in range(len(pet_bus.STAGES))],
@@ -1586,7 +1598,7 @@ class PanelTests(unittest.TestCase):
         self.assertTrue(clipped.endswith('...'))
         self.assertEqual(len(clipped), 12)
 
-    def test_hollmwood_precedes_three_column_skills_and_hint_is_single_line(self):
+    def test_writer_style_precedes_three_column_skills_and_hint_is_single_line(self):
         self.win.deiconify()
         self.win.geometry('1200x900')
         self.win.update_idletasks()
@@ -1596,9 +1608,9 @@ class PanelTests(unittest.TestCase):
         panel.external_package_hint.configure(text=skill_panel.EXTERNAL_PACKAGE_API_HINT)
         window.geometry('880x690')
         window.update()
-        row = panel.hollmwood_editor.master
+        row = panel.writer_style_button.master
         label = next(child for child in row.winfo_children()
-                     if child.winfo_class() == 'TLabel' and child.cget('text') == 'HOLLMWOOD')
+                     if child.winfo_class() == 'TLabel' and child.cget('text') == '编剧风格')
         self.assertGreaterEqual(label.winfo_width(), label.winfo_reqwidth())
         self.assertLess(row.master.winfo_y(), panel.skill_content.master.winfo_y())
         hint = panel.external_package_hint

@@ -22,17 +22,12 @@ import skill_registry
 PROGRAM = Path(__file__).resolve().parent
 CONFIG_NAME = 'skill_config.json'
 PRESET_PATH = ('配置', 'SKILL', '预设.json')
-# 只有实际走 HOLLMWOOD 四角色协作的阶段才会读取这两项。它们保存在项目配置，
-# 不改程序内置模板，确保一个项目的创作规则不会意外影响其他项目。
-HOLLMWOOD_STAGES = ('script',)
-HOLLMWOOD_ENABLED = 'hollmwood_enabled'
-HOLLMWOOD_RHYTHM = 'hollmwood_rhythm_template'
-HOLLMWOOD_DIRECTOR = 'hollmwood_director_rules'
-HOLLMWOOD_WRITER = 'hollmwood_writer_rules'
-HOLLMWOOD_EDITOR = 'hollmwood_editor_rules'
-HOLLMWOOD_ACTOR = 'hollmwood_actor_rules'
-HOLLMWOOD_ROLE_FIELDS = (HOLLMWOOD_DIRECTOR, HOLLMWOOD_WRITER,
-                          HOLLMWOOD_EDITOR, HOLLMWOOD_ACTOR)
+# 只有剧本阶段会读取「编剧风格」。它保存在项目配置，不改程序内置 SKILL，
+# 确保一个项目的创作风格不会意外影响其他项目。
+WRITER_STYLE_STAGES = ('script',)
+WRITER_STYLE = 'writer_style'
+# 旧版四角色协作的编剧规则字段；只读一次迁入编剧风格，下次保存即不再写出。
+_LEGACY_WRITER_RULES = 'hollmwood_writer_rules'
 
 # 启动建页会重复读取同一个项目阶段配置。缓存以落盘 mtime 为边界，返回副本，
 # 因而不改变调用方可修改返回值而不落盘的旧语义。
@@ -74,27 +69,23 @@ def default_entry(stage, registry=None):
     reg = registry or skill_registry.default_registry()
     entry = {'model': model_router.AUTO,
              'skills': [skill.name for skill in reg.getByStage(stage) if not skill.deprecated]}
-    if stage in HOLLMWOOD_STAGES:
-        entry.update(_hollmwood_fields({}))
+    if stage in WRITER_STYLE_STAGES:
+        entry.update(_writer_style_fields({}))
     return entry
 
 
-def clean_hollmwood_text(value):
-    """配置正文只接受文本；空值表示继续使用程序内置规则。"""
+def clean_writer_style(value):
+    """编剧风格只接受文本；空值表示不附加项目级风格要求。"""
     return str(value or '').strip()
 
 
-def clean_hollmwood_enabled(value):
-    """只有明确的布尔假值才关闭，旧项目缺键继续保持原来的四角色行为。"""
-    return value is not False
-
-
-def _hollmwood_fields(entry):
+def _writer_style_fields(entry):
     if not isinstance(entry, dict):
         return {}
-    return {HOLLMWOOD_ENABLED: clean_hollmwood_enabled(entry.get(HOLLMWOOD_ENABLED, True)),
-            HOLLMWOOD_RHYTHM: clean_hollmwood_text(entry.get(HOLLMWOOD_RHYTHM)),
-            **{field: clean_hollmwood_text(entry.get(field)) for field in HOLLMWOOD_ROLE_FIELDS}}
+    style = entry.get(WRITER_STYLE)
+    if style is None:
+        style = entry.get(_LEGACY_WRITER_RULES)
+    return {WRITER_STYLE: clean_writer_style(style)}
 
 
 def clean_model(value):
@@ -195,7 +186,7 @@ def load(project, registry=None):
         if entry:
             out[stage] = {'model': clean_model(entry.get('model')),
                           'skills': clean_skills(entry.get('skills'), stage, reg),
-                          **(_hollmwood_fields(entry) if stage in HOLLMWOOD_STAGES else {})}
+                          **(_writer_style_fields(entry) if stage in WRITER_STYLE_STAGES else {})}
         else:
             out[stage] = default_entry(stage, reg)
     return out
@@ -295,8 +286,8 @@ def save_all(project, data, workflow=None):
         entry = data.get(stage) or {}
         payload[stage] = {'model': clean_model(entry.get('model')),
                           'skills': list(entry.get('skills') or [])}
-        if stage in HOLLMWOOD_STAGES:
-            payload[stage].update(_hollmwood_fields(entry))
+        if stage in WRITER_STYLE_STAGES:
+            payload[stage].update(_writer_style_fields(entry))
     old = _workflow_data(project)
     selected_workflow = old.get('workflow') if workflow is None else workflow
     if isinstance(selected_workflow, dict):
@@ -328,15 +319,13 @@ def get(project, stage, registry=None):
         return result
     result = {'model': clean_model(entry.get('model')),
               'skills': clean_skills(entry.get('skills'), stage, reg)}
-    if stage in HOLLMWOOD_STAGES:
-        result.update(_hollmwood_fields(entry))
+    if stage in WRITER_STYLE_STAGES:
+        result.update(_writer_style_fields(entry))
     _GET_CACHE.setdefault(key, {})[stage] = copy.deepcopy(result)
     return result
 
 
-def put(project, stage, model=None, skills=None, registry=None,
-        hollmwood_enabled=None, hollmwood_rhythm_template=None, hollmwood_director_rules=None,
-        hollmwood_writer_rules=None, hollmwood_editor_rules=None, hollmwood_actor_rules=None):
+def put(project, stage, model=None, skills=None, registry=None, writer_style=None):
     """写一个阶段的配置：只改传进来的那几项，其余保持原样。"""
     reg = registry or skill_registry.default_registry()
     if stage not in STAGES:
@@ -347,39 +336,16 @@ def put(project, stage, model=None, skills=None, registry=None,
         entry['model'] = clean_model(model)
     if skills is not None:
         entry['skills'] = clean_skills(skills, stage, reg)
-    if stage in HOLLMWOOD_STAGES:
-        if hollmwood_enabled is not None:
-            entry[HOLLMWOOD_ENABLED] = clean_hollmwood_enabled(hollmwood_enabled)
-        if hollmwood_rhythm_template is not None:
-            entry[HOLLMWOOD_RHYTHM] = clean_hollmwood_text(hollmwood_rhythm_template)
-        for field, value in ((HOLLMWOOD_DIRECTOR, hollmwood_director_rules),
-                             (HOLLMWOOD_WRITER, hollmwood_writer_rules),
-                             (HOLLMWOOD_EDITOR, hollmwood_editor_rules),
-                             (HOLLMWOOD_ACTOR, hollmwood_actor_rules)):
-            if value is not None:
-                entry[field] = clean_hollmwood_text(value)
+    if stage in WRITER_STYLE_STAGES and writer_style is not None:
+        entry[WRITER_STYLE] = clean_writer_style(writer_style)
     data[stage] = entry
     save_all(project, data)
     return entry
 
 
-def hollmwood_enabled(project, stage='script', registry=None):
-    """本项目是否启用四角色协作；历史配置缺键默认启用以保持既有行为。"""
-    return clean_hollmwood_enabled(get(project, stage, registry).get(HOLLMWOOD_ENABLED, True))
-
-
-def hollmwood_rules(project, stage='script', registry=None):
-    """返回本阶段运行时覆盖；空文本由调用方回退至内置模板与角色规则。"""
-    entry = get(project, stage, registry)
-    return (entry.get(HOLLMWOOD_RHYTHM, ''), entry.get(HOLLMWOOD_DIRECTOR, ''))
-
-
-def hollmwood_role_rules(project, stage='script', registry=None):
-    """返回四角色各自的项目级覆盖；空值交由运行时使用内置角色规则。"""
-    entry = get(project, stage, registry)
-    return {role: entry.get(field, '') for role, field in (
-        ('director', HOLLMWOOD_DIRECTOR), ('writer', HOLLMWOOD_WRITER),
-        ('editor', HOLLMWOOD_EDITOR), ('actor', HOLLMWOOD_ACTOR))}
+def writer_style(project, stage='script', registry=None):
+    """返回本项目的编剧风格；空文本表示没有项目级风格要求。"""
+    return clean_writer_style(get(project, stage, registry).get(WRITER_STYLE, ''))
 
 
 def reset(project, stage, registry=None):

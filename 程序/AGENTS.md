@@ -253,11 +253,10 @@
 一律归类为**契约轮**，并保留本节要求的范围、验证和文档更新；结果报告和状态台账不得再使用未定义的组合类型。
 
 - 只改 `pet_bus` / `script_contract` / `asset_contract` /
-  `stage_layout` / `storyboard_paths` / `hollmwood_rules`。
+  `stage_layout` / `storyboard_paths`。
 - 不动 L1 以上。
 - 跑全量自检。
 - 更新 `AGENTS.md` 硬约束与 `architecture.md`。
-- HOLLMWOOD 的 L0 只定义角色职责、交接和审核机制；详细写作规则唯一遵循所选 SKILL，时长唯一遵循已确认 brief 的“单集时间”。不得在角色常量或默认节奏模板复制字数、时长或节拍指标。共享 SKILL、brief、导演计划的请求装配与空模板投影属于既有上层实现，不因本白名单扩充而纳入契约轮生产修改范围。
 
 ### 3.5 只读诊断轮
 
@@ -368,7 +367,6 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
 
 - 分层与一致性：`test_agents_md.py`、`test_layers.py`、`test_no_circular_import.py`、`test_path_authority.py`、`test_stage_paths.py`、`test_storyboard_edit_boundary.py`、`test_storyboard_final_selection_boundary.py`。
 - 写入与删除边界：`test_atomic_write_boundary.py`、`test_asset_batch_ledger_boundary.py`、`test_asset_batch_settings_boundary.py`、`test_asset_detail_binding_boundary.py`、`test_asset_generated_import_boundary.py`、`test_asset_image_import_boundary.py`、`test_asset_plan_publication_boundary.py`、`test_asset_rename_boundary.py`、`test_asset_image_removal_boundary.py`、`test_asset_image_restore_boundary.py`、`test_audio_import_boundary.py`、`test_cloud_video_settings_boundary.py`、`test_continuity_publication_boundary.py`、`test_delivery_import_boundary.py`、`test_desktop_settings_boundary.py`、`test_edit_publication_boundary.py`、`test_final_bundle_boundary.py`、`test_handoff_publication_boundary.py`、`test_keyframe_delete_boundary.py`、`test_keyframe_restore_boundary.py`、`test_keyframe_replace_boundary.py`、`test_keyframe_reference_publication_boundary.py`、`test_legacy_adoption_boundary.py`、`test_local_video_settings_boundary.py`、`test_manual_creative_publication_boundary.py`、`test_previs_routing_publication_boundary.py`、`test_stage_workspace_boundary.py`、`test_structured_script_write_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_tts_publication_boundary.py`、`test_video_delete_boundary.py`、`test_video_options_boundary.py`、`test_video_prompt_publication_boundary.py`、`test_video_publication_boundary.py`、`test_white_model_import_boundary.py`、`test_writing_preparation_path_boundary.py`、`test_deletion_gateway.py`、`test_remove_authority.py`、`test_recycle_service.py`。
-- 审计日志发布边界：`test_hollmwood_log_publication_boundary.py`。
 - 剧本重命名边界：`test_script_rename_boundary.py`。
 - 阶段/UI 契约：`test_dynamic_import_registry.py`、`test_stage_command_contract.py`、`test_completion_gate.py`、`test_event_bus_boundary.py`、`test_skill_dependency_dag.py`、`test_pipeline_stage_io_contract.py`、`test_skill_reference_injection.py`、`test_project_entry_boundary.py`。
 - 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_migrated_ui_boundaries.py`。

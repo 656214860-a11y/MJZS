@@ -24,7 +24,7 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
     def test_desktop_uses_l3_writing_entrypoint(self):
         stage_source = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
         desktop_source = (ROOT / 'desktop.py').read_text(encoding='utf-8')
-        self.assertIn('return reply(project, creative, progress=progress, cancelled=cancelled, stream=stream,', stage_source)
+        self.assertIn('return reply(project, creative, cancelled=cancelled,', stage_source)
         self.assertIn('publish=publish_stage_text)', stage_source)
         self.assertIn('from stage_execution_service import reply_to_writing', desktop_source)
 

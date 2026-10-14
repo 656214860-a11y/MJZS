@@ -1,15 +1,10 @@
 # -*- coding: utf-8 -*-
 """上下文预算：模型窗口相关预估与分项报告回归（O36）。"""
-import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import Mock
 
-import hollmwood_roles
 import workflow_context_budget as budget
 import writing_api
-from agent.core import save_text
-from model_router import ModelAdapter
 
 
 class TokenEstimateTests(unittest.TestCase):
@@ -107,45 +102,6 @@ class WritingAdapterBudgetTests(unittest.TestCase):
         self.assertTrue(result['ok'])
         self.assertLess(result['context_budget']['projected_tokens'],
                         result['context_budget']['context_limit'])
-
-
-class HollmwoodBudgetTests(unittest.TestCase):
-    def test_role_budget_uses_model_window_and_reserves_output(self):
-        with tempfile.TemporaryDirectory() as folder:
-            hollmwood_roles._ensure_context_budget('writer', '规则', '剧本' * 100, folder, 1,
-                                                   publish_log=save_text, context_limit=200000,
-                                                   output_reserved=8192)
-            with self.assertRaises(hollmwood_roles.RoleExecutionError) as caught:
-                hollmwood_roles._ensure_context_budget('writer', '规则', '剧本' * 100, folder, 2,
-                                                       publish_log=save_text, context_limit=2000,
-                                                       output_reserved=8192)
-            self.assertIn('上下文过长', str(caught.exception))
-            self.assertIn('模型上下文', str(caught.exception))
-
-    def test_four_roles_all_reserve_output_room(self):
-        with tempfile.TemporaryDirectory() as folder:
-            for step, role in enumerate(hollmwood_roles.ROLE_ORDER, start=1):
-                hollmwood_roles._ensure_context_budget(role, '规则', '简报' * 50, folder, step,
-                                                       publish_log=save_text, context_limit=64000,
-                                                       output_reserved=8192)
-
-    def test_ask_reads_record_context_length_before_calling_model(self):
-        program = Path(hollmwood_roles.__file__).resolve().parent
-        class NeverCalled(ModelAdapter):
-            def __init__(self):
-                super().__init__(program=program)
-                self.record = {'context_length': 4000}
-                self.calls = 0
-            def chat(self, *args, **kwargs):
-                self.calls += 1
-                return {'ok': True, 'text': '不应调用', 'error': ''}
-
-        with tempfile.TemporaryDirectory() as folder:
-            adapter = NeverCalled()
-            with self.assertRaises(hollmwood_roles.RoleExecutionError):
-                hollmwood_roles._ask(adapter, 'writer-model', 'writer', '规则',
-                                     '剧本' * 100, folder, 1, None, publish_log=save_text)
-            self.assertEqual(adapter.calls, 0)
 
 
 if __name__ == '__main__':
