@@ -694,7 +694,8 @@ class DesktopModelPoolTests(unittest.TestCase):
         import os
         import workflow_settings
         with tempfile.TemporaryDirectory() as td, patch.dict(os.environ, {'LOCALAPPDATA': td}), \
-                patch('workflow_settings.shutil.which', return_value='claude-code.exe') as cli:
+                patch('workflow_settings.shutil.which', return_value='claude-code.exe') as cli, \
+                patch('workflow_settings.store_package_program', return_value=''):
             with self.assertRaisesRegex(ValueError, 'Claude Desktop'):
                 workflow_settings.find_program({'engine': 'claude-desktop-app', 'program': ''})
             cli.assert_not_called()
