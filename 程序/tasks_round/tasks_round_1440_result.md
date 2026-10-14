@@ -28,3 +28,5 @@
 - 第一次后台全量在干净检出里出 100+ 条红：本仓库的 4 个 SKILL／参考包登记为 gitlink（无 .gitmodules），检出里是空目录。`auto_full_safe.py` 增加 `_fill_embedded_repos()`，把它们连 `.git` 从主树拷入 `.wt/ci`，检出保持干净（status 无输出）。
 - 修好后第二次后台全量（555 秒、HEAD 7efd764）只剩 2 条红，均为 R1439 的回归：`test_core` 的两个旧桩对象没有 `root`／`projects.info`／`win` 属性，而 `project_row_text`／`mark_current_project` 直接访问。已改成 `getattr` 容错（装饰性标记失败不得影响打开项目），`test_core`＋`project_switch_guard`＋`project_rename_reconcile` 定向通过。教训：R1439 当时只跑了 `-k project desktop_startup ui_edges`，漏掉了 `test_core`，这正是全量欠账要兜住的那类漂移。
 - 该次全量未全绿，所以没有写凭据；本提交触发的下一次后台全量用于清账。
+- 后台全量清账：HEAD `4407068` 的干净检出上 `--all --safe` 全绿（577 秒、退出码 0），凭据已写入 common-dir，`--status` 欠账归零，架构门禁 `test_full_safe_all_is_required_after_eight_source_rounds` 随之转绿。
+- 真实提交时钩子没起进程、手动 `git hook run post-commit` 却正常：原因是钩子环境里 git 导出的 `GIT_INDEX_FILE` 等变量被子进程继承。`spawn()` 现在剔除全部 `GIT_*` 再起子进程，`run()` 的启动异常写进日志；新增 `tests/test_auto_full_safe.py`（3 条）。该修复在下一次自然提交时做端到端复核。

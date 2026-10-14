@@ -73,8 +73,11 @@ def spawn() -> int:
     flags = 0
     if os.name == "nt":
         flags = subprocess.CREATE_NEW_PROCESS_GROUP | 0x00000008 | 0x08000000   # DETACHED | NO_WINDOW
+    # 钩子运行时 git 会导出 GIT_INDEX_FILE／GIT_DIR 等变量，指向正在提交的那份索引；
+    # 子进程若继承，它对 .wt/ci 的 checkout 会作用到错误的索引上并静默失败。
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     subprocess.Popen([sys.executable, "-B", str(Path(__file__).resolve()), "--run"],
-                     cwd=PROGRAM, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     cwd=PROGRAM, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL, creationflags=flags, close_fds=True)
     return 0
 
@@ -114,25 +117,33 @@ def run() -> int:
     lock.write_text(str(os.getpid()), encoding="utf-8")
     LOG.parent.mkdir(parents=True, exist_ok=True)
     try:
-        root = repo_root()
-        head = _git("rev-parse", "HEAD")
-        program = _sync_clean_worktree(root, head)
-        env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", PYTHONIOENCODING="utf-8",
-                   GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="safe.directory", GIT_CONFIG_VALUE_0="*")
-        with LOG.open("w", encoding="utf-8") as log:
-            log.write("[自动全量] 开始 %s HEAD=%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), head[:10]))
-            log.flush()
-            started = time.perf_counter()
-            result = subprocess.run([sys.executable, "-B", "run_selftests.py", "--all", "--safe"],
-                                    cwd=program, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
-            log.write("\n[自动全量] 退出码 %d，用时 %.0f 秒（0＝绿且凭据已写入）\n"
-                      % (result.returncode, time.perf_counter() - started))
-        return result.returncode
+        return _run_locked()
+    except Exception:
+        import traceback
+        LOG.write_text("[自动全量] 启动失败\n" + traceback.format_exc(), encoding="utf-8")
+        return 1
     finally:
         try:
             lock.unlink()
         except OSError:
             pass
+
+
+def _run_locked() -> int:
+    root = repo_root()
+    head = _git("rev-parse", "HEAD")
+    program = _sync_clean_worktree(root, head)
+    env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", PYTHONIOENCODING="utf-8",
+               GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="safe.directory", GIT_CONFIG_VALUE_0="*")
+    with LOG.open("w", encoding="utf-8") as log:
+        log.write("[自动全量] 开始 %s HEAD=%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), head[:10]))
+        log.flush()
+        started = time.perf_counter()
+        result = subprocess.run([sys.executable, "-B", "run_selftests.py", "--all", "--safe"],
+                                cwd=program, env=env, stdout=log, stderr=subprocess.STDOUT, check=False)
+        log.write("\n[自动全量] 退出码 %d，用时 %.0f 秒（0＝绿且凭据已写入）\n"
+                  % (result.returncode, time.perf_counter() - started))
+    return result.returncode
 
 
 def main(argv=None) -> int:
