@@ -42,3 +42,16 @@
 - GUI 令牌获取未正常返回，未改测试运行器、未绕过跨树令牌；需在令牌恢复后补跑剩余 GUI 与完整定向范围。
 - I 锁仅预设入口；递进式技法家族、导演卡推荐、参数转译仍由模型按协议完成，未实现该对话流程。
 - 未改任何 *.skill.md、全流程包内文件或 project_status.md；未领取轮次、提交、切分支、合并或推送。
+
+## 2026-10-16 验收回归修复（R1483 后续，限 25 分钟）
+- 范围：仅 R1482 工作树；修改 skill_panel.py，不改原三条测试断言，不碰主树。
+- 原因：旧项目锁提示复用了 panel.state；新增锁全部展开，换行高度挤出了底部栏。
+- 改动：锁兼容提示、保存结果及同步错误移入锁区独立 lock_notice；四项新增选填锁默认折叠到“更多制作锁”，保持隐藏值保存和跨行模型依赖联动。
+- 复现：test_skills.PanelTests，Ran 71 tests in 18.146s，FAILED (failures=3)；修复后原三条定向复验 Ran 3 tests in 5.590s，OK。
+- 以下均在 程序 目录，PYTHONPATH=tests，以 D:\漫剧制作助手\运行环境\Python\python.exe -B -m unittest <模块> 执行，无 GUI 令牌：
+  - test_skills：Ran 148 tests in 68.086s / OK。
+  - test_skill_panel_production_locks：Ran 1 test in 1.262s / OK。
+  - test_script_contract_production_locks：Ran 6 tests in 0.044s / OK。
+  - test_master_skill：Ran 18 tests in 0.798s / OK。
+- 附加临时 Tk 检查：默认折叠、展开收起保值、隐藏值保存、模型切换后参考模式置灰、保存不覆盖预设提示，Ran 1 test in 0.861s / OK；git diff --check 通过。
+- 本次三条回归无未解决项；历史其他范围的验证边界保持不变，未提交或合并。

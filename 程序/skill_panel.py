@@ -776,33 +776,58 @@ class Panel(ttk.Frame):
             self.workflow_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
             self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
         from production_lock_fields import ProductionLockFields
+        from script_contract import PRODUCTION_LOCK_DEFINITIONS
+        optional = {'reference_mode', 'splice_mode', 'style_base', 'style_directors'}
         self.lock_row = ProductionLockFields(parent or self, on_change=self.save_workflow_locks,
+                                             definitions=tuple(item for item in PRODUCTION_LOCK_DEFINITIONS
+                                                               if item['key'] not in optional),
                                              prefix=workflow_selector)
         self.lock_row.pack(fill='x')
-        self.lock_inputs = self.lock_row.inputs
+        lock_status = ttk.Frame(parent or self)
+        lock_status.pack(fill='x')
+        self.more_locks_button = SecondaryButton(lock_status, text='更多制作锁',
+                                                 command=self.toggle_optional_locks)
+        self.more_locks_button.pack(side='left')
+        self.lock_notice = ttk.Label(lock_status, text='', style='Muted.TLabel')
+        self.lock_notice.pack(side='left', padx=SPACING['xs'])
+        self.optional_lock_row = ProductionLockFields(
+            parent or self, on_change=self.save_workflow_locks,
+            definitions=tuple(item for item in PRODUCTION_LOCK_DEFINITIONS if item['key'] in optional))
+        self.lock_inputs = {**self.lock_row.inputs, **self.optional_lock_row.inputs}
         self._saved_workflow_locks = {}
+
+    def toggle_optional_locks(self):
+        if self.optional_lock_row.winfo_manager():
+            self.optional_lock_row.pack_forget()
+            self.more_locks_button.configure(text='更多制作锁')
+        else:
+            self.optional_lock_row.pack(fill='x')
+            self.more_locks_button.configure(text='收起选填锁')
 
     def save_workflow_locks(self):
         from stage_execution_service import save_writing_production_locks
         values = {key: entry.get() for key, entry in self.lock_inputs.items()}
+        self.optional_lock_row.context_values = values
+        self.optional_lock_row.refresh_states()
         if values == self._saved_workflow_locks:
             return 'break'
         try:
             save_writing_production_locks(self.project(), values)
         except (ValueError, OSError) as exc:
-            self.state.configure(text='制作锁保存失败：' + str(exc))
+            self.lock_notice.configure(text='制作锁保存失败：' + str(exc))
             return 'break'
         self._saved_workflow_locks = values
-        self.state.configure(text='制作锁已保存；已生成文件不变，后续创作使用新参数。')
+        self.lock_notice.configure(text='制作锁已保存；已生成文件不变，后续创作使用新参数。')
         return 'break'
 
     def refresh_workflow(self):
         import workflow_settings
         from stage_execution_service import sync_writing_attachment_locks
+        lock_error = ''
         try:
             sync_writing_attachment_locks(self.project())
         except (ValueError, OSError) as exc:
-            self.state.configure(text='附档制作锁同步失败：' + str(exc))
+            lock_error = '附档制作锁同步失败：' + str(exc)
         synced = self.sync_master_skill()
         workflow = stage_config.current_workflow(self.project())
         name = str(workflow.get('name') or '').strip()
@@ -817,14 +842,17 @@ class Panel(ttk.Frame):
         # 旧视图适配仍只需提供 lock_inputs；完整视图额外处理默认值与依赖。
         if getattr(self, 'lock_row', None) is not None:
             self.lock_row.set_values(locks, enabled=bool(name))
+        if getattr(self, 'optional_lock_row', None) is not None:
+            self.optional_lock_row.set_values(locks, enabled=bool(name))
         self._saved_workflow_locks = {key: entry.get() for key, entry in self.lock_inputs.items()}
         from script_contract import stage_lock_requirements
         required = stage_lock_requirements('script', stage_config.project_created_at(self.project()))
         legacy_missing = [label for key, label in (('track', '赛道'), ('material_source', '素材来源'))
                           if key not in required and not locks.get(key)]
-        if legacy_missing and getattr(self, 'state', None) is not None:
-            self.state.configure(text='旧项目兼容：' + '、'.join(legacy_missing) + '未选，仅提示不阻断。')
-        elif synced:
+        if getattr(self, 'lock_notice', None) is not None:
+            self.lock_notice.configure(text=lock_error or (
+                '旧项目兼容：' + '、'.join(legacy_missing) + '未选，仅提示不阻断。' if legacy_missing else ''))
+        if synced:
             self.state.configure(text=synced)
 
     def sync_master_skill(self, quiet=False):
