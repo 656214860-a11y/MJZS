@@ -148,15 +148,30 @@ def _sync_clean_worktree(root: Path, head: str) -> Path:
 def _fill_embedded_repos(root: Path, target: Path) -> None:
     """本仓库把 SKILL 包等嵌套仓库登记为 gitlink（无 .gitmodules），干净检出里只是空目录。
 
-    测试需要它们的正文，所以从主工作树逐个连 .git 一起拷过去（体量十几 MB；带 .git 才不会让检出显示为脏）；目标目录已有内容就不动。"""
+    测试需要它们的正文，所以从主工作树逐个连 .git 一起拷过去（体量十几 MB；带 .git 才不会让检出显示为脏）；目标目录已有内容时只把它对齐到外层登记的提交（外层指针升级后不能留旧版）。"""
     listing = _git("-c", "core.quotepath=false", "ls-files", "-s", cwd=root)
     for line in listing.splitlines():
         meta, _, path = line.partition(chr(9))
         if not meta.startswith("160000"):
             continue
         source, destination = root / path, target / path
-        if source.is_dir() and not (destination.is_dir() and any(destination.iterdir())):
+        if not source.is_dir():
+            continue
+        if destination.is_dir() and any(destination.iterdir()):
+            _align_embedded_repo(destination, source, meta.split()[1])
+        else:
             shutil.copytree(source, destination, dirs_exist_ok=True)
+
+
+def _align_embedded_repo(destination: Path, source: Path, sha: str) -> None:
+    """已拷过的嵌套仓库要和外层登记的提交一致：外层指针升级后，旧副本会让检出显示为脏而拒绝产凭据。"""
+    try:
+        if _git("rev-parse", "HEAD", cwd=destination) == sha:
+            return
+    except (OSError, subprocess.SubprocessError):
+        pass
+    _git("fetch", "--quiet", str(source), cwd=destination)
+    _git("checkout", "-f", "--detach", sha, cwd=destination)
 
 
 def run() -> int:

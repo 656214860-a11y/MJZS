@@ -43,6 +43,27 @@ if __name__ == '__main__':
     unittest.main()
 
 
+class EmbeddedRepoAlignTests(unittest.TestCase):
+    def test_a_stale_embedded_copy_is_realigned_to_the_registered_commit(self):
+        calls = []
+        def fake_git(*args, cwd=None):
+            calls.append(args)
+            return 'old-sha' if args[:2] == ('rev-parse', 'HEAD') else ''
+        with mock.patch.object(auto, '_git', side_effect=fake_git):
+            auto._align_embedded_repo(Path('dest'), Path('src'), 'new-sha')
+        self.assertIn(('checkout', '-f', '--detach', 'new-sha'), calls)
+        self.assertTrue(any(call[:2] == ('fetch', '--quiet') for call in calls))
+
+    def test_an_up_to_date_embedded_copy_is_left_alone(self):
+        calls = []
+        def fake_git(*args, cwd=None):
+            calls.append(args)
+            return 'same-sha'
+        with mock.patch.object(auto, '_git', side_effect=fake_git):
+            auto._align_embedded_repo(Path('dest'), Path('src'), 'same-sha')
+        self.assertEqual(calls, [('rev-parse', 'HEAD')])
+
+
 class FailureNoticeTests(unittest.TestCase):
     def test_red_modules_are_read_from_the_log_in_order_without_duplicates(self):
         log = '### test_core（1 条红）\n\nx\n### test_asset_gating（2 条红）\n### test_core（3 条红）\n'
