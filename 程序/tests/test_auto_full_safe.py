@@ -3,6 +3,7 @@
 import importlib.util
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -18,6 +19,7 @@ class AutoFullSafeTests(unittest.TestCase):
     def test_spawn_strips_git_environment(self):
         with mock.patch.object(auto, 'status', return_value={'auto_due': True}), \
              mock.patch.object(auto, '_already_running', return_value=False), \
+             mock.patch.object(auto, '_waiter_running', return_value=False), \
              mock.patch.dict(os.environ, {'GIT_INDEX_FILE': 'x', 'GIT_DIR': 'y', 'KEEP_ME': '1'}), \
              mock.patch.object(auto.subprocess, 'Popen') as popen:
             self.assertEqual(auto.spawn(), 0)
@@ -30,6 +32,7 @@ class AutoFullSafeTests(unittest.TestCase):
             with self.subTest(due=due, running=running), \
                  mock.patch.object(auto, 'status', return_value={'auto_due': due}), \
                  mock.patch.object(auto, '_already_running', return_value=running), \
+                 mock.patch.object(auto, '_waiter_running', return_value=False), \
                  mock.patch.object(auto.subprocess, 'Popen') as popen:
                 self.assertEqual(auto.spawn(), 0)
                 popen.assert_not_called()
@@ -39,8 +42,31 @@ class AutoFullSafeTests(unittest.TestCase):
             self.assertEqual(auto.main(['--spawn']), 0)
 
 
-if __name__ == '__main__':
-    unittest.main()
+class DebounceTests(unittest.TestCase):
+    def test_decision_waits_for_quiet_unless_the_gate_would_already_be_red(self):
+        quiet, longest = auto.QUIET_SECONDS, auto.MAX_WAIT_SECONDS
+        due = {'auto_due': True, 'required': False}
+        self.assertEqual(auto.decide({'auto_due': False}, 0, 0), 'stop')
+        self.assertEqual(auto.decide(due, quiet - 1, 0), 'wait', '刚有提交：继续等')
+        self.assertEqual(auto.decide(due, quiet, 0), 'run', '安静够久：跑')
+        self.assertEqual(auto.decide(due, 0, longest), 'run', '等太久：跑')
+        self.assertEqual(auto.decide({'auto_due': True, 'required': True}, 0, 0), 'run', '门禁已红：不等')
+
+    def test_wait_run_polls_until_quiet_then_runs_once_and_clears_its_lock(self):
+        ages = iter([10, 20, auto.QUIET_SECONDS + 1])
+        sleeps = []
+        with tempfile.TemporaryDirectory() as folder:
+            lock = Path(folder) / auto.WAITER_LOCK_NAME
+            with mock.patch.object(auto, '_waiter_lock_path', return_value=lock),                  mock.patch.object(auto, '_waiter_running', return_value=False),                  mock.patch.object(auto, 'status', return_value={'auto_due': True, 'required': False}),                  mock.patch.object(auto, '_last_commit_age', side_effect=lambda: next(ages)),                  mock.patch.object(auto, 'run', return_value=0) as run:
+                self.assertEqual(auto.wait_run(sleep=sleeps.append, clock=lambda: 0), 0)
+            run.assert_called_once()
+            self.assertEqual(len(sleeps), 2)
+            self.assertFalse(lock.exists())
+
+    def test_a_second_waiter_is_not_started(self):
+        with mock.patch.object(auto, 'status', return_value={'auto_due': True}),              mock.patch.object(auto, '_already_running', return_value=False),              mock.patch.object(auto, '_waiter_running', return_value=True),              mock.patch.object(auto.subprocess, 'Popen') as popen:
+            self.assertEqual(auto.spawn(), 0)
+        popen.assert_not_called()
 
 
 class EmbeddedRepoAlignTests(unittest.TestCase):
@@ -86,3 +112,7 @@ class FailureNoticeTests(unittest.TestCase):
         shown.assert_called_once_with('boom-text')
         with mock.patch.object(auto, 'failure_notice', side_effect=RuntimeError('x')):
             self.assertEqual(auto.main(['--notice']), 0)
+
+
+if __name__ == '__main__':
+    unittest.main()

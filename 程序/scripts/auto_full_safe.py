@@ -4,8 +4,9 @@
 
 * ``--status``  只打印欠账状态，不跑任何东西。
 * ``--notice``  上次后台全量未通过时打印一句话；post-commit 钩子每次提交先跑它，红了会在提交输出里看到。
+* ``--wait-run`` 防抖等待者：等「安静」15 分钟（期间有新提交就重新计时）再跑一次；欠账已让门禁报红或等满 60 分钟则立即跑。
 * ``--spawn``   由 git post-commit 钩子调用：master 上欠账达到触发点（门禁线提前 2 个源码轮次）
-  且没有同类任务在跑时，起一个脱离终端的后台进程；否则静默退出。钩子绝不阻塞提交。
+  且没有同类任务在跑时，起一个脱离终端的后台等待者（``--wait-run``，同一时刻只有一个）；否则静默退出。钩子绝不阻塞提交。
 * ``--run``     前台执行：把 ``.wt/ci`` 对齐到当前 HEAD，跑 ``run_selftests.py --all --safe``。
   绿了凭据由执行器写进 git common-dir 的 ``full-safe-receipts.json``，门禁凭内容树放行。
 
@@ -30,6 +31,12 @@ import run_selftests  # noqa: E402
 
 LOG = PROGRAM / "logs" / "auto_full_safe.log"
 LOCK_NAME = "auto-full-safe.lock"
+# 防抖：连续提交期间（如 desktop.py 分步拆分系列）不逐轮补跑，等「安静」一段时间再跑一次；
+# 但门禁已经会报红（欠账成立）时立即跑，不再等。
+QUIET_SECONDS = 15 * 60
+MAX_WAIT_SECONDS = 60 * 60
+POLL_SECONDS = 60
+WAITER_LOCK_NAME = "auto-full-waiter.lock"
 STALE_SECONDS = 3 * 3600       # 全量最长按小时计；超过即视为崩溃遗留的锁
 
 
@@ -53,6 +60,8 @@ def status() -> dict:
         "source_rounds": counted,
         "gate_at": run_selftests.FULL_SAFE_ROUND_INTERVAL,
         "auto_due": run_selftests.full_safe_auto_due(latest, last_full, master),
+        "required": run_selftests.full_safe_required(
+            latest, last_full, master, counted, run_selftests.risk_overdue_since(last_full, latest)),
     }
 
 
@@ -116,9 +125,59 @@ def _already_running() -> bool:
     return age < STALE_SECONDS and bool(pid) and run_selftests._pid_is_alive(pid)
 
 
+def decide(info: dict, commit_age: float, waited: float) -> str:
+    """防抖决策（纯函数）：stop＝已不需要补跑；run＝现在跑；wait＝继续等安静期。"""
+    if not info.get("auto_due"):
+        return "stop"
+    if info.get("required") or commit_age >= QUIET_SECONDS or waited >= MAX_WAIT_SECONDS:
+        return "run"
+    return "wait"
+
+
+def _waiter_lock_path() -> Path:
+    return Path(run_selftests.git_common_dir() or PROGRAM) / WAITER_LOCK_NAME
+
+
+def _waiter_running() -> bool:
+    lock = _waiter_lock_path()
+    try:
+        age = time.time() - lock.stat().st_mtime
+        pid = int(lock.read_text(encoding="utf-8").strip() or 0)
+    except (OSError, ValueError):
+        return False
+    return age < MAX_WAIT_SECONDS + 600 and bool(pid) and run_selftests._pid_is_alive(pid)
+
+
+def _last_commit_age() -> float:
+    return time.time() - int(_git("log", "-1", "--format=%ct"))
+
+
+def wait_run(sleep=time.sleep, clock=time.monotonic) -> int:
+    """等安静期再跑一次后台全量：期间每次有新提交都会让安静期重新计时，只会有这一个等待者。"""
+    if _waiter_running():
+        return 0
+    lock = _waiter_lock_path()
+    lock.write_text(str(os.getpid()), encoding="utf-8")
+    started = clock()
+    try:
+        while True:
+            verdict = decide(status(), _last_commit_age(), clock() - started)
+            if verdict == "stop":
+                return 0
+            if verdict == "run":
+                break
+            sleep(POLL_SECONDS)
+    finally:
+        try:
+            lock.unlink()
+        except OSError:
+            pass
+    return run()
+
+
 def spawn() -> int:
     info = status()
-    if not info["auto_due"] or _already_running():
+    if not info["auto_due"] or _already_running() or _waiter_running():
         return 0
     flags = 0
     if os.name == "nt":
@@ -126,7 +185,7 @@ def spawn() -> int:
     # 钩子运行时 git 会导出 GIT_INDEX_FILE／GIT_DIR 等变量，指向正在提交的那份索引；
     # 子进程若继承，它对 .wt/ci 的 checkout 会作用到错误的索引上并静默失败。
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
-    subprocess.Popen([sys.executable, "-B", str(Path(__file__).resolve()), "--run"],
+    subprocess.Popen([sys.executable, "-B", str(Path(__file__).resolve()), "--wait-run"],
                      cwd=PROGRAM, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL, creationflags=flags, close_fds=True)
     return 0
@@ -216,6 +275,8 @@ def _run_locked() -> int:
 
 def main(argv=None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
+    if "--wait-run" in args:
+        return wait_run()
     if "--run" in args:
         return run()
     if "--notice" in args:
