@@ -537,6 +537,10 @@ def request_ledger_path(project):
     return Path(project).joinpath(*REQUEST_LEDGER_PATH)
 
 
+class BudgetRejected(ValueError):
+    """请求未发送：金额预留未通过。"""
+
+
 class RequestLedger:
     """一条请求一行：预留 → 结算／未知／取消，同一请求号只认一笔（重试不重复结算）。"""
 
@@ -821,9 +825,17 @@ class RequestLedger:
 
     def authorize_model(self, request_id, model, stage, input_estimate, output_limit):
         """冻结配置费率及估计用量；启用金额上限后，未知费用不能按零继续。"""
-        from agent.core import read
         if type(input_estimate) is not int or input_estimate < 0 or type(output_limit) is not int or output_limit < 0:
             raise ValueError('请求用量预估必须是非负整数')
+        return self.authorize_units(request_id, model, stage, 'tokens',
+                                    {'prompt_tokens': input_estimate, 'completion_tokens': output_limit})
+
+    def authorize_units(self, request_id, model, stage, kind, quantities):
+        """所有模型共用金额上限；按明确计费单位冻结预留。"""
+        from agent.core import read
+        if not quantities or kind not in REQUEST_KINDS:
+            raise ValueError('请求用量单位不能为空或未知')
+        quantities = {key: self.decimal(value) for key, value in quantities.items()}
         with self.transaction():
             if self._find(request_id) is not None:
                 raise ValueError('该请求已有记录，请核对原任务，不能重复发送')
@@ -837,17 +849,16 @@ class RequestLedger:
             cap = profile.get('budget_amount')
             if cap is not None:
                 cap = self.decimal(cap)
-                if output_limit <= 0:
+                if kind == 'tokens' and quantities.get('completion_tokens', 0) <= 0:
                     raise ValueError('金额预算需要明确的输出Token上限')
             rate_map = table.get('model_rates') or {}
             if not isinstance(rate_map, dict):
                 raise ValueError('模型费率格式不正确')
             rates = rate_map.get(model)
-            known = isinstance(rates, dict) and all(key in rates for key in ('prompt_tokens', 'completion_tokens'))
+            known = isinstance(rates, dict) and all(key in rates for key in quantities)
             known = known and bool(table.get('version')) and bool(table.get('currency'))
-            rates = {key: str(self.decimal(rates[key])) for key in ('prompt_tokens', 'completion_tokens')} if known else None
-            cost = (self.decimal(input_estimate) * self.decimal(rates['prompt_tokens'])
-                    + self.decimal(output_limit) * self.decimal(rates['completion_tokens'])) if rates else None
+            rates = {key: str(self.decimal(rates[key])) for key in quantities} if known else None
+            cost = sum((value * self.decimal(rates[key]) for key, value in quantities.items()), self.decimal(0)) if rates else None
             if cap is not None:
                 if not rates or not table.get('version') or not table.get('currency'):
                     raise ValueError('金额预算需要模型费率、币种和价格表版本，请先配置')
@@ -861,11 +872,32 @@ class RequestLedger:
                     used += self.decimal(money)
                 if used + cost > cap:
                     raise ValueError('超过项目金额预算，请核对费用或明确提高预算后重试')
-            entry = self.reserve(request_id, 'tokens', input_estimate + output_limit)
-            entry.update(model=model, stage=stage, input_estimate=input_estimate, output_limit=output_limit,
+            entry = self.reserve(request_id, kind, sum(quantities.values()))
+            entry.update(model=model, stage=stage, input_estimate=float(quantities.get('prompt_tokens', 0)),
+                         output_limit=float(quantities.get('completion_tokens', 0)),
+                         quantities={key: str(value) for key, value in quantities.items()},
                          rates=rates, price_version=table.get('version'), currency=table.get('currency'),
                          budget_cost=str(cost) if cost is not None else None, money_state='reserved')
             return dict(entry)
+
+    @contextmanager
+    def metered_units(self, request_id, model, stage, kind, amount):
+        """成功产物按单价估算；任何发送后异常都不自动释放额度。"""
+        try:
+            self.authorize_units(request_id, model, stage, kind, {kind: amount})
+        except (ValueError, OSError) as exc:
+            raise BudgetRejected(str(exc)) from exc
+        try:
+            yield
+        except Exception:
+            with self.transaction():
+                entry = self.mark_unknown(request_id)
+                entry['money_state'] = 'unknown'
+            raise
+        else:
+            with self.transaction():
+                entry = self.settle(request_id, amount=amount, mode='estimated')
+                entry['money_state'] = 'estimated'
 
     def settle_model(self, request_id, usage):
         """费用按冻结费率估算；未报齐输入/输出用量时保留全部预留，不假装退款。"""

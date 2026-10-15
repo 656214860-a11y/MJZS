@@ -146,6 +146,37 @@ class ModelMoneyBudgetTests(unittest.TestCase):
                 'm': {'prompt_tokens': '0.01', 'completion_tokens': '0.02'}}}}), encoding='utf-8')
         return path
 
+    def test_image_and_text_share_budget_and_keep_unknown_cost(self):
+        from pet_llm import BudgetRejected
+        with tempfile.TemporaryDirectory() as td:
+            path = self.policy(td, '0.8')
+            data = json.loads(path.read_text(encoding='utf-8'))
+            data['price_table']['model_rates']['image-m'] = {'images': '0.5'}
+            path.write_text(json.dumps(data), encoding='utf-8')
+            ledger = RequestLedger(td)
+            with ledger.metered_units('image1', 'image-m', 'assets', 'images', 1):
+                pass
+            ledger.authorize_model('text1', 'm', 'script', 10, 10)
+            with self.assertRaises(BudgetRejected):
+                with ledger.metered_units('image2', 'image-m', 'keyframe', 'images', 1):
+                    self.fail('must not send')
+            self.assertEqual(len(ledger.load().entries), 2)
+            report = ledger.report(data['price_table'])
+            self.assertEqual(report['money']['amount'], 0.8)
+            self.assertEqual(report['kinds']['images']['settled'], 1)
+            # A timeout preserves the image reservation across restart.
+            data['budget_amount'] = '1.3'
+            path.write_text(json.dumps(data), encoding='utf-8')
+            with self.assertRaises(TimeoutError):
+                with ledger.metered_units('image3', 'image-m', 'assets', 'images', 1):
+                    raise TimeoutError('test')
+            restarted = RequestLedger(td).load()
+            self.assertEqual(restarted._find('image3')['money_state'], 'unknown')
+            self.assertEqual(restarted._find('image3')['budget_cost'], '0.5')
+            with self.assertRaises(BudgetRejected):
+                with restarted.metered_units('image4', 'image-m', 'assets', 'images', 1):
+                    self.fail('must not send')
+
     def test_unknown_reservation_survives_restart_and_explicit_raise(self):
         with tempfile.TemporaryDirectory() as td:
             path = self.policy(td)

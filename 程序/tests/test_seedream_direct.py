@@ -89,6 +89,54 @@ class SeedreamUnsettledTests(unittest.TestCase):
             self.assertTrue(any("未重复提交" in line for line in logs))
             self.assertEqual(json.loads((folder / "seedream_SH001.json").read_text(encoding="utf-8"))["state"], "sending")
 
+    def test_asset_budget_rejects_and_timeout_retains_reservation(self):
+        from unittest.mock import patch
+        import native_assets, seedream_api
+        from asset_context import generated_dir
+        from pet_llm import RequestLedger
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            profile_path = root / 'cost_profile.json'
+            config = {'budget_amount': '0', 'price_table': {'currency': 'CNY', 'version': 'test',
+                      'model_rates': {'m': {'images': '0.5'}}}}
+            profile_path.write_text(json.dumps(config), encoding='utf-8')
+            items = [('CHAR_001', {'name': '角色', 'image_prompt': '猫'})]
+            profile = {'model': 'm', 'api_key': 'test', 'base_url': 'https://example.invalid'}
+            with patch.object(seedream_api, 'load_profile', return_value=profile), patch.object(
+                    seedream_api, 'request_image', side_effect=TimeoutError('test timeout')) as send:
+                native_assets._run_seedream_direct(root, root, items, {}, lambda _: None)
+                send.assert_not_called()
+                record_path = generated_dir(root) / 'seedream_CHAR_001.json'
+                self.assertTrue(json.loads(record_path.read_text(encoding='utf-8'))['not_submitted'])
+                config['budget_amount'] = '0.5'
+                profile_path.write_text(json.dumps(config), encoding='utf-8')
+                native_assets._run_seedream_direct(root, root, items, {}, lambda _: None)
+                native_assets._run_seedream_direct(root, root, items, {}, lambda _: None)
+                self.assertEqual(send.call_count, 1)
+            record = json.loads(record_path.read_text(encoding='utf-8'))
+            entry = RequestLedger(root).load()._find(record['request_id'])
+            self.assertEqual(record['state'], 'uncertain')
+            self.assertEqual(entry['money_state'], 'unknown')
+            self.assertEqual(entry['budget_cost'], '0.5')
+
+    def test_project_budget_blocks_first_frame_before_transport(self):
+        from unittest.mock import patch
+        import keyframe_comfy
+        from pet_llm import RequestLedger
+        calls = self.patch_seedream(_png_bytes())
+        with tempfile.TemporaryDirectory() as td:
+            source = self.make_project(td)
+            (Path(td) / 'cost_profile.json').write_text(json.dumps({
+                'budget_amount': '0', 'price_table': {'currency': 'CNY', 'version': 'test',
+                'model_rates': {'m': {'images': '0.5'}}}}), encoding='utf-8')
+            with patch.object(keyframe_comfy, 'check_shot', return_value=('test', [])):
+                keyframe_comfy.run_seedream(source, [{'id': 'SH001'}], {}, lambda _: None, project=td)
+            self.assertEqual(calls, [])
+            record = json.loads((source.parent / '首帧任务' / 'seedream_SH001.json').read_text(encoding='utf-8'))
+            self.assertTrue(record['not_submitted'])
+            self.assertEqual(record['state'], 'failed')
+            self.assertEqual(RequestLedger(td).load().entries, [])
+
     def test_confirmed_shot_is_submitted_again(self):
         import keyframe_comfy, keyframe_import, seedream_api
         calls = self.patch_seedream(_png_bytes())

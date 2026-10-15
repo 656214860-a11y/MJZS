@@ -106,9 +106,11 @@ def check_shot(source, shot):
     return shot_inputs(shot, media_root(source), load_assets(source))
 
 
-def run_seedream(source, shots, options, log, stop=None):
+def run_seedream(source, shots, options, log, stop=None, *, project=None):
     """Generate first frames through the user's Volcengine Seedream API, one shot at a time."""
     from seedream_api import UNSETTLED, load_profile, request_image
+    from pet_llm import RequestLedger, BudgetRejected
+    from uuid import uuid4
     from native_asset_codec import seedream_payload as _seedream_payload, to_png as _to_png
     from importlib import import_module
     keyframe_import = import_module('keyframe_import')
@@ -152,11 +154,16 @@ def run_seedream(source, shots, options, log, stop=None):
         payload = _seedream_payload(profile['model'], prompt, aspect, images)
         from keyframe_evidence import source_evidence
         frozen_source = source_evidence(source, episode, current)
-        save(record_file, {'state': 'sending', 'model': profile['model'], 'shot_id': sid})
+        request_id = 'image:' + uuid4().hex
+        save(record_file, {'request_id': request_id, 'state': 'sending', 'model': profile['model'], 'shot_id': sid})
         try:
-            raw = request_image(profile, payload)
+            with RequestLedger(project).metered_units(request_id, profile['model'], 'keyframe', 'images', 1):
+                raw = request_image(profile, payload)
+        except BudgetRejected as exc:
+            save(record_file, {'request_id': request_id, 'state': 'failed', 'model': profile['model'], 'shot_id': sid, 'not_submitted': True, 'error': str(exc)})
+            failed.append(sid + '：' + str(exc)); log(sid + '：未发送，' + str(exc)); continue
         except Exception as exc:
-            save(record_file, {'state': 'uncertain', 'model': profile['model'], 'shot_id': sid, 'error': str(exc)})
+            save(record_file, {'request_id': request_id, 'state': 'uncertain', 'model': profile['model'], 'shot_id': sid, 'error': str(exc)})
             failed.append(sid + '：' + str(exc)); log(sid + '：' + str(exc)); continue
         temp = folder / (sid + '_seedream.png')
         try:
@@ -172,13 +179,13 @@ def run_seedream(source, shots, options, log, stop=None):
             except OSError:
                 pass
             kept = pending.is_file()
-            save(record_file, {'state': 'uncertain', 'model': profile['model'], 'shot_id': sid,
+            save(record_file, {'request_id': request_id, 'state': 'uncertain', 'model': profile['model'], 'shot_id': sid,
                                'error': str(exc), 'file': str(pending) if kept else ''})
             blocked.append(sid + '（结果待核实，未重复提交' + ('，图片 ' + pending.name if kept else '') + '，记录 ' + record_file.name + '）')
             log(sid + '：' + str(exc) + ('；图片保留在 ' + pending.name + '，请核实后导入，未重复提交' if kept else '；请核实，未重复提交')); continue
         finally:
             remove_temporary_file(temp)
-        save(record_file, {'state': 'completed', 'model': profile['model'], 'shot_id': sid, 'file': str(dest)})
+        save(record_file, {'request_id': request_id, 'state': 'completed', 'model': profile['model'], 'shot_id': sid, 'file': str(dest)})
         done.append(sid); log(sid + '：已保存并关联 ' + dest.name)
     message = f'Seedream 已生成并导入 {len(done)}/{len(shots)} 镜。'
     if failed:
@@ -745,7 +752,7 @@ def show(app, source, initial=None):
         def work():
             try:
                 if checked['model'] == SEEDREAM:
-                    events.put(run_seedream(source, checked['shots'], checked, events.put, stop))
+                    events.put(run_seedream(source, checked['shots'], checked, events.put, stop, project=project))
                 else:
                     batch.run(source, checked['batch'], events.put, stop)
             except Exception as exc:

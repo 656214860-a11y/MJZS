@@ -73,6 +73,8 @@ def _to_png(raw):
 
 def _run_seedream_direct(project, base, items, options, report, stop=None):
     from seedream_api import UNSETTLED, load_profile, request_image
+    from pet_llm import RequestLedger, BudgetRejected
+    from uuid import uuid4
     from asset_reference_images import resolve, reference_instruction
     from asset_reference_prompts import display_prompt
     from asset_batch_service import register_image
@@ -112,23 +114,28 @@ def _run_seedream_direct(project, base, items, options, report, stop=None):
                 done.append(aid);report(aid+'：'+result+'（已恢复，未重复扣费）');continue
             except Exception as exc:
                 report(aid+'：上次图片无法恢复，将重新生成：'+str(exc))
-        save(record,{'state':'sending','model':profile['model'],'aid':aid})
+        request_id = 'image:' + uuid4().hex
+        save(record,{'request_id':request_id,'state':'sending','model':profile['model'],'aid':aid})
         try:
-            raw=request_image(profile,payload)
+            with RequestLedger(project).metered_units(request_id, profile['model'], 'assets', 'images', 1):
+                raw = request_image(profile, payload)
+        except BudgetRejected as exc:
+            save(record, {'request_id': request_id, 'state': 'failed', 'model': profile['model'], 'aid': aid, 'not_submitted': True, 'error': str(exc)})
+            failed.append(aid+'：'+str(exc)); report(aid+'：未发送，'+str(exc)); continue
         except Exception as exc:
-            save(record,{'state':'uncertain','model':profile['model'],'aid':aid,'error':str(exc)})
+            save(record,{'request_id':request_id,'state':'uncertain','model':profile['model'],'aid':aid,'error':str(exc)})
             failed.append(aid+'：'+str(exc));report(aid+'：'+str(exc));continue
         try:
             raw=_to_png(raw);save_bytes(dest,raw)
         except Exception as exc:
-            save(record,{'state':'failed','model':profile['model'],'aid':aid,'error':str(exc)})
+            save(record,{'request_id':request_id,'state':'failed','model':profile['model'],'aid':aid,'error':str(exc)})
             failed.append(aid+'：'+str(exc));report(aid+'：'+str(exc));continue
         try:
             result=register_image(base,aid,asset,dest,gateway=gateway)
         except (ValueError,OSError) as exc:
-            save(record,{'state':'failed','model':profile['model'],'aid':aid,'error':str(exc)})
+            save(record,{'request_id':request_id,'state':'failed','model':profile['model'],'aid':aid,'error':str(exc)})
             failed.append(aid+'：'+str(exc));report(aid+'：'+str(exc));continue
-        save(record,{'state':'completed','model':profile['model'],'aid':aid})
+        save(record,{'request_id':request_id,'state':'completed','model':profile['model'],'aid':aid})
         done.append(aid);report(aid+'：'+result)
     message=f'Seedream 已生成并导入 {len(done)}/{total} 项。'
     if failed:message+=' 未完成：'+'；'.join(failed)
