@@ -675,13 +675,14 @@ class MediaPagesMixin:
         if len(script)>4000:raise ValueError('整集对白超过 4000 字，请改用“逐句配音（分句）”生成')
         # 整段配音一次就是一次付费请求：台词与音色都没变、文件还在时直接沿用，双击或重复点击
         # 不会再扣一次费；改台词、改模型或改音色会得到新指纹，才重新合成。
-        signature=tts_api.script_signature(script)
+        settings=tts_api.read_settings()
+        signature=tts_api.script_signature(script, settings)
         from stage_execution_service import reusable_tts_full_track
         previous=reusable_tts_full_track(self.root,signature)
         if previous:
             self.status.set('配音台词与音色都没变，沿用已有配音：'+str(previous)+'（未重复扣费）');return
         def work():
-            raw=tts_api.synthesize(script)
+            raw=tts_api.synthesize(script, settings=settings, project=self.root, request_id='tts-full:' + signature)
             from stage_execution_service import publish_tts_full_track
             p=publish_tts_full_track(self.root,signature,raw)
             note='配音已生成：'+str(p)

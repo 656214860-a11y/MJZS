@@ -1,4 +1,5 @@
 """逐笔用量落请求台账：视频下载成功、配音逐句合成；记账失败不影响制作。"""
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -73,6 +74,78 @@ class TtsRecordingTests(unittest.TestCase):
             self.assertEqual(rows(project)['requests']['count'], 2)         # 沿用不重复记
             ses.run_tts_lines(lines[:1], out / 'other', generate, episode='E1')   # 不传 project：不记账
             self.assertEqual(rows(project)['requests']['count'], 2)
+
+    def test_tts_budget_blocks_then_timeout_survives_resume(self, _settings):
+        from unittest.mock import Mock
+        from pet_llm import RequestLedger
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            config = {'budget_amount': '0', 'price_table': {'currency': 'CNY', 'version': 'test',
+                      'model_rates': {'m': {'characters': '0.1'}}}}
+            policy = root / 'cost_profile.json'
+            policy.write_text(json.dumps(config), encoding='utf-8')
+            lines = [{'shot_id': 'S1', 'text': '你好', 'speed': 1.0}]
+            generate = Mock(side_effect=TimeoutError('test'))
+            out = root / 'audio'
+            self.assertEqual(ses.run_tts_lines(lines, out, generate, project=root), (0, 0, 1))
+            generate.assert_not_called()
+            config['budget_amount'] = '0.2'
+            policy.write_text(json.dumps(config), encoding='utf-8')
+            self.assertEqual(ses.run_tts_lines(lines, out, generate, project=root), (0, 0, 1))
+            self.assertEqual(ses.run_tts_lines(lines, out, generate, project=root), (0, 0, 1))
+            self.assertEqual(generate.call_count, 1)
+            entry = json.loads((out / '时间轴.json').read_text(encoding='utf-8'))[0]
+            self.assertEqual(entry['state'], 'uncertain')
+            row = RequestLedger(root).load()._find(entry['request_id'])
+            self.assertEqual(row['budget_cost'], '0.2')
+            self.assertEqual(row['money_state'], 'unknown')
+
+    def test_successful_tts_charges_characters_once_and_shares_image_budget(self, _settings):
+        from pet_llm import RequestLedger, BudgetRejected
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '0.2', 'price_table': {
+                'currency': 'CNY', 'version': 'test', 'model_rates': {
+                    'm': {'characters': '0.1'}, 'image': {'images': '0.1'}}}}), encoding='utf-8')
+            lines = [{'shot_id': 'S1', 'text': '你好', 'speed': 1.0}]
+            for expected in [(1, 0, 0), (1, 1, 0)]:
+                self.assertEqual(ses.run_tts_lines(lines, root / 'audio', lambda *a, **k: b'audio', project=root), expected)
+            ledger = RequestLedger(root).load()
+            self.assertEqual(len(ledger.entries), 1)
+            self.assertEqual(ledger.entries[0]['quantities'], {'characters': '2'})
+            self.assertEqual(ledger.entries[0]['budget_cost'], '0.2')
+            with self.assertRaises(BudgetRejected):
+                with ledger.metered_units('image1', 'image', 'assets', 'images', 1):
+                    self.fail('must not send')
+
+    def test_direct_tts_budget_checked_before_opening_connection(self, _settings):
+        from pet_llm import BudgetRejected, RequestLedger
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '0', 'price_table': {
+                'currency': 'CNY', 'version': 'test', 'model_rates': {'m': {'characters': '0.1'}}}}), encoding='utf-8')
+            with patch.object(tts_api, 'load_key', return_value='test'), patch('urllib.request.build_opener') as open_:
+                with self.assertRaises(BudgetRejected):
+                    tts_api.synthesize('你好', project=root)
+                open_.assert_not_called()
+            self.assertEqual(RequestLedger(root).load().entries, [])
+
+    def test_direct_tts_stable_id_prevents_resend_after_timeout(self, _settings):
+        from pet_llm import BudgetRejected, RequestLedger
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '1', 'price_table': {
+                'currency': 'CNY', 'version': 'test', 'model_rates': {'m': {'characters': '0.1'}}}}), encoding='utf-8')
+            with patch.object(tts_api, 'load_key', return_value='test'), patch('urllib.request.build_opener') as opener:
+                opener.return_value.open.side_effect = TimeoutError('test')
+                with self.assertRaises(TimeoutError):
+                    tts_api.synthesize('你好', project=root, request_id='tts-full:test')
+                with self.assertRaises(BudgetRejected):
+                    tts_api.synthesize('你好', project=root, request_id='tts-full:test')
+                self.assertEqual(opener.return_value.open.call_count, 1)
+            row = RequestLedger(root).load()._find('tts-full:test')
+            self.assertEqual(row['money_state'], 'unknown')
+            self.assertEqual(row['budget_cost'], '0.2')
 
     def test_on_line_hook_is_optional_in_tts_api(self, _settings):
         with tempfile.TemporaryDirectory() as folder:

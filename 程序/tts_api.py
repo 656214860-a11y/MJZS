@@ -394,17 +394,22 @@ def pending_lines(lines, folder):
 
 
 def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=None, settings=None, episode=None,
-              on_line=None):
+              on_line=None, project=None):
     """逐句合成到 folder：每句完成后立即写清单，已成功的句子直接沿用。
 
     中断或报错后再次运行会接续同一批次，只补做缺的句子，不重复扣费。
     返回 (成功数, 沿用数, 失败数)。on_line(序号, 句子, 登记项) 在每句真正合成并发布后调用（沿用的句子不调用）。
     """
+    from contextlib import nullcontext
+    from uuid import uuid4
+    from pet_llm import RequestLedger, BudgetRejected
     publish = _require_gateway(gateway, "publish_json", "publish_bytes")
     folder = Path(folder); folder.mkdir(parents=True, exist_ok=True)
     # 批次一开始就把配置冻结下来：长批次中途改设置，这一批仍按开批时那一套跑，不混用两套（O12）。
     frozen = freeze_settings(lines, settings)
     if generate is None:
+        if project is not None and not load_key():
+            raise ValueError("请先在配音设置保存 API Key")
         generate = lambda text, speed=1.0, voice=None: synthesize(
             text, speed=speed, voice=voice, settings=frozen)
     manifest = read_json(folder / "时间轴.json")
@@ -423,15 +428,41 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
             if report:
                 report(f'{index}/{len(lines)} · {line.get("shot_id")}：沿用已生成的配音')
             continue
+        previous = manifest[index - 1] if index <= len(manifest) else {}
+        if (project is not None and previous.get('state') in ('sending', 'uncertain')
+                and all(previous.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)):
+            failed += 1
+            if report:
+                report(f'{index}/{len(lines)}：上次配音结果未知，请核对请求 {previous.get("request_id", "")}，未重复发送')
+            continue
         name = line_name(index, line)
+        request_id = 'tts:' + uuid4().hex
+        started = False
         try:
-            raw = generate(line.get("text", ""), speed=line.get("speed", 1.0), voice=line.get("voice") or None)
-            entry = publish_line(folder, manifest, index, line, raw, gateway=publish)
+            text = line.get('text', '')
+            if project is not None:
+                if not isinstance(text, str) or not text.strip() or len(text) > 4000:
+                    raise BudgetRejected('配音文本须为1至4000字')
+                coerce_speed(line.get('speed', 1.0))
+            meter = (RequestLedger(project).metered_units(request_id, frozen['model'], 'audio', 'requests', 1,
+                      quantities={'characters': len(text)}) if project is not None else nullcontext())
+            with meter:
+                if project is not None:
+                    pending = {**line, 'state': 'sending', 'file': '', 'request_id': request_id}
+                    if index <= len(manifest):manifest[index - 1] = pending
+                    else:manifest.append(pending)
+                    _save(folder / '时间轴.json', manifest, gateway=publish)
+                started = True
+                raw = generate(text, speed=line.get("speed", 1.0), voice=line.get("voice") or None)
+                if not raw:raise ValueError('TTS 未返回音频')
+            entry = publish_line(folder, manifest, index, {**line, **({'request_id': request_id} if project is not None else {})}, raw, gateway=publish)
             ok += 1
             if on_line is not None:
                 on_line(index, line, entry)
         except Exception as exc:
-            entry = {**line, "file": "", "state": "failed", "error": str(exc)}
+            entry = {**line, "file": "", "state": "uncertain" if project is not None and started else "failed", "error": str(exc)}
+            if project is not None:
+                entry.update(request_id=request_id, not_submitted=not started)
             failed += 1
             if index <= len(manifest):
                 manifest[index - 1] = entry
@@ -453,7 +484,7 @@ def no_redirect():
     return NoRedirect()
 
 
-def synthesize(text, speed=1.0, voice=None, *, settings=None):
+def synthesize(text, speed=1.0, voice=None, *, settings=None, project=None, request_id=None):
     from urllib.request import Request, build_opener        # 第 34 期第 9 条：HTTP 栈按需加载
     from urllib.error import HTTPError
     if not isinstance(text, str) or not text.strip():
@@ -471,16 +502,23 @@ def synthesize(text, speed=1.0, voice=None, *, settings=None):
         data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
         headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
     )
-    try:
-        with build_opener(no_redirect()).open(request, timeout=120) as response:
-            raw = response.read()
-    except HTTPError as exc:
-        detail = ""
+    from contextlib import nullcontext
+    from uuid import uuid4
+    from pet_llm import RequestLedger
+    meter = (RequestLedger(project).metered_units(request_id or 'tts:' + uuid4().hex,
+             settings['model'], 'audio', 'requests', 1, quantities={'characters': len(text)})
+             if project is not None else nullcontext())
+    with meter:
         try:
-            detail = exc.read().decode("utf-8", "replace")[:400]
-        except Exception:
-            app_logging.swallowed()
-        raise ValueError(f"TTS 请求失败（HTTP {exc.code}）：{detail}") from None
-    if not raw:
-        raise ValueError("TTS 未返回音频")
-    return raw
+            with build_opener(no_redirect()).open(request, timeout=120) as response:
+                raw = response.read()
+        except HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8", "replace")[:400]
+            except Exception:
+                app_logging.swallowed()
+            raise ValueError(f"TTS 请求失败（HTTP {exc.code}）：{detail}") from None
+        if not raw:
+            raise ValueError("TTS 未返回音频")
+        return raw

@@ -881,10 +881,10 @@ class RequestLedger:
             return dict(entry)
 
     @contextmanager
-    def metered_units(self, request_id, model, stage, kind, amount):
+    def metered_units(self, request_id, model, stage, kind, amount, *, quantities=None):
         """成功产物按单价估算；任何发送后异常都不自动释放额度。"""
         try:
-            self.authorize_units(request_id, model, stage, kind, {kind: amount})
+            self.authorize_units(request_id, model, stage, kind, quantities if quantities is not None else {kind: amount})
         except (ValueError, OSError) as exc:
             raise BudgetRejected(str(exc)) from exc
         try:

@@ -74,6 +74,25 @@ class AnimaticTests(unittest.TestCase):
             source.write_text('{}', encoding='utf-8')
             self.assertFalse(service.evidence(root)[0])
 
+    def test_persistent_previs_reuses_tts_after_later_render_failure(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            source = root / 'storyboard.json'
+            source.write_text(json.dumps({'shots': [{'id': 's1', 'prompt': 'door', 'duration': 2}]}), encoding='utf-8')
+            reference = root / 'reference.png'; reference.write_bytes(b'image')
+            scratch = root / 'scratch'; scratch.mkdir()
+            settings = {'model': 'm', 'voice': 'v', 'base_url': 'https://example.invalid'}
+            with patch('tts_api.read_settings', return_value=settings), patch('tts_api.synthesize', return_value=b'audio') as synth:
+                for _ in range(2):
+                    with self.assertRaisesRegex(RuntimeError, 'render failed'):
+                        service.build_bundle(project_context(root), source, [reference], None,
+                            {'tts_text': 'hello'}, publish=lambda _: None, workspace=scratch,
+                            write_temporary=lambda path, raw: path.write_bytes(raw),
+                            render=Mock(side_effect=RuntimeError('render failed')))
+                self.assertEqual(synth.call_count, 1)
+                self.assertEqual(synth.call_args.kwargs['project'], root)
+                self.assertTrue(synth.call_args.kwargs['request_id'].startswith('tts-previs:'))
+
     def test_evidence_streams_large_media_without_reading_bytes(self):
         """大媒体校验走流式摘要：mp4／临时音频／镜头图都不再整份读进内存。"""
         import file_cache

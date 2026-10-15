@@ -116,12 +116,16 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
     with workspace_context as temporary:
         scratch = Path(temporary)
         if audio is None:
-            from tts_api import synthesize
+            from tts_api import synthesize, read_settings, script_signature
             text = str(settings.get('tts_text') or '').strip()
             if not text:
                 raise ValueError('请选择临时音频或填写临时 TTS 文本')
-            audio = scratch / 'temporary.mp3'
-            write_temporary(audio, synthesize(text))
+            tts_settings = read_settings()
+            signature = script_signature(text, tts_settings)
+            audio = scratch / ('temporary-' + signature + '.mp3')
+            if not audio.is_file() or not audio.stat().st_size:
+                request_id = 'tts-previs:' + signature if workspace is not None else None
+                write_temporary(audio, synthesize(text, settings=tts_settings, project=root, request_id=request_id))
         audio = Path(audio)
         if not audio.is_file() or not audio.stat().st_size:
             raise ValueError('临时音频为空或不存在')
@@ -134,10 +138,10 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
             outputs = []
             for shot in rows:
                 workspace = scratch / shot['id']
-                workspace.mkdir()
+                workspace.mkdir(exist_ok=True)
                 for attempt in range(int(settings.get('retry_attempts', 0)) + 1):
                     attempt_dir = workspace / ('attempt-' + str(attempt))
-                    attempt_dir.mkdir()
+                    attempt_dir.mkdir(exist_ok=True)
                     try:
                         image = render(attempt_dir, shot, refs, settings)
                         outputs.append((shot['id'], image))
