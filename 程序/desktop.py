@@ -2837,7 +2837,7 @@ class Desktop:
         except queue.Empty:pass
         try:
             ticket,ok,value,done=self.q.get_nowait()
-            if not self.background_tasks.finish(ticket, succeeded=ok) or ticket!=self._async_ticket:return
+            if not self.background_tasks.finish(ticket, succeeded=ok, error='' if ok else str(value)) or ticket!=self._async_ticket:return
             self.worker=False;self.busy_state.set_busy(False)
             if ok and done:done(value)
             elif ok:self.status.set(str(value))

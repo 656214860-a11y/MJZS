@@ -37,6 +37,8 @@ def format_lines(data: dict) -> list:
         lines.append('  #%s %s %s%s' % (row.get('ticket'), STATE_TEXT.get(row.get('state'), row.get('state')),
                                        row.get('label') or '（无名称）',
                                        '' if row.get('elapsed_s') is None else '，%.1f 秒' % row['elapsed_s']))
+        if row.get('error'):
+            lines.append('      原因：' + row['error'])
     if not data.get('task_history'):
         lines.append('  暂无')
     lines.append('')

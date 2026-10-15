@@ -148,10 +148,11 @@ class BackgroundTaskLifecycle:
         self._started = None
         self._history = deque(maxlen=HISTORY_LIMIT)
 
-    def _record(self, ticket, state):
+    def _record(self, ticket, state, error=''):
         """把已结束的一次任务记进最近历史（只留 ``HISTORY_LIMIT`` 条，供运行状况面板读取）。"""
         started = self._started or {}
         self._history.append({'ticket': ticket, 'state': state, 'label': started.get('label', ''),
+                              'error': app_logging.redact(error)[:200] if error else '',
                               'elapsed_s': round(time.monotonic() - started['at'], 1) if 'at' in started else None})
         self._started = None
 
@@ -173,7 +174,7 @@ class BackgroundTaskLifecycle:
     def accepts(self, ticket):
         return self._active_ticket == ticket
 
-    def finish(self, ticket, *, succeeded):
+    def finish(self, ticket, *, succeeded, error=''):
         if not self.accepts(ticket):
             # 迟到的结果既不进界面，也不被静默丢弃：留一条可查询的隔离登记。
             self._record_late(ticket, succeeded)
@@ -181,7 +182,7 @@ class BackgroundTaskLifecycle:
         self._active_ticket = None
         self._facts = None
         self._last = {'ticket': ticket, 'state': 'succeeded' if succeeded else 'failed'}
-        self._record(ticket, self._last['state'])
+        self._record(ticket, self._last['state'], error)
         return True
 
     def cancel(self, ticket=None, *, costly=False, remote_task_id=None,

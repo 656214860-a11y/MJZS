@@ -61,7 +61,7 @@ class TaskCenterServiceTests(unittest.TestCase):
         self.assertTrue(life.finish(1, succeeded=True))
         life.submit(2, label='导出')
         life.submit(3)  # 覆盖提交：2 记为已取消
-        life.finish(3, succeeded=False)
+        life.finish(3, succeeded=False, error='连接超时 token=ZZ9')
         life.finish(2, succeeded=True)  # 迟到结果不进历史
         rows = life.history()
         self.assertEqual([(r['ticket'], r['state'], r['label']) for r in rows],
@@ -70,6 +70,8 @@ class TaskCenterServiceTests(unittest.TestCase):
         text = chr(10).join(task_center_service.format_lines(task_center_service.snapshot(life)))
         self.assertIn('生成分镜', text)
         self.assertIn('已取消', text)
+        self.assertIn('原因：连接超时', text)
+        self.assertNotIn('ZZ9', text)
 
     def test_history_is_bounded(self):
         from desktop_automation_service import BackgroundTaskLifecycle, HISTORY_LIMIT
