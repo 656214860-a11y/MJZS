@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import ttk, font
 
 from app_metadata import APP_NAME
-from desktop import Desktop
+from desktop import Desktop, PAGE
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
 import project_stages
@@ -51,13 +51,13 @@ class CompactDesktopGeometryTests(unittest.TestCase):
 
     def test_header_sidebar_and_file_area_remain_visible_after_shrink_and_grow(self):
         d = self.desktop
-        for width, height in ((942, 1032), (800, 600), (942, 1032)):
+        for width, height in ((942, 1032), (800, 600), (990, 632), (942, 1032)):
             with self.subTest(size=(width, height)):
                 self.resize(width, height)
                 self.assertEqual(d.app_title.cget('text'), APP_NAME)
                 self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.list.winfo_rooty(), delta=2)
                 self.assertLess(d.title.winfo_rooty(), d.app_title.winfo_rooty() + d.app_title.winfo_height())
-                self.assertGreater(d.title.winfo_rootx(), d.canvas.winfo_rootx())
+                self.assertAlmostEqual(d.title.winfo_rootx(), d.idea_log.winfo_rootx(), delta=2)
                 gear, title = d.pet.gear.canvas, d.app_title
                 self.assertAlmostEqual(gear.winfo_rooty()+gear.winfo_height()/2, title.winfo_rooty()+title.winfo_reqheight()/2, delta=2)
                 self.assertAlmostEqual(gear.winfo_rootx(), title.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap'], delta=2)
@@ -74,6 +74,46 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                     self.assertGreaterEqual(widget.winfo_height(), widget.winfo_reqheight())
                 self.assertLessEqual(d.script_box.winfo_rooty()+d.script_box.winfo_height(), d.canvas.winfo_rooty()+d.canvas.winfo_height()+2)
                 self.assertLessEqual(d.content.winfo_height(), d.canvas.winfo_height()+2)
+
+    def test_header_geometry_across_stages_and_sizes(self):
+        d = self.desktop
+        def rect(w):
+            return (w.winfo_rootx(), w.winfo_rooty(),
+                    w.winfo_rootx()+w.winfo_width(), w.winfo_rooty()+w.winfo_height())
+        def separate(a, b):
+            ax, ay, ar, ab = rect(a); bx, by, br, bb = rect(b)
+            self.assertTrue(ar <= bx or br <= ax or ab <= by or bb <= ay,
+                            f'{a}: {rect(a)} overlaps {b}: {rect(b)}')
+        try:
+            for width, height in ((800, 600), (990, 632), (942, 1032)):
+                self.resize(width, height)
+                for stage in ('script', 'storyboard', 'assets'):
+                    with self.subTest(size=(width,height), stage=stage):
+                        d.show(PAGE[stage]); self.pump()
+                        anchor = d.idea_log if stage == 'script' else d.content
+                        self.assertAlmostEqual(d.title.winfo_rootx(), anchor.winfo_rootx(), delta=2)
+                        self.assertEqual(d.header_slogan.cget('text'), '✦  把灵感变成故事')
+                        self.assertLessEqual(d.project_label.winfo_rooty()-(d.app_title.winfo_rooty()+d.app_title.winfo_height()), DESKTOP_LAYOUT['project_label_gap'])
+                        pets = (d.pet.canvas, d.pet.paws, d.pet.caption)
+                        for pet in pets:
+                            self.assertTrue(pet.winfo_ismapped())
+                            self.assertGreaterEqual(rect(pet)[0], rect(d.body)[0])
+                            self.assertGreaterEqual(rect(pet)[1], rect(d.body)[1])
+                            self.assertLessEqual(rect(pet)[2], rect(d.body)[2])
+                            self.assertLessEqual(rect(pet)[3], rect(d.body)[3])
+                            self.assertLessEqual(rect(pet)[3], rect(d.pet_layer)[3])
+                        if d.header_slogan.winfo_ismapped():
+                            self.assertAlmostEqual(d.header_slogan.winfo_rooty()+d.header_slogan.winfo_height()/2, d.title.winfo_rooty()+d.title.winfo_height()/2, delta=2)
+                            self.assertGreaterEqual(rect(d.header_slogan)[0], rect(d.title)[2])
+                            for pet in pets:separate(d.header_slogan, pet)
+                        else:
+                            available=min(rect(p)[0] for p in pets)-rect(d.title)[2]
+                            self.assertLess(available, d.header_slogan.winfo_reqwidth()+2*DESKTOP_LAYOUT['slogan_gap'])
+                        if stage == 'script':
+                            self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.list.winfo_rooty(), delta=2)
+                            for pet in pets:separate(d.idea_log, pet)
+        finally:
+            d.show(PAGE['script']); self.pump()
 
     def test_project_tree_tracks_visible_rows_and_leaves_space_below_navigation(self):
         self.resize(942, 1032)
@@ -115,7 +155,12 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                     item = SecondaryButton(old, text=source.cget('text'), style='Compact.TButton')
                     old_buttons.append(item);weight=1
                 else:
-                    item = ttk.Frame(old, height=source.winfo_reqheight())
+                    old_height=source.winfo_reqheight()
+                    if source is d.sidebar_head:
+                        # 旧布局还包含侧栏口号及上下 padding；不能用删行后的
+                        # 新页头高度代替旧基准，否则会虚增旧按钮的伸展高度。
+                        old_height+=d.header_slogan.winfo_reqheight()+SPACING['sm']+SPACING['xs']//2
+                    item = ttk.Frame(old, height=old_height)
                     weight = 1 if source in d.nav else 0
                 old.rowconfigure(row, weight=weight, minsize=SPACING['xs'] if isinstance(source, ttk.Separator) else 0)
                 item.grid(row=row, column=0, sticky='nsew', pady=DESKTOP_LAYOUT['row_gap'])

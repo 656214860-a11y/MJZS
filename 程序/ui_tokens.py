@@ -120,7 +120,9 @@ DESKTOP_LAYOUT = {
     'compact_below': 690, 'project_min_rows': 3,
     'project_button_padding': (SPACING['sm'], SPACING['none']),
     'body_padding': (14, SPACING['sm'], 14, SPACING['sm']),
-    'title_inset': SPACING['md'], 'gear_gap': SPACING['xs'],
+    'title_inset': SPACING['xs'], 'gear_gap': SPACING['xs'],
+    'slogan_gap': SPACING['md'], 'slogan_font': FONTS['pet_body'],
+    'project_label_gap': SPACING['sm'], 'pet_clearance': SPACING['xs'],
 }
 # 剧本准备文件列表：比正文小一档，一屏多放几个文件名，9 号雅黑仍清晰。
 SCRIPT_FILE_FONT = ("Microsoft YaHei UI", 9)

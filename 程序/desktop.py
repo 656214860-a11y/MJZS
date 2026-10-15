@@ -303,11 +303,6 @@ class Desktop:
         side.pack(fill='both',expand=True);side.grid_propagate(False)
         # 左上角只保留应用名；设置齿轮由 pet_ui 放在相邻的根层安全位。
         self.sidebar_head=ttk.Frame(side)
-        # 第 50 期第 2 条：那句「✦ 把灵感画成故事」原来单占侧栏一行、被拉伸的行推到离头部很远；
-        # 现在并进这一块（先按 bottom 摆下，应用名与版本号再占上面那一行，于是它就落在
-        # 「V0.7 与齿轮」那一行下面），并且标签行不再参与纵向拉伸。
-        ttk.Label(self.sidebar_head,text='✦  把灵感画成故事',style='Muted.TLabel',
-                  font=('Microsoft YaHei UI',9)).pack(side='bottom',anchor='w',pady=(8,2))
         self.app_title=ttk.Label(self.sidebar_head,text=APP_NAME,font=('Microsoft YaHei UI',16,'bold'))
         self.app_title.pack(side='left',pady=(2,4))
         self.sidebar_head.pack(fill='x',anchor='w')
@@ -315,7 +310,8 @@ class Desktop:
         # 实际文字尺寸决定齿轮位置；字号或显示名改变时不留旧名称的空洞。
         self.settings_gear_layer=win
         self.settings_gear_position=(0,0)
-        ttk.Label(side,text='我的项目').pack(anchor='w',pady=(8,0))
+        self.project_label=ttk.Label(side,text='我的项目')
+        self.project_label.pack(anchor='w',pady=(DESKTOP_LAYOUT['project_label_gap'],SPACING['none']))
         self.list=ttk.Treeview(side,show='tree',height=3,selectmode='browse',style='Project.Treeview');self.list.column('#0',width=136,minwidth=96,stretch=True);self.list.pack(fill='x',pady=SPACING['xs'])
         self.list.bind('<<TreeviewSelect>>',self.switch);self.list.bind('<Button-3>',self.project_menu)
         self.project_tip=TreeRowTooltip(self.list,lambda item:self.list.item(item,'text'))
@@ -351,6 +347,9 @@ class Desktop:
         self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
         self.pet_layer=self.title_row
         self.title=ttk.Label(self.title_row,font=('Microsoft YaHei UI',18,'bold'));self.title.pack(side='left',anchor='n',padx=(DESKTOP_LAYOUT['title_inset'],0))
+        self.header_slogan=ttk.Label(self.title_row,text='✦  把灵感变成故事',
+                                   style='Muted.TLabel',font=DESKTOP_LAYOUT['slogan_font'])
+        self.title.bind('<Configure>',self.align_header,add='+')
         self.app_title.bind('<Configure>',self.align_header,add='+')
         self.list.bind('<Configure>',self.fit_sidebar,add='+')
         self.title_row.bind('<Configure>',self.align_header,add='+')
@@ -376,6 +375,7 @@ class Desktop:
         self.page_scrollbar=None
         self.content=ttk.Frame(self.canvas);self.content_id=self.canvas.create_window(0,0,window=self.content,anchor='nw')
         self.content.bind('<Configure>',self.fit_content)
+        self.content.bind('<Configure>',self.align_header,add='+')
         self.canvas.bind('<Configure>',self.fit_content)
         protect_readonly_combobox(win);protect_tk_gc(win)
         win.bind_class('DramaPageWheel','<MouseWheel>',self.scroll_page)
@@ -581,7 +581,7 @@ class Desktop:
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         # 由可用像素反算最大整行数；不以 Treeview 上一次请求高度作为下一次预算。
         gap=DESKTOP_LAYOUT['row_gap']*2
-        fixed=DESKTOP_LAYOUT['sidebar_padding']*2
+        fixed=DESKTOP_LAYOUT['sidebar_padding']*2+getattr(self,'_header_list_gap',SPACING['none'])
         for child in self.sidebar.winfo_children():
             fixed+=gap
             if child is not self.list:
@@ -605,8 +605,56 @@ class Desktop:
             y=title.winfo_rooty()-self.win.winfo_rooty()+round((title.winfo_reqheight()-canvas.winfo_reqheight())/2)
             self.settings_gear_position=(x,y)
             canvas.place_configure(x=x,y=y)
-        height=max(self.title.winfo_reqheight(),self.list.winfo_rooty()-self.title_row.winfo_rooty())
+        minimum=max(self.title.winfo_reqheight(),pet_ui.PATCH_ROOM)
+        list_top=self.list.winfo_rooty()-self.title_row.winfo_rooty()
+        measurement=(list_top,minimum)
+        if self.list.winfo_ismapped() and measurement!=getattr(self,'_header_list_measurement',None):
+            self._header_list_measurement=measurement
+            previous=getattr(self,'_header_list_gap',SPACING['none'])
+            gap=max(SPACING['none'],minimum-(list_top-previous))
+            if gap!=previous:
+                self._header_list_gap=gap
+                self.list.grid_configure(pady=(DESKTOP_LAYOUT['row_gap']+gap,DESKTOP_LAYOUT['row_gap']))
+        height=max(minimum,list_top)
         if int(self.title_row.cget('height'))!=height:self.title_row.configure(height=height)
+        content=getattr(self,'content',None)
+        if content is None:return
+        box=getattr(self,'idea_log',None)
+        script=self.page_index==PAGE['script'] and box is not None and box.winfo_exists()
+        anchor=box if script else content
+        inset=max(SPACING['none'],anchor.winfo_rootx()-self.title_row.winfo_rootx())
+        def horizontal_pad(widget):
+            value=widget.pack_info()['padx']
+            values=tuple(map(int,value if isinstance(value,tuple) else widget.tk.splitlist(str(value))))
+            return values if len(values)>1 else values*2
+        title_pad=(inset,SPACING['none'])
+        if horizontal_pad(self.title)!=title_pad:
+            self.title.pack_configure(padx=title_pad)
+        pet=getattr(self,'pet',None)
+        obstacles=[w for w in (getattr(pet,'canvas',None),getattr(pet,'paws',None),
+                               getattr(pet,'caption',None)) if w is not None and w.winfo_exists()]
+        if script and box.winfo_ismapped():
+            dialog=box.master
+            overlapping=[w for w in obstacles if w.winfo_rooty()<box.winfo_rooty()+box.winfo_height()
+                         and w.winfo_rooty()+w.winfo_height()>box.winfo_rooty()]
+            right=dialog.master.winfo_rootx()+dialog.master.winfo_width()-SPACING['xs']
+            reserve=max([SPACING['none']]+[right-w.winfo_rootx()+DESKTOP_LAYOUT['pet_clearance'] for w in overlapping])
+            dialog_pad=(SPACING['none'],reserve)
+            if horizontal_pad(dialog)!=dialog_pad:
+                dialog.pack_configure(padx=dialog_pad)
+        slogan=self.header_slogan
+        x=inset+self.title.winfo_reqwidth()+DESKTOP_LAYOUT['slogan_gap']
+        edge=min([self.title_row.winfo_width()]+[w.winfo_rootx()-self.title_row.winfo_rootx() for w in obstacles])
+        stage=getattr(self,'header_stage_button',None)
+        if stage is not None and stage.winfo_exists() and stage.winfo_ismapped():
+            edge=min(edge,stage.winfo_rootx()-self.title_row.winfo_rootx())
+        if x+slogan.winfo_reqwidth()+DESKTOP_LAYOUT['slogan_gap']<=edge:
+            y=round(self.title.winfo_y()+self.title.winfo_height()/2)
+            placed=slogan.place_info()
+            if not placed or (int(placed['x']),int(placed['y']))!=(x,y):
+                slogan.place(x=x,y=y,anchor='w')
+                slogan.tk.call('raise',str(slogan))
+        else:slogan.place_forget()
     def fit_content(self,event=None):
         # 迟到的请求不能丢：内容框行数变化常发生在一次重算过程中，若不补算一次，
         # 页面滚动区域会停留在旧高度，底部按钮就可能被滚出可视区。
@@ -676,6 +724,9 @@ class Desktop:
         if self.page_index==PAGE['script'] and hasattr(self,'_fit_talk'):
             self._fit_talk()
         self._fit_request_signature=(width,req,target,tuple(measured_requests))
+        # 缓存页会替换 content，且等宽标题切换不会触发 Configure。
+        # 在当前页几何收敛时统一刷新，不沿用上一页的聊天内边距。
+        self.align_header()
         return (width,req,target)
     def wheel_steps(self,event):
         delta=getattr(event,'delta',0)
