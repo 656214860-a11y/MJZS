@@ -1,5 +1,6 @@
 # 项目状态（可独立接续）
 
+R1503：修复轮。R1496 锁改动后后台全量暴露的三条自有红收口：旧测试 `test_production_lock_ui`（R1264 制作锁同排）按新锁有意扩展——前 5 个旧锁仍同一行横排与原事件绑定，新锁在第二行／折叠区并可保存；`production_lock_fields` 登记层级；skip 台账补 1 条。`test_production_lock_ui test_skills test_layers test_skip_hygiene test_skill_panel_production_locks test_master_skill` 共 176 条通过。另一会话 `desktop.py` 拆分遗留的红（TALK_MIN_LINES、script_menu、measure_page_fixed 等）不归本轮。
 R1500：修复轮。R1496 锁界面对阶段配置面板的三条回归（锁提示占用 `panel.state`、新增锁行挤出底部栏）：提示改放锁区自己的控件，选填锁默认折叠，底部栏保持可见；结果追加在 R1496 文件。`test_skills` 全模块与锁相关用例通过。
 R1498：兼容轮（车道 skillauditB）。07–13 阶段适配文件 7 份、小 SKILL 4 份按已审定映射表挂载 V7.4.20 子技能章节，各阶段新增「本阶段读取的项目锁」声明（锁以项目设置为准，不再弹问）；外部整包只审不改。验收退回一次：恢复被删的既有门控句，合同测试 195 条通过，总控体检无问题。详见 [R1498](tasks_round/tasks_round_1498_result.md)。
 R1497：兼容轮（车道 skillauditA）。01–06 阶段适配文件 6 份、小 SKILL 4 份同上；01 阶段 5 个外部整包只审不改。验收退回一次（恢复门控句、锚点按新版标题同步、剧本阶段引用链接断言扩展为「原 4 条＋新增 5 条」）。详见 [R1497](tasks_round/tasks_round_1497_result.md)。
