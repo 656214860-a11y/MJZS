@@ -80,6 +80,66 @@ class TaskCenterServiceTests(unittest.TestCase):
         self.assertEqual(len(life.history()), HISTORY_LIMIT)
 
 
+    def test_queue_is_fifo_bounded_and_shown_in_panel(self):
+        from desktop_automation_service import BackgroundTaskQueue, QUEUE_LIMIT
+        queue = BackgroundTaskQueue()
+        self.assertEqual(queue.enqueue(lambda: 1, label='甲'), 1)
+        self.assertEqual(queue.enqueue(lambda: 2, label='乙'), 2)
+        text = chr(10).join(task_center_service.format_lines(task_center_service.snapshot(queue=queue)))
+        self.assertIn('1. 甲', text)
+        self.assertIn('2. 乙', text)
+        self.assertEqual(queue.pop()['label'], '甲')
+        for n in range(QUEUE_LIMIT):
+            if len(queue.labels()) < QUEUE_LIMIT:
+                queue.enqueue(lambda: 0, label=str(n))
+        with self.assertRaises(ValueError):
+            queue.enqueue(lambda: 0)
+        queue.clear()
+        self.assertEqual(queue.labels(), [])
+        self.assertIsNone(queue.pop())
+
+    def test_desktop_queue_runs_next_after_current_finishes(self):
+        import desktop
+        ran = []
+        class Fake:
+            shutting_down = False
+            worker = False
+            def __init__(self):
+                from desktop_automation_service import BackgroundTaskQueue
+                self.task_queue = BackgroundTaskQueue()
+                self.messages = []
+                class S:
+                    def set(inner, text):
+                        self.messages.append(text)
+                self.status = S()
+            def async_(self, fn, done=None, show_progress=True, label=None):
+                ran.append(label)
+                self.worker = True
+                return 1
+        fake = Fake()
+        call = lambda name, *args, **kw: getattr(desktop.Desktop, name)(fake, *args, **kw)
+        call('async_queued', lambda: 0, None, '第一个')   # 空闲：立即执行
+        call('async_queued', lambda: 0, None, '第二个')   # 忙：排队
+        self.assertEqual(ran, ['第一个'])
+        self.assertEqual(fake.task_queue.labels(), ['第二个'])
+        self.assertIn('已排队（第1个）', fake.messages[-1])
+        call('_start_next_queued')                       # 仍忙：不启动
+        self.assertEqual(ran, ['第一个'])
+        fake.worker = False
+        call('_start_next_queued')
+        self.assertEqual(ran, ['第一个', '第二个'])
+        fake.worker = False
+        fake.shutting_down = True
+        fake.task_queue.enqueue(lambda: 0, label='不该跑')
+        call('_start_next_queued')
+        self.assertEqual(ran, ['第一个', '第二个'])
+
+    def test_result_tick_starts_next_queued(self):
+        source = (PROGRAM / 'desktop.py').read_text(encoding='utf-8')
+        tick = source.split('def _tick_async_result', 1)[1].split('def _project_result_data', 1)[0]
+        self.assertIn('self._start_next_queued()', tick)
+
+
 class TaskCenterUiTests(unittest.TestCase):
     def test_dialog_is_read_only_and_shows_summary(self):
         root = tk.Tk()

@@ -264,6 +264,7 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
             setattr(desktop, name + '_error', '')
             setattr(desktop, 'poll_' + name, lambda: None)
         desktop.poll_auto_previs = lambda: None
+        desktop._start_next_queued = lambda: None  # R1470：结果收尾后启动排队任务；本测试不涉及排队
         desktop.previs_jobs = {'news': desktop.previs_news}
         for name in ('auto_video', 'auto_asset', 'auto_keyframe'):
             setattr(desktop, name + '_messages', queue.Queue())

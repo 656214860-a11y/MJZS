@@ -13,6 +13,7 @@ import app_logging
 # 取消、成功、失败和迟到交付拒绝；含连续进度消息的入口还必须把进度与最终结果
 # 绑定到同一 ticket。状态只记录已落地的事实，待迁移项不得借清单宣称已收口。
 HISTORY_LIMIT = 20
+QUEUE_LIMIT = 10
 
 
 BACKGROUND_TASK_MIGRATION = (
@@ -101,6 +102,33 @@ class DesktopAutomationScheduler:
 
 # 迟到结果登记的条数上限（取消说明的三态记录同样有界）。
 LATE_RESULT_LIMIT = 8
+
+
+class BackgroundTaskQueue:
+    """后台忙时的排队清单（先进先出，有上限）。
+
+    只存放“互相独立、可以晚点再做”的主动任务；前一项失败不会取消后一项。破坏性或依赖当前
+    界面状态的操作不要排队，仍走原来的“请稍候”拦截。本类不持有 Tk，也不自己启动任务。
+    """
+
+    def __init__(self, limit=QUEUE_LIMIT):
+        self._limit = limit
+        self._items = deque()
+
+    def enqueue(self, fn, done=None, label=''):
+        if len(self._items) >= self._limit:
+            raise ValueError('排队任务已满（最多 %d 个），请等当前任务结束' % self._limit)
+        self._items.append({'fn': fn, 'done': done, 'label': str(label or '')})
+        return len(self._items)
+
+    def pop(self):
+        return self._items.popleft() if self._items else None
+
+    def labels(self):
+        return [item['label'] for item in self._items]
+
+    def clear(self):
+        self._items.clear()
 
 
 class BackgroundTaskLifecycle:

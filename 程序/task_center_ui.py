@@ -14,7 +14,8 @@ def show(desktop):
         degradations = diagnostic_capture._state().get('degradations') or []
     except Exception:
         degradations = []
-    data = task_center_service.snapshot(getattr(desktop, 'background_tasks', None), degradations)
+    data = task_center_service.snapshot(getattr(desktop, 'background_tasks', None), degradations,
+                                         getattr(desktop, 'task_queue', None))
     dialog = BaseDialog(desktop.win, '运行状况', geometry='640x520', minsize=(420, 320))
     text = TextArea(dialog.content, wrap='word', height=20)
     text.pack(fill='both', expand=True)

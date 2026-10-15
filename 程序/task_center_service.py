@@ -10,13 +10,14 @@ import app_logging
 STATE_TEXT = {'running': '进行中', 'succeeded': '成功', 'failed': '失败', 'cancelled': '已取消'}
 
 
-def snapshot(lifecycle=None, degradations=None) -> dict:
+def snapshot(lifecycle=None, degradations=None, queue=None) -> dict:
     """``lifecycle`` 为 BackgroundTaskLifecycle；``degradations`` 为降级记录列表（调用方注入）。"""
     last = getattr(lifecycle, '_last', None) if lifecycle is not None else None
     metrics = app_logging.metrics_snapshot()
     counters = metrics.pop('counters', {})
     return {
         'last_task': dict(last) if isinstance(last, dict) else None,
+        'queued': list(queue.labels()) if hasattr(queue, 'labels') else [],
         'task_history': list(lifecycle.history()) if hasattr(lifecycle, 'history') else [],
         'timings': metrics,
         'counters': counters,
@@ -29,6 +30,8 @@ def format_lines(data: dict) -> list:
     lines = ['【最近一次主动任务】']
     task = data.get('last_task')
     lines.append('  暂无' if not task else '  #%s %s' % (task.get('ticket'), STATE_TEXT.get(task.get('state'), task.get('state'))))
+    lines.append('【排队中（前一项结束后依次执行）】')
+    lines += ['  %d. %s' % (n, name or '（无名称）') for n, name in enumerate(data.get('queued', []), 1)] or ['  无']
     lines.append('【最近完成的主动任务（最新在后，最多 20 条）】')
     for row in data.get('task_history', []):
         lines.append('  #%s %s %s%s' % (row.get('ticket'), STATE_TEXT.get(row.get('state'), row.get('state')),

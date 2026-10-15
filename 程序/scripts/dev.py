@@ -11,6 +11,7 @@ r"""开发者统一入口：一个命令名对应一个既有实现，不另写�
     python.exe -B scripts\dev.py dist       # 分发副本自检（构建 → 校验 → 导入入口）
     python.exe -B scripts\dev.py health     # 仓库健康检查
     python.exe -B scripts\dev.py logs       # 日志维护（--dry-run 可预览）
+    python.exe -B scripts\dev.py shots      # 界面截图基线比对（手动；--update 重拍基线）
     python.exe -B scripts\dev.py claim      # 领取下一个轮次号
 子命令后面的参数原样传给底层脚本。
 """
@@ -30,6 +31,7 @@ COMMANDS = {
     'dist': (['scripts/distribution_selfcheck.py'], '分发副本自检'),
     'health': (['scripts/repo_health.py'], '仓库健康检查'),
     'logs': (['scripts/maintain_logs.py'], '日志维护'),
+    'shots': (['scripts/ui_snapshot.py', '--check'], '界面截图基线比对（--update 重拍；手动工具）'),
     'claim': (['维护记录/基准脚本/round_claim.py', 'next'], '领取下一个轮次号'),
 }
 
