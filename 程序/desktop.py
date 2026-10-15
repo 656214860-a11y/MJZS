@@ -5318,11 +5318,14 @@ class Desktop:
             controls.pack(side='right')
             text_area = ttk.Frame(preview_area); text_area.pack(fill='both', expand=True)
             preview = TextArea(text_area, bg=COLORS["background_card"], fg=COLORS["text_primary"], height=1,
-                              wrap='word', undo=True, maxundo=-1, font=FONTS["caption"], relief='flat',
+                              wrap='none', undo=True, maxundo=-1, font=FONTS["caption"], relief='flat',
                               padx=SPACING["md"], pady=SPACING["sm"])
             scroll = ttk.Scrollbar(text_area, orient='vertical', command=preview.yview)
-            preview.configure(yscrollcommand=scroll.set)
+            # 中文正文自动换行会在 Tcl 内反复量宽；保留全文，以横向滚动浏览长行。
+            horizontal = ttk.Scrollbar(text_area, orient='horizontal', command=preview.xview)
+            preview.configure(yscrollcommand=scroll.set, xscrollcommand=horizontal.set)
             preview.grid(row=0, column=0, sticky='nsew'); scroll.grid(row=0, column=1, sticky='ns')
+            horizontal.grid(row=1, column=0, sticky='ew')
             text_area.columnconfigure(0, weight=1); text_area.rowconfigure(0, weight=1)
             body.add(files, weight=1)
             body.add(preview_area, weight=4)
