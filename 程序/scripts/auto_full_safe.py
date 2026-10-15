@@ -25,6 +25,7 @@ from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
+import file_cache  # noqa: E402
 import run_selftests  # noqa: E402
 
 LOG = PROGRAM / "logs" / "auto_full_safe.log"
@@ -84,7 +85,7 @@ def write_result(head: str, returncode: int, seconds: float) -> None:
 
 def last_result() -> dict:
     try:
-        value = json.loads(_result_path().read_text(encoding="utf-8"))
+        value = file_cache.read_json(_result_path())
     except (OSError, ValueError):
         return {}
     return value if isinstance(value, dict) else {}
