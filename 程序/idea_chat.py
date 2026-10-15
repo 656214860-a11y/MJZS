@@ -335,7 +335,7 @@ BRIEF_ATTACHMENT_NOTICE = '引用附档无本地可读转换稿,请补充填写�
 
 
 def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=None, attachment_reference=None,
-                  inline_text=None, inline_template=None, stage='script'):
+                  inline_text=None, inline_template=None, stage='script', created_at=None):
     """接收用户创意，落盘原始简报；满足必填项时才生成 brief_complete.json。"""
     lock_definitions = stage_lock_definitions(stage, lock_definitions)
     value = str(text or '').strip()
@@ -372,9 +372,11 @@ def receive_brief(root, text, workflow=None, lock_definitions=(), *, gateway=Non
             or next((value for source in lock_sources
                      if (value := _brief_value(source, labels))), ''))
     fields['production_locks'] = {key: value for key, value in selected_locks.items() if value}
+    from script_contract import validate_production_locks
+    validate_production_locks(fields['production_locks'])
     from script_contract import brief_document, missing_brief_fields
     missing_locks = tuple(item for item in lock_definitions
-                          if item['key'] in stage_lock_requirements(stage)
+                          if item['key'] in stage_lock_requirements(stage, created_at)
                           and not selected_locks.get(item['key']))
     missing = missing_brief_fields(fields) + tuple(item['key'] for item in missing_locks)
     followup = brief_followup(fields)

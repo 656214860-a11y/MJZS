@@ -872,8 +872,15 @@ class IdeaChatMixin:
         dialog = FormDialog(self.win, '补充创作信息')
         self._idea_missing_dialog = dialog
         ttk.Label(dialog.content, text=notice + '以下信息尚未填写。保存后请再次点击发送。').pack(anchor='w', pady=SPACING['sm'])
+        from script_contract import PRODUCTION_LOCK_DEFINITIONS, validate_production_locks
+        from production_lock_fields import ProductionLockFields
+        import stage_config
+        lock_labels = {label for item in PRODUCTION_LOCK_DEFINITIONS[5:]
+                       for label in (item['label'], *item.get('aliases', ()), item['key'])}
         dialog.brief_fields = {}
         for label in missing:
+            if label in lock_labels:
+                continue
             row = ttk.Frame(dialog.content)
             row.pack(fill='x', pady=SPACING['xs'])
             ttk.Label(row, text=label).pack(side='left', padx=(0, SPACING['sm']))
@@ -881,11 +888,35 @@ class IdeaChatMixin:
             entry.pack(side='left', fill='x', expand=True)
             entry.insert('1.0', fields.get(label, ''))
             dialog.brief_fields[label] = entry
+        dialog.lock_fields = ProductionLockFields(dialog.content, definitions=PRODUCTION_LOCK_DEFINITIONS[5:])
+        dialog.lock_fields.pack(fill='x', pady=SPACING['sm'])
+        configured = stage_config.workflow_lock(project)
+        for item in PRODUCTION_LOCK_DEFINITIONS:
+            for label in (item['label'], *item.get('aliases', ()), item['key']):
+                if fields.get(label):
+                    configured[item['key']] = fields[label]
+                    break
+        dialog.lock_fields.set_values(configured)
         def save():
-            if self.root == project and self.idea_input is box and box.winfo_exists():
-                self.fill_idea_brief({label: entry.get('1.0', 'end-1c')
-                                      for label, entry in dialog.brief_fields.items()})
-                self.status.set('已保存补充信息，请再次点击发送。')
+            values = dialog.lock_fields.values()
+            try:
+                validate_production_locks(values)
+                if self.root == project and self.idea_input is box and box.winfo_exists():
+                    if stage_config.current_workflow(project).get('name'):
+                        from stage_execution_service import save_writing_production_locks
+                        old_values = {}
+                        for item in PRODUCTION_LOCK_DEFINITIONS[:5]:
+                            if item['label'] in dialog.brief_fields:
+                                old_values[item['key']] = dialog.brief_fields[item['label']].get('1.0', 'end-1c')
+                        save_writing_production_locks(project, {**old_values, **values})
+                    updated = {label: entry.get('1.0', 'end-1c')
+                               for label, entry in dialog.brief_fields.items()}
+                    updated.update({item['label']: values[item['key']] for item in PRODUCTION_LOCK_DEFINITIONS[5:]})
+                    self.fill_idea_brief(updated)
+                    self.status.set('已保存补充信息，请再次点击发送。')
+            except (ValueError, OSError) as exc:
+                self.status.set('制作锁保存失败：' + str(exc))
+                return
             dialog.close()
         dialog.add_form_actions('保存', save)
         return dialog
@@ -922,9 +953,14 @@ class IdeaChatMixin:
                         text, extra_labels=lock_labels, include_extra=True).items():
                     lock_fields.setdefault(label, field)
             attachment_fields.update(lock_fields)
+        from script_contract import PRODUCTION_LOCK_DEFINITIONS
+        configured_locks = stage_config.workflow_lock(self.root)
+        attachment_fields.update({item['label']: configured_locks[item['key']]
+            for item in PRODUCTION_LOCK_DEFINITIONS if configured_locks.get(item['key'])})
         missing = () if continuing else idea_chat.inline_required_missing(None, value,
                                                     attachment_fields=attachment_fields,
-                                                    stage='script', lock_definitions=lock_definitions)
+                                                    stage='script', lock_definitions=lock_definitions,
+                                                    created_at=stage_config.project_created_at(self.root))
         if missing:
             notice = idea_chat.BRIEF_ATTACHMENT_NOTICE + '\n' if prepared and prepared['attachments'].get('brief_unreadable') else ''
             self.show_missing_idea_brief(missing, attachment_fields, notice)
@@ -938,7 +974,8 @@ class IdeaChatMixin:
         # UI 故事字段与阶段锁门禁通过后仍核验底层四项契约；缺项只提示，不启动模型。
         brief = {'missing': ()} if continuing else idea_chat.receive_brief(self.idea_chat_context(), submission, workflow=workflow_config,
                                         lock_definitions=lock_definitions, gateway=self.idea_chat_gateway(),
-                                        attachment_reference=prepared['attachments'], inline_text=value, stage='script')
+                                        attachment_reference=prepared['attachments'], inline_text=value, stage='script',
+                                        created_at=stage_config.project_created_at(self.root))
         if brief['missing']:
             self.notifier.info((brief.get('attachment_notice', '') + '\n' + brief['followup']).strip(), modal=True)
             return

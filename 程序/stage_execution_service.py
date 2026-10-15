@@ -1470,6 +1470,8 @@ def save_writing_production_locks(project, values, *, attachment_signature=None)
     if set(values) - allowed:
         raise ValueError('未知制作锁字段')
     updates = {key: str(value).strip() for key, value in values.items()}
+    from script_contract import validate_production_locks
+    validate_production_locks(updates)
     config_path = stage_config.path(project)
     config = deepcopy(file_cache.read_json(config_path) or {})
     workflow = config.get('workflow') or {}

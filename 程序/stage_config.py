@@ -203,6 +203,18 @@ def current_workflow(project):
     return dict(workflow) if isinstance(workflow, dict) else {}
 
 
+def project_created_at(project):
+    """使用项目登记的创建时间；复制目录时间不能代表项目创建时间。"""
+    if not project:
+        return None
+    root = Path(project if isinstance(project, (str, Path)) else project.root)
+    registry = read_json(Path(__file__).resolve().parent / 'projects.json') or {}
+    for record in registry.get('projects', ()):
+        if Path(record.get('path', '')).resolve() == root.resolve() and record.get('created_at') is not None:
+            return record['created_at']
+    return None
+
+
 def workflow_lock(project):
     workflow = current_workflow(project)
     name = str(workflow.get('name') or '').strip()

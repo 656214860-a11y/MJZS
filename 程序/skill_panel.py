@@ -769,29 +769,17 @@ class Panel(ttk.Frame):
     def build_workflow_coordinator(self, pad, parent=None):
         """受控统筹入口；阶段勾选网格仍是唯一可编辑清单。"""
         import workflow_settings
-        row = ttk.Frame(parent or self)
-        row.pack(fill='x')
-        ttk.Label(row, text='总控', style='Muted.TLabel', width=10).pack(side='left')
         names = list(workflow_settings.refresh_workflow_presets()) + ['浏览本地…', NO_MASTER]
-        self.workflow_box = SelectBox(row, textvariable=self.workflow_choice, values=names)
-        self.workflow_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
-        self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
-        from script_contract import PRODUCTION_LOCK_DEFINITIONS
-        self.lock_row = ttk.Frame(row)
-        self.lock_row.pack(side='left')
-        self.lock_inputs = {}
-        for column, item in enumerate(PRODUCTION_LOCK_DEFINITIONS):
-            field = ttk.Frame(self.lock_row)
-            field.grid(row=0, column=column, sticky='ew', padx=SPACING['xs'])
-            self.lock_row.columnconfigure(column, weight=1)
-            ttk.Label(field, text=item['label']).pack(side='left')
-            # 可编辑下拉：常用值直接选，少见参数仍可手填；选项唯一来源是契约定义。
-            entry = SelectBox(field, values=item.get('options') or (), state='normal',
-                              width=6 if item['key'] in ('aspect_ratio', 'fps') else 12)
-            entry.pack(side='left', fill='x', expand=True, padx=SPACING['xs'])
-            for event in ('<Return>', '<KeyRelease>', '<FocusOut>', '<<ComboboxSelected>>'):
-                entry.bind(event, lambda _event: self.save_workflow_locks())
-            self.lock_inputs[item['key']] = entry
+        def workflow_selector(row):
+            ttk.Label(row, text='总控', style='Muted.TLabel', width=10).pack(side='left')
+            self.workflow_box = SelectBox(row, textvariable=self.workflow_choice, values=names)
+            self.workflow_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
+            self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
+        from production_lock_fields import ProductionLockFields
+        self.lock_row = ProductionLockFields(parent or self, on_change=self.save_workflow_locks,
+                                             prefix=workflow_selector)
+        self.lock_row.pack(fill='x')
+        self.lock_inputs = self.lock_row.inputs
         self._saved_workflow_locks = {}
 
     def save_workflow_locks(self):
@@ -826,8 +814,17 @@ class Panel(ttk.Frame):
             entry.insert(0, str(locks.get(key) or ''))
             if not name:
                 entry.state(['disabled'])
+        # 旧视图适配仍只需提供 lock_inputs；完整视图额外处理默认值与依赖。
+        if getattr(self, 'lock_row', None) is not None:
+            self.lock_row.set_values(locks, enabled=bool(name))
         self._saved_workflow_locks = {key: entry.get() for key, entry in self.lock_inputs.items()}
-        if synced:
+        from script_contract import stage_lock_requirements
+        required = stage_lock_requirements('script', stage_config.project_created_at(self.project()))
+        legacy_missing = [label for key, label in (('track', '赛道'), ('material_source', '素材来源'))
+                          if key not in required and not locks.get(key)]
+        if legacy_missing and getattr(self, 'state', None) is not None:
+            self.state.configure(text='旧项目兼容：' + '、'.join(legacy_missing) + '未选，仅提示不阻断。')
+        elif synced:
             self.state.configure(text=synced)
 
     def sync_master_skill(self, quiet=False):

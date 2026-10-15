@@ -74,12 +74,12 @@ def inline_template_labels(text):
 
 def inline_required_missing(template_text, draft_text, required_labels=INLINE_REQUIRED_LABELS,
                             attachment_fields=None, *, stage='script',
-                            lock_definitions=PRODUCTION_LOCK_DEFINITIONS):
+                            lock_definitions=PRODUCTION_LOCK_DEFINITIONS, created_at=None):
     """故事字段与本阶段制作锁共用门禁；其他锁只保留为建议值。"""
     lock_definitions = stage_lock_definitions(stage, lock_definitions)
     lock_aliases = {item['label']: (item['label'], *item.get('aliases', ()), item['key'])
                     for item in lock_definitions}
-    required_keys = stage_lock_requirements(stage)
+    required_keys = stage_lock_requirements(stage, created_at)
     required_labels = tuple(dict.fromkeys((*required_labels,
         *(item['label'] for item in lock_definitions if item['key'] in required_keys))))
     labels = tuple(dict.fromkeys((*inline_template_labels(template_text), *required_labels,

@@ -483,6 +483,7 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     # 统筹投影不改变旧引擎档；仅在生成提示词时作为受控前缀读取。
     workflow = stage_config.current_workflow(project)
     locks = stage_config.workflow_lock(project)
+    profile['project_created_at'] = stage_config.project_created_at(project)
     if locks:
         profile['workflow_lock'] = locks
     if stage == 'writing':
@@ -763,16 +764,23 @@ def master_gate(config, stage=None, check_references=True):
         return ''
     stage = lock_stage(stage if stage is not None else config.get('stage'))
     reasons = []
-    if stage != 'script':
+    from script_contract import stage_lock_requirements
+    required_keys = stage_lock_requirements(stage, config.get('project_created_at'))
+    if stage == 'script':
+        required_keys = tuple(key for key in required_keys if key != 'delivery_format')
+    if required_keys:
         # 剧本准备的制作锁由简报采集门禁负责，不能挡住收集制作锁的那段对话。
         preset = WORKFLOW_PRESETS.get(name, {})
         declared = {item['key']: item.get('label') or item['key'] for item in preset.get('locks') or ()}
         locks = config.get('workflow_lock') or {}
-        missing = [declared[key] for key in STAGE_LOCK_REQUIREMENTS.get(stage, ())
+        missing = [declared[key] for key in required_keys
                    if key in declared and not str(locks.get(key) or '').strip()]
         if missing:
             reasons.append('本阶段必填制作锁未填：' + '、'.join(missing)
                            + '（在阶段配置的总控栏或 01 剧本准备发送框补齐）')
+    config['workflow_lock_warnings'] = [item['label'] + '未选（旧项目兼容，不阻断）'
+        for item in PRODUCTION_LOCK_DEFINITIONS if stage == 'script' and item.get('required_from')
+        and item['key'] not in required_keys and not (config.get('workflow_lock') or {}).get(item['key'])]
     if check_references:
         for item in [*(config.get('stage_skills') or ()), *skills_of(config)]:
             if not item:
@@ -865,8 +873,14 @@ def skill_prompt(config, stage=None, inline=False):
     stage = lock_stage(stage if stage is not None else config.get('stage'))
     locks = config.get('workflow_lock') or {}
     required = STAGE_LOCK_REQUIREMENTS.get(stage)
+    from script_contract import production_lock_active
+    definitions = {item['key']: item for item in PRODUCTION_LOCK_DEFINITIONS}
+    extra = {item['key'] for item in PRODUCTION_LOCK_DEFINITIONS[5:]}
     header = ''.join('制作锁：%s=%s%s\n' % (key, value, _lock_fallback(key, value)) for key, value in locks.items()
-                     if str(value).strip() and (required is None or key in required))
+                     if str(value).strip() and (required is None or key in required or key in extra)
+                     and production_lock_active(definitions.get(key, {}), locks))
+    if header:
+        header += '以项目锁定值为准，不要再向用户弹问这些锁。\n'
     coordinator = str(config.get('workflow_skill_prompt') or '')
     if coordinator and not coordinator.endswith('\n'):
         coordinator += '\n'

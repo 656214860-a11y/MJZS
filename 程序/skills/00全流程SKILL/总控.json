@@ -18,7 +18,7 @@
         "edit": ["pipeline-editing"],
         "delivery": ["pipeline-delivery"]
       },
-      "locks": ["aspect_ratio", "resolution", "fps", "delivery_format", "video_model_version"]
+      "locks": ["aspect_ratio", "resolution", "fps", "delivery_format", "video_model_version", "track", "material_source", "reference_mode", "splice_mode", "style_base", "style_directors"]
     }
   }
 }

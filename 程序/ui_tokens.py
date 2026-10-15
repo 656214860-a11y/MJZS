@@ -196,3 +196,6 @@ PET_LAYOUT = {
     "caption_height": 20,
     "header_gap": SPACING["sm"],
 }
+
+# 制作锁输入宽度（字符数），两处编辑入口共用。
+PRODUCTION_LOCK_WIDTH = {"compact": 6, "normal": 12, "directors": 24}

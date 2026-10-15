@@ -92,3 +92,5 @@ R1124 插入 Animatic 后，旧中文编号目录由 `stage_path_service.read_di
 - 全局配置：`配置/宠物/配置.json`；最后项目位于项目 UI 设置。
 - 密钥：`.env`、`private/.env` 或 `private/密钥/*.dpapi`；读取判据为 `pet_llm.credential`，日志/任务 JSON 不存明文。
 - 真实云端提交不自动发生；需要有效服务配置、选定素材和用户授权。
+
+- `production_lock_fields.py`：阶段配置与创作信息窗共用制作锁视图；契约来自 `script_contract`，写入仍走 `stage_execution_service`。

@@ -817,7 +817,7 @@ RHYTHM_TEMPLATE_PATH = 'skills/templates/rhythm_template.yaml'
 BRIEF_REQUIRED_FIELDS = ('story_summary', 'main_characters', 'genre', 'length')
 INLINE_REQUIRED_LABELS = ('故事梗概', '故事题材', '故事角色', '故事集数', '单集时间')
 STAGE_LOCK_REQUIREMENTS = {
-    'script': ('delivery_format',),
+    'script': ('delivery_format', 'track', 'material_source'),
     'keyframe': ('aspect_ratio', 'video_model_version', 'delivery_format'),
     'video': ('aspect_ratio', 'video_model_version', 'delivery_format'),
     'previs': ('aspect_ratio', 'video_model_version', 'delivery_format'),
@@ -833,6 +833,20 @@ PRODUCTION_LOCK_DEFINITIONS = (
     {'key': 'video_model_version', 'label': '视频模型版本', 'aliases': ('视频模型',), 'options': ['Seedance 2.5', 'Seedance 2.0', 'MiniMax H3', '即梦 3.0'],
      # 手填了下拉以外的模型：统筹 SKILL 没有它的专用语法，提示词退回 SKILL 默认格式，不现编格式。
      'fallback': '总控 SKILL 未适配该模型，提示词按 SKILL 默认格式撰写（七段式，Seedance 2.5 语法）'},
+    {'key': 'track', 'label': '赛道', 'aliases': ('故事赛道',),
+     'options': ['国内剧', '海外剧', '解说叙事类', '其他'], 'required_from': '2026-10-15'},
+    {'key': 'material_source', 'label': '素材来源', 'aliases': ('创作来源',),
+     'options': ['原创', '改编（有原著）', '对标爆款（现场采风）', '热点速成（给方向先找选题）'],
+     'required_from': '2026-10-15'},
+    {'key': 'reference_mode', 'label': '参考模式', 'aliases': ('视频参考模式',),
+     'options': ['全能参考模式', '首尾帧模式'], 'default': '全能参考模式',
+     'depends_on': {'video_model_version': 'Seedance 2.5'}},
+    {'key': 'splice_mode', 'label': '段缝衔接方式', 'aliases': ('段缝衔接',),
+     'options': ['末帧定格承接', '换机位硬切', '空镜过渡', '技巧型转场'], 'default': '末帧定格承接'},
+    {'key': 'style_base', 'label': '画风基底', 'aliases': ('风格基底',),
+     'options': ['真人实拍质感', '2D 手绘动画', '3D CG 动画', '水墨二维']},
+    {'key': 'style_directors', 'label': '导演风格卡', 'aliases': ('导演卡',), 'options': []},
+
 )
 
 # 提取范围独立于必填范围：建议值仍保留，不因阶段门禁收窄而丢失。
@@ -845,15 +859,37 @@ def lock_stage(stage):
     return {'writing': 'script', 'frames': 'keyframe', 'video_prompt': 'video'}.get(stage, stage)
 
 
-def stage_lock_requirements(stage):
+def production_lock_date(value):
+    """未记录创建时间的旧调用保留兼容；有时间时按本地自然日比较。"""
+    from datetime import datetime
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value).date().isoformat()
+    return str(value or '')[:10]
+
+
+def production_lock_active(item, values):
+    return all(values.get(key) == value for key, value in item.get('depends_on', {}).items())
+
+
+def validate_production_locks(values):
+    import re
+    cards = [card.strip() for card in re.split('[,，]', str(values.get('style_directors') or '')) if card.strip()]
+    if len(cards) > 4:
+        raise ValueError('导演风格卡最多 4 张，请用逗号分隔')
+
+
+def stage_lock_requirements(stage, created_at=None):
     """未登记阶段没有必填制作锁。"""
-    return STAGE_LOCK_REQUIREMENTS.get(lock_stage(stage), ())
+    required = STAGE_LOCK_REQUIREMENTS.get(lock_stage(stage), ())
+    dated = {item['key']: item['required_from'] for item in PRODUCTION_LOCK_DEFINITIONS if item.get('required_from')}
+    day = production_lock_date(created_at)
+    return tuple(key for key in required if key not in dated or (day and day >= dated[key]))
 
 def stage_lock_definitions(stage, definitions):
     """优先使用统筹标签；未配置统筹时，必填锁仍使用契约默认标签。"""
     definitions = tuple(definitions)
     known = {item['key'] for item in definitions}
-    required = stage_lock_requirements(stage)
+    required = STAGE_LOCK_REQUIREMENTS.get(lock_stage(stage), ())
     return definitions + tuple(item for item in PRODUCTION_LOCK_DEFINITIONS
                                if item['key'] in required and item['key'] not in known)
 
