@@ -94,6 +94,11 @@ class AppLoggingTests(unittest.TestCase):
         self.assertIn('app_logging.install()', source)
         self.assertIn('app_logging.install(window)', source)
 
+    def test_startup_failure_log_appends_with_header(self):
+        source = (ROOT / '启动漫剧制作助手.pyw').read_text(encoding='utf-8')
+        self.assertNotIn("log.write_text(traceback.format_exc()", source)
+        self.assertIn('old+header+traceback.format_exc()', source)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -94,6 +94,12 @@ try:
     finally:
         kernel.CloseHandle(activation);kernel.CloseHandle(mutex)
 except Exception:
-    log=root/'启动错误.log';log.write_text(traceback.format_exc(),encoding='utf-8')
+    import time;from app_metadata import VERSION
+    log=root/'启动错误.log'
+    # 追加而非覆盖，并带时间／版本／解释器，反复失败时能看出何时开始、是否同一原因（保留最近约 64KB）。
+    try:old=log.read_text(encoding='utf-8',errors='replace')[-65536:]
+    except OSError:old=''
+    header=chr(10)+'===== '+time.strftime('%Y-%m-%d %H:%M:%S')+' '+VERSION+' Python '+sys.version.split()[0]+' ====='+chr(10)
+    log.write_text(old+header+traceback.format_exc(),encoding='utf-8')
     import ctypes
     ctypes.windll.user32.MessageBoxW(0,'启动失败，详情已保存到：'+str(log),APP_NAME,16)
