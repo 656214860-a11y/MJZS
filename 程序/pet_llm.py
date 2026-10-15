@@ -699,7 +699,7 @@ class RequestLedger:
         spent, held = self.decimal(money['settled_amount']), self.decimal(money['reserved_amount'])
         versions = set()
         for row in self.entries:
-            if 'money_state' not in row:
+            if 'money_state' not in row or row.get('state') == 'duplicate':
                 continue
             versions.add(str(row.get('price_version') or 'unknown'))
             cost = row.get('budget_cost')
@@ -721,7 +721,7 @@ class RequestLedger:
     def model_costs(self):
         groups = {}
         for row in self.entries:
-            if 'money_state' not in row:
+            if 'money_state' not in row or row.get('state') == 'duplicate':
                 continue
             currency = str(row.get('currency') or '币种未配置')
             group = groups.setdefault(currency, {'estimated_spent': '0', 'held': '0', 'unknown': 0})
@@ -830,7 +830,7 @@ class RequestLedger:
         return self.authorize_units(request_id, model, stage, 'tokens',
                                     {'prompt_tokens': input_estimate, 'completion_tokens': output_limit})
 
-    def authorize_units(self, request_id, model, stage, kind, quantities):
+    def authorize_units(self, request_id, model, stage, kind, quantities, *, amount=None):
         """所有模型共用金额上限；按明确计费单位冻结预留。"""
         from agent.core import read
         if not quantities or kind not in REQUEST_KINDS:
@@ -872,7 +872,7 @@ class RequestLedger:
                     used += self.decimal(money)
                 if used + cost > cap:
                     raise ValueError('超过项目金额预算，请核对费用或明确提高预算后重试')
-            entry = self.reserve(request_id, kind, sum(quantities.values()))
+            entry = self.reserve(request_id, kind, sum(quantities.values()) if amount is None else amount)
             entry.update(model=model, stage=stage, input_estimate=float(quantities.get('prompt_tokens', 0)),
                          output_limit=float(quantities.get('completion_tokens', 0)),
                          quantities={key: str(value) for key, value in quantities.items()},
@@ -884,19 +884,32 @@ class RequestLedger:
     def metered_units(self, request_id, model, stage, kind, amount, *, quantities=None):
         """成功产物按单价估算；任何发送后异常都不自动释放额度。"""
         try:
-            self.authorize_units(request_id, model, stage, kind, quantities if quantities is not None else {kind: amount})
+            self.authorize_units(request_id, model, stage, kind, quantities if quantities is not None else {kind: amount}, amount=amount)
         except (ValueError, OSError) as exc:
             raise BudgetRejected(str(exc)) from exc
         try:
             yield
         except Exception:
-            with self.transaction():
-                entry = self.mark_unknown(request_id)
-                entry['money_state'] = 'unknown'
+            self.settle_units(request_id)
             raise
         else:
-            with self.transaction():
-                entry = self.settle(request_id, amount=amount, mode='estimated')
+            self.settle_units(request_id, amount=amount)
+
+    def settle_units(self, request_id, *, amount=None, remote_task_id=None):
+        """异步生成与同步请求共享结算；未知不释放费用，重复回执不重复计费。"""
+        with self.transaction():
+            entry = self._find(request_id)
+            if entry is None:
+                raise ValueError('请求预留记录缺失')
+            if remote_task_id:
+                self.link(request_id, remote_task_id)
+            if entry.get('state') == 'duplicate' or entry.get('money_state') == 'estimated':
+                return
+            if amount is None:
+                self.mark_unknown(request_id)
+                entry['money_state'] = 'unknown'
+            else:
+                self.settle(request_id, amount=amount, mode='estimated')
                 entry['money_state'] = 'estimated'
 
     def settle_model(self, request_id, usage):

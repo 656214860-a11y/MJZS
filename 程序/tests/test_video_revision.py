@@ -59,6 +59,84 @@ class VideoRevisionTests(unittest.TestCase):
             stack.enter_context(patch('engine.command'))
         return api
 
+    def money_policy(self, cap='0.5'):
+        save(self.root / 'cost_profile.json', {'budget_amount': cap, 'price_table': {
+            'currency': 'CNY', 'version': 'test', 'model_rates': {'video-m': {'seconds': '0.1'}}}})
+
+    def test_money_rejection_does_not_submit_or_consume_seconds(self):
+        from pet_llm import RequestLedger
+        self.money_policy('0')
+        studio = self.studio(Studio, [])
+        studio.cfg['model'] = 'video-m'
+        api = self.dependencies(studio)
+        with self.assertRaisesRegex(ValueError, '视频未发送'):
+            studio.submit('SH001')
+        api.submit.assert_not_called()
+        version = studio.state()['shots']['SH001'][-1]
+        self.assertTrue(version['not_submitted'])
+        self.assertFalse(version['charged'])
+        self.assertEqual(RequestLedger(self.root).load().entries, [])
+
+    def test_video_cloud_sessions_share_project_budget(self):
+        from pet_llm import RequestLedger
+        self.money_policy()
+        for name, allowed in [('first', True), ('second', False)]:
+            studio = self.studio(Studio, [])
+            studio.root = self.root / 'cloud_video' / name
+            studio.db = studio.root / 'data/state.json'
+            save(studio.db, {'shots': {'SH001': []}})
+            studio.cfg['model'] = 'video-m'
+            api = self.dependencies(studio)
+            if allowed:
+                studio.submit('SH001')
+                api.submit.assert_called_once()
+            else:
+                with self.assertRaisesRegex(ValueError, '视频未发送'):
+                    studio.submit('SH001')
+                api.submit.assert_not_called()
+        rows = RequestLedger(self.root).load().entries
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['budget_cost'], '0.5')
+        self.assertEqual(rows[0]['amount'], 1)
+
+    def test_cloud_success_settles_before_download_and_retry_does_not_charge_twice(self):
+        from pet_llm import RequestLedger
+        self.money_policy()
+        studio = self.studio(Studio, [])
+        studio.cfg['model'] = 'video-m'
+        api = self.dependencies(studio)
+        studio.submit('SH001')
+        api.poll.return_value = {'status': 'succeeded', 'usage': {'total_tokens': 123}}
+        api.download_video.side_effect = TimeoutError('download test')
+        for _ in range(2):
+            with self.assertRaisesRegex(RuntimeError, '下载中断'):
+                studio.poll('SH001')
+        api.submit.assert_called_once()
+        ledger = RequestLedger(self.root).load()
+        self.assertEqual(len(ledger.entries), 1)
+        self.assertEqual(ledger.entries[0]['budget_cost'], '0.5')
+        self.assertEqual(ledger.entries[0]['money_state'], 'estimated')
+        version = studio.state()['shots']['SH001'][-1]
+        self.assertEqual(version['usage']['total_tokens'], 123)
+        studio.record_video_usage('SH001', version)
+        self.assertEqual(len(RequestLedger(self.root).load().entries), 1)
+
+    def test_failed_submission_preserves_unknown_money_after_restart(self):
+        from pet_llm import RequestLedger
+        self.money_policy()
+        studio = self.studio(Studio, [])
+        studio.cfg['model'] = 'video-m'
+        api = self.dependencies(studio)
+        api.submit.side_effect = TimeoutError('submit test')
+        with self.assertRaisesRegex(RuntimeError, '提交连接中断'):
+            studio.submit('SH001')
+        version = studio.state()['shots']['SH001'][-1]
+        row = RequestLedger(self.root).load()._find(version['money_request_id'])
+        self.assertEqual(row['money_state'], 'unknown')
+        self.assertEqual(row['budget_cost'], '0.5')
+        with self.assertRaises(ValueError):studio.submit('SH001')
+        self.assertEqual(api.submit.call_count, 1)
+
     def test_revise_creates_new_version_and_preserves_old_for_both_backends(self):
         for cls in (Studio, LocalStudio):
             with self.subTest(backend=cls.__name__):

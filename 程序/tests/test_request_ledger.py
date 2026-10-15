@@ -146,6 +146,24 @@ class ModelMoneyBudgetTests(unittest.TestCase):
                 'm': {'prompt_tokens': '0.01', 'completion_tokens': '0.02'}}}}), encoding='utf-8')
         return path
 
+    def test_async_duplicate_receipt_is_counted_once_and_success_not_downgraded(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self.policy(td, '10')
+            data = json.loads(path.read_text(encoding='utf-8'))
+            data['price_table']['model_rates']['video'] = {'seconds': '0.1'}
+            path.write_text(json.dumps(data), encoding='utf-8')
+            ledger = RequestLedger(td)
+            for rid in ('first', 'duplicate'):
+                ledger.authorize_units(rid, 'video', 'video', 'videos', {'seconds': 5}, amount=1)
+                ledger.settle_units(rid, amount=1, remote_task_id='same-remote-task')
+            ledger.settle_units('first')
+            self.assertEqual(ledger.load()._find('first')['money_state'], 'estimated')
+            self.assertEqual(ledger._find('duplicate')['state'], 'duplicate')
+            report = ledger.report(data['price_table'])
+            self.assertEqual(report['money']['amount'], 0.5)
+            self.assertEqual(report['model_costs']['CNY']['estimated_spent'], '0.5')
+            self.assertEqual(report['model_costs']['CNY']['held'], '0')
+
     def test_image_and_text_share_budget_and_keep_unknown_cost(self):
         from pet_llm import BudgetRejected
         with tempfile.TemporaryDirectory() as td:

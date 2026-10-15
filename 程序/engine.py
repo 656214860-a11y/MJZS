@@ -5,7 +5,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
-from storyboard_paths import media_root, is_cloud_workspace
+from storyboard_paths import media_root, is_cloud_workspace, project_root
 from agent.core import read, save, save_text, fingerprint, file_hash, download, command, replace, temporary_path
 from agent.wan import WanAdapter, ArkRejected
 from agent.media import check, probe
@@ -295,6 +295,7 @@ class Studio:
         return version
     def record_video_usage(self,sid,version):
         """视频成功落盘后记一笔请求台账：条数按实际下载、秒数按本镜声明时长（估算，非服务商上报）。"""
+        if version.get('money_request_id'):return  # 云端成功时已结算，下载不再重复记费。
         from pet_llm import record_request
         try:seconds=float(self.shot(sid).get('duration') or 0)
         except (ValueError,TypeError):seconds=0
@@ -365,6 +366,18 @@ class Studio:
             save(folder/'assets_manifest.json',{'mode':shot['_reference_mode'],'assets':shot['_asset_references'],
                                                'white_model_reference':shot.get('_white_model_reference')})
             save_text(folder/'实际提交提示词.txt', shot['video_prompt'])
+            from pet_llm import RequestLedger
+            ledger = RequestLedger(project_root(self.root))
+            money_id = 'video:' + v['local_request']
+            try:
+                ledger.authorize_units(money_id, payload.get('model') or self.cfg.get('model', ''),
+                                       'video', 'videos', {'seconds': v['seconds']}, amount=1)
+            except (ValueError, OSError) as exc:
+                v.update(state='rejected', charged=False, not_submitted=True, error=str(exc))
+                save(self.db, st)
+                raise ValueError('视频未发送：' + str(exc)) from exc
+            v['money_request_id'] = money_id
+            save(self.db, st)
             try:
                 v['task_id']=client.submit(shot,self.frame(shot),v['local_request'])
                 save(folder/'task_receipt.json',{'shot':sid,'version':v['version'],'local_request':v['local_request'],'task_id':v['task_id']})
@@ -372,10 +385,14 @@ class Studio:
             except ArkRejected as e:
                 # A server error can occur after task creation; keep its reservation.
                 uncertain='HTTP 5' in str(e)
-                v.update(state='unknown' if uncertain else 'rejected',charged=uncertain,error=str(e)); save(self.db,st); raise
+                v.update(state='unknown' if uncertain else 'rejected',charged=uncertain,error=str(e)); save(self.db,st)
+                ledger.settle_units(money_id)
+                raise
             except Exception:
                 v.update(state='unknown',error='提交连接中断；任务可能已创建，不自动重发')
-                save(self.db,st); raise RuntimeError(v['error']) from None
+                save(self.db,st)
+                ledger.settle_units(money_id)
+                raise RuntimeError(v['error']) from None
             save(self.db,st)
             return '已提交 '+sid+'；已保存任务编号，自动跟踪并下载。'
 
@@ -403,6 +420,12 @@ class Studio:
                 if isinstance(result.get(field),(int,float)):v[field]=result[field]
             v.update(state=result['status'],usage=result.get('usage'),error_code=result.get('error_code'))
             save(self.db,st)
+            if v.get('money_request_id') and v['state'] in ('succeeded', 'failed'):
+                from pet_llm import RequestLedger
+                # 供应商原始usage已留在任务；金额按冻结的每秒单价估算，不把未知账单当零。
+                remote = fingerprint({'endpoint': self.cfg.get('base_url'), 'task_id': v['task_id']})
+                RequestLedger(project_root(self.root)).settle_units(v['money_request_id'],
+                    amount=1 if v['state']=='succeeded' else None, remote_task_id=remote)
             if v['state']=='failed': return '云端失败，保守保留预算占用；请核对账单。'
             if v['state']!='succeeded': return sid+' · 云端状态：'+{'queued':'排队中','running':'生成中'}.get(v['state'],v['state'])
             folder=self.task_folder(sid,v); folder.mkdir(parents=True,exist_ok=True)
