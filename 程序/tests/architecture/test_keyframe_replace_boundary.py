@@ -1,7 +1,7 @@
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT
+from tests.architecture._scan import ROOT, parse_desktop
 
 
 class KeyframeReplaceBoundaryTests(unittest.TestCase):
@@ -19,8 +19,8 @@ class KeyframeReplaceBoundaryTests(unittest.TestCase):
                             method.name + ' 必须接收 L3 发布器')
 
     def test_keyframe_page_delegates_replace_persistence_to_service(self):
-        tree = ast.parse((ROOT / 'desktop.py').read_text(encoding='utf-8'))
-        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'Desktop')
+        tree = parse_desktop()
+        desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1504：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'storyboard')
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)]
         delegated = [node for node in calls if isinstance(node.func, ast.Name)

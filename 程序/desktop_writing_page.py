@@ -2,8 +2,7 @@
 
 从 ``desktop.Desktop`` 原样迁出（R1499 拆分步骤 3，一页一轮）：方法体未改，``self`` 语义不变，
 ``Desktop`` 通过继承 ``WritingPageMixin`` 获得。``confirm``／``open_path``／``ContextMenu`` 等测试按
-``desktop.<名字>`` 打补丁的名字，这里用转发函数在调用时取 ``desktop`` 里的当前值，所以补丁照常生效；
-``desktop`` 在自己的模块级把自身登记进来（``bind_host``），本模块不导入 ``desktop``，没有导入环。
+``desktop.<名字>`` 打补丁的名字经 ``desktop_page_support`` 的转发函数在调用时取 ``desktop`` 的当前值，补丁照常生效。
 """
 import pet_state
 import time
@@ -15,32 +14,10 @@ from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height
 from tkinter import simpledialog, ttk
 from ui_tokens import COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_PADDING, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SPACING
+from desktop_page_support import ContextMenu, confirm, confirm_project_removal_from_last_script, open_path
 from ui_widgets import DataTable, EllipsisLabel, HintLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, TreeRowTooltip
 
 PAGE = pet_state.PAGE_OF
-_host = None
-
-
-def bind_host(module):
-    """由 ``desktop`` 在定义完 confirm／ContextMenu 等名字后调用，登记转发目标。"""
-    global _host
-    _host = module
-
-
-def confirm(*args, **kwargs):
-    return _host.confirm(*args, **kwargs)
-
-
-def open_path(*args, **kwargs):
-    return _host.open_path(*args, **kwargs)
-
-
-def ContextMenu(*args, **kwargs):  # noqa: N802 - 与原名一致，方法体未改
-    return _host.ContextMenu(*args, **kwargs)
-
-
-def confirm_project_removal_from_last_script(*args, **kwargs):
-    return _host.confirm_project_removal_from_last_script(*args, **kwargs)
 
 # 第 71 期任务 5／6：剧本准备页的创意框摆几行——窗口再矮也留 TALK_MIN_LINES 行，
 # 字再多、窗口再高也不超过 TALK_MAX_LINES 行（一次铺满半页纸就不好操作了）；

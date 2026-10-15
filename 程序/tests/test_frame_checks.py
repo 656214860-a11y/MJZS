@@ -143,7 +143,8 @@ class WiringTests(unittest.TestCase):
     """模块再好，接不上页面就等于没做：确认两处接线都在。"""
 
     def test_page_and_dialog_share_one_state(self):
-        desktop = (Path(PROGRAM) / 'desktop.py').read_text(encoding='utf-8')
+        from tests.architecture._scan import desktop_text  # R1504：首帧管理页已迁到 Mixin 模块
+        desktop = desktop_text()
         self.assertIn('frame_checks.FrameChecks()', desktop)
         self.assertIn('checked.sync(', desktop)
 
