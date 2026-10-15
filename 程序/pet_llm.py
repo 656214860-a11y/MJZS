@@ -707,7 +707,7 @@ class RequestLedger:
                 money['missing_rates'].append(str(row.get('model') or 'unknown'))
                 money['complete'] = False
                 continue
-            if row['money_state'] == 'estimated':
+            if row['money_state'] in ('estimated', 'reconciled'):
                 spent += self.decimal(cost)
             else:
                 held += self.decimal(cost)
@@ -724,11 +724,11 @@ class RequestLedger:
             if 'money_state' not in row or row.get('state') == 'duplicate':
                 continue
             currency = str(row.get('currency') or '币种未配置')
-            group = groups.setdefault(currency, {'estimated_spent': '0', 'held': '0', 'unknown': 0})
+            group = groups.setdefault(currency, {'estimated_spent': '0', 'reconciled_spent': '0', 'held': '0', 'unknown': 0})
             if row.get('budget_cost') is None or row['money_state'] == 'unknown':
                 group['unknown'] += 1
             if row.get('budget_cost') is not None:
-                key = 'estimated_spent' if row['money_state'] == 'estimated' else 'held'
+                key = {'estimated': 'estimated_spent', 'reconciled': 'reconciled_spent'}.get(row['money_state'], 'held')
                 group[key] = str(self.decimal(group[key]) + self.decimal(row['budget_cost']))
         return groups
 
@@ -935,9 +935,11 @@ class RequestLedger:
             entry = self._find(request_id)
             if entry is None:
                 raise ValueError('请求预留记录缺失')
+            if entry.get('money_state') == 'reconciled':
+                return
             if remote_task_id:
                 self.link(request_id, remote_task_id)
-            if entry.get('state') == 'duplicate' or entry.get('money_state') == 'estimated':
+            if entry.get('state') == 'duplicate' or entry.get('money_state') in ('estimated', 'reconciled'):
                 return
             if amount is None:
                 self.mark_unknown(request_id)
@@ -952,7 +954,7 @@ class RequestLedger:
             entry = self._find(request_id)
             if entry is None:
                 raise ValueError('请求预留记录缺失')
-            if entry.get('state') == 'settled' and entry.get('money_state') == 'estimated':
+            if entry.get('money_state') == 'reconciled' or (entry.get('state') == 'settled' and entry.get('money_state') == 'estimated'):
                 return
             keys = ('prompt_tokens', 'completion_tokens')
             known = all(type(usage.get(key)) is int and usage[key] >= 0 for key in keys)
@@ -964,6 +966,40 @@ class RequestLedger:
             rates = entry.get('rates')
             cost = sum((self.decimal(usage[key]) * self.decimal(rates[key]) for key in keys), self.decimal(0)) if rates else None
             entry.update(budget_cost=str(cost) if cost is not None else None, money_state='estimated')
+
+    def reconcile_cost(self, request_id, kind, amount, currency, evidence, reviewer):
+        """人工核对请求的最终账单金额，保留每次修订，不改变远端任务状态。"""
+        amount = self.decimal(amount)
+        currency, reviewer = str(currency).strip().upper(), str(reviewer).strip()
+        if len(currency) != 3 or not currency.isascii() or not currency.isalpha() or not reviewer:
+            raise ValueError('请填写三字母币种和核对人')
+        path = Path(evidence)
+        if not path.is_file() or path.stat().st_size == 0:
+            raise ValueError('请选择非空的本地账单凭据文件')
+        digest = hashlib.sha256()
+        with path.open('rb') as stream:
+            for chunk in iter(lambda: stream.read(65536), b''):
+                digest.update(chunk)
+        with self.transaction():
+            entry = self._find(request_id, kind)
+            if entry is None or entry.get('state') not in ('unknown', 'settled', 'cancelled'):
+                raise ValueError('只能核对已结算、未知或已取消请求，进行中请求请先查询最终结果')
+            if entry.get('currency') and str(entry['currency']).upper() != currency:
+                raise ValueError('币种与原请求不一致，不能直接覆盖或自动换汇')
+            currency = entry.get('currency') or currency
+            audit = {'amount': str(amount), 'currency': currency, 'reviewer': reviewer,
+                     'evidence_path': str(path.resolve()), 'evidence_sha256': digest.hexdigest(),
+                     'previous_amount': entry.get('budget_cost'), 'previous_money_state': entry.get('money_state')}
+            history = entry.setdefault('cost_reconciliations', [])
+            if not isinstance(history, list) or any(not isinstance(item, dict) for item in history):
+                raise ValueError('费用核对记录损坏，请先恢复台账')
+            if history and all(history[-1].get(key) == audit[key] for key in
+                               ('amount', 'currency', 'reviewer', 'evidence_path', 'evidence_sha256')):
+                return dict(entry)
+            audit['at'] = self.clock()
+            history.append(audit)
+            entry.update(budget_cost=str(amount), currency=currency, money_state='reconciled')
+            return dict(entry)
 
 
 def record_request(project, request_id, kind, amount, *, note='', mode='reported'):

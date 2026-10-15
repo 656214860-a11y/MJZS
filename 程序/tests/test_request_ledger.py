@@ -139,6 +139,54 @@ class RequestLedgerTests(unittest.TestCase):
 
 
 class ModelMoneyBudgetTests(unittest.TestCase):
+    def test_reconciliation_releases_only_confirmed_cost_and_keeps_audit(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            receipt = Path(td) / 'invoice.txt'; receipt.write_text('provider invoice test', encoding='utf-8')
+            ledger = RequestLedger(td)
+            ledger.authorize_model('a', 'm', 'script', 20, 20)
+            ledger.settle_model('a', {})
+            with self.assertRaisesRegex(ValueError, '超过项目金额预算'):
+                ledger.authorize_model('b', 'm', 'script', 20, 20)
+            ledger.reconcile_cost('a', 'tokens', '0', 'CNY', receipt, 'tester')
+            ledger.reconcile_cost('a', 'tokens', '0', 'CNY', receipt, 'tester')
+            ledger.settle_model('a', {'prompt_tokens': 99, 'completion_tokens': 99})
+            ledger.settle_units('a', amount=1, remote_task_id='late-receipt')
+            entry = ledger.load()._find('a')
+            self.assertEqual(entry['state'], 'unknown', '核账不得改变制作任务结果')
+            self.assertEqual(entry['budget_cost'], '0')
+            self.assertEqual(len(entry['cost_reconciliations']), 1)
+            self.assertEqual(entry['cost_reconciliations'][0]['previous_amount'], '0.60')
+            ledger.authorize_model('b', 'm', 'script', 20, 20)
+            ledger.reconcile_cost('a', 'tokens', '0.2', 'CNY', receipt, 'tester')
+            entry = ledger.load()._find('a')
+            self.assertEqual(len(entry['cost_reconciliations']), 2)
+            costs = ledger.model_costs()['CNY']
+            self.assertEqual(costs['reconciled_spent'], '0.2')
+            self.assertEqual(costs['held'], '0.60')
+            self.assertEqual(costs['unknown'], 0)
+            table = json.loads((Path(td) / 'cost_profile.json').read_text(encoding='utf-8'))['price_table']
+            self.assertEqual(ledger.report(table)['money']['settled_amount'], 0.2)
+            ledger.reconcile_cost('a', 'tokens', '1.5', 'CNY', receipt, 'tester')
+            with self.assertRaisesRegex(ValueError, '超过项目金额预算'):
+                ledger.authorize_model('c', 'm', 'script', 1, 1)
+
+    def test_reconciliation_rejects_pending_missing_evidence_and_bad_values(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            receipt = Path(td) / 'invoice.txt'; receipt.write_text('invoice')
+            ledger = RequestLedger(td)
+            ledger.authorize_model('a', 'm', 'script', 1, 1)
+            with self.assertRaisesRegex(ValueError, '进行中'):
+                ledger.reconcile_cost('a', 'tokens', '0', 'CNY', receipt, 'tester')
+            ledger.settle_model('a', {})
+            for amount, currency, evidence, reviewer in [('-1', 'CNY', receipt, 't'),
+                ('NaN', 'CNY', receipt, 't'), ('0', 'USD', receipt, 't'),
+                ('0', 'CNY', Path(td)/'missing', 't'), ('0', 'CNY', receipt, '')]:
+                with self.subTest(amount=amount, currency=currency, reviewer=reviewer), self.assertRaises(ValueError):
+                    ledger.reconcile_cost('a', 'tokens', amount, currency, evidence, reviewer)
+            self.assertEqual(ledger.load()._find('a')['money_state'], 'unknown')
+
     def test_legacy_session_ledger_blocks_budget_without_mutating_history(self):
         with tempfile.TemporaryDirectory() as td:
             self.policy(td)

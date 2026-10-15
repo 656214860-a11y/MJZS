@@ -581,6 +581,32 @@ class LevelPageTests(SettingsCase):
 
 
 class BudgetPageTests(SettingsCase):
+    def test_cost_reconciliation_dialog_saves_receipt_and_reports_validation(self):
+        from pet_llm import RequestLedger
+        with tempfile.TemporaryDirectory() as folder:
+            ledger = RequestLedger(folder)
+            ledger.reserve('unknown-api', 'images', 1)
+            ledger.mark_unknown('unknown-api'); ledger.save()
+            receipt = Path(folder) / 'invoice.txt'; receipt.write_text('test invoice')
+            hub = self.hub('budget')._pet_seams['budget']
+            with mock.patch('pet_settings_ui.token_project', return_value=None):
+                self.assertIsNone(hub['reconcile_usage']())
+            with mock.patch('pet_settings_ui.token_project', return_value=Path(folder)):
+                seams = hub['reconcile_usage']()
+            try:
+                self.assertIsNone(seams['save']())
+                seams['selected'].current(0); seams['pick']()
+                values = {'amount': '0.3', 'currency': 'CNY', 'reviewer': 'test reviewer', 'evidence': str(receipt)}
+                for key, value in values.items(): seams['fields'][key].set(value)
+                result = seams['save']()
+                self.assertEqual(result['budget_cost'], '0.3')
+                self.assertIn('已核对', seams['hint'].get())
+                self.assertEqual(RequestLedger(folder).load()._find('unknown-api')['money_state'], 'reconciled')
+                seams['fields']['amount'].set('-1')
+                self.assertIsNone(seams['save']())
+            finally:
+                seams['window'].destroy()
+
     """预算那一格：五类硬限制、落盘、立刻生效、坏值拦下来。"""
 
     def test_the_page_shows_the_five_limits(self):

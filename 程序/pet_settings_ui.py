@@ -257,6 +257,54 @@ def pet_ui_note(level):
     return LEVEL_NOTES.get(level, '')
 
 
+def cost_reconciliation_dialog(parent, project):
+    """让用户核对已有请求，费用变更独立于制作任务状态。"""
+    from pet_llm import RequestLedger
+    from tkinter import filedialog
+    ledger = RequestLedger(project).load()
+    rows = [row for row in ledger.entries if row.get('state') in ('unknown', 'settled', 'cancelled')]
+    win = BaseDialog(parent, '费用核对', modal=False)
+    body = ttk.Frame(win); body.pack(fill='both', expand=True, padx=16, pady=16)
+    ttk.Label(body, text='请填写本笔请求的最终账单金额；0 表示已确认无费用。\n凭据只保存在本机，不会上传。核对不会重发或取消制作任务。').pack(anchor='w')
+    choices = [f"{row.get('id')} / {row.get('kind')} / {row.get('model', '模型未记录')}" for row in rows]
+    selected = ttk.Combobox(body, values=choices, state='readonly', width=75)
+    selected.pack(fill='x', pady=8)
+    fields = {}
+    for key, label in [('amount', '最终账单金额'), ('currency', '币种（例如 CNY）'),
+                       ('reviewer', '核对人'), ('evidence', '本地账单凭据文件')]:
+        ttk.Label(body, text=label).pack(anchor='w')
+        fields[key] = tk.StringVar(master=win)
+        LineInput(body, textvariable=fields[key]).pack(fill='x')
+    hint = tk.StringVar(master=win, value='选择请求后填写账单信息。' if rows else '暂无可核对请求；进行中请求请先查询最终结果。')
+    def pick(_event=None):
+        row = rows[selected.current()]
+        fields['currency'].set(row.get('currency') or '')
+        fields['amount'].set('')
+        status = {'reserved': '预留', 'unknown': '金额未知', 'estimated': '估算', 'reconciled': '已核对'}
+        hint.set('原金额：%s；费用状态：%s；已有 %d 次核对' % (
+            row.get('budget_cost') if row.get('budget_cost') is not None else '未知',
+            status.get(row.get('money_state'), '未计价'), len(row.get('cost_reconciliations', []))))
+    def browse():
+        path = filedialog.askopenfilename(parent=win, title='选择本地账单凭据')
+        if path: fields['evidence'].set(path)
+    def save_cost():
+        if selected.current() < 0:
+            hint.set('请先选择请求。'); return None
+        row = rows[selected.current()]
+        try:
+            result = ledger.reconcile_cost(row['id'], row['kind'], **{key: var.get() for key, var in fields.items()})
+        except (ValueError, OSError) as exc:
+            hint.set(str(exc)); return None
+        rows[selected.current()] = result
+        hint.set('已核对：%s %s；已保留凭据摘要和修订记录。' % (result['budget_cost'], result['currency']))
+        return result
+    selected.bind('<<ComboboxSelected>>', pick)
+    SecondaryButton(body, text='选择凭据', command=browse).pack(anchor='w', pady=8)
+    PrimaryButton(body, text='保存核对结果', command=save_cost).pack(anchor='w')
+    ttk.Label(body, textvariable=hint, wraplength=650).pack(anchor='w', pady=8)
+    return {'window': win, 'fields': fields, 'selected': selected, 'pick': pick, 'save': save_cost, 'hint': hint}
+
+
 def budget_page(frame, pet):
     """预算：五类硬限制一张表 ＋ 现在用了多少 ＋ 保存／恢复默认。"""
     page_title(frame, '预算', NOTE_BUDGET)
@@ -310,16 +358,27 @@ def budget_page(frame, pet):
         notify(pet.win, text, title='用量总览')
         return text
 
+    def reconcile_usage():
+        project = token_project(pet)
+        if project is None:
+            hint.set('还没打开项目，没有可核对的费用。'); return None
+        try:
+            return cost_reconciliation_dialog(pet.win, project)
+        except (ValueError, OSError) as exc:
+            hint.set(str(exc)); return None
+
     bar = ttk.Frame(frame)
     bar.pack(fill='x', pady=(SPACING['md'], 0))
     PrimaryButton(bar, text='保存', command=save).pack(side='left')
     SecondaryButton(bar, text='恢复默认', command=restore).pack(side='left', padx=(SPACING['sm'], 0))
     SecondaryButton(bar, text='用量总览', command=show_usage).pack(side='left', padx=(SPACING['sm'], 0))
+    SecondaryButton(bar, text='费用核对', command=reconcile_usage).pack(side='left', padx=(SPACING['sm'], 0))
     ttk.Label(frame, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=700).pack(
         anchor='w', pady=(SPACING['md'], 0))
     ttk.Label(frame, text='SKILL 那本账（阶段编排）读的就是这几档：%s。' % skill_budget_sentence(),
               style='Muted.TLabel', wraplength=700).pack(anchor='w', pady=(SPACING['sm'], 0))
-    return {'hint': hint, 'fields': fields, 'save': save, 'restore': restore, 'read': read, 'show_usage': show_usage}
+    return {'hint': hint, 'fields': fields, 'save': save, 'restore': restore, 'read': read, 'show_usage': show_usage,
+            'reconcile_usage': reconcile_usage}
 
 
 NOTE_TOKEN = ('附件那六条通用优化都在这儿：固定前缀在前、推理降档、子 Agent 用 fast、压缩阈值降到 70%、'

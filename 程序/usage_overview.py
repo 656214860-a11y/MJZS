@@ -162,6 +162,8 @@ def report_text(summary):
         for currency, money in ledger_report.get('model_costs', {}).items():
             lines.append('模型金额（冻结费率估算，未对账）：%s %s；预留 %s；未知 %d 笔' % (
                 money['estimated_spent'], currency, money['held'], money['unknown']))
+            lines.append('人工已核对账单：%s %s（凭据及修订记录保存在请求台账）' % (
+                money.get('reconciled_spent', '0'), currency))
         lines.append('请求台账（视频秒数、生图、次数等，各列各的）')
         for kind, bucket in ledger_report['kinds'].items():
             if bucket.get('count'):
