@@ -28,7 +28,7 @@ MANIFEST = PROGRAM / 'distribution_manifest.md'
 DIGEST_NAME = '分发清单.json'
 
 # 构建器安全兜底：不管清单怎么写，源控制元数据与字节码缓存都不进正式副本。
-ALWAYS_EXCLUDE = ('.git/**', '**/.git/**', '__pycache__/**', '**/__pycache__/**',
+ALWAYS_EXCLUDE = ('.git', '.git/**', '**/.git/**', '__pycache__/**', '**/__pycache__/**',
                   '*.pyc', '**/*.pyc')
 JINGJU_PACKAGE = '程序/skills/00全流程SKILL/jingju-skills'
 
