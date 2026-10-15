@@ -1,4 +1,5 @@
 """遵循 ui_components.md 的 Tk 组件入口。"""
+import app_logging
 import os
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -146,7 +147,7 @@ def setup_styles(root):
         root.tk.call("ttk::style", "configure", "TCombobox",
                      "-arrowcolor", COMBOBOX_ARROW_COLOR)
     except Exception:
-        pass
+        app_logging.swallowed()
     # Popdown Listbox 不属于 ttk Style，须在同一入口通过 option database 统一。
     root.option_add("*TCombobox*Listbox.font", COMBOBOX_FONT)
     root.option_add("*TCombobox*Listbox.background", COMBOBOX_FIELD_BACKGROUND)
@@ -1064,7 +1065,7 @@ def _show_stage_execution(desktop, stage, *, parent, title, names, runner, faile
         try:
             on_back()
         except Exception:
-            pass
+            app_logging.swallowed()
         window.destroy()
 
     retry = ttk.Button(row, text='重试失败项', style='Compact.TButton',

@@ -3,6 +3,7 @@
 桌面只注入 ``after`` / ``after_cancel`` 与阶段轮询回调；本模块统一周期任务
 的重排、取消、异常兜底，以及各自动流程的到期轮询判断。
 """
+import app_logging
 
 
 # 后台任务生命周期的唯一迁移清单。每一项都必须证明同一代次覆盖提交、替换、
@@ -49,7 +50,7 @@ class DesktopAutomationScheduler:
             try:
                 self._cancel_scheduled(timer)
             except Exception:
-                pass
+                app_logging.swallowed()
         task['remember_timer'](None)
 
     def cancel_all(self):

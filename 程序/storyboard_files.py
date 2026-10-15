@@ -1,4 +1,5 @@
 """Project script/storyboard discovery and the shared in-page file picker."""
+import app_logging
 from pathlib import Path
 import json, os, queue, threading
 import tkinter as tk
@@ -285,7 +286,7 @@ def show_final(desktop):
             timer=preview_state.get(key);preview_state[key]=None
             if timer:
                 try:viewer.after_cancel(timer)
-                except Exception:pass
+                except Exception:app_logging.swallowed()
         return preview_state['generation']
     def viewer_wheel(event):
         # 第 45 期：一格滚轮多滚几行（原来 3 行，用户要「提高文字下滑速度」）。
@@ -303,14 +304,14 @@ def show_final(desktop):
         """打完字停一会儿再问：不打断输入，也别每一击键都弹一次。"""
         if edit_timer['id']:
             try:viewer.after_cancel(edit_timer['id'])
-            except Exception:pass
+            except Exception:app_logging.swallowed()
         edit_timer['id']=viewer.after(VIEWER_SAVE_ASK_MS,ask_save)
     def stop_timer(event=None):
         """把挂着的那一次去抖撤掉（页面被拆、或者已经被别的路问过了）。"""
         if event is not None and event.widget is not viewer:return
         if edit_timer['id']:
             try:viewer.after_cancel(edit_timer['id'])
-            except Exception:pass
+            except Exception:app_logging.swallowed()
             edit_timer['id']=None
     def viewer_changed(event=None):
         """框里的字一变，就把那次去抖挂上（第 56 期）。

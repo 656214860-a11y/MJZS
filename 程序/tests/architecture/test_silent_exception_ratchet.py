@@ -1,0 +1,54 @@
+"""生产代码不得再出现 ``except Exception: pass``：吞异常必须经 ``app_logging.swallowed()`` 留痕。
+
+只管最宽的 ``Exception``；``tk.TclError``、``queue.Empty``、``OSError`` 等窄异常的静默处理
+属于预期控制流，不在此列。登记表里的文件是已知例外（日志基础设施自身不能递归记日志、
+开发脚本和 agent 子包），只允许数量下降。
+"""
+import ast
+import unittest
+from pathlib import Path
+
+PROGRAM = Path(__file__).resolve().parents[2]
+ALLOWED = {
+    'app_logging.py': 6,
+    'run_selftests.py': 2,
+    'smoke_test.py': 1,
+    'agent/volcengine.py': 1,
+}
+
+
+def silent_exception_sites():
+    found = {}
+    for path in list(PROGRAM.glob('*.py')) + list((PROGRAM / 'agent').rglob('*.py')):
+        tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'))
+        rows = [n.lineno for n in ast.walk(tree)
+                if isinstance(n, ast.ExceptHandler) and n.type is not None
+                and ast.unparse(n.type) == 'Exception'
+                and len(n.body) == 1 and isinstance(n.body[0], ast.Pass)]
+        if rows:
+            found[path.relative_to(PROGRAM).as_posix()] = rows
+    return found
+
+
+class SilentExceptionRatchet(unittest.TestCase):
+    def test_no_new_silent_exception_handlers(self):
+        problems = []
+        for name, rows in silent_exception_sites().items():
+            allowed = ALLOWED.get(name, 0)
+            if len(rows) > allowed:
+                problems.append(f'{name}: {len(rows)} 处（登记 {allowed}），行 {rows}')
+        self.assertEqual(problems, [], '请改用 app_logging.swallowed()，不要新增 except Exception: pass')
+
+    def test_allowlist_has_no_stale_entries(self):
+        found = silent_exception_sites()
+        stale = [n for n, cap in ALLOWED.items() if len(found.get(n, ())) < cap]
+        self.assertEqual(stale, [], '登记数量高于实际，请同步下调')
+
+    def test_swallowed_helper_is_used_widely(self):
+        hits = sum(p.read_text(encoding='utf-8', errors='replace').count('app_logging.swallowed()')
+                   for p in PROGRAM.glob('*.py'))
+        self.assertGreaterEqual(hits, 100)
+
+
+if __name__ == '__main__':
+    unittest.main()

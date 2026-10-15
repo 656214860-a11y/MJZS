@@ -15,6 +15,7 @@
 [阶段]['model']），面板、制作窗口、无人值守勾选框读到的都是同一格；skill_panel.stage_context
 会把生产模型挡在 SKILL 编排之外（它不是模型池里的模型 id）。
 """
+import app_logging
 from pet_bus import STAGES
 from stage_flow import manual_label as manual_label_for
 
@@ -64,7 +65,7 @@ def keyframe_choices(project=None):
                 name += ' · ' + display
             items.append((name, name))
     except Exception:
-        pass
+        app_logging.swallowed()
     return tuple(items)
 
 
@@ -139,7 +140,7 @@ def _status(desktop, text):
         try:
             setter.set(text)
         except Exception:
-            pass
+            app_logging.swallowed()
     return text
 
 
@@ -172,7 +173,7 @@ def _untop(window):
         if window.winfo_exists():
             window.attributes('-topmost', False)
     except Exception:
-        pass
+        app_logging.swallowed()
 
 
 def _cancel_popup_jobs(window, event=None):
@@ -186,7 +187,7 @@ def _cancel_popup_jobs(window, event=None):
         try:
             window.after_cancel(job)
         except Exception:
-            pass
+            app_logging.swallowed()
     jobs.clear()
 
 
@@ -224,7 +225,7 @@ def activate_popup(window):
         window.focus_force()
         _schedule_popup_job(window, 1200, lambda: _untop(window))
     except Exception:
-        pass
+        app_logging.swallowed()
 
 
 def plan_window(desktop, stage, parent=None):
@@ -265,7 +266,7 @@ def _model_asked(desktop):
         try:
             desktop._manual_model_asked = asked
         except Exception:
-            pass
+            app_logging.swallowed()
     return asked
 
 
@@ -274,7 +275,7 @@ def remember_model_asked(desktop, stage):
     try:
         _model_asked(desktop).add(stage)
     except Exception:
-        pass
+        app_logging.swallowed()
 
 
 def before_manual(desktop, stage, parent=None):
@@ -318,7 +319,7 @@ def before_manual(desktop, stage, parent=None):
         from ui_plugin_registry import module
         module('skill_panel').show(desktop, stage)
     except Exception:
-        pass
+        app_logging.swallowed()
     return False
 
 

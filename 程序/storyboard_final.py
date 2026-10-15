@@ -1,4 +1,5 @@
 """Save a complete final bundle, then retire its original working JSON."""
+import app_logging
 from pathlib import Path
 from storyboard_paths import media_root, is_final_dir
 from datetime import datetime
@@ -85,7 +86,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
         from shot_batches import assign
         episode['shots']=list(assign(episode['shots']))
     except Exception:
-        pass
+        app_logging.swallowed()
     episode['missing_assets']=sorted(set(missing))
     episode['assets_ready']=not missing
     from writing import validate_episode

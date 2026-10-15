@@ -5,6 +5,7 @@ Tkinter 销毁窗口时会删除 after 回调对应的 Tcl 命令，却不会取
 定时器到期后执行已删除的命令，就在 Tcl 里报错。凡是「按固定间隔重复刷新自己窗口」
 的地方都应改用 repeat()，不要在回调里直接再 after 一次。
 """
+import app_logging
 import queue
 import threading
 import time
@@ -22,7 +23,7 @@ def repeat(widget,interval,callback):
         pending,state['id']=state['id'],None
         if pending:
             try:widget.after_cancel(pending)
-            except Exception:pass
+            except Exception:app_logging.swallowed()
     def tick():
         state['id']=None
         if state['stopped'] or not widget.winfo_exists():return

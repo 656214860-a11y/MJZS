@@ -1,4 +1,5 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
+import app_logging
 import os, shutil, queue, threading, subprocess, time, uuid, hashlib, re, json, logging
 from datetime import date
 from pathlib import Path
@@ -156,7 +157,7 @@ def protect_readonly_combobox(win):
                     ' if {[$cb instate readonly] || [$cb instate disabled]} { return };'
                     ' ::ttk::combobox::ScrollOriginal $cb $dir }')
         win.tk.eval('set ::dramaComboWheelGuard 1')
-    except Exception:pass
+    except Exception:app_logging.swallowed()
 _PENDING_TK_GC = []        # worker 线程里被回收的 Tk 对象，等主线程释放
 _KEEP_APPS = []            # 解释器句柄：Tcl 的 async handler 只能在主线程析构（否则进程直接中止）
 
@@ -178,7 +179,7 @@ def _pin_tk_app():
             return app
         _tkinter.create=create
         _tkinter._dramaPinned=True
-    except Exception:pass
+    except Exception:app_logging.swallowed()
 
 
 def protect_tk_gc(win=None):
@@ -219,7 +220,7 @@ def protect_tk_gc(win=None):
                 _original(self)
             cls.__del__=guarded
             cls._dramaGuarded=True
-    except Exception:pass
+    except Exception:app_logging.swallowed()
 
 def drain_tk_gc(limit=64):
     """主线程心跳里调用：释放 worker 线程回收到的 Tk 对象（每轮最多 64 个，不拖慢界面）。"""
@@ -227,7 +228,7 @@ def drain_tk_gc(limit=64):
         for _ in range(limit):
             if not _PENDING_TK_GC:break
             _PENDING_TK_GC.pop()
-    except Exception:pass
+    except Exception:app_logging.swallowed()
 
 def _prefs(path):
     if not path:return {}
@@ -294,7 +295,7 @@ class Desktop:
         # 第 19 期：安装后的图标（三虎）——主窗口标题栏／任务栏都用它，拿不到就照旧用 Tk 默认图标。
         try:
             import app_icon;app_icon.apply(win)
-        except Exception:pass
+        except Exception:app_logging.swallowed()
         win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);setup_styles(win);install_window_placement(win)
         # 左侧阶段导航从 230px 缩至约三分之二，正文阅读区在小窗口也能保留空间。
         sidebar_area=ttk.Frame(win,width=DESKTOP_LAYOUT['sidebar_width']);sidebar_area.pack(side='left',fill='y');sidebar_area.pack_propagate(False)
@@ -618,7 +619,7 @@ class Desktop:
             self._fit_pending=False
             layout_key=None
             try:layout_key=self._fit_content_now()
-            except Exception:pass
+            except Exception:app_logging.swallowed()
             if getattr(self,'_fit_again',False):
                 self._fit_again=False
                 self.fit_content()
@@ -2428,16 +2429,16 @@ class Desktop:
             cloud=getattr(pet,'_cloud',None)
             if cloud is not None:
                 try:cloud.cancel_deferred_render()
-                except Exception:pass
+                except Exception:app_logging.swallowed()
             try:pet.stop()
-            except Exception:pass
+            except Exception:app_logging.swallowed()
             # 第 18 期的开机招呼也挂在这个窗口上：还没到点就关窗，一样要收回来。
             try:pet.cancel_greet()
-            except Exception:pass
+            except Exception:app_logging.swallowed()
         controller=getattr(self,'startup_controller',None)
         if controller is not None:
             try:controller.cancel()
-            except Exception:pass
+            except Exception:app_logging.swallowed()
         scheduler=getattr(self,'automation_scheduler',None)
         if scheduler is not None:
             scheduler.cancel_all()
@@ -2457,7 +2458,7 @@ class Desktop:
     def _set_automation_error(self,prefix,exc):
         try:
             self.status.set(prefix+str(exc))
-        except Exception:pass
+        except Exception:app_logging.swallowed()
     def _startup_window_held(self):
         """启动器让主窗口保持透明、由启动画面盖住时为真。"""
         return getattr(self.win,'_drama_hold_alpha',False) is True
@@ -3720,7 +3721,7 @@ class Desktop:
             pet=getattr(self,'pet',None)
             if pet is not None:
                 try:pet.show_main()
-                except Exception:pass
+                except Exception:app_logging.swallowed()
             # 第 47 期第 7 条：原来这里只弹一句「请等待…结束后退出」就什么都不做——白模那一批
             # 卡住时用户就再也关不掉程序了（用户报的「无法关闭程序」）。现在问一句：答「是」就把
             # 还在跑的进程收掉再退；答「否」照旧守着，等这一步自己结束。
@@ -3749,7 +3750,7 @@ class Desktop:
         self.stop_automation_processes()
         self._closing=True
         try:self.flush_brief()
-        except Exception:pass
+        except Exception:app_logging.swallowed()
         self.finish_close()
         return True
     def stop_automation_processes(self):
@@ -3776,7 +3777,7 @@ class Desktop:
             try:
                 from previs_monitor import stop as stop_monitor
                 stop_monitor(state)
-            except Exception:pass
+            except Exception:app_logging.swallowed()
         try:
             import asset_thumbs
             asset_thumbs.forget()
@@ -4774,7 +4775,7 @@ class Desktop:
             fit=getattr(self,'_fit_talk',None)
             if fit is None:return
             try:fit()
-            except Exception:pass
+            except Exception:app_logging.swallowed()
         # 先让 Text 用当前布局命中鼠标位置，再在空闲时重算高度；同步重排会让选区偏到上一行。
         box.bind('<Button-1>',lambda event:box.after_idle(refit_talk),add='+')
         # 常态下可长按拖选并 Ctrl+C；单击进入编辑后，写入边界只限这条气泡的正文。

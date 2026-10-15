@@ -1,4 +1,5 @@
 """OpenAI 兼容文本转语音（TTS）：支持 tts-1 及任何 OpenAI 兼容 /audio/speech 端点。"""
+import app_logging
 import base64
 import hashlib
 import json
@@ -478,7 +479,7 @@ def synthesize(text, speed=1.0, voice=None, *, settings=None):
         try:
             detail = exc.read().decode("utf-8", "replace")[:400]
         except Exception:
-            pass
+            app_logging.swallowed()
         raise ValueError(f"TTS 请求失败（HTTP {exc.code}）：{detail}") from None
     if not raw:
         raise ValueError("TTS 未返回音频")

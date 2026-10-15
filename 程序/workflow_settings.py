@@ -1,4 +1,5 @@
 """Project-scoped engine profiles for the white-model production entry."""
+import app_logging
 import copy
 import os
 import re
@@ -389,7 +390,7 @@ def effective_model(project,stage='previs'):
         if model_pool.desktop_engine(selected):
             return model_pool.label_of(selected, model_pool.pool(program=Path(__file__).resolve().parent))
     except Exception:
-        pass
+        app_logging.swallowed()
     model,api=stage_model(project,stage) if engine=='qwen' else ('','')
     if model:
         return model

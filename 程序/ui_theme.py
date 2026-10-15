@@ -1,5 +1,6 @@
 """Shared lightweight pastel theme; no image downloads or animation loop."""
 
+import app_logging
 from tkinter import ttk
 from ui_tokens import COLORS
 from responsive_ui import row_height_for,font_linespace
@@ -266,7 +267,7 @@ def install_window_placement(root):
 
         try:window.focus_force()
 
-        except Exception:pass
+        except Exception:app_logging.swallowed()
 
     def work_area(window):
 
@@ -361,7 +362,7 @@ def install_window_placement(root):
         job=getattr(window,'_drama_place_job',None)
         if job is not None:
             try:window.after_cancel(job)
-            except Exception:pass
+            except Exception:app_logging.swallowed()
         window._drama_place_job=None
 
     def schedule_place(window,parent=None):
@@ -391,7 +392,7 @@ def install_window_placement(root):
                 notice=getattr(root,'_drama_place_notice',None)
                 if callable(notice):
                     try:notice('窗口定位失败，已恢复交互：%s'% (str(exc) or '未知错误'))
-                    except Exception:pass
+                    except Exception:app_logging.swallowed()
 
         window._drama_place_job=window.after_idle(ready)
 

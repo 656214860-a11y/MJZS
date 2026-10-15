@@ -20,6 +20,7 @@
 第 60 期第 3 条：单击（点亮这一行）不打开；第 64 期任务 12 起改成**双击打开**——
 要看这一格的文件双击缩略图，或者走右键菜单里的「查看」。
 """
+import app_logging
 import inspect
 from ui_tokens import COLORS
 import tkinter as tk
@@ -85,7 +86,7 @@ def _notify_view(tree):
             try:
                 callback()
             except Exception:
-                pass
+                app_logging.swallowed()
 
     try:
         tree._view_pending_id = tree.after_idle(run)
@@ -170,7 +171,7 @@ def _drop_view_hooks(event=None):
         try:
             tree.after_cancel(pending)
         except Exception:
-            pass
+            app_logging.swallowed()
         tree._view_pending_id = None
     tree._view_pending = False
     tree._view_resizing = False
@@ -489,7 +490,7 @@ class CellImages:
             try:
                 self.tree.after_cancel(self._view_refresh_id)
             except Exception:
-                pass
+                app_logging.swallowed()
             self._view_refresh_id = None
 
         def run():
@@ -514,7 +515,7 @@ class CellImages:
                 try:
                     self.tree.after_cancel(self._initial_refresh_id)
                 except Exception:
-                    pass
+                    app_logging.swallowed()
                 self._initial_refresh_id = None
             self.refresh()
             return None
@@ -582,7 +583,7 @@ class CellImages:
             try:
                 self._zoom_owner.after_cancel(self.zoom_pending)
             except Exception:
-                pass
+                app_logging.swallowed()
             self.zoom_pending = None
         self.zoom_cancel_watch()
         self.zoom_key = None
@@ -591,7 +592,7 @@ class CellImages:
             try:
                 self.zoom_label.place_forget()
             except Exception:
-                pass
+                app_logging.swallowed()
         return None
 
     def zoom_in(self, key):
@@ -681,7 +682,7 @@ class CellImages:
             try:
                 self._zoom_owner.after_cancel(self.zoom_watch)
             except Exception:
-                pass
+                app_logging.swallowed()
             self.zoom_watch = None
         return None
 
@@ -826,7 +827,7 @@ class CellImages:
                 label.place_forget()
                 label.destroy()
             except Exception:
-                pass
+                app_logging.swallowed()
         self.restore(key)
 
     def label_for(self, key):
@@ -986,7 +987,7 @@ class CellImages:
             try:
                 self.hover.overlay.lift()
             except Exception:
-                pass
+                app_logging.swallowed()
         return covered
 
     def destroy(self, event=None):
@@ -996,20 +997,20 @@ class CellImages:
             try:
                 self.tree.after_cancel(self._view_refresh_id)
             except Exception:
-                pass
+                app_logging.swallowed()
             self._view_refresh_id = None
         if self._initial_refresh_id is not None:
             try:
                 self.tree.after_cancel(self._initial_refresh_id)
             except Exception:
-                pass
+                app_logging.swallowed()
             self._initial_refresh_id = None
         self.zoom_hide()
         if self.zoom_label is not None:
             try:
                 self.zoom_label.destroy()
             except Exception:
-                pass
+                app_logging.swallowed()
             self.zoom_label = None
         for key in list(self.labels):
             self.hide(key)

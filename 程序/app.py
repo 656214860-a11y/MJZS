@@ -2,6 +2,7 @@
 # Keep the small built-in hash backend decision ahead of every optional module.
 # Several imported services fingerprint files during initialization; doing this
 # here avoids loading OpenSSL merely because the desktop shell starts.
+import app_logging
 import hash_backend
 hash_backend.install()
 import pet_bus
@@ -1352,7 +1353,7 @@ class App:
                 page='视频生成',stage='app.tick.'+phase)
         except Exception:
             # 诊断磁盘不可用也不能停止查询；同样限频，不另建日志出口。
-            pass
+            app_logging.swallowed()
     def tick(self):
         # Keep network tracking alive even when its panel is hidden or a UI refresh fails.
         if self.closed:return
@@ -1430,7 +1431,7 @@ class App:
         timer=getattr(self,'timer',None)
         if timer:
             try:self.scheduler.after_cancel(timer)
-            except Exception:pass
+            except Exception:app_logging.swallowed()
             self.timer=None
     def report_done(self,value):
         """手动提交收了尾：走宿主传进来的那条出口说给三虎；宿主没接就静默返回。"""

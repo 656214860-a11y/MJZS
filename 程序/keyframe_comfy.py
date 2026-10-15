@@ -1,4 +1,5 @@
 """In-app first-frame production: local ComfyUI (FLUX Klein) or the Seedream 5.0 API."""
+import app_logging
 import queue
 import threading
 from pathlib import Path
@@ -707,7 +708,7 @@ def show(app, source, initial=None):
         try:
             hook(source, [shot['id'] for shot in shots])
         except Exception:
-            pass
+            app_logging.swallowed()
 
     def start():
         nonlocal busy
@@ -762,7 +763,7 @@ def show(app, source, initial=None):
     try:
         remember_engine()
     except Exception:
-        pass
+        app_logging.swallowed()
     bar = FlowBar(footer)
     bar.pack(fill='x', padx=14, pady=SPACING['sm'])
     start_button = PrimaryButton(bar, text='开始逐镜生成', command=lambda: app.safe(start))
@@ -812,7 +813,7 @@ def show(app, source, initial=None):
                 if app.win.winfo_exists() and Path(app.current_frame_json()).resolve() == source:
                     app.show_stage('keyframe')
             except Exception:
-                pass
+                app_logging.swallowed()
         poll_id = win.after(250, poll)
 
     def stop_poll(event=None):
@@ -824,7 +825,7 @@ def show(app, source, initial=None):
             try:
                 win.after_cancel(poll_id)
             except Exception:
-                pass
+                app_logging.swallowed()
             poll_id = None
 
     win.bind('<Destroy>', stop_poll, add='+')

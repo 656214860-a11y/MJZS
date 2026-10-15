@@ -14,6 +14,7 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import app_logging
 from agent.core import read_json, save_bytes, save_text
 from log_maintenance import RETENTION_DAYS
 
@@ -22,12 +23,7 @@ PROGRAM = Path(__file__).resolve().parent
 LOGS = PROGRAM / "logs"
 ERROR_LOG = LOGS / "启动错误.log"
 STATE_FILE = LOGS / "diagnostics" / "latest.json"
-_SECRET = re.compile(
-    r"(?i)(?:api[ _-]?key|secret|token|password|credential)\s*[:=]\s*[^\s,;}]+|"
-    r"authorization\s*[:=]\s*bearer\s+[^\s,;}]+|"
-    r"[?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|password|"
-    r"signature|sig)=[^&\s,;}\"']+"
-)
+_SECRET = app_logging._SECRET
 _PRIVATE_NAME = re.compile(r"(?i)(?:\.env$|\.dpapi$|private|credential|secret)")
 _LOCK = threading.Lock()
 
@@ -49,7 +45,7 @@ def _save_state(value: dict) -> None:
 
 
 def _clean(value: object) -> str:
-    return _SECRET.sub("[已脱敏]", str(value))
+    return app_logging.redact(value)
 
 
 def record_degradation(exc: BaseException, *, page: str = "", stage: str = "",

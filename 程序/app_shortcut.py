@@ -9,6 +9,7 @@
 - 桌面与程序目录各放一份：前者给用户点，后者是重建/备份用（重装后照样能把桌面那份补回来）。
 运行：python app_shortcut.py  会（重新）建好这两份快捷方式并打印路径。
 """
+import app_logging
 import hashlib
 import os
 import subprocess
@@ -156,7 +157,7 @@ def desktop_dir():
         if shell32.SHGetFolderPathW(None, 0x10, None, 0, buf) == 0 and buf.value:
             return Path(buf.value)
     except Exception:
-        pass
+        app_logging.swallowed()
     return Path(os.path.expanduser('~')) / 'Desktop'
 
 
@@ -202,7 +203,7 @@ def refresh_shell():
         ctypes.windll.shell32.SHChangeNotify(0x08000000, 0, None, None)
         moved = True
     except Exception:
-        pass
+        app_logging.swallowed()
     for exe in (os.path.join(os.environ.get('SystemRoot', r'C:\Windows'), 'System32', 'ie4uinit.exe'),
                 'ie4uinit.exe'):
         try:

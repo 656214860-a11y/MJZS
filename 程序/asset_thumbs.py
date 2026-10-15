@@ -31,6 +31,7 @@ Round 1（2026-09-23）：缩略图不再在界面线程里整张解 PNG（95 �
 界面线程同步解一次并把结果写进缓存——最坏也不过是和从前一样慢，图不会不见。JOB_DEADLINE
 兜住「进程还活着、这一张却一直不回来」那种情况。
 """
+import app_logging
 import atexit
 import hashlib
 import os
@@ -365,7 +366,7 @@ def _disarm(master, event=None):
         except Exception:
             # <Destroy> 期间 winfo_exists() 已可能是 false，但 Tcl 解释器通常
             # 仍在，所以上面必须实际尝试取消；走到这里才说明解释器也已拆掉。
-            pass
+            app_logging.swallowed()
 
 
 def update(master=None):
@@ -385,7 +386,7 @@ def update(master=None):
         try:
             master.after_cancel(pump_id)
         except Exception:
-            pass
+            app_logging.swallowed()
     if not _PENDING:
         return 0
     landed = []
@@ -470,7 +471,7 @@ def forget():
         try:
             master.after_cancel(pump_id)
         except Exception:
-            pass
+            app_logging.swallowed()
     _CACHE.clear()
     _PENDING.clear()
     _PENDING_CURSOR = 0
@@ -484,7 +485,7 @@ def reset_worker():
             _WORKER.terminate()
             _WORKER.wait(timeout=2)      # 回收掉，别留一个「还在跑」的句柄（自检会报 ResourceWarning）
         except Exception:
-            pass
+            app_logging.swallowed()
     _WORKER = None
     _WORKER_AT = 0.0
     _WORKER_BAD = False
@@ -575,7 +576,7 @@ def worker_main(cache_root, idle=WORKER_IDLE):
                 token = cache_key(src, spec['stamp'], spec['size'])
                 write_cache(build(root, src, int(spec['size'])), token)
             except Exception:
-                pass                    # 单张图出事不许把这一批带停
+                app_logging.swallowed()                    # 单张图出事不许把这一批带停
             try:
                 remove_temporary_file(spec_file)
             except OSError:

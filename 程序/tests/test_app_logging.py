@@ -63,7 +63,7 @@ class AppLoggingTests(unittest.TestCase):
         self.assertEqual(len(logging.getLogger().handlers), count)
 
     def test_thread_exception_is_captured(self):
-        app_logging.install()
+        app_logging.install(crash_sink=diagnostic_capture.record_crash)
         def boom():
             raise ValueError('线程炸了 token=ABC999')
         thread = threading.Thread(target=boom, name='worker-x')
@@ -89,9 +89,27 @@ class AppLoggingTests(unittest.TestCase):
         self.assertIs(Root.seen, error)
         self.assertIn('tk-callback', (self.tmp / 'app.log').read_text(encoding='utf-8'))
 
+    def test_swallowed_logs_location_once_then_samples(self):
+        app_logging.install()
+        app_logging._swallow_counts.clear()
+        for _ in range(app_logging.SWALLOW_LOG_EVERY + 1):
+            try:
+                raise KeyError('缺键 token=Z777')
+            except KeyError:
+                app_logging.swallowed()
+        self._flush()
+        text = (self.tmp / 'app.log').read_text(encoding='utf-8')
+        self.assertEqual(text.count('已忽略 KeyError'), 2)
+        self.assertIn('test_app_logging.py', text)
+        self.assertNotIn('Z777', text)
+
+    def test_swallowed_outside_except_is_noop(self):
+        app_logging.install()
+        app_logging.swallowed()
+
     def test_real_launcher_installs_hooks(self):
         source = (ROOT / '启动漫剧制作助手.pyw').read_text(encoding='utf-8')
-        self.assertIn('app_logging.install()', source)
+        self.assertIn('app_logging.install(crash_sink=', source)
         self.assertIn('app_logging.install(window)', source)
 
     def test_startup_failure_log_appends_with_header(self):

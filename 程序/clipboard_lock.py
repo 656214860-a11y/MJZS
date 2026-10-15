@@ -13,6 +13,7 @@
     with clipboard_lock.hold():
         ...写／读剪贴板...
 """
+import app_logging
 import os
 import time
 import threading
@@ -72,7 +73,7 @@ def _acquire(timeout, poll):
             try:
                 handle.close()
             except Exception:
-                pass
+                app_logging.swallowed()
             if time.time() >= deadline:
                 return None
         time.sleep(poll)
@@ -90,8 +91,8 @@ def _release(handle):
             fcntl = import_module('fcntl')
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
     except Exception:
-        pass
+        app_logging.swallowed()
     try:
         handle.close()
     except Exception:
-        pass
+        app_logging.swallowed()

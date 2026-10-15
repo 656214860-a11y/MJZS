@@ -1,4 +1,5 @@
 """Keep the adopted collection separate from the episode currently on screen."""
+import app_logging
 import os, time
 from pathlib import Path
 from agent.core import read,save
@@ -408,7 +409,7 @@ def source_selector(app,index,*,select_box):
                 if not combo.winfo_exists():return
                 target=display_index()
                 if combo.current()!=target:combo.current(target)
-            except Exception:pass
+            except Exception:app_logging.swallowed()
         app.safe(apply)
         app.win.after_idle(resync)
     combo.bind('<<ComboboxSelected>>',choose)

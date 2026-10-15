@@ -13,6 +13,7 @@
 纯标准库、不 import Tk：界面层只调 button_text／button_state／apply_text／follow，
 自检里可以直接喂假控件。
 """
+import app_logging
 from pathlib import Path
 
 import stage_parallel
@@ -128,14 +129,14 @@ def apply_text(widget, stage):
                 widget._stage_flow_forced = True
                 changed = True
             except Exception:
-                pass
+                app_logging.swallowed()
     elif forced:
         try:
             widget.configure(state='normal')
             widget._stage_flow_forced = False
             changed = True
         except Exception:
-            pass
+            app_logging.swallowed()
     return changed
 
 
@@ -159,20 +160,20 @@ def follow(widget, stage, interval=400):
         try:
             handle['id'] = widget.after(interval, tick)
         except Exception:
-            pass
+            app_logging.swallowed()
 
     def stop(event=None):
         if handle['id'] is not None:
             try:
                 widget.after_cancel(handle['id'])
             except Exception:
-                pass
+                app_logging.swallowed()
             handle['id'] = None
 
     try:
         widget.bind('<Destroy>', stop, add='+')
     except Exception:
-        pass
+        app_logging.swallowed()
     tick()
     return tick
 

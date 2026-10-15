@@ -1,4 +1,5 @@
 """Wrapping action rows and proportionate table columns for Tkinter."""
+import app_logging
 import tkinter as tk
 from tkinter import ttk, TclError
 
@@ -130,7 +131,7 @@ def shown_row(tree):
         if not tree.exists(row):
             return ''
     except Exception:
-        pass
+        app_logging.swallowed()
     return row
 
 def work_rows(tree, is_checked):
@@ -394,7 +395,7 @@ def _bind_debounced_configure(tree, bound_attr, pending_attr, run):
                 if tree.winfo_exists():
                     run()
             except Exception:
-                pass
+                app_logging.swallowed()
         try:
             tree.after_idle(after_idle)
         except Exception:
@@ -576,7 +577,7 @@ def auto_height(tree, container, row_height=None, padding=48, minimum=2):
                 if int(tree.cget('height')) != rows:
                     tree.configure(height=rows)
             except Exception:
-                pass
+                app_logging.swallowed()
         container.after_idle(run)
     container.bind('<Configure>', fit, add='+')
     fit()
@@ -631,7 +632,7 @@ def bind_show_all(box, maximum=40, after=None):
         show_all_content(box,maximum)
         if after is not None:
             try:after()
-            except Exception:pass
+            except Exception:app_logging.swallowed()
     box.bind('<Button-1>',handler,add='+')
     box.bind('<FocusIn>',handler,add='+')
     return handler

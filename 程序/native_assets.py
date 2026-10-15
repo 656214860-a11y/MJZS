@@ -1,4 +1,5 @@
 """Send asset data to the installed ComfyUI; import completed results by ID."""
+import app_logging
 import base64
 import hashlib
 import json
@@ -380,7 +381,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                     if exc.code==404:
                         return 'ComfyUI 已启动，但缺少资产批量接收组件（/drama/assets/health 404）。请在 ComfyUI 安装/启用 drama 资产工作流组件后，点击“强制关闭 ComfyUI”重启再检测。'
                 except Exception:
-                    pass
+                    app_logging.swallowed()
                 if time.monotonic()>=deadline:
                     return 'ComfyUI 已启动，但资产接收组件未就绪，请重启本地 ComfyUI 后再检测。'
                 time.sleep(1)
@@ -431,7 +432,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                     while not events.empty():events.get_nowait()
                     reload_rows();progress_text.set(result)
             except Exception:
-                pass
+                app_logging.swallowed()
             if app.root==project:app.show(2)
             try:
                 if win.winfo_exists():
@@ -444,7 +445,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                         notify(win, result, level='warning', title='制图提示', status=app.status)
                     win.destroy()
             except Exception:
-                pass
+                app_logging.swallowed()
         def work():
             try:return run(project,base,items,url,events.put,options=options,stop=gen_stop)
             except Exception as exc:

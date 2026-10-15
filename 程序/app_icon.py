@@ -15,6 +15,7 @@
 - 用处：主窗口标题栏／任务栏图标（apply）、桌面快捷方式的图标（ensure 出来的 .ico 文件）。
 运行：python app_icon.py --force 会把 ico 与一张 png 预览重写进程序目录下的 assets。
 """
+import app_logging
 import math
 import struct
 import zlib
@@ -314,7 +315,7 @@ def apply(window, path=None):
         window.iconbitmap(default=str(target))     # 这扇窗 ＋ 以后新建的子窗口都用它
         return target
     except Exception:
-        pass
+        app_logging.swallowed()
     try:
         window.iconbitmap(str(target))
         return target

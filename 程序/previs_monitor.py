@@ -7,6 +7,7 @@ HTTP 服务，按这一批的 state（状态、Blender 脚本写出来的进度 
 
 工作线程只写 state（status／progress／progress JSON），这一页只读；两边不共享 Tk 上下文。
 """
+import app_logging
 import html,threading,time,webbrowser
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
@@ -135,7 +136,7 @@ def start(state, project, title=TITLE, opener=None):
     try:
         (opener or webbrowser.open)(url)
     except Exception:
-        pass
+        app_logging.swallowed()
     state['monitor'] = (url, server)
     return state['monitor']
 

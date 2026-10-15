@@ -1,4 +1,5 @@
 """首帧生产模型的无界面解析规则。"""
+import app_logging
 from pathlib import Path
 
 from agent.core import read
@@ -19,7 +20,7 @@ def production_choices(project):
                 name += ' · ' + display
             items.append((name, name))
     except Exception:
-        pass
+        app_logging.swallowed()
     return tuple(items)
 
 

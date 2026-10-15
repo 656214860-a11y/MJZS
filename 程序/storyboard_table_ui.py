@@ -1,4 +1,5 @@
 """Tk table adapters shared by storyboard picker pages."""
+import app_logging
 from datetime import datetime
 from ui_tokens import COLORS
 from ui_widgets import DataTable
@@ -36,7 +37,7 @@ def file_table(parent, height=4, selectmode='browse', first_label='文件 / 内�
             tree._fit_columns_pending=False
             if getattr(tree,'_entries_filling',False):return
             try:fit_file_columns(tree)
-            except Exception:pass
+            except Exception:app_logging.swallowed()
         tree.after_idle(run)
     tree.bind('<Configure>',schedule_fit,add='+')
     return tree

@@ -1,4 +1,5 @@
 """Volcengine Seedream profiles and direct Images API, shared with the assistant."""
+import app_logging
 import base64
 import ctypes
 import json
@@ -156,7 +157,7 @@ def request_image(profile,payload):
                 error=parsed.get('error') if isinstance(parsed,dict) else parsed
                 if isinstance(error,dict):detail=error.get('message') or error.get('code') or detail
                 elif isinstance(error,str):detail=error
-            except Exception:pass
+            except Exception:app_logging.swallowed()
         if 400<=exc.code<500:
             raise Rejected('火山接口拒绝请求：'+messages.get(exc.code,'HTTP '+str(exc.code))+'。'+(detail or '请检查火山 API 设置。')) from None
         raise Uncertain('火山接口响应异常，未自动重试；请先在火山控制台核实本次用量。') from None

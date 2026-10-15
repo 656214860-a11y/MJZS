@@ -10,7 +10,7 @@ import hash_backend
 from app_metadata import APP_NAME
 hash_backend.install()
 import app_logging
-app_logging.install()
+app_logging.install(crash_sink=lambda exc,trace:__import__('diagnostic_capture').record_crash(exc,trace))
 try:
     import ctypes
     import hashlib

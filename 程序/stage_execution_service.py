@@ -1,4 +1,5 @@
 """阶段执行所需的编排器与上下文，不依赖配置面板。"""
+import app_logging
 import json
 from pathlib import Path
 
@@ -746,7 +747,7 @@ def adopt_asset_plan_choice(project, key, choice, digest=''):
         try:
             record_stage_confirmation(project, key, choice, state=FAILED, digest=digest)
         except Exception:
-            pass
+            app_logging.swallowed()
         raise
     record_stage_confirmation(project, key, choice, state=APPLIED, digest=digest)
     return result

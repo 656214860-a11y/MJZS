@@ -38,6 +38,7 @@
 一句话交给 pet_agent.Agent.dispatch：规则命中不花 Token，未命中才问一次 Flash；请求放后台线程，
 结果只进 queue.Queue，由宠物既有的 150ms 心跳（Pet.cloud_drain）贴回来——worker 里一行 Tk 都不碰。
 """
+import app_logging
 import queue
 import re
 import threading
@@ -447,7 +448,7 @@ class Cloud:
         try:
             self.status.configure(background=self.fill())
         except Exception:
-            pass
+            app_logging.swallowed()
         return row
 
     def _build_close_button(self, canvas):
@@ -561,12 +562,12 @@ class Cloud:
             try:
                 self.win.focus_force()
             except Exception:
-                pass
+                app_logging.swallowed()
             try:
                 # 打开视图不等于开始输入；用户点击/Tab 进入回复框后才暂停收起。
                 self.win.focus_set()
             except Exception:
-                pass
+                app_logging.swallowed()
         if self._replies() and not self.busy:
             # 第 36 期第 11 条：回复框上面那行灰字空着的时候摆出三虎能听懂的指令。
             self.set_status(REPLY_HINTS)
@@ -682,7 +683,7 @@ class Cloud:
         try:
             self.reply.focus_set()
         except Exception:
-            pass
+            app_logging.swallowed()
         self._arm_hold()
         return self.canvas
 
@@ -742,7 +743,7 @@ class Cloud:
                 self.parent.after_cancel(job)
             except Exception:
                 # 父 Tcl 解释器已销毁时无可取消对象，关窗路径无需二次报错。
-                pass
+                app_logging.swallowed()
         return None
 
     def _cancel_hold(self):
@@ -751,7 +752,7 @@ class Cloud:
         try:
             self.parent.after_cancel(self._hold)
         except Exception:
-            pass
+            app_logging.swallowed()
         self._hold = None
         return None
 
@@ -762,7 +763,7 @@ class Cloud:
         try:
             (self.win or self.parent).after_cancel(self._fade)
         except Exception:
-            pass
+            app_logging.swallowed()
         self._fade, self._fade_callback = None, None
         return None
 
@@ -969,11 +970,11 @@ class Cloud:
         try:
             width = float(int(canvas.winfo_width()) or int(canvas.cget('width')))
         except Exception:
-            pass
+            app_logging.swallowed()
         try:
             height = float(int(canvas.winfo_height()) or int(canvas.cget('height')))
         except Exception:
-            pass
+            app_logging.swallowed()
         try:
             left, top = float(int(canvas.winfo_rootx())), float(int(canvas.winfo_rooty()))
         except Exception:
@@ -996,7 +997,7 @@ class Cloud:
             if not bool(canvas.winfo_ismapped()):
                 return False
         except Exception:
-            pass
+            app_logging.swallowed()
         if width < 8.0 or height < 8.0:
             return False
         return left >= 0.0 and top >= 0.0
@@ -1127,7 +1128,7 @@ class Cloud:
             if ctypes.windll.user32.GetWindowRect(frame, ctypes.byref(rect)):
                 return int(rect.top)
         except Exception:
-            pass
+            app_logging.swallowed()
         rect = self._window_rect()
         return None if rect is None else int(rect[1])
 
@@ -1426,7 +1427,7 @@ class Cloud:
                 try:
                     self.canvas.update_idletasks()
                 except Exception:
-                    pass
+                    app_logging.swallowed()
             if self._content_height() <= room:
                 return size
         return size
@@ -1532,7 +1533,7 @@ class Cloud:
                 try:
                     self._startup_render_job = self.parent.after(wait_ms, self._defer_startup_render)
                 except Exception:
-                    pass
+                    app_logging.swallowed()
                 return None
             return self._render(skip_sync=True)
         try:
@@ -1548,7 +1549,7 @@ class Cloud:
             try:
                 self.parent.after_cancel(job)
             except Exception:
-                pass
+                app_logging.swallowed()
         return None
 
     def _render(self, *, skip_sync=False):
@@ -2069,7 +2070,7 @@ class Cloud:
             try:
                 self.parent.after_cancel(job)
             except Exception:
-                pass
+                app_logging.swallowed()
         if not self._hint_on or self.hint is None:
             return None
         try:
@@ -2090,12 +2091,12 @@ class Cloud:
             try:
                 self.parent.after_cancel(job)
             except Exception:
-                pass
+                app_logging.swallowed()
         if self.hint is not None:
             try:
                 self.hint.configure(text='')
             except Exception:
-                pass
+                app_logging.swallowed()
         return None
 
     def report_command(self, text):
