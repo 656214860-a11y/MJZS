@@ -1281,10 +1281,16 @@ class PromptBoxHeightTests(unittest.TestCase):
                 v.write("日志第 %d 行" % i)
             for _ in range(3):
                 win.update(); win.update_idletasks()
-            self.assertGreater(int(v.log.cget("height")), v.LOG_ROWS_MIN, "先长起来一截")
+            grown = int(v.log.cget("height"))
+            self.assertGreater(grown, v.LOG_ROWS_MIN, "先长起来一截")
             rows = self.write(d, win, "\n".join("镜头 %d：主角沿走廊往前走" % i for i in range(1, 13)))
             self.assertEqual(rows, 12, "提示词还是摆满 12 行")
-            self.assertEqual(int(v.log.cget("height")), v.LOG_ROWS_MIN, "日志让路，退回最小")
+            # R1482：R1479 收紧页头后这一页多出约一行空位，日志「退回最小」不再恰好等于 3 行；
+            # 口径改为「让路（比先前矮）且不超过提示词让出的剩余空间（最小行数 + 余量）」。
+            after = int(v.log.cget("height"))
+            self.assertLess(after, grown, "日志让路")
+            self.assertLessEqual(after, v.LOG_ROWS_MIN + max(0, v.log_room_rows()), "只用提示词剩下的空间")
+            self.assertLessEqual(after, v.LOG_ROWS_MIN + 1, "最多比最小多出页头收紧腾出的一行")
 
     def test_clearing_it_shrinks_back(self):
         if self.tk is None:
