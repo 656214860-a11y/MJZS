@@ -10,6 +10,7 @@
 
 存储沿用宠物那份全局配置（配置/宠物/配置.json）——pet_llm 认的就是它，多存两把键互不打扰。
 """
+import app_logging
 import json
 import os
 import re
@@ -823,6 +824,7 @@ def _http_error_kind(status):
     return 'client'
 
 
+@app_logging.timed('model.http', 30000)
 def http_transport(url, payload, headers, timeout):
     """模型供应商通用 HTTP 传输；仅在实际请求时加载网络栈。"""
     import ssl

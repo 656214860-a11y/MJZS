@@ -1012,13 +1012,13 @@
             },
             {
                 "file": "model_pool.py",
-                "point": "839",
+                "point": "841",
                 "disposition": "exempt",
                 "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。"
             },
             {
                 "file": "model_pool.py",
-                "point": "879",
+                "point": "881",
                 "disposition": "exempt",
                 "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。"
             },

@@ -107,6 +107,45 @@ class AppLoggingTests(unittest.TestCase):
         app_logging.install()
         app_logging.swallowed()
 
+    def test_timed_records_metrics_and_warns_only_when_slow(self):
+        app_logging.install()
+        app_logging._metrics.clear()
+        with app_logging.timed('fast', 10000):
+            pass
+        with app_logging.timed('slow', 0):
+            pass
+        self._flush()
+        text = (self.tmp / 'app.log').read_text(encoding='utf-8')
+        self.assertIn('慢操作 slow', text)
+        self.assertNotIn('慢操作 fast', text)
+        snap = app_logging.metrics_snapshot()
+        self.assertEqual(snap['fast']['count'], 1)
+        self.assertEqual(snap['slow']['slow'], 1)
+
+    def test_timed_decorator_is_reentrant_and_transparent(self):
+        app_logging._metrics.clear()
+        @app_logging.timed('rec', 10000)
+        def fact(n):
+            return 1 if n <= 1 else n * fact(n - 1)
+        self.assertEqual(fact(5), 120)
+        self.assertEqual(app_logging.metrics_snapshot()['rec']['count'], 5)
+        with self.assertRaises(ValueError):
+            with app_logging.timed('err', 10000):
+                raise ValueError('x')
+
+    def test_flush_metrics_writes_json(self):
+        app_logging._metrics.clear()
+        with mock.patch.object(app_logging, 'PERF_FILE', self.tmp / 'perf.json'):
+            with app_logging.timed('page', 10000):
+                pass
+            app_logging.flush_metrics()
+        self.assertIn('page', (self.tmp / 'perf.json').read_text(encoding='utf-8'))
+
+    def test_page_switch_and_model_http_are_instrumented(self):
+        program = Path(__file__).resolve().parents[1]
+        self.assertIn("@app_logging.timed('page.show'", (program / 'desktop.py').read_text(encoding='utf-8'))
+        self.assertIn("@app_logging.timed('model.http'", (program / 'model_pool.py').read_text(encoding='utf-8'))
+
     def test_real_launcher_installs_hooks(self):
         source = (ROOT / '启动漫剧制作助手.pyw').read_text(encoding='utf-8')
         self.assertIn('app_logging.install(crash_sink=', source)

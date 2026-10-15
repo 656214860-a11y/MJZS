@@ -8,11 +8,15 @@
 """
 from __future__ import annotations
 
+import atexit
+import contextlib
 import faulthandler
+import json
 import logging
 import re
 import sys
 import threading
+import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -20,6 +24,7 @@ PROGRAM = Path(__file__).resolve().parent
 LOGS = PROGRAM / "logs"
 APP_LOG = LOGS / "app.log"
 FAULT_LOG = LOGS / "faulthandler.log"
+PERF_FILE = LOGS / "perf_metrics.json"
 MAX_BYTES = 5 * 1024 * 1024
 BACKUPS = 3
 FORMAT = "%(asctime)s %(levelname)s %(threadName)s %(name)s: %(message)s"
@@ -41,6 +46,63 @@ SWALLOW_LOG_EVERY = 100
 def redact(value: object) -> str:
     """凭据脱敏的唯一实现；``diagnostic_capture`` 复用它。"""
     return _SECRET.sub("[已脱敏]", str(value))
+
+
+_metrics: dict = {}
+
+
+class timed(contextlib.ContextDecorator):
+    """计时：既可 ``with timed('x', 500):`` 也可 ``@timed('x', 500)``。
+
+    只在内存累计 次数／总耗时／最大耗时，超过 ``warn_ms`` 才写一条 WARNING；进程退出时
+    汇总写入 ``logs/perf_metrics.json``。不抛异常、不改变被包裹代码的返回与异常。
+    """
+
+    def __init__(self, name: str, warn_ms: float = 1000.0):
+        self.name = name
+        self.warn_ms = warn_ms
+
+    def _recreate_cm(self):
+        # 装饰器每次调用新建实例：并发（后台线程里的模型请求）或递归时起点互不覆盖。
+        return timed(self.name, self.warn_ms)
+
+    def __enter__(self):
+        self._start = time.perf_counter()
+        return self
+
+    def __exit__(self, *exc):
+        try:
+            elapsed = (time.perf_counter() - self._start) * 1000.0
+            with _swallow_lock:
+                row = _metrics.setdefault(self.name, {"count": 0, "total_ms": 0.0, "max_ms": 0.0, "slow": 0})
+                row["count"] += 1
+                row["total_ms"] += elapsed
+                row["max_ms"] = max(row["max_ms"], elapsed)
+                if elapsed >= self.warn_ms:
+                    row["slow"] += 1
+            if elapsed >= self.warn_ms:
+                logging.getLogger("perf").warning("慢操作 %s %.0fms（阈值 %.0fms）", self.name, elapsed, self.warn_ms)
+        except Exception:
+            pass
+        return False
+
+
+def metrics_snapshot() -> dict:
+    with _swallow_lock:
+        return {name: {k: round(v, 1) if isinstance(v, float) else v for k, v in row.items()}
+                for name, row in _metrics.items()}
+
+
+def flush_metrics() -> None:
+    """把本次运行的计时汇总写盘；无数据或失败都静默。"""
+    try:
+        data = metrics_snapshot()
+        if data:
+            from agent.core import save_text
+            save_text(PERF_FILE, json.dumps({"at": time.strftime("%Y-%m-%d %H:%M:%S"), "metrics": data},
+                                            ensure_ascii=False, indent=2))
+    except Exception:
+        pass
 
 
 def build_commit() -> str:
@@ -153,6 +215,7 @@ def install(root=None, crash_sink=None) -> bool:
         logging.getLogger("startup").info("启动 %s commit=%s Python %s", VERSION, build_commit() or "-", sys.version.split()[0])
     except Exception:
         pass
+    atexit.register(flush_metrics)
     previous_hook = sys.excepthook
 
     def main_hook(kind, value, trace):

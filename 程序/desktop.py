@@ -4447,6 +4447,7 @@ class Desktop:
         if index==PAGE['script_structure']:
             from script_workspace_service import script_structure_signature
             cache[index]['signature']=script_structure_signature(self.root)
+    @app_logging.timed('page.show',800)
     def show(self,index,video_mode=None):
         pending=getattr(self,'_navigation_job',None)
         if pending is not None:

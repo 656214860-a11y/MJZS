@@ -10,7 +10,7 @@ from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[2]
 ALLOWED = {
-    'app_logging.py': 7,
+    'app_logging.py': 9,
     'run_selftests.py': 2,
     'smoke_test.py': 1,
     'agent/volcengine.py': 1,
