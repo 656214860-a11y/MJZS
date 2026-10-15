@@ -119,6 +119,39 @@ class MediaCompletionTests(unittest.TestCase):
         evidence['categories']['video']['items'].append(source_item)
         self.assertTrue(validate_commercial_evidence(self.root, evidence))
 
+    def test_commercial_script_must_match_adopted_storyboard_source(self):
+        from agent.core import file_hash
+        from stage_completion_service import validate_commercial_evidence
+        script = self.root / 'original.md'; script.write_text('original story')
+        board = read(self.source); board['source_script'] = 'original.md'; save(self.source, board)
+        evidence, _ = self.commercial_fixture()
+        with self.assertRaisesRegex(ValueError, '剧本授权清单'):
+            validate_commercial_evidence(self.root, evidence)
+        item = evidence['categories']['script']['items'][0]
+        item.update(path='original.md', sha256=file_hash(script))
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        script.write_text('changed story')
+        with self.assertRaisesRegex(ValueError, '摘要'):
+            validate_commercial_evidence(self.root, evidence)
+
+    def test_commercial_script_missing_or_invalid_link_cannot_use_other_authorization(self):
+        from stage_completion_service import validate_commercial_evidence
+        for value in ('missing.md', '../outside.md', ['invalid']):
+            with self.subTest(value=value):
+                board = read(self.source); board['source_script'] = value; save(self.source, board)
+                evidence, _ = self.commercial_fixture()
+                with self.assertRaisesRegex(ValueError, '剧本来源'):
+                    validate_commercial_evidence(self.root, evidence)
+
+    def test_unlinked_storyboard_cannot_use_unrelated_script_authorization(self):
+        from agent.core import file_hash
+        from stage_completion_service import validate_commercial_evidence
+        evidence, _ = self.commercial_fixture()
+        unrelated = self.root / 'other.md'; unrelated.write_text('unrelated story')
+        evidence['categories']['script']['items'][0].update(path='other.md', sha256=file_hash(unrelated))
+        with self.assertRaisesRegex(ValueError, '剧本授权清单'):
+            validate_commercial_evidence(self.root, evidence)
+
     def test_commercial_evidence_invalidated_by_authorization_change(self):
         from stage_completion_service import confirm_commercial_evidence, commercial_delivery_status
         evidence, proof = self.commercial_fixture()

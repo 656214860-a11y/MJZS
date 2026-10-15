@@ -183,6 +183,20 @@ def validate_commercial_evidence(root, evidence):
                     or item.get('derivative_allowed') is not True or item.get('obligations_fulfilled') is not True):
                 raise ValueError('授权范围或履约记录不完整：' + category)
             frozen_file(item.get('authorization'))
+    # 来源剧本沿用分镜目录的解析规则；不能拿其他作品的授权代替。
+    from stage_execution_service import storyboard_board_source_script
+    board_path = root / scope['source']
+    source_value = read(board_path).get('source_script')
+    if source_value is not None and not isinstance(source_value, str):
+        raise ValueError('采用分镜的剧本来源无效，请补齐来源')
+    script_path = storyboard_board_source_script(root, board_path) if source_value else board_path
+    if (script_path is None or not script_path.is_relative_to(root)
+            or not script_path.is_file() or not script_path.stat().st_size):
+        raise ValueError('采用分镜的剧本来源缺失或不在项目内')
+    scripts = {(root / item['path']).resolve(): item['sha256']
+               for item in categories['script']['items']}
+    if scripts.get(script_path) != file_hash(script_path):
+        raise ValueError('剧本授权清单未覆盖当前分镜实际来源')
     declared = {(root / item['path']).resolve(): item['sha256']
                 for item in categories['video']['items']}
     known_hashes = {item['sha256'] for group in categories.values() for item in group['items']}
