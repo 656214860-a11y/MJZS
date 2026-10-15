@@ -184,7 +184,7 @@ class WritingRestartTests(unittest.TestCase):
         import ast
         from types import SimpleNamespace
         from unittest.mock import Mock
-        source = Path(writing_api.__file__).with_name('desktop.py')
+        source = Path(writing_api.__file__).with_name('desktop_writing_page.py')  # R1499：script_menu 在迁出的 writing 里
         tree = ast.parse(source.read_text(encoding='utf-8-sig'))
         node = next(item for item in ast.walk(tree) if isinstance(item, ast.FunctionDef)
                     and item.name == 'script_menu')

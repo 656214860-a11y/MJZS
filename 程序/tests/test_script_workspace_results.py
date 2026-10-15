@@ -50,7 +50,7 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
                 ensure_script_workspace('project')
 
     def test_desktop_rename_success_failure_and_cancel(self):
-        source = Path(__file__).resolve().parents[1] / 'desktop.py'
+        source = Path(__file__).resolve().parents[1] / 'desktop_writing_page.py'  # R1499：writing 已原样迁到 WritingPageMixin
         tree = ast.parse(source.read_text(encoding='utf-8'))
         methods = [node for node in ast.walk(tree)
                    if isinstance(node, ast.FunctionDef) and node.name == 'rename_script']
@@ -77,9 +77,9 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
                 service.assert_not_called()
 
     def test_desktop_initialization_failure_stops_before_page_construction(self):
-        source = Path(__file__).resolve().parents[1] / 'desktop.py'
+        source = Path(__file__).resolve().parents[1] / 'desktop_writing_page.py'  # R1499：writing 已原样迁到 WritingPageMixin
         tree = ast.parse(source.read_text(encoding='utf-8'))
-        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'Desktop')
+        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'WritingPageMixin')
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing')
         env = {}
         exec(compile(ast.Module(body=[method], type_ignores=[]), str(source), 'exec'), env)

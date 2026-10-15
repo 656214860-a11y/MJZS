@@ -5,6 +5,7 @@ import ast
 from pathlib import Path
 import unittest
 
+from tests.architecture._scan import desktop_text
 
 ROOT = Path(__file__).resolve().parents[2]
 EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__"}
@@ -37,7 +38,7 @@ class ShortcutRegistryBoundaryTests(unittest.TestCase):
         self.assertEqual(violations, [], "快捷键须经 ShortcutRegistry：" + "; ".join(violations))
 
     def test_chat_bubble_copy_is_registered_through_the_unified_registry(self):
-        text = (ROOT / 'desktop.py').read_text(encoding='utf-8')
+        text = desktop_text()  # R1499：Desktop 源码分布在 desktop.py 与迁出的 Mixin 模块
         self.assertIn('self.shortcuts.bind(box,', text)
         self.assertNotIn("box.bind('<Control-c>'", text)
         self.assertNotIn("box.bind('<Control-C>'", text)
@@ -49,4 +50,5 @@ class ShortcutRegistryBoundaryTests(unittest.TestCase):
             "desktop.py": "self.shortcuts.bind(box,",
             "storyboard_table_ui.py": "ShortcutRegistry().bind(tree,",
         }.items():
-            self.assertIn(marker, (ROOT / filename).read_text(encoding="utf-8"), filename)
+            source = desktop_text() if filename == "desktop.py" else (ROOT / filename).read_text(encoding="utf-8")
+            self.assertIn(marker, source, filename)

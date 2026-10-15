@@ -292,7 +292,8 @@ class PerfBaseline(unittest.TestCase):
     def test_script_page_measurement_does_not_force_the_tk_idle_loop(self):
         """剧本准备页面的尺寸测量也必须留在合并的空闲布局批次。"""
         from desktop import Desktop
-        source = inspect.getsource(Desktop)
+        # R1480／R1490／R1499：Desktop 方法分布在 Mixin 类里，按整个继承链取源码。
+        source = ''.join(inspect.getsource(cls) for cls in Desktop.__mro__ if cls is not object)
         self.assertIn('def measure_page_fixed', source,
                       '固定高度应在空闲布局批次测量')
         start = source.index('def measure_page_fixed')

@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, parse, parse_desktop
 
 
 EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__"}
@@ -26,9 +26,8 @@ class DataTableBoundaryTests(unittest.TestCase):
                          '业务数据表必须通过 DataTable；项目树是唯一语义导航例外')
 
     def test_continuity_tables_use_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'desktop.py')
-        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef)
-                       and node.name == 'Desktop')
+        tree = parse_desktop()
+        desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'continuity_page')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -49,9 +48,8 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertIn('DataTable', imports)
 
     def test_asset_table_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'desktop.py')
-        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef)
-                       and node.name == 'Desktop')
+        tree = parse_desktop()
+        desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'assets')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -59,9 +57,8 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '资产管理页不得退回业务层直接构造 ttk.Treeview')
 
     def test_recovery_dialog_tables_use_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'desktop.py')
-        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef)
-                       and node.name == 'Desktop')
+        tree = parse_desktop()
+        desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'open_recycle_recovery')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -69,9 +66,8 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '回收站恢复对话框必须通过 DataTable 构造表格')
 
     def test_project_selection_pages_use_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'desktop.py')
-        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef)
-                       and node.name == 'Desktop')
+        tree = parse_desktop()
+        desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         methods = [node for node in desktop.body if isinstance(node, ast.FunctionDef)
                    and node.name in {'__init__', 'choose_project', 'project_home'}]
         direct = [node for method in methods for node in ast.walk(method)
@@ -81,9 +77,8 @@ class DataTableBoundaryTests(unittest.TestCase):
                          '仅项目选择与项目主页可保留树形导航选择器')
 
     def test_script_file_lists_use_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'desktop.py')
-        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef)
-                       and node.name == 'Desktop')
+        tree = parse_desktop()
+        desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'writing')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
@@ -91,9 +86,8 @@ class DataTableBoundaryTests(unittest.TestCase):
         self.assertEqual(direct, [], '剧本文件列表必须通过 DataTable 构造表格')
 
     def test_keyframe_table_uses_data_table_not_a_page_treeview(self):
-        tree = parse(ROOT / 'desktop.py')
-        desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef)
-                       and node.name == 'Desktop')
+        tree = parse_desktop()
+        desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'storyboard')
         direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)

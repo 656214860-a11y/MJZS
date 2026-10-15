@@ -10,7 +10,9 @@ ROOT = Path(__file__).resolve().parents[2]
 FORBIDDEN_DIRECTORY_CALLS = frozenset({'rglob', 'glob', 'walk'})
 STARTUP_CHAIN = {
     'app.py': (None, ('<module>',)),
-    'desktop.py': ('Desktop', ('__init__', 'choose_project', 'load', 'show', 'writing')),
+    'desktop.py': ('Desktop', ('__init__', 'choose_project', 'load', 'show')),
+    # R1499：writing（剧本准备页构建）原样迁到 WritingPageMixin，仍在启动链上，照样受检。
+    'desktop_writing_page.py': ('WritingPageMixin', ('writing',)),
     'projects.py': ('Projects', ('__init__', 'refresh_registry')),
     'pet_ui.py': (None, ('attach', 'watch_status', 'start')),
 }

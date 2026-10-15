@@ -42,7 +42,7 @@ _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audi
           "video_task_state", "workflow_context", "writing", "writing_tools", "writing_quality")
 _register(3, "image_agent_runner", "keyframe_model_service", "skill_budget", "skill_templates", "subtitle_export_controller",
           "stage_handler_registry", "stage_model_value", "storyboard_recycle_service", "workflow_context_controller", "workflow_engines", "recycle_recovery_controller")
-_register(4, "desktop_auto_flows", "desktop_idea_chat", "task_center_ui", "environment_check", "version_picker", "skill_import_service", "master_skill", "asset_prompt_rules", "asset_reference_images", "asset_reference_import", "asset_reference_prompts",
+_register(4, "desktop_auto_flows", "desktop_idea_chat", "desktop_writing_page", "task_center_ui", "environment_check", "version_picker", "skill_import_service", "master_skill", "asset_prompt_rules", "asset_reference_images", "asset_reference_import", "asset_reference_prompts",
           "asset_reference_search", "asset_skill_batch", "background_characters", "cloud_assets", "keyframe_comfy",
           "keyframe_import", "pet_agent", "pet_models_ui", "pet_report", "pet_settings_ui", "pet_state",
           "project_settings", "qwen_adapter", "qwen_setup", "reference_wall", "responsive_ui", "seedream_settings",
