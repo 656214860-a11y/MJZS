@@ -7,7 +7,9 @@ from ui_widgets import SelectBox
 
 
 class ProductionLockFields(FlowBar):
-    def __init__(self, parent, *, on_change=None, definitions=PRODUCTION_LOCK_DEFINITIONS, prefix=None):
+    def __init__(self, parent, *, on_change=None, definitions=PRODUCTION_LOCK_DEFINITIONS,
+                 prefix=None, horizontal=False):
+        self.horizontal = horizontal
         super().__init__(parent)
         self.definitions = definitions
         self.on_change = on_change
@@ -16,10 +18,14 @@ class ProductionLockFields(FlowBar):
         self.context_values = {}
         if prefix:
             prefix(self)
-        for item in definitions:
+        for column, item in enumerate(definitions):
             key = item['key']
             field = ttk.Frame(self)
-            field.pack(side='left', padx=SPACING['xs'])
+            if horizontal:
+                self.columnconfigure(column, weight=1, uniform='locks')
+                field.grid(row=0, column=column, sticky='ew', padx=SPACING['xs'])
+            else:
+                field.pack(side='left', padx=SPACING['xs'])
             ttk.Label(field, text=item['label']).grid(row=0, column=0, sticky='w')
             width = PRODUCTION_LOCK_WIDTH['compact' if key in ('aspect_ratio', 'fps') else
                                           'directors' if key == 'style_directors' else 'normal']
@@ -32,6 +38,13 @@ class ProductionLockFields(FlowBar):
             for event in ('<Return>', '<KeyRelease>', '<FocusOut>', '<<ComboboxSelected>>'):
                 entry.bind(event, self.changed)
         self.set_values({})
+
+    def layout(self):
+        if self.horizontal:
+            # 旧五锁保持 grid 同排；高度交给 grid 的几何传播。
+            self.pending = None
+        else:
+            super().layout()
 
     def values(self):
         return {key: entry.get().strip() for key, entry in self.inputs.items()}

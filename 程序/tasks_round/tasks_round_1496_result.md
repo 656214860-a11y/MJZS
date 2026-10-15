@@ -55,3 +55,16 @@
   - test_master_skill：Ran 18 tests in 0.798s / OK。
 - 附加临时 Tk 检查：默认折叠、展开收起保值、隐藏值保存、模型切换后参考模式置灰、保存不覆盖预设提示，Ran 1 test in 0.861s / OK；git diff --check 通过。
 - 本次三条回归无未解决项；历史其他范围的验证边界保持不变，未提交或合并。
+
+## 2026-10-16 R1264 旧制作锁合同回归修复（限 20 分钟）
+- 原因：共用 FlowBar 将旧五锁的 grid 同排容器改成了流式布局；前次修复又把保存失败错误移出了 panel.state。
+- 改动：production_lock_fields 增加固定 grid 横排模式，阶段面板前五锁使用该模式；总控选择框与 lock_row 仍同父容器。新增赛道/素材来源单独一行，四项选填锁默认折叠；保持原事件绑定、窄输入宽度、自动保存和依赖联动。
+- 保存失败同时显示在 panel.state 和锁区，旧项目兼容及保存成功提示仍只在锁区。
+- 用户授权的测试契约扩展：test_production_lock_ui 的容器数量与行列断言仅约束前五锁；其余既有断言未弱化，事件/宽度仍检查全部输入。新增断言覆盖六个新锁独立区域、默认折叠、逐项失焦保存非默认值、刷新和展开后保值。
+- 原样复现：Ran 2 tests in 1.233s，FAILED (failures=1, errors=1)。修改后连同底部栏可见性定向检查：Ran 3 tests in 2.355s，OK。
+- 以下在 R1482/程序，PYTHONPATH=tests，以 D:\漫剧制作助手\运行环境\Python\python.exe -B -m unittest <模块> 执行：
+  - test_production_lock_ui：Ran 2 tests in 1.264s / OK（补强新锁保值断言后的最终复验）。
+  - test_skills：Ran 148 tests in 26.308s / OK。
+  - test_skill_panel_production_locks：Ran 1 test in 0.500s / OK。
+  - test_script_contract_production_locks：Ran 6 tests in 0.042s / OK。
+- git diff --check 通过。本次两条失败无未解决项；仅工作树修复，未碰主树、未提交合并。执行中另出现的架构分层登记和 skip 台账改动未由本任务修改或回退。

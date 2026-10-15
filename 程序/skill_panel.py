@@ -33,7 +33,7 @@ import stage_models
 import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import COLORS, FONTS, SPACING, PRODUCTION_LOCK_WIDTH
 from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
                         TextArea,
                         SecondaryButton, Tooltip, ask_confirmation, notify)
@@ -770,19 +770,23 @@ class Panel(ttk.Frame):
         """受控统筹入口；阶段勾选网格仍是唯一可编辑清单。"""
         import workflow_settings
         names = list(workflow_settings.refresh_workflow_presets()) + ['浏览本地…', NO_MASTER]
-        def workflow_selector(row):
-            ttk.Label(row, text='总控', style='Muted.TLabel', width=10).pack(side='left')
-            self.workflow_box = SelectBox(row, textvariable=self.workflow_choice, values=names)
-            self.workflow_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
-            self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
+        header = ttk.Frame(parent or self)
+        header.pack(fill='x')
+        header.columnconfigure(1, weight=1)
+        ttk.Label(header, text='总控', style='Muted.TLabel', width=10).grid(row=0, column=0, sticky='w')
+        self.workflow_box = SelectBox(header, textvariable=self.workflow_choice, values=names)
+        self.workflow_box.grid(row=0, column=1, sticky='w', padx=(SPACING['xs'], SPACING['sm']))
+        self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
         from production_lock_fields import ProductionLockFields
         from script_contract import PRODUCTION_LOCK_DEFINITIONS
         optional = {'reference_mode', 'splice_mode', 'style_base', 'style_directors'}
-        self.lock_row = ProductionLockFields(parent or self, on_change=self.save_workflow_locks,
-                                             definitions=tuple(item for item in PRODUCTION_LOCK_DEFINITIONS
-                                                               if item['key'] not in optional),
-                                             prefix=workflow_selector)
-        self.lock_row.pack(fill='x')
+        self.lock_row = ProductionLockFields(header, on_change=self.save_workflow_locks,
+                                             definitions=PRODUCTION_LOCK_DEFINITIONS[:5], horizontal=True)
+        self.lock_row.grid(row=1, column=0, columnspan=2, sticky='ew')
+        self.new_lock_row = ProductionLockFields(
+            parent or self, on_change=self.save_workflow_locks,
+            definitions=tuple(item for item in PRODUCTION_LOCK_DEFINITIONS[5:] if item['key'] not in optional))
+        self.new_lock_row.pack(fill='x')
         lock_status = ttk.Frame(parent or self)
         lock_status.pack(fill='x')
         self.more_locks_button = SecondaryButton(lock_status, text='更多制作锁',
@@ -793,7 +797,8 @@ class Panel(ttk.Frame):
         self.optional_lock_row = ProductionLockFields(
             parent or self, on_change=self.save_workflow_locks,
             definitions=tuple(item for item in PRODUCTION_LOCK_DEFINITIONS if item['key'] in optional))
-        self.lock_inputs = {**self.lock_row.inputs, **self.optional_lock_row.inputs}
+        self.optional_lock_row.inputs['style_directors'].configure(width=PRODUCTION_LOCK_WIDTH['normal'])
+        self.lock_inputs = {**self.lock_row.inputs, **self.new_lock_row.inputs, **self.optional_lock_row.inputs}
         self._saved_workflow_locks = {}
 
     def toggle_optional_locks(self):
@@ -815,6 +820,7 @@ class Panel(ttk.Frame):
             save_writing_production_locks(self.project(), values)
         except (ValueError, OSError) as exc:
             self.lock_notice.configure(text='制作锁保存失败：' + str(exc))
+            self.state.configure(text='制作锁保存失败：' + str(exc))
             return 'break'
         self._saved_workflow_locks = values
         self.lock_notice.configure(text='制作锁已保存；已生成文件不变，后续创作使用新参数。')
@@ -842,6 +848,8 @@ class Panel(ttk.Frame):
         # 旧视图适配仍只需提供 lock_inputs；完整视图额外处理默认值与依赖。
         if getattr(self, 'lock_row', None) is not None:
             self.lock_row.set_values(locks, enabled=bool(name))
+        if getattr(self, 'new_lock_row', None) is not None:
+            self.new_lock_row.set_values(locks, enabled=bool(name))
         if getattr(self, 'optional_lock_row', None) is not None:
             self.optional_lock_row.set_values(locks, enabled=bool(name))
         self._saved_workflow_locks = {key: entry.get() for key, entry in self.lock_inputs.items()}
