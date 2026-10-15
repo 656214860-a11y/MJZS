@@ -15,7 +15,7 @@ class DeliveryImportBoundaryTests(unittest.TestCase):
         service = open(os.path.join(ROOT, 'stage_execution_service.py'), encoding='utf-8').read()
         self.assertIn("publish=media_import_publisher(project, 'video')", service,
                       '生产交付导入必须由 L3 注入统一媒体校验及流式发布器')
-        self.assertIn('return copy_file_new(target, source, lambda temporary: validate_import(temporary, config, kind))', service)
+        self.assertIn('return publish_imported_media(target, source, lambda temporary: validate_import(temporary, config, kind), kind)', service)
         self.assertNotIn('copy2', ast.get_source_segment(open(os.path.join(ROOT, 'desktop.py'), encoding='utf-8').read(), method))
 
     def test_l2_requires_l3_publisher_without_copy_fallback(self):

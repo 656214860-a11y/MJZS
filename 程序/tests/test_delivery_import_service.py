@@ -17,6 +17,11 @@ class DeliveryImportTests(unittest.TestCase):
             self.assertEqual(target.parent, project_context(root).stage_resolver('delivery'))
             self.assertEqual(target.read_bytes(), b'video')
             self.assertTrue(source.is_file())
+            from agent.core import read, file_hash
+            receipt = read(target.with_name(target.name + '.source.json'))
+            self.assertEqual(receipt['source'], str(source.resolve()))
+            self.assertEqual(receipt['sha256'], file_hash(target))
+            self.assertEqual(receipt['rights_status'], 'unknown')
 
     def test_rejects_non_video_or_empty_source(self):
         from stage_execution_service import import_delivery_master

@@ -100,6 +100,28 @@ class MediaCompletionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_commercial_evidence(self.root, commercial_template(self.root))
 
+    def test_imported_media_source_receipt_is_not_permission_and_is_version_bound(self):
+        from stage_completion_service import commercial_template, validate_commercial_evidence, publish_imported_media
+        from agent.core import file_hash
+        evidence, _ = self.commercial_fixture()
+        video = evidence['categories']['video']['items'][0]
+        output = self.root / video['path']
+        save(output.with_name(output.name + '.source.json'), {'schema': 1, 'kind': 'video',
+             'source': 'external-editor/master.mp4', 'imported_file': output.name, 'sha256': video['sha256'],
+             'rights_status': 'unknown'})
+        item = commercial_template(self.root)['categories']['video']['items'][0]
+        self.assertIn('external-editor', item['source'])
+        self.assertFalse(item['commercial_allowed'])
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        audio = self.root / 'audio.wav'
+        publish_imported_media(audio, output, lambda _: True, 'audio')
+        receipt = read(audio.with_name(audio.name + '.source.json'))
+        self.assertEqual(receipt['sha256'], file_hash(audio))
+        receipt['sha256'] = 'outdated'
+        save(output.with_name(output.name + '.source.json'), dict(receipt, imported_file=output.name))
+        with self.assertRaisesRegex(ValueError, '导入来源'):
+            validate_commercial_evidence(self.root, evidence)
+
     def test_commercial_template_prefills_known_sources_without_granting_rights(self):
         import os
         from agent.core import file_hash

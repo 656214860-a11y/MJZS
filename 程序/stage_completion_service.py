@@ -131,6 +131,17 @@ def confirm_media_completion(root, stage, prepared):
 COMMERCIAL_CATEGORIES = ('script', 'reference', 'image', 'video', 'music', 'font', 'voice')
 
 
+def publish_imported_media(target, source, validate, kind):
+    """保留导入副本的实际摘要和来源；记录不代表使用许可。"""
+    from agent.core import copy_file_new, file_hash, save
+    result = copy_file_new(target, source, validate)
+    target = Path(target)
+    save(target.with_name(target.name + '.source.json'), {
+        'schema': 1, 'kind': kind, 'source': str(Path(source).resolve()),
+        'imported_file': target.name, 'sha256': file_hash(target), 'rights_status': 'unknown'})
+    return result
+
+
 def _commercial_inventory(root, scope, outputs):
     """只预填可追溯文件，不推断授权，也不扫描无关项目文件。"""
     from agent.core import file_hash, read
@@ -151,9 +162,18 @@ def _commercial_inventory(root, scope, outputs):
         if key in seen:
             return
         seen.add(key)
+        origin = ''
+        receipt_path = path.with_name(path.name + '.source.json')
+        if receipt_path.is_file():
+            receipt = read(receipt_path)
+            if (not isinstance(receipt, dict) or receipt.get('sha256') != digest
+                    or receipt.get('imported_file') != path.name):
+                warnings.append('导入来源记录与当前素材不一致：' + str(path))
+            elif isinstance(receipt.get('source'), str):
+                origin = '外部导入：' + receipt['source']
         categories[category]['items'].append({
             'path': path.relative_to(root).as_posix(), 'sha256': digest,
-            'source': '', 'rights_holder': '', 'license': '',
+            'source': origin, 'rights_holder': '', 'license': '',
             'commercial_allowed': False, 'derivative_allowed': False, 'obligations_fulfilled': False,
             'authorization': {'path': '', 'sha256': ''}})
 
@@ -235,6 +255,12 @@ def validate_commercial_evidence(root, evidence):
             raise ValueError('授权资料或素材必须位于本项目且非空')
         if file_hash(path) != item.get('sha256'):
             raise ValueError('授权资料或素材摘要不一致，请重新审查')
+        receipt_path = path.with_name(path.name + '.source.json')
+        if receipt_path.is_file():
+            receipt = read(receipt_path)
+            if (not isinstance(receipt, dict) or receipt.get('sha256') != item.get('sha256')
+                    or receipt.get('imported_file') != path.name):
+                raise ValueError('导入来源记录与素材不一致，请恢复导入版本或重新导入')
     if evidence.get('inventory_complete') is not True or not nonempty(evidence.get('inventory_reviewer')):
         raise ValueError('需由审核人确认清单覆盖成片全部采用素材和参考来源')
     categories = evidence.get('categories')

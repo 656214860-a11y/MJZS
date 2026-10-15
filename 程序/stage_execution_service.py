@@ -213,8 +213,8 @@ def import_stage_audio(project, source):
 
 
 def media_import_publisher(project, kind):
-    """冻结媒体工具配置，在临时副本校验成功后原子发布新文件。"""
-    from agent.core import copy_file_new, read
+    from stage_completion_service import publish_imported_media
+    from agent.core import read
     from agent.media import validate_import
     from platform_tools import tool_path
     def publish(target, source):
@@ -222,7 +222,7 @@ def media_import_publisher(project, kind):
         config = dict(read(config_path)) if config_path.is_file() else {}
         for name in ('ffmpeg', 'ffprobe'):
             config[name] = config.get(name) or tool_path(name)
-        return copy_file_new(target, source, lambda temporary: validate_import(temporary, config, kind))
+        return publish_imported_media(target, source, lambda temporary: validate_import(temporary, config, kind), kind)
     return publish
 
 
