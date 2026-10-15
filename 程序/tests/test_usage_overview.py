@@ -16,6 +16,40 @@ def call(folder, model, stage, usage, ok=True, day='2026-10-14'):
 
 
 class UsageOverviewTests(unittest.TestCase):
+    def test_labor_time_and_full_cost_survive_profile_read_without_assuming_unknown_zero(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as folder:
+            ledger = pet_llm.RequestLedger(folder)
+            ledger.settle('fixture', kind='seconds', amount=10); ledger.save()
+            config = {'duration_seconds': 30, 'human_minutes': 15,
+                'price_table': {'rates': {'seconds': 0.2}, 'version': 'fixture', 'currency': 'CNY'},
+                'overheads': {'gpu': 0, 'storage': 1, 'bandwidth': 0, 'human': 2}}
+            profile = Path(folder) / 'cost_profile.json'
+            save(profile, config)
+            summary = uo.summarize(folder)
+            cost = summary['cost']
+            self.assertEqual(cost['total_per_minute'], 6)
+            self.assertEqual(cost['including_human_per_minute'], 10)
+            self.assertEqual(cost['human_minutes_per_finished_minute'], 30)
+            self.assertIn('人工编辑耗时：15 分钟', uo.report_text(summary))
+            self.assertIn('含人工全成本：10 CNY', uo.report_text(summary))
+            for value in (None, -1, True, float('inf')):
+                config['human_minutes'] = value
+                save(profile, config)
+                result = uo.summarize(folder)['cost']
+                self.assertIsNone(result['human_minutes'])
+                self.assertEqual(result['including_human_per_minute'], 10)
+            config['human_minutes'] = 0
+            config['overheads']['human'] = None
+            save(profile, config)
+            result = uo.summarize(folder)['cost']
+            self.assertEqual(result['human_minutes'], 0)
+            self.assertIsNone(result['including_human_per_minute'])
+            config['overheads']['human'] = 0
+            config['overheads']['storage'] = None
+            save(profile, config)
+            self.assertIsNone(uo.summarize(folder)['cost']['including_human_per_minute'])
+
     def test_cost_per_minute_keeps_unknown_overheads_separate(self):
         with tempfile.TemporaryDirectory() as folder:
             ledger = pet_llm.RequestLedger(folder)

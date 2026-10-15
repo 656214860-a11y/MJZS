@@ -111,7 +111,7 @@ def delivery_duration(project, selected):
             'outputs': [found[path] for path in targets]}
 
 
-def cost_per_minute(project, duration_seconds, price_table, overheads=None):
+def cost_per_minute(project, duration_seconds, price_table, overheads=None, *, human_minutes=None):
     """按已录入用量及费率估算，费用缺项单列，绝不补零。非供应商对账账单。"""
     duration = _number(duration_seconds)
     if not duration:
@@ -127,8 +127,12 @@ def cost_per_minute(project, duration_seconds, price_table, overheads=None):
         else: known += amount
     complete = bool(report['requests'] and money and money['complete'] and not missing)
     human = _number(overheads.get('human'))
+    labor_time = _number(human_minutes)
     return {'known_amount': round(known, 4), 'known_per_minute': round(known * 60 / duration, 4),
             'human_amount': human, 'human_per_minute': round(human * 60 / duration, 4) if human is not None else None,
+            'human_minutes': labor_time,
+            'human_minutes_per_finished_minute': round(labor_time * 60 / duration, 4) if labor_time is not None else None,
+            'including_human_per_minute': round((known + human) * 60 / duration, 4) if complete and human is not None else None,
             'total_per_minute': round(known * 60 / duration, 4) if complete else None,
             'complete': complete, 'missing_overheads': missing, 'requests': report,
             'duration_seconds': duration, 'currency': money['currency'] if money else None,
@@ -181,7 +185,8 @@ def summarize(project, budget=None):
             config = read_json(profile)
             evidence = delivery_duration(project, config['delivery_outputs']) if 'delivery_outputs' in config else None
             duration = evidence['duration_seconds'] if evidence else config['duration_seconds']
-            result['cost'] = cost_per_minute(project, duration, config['price_table'], config.get('overheads'))
+            result['cost'] = cost_per_minute(project, duration, config['price_table'], config.get('overheads'),
+                                           human_minutes=config.get('human_minutes'))
             result['cost']['delivery_evidence'] = evidence
         except (OSError, ValueError, TypeError, KeyError) as error:
             result['cost_error'] = '成本配置无法核算：' + str(error)
@@ -241,5 +246,11 @@ def report_text(summary):
         human = cost.get('human_per_minute')
         lines.append('人工编辑费用：' + ('未知（未计为零）' if human is None else
                      '%g %s／分钟（单列）' % (human, cost['currency'] or '币种未配置')))
+        minutes = cost.get('human_minutes')
+        lines.append('人工编辑耗时：' + ('未知（未计为零）' if minutes is None else
+            '%g 分钟；每成片分钟需人工 %g 分钟' % (minutes, cost['human_minutes_per_finished_minute'])))
+        full = cost.get('including_human_per_minute')
+        lines.append('含人工全成本：' + ('未知（制作费用或人工金额未齐全）' if full is None else
+            '%g %s／成片分钟（按已录入金额核算）' % (full, cost['currency'] or '币种未配置')))
     lines.append('说明：只统计已落盘的调用事件；金额需配价格表后由请求台账折算，这里不估算。')
     return '\n'.join(lines).strip()
