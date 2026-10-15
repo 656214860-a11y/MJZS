@@ -11,6 +11,45 @@ import storage_maintenance as sm
 
 
 class StorageSafetyTests(unittest.TestCase):
+    def test_retained_version_protects_transitive_sources_but_expired_one_recycles(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'project'; root.mkdir()
+            save(root / 'config.json', {})
+            history = root / '历史版本'; history.mkdir()
+            original = history / 'original.png'; original.write_bytes(b'original')
+            frame = root / 'frame.png'; frame.write_bytes(b'frame')
+            receipt = frame.with_name(frame.name + '.source.json')
+            save(receipt, {'source': str(original), 'imported_file': frame.name})
+            rows = []
+            for number in (1, 2):
+                folder = root / 'data' / 'SH001' / f'v{number:03}'
+                folder.mkdir(parents=True)
+                video = folder / 'video.mp4'; video.write_bytes(b'video')
+                save(folder / 'assets_manifest.json', {'first_frame': {'path': str(frame)}})
+                rows.append({'version': number, 'created': 1, 'state': 'downloaded',
+                             'file': video.relative_to(root).as_posix()})
+            save(root / 'data' / 'state.json', {'shots': {'SH001': rows}})
+            protected, errors = sm.source_protection(root, 1700000000)
+            self.assertFalse(errors)
+            self.assertTrue({original, frame, receipt, folder / 'assets_manifest.json'} <= protected)
+            self.assertNotIn(root / 'data/SH001/v001/assets_manifest.json', protected)
+            with mock.patch.object(sm, 'downloads_root', return_value=Path(td)):
+                sm.clean_project(root, 1700000000)
+            self.assertTrue(original.exists())
+            self.assertTrue(receipt.exists())
+            self.assertFalse((root / rows[0]['file']).exists())
+            self.assertTrue((root / rows[1]['file']).exists())
+
+    def test_corrupt_retained_source_receipt_blocks_cleanup(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            media = root / 'adopted.mp4'; media.write_bytes(b'video')
+            save(root / 'assets.json', {'file': str(media)})
+            media.with_name(media.name + '.source.json').write_text('{bad', encoding='utf-8')
+            self.assertTrue(sm.source_protection(root)[1])
+
     def test_policy_version_accounting_and_recoverable_cleanup(self):
         from agent.core import save, file_hash
         from engine import adopted_edit_version

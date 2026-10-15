@@ -16,6 +16,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
 
     def test_audited_readonly_scope_has_reasons_and_fixed_entrypoints(self):
         expected = {
+            'video_source_evidence': {'submitted_sources'},
             'project_naming': {'dated_path'},
             'script_preview_service': {'should_load_async', 'read_preview', 'preview_chunks'},
             'storyboard_rows_service': {'shot_stats', 'frame_rows', 'rows_from_sources'},

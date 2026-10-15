@@ -590,6 +590,9 @@ def source_protection(root, now=None):
                     for version in versions:
                         if version_retention(version, shot, newest, referenced, digests, now, retention):
                             collect(version, path.parent.parent)
+                            folder = _version_folder(root, path, shot, version)
+                            if folder is not None and (folder / 'assets_manifest.json').is_file():
+                                protected.add((folder / 'assets_manifest.json').resolve())
                 continue
             if path.name in EXPORT_MANIFEST_NAMES:
                 rows = data.get('manifest') if isinstance(data, dict) else data
@@ -601,6 +604,30 @@ def source_protection(root, now=None):
             collect(data, path.parent)
         except (OSError, ValueError) as exc:
             errors.append(str(path.relative_to(root)) + '：' + str(exc))
+    # 只沿保留文件追踪旁证，不能把每个过期版本自己的清单变成永久保留理由。
+    checked = set()
+    while True:
+        receipts = set()
+        for path in protected:
+            candidates = (path.with_name(path.name + '.source.json'),
+                          path.parent / 'assets_manifest.json')
+            if path.name == 'assets_manifest.json' or path.name.endswith('.source.json'):
+                candidates += (path,)
+            receipts.update(p.resolve() for p in candidates
+                            if _within(p, root) and not _within(p, recycle) and p.is_file())
+        pending = receipts - checked
+        if not pending:
+            break
+        checked.update(pending)
+        protected.update(pending)
+        for path in sorted(pending):
+            try:
+                data = read_json(path)
+                if not isinstance(data, dict):
+                    raise ValueError('来源旁证不是对象')
+                collect(data, path.parent)
+            except (OSError, ValueError) as exc:
+                errors.append(str(path.relative_to(root)) + '：' + str(exc))
     return protected, errors
 
 

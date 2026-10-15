@@ -145,7 +145,8 @@ def publish_imported_media(target, source, validate, kind):
 def _commercial_inventory(root, scope, outputs):
     """只预填可追溯文件，不推断授权，也不扫描无关项目文件。"""
     from agent.core import file_hash, read
-    from stage_execution_service import storyboard_board_source_script
+    from storyboard_catalog_service import board_source_script
+    from project_context_factory import project_context
     root = Path(root).resolve()
     categories = {key: {'items': [], 'unused_reason': ''} for key in COMMERCIAL_CATEGORIES}
     warnings, seen = [], set()
@@ -180,7 +181,7 @@ def _commercial_inventory(root, scope, outputs):
     board = root / scope['source']
     link = read(board).get('source_script')
     if link and isinstance(link, str):
-        script = storyboard_board_source_script(root, board)
+        script = board_source_script(project_context(root), board)
         if script is not None:
             add('script', script)
         else:
@@ -280,12 +281,13 @@ def validate_commercial_evidence(root, evidence):
                 raise ValueError('授权范围或履约记录不完整：' + category)
             frozen_file(item.get('authorization'))
     # 来源剧本沿用分镜目录的解析规则；不能拿其他作品的授权代替。
-    from stage_execution_service import storyboard_board_source_script
+    from storyboard_catalog_service import board_source_script
+    from project_context_factory import project_context
     board_path = root / scope['source']
     source_value = read(board_path).get('source_script')
     if source_value is not None and not isinstance(source_value, str):
         raise ValueError('采用分镜的剧本来源无效，请补齐来源')
-    script_path = storyboard_board_source_script(root, board_path) if source_value else board_path
+    script_path = board_source_script(project_context(root), board_path) if source_value else board_path
     if (script_path is None or not script_path.is_relative_to(root)
             or not script_path.is_file() or not script_path.stat().st_size):
         raise ValueError('采用分镜的剧本来源缺失或不在项目内')
