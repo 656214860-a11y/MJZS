@@ -29,6 +29,7 @@ Set-Location -LiteralPath 'D:\漫剧制作助手\程序'
 & '..\运行环境\Python\pythonw.exe' -I '..\启动漫剧制作助手.pyw'
 # 也可双击仓库根目录的 启动助手.cmd；不以双击 .pyw 的系统关联代替随附解释器。
 
+& '..\运行环境\Python\python.exe' -B scripts\dev.py  # 开发者统一入口：列出 smoke/arch/full/debt/ci/dist/health/logs/claim，对应下列既有命令
 & '..\运行环境\Python\python.exe' -B smoke_test.py  # 默认冒烟；触发条件见 AGENTS.md §5
 & '..\运行环境\Python\python.exe' -B smoke_test.py --affected idea_chat workflow
 & '..\运行环境\Python\python.exe' -B smoke_test.py --gate  # 增量门禁
