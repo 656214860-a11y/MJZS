@@ -10,6 +10,15 @@ import workflow_settings as settings
 
 
 class ClaudeProgramDetectionTests(unittest.TestCase):
+    def test_gemini_version_and_codename_find_google_installation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            executable = Path(folder) / 'Google/Gemini/Gemini.exe'
+            executable.parent.mkdir(parents=True)
+            executable.write_bytes(b'test-only')
+            with patch.dict(os.environ, {'LOCALAPPDATA': folder}), \
+                    patch('platform_tools.windows_registry', return_value=None):
+                self.assertEqual(Path(settings.find_model_program('Google Gemini 4 Argon', 'Desktop')), executable)
+
     def test_desktop_name_finds_matching_installation_only(self):
         with tempfile.TemporaryDirectory() as folder:
             executable = Path(folder) / 'Programs/gemini/gemini.exe'

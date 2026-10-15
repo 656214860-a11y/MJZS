@@ -3299,6 +3299,98 @@ class ModelPoolTests(PetTestCase):
             found.extend(self._walk(child, kind))
         return found
 
+    def test_local_provider_survives_save_and_reload(self):
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        win._pet_mode.set('Desktop')
+        win._pet_entries['model'].delete(0, 'end')
+        win._pet_entries['model'].insert(0, 'Google Gemini 4 Argon')
+        win._pet_provider.set('Google')
+        buttons = {str(w.cget('text')): w for w in self._walk(win, self.ttk.Button)}
+        buttons['保存这条'].invoke()
+        win.update()
+        self.assertEqual(win._pet_provider.get(), 'Google')
+        records = model_pool.pool(program=self.pet.program)
+        picked = next(key for key, item in records.items() if item['model'] == 'Google Gemini 4 Argon')
+        win._pet_tree.selection_set(picked)
+        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        self.assertEqual(win._pet_provider.get(), 'Google')
+        item = records[picked]
+        self.assertEqual(item['provider'], 'desktop')
+        self.assertEqual(model_pool.provider_name(picked, item), 'Google')
+
+    def test_search_reports_progress_and_background_failure(self):
+        import threading
+        import tkinter as tk
+        from unittest.mock import patch
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        win._pet_mode.set('Desktop')
+        win._pet_entries['model'].insert(0, 'Google Gemini 4 Argon')
+        release = threading.Event()
+        self.addCleanup(release.set)
+        def find(*args):
+            release.wait(1)
+            raise RuntimeError('测试搜寻异常')
+        with patch('workflow_settings.find_model_program', side_effect=find):
+            win._pet_detect_program(quiet=False)
+            self.assertIn('正在搜寻', win._pet_hint.get())
+            release.set()
+            done = tk.BooleanVar(master=win)
+            win.after(250, lambda: done.set(True))
+            win.wait_variable(done)
+        self.assertIn('测试搜寻异常', win._pet_hint.get())
+
+    def test_search_late_result_does_not_overwrite_new_mode(self):
+        import threading
+        import tkinter as tk
+        from unittest.mock import patch
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        win._pet_mode.set('Desktop')
+        win._pet_entries['model'].insert(0, 'Gemini')
+        release = threading.Event()
+        self.addCleanup(release.set)
+        def find(*args):
+            release.wait(1)
+            return 'C:/old/Gemini.exe'
+        with patch('workflow_settings.find_model_program', side_effect=find):
+            win._pet_detect_program(quiet=False)
+            win._pet_mode.set('API')
+            release.set()
+            done = tk.BooleanVar(master=win)
+            win.after(200, lambda: done.set(True))
+            win.wait_variable(done)
+        self.assertEqual(win._pet_entries['program'].get(), '')
+        self.assertNotIn('已自动找到', win._pet_hint.get())
+
+    def test_search_preserves_manual_path_and_can_close_while_running(self):
+        import threading
+        import tkinter as tk
+        from unittest.mock import patch
+        win = self.pet.open_model_manager()
+        win._pet_mode.set('Desktop')
+        win._pet_entries['model'].insert(0, 'Gemini')
+        release = threading.Event()
+        self.addCleanup(release.set)
+        def find(*args):
+            release.wait(1)
+            return 'C:/found/Gemini.exe'
+        with patch('workflow_settings.find_model_program', side_effect=find):
+            win._pet_detect_program(quiet=False)
+            win._pet_entries['program'].insert(0, 'C:/manual/Gemini.exe')
+            release.set()
+            done = tk.BooleanVar(master=win)
+            win.after(200, lambda: done.set(True))
+            win.wait_variable(done)
+            self.assertEqual(win._pet_entries['program'].get(), 'C:/manual/Gemini.exe')
+            release.clear()
+            win._pet_detect_program(quiet=False)
+            win.destroy()
+            release.set()
+            self.win.update()
+
     def test_explicit_modes_override_old_record_and_search_current_model(self):
         from unittest.mock import patch
         win = self.pet.open_model_manager()
@@ -3313,6 +3405,10 @@ class ModelPoolTests(PetTestCase):
         self.assertEqual(entries['program'].get(), '')
         with patch('workflow_settings.find_model_program', side_effect=ValueError('未找到 Gemini')) as find:
             win._pet_detect_program(quiet=False)
+            import tkinter as tk
+            done = tk.BooleanVar(master=win)
+            win.after(200, lambda: done.set(True))
+            win.wait_variable(done)
         find.assert_called_once_with('Google Gemini 4', 'Desktop')
         self.assertEqual(entries['program'].get(), '')
         self.assertIn('未找到 Gemini', win._pet_hint.get())
