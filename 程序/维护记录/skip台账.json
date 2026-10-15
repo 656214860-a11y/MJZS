@@ -2007,6 +2007,33 @@
       "reason_constant": "PLATFORM_TKINTER",
       "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_rapid_navigation_builds_only_last_request",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_structure_cache_reuses_and_invalidates_on_content_change",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_cache.py",
+      "test": "PageCacheTests.test_navigation_cancels_old_stage_announcement",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
     }
   ]
 }

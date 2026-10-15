@@ -838,7 +838,7 @@
             },
             {
                 "file": "script_workspace_service.py",
-                "point": "246",
+                "point": "259",
                 "disposition": "exempt",
                 "reason": "R1247\uff1a\u91c7\u7528\u8bb0\u5f55\u53d1\u5e03\u524d\u6821\u9a8c\u5185\u5b58 JSON \u6587\u672c\uff0c\u4e0d\u8bfb\u53d6\u6587\u4ef6\u3002"
             },

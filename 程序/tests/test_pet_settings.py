@@ -790,12 +790,13 @@ class DesktopGearSeamTests(unittest.TestCase):
                              '真 Desktop 的齿轮直接挂在主窗口根层，不受侧栏裁剪')
             info = gear.canvas.place_info()
             win.update_idletasks()
-            desktop.align_header()
+            win.update(); desktop.align_header()
             info = gear.canvas.place_info()
             title = desktop.app_title
             from ui_tokens import DESKTOP_LAYOUT
             self.assertEqual(int(info['x']), title.winfo_rootx()-win.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap'])
-            self.assertAlmostEqual(int(info['y'])+gear.canvas.winfo_reqheight(), title.winfo_rooty()-win.winfo_rooty()+title.winfo_height(), delta=2)
+            # R1451：用户要求齿轮与标题文字垂直居中（此前是底对齐）；断言由底边相等改为中线相等。
+            self.assertAlmostEqual(int(info['y'])+gear.canvas.winfo_reqheight()/2, title.winfo_rooty()-win.winfo_rooty()+title.winfo_height()/2, delta=2)
             self.assertEqual(gear.tip_text, '设置')
         finally:
             win.destroy()
