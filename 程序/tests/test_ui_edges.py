@@ -4806,7 +4806,10 @@ class PromptWindowSourceGuardTests(unittest.TestCase):
     """源码守卫：「复制提示词」只保留一份实现，两个入口都必须委托 prompt_window。"""
 
     def program_sources(self):
-        return {p.name: p.read_text(encoding="utf-8") for p in sorted(Path(PROGRAM).glob("*.py")) if not p.name.startswith("test_")}
+        sources = {p.name: p.read_text(encoding="utf-8") for p in sorted(Path(PROGRAM).glob("*.py")) if not p.name.startswith("test_")}
+        from tests.architecture._scan import desktop_text
+        sources["desktop.py"] = desktop_text()  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
+        return sources
 
     def test_copy_button_lives_only_in_prompt_window(self):
         """页面自带一份复制弹窗，复制后的行为就会再次走偏（历史 BUG：一个关窗一个不关）。"""
@@ -4840,7 +4843,10 @@ class ApprovedVersionSourceGuardTests(unittest.TestCase):
     PREDICATE = "v.get('review')=='pass' and v.get('state')=='downloaded' and v.get('qc_pass')"
 
     def program_sources(self):
-        return {p.name: p.read_text(encoding="utf-8") for p in sorted(Path(PROGRAM).glob("*.py")) if not p.name.startswith("test_")}
+        sources = {p.name: p.read_text(encoding="utf-8") for p in sorted(Path(PROGRAM).glob("*.py")) if not p.name.startswith("test_")}
+        from tests.architecture._scan import desktop_text
+        sources["desktop.py"] = desktop_text()  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
+        return sources
 
     def test_approval_predicate_lives_only_in_engine(self):
         """口径散在自动粗剪、手动拼装、交接包三处时，改一处就会让成片和交接包取到不同版本。"""

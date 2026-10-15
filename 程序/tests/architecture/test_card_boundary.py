@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, parse, parse_desktop
 
 
 class CardBoundaryTests(unittest.TestCase):
@@ -92,7 +92,7 @@ class CardBoundaryTests(unittest.TestCase):
 
     def test_desktop_pages_use_card_for_content_groups(self):
         """桌面页的分类导航、连续性与视频主页信息承载区统一用 Card（标题行改为卡内标签）。"""
-        tree = parse(ROOT / "desktop.py")
+        tree = parse_desktop()  # R1505：桌面页构建分布在 desktop.py 与迁出的 Mixin 模块
         calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == "Card"]
         self.assertGreaterEqual(len(calls), 6, "桌面页的信息块必须使用统一 Card")

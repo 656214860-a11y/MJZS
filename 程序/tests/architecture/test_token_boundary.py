@@ -33,7 +33,9 @@ PADDING_BASELINE = {
     "agent/prompt_optimizer.py": 16, "app.py": 7, "asset_detail.py": 21,
     "asset_reference_images.py": 18, "asset_reference_import.py": 7,
     "background_characters.py": 3, "cell_hover.py": 4, "cloud_assets.py": 5,
-    "desktop.py": 40, "keyframe_comfy.py": 36, "native_assets.py": 9,
+    # R1505：desktop.py 原 40 处按迁出位置分到各 Mixin 模块（合计不增）
+    "desktop.py": 8, "desktop_asset_pages.py": 1, "desktop_media_pages.py": 10, "desktop_project_pages.py": 7,
+    "keyframe_comfy.py": 36, "native_assets.py": 9,
     "prompt_window.py": 3, "qwen_setup.py": 9, "seedream_settings.py": 9,
     "shared_video_controls.py": 1, "skill_panel.py": 1, "storyboard_selection.py": 1,
     "white_model.py": 12, "workflow_settings.py": 11,

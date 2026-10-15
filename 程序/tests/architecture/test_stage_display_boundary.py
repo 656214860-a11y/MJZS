@@ -30,7 +30,7 @@ class StageDisplayBoundaryTests(unittest.TestCase):
         'keyframe_batch.py': "pet_bus.stage_label('keyframe')",
         'stage_parallel.py': "pet_bus.stage_label('assets')",
         'pet_ui.py': "pet_bus.stage_label('storyboard')",
-        'desktop.py': "pet_bus.stage_label('video')",
+        'desktop_media_pages.py': "pet_bus.stage_label('video')",  # R1505：视频页构建已迁到 MediaPagesMixin
         'skill_tools.py': "stage_label('edit')",
         'skill_panel.py': '_bus_stage_label',
     }

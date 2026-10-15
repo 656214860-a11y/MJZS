@@ -1,4 +1,5 @@
 """Exercise real desktop methods without creating Tk or launching applications."""
+from tests.architecture._scan import parse_desktop  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import ast
 import os
 import unittest
@@ -13,7 +14,7 @@ class DesktopSettingsCallerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         source = Path(__file__).resolve().parents[1] / 'desktop.py'
-        tree = ast.parse(source.read_text(encoding='utf-8'))
+        tree = parse_desktop()
         names = {'remember_daily_project_choice', '_sync_desktop_project_paths',
                  'launch_comfy', 'find_editor'}
         methods = [node for node in ast.walk(tree)

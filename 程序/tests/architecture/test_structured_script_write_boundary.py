@@ -1,6 +1,7 @@
 """结构剧本只能由发布契约服务写入并在成功后记录血缘。"""
 from __future__ import annotations
 
+from tests.architecture._scan import parse_desktop  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import ast
 import unittest
 
@@ -17,7 +18,7 @@ def _function(tree: ast.Module, name: str) -> ast.FunctionDef:
 
 class StructuredScriptWriteBoundaryTests(unittest.TestCase):
     def test_desktop_delegates_natural_script_edits_to_contract(self) -> None:
-        desktop = parse(ROOT / 'desktop.py')
+        desktop = parse_desktop()
         calls = [node for node in ast.walk(desktop) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == 'save_natural_script']
         self.assertEqual(len(calls), 1, '结构页手改自然剧本必须委托 script_contract')

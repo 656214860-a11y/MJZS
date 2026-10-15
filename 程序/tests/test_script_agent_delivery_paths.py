@@ -1,4 +1,5 @@
 """Agent 正式交付与下载保存共用路径，API 不注入本地交付段。"""
+from tests.architecture._scan import parse_desktop
 import ast
 from pathlib import Path
 import tempfile
@@ -76,7 +77,7 @@ class AgentDeliveryPathsTests(unittest.TestCase):
 
     def test_desktop_agent_entry_explicitly_enables_delivery_paths(self):
         import desktop
-        tree = ast.parse(Path(desktop.__file__).read_text(encoding='utf-8'))
+        tree = parse_desktop()  # R1505：start_script_workflow 已迁到 ScriptPagesMixin
         entry = next(node for node in ast.walk(tree)
                      if isinstance(node, ast.FunctionDef) and node.name == 'start_script_workflow')
         calls = [node for node in ast.walk(entry) if isinstance(node, ast.Call)

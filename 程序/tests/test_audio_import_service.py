@@ -1,3 +1,4 @@
+from tests.architecture._scan import parse_desktop  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import tempfile
 import unittest
 import ast
@@ -85,7 +86,7 @@ class AudioImportServiceTests(unittest.TestCase):
 
     def test_desktop_import_failure_success_and_cancel(self):
         source = Path(__file__).resolve().parents[1] / 'desktop.py'
-        tree = ast.parse(source.read_text(encoding='utf-8'))
+        tree = parse_desktop()
         methods = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef) and node.name == 'import_audio']
         self.assertEqual(len(methods), 1)
         dialog = Mock()

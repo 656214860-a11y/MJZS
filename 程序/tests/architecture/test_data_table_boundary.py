@@ -22,7 +22,8 @@ class DataTableBoundaryTests(unittest.TestCase):
                      and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
             if calls:
                 actual[str(path.relative_to(ROOT))] = len(calls)
-        self.assertEqual(actual, {'desktop.py': 3},
+        self.assertEqual(actual, {'desktop.py': 1, 'desktop_project_pages.py': 2},  # R1505：项目首页构建迁入 ProjectPagesMixin，合计仍 3 处
+                         
                          '业务数据表必须通过 DataTable；项目树是唯一语义导航例外')
 
     def test_continuity_tables_use_data_table_not_a_page_treeview(self):

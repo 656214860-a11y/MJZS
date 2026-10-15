@@ -1,3 +1,4 @@
+from tests.architecture._scan import desktop_text  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import ast
 import os
 import unittest
@@ -34,7 +35,7 @@ class CloudVideoSettingsBoundaryTests(unittest.TestCase):
         self.assertNotIn('save(', text)
 
     def test_desktop_workspace_selection_delegates_to_service(self):
-        source = Path(ROOT, 'desktop.py').read_text(encoding='utf-8')
+        source = desktop_text()
         tree = ast.parse(source)
         methods = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
                    and node.name == 'set_video_workspace']
@@ -43,7 +44,7 @@ class CloudVideoSettingsBoundaryTests(unittest.TestCase):
         self.assertNotIn('save(', text)
 
     def test_desktop_video_mode_preference_delegates_to_service(self):
-        source = Path(ROOT, 'desktop.py').read_text(encoding='utf-8')
+        source = desktop_text()
         tree = ast.parse(source)
         methods = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
                    and node.name == 'show']

@@ -14,6 +14,28 @@ THUMB_SIZE = 36
 # 行高就是图高加上下余地（实际值由 responsive_ui.fit_row_height 当场算）。
 ASSET_ROW_HEIGHT = row_height_for(THUMB_SIZE)
 
+# 多个页面 Mixin 与 desktop 共用的页面常量与辅助（原在 desktop 模块级）。
+STAGE_ACTION_WIDTH=16  # 所有阶段主操作与“阶段配置”共用宽度，页面操作行左侧对齐。
+
+# 第 31 期第 7 条：资产管理页「参考图」「资产图片」两行的标签宽度（字符数）——一样宽，
+# 两行按钮的左边缘才对得齐。
+ASSET_ROW_LABEL=6
+
+ASSET_ROWS_PER_FRAME=12
+
+# 第 72 期（Round 3）性能门禁：资产表分段建行——先同步建够第一屏的，剩下的按帧补上。
+# 当前资产行高约 80 像素，760 像素窗口可见不足十行；首帧放 24 行仍有三屏余量，
+# 又不会在首次绘制时为 48 张图同时登记缩略图任务。余项随后按帧补齐。
+ASSET_FIRST_ROWS=24
+
+def _prefs(path):
+    if not path:return {}
+    # 这里故意用不缓存的 agent.core.read：调用方（当前分镜、资产范围、视频模式）会就地改这份
+    # 字典再写回，共享缓存对象一旦被就地改，同一轮里其他读者就会看到没保存的值。
+    from project_settings import read_prefs
+    return read_prefs(path)
+
+
 _host = None
 
 
@@ -41,3 +63,33 @@ def FileDialog(*args, **kwargs):  # noqa: N802
 
 def confirm_project_removal_from_last_script(*args, **kwargs):
     return _host.confirm_project_removal_from_last_script(*args, **kwargs)
+
+
+def open_studio(*args, **kwargs):
+    return _host.open_studio(*args, **kwargs)
+
+
+def open_directory(*args, **kwargs):
+    return _host.open_directory(*args, **kwargs)
+
+
+def find_editor_shortcut(*args, **kwargs):
+    return _host.find_editor_shortcut(*args, **kwargs)
+
+
+def comfy_executable(*args, **kwargs):
+    return _host.comfy_executable(*args, **kwargs)
+
+
+class _HostAttribute:
+    """按名字转发到 ``desktop`` 里的同名对象（messagebox、Desktop 类等），调用时才取值。"""
+
+    def __init__(self, name):
+        self._name = name
+
+    def __getattr__(self, attribute):
+        return getattr(getattr(_host, self._name), attribute)
+
+
+messagebox = _HostAttribute("messagebox")
+Desktop = _HostAttribute("Desktop")

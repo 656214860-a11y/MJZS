@@ -10,8 +10,10 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import desktop_text, parse_desktop
+
 ROOT = Path(__file__).resolve().parents[2]
-DESKTOP = ROOT / 'desktop.py'
+DESKTOP = ROOT / 'desktop.py'  # R1505：进入路径分布在 desktop.py 与迁出的 Mixin 模块，下面统一读合并源码
 CONTROLLER = ROOT / 'desktop_startup_service.py'
 
 # 直接调用 `self.load(<非 None>)` 的「项目进入」路径（冻结，只增需登记）。
@@ -63,7 +65,7 @@ def _load_calls(tree):
 
 class ProjectEntryBoundaryTests(unittest.TestCase):
     def test_project_load_calls_sit_in_frozen_entrypoints(self):
-        rows = _load_calls(_tree(DESKTOP))
+        rows = _load_calls(parse_desktop())
         entering = {func.name for _, func, is_none in rows if not is_none}
         closing = {func.name for _, func, is_none in rows if is_none}
         self.assertEqual(entering, set(ENTERING_ENTRYPOINTS),
@@ -72,8 +74,8 @@ class ProjectEntryBoundaryTests(unittest.TestCase):
                          '关闭当前项目只允许出现在删除收尾路径')
 
     def test_every_entering_path_remembers_daily_choice(self):
-        source = DESKTOP.read_text(encoding='utf-8')
-        for _, func, is_none in _load_calls(_tree(DESKTOP)):
+        source = desktop_text()
+        for _, func, is_none in _load_calls(parse_desktop()):
             if is_none:
                 continue
             segment = ast.get_source_segment(source, func) or ''
@@ -82,8 +84,8 @@ class ProjectEntryBoundaryTests(unittest.TestCase):
                             func.name + ' 进入项目后必须经当天选择的记忆入口')
 
     def test_first_choice_is_scheduled_by_startup_controller(self):
-        source = DESKTOP.read_text(encoding='utf-8')
-        tree = _tree(DESKTOP)
+        source = desktop_text()
+        tree = parse_desktop()
         builds = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Name)
                   and node.func.id == 'DesktopStartupController']
@@ -108,8 +110,8 @@ class ProjectEntryBoundaryTests(unittest.TestCase):
         self.assertIn('controller.cancel()', source)
 
     def test_daily_choice_memory_delegates_to_settings_service(self):
-        source = DESKTOP.read_text(encoding='utf-8')
-        tree = _tree(DESKTOP)
+        source = desktop_text()
+        tree = parse_desktop()
         methods = {node.name: node for node in ast.walk(tree)
                    if isinstance(node, ast.FunctionDef)}
         remember = ast.get_source_segment(source, methods['remember_daily_project_choice'])

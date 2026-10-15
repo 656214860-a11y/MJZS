@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """剪辑成片须在临时编码、核验后才发布并登记成果索引。"""
+import io
+from tests.architecture._scan import desktop_text  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import ast
 import os
 import unittest
@@ -35,7 +37,7 @@ class EditPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('save', calls)
 
     def test_desktop_delegates_checklist_publication_to_l3(self):
-        with open(os.path.join(ROOT, 'desktop.py'), encoding='utf-8') as handle:
+        with io.StringIO(desktop_text()) as handle:
             desktop = ast.parse(handle.read())
         calls = [node for node in ast.walk(desktop) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == 'save_stage_editing_checklist']

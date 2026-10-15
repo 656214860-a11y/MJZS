@@ -14,7 +14,7 @@ R1247 数据边界：剧本聊天及回收站位于 `01剧本准备/模型会话
 | --- | --- | --- |
 | 桌面与页面 | `app.py`、`desktop.py`、`desktop_startup_service.py`、`storyboard_files.py` | `desktop` 创建窗口和绑定事件；无 Tk 启动控制器编排首帧延迟、项目选择与取消；其余负责项目选择、13 阶段页面、文件表及关闭清理 |
 | UI 设计系统 | `ui_tokens.py`、`ui_widgets.py`、`design_tokens.md`、`ui_components.md` | 设计 token 的代码化事实来源，以及主/次按钮、卡片的 Tk 组件唯一入口 |
-| 三虎与自动化 | `pet_ui.py`、`pet_cloud.py`、`stage_flow.py`、`desktop_automation_service.py`、`desktop_auto_flows.py`、`desktop_idea_chat.py`、`desktop_writing_page.py`、`desktop_storyboard_page.py`、`desktop_page_support.py` | 前缀播报、手动/全自动、检查点、暂停和强制停止；桌面自动流程的周期调度、取消、受控异常与到期轮询由无 Tk 服务统一编排 |
+| 三虎与自动化 | `pet_ui.py`、`pet_cloud.py`、`stage_flow.py`、`desktop_automation_service.py`、`desktop_auto_flows.py`、`desktop_idea_chat.py`、`desktop_writing_page.py`、`desktop_storyboard_page.py`、`desktop_page_support.py`、`desktop_asset_pages.py`、`desktop_script_pages.py`、`desktop_media_pages.py`、`desktop_project_pages.py`、`desktop_idea_menus.py` | 前缀播报、手动/全自动、检查点、暂停和强制停止；桌面自动流程的周期调度、取消、受控异常与到期轮询由无 Tk 服务统一编排 |
 | 阶段配置 | `stage_config.py`、`stage_models.py`、`skill_panel.py` | 单次 > 项目模型优先级、SKILL、预设 |
 | Codex 技能同步 | `codex_skill_sync.py` | L3：阶段单文件技能物化、来源 hash、所有权保护与孤儿回收；首帧后台和发送前校验 |
 | Agent 工作流 | `workflow_settings.py`、`workflow_engines.py`、`workflow_tasks.py` | GPT/Anthropic API 在对应本机程序可启动时优先本机执行、启动失败兼容 API 回退；桌面模型显式选择、任务文件与进程台账 |

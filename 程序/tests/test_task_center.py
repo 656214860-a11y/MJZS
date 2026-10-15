@@ -1,4 +1,5 @@
 """运行状况汇总：只读已有来源、格式可读；弹窗能建出来且不可编辑；设置页有入口。"""
+from tests.architecture._scan import desktop_text  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import tkinter as tk
 import unittest
 from pathlib import Path
@@ -145,7 +146,7 @@ class TaskCenterServiceTests(unittest.TestCase):
 
     def test_result_tick_starts_next_queued(self):
         source = (PROGRAM / 'desktop.py').read_text(encoding='utf-8')
-        tick = source.split('def _tick_async_result', 1)[1].split('def _project_result_data', 1)[0]
+        tick = source.split('def _tick_async_result', 1)[1].split(chr(10) + '    def ', 1)[0]  # R1505：到下一个 def 为止
         self.assertIn('self._start_next_queued()', tick)
 
 
@@ -228,7 +229,7 @@ class TaskCenterUiTests(unittest.TestCase):
         self.assertNotIn("desktop.async_(work,lambda text:probe_status", source)
 
     def test_settings_page_has_entry(self):
-        source = (PROGRAM / 'desktop.py').read_text(encoding='utf-8')
+        source = desktop_text()  # R1505：设置按钮在迁出的项目首页 Mixin 里
         self.assertIn("'运行状况…'", source)
         self.assertIn("module('task_center_ui')", source)
 

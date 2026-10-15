@@ -1,0 +1,90 @@
+"""创意对话的菜单、附件打开与删除确认。
+
+从 ``desktop.Desktop`` 原样迁出（R1505）：方法体未改，``self`` 语义不变，``Desktop`` 通过继承
+``IdeaMenusMixin`` 获得。测试按 ``desktop.<名字>`` 打补丁的名字（confirm／open_path 等）经
+``desktop_page_support`` 的转发函数在调用时取 ``desktop`` 的当前值，补丁照常生效。
+"""
+import tkinter as tk
+from desktop_page_support import ContextMenu, confirm, open_path
+
+
+class IdeaMenusMixin:
+    """Desktop 的创意对话菜单方法集（见模块说明）。"""
+    def delete_all_bubble_messages(self):
+        """删除当前显示模型的完整会话，含清屏隐藏的历史。"""
+        if (getattr(self,'_idea_requesting',False) or getattr(self,'_script_agent_launching',False)
+                or self.script_agent_processes()):
+            raise ValueError('模型正在回复，请先中断或等待完成，再删除全部信息。')
+        if not self.root:return
+        model=self.displayed_chat_model()
+        if not confirm(self.win,'删除全部信息',
+                       '删除当前显示的 '+model+' 的全部历史对话？\n聊天记录将移入回收站，已保存的剧本和附件保留。',dangerous=True):return
+        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit(commit=False)
+        import idea_chat
+        count=idea_chat.remove_all(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
+        getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(model),None)
+        self.show_conversation()
+        self.status.set('已删除当前模型全部历史对话；记录已移入回收站')
+        return count
+    def open_bubble_menu(self,event):
+        """消息右键菜单；点击标题、正文或展开控件都能定位同一条消息。"""
+        if getattr(self,'_bubble_edit',None):
+            self.finish_bubble_edit()
+            return 'break'
+        target=self.bubble_target_at(event.widget,event)
+        menu=ContextMenu(event.widget)
+        if target is not None:
+            index,_name=target
+            if index == 'example':
+                menu.command('复制软件示例',lambda:self.copy_bubble_message('example'))
+            else:
+                menu.command('复制整条信息',lambda i=index:self.copy_bubble_message(i))
+                menu.command('删除整条信息',lambda i=index:self.delete_bubble_message(i))
+                menu.command('删除全部信息',lambda:self.safe(self.delete_all_bubble_messages))
+                menu.command('恢复最近删除的信息',self.restore_latest_bubble_message)
+            menu.separator()
+        if target is None or target[0]=='example':
+            menu.command('删除全部信息',lambda:self.safe(self.delete_all_bubble_messages))
+        menu.command('清屏',self.clear_bubble_view)
+        self._bubble_menu=menu
+        return menu.popup(event)
+    def open_idea_paste_menu(self,event):
+        """输入框右键时，仅在剪贴板有文字时给出粘贴入口。"""
+        box=event.widget
+        try:text=str(box.clipboard_get() or '')
+        except tk.TclError:return 'break'
+        if not text:return 'break'
+        menu=ContextMenu(box, menu_factory=tk.Menu).command('粘贴',lambda:box.event_generate('<<Paste>>'))
+        self._idea_paste_menu=menu
+        return menu.popup(event)
+    def open_uploaded_idea_attachment(self,event):
+        path=self._idea_uploaded_paths.get(self.uploaded_idea_attachment_at(event))
+        if path is not None:
+            from idea_attachments import archive_pair
+            original,_converted=archive_pair(path)
+            open_path(original if original.is_file() else path)
+        return 'break'
+    def delete_uploaded_idea_attachment(self):
+        selected=[path for path in self._idea_uploaded_paths.values() if path in self._idea_uploaded_selected]
+        if not selected:return
+        from idea_attachments import display_name
+        names='、'.join(display_name(path) for path in selected)
+        if not confirm(self.win,'删除附件',
+                       '确定将“%s”的项目副本移入回收站吗？\n原始文件不受影响；可从回收站恢复。' % names,
+                       dangerous=True):return
+        try:
+            for path in selected:self.idea_chat_controller.delete_attachment(self.root,path)
+        finally:
+            self.update_idea_attachment_status()
+        self.status.set('已移入回收站：'+names+'；原始文件未删除。')
+    def show_idea_reference_menu(self, event):
+        """用户输入 @ 时仅展示当前项目已入库的创意，不访问任意本地文件。"""
+        if str(getattr(event,'char',''))!='@':return None
+        from stage_execution_service import stage_idea_attachment_paths
+        paths=stage_idea_attachment_paths(self.root)
+        if not paths:return None
+        menu=ContextMenu(event.widget, menu_factory=tk.Menu)
+        for path in paths:
+            menu.command(path.name,lambda item=path:self.insert_idea_reference(item))
+        self._idea_reference_menu=menu
+        return menu.popup(event)

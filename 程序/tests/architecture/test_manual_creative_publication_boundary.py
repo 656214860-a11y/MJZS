@@ -1,6 +1,7 @@
 """手动创意成果必须由无界面创意服务发布。"""
 from __future__ import annotations
 
+from tests.architecture._scan import parse_desktop  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import ast
 import unittest
 
@@ -9,7 +10,7 @@ from tests.architecture._scan import ROOT, parse
 
 class ManualCreativePublicationBoundaryTests(unittest.TestCase):
     def test_desktop_delegates_manual_creative_publication(self) -> None:
-        desktop = parse(ROOT / 'desktop.py')
+        desktop = parse_desktop()
         calls = [node for node in ast.walk(desktop) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Attribute)
                  and isinstance(node.func.value, ast.Name)

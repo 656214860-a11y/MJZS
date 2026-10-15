@@ -1,4 +1,5 @@
 """The asset page delegates rename persistence to the asset service."""
+from tests.architecture._scan import parse_desktop  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import ast
 import unittest
 
@@ -7,8 +8,8 @@ from tests.architecture._scan import ROOT
 
 class AssetRenameBoundaryTests(unittest.TestCase):
     def test_desktop_rename_delegates_both_document_writes(self):
-        tree = ast.parse((ROOT / 'desktop.py').read_text(encoding='utf-8'))
-        rename = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'Desktop')
+        tree = parse_desktop()
+        rename = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         method = next(node for node in rename.body if isinstance(node, ast.FunctionDef) and node.name == 'rename_asset')
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == '_rename_asset']

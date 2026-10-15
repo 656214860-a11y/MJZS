@@ -5,6 +5,7 @@
 接线这一类改动最容易「模块写好了却没接上」：这里既跑真界面（折叠区真的能展开、真的落盘），
 也用一条源码锁钉住 load()／finalize() 里那两行调用。断言全在临时项目里，绝不碰真安装目录。
 """
+from tests.architecture._scan import desktop_text  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 from skip_reasons import (
     MISSING_NODE,
     PLATFORM_DIRECTORY_LINK,
@@ -137,8 +138,8 @@ class LayoutWiringTests(_Harness):
 
     def test_load_defers_empty_stage_layout_creation(self):
         """项目打开不能再预建阶段空目录；真实产物目录按阶段实际使用时创建。"""
-        source = Path(PROGRAM, "desktop.py").read_text(encoding="utf-8")
-        load_body = source.split('    def load(self,path,*,defer_page=False):', 1)[1].split('    def prune_asset_leftovers(self):', 1)[0]
+        source = desktop_text()
+        load_body = source.split('    def load(self,path,*,defer_page=False):', 1)[1].split(chr(10) + '    def ', 1)[0]  # R1505：load 的方法体到下一个 def 为止
         self.assertNotIn("self.ensure_stage_layout()", load_body)
         self.assertIn("self._complete_project_recovery(self.root)", load_body)
 
@@ -173,7 +174,7 @@ class AssetDetailRoutingTests(_Harness):
             d.show(d.page_of("assets")); win.update()
             self.assertIsNotNone(d.asset_table, "主页面布局没变，还是那张资产表")
             self.assertIsNone(d.asset_detail_id, "没进详情时摆的是主页面")
-            source = Path(PROGRAM, "desktop.py").read_text(encoding="utf-8")
+            source = desktop_text()
             self.assertIn("self.open_asset_detail(aid)", source, "资产编号那一格是入口")
             self.assertIn("'#1'", source, "入口那一格进了可点列的清单")
 
@@ -210,7 +211,7 @@ class AssetDetailRoutingTests(_Harness):
             self.assertTrue(any("返回资产管理" in text for text in texts))
 
     def test_the_old_embedded_board_is_gone(self):
-        source = Path(PROGRAM, "desktop.py").read_text(encoding="utf-8")
+        source = desktop_text()
         self.assertNotIn("canon_board_section", source, "附件任务 4.1：旧的正典板嵌入代码已删除")
         self.assertNotIn("open_asset_relative", source)
         self.assertIn("asset_detail_page(self,self.asset_detail_id)", source)

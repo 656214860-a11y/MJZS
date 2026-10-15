@@ -3,6 +3,8 @@ import ast
 import unittest
 from pathlib import Path
 
+from tests.architecture._scan import desktop_text
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -23,7 +25,7 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
 
     def test_desktop_uses_l3_writing_entrypoint(self):
         stage_source = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
-        desktop_source = (ROOT / 'desktop.py').read_text(encoding='utf-8')
+        desktop_source = desktop_text()
         self.assertIn('return reply(project, creative, cancelled=cancelled,', stage_source)
         self.assertIn('publish=publish_stage_text)', stage_source)
         self.assertIn('from stage_execution_service import reply_to_writing', desktop_source)

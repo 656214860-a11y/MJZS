@@ -1,4 +1,5 @@
 """Execute each actual result-check/unpack sequence, without Tk construction."""
+from tests.architecture._scan import parse_desktop  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import ast
 import copy
 import unittest
@@ -10,7 +11,7 @@ from service_contract import SystemError, success
 class StageWorkspaceCallerTests(unittest.TestCase):
     def test_six_callers_guard_before_unpacking(self):
         source = Path(__file__).resolve().parents[1] / 'desktop.py'
-        tree = ast.parse(source.read_text(encoding='utf-8'))
+        tree = parse_desktop()
         found = []
         for node in ast.walk(tree):
             for _, statements in ast.iter_fields(node):

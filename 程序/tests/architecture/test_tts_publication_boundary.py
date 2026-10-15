@@ -35,9 +35,9 @@ class TtsPublicationBoundaryTests(unittest.TestCase):
         with open(service_path, encoding='utf-8') as handle: service_tree = ast.parse(handle.read(), service_path)
         published = _function(service_tree, 'publish_full_track')
         self.assertIn('_require_gateway', _names(published))
-        desktop_path = os.path.join(ROOT, 'desktop.py')
-        with open(desktop_path, encoding='utf-8') as handle: desktop_tree = ast.parse(handle.read(), desktop_path)
-        desktop = next(item for item in desktop_tree.body if isinstance(item, ast.ClassDef) and item.name == 'Desktop')
+        from tests.architecture._scan import parse_desktop  # R1505：generate_tts 已迁到 MediaPagesMixin
+        desktop_tree = parse_desktop()
+        desktop = ast.Module(body=[member for cls in desktop_tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])
         method = next(item for item in desktop.body if isinstance(item, ast.FunctionDef) and item.name == 'generate_tts')
         calls = {call.func.id for call in ast.walk(method) if isinstance(call, ast.Call)
                  and isinstance(call.func, ast.Name)}

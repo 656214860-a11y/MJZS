@@ -1,3 +1,4 @@
+from tests.architecture._scan import parse_desktop, desktop_text  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import tempfile
 import unittest
 import inspect
@@ -43,7 +44,7 @@ class SubtitleExportServiceTests(unittest.TestCase):
             self.assertEqual(target, result.data)
 
     def test_desktop_delegates_exports_to_service(self):
-        source = (Path(__file__).resolve().parents[1] / 'desktop.py').read_text(encoding='utf-8')
+        source = desktop_text()
         self.assertIn('from stage_execution_service import export_stage_srt', source)
         self.assertIn('from stage_execution_service import export_stage_dialogue_script', source)
         self.assertNotIn("p=subtitles(self.root)/('对白_", source)
@@ -131,7 +132,7 @@ class SubtitleExportServiceTests(unittest.TestCase):
 
     def test_desktop_export_methods_handle_success_and_failure(self):
         source = Path(__file__).resolve().parents[1] / 'desktop.py'
-        tree = ast.parse(source.read_text(encoding='utf-8'))
+        tree = parse_desktop()
         methods = {node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
                    and node.name in {'subtitles', 'dialogue_script'}}
         self.assertEqual(set(methods), {'subtitles', 'dialogue_script'})
