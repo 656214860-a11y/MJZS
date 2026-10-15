@@ -830,6 +830,39 @@ class RequestLedger:
         return self.authorize_units(request_id, model, stage, 'tokens',
                                     {'prompt_tokens': input_estimate, 'completion_tokens': output_limit})
 
+    def check_legacy_video_costs(self, request_id):
+        """旧会话账目未汇总前，不能把项目余额当成完整预算。只读，不猜测历史费用。"""
+        if self.project is None:
+            return
+        from agent.core import read
+        workspaces = [self.project]
+        cloud = self.project / 'cloud_video'
+        if cloud.exists():
+            workspaces.extend(path for path in cloud.iterdir() if path.is_dir())
+        for workspace in workspaces:
+            if workspace != self.project:
+                legacy = RequestLedger(workspace).load()
+                for row in legacy.entries:
+                    if row.get('state') != 'duplicate' and self._find(row.get('id'), row.get('kind')) is None:
+                        raise ValueError('旧视频会话费用尚未纳入项目总账，请先核对：' + workspace.name)
+            path = workspace / 'data' / 'state.json'
+            if not path.exists():
+                continue
+            state = read(path)
+            shots = state.get('shots') if isinstance(state, dict) else None
+            if not isinstance(shots, dict) or any(not isinstance(vs, list) for vs in shots.values()):
+                raise ValueError('旧视频任务状态损坏，无法核对历史费用：' + workspace.name)
+            for versions in shots.values():
+                for version in versions:
+                    if not isinstance(version, dict):
+                        raise ValueError('旧视频任务记录损坏，无法核对历史费用')
+                    if version.get('not_submitted') is True:
+                        continue
+                    rid = version.get('money_request_id') or 'video:' + str(version.get('local_request', ''))
+                    if rid == request_id or self._find(rid) is not None:
+                        continue
+                    raise ValueError('旧视频任务费用尚未纳入项目总账，请先核对：' + workspace.name)
+
     def authorize_units(self, request_id, model, stage, kind, quantities, *, amount=None):
         """所有模型共用金额上限；按明确计费单位冻结预留。"""
         from agent.core import read
@@ -849,6 +882,7 @@ class RequestLedger:
             cap = profile.get('budget_amount')
             if cap is not None:
                 cap = self.decimal(cap)
+                self.check_legacy_video_costs(request_id)
                 if kind == 'tokens' and quantities.get('completion_tokens', 0) <= 0:
                     raise ValueError('金额预算需要明确的输出Token上限')
             rate_map = table.get('model_rates') or {}

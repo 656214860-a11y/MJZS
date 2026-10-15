@@ -139,6 +139,50 @@ class RequestLedgerTests(unittest.TestCase):
 
 
 class ModelMoneyBudgetTests(unittest.TestCase):
+    def test_legacy_session_ledger_blocks_budget_without_mutating_history(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            old = RequestLedger(Path(td) / 'cloud_video' / 'old')
+            old.settle('old-request', kind='seconds', amount=5)
+            path = old.save()
+            before = path.read_bytes()
+            with self.assertRaisesRegex(ValueError, '旧视频会话费用'):
+                RequestLedger(td).authorize_model('new', 'm', 'script', 1, 1)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(RequestLedger(td).load().entries, [])
+
+    def test_unaccounted_legacy_tasks_block_including_rejected_remote_requests(self):
+        from agent.core import save
+        for state in ('unknown', 'queued', 'downloaded', 'rejected'):
+            with self.subTest(state=state), tempfile.TemporaryDirectory() as td:
+                self.policy(td)
+                save(Path(td) / 'cloud_video/old/data/state.json',
+                     {'shots': {'shot': [{'state': state, 'charged': False}]}})
+                with self.assertRaisesRegex(ValueError, '旧视频任务费用'):
+                    RequestLedger(td).authorize_model('new', 'm', 'script', 1, 1)
+
+    def test_preflight_rejections_and_accounted_tasks_do_not_block_budget(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            ledger = RequestLedger(td)
+            ledger.authorize_model('old', 'm', 'script', 1, 1)
+            save(Path(td) / 'cloud_video/old/data/state.json', {'shots': {'shot': [
+                {'money_request_id': 'old', 'state': 'unknown'},
+                {'not_submitted': True, 'state': 'rejected'}]}})
+            ledger.authorize_model('new', 'm', 'script', 1, 1)
+            self.assertEqual(len(ledger.load().entries), 2)
+
+    def test_corrupt_legacy_state_blocks_only_when_amount_cap_enabled(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            save(Path(td) / 'cloud_video/old/data/state.json', {'shots': []})
+            with self.assertRaisesRegex(ValueError, '旧视频任务状态损坏'):
+                RequestLedger(td).authorize_model('new', 'm', 'script', 1, 1)
+            self.policy(td, None)
+            RequestLedger(td).authorize_model('new', 'm', 'script', 1, 1)
+
     def policy(self, folder, cap='1'):
         path = Path(folder) / 'cost_profile.json'
         path.write_text(json.dumps({'budget_amount': cap, 'price_table': {
