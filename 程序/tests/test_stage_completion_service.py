@@ -72,6 +72,56 @@ class MediaCompletionTests(unittest.TestCase):
                 self.assertEqual(read(manifest)['scope'], media_scope(self.root))
                 self.assertEqual(completion_evidence(self.root, stage), (True, ''))
 
+    def commercial_fixture(self):
+        from agent.core import file_hash
+        from stage_completion_service import commercial_template
+        path = self.artifact('delivery')
+        confirm_media_completion(self.root, 'delivery', self.prepare('delivery', path))
+        evidence = commercial_template(self.root)
+        proof = self.root / 'authorization.txt'; proof.write_text('test-only authorization fixture')
+        evidence.update(inventory_reviewer='test reviewer', inventory_complete=True)
+        for key, group in evidence['categories'].items():
+            group['unused_reason'] = 'test fixture does not use this category'
+            if key in ('script', 'video'):
+                media = self.source if key == 'script' else path
+                group['items'] = [{'path': media.relative_to(self.root).as_posix(), 'sha256': file_hash(media),
+                    'source': 'test original', 'rights_holder': 'test owner', 'license': 'test permission',
+                    'commercial_allowed': True, 'derivative_allowed': True, 'obligations_fulfilled': True,
+                    'authorization': {'path': 'authorization.txt', 'sha256': file_hash(proof)}}]
+        for review in evidence['content_review'].values():
+            review.update(status='cleared', reviewer='test reviewer', evidence='test manual review')
+        return evidence, proof
+
+    def test_technical_delivery_is_not_commercial_approval(self):
+        from stage_completion_service import commercial_delivery_status, commercial_template, validate_commercial_evidence
+        self.commercial_fixture()
+        self.assertFalse(commercial_delivery_status(self.root)[0])
+        with self.assertRaises(ValueError):
+            validate_commercial_evidence(self.root, commercial_template(self.root))
+
+    def test_commercial_evidence_invalidated_by_authorization_change(self):
+        from stage_completion_service import confirm_commercial_evidence, commercial_delivery_status
+        evidence, proof = self.commercial_fixture()
+        confirm_commercial_evidence(self.root, evidence)
+        self.assertTrue(commercial_delivery_status(self.root)[0])
+        proof.write_text('changed authorization')
+        self.assertFalse(commercial_delivery_status(self.root)[0])
+
+    def test_commercial_evidence_blocks_missing_category_risk_and_permission(self):
+        from copy import deepcopy
+        from stage_completion_service import validate_commercial_evidence
+        evidence, _ = self.commercial_fixture()
+        mutations = [lambda e: e['categories'].pop('font'),
+            lambda e: e['categories']['script']['items'][0].update(commercial_allowed=False),
+            lambda e: e['content_review']['nsfw'].update(status='pending'),
+            lambda e: e['categories']['reference'].update(unused_reason=''),
+            lambda e: e.update(inventory_complete=False),
+            lambda e: e['categories']['script']['items'][0]['authorization'].update(path='../outside.txt'),
+            lambda e: e.update(outputs=[])]
+        for mutation in mutations:
+            data = deepcopy(evidence); mutation(data)
+            with self.assertRaises(ValueError): validate_commercial_evidence(self.root, data)
+
     def test_extensions_and_wrong_stage_cannot_replace_required_outputs(self):
         for stage, name in (('audio', 'subtitle.srt'), ('delivery', 'old.zip'), ('edit', 'sound.wav')):
             with self.subTest(stage=stage):

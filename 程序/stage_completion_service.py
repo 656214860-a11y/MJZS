@@ -121,9 +121,108 @@ def confirm_media_completion(root, stage, prepared):
     from agent.core import save
     _validate_media_completion(root, stage, prepared, require_review=False)
     data = dict(prepared, status='complete', reviewed=True)
+    if stage == 'delivery':
+        data['commercial_status'] = 'pending'
     target = media_manifest_path(root, stage, data['scope'])
     save(target, data)
     return target
+
+
+COMMERCIAL_CATEGORIES = ('script', 'reference', 'image', 'video', 'music', 'font', 'voice')
+
+
+def commercial_template(root):
+    """生成待填写清单，不把技术检查或空声明当作授权。"""
+    from agent.core import read
+    scope = media_scope(root)
+    data = read(media_manifest_path(root, 'delivery', scope))
+    _validate_media_completion(root, 'delivery', data)
+    return {'schema': 1, 'scope': scope, 'outputs': data['outputs'],
+            'inventory_reviewer': '', 'inventory_complete': False,
+            'categories': {key: {'items': [], 'unused_reason': ''} for key in COMMERCIAL_CATEGORIES},
+            'content_review': {key: {'status': 'pending', 'reviewer': '', 'evidence': ''}
+                               for key in ('infringement', 'nsfw', 'sensitive')}}
+
+
+def validate_commercial_evidence(root, evidence):
+    """核验声明、文件摘要及人工审查证据；不判断授权文件法律效力。"""
+    from agent.core import file_hash, read
+    root = Path(root).resolve()
+    scope = media_scope(root)
+    data = read(media_manifest_path(root, 'delivery', scope))
+    _validate_media_completion(root, 'delivery', data)
+    if not isinstance(evidence, dict) or evidence.get('schema') != 1 or evidence.get('scope') != scope:
+        raise ValueError('商用资料不属于当前采用分镜版本')
+    if evidence.get('outputs') != data['outputs']:
+        raise ValueError('商用审查对应成片已改变，请重新审查')
+    def nonempty(value):
+        return isinstance(value, str) and bool(value.strip())
+    def frozen_file(item):
+        if not isinstance(item, dict) or not nonempty(item.get('path')):
+            raise ValueError('授权资料或素材缺少本地文件')
+        path = (root / item['path']).resolve()
+        if not path.is_relative_to(root) or not path.is_file() or not path.stat().st_size:
+            raise ValueError('授权资料或素材必须位于本项目且非空')
+        if file_hash(path) != item.get('sha256'):
+            raise ValueError('授权资料或素材摘要不一致，请重新审查')
+    if evidence.get('inventory_complete') is not True or not nonempty(evidence.get('inventory_reviewer')):
+        raise ValueError('需由审核人确认清单覆盖成片全部采用素材和参考来源')
+    categories = evidence.get('categories')
+    if not isinstance(categories, dict) or set(categories) != set(COMMERCIAL_CATEGORIES):
+        raise ValueError('必须逐类核对剧本、参考、图像、视频、音乐、字体和声音')
+    for category, group in categories.items():
+        if not isinstance(group, dict) or not isinstance(group.get('items'), list):
+            raise ValueError('素材清单格式错误：' + category)
+        if not group['items']:
+            if category in ('script', 'video') or not nonempty(group.get('unused_reason')):
+                raise ValueError('缺少素材或未使用说明：' + category)
+        for item in group['items']:
+            frozen_file(item)
+            if (not nonempty(item.get('source')) or not nonempty(item.get('rights_holder'))
+                    or not nonempty(item.get('license')) or item.get('commercial_allowed') is not True
+                    or item.get('derivative_allowed') is not True or item.get('obligations_fulfilled') is not True):
+                raise ValueError('授权范围或履约记录不完整：' + category)
+            frozen_file(item.get('authorization'))
+    reviews = evidence.get('content_review')
+    if not isinstance(reviews, dict):
+        raise ValueError('缺少内容审查记录')
+    for key in ('infringement', 'nsfw', 'sensitive'):
+        review = reviews.get(key)
+        if (not isinstance(review, dict) or review.get('status') != 'cleared'
+                or not nonempty(review.get('reviewer')) or not nonempty(review.get('evidence'))):
+            raise ValueError('内容风险未完成审核：' + key)
+    return True
+
+
+def commercial_evidence_path(root):
+    scope = media_scope(root)
+    return media_manifest_path(root, 'delivery', scope).with_suffix('.commercial.json')
+
+
+def create_commercial_template(root):
+    from agent.core import save
+    target = commercial_evidence_path(root).with_suffix('.pending.json')
+    if target.exists():
+        raise ValueError('待填资料已存在，请保留已填写内容：' + str(target))
+    save(target, commercial_template(root))
+    return target
+
+
+def confirm_commercial_evidence(root, evidence):
+    from agent.core import save
+    validate_commercial_evidence(root, evidence)
+    target = commercial_evidence_path(root)
+    save(target, evidence)
+    return target
+
+
+def commercial_delivery_status(root):
+    from agent.core import read
+    try:
+        validate_commercial_evidence(root, read(commercial_evidence_path(root)))
+        return True, '商用资料核验通过（依据人工授权与内容审核记录）'
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        return False, '商用交付待核验：' + str(error)
 
 
 def media_completion_evidence(root, stage):

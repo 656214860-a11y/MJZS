@@ -976,6 +976,8 @@ class MediaPagesMixin:
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
         delivery_button('导入剪映最终成片',self.final_import,primary=True)
         delivery_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))
+        delivery_button('生成商用待填资料',lambda:self.safe(lambda:self.commercial_delivery_review(create=True)))
+        delivery_button('核验商用交付资料',lambda:self.safe(self.commercial_delivery_review))
         delivery_button('选择采用版本…',lambda:self.safe(self.open_version_picker))
         delivery_button('打开交付目录',lambda:open_path(delivery_dir))
         delivery_button('打开自动剪辑与QC报告目录',lambda:self.open_folder(export_dir))

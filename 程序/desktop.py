@@ -2199,6 +2199,21 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             raise RuntimeError('最终成片导入失败，请稍后重试')
         self.async_(work)
 
+    def commercial_delivery_review(self,create=False):
+        from stage_completion_service import create_commercial_template, confirm_commercial_evidence
+        root=Path(self.root).resolve()
+        if create:
+            target=create_commercial_template(root)
+            self.open_folder(target.parent)
+            self.log('商用待填资料已生成：'+str(target)+'；请按说明填写授权和内容审核证据')
+            return
+        selected=FileDialog(self.win).open_file(title='选择已填写的商用交付资料',filetypes=[('审核资料','*.json')])
+        if not selected:return
+        def work():
+            target=confirm_commercial_evidence(root,read(Path(selected)))
+            return '商用资料核验通过（依据人工记录）：'+str(target)
+        self.async_(work)
+
     def confirm_stage_media(self,stage):
         from stage_completion_service import (media_output_folders, media_scope,
                                               prepare_media_completion, confirm_media_completion)
@@ -2216,7 +2231,8 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             names='\n'.join(item['path'] for item in prepared['outputs'])
             if not confirm(self.win,'确认本集成果',
                 '媒体技术校验通过。请确认以下文件属于当前集，内容完整且已人工审核：\n'
-                +prepared['scope']['episode']+'\n'+names):return
+                +prepared['scope']['episode']+'\n'+names
+                +('\n此操作不代表商用授权或内容合规通过。' if stage=='delivery' else '')):return
             confirm_media_completion(root,stage,prepared)
             self.pet.report_done(stage,'本集成果已校验并确认')
         self.async_(work,done)
