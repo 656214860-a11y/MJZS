@@ -951,6 +951,24 @@ class RequestLedger:
                     key = f"video:{sid}:v{version.get('version', index)}"
                     add(workspace, key, 'task:' + key, version,
                         pending=version.get('state') in ('submitting', 'queued', 'running'))
+        for path in sorted((self.project / 'workflows').glob('comfy_*.json')):
+            job = read(path)
+            if not isinstance(job, dict):
+                raise ValueError('旧Comfy任务记录损坏，无法核对历史费用：' + path.name)
+            graph = job.get('workflow', {})
+            if not isinstance(graph, dict):
+                raise ValueError('旧Comfy工作流损坏，无法核对历史费用：' + path.name)
+            if not any(isinstance(node, dict) and node.get('class_type') == 'DramaCloudImage'
+                       for node in graph.values()):
+                continue
+            rid = job.get('cost_request_id')
+            accounted = self._find(rid) if rid else None
+            if (rid and rid == request_id) or (accounted and 'money_state' in accounted and not accounted.get('cost_only')):
+                continue
+            if job.get('not_submitted') is True:continue
+            key = 'comfy:' + path.name
+            add(self.project, key, 'comfy-task:' + path.name, job,
+                pending=job.get('state') in ('submitting', 'queued', 'running'))
         for group in groups.values():
             group['sources'].sort(key=lambda source: (source['source'], source['sha256']))
             group['digest'] = fingerprint(group['sources'])
@@ -960,7 +978,8 @@ class RequestLedger:
         for gid, group in self.legacy_video_costs(request_id).items():
             entry = self._find(gid)
             if entry is None or entry.get('legacy_digest') != group['digest']:
-                label = '旧视频任务费用' if any(s['source'].startswith('task:') for s in group['sources']) else '旧视频会话费用'
+                label = ('旧Comfy云图片费用' if any(s['source'].startswith('comfy-task:') for s in group['sources'])
+                         else '旧视频任务费用' if any(s['source'].startswith('task:') for s in group['sources']) else '旧视频会话费用')
                 raise ValueError(label + '尚未纳入项目总账或来源已变化，请导入后核对：' + group['label'])
 
     def import_legacy_video_costs(self):
@@ -973,8 +992,9 @@ class RequestLedger:
                 if entry is not None and entry.get('legacy_digest') == group['digest']:
                     continue
                 if entry is None:
-                    entry = self.reserve(gid, 'videos', 0)
-                    entry.update(cost_only=True, stage='legacy-video')
+                    comfy = any(s['source'].startswith('comfy-task:') for s in group['sources'])
+                    entry = self.reserve(gid, 'images' if comfy else 'videos', 0)
+                    entry.update(cost_only=True, stage='legacy-comfy' if comfy else 'legacy-video')
                 else:
                     entry.setdefault('legacy_changes', []).append({
                         'at': self.clock(), 'digest': entry.get('legacy_digest'),
@@ -1106,7 +1126,7 @@ class RequestLedger:
             if entry.get('cost_only'):
                 current = self.legacy_video_costs().get(request_id)
                 if current is None or current['digest'] != entry.get('legacy_digest'):
-                    raise ValueError('旧视频来源已变化，请重新导入后核对')
+                    raise ValueError('旧生成记录来源已变化，请重新导入后核对')
             if entry.get('currency') and str(entry['currency']).upper() != currency:
                 raise ValueError('币种与原请求不一致，不能直接覆盖或自动换汇')
             currency = entry.get('currency') or currency

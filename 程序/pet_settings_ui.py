@@ -311,10 +311,10 @@ def cost_reconciliation_dialog(parent, project):
         selected.configure(values=labels())
         selected.set('')
         fields['amount'].set('')
-        hint.set('已导入或更新 %d 笔旧视频费用；金额保持未知，请逐笔核对。进行中任务需先查询最终结果，再重新导入。' % count)
+        hint.set('已导入或更新 %d 笔旧视频/Comfy云图片费用；金额保持未知，请逐笔核对。进行中任务需先查询最终结果，再重新导入。' % count)
         return count
     selected.bind('<<ComboboxSelected>>', pick)
-    SecondaryButton(body, text='导入旧视频账目', command=import_legacy).pack(anchor='w', pady=8)
+    SecondaryButton(body, text='导入旧视频/Comfy账目', command=import_legacy).pack(anchor='w', pady=8)
     SecondaryButton(body, text='选择凭据', command=browse).pack(anchor='w', pady=8)
     PrimaryButton(body, text='保存核对结果', command=save_cost).pack(anchor='w')
     ttk.Label(body, textvariable=hint, wraplength=650).pack(anchor='w', pady=8)

@@ -238,6 +238,48 @@ class ModelMoneyBudgetTests(unittest.TestCase):
                 'm': {'prompt_tokens': '0.01', 'completion_tokens': '0.02'}}}}), encoding='utf-8')
         return path
 
+    def test_legacy_comfy_costs_require_import_receipt_and_fresh_source(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); self.policy(td)
+            folder = root / 'workflows'; folder.mkdir()
+            source = folder / 'comfy_old.json'
+            job = {'state': 'downloaded', 'cost_request_id': '', 'workflow': {
+                '30': {'class_type': 'DramaCloudImage', 'inputs': {'model': 'fixture'}}}}
+            source.write_text(json.dumps(job), encoding='utf-8'); original = source.read_bytes()
+            ledger = RequestLedger(root)
+            with self.assertRaisesRegex(ValueError, '旧Comfy云图片费用'):
+                ledger.authorize_model('new', 'm', 'script', 1, 1)
+            self.assertEqual(ledger.import_legacy_video_costs(), 1)
+            self.assertEqual(ledger.import_legacy_video_costs(), 0)
+            entry = next(row for row in ledger.entries if row.get('cost_only'))
+            self.assertEqual((entry['kind'], entry['stage']), ('images', 'legacy-comfy'))
+            with self.assertRaisesRegex(ValueError, '未计价'):
+                ledger.authorize_model('new', 'm', 'script', 1, 1)
+            receipt = root / 'receipt.txt'; receipt.write_text('offline fixture')
+            ledger.reconcile_cost(entry['id'], 'images', '0.2', 'CNY', receipt, 'tester')
+            ledger.authorize_model('new', 'm', 'script', 1, 1)
+            self.assertEqual(source.read_bytes(), original)
+            job['files'] = ['changed-output.png']; source.write_text(json.dumps(job), encoding='utf-8')
+            with self.assertRaisesRegex(ValueError, '来源已变化'):
+                ledger.authorize_model('new2', 'm', 'script', 1, 1)
+            self.assertEqual(ledger.import_legacy_video_costs(), 1)
+            self.assertIsNone(ledger._find(entry['id'])['budget_cost'])
+            self.assertEqual(len(ledger._find(entry['id'])['cost_reconciliations']), 1)
+
+    def test_legacy_comfy_pending_cannot_be_reconciled_and_local_is_excluded(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); self.policy(td)
+            folder = root / 'workflows'; folder.mkdir()
+            (folder / 'comfy_local.json').write_text(json.dumps({'workflow': {'1': {'class_type': 'KSampler'}}}), encoding='utf-8')
+            (folder / 'comfy_cloud.json').write_text(json.dumps({'state': 'queued', 'workflow': {
+                '30': {'class_type': 'DramaCloudImage'}}}), encoding='utf-8')
+            ledger = RequestLedger(root)
+            self.assertEqual(ledger.import_legacy_video_costs(), 1)
+            entry = ledger.entries[0]
+            receipt = root / 'receipt.txt'; receipt.write_text('offline fixture')
+            with self.assertRaisesRegex(ValueError, '进行中'):
+                ledger.reconcile_cost(entry['id'], 'images', '0', 'CNY', receipt, 'tester')
+
     def test_legacy_import_groups_units_preserves_sources_and_releases_budget(self):
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:
