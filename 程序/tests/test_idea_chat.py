@@ -1003,6 +1003,22 @@ class SendMessageTests(_Harness):
             self.assertFalse(overlap, '下载剧本与剧本目录在窄窗口换行时也不能互相遮挡')
             self.assertEqual(d.idea_open_folder.cget('text'), '剧本目录')
 
+    def test_delete_button_sits_right_of_refresh(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            d.show(0); win.update()
+            buttons = [c for c in d.idea_row.winfo_children() if isinstance(c, ttk.Button)]
+            by_text = {str(c.cget('text')): c for c in buttons}
+            self.assertNotIn('删除剧本', by_text)
+            refresh, delete = by_text['刷新'], by_text['删除']
+            self.assertLessEqual(abs(refresh.winfo_rooty() - delete.winfo_rooty()), 2, '同一行')
+            self.assertGreaterEqual(delete.winfo_rootx(), refresh.winfo_rootx() + refresh.winfo_width() - 2)
+            between = [c for c in buttons if c not in (refresh, delete)
+                       and abs(c.winfo_rooty() - refresh.winfo_rooty()) <= 2
+                       and refresh.winfo_rootx() < c.winfo_rootx() < delete.winfo_rootx()]
+            self.assertEqual(between, [], '删除紧跟在刷新右侧，中间没有别的按钮')
+
     def test_script_action_bar_uses_compact_renamed_buttons(self):
         import desktop
         with tempfile.TemporaryDirectory() as td:
@@ -1011,15 +1027,15 @@ class SendMessageTests(_Harness):
             d.show(0); win.update()
             buttons = [child for child in d.idea_row.winfo_children()
                        if isinstance(child, ttk.Button)]
-            action_labels = {'发送', '中断', '刷新', '下载文件', '下载设定', '下载大纲', '下载角色卡', '下载剧本', '剧本目录', '删除剧本', '添加剧本'}
+            action_labels = {'发送', '中断', '刷新', '下载文件', '下载设定', '下载大纲', '下载角色卡', '下载剧本', '剧本目录', '删除', '添加剧本'}
             labels = {button.cget('text') for button in buttons}
-            self.assertTrue({'中断', '剧本目录', '删除剧本', '添加剧本'} <= labels)
+            self.assertTrue({'中断', '剧本目录', '删除', '添加剧本'} <= labels)
             for button in buttons:
                 if button.cget('text') in action_labels:
                     self.assertEqual(button.cget('width'), desktop.SCRIPT_ACTION_WIDTH)
 
     def test_script_action_bar_wraps_instead_of_clipping_buttons_when_narrow(self):
-        """剧本页缩窄时操作栏分行，不能把“删除剧本”挤成半个字。"""
+        """剧本页缩窄时操作栏分行，不能把“删除”挤成半个字。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)

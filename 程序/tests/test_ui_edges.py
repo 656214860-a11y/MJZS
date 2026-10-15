@@ -1182,13 +1182,13 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(str(box.master.master), str(talk), "聊天内容框摆在对话区容器内")
             self.assertEqual(str(d.idea_input.master.master.master), str(talk), "发送框固定在同一对话区底部")
             # 剧本页与其他阶段共用 FlowBar：窄窗口时允许分行，不能再以左右 pack
-            # 互相挤压到裁掉“删除剧本”文字。
+            # 互相挤压到裁掉按钮文字。
             self.assertTrue(all(child.winfo_manager() == 'place'
                                 for child in d.idea_row.winfo_children()))
             actions = [str(child.cget("text")) for child in d.idea_row.winfo_children()
                        if hasattr(child, "cget") and str(child.winfo_class()).endswith("Button")]
             self.assertIn("添加剧本", actions)
-            self.assertIn("删除剧本", actions)
+            self.assertIn("删除", actions)
             self.assertEqual(str(d.script_box.winfo_class()), "TFrame")
             self.assertTrue(d.script_box.winfo_ismapped(),
                             "发现已有剧本文件时，三列表容器与列头必须保持可见")

@@ -4775,12 +4775,13 @@ class Desktop:
         interrupt_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']));interrupt_button.state(['disabled']);self.idea_interrupt=interrupt_button
         refresh_button=SecondaryButton(foot,text='刷新',width=script_action_width,command=lambda:self.safe(self.refresh_script_workspace))
         refresh_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']));self.idea_refresh=refresh_button
+        # 「删除」紧跟「刷新」：动作栏按子控件创建顺序排列，所以必须在这里创建，不能放到右侧那组。
+        delete_button=SecondaryButton(foot,text='删除',width=script_action_width,command=lambda:self.safe(delete_selected_scripts))
+        delete_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
         download_button=SecondaryButton(foot,text='下载文件',width=script_action_width,command=lambda:self.safe(self.download_script))
         download_button.state(['disabled']);self.idea_download=download_button
         SecondaryButton(foot,text='添加剧本',width=script_action_width,
                    command=lambda:self.safe(self.import_json)).pack(side='right')
-        SecondaryButton(foot,text='删除剧本',width=script_action_width,
-                   command=lambda:self.safe(delete_selected_scripts)).pack(side='right',padx=(SPACING['none'],SPACING['sm']))
         open_folder_button=SecondaryButton(foot,text='剧本目录',width=script_action_width,
                                       command=lambda:self.safe(lambda:self.open_folder(project_stages.writing(self.root))))
         open_folder_button.pack(side='right',padx=(SPACING['none'],SPACING['sm']));self.idea_open_folder=open_folder_button
