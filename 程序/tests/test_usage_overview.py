@@ -16,6 +16,24 @@ def call(folder, model, stage, usage, ok=True, day='2026-10-14'):
 
 
 class UsageOverviewTests(unittest.TestCase):
+    def test_cost_per_minute_keeps_unknown_overheads_separate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            ledger = pet_llm.RequestLedger(folder)
+            ledger.settle('fixture', kind='seconds', amount=10); ledger.save()
+            table = {'rates': {'seconds': 0.2}, 'version': 'fixture', 'currency': 'CNY'}
+            cost = uo.cost_per_minute(folder, 60, table)
+            self.assertEqual(cost['known_per_minute'], 2)
+            self.assertIsNone(cost['total_per_minute'])
+            cost = uo.cost_per_minute(folder, 30, table, dict(gpu=0, storage=1, bandwidth=0, human=2))
+            self.assertEqual(cost['total_per_minute'], 10)
+            with self.assertRaises(ValueError): uo.cost_per_minute(folder, float('inf'), table)
+
+    def test_nonfinite_event_usage_is_unknown(self):
+        bucket = uo._blank()
+        uo._add(bucket, {'ok': False, 'usage': {'total_tokens': float('inf')}})
+        self.assertEqual(bucket['unknown_usage'], 1)
+        self.assertEqual(bucket['total_tokens'], 0)
+
     def test_summarize_groups_by_model_stage_and_day_without_inventing_zero(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

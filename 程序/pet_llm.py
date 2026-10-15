@@ -510,7 +510,8 @@ class RequestLedger:
         existing = self._find(request_id, kind)
         if existing is not None:
             return existing
-        entry = {'id': str(request_id), 'kind': str(kind), 'amount': float(amount or 0),
+        amount = self._quantity(amount)
+        entry = {'id': str(request_id), 'kind': str(kind), 'amount': amount,
                  'mode': 'estimated', 'state': 'reserved', 'remote_task_id': None,
                  'note': str(note or ''), 'at': self._stamp(at), 'settled_at': None}
         self.entries.append(entry)
@@ -547,7 +548,7 @@ class RequestLedger:
             amount = total
         if amount is None:
             return self.mark_unknown(request_id, reason=note or '结算时没有可用量', at=at)
-        entry['amount'] = float(amount)
+        entry['amount'] = self._quantity(amount)
         entry['mode'] = str(mode)
         entry['state'] = 'settled'
         entry['settled_at'] = self._stamp(at)
@@ -621,22 +622,42 @@ class RequestLedger:
                'requests': sum(bucket['count'] for bucket in kinds.values())}
         if price_table:
             out['money'] = self.price(kinds, price_table, currency)
+            out['money']['estimated_requests'] = sum(
+                1 for entry in self.entries if entry.get('state') == 'settled' and entry.get('mode') == 'estimated')
+            if out['money']['estimated_requests']:out['money']['complete'] = False
         return out
+
+    @staticmethod
+    def _quantity(value):
+        import math
+        if isinstance(value, bool):raise ValueError('用量或费率必须是有限非负数')
+        try: number = float(value)
+        except (ValueError, TypeError):raise ValueError('用量或费率必须是有限非负数') from None
+        if not math.isfinite(number) or number < 0:raise ValueError('用量或费率必须是有限非负数')
+        return number
 
     @staticmethod
     def price(kinds, price_table, currency='CNY'):
         """只有配了价格表才折算金额；带上价格表的版本／日期，缺费率不猜。"""
         table = price_table if isinstance(price_table, dict) else {}
         rates = table.get('rates') if isinstance(table.get('rates'), dict) else {}
-        total, missing = 0.0, []
+        from decimal import Decimal
+        settled, reserved, missing, unknown = Decimal(0), Decimal(0), [], 0
         for kind, bucket in kinds.items():
+            unknown += bucket.get('unknown', 0)
             rate = rates.get(kind)
             if rate is None:
                 if bucket.get('settled') or bucket.get('reserved'):
                     missing.append(kind)
                 continue
-            total += (bucket.get('settled', 0.0) + bucket.get('reserved', 0.0)) * float(rate)
-        return {'amount': round(total, 4), 'currency': str(table.get('currency') or currency),
+            rate = Decimal(str(RequestLedger._quantity(rate)))
+            settled += Decimal(str(RequestLedger._quantity(bucket.get('settled', 0)))) * rate
+            reserved += Decimal(str(RequestLedger._quantity(bucket.get('reserved', 0)))) * rate
+        return {'amount': float(round(settled + reserved, 4)),
+                'settled_amount': float(round(settled, 4)), 'reserved_amount': float(round(reserved, 4)),
+                'unknown_requests': unknown, 'complete': not missing and not unknown and not any(
+                    bucket.get('reserved') for bucket in kinds.values()),
+                'currency': str(table.get('currency') or currency),
                 'table_version': table.get('version'), 'table_at': table.get('at'),
                 'missing_rates': sorted(missing)}
 

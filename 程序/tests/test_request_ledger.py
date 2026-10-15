@@ -11,6 +11,26 @@ from pet_llm import RequestLedger, request_ledger_path
 
 
 class RequestLedgerTests(unittest.TestCase):
+    def test_invalid_usage_and_rates_do_not_produce_money(self):
+        for value in (-1, float('nan'), float('inf'), True):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                RequestLedger().reserve('bad', 'seconds', value)
+        ledger = RequestLedger(); ledger.settle('ok', kind='seconds', amount=2)
+        for value in (-1, float('nan'), float('inf'), True):
+            with self.subTest(rate=value), self.assertRaises(ValueError):
+                ledger.report({'rates': {'seconds': value}})
+
+    def test_money_separates_reservations_and_unknown_cost(self):
+        ledger = RequestLedger()
+        ledger.settle('done', kind='seconds', amount=3)
+        ledger.reserve('pending', 'seconds', 2)
+        ledger.mark_unknown('lost')
+        money = ledger.report({'rates': {'seconds': 0.1}})['money']
+        self.assertEqual(money['settled_amount'], 0.3)
+        self.assertEqual(money['reserved_amount'], 0.2)
+        self.assertFalse(money['complete'])
+        self.assertEqual(money['unknown_requests'], 1)
+
     def test_reserve_is_idempotent_per_request_and_kind(self):
         ledger = RequestLedger()
         first = ledger.reserve('REQ-1', 'seconds', 5)
