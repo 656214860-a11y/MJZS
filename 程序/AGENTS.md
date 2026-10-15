@@ -4,8 +4,6 @@
 > 项目状态权威来源：`D:\漫剧制作助手\程序\project_status.md`
 > 结构权威来源：`D:\漫剧制作助手\程序\architecture.md`
 
----
-
 ## 0. 任务开始时必读
 
 本节是各代理入口阅读范围的唯一规定。每次任务开始前，按顺序读取：
@@ -16,23 +14,15 @@
 4. `PROJECT_MAP.md`（数据边界、门禁地图）
 
 本文件、架构与地图须读完；状态页先定位上述标题并读完各节，缺失或事实冲突时继续定位相关记录，不能静默跳过。完成这些读取前，仅允许定位和读取接续资料，不开始修改、测试或认领。
-不依赖旧对话历史，依赖文件系统。
-对照现有模块清单，避免重复创建已存在功能。
-
----
+接续依据文件系统，不依赖旧对话历史；对照现有模块清单，避免重复创建功能。
 
 ## 1. 项目速览
 
-- 产品：Windows 桌面应用「漫剧助手」
-- 技术栈：Python + Tkinter，零第三方依赖
+- 产品：Windows 桌面应用「漫剧助手」；Python + Tkinter，零第三方依赖
 - 解释器：`D:\漫剧制作助手\运行环境\Python\python.exe`（不使用全局 Python）
 - 工作流：13 个制作阶段（初步分镜之后为 Animatic 分镜预演）
-- 阶段唯一来源：`pet_bus.STAGES` / `pet_bus.STAGE_NAMES`
 - 执行链路：`skill_orchestrator`
-- 并行配置唯一来源：`stage_parallel.CONFIG`
 - 三虎：进度界面、阶段日志、自动化等级、暂停恢复、资产跨重启续跑台账
-
----
 
 ## 2. 硬约束
 
@@ -67,8 +57,8 @@
 | 阶段完成核验 | `stage_completion_service`                                                                         |
 | 回收服务   | `storage_maintenance.recycle_paths()`                                                              |
 | UI 组件与弹窗 | `ui_widgets`（组件与全局 Style）／`ui_tokens`（视觉 token）／`ui_shortcuts`（快捷键登记）          |
-| L2 写服务结果 | **第 1 项已解冻（2026-10-04 用户授权）**：分批复用 `service_contract` 四字段结果，每轮最多 3 个 service；同轮迁移调用方、测试与采用方棘轮，不创造第三种返回形状。采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准；执行顺序见路线图。 |
-| 项目操作上下文 | **第 2 项已解冻（2026-10-04 用户授权），按路线图顺序推进**：复用 L3 注入的 `project_context.ProjectContext`，每轮最多 3 个 service；采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准。 |
+| L2 写服务结果 | 第 1 项已解冻（2026-10-04 用户授权）；分批复用 `service_contract` 四字段结果，每轮最多 3 个 service；同轮迁移调用方、测试与采用方棘轮，不创造第三种返回形状。采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准；执行顺序见路线图。 |
+| 项目操作上下文 | 第 2 项已解冻（2026-10-04 用户授权）；按路线图顺序复用 L3 注入的 `project_context.ProjectContext`，每轮最多 3 个 service；采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准。 |
 | 阶段成果发布器 | `stage_execution_service.publish_stage_text()`／`publish_stage_bytes()`／`publish_stage_bundle()`；L2 写服务只能接收 L3 注入的发布器，音频导入经 `import_stage_audio()`、自动粗剪完成标记经 `save_automatic_assemble_marker()`、自动交接完成标记经 `save_automatic_handoff_marker()`、首帧删除／恢复／替换经 `delete_stage_keyframe()`／`restore_stage_keyframe()`／`replace_stage_keyframe()` 注入 |
 | 正式 JSON 读写 | 读取优先 `file_cache.read_json()`，写入只经 `agent.core.save()`／`save_text()` 或 L3 发布器；L2 不得直接向正式路径 `json.dump()` 或裸写入 |
 
@@ -78,39 +68,17 @@
 
 ### 2.3 新增结构硬约束（第 118 期起）
 
-11. **分层依赖唯一权威**：`architecture.md` 第 3 节。
-    只允许 `L5 入口 → L4 UI → L3 编排 → L2 业务 → L1 模型/存储 → L0 契约`。
-    反向 import 一律禁止。
-
-12. **路径唯一权威**：所有文件路径必须由 2.2 表中"路径"那一行的模块产出。
-    其他模块禁止字符串拼接路径。
-
-13. **事件与前缀唯一权威**：阶段事件只由 `pet_bus` 定义，
-    播报前缀只由 `broadcaster` 定义。其他模块禁止自定义事件名或前缀。
-
-14. **删除唯一权威**：用户可见删除统一经 `storage_maintenance.recycle_paths()`；
-    临时文件、缓存和已验证的本轮临时产物可受控清理。
-
-15. **测试文件唯一位置**：新测试一律放 `tests/`，不再放 `程序/` 根目录。
-    根目录已无 `test_*.py`；现有测试位置由文档一致性门禁检查。
-
-16. **测试搬家轮**：只允许移动文件和修 import 路径。
-    禁止改测试逻辑、禁止改断言、禁止改 fixture。
-    验收统一见 §3.6 与 §5。
-
+11. **分层依赖唯一权威**：`architecture.md` 第 3 节。只允许 `L5 入口 → L4 UI → L3 编排 → L2 业务 → L1 模型/存储 → L0 契约`；反向 import 一律禁止。
+12. **路径唯一权威**：所有文件路径必须由 2.2 表中"路径"那一行的模块产出；其他模块禁止字符串拼接路径。
+13. **事件与前缀唯一权威**：阶段事件只由 `pet_bus` 定义，播报前缀只由 `broadcaster` 定义；其他模块禁止自定义事件名或前缀。
+14. **删除唯一权威**：用户可见删除统一经 `storage_maintenance.recycle_paths()`；临时文件、缓存和已验证的本轮临时产物可受控清理。
+15. **测试文件唯一位置**：新测试一律放 `tests/`，不再放 `程序/` 根目录；现有测试位置由文档一致性门禁检查。
+16. **测试搬家轮**：只允许移动文件和修 import 路径，禁止改测试逻辑、断言或 fixture；验收见 §3.6 与 §5。
 17. **阶段启动唯一入口**：手动、自动和三虎阶段启动必须走 `stage_handler_registry.start()`。
-
-18. **动态导入唯一入口**：L4 走 `ui_plugin_registry.module()`，L3 走 `stage_handler_registry`；
-    禁止未登记的裸动态 `import`。
-
+18. **动态导入唯一入口**：L4 走 `ui_plugin_registry.module()`，L3 走 `stage_handler_registry`；禁止未登记的裸动态 `import`。
 19. **阶段路径新写旧读**：新写入必须走 `stage_path_service`；旧目录仅作只读兼容。
-
-20. **完成事件以产物核验为准**：由 `stage_completion_service` 核验产物；
-    不接受模型文字或 UI 提示作为完成证据。
-
-22. **事件发送边界**：跨模块状态只经 `pet_bus.emit_safe()`；仅 `pet_agent._emit()` 与
-    `pet_ui._emit()` 可作受控转发，禁止直调 `Bus.emit()`。`broadcaster` 只记录用户可见文本日志，
-    不得承担状态通知。
+20. **完成事件以产物核验为准**：由 `stage_completion_service` 核验产物；不接受模型文字或 UI 提示作为完成证据。
+22. **事件发送边界**：跨模块状态只经 `pet_bus.emit_safe()`；仅 `pet_agent._emit()` 与 `pet_ui._emit()` 可作受控转发，禁止直调 `Bus.emit()`。`broadcaster` 只记录用户可见文本日志，不得承担状态通知。
 
 ### 2.4 测试契约变更
 
@@ -120,15 +88,11 @@
 
 25. **任务范围优先**：治理和审计由实际风险或用户任务触发，不为凑固定轮次插入无关改动。
 
-26. **新规则必须配测试**：2.3 节每新增一条硬约束，同一轮或下一轮必须补一个自动化测试。没有测试的约束降级为「建议」，
-
-    不列入 2.3 节。
+26. **新规则必须配测试**：2.3 节每新增一条硬约束，同一轮或下一轮必须补一个自动化测试；没有测试的约束降级为「建议」，不列入 2.3 节。
 
 27. **轮次与队列跨树唯一**：开工先运行 `维护记录/基准脚本/round_claim.py next` 领取轮次，有匹配队列任务时再 `claim <队列ID> --owner <署名>`，没有则记录无对应 ID，不冒领无关任务。轮次计数器与唯一可写队列 `<git common-dir>/maintenance-queue.json` 共用认领锁；首次访问按全部 worktree 副本合并种子，之后不再种子。工作树内 `维护记录/任务队列.json` 仅为自动导出的只读快照，禁止手工编辑快照。默认租约 60 分钟，他人的有效租约不得覆盖；无法继续时 `release <队列ID> --owner <署名>`，完成时 `complete`，查看用 `show`，一致性检查用 `validate`。每轮结束检查 `N == M + 1`（N 为 project_status.md 当前轮次，M 为最新结果文件轮次）。
 
-    不连续时，本轮必须先修正编号再继续。
-
-    **轮的定义**：一轮＝一个可独立回滚的完整变更集。同类改动必须批量成轮（如 UI 卡片迁移按页面一次 ≥5 处），禁止一卡一轮、一字段一轮。
+    不连续时，本轮必须先修正编号再继续。**轮的定义**：一轮＝一个可独立回滚的完整变更集。同类改动必须批量成轮（如 UI 卡片迁移按页面一次 ≥5 处），禁止一卡一轮、一字段一轮。
 
     **全量触发条件**：统一见 §5；计数行为以 `run_selftests.full_safe_required()` 与 `tests/architecture/test_round_baselines.py` 为核对依据，不在本节重复设置周期。
 
@@ -136,16 +100,12 @@
 
     **检查点**：认领因脏树拒绝时，先区分本轮改动与用户既有改动；只对授权文件建立可恢复检查点。创建分支本身不保存未提交内容，不得把用户改动混入 WIP 提交。大规模跨文件修改应分阶段建立检查点，检查点不等于任务完成。
 
-28. **一个动作一个入口**：新增功能前必须先搜「已有入口能复用吗？」。
-
-    本轮范围内存在重复入口时，先核验消费者与兼容要求，再统一；范围外重复项仅记录，不直接删除。
+28. **一个动作一个入口**：新增功能前必须先搜「已有入口能复用吗？」。本轮范围内存在重复入口时，先核验消费者与兼容要求，再统一；范围外重复项仅记录，不直接删除。
 
 29. **三个基线数**：每轮结束必须报告：
 
     - 默认冒烟：当前基线 8/8
-
     - 架构门禁：记录当轮实际总数、失败集合及改前后比较；历史绿色结果不等于当前树通过。
-
     - 全量回归与欠账：唯一权威是 Git common-dir 的 `full-safe-receipts.json` 中真实 `{tree, round, seconds, at}`；`维护记录/测试分层基线.json` 不保存也不回退全量轮次或内容树。触发与凭据有效期见 §5。
 
 30. **桌面主动后台任务**：`Desktop.async_()` 的提交、逻辑取消、成功／失败收尾与迟到结果拒绝必须经 `BackgroundTaskLifecycle`；取消不强杀任意 Python 线程，但已取消或被新代次替换的结果不得触发 UI 回调。
@@ -154,18 +114,8 @@
 
 32. 连续两次修复未解决同一问题时，先补充复现、堆栈或测量证据并重新诊断，再继续修复；不盲目重复同一补丁，不因重试次数而跳过任务。范围和阻塞处理见 §8。
 
-33. 启动路径上禁止递归扫描目录。
-    启动时（窗口出现到可交互之间）不得 rglob / walk 任何目录。
-    需要的文件列表必须：
-
-    - 来自缓存，或
-    - 后台线程加载后更新，或
-    - 明确懒加载（用户点某个按钮时才扫）。
-
-34. **UI 设计唯一权威**：`design_tokens.md` 与 `ui_components.md`。
-    所有 `padx` / `pady`、颜色、字号、圆角必须从 token 取值，禁止魔法数字与内联 hex；Reviewer 每轮必查。
-
----
+33. 启动路径上禁止递归扫描目录：窗口出现到可交互之间不得 rglob / walk 任何目录。文件列表必须来自缓存、后台线程加载后更新，或明确懒加载（用户点某个按钮时才扫）。
+34. **UI 设计唯一权威**：`design_tokens.md` 与 `ui_components.md`。所有 `padx` / `pady`、颜色、字号、圆角必须从 token 取值，禁止魔法数字与内联 hex；Reviewer 每轮必查。
 
 ## 2.6 Git 提交门禁
 
@@ -192,68 +142,38 @@
 
 适用：新增功能、扩展现有功能。
 
-- 只改本轮任务涉及的模块。
-- 不改分层、不改契约、不改权威源。
+- 只改本轮任务涉及的模块；不改分层、契约或权威源。
 - 完成后跑 `smoke_test.py --affected <模块>`。
-- 自审追加一问：本轮是否新增了越界依赖？越界就回退。
+- 越界依赖须回退，自审见 §4。
 
 ### 3.2 修复轮
 
 适用：修 bug、修偶发红、修阻塞。
 
 - 先定位根因，输出复现步骤。
-- 只改根因所在模块。
-- 不许顺手重构。
-- 不许改测试来迁就实现。
-- 自审追加一问：是否有同类 bug 未修？
+- 只改根因所在模块，不许顺手重构；测试契约按 §2.4，自审见 §4。
 
-#### 修复轮中的全量基线验证
-
-“回归修复／基线轮”不是独立轮次类型。若本轮由失败回归定位根因并修改产品或测试资产，
-一律归类为**修复轮（含全量基线验证）**，并遵守本节的根因、最小改动与同类问题复核要求；
-全量自检只是其验证范围，不改变轮次类型。结果报告和状态台账不得再使用未定义的组合类型。
-
-若本轮没有修复任何代码或测试资产，只记录、复核或更新基线，则归类为 3.10 的**验证/基线轮**。
+失败回归导致产品或测试资产修复时，一律归类为**修复轮（含全量基线验证）**，遵守根因、最小改动与同类问题复核要求；全量只是验证范围。仅记录、复核或更新基线而未修复资产时，归类为 §3.10 **验证/基线轮**；报告和状态台账不得使用“回归修复／基线轮”等未定义组合类型。
 
 ### 3.3 结构治理轮
 
 适用：合并重复、收口路径、拆循环、删僵尸。
 
-- 禁止加功能。
-
-- 禁止改用户数据。
-
-- 每次最多改 3 个模块。
-
+- 禁止加功能或改用户数据；每次最多改 3 个模块。
 - 自检统一按 §5。只读诊断与执行分别适用该节的例外和验证表，不在本节另设全量周期。
 - SKILL 说明文件（`skills/**/*.md`）改动不得与代码改动同轮：`run_selftests.py` 的 `data_moved` 判定会让增量台账整表失效。
-
-- 更新 `architecture.md`。
-
-- 结果写 `tasks_round/tasks_round_N_result.md`。
-
+- 更新 `architecture.md`，结果写 `tasks_round/tasks_round_N_result.md`。
 - 结构治理轮分两个子场景，开工前必须由用户明确指定：
 
-  **只读诊断**：扫描结构，输出新报告，含 A-M。
-     写入边界统一按 §3.5；验证按 §5。结果文件末尾必须含 J 整改路线、K 测试迁移计划。
+  **只读诊断**：扫描结构，输出含 A-M 的新报告，末尾必须含 J 整改路线、K 测试迁移计划；写入边界按 §3.5，验证按 §5。
 
-  **执行**：读指定报告的 J/K，执行其中一条。
-     必须写明来源报告路径和执行条目编号。
-     用户只说"结构治理轮"而未指定子场景时，
-     Codex 必须先反问："本轮是只读诊断，还是按某份报告执行？"
-     禁止自行假设。
+  **执行**：读指定报告的 J/K，执行其中一条，写明来源报告路径与条目编号。用户未指定子场景时，必须先反问："本轮是只读诊断，还是按某份报告执行？"，禁止自行假设。
 
 ### 3.4 契约轮
 
-适用：只改 L0 契约层。
+适用：只改 L0 契约层。仅审计、核对或记录 L0 契约而未修改实现时，也归类为**契约轮**并遵守本节全部要求；报告和状态台账不得使用“契约复核轮”等未定义组合类型。
 
-#### 契约轮中的复核
-
-“契约复核轮”不是独立轮次类型。仅审计、核对或记录 L0 契约而未修改契约实现时，
-一律归类为**契约轮**，并保留本节要求的范围、验证和文档更新；结果报告和状态台账不得再使用未定义的组合类型。
-
-- 只改 `pet_bus` / `script_contract` / `asset_contract` /
-  `stage_layout` / `storyboard_paths`。
+- 只改 `pet_bus` / `script_contract` / `asset_contract` / `stage_layout` / `storyboard_paths`。
 - 不动 L1 以上。
 - 跑全量自检。
 - 更新 `AGENTS.md` 硬约束与 `architecture.md`。
@@ -304,8 +224,6 @@
 - **边界**：只依据仓库事实、验证结果和已存在报告；不得把推测写成已完成事项。
 - **验收**：`project_status.md` 与结果报告的轮次、文件范围、验证状态一致，且遵守用户约定的更新节奏。
 
----
-
 ## 4. 双角色工作模式
 
 ### 4.1 Executor（默认）
@@ -329,10 +247,7 @@
 - 契约轮：是否只动了 L0？
 - 只读诊断轮：是否符合 §3.5 的报告和轮次元数据边界，且没有覆盖历史结果或修改生产代码／用户数据？
 
-输出审查报告：通过 / 不通过 + 理由。
-只有自审清单通过，本轮才算完成。
-
----
+输出审查报告：通过 / 不通过 + 理由；自审清单通过才算完成。
 
 ## 5. 自检规则
 
@@ -348,7 +263,6 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
 | 结构治理轮      | `python smoke_test.py --architecture`   | 运行下列全部架构门禁；不只限于分层/循环/路径/删除                   |
 | master 提交点：`last_full_safe_all_round` 之后累计 ≥ 8 个改过源码的轮次／路线图条目收口 | `run_selftests.py --all --safe` | 完整安全回归；分支不累计轮次欠账；计数口径与后台补跑见下方「全量欠账口径」 |
 | 发布前／用户明确要求 | `run_selftests.py --all --safe`         | 完整安全回归；不通过先修复                                |
-
 | 收尾时 | 核对 §2.5 轮次、认领与实际欠账 | 不伪造轮次或凭据；失败按 §8 继续处理 |
 
 **全量欠账口径（R1439，用户批准）**：唯一实现是 `run_selftests.FULL_SAFE_ROUND_INTERVAL`（8）、`source_rounds_since()`、`full_safe_required()`。只数 `last_full_safe_all_round` 之后、提交标题为 `R<n>:`／`R<n>-FAIL:` 且改过源码的轮次；纯文档、测试、`tasks_round/`、`维护记录/`、`说明/` 的轮次不计（`skills/` 下的 md 是 SKILL 源，计入）；读不出 git 历史时退回按全部轮次计。本节所列风险触发不受阈值影响：启动入口（`启动漫剧制作助手.pyw`／`启动助手.cmd`）、`storage_maintenance.py`（删除语义）、`tests/architecture/_layers.py`（层级登记表）由 `has_risk_change()` 按路径自动判定，任一轮改过就立即欠一次全量（门禁与后台补跑同时触发）；Tk 控件生命周期（销毁／重建）无法静态判定，仍由执行者人工判断并手动跑全量。
@@ -361,10 +275,9 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
 
 全量成功凭据记录 `{tree, round, seconds, at}`，由现有执行器写入 common-dir 的 `full-safe-receipts.json`；七日内同 `HEAD:程序` 内容树可复用真实绿凭据。不得以文档数字代替或伪造凭据。当前实测与历史绿色记录分开列于 `project_status.md` 的“验证基线”；失败处置见 §8，检查点提交见 §2.6。
 
-当前架构门禁清单（`tests/architecture/`）：清单如下；总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。
+当前架构门禁清单（`tests/architecture/`）：总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。
 
 - 卡片与忙碌状态补充：`test_card_boundary.py`、`test_busy_state_boundary.py`。
-
 - 分层与一致性：`test_agents_md.py`、`test_layers.py`、`test_no_circular_import.py`、`test_path_authority.py`、`test_stage_paths.py`、`test_storyboard_edit_boundary.py`、`test_storyboard_final_selection_boundary.py`。
 - 写入与删除边界：`test_atomic_write_boundary.py`、`test_asset_batch_ledger_boundary.py`、`test_asset_batch_settings_boundary.py`、`test_asset_detail_binding_boundary.py`、`test_asset_generated_import_boundary.py`、`test_asset_image_import_boundary.py`、`test_asset_plan_publication_boundary.py`、`test_asset_rename_boundary.py`、`test_asset_image_removal_boundary.py`、`test_asset_image_restore_boundary.py`、`test_audio_import_boundary.py`、`test_cloud_video_settings_boundary.py`、`test_continuity_publication_boundary.py`、`test_delivery_import_boundary.py`、`test_desktop_settings_boundary.py`、`test_edit_publication_boundary.py`、`test_final_bundle_boundary.py`、`test_handoff_publication_boundary.py`、`test_keyframe_delete_boundary.py`、`test_keyframe_restore_boundary.py`、`test_keyframe_replace_boundary.py`、`test_keyframe_reference_publication_boundary.py`、`test_legacy_adoption_boundary.py`、`test_local_video_settings_boundary.py`、`test_manual_creative_publication_boundary.py`、`test_previs_routing_publication_boundary.py`、`test_stage_workspace_boundary.py`、`test_structured_script_write_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_tts_publication_boundary.py`、`test_video_delete_boundary.py`、`test_video_options_boundary.py`、`test_video_prompt_publication_boundary.py`、`test_video_publication_boundary.py`、`test_white_model_import_boundary.py`、`test_writing_preparation_path_boundary.py`、`test_deletion_gateway.py`、`test_remove_authority.py`、`test_recycle_service.py`。
 - 剧本重命名边界：`test_script_rename_boundary.py`。
@@ -375,7 +288,7 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
 - 历史兼容门面：`test_legacy_facade_manifest.py`。
 - 轮次与基线／测试卫生：`test_round_baselines.py`、`test_skip_hygiene.py`、`test_todo_comment_snapshot.py`。
 - 覆盖率审计棘轮：`test_coverage_audit_ratchet.py`、`test_secret_sink_audit.py`。
-  密钥静态审计仅覆盖有限函数内传播；R1054 新增 3 项用例（30 个假代码子场景），支持范围与漏检／误报边界见 `tasks_round/tasks_round_1054_result.md` D–F，不将零命中解释为全路径安全。
+  密钥静态审计仅覆盖有限函数内传播，支持范围与漏检／误报边界见 `tasks_round/tasks_round_1054_result.md` D–F，不将零命中解释为全路径安全。
 - JSON／服务／统筹补充：`test_confirm_gates_json_boundary.py`、`test_context_menu_boundary.py`、`test_data_table_boundary.py`、`test_dialog_boundary.py`、`test_button_boundary.py`、`test_file_dialog_boundary.py`、`test_idea_attachment_publication_boundary.py`、`test_input_boundary.py`、`test_json_io_boundary.py`、`test_keyframe_batch_json_boundary.py`、`test_local_previs_json_boundary.py`、`test_notification_boundary.py`、`test_previs_automation_json_boundary.py`、`test_previs_batch_json_boundary.py`、`test_previs_monitor_json_boundary.py`、`test_project_context_boundary.py`、`test_service_return_contract.py`、`test_shortcut_registry_boundary.py`、`test_skill_orchestrator_json_boundary.py`、`test_stage_display_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_text_component_boundary.py`、`test_tooltip_boundary.py`、`test_ui_icons_boundary.py`、`test_scrollbar_theme_boundary.py`、`test_token_boundary.py`、`test_copy_entry_boundary.py`、`test_unification_ratchet.py`、`test_video_navigation_json_boundary.py`、`test_white_model_json_boundary.py`、`test_white_model_service_json_boundary.py`、`test_workflow_settings_json_boundary.py`、`test_writing_api_json_boundary.py`、`test_writing_publication_boundary.py`。
 
 新增或删除架构测试时，必须在同一轮更新以上清单、架构基线和结果报告；不得只更新测试而遗漏本入口说明。
@@ -383,18 +296,13 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
 - 架构门禁去重：跑 `run_selftests.py --all --safe` 的那一轮，`--all` 已含架构门禁，不再单独跑 `smoke_test.py --architecture`；只跑架构门禁的轮次不变。
 - 失败复验走增量：全量失败后，先用 `--affected`／`-k` 在定向层面修到绿，再复验全量；禁止把全量当排错工具反复兜底。
 
----
-
 ## 6. 进度播报前缀
 
 前缀事实来源为 `broadcaster.PREFIX_PATTERNS`，阶段分母由 `Broadcaster.stage()` 从 `pet_bus.STAGES` 生成。以下是当前展示格式，不是第二套定义：
 
-`【阶段 X/13】`、`【步骤 Y/Z】`、`【门禁】`、`【警告】`、`【阻塞】`、
-`【完成】`、`【恢复】`、`【下一阶段】`、`【模式】`
+`【阶段 X/13】`、`【步骤 Y/Z】`、`【门禁】`、`【警告】`、`【阻塞】`、`【完成】`、`【恢复】`、`【下一阶段】`、`【模式】`
 
 无前缀消息会被拒绝。
-
----
 
 ## 7. 每轮结束时
 
@@ -405,8 +313,6 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
    - 测试跑了吗？三个基线过了吗？
    - project_status.md 的欠账少了吗？
 4. 按 §2.6 收尾提交；`升级备份/` 与 `.bak_*` 保留为历史证据，Git 承担后续回滚，今后不再新增 `.bak_*`。
-
----
 
 ## 8. 任务执行协议
 

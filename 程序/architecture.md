@@ -219,17 +219,15 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 
 项目接续快照：`workflow_context.snapshot()` 消费由 L3 注入的 `ProjectContext`，直接调用同层 `storyboard_catalog_service.catalog()`；L2 不得反向导入编排层。桌面与剧本 API 在进入快照前装配上下文。提示词入口传入预计算 `data` 时仍接受项目路径；省略 `data` 时必须传入上下文，避免 L2 自行构造依赖。
 
-R1127：（`hollmwood_rules` 已随 HOLLMWOOD 框架移除，见下节）`script_contract.STAGE_LOCK_REQUIREMENTS` 统一阶段必填锁，`PRODUCTION_LOCK_DEFINITIONS` 统一标签与别名；剧本准备只要求交付形态，首帧／视频／白模要求三项锁，其他阶段无必填锁。提示词头部仅在白名单阶段裁剪，其他阶段保留既有锁展示。
+`script_contract.STAGE_LOCK_REQUIREMENTS` 统一阶段必填锁，`PRODUCTION_LOCK_DEFINITIONS` 统一标签与别名；剧本准备只要求交付形态，首帧／视频／白模要求三项锁，其他阶段无必填锁。提示词头部仅在白名单阶段裁剪，其他阶段保留既有锁展示。
 
-### HOLLMWOOD 框架并入剧本 SKILL（已移除）
+### 剧本 SKILL 角色审核与编剧风格
 
-原 HOLLMWOOD 四角色协作（`hollmwood_roles` / `hollmwood_rules`、阶段配置「四角色协作」勾选项、导演规划与逐步审核返工、`hollmwood_step_*.log` 与角色进度条）整体移除，不再有程序编排的多次请求。角色职责并入 `skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md` 的「定向注入（00 包）」，由同一次回复内的三个内部角色承担：编剧角色审核五阶门控、编辑角色审核 12 个情绪节拍、演员角色完成台词七维诊断与语速自检；`writing_quality.prompt()` 在四份规则齐全时把同一角色分工写入辅助质检交付契约。
+角色职责位于 `skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md` 的「定向注入（00 包）」，由同一次回复内的三个内部角色承担：编剧角色审核五阶门控、编辑角色审核 12 个情绪节拍、演员角色完成台词七维诊断与语速自检；`writing_quality.prompt()` 在四份规则齐全时把同一角色分工写入辅助质检交付契约。旧框架及适配器的移除证据见 [R1441](tasks_round/tasks_round_1441_result.md)、[R1442](tasks_round/tasks_round_1442_result.md)。
 
-用户可编辑的只有项目级「编剧风格」：保存在项目 `skill_config.json` 的 `script.writer_style`（旧项目的 `hollmwood_writer_rules` 读取时迁入，下次保存即不再写出，其余 `hollmwood_*` 旧键忽略），由 `stage_config.writer_style()` 读取，`workflow_settings.writer_style_prompt()` 在剧本准备的桌面任务书与直连 API 的 system 中各注入一次，空风格不占请求。`WritingCancelledError`（`writing_api`）取代原 `RoleCancelledError`。Claude 桌面程序模型不再作为受控 CLI 对话模型，`writing_api.selected_model()` 对其返回空，走桌面 Agent 通道。
+用户可编辑的只有项目级「编剧风格」：保存在项目 `skill_config.json` 的 `script.writer_style`（旧项目的编剧规则读取时迁入，下次保存不再写旧键，其余旧框架键忽略），由 `stage_config.writer_style()` 读取，`workflow_settings.writer_style_prompt()` 在剧本准备的桌面任务书与直连 API 的 system 中各注入一次，空风格不占请求。写作取消异常为 `writing_api.WritingCancelledError`。Claude 桌面程序模型不再作为受控 CLI 对话模型，`writing_api.selected_model()` 对其返回空，走桌面 Agent 通道。
 
 ## 4. 三虎 Agent 的阶段定义
-
-R1176（历史）：四角色 API 的请求装配已随 HOLLMWOOD 框架移除，见上节。
 
 R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析模型身份、调用方式和 `workflow_settings.current()` 的有效配置；`freeze_skills()` 内联所选技能及直接 Markdown/文本引用并冻结正文，API 与桌面复用该快照。失效选择、缺失引用、空技能和超出请求字符预算均阻止发送，不截断或静默省略；完整请求另沿用既有发送前预算闸门。`idea_chat` 保存脱敏的选中/加载清单、字数及 SHA-256，气泡显示本次加载结果，旧记录不伪造凭据。共享阶段成果、角色顺序、重试及发布边界不变。
 
