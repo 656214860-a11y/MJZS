@@ -16,6 +16,38 @@ def rows(project):
 
 
 class RecordRequestTests(unittest.TestCase):
+    def test_tts_batch_quote_blocks_before_first_request_without_writes(self):
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '0.3', 'price_table': {
+                'currency': 'CNY', 'version': 'v1', 'model_rates': {'m': {'characters': '0.1'}}}}), encoding='utf-8')
+            lines = [{'shot_id': str(i), 'text': '你好', 'speed': 1.0, 'model': 'm'} for i in range(2)]
+            generate = Mock(return_value=b'audio')
+            before = set(root.rglob('*'))
+            with self.assertRaises(ValueError):
+                ses.run_tts_lines(lines, root / 'audio', generate, project=root)
+            generate.assert_not_called()
+            self.assertEqual(set(root.rglob('*')), before)
+
+    def test_tts_quote_excludes_unknown_and_completed_and_tracks_changed_text(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            lines = [{'shot_id': '1', 'text': '你好', 'speed': 1.0, 'model': 'm'}]
+            out = root / 'audio'
+            ses.run_tts_lines(lines, out, lambda *a, **k: b'audio', project=root)
+            quote = tts_api.batch_cost_preview(root, lines, out)
+            self.assertEqual((quote['pending'], quote['characters'], quote['unknown']), ([], 0, 0))
+            manifest = [{**lines[0], 'state': 'uncertain', 'file': '', 'request_id': 'unknown'}]
+            (out / '时间轴.json').write_text(json.dumps(manifest), encoding='utf-8')
+            before = {p: p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            quote = tts_api.batch_cost_preview(root, lines, out)
+            self.assertEqual((quote['pending'], quote['characters'], quote['unknown']), ([], 0, 1))
+            self.assertEqual({p: p.read_bytes() for p in root.rglob('*') if p.is_file()}, before)
+            changed = [{**lines[0], 'text': '新的台词'}]
+            quote = tts_api.batch_cost_preview(root, changed, out)
+            self.assertEqual((quote['pending'], quote['characters'], quote['unknown']), ([1], 4, 0))
+
     def test_records_are_idempotent_per_id_and_kind(self):
         with tempfile.TemporaryDirectory() as folder:
             pet_llm.record_request(folder, 'r1', 'videos', 1)
@@ -87,7 +119,9 @@ class TtsRecordingTests(unittest.TestCase):
             lines = [{'shot_id': 'S1', 'text': '你好', 'speed': 1.0}]
             generate = Mock(side_effect=TimeoutError('test'))
             out = root / 'audio'
-            self.assertEqual(ses.run_tts_lines(lines, out, generate, project=root), (0, 0, 1))
+            with self.assertRaises(ValueError):
+                ses.run_tts_lines(lines, out, generate, project=root)
+            self.assertFalse(out.exists())
             generate.assert_not_called()
             config['budget_amount'] = '0.2'
             policy.write_text(json.dumps(config), encoding='utf-8')

@@ -704,12 +704,11 @@ class MediaPagesMixin:
         out=out or dated_path(folder,'配音批次')
         # 付费闸口：逐句配音按句计费，点一次会发出「待合成句数」个请求。先在点按钮时把要花多少、
         # 有多少句沿用已生成文件摊开确认，取消时一句都不提交（沿用判定与批次内部同一口径）。
-        pending=tts_api.pending_lines(lines,out)
+        quote=tts_api.batch_cost_preview(self.root,lines,out,tts_settings)
+        pending=quote['pending']
         if not pending:
-            self.status.set('逐句配音：本批 '+str(len(lines))+' 句都已有成品，无需重复合成，也没有产生新费用');return
-        chars=sum(len(lines[index-1].get('text') or '') for index in pending)
-        tip='将向 TTS 接口提交 '+str(len(pending))+' 句（共 '+str(chars)+' 字），按用量计费。'
-        if len(pending)<len(lines):tip+='\n另有 '+str(len(lines)-len(pending))+' 句沿用已生成文件，不重复扣费。'
+            self.status.set('逐句配音：'+('都已有成品，无需重复合成。' if not quote['unknown'] else '')+quote['text']);return
+        tip=quote['text']
         if not confirm(self.win, '逐句配音（付费）', tip+'\n\n继续提交？', dangerous=True):
             self.status.set('已取消逐句配音：未提交任何句子，也没有产生费用');return
         def work():

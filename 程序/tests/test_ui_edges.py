@@ -3448,6 +3448,8 @@ class UiEdgeTests(unittest.TestCase):
             self.assertIn("未提交", d.status.get())
             self.assertIn("2 句", asked[0][1])                # 确认框先把要付多少摊开
             self.assertIn("6 字", asked[0][1])
+            self.assertIn("价格版本", asked[0][1])
+            self.assertIn("本批预计", asked[0][1])
             with patch.object(desktop_module, "confirm", lambda *a, **k: True), patch.object(tts_api, "synthesize", fake_synthesize):
                 d.generate_tts_per_line()
             self.assertEqual(calls, ["第一句", "第二句"])      # 确认后按预览的句数提交

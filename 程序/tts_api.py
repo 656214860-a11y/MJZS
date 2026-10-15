@@ -393,6 +393,34 @@ def pending_lines(lines, folder):
     return [index for index, line in enumerate(lines, 1) if not line_done(manifest, index, line, folder)]
 
 
+def batch_cost_preview(project, lines, folder, settings=None):
+    """只读报价：已完成与结果未知的句子不计入新增请求。"""
+    from pet_llm import RequestLedger, BudgetRejected
+    folder = Path(folder)
+    manifest = read_json(folder / '时间轴.json')
+    manifest = manifest if isinstance(manifest, list) else []
+    pending, unknown = [], 0
+    for index, line in enumerate(lines, 1):
+        if line_done(manifest, index, line, folder):
+            continue
+        previous = manifest[index - 1] if index <= len(manifest) else {}
+        if (previous.get('state') in ('sending', 'uncertain')
+                and all(previous.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)):
+            unknown += 1
+            continue
+        text = line.get('text', '')
+        if not isinstance(text, str) or not text.strip() or len(text) > 4000:
+            raise BudgetRejected('配音文本须为1至4000字')
+        coerce_speed(line.get('speed', 1.0))
+        pending.append(index)
+    chars = sum(len(lines[index - 1]['text']) for index in pending)
+    tip = f'新增 {len(pending)} 句，共 {chars} 字；待核实 {unknown} 句不会重复发送。'
+    if pending:
+        frozen = freeze_settings(lines, settings)
+        tip += '\n' + RequestLedger(project).preview_text(frozen['model'], 'requests', {'characters': chars})
+    return {'pending': pending, 'unknown': unknown, 'characters': chars, 'text': tip}
+
+
 def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=None, settings=None, episode=None,
               on_line=None, project=None):
     """逐句合成到 folder：每句完成后立即写清单，已成功的句子直接沿用。
@@ -404,9 +432,13 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
     from uuid import uuid4
     from pet_llm import RequestLedger, BudgetRejected
     publish = _require_gateway(gateway, "publish_json", "publish_bytes")
-    folder = Path(folder); folder.mkdir(parents=True, exist_ok=True)
+    folder = Path(folder)
     # 批次一开始就把配置冻结下来：长批次中途改设置，这一批仍按开批时那一套跑，不混用两套（O12）。
     frozen = freeze_settings(lines, settings)
+    if project is not None:
+        quote = batch_cost_preview(project, lines, folder, frozen)
+        if report:report(quote['text'])
+    folder.mkdir(parents=True, exist_ok=True)
     if generate is None:
         if project is not None and not load_key():
             raise ValueError("请先在配音设置保存 API Key")
