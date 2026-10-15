@@ -60,6 +60,22 @@ class AdoptedVersionTests(unittest.TestCase):
 class EditBundleTests(unittest.TestCase):
     """成片＋质检＋来源清单先合成一份可恢复清单，索引任一份写失败都还能核对来源。"""
 
+    def test_bundle_preserves_generation_reference_digest(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); out = root / 'edit'; out.mkdir()
+            master = out / 'MASTER.mp4'; master.write_bytes(b'film')
+            clip = root / 'clip.mp4'; clip.write_bytes(b'clip')
+            reference = root / 'reference.png'; reference.write_bytes(b'changed-reference')
+            engine.save(root / 'assets_manifest.json', {'assets': [
+                {'path': str(reference), 'sha256': 'generation-time-digest'}]})
+            chosen = [({'id': 'S01'}, {'version': 1, 'sha256': engine.file_hash(clip)}, clip)]
+            engine.Studio.publish_edit_bundle(None, out, master, {}, chosen)
+            bundle = engine.read(out / 'edit_bundle.json')
+            self.assertEqual(bundle['references'], [{'path': '../reference.png', 'sha256': 'generation-time-digest'}])
+            engine.save(root / 'assets_manifest.json', {'assets': [{'path': str(reference)}]})
+            with self.assertRaisesRegex(ValueError, '路径或摘要'):
+                engine.Studio.publish_edit_bundle(None, out, master, {}, chosen)
+
     def _publish(self, out):
         master = out / 'MASTER.mp4'
         master.write_bytes(b'film')

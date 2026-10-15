@@ -170,6 +170,32 @@ class MediaCompletionTests(unittest.TestCase):
             with self.subTest(source=bad_source), self.assertRaises(ValueError):
                 validate_commercial_evidence(self.root, evidence)
 
+    def test_commercial_reference_gate_requires_generation_version(self):
+        import os
+        from agent.core import file_hash
+        from stage_completion_service import commercial_template, validate_commercial_evidence
+        evidence, _ = self.commercial_fixture()
+        video = evidence['categories']['video']['items'][0]
+        output = self.root / video['path']
+        reference = self.root / 'reference.png'; reference.write_bytes(b'test-reference')
+        save(output.parent / 'edit_bundle.json', {'master': output.name, 'master_sha256': video['sha256'],
+             'manifest': [{'sha256': video['sha256']}],
+             'references': [{'path': os.path.relpath(reference, output.parent), 'sha256': file_hash(reference)}]})
+        template = commercial_template(self.root)
+        self.assertEqual(template['categories']['reference']['items'][0]['path'], 'reference.png')
+        with self.assertRaisesRegex(ValueError, '参考授权'):
+            validate_commercial_evidence(self.root, evidence)
+        item = dict(video, path='reference.png', sha256=file_hash(reference))
+        evidence['categories']['image']['items'] = [item]
+        with self.assertRaisesRegex(ValueError, '参考授权'):
+            validate_commercial_evidence(self.root, evidence)
+        evidence['categories']['reference']['items'] = [item]
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        reference.write_bytes(b'changed-reference')
+        item['sha256'] = file_hash(reference)
+        with self.assertRaisesRegex(ValueError, '参考授权'):
+            validate_commercial_evidence(self.root, evidence)
+
     def test_commercial_font_gate_covers_new_and_legacy_overlay_fonts(self):
         from copy import deepcopy
         from agent.core import file_hash

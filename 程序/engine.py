@@ -599,10 +599,30 @@ class Studio:
                         else str(Path(source).resolve())).replace('\\', '/')}
             for shot, version, source in chosen
         ]
+        references = []
+        for _, _, source in chosen:
+            assets_path = Path(source).resolve().parent / 'assets_manifest.json'
+            if not assets_path.is_file():
+                continue
+            assets = read(assets_path)
+            if not isinstance(assets, dict) or not isinstance(assets.get('assets'), list):
+                raise ValueError('镜头参考资产清单无效，不能登记剪辑成果')
+            for asset in assets['assets']:
+                if (not isinstance(asset, dict) or not isinstance(asset.get('path'), str)
+                        or not asset['path'].strip() or not isinstance(asset.get('sha256'), str)
+                        or not asset['sha256']):
+                    raise ValueError('镜头参考资产缺少路径或摘要，不能登记剪辑成果')
+                reference = (assets_path.parent / asset['path']).resolve()
+                reference_path = (os.path.relpath(reference, out)
+                                  if reference.drive.casefold() == out.drive.casefold() else str(reference))
+                row = {'path': reference_path.replace('\\', '/'), 'sha256': asset['sha256']}
+                if row not in references:
+                    references.append(row)
         save(out/EDIT_BUNDLE_NAME, {
             'master': master.name, 'master_sha256': file_hash(master),
             'output_spec': report.get('output_spec'), 'qc': report,
             'manifest': manifest, 'coverage': report.get('coverage') or {},
+            'references': references,
             'fonts': [{'path': 'font.ttc', 'sha256': file_hash(out / 'font.ttc')}]
                      if any(shot.get('post_overlay') for shot, _, _ in chosen) and (out / 'font.ttc').is_file() else [],
             'published_at': time.time(),

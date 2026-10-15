@@ -180,7 +180,7 @@ def _commercial_inventory(root, scope, outputs):
         if not isinstance(bundle, dict):
             warnings.append('成片来源清单格式无效：' + output['path'])
             continue
-        for field, category in (('manifest', 'video'), ('fonts', 'font')):
+        for field, category in (('manifest', 'video'), ('fonts', 'font'), ('references', 'reference')):
             rows = bundle.get(field, [])
             if not isinstance(rows, list):
                 warnings.append('来源清单格式无效：' + field)
@@ -292,6 +292,20 @@ def validate_commercial_evidence(root, evidence):
                         or declared.get(source) != row['sha256']
                         or file_hash(source) != row['sha256']):
                     raise ValueError('视频授权未覆盖成片实际镜头来源版本')
+            references = bundle.get('references', [])
+            if not isinstance(references, list):
+                raise ValueError('成片参考来源清单无效')
+            declared_references = {(root / item['path']).resolve(): item['sha256']
+                                   for item in categories['reference']['items']}
+            for reference in references:
+                if (not isinstance(reference, dict) or not isinstance(reference.get('path'), str)
+                        or not reference['path'].strip()):
+                    raise ValueError('成片参考来源清单无效')
+                reference_path = (path.parent / reference['path']).resolve()
+                if (not reference_path.is_relative_to(root) or not reference_path.is_file()
+                        or declared_references.get(reference_path) != reference.get('sha256')
+                        or file_hash(reference_path) != reference.get('sha256')):
+                    raise ValueError('参考授权未覆盖镜头生成时采用的素材版本')
             fonts = bundle.get('fonts', [])
             if not isinstance(fonts, list):
                 raise ValueError('成片字体来源清单无效')
