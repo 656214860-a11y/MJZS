@@ -44,14 +44,25 @@ def _tags(value):
 
 
 def _license(text):
-    """许可名归一：先整串命中，再按最长关键词命中；认不出来的留给 usable 去拦。"""
+    """只接受完整许可标识或本程序输出的标签；不从任意说明中猜授权。"""
     raw = str(text or '').strip()
     key = raw.casefold()
     if key in LICENSES:
         return LICENSES[key]
-    hits = [(token, value) for token, value in LICENSES.items() if token in key]
-    if hits:
-        return max(hits, key=lambda pair: len(pair[0]))[1]
+    if key == 'cc0 1.0':
+        return LICENSES['cc0']
+    for label, commercial in LICENSES.values():
+        if key == label.casefold():
+            return label, commercial
+    match = re.fullmatch(r'cc[ -]+by((?:[ -](?:nc|nd|sa))*)(?:\s+[1-4]\.0)?', key)
+    if match:
+        terms = match[1].strip(' -').replace(' ', '-').split('-') if match[1] else []
+        if len(terms) == len(set(terms)) and set(terms) <= {'nc', 'nd', 'sa'}:
+            if 'nc' in terms:
+                return 'CC BY-' + '-'.join(term.upper() for term in terms) + ' 非商用', False
+            if 'nd' in terms:
+                return LICENSES['cc by-nd']
+            return LICENSES['cc by-sa' if 'sa' in terms else 'cc by']
     return raw, False
 
 
@@ -76,6 +87,23 @@ def usable(candidate):
     """版权三要素缺一不可：图片地址、来源页、许可名（作者或站点名用来追溯）。"""
     item = normalize(candidate)
     return bool(item['url'] and item['page'] and item['license'] and (item['author'] or item['page']))
+
+
+def copyright_decision(candidate):
+    """商用且可能改编的参考图入口共用判定；返回阻断原因与交付义务。"""
+    item = normalize(candidate)
+    if not usable(item):
+        return '版权信息不全（缺图片地址、来源页或许可名），不能入库', ''
+    if not item['commercial']:
+        return '许可不允许商用改编或无法确认：' + item['license'], ''
+    if item['license'].startswith('CC BY'):
+        if not item['author']:
+            return '署名许可缺作者／署名方，请补充后入库', ''
+        duties = '署名、保留许可链接、说明改动'
+        if item['license'] == LICENSES['cc by-sa'][0]:
+            duties += '；改编作品相同方式共享'
+        return '', duties
+    return '', '保留来源和许可凭据'
 
 
 def _words(text):
@@ -181,6 +209,7 @@ STATE_NOTES = {
     'missing_url': '候选没有图片地址',
     'missing_source': '缺少来源页，无法追溯出处，不能入库',
     'missing_license': '未声明许可，不能入库',
+    'missing_attribution': '署名许可缺作者／署名方，请补充后入库',
     'non_commercial': '许可不允许商用，默认不入库',
     'source_conflict': '同图多来源的许可不一致，需人工核对',
     'duplicate': '同图已有更高分来源，未重复展示',
@@ -200,6 +229,8 @@ def _state(item, value, threshold):
         return 'low_score'
     if not item['commercial']:
         return 'non_commercial'
+    if copyright_decision(item)[0]:
+        return 'missing_attribution'
     return 'adoptable'
 
 
@@ -328,7 +359,8 @@ def fetch_bytes(url, timeout=60):
 def _credit(item, digest):
     return {'url': item['url'], 'page': item['page'], 'title': item['title'], 'author': item['author'],
             'license': item['license'], 'license_url': item['license_url'],
-            'collected_at': item['collected_at'], 'commercial': item['commercial'], 'sha256': digest}
+            'collected_at': item['collected_at'], 'commercial': item['commercial'], 'sha256': digest,
+            'obligations': copyright_decision(item)[1]}
 
 
 def _write_credits(base, aid, table, read, save, image_bytes):
@@ -367,8 +399,9 @@ def adopt(base, aid, picks, fetch=None, role=None):
             if not item['url']:
                 skipped.append({'url': '', 'reason': '候选没有图片地址'})
                 continue
-            if not usable(item):
-                skipped.append({'url': item['url'], 'reason': '版权信息不全（缺来源页、作者或许可名），不能入库'})
+            reason, _ = copyright_decision(item)
+            if reason:
+                skipped.append({'url': item['url'], 'reason': reason})
                 continue
             try:
                 raw = fetch(item['url'])

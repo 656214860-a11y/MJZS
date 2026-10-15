@@ -156,7 +156,7 @@ def _revise_structured_script(context):
 
 def _copyright_filter(context):
     """版权过滤与来源记录：复用参考图搜索那份许可表（CC0／CC-BY 优先，不明就拦掉）。"""
-    from asset_reference_search import _license
+    from asset_reference_search import normalize, copyright_decision
     ctx = context or {}
     allow_cc0 = ctx.get('allowCC0', True)
     allow_ccby = ctx.get('allowCCBY', True)
@@ -165,13 +165,12 @@ def _copyright_filter(context):
         if not isinstance(item, dict):
             blocked.append({'item': item, 'reason': '候选不是一条记录'})
             continue
-        label, commercial = _license(item.get('license'))
-        entry = {'url': str(item.get('url') or ''), 'page': str(item.get('page') or ''),
-                 'author': str(item.get('author') or ''), 'license': label,
-                 'license_url': str(item.get('license_url') or ''), 'commercial': bool(commercial)}
-        if not entry['url'] or not entry['page'] or not label:
-            blocked.append({'item': entry, 'reason': '版权信息不全（缺来源页、作者或许可名），不能入库'})
+        entry = normalize(item)
+        reason, obligations = copyright_decision(entry)
+        if reason:
+            blocked.append({'item': entry, 'reason': reason})
             continue
+        label = entry['license']
         low = label.lower()
         is_cc0 = 'cc0' in low or '公有领域' in label or 'public domain' in low
         is_ccby = 'cc by' in low or 'cc-by' in low or '署名' in label
@@ -181,9 +180,7 @@ def _copyright_filter(context):
         if is_ccby and not allow_ccby:
             blocked.append({'item': entry, 'reason': '按设置不允许 CC-BY'})
             continue
-        if not is_cc0 and not is_ccby and not commercial:
-            blocked.append({'item': entry, 'reason': '许可 %s 不可商用' % (label or '未知')})
-            continue
+        entry['obligations'] = obligations
         kept.append(entry)
     return {'ok': True, 'filtered': kept, 'blocked': blocked,
             'licenses': sorted({entry['license'] for entry in kept})}
