@@ -826,6 +826,13 @@ def _http_error_kind(status):
 
 @app_logging.timed('model.http', 30000)
 def http_transport(url, payload, headers, timeout):
+    """模型供应商通用 HTTP 传输；按结果种类计数（成功／network／bug／HTTP 状态），不改变返回。"""
+    result = _http_transport(url, payload, headers, timeout)
+    app_logging.count('model.http.' + ('ok' if result.get('ok') else str(result.get('kind') or result.get('status'))))
+    return result
+
+
+def _http_transport(url, payload, headers, timeout):
     """模型供应商通用 HTTP 传输；仅在实际请求时加载网络栈。"""
     import ssl
     import urllib.error

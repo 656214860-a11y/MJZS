@@ -49,6 +49,16 @@ def redact(value: object) -> str:
 
 
 _metrics: dict = {}
+_counters: dict = {}
+
+
+def count(name: str, amount: int = 1) -> None:
+    """事件计数（成功／失败原因等），随 ``perf_metrics.json`` 一起落盘；不抛异常。"""
+    try:
+        with _swallow_lock:
+            _counters[name] = _counters.get(name, 0) + amount
+    except Exception:
+        pass
 
 
 class timed(contextlib.ContextDecorator):
@@ -89,8 +99,11 @@ class timed(contextlib.ContextDecorator):
 
 def metrics_snapshot() -> dict:
     with _swallow_lock:
-        return {name: {k: round(v, 1) if isinstance(v, float) else v for k, v in row.items()}
+        data = {name: {k: round(v, 1) if isinstance(v, float) else v for k, v in row.items()}
                 for name, row in _metrics.items()}
+        if _counters:
+            data["counters"] = dict(_counters)
+        return data
 
 
 def flush_metrics() -> None:

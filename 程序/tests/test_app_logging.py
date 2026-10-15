@@ -146,6 +146,20 @@ class AppLoggingTests(unittest.TestCase):
         self.assertIn("@app_logging.timed('page.show'", (program / 'desktop.py').read_text(encoding='utf-8'))
         self.assertIn("@app_logging.timed('model.http'", (program / 'model_pool.py').read_text(encoding='utf-8'))
 
+    def test_model_http_outcomes_are_counted_without_changing_result(self):
+        import model_pool
+        app_logging._counters.clear()
+        results = [{'ok': True, 'status': 200, 'data': {}},
+                   {'ok': False, 'status': 0, 'kind': 'network', 'error': 'x'},
+                   {'ok': False, 'status': 429, 'kind': 'rate_limit', 'error': 'y'}]
+        with mock.patch.object(model_pool, '_http_transport', side_effect=results):
+            got = [model_pool.http_transport('u', {}, {}, 1) for _ in results]
+        self.assertEqual(got, results)
+        counters = app_logging.metrics_snapshot()['counters']
+        self.assertEqual(counters['model.http.ok'], 1)
+        self.assertEqual(counters['model.http.network'], 1)
+        self.assertEqual(counters['model.http.rate_limit'], 1)
+
     def test_real_launcher_installs_hooks(self):
         source = (ROOT / '启动漫剧制作助手.pyw').read_text(encoding='utf-8')
         self.assertIn('app_logging.install(crash_sink=', source)
