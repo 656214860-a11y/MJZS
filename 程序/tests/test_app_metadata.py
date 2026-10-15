@@ -91,7 +91,7 @@ class AppMetadataTests(unittest.TestCase):
             self.assertEqual(white_model_service.user_data_dir(), expected)
 
     def test_current_document_titles_use_the_visible_name(self):
-        for path in (ROOT / 'GLOSSARY.md', ROOT / '使用说明.md', ROOT / '使用说明.txt',
+        for path in (ROOT / '.agent-handoff' / 'GLOSSARY.md', ROOT / '使用说明.md', ROOT / '使用说明.txt',
                      PROGRAM / 'README.md', PROGRAM / 'PROJECT_MAP.md',
                      PROGRAM / 'architecture.md', PROGRAM / '说明' / '维护约定.md'):
             with self.subTest(path=path.name):
