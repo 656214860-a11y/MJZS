@@ -3299,6 +3299,32 @@ class ModelPoolTests(PetTestCase):
             found.extend(self._walk(child, kind))
         return found
 
+    def test_explicit_modes_override_old_record_and_search_current_model(self):
+        from unittest.mock import patch
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        win._pet_tree.selection_set('claude-desktop-app')
+        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        self.assertEqual(win._pet_mode.get(), 'Desktop')
+        entries = win._pet_entries
+        entries['model'].delete(0, 'end')
+        entries['model'].insert(0, 'Google Gemini 4')
+        self.assertEqual(entries['program'].get(), '')
+        with patch('workflow_settings.find_model_program', side_effect=ValueError('未找到 Gemini')) as find:
+            win._pet_detect_program(quiet=False)
+        find.assert_called_once_with('Google Gemini 4', 'Desktop')
+        self.assertEqual(entries['program'].get(), '')
+        self.assertIn('未找到 Gemini', win._pet_hint.get())
+        win._pet_mode.set('API')
+        self.assertFalse(win._pet_program_row.winfo_manager())
+        self.assertTrue(all(w.winfo_manager() for w in win._pet_api_controls))
+        self.assertEqual(win._pet_read_form()['call_mode'], 'API')
+        win._pet_mode.set('CLI')
+        self.assertTrue(win._pet_program_row.winfo_manager())
+        self.assertTrue(all(not w.winfo_manager() for w in win._pet_api_controls))
+        self.assertEqual(win._pet_read_form()['call_mode'], 'CLI')
+
     def test_desktop_form_hides_api_fields_and_persists_application(self):
         from unittest.mock import patch
         win = self.pet.open_model_manager()
@@ -3319,11 +3345,30 @@ class ModelPoolTests(PetTestCase):
             buttons['检查程序'].invoke()
         buttons['保存这条'].invoke()
         self.assertEqual(model_pool.pool(program=self.pet.program)['claude-desktop-app']['program'], str(executable))
+        self.assertEqual(model_pool.pool(program=self.pet.program)['claude-desktop-app']['call_mode'], 'Desktop')
         tree.selection_set('gpt-4o')
         tree.event_generate('<<TreeviewSelect>>')
         win.update()
         self.assertFalse(win._pet_program_row.winfo_manager())
         self.assertTrue(all(w.winfo_manager() == 'grid' for w in win._pet_api_controls))
+
+    def test_typing_model_id_automatically_searches_after_debounce(self):
+        import tkinter as tk
+        from unittest.mock import patch
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        win._pet_mode.set('Desktop')
+        model = win._pet_entries['model']
+        done = tk.BooleanVar(master=win)
+        with patch('workflow_settings.find_model_program', return_value='C:/apps/Gemini.exe') as find:
+            model.delete(0, 'end')
+            model.insert(0, 'Google')
+            model.delete(0, 'end')
+            model.insert(0, 'Google Gemini 4')
+            win.after(600, lambda: done.set(True))
+            win.wait_variable(done)
+        find.assert_called_once_with('Google Gemini 4', 'Desktop')
+        self.assertEqual(win._pet_entries['program'].get(), 'C:/apps/Gemini.exe')
 
     def test_anthropic_provider_keeps_desktop_form_for_local_claude(self):
         """R1423：本机 Claude 选 anthropic 仍是应用路径表单，存储协议仍为 desktop。"""
@@ -3356,7 +3401,8 @@ class ModelPoolTests(PetTestCase):
         win.update()
         self.assertEqual(win._pet_program_row.winfo_manager(), 'grid')
         self.assertTrue(all(not w.winfo_manager() for w in win._pet_api_controls))
-        # 普通 Anthropic API 模型仍显示接口与密钥。
+        # 调用方式由新增选择器决定，不再被模型名称隐式切换。
+        win._pet_mode.set('API')
         win._pet_entries['model'].delete(0, 'end')
         win._pet_entries['model'].insert(0, 'claude-opus-api')
         win._pet_entries['model'].event_generate('<KeyRelease>')
@@ -3371,6 +3417,7 @@ class ModelPoolTests(PetTestCase):
         self.addCleanup(win.destroy)
         buttons = {str(w.cget('text')): w for w in self._walk(win, self.ttk.Button)}
         buttons['新建一条'].invoke()
+        win._pet_mode.set('CLI')
         entries = win._pet_entries
         entries['label'].insert(0, 'Claude Code Cli')
         entries['model'].insert(0, 'claude code')

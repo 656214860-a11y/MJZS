@@ -40,7 +40,7 @@ MANAGER_GEOMETRY = '1180x860'
 MANAGER_RATIO = 0.9
 MANAGER_MIN = (820, 620)
 NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶段配置里选。'
-NOTE_MANAGER = '本地模型配置应用安装路径；API 模型配置接口与密钥。'
+NOTE_MANAGER = '先选择调用方式：Desktop 配置桌面应用，API 配置接口与密钥，CLI 配置命令行程序。'
 # 列表那一行照规格那张表：显示名／Provider／模型 ID／能力标签／状态，另加两个用得上又不好猜的
 # （API 根地址、密钥名）。协议在下面表单里选，列表不再占一格。
 COLUMNS = (('provider', 'Provider', 100), ('model', '模型 ID', 140), ('label', '显示名', 120),
@@ -336,6 +336,7 @@ def open_manager(pet):
     caps = {}
     provider = tk.StringVar(value=model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
     wire = tk.StringVar(value=model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
+    mode = tk.StringVar(value='API')
 
     def text_row(index, key, label):
         """一行「标签 ＋ 输入框」；行号往下走，表单中间插下拉框／多选都不会错位。"""
@@ -346,7 +347,10 @@ def open_manager(pet):
         return index + 1
 
     # 表单次序：Provider、模型 ID、显示名（按 ID 自动推断）、根地址、密钥、协议、能力标签、上下文、备注。
-    index = 0
+    ttk.Label(form, text='调用方式').grid(row=0, column=0, sticky='w', padx=(0, SPACING['md']))
+    mode_box = SelectBox(form, textvariable=mode, values=('Desktop', 'API', 'CLI'))
+    mode_box.grid(row=0, column=1, sticky='ew')
+    index = 1
     ttk.Label(form, text='Provider').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
     # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
     # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
@@ -399,13 +403,13 @@ def open_manager(pet):
     index = text_row(index + 1, 'context_length', '上下文长度（可选）')
     text_row(index, 'note', '备注（可选）')
     hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
-    api_rows = {3, 4, 5, 6}
+    api_rows = {4, 5, 6, 7}
     api_controls = [widget for widget in form.winfo_children()
                     if int(widget.grid_info().get('row', -1)) in api_rows]
     program_label = ttk.Label(form, text='应用安装路径')
-    program_label.grid(row=3, column=0, sticky='w', padx=(0, SPACING['md']))
+    program_label.grid(row=4, column=0, sticky='w', padx=(0, SPACING['md']))
     program_row = ttk.Frame(form)
-    program_row.grid(row=3, column=1, sticky='ew')
+    program_row.grid(row=4, column=1, sticky='ew')
     program_row.columnconfigure(0, weight=1)
     program_entry = LineInput(program_row, style='ModelManager.TEntry')
     program_entry.grid(row=0, column=0, sticky='ew')
@@ -416,19 +420,19 @@ def open_manager(pet):
             program_entry.delete(0, 'end')
             program_entry.insert(0, path)
     def detect_program(event=None, quiet=True):
-        """本地 desktop／CLI：按模型 ID 对应的引擎自动搜寻安装路径；框里已有路径不覆盖。"""
-        if not desktop_mode() or program_entry.get().strip():
+        """只用当前表单身份搜寻，绝不借用被编辑记录的旧 ID。"""
+        if not desktop_mode() or (quiet and program_entry.get().strip()):
             return None
-        from workflow_settings import find_program
-        engine = model_pool.desktop_engine(state['id']) or model_pool.desktop_engine(
-            entries['model'].get().strip()) or entries['model'].get().strip()
-        if not engine:
+        from workflow_settings import find_model_program
+        model = entries['model'].get().strip()
+        if not model:
             return None
         try:
-            path = find_program({'engine': engine, 'program': ''})
+            path = find_model_program(model, mode.get())
         except (ValueError, KeyError, OSError) as exc:
-            if not quiet:hint.set('未自动找到安装路径：%s' % exc)
+            hint.set('未自动找到安装路径：%s' % exc)
             return None
+        program_entry.delete(0, 'end')
         program_entry.insert(0, path)
         hint.set('已自动找到安装路径：%s；确认后点「保存这条」。' % path)
         return path
@@ -437,15 +441,7 @@ def open_manager(pet):
     SecondaryButton(program_row, text='浏览…', command=browse_program).grid(
         row=0, column=2, padx=(SPACING['xs'], 0))
     def desktop_mode():
-        """本机程序条目：Provider 填 desktop，或模型 ID 本身就是本机引擎。
-
-        本机 Claude／ChatGPT 的 Provider 显示厂商名（Anthropic／GPT），但调用方式由模型 ID
-        决定（model_pool.desktop_engine），表单仍是「应用安装路径」，不切成 API 地址与密钥。
-        """
-        if provider.get().strip() == 'desktop':
-            return True
-        return bool(model_pool.desktop_engine(state['id'])
-                    or model_pool.desktop_engine(entries['model'].get().strip()))
+        return mode.get() in ('Desktop', 'CLI')
 
     def refresh_connection_fields(*_args):
         local = desktop_mode()
@@ -453,7 +449,37 @@ def open_manager(pet):
             widget.grid_remove() if local else widget.grid()
         for widget in (program_label, program_row):
             widget.grid() if local else widget.grid_remove()
+        program_label.configure(text='命令行程序路径' if mode.get() == 'CLI' else '应用安装路径')
+        tree.configure(displaycolumns=(('provider', 'model', 'label', 'capabilities', 'state')
+                                       if local else keys))
         probe_button.configure(text='检查程序' if local else '测试连接')
+    pending = {'after': None, 'loading': False}
+
+    def changed_identity(*_args):
+        if pending['loading']:
+            return
+        if pending['after'] is not None:
+            win.after_cancel(pending['after'])
+            pending['after'] = None
+        program_entry.delete(0, 'end')
+        hint.set('正在编辑 %s 配置。' % mode.get())
+        refresh_connection_fields()
+        if desktop_mode() and model_text.get().strip():
+            pending['after'] = win.after(450, delayed_detect)
+
+    def delayed_detect():
+        pending['after'] = None
+        detect_program()
+
+    def cancel_detection(event):
+        if event.widget is win and pending['after'] is not None:
+            win.after_cancel(pending['after'])
+            pending['after'] = None
+
+    win.bind('<Destroy>', cancel_detection, add='+')
+
+    model_text = tk.StringVar()
+    entries['model'].configure(textvariable=model_text)
     auto_label = {'text': ''}
 
     def fill_label(event=None):
@@ -554,7 +580,12 @@ def open_manager(pet):
     key_entry.bind('<FocusOut>', save_typed_key)
 
     def fill(model_id, item):
+        pending['loading'] = True
+        if pending['after'] is not None:
+            win.after_cancel(pending['after'])
+            pending['after'] = None
         state['id'] = model_id
+        mode.set(model_pool.call_mode(item, model_id))
         key_entry.delete(0, 'end')          # 只写不读：界面里从不回显整把密钥
         for key, _label in FORM_FIELDS:
             entries[key].delete(0, 'end')
@@ -577,6 +608,8 @@ def open_manager(pet):
         wire.set(model_pool.WIRE_LABELS.get(item.get('wire_api'), model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
         program_entry.delete(0, 'end')
         program_entry.insert(0, item.get('program') or '')
+        pending['loading'] = False
+        auto_label['text'] = entries['label'].get().strip()
         refresh_connection_fields()
         if saved_provider != 'desktop':show_key_state(item)
 
@@ -584,6 +617,7 @@ def open_manager(pet):
         value = {key: entries[key].get().strip() for key, _label in FORM_FIELDS}
         # 本机程序条目的存储协议仍是 desktop（model_pool.status 按它判定可用性）；界面只显示厂商名。
         value['provider'] = 'desktop' if desktop_mode() else model_pool.id_of_label(provider.get(), model_pool.PROVIDERS)
+        value['call_mode'] = mode.get()
         value['wire_api'] = model_pool.id_of_label(wire.get(), model_pool.WIRE_APIS)
         value['capabilities'] = [tag for tag, var in caps.items() if var.get()]
         value['context_length'] = entries['context_length'].get().strip()
@@ -601,6 +635,7 @@ def open_manager(pet):
         return item
 
     def new_one():
+        pending['loading'] = True
         state['id'] = ''
         for key, _label in FORM_FIELDS:
             entries[key].delete(0, 'end')
@@ -612,7 +647,10 @@ def open_manager(pet):
         show_key_state()
         provider.set(model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
         wire.set(model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
-        hint.set('填一条新的：显示名、模型 ID、API 根地址、密钥名；协议照旧选 chat。')
+        pending['loading'] = False
+        auto_label['text'] = ''
+        changed_identity()
+        hint.set('新建 %s 模型：填写模型 ID；本地调用会自动搜寻对应程序。' % mode.get())
         return state
 
     def save_one():
@@ -623,8 +661,7 @@ def open_manager(pet):
                 if not path.is_absolute() or path.suffix.lower() != '.exe' or not path.is_file():
                     raise ValueError('请选择存在的应用 .exe 安装路径')
                 from workflow_settings import gui_claude_program, GUI_CLAUDE_CLI_HINT
-                engine = model_pool.desktop_engine(state['id']) or entries['model'].get().strip().lower()
-                if engine in ('claude', 'claude code') and gui_claude_program(str(path)):
+                if mode.get() == 'CLI' and gui_claude_program(str(path)):
                     raise ValueError(GUI_CLAUDE_CLI_HINT)
             if not desktop_mode() and key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
                 local_save()
@@ -664,13 +701,11 @@ def open_manager(pet):
             hint.set('先填模型 ID。')
             return None
         if value['provider'] == 'desktop':
-            from workflow_settings import find_program
+            from workflow_settings import find_model_program, current_store_program
             from pathlib import Path
-            engine = model_pool.desktop_engine(state['id']) or value['model']
             try:
-                if engine == 'codex' and not value['program']:
-                    raise ValueError('请选择 Codex 桌面 .exe；留空使用系统链接，不要选择命令行程序')
-                path = find_program({'engine': engine, 'program': value['program']})
+                path = (current_store_program(value['program']) if value['program'] else
+                        find_model_program(value['model'], mode.get()))
                 if not Path(path).is_file():raise ValueError('应用路径不存在')
                 program_entry.delete(0, 'end')
                 program_entry.insert(0, path)
@@ -689,6 +724,8 @@ def open_manager(pet):
     probe_button = SecondaryButton(bar, text='测试连接', command=probe_one)
     probe_button.pack(side='left', padx=(SPACING['sm'], 0))
     provider.trace_add('write', refresh_connection_fields)
+    mode.trace_add('write', changed_identity)
+    model_text.trace_add('write', changed_identity)
     refresh_connection_fields()
     SecondaryButton(bar, text='删除这条', command=delete_one).pack(side='left', padx=(SPACING['sm'], 0))
     SecondaryButton(bar, text='关闭', command=win.destroy).pack(side='right')
@@ -700,6 +737,10 @@ def open_manager(pet):
     win._pet_manager_hint_label = manager_hint
     win._pet_entries = entries
     win._pet_provider = provider
+    win._pet_mode = mode
+    win._pet_mode_box = mode_box
+    win._pet_detect_program = detect_program
+    win._pet_read_form = read_form
     win._pet_provider_box = provider_box
     win._pet_tree = tree
     win._pet_delete_one = delete_one
