@@ -583,7 +583,7 @@ class Studio:
         save(out/EDIT_MANIFEST_NAME, manifest)
 
     def publish_edit_lists(self, out, chosen, spec):
-        """成片之外再给剪辑软件一份 EDL／FCPXML／分轨素材清单；失败只记日志，不影响已发布的成片。"""
+        """发布剪辑交换清单并返回实际结果；失败不删除已发布成片。"""
         import logging
         from edit_export import export_texts, TRACKS_NAME
         try:
@@ -596,8 +596,10 @@ class Studio:
                     save(Path(out) / name, content)
                 else:
                     save_text(Path(out) / name, content)
+            return {'ok': True, 'reason': ''}
         except (OSError, ValueError, KeyError, TypeError) as exc:
             logging.getLogger(__name__).warning('剪辑软件导出清单未生成：%s', exc)
+            return {'ok': False, 'reason': str(exc)}
 
     def _encode(self,chosen,out,coverage=None):
         # 编码放在项目锁之外：ffmpeg 可能持续几分钟，占着锁会让同时进行的下载／验收全部报「另一操作正在运行」。
@@ -642,8 +644,10 @@ class Studio:
                 from file_cache import remove_temporary_file
                 remove_temporary_file(pending_master)
         self.publish_edit_bundle(out, master, report, chosen)
-        self.publish_edit_lists(out, chosen, spec)
+        exports = self.publish_edit_lists(out, chosen, spec)
         if report['errors']: raise ValueError('成片技术检查未通过，报告已保存')
+        if not exports['ok']:
+            raise ValueError('成片已保留：'+str(master)+'；剪辑交付包不完整，EDL／FCPXML／素材清单生成失败：'+exports['reason'])
         return str(master)
     def output_spec(self):
         """本项目的正式交付规格：画幅／分辨率／帧率来自制作锁，缺省才用出厂默认。"""

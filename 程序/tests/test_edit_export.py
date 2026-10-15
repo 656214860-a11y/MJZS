@@ -52,6 +52,26 @@ class EditExportTests(unittest.TestCase):
 
 
 class PublishEditListsTests(unittest.TestCase):
+    def test_encode_does_not_report_success_when_delivery_lists_fail(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        import engine
+        studio = SimpleNamespace(cfg={'ffmpeg': 'fake'}, output_spec=lambda: SPEC,
+                                 publish_edit_bundle=Mock(),
+                                 publish_edit_lists=lambda *args: {'ok': False, 'reason': 'disk full'})
+        def encode_command(args, **kwargs):
+            if isinstance(args[-1], Path):
+                args[-1].write_bytes(b'encoded fixture')
+        with tempfile.TemporaryDirectory() as folder:
+            out = Path(folder)
+            with patch('engine.command', side_effect=encode_command), patch('engine.check', return_value={'errors': []}):
+                with self.assertRaisesRegex(ValueError, '剪辑交付包不完整'):
+                    engine.Studio._encode(studio, [], out)
+            self.assertEqual((out / 'MASTER.mp4').read_bytes(), b'encoded fixture')
+            studio.publish_edit_bundle.assert_called_once()
+
     def test_studio_writes_three_files_and_tolerates_bad_data(self):
         import json
         import tempfile
@@ -59,15 +79,31 @@ class PublishEditListsTests(unittest.TestCase):
         import engine
         chosen = [({'id': 'S01', 'duration': 2}, {'version': 1, 'sha256': 'h1'}, Path('S01.mp4'))]
         with tempfile.TemporaryDirectory() as folder:
-            engine.Studio.publish_edit_lists(None, folder, chosen, SPEC)
+            self.assertTrue(engine.Studio.publish_edit_lists(None, folder, chosen, SPEC)['ok'])
             names = sorted(path.name for path in Path(folder).iterdir())
             self.assertEqual(names, sorted([ex.EDL_NAME, ex.FCPXML_NAME, ex.TRACKS_NAME]))
             data = json.loads((Path(folder) / ex.TRACKS_NAME).read_text(encoding='utf-8'))
             self.assertEqual(data['clips'][0]['source_sha256'], 'h1')
         with tempfile.TemporaryDirectory() as folder:
             bad = [({'id': 'S01', 'duration': 'x'}, {}, Path('S01.mp4'))]
-            engine.Studio.publish_edit_lists(None, folder, bad, SPEC)      # 只记日志，不抛
+            result = engine.Studio.publish_edit_lists(None, folder, bad, SPEC)
+            self.assertFalse(result['ok'])
+            self.assertTrue(result['reason'])
             self.assertEqual(list(Path(folder).iterdir()), [])
+
+    def test_partial_export_write_failure_is_reported_without_removing_master(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        import engine
+        chosen = [({'id': 'S01', 'duration': 2}, {'version': 1, 'sha256': 'fixture'}, Path('S01.mp4'))]
+        with tempfile.TemporaryDirectory() as folder:
+            master = Path(folder) / 'master.mp4'; master.write_bytes(b'test master')
+            with patch('engine.save_text', side_effect=OSError('disk full')):
+                result = engine.Studio.publish_edit_lists(None, folder, chosen, SPEC)
+            self.assertFalse(result['ok'])
+            self.assertIn('disk full', result['reason'])
+            self.assertEqual(master.read_bytes(), b'test master')
 
 
 if __name__ == '__main__':
