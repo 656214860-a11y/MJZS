@@ -649,19 +649,19 @@ class Desktop:
         # 页面重建（切换分镜、刷新列表）会产生新控件，必须每次重新补挂滚轮标签：
         # 漏挂标签时滚轮会落到控件自身的绑定上，只读下拉框会直接换选项并重建整页，
         # 表现出来就是「滚轮滑过下拉框，文件被切换，内容抖动」。
-        requests=[]
+        measured_requests=[]
         def resize(widget):
             for child in widget.winfo_children():
                 tags=child.bindtags()
                 if 'DramaPageWheel' not in tags:child.bindtags(('DramaPageWheel',)+tags)
                 if resized and isinstance(child,ttk.Label) and not getattr(child,'local_wrap',False) and int(child.cget('wraplength') or 0)>0:
                     child.configure(wraplength=max(200,width-28))
-                requests.append((str(child),child.winfo_reqwidth(),child.winfo_reqheight()))
+                measured_requests.append((str(child),child.winfo_reqwidth(),child.winfo_reqheight()))
                 resize(child)
         resize(self.content)
         if self.page_index==PAGE['script'] and hasattr(self,'_fit_talk'):
             self._fit_talk()
-        self._fit_request_signature=(width,req,target,tuple(requests))
+        self._fit_request_signature=(width,req,target,tuple(measured_requests))
         return (width,req,target)
     def wheel_steps(self,event):
         delta=getattr(event,'delta',0)
