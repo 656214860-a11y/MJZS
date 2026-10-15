@@ -398,18 +398,47 @@ class Client:
     def flush(self):
         return self.ledger.save()
 
-    def _record_diagnostic(self, result, task, tier, cfg):
-        """三虎调用也写入项目级脱敏诊断，和剧本模型入口保持同一可观测口径。"""
+    def _record_diagnostic(self, result, task, tier, cfg, context=None, path=None):
+        """每次发送前保存未知事件，响应后原位更新；正文和凭据不落盘。"""
         if self.project is None:
             return None
-        from model_diagnostics import record
+        from model_diagnostics import record, event
         envelope = dict(result or {})
         envelope['response_meta'] = {
             'requested_model': str(envelope.get('model') or ''),
             'wire_api': str(cfg.get('wire_api') or ''),
         }
-        return record(self.project, envelope,
-                      context={'subsystem': 'pet', 'task': task, 'tier': tier})
+        metadata = {'subsystem': 'pet', 'task': task, 'tier': tier, **(context or {})}
+        if path is not None:
+            save(path, event(envelope, context=metadata))
+            return path
+        return record(self.project, envelope, context=metadata)
+
+    def _attempt(self, send, url, payload, head, timeout, task, tier, cfg, context, at):
+        model = payload.get('model')
+        pending = {'ok': False, 'status': None, 'model': model, 'usage': {},
+                   'error_class': 'pending'}
+        path = self._record_diagnostic(pending, task, tier, cfg, context)
+        result = send(url, payload, head, timeout)
+        data = result.get('data')
+        raw = data.get('usage') if isinstance(data, dict) else None
+        usage = {}
+        if isinstance(raw, dict):
+            aliases = {'prompt_tokens': ('prompt_tokens', 'input_tokens'),
+                       'completion_tokens': ('completion_tokens', 'output_tokens'),
+                       'cached_tokens': ('cached_tokens', 'prompt_cache_hit_tokens', 'cache_read_input_tokens'),
+                       'total_tokens': ('total_tokens',)}
+            for key, names in aliases.items():
+                for name in names:
+                    value = raw.get(name)
+                    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                        usage[key] = value
+                        break
+        self._record_diagnostic({**result, 'model': model, 'usage': usage},
+                                task, tier, cfg, context, path)
+        if usage:
+            self.ledger.record(model, usage, tier=tier, at=at)
+        return result
 
     def ask(self, task, text, context=None, urgent=False, transport=None, at=None, model_patch=None):
         """发起一次请求；model_patch 仅覆盖本次调用的模型连接配置。"""
@@ -428,13 +457,26 @@ class Client:
             timeout = cfg.get('timeout', DEFAULTS['timeout'])
             model = model_for(tier, cfg)
             payload = self.payload(task, text, context, model=model, config=cfg)
-            result = send(url, payload, head, timeout)
+            from uuid import uuid4
+            invocation = uuid4().hex
+            stage = str((context or {}).get('stage') or 'assistant')
+            attempt = 0
+
+            def send_attempt(attempt_tier):
+                nonlocal attempt
+                attempt += 1
+                metadata = {'stage': stage, 'invocation_id': invocation,
+                            'request_id': invocation + '-' + str(attempt), 'attempt': attempt}
+                return self._attempt(send, url, payload, head, timeout, task,
+                                     attempt_tier, cfg, metadata, at)
+
+            result = send_attempt(tier)
             degraded = False
             if not result.get('ok') and tier == 'pro' and is_retryable(result.get('status')):
                 degraded = True
                 model = model_for('flash', cfg)
                 payload = self.payload(task, text, context, model=model, config=cfg)
-                result = send(url, payload, head, timeout)
+                result = send_attempt('flash')
             # 第 43 期：还不行就把「三虎设置 → 模型」里那条降级模型接上，再发最后一次。
             # 刚才试过的那条（含档位上这两条）不重复试；密钥拿不到就不白跑。
             patch = fallback_patch(cfg)
@@ -448,16 +490,13 @@ class Client:
                     head = headers(cfg, self.program)
                     model = model_for(tier, cfg)
                     payload = self.payload(task, text, context, model=model, config=cfg)
-                    result = send(url, payload, head, timeout)
+                    result = send_attempt(tier)
             usage = usage_of(result)
-            if result.get('ok'):
-                self.ledger.record(model, usage, tier='flash' if degraded or tier == 'flash' else 'pro', at=at)
             self.calls.append({'task': task, 'model': model, 'status': result.get('status'),
                                'degraded': degraded, 'urgent': bool(urgent)})
             reply = {'ok': bool(result.get('ok')), 'status': result.get('status'), 'error': result.get('error'),
                      'data': result.get('data'), 'model': model, 'degraded': degraded, 'budget': False,
                      'usage': usage, 'request': payload, 'url': url, 'kind': result.get('kind')}
-            self._record_diagnostic(reply, task, tier, cfg)
             return reply
         except Exception as exc:                     # 界面线程调用：出错也要给出结构化结果，不抛异常
             LOGGER.exception('模型调用异常')

@@ -513,5 +513,54 @@ class ClientTests(unittest.TestCase):
             self.assertNotIn('不能保存的回复正文', files[0].read_text(encoding='utf-8'))
 
 
+class AttemptAccountingTests(unittest.TestCase):
+    def test_failed_usage_and_unknown_are_not_overwritten_by_retry(self):
+        from usage_overview import summarize
+        with tempfile.TemporaryDirectory() as td:
+            fake = Fake([{'ok': False, 'status': 503, 'data': {'usage': {'prompt_tokens': 7, 'completion_tokens': 2}}},
+                         {'ok': False, 'status': 503},
+                         {'ok': True, 'status': 200, 'data': {'usage': {'prompt_tokens': 3, 'completion_tokens': 1}}}])
+            client = Client(project=td, program=env_dir(td), transport=fake, config={
+                'fallback': {'base_url': 'https://fallback.test', 'key_env': 'DEEPSEEK_API_KEY',
+                             'model': 'fb-model', 'path': '/chat/completions', 'wire_api': 'chat'}})
+            self.assertTrue(client.ask('writing.breakdown', '拆分', context={'stage': 'script'})['ok'])
+            events = [json.loads(p.read_text(encoding='utf-8')) for p in (Path(td) / 'model_diagnostics').glob('*.json')]
+            self.assertEqual(len(events), 3)
+            self.assertEqual(len({e['context']['request_id'] for e in events}), 3)
+            self.assertEqual(len({e['context']['invocation_id'] for e in events}), 1)
+            summary = summarize(td)
+            self.assertEqual(summary['total']['unknown_usage'], 1)
+            self.assertEqual(summary['by_stage']['script']['total_tokens'], 13)
+            self.assertEqual(client.ledger.today_tokens(), 13)
+
+    def test_pending_exists_before_send_and_survives_exception(self):
+        with tempfile.TemporaryDirectory() as td:
+            def failing(*args):
+                files = list((Path(td) / 'model_diagnostics').glob('*.json'))
+                self.assertEqual(len(files), 1)
+                self.assertEqual(json.loads(files[0].read_text(encoding='utf-8'))['error_class'], 'pending')
+                raise TimeoutError('private response body')
+            client = Client(project=td, program=env_dir(td), transport=failing)
+            with self.assertLogs('pet_llm', level='ERROR'):
+                self.assertFalse(client.ask('intent.route', 'private request body')['ok'])
+            saved = next((Path(td) / 'model_diagnostics').glob('*.json')).read_text(encoding='utf-8')
+            self.assertNotIn('private', saved)
+            self.assertEqual(json.loads(saved)['usage'], {})
+            self.assertEqual(client.ledger.entries, [])
+
+    def test_missing_usage_and_preflight_write_failure(self):
+        from usage_overview import summarize
+        with tempfile.TemporaryDirectory() as td:
+            fake = Fake([{'ok': True, 'status': 200, 'data': {}}])
+            client = Client(project=td, program=env_dir(td), transport=fake)
+            self.assertTrue(client.ask('intent.route', '继续')['ok'])
+            self.assertEqual(summarize(td)['total']['unknown_usage'], 1)
+            self.assertEqual(client.ledger.entries, [])
+            with mock.patch('model_diagnostics.record', side_effect=OSError('disk full')):
+                with self.assertLogs('pet_llm', level='ERROR'):
+                    self.assertFalse(client.ask('intent.route', '继续')['ok'])
+            self.assertEqual(len(fake.calls), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
