@@ -11,7 +11,7 @@ from tests.architecture._scan import ROOT, production_files
 LIMIT = 1500
 SLACK = 100
 OVERSIZE_CAPS = {
-    'desktop.py': 7300,
+    'desktop.py': 6000,
     'pet_ui.py': 4850,
     'pet_cloud.py': 2150,
     'skill_panel.py': 1900,

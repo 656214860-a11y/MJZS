@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import ROOT, parse, parse_desktop
 
 
 PRODUCTION_SKIP = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__"}
@@ -104,7 +104,7 @@ class BusyStateBoundaryTests(unittest.TestCase):
                             f'{filename} 必须有成对恢复')
 
     def test_async_lifecycle_uses_busy_state_for_start_and_finish(self):
-        tree = parse(ROOT / 'desktop.py')
+        tree = parse_desktop()
         calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Attribute)
                  and isinstance(node.func.value, ast.Attribute)
@@ -118,7 +118,7 @@ class BusyStateBoundaryTests(unittest.TestCase):
                                 '完成和中断都必须经 BusyState 恢复界面')
 
     def test_desktop_submission_pairs_lifecycle_and_busy(self):
-        tree = parse(ROOT / 'desktop.py')
+        tree = parse_desktop()
         method = _method(tree, 'async_')
         submits = _calls(method, 'self.background_tasks.submit')
         starts = [call for call in _calls(method, 'self.busy_state.set_busy')
@@ -127,7 +127,7 @@ class BusyStateBoundaryTests(unittest.TestCase):
         self.assertEqual(len(starts), 1, '提交必须同时进入统一忙碌态')
 
     def test_desktop_result_drain_rejects_late_results_before_restoring_busy(self):
-        tree = parse(ROOT / 'desktop.py')
+        tree = parse_desktop()
         drain = _method(tree, '_tick_async_result')
         finishes = _calls(drain, 'self.background_tasks.finish')
         restores = [call for call in _calls(drain, 'self.busy_state.set_busy')
@@ -143,7 +143,7 @@ class BusyStateBoundaryTests(unittest.TestCase):
                         '被拒绝或已过期的结果必须直接返回，不触发 UI 回调')
 
     def test_desktop_cancel_invalidates_ticket_and_restores_busy(self):
-        tree = parse(ROOT / 'desktop.py')
+        tree = parse_desktop()
         method = _method(tree, 'interrupt_script_agent')
         cancels = _calls(method, 'self.background_tasks.cancel')
         restores = [call for call in _calls(method, 'self.busy_state.set_busy')
@@ -155,7 +155,7 @@ class BusyStateBoundaryTests(unittest.TestCase):
         self.assertTrue(bumps, '取消必须推进代次，使迟到结果被拒绝')
 
     def test_interrupt_does_not_stop_the_progressbar_directly(self):
-        tree = parse(ROOT / 'desktop.py')
+        tree = parse_desktop()
         method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
                       and node.name == 'interrupt_script_agent')
         stops = [node for node in ast.walk(method) if isinstance(node, ast.Call)

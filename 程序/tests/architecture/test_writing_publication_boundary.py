@@ -47,7 +47,8 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
         controller = (ROOT / 'workflow_context_controller.py').read_text(encoding='utf-8')
         stage = (ROOT / 'stage_execution_service.py').read_text(encoding='utf-8')
         app = (ROOT / 'app.py').read_text(encoding='utf-8')
-        desktop = (ROOT / 'desktop.py').read_text(encoding='utf-8')
+        from tests.architecture._scan import desktop_text
+        desktop = desktop_text()  # R1490：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
         self.assertIn('def instruction(project, stage, data=None, *, publish=None):', context)
         self.assertIn('项目接续进度需要由 L3 注入发布器', context)
         self.assertNotIn('from agent.core import read, save', context)

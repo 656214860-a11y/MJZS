@@ -145,7 +145,8 @@ class ProjectContextBoundaryTests(unittest.TestCase):
         self.assertIn('def _context(value)', source)
         self.assertIn('writing(_context(context).root)', source)
         self.assertNotIn('ProjectContext(', source)
-        desktop = Path(ROOT, 'desktop.py').read_text(encoding='utf-8')
+        from tests.architecture._scan import desktop_text
+        desktop = desktop_text()  # R1490：idea_chat_context 已迁到 IdeaChatMixin
         self.assertIn('def idea_chat_context(self)', desktop)
         self.assertIn('idea_chat.load(self.idea_chat_context()', desktop)
 

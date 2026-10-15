@@ -162,7 +162,9 @@ class DesktopMessageBranchTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         source = Path(__file__).resolve().parents[1] / 'desktop.py'
-        tree = ast.parse(source.read_text(encoding='utf-8'))
+        # R1490：model_error_display 已迁到 desktop_idea_chat（desktop 重新导入），按全部 Desktop 源码查找
+        from tests.architecture._scan import desktop_text
+        tree = ast.parse(desktop_text())
         funcs = [node for node in ast.walk(tree)
                  if isinstance(node, ast.FunctionDef) and node.name == 'model_error_display']
         assert len(funcs) == 1, '桌面文案映射函数应只定义一次'

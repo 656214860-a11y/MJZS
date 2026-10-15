@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from tests.architecture._scan import desktop_text  # R1490：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import tempfile
 import unittest
 from pathlib import Path
@@ -43,7 +44,7 @@ class InteractiveLaunchTests(unittest.TestCase):
         """续发和启动后的命名都可能等待 Qwen 就绪，必须经后台边界。"""
         root = Path(__file__).resolve().parents[1]
         adapter = (root / 'qwen_adapter.py').read_text(encoding='utf-8')
-        desktop = (root / 'desktop.py').read_text(encoding='utf-8')
+        desktop = desktop_text()
         self.assertIn(
             "threading.Thread(target=name_when_ready,args=(process,),daemon=True).start()",
             adapter)

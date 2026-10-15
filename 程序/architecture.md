@@ -1,5 +1,6 @@
 # AI 漫剧助手：架构清单
 
+R1490：L4 `desktop_idea_chat.IdeaChatMixin` 承载从 `desktop.Desktop` 原样迁出的创意对话与 Agent 派发方法（气泡显示／折叠／复制／编辑、创意附件、语义简报、`send_message`、`submit_idea_api_request`、`open_flow_agent` 等 60 个方法，共 1295 行）及其常量／辅助（`IDEA_FIELDS`、`BUBBLE_*`、`DRAFT_*`、`script_raw_saved_notice`、`model_error_display`，`desktop` 里重新导入）；`Desktop(IdeaChatMixin, AutoFlowsMixin)`。依赖被测试按 `desktop.<名字>` 打补丁的方法（confirm／ContextMenu／open_path 共 6 个）留在 `desktop.py`。门禁检查 Desktop 源码时用 `tests.architecture._scan.desktop_text()／parse_desktop()`。`desktop.py` 7241→5906 行。
 R1480：L4 `desktop_auto_flows.AutoFlowsMixin` 承载从 `desktop.Desktop` 原样迁出的无人值守流程方法（自动定稿／粗剪／首帧／资产／视频／白模／交接／采用的 `_tick_auto_*`、`poll_auto_*`，云监控、下载收件箱及相关判定），`Desktop` 通过继承获得；方法体未改，`self` 语义不变；无 Tk 的周期调度仍由 L3 `desktop_automation_service` 承担。`desktop.py` 7820→7241 行。
 R1250：API 剧本准备通过 L3 `restart_writing_preparation` 显式从设定、大纲或角色卡重写；L2 `writing_api` 在既有 `preparation_state.json` 内暂存 revision，确认前保留采用 documents，确认后替换当前及下游确认。旧正文不删除；旧自然稿撤销采用须重新生成或显式采用。请求发布核对阶段文件、brief、确认台账及模型选择，拦截等待期间变更后的迟到结果；桌面仅绑定菜单和显示版本标记。
 

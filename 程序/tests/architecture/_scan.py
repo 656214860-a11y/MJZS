@@ -50,6 +50,19 @@ def module_name(path: Path) -> str:
 def parse(path: Path) -> ast.Module:
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
+
+# R1480／R1490：Desktop 的方法分散在 desktop.py 与两个原样迁出的 Mixin 模块里；检查 Desktop 源码
+# 行为（调用、方法体）的门禁用下面两个入口，别再直接读 desktop.py，否则迁出的方法会"消失"。
+DESKTOP_PARTS = ("desktop.py", "desktop_auto_flows.py", "desktop_idea_chat.py")
+
+
+def desktop_text() -> str:
+    return chr(10).join((ROOT / name).read_text(encoding="utf-8") for name in DESKTOP_PARTS)
+
+
+def parse_desktop() -> ast.Module:
+    return ast.parse(desktop_text(), filename="desktop*.py")
+
 def import_rows(path: Path) -> Iterator[tuple[int, str]]:
     """产出顶层导入包名及行号，供分层和环依赖检查复用。"""
     for node in ast.walk(parse(path)):

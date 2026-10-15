@@ -1,4 +1,5 @@
 """O15：各生成入口消费同一份请求快照（已勾选／本次实际加载，含版本摘要）。"""
+from tests.architecture._scan import desktop_text  # R1490：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import tempfile
 import unittest
 from pathlib import Path
@@ -61,7 +62,7 @@ class RequestFreezeEntryTests(unittest.TestCase):
                              delivered['skill_injection']['selected'])
 
     def test_every_generation_entry_consumes_one_captured_snapshot(self):
-        desktop = (ROOT / 'desktop.py').read_text(encoding='utf-8')
+        desktop = desktop_text()
         api = (ROOT / 'writing_api.py').read_text(encoding='utf-8')
         self.assertIn('request_model = writing_api.capture_request(self.root)', desktop)
         self.assertIn('validate_selected_skills(self.root, stage)', desktop)
@@ -70,6 +71,7 @@ class RequestFreezeEntryTests(unittest.TestCase):
         # 桌面所有阶段派发都只经 open_flow_agent 这一条投递入口。
         self.assertEqual(desktop.count('launch_interactive('), 1)
         start = desktop.index('def open_flow_agent(')
-        flow = desktop[start:desktop.index('\n    def ', start + 5)]
+        end = desktop.find('\n    def ', start + 5)  # R1490：它现在是 Mixin 文件的最后一个方法，后面可能没有下一个 def
+        flow = desktop[start:end if end != -1 else len(desktop)]
         self.assertLess(flow.index('current(self.root,stage)'), flow.index('def build():'),
                         '配置快照必须先于工作线程内的提示词构建捕获')

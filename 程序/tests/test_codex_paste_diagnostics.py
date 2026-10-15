@@ -1,4 +1,5 @@
 """Desktop paste transport and manual-send contract."""
+from tests.architecture._scan import desktop_text  # R1490：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import json
 import unittest
 from pathlib import Path
@@ -55,7 +56,7 @@ class CodexManualPasteTests(unittest.TestCase):
         for forbidden in ('Complete-Task', 'Get-Diagnostics', 'Test-SendContent', 'InvokePattern', '{ENTER}', 'auto_send'):
             self.assertNotIn(forbidden, source)
         self.assertIn('SendWait', source)
-        desktop = Path(codex_paste.__file__).with_name('desktop.py').read_text(encoding='utf-8')
+        desktop = desktop_text()
         self.assertNotIn('confirm_existing', desktop)
         self.assertNotIn('auto_send=True', desktop)
         self.assertIn("'prepared' if result['ok'] else 'failed'", desktop)
@@ -68,7 +69,7 @@ class CodexManualPasteTests(unittest.TestCase):
         self.assertIn('手动发送', result['reason'])
 
     def test_new_task_uses_longer_deadline(self):
-        source = Path(codex_paste.__file__).with_name('desktop.py').read_text(encoding='utf-8')
+        source = desktop_text()
         self.assertTrue("deadline_seconds=45 if result.get('mode')=='new' else 15" in source)
 
 

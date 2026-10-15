@@ -1,4 +1,5 @@
 """Codex 技能同步的幂等、所有权和引用契约（只使用临时安装目录）。"""
+from tests.architecture._scan import desktop_text  # R1490：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
 import os
 import ast
 from pathlib import Path
@@ -103,7 +104,7 @@ class CodexSkillSyncTests(unittest.TestCase):
             sync.start_codex_skill_sync(self.program)
             self.assertIs(thread.call_args.kwargs['target'], sync.sync_codex_skills)
             thread.return_value.start.assert_called_once()
-        tree = ast.parse((Path(sync.__file__).parent / 'desktop.py').read_text(encoding='utf-8-sig'))
+        tree = ast.parse(desktop_text())
         dispatch = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
                         and n.name == 'open_flow_agent')
         build = next(n for n in ast.walk(dispatch) if isinstance(n, ast.FunctionDef) and n.name == 'build')
