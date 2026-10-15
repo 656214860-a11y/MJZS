@@ -22,9 +22,26 @@ examples:
   - 根据创意简报输出可结构化的自然剧本
 ---
 
+## 本阶段读取的项目锁
+
+`track`、`material_source`、`aspect_ratio`、`resolution`、`fps`、`delivery_format`、`video_model_version`、`reference_mode`（仅 Seedance 2.5）、`splice_mode`、`style_base`／`style_directors`。由剧本准备在创作信息窗／阶段配置填写并确认，已有值直接读取，不重复弹问。项目设置优先于引用包内的问答式锁定流程；选填项为空按包内默认处理并在交付中声明，必填项缺失记为配置缺口并返回准备阶段，不擅设默认。非 2.5 不套用 `reference_mode`。
+
+这些声明同样约束本阶段小 SKILL；仅采用与当前赛道、素材来源和任务相关的章节。总控仍可替换，保留既有调试、手动执行和人工裁决入口，不以本次适配新增执行门禁。
+
+## V7.4.20 按职责引用
+
+- [决策引擎：节拍与情境决策](../00全流程SKILL/AIGC创作全流程/sd-decision-engine/SKILL.md#四工作流程)
+- [剧本引擎：六阶段链](../00全流程SKILL/AIGC创作全流程/sd-script-engine/SKILL.md#六阶段链)
+- 仅 `track` 为海外剧时追加 [海外剧本与风格保护](../00全流程SKILL/AIGC创作全流程/sd-overseas-engine/SKILL.md#六剧本层执行规则)；仅解说叙事类追加 [旁白稿写作规范](../00全流程SKILL/AIGC创作全流程/sd-jieshuo-engine/SKILL.md#六旁白稿vo-script写作规范核心)。
+- 仅 `material_source` 为对标爆款／热点速成时追加 [采风四步](../00全流程SKILL/AIGC创作全流程/sd-recon-engine/SKILL.md#四采风四步轻量流水线)，证据与来源随简报交接。
+- 六阶段链映射到本项目既有四步文档与确认流程；不因此额外输出下游分镜、图像或投喂稿。外部写作包只作已选用方法，不能覆盖项目锁或恢复重复询问。
+
+引用仅作为相应职责的方法来源，不授予跨阶段执行权限；以下项目交付契约与锁读取规则优先于引用章节中的交互流程及示例输出路径。
+
+
 ## 阶段职责
 
-先确认交付形态，逐阶段形成可审阅的自然剧本和简报。模型与画幅在本阶段仅作建议值，但不得擅改用户已确认的要求；不替下游生成分镜、资产或媒体。
+先确认交付形态，逐阶段形成可审阅的自然剧本和简报。模型与画幅等项目锁在本阶段填写并确认，后续直接读取，不得擅改用户已确认的要求；不替下游生成分镜、资产或媒体。
 
 ## 分阶段输出
 
@@ -153,16 +170,16 @@ examples:
 0. **编剧风格**：阶段配置里的「编剧风格」（项目级、用户可编辑，如参考好莱坞编剧）约束编剧角色的创作与审核口径；未设置时不附加风格。风格只影响写法，不改变阶段交付物、单集时长与已确认设定。
 
 1. **编剧角色 · 剧本五阶门控与去机械感**：Premise→Structure→Beat→Entity→Page，由编剧角色逐阶审核，不通过先改正文再汇报。
-   → [screenplay-gate-engine.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/screenplay-gate-engine.md)
+   → [screenplay-gate-engine.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/screenplay-gate-engine.md#一-工业五阶门控开发流水线-5-stage-gate-pipeline)
 
 2. **编辑角色 · 情绪节拍曲线**：自然剧本成稿后，由编辑角色审核并量化 12 个关键节拍，产出辅助质检数据 `emotion_curve.json`；节拍不达标时先调整桥段与转场。它不另设确认阶段，也不替代当前阶段供用户审阅的一个文档。
-   → [emotion-beat-curve.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/emotion-beat-curve.md#一-12-关键节拍点量化模型010-分)
+   → [emotion-beat-curve.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/emotion-beat-curve.md#一-12-关键节拍点量化模型0--10-分)
    第 9 节拍须为全片最高峰且不低于 9.5。
 
 3. **演员角色 · 台词七维诊断**：台词写成后由演员角色从可表演性出发自检、修订；除非用户要求诊断，不向自然剧本追加原句／改写／理由的诊断模板。
-   → [dialogue-doctor-7d.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/dialogue-doctor-7d.md)
+   → [dialogue-doctor-7d.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/dialogue-doctor-7d.md#一-台词七维全量诊断扫描体系)
 
 4. **演员角色 · 台词语速自检**：按语气与语速估算对白时长、调整台词；参考中的拆镜、机位和镜头时限规则留给后续分镜阶段，不在此输出镜头方案。
-   → [dialogue-speed-check.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/dialogue-speed-check.md)
+   → [dialogue-speed-check.md](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/dialogue-speed-check.md#三-五步自检流程)
 
 不得加载 00 包全文、风格库或无关 reference；需要特定类型或导演风格时，另由用户明确选择后才定向读取对应单一文件。

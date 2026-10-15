@@ -109,7 +109,22 @@ class WritingStageInstructionsTests(unittest.TestCase):
             self.assertNotIn('jingju-skills', body)
             self.assertIn('### 4. 自然剧本', body)
             links = re.findall(r'\]\(([^)]+)\)', body)
-            self.assertEqual(len(links), 4)
+            original_references = {
+                'short-drama-director/references/screenplay-gate-engine.md#一-工业五阶门控开发流水线-5-stage-gate-pipeline',
+                'short-drama-director/references/emotion-beat-curve.md#一-12-关键节拍点量化模型0--10-分',
+                'short-drama-director/references/dialogue-doctor-7d.md#一-台词七维全量诊断扫描体系',
+                'short-drama-director/references/dialogue-speed-check.md#三-五步自检流程',
+            }
+            added_engines = {
+                'sd-decision-engine/SKILL.md#四工作流程',
+                'sd-script-engine/SKILL.md#六阶段链',
+                'sd-overseas-engine/SKILL.md#六剧本层执行规则',
+                'sd-jieshuo-engine/SKILL.md#六旁白稿vo-script写作规范核心',
+                'sd-recon-engine/SKILL.md#四采风四步轻量流水线',
+            }
+            package_marker = '/00全流程SKILL/AIGC创作全流程/'
+            targets = [link.split(package_marker, 1)[-1] for link in links]
+            self.assertCountEqual(targets, original_references | added_engines)
             for link in links:
                 self.assertIn('/00全流程SKILL/AIGC创作全流程/', link)
                 self.assertTrue(Path(link.split('#')[0]).is_file())

@@ -22,6 +22,20 @@ examples:
   - 根据结构剧本输出逐场镜头初稿与资产需求
 ---
 
+## 本阶段读取的项目锁
+
+`track`、`material_source`、`aspect_ratio`、`resolution`、`fps`、`delivery_format`、`video_model_version`、`reference_mode`（仅 Seedance 2.5）、`splice_mode`、`style_base`／`style_directors`。由剧本准备填写，本阶段直接读取项目设置，不再向用户弹问锁。项目设置优先于引用包内的问答式锁定流程；选填项为空按包内默认处理并在交付中声明，必填项缺失记为配置缺口并返回准备阶段，不擅设默认。非 2.5 不套用 `reference_mode`。
+
+这些声明同样约束本阶段小 SKILL；仅采用与当前赛道、素材来源和任务相关的章节。总控仍可替换，保留既有调试、手动执行和人工裁决入口，不以本次适配新增执行门禁。
+
+## V7.4.20 按职责引用
+
+- [初步分镜工作流程](../00全流程SKILL/AIGC创作全流程/sd-storyboard-engine/SKILL.md#四工作流程)。将镜头方法映射到既有镜头编号和初稿结构，不直接执行其后续投喂、出图或定稿。
+- 仅打戏段追加 [攻防节拍](../00全流程SKILL/AIGC创作全流程/sd-combat-engine/SKILL.md#四工作流程五步)；玄幻段使用 [玄幻攻防设计](../00全流程SKILL/AIGC创作全流程/sd-xuanhuan-engine/SKILL.md#四工作流程五步)；写实格斗段使用 [写实拆招与镜头设计](../00全流程SKILL/AIGC创作全流程/sd-real-engine/SKILL.md#四工作流程六步--asset-first-精简版)。只采用当前段对应方法，封装与 PREVIS 留给后续阶段。
+
+引用仅作为相应职责的方法来源，不授予跨阶段执行权限；以下项目交付契约与锁读取规则优先于引用章节中的交互流程及示例输出路径。
+
+
 ## 阶段职责
 
 使用已结构化的剧情事实拆场和拆镜，输出尚未采用的分镜初稿及资产需求，供资产阶段冻结正典。场次拆分产物 `scene_breakdown.json` 按契约落剧本阶段区。

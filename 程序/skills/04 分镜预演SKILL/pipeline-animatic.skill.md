@@ -22,6 +22,20 @@ examples:
   - 导入参考图，以本地 ComfyUI 逐镜生成草图并配临时音频合成预演
 ---
 
+## 本阶段读取的项目锁
+
+`track`、`material_source`、`aspect_ratio`、`resolution`、`fps`、`delivery_format`、`video_model_version`、`reference_mode`（仅 Seedance 2.5）、`splice_mode`、`style_base`／`style_directors`。由剧本准备填写，本阶段直接读取项目设置，不再向用户弹问锁。项目设置优先于引用包内的问答式锁定流程；选填项为空按包内默认处理并在交付中声明，必填项缺失记为配置缺口并返回准备阶段，不擅设默认。非 2.5 不套用 `reference_mode`。
+
+这些声明同样约束本阶段小 SKILL；仅采用与当前赛道、素材来源和任务相关的章节。总控仍可替换，保留既有调试、手动执行和人工裁决入口，不以本次适配新增执行门禁。
+
+## V7.4.20 按职责引用
+
+- [SHOT_TEXT 线稿卡](../00全流程SKILL/AIGC创作全流程/sd-storyboard-engine/SKILL.md#七二shot_text-分镜线稿卡可选产出--给人看)、[坐标系与文字平面图](../00全流程SKILL/AIGC创作全流程/short-drama-director/references/blocking-direction.md#一场景坐标系与文字平面图解禁--这是站位老大难的根因修复)。验证轴线、站位、走位与节拍；线稿卡和文字平面图不冒充已生成媒体。
+- 包内默认只产提示词；本项目已有的共享参考、低负载草图、临时音轨与可播放 Animatic 功能保留，由明确启动的预演任务及既有 SG-A／SG-B 流程执行，不因加载引用自动出图。
+
+引用仅作为相应职责的方法来源，不授予跨阶段执行权限；以下项目交付契约与锁读取规则优先于引用章节中的交互流程及示例输出路径。
+
+
 ## 阶段契约
 
 SG-A 核验初步分镜。准备共享参考图（用户导入或本地 ComfyUI 草图），按分镜提示词、参考图与固定种子生成每镜预演图。
