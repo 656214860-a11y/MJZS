@@ -9,6 +9,8 @@ sys.path.insert(0,str(root/'程序'))
 import hash_backend
 from app_metadata import APP_NAME
 hash_backend.install()
+import app_logging
+app_logging.install()
 try:
     import ctypes
     import hashlib
@@ -35,6 +37,7 @@ try:
     os.chdir(program)
     import tkinter as tk
     window=tk.Tk();window.attributes('-alpha',0)
+    app_logging.install(window)
     # 主窗口在加载完成前一直透明（ui_theme 摆位置时也不显形），由启动画面整块盖住。
     window._drama_hold_alpha=True
     import platform_tools
