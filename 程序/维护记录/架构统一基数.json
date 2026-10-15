@@ -845,13 +845,13 @@
             },
             {
                 "file": "agent/core.py",
-                "point": "12",
+                "point": "13",
                 "disposition": "exempt",
                 "reason": "\u5199\u5165\u6743\u5a01\u81ea\u8eab"
             },
             {
                 "file": "agent/core.py",
-                "point": "197",
+                "point": "207",
                 "disposition": "exempt",
                 "reason": "\u5199\u5165\u6743\u5a01\u81ea\u8eab"
             },
