@@ -601,8 +601,64 @@ GUI_CLAUDE_CLI_HINT=('所选程序是 Claude Desktop 图形界面，不是命令
 
 
 
+def find_model_program(model, mode):
+    """模型管理按当前名称和调用方式查询安装位置，不执行候选程序。"""
+    import re
+    name = re.sub(r'[\s_-]+', '-', str(model).strip().casefold())
+    if not name or mode not in ('Desktop', 'CLI'):
+        raise ValueError('请先填写本地应用的模型 ID 并选择 Desktop 或 CLI')
+    if mode == 'CLI':
+        aliases = {'claude-code': 'claude', 'claude-code-cli': 'claude',
+                   'claude-desktop': 'claude', 'qwen-code': 'qwen', 'codex-cli': 'codex'}
+        engine = aliases.get(name, name)
+        if engine in ('claude', 'codex', 'qwen'):
+            return find_program({'engine': engine, 'program': ''})
+        raise ValueError('未找到对应的受支持 CLI：' + str(model))
+    if name in ('claude', 'claude-desktop', 'claude-desktop-app'):
+        return find_program({'engine': 'claude-desktop-app', 'program': ''})
+    aliases = {'chatgpt-desktop': 'codex', 'codex-desktop': 'codex',
+               'google-gemini': 'gemini'}
+    app = aliases.get(name, name)
+    if re.fullmatch(r'(google-)?gemini(-[0-9.]+)?', name):
+        app = 'gemini'
+    if not re.fullmatch(r'[a-z0-9][a-z0-9.-]*', app):
+        raise ValueError('未找到对应桌面应用，请填写应用名或手动浏览安装路径')
+    executable = app + '.exe'
+    from platform_tools import windows_registry
+    registry = windows_registry()
+    if registry is not None:
+        for hive in (registry.HKEY_CURRENT_USER, registry.HKEY_LOCAL_MACHINE):
+            for branch in (r'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths',
+                           r'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\App Paths'):
+                try:
+                    with registry.OpenKey(hive, branch + '\\' + executable) as key:
+                        candidate = str(registry.QueryValueEx(key, '')[0]).strip('"')
+                    if Path(candidate).is_file():
+                        return candidate
+                except OSError:
+                    continue
+    package = {'codex': 'OpenAI.Codex', 'chatgpt': 'OpenAI.ChatGPT'}.get(app)
+    if package:
+        for relative in (Path('app') / executable, Path(executable)):
+            found = store_package_program(package, relative)
+            if found:
+                return found
+    local = Path(os.environ.get('LOCALAPPDATA', ''))
+    roots = [local / 'Programs', local, Path(os.environ.get('ProgramFiles', r'C:\Program Files')),
+             Path(os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'))]
+    folders = [app, 'OpenAI/' + app] if app in ('codex', 'chatgpt') else [app]
+    for root in roots:
+        for folder in folders:
+            candidate = root / folder / executable
+            if candidate.is_file():
+                return str(candidate)
+    raise ValueError('未找到“%s”的 Desktop 安装程序；请确认已安装对应桌面应用，或点“浏览…”指定 .exe' % model)
+
+
 def find_program(config):
     if config['program']:return current_store_program(config['program'])
+    if config['engine'] not in ENGINES:
+        raise ValueError('未知的本地调用引擎：' + str(config['engine']))
     if config['engine'] == 'claude-desktop-app':
         local = Path(os.environ.get('LOCALAPPDATA', ''))
         candidates = [local/'AnthropicClaude/claude.exe', local/'Programs/Claude/Claude.exe']

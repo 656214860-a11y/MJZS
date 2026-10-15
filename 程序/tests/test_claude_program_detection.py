@@ -10,6 +10,31 @@ import workflow_settings as settings
 
 
 class ClaudeProgramDetectionTests(unittest.TestCase):
+    def test_desktop_name_finds_matching_installation_only(self):
+        with tempfile.TemporaryDirectory() as folder:
+            executable = Path(folder) / 'Programs/gemini/gemini.exe'
+            executable.parent.mkdir(parents=True)
+            executable.write_bytes(b'test-only')
+            with patch.dict(os.environ, {'LOCALAPPDATA': folder}), \
+                    patch('platform_tools.windows_registry', return_value=None):
+                self.assertEqual(settings.find_model_program('Google Gemini 4', 'Desktop'), str(executable))
+                executable.unlink()
+                with self.assertRaisesRegex(ValueError, '未找到'):
+                    settings.find_model_program('Google Gemini 4', 'Desktop')
+
+    def test_claude_desktop_and_cli_use_different_engines(self):
+        with patch.object(settings, 'find_program', return_value='chosen.exe') as find:
+            settings.find_model_program('Claude', 'Desktop')
+            find.assert_called_with({'engine': 'claude-desktop-app', 'program': ''})
+            settings.find_model_program('Claude Code', 'CLI')
+            find.assert_called_with({'engine': 'claude', 'program': ''})
+
+    def test_unknown_engine_never_falls_back_to_claude(self):
+        with patch.object(settings.shutil, 'which', return_value=None), \
+                patch.object(settings.Path, 'is_file', return_value=True):
+            with self.assertRaisesRegex(ValueError, '未知'):
+                settings.find_program({'engine': 'Google Gemini 4', 'program': ''})
+
     def test_npm_native_binary_is_used_without_executing_shim(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

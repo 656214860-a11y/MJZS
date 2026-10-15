@@ -27,7 +27,7 @@ PROGRAM = Path(__file__).resolve().parent
 CONFIG_PATH = ('配置', '宠物', '配置.json')
 AUTO = 'auto'                                    # 「自动」是特殊值，由 model_router 解析
 AUTO_LABEL = '自动'
-FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program')
+FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program', 'call_mode')
 WIRE_APIS = (('chat', 'chat/completions（OpenAI 兼容）'), ('responses', 'responses 新协议'),
              ('messages', 'messages（Anthropic 原生）'))
 WIRE_LABELS = dict(WIRE_APIS)
@@ -917,3 +917,14 @@ def _http_opener():
             return None
 
     return urllib.request.build_opener(NoRedirect())
+
+
+def call_mode(value, model_id=''):
+    """显式调用方式优先；旧本地记录按现有引擎兼容分类。"""
+    mode = value.get('call_mode', '')
+    if mode in ('Desktop', 'API', 'CLI'):
+        return mode
+    if value.get('provider') != 'desktop':
+        return 'API'
+    engine = desktop_engine(model_id) or desktop_engine(value.get('model')) or value.get('model')
+    return 'CLI' if engine in ('claude', 'qwen') else 'Desktop'
