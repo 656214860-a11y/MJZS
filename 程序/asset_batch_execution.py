@@ -98,16 +98,33 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
     if missing:
         raise ValueError('结构化资产清单尚未补齐：\n' + '\n'.join(missing))
     items = [(aid, snapshot(base, asset)) for aid, asset in items]
+    cloud = options.get('backend', LOCAL) in MODELS
+    generation = generation_settings(options)
+    state = read_ledger(project)
+    if cloud:
+        from comfy_service import cloud_price_model
+        from pet_llm import RequestLedger
+        count = 0
+        for aid, asset in items:
+            try:
+                old = resume_record(aid, state.get(aid, {}), asset_prompt(asset, KINDS[aid.split('_')[0]][0]),
+                                    options['url'], asset['_reference_signature'], generation, cloud)
+            except ValueError:
+                continue  # 原有任务冲突或待核实：执行循环报告，不计作新增付费请求。
+            if not old:count += 1
+        if count:
+            from asset_contract import resolve_aspect_ratio
+            inputs = {'model': options['backend'], 'quality': options.get('quality', 'medium'),
+                      'aspect_ratio': resolve_aspect_ratio(options.get('workflow_lock'), options.get('aspect_ratio'), '1:1')}
+            model = cloud_price_model({'30': {'class_type': 'DramaCloudImage', 'inputs': inputs}})
+            events.put(RequestLedger(project).preview_text(model, 'images', {'images': count}))
     client = client_factory(options['url'])
     if not wait_for_comfy(client, stop):
         return '已停止'
-    cloud = options.get('backend', LOCAL) in MODELS
     if cloud: validate_cloud(client, options, items)
     if not cloud and any(not asset.get('reference_images') for _, asset in items) and not options['workflow'] and not options['model']:
         raise ValueError('请先检测并选择基础模型')
     reference_cfg = client.reference_config() if not cloud and any(asset.get('reference_images') for _, asset in items) else None
-    generation = generation_settings(options)
-    state = read_ledger(project)
     success = failed = 0
     for index, (aid, asset) in enumerate(items, 1):
         if stop.is_set(): break

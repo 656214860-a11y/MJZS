@@ -17,6 +17,25 @@ class ComfyRecoveryUnavailable(RuntimeError):
     """提交回执丢失后，队列与历史均无法读取，不能把网络故障当成查无任务。"""
     pass
 
+
+def cloud_price_model(graph):
+    """内置云图片节点的计价身份；质量/比例不能套用其他规格单价。"""
+    nodes = [node for node in graph.values() if isinstance(node, dict)
+             and node.get('class_type') == 'DramaCloudImage']
+    if not nodes:return None
+    if len(nodes) != 1:raise ValueError('云图片预算目前要求每个工作流只含一个云图片节点')
+    inputs = nodes[0].get('inputs', {})
+    values = [inputs.get('model'), inputs.get('quality', 'medium'), inputs.get('aspect_ratio', '1:1')]
+    if any(not isinstance(value, str) or not value for value in values):
+        raise ValueError('云图片计价需要明确的模型、质量和比例')
+    return 'comfy:' + json.dumps(values, ensure_ascii=False, separators=(',', ':'))
+
+
+def settle_cloud_cost(root, job, *, completed=False):
+    if job.get('cost_request_id'):
+        from pet_llm import RequestLedger
+        RequestLedger(root).settle_units(job['cost_request_id'], amount=1 if completed else None)
+
 def validate_safetensors(path):
     """校验 .safetensors 头部的张量表；LoRA 等模型文件送入 ComfyUI 之前先过这道关。"""
     with Path(path).open('rb') as f:
@@ -123,10 +142,17 @@ class Comfy:
     def submit_graph(self,root,kind,prompt,graph,extra_data=None):
         from urllib.error import HTTPError                # 第 34 期第 9 条：HTTP 栈按需加载
         if kind not in ('characters','scenes','props'):raise ValueError('无效资产类别')
+        model = cloud_price_model(graph)
+        cost_id = 'comfy:' + uuid.uuid4().hex if model else None
+        if model:
+            from pet_llm import RequestLedger
+            RequestLedger(root).authorize_units(cost_id, model, 'assets', 'images', {'images': 1}, amount=1)
         folder=Path(root)/'workflows';folder.mkdir(exist_ok=True)
         rec=folder/('comfy_'+uuid.uuid4().hex[:10]+'.json')
         client_id=uuid.uuid4().hex
-        job={'state':'submitting','kind':kind,'prompt':prompt,'workflow':graph,'client_id':client_id};save(rec,job)
+        job={'state':'submitting','kind':kind,'prompt':prompt,'workflow':graph,'client_id':client_id}
+        if cost_id:job['cost_request_id']=cost_id
+        save(rec,job)
         try:
             payload={'prompt':graph,'client_id':client_id}
             if extra_data:payload['extra_data']=extra_data
@@ -134,6 +160,7 @@ class Comfy:
             if not result.get('prompt_id'):raise ValueError('ComfyUI没有返回任务编号')
             job.update(state='queued',prompt_id=result['prompt_id']);save(rec,job)
         except HTTPError as exc:
+            settle_cloud_cost(root, job)
             # A definite HTTP rejection is safe to fix and resubmit. Network
             # timeouts remain unknown so they cannot trigger duplicate charges.
             job['state']='failed' if 400<=exc.code<500 else 'unknown';save(rec,job)
@@ -142,6 +169,7 @@ class Comfy:
             error.record=str(rec)
             raise error from exc
         except Exception as exc:
+            settle_cloud_cost(root, job)
             # 提交响应可能只是超时或断连，任务其实已经进了 ComfyUI：先按 client_id 找回，
             # 找回后照常排队生成；确认队列与历史里都没有本次任务，才判定提交结果不确定。
             try:
@@ -172,11 +200,18 @@ class Comfy:
         h=self.request('/history/'+job['prompt_id']).get(job['prompt_id'])
         if not h:return '排队或生成中，稍后再获取'
         if h.get('status',{}).get('status_str')=='error':
+            settle_cloud_cost(root, job)
             error='ComfyUI 生成失败，请打开本地 ComfyUI 查看详情'
             for kind,data in h.get('status',{}).get('messages',[]):
                 if kind=='execution_error':error=str(data.get('exception_message',error))[:450]
             job.update(state='failed',error=error);save(record,job)
             raise ComfyGenerationFailed(error)
+        # 远端已产出才结算；本地下载/登记失败不能抹掉已发生的生成费用。
+        if any(item.get('type') == 'output' for output in h.get('outputs', {}).values()
+               for item in output.get('images', [])):
+            settle_cloud_cost(root, job, completed=True)
+        else:
+            settle_cloud_cost(root, job)
         # 第 64 期任务 1：取回的原始图落进 workflows/Comfy资产批次/ 这个暂存目录，不再直接写进
         # 资产库（episode/assets/<类别>）。登记（asset_batch.register_image）会把图复制进资产库并
         # 命名成「编号_名称_哈希.png」——原来留在资产库里的那份 comfy_xxx_1.png 就是用户报的重复项。

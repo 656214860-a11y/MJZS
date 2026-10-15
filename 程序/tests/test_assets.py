@@ -502,6 +502,84 @@ class ComfySubmitRecoveryTests(unittest.TestCase):
             self.assertEqual(len(sent), 1)
 
 
+class ComfyMoneyBudgetTests(unittest.TestCase):
+    GRAPH = {'30': {'class_type': 'DramaCloudImage', 'inputs': {
+        'model': 'Seedream 5.0 Pro', 'quality': 'medium', 'aspect_ratio': '1:1', 'prompt': 'test'}}}
+
+    def policy(self, root, cap='0.5', rate='0.5'):
+        from comfy_service import cloud_price_model
+        (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': cap, 'price_table': {
+            'currency': 'CNY', 'version': 'fixture-v1',
+            'model_rates': {cloud_price_model(self.GRAPH): {'images': rate}}}}), encoding='utf-8')
+
+    def test_over_budget_or_missing_rate_sends_nothing(self):
+        from comfy_service import Comfy
+        from unittest.mock import Mock
+        for cap in ['0.4', '0.5']:
+            with self.subTest(cap=cap), tempfile.TemporaryDirectory() as td:
+                root = Path(td); self.policy(root, cap)
+                graph = json.loads(json.dumps(self.GRAPH))
+                if cap == '0.5':graph['30']['inputs']['quality'] = 'high'
+                client = Comfy('http://127.0.0.1:8189'); client.request = Mock()
+                with self.assertRaises(ValueError):client.submit_graph(root, 'characters', 'test', graph)
+                client.request.assert_not_called()
+                self.assertFalse((root / 'workflows').exists())
+
+    def test_restart_collection_settles_before_download_and_never_double_charges(self):
+        from comfy_service import Comfy
+        from pet_llm import RequestLedger
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); self.policy(root)
+            client = Comfy('http://127.0.0.1:8189'); client.request = Mock(return_value={'prompt_id': 'pid'})
+            record = client.submit_graph(root, 'characters', 'test', self.GRAPH)
+            rid = json.loads(record.read_text(encoding='utf-8'))['cost_request_id']
+            self.assertEqual(RequestLedger(root).load()._find(rid)['money_state'], 'reserved')
+            self.policy(root, rate='9')
+            restarted = Comfy(client.url)
+            history = {'pid': {'outputs': {'14': {'images': [{'type': 'output', 'filename': 'x.png'}]}}}}
+            restarted.request = Mock(side_effect=[history, OSError('download')])
+            with self.assertRaises(OSError):restarted.collect(root, record)
+            row = RequestLedger(root).load()._find(rid)
+            self.assertEqual((row['money_state'], row['budget_cost']), ('estimated', '0.5'))
+            restarted.request = Mock(side_effect=[history, b'\x89PNG\r\n\x1a\nfixture'])
+            self.assertEqual(len(restarted.collect(root, record)), 1)
+            self.assertEqual(len(RequestLedger(root).load().entries), 1)
+            with self.assertRaises(ValueError):client.submit_graph(root, 'characters', 'test', self.GRAPH)
+            self.assertEqual(client.request.call_count, 1)
+
+    def test_cloud_batch_over_budget_stops_before_connecting(self):
+        import queue, threading
+        from unittest.mock import Mock
+        from asset_batch_execution import run_batch
+        from pet_llm import RequestLedger
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); self.policy(root)
+            asset = {'name': '角色', 'image_prompt': '一只猫坐在窗边', 'negative_prompt': '', 'reference_images': []}
+            options = {'url': 'http://127.0.0.1:8189', 'backend': 'Seedream 5.0 Pro', 'model': '',
+                       'workflow': '', 'node': '6', 'field': 'text', 'aspect_ratio': '1:1', 'quality': 'medium'}
+            factory = Mock()
+            with self.assertRaisesRegex(ValueError, '超过项目金额预算'):
+                run_batch(root, root / 'episode', [('CHAR_001', asset), ('CHAR_002', dict(asset))],
+                          options, queue.Queue(), threading.Event(), client_factory=factory)
+            factory.assert_not_called()
+            self.assertEqual(RequestLedger(root).load().entries, [])
+
+    def test_timeout_keeps_cost_unknown_across_restart(self):
+        from comfy_service import Comfy, ComfySubmissionUncertain
+        from pet_llm import RequestLedger
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); self.policy(root)
+            client = Comfy('http://127.0.0.1:8189')
+            client.request = Mock(side_effect=TimeoutError('timeout')); client.locate_prompt = Mock(return_value=None)
+            with self.assertRaises(ComfySubmissionUncertain):client.submit_graph(root, 'characters', 'test', self.GRAPH)
+            row = RequestLedger(root).load().entries[0]
+            self.assertEqual((row['money_state'], row['budget_cost']), ('unknown', '0.5'))
+            with self.assertRaises(ValueError):client.submit_graph(root, 'characters', 'test', self.GRAPH)
+            self.assertEqual(client.request.call_count, 1)
+
+
 class AssetUncertainSubmissionTests(unittest.TestCase):
     """批量提交结果无法确认时只跳过、不自动重提；可接续的旧任务继续取回。"""
 
