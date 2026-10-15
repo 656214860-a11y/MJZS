@@ -82,8 +82,8 @@ class VolcengineAdapter(VideoAdapter):
             # Print only whitelisted error code, never echoed request or credentials.
             raise ArkRejected(f'火山接口 HTTP {e.code} / {code}。{message} 未自动重试。') from None
 
-    def submit(self, shot, frame, request_id):
-        result = self.call(payload=self.payload(shot, frame))
+    def submit(self, shot, frame, request_id, *, payload=None):
+        result = self.call(payload=self.payload(shot, frame) if payload is None else payload)
         task_id = result.get('id')
         if not isinstance(task_id, str) or not task_id:
             raise RuntimeError('未收到任务ID；提交结果不确定，先核对控制台')

@@ -353,7 +353,7 @@ class Studio:
                 return value
             preview=redact(payload)
             from video_source_evidence import submitted_sources
-            media_sources = submitted_sources(preview, frame, shot.get('_white_model_reference'))
+            media_sources = submitted_sources(preview, frame, shot.get('_white_model_reference'), shot['_asset_references'])
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':True,
                'signature':fingerprint(payload),'review':'pending','created':time.time(),'local_request':uuid.uuid4().hex}
             v['generate_audio']=bool(shot.get('generate_audio',True))
@@ -366,8 +366,7 @@ class Studio:
             folder=self.task_folder(sid,v)
             folder.mkdir(parents=True,exist_ok=True)
             save(folder/'request.json',preview)
-            save(folder/'assets_manifest.json',{'mode':shot['_reference_mode'],'assets':shot['_asset_references'],
-                                               **media_sources})
+            save(folder/'assets_manifest.json',{'mode':shot['_reference_mode'], **media_sources})
             save_text(folder/'实际提交提示词.txt', shot['video_prompt'])
             from pet_llm import RequestLedger
             ledger = RequestLedger(project_root(self.root))
@@ -382,7 +381,7 @@ class Studio:
             v['money_request_id'] = money_id
             save(self.db, st)
             try:
-                v['task_id']=client.submit(shot,self.frame(shot),v['local_request'])
+                v['task_id']=client.submit(shot,frame,v['local_request'],payload=payload)
                 save(folder/'task_receipt.json',{'shot':sid,'version':v['version'],'local_request':v['local_request'],'task_id':v['task_id']})
                 v['state']='queued';v['submitted_at']=time.time()
             except ArkRejected as e:

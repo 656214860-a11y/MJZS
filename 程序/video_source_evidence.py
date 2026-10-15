@@ -2,9 +2,10 @@
 from pathlib import Path
 
 
-def submitted_sources(preview, frame, white=None):
+def submitted_sources(preview, frame, white=None, assets=None):
     first = None
     white_digest = None
+    references = []
     inputs = preview.get('input', {})
     if isinstance(inputs, dict):
         first = inputs.get('img_url')
@@ -13,9 +14,13 @@ def submitted_sources(preview, frame, white=None):
                 first = row.get('url')
             elif row.get('type') == 'reference_video':
                 white_digest = row.get('url')
+            elif row.get('type') == 'reference_image':
+                references.append(row.get('url'))
     for row in preview.get('content', []):
         if row.get('type') == 'image_url' and first is None:
             first = row.get('image_url', {}).get('url')
+        elif row.get('type') == 'image_url':
+            references.append(row.get('image_url', {}).get('url'))
         elif row.get('type') == 'video_url' and row.get('role') == 'reference_video':
             white_digest = row.get('video_url', {}).get('url')
 
@@ -26,6 +31,11 @@ def submitted_sources(preview, frame, white=None):
         return {'path': str(Path(path).resolve()), 'sha256': digest[7:], 'category': category}
 
     result = {}
+    if assets is not None:
+        if len(assets) != len(references):
+            raise ValueError('实际提交参考图与来源清单数量不一致')
+        result['assets'] = [{**asset, **record(asset['path'], digest, 'reference')}
+                            for asset, digest in zip(assets, references)]
     if first is not None:
         result['first_frame'] = record(frame, first, 'image')
     if white_digest is not None:

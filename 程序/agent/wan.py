@@ -54,8 +54,8 @@ class WanAdapter:
             raise ArkRejected(f"HTTP {e.code} / {result.get('code', 'Unknown')} / {message} / request_id={result.get('request_id', '')}") from None
         return result
 
-    def submit(self, shot, frame, request_id):
-        result = self.call(payload=self.payload(shot, frame))
+    def submit(self, shot, frame, request_id, *, payload=None):
+        result = self.call(payload=self.payload(shot, frame) if payload is None else payload)
         task_id = result.get('output', {}).get('task_id')
         if not isinstance(task_id, str) or not task_id:
             raise RuntimeError('No task ID returned; check console before retrying')

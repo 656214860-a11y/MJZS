@@ -15,6 +15,48 @@ from ui_widgets import BusyState
 
 
 class VideoRevisionTests(unittest.TestCase):
+    def test_cloud_sends_frozen_payload_and_records_actual_reference_bytes(self):
+        import base64
+        import hashlib
+        from agent.wan import WanAdapter
+        from agent.volcengine import VolcengineAdapter
+        for cls, mode in ((WanAdapter, 'wan'), (VolcengineAdapter, 'seedance')):
+            with self.subTest(provider=mode):
+                studio = self.studio(Studio, [])
+                self.dependencies(studio)
+                studio.cfg.update(base_url='https://example.invalid', model='fixture')
+                frame = self.root / 'frame.png'
+                original = b'\x89PNG\r\n\x1a\noriginal'
+                frame.write_bytes(original)
+                asset = self.root / 'asset.png'
+                asset.write_bytes(b'\x89PNG\r\n\x1a\nactual-reference')
+                prepared = dict(studio.shot('SH001'), _reference_mode=mode,
+                    _asset_references=[{'path': str(asset), 'id': 'CHAR_001', 'sha256': 'stale'}])
+                api = cls(studio.cfg)
+                build = api.payload
+                sent = []
+                def payload(shot, path):
+                    result = build(shot, path)
+                    frame.write_bytes(b'\x89PNG\r\n\x1a\nchanged-after-freeze')
+                    return result
+                def send(*, payload):
+                    sent.append(payload)
+                    return {'id': 'task-id', 'output': {'task_id': 'task-id'}}
+                api.call = send
+                studio.client.return_value = api
+                with patch.object(api, 'payload', side_effect=payload) as builds, patch(
+                        'agent.shot_assets.prepare', return_value=prepared):
+                    studio.submit('SH001')
+                manifest = read(self.root / 'data/SH001/v001/assets_manifest.json')
+                image = (sent[0]['input']['media'][0]['url'] if mode == 'wan'
+                         else sent[0]['content'][1]['image_url']['url'])
+                digest = hashlib.sha256(base64.b64decode(image.split(',', 1)[1])).hexdigest()
+                self.assertEqual(manifest['first_frame']['sha256'], digest)
+                self.assertEqual(digest, hashlib.sha256(original).hexdigest())
+                self.assertEqual(manifest['assets'][0]['sha256'], hashlib.sha256(asset.read_bytes()).hexdigest())
+                self.assertEqual(builds.call_count, 1)
+                self.assertEqual(studio.frame.call_count, 1)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

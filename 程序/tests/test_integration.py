@@ -23,7 +23,7 @@ class FakeAdapter:
         self.submitted = []
     def payload(self, shot, frame):
         return {"model": self.cfg["model"], "prompt": shot["video_prompt"], "duration": shot["duration"]}
-    def submit(self, shot, frame, request_id):
+    def submit(self, shot, frame, request_id, *, payload=None):
         self.submitted.append((shot["id"], request_id))
         return "fake-task-1234567890abcdef"
     def poll(self, task_id):
@@ -336,7 +336,7 @@ class FailureFlowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = build_project(td)
             class Reject4xx(FakeAdapter):
-                def submit(self, shot, frame, request_id):
+                def submit(self, shot, frame, request_id, *, payload=None):
                     raise ArkRejected("HTTP 400 / bad")
             st = engine.Studio(proj, factory=Reject4xx)
             with self.assertRaises(ArkRejected):
@@ -349,7 +349,7 @@ class FailureFlowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = build_project(td)
             class Reject5xx(FakeAdapter):
-                def submit(self, shot, frame, request_id):
+                def submit(self, shot, frame, request_id, *, payload=None):
                     raise ArkRejected("HTTP 500 / server")
             st = engine.Studio(proj, factory=Reject5xx)
             with self.assertRaises(ArkRejected):
@@ -362,7 +362,7 @@ class FailureFlowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = build_project(td)
             class Drop(FakeAdapter):
-                def submit(self, shot, frame, request_id):
+                def submit(self, shot, frame, request_id, *, payload=None):
                     raise RuntimeError("boom")
             st = engine.Studio(proj, factory=Drop)
             with self.assertRaises(RuntimeError):
