@@ -115,10 +115,10 @@ class BackgroundTaskQueue:
         self._limit = limit
         self._items = deque()
 
-    def enqueue(self, fn, done=None, label=''):
+    def enqueue(self, fn, done=None, label='', show_progress=True):
         if len(self._items) >= self._limit:
             raise ValueError('排队任务已满（最多 %d 个），请等当前任务结束' % self._limit)
-        self._items.append({'fn': fn, 'done': done, 'label': str(label or '')})
+        self._items.append({'fn': fn, 'done': done, 'label': str(label or ''), 'show_progress': bool(show_progress)})
         return len(self._items)
 
     def pop(self):

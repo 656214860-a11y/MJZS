@@ -113,7 +113,7 @@ class TaskCenterServiceTests(unittest.TestCase):
                         self.messages.append(text)
                 self.status = S()
             def async_(self, fn, done=None, show_progress=True, label=None):
-                ran.append(label)
+                ran.append(label if show_progress else label + '(无进度条)')
                 self.worker = True
                 return 1
         fake = Fake()
@@ -129,10 +129,17 @@ class TaskCenterServiceTests(unittest.TestCase):
         call('_start_next_queued')
         self.assertEqual(ran, ['第一个', '第二个'])
         fake.worker = False
+        call('async_queued', lambda: 0, None, '探测', False)
+        call('async_queued', lambda: 0, None, '探测2', False)
+        fake.worker = False
+        call('_start_next_queued')
+        self.assertEqual(ran[-1], '探测2(无进度条)')
+        self.assertEqual(ran[-2], '探测(无进度条)')
+        fake.worker = False
         fake.shutting_down = True
         fake.task_queue.enqueue(lambda: 0, label='不该跑')
         call('_start_next_queued')
-        self.assertEqual(ran, ['第一个', '第二个'])
+        self.assertEqual(ran[-1], '探测2(无进度条)')
 
     def test_result_tick_starts_next_queued(self):
         source = (PROGRAM / 'desktop.py').read_text(encoding='utf-8')
@@ -154,6 +161,11 @@ class TaskCenterUiTests(unittest.TestCase):
         text = [w for w in dialog._descendants(dialog.content) if isinstance(w, tk.Text)][0]
         self.assertEqual(str(text.cget('state')), 'disabled')
         self.assertIn('最近一次主动任务', text.get('1.0', 'end'))
+
+    def test_cloud_connection_probe_uses_the_queue(self):
+        source = (PROGRAM / 'cloud_video.py').read_text(encoding='utf-8')
+        self.assertIn("desktop.async_queued(work,", source)
+        self.assertNotIn("desktop.async_(work,lambda text:probe_status", source)
 
     def test_settings_page_has_entry(self):
         source = (PROGRAM / 'desktop.py').read_text(encoding='utf-8')

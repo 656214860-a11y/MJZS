@@ -2296,17 +2296,17 @@ class Desktop:
         threading.Thread(target=run,daemon=True).start()
         self._schedule_async_result_poll(ticket)
         return ticket
-    def async_queued(self,fn,done=None,label=None):
+    def async_queued(self,fn,done=None,label=None,show_progress=True):
         """后台空闲就立即执行，忙就排队（最多 10 个）；只给互相独立、可延后的任务用。"""
-        if not self.worker:return self.async_(fn,done,label=label)
-        position=self.task_queue.enqueue(fn,done,label or '')
+        if not self.worker:return self.async_(fn,done,show_progress,label=label)
+        position=self.task_queue.enqueue(fn,done,label or '',show_progress)
         self.status.set('已排队（第%d个）：%s'%(position,label or '后台任务'))
         return None
     def _start_next_queued(self):
         """当前主动任务收尾后接着做下一个排队任务；窗口正在关闭时丢弃。"""
         if self.worker or getattr(self,'shutting_down',False):return
         item=self.task_queue.pop()
-        if item:self.async_(item['fn'],item['done'],label=item['label'] or None)
+        if item:self.async_(item['fn'],item['done'],item['show_progress'],label=item['label'] or None)
     def _schedule_async_result_poll(self,ticket):
         """启动早期的全局 tick 暂停时，也要能交付用户主动任务的后台结果。"""
         if getattr(self,'shutting_down',False):return None
