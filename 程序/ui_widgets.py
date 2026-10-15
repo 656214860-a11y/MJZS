@@ -405,6 +405,8 @@ def _styles(master):
 
 
 SUPPRESS_MODAL_ENV = "DRAMA_SUPPRESS_MODAL"
+# 手动／自动化测试运行真实界面时设为 1：与 SUPPRESS_MODAL 同效，提示只落状态栏、不等人点「确定」。
+AUTO_CONFIRM_ENV = "DRAMA_AUTO_CONFIRM"
 
 
 _REAL_DIALOGS = {name: getattr(messagebox, name) for name in ("showerror", "showwarning", "showinfo")}
@@ -443,7 +445,7 @@ class NotificationDispatcher:
         self.parent = parent
         # 自检与本地 CI 设置 DRAMA_SUPPRESS_MODAL=1：默认系统框改为静默，避免模态框卡住整轮测试；
         # 用例显式注入的 dialogs 不受影响，仍可断言弹窗行为。
-        if dialogs is messagebox and os.environ.get(SUPPRESS_MODAL_ENV) == "1":
+        if dialogs is messagebox and "1" in (os.environ.get(SUPPRESS_MODAL_ENV), os.environ.get(AUTO_CONFIRM_ENV)):
             dialogs = _SilentDialogs()
         self.dialogs = dialogs
 
