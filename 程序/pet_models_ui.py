@@ -414,7 +414,21 @@ def open_manager(pet):
     program_entry = LineInput(program_row, style='ModelManager.TEntry')
     program_entry.grid(row=0, column=0, sticky='ew')
     entries['program'] = program_entry
+    from desktop_automation_service import BackgroundTaskLifecycle
+    from queue import Queue, Empty
+    from threading import Thread
+    search = BackgroundTaskLifecycle()
+    search_poll = {'after': None}
+
+    def stop_search():
+        search.cancel()
+        if search_poll['after'] is not None:
+            win.after_cancel(search_poll['after'])
+            search_poll['after'] = None
+        search_button.configure(text='自动搜寻', state='normal')
+
     def browse_program():
+        stop_search()
         path = FileDialog(win).open_file(title='选择应用可执行文件', filetypes=[('程序', '*.exe')])
         if path:
             program_entry.delete(0, 'end')
@@ -426,18 +440,50 @@ def open_manager(pet):
         from workflow_settings import find_model_program
         model = entries['model'].get().strip()
         if not model:
+            hint.set('请先填写模型 ID，再自动搜寻安装路径。')
             return None
-        try:
-            path = find_model_program(model, mode.get())
-        except (ValueError, KeyError, OSError) as exc:
-            hint.set('未自动找到安装路径：%s' % exc)
-            return None
-        program_entry.delete(0, 'end')
-        program_entry.insert(0, path)
-        hint.set('已自动找到安装路径：%s；确认后点「保存这条」。' % path)
-        return path
-    SecondaryButton(program_row, text='自动搜寻', command=lambda: detect_program(quiet=False)).grid(
-        row=0, column=1, padx=(SPACING['xs'], 0))
+        if pending['after'] is not None:
+            win.after_cancel(pending['after'])
+            pending['after'] = None
+        stop_search()
+        ticket = search.submit(object(), label='安装路径搜寻')
+        call_mode, original_path = mode.get(), program_entry.get()
+        results = Queue()
+        hint.set('正在搜寻「%s」：检查注册表、商店安装记录和常见安装目录…' % model)
+        search_button.configure(text='正在搜寻…', state='disabled')
+
+        def worker():
+            try:
+                results.put((find_model_program(model, call_mode), ''))
+            except Exception as exc:
+                results.put(('', str(exc)))
+
+        def poll():
+            search_poll['after'] = None
+            if not search.accepts(ticket):
+                return
+            try:
+                path, error = results.get_nowait()
+            except Empty:
+                search_poll['after'] = win.after(50, poll)
+                return
+            search.finish(ticket, succeeded=bool(path), error=error)
+            search_button.configure(text='自动搜寻', state='normal')
+            if program_entry.get() != original_path:
+                hint.set('搜寻已结束；保留您手动填写的安装路径。')
+                return
+            if not path:
+                hint.set('未自动找到安装路径：%s' % error)
+                return
+            program_entry.delete(0, 'end')
+            program_entry.insert(0, path)
+            hint.set('已自动找到安装路径：%s；确认后点「保存这条」。' % path)
+
+        Thread(target=worker, daemon=True).start()
+        search_poll['after'] = win.after(50, poll)
+
+    search_button = SecondaryButton(program_row, text='自动搜寻', command=lambda: detect_program(quiet=False))
+    search_button.grid(row=0, column=1, padx=(SPACING['xs'], 0))
     SecondaryButton(program_row, text='浏览…', command=browse_program).grid(
         row=0, column=2, padx=(SPACING['xs'], 0))
     def desktop_mode():
@@ -458,6 +504,7 @@ def open_manager(pet):
     def changed_identity(*_args):
         if pending['loading']:
             return
+        stop_search()
         if pending['after'] is not None:
             win.after_cancel(pending['after'])
             pending['after'] = None
@@ -472,6 +519,11 @@ def open_manager(pet):
         detect_program()
 
     def cancel_detection(event):
+        if event.widget is win:
+            search.cancel()
+            if search_poll['after'] is not None:
+                win.after_cancel(search_poll['after'])
+                search_poll['after'] = None
         if event.widget is win and pending['after'] is not None:
             win.after_cancel(pending['after'])
             pending['after'] = None
@@ -504,9 +556,8 @@ def open_manager(pet):
         # 自定义 Provider 已随模型记录写入模型池；每次刷新列表时从同一份记录回填，
         # 新建下一条模型即可直接从下拉选择，无需再维护第二份厂商配置。
         builtins = [label for _value, label in model_pool.PROVIDERS]
-        saved = {model_pool.PROVIDER_LABELS.get(str(item.get('provider') or '').strip(),
-                                                 str(item.get('provider') or '').strip())
-                 for item in pet.agent_model_records().values()}
+        saved = {model_pool.provider_name(model_id, item)
+                 for model_id, item in pet.agent_model_records().items()}
         provider_box.configure(values=[*builtins, *sorted((item for item in saved if item and item not in builtins),
                                                           key=str.casefold)])
         tree.delete(*tree.get_children())
@@ -580,6 +631,7 @@ def open_manager(pet):
     key_entry.bind('<FocusOut>', save_typed_key)
 
     def fill(model_id, item):
+        stop_search()
         pending['loading'] = True
         if pending['after'] is not None:
             win.after_cancel(pending['after'])
@@ -598,7 +650,7 @@ def open_manager(pet):
         for tag, var in caps.items():
             var.set(tag in (item.get('capabilities') or []))
         saved_provider = str(item.get('provider') or '').strip()
-        if saved_provider == 'desktop' and model_pool.desktop_engine(model_id):
+        if item.get('provider_label') or (saved_provider == 'desktop' and model_pool.desktop_engine(model_id)):
             # 本机 Claude／ChatGPT 显示厂商名；保存时由 read_form 按 desktop_mode 写回 desktop。
             vendor = model_pool.provider_name(model_id, item)
             provider.set(model_pool.PROVIDER_LABELS.get(vendor.casefold(), vendor))
@@ -617,6 +669,7 @@ def open_manager(pet):
         value = {key: entries[key].get().strip() for key, _label in FORM_FIELDS}
         # 本机程序条目的存储协议仍是 desktop（model_pool.status 按它判定可用性）；界面只显示厂商名。
         value['provider'] = 'desktop' if desktop_mode() else model_pool.id_of_label(provider.get(), model_pool.PROVIDERS)
+        value['provider_label'] = provider.get().strip() if desktop_mode() else ''
         value['call_mode'] = mode.get()
         value['wire_api'] = model_pool.id_of_label(wire.get(), model_pool.WIRE_APIS)
         value['capabilities'] = [tag for tag, var in caps.items() if var.get()]

@@ -619,7 +619,7 @@ def find_model_program(model, mode):
     aliases = {'chatgpt-desktop': 'codex', 'codex-desktop': 'codex',
                'google-gemini': 'gemini'}
     app = aliases.get(name, name)
-    if re.fullmatch(r'(google-)?gemini(-[0-9.]+)?', name):
+    if re.fullmatch(r'(google-)?gemini(?:-[0-9.]+(?:-[a-z0-9]+)*)?', name):
         app = 'gemini'
     if not re.fullmatch(r'[a-z0-9][a-z0-9.-]*', app):
         raise ValueError('未找到对应桌面应用，请填写应用名或手动浏览安装路径')
@@ -647,6 +647,8 @@ def find_model_program(model, mode):
     roots = [local / 'Programs', local, Path(os.environ.get('ProgramFiles', r'C:\Program Files')),
              Path(os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'))]
     folders = [app, 'OpenAI/' + app] if app in ('codex', 'chatgpt') else [app]
+    if app == 'gemini':
+        folders.append('Google/Gemini')
     for root in roots:
         for folder in folders:
             candidate = root / folder / executable

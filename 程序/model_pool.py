@@ -27,7 +27,7 @@ PROGRAM = Path(__file__).resolve().parent
 CONFIG_PATH = ('配置', '宠物', '配置.json')
 AUTO = 'auto'                                    # 「自动」是特殊值，由 model_router 解析
 AUTO_LABEL = '自动'
-FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program', 'call_mode')
+FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program', 'call_mode', 'provider_label')
 WIRE_APIS = (('chat', 'chat/completions（OpenAI 兼容）'), ('responses', 'responses 新协议'),
              ('messages', 'messages（Anthropic 原生）'))
 WIRE_LABELS = dict(WIRE_APIS)
@@ -142,8 +142,8 @@ def desktop_engine(model_id):
 def provider_name(model_id, value):
     """阶段配置的一级目录名；Provider 协议字段不承担厂商展示职责。"""
     model = str((value or {}).get('model') or model_id or '').strip().casefold()
-    # 「GPT」是厂商展示名，不是 API 协议：桌面 ChatGPT/Codex 与 API 的 gpt-* 模型
-    # 都归在同一目录，但仍各自保留原来的 desktop／openai-compatible 调用方式。
+    if str((value or {}).get('provider_label') or '').strip():
+        return str(value['provider_label']).strip()
     if model_id == 'chatgpt-desktop' or model.startswith('gpt-'):
         return 'GPT'
     if desktop_engine(model_id):
