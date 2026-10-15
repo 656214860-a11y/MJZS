@@ -1,5 +1,6 @@
 # AI 漫剧助手：架构清单
 
+R1480：L4 `desktop_auto_flows.AutoFlowsMixin` 承载从 `desktop.Desktop` 原样迁出的无人值守流程方法（自动定稿／粗剪／首帧／资产／视频／白模／交接／采用的 `_tick_auto_*`、`poll_auto_*`，云监控、下载收件箱及相关判定），`Desktop` 通过继承获得；方法体未改，`self` 语义不变；无 Tk 的周期调度仍由 L3 `desktop_automation_service` 承担。`desktop.py` 7820→7241 行。
 R1250：API 剧本准备通过 L3 `restart_writing_preparation` 显式从设定、大纲或角色卡重写；L2 `writing_api` 在既有 `preparation_state.json` 内暂存 revision，确认前保留采用 documents，确认后替换当前及下游确认。旧正文不删除；旧自然稿撤销采用须重新生成或显式采用。请求发布核对阶段文件、brief、确认台账及模型选择，拦截等待期间变更后的迟到结果；桌面仅绑定菜单和显示版本标记。
 
 R1247：剧本准备显示会话和发送请求分别固定模型身份；请求路由、历史及发布复用提交快照。聊天以稳定模型 ID 分区，兼容迁移显示名目录及回收站，模型池保存历史目录别名。`natural_script_selection.json` 经 L3 注入发布器记录采用自然稿的相对路径和 SHA256；多稿不再按时间自动采用。`WritingRequestAdapter` 复用 ModelAdapter 协议逐次检查模型容量与输出预留，累计已报告用量；估算与实报元数据归属对应回复，不含密钥。已确认简报及阶段成果仍按项目共享。

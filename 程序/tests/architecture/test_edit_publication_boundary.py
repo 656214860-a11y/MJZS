@@ -52,7 +52,8 @@ class EditPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('allow_empty=True', source)
 
     def test_desktop_delegates_automatic_assemble_marker_to_l3_publisher(self):
-        with open(os.path.join(ROOT, 'desktop.py'), encoding='utf-8') as handle:
+        # R1480：自动粗剪轮询已原样迁到 desktop_auto_flows（断言未动，只改被检文件）。
+        with open(os.path.join(ROOT, 'desktop_auto_flows.py'), encoding='utf-8') as handle:
             desktop = ast.parse(handle.read())
         calls = [node for node in ast.walk(desktop) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == 'save_automatic_assemble_marker']
