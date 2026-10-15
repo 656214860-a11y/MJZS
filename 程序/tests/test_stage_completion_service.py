@@ -191,6 +191,12 @@ class MediaCompletionTests(unittest.TestCase):
             validate_commercial_evidence(self.root, evidence)
         evidence['categories']['reference']['items'] = [item]
         self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        bundle = read(output.parent / 'edit_bundle.json')
+        bundle['references'][0]['category'] = 'image'
+        save(output.parent / 'edit_bundle.json', bundle)
+        evidence['categories']['reference']['items'] = []
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        self.assertEqual(commercial_template(self.root)['categories']['image']['items'][0]['path'], 'reference.png')
         reference.write_bytes(b'changed-reference')
         item['sha256'] = file_hash(reference)
         with self.assertRaisesRegex(ValueError, '参考授权'):

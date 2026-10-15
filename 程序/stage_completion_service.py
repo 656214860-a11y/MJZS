@@ -190,7 +190,11 @@ def _commercial_inventory(root, scope, outputs):
                 if not isinstance(source, str) or not source.strip():
                     warnings.append('来源清单缺少路径，须人工补齐：' + field)
                     continue
-                add(category, path.parent / source, row.get('sha256'))
+                row_category = row.get('category', 'reference') if field == 'references' else category
+                if field == 'references' and row_category not in ('reference', 'image'):
+                    warnings.append('参考来源类别无效')
+                    continue
+                add(row_category, path.parent / source, row.get('sha256'))
         if (path.parent / 'font.ttc').is_file():
             add('font', path.parent / 'font.ttc')
     return categories, warnings
@@ -295,12 +299,15 @@ def validate_commercial_evidence(root, evidence):
             references = bundle.get('references', [])
             if not isinstance(references, list):
                 raise ValueError('成片参考来源清单无效')
-            declared_references = {(root / item['path']).resolve(): item['sha256']
-                                   for item in categories['reference']['items']}
             for reference in references:
                 if (not isinstance(reference, dict) or not isinstance(reference.get('path'), str)
                         or not reference['path'].strip()):
                     raise ValueError('成片参考来源清单无效')
+                category = reference.get('category', 'reference')
+                if category not in ('reference', 'image'):
+                    raise ValueError('成片参考来源类别无效')
+                declared_references = {(root / item['path']).resolve(): item['sha256']
+                                       for item in categories[category]['items']}
                 reference_path = (path.parent / reference['path']).resolve()
                 if (not reference_path.is_relative_to(root) or not reference_path.is_file()
                         or declared_references.get(reference_path) != reference.get('sha256')

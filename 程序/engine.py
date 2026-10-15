@@ -342,7 +342,18 @@ class Studio:
             command([self.cfg['ffmpeg'],'-version']); command([self.cfg['ffprobe'],'-version'])
             from agent.shot_assets import prepare
             shot=prepare(self.episode_path,shot,self.cfg,white=white)
-            client=self.client(); payload=client.payload(shot,self.frame(shot))
+            frame = self.frame(shot)
+            client=self.client(); payload=client.payload(shot,frame)
+            def redact(value):
+                if isinstance(value,dict):return {k:redact(v) for k,v in value.items()}
+                if isinstance(value,list):return [redact(v) for v in value]
+                if isinstance(value,str) and value.startswith(('data:image/','data:video/')):
+                    import hashlib,base64
+                    return 'sha256:'+hashlib.sha256(base64.b64decode(value.split(',',1)[1])).hexdigest()
+                return value
+            preview=redact(payload)
+            from video_source_evidence import submitted_sources
+            media_sources = submitted_sources(preview, frame, shot.get('_white_model_reference'))
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':True,
                'signature':fingerprint(payload),'review':'pending','created':time.time(),'local_request':uuid.uuid4().hex}
             v['generate_audio']=bool(shot.get('generate_audio',True))
@@ -354,17 +365,9 @@ class Studio:
             versions.append(v); save(self.db,st) # Reserve before network; ambiguous requests stay reserved.
             folder=self.task_folder(sid,v)
             folder.mkdir(parents=True,exist_ok=True)
-            def redact(value):
-                if isinstance(value,dict):return {k:redact(v) for k,v in value.items()}
-                if isinstance(value,list):return [redact(v) for v in value]
-                if isinstance(value,str) and value.startswith(('data:image/','data:video/')):
-                    import hashlib,base64
-                    return 'sha256:'+hashlib.sha256(base64.b64decode(value.split(',',1)[1])).hexdigest()
-                return value
-            preview=redact(payload)
             save(folder/'request.json',preview)
             save(folder/'assets_manifest.json',{'mode':shot['_reference_mode'],'assets':shot['_asset_references'],
-                                               'white_model_reference':shot.get('_white_model_reference')})
+                                               **media_sources})
             save_text(folder/'实际提交提示词.txt', shot['video_prompt'])
             from pet_llm import RequestLedger
             ledger = RequestLedger(project_root(self.root))
@@ -607,7 +610,11 @@ class Studio:
             assets = read(assets_path)
             if not isinstance(assets, dict) or not isinstance(assets.get('assets'), list):
                 raise ValueError('镜头参考资产清单无效，不能登记剪辑成果')
-            for asset in assets['assets']:
+            source_assets = list(assets['assets'])
+            for key in ('first_frame', 'white_model_reference'):
+                if assets.get(key):
+                    source_assets.append(assets[key])
+            for asset in source_assets:
                 if (not isinstance(asset, dict) or not isinstance(asset.get('path'), str)
                         or not asset['path'].strip() or not isinstance(asset.get('sha256'), str)
                         or not asset['sha256']):
@@ -616,6 +623,8 @@ class Studio:
                 reference_path = (os.path.relpath(reference, out)
                                   if reference.drive.casefold() == out.drive.casefold() else str(reference))
                 row = {'path': reference_path.replace('\\', '/'), 'sha256': asset['sha256']}
+                if asset.get('category') == 'image':
+                    row['category'] = 'image'
                 if row not in references:
                     references.append(row)
         save(out/EDIT_BUNDLE_NAME, {

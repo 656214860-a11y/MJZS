@@ -67,11 +67,14 @@ class EditBundleTests(unittest.TestCase):
             clip = root / 'clip.mp4'; clip.write_bytes(b'clip')
             reference = root / 'reference.png'; reference.write_bytes(b'changed-reference')
             engine.save(root / 'assets_manifest.json', {'assets': [
-                {'path': str(reference), 'sha256': 'generation-time-digest'}]})
+                {'path': str(reference), 'sha256': 'generation-time-digest'}],
+                'first_frame': {'path': str(root / 'frame.png'), 'sha256': 'frame-digest', 'category': 'image'}})
             chosen = [({'id': 'S01'}, {'version': 1, 'sha256': engine.file_hash(clip)}, clip)]
             engine.Studio.publish_edit_bundle(None, out, master, {}, chosen)
             bundle = engine.read(out / 'edit_bundle.json')
-            self.assertEqual(bundle['references'], [{'path': '../reference.png', 'sha256': 'generation-time-digest'}])
+            self.assertEqual(bundle['references'], [
+                {'path': '../reference.png', 'sha256': 'generation-time-digest'},
+                {'path': '../frame.png', 'sha256': 'frame-digest', 'category': 'image'}])
             engine.save(root / 'assets_manifest.json', {'assets': [{'path': str(reference)}]})
             with self.assertRaisesRegex(ValueError, '路径或摘要'):
                 engine.Studio.publish_edit_bundle(None, out, master, {}, chosen)
