@@ -28,8 +28,8 @@ def validate_safetensors(path):
 def locate_prompt(fetch,client_id='',workflow=None,attempts=3,wait=1.0):
     """提交响应中断后，按本次提交的 client_id（或完全相同的图）找回任务编号。
 
-    fetch(path) 返回队列/历史接口的 JSON。只认本次提交的 client_id，或与本次完全相同的图，
-    不会误挂到别的任务上；找不到返回 None，调用方据此判定本次确实没有提交成功。
+    有 client_id 时只匹配该标识；旧记录无标识时只接受唯一的同图任务。
+    找不到返回 None，不代表远端确定未接收，不得据此自动重发。
     """
     for index in range(max(1,attempts)):
         entries=[]
@@ -45,11 +45,13 @@ def locate_prompt(fetch,client_id='',workflow=None,attempts=3,wait=1.0):
                 entries.extend(data.get('queue_pending',[]) or [])
             else:
                 entries.extend(entry.get('prompt') for entry in data.values() if isinstance(entry,dict))
+        matches=set()
         for entry in entries:
             if not (isinstance(entry,list) and len(entry)>3 and entry[1]):continue
             extra=entry[3] if isinstance(entry[3],dict) else {}
             if client_id and extra.get('client_id')==client_id:return entry[1]
-            if workflow is not None and entry[2]==workflow:return entry[1]
+            if not client_id and workflow is not None and entry[2]==workflow:matches.add(entry[1])
+        if len(matches)==1 and not failures:return matches.pop()
         if len(failures) == 2 and index == attempts - 1:
             raise ComfyRecoveryUnavailable('ComfyUI 队列和历史均无法读取，无法核对已提交任务') from failures[0]
         if index<attempts-1:time.sleep(wait)

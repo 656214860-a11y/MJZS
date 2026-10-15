@@ -151,11 +151,15 @@ class LocalStudio(Studio):
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':False,'backend':'comfy','endpoint':api.url,'output_node':options.get('output','92'),'review':'pending','created':time.time(),'signature':fingerprint(graph)}
             v.update(generate_audio=has_audio,source_aspect=ratio,reference_assets=[{'id':a['id'],'name':a['name'],'picture':a['picture'],'path':a['path']} for a in references])
             folder=self.root/'data'/sid/f"v{v['version']:03}";folder.mkdir(parents=True,exist_ok=True);save(folder/'request.json',graph)
-            versions.append(v);save(self.db,st)
             client_id=uuid.uuid4().hex
+            v['client_id']=client_id
+            versions.append(v);save(self.db,st)
             def reattach():
                 # 提交响应中断时任务往往已经排队：先按 client_id 在队列与历史里找回，绝不重复提交。
-                prompt_id=api.locate_prompt(client_id,graph)
+                try:prompt_id=api.locate_prompt(client_id,graph)
+                except Exception:
+                    v['state']='unknown';save(self.db,st)
+                    raise RuntimeError('提交结果不确定且暂时无法查询；恢复连接后查询，不自动重发') from None
                 if not prompt_id:return False
                 v.update(task_id=prompt_id,state='queued');save(self.db,st)
                 report('提交响应中断，已按 client_id 找回任务编号 '+prompt_id)
@@ -183,7 +187,7 @@ class LocalStudio(Studio):
             if not v.get('task_id'):
                 # 旧记录可能停在「结果不确定」：按当初保存的工作流再比对一次，找回就继续自动取回。
                 request=self.root/'data'/sid/f"v{v['version']:03}"/'request.json'
-                prompt_id=api.locate_prompt('',read(request)) if request.is_file() else None
+                prompt_id=api.locate_prompt(v.get('client_id',''),read(request) if request.is_file() else None)
                 if not prompt_id:raise ValueError('请在ComfyUI核实任务编号，再使用恢复任务编号')
                 v.update(task_id=prompt_id,state='queued');save(self.db,st)
             h=api.call('/history/'+quote(v['task_id'],safe='')).get(v['task_id'])

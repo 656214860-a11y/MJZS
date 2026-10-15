@@ -64,7 +64,25 @@ class VideoPublicationTests(unittest.TestCase):
 
 
 class VideoTaskIdRecoveryTests(unittest.TestCase):
-    def test_poll_recovers_missing_task_id_from_saved_graph(self):
+    def test_recovery_prefers_identity_over_identical_old_workflow(self):
+        from comfy_service import locate_prompt
+        graph = {'node': {}}
+        entries = [[1, 'OLD', graph, {'client_id': 'old'}],
+                   [2, 'NEW', graph, {'client_id': 'current'}]]
+        fetch = lambda path: {'queue_running': entries} if path == '/queue' else {}
+        self.assertEqual(locate_prompt(fetch, 'current', graph, attempts=1), 'NEW')
+        self.assertIsNone(locate_prompt(fetch, 'missing', graph, attempts=1))
+
+    def test_legacy_graph_recovery_rejects_ambiguous_jobs(self):
+        from comfy_service import locate_prompt
+        graph = {'node': {}}
+        fetch = lambda path: {'queue_running': [[1, 'A', graph, {}], [2, 'B', graph, {}]]} if path == '/queue' else {}
+        self.assertIsNone(locate_prompt(fetch, workflow=graph, attempts=1))
+
+    def test_poll_recovers_persisted_identity_after_restart(self):
+        self.test_poll_recovers_missing_task_id_from_saved_graph('current')
+
+    def test_poll_recovers_missing_task_id_from_saved_graph(self, client_id=''):
         import contextlib
         import local_video
         with tempfile.TemporaryDirectory() as td:
@@ -74,12 +92,14 @@ class VideoTaskIdRecoveryTests(unittest.TestCase):
             (folder / "request.json").write_text(json.dumps(graph), encoding="utf-8")
             db = root / "data" / "state.json"
             db.write_text(json.dumps({"shots": {"SH001": [{
-                "version": 1, "state": "unknown", "backend": "comfy",
+                "version": 1, "state": "unknown", "backend": "comfy", "client_id": client_id,
                 "endpoint": "http://127.0.0.1:8189", "output_node": "92", "seconds": 5}]}}), encoding="utf-8")
             class FakeAPI(local_video.LocalAPI):
                 def call(self, path, payload=None, **kw):
                     if path == "/queue":
-                        return {"queue_running": [[1, "PID", graph, {"client_id": "别人"}, []]], "queue_pending": []}
+                        entries = [[1, "OLD" if client_id else "PID", graph, {"client_id": "别人"}, []]]
+                        if client_id: entries.append([2, "PID", graph, {"client_id": client_id}, []])
+                        return {"queue_running": entries, "queue_pending": []}
                     if path in ("/history", "/history/PID"): return {}
                     raise AssertionError(path)
             class FakeStudio: pass
