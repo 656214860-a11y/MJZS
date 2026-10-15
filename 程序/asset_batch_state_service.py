@@ -26,7 +26,19 @@ def read_ledger(project=None, *, context=None):
     """读取资产批次台账；坏的历史台账不作为可继续状态使用。"""
     file = ledger_path(project, context=context)
     data = read(file) if file.is_file() else {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):return {}
+    for job in data.values():
+        if not isinstance(job, dict) or job.get('state') != 'failed' or job.get('retry_confirmed'):
+            continue
+        # 旧版本把未知回执误写为failed；尊重已经明确人工核实过的历史记录。
+        if job.get('note') == '您已在 ComfyUI／云端核实，本次重新生成':continue
+        if job.get('record'):
+            record = Path(job['record'])
+            if not record.is_absolute():record = file.parent.parent / record
+            info = read(record)
+            if isinstance(info, dict) and info.get('state') in ('unknown', 'submitting'):
+                job.update(state='submitting', record=str(record))
+    return data
 
 
 def save_ledger(project=None, data=None, *, publish=None, context=None):
@@ -61,7 +73,7 @@ def release_uncertain(project, ids, *, publish=None, context=None):
     for aid in ids:
         job = data.get(aid)
         if isinstance(job, dict) and job.get('state') == 'submitting':
-            job.update(state='failed', note='您已在 ComfyUI／云端核实，本次重新生成')
+            job.update(state='failed', retry_confirmed=True, note='您已在 ComfyUI／云端核实，本次重新生成')
             released.append(aid)
     if released:
         save_ledger(project, data, publish=publish, context=context)

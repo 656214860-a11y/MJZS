@@ -22,7 +22,7 @@ def _resumable_record(record):
         info = read(Path(record))
     except (OSError, ValueError):
         return False
-    return isinstance(info, dict) and bool(info.get('prompt_id') or info.get('state') == 'downloaded')
+    return isinstance(info, dict) and bool(info.get('prompt_id') or info.get('client_id') or info.get('state') == 'downloaded')
 
 
 def eligible_items(base, items, requires_asset, image_ready_fn=image_ready):
@@ -134,7 +134,7 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
                 state[aid]['error'] = str(exc)
                 if isinstance(exc, AssetSubmissionUncertain): pass
                 elif isinstance(exc, ComfySubmissionUncertain):
-                    state[aid]['state'] = 'failed'
+                    state[aid]['state'] = 'submitting'
                     if getattr(exc, 'record', ''): state[aid]['record'] = str(exc.record)
                 elif isinstance(exc, ComfyGenerationFailed) or state[aid].get('state') == 'submitting' and isinstance(exc, ValueError): state[aid]['state'] = 'failed'
                 save_ledger(project, state, publish=publish_ledger)

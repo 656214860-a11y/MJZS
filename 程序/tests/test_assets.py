@@ -412,6 +412,36 @@ class ComfySubmitRecoveryTests(unittest.TestCase):
             self.assertTrue(str(record).startswith(str(Path(td) / "workflows")))
             self.assertEqual(json.loads(Path(record).read_text(encoding="utf-8"))["state"], "unknown")
 
+    def test_restart_recovers_persisted_client_without_resending(self):
+        from comfy_service import Comfy, ComfySubmissionUncertain
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as td:
+            client = self.only_once(self.make_client({}))
+            with self.assertRaises(ComfySubmissionUncertain) as caught:
+                client.submit_graph(td, 'characters', 'prompt', {})
+            record = Path(caught.exception.record)
+            job = json.loads(record.read_text(encoding='utf-8'))
+            self.assertTrue(job['client_id'])
+            restarted = Comfy('http://127.0.0.1:8189')
+            restarted.locate_prompt = Mock(return_value='original-task')
+            restarted.request = Mock(return_value={})
+            self.assertIn('排队', restarted.collect(td, record))
+            restarted.locate_prompt.assert_called_once_with(job['client_id'])
+            restarted.request.assert_called_once_with('/history/original-task')
+            self.assertEqual(json.loads(record.read_text(encoding='utf-8'))['prompt_id'], 'original-task')
+
+    def test_http_rejection_and_server_uncertainty_keep_distinct_states(self):
+        from urllib.error import HTTPError
+        from comfy_service import ComfyGenerationFailed, ComfySubmissionUncertain
+        for code, error_type, state in [(429, ComfyGenerationFailed, 'failed'), (503, ComfySubmissionUncertain, 'unknown')]:
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as td:
+                client = self.make_client({}, error=HTTPError('http://local/prompt', code, 'error', {}, None))
+                with self.assertRaises(error_type):
+                    client.submit_graph(td, 'characters', 'prompt', {})
+                records = list((Path(td) / 'workflows').glob('comfy_*.json'))
+                self.assertEqual(len(records), 1)
+                self.assertEqual(json.loads(records[0].read_text(encoding='utf-8'))['state'], state)
+
     def test_locate_prompt_retries_until_visible(self):
         from comfy_service import Comfy
         client = Comfy("http://127.0.0.1:8189")
@@ -442,16 +472,18 @@ class ComfySubmitRecoveryTests(unittest.TestCase):
             record = Path(ctx.exception.record)
             self.assertEqual(json.loads(record.read_text(encoding='utf-8'))['state'], 'unknown')
 
-    def test_batch_marks_uncertain_as_failed_and_keeps_record(self):
+    def test_batch_keeps_uncertain_and_never_resubmits(self):
         import queue as queue_module, threading
         from comfy_service import ComfySubmissionUncertain
         from asset_batch import run_batch
+        sent = []
         class Fake:
             def request(self, path, data=None, raw=False, timeout=20):
                 if path == "/system_stats":
                     return {}
                 raise AssertionError(path)
             def submit(self, *a, **k):
+                sent.append(True)
                 error = ComfySubmissionUncertain("提交结果不确定，请在本地 ComfyUI 核实任务；未自动重复提交")
                 error.record = "workflows/comfy_deadbeef.json"
                 raise error
@@ -464,8 +496,10 @@ class ComfySubmitRecoveryTests(unittest.TestCase):
             result = run_batch(td, base, [("CHAR_001", asset)], options, events, threading.Event(), client_factory=lambda url: Fake())
             self.assertIn("未完成 1", result)
             ledger = json.loads((Path(td) / "workflows" / "资产批量记录.json").read_text(encoding="utf-8"))
-            self.assertEqual(ledger["CHAR_001"]["state"], "failed")
+            self.assertEqual(ledger["CHAR_001"]["state"], "submitting")
             self.assertEqual(ledger["CHAR_001"]["record"], "workflows/comfy_deadbeef.json")
+            run_batch(td, base, [("CHAR_001", asset)], options, events, threading.Event(), client_factory=lambda url: Fake())
+            self.assertEqual(len(sent), 1)
 
 
 class AssetUncertainSubmissionTests(unittest.TestCase):
@@ -510,6 +544,17 @@ class AssetUncertainSubmissionTests(unittest.TestCase):
             record = self.write_record(td, state="unknown", prompt_id="")
             self.write_ledger(td, {"CHAR_001": {"state": "submitting", "record": str(record)}})
             self.assertEqual(uncertain_assets(td), ["CHAR_001"])
+
+    def test_old_failed_unknown_record_is_recovered_and_explicit_release_remains_valid(self):
+        from asset_batch import uncertain_assets, release_uncertain
+        from asset_batch_state_service import read_ledger
+        with tempfile.TemporaryDirectory() as td:
+            record = self.write_record(td, state='unknown', prompt_id='')
+            self.write_ledger(td, {'CHAR_001': {'state': 'failed', 'record': str(record)}})
+            self.assertEqual(uncertain_assets(td), ['CHAR_001'])
+            self.assertEqual(read_ledger(td)['CHAR_001']['state'], 'submitting')
+            self.assertEqual(release_uncertain(td, ['CHAR_001']), ['CHAR_001'])
+            self.assertEqual(read_ledger(td)['CHAR_001']['state'], 'failed')
 
     def test_release_uncertain_allows_regeneration(self):
         from asset_batch import uncertain_assets, release_uncertain

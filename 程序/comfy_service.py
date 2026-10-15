@@ -125,8 +125,8 @@ class Comfy:
         if kind not in ('characters','scenes','props'):raise ValueError('无效资产类别')
         folder=Path(root)/'workflows';folder.mkdir(exist_ok=True)
         rec=folder/('comfy_'+uuid.uuid4().hex[:10]+'.json')
-        job={'state':'submitting','kind':kind,'prompt':prompt,'workflow':graph};save(rec,job)
         client_id=uuid.uuid4().hex
+        job={'state':'submitting','kind':kind,'prompt':prompt,'workflow':graph,'client_id':client_id};save(rec,job)
         try:
             payload={'prompt':graph,'client_id':client_id}
             if extra_data:payload['extra_data']=extra_data
@@ -138,7 +138,9 @@ class Comfy:
             # timeouts remain unknown so they cannot trigger duplicate charges.
             job['state']='failed' if 400<=exc.code<500 else 'unknown';save(rec,job)
             if job['state']=='failed':raise ComfyGenerationFailed('ComfyUI 拒绝提交（HTTP '+str(exc.code)+'），请检查节点参数或账户配置') from None
-            raise
+            error=ComfySubmissionUncertain('ComfyUI 服务响应异常，提交结果待核实；不会自动重复提交')
+            error.record=str(rec)
+            raise error from exc
         except Exception as exc:
             # 提交响应可能只是超时或断连，任务其实已经进了 ComfyUI：先按 client_id 找回，
             # 找回后照常排队生成；确认队列与历史里都没有本次任务，才判定提交结果不确定。
@@ -162,7 +164,11 @@ class Comfy:
         job=read(record)
         if job.get('kind') not in ('characters','scenes','props'):raise ValueError('无效资产类别')
         if job.get('state')=='downloaded':return job['files']
-        if not job.get('prompt_id'):raise ValueError('提交结果不确定，请在ComfyUI核实任务；不会自动重新提交')
+        if not job.get('prompt_id') and job.get('client_id'):
+            recovered=self.locate_prompt(job['client_id'])
+            if recovered:
+                job.update(state='queued',prompt_id=recovered);save(record,job)
+        if not job.get('prompt_id'):raise ComfySubmissionUncertain('提交结果不确定，请在ComfyUI核实任务；不会自动重新提交')
         h=self.request('/history/'+job['prompt_id']).get(job['prompt_id'])
         if not h:return '排队或生成中，稍后再获取'
         if h.get('status',{}).get('status_str')=='error':
