@@ -287,7 +287,7 @@ def cost_reconciliation_dialog(parent, project):
         status = {'reserved': '预留', 'unknown': '金额未知', 'estimated': '估算', 'reconciled': '已核对'}
         hint.set('原金额：%s；费用状态：%s；已有 %d 次核对' % (
             row.get('budget_cost') if row.get('budget_cost') is not None else '未知',
-            status.get(row.get('money_state'), '未计价'), len(row.get('cost_reconciliations', []))))
+            status.get(RequestLedger.effective_money_state(row), '未计价'), len(row.get('cost_reconciliations', []))))
     def browse():
         path = FileDialog(win).open_file(title='选择本地账单凭据')
         if path: fields['evidence'].set(path)

@@ -139,6 +139,34 @@ class RequestLedgerTests(unittest.TestCase):
 
 
 class ModelMoneyBudgetTests(unittest.TestCase):
+    def test_changed_or_missing_receipt_invalidates_report_and_budget_until_reconciled(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            receipt = Path(td) / 'invoice.txt'; receipt.write_text('original invoice')
+            ledger = RequestLedger(td)
+            ledger.authorize_model('a', 'm', 'script', 20, 20)
+            ledger.settle_model('a', {})
+            ledger.reconcile_cost('a', 'tokens', '0.2', 'CNY', receipt, 'tester')
+            table = json.loads((Path(td) / 'cost_profile.json').read_text(encoding='utf-8'))['price_table']
+            self.assertTrue(ledger.report(table)['money']['complete'])
+            receipt.write_text('modified invoice')
+            costs = ledger.model_costs()['CNY']
+            self.assertEqual(costs['reconciled_spent'], '0')
+            self.assertEqual(costs['held'], '0.2')
+            self.assertEqual(costs['stale_receipts'], 1)
+            self.assertFalse(ledger.report(table)['money']['complete'])
+            quote = ledger.preview_units('m', 'tokens', {'prompt_tokens': 1, 'completion_tokens': 1})
+            self.assertFalse(quote['allowed'])
+            with self.assertRaisesRegex(ValueError, '账单凭据'):
+                ledger.authorize_model('b', 'm', 'script', 1, 1)
+            self.assertIsNone(ledger.load()._find('b'))
+            self.assertEqual(ledger._find('a')['budget_cost'], '0.2')
+            ledger.reconcile_cost('a', 'tokens', '0.2', 'CNY', receipt, 'tester')
+            self.assertEqual(len(ledger.load()._find('a')['cost_reconciliations']), 2)
+            self.assertTrue(ledger.report(table)['money']['complete'])
+            receipt.unlink()
+            self.assertFalse(ledger.report(table)['money']['complete'])
+
     def test_reconciliation_releases_only_confirmed_cost_and_keeps_audit(self):
         with tempfile.TemporaryDirectory() as td:
             self.policy(td)

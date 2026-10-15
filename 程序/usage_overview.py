@@ -227,6 +227,8 @@ def report_text(summary):
                 money['estimated_spent'], currency, money['held'], money['unknown']))
             lines.append('人工已核对账单：%s %s（凭据及修订记录保存在请求台账）' % (
                 money.get('reconciled_spent', '0'), currency))
+            if money.get('stale_receipts'):
+                lines.append('有 %d 笔账单凭据缺失或已变化，原金额保留为待核实；请重新核对费用。' % money['stale_receipts'])
         lines.append('请求台账（视频秒数、生图、次数等，各列各的）')
         for kind, bucket in ledger_report['kinds'].items():
             if bucket.get('count'):

@@ -694,6 +694,27 @@ class RequestLedger:
         out['model_costs'] = self.model_costs()
         return out
 
+    @staticmethod
+    def effective_money_state(row):
+        """失效账单只降级读视图，不抹去原金额或核对历史。"""
+        state = row.get('money_state')
+        if state != 'reconciled':
+            return state
+        history = row.get('cost_reconciliations')
+        if not isinstance(history, list) or not history or not isinstance(history[-1], dict):
+            return 'unknown'
+        audit = history[-1]
+        if audit.get('amount') != row.get('budget_cost') or audit.get('currency') != row.get('currency'):
+            return 'unknown'
+        try:
+            digest = hashlib.sha256()
+            with Path(audit['evidence_path']).open('rb') as stream:
+                for chunk in iter(lambda: stream.read(65536), b''):
+                    digest.update(chunk)
+            return 'reconciled' if digest.hexdigest() == audit.get('evidence_sha256') else 'unknown'
+        except (OSError, ValueError, TypeError, KeyError):
+            return 'unknown'
+
     def priced_models(self, price_table, currency):
         legacy = RequestLedger()
         legacy.entries = [row for row in self.entries if 'money_state' not in row and not row.get('cost_group')]
@@ -709,12 +730,13 @@ class RequestLedger:
                 money['missing_rates'].append(str(row.get('model') or 'unknown'))
                 money['complete'] = False
                 continue
-            if row['money_state'] in ('estimated', 'reconciled'):
+            state = self.effective_money_state(row)
+            if state in ('estimated', 'reconciled'):
                 spent += self.decimal(cost)
             else:
                 held += self.decimal(cost)
                 money['complete'] = False
-                if row['money_state'] == 'unknown':
+                if state == 'unknown':
                     money['unknown_requests'] += 1
         money.update(settled_amount=float(round(spent, 4)), reserved_amount=float(round(held, 4)),
                      amount=float(round(spent + held, 4)), frozen_model_price_versions=sorted(versions))
@@ -726,11 +748,14 @@ class RequestLedger:
             if 'money_state' not in row or row.get('state') == 'duplicate':
                 continue
             currency = str(row.get('currency') or '币种未配置')
-            group = groups.setdefault(currency, {'estimated_spent': '0', 'reconciled_spent': '0', 'held': '0', 'unknown': 0})
-            if row.get('budget_cost') is None or row['money_state'] == 'unknown':
+            group = groups.setdefault(currency, {'estimated_spent': '0', 'reconciled_spent': '0', 'held': '0', 'unknown': 0, 'stale_receipts': 0})
+            state = self.effective_money_state(row)
+            if row['money_state'] == 'reconciled' and state != 'reconciled':
+                group['stale_receipts'] += 1
+            if row.get('budget_cost') is None or state == 'unknown':
                 group['unknown'] += 1
             if row.get('budget_cost') is not None:
-                key = {'estimated': 'estimated_spent', 'reconciled': 'reconciled_spent'}.get(row['money_state'], 'held')
+                key = {'estimated': 'estimated_spent', 'reconciled': 'reconciled_spent'}.get(state, 'held')
                 group[key] = str(self.decimal(group[key]) + self.decimal(row['budget_cost']))
         return groups
 
@@ -871,6 +896,8 @@ class RequestLedger:
         for row in self.entries:
             if row.get('state') == 'duplicate' or row.get('cost_group'):
                 continue
+            if row.get('money_state') == 'reconciled' and self.effective_money_state(row) != 'reconciled':
+                reasons.append('账单凭据缺失或已变化，请重新核对费用'); used = None
             if row.get('budget_cost') is None or row.get('currency') != table.get('currency'):
                 reasons.append('存在未计价费用或币种不一致，请核对后继续'); used = None
             elif used is not None:
@@ -1037,6 +1064,8 @@ class RequestLedger:
                 for row in self.entries:
                     if row.get('state') == 'duplicate' or row.get('cost_group'):
                         continue
+                    if row.get('money_state') == 'reconciled' and self.effective_money_state(row) != 'reconciled':
+                        raise ValueError('账单凭据缺失或已变化，请重新核对费用')
                     money = row.get('budget_cost')
                     if money is None or row.get('currency') != table['currency']:
                         raise ValueError('存在未计价费用或币种不一致，请核对后继续')
