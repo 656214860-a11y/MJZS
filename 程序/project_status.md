@@ -1,5 +1,9 @@
 # 项目状态（可独立接续）
 
+R1500：修复轮。R1496 锁界面对阶段配置面板的三条回归（锁提示占用 `panel.state`、新增锁行挤出底部栏）：提示改放锁区自己的控件，选填锁默认折叠，底部栏保持可见；结果追加在 R1496 文件。`test_skills` 全模块与锁相关用例通过。
+R1498：兼容轮（车道 skillauditB）。07–13 阶段适配文件 7 份、小 SKILL 4 份按已审定映射表挂载 V7.4.20 子技能章节，各阶段新增「本阶段读取的项目锁」声明（锁以项目设置为准，不再弹问）；外部整包只审不改。验收退回一次：恢复被删的既有门控句，合同测试 195 条通过，总控体检无问题。详见 [R1498](tasks_round/tasks_round_1498_result.md)。
+R1497：兼容轮（车道 skillauditA）。01–06 阶段适配文件 6 份、小 SKILL 4 份同上；01 阶段 5 个外部整包只审不改。验收退回一次（恢复门控句、锚点按新版标题同步、剧本阶段引用链接断言扩展为「原 4 条＋新增 5 条」）。详见 [R1497](tasks_round/tasks_round_1497_result.md)。
+R1496：功能轮（界面＋契约，车道 R1483）。全流程包升到 V7.4.20（1 总控＋12 子技能，R1481 固定指针）后，新增制作锁 `track`（赛道）、`material_source`（素材来源）、`reference_mode`、`splice_mode`、`style_base`／`style_directors` 进创作信息窗与阶段配置；赛道与素材来源自 2026-10-15 起新项目必填，老项目只提示不阻断；画风锁只做预设入口。合并时 `desktop.py` 与 R1490 拆分冲突，改动手工迁入 `desktop_idea_chat.py`。已知：加载器仍整文件内联被引用章节所在文件，未做章节截取。详见 [R1496](tasks_round/tasks_round_1496_result.md)。
 R1499：结构治理轮。拆分 desktop.py 步骤 3 第 1 页：剧本准备页 writing（576 行）原样迁到 desktop_writing_page.WritingPageMixin，desktop.py 5906→5328 行；confirm/open_path/ContextMenu 经 bind_host 转发保持补丁有效。详见 [R1499](tasks_round/tasks_round_1499_result.md)。
 R1490：结构治理轮。拆分 desktop.py 步骤 2：创意对话与 Agent 派发 60 个方法（1295 行）原样迁到 desktop_idea_chat.IdeaChatMixin，desktop.py 7241→5906 行；Desktop 源码类门禁改读 desktop_text()/parse_desktop()。详见 [R1490](tasks_round/tasks_round_1490_result.md)。
 R1489：修复轮。文案「您」规则对整包第三方 SKILL（AIGC 创作全流程）放行：V7.4.20 新脚本含「你」致 test_copy_rules 红 13 处；项目自有界面文案仍受约束。详见 [R1489](tasks_round/tasks_round_1489_result.md)。
