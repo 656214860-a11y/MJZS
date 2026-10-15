@@ -54,6 +54,32 @@ class TaskCenterServiceTests(unittest.TestCase):
         self.assertEqual(len(app_logging.recent_swallowed()), 20)
 
 
+    def test_lifecycle_history_records_label_state_and_elapsed(self):
+        from desktop_automation_service import BackgroundTaskLifecycle
+        life = BackgroundTaskLifecycle()
+        life.submit(1, label='生成分镜')
+        self.assertTrue(life.finish(1, succeeded=True))
+        life.submit(2, label='导出')
+        life.submit(3)  # 覆盖提交：2 记为已取消
+        life.finish(3, succeeded=False)
+        life.finish(2, succeeded=True)  # 迟到结果不进历史
+        rows = life.history()
+        self.assertEqual([(r['ticket'], r['state'], r['label']) for r in rows],
+                         [(1, 'succeeded', '生成分镜'), (2, 'cancelled', '导出'), (3, 'failed', '')])
+        self.assertTrue(all(r['elapsed_s'] is not None for r in rows))
+        text = chr(10).join(task_center_service.format_lines(task_center_service.snapshot(life)))
+        self.assertIn('生成分镜', text)
+        self.assertIn('已取消', text)
+
+    def test_history_is_bounded(self):
+        from desktop_automation_service import BackgroundTaskLifecycle, HISTORY_LIMIT
+        life = BackgroundTaskLifecycle()
+        for n in range(HISTORY_LIMIT + 5):
+            life.submit(n)
+            life.finish(n, succeeded=True)
+        self.assertEqual(len(life.history()), HISTORY_LIMIT)
+
+
 class TaskCenterUiTests(unittest.TestCase):
     def test_dialog_is_read_only_and_shows_summary(self):
         root = tk.Tk()

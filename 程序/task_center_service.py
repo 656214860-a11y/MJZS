@@ -17,6 +17,7 @@ def snapshot(lifecycle=None, degradations=None) -> dict:
     counters = metrics.pop('counters', {})
     return {
         'last_task': dict(last) if isinstance(last, dict) else None,
+        'task_history': list(lifecycle.history()) if hasattr(lifecycle, 'history') else [],
         'timings': metrics,
         'counters': counters,
         'swallowed': app_logging.recent_swallowed(),
@@ -28,6 +29,13 @@ def format_lines(data: dict) -> list:
     lines = ['【最近一次主动任务】']
     task = data.get('last_task')
     lines.append('  暂无' if not task else '  #%s %s' % (task.get('ticket'), STATE_TEXT.get(task.get('state'), task.get('state'))))
+    lines.append('【最近完成的主动任务（最新在后，最多 20 条）】')
+    for row in data.get('task_history', []):
+        lines.append('  #%s %s %s%s' % (row.get('ticket'), STATE_TEXT.get(row.get('state'), row.get('state')),
+                                       row.get('label') or '（无名称）',
+                                       '' if row.get('elapsed_s') is None else '，%.1f 秒' % row['elapsed_s']))
+    if not data.get('task_history'):
+        lines.append('  暂无')
     lines.append('')
     lines.append('【模型调用结果（本次启动以来）】')
     counters = {k: v for k, v in data.get('counters', {}).items() if k.startswith('model.http.')}

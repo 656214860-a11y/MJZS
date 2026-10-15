@@ -3,12 +3,18 @@
 桌面只注入 ``after`` / ``after_cancel`` 与阶段轮询回调；本模块统一周期任务
 的重排、取消、异常兜底，以及各自动流程的到期轮询判断。
 """
+import time
+from collections import deque
+
 import app_logging
 
 
 # 后台任务生命周期的唯一迁移清单。每一项都必须证明同一代次覆盖提交、替换、
 # 取消、成功、失败和迟到交付拒绝；含连续进度消息的入口还必须把进度与最终结果
 # 绑定到同一 ticket。状态只记录已落地的事实，待迁移项不得借清单宣称已收口。
+HISTORY_LIMIT = 20
+
+
 BACKGROUND_TASK_MIGRATION = (
     {'entry': 'Desktop.async_', 'category': 'final-result', 'state': 'migrated'},
     {'entry': 'auto_edit', 'category': 'final-result', 'state': 'migrated'},
@@ -111,10 +117,23 @@ class BackgroundTaskLifecycle:
         self._cancel = None
         self._late = []
         self._last = None
+        self._started = None
+        self._history = deque(maxlen=HISTORY_LIMIT)
 
-    def submit(self, ticket, *, remote_task_id=None, costly=False):
+    def _record(self, ticket, state):
+        """把已结束的一次任务记进最近历史（只留 ``HISTORY_LIMIT`` 条，供运行状况面板读取）。"""
+        started = self._started or {}
+        self._history.append({'ticket': ticket, 'state': state, 'label': started.get('label', ''),
+                              'elapsed_s': round(time.monotonic() - started['at'], 1) if 'at' in started else None})
+        self._started = None
+
+    def history(self):
+        return list(self._history)
+
+    def submit(self, ticket, *, remote_task_id=None, costly=False, label=''):
         """登记当前代次；有成本或远端任务同时记下可查询编号，供取消时说明。"""
         self.cancel()
+        self._started = {'at': time.monotonic(), 'label': str(label or '')}
         self._active_ticket = ticket
         self._facts = {'remote_task_id': (str(remote_task_id) if remote_task_id else None),
                        'costly': bool(costly)}
@@ -134,6 +153,7 @@ class BackgroundTaskLifecycle:
         self._active_ticket = None
         self._facts = None
         self._last = {'ticket': ticket, 'state': 'succeeded' if succeeded else 'failed'}
+        self._record(ticket, self._last['state'])
         return True
 
     def cancel(self, ticket=None, *, costly=False, remote_task_id=None,
@@ -148,6 +168,7 @@ class BackgroundTaskLifecycle:
         self._active_ticket = None
         self._facts = None
         self._last = {'ticket': cancelled, 'state': 'cancelled'}
+        self._record(cancelled, 'cancelled')
         if costs or remote_cancel_requested or remote_cancel_confirmed:
             self._cancel = {'ticket': cancelled, 'remote_task_id': remote, 'costly': costs,
                             'remote_cancel_requested': bool(remote_cancel_requested),
