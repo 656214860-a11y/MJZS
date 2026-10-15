@@ -31,6 +31,21 @@ MANUAL_LABELS = {'script': '手动制作剧本', 'script_structure': '手动制�
                  'video': '手动制作视频', 'audio': '手动制作配音', 'edit': '手动制作剪辑',
                  'delivery': '手动制作交付'}
 RUNNING_LABEL = '自动执行中'          # 三虎（自动）正在跑这一步
+RECOVERY_HINTS = {
+    'script': '人工修改并保存自然剧本；确认故事后再结构化。',
+    'script_structure': '对照原稿修正结构剧本，校验通过再拆镜。',
+    'storyboard': '人工修正镜头和对白时长，确认初稿再继续。',
+    'animatic': '导入临时音频与参考图预演，人工确认节奏；预演不是成片。',
+    'assets': '导入有授权的角色／场景素材，人工核对外观与许可。',
+    'continuity': '按冲突清单人工裁决角色、服装及场景锚点。',
+    'final': '修正分镜及资产引用，重新校验并明确采用版本。',
+    'keyframe': '导入／替换选中首帧；只重试失败项，保留已采用图片。',
+    'previs': '人工调整白模或导入可播放预演，确认后再生成视频。',
+    'video': '先查询未知任务，再重试确定失败项；可在剪辑软件用静帧运镜替代并人工审核。',
+    'audio': '导入自行录制或有授权的配音，逐句试听并核对字幕时间。',
+    'edit': '改用剪辑软件人工剪辑；静帧替代镜头须明确审核，不当作AI视频成功。',
+    'delivery': '导入外部最终成片并重新核验；商用授权与内容审查单独完成。',
+}
 MANUAL_RUNNING_LABEL = '手动执行中'   # 用户自己点的那一次还在跑
 TRIGGERS = ('manual', 'auto')
 
@@ -308,7 +323,7 @@ def summary_lines(desktop, stage, project=None):
                            if names else 0,
                 'blocked_text': ('依赖：' + '、'.join(stage_name(dep) for dep in blocked) + '未完成')
                                 if blocked else ''}
-    money = ('付费：约 %d 次调用' % data['paid']) if data['paid'] else '免费'
+    money = ('付费：约 %d 次调用' % data['paid']) if data['paid'] else '费用未估算，以实际模型调用为准'
     # 第 63 期任务 3.1：并行怎么起并进 SKILL 那一行——弹窗还是最多四行，不另起一行挤掉警告。
     lines = ['模型：' + str(data['model']),
              'SKILL：%d 个已选　并行：%s' % (data['skills'], parallel_text(stage))]
@@ -316,8 +331,9 @@ def summary_lines(desktop, stage, project=None):
         lines.append('预计：约 %d 秒，%s' % (data['seconds'], money))
     else:
         lines.append('预计：' + money)
-    if data['blocked_text']:
-        lines.append(data['blocked_text'])
+    hint = RECOVERY_HINTS.get(stage, '')
+    if data['blocked_text'] or hint:
+        lines.append('；'.join(text for text in (data['blocked_text'], '人工／失败处理：' + hint if hint else '') if text))
     return lines[:4]
 
 
