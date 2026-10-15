@@ -116,8 +116,28 @@ class MediaCompletionTests(unittest.TestCase):
              'manifest': [{'shot': 'S01', 'version': 1, 'sha256': file_hash(source)}]})
         with self.assertRaisesRegex(ValueError, '镜头来源'):
             validate_commercial_evidence(self.root, evidence)
+        wrong = deepcopy(evidence)
+        wrong['categories']['image']['items'].append(source_item)
+        with self.assertRaisesRegex(ValueError, '镜头来源'):
+            validate_commercial_evidence(self.root, wrong)
         evidence['categories']['video']['items'].append(source_item)
         self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        import os
+        bundle_path = output.parent / 'edit_bundle.json'
+        bundle = read(bundle_path)
+        bundle['manifest'][0]['source'] = os.path.relpath(source, output.parent)
+        save(bundle_path, bundle)
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        duplicate = self.root / 'duplicate.mp4'; duplicate.write_bytes(source.read_bytes())
+        wrong = deepcopy(evidence)
+        wrong['categories']['video']['items'][-1]['path'] = 'duplicate.mp4'
+        with self.assertRaisesRegex(ValueError, '实际镜头来源'):
+            validate_commercial_evidence(self.root, wrong)
+        for bad_source in ('', 42, 'missing.mp4', str(self.root.parent / 'outside.mp4')):
+            bundle['manifest'][0]['source'] = bad_source
+            save(bundle_path, bundle)
+            with self.subTest(source=bad_source), self.assertRaises(ValueError):
+                validate_commercial_evidence(self.root, evidence)
 
     def test_commercial_font_gate_covers_new_and_legacy_overlay_fonts(self):
         from copy import deepcopy

@@ -593,8 +593,11 @@ class Studio:
         if not master.is_file() or not master.is_relative_to(out):
             raise ValueError('成片尚未安全发布，不能登记剪辑成果')
         manifest = [
-            {'shot': shot['id'], 'version': version['version'], 'sha256': version['sha256']}
-            for shot, version, _ in chosen
+            {'shot': shot['id'], 'version': version['version'], 'sha256': version['sha256'],
+             'source': (os.path.relpath(Path(source).resolve(), out)
+                        if Path(source).resolve().drive.casefold() == out.drive.casefold()
+                        else str(Path(source).resolve())).replace('\\', '/')}
+            for shot, version, source in chosen
         ]
         save(out/EDIT_BUNDLE_NAME, {
             'master': master.name, 'master_sha256': file_hash(master),

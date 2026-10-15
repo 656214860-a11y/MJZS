@@ -199,7 +199,7 @@ def validate_commercial_evidence(root, evidence):
         raise ValueError('剧本授权清单未覆盖当前分镜实际来源')
     declared = {(root / item['path']).resolve(): item['sha256']
                 for item in categories['video']['items']}
-    known_hashes = {item['sha256'] for group in categories.values() for item in group['items']}
+    known_hashes = set(declared.values())
     for output in data['outputs']:
         path = (root / output['path']).resolve()
         if declared.get(path) != output['sha256']:
@@ -216,6 +216,16 @@ def validate_commercial_evidence(root, evidence):
             if any(not isinstance(row, dict) or not row.get('sha256')
                    or row['sha256'] not in known_hashes for row in rows):
                 raise ValueError('授权清单未覆盖成片已登记的镜头来源')
+            for row in rows:
+                if 'source' not in row:  # 旧版清单仅有摘要，仍限定视频类别。
+                    continue
+                if not isinstance(row['source'], str) or not row['source'].strip():
+                    raise ValueError('成片镜头来源路径无效')
+                source = (path.parent / row['source']).resolve()
+                if (not source.is_relative_to(root) or not source.is_file()
+                        or declared.get(source) != row['sha256']
+                        or file_hash(source) != row['sha256']):
+                    raise ValueError('视频授权未覆盖成片实际镜头来源版本')
             fonts = bundle.get('fonts', [])
             if not isinstance(fonts, list):
                 raise ValueError('成片字体来源清单无效')

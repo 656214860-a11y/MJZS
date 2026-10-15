@@ -87,6 +87,7 @@ class EditBundleTests(unittest.TestCase):
             self.assertEqual(bundle['master'], 'MASTER.mp4')
             self.assertEqual(bundle['master_sha256'], engine.file_hash(out / 'MASTER.mp4'))
             self.assertEqual([item['shot'] for item in bundle['manifest']], ['SH001', 'SH002'])
+            self.assertEqual((out / bundle['manifest'][0]['source']).resolve(), Path('x').resolve())
             self.assertEqual(bundle['coverage']['included'], ['SH001', 'SH002'])
             index = json.loads((out / 'edit_manifest.json').read_text(encoding='utf-8'))
             self.assertEqual([item['shot'] for item in index], ['SH001', 'SH002'])
