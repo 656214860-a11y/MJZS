@@ -208,7 +208,7 @@ def settings_window(desktop):
             if result.get('reachable'):return f'接口可达（HTTP {result["code"]}）'
             return '连接失败：'+str(result.get('error','未知错误'))
         # 只读、互不依赖的探测：后台正忙时排队，而不是用 async_ 顶掉正在进行的主动任务（代次覆盖会让其结果被丢弃）。
-        desktop.async_queued(work,lambda text:probe_status.set(str(text)),label='测试云端连接',show_progress=False)
+        desktop.async_queued(work,lambda text:probe_status.set(str(text)),label='测试云端连接',show_progress=False,retryable=True)
     # ① 主操作：保存设置摆在最前面并加粗（原来三样挤在一行、也没个主次）。
     row7=ttk.Frame(body);row7.grid(row=6,column=0,columnspan=2,sticky='ew',padx=SPACING['md'],pady=(SPACING['sm'],SPACING['md']))
     PrimaryButton(row7,text='保存设置',command=open_session).pack(side='left')

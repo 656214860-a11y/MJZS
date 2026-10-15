@@ -149,6 +149,64 @@ class TaskCenterServiceTests(unittest.TestCase):
         self.assertIn('self._start_next_queued()', tick)
 
 
+    def test_retry_registry_only_retries_declared_failed_tasks(self):
+        from desktop_automation_service import BackgroundTaskLifecycle, RetryRegistry
+        life = BackgroundTaskLifecycle()
+        registry = RetryRegistry()
+        life.submit(1, label='探测')
+        life.finish(1, succeeded=False, error='断网')
+        life.submit(2, label='写入')          # 未声明可重试
+        life.finish(2, succeeded=False, error='x')
+        registry.remember(1, ('fn', 'done', '探测', False))
+        data = task_center_service.snapshot(life, None, None, registry)
+        self.assertEqual(data['retry_ticket'], 1)       # 2 虽然更新，但没登记，不可重试
+        text = chr(10).join(task_center_service.format_lines(data))
+        self.assertIn('原因：断网（可重试）', text)
+        self.assertNotIn('原因：x（可重试）', text)
+        self.assertEqual(registry.take_latest_failed(life.history()), ('fn', 'done', '探测', False))
+        self.assertIsNone(registry.take_latest_failed(life.history()))   # 取出即删除，不会重复重试
+
+    def test_desktop_retry_replays_a_failed_idempotent_task(self):
+        import desktop
+        from desktop_automation_service import BackgroundTaskLifecycle, BackgroundTaskQueue, RetryRegistry
+        calls = []
+        class Fake:
+            shutting_down = False
+            worker = False
+            def __init__(self):
+                self.background_tasks = BackgroundTaskLifecycle()
+                self.task_queue = BackgroundTaskQueue()
+                self.retry_registry = RetryRegistry()
+                self.n = 0
+                class S:
+                    def set(inner, text):
+                        pass
+                self.status = S()
+            def async_(self, fn, done=None, show_progress=True, label=None):
+                self.n += 1
+                calls.append((self.n, label, show_progress))
+                self.background_tasks.submit(self.n, label=label)
+                return self.n
+        fake = Fake()
+        fake.async_queued = lambda *a, **k: desktop.Desktop.async_queued(fake, *a, **k)
+        call = lambda name, *a, **k: getattr(desktop.Desktop, name)(fake, *a, **k)
+        self.assertFalse(call('retry_failed_task'))                      # 没有失败任务
+        call('async_queued', lambda: 0, None, '探测', False, True)
+        fake.background_tasks.finish(1, succeeded=False, error='断网')
+        self.assertTrue(call('retry_failed_task'))
+        self.assertEqual(calls, [(1, '探测', False), (2, '探测', False)])
+        self.assertFalse(call('retry_failed_task'))                      # 第 2 次还没失败，不重试
+        call('async_queued', lambda: 0, None, '写入')                    # 未声明可重试
+        fake.background_tasks.finish(3, succeeded=False, error='x')
+        self.assertFalse(call('retry_failed_task'))
+
+    def test_dialog_offers_retry_button_only_when_retryable(self):
+        source = (PROGRAM / 'task_center_ui.py').read_text(encoding='utf-8')
+        self.assertIn("data.get('retry_ticket') is not None", source)
+        self.assertIn('retry_failed_task', source)
+        self.assertIn('retryable=True', (PROGRAM / 'cloud_video.py').read_text(encoding='utf-8'))
+
+
 class TaskCenterUiTests(unittest.TestCase):
     def test_dialog_is_read_only_and_shows_summary(self):
         root = tk.Tk()

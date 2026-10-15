@@ -10,15 +10,20 @@ import app_logging
 STATE_TEXT = {'running': '进行中', 'succeeded': '成功', 'failed': '失败', 'cancelled': '已取消'}
 
 
-def snapshot(lifecycle=None, degradations=None, queue=None) -> dict:
+def snapshot(lifecycle=None, degradations=None, queue=None, retry=None) -> dict:
     """``lifecycle`` 为 BackgroundTaskLifecycle；``degradations`` 为降级记录列表（调用方注入）。"""
     last = getattr(lifecycle, '_last', None) if lifecycle is not None else None
+    history = list(lifecycle.history()) if hasattr(lifecycle, 'history') else []
+    if hasattr(retry, 'tickets'):
+        for row in history:
+            row['retryable'] = row.get('ticket') in retry.tickets()
     metrics = app_logging.metrics_snapshot()
     counters = metrics.pop('counters', {})
     return {
         'last_task': dict(last) if isinstance(last, dict) else None,
         'queued': list(queue.labels()) if hasattr(queue, 'labels') else [],
-        'task_history': list(lifecycle.history()) if hasattr(lifecycle, 'history') else [],
+        'task_history': history,
+        'retry_ticket': retry.latest_failed_ticket(history) if hasattr(retry, 'latest_failed_ticket') else None,
         'timings': metrics,
         'counters': counters,
         'swallowed': app_logging.recent_swallowed(),
@@ -38,7 +43,7 @@ def format_lines(data: dict) -> list:
                                        row.get('label') or '（无名称）',
                                        '' if row.get('elapsed_s') is None else '，%.1f 秒' % row['elapsed_s']))
         if row.get('error'):
-            lines.append('      原因：' + row['error'])
+            lines.append('      原因：' + row['error'] + ('（可重试）' if row.get('retryable') else ''))
     if not data.get('task_history'):
         lines.append('  暂无')
     lines.append('')

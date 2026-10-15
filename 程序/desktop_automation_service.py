@@ -115,10 +115,11 @@ class BackgroundTaskQueue:
         self._limit = limit
         self._items = deque()
 
-    def enqueue(self, fn, done=None, label='', show_progress=True):
+    def enqueue(self, fn, done=None, label='', show_progress=True, retryable=False):
         if len(self._items) >= self._limit:
             raise ValueError('排队任务已满（最多 %d 个），请等当前任务结束' % self._limit)
-        self._items.append({'fn': fn, 'done': done, 'label': str(label or ''), 'show_progress': bool(show_progress)})
+        self._items.append({'fn': fn, 'done': done, 'label': str(label or ''), 'show_progress': bool(show_progress),
+                            'retryable': bool(retryable)})
         return len(self._items)
 
     def pop(self):
@@ -129,6 +130,36 @@ class BackgroundTaskQueue:
 
     def clear(self):
         self._items.clear()
+
+
+class RetryRegistry:
+    """可重试任务的登记：只有调用方声明“只读／幂等”的任务才登记，失败后由用户手动重试。
+
+    登记的是重新发起所需的 (fn, done, label, show_progress)，按序号保存，最多保留
+    ``HISTORY_LIMIT`` 条。**不做自动重试**：付费生成类请求重复提交会重复计费。
+    """
+
+    def __init__(self):
+        self._specs = {}
+
+    def remember(self, ticket, spec):
+        self._specs[ticket] = tuple(spec)
+        for old in list(self._specs)[:-HISTORY_LIMIT]:
+            del self._specs[old]
+
+    def tickets(self):
+        return set(self._specs)
+
+    def latest_failed_ticket(self, history):
+        for row in reversed(history):
+            if row.get('state') == 'failed' and row.get('ticket') in self._specs:
+                return row['ticket']
+        return None
+
+    def take_latest_failed(self, history):
+        """取出（并删除）最近一次失败且可重试任务的登记；没有返回 None。"""
+        ticket = self.latest_failed_ticket(history)
+        return self._specs.pop(ticket) if ticket is not None else None
 
 
 class BackgroundTaskLifecycle:

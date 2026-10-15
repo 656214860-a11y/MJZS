@@ -15,11 +15,14 @@ def show(desktop):
     except Exception:
         degradations = []
     data = task_center_service.snapshot(getattr(desktop, 'background_tasks', None), degradations,
-                                         getattr(desktop, 'task_queue', None))
+                                         getattr(desktop, 'task_queue', None),
+                                         getattr(desktop, 'retry_registry', None))
     dialog = BaseDialog(desktop.win, '运行状况', geometry='640x520', minsize=(420, 320))
     text = TextArea(dialog.content, wrap='word', height=20)
     text.pack(fill='both', expand=True)
     text.insert('1.0', '\n'.join(task_center_service.format_lines(data)))
     text.set_readonly(True)
     dialog.add_action('关闭', dialog.close, primary=True)
+    if data.get('retry_ticket') is not None:
+        dialog.add_action('重试最近失败的任务', lambda: (desktop.retry_failed_task(), dialog.close()))
     return dialog
