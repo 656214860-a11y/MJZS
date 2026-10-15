@@ -231,6 +231,19 @@ def script_structure_documents(project):
     return ScriptStructureDocuments(source_directory, output_directory, source, target, sources, outputs)
 
 
+def script_structure_signature(project):
+    """页面复用依据：文件增删、内容覆盖与采用来源变化均使缓存失效。"""
+    import hashlib
+    documents = script_structure_documents(project)
+    versions = []
+    for path in (*documents.source_documents, *documents.output_documents):
+        try:
+            versions.append((path, hashlib.sha256(path.read_bytes()).digest()))
+        except OSError:
+            versions.append((path, None))
+    return documents.source, documents.target, tuple(versions)
+
+
 def adopt_natural_script(project, source_path, *, publish):
     """采用明确选中的自然剧本内容版本，经 L3 发布台账。"""
     import hashlib

@@ -59,7 +59,7 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 self.assertLess(d.title.winfo_rooty(), d.app_title.winfo_rooty() + d.app_title.winfo_height())
                 self.assertGreater(d.title.winfo_rootx(), d.canvas.winfo_rootx())
                 gear, title = d.pet.gear.canvas, d.app_title
-                self.assertAlmostEqual(gear.winfo_rooty()+gear.winfo_height(), title.winfo_rooty()+title.winfo_height(), delta=2)
+                self.assertAlmostEqual(gear.winfo_rooty()+gear.winfo_height()/2, title.winfo_rooty()+title.winfo_reqheight()/2, delta=2)
                 self.assertAlmostEqual(gear.winfo_rootx(), title.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap'], delta=2)
                 row_height = int(ttk.Style(self.win).lookup('Project.Treeview', 'rowheight'))
                 rows = int(d.list.cget('height'))
@@ -74,6 +74,27 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                     self.assertGreaterEqual(widget.winfo_height(), widget.winfo_reqheight())
                 self.assertLessEqual(d.script_box.winfo_rooty()+d.script_box.winfo_height(), d.canvas.winfo_rooty()+d.canvas.winfo_height()+2)
                 self.assertLessEqual(d.content.winfo_height(), d.canvas.winfo_height()+2)
+
+    def test_project_tree_tracks_visible_rows_and_leaves_space_below_navigation(self):
+        self.resize(942, 1032)
+        d = self.desktop
+        tree = d.list
+        tree.delete(*tree.get_children())
+        tree.insert('', 'end', iid='test-group', text='项目', open=True)
+        for i in range(5):tree.insert('test-group', 'end', iid=f'test-{i}', text=str(i))
+        d.schedule_sidebar_fit(); self.pump()
+        self.assertEqual(int(tree.cget('height')), 6)
+        self.assertAlmostEqual(tree.winfo_height(), tree.winfo_reqheight(), delta=2)
+        self.assertLessEqual(d.project_buttons[0].winfo_rooty()-(tree.winfo_rooty()+tree.winfo_height()), 2*DESKTOP_LAYOUT['row_gap']+2)
+        tree.item('test-group', open=False)
+        tree.event_generate('<<TreeviewClose>>'); self.pump()
+        self.assertEqual(int(tree.cget('height')), 3)
+        tree.item('test-group', open=True)
+        tree.event_generate('<<TreeviewOpen>>'); self.pump()
+        self.assertEqual(int(tree.cget('height')), 6)
+        tree.delete('test-0', 'test-1')
+        d.schedule_sidebar_fit(); self.pump()
+        self.assertEqual(int(tree.cget('height')), 4)
 
     def test_project_buttons_are_half_the_previous_layout_height(self):
         self.resize(942, 1032)

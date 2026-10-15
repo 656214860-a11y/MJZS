@@ -14,6 +14,23 @@ from script_workspace_service import (batch_selected_script_paths, discover_scri
 
 
 class ScriptWorkspaceServiceTests(unittest.TestCase):
+    def test_structure_signature_detects_same_size_overwrite_and_source_change(self):
+        from unittest import mock
+        from script_workspace_service import ScriptStructureDocuments, script_structure_signature
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / 'source.md'
+            source.write_bytes(b'old')
+            documents = ScriptStructureDocuments(root, root, source, root / 'output.md', (source,), ())
+            with mock.patch('script_workspace_service.script_structure_documents', return_value=documents):
+                before = script_structure_signature(root)
+                stat = source.stat()
+                source.write_bytes(b'new')
+                os.utime(source, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+                self.assertNotEqual(before, script_structure_signature(root))
+                source.unlink()
+                self.assertNotEqual(before, script_structure_signature(root))
+
     def test_legacy_model_versions_display_provider_without_changing_paths(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = (project_stages.writing(temp) / 'DeepSeek' / 'DeepSeek V4 Flash'

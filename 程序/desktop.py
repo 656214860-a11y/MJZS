@@ -246,8 +246,8 @@ PAGES = [f'{index:02d}  {pet_bus.stage_name(stage)}'
 import pet_state
 PAGE=pet_state.PAGE_OF
 PAGE_SITES=len(PAGES)-1          # 「参考网站」是工具页，不进状态机
-# 侧栏切回时整页复用、不重建的页：只收自带文件监听（离开期间文件变了也会自己刷新）的页。
-CACHED_PAGES=frozenset({PAGE['storyboard']})
+# 侧栏切回时复用：02 以内容签名校验，03 沿用后台目录监听。
+CACHED_PAGES=frozenset({PAGE['script_structure'],PAGE['storyboard']})
 
 # 无人值守链路的下游关系：某一步刚成功完成时，把它的下游节流清零，链路立刻往前走一步，
 # 而不是干等各自的 15/30/60 秒轮询周期。表必须无环：回头踢上游会让视频轮询在长时间生成
@@ -334,14 +334,17 @@ class Desktop:
                 sub=SecondaryButton(side,text='资产清单',command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
                 sub.pack(anchor='w',fill='x',pady=(0,2))
                 self.asset_list_button=sub
-        # 按钮只占文字所需高度，所有剩余空间交给项目列表。
+        # 项目列表只占可见行数，剩余空间留在导航下方。
         side.columnconfigure(0,weight=1)
         for row,child in enumerate(side.winfo_children()):
             child.pack_forget()
             separator=isinstance(child,ttk.Separator)
-            side.rowconfigure(row,weight=1 if child is self.list else 0,minsize=SPACING['xs'] if separator else 0)
+            side.rowconfigure(row,weight=0,minsize=SPACING['xs'] if separator else 0)
             child.grid(row=row,column=0,sticky='ew' if isinstance(child,ttk.Label) or separator else 'nsew',pady=DESKTOP_LAYOUT['row_gap'])
+        side.rowconfigure(len(side.winfo_children()),weight=1)
         self.sidebar_size=None
+        self.list.bind('<<TreeviewOpen>>',self.schedule_sidebar_fit,add='+')
+        self.list.bind('<<TreeviewClose>>',self.schedule_sidebar_fit,add='+')
         side.bind('<Configure>',self.fit_sidebar)
         self.body=ttk.Frame(win,padding=DESKTOP_LAYOUT['body_padding']);self.body.pack(side='left',fill='both',expand=True)
         self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
@@ -556,6 +559,12 @@ class Desktop:
         self.auto_handoff_queue=pet_ui.StageQueue('delivery',self.pet.drain)
         self.auto_handoff_signature=None
         self.auto_handoff_error=''
+    def schedule_sidebar_fit(self,event=None):
+        if getattr(self,'_sidebar_fit_job',None) is not None:return
+        def run():
+            self._sidebar_fit_job=None
+            self.fit_sidebar()
+        self._sidebar_fit_job=self.win.after_idle(run)
     def fit_sidebar(self,event=None):
         compact=self.sidebar.winfo_height()<DESKTOP_LAYOUT['compact_below']
         style=ttk.Style(self.win)
@@ -577,7 +586,11 @@ class Desktop:
             if child is not self.list:
                 fixed+=max(child.winfo_reqheight(),SPACING['xs'] if isinstance(child,ttk.Separator) else 0)
         chrome=max(0,self.list.winfo_reqheight()-int(self.list.cget('height'))*row_height)
-        rows=max(DESKTOP_LAYOUT['project_min_rows'],(self.sidebar.winfo_height()-fixed-chrome)//row_height)
+        def visible(parent=''):
+            return sum(1+(visible(item) if self.list.item(item,'open') else 0)
+                       for item in self.list.get_children(parent))
+        maximum=max(DESKTOP_LAYOUT['project_min_rows'],(self.sidebar.winfo_height()-fixed-chrome)//row_height)
+        rows=min(maximum,max(DESKTOP_LAYOUT['project_min_rows'],visible()))
         if int(self.list.cget('height'))!=rows:self.list.configure(height=rows)
         self.align_header()
     def align_header(self,event=None):
@@ -588,7 +601,7 @@ class Desktop:
         if gear is not None:
             canvas=gear.canvas
             x=title.winfo_rootx()-self.win.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap']
-            y=title.winfo_rooty()-self.win.winfo_rooty()+title.winfo_height()-canvas.winfo_reqheight()
+            y=title.winfo_rooty()-self.win.winfo_rooty()+round((title.winfo_reqheight()-canvas.winfo_reqheight())/2)
             self.settings_gear_position=(x,y)
             canvas.place_configure(x=x,y=y)
         height=max(self.title.winfo_reqheight(),self.list.winfo_rooty()-self.title_row.winfo_rooty())
@@ -2351,6 +2364,12 @@ class Desktop:
         # 先停掉定时器再销毁窗口：残留的 after 回调会在 Tk 里报 invalid command name。
         if event is not None and event.widget is not self.win:return
         self.shutting_down=True
+        for name in ('_navigation_job','_sidebar_fit_job'):
+            job=getattr(self,name,None)
+            if job is not None:
+                try:self.win.after_cancel(job)
+                except tk.TclError:pass
+            setattr(self,name,None)
         # 计时器回归会构造最小 Desktop 替身；真实窗口在 __init__ 中必定拥有这些
         # 生命周期登记器，但关闭路径也必须兼容尚未完成初始化的窗口。
         for lifecycle_name in ('background_tasks','cloud_monitor_tasks','auto_asset_tasks','auto_keyframe_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks','auto_previs_tasks'):
@@ -3832,6 +3851,7 @@ class Desktop:
         if win is not None:win.title(title)
     def reload(self):
         self.fill_projects(self.list)
+        self.schedule_sidebar_fit()
         tree=getattr(self,'_project_home_tree',None)
         if tree is not None and tree.winfo_exists():self.fill_projects(tree)
     def idea_example(self):
@@ -4356,17 +4376,21 @@ class Desktop:
         """
         if index==PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
         mode='choose' if (index==PAGE['video'] and not getattr(self,'video_mode_picked',False)) else None
-        if index!=getattr(self,'page_index',None):
-            # 建整页要排几百个控件，点下去到新页出来有零点几秒；先把侧栏高亮和页标题
-            # 换过去并画出来，点击当场就有反应，不会像没点中一样停在旧页上。
-            try:
-                for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
-                self.title.configure(text=PAGES[index])
-                self.win.update_idletasks()
-            except (tk.TclError,IndexError,AttributeError):pass
-        self._reuse_cached_page=True
-        try:return self.go(index,video_mode=mode)
-        finally:self._reuse_cached_page=False
+        # 即刻反馈最后一次点击，包括连续点击后又回到当前页的情况。
+        try:
+            for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
+            self.title.configure(text=PAGES[index])
+        except (tk.TclError,IndexError,AttributeError):pass
+        pending=getattr(self,'_navigation_job',None)
+        if pending is not None:self.win.after_cancel(pending)
+        project=self.root
+        def navigate():
+            self._navigation_job=None
+            if getattr(self,'shutting_down',False) or self.root!=project:return
+            self._reuse_cached_page=True
+            try:self.go(index,video_mode=mode)
+            finally:self._reuse_cached_page=False
+        self._navigation_job=self.win.after_idle(navigate)
     def go(self,index,video_mode=None):
         """侧栏导航专用：页面构建失败时给出提示，而不是留下一个空白页。
 
@@ -4389,14 +4413,18 @@ class Desktop:
         if base is None:base=self._base_content=self.content
         if self.content is not base:
             self.content=base
-            self.canvas.itemconfigure(self.content_id,window=base)
         cache=getattr(self,'_page_cache',None)
         if cache is None:cache=self._page_cache={}
         for key,entry in list(cache.items()):
             stale=entry['root']!=self.root or not entry['holder'].winfo_exists()
+            if not stale and key==index==PAGE['script_structure']:
+                from script_workspace_service import script_structure_signature
+                stale=entry.get('signature')!=script_structure_signature(self.root)
             if stale or (key==index and (same_page or not getattr(self,'_reuse_cached_page',False))):
                 cache.pop(key)
                 if entry['holder'].winfo_exists():entry['holder'].destroy()
+        # 命中时直接从旧页换到目标页，避免先映射公共空框再映射缓存页的两次布局。
+        if index not in cache:self.canvas.itemconfigure(self.content_id,window=base)
         return cache
     def _show_cached_page(self,index,builder,cache):
         """建过且仍有效就直接换上（控件、文件监听都还在），否则新建一块内容框建页并留存。"""
@@ -4415,7 +4443,14 @@ class Desktop:
         note=self.status.get()
         cache[index]={'holder':holder,'root':self.root,'stage_button':self.stage_button,
                       'note':'' if note==str(self.root) else note}
+        if index==PAGE['script_structure']:
+            from script_workspace_service import script_structure_signature
+            cache[index]['signature']=script_structure_signature(self.root)
     def show(self,index,video_mode=None):
+        pending=getattr(self,'_navigation_job',None)
+        if pending is not None:
+            self.win.after_cancel(pending)
+            self._navigation_job=None
         from video_navigation import hide_back
         hide_back(self)
         # 同一页重建（切换分镜、刷新列表、自动流程刷新）保留原来的滚动位置：
@@ -4559,7 +4594,9 @@ class Desktop:
         def speak():
             self._pet_stage_job=None
             if self.page_index==index and not getattr(self,'shutting_down',False):self.pet_at_stage(index)
-        try:self._pet_stage_job=self.win.after(1,speak)
+        # 1ms 会在布局尚未结束时到期，气泡的同步重排仍抢在首帧之前。
+        # 留出短暂导航稳定期；期间再次切页会取消旧播报。
+        try:self._pet_stage_job=self.win.after(150,speak)
         except tk.TclError:self._pet_stage_job=None
     def restore_scroll(self,offset):
         """按像素恢复滚动位置：重建后页面高度可能变了，用比例换算回同样的位置。"""

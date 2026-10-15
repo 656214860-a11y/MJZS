@@ -30,6 +30,7 @@ class PageCacheTests(unittest.TestCase):
         self.addCleanup(win.destroy)
         app = Path(td) / 'app'; app.mkdir()
         d = Desktop(win, root=app)
+        self.addCleanup(d.cancel_timers)
         # 缓存测试自行装入项目，不运行首帧后的新建／今日项目选择流程。
         d.startup_controller.cancel()
         d.root = test_ui_edges.make_populated_project(td)
@@ -73,7 +74,7 @@ class PageCacheTests(unittest.TestCase):
         import test_ui_edges
         with tempfile.TemporaryDirectory() as td, tempfile.TemporaryDirectory() as other:
             win, d = self.open_desktop(td)
-            d.go_page(PAGE['storyboard']); d.go_page(PAGE['assets'])
+            d.go_page(PAGE['storyboard']); win.update_idletasks(); d.go_page(PAGE['assets']); win.update_idletasks()
             first = self.holder(d)
             d.root = test_ui_edges.make_populated_project(other)
             d.go_page(PAGE['storyboard']); win.update_idletasks()
@@ -86,7 +87,7 @@ class PageCacheTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             win, d = self.open_desktop(td)
             win.deiconify()
-            d.go_page(PAGE['storyboard']); d.go_page(PAGE['assets']); win.update()
+            d.go_page(PAGE['storyboard']); win.update_idletasks(); d.go_page(PAGE['assets']); win.update()
             d.status.set('别的页')
             d.content.event_generate('<Button-1>', x=1, y=1); win.update()
             self.assertEqual(d.status.get(), '别的页')
@@ -101,7 +102,62 @@ class PageCacheTests(unittest.TestCase):
             real = d.go
             d.go = lambda index, **kw: (seen.append(str(d.nav[index].cget('style'))), real(index, **kw))
             d.go_page(PAGE['assets'])
+            win.update_idletasks()
             self.assertEqual(seen, ['Selected.Nav.TButton'])
+
+    def test_rapid_navigation_builds_only_last_request(self):
+        if self.tk is None:self.skipTest(PLATFORM_TKINTER)
+        with tempfile.TemporaryDirectory() as td:
+            win, d = self.open_desktop(td)
+            with mock.patch.object(d, 'go') as build:
+                for page in (1, 2, 4, 3, 1):d.go_page(page)
+                build.assert_not_called()
+                self.assertEqual(str(d.nav[1].cget('style')), 'Selected.Nav.TButton')
+                win.update_idletasks()
+                build.assert_called_once_with(1, video_mode=None)
+
+    def test_structure_cache_reuses_and_invalidates_on_content_change(self):
+        if self.tk is None:self.skipTest(PLATFORM_TKINTER)
+        from script_workspace_service import script_structure_documents
+        with tempfile.TemporaryDirectory() as td:
+            win, d = self.open_desktop(td)
+            page = PAGE['script_structure']
+            directory = script_structure_documents(d.root).source_directory
+            directory.mkdir(parents=True, exist_ok=True)
+            source = directory / '项目剧本.md'
+            source.write_text('第一场\n人物走进房间。', encoding='utf-8')
+            d.go_page(page); win.update_idletasks()
+            first = d.content
+            d.go_page(PAGE['storyboard']); win.update_idletasks()
+            d.go_page(page); win.update_idletasks()
+            self.assertIs(d.content, first)
+            d.go_page(PAGE['storyboard']); win.update_idletasks()
+            docs = script_structure_documents(d.root)
+            source = docs.source_documents[0]
+            source.write_text(source.read_text(encoding='utf-8')+'\n修改内容', encoding='utf-8')
+            d.go_page(page); win.update_idletasks()
+            self.assertFalse(first.winfo_exists())
+            self.assertIsNot(d.content, first)
+
+    def test_navigation_cancels_old_stage_announcement(self):
+        if self.tk is None:self.skipTest(PLATFORM_TKINTER)
+        with tempfile.TemporaryDirectory() as td:
+            win, d = self.open_desktop(td)
+            with mock.patch.object(d, 'pet_at_stage') as announce, mock.patch.object(win, 'after', wraps=win.after) as scheduled:
+                d.go_page(PAGE['script_structure']); win.update_idletasks()
+                old_job = d._pet_stage_job
+                old_speak = next(call.args[1] for call in scheduled.call_args_list
+                                 if len(call.args)>1 and getattr(call.args[1], '__name__', '')=='speak')
+                d.go_page(PAGE['storyboard']); win.update_idletasks()
+                self.assertNotIn(old_job, win.tk.call('after', 'info'))
+                current_job = d._pet_stage_job
+                current_speak = [call.args[1] for call in scheduled.call_args_list
+                                 if len(call.args)>1 and getattr(call.args[1], '__name__', '')=='speak'][-1]
+                win.after_cancel(current_job)
+                old_speak()
+                announce.assert_not_called()
+                current_speak()
+                announce.assert_called_once_with(PAGE['storyboard'])
 
     def open_watched_storyboard(self, td):
         """截取扫描入口与结果应用定时器，不启动实际文件监听线程。"""
@@ -161,6 +217,7 @@ class PageCacheTests(unittest.TestCase):
             self.assertIn(str(script), self.tree_rows(holder), '隐藏页应应用真正的目录变更')
             self.assertEqual(d.status.get(), '用户在别的页')
             d.go_page(PAGE['storyboard'])
+            win.update_idletasks()
             self.assertIs(self.holder(d), holder)
             self.assertIn(str(script), self.tree_rows(holder), '切回缓存页应立即看到更新后的列表')
 
@@ -175,6 +232,7 @@ class PageCacheTests(unittest.TestCase):
                     with self.subTest(visible=visible):
                         if visible:
                             d.go_page(PAGE['storyboard'])
+                            win.update_idletasks()
                         d.status.set('当前页状态')
                         self.queue_background_catalog(refresh)
                         apply()
