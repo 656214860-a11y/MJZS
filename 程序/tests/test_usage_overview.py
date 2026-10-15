@@ -25,7 +25,15 @@ class UsageOverviewTests(unittest.TestCase):
             self.assertEqual(cost['known_per_minute'], 2)
             self.assertIsNone(cost['total_per_minute'])
             cost = uo.cost_per_minute(folder, 30, table, dict(gpu=0, storage=1, bandwidth=0, human=2))
-            self.assertEqual(cost['total_per_minute'], 10)
+            self.assertEqual(cost['total_per_minute'], 6)
+            self.assertEqual(cost['human_per_minute'], 4)
+            cost = uo.cost_per_minute(folder, 30, table, dict(gpu=0, storage=1, bandwidth=0))
+            self.assertTrue(cost['complete'])
+            self.assertEqual(cost['total_per_minute'], 6)
+            self.assertIsNone(cost['human_per_minute'])
+            summary = uo.summarize(folder)
+            summary['cost'] = cost
+            self.assertIn('人工编辑费用：未知', uo.report_text(summary))
             with self.assertRaises(ValueError): uo.cost_per_minute(folder, float('inf'), table)
 
     def test_nonfinite_event_usage_is_unknown(self):

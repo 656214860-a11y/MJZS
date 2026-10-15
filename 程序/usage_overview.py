@@ -68,12 +68,14 @@ def cost_per_minute(project, duration_seconds, price_table, overheads=None):
     overheads = overheads if isinstance(overheads, dict) else {}
     known = money['settled_amount'] if money else 0
     missing = []
-    for key in ('gpu', 'storage', 'bandwidth', 'human'):
+    for key in ('gpu', 'storage', 'bandwidth'):
         amount = _number(overheads.get(key))
         if amount is None: missing.append(key)
         else: known += amount
     complete = bool(report['requests'] and money and money['complete'] and not missing)
+    human = _number(overheads.get('human'))
     return {'known_amount': round(known, 4), 'known_per_minute': round(known * 60 / duration, 4),
+            'human_amount': human, 'human_per_minute': round(human * 60 / duration, 4) if human is not None else None,
             'total_per_minute': round(known * 60 / duration, 4) if complete else None,
             'complete': complete, 'missing_overheads': missing, 'requests': report,
             'duration_seconds': duration, 'currency': money['currency'] if money else None,
@@ -175,8 +177,11 @@ def report_text(summary):
     if summary.get('cost_error'):lines.append(summary['cost_error'])
     if summary.get('cost'):
         cost = summary['cost']
-        lines.append('已录入部分成本：%g %s／分钟；%s' % (cost['known_per_minute'], cost['currency'] or '币种未配置',
+        lines.append('已录入制作成本（不含人工）：%g %s／分钟；%s' % (cost['known_per_minute'], cost['currency'] or '币种未配置',
             '录入项齐全' if cost['complete'] else '总成本未知，仍有未知用量、预留或缺项'))
         lines.append('按录入用量和费率估算，尚非供应商对账结果；外部费用缺项：' + '、'.join(cost['missing_overheads']))
+        human = cost.get('human_per_minute')
+        lines.append('人工编辑费用：' + ('未知（未计为零）' if human is None else
+                     '%g %s／分钟（单列）' % (human, cost['currency'] or '币种未配置')))
     lines.append('说明：只统计已落盘的调用事件；金额需配价格表后由请求台账折算，这里不估算。')
     return '\n'.join(lines).strip()
