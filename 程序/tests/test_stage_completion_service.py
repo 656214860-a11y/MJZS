@@ -99,6 +99,26 @@ class MediaCompletionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_commercial_evidence(self.root, commercial_template(self.root))
 
+    def test_commercial_inventory_must_cover_actual_delivery_and_known_sources(self):
+        from copy import deepcopy
+        from agent.core import file_hash
+        from stage_completion_service import validate_commercial_evidence
+        evidence, _ = self.commercial_fixture()
+        video = evidence['categories']['video']['items'][0]
+        source = self.root / 'source.mp4'; source.write_bytes(b'original source')
+        source_item = dict(video, path='source.mp4', sha256=file_hash(source))
+        wrong = deepcopy(evidence)
+        wrong['categories']['video']['items'] = [source_item]
+        with self.assertRaisesRegex(ValueError, '实际交付'):
+            validate_commercial_evidence(self.root, wrong)
+        output = self.root / video['path']
+        save(output.parent / 'edit_bundle.json', {'master': output.name, 'master_sha256': video['sha256'],
+             'manifest': [{'shot': 'S01', 'version': 1, 'sha256': file_hash(source)}]})
+        with self.assertRaisesRegex(ValueError, '镜头来源'):
+            validate_commercial_evidence(self.root, evidence)
+        evidence['categories']['video']['items'].append(source_item)
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+
     def test_commercial_evidence_invalidated_by_authorization_change(self):
         from stage_completion_service import confirm_commercial_evidence, commercial_delivery_status
         evidence, proof = self.commercial_fixture()

@@ -100,21 +100,16 @@ class Budget:
             with path.open('a+b') as stream:
                 if not path.stat().st_size:stream.write(b'0'); stream.flush()
                 stream.seek(0)
-                import os
-                if os.name == 'nt':
-                    import msvcrt
-                    try:msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-                    except OSError:raise ValueError('预算账本正在更新，请稍后重试') from None
-                else:
-                    import fcntl
-                    fcntl.flock(stream, fcntl.LOCK_EX)
+                # 产品随附 Windows Python；锁实现必须在随附运行时中可用。
+                import msvcrt
+                try:msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                except OSError:raise ValueError('预算账本正在更新，请稍后重试') from None
                 try:
                     self.load()
                     yield
                 finally:
                     stream.seek(0)
-                    if os.name == 'nt':msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
-                    else:fcntl.flock(stream, fcntl.LOCK_UN)
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
 
     def reserve(self, request_id, kind, amount=1):
         kind = self._kind(kind)

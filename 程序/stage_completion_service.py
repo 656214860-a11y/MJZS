@@ -183,6 +183,25 @@ def validate_commercial_evidence(root, evidence):
                     or item.get('derivative_allowed') is not True or item.get('obligations_fulfilled') is not True):
                 raise ValueError('授权范围或履约记录不完整：' + category)
             frozen_file(item.get('authorization'))
+    declared = {(root / item['path']).resolve(): item['sha256']
+                for item in categories['video']['items']}
+    known_hashes = {item['sha256'] for group in categories.values() for item in group['items']}
+    for output in data['outputs']:
+        path = (root / output['path']).resolve()
+        if declared.get(path) != output['sha256']:
+            raise ValueError('视频授权清单未覆盖实际交付成片')
+        bundle_path = path.parent / 'edit_bundle.json'
+        if bundle_path.exists():
+            bundle = read(bundle_path)
+            if (not isinstance(bundle, dict) or bundle.get('master') != path.name
+                    or bundle.get('master_sha256') != output['sha256']):
+                raise ValueError('成片来源清单与交付文件不一致')
+            rows = bundle.get('manifest')
+            if not isinstance(rows, list) or not rows:
+                raise ValueError('成片来源清单为空或无效')
+            if any(not isinstance(row, dict) or not row.get('sha256')
+                   or row['sha256'] not in known_hashes for row in rows):
+                raise ValueError('授权清单未覆盖成片已登记的镜头来源')
     reviews = evidence.get('content_review')
     if not isinstance(reviews, dict):
         raise ValueError('缺少内容审查记录')

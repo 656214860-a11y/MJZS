@@ -11,6 +11,51 @@ import storage_maintenance as sm
 
 
 class StorageSafetyTests(unittest.TestCase):
+    def test_policy_version_accounting_and_recoverable_cleanup(self):
+        from agent.core import save, file_hash
+        from engine import adopted_edit_version
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'project'; root.mkdir()
+            save(root / 'config.json', {})
+            now = 1700000000
+            rows = []
+            for number, content in ((1, b'old'), (2, b'adopted')):
+                path = root / 'data' / 'S01' / f'v{number:03}' / 'video.mp4'
+                path.parent.mkdir(parents=True); path.write_bytes(content)
+                rows.append({'version': number, 'state': 'downloaded', 'created': now - 10 * 86400,
+                             'review': 'pass' if number == 2 else 'reject', 'qc_pass': True,
+                             'file': path.relative_to(root).as_posix(), 'sha256': file_hash(path)})
+            save(root / 'data' / 'state.json', {'shots': {'S01': rows}})
+            save(root / 'storage_policy.json', {'retention_days': 30})
+            summary = sm.storage_summary(root, now, adopted_edit_version)
+            self.assertFalse(summary['errors'])
+            self.assertEqual((summary['adopted_bytes'], summary['other_version_bytes'], summary['recyclable_bytes']), (7, 3, 0))
+            with mock.patch.object(sm, 'downloads_root', return_value=Path(td)):
+                self.assertEqual(sm.clean_project(root, now), [])
+                save(root / 'storage_policy.json', {'retention_days': 7})
+                summary = sm.storage_summary(root, now, adopted_edit_version)
+                self.assertEqual(summary['recyclable_bytes'], 3)
+                self.assertEqual(summary['immediately_released_bytes'], 0)
+                self.assertTrue(sm.clean_project(root, now))
+            self.assertTrue((root / rows[1]['file']).exists())
+            self.assertFalse((root / rows[0]['file']).exists())
+            batch = next(sm.recycle_base(root).iterdir())
+            sm.restore_recycle_batch(root, batch)
+            self.assertEqual((root / rows[0]['file']).read_bytes(), b'old')
+
+    def test_invalid_retention_policy_blocks_cleanup(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'project'; history = root / '历史版本'
+            history.mkdir(parents=True); (history / 'keep.txt').write_text('keep')
+            save(root / 'config.json', {})
+            for days in (0, -1, 3651, True, '7', None):
+                save(root / 'storage_policy.json', {'retention_days': days})
+                with mock.patch.object(sm, 'downloads_root', return_value=Path(td)):
+                    self.assertEqual(sm.clean_project(root), [])
+                self.assertIsNone(sm.storage_summary(root)['recyclable_bytes'])
+                self.assertTrue((history / 'keep.txt').exists())
+
     def test_cleanup_preserves_referenced_history_and_commercial_proof(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / 'project'; history = root / '历史版本'

@@ -21,6 +21,7 @@ ENTERING_ENTRYPOINTS = frozenset({
     'open_project_or_cleanup',  # 侧栏 `switch` 与项目首页选中项目
     '_choose_project_impl',     # 首帧后的首次选择／同日续开
     'new',                      # 新建项目
+    'create_practice_project',   # 隔离练习副本，沿用创建器与当天选择记忆
     'import_json',              # 导入分镜 JSON 建项
     'enter',                    # 项目选择窗双击／回车
 })

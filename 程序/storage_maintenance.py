@@ -45,7 +45,7 @@ RETAIN_REASONS={RETAIN_UNSETTLED:'任务未结算，等结果取回或查询',
                 RETAIN_EDIT_SOURCE:'已进入已发布成片的来源清单',
                 RETAIN_APPROVED:'已验收通过的采用版本',
                 RETAIN_LATEST:'该镜头最新版本',
-                RETAIN_FRESH:'未到保留期（不足 7 天）'}
+                RETAIN_FRESH:'未到项目保留期或创建时间无效'}
 VERSION_CLEAN_REASON='超过保留期，且未被采用、未进成片来源、未锁定、任务已定局'
 
 def launch_cleanup(app_root=None):
@@ -502,7 +502,17 @@ def edit_source_versions(root):
     return pairs,digests
 
 
-def version_retention(version, shot, newest, referenced, digests, now):
+def retention_seconds(root):
+    """项目策略只接受1至3650天；坏配置阻断自动回收，不偷偷用更短期限。"""
+    path = Path(root) / 'storage_policy.json'
+    data = read_json(path) if path.exists() else {}
+    days = data.get('retention_days', 7) if isinstance(data, dict) else None
+    if type(days) is not int or not 1 <= days <= 3650:
+        raise ValueError('项目旧版本保留天数必须为1至3650的整数')
+    return days * 86400
+
+
+def version_retention(version, shot, newest, referenced, digests, now, retention=AGE_SECONDS):
     """这一版该留还是可回收：返回保留原因，可以回收时返回空串。
 
     保留口径（任一成立即留，给出原因）：任务未结算（含未知状态）／用户锁定／已进已发布成片
@@ -522,13 +532,18 @@ def version_retention(version, shot, newest, referenced, digests, now):
         created=float((version or {}).get('created'))
     except (TypeError,ValueError):
         return RETAIN_FRESH
-    return RETAIN_FRESH if not math.isfinite(created) or now-created<AGE_SECONDS else ''
+    return RETAIN_FRESH if not math.isfinite(created) or now-created<retention else ''
 
 
-def source_protection(root):
+def source_protection(root, now=None):
     """收集明确来源声明与其项目内文件；读坏的声明不能被解释为没有引用。"""
     root = Path(root).resolve()
     protected, errors = set(), []
+    now = time.time() if now is None else now
+    try:
+        retention = retention_seconds(root)
+    except (OSError, ValueError) as exc:
+        return protected, [str(exc)]
     recycle = _recycle_base(root)
     names = {'episode.json', 'assets.json', *EXPORT_MANIFEST_NAMES}
 
@@ -573,7 +588,7 @@ def source_protection(root):
                         raise ValueError('生成版本编号无效')
                     newest = max(numbers, default=0)
                     for version in versions:
-                        if version_retention(version, shot, newest, referenced, digests, time.time()):
+                        if version_retention(version, shot, newest, referenced, digests, now, retention):
                             collect(version, path.parent.parent)
                 continue
             if path.name in EXPORT_MANIFEST_NAMES:
@@ -589,11 +604,13 @@ def source_protection(root):
     return protected, errors
 
 
-def storage_summary(root):
+def storage_summary(root, now=None, select_adopted=None):
     """只读盘点；未发现引用不等于可删除，同盘回收不等于释放容量。"""
     root = Path(root).resolve()
-    protected, errors = source_protection(root)
+    now = time.time() if now is None else now
+    protected, errors = source_protection(root, now)
     sizes = {'protected': 0, 'unclassified': 0, 'recycled': 0}
+    file_sizes = {}
     for path in root.rglob('*'):
         if path.is_symlink() or path.is_junction() or not _within(path, root):
             continue
@@ -601,18 +618,69 @@ def storage_summary(root):
             if not path.is_file():
                 continue
             key = 'recycled' if _within(path, _recycle_base(root)) else 'protected' if path.resolve() in protected else 'unclassified'
-            sizes[key] += path.stat().st_size
+            file_sizes[path.resolve()] = path.stat().st_size
+            sizes[key] += file_sizes[path.resolve()]
         except OSError as exc:
             errors.append(str(path.relative_to(root)) + '：' + str(exc))
-    return {'bytes': sizes, 'errors': errors, 'retention_days': AGE_SECONDS // 86400}
+    try:
+        retention = retention_seconds(root)
+    except (OSError, ValueError):
+        retention = None
+    versions, candidate_files, adopted_files, other_files = [], set(), set(), set()
+    referenced, digests = edit_source_versions(root)
+    if not errors and retention is not None:
+        for ledger in list(root.glob('**/data/state.json')) + list(root.glob('**/06_本地生成/state.json')):
+            if not _within(ledger, root) or _within(ledger, _recycle_base(root)):
+                continue
+            try:
+                state = read_json(ledger)
+                for shot, rows in state['shots'].items():
+                    newest = max((v.get('version', 0) for v in rows), default=0)
+                    adopted = select_adopted(rows, ledger.parent.parent)[0] if select_adopted else None
+                    for version in rows:
+                        if version.get('cleaned_at'):
+                            continue
+                        folder = _version_folder(root, ledger, shot, version)
+                        reason = version_retention(version, shot, newest, referenced, digests, now, retention)
+                        if folder is None:
+                            versions.append({'shot': shot, 'version': version.get('version'), 'bytes': 0, 'reason': '生成目录无法安全定位', 'candidate': False})
+                            continue
+                        files = {p for p in file_sizes if p.is_relative_to(folder)}
+                        if not reason and any(p == folder or p.is_relative_to(folder) for p in protected):
+                            reason = '来源或授权资料仍被引用'
+                        if not reason:
+                            candidate_files.update(files)
+                        (adopted_files if version is adopted else other_files).update(files)
+                        versions.append({'shot': shot, 'version': version.get('version'), 'bytes': sum(file_sizes[p] for p in files),
+                                         'reason': RETAIN_REASONS.get(reason, reason) or VERSION_CLEAN_REASON,
+                                         'candidate': not bool(reason), 'adopted': version is adopted if select_adopted else None})
+            except (OSError, ValueError, TypeError, KeyError) as exc:
+                errors.append(str(ledger.relative_to(root)) + '：' + str(exc))
+    return {'bytes': sizes, 'errors': errors, 'retention_days': retention // 86400 if retention else None,
+            'versions': versions, 'recyclable_bytes': sum(file_sizes[p] for p in candidate_files) if not errors else None,
+            'adopted_bytes': sum(file_sizes[p] for p in adopted_files) if select_adopted and not errors else None,
+            'other_version_bytes': sum(file_sizes[p] for p in other_files - adopted_files) if select_adopted and not errors else None,
+            'immediately_released_bytes': 0}
+
+
+def _version_folder(root, ledger, shot, version):
+    number = version.get('version')
+    if type(number) is not int or (version.get('output_dir') and not isinstance(version['output_dir'], str)):
+        return None
+    folder = ((ledger.parent.parent / version['output_dir']).resolve() if version.get('output_dir')
+              else (ledger.parent / str(shot) / f'v{number:03}').resolve())
+    if folder == root or not folder.is_relative_to(root) or ledger.resolve().is_relative_to(folder):
+        return None
+    return folder
 
 
 def clean_project(root,now=None):
     root=Path(root).resolve();now=now or time.time();removed=[];records=[]
     if root.parent!=downloads_root().resolve() or not (root/'config.json').is_file():return removed
-    protected, protection_errors = source_protection(root)
+    protected, protection_errors = source_protection(root, now)
     if protection_errors:
         return removed
+    retention = retention_seconds(root)
     recycle_base=_recycle_base(root)
     batch=recycle_base/batch_name(now)
     created_at=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now))
@@ -662,14 +730,11 @@ def clean_project(root,now=None):
             newest=max((v.get('version',0) for v in versions if isinstance(v,dict)),default=0)
             for version in versions:
                 if not isinstance(version,dict) or version.get('cleaned_at'):continue
-                if version_retention(version,shot_id,newest,referenced,digests,now):continue
+                if version_retention(version,shot_id,newest,referenced,digests,now,retention):continue
                 number=version.get('version')
                 if not isinstance(number,int):continue
-                if version.get('output_dir'):
-                    folder=(ledger.parent.parent/version['output_dir']).resolve()
-                else:
-                    folder=ledger.parent/shot_id/f"v{number:03}"
-                if folder.is_dir() and recycle(folder):
+                folder=_version_folder(root,ledger,shot_id,version)
+                if folder is not None and folder.is_dir() and recycle(folder):
                     version.update(cleaned_at=now,file=None,qc_pass=False,cleaned_reason=VERSION_CLEAN_REASON);dirty=True
         if dirty:
             save(ledger,state)                  # 原子写只有 agent.core.save 一份

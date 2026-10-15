@@ -346,14 +346,24 @@ class ProjectPagesMixin:
         if not self.root:
             raise ValueError('请先进入要盘点的项目')
         from storage_maintenance import storage_summary
+        from engine import adopted_edit_version
         root = self.root
         def inspect():
-            report = storage_summary(root)
+            report = storage_summary(root, select_adopted=adopted_edit_version)
             sizes = report['bytes']
             lines = ['存储盘点（只读）', str(root)]
             for key, title in (('protected', '来源声明及明确引用文件'), ('unclassified', '其他文件（未证明可清理）'), ('recycled', '回收站（仍占磁盘）')):
                 lines.append('%s：%.2f MiB' % (title, sizes[key] / 1048576))
-            lines.append('旧生成版本保留期：%d天；采用、成片引用、未结算和锁定版本保留。' % report['retention_days'])
+            lines.append('旧生成版本保留期：%s天；采用、成片引用、未结算和锁定版本保留。' % (report['retention_days'] or '配置无效'))
+            for key, title in (('adopted_bytes', '当前采用版本'), ('other_version_bytes', '其余生成版本'), ('recyclable_bytes', '可回收旧生成版本')):
+                value = report[key]
+                lines.append('%s：%s' % (title, '未知' if value is None else '%.2f MiB' % (value / 1048576)))
+            lines.append('同盘可恢复回收立即释放：0 MiB；保留期可在项目 storage_policy.json 的 retention_days 配置。')
+            for row in report['versions'][:50]:
+                lines.append('%s v%s：%.2f MiB，%s，%s' % (row['shot'], row['version'], row['bytes'] / 1048576,
+                             '当前采用' if row.get('adopted') else '未采用', row['reason']))
+            if len(report['versions']) > 50:
+                lines.append('另有%d个版本，以上总量包含全部版本。' % (len(report['versions']) - 50))
             lines.append('项目首页可恢复回收站内容；本操作不移动或删除文件。')
             if report['errors']:
                 lines.append('盘点不完整／自动清理阻断：' + '；'.join(report['errors'][:5]))
