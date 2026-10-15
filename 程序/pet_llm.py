@@ -16,6 +16,8 @@ import logging
 import hashlib
 import os
 import time
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 import model_pool
 import token_saver
@@ -25,6 +27,7 @@ from pet_bus import read_json
 from api_endpoints import configured_key, normalize_url
 
 LOGGER = logging.getLogger(__name__)
+_REQUEST_LOCK = threading.RLock()
 
 PROGRAM = Path(__file__).resolve().parent
 CONFIG_PATH = ('配置', '宠物', '配置.json')
@@ -419,7 +422,21 @@ class Client:
         pending = {'ok': False, 'status': None, 'model': model, 'usage': {},
                    'error_class': 'pending'}
         path = self._record_diagnostic(pending, task, tier, cfg, context)
-        result = send(url, payload, head, timeout)
+        ledger = RequestLedger(self.project) if self.project else None
+        if ledger:
+            estimate = len(json.dumps(payload, ensure_ascii=False).encode('utf-8')) + 256
+            try:
+                ledger.authorize_model(context['request_id'], model, context['stage'], estimate, int(payload['max_tokens']))
+            except (ValueError, OSError) as error:
+                result = {'ok': False, 'status': 0, 'kind': 'budget', 'error': str(error), 'usage': {}}
+                self._record_diagnostic({**result, 'model': model, 'error_class': 'budget'}, task, tier, cfg, {**context, 'not_submitted': True}, path)
+                return result
+        try:
+            result = send(url, payload, head, timeout)
+        except Exception:
+            if ledger:
+                ledger.settle_model(context['request_id'], {})
+            raise
         data = result.get('data')
         raw = data.get('usage') if isinstance(data, dict) else None
         usage = {}
@@ -436,6 +453,8 @@ class Client:
                         break
         self._record_diagnostic({**result, 'model': model, 'usage': usage},
                                 task, tier, cfg, context, path)
+        if ledger:
+            ledger.settle_model(context['request_id'], usage)
         if usage:
             self.ledger.record(model, usage, tier=tier, at=at)
         return result
@@ -472,7 +491,7 @@ class Client:
 
             result = send_attempt(tier)
             degraded = False
-            if not result.get('ok') and tier == 'pro' and is_retryable(result.get('status')):
+            if not result.get('ok') and result.get('kind') != 'budget' and tier == 'pro' and is_retryable(result.get('status')):
                 degraded = True
                 model = model_for('flash', cfg)
                 payload = self.payload(task, text, context, model=model, config=cfg)
@@ -481,7 +500,7 @@ class Client:
             # 刚才试过的那条（含档位上这两条）不重复试；密钥拿不到就不白跑。
             patch = fallback_patch(cfg)
             spent = {model, model_for('flash', cfg), model_for('pro', cfg)}
-            if (not result.get('ok') and patch and is_retryable(result.get('status'))
+            if (not result.get('ok') and result.get('kind') != 'budget' and patch and is_retryable(result.get('status'))
                     and patch.get('pro_model') not in spent):
                 switched = {**cfg, **patch}
                 if key_ok(switched, self.program):
@@ -495,7 +514,7 @@ class Client:
             self.calls.append({'task': task, 'model': model, 'status': result.get('status'),
                                'degraded': degraded, 'urgent': bool(urgent)})
             reply = {'ok': bool(result.get('ok')), 'status': result.get('status'), 'error': result.get('error'),
-                     'data': result.get('data'), 'model': model, 'degraded': degraded, 'budget': False,
+                     'data': result.get('data'), 'model': model, 'degraded': degraded, 'budget': result.get('kind') == 'budget',
                      'usage': usage, 'request': payload, 'url': url, 'kind': result.get('kind')}
             return reply
         except Exception as exc:                     # 界面线程调用：出错也要给出结构化结果，不抛异常
@@ -664,7 +683,50 @@ class RequestLedger:
             out['money']['estimated_requests'] = sum(
                 1 for entry in self.entries if entry.get('state') == 'settled' and entry.get('mode') == 'estimated')
             if out['money']['estimated_requests']:out['money']['complete'] = False
+        if price_table and any('money_state' in row for row in self.entries):
+            out['money'] = self.priced_models(price_table, currency)
+        out['model_costs'] = self.model_costs()
         return out
+
+    def priced_models(self, price_table, currency):
+        legacy = RequestLedger()
+        legacy.entries = [row for row in self.entries if 'money_state' not in row]
+        money = legacy.report(price_table, currency)['money']
+        spent, held = self.decimal(money['settled_amount']), self.decimal(money['reserved_amount'])
+        versions = set()
+        for row in self.entries:
+            if 'money_state' not in row:
+                continue
+            versions.add(str(row.get('price_version') or 'unknown'))
+            cost = row.get('budget_cost')
+            if cost is None or row.get('currency') != money['currency']:
+                money['missing_rates'].append(str(row.get('model') or 'unknown'))
+                money['complete'] = False
+                continue
+            if row['money_state'] == 'estimated':
+                spent += self.decimal(cost)
+            else:
+                held += self.decimal(cost)
+                money['complete'] = False
+                if row['money_state'] == 'unknown':
+                    money['unknown_requests'] += 1
+        money.update(settled_amount=float(round(spent, 4)), reserved_amount=float(round(held, 4)),
+                     amount=float(round(spent + held, 4)), frozen_model_price_versions=sorted(versions))
+        return money
+
+    def model_costs(self):
+        groups = {}
+        for row in self.entries:
+            if 'money_state' not in row:
+                continue
+            currency = str(row.get('currency') or '币种未配置')
+            group = groups.setdefault(currency, {'estimated_spent': '0', 'held': '0', 'unknown': 0})
+            if row.get('budget_cost') is None or row['money_state'] == 'unknown':
+                group['unknown'] += 1
+            if row.get('budget_cost') is not None:
+                key = 'estimated_spent' if row['money_state'] == 'estimated' else 'held'
+                group[key] = str(self.decimal(group[key]) + self.decimal(row['budget_cost']))
+        return groups
 
     @staticmethod
     def _quantity(value):
@@ -710,10 +772,119 @@ class RequestLedger:
     def load(self):
         if self.project is None:
             return self
-        data = read_json(request_ledger_path(self.project))
-        if isinstance(data, dict) and isinstance(data.get('entries'), list):
-            self.entries = [entry for entry in data['entries'] if isinstance(entry, dict)]
+        from agent.core import read
+        path = request_ledger_path(self.project)
+        data = read(path) if path.exists() else {'entries': []}
+        if (not isinstance(data, dict) or not isinstance(data.get('entries'), list)
+                or any(not isinstance(row, dict) for row in data['entries'])):
+            raise ValueError('请求台账损坏，请恢复后继续')
+        self.entries = data['entries']
         return self
+
+    @contextmanager
+    def transaction(self):
+        """重新读盘、检查、保存共用同一把跨进程锁，防止并发覆盖与超支。"""
+        with _REQUEST_LOCK:
+            if self.project is None:
+                yield
+                return
+            path = request_ledger_path(self.project).with_suffix('.lock')
+            path.parent.mkdir(parents=True, exist_ok=True)
+            import msvcrt
+            with path.open('a+b') as stream:
+                if not path.stat().st_size:
+                    stream.write(b'0')
+                    stream.flush()
+                stream.seek(0)
+                try:
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                except OSError:
+                    raise ValueError('请求台账正在更新，请稍后重试') from None
+                try:
+                    self.load()
+                    yield
+                    self.save()
+                finally:
+                    stream.seek(0)
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+
+    @staticmethod
+    def decimal(value):
+        from decimal import Decimal, InvalidOperation
+        try:
+            result = Decimal(str(value))
+        except (InvalidOperation, ValueError):
+            raise ValueError('金额和费率必须是有限非负数') from None
+        if isinstance(value, bool) or not result.is_finite() or result < 0:
+            raise ValueError('金额和费率必须是有限非负数')
+        return result
+
+    def authorize_model(self, request_id, model, stage, input_estimate, output_limit):
+        """冻结配置费率及估计用量；启用金额上限后，未知费用不能按零继续。"""
+        from agent.core import read
+        if type(input_estimate) is not int or input_estimate < 0 or type(output_limit) is not int or output_limit < 0:
+            raise ValueError('请求用量预估必须是非负整数')
+        with self.transaction():
+            if self._find(request_id) is not None:
+                raise ValueError('该请求已有记录，请核对原任务，不能重复发送')
+            path = self.project / 'cost_profile.json' if self.project else None
+            profile = read(path) if path is not None and path.exists() else {}
+            if not isinstance(profile, dict):
+                raise ValueError('成本配置格式不正确')
+            table = profile.get('price_table') or {}
+            if not isinstance(table, dict):
+                raise ValueError('价格表格式不正确')
+            cap = profile.get('budget_amount')
+            if cap is not None:
+                cap = self.decimal(cap)
+                if output_limit <= 0:
+                    raise ValueError('金额预算需要明确的输出Token上限')
+            rate_map = table.get('model_rates') or {}
+            if not isinstance(rate_map, dict):
+                raise ValueError('模型费率格式不正确')
+            rates = rate_map.get(model)
+            known = isinstance(rates, dict) and all(key in rates for key in ('prompt_tokens', 'completion_tokens'))
+            known = known and bool(table.get('version')) and bool(table.get('currency'))
+            rates = {key: str(self.decimal(rates[key])) for key in ('prompt_tokens', 'completion_tokens')} if known else None
+            cost = (self.decimal(input_estimate) * self.decimal(rates['prompt_tokens'])
+                    + self.decimal(output_limit) * self.decimal(rates['completion_tokens'])) if rates else None
+            if cap is not None:
+                if not rates or not table.get('version') or not table.get('currency'):
+                    raise ValueError('金额预算需要模型费率、币种和价格表版本，请先配置')
+                used = self.decimal(0)
+                for row in self.entries:
+                    if row.get('state') == 'duplicate':
+                        continue
+                    money = row.get('budget_cost')
+                    if money is None or row.get('currency') != table['currency']:
+                        raise ValueError('存在未计价费用或币种不一致，请核对后继续')
+                    used += self.decimal(money)
+                if used + cost > cap:
+                    raise ValueError('超过项目金额预算，请核对费用或明确提高预算后重试')
+            entry = self.reserve(request_id, 'tokens', input_estimate + output_limit)
+            entry.update(model=model, stage=stage, input_estimate=input_estimate, output_limit=output_limit,
+                         rates=rates, price_version=table.get('version'), currency=table.get('currency'),
+                         budget_cost=str(cost) if cost is not None else None, money_state='reserved')
+            return dict(entry)
+
+    def settle_model(self, request_id, usage):
+        """费用按冻结费率估算；未报齐输入/输出用量时保留全部预留，不假装退款。"""
+        with self.transaction():
+            entry = self._find(request_id)
+            if entry is None:
+                raise ValueError('请求预留记录缺失')
+            if entry.get('state') == 'settled' and entry.get('money_state') == 'estimated':
+                return
+            keys = ('prompt_tokens', 'completion_tokens')
+            known = all(type(usage.get(key)) is int and usage[key] >= 0 for key in keys)
+            if not known:
+                self.mark_unknown(request_id)
+                entry['money_state'] = 'unknown'
+                return
+            self.settle(request_id, usage=usage)
+            rates = entry.get('rates')
+            cost = sum((self.decimal(usage[key]) * self.decimal(rates[key]) for key in keys), self.decimal(0)) if rates else None
+            entry.update(budget_cost=str(cost) if cost is not None else None, money_state='estimated')
 
 
 def record_request(project, request_id, kind, amount, *, note='', mode='reported'):
@@ -722,10 +893,10 @@ def record_request(project, request_id, kind, amount, *, note='', mode='reported
     生产路径上的记账不能影响制作：任何落盘或数据问题都只返回 None，不抛异常。
     不传远端任务号，避免按任务号去重把同一请求的两类用量（次数与秒数）误判为重复。"""
     try:
-        ledger = RequestLedger(project).load()
-        ledger.reserve(request_id, kind, amount, note=note)
-        ledger.settle(request_id, kind=kind, amount=amount, mode=mode, note=note)
-        ledger.save()
+        ledger = RequestLedger(project)
+        with ledger.transaction():
+            ledger.reserve(request_id, kind, amount, note=note)
+            ledger.settle(request_id, kind=kind, amount=amount, mode=mode, note=note)
         return ledger
     except (OSError, ValueError, TypeError):
         return None

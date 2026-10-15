@@ -1127,7 +1127,7 @@
             },
             {
                 "file": "writing_api.py",
-                "point": "468",
+                "point": "495",
                 "disposition": "exempt",
                 "reason": "R1335 合入：阶段④分集增量接入使该 json.loads 行号由 512 平移至 548，HOLLMWOOD 框架移除后再平移至 468（R1442 又上移）；仍是简报语义提取的模型响应内存 JSON 解码，非文件读取；结果文件仍走 file_cache.read_json。"
             },

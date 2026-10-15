@@ -100,8 +100,12 @@ def summarize(project, budget=None):
     """汇总一个项目：总计、按模型、按阶段、按天；budget 为调用方传入的预算快照（可空）。"""
     events, skipped = read_events(project)
     total, by_model, by_stage, by_day = _blank(), {}, {}, {}
+    not_submitted = 0
     for event in events:
         context = event.get('context') if isinstance(event.get('context'), dict) else {}
+        if context.get('not_submitted'):
+            not_submitted += 1
+            continue
         keys = ((by_model, str(event.get('model') or '未知模型')),
                 (by_stage, str(context.get('stage') or '未标阶段')),
                 (by_day, str(event.get('at') or '')[:10] or '未知日期'))
@@ -115,7 +119,7 @@ def summarize(project, budget=None):
     if ledger_report is not None and not ledger_report.get('requests'):
         ledger_report = None
     result = {'total': total, 'by_model': by_model, 'by_stage': by_stage, 'by_day': dict(sorted(by_day.items())),
-              'skipped_files': skipped, 'budget': budget, 'requests': ledger_report}
+              'skipped_files': skipped, 'not_submitted': not_submitted, 'budget': budget, 'requests': ledger_report}
     profile = Path(project) / 'cost_profile.json'
     if profile.is_file():
         try:
@@ -137,7 +141,7 @@ def _line(name, bucket):
 
 def report_text(summary):
     total = summary['total']
-    if not total['calls'] and not any(summary.get(key) for key in ('requests', 'budget', 'cost', 'cost_error')):
+    if not total['calls'] and not any(summary.get(key) for key in ('requests', 'budget', 'cost', 'cost_error', 'not_submitted')):
         return '本项目还没有可汇总的模型调用记录。'
     lines = ['模型调用总览', _line('合计', total), '']
     for title, key in (('按模型', 'by_model'), ('按阶段', 'by_stage'), ('按天', 'by_day')):
@@ -145,6 +149,8 @@ def report_text(summary):
             lines.append(title)
             lines.extend('  ' + _line(name, bucket) for name, bucket in summary[key].items())
             lines.append('')
+    if summary.get('not_submitted'):
+        lines.append('另有 %d 次发送前被阻止，未计入远端调用。' % summary['not_submitted'])
     budget = summary.get('budget')
     if isinstance(budget, dict) and budget:
         lines.append('预算（已用／额度）')
@@ -153,6 +159,9 @@ def report_text(summary):
         lines.append('')
     ledger_report = summary.get('requests')
     if ledger_report:
+        for currency, money in ledger_report.get('model_costs', {}).items():
+            lines.append('模型金额（冻结费率估算，未对账）：%s %s；预留 %s；未知 %d 笔' % (
+                money['estimated_spent'], currency, money['held'], money['unknown']))
         lines.append('请求台账（视频秒数、生图、次数等，各列各的）')
         for kind, bucket in ledger_report['kinds'].items():
             if bucket.get('count'):

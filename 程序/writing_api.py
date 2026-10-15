@@ -203,8 +203,9 @@ def _context_budget_error(chosen, system, messages):
 
 class WritingRequestAdapter(ModelAdapter):
     """按本次冻结配置检查每次请求，并累计本次调用的已报告用量。"""
-    def __init__(self, adapter, record, chosen):
+    def __init__(self, adapter, record, chosen, project=None):
         self.adapter, self.record, self.chosen = adapter, record, chosen
+        self.project = project
         self.wire_api = adapter.wire_api
         self.context_budget = {}
         self.request_usage = {'calls': 0, 'prompt_tokens': 0, 'completion_tokens': 0, 'cached_tokens': 0}
@@ -246,13 +247,39 @@ class WritingRequestAdapter(ModelAdapter):
                                   '请压缩历史或缩短输入。' + budget_advice(report))}
         if rejected:
             return dict(rejected, context_budget=dict(self.context_budget), request_usage=dict(self.request_usage))
-        result = getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
+        ledger = None
+        if self.project is not None:
+            from pet_llm import RequestLedger
+            from uuid import uuid4
+            ledger = RequestLedger(self.project)
+            request_id = uuid4().hex
+            estimate = len(json.dumps({'system': system, 'messages': messages, 'options': options},
+                                      ensure_ascii=False).encode('utf-8')) + 256
+            try:
+                ledger.authorize_model(request_id, model or self.chosen, 'script', estimate, reserved)
+            except (ValueError, OSError) as error:
+                return {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
+                        'reason': 'money_budget_exceeded', 'error': str(error)}
+        try:
+            result = getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
+        except Exception:
+            if ledger:
+                ledger.settle_model(request_id, {})
+            raise
         data = result.get('data')
         raw = data.get('usage') if isinstance(data, dict) else None
         raw = raw if isinstance(raw, dict) else {}
         aliases = {'prompt_tokens': ('prompt_tokens', 'input_tokens'),
                    'completion_tokens': ('completion_tokens', 'output_tokens'),
                    'cached_tokens': ('cached_tokens', 'prompt_cache_hit_tokens', 'cache_read_input_tokens')}
+        if ledger:
+            reported = {}
+            for key, names in aliases.items():
+                for name in names:
+                    if type(raw.get(name)) is int and raw[name] >= 0:
+                        reported[key] = raw[name]
+                        break
+            ledger.settle_model(request_id, reported)
         self.request_usage['calls'] += 1
         for key, names in aliases.items():
             known = any(isinstance(raw.get(name), (int, float)) for name in names)
@@ -270,7 +297,7 @@ class WritingRequestAdapter(ModelAdapter):
 
 def _writing_adapter(record, chosen, *, project, settings=None, cancelled=None):
     return WritingRequestAdapter(PoolAdapter(record, chosen, program=Path(__file__).resolve().parent,
-                                            timeout=WRITING_REQUEST_TIMEOUT), record, chosen)
+                                            timeout=WRITING_REQUEST_TIMEOUT), record, chosen, project=project)
 
 
 def _complete_brief(project):

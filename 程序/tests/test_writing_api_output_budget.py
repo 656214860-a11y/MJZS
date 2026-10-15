@@ -9,6 +9,20 @@ from test_writing_api import make_project
 
 
 class WritingOutputBudgetTests(unittest.TestCase):
+    def test_money_budget_rejects_direct_writing_before_adapter_send(self):
+        import json
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / 'cost_profile.json').write_text(json.dumps({'budget_amount': '0', 'price_table': {
+                'currency': 'CNY', 'version': 'fixture', 'model_rates': {
+                    'm': {'prompt_tokens': '0.01', 'completion_tokens': '0.01'}}}}), encoding='utf-8')
+            raw = Mock()
+            adapter = writing_api.WritingRequestAdapter(raw, {}, 'm', project=td)
+            result = adapter.chat([{'role': 'user', 'content': 'hello'}], options={'max_tokens': 20})
+            self.assertFalse(result['ok'])
+            self.assertEqual(result['reason'], 'money_budget_exceeded')
+            raw.chat.assert_not_called()
+
     def test_context_budget_reserves_output_and_rejects_before_transport(self):
         raw = Mock()
         adapter = writing_api.WritingRequestAdapter(raw, {'context_length': 8000}, 'small')

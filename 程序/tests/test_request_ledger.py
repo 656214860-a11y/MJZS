@@ -138,6 +138,124 @@ class RequestLedgerTests(unittest.TestCase):
             self.assertEqual(restored.entries[0]['remote_task_id'], 'task-9')
 
 
+class ModelMoneyBudgetTests(unittest.TestCase):
+    def policy(self, folder, cap='1'):
+        path = Path(folder) / 'cost_profile.json'
+        path.write_text(json.dumps({'budget_amount': cap, 'price_table': {
+            'currency': 'CNY', 'version': 'test-v1', 'model_rates': {
+                'm': {'prompt_tokens': '0.01', 'completion_tokens': '0.02'}}}}), encoding='utf-8')
+        return path
+
+    def test_unknown_reservation_survives_restart_and_explicit_raise(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self.policy(td)
+            first = RequestLedger(td)
+            first.authorize_model('a', 'm', 'script', 20, 20)
+            first.settle_model('a', {})
+            restarted = RequestLedger(td)
+            with self.assertRaisesRegex(ValueError, '超过项目金额预算'):
+                restarted.authorize_model('b', 'm', 'script', 20, 20)
+            self.policy(td, '2')
+            restarted.authorize_model('b', 'm', 'script', 20, 20)
+            self.assertEqual(restarted.entries[0]['budget_cost'], '0.60')
+            self.assertEqual(restarted.entries[0]['money_state'], 'unknown')
+            self.assertTrue(path.exists())
+
+    def test_settlement_freezes_price_and_does_not_duplicate(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self.policy(td)
+            ledger = RequestLedger(td)
+            ledger.authorize_model('a', 'm', 'assistant', 20, 20)
+            config = json.loads(path.read_text(encoding='utf-8'))
+            config['price_table']['model_rates']['m']['prompt_tokens'] = '99'
+            path.write_text(json.dumps(config), encoding='utf-8')
+            ledger.settle_model('a', {'prompt_tokens': 10, 'completion_tokens': 5})
+            ledger.settle_model('a', {'prompt_tokens': 10, 'completion_tokens': 5})
+            self.assertEqual(ledger.entries[0]['budget_cost'], '0.20')
+            self.assertEqual(ledger.entries[0]['price_version'], 'test-v1')
+            self.assertEqual(len(ledger.entries), 1)
+            money = ledger.report({'currency': 'CNY', 'rates': {'tokens': 99}})['money']
+            self.assertEqual(money['settled_amount'], 0.2, '冻结模型费率不得再叠加通用Token费率')
+            self.assertTrue(money['complete'])
+            from usage_overview import cost_per_minute
+            cost = cost_per_minute(td, 60, {'currency': 'CNY', 'rates': {'tokens': 99}},
+                                   {'gpu': 0, 'storage': 0, 'bandwidth': 0, 'human': 0})
+            self.assertEqual(cost['known_per_minute'], 0.2)
+            ledger.settle_model('a', {})
+            self.assertEqual(ledger.entries[0]['money_state'], 'estimated')
+            with self.assertRaisesRegex(ValueError, '不能重复发送'):
+                ledger.authorize_model('a', 'm', 'assistant', 1, 1)
+
+    def test_concurrent_requests_share_one_ceiling(self):
+        from concurrent.futures import ThreadPoolExecutor
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td, '0.60')
+            def reserve(index):
+                try:
+                    RequestLedger(td).authorize_model(str(index), 'm', 'script', 20, 20)
+                    return True
+                except ValueError:
+                    return False
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                self.assertEqual(sum(pool.map(reserve, range(4))), 1)
+            self.assertEqual(len(RequestLedger(td).load().entries), 1)
+
+    def test_actual_overestimate_stops_next_request_without_erasing_spend(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            ledger = RequestLedger(td)
+            ledger.authorize_model('a', 'm', 'script', 1, 1)
+            ledger.settle_model('a', {'prompt_tokens': 200, 'completion_tokens': 10})
+            with self.assertRaisesRegex(ValueError, '超过项目金额预算'):
+                RequestLedger(td).authorize_model('b', 'm', 'script', 1, 1)
+            self.assertEqual(RequestLedger(td).load().entries[0]['budget_cost'], '2.20')
+
+    def test_invalid_policy_unpriced_history_and_corrupt_ledger_block(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            ledger = RequestLedger(td)
+            with self.assertRaisesRegex(ValueError, '模型费率'):
+                ledger.authorize_model('a', 'missing', 'script', 1, 1)
+            ledger.reserve('old', 'seconds', 1)
+            ledger.save()
+            with self.assertRaisesRegex(ValueError, '未计价'):
+                ledger.authorize_model('a', 'm', 'script', 1, 1)
+            request_ledger_path(td).write_text('{broken', encoding='utf-8')
+            with self.assertRaises(ValueError):
+                ledger.authorize_model('a', 'm', 'script', 1, 1)
+            self.assertEqual(request_ledger_path(td).read_text(encoding='utf-8'), '{broken')
+
+    def test_concurrent_legacy_recording_keeps_all_entries(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from pet_llm import record_request
+        with tempfile.TemporaryDirectory() as td:
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                results = list(pool.map(lambda n: record_request(td, str(n), 'images', 1), range(12)))
+            self.assertTrue(all(results))
+            self.assertEqual(len(RequestLedger(td).load().entries), 12)
+
+    def test_other_process_cannot_enter_locked_ledger(self):
+        import subprocess
+        import sys
+        import pet_llm
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            script = ("import sys; sys.path.insert(0, sys.argv[1]); from pet_llm import RequestLedger\n"
+                      "with RequestLedger(sys.argv[2]).transaction():\n"
+                      " print('locked', flush=True)\n input()\n")
+            child = subprocess.Popen([sys.executable, '-c', script, str(Path(pet_llm.__file__).parent), td],
+                                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                     text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            try:
+                self.assertEqual(child.stdout.readline().strip(), 'locked')
+                with self.assertRaisesRegex(ValueError, '正在更新'):
+                    RequestLedger(td).authorize_model('a', 'm', 'script', 1, 1)
+            finally:
+                child.communicate('\n', timeout=10)
+            self.assertEqual(child.returncode, 0)
+            RequestLedger(td).authorize_model('a', 'm', 'script', 1, 1)
+
+
 class ProbeUsageNoteTests(unittest.TestCase):
     def test_probe_marks_possible_usage_and_records_unknown(self):
         record = model_pool.record({'model': 'm', 'base_url': 'https://x.test/v1',

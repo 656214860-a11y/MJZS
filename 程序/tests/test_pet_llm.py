@@ -514,6 +514,20 @@ class ClientTests(unittest.TestCase):
 
 
 class AttemptAccountingTests(unittest.TestCase):
+    def test_money_budget_blocks_before_transport_and_does_not_fallback(self):
+        from usage_overview import summarize
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / 'cost_profile.json').write_text(json.dumps({'budget_amount': '0', 'price_table': {
+                'currency': 'CNY', 'version': 'fixture', 'model_rates': {
+                    'deepseek-v4-pro': {'prompt_tokens': '0.01', 'completion_tokens': '0.01'}}}}), encoding='utf-8')
+            fake = Fake()
+            result = Client(project=td, program=env_dir(td), transport=fake).ask('writing.breakdown', '拆分')
+            self.assertFalse(result['ok'])
+            self.assertTrue(result['budget'])
+            self.assertEqual(fake.calls, [])
+            self.assertEqual(summarize(td)['total']['calls'], 0)
+            self.assertEqual(summarize(td)['not_submitted'], 1)
+
     def test_failed_usage_and_unknown_are_not_overwritten_by_retry(self):
         from usage_overview import summarize
         with tempfile.TemporaryDirectory() as td:
@@ -547,6 +561,9 @@ class AttemptAccountingTests(unittest.TestCase):
             self.assertNotIn('private', saved)
             self.assertEqual(json.loads(saved)['usage'], {})
             self.assertEqual(client.ledger.entries, [])
+            held = pet_llm.RequestLedger(td).load().entries[0]
+            self.assertEqual(held['state'], 'unknown')
+            self.assertEqual(held['money_state'], 'unknown')
 
     def test_missing_usage_and_preflight_write_failure(self):
         from usage_overview import summarize
