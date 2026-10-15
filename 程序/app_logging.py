@@ -43,6 +43,27 @@ def redact(value: object) -> str:
     return _SECRET.sub("[已脱敏]", str(value))
 
 
+def build_commit() -> str:
+    """读 ``.git/HEAD`` 得到当前提交短号；不起子进程，读不到返回空串（分发副本没有 .git）。"""
+    try:
+        git = PROGRAM.parent / ".git"
+        if git.is_file():
+            text = git.read_text(encoding="utf-8").strip()
+            git = (PROGRAM.parent / text.split(":", 1)[1].strip()).resolve()
+        head = (git / "HEAD").read_text(encoding="utf-8").strip()
+        if head.startswith("ref:"):
+            ref = head.split(":", 1)[1].strip()
+            target = git / ref
+            if not target.is_file():
+                common = (git / "commondir")
+                base = (git / common.read_text(encoding="utf-8").strip()).resolve() if common.is_file() else git
+                target = base / ref
+            head = target.read_text(encoding="utf-8").strip() if target.is_file() else ""
+        return head[:10]
+    except Exception:
+        return ""
+
+
 def swallowed(note: str = "") -> None:
     """在 ``except`` 块里代替 ``pass``：照旧吞掉异常，但留下带位置的一条记录。
 
@@ -127,6 +148,11 @@ def install(root=None, crash_sink=None) -> bool:
     except Exception:
         return False
     _installed = True
+    try:
+        from app_metadata import VERSION
+        logging.getLogger("startup").info("启动 %s commit=%s Python %s", VERSION, build_commit() or "-", sys.version.split()[0])
+    except Exception:
+        pass
     previous_hook = sys.excepthook
 
     def main_hook(kind, value, trace):
