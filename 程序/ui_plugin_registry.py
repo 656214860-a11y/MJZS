@@ -11,7 +11,7 @@ UI_PLUGINS = frozenset({
     'asset_reference_images', 'asset_reference_import', 'background_characters',
     'cloud_video', 'keyframe_comfy', 'local_previs', 'native_assets', 'reference_wall',
     'skill_panel', 'stage_exec', 'stage_flow', 'pet_ui', 'previs_automation',
-    'desktop_launcher', 'workflow_settings',
+    'desktop_launcher', 'workflow_settings', 'task_center_ui',
     'agent.prompt_optimizer',
 })
 

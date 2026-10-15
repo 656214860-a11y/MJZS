@@ -4310,6 +4310,7 @@ class Desktop:
         self.button(self.content,'恢复回收站内容…',self.open_recycle_recovery)
         self.button(self.content,'重建项目索引',self.rebuild_project_index)
         self.button(self.content,'导出诊断包…',self.export_diagnostics_package)
+        self.button(self.content,'运行状况…',lambda:ui_plugin_registry.module('task_center_ui').show(self))
     def rebuild_project_index(self):
         """按磁盘事实重建项目索引：补登新目录、移除失效登记；不移动或删除任何项目文件。"""
         outcome=self._project_result_data(self.projects.rebuild_registry())

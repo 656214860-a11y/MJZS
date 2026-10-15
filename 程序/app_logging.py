@@ -17,6 +17,7 @@ import re
 import sys
 import threading
 import time
+from collections import deque
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -39,6 +40,7 @@ _SECRET = re.compile(
     r"signature|sig)=[^&\s,;}\"']+"
 )
 _swallow_counts: dict = {}
+_recent_swallowed: deque = deque(maxlen=20)
 _swallow_lock = threading.Lock()
 SWALLOW_LOG_EVERY = 100
 
@@ -118,6 +120,12 @@ def flush_metrics() -> None:
         pass
 
 
+def recent_swallowed() -> list:
+    """最近被忽略的异常（最多 20 条，最新在后），供「运行状况」面板读取。"""
+    with _swallow_lock:
+        return list(_recent_swallowed)
+
+
 def build_commit() -> str:
     """读 ``.git/HEAD`` 得到当前提交短号；不起子进程，读不到返回空串（分发副本没有 .git）。"""
     try:
@@ -153,6 +161,8 @@ def swallowed(note: str = "") -> None:
         key = (frame.f_code.co_filename, frame.f_lineno, kind.__name__)
         with _swallow_lock:
             count = _swallow_counts[key] = _swallow_counts.get(key, 0) + 1
+            _recent_swallowed.append("%s %s:%s %s: %s" % (time.strftime("%H:%M:%S"), Path(key[0]).name,
+                                                          key[1], kind.__name__, redact(value)[:160]))
         if count != 1 and count % SWALLOW_LOG_EVERY:
             return
         logging.getLogger("swallowed").warning(

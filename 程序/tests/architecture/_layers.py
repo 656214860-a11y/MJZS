@@ -13,7 +13,7 @@ _register(0, "pet_bus", "script_contract", "script_manifest_contract", "asset_co
           "prompt_templates", "shot_batches", "production_model_contract", "app_metadata")
 _register(1, "model_pool", "model_secrets", "pet_llm", "file_cache", "hash_backend",
           "storage_maintenance", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "app_logging", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger")
-_register(2, "keyframe_evidence", "animatic_service", "writing_files", "writing_workflow", "idea_chat", "idea_brief_form", "idea_attachments", "idea_script_heuristic", "idea_document_paths", "idea_transcript", "download_inbox",
+_register(2, "task_center_service", "keyframe_evidence", "animatic_service", "writing_files", "writing_workflow", "idea_chat", "idea_brief_form", "idea_attachments", "idea_script_heuristic", "idea_document_paths", "idea_transcript", "download_inbox",
           "storyboard_lifecycle", "storyboard_catalog_service",
           "storyboard_edit_service",
           "asset_context", "asset_gating", "asset_batch_lifecycle",
@@ -42,7 +42,7 @@ _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audi
           "video_task_state", "workflow_context", "writing", "writing_tools", "writing_quality")
 _register(3, "image_agent_runner", "keyframe_model_service", "skill_budget", "skill_templates", "subtitle_export_controller",
           "stage_handler_registry", "stage_model_value", "storyboard_recycle_service", "workflow_context_controller", "workflow_engines", "recycle_recovery_controller")
-_register(4, "environment_check", "version_picker", "skill_import_service", "master_skill", "asset_prompt_rules", "asset_reference_images", "asset_reference_import", "asset_reference_prompts",
+_register(4, "task_center_ui", "environment_check", "version_picker", "skill_import_service", "master_skill", "asset_prompt_rules", "asset_reference_images", "asset_reference_import", "asset_reference_prompts",
           "asset_reference_search", "asset_skill_batch", "background_characters", "cloud_assets", "keyframe_comfy",
           "keyframe_import", "pet_agent", "pet_models_ui", "pet_report", "pet_settings_ui", "pet_state",
           "project_settings", "qwen_adapter", "qwen_setup", "reference_wall", "responsive_ui", "seedream_settings",
