@@ -553,11 +553,19 @@ class Orchestrator:
             self.errors.append((item.name + '.checkpoint', str(exc)))
             return self._result(item.name, FAILED, False, detail='检查点写入失败：%s' % exc,
                                 name=item.displayName)
+        rows, errors, page, page_title, need = [], [], '', '', ''
+        import uuid
+        reservation_id = uuid.uuid4().hex
+        try:
+            enough, note = self.budget.reserve(reservation_id, kind, 1)
+        except (ValueError, OSError) as exc:
+            enough, note = False, str(exc)
+        if not enough:
+            return self._result(item.name, BUDGET, False, detail=note, kind=kind, name=item.displayName)
         if self.bus is not None:
             pet_bus.emit_safe(self.bus, self.errors, 'stage.executing', stage=item.stage,
                               skill=item.name, trigger=self.trigger)
             pet_bus.emit_safe(self.bus, self.errors, 'stage.started', stage=item.stage, skill=item.name)
-        rows, errors, page, page_title, need = [], [], '', '', ''
         for tool in item.tools:
             try:
                 out = skill_tools.call(tool, context)
@@ -598,8 +606,11 @@ class Orchestrator:
             else:
                 status = FAILED
                 detail = '剧本结构步骤未保存可读取的结构剧本，不能标记完成或启动自动流程'
-        if status == DONE:
-            self.budget.spend(kind, 1)
+        try:
+            self.budget.finish(reservation_id, completed=status == DONE,
+                               not_submitted=bool(rows) and all(row['status'] in (PAGE, INPUT, MISSING) for row in rows))
+        except (ValueError, OSError) as exc:
+            status, detail = FAILED, '预算结算保存失败；预留仍保留，请核对后恢复：' + str(exc)
         if self.bus is not None:
             if status == DONE:
                 if item.stage == 'script' and output_verified:

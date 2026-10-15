@@ -8,6 +8,8 @@
 界面与编排器都只问这里：check() 给结论（能不能再花），spend() 记账，snapshot() 给面板显示。
 """
 import time
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 
 from agent.core import save
@@ -23,6 +25,7 @@ KINDS = ('tokens', 'images', 'videos')
 DEFAULTS = {'tokens_per_day': 2000000, 'images_per_project': 200, 'videos_per_project': 100}
 LIMIT_OF = {'tokens': 'tokens_per_day', 'images': 'images_per_project', 'videos': 'videos_per_project'}
 LABELS = {'tokens': 'Token（每天）', 'images': '生图（每项目）', 'videos': '视频（每项目）'}
+_TRANSACTION_LOCK = threading.RLock()
 
 
 def budget_path(project):
@@ -82,7 +85,68 @@ class Budget:
         self.ledger = ledger
         self.clock = clock
         self.counters = {'tokens': 0, 'images': 0, 'videos': 0}
+        self.reservations = {}
         self.load()
+
+    @contextmanager
+    def transaction(self):
+        """同进程串行、跨进程字节锁；崩溃释放锁但保留预留账。"""
+        with _TRANSACTION_LOCK:
+            if self.project is None:
+                yield
+                return
+            path = budget_path(self.project).with_suffix('.lock')
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open('a+b') as stream:
+                if not path.stat().st_size:stream.write(b'0'); stream.flush()
+                stream.seek(0)
+                import os
+                if os.name == 'nt':
+                    import msvcrt
+                    try:msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                    except OSError:raise ValueError('预算账本正在更新，请稍后重试') from None
+                else:
+                    import fcntl
+                    fcntl.flock(stream, fcntl.LOCK_EX)
+                try:
+                    self.load()
+                    yield
+                finally:
+                    stream.seek(0)
+                    if os.name == 'nt':msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+                    else:fcntl.flock(stream, fcntl.LOCK_UN)
+
+    def reserve(self, request_id, kind, amount=1):
+        kind = self._kind(kind)
+        if isinstance(amount, bool) or not isinstance(amount, int) or amount <= 0:
+            raise ValueError('预算预留量必须是正整数')
+        with self.transaction():
+            if request_id in self.reservations:
+                return False, '该请求已预留或结算，请先核对原任务，不能重复提交'
+            enough, note = self.check(kind, amount)
+            if not enough:return enough, note
+            self.reservations[request_id] = {'kind': kind, 'amount': amount, 'state': 'reserved'}
+            self.save()
+            return True, note
+
+    def finish(self, request_id, *, completed=False, not_submitted=False):
+        with self.transaction():
+            entry = self.reservations.get(request_id)
+            if not entry or entry['state'] in ('settled', 'released'):return
+            if not_submitted:
+                entry['state'] = 'released'
+            elif completed:
+                kind = entry['kind']
+                if not (kind == 'tokens' and self.ledger is not None):
+                    self.counters[kind] += entry['amount']
+                entry['state'] = 'settled'
+            else:
+                entry['state'] = 'unknown'
+            self.save()
+
+    def reserved(self, kind):
+        return sum(row['amount'] for row in self.reservations.values()
+                   if row['kind'] == kind and row['state'] in ('reserved', 'unknown'))
 
     # ── 额度与用量 ──────────────────────────────────────────────────────────
     def limit(self, kind):
@@ -96,7 +160,7 @@ class Budget:
         return int(self.counters.get(kind, 0))
 
     def remaining(self, kind):
-        return max(0, self.limit(kind) - self.used(kind))
+        return max(0, self.limit(kind) - self.used(kind) - self.reserved(kind))
 
     def check(self, kind, amount=1):
         """还能不能再花 amount：返回 (能不能, 一句话)。"""
@@ -116,12 +180,14 @@ class Budget:
         amount = max(0, int(amount))
         if kind == 'tokens' and self.ledger is not None:
             return self.used(kind)
-        self.counters[kind] = self.counters.get(kind, 0) + amount
-        self.save()
-        return self.counters[kind]
+        with self.transaction():
+            self.counters[kind] = self.counters.get(kind, 0) + amount
+            self.save()
+            return self.counters[kind]
 
     def snapshot(self):
         return {kind: {'used': self.used(kind), 'limit': self.limit(kind),
+                       'reserved': self.reserved(kind),
                        'remaining': self.remaining(kind), 'label': LABELS[kind]} for kind in KINDS}
 
     @staticmethod
@@ -135,13 +201,23 @@ class Budget:
     def load(self):
         if self.project is None:
             return self
-        data = read_json(budget_path(self.project))
+        from agent.core import read
+        path = budget_path(self.project)
+        data = read(path) if path.exists() else {}
+        if not isinstance(data, dict):raise ValueError('预算账损坏，请核对后恢复')
         if isinstance(data, dict):
+            reservations = data.get('reservations', {})
+            if not isinstance(reservations, dict):raise ValueError('预算预留账损坏，请核对后恢复')
+            for row in reservations.values():
+                if (not isinstance(row, dict) or row.get('kind') not in KINDS
+                        or row.get('state') not in ('reserved', 'unknown', 'settled', 'released')
+                        or type(row.get('amount')) is not int or row['amount'] <= 0):
+                    raise ValueError('预算预留账损坏，请核对后恢复')
+            self.reservations = reservations
             for kind in KINDS:
-                try:
-                    self.counters[kind] = max(0, int(data.get(kind, 0)))
-                except (TypeError, ValueError):
-                    self.counters[kind] = 0
+                value = data.get(kind, 0)
+                if type(value) is not int or value < 0:raise ValueError('预算计数损坏，请核对后恢复')
+                self.counters[kind] = value
         return self
 
     def save(self):
@@ -149,6 +225,7 @@ class Budget:
             return None
         path = budget_path(self.project)
         data = dict(self.counters)
+        data['reservations'] = self.reservations
         data['updated_at'] = float(self.clock())
         save(path, data)
         return path

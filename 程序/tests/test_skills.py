@@ -360,6 +360,42 @@ class RegistryTests(unittest.TestCase):
 
 
 class BudgetTests(unittest.TestCase):
+    def test_reservations_survive_restart_and_unknown_does_not_refund(self):
+        with tempfile.TemporaryDirectory() as td:
+            budget = skill_budget.Budget(project=td, config={'images_per_project': 2})
+            self.assertTrue(budget.reserve('one', 'images', 2)[0])
+            again = skill_budget.Budget(project=td, config={'images_per_project': 2})
+            self.assertFalse(again.reserve('two', 'images', 1)[0])
+            again.finish('one')
+            self.assertEqual(again.remaining('images'), 0)
+            again.finish('one', completed=True)
+            again.finish('one', completed=True)
+            self.assertEqual(again.used('images'), 2)
+
+    def test_concurrent_budget_reservations_do_not_overspend(self):
+        from concurrent.futures import ThreadPoolExecutor
+        with tempfile.TemporaryDirectory() as td:
+            budgets = [skill_budget.Budget(project=td, config={'images_per_project': 1}) for _ in range(2)]
+            with ThreadPoolExecutor(2) as pool:
+                results = list(pool.map(lambda i: budgets[i].reserve(str(i), 'images')[0], range(2)))
+            self.assertEqual(sum(results), 1)
+            restored = skill_budget.Budget(project=td, config={'images_per_project': 1})
+            self.assertEqual(restored.reserved('images'), 1)
+
+    def test_not_submitted_releases_but_duplicate_id_stays_blocked(self):
+        budget = skill_budget.Budget(config={'images_per_project': 1})
+        self.assertTrue(budget.reserve('one', 'images')[0])
+        budget.finish('one', not_submitted=True)
+        self.assertEqual(budget.remaining('images'), 1)
+        self.assertFalse(budget.reserve('one', 'images')[0])
+        self.assertTrue(budget.reserve('two', 'images')[0])
+
+    def test_corrupt_budget_does_not_reset_to_free_quota(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = skill_budget.budget_path(td); path.parent.mkdir(parents=True)
+            path.write_text('{broken', encoding='utf-8')
+            with self.assertRaises(ValueError):skill_budget.Budget(project=td)
+
     def test_defaults_are_the_three_hard_limits(self):
         self.assertEqual(skill_budget.limits(), {'tokens_per_day': 2000000, 'images_per_project': 200,
                                                  'videos_per_project': 100})
