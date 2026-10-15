@@ -58,6 +58,59 @@ def _number(value):
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value >= 0 else None
 
 
+def delivery_duration(project, selected):
+    """从已确认且内容未变的交付记录取片长；每份采用分镜只计一个导出。"""
+    from agent.core import file_hash, fingerprint
+    from stage_path_service import read_dirs, write_dir
+    from storyboard_adoption_contract import adopted
+    root = Path(project).resolve()
+    if not isinstance(selected, list) or not selected or any(not isinstance(p, str) or not p for p in selected):
+        raise ValueError('delivery_outputs 需要非空交付文件路径列表')
+    targets = [(root / p).resolve() for p in selected]
+    folder = write_dir(root, 'delivery').resolve()
+    folders = [p.resolve() for p in read_dirs(root, 'delivery')]
+    if len(set(targets)) != len(targets) or any(not any(p.is_relative_to(f) for f in folders) for p in targets):
+        raise ValueError('交付成本文件重复或不在本项目交付目录')
+    found, sources = {}, set()
+    for source in adopted(root):
+        source = Path(source).resolve()
+        relative = source.relative_to(root).as_posix()
+        manifest = folder / '成果确认' / (fingerprint(relative)[:24] + '.json')
+        if not manifest.is_file():
+            continue
+        data = read_json(manifest)
+        if not isinstance(data, dict) or not isinstance(data.get('outputs'), list):
+            raise ValueError('交付确认格式错误')
+        for output in data['outputs']:
+            if not isinstance(output, dict) or not isinstance(output.get('path'), str):
+                raise ValueError('交付文件记录格式错误')
+            path = (root / output['path']).resolve()
+            if path not in targets:
+                continue
+            scope = data.get('scope') or {}
+            validation = output.get('validation') or {}
+            if not isinstance(scope, dict) or not isinstance(validation, dict):
+                raise ValueError('交付确认范围或探测结果格式错误')
+            duration = _number(validation.get('duration'))
+            if (data.get('schema') != 1 or data.get('stage') != 'delivery'
+                    or data.get('status') != 'complete' or data.get('reviewed') is not True
+                    or scope.get('project') != str(root) or scope.get('source') != relative
+                    or scope.get('source_sha256') != file_hash(source)
+                    or validation.get('kind') != 'video' or validation.get('passed') is not True or not duration
+                    or not path.is_file() or path.stat().st_size != output.get('size')
+                    or file_hash(path) != output.get('sha256')):
+                raise ValueError('交付文件或分镜已变化，或尚未确认，请重新校验交付成果')
+            if source in sources or path in found:
+                raise ValueError('同一集的多个导出不能重复计入成片时长')
+            sources.add(source)
+            found[path] = {'path': path.relative_to(root).as_posix(), 'sha256': output['sha256'],
+                           'duration_seconds': duration, 'confirmation': manifest.relative_to(root).as_posix()}
+    if len(found) != len(targets):
+        raise ValueError('所选文件缺少当前已采用分镜的交付确认')
+    return {'duration_seconds': sum(row['duration_seconds'] for row in found.values()),
+            'outputs': [found[path] for path in targets]}
+
+
 def cost_per_minute(project, duration_seconds, price_table, overheads=None):
     """按已录入用量及费率估算，费用缺项单列，绝不补零。非供应商对账账单。"""
     duration = _number(duration_seconds)
@@ -126,7 +179,10 @@ def summarize(project, budget=None):
     if profile.is_file():
         try:
             config = read_json(profile)
-            result['cost'] = cost_per_minute(project, config['duration_seconds'], config['price_table'], config.get('overheads'))
+            evidence = delivery_duration(project, config['delivery_outputs']) if 'delivery_outputs' in config else None
+            duration = evidence['duration_seconds'] if evidence else config['duration_seconds']
+            result['cost'] = cost_per_minute(project, duration, config['price_table'], config.get('overheads'))
+            result['cost']['delivery_evidence'] = evidence
         except (OSError, ValueError, TypeError, KeyError) as error:
             result['cost_error'] = '成本配置无法核算：' + str(error)
     return result
@@ -177,6 +233,8 @@ def report_text(summary):
     if summary.get('cost_error'):lines.append(summary['cost_error'])
     if summary.get('cost'):
         cost = summary['cost']
+        lines.append('成本分母：%g 秒（%s）' % (cost['duration_seconds'],
+            '已确认交付文件，摘要与分镜版本已核验' if cost.get('delivery_evidence') else '手工录入，尚未绑定交付证据'))
         lines.append('已录入制作成本（不含人工）：%g %s／分钟；%s' % (cost['known_per_minute'], cost['currency'] or '币种未配置',
             '录入项齐全' if cost['complete'] else '总成本未知，仍有未知用量、预留或缺项'))
         lines.append('按录入用量和费率估算，尚非供应商对账结果；外部费用缺项：' + '、'.join(cost['missing_overheads']))

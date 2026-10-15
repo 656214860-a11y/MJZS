@@ -52,6 +52,22 @@ class MediaImportValidationTests(unittest.TestCase):
                 self.assertEqual(file_hash(source), before)
         self.assertEqual(list(self.root.rglob('*.tmp')), [])
 
+    def test_actual_delivery_confirmation_supplies_cost_denominator(self):
+        from stage_completion_service import prepare_media_completion, confirm_media_completion
+        from usage_overview import delivery_duration
+        from agent.media import probe
+        source = self.root / 'storyboard' / 'episode.json'
+        save(source, {'id': 'EP01', 'shots': [{'id': 'S01'}]})
+        save(self.root / 'ui_settings.json', {'adopted_storyboards': [str(source)]})
+        result = import_delivery_master(self.root, self.video)
+        self.assertTrue(result.ok, result.reason)
+        prepared = prepare_media_completion(self.root, 'delivery', [result.data])
+        confirm_media_completion(self.root, 'delivery', prepared)
+        evidence = delivery_duration(self.root, [str(result.data)])
+        actual = float(probe(self.video, TOOLS)['format']['duration'])
+        self.assertEqual(evidence['duration_seconds'], actual)
+        self.assertEqual(evidence['outputs'][0]['sha256'], file_hash(self.video))
+
     def test_fake_and_truncated_files_are_not_published(self):
         broken = [('fake.wav', b'not audio', import_stage_audio),
                   ('fake.mp4', b'not video', import_delivery_master),

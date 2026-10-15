@@ -60,6 +60,50 @@ class MediaCompletionTests(unittest.TestCase):
         with patch('agent.media.probe', return_value=result):
             return prepare_media_completion(self.root, stage, [path])
 
+    def test_cost_uses_confirmed_delivery_duration_and_rejects_stale_evidence(self):
+        from usage_overview import summarize, report_text
+        from pet_llm import RequestLedger
+        path = self.artifact('delivery')
+        ledger = RequestLedger(self.root)
+        ledger.settle('fixture', kind='seconds', amount=10); ledger.save()
+        save(self.root / 'cost_profile.json', {'duration_seconds': 999,
+            'delivery_outputs': [path.relative_to(self.root).as_posix()],
+            'price_table': {'rates': {'seconds': 0.2}, 'version': 'fixture', 'currency': 'CNY'},
+            'overheads': {'gpu': 0, 'storage': 0, 'bandwidth': 0}})
+        self.assertIn('cost_error', summarize(self.root))
+        confirm_media_completion(self.root, 'delivery', self.prepare('delivery', path))
+        summary = summarize(self.root)
+        self.assertEqual(summary['cost']['duration_seconds'], 2.5)
+        self.assertEqual(summary['cost']['total_per_minute'], 48)
+        self.assertIn('摘要与分镜版本已核验', report_text(summary))
+        original = path.read_bytes()
+        path.write_bytes(b'x' * len(original))
+        self.assertIn('cost_error', summarize(self.root))
+        path.write_bytes(original)
+        save(self.source, {'id': 'EP01', 'shots': [{'id': 'changed'}]})
+        self.assertIn('cost_error', summarize(self.root))
+
+    def test_delivery_cost_counts_episodes_once_not_export_formats(self):
+        from usage_overview import delivery_duration
+        first = self.artifact('delivery', 'first.mp4')
+        alternate = self.artifact('delivery', 'alternate.mp4')
+        prepared = self.prepare('delivery', first)
+        prepared['outputs'].extend(self.prepare('delivery', alternate)['outputs'])
+        confirm_media_completion(self.root, 'delivery', prepared)
+        with self.assertRaisesRegex(ValueError, '多个导出'):
+            delivery_duration(self.root, [str(first), str(alternate)])
+        second_source = self.source.with_name('second.json')
+        save(second_source, {'id': 'EP02', 'shots': [{'id': 'S01'}]})
+        self.select(second_source)
+        second = self.artifact('delivery', 'second.mp4')
+        confirm_media_completion(self.root, 'delivery', self.prepare('delivery', second))
+        save(self.root / 'ui_settings.json', {'adopted_storyboards': [str(self.source), str(second_source)]})
+        result = delivery_duration(self.root, [str(first), str(second)])
+        self.assertEqual(result['duration_seconds'], 5)
+        self.assertEqual(len(result['outputs']), 2)
+        for selected in ([], [str(first), str(first)], [str(self.root / 'outside.mp4')]):
+            with self.assertRaises(ValueError): delivery_duration(self.root, selected)
+
     def test_each_stage_requires_explicit_review_of_validated_artifact(self):
         for stage in ('audio', 'edit', 'delivery'):
             with self.subTest(stage=stage):
