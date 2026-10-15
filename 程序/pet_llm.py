@@ -897,7 +897,7 @@ class RequestLedger:
                     quote['remaining'] if quote['remaining'] is not None else '未知', '；'.join(quote['notes']))
 
     def legacy_video_costs(self, request_id=''):
-        """只读归组旧视频来源；只保存摘要，不复制提示词、配置或私有任务内容。"""
+        """只读归组旧视频来源；只保存摘要，不保存提示词原文、配置或私有任务内容。"""
         groups = {}
         if self.project is None:
             return groups

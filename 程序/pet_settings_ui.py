@@ -23,7 +23,7 @@ import token_saver
 from app_metadata import APP_NAME
 from pet_settings_contract import TABS, LEVEL_NOTES
 from ui_tokens import FONTS, SPACING
-from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea
+from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea, SelectBox
 
 HUB_TITLE = '设置'
 HUB_GEOMETRY = '880x620'
@@ -260,19 +260,19 @@ def pet_ui_note(level):
 def cost_reconciliation_dialog(parent, project):
     """让用户核对已有请求，费用变更独立于制作任务状态。"""
     from pet_llm import RequestLedger
-    from tkinter import filedialog
+    from ui_dialogs import FileDialog
     ledger = RequestLedger(project).load()
     def eligible():
         return [row for row in ledger.entries if row.get('state') in ('unknown', 'settled', 'cancelled') and not row.get('cost_group')]
     rows = eligible()
     win = BaseDialog(parent, '费用核对', modal=False)
-    body = ttk.Frame(win); body.pack(fill='both', expand=True, padx=16, pady=16)
+    body = ttk.Frame(win); body.pack(fill='both', expand=True, padx=SPACING["lg"], pady=SPACING["lg"])
     ttk.Label(body, text='请填写本笔请求的最终账单金额；0 表示已确认无费用。\n凭据只保存在本机，不会上传。核对不会重发或取消制作任务。').pack(anchor='w')
     def labels():
         return [f"{row.get('legacy_label', row.get('id'))} / {row.get('kind')} / {row.get('model', '模型未记录')}" for row in rows]
     choices = labels()
-    selected = ttk.Combobox(body, values=choices, state='readonly', width=75)
-    selected.pack(fill='x', pady=8)
+    selected = SelectBox(body, values=choices, state='readonly', width=75)
+    selected.pack(fill='x', pady=SPACING["sm"])
     fields = {}
     for key, label in [('amount', '最终账单金额'), ('currency', '币种（例如 CNY）'),
                        ('reviewer', '核对人'), ('evidence', '本地账单凭据文件')]:
@@ -289,7 +289,7 @@ def cost_reconciliation_dialog(parent, project):
             row.get('budget_cost') if row.get('budget_cost') is not None else '未知',
             status.get(row.get('money_state'), '未计价'), len(row.get('cost_reconciliations', []))))
     def browse():
-        path = filedialog.askopenfilename(parent=win, title='选择本地账单凭据')
+        path = FileDialog(win).open_file(title='选择本地账单凭据')
         if path: fields['evidence'].set(path)
     def save_cost():
         if selected.current() < 0:
@@ -314,10 +314,10 @@ def cost_reconciliation_dialog(parent, project):
         hint.set('已导入或更新 %d 笔旧视频/Comfy云图片费用；金额保持未知，请逐笔核对。进行中任务需先查询最终结果，再重新导入。' % count)
         return count
     selected.bind('<<ComboboxSelected>>', pick)
-    SecondaryButton(body, text='导入旧视频/Comfy账目', command=import_legacy).pack(anchor='w', pady=8)
-    SecondaryButton(body, text='选择凭据', command=browse).pack(anchor='w', pady=8)
+    SecondaryButton(body, text='导入视频/Comfy 旧账', command=import_legacy).pack(anchor='w', pady=SPACING["sm"])
+    SecondaryButton(body, text='选择凭据', command=browse).pack(anchor='w', pady=SPACING["sm"])
     PrimaryButton(body, text='保存核对结果', command=save_cost).pack(anchor='w')
-    ttk.Label(body, textvariable=hint, wraplength=650).pack(anchor='w', pady=8)
+    ttk.Label(body, textvariable=hint, wraplength=650).pack(anchor='w', pady=SPACING["sm"])
     return {'window': win, 'fields': fields, 'selected': selected, 'pick': pick, 'save': save_cost, 'hint': hint,
             'import_legacy': import_legacy}
 

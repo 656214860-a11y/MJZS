@@ -547,7 +547,7 @@ class NativeAssetsGatingTests(_TkHarness):
             self.assertEqual(kinds, ["Card", "Progressbar", "ProgressLabel", "FlowBar"])
             bar = form.winfo_children()[3]
             texts = [b.cget("text") for b in bar.winfo_children()]
-            self.assertEqual(texts, ["启动并检测", "取消检测"])
+            self.assertEqual(texts, ["启动并检测", "预估费用", "取消检测"])
 
     def test_the_main_page_owns_the_comfy_housekeeping_buttons(self):
         """第 65 期任务 1：「强制关闭 ComfyUI」「制作记录」搬到主界面「阶段配置」右边。

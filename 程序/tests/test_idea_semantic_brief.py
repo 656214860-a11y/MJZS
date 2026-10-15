@@ -52,11 +52,12 @@ class SemanticBriefTests(unittest.TestCase):
     def test_api_extraction_uses_configured_model_without_script_publication(self):
         import writing_api
         request = {'request_id': 'test', 'source': SOURCE, 'prompt': '只做提取'}
-        with patch('writing_api.selected_model', return_value=('chosen', {})), \
+        with tempfile.TemporaryDirectory() as td, \
+                patch('writing_api.selected_model', return_value=('chosen', {})), \
                 patch('writing_api.PoolAdapter') as adapter, \
                 patch('writing_api._auto_save_script_raw') as publish:
             adapter.return_value.chat.return_value = {'ok': True, 'text': json.dumps(response(request))}
-            self.assertEqual(writing_api.extract_idea_brief(Path('unused'), request), VALUES)
+            self.assertEqual(writing_api.extract_idea_brief(Path(td), request), VALUES)
             self.assertEqual(adapter.return_value.chat.call_args.kwargs['model'], 'chosen')
             publish.assert_not_called()
 

@@ -3,6 +3,7 @@ import json
 import os
 import time
 import uuid
+import threading
 from pathlib import Path
 # 第 34 期第 9 条：`urllib.request` 会连 ssl 一起拉起来（libssl＋libcrypto 常驻约 4.4 MB），
 # 而 core 在启动路径上被到处 import——改成真要发请求时再 import（只有下面两处用到）。
@@ -25,7 +26,16 @@ def read_json(path, default=None):
         return default
 
 
+_PUBLISH_LOCKS = tuple(threading.RLock() for _ in range(64))
+
 def replace(source, target):
+    """同路径发布串行化，避免本进程多个写线程争抢 Windows 替换句柄。"""
+    key = os.path.normcase(os.path.abspath(target))
+    with _PUBLISH_LOCKS[hash(key) % len(_PUBLISH_LOCKS)]:
+        _replace_locked(source, target)
+
+
+def _replace_locked(source, target):
     """把临时文件原子换到正式路径；Windows 上目标正被别的线程读着时短暂重试。
 
     Windows 的 os.replace 需要能独占目标（Python 的 open 不带 FILE_SHARE_DELETE），而界面线程
