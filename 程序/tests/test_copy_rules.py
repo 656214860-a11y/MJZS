@@ -298,6 +298,12 @@ PROMPT_FILES = ("pet_llm.py", "continuity_ledger.py", "workflow_tasks.py",
                 "skills/00全流程SKILL/AIGC创作全流程/short-drama-director/scripts/validate_prompt.py")
 
 
+# R1489：AIGC 创作全流程是整包引入的第三方 SKILL（嵌套仓库，按版本升级整体替换），其脚本输出的
+# 文案不属于本项目的界面文案，也不由我们改写；V7.4.20 新增脚本里的「你」让本项收红。整包放行，
+# 不逐文件登记——否则每次升级都要追着补白名单。项目自己的界面文案仍一律受本项约束。
+VENDORED_SKILL_PACKAGE = "skills/00全流程SKILL/AIGC创作全流程/"
+
+
 class SecondPersonTests(unittest.TestCase):
     """第 68 期任务 10：对用户说话用「您」，别用「你」。"""
 
@@ -313,7 +319,7 @@ class SecondPersonTests(unittest.TestCase):
     def test_interface_copy_speaks_to_you_with_the_polite_pronoun(self):
         bad = []
         for rel, body in sorted(self.sources.items()):
-            if rel in PROMPT_FILES:
+            if rel in PROMPT_FILES or rel.startswith(VENDORED_SKILL_PACKAGE):
                 continue
             for line, text in literals(ast.parse(body)):
                 if "你" in text:
