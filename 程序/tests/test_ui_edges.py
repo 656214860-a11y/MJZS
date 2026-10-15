@@ -16,6 +16,7 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import idea_chat
+from catalog_page_test_support import show_catalog_page_ready
 
 PROGRAM = HERE
 FFMPEG = r"D:/Tools/ffmpeg/bin/ffmpeg.exe"
@@ -451,7 +452,7 @@ class UiEdgeTests(unittest.TestCase):
                 d = Desktop(win, root=PROGRAM)
                 d.root = proj
                 d.studio = open_studio(proj)
-                d.show(PAGE["final"]); win.update_idletasks()
+                show_catalog_page_ready(d, PAGE["final"]); win.update_idletasks()
                 texts = []
                 def walk(w):
                     if isinstance(w, self.tk.Text):
@@ -476,7 +477,7 @@ class UiEdgeTests(unittest.TestCase):
                 d = Desktop(win, root=PROGRAM)
                 d.root = proj
                 d.studio = open_studio(proj)
-                d.show(PAGE["storyboard"]); win.update_idletasks()
+                show_catalog_page_ready(d, PAGE["storyboard"]); win.update_idletasks()
                 def first_tree(w):
                     for c in w.winfo_children():
                         if isinstance(c, ttk.Treeview):
@@ -534,7 +535,7 @@ class UiEdgeTests(unittest.TestCase):
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
-            d.show(PAGE["storyboard"]); win.update()
+            show_catalog_page_ready(d, PAGE["storyboard"]); win.update()
             d.cancel_timers(); d.pet.arm_auto = lambda: None
             buttons = {}; boxes = []
             def style_of(widget):
@@ -637,7 +638,7 @@ class UiEdgeTests(unittest.TestCase):
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
-            d.show(PAGE["storyboard"]); win.update()
+            show_catalog_page_ready(d, PAGE["storyboard"]); win.update()
             trees = []
             def walk(w):
                 if isinstance(w, ttk.Treeview):
@@ -933,7 +934,7 @@ class UiEdgeTests(unittest.TestCase):
                     self.assertGreater(int(d.stage_button.winfo_reqheight()), 0, "按钮有真实高度，不是空壳")
             # 第 68 期任务 6：07 分镜定稿补上了主动作「手动同步资产」，阶段配置跟着挪到那一行
             # （原来挂在页标题右边），页标题旁不再重复摆一颗。
-            d.show(PAGE["final"])
+            show_catalog_page_ready(d, PAGE["final"])
             for _ in range(3):
                 win.update(); win.update_idletasks()
             self.assertTrue(d.stage_button.winfo_exists(), "05 页的「阶段配置」建在主动作那一行")
@@ -1357,7 +1358,7 @@ class UiEdgeTests(unittest.TestCase):
                 d = Desktop(win, root=PROGRAM)
                 d.root = proj
                 d.studio = open_studio(proj)
-                d.show(PAGE["final"]); win.update_idletasks()
+                show_catalog_page_ready(d, PAGE["final"]); win.update_idletasks()
                 buttons = []; labels = []; frames = []; trees = []
                 def walk(w):
                     if isinstance(w, ttk.Button):
@@ -1426,7 +1427,7 @@ class UiEdgeTests(unittest.TestCase):
                 d = Desktop(win, root=PROGRAM)
                 d.root = proj
                 d.studio = open_studio(proj)
-                d.show(PAGE["final"]); win.update_idletasks()
+                show_catalog_page_ready(d, PAGE["final"]); win.update_idletasks()
                 trees = []
                 def walk(w):
                     if isinstance(w, ttk.Treeview):
@@ -2092,7 +2093,7 @@ class UiEdgeTests(unittest.TestCase):
             d.studio = open_studio(proj)
             def widths():
                 # 每一轮 show() 都会把上一张表拆掉重建，所以宽度要在这一轮里当场读下来。
-                d.show(PAGE["final"]); win.update()
+                show_catalog_page_ready(d, PAGE["final"]); win.update()
                 trees = []
                 def walk(w):
                     if isinstance(w, ttk.Treeview):
@@ -2321,7 +2322,7 @@ class UiEdgeTests(unittest.TestCase):
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
-            d.show(PAGE["storyboard"]); win.update()
+            show_catalog_page_ready(d, PAGE["storyboard"]); win.update()
             self.assertFalse(project_settings.auto_adopt(proj))
             # 建窗这一段在 8 路并行的全量自检里可能拖过 10 秒，而 10 秒正是 adopt_pending
             # 判「文件刚写入」的等待窗口：一超时，下面那条「先等写入完成」的断言就会随机红成
@@ -2577,7 +2578,7 @@ class UiEdgeTests(unittest.TestCase):
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
-            d.show(PAGE["storyboard"]); win.update()
+            show_catalog_page_ready(d, PAGE["storyboard"]); win.update()
             buttons = []
             def walk(widget):
                 if isinstance(widget, ttk.Button):
@@ -3516,7 +3517,7 @@ class UiEdgeTests(unittest.TestCase):
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
-            d.show(PAGE["final"]); win.update()
+            show_catalog_page_ready(d, PAGE["final"]); win.update()
             # 自动制作勾选框已从页面移除；唯一写入权归三虎的全自动模式。
             self.enable_sanhu_auto(d, "auto_final_var")
             self.assertTrue(d.pet.should_auto_run('final'))
@@ -3590,7 +3591,7 @@ class UiEdgeTests(unittest.TestCase):
             d.studio = open_studio(proj)
             self.enable_sanhu_auto(d, "auto_final_var")
             self.assertTrue(project_settings.set_auto_final(proj, True))
-            d.show(PAGE["final"]); win.update()
+            show_catalog_page_ready(d, PAGE["final"]); win.update()
             def retry_buttons():
                 """这一页上那颗「立即重试」（列表刷新不重建页面，但每次还是重新找一次）。"""
                 found = []
@@ -4381,19 +4382,19 @@ class UiEdgeTests(unittest.TestCase):
             d.root = proj
             d.studio = open_studio(proj)
             d.cancel_timers()
-            d.show(PAGE["final"])
+            show_catalog_page_ready(d, PAGE["final"])
             for _ in range(3):
                 win.update(); win.update_idletasks()
             self.assertLess(d.canvas.yview()[1], 1.0)                # 这一页确实长到需要滚动
             d.canvas.yview_moveto(0.5); win.update()
             before = d.canvas.canvasy(0)
             self.assertGreater(before, 0)
-            d.show(PAGE["final"])
+            show_catalog_page_ready(d, PAGE["final"])
             for _ in range(3):
                 win.update(); win.update_idletasks()
             self.assertAlmostEqual(d.canvas.canvasy(0), before, delta=2)
             d.page_index = 1                                         # 换页（等价于点其它导航）
-            d.show(PAGE["final"]); win.update()
+            show_catalog_page_ready(d, PAGE["final"]); win.update()
             self.assertEqual(d.canvas.canvasy(0), 0)
 
     def test_restored_main_window_recomputes_page_scroll_before_wheel(self):
@@ -4417,7 +4418,7 @@ class UiEdgeTests(unittest.TestCase):
             from local_video import open_studio
             d = Desktop(win, root=PROGRAM)
             d.root = proj; d.studio = open_studio(proj); d.cancel_timers()
-            d.show(PAGE["final"])
+            show_catalog_page_ready(d, PAGE["final"])
             for _ in range(3):
                 win.update(); win.update_idletasks()
             self.assertLess(d.canvas.yview()[1], 1.0)
@@ -4697,7 +4698,7 @@ class BatchContinuationTests(unittest.TestCase):
             (proj / "ui_settings.json").write_text(json.dumps(prefs, ensure_ascii=False), encoding="utf-8")
             calls = self.no_modal()
             d, win = self.desktop(td, proj)
-            d.show(PAGE["storyboard"]); win.update()
+            show_catalog_page_ready(d, PAGE["storyboard"]); win.update()
             [b for b in self.buttons(d.content) if b.cget("text") == "手动采用分镜"][0].invoke()
             win.update()
             self.assertEqual(calls, [])
@@ -5258,7 +5259,7 @@ class StoryboardRowLayoutTests(unittest.TestCase):
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
-            d.show(PAGE["storyboard"])
+            show_catalog_page_ready(d, PAGE["storyboard"])
             for _ in range(10):
                 win.update()
             row = [b for b in self.buttons(d.content) if b.cget("text") == "手动采用分镜"]

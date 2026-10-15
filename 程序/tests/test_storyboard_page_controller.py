@@ -16,9 +16,10 @@ class StoryboardPageControllerTests(unittest.TestCase):
             board.write_text('{}', encoding='utf-8')
             with patch('storyboard_page_controller.selected_many', return_value=[]), \
                  patch('storyboard_page_controller.remember_many') as remember, \
-                 patch('storyboard_page_controller.catalog', side_effect=lambda _p, kind: [
-                     {'path': script if kind == 'script' else board, 'title': 'x',
-                      'created': 1, 'done': kind == 'script'}]), \
+                 patch('storyboard_page_controller.catalog_snapshot', return_value={
+                     kind: [{'path': script if kind == 'script' else board, 'title': 'x',
+                             'created': 1, 'done': kind == 'script'}]
+                     for kind in ('script', 'storyboard')}), \
                  patch('storyboard_page_controller.produced_scripts', return_value={script}), \
                  patch('storyboard_page_controller.adopted', return_value={board}):
                 controller = StoryboardPageController(project)

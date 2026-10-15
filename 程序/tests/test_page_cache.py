@@ -120,7 +120,10 @@ class PageCacheTests(unittest.TestCase):
             patcher = mock.patch.object(tk_timers, name, replacement)
             patcher.start(); self.addCleanup(patcher.stop)
         win, d = self.open_desktop(td)
-        d.go_page(PAGE['storyboard']); win.update_idletasks()
+        with mock.patch('storyboard_files.threading.Thread') as worker:
+            worker.return_value.start.side_effect = lambda: worker.call_args.kwargs['target']()
+            d.go_page(PAGE['storyboard']); win.update_idletasks()
+        captured['apply']()
         self.assertEqual(set(captured), {'refresh', 'apply'})
         return win, d, captured['refresh'], captured['apply']
 

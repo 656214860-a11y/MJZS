@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from stage_execution_service import storyboard_catalog as catalog, storyboard_produced_scripts as produced_scripts, storyboard_resolve_source as resolve_source
+from stage_execution_service import storyboard_catalog_snapshot as catalog_snapshot, storyboard_produced_scripts as produced_scripts, storyboard_resolve_source as resolve_source
 from storyboard_recycle_service import (
     latest_recycle_batch, recycle_files, recycle_plan, restore_latest_recycled_files,
 )
@@ -45,34 +45,44 @@ class StoryboardPageController:
     def choose(self, kind, paths):
         self._check_kind(kind)
         chosen = list(dict.fromkeys(Path(path).resolve() for path in paths))
+        return self._remember_selection(kind, chosen)
+
+    def _remember_selection(self, kind, chosen):
         remember_many(self.project, kind, chosen)
         self.selections[kind] = chosen
         return chosen
 
     def refresh_catalogs(self):
-        return {kind: catalog(self.project, kind) for kind in self.KINDS}
+        return catalog_snapshot(self.project)
 
     def apply_catalogs(self, catalogs):
         """应用完整扫描结果，并保持可用的表格选择。"""
         boards = list(catalogs['storyboard'])
         scripts = list(catalogs['script'])
         self.catalogs = {'script': scripts, 'storyboard': boards}
-        self.completed_scripts = produced_scripts(self.project, boards)
+        complete_snapshot = 'completed_scripts' in catalogs
+        self.completed_scripts = (set(catalogs['completed_scripts']) if complete_snapshot
+                                  else produced_scripts(self.project, boards))
         used = self.adopted()
         for kind, entries in self.catalogs.items():
+            available = {entry['path'] for entry in entries}
             if kind == 'script':
                 current = [entry['path'] for entry in entries if not entry.get('done')]
             else:
                 current = [path for path in self.selection(kind) if path not in used]
             for path in current:
-                if not any(entry['path'] == path for entry in entries):
+                if path not in available:
                     entries.append({
                         'path': path,
                         'title': path.stem + (' · 已制作分镜' if kind == 'script' and path in self.completed_scripts else ''),
                         'created': path.stat().st_mtime,
                         'done': kind == 'script' and path in self.completed_scripts,
                     })
-            self.choose(kind, current)
+                    available.add(path)
+            if complete_snapshot:
+                self._remember_selection(kind, list(dict.fromkeys(current)))
+            else:
+                self.choose(kind, current)
         return self.catalogs
 
     def control_states(self, scripts, boards):

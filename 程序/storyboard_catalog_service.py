@@ -66,12 +66,7 @@ def content_preview(path):
             from file_cache import read_json
             data = read_json(path)
             if isinstance(data, dict):
-                sid = data.get('episode_id', '')
-                title = str(data.get('title', '')).strip()
-                shots = data.get('shots')
-                count = len(shots) if isinstance(shots, list) else 0
-                label = ' · '.join(value for value in (sid, title) if value)
-                return (label + ' · ' + str(count) + '镜') if label else path.stem
+                return _board_preview(path, data)
         text = ''
         try:
             from script_text_reader import script_text
@@ -82,6 +77,18 @@ def content_preview(path):
         return lines[0][:60] + ('…' if len(lines[0]) > 60 else '') if lines else path.stem
     except (OSError, ValueError, UnicodeError):
         return path.stem
+
+
+def _board_preview(path, data):
+    sid = data.get('episode_id', '')
+    title = str(data.get('title', '')).strip()
+    shots = data.get('shots')
+    count = len(shots) if isinstance(shots, list) else 0
+    try:
+        label = ' · '.join(value for value in (sid, title) if value)
+    except TypeError:
+        return path.stem
+    return (label + ' · ' + str(count) + '镜') if label else path.stem
 
 
 def has_synced_assets(path):
@@ -381,19 +388,23 @@ def linked_path(context, value):
 def board_source_script(context, board):
     """Return a board's real source script, including the legacy generic-name bridge."""
     from file_cache import read_json
-    project = _context(context).root.resolve()
+    context = _context(context)
     try:
         data = read_json(Path(board))
     except (OSError, ValueError, TypeError):
         return None
     if not isinstance(data, dict):
         return None
+    return _source_script_from_data(context, data)
+
+
+def _source_script_from_data(context, data):
     source = linked_path(context, data.get('source_script'))
     if source is None or source.name.casefold() != 'script.md':
         return source
     try:
         from script_contract import structured_script_path
-        current = structured_script_path(project).resolve()
+        current = structured_script_path(_context(context).root.resolve()).resolve()
     except (OSError, ValueError):
         return None
     return current if current.is_file() else None
@@ -413,6 +424,20 @@ def _is_initial_storyboard(data):
 
 def catalog(context, kind, ignored=IGNORED):
     """Build the script/storyboard catalog without importing Tk page code."""
+    return _catalog(context, kind, ignored)
+
+
+def catalog_snapshot(context, ignored=IGNORED):
+    """Read both catalogs once, including previews and the completed-script set."""
+    context = _context(context)
+    sources = {}
+    boards = _catalog(context, 'storyboard', ignored, sources=sources, previews=True)
+    completed = {sources[entry['path']] for entry in boards} - {None}
+    scripts = _catalog(context, 'script', ignored, completed=completed, previews=True)
+    return {'script': scripts, 'storyboard': boards, 'completed_scripts': completed}
+
+
+def _catalog(context, kind, ignored, *, completed=None, sources=None, previews=False):
     from artifact_lineage import MISSING, STALE, check
     from file_cache import read_json
     from project_stages import writing, structure, storyboard, stage
@@ -420,8 +445,9 @@ def catalog(context, kind, ignored=IGNORED):
     from writing import duration_gap
     project = _context(context).root.resolve()
     from stage_path_service import read_dirs, write_dir
+    final_dirs = read_dirs(project, 'final') if kind != 'script' else ()
     current_roots = ((writing(project).resolve(), structure(project).resolve()) if kind == 'script'
-                     else (storyboard(project).resolve(), *read_dirs(project, 'final')))
+                     else (storyboard(project).resolve(), *final_dirs))
     legacy_roots = ((project / 'writing').resolve(),) if kind == 'script' else ((project / 'storyboard').resolve(),)
     roots = tuple(dict.fromkeys((*current_roots, *legacy_roots)))
     suffixes = {'.md', '.txt', '.docx'} if kind == 'script' else {'.json'}
@@ -440,7 +466,7 @@ def catalog(context, kind, ignored=IGNORED):
         root = next((candidate for candidate in roots if resolved.is_relative_to(candidate)), None)
         if root is None:
             continue
-        if kind != 'script' and root in read_dirs(project, 'final')[1:]:
+        if kind != 'script' and root in final_dirs[1:]:
             current = write_dir(project, 'final') / resolved.relative_to(root)
             if current.is_file():
                 continue
@@ -465,7 +491,7 @@ def catalog(context, kind, ignored=IGNORED):
                 report = check(project, path) if final_candidate else None
                 if report is not None and report['status'] == MISSING:
                     continue
-                linked = board_source_script(context, path)
+                linked = _source_script_from_data(context, data)
                 if not final_candidate and str(data.get('source_script') or '').strip() and (not linked or not linked.is_file()):
                     continue
                 title = f"{data.get('episode_id', '')} · {data.get('title', path.stem)}（{len(data['shots'])}镜）"
@@ -477,7 +503,12 @@ def catalog(context, kind, ignored=IGNORED):
             except (OSError, ValueError):
                 continue
         created = getattr(stat, 'st_birthtime', stat.st_mtime)
-        entries.append({'path': resolved, 'title': title, 'created': created, 'order': file_order(path, data)})
+        entry = {'path': resolved, 'title': title, 'created': created, 'order': file_order(path, data)}
+        if previews:
+            entry['preview'] = _board_preview(path, data) if data is not None else content_preview(path)
+        if sources is not None:
+            sources[resolved] = linked
+        entries.append(entry)
     if kind != 'script':
         from storyboard_storage import unique_entries
         from storyboard_adoption_contract import adopted
@@ -491,7 +522,7 @@ def catalog(context, kind, ignored=IGNORED):
             if entry['done']:
                 entry['title'] += ' · 已采用'
     else:
-        made = produced_scripts(context)
+        made = produced_scripts(context) if completed is None else completed
         for entry in entries:
             entry['done'] = entry['path'] in made
             if entry['done']:

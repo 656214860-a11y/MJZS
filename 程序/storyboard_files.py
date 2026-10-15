@@ -189,6 +189,7 @@ def watch_files(owner,project,refresh,interval=1500):
 
 def show_final(desktop):
     project=Path(desktop.root).resolve();prefs_file=project/'ui_settings.json'
+    page_content=desktop.content
     controller=FinalStoryboardController(project)
     desktop.note('以下仅显示已采用的分镜；选择 JSON → 同步资产生成／更新定稿 → 采用定稿。要取消采用请回'+pet_bus.stage_step('storyboard')+'点「手动取消采用」。')
     row=FlowBar(desktop.content);row.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
@@ -275,10 +276,11 @@ def show_final(desktop):
     viewer.configure(yscrollcommand=vscroll.set,xscrollcommand=hscroll.set)
     # 大定稿不能在选择事件里整份读入并一次性塞进 Text：磁盘读取／JSON 解析放后台，
     # 回到 Tk 后每个 idle 只提交少量文本块。generation 让换选、刷新、拆页后的旧结果失效。
-    preview_state={'generation':0,'poll_id':None,'chunk_id':None}
+    preview_state={'generation':0,'poll_id':None,'chunk_id':None,'path':None}
     preview_results=queue.Queue()
     def cancel_preview():
         preview_state['generation']+=1
+        preview_state['path']=None
         for key in ('poll_id','chunk_id'):
             timer=preview_state.get(key);preview_state[key]=None
             if timer:
@@ -330,6 +332,8 @@ def show_final(desktop):
         stop_timer()                              # 去抖与 <FocusOut> 可能都到点：撤掉另一个，别问两遍
         if not viewer.winfo_exists():return       # 这一页已经换掉了：这一下什么都不做
         if not viewer_edited():return
+        # 失焦可能先于排队的 <<Modified>>；本次已处理这次编辑，别再挂一次提醒。
+        viewer.edit_modified(False)
         path=controller.live_path()               # 维护改过名就跟着走，别在旧名字上再写一份
         if not confirm(desktop.win, '保存改动',
                 '这份 JSON 您改过，要存回项目吗？\n\n'+controller.display_name(path)
@@ -355,6 +359,7 @@ def show_final(desktop):
     ttk.Label(desktop.content,textvariable=note,style='Muted.TLabel',wraplength=760).pack(anchor='w',pady=SPACING['sm'])
 
     def chosen():
+        if catalog_scan['applying']:raise ValueError('定稿列表正在更新，请稍候')
         if not tree.selection():raise ValueError('请先在列表中选择 JSON')
         return Path(tree.selection()[0])
 
@@ -423,6 +428,7 @@ def show_final(desktop):
         """按需读取一份定稿；大文件的旧请求只丢弃结果，不触碰当前选择。"""
         path=Path(path)
         generation=cancel_preview()
+        preview_state['path']=path
         def accept(preview,selection_note=''):
             if generation!=preview_state['generation'] or not viewer.winfo_exists():return
             controller.apply_preview(preview)
@@ -458,25 +464,93 @@ def show_final(desktop):
         load_content(path)
 
     def choose(event=None):
+        if catalog_scan['applying'] or getattr(tree,'_entries_filling',False):return
         if not tree.selection():return
         path=chosen()
+        if event is not None and preview_state['path']==path:return
         _unused,selection_note=controller.choose(path,load=False)
         note.set(selection_note)
         load_content(path)
 
-    def refresh():
+    catalog_scan={'busy':False,'revision':0,'pending':False,'stopped':False,'applying':False}
+    catalog_results=queue.Queue(maxsize=1)
+    def scan_entries():
+        return [e for e in catalog(project,'storyboard') if e['path'].suffix.lower()=='.json' and e.get('done')]
+
+    def apply_entries(entries,automatic=False):
+        if catalog_scan['stopped'] or Path(desktop.root).resolve()!=project:return False
         from stage_execution_service import normalize_storyboard_for_desktop
-        normalize_storyboard_for_desktop(desktop)
-        entries=[e for e in catalog(project,'storyboard') if e['path'].suffix.lower()=='.json' and e.get('done')]
+        if normalize_storyboard_for_desktop(desktop):
+            # 规范化会改名和重写采用指针；旧扫描不能再落入列表。
+            return refresh(automatic=automatic)
         tree.configure(height=max(2,min(12,len(entries))))
         previous=tree.selection();prefs=_prefs(prefs_file)
         current=resolve_source(project,previous[0] if previous else prefs.get('frame_json') or prefs.get('final_storyboard_json') or default_source(project))
-        insert_entries(tree,project,entries,with_sync=True)      # 第 40 期第 2 条：这一页多「是否同步」一栏
-        if tree.exists(str(current)):
-            tree.selection_set(str(current));tree.see(str(current));choose()
-        else:
-            note.set('暂无可用 JSON，请先完成初步分镜' if not entries else '请选择要处理的 JSON')
-            cancel_preview();controller.clear();set_viewer_text('');path_label.set('');rebuild_nav({})
+        x,y=tree.xview()[0],tree.yview()[0]
+        catalog_scan['applying']=True
+        def finished():
+            catalog_scan['applying']=False
+            if catalog_scan['stopped'] or Path(desktop.root).resolve()!=project:return
+            selected=tree.selection()
+            target=selected[0] if selected else str(current)
+            if tree.exists(target):
+                if selected!=(target,):tree.selection_set(target)
+                if automatic:tree.xview_moveto(x);tree.yview_moveto(y)
+                else:tree.see(target)
+                # 自动更新目录不能覆盖用户正在编辑的同一份 JSON。
+                if not (automatic and controller.preview is not None
+                        and str(controller.preview.path)==target and viewer_edited()):choose()
+            else:
+                note.set('暂无可用 JSON，请先完成初步分镜' if not entries else '请选择要处理的 JSON')
+                cancel_preview();controller.clear();set_viewer_text('');path_label.set('');rebuild_nav({})
+        insert_entries(tree,project,entries,with_sync=True,batch_size=40,on_complete=finished)
+        return True
+
+    def refresh(automatic=False):
+        if catalog_scan['stopped']:return False
+        if not automatic:
+            catalog_scan['revision']+=1
+            catalog_scan['pending']=False
+            return apply_entries(scan_entries())
+        if catalog_scan['busy']:
+            catalog_scan['pending']=True
+            return True
+        catalog_scan['busy']=True
+        revision=catalog_scan['revision']
+        def scan():
+            try:value=(True,scan_entries())
+            except Exception as exc:value=(False,str(exc))
+            try:catalog_results.put_nowait((revision,*value))
+            except queue.Full:pass
+        threading.Thread(target=scan,daemon=True,name='final-storyboard-catalog-scan').start()
+        return True
+
+    def apply_background_final_catalog():
+        if catalog_scan['stopped']:return
+        try:revision,ok,value=catalog_results.get_nowait()
+        except queue.Empty:return
+        catalog_scan['busy']=False
+        if revision==catalog_scan['revision']:
+            if ok:
+                try:apply_entries(value,automatic=True)
+                except (OSError,ValueError,KeyError) as exc:
+                    note.set('定稿目录结果已过期，可点击「刷新列表」重试：'+str(exc))
+                    if desktop.content is page_content:
+                        desktop.status.set('定稿目录结果已过期，将在下次文件变动后重试：'+str(exc))
+            else:
+                note.set('定稿目录加载失败，可点击「刷新列表」重试：'+value)
+                if desktop.content is page_content:
+                    desktop.status.set('定稿目录刷新失败，将在下次文件变动后重试：'+value)
+        if catalog_scan['pending']:
+            catalog_scan['pending']=False
+            refresh(automatic=True)
+
+    def stop_catalog(event):
+        if event.widget is not row:return
+        catalog_scan['stopped']=True
+        catalog_scan['revision']+=1
+        cancel_preview()
+    row.bind('<Destroy>',stop_catalog,add='+')
 
     # 第 51 期第 4 条：这一页的内容框原来挂着右键「查看／删除」，两样都去掉——
     # 「查看」与点一下这一行是同一件事，而「删除」在这页删掉的正是用户刚点开在看的那份定稿。
@@ -503,14 +577,16 @@ def show_final(desktop):
     row_button('分镜目录',lambda:desktop.open_folder(working_dir(project)))
     desktop.pet.auto_variable('auto_final_var')
     desktop.pet.auto_variable('auto_storyboard_var')
-    tree.bind('<<TreeviewSelect>>',lambda e:desktop.safe(choose))
+    tree.bind('<<TreeviewSelect>>',lambda e:desktop.safe(lambda:choose(e)))
     viewer.bind('<Destroy>',lambda _event:cancel_preview(),add='+')
     def refresh_all():
         # 列表刷新（文件快照变了）时顺带把提示条重扫一遍：资产刚补齐那一拍就能看出「已经可以定稿」。
-        result=refresh()
+        result=refresh(automatic=True)
         refresh_state()
         return result
-    refresh()
+    note.set('正在后台读取定稿目录…')
+    refresh(automatic=True)
+    tk_timers.repeat(row,60,apply_background_final_catalog)
     watch_files(row,project,refresh_all)
 
 def show(desktop):
@@ -542,9 +618,9 @@ def show(desktop):
     def update_controls():
         states=controller.control_states(current_selection('script'),current_selection('storyboard'))
         for key,enabled in states.items():
-            if key in controls:controls[key].configure(state='normal' if enabled else 'disabled')
-    def choose(kind,paths,announce=True):
-        paths=controller.choose(kind,paths)
+            if key in controls:controls[key].configure(state='normal' if loaded and enabled else 'disabled')
+    def choose(kind,paths,announce=True,*,persist=True):
+        paths=controller.choose(kind,paths) if persist else paths
         checked[kind]=set(str(p) for p in paths)
         label='剧本' if kind=='script' else '分镜'
         labels[kind].set(f'已选 {len(paths)} 份{label}：'+'、'.join(p.name for p in paths) if paths else '尚未选择'+label)
@@ -560,44 +636,66 @@ def show(desktop):
         refresh_check_heading(tree, tick_images, lambda i: i in checked.get(kind,set()))
     def clear_selection(kind):
         choose(kind,[],False)
-    catalog_scan = {'busy': False}
+    catalog_scan = {'busy': False, 'revision': 0, 'pending': False, 'stopped': False}
     catalog_results = queue.Queue(maxsize=1)
+    def stop_catalog(event):
+        if event.widget is page_content:
+            catalog_scan['stopped']=True
+            catalog_scan['revision']+=1
+            catalog_scan['pending']=False
+    page_content.bind('<Destroy>',stop_catalog,add='+')
 
     def apply_catalogs(catalogs, automatic=False):
         nonlocal loaded,completed_scripts
         from stage_execution_service import normalize_storyboard_for_desktop
-        normalize_storyboard_for_desktop(desktop)
+        if normalize_storyboard_for_desktop(desktop):
+            if automatic:
+                catalog_scan['pending']=True
+                return False
+            catalogs=controller.refresh_catalogs()
         if automatic:
             for kind,tree in tables.items():
                 available={str(entry['path']) for entry in catalogs[kind]}
                 if any(Path(item).suffix.lower()=='.json' and Path(item).is_file() and item not in available for item in tree.get_children()):return False
         catalogs=controller.apply_catalogs(catalogs)
         completed_scripts=controller.completed_scripts
-        loaded=False
+        loaded=False;update_controls()
+        remaining=set(tables)
+        def finished(kind,tree,x,y):
+            nonlocal loaded
+            choose(kind,controller.selection(kind),False,persist=False)
+            if automatic:tree.xview_moveto(x);tree.yview_moveto(y)
+            remaining.discard(kind)
+            if not remaining:
+                adopted_note.set(controller.summary());loaded=True;update_controls()
         for kind,tree in tables.items():
             entries=catalogs[kind];x=tree.xview()[0];y=tree.yview()[0]
-            current=controller.selection(kind)
             def status_of(entry,kind=kind):
                 if kind=='script':return '✓ 已制作' if entry.get('done') else '未制作'
                 return '✓ 已采用' if entry.get('done') else '未采用'
-            insert_entries(tree,project,entries,status_of=status_of);choose(kind,current,False)
-            if automatic:tree.xview_moveto(x);tree.yview_moveto(y)
-        adopted_note.set(controller.summary());loaded=True;update_controls();return True
+            insert_entries(tree,project,entries,status_of=status_of,batch_size=40,
+                           on_complete=lambda k=kind,t=tree,x=x,y=y:finished(k,t,x,y))
+        return True
 
     def refresh(automatic=False):
-        """手动刷新即时完成；文件监听的扫描在后台进行，Tk 只应用完整结果。"""
+        """手动刷新立即扫描；初次与监听在后台读取，Tk 分批应用完整结果。"""
+        if catalog_scan['stopped']:return False
         if not automatic:
+            catalog_scan['revision'] += 1
+            catalog_scan['pending'] = False
             return apply_catalogs(controller.refresh_catalogs())
         if catalog_scan['busy']:
+            catalog_scan['pending'] = True
             return True
         catalog_scan['busy'] = True
+        revision = catalog_scan['revision']
         def scan():
             try:
                 value = (True, controller.refresh_catalogs())
-            except (OSError, ValueError, KeyError) as exc:
+            except Exception as exc:
                 value = (False, str(exc))
             try:
-                catalog_results.put_nowait(value)
+                catalog_results.put_nowait((revision, *value))
             except queue.Full:
                 pass
         threading.Thread(target=scan, daemon=True, name='storyboard-catalog-scan').start()
@@ -605,18 +703,27 @@ def show(desktop):
 
     def apply_background_catalog():
         try:
-            ok, value = catalog_results.get_nowait()
+            revision, ok, value = catalog_results.get_nowait()
         except queue.Empty:
             return
         catalog_scan['busy'] = False
-        if ok:
+        if catalog_scan['stopped'] or Path(desktop.root).resolve()!=project:return
+        def report_error(message):
+            if not loaded:
+                for label in labels.values():label.set('文件列表加载失败，请点击「刷新列表」重试')
+            if desktop.content is page_content:desktop.status.set(message)
+        if revision != catalog_scan['revision']:
+            pass
+        elif ok:
             try:
                 apply_catalogs(value, automatic=True)
             except (OSError, ValueError, KeyError) as exc:
-                if desktop.content is page_content:
-                    desktop.status.set('分镜目录结果已过期，将在下次文件变动后重试：' + str(exc))
-        elif desktop.content is page_content:
-            desktop.status.set('分镜目录刷新失败，将在下次文件变动后重试：' + value)
+                report_error('分镜目录结果已过期，将在下次文件变动后重试：' + str(exc))
+        else:
+            report_error('分镜目录刷新失败，将在下次文件变动后重试：' + value)
+        if catalog_scan['pending']:
+            catalog_scan['pending'] = False
+            refresh(automatic=True)
     def toggle_all(kind):
         tree=tables[kind];items=list(tree.get_children());cur=checked.get(kind,set())
         if items and all(item in cur for item in items):
@@ -795,7 +902,9 @@ def show(desktop):
             desktop.stage_button=ui_plugin_registry.module('skill_panel').stage_button(row,desktop,1)
             desktop.stage_button.pack(side='left',padx=(SPACING['sm'], SPACING['none']))
             controls['agent'].bind('<Button-1>',lambda e: (notify(desktop.win, '请先在上方选择需要制作的剧本，或选择要采用的 JSON 分镜。', title='手动制作分镜', status=desktop.status) if controls['agent'].cget('state')=='disabled' else None),add='+')
-    refresh()
+    update_controls()
+    for label in labels.values():label.set('正在读取文件列表…')
+    refresh(automatic=True)
     # 自动文件监听只在后台扫描目录；这颗短周期计时器只把已经完整的结果批量写进 Treeview。
     tk_timers.repeat(toolbar, 60, apply_background_catalog)
     watch_files(toolbar,project,lambda:refresh(automatic=True))

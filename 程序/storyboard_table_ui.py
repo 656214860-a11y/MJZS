@@ -34,6 +34,7 @@ def file_table(parent, height=4, selectmode='browse', first_label='文件 / 内�
         tree._fit_columns_pending=True
         def run():
             tree._fit_columns_pending=False
+            if getattr(tree,'_entries_filling',False):return
             try:fit_file_columns(tree)
             except Exception:pass
         tree.after_idle(run)
@@ -74,19 +75,52 @@ def tree_columns(tree):
     return [str(column) for column in (columns if isinstance(columns,(list,tuple)) else str(columns).split())]
 
 
-def insert_entries(tree, project, entries, status_of=None, with_sync=False):
+def insert_entries(tree, project, entries, status_of=None, with_sync=False, *, batch_size=None, on_complete=None):
     """Render catalog entries into a picker table without owning catalog discovery."""
-    tree.delete(*tree.get_children());columns=tree_columns(tree)
-    for entry in entries:
+    cancel=getattr(tree,'_entry_fill_cancel',None)
+    if cancel is not None:cancel()
+    columns=tree_columns(tree)
+    previous=set(tree.get_children());wanted=[];position=0
+    state={'job':None,'cancelled':False}
+    def cancel_fill():
+        state['cancelled']=True
+        if state['job'] is not None:
+            tree.after_cancel(state['job']);state['job']=None
+    tree._entry_fill_cancel=cancel_fill
+    if not getattr(tree,'_entry_fill_bound',False):
+        def destroyed(event):
+            if event.widget is tree:tree._entry_fill_cancel()
+        tree.bind('<Destroy>',destroyed,add='+');tree._entry_fill_bound=True
+    tree._entries_filling=True
+    def insert(entry):
         path=entry['path'];location=path.relative_to(project).as_posix() if path.is_relative_to(project) else str(path)
         title=str(entry.get('title','')).replace(' · 已制作分镜','').replace(' · 已采用','')
-        synced=has_synced_assets(path)
+        synced=has_synced_assets(path) if with_sync or 'sync' in columns else False
         row={'file':(title+'·'+('同步' if synced else '未同步')) if with_sync else title,
              'status':status_of(entry) if status_of is not None else '',
-             'sync':'已同步' if synced else '未同步', 'content':content_preview(path),
+             'sync':'已同步' if synced else '未同步',
+             'content':(entry['preview'] if 'preview' in entry else content_preview(path)) if 'content' in columns else '',
              'time':datetime.fromtimestamp(entry['created']).strftime('%m-%d %H:%M'), 'location':location}
-        tree.insert('','end',iid=str(path),text='',values=[row.get(column,'') for column in columns],
-                    tags=('completed',) if with_sync and synced else ())
-    (fit_final_columns if with_sync else fit_file_columns)(tree)
-    table=getattr(tree,'_data_table',None)
-    if table is not None:table.refresh_empty_state()
+        item=str(path);wanted.append(item)
+        options=dict(text='',values=[row.get(column,'') for column in columns],
+                     tags=('completed',) if with_sync and synced else ())
+        if item in previous:tree.item(item,**options)
+        else:tree.insert('','end',iid=item,**options)
+    def fill():
+        nonlocal position
+        state['job']=None
+        if state['cancelled']:return
+        end=min(len(entries),position+(batch_size or max(1,len(entries))))
+        for entry in entries[position:end]:insert(entry)
+        position=end
+        if position<len(entries):
+            state['job']=tree.after(1,fill);return
+        stale=previous-set(wanted)
+        if stale:tree.delete(*stale)
+        tree.set_children('',*wanted)
+        tree._entries_filling=False
+        (fit_final_columns if with_sync else fit_file_columns)(tree)
+        table=getattr(tree,'_data_table',None)
+        if table is not None:table.refresh_empty_state()
+        if on_complete is not None:on_complete()
+    fill()

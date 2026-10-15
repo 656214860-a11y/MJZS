@@ -22,6 +22,7 @@ sys.path.insert(0, PROGRAM)
 os.chdir(PROGRAM)
 
 import storyboard_files
+from catalog_page_test_support import show_catalog_page_ready
 
 
 def make_project(td, shots=40):
@@ -94,7 +95,7 @@ class FinalViewerCase(unittest.TestCase):
         self.addCleanup(setattr, storyboard_files.messagebox, "showerror", original_error)
         self.answer = True
         # 使用阶段权威映射，新增阶段不改变定稿页的测试目标。
-        self.app.show(self.desktop_module.PAGE['final'])
+        show_catalog_page_ready(self.app, self.desktop_module.PAGE['final'])
         self.win.update_idletasks()
         self.viewer = self.find_viewer(self.app.content)
         self.assertIsNotNone(self.viewer, "04 那一页有那个 JSON 文本框")
@@ -203,6 +204,18 @@ class SaveReminderTests(FinalViewerCase):
         self.assertIn("JSON", self.errors[0][1])
         self.assertEqual(path.read_text(encoding="utf-8"), before)
 
+    def test_pending_modified_event_does_not_repeat_a_failed_save(self):
+        from unittest.mock import patch
+        path = self.live_path()
+        before = path.read_text(encoding="utf-8")
+        with patch.object(storyboard_files, 'VIEWER_SAVE_ASK_MS', 0):
+            self.type_over('{"episode_id": ')
+            self.viewer.event_generate("<FocusOut>")
+            self.win.update()
+        self.assertEqual(len(self.asked), 1)
+        self.assertEqual(len(self.errors), 1)
+        self.assertEqual(path.read_text(encoding="utf-8"), before)
+
     def test_a_maintenance_rename_is_followed_by_the_next_save(self):
         """第 45 期：维护那一下把工作稿改成规范名（别名表记着），接着存要写在新名字上。
 
@@ -255,7 +268,7 @@ class SaveReminderTests(FinalViewerCase):
         self.assertEqual(self.disk_text()["title"], "打完字停一会儿")
 
     def test_drawing_the_page_again_does_not_ask(self):
-        self.app.show(self.desktop_module.PAGE['final'])
+        show_catalog_page_ready(self.app, self.desktop_module.PAGE['final'])
         self.win.update_idletasks()
         self.assertEqual(self.asked, [], "只是重新画一遍这一页：一个字都没改，不问")
 

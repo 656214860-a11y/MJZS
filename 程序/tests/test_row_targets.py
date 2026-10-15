@@ -232,9 +232,15 @@ class PageHelpers(unittest.TestCase):
 
     def show(self, d, win, index):
         """翻到这一页：Desktop 开局的定时器会把页面翻回第 01 页，所以翻两遍——第二遍是最终的。"""
-        d.show(index); win.update_idletasks()
+        from catalog_page_test_support import show_catalog_page_ready
+        def show_page():
+            if index == PAGE_OF['storyboard']:
+                show_catalog_page_ready(d, index)
+            else:
+                d.show(index)
+        show_page(); win.update_idletasks()
         win.update()
-        d.show(index); win.update_idletasks()
+        show_page(); win.update_idletasks()
 
     def widgets(self, widget, kinds):
         found = []

@@ -1662,3 +1662,9 @@ def collect_download_inbox(project, now=None, downloads=None):
     if kept != pending:
         save(ledger, {'version': 1, 'pending': kept})
     return done
+
+
+def storyboard_catalog_snapshot(project, ignored=None):
+    from storyboard_catalog_service import catalog_snapshot
+    context = project_context(project)
+    return catalog_snapshot(context) if ignored is None else catalog_snapshot(context, ignored)
