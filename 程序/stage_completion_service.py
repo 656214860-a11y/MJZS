@@ -131,15 +131,81 @@ def confirm_media_completion(root, stage, prepared):
 COMMERCIAL_CATEGORIES = ('script', 'reference', 'image', 'video', 'music', 'font', 'voice')
 
 
+def _commercial_inventory(root, scope, outputs):
+    """只预填可追溯文件，不推断授权，也不扫描无关项目文件。"""
+    from agent.core import file_hash, read
+    from stage_execution_service import storyboard_board_source_script
+    root = Path(root).resolve()
+    categories = {key: {'items': [], 'unused_reason': ''} for key in COMMERCIAL_CATEGORIES}
+    warnings, seen = [], set()
+
+    def add(category, path, expected=None):
+        path = Path(path).resolve()
+        if not path.is_relative_to(root) or not path.is_file() or not path.stat().st_size:
+            warnings.append('来源缺失、为空或越出项目：' + str(path))
+            return
+        digest = file_hash(path)
+        if expected is not None and expected != digest:
+            warnings.append('来源版本已改变：' + str(path))
+        key = (category, path)
+        if key in seen:
+            return
+        seen.add(key)
+        categories[category]['items'].append({
+            'path': path.relative_to(root).as_posix(), 'sha256': digest,
+            'source': '', 'rights_holder': '', 'license': '',
+            'commercial_allowed': False, 'derivative_allowed': False, 'obligations_fulfilled': False,
+            'authorization': {'path': '', 'sha256': ''}})
+
+    board = root / scope['source']
+    link = read(board).get('source_script')
+    if link and isinstance(link, str):
+        script = storyboard_board_source_script(root, board)
+        if script is not None:
+            add('script', script)
+        else:
+            warnings.append('采用分镜的剧本来源无法解析')
+    elif link is None or link == '':
+        add('script', board)
+    else:
+        warnings.append('采用分镜的剧本来源格式无效')
+    for output in outputs:
+        path = (root / output['path']).resolve()
+        add('video', path, output['sha256'])
+        bundle_path = path.parent / 'edit_bundle.json'
+        if not bundle_path.is_file():
+            warnings.append('成片无来源清单，须人工补齐镜头及其他采用素材：' + output['path'])
+            continue
+        bundle = read(bundle_path)
+        if not isinstance(bundle, dict):
+            warnings.append('成片来源清单格式无效：' + output['path'])
+            continue
+        for field, category in (('manifest', 'video'), ('fonts', 'font')):
+            rows = bundle.get(field, [])
+            if not isinstance(rows, list):
+                warnings.append('来源清单格式无效：' + field)
+                continue
+            for row in rows:
+                source = row.get('source' if field == 'manifest' else 'path') if isinstance(row, dict) else None
+                if not isinstance(source, str) or not source.strip():
+                    warnings.append('来源清单缺少路径，须人工补齐：' + field)
+                    continue
+                add(category, path.parent / source, row.get('sha256'))
+        if (path.parent / 'font.ttc').is_file():
+            add('font', path.parent / 'font.ttc')
+    return categories, warnings
+
+
 def commercial_template(root):
     """生成待填写清单，不把技术检查或空声明当作授权。"""
     from agent.core import read
     scope = media_scope(root)
     data = read(media_manifest_path(root, 'delivery', scope))
     _validate_media_completion(root, 'delivery', data)
+    categories, warnings = _commercial_inventory(root, scope, data['outputs'])
     return {'schema': 1, 'scope': scope, 'outputs': data['outputs'],
             'inventory_reviewer': '', 'inventory_complete': False,
-            'categories': {key: {'items': [], 'unused_reason': ''} for key in COMMERCIAL_CATEGORIES},
+            'categories': categories, 'inventory_warnings': warnings,
             'content_review': {key: {'status': 'pending', 'reviewer': '', 'evidence': ''}
                                for key in ('infringement', 'nsfw', 'sensitive')}}
 

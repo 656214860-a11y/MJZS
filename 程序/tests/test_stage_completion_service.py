@@ -81,6 +81,7 @@ class MediaCompletionTests(unittest.TestCase):
         proof = self.root / 'authorization.txt'; proof.write_text('test-only authorization fixture')
         evidence.update(inventory_reviewer='test reviewer', inventory_complete=True)
         for key, group in evidence['categories'].items():
+            group['items'] = []
             group['unused_reason'] = 'test fixture does not use this category'
             if key in ('script', 'video'):
                 media = self.source if key == 'script' else path
@@ -98,6 +99,36 @@ class MediaCompletionTests(unittest.TestCase):
         self.assertFalse(commercial_delivery_status(self.root)[0])
         with self.assertRaises(ValueError):
             validate_commercial_evidence(self.root, commercial_template(self.root))
+
+    def test_commercial_template_prefills_known_sources_without_granting_rights(self):
+        import os
+        from agent.core import file_hash
+        from stage_completion_service import commercial_template, validate_commercial_evidence
+        evidence, _ = self.commercial_fixture()
+        video = evidence['categories']['video']['items'][0]
+        output = self.root / video['path']
+        source = self.root / 'source.mp4'; source.write_bytes(b'original source')
+        font = output.parent / 'font.ttc'; font.write_bytes(b'test-only font')
+        row = {'source': os.path.relpath(source, output.parent), 'sha256': file_hash(source)}
+        save(output.parent / 'edit_bundle.json', {'master': output.name, 'master_sha256': video['sha256'],
+             'manifest': [row, row, {'sha256': 'legacy'}],
+             'fonts': [{'path': 'font.ttc', 'sha256': file_hash(font)}]})
+        template = commercial_template(self.root)
+        self.assertEqual(len(template['categories']['script']['items']), 1)
+        self.assertEqual(len(template['categories']['video']['items']), 2)
+        self.assertEqual(len(template['categories']['font']['items']), 1)
+        self.assertTrue(any('缺少路径' in message for message in template['inventory_warnings']))
+        for group in template['categories'].values():
+            for item in group['items']:
+                self.assertFalse(item['commercial_allowed'])
+                self.assertEqual(item['authorization'], {'path': '', 'sha256': ''})
+        self.assertFalse(template['inventory_complete'])
+        with self.assertRaises(ValueError):
+            validate_commercial_evidence(self.root, template)
+        source.write_bytes(b'changed source')
+        self.assertTrue(any('版本已改变' in warning for warning in commercial_template(self.root)['inventory_warnings']))
+        source.unlink()
+        self.assertTrue(any('来源缺失' in warning for warning in commercial_template(self.root)['inventory_warnings']))
 
     def test_commercial_inventory_must_cover_actual_delivery_and_known_sources(self):
         from copy import deepcopy
