@@ -78,6 +78,11 @@ FULL_SAFE_TREE_TTL = timedelta(days=7)
 # 提前 AUTO_LEAD 个由后台干净副本自动补跑（scripts/auto_full_safe.py），凭据先于门禁落地。
 FULL_SAFE_ROUND_INTERVAL = 8
 FULL_SAFE_AUTO_LEAD = 2
+# 风险路径（启动入口／删除语义／层级表）改动：后台立即补跑，但门禁给宽限——其后再积累这么多个源码轮次
+# 仍没有凭据才报红；连续几轮改启动文件会合并成一次全量，而不是每轮一次。
+FULL_SAFE_RISK_GRACE = 3
+AUTO_FULL_LOCK_NAME = 'auto-full-safe.lock'
+AUTO_FULL_STALE_SECONDS = 3 * 3600
 NON_SOURCE_DIRS = ('tests/', 'tasks_round/', '维护记录/', '说明/', 'logs/')
 _ROUND_SUBJECT = re.compile(r'^R(\d+)(?:-FAIL)?[:：]')
 DATA_GLOBS = ('skills/*.skill.md', 'skills/*/*.md', 'skills/*/*/*.md')
@@ -504,6 +509,40 @@ def has_risk_change(commits, last_full_round, latest_round, prefix):
                for number, paths in commits)
 
 
+def risk_overdue(commits, last_full_round, latest_round, prefix):
+    """风险改动已过宽限：自最早一次风险改动之后又积累了 FULL_SAFE_RISK_GRACE 个源码轮次仍无凭据。"""
+    watched = risk_paths(prefix)
+    first = min((number for number, paths in commits
+                 if last_full_round < number <= latest_round
+                 and any(path.replace(chr(92), '/') in watched for path in paths)), default=None)
+    if first is None:
+        return False
+    return count_source_rounds(commits, first, latest_round, prefix) >= FULL_SAFE_RISK_GRACE
+
+
+def risk_overdue_since(last_full_round, latest_round):
+    loaded = _round_commits()
+    if loaded is None:
+        return False
+    commits, prefix = loaded
+    return risk_overdue(commits, last_full_round, latest_round, prefix)
+
+
+def auto_full_running():
+    """后台自动全量（scripts/auto_full_safe.py）是否正在运行：锁文件存在、未过期、持有进程还活着。"""
+    common = git_common_dir()
+    if not common:
+        return False
+    path = os.path.join(common, AUTO_FULL_LOCK_NAME)
+    try:
+        age = time.time() - os.stat(path).st_mtime
+        with io.open(path, encoding='utf-8') as handle:
+            pid = int(handle.read().strip() or 0)
+    except (OSError, ValueError):
+        return False
+    return age < AUTO_FULL_STALE_SECONDS and bool(pid) and _pid_is_alive(pid)
+
+
 def risk_changed_since(last_full_round, latest_round):
     loaded = _round_commits()
     if loaded is None:
@@ -528,8 +567,8 @@ def receipt_checkout_allowed():
 def full_safe_required(latest_round, last_full_round, master_checkout, source_rounds=None, risk=False):
     """欠账只属于主干提交序列，worktree 分支不产生全量欠账。
 
-    ``source_rounds`` 缺省时按全部轮次保守计数；传入则只数改过源码的轮次。``risk`` 为真（改过启动入口、
-    删除语义或层级登记表）时不等计数，立即欠一次全量。"""
+    ``source_rounds`` 缺省时按全部轮次保守计数；传入则只数改过源码的轮次。``risk`` 为真（风险路径改动已过宽限，见
+    ``risk_overdue``）时不等计数，欠一次全量。"""
     count = latest_round - last_full_round if source_rounds is None else source_rounds
     return bool(master_checkout and (risk or count >= FULL_SAFE_ROUND_INTERVAL))
 
@@ -1213,6 +1252,10 @@ def main(argv=None):
     start_head = ''
     tree = content_tree() if full_safe else ''
     verified = verified_tree_record(load_layer_document().get('full_safe_verified_trees', []), tree)
+    if (full_safe and not force and not os.environ.get('AUTO_FULL_SAFE_HEAD') and auto_full_running()):
+        print('后台自动全量正在运行（scripts/auto_full_safe.py），请勿再手动跑全量：同时跑两份会争抢 GUI 令牌且互相拖慢。')
+        print('进度见 程序/logs/auto_full_safe.log；确需手动执行加 --force。')
+        return 3
     if full_safe and verified and not force:
         print('内容树同 R%s 已验证(3,698 条/%.3f秒/0 红)' %
               (verified['round'], float(verified['seconds'])))

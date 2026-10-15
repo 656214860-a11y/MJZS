@@ -61,14 +61,17 @@ class RoundBaselineTests(unittest.TestCase):
         if not run_selftests.full_safe_required(
                 latest, last_full, run_selftests.is_master_checkout(),
                 run_selftests.source_rounds_since(last_full, latest),
-                run_selftests.risk_changed_since(last_full, latest)):
+                run_selftests.risk_overdue_since(last_full, latest)):
             return
+        if run_selftests.auto_full_running():
+            return      # 后台已在补跑：不报红，也别手动再跑
         receipt = run_selftests.verified_tree_record(
             baseline.get('full_safe_verified_trees', []), run_selftests.content_tree())
         # A run cannot have its own success receipt before its tests finish.
         # Other processes still need an actual receipt, not report prose.
         self.assertTrue(receipt or run_selftests.participating_full_safe_run(latest),
-                        f'R{latest} 欠一次完整安全全量')
+                        f'R{latest} 欠一次完整安全全量。后台会自动补跑（post-commit 钩子触发），请勿手动全量；'
+                        '进度见 程序/logs/auto_full_safe.log，或运行 scripts/auto_full_safe.py --status')
 
     def test_verified_tree_records_have_required_metadata(self) -> None:
         baseline = run_selftests.load_layer_document()

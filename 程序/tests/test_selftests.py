@@ -345,6 +345,39 @@ class IncrementalTests(unittest.TestCase):
                 os.environ.pop('AUTO_FULL_SAFE_HEAD', None)
                 self.assertFalse(run_selftests.receipt_checkout_allowed())
 
+    def test_risk_changes_start_a_background_run_but_the_gate_has_a_grace_period(self):
+        prefix = '程序/'
+        grace = run_selftests.FULL_SAFE_RISK_GRACE
+        risk = (200, ['启动助手.cmd'])
+        later = [(200 + i, ['程序/desktop.py']) for i in range(1, grace + 1)]
+        # 风险刚改：不满足宽限，门禁不红；后台自动补跑仍立即触发。
+        self.assertFalse(run_selftests.risk_overdue([risk], 199, 200, prefix))
+        self.assertFalse(run_selftests.risk_overdue([risk] + later[:grace - 1], 199, 200 + grace - 1, prefix))
+        # 连续几轮都改风险路径：以最早一次为准，合并成一次全量。
+        self.assertFalse(run_selftests.risk_overdue([risk, (201, ['启动助手.cmd']), (202, ['启动助手.cmd'])], 199, 202, prefix))
+        # 宽限用完仍无凭据：报红；文档/测试轮不推进宽限。
+        self.assertTrue(run_selftests.risk_overdue([risk] + later, 199, 200 + grace, prefix))
+        self.assertFalse(run_selftests.risk_overdue([risk, (201, ['程序/tests/t.py']), (202, ['程序/project_status.md'])] , 199, 202, prefix))
+        # 已有凭据（last_full 之后）就不再算。
+        self.assertFalse(run_selftests.risk_overdue([risk] + later, 200 + grace, 200 + grace, prefix))
+        with mock.patch.object(run_selftests, 'source_rounds_since', return_value=0),              mock.patch.object(run_selftests, 'risk_changed_since', return_value=True):
+            self.assertTrue(run_selftests.full_safe_auto_due(201, 200, True))
+
+    def test_manual_full_run_is_refused_while_the_background_run_is_active(self):
+        with tempfile.TemporaryDirectory() as folder:
+            lock = os.path.join(folder, run_selftests.AUTO_FULL_LOCK_NAME)
+            with mock.patch.object(run_selftests, 'git_common_dir', return_value=folder):
+                self.assertFalse(run_selftests.auto_full_running())
+                with open(lock, 'w', encoding='utf-8') as handle:
+                    handle.write(str(os.getpid()))
+                self.assertTrue(run_selftests.auto_full_running())
+                with mock.patch.object(run_selftests.time, 'time', return_value=os.stat(lock).st_mtime
+                                       + run_selftests.AUTO_FULL_STALE_SECONDS + 1):
+                    self.assertFalse(run_selftests.auto_full_running(), '过期的锁不算在跑')
+                with open(lock, 'w', encoding='utf-8') as handle:
+                    handle.write('0')
+                self.assertFalse(run_selftests.auto_full_running(), '持有进程不在了')
+
     def test_risk_paths_owe_a_full_run_immediately(self):
         prefix = '程序/'
         for path in ('启动助手.cmd', '启动漫剧制作助手.pyw', '程序/storage_maintenance.py',
