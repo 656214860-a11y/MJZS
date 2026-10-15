@@ -20,6 +20,10 @@ class DistributionSelfCheckTests(unittest.TestCase):
         self.assertTrue(distribution_build.pattern_regex('.git').match('.git'))
 
     def test_built_copy_imports_entry_modules(self):
+        # 干净检出（.wt/ci）没有未入库的 运行环境/，此时无解释器可供副本自检；
+        # 这类检出只做清单覆盖检查（上一条），不是缺陷。
+        if not (distribution_build.ROOT / '运行环境' / 'Python' / 'python.exe').is_file():
+            return
         self.assertEqual(distribution_selfcheck.run(), [])
 
 
