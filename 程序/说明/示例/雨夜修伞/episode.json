@@ -1,0 +1,179 @@
+{
+  "episode_id": "EP001",
+  "title": "雨夜修伞",
+  "duration": 60,
+  "shots": [
+    {
+      "id": "SH001",
+      "title": "雨打店门",
+      "duration": 6,
+      "characters": [
+        "CHAR_001",
+        "CHAR_002"
+      ],
+      "location": "LOC_002",
+      "frame": "frames/SH001.png",
+      "video_prompt": "原创二维动画练习。雨打店门。林禾穿深蓝围裙，顾川穿橙色雨衣。雨夜暖灯，不出现品牌文字。",
+      "dialogue": []
+    },
+    {
+      "id": "SH002",
+      "title": "顾川抱破伞进店",
+      "duration": 6,
+      "characters": [
+        "CHAR_001",
+        "CHAR_002"
+      ],
+      "location": "LOC_001",
+      "frame": "frames/SH002.png",
+      "video_prompt": "原创二维动画练习。顾川抱破伞进店。林禾穿深蓝围裙，顾川穿橙色雨衣。雨夜暖灯，不出现品牌文字。",
+      "dialogue": [
+        {
+          "speaker": "CHAR_002",
+          "text": "这封信不能淋湿。",
+          "start": 1,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "id": "SH003",
+      "title": "林禾查看折断伞骨",
+      "duration": 6,
+      "characters": [
+        "CHAR_001",
+        "CHAR_002"
+      ],
+      "location": "LOC_001",
+      "frame": "frames/SH003.png",
+      "video_prompt": "原创二维动画练习。林禾查看折断伞骨。林禾穿深蓝围裙，顾川穿橙色雨衣。雨夜暖灯，不出现品牌文字。",
+      "dialogue": [
+        {
+          "speaker": "CHAR_001",
+          "text": "伞骨断了，还能修。",
+          "start": 1,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "id": "SH004",
+      "title": "顾川护住怀中信件",
+      "duration": 6,
+      "characters": [
+        "CHAR_001",
+        "CHAR_002"
+      ],
+      "location": "LOC_001",
+      "frame": "frames/SH004.png",
+      "video_prompt": "原创二维动画练习。顾川护住怀中信件。林禾穿深蓝围裙，顾川穿橙色雨衣。雨夜暖灯，不出现品牌文字。",
+      "dialogue": []
+    },
+    {
+      "id": "SH005",
+      "title": "林禾取出备用伞骨",
+      "duration": 6,
+      "characters": [
+        "CHAR_001",
+        "CHAR_002"
+      ],
+      "location": "LOC_001",
+      "frame": "frames/SH005.png",
+      "video_prompt": "原创二维动画练习。林禾取出备用伞骨。林禾穿深蓝围裙，顾川穿橙色雨衣。雨夜暖灯，不出现品牌文字。",
+      "dialogue": []
+    },
+    {
+      "id": "SH006",
+      "title": "灯下固定连接处",
+      "duration": 6,
+      "characters": [
+        "CHAR_001",
+        "CHAR_002"
+      ],
+      "location": "LOC_001",
+      "frame": "frames/SH006.png",
+      "video_prompt": "原创二维动画练习。灯下固定连接处。林禾穿深蓝围裙，顾川穿橙色雨衣。雨夜暖灯，不出现品牌文字。",
+      "dialogue": [
+        {
+          "speaker": "CHAR_001",
+          "text": "再等一小会儿。",
+          "start": 1,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "id": "SH007",
+      "title": "顾川递上干毛巾",
+      "duration": 6,
+      "characters": [
+        "CHAR_001",
+        "CHAR_002"
+      ],
+      "location": "LOC_001",
+      "frame": "frames/SH007.png",
+      "video_prompt": "原创二维动画练习。顾川递上干毛巾。林禾穿深蓝围裙，顾川穿橙色雨衣。雨夜暖灯，不出现品牌文字。",
+      "dialogue": [
+        {
+          "speaker": "CHAR_002",
+          "text": "擦擦手，辛苦了。",
+          "start": 1,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "id": "SH008",
+      "title": "修好的伞撑开",
+      "duration": 6,
+      "characters": [
+        "CHAR_001",
+        "CHAR_002"
+      ],
+      "location": "LOC_001",
+      "frame": "frames/SH008.png",
+      "video_prompt": "原创二维动画练习。修好的伞撑开。林禾穿深蓝围裙，顾川穿橙色雨衣。雨夜暖灯，不出现品牌文字。",
+      "dialogue": []
+    },
+    {
+      "id": "SH009",
+      "title": "两人在门口试伞",
+      "duration": 6,
+      "characters": [
+        "CHAR_001",
+        "CHAR_002"
+      ],
+      "location": "LOC_002",
+      "frame": "frames/SH009.png",
+      "video_prompt": "原创二维动画练习。两人在门口试伞。林禾穿深蓝围裙，顾川穿橙色雨衣。雨夜暖灯，不出现品牌文字。",
+      "dialogue": [
+        {
+          "speaker": "CHAR_002",
+          "text": "这下放心了。",
+          "start": 1,
+          "end": 5
+        }
+      ]
+    },
+    {
+      "id": "SH010",
+      "title": "顾川撑伞离去林禾挥手",
+      "duration": 6,
+      "characters": [
+        "CHAR_001",
+        "CHAR_002"
+      ],
+      "location": "LOC_002",
+      "frame": "frames/SH010.png",
+      "video_prompt": "原创二维动画练习。顾川撑伞离去林禾挥手。林禾穿深蓝围裙，顾川穿橙色雨衣。雨夜暖灯，不出现品牌文字。",
+      "dialogue": [
+        {
+          "speaker": "CHAR_001",
+          "text": "路上慢点。",
+          "start": 1,
+          "end": 5
+        }
+      ]
+    }
+  ]
+}

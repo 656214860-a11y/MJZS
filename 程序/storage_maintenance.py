@@ -1,5 +1,5 @@
 """Conservative project cleanup; run only after the UI has closed."""
-import os, shutil, subprocess, sys, time, uuid
+import math, os, shutil, subprocess, sys, time, uuid
 from pathlib import Path
 from agent.core import save
 from file_cache import recycled, read_json
@@ -511,27 +511,116 @@ def version_retention(version, shot, newest, referenced, digests, now):
     """
     state=str((version or {}).get('state') or '')
     if state in PENDING or state not in SETTLED_STATES:return RETAIN_UNSETTLED
-    if (version or {}).get('locked'):return RETAIN_LOCKED
+    if (version or {}).get('locked') or (version or {}).get('pinned'):return RETAIN_LOCKED
     digest=str((version or {}).get('sha256') or '')
     if (str(shot),(version or {}).get('version')) in referenced:return RETAIN_EDIT_SOURCE
     if digest and (str(shot),digest) in digests:return RETAIN_EDIT_SOURCE
     if (version or {}).get('review')=='pass':return RETAIN_APPROVED
     if (version or {}).get('version')==newest:return RETAIN_LATEST
     try:
+        if isinstance((version or {}).get('created'), bool):return RETAIN_FRESH
         created=float((version or {}).get('created'))
     except (TypeError,ValueError):
         return RETAIN_FRESH
-    return RETAIN_FRESH if now-created<AGE_SECONDS else ''
+    return RETAIN_FRESH if not math.isfinite(created) or now-created<AGE_SECONDS else ''
+
+
+def source_protection(root):
+    """收集明确来源声明与其项目内文件；读坏的声明不能被解释为没有引用。"""
+    root = Path(root).resolve()
+    protected, errors = set(), []
+    recycle = _recycle_base(root)
+    names = {'episode.json', 'assets.json', *EXPORT_MANIFEST_NAMES}
+
+    def collect(value, parent):
+        if isinstance(value, dict):
+            for child in value.values():
+                collect(child, parent)
+        elif isinstance(value, list):
+            for child in value:
+                collect(child, parent)
+        elif isinstance(value, str) and value and len(value) < 1024:
+            # 路径同时兼容项目根及清单目录；只保护确实存在的项目内文件。
+            for base in (root, parent):
+                try:
+                    path = (base / value).resolve()
+                    if path.is_relative_to(root) and path.is_file():
+                        protected.add(path)
+                except (OSError, ValueError):
+                    continue
+
+    referenced, digests = edit_source_versions(root)
+    for path in root.rglob('*.json'):
+        if not _within(path, root) or _within(path, recycle):
+            continue
+        ledger = path.name == 'state.json' and path.parent.name in ('data', '06_本地生成')
+        if path.name not in names and '.commercial.' not in path.name and not ledger:
+            continue
+        protected.add(path.resolve())
+        try:
+            data = read_json(path)
+            if not isinstance(data, (dict, list)):
+                raise ValueError('来源声明不是对象或清单')
+            if ledger:
+                shots = data.get('shots') if isinstance(data, dict) else None
+                if not isinstance(shots, dict):
+                    raise ValueError('生成台账缺少镜头表')
+                for shot, versions in shots.items():
+                    if not isinstance(versions, list) or any(not isinstance(v, dict) for v in versions):
+                        raise ValueError('生成版本列表无效')
+                    numbers = [v.get('version', 0) for v in versions]
+                    if any(type(number) is not int for number in numbers):
+                        raise ValueError('生成版本编号无效')
+                    newest = max(numbers, default=0)
+                    for version in versions:
+                        if version_retention(version, shot, newest, referenced, digests, time.time()):
+                            collect(version, path.parent.parent)
+                continue
+            if path.name in EXPORT_MANIFEST_NAMES:
+                rows = data.get('manifest') if isinstance(data, dict) else data
+                if not isinstance(rows, list):
+                    raise ValueError('成片来源清单缺失')
+                if any(not isinstance(row, dict) or not row.get('shot') or
+                       (not row.get('sha256') and type(row.get('version')) is not int) for row in rows):
+                    raise ValueError('成片来源条目无法确认')
+            collect(data, path.parent)
+        except (OSError, ValueError) as exc:
+            errors.append(str(path.relative_to(root)) + '：' + str(exc))
+    return protected, errors
+
+
+def storage_summary(root):
+    """只读盘点；未发现引用不等于可删除，同盘回收不等于释放容量。"""
+    root = Path(root).resolve()
+    protected, errors = source_protection(root)
+    sizes = {'protected': 0, 'unclassified': 0, 'recycled': 0}
+    for path in root.rglob('*'):
+        if path.is_symlink() or path.is_junction() or not _within(path, root):
+            continue
+        try:
+            if not path.is_file():
+                continue
+            key = 'recycled' if _within(path, _recycle_base(root)) else 'protected' if path.resolve() in protected else 'unclassified'
+            sizes[key] += path.stat().st_size
+        except OSError as exc:
+            errors.append(str(path.relative_to(root)) + '：' + str(exc))
+    return {'bytes': sizes, 'errors': errors, 'retention_days': AGE_SECONDS // 86400}
 
 
 def clean_project(root,now=None):
     root=Path(root).resolve();now=now or time.time();removed=[];records=[]
     if root.parent!=downloads_root().resolve() or not (root/'config.json').is_file():return removed
+    protected, protection_errors = source_protection(root)
+    if protection_errors:
+        return removed
     recycle_base=_recycle_base(root)
     batch=recycle_base/batch_name(now)
     created_at=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(now))
 
     def recycle(path):
+        resolved = Path(path).resolve()
+        if any(source == resolved or source.is_relative_to(resolved) for source in protected):
+            return False
         record=plan_recycle(path,root,batch)
         if record is None:return False
         records.append(record)
@@ -548,7 +637,7 @@ def clean_project(root,now=None):
         _write_batch_manifest(batch,BATCH_PLANNED,records,'自动维护',created_at)   # 逐项状态
         removed.append(Path(record['source']));return True
 
-    # Closing the assistant clears every explicitly named history directory.
+    # Closing the assistant recycles unreferenced explicitly named history directories.
     # Active creative folders, current storyboards and final outputs are untouched.
     # 清理改为可恢复移动，历史回收站自身永不参与下一轮扫描。
     histories=[p for p in root.rglob('*') if p.name in ('历史版本','分镜历史') and not _within(p,recycle_base)]

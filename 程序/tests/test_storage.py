@@ -11,6 +11,48 @@ import storage_maintenance as sm
 
 
 class StorageSafetyTests(unittest.TestCase):
+    def test_cleanup_preserves_referenced_history_and_commercial_proof(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'project'; history = root / '历史版本'
+            history.mkdir(parents=True)
+            (root / 'config.json').write_text('{}', encoding='utf-8')
+            proof = history / '授权.txt'; proof.write_text('proof', encoding='utf-8')
+            (root / 'delivery.commercial.json').write_text(json.dumps({'authorization': {'file': '历史版本/授权.txt'}}), encoding='utf-8')
+            with mock.patch.object(sm, 'downloads_root', return_value=Path(td)):
+                self.assertEqual(sm.clean_project(root), [])
+            self.assertTrue(proof.exists())
+            summary = sm.storage_summary(root)
+            self.assertGreater(summary['bytes']['protected'], 0)
+            self.assertFalse(summary['errors'])
+
+    def test_corrupt_source_manifest_blocks_automatic_cleanup(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'project'; history = root / '历史版本'
+            history.mkdir(parents=True)
+            (root / 'config.json').write_text('{}', encoding='utf-8')
+            (history / 'keep.txt').write_text('keep', encoding='utf-8')
+            (root / 'assets.json').write_text('{bad', encoding='utf-8')
+            with mock.patch.object(sm, 'downloads_root', return_value=Path(td)):
+                self.assertEqual(sm.clean_project(root), [])
+            self.assertTrue((history / 'keep.txt').exists())
+            self.assertTrue(sm.storage_summary(root)['errors'])
+
+    def test_nonfinite_creation_time_cannot_expire(self):
+        for created in (float('nan'), float('inf'), float('-inf')):
+            with self.subTest(created=created):
+                self.assertEqual(sm.version_retention({'state': 'downloaded', 'version': 1, 'created': created}, 'SH001', 2, set(), set(), 1700000000), sm.RETAIN_FRESH)
+
+    def test_adopted_version_file_in_history_is_not_moved(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'project'; history = root / '历史版本'
+            history.mkdir(parents=True); (root / 'data').mkdir()
+            (root / 'config.json').write_text('{}', encoding='utf-8')
+            media = history / 'adopted.mp4'; media.write_bytes(b'fixture')
+            (root / 'data' / 'state.json').write_text(json.dumps({'shots': {'SH001': [{'version': 1, 'state': 'downloaded', 'review': 'pass', 'file': '历史版本/adopted.mp4'}]}}), encoding='utf-8')
+            with mock.patch.object(sm, 'downloads_root', return_value=Path(td)):
+                self.assertEqual(sm.clean_project(root), [])
+            self.assertTrue(media.exists())
+
     def test_launch_cleanup_starts_the_detached_cleanup_entry(self):
         """带三秒延后等待的维护只能由独立 --cleanup 进程启动。"""
         with tempfile.TemporaryDirectory() as td:

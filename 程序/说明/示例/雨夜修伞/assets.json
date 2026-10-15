@@ -1,0 +1,22 @@
+{
+  "CHAR_001": {
+    "name": "林禾",
+    "type": "character",
+    "description": "修伞人，深蓝围裙"
+  },
+  "CHAR_002": {
+    "name": "顾川",
+    "type": "character",
+    "description": "快递员，橙色雨衣"
+  },
+  "LOC_001": {
+    "name": "修伞铺",
+    "type": "location",
+    "description": "雨夜，室内暖色台灯"
+  },
+  "LOC_002": {
+    "name": "店门口",
+    "type": "location",
+    "description": "雨夜湿地，门内透出暖光"
+  }
+}

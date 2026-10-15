@@ -326,10 +326,40 @@ class ProjectPagesMixin:
         tree.bind('<Double-1>',enter);tree.bind('<Return>',enter)
         self.button(self.content,'进入选中的项目 →',enter)
         self.button(self.content,'＋ 创建新项目',self.new)
+        self.button(self.content,'创建练习项目：雨夜修伞',self.create_practice_project)
+        self.button(self.content,'当前项目存储盘点（只读）',self.show_project_storage)
         self.button(self.content,'恢复回收站内容…',self.open_recycle_recovery)
         self.button(self.content,'重建项目索引',self.rebuild_project_index)
         self.button(self.content,'导出诊断包…',self.export_diagnostics_package)
         self.button(self.content,'运行状况…',lambda:ui_plugin_registry.module('task_center_ui').show(self))
+    def create_practice_project(self):
+        """复用项目创建器隔离练习数据；不调用模型、不伪造阶段完成。"""
+        sample = Path(__file__).resolve().parent / '说明' / '示例' / '雨夜修伞'
+        project = self._project_result_data(self.projects.create('练习－雨夜修伞', sample / 'episode.json'))
+        self.reload()
+        self.load(project)
+        self.remember_daily_project_choice(project)
+        open_path(sample / '开始练习.md')
+        self.status.set('已创建独立练习项目：10镜60秒；首帧、配音与视频尚未生成，操作步骤见练习指南。')
+
+    def show_project_storage(self):
+        if not self.root:
+            raise ValueError('请先进入要盘点的项目')
+        from storage_maintenance import storage_summary
+        root = self.root
+        def inspect():
+            report = storage_summary(root)
+            sizes = report['bytes']
+            lines = ['存储盘点（只读）', str(root)]
+            for key, title in (('protected', '来源声明及明确引用文件'), ('unclassified', '其他文件（未证明可清理）'), ('recycled', '回收站（仍占磁盘）')):
+                lines.append('%s：%.2f MiB' % (title, sizes[key] / 1048576))
+            lines.append('旧生成版本保留期：%d天；采用、成片引用、未结算和锁定版本保留。' % report['retention_days'])
+            lines.append('项目首页可恢复回收站内容；本操作不移动或删除文件。')
+            if report['errors']:
+                lines.append('盘点不完整／自动清理阻断：' + '；'.join(report['errors'][:5]))
+            return '\n'.join(lines)
+        self.async_queued(inspect, label='项目存储盘点')
+
     def rebuild_project_index(self):
         """按磁盘事实重建项目索引：补登新目录、移除失效登记；不移动或删除任何项目文件。"""
         outcome=self._project_result_data(self.projects.rebuild_registry())

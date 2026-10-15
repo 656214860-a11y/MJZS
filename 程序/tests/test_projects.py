@@ -11,6 +11,24 @@ from stage_execution_service import project_registry_gateway
 
 
 class ProjectsGatewayTests(unittest.TestCase):
+    def test_practice_sample_creates_isolated_ten_shot_project_without_generation(self):
+        from episode_contract import validate_episode
+        sample = Path(__file__).resolve().parents[1] / '说明' / '示例' / '雨夜修伞'
+        episode = json.loads((sample / 'episode.json').read_text(encoding='utf-8'))
+        assets = json.loads((sample / 'assets.json').read_text(encoding='utf-8'))
+        checked = validate_episode(episode, sample, assets)
+        self.assertEqual((checked['shot_count'], checked['total_seconds']), (10, 60))
+        with tempfile.TemporaryDirectory() as td:
+            app = Path(td) / 'app'; app.mkdir()
+            (app / 'config.json').write_text(json.dumps({'downloads_root': str(Path(td) / '库')}), encoding='utf-8')
+            service = Projects(app, gateway=project_registry_gateway(), migrate_legacy=False)
+            result = service.create('练习', sample / 'episode.json')
+            self.assertTrue(result.ok, result.reason)
+            cfg = json.loads((Path(result.data) / 'config.json').read_text(encoding='utf-8'))
+            imported = json.loads(Path(cfg['episode_file']).read_text(encoding='utf-8'))
+            self.assertEqual(imported, episode)
+            self.assertFalse(cfg['live_enabled'])
+
     def test_projects_rejects_uninjected_storage_gateway(self):
         with tempfile.TemporaryDirectory() as td:
             app=Path(td) / '程序'
