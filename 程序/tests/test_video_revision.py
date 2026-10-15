@@ -39,7 +39,11 @@ class VideoRevisionTests(unittest.TestCase):
         if isinstance(studio, LocalStudio):
             api = Mock(url='http://127.0.0.1:8189')
             api.call.return_value = {'prompt_id': 'local-new-task'}
-            api.upload.return_value = 'frame.png'
+            def upload(path, *, evidence=None):
+                if evidence is not None:
+                    evidence.update(path=str(path), sha256='a' * 64)
+                return 'frame.png'
+            api.upload.side_effect = upload
             stack.enter_context(patch('local_video.LocalAPI', return_value=api))
             stack.enter_context(patch('local_video.prepare_graph', return_value=({'114': {'inputs': {}}}, {})))
             stack.enter_context(patch('local_video.png_size', return_value=(32, 32)))
@@ -62,6 +66,23 @@ class VideoRevisionTests(unittest.TestCase):
     def money_policy(self, cap='0.5'):
         save(self.root / 'cost_profile.json', {'budget_amount': cap, 'price_table': {
             'currency': 'CNY', 'version': 'test', 'model_rates': {'video-m': {'seconds': '0.1'}}}})
+
+    def test_local_submission_persists_sources_before_generation(self):
+        studio = self.studio(LocalStudio, [])
+        api = self.dependencies(studio)
+        def submit(path, payload=None):
+            manifest = read(self.root / 'data/SH001/v001/assets_manifest.json')
+            self.assertEqual(manifest['first_frame']['category'], 'image')
+            self.assertEqual(manifest['first_frame']['sha256'], 'a' * 64)
+            self.assertEqual(manifest['assets'][0]['id'], 'CHAR_001')
+            self.assertEqual(manifest['assets'][0]['sha256'], 'a' * 64)
+            return {'prompt_id': 'local-new-task'}
+        api.call.side_effect = submit
+        asset = {'id': 'CHAR_001', 'name': '角色', 'path': str(self.root / 'asset.png'),
+                 'picture': 1, 'node_id': 'ref'}
+        with patch('h3_reference_adapter.attach', return_value=[asset]), patch('local_video.prepare_graph',
+                return_value=({'114': {'inputs': {}}, 'ref': {'inputs': {}}}, {})):
+            studio.submit('SH001')
 
     def test_money_rejection_does_not_submit_or_consume_seconds(self):
         from pet_llm import RequestLedger

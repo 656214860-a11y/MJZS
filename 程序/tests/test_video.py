@@ -11,6 +11,22 @@ from local_video import LocalAPI, prepare_graph
 
 
 class LocalAPITests(unittest.TestCase):
+    def test_upload_receipt_hashes_the_bytes_sent_not_later_file_contents(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as td:
+            frame = Path(td) / 'frame.png'
+            original = b'\x89PNG\r\n\x1a\noriginal-image'
+            frame.write_bytes(original)
+            api = LocalAPI('http://127.0.0.1:8189')
+            def call(path, **kwargs):
+                self.assertIn(original, kwargs['body'])
+                frame.write_bytes(b'changed-after-upload')
+                return {'name': 'uploaded.png'}
+            api.call = call
+            receipt = {}
+            self.assertEqual(api.upload(frame, evidence=receipt), 'uploaded.png')
+            self.assertEqual(receipt, {'path': str(frame.resolve()), 'sha256': hashlib.sha256(original).hexdigest()})
+
     def test_valid_local_url(self):
         api = LocalAPI("http://127.0.0.1:8189")
         self.assertEqual(api.url, "http://127.0.0.1:8189")

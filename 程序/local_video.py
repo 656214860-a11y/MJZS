@@ -37,13 +37,16 @@ class LocalAPI:
         data=json.dumps(payload).encode() if payload is not None else body
         req=Request(self.url+path,data=data,headers={'Content-Type':content_type or 'application/json'})
         with self.opener.open(req,timeout=30) as r:return json.load(r)
-    def upload(self,frame):
+    def upload(self,frame, *, evidence=None):
         data=Path(frame).read_bytes()
         kind=('png','image/png') if data.startswith(b'\x89PNG\r\n\x1a\n') else ('jpg','image/jpeg') if data.startswith(b'\xff\xd8') else ('webp','image/webp') if data[:4]==b'RIFF' and data[8:12]==b'WEBP' else None
         if not kind or len(data)>20*1024**2:raise ValueError('参考图片必须是20MB以内的PNG、JPEG或WebP')
         boundary='drama'+uuid.uuid4().hex;name='drama_'+uuid.uuid4().hex+'.'+kind[0]
         body=(f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{name}"\r\nContent-Type: {kind[1]}\r\n\r\n'.encode()+data+f'\r\n--{boundary}--\r\n'.encode())
         result=self.call('/upload/image',body=body,content_type='multipart/form-data; boundary='+boundary)
+        if evidence is not None:
+            import hashlib
+            evidence.update(path=str(Path(frame).resolve()), sha256=hashlib.sha256(data).hexdigest())
         return (result.get('subfolder','').strip('/')+'/' + result['name']).lstrip('/')
     def download(self,item,dest):
         query=urlencode({k:item.get(k,'') for k in ('filename','subfolder','type')})
@@ -144,13 +147,20 @@ class LocalStudio(Studio):
             report('正在检查视频处理工具…')
             command([self.cfg['ffmpeg'],'-version']);command([self.cfg['ffprobe'],'-version'])
             report('正在上传本镜首帧…')
-            image=api.upload(self.frame(shot));node,field=options.get('image','114.image').split('.',1);graph[node]['inputs'][field]=image
+            first_frame = {'category': 'image'}
+            image=api.upload(frame, evidence=first_frame);node,field=options.get('image','114.image').split('.',1);graph[node]['inputs'][field]=image
+            source_assets = []
             for asset in references:
                 report('正在上传参考图：'+asset['id']+' '+asset['name'])
-                graph[asset['node_id']]['inputs']['image']=api.upload(asset['path'])
+                receipt = {'id': asset['id'], 'name': asset['name']}
+                graph[asset['node_id']]['inputs']['image']=api.upload(asset['path'], evidence=receipt)
+                source_assets.append(receipt)
+            if any(not item.get('path') or not item.get('sha256') for item in [first_frame, *source_assets]):
+                raise ValueError('本地上传缺少素材来源回执，尚未提交生成')
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':False,'backend':'comfy','endpoint':api.url,'output_node':options.get('output','92'),'review':'pending','created':time.time(),'signature':fingerprint(graph)}
             v.update(generate_audio=has_audio,source_aspect=ratio,reference_assets=[{'id':a['id'],'name':a['name'],'picture':a['picture'],'path':a['path']} for a in references])
             folder=self.root/'data'/sid/f"v{v['version']:03}";folder.mkdir(parents=True,exist_ok=True);save(folder/'request.json',graph)
+            save(folder/'assets_manifest.json', {'mode': 'local', 'assets': source_assets, 'first_frame': first_frame})
             client_id=uuid.uuid4().hex
             v['client_id']=client_id
             versions.append(v);save(self.db,st)
