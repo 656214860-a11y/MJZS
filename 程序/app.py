@@ -1198,12 +1198,17 @@ class App:
 
         无人值守时不弹窗也不超预算扣费：超出预算直接报错，由用户调整预算或减少勾选。
         """
+        from pet_llm import RequestLedger
+        estimate = RequestLedger(project_root(self.studio.root)).preview_text(
+            self.studio.cfg.get('model', ''), 'videos', {'seconds': seconds})
+        message += '\n\n' + estimate
         if ui_plugin_registry.module('pet_ui').should_auto_run(self, self.root, 'auto_submit'):
             remaining=self.studio.remaining()
             if seconds>remaining:
                 raise ValueError(title+'已取消：本次需要 '+str(seconds)+' 秒，超过可用预算 '+str(remaining)+
                                  ' 秒。无人值守自动提交不会超预算提交，请调整预算或减少勾选后重试。')
             self.write(title+'：无人值守自动提交，已跳过确认框（'+str(seconds)+' 秒／预算剩余 '+str(remaining)+' 秒）')
+            self.write(estimate)
             return True
         return ask_confirmation(self.window, title, message, dangerous=True)
     def auto_submit_scan(self):

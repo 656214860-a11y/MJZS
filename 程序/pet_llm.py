@@ -832,6 +832,70 @@ class RequestLedger:
         return self.authorize_units(request_id, model, stage, 'tokens',
                                     {'prompt_tokens': input_estimate, 'completion_tokens': output_limit})
 
+    @classmethod
+    def _model_price(cls, table, model, quantities):
+        rate_map = table.get('model_rates') or {}
+        if not isinstance(rate_map, dict):
+            raise ValueError('模型费率格式不正确')
+        rates = rate_map.get(model)
+        known = isinstance(rates, dict) and all(key in rates for key in quantities)
+        known = known and bool(table.get('version')) and bool(table.get('currency'))
+        rates = {key: str(cls.decimal(rates[key])) for key in quantities} if known else None
+        cost = sum((value * cls.decimal(rates[key]) for key, value in quantities.items()), cls.decimal(0)) if rates else None
+        return rates, cost
+
+    def preview_units(self, model, kind, quantities):
+        """只读批次报价快照；不建账、不预留，执行时仍逐请求原子检查。"""
+        from agent.core import read
+        if not quantities or kind not in REQUEST_KINDS:
+            raise ValueError('请求用量单位不能为空或未知')
+        quantities = {key: self.decimal(value) for key, value in quantities.items()}
+        self.load()
+        path = self.project / 'cost_profile.json' if self.project else None
+        profile = read(path) if path is not None and path.exists() else {}
+        if not isinstance(profile, dict) or not isinstance(profile.get('price_table', {}), dict):
+            raise ValueError('成本配置格式不正确')
+        table = profile.get('price_table', {})
+        _rates, cost = self._model_price(table, model, quantities)
+        cap = self.decimal(profile['budget_amount']) if profile.get('budget_amount') is not None else None
+        reasons = []
+        if cost is None:
+            reasons.append('金额预算需要模型费率、币种和价格表版本，请先配置')
+        if kind == 'tokens' and quantities.get('completion_tokens', 0) <= 0:
+            reasons.append('金额预算需要明确的输出Token上限')
+        used = self.decimal(0)
+        try:
+            self.check_legacy_video_costs('')
+        except ValueError as exc:
+            reasons.append(str(exc)); used = None
+        for row in self.entries:
+            if row.get('state') == 'duplicate' or row.get('cost_group'):
+                continue
+            if row.get('budget_cost') is None or row.get('currency') != table.get('currency'):
+                reasons.append('存在未计价费用或币种不一致，请核对后继续'); used = None
+            elif used is not None:
+                used += self.decimal(row['budget_cost'])
+        if cap is not None and used is not None and cost is not None and used + cost > cap:
+            reasons.append('超过项目金额预算，请核对费用或明确提高预算后重试')
+        return {'model': model, 'currency': table.get('currency'), 'price_version': table.get('version'),
+                'cost': str(cost) if cost is not None else None,
+                'used': str(used) if used is not None else None,
+                'cap': str(cap) if cap is not None else None,
+                'remaining': str(cap - used) if cap is not None and used is not None else None,
+                'notes': list(dict.fromkeys(reasons)), 'allowed': cap is None or not reasons}
+
+    def preview_text(self, model, kind, quantities):
+        quote = self.preview_units(model, kind, quantities)
+        if not quote['allowed']:
+            raise ValueError('本批次金额预检未通过：' + '；'.join(quote['notes']))
+        currency = quote['currency'] or '币种未配置'
+        return ('模型：%s；价格版本：%s。\n本批预计：%s %s；项目已占用（含预留）：%s %s。\n'
+                '项目金额上限：%s；剩余金额：%s。\n%s\n预估不锁定额度；每次发送前重新核验，实际账单需核对。') % (
+                    model, quote['price_version'] or '未配置', quote['cost'] or '未知', currency,
+                    quote['used'] if quote['used'] is not None else '未知', currency,
+                    quote['cap'] if quote['cap'] is not None else '未启用',
+                    quote['remaining'] if quote['remaining'] is not None else '未知', '；'.join(quote['notes']))
+
     def legacy_video_costs(self, request_id=''):
         """只读归组旧视频来源；只保存摘要，不复制提示词、配置或私有任务内容。"""
         groups = {}
@@ -945,14 +1009,7 @@ class RequestLedger:
                 self.check_legacy_video_costs(request_id)
                 if kind == 'tokens' and quantities.get('completion_tokens', 0) <= 0:
                     raise ValueError('金额预算需要明确的输出Token上限')
-            rate_map = table.get('model_rates') or {}
-            if not isinstance(rate_map, dict):
-                raise ValueError('模型费率格式不正确')
-            rates = rate_map.get(model)
-            known = isinstance(rates, dict) and all(key in rates for key in quantities)
-            known = known and bool(table.get('version')) and bool(table.get('currency'))
-            rates = {key: str(self.decimal(rates[key])) for key in quantities} if known else None
-            cost = sum((value * self.decimal(rates[key]) for key, value in quantities.items()), self.decimal(0)) if rates else None
+            rates, cost = self._model_price(table, model, quantities)
             if cap is not None:
                 if not rates or not table.get('version') or not table.get('currency'):
                     raise ValueError('金额预算需要模型费率、币种和价格表版本，请先配置')

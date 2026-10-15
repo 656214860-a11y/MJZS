@@ -268,6 +268,43 @@ class AutoSubmitTests(unittest.TestCase):
             self.assertFalse(app.confirm_submit("提交预览", "文案", 5))
             self.assertEqual(self.dialogs, ["提交预览"])
 
+    def test_batch_money_preflight_stops_before_first_submission(self):
+        from agent.core import save
+        from pet_llm import request_ledger_path
+        for auto in (False, True):
+            with self.subTest(auto=auto), tempfile.TemporaryDirectory() as td:
+                app, proj = self.make_app(td, auto=auto)
+                app.studio.cfg['model'] = 'fixture-video'
+                app.edit_checks = {'SH001': True, 'SH002': True}
+                cap = max(app.studio.shot(sid)['duration'] for sid in app.edit_checks)
+                save(proj / 'cost_profile.json', {'budget_amount': str(cap), 'price_table': {
+                    'currency': 'CNY', 'version': 'fixture-v1',
+                    'model_rates': {app.studio.cfg['model']: {'seconds': '1'}}}})
+                submitted = []
+                app.studio.submit = lambda sid: submitted.append(sid)
+                app.run = lambda fn: fn()
+                with self.assertRaisesRegex(ValueError, '超过项目金额预算'):
+                    app.generate_checked()
+                self.assertEqual(submitted, [])
+                self.assertEqual(self.dialogs, [])
+                self.assertFalse(request_ledger_path(proj).exists())
+
+    def test_confirmation_displays_configured_model_price_and_balance(self):
+        from unittest.mock import patch
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            app, proj = self.make_app(td)
+            app.studio.cfg['model'] = 'fixture-video'
+            save(proj / 'cost_profile.json', {'budget_amount': '10', 'price_table': {
+                'currency': 'CNY', 'version': 'fixture-v1',
+                'model_rates': {app.studio.cfg['model']: {'seconds': '0.2'}}}})
+            with patch('app.ask_confirmation', return_value=False) as ask:
+                app.confirm_submit('批量提交预览', '10秒', 10)
+            message = ask.call_args.args[2]
+            self.assertIn('本批预计：2.0 CNY', message)
+            self.assertIn('fixture-v1', message)
+            self.assertIn('剩余金额：10', message)
+
     def test_batch_generate_submits_without_dialog(self):
         with tempfile.TemporaryDirectory() as td:
             app, proj = self.make_app(td, auto=True)

@@ -272,6 +272,49 @@ class ModelMoneyBudgetTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, '已合并'):
                 ledger.reconcile_cost(original_row['id'], 'videos', '0', 'CNY', receipt, 'tester')
 
+    def test_batch_quote_is_read_only_and_uses_same_rates_as_reservation(self):
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            ledger = RequestLedger(td)
+            quote = ledger.preview_units('m', 'tokens', {'prompt_tokens': 10, 'completion_tokens': 10})
+            self.assertEqual(quote['cost'], '0.30')
+            self.assertTrue(quote['allowed'])
+            self.assertEqual(quote['remaining'], '1')
+            self.assertFalse(request_ledger_path(td).exists())
+            self.assertFalse(request_ledger_path(td).with_suffix('.lock').exists())
+            reserved = ledger.authorize_model('one', 'm', 'script', 10, 10)
+            self.assertEqual(reserved['budget_cost'], quote['cost'])
+            before = request_ledger_path(td).read_bytes()
+            quote = ledger.preview_units('m', 'tokens', {'prompt_tokens': 30, 'completion_tokens': 30})
+            self.assertEqual(quote['used'], '0.30')
+            self.assertEqual(quote['remaining'], '0.70')
+            self.assertFalse(quote['allowed'])
+            self.assertEqual(request_ledger_path(td).read_bytes(), before)
+
+    def test_batch_quote_unknown_prices_history_and_changed_policy_remain_explicit(self):
+        with tempfile.TemporaryDirectory() as td:
+            ledger = RequestLedger(td)
+            quote = ledger.preview_units('missing', 'videos', {'seconds': 5})
+            self.assertIsNone(quote['cost'])
+            self.assertTrue(quote['allowed'], '没有上限沿用旧行为，但不显示免费')
+            self.assertIn('未知', ledger.preview_text('missing', 'videos', {'seconds': 5}))
+            self.policy(td)
+            with self.assertRaisesRegex(ValueError, '模型费率'):
+                ledger.preview_text('missing', 'videos', {'seconds': 5})
+            old = RequestLedger(Path(td) / 'cloud_video/old')
+            old.settle('old', kind='seconds', amount=5); old.save()
+            quote = ledger.preview_units('m', 'tokens', {'prompt_tokens': 1, 'completion_tokens': 1})
+            self.assertFalse(quote['allowed'])
+            self.assertIsNone(quote['used'])
+            self.assertIsNone(quote['remaining'])
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            ledger = RequestLedger(td)
+            self.assertTrue(ledger.preview_units('m', 'tokens', {'prompt_tokens': 10, 'completion_tokens': 10})['allowed'])
+            self.policy(td, '0.1')
+            with self.assertRaisesRegex(ValueError, '超过项目金额预算'):
+                ledger.authorize_model('after-preview', 'm', 'script', 10, 10)
+
     def test_legacy_changed_source_invalidates_amount_and_preserves_audit(self):
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:
