@@ -70,6 +70,15 @@ class EditBundleTests(unittest.TestCase):
                   ({'id': 'SH002'}, {'version': 2, 'sha256': 'b'}, Path('y'))]
         engine.Studio.publish_edit_bundle(None, out, master, report, chosen)
 
+    def test_bundle_records_the_actual_overlay_font_digest(self):
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td); master = out / 'MASTER.mp4'; master.write_bytes(b'film')
+            font = out / 'font.ttc'; font.write_bytes(b'test-only font fixture')
+            chosen = [({'id': 'S01', 'post_overlay': 'title'}, {'version': 1, 'sha256': 'source'}, Path('clip'))]
+            engine.Studio.publish_edit_bundle(None, out, master, {}, chosen)
+            bundle = json.loads((out / 'edit_bundle.json').read_text(encoding='utf-8'))
+            self.assertEqual(bundle['fonts'], [{'path': 'font.ttc', 'sha256': engine.file_hash(font)}])
+
     def test_bundle_binds_master_and_indexes(self):
         with tempfile.TemporaryDirectory() as td:
             out = Path(td)

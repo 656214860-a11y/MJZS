@@ -600,6 +600,8 @@ class Studio:
             'master': master.name, 'master_sha256': file_hash(master),
             'output_spec': report.get('output_spec'), 'qc': report,
             'manifest': manifest, 'coverage': report.get('coverage') or {},
+            'fonts': [{'path': 'font.ttc', 'sha256': file_hash(out / 'font.ttc')}]
+                     if any(shot.get('post_overlay') for shot, _, _ in chosen) and (out / 'font.ttc').is_file() else [],
             'published_at': time.time(),
         })
         save(out/QC_NAME, report)
@@ -636,7 +638,8 @@ class Studio:
                 import shutil
                 font_source='C:/Windows/Fonts/msyh.ttc'
                 if Path(font_source).is_file():
-                    shutil.copyfile(font_source,out/'font.ttc')
+                    if not (out/'font.ttc').exists():
+                        shutil.copyfile(font_source,out/'font.ttc')
                     save_text(out/'label.txt', shot['post_overlay'])
                     metrics=overlay_metrics(spec)
                     vf+=',drawtext=fontfile=font.ttc:textfile=label.txt:fontsize=%d:fontcolor=white:box=1:boxcolor=black@0.6:x=%d:y=%d'%(metrics['fontsize'],metrics['x'],metrics['y'])

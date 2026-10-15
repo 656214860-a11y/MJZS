@@ -216,6 +216,23 @@ def validate_commercial_evidence(root, evidence):
             if any(not isinstance(row, dict) or not row.get('sha256')
                    or row['sha256'] not in known_hashes for row in rows):
                 raise ValueError('授权清单未覆盖成片已登记的镜头来源')
+            fonts = bundle.get('fonts', [])
+            if not isinstance(fonts, list):
+                raise ValueError('成片字体来源清单无效')
+            # 兼容旧成片：已有叠字字体副本也不能声明为未使用。
+            local_font = path.parent / 'font.ttc'
+            if local_font.is_file():
+                fonts = [*fonts, {'path': 'font.ttc', 'sha256': file_hash(local_font)}]
+            declared_fonts = {(root / item['path']).resolve(): item['sha256']
+                              for item in categories['font']['items']}
+            for font in fonts:
+                if not isinstance(font, dict) or not isinstance(font.get('path'), str):
+                    raise ValueError('成片字体来源清单无效')
+                font_path = (path.parent / font['path']).resolve()
+                if (not font_path.is_relative_to(path.parent) or not font_path.is_file()
+                        or declared_fonts.get(font_path) != font.get('sha256')
+                        or file_hash(font_path) != font.get('sha256')):
+                    raise ValueError('字体授权未覆盖成片实际使用的字体版本')
     reviews = evidence.get('content_review')
     if not isinstance(reviews, dict):
         raise ValueError('缺少内容审查记录')

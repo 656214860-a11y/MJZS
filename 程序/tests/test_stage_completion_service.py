@@ -119,6 +119,33 @@ class MediaCompletionTests(unittest.TestCase):
         evidence['categories']['video']['items'].append(source_item)
         self.assertTrue(validate_commercial_evidence(self.root, evidence))
 
+    def test_commercial_font_gate_covers_new_and_legacy_overlay_fonts(self):
+        from copy import deepcopy
+        from agent.core import file_hash
+        from stage_completion_service import validate_commercial_evidence
+        for legacy in (False, True):
+            with self.subTest(legacy=legacy):
+                evidence, _ = self.commercial_fixture()
+                video = evidence['categories']['video']['items'][0]
+                output = self.root / video['path']
+                font = output.parent / 'font.ttc'; font.write_bytes(b'test-only font fixture')
+                bundle = {'master': output.name, 'master_sha256': video['sha256'],
+                          'manifest': [{'sha256': video['sha256']}]}
+                if not legacy:
+                    bundle['fonts'] = [{'path': 'font.ttc', 'sha256': file_hash(font)}]
+                save(output.parent / 'edit_bundle.json', bundle)
+                with self.assertRaisesRegex(ValueError, '字体授权'):
+                    validate_commercial_evidence(self.root, evidence)
+                item = dict(video, path=font.relative_to(self.root).as_posix(), sha256=file_hash(font))
+                wrong = deepcopy(evidence); wrong['categories']['image']['items'] = [item]
+                with self.assertRaisesRegex(ValueError, '字体授权'):
+                    validate_commercial_evidence(self.root, wrong)
+                evidence['categories']['font']['items'] = [item]
+                self.assertTrue(validate_commercial_evidence(self.root, evidence))
+                font.write_bytes(b'changed font fixture')
+                with self.assertRaisesRegex(ValueError, '摘要'):
+                    validate_commercial_evidence(self.root, evidence)
+
     def test_commercial_script_must_match_adopted_storyboard_source(self):
         from agent.core import file_hash
         from stage_completion_service import validate_commercial_evidence
