@@ -604,6 +604,16 @@ class BudgetPageTests(SettingsCase):
                 self.assertEqual(RequestLedger(folder).load()._find('unknown-api')['money_state'], 'reconciled')
                 seams['fields']['amount'].set('-1')
                 self.assertIsNone(seams['save']())
+                old = RequestLedger(Path(folder) / 'cloud_video/old')
+                old.settle('video:s1:v1:seconds', kind='seconds', amount=5); old.save()
+                self.assertEqual(seams['import_legacy'](), 1)
+                self.assertEqual(seams['selected'].current(), -1)
+                self.assertEqual(len(seams['selected']['values']), 2)
+                seams['selected'].current(1); seams['pick']()
+                seams['fields']['amount'].set('0.1')
+                seams['fields']['currency'].set('CNY')
+                self.assertEqual(seams['save']()['money_state'], 'reconciled')
+                self.assertEqual(seams['import_legacy'](), 0)
             finally:
                 seams['window'].destroy()
 

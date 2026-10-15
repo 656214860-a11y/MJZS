@@ -238,6 +238,85 @@ class ModelMoneyBudgetTests(unittest.TestCase):
                 'm': {'prompt_tokens': '0.01', 'completion_tokens': '0.02'}}}}), encoding='utf-8')
         return path
 
+    def test_legacy_import_groups_units_preserves_sources_and_releases_budget(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            root = Path(td)
+            ledger = RequestLedger(root)
+            for workspace in (root, root / 'cloud_video/old'):
+                old = RequestLedger(workspace)
+                old.settle('video:s1:v1:count', kind='videos', amount=1)
+                old.settle('video:s1:v1:seconds', kind='seconds', amount=5)
+                old.save()
+                save(workspace / 'data/state.json', {'shots': {'s1': [{'version': 1, 'state': 'downloaded'}]}})
+            source = request_ledger_path(root / 'cloud_video/old')
+            original = source.read_bytes()
+            self.assertEqual(ledger.import_legacy_video_costs(), 2)
+            self.assertEqual(ledger.import_legacy_video_costs(), 0)
+            self.assertEqual(source.read_bytes(), original)
+            groups = [row for row in ledger.entries if row.get('cost_only')]
+            self.assertEqual(len(groups), 2)
+            self.assertTrue(all(len(row['legacy_sources']) == 3 for row in groups))
+            self.assertEqual(ledger.report()['requests'], 2, '导入费用组不是新调用')
+            with self.assertRaisesRegex(ValueError, '未计价'):
+                ledger.authorize_model('new', 'm', 'script', 1, 1)
+            receipt = root / 'receipt.txt'; receipt.write_text('offline fixture')
+            for row in groups:
+                ledger.reconcile_cost(row['id'], row['kind'], '0.2', 'CNY', receipt, 'tester')
+            money = ledger.report({'currency': 'CNY', 'rates': {'videos': 10, 'seconds': 10}})['money']
+            self.assertEqual(money['settled_amount'], 0.4, '原用量不再重复折算费用')
+            ledger.authorize_model('new', 'm', 'script', 1, 1)
+            self.assertEqual(ledger.model_costs()['CNY']['reconciled_spent'], '0.4')
+            original_row = ledger._find('video:s1:v1:count')
+            with self.assertRaisesRegex(ValueError, '已合并'):
+                ledger.reconcile_cost(original_row['id'], 'videos', '0', 'CNY', receipt, 'tester')
+
+    def test_legacy_changed_source_invalidates_amount_and_preserves_audit(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            self.policy(td)
+            path = Path(td) / 'cloud_video/old/data/state.json'
+            state = {'shots': {'s1': [{'version': 1, 'state': 'downloaded', 'seconds': 5}]}}
+            save(path, state)
+            ledger = RequestLedger(td)
+            ledger.import_legacy_video_costs()
+            gid = ledger.entries[0]['id']
+            receipt = Path(td) / 'receipt.txt'; receipt.write_text('offline fixture')
+            ledger.reconcile_cost(gid, 'videos', '0.2', 'CNY', receipt, 'tester')
+            state['shots']['s1'][0]['seconds'] = 6; save(path, state)
+            with self.assertRaisesRegex(ValueError, '来源已变化'):
+                ledger.authorize_model('new', 'm', 'script', 1, 1)
+            with self.assertRaisesRegex(ValueError, '来源已变化'):
+                ledger.reconcile_cost(gid, 'videos', '0.2', 'CNY', receipt, 'tester')
+            self.assertEqual(ledger.import_legacy_video_costs(), 1)
+            row = ledger._find(gid)
+            self.assertIsNone(row['budget_cost'])
+            self.assertEqual(row['legacy_changes'][0]['budget_cost'], '0.2')
+            ledger.reconcile_cost(gid, 'videos', '0.2', 'CNY', receipt, 'tester')
+            self.assertEqual(len(ledger._find(gid)['cost_reconciliations']), 2)
+            self.assertNotEqual(*[audit['legacy_digest'] for audit in ledger._find(gid)['cost_reconciliations']])
+            ledger.authorize_model('new', 'm', 'script', 1, 1)
+
+    def test_legacy_pending_and_corrupt_sources_cannot_be_confirmed_or_partly_imported(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            save(root / 'cloud_video/a/data/state.json', {'shots': {'s1': [{'state': 'running'}]}})
+            ledger = RequestLedger(root)
+            ledger.import_legacy_video_costs()
+            receipt = root / 'receipt.txt'; receipt.write_text('offline fixture')
+            with self.assertRaisesRegex(ValueError, '进行中'):
+                ledger.reconcile_cost(ledger.entries[0]['id'], 'videos', '0', 'CNY', receipt, 'tester')
+            save(root / 'cloud_video/a/data/state.json', {'shots': {'s1': [{'state': 'downloaded'}]}})
+            self.assertEqual(ledger.import_legacy_video_costs(), 1)
+            ledger.reconcile_cost(ledger.entries[0]['id'], 'videos', '0', 'CNY', receipt, 'tester')
+            before = request_ledger_path(root).read_bytes()
+            save(root / 'cloud_video/b/data/state.json', {'shots': []})
+            with self.assertRaisesRegex(ValueError, '损坏'):
+                ledger.import_legacy_video_costs()
+            self.assertEqual(request_ledger_path(root).read_bytes(), before)
+
     def test_async_duplicate_receipt_is_counted_once_and_success_not_downgraded(self):
         with tempfile.TemporaryDirectory() as td:
             path = self.policy(td, '10')

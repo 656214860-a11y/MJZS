@@ -262,11 +262,15 @@ def cost_reconciliation_dialog(parent, project):
     from pet_llm import RequestLedger
     from tkinter import filedialog
     ledger = RequestLedger(project).load()
-    rows = [row for row in ledger.entries if row.get('state') in ('unknown', 'settled', 'cancelled')]
+    def eligible():
+        return [row for row in ledger.entries if row.get('state') in ('unknown', 'settled', 'cancelled') and not row.get('cost_group')]
+    rows = eligible()
     win = BaseDialog(parent, '费用核对', modal=False)
     body = ttk.Frame(win); body.pack(fill='both', expand=True, padx=16, pady=16)
     ttk.Label(body, text='请填写本笔请求的最终账单金额；0 表示已确认无费用。\n凭据只保存在本机，不会上传。核对不会重发或取消制作任务。').pack(anchor='w')
-    choices = [f"{row.get('id')} / {row.get('kind')} / {row.get('model', '模型未记录')}" for row in rows]
+    def labels():
+        return [f"{row.get('legacy_label', row.get('id'))} / {row.get('kind')} / {row.get('model', '模型未记录')}" for row in rows]
+    choices = labels()
     selected = ttk.Combobox(body, values=choices, state='readonly', width=75)
     selected.pack(fill='x', pady=8)
     fields = {}
@@ -298,11 +302,24 @@ def cost_reconciliation_dialog(parent, project):
         rows[selected.current()] = result
         hint.set('已核对：%s %s；已保留凭据摘要和修订记录。' % (result['budget_cost'], result['currency']))
         return result
+    def import_legacy():
+        try:
+            count = ledger.import_legacy_video_costs()
+        except (ValueError, OSError) as exc:
+            hint.set(str(exc)); return None
+        rows[:] = eligible()
+        selected.configure(values=labels())
+        selected.set('')
+        fields['amount'].set('')
+        hint.set('已导入或更新 %d 笔旧视频费用；金额保持未知，请逐笔核对。进行中任务需先查询最终结果，再重新导入。' % count)
+        return count
     selected.bind('<<ComboboxSelected>>', pick)
+    SecondaryButton(body, text='导入旧视频账目', command=import_legacy).pack(anchor='w', pady=8)
     SecondaryButton(body, text='选择凭据', command=browse).pack(anchor='w', pady=8)
     PrimaryButton(body, text='保存核对结果', command=save_cost).pack(anchor='w')
     ttk.Label(body, textvariable=hint, wraplength=650).pack(anchor='w', pady=8)
-    return {'window': win, 'fields': fields, 'selected': selected, 'pick': pick, 'save': save_cost, 'hint': hint}
+    return {'window': win, 'fields': fields, 'selected': selected, 'pick': pick, 'save': save_cost, 'hint': hint,
+            'import_legacy': import_legacy}
 
 
 def budget_page(frame, pet):

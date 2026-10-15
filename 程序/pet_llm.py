@@ -655,6 +655,8 @@ class RequestLedger:
                  for kind in REQUEST_KINDS}
         unknown, duplicates, cancelled = [], [], []
         for entry in self.entries:
+            if entry.get('cost_only'):
+                continue
             kind = entry.get('kind')
             bucket = kinds.setdefault(kind, {'settled': 0.0, 'reserved': 0.0, 'unknown': 0, 'count': 0})
             state = entry.get('state')
@@ -694,7 +696,7 @@ class RequestLedger:
 
     def priced_models(self, price_table, currency):
         legacy = RequestLedger()
-        legacy.entries = [row for row in self.entries if 'money_state' not in row]
+        legacy.entries = [row for row in self.entries if 'money_state' not in row and not row.get('cost_group')]
         money = legacy.report(price_table, currency)['money']
         spent, held = self.decimal(money['settled_amount']), self.decimal(money['reserved_amount'])
         versions = set()
@@ -830,21 +832,41 @@ class RequestLedger:
         return self.authorize_units(request_id, model, stage, 'tokens',
                                     {'prompt_tokens': input_estimate, 'completion_tokens': output_limit})
 
-    def check_legacy_video_costs(self, request_id):
-        """旧会话账目未汇总前，不能把项目余额当成完整预算。只读，不猜测历史费用。"""
+    def legacy_video_costs(self, request_id=''):
+        """只读归组旧视频来源；只保存摘要，不复制提示词、配置或私有任务内容。"""
+        groups = {}
         if self.project is None:
-            return
+            return groups
         from agent.core import read
+        def fingerprint(value):
+            return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest()
+        def add(workspace, key, source, value, *, pending=False, root_row=None):
+            relative = workspace.relative_to(self.project).as_posix()
+            gid = 'legacy-cost:' + fingerprint([relative, key])
+            group = groups.setdefault(gid, {'label': relative + ' / ' + key, 'sources': [], 'pending': False, 'root_rows': []})
+            group['sources'].append({'source': source, 'sha256': fingerprint(value)})
+            group['pending'] |= pending
+            if root_row is not None:
+                group['root_rows'].append(root_row)
         workspaces = [self.project]
         cloud = self.project / 'cloud_video'
         if cloud.exists():
-            workspaces.extend(path for path in cloud.iterdir() if path.is_dir())
+            workspaces.extend(sorted(path for path in cloud.iterdir() if path.is_dir()))
         for workspace in workspaces:
-            if workspace != self.project:
-                legacy = RequestLedger(workspace).load()
-                for row in legacy.entries:
-                    if row.get('state') != 'duplicate' and self._find(row.get('id'), row.get('kind')) is None:
-                        raise ValueError('旧视频会话费用尚未纳入项目总账，请先核对：' + workspace.name)
+            legacy = self if workspace == self.project else RequestLedger(workspace).load()
+            for row in legacy.entries:
+                rid = str(row.get('id') or '')
+                if row.get('state') == 'duplicate' or row.get('cost_only'):
+                    continue
+                if workspace == self.project and ('money_state' in row or not rid.startswith('video:')):
+                    continue
+                accounted = self._find(rid, row.get('kind'))
+                if workspace != self.project and accounted and 'money_state' in accounted and not accounted.get('cost_only'):
+                    continue
+                key = rid.rsplit(':', 1)[0] if rid.startswith('video:') and rid.endswith((':count', ':seconds')) else rid
+                add(workspace, key, 'ledger:' + rid + ':' + str(row.get('kind')),
+                    {k: v for k, v in row.items() if k != 'cost_group'},
+                    pending=row.get('state') == 'reserved', root_row=row if workspace == self.project else None)
             path = workspace / 'data' / 'state.json'
             if not path.exists():
                 continue
@@ -852,16 +874,54 @@ class RequestLedger:
             shots = state.get('shots') if isinstance(state, dict) else None
             if not isinstance(shots, dict) or any(not isinstance(vs, list) for vs in shots.values()):
                 raise ValueError('旧视频任务状态损坏，无法核对历史费用：' + workspace.name)
-            for versions in shots.values():
-                for version in versions:
+            for sid, versions in shots.items():
+                for index, version in enumerate(versions, 1):
                     if not isinstance(version, dict):
                         raise ValueError('旧视频任务记录损坏，无法核对历史费用')
                     if version.get('not_submitted') is True:
                         continue
                     rid = version.get('money_request_id') or 'video:' + str(version.get('local_request', ''))
-                    if rid == request_id or self._find(rid) is not None:
+                    accounted = self._find(rid)
+                    if rid == request_id or (accounted and 'money_state' in accounted and not accounted.get('cost_only')):
                         continue
-                    raise ValueError('旧视频任务费用尚未纳入项目总账，请先核对：' + workspace.name)
+                    key = f"video:{sid}:v{version.get('version', index)}"
+                    add(workspace, key, 'task:' + key, version,
+                        pending=version.get('state') in ('submitting', 'queued', 'running'))
+        for group in groups.values():
+            group['sources'].sort(key=lambda source: (source['source'], source['sha256']))
+            group['digest'] = fingerprint(group['sources'])
+        return groups
+
+    def check_legacy_video_costs(self, request_id):
+        for gid, group in self.legacy_video_costs(request_id).items():
+            entry = self._find(gid)
+            if entry is None or entry.get('legacy_digest') != group['digest']:
+                label = '旧视频任务费用' if any(s['source'].startswith('task:') for s in group['sources']) else '旧视频会话费用'
+                raise ValueError(label + '尚未纳入项目总账或来源已变化，请导入后核对：' + group['label'])
+
+    def import_legacy_video_costs(self):
+        """显式导入未知费用；源会话不修改，来源变化使原金额失效并保留审计。"""
+        changed = 0
+        with self.transaction():
+            groups = self.legacy_video_costs()
+            for gid, group in groups.items():
+                entry = self._find(gid)
+                if entry is not None and entry.get('legacy_digest') == group['digest']:
+                    continue
+                if entry is None:
+                    entry = self.reserve(gid, 'videos', 0)
+                    entry.update(cost_only=True, stage='legacy-video')
+                else:
+                    entry.setdefault('legacy_changes', []).append({
+                        'at': self.clock(), 'digest': entry.get('legacy_digest'),
+                        'budget_cost': entry.get('budget_cost'), 'money_state': entry.get('money_state')})
+                entry.update(legacy_digest=group['digest'], legacy_sources=group['sources'],
+                             legacy_label=group['label'], money_state='unknown', budget_cost=None,
+                             state='reserved' if group['pending'] else 'unknown', mode='unknown')
+                for row in group['root_rows']:
+                    row['cost_group'] = gid
+                changed += 1
+        return changed
 
     def authorize_units(self, request_id, model, stage, kind, quantities, *, amount=None):
         """所有模型共用金额上限；按明确计费单位冻结预留。"""
@@ -898,7 +958,7 @@ class RequestLedger:
                     raise ValueError('金额预算需要模型费率、币种和价格表版本，请先配置')
                 used = self.decimal(0)
                 for row in self.entries:
-                    if row.get('state') == 'duplicate':
+                    if row.get('state') == 'duplicate' or row.get('cost_group'):
                         continue
                     money = row.get('budget_cost')
                     if money is None or row.get('currency') != table['currency']:
@@ -984,16 +1044,24 @@ class RequestLedger:
             entry = self._find(request_id, kind)
             if entry is None or entry.get('state') not in ('unknown', 'settled', 'cancelled'):
                 raise ValueError('只能核对已结算、未知或已取消请求，进行中请求请先查询最终结果')
+            if entry.get('cost_group'):
+                raise ValueError('该用量已合并，请核对对应的旧视频费用组')
+            if entry.get('cost_only'):
+                current = self.legacy_video_costs().get(request_id)
+                if current is None or current['digest'] != entry.get('legacy_digest'):
+                    raise ValueError('旧视频来源已变化，请重新导入后核对')
             if entry.get('currency') and str(entry['currency']).upper() != currency:
                 raise ValueError('币种与原请求不一致，不能直接覆盖或自动换汇')
             currency = entry.get('currency') or currency
             audit = {'amount': str(amount), 'currency': currency, 'reviewer': reviewer,
                      'evidence_path': str(path.resolve()), 'evidence_sha256': digest.hexdigest(),
                      'previous_amount': entry.get('budget_cost'), 'previous_money_state': entry.get('money_state')}
+            if entry.get('legacy_digest'):
+                audit['legacy_digest'] = entry['legacy_digest']
             history = entry.setdefault('cost_reconciliations', [])
             if not isinstance(history, list) or any(not isinstance(item, dict) for item in history):
                 raise ValueError('费用核对记录损坏，请先恢复台账')
-            if history and all(history[-1].get(key) == audit[key] for key in
+            if entry.get('money_state') == 'reconciled' and history and all(history[-1].get(key) == audit[key] for key in
                                ('amount', 'currency', 'reviewer', 'evidence_path', 'evidence_sha256')):
                 return dict(entry)
             audit['at'] = self.clock()
