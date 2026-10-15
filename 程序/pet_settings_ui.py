@@ -20,6 +20,7 @@ import environment_check
 import skill_budget
 import usage_overview
 import token_saver
+from app_metadata import APP_NAME
 from pet_settings_contract import TABS, LEVEL_NOTES
 from ui_tokens import FONTS, SPACING
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea
@@ -39,7 +40,7 @@ NOTE_BUDGET = ('硬限制：Token 按天算，其余按项目累计。越线即�
 NAME_NOTE = '名字按规格定死：界面、通知、日志、气泡一律用「三虎」。'
 # 第 47 期第 8 条：开发信息那一格——版本、开发者与联系方式在界面里只写这一份。
 DEV_TITLE = '开发信息'
-APP_TITLE = '漫剧制作助手'
+APP_TITLE = APP_NAME
 DEVELOPER_NAME = 'Bill Lai'
 DEVELOPER_MAIL = '2748350153@qq.com'
 NOTE_DEV = ('这一格是出身说明：应用叫什么、这一版是第几版、谁做的、怎么联系。'

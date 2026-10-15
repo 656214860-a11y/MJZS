@@ -23,7 +23,7 @@
 
 ## 1. 项目速览
 
-- 产品：Windows 桌面应用「漫剧制作助手」
+- 产品：Windows 桌面应用「漫剧助手」
 - 技术栈：Python + Tkinter，零第三方依赖
 - 解释器：`D:\漫剧制作助手\运行环境\Python\python.exe`（不使用全局 Python）
 - 工作流：13 个制作阶段（初步分镜之后为 Animatic 分镜预演）

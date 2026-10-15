@@ -778,19 +778,24 @@ class DesktopGearSeamTests(unittest.TestCase):
     def test_the_gear_sits_next_to_the_title_without_a_sidebar_version_label(self):
         win, desktop = self.build()
         try:
-            self.assertEqual(win.title(), '漫剧制作助手 · V0.7')
+            self.assertEqual(win.title(), __import__('app_metadata').APP_NAME + ' · V0.7')
             row = desktop.sidebar_head
             texts = [str(child.cget('text')) for child in row.winfo_children()
                      if 'text' in child.keys()]
-            self.assertIn('漫剧制作助手', texts)
+            self.assertIn(__import__('app_metadata').APP_NAME, texts)
             self.assertNotIn('V0.7', texts, '侧栏不再重复显示版本号')
             gear = desktop.pet.gear
             self.assertIsNotNone(gear)
             self.assertEqual(str(gear.canvas.winfo_parent()), str(win),
                              '真 Desktop 的齿轮直接挂在主窗口根层，不受侧栏裁剪')
             info = gear.canvas.place_info()
-            self.assertEqual(info['x'], '138', '齿轮贴近标题右缘且保留可辨识间距')
-            self.assertEqual(info['y'], '11', '齿轮下移后与应用标题的文字中线对齐，且仍在下方文案之上')
+            win.update_idletasks()
+            desktop.align_header()
+            info = gear.canvas.place_info()
+            title = desktop.app_title
+            from ui_tokens import DESKTOP_LAYOUT
+            self.assertEqual(int(info['x']), title.winfo_rootx()-win.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap'])
+            self.assertAlmostEqual(int(info['y'])+gear.canvas.winfo_reqheight(), title.winfo_rooty()-win.winfo_rooty()+title.winfo_height(), delta=2)
             self.assertEqual(gear.tip_text, '设置')
         finally:
             win.destroy()

@@ -27,11 +27,11 @@ from platform_tools import find_editor_shortcut, launch_windows_app, open_direct
 from desktop_startup_service import DesktopStartupController
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler
 from idea_chat_controller import IdeaChatController, bubble_timestamp, collapse_preview, speaker_name
-from ui_tokens import COLORS, FONTS, SPACING, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
+from ui_tokens import COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
 from ui_widgets import (SelectBox, BaseDialog, FormDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
-                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, ask_confirmation, setup_styles)
+                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, TreeRowTooltip, EllipsisLabel, ask_confirmation, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
 LOGGER=logging.getLogger(__name__)
@@ -275,7 +275,7 @@ UNATTENDED_SWITCH={'auto_adopt':'set_auto_adopt','auto_asset':'set_auto_asset','
                    'auto_edit':'set_auto_edit','auto_handoff':'set_auto_handoff'}
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
-from app_metadata import VERSION
+from app_metadata import APP_NAME, VERSION
 
 class Desktop:
     def __init__(self,win,root=ROOT):
@@ -289,16 +289,16 @@ class Desktop:
         win._desktop_loading_project=False
         self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self._cloud_monitor_ticket=0;self.cloud_monitor_tasks=BackgroundTaskLifecycle();self.cloud_monitor_result=queue.Queue()
         self.settings_file=self.app/'desktop_settings.json';self.settings=read(self.settings_file) if self.settings_file.exists() else {'comfy_url':'http://127.0.0.1:8189','jianying':''}
-        win.title('漫剧制作助手 · '+VERSION);win.state('normal')
+        win.title(APP_NAME+' · '+VERSION);win.state('normal')
         win.geometry('%dx%d'%(min(1360,win.winfo_screenwidth()-80),min(900,win.winfo_screenheight()-100)))
         # 第 19 期：安装后的图标（三虎）——主窗口标题栏／任务栏都用它，拿不到就照旧用 Tk 默认图标。
         try:
             import app_icon;app_icon.apply(win)
         except Exception:pass
-        win.minsize(940,640);apply_theme(win);setup_styles(win);install_window_placement(win)
+        win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);setup_styles(win);install_window_placement(win)
         # 左侧阶段导航从 230px 缩至约三分之二，正文阅读区在小窗口也能保留空间。
-        sidebar_area=ttk.Frame(win,width=154);sidebar_area.pack(side='left',fill='y');sidebar_area.pack_propagate(False)
-        side=ttk.Frame(sidebar_area,padding=(6,6));self.sidebar=side
+        sidebar_area=ttk.Frame(win,width=DESKTOP_LAYOUT['sidebar_width']);sidebar_area.pack(side='left',fill='y');sidebar_area.pack_propagate(False)
+        side=ttk.Frame(sidebar_area,padding=DESKTOP_LAYOUT['sidebar_padding']);self.sidebar=side
         side.pack(fill='both',expand=True);side.grid_propagate(False)
         # 左上角只保留应用名；设置齿轮由 pet_ui 放在相邻的根层安全位。
         self.sidebar_head=ttk.Frame(side)
@@ -307,17 +307,19 @@ class Desktop:
         # 「V0.7 与齿轮」那一行下面），并且标签行不再参与纵向拉伸。
         ttk.Label(self.sidebar_head,text='✦  把灵感画成故事',style='Muted.TLabel',
                   font=('Microsoft YaHei UI',9)).pack(side='bottom',anchor='w',pady=(8,2))
-        ttk.Label(self.sidebar_head,text='漫剧制作助手',font=('Microsoft YaHei UI',16,'bold')).pack(side='left',pady=(2,4))
+        self.app_title=ttk.Label(self.sidebar_head,text=APP_NAME,font=('Microsoft YaHei UI',16,'bold'))
+        self.app_title.pack(side='left',pady=(2,4))
         self.sidebar_head.pack(fill='x',anchor='w')
         # 设置齿轮直接落在主窗口根层，避免侧栏或页面画布在窄窗口时裁掉入口；
-        # 紧贴标题右缘的安全位：22px 齿轮下移 3px，与 16px 标题的文字中线对齐，
-        # 同时仍在下方文案之上。
+        # 实际文字尺寸决定齿轮位置；字号或显示名改变时不留旧名称的空洞。
         self.settings_gear_layer=win
-        self.settings_gear_position=(138,11)
+        self.settings_gear_position=(0,0)
         ttk.Label(side,text='我的项目').pack(anchor='w',pady=(8,0))
         self.list=ttk.Treeview(side,show='tree',height=3,selectmode='browse',style='Project.Treeview');self.list.column('#0',width=136,minwidth=96,stretch=True);self.list.pack(fill='x',pady=SPACING['xs'])
         self.list.bind('<<TreeviewSelect>>',self.switch);self.list.bind('<Button-3>',self.project_menu)
-        self.button(side,'+ 新建项目',self.new);self.button(side,'打开项目目录',self.open_current_project)
+        self.project_tip=TreeRowTooltip(self.list,lambda item:self.list.item(item,'text'))
+        self.project_buttons=(self.button(side,'+ 新建项目',self.new),self.button(side,'打开项目目录',self.open_current_project))
+        for button in self.project_buttons:button.configure(style='ProjectAction.TButton')
         ttk.Separator(side).pack(fill='x',pady=SPACING['sm'])
         self.nav=[]
         self.asset_list_button=None
@@ -332,22 +334,22 @@ class Desktop:
                 sub=SecondaryButton(side,text='资产清单',command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
                 sub.pack(anchor='w',fill='x',pady=(0,2))
                 self.asset_list_button=sub
-        # 每一行分一份可用高度：项目列表与导航按钮按权重摊，头部与「我的项目」那两行贴顶不摊
-        # （第 50 期第 2 条），最后一步「12 参考网站」始终留在可视区，不靠侧栏滚动条。
+        # 按钮只占文字所需高度，所有剩余空间交给项目列表。
         side.columnconfigure(0,weight=1)
         for row,child in enumerate(side.winfo_children()):
             child.pack_forget()
             separator=isinstance(child,ttk.Separator)
-            # 第 50 期第 2 条：头部与「我的项目」这两行不拉伸（原来各占一份权重，被撑开后
-            # 那几个字浮在空行中间）；空出来的高度都给下面的项目列表与导航按钮。
-            hug=child is self.sidebar_head or isinstance(child,ttk.Label) or child is self.asset_list_button
-            side.rowconfigure(row,weight=0 if separator or hug else (3 if child is self.list else 1),minsize=4 if separator else 0)
-            child.grid(row=row,column=0,sticky='ew' if isinstance(child,ttk.Label) or separator else 'nsew',pady=1)
+            side.rowconfigure(row,weight=1 if child is self.list else 0,minsize=SPACING['xs'] if separator else 0)
+            child.grid(row=row,column=0,sticky='ew' if isinstance(child,ttk.Label) or separator else 'nsew',pady=DESKTOP_LAYOUT['row_gap'])
         self.sidebar_size=None
         side.bind('<Configure>',self.fit_sidebar)
-        self.body=ttk.Frame(win,padding=14);self.body.pack(side='left',fill='both',expand=True)
-        self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x',pady=(0,10))
-        self.title=ttk.Label(self.title_row,font=('Microsoft YaHei UI',18,'bold'));self.title.pack(side='left')
+        self.body=ttk.Frame(win,padding=DESKTOP_LAYOUT['body_padding']);self.body.pack(side='left',fill='both',expand=True)
+        self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
+        self.pet_layer=self.title_row
+        self.title=ttk.Label(self.title_row,font=('Microsoft YaHei UI',18,'bold'));self.title.pack(side='left',anchor='n',padx=(DESKTOP_LAYOUT['title_inset'],0))
+        self.app_title.bind('<Configure>',self.align_header,add='+')
+        self.list.bind('<Configure>',self.fit_sidebar,add='+')
+        self.title_row.bind('<Configure>',self.align_header,add='+')
         self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(12,0))
         self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=('Microsoft YaHei UI',8),anchor='e');self.header_model.pack(side='bottom',fill='x')
         self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=('Microsoft YaHei UI',8),anchor='e',justify='right');self.header_status.pack(side='top',fill='x')
@@ -377,13 +379,13 @@ class Desktop:
         # 最小化恢复时 Windows 可能先交付一枚滚轮事件，随后才派发画布的新尺寸。
         # 重新映射后沿用既有的合并空闲布局，确保滚动区域已按恢复后的可视高度计算。
         win.bind('<Map>',self.on_window_map,add='+')
-        self.progress=ttk.Progressbar(self.body,mode='indeterminate');self.progress.pack(fill='x',pady=(8,0))
+        self.progress=ttk.Progressbar(self.body,mode='determinate');self.progress.pack(fill='x',pady=(8,0))
         # 全部阶段只保留一条绿色信息栏：操作说明与动态状态汇总在这里。
         self.status=tk.StringVar(value='就绪 · 所有项目共用一份程序')
         self.notifier=NotificationDispatcher(self.status, parent=win)
         self.file_dialog=FileDialog(win, notifier=self.notifier)
         self.shortcuts=ShortcutRegistry()
-        self.busy_state=BusyState(self.status, self.progress)
+        self.busy_state=BusyState(self.status, self.progress, idle_determinate=True)
         # ui_theme 的窗口定位失败只做恢复，不另建反馈链；状态栏建好后把
         # 既有可见提示入口交给根窗口。
         win._drama_place_notice=self.status.set
@@ -555,16 +557,42 @@ class Desktop:
         self.auto_handoff_signature=None
         self.auto_handoff_error=''
     def fit_sidebar(self,event=None):
-        compact=self.sidebar.winfo_height()<690
-        if self.sidebar_size==compact:return
-        self.sidebar_size=compact
+        compact=self.sidebar.winfo_height()<DESKTOP_LAYOUT['compact_below']
         style=ttk.Style(self.win)
         font=('Microsoft YaHei UI',9 if compact else 10)
-        for name in ('Compact.TButton','Nav.TButton','Selected.Nav.TButton'):
-            style.configure(name,font=font,padding=(10,1 if compact else 4))
-        for name in ('Sub.Nav.TButton','Selected.Sub.Nav.TButton'):
-            style.configure(name,font=font,padding=(26,1 if compact else 4))
-        style.configure('Project.Treeview',font=font,rowheight=20 if compact else 24)
+        row_height=20 if compact else 24
+        if self.sidebar_size!=compact:
+            self.sidebar_size=compact
+            for name in ('Compact.TButton','Nav.TButton','Selected.Nav.TButton'):
+                style.configure(name,font=font,padding=(10,1 if compact else 4))
+            for name in ('Sub.Nav.TButton','Selected.Sub.Nav.TButton'):
+                style.configure(name,font=font,padding=(26,1 if compact else 4))
+            style.configure('ProjectAction.TButton',font=font,padding=DESKTOP_LAYOUT['project_button_padding'])
+            style.configure('Project.Treeview',font=font,rowheight=row_height)
+        # 由可用像素反算最大整行数；不以 Treeview 上一次请求高度作为下一次预算。
+        gap=DESKTOP_LAYOUT['row_gap']*2
+        fixed=DESKTOP_LAYOUT['sidebar_padding']*2
+        for child in self.sidebar.winfo_children():
+            fixed+=gap
+            if child is not self.list:
+                fixed+=max(child.winfo_reqheight(),SPACING['xs'] if isinstance(child,ttk.Separator) else 0)
+        chrome=max(0,self.list.winfo_reqheight()-int(self.list.cget('height'))*row_height)
+        rows=max(DESKTOP_LAYOUT['project_min_rows'],(self.sidebar.winfo_height()-fixed-chrome)//row_height)
+        if int(self.list.cget('height'))!=rows:self.list.configure(height=rows)
+        self.align_header()
+    def align_header(self,event=None):
+        """用真实控件边界对齐齿轮与聊天顶边，不参与页面业务或读盘。"""
+        if not hasattr(self,'title_row'):return
+        title=self.app_title
+        gear=getattr(getattr(self,'pet',None),'gear',None)
+        if gear is not None:
+            canvas=gear.canvas
+            x=title.winfo_rootx()-self.win.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap']
+            y=title.winfo_rooty()-self.win.winfo_rooty()+title.winfo_height()-canvas.winfo_reqheight()
+            self.settings_gear_position=(x,y)
+            canvas.place_configure(x=x,y=y)
+        height=max(self.title.winfo_reqheight(),self.list.winfo_rooty()-self.title_row.winfo_rooty())
+        if int(self.title_row.cget('height'))!=height:self.title_row.configure(height=height)
     def fit_content(self,event=None):
         # 迟到的请求不能丢：内容框行数变化常发生在一次重算过程中，若不补算一次，
         # 页面滚动区域会停留在旧高度，底部按钮就可能被滚出可视区。
@@ -582,6 +610,17 @@ class Desktop:
                 self._fit_again=False
                 self.fit_content()
                 return
+            # Canvas 固定内容高度后，子控件请求高度变化不再触发内容框 Configure。
+            # 沿现有空闲队列等请求尺寸逐层传播；最多补八轮，避免异常布局反复排队。
+            signature=getattr(self,'_fit_request_signature',layout_key)
+            changed=signature!=getattr(self,'_last_fit_request_signature',None)
+            self._last_fit_request_signature=signature
+            passes=getattr(self,'_fit_stability_passes',0)
+            if changed and passes<8:
+                self._fit_stability_passes=passes+1
+                self.fit_content()
+                return
+            self._fit_stability_passes=0
             pending_scroll=getattr(self,'_pending_scroll_restore',None)
             if pending_scroll is not None:
                 if getattr(self,'_pending_scroll_layout',None)!=layout_key:
@@ -610,14 +649,19 @@ class Desktop:
         # 页面重建（切换分镜、刷新列表）会产生新控件，必须每次重新补挂滚轮标签：
         # 漏挂标签时滚轮会落到控件自身的绑定上，只读下拉框会直接换选项并重建整页，
         # 表现出来就是「滚轮滑过下拉框，文件被切换，内容抖动」。
+        requests=[]
         def resize(widget):
             for child in widget.winfo_children():
                 tags=child.bindtags()
                 if 'DramaPageWheel' not in tags:child.bindtags(('DramaPageWheel',)+tags)
                 if resized and isinstance(child,ttk.Label) and not getattr(child,'local_wrap',False) and int(child.cget('wraplength') or 0)>0:
                     child.configure(wraplength=max(200,width-28))
+                requests.append((str(child),child.winfo_reqwidth(),child.winfo_reqheight()))
                 resize(child)
         resize(self.content)
+        if self.page_index==PAGE['script'] and hasattr(self,'_fit_talk'):
+            self._fit_talk()
+        self._fit_request_signature=(width,req,target,tuple(requests))
         return (width,req,target)
     def wheel_steps(self,event):
         delta=getattr(event,'delta',0)
@@ -1455,15 +1499,15 @@ class Desktop:
             if not alive():return
             usage_label = getattr(self, 'idea_usage_label', None)
             if usage_label is not None and usage_label.winfo_exists():
-                usage_label.configure(text=idea_chat.usage_summary(rows))
+                usage_label.set_text(idea_chat.usage_summary(rows))
                 tip = getattr(self, 'idea_usage_tip', None)
-                if tip is not None:tip.text = usage_label.cget('text')
+                if tip is not None:tip.text = usage_label.full_text
             session_label = getattr(self, 'idea_session_label', None)
             if session_label is not None and session_label.winfo_exists():
                 from writing_api import chat_session_summary
-                session_label.configure(text=chat_session_summary(self.root, model) if self.root else '')
+                session_label.set_text(chat_session_summary(self.root, model) if self.root else '')
                 tip = getattr(self, 'idea_session_tip', None)
-                if tip is not None:tip.text = session_label.cget('text')
+                if tip is not None:tip.text = session_label.full_text
             thinking=getattr(self,'_thinking_model','')
             if thinking and self.bubble_view_key(thinking) == self.bubble_view_key(self.displayed_chat_model()):
                 name='bubble_thinking'
@@ -3762,7 +3806,8 @@ class Desktop:
         tree.delete(*tree.get_children())
         for state,label in [('making','在制作项目'),('completed','已完成项目')]:
             items=[p for p in self.projects.info['projects'] if p.get('status','making')==state]
-            tree.insert('','end',iid='group:'+state,text=f'{label}（{len(items)}）',open=True)
+            tree.tag_configure('empty-group',foreground=COLORS['text_muted'])
+            tree.insert('','end',iid='group:'+state,text=f'{label}（{len(items)}）',open=bool(items),tags=() if items else ('empty-group',))
             for p in sorted(items,key=lambda item:item.get('created_at',Path(item['path']).stat().st_ctime if Path(item['path']).exists() else 0)):
                 tree.insert('group:'+state,'end',iid=p['path'],text=self.project_row_text(p))
     def project_row_text(self,p):
@@ -3779,7 +3824,7 @@ class Desktop:
         for tree in trees:
             for p in (getattr(self.projects,'info',None) or {}).get('projects',[]):
                 if tree.exists(p['path']):tree.item(p['path'],text=self.project_row_text(p))
-        title='漫剧制作助手 · '+VERSION
+        title=APP_NAME+' · '+VERSION
         if self.root is not None:
             from script_contract import project_name
             title+=' · 当前项目：'+project_name(self.root)
@@ -4134,7 +4179,7 @@ class Desktop:
             try:self.load(remembered,defer_page=startup);return
             except (ValueError,OSError):
                 self.status.set('今天选定的项目已不可用，请选择其他项目或导入新剧本')
-        popup=BaseDialog(self.win,'选择项目 · 漫剧制作助手',geometry='640x480',minsize=(500,380),modal=False,chrome=False);popup.attributes('-alpha',0)
+        popup=BaseDialog(self.win,'选择项目 · '+APP_NAME,geometry='640x480',minsize=(500,380),modal=False,chrome=False);popup.attributes('-alpha',0)
         ttk.Label(popup,text='今天继续哪个故事？',font=('Microsoft YaHei UI',17,'bold')).pack(anchor='w',padx=22,pady=(22,8))
         ttk.Label(popup,text='选择项目后点击进入，或双击项目名称。',style='Muted.TLabel').pack(anchor='w',padx=22,pady=(0,12))
         missing_notice='项目目录不存在或已被移动，不能进入项目。可“重新查找项目”；选择清除时只清除登记，不动磁盘。'
@@ -4612,13 +4657,15 @@ class Desktop:
         # 用量与会话说明合成页面最底部的单行状态栏：不换行、放不下就截断，悬停看全文，
         # 不再夹在提示与输入框之间把聊天区往上挤。
         status_row=ttk.Frame(talk);status_row.pack(side='bottom',fill='x',pady=SPACING['none'])
-        self.idea_usage_label = ttk.Label(status_row, text='本模型暂无用量记录', style='Muted.TLabel')
-        self.idea_usage_label.pack(side='left')
-        self.idea_usage_tip = Tooltip(self.idea_usage_label, '本模型暂无用量记录')
-        ttk.Label(status_row, text=' · ', style='Muted.TLabel').pack(side='left')
-        self.idea_session_label = ttk.Label(status_row, text='', style='Muted.TLabel')
-        self.idea_session_label.pack(side='left', fill='x', expand=True)
-        self.idea_session_tip = Tooltip(self.idea_session_label, '')
+        status_row.columnconfigure(0,weight=1,uniform='status-summary')
+        status_row.columnconfigure(2,weight=2,uniform='status-summary')
+        self.idea_usage_label = EllipsisLabel(status_row, text='本模型暂无用量记录', style='Muted.TLabel')
+        self.idea_usage_label.grid(row=0,column=0,sticky='ew')
+        self.idea_usage_tip = self.idea_usage_label.tooltip
+        ttk.Label(status_row, text=' · ', style='Muted.TLabel').grid(row=0,column=1)
+        self.idea_session_label = EllipsisLabel(status_row, text='', style='Muted.TLabel')
+        self.idea_session_label.grid(row=0,column=2,sticky='ew')
+        self.idea_session_tip = self.idea_session_label.tooltip
         foot=FlowBar(talk);foot.pack(side='bottom',fill='x',pady=SPACING['none'])
         # 输入框与操作栏保留极小缓冲带，视觉仍紧凑，同时避免鼠标落点贴边误触发送。
         composer=ttk.Frame(talk);composer.pack(side='bottom',fill='x',pady=(SPACING['none'],SPACING['xs']))
@@ -4667,8 +4714,8 @@ class Desktop:
         def update_input_hint(event=None):
             try:
                 if not self.draft_text().strip() and input_box.focus_get() is not input_box:
-                    # 静态提示只在失焦空框显示，水平居中且不向 Tk 主循环投递动画回调。
-                    input_hint.place(in_=input_box,relx=0.5,rely=0.5,anchor='center')
+                    # Text 的 inside 边界已含文字内边距，避免再次累加 padx。
+                    input_hint.place(in_=input_box,x=SPACING['none'],rely=0.5,anchor='w')
                 else:stop_input_hint()
             except tk.TclError:pass
         input_box.bind('<Destroy>',lambda event:stop_input_hint() if event.widget is input_box else None,add='+')
@@ -4824,13 +4871,17 @@ class Desktop:
         script_box.columnconfigure(0,weight=1);script_box.rowconfigure(0,weight=1)
         categories=(('setting','项目设定'),('outline','项目大纲'),('character','角色卡'),('script','项目剧本'))
         script_trees={}
+        script_row_details={}
+        self.script_file_tips={}
         for column,(category,title) in enumerate(categories):
             script_lists.columnconfigure(column,weight=1,uniform='script-files')
             table=DataTable(script_lists,columns=[('name',title,180)],show='tree headings',height=1,
                             selectmode='browse',style='Script.Treeview',auto_hide_scrollbars=True,empty_text='')
             tree=table.tree
             configure_check_column(tree)
-            tree.heading('name',text=title)
+            tree.heading('#0',anchor='center')
+            tree.heading('name',text=title,anchor='center')
+            self.script_file_tips[category]=TreeRowTooltip(tree,lambda item:script_row_details.get(item,''))
             tree.column('name',width=180,minwidth=100,stretch=True)
             table.grid(row=0,column=column,sticky='nsew',padx=(SPACING['none'],SPACING['xs']) if column < len(categories)-1 else SPACING['none'])
             script_trees[category]=tree
@@ -4838,24 +4889,24 @@ class Desktop:
         # 兼容旧的页面外部访问：script_tree 指向项目剧本这一列。
         self.script_tree=script_trees['script']
         script_tree=script_trees['setting']
-        from responsive_ui import display_lines,font_linespace,row_height_of,GROWABLE_FLOOR
+        from responsive_ui import display_lines,font_linespace
         # 状态标记放在文件名前面：列窄时被截掉的是文件名尾巴，不是[已确认]/[待确认]。
         ttk.Style(script_tree).configure('Script.Treeview',font=SCRIPT_FILE_FONT)
         fit_row_height(script_tree, style='Script.Treeview')
-        # 第 71 期任务 5：这一页「除了创意框」固定要占的高度，建页面时量一次就定下来——
-        # 每拍现算的话，创意框自己改行数会牵动下面文件框的行数，两边互相追着改，界面一直抖。
-        # 数是这么来的：两排按钮 ＋ 创意框的抬头与按钮行 ＋ 文件框的抬头与边框 ＋ 它必须
-        # 自己占下的那两行（GROWABLE_FLOOR，多出来的行由 growable_extra 扣，不占页面）。
-        talk_line=max(1,font_linespace(box,BUBBLE_FONT,fallback=19))    # 这个框一行字多高
-        box_chrome=2*int(box.cget('pady'))+2                            # 框内上下留白 ＋ 边框
-        tree_row=row_height_of(script_tree)
-        tree_chrome=max(0,script_tree.winfo_reqheight()-int(script_tree.cget('height'))*tree_row)
+        # 按当前各固定区的请求高度预留空间，避免把建页时的宽度/换行状态缓存下来。
+        # 直接加固定兄弟控件，不用父容器减聊天框：后者在 Tk 几何传播中可能跨批次。
+        talk_line=max(1,font_linespace(box,box.cget('font'),fallback=19))
+        box_chrome=2*int(box.cget('pady'))+2
         page_fixed=0
         def measure_page_fixed():
-            """在空闲布局批次量固定高度，不能为测量阻塞 Tk 消息循环。"""
             nonlocal page_fixed
-            page_fixed=max(0,self.content.winfo_reqheight()-box.winfo_reqheight()-script_tree.winfo_reqheight()
-                           +tree_chrome+GROWABLE_FLOOR*tree_row)
+            def packed_height(widget):
+                pady=widget.pack_info().get('pady',0)
+                pady=widget.tk.splitlist(pady) if isinstance(pady,(str,tuple)) else (pady,)
+                pads=[widget.winfo_pixels(value) for value in pady]
+                return widget.winfo_reqheight()+sum(pads)*(2 if len(pads)==1 else 1)
+            page_fixed=sum(packed_height(child) for child in talk.pack_slaves() if child is not dialog)
+            page_fixed+=sum(packed_height(child) for child in self.content.pack_slaves() if child is not talk)
         def fit_talk(event=None):
             """第 71 期任务 5／6：创意框摆几行＝「窗口还剩多少」「框里有多少字」「上限」三者取小。
 
@@ -4866,9 +4917,11 @@ class Desktop:
             viewport=int(self.canvas.winfo_height() or 0)
             if viewport<=1:return                      # 还没量出窗口尺寸：等下一拍
             try:
+                measure_page_fixed()
                 room=viewport-page_fixed-box_chrome
-                cap=max(TALK_MIN_LINES,min(TALK_MAX_LINES,room//talk_line))
-                lines=max(TALK_MIN_LINES,min(cap,display_lines(box,limit=cap)))
+                floor=min(TALK_MIN_LINES,max(1,room//talk_line))
+                cap=max(floor,min(TALK_MAX_LINES,room//talk_line))
+                lines=max(floor,min(cap,display_lines(box,limit=cap)))
                 if int(box.cget('height'))!=lines:
                     box.configure(height=lines)
                     # 交给已合并的空闲重排；同步递归扫描整页控件会与本次 Configure
@@ -4877,7 +4930,12 @@ class Desktop:
 
             except (tk.TclError,ValueError):pass
         self._fit_talk=fit_talk
-        talk.bind('<Configure>',fit_talk,add='+')
+        def fit_talk_container(event=None):
+            fit_talk(event)
+            # 动作栏换行或聊天请求高度变化后，容器完成几何传播才重新量画布。
+            # 即使聊天行数没变也要收敛；固定画布自身不会收到请求高度变化事件。
+            self.fit_content()
+        talk.bind('<Configure>',fit_talk_container,add='+')
         # 框自己变宽变窄也要重算：建页面那一小会儿宽度还是 1 像素，折行数虚高，
         # 等真实宽度下来按文字行数收回去（不然会一直停在最大那一档）。
         box.bind('<Configure>',fit_talk,add='+')
@@ -4953,6 +5011,7 @@ class Desktop:
                 script_load_job=None
             for tree in script_trees.values():
                 tree.delete(*tree.get_children())
+            script_row_details.clear()
             # 首批文件尚未扫描完成时也必须保留三列表的列头。此前这里先隐藏
             # ``script_box``，慢目录扫描期间“项目设定／项目大纲／项目剧本”会完全
             # 消失；空列表与加载完成后也保留标题。
@@ -4988,6 +5047,8 @@ class Desktop:
                 if not alive():return
                 rows,finished=script_loader.take_batch(24)
                 for row in rows:
+                    modified=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(row.modified_at))
+                    script_row_details[row.item_id]=row.name+'\n修改时间：'+modified
                     label=file_labels.get(str(Path(row.item_id).resolve()),file_labels.get(row.category,''))
                     script_trees[row.category].insert('', 'end', iid=row.item_id, text='',
                         image=self.win._tick_images[int(row.item_id in checked_scripts)],

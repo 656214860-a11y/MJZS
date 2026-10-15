@@ -12,6 +12,7 @@ from skip_reasons import (
 )
 import datetime, json, os, re, sys, tempfile, time, unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROGRAM = os.path.dirname(HERE)
@@ -159,6 +160,91 @@ class PetTestCase(unittest.TestCase):
 
 
 class GeometryTests(PetTestCase):
+    def show_at(self, width, height, x=20, y=20):
+        self.win.geometry(f'{width}x{height}+{x}+{y}')
+        self.win.deiconify()
+        self.win.update_idletasks()
+        self.win.update()
+
+    def test_compact_avatar_paws_and_caption_fit_both_window_sizes(self):
+        self.assertLess(pet_ui.SIZE, pet_ui.PET_LAYOUT['source_size'])
+        for width, height in ((942, 1032), (800, 600)):
+            with self.subTest(size=(width, height)):
+                self.show_at(width, height)
+                avatar, paws, caption = self.pet.canvas, self.pet.paws, self.pet.caption
+                row = self.fake.title_row
+                self.assertAlmostEqual(avatar.winfo_rooty(), row.winfo_rooty(), delta=2)
+                self.assertAlmostEqual(
+                    paws.winfo_rooty() - avatar.winfo_rooty() - avatar.winfo_height(),
+                    pet_ui.PAW_GAP_Y, delta=2)
+                self.assertAlmostEqual(
+                    paws.winfo_rootx() + paws.winfo_width() / 2,
+                    avatar.winfo_rootx() + avatar.winfo_width() / 2, delta=2)
+                self.assertGreaterEqual(caption.winfo_rootx(),
+                                        avatar.winfo_rootx() + avatar.winfo_width() - 2)
+                for widget in (avatar, paws, caption):
+                    self.assertGreaterEqual(widget.winfo_rootx(), row.winfo_rootx() - 2)
+                    self.assertLessEqual(widget.winfo_rootx() + widget.winfo_width(),
+                                         row.winfo_rootx() + row.winfo_width() + 2)
+                    self.assertLessEqual(widget.winfo_rooty() + widget.winfo_height(),
+                                         row.winfo_rooty() + row.winfo_height() + 2)
+
+    def test_every_pose_is_scaled_into_the_avatar_hit_rectangle(self):
+        for pose in pet_ui.POSES:
+            for step in range(4):
+                with self.subTest(pose=pose, step=step):
+                    pet_ui.paint(self.pet.canvas, pose=pose, step=step)
+                    left, top, right, bottom = self.pet.canvas.bbox('all')
+                    self.assertGreaterEqual(left, -2)
+                    self.assertGreaterEqual(top, -2)
+                    self.assertLessEqual(right, pet_ui.SIZE + 2)
+                    self.assertLessEqual(bottom, pet_ui.SIZE + 2)
+
+    def test_paw_centres_keep_their_click_targets_after_shrinking(self):
+        selected = []
+        self.pet.set_paw_level = selected.append
+        for index, level in enumerate(pet_ui.PAW_LEVELS):
+            box = self.pet.paws.bbox('paw-' + level)
+            x = (box[0] + box[2]) / 2
+            self.assertEqual(self.pet.paw_at(x), index)
+            self.pet.paw_click(SimpleNamespace(x=x))
+        self.assertEqual(selected, list(pet_ui.PAW_LEVELS))
+
+    def test_menu_and_cloud_follow_the_moved_and_resized_avatar(self):
+        positions = []
+        self.pet.menu.popup_at = lambda x, y: positions.append((x, y))
+        cloud = self.pet.cloud()
+        previous = None
+        for width, height, x, y in ((942, 1032, 20, 20), (800, 600, 80, 100)):
+            with self.subTest(size=(width, height), position=(x, y)):
+                self.show_at(width, height, x, y)
+                avatar = self.pet.canvas
+                left, top = avatar.winfo_rootx(), avatar.winfo_rooty()
+                aw, ah = avatar.winfo_width(), avatar.winfo_height()
+                self.pet.popup_at()
+                self.assertEqual(positions[-1], (left, top + ah))
+                anchor = cloud._anchor()
+                self.assertAlmostEqual(anchor[0], left + aw * pet_cloud.CHEEK_X, delta=2)
+                self.assertAlmostEqual(anchor[1], top + ah * pet_cloud.CHEEK_Y, delta=2)
+                if previous is not None:
+                    self.assertNotEqual(anchor, previous)
+                previous = anchor
+
+    def test_host_pet_layer_keeps_control_of_its_height_and_propagation(self):
+        layer = self.ttk.Frame(self.fake.body, height=pet_ui.PATCH_ROOM + 12)
+        layer.pack(fill='x')
+        layer.pack_propagate(False)
+        self.fake.pet_layer = layer
+        for widget in (self.pet.canvas, self.pet.paws, self.pet.caption):
+            widget.destroy()
+        self.pet._build_canvas()
+        self.pet._build_paws()
+        self.pet._reserve_room(layer, needed=False)
+        self.assertEqual(self.pet.canvas.winfo_parent(), str(layer))
+        self.assertEqual(self.pet.paws.winfo_parent(), str(layer))
+        self.assertEqual(int(layer.cget('height')), pet_ui.PATCH_ROOM + 12)
+        self.assertFalse(layer.pack_propagate())
+
     def test_pet_sits_at_the_top_right_of_the_title_row(self):
         info = self.pet.canvas.place_info()
         self.assertEqual(float(info["relx"]), 1.0)
@@ -2830,17 +2916,29 @@ class CaptionTests(PetTestCase):
 
     def test_the_caption_clears_the_patch(self):
         """小字落在贴片右边那条空档里：不出窗口、也不压到猫脸上；标题栏文字还要让开。"""
-        caption = self.pet.caption
-        info = caption.place_info()
-        self.assertLessEqual(-int(info['x']), -pet_ui.PATCH_X, '小字的右沿不许越过贴片的右沿')
-        left_edge = -int(info['x']) - caption.winfo_reqwidth()
-        self.assertGreaterEqual(left_edge, pet_ui.PATCH_X,
-                                '小字的左沿要在贴片右沿以右，别压到猫脸')
-        self.assertGreaterEqual(pet_ui.CAPTION_ROOM, caption.winfo_reqwidth() + 6,
-                                'CAPTION_ROOM 要够这三个字用')
-        self.assertGreaterEqual(pet_ui.HEAD_PAD,
-                                -pet_ui.PATCH_X + pet_ui.CAPTION_RIGHT + pet_ui.CAPTION_ROOM,
-                                '标题栏文字让出的宽度要装下小字＋贴片')
+        for width, height in ((942, 1032), (800, 600)):
+            with self.subTest(size=(width, height)):
+                self.win.geometry(f'{width}x{height}+0+0')
+                self.win.deiconify()
+                self.win.update_idletasks()
+                self.win.update()
+                caption, avatar, paws = self.pet.caption, self.pet.canvas, self.pet.paws
+                row = self.fake.title_row
+                self.assertGreaterEqual(
+                    caption.winfo_rootx() - avatar.winfo_rootx() - avatar.winfo_width(),
+                    pet_ui.PET_LAYOUT['right_gap'] - 2,
+                    '状态字与头像之间保留间距，不压到猫脸')
+                self.assertLessEqual(caption.winfo_rootx() + caption.winfo_width(),
+                                     row.winfo_rootx() + row.winfo_width() + 2,
+                                     '状态字完整留在宿主行内')
+                self.assertGreaterEqual(caption.winfo_width(), caption.winfo_reqwidth(),
+                                        '状态字画布必须容纳完整文案')
+                pet_left = min(widget.winfo_rootx() for widget in (avatar, paws, caption))
+                for widget in (self.fake.header_status, self.fake.header_model):
+                    text_right = widget.winfo_rootx() + widget.winfo_width() - self.pad_of(widget)[2]
+                    self.assertLessEqual(text_right,
+                                         pet_left - pet_ui.PET_LAYOUT['header_gap'] + 2,
+                                         '标题文字区域必须让开头像、爪排和状态字')
 
     def test_the_caption_is_black_ink(self):
         """第 21 期：三档小字一律黑色（用户要的「文字全部用黑色」）。"""
@@ -4423,7 +4521,9 @@ class PawTests(PetTestCase):
         info = self.pet.paws.place_info()
         self.assertEqual(float(info['relx']), 1.0)
         self.assertEqual(int(float(info['x'])), pet_ui.PAW_ROW_X)
-        self.assertEqual(pet_ui.PAW_ROW_X, pet_ui.PATCH_X, '猫爪排右沿＝贴片右沿')
+        self.assertAlmostEqual(pet_ui.PAW_ROW_X - pet_ui.PAW_WIDTH / 2,
+                               pet_ui.PATCH_X - pet_ui.SIZE / 2, delta=2,
+                               msg='猫爪排与贴片中心对齐')
         self.assertEqual(int(float(info['y'])), pet_ui.PAW_Y)
         self.assertGreaterEqual(pet_ui.PAW_Y, pet_ui.SIZE + pet_ui.PAW_GAP_Y, '猫爪排在三虎下方')
         self.assertEqual(int(float(self.pet.caption.place_info()['x'])), -pet_ui.CAPTION_RIGHT)
@@ -4436,7 +4536,9 @@ class PawTests(PetTestCase):
         """
         patch = self.pet.canvas.place_info()
         paws = self.pet.paws.place_info()
-        self.assertEqual(int(float(paws['x'])), int(float(patch['x'])), '贴片与猫爪排同一右沿')
+        self.assertAlmostEqual(float(paws['x']) - pet_ui.PAW_WIDTH / 2,
+                               float(patch['x']) - pet_ui.SIZE / 2, delta=2,
+                               msg='贴片与猫爪排中心对齐')
         self.assertEqual(int(float(paws['y'])),
                          int(float(patch['y'])) + pet_ui.SIZE + pet_ui.PAW_GAP_Y,
                          '猫爪排从贴片底边再往下一条缝，矩形不相交')

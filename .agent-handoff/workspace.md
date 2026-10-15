@@ -1,6 +1,6 @@
 # 工作区与命令
 
-- 仓库 D:/漫剧制作助手；Windows PowerShell；产品为 Python/Tk 桌面漫剧制作助手。
+- 仓库 D:/漫剧制作助手；Windows PowerShell；产品为 Python/Tk 桌面漫剧助手。
 - 源码、测试在 程序/；入口及结构以 [项目地图](../程序/PROJECT_MAP.md) 为准。
 - 权威：[AGENTS](../程序/AGENTS.md)、[架构](../程序/architecture.md)、[状态](../程序/project_status.md)。
 - 解释器：运行环境/Python/python.exe；维护时优先 -B，避免新增字节码缓存。

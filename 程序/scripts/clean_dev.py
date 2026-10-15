@@ -18,10 +18,13 @@ import time
 import zipfile
 
 # Avoid creating a bytecode cache when this development-only script is launched
-# without ``-B``.  The script itself imports no project module.
+# without ``-B``.  Only the dependency-free application metadata is imported.
 sys.dont_write_bytecode = True
 
 PROGRAM = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROGRAM))
+from app_metadata import APP_NAME
+
 DIST_ROOT = PROGRAM.parent
 RUNTIME_PYTHON = DIST_ROOT / "运行环境" / "Python"
 PROTECTED_DIRS = tuple(PROGRAM / name for name in ("skills", "tests", "配置", "assets"))
@@ -235,7 +238,7 @@ def archive_results(paths: list[Path], dry_run: bool, refused: list[tuple[Path, 
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="清理漫剧制作助手的可再生开发残留。")
+    parser = argparse.ArgumentParser(description=f"清理{APP_NAME}的可再生开发残留。")
     parser.add_argument("--dry-run", action="store_true", help="只显示计划，不删除或归档。")
     parser.add_argument("--deep", action="store_true", help="额外删除 logs 和维护记录中超过 30 天的 .log。")
     parser.add_argument("--archive", action="store_true", help="压缩归档 R500 及之前的任务结果；保留 R501 及之后。")

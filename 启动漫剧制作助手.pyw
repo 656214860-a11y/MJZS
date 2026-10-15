@@ -7,6 +7,7 @@ os.chdir(root)
 # 所以赶在下面那句 import hashlib 之前先切过去；切换失败会自动退回原样。
 sys.path.insert(0,str(root/'程序'))
 import hash_backend
+from app_metadata import APP_NAME
 hash_backend.install()
 try:
     import ctypes
@@ -92,4 +93,4 @@ try:
 except Exception:
     log=root/'启动错误.log';log.write_text(traceback.format_exc(),encoding='utf-8')
     import ctypes
-    ctypes.windll.user32.MessageBoxW(0,'启动失败，详情已保存到：'+str(log),'漫剧制作助手',16)
+    ctypes.windll.user32.MessageBoxW(0,'启动失败，详情已保存到：'+str(log),APP_NAME,16)

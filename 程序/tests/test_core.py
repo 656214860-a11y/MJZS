@@ -164,6 +164,7 @@ class DailyProjectChoiceTests(unittest.TestCase):
             def __init__(self):self.rows=[]
             def get_children(self):return ()
             def delete(self,*unused):pass
+            def tag_configure(self,*args,**kwargs):pass  # 真实 Treeview 的空组显示 API。
             def insert(self,*args,**kwargs):self.rows.append((args,kwargs))
         with tempfile.TemporaryDirectory() as td:
             missing=Path(td)/'已移走项目';tree=Tree();desk=Desktop.__new__(Desktop)

@@ -1878,7 +1878,7 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'assistant', '另一模型正文', model='另一模型')
             d.show(0)
             self.settle_script_page(win)
-            self.assertIn('输入估算 123', d.idea_usage_label.cget('text'))
+            self.assertIn('输入估算 123', d.idea_usage_tip.text)
             with patch.object(d, 'idea_chat_model', return_value='另一模型'):
                 with patch('prompt_window.copy_text', return_value='') as copied:
                     self.assertEqual(d.copy_bubble_message(0), '当前气泡正文')
@@ -2166,14 +2166,14 @@ class ComposerLayoutTests(_Harness):
             self.sync_async(d)
             d.show(0)
             self.settle_script_page(win)
-            text = d.idea_session_label.cget('text')
+            text = d.idea_session_tip.text
             self.assertIn('当前会话：', text)
             self.assertIn('按模型隔离', text)
             self.assertIn('不隐藏也不复制项目成果', text)
             with patch.object(d, 'idea_chat_model', return_value='另一模型'):
                 d.refresh_script_chat_for_selected_model()
                 self.settle_script_page(win)
-                self.assertIn('另一模型', d.idea_session_label.cget('text'))
+                self.assertIn('另一模型', d.idea_session_tip.text)
 
 
 class SessionOverviewTests(unittest.TestCase):

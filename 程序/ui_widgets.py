@@ -2,6 +2,7 @@
 import os
 import tkinter as tk
 from tkinter import messagebox, ttk
+from app_metadata import APP_NAME
 
 from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_FIELD_BACKGROUND,
                        COMBOBOX_FONT, COMBOBOX_FOREGROUND, COMBOBOX_PADDING,
@@ -499,9 +500,10 @@ def notify(parent, message, *, level="info", title=None, modal=True, status=None
 class BusyState:
     """共享主任务的忙碌／加载态，不拥有后台任务或取消语义。"""
 
-    def __init__(self, status, progress=None):
+    def __init__(self, status, progress=None, *, idle_determinate=False):
         self.status = status
         self.progress = progress
+        self.idle_determinate = idle_determinate
         self.busy = False
         self._controls = ()
 
@@ -513,12 +515,14 @@ class BusyState:
             for control in self._controls:
                 control.state(['disabled'])
             if progress and self.progress is not None:
+                if self.idle_determinate:self.progress.configure(mode='indeterminate')
                 self.progress.start(progress_interval)
             if message and callable(getattr(self.status, 'set', None)):
                 self.status.set(message)
             return True
         if self.progress is not None:
             self.progress.stop()
+            if self.idle_determinate:self.progress.configure(mode='determinate', value=0)
         for control in self._controls:
             control.state(['!disabled'])
         self._controls = ()
@@ -885,6 +889,59 @@ class Tooltip:
         self.hide()
 
 
+class TreeRowTooltip(Tooltip):
+    """树表逐行说明；调用方提供已加载的数据，悬停不读磁盘。"""
+
+    def __init__(self, tree, text_for):
+        self.text_for = text_for
+        self._row = None
+        super().__init__(tree, '')
+        tree.bind('<Motion>', self._schedule_from_pointer, add='+')
+        tree.bind('<MouseWheel>', self.hide, add='+')
+
+    def _schedule_from_pointer(self, event):
+        row = self.widget.identify_row(event.y)
+        text = str(self.text_for(row) or '') if row else ''
+        if row == self._row and text == self.text and (self._job or self._window):return
+        self.hide()
+        self._row, self.text = row, text
+        super()._schedule_from_pointer(event)
+
+    def _schedule_from_focus(self, event=None):
+        selected = self.widget.selection()
+        self.text = str(self.text_for(selected[0]) or '') if selected else ''
+        super()._schedule_from_focus(event)
+
+
+class EllipsisLabel(ttk.Label):
+    """单行摘要按实际宽度省略，鼠标和键盘焦点说明保留全文。"""
+
+    def __init__(self, master, *, text='', **kwargs):
+        super().__init__(master, text='', width=1, anchor='w', **kwargs)
+        self.full_text = str(text)
+        self.tooltip = Tooltip(self, self.full_text)
+        self.bind('<Configure>', self._render, add='+')
+
+    def set_text(self, text):
+        self.full_text = str(text)
+        self.tooltip.text = self.full_text
+        self._render()
+
+    def _render(self, _event=None):
+        from tkinter.font import Font
+        font = Font(root=self, font=self.cget('font') or ttk.Style(self).lookup(self.cget('style') or 'TLabel', 'font'))
+        room = max(0, self.winfo_width() - SPACING['xs'])
+        text = self.full_text
+        if font.measure(text) > room:
+            lo, hi = 0, len(text)
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                if font.measure(text[:mid] + '…') <= room:lo = mid
+                else:hi = mid - 1
+            text = text[:lo] + '…' if font.measure('…') <= room else ''
+        if self.cget('text') != text:self.configure(text=text)
+
+
 class _TextLabel(ttk.Label):
     """三类辅助文字的共同构造器；页面不可覆写其视觉规格。"""
 
@@ -1124,7 +1181,7 @@ class Splash:
         c.create_polygon(cx - tri // 2, cy - tri, cx - tri // 2, cy + tri, cx + tri, cy,
                          fill=T.SPLASH_ACCENT_ALT, outline='')
         title_y = cy + r + T.SPACING['2xl']
-        c.create_text(cx, title_y, text='漫剧制作助手', fill=T.SPLASH_TITLE, font=T.SPLASH_TITLE_FONT)
+        c.create_text(cx, title_y, text=APP_NAME, fill=T.SPLASH_TITLE, font=T.SPLASH_TITLE_FONT)
         c.create_text(cx, title_y + T.SPACING['2xl'] + T.SPACING['xs'], text='AI 漫剧 · 从剧本到成片',
                       fill=T.SPLASH_SUBTITLE, font=T.SPLASH_SUBTITLE_FONT)
         half = min(w // 3, T.SPLASH_BAR_HALF)

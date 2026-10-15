@@ -1,4 +1,4 @@
-# AI 漫剧制作助手：架构清单
+# AI 漫剧助手：架构清单
 
 R1250：API 剧本准备通过 L3 `restart_writing_preparation` 显式从设定、大纲或角色卡重写；L2 `writing_api` 在既有 `preparation_state.json` 内暂存 revision，确认前保留采用 documents，确认后替换当前及下游确认。旧正文不删除；旧自然稿撤销采用须重新生成或显式采用。请求发布核对阶段文件、brief、确认台账及模型选择，拦截等待期间变更后的迟到结果；桌面仅绑定菜单和显示版本标记。
 

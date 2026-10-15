@@ -18,10 +18,11 @@ from pathlib import Path
 from file_cache import remove_temporary_file
 
 import app_icon
+from app_metadata import APP_NAME
 from agent.core import save_bytes
 
 PROGRAM = Path(__file__).resolve().parent
-NAME = '漫剧制作助手'                       # 快捷方式的名字
+NAME = APP_NAME                           # 快捷方式的显示名字
 ICON_NAME = '漫剧制作助手.ico'              # 程序根目录里那张设计好的图
 # 第 26 期第 9 条：用户报「桌面图片已做好但是导入失败」——其实图换了，是资源管理器拿**图标缓存**
 # 画桌面（同名文件换了内容它认不出来）。所以除了原来那张，再按内容指纹写一份新名字的
@@ -225,7 +226,7 @@ def ensure(program=None, name=NAME, desktop=None):
     made = []
     for folder in (Path(desktop) if desktop is not None else desktop_dir(), program):
         link = make_shortcut(folder / (name + '.lnk'), str(exe), arguments, str(workdir), icon,
-                             description='漫剧制作助手 · 三虎陪着您做漫剧')
+                       description=f'{APP_NAME} · 三虎陪着您做漫剧')
         if link is not None:
             made.append(link)
     return made

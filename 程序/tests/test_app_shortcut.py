@@ -184,7 +184,7 @@ class MakeShortcutTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.base = Path(self.tmp.name)
-        self.link = self.base / '桌面' / '漫剧制作助手.lnk'
+        self.link = self.base / '桌面' / (app_shortcut.NAME + '.lnk')
 
     def patched(self, shell, fake):
         return mock.patch.multiple(app_shortcut,

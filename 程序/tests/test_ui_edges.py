@@ -1137,8 +1137,12 @@ class UiEdgeTests(unittest.TestCase):
             d.idea_input.event_generate('<FocusOut>'); win.update()
             hint_info = d.idea_input_hint.place_info()
             self.assertEqual(hint_info.get('rely'), '0.5', "空闲提示应以输入框中线垂直居中")
-            self.assertEqual(hint_info.get('relx'), '0.5', "空闲提示应在输入框水平方向居中")
-            self.assertEqual(hint_info.get('anchor'), 'center', "静态提示应以中心定位")
+            self.assertEqual(hint_info.get('relx'), '0', "空闲提示应从输入框左侧定位")
+            self.assertEqual(hint_info.get('anchor'), 'w', "静态提示应左对齐")
+            self.assertAlmostEqual(
+                d.idea_input_hint.winfo_rootx(),
+                d.idea_input.winfo_rootx() + d.idea_input.bbox('1.0')[0],
+                delta=2, msg="提示文字应沿输入框的文字内边距对齐")
             writing_source = inspect.getsource(desktop_module.Desktop.writing)
             self.assertNotIn('scroll_input_hint', writing_source, "输入提示不得恢复滚动实现")
             self.assertNotIn('after(35', writing_source, "输入提示不得持续投递动画回调")

@@ -38,6 +38,7 @@ from tkinter import TclError
 
 import model_pool
 import model_router
+from app_metadata import APP_NAME
 from broadcaster import Broadcaster, PREFIX_PATTERNS
 import pet_agent
 import pet_cloud
@@ -52,9 +53,10 @@ import stage_parallel
 import token_saver
 from pet_settings_contract import LEVEL_NOTES
 from ui_widgets import ContextMenu, ask_confirmation
+from ui_tokens import PET_LAYOUT
 
 PROGRAM = Path(__file__).resolve().parent
-SIZE = 64                        # 贴片边长
+SIZE = PET_LAYOUT['avatar_size']  # 显示与命中区域共用的贴片边长
 IDLE_MS = 500                    # 闲置 2fps
 ACTIVE_MS = 125                  # 忙时 8fps
 CANVAS_BG = '#f3f6fa'
@@ -65,8 +67,8 @@ SANHU_INK = '#1a1c2a'             # 厚而清晰的深蓝墨描边
 SANHU_STAR = '#22d3ee'            # 桌面图标右上角的青色星光
 SANHU_BLUSH = '#ff8d9b'           # Q 版头像的小腮红
 # 第 19 期：自动化等级搬到三虎身旁——三个猫爪按钮排成一排，点哪一档就切到哪一档。
-PAW_SIZE = 20                                     # 单个猫爪按钮的边长
-PAW_GAP = 2                                       # 爪印之间的间距
+PAW_SIZE = PET_LAYOUT['paw_size']                  # 单个猫爪按钮的边长
+PAW_GAP = PET_LAYOUT['paw_gap']                    # 爪印之间的间距
 PAW_WIDTH = 3 * PAW_SIZE + 2 * PAW_GAP            # 一整排猫爪的宽度
 PAW_LEVELS = ('hint', 'semi', 'auto')             # 从左到右：正常／半自动／全自动
 SANHU_MODES = ('manual', 'auto')                  # 三虎控制面的两档：手动／全自动
@@ -108,8 +110,8 @@ def should_auto_run(owner, project, stage_id):
     return bool(pet is not None and pet.should_auto_run(stage_id))
 PAW_IDLE = ('#e7edf5', '#a9b6c7')                 # 没选中的爪印：淡灰一只
 PAW_HOVER = ('#f4f9ff', '#6f8bab')                # 第 23 期：鼠标停在爪上时提亮一档（可点得可预期）
-PAW_GAP_Y = 6                                     # 猫爪排与猫脸之间留的一条缝
-PAW_ARC = 4                                       # 第 36 期第 9 条：三只爪摆成一条向下的弧——
+PAW_GAP_Y = PET_LAYOUT['paw_gap_y']                 # 猫爪排紧贴头像下沿
+PAW_ARC = PET_LAYOUT['paw_arc']                     # 三只爪摆成一条向下的弧——
                                                   # 中间那只最低、两边各抬 PAW_ARC 像素（猫爪落地的样子）。
 # 切等级之后用圆形气泡说的那句话（用户第 19 期给的原话 ＋ 第 24 期第 4 条要的简单说明）。
 # 光说「已切换」不够——用户按完不知道自己刚选了什么，所以每一档都补一句「这一档到底怎么干活」。
@@ -117,21 +119,22 @@ LEVEL_SWITCH_NOTES = {
     'hint': '只提醒：我只报进度，不自动制作。',
     'semi': '半自动：免费步骤自动做，付费前先问您。',
     'auto': '全自动：按流程制作；付费或阻塞时会停下。'}
-PATCH_X = -(SIZE + 4)                             # 贴片离标题行右边的距离（往左挪一个身位）
 # 第 21 期：等级小字从「贴片左边」挪到「三虎右边」（用户要的「文字移动到三虎右侧，不能遮挡」）。
 # 贴片右沿离窗口右边还有 -(PATCH_X) 那么宽，小字就落在这一条空档里：右沿离窗口边 CAPTION_RIGHT，
 # 自己最多占 CAPTION_ROOM 宽（三个汉字够用），离猫脸还留着一条缝——标题栏文字按 HEAD_PAD 让开。
-CAPTION_RIGHT = 8                                 # 小字的右沿离窗口右边这么多
-CAPTION_ROOM = 64                                 # 小字最多占这么宽（再宽就该改这一行）
+CAPTION_RIGHT = PET_LAYOUT['caption_right']
+CAPTION_ROOM = PET_LAYOUT['caption_width']
+PATCH_X = -(CAPTION_RIGHT + CAPTION_ROOM + PET_LAYOUT['right_gap'])
 CAPTION_INK = '#000000'                           # 第 21 期：三档小字一律黑色（用户要的「全部用黑色」）
-HEAD_PAD = -(PATCH_X) + CAPTION_RIGHT + CAPTION_ROOM + 8    # 标题栏文字让出的宽度：小字＋贴片＋一条缝
+# PATCH_X 已含右侧状态字的占位；再向左让出头像／爪排宽度和标题间距即可。
+HEAD_PAD = -PATCH_X + max(SIZE, PAW_WIDTH) + PET_LAYOUT['header_gap']
 # 第 20 期：用户报「3 个猫爪型按钮被遮挡」——原来这排爪子的右沿只比贴片右沿往里 8 像素，
 # 而它自己还有 PAW_WIDTH 宽，于是整排压在猫脸上（截图里猫的耳朵被盖住、下巴被标题行裁掉）。
 # 现在挪到贴片正下方：右沿与贴片对齐，纵向从贴片底边再往下 PAW_GAP_Y。
-PAW_ROW_X = PATCH_X                               # 猫爪排的右沿＝贴片的右沿
-PAW_Y = SIZE + PAW_GAP_Y                          # 猫爪排落在贴片正下方
+PAW_ROW_X = PATCH_X + (PAW_WIDTH - SIZE) // 2       # 猫爪排与头像中心对齐
+PAW_Y = PET_LAYOUT['top'] + SIZE + PAW_GAP_Y        # 猫爪排落在贴片正下方
 PATCH_ROOM = PAW_Y + PAW_SIZE + PAW_ARC           # 贴片＋猫爪的总高度：标题行必须留够，否则猫脸被裁
-CAPTION_Y = max(0, (SIZE - 20) // 2)              # 模式小标签的纵向落点：与贴片垂直居中
+CAPTION_Y = PET_LAYOUT['top'] + max(0, (SIZE - PET_LAYOUT['caption_height']) // 2)
 # 第 44 期：设置入口做成齿轮，摆在窗口左上角标题（V0.7）旁边。用户要的是「醒目提示」——
 # 它不藏在右键菜单里：琥珀色齿身 ＋ 深墨描边，鼠标停上去再亮一档，旁边跟着一句「设置」。
 GEAR_SIZE = 22                                    # 齿轮按钮的边长
@@ -553,6 +556,11 @@ def paint(canvas, step=0, mood='idle', percent=0.0, level=None, pose='sit'):
                           48 + ox, 15 + oy, 52 + ox, 13 + oy,
                           fill=star, outline='', tags='sparkle')
     flourish(canvas, pose, step, ox, oy, body, outline, accent, blush)
+    scale = SIZE / PET_LAYOUT['source_size']
+    canvas.scale('all', 0, 0, scale, scale)
+    # Canvas.scale 只缩坐标；描边也须等比收紧，舔爪和摇尾才不会越出命中矩形。
+    for item in canvas.find_all():
+        canvas.itemconfigure(item, width=max(1.0, float(canvas.itemcget(item, 'width')) * scale))
     return len(canvas.find_all())
 
 
@@ -2233,7 +2241,7 @@ class Pet:
 
     def quit_app(self):
         """「退出程序」（第 44 期按附件放回功能栏）：先问一句再关，别让误按把活儿关掉。"""
-        if not self.confirm_start('退出程序', '要关掉漫剧制作助手吗？没跑完的活留在原地，下次开机接着来。'):
+        if not self.confirm_start('退出程序', f'要关掉{APP_NAME}吗？没跑完的活留在原地，下次开机接着来。'):
             self.notice = '已取消退出'
             return False
         close = getattr(self.desktop, 'close', None)
@@ -3892,7 +3900,7 @@ class Pet:
     def guard_cloud_away(self):
         """第 60 期第 4 条：用户在别的应用里时，露着的那朵云自己收起来。
 
-        对话框只能在漫剧制作助手上面。这朵云是无边框置顶窗（pet_cloud 里 overrideredirect ＋
+        对话框只能在漫剧助手上面。这朵云是无边框置顶窗（pet_cloud 里 overrideredirect ＋
         -topmost），用户 alt-tab 去了别的应用，它还压在人家界面上，看着就是「三虎穿过去了」。
         收起来不丢话：要说的那句已经记进云朵记录，回来打开三虎照旧看得见。返回 True ＝这一拍
         真的收了一朵。
@@ -4304,11 +4312,12 @@ class Pet:
         return self
     def _build_canvas(self):
         import tkinter as tk
-        parent = getattr(self.desktop, 'title_row', None) or self.win
+        parent = (getattr(self.desktop, 'pet_layer', None)
+                  or getattr(self.desktop, 'title_row', None) or self.win)
         self.canvas = tk.Canvas(parent, width=SIZE, height=SIZE, bd=0, highlightthickness=0, bg=CANVAS_BG)
         # 第 18 期：贴片往左挪一个身位（用户要的「位置向左移动一倍距离」）——原来贴着窗口右边，
         # 猫的脸和耳朵被窗口控件压住；让出这一格，脸才是完整的。
-        self.canvas.place(relx=1.0, rely=0.0, anchor='ne', x=PATCH_X, y=0)
+        self.canvas.place(relx=1.0, rely=0.0, anchor='ne', x=PATCH_X, y=PET_LAYOUT['top'])
         # 第 20 期：标题行本来只有约 40 像素高，64 像素的猫脸会被它裁掉下半张（用户报「头像被遮挡一半」）。
         self._reserve_room(parent)
         # 第 16 期：单击＝收起云朵框＋唤出功能下拉栏（用户要的是「点一下就能唤出」）；
@@ -4336,7 +4345,8 @@ class Pet:
             self.caption = ttk.Label(parent, text='', style='Muted.TLabel',
                                      wraplength=CAPTION_ROOM, justify='right', anchor='e')
             # 第 21 期：小字落在三虎右边那条空档里（anchor='ne' ＋ 往内收 CAPTION_RIGHT）。
-            self.caption.place(relx=1.0, rely=0.0, anchor='ne', x=-CAPTION_RIGHT, y=CAPTION_Y)
+            self.caption.place(relx=1.0, rely=0.0, anchor='ne', x=-CAPTION_RIGHT,
+                               y=CAPTION_Y, width=CAPTION_ROOM)
             self.show_caption()
         except Exception as exc:
             self.errors.append(('caption', str(exc)))
@@ -4349,11 +4359,14 @@ class Pet:
         """给贴片＋猫爪在标题行里留够高度（第 20 期用户报「三虎的头像被遮挡一半」）。
 
         贴片挂在标题行里，而标题行的高度原本是它自己那几个标签撑出来的（实测约 40 像素）。
-        64 像素的猫脸加下面那排猫爪一共要 PATCH_ROOM 像素，不留够就会被标题行裁掉下半张脸。
+        猫脸加下面那排猫爪一共要 PATCH_ROOM 像素，不留够就会被标题行裁掉下半张脸。
         独立窗开着时贴片收起，这里再把高度还给标题行（pack_propagate 打开＝回到标签的自然高度）。
         """
         if parent is None:
             return None
+        # 主窗口提供的承载层由主窗口按项目列表顶边管理，避免贴片反向撑高标题区。
+        if parent is getattr(self.desktop, 'pet_layer', None):
+            return parent
         try:
             if needed:
                 parent.pack_propagate(False)
@@ -4368,7 +4381,8 @@ class Pet:
     def _build_paws(self):
         """三虎下方那排猫爪（第 19 期）：自动化等级外置，点哪一爪就切到哪一档。"""
         import tkinter as tk
-        parent = getattr(self.desktop, 'title_row', None) or self.win
+        parent = (getattr(self.desktop, 'pet_layer', None)
+                  or getattr(self.desktop, 'title_row', None) or self.win)
         self.paws = tk.Canvas(parent, width=PAW_WIDTH, height=PAW_SIZE + PAW_ARC, bd=0,
                               highlightthickness=0, bg=CANVAS_BG)
         self.paws.place(relx=1.0, rely=0.0, anchor='ne', x=PAW_ROW_X, y=PAW_Y)

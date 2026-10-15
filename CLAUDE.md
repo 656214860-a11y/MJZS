@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概览
 
-「漫剧制作助手」是 Windows 桌面应用（Python + Tkinter，**零第三方依赖**），用于 AI 漫剧制作：12 个制作阶段（剧本准备 → 剧本结构 → 初步分镜 → 资产管理 → 连贯性清单 → 分镜定稿 → 首帧管理 → 白模预演 → 视频生成 → 配音与字幕 → 后期剪辑 → 质检与交付），通过 SKILL 文件驱动 Codex / Claude Code / Qwen / API 等引擎执行工作流。
+「漫剧助手」是 Windows 桌面应用（Python + Tkinter，**零第三方依赖**），用于 AI 漫剧制作：12 个制作阶段（剧本准备 → 剧本结构 → 初步分镜 → 资产管理 → 连贯性清单 → 分镜定稿 → 首帧管理 → 白模预演 → 视频生成 → 配音与字幕 → 后期剪辑 → 质检与交付），通过 SKILL 文件驱动 Codex / Claude Code / Qwen / API 等引擎执行工作流。
 
 - 源码根目录：`程序\`（约 200 个模块，单文件平铺 + `agent/`、`skills/`、`tests/` 等子目录）。
 - 本仓库使用 Git 管理源码与文档；`升级备份\` 与 `.bak_*` 保留为历史证据，今后不再新增 `.bak_*`。

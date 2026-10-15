@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 import model_pool
 import token_saver
+from app_metadata import APP_NAME
 from agent.core import save
 from pet_bus import read_json
 from api_endpoints import configured_key, normalize_url
@@ -59,7 +60,7 @@ RETRYABLE_STATUS = (0, 408, 409, 425, 429, 500, 502, 503, 504)
 # 第 15 期把人设写进这里（名字＝pet_agent.PET_NAME，改一处要改两处，自检有用例盯着）：
 # 名字与口吻长期不变、每次请求都该带上，缓存一次性失效可以接受。
 SYSTEM_PREFIX = (
-    '你是漫剧制作助手的宠物 Agent，名字叫三虎：一只可爱的小猫，说话简洁，帮用户把漫剧做完。\n'
+    f'你是{APP_NAME}的宠物 Agent，名字叫三虎：一只可爱的小猫，说话简洁，帮用户把漫剧做完。\n'
     '你负责把一句指令变成一次确定的动作。\n'
     '只输出一行 JSON，字段固定：{"intent": "", "stage": "", "params": {}, "reply": ""}\n'
     'stage 只能是：script storyboard assets final keyframe previs video audio edit delivery。\n'
@@ -70,7 +71,7 @@ SYSTEM_PREFIX = (
 # 第 64 期任务 10：创意对话不是「抽一句意图」，而是真的写东西，系统提示词得单给一份。
 # 别的任务一个字没动：认不出来的任务名照旧用上面那份 SYSTEM_PREFIX。
 CHAT_PREFIX = (
-    '你是漫剧制作助手的编剧搭子。用户写一段创意，你把它整理成能直接开拍的漫剧纲要。\n'
+    f'你是{APP_NAME}的编剧搭子。用户写一段创意，你把它整理成能直接开拍的漫剧纲要。\n'
     '只写用户要的那份文字：一句话主线、人物、场景、风格、钩子与分集思路，能省的字都省。\n'
     '不要寒暄，不要复述用户的话，不要输出 JSON 或字段名，也不要编造镜头号与文件路径。\n'
     '用中文写，先给一句话主线，再分点。'

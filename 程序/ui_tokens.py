@@ -109,7 +109,15 @@ TABLE_ROW_FONT = FONTS["body"]
 TABLE_ROW_HEIGHT = SPACING["xl"]
 TABLE_EMPTY_PADDING = SPACING["lg"]
 TABLE_COMPACT_HEADER_PADDING = (SPACING["sm"], SPACING["xs"] // 4)
-SCRIPT_ACTION_WIDTH = 8
+SCRIPT_ACTION_WIDTH = 0  # 依文字请求宽度，长中文按钮不得裁字。
+DESKTOP_LAYOUT = {
+    'min_width': 800, 'min_height': 600,
+    'sidebar_width': 154, 'sidebar_padding': 6, 'row_gap': 1,
+    'compact_below': 690, 'project_min_rows': 3,
+    'project_button_padding': (SPACING['sm'], SPACING['none']),
+    'body_padding': (14, SPACING['sm'], 14, SPACING['sm']),
+    'title_inset': SPACING['md'], 'gear_gap': SPACING['xs'],
+}
 # 剧本准备文件列表：比正文小一档，一屏多放几个文件名，9 号雅黑仍清晰。
 SCRIPT_FILE_FONT = ("Microsoft YaHei UI", 9)
 SCRIPT_ACTION_PADDING = (SPACING["md"] // 2, SPACING["xs"])
@@ -166,3 +174,19 @@ SPLASH_CREEP = 0.12
 ICON_FONT = ("Segoe MDL2 Assets", 11)
 ICON_FOLDER = "\uE8B7"
 ICON_DELETE = "\uE74D"
+
+# 主窗口三虎：绘图保留原坐标系，显示尺寸和命中区域共用这组紧凑布局值。
+PET_LAYOUT = {
+    "source_size": 64,
+    "avatar_size": 48,
+    "paw_size": 16,
+    "paw_gap": 2,
+    "paw_gap_y": 2,
+    "paw_arc": 2,
+    "top": SPACING["none"],
+    "right_gap": SPACING["xs"],
+    "caption_right": SPACING["sm"],
+    "caption_width": 64,
+    "caption_height": 20,
+    "header_gap": SPACING["sm"],
+}

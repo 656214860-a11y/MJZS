@@ -51,7 +51,7 @@ from pet_cloud_text import reply_lines as _reply_lines, tight
 from pet_cloud_geometry import inflate, inside_parts as _inside_parts, rounded_parts, shape_root as _shape_root, shift_part, square_parts as _square_parts
 from pet_cloud_shape import configured_value as _configured_value, normalized as _normalized_shape, text_box as _shape_text_box
 from pet_cloud_tail import TAIL_BULGE, TAIL_CURVE_MAX, TAIL_STEPS, _side_curve, tail_points
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import COLORS, FONTS, SPACING, PET_LAYOUT
 
 WIDTH = 344                       # 方框对话框的宽度（第 21 期收窄；第 28 期随字号放大一档；第 30 期第 4 条再收窄）
 MIN_BODY = 96                     # 云身最小高度（第 28 期第 1 条随字号放大一档）
@@ -142,7 +142,7 @@ BANNER_MS = 6000                  # 标签框（关软件前的日报／周报�
 PROGRESS_MS = 12000               # 进度圆气泡停留多久（与 pet_ui.PROGRESS_MS 同一口径）
 GREETING_MS = 5500                # 开机招呼的云朵框停留多久（用户要求再缩短一半，原 11000）；招呼只有两句，直接按它定，不与阅读时间底线取大
 WHEEL_PX = 30                     # 滚轮一格翻多少像素
-PET_SIZE = 64                     # 贴片画不出来时的兜底边长
+PET_SIZE = PET_LAYOUT['avatar_size']  # 贴片画不出来时的兜底边长
 LINE_LIMIT = 40                   # 只留最近这些段，云朵不当地志
 NUMBER_GAP = '\u00a0'             # 编号与正文之间那个空档：用不换行空格。普通空格在圆／标签／云朵框这
                                   # 些窄框里会被 Tk 当成换行点，整句正文挪到下一行、头一行只剩一个孤零零
