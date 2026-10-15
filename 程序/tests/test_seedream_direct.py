@@ -104,10 +104,11 @@ class SeedreamUnsettledTests(unittest.TestCase):
             profile = {'model': 'm', 'api_key': 'test', 'base_url': 'https://example.invalid'}
             with patch.object(seedream_api, 'load_profile', return_value=profile), patch.object(
                     seedream_api, 'request_image', side_effect=TimeoutError('test timeout')) as send:
-                native_assets._run_seedream_direct(root, root, items, {}, lambda _: None)
+                with self.assertRaisesRegex(ValueError, '金额预检未通过'):
+                    native_assets._run_seedream_direct(root, root, items, {}, lambda _: None)
                 send.assert_not_called()
                 record_path = generated_dir(root) / 'seedream_CHAR_001.json'
-                self.assertTrue(json.loads(record_path.read_text(encoding='utf-8'))['not_submitted'])
+                self.assertFalse(record_path.exists())
                 config['budget_amount'] = '0.5'
                 profile_path.write_text(json.dumps(config), encoding='utf-8')
                 native_assets._run_seedream_direct(root, root, items, {}, lambda _: None)
@@ -129,12 +130,10 @@ class SeedreamUnsettledTests(unittest.TestCase):
             (Path(td) / 'cost_profile.json').write_text(json.dumps({
                 'budget_amount': '0', 'price_table': {'currency': 'CNY', 'version': 'test',
                 'model_rates': {'m': {'images': '0.5'}}}}), encoding='utf-8')
-            with patch.object(keyframe_comfy, 'check_shot', return_value=('test', [])):
+            with patch.object(keyframe_comfy, 'check_shot', return_value=('test', [])), self.assertRaisesRegex(ValueError, '金额预检未通过'):
                 keyframe_comfy.run_seedream(source, [{'id': 'SH001'}], {}, lambda _: None, project=td)
             self.assertEqual(calls, [])
-            record = json.loads((source.parent / '首帧任务' / 'seedream_SH001.json').read_text(encoding='utf-8'))
-            self.assertTrue(record['not_submitted'])
-            self.assertEqual(record['state'], 'failed')
+            self.assertFalse((source.parent / '首帧任务' / 'seedream_SH001.json').exists())
             self.assertEqual(RequestLedger(td).load().entries, [])
 
     def test_confirmed_shot_is_submitted_again(self):
@@ -157,6 +156,73 @@ class SeedreamUnsettledTests(unittest.TestCase):
             self.assertEqual(len(calls), 1)
             self.assertIn("1/1", message)
             self.assertNotIn("未重复提交", message)
+
+    def test_asset_batch_preflight_prices_whole_batch_before_first_send(self):
+        import native_assets
+        from pet_llm import request_ledger_path
+        calls = self.patch_seedream(_png_bytes())
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '0.5', 'price_table': {
+                'currency': 'CNY', 'version': 'test', 'model_rates': {'m': {'images': '0.5'}}}}), encoding='utf-8')
+            items = [(aid, {'name': aid, 'image_prompt': '猫'}) for aid in ('CHAR_001', 'CHAR_002')]
+            with self.assertRaisesRegex(ValueError, '超过项目金额预算'):
+                native_assets._run_seedream_direct(root, root, items, {}, lambda _: None)
+            self.assertEqual(calls, [])
+            self.assertFalse(request_ledger_path(root).exists())
+            self.assertFalse((root / '生成资产').exists())
+
+    def test_previews_exclude_completed_unknown_and_recoverable_images(self):
+        import native_assets, keyframe_comfy
+        from asset_context import generated_dir
+        from pet_llm import request_ledger_path
+        calls = self.patch_seedream(_png_bytes())
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / 'cost_profile.json').write_text(json.dumps({'budget_amount': '1', 'price_table': {
+                'currency': 'CNY', 'version': 'test', 'model_rates': {'m': {'images': '0.5'}}}}), encoding='utf-8')
+            folder = generated_dir(root)
+            for aid, state in [('CHAR_001', 'completed'), ('CHAR_002', 'uncertain'), ('CHAR_003', 'failed')]:
+                (folder / ('seedream_' + aid + '.json')).write_text(json.dumps({'state': state}), encoding='utf-8')
+            (folder / 'CHAR_003_seedream.png').write_bytes(_png_bytes())
+            items = [(aid, {}) for aid in ('CHAR_001', 'CHAR_002', 'CHAR_003', 'CHAR_004')]
+            text = native_assets.seedream_cost_preview(root, root, items, {})
+            self.assertIn('至多新增 1 张', text)
+            self.assertIn('本批预计：0.5 CNY', text)
+            source = self.make_project(td)
+            data = json.loads(source.read_text(encoding='utf-8'))
+            data['shots'].extend([{'id': 'SH002'}, {'id': 'SH003', 'frame': 'ready.png'}])
+            source.write_text(json.dumps(data), encoding='utf-8')
+            from storyboard_paths import media_root
+            (media_root(source) / 'ready.png').write_bytes(_png_bytes())
+            records = source.parent / '首帧任务'; records.mkdir()
+            for sid, state in [('SH002', 'uncertain'), ('SH003', 'completed')]:
+                (records / ('seedream_' + sid + '.json')).write_text(json.dumps({'state': state}), encoding='utf-8')
+            text = keyframe_comfy.seedream_cost_preview(root, source, data['shots'], {})
+            self.assertIn('至多新增 1 张', text)
+            self.assertIn('本批预计：0.5 CNY', text)
+            self.assertFalse(request_ledger_path(root).exists())
+            self.assertEqual(calls, [])
+
+    def test_existing_bad_image_or_bad_response_never_triggers_automatic_resend(self):
+        import native_assets
+        from asset_context import generated_dir
+        calls = self.patch_seedream(b'bad image')
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); folder = generated_dir(root)
+            (folder / 'seedream_CHAR_001.json').write_text(json.dumps({'state': 'failed'}), encoding='utf-8')
+            original = folder / 'CHAR_001_seedream.png'; original.write_bytes(b'broken file')
+            items = [('CHAR_001', {'name': '猫', 'image_prompt': '猫'})]
+            result = native_assets._run_seedream_direct(root, root, items, {}, lambda _: None)
+            self.assertIn('待核实', result)
+            self.assertEqual(calls, [])
+            self.assertEqual(original.read_bytes(), b'broken file')
+            items = [('CHAR_002', {'name': '猫', 'image_prompt': '猫'})]
+            native_assets._run_seedream_direct(root, root, items, {}, lambda _: None)
+            native_assets._run_seedream_direct(root, root, items, {}, lambda _: None)
+            self.assertEqual(len(calls), 1)
+            row = json.loads((folder / 'seedream_CHAR_002.json').read_text(encoding='utf-8'))
+            self.assertEqual(row['state'], 'uncertain')
 
     def test_asset_batch_skips_unsettled_without_resubmitting(self):
         import native_assets

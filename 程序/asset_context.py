@@ -18,10 +18,10 @@ def _project_root(project=None, *, context=None):
     return root
 
 
-def generated_dir(base):
+def generated_dir(base, *, create=True):
     """全部模型批量生成图片的统一存放目录。"""
     path=Path(base).resolve()/'生成资产'
-    path.mkdir(parents=True,exist_ok=True)
+    if create:path.mkdir(parents=True,exist_ok=True)
     return path
 
 

@@ -71,15 +71,41 @@ def _to_png(raw):
     return to_png(raw)
 
 
+def seedream_cost_preview(project, base, items, options):
+    """按当前资产与恢复记录预估新增请求，不把取回已有图片算作新生成。"""
+    from seedream_api import UNSETTLED, load_profile
+    from asset_context import generated_dir
+    from asset_batch_service import image_ready
+    from pet_llm import RequestLedger
+    profile = load_profile(options.get('seedream_profile', ''))
+    folder = generated_dir(base, create=False)
+    count = 0
+    for aid, _asset in items:
+        if image_ready(base, aid):
+            continue
+        path = folder / ('seedream_' + aid + '.json')
+        old = read(path) if path.is_file() else {}
+        if old.get('state') == 'completed' or old.get('state') in UNSETTLED:
+            continue
+        if old.get('state') == 'failed' and any(folder.glob(aid + '_seedream*.png')):
+            continue
+        count += 1
+    if not count:
+        return '本批无新增 Seedream 请求；仅接续已有结果或提示待核实记录。'
+    return f'本批至多新增 {count} 张；已有图片、待核实及可恢复结果不重复提交。\n' + RequestLedger(project).preview_text(
+        profile['model'], 'images', {'images': count})
+
+
 def _run_seedream_direct(project, base, items, options, report, stop=None):
     from seedream_api import UNSETTLED, load_profile, request_image
     from pet_llm import RequestLedger, BudgetRejected
     from uuid import uuid4
     from asset_reference_images import resolve, reference_instruction
     from asset_reference_prompts import display_prompt
-    from asset_batch_service import register_image
+    from asset_batch_service import register_image, image_ready
     gateway=_asset_batch_gateway()
     profile=load_profile(options.get('seedream_profile',''))
+    report(seedream_cost_preview(project, base, items, options))
     from asset_context import generated_dir
     folder=generated_dir(base)
     aspect=options.get('aspect_ratio','1:1')
@@ -87,6 +113,8 @@ def _run_seedream_direct(project, base, items, options, report, stop=None):
     for index,(aid,asset) in enumerate(items,1):
         if stop is not None and stop.is_set():
             report('已停止 Seedream 制图');break
+        if image_ready(base, aid):
+            done.append(aid);report(aid+'：资产图片已就绪，跳过');continue
         report(f'{index}/{total} · {aid}：正在调用 Seedream API 生成…')
         prompt=display_prompt(asset)
         if not prompt.strip():raise ValueError(aid+' 缺少资产提示词')
@@ -113,7 +141,8 @@ def _run_seedream_direct(project, base, items, options, report, stop=None):
                 save(record,{'state':'completed','model':profile['model'],'aid':aid})
                 done.append(aid);report(aid+'：'+result+'（已恢复，未重复扣费）');continue
             except Exception as exc:
-                report(aid+'：上次图片无法恢复，将重新生成：'+str(exc))
+                blocked.append(aid+'（已有图片恢复失败，请手动核实）')
+                report(aid+'：上次图片无法恢复，保留原文件且不重复生成：'+str(exc));continue
         request_id = 'image:' + uuid4().hex
         save(record,{'request_id':request_id,'state':'sending','model':profile['model'],'aid':aid})
         try:
@@ -128,7 +157,7 @@ def _run_seedream_direct(project, base, items, options, report, stop=None):
         try:
             raw=_to_png(raw);save_bytes(dest,raw)
         except Exception as exc:
-            save(record,{'request_id':request_id,'state':'failed','model':profile['model'],'aid':aid,'error':str(exc)})
+            save(record,{'request_id':request_id,'state':'uncertain','model':profile['model'],'aid':aid,'error':str(exc)})
             failed.append(aid+'：'+str(exc));report(aid+'：'+str(exc));continue
         try:
             result=register_image(base,aid,asset,dest,gateway=gateway)
@@ -421,6 +450,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
             from seedream_settings import confirm_unsettled
             from asset_context import generated_dir
             confirm_unsettled(win,generated_dir(base),[aid for aid,_ in items],'资产')
+            progress_text.set(seedream_cost_preview(project, base, items, options))
         elif options['model']!=LOCAL:
             from cloud_assets import get_key
             if not get_key():
@@ -467,6 +497,11 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
     # 「阶段配置」右边（desktop.asset_page）。同一件事只留一个入口。
     buttons=FlowBar(form);buttons.pack(fill='x',padx=14,pady=(2,8))
     check_button=PrimaryButton(buttons,text='启动并检测',command=lambda:app.safe(check));check_button.pack(side='left')
+    def preview_cost():
+        if not context_matches():raise ValueError('项目或分镜范围已切换，请重新打开制图窗口。')
+        if model.get() != 'Seedream 5.0 Pro':raise ValueError('当前金额预估支持 Seedream 直连，请按实际供应商核对其他模型费用。')
+        progress_text.set(seedream_cost_preview(project, base, selection(), {}))
+    SecondaryButton(buttons,text='预估费用',command=lambda:app.safe(preview_cost)).pack(side='left',padx=(6,0))
     cancel_button=SecondaryButton(buttons,text='取消检测',command=cancel,state='disabled');cancel_button.pack(side='left',padx=(6,0))
     def update_buttons():
         if not win.winfo_exists():return

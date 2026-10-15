@@ -106,6 +106,27 @@ def check_shot(source, shot):
     return shot_inputs(shot, media_root(source), load_assets(source))
 
 
+def seedream_cost_preview(project, source, shots, options):
+    """报价只覆盖尚需发送的镜头；不释放未知请求，不把恢复算作新增。"""
+    from seedream_api import UNSETTLED, load_profile
+    from pet_llm import RequestLedger
+    source = Path(source).resolve(); base = media_root(source).resolve()
+    current = {shot['id']: shot for shot in read(source).get('shots', [])}
+    count = 0
+    for shot in shots:
+        sid = shot['id']; item = current.get(sid)
+        if item is None:continue
+        path = source.parent / '首帧任务' / ('seedream_' + sid + '.json')
+        record = read(path) if path.is_file() else {}
+        if record.get('state') in UNSETTLED:continue
+        if record.get('state') == 'completed' and frame_state(base, item) == 'done':continue
+        count += 1
+    if not count:return '本批无新增 Seedream 请求；仅接续已有结果或提示待核实记录。'
+    profile = load_profile(options.get('seedream_profile', ''))
+    return f'本批至多新增 {count} 张；已完成及待核实镜头不重复提交。\n' + RequestLedger(project).preview_text(
+        profile['model'], 'images', {'images': count})
+
+
 def run_seedream(source, shots, options, log, stop=None, *, project=None):
     """Generate first frames through the user's Volcengine Seedream API, one shot at a time."""
     from seedream_api import UNSETTLED, load_profile, request_image
@@ -117,6 +138,7 @@ def run_seedream(source, shots, options, log, stop=None, *, project=None):
     register, fingerprint = keyframe_import.register, keyframe_import.fingerprint
     source = Path(source).resolve(); base = media_root(source).resolve()
     profile = load_profile(options.get('seedream_profile', ''))
+    log(seedream_cost_preview(project, source, shots, options))
     from asset_contract import resolve_aspect_ratio
     aspect = resolve_aspect_ratio(options.get('workflow_lock'), options.get('aspect_ratio'), '9:16')
     folder = source.parent / '首帧任务'; folder.mkdir(parents=True, exist_ok=True)
@@ -738,6 +760,7 @@ def show(app, source, initial=None):
             confirmed = confirm_unsettled(win, source.parent / '首帧任务', [shot['id'] for shot in checked['shots']], '镜头')
             if confirmed:
                 log_lines('已在火山控制台核实，重新生成：' + '、'.join(confirmed))
+            log_lines(seedream_cost_preview(project, source, checked['shots'], checked))
         else:
             values = checked['batch']
             write_settings(values)
@@ -779,6 +802,11 @@ def show(app, source, initial=None):
     halt.pack(side='left', padx=6)
     check_button = SecondaryButton(bar, text='检查参考资产', command=lambda: app.safe(preflight_check))
     check_button.pack(side='left', padx=6)
+    def preview_cost():
+        checked = check_values()
+        if checked['model'] != SEEDREAM:raise ValueError('当前金额预估支持 Seedream 直连，请按实际供应商核对其他模型费用。')
+        log_lines(seedream_cost_preview(project, source, checked['shots'], checked))
+    SecondaryButton(bar, text='预估费用', command=lambda: app.safe(preview_cost)).pack(side='left', padx=6)
     SecondaryButton(bar, text='生成记录', command=records).pack(side='left', padx=6)
     SecondaryButton(bar, text='关闭', command=lambda: app.safe(close)).pack(side='left', padx=6)
 
