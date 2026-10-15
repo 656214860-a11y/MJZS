@@ -1,0 +1,582 @@
+"""三虎窗口（``pet_ui.Pet``）各 Mixin 共用的常量、辅助函数与小类（L4）。
+
+从 ``pet_ui`` 模块级原样迁出（R1506）：被迁出的 Pet 方法用到的模块级名字都在这里，``pet_ui`` 重新导入，旧的 ``pet_ui.<名字>`` 引用不变。本模块不导入 ``pet_ui``，没有导入环。
+"""
+import sys
+import pet_agent
+import pet_bus
+from pathlib import Path
+from tkinter import TclError
+from ui_tokens import PET_LAYOUT
+
+PROGRAM = Path(__file__).resolve().parent
+SIZE = PET_LAYOUT['avatar_size']  # 显示与命中区域共用的贴片边长
+IDLE_MS = 500                    # 闲置 2fps
+ACTIVE_MS = 125                  # 忙时 8fps
+CANVAS_BG = '#f3f6fa'
+SANHU_FUR = '#ff8a3d'             # 与桌面图标一致的虎皮橙：三虎不再因为模式切换失去识别度
+SANHU_EAR = '#ff9292'             # 桌面图标同款暖粉耳窝
+SANHU_MUZZLE = '#fff2d9'          # 桌面图标同款奶白口鼻
+SANHU_INK = '#1a1c2a'             # 厚而清晰的深蓝墨描边
+SANHU_STAR = '#22d3ee'            # 桌面图标右上角的青色星光
+SANHU_BLUSH = '#ff8d9b'           # Q 版头像的小腮红
+# 第 19 期：自动化等级搬到三虎身旁——三个猫爪按钮排成一排，点哪一档就切到哪一档。
+PAW_SIZE = PET_LAYOUT['paw_size']                  # 单个猫爪按钮的边长
+PAW_GAP = PET_LAYOUT['paw_gap']                    # 爪印之间的间距
+PAW_WIDTH = 3 * PAW_SIZE + 2 * PAW_GAP            # 一整排猫爪的宽度
+PAW_LEVELS = ('hint', 'semi', 'auto')             # 从左到右：正常／半自动／全自动
+SANHU_MODES = ('manual', 'auto')                  # 三虎控制面的两档：手动／全自动
+# 自动制作变量由三虎创建、持有和写入；页面只能通过 ``auto_variable`` 取得并读取。
+# 编号是流程模板的 process_id，短名是 pet_bus.STAGES 的规范阶段 ID。
+AUTO_STAGE_VARIABLES = {
+    'storyboard': 'auto_storyboard_var', '01_storyboard_draft': 'auto_storyboard_var',
+    'assets': 'auto_asset_var', '02_assets': 'auto_asset_var',
+    'keyframe': 'auto_first_frame_var', '05_keyframe': 'auto_first_frame_var',
+    '05_first_frame': 'auto_first_frame_var',
+    'video': 'auto_video_var', '07_video': 'auto_video_var', '07_video_gen': 'auto_video_var',
+    'audio': 'auto_audio_var', '08_audio': 'auto_audio_var', '08_audio_subtitle': 'auto_audio_var',
+    # 其余既有自动链保留独立变量，避免把不同行为误合并为一个开关。
+    'final': 'auto_final_var', 'auto_final': 'auto_final_var',
+    'auto_adopt': 'auto_adopt_var', 'previs': 'auto_previs_var', 'auto_previs': 'auto_previs_var',
+    'edit': 'auto_edit_var', 'auto_edit': 'auto_edit_var',
+    'delivery': 'auto_handoff_var', 'auto_handoff': 'auto_handoff_var',
+    'auto_submit': 'auto_submit_var', 'auto_review': 'auto_review_var',
+}
+AUTO_VARIABLE_NAMES = tuple(dict.fromkeys(AUTO_STAGE_VARIABLES.values()))
+class _BooleanFlag:
+    """无 Tk 根时供三虎逻辑测试使用的最小 BooleanVar 接口。"""
+    def __init__(self, value=False):
+        self.value = bool(value)
+
+    def get(self):
+        return self.value
+
+    def set(self, value):
+        self.value = bool(value)
+PAW_IDLE = ('#e7edf5', '#a9b6c7')                 # 没选中的爪印：淡灰一只
+PAW_HOVER = ('#f4f9ff', '#6f8bab')                # 第 23 期：鼠标停在爪上时提亮一档（可点得可预期）
+PAW_GAP_Y = PET_LAYOUT['paw_gap_y']                 # 猫爪排紧贴头像下沿
+PAW_ARC = PET_LAYOUT['paw_arc']                     # 三只爪摆成一条向下的弧——
+# 切等级之后用圆形气泡说的那句话（用户第 19 期给的原话 ＋ 第 24 期第 4 条要的简单说明）。
+# 光说「已切换」不够——用户按完不知道自己刚选了什么，所以每一档都补一句「这一档到底怎么干活」。
+LEVEL_SWITCH_NOTES = {
+    'hint': '只提醒：我只报进度，不自动制作。',
+    'semi': '半自动：免费步骤自动做，付费前先问您。',
+    'auto': '全自动：按流程制作；付费或阻塞时会停下。'}
+# 第 21 期：等级小字从「贴片左边」挪到「三虎右边」（用户要的「文字移动到三虎右侧，不能遮挡」）。
+# 贴片右沿离窗口右边还有 -(PATCH_X) 那么宽，小字就落在这一条空档里：右沿离窗口边 CAPTION_RIGHT，
+# 自己最多占 CAPTION_ROOM 宽（三个汉字够用），离猫脸还留着一条缝——标题栏文字按 HEAD_PAD 让开。
+CAPTION_RIGHT = PET_LAYOUT['caption_right']
+CAPTION_ROOM = PET_LAYOUT['caption_width']
+PATCH_X = -(CAPTION_RIGHT + CAPTION_ROOM + PET_LAYOUT['right_gap'])
+CAPTION_INK = '#000000'                           # 第 21 期：三档小字一律黑色（用户要的「全部用黑色」）
+# PATCH_X 已含右侧状态字的占位；再向左让出头像／爪排宽度和标题间距即可。
+HEAD_PAD = -PATCH_X + max(SIZE, PAW_WIDTH) + PET_LAYOUT['header_gap']
+# 第 20 期：用户报「3 个猫爪型按钮被遮挡」——原来这排爪子的右沿只比贴片右沿往里 8 像素，
+# 而它自己还有 PAW_WIDTH 宽，于是整排压在猫脸上（截图里猫的耳朵被盖住、下巴被标题行裁掉）。
+# 现在挪到贴片正下方：右沿与贴片对齐，纵向从贴片底边再往下 PAW_GAP_Y。
+PAW_ROW_X = PATCH_X + (PAW_WIDTH - SIZE) // 2       # 猫爪排与头像中心对齐
+PAW_Y = PET_LAYOUT['top'] + SIZE + PAW_GAP_Y        # 猫爪排落在贴片正下方
+PATCH_ROOM = PAW_Y + PAW_SIZE + PAW_ARC           # 贴片＋猫爪的总高度：标题行必须留够，否则猫脸被裁
+CAPTION_Y = PET_LAYOUT['top'] + max(0, (SIZE - PET_LAYOUT['caption_height']) // 2)
+# 第 44 期：设置入口做成齿轮，摆在窗口左上角标题（V0.7）旁边。用户要的是「醒目提示」——
+# 它不藏在右键菜单里：琥珀色齿身 ＋ 深墨描边，鼠标停上去再亮一档，旁边跟着一句「设置」。
+GEAR_SIZE = 22                                    # 齿轮按钮的边长
+GEAR_COLOR = ('#f0a03a', '#7a4a0c')               # 齿身／描边
+GEAR_HOVER = ('#ffc061', '#a8620f')               # 鼠标停上去时各亮一档
+# 第 45 期：原先齿轮旁边还写着一句「设置」，230 像素宽的侧栏装不下（应用名 ＋ V0.7 ＋ 齿轮
+# 之后它排在最后，整句被裁掉——用户报的「齿轮旁边的文字被遮挡」）。用户要删掉，所以只留这颗
+# 琥珀色齿轮本身（够醒目）；这句话退成无障碍名字，不再画出来。
+GEAR_TIP = '设置'
+# 第 22 期重做形象：用户要的「配色冷酷、线条流畅、造型醒目」。
+# 三件事怎么分：造型与线条归 paint()（尖耳、钟形脸、上挑的细长眼、长胡须）；
+# 配色归这里——四档心情与三档等级共用同一枚深墨描边（#101c2b 一系），色相一律压冷，
+# 冰白（ICE）只留给口鼻与眼里那一点高光。等级色仍是蓝／黄／红（用户第 20 期钉死的语义），
+# 只是把三档都往冷里压了一档，配上墨色描边看不出一点甜腻。
+ICE = '#eef5fc'                   # 冰白：口鼻底板与眼里那点高光
+INK_SOFT = '#3c526d'              # 浅一档的墨色：胡须用它，贴着深墨描边不抢脸
+TONGUE = '#c98ba4'                # 舔爪时露出的舌头：压过的冷玫瑰
+MOODS = {'idle': ('#7fb0dd', '#101c2b', '#0a1521'),
+         'busy': ('#d9a63c', '#2a1e05', '#1b1200'),
+         'worry': ('#d4645c', '#2d0d0a', '#1c0603'),
+         'paused': ('#c2c8d2', '#3a4048', '#20242a')}
+# 自动化等级 → 头像配色（身体色／描边色／高光色）。用户一眼就能从猫的颜色看出现在是哪一档。
+# 第 20 期：用户报「自动化级别显示错误」——那排猫爪按第 19 期的新配色填（正常蓝／半自动黄／全自动红），
+# 猫身子却还是第 15 期的旧配色（正常黄／半自动蓝／全自动红），同一档两个颜色（蓝爪配黄猫）。
+# 现在只留这一份：猫身子、那排猫爪、等级小字共用它；PAW_COLORS 就是它的前两项（填色／描边）。
+LEVEL_COLORS = {'hint': ('#6fb3e0', '#123a5e', '#08182a'),
+                'semi': ('#e0b13c', '#6b4a10', '#241703'),
+                'auto': ('#dd5f57', '#7c231e', '#2a0806')}
+PAW_COLORS = {level: colours[:2] for level, colours in LEVEL_COLORS.items()}
+# 第 18 期：等级不光靠颜色，标题行里还有一个字样（用户报「正常／半自动／全自动不显示了」）。
+# 第 21 期：字样按用户给的说法写——蓝色那只＝「只提醒」（用户原话：蓝爪→蓝猫→只提醒）。
+# 三档的顺序与配色由 PAW_LEVELS／LEVEL_COLORS 定，这里只管那三个字写什么。
+# 第 23 期：档位名不再各写一份（原来这里与 pet_agent.LEVEL_NAMES 是同一档两个说法）。
+LEVEL_CAPTIONS = pet_agent.LEVEL_NAMES
+PAUSED_CAPTION = '已暂停'
+# 第 18 期：关软件那一眼的两张贴纸——下午之后递日报、周五（含）之后递周报。
+BANNER_HOUR = 14                  # 下午两点之后才算「下午以后」
+WEEKLY_FROM = 4                   # 周五（datetime.weekday：周一 0、周日 6）起算周报
+# 第 36 期第 5／6 条：关软件那一下不再递日报（用户要「删掉关闭前的弹框」），改由三虎自己挑
+# 时机；换了阶段也主动问一句。这两件事都按钟点节流，别反复问。
+STAGE_ASK_SECONDS = 45.0          # 同一个阶段重复问一句最短隔这么久
+REPORT_QUIET_SECONDS = 900.0      # 隔这么久没有新的制作动静＝这一波活干完了，该递日报了
+GREET_DELAY_MS = 450              # 开机招呼推迟这么久（用户嫌招呼慢，原 900）：主窗口先映射出来，云才知道往哪落
+# 第 68 期任务 11：用户要「打招呼的聊天框关掉之后，再慢慢弹出其他信息」。招呼冒出来之后留
+# 一段安静期：这期间自动那几路（进度播报／进度气泡／主动问一句／自动推进／失败提醒）都不出声，
+# 各自的节流起算点跟着往后挪——安静期过了按正常节奏慢慢说，不会攒成一大串一起炸出来。
+GREET_QUIET_SECONDS = 5.0
+ONE_CLICK_TITLE = '开始自动制图'
+ONE_CLICK_ASK = ('准备开始自动制图：重试失败项 → 本地补首帧 → 出今日日报。\n'
+                 '会产生费用的步骤（云端首帧、视频、配音）仍然只由您在各页面自己按。\n\n现在开始吗？')
+OFFER_SECONDS = 300.0                             # 同一批缺口最短隔这么久才问一次
+OFFER_REPEAT = 900.0                              # 缺口没变化：也隔这么久重提一次，别一直闷着
+OFFER_YES = frozenset(('好', '好的', '好呀', '是', '是的', '要', '可以', '行', '来吧', '开始',
+                       '开始吧', '1', '一键执行', '一键收尾', '全部做完', '都做完', '收个尾'))
+OFFER_NO = frozenset(('不用', '先不用', '不用了', '不了', '算了', '回头再说', '等会儿', '等会',
+                      '先放着', '2'))
+AUTOSTART_NAME = '漫剧制作助手·宠物助手'          # 注册表 Run 项的名字
+SNOOZE_SECONDS = 900                             # 「稍后再说」默认安静 15 分钟
+# 第 60 期第 1 条：用户自己连着按满这么多次、而且都落在 BUSY_WINDOW 这么短的窗口里，就是
+# 「人正忙在手上的活上」——这时候三虎再冒话就是打扰，于是自己进免打扰（安静 SNOOZE_SECONDS）。
+BUSY_TAPS = 12
+BUSY_WINDOW = 45.0
+# 第 19 期：进度面板撑下了，改成三虎自己判断时机冒出来的圆形进度气泡（还是同一份快照）。
+# 第 49 期第 3 条：用户要「进度面板提示频率降低、不许提示无用内容」——240 秒 → 600 秒
+# （十分钟），并且内容跟上一模一样的那一次直接咽下去（见 progress_voice）。
+PROGRESS_SECONDS = 600.0                          # 至少隔这么久才自己冒一次进度明细
+PROGRESS_GAPS = 2                                 # 第 21 期：圆气泡里最多带两条缺口（原来搬整个面板，太大）
+CHAT_MUTE_SECONDS = 30.0                          # 单击收起的云朵框：这段时间里自动播报不再把它顶出来
+# 第 35 期第 1 条：用户切去别的应用时不再只是「每一路播报各自闭嘴」（第 30 期第 3 条那套），
+# 而是三虎自己进入暂停状态——头像置灰、菜单写「已暂停」，回到助手界面再自动恢复。
+AWAY_PAUSE_SECONDS = 10.0                        # 离开界面满这么久才暂停：alt-tab 一闪不折腾
+# 第 37 期第 1 条：用户要「给三虎记住所有项目」。项目登记表本来就在盘上（程序目录的
+# projects.json），三虎以前只看当前这一个；现在把它整本记下来：名字、在制作／已完成、
+# 当前阶段与进度都念得出来，问「有哪些项目」也有得答。读盘带一层 TTL 缓存，不能每拍都读。
+PROJECT_CACHE_SECONDS = 20.0                      # 项目快照最多缓存这么久
+PROJECT_LIMIT = 6                                 # 一句话里最多念几个项目（再多就太长了）
+PROJECT_CLOSED = '已完成'
+PROJECT_OPEN = '在制作'
+# 第 44 期照用户附件重排功能栏：面板那一项后来又叫过「三虎面板」（第 68 期任务 4 改回「进度面板」），
+# 「三虎设置」改名「设置」，
+# 各格收进子菜单（第 59 期第 10 条：子菜单就是齿轮那扇窗的分页表，两边同步；
+# 附件里的 SKILL 管理这一轮不做）。
+PANEL_MENU_LABEL = '进度面板'                      # 第 68 期任务 4：右键与功能栏都叫这个
+DETAIL_MENU_LABEL = '待确认项'                    # 右键入口简短明确，内容在三虎提示框里展开
+SETTINGS_LABEL = '设置'
+# 第 59 期第 10 条：右键「设置」子菜单的内容与齿轮那扇窗同步——两边只认
+# pet_settings_ui.TABS 这一份表，不再各写一份（原来齿轮那边改名「三虎模型配置」
+# 之后，右键这里还写着「模型配置…」，用户看到的就是两份对不上）。
+def _settings_entries():
+    try:
+        from pet_settings_contract import TABS
+        return tuple(TABS)
+    except Exception:
+        return (('basic', '基础功能'), ('model', '三虎模型配置'), ('level', '自动化等级'),
+                ('token', 'Token 节省'), ('budget', '预算'), ('dev', '开发信息'))
+SETTINGS_ENTRIES = _settings_entries()
+QUIT_LABEL = '退出程序'
+PANEL_HEAD = '当前进度：'                          # 第 36 期第 10 条：面板正文开头那一行
+# 第 26 期第 4 条：面板原来是把十几行「名字：值」一股脑倒出来（用户报「文字排版差、难阅读」）。
+# 现在按「看什么」分三节，每行一个编号，节标题单独一行——一条一行、不空行，扫一眼就能分段。
+PANEL_SECTIONS = (('现在在做什么', ('当前阶段', '进度', '当前状态', '最近提示', '预计剩余')),
+                  ('速度与命中', ('阶段停留', '平均单镜耗时', '缓存命中率', 'Flash 占比')),
+                  ('配额与设置', ('失败待确认', '当日 Token', '配额', '自动化等级')))
+PANEL_DIVIDER = ' · '                             # 编号之后、名字与值之间那个分隔（比「：」好扫）
+AUTOSTART_KEY = r'Software\Microsoft\Windows\CurrentVersion\Run'
+CHAT_HINT = '我一说话就冒出云朵框：单击我就能开／关，说一句就行（右键是我能做的事）'
+# 第 14 期：播报频率。忙的时候报得勤，闲着也隔一会儿报一次进度；缺口一变化立刻报。
+# 第 49 期第 3 条：用户第三回嫌吵——忙时 40 秒 → 2 分钟、闲时 3 分钟 → 10 分钟；缺口真变了
+# 仍然是立刻说（那是新消息，不算「无用内容」）。
+BROADCAST_BUSY = 120.0           # 有阶段在跑：最多每 2 分钟播报一次
+BROADCAST_IDLE = 600.0           # 闲着：最多每 10 分钟播报一次进度
+GAP_SECONDS = 30.0               # 未采用分镜／缺首帧这类缺口最多每 30 秒重算一次（不在心跳里读盘）
+# 第 57 期第 2 条：同一件事只说一遍。「进度」这一路有两条入口——心跳播报（tick_broadcast）
+# 与进度圆气泡（progress_voice）说的是同一句进度线，「缺口」那几句也是两边都带；原来各自
+# 按自己的频率说，同一句话能从两条入口各冒一次（用户点名的「重复的弹框」）。说过的记在
+# _spoken 里：另一条入口在 SPEAK_GAP_SECONDS 之内不再说第二遍；同一入口自己按频率再说
+# 一遍是本来的设计（文字没变时另有 _progress_said 管着），不算重复。
+SPEAK_GAP_SECONDS = 900.0
+SPOKEN_KEEP = 12                 # _spoken 只留最近这么多笔（这是一份短账，不是日志）
+# 自动化等级 → 一句人话解释（切等级时连解释一起播报，用户才知道切完会发生什么）
+# 第 23 期：自动推进的节流。比无人值守最短的节流周期（15 秒）还短一点，链路一停就能被推一把，
+# 又不至于每一步都每 150ms 问一次宿主。
+ADVANCE_SECONDS = 12.0
+# 第 29 期第 5 条：用户要「删掉闲聊，只问制作流程；主动问当前页该做的事；聊天框里不用回话，
+# 点一下确认就行」。于是每一页配一句问句 ＋ 照着做的那一句话（空着回车发出去的就是它）——
+# 原先那两句随口可爱的话（CHATTER_LINES）与五句猜意图的「哈喽~」（CHAT_HELLO_LINES）一并删掉，
+# 三虎从此只谈制作流程。页序号与 desktop.PAGES 一一对应（01 剧本准备 … 13 质检与交付）。
+# 第 37 期第 5 条：用户要「聊天框里不要说切到第几页了、这是 XX 页，只需询问用户」——问句里
+# 只剩一句问，页面名一个字都不提（用户自己知道在哪一页）。问句都短、都像人说的话。
+PAGE_ASKS = (
+    ('要不要我把剧本这一步按您勾的 SKILL 跑一遍？', '执行选中'),
+    ('要不要我把剧本原稿整理成可供分镜使用的结构化正稿？', '执行选中'),
+    ('要不要我把这一集转成 JSON 分镜？', '执行选中'),
+    ('要不要我用共享参考图生成镜头草图，合成分镜预演？', '执行选中'),
+    ('要不要我把缺的资产按勾选的 SKILL 补出来？', '执行选中'),
+    ('要不要我把这一集的跨镜约束、锚点与参考图冲突理一遍？', '执行选中'),
+    ('要不要我把拍板的那几份分镜采用掉，往后推一步？', '执行选中'),
+    ('要不要我把待生成的首帧补出来？', '执行选中'),
+    ('要不要我把这一集的镜头跑一遍预演？', '执行选中'),
+    ('要不要我把已就绪首帧的镜头交出去生成？', '执行选中'),
+    ('要不要我把对白配一遍、字幕导出来？', '执行选中'),
+    ('要不要我把已有素材合成一版？', '执行选中'),
+    ('要不要我把成片过一遍质检、出一份交付清单？', '执行选中'),
+)
+# 认不出的页（比如第 13 页参考网站）：不硬凑一件制作上的事，只报一报进度。
+FALLBACK_ASK = ('要不要我报一下当前进度？', '进度面板')
+CONFIRM_TITLE = '三虎 · 要您点个头'   # 需要用户确认时的通知气泡标题
+CONFIRM_NEED = '要您点个头'             # 记录里给「需要确认」补的一句后缀
+def paw_parts(x, y, size=PAW_SIZE):
+    """一个猫爪的图元：一个掌垫 ＋ 四个脚趾（都是 ('oval', cx, cy, r)，画布坐标）。
+
+    20 像素见方也得让人看出是猫爪：掌垫大一点摆在下面，四个脚趾呈弧线排在掌垫上方。
+    """
+    cx = x + size * 0.5
+    pad = ('oval', cx, y + size * 0.70, max(2.0, size * 0.30))
+    toes = tuple(('oval', cx + (index - 1.5) * size * 0.27, y + size * 0.30, max(1.2, size * 0.09))
+                 for index in range(4))
+    return (pad,) + toes
+def paw_dy(index, arc=PAW_ARC):
+    """第 36 期第 9 条：这一只爪往下挪多少像素——三只摆成一条向下的弧。
+
+    中间那只往下挪 arc（最低），两边不动：连起来是一条向下的弧（笑脸那种），
+    像猫爪踩在一条弯线上。index 是这一排里的第几只（0／1Ｏ2），
+    越界就退回 0（不挪）。
+    """
+    try:
+        index = int(index)
+    except (TypeError, ValueError):
+        return 0
+    if not 0 <= index < len(PAW_LEVELS):
+        return 0
+    return arc if index == len(PAW_LEVELS) // 2 else 0
+def gear_parts(size=GEAR_SIZE, teeth=8):
+    """一颗齿轮的图元：齿（多边形点列）＋ 齿身圆 ＋ 中孔（都是画布坐标）。
+
+    22 像素见方也得让人一眼看出「这是齿轮」：八颗方齿绕一圈、齿身比齿根稍小一点，
+    中间挖一个孔。与 paw_parts 同一套做法——这里只算形状，画不画、什么颜色由调用方定。
+    """
+    import math
+    centre = size * 0.5
+    body = size * 0.30
+    outer = size * 0.46
+    points = []
+    for index in range(teeth * 2):
+        angle = math.pi * index / teeth
+        radius = outer if index % 2 == 0 else body * 1.05
+        points.extend((centre + radius * math.cos(angle), centre + radius * math.sin(angle)))
+    return {'teeth': tuple(points), 'body': (centre, centre, body),
+            'hole': (centre, centre, max(2.0, body * 0.38))}
+class GearButton:
+    """左上角那颗齿轮（第 44 期）：点一下开「设置」。
+
+    用户要「醒目提示」，所以它不藏在菜单里——琥珀色齿身 ＋ 深墨描边，鼠标停上去再亮一档。
+    第 45 期起不再在旁边写字：那句「设置」在侧栏里会被裁掉，用户要的就是把它删掉（见 GEAR_TIP）。
+    画布 pack 进宿主给的那一行（desktop.sidebar_head），与贴片同一套做法：
+    只往既有容器里塞一个控件，不动原布局代码。
+    """
+
+    def __init__(self, master, command=None, size=GEAR_SIZE, tip=GEAR_TIP, bg=CANVAS_BG):
+        import tkinter as tk
+        self.command = command
+        self.tip_text = tip
+        self.canvas = tk.Canvas(master, width=size, height=size, bd=0, highlightthickness=0,
+                                bg=bg, cursor='hand2')
+        self._hover = False
+        self.canvas.bind('<Button-1>', self.click)
+        self.canvas.bind('<Enter>', self.hover_on)
+        self.canvas.bind('<Leave>', self.hover_off)
+        self.draw()
+        return None
+
+    def draw(self):
+        """按当前状态重画一颗齿轮（悬停时换亮一档的颜色）。"""
+        shape = gear_parts(int(self.canvas.cget('width')))
+        fill, outline = GEAR_HOVER if self._hover else GEAR_COLOR
+        self.canvas.delete('gear')
+        self.canvas.create_polygon(*shape['teeth'], fill=fill, outline=outline, width=1.4,
+                                   tags=('gear', 'gear-teeth'))
+        centre_x, centre_y, radius = shape['body']
+        self.canvas.create_oval(centre_x - radius, centre_y - radius, centre_x + radius,
+                                centre_y + radius, fill=fill, outline=outline, width=1.4,
+                                tags=('gear', 'gear-body'))
+        hole_x, hole_y, hole = shape['hole']
+        self.canvas.create_oval(hole_x - hole, hole_y - hole, hole_x + hole, hole_y + hole,
+                                fill=CANVAS_BG, outline=outline, width=1.2, tags=('gear', 'gear-hole'))
+        return self.canvas.find_withtag('gear')
+
+    def hover_on(self, event=None):
+        self._hover = True
+        self.draw()
+        return self._hover
+
+    def hover_off(self, event=None):
+        self._hover = False
+        self.draw()
+        return self._hover
+
+    def click(self, event=None):
+        """点一下＝开设置；动作坏了只记账，绝不把异常抛回 Tk 的事件循环。"""
+        if not callable(self.command):
+            return None
+        return self.command()
+
+    def place(self, **options):
+        """便利：把齿轮与旁边那句「设置」一起摆好（画布与标签用同一套 place 参数）。"""
+        self.canvas.place(**options)
+        tip = dict(options)
+        tip.pop('anchor', None)
+        tip['x'] = int(options.get('x', 0)) + int(self.canvas.cget('width')) + 4
+        if 'rely' in tip:
+            tip['rely'] = 0.5
+            tip['anchor'] = 'w'
+        try:
+            self.tip.place(**tip)
+        except TclError:
+            # 主窗口销毁后布局补位已无意义；其他错误必须继续暴露。
+            pass
+        return self.canvas
+
+    def destroy(self):
+        for widget in (self.tip, self.canvas):
+            try:
+                widget.destroy()
+            except TclError:
+                # 重复销毁属于 Tk 生命周期竞态；其余异常须上抛。
+                pass
+        return None
+def palette(mood='idle', level=None):
+    """取这一帧的三种颜色：暂停优先置灰，其余按等级色（头像＝等级），再退回心情色。
+
+    第 18 期：暂停自动执行时三虎整只置灰（用户要的「暂停时头像置灰」）——暂停是一种状态，
+    不是某一档等级，所以它压过等级色。
+    """
+    if str(mood) == 'paused':
+        return MOODS['paused']
+    if level in LEVEL_COLORS:
+        return LEVEL_COLORS[level]
+    return MOODS.get(str(mood), MOODS['idle'])
+def paint(canvas, step=0, mood='idle', percent=0.0, level=None, pose='sit'):
+    """手绘一帧：参考桌面图标的 Q 版三虎（大眼、奶白口鼻、三道额纹）。
+
+    头像与桌面图标使用同一套识别色：虎皮橙、深蓝描边、粉耳、奶白口鼻和青色星光。
+    自动化等级仍由 ``accent`` 标记在星光和动作细节中，暂停时整只置灰；这样既不丢失状态语义，
+    也不会让三虎在不同页面和桌面图标之间像两个角色。
+
+    第 15 期：给了 level 就按自动化等级上色（全自动红／半自动蓝／只提示黄），mood 仍然管
+    动得快慢与托盘图标——两件事各归各的，不再互相串色。
+    第 17 期：多了 pose——爬行时整只猫左右轻轻挪、脚下多两只爪子；舔爪／打哈欠／摇尾巴／
+    撒娇各有自己的画法，每一段都带 'pose-xxx' 标签（用例按标签认动作，不看像素）。
+    眼睛仍只按帧眨眼（不看动作）：动作再怎么换，眨眼节奏不变，用例的帧断言才稳。
+    """
+    step = int(step)
+    blink = step % 4 == 3
+    lift = 1 if step % 2 else 0
+    state_body, state_outline, accent = palette(mood, level)
+    paused = str(mood) == 'paused'
+    body = state_body if paused else SANHU_FUR
+    outline = state_outline if paused else SANHU_INK
+    muzzle = '#e3e6eb' if paused else SANHU_MUZZLE
+    ear = '#c7cbd2' if paused else SANHU_EAR
+    blush = '#c0a8ac' if paused else SANHU_BLUSH
+    pose = str(pose or 'sit')
+    ox = 0
+    if pose == 'walk':
+        ox = (step % 4) - 2             # 左右轻轻挪：看着像在爬
+    elif pose == 'nuzzle':
+        ox = 2                          # 撒娇：脑袋往一边歪
+    oy = -lift
+    canvas.delete('all')
+    # ① 尖耳与暖粉耳窝：沿用桌面图标轮廓，但缩到 64px 仍留出清晰内耳。
+    canvas.create_polygon(11 + ox, 26 + oy, 18 + ox, 4 + oy, 31 + ox, 22 + oy,
+                          fill=body, outline=outline, width=2, tags='fur')
+    canvas.create_polygon(53 + ox, 26 + oy, 46 + ox, 4 + oy, 33 + ox, 22 + oy,
+                          fill=body, outline=outline, width=2, tags='fur')
+    canvas.create_polygon(16 + ox, 18 + oy, 19 + ox, 10 + oy, 25 + ox, 20 + oy,
+                          fill=ear, outline='', tags='ear')
+    canvas.create_polygon(48 + ox, 18 + oy, 45 + ox, 10 + oy, 39 + ox, 20 + oy,
+                          fill=ear, outline='', tags='ear')
+    # ② 圆润脸与奶白口鼻：桌面图标的简洁记号改成更适合聊天陪伴的 Q 版比例。
+    canvas.create_oval(8 + ox, 17 + oy, 56 + ox, 59 + oy,
+                       fill=body, outline=outline, width=2, tags='fur')
+    canvas.create_oval(18 + ox, 42 + oy, 33 + ox, 56 + oy,
+                       fill=muzzle, outline='', tags='muzzle')
+    canvas.create_oval(31 + ox, 42 + oy, 46 + ox, 56 + oy,
+                       fill=muzzle, outline='', tags='muzzle')
+    # ③ 三道额纹：三虎的名字记号，和桌面图标完全一致。
+    for y, half in ((23, 5), (27, 7), (31, 5)):
+        canvas.create_line(32 - half + ox, y + oy, 32 + half + ox, y + oy,
+                           fill=outline, width=2, capstyle='round', tags='stripe')
+    # ④ 大圆眼：空闲时两颗亮晶晶的眼睛，眨眼的帧节奏与原实现保持一致。
+    if blink:
+        canvas.create_line(17 + ox, 38 + oy, 29 + ox, 38 + oy, fill=outline, width=2, tags='eye-line')
+        canvas.create_line(35 + ox, 38 + oy, 47 + ox, 38 + oy, fill=outline, width=2, tags='eye-line')
+    else:
+        for cx in (23, 41):
+            canvas.create_oval(cx - 7 + ox, 31 + oy, cx + 7 + ox, 45 + oy,
+                               fill=outline, outline='', tags='eye-dot')
+            canvas.create_oval(cx - 4 + ox, 33 + oy, cx + 1 + ox, 38 + oy,
+                               fill=ICE, outline='', tags='glint')
+            canvas.create_oval(cx + 2 + ox, 39 + oy, cx + 5 + ox, 42 + oy,
+                               fill='#cfe7ff', outline='', tags='glint')
+    # ⑤ 鼻子、笑嘴和腮红：不把动作表情画成黑洞，保持小尺寸里的亲和感。
+    canvas.create_polygon(29 + ox, 46 + oy, 35 + ox, 46 + oy, 32 + ox, 50 + oy,
+                          fill=outline, outline='', tags='nose')
+    canvas.create_arc(26 + ox, 47 + oy, 32 + ox, 54 + oy, start=270, extent=90,
+                      style='arc', outline=outline, width=2, tags='mouth')
+    canvas.create_arc(32 + ox, 47 + oy, 38 + ox, 54 + oy, start=180, extent=90,
+                      style='arc', outline=outline, width=2, tags='mouth')
+    for side in (12, 45):
+        canvas.create_oval(side + ox, 43 + oy, side + 7 + ox, 48 + oy,
+                           fill=blush, outline='', tags='blush')
+    # ⑥ 胡须：轻细两根，避免压过大眼。
+    for x0, y0, x1, y1 in ((15, 41, 6, 39), (15, 46, 6, 48)):
+        canvas.create_line(x0 + ox, y0 + oy, x1 + ox, y1 + oy, fill=INK_SOFT, width=1, tags='whisker')
+        canvas.create_line((64 - x0) + ox, y0 + oy, (64 - x1) + ox, y1 + oy,
+                           fill=INK_SOFT, width=1, tags='whisker')
+    # ⑦ 一颗小星：接住当前自动化等级的色彩，也把桌面图标的识别元素带进聊天页。
+    star = (SANHU_STAR if not paused else accent)
+    canvas.create_polygon(54 + ox, 8 + oy, 56 + ox, 13 + oy, 61 + ox, 15 + oy,
+                          56 + ox, 17 + oy, 54 + ox, 22 + oy, 52 + ox, 17 + oy,
+                          48 + ox, 15 + oy, 52 + ox, 13 + oy,
+                          fill=star, outline='', tags='sparkle')
+    flourish(canvas, pose, step, ox, oy, body, outline, accent, blush)
+    scale = SIZE / PET_LAYOUT['source_size']
+    canvas.scale('all', 0, 0, scale, scale)
+    # Canvas.scale 只缩坐标；描边也须等比收紧，舔爪和摇尾才不会越出命中矩形。
+    for item in canvas.find_all():
+        canvas.itemconfigure(item, width=max(1.0, float(canvas.itemcget(item, 'width')) * scale))
+    return len(canvas.find_all())
+def flourish(canvas, pose, step, ox, oy, body, outline, accent, blush):
+    """这一帧的猫在做什么：爪子／舌头／张开的嘴／甩起来的尾巴／腮红。
+
+    每个动作各自带一个 'pose-xxx' 标签；端坐（sit）不加东西，就是上面那套基础画法。
+    """
+    if pose == 'walk':
+        for paw in (14, 44):
+            canvas.create_oval(paw + ox, 50 + oy, paw + 10 + ox, 58 + oy,
+                               fill=body, outline=outline, width=1, tags=('pose-walk', 'paw'))
+    elif pose == 'lick':
+        canvas.create_line(50 + ox, 44 + oy, 58 + ox, 54 + oy, fill=body, width=6,
+                           tags=('pose-lick', 'paw'))
+        canvas.create_arc(27 + ox, 43 + oy, 37 + ox, 54 + oy, start=180, extent=180,
+                          style='pieslice', fill=TONGUE, outline=outline, tags=('pose-lick', 'tongue'))
+    elif pose == 'yawn':
+        # 第 24 期第 6 条：原来打哈欠是在脸上张开一张墨色的嘴——64 像素里就是一个黑窟窿
+        # （用户原话「像有个黑色大鼻子很丑」）。改成两团腮红：困意靠脸红说，脸不用张开。
+        for side in (13, 43):
+            canvas.create_oval(side + ox, 37 + oy, side + 8 + ox, 44 + oy, fill=blush,
+                               outline='', tags=('pose-yawn', 'blush'))
+    elif pose == 'wag':
+        sway = 6 if step % 2 else -6
+        canvas.create_line(56 + ox, 54 + oy, 63 + ox, 54 + sway + oy, smooth=True,
+                           fill=outline, width=3, tags=('pose-wag', 'tail'))
+    elif pose == 'nuzzle':
+        for side in (14, 42):
+            canvas.create_oval(side + ox, 40 + oy, side + 8 + ox, 46 + oy, fill=blush,
+                               outline='', tags=('pose-nuzzle', 'blush'))
+    return pose
+def duration(seconds):
+    """秒 → mm:ss；信息不足时不编数字。"""
+    if seconds is None:
+        return '信息不足'
+    total = max(0, int(round(float(seconds))))
+    return '%d:%02d' % (total // 60, total % 60)
+def shot_stats(paths):
+    """逐个分镜 JSON 数「镜头数」与「已出首帧数」：返回 (shots, frames)。
+
+    frames 的口径与「待生成首帧」正好相反：只认 shot['frame'] 指向的文件真的在盘上的，
+    标了 frame_deleted 的一律不算。首帧文件名带哈希后缀（EP001_SH001_8a7043f5.png），
+    只能按 JSON 里记的路径去找，按文件名猜必然数错。
+    """
+    from storyboard_rows_service import shot_stats as _shot_stats
+    return _shot_stats(paths)
+def asset_counts(base):
+    """资产库：登记的资产数，以及其中已经有图片的个数（与无人值守同一口径）。"""
+    from legacy_compat import optional_asset_counts
+    return optional_asset_counts(base, pet_bus.read_json)
+def autostart_command(program=PROGRAM):
+    """开机自启要执行的命令行：优先同目录的 pythonw.exe（不弹控制台），拿不到就退回当前解释器。
+
+    指的还是外面那个启动器（程序目录的上一级），与手动双击同一条路径，出问题好排查。
+    """
+    if not sys.executable:
+        return ''
+    exe = Path(sys.executable)
+    quiet = exe.with_name('pythonw.exe')
+    if quiet.is_file():
+        exe = quiet
+    launcher = Path(program).resolve().parent / '启动漫剧制作助手.pyw'
+    return '"%s" "%s"' % (exe, launcher)
+def startup_api():
+    """注册表入口：非 Windows 或没有 winreg 时返回 None，整套开机自启降级为「不可用」。"""
+    from platform_tools import windows_registry
+    return windows_registry()
+_UNSET = object()          # 「没传」与「明确传 None（本机没有 winreg）」必须分开
+class Autostart:
+    """开机自启：只写当前用户的 Run 项（HKCU），不碰系统级、不要管理员。
+
+    取舍（同步写进维护记录）：没有第三方库做不出真正的托盘图标，第 6 期用「注册表 Run 项」
+    ＋「独立窗常驻」两件事凑出常驻效果；关闭时只删自己写的那一项，别人的项一律不动。
+    """
+
+    def __init__(self, api=_UNSET, name=AUTOSTART_NAME, key=AUTOSTART_KEY):
+        self.api = startup_api() if api is _UNSET else api
+        self.name = name
+        self.key = key
+
+    @property
+    def available(self):
+        return self.api is not None
+
+    def get(self):
+        """已登记返回命令行，没登记返回空串，读不回来（权限等）返回 None。"""
+        if self.api is None:
+            return None
+        try:
+            with self.api.OpenKey(self.api.HKEY_CURRENT_USER, self.key, 0, self.api.KEY_READ) as handle:
+                value, _kind = self.api.QueryValueEx(handle, self.name)
+                return str(value or '')
+        except FileNotFoundError:
+            return ''
+        except OSError:
+            return None
+
+    def set(self, command):
+        """把命令行写进 Run 项；写不进去返回 False。"""
+        if self.api is None or not command:
+            return False
+        try:
+            with self.api.CreateKeyEx(self.api.HKEY_CURRENT_USER, self.key, 0,
+                                      self.api.KEY_SET_VALUE) as handle:
+                self.api.SetValueEx(handle, self.name, 0, self.api.REG_SZ, command)
+        except OSError:
+            return False
+        return True
+
+    def clear(self):
+        """删掉自己写的项；本来就没有也算成功（幂等）。"""
+        if self.api is None:
+            return False
+        try:
+            with self.api.OpenKey(self.api.HKEY_CURRENT_USER, self.key, 0,
+                                  self.api.KEY_SET_VALUE) as handle:
+                self.api.DeleteValue(handle, self.name)
+        except FileNotFoundError:
+            return True
+        except OSError:
+            return False
+        return True
+
+    def enabled(self):
+        return bool(self.get())
+
+    def toggle(self, program=PROGRAM):
+        """开着就关、关着就写当前命令行；返回切换后的状态（不可用的机器恒为 False）。"""
+        if self.api is None:
+            return False
+        if self.enabled():
+            self.clear()
+            return False
+        return bool(self.set(autostart_command(program)) and self.enabled())

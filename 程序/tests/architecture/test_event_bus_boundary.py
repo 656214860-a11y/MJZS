@@ -14,7 +14,7 @@ _WRAPPERS = {
     'pet_agent.py': 'emit_safe',
     'pet_ui.py': 'pet_bus.emit_safe',
 }
-_BROADCAST_CALLERS = {'desktop.py', 'pet_ui.py'}
+_BROADCAST_CALLERS = {'desktop.py', 'pet_ui.py', 'pet_ui_voice.py'}  # R1506：播报方法迁入 PetVoiceMixin
 
 
 def _dotted_name(node: ast.AST) -> str | None:

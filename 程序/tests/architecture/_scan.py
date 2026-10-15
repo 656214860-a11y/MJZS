@@ -62,6 +62,14 @@ def desktop_text() -> str:
     return chr(10).join((ROOT / name).read_text(encoding="utf-8") for name in DESKTOP_PARTS)
 
 
+PET_UI_PARTS = ("pet_ui.py", "pet_ui_support.py", "pet_ui_stages.py", "pet_ui_settings.py", "pet_ui_voice.py", "pet_ui_view.py")
+
+
+def pet_ui_text() -> str:
+    """Pet 的方法分布在 pet_ui.py 与迁出的 Mixin／support 模块里（R1506）。"""
+    return chr(10).join((ROOT / name).read_text(encoding="utf-8") for name in PET_UI_PARTS)
+
+
 def parse_desktop() -> ast.Module:
     return ast.parse(desktop_text(), filename="desktop*.py")
 

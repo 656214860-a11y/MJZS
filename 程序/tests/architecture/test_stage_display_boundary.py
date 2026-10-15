@@ -29,7 +29,7 @@ class StageDisplayBoundaryTests(unittest.TestCase):
     STAGE_LABEL_SITES = {
         'keyframe_batch.py': "pet_bus.stage_label('keyframe')",
         'stage_parallel.py': "pet_bus.stage_label('assets')",
-        'pet_ui.py': "pet_bus.stage_label('storyboard')",
+        'pet_ui_voice.py': "pet_bus.stage_label('storyboard')",  # R1506：该播报已迁到 PetVoiceMixin
         'desktop_media_pages.py': "pet_bus.stage_label('video')",  # R1505：视频页构建已迁到 MediaPagesMixin
         'skill_tools.py': "stage_label('edit')",
         'skill_panel.py': '_bus_stage_label',

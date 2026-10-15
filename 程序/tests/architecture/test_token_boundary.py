@@ -27,7 +27,8 @@ _PADDING_ARGS = frozenset({"padx", "pady", "ipadx", "ipady"})
 # R1389 冻结基线（R1388 审计口径，键＝相对 程序/ 的 posix 路径）。
 # R1428 统一调色板：主题与业务页迁移到 ui_tokens.COLORS；剩余为宠物插画色与监视页 HTML 样式。
 HEX_BASELINE = {
-    "pet_ui.py": 45, "previs_monitor.py": 1,
+    # R1506：pet_ui.py 原 45 处按迁出位置分到各 Mixin／support 模块（合计不增）
+    "pet_ui.py": 1, "pet_ui_support.py": 44, "previs_monitor.py": 1,
 }
 PADDING_BASELINE = {
     "agent/prompt_optimizer.py": 16, "app.py": 7, "asset_detail.py": 21,

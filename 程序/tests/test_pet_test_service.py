@@ -1,5 +1,7 @@
 import tempfile
 import unittest
+
+from tests.architecture._scan import pet_ui_text
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -175,7 +177,7 @@ class PetTestServiceTests(unittest.TestCase):
             self.assertTrue((project / '工作流任务' / '宠物' / '优化.json').is_file())
 
     def test_pet_ui_only_delegates_performance_flow_to_l3(self):
-        source = (Path(__file__).resolve().parents[1] / 'pet_ui.py').read_text(encoding='utf-8')
+        source = pet_ui_text()  # R1506：Pet 方法分布在 pet_ui.py 与迁出的 Mixin 模块
         self.assertIn("stage_handler_registry.start(", source)
         self.assertIn('stage_handler_registry.poll_pet_performance', source)
         self.assertNotIn('import pet_performance_service', source)
@@ -200,7 +202,7 @@ class PetTestServiceTests(unittest.TestCase):
             self.assertTrue((project / '工作流任务' / '宠物' / '测试.json').is_file())
 
     def test_pet_ui_only_delegates_test_flow_to_l3(self):
-        source = (Path(__file__).resolve().parents[1] / 'pet_ui.py').read_text(encoding='utf-8')
+        source = pet_ui_text()  # R1506：Pet 方法分布在 pet_ui.py 与迁出的 Mixin 模块
         self.assertIn("stage_handler_registry.start(", source)
         self.assertIn('stage_handler_registry.poll_pet_test', source)
         self.assertNotIn('import pet_test_service', source)

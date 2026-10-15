@@ -25,7 +25,7 @@ FACADE_MANIFEST = {
         'owner': 'legacy_compat', 'callers': ('idea_document_paths',), 'retire_after': RETIRE_AFTER,
     },
     'optional_asset_counts': {
-        'owner': 'legacy_compat', 'callers': ('pet_ui',), 'retire_after': RETIRE_AFTER,
+        'owner': 'legacy_compat', 'callers': ('pet_ui_support',), 'retire_after': RETIRE_AFTER,
     },
 }
 

@@ -21,8 +21,8 @@
       "reason": "记录异步队列占用的既有恢复策略，不表示未处理的启动或发布缺陷。"
     },
     {
-      "file": "pet_ui.py",
-      "line": 2809,
+      "file": "pet_ui_stages.py",
+      "line": 952,
       "scope": "firstframe_batch",
       "comment": "「无分镜／没有缺口／暂时无法派发」收成明确阶段事件；无参数接缝仍兼容。",
       "classification": "C",

@@ -22,7 +22,7 @@ PROGRAM = Path(__file__).resolve().parents[1]
 ROOT = PROGRAM.parent
 LEGACY_NAME = '漫剧制作助手'
 DISPLAY_SOURCES = (
-    PROGRAM / 'desktop.py', PROGRAM / 'ui_widgets.py', PROGRAM / 'pet_ui.py',
+    PROGRAM / 'desktop.py', PROGRAM / 'ui_widgets.py', PROGRAM / 'pet_ui_settings.py',  # R1506：APP_NAME 的用法随设置方法迁到 pet_ui_settings
     PROGRAM / 'pet_settings_ui.py', PROGRAM / 'app_shortcut.py',
     PROGRAM / 'pet_llm.py', PROGRAM / 'scripts' / 'clean_dev.py',
     ROOT / '启动漫剧制作助手.pyw',
@@ -58,9 +58,9 @@ class AppMetadataTests(unittest.TestCase):
     def test_legacy_literals_in_display_producers_are_only_identifiers(self):
         allowed = {
             'app_shortcut.py': {LEGACY_NAME + '.ico', '启动' + LEGACY_NAME + '.pyw'},
-            'pet_ui.py': {LEGACY_NAME + '·宠物助手', '启动' + LEGACY_NAME + '.pyw'},
+            'pet_ui_support.py': {LEGACY_NAME + '·宠物助手', '启动' + LEGACY_NAME + '.pyw'},  # R1506：这两个标识符常量随 pet_ui 模块级迁到 support
         }
-        for path in DISPLAY_SOURCES:
+        for path in DISPLAY_SOURCES + (PROGRAM / 'pet_ui_support.py',):
             with self.subTest(path=path.name):
                 tree = ast.parse(path.read_text(encoding='utf-8-sig'))
                 docstrings = set()
