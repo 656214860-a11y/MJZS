@@ -156,3 +156,9 @@ Tooltip 仅由 `ui_widgets.Tooltip` 建立；页面不得自行创建无边框 `
 3. 所有圆角必须取自 `radius.*`。
 4. 同一视觉层级的控件必须使用相同字体 token 与字号。
 5. 新增、修改 UI 时必须先选定 token；评审必须检查本文件与 `ui_components.md` 的遵循情况。
+
+## 三虎气泡（R1449）
+
+- `font.pet_body`：Microsoft YaHei UI 9；正文、编号与回复框。
+- `font.pet_hint`：Microsoft YaHei UI 8；底部灰色提示。
+- `PET_CLOUD_AUTO_CLOSE_MS`：10000ms；悬停或回复框有焦点时暂停，交互结束后完整重计。

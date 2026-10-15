@@ -3841,7 +3841,8 @@ class Pet:
             return None
         self.chat = cloud
         try:
-            cloud.append(self._record_output(self.chat_hello()))      # 第 24 期第 1 条：一打开，三虎先问这一页该做的事
+            if not getattr(cloud, 'choice', ''):
+                cloud.append(self._record_output(self.chat_hello()))      # 第 24 期第 1 条：一打开，三虎先问这一页该做的事
         except Exception as exc:
             self.errors.append(('chat.hello', str(exc)))
         self.notice = '云朵框已打开：三虎问的是这一页该做的事，点「确认」它就去办'

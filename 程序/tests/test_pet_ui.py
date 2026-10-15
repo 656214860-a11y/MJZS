@@ -2147,7 +2147,7 @@ class CloudTests(PetTestCase):
         cloud = self.cloud()
         cloud.show(pinned=True)
         spec = tkfont.Font(root=self.win, font=cloud.label.cget('font'))
-        self.assertEqual(pet_cloud.FONT, FONTS['body'], '正文只从设计系统 body token 取值')
+        self.assertEqual(pet_cloud.FONT, FONTS['pet_body'], '正文只从设计系统 pet_body token 取值')
         self.assertGreater(spec.cget('size'), 0, 'Tk 控件必须收到有效正文尺寸')
         self.assertEqual(pet_cloud.STICKER_FONTS[0], 13, '贴纸框也从 13 号起试')
 
@@ -4975,7 +4975,7 @@ class StickerFitTests(PetTestCase):
         """第 49 期第 3 条：用户要「聊天框文字适当缩小」——正文 13 号（比第 28 期的 15 号小一档，
         仍比最初那版 11 号大），贴纸从 13 号试起、6 号兜底。"""
         from ui_tokens import FONTS
-        self.assertEqual(pet_cloud.FONT, FONTS['body'])
+        self.assertEqual(pet_cloud.FONT, FONTS['pet_body'])
         self.assertEqual(int(pet_cloud.STICKER_FONTS[0]), 13, '贴纸也从 13 号试起')
         self.assertEqual(int(pet_cloud.STICKER_FONTS[-1]), 6, '兜底那一档留着，不然话会被裁掉')
         self.assertLess(int(pet_cloud.STICKER_FONTS[-1]), int(pet_cloud.STICKER_FONTS[0]),
@@ -5449,7 +5449,7 @@ class FadeAndReadTests(PetTestCase):
         self.addCleanup(setattr, self.win, 'after', original)
         cloud.broadcast(text)
         self.assertTrue(seen, '说完要排一个「什么时候收」的定时器')
-        self.assertEqual(seen[-1][0], cloud.read_hold(text), '排的毫秒数＝读完这句要多久')
+        self.assertEqual(seen[-1][0], pet_cloud.PET_CLOUD_AUTO_CLOSE_MS, '排的毫秒数＝统一十秒配置')
         self.assertGreaterEqual(seen[-1][0], pet_cloud.HOLD_MS)
 
 
@@ -5911,7 +5911,7 @@ class ChatSizeTests(PetTestCase):
     def test_the_text_size_is_only_one_step_smaller(self):
         """第 49 期第 3 条：这一期只收字号，一档一档连着（15 → 13），别的地方一动不动。"""
         from ui_tokens import FONTS
-        self.assertEqual(pet_cloud.FONT, FONTS['body'], "正文使用设计系统 body 令牌")
+        self.assertEqual(pet_cloud.FONT, FONTS['pet_body'], "正文使用设计系统 pet_body 令牌")
         self.assertEqual(tuple(pet_cloud.STICKER_FONTS), (13, 12, 11, 10, 9, 8, 7, 6),
                          "贴纸那几档跟着收，仍然连成一串")
 

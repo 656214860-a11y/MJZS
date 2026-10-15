@@ -51,7 +51,7 @@ from pet_cloud_text import reply_lines as _reply_lines, tight
 from pet_cloud_geometry import inflate, inside_parts as _inside_parts, rounded_parts, shape_root as _shape_root, shift_part, square_parts as _square_parts
 from pet_cloud_shape import configured_value as _configured_value, normalized as _normalized_shape, text_box as _shape_text_box
 from pet_cloud_tail import TAIL_BULGE, TAIL_CURVE_MAX, TAIL_STEPS, _side_curve, tail_points
-from ui_tokens import COLORS, FONTS, SPACING, PET_LAYOUT
+from ui_tokens import COLORS, FONTS, SPACING, PET_LAYOUT, PET_CLOUD_AUTO_CLOSE_MS
 
 WIDTH = 344                       # 方框对话框的宽度（第 21 期收窄；第 28 期随字号放大一档；第 30 期第 4 条再收窄）
 MIN_BODY = 96                     # 云身最小高度（第 28 期第 1 条随字号放大一档）
@@ -150,7 +150,7 @@ NUMBER_GAP = '\u00a0'             # 编号与正文之间那个空档：用不�
                                   # 把编号和正文粘成一串：框多窄都先把这一行排满，再自动换行。
 # 第 49 期第 3 条：用户要「三虎聊天框文字适当缩小」——正文 15 → 13 号；贴纸那一串（下面
 # STICKER_FONTS）跟着一起收，不然贴纸还按 15 号排，框的大小跟正文对不上。
-FONT = FONTS['body']
+FONT = FONTS['pet_body']
 # 第 26 期第 7 条：「云朵框内文字不能完整显示」——贴纸（云朵／圆／标签）长不高的时候，
 # 字号往下收一档再排，收到装得下为止：从 13 号起（与正文同一个量级），一路收到 9 号兜底——
 # 那几档只在「云顶到屏幕上沿、实在没地方」时才用得上，正常情况都停在 13 号。
@@ -169,7 +169,7 @@ TALK_TIP = '点我说一句'
 # 在这儿回一句、按回车发送，走的是原来那条路（有正在等回话的事就照它办，没有就办「这一页
 # 该做的那件事」）。三虎要发出去的那句话仍由说话的那一方给（见 Pet.chat_task 与 Cloud.propose）。
 REPLY_TIP = '在这儿回我一句，回车发送'          # 回复框空着时提示行写这一句
-REPLY_FONT = FONTS['caption']                   # 回复框的字号：比正文小一档，一行正好装得下
+REPLY_FONT = FONTS['pet_body']                   # 回复框的字号：比正文小一档，一行正好装得下
 # 回复框为空时介绍右键菜单的主要入口。它不是命令清单：用户可以直接右键选择，也可以在此输入
 # 对应指令。提示只在空框且未聚焦时出现，避免盖住输入光标。
 REPLY_HINTS = '右键功能：进度面板 · 设置模型 · 切换自动化等级 · 暂停／继续 · 重试失败项 · 退出程序'
@@ -177,7 +177,7 @@ REPLY_HINTS = '右键功能：进度面板 · 设置模型 · 切换自动化等
 # 不再按字符循环截取，避免滚到接缝时把一句话断在中间。
 # 第 39 期第 1 条：每一扇对话框的回复框都挂这条小字（见 _render），从最左侧起步、慢慢挪；
 # 底用回复框自己的白底——原来刷的是云身色，在框里像贴了一块色片。
-HINT_FONT = (FONTS['caption'][0], max(8, FONTS['caption'][1] - 1))
+HINT_FONT = FONTS['pet_hint']
                                           # 小字比回复框再小一档，仍从设计系统辅助字号推导
 HINT_MS = 420                           # 每步挪多少毫秒（第 39 期第 1 条：慢下来）
 HINT_STEP_PX = 2                         # 每拍向右平移像素数：慢而连续
@@ -563,7 +563,8 @@ class Cloud:
             except Exception:
                 pass
             try:
-                self.reply.focus_set()
+                # 打开视图不等于开始输入；用户点击/Tab 进入回复框后才暂停收起。
+                self.win.focus_set()
             except Exception:
                 pass
         if self._replies() and not self.busy:
@@ -703,22 +704,34 @@ class Cloud:
         """没人指定时该等多久：按最新那一条要读多久算。"""
         return self.read_hold(text)
 
-    def _arm_hold(self, hold=None):
-        """把「自动收起」定在 hold 毫秒之后；hold 给 None 时按形态取默认，给 0 或负数＝不收。
-
-        第 27 期第 2 条：指针停不停在云上，到点时由 _expire 自己看（见 _pointer_inside），
-        这里只管挂表；那只「回头看一眼」的复检表（WATCH_RECHECK_MS）也是从这儿挂的。
-        """
-        self._cancel_hold()
-        hold = self.default_hold() if hold is None else hold
-        if hold is None or hold <= 0:
-            return None
+    def _interaction_paused(self):
         try:
-            self._hold = self.parent.after(int(hold), self._expire)
+            focused = self.reply is not None and self.win.focus_get() is self.reply
+        except Exception:
+            focused = False
+        return self._pointer_inside() or focused
+
+    def _interaction_changed(self):
+        """复用宠物心跳检查交互，不登记 Enter/Leave 或额外 Tcl 回调。"""
+        if self.visible and (self.busy or self._interaction_paused()) != self._watching:
+            self._arm_hold()
+
+    def _arm_hold(self, hold=None):
+        """空闲等完整十秒；交互中沿用原有 WATCH_RECHECK_MS 坐标复检。"""
+        self._cancel_hold()
+        self._watching = self.busy or self._interaction_paused()
+        delay = WATCH_RECHECK_MS if self._watching else PET_CLOUD_AUTO_CLOSE_MS
+        callback = self._recheck_hold if self._watching else self._expire
+        try:
+            self._hold = self.parent.after(delay, callback)
         except Exception as exc:
             self.errors.append(('after', str(exc)))
             self._hold = None
         return self._hold
+
+    def _recheck_hold(self):
+        """交互持续则继续复检，结束则重新登记完整十秒，不能直接收起。"""
+        return self._arm_hold()
 
     def _cancel_position(self):
         """撤销父窗口上的定位重试；先清登记，取消失败后的迟到回调也不能继续定位。"""
@@ -827,6 +840,7 @@ class Cloud:
         """父窗口被销毁：立刻收回定时器（子控件冒泡上来的 <Destroy> 不认领）。"""
         if event is not None and getattr(event, 'widget', None) is not self.parent:
             return None
+        self.cancel_deferred_render()
         self._cancel_position()
         # 第 37 期第 4 条：滚动小字的表也挂在这个窗口上，一起收回来。
         self._hint_stop()
@@ -836,6 +850,7 @@ class Cloud:
         """浮窗自己被销毁：把引用与定时器一起收干净（子控件冒泡上来的 <Destroy> 不认领）。"""
         if event is not None and getattr(event, 'widget', None) is not self.win:
             return None
+        self.cancel_deferred_render()
         self._cancel_hold()
         self._cancel_fade()
         self._hint_stop()
@@ -845,24 +860,18 @@ class Cloud:
         return None
 
     def _expire(self):
-        """到点：这一轮交互结束了就自己收起来（还在等回复时推迟，一个定时器，不叠）。
-
-        开头走 _cancel_hold 而不是直接 self._hold = None：定时器自己到点时再撤一次是空操作，
-        但被人手调（自检就是这么模拟到点的）时能把那个还没到点的 Tcl 定时器一并收回——
-        留着它，父窗口一销毁就会打一句「invalid command name ..._expire」。
-        """
+        """仅收起视图，保留历史、待决命令和后台状态。"""
         self._cancel_hold()
-        if self.busy:
+        if self.busy or self._interaction_paused():
             self._arm_hold()
             return False
-        if self._pointer_inside():
-            # 第 27 期第 2 条：用户还看着这一条，别在这时候把它收掉——每隔 WATCH_RECHECK_MS 回头看一眼，
-            # 指针挪开了就重新计时（下一次到点就真收）。真要立刻收起可以点三虎／按 Esc（close 不走这里）。
-            self._watching = True
-            self._arm_hold(WATCH_RECHECK_MS)
-            return False
-        self._watching = False
-        self.close()
+        self.cancel_deferred_render()
+        self._cancel_position()
+        self._cancel_fade()
+        self._hint_stop()
+        busy = self.busy
+        self._hide_now()
+        self.busy = busy
         return True
 
     # ── 形状尺寸 ────────────────────────────────────────────────────────────
@@ -887,7 +896,7 @@ class Cloud:
         量出来的自然宽度偏窄，框就会收得比该有的还小。
         """
         try:
-            self.label.configure(font=(FONT[0], STICKER_FONTS[0]), wraplength=0)
+            self.label.configure(font=FONT if self.shape == SHAPE_CLOUD else (FONT[0], STICKER_FONTS[0]), wraplength=0)
             if sync:
                 self.canvas.update_idletasks()
             return int(self.label.winfo_reqwidth())
@@ -1079,12 +1088,23 @@ class Cloud:
             return 0
         return int(screen - MARGIN - self._bottom() - MARGIN - TAIL)
 
+    def _can_align_top(self, height=None):
+        if self.shape != SHAPE_CLOUD:
+            return False
+        left, top, _width, _height = self._patch_rect()
+        height = self._body if height is None else height
+        return (left >= self.width() + PET_GAP + MARGIN
+                and top >= MARGIN
+                and top + height + TAIL <= self._screen_height() - MARGIN)
+
     def _flipped(self):
         """上方连最小云身都放不下、下方反而更宽敞时，翻到三虎下面（全屏时就是这么救的）。
 
         第 36 期第 7 条：_down（这一条内容上方真放不下、主界面又贴着屏幕上沿）也算翻下去——
         判据从「连最小云身都放不下」换成「这条内容放不下」，见 _wants_down。
         """
+        if self._can_align_top():
+            return False
         if self._down:
             return True
         above = self._room_above()
@@ -1159,6 +1179,9 @@ class Cloud:
 
     def _fit_body(self, wanted):
         """云身高度：放得下就按内容，放不下就压到能放的高度（其余内容靠滚轮看）。"""
+        if self._can_align_top(min(wanted, MAX_BODY_DOWN)):
+            self._down = False
+            return int(min(wanted, MAX_BODY_DOWN))
         self._down = self._wants_down(wanted)      # 第 36 期第 7 条：先定朝向，再按那一侧算余量
         room = self._room_below() if self._flipped() else self._room_above()
         ceiling = self._body_ceiling()             # 第 42 期第 2 条：翻到下面时允许长过 MAX_BODY
@@ -1240,7 +1263,9 @@ class Cloud:
         right = self._work_right()
         if right > total + 2 * MARGIN:
             left = max(MARGIN, min(left, right - total - MARGIN))
-        if self._flipped():
+        if self._can_align_top():
+            top = int(self._patch_rect()[1])
+        elif self._flipped():
             # 第 29 期第 3 条：翻到三虎下面时，尾巴带在云身**上方**，带子的尖头就落在脸颊上——
             # 以前下边那条带子是白留的，尖头被夹在画布里，顶多只能顶到画布上沿，
             # 脸颊在上面一整条云身的地方——用户看到的就是「箭头没碰到脸」。
@@ -1361,7 +1386,10 @@ class Cloud:
         """
         if self.shape == SHAPE_CLOUD:
             # 第 37 期第 5 条：空段（只剩空白的那几条）整段不排——框里一条挨着一条，中间不留空行。
-            rows = [row for row in (tight(line) for line in self.lines) if row]
+            # 只合并原始内容完全相同的相邻项，不修改历史。
+            unique = [line for index, line in enumerate(self.lines)
+                      if index == 0 or line != self.lines[index - 1]]
+            rows = [row for row in (tight(line) for line in unique) if row]
             # 三虎对话框是操作入口而非历史日志，最多露出最近五步，避免遮挡用户操作。
             rows = rows[-CHAT_VISIBLE_STEPS:]
             return '\n'.join('%d.%s%s' % (index, NUMBER_GAP, row)
@@ -1669,6 +1697,7 @@ class Cloud:
             del self.lines[:-LINE_LIMIT]
         if self.visible:
             self._render()
+            self._arm_hold()
         return text
 
     def broadcast(self, text, hold=None, shape=None):
@@ -1905,6 +1934,7 @@ class Cloud:
         紧跟在回答后面贴出来——用户看到的就是「听懂了 → 已经做了」两行，而不是一句空承诺。
         返回这一轮贴了几问（没有就是 0）。
         """
+        self._interaction_changed()
         count, needs = 0, ''
         try:
             while True:
