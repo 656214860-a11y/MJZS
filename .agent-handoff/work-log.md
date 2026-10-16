@@ -1,3 +1,9 @@
+## 2026-10-17 R1624–R1626：R1610 清单 Q1–Q12 收口
+- R1624（13dea0a，Q10）：`scripts/local_ci.py` 加 `exit` 模式（默认冒烟→静态门禁 8 目标含 `tests.test_static_names`→架构门禁，非 0 即失败），`本地CI.cmd` 加用法注释。同轮修两处拆分回归：`pet_cloud_timing._fade_in` 用了没定义的 `SHAPE_ROUND`（形状名改由 `pet_cloud_shape.py` 定义并原样转出，`test_pet_ui` 598 项全绿）；`test_skill_notes` 的 `markdown_document` 补丁改打在定义处 `skill_panel_support`。提交触发 post-commit 全量：02:01:23 绿、502 秒、0 红、凭据 round 1624／tree bde64b00。
+- R1625（ce35a5f，Q11）：新增 `data_model.md`／`task_states.md`／`runbook.md` 三份文档（均标注"投影、以代码为准"与权威源），`PROJECT_MAP.md` 补索引；有意不加文档一致性门禁（会在测试里再造一份字段表）。
+- R1626（7188f08，Q12）：`runbook.md` 补 §8 辅助依赖清单（外部程序＋密钥，权威源 `environment_check.py`）与 §9 解释器策略（3.15.0a2＋有意裁剪的 58 个标准库模块＋迁移六步）。
+- 本轮踩坑记录：拆分类轮次必须在收尾跑「未定义名扫描＋补丁点审计」；`test_desktop_startup_perf` 1 秒预算在并发负载下会抖（全量里红、单跑 14/14 绿），全量收尾别并发跑自检。
+
 ## 2026-10-16 R1606交接
 R1605关闭全量失败并获5346项绿色凭据，优化完成8/12。R1606剧本服务注入未提交，7项定向通过、架构2项失败待修复；用户要求先交接，下一项为核对测试结果并收口O8。当前状态见snapshot，不以本次交接冒称整个目标完成。
 

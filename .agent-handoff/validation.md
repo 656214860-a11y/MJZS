@@ -1,7 +1,13 @@
 # 当前验证索引
 
 ## 最近正式全量
-R1605：HEAD e59e5136e2992ae18832d05083ab56bb75416242，5346项、410个测试文件、0红，测试615.7秒/执行器631秒。common-dir/full-safe-receipts.json 为权威。
+R1624：HEAD 13dea0a92396b5abd2317009caec19dbfad8d6a0，2026-10-17 02:01:23 绿、502 秒、0 红，凭据 round 1624／内容树 bde64b00（`--all --safe` 已含架构门禁）。`.git/full-safe-receipts.json` 与 `.git/auto-full-safe-result.json` 为权威。
+历史上一档：R1619（b6863b4）678 秒 0 红；再上是 R1605（e59e513）5346 项、615.7 秒。
+
+## R1610 清单执行期（R1611–R1626）证据
+- R1611–R1623：逐轮定向用例＋架构门禁（345→356 项，各轮报告见 `程序/tasks_round/tasks_round_16*_result.md`）；这些轮**没有**各自跑全量，最终由 R1624 的一次全量统一定性。
+- R1624（Q10）：`test_pet_ui` 598 项 OK（76.5 秒）；`test_skill_notes`＋`test_static_names` 22 项 OK；定向门禁 12 个文件 58 项 OK（19.8 秒）；`test_desktop_startup_perf` 14 项 OK；`tests.architecture.test_round_baselines`＋`test_line_endings` 21 项 OK；默认冒烟 8/8；`local_ci exit` 端到端（静态→架构→冒烟）链路实测退出码 1（当时唯一红是欠全量的账簿项）。随后 post-commit 后台全量绿，账簿项自动转绿。
+- R1625（Q11）／R1626（Q12）：文档轮，跑 `tests.architecture.test_round_baselines`＋`tests.test_line_endings` 21 项 OK；R1625 另跑默认冒烟 8/8；未跑全量（`.md` 非源码轮）。
 
 ## 本次接续四轮（均只跑定向 + 架构门禁 + 默认冒烟）
 - R1606（O8）：架构345项164.456秒 OK、冒烟8项通过。
