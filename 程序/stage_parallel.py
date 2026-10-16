@@ -19,6 +19,7 @@ import json
 import pet_bus
 from file_cache import read_text
 import time
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -41,7 +42,7 @@ ON_EXHAUST = {ON_BLOCK: '重试仍失败就中断这一步并报错', ON_MANUAL:
               ON_REPORT: '重试仍失败就连同修复建议写进报告'}
 GLOBAL_LIMIT = 8                      # 全局最多同时跑 8 个子 Agent
 POLL_SECONDS = 0.01                   # 等并发号时看一次的时间（很短，别拖住界面）
-WAIT_SECONDS = 30.0                   # 同一资源撞车时最多等这么久，等不到照样往下走
+WAIT_SECONDS = 30.0                   # 同一资源撞车时最多等这么久，等不到明确返回超时
 
 CONFIG = {
     'script': {'unit': NONE, 'min': 1, 'max': 1, 'serial': False, 'limit': 1,
@@ -257,6 +258,7 @@ class Governor:
     """
 
     def __init__(self, limit=GLOBAL_LIMIT, clock=time.time):
+        self._lock = threading.RLock()
         self.limit = int(limit)
         self.clock = clock
         self.tickets = []                     # 正在跑的号（列表有序：先到先服务）
@@ -264,68 +266,77 @@ class Governor:
         self.counter = 0
 
     def running(self):
-        return len(self.tickets)
+        with self._lock:
+            return len(self.tickets)
 
     def stage_running(self, stage):
-        return sum(1 for ticket in self.tickets if ticket['stage'] == str(stage or ''))
+        with self._lock:
+            return sum(1 for ticket in self.tickets if ticket['stage'] == str(stage or ''))
 
     def resources(self):
-        return tuple(ticket['resource'] for ticket in self.tickets if ticket['resource'])
+        with self._lock:
+            return tuple(ticket['resource'] for ticket in self.tickets if ticket['resource'])
 
     def limit_of(self, stage):
         return max(1, min(concurrency_limit(stage), self.limit))
 
     def acquire(self, stage, resource='', at=None):
         """要一个号：拿得到就给票据，拿不到就说明为什么（并发上限／同一资源已在跑）。"""
-        stage = str(stage or '')
-        resource = str(resource or '')
-        now = float(self.clock() if at is None else at)
-        reason = ''
-        if self.running() >= self.limit:
-            reason = '全局并发已达上限 %d 路，先排队' % self.limit
-        elif self.stage_running(stage) >= self.limit_of(stage):
-            reason = '%s 并发已达上限 %d 路，先排队' % (label(stage), self.limit_of(stage))
-        elif resource and resource in self.resources():
-            reason = '同一资源 %s 正在处理，降速等待' % resource
-        if reason:
-            self.slowed.append({'at': now, 'stage': stage, 'resource': resource, 'reason': reason})
-            del self.slowed[:-64]
-            return {'ok': False, 'reason': reason, 'ticket': None}
-        self.counter += 1
-        ticket = {'id': '%s-%d' % (stage or 'stage', self.counter), 'stage': stage,
-                  'resource': resource, 'at': now}
-        self.tickets.append(ticket)
-        return {'ok': True, 'reason': '', 'ticket': ticket}
+        with self._lock:
+            stage = str(stage or '')
+            resource = str(resource or '')
+            now = float(self.clock() if at is None else at)
+            reason = ''
+            if self.running() >= self.limit:
+                reason = '全局并发已达上限 %d 路，先排队' % self.limit
+            elif self.stage_running(stage) >= self.limit_of(stage):
+                reason = '%s 并发已达上限 %d 路，先排队' % (label(stage), self.limit_of(stage))
+            elif resource and resource in self.resources():
+                reason = '同一资源 %s 正在处理，降速等待' % resource
+            if reason:
+                self.slowed.append({'at': now, 'stage': stage, 'resource': resource, 'reason': reason})
+                del self.slowed[:-64]
+                return {'ok': False, 'reason': reason, 'ticket': None}
+            self.counter += 1
+            ticket = {'id': '%s-%d' % (stage or 'stage', self.counter), 'stage': stage,
+                      'resource': resource, 'at': now}
+            self.tickets.append(ticket)
+            return {'ok': True, 'reason': '', 'ticket': ticket}
 
     def release(self, ticket):
         """还号：认号不认人（重复还会返回 False，不会把别人的号扣掉）。"""
-        if not isinstance(ticket, dict):
+        with self._lock:
+            if not isinstance(ticket, dict):
+                return False
+            for index, item in enumerate(self.tickets):
+                if item['id'] == ticket.get('id'):
+                    del self.tickets[index]
+                    return True
             return False
-        for index, item in enumerate(self.tickets):
-            if item['id'] == ticket.get('id'):
-                del self.tickets[index]
-                return True
-        return False
 
     def release_stage(self, stage):
         """把一个阶段手上的号全还了（阶段收场时兜底，免得漏还卡住后面的）。"""
-        stage = str(stage or '')
-        before = len(self.tickets)
-        self.tickets = [ticket for ticket in self.tickets if ticket['stage'] != stage]
-        return before - len(self.tickets)
+        with self._lock:
+            stage = str(stage or '')
+            before = len(self.tickets)
+            self.tickets = [ticket for ticket in self.tickets if ticket['stage'] != stage]
+            return before - len(self.tickets)
 
     def reset(self):
-        self.tickets = []
-        self.slowed = []
+        with self._lock:
+            self.tickets = []
+            self.slowed = []
 
     def snapshot(self):
         """面板要的那几个数（纯读）。"""
-        return {'limit': self.limit, 'running': self.running(), 'slowed': len(self.slowed),
-                'stages': {stage: self.stage_running(stage) for stage in stages() if self.stage_running(stage)},
-                'tickets': tuple(dict(ticket) for ticket in self.tickets)}
+        with self._lock:
+            return {'limit': self.limit, 'running': self.running(), 'slowed': len(self.slowed),
+                    'stages': {stage: self.stage_running(stage) for stage in stages() if self.stage_running(stage)},
+                    'tickets': tuple(dict(ticket) for ticket in self.tickets)}
 
 
 _SHARED = None
+_SHARED_LOCK = threading.Lock()
 
 
 def shared():
@@ -335,9 +346,10 @@ def shared():
     现在谁要发号都问这一份：全局 8 这条线是所有阶段一起数的，不是每个模块各数 8。
     """
     global _SHARED
-    if _SHARED is None:
-        _SHARED = Governor()
-    return _SHARED
+    with _SHARED_LOCK:
+        if _SHARED is None:
+            _SHARED = Governor()
+        return _SHARED
 
 
 def _claim(governor, stage, item, at, wait):
@@ -345,16 +357,18 @@ def _claim(governor, stage, item, at, wait):
 
     并发上限那条路已经由「开几条线」卡死了（见 parallel_map 的 workers），这里兜的是
     「同一个资源撞车」——同一批次／同一项资产不能在两个 Agent 手上同时改。
-    等不到就带着空号往下走：不丢单元，只记一笔降速。
+    等不到就返回明确超时，绝不在没有许可时执行单元。
     """
     if governor is None:
         return None
-    deadline = time.time() + max(0.0, float(wait))
+    deadline = time.monotonic() + max(0.0, float(wait))
     while True:
         ticket = governor.acquire(stage, resource=str(item) if item is not None else '',
                                   at=at).get('ticket')
-        if ticket is not None or time.time() >= deadline:
+        if ticket is not None:
             return ticket
+        if time.monotonic() >= deadline:
+            raise TimeoutError('等待并发许可超时，任务未执行：%s' % stage)
         time.sleep(POLL_SECONDS)
 
 

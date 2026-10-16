@@ -156,6 +156,28 @@ class GovernorTests(unittest.TestCase):
 class ParallelMapTests(unittest.TestCase):
     """一次把一批单元跑掉：保序、一个单元出错不连坐、在飞不超过配置。"""
 
+    def test_timeout_never_executes_without_a_permit(self):
+        for limit, held_resource, requested in ((1, 'busy', 'other'), (2, 'same', 'same')):
+            with self.subTest(limit=limit):
+                governor = spec.Governor(limit=limit)
+                held = governor.acquire('keyframe', held_resource)['ticket']
+                called = []
+                rows = spec.parallel_map('keyframe', [requested], called.append,
+                                         governor=governor, wait=0)
+                self.assertEqual(called, [])
+                self.assertIsInstance(rows[0][2], TimeoutError)
+                self.assertEqual(governor.running(), 1)
+                self.assertTrue(governor.release(held))
+
+    def test_worker_failure_releases_its_permit(self):
+        governor = spec.Governor(limit=1)
+        def fail(item):
+            raise ValueError('worker failed')
+        rows = spec.parallel_map('keyframe', ['one'], fail, governor=governor, wait=0)
+        self.assertIsInstance(rows[0][2], ValueError)
+        self.assertEqual(governor.running(), 0)
+        self.assertTrue(governor.acquire('keyframe', 'one')['ok'])
+
     def test_order_is_kept_and_one_bad_unit_does_not_stop_the_rest(self):
         def worker(item):
             if item == 2:
