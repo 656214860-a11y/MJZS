@@ -6572,6 +6572,13 @@ class ProjectMemoryTests(PetTestCase):
         self.assertTrue(self.pet.projects_text(force=True))
         self.assertFalse(self.pet.errors, '坏数据只丢一行，不记成错误')
 
+    def test_a_missing_host_registry_is_reported_not_read_from_disk(self):
+        del self.fake.projects
+        self.assertEqual(self.pet.projects_registry(), {})
+        self.assertIn('projects.read', [name for name, _text in self.pet.errors],
+                      '宿主没给登记表就报缺，不再自己去开 projects.json')
+        self.assertEqual(self.pet.projects_snapshot(force=True), [])
+
 
 class CloudHygieneTests(PetTestCase):
     """第 37 期第 5／6 条：记录里不留空行；对话框收起时及时清理；名字不再被小字抢位。"""

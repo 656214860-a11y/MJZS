@@ -96,6 +96,29 @@ def _project_config_write_fallbacks():
     return found
 
 
+def _formal_path_json_reads():
+    """第 5 项：L2 之外的生产模块直接读正式登记／配置文件。"""
+    targets = {'config.json', 'settings.json', 'projects.json'}
+    l2 = {path.resolve() for path in _l2_source_files()}
+    found = set()
+    for path in _json_source_files():
+        if path.resolve() in l2:
+            continue
+        tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+        for function in (node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)):
+            literals = {node.value for node in ast.walk(function)
+                        if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+            if not literals & targets:
+                continue
+            reads = any(isinstance(node, ast.Call) and (
+                (isinstance(node.func, ast.Attribute) and node.func.attr in {'load', 'loads'}) or
+                (isinstance(node.func, ast.Name) and node.func.id == 'open'))
+                for node in ast.walk(function))
+            if reads:
+                found.add(f'{path.relative_to(ROOT).as_posix()}:{function.name}')
+    return found
+
+
 def _projects_direct_storage_calls():
     """已迁移的 projects 不能退回 L2 自行读写、回滚或复制。"""
     path = ROOT / 'projects.py'
@@ -153,6 +176,9 @@ class UnificationRatchetTests(unittest.TestCase):
 
     def test_bare_json_load_debt_is_a_nonincreasing_subset(self):
         self._assert_ratchet('第四项', _bare_json_loads())
+
+    def test_formal_path_reads_outside_l2_are_a_nonincreasing_subset(self):
+        self._assert_ratchet('第五项', _formal_path_json_reads())
 
     def test_migrated_projects_cannot_bypass_its_injected_gateway(self):
         self.assertEqual(_projects_direct_storage_calls(), set())

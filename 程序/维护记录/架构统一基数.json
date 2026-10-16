@@ -1585,4 +1585,17 @@
             }
         ]
     }
+,
+    "\u7b2c\u4e94\u9879": {
+        "count": 0,
+        "baseline_pending": 0,
+        "items": [
+            {
+                "file": "scripts/migrate_workflow_presets.py",
+                "point": "registered_projects",
+                "disposition": "exempt",
+                "reason": "R1646：统筹模式迁移工具是程序外的独立脚本，没有宿主上下文，只能自行读取项目登记表；扫到即登记豁免。"
+            }
+        ]
+    }
 }

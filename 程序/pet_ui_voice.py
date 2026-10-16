@@ -12,7 +12,7 @@ import pet_state
 from broadcaster import Broadcaster, PREFIX_PATTERNS
 from pathlib import Path
 from tkinter import TclError
-from pet_ui_support import AWAY_PAUSE_SECONDS, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, CAPTION_INK, CHAT_HINT, FALLBACK_ASK, GAP_SECONDS, GREET_DELAY_MS, GREET_QUIET_SECONDS, LEVEL_CAPTIONS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, PAGE_ASKS, PAUSED_CAPTION, PROGRAM, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, REPORT_QUIET_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, WEEKLY_FROM, asset_counts, duration, shot_stats
+from pet_ui_support import AWAY_PAUSE_SECONDS, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, CAPTION_INK, CHAT_HINT, FALLBACK_ASK, GAP_SECONDS, GREET_DELAY_MS, GREET_QUIET_SECONDS, LEVEL_CAPTIONS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, PAGE_ASKS, PAUSED_CAPTION, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, REPORT_QUIET_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, WEEKLY_FROM, asset_counts, duration, shot_stats
 
 
 class PetVoiceMixin:
@@ -888,21 +888,12 @@ class PetVoiceMixin:
         return FALLBACK_ASK
     # ── 记住所有项目（第 37 期第 1 条） ──────────────────────────────────────
     def projects_registry(self):
-        """项目登记表（只读）：宿主手里的那份优先，拿不到就读程序目录的 projects.json。"""
+        """项目登记表（只读）：只认宿主注入的那一份，拿不到就报缺，不自行开文件。"""
         info = getattr(getattr(self.desktop, 'projects', None), 'info', None)
         if isinstance(info, dict) and isinstance(info.get('projects'), list):
             return info
-        import json
-        path = PROGRAM / 'projects.json'
-        if not path.is_file():
-            return {}
-        try:
-            with path.open(encoding='utf-8') as handle:
-                data = json.load(handle)
-        except Exception as exc:
-            self.errors.append(('projects.read', str(exc)))
-            return {}
-        return data if isinstance(data, dict) else {}
+        self.errors.append(('projects.read', '宿主未提供项目登记表'))
+        return {}
     def project_progress(self, path):
         """一个项目走到哪了：读它的阶段状态文件，读不出来就不编（返回空表）。"""
         try:
