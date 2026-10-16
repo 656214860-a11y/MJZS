@@ -872,7 +872,19 @@
   {
    "module": "script_contract.py",
    "covered": 0,
-   "total": 974,
+   "total": 663,
+   "percent": 0.0
+  },
+  {
+   "module": "script_manifest_schema.py",
+   "covered": 0,
+   "total": 254,
+   "percent": 0.0
+  },
+  {
+   "module": "script_output_spec.py",
+   "covered": 0,
+   "total": 68,
    "percent": 0.0
   },
   {
@@ -1633,5 +1645,5 @@
   }
  ],
  "modules_covered": 46,
- "modules_total": 270
+ "modules_total": 272
 }

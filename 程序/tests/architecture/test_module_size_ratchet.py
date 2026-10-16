@@ -15,7 +15,6 @@ OVERSIZE_CAPS = {
     'pet_cloud.py': 2150,
     'skill_panel.py': 1900,
     'stage_execution_service.py': 1700,
-    'script_contract.py': 1600,
 }
 
 
