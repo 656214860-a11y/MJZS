@@ -111,12 +111,29 @@ def delivery_duration(project, selected):
             'outputs': [found[path] for path in targets]}
 
 
+def untracked_comfy(project, ledger):
+    """核对已有工作流与费用记录；未知节点不推断免费或套用单张图片价格。"""
+    tracked = {row.get('id') for row in ledger.entries if row.get('state') != 'duplicate'}
+    missing = []
+    for path in sorted((Path(project) / 'workflows').glob('comfy_*.json')):
+        try:
+            job = read_json(path)
+        except (OSError, ValueError):
+            job = None
+        request_id = job.get('cost_request_id') if isinstance(job, dict) else None
+        if not isinstance(request_id, str) or not request_id or request_id not in tracked:
+            missing.append(path.name)
+    return missing
+
+
 def cost_per_minute(project, duration_seconds, price_table, overheads=None, *, human_minutes=None):
     """按已录入用量及费率估算，费用缺项单列，绝不补零。非供应商对账账单。"""
     duration = _number(duration_seconds)
     if not duration:
         raise ValueError('每分钟成本需要有限且大于零的实际成片秒数')
-    report = pet_llm.RequestLedger(project).load().report(price_table)
+    ledger = pet_llm.RequestLedger(project).load()
+    report = ledger.report(price_table)
+    untracked = untracked_comfy(project, ledger)
     money = report.get('money')
     overheads = overheads if isinstance(overheads, dict) else {}
     known = money['settled_amount'] if money else 0
@@ -125,7 +142,7 @@ def cost_per_minute(project, duration_seconds, price_table, overheads=None, *, h
         amount = _number(overheads.get(key))
         if amount is None: missing.append(key)
         else: known += amount
-    complete = bool(report['requests'] and money and money['complete'] and not missing)
+    complete = bool(report['requests'] and money and money['complete'] and not missing and not untracked)
     human = _number(overheads.get('human'))
     labor_time = _number(human_minutes)
     return {'known_amount': round(known, 4), 'known_per_minute': round(known * 60 / duration, 4),
@@ -134,7 +151,7 @@ def cost_per_minute(project, duration_seconds, price_table, overheads=None, *, h
             'human_minutes_per_finished_minute': round(labor_time * 60 / duration, 4) if labor_time is not None else None,
             'including_human_per_minute': round((known + human) * 60 / duration, 4) if complete and human is not None else None,
             'total_per_minute': round(known * 60 / duration, 4) if complete else None,
-            'complete': complete, 'missing_overheads': missing, 'requests': report,
+            'complete': complete, 'missing_overheads': missing, 'untracked_comfy': untracked, 'requests': report,
             'duration_seconds': duration, 'currency': money['currency'] if money else None,
             'basis': 'recorded_usage_estimate_not_supplier_invoice'}
 
@@ -172,13 +189,17 @@ def summarize(project, budget=None):
         for table, key in keys:
             _add(table.setdefault(key, _blank()), event)
     try:
-        ledger_report = pet_llm.RequestLedger(project).load().report()
+        ledger = pet_llm.RequestLedger(project).load()
+        ledger_report = ledger.report()
+        untracked = untracked_comfy(project, ledger)
     except (OSError, ValueError, TypeError):
         ledger_report = None
+        untracked = untracked_comfy(project, pet_llm.RequestLedger(project))
     if ledger_report is not None and not ledger_report.get('requests'):
         ledger_report = None
     result = {'total': total, 'by_model': by_model, 'by_stage': by_stage, 'by_day': dict(sorted(by_day.items())),
-              'skipped_files': skipped, 'not_submitted': not_submitted, 'budget': budget, 'requests': ledger_report}
+              'skipped_files': skipped, 'not_submitted': not_submitted, 'budget': budget, 'requests': ledger_report,
+              'untracked_comfy': untracked}
     profile = Path(project) / 'cost_profile.json'
     if profile.is_file():
         try:
@@ -204,9 +225,12 @@ def _line(name, bucket):
 
 def report_text(summary):
     total = summary['total']
-    if not total['calls'] and not any(summary.get(key) for key in ('requests', 'budget', 'cost', 'cost_error', 'not_submitted')):
+    if not total['calls'] and not any(summary.get(key) for key in ('requests', 'budget', 'cost', 'cost_error', 'not_submitted', 'untracked_comfy')):
         return '本项目还没有可汇总的模型调用记录。'
     lines = ['模型调用总览', _line('合计', total), '']
+    if summary.get('untracked_comfy'):
+        lines.append('Comfy 费用覆盖缺项：%d 份任务记录未关联有效台账，费用未知，不能按零元或单张图片计价。' % len(summary['untracked_comfy']))
+        lines.extend('  workflows/' + name for name in summary['untracked_comfy'])
     for title, key in (('按模型', 'by_model'), ('按阶段', 'by_stage'), ('按天', 'by_day')):
         if summary[key]:
             lines.append(title)

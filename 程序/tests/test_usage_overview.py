@@ -16,6 +16,28 @@ def call(folder, model, stage, usage, ok=True, day='2026-10-14'):
 
 
 class UsageOverviewTests(unittest.TestCase):
+    def test_comfy_jobs_without_ledger_cannot_claim_complete_cost(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as folder:
+            ledger = pet_llm.RequestLedger(folder)
+            ledger.settle('fixture', kind='seconds', amount=10); ledger.save()
+            table = {'rates': {'seconds': 0.2}, 'version': 'fixture', 'currency': 'CNY'}
+            overheads = dict(gpu=0, storage=0, bandwidth=0, human=0)
+            path = Path(folder) / 'workflows' / 'comfy_local.json'
+            for state in ('submitting', 'queued', 'unknown', 'failed', 'downloaded'):
+                save(path, {'state': state, 'workflow': {}, 'cost_request_id': 'missing'})
+                cost = uo.cost_per_minute(folder, 60, table, overheads)
+                self.assertEqual(cost['known_per_minute'], 2)
+                self.assertIsNone(cost['total_per_minute'])
+                self.assertIsNone(cost['including_human_per_minute'])
+                self.assertEqual(cost['untracked_comfy'], ['comfy_local.json'])
+            self.assertIn('Comfy 费用覆盖缺项', uo.report_text(uo.summarize(folder)))
+            path.write_text('{broken', encoding='utf-8')
+            self.assertFalse(uo.cost_per_minute(folder, 60, table, overheads)['complete'])
+            save(path, {'cost_request_id': 'fixture'})
+            self.assertTrue(uo.cost_per_minute(folder, 60, table, overheads)['complete'])
+            self.assertEqual(len(pet_llm.RequestLedger(folder).load().entries), 1)
+
     def test_labor_time_and_full_cost_survive_profile_read_without_assuming_unknown_zero(self):
         from agent.core import save
         with tempfile.TemporaryDirectory() as folder:
