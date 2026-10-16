@@ -167,6 +167,9 @@ class ModelAdapter:
                                                   options.get('cache_ttl') or '5m')
             # 原生 Claude 工具只在 Messages 协议下有效；普通模型维持原请求格式。
             if isinstance(options.get('tools'),list):payload['tools']=options['tools']
+            # 采样参数和 token 上限一样属于请求体：显式给了就不能因为换协议而悄悄丢掉。
+            if 'temperature' in options:
+                payload['temperature'] = options['temperature']
             return payload
         if self.wire_api == 'responses':
             body['input'] = self.prefixed(messages, system)
@@ -317,6 +320,10 @@ class DeepSeekAdapter(ModelAdapter):
         return pet_llm.endpoint(self.config)
 
     def headers(self):
+        # 注入的 key 优先：credential()／available() 认它，出站请求头必须认同一把，
+        # 否则「界面说这个模型能用」与「实际发出去用哪把钥匙」会分叉。
+        if self.key:
+            return {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + self.key}
         return pet_llm.headers(self.config, self.program)
 
 
