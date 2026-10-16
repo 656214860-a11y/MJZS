@@ -690,7 +690,8 @@ class PetVoiceMixin:
             self._progress_at = now
             self._offer_at = now
             self._advance_at = now
-            self._gap_sig = tuple(self.gaps(at=at))
+            # 安静期不需要新盘点；结束时再按实际缺口对表，避免首屏心跳递归读盘。
+            self._gap_sig = tuple(self._gap_cache)
             return True
         self._quiet_until = None
         self._gap_sig = tuple(self.gaps(at=at))   # 安静期结束：当下这一批缺口算「对过表」

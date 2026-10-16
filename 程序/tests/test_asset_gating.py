@@ -114,7 +114,7 @@ class _TkHarness(unittest.TestCase):
         win = self.tk.Tk(); win.withdraw()
         from desktop import Desktop
         from local_video import open_studio
-        d = Desktop(win, root=HERE)
+        d = Desktop(win, root=Path(td) / "app")
         d.root = proj
         d.studio = open_studio(proj)
         self.addCleanup(win.destroy)
@@ -141,7 +141,7 @@ class AssetPageContentTests(_TkHarness):
         self.addCleanup(quiet_destroy)
         from desktop import Desktop
         from local_video import open_studio
-        d = Desktop(win, root=HERE)
+        d = Desktop(win, root=proj.parent / "app")
         d.root = proj
         d.studio = open_studio(proj)
         # 首帧只排空布局/绘制；update() 还执行到期计时器，慢机上会越过渐进插行边界。

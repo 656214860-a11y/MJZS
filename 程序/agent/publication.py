@@ -100,16 +100,14 @@ def access():
             if stream.seek(0, 2) == 0:
                 stream.write(b'0')
                 stream.flush()
+            if os.name != 'nt':
+                raise RuntimeError('发布事务锁仅支持随附的 Windows 运行环境')
+            import msvcrt
             deadline = time.monotonic() + 30
             while True:
                 try:
                     stream.seek(0)
-                    if os.name == 'nt':
-                        import msvcrt
-                        msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-                    else:
-                        import fcntl
-                        fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
                     break
                 except OSError as exc:
                     if time.monotonic() >= deadline:
@@ -124,10 +122,7 @@ def access():
             finally:
                 _LOCAL.depth = 0
                 stream.seek(0)
-                if os.name == 'nt':
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
-                else:
-                    fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
 
 
 def before_replace(target):

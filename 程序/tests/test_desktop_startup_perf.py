@@ -13,6 +13,7 @@ import sys
 import tempfile
 import time
 import unittest
+import traceback
 import json
 from datetime import date
 from pathlib import Path
@@ -334,7 +335,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                                  and desktop.title.cget('text') == PAGES[0]),
                         time.perf_counter() + 1.5))
                 self.assertEqual(len(recursive_glob), STARTUP_RECURSIVE_SCAN_COUNT)
-                self.assertEqual(len(recursive_walk), STARTUP_RECURSIVE_SCAN_COUNT)
+                self.assertEqual(len(recursive_walk), STARTUP_RECURSIVE_SCAN_COUNT, repr(recursive_walk[:3]))
         finally:
             if desktop is not None:
                 desktop.cancel_timers()

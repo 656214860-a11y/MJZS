@@ -217,21 +217,24 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
                     return
 
     def pop(self):
-        from agent.publication import transaction
-        with transaction():
-            data = self._load()
-            changed = self._expire(data)
-            choices = list(self._items) + [row for row in data['tasks'] if row['state'] == 'queued']
-            if not choices:
-                if changed: self._save(data)
+        from agent.publication import access, transaction
+        with access():
+            if not self._items and not any(row["state"] == "queued" for row in self._load()["tasks"]):
                 return None
-            row = min(choices, key=self._key)
-            if 'fn' in row:
-                self._items.remove(row)
-                if changed: self._save(data)
-                return row
-            row['state'] = 'claimed'
-            self._save(data)
+            with transaction():
+                data = self._load()
+                changed = self._expire(data)
+                choices = list(self._items) + [row for row in data['tasks'] if row['state'] == 'queued']
+                if not choices:
+                    if changed: self._save(data)
+                    return None
+                row = min(choices, key=self._key)
+                if 'fn' in row:
+                    self._items.remove(row)
+                    if changed: self._save(data)
+                    return row
+                row['state'] = 'claimed'
+                self._save(data)
         def run():
             try:
                 handler = self.handlers.get(row['kind'])

@@ -3166,6 +3166,16 @@ class CloudVoiceTests(PetTestCase):
         self.assertFalse(self.pet.quiet(at=105.0))
         self.assertIsNone(self.pet._quiet_until)
 
+    def test_quiet_period_defers_disk_counts_until_it_ends(self):
+        from unittest import mock
+        self.pet._greet_id = None
+        self.pet._quiet_until = 105.0
+        with mock.patch.object(self.pet, 'counts', return_value={}) as counts:
+            self.assertTrue(self.pet.quiet(at=104.0))
+            counts.assert_not_called()
+            self.assertFalse(self.pet.quiet(at=105.0))
+            counts.assert_called_once()
+
     def test_the_quiet_window_only_holds_back_the_pet_itself(self):
         """安静期只压住三虎自己找话说：用户刚按出来的那一句照常冒（换档位是用户点出来的）。"""
         self.main_window_showing()
