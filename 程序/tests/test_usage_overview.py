@@ -172,3 +172,48 @@ class UsageOverviewTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ScenarioEstimateTests(unittest.TestCase):
+    """O12：不付费估算表——有费率才算金额，缺任何一项都保持未知，不补零。"""
+
+    TABLE = {"currency": "CNY", "version": "test", "model_rates": {
+        "img-m": {"images": "0.2"}, "vid-m": {"seconds": "0.5"}}}
+
+    def scenario(self, stages=True):
+        return {"shots": 60, "candidates": 2, "attempts": 1, "stages": [
+            {"name": "首帧", "model": "img-m", "kind": "images", "quantities": {"images": 120}},
+            {"name": "视频", "model": "vid-m", "kind": "videos", "quantities": {"seconds": 300}},
+        ] if stages else []}
+
+    def test_configured_rates_multiply_quantities_by_candidates_and_attempts(self):
+        result = uo.estimate_scenario(self.scenario(), self.TABLE)
+        self.assertTrue(result["complete"])
+        self.assertAlmostEqual(result["amount"], 120 * 0.2 + 300 * 0.5)
+        self.assertEqual([row["amount"] for row in result["stages"]], [24.0, 150.0])
+        self.assertEqual(result["candidates"], 2)
+
+    def test_one_missing_rate_keeps_the_whole_amount_unknown(self):
+        table = {**self.TABLE, "model_rates": {"img-m": {"images": "0.2"}}}
+        result = uo.estimate_scenario(self.scenario(), table)
+        self.assertFalse(result["complete"])
+        self.assertIsNone(result["amount"])
+        self.assertEqual(result["unknown_stages"],
+                         [{"stage": "视频", "model": "vid-m", "kind": "videos"}])
+        self.assertEqual(result["stages"][0]["amount"], 24.0)
+
+    def test_price_table_without_version_or_currency_is_unknown(self):
+        table = {"model_rates": {"img-m": {"images": "0.2"}}}
+        result = uo.estimate_scenario(self.scenario(), table)
+        self.assertIsNone(result["amount"])
+        self.assertIsNone(result["table_version"])
+        self.assertEqual(len(result["unknown_stages"]), 2)
+
+    def test_unknown_unit_and_empty_scenario_are_not_guessed(self):
+        with self.assertRaises(ValueError):
+            uo.estimate_scenario({"stages": [{"model": "m", "kind": "frames", "quantities": {}}]}, self.TABLE)
+        empty = uo.estimate_scenario({"shots": 0}, self.TABLE)
+        self.assertFalse(empty["complete"])
+        self.assertIsNone(empty["amount"])
+        self.assertIsNone(empty["candidates"])
+

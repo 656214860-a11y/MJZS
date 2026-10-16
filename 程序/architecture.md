@@ -424,3 +424,6 @@ R1305：`writing_quality`（L2）解析自然剧本附带的四项辅助质检�
 
 ## R1608 / O10：大媒体发布内存
 来源：tasks_round/tasks_round_1596_result.md 的 O10。agent.core.save_file 按 1 MiB 块复制来源到目标同目录临时文件，复制期间计算 sha256 并核对来源长度，可选与调用方给的摘要比对，然后走既有 replace（登记发布事务与缓存失效）；媒体不进内存。stage_execution_service.collect_download_inbox 改用该入口并包在 publication.transaction() 内，收回下载不再是 read_bytes 加 save_bytes 的整份拷贝。文本与小产物继续用 save_text／save_bytes，既有接口语义不变。
+
+## R1609 / O12：不付费场景与成本估算
+来源：tasks_round/tasks_round_1596_result.md 的 O12。usage_overview.estimate_scenario 按场景给定的阶段用量乘费率，复用 pet_llm.RequestLedger._model_price；缺模型费率、币种或价格表版本时整场景金额返回 None 并单列未知阶段，绝不补零。场景矩阵与公式见 维护记录/成本估算与场景矩阵_20261016.md。O12 的真实账单核对部分仍按既有延期处理，不自行发起付费任务。

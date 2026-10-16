@@ -166,6 +166,39 @@ def cost_per_minute(project, duration_seconds, price_table, overheads=None, *, h
             'basis': 'recorded_usage_estimate_not_supplier_invoice'}
 
 
+def estimate_scenario(scenario, price_table):
+    """不付费估算：按场景给定的阶段用量乘费率；费率、币种或版本不全的模型不给金额，也绝不补零。
+
+    场景内容由调用方给事实（本函数不推算镜头数、候选数或尝试次数）：
+    {"shots": 60, "candidates": 2, "attempts": 1, "stages": [
+        {"name": "首帧", "model": "m", "kind": "images", "quantities": {"images": 120}}]}
+    """
+    table = price_table if isinstance(price_table, dict) else {}
+    stages, unknown, amount = [], [], 0
+    for stage in scenario.get("stages") or ():
+        kind = str(stage.get("kind") or "")
+        if kind not in pet_llm.REQUEST_KINDS:
+            raise ValueError("未知请求单位：" + kind)
+        model = str(stage.get("model") or "")
+        quantities = {key: pet_llm.RequestLedger.decimal(value)
+                      for key, value in (stage.get("quantities") or {}).items()}
+        _rates, cost = pet_llm.RequestLedger._model_price(table, model, quantities)
+        if cost is None:
+            unknown.append({"stage": str(stage.get("name") or kind), "model": model, "kind": kind})
+        else:
+            amount += cost
+        stages.append({"name": str(stage.get("name") or kind), "model": model, "kind": kind,
+                       "quantities": {key: str(value) for key, value in quantities.items()},
+                       "amount": None if cost is None else float(cost)})
+    complete = bool(stages) and not unknown
+    return {"shots": scenario.get("shots"), "candidates": scenario.get("candidates"),
+            "attempts": scenario.get("attempts"), "stages": stages,
+            "amount": float(amount) if complete else None, "complete": complete,
+            "unknown_stages": unknown, "currency": table.get("currency"),
+            "table_version": table.get("version"),
+            "basis": "configured_rates_estimate_not_supplier_invoice"}
+
+
 def _add(bucket, event):
     bucket['calls'] += 1
     bucket['ok' if event.get('ok') else 'failed'] += 1
