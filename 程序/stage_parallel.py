@@ -379,7 +379,7 @@ def parallel_map(stage, items, worker, governor=None, at=None, wait=WAIT_SECONDS
     开几条线＝「阶段并行度的上限」与「全局并发上限」取小——上限是硬上限，撞上就排队；
     governor 给了还要逐个要号，同一资源撞车就等一等再上（不丢单元、不改变顺序）。
     """
-    import threading
+    governor = shared() if governor is None else governor
     values = list(items)
     high = degree(stage)[1]
     workers = max(1, min(high, governor.limit if governor else GLOBAL_LIMIT))

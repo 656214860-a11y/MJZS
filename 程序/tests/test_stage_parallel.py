@@ -156,6 +156,32 @@ class GovernorTests(unittest.TestCase):
 class ParallelMapTests(unittest.TestCase):
     """一次把一批单元跑掉：保序、一个单元出错不连坐、在飞不超过配置。"""
 
+    def test_implicit_and_explicit_entry_share_capacity(self):
+        from unittest.mock import patch
+        governor = spec.Governor(limit=1)
+        entered, release = threading.Event(), threading.Event()
+        first = []
+        def worker(item):
+            entered.set()
+            if not release.wait(3):
+                raise RuntimeError('test release timeout')
+        thread = threading.Thread(target=lambda: first.extend(spec.parallel_map(
+            'keyframe', ['held'], worker, governor=governor, wait=0)))
+        thread.start()
+        try:
+            self.assertTrue(entered.wait(2))
+            called = []
+            with patch.object(spec, 'shared', return_value=governor):
+                second = spec.parallel_map('animatic', ['new'], called.append, wait=0)
+            self.assertEqual(called, [])
+            self.assertIsInstance(second[0][2], TimeoutError)
+        finally:
+            release.set()
+            thread.join(3)
+        self.assertFalse(thread.is_alive())
+        self.assertIsNone(first[0][2])
+        self.assertEqual(governor.running(), 0)
+
     def test_timeout_never_executes_without_a_permit(self):
         for limit, held_resource, requested in ((1, 'busy', 'other'), (2, 'same', 'same')):
             with self.subTest(limit=limit):
