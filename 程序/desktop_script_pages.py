@@ -1,14 +1,15 @@
 """剧本结构页与剧本相关方法。
 
-从 ``desktop.Desktop`` 原样迁出（R1505）：方法体未改，``self`` 语义不变，``Desktop`` 通过继承
-``ScriptPagesMixin`` 获得。测试按 ``desktop.<名字>`` 打补丁的名字（confirm／open_path 等）经
-``desktop_page_support`` 的转发函数在调用时取 ``desktop`` 的当前值，补丁照常生效。
+``ScriptPagesMixin`` 通过实例的 ``script_page_services`` 使用文件打开与菜单服务。
+Desktop 在组合入口注入服务；独立页面测试不需要初始化 Desktop 或登记全局宿主。
 """
 import pet_state
 import logging
 import queue
 import threading
 import time
+from dataclasses import dataclass
+from typing import Callable
 import project_stages
 import tkinter as tk
 import ui_plugin_registry
@@ -18,11 +19,18 @@ from responsive_ui import FlowBar
 from tkinter import ttk
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import DataTable, PrimaryButton, SecondaryButton, TextArea
-from desktop_page_support import ContextMenu, STAGE_ACTION_WIDTH, open_path
+from desktop_page_support import STAGE_ACTION_WIDTH
 
 PAGE = pet_state.PAGE_OF
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ScriptPageServices:
+    """剧本页的外部 UI 能力；由组合入口提供，不携带全局宿主。"""
+    open_path: Callable
+    context_menu: Callable
 
 
 class ScriptPagesMixin:
@@ -77,9 +85,9 @@ class ScriptPagesMixin:
     def open_script_quality(self, folder=False):
         project, path = getattr(self, '_script_quality_report', ('', ''))
         if project == str(self.root) and path and Path(path).is_file():
-            open_path(Path(path).parent if folder else path)
+            self.script_page_services.open_path(Path(path).parent if folder else path)
         elif folder and (project_stages.writing(self.root) / 'quality').is_dir():
-            open_path(project_stages.writing(self.root) / 'quality')
+            self.script_page_services.open_path(project_stages.writing(self.root) / 'quality')
         else:
             self.notifier.info('本次尚无质检报告。生成自然剧本后会显示四项结果。')
     def watch_script_quality(self, target):
@@ -472,7 +480,7 @@ class ScriptPagesMixin:
                 if not row or row not in {str(path) for path in available}:
                     return None
                 file_list.selection_set(row)
-                menu = ContextMenu(file_list).command('删除（移入回收站）', lambda:self.safe(delete_document))
+                menu = self.script_page_services.context_menu(file_list).command('删除（移入回收站）', lambda:self.safe(delete_document))
                 self._script_structure_file_menu = menu
                 return menu.popup(event)
             file_list.bind('<Button-3>', open_document_menu)

@@ -405,3 +405,15 @@ R1094 内部等价简化：`pet_cloud.Cloud` 三个关闭入口复用私有定�
 `asset_gating`、`keyframe`、`keyframe_api`、`previs`、`writing_files`、`writing_workflow` 是已有分层表中未实体化的名称：可查初始树和当前树无同名模块，不能称为已迁移模块。R1028 在 `维护记录/架构统一基数.json` 的 `historical_name_audit` 登记现行职责入口；这是职责索引，不是历史重命名证明。两个迁移台账保留 `historical_name_audited` 与原基数，门禁检查缺失名称集合守恒、审计分类及现行模块/符号存在。生产层级、采用方和豁免数量均不变；不得据此宣布第 1、2 项整体完成。
 
 R1305：`writing_quality`（L2）解析自然剧本附带的四项辅助质检，核对正文证据并生成按正文 SHA256 分版本的报告；文件发布器和目录由 L3 `writing_api` / `stage_execution_service` 注入。`workflow_settings` 在完整加载四份规则时追加辅助交付契约；桌面仅监听任务指定的单一自然剧本路径。报告不进入02输入，不新增模型调用。
+
+## R1606 / O8：剧本页面服务注入
+来源：tasks_round/tasks_round_1596_result.md 的 O8/J/K，逐页迁移策略。Desktop 在构造入口向 ScriptPagesMixin 注入不可变 ScriptPageServices，仅提供 open_path 与 context_menu。默认服务在组合入口绑定，保持现有 desktop 测试替换点；页面不再读取 desktop_page_support 的全局宿主。独立页面可注入假服务，不构建 Desktop/Tk 主窗口。
+
+剩余跨页依赖（未声称消除）：
+- 剧本页面仍通过 self 使用项目上下文、通知器、导航、safe、工作流启动及聊天状态；本轮只迁移两个外部 UI 服务，不搬业务状态。
+- desktop_writing_page：菜单、确认、删除最后剧本时项目确认、打开路径。
+- desktop_storyboard_page：文件选择、确认、打开路径。
+- desktop_asset_pages：Desktop 类静态工具转发、文件选择、确认、打开路径。
+- desktop_media_pages：文件选择、确认、编辑器/ComfyUI启动工具、工作区打开。
+- desktop_project_pages：菜单、确认、打开路径。
+上述旧页面仍使用 desktop_page_support 兼容入口。后续按页面提供最小服务集合并迁移各自调用方；不建立包含整个 Desktop 的万能接口，不改变阶段状态权威来源。常量继续共用，不算宿主调用。

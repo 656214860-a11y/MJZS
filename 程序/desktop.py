@@ -2,7 +2,7 @@
 import app_logging
 from desktop_idea_menus import IdeaMenusMixin
 from desktop_asset_pages import AssetPagesMixin
-from desktop_script_pages import ScriptPagesMixin
+from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
 from desktop_media_pages import MediaPagesMixin
 from desktop_project_pages import ProjectPagesMixin
 from desktop_storyboard_page import StoryboardPageMixin
@@ -209,8 +209,11 @@ from app_metadata import APP_NAME, VERSION
 bind_host(sys.modules[__name__])  # 剧本准备页的 confirm／ContextMenu 等转发到本模块，保持按 desktop.<名字> 打补丁有效
 
 class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin):
-    def __init__(self,win,root=ROOT):
+    def __init__(self,win,root=ROOT,*,script_page_services=None):
         self._diagnostic_start=time.perf_counter()
+        self.script_page_services = script_page_services if script_page_services is not None else ScriptPageServices(
+            open_path=lambda *args, **kwargs: open_path(*args, **kwargs),
+            context_menu=lambda *args, **kwargs: ContextMenu(*args, **kwargs))
         from stage_execution_service import project_registry_gateway
         self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.task_queue=PersistentBackgroundTaskQueue(self.app/'outputs'/'desktop-task-queue.json',handlers={'storage_inspect':inspect_project_storage});self.retry_registry=RetryRegistry();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0
