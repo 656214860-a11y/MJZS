@@ -1229,6 +1229,9 @@ class IdeaChatMixin:
             config = freeze_skills(config)
         native_claude = config['engine'] in ('claude-desktop-app', 'desktop-app')
         bounded_writing = stage == 'writing' and config['engine'] == 'claude'
+        if stage == 'writing' and config['engine'] == 'claude' and not intake_only and not new_session:
+            from workflow_engines import claude_session_stale
+            new_session = claude_session_stale(self.root, stage)
         new_session = bool(new_session and stage == 'writing' and config['engine'] == 'claude' and not intake_only)
         use_cli = not native_claude and (config['engine']!='codex' or config['program'] or config['model'])
         # CLI 继续复用同一进程；提取结束后不能占住唯一槽位又排队启动剧本进程。

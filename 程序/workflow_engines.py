@@ -2,6 +2,7 @@
 import json
 import subprocess
 import threading
+import time
 import uuid
 from pathlib import Path
 from file_cache import remove_temporary_file
@@ -155,6 +156,28 @@ def run_background(config,project,output,report,logfile,prompt):
         if returncode:raise ValueError(ENGINES[config['engine']]+' 执行失败，请查看运行日志（安装版本、登录、额度或权限）')
     finally:
         release_process_slot(slot)
+
+# 隔夜续接的旧 Claude 会话会把已删除的旧稿带回上下文；超过该时长不再续接，改开新会话。
+CLAUDE_SESSION_STALE_SECONDS = 12 * 3600
+
+def claude_session_stale(project, stage, now=None):
+    """绑定的 Claude 会话记录最后写入超过阈值即视为过期；无绑定或无记录不算过期。"""
+    bindings = Path(project) / '工作流任务' / 'Claude对话.json'
+    try:
+        data = read(bindings) if bindings.is_file() else {}
+        session = str(uuid.UUID(str(data.get(stage)))) if isinstance(data, dict) and data.get(stage) else None
+    except (OSError, ValueError, TypeError):
+        return False
+    if not session:
+        return False
+    latest = 0.0
+    for path in (Path.home() / '.claude/projects').glob('*/' + session + '.jsonl'):
+        try:
+            latest = max(latest, path.stat().st_mtime)
+        except OSError:
+            continue
+    now = time.time() if now is None else now
+    return bool(latest) and now - latest > CLAUDE_SESSION_STALE_SECONDS
 
 def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None,*,new_session=False):
     """Custom engines use a real interactive CLI, preserving creative Q&A."""

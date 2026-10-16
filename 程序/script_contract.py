@@ -338,11 +338,11 @@ def episode_reference_block(text, ledger=None):
     return '\n'.join(lines)
 
 
-def script_episode_baseline(project):
-    """当前分集比对基准正文：优先采用版本，其次最新自然剧本，最后内部工作稿。
+def script_baseline_path(project):
+    """当前自然剧本基准文件：优先采用版本，其次最新自然剧本，最后内部工作稿。
 
     用户手改自然剧本会让采用台账的哈希失效，因此这里不把采用台账当唯一依据，
-    只取「最新一份可见自然剧本」的正文；都读不到时返回空串。
+    只取「最新一份可见自然剧本」；都读不到时返回 None。
     """
     try:
         source = resolve_script_source(project)
@@ -358,10 +358,19 @@ def script_episode_baseline(project):
     for path in candidates:
         try:
             if path.is_file() and path.stat().st_size:
-                return path.read_text(encoding='utf-8', errors='ignore')
+                return path
         except OSError:
             continue
-    return ''
+    return None
+
+
+def script_episode_baseline(project):
+    """当前分集比对基准正文；读不到时返回空串。"""
+    path = script_baseline_path(project)
+    try:
+        return path.read_text(encoding='utf-8', errors='ignore') if path else ''
+    except OSError:
+        return ''
 
 
 def record_episode_ledger(project, text, previous_text=''):

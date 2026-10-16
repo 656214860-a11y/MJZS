@@ -80,6 +80,22 @@ def _episode_change_notice(project):
         return ''
 
 
+def _current_script_notice(project):
+    """本地 Agent 的当前剧本指引：桌面产物按模型分目录，交付路径只指向本模型目录，
+    用户手改的采用版可能在其他模型目录下，须显式给出绝对路径。"""
+    try:
+        from script_contract import RAW_SCRIPT_NAME, script_baseline_path
+        path = script_baseline_path(project)
+    except (OSError, ValueError, TypeError):
+        return ''
+    if path is None or path.name == RAW_SCRIPT_NAME:
+        return ''
+    return ('【当前自然剧本】' + Path(path).resolve().as_posix()
+            + ' 是当前采用版本（可能含用户手改），不受“其他模型产物”读取限制。'
+            '涉及自然剧本的修改、重写或重新生成，必须先完整读取它作为基础，按本轮修改意见改写，'
+            '保留未要求修改的情节、人物行为与设定；不得脱离它从零另写。完成后写入上方规范交付路径，末尾“待确认”，等待用户确认。')
+
+
 def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_delivery=False,delivery_at=None,bounded_input=False):
     project=Path(project).resolve();script=Path(script).resolve() if script else None
     text=str(creative_text or '').strip() if creative_text is not None else (script_text(script) if script else '沿用本次所选分镜对应的剧本。')
@@ -104,6 +120,9 @@ def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_
         if agent_delivery:
             task += '\n' + _AGENT_READING_SCOPE
             task += '\n' + _agent_delivery_contract(project, delivery_at)
+            current = _current_script_notice(project)
+            if current:
+                task += '\n' + current
             notice = _episode_change_notice(project)
             if notice:
                 task += '\n' + notice
@@ -164,6 +183,9 @@ def script_followup(script,stage,existing=None,project=None,creative_text=None,*
             if agent_delivery:
                 parts.append(_AGENT_READING_SCOPE)
                 parts.append(_agent_delivery_contract(project, delivery_at))
+                current = _current_script_notice(project)
+                if current:
+                    parts.append(current)
                 notice = _episode_change_notice(project)
                 if notice:
                     parts.append(notice)
