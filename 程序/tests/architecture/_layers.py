@@ -30,7 +30,7 @@ _register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geom
 _register(5, "app_shortcut")
 
 # R741：顶层运行期模块必须逐一入表。层级按实际静态依赖和职责判断，不能以名称后缀代替。
-_register(0, "api_models", "frame_checks", "model_protocol", "pet_settings_contract",
+_register(0, "artifact_schema", "api_models", "frame_checks", "model_protocol", "pet_settings_contract",
           "prop_assets", "shot_selection", "storyboard_contract", "workflow_context_budget")
 _register(1, "api_endpoints", "artifact_lineage", "asset_thumbs", "broadcaster", "clipboard_lock",
           "comfy_service", "engine_probe", "h3_reference_adapter", "model_diagnostics", "model_router",

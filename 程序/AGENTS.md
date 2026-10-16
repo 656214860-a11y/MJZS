@@ -61,6 +61,7 @@
 | 项目操作上下文 | 第 2 项已解冻（2026-10-04 用户授权）；按路线图顺序复用 L3 注入的 `project_context.ProjectContext`，每轮最多 3 个 service；采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准。 |
 | 阶段成果发布器 | `stage_execution_service.publish_stage_text()`／`publish_stage_bytes()`／`publish_stage_bundle()`；L2 写服务只能接收 L3 注入的发布器，音频导入经 `import_stage_audio()`、自动粗剪完成标记经 `save_automatic_assemble_marker()`、自动交接完成标记经 `save_automatic_handoff_marker()`、首帧删除／恢复／替换经 `delete_stage_keyframe()`／`restore_stage_keyframe()`／`replace_stage_keyframe()` 注入 |
 | 正式 JSON 读写 | 读取优先 `file_cache.read_json()`，写入只经 `agent.core.save()`／`save_text()` 或 L3 发布器；L2 不得直接向正式路径 `json.dump()` 或裸写入 |
+| 持久化产物版本 | rtifact_schema：正式 JSON 产物的版本、必备字段与迁移入口；新写入写 schema_version，读取侧容忍缺版本 |
 
 总控宪法（R1433 起取代统筹宪法，用户 2026-10-14 授权）：总控 SKILL 负责统一调度与内容更新。① 唯一来源是 `skills/00全流程SKILL/总控.json`，清单缺失或损坏时退回出厂内置表并在体检中报明；② 指纹覆盖清单、全流程包入口、各阶段总控 SKILL 及其直接引用，指纹一变即由 `master_skill.sync` 自动同步各阶段并提示——只替换上次总控给的项，用户自加的 SKILL 保留、用户取消勾选的总控项不重新勾上、整体弃用总控建议的阶段不追加；③ 各阶段 SKILL 勾选始终由用户自由决定，总控不锁定勾选，一切既有 SKILL 编辑与试跑入口（浏览新增、改 md 即生效、重置、按引擎附加清单）不得因总控模式而移除或变灰；④ 门禁（`master_skill.gate` 与 `stage_handler_registry` 制作锁检查）在总控模式下对手动与自动路径一律阻断：本阶段必填制作锁缺失、已勾选 SKILL 的引用不可加载；剧本准备的简报采集对话除外，由简报门禁负责。
 
