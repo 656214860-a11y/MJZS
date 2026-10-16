@@ -16,6 +16,7 @@ class ProjectsGatewayTests(unittest.TestCase):
         sample = Path(__file__).resolve().parents[1] / '说明' / '示例' / '雨夜修伞'
         episode = json.loads((sample / 'episode.json').read_text(encoding='utf-8'))
         assets = json.loads((sample / 'assets.json').read_text(encoding='utf-8'))
+        originals = {name: (sample / name).read_bytes() for name in ('episode.json', 'assets.json')}
         checked = validate_episode(episode, sample, assets)
         self.assertEqual((checked['shot_count'], checked['total_seconds']), (10, 60))
         with tempfile.TemporaryDirectory() as td:
@@ -28,6 +29,27 @@ class ProjectsGatewayTests(unittest.TestCase):
             imported = json.loads(Path(cfg['episode_file']).read_text(encoding='utf-8'))
             self.assertEqual(imported, episode)
             self.assertFalse(cfg['live_enabled'])
+            from project_stages import assets as asset_dir
+            first = Path(result.data)
+            imported_assets = asset_dir(first) / 'assets.json'
+            self.assertEqual(json.loads(imported_assets.read_text(encoding='utf-8')), assets)
+            second_result = service.create('练习', sample / 'episode.json')
+            self.assertTrue(second_result.ok, second_result.reason)
+            second = Path(second_result.data)
+            other_cfg = json.loads((second / 'config.json').read_text(encoding='utf-8'))
+            self.assertNotEqual(first, second)
+            self.assertNotEqual(cfg['project_id'], other_cfg['project_id'])
+            # 编辑练习副本不会污染同名第二份项目或内置教学素材。
+            changed_episode = dict(imported, title='我的改稿')
+            Path(cfg['episode_file']).write_text(json.dumps(changed_episode), encoding='utf-8')
+            imported_assets.write_text('{}', encoding='utf-8')
+            self.assertEqual(json.loads(Path(other_cfg['episode_file']).read_text(encoding='utf-8')), episode)
+            self.assertEqual(json.loads((asset_dir(second) / 'assets.json').read_text(encoding='utf-8')), assets)
+            for name, original in originals.items():
+                self.assertEqual((sample / name).read_bytes(), original)
+            for root in (first, second):
+                self.assertFalse(list(root.rglob('成果确认/*.json')))
+                self.assertFalse([p for p in root.rglob('*') if p.suffix.lower() in {'.png', '.mp4', '.wav'}])
 
     def test_projects_rejects_uninjected_storage_gateway(self):
         with tempfile.TemporaryDirectory() as td:
