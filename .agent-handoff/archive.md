@@ -1,5 +1,7 @@
 # 历史索引
 
+R1591交接前原文：[快照](history/r1591-handoff-before/snapshot.md)、[待办](history/r1591-handoff-before/backlog.md)、[风险](history/r1591-handoff-before/risks.md)、[验证](history/r1591-handoff-before/validation.md)。归档内容及其相对链接按原目录位置理解，不作为当前任务状态。
+
 旧工程历史保留于 [轮次报告](../程序/tasks_round/) 与 [状态页](../程序/project_status.md)，不迁移、不改写历史验收。
 仍相关的近期事实留在 work-log；过时条目移入此处时压缩事实并保留原始报告链接。
 
