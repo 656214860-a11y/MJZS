@@ -165,6 +165,7 @@ class WritingPageMixin:
         self.stage_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']),pady=SPACING['none'])
         interrupt_button=SecondaryButton(foot,text='中断',width=script_action_width,command=self.interrupt_script_agent)
         interrupt_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']));interrupt_button.state(['disabled']);self.idea_interrupt=interrupt_button
+        self.update_script_interrupt_button()
         refresh_button=SecondaryButton(foot,text='刷新',width=script_action_width,command=lambda:self.safe(self.refresh_script_workspace))
         refresh_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']));self.idea_refresh=refresh_button
         # 「删除」紧跟「刷新」：动作栏按子控件创建顺序排列，所以必须在这里创建，不能放到右侧那组。

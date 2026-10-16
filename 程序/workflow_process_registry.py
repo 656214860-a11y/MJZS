@@ -8,8 +8,22 @@ _queued = []
 _queue_counter = 0
 
 
+def _reap_exited_processes():
+    """申请容量前回收已退出的自有进程；活进程及未绑定进程的预留不动。"""
+    with _lock:
+        snapshot = [(project, process) for project, items in _running.items() for process in items]
+    for project, process in snapshot:
+        try:
+            exited = process.poll() is not None
+        except (OSError, ValueError):
+            continue
+        if exited:
+            forget_process(project, process)
+
+
 def reserve_process_slot(project, stage, stage_limit=1, global_limit=8, stage_name=None):
     """按调用方给定的容量预留槽位；本注册表不依赖阶段业务配置。"""
+    _reap_exited_processes()
     key = str(stage or '')
     name = stage_name or key
     with _lock:
@@ -28,6 +42,7 @@ def reserve_process_slot(project, stage, stage_limit=1, global_limit=8, stage_na
 def request_process_slot(project, stage, stage_limit=1, global_limit=8, stage_name=None):
     """非阻塞地申请模型槽位；满额时登记队列而不是占住调用线程。"""
     global _queue_counter
+    _reap_exited_processes()
     key = str(stage or '')
     name = stage_name or key
     with _lock:
@@ -47,6 +62,7 @@ def request_process_slot(project, stage, stage_limit=1, global_limit=8, stage_na
 
 def claim_process_slot(ticket):
     """轮询一个排队申请；仅在其成为最早可运行请求时分配槽位。"""
+    _reap_exited_processes()
     if not isinstance(ticket, dict):
         return {'state': 'cancelled', 'reason': '排队请求已取消'}
     with _lock:

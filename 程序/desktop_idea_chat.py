@@ -1152,15 +1152,25 @@ class IdeaChatMixin:
         sessions=getattr(self,'flow_processes',{})
         return [(key,process) for key,process in sessions.items()
                 if len(key)>1 and key[1]=='writing' and process.poll() is None]
+    def cancel_script_agent_queue(self):
+        """仅撤销本窗口的剧本 CLI 排队，不影响其他项目或阶段。"""
+        pending = getattr(self, '_script_agent_queue', None)
+        if pending is None:return False
+        pending['cancel']()
+        self._script_agent_launching = False
+        self.update_script_interrupt_button()
+        return True
     def interrupt_script_agent(self):
         """中断当前剧本 API 请求或本窗口启动的剧本 Agent，不影响其他制作阶段。"""
         self._idea_semantic_pending = None
         api_active=getattr(self,'_idea_requesting',False)
         processes=self.script_agent_processes()
         launching=getattr(self,'_script_agent_launching',False)
-        if not api_active and not processes and not launching:
+        queued = bool(getattr(self,'_script_agent_queue',None))
+        if not api_active and not processes and not launching and not queued:
             self.status.set('当前没有可中断的剧本 Agent 调用。')
             return False
+        if queued:self.cancel_script_agent_queue()
         self._async_ticket+=1;self.background_tasks.cancel(costly=bool(api_active))
         self.worker=False;self.busy_state.set_busy(False)
         self.idea_chat_controller.cancel_request()
@@ -1206,6 +1216,8 @@ class IdeaChatMixin:
         from workflow_engines import prompt_with_settings,launch_interactive
         from agent_dispatch import signature,claim,finish,outcome,retryable
         if self.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
+        if stage == 'writing' and getattr(self, '_script_agent_queue', None):
+            raise ValueError('剧本模型请求正在排队，请等待或先点击中断；未重复发送。')
         # 「发送待核实」的安全重试必须沿用第一次已经解析的引擎。原来递归重进时会重新
         # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
         if stage == 'writing' and not intake_only and _config is None:
@@ -1346,26 +1358,62 @@ class IdeaChatMixin:
             def launch(slot=None):
                 try:return launch_interactive(project,stage,title,full,config,followup=continuation,slot=slot,
                                               **({'new_session':True} if new_session else {}))
-                except Exception as exc:finish(receipt,'failed',str(exc));raise
+                except Exception as exc:
+                    from workflow_engines import release_stage_process_slot
+                    release_stage_process_slot(slot)
+                    finish(receipt,'failed',str(exc));raise
             from workflow_engines import request_stage_process_slot, claim_stage_process_slot
             request=request_stage_process_slot(project,stage)
             if request['state']=='granted':
                 self.async_(lambda:launch(request['slot']),launched);return
-            self.status.set('模型请求排队中（第%d位），界面保持响应。' % request['position'])
+            from workflow_engines import cancel_stage_slot_request
+            pending = {'timer': None, 'cancelled': False, 'started': time.monotonic()}
+            def cleanup():
+                pending['cancelled'] = True
+                cancel_stage_slot_request(request['ticket'])
+                timer, pending['timer'] = pending['timer'], None
+                if timer is not None:
+                    try:self.win.after_cancel(timer)
+                    except tk.TclError:pass
+                if getattr(self, '_script_agent_queue', None) is pending:
+                    self._script_agent_queue = None
+                    self._script_agent_launching = False
+                    self.update_script_interrupt_button()
+            def cancel():
+                cleanup()
+                finish(receipt,'failed','模型排队请求已取消，尚未启动 CLI')
+            pending['cancel'] = cancel
+            if stage == 'writing':
+                self._script_agent_queue = pending
+                self._script_agent_launching = True
+                self.update_script_interrupt_button()
+            self.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % request['position'])
             def poll_slot():
-                if getattr(self,'shutting_down',False) or getattr(self,'_closing',False):
-                    finish(receipt,'failed','模型请求已在关闭时取消')
+                pending['timer'] = None
+                if pending['cancelled']:return
+                if self.root != project or getattr(self,'shutting_down',False) or getattr(self,'_closing',False):
+                    cancel()
+                    return
+                if time.monotonic() - pending['started'] >= 120:
+                    cleanup()
+                    message = '等待模型并发名额超过 120 秒，已退出排队；请检查已有 Agent 任务后重新发送。'
+                    finish(receipt,'failed',message)
+                    self.status.set(message)
                     return
                 claimed=claim_stage_process_slot(request['ticket'])
                 if claimed['state']=='queued':
-                    self.status.set('模型请求排队中（第%d位），界面保持响应。' % claimed['position'])
-                    self.win.after(200,poll_slot);return
+                    self.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % claimed['position'])
+                    pending['timer'] = self.win.after(200,poll_slot);return
+                cleanup()
                 if claimed['state']=='granted':
+                    if stage == 'writing':
+                        self._script_agent_launching = True
+                        self.update_script_interrupt_button()
                     self.status.set('已获得模型请求槽位，正在启动…')
                     self.async_(lambda:launch(claimed['slot']),launched);return
                 finish(receipt,'failed',claimed['reason'])
                 self.status.set(claimed['reason'])
-            self.win.after(200,poll_slot)
+            pending['timer'] = self.win.after(200,poll_slot)
         def done(result):
             receipt=result['receipt']
             clipboard_text=result['prompt']

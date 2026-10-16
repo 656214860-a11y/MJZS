@@ -974,6 +974,18 @@ class SendMessageTests(_Harness):
             self.assertFalse(d.worker)
             self.assertTrue(d.idea_interrupt.instate(['disabled']))
 
+    def test_rebuilt_writing_page_keeps_queued_request_interruptible(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            d.show(0); win.update()
+            d._script_agent_launching = True
+            d.show(0); win.update()
+            self.assertFalse(d.idea_interrupt.instate(['disabled']))
+            d._script_agent_launching = False
+            d.update_script_interrupt_button()
+            self.assertTrue(d.idea_interrupt.instate(['disabled']))
+
     def test_refresh_is_next_to_interrupt_and_repairs_old_claude_blocks(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)

@@ -4,6 +4,20 @@ from unittest.mock import patch
 
 
 class WorkflowProcessCapacityTests(unittest.TestCase):
+    def test_exited_process_releases_slot_for_queued_request(self):
+        from unittest.mock import Mock
+        import workflow_process_registry as registry
+        slot = registry.reserve_process_slot('old-project', 'script')
+        process = Mock(workflow_process_slot=slot)
+        process.poll.return_value = None
+        registry.register_process('old-project', process)
+        self.addCleanup(registry.forget_process, 'old-project', process)
+        waiting = registry.request_process_slot('new-project', 'script')
+        self.assertEqual(waiting['state'], 'queued')
+        process.poll.return_value = 0
+        self.assertEqual(registry.claim_process_slot(waiting['ticket'])['state'], 'granted')
+        self.assertEqual(registry.processes('old-project'), [])
+
     def tearDown(self):
         import workflow_process_registry as registry
         for items in list(registry._slots.values()):

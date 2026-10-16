@@ -674,6 +674,103 @@ class StoryboardBatchTests(unittest.TestCase):
 
 
 class DesktopModelPoolTests(unittest.TestCase):
+    def test_cli_queue_grant_launches_once_and_startup_failure_releases_slot(self):
+        from desktop import Desktop
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        import workflow_process_registry as registry
+        for fails in (False, True):
+            with self.subTest(fails=fails), tempfile.TemporaryDirectory() as td:
+                proj = make_project(td)
+                slot = registry.reserve_process_slot('occupied-project', 'script')
+                desktop = SimpleNamespace(root=proj, worker=False, win=Mock(), status=Mock(),
+                    notifier=Mock(), projects=SimpleNamespace(info={'projects': []}),
+                    async_=lambda fn, done: done(fn()), update_script_interrupt_button=Mock())
+                with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
+                        patch('agent_dispatch.finish'), patch('workflow_engines.launch_interactive') as launch:
+                    launch.return_value = {'process': Mock(), 'task_file': 'task.md', 'engine': 'Claude Code'}
+                    if fails:launch.side_effect = ValueError('CLI 不存在')
+                    try:
+                        Desktop.open_flow_agent(desktop, 'writing', '创作', '创作要求',
+                            _config={'engine': 'claude', 'program': 'claude.exe', 'model': ''}, intake_only=True)
+                        poll = desktop.win.after.call_args.args[1]
+                        registry.release_process_slot(slot)
+                        if fails:
+                            with self.assertRaisesRegex(ValueError, 'CLI 不存在'):poll()
+                            self.assertFalse(registry._slots.get('script'))
+                        else:poll()
+                        poll()
+                        launch.assert_called_once()
+                        self.assertIsNone(desktop._script_agent_queue)
+                    finally:
+                        registry.cancel_project_slot_requests(proj)
+                        registry.release_process_slot(slot)
+                        if launch.called:registry.release_process_slot(launch.call_args.kwargs['slot'])
+
+    def test_cli_queue_timeout_and_project_switch_cancel_only_own_request(self):
+        from desktop import Desktop
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        import workflow_process_registry as registry
+        for reason in ('timeout', 'switch'):
+            with self.subTest(reason=reason), tempfile.TemporaryDirectory() as td:
+                proj = make_project(td)
+                slot = registry.reserve_process_slot('occupied-project', 'script')
+                other = registry.request_process_slot('waiting-project', 'script')
+                desktop = SimpleNamespace(root=proj, worker=False, win=Mock(), status=Mock(),
+                    notifier=Mock(), projects=SimpleNamespace(info={'projects': []}),
+                    async_=lambda fn, done: done(fn()), update_script_interrupt_button=Mock())
+                try:
+                    with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
+                            patch('agent_dispatch.finish'), patch('workflow_engines.launch_interactive') as launch, \
+                            patch('desktop_idea_chat.time.monotonic', return_value=0) as clock:
+                        Desktop.open_flow_agent(desktop, 'writing', '创作', '创作要求',
+                            _config={'engine': 'claude', 'program': 'claude.exe', 'model': ''}, intake_only=True)
+                        with self.assertRaisesRegex(ValueError, '正在排队'):
+                            Desktop.open_flow_agent(desktop, 'writing', '创作', '重复请求')
+                        if reason == 'timeout':clock.return_value = 121
+                        else:desktop.root = Path(td) / 'another-project'
+                        desktop.win.after.call_args.args[1]()
+                        self.assertIsNone(desktop._script_agent_queue)
+                        self.assertFalse(desktop._script_agent_launching)
+                        self.assertFalse(any(item['project'] == str(proj) for item in registry._queued))
+                        self.assertEqual(registry.claim_process_slot(other['ticket'])['state'], 'queued')
+                        launch.assert_not_called()
+                finally:
+                    registry.cancel_project_slot_requests(proj)
+                    registry.cancel_project_slot_requests('waiting-project')
+                    registry.release_process_slot(slot)
+
+    def test_cli_queue_is_interruptible_and_does_not_launch_after_cancel(self):
+        from desktop import Desktop
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        from idea_chat_controller import IdeaChatController
+        import workflow_process_registry as registry
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_project(td)
+            slot = registry.reserve_process_slot('other-project', 'script')
+            self.addCleanup(registry.release_process_slot, slot)
+            self.addCleanup(registry.cancel_project_slot_requests, proj)
+            desktop = SimpleNamespace(root=proj, worker=False, win=Mock(), status=Mock(),
+                notifier=Mock(), projects=SimpleNamespace(info={'projects': []}),
+                async_=lambda fn, done: done(fn()), _script_agent_launching=False,
+                update_script_interrupt_button=Mock(), script_agent_processes=lambda: [],
+                _async_ticket=0, background_tasks=Mock(), busy_state=Mock(),
+                idea_chat_controller=IdeaChatController(), clear_thinking=Mock())
+            desktop.cancel_script_agent_queue = lambda: Desktop.cancel_script_agent_queue(desktop)
+            with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
+                    patch('agent_dispatch.finish'), patch('workflow_engines.launch_interactive') as launch:
+                Desktop.open_flow_agent(desktop, 'writing', '创作', '创作要求',
+                    _config={'engine': 'claude', 'program': 'claude.exe', 'model': ''}, intake_only=True)
+                self.assertTrue(desktop._script_agent_launching)
+                poll = desktop.win.after.call_args.args[1]
+                self.assertTrue(Desktop.interrupt_script_agent(desktop))
+                self.assertFalse(any(item['project'] == str(proj) for item in registry._queued))
+                registry.release_process_slot(slot)
+                poll()
+                launch.assert_not_called()
+
     def test_custom_desktop_prepares_clipboard_without_api_cli_or_auto_send(self):
         from desktop import Desktop
         from types import SimpleNamespace
@@ -1093,6 +1190,8 @@ class WorkflowContextBudgetTests(unittest.TestCase):
             self.assertEqual(launch.call_args.args, (str(executable), workflow_engines.ENGINES['codex']))
             self.assertEqual(launch.call_args.kwargs['cwd'], project)
             self.assertEqual(launch.call_args.kwargs['args'][:1], [str(executable)])
+            self.assertEqual(launch.call_args.kwargs['creationflags'],
+                             getattr(workflow_engines.subprocess, 'CREATE_NEW_CONSOLE', 0))
             from workflow_process_registry import forget_process
             forget_process(project, process)
 

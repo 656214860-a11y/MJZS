@@ -132,6 +132,7 @@ class ScriptPagesMixin:
         button=getattr(self,'idea_interrupt',None)
         if button is None or not button.winfo_exists():return
         active=(getattr(self,'_idea_requesting',False) or
+                bool(getattr(self,'_script_agent_queue',None)) or
                 getattr(self,'_script_agent_launching',False) or bool(self.script_agent_processes()))
         button.state(['!disabled'] if active else ['disabled'])
     def refresh_script_workspace(self):
