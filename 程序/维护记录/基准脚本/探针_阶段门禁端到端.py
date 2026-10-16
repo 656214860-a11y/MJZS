@@ -35,14 +35,16 @@ def run_probe():
                        capture_output=True, check=True, timeout=20)
         project = repo / "project"
         project.mkdir()
-        stages = (("SG-01", "assets", "continuity"), ("SG-02", "continuity", "final"),
-                  ("SG-03", "final", "keyframe"), ("SG-04", "keyframe", "previs"),
-                  ("SG-05", "previs", "video"))
-        result = {"empty": [], "findings": [], "executed": []}
-        for gate_id, source, target in stages:
-            entry = stage_parallel.evaluate(project, target)
-            completed, _ = completion_evidence(project, source)
-            result["empty"].append({"id": gate_id, "entry_ok": entry["ok"],
+        # 门禁清单以 stage_parallel.GATES 为唯一权威：以后新增门禁，探针自动跟着跑。
+        gates = [dict(row) for row in stage_parallel.GATES]
+        result = {"empty": [], "findings": [], "executed": [], "stages": {},
+                  "gates": [row["id"] for row in gates],
+                  "chain": [{"id": row["id"], "from": row["from"], "to": row["to"]}
+                            for row in gates]}
+        for row in gates:
+            entry = stage_parallel.evaluate(project, row["to"])
+            completed, _ = completion_evidence(project, row["from"])
+            result["empty"].append({"id": row["id"], "entry_ok": entry["ok"],
                                     "started": entry["started"], "completed": completed})
 
         def verify_gate(gate_id, source, target):
@@ -71,7 +73,26 @@ def run_probe():
         relative_source = source.relative_to(project).as_posix()
         save(project / "ui_settings.json", {"adopted_storyboards": [relative_source],
                                              "frame_json": relative_source})
-        result["stages"] = {}
+        # SG-A／SG-B 此前不在探针覆盖内，这里补上真实证据：
+        # SG-A 只要已采用分镜且镜头字段齐全；SG-B 要 Animatic 清单＋源版本一致＋三项人工确认。
+        verify_gate("SG-A", "storyboard", "animatic")
+        from file_cache import file_digest
+        from stage_path_service import write_dir
+        animatic_folder = write_dir(project, "animatic")
+        animatic_folder.mkdir(parents=True, exist_ok=True)
+        animatic_files = {}
+        for name, payload in (("preview.mp4", b"stage-gate-e2e-animatic"),
+                              ("temp.wav", b"stage-gate-e2e-audio"),
+                              ("SH001.png", b"stage-gate-e2e-shot")):
+            (animatic_folder / name).write_bytes(payload)
+            animatic_files[name] = file_digest(animatic_folder / name)
+        save(animatic_folder / "animatic_manifest.json", {
+            "kind": "animatic", "source": relative_source,
+            "source_sha256": file_digest(source),
+            "video": "preview.mp4", "audio": "temp.wav", "files": animatic_files,
+            "shots": [{"id": "SH001", "image": "SH001.png"}],
+            "confirmed": {key: True for key in ("rhythm", "duration", "dialogue_sync")}})
+        verify_gate("SG-B", "animatic", "assets")
 
         base = library_dir(project)
         image = base / "assets/characters/CHAR_001.png"
@@ -151,6 +172,13 @@ def run_probe():
             white_model_service.workspace = original_workspace
             white_model_service._BASE_CACHE.clear()
             white_model_service._DIR_CACHE.clear()
+        result["missing_gates"] = [gate_id for gate_id in stage_parallel.GATE_IDS
+                                   if gate_id not in result["executed"]]
+        if result["missing_gates"]:
+            result["findings"].append("有门禁没有跑到真实证据：%s" % result["missing_gates"])
+        for previous, following in zip(result["chain"], result["chain"][1:]):
+            if previous["to"] != following["from"]:
+                result["findings"].append("门禁链断开：%s 与 %s" % (previous, following))
         runtime_names = {"上次关闭清理.json", "full-safe-receipts.json", "selftest-incremental.json"}
         result["runtime_leaks"] = [str(path.relative_to(project)) for path in project.rglob("*")
                                    if path.name in runtime_names]
