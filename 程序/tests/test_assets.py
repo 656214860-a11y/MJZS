@@ -503,6 +503,33 @@ class ComfySubmitRecoveryTests(unittest.TestCase):
 
 
 class ComfyMoneyBudgetTests(unittest.TestCase):
+    def test_unpriced_workflow_without_cap_keeps_local_submission(self):
+        from comfy_service import Comfy
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / 'cost_profile.json').write_text('{"budget_amount": null}', encoding='utf-8')
+            client = Comfy('http://127.0.0.1:8189')
+            client.request = Mock(return_value={'prompt_id': 'local-pid'})
+            record = client.submit_graph(root, 'characters', 'test',
+                                         {'1': {'class_type': 'KSampler', 'inputs': {}}})
+            client.request.assert_called_once()
+            self.assertEqual(json.loads(record.read_text(encoding='utf-8'))['prompt_id'], 'local-pid')
+
+    def test_unpriced_workflow_cannot_bypass_enabled_budget(self):
+        from comfy_service import Comfy
+        from unittest.mock import Mock
+        for cap in ['0', '100']:
+            with self.subTest(cap=cap), tempfile.TemporaryDirectory() as td:
+                root = Path(td); self.policy(root, cap)
+                client = Comfy('http://127.0.0.1:8189')
+                client.request = Mock(return_value={'prompt_id': 'unexpected'})
+                graph = {'1': {'class_type': 'CustomPaidNode', 'inputs': {}}}
+                with self.assertRaisesRegex(ValueError, '无法预估'):
+                    client.submit_graph(root, 'characters', 'test', graph)
+                client.request.assert_not_called()
+                self.assertFalse((root / 'workflows').exists())
+
     GRAPH = {'30': {'class_type': 'DramaCloudImage', 'inputs': {
         'model': 'Seedream 5.0 Pro', 'quality': 'medium', 'aspect_ratio': '1:1', 'prompt': 'test'}}}
 

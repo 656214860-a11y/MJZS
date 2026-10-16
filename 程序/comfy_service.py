@@ -143,6 +143,13 @@ class Comfy:
         from urllib.error import HTTPError                # 第 34 期第 9 条：HTTP 栈按需加载
         if kind not in ('characters','scenes','props'):raise ValueError('无效资产类别')
         model = cloud_price_model(graph)
+        if model is None:
+            profile_path = Path(root) / 'cost_profile.json'
+            profile = read(profile_path) if profile_path.exists() else {}
+            if not isinstance(profile, dict):
+                raise ValueError('成本配置格式不正确')
+            if profile.get('budget_amount') is not None:
+                raise ValueError('此工作流无法预估费用，不能在项目金额预算内提交；请改用已计价工作流，或明确关闭金额预算后运行并核对实际费用')
         cost_id = 'comfy:' + uuid.uuid4().hex if model else None
         if model:
             from pet_llm import RequestLedger
