@@ -1,17 +1,17 @@
 # 当前验证索引
 
 ## 最近正式全量
-R1605：HEAD e59e5136e2992ae18832d05083ab56bb75416242，5346项、410个测试文件、0红，测试615.7秒/执行器631秒。程序/logs/auto_full_safe.log显示ALL TESTS PASSED与凭据刷新；common-dir/full-safe-receipts.json为权威。后续文档提交7b49faf，不声称修改中的R1606同树全量通过。
-R1604首次全量5345项4失败且测试输出污染，已由R1605闭环；不能引用首次失败作为当前未修复。
+R1605：HEAD e59e5136e2992ae18832d05083ab56bb75416242，5346项、410个测试文件、0红，测试615.7秒/执行器631秒。common-dir/full-safe-receipts.json 为权威。
 
-## 当前R1606
-- `.wt/architecture-assessment/程序/outputs/r1606-targeted.log`：独立页面及既有交付路径7项通过，0.625秒。
-- 同目录 `outputs/r1606-architecture.log`：`python -B smoke_test.py --architecture`已退出1；345项176.231秒，2失败：test_round_number_continuous（1606 != 1607）、test_keyword_comments_match_the_reviewed_snapshot（desktop.py行号1203→1206）。默认冒烟未确认独立完成，接续时单独跑8项。
-- 本轮没有再跑全量；只改两个产品模块的服务注入，未改Tk销毁/重建。
+## R1607（O9）
+- 定向：tests/test_seedream_direct.py 22项通过（新增4项溯源断言，含记录不含 api_key）。
+- 架构门禁：`python -B smoke_test.py --architecture` 345项、165.697秒、OK。日志 程序/outputs/r1607-architecture.log。
+- 默认冒烟：8项通过。日志 程序/outputs/r1607-smoke.log。
+- 本轮未跑全量，不冒称同树全量。
 
-## 已完成修复验证
-R1605：发布兼容/恢复16项、队列6项、资产关闭1项、启动零递归1项通过；宠物原17项和新增单项修复后通过；受影响回归及8项冒烟通过；主干轮次5项通过。详见[报告](../程序/tasks_round/tasks_round_1605_result.md)。
-O1–O11各轮证据见R1597–R1604报告；旧验证索引见[归档](history/r1606-handoff-before/validation.md)。8项真实验收未执行，不由模拟或全量测试替代。
+## R1606（O8）
+- 合入 a013e75；架构345项、164.456秒、OK；默认冒烟8项通过。日志 程序/outputs/r1606-architecture-fixed.log、r1606-smoke.log。
+- 旧工作树 .wt/architecture-assessment 的 2 项失败（轮次号、注释快照行号）已在本轮修复并合入。
 
-## 本次交接检查
-主树文档与轮次一致性19项通过（3.582秒）；7个更新文件已复读，当前交接链接有效，4份旧文档保留归档。日志程序/outputs/r1606-handoff-check.log。此结果不消除工作树R1606的2项失败。
+## 未执行
+8项真实验收（质量、真实恢复、商用审核、实际成本、真实预算、人工替代、实机导出、新手体验）仍按用户延期处理，不由模拟或全量测试替代。历史索引见 [归档](archive.md)。
