@@ -226,6 +226,16 @@ class TaskCenterUiTests(unittest.TestCase):
                 text = next(w for w in dialog._descendants(dialog.content) if isinstance(w, tk.Text)).get('1.0', 'end')
                 for value in ('project-test', 'S001', '等待首帧', '未知状态不重提'):
                     self.assertIn(value, text)
+                from ui_widgets import LineInput
+                query = next(w for w in dialog._descendants(dialog.content) if isinstance(w, LineInput))
+                query.insert(0, 'missing-shot')
+                for widget in dialog._descendants(dialog):
+                    try:
+                        if widget.cget('text') == '查询尝试': widget.invoke(); break
+                    except tk.TclError:
+                        continue
+                shown = next(w for w in dialog._descendants(dialog.content) if isinstance(w, tk.Text)).get('1.0', 'end')
+                self.assertNotIn('S001', shown)
             finally:
                 win.destroy()
 

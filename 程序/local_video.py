@@ -168,6 +168,7 @@ class LocalStudio(Studio):
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':False,'backend':'comfy','endpoint':api.url,'output_node':options.get('output','92'),'review':'pending','created':time.time(),'signature':fingerprint(graph)}
             from platform_tools import execution_metadata
             v['execution'] = execution_metadata('video', sid)
+            v['retry_reason'] = 'explicit_after_' + str(versions[-1].get('state', 'unknown')) if versions else 'initial'
             v.update(generate_audio=has_audio,source_aspect=ratio,reference_assets=[{'id':a['id'],'name':a['name'],'picture':a['picture'],'path':a['path']} for a in references])
             folder=self.root/'data'/sid/f"v{v['version']:03}";folder.mkdir(parents=True,exist_ok=True);save(folder/'request.json',graph)
             save(folder/'assets_manifest.json', {'mode': 'local', 'assets': source_assets, 'first_frame': first_frame})
@@ -181,14 +182,14 @@ class LocalStudio(Studio):
                     v['state']='unknown';save(self.db,st)
                     raise RuntimeError('提交结果不确定且暂时无法查询；恢复连接后查询，不自动重发') from None
                 if not prompt_id:return False
-                v.update(task_id=prompt_id,state='queued');save(self.db,st)
+                v.update(task_id=prompt_id,state='queued',recovered_at=time.time());save(self.db,st)
                 report('提交响应中断，已按 client_id 找回任务编号 '+prompt_id)
                 return True
             try:
                 report('正在向 ComfyUI 提交任务…')
                 response=api.call('/prompt',{'prompt':graph,'client_id':client_id})
                 if not response.get('prompt_id'):raise RuntimeError('未返回任务编号')
-                v.update(task_id=response['prompt_id'],state='queued')
+                v.update(task_id=response['prompt_id'],state='queued',submitted_at=time.time())
             except HTTPError as e:
                 if e.code>=500 and reattach():return '提交响应中断，已按 client_id 找回任务编号；点击查询/下载取回。'
                 v['state']='rejected' if 400<=e.code<500 else 'unknown';save(self.db,st);raise ValueError('ComfyUI拒绝请求或连接异常，请查看工作流：HTTP '+str(e.code)) from None
@@ -209,7 +210,7 @@ class LocalStudio(Studio):
                 request=self.root/'data'/sid/f"v{v['version']:03}"/'request.json'
                 prompt_id=api.locate_prompt(v.get('client_id',''),read(request) if request.is_file() else None)
                 if not prompt_id:raise ValueError('请在ComfyUI核实任务编号，再使用恢复任务编号')
-                v.update(task_id=prompt_id,state='queued');save(self.db,st)
+                v.update(task_id=prompt_id,state='queued',recovered_at=time.time());save(self.db,st)
             h=api.call('/history/'+quote(v['task_id'],safe='')).get(v['task_id'])
             if not h:return '本地排队或生成中；稍后再查询'
             if h.get('status',{}).get('status_str')=='error':
@@ -222,8 +223,9 @@ class LocalStudio(Studio):
                 # 否则版本一直停在 queued，而已完成的版本不允许重新提交，只能手改状态文件。
                 v['state']='failed';save(self.db,st)
                 raise ValueError('指定输出节点 '+str(v['output_node'])+' 没有输出一个MP4视频；已标记为失败，请改正工作流设置后重新提交')
-            folder=self.root/'data'/sid/f"v{v['version']:03}";dest=folder/(sid+'.mp4');v['state']='succeeded';save(self.db,st)
+            folder=self.root/'data'/sid/f"v{v['version']:03}";dest=folder/(sid+'.mp4');v['state']='succeeded';v['succeeded_observed_at']=time.time();v['download_started_at']=time.time();save(self.db,st)
             api.download(items[0],dest)
+            v['download_completed_at']=time.time();save(self.db,st)
             try:
                 report=check(dest,v['seconds'],{**self.cfg,'require_audio':v.get('generate_audio',True)})
                 from agent.media import probe

@@ -10,7 +10,7 @@ import app_logging
 STATE_TEXT = {'running': '进行中', 'succeeded': '成功', 'failed': '失败', 'cancelled': '已取消'}
 
 
-def project_snapshot(project, *, stage_records=None, gates=None) -> dict:
+def project_snapshot(project, *, stage_records=None, gates=None, task_id=None) -> dict:
     """只读投影原始台账；历史记录缺失运行关联时保持未知，不按时间猜测。"""
     from pathlib import Path
     from agent.core import read, fingerprint
@@ -37,7 +37,16 @@ def project_snapshot(project, *, stage_records=None, gates=None) -> dict:
     project_id = str(config.get('project_id') or 'legacy-path:' + fingerprint(str(root))[:24])
     result['project_id'] = project_id
 
+    from pet_llm import request_ledger_path
+    cost_rows = source(request_ledger_path(root)).get('entries', [])
+    if not isinstance(cost_rows, list) or any(not isinstance(row, dict) for row in cost_rows):
+        result['errors'].append('费用台账格式错误')
+        cost_rows = []
+    costs = {row.get('id'): row for row in cost_rows}
+
     def add(stage, task, record, authority, receipt=None):
+        if task_id is not None and str(task) != str(task_id):
+            return
         receipt = receipt or {}
         state = str(record.get('state') or 'unknown')
         normalized = {'imported': 'recorded_ready', 'downloaded': 'recorded_ready', 'failed': 'failed',
@@ -52,6 +61,10 @@ def project_snapshot(project, *, stage_records=None, gates=None) -> dict:
             'remote_task_id': str(remote) if remote else None, 'version': record.get('version'),
             'artifact': record.get('file') or record.get('output_dir') or receipt.get('files'),
             'receipt': record.get('record'),
+            'timings_s': attempt_timings(record),
+            'reason_code': record.get('error_code') or state,
+            'retry_reason': record.get('retry_reason') or '历史未登记',
+            'cost': attempt_cost(costs.get(record.get('money_request_id'), {})),
             'reason': app_logging.redact(str(record.get('error') or record.get('note') or ''))[:300],
             'recovery': ('资产管理：接续取回；无编号时先核实提交' if stage == 'assets'
                          else '视频生成：查询任务／恢复任务编号；未知状态不重提')})
@@ -90,6 +103,44 @@ def project_snapshot(project, *, stage_records=None, gates=None) -> dict:
     return result
 
 
+def attempt_timings(record):
+    """仅相减已有时间戳；轮询看到的排队/运行耗时不是供应商精确耗时。"""
+    import math
+    pairs = {'submission': ('created', 'submitted_at'),
+             'queue_observed': ('submitted_at', 'running_observed_at'),
+             'run_observed': ('running_observed_at', 'succeeded_observed_at'),
+             'download': ('download_started_at', 'download_completed_at'),
+             'publication': ('download_completed_at', 'finished_at')}
+    out = {}
+    for name, (start, end) in pairs.items():
+        a, b = record.get(start), record.get(end)
+        valid = all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in (a, b))
+        out[name] = round(b-a, 3) if valid and b >= a else None
+    return out
+
+
+def attempt_cost(row):
+    from decimal import Decimal, InvalidOperation
+    from pet_llm import RequestLedger
+    state = RequestLedger.effective_money_state(row)
+    estimate = row.get('budget_cost') if state in ('estimated', 'reserved') else None
+    actual = row.get('budget_cost') if state == 'reconciled' else None
+    history = row.get('cost_reconciliations') or []
+    if history and isinstance(history, list) and isinstance(history[0], dict):
+        first = history[0]
+        if first.get('previous_money_state') == 'estimated' and first.get('currency') == row.get('currency'):
+            estimate = first.get('previous_amount')
+    difference = None
+    try:
+        if actual is not None and estimate is not None:
+            delta = Decimal(str(actual)) - Decimal(str(estimate))
+            difference = str(delta) if delta.is_finite() else None
+    except (InvalidOperation, ValueError):
+        difference = None
+    return {'request_id': row.get('id'), 'currency': row.get('currency'),
+            'state': state or 'unknown', 'estimate': estimate, 'actual': actual, 'difference': difference}
+
+
 def snapshot(lifecycle=None, degradations=None, queue=None, retry=None) -> dict:
     """``lifecycle`` 为 BackgroundTaskLifecycle；``degradations`` 为降级记录列表（调用方注入）。"""
     last = getattr(lifecycle, '_last', None) if lifecycle is not None else None
@@ -124,6 +175,18 @@ def format_lines(data: dict) -> list:
             lines.append('  %s %s / %s：%s（原状态 %s）；远端 %s；运行 %s' % (
                 row['stage'], row['task_id'], row['attempt_id'], row['state'], row['source_state'],
                 row['remote_task_id'] or '未登记', row['run_id'] or '历史未登记'))
+            timings = row.get('timings_s') or {}
+            labels = {'submission': '提交', 'queue_observed': '排队（观察）',
+                      'run_observed': '运行（观察）', 'download': '下载', 'publication': '发布'}
+            duration = '；'.join(label + '：' + ('未知' if timings.get(key) is None else str(timings[key]) + '秒')
+                                 for key, label in labels.items())
+            lines.append('    原因码：%s；新尝试原因：%s；%s' % (
+                row.get('reason_code'), row.get('retry_reason'), duration))
+            lines.append('    失败说明：%s' % (row.get('reason') or '未登记'))
+            cost = row.get('cost') or {}
+            values = [('未知' if cost.get(key) is None else str(cost[key])) for key in ('estimate', 'actual', 'difference')]
+            lines.append('    费用：估算 %s；已核对 %s；差额 %s；币种 %s' % (
+                *values, cost.get('currency') or '未知'))
             lines.append('    来源：%s；台账成果引用（未重新验收）：%s；%s' % (row['authority'], row['artifact'] or '未登记', row['recovery']))
         lines += ['  ' + error for error in runtime['errors']]
     task = data.get('last_task')

@@ -5,7 +5,7 @@ import tkinter as tk
 
 import diagnostic_capture
 import task_center_service
-from ui_widgets import BaseDialog, TextArea
+from ui_widgets import BaseDialog, TextArea, LineInput
 
 
 def show(desktop):
@@ -46,10 +46,25 @@ def show(desktop):
         data['unresolved_execution'] = [row for row in data['unresolved_execution']
                                         if row.get('project') in (None, selected)]
     dialog = BaseDialog(desktop.win, '运行状况', geometry='640x520', minsize=(420, 320))
+    query = LineInput(dialog.content, placeholder='镜头或资产编号（留空显示全部尝试）')
+    query.pack(fill='x')
     text = TextArea(dialog.content, wrap='word', height=20)
     text.pack(fill='both', expand=True)
     text.insert('1.0', '\n'.join(task_center_service.format_lines(data)))
     text.set_readonly(True)
+    def filter_attempts():
+        view = dict(data)
+        if data.get('project_runtime'):
+            runtime = dict(data['project_runtime'])
+            key = query.get().strip()
+            runtime['tasks'] = [row for row in runtime['tasks'] if not key or row['task_id'] == key]
+            view['project_runtime'] = runtime
+        text.set_readonly(False)
+        text.delete('1.0', 'end')
+        text.insert('1.0', '\n'.join(task_center_service.format_lines(view)))
+        text.set_readonly(True)
+    dialog.add_action('查询尝试', filter_attempts)
+    query.bind('<Return>', lambda event: filter_attempts())
     dialog.add_action('关闭', dialog.close, primary=True)
     if data.get('queued'):
         dialog.add_action('取消全部待执行任务', lambda: (desktop.task_queue.clear(), dialog.close()))

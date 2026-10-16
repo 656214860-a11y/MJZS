@@ -358,6 +358,7 @@ class Studio:
                'signature':fingerprint(payload),'review':'pending','created':time.time(),'local_request':uuid.uuid4().hex}
             from platform_tools import execution_metadata
             v['execution'] = execution_metadata('video', sid, attempt=v['local_request'])
+            v['retry_reason'] = 'explicit_after_' + str(versions[-1].get('state', 'unknown')) if versions else 'initial'
             v['generate_audio']=bool(shot.get('generate_audio',True))
             if is_cloud_workspace(self.root):
                 import re
@@ -449,6 +450,7 @@ class Studio:
                 # O28：记下取回失败但保留 succeeded 状态；再查询即续取，不重生成、不重投。
                 v['download_error']='下载中断；任务已成功，再次查询可续取，不会重新生成';save(self.db,st)
                 raise RuntimeError(v['download_error']) from None
+            v['download_completed_at']=time.time();save(self.db,st)
             try:
                 report=check(dest,v['seconds'],{**self.cfg,'require_audio':v.get('generate_audio',True)})
                 command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',dest,'-f','null','-'])

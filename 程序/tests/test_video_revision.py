@@ -28,6 +28,8 @@ class VideoRevisionTests(unittest.TestCase):
                 self.assertEqual(saved['execution']['run_id'], control.run_id)
                 self.assertEqual(saved['execution']['task_id'], 'SH001')
                 self.assertTrue(saved['execution']['attempt_id'])
+                self.assertEqual(saved['retry_reason'], 'initial')
+                self.assertGreaterEqual(saved['submitted_at'], saved['created'])
 
     def test_cloud_sends_frozen_payload_and_records_actual_reference_bytes(self):
         import base64

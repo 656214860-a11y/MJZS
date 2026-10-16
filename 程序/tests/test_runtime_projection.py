@@ -70,3 +70,30 @@ class RuntimeProjectionTests(unittest.TestCase):
             text = '\n'.join(task_center_service.format_lines({'project_runtime': data}))
             self.assertIn('读取失败', text)
             self.assertIn('S2', text)
+
+    def test_shot_query_links_attempt_timing_reason_and_verified_cost(self):
+        import hashlib
+        from pet_llm import request_ledger_path
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); bill=root/'bill.txt';bill.write_text('receipt')
+            save(root/'data/state.json', {'shots': {'S1': [
+                {'version':1,'state':'failed','error_code':'provider_error','money_request_id':'m1',
+                 'created':10,'submitted_at':12,'running_observed_at':15,'succeeded_observed_at':20,
+                 'download_started_at':21,'download_completed_at':25,'finished_at':26,
+                 'execution':{'run_id':'r1','attempt_id':'a1'}},
+                {'version':2,'state':'queued','task_id':'remote2','retry_reason':'explicit_after_failed',
+                 'execution':{'run_id':'r2','attempt_id':'a2'}}], 'S2':[{'state':'unknown'}]}})
+            save(request_ledger_path(root),{'entries':[{'id':'m1','money_state':'reconciled',
+                'currency':'CNY','budget_cost':'3.50','cost_reconciliations':[{
+                'amount':'3.50','currency':'CNY','previous_amount':'2.00','previous_money_state':'estimated',
+                'evidence_path':str(bill),'evidence_sha256':hashlib.sha256(bill.read_bytes()).hexdigest()}]}]})
+            data=task_center_service.project_snapshot(root,task_id='S1')
+            self.assertEqual(len(data['tasks']),2)
+            first,second=data['tasks']
+            self.assertEqual(first['timings_s'],{'submission':2,'queue_observed':3,'run_observed':5,'download':4,'publication':1})
+            self.assertEqual(first['cost']['difference'],'1.50')
+            self.assertEqual(first['reason_code'],'provider_error')
+            self.assertEqual(second['retry_reason'],'explicit_after_failed')
+            self.assertIsNone(second['cost']['actual'])
+            bill.write_text('changed')
+            self.assertIsNone(task_center_service.project_snapshot(root,task_id='S1')['tasks'][0]['cost']['actual'])
