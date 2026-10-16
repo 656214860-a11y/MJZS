@@ -785,8 +785,10 @@ class RequestLedger:
             rate = Decimal(str(RequestLedger._quantity(rate)))
             settled += Decimal(str(RequestLedger._quantity(bucket.get('settled', 0)))) * rate
             reserved += Decimal(str(RequestLedger._quantity(bucket.get('reserved', 0)))) * rate
-        return {'amount': float(round(settled + reserved, 4)),
-                'settled_amount': float(round(settled, 4)), 'reserved_amount': float(round(reserved, 4)),
+        settled_amount = round(settled, 4)
+        reserved_amount = round(reserved, 4)
+        return {'amount': float(settled_amount + reserved_amount),
+                'settled_amount': float(settled_amount), 'reserved_amount': float(reserved_amount),
                 'unknown_requests': unknown, 'complete': not missing and not unknown and not any(
                     bucket.get('reserved') for bucket in kinds.values()),
                 'currency': str(table.get('currency') or currency),
