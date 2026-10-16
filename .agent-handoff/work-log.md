@@ -1,3 +1,10 @@
+## 2026-10-17 R1633（阶段4 T6 本地两条）：批量规划与持久队列口径
+- 新增 `程序/tests/test_perf_batch_queue.py`（3 用例 5.5 秒，`test_perf` 前缀自动进串行性能池）＋ `tests/performance_contract.py` 两条阈值。
+- 实测：批量首帧规划 200 镜 0.48 ms／镜（50 镜 0.52），持久队列每项入队约 132 ms、领取约 123 ms；并验满队列拒绝与优先级＋先到先领顺序。
+- 范围外瓶颈（只登记）：队列耗时约 100 ms／项来自 `agent.publication.transaction()` 的 `ROOT.iterdir()`＋`_recover` 扫描；生产队列上限 10 → 最坏 1.3 秒。改它要动跨进程发布事务语义，单独立轮。
+- 未覆盖：并发提交吞吐、解码队列积压、弱网分布、队列压力下 UI 响应（需实机 Tk）。
+- 验证：定向 3/3、默认冒烟 8/8、架构门禁 356/356；未跑全量。
+
 ## 2026-10-17 R1632（阶段4 T1／T7）：全链 E2E 收编与轻量 soak
 - 新增 `程序/tests/test_recovery_delivery_e2e.py`（4 项，共享一次真实全链，32.5 秒）与 `程序/tests/test_soak_light.py`（12 轮 × 3 镜，约 18 秒，`SOAK_MINUTES` 可拉长；3 分钟档实测 105 轮、18.1 KB 每轮）；`tests/offline_recovery_fixture.py` 装载手工基线脚本供两者复用，手工脚本仍是权威源。
 - 新增 `MISSING_FFMPEG` 跳过原因与 2 条台账（227→229）；`说明/联调测试出口基线.md` §1／§2／§3／§6／§7 同步。

@@ -13,3 +13,10 @@ STARTUP_RECURSIVE_SCAN_COUNT = 0
 STARTUP_FIRST_FRAME_MS = 1500.0
 LONG_LIST_SCROLL_MEDIAN_MS = 150.0
 MEMORY_DELTA_MB = 30.0
+
+# R1633（阶段4 T6）本地批量／队列口径：只量我们自己代码的成本，供应商延迟与弱网是外因，不入门槛。
+# 实测（2026-10-17，本机，见 tasks_round_1633_result.md）：批量首帧规划 0.47 ms／镜（200 镜约 93 ms）；
+# 持久后台队列每项约 130 ms，其中约 100 ms 是 agent.publication.transaction 的目录扫描，
+# read／save 只有 1–5 ms。这两条只作退化报警，不是性能承诺。
+BATCH_PLAN_PER_SHOT_MS = 5.0
+QUEUE_ITEM_MS = 400.0
