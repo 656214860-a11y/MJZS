@@ -10,6 +10,7 @@ PLATFORM_DIRECTORY_LINK = "平台限制：当前环境不支持目录链接；�
 PLATFORM_WORKING_SET = "平台限制：当前系统无法读取工作集；支持该系统接口时应恢复执行"
 MISSING_NODE = "缺外部程序：当前机器未安装 node；安装 node 后应恢复执行"
 REQUIRES_BUNDLED_SKILL = "需实机复验：发行包未包含受测 bundled skill；打包产物具备该技能后应恢复执行"
+MISSING_FFMPEG = "缺外部程序：当前机器没有可用的 FFmpeg／FFprobe；装好编码器后应恢复执行"
 
 ALL_SKIP_REASONS = {
     PLATFORM_TKINTER,
@@ -18,4 +19,5 @@ ALL_SKIP_REASONS = {
     PLATFORM_WORKING_SET,
     MISSING_NODE,
     REQUIRES_BUNDLED_SKILL,
+    MISSING_FFMPEG,
 }
