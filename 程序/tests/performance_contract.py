@@ -20,3 +20,8 @@ MEMORY_DELTA_MB = 30.0
 # read／save 只有 1–5 ms。这两条只作退化报警，不是性能承诺。
 BATCH_PLAN_PER_SHOT_MS = 5.0
 QUEUE_ITEM_MS = 400.0
+
+# R1638（阶段4 T6 余量）并发提交口径：持久队列的入队与领取都在 agent.publication 的进程级 RLock 内串行，
+# 因此多线程并发提交不提高吞吐、只排队，吞吐上限约为 1／（入队＋领取）。实测（2026-10-17，本机）：
+# 16 项／4 生产者／2 消费者实测 2.07 项／秒（7.7 秒）。只作退化报警（下限取观察值的一半），不是性能承诺。
+CONCURRENT_SUBMIT_ITEMS_PER_SECOND = 1.0

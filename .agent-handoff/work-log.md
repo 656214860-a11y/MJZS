@@ -1,3 +1,10 @@
+## 2026-10-17 R1638（阶段4 T6 余量）：并发提交吞吐与队列 N 并发排队时延
+- 新增 `tests/test_perf_concurrent_submit.py`（`test_perf` 前缀→串行性能池）：4 生产者并发 enqueue_descriptor＋2 消费者并发 pop 并执行，16 项。实测 7.74 秒、2.07 项／秒。
+- 断言：每个任务正好执行一次、落盘数等于提交数、跑完不残留 claimed／queued。
+- 结论：入队与领取都在 `agent.publication` 的进程级 RLock 内串行 → 并发不提高吞吐、只排队，上限约 1／（入队＋领取）≈ 1／255 ms；T6 的「并发提交吞吐」是既有设计上限，不是可优化项。真正优化点仍是事务扫描范围（约 100 ms／次），范围外只登记。
+- `tests/performance_contract.py` 加 `CONCURRENT_SUBMIT_ITEMS_PER_SECOND`＝1.0（观察值一半，退化报警）。§1／§2／§6 已同步。
+- 验证：新增用例 1／1、轮次基线＋行尾 21／21；未跑全量（非源码轮，欠账 2／8）。
+
 ## 2026-10-17 R1636（阶段4 收尾）：网络面清单补全与 §4 复核
 - 只读核验全仓监听面共 2 处：`previs_monitor.py:130`（T13）与随附 skill 资产 `skills/09白模预演SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py:849`；后者本轮补登进 §5。
 - 该 server 的加固事实：`--host` 默认且只接受 127.0.0.1／localhost（非回环启动前拒绝）、只答 GET 且仅固定只读端点、POST 与 HEAD 返回 405、只读白名单页面与已校验预览帧（无路径穿越面）、带 nosniff／no-referrer／DENY／CSP 头；产品代码不启动它（全仓仅自引用）。
