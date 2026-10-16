@@ -20,7 +20,7 @@ class DevEntryTests(unittest.TestCase):
 
     def test_claude_md_documents_the_entry(self):
         text = (PROGRAM.parent / 'CLAUDE.md').read_text(encoding='utf-8')
-        self.assertIn('scripts\dev.py', text)
+        self.assertIn(r'scripts\dev.py', text)
 
 
 if __name__ == '__main__':
