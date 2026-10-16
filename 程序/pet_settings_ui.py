@@ -304,14 +304,14 @@ def cost_reconciliation_dialog(parent, project):
         return result
     def import_legacy():
         try:
-            count = ledger.import_legacy_video_costs()
+            count = ledger.import_legacy_video_costs(include_unpriced=True)
         except (ValueError, OSError) as exc:
             hint.set(str(exc)); return None
         rows[:] = eligible()
         selected.configure(values=labels())
         selected.set('')
         fields['amount'].set('')
-        hint.set('已导入或更新 %d 笔旧视频/Comfy云图片费用；金额保持未知，请逐笔核对。进行中任务需先查询最终结果，再重新导入。' % count)
+        hint.set('已导入或更新 %d 笔视频/Comfy费用（含本地与自定义节点）；金额保持未知，请逐笔核对。进行中任务需先查询最终结果，再重新导入。' % count)
         return count
     selected.bind('<<ComboboxSelected>>', pick)
     SecondaryButton(body, text='导入视频/Comfy 旧账', command=import_legacy).pack(anchor='w', pady=SPACING["sm"])

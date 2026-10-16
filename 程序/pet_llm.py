@@ -923,7 +923,7 @@ class RequestLedger:
                     quote['cap'] if quote['cap'] is not None else '未启用',
                     quote['remaining'] if quote['remaining'] is not None else '未知', '；'.join(quote['notes']))
 
-    def legacy_video_costs(self, request_id=''):
+    def legacy_video_costs(self, request_id='', *, include_unpriced=False):
         """只读归组旧视频来源；只保存摘要，不保存提示词原文、配置或私有任务内容。"""
         groups = {}
         if self.project is None:
@@ -985,8 +985,9 @@ class RequestLedger:
             graph = job.get('workflow', {})
             if not isinstance(graph, dict):
                 raise ValueError('旧Comfy工作流损坏，无法核对历史费用：' + path.name)
-            if not any(isinstance(node, dict) and node.get('class_type') == 'DramaCloudImage'
-                       for node in graph.values()):
+            cloud_image = any(isinstance(node, dict) and node.get('class_type') == 'DramaCloudImage'
+                              for node in graph.values())
+            if not cloud_image and not include_unpriced:
                 continue
             rid = job.get('cost_request_id')
             accounted = self._find(rid) if rid else None
@@ -996,31 +997,35 @@ class RequestLedger:
             key = 'comfy:' + path.name
             add(self.project, key, 'comfy-task:' + path.name, job,
                 pending=job.get('state') in ('submitting', 'queued', 'running'))
+            if not cloud_image:
+                groups['legacy-cost:' + fingerprint(['.', key])]['unit'] = 'requests'
         for group in groups.values():
             group['sources'].sort(key=lambda source: (source['source'], source['sha256']))
             group['digest'] = fingerprint(group['sources'])
         return groups
 
     def check_legacy_video_costs(self, request_id):
-        for gid, group in self.legacy_video_costs(request_id).items():
+        for gid, group in self.legacy_video_costs(request_id, include_unpriced=True).items():
             entry = self._find(gid)
+            if entry is None and group.get('unit') == 'requests':
+                continue  # 未主动纳入金额预算的本地/自定义流程保留原发送策略。
             if entry is None or entry.get('legacy_digest') != group['digest']:
                 label = ('旧Comfy云图片费用' if any(s['source'].startswith('comfy-task:') for s in group['sources'])
                          else '旧视频任务费用' if any(s['source'].startswith('task:') for s in group['sources']) else '旧视频会话费用')
                 raise ValueError(label + '尚未纳入项目总账或来源已变化，请导入后核对：' + group['label'])
 
-    def import_legacy_video_costs(self):
+    def import_legacy_video_costs(self, *, include_unpriced=False):
         """显式导入未知费用；源会话不修改，来源变化使原金额失效并保留审计。"""
         changed = 0
         with self.transaction():
-            groups = self.legacy_video_costs()
+            groups = self.legacy_video_costs(include_unpriced=include_unpriced)
             for gid, group in groups.items():
                 entry = self._find(gid)
                 if entry is not None and entry.get('legacy_digest') == group['digest']:
                     continue
                 if entry is None:
                     comfy = any(s['source'].startswith('comfy-task:') for s in group['sources'])
-                    entry = self.reserve(gid, 'images' if comfy else 'videos', 0)
+                    entry = self.reserve(gid, group.get('unit', 'images' if comfy else 'videos'), 0)
                     entry.update(cost_only=True, stage='legacy-comfy' if comfy else 'legacy-video')
                 else:
                     entry.setdefault('legacy_changes', []).append({
@@ -1153,7 +1158,7 @@ class RequestLedger:
             if entry.get('cost_group'):
                 raise ValueError('该用量已合并，请核对对应的旧视频费用组')
             if entry.get('cost_only'):
-                current = self.legacy_video_costs().get(request_id)
+                current = self.legacy_video_costs(include_unpriced=True).get(request_id)
                 if current is None or current['digest'] != entry.get('legacy_digest'):
                     raise ValueError('旧生成记录来源已变化，请重新导入后核对')
             if entry.get('currency') and str(entry['currency']).upper() != currency:

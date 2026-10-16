@@ -16,6 +16,39 @@ def call(folder, model, stage, usage, ok=True, day='2026-10-14'):
 
 
 class UsageOverviewTests(unittest.TestCase):
+    def test_unpriced_comfy_import_reconcile_and_source_change(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            path = root / 'workflows/comfy_custom.json'
+            job = {'state': 'queued', 'workflow': {'1': {'class_type': 'CustomCloudNode'}}}
+            save(path, job)
+            ledger = pet_llm.RequestLedger(folder)
+            self.assertEqual(ledger.import_legacy_video_costs(include_unpriced=True), 1)
+            self.assertEqual(ledger.import_legacy_video_costs(include_unpriced=True), 0)
+            row = ledger.entries[0]
+            self.assertEqual(row['kind'], 'requests')
+            receipt = root / 'receipt.txt'; receipt.write_text('offline receipt fixture')
+            with self.assertRaisesRegex(ValueError, '进行中'):
+                ledger.reconcile_cost(row['id'], 'requests', '2', 'CNY', receipt, 'tester')
+            job['state'] = 'downloaded'; save(path, job)
+            original = path.read_bytes()
+            ledger.import_legacy_video_costs(include_unpriced=True)
+            ledger.reconcile_cost(row['id'], 'requests', '2', 'CNY', receipt, 'tester')
+            table = {'rates': {}, 'version': 'fixture', 'currency': 'CNY'}
+            overheads = dict(gpu=0, storage=0, bandwidth=0)
+            cost = uo.cost_per_minute(folder, 60, table, overheads)
+            self.assertEqual(cost['total_per_minute'], 2)
+            self.assertEqual(path.read_bytes(), original)
+            job['files'] = ['changed.png']; save(path, job)
+            self.assertFalse(uo.cost_per_minute(folder, 60, table, overheads)['complete'])
+            with self.assertRaisesRegex(ValueError, '来源已变化'):
+                ledger.check_legacy_video_costs('')
+            ledger.import_legacy_video_costs(include_unpriced=True)
+            self.assertIsNone(ledger.entries[0]['budget_cost'])
+            self.assertEqual(len(ledger.entries[0]['cost_reconciliations']), 1)
+            self.assertFalse(uo.cost_per_minute(folder, 60, table, overheads)['complete'])
+
     def test_comfy_jobs_without_ledger_cannot_claim_complete_cost(self):
         from agent.core import save
         with tempfile.TemporaryDirectory() as folder:

@@ -8,6 +8,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
+import json
 
 import pet_llm
 from file_cache import read_json
@@ -114,6 +116,9 @@ def delivery_duration(project, selected):
 def untracked_comfy(project, ledger):
     """核对已有工作流与费用记录；未知节点不推断免费或套用单张图片价格。"""
     tracked = {row.get('id') for row in ledger.entries if row.get('state') != 'duplicate'}
+    imported = {(source.get('source'), source.get('sha256'))
+                for row in ledger.entries if row.get('cost_only') and row.get('state') != 'duplicate'
+                for source in row.get('legacy_sources', []) if isinstance(source, dict)}
     missing = []
     for path in sorted((Path(project) / 'workflows').glob('comfy_*.json')):
         try:
@@ -121,6 +126,10 @@ def untracked_comfy(project, ledger):
         except (OSError, ValueError):
             job = None
         request_id = job.get('cost_request_id') if isinstance(job, dict) else None
+        if isinstance(job, dict):
+            digest = hashlib.sha256(json.dumps(job, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest()
+            if ('comfy-task:' + path.name, digest) in imported:
+                continue
         if not isinstance(request_id, str) or not request_id or request_id not in tracked:
             missing.append(path.name)
     return missing
@@ -142,7 +151,8 @@ def cost_per_minute(project, duration_seconds, price_table, overheads=None, *, h
         amount = _number(overheads.get(key))
         if amount is None: missing.append(key)
         else: known += amount
-    complete = bool(report['requests'] and money and money['complete'] and not missing and not untracked)
+    complete = bool((report['requests'] or report.get('model_costs')) and money
+                    and money['complete'] and not missing and not untracked)
     human = _number(overheads.get('human'))
     labor_time = _number(human_minutes)
     return {'known_amount': round(known, 4), 'known_per_minute': round(known * 60 / duration, 4),
@@ -195,7 +205,7 @@ def summarize(project, budget=None):
     except (OSError, ValueError, TypeError):
         ledger_report = None
         untracked = untracked_comfy(project, pet_llm.RequestLedger(project))
-    if ledger_report is not None and not ledger_report.get('requests'):
+    if ledger_report is not None and not (ledger_report.get('requests') or ledger_report.get('model_costs')):
         ledger_report = None
     result = {'total': total, 'by_model': by_model, 'by_stage': by_stage, 'by_day': dict(sorted(by_day.items())),
               'skipped_files': skipped, 'not_submitted': not_submitted, 'budget': budget, 'requests': ledger_report,
