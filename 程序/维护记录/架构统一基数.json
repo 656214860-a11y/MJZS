@@ -873,13 +873,13 @@
             },
             {
                 "file": "agent/volcengine.py",
-                "point": "74",
+                "point": "79",
                 "disposition": "exempt",
                 "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
             },
             {
                 "file": "agent/wan.py",
-                "point": "49",
+                "point": "54",
                 "disposition": "exempt",
                 "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
             },
@@ -909,7 +909,7 @@
             },
             {
                 "file": "batch_frames_tool/batch_frames.py",
-                "point": "78",
+                "point": "82",
                 "disposition": "exempt",
                 "reason": "\u72ec\u7acb\u6279\u5e27\u5de5\u5177\u7684\u672c\u5730\u914d\u7f6e\u8bfb\u5199\uff0c\u975e\u8fd0\u884c\u671f L2"
             },
@@ -945,7 +945,7 @@
             },
             {
                 "file": "comfy_service.py",
-                "point": "87",
+                "point": "91",
                 "disposition": "exempt",
                 "reason": "\u5916\u90e8\u8fdb\u7a0b\uff0f\u7f51\u7edc\u54cd\u5e94\u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
             },
@@ -1017,13 +1017,13 @@
             },
             {
                 "file": "model_pool.py",
-                "point": "848",
+                "point": "852",
                 "disposition": "exempt",
                 "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。"
             },
             {
                 "file": "model_pool.py",
-                "point": "888",
+                "point": "898",
                 "disposition": "exempt",
                 "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。"
             },
@@ -1137,7 +1137,7 @@
             },
             {
                 "file": "stage_parallel.py",
-                "point": "469",
+                "point": "501",
                 "disposition": "exempt",
                 "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。（R1383：文件顶部加 import pet_bus 使该行由 454 平移至 455，语义不变。）"
             },

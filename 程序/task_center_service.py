@@ -23,6 +23,7 @@ def snapshot(lifecycle=None, degradations=None, queue=None, retry=None) -> dict:
         'last_task': dict(last) if isinstance(last, dict) else None,
         'queued': list(queue.labels()) if hasattr(queue, 'labels') else [],
         'unresolved_queue': list(queue.unresolved()) if hasattr(queue, 'unresolved') else [],
+        'unresolved_execution': lifecycle.unresolved_records() if hasattr(lifecycle, 'unresolved_records') else [],
         'task_history': history,
         'retry_ticket': retry.latest_failed_ticket(history) if hasattr(retry, 'latest_failed_ticket') else None,
         'timings': metrics,
@@ -41,6 +42,13 @@ def format_lines(data: dict) -> list:
     if data.get('unresolved_queue'):
         lines.append('【已领取、尚无完成记录（运行中或需核对，不自动重提）】')
         lines += ['  %s %s' % (row['id'], row['label']) for row in data['unresolved_queue']]
+    if data.get('unresolved_execution'):
+        lines += ['', '执行记录（运行中或需对账，取消不代表远端停止）：']
+        lines += ['  %s %s：%s；远端编号 %s' % (row['id'], row.get('label', ''),
+                  row.get('state', 'unknown'), ', '.join(
+                      remote.get('provider', '')+':'+remote['id'] for remote in row.get('remote_tasks', []))
+                  or row.get('remote_task_id') or '未登记')
+                  for row in data['unresolved_execution']]
     lines.append('【最近完成的主动任务（最新在后，最多 20 条）】')
     for row in data.get('task_history', []):
         lines.append('  #%s %s %s%s' % (row.get('ticket'), STATE_TEXT.get(row.get('state'), row.get('state')),

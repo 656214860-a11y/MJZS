@@ -4089,13 +4089,13 @@ class UiEdgeTests(unittest.TestCase):
                 self.assertFalse(d.auto_asset_busy or d.auto_edit_busy)
                 d.auto_final_busy = False                      # 定稿结束
                 d.poll_auto_asset(); d.poll_auto_edit()
-                self.assertEqual(len(batches), 1)              # 照常自动补资产
-                self.assertEqual(assembled, [1])               # 照常自动粗剪
+                # 派发为异步；等待队列收尾后断言，不能依赖新线程恰好抢先执行。
                 for _ in range(60):
                     win.update(); d._tick_once()
                     if settled():
                         break
                     time.sleep(0.05)
+                self.assertTrue(settled(), '自动资产与粗剪须在期限内完成')
             d.cancel_timers(); time.sleep(0.1)
             self.assertEqual(len(batches), 1)
             self.assertEqual(assembled, [1])

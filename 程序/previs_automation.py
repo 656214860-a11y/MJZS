@@ -73,7 +73,7 @@ def force_stop(project,state):
     return killed
 
 
-def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
+def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,execute=None):
     if state.get('busy'):raise ValueError('已有白模任务进行中')
     from previs_routing import ready
     from stage_execution_service import project_context
@@ -132,6 +132,8 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
                 state['summary']=f'{i+1}/{len(shots)} · {sid} 自动制作中'
                 state['status'][key]=engine_name+' 制作中';state['progress'][key]='running';result[sid]={'state':'running'};persist()
                 try:
+                    from platform_tools import execution_checkpoint, ExecutionStopped
+                    execution_checkpoint()
                     if verify(project,sid,shot.get('duration',5),source=source):
                         result[sid]={'state':'ready','reused':True};state['status'][key]='已就绪';state['progress'][key]='ready';completed+=1;continue
                     prompt=prepare_batch(project,snapshot,[sid],call_config=call_config)
@@ -148,9 +150,15 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
                     output=white_model_shot_directory(project,sid,source=source);output.mkdir(parents=True,exist_ok=True)
                     from workflow_engines import run_background
                     run_background(call_config,project,output,batch/(sid+'_制作报告.txt'),batch/(sid+'_运行日志.txt'),prompt)
+                    execution_checkpoint()
                     state['progress'][key]='validating';state['status'][key]='校验视频中'
                     if not verify(project,sid,shot.get('duration',5),source=source):raise ValueError('输出未通过校验，请查看制作报告')
                     result[sid]={'state':'ready'};state['status'][key]='已就绪';state['progress'][key]='ready';completed+=1
+                except ExecutionStopped as exc:
+                    result[sid]={'state':'unknown','error':str(exc)}
+                    state['status'][key]='本机已停止等待；结果待核对';state['progress'][key]='unknown'
+                    state['stop']=True
+                    break
                 except Exception as exc:
                     if state.get('stop'):
                         # 强制停止会先结束引擎进程，被结束的这一镜按「已停止」记账，不算失败。
@@ -176,4 +184,13 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None):
             # 被替换或关闭的批次仍可能在线程退出时返回；不得由旧代次
             # 解除新批次的忙碌态。无生命周期调用方维持原有兼容行为。
             if is_current is None or is_current(ticket):state['busy']=False
-    threading.Thread(target=worker,daemon=True).start()
+    def controlled_worker():
+        from platform_tools import ExecutionStopped
+        try:
+            execute(worker)
+        except ExecutionStopped:
+            if is_current is None or is_current(ticket):
+                state['stop']=True;state['busy']=False
+                state['summary']='本机已停止等待；在途白模结果待核对'
+                announce(state,False,state['summary'],ticket)
+    threading.Thread(target=controlled_worker if execute is not None else worker,daemon=True).start()

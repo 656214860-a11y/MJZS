@@ -840,7 +840,11 @@ def _http_transport(url, payload, headers, timeout):
 
     body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
     request = urllib.request.Request(url, data=body, headers=dict(headers), method='POST')
+    from platform_tools import current_execution
+    control = current_execution()
     for attempt in range(3):
+        if control is not None:
+            timeout = control.remaining(timeout)
         try:
             with _http_opener().open(request, timeout=timeout) as response:
                 raw = response.read()
@@ -865,6 +869,10 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
     """OpenAI 兼容 SSE 流；协议不支持或流异常由调用方回退普通请求。"""
     import urllib.error
     import urllib.request
+    from platform_tools import current_execution
+    control = current_execution()
+    if control is not None:
+        timeout = control.remaining(timeout)
     if cancelled and cancelled():
         return {'ok': False, 'status': 0, 'error': '请求已取消'}
     body = dict(payload or {})
@@ -876,6 +884,8 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
     try:
         with _http_opener().open(request, timeout=timeout) as response:
             for raw in response:
+                if control is not None:
+                    control.checkpoint()
                 if cancelled and cancelled():
                     return {'ok': False, 'status': 0, 'error': '请求已取消'}
                 line = raw.decode('utf-8', 'replace').strip()

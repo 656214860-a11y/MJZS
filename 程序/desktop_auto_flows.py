@@ -38,6 +38,10 @@ ASSET_RETRY_LIMIT=3
 
 class AutoFlowsMixin:
     """Desktop 的无人值守流程方法集（见模块说明）。"""
+    def _stop_expired_auto(self, name):
+        setattr(self,name+'_busy',False)
+        setattr(self,name+'_due',float('inf'))
+        self.status.set('本批已停止等待；请先核对运行状况和远端任务，再手动继续。')
     def _poll_auto_edit_result(self):
         self._auto_edit_result_poll_id=None
         if getattr(self,'shutting_down',False) or not getattr(self,'_startup_tick_paused',False):return
@@ -146,7 +150,7 @@ class AutoFlowsMixin:
         """只交付已完成的自动粗剪；不在启动期偷偷触发下一轮轮询。"""
         try:
             ticket,ok,value=self.auto_edit_queue.get_nowait()
-            if not self.auto_edit_tasks.finish(ticket,succeeded=ok):return False
+            if not self.auto_edit_tasks.finish(ticket,succeeded=ok,on_stopped=lambda:self._stop_expired_auto('auto_edit')):return False
             self.auto_edit_busy=False
             # 先重建页面再写状态栏：页面重建会重置状态栏，顺序反了用户就看不到结果。
             if ok and getattr(self,'page_index',None)==PAGE['edit']:self.show(PAGE['edit'])
@@ -170,7 +174,7 @@ class AutoFlowsMixin:
         except queue.Empty:pass
         try:
             ticket,ok,value,signature=self.auto_keyframe_queue.get_nowait()
-            if not self.auto_keyframe_tasks.finish(ticket,succeeded=ok):return
+            if not self.auto_keyframe_tasks.finish(ticket,succeeded=ok,on_stopped=lambda:self._stop_expired_auto('auto_keyframe')):return
             self.auto_keyframe_busy=False
             source,pending,_reason,_warn=self.keyframe_batch_state(check_settings=False)
             if ok and source is not None and not pending:
@@ -209,7 +213,7 @@ class AutoFlowsMixin:
         while previs_news is not None:
             try:ticket,ok,value=previs_news.get_nowait()
             except queue.Empty:break
-            if self.auto_previs_tasks.finish(ticket,succeeded=ok):self.pet_report('previs',value,ok=ok)
+            if self.auto_previs_tasks.finish(ticket,succeeded=ok,on_stopped=lambda:self._stop_expired_auto('auto_previs')):self.pet_report('previs',value,ok=ok)
     def _tick_auto_asset(self):
         """处理自动补资产的消息、续跑台账、后台收尾与轮询。"""
         try:
@@ -219,7 +223,7 @@ class AutoFlowsMixin:
         except queue.Empty:pass
         try:
             ticket,ok,value,signature=self.auto_asset_queue.get_nowait()
-            if not self.auto_asset_tasks.finish(ticket,succeeded=ok):return
+            if not self.auto_asset_tasks.finish(ticket,succeeded=ok,on_stopped=lambda:self._stop_expired_auto('auto_asset')):return
             self.auto_asset_busy=False
             if ok:
                 self.auto_asset_signature=signature;self.kick_unattended('auto_asset')
@@ -262,7 +266,7 @@ class AutoFlowsMixin:
         except queue.Empty:pass
         try:
             ticket,ok,value,signature=self.auto_video_queue.get_nowait()
-            if not self.auto_video_tasks.finish(ticket,succeeded=ok):return
+            if not self.auto_video_tasks.finish(ticket,succeeded=ok,on_stopped=lambda:self._stop_expired_auto('auto_video')):return
             self.auto_video_busy=False
             if ok:self.auto_video_signature=signature;self.kick_unattended('auto_video')
             else:self.auto_video_due=time.monotonic()+300
@@ -281,7 +285,7 @@ class AutoFlowsMixin:
         """只交付已完成的自动交接包；不在启动期偷偷触发下一轮轮询。"""
         try:
             ticket,ok,value,signature=self.auto_handoff_queue.get_nowait()
-            if not self.auto_handoff_tasks.finish(ticket,succeeded=ok):return False
+            if not self.auto_handoff_tasks.finish(ticket,succeeded=ok,on_stopped=lambda:self._stop_expired_auto('auto_handoff')):return False
             self.auto_handoff_busy=False
             # 失败时清掉指纹并推迟重试：否则下一轮会被「签名没变」直接跳过，永远不再重试。
             if ok:self.auto_handoff_signature=signature
@@ -303,7 +307,7 @@ class AutoFlowsMixin:
         """处理云端任务监控结果与下一轮轮询。"""
         try:
             ticket,ok,value=self.cloud_monitor_result.get_nowait()
-            if not self.cloud_monitor_tasks.finish(ticket,succeeded=ok):return
+            if not self.cloud_monitor_tasks.finish(ticket,succeeded=ok,on_stopped=lambda:self._stop_expired_auto('cloud_monitor')):return
             self.cloud_monitor_busy=False
             self.cloud_monitor_due=time.monotonic()+(5 if ok else 30)
             if not ok and self.root is not None:self.status.set('线上任务查询稍后重试：'+value)
@@ -427,12 +431,15 @@ class AutoFlowsMixin:
         self.auto_edit_busy=True;self._auto_edit_ticket+=1
         ticket=self.auto_edit_tasks.submit(self._auto_edit_ticket)
         self.status.set('全部镜头已验收，正在自动粗剪整集…')
+        def produce():
+            path=studio.assemble()
+            from stage_execution_service import save_automatic_assemble_marker
+            save_automatic_assemble_marker(self.root,digest,path,time.time())
+            return path
         def worker():
             # 只在工作线程里做文件与队列操作，不碰 Tk。
             try:
-                path=studio.assemble()
-                from stage_execution_service import save_automatic_assemble_marker
-                save_automatic_assemble_marker(self.root,digest,path,time.time())
+                path=self.auto_edit_tasks.run(ticket,produce)
                 self.auto_edit_queue.put((ticket,True,'自动粗剪完成：'+str(path)))
             except Exception as exc:self.auto_edit_queue.put((ticket,False,'自动粗剪未完成，稍后重试：'+str(exc)))
         threading.Thread(target=worker,daemon=True).start()
@@ -513,7 +520,8 @@ class AutoFlowsMixin:
             from previs_automation import start
             self._auto_previs_ticket+=1
             ticket=self.auto_previs_tasks.submit(self._auto_previs_ticket)
-            start(self.root,source,pending,state,ticket=ticket,is_current=self.auto_previs_tasks.accepts)
+            start(self.root,source,pending,state,ticket=ticket,is_current=self.auto_previs_tasks.accepts,
+                  execute=lambda fn:self.auto_previs_tasks.run(ticket,fn))
         except Exception as exc:
             self.auto_previs_tasks.cancel()
             self.auto_previs_signature=None;self.auto_previs_due=time.monotonic()+300
@@ -571,7 +579,7 @@ class AutoFlowsMixin:
                             '请在 ComfyUI 或云端核实后点「手动制作资产」重新生成。')
         def worker():
             from asset_auto_batch_service import auto_batch
-            try:self.auto_asset_queue.put((ticket,True,auto_batch(project,base,sources,'adopted',lambda text:self.auto_asset_log(ticket,text)),signature))
+            try:self.auto_asset_queue.put((ticket,True,self.auto_asset_tasks.run(ticket,lambda:auto_batch(project,base,sources,'adopted',lambda text:self.auto_asset_log(ticket,text))),signature))
             except Exception as exc:self.auto_asset_queue.put((ticket,False,'自动补资产未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
     def poll_auto_video(self):
@@ -609,7 +617,7 @@ class AutoFlowsMixin:
         studio=self.studio
         def worker():
             from local_video import auto_batch
-            try:self.auto_video_queue.put((ticket,True,auto_batch(self.root,source,lambda text:self.auto_video_log(ticket,text),studio=studio),signature))
+            try:self.auto_video_queue.put((ticket,True,self.auto_video_tasks.run(ticket,lambda:auto_batch(self.root,source,lambda text:self.auto_video_log(ticket,text),studio=studio)),signature))
             except Exception as exc:self.auto_video_queue.put((ticket,False,'自动补视频未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
     def poll_auto_handoff(self):
@@ -636,11 +644,14 @@ class AutoFlowsMixin:
         self.auto_handoff_busy=True;self._auto_handoff_ticket+=1
         ticket=self.auto_handoff_tasks.submit(self._auto_handoff_ticket)
         self.status.set('全部镜头已验收，正在自动整理剪映素材交接包…')
+        def produce():
+            out=self.handoff(auto=True)
+            from stage_execution_service import save_automatic_handoff_marker
+            save_automatic_handoff_marker(self.root,digest,out,len(studio.episode['shots']))
+            return out
         def worker():
             try:
-                out=self.handoff(auto=True)
-                from stage_execution_service import save_automatic_handoff_marker
-                save_automatic_handoff_marker(self.root,digest,out,len(studio.episode['shots']))
+                out=self.auto_handoff_tasks.run(ticket,produce)
                 self.auto_handoff_queue.put((ticket,True,'自动交接包已整理：'+str(out),signature))
             except Exception as exc:self.auto_handoff_queue.put((ticket,False,'自动整理交接包未完成，稍后重试：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
@@ -659,7 +670,7 @@ class AutoFlowsMixin:
             try:
                 from local_video import open_studio
                 studio=open_studio(root)
-                result=studio.poll(sid)
+                result=self.cloud_monitor_tasks.run(ticket,lambda:studio.poll(sid))
                 self.cloud_monitor_result.put((ticket,True,result))
             except Exception as exc:self.cloud_monitor_result.put((ticket,False,str(exc)))
         threading.Thread(target=work,daemon=True).start()

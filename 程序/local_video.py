@@ -34,9 +34,12 @@ class LocalAPI:
         self.opener=build_opener(ProxyHandler({}),_no_redirect())
     def call(self,path,payload=None,body=None,content_type=None):
         from urllib.request import Request                     # 第 34 期第 9 条：HTTP 栈按需加载
+        from platform_tools import current_execution
+        control = current_execution()
+        timeout = control.remaining(30) if control is not None else 30
         data=json.dumps(payload).encode() if payload is not None else body
         req=Request(self.url+path,data=data,headers={'Content-Type':content_type or 'application/json'})
-        with self.opener.open(req,timeout=30) as r:return json.load(r)
+        with self.opener.open(req,timeout=timeout) as r:return json.load(r)
     def upload(self,frame, *, evidence=None):
         data=Path(frame).read_bytes()
         kind=('png','image/png') if data.startswith(b'\x89PNG\r\n\x1a\n') else ('jpg','image/jpeg') if data.startswith(b'\xff\xd8') else ('webp','image/webp') if data[:4]==b'RIFF' and data[8:12]==b'WEBP' else None
@@ -49,16 +52,21 @@ class LocalAPI:
             evidence.update(path=str(Path(frame).resolve()), sha256=hashlib.sha256(data).hexdigest())
         return (result.get('subfolder','').strip('/')+'/' + result['name']).lstrip('/')
     def download(self,item,dest):
+        from platform_tools import current_execution, execution_checkpoint
+        control = current_execution()
+        timeout = control.remaining(90) if control is not None else 90
         query=urlencode({k:item.get(k,'') for k in ('filename','subfolder','type')})
         dest=Path(dest);dest.parent.mkdir(parents=True,exist_ok=True)
         temp=temporary_path(dest,'.partial.mp4');total=0
         try:
-            with self.opener.open(self.url+'/view?'+query,timeout=90) as response,temp.open('wb') as out:
+            with self.opener.open(self.url+'/view?'+query,timeout=timeout) as response,temp.open('wb') as out:
                 while block:=response.read(1024**2):
+                    execution_checkpoint()
                     total+=len(block)
                     if total>2*1024**3:raise ValueError('单镜超过2GB，已停止取回')
                     out.write(block)
             if not total:raise ValueError('视频文件为空')
+            execution_checkpoint()
             replace(temp,dest)
         finally:
             if temp.exists():remove_temporary_file(temp)

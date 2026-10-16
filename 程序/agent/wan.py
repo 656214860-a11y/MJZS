@@ -34,6 +34,11 @@ class WanAdapter:
         import urllib.request, urllib.error          # 第 34 期第 9 条：HTTP 栈按需加载
         from .volcengine import no_redirect
         from api_endpoints import configured_key
+        from platform_tools import current_execution
+        control = current_execution()
+        timeout = 90
+        if control is not None:
+            timeout = control.remaining(timeout)
         key = configured_key(self.cfg)
         url = self.base + ('/tasks/' + urllib.parse.quote(task_id, safe='') if task_id else '/services/aigc/video-generation/video-synthesis')
         headers = {'Authorization': 'Bearer '+key, 'Content-Type': 'application/json'}
@@ -42,7 +47,7 @@ class WanAdapter:
         data = json.dumps(payload, ensure_ascii=False).encode() if payload is not None else None
         req = urllib.request.Request(url, data=data, headers=headers)
         try:
-            with urllib.request.build_opener(no_redirect()).open(req, timeout=90) as r:
+            with urllib.request.build_opener(no_redirect()).open(req, timeout=timeout) as r:
                 result = json.load(r)
         except urllib.error.HTTPError as e:
             try:
@@ -59,6 +64,10 @@ class WanAdapter:
         task_id = result.get('output', {}).get('task_id')
         if not isinstance(task_id, str) or not task_id:
             raise RuntimeError('No task ID returned; check console before retrying')
+        from platform_tools import current_execution
+        control = current_execution()
+        if control is not None:
+            control.report(event='remote', remote_task_id=task_id, provider='wan', costly=True)
         return task_id
 
     def poll(self, task_id):

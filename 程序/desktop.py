@@ -212,13 +212,13 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
     def __init__(self,win,root=ROOT):
         self._diagnostic_start=time.perf_counter()
         from stage_execution_service import project_registry_gateway
-        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle();self.task_queue=PersistentBackgroundTaskQueue(self.app/'outputs'/'desktop-task-queue.json',handlers={'storage_inspect':inspect_project_storage});self.retry_registry=RetryRegistry();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
+        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.task_queue=PersistentBackgroundTaskQueue(self.app/'outputs'/'desktop-task-queue.json',handlers={'storage_inspect':inspect_project_storage});self.retry_registry=RetryRegistry();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0
         self._legacy_project_migration_results=queue.Queue();self._legacy_project_migration_poll_id=None
         self._legacy_project_migration_started=False
         win._desktop_first_paint_complete=False
         win._desktop_loading_project=False
-        self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self._cloud_monitor_ticket=0;self.cloud_monitor_tasks=BackgroundTaskLifecycle();self.cloud_monitor_result=queue.Queue()
+        self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self._cloud_monitor_ticket=0;self.cloud_monitor_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.cloud_monitor_result=queue.Queue()
         self.settings_file=self.app/'desktop_settings.json';self.settings=read(self.settings_file) if self.settings_file.exists() else {'comfy_url':'http://127.0.0.1:8189','jianying':''}
         win.title(APP_NAME+' · '+VERSION);win.state('normal')
         win.geometry('%dx%d'%(min(1360,win.winfo_screenwidth()-80),min(900,win.winfo_screenheight()-100)))
@@ -406,19 +406,19 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.auto_final_notice=None
         self.auto_final_blocked=False
         self.auto_final_error=''
-        self.auto_edit_due=0;self._auto_edit_ticket=0;self.auto_edit_tasks=BackgroundTaskLifecycle()
+        self.auto_edit_due=0;self._auto_edit_ticket=0;self.auto_edit_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
         self.auto_edit_busy=False
         self.auto_edit_queue=pet_ui.StageQueue('edit',self.pet.drain)
         self.auto_edit_signature=None
         self.auto_edit_error=''
-        self.auto_keyframe_due=0;self._auto_keyframe_ticket=0;self.auto_keyframe_tasks=BackgroundTaskLifecycle()
+        self.auto_keyframe_due=0;self._auto_keyframe_ticket=0;self.auto_keyframe_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
         self.auto_keyframe_busy=False
         self.auto_keyframe_queue=pet_ui.StageQueue('keyframe')
         self.auto_keyframe_messages=queue.Queue()
         self.auto_keyframe_signature=None
         self.auto_keyframe_blocked=None
         self.auto_keyframe_error=''
-        self.auto_asset_due=0;self._auto_asset_ticket=0;self.auto_asset_tasks=BackgroundTaskLifecycle()
+        self.auto_asset_due=0;self._auto_asset_ticket=0;self.auto_asset_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
         self.auto_asset_busy=False
         self.auto_asset_queue=pet_ui.StageQueue('assets')
         self.auto_asset_messages=queue.Queue()
@@ -427,7 +427,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.auto_asset_blocked=None
         self.auto_asset_error=''
         self.auto_asset_tried=None
-        self.auto_video_due=0;self._auto_video_ticket=0;self.auto_video_tasks=BackgroundTaskLifecycle()
+        self.auto_video_due=0;self._auto_video_ticket=0;self.auto_video_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
         self.auto_video_busy=False
         self.auto_video_queue=pet_ui.StageQueue('video',self.pet.drain)
         self.auto_video_messages=queue.Queue()
@@ -436,11 +436,11 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.auto_video_error=''
         self.auto_video_last=''
         self.auto_previs_due=0
-        self._auto_previs_ticket=0;self.auto_previs_tasks=BackgroundTaskLifecycle()
+        self._auto_previs_ticket=0;self.auto_previs_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
         self.auto_previs_signature=None
         self.auto_previs_notice=None
         self.auto_previs_error=''
-        self.auto_handoff_due=0;self._auto_handoff_ticket=0;self.auto_handoff_tasks=BackgroundTaskLifecycle()
+        self.auto_handoff_due=0;self._auto_handoff_ticket=0;self.auto_handoff_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
         self.auto_handoff_busy=False
         self.auto_handoff_queue=pet_ui.StageQueue('delivery',self.pet.drain)
         self.auto_handoff_signature=None
@@ -896,7 +896,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.busy_state.set_busy(True, message=label or '正在处理… 界面保持响应',
                                  progress=show_progress)
         def run():
-            try:self.q.put((ticket,True,fn(),done))
+            try:self.q.put((ticket,True,self.background_tasks.run(ticket,fn),done))
             except Exception as e:
                 import diagnostic_capture
                 diagnostic_capture.record_degradation(
@@ -1179,7 +1179,13 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         except queue.Empty:pass
         try:
             ticket,ok,value,done=self.q.get_nowait()
-            if not self.background_tasks.finish(ticket, succeeded=ok, error='' if ok else str(value)) or ticket!=self._async_ticket:return
+            was_active=self.background_tasks.accepts(ticket)
+            if not self.background_tasks.finish(ticket, succeeded=ok, error='' if ok else str(value)) or ticket!=self._async_ticket:
+                if was_active and ticket==self._async_ticket:
+                    self.worker=False;self.busy_state.set_busy(False)
+                    self.status.set('本机已停止等待；在途任务与迟到结果可在运行状况核对。')
+                    self._start_next_queued()
+                return
             self.worker=False;self.busy_state.set_busy(False)
             if ok and done:done(value)
             elif ok:self.status.set(str(value))

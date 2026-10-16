@@ -62,9 +62,12 @@ class Client:
         if p.scheme!='http' or p.hostname not in ('127.0.0.1','localhost','::1') or p.username or p.password:raise ValueError('仅支持本机ComfyUI地址')
         self.url=url.rstrip('/');self.opener=build_opener(ProxyHandler({}),NoRedirect)
     def request(self,path,data=None,raw=False,content_type='application/json'):
+        from platform_tools import current_execution
+        control = current_execution()
+        timeout = control.remaining(30) if control is not None else 30
         if isinstance(data,dict):data=json.dumps(data).encode()
         try:
-            with self.opener.open(Request(self.url+path,data=data,headers={'Content-Type':content_type}),timeout=30) as r:
+            with self.opener.open(Request(self.url+path,data=data,headers={'Content-Type':content_type}),timeout=timeout) as r:
                 body=r.read(64*1024*1024+1)
         except HTTPError as e:
             hint='请等待ComfyUI启动完成，并核对窗口中的地址与ComfyUI实际服务地址一致。' if e.code in (502,503,504) else '请查看ComfyUI的错误信息。'
@@ -75,6 +78,7 @@ class Client:
             if path=='/prompt':hint+=' 提交结果不确定，请先核实ComfyUI任务队列。'
             raise ValueError(f'无法连接ComfyUI：{self.url}\n{hint}') from None
         if len(body)>64*1024*1024:raise ValueError('返回文件超过64MB')
+        if raw and control is not None:control.checkpoint()
         return body if raw else json.loads(body)
     def locate_prompt(self,client_id='',workflow=None,attempts=3,wait=1.0):
         """提交响应中断后，按本次 client_id（或完全相同的图）找回已进入 ComfyUI 的任务编号。
@@ -252,6 +256,8 @@ def _run(source,cfg,log,stop):
             if dest.exists():dest=frames/(shot['id']+'_'+uuid.uuid4().hex[:8]+'.png')
             # ComfyUI 返回的 PNG 先完成原子替换，之后才允许更新镜头索引。
             # ``dest`` 已按 UUID 避开已有成果，避免覆盖用户现有首帧。
+            from platform_tools import execution_checkpoint
+            execution_checkpoint()
             save_bytes(dest,raw)
             latest=read(source);current=next(s for s in latest['shots'] if s['id']==shot['id'])
             if current!=shot:raise ValueError('生成期间镜头JSON已变化，图片已保存但未覆盖关联：'+str(dest))
@@ -261,6 +267,7 @@ def _run(source,cfg,log,stop):
             current['frame']=dest.relative_to(media_root(source)).as_posix()
             current['frame_evidence']=evidence
             backup=folder/(source.stem+'_before_'+uuid.uuid4().hex[:8]+'.json');save_bytes(backup,source.read_bytes())
+            execution_checkpoint()
             save(source,latest);job.update(state='downloaded',file=str(dest));save(record,job)
             log(shot['id']+'：已保存并关联 '+dest.name)
         except Exception as exc:

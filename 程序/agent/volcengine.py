@@ -60,12 +60,17 @@ class VolcengineAdapter(VideoAdapter):
     def call(self, task_id=None, payload=None):
         import urllib.request, urllib.error, urllib.parse   # 第 34 期第 9 条：HTTP 栈按需加载
         from api_endpoints import configured_key
+        from platform_tools import current_execution
+        control = current_execution()
+        timeout = 90 if payload is not None else 15
+        if control is not None:
+            timeout = control.remaining(timeout)
         key = configured_key(self.cfg)
         url = self.endpoint if task_id is None else self.endpoint + '/' + urllib.parse.quote(task_id, safe='')
         data = None if payload is None else json.dumps(payload, ensure_ascii=False).encode('utf-8')
         req = urllib.request.Request(url, data=data, headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'})
         try:
-            with urllib.request.build_opener(no_redirect()).open(req, timeout=90 if payload is not None else 15) as r:
+            with urllib.request.build_opener(no_redirect()).open(req, timeout=timeout) as r:
                 return json.load(r)
         except urllib.error.HTTPError as e:
             code = 'Unknown'
@@ -87,6 +92,10 @@ class VolcengineAdapter(VideoAdapter):
         task_id = result.get('id')
         if not isinstance(task_id, str) or not task_id:
             raise RuntimeError('未收到任务ID；提交结果不确定，先核对控制台')
+        from platform_tools import current_execution
+        control = current_execution()
+        if control is not None:
+            control.report(event='remote', remote_task_id=task_id, provider='volcengine', costly=True)
         return task_id
 
     def poll(self, task_id):

@@ -317,8 +317,12 @@ class BackgroundTaskLifecycle:
     而是让主线程只接纳当前代次的结果，避免关闭窗口或中断请求后触发迟到 UI 回调。
     """
 
-    def __init__(self):
+    def __init__(self, path=None):
         self._active_ticket = None
+        import uuid
+        self._path = path
+        self._session = uuid.uuid4().hex
+        self._controls = {}
         self._seen = []
         self._facts = None
         self._cancel = None
@@ -326,6 +330,97 @@ class BackgroundTaskLifecycle:
         self._last = None
         self._started = None
         self._history = deque(maxlen=HISTORY_LIMIT)
+
+    def _persist(self, ticket, **facts):
+        if self._path is None:
+            return
+        from pathlib import Path
+        from agent.core import read, save
+        from agent.publication import transaction
+        with transaction():
+            data = read(self._path) if Path(self._path).exists() else {'version': 1, 'tasks': []}
+            if data.get('version') != 1 or not isinstance(data.get('tasks'), list):
+                raise ValueError('后台执行记录损坏，无法覆盖')
+            key = self._session + ':' + str(ticket)
+            row = next((row for row in data['tasks'] if row['id'] == key), None)
+            if row is None:
+                row = {'id': key, 'ticket': ticket, 'created': time.time()}
+                data['tasks'].append(row)
+            if row.get('state') == 'late' and facts.get('state') in ('cancelled', 'stopped'):
+                facts.pop('state')
+            if facts.get('event') == 'remote' and facts.get('remote_task_id'):
+                remote = {'id': facts['remote_task_id'], 'provider': facts.get('provider', '')}
+                remotes = row.setdefault('remote_tasks', [])
+                if remote not in remotes:
+                    remotes.append(remote)
+            if row.get('remote_task_id') and not facts.get('remote_task_id'):
+                facts.pop('remote_task_id', None)
+            if row.get('costly'):
+                facts.pop('costly', None)
+            if row.get('remote_tasks') and facts.get('state') in ('succeeded', 'failed'):
+                facts['local_outcome'] = facts['state']
+                facts['state'] = 'reconcile'
+            if facts.get('event') == 'late':
+                row.setdefault('late_units', []).append({
+                    'stage': facts.get('stage'), 'unit': app_logging.redact(str(facts.get('unit', '')))[:200],
+                    'succeeded': facts.get('succeeded')})
+                facts['state'] = 'late'
+                facts.pop('unit', None)
+            row.update(facts)
+            row['updated'] = time.time()
+            unresolved = [row for row in data['tasks'] if row.get('state') not in ('succeeded', 'failed')]
+            history = [row for row in data['tasks'] if row.get('state') in ('succeeded', 'failed')]
+            data['tasks'] = unresolved + history[-HISTORY_LIMIT:]
+            save(self._path, data)
+
+    def unresolved_records(self):
+        if self._path is None:
+            return []
+        from pathlib import Path
+        from agent.core import read
+        from agent.publication import access
+        with access():
+            data = read(self._path) if Path(self._path).exists() else {'tasks': []}
+            return [dict(row) for row in data['tasks'] if row.get('state') not in ('succeeded', 'failed')]
+
+    def execution_control(self, ticket):
+        return self._controls[ticket]
+
+    def run(self, ticket, fn):
+        import threading
+        from platform_tools import execution_scope, ExecutionStopped
+        control = self.execution_control(ticket)
+        finished, lock = threading.Event(), threading.Lock()
+        result, stopped = [], [False]
+        def work():
+            value, error = None, None
+            try:
+                with execution_scope(control):
+                    control.checkpoint()
+                    value = fn()
+            except Exception as exc:
+                error = exc
+            with lock:
+                result[:] = [value, error]
+                late = stopped[0]
+                finished.set()
+            if late:
+                self._persist(ticket, state='late', succeeded=error is None)
+        threading.Thread(target=work, daemon=True).start()
+        while not finished.wait(.02):
+            try:
+                control.checkpoint()
+            except ExecutionStopped as exc:
+                with lock:
+                    stopped[0] = True
+                    already_finished = finished.is_set()
+                self._persist(ticket, state='stopped', reason=exc.reason)
+                if already_finished:
+                    self._persist(ticket, state='late', succeeded=result[1] is None)
+                raise ExecutionStopped(exc.reason, started=True) from exc
+        if result[1] is not None:
+            raise result[1]
+        return result[0]
 
     def _record(self, ticket, state, error=''):
         """把已结束的一次任务记进最近历史（只留 ``HISTORY_LIMIT`` 条，供运行状况面板读取）。"""
@@ -338,9 +433,13 @@ class BackgroundTaskLifecycle:
     def history(self):
         return list(self._history)
 
-    def submit(self, ticket, *, remote_task_id=None, costly=False, label=''):
+    def submit(self, ticket, *, remote_task_id=None, costly=False, label='', timeout=3600):
         """登记当前代次；有成本或远端任务同时记下可查询编号，供取消时说明。"""
         self.cancel()
+        from platform_tools import ExecutionControl
+        self._controls[ticket] = ExecutionControl(timeout, observer=lambda facts: self._persist(ticket, **facts))
+        for old in list(self._controls)[:-LATE_RESULT_LIMIT]:
+            del self._controls[old]
         self._started = {'at': time.monotonic(), 'label': str(label or '')}
         self._active_ticket = ticket
         self._facts = {'remote_task_id': (str(remote_task_id) if remote_task_id else None),
@@ -348,20 +447,32 @@ class BackgroundTaskLifecycle:
         self._seen.append(ticket)
         del self._seen[:-LATE_RESULT_LIMIT]
         self._last = {'ticket': ticket, 'state': 'running'}
+        self._persist(ticket, state='running', label=app_logging.redact(str(label or '')),
+                      remote_task_id=self._facts['remote_task_id'], costly=self._facts['costly'])
         return ticket
 
     def accepts(self, ticket):
         return self._active_ticket == ticket
 
-    def finish(self, ticket, *, succeeded, error=''):
+    def finish(self, ticket, *, succeeded, error='', on_stopped=None):
         if not self.accepts(ticket):
             # 迟到的结果既不进界面，也不被静默丢弃：留一条可查询的隔离登记。
             self._record_late(ticket, succeeded)
+            return False
+        from platform_tools import ExecutionStopped
+        try:
+            self.execution_control(ticket).checkpoint()
+        except ExecutionStopped as exc:
+            self.cancel(ticket)
+            self._persist(ticket, state='stopped', reason=exc.reason)
+            if on_stopped is not None:
+                on_stopped()
             return False
         self._active_ticket = None
         self._facts = None
         self._last = {'ticket': ticket, 'state': 'succeeded' if succeeded else 'failed'}
         self._record(ticket, self._last['state'], error)
+        self._persist(ticket, state=self._last['state'], error=app_logging.redact(str(error))[:200])
         return True
 
     def cancel(self, ticket=None, *, costly=False, remote_task_id=None,
@@ -370,6 +481,7 @@ class BackgroundTaskLifecycle:
         if self._active_ticket is None or (ticket is not None and ticket != self._active_ticket):
             return False
         cancelled = self._active_ticket
+        self._controls[cancelled].cancel()
         facts = self._facts or {}
         remote = str(remote_task_id) if remote_task_id else facts.get('remote_task_id')
         costs = bool(costly or facts.get('costly') or remote)
@@ -377,6 +489,9 @@ class BackgroundTaskLifecycle:
         self._facts = None
         self._last = {'ticket': cancelled, 'state': 'cancelled'}
         self._record(cancelled, 'cancelled')
+        self._persist(cancelled, state='cancelled', remote_task_id=remote, costly=costs,
+                      remote_cancel_requested=bool(remote_cancel_requested),
+                      remote_cancel_confirmed=bool(remote_cancel_confirmed))
         if costs or remote_cancel_requested or remote_cancel_confirmed:
             self._cancel = {'ticket': cancelled, 'remote_task_id': remote, 'costly': costs,
                             'remote_cancel_requested': bool(remote_cancel_requested),
@@ -429,6 +544,7 @@ class BackgroundTaskLifecycle:
         if ticket not in self._seen:
             return
         self._late.append({'ticket': ticket, 'succeeded': bool(succeeded)})
+        self._persist(ticket, state='late', succeeded=bool(succeeded))
         del self._late[:-LATE_RESULT_LIMIT]
 
 

@@ -352,7 +352,7 @@ def shared():
         return _SHARED
 
 
-def _claim(governor, stage, item, at, wait):
+def _claim(governor, stage, item, at, wait, control=None):
     """要一个并发号：拿不到就小睡一下再看，最多等 ``wait`` 秒。
 
     并发上限那条路已经由「开几条线」卡死了（见 parallel_map 的 workers），这里兜的是
@@ -363,6 +363,8 @@ def _claim(governor, stage, item, at, wait):
         return None
     deadline = time.monotonic() + max(0.0, float(wait))
     while True:
+        if control is not None:
+            control.checkpoint()
         ticket = governor.acquire(stage, resource=str(item) if item is not None else '',
                                   at=at).get('ticket')
         if ticket is not None:
@@ -372,45 +374,75 @@ def _claim(governor, stage, item, at, wait):
         time.sleep(POLL_SECONDS)
 
 
-def parallel_map(stage, items, worker, governor=None, at=None, wait=WAIT_SECONDS):
-    """按该阶段的并行度把一批单元跑掉：同时最多 ``limit`` 个在飞，返回 [(单元, 结果, 异常)]。
+def parallel_map(stage, items, worker, governor=None, at=None, wait=WAIT_SECONDS,
+                 *, control=None, timeout=3600, on_late=None):
+    """Ordered bounded wait; timed-out threads retain permits until their actual exit.
 
-    批内串行由调用方保证（一个单元一个 worker 调用）；这里只管「同时在飞几个」。
-    开几条线＝「阶段并行度的上限」与「全局并发上限」取小——上限是硬上限，撞上就排队；
-    governor 给了还要逐个要号，同一资源撞车就等一等再上（不丢单元、不改变顺序）。
+    The execution scope propagates to each worker, preventing subsequent network
+    submissions/process launches. Running results remain unknown, never retryable
+    merely because the caller stopped waiting. Python threads are not killed.
     """
+    import platform_tools
+    control = control or platform_tools.current_execution() or platform_tools.ExecutionControl(timeout)
     governor = shared() if governor is None else governor
     values = list(items)
-    high = degree(stage)[1]
-    workers = max(1, min(high, governor.limit if governor else GLOBAL_LIMIT))
+    workers = max(1, min(degree(stage)[1], governor.limit))
     results = [None] * len(values)
+    started = set()
     lock = threading.Lock()
     cursor = [0]
+    abandoned = [False]
 
     def run():
-        while True:
-            with lock:
-                index = cursor[0]
-                if index >= len(values):
+        with platform_tools.execution_scope(control):
+            while True:
+                with lock:
+                    index = cursor[0]
+                    if index >= len(values) or abandoned[0]:
+                        return
+                    cursor[0] += 1
+                item, ticket, value, error = values[index], None, None, None
+                try:
+                    control.checkpoint()
+                    ticket = _claim(governor, stage, item, at, wait, control)
+                    with lock:
+                        control.checkpoint()
+                        started.add(index)
+                    value = worker(item)
+                except Exception as exc:
+                    error = exc
+                finally:
+                    if ticket is not None:
+                        governor.release(ticket)
+                with lock:
+                    late = abandoned[0]
+                    if not late:
+                        results[index] = (item, value, error)
+                if late:
+                    control.report(event='late', stage=stage, unit=str(item), succeeded=error is None)
+                    if on_late is not None:
+                        on_late(item, value, error)
                     return
-                cursor[0] += 1
-            item = values[index]
-            ticket = None
-            try:
-                ticket = _claim(governor, stage, item, at, wait)
-                results[index] = (item, worker(item), None)
-            except Exception as exc:                       # 一个单元失败不影响别的单元
-                results[index] = (item, None, exc)
-            finally:
-                if governor is not None and ticket:
-                    governor.release(ticket)
 
-    threads = [threading.Thread(target=run, daemon=True) for _ in range(max(1, workers))]
+    threads = [threading.Thread(target=run, daemon=True) for _ in range(workers)]
     for thread in threads:
         thread.start()
-    for thread in threads:
-        thread.join()
-    return results
+    while any(thread.is_alive() for thread in threads):
+        try:
+            control.checkpoint()
+        except platform_tools.ExecutionStopped as stop:
+            with lock:
+                abandoned[0] = True
+                for index, item in enumerate(values):
+                    if results[index] is None:
+                        results[index] = (item, None, platform_tools.ExecutionStopped(
+                            stop.reason, started=index in started))
+            control.report(event='stopped', stage=stage, reason=stop.reason,
+                           unresolved=sum(row[2] is not None and getattr(row[2], 'started', False) for row in results))
+            break
+        for thread in threads:
+            thread.join(POLL_SECONDS)
+    return list(results)
 
 
 # ── 三、统一日志格式（附件任务5.3 ＋ 3.3：每次启动与结束都记进 logs/） ─────────────

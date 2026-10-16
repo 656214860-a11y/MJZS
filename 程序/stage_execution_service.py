@@ -1201,9 +1201,12 @@ def publish_stage_text(target, text, validate, update_index, encoding='utf-8', *
 
     from agent.core import save_text
     from agent.publication import transaction
+    from platform_tools import execution_checkpoint
     with transaction():
+        execution_checkpoint()
         save_text(target, value, encoding=encoding)
         update_index(target)
+        execution_checkpoint()
     return target
 
 
@@ -1225,9 +1228,12 @@ def publish_stage_bytes(target, data, validate, update_index):
 
     from agent.core import save_bytes
     from agent.publication import transaction
+    from platform_tools import execution_checkpoint
     with transaction():
+        execution_checkpoint()
         save_bytes(target, value)
         update_index(target)
+        execution_checkpoint()
     return target
 
 
@@ -1250,10 +1256,13 @@ def publish_stage_bundle(artifacts, validate, update_index):
 
     from agent.core import save_bytes
     from agent.publication import transaction
+    from platform_tools import execution_checkpoint
     with transaction():
+        execution_checkpoint()
         for path, data in items:
             save_bytes(path, data)
         update_index()
+        execution_checkpoint()
     return tuple(path for path, _data in items)
 
 

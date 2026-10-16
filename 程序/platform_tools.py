@@ -6,9 +6,69 @@ import socket
 import subprocess
 import sys
 import webbrowser
+import threading
+import time
+from contextlib import contextmanager
 from urllib.parse import urlparse
 
 _TOOL_CACHE = {}
+_EXECUTION = threading.local()
+
+
+class ExecutionStopped(RuntimeError):
+    """Local stop, never proof that a provider or an in-flight thread stopped."""
+    def __init__(self, reason, *, started=False):
+        self.reason, self.started = reason, started
+        super().__init__('执行已停止：%s；%s' % (reason, '在途结果待核对' if started else '未开始此单元'))
+
+
+class ExecutionControl:
+    def __init__(self, timeout=3600, *, observer=None):
+        import math
+        seconds = float(timeout)
+        if not math.isfinite(seconds) or seconds <= 0:
+            raise ValueError('执行期限必须是大于零的有限秒数')
+        self.deadline = time.monotonic() + seconds
+        self.stopped = threading.Event()
+        self.observer = observer
+
+    def cancel(self):
+        self.stopped.set()
+
+    def checkpoint(self):
+        if self.stopped.is_set():
+            raise ExecutionStopped('cancelled')
+        if time.monotonic() >= self.deadline:
+            raise ExecutionStopped('deadline')
+
+    def remaining(self, requested=None):
+        self.checkpoint()
+        remaining = max(.001, self.deadline - time.monotonic())
+        return remaining if requested is None else min(float(requested), remaining)
+
+    def report(self, **facts):
+        if self.observer is not None:
+            self.observer(facts)
+
+
+def current_execution():
+    return getattr(_EXECUTION, 'control', None)
+
+
+@contextmanager
+def execution_scope(control):
+    previous = current_execution()
+    _EXECUTION.control = control
+    try:
+        yield control
+    finally:
+        _EXECUTION.control = previous
+
+
+def execution_checkpoint():
+    control = current_execution()
+    if control is not None:
+        control.checkpoint()
 
 
 def windows_registry():
@@ -66,6 +126,7 @@ def launch_background(command, *, cwd=None, stdin=None, stdout=None, stderr=None
     ``popen`` is an explicit injection seam for callers that must constrain a
     child environment and already expose a process-launch test hook.
     """
+    execution_checkpoint()
     runner = popen or subprocess.Popen
     return runner(command, cwd=None if cwd is None else str(cwd),
                   creationflags=hidden_console_flags(),
@@ -74,6 +135,9 @@ def launch_background(command, *, cwd=None, stdin=None, stdout=None, stderr=None
 
 def run_process(command, *, run=None, **kwargs):
     """Run a local host command with the shared hidden-console policy."""
+    control = current_execution()
+    if control is not None:
+        kwargs['timeout'] = control.remaining(kwargs.get('timeout'))
     runner = run or subprocess.run
     if kwargs.get('cwd') is not None:
         kwargs['cwd'] = str(kwargs['cwd'])
@@ -242,6 +306,9 @@ def open_https(url, *, timeout=60, data=None, headers=None):
     与后续访问闸门策略；``data`` 为 None 时是 GET，否则按请求体发送。
     """
     import urllib.request
+    control = current_execution()
+    if control is not None:
+        timeout = control.remaining(timeout)
     request = urllib.request.Request(str(url), data=data, headers=dict(headers or {}))
     return urllib.request.urlopen(request, timeout=timeout)
 
@@ -252,6 +319,7 @@ def launch_windows_app(executable, feature, *, args=None, cwd=None, env=None, cr
     ``args`` 让本地 CLI 也复用同一个 Windows 宿主边界；未提供时仍只启动
     可执行文件本身，保持桌面应用入口的原有行为。
     """
+    execution_checkpoint()
     require_windows(feature)
     executable = Path(executable)
     if not executable.is_file():

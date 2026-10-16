@@ -115,7 +115,7 @@ class MediaPagesMixin:
         self.status.set(label+'：准备用本地 ComfyUI 按分镜顺序补 '+str(len(pending))+' 镜首帧…')
         def worker():
             from keyframe_comfy import auto_batch
-            try:self.auto_keyframe_queue.put((ticket,True,auto_batch(source,lambda text:self.auto_keyframe_log(ticket,text)),signature))
+            try:self.auto_keyframe_queue.put((ticket,True,self.auto_keyframe_tasks.run(ticket,lambda:auto_batch(source,lambda text:self.auto_keyframe_log(ticket,text))),signature))
             except Exception as exc:self.auto_keyframe_queue.put((ticket,False,label+'未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
         return True,'已按分镜顺序派发 '+str(len(pending))+' 镜首帧（本地 ComfyUI 免费后端，未运行会自动启动）',signature
