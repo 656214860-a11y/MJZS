@@ -503,6 +503,35 @@ class ComfySubmitRecoveryTests(unittest.TestCase):
 
 
 class ComfyMoneyBudgetTests(unittest.TestCase):
+    def test_known_cloud_reference_and_save_nodes_fit_budget(self):
+        from comfy_service import Comfy
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); self.policy(root)
+            graph = json.loads(json.dumps(self.GRAPH))
+            graph['100'] = {'class_type': 'DramaOptionalReferenceImage', 'inputs': {'image': 'ref.png'}}
+            graph['30']['inputs']['references'] = ['100', 0]
+            graph['14'] = {'class_type': 'SaveImage', 'inputs': {'images': ['30', 0]}}
+            client = Comfy('http://127.0.0.1:8189')
+            client.request = Mock(return_value={'prompt_id': 'priced-pid'})
+            record = client.submit_graph(root, 'characters', 'test', graph)
+            client.request.assert_called_once()
+            self.assertIn('cost_request_id', json.loads(record.read_text(encoding='utf-8')))
+
+    def test_mixed_cloud_graph_cannot_hide_another_paid_node(self):
+        from comfy_service import Comfy
+        from unittest.mock import Mock
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); self.policy(root, cap='100')
+            graph = json.loads(json.dumps(self.GRAPH))
+            graph['31'] = {'class_type': 'CustomPaidNode', 'inputs': {}}
+            client = Comfy('http://127.0.0.1:8189')
+            client.request = Mock(return_value={'prompt_id': 'unexpected'})
+            with self.assertRaisesRegex(ValueError, '无法预估'):
+                client.submit_graph(root, 'characters', 'test', graph)
+            client.request.assert_not_called()
+            self.assertFalse((root / 'workflows').exists())
+
     def test_unpriced_workflow_without_cap_keeps_local_submission(self):
         from comfy_service import Comfy
         from unittest.mock import Mock

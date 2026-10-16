@@ -143,7 +143,9 @@ class Comfy:
         from urllib.error import HTTPError                # 第 34 期第 9 条：HTTP 栈按需加载
         if kind not in ('characters','scenes','props'):raise ValueError('无效资产类别')
         model = cloud_price_model(graph)
-        if model is None:
+        priced_nodes = {'DramaCloudImage', 'DramaOptionalReferenceImage', 'SaveImage'}
+        if model is None or any(not isinstance(node, dict) or node.get('class_type') not in priced_nodes
+                                for node in graph.values()):
             profile_path = Path(root) / 'cost_profile.json'
             profile = read(profile_path) if profile_path.exists() else {}
             if not isinstance(profile, dict):
