@@ -855,7 +855,7 @@
             },
             {
                 "file": "agent/core.py",
-                "point": "217",
+                "point": "250",
                 "disposition": "exempt",
                 "reason": "\u5199\u5165\u6743\u5a01\u81ea\u8eab"
             },

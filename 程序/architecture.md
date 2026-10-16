@@ -421,3 +421,6 @@ R1305：`writing_quality`（L2）解析自然剧本附带的四项辅助质检�
 ## R1607 / O9：云图生成溯源字段
 来源：tasks_round/tasks_round_1596_result.md 的 O9，先建覆盖矩阵再补漏。矩阵见 维护记录/多模态溯源覆盖矩阵_20261016.md。
 本轮补齐 native_asset_codec.seedream_provenance()：对已组好的 Seedream 载荷只记录摘要（payload_schema／model／size／watermark／prompt_sha256／reference_sha256），不写密钥与图片字节；keyframe_comfy.run_seedream 与 native_assets._run_seedream_direct 的每次状态写入都带 provenance。未核验的路径字段在矩阵中记未知，不据此声称全链路可复现。
+
+## R1608 / O10：大媒体发布内存
+来源：tasks_round/tasks_round_1596_result.md 的 O10。agent.core.save_file 按 1 MiB 块复制来源到目标同目录临时文件，复制期间计算 sha256 并核对来源长度，可选与调用方给的摘要比对，然后走既有 replace（登记发布事务与缓存失效）；媒体不进内存。stage_execution_service.collect_download_inbox 改用该入口并包在 publication.transaction() 内，收回下载不再是 read_bytes 加 save_bytes 的整份拷贝。文本与小产物继续用 save_text／save_bytes，既有接口语义不变。

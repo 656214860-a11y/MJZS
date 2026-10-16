@@ -153,7 +153,7 @@ def import_delivery_master(project, source, *, settings_snapshot=None, cache=Non
 def local_video_settings_gateway():
     """L3 为本地视频设置服务注入唯一的发布与回滚能力。"""
     import shutil
-    from agent.core import save, save_bytes
+    from agent.core import save, save_file
     return {'publish_json': save, 'publish_bytes': save_bytes,
             'copy_file': shutil.copy2,
             'replace_file': lambda source, target: Path(source).replace(target),
@@ -471,7 +471,7 @@ def asset_batch_gateway():
 
 def asset_plan_gateway():
     """L3 为资产计划与续跑台账装配唯一的正式发布能力。"""
-    from agent.core import save, save_bytes, save_text
+    from agent.core import save, save_file, save_text
     from file_cache import remove_temporary_file
     return {'publish_json': save, 'publish_bytes': save_bytes,
             'publish_text': save_text, 'remove_file': remove_temporary_file}
@@ -597,7 +597,7 @@ def import_pending_generated_assets(project, base, report=None):
 
 def tts_gateway():
     """L3 为 TTS 服务装配唯一的正式发布器；L2 不可自行写设置或阶段成果。"""
-    from agent.core import save, save_bytes
+    from agent.core import save, save_file
     return {'publish_json': save, 'publish_bytes': save_bytes}
 
 
@@ -894,7 +894,7 @@ def save_edited_stage_storyboard(path, data):
 
 
 def storyboard_gateway():
-    from agent.core import save, save_bytes
+    from agent.core import save, save_file
     from file_cache import remove_temporary_file
     from agent.core import save_bytes_new
     from storage_maintenance import recycle_paths
@@ -1634,7 +1634,7 @@ def register_download_inbox(project, prompt, now=None):
 def collect_download_inbox(project, now=None, downloads=None):
     """L3 编排：把已下载到「下载」文件夹的目标文件收回项目；返回已写入的目标路径。"""
     import time
-    from agent.core import save, save_bytes
+    from agent.core import save, save_file
     from download_inbox import match, remaining
     ledger = _download_inbox_path(project)
     if not ledger.is_file():
@@ -1649,14 +1649,21 @@ def collect_download_inbox(project, now=None, downloads=None):
         from platform_tools import downloads_directory
         downloads = downloads_directory()
     done = []
+    from agent.publication import transaction
+    from platform_tools import execution_checkpoint
     for source, target in match(downloads, pending, now):
         try:
-            data = source.read_bytes()
+            if not source.stat().st_size:
+                continue
         except OSError:
             continue
-        if not data:
+        try:
+            with transaction():
+                execution_checkpoint()
+                save_file(target, source)
+                execution_checkpoint()
+        except (OSError, ValueError):
             continue
-        save_bytes(target, data)
         done.append(target)
     kept = remaining(pending, done, now)
     if kept != pending:

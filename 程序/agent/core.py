@@ -113,6 +113,39 @@ def save_bytes(path, data):
             temp.unlink()
 
 
+def save_file(path, source, digest=None):
+    """文件级原子保存：按块复制，大媒体不进内存；可选摘要校验。
+
+    与 ``save_bytes`` 共用 ``temporary_path`` + ``replace``，因此同样登记发布事务
+    与缓存失效。复制期间计算 sha256 并核对来源长度：来源仍在增长或内容与调用方
+    预期不符时放弃发布，旧成果不受影响。
+    """
+    path = Path(path)
+    source = Path(source)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    expected = source.stat().st_size
+    temp = temporary_path(path)
+    written = 0
+    actual = hashlib.sha256()
+    try:
+        with source.open('rb') as src, temp.open('wb') as dst:
+            for block in iter(lambda: src.read(1024 * 1024), b''):
+                written += len(block)
+                actual.update(block)
+                dst.write(block)
+            dst.flush()
+            os.fsync(dst.fileno())
+        if written != expected:
+            raise ValueError('来源文件在复制期间发生变化，未发布成果。')
+        if digest is not None and str(digest) != actual.hexdigest():
+            raise ValueError('来源文件摘要与预期不一致，未发布成果。')
+        replace(temp, path)
+    finally:
+        if temp.exists():
+            temp.unlink()
+    return actual.hexdigest()
+
+
 def restore_bytes(path, previous):
     """回滚本轮原子发布：恢复旧字节，或受控清理此前不存在的新文件。"""
     if previous is not None:
