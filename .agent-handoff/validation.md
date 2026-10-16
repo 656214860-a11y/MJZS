@@ -45,4 +45,6 @@ R1624：HEAD 13dea0a92396b5abd2317009caec19dbfad8d6a0，2026-10-17 02:01:23 绿�
 - T2／T3／T8：tests/test_stage_gate_e2e_probe.py 与 tests/test_selftests.py 共 57 项 OK（6.0 秒）。
 - T1／T7：tests/test_recovery_delivery_e2e.py 与 tests/test_soak_light.py 共 8 项 OK（51.5 秒；真实全链 32.9 秒，预算 150 秒）。
 - 沙箱内派生隔离进程被拒（Errno 5），自检器退回同进程执行，与既有记录一致；未跑全量，不冒称同树全量。
+
+- R1636（文档轮）：只读核验全仓监听面 2 处（previs_monitor.py:130 与 skill 资产 render-monitor-dashboard/server.py:849），§5 补登后者；§4 三条 A 级挂账索引与 维护记录/缺陷台账_20261001.md 的「待实机复验」条目一致；轮次基线＋行尾 21 项 OK；未跑全量（欠账 2／8）。
 - R1635 门禁收尾：架构门禁 356 项 OK（196.9 秒）、默认冒烟 8/8 通过、轮次连续性守护 OK；本树仍未跑全量。

@@ -1,3 +1,10 @@
+## 2026-10-17 R1636（阶段4 收尾）：网络面清单补全与 §4 复核
+- 只读核验全仓监听面共 2 处：`previs_monitor.py:130`（T13）与随附 skill 资产 `skills/09白模预演SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py:849`；后者本轮补登进 §5。
+- 该 server 的加固事实：`--host` 默认且只接受 127.0.0.1／localhost（非回环启动前拒绝）、只答 GET 且仅固定只读端点、POST 与 HEAD 返回 405、只读白名单页面与已校验预览帧（无路径穿越面）、带 nosniff／no-referrer／DENY／CSP 头；产品代码不启动它（全仓仅自引用）。
+- 复核 §4：三条 A 级挂账的守护用例索引与 `维护记录/缺陷台账_20261001.md` 的「待实机复验」条目一致，无需改动。
+- 只改 `说明/联调测试出口基线.md` §5，不改代码与测试；未跑全量（非源码轮，欠账 2／8）。
+- 验证：轮次基线＋行尾 21 项 OK。
+
 ## 2026-10-17 R1635（阶段4 T8 剩余）：实际跳过清单机制与实测收口
 - `run_selftests.py` 工作单元结果加第 8 位“实际跳过清单”，汇总打印 `实际跳过 N 条用例`＋最多 40 条明细；`tests/test_selftests.py` 加 3 条守护（52/52）。
 - 实测口径更正：本机实际只跳过 1 条（`test_core.ValidateProfileTests.test_stage_profile_wrong_preset_rejected`，需实机复验 bundled skill）；旧文“约 3 个”是从登记位推断。4 个平台可用性条件（tkinter／Tk 建窗／目录链接／K32 工作集）逐条实测满足，条件类站点实跑 219 条用例只此 1 条跳过。
