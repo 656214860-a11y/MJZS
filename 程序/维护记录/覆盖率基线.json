@@ -1380,6 +1380,12 @@
    "percent": 12.9
   },
   {
+   "module": "stage_download_inbox_service.py",
+   "covered": 9,
+   "total": 62,
+   "percent": 14.5
+  },
+  {
    "module": "stage_models.py",
    "covered": 35,
    "total": 233,
@@ -1422,16 +1428,22 @@
    "percent": 19.0
   },
   {
+   "module": "stage_execution_service.py",
+   "covered": 190,
+   "total": 970,
+   "percent": 19.6
+  },
+  {
    "module": "asset_context.py",
    "covered": 23,
    "total": 117,
    "percent": 19.7
   },
   {
-   "module": "stage_execution_service.py",
-   "covered": 244,
-   "total": 1193,
-   "percent": 20.5
+   "module": "stage_write_preparation_service.py",
+   "covered": 19,
+   "total": 92,
+   "percent": 20.7
   },
   {
    "module": "model_router.py",
@@ -1566,6 +1578,12 @@
    "percent": 43.5
   },
   {
+   "module": "stage_publication.py",
+   "covered": 42,
+   "total": 85,
+   "percent": 49.4
+  },
+  {
    "module": "agent/video.py",
    "covered": 15,
    "total": 30,
@@ -1644,6 +1662,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 46,
- "modules_total": 272
+ "modules_covered": 49,
+ "modules_total": 275
 }

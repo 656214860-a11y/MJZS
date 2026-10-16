@@ -153,7 +153,7 @@ def import_delivery_master(project, source, *, settings_snapshot=None, cache=Non
 def local_video_settings_gateway():
     """L3 为本地视频设置服务注入唯一的发布与回滚能力。"""
     import shutil
-    from agent.core import save, save_file
+    from agent.core import save, save_bytes
     return {'publish_json': save, 'publish_bytes': save_bytes,
             'copy_file': shutil.copy2,
             'replace_file': lambda source, target: Path(source).replace(target),
@@ -471,7 +471,7 @@ def asset_batch_gateway():
 
 def asset_plan_gateway():
     """L3 为资产计划与续跑台账装配唯一的正式发布能力。"""
-    from agent.core import save, save_file, save_text
+    from agent.core import save, save_bytes, save_text
     from file_cache import remove_temporary_file
     return {'publish_json': save, 'publish_bytes': save_bytes,
             'publish_text': save_text, 'remove_file': remove_temporary_file}
@@ -597,7 +597,7 @@ def import_pending_generated_assets(project, base, report=None):
 
 def tts_gateway():
     """L3 为 TTS 服务装配唯一的正式发布器；L2 不可自行写设置或阶段成果。"""
-    from agent.core import save, save_file
+    from agent.core import save, save_bytes
     return {'publish_json': save, 'publish_bytes': save_bytes}
 
 
@@ -894,7 +894,7 @@ def save_edited_stage_storyboard(path, data):
 
 
 def storyboard_gateway():
-    from agent.core import save, save_file
+    from agent.core import save, save_bytes
     from file_cache import remove_temporary_file
     from agent.core import save_bytes_new
     from storage_maintenance import recycle_paths
@@ -1172,117 +1172,13 @@ def stage_context(desktop, stage, function=None, extra=None):
     return context
 
 
-def recover_stage_publications():
-    """在打开项目、读取直接路径之前恢复中断的成果事务。"""
-    from agent.publication import recover_pending
-    recover_pending()
+from stage_publication import (
+          project_registry_gateway,
+          publish_stage_bundle,
+          publish_stage_bytes,
+          publish_stage_text,
+          recover_stage_publications)
 
-
-def publish_stage_text(target, text, validate, update_index, encoding='utf-8', *, allow_empty=False):
-    """按“校验 → 原子发布 → 索引更新”发布单份阶段文本成果。
-
-    ``validate`` 和 ``update_index`` 都是调用方所属阶段的既有契约：前者必须在正式
-    文件出现前拒绝不合格内容，后者只会在发布成功后执行。默认拒绝空正文；仅明确允许
-    用户清空维护清单的 L3 编排入口可传 ``allow_empty=True``，L2 不得自行放宽。索引
-    更新失败时恢复本次发布前的成果，并抛出异常；调用方因此不会取得成功返回值，也不得
-    据此标记阶段完成。
-    """
-    if not callable(validate):
-        raise TypeError('阶段成果发布需要内容校验器。')
-    if not callable(update_index):
-        raise TypeError('阶段成果发布需要索引更新器。')
-    target = Path(target)
-    value = str(text)
-    if not value.strip() and not allow_empty:
-        raise ValueError('阶段成果正文不能为空，未发布成果。')
-    verdict = validate(value)
-    if verdict is False:
-        raise ValueError('阶段成果内容校验未通过，未发布成果。')
-
-    from agent.core import save_text
-    from agent.publication import transaction
-    from platform_tools import execution_checkpoint
-    with transaction():
-        execution_checkpoint()
-        save_text(target, value, encoding=encoding)
-        update_index(target)
-        execution_checkpoint()
-    return target
-
-
-def publish_stage_bytes(target, data, validate, update_index):
-    """按文本成果同一编排契约发布二进制阶段成果。"""
-    if not callable(validate):
-        raise TypeError('阶段成果发布需要内容校验器。')
-    if not callable(update_index):
-        raise TypeError('阶段成果发布需要索引更新器。')
-    if not isinstance(data, (bytes, bytearray, memoryview)):
-        raise TypeError('二进制阶段成果必须是 bytes、bytearray 或 memoryview。')
-    target = Path(target)
-    value = bytes(data)
-    if not value:
-        raise ValueError('阶段成果二进制内容不能为空，未发布成果。')
-    verdict = validate(value)
-    if verdict is False:
-        raise ValueError('阶段成果内容校验未通过，未发布成果。')
-
-    from agent.core import save_bytes
-    from agent.publication import transaction
-    from platform_tools import execution_checkpoint
-    with transaction():
-        execution_checkpoint()
-        save_bytes(target, value)
-        update_index(target)
-        execution_checkpoint()
-    return target
-
-
-def publish_stage_bundle(artifacts, validate, update_index):
-    """原子发布多份关联成果；任一写入或索引失败均恢复整包旧版本。"""
-    if not callable(validate):
-        raise TypeError('阶段成果发布需要内容校验器。')
-    if not callable(update_index):
-        raise TypeError('阶段成果发布需要索引更新器。')
-    items = tuple((Path(path), bytes(data)) for path, data in artifacts.items())
-    if not items:
-        raise ValueError('阶段成果包不能为空，未发布成果。')
-    if len({path for path, _data in items}) != len(items):
-        raise ValueError('阶段成果包包含重复目标，未发布成果。')
-    if any(not data for _path, data in items):
-        raise ValueError('阶段成果包包含空内容，未发布成果。')
-    verdict = validate(items)
-    if verdict is False:
-        raise ValueError('阶段成果包内容校验未通过，未发布成果。')
-
-    from agent.core import save_bytes
-    from agent.publication import transaction
-    from platform_tools import execution_checkpoint
-    with transaction():
-        execution_checkpoint()
-        for path, data in items:
-            save_bytes(path, data)
-        update_index()
-        execution_checkpoint()
-    return tuple(path for path, _data in items)
-
-
-def project_registry_gateway():
-    """为 ``projects`` 注入唯一的读取、发布及回滚边界。
-
-    项目登记是 L2 业务规则；它不能自行导入底层读写或复制原语。这个小型
-    网关由 L3 装配，保留原有缓存读取、原子发布与复制元数据语义。
-    """
-    from agent.core import restore_bytes, save, save_bytes
-    from shutil import copy2, copytree
-    return {
-        'read_json': file_cache.read_json,
-        'read_bytes': lambda path: Path(path).read_bytes(),
-        'publish_json': save,
-        'publish_bytes': save_bytes,
-        'restore_bytes': restore_bytes,
-        'copy_file': copy2,
-        'copy_tree': copytree,
-    }
 
 
 def import_writing_project(root, json_file):
@@ -1342,120 +1238,14 @@ def generate_animatic_reference(project, prompt, model, settings=None):
                              publish=lambda paths: import_animatic_references(project, paths))
 
 
-import threading
+from stage_write_preparation_service import (
+          _STAGE_COPY_LOCK,
+          _copy_stage_for_write,
+          prepare_asset_write,
+          prepare_legacy_asset_base,
+          prepare_legacy_stage_path,
+          prepare_stage_write)
 
-_STAGE_COPY_LOCK = threading.RLock()
-
-
-def prepare_stage_write(project, stage, *, source=None):
-    with _STAGE_COPY_LOCK:
-        return _copy_stage_for_write(project, stage, source=source)
-
-
-def _copy_stage_for_write(project, stage, *, source=None):
-    """首次修改前复制历史成果；只替换当前目录，绝不改动历史目录。
-
-    当前目录中的同名文件优先。先在同卷临时目录完成复制，再切换目录；
-    切换失败恢复当前目录。调用方必须在用户修改动作中调用，浏览不调用。
-    """
-    import os
-    import shutil
-    import tempfile
-    from file_cache import remove_temporary_tree
-    from stage_path_service import existing_dir
-    root = Path(project).resolve()
-    target = write_dir(root, stage)
-    origin = Path(source) if source is not None else existing_dir(root, stage)
-    origin = origin.resolve()
-    if not origin.is_relative_to(root) or origin == root:
-        raise ValueError('历史阶段目录超出当前项目')
-    if target.is_symlink() or target.resolve() != target or not target.is_relative_to(root):
-        raise ValueError('阶段写入目录不能是目录联接或符号链接')
-    if origin == target or not origin.is_dir():
-        return target
-    if target.is_relative_to(origin) or origin.is_relative_to(target):
-        raise ValueError('历史与当前阶段目录不能互相包含')
-    temporary = Path(tempfile.mkdtemp(prefix='.stage-copy-', dir=root))
-    prepared = temporary / 'prepared'
-    backup = temporary / 'previous'
-    prepared.mkdir()
-
-    def copy_files(folder, *, missing_only):
-        for current, directories, files in os.walk(folder, followlinks=False):
-            current = Path(current)
-            for name in directories + files:
-                item = current / name
-                if item.is_symlink() or item.resolve() != item:
-                    raise ValueError('历史阶段含目录联接或符号链接，未复制')
-            relative = current.relative_to(folder)
-            (prepared / relative).mkdir(parents=True, exist_ok=True)
-            for name in files:
-                item, destination = current / name, prepared / relative / name
-                if missing_only and destination.exists():
-                    continue
-                before = item.stat()
-                shutil.copy2(item, destination)
-                after = item.stat()
-                if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
-                    raise ValueError('复制期间历史文件变化，请停止相关编辑后重试')
-
-    try:
-        if target.is_dir():
-            copy_files(target, missing_only=False)
-        copy_files(origin, missing_only=True)
-        if target.exists():
-            target.replace(backup)
-        try:
-            prepared.replace(target)
-        except Exception:
-            if backup.exists():
-                backup.replace(target)
-            raise
-    finally:
-        # Only this call's unpublished scratch / redundant backup is removed.
-        # A failed rollback leaves its backup intact for recovery.
-        if not backup.exists() or target.exists():
-            remove_temporary_tree(temporary)
-    return target
-
-
-def prepare_asset_write(project, base=None):
-    from asset_context import library_dir
-    from stage_path_service import LEGACY_NUMBERED
-    root = Path(project).resolve()
-    base = library_dir(root, base)
-    # 本轮编号升级不迁移用户另行配置的资产库，保留既有自定义目录契约。
-    if base != root / LEGACY_NUMBERED['assets']:
-        return base
-    return prepare_stage_write(root, 'assets', source=base)
-
-
-def prepare_legacy_asset_base(base):
-    """兼容仍只接收资产库路径的 UI 操作；不推测自定义目录所属项目。"""
-    from stage_path_service import LEGACY_NUMBERED
-    base = Path(base).resolve()
-    if base.name == LEGACY_NUMBERED['assets']:
-        return prepare_asset_write(base.parent, base)
-    return base
-
-
-def prepare_legacy_stage_path(path):
-    """将显式修改目标重定位到新编号，历史文件保持只读。
-
-    仅识别权威表中的完整旧目录名，不迁移普通目录或英文自定义目录。
-    调用方保留空 source 的既有回退语义。
-    """
-    from stage_path_service import LEGACY_NUMBERED
-    if path is None:
-        return None
-    target = Path(path).absolute()
-    stages = {name: stage for stage, name in LEGACY_NUMBERED.items()}
-    for ancestor in (target, *target.parents):
-        stage = stages.get(ancestor.name)
-        if stage is not None:
-            current = prepare_stage_write(ancestor.parent, stage, source=ancestor)
-            return current / target.relative_to(ancestor)
-    return path
 
 
 def save_writing_production_locks(project, values, *, attachment_signature=None):
@@ -1601,74 +1391,12 @@ def import_downloaded_creatives(context, provider='', model=''):
                                        publish=publish_idea_creative)
 
 
-DOWNLOAD_INBOX_LEDGER = ('工作流任务', '下载收件箱.json')
+from stage_download_inbox_service import (
+          DOWNLOAD_INBOX_LEDGER,
+          _download_inbox_path,
+          collect_download_inbox,
+          register_download_inbox)
 
-
-def _download_inbox_path(project):
-    return Path(project).resolve().joinpath(*DOWNLOAD_INBOX_LEDGER)
-
-
-def register_download_inbox(project, prompt, now=None):
-    """L3 编排：登记一次桌面 Agent 任务书里的目标文件，供之后从下载文件夹收回。"""
-    import time
-    from agent.core import save
-    from download_inbox import expected_targets, remaining
-    now = time.time() if now is None else now
-    targets = expected_targets(project, prompt)
-    if not targets:
-        return ()
-    ledger = _download_inbox_path(project)
-    try:
-        current = file_cache.read_json(ledger) if ledger.is_file() else {}
-    except (OSError, ValueError):
-        current = {}
-    pending = current.get('pending', []) if isinstance(current, dict) else []
-    names = {str(target) for target in targets}
-    pending = [entry for entry in remaining(pending, (), now)
-               if str(entry.get('target')) not in names]
-    pending.extend({'target': str(target), 'since': now} for target in targets)
-    save(ledger, {'version': 1, 'pending': pending})
-    return targets
-
-
-def collect_download_inbox(project, now=None, downloads=None):
-    """L3 编排：把已下载到「下载」文件夹的目标文件收回项目；返回已写入的目标路径。"""
-    import time
-    from agent.core import save, save_file
-    from download_inbox import match, remaining
-    ledger = _download_inbox_path(project)
-    if not ledger.is_file():
-        return []
-    now = time.time() if now is None else now
-    try:
-        current = file_cache.read_json(ledger)
-    except (OSError, ValueError):
-        return []
-    pending = current.get('pending', []) if isinstance(current, dict) else []
-    if downloads is None:
-        from platform_tools import downloads_directory
-        downloads = downloads_directory()
-    done = []
-    from agent.publication import transaction
-    from platform_tools import execution_checkpoint
-    for source, target in match(downloads, pending, now):
-        try:
-            if not source.stat().st_size:
-                continue
-        except OSError:
-            continue
-        try:
-            with transaction():
-                execution_checkpoint()
-                save_file(target, source)
-                execution_checkpoint()
-        except (OSError, ValueError):
-            continue
-        done.append(target)
-    kept = remaining(pending, done, now)
-    if kept != pending:
-        save(ledger, {'version': 1, 'pending': kept})
-    return done
 
 
 def storyboard_catalog_snapshot(project, ignored=None):
