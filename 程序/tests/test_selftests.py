@@ -146,6 +146,25 @@ assert len(tk._drama_wanted_topmost) == 0
         self.assertEqual([item[0] for item in run_selftests.slowest_units(
             [first, second, third], limit=2)], ['slow', 'middle'])
 
+    def test_actual_skips_are_reported_from_run_results(self):
+        """跳过的用例来自运行结果，不是规则文件里的登记位（T8 口径）。"""
+        results = [('unit#1', 'test_env', 3, [], '', 0.1, '',
+                    [('Case.test_needs_node', '缺外部程序：当前机器未安装 node')]),
+                   ('unit#2', 'test_other', 2, [], '', 0.2, '', []),
+                   ('unit#3', 'test_legacy', 1, [], '', 0.3, '')]
+        self.assertEqual(run_selftests.skip_summary(results),
+                         [('test_env', 'Case.test_needs_node', '缺外部程序：当前机器未安装 node')])
+
+    def test_unit_result_always_carries_the_skip_list(self):
+        item = run_selftests._run_unit(('probe#1', 'tests.test_line_endings', None))
+        self.assertEqual(len(item), 8, '工作单元结果必须带第 8 位跳过清单')
+        self.assertEqual(item[7], [], '本机没有跳过时清单必须是空列表，而不是缺字段')
+
+    def test_skip_report_is_printed_in_the_summary(self):
+        source = inspect.getsource(run_selftests.main)
+        self.assertIn('skip_summary(got)', source)
+        self.assertIn('实际跳过', source)
+
     def test_large_suite_is_split_into_small_units(self):
         class Case(unittest.TestCase):
             pass

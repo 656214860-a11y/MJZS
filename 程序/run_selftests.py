@@ -64,6 +64,7 @@ SAFE_GUI_JOBS = 4       # R968 全量 A/B 候选；须以最终树连续两轮 �
 SAFE_UNIT_TIMEOUT = 180 # 安全串行性能用例的一小段最长允许三分钟，避免模态窗永久占住门禁
 HEARTBEAT_SECONDS = 30  # 并行全量久未完成时仍需给出活跃心跳，方便定位是否只是慢
 SLOW_UNITS_LIMIT = 10   # 汇总只保留最慢若干工作单元，避免全量输出淹没结论
+SKIP_REPORT_LIMIT = 40  # 实际跳过清单最多打印这么多条；总数始终打印，避免把登记位读成已跳过
 
 
 CACHE_NAME = 'selftest-incremental.json'
@@ -1028,10 +1029,12 @@ def _run_unit(payload):
         detail = ''
         for case, tb in list(result.failures) + list(result.errors):
             detail += "\n===== %s =====\n%s" % (case, tb)
-        return (label, module, result.testsRun, bad, detail, time.time() - started, buf.getvalue())
+        skipped = [(str(case), str(reason).splitlines()[0] if str(reason) else '')
+                   for case, reason in result.skipped]
+        return (label, module, result.testsRun, bad, detail, time.time() - started, buf.getvalue(), skipped)
     except Exception as exc:                     # 这一路起不来（导入期就炸）
         return (label, module, 0, [label], "\n===== %s 起不来 =====\n%s" % (label, exc),
-                time.time() - started, buf.getvalue() + concurrency_warning())
+                time.time() - started, buf.getvalue() + concurrency_warning(), [])
     finally:
         # 一路测试可能通过 Desktop → asset_thumbs 启动后台 Tk 解码器；测试进程退出
         # 不会替它收尾，导致全量并行后积累几十个 Python 进程并让 smoke 卡住。
@@ -1064,6 +1067,18 @@ def cleanup_unit_helpers():
 def slowest_units(results, limit=SLOW_UNITS_LIMIT):
     """按耗时降序给出有限的工作单元摘要；不影响执行或成功判定。"""
     return sorted(results, key=lambda item: item[5], reverse=True)[:max(0, limit)]
+
+
+def skip_summary(results):
+    """实际跳过的用例清单：登记位不等于已跳过，只有跑起来才知道（T8 口径）。
+
+    返回按模块与用例排序的 (模块, 用例, 原因)；工作单元是分块跑的，同一文件可能出现多次。
+    """
+    rows = []
+    for item in results:
+        for test, reason in item[7] if len(item) > 7 else []:
+            rows.append((item[1], test, reason))
+    return sorted(rows)
 
 
 def print_unit_result(item):
@@ -1344,6 +1359,15 @@ def main(argv=None):
             print('最慢 %d 路工作单元：' % len(slow))
             for item in slow:
                 print('  %-26s %6.1f 秒 / %d 条' % (item[0], item[5], item[2]))
+        skips = skip_summary(got)
+        if skips:
+            print('实际跳过 %d 条用例（登记位不等于已跳过）：' % len(skips))
+            for module, test, reason in skips[:SKIP_REPORT_LIMIT]:
+                print('  %-24s %s ← %s' % (module, test, reason))
+            if len(skips) > SKIP_REPORT_LIMIT:
+                print('  …还有 %d 条未打印' % (len(skips) - SKIP_REPORT_LIMIT))
+        else:
+            print('实际跳过 0 条用例：本机没有任何登记位被跳过')
         for name, bad, detail in reds:
             print('\n### %s（%d 条红）' % (name, len(bad)))
             print(detail)

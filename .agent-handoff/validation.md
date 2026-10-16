@@ -8,6 +8,7 @@ R1624：HEAD 13dea0a92396b5abd2317009caec19dbfad8d6a0，2026-10-17 02:01:23 绿�
 - 这几轮改的是 `tests/`、`说明/`、状态页与交接文件：按 §5 不计源码轮，各自只跑定向＋默认冒烟 8/8＋架构门禁（356 项），**没有**各自跑全量，也没有新增全量欠账。
 - R1632：定向 7 个文件 70 项 OK（72.5 秒，含新收编的全链 E2E 32.5 秒与 soak 18 秒）、默认冒烟 8/8、架构门禁 356/356（190.9 秒）。
 - R1633（T6 本地两条）：定向 `tests.test_perf_batch_queue` 3/3（5.5 秒）、默认冒烟 8/8、架构门禁 356/356；未跑全量。
+- R1635（T8 剩余）：定向 `tests.test_selftests` 52/52、条件类站点实跑 219 条用例（1 跳过，见 `程序/outputs/skips_r1635.log`）、默认冒烟 8/8、架构门禁 356/356；未跑全量（沙箱内派生进程被拒，全量须在沙箱外跑）。
 - 新增测试文件与用例会进入下一次源码轮的全量：R1624（13dea0a）的凭据不覆盖当前树，不冒称同树全量。
 
 ## R1610 清单执行期（R1611–R1626）证据
@@ -39,3 +40,9 @@ R1624：HEAD 13dea0a92396b5abd2317009caec19dbfad8d6a0，2026-10-17 02:01:23 绿�
 - O10 agent.core.save_file 按块复制并校验摘要/长度，collect_download_inbox 在发布事务内调用。
 - O12 usage_overview.estimate_scenario 缺费率/币种/版本不给金额。
 - 门禁日志：r1606-architecture-fixed.log(345/164.456s)、r1607/1608/1609-architecture.log(345)、各轮 smoke 0 失败。
+## R1635 收尾复核（阶段4 定向用例，本轮提交）
+- T4／T5／T6：tests/test_model_output_contract.py 与 tests/test_outbound_request_contract.py 与 tests/test_perf_batch_queue.py 共 38 项 OK（9.0 秒）。
+- T2／T3／T8：tests/test_stage_gate_e2e_probe.py 与 tests/test_selftests.py 共 57 项 OK（6.0 秒）。
+- T1／T7：tests/test_recovery_delivery_e2e.py 与 tests/test_soak_light.py 共 8 项 OK（51.5 秒；真实全链 32.9 秒，预算 150 秒）。
+- 沙箱内派生隔离进程被拒（Errno 5），自检器退回同进程执行，与既有记录一致；未跑全量，不冒称同树全量。
+- R1635 门禁收尾：架构门禁 356 项 OK（196.9 秒）、默认冒烟 8/8 通过、轮次连续性守护 OK；本树仍未跑全量。
