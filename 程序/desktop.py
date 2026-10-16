@@ -36,7 +36,7 @@ import ui_plugin_registry
 import stage_handler_registry
 from platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from desktop_startup_service import DesktopStartupController
-from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, RetryRegistry
+from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from idea_chat_controller import IdeaChatController, speaker_name
 from ui_tokens import COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 from ui_dialogs import FileDialog
@@ -212,7 +212,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
     def __init__(self,win,root=ROOT):
         self._diagnostic_start=time.perf_counter()
         from stage_execution_service import project_registry_gateway
-        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle();self.task_queue=BackgroundTaskQueue();self.retry_registry=RetryRegistry();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
+        self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle();self.task_queue=PersistentBackgroundTaskQueue(self.app/'outputs'/'desktop-task-queue.json',handlers={'storage_inspect':inspect_project_storage});self.retry_registry=RetryRegistry();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0
         self._legacy_project_migration_results=queue.Queue();self._legacy_project_migration_poll_id=None
         self._legacy_project_migration_started=False
@@ -919,8 +919,13 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         position=self.task_queue.enqueue(fn,done,label or '',show_progress,retryable)
         self.status.set('已排队（第%d个）：%s'%(position,label or '后台任务'))
         return None
+    def async_descriptor(self,kind,payload,*,label='',priority=0,expires_at=None):
+        task_id=self.task_queue.enqueue_descriptor(kind,payload,label=label,priority=priority,expires_at=expires_at)
+        self.status.set('已排队：'+label)
+        self._start_next_queued()
+        return task_id
     def _start_next_queued(self):
-        """当前主动任务收尾后接着做下一个排队任务；窗口正在关闭时丢弃。"""
+        """当前主动任务收尾后继续待办；关闭期间不领取，持久待办留待重启。"""
         if self.worker or getattr(self,'shutting_down',False):return
         item=self.task_queue.pop()
         if item:
@@ -1102,6 +1107,8 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         # 外部入口已经装配好的项目）不能让延后的首帧回调覆盖刚完成的操作结果。
         if self.root is None and not self.worker and not self.projects.legacy_migration_pending:
             self.status.set('正在打开今日项目…')
+        if isinstance(getattr(self,'task_queue',None),PersistentBackgroundTaskQueue):
+            self._start_next_queued()
 
 
     def _request_tick_resume_after_first_paint(self):

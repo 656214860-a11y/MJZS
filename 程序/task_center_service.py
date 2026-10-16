@@ -22,6 +22,7 @@ def snapshot(lifecycle=None, degradations=None, queue=None, retry=None) -> dict:
     return {
         'last_task': dict(last) if isinstance(last, dict) else None,
         'queued': list(queue.labels()) if hasattr(queue, 'labels') else [],
+        'unresolved_queue': list(queue.unresolved()) if hasattr(queue, 'unresolved') else [],
         'task_history': history,
         'retry_ticket': retry.latest_failed_ticket(history) if hasattr(retry, 'latest_failed_ticket') else None,
         'timings': metrics,
@@ -37,6 +38,9 @@ def format_lines(data: dict) -> list:
     lines.append('  暂无' if not task else '  #%s %s' % (task.get('ticket'), STATE_TEXT.get(task.get('state'), task.get('state'))))
     lines.append('【排队中（前一项结束后依次执行）】')
     lines += ['  %d. %s' % (n, name or '（无名称）') for n, name in enumerate(data.get('queued', []), 1)] or ['  无']
+    if data.get('unresolved_queue'):
+        lines.append('【已领取、尚无完成记录（运行中或需核对，不自动重提）】')
+        lines += ['  %s %s' % (row['id'], row['label']) for row in data['unresolved_queue']]
     lines.append('【最近完成的主动任务（最新在后，最多 20 条）】')
     for row in data.get('task_history', []):
         lines.append('  #%s %s %s%s' % (row.get('ticket'), STATE_TEXT.get(row.get('state'), row.get('state')),

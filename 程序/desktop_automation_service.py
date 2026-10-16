@@ -132,6 +132,154 @@ class BackgroundTaskQueue:
         self._items.clear()
 
 
+class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
+    """描述符落盘；领取先于执行，未知在途任务只登记、不自动重提。"""
+
+    def __init__(self, path, *, handlers, clock=time.time, aging_seconds=60, limit=QUEUE_LIMIT):
+        super().__init__(limit)
+        from pathlib import Path
+        self.path = Path(path)
+        self.handlers = dict(handlers)
+        self.clock = clock
+        self.aging_seconds = max(1, aging_seconds)
+
+    def _load(self):
+        from agent.core import read
+        data = read(self.path) if self.path.exists() else {'version': 1, 'tasks': []}
+        if data.get('version') != 1 or not isinstance(data.get('tasks'), list):
+            raise ValueError('排队记录损坏，未重建或重提任务')
+        return data
+
+    def _save(self, data):
+        from agent.core import save
+        active = [row for row in data['tasks'] if row['state'] in ('queued', 'claimed')]
+        history = [row for row in data['tasks'] if row['state'] not in ('queued', 'claimed')]
+        data['tasks'] = active + history[-HISTORY_LIMIT:]
+        save(self.path, data)
+
+    def _expire(self, data):
+        changed = False
+        for row in data['tasks']:
+            if row['state'] == 'queued' and row.get('expires_at') is not None and self.clock() >= row['expires_at']:
+                row['state'] = 'expired'
+                changed = True
+        return changed
+
+    def _key(self, row):
+        age = max(0, self.clock() - row['created']) // self.aging_seconds
+        return (-row['priority'] - age, row['created'])
+
+    def enqueue(self, fn, done=None, label='', show_progress=True, retryable=False, *, priority=0):
+        from agent.publication import transaction
+        priority = int(priority)
+        with transaction():
+            data = self._load()
+            if self._expire(data):
+                self._save(data)
+            if len(self._items) + sum(row['state'] == 'queued' for row in data['tasks']) >= self._limit:
+                raise ValueError('排队任务已满，请等当前任务结束')
+            super().enqueue(fn, done, label, show_progress, retryable)
+            self._items[-1].update(priority=priority, created=self.clock())
+            return len(self.labels())
+
+    def enqueue_descriptor(self, kind, payload, *, label='', priority=0, expires_at=None):
+        import json
+        import math
+        import uuid
+        from agent.publication import transaction
+        if kind not in self.handlers:
+            raise ValueError('未注册的可恢复任务类型：' + str(kind))
+        if expires_at is not None and (not isinstance(expires_at, (int, float)) or not math.isfinite(expires_at)):
+            raise ValueError('任务过期时间必须是有限时间戳')
+        # Deep-copy only JSON data; callbacks and live UI objects never reach disk.
+        payload = json.loads(json.dumps(payload, allow_nan=False))
+        if not isinstance(payload, dict):
+            raise TypeError('可恢复任务参数必须是对象')
+        row = {'id': uuid.uuid4().hex, 'kind': kind, 'payload': payload, 'label': str(label),
+               'priority': int(priority), 'created': self.clock(), 'expires_at': expires_at, 'state': 'queued'}
+        with transaction():
+            data = self._load()
+            self._expire(data)
+            if len(self._items) + sum(item['state'] == 'queued' for item in data['tasks']) >= self._limit:
+                raise ValueError('排队任务已满，请等当前任务结束')
+            data['tasks'].append(row)
+            self._save(data)
+        return row['id']
+
+    def _finish(self, task_id, state):
+        from agent.publication import transaction
+        with transaction():
+            data = self._load()
+            for row in data['tasks']:
+                if row['id'] == task_id and row['state'] == 'claimed':
+                    row['state'] = state
+                    self._save(data)
+                    return
+
+    def pop(self):
+        from agent.publication import transaction
+        with transaction():
+            data = self._load()
+            changed = self._expire(data)
+            choices = list(self._items) + [row for row in data['tasks'] if row['state'] == 'queued']
+            if not choices:
+                if changed: self._save(data)
+                return None
+            row = min(choices, key=self._key)
+            if 'fn' in row:
+                self._items.remove(row)
+                if changed: self._save(data)
+                return row
+            row['state'] = 'claimed'
+            self._save(data)
+        def run():
+            try:
+                handler = self.handlers.get(row['kind'])
+                if handler is None:
+                    raise ValueError('恢复任务类型不可用：' + row['kind'])
+                result = handler(row['payload'])
+            except Exception:
+                # A handler may have submitted remotely before its exception.
+                # Keep the durable claim for reconciliation; never auto-retry it.
+                raise
+            self._finish(row['id'], 'completed')
+            return result
+        return {'fn': run, 'done': None, 'label': row['label'], 'show_progress': True,
+                'retryable': False, 'task_id': row['id']}
+
+    def labels(self):
+        from agent.publication import access
+        with access():
+            rows = list(self._items) + [row for row in self._load()['tasks'] if row['state'] == 'queued'
+                and (row.get('expires_at') is None or row['expires_at'] > self.clock())]
+            return [row['label'] for row in sorted(rows, key=self._key)]
+
+    def unresolved(self):
+        from agent.publication import access
+        with access():
+            return [dict(row) for row in self._load()['tasks'] if row['state'] == 'claimed']
+
+    def cancel(self, task_id):
+        from agent.publication import transaction
+        with transaction():
+            data = self._load()
+            for row in data['tasks']:
+                if row['id'] == task_id and row['state'] == 'queued':
+                    row['state'] = 'cancelled'
+                    self._save(data)
+                    return True
+        return False
+
+    def clear(self):
+        from agent.publication import transaction
+        with transaction():
+            data = self._load()
+            for row in data['tasks']:
+                if row['state'] == 'queued': row['state'] = 'cancelled'
+            self._save(data)
+            super().clear()
+
+
 class RetryRegistry:
     """可重试任务的登记：只有调用方声明“只读／幂等”的任务才登记，失败后由用户手动重试。
 
@@ -282,3 +430,34 @@ class BackgroundTaskLifecycle:
             return
         self._late.append({'ticket': ticket, 'succeeded': bool(succeeded)})
         del self._late[:-LATE_RESULT_LIMIT]
+
+
+def inspect_project_storage(payload):
+    """可恢复的只读盘点：只保存项目路径，不捕获窗口或当前项目。"""
+    from pathlib import Path
+    from storage_maintenance import storage_summary
+    from engine import adopted_edit_version
+    if set(payload) != {'root'} or not isinstance(payload['root'], str):
+        raise ValueError('存储盘点参数无效')
+    root = Path(payload['root'])
+    if not root.is_absolute() or not root.is_dir():
+        raise ValueError('存储盘点项目目录不存在')
+    report = storage_summary(root, select_adopted=adopted_edit_version)
+    sizes = report['bytes']
+    lines = ['存储盘点（只读）', str(root)]
+    for key, title in (('protected', '来源声明及明确引用文件'), ('unclassified', '其他文件（未证明可清理）'), ('recycled', '回收站（仍占磁盘）')):
+        lines.append('%s：%.2f MiB' % (title, sizes[key] / 1048576))
+    lines.append('旧生成版本保留期：%s天；采用、成片引用、未结算和锁定版本保留。' % (report['retention_days'] or '配置无效'))
+    for key, title in (('adopted_bytes', '当前采用版本'), ('other_version_bytes', '其余生成版本'), ('recyclable_bytes', '可回收旧生成版本')):
+        value = report[key]
+        lines.append('%s：%s' % (title, '未知' if value is None else '%.2f MiB' % (value / 1048576)))
+    lines.append('同盘可恢复回收立即释放：0 MiB；保留期可在项目 storage_policy.json 的 retention_days 配置。')
+    for row in report['versions'][:50]:
+        lines.append('%s v%s：%.2f MiB，%s，%s' % (row['shot'], row['version'], row['bytes'] / 1048576,
+                     '当前采用' if row.get('adopted') else '未采用', row['reason']))
+    if len(report['versions']) > 50:
+        lines.append('另有%d个版本，以上总量包含全部版本。' % (len(report['versions']) - 50))
+    lines.append('项目首页可恢复回收站内容；本操作不移动或删除文件。')
+    if report['errors']:
+        lines.append('盘点不完整／自动清理阻断：' + '；'.join(report['errors'][:5]))
+    return '\n'.join(lines)

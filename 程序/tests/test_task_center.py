@@ -209,6 +209,22 @@ class TaskCenterServiceTests(unittest.TestCase):
 
 
 class TaskCenterUiTests(unittest.TestCase):
+    def test_cancel_pending_button_clears_queue(self):
+        from desktop_automation_service import BackgroundTaskQueue
+        root = tk.Tk()
+        root.withdraw()
+        self.addCleanup(root.destroy)
+        class Desk:
+            win = root
+            task_queue = BackgroundTaskQueue()
+        desk = Desk()
+        desk.task_queue.enqueue(lambda:None, label='pending')
+        dialog = task_center_ui.show(desk)
+        buttons = [w for w in dialog._descendants(dialog) if w.winfo_class() in ('Button', 'TButton')]
+        button = next(w for w in buttons if w.cget('text') == '取消全部待执行任务')
+        button.invoke()
+        self.assertEqual(desk.task_queue.labels(), [])
+
     def test_dialog_is_read_only_and_shows_summary(self):
         root = tk.Tk()
         root.withdraw()
