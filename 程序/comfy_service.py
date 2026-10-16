@@ -151,7 +151,7 @@ class Comfy:
             if not isinstance(profile, dict):
                 raise ValueError('成本配置格式不正确')
             if profile.get('budget_amount') is not None:
-                raise ValueError('此工作流无法预估费用，不能在项目金额预算内提交；请改用已计价工作流，或明确关闭金额预算后运行并核对实际费用')
+                raise ValueError('无法预估费用，预算已阻止提交；请换已计价工作流，或明确关闭金额预算后核对实际费用')
         cost_id = 'comfy:' + uuid.uuid4().hex if model else None
         if model:
             from pet_llm import RequestLedger
