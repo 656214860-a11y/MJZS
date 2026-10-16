@@ -1166,7 +1166,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
                 from previs_automation import force_stop
                 force_stop(self.root,state)
             except Exception as exc:
-                print('强制关闭：白模批次未收干净（'+str(exc)+'）')
+                LOGGER.warning('强制关闭：白模批次未收干净（%s）', exc)
         self.stop_automation_processes()
         self._closing=True
         try:self.flush_brief()
@@ -1182,7 +1182,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             from workflow_engines import terminate
             killed=terminate(self.root)
         except Exception as exc:
-            print('关闭：引擎进程未收干净（'+str(exc)+'）')
+            LOGGER.warning('关闭：引擎进程未收干净（%s）', exc)
             return []
         self.flow_processes={}
         return killed

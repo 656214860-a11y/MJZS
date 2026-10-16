@@ -88,6 +88,8 @@ R1139：L3 `codex_skill_sync` 通过注册表物化所有已登记阶段（含�
 
 ## 3. 分层判定
 
+R1623：运行期诊断统一走 `logging`（`app_logging` 在启动时装好 `logs/app.log` 的文件处理器并脱敏）。生产模块里的 `print` 在 pythonw 下是静默空操作，只允许登记的控制台入口保留——命令行工具（`engine_probe`／`shot_numbering`／`workspace_maintenance`／`log_maintenance`／`exit_maintenance`／`app_icon`／`app_shortcut`／`asset_thumbs`）、子进程协议 `image_agent_runner`、控制台提交 `console_submit` 与双通道 `broadcaster`；由 `test_print_ratchet.py` 冻结，只许下降。
+
 R1125：L3 `skill_notes` 负责阶段配置的中文阅读副本：优先中文说明、本地术语翻译、经现有模型路由后台翻译及内容哈希缓存；L4 `skill_panel` 只处理选择与显示。代码、地址、路径和执行源文件保持原样；失败保留原文并提示，不阻断导入。
 
 R1074：L3 `exit_maintenance.launch_cleanup()` 集中退出后的三路派发顺序、正常／强制退出差异、可选启动 OSError 降级与固定大小的脱敏派发摘要。L4 只传程序位置及退出意图；工作进程保持独立，既有清理实现、范围和回收策略不变。摘要只报告 scheduled／launch-failed／skipped-force／not-attempted，完成状态明确 unobserved；不把启动当作清理完成，不新增等待、重试或持久化出口。

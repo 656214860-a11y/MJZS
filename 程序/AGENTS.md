@@ -287,7 +287,7 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
 - 体验与布局：`test_responsive_layout_contract.py`、`test_combobox_boundary.py`。
 - 启动预算：`test_startup_budget.py`。
 - 历史兼容门面：`test_legacy_facade_manifest.py`。
-- 轮次与基线／测试卫生：`test_round_baselines.py`、`test_skip_hygiene.py`、`test_silent_exception_ratchet.py`、`test_module_size_ratchet.py`、`test_todo_comment_snapshot.py`、`test_static_hygiene.py`、`test_function_size_ratchet.py`。
+- 轮次与基线／测试卫生：`test_round_baselines.py`、`test_skip_hygiene.py`、`test_silent_exception_ratchet.py`、`test_module_size_ratchet.py`、`test_todo_comment_snapshot.py`、`test_static_hygiene.py`、`test_function_size_ratchet.py`、`test_print_ratchet.py`。
 - 覆盖率审计棘轮：`test_coverage_audit_ratchet.py`、`test_secret_sink_audit.py`、`test_coverage_baseline.py`。
   行覆盖度量为定向测量：工具 `scripts/coverage_report.py`（`sys.settrace`，零第三方依赖），基线 `维护记录/覆盖率基线.json`；只记基线＋核心路径下限，不重跑测量，口径与诚实边界见 `tasks_round/tasks_round_1616_result.md`。
   密钥静态审计仅覆盖有限函数内传播，支持范围与漏检／误报边界见 `tasks_round/tasks_round_1054_result.md` D–F，不将零命中解释为全路径安全。

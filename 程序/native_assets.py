@@ -3,6 +3,7 @@ import app_logging
 import base64
 import hashlib
 import json
+import logging
 import os
 import queue
 import threading
@@ -19,6 +20,8 @@ from cloud_assets import MODELS as CLOUD_MODELS
 import tk_timers
 from ui_tokens import SPACING
 
+
+LOGGER = logging.getLogger(__name__)
 
 
 LOCAL='FLUX.2 Klein（本地）'
@@ -491,7 +494,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                 # 第 65 期任务 1：这里原来把异常原文直接拼给用户
                 # （弹窗里那句英文「HTTP Error 500 ...」就是这么漏出来的）。
                 # 现在只报一句人话，异常原文留在终端日志里方便排查。
-                print('制图未开始：', repr(exc))
+                LOGGER.warning('制图未开始：%r', exc)
                 return '制图没能开始，请点「启动并检测」重试'
         app.async_(work,finished,show_progress=False)
     # 第 65 期任务 1：这一排只留「启动并检测」和「取消检测」。「手动制作资产」撤掉——检测通过就自动开跑
