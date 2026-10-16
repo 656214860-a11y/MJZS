@@ -2,6 +2,8 @@
 """阶段成果发布编排器的无 Tk 回归。"""
 import tempfile
 import unittest
+import subprocess
+import sys
 from pathlib import Path
 
 from stage_execution_service import publish_stage_bundle, publish_stage_bytes, publish_stage_text
@@ -14,6 +16,35 @@ class StagePublicationTests(unittest.TestCase):
 
     def tearDown(self):
         self.folder.cleanup()
+
+    def test_restart_after_process_death_restores_the_entire_bundle(self):
+        from agent.core import read, save
+        root = Path(self.folder.name)
+        first, second = root / 'first.json', root / 'second.json'
+        save(first, {'version': 'old-first'})
+        save(second, {'version': 'old-second'})
+        script = '''
+import os, sys
+from pathlib import Path
+from agent import core
+from stage_execution_service import publish_stage_bundle
+root = Path(sys.argv[1])
+original = core.replace
+def die_after_first(source, target):
+    original(source, target)
+    if Path(target).name == 'first.json':
+        os._exit(77)
+core.replace = die_after_first
+publish_stage_bundle({root/'first.json': b'{"version":"new-first"}',
+                      root/'second.json': b'{"version":"new-second"}'},
+                     lambda rows: True, lambda: None)
+'''
+        result = subprocess.run([sys.executable, '-B', '-c', script, str(root)],
+                                cwd=Path(__file__).resolve().parents[1],
+                                capture_output=True, timeout=15)
+        self.assertEqual(result.returncode, 77, result.stderr.decode(errors='replace'))
+        self.assertEqual(read(first), {'version': 'old-first'})
+        self.assertEqual(read(second), {'version': 'old-second'})
 
     def test_validated_publish_updates_index_after_atomic_file(self):
         calls = []

@@ -833,6 +833,7 @@
     "count": 0,
         "baseline_pending": 35,
         "items": [
+            {"file": "agent/publication.py", "point": "55", "disposition": "exempt", "reason": "R1599\uff1a\u5e95\u5c42\u5199\u524d\u65e5\u5fd7\u6062\u590d\u9700\u76f4\u63a5\u8bfb\u53d6\u4e8b\u52a1\u65e5\u5fd7\uff0c\u4e0d\u80fd\u8c03\u7528\u4f1a\u91cd\u65b0\u8fdb\u5165\u6062\u590d\u7684core/read\u6216\u7f13\u5b58\u3002"},
             {
                 "file": "writing_quality.py",
                 "point": "62",
@@ -847,13 +848,13 @@
             },
             {
                 "file": "agent/core.py",
-                "point": "13",
+                "point": "15",
                 "disposition": "exempt",
                 "reason": "\u5199\u5165\u6743\u5a01\u81ea\u8eab"
             },
             {
                 "file": "agent/core.py",
-                "point": "207",
+                "point": "217",
                 "disposition": "exempt",
                 "reason": "\u5199\u5165\u6743\u5a01\u81ea\u8eab"
             },
@@ -985,13 +986,13 @@
             },
             {
                 "file": "file_cache.py",
-                "point": "55",
+                "point": "57",
                 "disposition": "exempt",
                 "reason": "\u7f13\u5b58\u6743\u5a01\u81ea\u8eab"
             },
             {
                 "file": "file_cache.py",
-                "point": "141",
+                "point": "147",
                 "disposition": "exempt",
                 "reason": "R831：缓存权威集中执行带前后签名校验的稳定工作 JSON 快照读取。"
             },
@@ -1135,7 +1136,7 @@
             },
             {
                 "file": "stage_parallel.py",
-                "point": "455",
+                "point": "469",
                 "disposition": "exempt",
                 "reason": "R830：经 file_cache.read_text 读取后的 JSONL 单行日志解码，不是正式 JSON 文件读取。（R1383：文件顶部加 import pet_bus 使该行由 454 平移至 455，语义不变。）"
             },

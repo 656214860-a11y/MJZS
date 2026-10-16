@@ -1172,6 +1172,12 @@ def stage_context(desktop, stage, function=None, extra=None):
     return context
 
 
+def recover_stage_publications():
+    """在打开项目、读取直接路径之前恢复中断的成果事务。"""
+    from agent.publication import recover_pending
+    recover_pending()
+
+
 def publish_stage_text(target, text, validate, update_index, encoding='utf-8', *, allow_empty=False):
     """按“校验 → 原子发布 → 索引更新”发布单份阶段文本成果。
 
@@ -1193,14 +1199,11 @@ def publish_stage_text(target, text, validate, update_index, encoding='utf-8', *
     if verdict is False:
         raise ValueError('阶段成果内容校验未通过，未发布成果。')
 
-    from agent.core import restore_bytes, save_text
-    previous = target.read_bytes() if target.is_file() else None
-    save_text(target, value, encoding=encoding)
-    try:
+    from agent.core import save_text
+    from agent.publication import transaction
+    with transaction():
+        save_text(target, value, encoding=encoding)
         update_index(target)
-    except Exception:
-        restore_bytes(target, previous)
-        raise
     return target
 
 
@@ -1220,14 +1223,11 @@ def publish_stage_bytes(target, data, validate, update_index):
     if verdict is False:
         raise ValueError('阶段成果内容校验未通过，未发布成果。')
 
-    from agent.core import restore_bytes, save_bytes
-    previous = target.read_bytes() if target.is_file() else None
-    save_bytes(target, value)
-    try:
+    from agent.core import save_bytes
+    from agent.publication import transaction
+    with transaction():
+        save_bytes(target, value)
         update_index(target)
-    except Exception:
-        restore_bytes(target, previous)
-        raise
     return target
 
 
@@ -1248,16 +1248,12 @@ def publish_stage_bundle(artifacts, validate, update_index):
     if verdict is False:
         raise ValueError('阶段成果包内容校验未通过，未发布成果。')
 
-    from agent.core import restore_bytes, save_bytes
-    previous = {path: path.read_bytes() if path.is_file() else None for path, _data in items}
-    try:
+    from agent.core import save_bytes
+    from agent.publication import transaction
+    with transaction():
         for path, data in items:
             save_bytes(path, data)
         update_index()
-    except Exception:
-        for path, _data in reversed(items):
-            restore_bytes(path, previous[path])
-        raise
     return tuple(path for path, _data in items)
 
 

@@ -10,7 +10,9 @@ from pathlib import Path
 
 
 def read(path):
-    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    from agent.publication import access
+    with access():
+        return json.loads(Path(path).read_text(encoding="utf-8-sig"))
 
 
 def read_json(path, default=None):
@@ -31,7 +33,9 @@ _PUBLISH_LOCKS = tuple(threading.RLock() for _ in range(64))
 def replace(source, target):
     """同路径发布串行化，避免本进程多个写线程争抢 Windows 替换句柄。"""
     key = os.path.normcase(os.path.abspath(target))
-    with _PUBLISH_LOCKS[hash(key) % len(_PUBLISH_LOCKS)]:
+    from agent.publication import access, before_replace
+    with access(), _PUBLISH_LOCKS[hash(key) % len(_PUBLISH_LOCKS)]:
+        before_replace(target)
         _replace_locked(source, target)
 
 
@@ -82,7 +86,10 @@ def save_text(path, text, encoding="utf-8"):
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = temporary_path(path)
     try:
-        temp.write_text(str(text), encoding=encoding)
+        with temp.open('w', encoding=encoding) as stream:
+            stream.write(str(text))
+            stream.flush()
+            os.fsync(stream.fileno())
         replace(temp, path)
     finally:
         # replace 成功后临时文件已不存在；失败时清理本轮残留，旧正式文件不受影响。
@@ -96,7 +103,10 @@ def save_bytes(path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = temporary_path(path)
     try:
-        temp.write_bytes(bytes(data))
+        with temp.open('wb') as stream:
+            stream.write(bytes(data))
+            stream.flush()
+            os.fsync(stream.fileno())
         replace(temp, path)
     finally:
         if temp.exists():

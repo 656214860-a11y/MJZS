@@ -12,6 +12,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from agent.core import read  # 兼容仍由外部替换的历史测试钩子。
+from agent.publication import access
 
 
 def _key(path):
@@ -37,6 +38,7 @@ def _cached_content(cache, key, token, data):
     return None
 
 
+@access()
 def read_json(path):
     key = _key(path)
     try:
@@ -57,6 +59,7 @@ def read_json(path):
     return data
 
 
+@access()
 def read_text(path, encoding='utf-8-sig', errors=None):
     """读取用于 UI 预览的文本，并在文件未变时复用结果。"""
     key = (_key(path), encoding, errors)
@@ -78,6 +81,7 @@ def read_text(path, encoding='utf-8-sig', errors=None):
     return data
 
 
+@access()
 def read_bytes(path):
     """读取大文本的原始字节并按文件签名复用，供编码探测类预览使用。"""
     key = _key(path)
@@ -98,6 +102,7 @@ def read_bytes(path):
     return data
 
 
+@access()
 def file_digest(path):
     """流式 sha256 校验和（十六进制），按文件签名缓存；从不把整份文件读进内存。
 
@@ -125,6 +130,7 @@ def file_digest(path):
     return value
 
 
+@access()
 def read_stable_json_snapshot(path):
     """读取写入中的工作 JSON，并确认本次读取前后文件签名没有变化。
 

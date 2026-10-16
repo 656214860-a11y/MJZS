@@ -105,6 +105,8 @@ R1073：L3 `pet_chat_coordinator.ChatCoordinator` module 独占待单击任务�
 
 ### 已验证的发布边界
 
+R1599：阶段文本、二进制与成果包发布使用 `agent.publication` 持久化写前日志，回调内经 `agent.core.replace` 写入的索引属于同一事务。安装目录内的发布进程通过文件锁串行化；`core.read`、缓存读取及桌面打开项目前恢复未提交事务。旧文件采用流式备份，提交或回滚标记落盘后才清理。保证范围为受控发布入口及恢复后的读取；外部编辑器、任意裸路径并发读取和物理介质断电不据此宣称整包原子。
+
 R806 将三虎增量自检账本纳入 L3 发布边界：`pet_test_service.record()` 不再自行发布项目 JSON，`stage_execution_service.poll_pet_test_check()` 通过 `pet_test_gateway()` 注入原子发布器；`pet_ui` 只经 `stage_handler_registry.start()` 启动并由 L3 轮询。重复次数、失败用例脱敏摘要与失败时不落账本的语义不变。
 
 R808 将定稿分镜编辑发布纳入 L3 发布边界：`storyboard_edit_service.save_edited_json()` 仅接收注入的 JSON 发布器，`storyboard_final_controller` 只委托 `stage_execution_service.save_edited_stage_storyboard()`，并由 `storyboard_edit_gateway()` 装配。路径格式校验、原子失败不覆盖旧文件与返回路径语义不变。

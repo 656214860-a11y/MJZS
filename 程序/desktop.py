@@ -1565,6 +1565,8 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.preserve_idea_draft()
         self.brief_editor=None
     def load(self,path,*,defer_page=False):
+        from stage_execution_service import recover_stage_publications
+        recover_stage_publications()
         # 第 45 期：项目文件夹被移走／删掉时，先给一句能照做的话——原来会一路抛到
         # 「[Errno 2] No such file or directory: …」这种原始报错，用户看不懂也不知道删哪一项。
         if path and not Path(path).is_dir():
