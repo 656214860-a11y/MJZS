@@ -1,5 +1,7 @@
 - 2026-10-16：R1507 接续 R1505／R1506 拆分验证。核验 R1506 真实全量凭据与干净 master e34e095 内容树一致，执行器接受复用；默认冒烟 8/8。交接快照由 R1422 更新至 R1507，保留长期决策边界；具体检查与收尾见 [R1507](../程序/tasks_round/tasks_round_1507_result.md)。
 
+2026-10-16 R1591：核对R1590用户延期决定及R1588/R1590验证；压缩当前快照、待办、风险及验证，原文保存在history/r1591-handoff-before。交接未修改产品或用户预设。
+
 - 2026-10-13：R1402（功能轮 §3.1，设计 token 末页）`agent/prompt_optimizer.py` 10 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token（12→md×8、8→sm×2）＋新增 `from ui_tokens import SPACING`；同步行号平移（架构统一基数 第四项 175→176、覆盖率审计21 位点 173→174）。`test_token_boundary` 16→6。验证：定向 8/8、默认冒烟 8/8、架构 341/341；1402−1400=2<5 且未命中 §5，不跑全量。提交内容 `8274dee`。**决策-free 子集至此全部迁完（五轮累计 81 处）；后续必须先有调色板决议。**
 
 - 2026-10-13：R1401（功能轮 §3.1，设计 token）`desktop.py` 13 处内联 `padx/pady`（值恰等于 `ui_tokens.SPACING`）改 token（零视觉变更；无新增 import、行数不变、无行号平移）；未动 31 处 hex（属调色板决策，且 #ffffff 等值大小写会与 test_idea_chat 断言冲突）。`test_token_boundary` desktop.py 40→27。验证：默认冒烟 8/8、架构 341/341；**命中 §5**（启动路径＋1401−1396=5），干净 master `o07-fullsafe-master` 全量 **4983/4983、558.1 秒、0 红**（凭据 tree=`60d4e23d…`＝`a8a0803:程序`，last_full 1396→1400）。提交内容 `a8a0803`。四轮累计已迁内联间距 71 处；决策-free 子集基本耗尽。
