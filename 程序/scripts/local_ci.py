@@ -2,6 +2,15 @@
 
 由根目录 ``本地CI.cmd`` 调用；日志以 UTF-8 写入 ``程序/logs/ci_最近.log``，退出码非 0 即失败。
 通知分发器在 ``DRAMA_SUPPRESS_MODAL=1`` 下不弹系统模态框，整轮可无人值守跑完。
+
+模式（``本地CI.cmd <模式>``）：
+
+- 默认：默认冒烟 → 安全全量自检（``run_selftests.py --all --safe``，含架构门禁），用时约 8 分钟；
+- ``quick``：默认冒烟 → 增量门禁，改动少时的快跑；
+- ``targets``：按 ``logs/ci_targets.txt`` 逐行定向复跑；
+- ``exit``（R1624／Q10）：**静态门禁 → 架构门禁 → 默认冒烟**，不跑安全全量。这是机器可判定的
+  「CI 通过」出口——非 0 即失败，约 4 分钟，供提交前与流水线首段使用。静态门禁单列在前是为了
+  快速失败（秒级命中无效转义、裸 ``print``、行数上限、静默异常等），不必等完 3 分钟的架构全跑。
 """
 from __future__ import annotations
 
@@ -23,11 +32,34 @@ FULL_STEPS = (
     STEPS[0],
     STEPS[2],
 )
+# R1624／Q10：静态门禁子集单列，先于架构全跑，命中即快速失败。
+STATIC_GATE_TESTS = (
+    "tests.architecture.test_static_hygiene",
+    # R1624：静态名字检查（用了没定义的名字＝用户侧 NameError）也是静态门禁，别等架构全跑。
+    "tests.test_static_names",
+    "tests.architecture.test_print_ratchet",
+    "tests.architecture.test_module_size_ratchet",
+    "tests.architecture.test_function_size_ratchet",
+    "tests.architecture.test_silent_exception_ratchet",
+    "tests.architecture.test_todo_comment_snapshot",
+    "tests.architecture.test_skip_hygiene",
+)
+# 机器可判定的「CI 通过」出口：静态门禁＋架构门禁＋默认冒烟，非 0 即失败。
+EXIT_STEPS = (
+    STEPS[0],
+    ("静态门禁", ["-m", "unittest", *STATIC_GATE_TESTS]),
+    ("架构门禁", ["smoke_test.py", "--architecture"]),
+)
 
 
 def main(argv=None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    steps = STEPS[:2] if "quick" in args else FULL_STEPS
+    if "exit" in args:
+        steps = EXIT_STEPS
+    elif "quick" in args:
+        steps = STEPS[:2]
+    else:
+        steps = FULL_STEPS
     targets = PROGRAM / "logs" / "ci_targets.txt"
     if "targets" in args and targets.is_file():
         # 定向复跑：ci_targets.txt 每行一个 unittest 目标（如 tests.test_idea_chat），逐个详细输出。

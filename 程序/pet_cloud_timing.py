@@ -4,6 +4,7 @@
 由 pet_cloud 按原名转回。仍与 Tk 控件紧耦合，故与 pet_cloud 同属 L4。
 """
 import app_logging
+from pet_cloud_shape import SHAPE_ROUND
 from ui_tokens import PET_CLOUD_AUTO_CLOSE_MS
 
 

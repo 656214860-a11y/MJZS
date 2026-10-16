@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 
 import skill_notes
 import skill_panel
+import skill_panel_support
 
 
 class SkillNotesTests(unittest.TestCase):
@@ -115,7 +116,9 @@ class SkillNotesTests(unittest.TestCase):
 
     def test_workflow_note_hides_frontmatter_before_adding_label(self):
         source = '---\nname: workflow\ndescription: 统筹说明\ntools: [script.generate]\n---\n中文正文'
-        with patch.object(skill_panel, 'markdown_document', return_value=source):
+        # R1620 把 workflow_note_text 与 markdown_document 一起迁到 skill_panel_support，
+        # 调用点在那边解析名字：补丁要打在定义处，打在 skill_panel 的转出口上不生效。
+        with patch.object(skill_panel_support, 'markdown_document', return_value=source):
             shown = skill_panel.workflow_note_text('统筹技能', None)
         self.assertEqual(shown, '统筹技能\n\n简介：统筹说明\n\n中文正文')
 

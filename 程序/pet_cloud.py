@@ -50,7 +50,9 @@ from ui_widgets import BaseDialog, LineInput
 from pet_agent import PET_NAME as SPEAKER     # 猫咪的名字（三虎）：云朵里每句话都挂在它名下
 from pet_cloud_text import reply_lines as _reply_lines, tight
 from pet_cloud_geometry import inflate, inside_parts as _inside_parts, rounded_parts, shape_root as _shape_root, shift_part, square_parts as _square_parts
-from pet_cloud_shape import configured_value as _configured_value, normalized as _normalized_shape, text_box as _shape_text_box
+from pet_cloud_shape import (SHAPE_CLOUD, SHAPE_PUFF, SHAPE_ROUND, SHAPE_TAG, SHAPES,
+                             configured_value as _configured_value,
+                             normalized as _normalized_shape, text_box as _shape_text_box)
 from pet_cloud_tail import TAIL_BULGE, TAIL_CURVE_MAX, TAIL_STEPS, _side_curve, tail_points
 from ui_tokens import COLORS, FONTS, SPACING, PET_LAYOUT, PET_CLOUD_AUTO_CLOSE_MS
 from pet_cloud_timing import (ALPHA, FADE_MS, FADE_OUT_MS, FADE_OUT_STEPS, FADE_STEPS, GROW_ROOM, GROW_STEPS,
@@ -90,8 +92,7 @@ BG = COLORS['background_primary'] # 云外那层底色：用 -transparentcolor �
 # 第 57 期第 1 条：四种框**外形统一成方框**（就是第 24 期对话框那一种）——云朵框那圈鼓包、
 # 进度那个椭圆、标签那个大圆角都下线了，只保留颜色的区分（绿＝对话／红＝可爱话／蓝＝提示／
 # 清绿＝标签）与各自的宽窄。四个名字留着，是指「用哪两个颜色、多宽」，不再是四种外形。
-SHAPE_CLOUD, SHAPE_PUFF, SHAPE_ROUND, SHAPE_TAG = 'cloud', 'puff', 'round', 'tag'
-SHAPES = (SHAPE_CLOUD, SHAPE_PUFF, SHAPE_ROUND, SHAPE_TAG)
+# 四个名字本身定义在 pet_cloud_shape——pet_cloud_timing 也要用，见那边的说明。
 # 第 26 期第 5 条：三种常用框按用途分色——云朵框红、提示框蓝、对话框绿。都取浅底 ＋
 # 深一档的描边：底浅才压得住深色正文（正文是 #243247），描边深才在浅色界面上立得住。
 # 标签框（关软件那一眼的日报／周报）不在用户点名的那三种里，沿用原来那抹清绿。

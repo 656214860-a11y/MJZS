@@ -1,6 +1,7 @@
 @echo off
 rem Local CI launcher (R1428, roadmap G). ASCII only: no chcp, so Tcl/Tk keeps the system code page.
 rem Usage: double-click, or "local_ci quick" for smoke + gate only. Add "nopause" for unattended runs.
+rem        "local_ci exit" = static gates + architecture gates + default smoke: the machine-decidable CI exit (non-zero fails).
 setlocal
 set "PY="
 set "PROG="
