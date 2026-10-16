@@ -43,6 +43,28 @@ def error_class(error):
     return 'transport'
 
 
+def failure_policy(result):
+    """失败契约：HTTP 错误不等于未受理；远端编号优先阻止重复提交。"""
+    result = result or {}
+    status = result.get('status')
+    meta = result.get('response_meta') or {}
+    remote = result.get('provider_task_id') or result.get('task_id') or meta.get('response_id')
+    accepted = result.get('accepted')
+    if result.get('ok') or remote or accepted is True:
+        acceptance = 'accepted'
+    elif accepted is False or status in (400, 401, 403, 404, 422, 429):
+        acceptance = 'not_accepted'
+    else:
+        acceptance = 'unknown'
+    code = ('succeeded' if result.get('ok') else 'rate_limit' if status == 429 else 'authentication' if status in (401, 403)
+            else 'unsupported_request' if status in (400, 404, 422)
+            else 'server_error' if isinstance(status, int) and status >= 500
+            else 'cancelled' if result.get('error_class') == 'cancelled' else 'receipt_unknown')
+    retryable = acceptance == 'not_accepted' and code in ('rate_limit', 'server_error')
+    return {'reason_code': code, 'acceptance': acceptance,
+            'retryable': retryable, 'provider_task_id': remote}
+
+
 def label_of(model):
     """模型 id → 界面文案（认不出的原样返回）。"""
     text = str(model or '').strip()
@@ -154,10 +176,13 @@ class ModelAdapter:
 
     def chat(self, messages, options=None, model='', system=''):
         """统一入口：返回 {'ok', 'text', 'model', 'status', 'usage', 'error'}，不抛异常。"""
+        from platform_tools import current_execution
+        control = current_execution()
+        timeout = control.remaining(self.timeout) if control is not None else self.timeout
         target = str(model or '') or next(iter(self.models), '')
         try:
             payload = self.payload(target, messages, options, system)
-            result = self.transport(self.endpoint(), payload, self.headers(), self.timeout)
+            result = self.transport(self.endpoint(), payload, self.headers(), timeout)
         except TimeoutError:
             return {'ok': False, 'status': 0, 'kind': 'network',
                     'error': '模型响应超时，请稍后重试或切换更快模型。',
@@ -232,25 +257,32 @@ class ModelAdapter:
         return {'ok': bool(result.get('ok')), 'status': result.get('status'), 'error': result.get('error'),
                 'kind': result.get('kind') or '', 'model': target, 'text': text, 'usage': usage, 'data': data,
                 'error_class': '' if result.get('ok') else error_class(result.get('error')),
-                'response_meta': response_meta}
+                'response_meta': response_meta, 'accepted': result.get('accepted'),
+                'provider_task_id': result.get('provider_task_id') or result.get('task_id')}
 
     def stream(self, messages, options=None, model='', system='', on_chunk=None, cancelled=None):
-        """仅 chat 协议走 SSE；失败或非 chat 协议透明回退原有完整响应。"""
+        """仅 chat 协议走 SSE；已发送后失败不得自动再次提交。"""
         if self.wire_api != 'chat' or not callable(on_chunk):
             return self.chat(messages, options=options, model=model, system=system)
+        from platform_tools import current_execution
+        control = current_execution()
+        timeout = control.remaining(self.timeout) if control is not None else self.timeout
         target = str(model or '') or next(iter(self.models), '')
         try:
             payload = self.payload(target, messages, options, system)
-            result = model_pool.http_stream(self.endpoint(), payload, self.headers(), self.timeout,
+            result = model_pool.http_stream(self.endpoint(), payload, self.headers(), timeout,
                                             on_chunk, cancelled=cancelled)
-        except Exception:
-            return self.chat(messages, options=options, model=model, system=system)
+        except Exception as exc:
+            result = {'ok': False, 'status': 0, 'error': type(exc).__name__}
         if str(result.get('error') or '') == '请求已取消':
             return {'ok': False, 'status': 0, 'kind': 'client', 'error': '请求已取消', 'model': target, 'text': '',
                     'usage': pet_llm.usage_of(None), 'data': None, 'error_class': 'cancelled',
                     'response_meta': {'requested_model': target, 'wire_api': 'chat', 'content_length': 0}}
         if not result.get('ok') or not (result.get('data') or {}).get('choices'):
-            return self.chat(messages, options=options, model=model, system=system)
+            return {'ok': False, 'status': result.get('status', 0), 'model': target,
+                    'text': '', 'usage': pet_llm.usage_of(result),
+                    'error': result.get('error') or '流式结果不完整，需核对供应商回执',
+                    'failure': failure_policy(result)}
         text = str(result['data']['choices'][0]['message'].get('content') or '')
         return {'ok': True, 'status': result.get('status', 200), 'error': '', 'kind': '', 'model': target,
                 'text': text, 'usage': pet_llm.usage_of(result), 'data': result.get('data'),
@@ -471,6 +503,12 @@ class ModelRouter:
 
     # ── 选型 ────────────────────────────────────────────────────────────────
     def select(self, skill, context=None):
+        choice = self._select(skill, context)
+        choice.fallback_models = tuple(getattr(skill, 'fallbackModels', ()) or ()) if not choice.level else ()
+        choice.required_capabilities = tuple(getattr(skill, 'capabilities', ()) or ())
+        return choice
+
+    def _select(self, skill, context=None):
         """规格里的四步；挑不出来时返回一个 ok=False 的 Choice，并说清楚为什么。"""
         ctx = dict(context or {})
         kind = spend_kind(skill)
@@ -523,12 +561,35 @@ class ModelRouter:
         if not getattr(choice, 'ok', False):
             return {'ok': False, 'status': 0, 'error': choice.reason or '没有可用模型', 'model': '',
                     'text': '', 'usage': pet_llm.usage_of(None)}
-        result = choice.adapter.chat(messages, options, model=choice.model)
-        if result.get('ok') and self.ledger is not None:
-            tier = 'flash' if 'flash' in choice.model else 'pro'
-            self.ledger.record(choice.model, result.get('usage') or {}, tier=tier,
-                               at=self.clock() if callable(self.clock) else None)
+        from platform_tools import execution_checkpoint
+        attempts = []
+        candidates = [choice.model] + list(getattr(choice, 'fallback_models', ()))
+        result = {}
+        for model in dict.fromkeys(candidates):
+            adapter = choice.adapter if model == choice.model else self.usable(model)
+            if adapter is None:
+                continue
+            required = getattr(choice, 'required_capabilities', ())
+            if model != choice.model and not set(required).issubset(adapter.capabilities(model)):
+                continue
+            execution_checkpoint()
+            affordable, why = self._affordable(choice.kind)
+            if not affordable:
+                return dict(result, ok=False, error=why, route_stop='budget', attempts=attempts)
+            result = adapter.chat(messages, options, model=model)
+            policy = failure_policy(result)
+            attempts.append({'model': model, 'status': result.get('status'), **policy})
+            result = dict(result, attempts=list(attempts), failure=policy)
+            if result.get('ok'):
+                if self.ledger is not None:
+                    tier = 'flash' if 'flash' in model else 'pro'
+                    self.ledger.record(model, result.get('usage') or {}, tier=tier,
+                                       at=self.clock() if callable(self.clock) else None)
+                return result
+            if not policy['retryable']:
+                return result
         return result
+
 
 
 # ── 三虎自己那颗脑袋用哪个模型（规格里的 ModelRouter.resolveAgentModel） ─────────
