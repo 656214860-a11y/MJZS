@@ -502,6 +502,50 @@ class ComfySubmitRecoveryTests(unittest.TestCase):
             self.assertEqual(len(sent), 1)
 
 
+class AssetBatchStopTests(unittest.TestCase):
+    def test_stop_after_current_asset_then_resume_preserves_imported_image(self):
+        import queue, threading
+        from agent.core import save
+        from asset_batch_execution import run_batch
+        from asset_batch_state_service import read_ledger
+        from stage_execution_service import prepare_asset_write
+        stop = threading.Event()
+        sent = []
+        class Fake:
+            def request(self, path):
+                assert path == '/system_stats'
+                return {}
+            def submit(self, *args):
+                sent.append(args[2])
+                return Path(args[0]) / ('fixture-task-' + str(len(sent)))
+            def collect(self, project, record):
+                if len(sent) == 1:stop.set()
+                return [Path(project) / 'generated.png']
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            base = prepare_asset_write(root, root / 'episode')
+            plan = {f'CHAR_{i:03}': {'name': f'角色{i}', 'image_prompt': f'原创角色{i}站在窗边',
+                    'negative_prompt': '', 'reference_images': []} for i in (1, 2)}
+            save(base / 'assets/资产清单/assets.json', plan)
+            (root / 'generated.png').write_bytes(PNG_1PX)
+            options = {'url': 'http://127.0.0.1:8189', 'backend': 'local', 'model': 'fixture',
+                       'workflow': '', 'node': '6', 'field': 'text', 'aspect_ratio': '1:1', 'quality': '标准'}
+            run = lambda: run_batch(root, base, list(plan.items()), options, queue.Queue(), stop,
+                                    client_factory=lambda url: Fake())
+            self.assertIn('已停止后续资产', run())
+            self.assertEqual(len(sent), 1)
+            self.assertEqual(read_ledger(root)['CHAR_001']['state'], 'imported')
+            self.assertNotIn('CHAR_002', read_ledger(root))
+            registry = json.loads((base / 'assets.json').read_text(encoding='utf-8'))
+            adopted = base / registry['CHAR_001']['image']
+            before = (adopted.read_bytes(), adopted.stat().st_mtime_ns)
+            stop.clear()
+            self.assertIn('成功 1', run())
+            self.assertEqual(len(sent), 2)
+            self.assertEqual(read_ledger(root)['CHAR_002']['state'], 'imported')
+            self.assertEqual((adopted.read_bytes(), adopted.stat().st_mtime_ns), before)
+
+
 class ComfyMoneyBudgetTests(unittest.TestCase):
     def test_known_cloud_reference_and_save_nodes_fit_budget(self):
         from comfy_service import Comfy
