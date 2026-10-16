@@ -44,6 +44,36 @@ def script_stage_probe():
 
 
 class WritingApiTests(unittest.TestCase):
+    def test_custom_desktop_model_uses_its_program_without_api(self):
+        record = {'label': 'gemini', 'model': 'Google Gemini 4 Argon', 'provider': 'desktop',
+                  'call_mode': 'Desktop', 'program': 'C:/Apps/Gemini.exe', 'base_url': ''}
+        with tempfile.TemporaryDirectory() as td, patch('model_pool.pool', return_value={'gemini': record}):
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gemini')
+            self.assertEqual(writing_api.selected_model(project), ('', {}))
+            skill = Path(td) / 'SKILL.md'
+            skill.write_text('---\nname: desktop-route-test\n---\n编写剧本', encoding='utf-8')
+            with patch('workflow_settings.skills_of', return_value=[str(skill)]):
+                request = writing_api.capture_request(project)
+            self.assertEqual(request['id'], '')
+            self.assertEqual(request['settings']['engine'], 'desktop-app')
+            self.assertEqual(request['settings']['program'], record['program'])
+            self.assertEqual(request['settings']['display_model'], 'gemini')
+            self.assertNotIn('api', request['settings'])
+            import workflow_settings
+            self.assertEqual(workflow_settings.stage_model(project, 'writing'), ('', ''))
+            self.assertEqual(workflow_settings.effective_model(project, 'writing'), 'gemini')
+
+    def test_desktop_routing_honors_explicit_mode_and_legacy_provider(self):
+        with tempfile.TemporaryDirectory() as td:
+            project = make_project(td)
+            stage_config.put(project, 'script', model='gemini')
+            for record, direct in (({'provider': 'desktop'}, False),
+                                   ({'provider': 'google', 'call_mode': 'Desktop'}, False),
+                                   ({'provider': 'google', 'call_mode': 'API'}, True)):
+                with self.subTest(record=record), patch('model_pool.pool', return_value={'gemini': record}):
+                    self.assertEqual(bool(writing_api.selected_model(project)[0]), direct)
+
     def test_real_request_sends_the_frozen_skill_once_in_the_system_prompt(self):
         import workflow_settings
         from agent.core import save

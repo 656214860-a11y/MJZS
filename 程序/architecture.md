@@ -1,5 +1,7 @@
 # AI 漫剧助手：架构清单
 
+R1592：模型池 `call_mode=Desktop`（兼容旧 `provider=desktop`）的自定义模型由 `workflow_settings.current` 解析为 `desktop-app`，沿用所选程序路径及阶段技能；`writing_api` 不将其识别为直连 API。`desktop_idea_chat` 生成任务、复制正文并打开对应应用，回执为 `prepared`，提示用户粘贴并发送；不套用 Codex/Claude 的自动粘贴或 CLI 参数。后台及 CLI 入口明确拒绝此模式。
+
 R1556：L2 video_source_evidence 从已脱敏实际视频请求解析首帧与白模媒体摘要，不读当前媒体猜测历史版本；L3 engine 在预留前校验，保存至镜头资产清单，剪辑来源清单和商用核验继续消费。
 
 R1506：`pet_ui.Pet`（3894 行、230 个方法）按主题原样迁入 4 个 L4 Mixin 模块——`pet_ui_stages.PetStagesMixin`（阶段推进、自动流程、一键制作，58 个方法）、`pet_ui_settings.PetSettingsMixin`（模型、档位、预算与设置，33 个）、`pet_ui_voice.PetVoiceMixin`（播报、对话、报告、项目概览，66 个）、`pet_ui_view.PetViewMixin`（窗口绘制、动画、菜单、点击，58 个）；被迁出方法用到的模块级常量、辅助函数与小类（104 个名字）迁入 `pet_ui_support`，`pet_ui` 重新导入。`TIER_CYCLE／TIER_NAMES／TIER_MODELS／register_tier／tier_models` 被测试和 `register_tier` 在模块级改写，使用它们的 5 个方法留在 `pet_ui`。`pet_ui.py` 4832→915 行。检查 Pet 源码的门禁读 `_scan.pet_ui_text()`。

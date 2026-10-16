@@ -28,7 +28,7 @@ def selected_model(project):
     records = model_pool.pool(program=Path(__file__).resolve().parent)
     record = records.get(chosen)
     engine = model_pool.desktop_engine(chosen)
-    if not chosen or chosen == model_pool.AUTO or engine or not record:
+    if not chosen or chosen == model_pool.AUTO or engine or not record or model_pool.call_mode(record, chosen) == 'Desktop':
         return '', {}
     return chosen, record
 

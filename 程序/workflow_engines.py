@@ -70,8 +70,8 @@ def prompt_with_settings(prompt,config,stage=None):
     return skill_prompt(config, stage=stage)+stage_output_contract(stage)+writer_style_prompt(config,stage)+prompt+('\n用户补充制作要求：\n'+extra if extra else '')+language+media_apps
 
 def background_command(config,project,output,report):
-    if config['engine'] == 'claude-desktop-app':
-        raise ValueError('Claude Desktop 需要在桌面窗口中手动发送，请使用手动制作入口')
+    if config['engine'] in ('claude-desktop-app', 'desktop-app'):
+        raise ValueError(ENGINES[config['engine']]+' 需要在桌面窗口中手动发送，请使用手动制作入口')
     exe=find_program(config)
     if config['engine']=='claude' and gui_claude_program(exe):raise ValueError(GUI_CLAUDE_CLI_HINT)
     if config['engine']=='codex':
@@ -159,6 +159,8 @@ def run_background(config,project,output,report,logfile,prompt):
 def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None,*,new_session=False):
     """Custom engines use a real interactive CLI, preserving creative Q&A."""
     prompt=ensure_request_context(prompt, stage)
+    if config['engine'] == 'desktop-app':
+        raise ValueError('Desktop 模型请通过桌面发送入口打开，不支持命令行参数')
     if config['engine']=='qwen':
         slot=slot or reserve_stage_process_slot(project, stage)
         try:

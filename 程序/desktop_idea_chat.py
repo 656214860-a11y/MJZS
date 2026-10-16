@@ -1215,7 +1215,7 @@ class IdeaChatMixin:
         if stage == 'writing' and not intake_only:
             from workflow_settings import freeze_skills
             config = freeze_skills(config)
-        native_claude = config['engine'] == 'claude-desktop-app'
+        native_claude = config['engine'] in ('claude-desktop-app', 'desktop-app')
         bounded_writing = stage == 'writing' and config['engine'] == 'claude'
         new_session = bool(new_session and stage == 'writing' and config['engine'] == 'claude' and not intake_only)
         use_cli = not native_claude and (config['engine']!='codex' or config['program'] or config['model'])
@@ -1379,6 +1379,14 @@ class IdeaChatMixin:
                 from workflow_settings import find_program
                 from platform_tools import launch_windows_app
                 program = find_program(config)
+                if config['engine'] == 'desktop-app':
+                    app = config.get('display_model') or '桌面模型'
+                    launch_windows_app(program, app)
+                    message = '已打开 '+app+'，任务已复制到剪贴板；请切到该窗口粘贴并手动发送。'
+                    finish(receipt,'prepared',message,task_file=task_file)
+                    self.status.set(message)
+                    self.notifier.info(message,title='请粘贴并发送')
+                    return
                 launch_windows_app(program, 'Claude Desktop')
                 from codex_paste import paste_existing
                 def claude_pasted(value):

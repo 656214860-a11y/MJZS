@@ -674,6 +674,44 @@ class StoryboardBatchTests(unittest.TestCase):
 
 
 class DesktopModelPoolTests(unittest.TestCase):
+    def test_custom_desktop_prepares_clipboard_without_api_cli_or_auto_send(self):
+        from desktop import Desktop
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_project(td)
+            desktop = SimpleNamespace(root=proj, worker=False, win=Mock(), status=Mock(),
+                notifier=Mock(), projects=SimpleNamespace(info={'projects': []}),
+                async_=lambda fn, done: done(fn()))
+            config = {'engine': 'desktop-app', 'program': 'C:/Apps/Gemini.exe',
+                      'model': '', 'display_model': 'Google Gemini 4 Argon'}
+            with patch('agent_dispatch.claim', return_value={'duplicate': False}), \
+                    patch('agent_dispatch.finish') as finish, \
+                    patch('prompt_window.copy_text') as copy, \
+                    patch('platform_tools.launch_windows_app') as launch, \
+                    patch('codex_paste.paste_existing') as paste, \
+                    patch('workflow_engines.launch_interactive') as cli, \
+                    patch('codex_tasks.prepare_task') as codex:
+                Desktop.open_flow_agent(desktop, 'writing', '提取', '提取简报', _config=config, intake_only=True)
+            launch.assert_called_once_with(config['program'], config['display_model'])
+            self.assertIn('提取简报', copy.call_args.args[1])
+            self.assertEqual(finish.call_args.args[1], 'prepared')
+            self.assertIn('手动发送', desktop.status.set.call_args.args[0])
+            paste.assert_not_called()
+            cli.assert_not_called()
+            codex.assert_not_called()
+
+    def test_custom_desktop_rejects_background_and_cli_invocation(self):
+        import workflow_engines
+        import workflow_settings
+        config = {'engine': 'desktop-app', 'program': '', 'model': ''}
+        with self.assertRaisesRegex(ValueError, '桌面程序路径'):
+            workflow_settings.find_program(config)
+        with self.assertRaisesRegex(ValueError, '手动发送'):
+            workflow_engines.background_command(config, '.', '.', '.')
+        with self.assertRaisesRegex(ValueError, '桌面发送入口'):
+            workflow_engines.launch_interactive('.', 'writing', '任务', '内容', config)
+
     """阶段配置选择桌面模型时，真正切换调用引擎而不是只显示一个名字。"""
 
     def test_native_claude_uses_saved_application_path(self):

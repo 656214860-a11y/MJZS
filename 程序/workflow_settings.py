@@ -17,7 +17,7 @@ from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
 from ui_widgets import LineInput, TextArea
 from ui_tokens import SPACING
 
-ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop'}
+ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop','desktop-app':'自定义桌面应用'}
 FLOWS={'writing':'剧本创作','storyboard':'初步分镜','assets':'资产图片制作','frames':'批量首帧','previs':'白模预演','video_prompt':'视频提示词','audio':'配音与字幕'}
 DEFAULT_SKILLS={'writing':'coconah-ai-short-drama-agent-skill','storyboard':'short-drama-storyboard','assets':'.system/imagegen','frames':'.system/imagegen','previs':'create-blender-story-video','video_prompt':'short-drama-storyboard','audio':''}
 SKILL_PRESETS=[('万能剧本工作流','coconah-ai-short-drama-agent-skill'),('鲸剧工作流','jingju-skills'),
@@ -369,6 +369,8 @@ def stage_model(project,stage):
     item=model_pool.pool(program=program).get(chosen)
     if not item:
         return chosen,''                  # 用户自己填的 id：照原样交给引擎，接口用引擎那一栏
+    if model_pool.call_mode(item, chosen) == 'Desktop':
+        return '', ''
     api={'base_url':item['base_url'],'path':item['path'],'wire_api':item['wire_api'],
          'key_env':item['key_env']}
     return str(item['model'] or chosen),api
@@ -383,6 +385,8 @@ def effective_model(project,stage='previs'):
     # 不能只读保存的默认引擎：阶段配置可能把默认 Codex 改成了模型池 API，
     # `current()` 才是三虎实际会启动的那一条路由。
     cfg=current(project,stage);engine=cfg['engine']
+    if engine == 'desktop-app':
+        return cfg['display_model']
     try:
         import stage_config
         import model_pool
@@ -446,6 +450,8 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     else:
         selected, item = model_snapshot
     explicit_engine = model_pool.desktop_engine(selected)
+    if not explicit_engine and item and model_pool.call_mode(item, selected) == 'Desktop':
+        explicit_engine = 'desktop-app'
     if explicit_engine:
         engine = explicit_engine
     else:
@@ -460,6 +466,9 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     if direct_api:
         engine = 'qwen'
     profile=validate_stage_profile(value['profiles'][engine],stage)
+    if engine == 'desktop-app':
+        profile['program'] = str(item.get('program') or '').strip()
+        profile['model'] = ''
     if explicit_engine and item.get('program'):
         if explicit_engine == 'codex':
             profile['desktop_program'] = item['program']
@@ -661,6 +670,8 @@ def find_program(config):
     if config['program']:return current_store_program(config['program'])
     if config['engine'] not in ENGINES:
         raise ValueError('未知的本地调用引擎：' + str(config['engine']))
+    if config['engine'] == 'desktop-app':
+        raise ValueError('请在模型管理为此 Desktop 模型指定桌面程序路径')
     if config['engine'] == 'claude-desktop-app':
         local = Path(os.environ.get('LOCALAPPDATA', ''))
         candidates = [local/'AnthropicClaude/claude.exe', local/'Programs/Claude/Claude.exe']
@@ -966,7 +977,7 @@ def _one_skill_prompt(config,skill,inline=False):
                  '沿用项目已确认的剧本、角色固定外观、场景、画风和资产编号，补齐缺项，不重新开始设定。'
                  '不调用媒体生成服务。本次明确要求图片及视频提示词，需同时交付。'
                  'Skill 自带的通用表格或脚手架不能直接当成本助手最终 JSON；须逐镜依据剧本细化，并按后文输出契约和校验器转换。\n')
-    if config['engine'] in ('claude','qwen','claude-desktop-app'):
+    if config['engine'] in ('claude','qwen','claude-desktop-app','desktop-app'):
         return f'请先完整读取并遵循本地技能文件 {path}，相对引用以该技能文件所在目录为基准。'+adapter
     text=path.read_text(encoding='utf-8-sig')
     match=re.search(r'^name:\s*[\"\']?([A-Za-z0-9_-]+)',text,re.M)
