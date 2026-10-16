@@ -7,7 +7,7 @@ R1250：项目共享的准备文件可通过文件右键“从本阶段重新创
 R1247 数据边界：剧本聊天及回收站位于 `01剧本准备/模型会话/<稳定模型ID--摘要>/创意对话/`；显示名仅作展示，旧目录首次读取迁移。自然稿采用记录 `01剧本准备/natural_script_selection.json` 绑定相对路径与内容摘要，多稿须明确采用。API 快照、历史和输出归属同一次提交；用量为本模型最近回复的估算／实报，项目已确认资料仍共享。
 
 执行与验证规则统一见 `AGENTS.md`；分层说明见 `architecture.md`，当前验收事实见 `project_status.md`；
-数据字段见 `data_model.md`，任务状态与尝试链见 `task_states.md`，部署与运维见 `runbook.md`（R1625）。下列目录表是 `pet_bus.STAGES`／`STAGE_NAMES` 与 `stage_layout.STAGES` 的阅读投影，变更契约时须同步代码及文档；本轮仅校正文档，不改变权威定义。
+数据字段见 `data_model.md`，任务状态与尝试链见 `task_states.md`，部署与运维见 `runbook.md`（R1625）；联调/测试阶段出口、需求→用例三态映射与缺陷守护索引见 `说明/联调测试出口基线.md`（R1627）。下列目录表是 `pet_bus.STAGES`／`STAGE_NAMES` 与 `stage_layout.STAGES` 的阅读投影，变更契约时须同步代码及文档；本轮仅校正文档，不改变权威定义。
 
 ## 核心模块
 
