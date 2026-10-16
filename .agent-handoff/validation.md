@@ -13,6 +13,8 @@ R1624：HEAD 13dea0a92396b5abd2317009caec19dbfad8d6a0，2026-10-17 02:01:23 绿�
 
 - R1642（阶段5 发布/灰度只读评估）：默认冒烟 8/8；未跑架构门禁与全量（只读诊断轮，不改源码、不计欠账）。清单证据为只读核验：无托管 CI 配置、`git tag` 仅 5 个 rescue、`升级备份/` 为 0 项、全盘无 `install_release.py`、随附解释器 `sqlite3` 缺失。
 
+- R1643（状态接续轮）：把 R1642 的 U1–U13 登记进 `维护记录/优化待办队列.md` 与接力待办，并登记账户／会员／云端前提变更；默认冒烟 8/8、轮次基线＋行尾 21/21；未跑架构门禁与全量（文档轮，欠账不变）。
+
 ## R1610 清单执行期（R1611–R1626）证据
 - R1611–R1623：逐轮定向用例＋架构门禁（345→356 项，各轮报告见 `程序/tasks_round/tasks_round_16*_result.md`）；这些轮**没有**各自跑全量，最终由 R1624 的一次全量统一定性。
 - R1624（Q10）：`test_pet_ui` 598 项 OK（76.5 秒）；`test_skill_notes`＋`test_static_names` 22 项 OK；定向门禁 12 个文件 58 项 OK（19.8 秒）；`test_desktop_startup_perf` 14 项 OK；`tests.architecture.test_round_baselines`＋`test_line_endings` 21 项 OK；默认冒烟 8/8；`local_ci exit` 端到端（静态→架构→冒烟）链路实测退出码 1（当时唯一红是欠全量的账簿项）。随后 post-commit 后台全量绿，账簿项自动转绿。
