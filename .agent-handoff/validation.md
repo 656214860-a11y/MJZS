@@ -13,3 +13,17 @@ R1605：HEAD e59e5136e2992ae18832d05083ab56bb75416242，5346项、410个测试�
 
 ## 未执行
 8项真实验收仍按用户延期处理，不由模拟或全量测试替代。历史索引见 [归档](archive.md)。
+
+## 完成性审计（2026-10-16，逐项对当前树复核）
+- O1 stage_parallel._claim 无票即抛超时且 worker 不在放行前调用。
+- O2 skill_orchestrator 与 stage_execution_service 默认入口均走进程共享许可。
+- O3 desktop_automation_service 可恢复队列落盘，含优先级/老化/过期/取消。
+- O4 取消与迟到结果持久化并在代次上隔离，不强杀线程。
+- O5/O11 task_center_service.project_snapshot 统一 run/task/attempt/remote 标识、分段耗时、原因码与费用。
+- O6 model_router 按受理事实分类，仅未受理且可重试时切换并复检预算。
+- O7 agent/publication 以持久日志+已提交标记实现崩溃一致发布与恢复。
+- O8 desktop_script_pages 经 ScriptPageServices 实例注入 open_path/context_menu。
+- O9 native_asset_codec.seedream_provenance 已接入首帧与资产云图。
+- O10 agent.core.save_file 按块复制并校验摘要/长度，collect_download_inbox 在发布事务内调用。
+- O12 usage_overview.estimate_scenario 缺费率/币种/版本不给金额。
+- 门禁日志：r1606-architecture-fixed.log(345/164.456s)、r1607/1608/1609-architecture.log(345)、各轮 smoke 0 失败。
