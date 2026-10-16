@@ -143,4 +143,10 @@ def status_detail(version):
     if key in ('failed','rejected','unknown','download_failed','qc_failed'):
         kind=error_kind(version.get('error') or version.get('error_code'))
         if kind:text+=' · 错误分类：'+ERROR_LABELS[kind]+'，'+ERROR_NEXT[kind]
+        if key == 'failed':
+            terminal = str(version.get('provider_status') or '').lower()
+            reason = {'canceled': '服务商已取消任务', 'cancelled': '服务商已取消任务',
+                      'expired': '服务商任务已过期'}.get(terminal)
+            if reason:text+=' · 原因：'+reason+'；不会自动重新提交'
+            elif not kind:text+=' · 原因未知：服务商未提供错误码，请到服务商控制台核实'
     return text

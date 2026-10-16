@@ -420,7 +420,8 @@ class Studio:
             if result['status']=='succeeded':v.setdefault('succeeded_observed_at',observed)
             for field in ('provider_created_at','provider_updated_at'):
                 if isinstance(result.get(field),(int,float)):v[field]=result[field]
-            v.update(state=result['status'],usage=result.get('usage'),error_code=result.get('error_code'))
+            v.update(state=result['status'],usage=result.get('usage'),error_code=result.get('error_code'),
+                     provider_status=result.get('provider_status', result['status']))
             save(self.db,st)
             if v.get('money_request_id') and v['state'] in ('succeeded', 'failed'):
                 from pet_llm import RequestLedger
@@ -428,7 +429,9 @@ class Studio:
                 remote = fingerprint({'endpoint': self.cfg.get('base_url'), 'task_id': v['task_id']})
                 RequestLedger(project_root(self.root)).settle_units(v['money_request_id'],
                     amount=1 if v['state']=='succeeded' else None, remote_task_id=remote)
-            if v['state']=='failed': return '云端失败，保守保留预算占用；请核对账单。'
+            if v['state']=='failed':
+                from video_progress import status_detail
+                return status_detail(v)+'；保守保留预算占用，请核对账单。'
             if v['state']!='succeeded': return sid+' · 云端状态：'+{'queued':'排队中','running':'生成中'}.get(v['state'],v['state'])
             folder=self.task_folder(sid,v); folder.mkdir(parents=True,exist_ok=True)
             dest=folder/f'{sid}.mp4';v['download_started_at']=time.time();save(self.db,st)

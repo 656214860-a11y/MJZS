@@ -68,5 +68,6 @@ class WanAdapter:
                   'FAILED':'failed', 'CANCELED':'failed'}.get(out.get('task_status'))
         if status is None:
             raise RuntimeError('Unknown task status; task ID preserved')
-        return {'status':status, 'url':out.get('video_url'), 'usage':result.get('usage'),
+        return {'status':status, 'provider_status':out.get('task_status'),
+                'url':out.get('video_url'), 'usage':result.get('usage'),
                 'error_code':out.get('code'), 'request_id':result.get('request_id')}

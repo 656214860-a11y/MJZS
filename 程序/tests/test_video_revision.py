@@ -62,6 +62,36 @@ class VideoRevisionTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
 
+    def test_provider_terminal_reason_survives_restart_without_resubmission(self):
+        from agent.wan import WanAdapter
+        from agent.volcengine import VolcengineAdapter
+        from video_progress import status_detail
+        for cls, raw, label in (
+                (WanAdapter, {'output': {'task_status': 'CANCELED'}}, '已取消'),
+                (VolcengineAdapter, {'status': 'cancelled'}, '已取消'),
+                (VolcengineAdapter, {'status': 'expired'}, '已过期'),
+                (WanAdapter, {'output': {'task_status': 'FAILED'}}, '原因未知')):
+            with self.subTest(provider=cls.__name__, response=raw):
+                studio = self.studio(Studio, [])
+                api = self.dependencies(studio)
+                studio.submit('SH001')
+                adapter = cls({'base_url': 'https://example.invalid'})
+                adapter.call = Mock(return_value=raw)
+                api.poll.side_effect = adapter.poll
+                self.assertIn(label, studio.poll('SH001'))
+                saved = read(studio.db)['shots']['SH001'][-1]
+                self.assertTrue(saved['charged'])
+                self.assertEqual(saved['state'], 'failed')
+                self.assertIn(label, status_detail(saved))
+                self.assertIn('重做', status_detail(saved))
+                api.submit.assert_called_once()
+                # 重新读取磁盘并再次查询终态，只查询原任务。
+                restarted = object.__new__(Studio)
+                restarted.__dict__.update(studio.__dict__)
+                restarted.poll('SH001')
+                api.submit.assert_called_once()
+                self.assertEqual(len(studio.state()['shots']['SH001']), 1)
+
     def studio(self, cls, versions):
         studio = object.__new__(cls)
         studio.root = self.root
