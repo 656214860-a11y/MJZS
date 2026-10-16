@@ -131,13 +131,29 @@ def main(root):
         faults['poll_timeout'] = expect_error(lambda: studio.poll('SH004'), '编号已保留')
         expect_error(lambda: studio.submit('SH004'), '未完成或结果不确定')
         accept(studio, 'SH004')
-        studio.submit('SH005')
+        worker = subprocess.Popen([sys.executable, '-B', __file__, '--submit-wait', str(root)],
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  text=True, encoding='utf-8')
+        try:
+            worker.communicate(timeout=10)
+            raise AssertionError('Submission process exited before forced termination')
+        except subprocess.TimeoutExpired:
+            worker.kill()
+            out, err = worker.communicate(timeout=10)
+        finally:
+            if worker.poll() is None:
+                worker.kill(); worker.wait(timeout=10)
+        submitted = json.loads(out)
+        assert submitted['pid'] == worker.pid and worker.returncode != 0, (out, err)
         before = studio.state()['shots']['SH005'][-1]['task_id']
+        assert submitted['task_id'] == before
         child = subprocess.run([sys.executable, '-B', __file__, '--resume', str(root)],
                                check=True, capture_output=True, text=True, encoding='utf-8')
         facts = json.loads(child.stdout)
         assert facts['pid'] != os.getpid() and facts['task_id'] == before
         faults['process_restart'] = facts
+        faults['forced_termination'] = {**submitted, 'exit_code': worker.returncode,
+                                        'recovered_task_id': facts['task_id']}
         studio = Studio(root)
         studio.submit('SH006')
         faults['cancelled'] = studio.poll('SH006')
@@ -189,7 +205,14 @@ def main(root):
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         raise SystemExit('Usage: recovery_to_delivery_baseline.py NEW_OUTPUT_DIRECTORY')
-    if sys.argv[1] == '--resume':
+    if sys.argv[1] == '--submit-wait':
+        root = Path(sys.argv[2])
+        with scope(root):
+            studio = Studio(root)
+            studio.submit('SH005')
+            print(json.dumps({'pid': os.getpid(), 'task_id': studio.state()['shots']['SH005'][-1]['task_id']}), flush=True)
+            time.sleep(60)  # Parent deliberately terminates this fixture process after durable submission.
+    elif sys.argv[1] == '--resume':
         root = Path(sys.argv[2])
         with scope(root):
             studio = Studio(root)
