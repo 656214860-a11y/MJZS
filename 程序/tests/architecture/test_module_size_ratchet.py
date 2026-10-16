@@ -13,7 +13,6 @@ SLACK = 100
 OVERSIZE_CAPS = {
     'desktop.py': 2300,
     'pet_cloud.py': 2150,
-    'skill_panel.py': 1900,
 }
 
 

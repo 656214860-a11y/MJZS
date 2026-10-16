@@ -968,7 +968,13 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 1388,
+   "total": 1094,
+   "percent": 0.0
+  },
+  {
+   "module": "skill_panel_support.py",
+   "covered": 0,
+   "total": 309,
    "percent": 0.0
   },
   {
@@ -1663,5 +1669,5 @@
   }
  ],
  "modules_covered": 49,
- "modules_total": 275
+ "modules_total": 276
 }
