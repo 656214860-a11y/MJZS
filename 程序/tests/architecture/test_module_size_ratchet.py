@@ -12,7 +12,7 @@ LIMIT = 1500
 SLACK = 100
 OVERSIZE_CAPS = {
     'desktop.py': 2300,
-    'pet_cloud.py': 2150,
+    'pet_cloud.py': 1900,
 }
 
 

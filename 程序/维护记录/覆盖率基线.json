@@ -662,13 +662,19 @@
   {
    "module": "pet_cloud.py",
    "covered": 0,
-   "total": 1396,
+   "total": 1131,
    "percent": 0.0
   },
   {
    "module": "pet_cloud_geometry.py",
    "covered": 0,
    "total": 69,
+   "percent": 0.0
+  },
+  {
+   "module": "pet_cloud_hint.py",
+   "covered": 0,
+   "total": 84,
    "percent": 0.0
   },
   {
@@ -687,6 +693,12 @@
    "module": "pet_cloud_text.py",
    "covered": 0,
    "total": 22,
+   "percent": 0.0
+  },
+  {
+   "module": "pet_cloud_timing.py",
+   "covered": 0,
+   "total": 191,
    "percent": 0.0
   },
   {
@@ -1669,5 +1681,5 @@
   }
  ],
  "modules_covered": 49,
- "modules_total": 276
+ "modules_total": 278
 }

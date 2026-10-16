@@ -53,6 +53,9 @@ from pet_cloud_geometry import inflate, inside_parts as _inside_parts, rounded_p
 from pet_cloud_shape import configured_value as _configured_value, normalized as _normalized_shape, text_box as _shape_text_box
 from pet_cloud_tail import TAIL_BULGE, TAIL_CURVE_MAX, TAIL_STEPS, _side_curve, tail_points
 from ui_tokens import COLORS, FONTS, SPACING, PET_LAYOUT, PET_CLOUD_AUTO_CLOSE_MS
+from pet_cloud_timing import (ALPHA, FADE_MS, FADE_OUT_MS, FADE_OUT_STEPS, FADE_STEPS, GROW_ROOM, GROW_STEPS,
+                              HOLD_MS, READ_MAX_MS, READ_MS_PER_CHAR, WATCH_RECHECK_MS, CloudTimingMixin)
+from pet_cloud_hint import (HINT_MS, HINT_STEP_PX, HINT_X, REPLY_HINTS, CloudHintMixin)
 
 WIDTH = 344                       # 方框对话框的宽度（第 21 期收窄；第 28 期随字号放大一档；第 30 期第 4 条再收窄）
 MIN_BODY = 96                     # 云身最小高度（第 28 期第 1 条随字号放大一档）
@@ -73,10 +76,6 @@ ANCHOR_DROP = TAIL                # 第 21 期：云身下沿比贴片下沿再�
                                   # 正好是标题行里那行大字的底边）
 GUTTER = 46                       # 云身右边留给尾巴的那条空档：云身整个站在三虎左边，尾巴从这儿指过去
 WRAP = WIDTH - 2 * PAD - 12       # 文字换行宽度（方框这一形状的兜底值）
-WATCH_RECHECK_MS = 2000           # 第 27 期第 2 条：指针停在云上（正在看）时，每隔这么久回头看一眼指针走了没
-HOLD_MS = 9000                    # 一句话「最少」停留多久：给用户读完的时间以此为底
-READ_MS_PER_CHAR = 110            # 第 24 期第 8 条：每个字留给用户读多久——话越长停得越久
-READ_MAX_MS = 30000               # 再长也就停这么久：对话框不当路霸
 STARTUP_LAYOUT_SETTLE_SECONDS = 8 # 首帧后的 Tk 空闲布局窗口；期间不能嵌套 spin
 FILL = COLORS['background_card']  # 云朵填充：与文字底色一致，看不出框
 EDGE = COLORS['border_default']   # 云朵描边
@@ -127,18 +126,9 @@ TAIL_SPAN_Y = 0.86                # 与云身高度的这个比例上：底边�
 MARGIN = 8                        # 浮窗离屏幕边留一点，别贴着屏幕边
 PET_GAP = 6                       # 第 24 期：云身与三虎之间至少留这么宽一条缝（不许压住猫）
 MAX_GAP = 30                      # 第 25 期第 4 条：云身离三虎最多这么远（远了就往回收，别像两块不相干的板子）
-ALPHA = 0.97                      # 整朵云的不透明度
-FADE_MS = 16                      # 淡入的间隔
-FADE_STEPS = (0.45, 0.70, 0.86, 1.0)   # 淡入的几档（乘在 ALPHA 上）：一露面是「浮」出来的
-# 第 24 期：四种形状收场都走这条渐隐——用户要的「延时淡出」。档位多一点、间隔长一点，
-# 淡下去看得见（原来三档 26ms 一共 78ms，比眨眼还快）。
-FADE_OUT_STEPS = (0.82, 0.64, 0.46, 0.28, 0.12, 0.0)
-FADE_OUT_MS = 60
 POSITION_RETRY_MS = 50              # 主窗口尚未映射完成时，给 Tk 一小拍完成布局
 POSITION_RETRY_MAX = 10             # 最多等 500ms；不能无限重试并把 (0,0) 当作有效坐标
 WHISPER_MS = 5200                 # 云朵框（做动作时随口一句）停留多久（第 24 期起还与阅读时间取大）
-GROW_STEPS = (0.45, 0.70, 0.88, 1.0)   # 气泡「长出来」的几档：从耳朵那头逐步到位
-GROW_ROOM = 0.42                  # 起步时气泡偏向耳朵这么多比例
 BANNER_MS = 6000                  # 标签框（关软件前的日报／周报）渐入后停留多久
 PROGRESS_MS = 12000               # 进度圆气泡停留多久（与 pet_ui.PROGRESS_MS 同一口径）
 GREETING_MS = 5500                # 开机招呼的云朵框停留多久（用户要求再缩短一半，原 11000）；招呼只有两句，直接按它定，不与阅读时间底线取大
@@ -171,20 +161,13 @@ TALK_TIP = '点我说一句'
 # 该做的那件事」）。三虎要发出去的那句话仍由说话的那一方给（见 Pet.chat_task 与 Cloud.propose）。
 REPLY_TIP = '在这儿回我一句，回车发送'          # 回复框空着时提示行写这一句
 REPLY_FONT = FONTS['pet_body']                   # 回复框的字号：比正文小一档，一行正好装得下
-# 回复框为空时介绍右键菜单的主要入口。它不是命令清单：用户可以直接右键选择，也可以在此输入
-# 对应指令。提示只在空框且未聚焦时出现，避免盖住输入光标。
-REPLY_HINTS = '右键功能：进度面板 · 设置模型 · 切换自动化等级 · 暂停／继续 · 重试失败项 · 退出程序'
 # 第 37 期第 4 条：基础操作提示放进回复框内的小字。第 88 期改为整句从左向右平移：
 # 不再按字符循环截取，避免滚到接缝时把一句话断在中间。
 # 第 39 期第 1 条：每一扇对话框的回复框都挂这条小字（见 _render），从最左侧起步、慢慢挪；
 # 底用回复框自己的白底——原来刷的是云身色，在框里像贴了一块色片。
 HINT_FONT = FONTS['pet_hint']
-                                          # 小字比回复框再小一档，仍从设计系统辅助字号推导
-HINT_MS = 420                           # 每步挪多少毫秒（第 39 期第 1 条：慢下来）
-HINT_STEP_PX = 2                         # 每拍向右平移像素数：慢而连续
 HINT_FG = COLORS['text_muted']          # 灰：与状态行同一个色系，不抢眼
 HINT_BG = COLORS['background_card']     # 小字的底：与 ttk.Entry 的底色一致（量不到时才用这个兜底）
-HINT_X = SPACING['xs']                  # 小字离回复框左沿几个像素（从最左侧起步）
 # 第 59 期第 9 条：用户要「关闭按钮显著提示」——原来是灰×（停上去才转红），
 # 现在平时就是一块红底白×的实心按钮；鼠标停上去只是再深一层。
 CLOSE_FG = COLORS['background_card']    # × 是白的（画在红块上）
@@ -302,7 +285,7 @@ def text_box(shape, width, height, pad=PAD, long=False):
     return _shape_text_box(width, height, pad)
 
 
-class Cloud:
+class Cloud(CloudTimingMixin, CloudHintMixin):
     """三虎的对话框（方框／云朵／圆／标签）：show()/close() 管浮窗，broadcast() 播报，submit()
     说一句，drain() 贴回复。"""
 
@@ -623,41 +606,6 @@ class Cloud:
                 self.errors.append(('close', str(exc)))
         return None
 
-    def _fade_out(self):
-        """渐隐：alpha 一档一档走到 0 再 withdraw（第 24 期：档数与间隔见 FADE_OUT_STEPS／FADE_OUT_MS）。
-
-        定时器仍旧只有一个（self._fade），收窗／销毁都要收回来；返回值是 None——close() 的
-        「空操作」语义不变。
-        """
-        if self.win is None:
-            return self._hide_now()
-        self.visible = False
-        self.busy = False
-
-        def step(index):
-            if self.win is None:
-                self._fade = None
-                return None
-            if index >= len(FADE_OUT_STEPS):
-                self._fade = None
-                return self._hide_now()
-            try:
-                self.win.attributes('-alpha', ALPHA * FADE_OUT_STEPS[index])
-            except Exception:
-                self._fade = None
-                return self._hide_now()
-            try:
-                def next_step():
-                    self._fade, self._fade_callback = None, None
-                    return step(index + 1)
-                self._fade_callback = next_step
-                self._fade = self.win.after(FADE_OUT_MS, next_step)
-            except Exception:
-                self._fade = None
-            return None
-
-        step(0)
-        return None
 
     def toggle(self, at=None):
         """左键点云／再点一次：开着就收，收着就按对话形态打开。"""
@@ -687,193 +635,6 @@ class Cloud:
         self._arm_hold()
         return self.canvas
 
-    def read_hold(self, text=None):
-        """读完这一句要留多久（毫秒）：按字数算，夹在 HOLD_MS 与 READ_MAX_MS 之间。
-
-        第 24 期第 8 条（用户要的「为用户展示足够阅读的时间」）：原来不管话多长，播报一律 9 秒、
-        对话一律 6 秒，长句子根本读不完。text 给 None 时按记录里最新那一条算。
-        """
-        text = self.lines[-1] if text is None and self.lines else text
-        count = len(''.join(str(text or '').split()))
-        return int(max(HOLD_MS, min(READ_MAX_MS, count * READ_MS_PER_CHAR)))
-
-    def hold_for(self, text, floor):
-        """这一句话该留多久：按字数算出来的阅读时间与这一形态的底线取大（第 24 期）。"""
-        return max(int(floor), self.read_hold(text))
-
-    def default_hold(self, text=None):
-        """没人指定时该等多久：按最新那一条要读多久算。"""
-        return self.read_hold(text)
-
-    def _interaction_paused(self):
-        try:
-            focused = self.reply is not None and self.win.focus_get() is self.reply
-        except Exception:
-            focused = False
-        return self._pointer_inside() or focused
-
-    def _interaction_changed(self):
-        """复用宠物心跳检查交互，不登记 Enter/Leave 或额外 Tcl 回调。"""
-        if self.visible and (self.busy or self._interaction_paused()) != self._watching:
-            self._arm_hold()
-
-    def _arm_hold(self, hold=None):
-        """空闲等完整十秒；交互中沿用原有 WATCH_RECHECK_MS 坐标复检。"""
-        self._cancel_hold()
-        self._watching = self.busy or self._interaction_paused()
-        delay = WATCH_RECHECK_MS if self._watching else PET_CLOUD_AUTO_CLOSE_MS
-        callback = self._recheck_hold if self._watching else self._expire
-        try:
-            self._hold = self.parent.after(delay, callback)
-        except Exception as exc:
-            self.errors.append(('after', str(exc)))
-            self._hold = None
-        return self._hold
-
-    def _recheck_hold(self):
-        """交互持续则继续复检，结束则重新登记完整十秒，不能直接收起。"""
-        return self._arm_hold()
-
-    def _cancel_position(self):
-        """撤销父窗口上的定位重试；先清登记，取消失败后的迟到回调也不能继续定位。"""
-        job, self._position_job = self._position_job, None
-        self._position_callback = None
-        if job is not None:
-            try:
-                self.parent.after_cancel(job)
-            except Exception:
-                # 父 Tcl 解释器已销毁时无可取消对象，关窗路径无需二次报错。
-                app_logging.swallowed()
-        return None
-
-    def _cancel_hold(self):
-        if self._hold is None:
-            return None
-        try:
-            self.parent.after_cancel(self._hold)
-        except Exception:
-            app_logging.swallowed()
-        self._hold = None
-        return None
-
-    def _cancel_fade(self):
-        """收回淡入定时器：浮窗先一步没了的话，它在队列里到点就是一句 invalid command name。"""
-        if self._fade is None:
-            return None
-        try:
-            (self.win or self.parent).after_cancel(self._fade)
-        except Exception:
-            app_logging.swallowed()
-        self._fade, self._fade_callback = None, None
-        return None
-
-    def _fade_in(self):
-        """浮出：从淡到清楚地闪一下（第 16 期「交互时云朵框以浮出的形式出现」）。"""
-        if self.win is None:
-            return None
-        self._cancel_fade()
-        grow = self.shape == SHAPE_ROUND
-        final = self._origin() if grow else None
-        if grow and self.label is not None:
-            try:
-                self.label.place_forget()          # 长的那几拍先不摆字：字还不该露（露了就跑到圆外头了）
-            except Exception as exc:
-                self.errors.append(('grow', str(exc)))
-        if grow and final is not None:
-            self._grow_to(final, GROW_STEPS[0])
-        try:
-            self.win.attributes('-alpha', ALPHA * FADE_STEPS[0])
-        except Exception:
-            return None
-
-        def bump(index):
-            if self.win is None or not self.visible:
-                return None
-            try:
-                self.win.attributes('-alpha', ALPHA * FADE_STEPS[min(index, len(FADE_STEPS) - 1)])
-            except Exception:
-                return None
-            if grow and final is not None:
-                self._grow_to(final, GROW_STEPS[min(index, len(GROW_STEPS) - 1)])
-            if index + 1 < len(FADE_STEPS):
-                try:
-                    def next_bump():
-                        self._fade, self._fade_callback = None, None
-                        return bump(index + 1)
-                    self._fade_callback = next_bump
-                    self._fade = self.win.after(FADE_MS, next_bump)
-                except Exception:
-                    self._fade, self._fade_callback = None, None
-            else:
-                self._fade, self._fade_callback = None, None
-                if grow:
-                    self._place_label()            # 到位了才把字摆上去
-                    self._place_window()
-            return None
-
-        try:
-            def first_bump():
-                self._fade, self._fade_callback = None, None
-                return bump(1)
-            self._fade_callback = first_bump
-            self._fade = self.win.after(FADE_MS, first_bump)
-        except Exception:
-            self._fade, self._fade_callback = None, None
-        return self._fade
-
-    def _grow_to(self, final, along):
-        """圆气泡「长出来」的那几拍：从耳朵那头一档一档滑到最终落点。
-
-        along＝0 贴着耳朵（1 — GROW_ROOM）、along＝1 就是该在的地方；只是位置在走，气泡本身的大小不变——
-        “递进变大”看的就是它从耳朵那头一点点冒出来、越占越多地方。
-        """
-        try:
-            ear_x, ear_y = self._ear()
-            room = (1.0 - along) * GROW_ROOM
-            left = final[0] + (ear_x - final[0]) * room
-            top = final[1] + (ear_y - final[1]) * room
-            self.win.geometry('+%d+%d' % (int(left), int(top)))
-        except Exception as exc:
-            self.errors.append(('grow', str(exc)))
-        return None
-
-    def _parent_gone(self, event=None):
-        """父窗口被销毁：立刻收回定时器（子控件冒泡上来的 <Destroy> 不认领）。"""
-        if event is not None and getattr(event, 'widget', None) is not self.parent:
-            return None
-        self.cancel_deferred_render()
-        self._cancel_position()
-        # 第 37 期第 4 条：滚动小字的表也挂在这个窗口上，一起收回来。
-        self._hint_stop()
-        return self._cancel_hold(), self._cancel_fade()
-
-    def _window_gone(self, event=None):
-        """浮窗自己被销毁：把引用与定时器一起收干净（子控件冒泡上来的 <Destroy> 不认领）。"""
-        if event is not None and getattr(event, 'widget', None) is not self.win:
-            return None
-        self.cancel_deferred_render()
-        self._cancel_hold()
-        self._cancel_fade()
-        self._hint_stop()
-        self._cancel_position()
-        self.win, self.canvas = None, None
-        self.visible = False
-        return None
-
-    def _expire(self):
-        """仅收起视图，保留历史、待决命令和后台状态。"""
-        self._cancel_hold()
-        if self.busy or self._interaction_paused():
-            self._arm_hold()
-            return False
-        self.cancel_deferred_render()
-        self._cancel_position()
-        self._cancel_fade()
-        self._hint_stop()
-        busy = self.busy
-        self._hide_now()
-        self.busy = busy
-        return True
 
     # ── 形状尺寸 ────────────────────────────────────────────────────────────
     def width(self):
@@ -2002,102 +1763,6 @@ class Cloud:
             self.errors.append(('status', str(exc)))
         return text
 
-    # ── 回复框里那条滚动小字（第 37 期第 4 条） ─────────────────────────────
-    def _focus_reply(self, _event=None):
-        """提示层被点到时把焦点还给输入框，让光标立即可见。"""
-        self._hint_user_focus = True
-        try:
-            self.reply.focus_set()
-            self.reply.icursor('end')
-        except Exception as exc:
-            self.errors.append(('hint.focus', str(exc)))
-        self._sync_hint()
-        return 'break'
-
-    def _restore_hint_after_reply(self, _event=None):
-        """用户离开空输入框后，恢复右键功能说明。"""
-        self._hint_user_focus = False
-        self._sync_hint()
-
-    def _hint_idle(self):
-        """这会儿该不该露小字：回复框为空、且用户没有点进提示层。"""
-        if self.hint is None or not self._hint_on or self.busy or not self._replies():
-            return False
-        try:
-            return not str(self.reply.get()).strip() and not self._hint_user_focus
-        except Exception:
-            return False
-
-    def _sync_hint(self):
-        """按「框里有没有字」立刻摆一次小字（打字／粘贴／清空都从这里过）。"""
-        if self.hint is None:
-            return ''
-        text = REPLY_HINTS if self._hint_idle() else ''
-        try:
-            self.hint.configure(text=text)
-            self.hint.place_configure(x=self._hint_x)
-        except Exception as exc:
-            self.errors.append(('hint', str(exc)))
-        return text
-
-    def _hint_show(self):
-        """把这条小字亮起来并开始滚（空下来的那一拍叫它）。"""
-        if self.hint is None:
-            return None
-        self._hint_on = True
-        self._hint_x = HINT_X
-        self._sync_hint()
-        return self._hint_schedule()
-
-    def _hint_schedule(self):
-        if self._hint_job is not None:
-            return self._hint_job
-        try:
-            self._hint_job = self.parent.after(HINT_MS, self._hint_tick)
-        except Exception as exc:
-            self.errors.append(('hint.after', str(exc)))
-            self._hint_job = None
-        return self._hint_job
-
-    def _hint_tick(self):
-        """整句从左向右移动；完全离场后才从左侧重新开始。"""
-        # 正常由 after 触发时，Tcl 已经取走这一次任务；但自检与主动刷新也会直接调用
-        # 本方法。那种情况下旧任务仍在队列里，若只清掉标识，随后 _hint_stop() 只能撤掉
-        # 新排的一次，窗口销毁后就会留下 ``invalid command name ..._hint_tick``。
-        # 和 _expire 一样，先无条件回收当前登记项：正在执行的任务再次取消是安全空操作。
-        job, self._hint_job = self._hint_job, None
-        if job is not None:
-            try:
-                self.parent.after_cancel(job)
-            except Exception:
-                app_logging.swallowed()
-        if not self._hint_on or self.hint is None:
-            return None
-        try:
-            row_width = max(1, int(self.chat_row.winfo_width()))
-        except Exception:
-            row_width = 1
-        self._hint_x += HINT_STEP_PX
-        if self._hint_x >= row_width:
-            self._hint_x = HINT_X
-        self._sync_hint()
-        return self._hint_schedule()
-
-    def _hint_stop(self):
-        """收起来：定时器收回、字清空（云收起了／三虎在忙着想，都不该再滚）。"""
-        self._hint_on = False
-        job, self._hint_job = self._hint_job, None
-        if job is not None:
-            try:
-                self.parent.after_cancel(job)
-            except Exception:
-                app_logging.swallowed()
-        if self.hint is not None:
-            try:
-                self.hint.configure(text='')
-            except Exception:
-                app_logging.swallowed()
-        return None
 
     def report_command(self, text):
         """把这句话记成「用户下的指令」事件：与气泡／菜单同一类，只是来源是 cloud。"""
