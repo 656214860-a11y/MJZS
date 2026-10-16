@@ -6,6 +6,17 @@ from storyboard_paths import project_root
 ACTIVE={'submitting','unknown','queued','running','succeeded'}
 
 
+def provider_failure_reason(version):
+    """供应商终态的恢复说明；不推断退款，也不触发重投。"""
+    terminal = str(version.get('provider_status') or '').lower()
+    reason = {'canceled': '服务商已取消任务', 'cancelled': '服务商已取消任务',
+              'expired': '服务商任务已过期'}.get(terminal)
+    if reason:return '原因：'+reason+'；不会自动重新提交'
+    if not (version.get('error') or version.get('error_code')):
+        return '原因未知：服务商未提供错误码，请到服务商控制台核实'
+    return ''
+
+
 def generation_active(studio,sid):
     versions=studio.state().get('shots',{}).get(sid,[])
     if versions and versions[-1].get('state') in ACTIVE:return True

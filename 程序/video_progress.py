@@ -2,7 +2,7 @@
 import time
 from pathlib import Path
 from agent.core import read,read_json
-from video_task_state import ACTIVE,elapsed_text
+from video_task_state import ACTIVE,elapsed_text,provider_failure_reason
 
 LABELS={'submitting':'提交中','unknown':'待核实','queued':'排队中','running':'生成中',
         'succeeded':'下载中','downloaded':'已下载','failed':'失败','rejected':'被拒绝'}
@@ -144,9 +144,6 @@ def status_detail(version):
         kind=error_kind(version.get('error') or version.get('error_code'))
         if kind:text+=' · 错误分类：'+ERROR_LABELS[kind]+'，'+ERROR_NEXT[kind]
         if key == 'failed':
-            terminal = str(version.get('provider_status') or '').lower()
-            reason = {'canceled': '服务商已取消任务', 'cancelled': '服务商已取消任务',
-                      'expired': '服务商任务已过期'}.get(terminal)
-            if reason:text+=' · 原因：'+reason+'；不会自动重新提交'
-            elif not kind:text+=' · 原因未知：服务商未提供错误码，请到服务商控制台核实'
+            reason = provider_failure_reason(version)
+            if reason:text+=' · '+reason
     return text

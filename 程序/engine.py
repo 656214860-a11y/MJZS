@@ -430,8 +430,10 @@ class Studio:
                 RequestLedger(project_root(self.root)).settle_units(v['money_request_id'],
                     amount=1 if v['state']=='succeeded' else None, remote_task_id=remote)
             if v['state']=='failed':
-                from video_progress import status_detail
-                return status_detail(v)+'；保守保留预算占用，请核对账单。'
+                from video_task_state import provider_failure_reason
+                reason = provider_failure_reason(v)
+                return (sid+' · 生成失败；下一步：到服务商控制台核实后手动重做。'+reason+
+                        '；保守保留预算占用，请核对账单。')
             if v['state']!='succeeded': return sid+' · 云端状态：'+{'queued':'排队中','running':'生成中'}.get(v['state'],v['state'])
             folder=self.task_folder(sid,v); folder.mkdir(parents=True,exist_ok=True)
             dest=folder/f'{sid}.mp4';v['download_started_at']=time.time();save(self.db,st)
