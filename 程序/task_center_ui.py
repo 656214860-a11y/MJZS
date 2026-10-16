@@ -17,6 +17,34 @@ def show(desktop):
     data = task_center_service.snapshot(getattr(desktop, 'background_tasks', None), degradations,
                                          getattr(desktop, 'task_queue', None),
                                          getattr(desktop, 'retry_registry', None))
+    project = getattr(desktop, 'root', None)
+    if project is not None:
+        from agent.core import read
+        from pet_state import state_path
+        import stage_parallel
+        from pet_bus import STAGES
+        path = state_path(project)
+        errors = []
+        try:
+            saved = read(path) if path.is_file() else {}
+            stages = saved.get('stages', {})
+            if not isinstance(stages, dict):
+                raise ValueError('阶段状态格式错误')
+        except (OSError, ValueError, AttributeError) as exc:
+            stages = {}
+            errors.append('阶段快照读取失败：' + type(exc).__name__)
+        gates = {}
+        for stage in STAGES:
+            try:
+                gates[stage] = stage_parallel.evaluate(project, stage, mode=stage_parallel.PRODUCTION)
+            except (OSError, ValueError, KeyError, TypeError) as exc:
+                gates[stage] = {'ok': False, 'detail': '当前门禁读取失败：' + type(exc).__name__}
+        data['project_runtime'] = task_center_service.project_snapshot(project, stage_records=stages, gates=gates)
+        data['project_runtime']['errors'].extend(errors)
+        from pathlib import Path
+        selected = str(Path(project).resolve())
+        data['unresolved_execution'] = [row for row in data['unresolved_execution']
+                                        if row.get('project') in (None, selected)]
     dialog = BaseDialog(desktop.win, '运行状况', geometry='640x520', minsize=(420, 320))
     text = TextArea(dialog.content, wrap='word', height=20)
     text.pack(fill='both', expand=True)

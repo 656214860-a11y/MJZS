@@ -111,7 +111,7 @@ class MediaPagesMixin:
         self.auto_keyframe_blocked=None
         self.auto_keyframe_busy=True
         self._auto_keyframe_ticket+=1
-        ticket=self.auto_keyframe_tasks.submit(self._auto_keyframe_ticket)
+        ticket=self.auto_keyframe_tasks.submit(self._auto_keyframe_ticket,project=getattr(self,'root',None))
         self.status.set(label+'：准备用本地 ComfyUI 按分镜顺序补 '+str(len(pending))+' 镜首帧…')
         def worker():
             from keyframe_comfy import auto_batch

@@ -209,6 +209,26 @@ class TaskCenterServiceTests(unittest.TestCase):
 
 
 class TaskCenterUiTests(unittest.TestCase):
+    def test_project_recovery_is_shown_from_existing_authorities(self):
+        import tempfile
+        from types import SimpleNamespace
+        from agent.core import save
+        import stage_parallel
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            save(project/'config.json', {'project_id': 'project-test'})
+            save(project/'data/state.json', {'shots': {'S001': [{'state': 'unknown', 'version': 1}]}})
+            win = tk.Tk()
+            win.withdraw()
+            try:
+                with mock.patch.object(stage_parallel, 'evaluate', return_value={'ok': False, 'detail': '等待首帧'}):
+                    dialog = task_center_ui.show(SimpleNamespace(win=win, root=project))
+                text = next(w for w in dialog._descendants(dialog.content) if isinstance(w, tk.Text)).get('1.0', 'end')
+                for value in ('project-test', 'S001', '等待首帧', '未知状态不重提'):
+                    self.assertIn(value, text)
+            finally:
+                win.destroy()
+
     def test_cancel_pending_button_clears_queue(self):
         from desktop_automation_service import BackgroundTaskQueue
         root = tk.Tk()

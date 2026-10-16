@@ -891,7 +891,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.status.set('诊断包已导出：'+str(result))
         return result
     def async_(self,fn,done=None,show_progress=True,label=None):
-        self._async_ticket+=1;ticket=self.background_tasks.submit(self._async_ticket,label=label)
+        self._async_ticket+=1;ticket=self.background_tasks.submit(self._async_ticket,label=label,project=getattr(self,'root',None))
         self.worker=True
         self.busy_state.set_busy(True, message=label or '正在处理… 界面保持响应',
                                  progress=show_progress)

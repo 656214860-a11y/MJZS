@@ -15,6 +15,20 @@ from ui_widgets import BusyState
 
 
 class VideoRevisionTests(unittest.TestCase):
+    def test_submission_persists_execution_identity_in_both_backends(self):
+        from platform_tools import ExecutionControl, execution_scope
+        for cls in (Studio, LocalStudio):
+            with self.subTest(backend=cls.__name__):
+                studio = self.studio(cls, [])
+                self.dependencies(studio)
+                control = ExecutionControl()
+                with execution_scope(control):
+                    studio.submit('SH001')
+                saved = read(studio.db)['shots']['SH001'][0]
+                self.assertEqual(saved['execution']['run_id'], control.run_id)
+                self.assertEqual(saved['execution']['task_id'], 'SH001')
+                self.assertTrue(saved['execution']['attempt_id'])
+
     def test_cloud_sends_frozen_payload_and_records_actual_reference_bytes(self):
         import base64
         import hashlib

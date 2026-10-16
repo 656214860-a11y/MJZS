@@ -166,6 +166,8 @@ class LocalStudio(Studio):
             if any(not item.get('path') or not item.get('sha256') for item in [first_frame, *source_assets]):
                 raise ValueError('本地上传缺少素材来源回执，尚未提交生成')
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':False,'backend':'comfy','endpoint':api.url,'output_node':options.get('output','92'),'review':'pending','created':time.time(),'signature':fingerprint(graph)}
+            from platform_tools import execution_metadata
+            v['execution'] = execution_metadata('video', sid)
             v.update(generate_audio=has_audio,source_aspect=ratio,reference_assets=[{'id':a['id'],'name':a['name'],'picture':a['picture'],'path':a['path']} for a in references])
             folder=self.root/'data'/sid/f"v{v['version']:03}";folder.mkdir(parents=True,exist_ok=True);save(folder/'request.json',graph)
             save(folder/'assets_manifest.json', {'mode': 'local', 'assets': source_assets, 'first_frame': first_frame})

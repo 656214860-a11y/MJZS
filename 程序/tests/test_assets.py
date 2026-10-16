@@ -535,6 +535,9 @@ class AssetBatchStopTests(unittest.TestCase):
             self.assertIn('已停止后续资产', run())
             self.assertEqual(len(sent), 1)
             self.assertEqual(read_ledger(root)['CHAR_001']['state'], 'imported')
+            trace = read_ledger(root)['CHAR_001']['execution']
+            self.assertEqual(trace['task_id'], 'CHAR_001')
+            self.assertTrue(trace['run_id'])
             self.assertNotIn('CHAR_002', read_ledger(root))
             registry = json.loads((base / 'assets.json').read_text(encoding='utf-8'))
             adopted = base / registry['CHAR_001']['image']
@@ -543,6 +546,7 @@ class AssetBatchStopTests(unittest.TestCase):
             self.assertIn('成功 1', run())
             self.assertEqual(len(sent), 2)
             self.assertEqual(read_ledger(root)['CHAR_002']['state'], 'imported')
+            self.assertEqual(read_ledger(root)['CHAR_001']['execution'], trace)
             self.assertEqual((adopted.read_bytes(), adopted.stat().st_mtime_ns), before)
 
 

@@ -10,6 +10,86 @@ import app_logging
 STATE_TEXT = {'running': '进行中', 'succeeded': '成功', 'failed': '失败', 'cancelled': '已取消'}
 
 
+def project_snapshot(project, *, stage_records=None, gates=None) -> dict:
+    """只读投影原始台账；历史记录缺失运行关联时保持未知，不按时间猜测。"""
+    from pathlib import Path
+    from agent.core import read, fingerprint
+    root = Path(project).resolve()
+    result = {'project_id': None, 'tasks': [], 'stages': [], 'errors': []}
+
+    def source(path):
+        path = Path(path).resolve()
+        if not path.is_relative_to(root):
+            result['errors'].append('台账引用越出项目范围，未读取')
+            return {}
+        if not path.is_file():
+            return {}
+        try:
+            data = read(path)
+            if not isinstance(data, dict):
+                raise ValueError('顶层不是对象')
+            return data
+        except (OSError, ValueError) as exc:
+            result['errors'].append(path.relative_to(root).as_posix() + '：读取失败（' + type(exc).__name__ + '）')
+            return {}
+
+    config = source(root/'config.json')
+    project_id = str(config.get('project_id') or 'legacy-path:' + fingerprint(str(root))[:24])
+    result['project_id'] = project_id
+
+    def add(stage, task, record, authority, receipt=None):
+        receipt = receipt or {}
+        state = str(record.get('state') or 'unknown')
+        normalized = {'imported': 'recorded_ready', 'downloaded': 'recorded_ready', 'failed': 'failed',
+                      'rejected': 'rejected'}.get(state, 'reconcile')
+        trace = record.get('execution') if isinstance(record.get('execution'), dict) else {}
+        remote = record.get('task_id') or receipt.get('prompt_id') or receipt.get('task_id')
+        attempt = trace.get('attempt_id') or record.get('local_request') or (
+            'legacy:' + fingerprint([authority, task, record.get('version'), record.get('record')])[:24])
+        result['tasks'].append({'project_id': project_id, 'run_id': trace.get('run_id'),
+            'task_id': str(task), 'attempt_id': str(attempt), 'stage': stage,
+            'state': normalized, 'source_state': state, 'authority': authority,
+            'remote_task_id': str(remote) if remote else None, 'version': record.get('version'),
+            'artifact': record.get('file') or record.get('output_dir') or receipt.get('files'),
+            'receipt': record.get('record'),
+            'reason': app_logging.redact(str(record.get('error') or record.get('note') or ''))[:300],
+            'recovery': ('资产管理：接续取回；无编号时先核实提交' if stage == 'assets'
+                         else '视频生成：查询任务／恢复任务编号；未知状态不重提')})
+
+    ledger = root/'workflows/资产批量记录.json'
+    for aid, job in source(ledger).items():
+        if not isinstance(job, dict):
+            result['errors'].append('资产记录格式错误：' + str(aid))
+            continue
+        receipt = source(root/str(job['record'])) if job.get('record') else {}
+        add('assets', aid, job, ledger.relative_to(root).as_posix(), receipt)
+    state_files = [root/'data/state.json', *sorted((root/'cloud_video').glob('*/data/state.json'))]
+    for path in state_files:
+        shots = source(path).get('shots', {})
+        if not isinstance(shots, dict):
+            result['errors'].append('视频镜头台账格式错误：' + path.relative_to(root).as_posix())
+            continue
+        for sid, versions in shots.items():
+            if not isinstance(versions, list):
+                result['errors'].append('视频版本列表格式错误：' + str(sid))
+                continue
+            for version in versions:
+                if isinstance(version, dict):
+                    add('video', sid, version, path.relative_to(root).as_posix())
+                else:
+                    result['errors'].append('视频版本记录格式错误：' + str(sid))
+    from pet_bus import STAGES
+    for stage in STAGES:
+        saved = (stage_records or {}).get(stage, {})
+        saved = saved if isinstance(saved, dict) else {}
+        gate = (gates or {}).get(stage, {})
+        result['stages'].append({'stage': stage, 'recorded_state': saved.get('state', 'unknown'),
+            'blocked': not gate.get('ok', False), 'waiting_for': gate.get('from', ''),
+            'reason': app_logging.redact(str(gate.get('detail') or saved.get('reason') or '未取得当前门禁证据'))[:400],
+            'authority': '阶段事件快照＋当前生产门禁；历史成功不代替当前成果核验'})
+    return result
+
+
 def snapshot(lifecycle=None, degradations=None, queue=None, retry=None) -> dict:
     """``lifecycle`` 为 BackgroundTaskLifecycle；``degradations`` 为降级记录列表（调用方注入）。"""
     last = getattr(lifecycle, '_last', None) if lifecycle is not None else None
@@ -35,6 +115,17 @@ def snapshot(lifecycle=None, degradations=None, queue=None, retry=None) -> dict:
 
 def format_lines(data: dict) -> list:
     lines = ['【最近一次主动任务】']
+    runtime = data.get('project_runtime')
+    if runtime:
+        lines += ['【当前项目恢复查询】', '  项目：' + runtime['project_id']]
+        for row in runtime.get('stages', []):
+            lines.append('  %s：历史 %s；%s' % (row['stage'], row['recorded_state'], row['reason']))
+        for row in runtime['tasks']:
+            lines.append('  %s %s / %s：%s（原状态 %s）；远端 %s；运行 %s' % (
+                row['stage'], row['task_id'], row['attempt_id'], row['state'], row['source_state'],
+                row['remote_task_id'] or '未登记', row['run_id'] or '历史未登记'))
+            lines.append('    来源：%s；台账成果引用（未重新验收）：%s；%s' % (row['authority'], row['artifact'] or '未登记', row['recovery']))
+        lines += ['  ' + error for error in runtime['errors']]
     task = data.get('last_task')
     lines.append('  暂无' if not task else '  #%s %s' % (task.get('ticket'), STATE_TEXT.get(task.get('state'), task.get('state'))))
     lines.append('【排队中（前一项结束后依次执行）】')
@@ -44,8 +135,8 @@ def format_lines(data: dict) -> list:
         lines += ['  %s %s' % (row['id'], row['label']) for row in data['unresolved_queue']]
     if data.get('unresolved_execution'):
         lines += ['', '执行记录（运行中或需对账，取消不代表远端停止）：']
-        lines += ['  %s %s：%s；远端编号 %s' % (row['id'], row.get('label', ''),
-                  row.get('state', 'unknown'), ', '.join(
+        lines += ['  %s %s：%s；运行 %s；远端编号 %s' % (row['id'], row.get('label', ''),
+                  row.get('state', 'unknown'), row.get('run_id') or '历史未登记', ', '.join(
                       remote.get('provider', '')+':'+remote['id'] for remote in row.get('remote_tasks', []))
                   or row.get('remote_task_id') or '未登记')
                   for row in data['unresolved_execution']]

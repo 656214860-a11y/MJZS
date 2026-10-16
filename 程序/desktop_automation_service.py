@@ -433,8 +433,9 @@ class BackgroundTaskLifecycle:
     def history(self):
         return list(self._history)
 
-    def submit(self, ticket, *, remote_task_id=None, costly=False, label='', timeout=3600):
+    def submit(self, ticket, *, remote_task_id=None, costly=False, label='', timeout=3600, project=None):
         """登记当前代次；有成本或远端任务同时记下可查询编号，供取消时说明。"""
+        from pathlib import Path
         self.cancel()
         from platform_tools import ExecutionControl
         self._controls[ticket] = ExecutionControl(timeout, observer=lambda facts: self._persist(ticket, **facts))
@@ -448,6 +449,8 @@ class BackgroundTaskLifecycle:
         del self._seen[:-LATE_RESULT_LIMIT]
         self._last = {'ticket': ticket, 'state': 'running'}
         self._persist(ticket, state='running', label=app_logging.redact(str(label or '')),
+                      run_id=self._controls[ticket].run_id,
+                      project=str(Path(project).resolve()) if project is not None else None,
                       remote_task_id=self._facts['remote_task_id'], costly=self._facts['costly'])
         return ticket
 

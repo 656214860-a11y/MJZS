@@ -138,7 +138,9 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
             else:
                 images = resolve(base, asset)
                 workflow = cloud_graph(client, aid, asset, prompt, images, options) if cloud else (client.reference_graph(prompt, images, reference_cfg) if images else None)
-                state[aid] = {'state':'submitting','prompt':prompt,'url':options['url'],'asset':asset,'references':asset['_reference_signature'],'generation':generation}; save_ledger(project, state, publish=publish_ledger)
+                from platform_tools import execution_metadata
+                state[aid] = {'state':'submitting','prompt':prompt,'url':options['url'],'asset':asset,'references':asset['_reference_signature'],'generation':generation,
+                              'execution': execution_metadata('assets', aid)}; save_ledger(project, state, publish=publish_ledger)
                 record = client.submit_graph(project, kind, prompt, workflow, extra_data={'api_key_comfy_org':get_key()}) if cloud else (client.submit_graph(project, kind, prompt, workflow) if images else client.submit(project, kind, prompt, options['model'], options['workflow'] or None, options['node'], options['field']))
                 state[aid].update(state='queued', record=str(record)); save_ledger(project, state, publish=publish_ledger)
             files = collect_result(client, project, record)

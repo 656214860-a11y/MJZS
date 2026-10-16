@@ -429,7 +429,7 @@ class AutoFlowsMixin:
         self.auto_edit_signature=decision['signature']
         if decision['action'] in ('wait','complete'):return
         self.auto_edit_busy=True;self._auto_edit_ticket+=1
-        ticket=self.auto_edit_tasks.submit(self._auto_edit_ticket)
+        ticket=self.auto_edit_tasks.submit(self._auto_edit_ticket,project=getattr(self,'root',None))
         self.status.set('全部镜头已验收，正在自动粗剪整集…')
         def produce():
             path=studio.assemble()
@@ -519,7 +519,7 @@ class AutoFlowsMixin:
         try:
             from previs_automation import start
             self._auto_previs_ticket+=1
-            ticket=self.auto_previs_tasks.submit(self._auto_previs_ticket)
+            ticket=self.auto_previs_tasks.submit(self._auto_previs_ticket,project=getattr(self,'root',None))
             start(self.root,source,pending,state,ticket=ticket,is_current=self.auto_previs_tasks.accepts,
                   execute=lambda fn:self.auto_previs_tasks.run(ticket,fn))
         except Exception as exc:
@@ -564,7 +564,7 @@ class AutoFlowsMixin:
             self.auto_asset_tried=signature
             self.auto_asset_busy=True
         self._auto_asset_ticket+=1
-        ticket=self.auto_asset_tasks.submit(self._auto_asset_ticket)
+        ticket=self.auto_asset_tasks.submit(self._auto_asset_ticket,project=getattr(self,'root',None))
         self.status.set('无人值守自动补资产（'+current_model(project)+'）：准备处理 '+str(len(missing))+' 项…')
         # 第 64 期任务 2：提交结果不确定的那几项（连接中断、ComfyUI 里也找不到任务编号）按设计
         # 不自动重提，以免重复扣费——但必须说给用户听，否则这一项会永远卡在「待导入」，
@@ -612,7 +612,7 @@ class AutoFlowsMixin:
         if decision['action']=='skip':return
         signature=decision['signature']
         self.auto_video_busy=True;self._auto_video_ticket+=1
-        ticket=self.auto_video_tasks.submit(self._auto_video_ticket)
+        ticket=self.auto_video_tasks.submit(self._auto_video_ticket,project=getattr(self,'root',None))
         self.status.set('无人值守自动补视频：准备提交 '+str(len(submit))+' 镜、查询 '+str(len(poll))+' 镜…')
         studio=self.studio
         def worker():
@@ -642,7 +642,7 @@ class AutoFlowsMixin:
         self.auto_handoff_signature=decision['signature']
         if decision['action'] in ('wait','complete'):return
         self.auto_handoff_busy=True;self._auto_handoff_ticket+=1
-        ticket=self.auto_handoff_tasks.submit(self._auto_handoff_ticket)
+        ticket=self.auto_handoff_tasks.submit(self._auto_handoff_ticket,project=getattr(self,'root',None))
         self.status.set('全部镜头已验收，正在自动整理剪映素材交接包…')
         def produce():
             out=self.handoff(auto=True)
@@ -665,7 +665,7 @@ class AutoFlowsMixin:
             self.cloud_monitor_due=time.monotonic()+5;return
         root,sid=pending[self.cloud_monitor_cursor%len(pending)];self.cloud_monitor_cursor+=1
         self.cloud_monitor_busy=True;self._cloud_monitor_ticket+=1
-        ticket=self.cloud_monitor_tasks.submit(self._cloud_monitor_ticket)
+        ticket=self.cloud_monitor_tasks.submit(self._cloud_monitor_ticket,project=getattr(self,'root',None))
         def work():
             try:
                 from local_video import open_studio

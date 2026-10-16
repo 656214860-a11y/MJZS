@@ -25,12 +25,14 @@ class ExecutionStopped(RuntimeError):
 class ExecutionControl:
     def __init__(self, timeout=3600, *, observer=None):
         import math
+        import uuid
         seconds = float(timeout)
         if not math.isfinite(seconds) or seconds <= 0:
             raise ValueError('执行期限必须是大于零的有限秒数')
         self.deadline = time.monotonic() + seconds
         self.stopped = threading.Event()
         self.observer = observer
+        self.run_id = uuid.uuid4().hex
 
     def cancel(self):
         self.stopped.set()
@@ -53,6 +55,15 @@ class ExecutionControl:
 
 def current_execution():
     return getattr(_EXECUTION, 'control', None)
+
+
+def execution_metadata(stage, task, *, attempt=None):
+    """Identity only: one supervised invocation is a run, each submission an attempt."""
+    import uuid
+    control = current_execution()
+    return {'run_id': control.run_id if control is not None else uuid.uuid4().hex,
+            'stage': str(stage), 'task_id': str(task),
+            'attempt_id': str(attempt or uuid.uuid4().hex)}
 
 
 @contextmanager

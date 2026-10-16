@@ -356,6 +356,8 @@ class Studio:
             media_sources = submitted_sources(preview, frame, shot.get('_white_model_reference'), shot['_asset_references'])
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':True,
                'signature':fingerprint(payload),'review':'pending','created':time.time(),'local_request':uuid.uuid4().hex}
+            from platform_tools import execution_metadata
+            v['execution'] = execution_metadata('video', sid, attempt=v['local_request'])
             v['generate_audio']=bool(shot.get('generate_audio',True))
             if is_cloud_workspace(self.root):
                 import re
