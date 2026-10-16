@@ -53,9 +53,6 @@ def confirm(parent, title, message, *, dangerous=False, **_legacy_options):
     return ask_confirmation(parent, title, message, dangerous=dangerous)
 
 
-
-
-
 def confirm_project_removal_from_last_script(parent, files):
     """红色破坏性确认：删掉最后剧本时，用户必须明确同意删除整个项目。"""
     names='\n'.join(str(name) for name in files)
@@ -89,109 +86,10 @@ def confirm_project_removal_from_last_script(parent, files):
     return result['accepted']
 
 
-def protect_readonly_combobox(win):
-    """只读下拉框不再被滚轮改选。
-
-    Tk 8.6 的 TCombobox <MouseWheel> 绑定会调用 ttk::combobox::Scroll 直接换选项；
-    落在只读下拉框上时表现为「滚轮滑过选择分镜，文件被切换，整页重建抖动」。
-    这里给 ttk::combobox::Scroll 加一层只读／禁用判断，全局生效，可编辑下拉框不受影响。
-    """
-    try:
-        # 注意：Tcl 的 0/1 是字符串，'0' 在 Python 里为真，必须显式比较。
-        if win.tk.eval('info exists ::dramaComboWheelGuard')=='1':return
-        if not win.tk.eval('info commands ::ttk::combobox::Scroll'):return
-        # 改名必须留在同一命名空间：原过程内部调用 SelectEntry 等非限定名命令。
-        win.tk.eval('rename ::ttk::combobox::Scroll ::ttk::combobox::ScrollOriginal')
-        win.tk.eval('proc ::ttk::combobox::Scroll {cb dir} {'
-                    ' if {[$cb instate readonly] || [$cb instate disabled]} { return };'
-                    ' ::ttk::combobox::ScrollOriginal $cb $dir }')
-        win.tk.eval('set ::dramaComboWheelGuard 1')
-    except Exception:app_logging.swallowed()
-_PENDING_TK_GC = []        # worker 线程里被回收的 Tk 对象，等主线程释放
-_KEEP_APPS = []            # 解释器句柄：Tcl 的 async handler 只能在主线程析构（否则进程直接中止）
-
-def _pin_tk_app():
-    """把每个 Tk 解释器都留在进程里。
-
-    Tcl 的 async handler 只能在创建它的线程里析构，否则 Tcl 直接 Tcl_Panic 中止整个进程
-    （Tcl_AsyncDelete: async handler deleted by the wrong thread）。解释器句柄是 C 层对象，
-    按引用计数析构，加不了 __del__ 守卫；worker 线程里的一次 GC 就可能把「主线程建的窗口对象环」
-    连同解释器一起回收掉，唯一的办法是自己拿住引用。
-    """
-    try:
-        import _tkinter
-        if getattr(_tkinter,'_dramaPinned',False):return
-        original=_tkinter.create
-        def create(*args,**kwargs):
-            app=original(*args,**kwargs)
-            _KEEP_APPS.append(app)
-            return app
-        _tkinter.create=create
-        _tkinter._dramaPinned=True
-    except Exception:app_logging.swallowed()
-
-
-def protect_tk_gc(win=None):
-    """Tk 对象只在界面线程里释放。
-
-    tkinter 里只有三个类型会在 __del__ 里调 Tcl 释放自己的资源：Variable、Image（PhotoImage）、
-    font.Font。对象若在 worker 线程被 GC 回收，这次 Tcl 调用就跨线程跑，轻则刷
-    RuntimeError: main thread is not in main loop，重则与正在 update() 的界面线程互相等待而卡死
-    （实测：无人值守收尾阶段在 worker 里分配对象时，复选框图标与字体对象都会被回收）。
-
-    所以这里做四件事：
-    1) 给这三个 __del__ 加线程守卫：非主线程不调 Tcl；
-    2) 被拦下的对象交给 _PENDING_TK_GC 暂存、由主线程的 drain_tk_gc() 真正释放——顺带让它所在的
-       对象环整体活到主线程。若就地释放，环里的 Tkapp 会在 worker 里析构，Tcl 直接
-       Tcl_AsyncDelete 中止整个进程；
-    3) 记下解释器句柄：Tkapp 的析构只能在主线程发生；
-    4) 把所有 Tk 解释器都留在进程里（见 _pin_tk_app）——否则 worker 里的一次 GC 就足以中止进程。
-    幂等（各类上的 _dramaGuarded、模块上的 _dramaPinned）。
-    """
-    _pin_tk_app()
-    try:
-        import threading
-        import tkinter as tk
-        from tkinter import font as tkfont
-        if win is not None and getattr(win,'tk',None) is not None:
-            _KEEP_APPS.append(win.tk)
-        for cls in (tk.Variable,tk.Image,tkfont.Font):
-            if getattr(cls,'_dramaGuarded',False):continue
-            original=getattr(cls,'__del__',None)
-            if original is None:continue
-            def guarded(self,_original=original):
-                if threading.current_thread() is not threading.main_thread():
-                    app=getattr(self,'tk',None) or getattr(self,'_tk',None)
-                    if app is not None and not any(item is app for item in _KEEP_APPS):
-                        _KEEP_APPS.append(app)
-                    _PENDING_TK_GC.append(self)
-                    return
-                _original(self)
-            cls.__del__=guarded
-            cls._dramaGuarded=True
-    except Exception:app_logging.swallowed()
-
-def drain_tk_gc(limit=64):
-    """主线程心跳里调用：释放 worker 线程回收到的 Tk 对象（每轮最多 64 个，不拖慢界面）。"""
-    try:
-        for _ in range(limit):
-            if not _PENDING_TK_GC:break
-            _PENDING_TK_GC.pop()
-    except Exception:app_logging.swallowed()
-
-
-
 import pet_bus
-# 制作页名称只从 pet_bus.STAGES／STAGE_NAMES 生成；「参考网站」是唯一非阶段工具页。
-PAGES = [f'{index:02d}  {pet_bus.stage_name(stage)}'
-         for index, stage in enumerate(pet_bus.STAGES, start=1)] + ['14  参考网站']
 # 页面序号一律由阶段表推出来（PAGES 与 pet_bus.STAGES 一一对应），
 # 再加一个阶段时只改 pet_bus.STAGES／STAGE_NAMES。
 import pet_state
-PAGE=pet_state.PAGE_OF
-PAGE_SITES=len(PAGES)-1          # 「参考网站」是工具页，不进状态机
-# 侧栏切回时复用：02 以内容签名校验，03 沿用后台目录监听。
-CACHED_PAGES=frozenset({PAGE['script_structure'],PAGE['storyboard']})
 
 # 宠物「自动推进」用的对照表（第 23 期）：制作阶段 → 那一步的无人值守轮询名。
 # 只登记真的带无人值守轮询的阶段；剧本与配音没有轮询，不在表里（宠物问到时老实说没有）。
@@ -205,10 +103,14 @@ UNATTENDED_SWITCH={'auto_adopt':'set_auto_adopt','auto_asset':'set_auto_asset','
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
 from app_metadata import APP_NAME, VERSION
+from desktop_page_registry import CACHED_PAGES, PAGE, PAGES, PAGE_SITES
+from desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
+                        _PENDING_TK_GC, _KEEP_APPS)
+from desktop_automation_tick import AutomationTickMixin
 
 bind_host(sys.modules[__name__])  # 剧本准备页的 confirm／ContextMenu 等转发到本模块，保持按 desktop.<名字> 打补丁有效
 
-class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin):
+class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin):
     def __init__(self,win,root=ROOT,*,script_page_services=None):
         self._diagnostic_start=time.perf_counter()
         self.script_page_services = script_page_services if script_page_services is not None else ScriptPageServices(
@@ -384,15 +286,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         # 项目续开可能仍在构造剧本准备页；把首次招呼留到首帧稳定之后，
         # 不让气泡的浮窗映射与页面回填争用同一轮 Tk 事件循环。
         pet_ui.start(self,delay_ms=5000)
-
-
-
-
-
-
-
-
-
 
 
     def _initialize_automation_state(self):
@@ -753,9 +646,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
                 else self.idea_chat_model())
 
 
-
-
-
     def model_chat_colors(self, model):
         """为同一模型稳定分配一组浅色主题，切换回来仍保持原色。"""
         key = str(model or self.idea_chat_model() or 'AI 助手').encode('utf-8')
@@ -781,18 +671,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
     def close_dialog(self):
         """保存剧本也不隐藏发送框，用户仍可继续补充。"""
         self.open_dialog()
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     def poll_flow_processes(self):
@@ -845,8 +723,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
                     # 完成事件只经三虎的产物校验出口；Agent 正常退出本身不是成功证据。
                     self.pet.report_done('script', message)
         self.flow_processes=remaining
-
-
 
 
     def button(self,parent,text,fn):
@@ -1093,69 +969,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         try:
             self.status.set(prefix+str(exc))
         except Exception:app_logging.swallowed()
-    def _startup_window_held(self):
-        """启动器让主窗口保持透明、由启动画面盖住时为真。"""
-        return getattr(self.win,'_drama_hold_alpha',False) is True
-    def _after_first_paint(self):
-        """首帧已交给 Tk 后，才恢复会触发轮询／回填的周期 tick。"""
-        self.win._desktop_first_paint_complete=True
-        if not getattr(self,'_codex_skill_sync_started',False):
-            from codex_skill_sync import start_codex_skill_sync
-            self._codex_skill_sync_started=True
-            start_codex_skill_sync()
-        self._start_legacy_project_migration()
-        # 首帧通知不能覆盖用户已发起的后台操作（例如“强制关闭 ComfyUI”）；
-        # 否则任务实际结束后状态栏仍停在“正在打开今日项目”。
-        # 自动续开尚未选择项目时才显示这条启动提示。已有项目（含测试或
-        # 外部入口已经装配好的项目）不能让延后的首帧回调覆盖刚完成的操作结果。
-        if self.root is None and not self.worker and not self.projects.legacy_migration_pending:
-            self.status.set('正在打开今日项目…')
-        if isinstance(getattr(self,'task_queue',None),PersistentBackgroundTaskQueue):
-            self._start_next_queued()
-
-
-    def _request_tick_resume_after_first_paint(self):
-        """项目页已完成一次构建后再恢复既有 tick，避免回填重入首帧／建页。"""
-        if not bool(getattr(self.win,'_desktop_first_paint_complete',False)):
-            return None
-        if self._startup_tick_resume_id is None:
-            self._startup_tick_resume_id=self.win.after_idle(self._resume_tick_after_first_paint)
-        return self._startup_tick_resume_id
-    def _resume_tick_after_first_paint(self):
-        self._startup_tick_resume_id=None
-        if getattr(self,'shutting_down',False):
-            return
-        self._startup_tick_paused=False
-        self.automation_scheduler.start(
-            'tick',150,self._tick_once,
-            on_error=lambda exc:self._set_automation_error('后台任务回调异常，已忽略：',exc),
-            remember_timer=lambda timer:setattr(self,'_tick_id',timer))
-    def _tick_once(self):
-        # 启动期是否排期由 ``_resume_tick_after_first_paint`` 控制；这里保留为
-        # 可显式调用的一轮处理，供用户主动操作的收尾与无 Tk 调度器的接缝使用。
-        # 若在此再按暂停位直接返回，手工交付的后台结果和自动链都会被永久饿死。
-        startup_paused=bool(getattr(self,'_startup_tick_paused',False))
-        self._tick_stage_model_sync_result()
-        if not startup_paused:
-            self._tick_pre_automation()
-            # 待办裁决属于本轮自动链的前置准备；先处理才能让后续实际
-            # 阶段结果落在状态栏，而不是被一条“已按推荐处理”覆盖。
-            self._tick_auto_gates()
-        self._tick_async_result()
-        self._tick_cloud_monitor()
-        self._tick_auto_adopt()
-        self._tick_auto_final()
-        self._tick_auto_edit()
-        self._tick_auto_keyframe()
-        self._tick_auto_asset()
-        self._tick_auto_video()
-        # 白模派发是本轮最后一个可见的前置制作结果，避免同轮视频的“缺首帧”
-        # 提示覆盖它；后者已在白模之前完成检查。
-        self._tick_auto_previs()
-        self._tick_auto_handoff()
-        self._tick_pet_events()
-        self._tick_download_inbox()
-
 
 
     def shot_numbering_hint(self):
@@ -1212,123 +1025,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
                     self.status.set('自动恢复结构剧本暂缓：'+str(exc))
             self._start_next_queued()
         except queue.Empty:pass
-    def _tick_pre_automation(self):
-        """在自动阶段调度前回收 Tk 任务并轮询流程进程。"""
-        drain_tk_gc()
-        try:self.poll_flow_processes()
-        except (OSError,ValueError,KeyError):pass
-    def _tick_pet_events(self):
-        """在本轮自动调度完成后聚合三虎事件，不创建额外线程。"""
-        pet_ui.pump(self)
-    def auto_final_scan(self):
-        """自动定稿的只读扫描（第 72 期 Round 5）：采用清单里还有哪几份没同步、该做哪一份、缺什么。
-
-        返回 dict 四项：sources（采用清单原文）、pending（还没同步成定稿的分镜路径，按采用
-        顺序）、target（这一轮该同步的那一份，资产已齐）、source／missing（第一份资产没齐的
-        分镜与它缺的编号）。判据与 storyboard_final 的定稿口径同一条：分镜 JSON ＋ 它引用的
-        资产都在清单里且有图。04 页那条提示条每 1.5 秒问一次，所以这一份必须只读——不动文件、
-        不起批次（「把工作稿移进回收站」那件事只有 poll_auto_final 与手动按钮能做）。
-        """
-        from storyboard_selection import adopted
-        from storyboard_paths import is_final_dir
-        from asset_context import references
-        from asset_batch_state_service import ready_asset_ids
-        try:sources=list(adopted(self.root))
-        except (OSError,ValueError,KeyError):sources=[]
-        available=ready_asset_ids(self.asset_base())
-        pending=[];target=None;blocked=None
-        for source in sources:
-            path=Path(source)
-            if is_final_dir(path.parent.name):continue
-            if not path.is_file():continue
-            pending.append(path)
-            if target is not None:continue
-            episode=read(source)
-            shots=episode.get('shots',[]) if isinstance(episode,dict) else []
-            missing={aid for shot in shots for _,aid in references(shot)}-available
-            if missing:
-                if blocked is None:blocked=(path,missing)
-            else:target=path
-        return {'sources':sources,'pending':pending,'target':target,
-                'source':blocked[0] if blocked else None,'missing':blocked[1] if blocked else set()}
-    def auto_final_target(self):
-        """无人值守自动定稿这一轮该做哪一份分镜（第 64 期任务 9）。
-
-        原来只看「当前选择的那一份」：它已经是定稿目录就直接收工，采用清单里其余还没同步的
-        分镜永远轮不到——用户报的「自动状态下三虎没有自动同步分镜」。现在按采用顺序挑第一份
-        「还是工作稿、引用资产已齐」的；资产没齐的那一份在状态栏说明缺什么，04 页那条提示条
-        也同步显示（第 72 期），不挡住别的份。
-        """
-        scan=self.auto_final_scan()
-        if not scan['sources']:
-            self.auto_final_signature=None;self.auto_final_notice=None;return None
-        if scan['target'] is not None:
-            self.auto_final_notice=None;return scan['target']
-        missing=scan['missing']
-        if missing:
-            notice=(str(scan['source']),tuple(sorted(missing)))
-            if notice!=self.auto_final_notice:
-                self.auto_final_notice=notice
-                shown='、'.join(sorted(missing)[:6])+('…' if len(missing)>6 else '')
-                self.status.set('无人值守自动定稿暂缓：还缺 '+str(len(missing))+' 项资产图片（'+shown+'）；补齐后会自动定稿')
-        else:
-            # 剩下的都已经定稿（或被移走）了：别再让提示条挂着上一次那句「还缺…」。
-            self.auto_final_notice=None
-        return None
-    def auto_final_state(self):
-        """04 页那条「未同步分镜的可见重试」提示条要显示的东西（第 72 期 Round 5）。
-
-        返回 kind／text／retry／pending／missing 五项：页面拿 text 显示、按 retry 决定
-        「立即重试」那颗按钮能不能点。kind 七档：
-          off      「自动生成定稿」没勾上
-          busy     本轮正在同步资产、生成定稿
-          blocked  该动手，但要让正在读这份工作稿的制作批次先跑完
-          error    上一轮失败（退避 5 分钟中，点「立即重试」可以马上再来）
-          ready    资产齐、等下一轮轮询动手
-          missing  还缺资产图片（missing 里是编号，text 报份数并列出最多 6 个）
-          done     采用清单里没有要同步的分镜了
-        text 尾巴永远带一句「还有 N 份没同步成定稿」——这正是原来只写在状态栏、用户切个页面
-        就丢了的那条信息（「无人值守走完采用分镜就静默停住」那条现象）。
-        """
-        if self.root is None or self.studio is None:
-            return {'kind':'off','text':'请先选择项目','retry':False,'pending':0,'missing':()}
-        scan=self.auto_final_scan()
-        pending=scan['pending']
-        shown='、'.join(path.name for path in pending[:3])+('…' if len(pending)>3 else '')
-        tail=('还有 %d 份已采用的分镜没同步成定稿（%s）'%(len(pending),shown)) if pending else '已采用的分镜都同步成定稿了'
-        def state(kind,text,retry=False,missing=()):
-            return {'kind':kind,'text':text+'；'+tail,'retry':retry,'pending':len(pending),'missing':tuple(missing)}
-        if not self.pet.should_auto_run('final'):
-            return state('off','「自动生成定稿」没勾上：勾上之后资产一补齐就自动同步（定稿会把工作稿移入回收站，可恢复）')
-        if self.auto_final_busy:return state('busy','正在同步资产、生成定稿…')
-        if self.auto_final_blocked:return state('blocked','自动定稿在等：有制作批次正在读这份工作稿，它跑完就自动接手',retry=True)
-        if self.auto_final_error:return state('error','上一轮自动定稿失败：'+self.auto_final_error,retry=True)
-        if scan['target'] is not None:
-            return state('ready','资产已齐，下一轮轮询就动手（点「立即重试」可以马上做）',retry=True)
-        if scan['missing']:
-            listed='、'.join(sorted(scan['missing'])[:6])+('…' if len(scan['missing'])>6 else '')
-            return state('missing','%s 还缺 %d 项资产图片（%s），补齐后自动定稿；也可以点「立即重试」重扫一遍'
-                         %(scan['source'].name,len(scan['missing']),listed),retry=True,missing=sorted(scan['missing']))
-        return state('done','当前没有要同步的分镜')
-    def retry_auto_final(self):
-        """04 页那颗「立即重试」（第 72 期 Round 5）：清掉签名与失败退避，马上再跑一轮自动定稿。
-
-        给「资产刚补齐」「上一轮失败」「刚让完路」这三种情况一个能点的入口——不必等下一个
-        30 秒轮询周期，也不用重启。让路规则照旧：真有制作批次在读这份工作稿时，它照样只标一句
-        「在等」，不会把人家的批次拆掉。返回这一轮之后该显示的那句话（给状态栏用；页面那条
-        提示条自己会重新读一次 auto_final_state）。
-        """
-        try:
-            if self.root is None or self.studio is None:return '请先选择项目'
-            if not self.pet.should_auto_run('final'):
-                return '未开启「自动生成定稿」：勾上之后资产补齐才会自动同步。'
-            self.auto_final_signature=None;self.auto_final_notice=None;self.auto_final_error=''
-            self.auto_final_blocked=False;self.auto_final_due=0
-            self.poll_auto_final()
-            return self.auto_final_state()['text']
-        except Exception as exc:
-            self.auto_final_error=str(exc)
-            return '自动定稿重试失败：'+str(exc)
 
     def final_storyboard_hint(self,source=None):
         """当前分镜还是工作稿、且引用的资产都已导入时，提示可以去分镜定稿页生成定稿。
@@ -1345,26 +1041,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         if not shots:return ''
         if self.final_missing_assets(source):return ''
         return '；当前分镜引用的资产都已导入，可在'+pet_bus.stage_step('final')+'「分镜定稿」生成定稿（定稿接管后续流程，工作稿移入回收站）'
-    def reconcile_storyboards(self):
-        """启动对账（第 62 期任务 7）：强制关闭后重开，把已完成的分镜同步进工作集。
-
-        强制关闭可能正好落在 adopt() 与 sync_working_episode() 之间：分镜已经记进采用清单，
-        config.json 的 episode_file 还停在旧分镜上。重启后 adopt_pending 看到「没有新东西」
-        就早退了，这一步没人补，04 之后各步就还按旧分镜走——用户报的「三虎没有自动同步已经
-        完成的分镜」就是这个。这里只补指针，不擅自采用用户没勾「自动采用」的东西。
-        """
-        from storyboard_selection import repair_working_episode
-        try:switched=repair_working_episode(self.root)
-        except (OSError,ValueError,KeyError,TypeError) as exc:
-            self.status.set('工作集同步暂缓：'+str(exc));return None
-        if not switched:return None
-        try:
-            self.align_studio()
-            if getattr(self,'page_index',None) in (PAGE['storyboard'],PAGE['final'],PAGE['keyframe']):
-                self.show(self.page_index)
-        except (OSError,ValueError,KeyError,TypeError):pass
-        self.status.set('已把已完成的分镜同步到工作集：'+Path(switched).name)
-        return switched
     def pet_show_text(self,title,text,receipt=''):
         """宠物「查看详情」的只读文本：复用全程序唯一的只读文本窗口（prompt_window），不另造一个。"""
         from prompt_window import show
@@ -1666,7 +1342,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
                 self._complete_project_recovery(self.root)
         if not defer_page and getattr(self,'_startup_tick_paused',False):
             self._request_tick_resume_after_first_paint()
-
 
 
     def ensure_stage_layout(self):
@@ -2071,81 +1746,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         reason=write_clipboard(self.win,str(text))
         self.status.set('复制失败：'+reason if reason else '已复制：'+copy_preview(text))
         return reason
-    def pick_gate(self,key,choice,again=None,digest=''):
-        """记一次人工确认，顺手把选择写进资产、再刷面板（第 64 期任务 6）。
-
-        原来只调用 record()：选择进的是 gate_confirmations.json，资产清单里该写的
-        canonical_board／character_anchor 一个字没写——「采用推荐」点了资产还是空的。
-        现在与资产详情页走同一条写入路径（confirm_gates.apply_choice）。
-        """
-        from stage_execution_service import record_stage_confirmation
-        from stage_execution_service import apply_asset_plan_gate_choice
-        apply_asset_plan_gate_choice(self.root,key,choice)
-        path=record_stage_confirmation(self.root,key,choice,digest=digest)
-        if again:again()                      # 先重建页面（重建会重置状态栏），再写状态栏
-        self.status.set('已确认：'+str(choice))
-        return path
-    def gate_level(self):
-        """三虎当前那一档（hint／semi／auto）。读不出来按 hint 算——绝不替用户做主。"""
-        import pet_agent
-        pet=getattr(self,'pet',None)
-        if pet is None:return pet_agent.DEFAULT_LEVEL
-        try:value=str(pet.level({}) or '')
-        except Exception:return pet_agent.DEFAULT_LEVEL
-        return value if value in pet_agent.LEVELS else pet_agent.DEFAULT_LEVEL
-    def pending_gate_asks(self):
-        """这一刻还没点的门禁候选：锚点定稿、正典板、连贯性裁决三处合起来。"""
-        from stage_execution_service import run_stage_confirmation_gate
-        try:assets=self.asset_requirements()
-        except (ValueError,OSError,TypeError,AttributeError,KeyError):assets={}
-        try:ledger=self.continuity_ledger_data()
-        except (ValueError,OSError,TypeError,AttributeError,KeyError):ledger={}
-        asks=[]
-        for gate in ('G-05','G-06','G-08'):
-            asks.extend(run_stage_confirmation_gate(
-                self.root, gate, assets=assets, ledger=ledger).get('ask') or ())
-        return asks
-    def auto_decide_gates(self):
-        """半自动／全自动：三虎自己把「待办与裁决」里没点的候选按推荐选掉。
-
-        第 64 期任务 6：hint（只提示）档一个字都不做；半自动／全自动不该卡在等人点。
-        每一条只处理一次（记进 gate_confirmations.json），选择同时写进资产清单。
-        """
-        import stage_flow
-        from confirm_gates import AUTO
-        from stage_execution_service import record_stage_confirmation
-        from stage_execution_service import apply_asset_plan_gate_choice
-        if self.gate_level() not in stage_flow.AUTO_LEVELS:return 0
-        done=0
-        for item in self.pending_gate_asks():
-            key=str(item.get('key') or '');candidates=list(item.get('candidates') or ())
-            if not key or not candidates:continue
-            try:index=int(item.get('recommended') or 0)
-            except (TypeError,ValueError):index=0
-            choice=candidates[min(max(index,0),len(candidates)-1)]
-            # 写资产清单或确认账本失败不能伪装成“这条已经处理过”。交给外层
-            # _poll_auto_due 的节流与可见错误反馈，下一拍才会重试。
-            apply_asset_plan_gate_choice(self.root,key,choice)
-            record_stage_confirmation(self.root,key,choice,by=AUTO,digest=str(item.get('digest') or ''))
-            done+=1
-        if done:
-            text='已按推荐处理 %d 条待办：锚点、正典板与连贯性裁决。'%done
-            self.pet_report('continuity',text)
-            if getattr(self,'page_index',None)==PAGE['continuity']:self.show(PAGE['continuity'])
-            self.status.set(text)
-        return done
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     def final_storyboard(self):

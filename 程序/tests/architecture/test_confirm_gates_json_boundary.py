@@ -24,9 +24,11 @@ class ConfirmGatesJsonBoundaryTests(unittest.TestCase):
         self.assertNotIn('json.loads(path.read_text(', source)
 
     def test_l4_confirmation_writes_delegate_to_l3(self):
-        desktop = (Path(ROOT) / 'desktop.py').read_text(encoding='utf-8')
-        self.assertIn('from stage_execution_service import record_stage_confirmation', desktop)
-        self.assertNotIn('from confirm_gates import record', desktop)
+        # R1622：门禁方法迁到 desktop_automation_tick（AutomationTickMixin），委托关系随之迁址。
+        l4 = '\n'.join((Path(ROOT) / name).read_text(encoding='utf-8')
+                       for name in ('desktop.py', 'desktop_automation_tick.py'))
+        self.assertIn('from stage_execution_service import record_stage_confirmation', l4)
+        self.assertNotIn('from confirm_gates import record', l4)
         service = (Path(ROOT) / 'stage_execution_service.py').read_text(encoding='utf-8')
         self.assertIn('def record_stage_confirmation(', service)
         self.assertIn("publish=confirm_gates_gateway()['publish_json']", service)

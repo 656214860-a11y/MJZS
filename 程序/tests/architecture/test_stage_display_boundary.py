@@ -36,7 +36,7 @@ class StageDisplayBoundaryTests(unittest.TestCase):
     }
 
     def test_desktop_pages_are_generated_from_canonical_stage_table(self):
-        source = (ROOT / 'desktop.py').read_text(encoding='utf-8')
+        source = (ROOT / 'desktop_page_registry.py').read_text(encoding='utf-8')
         self.assertIn('for index, stage in enumerate(pet_bus.STAGES, start=1)', source)
         self.assertIn('pet_bus.stage_name(stage)', source)
 

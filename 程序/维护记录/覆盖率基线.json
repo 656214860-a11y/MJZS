@@ -326,7 +326,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 1719,
+   "total": 1473,
    "percent": 0.0
   },
   {
@@ -339,6 +339,12 @@
    "module": "desktop_auto_flows.py",
    "covered": 0,
    "total": 536,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_automation_tick.py",
+   "covered": 0,
+   "total": 198,
    "percent": 0.0
   },
   {
@@ -363,6 +369,12 @@
    "module": "desktop_media_pages.py",
    "covered": 0,
    "total": 786,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_page_registry.py",
+   "covered": 0,
+   "total": 7,
    "percent": 0.0
   },
   {
@@ -399,6 +411,12 @@
    "module": "desktop_storyboard_page.py",
    "covered": 0,
    "total": 258,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_tk_gc.py",
+   "covered": 0,
+   "total": 59,
    "percent": 0.0
   },
   {
@@ -1681,5 +1699,5 @@
   }
  ],
  "modules_covered": 49,
- "modules_total": 278
+ "modules_total": 281
 }
