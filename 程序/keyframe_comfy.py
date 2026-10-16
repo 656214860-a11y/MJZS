@@ -132,7 +132,7 @@ def run_seedream(source, shots, options, log, stop=None, *, project=None):
     from seedream_api import UNSETTLED, load_profile, request_image
     from pet_llm import RequestLedger, BudgetRejected
     from uuid import uuid4
-    from native_asset_codec import seedream_payload as _seedream_payload, to_png as _to_png
+    from native_asset_codec import seedream_payload as _seedream_payload, to_png as _to_png, seedream_provenance as _seedream_provenance
     from importlib import import_module
     keyframe_import = import_module('keyframe_import')
     register, fingerprint = keyframe_import.register, keyframe_import.fingerprint
@@ -174,18 +174,19 @@ def run_seedream(source, shots, options, log, stop=None, *, project=None):
         if len(images) > 10:
             failed.append(sid + '：参考图超过 10 张'); log(sid + '：参考图超过 10 张，Seedream 每项最多 10 张'); continue
         payload = _seedream_payload(profile['model'], prompt, aspect, images)
+        trace = {'model': profile['model'], 'shot_id': sid, 'provenance': _seedream_provenance(payload)}
         from keyframe_evidence import source_evidence
         frozen_source = source_evidence(source, episode, current)
         request_id = 'image:' + uuid4().hex
-        save(record_file, {'request_id': request_id, 'state': 'sending', 'model': profile['model'], 'shot_id': sid})
+        save(record_file, {'request_id': request_id, 'state': 'sending', **trace})
         try:
             with RequestLedger(project).metered_units(request_id, profile['model'], 'keyframe', 'images', 1):
                 raw = request_image(profile, payload)
         except BudgetRejected as exc:
-            save(record_file, {'request_id': request_id, 'state': 'failed', 'model': profile['model'], 'shot_id': sid, 'not_submitted': True, 'error': str(exc)})
+            save(record_file, {'request_id': request_id, 'state': 'failed', **trace, 'not_submitted': True, 'error': str(exc)})
             failed.append(sid + '：' + str(exc)); log(sid + '：未发送，' + str(exc)); continue
         except Exception as exc:
-            save(record_file, {'request_id': request_id, 'state': 'uncertain', 'model': profile['model'], 'shot_id': sid, 'error': str(exc)})
+            save(record_file, {'request_id': request_id, 'state': 'uncertain', **trace, 'error': str(exc)})
             failed.append(sid + '：' + str(exc)); log(sid + '：' + str(exc)); continue
         temp = folder / (sid + '_seedream.png')
         try:
@@ -201,13 +202,13 @@ def run_seedream(source, shots, options, log, stop=None, *, project=None):
             except OSError:
                 pass
             kept = pending.is_file()
-            save(record_file, {'request_id': request_id, 'state': 'uncertain', 'model': profile['model'], 'shot_id': sid,
+            save(record_file, {'request_id': request_id, 'state': 'uncertain', **trace,
                                'error': str(exc), 'file': str(pending) if kept else ''})
             blocked.append(sid + '（结果待核实，未重复提交' + ('，图片 ' + pending.name if kept else '') + '，记录 ' + record_file.name + '）')
             log(sid + '：' + str(exc) + ('；图片保留在 ' + pending.name + '，请核实后导入，未重复提交' if kept else '；请核实，未重复提交')); continue
         finally:
             remove_temporary_file(temp)
-        save(record_file, {'request_id': request_id, 'state': 'completed', 'model': profile['model'], 'shot_id': sid, 'file': str(dest)})
+        save(record_file, {'request_id': request_id, 'state': 'completed', **trace, 'file': str(dest)})
         done.append(sid); log(sid + '：已保存并关联 ' + dest.name)
     message = f'Seedream 已生成并导入 {len(done)}/{len(shots)} 镜。'
     if failed:

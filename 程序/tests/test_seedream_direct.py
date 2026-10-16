@@ -305,3 +305,69 @@ class SeedreamKeyStoreTests(unittest.TestCase):
                 profile = seedream_api.load_profile('p1')
         self.assertEqual(profile['api_key'], 'sk-from-env')
         self.assertEqual(profile['model'], 'doubao-seedream')
+
+
+class SeedreamProvenanceTests(unittest.TestCase):
+    """O9：云图请求记录必须能回溯输入与执行配置，且不含凭据。"""
+    patch_seedream = SeedreamUnsettledTests.patch_seedream
+    make_project = SeedreamUnsettledTests.make_project
+
+    def test_payload_provenance_records_digests_only(self):
+        import hashlib
+        from native_asset_codec import seedream_provenance
+        record = seedream_provenance(_seedream_payload("m", "画一只猫", "9:16", []))
+        self.assertEqual(record["prompt_sha256"], hashlib.sha256("画一只猫".encode("utf-8")).hexdigest())
+        self.assertEqual(record["payload_schema"], "seedream_payload/v1")
+        self.assertEqual((record["model"], record["size"]), ("m", "1440x2560"))
+        self.assertEqual(record["reference_sha256"], [])
+        self.assertNotIn("prompt", record)
+        self.assertNotIn("image", record)
+
+    def test_reference_digest_matches_source_file(self):
+        import hashlib
+        from native_asset_codec import seedream_provenance
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "r.png"; data = _png_bytes(); path.write_bytes(data)
+            record = seedream_provenance(_seedream_payload("m", "p", "1:1", [path]))
+        self.assertEqual(record["reference_sha256"], [hashlib.sha256(data).hexdigest()])
+
+    def test_asset_batch_record_keeps_provenance(self):
+        import hashlib
+        from unittest.mock import patch
+        import native_assets, asset_batch_service
+        from asset_context import generated_dir
+        self.patch_seedream(_png_bytes())
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td) / "episode"
+            with patch.object(asset_batch_service, "image_ready", lambda *a, **k: False), \
+                 patch.object(asset_batch_service, "register_image", lambda *a, **k: "已生成"):
+                native_assets._run_seedream_direct(
+                    Path(td), base, [("CHAR_001", {"name": "角色", "image_prompt": "一只猫"})],
+                    {"model": "Seedream 5.0 Pro", "aspect_ratio": "1:1"}, lambda _: None)
+            record = json.loads((generated_dir(base) / "seedream_CHAR_001.json").read_text(encoding="utf-8"))
+        self.assertEqual(record["state"], "completed")
+        self.assertEqual(record["provenance"]["prompt_sha256"],
+                         hashlib.sha256("一只猫".encode("utf-8")).hexdigest())
+        self.assertEqual(record["provenance"]["reference_sha256"], [])
+        self.assertNotIn("api_key", json.dumps(record))
+
+    def test_keyframe_request_record_keeps_provenance(self):
+        import hashlib
+        import keyframe_comfy, keyframe_import
+        self.patch_seedream(_png_bytes())
+        with tempfile.TemporaryDirectory() as td:
+            source = self.make_project(td)
+            folder = source.parent / "首帧任务"; folder.mkdir()
+            original = (keyframe_comfy.check_shot, keyframe_import.register)
+            keyframe_comfy.check_shot = lambda src, shot: ("提示词", [])
+            def fake_register(source_path, item, image):
+                dest = Path(source_path).parent / "registered.png"; dest.write_bytes(Path(image).read_bytes()); return dest
+            keyframe_import.register = fake_register
+            self.addCleanup(lambda: (setattr(keyframe_comfy, "check_shot", original[0]),
+                                     setattr(keyframe_import, "register", original[1])))
+            keyframe_comfy.run_seedream(source, [{"id": "SH001"}], {"aspect_ratio": "9:16"}, lambda text: None)
+            record = json.loads((folder / "seedream_SH001.json").read_text(encoding="utf-8"))
+        self.assertEqual(record["state"], "completed")
+        self.assertEqual(record["provenance"]["prompt_sha256"],
+                         hashlib.sha256("提示词".encode("utf-8")).hexdigest())
+        self.assertNotIn("api_key", json.dumps(record))

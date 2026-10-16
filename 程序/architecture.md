@@ -417,3 +417,7 @@ R1305：`writing_quality`（L2）解析自然剧本附带的四项辅助质检�
 - desktop_media_pages：文件选择、确认、编辑器/ComfyUI启动工具、工作区打开。
 - desktop_project_pages：菜单、确认、打开路径。
 上述旧页面仍使用 desktop_page_support 兼容入口。后续按页面提供最小服务集合并迁移各自调用方；不建立包含整个 Desktop 的万能接口，不改变阶段状态权威来源。常量继续共用，不算宿主调用。
+
+## R1607 / O9：云图生成溯源字段
+来源：tasks_round/tasks_round_1596_result.md 的 O9，先建覆盖矩阵再补漏。矩阵见 维护记录/多模态溯源覆盖矩阵_20261016.md。
+本轮补齐 native_asset_codec.seedream_provenance()：对已组好的 Seedream 载荷只记录摘要（payload_schema／model／size／watermark／prompt_sha256／reference_sha256），不写密钥与图片字节；keyframe_comfy.run_seedream 与 native_assets._run_seedream_direct 的每次状态写入都带 provenance。未核验的路径字段在矩阵中记未知，不据此声称全链路可复现。

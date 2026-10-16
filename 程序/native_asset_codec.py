@@ -1,5 +1,6 @@
 """Pure Seedream request/image conversion helpers with no UI dependency."""
 import base64
+import hashlib
 import subprocess
 from pathlib import Path
 
@@ -24,6 +25,23 @@ def seedream_payload(profile_model, prompt, aspect_ratio, ref_paths):
     if images:
         payload['image'] = images if len(images) > 1 else images[0]
     return payload
+
+
+def seedream_provenance(payload):
+    """Record how a Seedream request was assembled: digests only, never the key or image bytes."""
+    images = payload.get('image')
+    if isinstance(images, str):
+        images = [images]
+    references = []
+    for item in images or []:
+        encoded = item.split(',', 1)[1] if isinstance(item, str) and item.startswith('data:') and ',' in item else None
+        references.append(hashlib.sha256(base64.b64decode(encoded)).hexdigest() if encoded is not None else None)
+    return {'payload_schema': 'seedream_payload/v1',
+            'model': str(payload.get('model', '')),
+            'size': str(payload.get('size', '')),
+            'watermark': bool(payload.get('watermark')),
+            'prompt_sha256': hashlib.sha256(str(payload.get('prompt', '')).encode('utf-8')).hexdigest(),
+            'reference_sha256': references}
 
 
 def to_png(raw):
