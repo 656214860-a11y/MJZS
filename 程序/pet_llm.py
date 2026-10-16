@@ -1007,10 +1007,9 @@ class RequestLedger:
     def check_legacy_video_costs(self, request_id):
         for gid, group in self.legacy_video_costs(request_id, include_unpriced=True).items():
             entry = self._find(gid)
-            if entry is None and group.get('unit') == 'requests':
-                continue  # 未主动纳入金额预算的本地/自定义流程保留原发送策略。
             if entry is None or entry.get('legacy_digest') != group['digest']:
-                label = ('旧Comfy云图片费用' if any(s['source'].startswith('comfy-task:') for s in group['sources'])
+                label = ('旧Comfy工作流费用' if group.get('unit') == 'requests'
+                         else '旧Comfy云图片费用' if any(s['source'].startswith('comfy-task:') for s in group['sources'])
                          else '旧视频任务费用' if any(s['source'].startswith('task:') for s in group['sources']) else '旧视频会话费用')
                 raise ValueError(label + '尚未纳入项目总账或来源已变化，请导入后核对：' + group['label'])
 

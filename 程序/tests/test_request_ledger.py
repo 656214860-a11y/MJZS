@@ -139,6 +139,25 @@ class RequestLedgerTests(unittest.TestCase):
 
 
 class ModelMoneyBudgetTests(unittest.TestCase):
+    def test_unpriced_comfy_history_requires_reconciliation_before_new_budget(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td); self.policy(td)
+            folder = root / 'workflows'; folder.mkdir()
+            source = folder / 'comfy_custom.json'
+            source.write_text(json.dumps({'state': 'completed', 'workflow': {
+                '1': {'class_type': 'CustomPaidNode', 'inputs': {}}}}), encoding='utf-8')
+            original = source.read_bytes()
+            ledger = RequestLedger(root)
+            self.assertFalse(ledger.preview_units('m', 'tokens', {'prompt_tokens': 1, 'completion_tokens': 1})['allowed'])
+            with self.assertRaisesRegex(ValueError, '尚未纳入'):
+                ledger.authorize_model('new', 'm', 'script', 1, 1)
+            self.assertEqual(ledger.import_legacy_video_costs(include_unpriced=True), 1)
+            entry = ledger.entries[0]
+            receipt = root / 'receipt.txt'; receipt.write_text('offline invoice fixture')
+            ledger.reconcile_cost(entry['id'], 'requests', '0.2', 'CNY', receipt, 'tester')
+            ledger.authorize_model('new', 'm', 'script', 1, 1)
+            self.assertEqual(source.read_bytes(), original)
+
     def test_changed_or_missing_receipt_invalidates_report_and_budget_until_reconciled(self):
         with tempfile.TemporaryDirectory() as td:
             self.policy(td)
