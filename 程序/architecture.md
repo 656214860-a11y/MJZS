@@ -266,7 +266,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 10  | `video`            | 视频生成  | 视频任务/片段、`video_manifest.json`。                   |
 | 11  | `audio`            | 配音与字幕 | 音轨、字幕；完成凭据为人工确认的 `成果确认/<hash>.json`（`audio_manifest.json` 无程序产出方）。 |
 | 12  | `edit`             | 后期剪辑  | 粗剪成片 `MASTER.mp4`（落 `13质检交付/导出成片/`）、`edit_manifest.json`／`edit_bundle.json`、EDL／FCPXML；需求与设计见 `docs/`。 |
-| 13  | `delivery`         | 质检与交付 | 报告、交付包、`delivery_manifest.json`。                 |
+| 13  | `delivery`         | 质检与交付 | 已确认成片的成果确认清单（`成果确认/*.json`）、商用待填资料；`delivery_manifest.json` 现无代码写入，待定见 REQ-S13-24。 |
 
 三虎逐步发布 `stage.started/completed/failed/retrying/executing/paused` 等事件，记录检查点，支持恢复；手动模式仅在模板标记确认的步骤等待用户，全自动模式不等待但逐步播报。门禁为资产/锚点 → SG01 → 连贯性 → SG02 → 定稿 → SG03 → 首帧 → SG04 → 预演 → SG05 → 视频。
 
@@ -315,7 +315,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | `<项目>/skill_config.json`                   | JSON          | 项目 13 阶段模型和 SKILL。     |
 | `<项目>/data/项目接续.json`                      | JSON          | 项目进度和接续上下文。            |
 | `<项目>/01剧本准备/`、`<项目>/02剧本结构/` | Markdown、JSON | 当前剧本阶段目录；由 `stage_path_service` 与 `script_contract` 解析。 |
-| `<项目>/03初步分镜/`—`<项目>/12质检交付/` | JSON、媒体、Markdown | 当前后续阶段目录，细表见 PROJECT_MAP；JSON、MD 分别放受控的 output/、docs/。 |
+| `<项目>/03初步分镜/`—`<项目>/13质检交付/` | JSON、媒体、Markdown | 当前后续阶段目录，细表见 PROJECT_MAP；JSON、MD 分别放受控的 output/、docs/。 |
 | `<项目>/episode/assets.json` | JSON | 历史资产清单路径，仅说明旧项目兼容，不授权新写入。 |
 | `<项目>/episode/continuity_ledger.json` | JSON | 历史台账路径，仅说明旧项目兼容。 |
 | `<项目>/episode/*_manifest.json` | JSON | 历史产物路径；当前目标以阶段路径服务及对应契约为准。 |

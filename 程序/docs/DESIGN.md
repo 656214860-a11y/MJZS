@@ -600,3 +600,54 @@
 | REQ-S12-23 | `test_stage_completion_service`、`test_editing_scope`（新） |
 | REQ-S12-25/26/30/31/32 | `test_editing_scope`（新） |
 | REQ-S12-15/24/33/34 | 现状差距，暂无断言（待用户裁决后再补） |
+
+## S13 质检与交付
+
+### 模块分工
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L4 | `desktop_media_pages`（`MediaPagesMixin.delivery`） | 交付页：采用/QC 状态表与按钮；只注入回调 |
+| L4 | `desktop`（`confirm_stage_media`、`commercial_delivery_review`） | 选文件、后台调用核验服务、展示结果 |
+| L3 | `stage_flow` / `stage_parallel` | 依赖 `DEPENDS`；并行与重试配置 `CONFIG['delivery']` |
+| L3 | `stage_execution_service` | `import_delivery_master` 注入发布器；交接包发布与校验 |
+| L3 | `skill_tools` | `qa.*`、`delivery.*` 工具表：`READY`（本地实现）与 `PAGES`（页面动作） |
+| L3 | `stage_workspace_service` | `ensure_delivery_workspace` 创建交付与导出目录 |
+| L2 | `delivery_import_service` | 最终成片导入：后缀与空文件校验，目标目录与发布器由 L3 注入 |
+| L2 | `usage_overview` | 用量总览、交付时长证据、每分钟成本、不付费场景估算 |
+| L0/契约 | `stage_completion_service` | 媒体成果技术校验、人工确认清单、商用资料核验、完成证据 |
+| L0/契约 | `stage_layout` / `stage_path_service` | `13质检交付` 目录与旧名只读兼容；`write_dir`/`read_dirs` |
+| L0/契约 | `storyboard_adoption_contract` | 采用分镜来源，作为成果确认的范围 |
+| L0/契约 | `pet_bus` | 阶段 ID／名称（`delivery`＝质检与交付） |
+
+### 设计条目
+
+- **DES-S13-01**（REQ-S13-01）`stage_flow.DEPENDS['delivery']=('edit',)`。
+- **DES-S13-02**（REQ-S13-02）`media_scope(root)` 取 `adopted(root)` 与偏好 `frame_json` 解析出唯一来源，返回项目、来源相对路径、`source_sha256`、集号；无来源或无 `shots` 抛 `ValueError`。
+- **DES-S13-03**（REQ-S13-03）`prepare_media_completion` 取 `config.json` 的 `ffprobe` 或 `platform_tools.tool_path('ffprobe')`，缺失抛 `ValueError`；探测由 `agent.media.probe`＋`media_facts` 完成。
+- **DES-S13-04**（REQ-S13-04）`STAGE_LOCK_REQUIREMENTS` 键为 `script/keyframe/previs/video`，不含 `delivery`。
+- **DES-S13-10**（REQ-S13-10）交付页按钮：导入剪映最终成片、校验并确认本阶段成果、生成商用待填资料、核验商用交付资料、选择采用版本、打开目录。
+- **DES-S13-11**（REQ-S13-11）`delivery_import_service.ALLOWED_SUFFIXES={'.mp4','.mov'}`；目标文件名＝原名＋6 位随机＋原后缀；发布走 `stage_completion_service.publish_imported_media`，同时写 `<文件>.source.json`（`rights_status='unknown'`）。
+- **DES-S13-12**（REQ-S13-12/13）`prepare_media_completion` 逐文件：`_media_path`（目录＋后缀＋非空）→ 哈希 → 探测 → 再哈希；全部通过后生成 `status='pending_review'` 清单并自校验。
+- **DES-S13-14**（REQ-S13-14）`confirm_media_completion` 仅由显式确认入口调用，写 `complete/reviewed=True`；`delivery` 另加 `commercial_status='pending'`；落盘到 `media_manifest_path`＝`write_dir(root,'delivery')/成果确认/<fingerprint(来源)[:24]>.json`。
+- **DES-S13-20**（REQ-S13-20/21/22/23）`completion_evidence` 对 `audio/edit/delivery` 走 `media_completion_evidence`→`_validate_media_completion`（schema、阶段、范围、状态、技术校验、大小与哈希）；`emit_verified_completion` 核验通过后才发 `stage.completed`。商用函数不在此路径上。
+- **DES-S13-24**（REQ-S13-24/25/26/28）待定：`stage_layout` 声明产物、`pipeline-delivery` 的工具与约束、后缀集合、`commercial_status`／`delivery.ready` 的归属，按需求裁决后再设计。
+- **DES-S13-30**（REQ-S13-30/31）`create_commercial_template` 目标为 `<成果确认>/<指纹>.commercial.pending.json`，已存在即拒绝；`_commercial_inventory` 预填剧本（经 `board_source_script`）、成片、`edit_bundle.json` 的 `manifest/fonts/references`、`font.ttc`，授权字段留空。
+- **DES-S13-32**（REQ-S13-32~36）`validate_commercial_evidence`：范围与成片摘要一致 → 清单完成声明与审核人 → 七类逐类（`COMMERCIAL_CATEGORIES`）→ 条目字段与授权文件冻结校验 → 覆盖实际剧本来源／成片／镜头来源／参考／字体 → `content_review` 三项 `cleared`＋审核人＋证据。确认后写 `<指纹>.commercial.json`。
+- **DES-S13-40**（REQ-S13-40）`usage_overview.read_events` 读 `model_diagnostics`；`_add` 对无用量事件计 `unknown_usage`，`not_submitted` 单独计数。
+- **DES-S13-41**（REQ-S13-41/42/43）`delivery_duration` 逐份校验确认清单（`complete`、`reviewed`、范围、来源哈希、`validation.passed`、大小与哈希）后累加时长；`cost_per_minute` 对缺项返回 `None`/缺项列表，`basis='recorded_usage_estimate_not_supplier_invoice'`。
+- **DES-S13-50**（REQ-S13-50）`workflow_settings` 阶段默认 SKILL＝`['pipeline-delivery']`；SKILL 位于 `skills/13质检交付SKILL/`。
+- **DES-S13-51**（REQ-S13-51）`stage_parallel.CONFIG['delivery']`：`unit=CHECK, min=2, max=4, serial=False, limit=4, retry={attempts:2, backoff:'fixed', on_exhaust:ON_REPORT}`。
+- **DES-S13-53**（REQ-S13-53）`skill_tools.READY` 含 `qa.visualCheck/audioCheck/subtitleCheck`、`delivery.generateReport/exportManifest`；`PAGES` 含 `qa.styleCheck/complianceCheck`、`delivery.archive/validate/package`。
+- **待定**（REQ-S13-52）模板步骤是否程序化，待总控拍板。
+
+### 测试锚定
+
+| 需求 | 测试 |
+| --- | --- |
+| REQ-S13-01/04/50/51 | `test_delivery_scope` |
+| REQ-S13-11 | `test_delivery_scope`、`test_delivery_import_service`、`architecture/test_delivery_import_boundary` |
+| REQ-S13-12/14/20/21 | `test_stage_completion_service` |
+| REQ-S13-30~36 | `test_stage_completion_service`、`test_delivery_scope`（七类常量） |
+| REQ-S13-40~43 | `test_usage_overview` |
+| REQ-S13-24/26/53 | `test_delivery_scope`（声明产物、后缀差异、工具表登记情况） |
