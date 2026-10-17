@@ -128,6 +128,36 @@ class StoryboardFinalScopeTests(unittest.TestCase):
         text = (ROOT / 'stage_completion_service.py').read_text(encoding='utf-8')
         self.assertIn("'final': 'batches_ready'", text)
 
+    def test_req_s07_52_finalize_reads_the_continuity_ledger_before_syncing(self):
+        source = (ROOT / 'storyboard_final.py').read_text(encoding='utf-8')
+        call = source.index('require_final_ready(project,episode')
+        self.assertLess(call, source.index("for shot in episode['shots']:\n        refs=[]"))
+        import continuity_ledger
+        with self.assertRaises(ValueError):
+            import tempfile
+            with tempfile.TemporaryDirectory() as raw:
+                project = Path(raw)
+                shots = [shot_batches.normalize(_shot(1, 'B01'), 0)]
+                continuity_ledger.write(project, continuity_ledger.build(shots, {}))
+                continuity_ledger.require_final_ready(project, shots + [shot_batches.normalize(_shot(2, 'B01'), 1)])
+
+    def test_req_s07_52_ledger_check_follows_the_sg02_convention(self):
+        import tempfile
+        import continuity_ledger
+        shots = [shot_batches.normalize(_shot(1, 'B01'), 0), shot_batches.normalize(_shot(2, 'B01'), 1)]
+        with tempfile.TemporaryDirectory() as raw:
+            project = Path(raw)
+            self.assertEqual(continuity_ledger.final_block_reason(project, shots), '')
+            continuity_ledger.write(project, continuity_ledger.build(shots, {}))
+            self.assertEqual(continuity_ledger.final_block_reason(project, shots), '')
+            stale = continuity_ledger.final_block_reason(project, shots + [_shot(3, 'B02')])
+            self.assertIn('台账与当前分镜不对应', stale)
+            ledger = continuity_ledger.build(shots, {})
+            ledger['summary'] = {'batches': 1, 'shots': 2, 'ok': False, 'problems': ['B01：同一批次里出现 2 种三元组，必须重切批次']}
+            continuity_ledger.write(project, ledger)
+            blocked = continuity_ledger.final_block_reason(project, shots)
+            self.assertIn('未裁决的待办', blocked)
+
     def test_req_s07_50_six_skills_belong_to_the_stage(self):
         for name in SKILLS:
             with self.subTest(name=name):

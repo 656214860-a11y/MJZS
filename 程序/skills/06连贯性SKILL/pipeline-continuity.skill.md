@@ -3,10 +3,10 @@ name: pipeline-continuity
 displayName: 全流程·连贯性清单
 description: 审核分镜与资产正典之间的角色场景道具和时空连续性
 stage: 连贯性清单
-capabilities: [structured-output, reasoning, vision]
-preferredModels: [qwen-max]
-fallbackModels: [deepseek-v4-pro]
-tools: [continuity.audit, continuity.validate]
+capabilities: [structured-output]
+preferredModels: []
+fallbackModels: []
+tools: [continuity.buildLedger, continuity.audit, continuity.validate]
 dependsOn: [pipeline-assets]
 conflictsWith: []
 parallelizable: false
@@ -39,6 +39,10 @@ examples:
 ## 阶段职责
 
 将已冻结资产与分镜初稿交叉核验，建立连续性台账和可复核的冲突修复项，是分镜定稿的硬前置。
+
+## 执行方式（以实现为准）
+
+本阶段由程序按规则现场计算（`continuity_ledger.build`），不调用模型，不读图；因此本 SKILL 不声明模型偏好，也不要求 reasoning／vision 能力。台账落盘为 `06连贯性清单/output/continuity_ledger.json`；`repairList` 是该阶段冲突修复项的统称，落盘对应物为 `06连贯性清单/output/continuity_issues.json`（问题闭环登记），不存在名为 `repairList` 的独立文件。手动按钮与三虎自动链共用同一个生成实现。
 
 ## 定向注入（00 包）
 

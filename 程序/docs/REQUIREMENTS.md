@@ -231,7 +231,7 @@
 
 - **REQ-S05-30** ✅ 阶段完成 = SG-01（`assets_locked`）通过且 `started`：清单每项都导入了真实非空图片；每个 `CHAR` 都 `locked`；每个 `CHAR` 都有 `character_anchor`（或 `base_anchor`）。模型文字、界面提示、manifest 是否存在都不算证据（`stage_completion_service`）。
 - **REQ-S05-31** ✅ SG-01 只拦“做过但没做全”：清单不存在、读不出来，或只有刚扫出来的名字（无图、无锁、无锚点）且阶段机没跑过，一律放行并标未开始。
-- **REQ-S05-32** ❓ 需拍板（疑似缺陷）：SG-01 读 `资产清单/assets.json` 里的 `image`，但程序登记图片只写图片登记表 `<资产库>/assets.json`（`asset_batch_service.register_image`／`import_asset_image`／恢复）；`sync_plan` 又把 `image` 从清单文件剔除。实测：清单里有锁与锚点、登记表里有真实图片时，SG-01 仍报“1 项资产还没导入图片”。端到端探针靠手工把 `image` 同时写进两份文件才通过。需确认是以登记表还是清单为准，再改门禁或写入点。
+- **REQ-S05-32** ✅ SG-01 的图片以图片登记表 `<资产库>/assets.json` 为准（`asset_batch_service.register_image`／`import_asset_image`／恢复写入处），清单文件里的 `image` 仅作旧数据兜底；`sync_plan` 剔除清单 `image` 的口径不变。修复：此前清单里有锁与锚点、登记表里有真实图片时，SG-01 仍误报“1 项资产还没导入图片”。
 - **REQ-S05-33** ✅ 用户可见的资产删除走回收站（`storage_maintenance.recycle_paths`）；删除前由 `deletion_references`／`asset_impact` 列出被哪些镜头引用；恢复可还原相同字节。
 
 ### SKILL
@@ -274,7 +274,7 @@
 - **REQ-S06-21** ✅ 问题闭环登记 `06连贯性清单/output/continuity_issues.json`：问题编号稳定（`CI-<类型>-<范围>`），状态待处理／已忽略／已解除；忽略必须写理由并记当时证据摘要；证据变化或问题复现则重开；修好自动解除；只有 L3 注入发布器才落盘，否则只读预览。
 - **REQ-S06-22** ✅ 严重度：职责自相矛盾、三元组不一致为“高”，锚点漂移、跨批次不一致为“中”。
 - **REQ-S06-23** ✅ 阶段完成 = SG-02 `ledger_ready` 通过且 `started`（台账已生成）。台账未生成时门禁放行但不算完成；台账有未处理问题时不通过；被忽略或已解除的问题不再拦；台账说有问题却算不出问题行时不擅自放行。
-- **REQ-S06-24** ❓ SG-02 只读已落盘台账，不核对它是否对应当前分镜／资产：台账生成后再改分镜或资产仍放行；另外，空分镜也能生成 0 批次的通过台账并被判完成。是否要求台账与当前输入同版，待拍板。
+- **REQ-S06-24** ✅ SG-02 要求台账与当前分镜对应：当前分镜（`frame_json` 指向的已采用分镜，缺省取最后一份）有镜头时，台账各批次 `shot_ids` 必须与这些镜头编号一致，缺镜或多镜都拦，并提示重新生成；没有采用分镜时无可核对，仍按旧口径放行；台账未生成仍放行但不算完成。只核对镜头编号，不比对资产内容（资产变动由漂移检查负责）。另：没有镜头时不再生成台账（手动按钮与自动链均提示先采用分镜），0 批次的空台账不再被判完成。
 - **REQ-S06-25** 🟡 页面为现场计算、不落盘；只有“手动生成连贯性清单”才写盘并同步问题登记。
 - **REQ-S06-26** ❓ 主观门禁 G-08（“多图抢同一件事”的优先级裁决）不计入台账待办，SG-02 不要求先裁决，只有“职责自相矛盾”阻塞；而 `confirm_gates` 和恢复提示（`stage_flow` RECOVERY_HINTS）把“人工裁决”写成本阶段要做的事。裁决是否应成为放行条件，待拍板。
 - **REQ-S06-27** 🟡 台账 `stage` 字段与 SG-02 返回的 artifacts 仍写旧内部标识 `03_continuity`（实际目录 `06连贯性清单`，artifacts 指向不存在的路径）；`stage_layout` 别名兼容读写，功能不受影响。旧 `05连贯性清单` 目录只读。
@@ -283,8 +283,8 @@
 
 - **REQ-S06-30** ✅ 本阶段 6 个 SKILL，位于 `skills/06连贯性SKILL/`：`pipeline-continuity`（总入口，预设默认勾选）、`continuity-anchor-freeze`、`continuity-conflict-adjudicate`、`continuity-cross-batch-guard`、`continuity-drift-audit`、`continuity-triplet-check`。
 - **REQ-S06-31** ✅ SKILL 的 `continuity.*` 工具在 `skill_tools` 登记；`continuity.buildLedger` 直接调用 `continuity_ledger.build/write` 本地落盘，其余工具对应页面上的裁决／校验表。
-- **REQ-S06-32** ❓ `pipeline-continuity` 声明由模型执行（capabilities 含 reasoning、vision，preferredModels qwen-max，输出 `continuityLedger`、`repairList`），实际实现是纯本地规则，且不存在 `repairList` 文件（对应物是 `continuity_issues.json`）。SKILL 描述与实现哪个为准，待拍板。
-- **REQ-S06-33** ❓ 三虎自动链没有自动生成台账的入口：`PET_STAGE_POLL` 不含 continuity，`desktop.pet_start` 对本阶段返回空串；自动档只会按推荐自动选 G-05／G-06／G-08 候选。因台账缺失时 SG-02 放行，自动链会越过本阶段。是否要补自动生成，待拍板。
+- **REQ-S06-32** ✅ 以实现为准：台账由本地规则计算（见 REQ-S06-10）。`pipeline-continuity` SKILL 已改为只声明 `structured-output`、不设模型偏好，增补“执行方式”一节，写明 `repairList` 是冲突修复项的统称、落盘对应物为 `continuity_issues.json`，不存在独立的 `repairList` 文件；工具补登 `continuity.buildLedger`。
+- **REQ-S06-33** ✅ 三虎自动链现在会自动生成台账：`desktop.pet_start('continuity')` 仍经 `stage_handler_registry.start()`，其 fallback `_start_unattended_stage` 新增 continuity 分支，与手动按钮共用 `generate_continuity_ledger`（写台账、同步问题登记、播报），不另设第二入口；没有镜头时返回空串，由宠物报告“没有自动执行入口”。完成仍由 SG-02 核验。
 
 ### 非目标（明确不做）
 
@@ -341,7 +341,7 @@
 
 - **REQ-S07-50** ✅ 本阶段有 6 个 SKILL（`skills/07分镜定稿SKILL/`）：`pipeline-storyboard-final`（总入口，默认勾选，`workflow_settings.py:50`）、`storyboard-asset-sync`、`storyboard-consistency-lock`、`storyboard-final-validate`、`storyboard-prompt-render`、`storyboard-version-snapshot`；frontmatter `stage` 均为“分镜定稿”。
 - **REQ-S07-51** ✅ 总入口 SKILL 读取项目锁（`track/material_source/aspect_ratio/resolution/fps/delivery_format/video_model_version/splice_mode/style_*`）而不重新询问；必填缺失退回剧本准备；`splice_mode`（D 锁）在本阶段放行，段缝须冻结 `in_state/out_state/cut_type/audio_bridge/owner`；不加载 00 包全文。
-- **REQ-S07-52** ❓ 两条定稿路径并存、口径不同。路径 A：程序内 `storyboard_final.finalize`（桌面“手动同步资产”和自动定稿用），只做资产对齐、切批、发布，**不读连贯性台账、不查 D 锁段缝字段**。路径 B：总入口 SKILL（模型引擎执行），约束“只采用连续性审核通过的镜头”“任一段缝字段缺失即退回修订，不发布”。两边证据：SKILL 写在 `pipeline-storyboard-final.skill.md:16,47`；程序 `storyboard_final.py` 全文无台账／段缝引用，仅 SG-02 在阶段级拦台账。待拍板：段缝冻结与“只采用审核通过镜头”是否要在 `finalize` 里程序化核验，还是保持仅由 SKILL 提示词约束。
+- **REQ-S07-52** ✅ `storyboard_final.finalize` 现在读连贯性台账（`continuity_ledger.require_final_ready`），口径与 SG-02 一致：台账未生成或读不出来放行；台账与待定稿镜头不对应则拒绝（`ValueError`，提示重新生成连贯性清单）；台账仍有未裁决待办（已忽略／已解除不算）则拒绝。D 锁段缝字段仍只由总入口 SKILL 提示词约束，程序不核验（本次裁决范围外，保持现状）。
 - **REQ-S07-53** 🟡 SKILL `storyboard-version-snapshot`（“可回滚可对比”）声明了 `storyboard.save` 等 tools，程序里没有对应的“版本快照／回滚”实现；`architecture.md:79` 把“输出提示词和快照”列为本阶段职责。现状是定稿目录带日期后缀与回收站退役，并非快照。是否保留此 SKILL 描述，待定。
 
 ### 非目标（明确不做）

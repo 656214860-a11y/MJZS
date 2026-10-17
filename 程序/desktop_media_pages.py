@@ -174,6 +174,24 @@ class MediaPagesMixin:
         """把台账落到 03_continuity（第 62 期任务 11：这一步成了独立的一页，清单由「手动生成」写）。"""
         from continuity_ledger import write
         return write(self.root,self.continuity_ledger_data() if ledger is None else ledger)
+    def generate_continuity_ledger(self,ledger=None):
+        """生成连贯性清单：手动按钮与三虎自动链共用的唯一实现（落盘＋同步问题登记＋播报）。"""
+        ledger=self.continuity_ledger_data() if ledger is None else ledger
+        summary=ledger.get('summary') or {}
+        if not summary.get('shots'):
+            raise ValueError('当前没有可用的分镜镜头，请先在「初步分镜」采用一份分镜再生成连贯性清单。')
+        self.write_continuity_ledger(ledger)
+        self.sync_continuity_issues(ledger)
+        text='镜头 %s 个 · 批次 %s 组 · %s'%(summary.get('shots',0),summary.get('batches',0),
+                                           '全部通过' if summary.get('ok') else '有待办')
+        self.pet_report('continuity','连贯性清单已生成：'+text+'。')
+        self.status.set('连贯性清单已生成并落盘：'+text)
+        if getattr(self,'page_index',None)==PAGE['continuity']:self.show(PAGE['continuity'])
+        return text
+    def pet_continuity_ledger(self):
+        """三虎自动链的连贯性清单入口（经 stage_handler_registry.start 的回调）；没有分镜时返回空串。"""
+        try:return '已自动生成「连贯性清单」：'+self.generate_continuity_ledger()
+        except ValueError:return ''
     def continuity_page(self):
         """06 连贯性清单（第 62 期任务 11）。
 
@@ -190,11 +208,7 @@ class MediaPagesMixin:
             return '镜头 %s 个 · 批次 %s 组 · %s'%(summary.get('shots',0),summary.get('batches',0),
                                                  '全部通过' if passed else '有待办')
         def make():
-            self.write_continuity_ledger(ledger)
-            self.sync_continuity_issues(ledger)
-            self.pet_report('continuity','连贯性清单已生成：'+line()+'。')
-            self.status.set('连贯性清单已生成并落盘：'+line())
-            self.show(PAGE['continuity'])
+            self.generate_continuity_ledger(ledger)
         bar=FlowBar(self.content);bar.pack(fill='x',pady=(0,3))
         ttk.Label(bar,text='清单',width=ASSET_ROW_LABEL).pack(side='left')
         _make=PrimaryButton(bar,text='手动生成连贯性清单',style='Primary.TButton',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(make))

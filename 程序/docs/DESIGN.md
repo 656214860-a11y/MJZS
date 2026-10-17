@@ -213,7 +213,7 @@
 - **DES-S05-21**（REQ-S05-21/22）`stage_flow.PAID_STAGES`；`pipeline-assets` 声明“默认只出提示词”；后端名来自 `production_model_contract`。
 - **DES-S05-23**（REQ-S05-23）`write_dir(project,'assets')` → `05资产管理`；`read_dirs` 追加 `LEGACY_NUMBERED['assets']='04资产管理'` 与 `_LEGACY['assets']`（`episode/assets/资产清单`，2027-03-31 后停读）；`library_dir` 在新目录已有清单时优先新目录。
 - **DES-S05-30**（REQ-S05-30/31）`stage_parallel.assets_locked` 读 `library_dir/assets/资产清单/assets.json`；`missing`／`unlocked`／`noanchor` 三类问题；`touched`（有图／有锁／有锚点）或 `has_run` 才算 `started`；`stage_completion_service` 对 `assets` 要求 `ok and started`。
-- **DES-S05-32**（REQ-S05-32 ❓）待定：门禁读清单文件的 `image`，而图片只写登记表 `<资产库>/assets.json`（`asset_batch_service.register_image`／`import_asset_image`／恢复）。拍板后二选一：门禁改读登记表（与 `image_ready` 一致），或在登记时同步写清单；同步写会违背 `_sync_plan` 对 `image` 的剔除口径，需一并改。
+- **DES-S05-32**（REQ-S05-32）`assets_locked` 额外读 `<资产库>/assets.json`（图片登记表），`_image_of` 登记表优先、清单 `image` 仅兜底；`touched`／`missing` 都用它判定。选择门禁改读而不是登记时回写清单，是为了保持 `_sync_plan` 对清单 `image` 的剔除口径。
 - **DES-S05-33**（REQ-S05-33）删除经 `storage_maintenance.recycle_paths`；`asset_plan.deletion_references` 列引用镜头；恢复经 `restore_latest_recycled_child`。
 - **DES-S05-40**（REQ-S05-40/41）SKILL 位于 `skills/05资产管理SKILL/`；`pipeline-assets` 的 `dependsOn: [pipeline-animatic]`、`parallelizable: false`、`paid: false`。
 
@@ -228,7 +228,7 @@
 | REQ-S05-30/31 | `test_asset_gating`、`test_stage_gate_e2e_probe`、`test_stage_completion_service` |
 | REQ-S05-33 | `test_asset_impact`、`test_asset_restore`、`test_asset_image_restore_service` |
 | REQ-S05-23 | `test_asset_context`、`test_asset_resume` |
-| REQ-S05-32（待定） | 暂无；拍板后补回归 |
+| REQ-S05-32 | `test_assets_scope` |
 
 ## S06 连贯性清单
 
@@ -262,7 +262,10 @@
 - **DES-S06-21**（REQ-S06-21/22）`issues` 把台账未通过项转成结构化问题；`merge_issues` 为纯函数，`sync_issues`／`decide_issue` 仅在 L3 注入 `publish` 时落盘；`SEVERITIES`／`ISSUE_KINDS` 为权威表。
 - **DES-S06-23**（REQ-S06-23）`ledger_ready` 读台账；无台账返回 `ok=True, started=False`；有未通过项时用 `issue_gate` 判断是否全部为已忽略／已解除，且必须算得出问题行才放行；完成核验取 `ok and started`。
 - **DES-S06-30**（REQ-S06-30/31）SKILL 位于 `skills/06连贯性SKILL/`，`skill_registry` 以 `06` 目录归入 continuity；`workflow_settings` 预设默认 `pipeline-continuity`；`skill_tools` 登记 `continuity.buildLedger` 等。
-- **待定**（REQ-S06-24/26/32/33）台账版本核对、G-08 是否为放行条件、SKILL 与实现的一致方向、自动生成入口，待用户拍板后再设计。
+- **DES-S06-24**（REQ-S06-24）`continuity_ledger.stale_reason(ledger, shots)` 比对规范化镜头编号与各批次 `shot_ids`；`stage_parallel._current_shots` 取 `frame_json` 对应的已采用分镜；`ledger_ready` 在“台账存在”之后先查它，再用共享的 `continuity_ledger.open_problems` 查待办。`generate_continuity_ledger` 对 0 镜头抛 `ValueError`。
+- **DES-S06-32**（REQ-S06-32）以实现为准，改 SKILL 不改代码；`test_skill_reference_injection` 要求保留的 `repairList` 字样保留并注明对应 `continuity_issues.json`。
+- **DES-S06-33**（REQ-S06-33）`desktop_media_pages.MediaPagesMixin.generate_continuity_ledger` 是手动与自动的唯一实现，`pet_continuity_ledger` 为自动链薄包装，由 `desktop._start_unattended_stage` 的 continuity 分支调用，入口仍是 `stage_handler_registry.start()`。
+- **待定**（REQ-S06-26）G-08 是否为放行条件，待用户拍板后再设计。
 
 ### 测试锚定
 
@@ -274,7 +277,8 @@
 | REQ-S06-21 | `test_continuity_issues` |
 | REQ-S06-02（门禁与依赖） | `test_stage_parallel`、`test_stage_flow` |
 | REQ-S06-23（完成核验） | `test_stage_completion_service`、`test_continuity_scope` |
-| REQ-S06-24/26/32/33 | 待定 |
+| REQ-S06-24/32/33 | `test_continuity_scope` |
+| REQ-S06-26 | 待定 |
 
 ## S07 分镜定稿
 
@@ -312,7 +316,8 @@
 - **DES-S07-33**（REQ-S07-33/40）`stage_path_service.write_dir(project,'final')` → `stage_layout` 的 `07分镜定稿`；`read_dirs` 追加 `LEGACY_NUMBERED['final']`（`06分镜定稿`）；`is_final_dir` 判定目录名。
 - **DES-S07-41**（REQ-S07-41/42）`stage_completion_service` 的 `checks['final']='batches_ready'`，要求 `ok and started`；`batches_ready` 以 `_adopted` 的已采用分镜为对象，`started = has_run(final) or 任一镜头带 batch_id`。
 - **DES-S07-50**（REQ-S07-50/51）SKILL 位于 `skills/07分镜定稿SKILL/`；默认勾选来自 `workflow_settings` 的 `'final':['pipeline-storyboard-final']`；D 锁段缝字段写在总入口 SKILL 正文，不由程序核验。
-- **待定**（REQ-S07-03/15/43/44/45/52/53）见需求中标 🟡／❓ 的条目；其中 REQ-S07-52 需用户拍板（是否程序化核验台账与段缝），其余为单向修订，待统一后处理。
+- **DES-S07-52**（REQ-S07-52）`finalize` 在 `normalize_shot` 之后调用 `continuity_ledger.require_final_ready(project, shots)`：未生成放行，与待定稿镜头不对应或有未裁决待办则 `ValueError`；`open_problems` 与 SG-02 共用。该调用与上一行写在同一物理行，避免平移 `storyboard_final.py:164` 的裸 `json.loads` 债务标识。
+- **待定**（REQ-S07-03/15/43/44/45/53）见需求中标 🟡／❓ 的条目；其余为单向修订，待统一后处理。REQ-S07-52 已按裁决落地（见 DES-S07-52）。
 
 ### 测试锚定
 
@@ -323,6 +328,7 @@
 | REQ-S07-20/32 | `test_storyboard_final_controller`、`tests/architecture/test_final_bundle_boundary` |
 | REQ-S07-33（选择视图） | `test_storyboard_final_selection`、`tests/architecture/test_storyboard_final_selection_boundary` |
 | REQ-S07-41 | `test_stage_completion_service` |
+| REQ-S07-52 | `test_storyboard_final_scope` |
 | REQ-S07-02/04（门禁清单、并行配置） | `test_stage_parallel`、`test_storyboard_final_scope` |
 | REQ-S07-42（`batches_ready` 行为） | `test_storyboard_final_scope`（`test_stage_parallel` 未直接测此函数） |
 | REQ-S07-01/04/13/33/41/42/50/51 的事实范围 | `test_storyboard_final_scope` |

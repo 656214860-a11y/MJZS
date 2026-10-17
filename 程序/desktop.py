@@ -1081,13 +1081,14 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         先把这一步的无人值守开关替他打开（用户不必自己回页面上勾），再把它提前叫醒一轮——
         开关一开，这一步的轮询从此每一轮都会接着做，直到做完（中途断了也照旧自己接着做）。
         剧本结构虽没有常驻轮询，但有一条与手动按钮相同的确定性模板执行链，单独派发；
-        其余没有无人值守的步骤（剧本、连贯性、配音）老实给空串，让宠物自己说「没有能自动跑的路子」。
+        连贯性清单是本地规则计算，直接走与手动按钮同一个实现；其余没有无人值守的步骤（剧本、配音）老实给空串，让宠物自己说「没有能自动跑的路子」。
         """
         return stage_handler_registry.start(self,stage,trigger='auto',fallback=self._start_unattended_stage)
     def _start_unattended_stage(self,stage,trigger):
         """尚未拆出的无人值守阶段由 L3 启动适配器回调到此处。"""
         if self.root is None:return ''
         if stage=='script_structure':return self.pet_script_structure_batch(trigger=trigger)
+        if stage=='continuity':return self.pet_continuity_ledger()
         # 首帧不是普通的轮询开关：自动链需要立即把当前缺口派发，并由批次的
         # completed/failed 事件收场。经 L3 转到这里，避免 Pet UI 再另走一条直连路径。
         if stage=='keyframe':return self.pet_frame_batch(trigger=trigger)

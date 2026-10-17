@@ -401,6 +401,25 @@ def markdown(ledger):
     return '\n'.join(lines) + '\n'
 
 
+def stale_reason(ledger, shots):
+    """台账记录的镜头编号与当前分镜不一致时返回原因（空串＝对得上或当前分镜没有镜头）。"""
+    current = [normalize(item, index)['shot_id'] for index, item in enumerate(shots) if isinstance(item, dict)]
+    if not current:
+        return ''
+    recorded = {sid for block in ledger.get('batches') or [] if isinstance(block, dict)
+                for sid in block.get('shot_ids') or []}
+    missing = [sid for sid in current if sid not in recorded]
+    extra = sorted(recorded - set(current))
+    if not missing and not extra:
+        return ''
+    parts = []
+    if missing:
+        parts.append('缺 %d 镜（%s）' % (len(missing), '、'.join(missing[:6])))
+    if extra:
+        parts.append('多出 %d 镜（%s）' % (len(extra), '、'.join(extra[:6])))
+    return '台账与当前分镜不对应：' + '，'.join(parts) + '；请重新生成连贯性清单'
+
+
 def gate(ledger):
     """门禁结论：(通过吗, 待办列表)。"""
     problems = tuple((ledger.get('summary') or {}).get('problems') or [])
@@ -605,3 +624,50 @@ def issue_gate(project, ledger, *, now=''):
     rows = sync_issues(project, ledger, now=now)
     blocking = [row for row in rows if str(row.get('state')) == OPEN]
     return (not blocking), tuple(blocking)
+
+
+def open_problems(project, ledger):
+    """台账里仍未裁决的待办（空元组＝放行）。SG-02 与分镜定稿共用这一个口径。"""
+    ok, problems = gate(ledger)
+    if ok:
+        return ()
+    try:
+        current = issues(ledger)
+        closed, blocking = issue_gate(project, ledger)
+    except Exception:
+        current, closed, blocking = (), False, ()
+    # 只有「本轮真的算出了问题行、且全部都不是待处理」才放行；台账说有问题却
+    # 算不出问题行（格式异常）不擅自放行。
+    if closed and current:
+        return ()
+    if blocking:
+        return tuple(item.get('detail') or item.get('id') or '' for item in blocking)
+    return tuple(problems)
+
+
+def final_block_reason(project, shots):
+    """分镜定稿前读台账：已生成且与这批镜头不对应、或仍有未裁决待办时给原因，否则空串。
+
+    台账没生成／读不出来按 SG-02 口径放行（空项目与旧项目不被卡死）。
+    """
+    try:
+        ledger = read(project)
+    except Exception:
+        return ''
+    if not isinstance(ledger, dict) or not ledger:
+        return ''
+    stale = stale_reason(ledger, shots)
+    if stale:
+        return stale
+    problems = open_problems(project, ledger)
+    if problems:
+        return '连贯性台账还有 %d 条未裁决的待办，先在「连贯性清单」处理后再定稿：%s' % (
+            len(problems), '；'.join(str(item) for item in problems[:3]))
+    return ''
+
+
+def require_final_ready(project, shots):
+    """分镜定稿的台账前置：不满足就抛 ValueError（原因即给用户的话）。"""
+    reason = final_block_reason(project, shots)
+    if reason:
+        raise ValueError(reason)
