@@ -6,6 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import file_cache
+
 from projects import Projects
 from stage_execution_service import project_registry_gateway
 
@@ -116,3 +118,21 @@ class ProjectsGatewayTests(unittest.TestCase):
             result=Projects(app,gateway=gateway,migrate_legacy=False).create('测试项目')
             self.assertFalse(result.ok)
             self.assertIn('项目登记未能保存',result.reason)
+
+    def test_legacy_migration_hashes_through_the_file_cache_layer(self):
+        """P2-7／R1651：迁移校验的哈希必须走 file_cache 缓存层，不再直连 agent.core.file_hash。"""
+        with tempfile.TemporaryDirectory() as td:
+            app=Path(td) / '程序'; old=app / 'episode'
+            old.mkdir(parents=True)
+            (app / 'config.json').write_text(json.dumps({
+                'downloads_root':str(Path(td) / '库'), 'episode_dir':str(old),
+            },ensure_ascii=False),encoding='utf-8')
+            (old / 'episode.json').write_text(json.dumps({'title':'旧故事'},ensure_ascii=False),encoding='utf-8')
+            (app / 'data').mkdir()
+            (app / 'data' / 'sample.bin').write_bytes(b'migration-payload')
+            service=Projects(app,gateway=project_registry_gateway(),migrate_legacy=False)
+            real=file_cache.file_digest
+            with patch('projects.file_digest',side_effect=real) as digest:
+                self.assertTrue(service.migrate().ok)
+            self.assertGreaterEqual(digest.call_count,2,
+                                    '迁移校验未经 file_cache.file_digest（源与目标各一次）')

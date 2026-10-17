@@ -4,11 +4,10 @@ from functools import wraps
 from datetime import datetime
 from pathlib import Path
 from storyboard_paths import media_root
-from agent.core import file_hash
 from episode_contract import validate_episode, relative
 import project_stages
 from storage_maintenance import remove_project_link_node
-from file_cache import read_json as cached_read_json
+from file_cache import file_digest, read_json as cached_read_json
 from service_contract import SystemError, success
 
 _LOG = logging.getLogger(__name__)
@@ -156,7 +155,7 @@ class Projects:
                 target.parent.mkdir(parents=True,exist_ok=True)
                 self._copy_tree(self.app/name,target,ignore=lambda _folder, names: {'operation.lock'} & set(names))
                 for p in (self.app/name).rglob('*'):
-                    if p.is_file() and p.name!='operation.lock' and file_hash(p)!=file_hash(target/p.relative_to(self.app/name)):
+                    if p.is_file() and p.name!='operation.lock' and file_digest(p)!=file_digest(target/p.relative_to(self.app/name)):
                         raise ValueError('迁移校验失败，原文件仍保留')
         cfg['episode_dir']=str(project_stages.storyboard(dst)/'分镜拆分');cfg['assets_root']=str(self.base)
         credentials=self.app/'private'
