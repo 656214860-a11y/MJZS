@@ -12,8 +12,10 @@ def _register(layer: int, *names: str) -> None:
 _register(2, "video_source_evidence")
 _register(0, "pet_bus", "script_contract", "script_manifest_contract", "script_manifest_schema", "script_output_spec", "asset_contract", "episode_contract", "service_contract", "project_context", "stage_layout", "stage_path_service", "storyboard_paths", "project_stages", "platform_tools",
           "prompt_templates", "shot_batches", "production_model_contract", "app_metadata")
+# R1647：stage_model_value 只依赖 file_cache／pet_bus（无 Tk、无编排状态），按实际依赖登记为 L1，
+# 纠正原先按名字后缀落在 L3 的旧账；L2 领域服务不该为读一个阶段模型名反向依赖编排层。
 _register(1, "model_pool", "model_secrets", "pet_llm", "file_cache", "hash_backend",
-          "storage_maintenance", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "app_logging", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger")
+          "storage_maintenance", "log_maintenance", "workspace_maintenance", "diagnostic_capture", "app_logging", "line_endings", "app_icon", "workflow_process_registry", "script_text_reader", "stage_model_value", "native_asset_codec", "comfy_runtime", "ui_tokens", "continuity_ledger")
 _register(2, "task_center_service", "keyframe_evidence", "animatic_service", "writing_files", "writing_workflow", "idea_chat", "idea_brief_form", "idea_attachments", "idea_script_heuristic", "idea_document_paths", "idea_transcript", "download_inbox",
           "storyboard_lifecycle", "storyboard_catalog_service",
           "storyboard_edit_service",
@@ -42,7 +44,7 @@ _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audi
           "storyboard_storage", "subtitle_export_service", "video_lifecycle_service", "video_prompt_publication",
           "video_task_state", "workflow_context", "writing", "writing_tools", "writing_quality")
 _register(3, "image_agent_runner", "keyframe_model_service", "skill_budget", "skill_templates", "subtitle_export_controller",
-          "stage_handler_registry", "stage_model_value", "storyboard_recycle_service", "workflow_context_controller", "workflow_engines", "recycle_recovery_controller")
+          "stage_handler_registry", "storyboard_recycle_service", "workflow_context_controller", "workflow_engines", "recycle_recovery_controller")
 _register(4, "desktop_auto_flows", "desktop_page_registry", "desktop_tk_gc", "desktop_automation_tick", "desktop_idea_chat", "desktop_writing_page", "desktop_storyboard_page", "desktop_idea_menus", "pet_ui_support", "pet_ui_stages", "pet_ui_settings", "pet_ui_voice", "pet_ui_view", "desktop_asset_pages", "desktop_script_pages", "desktop_media_pages", "desktop_project_pages", "desktop_page_support", "task_center_ui", "environment_check", "version_picker", "skill_import_service", "master_skill", "asset_prompt_rules", "asset_reference_images", "asset_reference_import", "asset_reference_prompts",
           "asset_reference_search", "asset_skill_batch", "background_characters", "cloud_assets", "keyframe_comfy",
           "keyframe_import", "pet_agent", "pet_models_ui", "pet_report", "pet_settings_ui", "pet_state",

@@ -339,20 +339,20 @@ def auto_settings(project=None, *, context=None):
 
 def current_model(project=None, *, context=None):
     """Resolve the asset model from the same stage configuration as execution."""
-    from cloud_assets import LOCAL, MODELS
+    from production_model_contract import ASSET_CLOUD_MODELS, ASSET_LOCAL_MODEL
     from stage_model_value import value as configured_value
     try:
         value = configured_value(_project_root(project, context=context), 'assets')
     except (OSError, ValueError, TypeError, KeyError):
         value = ''
-    choices = [LOCAL, *MODELS]
+    choices = [ASSET_LOCAL_MODEL, *ASSET_CLOUD_MODELS]
     if value in choices:
         return value
     if value not in choices:
         legacy = str(auto_settings(project, context=context).get('backend') or '').strip()
         if legacy in choices:
             return legacy
-    return LOCAL
+    return ASSET_LOCAL_MODEL
 
 
 def unattended_plan(project, base, sources, scope='adopted', *, gateway=None, context=None):

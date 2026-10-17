@@ -565,8 +565,8 @@
         ]
     },
     "\u5c42\u7ea7": {
-        "count": 37,
-        "baseline_exempt": 37,
+        "count": 35,
+        "baseline_exempt": 35,
         "items": [
             {
                 "file": "asset_auto_batch_service.py",
@@ -620,21 +620,7 @@
             {
                 "file": "asset_batch_service.py",
                 "importer": "asset_batch_service",
-                "imported": "cloud_assets",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "asset_batch_service.py",
-                "importer": "asset_batch_service",
                 "imported": "project_settings",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "asset_batch_service.py",
-                "importer": "asset_batch_service",
-                "imported": "stage_model_value",
                 "disposition": "exempt",
                 "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
             },

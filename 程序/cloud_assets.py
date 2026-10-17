@@ -3,13 +3,14 @@ import os
 import re
 from pathlib import Path
 from seedream_api import protect
+import production_model_contract
 
 KEY_LABEL = '本机 Comfy API Key'                      # 只用于出错提示；DPAPI 实现在 seedream_api.protect
 KEY_ENV = 'COMFY_API_KEY'                             # 第 65 期任务 1：统一那份 .env 里的变量名
-LOCAL = '本地 FLUX.2 Klein / 自定义工作流'
-MODELS = ['Seedream 5.0 Pro', 'Nano Banana Pro', 'GPT Image 2']
-NODE_TYPES = {'Seedream 5.0 Pro': 'ByteDanceSeedreamNode', 'Nano Banana Pro': 'GeminiImage2Node', 'GPT Image 2': 'OpenAIGPTImage1'}
-LIMITS = {'Seedream 5.0 Pro': 10, 'Nano Banana Pro': 14, 'GPT Image 2': 16}
+LOCAL = production_model_contract.ASSET_LOCAL_MODEL    # 第 1647 轮：后端名下沉 L0，这里按原名字保留
+MODELS = list(production_model_contract.ASSET_CLOUD_MODELS)
+NODE_TYPES = dict(zip(production_model_contract.ASSET_CLOUD_MODELS, ('ByteDanceSeedreamNode', 'GeminiImage2Node', 'OpenAIGPTImage1')))
+LIMITS = dict(zip(production_model_contract.ASSET_CLOUD_MODELS, (10, 14, 16)))
 
 
 def _secret_file():
