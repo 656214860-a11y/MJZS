@@ -115,3 +115,25 @@ import 也算**；唯一放行的是只在 Blender 宿主里存在的 `bpy`）�
 - **风险**：alpha 的语法与标准库 API 变更；警告升级为硬错误的类别会先在门禁上暴露；裁剪清单随版本失效（必须重判）；
   启动耗时可能变化（`tests/architecture/test_startup_budget.py` 卡启动预算）。
 - **红线**：不为迁移引入第三方依赖；不把裁掉的模块悄悄放回（要恢复走归档并同步 `PRUNED` 与文档）。
+
+## 10. 性能基准口径
+
+`维护记录\基准历史.json` 是**历史参考，不作当前判据**：它是三类离线探针（启动与页面／热点路径／长列表）的自愿归档，最新记录停在 R1373（2026-10-12）；它记录的指标名（如 `first_frame_ms`、`ready_total_ms`、`cold_ms`、`warm_ms`、`row_count`）与现行契约**不同名、不同口径**，两者不能直接比较。
+
+当前性能判据只有两处权威源：
+
+- `tests\performance_contract.py`：11 条阈值常量（含 `STARTUP_RECURSIVE_SCAN_COUNT = 0`、`STARTUP_FIRST_FRAME_MS`、`LONG_LIST_SCROLL_MEDIAN_MS`、`MEMORY_DELTA_MB`、`BATCH_PLAN_PER_SHOT_MS`、`QUEUE_ITEM_MS`、`CONCURRENT_SUBMIT_ITEMS_PER_SECOND` 等）。
+- `tests\test_perf_baseline.py`：把上述阈值写成用例，只拦明显退化；口径与放宽理由见其模块 docstring。
+
+要让归档重新成为判据，必须先把探针指标名与 `performance_contract` 对齐、再在真机重跑一次；对齐之前，不得用 `基准历史.json` 的数字声称「回归」或「达标」。门禁在 `tests\architecture\test_agents_md.py`：断言本节存在，并在 `performance_contract` 的指标名与 `基准历史.json` 出现同名时报警，逼一次口径更新。
+
+## 11. 覆盖率口径
+
+`维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。当前基线：生产运行时模块 281 个，其中 49 个有行覆盖（其余 232 个在这 8 组定向用例里没被碰到），测量使用 8 组定向用例，测量时刻这些用例全通过。
+
+- 字段口径：`modules_total` ＝ 生产运行时模块总数；`modules_covered` ＝ 其中被覆盖到的模块数；`targets` ＝ 本次测量使用的定向用例组；`tests_ok` ＝ 测量时刻目标用例是否全绿。
+- 因此「232 个模块覆盖率 0」**不等于**「整仓覆盖率 7%」，也不能据此列出「未覆盖模块」清单——它只说明这 8 组定向用例碰过哪些模块。
+- 测量工具 `scripts\coverage_report.py`（`sys.settrace`，零第三方依赖）。本仓随附解释器没有标准库 `trace`，也不引入 `coverage.py`；**不重跑测量**，刷新基线必须显式重跑工具，工具在目标用例失败时拒绝写基线。
+- 诚实边界：阈值只对「基线里记录的那次测量」成立。门禁 `tests\architecture\test_coverage_baseline.py` 只做结构自洽、磁盘存在性、口径相等与核心路径下限四件事。
+
+要一份真实的「未覆盖模块」清单，须另立一次全量 `sys.settrace` 测量（成本高，须用户同意）。

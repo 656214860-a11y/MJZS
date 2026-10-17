@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 import unittest
 from pathlib import Path
@@ -169,3 +170,21 @@ class AgentsMdConsistencyTests(unittest.TestCase):
             '/程序/desktop_settings.json', '/程序/config.json', '**/.env', '**/*.dpapi',
         }
         self.assertTrue(required <= patterns, required - patterns)
+
+    def test_performance_history_is_declared_as_historical_only(self) -> None:
+        """runbook §10 必须声明基准历史不是当前判据；同名指标一旦出现就逼一次口径更新（R1650）。"""
+        runbook = _read(ROOT / 'runbook.md')
+        self.assertIn('## 10. 性能基准口径', runbook)
+        section = runbook.split('## 10. 性能基准口径', 1)[1].split('## 11.', 1)[0]
+        for fragment in ('基准历史.json', '历史参考', 'tests\\performance_contract.py',
+                         'tests\\test_perf_baseline.py'):
+            self.assertIn(fragment, section, 'runbook §10 缺 %s' % fragment)
+        import performance_contract
+        contract = {name.lower() for name in dir(performance_contract)
+                    if name.isupper()
+                    and isinstance(getattr(performance_contract, name), (int, float))
+                    and not isinstance(getattr(performance_contract, name), bool)}
+        history = json.loads((ROOT / '维护记录' / '基准历史.json').read_text(encoding='utf-8'))
+        recorded = {metric for record in history for metric in (record.get('metrics') or {})}
+        self.assertFalse(recorded & contract,
+                         '基准历史出现与现行契约同名的指标，请重跑基准并同步 runbook §10')

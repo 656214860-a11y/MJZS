@@ -118,5 +118,19 @@ class CoverageBaselineTests(unittest.TestCase):
                          "工具与基线的模块口径不一致（一侧改了算法未刷新另一侧）")
 
 
+    def test_runbook_states_the_directed_measurement_caliber(self) -> None:
+        """runbook §11 的数字必须与基线字段自洽，并明说这不是整仓覆盖率（R1650）。"""
+        runbook = (ROOT / 'runbook.md').read_text(encoding='utf-8')
+        self.assertIn('## 11. 覆盖率口径', runbook)
+        section = runbook.split('## 11. 覆盖率口径', 1)[1]
+        baseline = self._baseline()
+        uncovered = baseline['modules_total'] - baseline['modules_covered']
+        for number, label in ((baseline['modules_total'], 'modules_total'),
+                              (baseline['modules_covered'], 'modules_covered'),
+                              (len(baseline['targets']), 'len(targets)'),
+                              (uncovered, '未覆盖模块数')):
+            self.assertIn(str(number), section, 'runbook §11 与基线字段 %s 不一致' % label)
+        self.assertIn('不是整仓覆盖率', section)
+
 if __name__ == "__main__":
     unittest.main()
