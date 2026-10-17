@@ -25,6 +25,55 @@ TALK_MIN_LINES=6
 TALK_MAX_LINES=15
 
 
+def _build_layout_scheduler(win):
+    """页面刚建好时的两次尺寸修正调度器。
+
+    尺寸修正要登记任务 ID：测试或用户快速关闭项目时，未执行的匿名 after_idle
+    回调会在 Tcl 删除窗口后报 ``invalid command name``。返回 (schedule_layout,
+    cancel_layout_job) 两个闭包；cancel_layout_job 需绑定到窗口 <Destroy>。
+    """
+    layout_job = None
+
+    def cancel_layout_job(event=None):
+        nonlocal layout_job
+        if event is not None and getattr(event, 'widget', None) is not win:
+            return None
+        job, layout_job = layout_job, None
+        if job is not None:
+            try:
+                win.after_cancel(job)
+            except tk.TclError:
+                pass
+        return None
+
+    def schedule_layout(*callbacks):
+        nonlocal layout_job
+        cancel_layout_job()
+        pending = iter(callbacks)
+
+        def run():
+            nonlocal layout_job
+            layout_job = None
+            callback = next(pending, None)
+            if callback is None:
+                return None
+            try:
+                callback()
+                # 先让 Tk 应用上一项的请求尺寸，再测量固定空间。
+                layout_job = win.after_idle(run)
+            except tk.TclError:
+                return None
+            return None
+
+        try:
+            layout_job = win.after_idle(run)
+        except tk.TclError:
+            layout_job = None
+        return layout_job
+
+    return schedule_layout, cancel_layout_job
+
+
 class WritingPageMixin:
     """Desktop 的剧本准备页构建（见模块说明）。"""
     def writing(self):
@@ -335,41 +384,7 @@ class WritingPageMixin:
         box.bind('<Configure>',fit_talk,add='+')
         box.bind('<<Modified>>',lambda event=None:fit_talk(),add='+')
         self._fit_composer=fit_composer
-        # 页面刚建好时的两次尺寸修正要登记任务 ID。测试或用户快速关闭项目时，
-        # 未执行的匿名 after_idle 回调会在 Tcl 删除窗口后报 ``invalid command name``。
-        layout_job = None
-        def cancel_layout_job(event=None):
-            nonlocal layout_job
-            if event is not None and getattr(event, 'widget', None) is not self.win:
-                return None
-            job, layout_job = layout_job, None
-            if job is not None:
-                try:
-                    self.win.after_cancel(job)
-                except tk.TclError:
-                    pass
-            return None
-        def schedule_layout(*callbacks):
-            nonlocal layout_job
-            cancel_layout_job()
-            pending = iter(callbacks)
-            def run():
-                nonlocal layout_job
-                layout_job = None
-                callback = next(pending, None)
-                if callback is None:return None
-                try:
-                    callback()
-                    # 先让 Tk 应用上一项的请求尺寸，再测量固定空间。
-                    layout_job = self.win.after_idle(run)
-                except tk.TclError:
-                    return None
-                return None
-            try:
-                layout_job = self.win.after_idle(run)
-            except tk.TclError:
-                layout_job = None
-            return layout_job
+        schedule_layout, cancel_layout_job = _build_layout_scheduler(self.win)
         self.win.bind('<Destroy>', cancel_layout_job, add='+')
         schedule_layout(fit_composer, measure_page_fixed, fit_talk)
         checked_scripts=set()
