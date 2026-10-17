@@ -262,7 +262,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 06  | `continuity`       | 连贯性清单 | `continuity_ledger.json`、`continuity_ledger.md`、`continuity_issues.json`，另发布共享锚点库与三元组字典。 |
 | 07  | `final`            | 分镜定稿  | 采用分镜、提示词、批次 ID；落盘为 `07分镜定稿/分镜/<EP>_分镜定稿[_日期]/` 下的 `episode.json` + `assets.json`。 |
 | 08  | `keyframe`         | 首帧管理  | 非空首帧；来源证据记在已采用分镜 JSON 的每镜 `frame_evidence`（独立清单文件待定，见 REQUIREMENTS REQ-S08-40）。                   |
-| 09  | `previs`           | 白模预演  | 可播放预演、`previs_manifest.json`。                    |
+| 09  | `previs`           | 白模预演  | 可播放预演；镜头级记录 `预演记录.json` 存于白模成果目录（项目目录之外），无 `previs_manifest.json`。 |
 | 10  | `video`            | 视频生成  | 视频任务/片段、`video_manifest.json`。                   |
 | 11  | `audio`            | 配音与字幕 | 音轨、字幕、`audio_manifest.json`。                     |
 | 12  | `edit`             | 后期剪辑  | 预览/成片、`edit_manifest.json`。                      |

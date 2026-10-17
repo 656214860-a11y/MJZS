@@ -45,7 +45,7 @@ R1247 数据边界：剧本聊天及回收站位于 `01剧本准备/模型会话
 | 连贯性清单 | `06连贯性清单` | 被采用分镜、资产 | `continuity_ledger.json`、`continuity_ledger.md`、`continuity_issues.json` |
 | 分镜定稿 | `07分镜定稿` | 初稿、资产、台账 | 已采用分镜、`batch_id`（`episode.json` + `assets.json`） |
 | 首帧管理 | `08首帧管理` | 批次、锚点 | 非空首帧文件 |
-| 白模预演 | `09白模预演` | 首帧、镜头动作 | 可播放预演 |
+| 白模预演 | `09白模预演` | 首帧、镜头动作 | 复杂镜头的可播放预演（镜头级 `预演记录.json` 在白模成果目录） |
 | 视频生成 | `10视频生成` | 预演、视频提示词 | 视频任务/成片 |
 | 配音与字幕 | `11配音与字幕` | 成片、台词 | 音频、字幕 |
 | 后期剪辑 | `12后期剪辑` | 视频、音频、字幕 | 粗剪/交付稿 |
@@ -67,7 +67,7 @@ R1124 插入 Animatic 后，旧中文编号目录由 `stage_path_service.read_di
 连续性台账              ── SG-02 ──> 分镜定稿
 已采用分镜 + batch_id   ── SG-03 ──> 首帧管理
 非空首帧                ── SG-04 ──> 白模预演
-可播放白模预演          ── SG-05 ──> 视频生成
+复杂镜头的可播放白模预演 ── SG-05 ──> 视频生成
 ```
 
 五类剧本 manifest 是 `character_manifest`、`scene_manifest`、`prop_manifest`、`scene_breakdown`、`emotion_curve`；它们为资产、分镜和连续性阶段提供结构化输入。产出方唯一定义在 `script_manifest_schema.PRODUCERS`：`emotion_curve` 由 01 剧本准备产出，`character_manifest`／`scene_manifest`／`prop_manifest` 由 02 剧本结构产出，`scene_breakdown` 由 03 初步分镜产出。门禁只在上游已开始却不完整时拦截；空项目始终放行。

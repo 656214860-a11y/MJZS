@@ -380,3 +380,55 @@
 | REQ-S08-19 | `test_stage_parallel` |
 | REQ-S08-23 | `test_keyframe_lifecycle_service` |
 | REQ-S08-31 | `test_stage_parallel`（缺帧阻塞预演） |
+
+## S09 白模预演
+
+### 模块分工
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L4 | `local_previs`（白模页）、`white_model`（单镜预演窗口、导入、备注）、`previs_monitor`（浏览器监视页） | 只持有 Tk／HTTP 展示；动作经 `stage_execution_service` 的注入门面进入 L3 |
+| L3 | `previs_automation` | Agent 自动制作：前置检查、冻结快照、逐镜执行与校验、停止、播报 |
+| L3 | `previs_routing`（`dispatch`／`partition`／`set_override`） | 分流策略；`ProjectContext` 与发布函数由调用方注入，执行器也注入 |
+| L3 | `previs_batch_service` | 批任务清单与执行提示词 |
+| L3 | `stage_execution_service` | `project_context`、`white_model_shot_directory`、分流记录发布、`previs_progress_gateway` 等装配 |
+| L3 | `stage_parallel`（`CONFIG`／`GATES`／`previs_ready`）、`stage_flow`（`DEPENDS`）、`stage_completion_service` | 并行口径、SG-04／SG-05、阶段完成 |
+| L2 | `white_model_service` | 镜头目录与项目身份、预演记录读写、证据摘要、导入、工作区与 Blender 发现、旧目录迁移 |
+| L2 | `previs_progress_service` | 进度文件读取与状态映射；发布函数由 L3 注入 |
+| L2 | `white_model_ref` | 白模视频作为参考视频的能力表与请求槽位拼装（供视频生成消费） |
+| L0/契约 | `project_context`、`stage_layout`、`stage_path_service`、`script_contract` | 上下文契约、阶段目录声明、旧编号只读、阶段锁 |
+
+### 设计条目
+
+- **DES-S09-01**（REQ-S09-01/33）`stage_parallel.GATES` 的 SG-04（`frames_ready`）与 SG-05（`previs_ready`）；门禁只拦“已开始但不完整”。
+- **DES-S09-02**（REQ-S09-02）`stage_flow.DEPENDS['previs']=('keyframe',)`；`DEPENDS['video']` 不含 `previs`。
+- **DES-S09-03**（REQ-S09-03）`script_contract.STAGE_LOCK_REQUIREMENTS['previs']` 三项。
+- **DES-S09-04**（REQ-S09-04）`stage_parallel.CONFIG['previs']`：`unit=BATCH, min=2, max=3, serial=True`，重试 2 次、`on_exhaust=ON_MANUAL`；`brief_block('previs')` 追加“同批次内禁止并行”。
+- **DES-S09-10**（REQ-S09-10/11）`previs_routing.LEVELS`／`ROUTES`；`classify` 先取分镜标注，再剔除否定短语后按关键词与步数判断，兜底中等。
+- **DES-S09-12**（REQ-S09-12/13）`entries` 合并 `overrides_file`（`data/白模复杂度设置.json`）；`set_override` 经注入的 `publish` 写入；`decisions_for` 是页面、调度、门禁共用入口。
+- **DES-S09-14**（REQ-S09-14）`partition` 分三组；`dispatch` 先剔除已就绪镜头，简单／中等只写状态，复杂交 `start_complex`；记录经注入的 `publish` 写入 `工作流任务/白模分流记录/`。
+- **DES-S09-20**（REQ-S09-20/42）`previs_automation.start`：`busy` 互斥 → 过滤已就绪 → `claude-desktop-app` 拦下 → `find_blender` → `save` 冻结 `分镜快照.json`／`调用配置.json`；任务书由 `previs_batch_service.prepare_batch` 生成并要求仅简化白模。
+- **DES-S09-21**（REQ-S09-21）`worker` 逐镜：`verify`（`ffprobe` 取视频流与时长，容差 0.5 秒，通过后 `record_evidence`）→ `run_background` → 再 `verify`；结果写 `状态.json`，状态集 `ready／failed／cancelled／unknown`。
+- **DES-S09-22**（REQ-S09-22）`force_stop` 置 `stop` 并 `workflow_engines.terminate(project)`；`ExecutionStopped` 记 `unknown` 并终止批次；`announce` 只写队列，播报在界面线程。
+- **DES-S09-23**（REQ-S09-23）`previs_progress_service.install_blender_progress` 挂 Blender 渲染回调写帧数；`status_value` 校验帧数合法性，不合法退回“Agent 制作中”；`previs_monitor.start` 只读渲染，`REFRESH_SECONDS=5`。
+- **DES-S09-24**（REQ-S09-24/25）`white_model_service.import_previs_media`（先复制到 `.importing` 临时文件、大小一致才替换，失败清理）；`save_previs_notes` 合并写入记录；视频/工程归 `preview`／`project_file` 两个键。
+- **DES-S09-26**（REQ-S09-26）`white_model_ref.SUPPORT` 为唯一能力表，`descriptor` 校验存在／后缀／非空／上限，`entries` 按槽位（`media`／`content`）拼请求；`white_model.validate_video_submission` 在提交前调用。
+- **DES-S09-30**（REQ-S09-30/32）`white_model_service.shot_directory`：`<workspace()>/<project_id 或项目目录名>/<集>/<镜头号>`，集取镜头号 `EPnnn_` 前缀，其次当前分镜 `episode_id`，否则“未分集”；`workspace()` 取环境变量→设置文件→默认用户数据目录；`migrate_legacy_directories` 先算完整清单再搬，失败回滚，成功才写 `project_id` 并落迁移清单。
+- **DES-S09-31**（REQ-S09-31）`evidence_state` 返回 `ok／changed／unbound／missing`；`previs_routing.ready` 对 `changed` 与（有来源时的）`unbound` 返回 False；`SOURCE_FIELDS` 决定来源摘要。
+- **DES-S09-33**（REQ-S09-33）`previs_ready` 取所有已采用分镜 → `decisions_for` → 只收集 `level=='complex'` → 逐镜 `ready`；缺失且 `has_run` 或已有任一就绪才拦。
+- **DES-S09-34**（REQ-S09-34）`stage_completion_service` 的 `checks['previs']='previs_ready'`，通过条件 `ok and started`。
+- **DES-S09-40**（REQ-S09-40/41）SKILL 位于 `skills/09白模预演SKILL/pipeline-previs.skill.md`；工作流设置的 `FLOWS['previs']`、`DEFAULT_SKILLS['previs']`、`FLOW_SKILLS['previs']` 在桌面通道登记 `create-blender-story-video`。
+- **待定**（REQ-S09-35/36/37/41）产物契约名与位置、成果是否入项目目录、中等镜头是否强制、默认 SKILL，待用户拍板后再设计。
+
+### 测试锚定
+
+| 需求 | 测试 |
+| --- | --- |
+| REQ-S09-10/11/12/14 | `test_previs`、`test_previs_scope` |
+| REQ-S09-20/21/22 | `test_previs`、`test_previs_batch_service` |
+| REQ-S09-23 | `test_previs_monitor`、`test_previs_monitor_exposure` |
+| REQ-S09-24/30/32 | `test_white_model_workspace`、`test_white_model_identity`、`test_white_model_import_boundary`、`test_previs_scope` |
+| REQ-S09-26 | `test_white_model_ref`、`test_previs_scope` |
+| REQ-S09-31 | `test_previs`、`test_previs_scope` |
+| REQ-S09-01/02/03/04/33/34/40 | `test_previs_scope`（契约与门禁事实） |
+| 层级与 JSON 边界（REQ-S09-12/21/30） | `tests/architecture/` 下 `test_previs_routing_publication_boundary`、`test_previs_automation_json_boundary`、`test_previs_batch_json_boundary`、`test_previs_monitor_json_boundary`、`test_local_previs_json_boundary`、`test_white_model_json_boundary`、`test_white_model_service_json_boundary` |
