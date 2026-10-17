@@ -79,6 +79,20 @@ def usage_summary(rows):
                 ('prompt_tokens', 'completion_tokens', 'cached_tokens')))
 
 
+def usage_compact(rows):
+    """状态栏可见的一行用量：没有记录照旧说没有；有记录只留输入/输出。"""
+    row = next((row for row in reversed(rows) if row.get('role') == 'assistant'), {})
+    budget, usage = row.get('context_budget') or {}, row.get('request_usage') or {}
+    if not budget and not usage:
+        return '本模型暂无用量记录'
+    def shown(value):
+        return str(value) if value is not None else '未提供'
+    if usage:
+        return ('上次 ' + shown(usage.get('prompt_tokens')) + '/'
+                + shown(usage.get('completion_tokens')) + ' token')
+    return '上次 输入 ' + shown(budget.get('input_tokens')) + ' token'
+
+
 def save_reply(root, text, at=None, provider='', model='', *, publish=None):
     """组织确认下载的模型创意；发布由调用方注入的 L3 完成。"""
     context = _context(root)

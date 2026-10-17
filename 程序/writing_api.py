@@ -828,13 +828,49 @@ def chat_session_overview(project, model=None):
     }
 
 
-def chat_session_summary(project, model=None):
-    """一行说明当前会话模型/调用方式、请求身份、上下文来源与采用状态。"""
-    info = chat_session_overview(project, model=model)
+def _session_summary(info, compact=False):
+    """把会话概览压成一句话；compact 只留状态栏需要的那几项。"""
+    if compact:
+        parts = [str(info.get('model') or '未选择模型')]
+        invocation = str(info.get('invocation') or '')
+        if invocation.startswith('本机 CLI'):
+            invocation = '本机 CLI'
+        if invocation and invocation != parts[0]:
+            parts.append(invocation)
+        identity = str(info.get('request_identity') or '')
+        provider = identity.split('／', 1)[0].strip()
+        if provider and provider != '未确定' and provider != parts[0]:
+            parts.append(provider)
+        adopted = str(info.get('adopted_script') or '')
+        if adopted:
+            parts.append(adopted)
+        try:
+            confirmed = int(info.get('shared_confirmed_documents') or 0)
+        except (TypeError, ValueError):
+            confirmed = 0
+        if confirmed:
+            parts.append('共享 %d 份' % confirmed)
+        return ' · '.join(parts)
     return ('当前会话：' + info['model'] + '（' + info['invocation'] + '）；请求身份：'
             + info['request_identity'] + '；上下文：' + info['context']
             + '（已确认阶段文件 ' + str(info['shared_confirmed_documents']) + ' 份）；'
             + info['adopted_script'] + '。切换模型只换对话记录，不隐藏也不复制项目成果。')
+
+
+def chat_session_summary(project, model=None):
+    """完整的会话说明；用于悬停提示，保留上下文与共享成果的解释。"""
+    return _session_summary(chat_session_overview(project, model=model))
+
+
+def chat_session_compact(project, model=None):
+    """状态栏可见的一行：只留模型、调用方式、厂商与采用状态。"""
+    return _session_summary(chat_session_overview(project, model=model), compact=True)
+
+
+def chat_session_lines(project, model=None):
+    """一次读取生成（可见短句, 完整提示），避免同一状态重复读盘。"""
+    info = chat_session_overview(project, model=model)
+    return _session_summary(info, compact=True), _session_summary(info)
 
 
 def _preparation_state(project, brief, *, restart_stage=None):
