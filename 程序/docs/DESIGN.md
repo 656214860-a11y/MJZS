@@ -86,3 +86,50 @@
 | REQ-S02-24 | `test_script_structure`、`test_script_workspace_service` |
 | REQ-S02-02/15/30/31 | `test_script_structure_scope` |
 | REQ-S02-23（归属部分） | `test_script_structure_scope` |
+
+## S03 初步分镜
+
+### 模块分工
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L4 | `desktop_storyboard_page`、`storyboard_files` | 初步分镜页：剧本／分镜文件表、采用按钮；只注入回调 |
+| L3 | `stage_handler_registry._start_storyboard` | 统一启动：取待办计划、无输入失败、全部完成时不启动 |
+| L3 | `stage_parallel` | `CONFIG['storyboard']`、阶段并行提示、`_adopted`、SG-A（`animatic_input_ready`） |
+| L3 | `stage_completion_service` | 完成核验：存在已采用且含镜头的分镜 |
+| L3 | `storyboard_selection` | 采用／取消／聚焦／无人值守采用／失效采用清理 |
+| L2 | `storyboard_plan_service` | 待办与待修订集合（纯文件决策，不导入 Tk） |
+| L2 | `storyboard_catalog_service` | 分镜／剧本目录扫描、来源剧本解析、种子分镜识别 |
+| L0/契约 | `storyboard_contract` | 分镜 JSON 交付规则文本（注入 Agent 任务） |
+| L0/契约 | `storyboard_adoption_contract` | 只读的已采用清单（`ui_settings.json`） |
+| L0/契约 | `storyboard_paths`、`stage_layout` | 媒体根、新旧目录等价、阶段目录 |
+| L0/契约 | `episode_contract.validate_episode`（经 `writing` 转出） | 分镜 JSON 本地校验 |
+
+### 设计条目
+
+- **DES-S03-01**（REQ-S03-01/04）`storyboard_work_plan(project)` 取 `selected_many(root,'script')` 与 `selected_many(root,'storyboard')`，交给 `build_work_plan(scripts,boards,made,adopted)`：`todo=scripts−made`，`revise=boards−used`。`made` 来自 `stage_execution_service.storyboard_produced_scripts`。`_start_storyboard` 读取失败（OSError/ValueError/KeyError/TypeError）或 `scripts` 为空走 `_fail`；`todo` 与 `revise` 皆空，自动触发（且三虎 `auto.active=='storyboard'`）播报，否则返回空串；否则调 `desktop.open_storyboard_skill(None)`。
+- **DES-S03-02**（REQ-S03-02/03）`stage_flow.DEPENDS['storyboard']`；`start()` 先过 `_workflow_lock_error`，因 `STAGE_LOCK_REQUIREMENTS` 无 `storyboard` 返回空串即放行。
+- **DES-S03-05**（REQ-S03-05/06）`stage_parallel.CONFIG['storyboard']={unit:SCENE,min:2,max:3,serial:True,limit:3,retry:{attempts:2,backoff:'fixed',on_exhaust:ON_BLOCK}}`；`brief` 对 `storyboard` 追加三条提示（三元组核对、拼接与衔接、同集只出一份）。
+- **DES-S03-10**（REQ-S03-10…17）这些约束全部以文本形式由 `storyboard_contract.rules()` 注入 Agent 任务；硬性字段校验由 `episode_contract.validate_episode` 执行，二者是同一契约的"提示"与"裁判"，不得一边改另一边不改。
+- **DES-S03-18**（REQ-S03-18）交付规则要求 Agent 在写完后调用 `from writing import validate_episode; from storyboard_paths import media_root; validate_episode(obj, media_root(path))`；采用时由程序再校验一遍，不信任 Agent 自报。
+- **DES-S03-30**（REQ-S03-30/31）`storyboard_selection.adopt(project,values)`：`paths()` 解析并要求在项目内且存在 → 与已采用合并 → 对合并后的每份先 `source_script_error` 再 `validate_episode` → `_sync_plan(...,_adopting=True)` → 写 `ui_settings.json` 的 `adopted_storyboards`（项目相对 posix 路径）与 `frame_json`（最后新增的一份）。校验或同步任一抛错，偏好不写。`storyboard_adoption_contract.adopted` 在无 `adopted_storyboards` 时回退 `frame_json`，并经 `storyboard_storage.resolved_alias` 处理迁移别名。
+- **DES-S03-32**（REQ-S03-32）`adopt_pending(project,minimum_age=10)`：用 `catalog(...,'storyboard')` 取未采用项，按 `order` 排序；`mtime` 不足 `minimum_age` 记 waiting；`_validate` 失败记 failed；其余一次性 `adopt`，成功后 `sync_working_episode` 把 `config.json` 的 `episode_dir/episode_file` 指向最新采用分镜（项目已有视频任务时不动）。`repair_working_episode` 修补强关造成的指针漂移。
+- **DES-S03-33**（REQ-S03-33/34）`remove` 重算剩余清单、必要时改 `frame_json`、`_sync_plan`；`focus` 要求已采用；`prune_invalid_adoptions` 只取消采用不删文件。
+- **DES-S03-35**（REQ-S03-35）`storyboard_catalog_service._is_initial_storyboard` 按键集合与种子镜头逐字比对，兼容改名后的旧种子。
+- **DES-S03-40**（REQ-S03-40）`working_dir=storyboard(root)/'分镜拆分'`，`document_dir=storyboard(root)/'分镜文档'`；`storyboard_paths.media_root` 对 `分镜拆分`／`分镜文档` 取同一父目录；`discover_files` 用 `os.walk(followlinks=False)`，剔除链接、junction、空文件、`IGNORED` 目录。旧目录 `storyboard/分镜拆分` 在 `stage_path_service._LEGACY` 登记为只读。
+- **DES-S03-41**（REQ-S03-41/42）`stage_completion_service`：`stage=='storyboard'` → `any(shots for _s,shots in stage_parallel._adopted(root))`。`_adopted` 对读不出的文件跳过。SG-A `animatic_input_ready` 要求 `_adopted` 非空，且每份 `animatic_service.shots_of` 不抛 ValueError/TypeError/KeyError。
+- **DES-S03-50**（REQ-S03-50）6 个 SKILL 位于 `skills/03初步分镜SKILL/`，frontmatter `stage: 初步分镜`；`BUILTIN_WORKFLOW_PRESETS['AIGC全流程'].stage_skills['storyboard']=['pipeline-storyboard-draft']`。
+- **待定**（REQ-S03-19/20/43/44/51）命名、`batch_id` 归属、`storyboard_draft.json` 声明、`scene_breakdown.json` 核验与默认技能入口待用户拍板后再设计。
+
+### 测试锚定
+
+| 需求 | 测试 |
+| --- | --- |
+| REQ-S03-01/04 | `test_storyboard_plan_service`（待办／待修订集合）、`test_stage_command_contract`（启动分支）、`test_storyboard_page_controller` |
+| REQ-S03-02/50 | `test_storyboard_scope` |
+| REQ-S03-05/06 | `test_stage_parallel`（`test_storyboard_scope` 锚定配置值） |
+| REQ-S03-10…18 | `test_storyboard_scope`（契约文本关键约束）；字段校验另见 `test_core`、`test_media`（`validate_episode` 用例） |
+| REQ-S03-30/31/32/33/34 | `test_storyboard_adoption_service`、`test_storyboard_current_source`、`test_storyboard_source_service` |
+| REQ-S03-35/40 | `test_storyboard_catalog_snapshot`、`test_storyboard_rows_service`、`test_stage_path_service` |
+| REQ-S03-41/42 | `test_stage_completion_service`、`test_stage_parallel`；`test_storyboard_scope` 锚定 SG-A 登记 |
+| REQ-S03-44（归属部分） | `test_storyboard_scope`、`test_script_contract` |

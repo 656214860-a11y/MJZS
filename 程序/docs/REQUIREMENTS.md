@@ -4,7 +4,7 @@
 编号规则：`REQ-<阶段号>-<序号>`，删除的编号不复用。测试 docstring 写 `REQ-xx` 锚定。
 状态：✅ 已实现　🟡 部分实现／与代码不一致　⬜ 未实现　❓ 待人拍板
 
-> 已覆盖阶段：S01 剧本准备、S02 剧本结构。其余阶段按顺序逐阶段补。
+> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜。其余阶段按顺序逐阶段补。
 
 ## S01 剧本准备
 
@@ -81,3 +81,60 @@
 - 不重写或替换自然剧本原稿。
 - 不在本阶段产出 `emotion_curve.json`（S01）或 `scene_breakdown.json`（S03）。
 - 不设本阶段独立门禁；S02 → S03 只靠依赖串行。
+
+## S03 初步分镜
+
+目标：以已确认的结构剧本为唯一来源，按场景并行制作可通过助手校验的分镜 JSON（镜头链），经校验后"采用"，作为分镜预演（S04）及后续阶段的输入。本阶段不整理角色／场景／道具档案，不重写结构剧本。
+
+### 输入与启动
+
+- **REQ-S03-01** ✅ 输入只有"初步分镜"栏中已选的结构剧本（`storyboard_work_plan` → `selected_many(root,'script')`）。读取输入失败，或一份结构剧本都没选，启动失败并提示，不创建任何产出。
+- **REQ-S03-02** ✅ 依赖 S02 完成（`DEPENDS['storyboard']=('script_structure',)`）。本阶段不采集、不要求制作锁值（`STAGE_LOCK_REQUIREMENTS` 不含 `storyboard`）。
+- **REQ-S03-03** ✅ 启动前先过总控制作锁门禁，手动与自动同样阻断；入口只有 `stage_handler_registry.start()`。
+- **REQ-S03-04** ✅ 待办 = 尚未产出分镜的结构剧本；待修订 = 已有分镜 JSON 但尚未采用的文件。两者都为空时不再启动 Agent：自动触发播报"已确认所有已选结构剧本的分镜均已生成并采用"，手动触发无动作。
+- **REQ-S03-05** ✅ 并行配置：按场景分单元，同时 2–3 路（上限 3），同一场景内镜头必须串行；失败重试 2 次后阻塞（`stage_parallel.CONFIG['storyboard']`）。
+- **REQ-S03-06** ✅ 同一集只输出一份分镜 JSON，已存在则跳过并说明，不生成副本、不换文件名重写；各场景做完后按剧本顺序拼接，并核对跨场景衔接（上一场结束状态＝下一场开始状态）。
+
+### 分镜 JSON 契约
+
+- **REQ-S03-10** ✅ 顶层必有 `episode_id`、`title`、`duration`、`source_script`、`shots`（非空数组），`prompt_language` 为 `"zh"`；所有提示词与对白用简体中文，编号、路径等专有标识保留原文（`storyboard_contract.rules`）。
+- **REQ-S03-11** ✅ 每镜必有 `id`（`SH001` 格式、不重复）、`title`、`duration`（2–15 的整数秒）、`characters`、`location`、`props`、`frame`（`frames/镜头编号.png`）、`frame_prompt`、`video_prompt`、`dialogue`。
+- **REQ-S03-12** ✅ `video_prompt` 为独立非空字符串，1–1500 字符，整合景别机位、动作起止、运镜、原对白与声音；`frame_prompt` 只写静止的动作起点。
+- **REQ-S03-13** ✅ 各镜时长合计等于顶层 `duration`；使用剪辑字段时须满足 `0<=trim_in<trim_out<=duration`、`edit_duration=trim_out-trim_in`。动作或对白超过 15 秒须按动作闭合点拆镜，不得截断、加速台词或放宽校验。
+- **REQ-S03-14** ✅ 多集任务镜头编号按集号从小到大连续：集号最小的集从 `SH001` 起，下一集紧接上一集最后编号，不按处理或并行完成顺序分配。
+- **REQ-S03-15** ✅ 每镜写清镜头三元组（核心人物／主体、可见动作、景别机位与运镜），人物主导权变化、动作起止、转场或情绪转折按动作闭合点切镜；不把结构剧本的角色／场景／道具档案重复写入分镜。
+- **REQ-S03-16** ✅ 背景人物、群演、路人、不露脸或一次性角色不写入 `characters`、不分配 CHAR 编号；普通道具写 `ordinary_props`，不分配 PROP 编号。
+- **REQ-S03-17** ✅ 每镜补充 `action_complexity`（simple/medium/complex）及 `complexity_reason`，决定后续是否需要白模。
+- **REQ-S03-18** ✅ 提交前须用 `validate_episode(JSON对象, media_root(JSON路径))` 本地校验，仅查本地数据、不调用模型；必须修复全部错误才算完成，未生成参考图只是待制作警告。
+- **REQ-S03-19** ❓ 契约与阶段输出契约都把"通过校验并采用后的 JSON"称为"分镜定稿"，并称其"锁定"来源剧本、编号、镜头编号、时长、台词与连续性约束；但 `pet_bus.STAGES` 的"分镜定稿"是第 07 阶段，且 07 才做批次划分与三元组补全。冲突证据：`storyboard_contract.py:44`、`workflow_settings.py:130` 对 `stage_layout.py:49`（07 的职责）。请拍板：03 采用后仍叫"分镜初稿"，"分镜定稿"留给 07；或两者保持现状。
+- **REQ-S03-20** ❓ 阶段并行提示要求本阶段"生成每个镜头时核对三元组并写入 `batch_id`"（`stage_parallel.py:203`），但批次划分的权威阶段是 07 分镜定稿（SG-03 查 `batch_id`、每批 ≤4 镜且 ≤18 秒，`stage_layout.py:49`）。03 是否要写 `batch_id`、写了是否算数，请拍板。
+
+### 采用（分镜初稿 → 后续阶段）
+
+- **REQ-S03-30** ✅ 采用前对整批（已采用＋新增）逐份校验：来源剧本必须是"初步分镜"栏中实际可用的一份（`source_script_error`），且 `validate_episode` 通过；任一份不过则整批拒绝，不改采用记录也不改资产计划，报错带文件名与具体问题。
+- **REQ-S03-31** ✅ 采用成功后同步资产计划（`asset_plan._sync_plan`），再把采用清单 `adopted_storyboards` 与当前分镜 `frame_json` 写入项目 `ui_settings.json`；`adopted_storyboards` 缺失时回退读旧单值 `frame_json`。采用清单中的文件必须在项目内且存在。
+- **REQ-S03-32** ✅ 无人值守自动采用（`adopt_pending`）：只处理新出现的分镜 JSON；刚写入不足 10 秒的文件记为 waiting 下轮再看；不合法的只跳过它，其余照常采用；整批只同步一次资产计划；重复调用不重复采用。
+- **REQ-S03-33** ✅ 取消采用（`remove`）只改采用清单与当前分镜指针，并按剩余清单重同步资产计划，不删分镜文件；当前分镜指针（`focus`）只能指向已采用的分镜。
+- **REQ-S03-34** ✅ 来源剧本已失效的 JSON 由 `prune_invalid_adoptions` 取消采用，保留 JSON 文件和历史资产。
+- **REQ-S03-35** ✅ 刚创建项目时的种子分镜（`EP001`/`SH001`/"待编写"）不当作已制作的分镜。
+
+### 产出、路径与完成
+
+- **REQ-S03-40** ✅ 新分镜 JSON 写入 `03初步分镜/分镜拆分/`，可读文档写入 `03初步分镜/分镜文档/`；旧 `storyboard/分镜拆分` 目录只读兼容。同一媒体根（`media_root`）对新旧目录一致。目录扫描拒绝符号链接逃逸、空文件，并忽略 `历史版本`、`分镜历史`、`剧本输入`、`frames`、`video_prompts`、`assets`、`首帧任务` 等内部目录。
+- **REQ-S03-41** ✅ 阶段完成 = 至少有一份已采用且含镜头的分镜 JSON（`stage_completion_service` → `stage_parallel._adopted`）。模型文字、界面提示不算证据；没有已采用分镜时报"还没有已采用且含镜头的分镜 JSON"。
+- **REQ-S03-42** ✅ 门禁 SG-A（初步分镜 → 分镜预演）：已采用分镜且各镜提示词与时长完整，否则挡住，提示"先完成并采用初步分镜"。
+- **REQ-S03-43** ❓ `stage_layout.STAGES` 与 `architecture.md` 声明本阶段产物名为固定的 `storyboard_draft.json`，并作为 04–07 阶段的输入名；实际没有任何代码写这个文件名，产物是模型命名的分镜 JSON（`分镜拆分/` 下），后续阶段读的是"已采用分镜清单"。该名只剩声明（仅 `tests/test_animatic_service.py` 用作测试夹具文件名）。请拍板：把声明改为"已采用的分镜 JSON"，或真的固定文件名。（architecture.md 已按现状改写，stage_layout 属契约代码，本轮未动。）
+- **REQ-S03-44** ❓ `script_manifest_schema.PRODUCERS` 把 `scene_breakdown.json` 的产出方登记为本阶段 `storyboard-scene-breakdown` SKILL，其他文档也称之为"五类剧本 manifest"之一。现状：阶段完成与 SG-A 都不检查它，没有任何下游消费它，默认流程也不要求产出；与 REQ-S02-23 同类。请拍板：是否要求本阶段必须产出并核验 `scene_breakdown.json`。落盘目录同样沿用旧名 `00_script`（同 REQ-S02-25）。
+
+### SKILL
+
+- **REQ-S03-50** ✅ 本阶段有 6 个 SKILL（`skills/03初步分镜SKILL/`）：`pipeline-storyboard-draft`（总入口，AIGC 全流程预设默认使用）、`storyboard-scene-breakdown`（场次拆分）、`storyboard-shot-generation`（镜头链）、`storyboard-camera-language`（景别角度运镜）、`storyboard-duration-estimate`（时长预估）、`storyboard-pacing-check`（节奏检查）。
+- **REQ-S03-51** 🟡 `workflow_settings` 的单独"初步分镜"流程默认技能是外部包 `short-drama-storyboard`，与 AIGC 全流程预设里的 `pipeline-storyboard-draft` 并存；两条入口对应哪种用户场景、何者为准，文档未说明。暂按现状记录，待确认。
+
+### 非目标（明确不做）
+
+- 不整理角色／场景／道具档案、不改写结构剧本（属 S02）。
+- 不做批次划分、连贯性台账、定稿锁定（属 S06／S07，见 REQ-S03-19/20）。
+- 不生成首帧、预演草图或任何媒体；不调用视频模型。
+- 不设本阶段的人工确认门；S03 → S04 靠 SG-A。
+- 手动启动分镜预演不经本阶段（`start('animatic')` 总是转到预演页并提示选择参考图与临时声音）。
