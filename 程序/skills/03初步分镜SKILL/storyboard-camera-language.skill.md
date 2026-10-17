@@ -43,8 +43,8 @@ examples:
 - 输出：镜头语言方案（每镜的景别、角度、运动与理由）。
 
 ### 用到的工具
-- `storyboard.pacingCheck`：02 初步分镜 → 分镜提示词生成／节奏检查
-- `storyboard.renderPrompt`：05 分镜定稿 → 生成提示词（把景别与运镜写进提示词）
+- `storyboard.pacingCheck`：03 初步分镜 → 分镜提示词生成／节奏检查
+- `storyboard.renderPrompt`：07 分镜定稿 → 生成提示词（把景别与运镜写进提示词）
 
 ### 约束与验收
 - 运动要有理由：写不出理由的运镜一律改成静止。

@@ -200,8 +200,8 @@ def brief_lines(stage):
              '同一条里必须串行（做完一个再做下一个），不同条之间才可以并行。' if row['serial']
              else '各单元之间互不依赖，可以并行推进。']
     if stage == 'storyboard':
-        lines.append('生成每个镜头时立刻核对三元组（scene_id＋character_ids＋costume_id）与前一个镜头一致，'
-                     '并写入 batch_id；资产已锁定时，锚点从资产清单逐字引用。')
+        lines.append('生成每个镜头时立刻核对三元组（scene_id＋character_ids＋costume_id）与前一个镜头一致；'
+                     '批次划分（batch_id）属于 07 分镜定稿，本阶段不写；资产已锁定时，锚点从资产清单逐字引用。')
         lines.append('各场景做完后按剧本顺序拼接成一份分镜 JSON，并核对跨场景衔接（上一场结束状态＝下一场开始状态）。')
         lines.append('同一集只输出一份分镜 JSON，发现已存在就跳过并说明，不生成副本、不换文件名重写。')
     if stage == 'assets':
@@ -645,6 +645,24 @@ def _adopted(project):
     return out
 
 
+def _current_shots(project):
+    """当前分镜（frame_json 指向的已采用分镜，缺省取最后一份）的镜头；没有采用分镜时为空。"""
+    entries = _adopted(project)
+    if not entries:
+        return []
+    try:
+        from storyboard_adoption_contract import prefs, resolve_source
+        frame = prefs(project).get('frame_json')
+        if frame:
+            target = resolve_source(project, frame)
+            for source, shots in entries:
+                if source == target:
+                    return shots
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return entries[-1][1]
+
+
 def animatic_input_ready(project):
     from animatic_service import shots_of
     adopted = _adopted(project)
@@ -653,6 +671,10 @@ def animatic_input_ready(project):
             raise ValueError('尚未采用分镜初稿')
         for _source, shots in adopted:
             shots_of({'shots': shots})
+        from storyboard_selection import draft_problems
+        problems = draft_problems(project)
+        if problems:
+            raise ValueError('；'.join(problems[:2]))
         return _result(gate_for('animatic'), True, True, '分镜初稿已就绪')
     except (ValueError, TypeError, KeyError) as error:
         return _result(gate_for('animatic'), False, True, str(error))
@@ -673,16 +695,26 @@ def assets_locked(project):
         base = library_dir(project)
         file = base / 'assets' / '资产清单' / 'assets.json'
         rows = read(file) if file.is_file() else {}
+        registry_file = base / 'assets.json'
+        registry = read(registry_file) if registry_file.is_file() else {}
     except Exception as exc:
         return _result(row, True, False, '资产清单读不出来，先不拦：%s' % exc)
     if not isinstance(rows, dict) or not rows:
         return _result(row, True, False, '资产清单还没生成（资产管理还没做），先不拦')
+    if not isinstance(registry, dict):
+        registry = {}
     problems = []
     resolved_base = base.resolve()
 
-    def _has_imported_image(item):
-        """清单中的路径必须指向资产库内一个真实、非空的图片文件。"""
-        image = str(item.get('image') or '').strip()
+    def _image_of(aid, item):
+        """图片以登记表为准（程序只往登记表写图片）；清单里的 image 仅作旧数据兜底。"""
+        reg = registry.get(aid)
+        reg_image = str(reg.get('image') or '').strip() if isinstance(reg, dict) else ''
+        return reg_image or str(item.get('image') or '').strip() if isinstance(item, dict) else reg_image
+
+    def _has_imported_image(aid, item):
+        """路径必须指向资产库内一个真实、非空的图片文件。"""
+        image = _image_of(aid, item)
         if not image:
             return False
         try:
@@ -693,7 +725,7 @@ def assets_locked(project):
             return False
 
     missing = [aid for aid, item in rows.items()
-               if not isinstance(item, dict) or not _has_imported_image(item)]
+               if not isinstance(item, dict) or not _has_imported_image(aid, item)]
     if missing:
         problems.append('%d 项资产还没导入图片：%s' % (len(missing), '、'.join(sorted(missing)[:6])))
     unlocked = [aid for aid, item in rows.items()
@@ -711,7 +743,7 @@ def assets_locked(project):
     # 「做过」的凭据：阶段机说跑过，或者清单里已经有资产落了图／锁了锚点。
     # 只有名字（刚扫出来的初稿）不算做过——第 47 期起的规矩：还没开始就一律放行。
     touched = [aid for aid, item in rows.items() if isinstance(item, dict) and (
-        str(item.get('image') or '').strip() or item.get('locked')
+        _image_of(aid, item) or item.get('locked')
         or str(item.get('character_anchor') or item.get('base_anchor') or '').strip())]
     started = has_run(project, 'assets') or bool(touched)
     if not problems:
@@ -724,9 +756,7 @@ def assets_locked(project):
 def ledger_ready(project):
     """SG-02：连贯性台账已生成、没有未裁决的待办（被人工忽略的问题不再拦）。"""
     row = gate_for('final')
-    from continuity_ledger import gate as ledger_gate
-    from continuity_ledger import issue_gate
-    from continuity_ledger import issues
+    from continuity_ledger import open_problems
     from continuity_ledger import read as read_ledger
     try:
         ledger = read_ledger(project)
@@ -734,19 +764,12 @@ def ledger_ready(project):
         return _result(row, True, False, '连贯性台账读不出来，先不拦：%s' % exc)
     if not isinstance(ledger, dict) or not ledger:
         return _result(row, True, False, '连贯性台账还没生成（这一步还没做），先不拦')
-    ok, problems = ledger_gate(ledger)
-    if not ok:
-        try:
-            current = issues(ledger)
-            closed, blocking = issue_gate(project, ledger)
-        except Exception:
-            current, closed, blocking = (), False, ()
-        # 只有「本轮真的算出了问题行、且全部都不是待处理」才放行；台账说有问题是问题行
-        # 算不出来的情况（格式异常）不擅自放行。
-        if closed and current:
-            ok, problems = True, ()
-        elif blocking:
-            problems = tuple(item.get('detail') or item.get('id') or '' for item in blocking)
+    from continuity_ledger import stale_reason
+    stale = stale_reason(ledger, _current_shots(project))
+    if stale:
+        return _result(row, False, True, stale, (stale,), [str(project) + '/03_continuity/output/continuity_ledger.json'])
+    problems = open_problems(project, ledger)
+    ok = not problems
     detail = '台账已生成' if ok else '台账里还有 %d 条未裁决的待办' % len(problems)
     return _result(row, ok, True, detail, problems, [str(project) + '/03_continuity/output/continuity_ledger.json'])
 
@@ -839,7 +862,7 @@ def frames_ready(project):
 
 
 def previs_ready(project):
-    """SG-05：需要白模的镜头都有可播放的预演产物。"""
+    """SG-05：需要白模的镜头（复杂动作与中等动作）都有可播放的预演产物。"""
     row = gate_for('video')
     from previs_routing import classify, decisions_for, ready
     from project_context_factory import project_context
@@ -848,6 +871,7 @@ def previs_ready(project):
     if not adopted:
         return _result(row, True, False, '还没有已采用的分镜，先不拦')
     need = []
+    levels = {}
     for source, shots in adopted:
         try:
             decisions = decisions_for(context, source, shots)
@@ -865,8 +889,9 @@ def previs_ready(project):
                     continue
             else:
                 level = item.get('level')
-            if level == 'complex':
+            if level in ('complex', 'medium'):
                 need.append((sid, source))
+                levels[sid] = level
     if not need:
         return _result(row, True, True, '没有需要白模的镜头', (), [str(source) for source, _ in adopted])
     missing = []
@@ -883,8 +908,10 @@ def previs_ready(project):
     made = has_run(project, 'previs') or any(ready(context, sid, source) for sid, source in need)
     if not made:
         return _result(row, True, False, '白模预演还没做，先不拦', (), artifacts)
-    return _result(row, False, True, '%d 个镜头还没有白模预演' % len(missing),
-                   ['缺预演：' + '、'.join(map(str, missing[:6]))], artifacts)
+    problems = ['缺预演：' + '、'.join(map(str, missing[:6]))]
+    if any(levels.get(sid) == 'medium' for sid in missing):
+        problems.append('中等动作镜头请在白模页用线上白模入口制作后导入；确实不需要时可把该镜复杂度改选「简单」')
+    return _result(row, False, True, '%d 个镜头还没有白模预演' % len(missing), problems, artifacts)
 
 
 def evaluate(project, stage, *, mode=BROWSE):

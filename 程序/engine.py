@@ -29,6 +29,9 @@ AUTO_REVIEW_NOTE=AUTO_REVIEW_MARK+'：技术质检通过，未做内容审核，
 QC_NAME='qc.json'
 EDIT_MANIFEST_NAME='edit_manifest.json'
 EDIT_BUNDLE_NAME='edit_bundle.json'
+PLATFORM_FOLDER='平台版本'
+AUDIO_SUFFIXES=frozenset({'.wav','.mp3','.m4a','.aac','.flac'})
+SUBTITLE_SUFFIXES=frozenset({'.srt','.ass'})
 
 def review_source(version):
     """这条验收是谁给的：'user' 真人点过，'auto' 无人值守按设置自动放行，'' 还没验收。
@@ -226,6 +229,9 @@ class Studio:
         return True
 
     def validate(self):
+        from video_task_state import shot_count_error
+        limit=shot_count_error(self.episode['shots'])
+        if limit:raise ValueError(limit)
         ids=[s['id'] for s in self.episode['shots']]
         if len(ids)!=len(set(ids)) or not ids:
             raise ValueError('镜头编号重复或为空')
@@ -292,7 +298,30 @@ class Studio:
         version['finished_at']=time.time()
         save(self.db,state)
         self.record_video_usage(sid,version)
+        self.publish_manifest(state)
         return version
+    def video_manifest(self,state):
+        """视频阶段机器可读清单：每镜实际采用版本（不哈希成片，哈希沿用版本记录里的 sha256）。"""
+        rows=[]
+        for shot in self.episode['shots']:
+            versions=state.get('shots',{}).get(shot['id']) or []
+            adopted,_reason=adopted_edit_version(versions)
+            rows.append({'id':shot['id'],'duration':shot.get('duration'),'deleted':bool(shot.get('video_deleted')),
+                         'versions':len(versions),'adopted_version':adopted.get('version') if adopted else None,
+                         'file':adopted.get('file') if adopted else None,'sha256':adopted.get('sha256') if adopted else None})
+        return {'stage':'video','shot_count':sum(1 for r in rows if not r['deleted']),
+                'adopted_count':sum(1 for r in rows if r['file']),'shots':rows}
+    def publish_manifest(self,state=None):
+        """把视频阶段清单同时写成 videos.json 与 video_manifest.json；写失败只记警告，不影响已落盘的成片。"""
+        import logging
+        from stage_path_service import write_dir
+        from video_task_state import MANIFEST_NAMES
+        try:
+            payload=self.video_manifest(state if state is not None else self.state())
+            folder=write_dir(project_root(self.root),'video')/'output'
+            for name in MANIFEST_NAMES:save(folder/name,payload)
+        except OSError:
+            logging.getLogger(__name__).warning('视频阶段清单写入失败',exc_info=True)
     def record_video_usage(self,sid,version):
         """视频成功落盘后记一笔请求台账：条数按实际下载、秒数按本镜声明时长（估算，非服务商上报）。"""
         if version.get('money_request_id'):return  # 云端成功时已结算，下载不再重复记费。
@@ -476,6 +505,7 @@ class Studio:
             if value=='pass' and (v['state']!='downloaded' or not v.get('qc_pass')): raise ValueError('仅下载且技术合格的版本可通过')
             if value not in ('pass','revise'): raise ValueError('无效验收值')
             v.update(review=value,review_by='user',review_note=note); save(self.db,st)
+            self.publish_manifest(st)
 
     def version_rows(self,sid):
         """本镜全部版本的事实清单，供「选择采用版本」使用；只读。"""
@@ -504,6 +534,7 @@ class Studio:
             for v in versions:v.pop('pinned',None)
             if target is not None:target['pinned']=True
             save(self.db,st)
+            self.publish_manifest(st)
         return number
 
     def review_many(self,shot_ids,value,note=''):
@@ -592,7 +623,7 @@ class Studio:
             out.mkdir()
         return self._encode(chosen,out,coverage)
 
-    def publish_edit_bundle(self, out, master, report, chosen):
+    def publish_edit_bundle(self, out, master, report, chosen, edits=None, overlap=0.0):
         """成片完整发布后，再登记与其绑定的质检报告和剪辑清单。
 
         先把「成片＋质检＋来源清单」合成一份 ``edit_bundle.json`` 一次性原子落盘，再写两份可读索引。
@@ -635,8 +666,18 @@ class Studio:
                     row['category'] = 'image'
                 if row not in references:
                     references.append(row)
+        from edit_export import EDITS_NAME
+        music_file = ((edits or {}).get('music') or {}).get('file')
+        music = ([{'path': os.path.relpath(music_file, out).replace('\\', '/'), 'sha256': file_hash(music_file)}]
+                 if music_file and Path(music_file).drive.casefold() == out.drive.casefold() else [])
+        applied = {'transition': (edits or {}).get('transition') or {'kind': 'none'},
+                   'transition_overlap_seconds': round(float(overlap), 3),
+                   'music': (edits or {}).get('music') or {'file': ''},
+                   'inputs': self.edit_inputs(), 'platform_exports': [],
+                   'shots': [shot['id'] for shot, _, _ in chosen]}
+        save(out/EDITS_NAME, applied)
         save(out/EDIT_BUNDLE_NAME, {
-            'master': master.name, 'master_sha256': file_hash(master),
+            'edits': applied, 'music': music, 'master': master.name, 'master_sha256': file_hash(master),
             'output_spec': report.get('output_spec'), 'qc': report,
             'manifest': manifest, 'coverage': report.get('coverage') or {},
             'references': references,
@@ -697,24 +738,142 @@ class Studio:
                 save(out/(shot['id']+'_音轨说明.json'),{'shot':shot['id'],'source_has_audio':False,'action':'补齐静音音轨，仅用于拼接，不生成对白或音效'})
             listing.append("file '"+dest.name+"'")
         save_text(out/'concat.txt', '\n'.join(listing))
+        edits=self.edit_settings()
         master=out/('MASTER.mp4')
         pending_master=temporary_path(master, '.partial.mp4')
         try:
-            command([self.cfg['ffmpeg'],'-v','error','-f','concat','-safe','1','-i','concat.txt','-c','copy','-movflags','+faststart',pending_master],cwd=out)
+            overlap=self._join_shots(out,chosen,pending_master,edits)
             command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',pending_master,'-f','null','-'])
-            report=check(pending_master,sum(s['duration'] for s,_,_ in chosen),self.cfg);report['output_spec']=spec
+            report=check(pending_master,sum(s['duration'] for s,_,_ in chosen)-overlap,self.cfg);report['output_spec']=spec
             if coverage is not None:report['coverage']=coverage
             replace(pending_master, master)
         finally:
             if pending_master.exists():
                 from file_cache import remove_temporary_file
                 remove_temporary_file(pending_master)
-        self.publish_edit_bundle(out, master, report, chosen)
+        self.publish_edit_bundle(out, master, report, chosen, edits, overlap)
         exports = self.publish_edit_lists(out, chosen, spec)
         if report['errors']: raise ValueError('成片技术检查未通过，报告已保存')
         if not exports['ok']:
             raise ValueError('成片已保留：'+str(master)+'；剪辑交付包不完整，EDL／FCPXML／素材清单生成失败：'+exports['reason'])
         return str(master)
+
+    def _join_shots(self,out,chosen,pending_master,edits):
+        """把逐镜编码结果接成成片：无转场走无损拼接，有转场重编码；有配乐再混一遍。返回转场吃掉的总秒数。"""
+        from edit_export import transition_filter,transition_seconds,music_filter
+        ffmpeg=self.cfg['ffmpeg'];names=[shot['id']+'.mp4' for shot,_,_ in chosen]
+        kind=edits['transition']['kind'];overlap=0.0
+        durations=[float(shot.get('duration') or 0) for shot,_,_ in chosen]
+        if kind!='none' and len(chosen)>1:
+            durations=[float((probe(out/name,self.cfg).get('format') or {}).get('duration') or duration)
+                       for name,duration in zip(names,durations)]
+        plan=transition_filter(durations,kind,edits['transition']['seconds'])
+        if plan:
+            args=[ffmpeg,'-y','-v','error']
+            for name in names:args+=['-i',name]
+            args+=['-filter_complex',plan,'-map','[v]','-map','[a]','-c:v','libx264','-preset','fast','-crf','20',
+                   '-c:a','aac','-movflags','+faststart',pending_master]
+            overlap=transition_seconds(durations,kind,edits['transition']['seconds'])*(len(chosen)-1)
+        else:
+            args=[ffmpeg,'-v','error','-f','concat','-safe','1','-i','concat.txt','-c','copy','-movflags','+faststart',pending_master]
+        command(args,cwd=out)
+        music=edits['music']
+        if music['file']:
+            mixed=temporary_path(pending_master,'.mix.mp4')
+            try:
+                command([ffmpeg,'-y','-v','error','-i',pending_master,'-stream_loop','-1','-i',music['file'],
+                         '-filter_complex',music_filter(music['volume']),'-map','0:v:0','-map','[a]',
+                         '-c:v','copy','-c:a','aac','-movflags','+faststart',mixed],cwd=out)
+                replace(mixed,pending_master)
+            finally:
+                if mixed.exists():
+                    from file_cache import remove_temporary_file
+                    remove_temporary_file(mixed)
+        return overlap
+
+    def edit_settings_path(self):
+        import project_stages
+        from edit_export import EDITS_NAME
+        return project_stages.editing(self.root)/EDITS_NAME
+
+    def edit_settings(self):
+        """转场／配乐设置（后期阶段的 edits.json）；没存过或损坏时用默认。"""
+        from edit_export import normalize_edits
+        try:
+            raw=read(self.edit_settings_path())
+        except (OSError,ValueError):
+            raw=None
+        return normalize_edits(raw)
+
+    def save_edit_settings(self,kind='none',seconds=None,music_file='',volume=None):
+        from edit_export import normalize_edits
+        if music_file and not Path(music_file).is_file():raise ValueError('背景音乐文件不存在：'+str(music_file))
+        if music_file:music_file=self._project_music(music_file)
+        data=normalize_edits({'transition':{'kind':kind,'seconds':seconds},
+                              'music':{'file':str(music_file or ''),'volume':volume}})
+        save(self.edit_settings_path(),data)
+        return data
+
+    def _project_music(self,source):
+        """背景音乐先带来源记录放进项目（授权清单只认项目内、可追溯的文件），已在项目内的原样使用。"""
+        import project_stages
+        from agent.core import copy_file_new
+        from agent.media import media_facts
+        source=Path(source).resolve()
+        if source.is_relative_to(Path(self.root).resolve()):return str(source)
+        folder=project_stages.editing(self.root)/'背景音乐'
+        target=folder/source.name
+        if target.exists():
+            if file_hash(target)==file_hash(source):return str(target)
+            target=folder/(source.stem+'_'+uuid.uuid4().hex[:6]+source.suffix)
+        copy_file_new(target,source,lambda path:media_facts('audio',probe(path,self.cfg)))
+        save(target.with_name(target.name+'.source.json'),{
+            'schema':1,'kind':'music','source':str(source),'imported_file':target.name,
+            'sha256':file_hash(target),'rights_status':'unknown'})
+        return str(target)
+
+    def edit_inputs(self):
+        """上游配音与字幕产物（后期阶段依赖 S11）：只登记路径与摘要，不并入画面。"""
+        import project_stages
+        rows={'audio':[],'subtitles':[]}
+        for key,folder,suffixes in (('audio',project_stages.audio(self.root),AUDIO_SUFFIXES),
+                                    ('subtitles',project_stages.subtitles(self.root),SUBTITLE_SUFFIXES)):
+            if not folder.is_dir():continue
+            for path in sorted(folder.iterdir()):
+                if path.is_file() and path.suffix.lower() in suffixes:
+                    rows[key].append({'path':os.path.relpath(path,self.root).replace(chr(92),'/'),'sha256':file_hash(path)})
+        return rows
+
+    def export_platform(self,master,spec,key):
+        """按平台规格把成片另转一份到成片目录的「平台版本」子目录，并登记进该批次的 edits.json。"""
+        from script_contract import output_filter
+        master=Path(master).resolve()
+        if not master.is_file():raise ValueError('成片不存在，请先生成成片')
+        folder=master.parent/PLATFORM_FOLDER;folder.mkdir(exist_ok=True)
+        dest=folder/(str(key)+'.mp4');pending=temporary_path(dest,'.partial.mp4')
+        try:
+            command([self.cfg['ffmpeg'],'-y','-v','error','-i',master,'-vf',output_filter(spec),
+                     '-c:v','libx264','-preset','fast','-b:v',str(spec['bitrate']),'-c:a','aac','-ar','48000',
+                     '-movflags','+faststart',pending],cwd=master.parent)
+            command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',pending,'-f','null','-'])
+            replace(pending,dest)
+        finally:
+            if pending.exists():
+                from file_cache import remove_temporary_file
+                remove_temporary_file(pending)
+        from edit_export import EDITS_NAME
+        try:
+            record=read(master.parent/EDITS_NAME)
+        except (OSError,ValueError):
+            record=None
+        if not isinstance(record,dict):record={}
+        row={'platform':str(key),'file':PLATFORM_FOLDER+'/'+dest.name,'sha256':file_hash(dest),
+             'width':spec['width'],'height':spec['height'],'fps':spec['fps']}
+        record['platform_exports']=[item for item in record.get('platform_exports') or []
+                                    if isinstance(item,dict) and item.get('platform')!=row['platform']]+[row]
+        save(master.parent/EDITS_NAME,record)
+        return str(dest)
+
     def output_spec(self):
         """本项目的正式交付规格：画幅／分辨率／帧率来自制作锁，缺省才用出厂默认。"""
         from stage_config import workflow_lock

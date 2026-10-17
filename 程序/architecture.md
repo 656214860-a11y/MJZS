@@ -80,8 +80,8 @@ R1139：L3 `codex_skill_sync` 通过注册表物化所有已登记阶段（含�
 | 各阶段内容 SKILL（`skills/08首帧管理SKILL/`） | 首帧管理 | 首帧批量生成、质检重试及缩略图缓存。 |
 | 各阶段内容 SKILL（`skills/09白模预演SKILL/`） | 白模预演 | 生成白模场景、走位、机位路径、动作和节奏预览。 |
 | 各阶段内容 SKILL（`skills/10视频生成SKILL/`） | 视频生成 | 视频批量提交、模型分流、轮询、质检和失败重跑。 |
-| 各阶段内容 SKILL（`skills/11配音字幕SKILL/`） | 配音与字幕 | 多角色配音、情绪核验、字幕对齐及 SRT 导出（ASS 仅见于 SKILL 文本，程序无导出实现）。 |
-| 各阶段内容 SKILL（`skills/12后期剪辑SKILL/`） | 后期剪辑 | 合成、配乐、预览、转场和多平台导出。 |
+| 各阶段内容 SKILL（`skills/11配音字幕SKILL/`） | 配音与字幕 | 多角色配音、情绪核验、字幕对齐及 SRT＋ASS 同批导出（`subtitle_timing.ass_text`、`subtitle_export_service.export_ass`）。 |
+| 各阶段内容 SKILL（`skills/12后期剪辑SKILL/`） | 后期剪辑 | 粗剪合成、镜头间转场、背景音乐、平台版本导出与剪映交接（音效、配音混音、预览生成未实现）。 |
 | 各阶段内容 SKILL（`skills/13质检交付SKILL/`） | 质检与交付 | 质检、合规与风格检查、归档和交付报告。 |
 
 阶段模板位于 `skills/templates/`：`script`、`script_structure`、`storyboard`、`asset`、`continuity`、`final`、`keyframe`、`previs`、`video`、`audio`、`edit`、`delivery` 各一份 YAML。每份均含读取/分析、生成（可确认）和写入产物步骤。
@@ -255,18 +255,18 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 序号  | ID                 | 阶段    | 核心产物                                             |
 | ---:| ------------------ | ----- | ------------------------------------------------ |
 | 01  | `script`           | 剧本准备  | 剧本/设定、`emotion_curve.json`、离线编剧任务书成果包。                    |
-| 02  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；新稿写入 `02剧本结构/结构剧本/`，具体读写目标由 `script_contract` 解析；需求与设计见 `docs/`。 |
-| 03  | `storyboard`       | 初步分镜  | 已采用的分镜 JSON（`03初步分镜/分镜拆分/`，文件名由模型产出；`stage_layout` 中的 `storyboard_draft.json` 只是声明名，无代码写入，是否固定见 docs/REQUIREMENTS.md REQ-S03-43）；需求与设计见 `docs/`。 |
+| 02  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；新稿写入 `02剧本结构/结构剧本/`，同时派生写入 `02剧本结构/output/` 的角色／场景／道具三份 manifest 并核验（`script_contract.write_structure_manifests`／`structure_manifest_problems`）；具体读写目标由 `script_contract` 解析；需求与设计见 `docs/`。 |
+| 03  | `storyboard`       | 初步分镜  | 已采用的分镜 JSON（`03初步分镜/分镜拆分/`，文件名由模型产出；采用时由 `storyboard_selection.sync_draft_outputs` 同步写 `03初步分镜/output/storyboard_draft.json` 与派生的 `scene_breakdown.json`，完成与 SG-A 经 `draft_problems` 核验，见 docs/REQUIREMENTS.md REQ-S03-43/44）；需求与设计见 `docs/`。 |
 | 04  | `animatic`         | 分镜预演  | 参考图与分镜提示词生成的预演草图、Animatic、`animatic_manifest.json`。 |
 | 05  | `assets`           | 资产管理  | `assets.json`、正典板、锚点。                            |
 | 06  | `continuity`       | 连贯性清单 | `continuity_ledger.json`、`continuity_ledger.md`、`continuity_issues.json`，另发布共享锚点库与三元组字典。 |
 | 07  | `final`            | 分镜定稿  | 采用分镜、提示词、批次 ID；落盘为 `07分镜定稿/分镜/<EP>_分镜定稿[_日期]/` 下的 `episode.json` + `assets.json`。 |
-| 08  | `keyframe`         | 首帧管理  | 非空首帧；来源证据记在已采用分镜 JSON 的每镜 `frame_evidence`（独立清单文件待定，见 REQUIREMENTS REQ-S08-40）。                   |
-| 09  | `previs`           | 白模预演  | 可播放预演；镜头级记录 `预演记录.json` 存于白模成果目录（项目目录之外），无 `previs_manifest.json`。 |
-| 10  | `video`            | 视频生成  | 视频任务/片段、`video_manifest.json`。                   |
-| 11  | `audio`            | 配音与字幕 | 音轨、字幕；完成凭据为人工确认的 `成果确认/<hash>.json`（`audio_manifest.json` 无程序产出方）。 |
+| 08  | `keyframe`         | 首帧管理  | 非空首帧；来源证据记在已采用分镜 JSON 的每镜 `frame_evidence`；阶段核验通过时 `stage_completion_service.publish_stage_manifest()` 把各镜首帧回执写入 `08首帧管理/output/frames.json`（只是回执，完成仍以 `frames_ready` 核验为准）。 |
+| 09  | `previs`           | 白模预演  | 可播放预演；镜头级记录 `预演记录.json` 存于白模成果目录（项目目录之外），通过校验的预演视频在项目内留副本 `09白模预演/assets/<镜头>/`，并登记汇总索引 `09白模预演/output/previs.json`（权威名；SKILL 里的 `previsManifest` 是它的逻辑别名）。工作区预览缺失时 SG-05 退回该索引判就绪。 |
+| 10  | `video`            | 视频生成  | 视频任务/片段；`output/` 下 `videos.json`／`video_manifest.json` 由 `Studio.publish_manifest` 写出；每项目上限 100 镜。 |
+| 11  | `audio`            | 配音与字幕 | 音轨、字幕；完成凭据为人工确认的 `成果确认/<hash>.json`；`output/` 下 `voice.json`／`subtitles.json`／`audio_manifest.json` 由 `stage_execution_service.refresh_audio_manifests` 在成果变化后写出，不作完成证据。 |
 | 12  | `edit`             | 后期剪辑  | 粗剪成片 `MASTER.mp4`（落 `13质检交付/导出成片/`）、`edit_manifest.json`／`edit_bundle.json`、EDL／FCPXML；需求与设计见 `docs/`。 |
-| 13  | `delivery`         | 质检与交付 | 已确认成片的成果确认清单（`成果确认/*.json`）、商用待填资料；`delivery_manifest.json` 现无代码写入，待定见 REQ-S13-24。 |
+| 13  | `delivery`         | 质检与交付 | 已确认成片的成果确认清单（`成果确认/*.json`，含与成片绑定的 `qc` 质检结论）、`qc_report.json`／`delivery.json`／`delivery_manifest.json`／`delivery_report.md`、商用待填资料。 |
 
 三虎逐步发布 `stage.started/completed/failed/retrying/executing/paused` 等事件，记录检查点，支持恢复；手动模式仅在模板标记确认的步骤等待用户，全自动模式不等待但逐步播报。门禁为资产/锚点 → SG01 → 连贯性 → SG02 → 定稿 → SG03 → 首帧 → SG04 → 预演 → SG05 → 视频。
 
@@ -330,7 +330,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | ----- | ---------------------------- | --------------------------------------------------------------- | ----------------- |
 | 剧本准备  | 创意、剧本阶段输入、接续                | 创意简报、台词润色、情绪曲线                                                  | Markdown、JSON     |
 | 剧本结构  | 权威服务解析的被采用自然剧本 | 结构剧本（角色/场景/道具/分场内容），位于 `02剧本结构/结构剧本/`，旧 writing/ 只读兼容；提取 SKILL 可另产出 manifest、世界观（manifest 是否必须产出待定，见 docs/REQUIREMENTS.md REQ-S02-23） | Markdown、JSON     |
-| 初步分镜  | “初步分镜”栏已选的结构剧本                        | 分镜 JSON（经校验后采用）；场次拆分 `scene_breakdown.json` 是否必须产出待定，见 docs/REQUIREMENTS.md REQ-S03-44                                                         | JSON              |
+| 初步分镜  | “初步分镜”栏已选的结构剧本                        | 分镜 JSON（经校验后采用）；场次拆分 `scene_breakdown.json` 由已采用分镜派生并核验（REQ-S03-44）                                                     | JSON              |
 | 分镜预演  | 分镜初稿、共享参考图、临时声音 | 预演草图、Animatic、`animatic_manifest.json` | 视频、JSON |
 | 资产管理  | 分镜、资产需求、参考图                  | 资产表、正典板、锚点                                                      | JSON、图片           |
 | 连贯性清单 | 被采用分镜、资产（含锚点）                | 台账（含冲突裁决）、问题闭环登记 `continuity_issues.json`                    | JSON、Markdown     |
@@ -356,7 +356,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 白模 Agent                         | 白模预演      | 场景、走位、机位和预演。                      |
 | 视频 Agent                         | 视频生成      | 本地/云任务、轮询、限流和重试。                  |
 | 音频字幕 Agent                       | 配音与字幕     | TTS、多角色音色、字幕对齐和导出。                |
-| 后期 Agent                         | 后期剪辑      | 时间线、转场、音效、导出。                     |
+| 后期 Agent                         | 后期剪辑      | 粗剪、转场、背景音乐、平台导出（不含音效）。   |
 | 质检/交付 Agent                      | 质检与交付     | 画面/音频/字幕/合规/风格检查、报告、归档。           |
 | ChatGPT Desktop / Claude Desktop | 任意显式选择阶段；或 GPT/Anthropic API 且本机程序可启动 | 本机桌面 Agent 引擎；后者是运行时本机优先，启动失败回退原 API。         |
 

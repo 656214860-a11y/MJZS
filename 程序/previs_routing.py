@@ -106,17 +106,18 @@ def ready(context,sid,source=None):
     """这一镜的预演是否就绪：来源分镜与预演文件都未变才算，变过只判过期、不删成果。"""
     context=_context(context)
     import white_model_service as wm
+    # 工作区里没有可用预览（被清理／换机）时，退回项目内副本 previs.json 判断；工作区有预览则以它为准。
     try:
         record=wm.read_record(wm.shot_directory(context,sid,source=source))
     except (OSError,ValueError):
-        return False
+        return wm.project_copy_ready(context,sid,source)
     value=record.get('preview')
     path=Path(value) if value else None
     try:
         if not (path and path.is_file() and path.stat().st_size and path.suffix.lower() in ('.mp4','.mov','.webm')):
-            return False
+            return wm.project_copy_ready(context,sid,source)
     except OSError:
-        return False
+        return wm.project_copy_ready(context,sid,source)
     state=wm.evidence_state(record,path,source,sid)
     if state=='changed':
         return False

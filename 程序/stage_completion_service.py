@@ -6,14 +6,16 @@ import pet_bus
 
 
 def media_output_folders(root, stage):
-    """返回媒体阶段的成果目录与允许扩展名。"""
+    """返回媒体阶段的成果目录与允许扩展名（成片后缀与导入共用 delivery_import_service 那一份）。"""
+    from delivery_import_service import ALLOWED_SUFFIXES
     from stage_path_service import read_dirs
+    video = set(ALLOWED_SUFFIXES)
     if stage == 'audio':
         return tuple(folder / '音频' for folder in read_dirs(root,'audio')), {'.mp3', '.wav', '.m4a', '.aac'}
     if stage == 'edit':
-        return (*read_dirs(root, 'edit'), *(folder / '导出成片' for folder in read_dirs(root,'delivery'))), {'.mp4', '.mov', '.mkv'}
+        return (*read_dirs(root, 'edit'), *(folder / '导出成片' for folder in read_dirs(root,'delivery'))), video
     if stage == 'delivery':
-        return read_dirs(root,'delivery'), {'.mp4', '.mov', '.mkv'}
+        return read_dirs(root,'delivery'), video
     return (), set()
 
 
@@ -77,11 +79,14 @@ def prepare_media_completion(root, stage, paths, *, scope=None):
     outputs = []
     for path in dict.fromkeys(_media_path(root, stage, value) for value in paths):
         digest = file_hash(path)
-        validation = _technical_media(stage, probe(path, {'ffprobe': executable}))
+        probed = probe(path, {'ffprobe': executable})
+        validation = _technical_media(stage, probed)
         if file_hash(path) != digest:
             raise ValueError('校验期间成果文件发生变化，请重试')
         outputs.append({'path': path.relative_to(root).as_posix(), 'sha256': digest,
-                        'size': path.stat().st_size, 'validation': validation})
+                        'size': path.stat().st_size, 'validation': validation,
+                        'has_audio': any(isinstance(item, dict) and item.get('codec_type') == 'audio'
+                                         for item in probed.get('streams') or [])})
     if not outputs:
         raise ValueError('请至少选择一份本阶段媒体成果；字幕或压缩包不能替代媒体')
     if stage == 'audio':
@@ -89,6 +94,8 @@ def prepare_media_completion(root, stage, paths, *, scope=None):
         if not any(audio_kind(Path(output['path']).name) == 'dialogue' for output in outputs):
             raise ValueError('所选音频都不是对白音轨（只有 BGM／音效／旁白），不能代替对白配音完成核验')
     data = {'schema': 1, 'stage': stage, 'scope': scope, 'status': 'pending_review', 'outputs': outputs}
+    if stage == 'delivery':
+        data['qc'] = build_delivery_qc(root, outputs)
     _validate_media_completion(root, stage, data, require_review=False)
     return data
 
@@ -114,18 +121,128 @@ def _validate_media_completion(root, stage, data, *, require_review=True):
             raise ValueError('成果清单缺少有效技术校验结果')
         if path.stat().st_size != output.get('size') or file_hash(path) != output.get('sha256'):
             raise ValueError('成果文件已替换或修改，请重新校验确认：' + path.name)
+    if stage == 'delivery' and require_review:
+        qc = data.get('qc')
+        if (not isinstance(qc, dict) or qc.get('passed') is not True
+                or qc.get('bound') != [output.get('sha256') for output in outputs]):
+            raise ValueError('缺少与当前成片对应的质检通过结论，请重新校验确认')
 
 
 def confirm_media_completion(root, stage, prepared):
     """仅显式人工确认入口调用；发布前重新核对冻结版本。"""
     from agent.core import save
     _validate_media_completion(root, stage, prepared, require_review=False)
+    if stage == 'delivery':
+        qc = prepared.get('qc')
+        if not isinstance(qc, dict) or qc.get('passed') is not True:
+            problems = '；'.join((qc or {}).get('errors') or ['缺少质检结论'])
+            raise ValueError('质检未通过，不能确认交付完成：' + problems)
     data = dict(prepared, status='complete', reviewed=True)
     if stage == 'delivery':
         data['commercial_status'] = 'pending'
     target = media_manifest_path(root, stage, data['scope'])
     save(target, data)
+    if stage == 'delivery':
+        publish_delivery_artifacts(root, data)
     return target
+
+
+REPORT_NAME = 'delivery_report.md'
+
+
+def delivery_record(root):
+    """读取已确认且仍然有效的交付清单；未确认、被改动或质检未过都抛 ValueError。"""
+    from agent.core import read
+    root = Path(root).resolve()
+    ok, detail = media_completion_evidence(root, 'delivery')
+    if not ok:
+        raise ValueError(detail)
+    data = read(media_manifest_path(root, 'delivery', media_scope(root)))
+    if not isinstance(data.get('qc'), dict) or data['qc'].get('passed') is not True:
+        raise ValueError('交付清单没有质检通过结论，请重新校验确认')
+    return data
+
+
+def package_delivery(root):
+    """（重新）落盘质检报告、交付摘要与文件清单，返回交付清单里的文件行。"""
+    from agent.core import read
+    root = Path(root).resolve()
+    data = delivery_record(root)
+    publish_delivery_artifacts(root, data)
+    from stage_path_service import write_dir
+    return read(write_dir(root, 'delivery') / 'delivery_manifest.json')['files']
+
+
+def publish_delivery_report(root):
+    """交付报告（人读）：成片、质检结论、警告与商用状态；只陈述记录，不替人审核。"""
+    from agent.core import save_text
+    from stage_path_service import write_dir
+    root = Path(root).resolve()
+    data = delivery_record(root)
+    qc = data['qc']
+    lines = ['# 交付报告', '', '- 集：' + str(data['scope'].get('episode')), '- 质检：通过', '- ' + commercial_status(root)[1], '',
+             '## 成片']
+    for output in data['outputs']:
+        lines.append('- %s（%.1f 秒，sha256 %s）' % (output['path'], output['validation']['duration'], output['sha256'][:12]))
+    lines += ['', '## 质检警告'] + (['- ' + item for item in qc.get('warnings') or []] or ['- 无'])
+    lines += ['', '本报告只汇总确认记录；画面、对白、剧情与商用授权由人工审核。']
+    target = write_dir(root, 'delivery') / REPORT_NAME
+    save_text(target, '\n'.join(lines) + '\n')
+    return target
+
+
+def build_delivery_qc(root, outputs):
+    """交付质检结论：只依据可复核的事实（技术校验、剪辑质检、来源清单），人工审核仍在确认环节。"""
+    from agent.core import file_hash, read
+    root = Path(root).resolve()
+    errors, warnings, rows = [], [], []
+    for output in outputs:
+        path = (root / output['path']).resolve()
+        checks = ['技术校验通过（视频流、时长、画面尺寸）']
+        if output.get('has_audio') is False:
+            warnings.append(path.name + ' 没有音轨')
+        bundle_path = path.parent / 'edit_bundle.json'
+        if bundle_path.is_file():
+            bundle = read(bundle_path)
+            if (not isinstance(bundle, dict) or bundle.get('master') != path.name
+                    or bundle.get('master_sha256') != file_hash(path)):
+                errors.append(path.name + ' 与剪辑来源清单不一致')
+            else:
+                checks.append('与剪辑来源清单一致')
+                qc = bundle.get('qc') if isinstance(bundle.get('qc'), dict) else {}
+                for message in qc.get('errors') or []:
+                    errors.append(path.name + ' 剪辑质检：' + str(message))
+                skipped = (bundle.get('coverage') or {}).get('skipped') or []
+                if skipped:
+                    warnings.append(path.name + ' 粗剪跳过了 %d 个未就绪镜头' % len(skipped))
+        else:
+            warnings.append(path.name + ' 没有剪辑来源清单（外部导入成片），来源须人工核对')
+        rows.append({'path': output['path'], 'sha256': output['sha256'], 'checks': checks})
+    return {'passed': not errors, 'errors': errors, 'warnings': warnings, 'outputs': rows,
+            'bound': [output['sha256'] for output in outputs]}
+
+
+def publish_delivery_artifacts(root, data):
+    """交付确认后落盘本阶段声明的产物：质检报告、交付摘要和带摘要的文件清单。"""
+    import time
+    from agent.core import file_hash, save
+    from stage_path_service import write_dir
+    root = Path(root).resolve()
+    folder = write_dir(root, 'delivery')
+    now = time.time()
+    save(folder / 'qc_report.json', {'schema': 1, 'scope': data['scope'], 'qc': data['qc'], 'confirmed_at': now})
+    save(folder / 'delivery.json', {'schema': 1, 'scope': data['scope'],
+                                    'outputs': [{'path': item['path'], 'sha256': item['sha256']}
+                                                for item in data['outputs']],
+                                    'qc_passed': True, 'commercial_status': data['commercial_status'],
+                                    'confirmed_at': now})
+    files = [{'path': item['path'], 'sha256': item['sha256'], 'role': 'master'} for item in data['outputs']]
+    for name in ('qc_report.json', 'delivery.json', REPORT_NAME):
+        if not (folder / name).is_file():
+            continue
+        files.append({'path': (folder / name).relative_to(root).as_posix(),
+                      'sha256': file_hash(folder / name), 'role': 'record'})
+    save(folder / 'delivery_manifest.json', {'schema': 1, 'scope': data['scope'], 'files': files})
 
 
 COMMERCIAL_CATEGORIES = ('script', 'reference', 'image', 'video', 'music', 'font', 'voice')
@@ -201,7 +318,8 @@ def _commercial_inventory(root, scope, outputs):
         if not isinstance(bundle, dict):
             warnings.append('成片来源清单格式无效：' + output['path'])
             continue
-        for field, category in (('manifest', 'video'), ('fonts', 'font'), ('references', 'reference')):
+        for field, category in (('manifest', 'video'), ('fonts', 'font'), ('references', 'reference'),
+                                ('music', 'music')):
             rows = bundle.get(field, [])
             if not isinstance(rows, list):
                 warnings.append('来源清单格式无效：' + field)
@@ -341,6 +459,17 @@ def validate_commercial_evidence(root, evidence):
                         or declared_references.get(reference_path) != reference.get('sha256')
                         or file_hash(reference_path) != reference.get('sha256')):
                     raise ValueError('参考授权未覆盖镜头生成时采用的素材版本')
+            music = bundle.get('music', [])
+            if not isinstance(music, list):
+                raise ValueError('成片配乐来源清单无效')
+            declared_music = {(root / item['path']).resolve(): item['sha256']
+                              for item in categories['music']['items']}
+            for row in music:
+                music_path = (path.parent / row['path']).resolve() if isinstance(row, dict) and isinstance(
+                    row.get('path'), str) else None
+                if (music_path is None or not music_path.is_file() or declared_music.get(music_path) != row.get('sha256')
+                        or file_hash(music_path) != row.get('sha256')):
+                    raise ValueError('音乐授权未覆盖成片实际使用的背景音乐版本')
             fonts = bundle.get('fonts', [])
             if not isinstance(fonts, list):
                 raise ValueError('成片字体来源清单无效')
@@ -384,11 +513,27 @@ def create_commercial_template(root):
 
 
 def confirm_commercial_evidence(root, evidence):
-    from agent.core import save
+    from agent.core import read, save
     validate_commercial_evidence(root, evidence)
     target = commercial_evidence_path(root)
     save(target, evidence)
+    manifest = media_manifest_path(root, 'delivery', media_scope(root))
+    data = read(manifest)
+    data['commercial_status'] = 'verified'
+    save(manifest, data)
     return target
+
+
+def commercial_status(root):
+    """交付页常驻显示的商用状态：none 未确认成片、pending 待核验、verified 已核验（依据人工授权记录）。"""
+    from agent.core import read
+    try:
+        data = read(media_manifest_path(root, 'delivery', media_scope(root)))
+        _validate_media_completion(root, 'delivery', data)
+    except (ValueError, OSError, KeyError, TypeError):
+        return 'none', '商用状态：尚未确认交付成片'
+    ok, text = commercial_delivery_status(root)
+    return ('verified', text) if ok else ('pending', text)
 
 
 def commercial_delivery_status(root):
@@ -425,15 +570,21 @@ def completion_evidence(root, stage, video_ready=None):
         if stage in ('audio', 'edit', 'delivery'):
             return media_completion_evidence(root, stage)
         if stage in ('script', 'script_structure'):
-            from skill_orchestrator import verified_stage_output
-            ok = verified_stage_output(root, stage)
+            import script_contract
+            source = (script_contract.resolve_script_source(root) if stage == 'script'
+                      else script_contract.structured_script_path(root))
+            ok = (source is not None) if stage == 'script' else script_contract.is_structured_script(source)
             return ok, '没有找到可读取的%s成果' % pet_bus.STAGE_NAMES.get(stage, stage)
         if stage == 'animatic':
             from animatic_service import evidence
             return evidence(root)
         if stage == 'storyboard':
             from stage_parallel import _adopted
-            return bool(any(shots for _source, shots in _adopted(root))), '还没有已采用且含镜头的分镜 JSON'
+            from storyboard_selection import draft_problems
+            if not any(shots for _source, shots in _adopted(root)):
+                return False, '还没有已采用且含镜头的分镜 JSON'
+            problems = draft_problems(root)
+            return not problems, '；'.join(problems[:2])
         checks = {'assets': 'assets_locked', 'continuity': 'ledger_ready', 'final': 'batches_ready',
                   'keyframe': 'frames_ready', 'previs': 'previs_ready'}
         if stage in checks:
@@ -462,6 +613,57 @@ def emit_verified_completion(root, stage, text, emit, video_ready=None, before_e
     ok, detail = completion_evidence(root, stage, video_ready)
     if not ok:
         return False, detail, None
+    if stage in ('keyframe', 'previs'):
+        try:
+            publish_stage_manifest(root, stage)
+        except (OSError, ValueError) as exc:
+            return False, '阶段输出清单写入失败：%s' % exc, None
     if callable(before_emit):
         before_emit()
     return True, '', emit('stage.completed', stage=str(stage or ''), text=text)
+
+
+def publish_stage_manifest(root, stage):
+    """核验通过后落盘阶段输出清单（stage_layout 契约名 frames.json／previs.json）；清单是回执，不是完成证据。"""
+    from datetime import datetime
+    from agent.core import save
+    from project_context_factory import project_context
+    from stage_parallel import _adopted
+    from stage_path_service import write_dir
+    root = Path(root)
+    stamp = datetime.now().isoformat(timespec='seconds')
+    if stage == 'keyframe':
+        from storyboard_paths import media_root
+        episodes = []
+        for source, shots in _adopted(root):
+            base = media_root(source).resolve()
+            rows = []
+            for shot in shots:
+                evidence = shot.get('frame_evidence')
+                image = evidence.get('image') if isinstance(evidence, dict) else None
+                rows.append({'id': shot.get('id'), 'frame': shot.get('frame'),
+                             'deleted': bool(shot.get('frame_deleted')),
+                             'sha256': image.get('sha256') if isinstance(image, dict) else None})
+            episodes.append({'source': str(source), 'media_root': str(base), 'shots': rows})
+        target = write_dir(root, 'keyframe') / 'output' / 'frames.json'
+        save(target, {'schema': 1, 'stage': 'keyframe', 'generated_at': stamp, 'episodes': episodes})
+        return target
+    import white_model_service as wm
+    from previs_routing import decisions_for
+    context = project_context(root)
+    required = {}
+    for source, shots in _adopted(root):
+        decisions = decisions_for(context, source, shots)
+        for sid, item in decisions.items():
+            if item.get('level') in ('complex', 'medium'):
+                required[sid] = item['level']
+                try:
+                    wm.sync_project_copy(context, sid, source, publish=save)
+                except (OSError, ValueError):
+                    import app_logging
+                    app_logging.swallowed('预演项目内副本未写入')
+    index = wm.read_project_index(context)
+    index.update(stage='previs', generated_at=stamp, required=required)
+    target = wm.project_index_path(context, write=True)
+    save(target, index)
+    return target

@@ -112,3 +112,86 @@ def export_texts(title, clips, spec, sources=None):
     return {EDL_NAME: build_edl(title, clips, spec.get('fps')),
             FCPXML_NAME: build_fcpxml(title, clips, spec),
             TRACKS_NAME: build_tracks(clips, spec.get('fps'), sources)}
+
+
+EDITS_NAME = 'edits.json'
+TRANSITIONS = {'none': '无转场', 'fade': '淡入淡出', 'dissolve': '叠化', 'wipeleft': '向左擦除',
+               'slideleft': '向左滑动'}
+DEFAULT_TRANSITION_SECONDS = 0.5
+MAX_TRANSITION_SECONDS = 2.0
+DEFAULT_MUSIC_VOLUME = 0.25
+
+
+def _number(value, fallback, low, high):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    if number != number or not low <= number <= high:
+        return fallback
+    return round(number, 3)
+
+
+def normalize_edits(raw):
+    """用户设置（转场／配乐）归一：未知转场退回无转场，音量与时长越界退回默认。"""
+    raw = raw if isinstance(raw, dict) else {}
+    transition = raw.get('transition') if isinstance(raw.get('transition'), dict) else {}
+    music = raw.get('music') if isinstance(raw.get('music'), dict) else {}
+    kind = transition.get('kind')
+    return {'transition': {'kind': kind if kind in TRANSITIONS else 'none',
+                           'seconds': _number(transition.get('seconds'), DEFAULT_TRANSITION_SECONDS,
+                                              0.1, MAX_TRANSITION_SECONDS)},
+            'music': {'file': str(music.get('file') or ''),
+                      'volume': _number(music.get('volume'), DEFAULT_MUSIC_VOLUME, 0.0, 1.0)}}
+
+
+def transition_seconds(durations, kind, seconds):
+    """实际生效的转场时长：不超过最短镜头的一半，保证相邻两次转场不重叠；无转场返回 0。"""
+    if kind not in TRANSITIONS or kind == 'none' or len(durations) < 2:
+        return 0.0
+    return max(0.0, min(float(seconds), min(durations) / 2))
+
+
+def transition_filter(durations, kind, seconds):
+    """相邻镜头间的 xfade／acrossfade 滤镜链，输出标签 [v][a]；不足两镜或无转场返回 None。
+
+    偏移按「已累计时长－已吃掉的重叠」算。
+    """
+    seconds = transition_seconds(durations, kind, seconds)
+    if seconds <= 0:
+        return None
+    video, audio, elapsed = '[0:v]', '[0:a]', 0.0
+    parts = []
+    for index in range(1, len(durations)):
+        elapsed += durations[index - 1]
+        offset = round(elapsed - seconds * index, 3)
+        last = index == len(durations) - 1
+        out_v, out_a = ('[v]', '[a]') if last else ('[v%d]' % index, '[a%d]' % index)
+        parts.append('%s[%d:v]xfade=transition=%s:duration=%s:offset=%s%s'
+                     % (video, index, kind, seconds, offset, out_v))
+        parts.append('%s[%d:a]acrossfade=d=%s%s' % (audio, index, seconds, out_a))
+        video, audio = out_v, out_a
+    return ';'.join(parts)
+
+
+def music_filter(volume):
+    """成片音轨(0:a)与循环背景音乐(1:a)混合；背景音乐压低，成片时长为准。"""
+    return ('[1:a]volume=%s[bgm];[0:a][bgm]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]'
+            % volume)
+
+
+PLATFORMS = {
+    'douyin': {'label': '抖音', 'width': 1080, 'height': 1920, 'fps': 30, 'bitrate': '8M', 'aspect': '9:16'},
+    'bilibili': {'label': 'B站', 'width': 1920, 'height': 1080, 'fps': 30, 'bitrate': '12M', 'aspect': '16:9'},
+    'youtube': {'label': 'YouTube', 'width': 3840, 'height': 2160, 'fps': 30, 'bitrate': '45M', 'aspect': '16:9'},
+}
+
+
+def platform_spec(name):
+    """平台导出规范表：后期页的真实转码与 SKILL 工具共用这一份（custom 取 B 站规格再由调用方覆盖）。"""
+    key = str(name or '').strip().lower()
+    if key == 'custom':
+        return dict(PLATFORMS['bilibili'], label='自定义', key='custom')
+    if key in PLATFORMS:
+        return dict(PLATFORMS[key], key=key)
+    raise ValueError('没登记的平台：' + str(name))

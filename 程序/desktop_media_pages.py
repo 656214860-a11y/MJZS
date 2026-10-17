@@ -174,6 +174,24 @@ class MediaPagesMixin:
         """把台账落到 03_continuity（第 62 期任务 11：这一步成了独立的一页，清单由「手动生成」写）。"""
         from continuity_ledger import write
         return write(self.root,self.continuity_ledger_data() if ledger is None else ledger)
+    def generate_continuity_ledger(self,ledger=None):
+        """生成连贯性清单：手动按钮与三虎自动链共用的唯一实现（落盘＋同步问题登记＋播报）。"""
+        ledger=self.continuity_ledger_data() if ledger is None else ledger
+        summary=ledger.get('summary') or {}
+        if not summary.get('shots'):
+            raise ValueError('当前没有可用的分镜镜头，请先在「初步分镜」采用一份分镜再生成连贯性清单。')
+        self.write_continuity_ledger(ledger)
+        self.sync_continuity_issues(ledger)
+        text='镜头 %s 个 · 批次 %s 组 · %s'%(summary.get('shots',0),summary.get('batches',0),
+                                           '全部通过' if summary.get('ok') else '有待办')
+        self.pet_report('continuity','连贯性清单已生成：'+text+'。')
+        self.status.set('连贯性清单已生成并落盘：'+text)
+        if getattr(self,'page_index',None)==PAGE['continuity']:self.show(PAGE['continuity'])
+        return text
+    def pet_continuity_ledger(self):
+        """三虎自动链的连贯性清单入口（经 stage_handler_registry.start 的回调）；没有分镜时返回空串。"""
+        try:return '已自动生成「连贯性清单」：'+self.generate_continuity_ledger()
+        except ValueError:return ''
     def continuity_page(self):
         """06 连贯性清单（第 62 期任务 11）。
 
@@ -190,11 +208,7 @@ class MediaPagesMixin:
             return '镜头 %s 个 · 批次 %s 组 · %s'%(summary.get('shots',0),summary.get('batches',0),
                                                  '全部通过' if passed else '有待办')
         def make():
-            self.write_continuity_ledger(ledger)
-            self.sync_continuity_issues(ledger)
-            self.pet_report('continuity','连贯性清单已生成：'+line()+'。')
-            self.status.set('连贯性清单已生成并落盘：'+line())
-            self.show(PAGE['continuity'])
+            self.generate_continuity_ledger(ledger)
         bar=FlowBar(self.content);bar.pack(fill='x',pady=(0,3))
         ttk.Label(bar,text='清单',width=ASSET_ROW_LABEL).pack(side='left')
         _make=PrimaryButton(bar,text='手动生成连贯性清单',style='Primary.TButton',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(make))
@@ -827,7 +841,7 @@ class MediaPagesMixin:
         self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(_edit_bar,self,PAGE['edit'])
         self.stage_button.configure(style='Tokens.Primary.TButton')
         self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
-        self.note('自动粗剪只拼装已验收的镜头：未验收的镜头会被跳过并列在状态栏，不再因为个别镜头卡住整集。剪映负责精剪、音量、字幕和转场；交接包保留镜头顺序。素材交接包只给有序视频与字幕，不是剪映草稿，可用「校验交接包」离线核对。本次输出规格：%s（等比缩放＋居中留边，不裁切）。'%controller.output_spec_text())
+        self.note('自动粗剪只拼装已验收的镜头：未验收的镜头会被跳过并列在状态栏，不再因为个别镜头卡住整集。本页可设置基础转场与背景音乐，并按平台导出成片副本；精细剪辑、对白音量和字幕烧录仍交给剪映，交接包保留镜头顺序。素材交接包只给有序视频与字幕，不是剪映草稿，可用「校验交接包」离线核对。本次输出规格：%s（等比缩放＋居中留边，不裁切）。'%controller.output_spec_text())
         edit_buttons=[]
         def edit_button(text,command,primary=False):
             """保留共享事件封装，只让后期页采用统一的视觉组件样式。"""
@@ -847,6 +861,26 @@ class MediaPagesMixin:
         has_downloaded=controller.has_downloaded_video()
         for button in edit_buttons:button.configure(state='normal' if has_downloaded else 'disabled')
         if not has_downloaded:self.note('还没有已下载的镜头视频，自动粗剪与交接包暂不可用；请先在'+pet_bus.stage_step('video')+'生成并下载视频。')
+        transition_button=edit_button('转场：'+controller.transition_label()+'（点击切换）',lambda:None)
+        def switch_transition():
+            transition_button.configure(text='转场：'+controller.next_transition()+'（点击切换）')
+        transition_button.configure(command=lambda:self.safe(switch_transition))
+        music_button=edit_button('背景音乐：'+controller.music_label(),lambda:None)
+        def pick_music():
+            chosen=FileDialog(self.win).open_file(title='选择背景音乐',filetypes=[('音频','*.wav *.mp3 *.m4a *.aac *.flac')])
+            if not chosen:return
+            controller.set_music(chosen)
+            music_button.configure(text='背景音乐：'+controller.music_label())
+        def clear_music():
+            controller.set_music('')
+            music_button.configure(text='背景音乐：'+controller.music_label())
+        music_button.configure(command=lambda:self.safe(pick_music))
+        edit_button('清除背景音乐',lambda:self.safe(clear_music))
+        from edit_export import PLATFORMS
+        for platform_key,platform in PLATFORMS.items():
+            edit_button('导出%s版（%dx%d）'%(platform['label'],platform['width'],platform['height']),
+                        lambda key=platform_key:self.async_(lambda:controller.export_platform(key),
+                                                            lambda path:self.status.set('平台版本已导出：'+str(path))))
         edit_button('启动剪映',self.launch_editor)
         edit_button('打开后期目录',lambda:open_path(edit_dir))
         edit_button('校验交接包',self.verify_handoff)
@@ -974,6 +1008,8 @@ class MediaPagesMixin:
                 step=status_next(v)
             lines.append(f'{s["id"]}  {s["title"]}  | 状态 {state} | 技术QC {qc} | 验收 {review} | 采用 {adopted_text}'+(' | 下一步 '+step if step else ''))
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
+        from stage_completion_service import commercial_status
+        self.note(commercial_status(self.root)[1])
         delivery_button('导入剪映最终成片',self.final_import,primary=True)
         delivery_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))
         delivery_button('生成商用待填资料',lambda:self.safe(lambda:self.commercial_delivery_review(create=True)))

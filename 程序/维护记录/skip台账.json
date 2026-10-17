@@ -1982,6 +1982,24 @@
       "reference": ""
     },
     {
+      "file": "tests/test_editing_scope.py",
+      "test": "EditingScopeTests.test_req_s12_33_s12_32_real_transition_music_and_platform_export",
+      "ordinal": 1,
+      "kind": "缺外部程序",
+      "reason_constant": "MISSING_FFMPEG",
+      "reason": "缺外部程序：当前机器没有可用的 FFmpeg／FFprobe；装好编码器后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_editing_scope.py",
+      "test": "EditingScopeTests.test_req_s12_33_s12_32_real_transition_music_and_platform_export",
+      "ordinal": 2,
+      "kind": "缺外部程序",
+      "reason_constant": "MISSING_FFMPEG",
+      "reason": "缺外部程序：当前机器没有可用的 FFmpeg／FFprobe；装好编码器后应恢复执行",
+      "reference": ""
+    },
+    {
       "file": "tests/test_workspace_maintenance.py",
       "test": "WorkspaceMaintenanceTests.test_selftemp_symlink_entry_skipped",
       "ordinal": 1,

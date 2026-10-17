@@ -101,6 +101,24 @@ class AssetsScopeTests(unittest.TestCase):
             self.assertFalse(result['ok'])
             self.assertTrue(any('没锁定锚点' in item for item in result['problems']))
 
+    def test_req_s05_32_sg01_reads_images_from_the_registry(self):
+        from asset_context import library_dir
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td)
+            base = library_dir(project)
+            plan_file = base / 'assets' / '资产清单' / 'assets.json'
+            (base / 'assets' / 'characters').mkdir(parents=True)
+            (base / 'assets' / 'characters' / 'a.png').write_bytes(PNG)
+            # 程序真实形态：清单里没有 image（_sync_plan 会剔除），图片只登记在资产库根的 assets.json
+            write_json(plan_file, {'CHAR_001': {'name': 'A', 'locked': True, 'character_anchor': 'x'}})
+            blocked = stage_parallel.assets_locked(project)
+            self.assertFalse(blocked['ok'])
+            self.assertTrue(any('还没导入图片' in item for item in blocked['problems']))
+            write_json(base / 'assets.json', {'CHAR_001': {'image': 'assets/characters/a.png'}})
+            self.assertTrue(stage_parallel.assets_locked(project)['ok'])
+            (base / 'assets' / 'characters' / 'a.png').unlink()
+            self.assertFalse(stage_parallel.assets_locked(project)['ok'])
+
     def test_req_s05_31_names_only_draft_is_not_started(self):
         from asset_context import library_dir
         with tempfile.TemporaryDirectory() as td:

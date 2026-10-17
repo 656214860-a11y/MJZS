@@ -15,16 +15,19 @@ from pathlib import Path
 from agent.core import read
 from script_manifest_contract import HEADER, KIND_OF_MANIFEST, KINDS, MANIFESTS, MANIFEST_OF_KIND
 
-# 产出这些 manifest 的阶段目录（原定义在 script_contract，随本模块一起搬来）。
-STAGE = '00_script'
+# 剧本准备阶段目录（原定义在 script_contract，随本模块一起搬来）；旧名 00_script 只在
+# stage_layout.LEGACY_STAGE_ALIASES 里作为只读别名，不再作为落盘目录。
+STAGE = '01剧本准备'
+STRUCTURE_STAGE = '02剧本结构'
+STORYBOARD_STAGE = '03初步分镜'
 
 
-# manifest 文件名 → (产出它的 SKILL, 这份产物按契约落在哪个阶段目录)
+# manifest 文件名 → (产出它的 SKILL, 这份产物落在哪个阶段目录 output/)
 PRODUCERS = {
-    'character_manifest.json': ('script-character-extraction', STAGE),
-    'scene_manifest.json': ('script-character-extraction', STAGE),
-    'prop_manifest.json': ('script-character-extraction', STAGE),
-    'scene_breakdown.json': ('storyboard-scene-breakdown', STAGE),
+    'character_manifest.json': ('script-character-extraction', STRUCTURE_STAGE),
+    'scene_manifest.json': ('script-character-extraction', STRUCTURE_STAGE),
+    'prop_manifest.json': ('script-character-extraction', STRUCTURE_STAGE),
+    'scene_breakdown.json': ('storyboard-scene-breakdown', STORYBOARD_STAGE),
     'emotion_curve.json': ('pipeline-script-preparation', STAGE)}
 PRODUCER_SKILLS = tuple(sorted({skill for skill, _folder in PRODUCERS.values()}))
 
@@ -437,7 +440,7 @@ def sample_character_manifest():
 def completeness(folder):
     """剧本阶段产出的完整性检查（交付物 5）：每一类一行（名字／状态／说明）。
 
-    状态是三选一：已产出／缺失／有问题。folder 传 00_script/output（或 00_script）。
+    状态是三选一：已产出／缺失／有问题。folder 传产出方阶段目录的 output/（如 02剧本结构/output）。
     """
     root = Path(folder)
     rows = []

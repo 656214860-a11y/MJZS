@@ -5,7 +5,7 @@ import logging
 import uuid
 
 from project_stages import subtitles
-from subtitle_timing import calibrate_entries, rows_from_entries, validate_entries
+from subtitle_timing import ass_text, calibrate_entries, rows_from_entries, validate_entries
 from service_contract import SystemError, UserError, success
 
 LOGGER = logging.getLogger(__name__)
@@ -42,19 +42,37 @@ def _calibrated(episode, audio=None):
 
 
 def export_srt(project_root, episode, *, publish, audio=None):
-    """准备 SRT：按校准轴（有音频则按真实音频，否则按句长）渲染，再交注入发布器原子发布。"""
+    """准备 SRT：按校准轴（有音频则按真实音频，否则按句长）渲染，再交注入发布器原子发布。
+
+    同一批次再按同一校准轴导出同名 ASS 与校准状态；ASS／校准写入失败只记警告，不影响已发布的 SRT。
+    """
     entries, report = _calibrated(episode, audio)
     if not entries:
         return UserError('当前分镜没有对白，无法导出字幕')
-    target = subtitles(Path(project_root)) / ('对白_' + uuid.uuid4().hex[:6] + '.srt')
+    stem = '对白_' + uuid.uuid4().hex[:6]
+    target = subtitles(Path(project_root)) / (stem + '.srt')
     result = _publish_result(publish, (target, report), target, '\n'.join(rows_from_entries(entries)),
                              lambda value: bool(value.strip()), lambda _target: None,
                              encoding='utf-8-sig')
     if result.ok:
+        styled = export_ass(project_root, episode, publish=publish, audio=audio, stem=stem)
+        if not styled.ok:
+            LOGGER.warning('ASS 字幕写入失败：%s', styled.reason)
         calibration = export_calibration(project_root, episode, publish=publish, audio=audio)
         if not calibration.ok:
             LOGGER.warning('字幕校准状态写入失败：%s', calibration.reason)
     return result
+
+
+def export_ass(project_root, episode, *, publish, audio=None, stem=None):
+    """准备带默认样式的 ASS：与 SRT 共用校准轴和时间校验，交注入发布器原子发布。"""
+    entries, report = _calibrated(episode, audio)
+    if not entries:
+        return UserError('当前分镜没有对白，无法导出字幕')
+    target = subtitles(Path(project_root)) / ((stem or '对白_' + uuid.uuid4().hex[:6]) + '.ass')
+    return _publish_result(publish, (target, report), target, ass_text(entries),
+                           lambda value: bool(value.strip()), lambda _target: None,
+                           encoding='utf-8-sig')
 
 
 def export_dialogue_script(project_root, episode, assets, *, publish, audio=None):

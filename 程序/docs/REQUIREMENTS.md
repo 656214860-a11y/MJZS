@@ -67,9 +67,9 @@
 - **REQ-S02-20** ✅ 结构剧本只能经 `write_structured_script` 原子发布；空正文拒绝；原稿保持不变；发布同时记录来源血缘。
 - **REQ-S02-21** ✅ 一份稿件算“结构剧本”，需标题为「# 结构化剧本」、有档案区，且来源不是大纲／梗概；记录的来源原稿被删除后，该结构稿不再显示，不删文件。
 - **REQ-S02-22** ✅ 阶段完成 = 能解析到合格的结构剧本。模型文字、界面提示、manifest 是否存在都不算证据。
-- **REQ-S02-23** ❓ `character_manifest.json`／`scene_manifest.json`／`prop_manifest.json` 归本阶段（`script-character-extraction` SKILL）。现状：默认本地规则路径不写这三份，只有模型执行该 SKILL 时才可能落盘，且无程序核验。是否要求本阶段必须产出并核验，待拍板。
+- **REQ-S02-23** ✅ `character_manifest.json`／`scene_manifest.json`／`prop_manifest.json` 归本阶段（`script-character-extraction` SKILL）。用户裁决（2026-10-17）：由本阶段产出并核验。实现：`write_structured_script` 发布结构剧本时同步由其「角色／场景／道具档案」派生并原子写入 `02剧本结构/output/`（`script_contract.write_structure_manifests`）；`skill_orchestrator.verified_stage_output` 在结构剧本合法之外，还要 `structure_manifest_problems` 为空（文件在、抬头对、编号唯一、条目合规、名单与当前结构剧本一致），否则本阶段不算完成。「待确认」字段在 manifest 中留空，不拦完成。局限：此前已完成的旧项目没有三份文件，需重新整理一次结构剧本。
 - **REQ-S02-24** ✅ 新结构剧本写入 `02剧本结构/结构剧本/`；旧 `writing/` 目录只读兼容，不再写回。
-- **REQ-S02-25** ❓ `PRODUCERS` 登记的 manifest 落盘目录仍是旧名 `00_script`，与本阶段新写目录 `02剧本结构` 不一致。是否改为新目录，待拍板。
+- **REQ-S02-25** ✅ `PRODUCERS` 登记的落盘目录原为旧名 `00_script`。用户裁决：修复。现按产出阶段登记：三份清单 `02剧本结构`、`scene_breakdown.json` `03初步分镜`、`emotion_curve.json` `01剧本准备`；`stage_layout.STAGES` 各阶段 outputs 同源于 `script_manifest_contract.STAGE_MANIFESTS`；`00_script` 只作 `LEGACY_STAGE_ALIASES` 只读别名。
 
 ### SKILL
 
@@ -106,8 +106,8 @@
 - **REQ-S03-16** ✅ 背景人物、群演、路人、不露脸或一次性角色不写入 `characters`、不分配 CHAR 编号；普通道具写 `ordinary_props`，不分配 PROP 编号。
 - **REQ-S03-17** ✅ 每镜补充 `action_complexity`（simple/medium/complex）及 `complexity_reason`，决定后续是否需要白模。
 - **REQ-S03-18** ✅ 提交前须用 `validate_episode(JSON对象, media_root(JSON路径))` 本地校验，仅查本地数据、不调用模型；必须修复全部错误才算完成，未生成参考图只是待制作警告。
-- **REQ-S03-19** ❓ 契约与阶段输出契约都把"通过校验并采用后的 JSON"称为"分镜定稿"，并称其"锁定"来源剧本、编号、镜头编号、时长、台词与连续性约束；但 `pet_bus.STAGES` 的"分镜定稿"是第 07 阶段，且 07 才做批次划分与三元组补全。冲突证据：`storyboard_contract.py:44`、`workflow_settings.py:130` 对 `stage_layout.py:49`（07 的职责）。请拍板：03 采用后仍叫"分镜初稿"，"分镜定稿"留给 07；或两者保持现状。
-- **REQ-S03-20** ❓ 阶段并行提示要求本阶段"生成每个镜头时核对三元组并写入 `batch_id`"（`stage_parallel.py:203`），但批次划分的权威阶段是 07 分镜定稿（SG-03 查 `batch_id`、每批 ≤4 镜且 ≤18 秒，`stage_layout.py:49`）。03 是否要写 `batch_id`、写了是否算数，请拍板。
+- **REQ-S03-19** ✅ 契约与阶段输出契约原把"通过校验并采用后的 JSON"称为"分镜定稿"。用户裁决：03 叫"分镜初稿"，资产尚未同步，"分镜定稿"留给 07。已改 `storyboard_contract.py`、`workflow_settings.py` 文案及 03 页表头（"结构剧本"／"分镜初稿"，`test_ui_edges` 表头断言随标签契约同步）。
+- **REQ-S03-20** ✅ 用户裁决：由实现方决定。决定：03 不写 `batch_id`，批次划分归 07（`shot_batches.group` 回填）；`stage_parallel` 的 03 阶段提示已改为"批次划分属于 07，本阶段不写"。
 
 ### 采用（分镜初稿 → 后续阶段）
 
@@ -123,8 +123,8 @@
 - **REQ-S03-40** ✅ 新分镜 JSON 写入 `03初步分镜/分镜拆分/`，可读文档写入 `03初步分镜/分镜文档/`；旧 `storyboard/分镜拆分` 目录只读兼容。同一媒体根（`media_root`）对新旧目录一致。目录扫描拒绝符号链接逃逸、空文件，并忽略 `历史版本`、`分镜历史`、`剧本输入`、`frames`、`video_prompts`、`assets`、`首帧任务` 等内部目录。
 - **REQ-S03-41** ✅ 阶段完成 = 至少有一份已采用且含镜头的分镜 JSON（`stage_completion_service` → `stage_parallel._adopted`）。模型文字、界面提示不算证据；没有已采用分镜时报"还没有已采用且含镜头的分镜 JSON"。
 - **REQ-S03-42** ✅ 门禁 SG-A（初步分镜 → 分镜预演）：已采用分镜且各镜提示词与时长完整，否则挡住，提示"先完成并采用初步分镜"。
-- **REQ-S03-43** ❓ `stage_layout.STAGES` 与 `architecture.md` 声明本阶段产物名为固定的 `storyboard_draft.json`，并作为 04–07 阶段的输入名；实际没有任何代码写这个文件名，产物是模型命名的分镜 JSON（`分镜拆分/` 下），后续阶段读的是"已采用分镜清单"。该名只剩声明（仅 `tests/test_animatic_service.py` 用作测试夹具文件名）。请拍板：把声明改为"已采用的分镜 JSON"，或真的固定文件名。（architecture.md 已按现状改写，stage_layout 属契约代码，本轮未动。）
-- **REQ-S03-44** ❓ `script_manifest_schema.PRODUCERS` 把 `scene_breakdown.json` 的产出方登记为本阶段 `storyboard-scene-breakdown` SKILL，其他文档也称之为"五类剧本 manifest"之一。现状：阶段完成与 SG-A 都不检查它，没有任何下游消费它，默认流程也不要求产出；与 REQ-S02-23 同类。请拍板：是否要求本阶段必须产出并核验 `scene_breakdown.json`。落盘目录同样沿用旧名 `00_script`（同 REQ-S02-25）。
+- **REQ-S03-43** ✅ `storyboard_draft.json` 原只有声明、无人写入。用户裁决：修复。现由 `storyboard_selection.sync_draft_outputs` 在采用／取消采用／清理失效采用时写 `03初步分镜/output/storyboard_draft.json`（已采用分镜清单的索引：来源路径、episode_id、镜头编号）。后续阶段仍读"已采用分镜清单"，本文件是其落盘凭据，与清单不一致时 `draft_problems` 拦截。
+- **REQ-S03-44** ✅ `scene_breakdown.json` 原无人核验。用户裁决：修复。现由同一同步点按"连续同一 location 的镜头为一场"从已采用分镜派生（`breakdown_id`／`scene_id`／`boundary`／`characters`／`shot_ids`），落 `03初步分镜/output/`（目录同 REQ-S02-25）；`stage_completion_service`（storyboard）与 SG-A（`animatic_input_ready`）调用 `storyboard_selection.draft_problems` 核验：两份文件在、与当前已采用分镜一致、覆盖全部镜头、编号唯一。缺文件的旧项目在核验时按已采用分镜补写一次。场景／角色编号是否为 `LOC_`／`CHAR_` 形态由 SG-01 判定，此处不拦。
 
 ### SKILL
 
@@ -231,7 +231,7 @@
 
 - **REQ-S05-30** ✅ 阶段完成 = SG-01（`assets_locked`）通过且 `started`：清单每项都导入了真实非空图片；每个 `CHAR` 都 `locked`；每个 `CHAR` 都有 `character_anchor`（或 `base_anchor`）。模型文字、界面提示、manifest 是否存在都不算证据（`stage_completion_service`）。
 - **REQ-S05-31** ✅ SG-01 只拦“做过但没做全”：清单不存在、读不出来，或只有刚扫出来的名字（无图、无锁、无锚点）且阶段机没跑过，一律放行并标未开始。
-- **REQ-S05-32** ❓ 需拍板（疑似缺陷）：SG-01 读 `资产清单/assets.json` 里的 `image`，但程序登记图片只写图片登记表 `<资产库>/assets.json`（`asset_batch_service.register_image`／`import_asset_image`／恢复）；`sync_plan` 又把 `image` 从清单文件剔除。实测：清单里有锁与锚点、登记表里有真实图片时，SG-01 仍报“1 项资产还没导入图片”。端到端探针靠手工把 `image` 同时写进两份文件才通过。需确认是以登记表还是清单为准，再改门禁或写入点。
+- **REQ-S05-32** ✅ SG-01 的图片以图片登记表 `<资产库>/assets.json` 为准（`asset_batch_service.register_image`／`import_asset_image`／恢复写入处），清单文件里的 `image` 仅作旧数据兜底；`sync_plan` 剔除清单 `image` 的口径不变。修复：此前清单里有锁与锚点、登记表里有真实图片时，SG-01 仍误报“1 项资产还没导入图片”。
 - **REQ-S05-33** ✅ 用户可见的资产删除走回收站（`storage_maintenance.recycle_paths`）；删除前由 `deletion_references`／`asset_impact` 列出被哪些镜头引用；恢复可还原相同字节。
 
 ### SKILL
@@ -274,7 +274,7 @@
 - **REQ-S06-21** ✅ 问题闭环登记 `06连贯性清单/output/continuity_issues.json`：问题编号稳定（`CI-<类型>-<范围>`），状态待处理／已忽略／已解除；忽略必须写理由并记当时证据摘要；证据变化或问题复现则重开；修好自动解除；只有 L3 注入发布器才落盘，否则只读预览。
 - **REQ-S06-22** ✅ 严重度：职责自相矛盾、三元组不一致为“高”，锚点漂移、跨批次不一致为“中”。
 - **REQ-S06-23** ✅ 阶段完成 = SG-02 `ledger_ready` 通过且 `started`（台账已生成）。台账未生成时门禁放行但不算完成；台账有未处理问题时不通过；被忽略或已解除的问题不再拦；台账说有问题却算不出问题行时不擅自放行。
-- **REQ-S06-24** ❓ SG-02 只读已落盘台账，不核对它是否对应当前分镜／资产：台账生成后再改分镜或资产仍放行；另外，空分镜也能生成 0 批次的通过台账并被判完成。是否要求台账与当前输入同版，待拍板。
+- **REQ-S06-24** ✅ SG-02 要求台账与当前分镜对应：当前分镜（`frame_json` 指向的已采用分镜，缺省取最后一份）有镜头时，台账各批次 `shot_ids` 必须与这些镜头编号一致，缺镜或多镜都拦，并提示重新生成；没有采用分镜时无可核对，仍按旧口径放行；台账未生成仍放行但不算完成。只核对镜头编号，不比对资产内容（资产变动由漂移检查负责）。另：没有镜头时不再生成台账（手动按钮与自动链均提示先采用分镜），0 批次的空台账不再被判完成。
 - **REQ-S06-25** 🟡 页面为现场计算、不落盘；只有“手动生成连贯性清单”才写盘并同步问题登记。
 - **REQ-S06-26** ❓ 主观门禁 G-08（“多图抢同一件事”的优先级裁决）不计入台账待办，SG-02 不要求先裁决，只有“职责自相矛盾”阻塞；而 `confirm_gates` 和恢复提示（`stage_flow` RECOVERY_HINTS）把“人工裁决”写成本阶段要做的事。裁决是否应成为放行条件，待拍板。
 - **REQ-S06-27** 🟡 台账 `stage` 字段与 SG-02 返回的 artifacts 仍写旧内部标识 `03_continuity`（实际目录 `06连贯性清单`，artifacts 指向不存在的路径）；`stage_layout` 别名兼容读写，功能不受影响。旧 `05连贯性清单` 目录只读。
@@ -283,8 +283,8 @@
 
 - **REQ-S06-30** ✅ 本阶段 6 个 SKILL，位于 `skills/06连贯性SKILL/`：`pipeline-continuity`（总入口，预设默认勾选）、`continuity-anchor-freeze`、`continuity-conflict-adjudicate`、`continuity-cross-batch-guard`、`continuity-drift-audit`、`continuity-triplet-check`。
 - **REQ-S06-31** ✅ SKILL 的 `continuity.*` 工具在 `skill_tools` 登记；`continuity.buildLedger` 直接调用 `continuity_ledger.build/write` 本地落盘，其余工具对应页面上的裁决／校验表。
-- **REQ-S06-32** ❓ `pipeline-continuity` 声明由模型执行（capabilities 含 reasoning、vision，preferredModels qwen-max，输出 `continuityLedger`、`repairList`），实际实现是纯本地规则，且不存在 `repairList` 文件（对应物是 `continuity_issues.json`）。SKILL 描述与实现哪个为准，待拍板。
-- **REQ-S06-33** ❓ 三虎自动链没有自动生成台账的入口：`PET_STAGE_POLL` 不含 continuity，`desktop.pet_start` 对本阶段返回空串；自动档只会按推荐自动选 G-05／G-06／G-08 候选。因台账缺失时 SG-02 放行，自动链会越过本阶段。是否要补自动生成，待拍板。
+- **REQ-S06-32** ✅ 以实现为准：台账由本地规则计算（见 REQ-S06-10）。`pipeline-continuity` SKILL 已改为只声明 `structured-output`、不设模型偏好，增补“执行方式”一节，写明 `repairList` 是冲突修复项的统称、落盘对应物为 `continuity_issues.json`，不存在独立的 `repairList` 文件；工具补登 `continuity.buildLedger`。
+- **REQ-S06-33** ✅ 三虎自动链现在会自动生成台账：`desktop.pet_start('continuity')` 仍经 `stage_handler_registry.start()`，其 fallback `_start_unattended_stage` 新增 continuity 分支，与手动按钮共用 `generate_continuity_ledger`（写台账、同步问题登记、播报），不另设第二入口；没有镜头时返回空串，由宠物报告“没有自动执行入口”。完成仍由 SG-02 核验。
 
 ### 非目标（明确不做）
 
@@ -341,7 +341,7 @@
 
 - **REQ-S07-50** ✅ 本阶段有 6 个 SKILL（`skills/07分镜定稿SKILL/`）：`pipeline-storyboard-final`（总入口，默认勾选，`workflow_settings.py:50`）、`storyboard-asset-sync`、`storyboard-consistency-lock`、`storyboard-final-validate`、`storyboard-prompt-render`、`storyboard-version-snapshot`；frontmatter `stage` 均为“分镜定稿”。
 - **REQ-S07-51** ✅ 总入口 SKILL 读取项目锁（`track/material_source/aspect_ratio/resolution/fps/delivery_format/video_model_version/splice_mode/style_*`）而不重新询问；必填缺失退回剧本准备；`splice_mode`（D 锁）在本阶段放行，段缝须冻结 `in_state/out_state/cut_type/audio_bridge/owner`；不加载 00 包全文。
-- **REQ-S07-52** ❓ 两条定稿路径并存、口径不同。路径 A：程序内 `storyboard_final.finalize`（桌面“手动同步资产”和自动定稿用），只做资产对齐、切批、发布，**不读连贯性台账、不查 D 锁段缝字段**。路径 B：总入口 SKILL（模型引擎执行），约束“只采用连续性审核通过的镜头”“任一段缝字段缺失即退回修订，不发布”。两边证据：SKILL 写在 `pipeline-storyboard-final.skill.md:16,47`；程序 `storyboard_final.py` 全文无台账／段缝引用，仅 SG-02 在阶段级拦台账。待拍板：段缝冻结与“只采用审核通过镜头”是否要在 `finalize` 里程序化核验，还是保持仅由 SKILL 提示词约束。
+- **REQ-S07-52** ✅ `storyboard_final.finalize` 现在读连贯性台账（`continuity_ledger.require_final_ready`），口径与 SG-02 一致：台账未生成或读不出来放行；台账与待定稿镜头不对应则拒绝（`ValueError`，提示重新生成连贯性清单）；台账仍有未裁决待办（已忽略／已解除不算）则拒绝。D 锁段缝字段仍只由总入口 SKILL 提示词约束，程序不核验（本次裁决范围外，保持现状）。
 - **REQ-S07-53** 🟡 SKILL `storyboard-version-snapshot`（“可回滚可对比”）声明了 `storyboard.save` 等 tools，程序里没有对应的“版本快照／回滚”实现；`architecture.md:79` 把“输出提示词和快照”列为本阶段职责。现状是定稿目录带日期后缀与回收站退役，并非快照。是否保留此 SKILL 描述，待定。
 
 ### 非目标（明确不做）
@@ -394,8 +394,8 @@
 
 ### 产出清单
 
-- **REQ-S08-40** ❓ 阶段产出清单的名字与位置有三处不一致：`stage_layout` 契约写 `frames.json`；流程模板第 4 步和 `architecture.md` 写 `keyframe_manifest.json`；实际“完成”的依据是已采用分镜 JSON 里每镜的 `frame`／`frame_evidence`，两个文件名都没有 Python 代码写入。方向待拍板：A 以现状为准，删掉模板第 4 步和文档里的 `keyframe_manifest.json`；B 补实现并核验清单。
-- **REQ-S08-41** 🟡 `pipeline-keyframe` SKILL 的 `output` 写 `keyframeManifest`，与 REQ-S08-40 同源；随其决议一并处理。
+- **REQ-S08-40** ✅ 阶段产出清单统一为 `stage_layout` 契约名 `08首帧管理/output/frames.json`（用户裁决：修复，让代码与文档一致）。阶段核验 `frames_ready` 通过、发出完成事件前，`stage_completion_service.publish_stage_manifest()` 把已采用分镜每镜的 `frame`、`frame_deleted`、`frame_evidence.image.sha256` 写入该文件；它是回执，不是完成证据（完成仍只认 REQ-S08-30 的核验），写入失败则本次完成不成立。流程模板第 4 步改为“写入 frames.json”（action `write_frames_manifest`），`architecture.md` 不再出现 `keyframe_manifest.json`。
+- **REQ-S08-41** ✅ `pipeline-keyframe` SKILL 的 `output` 里的 `keyframeManifest` 是逻辑名，落盘文件即 `frames.json`（SKILL 正文已写明对应关系；`不得发布 keyframeManifest` 的门槛措辞保持不变）。
 
 ### SKILL
 
@@ -446,16 +446,16 @@
 - **REQ-S09-30** ✅ 每镜一份 `预演记录.json`（`preview`、`project_file`、`shot_id`、`notes`、`updated_at`、`evidence`），存放在白模成果目录 `<工作区>/<项目身份>/<集>/<镜头号>/`，不在项目的 `09白模预演` 阶段目录内。工作区默认 `%LOCALAPPDATA%\漫剧制作助手\白模项目`，可由环境变量或设置文件改，绝不指向 Blender 安装目录。
 - **REQ-S09-31** ✅ 一镜“预演就绪”＝记录里的 `preview` 文件存在、非空、后缀为 mp4／mov／webm，且证据未变：来源分镜摘要（动作、机位、时长、首帧、角色、资产等字段）与预演文件的字节数、修改时间都与登记一致。来源或文件变过只判过期、不删成果；升级前未登记来源的旧成果需重新校验一次后才复用。
 - **REQ-S09-32** ✅ 项目身份是项目 `config.json` 的 `project_id`，白模目录随它走，项目改名或移动不串到同名项目。无身份的旧布局（`<工作区>/<项目目录名>/<镜头号>`）只读兼容，打开白模页时一次性迁入新布局：可重复、不覆盖、中途失败原样搬回；找不到对应分镜或同一镜头出现在两集时整批不迁，不藏起旧成果。
-- **REQ-S09-33** ✅ SG-05（预演 → 视频生成）：每个“复杂”镜头都有就绪预演才放行；没有已采用分镜、没有复杂镜头、或白模阶段还没开始时放行；已开始但仍缺预演则拦并列出缺的镜头号。简单与中等镜头不要求预演。
-- **REQ-S09-34** ✅ 阶段完成＝SG-05 校验通过且已开始（`previs_ready` 的 ok 与 started 同时为真）。模型文字、界面提示、manifest 是否存在都不算证据。因 REQ-S09-33，没有复杂镜头的项目该阶段视为完成。
-- **REQ-S09-35** ❓ 阶段产物的名称与位置有四种说法互不一致：`stage_layout` 与 README 声明本阶段产物为 `previs.json`（视频阶段的输入也列它），架构文档与 SKILL 写 `previs_manifest.json`／`previsManifest`，代码实际只写镜头级 `预演记录.json`（在外部工作区，见 REQ-S09-30），`previs_notes.md` 仅登记在阶段文档表、无代码写入；`previs.json` 与 `previs_manifest.json` 都没有写入方。是否要把预演结果汇总成一份项目内的 `previs.json`（并让视频阶段读它），还是改文档承认 `预演记录.json` 才是唯一契约，待拍板。
-- **REQ-S09-36** ❓ 白模成果在项目目录之外：项目拷贝、备份或移动时预演视频不跟着走，而 SG-05 仍以它判就绪。是否要把成果（或至少索引）放进项目 `09白模预演` 目录，待拍板。
-- **REQ-S09-37** ❓ 中等动作镜头被标为“线上简单白模，制作后导入”，但 SG-05 只对复杂镜头强制预演，中等镜头不导入也能进视频生成。是否应强制（或至少提示）中等镜头的预演，待拍板。
+- **REQ-S09-33** ✅ SG-05（预演 → 视频生成）：每个“复杂”与“中等”动作镜头都有就绪预演才放行（中等动作自 REQ-S09-37 起纳入）；没有已采用分镜、没有这两类镜头、或白模阶段还没开始时放行；已开始但仍缺预演则拦并列出缺的镜头号。简单镜头不要求预演。
+- **REQ-S09-34** ✅ 阶段完成＝SG-05 校验通过且已开始（`previs_ready` 的 ok 与 started 同时为真）。模型文字、界面提示、`previs.json` 是否存在都不算证据。因 REQ-S09-33，没有复杂／中等动作镜头的项目该阶段视为完成。
+- **REQ-S09-35** ✅ 本阶段项目内权威产物为 `09白模预演/output/previs.json`（用户裁决：修复）。它是汇总索引：`shots` 记每镜的项目内副本相对路径、字节数、来源分镜摘要，`required` 记需要预演的镜头及其等级；每镜校验通过（`record_previs_evidence`／自动制作 `verify`）时增量登记，阶段核验通过后由 `publish_stage_manifest()` 刷新。镜头级 `预演记录.json`（REQ-S09-30）仍是每镜记录，`previs_notes.md` 仍只是阶段文档表登记项（无写入方，不是产物）。流程模板第 4 步改为“写入 previs.json”（action `write_previs_index`），`architecture.md` 不再出现 `previs_manifest.json`，SKILL 里的 `previsManifest` 是 `previs.json` 的逻辑名。视频阶段通过 SG-05 的就绪判定（`previs_routing.ready` 读该索引，见 REQ-S09-36）消费它；视频生成取参考视频仍按 `预演记录.json` 路径（`white_model_ref`），未改。
+- **REQ-S09-36** ✅ 校验通过的预演视频在项目内留一份副本 `09白模预演/assets/<镜头号>/<原文件名>`，并登记进 `previs.json`（用户裁决：修复）。白模成果目录（REQ-S09-30）位置不变，避免牵动既有目录迁移；SG-05 的 `previs_routing.ready` 以工作区预览为准，仅当工作区没有可用预览（被清理、换机、项目被拷走）时退回项目内副本，且副本须文件在、字节数一致、来源分镜摘要未变。工作区有预览但已过期（REQ-S09-31 判 changed）时不借副本放行。副本写入失败只记日志，不否定已通过的校验。旧副本不自动清理。
+- **REQ-S09-37** ✅ 中等动作镜头纳入 SG-05 强制（用户裁决：修复）：`previs_ready` 对 `complex` 与 `medium` 都要求就绪预演；缺中等镜头时拦截，并提示“用线上白模入口制作后导入；确实不需要时可把该镜复杂度改选「简单」”。手动覆盖为简单后放行。仍沿用“白模阶段没开始就不拦”的前提。
 
 ### SKILL 与引擎
 
 - **REQ-S09-40** ✅ 本阶段只有一个 SKILL：`pipeline-previs`（`skills/09白模预演SKILL/`），依赖 `pipeline-keyframe`，不可并行；直接读取项目锁，不再向用户重问；缺必填锁时记缺项并退回补齐。预演不可播放、缺镜头时间线、调度冲突或超出运动预算的不得进入视频生成。
-- **REQ-S09-41** ❓ 白模引擎的“默认 SKILL”两处说法冲突：`pipeline-previs` 声明外部 `create-blender-story-video` 不是本阶段自动默认入口，而桌面工作流设置里 `previs` 的默认 SKILL 与可选 SKILL 就是 `create-blender-story-video`。哪一个是默认执行入口，待拍板。
+- **REQ-S09-41** ✅ 两处说法描述的是两个通道，不是冲突（用户裁决：修复，使文字与代码一致）：全流程预设（`BUILTIN_WORKFLOW_PRESETS['AIGC全流程']`）里本阶段入口是 `pipeline-previs`；桌面白模页的默认技能（`DEFAULT_SKILLS['previs']`）是 `create-blender-story-video`，只在用户手动走白模页时使用，不是全流程自动入口。`pipeline-previs` 已写明这两条，并保留“项目设置与锁优先”。代码默认值未改。
 - **REQ-S09-42** ✅ 本阶段不使用付费 API 与 4K 精片：自动制作任务书明确只做简化白模与低分辨率预览，由 Blender 后台渲染，不安装、卸载或移动 Blender。
 
 ### 非目标（明确不做）
@@ -463,7 +463,7 @@
 - 不替代正式视频成片，不做 4K 精片，不调用付费图像／视频接口。
 - 不改写分镜、首帧或资产；动作复杂度手动覆盖只影响分流，不回写分镜。
 - 不自动安装 Blender；找不到时自动制作拦下，手动导入仍可用。
-- 不对简单、中等镜头强制白模（见 REQ-S09-37 待定）。
+- 不对简单镜头强制白模（中等镜头自 REQ-S09-37 起强制，见 REQ-S09-33）。
 
 ## S10 视频生成
 
@@ -493,14 +493,14 @@
 ### 产出与完成
 
 - **REQ-S10-20** ✅ 每次提交一个版本目录 `data/<镜头>/vNNN/`（云端工作区为 `镜头/<镜头>/<模型>_<会话>/vNNN/`），含 `request.json`、`assets_manifest.json`、`实际提交提示词.txt`、`task_receipt.json`、`qc.json` 与 `<镜头>.mp4`；版本状态汇总在 `data/state.json`。
-- **REQ-S10-21** ❓ 阶段目录契约和架构文档声明本阶段产出 `videos.json`／`video_manifest.json`，SKILL 也写 `videoManifest`，但代码里没有任何位置写出这两个文件；现行真实成果索引是 `data/state.json` 与各版本目录。应改文档对齐现状，还是补写清单，待用户拍板。
+- **REQ-S10-21** ✅ 视频阶段清单真实产出：`Studio.publish_manifest` 在视频下载发布、验收（`review`）、选择采用版本（`pin_version`）后，把同一份载荷（`stage`、`shot_count`、`adopted_count`、每镜 `id`／`duration`／`deleted`／`versions`／`adopted_version`／`file`／`sha256`）经 `agent.core.save` 原子写成 `10视频生成/output/videos.json` 与 `video_manifest.json`（落点取 `stage_path_service.write_dir` 与 `stage_layout` 的 `output` 子目录）；采用口径沿用 `adopted_edit_version`；写失败只记警告，不回滚已落盘成片。证据：`engine.py` 的 `video_manifest`／`publish_manifest`、`video_task_state.MANIFEST_NAMES`、`tests/test_video_manifest_scope.py`。（用户裁决“修复”，原 ❓ 已解。镜头删除不触发重写，下一次下载／验收／采用时对齐。）
 - **REQ-S10-22** ✅ 阶段完成 = 本集每个未删除镜头都有“已下载＋技术合格＋已验收”且文件与摘要一致的版本（`auto_edit_ready` 返回指纹）。模型文字、界面提示不算证据。未注入该核验回调时，完成判定退化为“阶段目录有任意非空媒体文件”，口径更弱（现行界面均注入，见 `pet_ui_stages`）。
 - **REQ-S10-23** ✅ 进入成片的版本只认一个口径：锁定版优先，否则取最后一个已验收版；文件缺失、被替换或不可读时该镜判为不可用，不进剪辑。
 
 ### SKILL
 
 - **REQ-S10-30** ✅ 本阶段有 5 个 SKILL（`skills/10视频生成SKILL/`）：`pipeline-video-generation`（总入口）、`video-batch-submit`、`video-multi-model-route`、`video-quality-check`、`video-retry`。
-- **REQ-S10-31** ❓ `video-batch-submit` 约束写“视频 100 镜/项目”，代码中不存在该上限（`stage_parallel`、`engine` 均无）。是实现上限，还是删去 SKILL 里的这条约束，待用户拍板。
+- **REQ-S10-31** ✅ “视频 100 镜/项目”上限已在代码实现：`video_task_state.VIDEO_MAX_SHOTS = 100` 与 `shot_count_error(shots)` 是唯一判定（已标记 `video_deleted` 的镜头不计数），`Studio.validate` 在打开本集视频工作台时调用，超限抛出“本项目有 N 个视频镜头，超过上限 100 镜/项目；请把剧本拆成多集或多个项目后再制作视频”，云端与本地工作台共用。证据：`tests/test_video_manifest_scope.py`（用户裁决“修复”，原 ❓ 已解）。
 - **REQ-S10-32** 🟡 SKILL 文字与现状不一致：5 个 SKILL 的“页面位置”仍写“08 视频生成”（真实是第 10 阶段）；`video.batchSubmit`／`retry`／`pause`／`resume` 登记为“只能在页面上按”的步骤，不是可由模型直接执行的工具；总入口 `parallelizable: false` 而其余四个为 `true`。
 - **REQ-S10-33** ✅ 视频提示词只写动作与运镜，不重复写场景、人物和风格（场景人物靠首帧图承载）。
 
@@ -545,11 +545,11 @@
 - **REQ-S11-21** ✅ 字幕时间轴非有限、负数、结束不大于开始、与上一句重叠、越过总时长一律报错，不静默修正。证据：`subtitle_timing.validate_entries`、`tests/test_subtitles.py`。
 - **REQ-S11-22** ✅ 未给音频时按镜头时长与句长权重估算（校准报告标 estimate／uncalibrated，导出前可列出待校准句）；给出真实音频时长或对齐区间则按其校准；总和超出镜头时压缩并记 overflow 待人工确认。证据：`calibrate_entries/_distribute`、`subtitle_export_service.pending_calibration`、`tests/test_subtitle_calibration.py`。
 - **REQ-S11-23** ✅ SRT 导出：时间码 `HH:MM:SS,mmm`，多行台词压成单行，空对白拒绝；以 utf-8-sig 由注入发布器原子发布到 `字幕/对白_<6位>.srt`，并同写 `字幕校准.json`；另可导出供配音核对的 `对白脚本_<6位>.txt`。证据：`subtitle_export_service.export_srt/export_dialogue_script/export_calibration`、`tests/test_subtitle_export_service.py`、`tests/architecture/test_subtitle_export_publication_boundary.py`。
-- **REQ-S11-24** ❓ ASS 导出：`subtitle-auto-align`／`subtitle-format-export` 两个 SKILL 承诺 SRT＋ASS（含样式，`subtitle.exportAss`），`architecture.md` 原文同写；代码只有 SRT，无任何 ASS 导出。二选一：（a）程序补 ASS；（b）删去 SKILL 与文档中的 ASS 承诺。本轮文档按现状改为“仅 SRT”。
+- **REQ-S11-24** ✅ ASS 导出已实现（仅标准库）：`subtitle_timing.ass_text` 渲染含默认样式（Microsoft YaHei 60、白字黑描边、底部居中）的 ASS，时间码 `H:MM:SS.cc`，花括号转全角避免被当作样式覆盖码；`subtitle_export_service.export_ass` 与 `export_srt` 同批发布，共用同一校准轴、时间校验与 6 位文件名主干（`字幕/对白_<6位>.srt` 与 `.ass`，均 utf-8-sig，经注入发布器原子发布）。SRT 先发布，ASS 或校准状态写入失败只记警告、不影响已发布的 SRT。证据：`tests/test_audio_manifest_scope.py`、`tests/test_audio_subtitle_scope.py`（用户裁决“修复”，原 ❓ 已解；SKILL 里 `subtitle.exportAss` 为页面步骤，见交付报告）。
 
 ### 阶段声明产出
 
-- **REQ-S11-40** ❓ 三处对产出的说法互不一致，且没有一处有程序产出方：`stage_layout` 声明 `voice.json`＋`subtitles.json`（后期剪辑阶段声明读取它们），`architecture.md` 原写 `audio_manifest.json`，SKILL 写 `audioManifest`。真实完成凭据是 REQ-S11-04 的 `成果确认/<hash>.json`。待拍板：以 `成果确认` 清单为准并改正 `stage_layout` 的声明，或补产出 `voice.json`／`subtitles.json`。
+- **REQ-S11-40** ✅ 声明产出已有产出方：`audio_import_service.audio_manifests` 按磁盘上已发布的音频与字幕生成 `voice.json`（音轨：相对路径、用途、字节数）、`subtitles.json`（字幕文件：相对路径、格式 srt／ass／对白脚本／校准、字节数、sha256）与聚合清单 `audio_manifest.json`（即 SKILL 的 `audioManifest`）；`stage_execution_service.refresh_audio_manifests` 在音频导入、TTS 单句与整轨发布、SRT／ASS／对白脚本导出成功后经 `agent.core.save` 写入 `11配音与字幕/output/`，写失败只记警告。真实完成凭据仍是 REQ-S11-04 的 `成果确认/<hash>.json`，清单不作完成证据。证据：`tests/test_audio_manifest_scope.py`（用户裁决“修复”，原 ❓ 已解）。
 
 ### SKILL
 
@@ -573,7 +573,7 @@
 - **REQ-S12-01** ✅ 依赖 S10 视频生成完成（`DEPENDS['edit']=('video',)`）；S13 质检交付依赖本阶段（`DEPENDS['delivery']=('edit',)`）。
 - **REQ-S12-02** ✅ 每镜进成片的只有“采用版本”：已下载＋技术质检通过＋已验收（`review=='pass'`）的版本中，用户锁定（`pinned`）的优先，否则取最后一条；且视频文件必须在、sha256 与验收记录一致。文件缺失／被替换／无法读取／尚未验收，各自有明确原因，不静默取别的版本。`video_deleted` 的镜头不参与。
 - **REQ-S12-03** ✅ 无人值守的“自动技术放行”（`review_by=='auto'`）计入已验收，但不等于真人看过内容；界面须区分“通过（您已确认内容）”与“技术自动放行（未做内容审核）”。
-- **REQ-S12-04** ❓ 阶段依赖口径不一致：SKILL `pipeline-editing` 声明依赖音频流水线、输入 `audioTracks／subtitles／audioManifest`，但 `DEPENDS['edit']` 只有 `video`，拼装代码也不读 S11 产物。方向待定：(a) 以代码为准，SKILL 改为“只依赖视频”；(b) 以 SKILL 为准，拼装需并入 S11 音轨与字幕、`DEPENDS` 加 `audio`。证据：`pipeline-editing.skill.md:10,14` 对 `stage_flow.py:64`、`engine.py:669-717`。
+- **REQ-S12-04** ✅ 修复（以 SKILL 为准）：`DEPENDS['edit']=('video','audio')`；每次粗剪把 S11 的配音文件（`11配音/`：wav／mp3／m4a／aac／flac）与字幕文件（srt／ass）的相对路径与 SHA256 登记进 `edits.json` 的 `inputs`。登记只记录来源，不把音轨并入画面，配音混音与字幕烧录仍交给剪映（见 REQ-S12-13）。
 - **REQ-S12-05** ✅ 输出规格（画幅／分辨率／帧率）来自项目制作锁（`workflow_lock` → `resolve_output_spec`），缺省才用出厂默认；等比缩放＋居中留边，不裁切；界面在导出前显示实际规格。
 
 ### 拼装流程
@@ -581,7 +581,7 @@
 - **REQ-S12-10** ✅ 拼装 = 每个采用镜头先重编码到统一规格（`output_filter`、响度滤镜、x264／aac 48k 立体声）→ `concat -c copy` 合成 `MASTER.mp4`。源视频没有音轨时补静音仅用于拼接，并写 `<镜头>_音轨说明.json`，不生成对白或音效。
 - **REQ-S12-11** ✅ 手动“自动粗剪整集”以 `skip_unready=True` 跳过未就绪镜头，把跳过原因和“已包含 N/M 镜、总时长”写进状态栏，部分粗剪不得冒充完整成片；不跳过时（`skip_unready=False`）任一镜头未就绪即报错，不拼装。一镜都没有时报错。
 - **REQ-S12-12** ✅ 无人值守（自动等级放行 `edit`）：本集所有未删除镜头都有采用版本时才给出成片指纹；同一指纹只拼一次（标记 `12后期剪辑/自动粗剪.json`），镜头重做并重新验收后才再拼一版；分镜未对齐、正在定稿时等待。
-- **REQ-S12-13** ✅ 本阶段不做：混音、配乐、音效、转场、字幕烧录、片头片尾。唯一的画面叠加是镜头自带的 `post_overlay` 文字（用系统微软雅黑，字体副本与摘要进 bundle）。界面明示“剪映负责精剪、音量、字幕和转场”。
+- **REQ-S12-13** ✅ 本阶段不做：配音混音、音效、字幕烧录、片头片尾；已做：镜头间转场与背景音乐（见 REQ-S12-33）。唯一的画面叠加是镜头自带的 `post_overlay` 文字（用系统微软雅黑，字体副本与摘要进 bundle）。界面明示“剪映负责精剪、音量、字幕和转场的细调”。
 - **REQ-S12-14** ✅ “整理剪映素材交接包”：已下载镜头按 `NNN_<镜头>.mp4` 编号的视频＋（镜头齐全时）`对白.srt`＋`镜头顺序.json`＋`导入剪映说明.txt`＋`交接包清单.json`；不是剪映草稿，缺镜不补齐，缺镜时不附全片字幕。可用“校验交接包”离线按清单核对文件和摘要。无人值守时按同一指纹只整理一次（`12后期剪辑/自动交接.json`）。
 - **REQ-S12-15** 🟡 交接包选版口径与成片不一致：交接包取 `(approved or vs)[-1]`（`desktop_media_pages.py:904-905`），不看 `pinned`、不核文件摘要，且没有任何已验收版本时退回最新未验收版；而代码注释声称“与自动粗剪取同一版”，成片走 `adopted_edit_version`（`engine.py:64-82`）。结果：用户锁定旧版后，成片用旧版、交接包用最后一版。
 - **REQ-S12-16** ✅ “剪辑优化清单.md”由用户维护，可保存、可清空，位于 `12后期剪辑/`；写入经 L3 发布器，L2 无权自行放宽空正文。
@@ -593,7 +593,7 @@
 - **REQ-S12-22** ✅ 成片先写临时文件，`-xerror` 全量解码失败则抛错、不替换；解码通过后替换为 `MASTER.mp4` 并发布 bundle，技术检查（时长等）有 `errors` 时成片与报告仍保留，但本次拼装抛错；EDL／FCPXML／分轨清单写失败时不删成片，如实报“剪辑交付包不完整”。
 - **REQ-S12-23** ✅ 阶段完成不由拼装触发，只认 `stage_completion_service.media_completion_evidence`：用户点“校验并确认本阶段成果”选文件 → FFprobe 技术校验（真实视频流、有限正时长）→ 冻结 `pending_review` 清单于 `12后期剪辑/成果确认/` → 用户在确认框明确点同意才写 `complete／reviewed`。清单绑定当前被采用的分镜（路径＋sha256）和文件摘要，切集、改分镜、文件被替换均使确认失效。模型文字或界面提示不作证据。
 - **REQ-S12-24** 🟡 确认只校验“所选文件在 `12后期剪辑/`（含旧 `11后期剪辑`）或 `13质检交付/导出成片/` 下、扩展名为 mp4／mov／mkv、技术合格”，不要求它就是 `edit_bundle.json` 登记的 `MASTER.mp4`，也不核对与 bundle 摘要一致；用户选了某个单镜 `<镜头>.mp4` 同样能完成本阶段。证据：`stage_completion_service.py:13-14,45-53` 无 bundle 比对。
-- **REQ-S12-25** ❓ 契约与实际产物不符：`stage_layout.STAGES` 为本阶段声明输入 `videos.json／voice.json／subtitles.json`、输出 `edits.json`，且把 `edits.json` 列为 S13 的输入；全库没有任何代码读写这些文件（`edits.json` 只出现在 `stage_layout.py:60,62`），实际产物是 REQ-S12-20 的那组。方向待定：改契约声明为实际产物，还是真的产出 `edits.json`。
+- **REQ-S12-25** ✅ 修复（真的产出）：粗剪时在成片目录写 `edits.json`（转场设置、背景音乐、S11 输入登记、各平台版本记录、镜头列表）；转场／配乐的设置也存于 `12后期剪辑/edits.json`，每次粗剪读取。`stage_layout` 声明的输入 `videos.json／voice.json／subtitles.json` 仍无代码读写，其含义由 `edits.json.inputs` 的实际登记承接（不新增这三个文件）。
 - **REQ-S12-26** ✅ 并行与重试：单 Agent、不并行（时间线拼接是全局操作），失败重试 2 次后阻塞（`on_exhaust=ON_BLOCK`）。
 - **REQ-S12-27** ✅ 无可用成片时的手动出路：`stage_flow.RECOVERY_HINTS['edit']`——改用剪辑软件人工剪辑；静帧替代镜头须明确审核，不当作 AI 视频成功。手动路径同样要走 REQ-S12-23 的确认。
 
@@ -601,8 +601,8 @@
 
 - **REQ-S12-30** ✅ 阶段默认 SKILL 为 `pipeline-editing`（`workflow_settings`）；`skills/12后期剪辑SKILL/` 共 7 个 SKILL，`skill_registry` 把目录号 `12` 归入 `edit`。`pipeline-editing` 规定：任一媒体不在同一时间线、切换无可追溯依据、预览不可审核时不得发布 `previewMaster／editManifest`；不得借剪辑跳过上游核验。
 - **REQ-S12-31** ✅ SKILL 工具的真实状态：`edit.compose` 直接调用 `Studio.assemble`（READY）；`edit.assemble／edit.validate／edit.addTransition／edit.addSFX／edit.addBGM` 只是“页面步骤”，调用只会引导到后期页（`ToolNeedsPage`），不执行任何剪辑。
-- **REQ-S12-32** ❓ `edit.exportDouyin／Bilibili／YouTube／Custom`（SKILL `edit-multi-format-export`）只返回平台规格并记账，提示“转码在后期页面上按对应平台的导出按钮执行”，但后期页没有任何平台导出按钮，全库也没有按平台转码的代码；成片只有项目锁规格一份。方向待定：补平台导出，还是删掉该 SKILL／工具声明。证据：`skill_tools.py:388-396,425-428` 对 `desktop_media_pages.py:813-858`。
-- **REQ-S12-33** ❓ 另外 5 个 SKILL（`edit-auto-compose` 声称“自动合成视频片段、添加转场、音效、背景音乐”，`edit-bgm-sfx`、`edit-transition-library`、`edit-preview-generate`、`video-audio-sync-precheck`）以及 `architecture.md:84,359`（“合成、配乐、预览、转场和多平台导出”“时间线、转场、音效、导出”）描述的能力，拼装代码都没有（REQ-S12-13）；产品页则明说交给剪映。方向待定：实现，还是把 SKILL 与架构文档改成“粗剪＋交接”的真实范围。
+- **REQ-S12-32** ✅ 修复（补平台导出）：后期页新增“导出平台版本”按钮（抖音／B站／YouTube），由 `Studio.export_platform` 按 `edit_export.PLATFORMS` 的规格把最近成片另转一份到成片目录的 `平台版本/`，经临时文件完整性校验后才发布，并登记进该批次 `edits.json.platform_exports`。`edit.export*` 工具仍只回规格（同一张表）；成片主文件仍是项目锁规格一份。
+- **REQ-S12-33** ✅ 修复（部分实现、其余改口径）：已实现镜头间转场（none／fade／dissolve／wipeleft，`xfade`＋`acrossfade`）与背景音乐（循环铺底、可调音量，先带来源记录复制进项目、纳入商用授权清单的 `music` 类）；后期页有对应按钮。未实现：音效（SFX）、配音混音、预览生成、音画同步预检——`edit-auto-compose／edit-bgm-sfx／edit-preview-generate／video-audio-sync-precheck` 的相应表述须改为“只做粗剪、转场、背景音乐与交接”（SKILL 文本修改清单见 fix_fe_report）。`architecture.md` 对应行已改为真实范围。
 - **REQ-S12-34** 🟡 `pipeline-editing` 要求 `editManifest` “逐段保留源视频、音轨、字幕、时间码和修复／切换依据”，实际 `edit_manifest.json` 每镜只有 `shot／version／sha256／source`（`engine.py:606-612`）；时间码只在 EDL／FCPXML 里，没有音轨、字幕、切换依据字段。
 - **REQ-S12-35** ✅ 交换文件：EDL（CMX3600）、FCPXML、分轨素材清单，时间码非丢帧、按帧数累计防漂移；不臆造剪映草稿格式（无公开稳定规范）。
 
@@ -626,7 +626,7 @@
 ### 导入与校验流程
 
 - **REQ-S13-10** ✅ 手动流程：导入最终成片 → 点“校验并确认本阶段成果” → 生成商用待填资料 → 人工填写后点“核验商用交付资料”。页面按钮与此一致。
-- **REQ-S13-11** ✅ 导入最终成片只接受 `.mp4`/`.mov`，空文件拒绝；字节发布由 L3 注入的发布器完成，L2 不保留复制回退；导入副本保留来源与 SHA256，来源记录 `rights_status` 恒为 `unknown`（记录不代表使用许可）。
+- **REQ-S13-11** ✅ 导入最终成片接受 `.mp4`/`.mov`/`.mkv`（与完成判定同一份集合，见 REQ-S13-26），空文件拒绝；字节发布由 L3 注入的发布器完成，L2 不保留复制回退；导入副本保留来源与 SHA256，来源记录 `rights_status` 恒为 `unknown`（记录不代表使用许可）。
 - **REQ-S13-12** ✅ 技术校验由后台探测完成：必须有真实视频流、有限且大于零的时长；校验期间文件变化则失败；结果冻结为 `pending_review` 清单，**导入或探测成功不会自动完成阶段**。
 - **REQ-S13-13** ✅ 成果文件必须位于本项目交付目录内、非空；字幕或压缩包不能替代媒体。
 - **REQ-S13-14** ✅ 只有显式人工确认才写入 `status=complete, reviewed=true`，并带 `commercial_status='pending'`。确认前重新核对冻结版本。
@@ -637,10 +637,10 @@
 - **REQ-S13-21** ✅ 成果文件被替换或修改、分镜版本变化后，完成判定失效，须重新校验确认。
 - **REQ-S13-22** ✅ 完成判定走 `emit_verified_completion`：核验通过才发 `stage.completed`。
 - **REQ-S13-23** ✅ 完成判定**不依赖**商用资料：商用核验通过与否不影响阶段是否完成。
-- **REQ-S13-28** ❓ 成果确认清单写入 `commercial_status='pending'`（`stage_completion_service.py:125`），但没有任何代码读取或更新该字段；`commercial_delivery_status()` 除测试外也无调用方，界面只在点“核验商用交付资料”时一次性返回结果，不持久展示商用状态。待定：是否要在交付页常驻显示商用状态，还是删掉 `commercial_status` 字段。另外 `delivery.ready` 事件在 `pet_bus` 已声明，但全仓无发布方。
-- **REQ-S13-24** ❓ `stage_layout` 把 `qc_report.json`、`delivery.json` 登记为本阶段声明产物，`architecture.md` 与阶段模板还写 `delivery_manifest.json`。现状：全仓没有代码写这三个文件，完成判定也不检查（`stage_completion_service.py:403-410`），实际证据是“成果确认”清单。待定：删除声明，还是补写并核验。
-- **REQ-S13-25** ❓ `pipeline-delivery` 的约束写“未通过质检不得标记交付完成”，并声明工具 `delivery.validate`/`delivery.package`。现状：这两个工具只登记为“页面动作”（`skill_tools.py:495-496`），无本地实现；程序不核验任何质检报告，质检结论由模型文字给出。待定：把“质检通过”纳入完成判定，还是改 SKILL 措辞为“报告供人工确认”。
-- **REQ-S13-26** ❓ 完成判定接受 `.mp4/.mov/.mkv`（`stage_completion_service.py:14,16`），导入只允许 `.mp4/.mov`（`delivery_import_service.py:11`）。`.mkv` 只能手动放进目录后确认。待定：统一，还是明确 `.mkv` 为有意保留。
+- **REQ-S13-28** ✅ 修复（常驻显示）：交付页顶部常驻显示 `stage_completion_service.commercial_status`（未确认成片／待核验／已核验）；确认商用资料后清单里的 `commercial_status` 更新为 `verified`。状态只反映人工授权记录，不代表合规通过。`delivery.ready` 事件仍在 `pet_bus` 声明、全仓无发布方，保持“仅声明”，不在本次范围。
+- **REQ-S13-24** ✅ 修复（补写并核验）：确认交付成片后，`publish_delivery_artifacts` 在 `write_dir(root,'delivery')` 写 `qc_report.json`、`delivery.json`、`delivery_manifest.json`（带 SHA256 的文件清单）；“交付任务”模板的报告步骤另写 `delivery_report.md`。核验仍以“成果确认”清单为准：清单必须带与当前成片绑定的 `qc` 结论。
+- **REQ-S13-25** ✅ 修复（纳入完成判定）：`build_delivery_qc` 只依据可复核事实给出质检结论——技术探测、成片与 `edit_bundle.json` 的名称／SHA256 一致、剪辑质检 `qc.errors`；无音轨、粗剪跳过未就绪镜头、外部导入无来源清单只记警告。`qc.passed` 为假时 `confirm_media_completion` 拒绝，完成判定也要求 `qc.passed` 且 `qc.bound` 与当前成片摘要一致；此前不含 `qc` 的旧确认需重新确认。`delivery.validate`／`delivery.package` 已有本地实现。画面、对白、剧情与商用合规仍由人工审核。
+- **REQ-S13-26** ✅ 修复（统一）：导入与完成判定共用 `delivery_import_service.ALLOWED_SUFFIXES`＝`.mp4/.mov/.mkv`；桌面导入对话框同步加 `*.mkv`。
 - **REQ-S13-27** 🟡 阶段 12（后期剪辑）与本阶段的成果目录相互读取：后期剪辑的完成判定同时扫描 `交付目录/导出成片`（`stage_completion_service.py:14`）。当前行为存在，边界归属待在后期剪辑阶段文档中一并定。
 
 ### 商用交付资料（单独于阶段完成）
@@ -664,7 +664,7 @@
 
 - **REQ-S13-50** ✅ 本阶段 6 个 SKILL：`pipeline-delivery`（总入口，默认勾选）、`qa-overall-check`、`qa-style-consistency`、`qa-compliance-check`、`delivery-report-generate`、`delivery-archive`；除总入口外为可选勾选。
 - **REQ-S13-51** ✅ 并行配置：单元为检查（画面／音频／格式三类），并发 2–4，不串行，失败重试 2 次后“生成报告”（不阻塞）。
-- **REQ-S13-52** ❓ 并行配置声明的“三类独立检查＋汇总”与阶段模板 `delivery_process_template.yaml` 的四步（核验交付物→打包→生成报告→写 `delivery_manifest.json`）无对应的程序化动作；只有 `script_structure` 在 `stage_exec.run` 有 `execute_action`。本阶段 SKILL 的执行结果是模型文字，无程序化核验（同 REQ-S13-25）。待定：保留为模型流程说明，还是实现程序化步骤。
+- **REQ-S13-52** ✅ 修复（实现程序化步骤）：`stage_exec.run` 对 `delivery` 走 `_run_delivery`，按 `delivery_process_template.yaml` 的四个动作执行——`verify_deliverables`（核验已确认成片与质检）→`package_delivery`→`generate_delivery_report`→`write_delivery_manifest`，由 `run_stage_with_template(mode='auto')` 驱动，不调用模型；未确认成片或质检未通过时第一步失败。三类独立检查的并行配置（REQ-S13-51）维持原状。
 - **REQ-S13-53** ✅ 已有本地实现的辅助工具：`qa.visualCheck`/`qa.audioCheck`（媒体技术项）、`qa.subtitleCheck`（字幕与镜头时长）、`delivery.generateReport`（日报：耗时／成本／重试／Token）、`delivery.exportManifest`（写 `工作流任务/SKILL/交付清单.json`）。`qa.styleCheck`、`qa.complianceCheck`、`delivery.archive` 为页面动作，无本地实现。
 
 ### 非目标（明确不做）

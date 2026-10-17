@@ -1,4 +1,4 @@
-"""REQ-S09-01/02/03/04/10/12/24/26/30/31/33/40：白模预演阶段的依赖、锁、门禁、证据与目录契约。"""
+"""REQ-S09-01/02/03/04/10/12/24/26/30/31/33/35/36/37/40/41：白模预演阶段的依赖、锁、门禁、证据与目录契约。"""
 import json
 import tempfile
 import unittest
@@ -84,6 +84,112 @@ class PrevisGateTests(unittest.TestCase):
             result = stage_parallel.previs_ready(Path(tmp))
         self.assertTrue(result['ok'])
         self.assertFalse(result['started'])
+
+
+class PrevisProjectIndexTests(unittest.TestCase):
+    """REQ-S09-35/36/37：项目内索引 previs.json、项目内副本与中等动作镜头的 SG-05 要求。"""
+
+    def setUp(self):
+        from unittest.mock import patch
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        base = Path(self.tmp.name)
+        self.root = base / 'p'
+        self.root.mkdir()
+        self.space = base / 'space'
+        for cache in (wm._BASE_CACHE, wm._DIR_CACHE):
+            cache.clear()
+            self.addCleanup(cache.clear)
+        patcher = patch.object(wm, 'workspace', lambda: self.space)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.source = self.root / 'storyboard' / 'EP001.json'
+        self.source.parent.mkdir(parents=True)
+        self.shots = [
+            {'id': 'SH001', 'action': '他追逐并抢夺道具', 'camera': '跟拍'},
+            {'id': 'SH002', 'action': '他走到桌边拿起杯子', 'camera': '固定'},
+            {'id': 'SH003', 'action': '他站在原地说话', 'camera': '固定'}]
+        self.source.write_text(json.dumps({'episode_id': 'EP001', 'shots': self.shots}, ensure_ascii=False),
+                               encoding='utf-8')
+        (self.root / 'ui_settings.json').write_text(
+            json.dumps({'adopted_storyboards': [str(self.source)]}), encoding='utf-8')
+
+    def _make_ready(self, sid):
+        from stage_execution_service import record_previs_evidence, white_model_shot_directory
+        directory = white_model_shot_directory(self.root, sid, source=self.source)
+        directory.mkdir(parents=True, exist_ok=True)
+        media = directory / (sid + '_白模预演.mp4')
+        media.write_bytes(b'preview-' + sid.encode())
+        (directory / '预演记录.json').write_text(json.dumps({'preview': str(media)}), encoding='utf-8')
+        record_previs_evidence(self.root, sid, self.source, media={'duration': 5, 'has_video': True})
+        return directory
+
+    def test_req_s09_37_medium_shot_without_previs_blocks_sg05_after_previs_started(self):
+        self._make_ready('SH001')
+        result = stage_parallel.previs_ready(self.root)
+        self.assertFalse(result['ok'])
+        self.assertIn('SH002', ''.join(result['problems']))
+        self.assertTrue(any('复杂度' in text for text in result['problems']))
+        self._make_ready('SH002')
+        result = stage_parallel.previs_ready(self.root)
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['detail'], '2 个镜头需要白模，都有预演')
+
+    def test_req_s09_37_manual_simple_override_lets_medium_shot_through(self):
+        self._make_ready('SH001')
+        (self.root / 'data').mkdir()
+        (self.root / 'data' / '白模复杂度设置.json').write_text(
+            json.dumps({'EP001|SH002': 'simple'}), encoding='utf-8')
+        self.assertTrue(stage_parallel.previs_ready(self.root)['ok'])
+
+    def test_req_s09_36_verified_preview_is_mirrored_into_project_and_survives_workspace_loss(self):
+        import shutil
+        self._make_ready('SH001')
+        copy = self.root / '09白模预演' / 'assets' / 'SH001' / 'SH001_白模预演.mp4'
+        self.assertTrue(copy.is_file())
+        index = json.loads((self.root / '09白模预演' / 'output' / 'previs.json').read_text(encoding='utf-8'))
+        self.assertEqual(index['shots']['SH001']['preview'], '09白模预演/assets/SH001/SH001_白模预演.mp4')
+        context = _context(self.root)
+        self.assertTrue(previs_routing.ready(context, 'SH001', self.source))
+        shutil.rmtree(self.space)
+        self.assertTrue(previs_routing.ready(context, 'SH001', self.source))
+        self.shots[0]['action'] = '他站在原地说话'
+        self.source.write_text(json.dumps({'episode_id': 'EP001', 'shots': self.shots}, ensure_ascii=False),
+                               encoding='utf-8')
+        self.assertFalse(previs_routing.ready(context, 'SH001', self.source))
+
+    def test_req_s09_36_missing_project_copy_and_workspace_means_not_ready(self):
+        import shutil
+        self._make_ready('SH001')
+        shutil.rmtree(self.space)
+        (self.root / '09白模预演' / 'assets' / 'SH001' / 'SH001_白模预演.mp4').unlink()
+        self.assertFalse(previs_routing.ready(_context(self.root), 'SH001', self.source))
+
+    def test_req_s09_35_completion_publishes_previs_json_with_required_levels(self):
+        import stage_completion_service as completion
+        self._make_ready('SH001')
+        self._make_ready('SH002')
+        target = completion.publish_stage_manifest(self.root, 'previs')
+        self.assertEqual(target, self.root / '09白模预演' / 'output' / 'previs.json')
+        data = json.loads(target.read_text(encoding='utf-8'))
+        self.assertEqual(data['required'], {'SH001': 'complex', 'SH002': 'medium'})
+        self.assertEqual(set(data['shots']), {'SH001', 'SH002'})
+
+    def test_req_s09_35_declared_names_match_stage_layout_and_no_stale_manifest_names(self):
+        import stage_layout
+        row = next(item for item in stage_layout.STAGES if item[1] == 'previs')
+        self.assertIn('previs.json', row[5])
+        for relative in ('skills/templates/previs_process_template.yaml', 'architecture.md'):
+            self.assertNotIn('previs_manifest.json', (ROOT / relative).read_text(encoding='utf-8'))
+
+    def test_req_s09_41_skill_states_both_entry_channels(self):
+        text = SKILL.read_text(encoding='utf-8')
+        self.assertIn('全流程预设里的本阶段入口是 `pipeline-previs`', text)
+        self.assertIn('桌面白模页的默认技能是 `create-blender-story-video`', text)
+        import workflow_settings
+        self.assertEqual(workflow_settings.DEFAULT_SKILLS['previs'], 'create-blender-story-video')
+        self.assertEqual(workflow_settings.BUILTIN_WORKFLOW_PRESETS['AIGC全流程']['stage_skills']['previs'],
+                         ['pipeline-previs'])
 
 
 class PrevisEvidenceTests(unittest.TestCase):

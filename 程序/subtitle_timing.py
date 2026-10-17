@@ -286,6 +286,33 @@ def rows_from_entries(entries):
             for i, (_sid, _speaker, tx, a, b) in enumerate(entries)]
 
 
+ASS_HEADER = (
+    "[Script Info]\nScriptType: v4.00+\nPlayResX: 1920\nPlayResY: 1080\nWrapStyle: 0\n"
+    "ScaledBorderAndShadow: yes\n\n[V4+ Styles]\n"
+    "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+    "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, "
+    "Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+    "Style: Default,Microsoft YaHei,60,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,"
+    "0,0,0,0,100,100,0,0,1,3,1,2,60,60,50,1\n\n[Events]\n"
+    "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n")
+
+
+def ass_stamp(seconds):
+    """ASS 时间码 ``H:MM:SS.cc``（百分之一秒）。"""
+    total = int(round(float(seconds) * 100))
+    hours, rest = divmod(total, 360000)
+    minutes, rest = divmod(rest, 6000)
+    return f"{hours}:{minutes:02}:{rest // 100:02}.{rest % 100:02}"
+
+
+def ass_text(entries):
+    """把 (shot_id, speaker, text, start, end) 渲染成含默认样式的 ASS 全文；时间与文本口径同 SRT。"""
+    body = [f"Dialogue: 0,{ass_stamp(a)},{ass_stamp(b)},Default,,0,0,0,,"
+            + _srt_text(tx).replace("{", "｛").replace("}", "｝")
+            for _sid, _speaker, tx, a, b in entries]
+    return ASS_HEADER + "\n".join(body) + "\n"
+
+
 def srt_rows(episode, audio=None):
     """预导出 SRT 行：用校准轴（有 audio 则按真实音频，否则按句长），并先做时间校验。"""
     entries, report = calibrate_entries(episode, audio=audio)

@@ -76,6 +76,33 @@ def _run_script_structure(desktop, project, names, trigger):
     return orchestrator.run_stage_with_template('script_structure', stage_context(desktop, 'script_structure'),
                                                 names=names, mode='auto', execute_action=execute)
 
+def _run_delivery(desktop, project, names, trigger):
+    """按交付模板四步程序化执行：核验已确认成片与质检 → 打包 → 报告 → 写清单（不调用模型）。"""
+    import stage_completion_service as service
+    from stage_execution_service import build_orchestrator, stage_context
+    state = {}
+
+    def execute(action, _context):
+        done = skill_orchestrator.DONE
+        if action == 'verify_deliverables':
+            record = service.delivery_record(project)
+            state['count'] = len(record['outputs'])
+            return {'ok': True, 'status': done, 'detail': '成片 %d 份已确认，质检通过' % state['count']}
+        if action == 'package_delivery':
+            state['files'] = service.package_delivery(project)
+            return {'ok': True, 'status': done, 'detail': '已落盘质检报告与交付摘要'}
+        if action == 'generate_delivery_report':
+            return {'ok': True, 'status': done, 'detail': '已写入 ' + str(service.publish_delivery_report(project))}
+        if action == 'write_delivery_manifest':
+            files = service.package_delivery(project)
+            return {'ok': True, 'status': done, 'detail': '交付清单共 %d 个文件' % len(files)}
+        raise ValueError('未知交付动作：' + str(action))
+
+    orchestrator = build_orchestrator(desktop, project)
+    return orchestrator.run_stage_with_template('delivery', stage_context(desktop, 'delivery'),
+                                                names=names, mode='auto', execute_action=execute)
+
+
 TITLE = '次级执行页'
 
 
@@ -104,6 +131,8 @@ def run(desktop, stage, only=None, trigger='manual'):
     names = list(only) if only else stage_flow.selected_skills(project, stage)
     if stage == 'script_structure':
         return _run_script_structure(desktop, project, names, trigger)
+    if stage == 'delivery':
+        return _run_delivery(desktop, project, names, trigger)
     from stage_execution_service import build_orchestrator, stage_context
     orchestrator = build_orchestrator(desktop, project)
     return orchestrator.run(names, stage_context(desktop, stage), trigger=trigger)

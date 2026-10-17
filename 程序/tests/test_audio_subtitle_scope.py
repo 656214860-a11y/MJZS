@@ -101,10 +101,10 @@ class AudioSubtitleScopeTests(unittest.TestCase):
         rows = subtitle_timing.rows_from_entries([('S1', '', '多行\n文本', 0, 1.5)])
         self.assertEqual(rows, ['1\n00:00:00,000 --> 00:00:01,500\n多行 文本\n'])
 
-    def test_req_s11_24_only_srt_exporter_exists_no_ass(self):
+    def test_req_s11_24_srt_and_ass_exporters_exist(self):
         self.assertTrue(callable(subtitle_export_service.export_srt))
-        names = [n for n in dir(subtitle_export_service) if 'ass' in n.lower().split('_')]
-        self.assertEqual(names, [])
+        self.assertTrue(callable(subtitle_export_service.export_ass))
+        self.assertTrue(callable(subtitle_timing.ass_text))
 
     def test_req_s11_30_six_skills_exist_and_entry_is_paid(self):
         for name in SKILLS:
@@ -118,13 +118,12 @@ class AudioSubtitleScopeTests(unittest.TestCase):
         text = (SKILL_DIR / 'voice-multi-character.skill.md').read_text(encoding='utf-8')
         self.assertIn('已合并到「TTS 配音合成」', text)
 
-    def test_req_s11_40_declared_outputs_have_no_code_producer(self):
+    def test_req_s11_40_declared_outputs_have_a_code_producer(self):
+        import audio_import_service
         self.assertEqual(_audio_row()[5], ('voice.json', 'subtitles.json'))
-        for module in (tts_api, subtitle_export_service):
-            source = Path(module.__file__).read_text(encoding='utf-8')
-            for name in ('voice.json', 'subtitles.json', 'audio_manifest.json'):
-                with self.subTest(module=module.__name__, name=name):
-                    self.assertNotIn(name, source)
+        for name in _audio_row()[5] + ('audio_manifest.json',):
+            self.assertIn(name, audio_import_service.MANIFEST_NAMES)
+        self.assertTrue(callable(audio_import_service.audio_manifests))
 
 
 if __name__ == '__main__':

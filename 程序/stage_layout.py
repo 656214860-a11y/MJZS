@@ -29,17 +29,17 @@ from pathlib import Path
 
 from agent.core import save_text
 
-from script_manifest_contract import STAGE_OUTPUTS
+from script_manifest_contract import STAGE_MANIFESTS
 
 # ── 顶层结构 ────────────────────────────────────────────────────────────────
 # (目录名, 状态机阶段 id 或 '', 中文阶段名, 这一阶段干什么, 输入 JSON, 输出 JSON)
 STAGES = (
     ('01剧本准备', 'script', '剧本准备', '把创意落成剧本、角色设定与分集规划',
-     (), ('episode.json', 'outline.json', 'characters.json') + STAGE_OUTPUTS),
+     (), ('episode.json', 'outline.json', 'characters.json') + STAGE_MANIFESTS['script']),
     ('02剧本结构', 'script_structure', '剧本结构', '整理剧本原稿，输出供分镜使用的剧本正稿',
-     (), ()),
+     (), STAGE_MANIFESTS['script_structure']),
     ('03初步分镜', 'storyboard', '初步分镜', '剧本 ＋ SKILL 拆出分镜初稿 JSON',
-     ('episode.json', 'characters.json'), ('storyboard_draft.json',)),
+     ('episode.json', 'characters.json'), ('storyboard_draft.json',) + STAGE_MANIFESTS['storyboard']),
     ('04分镜预演', 'animatic', '分镜预演', '参考图与分镜提示词生成预演草图，临时声音合成 Animatic，等您确认后进入资产管理',
      ('storyboard_draft.json',), ('animatic_manifest.json',)),
     ('05资产管理', 'assets', '资产管理', '资产清单、正典板、状态变体与参考图',

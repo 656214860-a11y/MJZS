@@ -16,6 +16,6 @@ steps:
     needs_confirmation: true
     question: "白模预演时间线已生成，是否开始渲染？"
   - index: 4
-    name: 写入 previs_manifest.json
-    action: write_previs_manifest
+    name: 写入 previs.json
+    action: write_previs_index
     needs_confirmation: false

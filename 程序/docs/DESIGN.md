@@ -74,7 +74,7 @@
 - **DES-S02-22**（REQ-S02-22）`stage_completion_service` → `skill_orchestrator.verified_stage_output` → `structured_script_path` 指向的文件满足 `is_structured_script`；步骤做完但无可读结构稿时标 FAILED。
 - **DES-S02-24**（REQ-S02-24）新稿位置 `canonical_structured_script_path`（`write_dir(project,'structure')/结构剧本/`）；旧目录由 `read_dirs` 只读发现，同内容按 SHA256 去重。
 - **DES-S02-30**（REQ-S02-30/31）SKILL 位于 `skills/02 剧本整理SKILL/`；`script_manifest_schema.MERGED` 记录台词润色并回正稿、世界观落 `docs/world_bible.md`。
-- **待定**（REQ-S02-23/25）manifest 的写入点与核验点、落盘目录待用户拍板后再设计。
+- **DES-S02-23**（REQ-S02-23/25）`script_manifest_contract.STAGE_MANIFESTS` 定义每份 manifest 的归属阶段，`stage_layout.STAGES` 与 `script_manifest_schema.PRODUCERS` 同源引用。`write_structured_script` 的 `update_index` 回调里调 `write_structure_manifests`：`structure_manifests(正文)` 解析「角色档案／场景档案／道具档案」三个区，经 `manifest()` 补编号后原子写入 `02剧本结构/output/`。`structure_manifest_problems(project, 结构稿路径)` 是核验口径，被 `verified_stage_output` 调用；`stage_completion_service` 经它间接核验。
 
 ### 测试锚定
 
@@ -85,7 +85,7 @@
 | REQ-S02-10/11/22 | `test_script_structure`（六步执行与写入）、`test_stage_completion_service` |
 | REQ-S02-24 | `test_script_structure`、`test_script_workspace_service` |
 | REQ-S02-02/15/30/31 | `test_script_structure_scope` |
-| REQ-S02-23（归属部分） | `test_script_structure_scope` |
+| REQ-S02-23/25 | `test_script_structure_scope`（`StructureManifestTests`）、`test_script_contract`、`test_pipeline_stage_io_contract` |
 
 ## S03 初步分镜
 
@@ -119,7 +119,8 @@
 - **DES-S03-40**（REQ-S03-40）`working_dir=storyboard(root)/'分镜拆分'`，`document_dir=storyboard(root)/'分镜文档'`；`storyboard_paths.media_root` 对 `分镜拆分`／`分镜文档` 取同一父目录；`discover_files` 用 `os.walk(followlinks=False)`，剔除链接、junction、空文件、`IGNORED` 目录。旧目录 `storyboard/分镜拆分` 在 `stage_path_service._LEGACY` 登记为只读。
 - **DES-S03-41**（REQ-S03-41/42）`stage_completion_service`：`stage=='storyboard'` → `any(shots for _s,shots in stage_parallel._adopted(root))`。`_adopted` 对读不出的文件跳过。SG-A `animatic_input_ready` 要求 `_adopted` 非空，且每份 `animatic_service.shots_of` 不抛 ValueError/TypeError/KeyError。
 - **DES-S03-50**（REQ-S03-50）6 个 SKILL 位于 `skills/03初步分镜SKILL/`，frontmatter `stage: 初步分镜`；`BUILTIN_WORKFLOW_PRESETS['AIGC全流程'].stage_skills['storyboard']=['pipeline-storyboard-draft']`。
-- **待定**（REQ-S03-19/20/43/44/51）命名、`batch_id` 归属、`storyboard_draft.json` 声明、`scene_breakdown.json` 核验与默认技能入口待用户拍板后再设计。
+- **DES-S03-43**（REQ-S03-19/20/43/44）文案：03 只称"分镜初稿"，`batch_id` 不由 03 写。`storyboard_selection.sync_draft_outputs` 在 `adopt`／`remove`／`prune_invalid_adoptions` 末尾写 `storyboard_draft.json` 与派生的 `scene_breakdown.json`；`draft_problems` 在两份文件都缺时先补写（旧项目），再核验一致性与覆盖度。调用点：`stage_completion_service.completion_evidence`（storyboard）与 `stage_parallel.animatic_input_ready`。
+- **待定**（REQ-S03-51）默认技能入口待用户拍板后再设计。
 
 ### 测试锚定
 
@@ -132,7 +133,7 @@
 | REQ-S03-30/31/32/33/34 | `test_storyboard_adoption_service`、`test_storyboard_current_source`、`test_storyboard_source_service` |
 | REQ-S03-35/40 | `test_storyboard_catalog_snapshot`、`test_storyboard_rows_service`、`test_stage_path_service` |
 | REQ-S03-41/42 | `test_stage_completion_service`、`test_stage_parallel`；`test_storyboard_scope` 锚定 SG-A 登记 |
-| REQ-S03-44（归属部分） | `test_storyboard_scope`、`test_script_contract` |
+| REQ-S03-43/44 | `test_storyboard_scope`（`DraftOutputTests`）、`test_script_contract` |
 
 ## S04 分镜预演
 
@@ -212,7 +213,7 @@
 - **DES-S05-21**（REQ-S05-21/22）`stage_flow.PAID_STAGES`；`pipeline-assets` 声明“默认只出提示词”；后端名来自 `production_model_contract`。
 - **DES-S05-23**（REQ-S05-23）`write_dir(project,'assets')` → `05资产管理`；`read_dirs` 追加 `LEGACY_NUMBERED['assets']='04资产管理'` 与 `_LEGACY['assets']`（`episode/assets/资产清单`，2027-03-31 后停读）；`library_dir` 在新目录已有清单时优先新目录。
 - **DES-S05-30**（REQ-S05-30/31）`stage_parallel.assets_locked` 读 `library_dir/assets/资产清单/assets.json`；`missing`／`unlocked`／`noanchor` 三类问题；`touched`（有图／有锁／有锚点）或 `has_run` 才算 `started`；`stage_completion_service` 对 `assets` 要求 `ok and started`。
-- **DES-S05-32**（REQ-S05-32 ❓）待定：门禁读清单文件的 `image`，而图片只写登记表 `<资产库>/assets.json`（`asset_batch_service.register_image`／`import_asset_image`／恢复）。拍板后二选一：门禁改读登记表（与 `image_ready` 一致），或在登记时同步写清单；同步写会违背 `_sync_plan` 对 `image` 的剔除口径，需一并改。
+- **DES-S05-32**（REQ-S05-32）`assets_locked` 额外读 `<资产库>/assets.json`（图片登记表），`_image_of` 登记表优先、清单 `image` 仅兜底；`touched`／`missing` 都用它判定。选择门禁改读而不是登记时回写清单，是为了保持 `_sync_plan` 对清单 `image` 的剔除口径。
 - **DES-S05-33**（REQ-S05-33）删除经 `storage_maintenance.recycle_paths`；`asset_plan.deletion_references` 列引用镜头；恢复经 `restore_latest_recycled_child`。
 - **DES-S05-40**（REQ-S05-40/41）SKILL 位于 `skills/05资产管理SKILL/`；`pipeline-assets` 的 `dependsOn: [pipeline-animatic]`、`parallelizable: false`、`paid: false`。
 
@@ -227,7 +228,7 @@
 | REQ-S05-30/31 | `test_asset_gating`、`test_stage_gate_e2e_probe`、`test_stage_completion_service` |
 | REQ-S05-33 | `test_asset_impact`、`test_asset_restore`、`test_asset_image_restore_service` |
 | REQ-S05-23 | `test_asset_context`、`test_asset_resume` |
-| REQ-S05-32（待定） | 暂无；拍板后补回归 |
+| REQ-S05-32 | `test_assets_scope` |
 
 ## S06 连贯性清单
 
@@ -261,7 +262,10 @@
 - **DES-S06-21**（REQ-S06-21/22）`issues` 把台账未通过项转成结构化问题；`merge_issues` 为纯函数，`sync_issues`／`decide_issue` 仅在 L3 注入 `publish` 时落盘；`SEVERITIES`／`ISSUE_KINDS` 为权威表。
 - **DES-S06-23**（REQ-S06-23）`ledger_ready` 读台账；无台账返回 `ok=True, started=False`；有未通过项时用 `issue_gate` 判断是否全部为已忽略／已解除，且必须算得出问题行才放行；完成核验取 `ok and started`。
 - **DES-S06-30**（REQ-S06-30/31）SKILL 位于 `skills/06连贯性SKILL/`，`skill_registry` 以 `06` 目录归入 continuity；`workflow_settings` 预设默认 `pipeline-continuity`；`skill_tools` 登记 `continuity.buildLedger` 等。
-- **待定**（REQ-S06-24/26/32/33）台账版本核对、G-08 是否为放行条件、SKILL 与实现的一致方向、自动生成入口，待用户拍板后再设计。
+- **DES-S06-24**（REQ-S06-24）`continuity_ledger.stale_reason(ledger, shots)` 比对规范化镜头编号与各批次 `shot_ids`；`stage_parallel._current_shots` 取 `frame_json` 对应的已采用分镜；`ledger_ready` 在“台账存在”之后先查它，再用共享的 `continuity_ledger.open_problems` 查待办。`generate_continuity_ledger` 对 0 镜头抛 `ValueError`。
+- **DES-S06-32**（REQ-S06-32）以实现为准，改 SKILL 不改代码；`test_skill_reference_injection` 要求保留的 `repairList` 字样保留并注明对应 `continuity_issues.json`。
+- **DES-S06-33**（REQ-S06-33）`desktop_media_pages.MediaPagesMixin.generate_continuity_ledger` 是手动与自动的唯一实现，`pet_continuity_ledger` 为自动链薄包装，由 `desktop._start_unattended_stage` 的 continuity 分支调用，入口仍是 `stage_handler_registry.start()`。
+- **待定**（REQ-S06-26）G-08 是否为放行条件，待用户拍板后再设计。
 
 ### 测试锚定
 
@@ -273,7 +277,8 @@
 | REQ-S06-21 | `test_continuity_issues` |
 | REQ-S06-02（门禁与依赖） | `test_stage_parallel`、`test_stage_flow` |
 | REQ-S06-23（完成核验） | `test_stage_completion_service`、`test_continuity_scope` |
-| REQ-S06-24/26/32/33 | 待定 |
+| REQ-S06-24/32/33 | `test_continuity_scope` |
+| REQ-S06-26 | 待定 |
 
 ## S07 分镜定稿
 
@@ -311,7 +316,8 @@
 - **DES-S07-33**（REQ-S07-33/40）`stage_path_service.write_dir(project,'final')` → `stage_layout` 的 `07分镜定稿`；`read_dirs` 追加 `LEGACY_NUMBERED['final']`（`06分镜定稿`）；`is_final_dir` 判定目录名。
 - **DES-S07-41**（REQ-S07-41/42）`stage_completion_service` 的 `checks['final']='batches_ready'`，要求 `ok and started`；`batches_ready` 以 `_adopted` 的已采用分镜为对象，`started = has_run(final) or 任一镜头带 batch_id`。
 - **DES-S07-50**（REQ-S07-50/51）SKILL 位于 `skills/07分镜定稿SKILL/`；默认勾选来自 `workflow_settings` 的 `'final':['pipeline-storyboard-final']`；D 锁段缝字段写在总入口 SKILL 正文，不由程序核验。
-- **待定**（REQ-S07-03/15/43/44/45/52/53）见需求中标 🟡／❓ 的条目；其中 REQ-S07-52 需用户拍板（是否程序化核验台账与段缝），其余为单向修订，待统一后处理。
+- **DES-S07-52**（REQ-S07-52）`finalize` 在 `normalize_shot` 之后调用 `continuity_ledger.require_final_ready(project, shots)`：未生成放行，与待定稿镜头不对应或有未裁决待办则 `ValueError`；`open_problems` 与 SG-02 共用。该调用与上一行写在同一物理行，避免平移 `storyboard_final.py:164` 的裸 `json.loads` 债务标识。
+- **待定**（REQ-S07-03/15/43/44/45/53）见需求中标 🟡／❓ 的条目；其余为单向修订，待统一后处理。REQ-S07-52 已按裁决落地（见 DES-S07-52）。
 
 ### 测试锚定
 
@@ -322,6 +328,7 @@
 | REQ-S07-20/32 | `test_storyboard_final_controller`、`tests/architecture/test_final_bundle_boundary` |
 | REQ-S07-33（选择视图） | `test_storyboard_final_selection`、`tests/architecture/test_storyboard_final_selection_boundary` |
 | REQ-S07-41 | `test_stage_completion_service` |
+| REQ-S07-52 | `test_storyboard_final_scope` |
 | REQ-S07-02/04（门禁清单、并行配置） | `test_stage_parallel`、`test_storyboard_final_scope` |
 | REQ-S07-42（`batches_ready` 行为） | `test_storyboard_final_scope`（`test_stage_parallel` 未直接测此函数） |
 | REQ-S07-01/04/13/33/41/42/50/51 的事实范围 | `test_storyboard_final_scope` |
@@ -365,7 +372,7 @@
 - **DES-S08-30**（REQ-S08-30/31）`frames_ready` 读已采用分镜的 `frame`／`frame_deleted`，路径须在 `media_root` 内，非空，且 `frame_problem(…, aspect_ratio=workflow_lock(project)['aspect_ratio'])` 为空；`stage_completion_service` 的 `checks['keyframe']='frames_ready'`，要求 `ok` 且 `started`。
 - **DES-S08-32**（REQ-S08-32）`engine.py`、`app.py`、`local_video.py` 缺首帧时抛错／跳过，并经 `pet_bus.stage_step('keyframe')` 指向本阶段。
 - **DES-S08-50**（REQ-S08-50/51）SKILL 位于 `skills/08首帧管理SKILL/`；`skills/templates/keyframe_process_template.yaml` 四步，第 3 步 `needs_confirmation`。
-- **待定**（REQ-S08-40/41）清单文件名与写入点待用户拍板后再设计。
+- **DES-S08-40**（REQ-S08-40/41）`stage_completion_service.publish_stage_manifest(root, 'keyframe')`：遍历 `stage_parallel._adopted`，每镜取 `frame`／`frame_deleted`／`frame_evidence.image.sha256`，经 `agent.core.save` 写入 `write_dir(root, 'keyframe')/output/frames.json`；`emit_verified_completion` 在核验通过、发完成事件前调用，失败返回未完成。SKILL 的 `keyframeManifest` 是该文件的逻辑名。
 
 ### 测试锚定
 
@@ -380,6 +387,7 @@
 | REQ-S08-19 | `test_stage_parallel` |
 | REQ-S08-23 | `test_keyframe_lifecycle_service` |
 | REQ-S08-31 | `test_stage_parallel`（缺帧阻塞预演） |
+| REQ-S08-40/41 | `test_keyframe_scope`（frames.json 回执、模板与文档命名、SKILL 对应关系） |
 
 ## S09 白模预演
 
@@ -415,10 +423,11 @@
 - **DES-S09-26**（REQ-S09-26）`white_model_ref.SUPPORT` 为唯一能力表，`descriptor` 校验存在／后缀／非空／上限，`entries` 按槽位（`media`／`content`）拼请求；`white_model.validate_video_submission` 在提交前调用。
 - **DES-S09-30**（REQ-S09-30/32）`white_model_service.shot_directory`：`<workspace()>/<project_id 或项目目录名>/<集>/<镜头号>`，集取镜头号 `EPnnn_` 前缀，其次当前分镜 `episode_id`，否则“未分集”；`workspace()` 取环境变量→设置文件→默认用户数据目录；`migrate_legacy_directories` 先算完整清单再搬，失败回滚，成功才写 `project_id` 并落迁移清单。
 - **DES-S09-31**（REQ-S09-31）`evidence_state` 返回 `ok／changed／unbound／missing`；`previs_routing.ready` 对 `changed` 与（有来源时的）`unbound` 返回 False；`SOURCE_FIELDS` 决定来源摘要。
-- **DES-S09-33**（REQ-S09-33）`previs_ready` 取所有已采用分镜 → `decisions_for` → 只收集 `level=='complex'` → 逐镜 `ready`；缺失且 `has_run` 或已有任一就绪才拦。
+- **DES-S09-33**（REQ-S09-33/37）`previs_ready` 取所有已采用分镜 → `decisions_for` → 收集 `level` 为 `complex` 或 `medium` 的镜头 → 逐镜 `ready`；缺失且 `has_run` 或已有任一就绪才拦；缺中等镜头时追加复杂度改选提示。
 - **DES-S09-34**（REQ-S09-34）`stage_completion_service` 的 `checks['previs']='previs_ready'`，通过条件 `ok and started`。
 - **DES-S09-40**（REQ-S09-40/41）SKILL 位于 `skills/09白模预演SKILL/pipeline-previs.skill.md`；工作流设置的 `FLOWS['previs']`、`DEFAULT_SKILLS['previs']`、`FLOW_SKILLS['previs']` 在桌面通道登记 `create-blender-story-video`。
-- **待定**（REQ-S09-35/36/37/41）产物契约名与位置、成果是否入项目目录、中等镜头是否强制、默认 SKILL，待用户拍板后再设计。
+- **DES-S09-35**（REQ-S09-35/36）`white_model_service.sync_project_copy(context, sid, source, publish)`：工作区记录证据为 `ok` 的预览复制到 `write_dir(root, 'previs')/assets/<镜头号>/`（临时文件＋替换），再把条目写入 `output/previs.json`（`project_index_path` 读侧用 `read_file` 兼容旧目录）；`project_copy_ready` 校验副本在、字节数一致、来源摘要未变。调用方 L3：`stage_execution_service.record_previs_evidence`／`sync_previs_copy`、`previs_automation.verify`、`stage_completion_service.publish_stage_manifest(root, 'previs')`（补全并写 `required`）。`previs_routing.ready` 仅在工作区无可用预览时退回 `project_copy_ready`。L2 不写 JSON，只用注入的 `publish`。
+- **DES-S09-41**（REQ-S09-41）无代码改动；`pipeline-previs` 正文写明两通道入口。
 
 ### 测试锚定
 
@@ -430,6 +439,7 @@
 | REQ-S09-24/30/32 | `test_white_model_workspace`、`test_white_model_identity`、`test_white_model_import_boundary`、`test_previs_scope` |
 | REQ-S09-26 | `test_white_model_ref`、`test_previs_scope` |
 | REQ-S09-31 | `test_previs`、`test_previs_scope` |
+| REQ-S09-35/36/37/41 | `test_previs_scope`（`PrevisProjectIndexTests`）、`test_previs`（门禁回归） |
 | REQ-S09-01/02/03/04/33/34/40 | `test_previs_scope`（契约与门禁事实） |
 | 层级与 JSON 边界（REQ-S09-12/21/30） | `tests/architecture/` 下 `test_previs_routing_publication_boundary`、`test_previs_automation_json_boundary`、`test_previs_batch_json_boundary`、`test_previs_monitor_json_boundary`、`test_local_previs_json_boundary`、`test_white_model_json_boundary`、`test_white_model_service_json_boundary` |
 
@@ -471,7 +481,8 @@
 - **DES-S10-17**（REQ-S10-17）`mark_video_deleted`（`video_lifecycle_service.py:33`）遇未决状态返回 `UserError`，发布失败时 `shot.clear()`／`update(previous)` 回滚。
 - **DES-S10-18**（REQ-S10-18，待定）两路自动验收判据来源不同，见 DES-S10-15。
 - **DES-S10-20**（REQ-S10-20）`Studio.task_folder`（`engine.py:280`）与 `submit` 落盘的 `request.json`／`assets_manifest.json`／`实际提交提示词.txt`（`engine.py:371-373`）、`publish_downloaded_video`（`engine.py:283`）写 `qc.json` 并带 `sha256`。
-- **DES-S10-21**（REQ-S10-21，待定）`stage_layout.py:56` 声明输出 `videos.json`；全仓库无写入点（`video_manifest.json` 同）。处理方式待用户拍板。
+- **DES-S10-21**（REQ-S10-21）`Studio.video_manifest` 组装载荷，`Studio.publish_manifest` 经 `agent.core.save` 写 `write_dir(project_root(root), 'video')/output/` 下 `video_task_state.MANIFEST_NAMES` 两个同载荷文件；`publish_downloaded_video`、`review`、`pin_version` 在各自状态落盘后调用；`LocalStudio` 继承同一发布点；采用版本用 `adopted_edit_version(versions)`（不带 root，不重算成片哈希，沿用版本记录里的 `sha256`）。云端工作集的清单只反映当前会话工作集。
+- **DES-S10-31**（REQ-S10-31）`video_task_state.VIDEO_MAX_SHOTS`／`shot_count_error` 为上限唯一权威；`Studio.validate` 首先调用，`LocalStudio` 同走。
 - **DES-S10-22**（REQ-S10-22）`completion_evidence`（`stage_completion_service.py:413`）的 `stage == 'video' and callable(video_ready)` 分支（`:443-445`）要求 `auto_edit_ready` 返回的指纹为真；无回调则落到通用媒体文件检查（`:446-455`）。调用方 `pet_ui_stages.py:28-30,35-37,99-101` 均传 `studio.auto_edit_ready`。
 - **DES-S10-23**（REQ-S10-23）`approved_versions`（`engine.py:17`）、`adopted_edit_version`（`engine.py:64`）：锁定版优先，其次最后已验收版；文件缺失／摘要不符返回 `missing`／`replaced`。`auto_edit_ready`、`assemble` 与界面采用显示共用该口径。
 - **DES-S10-30**（REQ-S10-30/31/32/33）SKILL 位于 `skills/10视频生成SKILL/`；`skill_tools.py:461-464` 把 `video.batchSubmit`／`retry`／`pause`／`resume` 登记为页面步骤，`skill_tools.py:416,420,488-489` 登记 `video.qualityCheck`、`video.pollStatus`、`video.submit`、`video.validate`。视频提示词规则见 `stage_layout.py:156` 与 `stage_parallel.py:214`。
@@ -492,6 +503,7 @@
 | REQ-S10-17 | `test_video_generation_scope`；`test_video_lifecycle_service`、`test_video_delete_boundary` |
 | REQ-S10-20 | `test_video` |
 | REQ-S10-22 | `test_video_generation_scope`；`test_stage_completion_service` |
+| REQ-S10-21/31 | `test_video_manifest_scope` |
 | REQ-S10-30/32/40 | `test_video_generation_scope` |
 | REQ-S10-18/21/31 | 待用户拍板后补测试（现为 ❓／🟡，不测实现） |
 
@@ -526,16 +538,17 @@
 - **DES-S11-23**（REQ-S11-23）`export_srt`：校准 → 校验 → `rows_from_entries` → 注入发布器以 `utf-8-sig` 发布到 `project_stages.subtitles(project)`（`<阶段目录>/字幕`）的 `对白_<6位>.srt`，成功后再发布 `字幕校准.json`（失败只记警告，不影响 SRT）；`export_dialogue_script` 发布 `对白脚本_<6位>.txt`；L2 无发布器时抛 `TypeError`，写盘失败返回 `SystemError`，空对白返回 `UserError`。
 - **DES-S11-30**（REQ-S11-30/31）SKILL 由 `skill_registry` 递归扫描 `skills/11配音字幕SKILL/`；总入口 `pipeline-audio-subtitle` 在 `workflow_settings` 阶段默认勾选；`voice-multi-character` 描述标注“已合并”，ID 仅供旧配置兼容。
 
-### 待决设计（与 REQ 中 ❓ 对应）
+### 已决设计（原待决，用户裁决“修复”）
 
-- **DES-S11-24**（REQ-S11-24）ASS 导出无实现；设计上若补，须沿用 `subtitle_export_service` 的“L2 只准备文本、L3 注入发布器”模式，并复用 `calibrate_entries/validate_entries`。未补之前，文档与 SKILL 不得承诺 ASS。
-- **DES-S11-40**（REQ-S11-40）声明产出（`voice.json`／`subtitles.json`）与真实完成凭据（`成果确认/*.json`）分离；后期剪辑阶段声明读取前者，实际读取字幕与音频目录文件。统一方向待拍板。
+- **DES-S11-24**（REQ-S11-24）`subtitle_timing.ass_text/ass_stamp` 渲染 ASS；`subtitle_export_service.export_ass` 沿用“L2 只准备文本、L3 注入发布器”，复用 `_calibrated`（`calibrate_entries`＋`validate_entries`）；`export_srt` 在 SRT 发布成功后以同一 stem 追加 ASS 与 `字幕校准.json`，后两者失败仅记警告。
+- **DES-S11-40**（REQ-S11-40）`audio_import_service.audio_manifests`（L2，只读目录、不 import L3）生成三份载荷；`stage_execution_service.refresh_audio_manifests`（L3）写入 `write_dir(project, 'audio')/output/`，并挂在 `import_stage_audio`、`export_stage_srt`、`export_stage_dialogue_script`、`publish_tts_full_track`、`run_tts_lines` 成功之后。声明产出与真实完成凭据（`成果确认/*.json`）仍分离，清单不作完成证据。
 
 ### 测试锚定
 
 | REQ | 测试 |
 | --- | --- |
-| REQ-S11-01/02/03/04/10/11/12/20/21/22/23/24/30/31/40 | `tests/test_audio_subtitle_scope.py`（16 条，本批新增，断言均为已核实事实） |
+| REQ-S11-01/02/03/04/10/11/12/20/21/22/23/24/30/31/40 | `tests/test_audio_subtitle_scope.py`（16 条；24、40 两条随“修复”裁决改为正向断言） |
+| REQ-S11-24/40 | `tests/test_audio_manifest_scope.py` |
 | REQ-S11-04 | `tests/test_stage_completion_service.py` 等既有完成度测试（清单链路，本批未逐条核对） |
 | REQ-S11-11 | `tests/test_audio_import_service.py`、`tests/architecture/test_audio_import_boundary.py` |
 | REQ-S11-12 | `tests/test_tts.py`、`tests/architecture/test_tts_publication_boundary.py` |
@@ -567,7 +580,7 @@
 
 ### 设计条目
 
-- **DES-S12-01**（REQ-S12-01）`stage_flow.DEPENDS['edit']=('video',)`、`DEPENDS['delivery']=('edit',)`。
+- **DES-S12-01**（REQ-S12-01/04）`stage_flow.DEPENDS['edit']=('video','audio')`、`DEPENDS['delivery']=('edit',)`；`Studio.edit_inputs` 登记 S11 配音／字幕文件路径与摘要，写入 `edits.json.inputs`。
 - **DES-S12-02**（REQ-S12-02/03）`engine.approved_versions` 取已下载＋`qc_pass`＋`review=='pass'`；`adopted_edit_version` 在其中先取 `pinned is True`，否则最后一条，再核文件存在与 `file_hash==sha256`，失败返回 `unapproved／missing／replaced／unreadable`；`review_source／content_reviewed／review_label` 区分真人与自动放行。
 - **DES-S12-05**（REQ-S12-05）`Studio.output_spec` → `stage_config.workflow_lock` → `script_contract.resolve_output_spec`；`output_spec_text` 供页面显示。
 - **DES-S12-10**（REQ-S12-10/13）`Studio._encode` 逐镜 ffmpeg 重编码（`output_filter`＋`loudness_filter`，无音轨补 `anullsrc` 并写 `_音轨说明.json`，`post_overlay` 用 `drawtext`），`concat -c copy` 到 `.partial.mp4`，`-xerror` 解码核验后 `replace` 为 `MASTER.mp4`。
@@ -578,17 +591,17 @@
 - **DES-S12-20**（REQ-S12-20/21）`Studio.assemble` 用 `project_stages.exports` ＋ `project_naming.dated_path` 建成片目录；`publish_edit_bundle` 先原子写 `edit_bundle.json`，再写 `qc.json`、`edit_manifest.json`；`read_edit_bundle` 在无 bundle 时退回两份索引（`legacy`）。
 - **DES-S12-22**（REQ-S12-22）`_encode` 在 `report['errors']` 非空时在发布 bundle 与交换清单之后才抛错；`publish_edit_lists` 失败只返回 `{'ok':False}`，不删成片。
 - **DES-S12-23**（REQ-S12-23/24）`media_output_folders('edit')`＝`read_dirs('edit')`＋各 `delivery` 读目录下 `导出成片`，后缀 mp4／mov／mkv；`prepare_media_completion` 技术校验并生成 `pending_review`；`confirm_media_completion` 写 `complete／reviewed`；`media_scope` 绑定当前采用分镜；`completion_evidence` 把 `edit` 路由到 `media_completion_evidence`。
-- **DES-S12-25**（REQ-S12-25）`stage_layout.STAGES` 的 `('12后期剪辑','edit',…,('videos.json','voice.json','subtitles.json'),('edits.json',))`；未被读写，状态待裁决。
+- **DES-S12-25**（REQ-S12-25/33）`edit_export` 提供 `normalize_edits／transition_filter／transition_seconds／music_filter／PLATFORMS／platform_spec`（纯文本、无 I/O）；`Studio.save_edit_settings` 写 `12后期剪辑/edits.json`，`Studio._join_shots` 无转场走无损 concat、有转场走 `xfade`＋`acrossfade` 重编码、有配乐再混一遍，`publish_edit_bundle` 在成片目录写 `edits.json`（含 `inputs`）并在 `edit_bundle.json` 记 `edits／music`；背景音乐经 `Studio._project_music` 复制进 `12后期剪辑/背景音乐/` 并写 `.source.json`。`_encode` 仍保持临时文件→完整性校验→`replace`→`publish_edit_bundle`。
 - **DES-S12-26**（REQ-S12-26）`stage_parallel.CONFIG['edit']`：`min/max/limit=1`、`serial=False`、`retry.attempts=2`、`on_exhaust=ON_BLOCK`。
 - **DES-S12-30**（REQ-S12-30）`workflow_settings` 默认 `'edit':['pipeline-editing']`；`skill_registry` 目录号 `12`→`edit`。
-- **DES-S12-31**（REQ-S12-31/32）`skill_tools.READY` 含 `edit.compose`、`edit.export*`（只回规格）；`skill_tools.PAGES` 含 `edit.assemble／validate／addTransition／addSFX／addBGM`，`call` 对 PAGES 条目抛 `ToolNeedsPage`。
+- **DES-S12-31**（REQ-S12-31/32）`skill_tools.READY` 含 `edit.compose`、`edit.export*`（回规格，同一份 `edit_export.PLATFORMS`）；`skill_tools.PAGES` 含 `edit.assemble／validate／addTransition／addSFX／addBGM`，`call` 对 PAGES 条目抛 `ToolNeedsPage`；平台转码由后期页按钮经 `EditingPageController.export_platform` → `Studio.export_platform` 完成，输出到 `<成片目录>/平台版本/<平台>.mp4`。
 - **DES-S12-35**（REQ-S12-35）`edit_export.build_edl／build_fcpxml／build_tracks／export_texts`，写盘由 `Studio.publish_edit_lists` 经 `agent.core.save／save_text` 完成。
 
 ### 测试锚定
 
 | 需求 | 测试 |
 | --- | --- |
-| REQ-S12-01 | `test_editing_scope`（新）、`test_stage_flow` |
+| REQ-S12-01/04 | `test_editing_scope`（新）、`test_stage_flow` |
 | REQ-S12-02/03 | `test_edit_adoption`、`test_editing_scope`（新） |
 | REQ-S12-05 | 暂无断言（输出规格解析由 `script_contract` 既有测试覆盖） |
 | REQ-S12-10/11 | `test_integration`、`test_editing_page_controller` |
@@ -598,8 +611,8 @@
 | REQ-S12-20/21 | `test_editing_scope`（新，目录位置）、`test_edit_adoption`（bundle 用例）、`architecture/test_edit_publication_boundary` |
 | REQ-S12-22/35 | `test_edit_export` |
 | REQ-S12-23 | `test_stage_completion_service`、`test_editing_scope`（新） |
-| REQ-S12-25/26/30/31/32 | `test_editing_scope`（新） |
-| REQ-S12-15/24/33/34 | 现状差距，暂无断言（待用户裁决后再补） |
+| REQ-S12-25/26/30/31/32/33 | `test_editing_scope`（新；含 ffmpeg 真实转场／配乐／平台导出用例，缺 ffmpeg 时跳过） |
+| REQ-S12-15/24/34 | 现状差距，暂无断言（待用户裁决后再补） |
 
 ## S13 质检与交付
 
@@ -627,27 +640,27 @@
 - **DES-S13-03**（REQ-S13-03）`prepare_media_completion` 取 `config.json` 的 `ffprobe` 或 `platform_tools.tool_path('ffprobe')`，缺失抛 `ValueError`；探测由 `agent.media.probe`＋`media_facts` 完成。
 - **DES-S13-04**（REQ-S13-04）`STAGE_LOCK_REQUIREMENTS` 键为 `script/keyframe/previs/video`，不含 `delivery`。
 - **DES-S13-10**（REQ-S13-10）交付页按钮：导入剪映最终成片、校验并确认本阶段成果、生成商用待填资料、核验商用交付资料、选择采用版本、打开目录。
-- **DES-S13-11**（REQ-S13-11）`delivery_import_service.ALLOWED_SUFFIXES={'.mp4','.mov'}`；目标文件名＝原名＋6 位随机＋原后缀；发布走 `stage_completion_service.publish_imported_media`，同时写 `<文件>.source.json`（`rights_status='unknown'`）。
+- **DES-S13-11**（REQ-S13-11/26）`delivery_import_service.ALLOWED_SUFFIXES={'.mp4','.mov','.mkv'}`，`media_output_folders('delivery')` 复用同一集合；目标文件名＝原名＋6 位随机＋原后缀；发布走 `stage_completion_service.publish_imported_media`，同时写 `<文件>.source.json`（`rights_status='unknown'`）。
 - **DES-S13-12**（REQ-S13-12/13）`prepare_media_completion` 逐文件：`_media_path`（目录＋后缀＋非空）→ 哈希 → 探测 → 再哈希；全部通过后生成 `status='pending_review'` 清单并自校验。
 - **DES-S13-14**（REQ-S13-14）`confirm_media_completion` 仅由显式确认入口调用，写 `complete/reviewed=True`；`delivery` 另加 `commercial_status='pending'`；落盘到 `media_manifest_path`＝`write_dir(root,'delivery')/成果确认/<fingerprint(来源)[:24]>.json`。
 - **DES-S13-20**（REQ-S13-20/21/22/23）`completion_evidence` 对 `audio/edit/delivery` 走 `media_completion_evidence`→`_validate_media_completion`（schema、阶段、范围、状态、技术校验、大小与哈希）；`emit_verified_completion` 核验通过后才发 `stage.completed`。商用函数不在此路径上。
-- **DES-S13-24**（REQ-S13-24/25/26/28）待定：`stage_layout` 声明产物、`pipeline-delivery` 的工具与约束、后缀集合、`commercial_status`／`delivery.ready` 的归属，按需求裁决后再设计。
+- **DES-S13-24**（REQ-S13-24/25/28/52）`prepare_media_completion('delivery')` 调 `build_delivery_qc` 生成 `data['qc']={passed,errors,warnings,outputs,bound}`；`confirm_media_completion` 在 `qc.passed` 假时拒绝，通过后 `publish_delivery_artifacts` 写 `qc_report.json／delivery.json／delivery_manifest.json`；`_validate_media_completion(require_review=True)` 校验 `qc.passed` 与 `qc.bound`。`delivery_record／package_delivery／publish_delivery_report` 供 `skill_tools` 的 `delivery.validate／package` 与 `stage_exec._run_delivery` 调用（`run_stage_with_template` 四动作）。`commercial_status(root)` 供交付页常驻显示，`confirm_commercial_evidence` 把清单 `commercial_status` 置 `verified`。`delivery.ready` 仍仅声明。
 - **DES-S13-30**（REQ-S13-30/31）`create_commercial_template` 目标为 `<成果确认>/<指纹>.commercial.pending.json`，已存在即拒绝；`_commercial_inventory` 预填剧本（经 `board_source_script`）、成片、`edit_bundle.json` 的 `manifest/fonts/references`、`font.ttc`，授权字段留空。
 - **DES-S13-32**（REQ-S13-32~36）`validate_commercial_evidence`：范围与成片摘要一致 → 清单完成声明与审核人 → 七类逐类（`COMMERCIAL_CATEGORIES`）→ 条目字段与授权文件冻结校验 → 覆盖实际剧本来源／成片／镜头来源／参考／字体 → `content_review` 三项 `cleared`＋审核人＋证据。确认后写 `<指纹>.commercial.json`。
 - **DES-S13-40**（REQ-S13-40）`usage_overview.read_events` 读 `model_diagnostics`；`_add` 对无用量事件计 `unknown_usage`，`not_submitted` 单独计数。
 - **DES-S13-41**（REQ-S13-41/42/43）`delivery_duration` 逐份校验确认清单（`complete`、`reviewed`、范围、来源哈希、`validation.passed`、大小与哈希）后累加时长；`cost_per_minute` 对缺项返回 `None`/缺项列表，`basis='recorded_usage_estimate_not_supplier_invoice'`。
 - **DES-S13-50**（REQ-S13-50）`workflow_settings` 阶段默认 SKILL＝`['pipeline-delivery']`；SKILL 位于 `skills/13质检交付SKILL/`。
 - **DES-S13-51**（REQ-S13-51）`stage_parallel.CONFIG['delivery']`：`unit=CHECK, min=2, max=4, serial=False, limit=4, retry={attempts:2, backoff:'fixed', on_exhaust:ON_REPORT}`。
-- **DES-S13-53**（REQ-S13-53）`skill_tools.READY` 含 `qa.visualCheck/audioCheck/subtitleCheck`、`delivery.generateReport/exportManifest`；`PAGES` 含 `qa.styleCheck/complianceCheck`、`delivery.archive/validate/package`。
-- **待定**（REQ-S13-52）模板步骤是否程序化，待总控拍板。
+- **DES-S13-53**（REQ-S13-53）`skill_tools.READY` 含 `qa.visualCheck/audioCheck/subtitleCheck`、`delivery.generateReport/exportManifest/validate/package`；`PAGES` 含 `qa.styleCheck/complianceCheck`、`delivery.archive`。
+- REQ-S13-52 已由 DES-S13-24 的 `_run_delivery` 落实。
 
 ### 测试锚定
 
 | 需求 | 测试 |
 | --- | --- |
 | REQ-S13-01/04/50/51 | `test_delivery_scope` |
-| REQ-S13-11 | `test_delivery_scope`、`test_delivery_import_service`、`architecture/test_delivery_import_boundary` |
+| REQ-S13-11/26 | `test_delivery_scope`、`test_delivery_import_service`、`architecture/test_delivery_import_boundary` |
 | REQ-S13-12/14/20/21 | `test_stage_completion_service` |
 | REQ-S13-30~36 | `test_stage_completion_service`、`test_delivery_scope`（七类常量） |
 | REQ-S13-40~43 | `test_usage_overview` |
-| REQ-S13-24/26/53 | `test_delivery_scope`（声明产物、后缀差异、工具表登记情况） |
+| REQ-S13-24/25/28/52/53 | `test_delivery_scope`（`DeliveryQcTests`：质检通过／拒绝、产物落盘、工具、商用状态、旧确认需重确认） |

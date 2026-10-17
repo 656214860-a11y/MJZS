@@ -83,6 +83,47 @@ class ContinuityScopeTests(unittest.TestCase):
             self.assertFalse(result['ok'])
             self.assertTrue(result['started'])
 
+    def test_req_s06_24_sg02_blocks_a_ledger_that_does_not_match_current_shots(self):
+        from unittest.mock import patch
+        shots = [{'id': 'S01', 'characters': [], 'location': ''}, {'id': 'S02', 'characters': [], 'location': ''}]
+        with tempfile.TemporaryDirectory() as raw:
+            project = Path(raw)
+            continuity_ledger.write(project, continuity_ledger.build(shots, {}))
+            with patch.object(stage_parallel, '_adopted', return_value=[(project / 'a.json', shots)]):
+                self.assertTrue(stage_parallel.ledger_ready(project)['ok'])
+            more = shots + [{'id': 'S03', 'characters': [], 'location': ''}]
+            with patch.object(stage_parallel, '_adopted', return_value=[(project / 'a.json', more)]):
+                result = stage_parallel.ledger_ready(project)
+            self.assertFalse(result['ok'])
+            self.assertTrue(result['started'])
+            self.assertIn('S03', ' '.join(result['problems']))
+
+    def test_req_s06_24_empty_ledger_does_not_cover_adopted_shots_and_missing_ledger_still_passes(self):
+        from unittest.mock import patch
+        shots = [{'id': 'S01', 'characters': [], 'location': ''}]
+        with tempfile.TemporaryDirectory() as raw:
+            project = Path(raw)
+            with patch.object(stage_parallel, '_adopted', return_value=[(project / 'a.json', shots)]):
+                self.assertTrue(stage_parallel.ledger_ready(project)['ok'])
+                continuity_ledger.write(project, continuity_ledger.build([], {}))
+                self.assertFalse(stage_parallel.ledger_ready(project)['ok'])
+
+    def test_req_s06_32_skill_declares_local_rules_and_maps_repair_list(self):
+        text = (SKILL_DIR / 'pipeline-continuity.skill.md').read_text(encoding='utf-8')
+        self.assertIn('capabilities: [structured-output]', text)
+        self.assertNotIn('qwen-max', text)
+        self.assertIn('continuity_issues.json', text)
+        self.assertIn('不调用模型', text)
+
+    def test_req_s06_33_auto_chain_has_one_entry_through_the_registry(self):
+        source = (ROOT / 'desktop.py').read_text(encoding='utf-8')
+        self.assertIn("if stage=='continuity':return self.pet_continuity_ledger()", source)
+        self.assertIn("stage_handler_registry.start(self,stage,trigger='auto',fallback=self._start_unattended_stage)",
+                      source)
+        pages = (ROOT / 'desktop_media_pages.py').read_text(encoding='utf-8')
+        self.assertEqual(pages.count('self.write_continuity_ledger('), 1)
+        self.assertGreaterEqual(pages.count('self.generate_continuity_ledger('), 2)
+
     def test_req_s06_23_completion_uses_sg02_with_started(self):
         source = (ROOT / 'stage_completion_service.py').read_text(encoding='utf-8')
         self.assertIn("'continuity': 'ledger_ready'", source)

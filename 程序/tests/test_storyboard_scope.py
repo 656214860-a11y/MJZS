@@ -4,11 +4,14 @@ import unittest
 from pathlib import Path
 
 import script_contract
+import stage_completion_service
 import stage_flow
 import stage_parallel
 import storyboard_catalog_service
 import storyboard_contract
 import storyboard_plan_service
+import storyboard_selection
+from agent.core import read, save
 import workflow_settings
 from script_manifest_schema import PRODUCERS
 from storyboard_paths import media_root
@@ -79,6 +82,51 @@ class StoryboardScopeTests(unittest.TestCase):
                 path = SKILL_DIR / (name + '.skill.md')
                 self.assertTrue(path.is_file())
                 self.assertIn('stage: 初步分镜', path.read_text(encoding='utf-8'))
+
+
+class DraftOutputTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+        self.source = self.root / '03初步分镜' / '分镜拆分' / 'ep1.json'
+        self.write_board([('SH001', 'LOC_001', ['CHAR_001']), ('SH002', 'LOC_001', ['CHAR_002']),
+                          ('SH003', 'LOC_002', [])])
+        save(self.root / 'ui_settings.json', {'adopted_storyboards': ['03初步分镜/分镜拆分/ep1.json']})
+
+    def write_board(self, rows):
+        save(self.source, {'episode_id': 'EP001', 'title': 't', 'shots': [
+            {'id': sid, 'title': 'T' + sid, 'location': loc, 'characters': who} for sid, loc, who in rows]})
+
+    def test_req_s03_43_draft_json_indexes_the_adopted_sources(self):
+        folder = storyboard_selection.sync_draft_outputs(self.root)
+        draft = read(folder / 'storyboard_draft.json')
+        self.assertEqual(draft['sources'], [{'path': '03初步分镜/分镜拆分/ep1.json', 'episode_id': 'EP001',
+                                             'shot_ids': ['SH001', 'SH002', 'SH003']}])
+
+    def test_req_s03_44_breakdown_is_derived_per_scene_and_verified(self):
+        folder = storyboard_selection.sync_draft_outputs(self.root)
+        items = read(folder / 'scene_breakdown.json')['items']
+        self.assertEqual([(i['scene_id'], i['boundary']) for i in items],
+                         [('LOC_001', 'SH001~SH002'), ('LOC_002', 'SH003~SH003')])
+        self.assertEqual(items[0]['characters'], ['CHAR_001', 'CHAR_002'])
+        self.assertEqual(storyboard_selection.draft_problems(self.root), [])
+
+    def test_req_s03_44_legacy_adoption_without_outputs_is_backfilled_then_verified(self):
+        self.assertFalse((self.root / '03初步分镜' / 'output' / 'scene_breakdown.json').exists())
+        self.assertEqual(storyboard_selection.draft_problems(self.root), [])
+        self.assertTrue((self.root / '03初步分镜' / 'output' / 'scene_breakdown.json').is_file())
+
+    def test_req_s03_44_changed_storyboard_makes_outputs_stale_and_blocks_completion(self):
+        storyboard_selection.sync_draft_outputs(self.root)
+        self.write_board([('SH001', 'LOC_001', []), ('SH004', 'LOC_003', [])])
+        problems = storyboard_selection.draft_problems(self.root)
+        self.assertTrue(any('不一致' in text or '没有覆盖' in text for text in problems), problems)
+        ok, reason = stage_completion_service.completion_evidence(self.root, 'storyboard')
+        self.assertFalse(ok)
+        self.assertIn('重新采用', reason)
+        storyboard_selection.sync_draft_outputs(self.root)
+        self.assertTrue(stage_completion_service.completion_evidence(self.root, 'storyboard')[0])
 
 
 if __name__ == '__main__':

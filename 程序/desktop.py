@@ -1081,13 +1081,14 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         先把这一步的无人值守开关替他打开（用户不必自己回页面上勾），再把它提前叫醒一轮——
         开关一开，这一步的轮询从此每一轮都会接着做，直到做完（中途断了也照旧自己接着做）。
         剧本结构虽没有常驻轮询，但有一条与手动按钮相同的确定性模板执行链，单独派发；
-        其余没有无人值守的步骤（剧本、连贯性、配音）老实给空串，让宠物自己说「没有能自动跑的路子」。
+        连贯性清单是本地规则计算，直接走与手动按钮同一个实现；其余没有无人值守的步骤（剧本、配音）老实给空串，让宠物自己说「没有能自动跑的路子」。
         """
         return stage_handler_registry.start(self,stage,trigger='auto',fallback=self._start_unattended_stage)
     def _start_unattended_stage(self,stage,trigger):
         """尚未拆出的无人值守阶段由 L3 启动适配器回调到此处。"""
         if self.root is None:return ''
         if stage=='script_structure':return self.pet_script_structure_batch(trigger=trigger)
+        if stage=='continuity':return self.pet_continuity_ledger()
         # 首帧不是普通的轮询开关：自动链需要立即把当前缺口派发，并由批次的
         # completed/failed 事件收场。经 L3 转到这里，避免 Pet UI 再另走一条直连路径。
         if stage=='keyframe':return self.pet_frame_batch(trigger=trigger)
@@ -1806,7 +1807,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         result=ensure_delivery_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         delivery_dir,_=result.data
-        p=FileDialog(self.win).open_file(initialdir=delivery_dir,filetypes=[('成片','*.mp4 *.mov')])
+        p=FileDialog(self.win).open_file(initialdir=delivery_dir,filetypes=[('成片','*.mp4 *.mov *.mkv')])
         if not p:return
         def work():
             from service_contract import UserError
@@ -1850,7 +1851,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             if not confirm(self.win,'确认本集成果',
                 '媒体技术校验通过。请确认以下文件属于当前集，内容完整且已人工审核：\n'
                 +prepared['scope']['episode']+'\n'+names
-                +('\n此操作不代表商用授权或内容合规通过。' if stage=='delivery' else '')):return
+                +('\n质检：'+('通过' if (prepared.get('qc') or {}).get('passed') else '未通过')
+                  +''.join('\n警告：'+item for item in (prepared.get('qc') or {}).get('warnings', []))
+                  +'\n此操作不代表商用授权或内容合规通过。' if stage=='delivery' else '')):return
             confirm_media_completion(root,stage,prepared)
             self.pet.report_done(stage,'本集成果已校验并确认')
         self.async_(work,done)

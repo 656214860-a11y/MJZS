@@ -196,7 +196,90 @@ def prune_invalid_adoptions(project):
     if current_path not in valid:
         data['frame_json']=valid[-1].relative_to(project).as_posix() if valid else ''
     save(project/'ui_settings.json',data)
+    sync_draft_outputs(project)
     return tuple(removed)
+
+
+DRAFT_NAME='storyboard_draft.json';BREAKDOWN_NAME='scene_breakdown.json'
+
+
+def draft_dir(project):
+    import stage_layout
+    return stage_layout.paths(Path(project),'03初步分镜')['output']
+
+
+def _episode_shots(source):
+    data=read(source)
+    shots=[s for s in data.get('shots') or [] if isinstance(s,dict)] if isinstance(data,dict) else []
+    return str(data.get('episode_id') or '') if isinstance(data,dict) else '',shots
+
+
+def _breakdown_items(sources):
+    """按「连续同一 location 的镜头为一场」从已采用分镜派生场次拆分（程序派生，不是模型自述）。"""
+    items=[]
+    for source in sources:
+        episode,shots=_episode_shots(source);runs=[]
+        for shot in shots:
+            place=str(shot.get('location') or '')
+            if runs and runs[-1][0]==place:runs[-1][1].append(shot)
+            else:runs.append((place,[shot]))
+        for place,group in runs:
+            ids=[str(s.get('id') or '') for s in group];people=[]
+            for shot in group:
+                people+=[c for c in shot.get('characters') or [] if isinstance(c,str) and c not in people]
+            items.append({'name':place or str(group[0].get('title') or ''),'episode_id':episode,'scene_id':place,'time_place':place,'characters':people,
+                          'task':str(group[0].get('title') or ''),'boundary':'%s~%s'%(ids[0],ids[-1]),'shot_ids':ids})
+    return items
+
+
+def _draft_sources(project,sources):
+    out=[]
+    for source in sources:
+        episode,shots=_episode_shots(source)
+        out.append({'path':source.relative_to(project).as_posix(),'episode_id':episode,
+                    'shot_ids':[str(s.get('id') or '') for s in shots]})
+    return out
+
+
+def sync_draft_outputs(project):
+    """把已采用分镜同步成 03初步分镜/output/ 下的 storyboard_draft.json 与 scene_breakdown.json。"""
+    from script_manifest_schema import manifest
+    project=Path(project).resolve();sources=adopted(project);folder=draft_dir(project)
+    save(folder/DRAFT_NAME,{'manifest':DRAFT_NAME,'kind':'storyboard_draft','sources':_draft_sources(project,sources)})
+    save(folder/BREAKDOWN_NAME,manifest('scene_breakdown',_breakdown_items(sources)))
+    return folder
+
+
+def _read_output(path):
+    try:return read(path),''
+    except (OSError,ValueError):return None,'%s 还没产出或读不出来'%path.name
+
+
+def draft_problems(project):
+    """核验 03 的两份落盘产物与当前已采用分镜一致；旧项目缺文件时先按已采用分镜补写。空列表＝通过。"""
+    from script_manifest_schema import duplicate_ids,items_of,validate
+    project=Path(project).resolve();sources=adopted(project)
+    if not sources:return []
+    folder=draft_dir(project)
+    if not (folder/DRAFT_NAME).is_file() and not (folder/BREAKDOWN_NAME).is_file():
+        try:sync_draft_outputs(project)
+        except (OSError,ValueError,KeyError,TypeError) as exc:return ['同步分镜初稿产物失败：%s'%exc]
+    draft,problem=_read_output(folder/DRAFT_NAME);problems=[problem] if problem else []
+    if draft is not None:
+        try:fresh=_draft_sources(project,sources)
+        except (OSError,ValueError,KeyError,TypeError):fresh=None
+        if not isinstance(draft,dict) or draft.get('sources')!=fresh:
+            problems.append('%s 与已采用分镜不一致，请在初步分镜页重新采用以同步'%DRAFT_NAME)
+    data,problem=_read_output(folder/BREAKDOWN_NAME)
+    if problem:return problems+[problem]
+    items=items_of(data);have=sorted(sid for item in items for sid in item.get('shot_ids') or [])
+    want=sorted(sid for _s,shots in ((_episode_shots(p)) for p in sources) for s in shots for sid in [str(s.get('id') or '')])
+    if have!=want:problems.append('%s 没有覆盖全部已采用镜头，请重新采用以同步'%BREAKDOWN_NAME)
+    problems+=duplicate_ids({BREAKDOWN_NAME:data})
+    # 场景／角色编号是否写成 LOC_／CHAR_ 由资产阶段（SG-01）判定，这里只拦结构性错误。
+    problems+=['%s 第 %d 条：%s'%(BREAKDOWN_NAME,index,text) for index,item in enumerate(items,1)
+               for text in validate('scene_breakdown',item) if not text.startswith(('scene_id 要写','characters 里要写'))]
+    return problems
 
 
 def adopt(project,values,*,gateway=None):
@@ -222,6 +305,7 @@ def adopt(project,values,*,gateway=None):
     data['adopted_storyboards']=[p.relative_to(project).as_posix() for p in combined]
     data['frame_json']=incoming[-1].relative_to(project).as_posix()
     save(project/'ui_settings.json',data)
+    sync_draft_outputs(project)
     return combined
 
 
@@ -328,6 +412,7 @@ def remove(project,values,*,gateway=None):
     if current not in remaining:data['frame_json']=remaining[-1].relative_to(project).as_posix() if remaining else ''
     _sync_plan(project,library_dir(project),remaining,gateway=_asset_plan_gateway(gateway), context=project_context(project))
     save(project/'ui_settings.json',data)
+    sync_draft_outputs(project)
     return remaining
 
 

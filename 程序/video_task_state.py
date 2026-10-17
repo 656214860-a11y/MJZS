@@ -4,6 +4,15 @@ from agent.core import read
 from storyboard_paths import project_root
 
 ACTIVE={'submitting','unknown','queued','running','succeeded'}
+VIDEO_MAX_SHOTS=100
+MANIFEST_NAMES=('videos.json','video_manifest.json')
+
+
+def shot_count_error(shots):
+    """单项目视频镜头数上限的唯一判定：已删除镜头不计数；超限返回给用户看的原因，否则返回空串。"""
+    count=sum(1 for shot in shots or () if isinstance(shot,dict) and not shot.get('video_deleted'))
+    if count<=VIDEO_MAX_SHOTS:return ''
+    return '本项目有 %d 个视频镜头，超过上限 %d 镜/项目；请把剧本拆成多集或多个项目后再制作视频。'%(count,VIDEO_MAX_SHOTS)
 
 
 def provider_failure_reason(version):

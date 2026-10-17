@@ -58,9 +58,12 @@ class PublishEditListsTests(unittest.TestCase):
         from types import SimpleNamespace
         from unittest.mock import Mock, patch
         import engine
+        from edit_export import normalize_edits
         studio = SimpleNamespace(cfg={'ffmpeg': 'fake'}, output_spec=lambda: SPEC,
                                  publish_edit_bundle=Mock(),
-                                 publish_edit_lists=lambda *args: {'ok': False, 'reason': 'disk full'})
+                                 publish_edit_lists=lambda *args: {'ok': False, 'reason': 'disk full'},
+                                 edit_settings=lambda: normalize_edits(None))
+        studio._join_shots = lambda *args: engine.Studio._join_shots(studio, *args)
         def encode_command(args, **kwargs):
             if isinstance(args[-1], Path):
                 args[-1].write_bytes(b'encoded fixture')

@@ -45,11 +45,11 @@ R1247 数据边界：剧本聊天及回收站位于 `01剧本准备/模型会话
 | 连贯性清单 | `06连贯性清单` | 被采用分镜、资产 | `continuity_ledger.json`、`continuity_ledger.md`、`continuity_issues.json` |
 | 分镜定稿 | `07分镜定稿` | 初稿、资产、台账 | 已采用分镜、`batch_id`（`episode.json` + `assets.json`） |
 | 首帧管理 | `08首帧管理` | 批次、锚点 | 非空首帧文件 |
-| 白模预演 | `09白模预演` | 首帧、镜头动作 | 复杂镜头的可播放预演（镜头级 `预演记录.json` 在白模成果目录） |
+| 白模预演 | `09白模预演` | 首帧、镜头动作 | 复杂与中等动作镜头的可播放预演（镜头级 `预演记录.json` 在白模成果目录；项目内副本与索引 `output/previs.json`） |
 | 视频生成 | `10视频生成` | 预演、视频提示词 | 视频任务/成片 |
 | 配音与字幕 | `11配音与字幕` | 定稿分镜、台词 | 音频、字幕 |
-| 后期剪辑 | `12后期剪辑` | 已验收的镜头视频（采用版本） | 粗剪成片与剪辑清单（落 `13质检交付/导出成片/`）、剪辑优化清单、成果确认 |
-| 质检与交付 | `13质检交付` | 全部上游交付 | 验收报告与交付包 |
+| 后期剪辑 | `12后期剪辑` | 已验收的镜头视频（采用版本） | 粗剪成片（含可选转场与背景音乐）、`edits.json`、平台版本与剪辑清单（落 `13质检交付/导出成片/`）、剪辑优化清单、成果确认 |
+| 质检与交付 | `13质检交付` | 全部上游交付 | 质检结论与交付包（`qc_report.json／delivery.json／delivery_manifest.json`） |
 
 旧 `00_script`—`10_qc_delivery` 仅由 `stage_layout.LEGACY_STAGE_ALIASES`
 在读取历史项目时兼容；不得创建或作为新项目写入目录。
@@ -70,7 +70,7 @@ R1124 插入 Animatic 后，旧中文编号目录由 `stage_path_service.read_di
 复杂镜头的可播放白模预演 ── SG-05 ──> 视频生成
 ```
 
-五类剧本 manifest 是 `character_manifest`、`scene_manifest`、`prop_manifest`、`scene_breakdown`、`emotion_curve`；它们为资产、分镜和连续性阶段提供结构化输入。产出方唯一定义在 `script_manifest_schema.PRODUCERS`：`emotion_curve` 由 01 剧本准备产出，`character_manifest`／`scene_manifest`／`prop_manifest` 由 02 剧本结构产出，`scene_breakdown` 由 03 初步分镜产出。门禁只在上游已开始却不完整时拦截；空项目始终放行。
+五类剧本 manifest 是 `character_manifest`、`scene_manifest`、`prop_manifest`、`scene_breakdown`、`emotion_curve`；它们为资产、分镜和连续性阶段提供结构化输入。产出方与落盘阶段唯一定义在 `script_manifest_schema.PRODUCERS`（各阶段 outputs 同源于 `script_manifest_contract.STAGE_MANIFESTS`；02 的三份由结构剧本派生写入并核验，03 的 `scene_breakdown` 由已采用分镜派生并核验）：`emotion_curve` 由 01 剧本准备产出，`character_manifest`／`scene_manifest`／`prop_manifest` 由 02 剧本结构产出，`scene_breakdown` 由 03 初步分镜产出。门禁只在上游已开始却不完整时拦截；空项目始终放行。
 
 ## 验证地图
 
