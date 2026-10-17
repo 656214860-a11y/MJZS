@@ -259,7 +259,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 03  | `storyboard`       | 初步分镜  | 已采用的分镜 JSON（`03初步分镜/分镜拆分/`，文件名由模型产出；`stage_layout` 中的 `storyboard_draft.json` 只是声明名，无代码写入，是否固定见 docs/REQUIREMENTS.md REQ-S03-43）；需求与设计见 `docs/`。 |
 | 04  | `animatic`         | 分镜预演  | 参考图与分镜提示词生成的预演草图、Animatic、`animatic_manifest.json`。 |
 | 05  | `assets`           | 资产管理  | `assets.json`、正典板、锚点。                            |
-| 06  | `continuity`       | 连贯性清单 | `continuity_ledger.json`、检查清单。                   |
+| 06  | `continuity`       | 连贯性清单 | `continuity_ledger.json`、`continuity_ledger.md`、`continuity_issues.json`，另发布共享锚点库与三元组字典。 |
 | 07  | `final`            | 分镜定稿  | 采用分镜、提示词、批次 ID。                                  |
 | 08  | `keyframe`         | 首帧管理  | 非空首帧、`keyframe_manifest.json`。                   |
 | 09  | `previs`           | 白模预演  | 可播放预演、`previs_manifest.json`。                    |
@@ -333,7 +333,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 初步分镜  | “初步分镜”栏已选的结构剧本                        | 分镜 JSON（经校验后采用）；场次拆分 `scene_breakdown.json` 是否必须产出待定，见 docs/REQUIREMENTS.md REQ-S03-44                                                         | JSON              |
 | 分镜预演  | 分镜初稿、共享参考图、临时声音 | 预演草图、Animatic、`animatic_manifest.json` | 视频、JSON |
 | 资产管理  | 分镜、资产需求、参考图                  | 资产表、正典板、锚点                                                      | JSON、图片           |
-| 连贯性清单 | 分镜、资产、锚点                     | 台账、冲突/修复清单                                                      | JSON              |
+| 连贯性清单 | 被采用分镜、资产（含锚点）                | 台账（含冲突裁决）、问题闭环登记 `continuity_issues.json`                    | JSON、Markdown     |
 | 分镜定稿  | 初稿、资产、台账                     | 采用分镜、提示词、批次                                                     | JSON、Markdown     |
 | 首帧管理  | 定稿镜头、提示词、资产参考                | 首帧、缩略图、清单                                                       | 图片、JSON           |
 | 白模预演  | 首帧、镜头时间线                     | 预演、清单                                                           | 视频、JSON           |
@@ -351,7 +351,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 剧本工作流 Agent                      | 剧本准备/剧本结构 | 将创意和 SKILL 送入模型，维护 writing 和受控工具。 |
 | 分镜 Agent                         | 初步分镜/定稿   | 拆场、镜头链、资产核验、初稿/定稿。                |
 | 资产 Agent                         | 资产管理      | 候选、正典板、资产表和恢复。                    |
-| 连贯性 Agent                        | 连贯性清单     | 冻结锚点、漂移和冲突审计。                     |
+| 连贯性 Agent                        | 连贯性清单     | 冻结锚点、漂移和冲突审计；实现为本地规则 `continuity_ledger`，不调用模型。 |
 | 首帧 Agent                         | 首帧管理      | 批量生成、导入、质检和重试。                    |
 | 白模 Agent                         | 白模预演      | 场景、走位、机位和预演。                      |
 | 视频 Agent                         | 视频生成      | 本地/云任务、轮询、限流和重试。                  |

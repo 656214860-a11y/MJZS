@@ -4,7 +4,7 @@
 编号规则：`REQ-<阶段号>-<序号>`，删除的编号不复用。测试 docstring 写 `REQ-xx` 锚定。
 状态：✅ 已实现　🟡 部分实现／与代码不一致　⬜ 未实现　❓ 待人拍板
 
-> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜、S04 分镜预演、S05 资产管理。其余阶段按顺序逐阶段补。
+> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜、S04 分镜预演、S05 资产管理、S06 连贯性清单。其余阶段按顺序逐阶段补。
 
 ## S01 剧本准备
 
@@ -246,3 +246,48 @@
 - 不覆盖已确认的资产或锚点；不改写用户项目里的参考图。
 - 不设 SG-01 之外的本阶段出口闸；SG-B 是入口闸。
 - 不把 `emotion_curve`／`scene_breakdown` 等 manifest 作为程序必需输入（见 REQ-S05-05）。
+
+## S06 连贯性清单
+
+目标：把 S03 被采用的分镜与 S05 资产清单交叉核验，冻结必须逐字保住的锚点，列出冲突、批次三元组与跨批次不一致，形成连贯性台账；它是 S07 分镜定稿的前置检查，不生成任何内容。
+
+### 输入与依赖
+
+- **REQ-S06-01** ✅ 输入是当前被采用的分镜 JSON（`storyboard_selection.current_source`）和本集资产清单（S05 的 `assets.json`）。读不到时按空分镜／空资产计算，不报错。
+- **REQ-S06-02** ✅ 依赖 S05（`stage_flow.DEPENDS`）。上游门禁 SG-01（资产锁定，`assets_locked`）、下游门禁 SG-02（连贯性台账，`ledger_ready`）；门禁只拦“已开始但不完整”，空项目放行。本阶段全局串行（1 个 Agent），失败重试 2 次后阻塞。
+- **REQ-S06-03** ✅ 本阶段不采集、不要求制作锁（`STAGE_LOCK_REQUIREMENTS` 不含 continuity）；SKILL 只读用 S01 填写的锁。
+
+### 清单流程
+
+- **REQ-S06-10** ✅ 台账由 `continuity_ledger.build(shots, assets)` 按规则现场计算，不调用模型。
+- **REQ-S06-11** ✅ 台账含 `batches`（批次与冻结锚点）、`conflicts`、`cross_batch`、`triplets`、`drift`、`summary`（批次数、镜头数、是否通过、待办列表），`version=1`。
+- **REQ-S06-12** ✅ 冻结锚点逐字取自资产：角色（含服装状态覆盖）、场景（光源＋空间锚点＋尺度）、道具（材质＋尺度）；资产里没有的不补、不改写。
+- **REQ-S06-13** ✅ 参考图冲突两类：“职责自相矛盾”（一张图既管身份又管场景／动作／运镜且排除项没写）与“多图抢同一件事”；裁决规则是先出现的参考图负责身份，其余只补风格与光影。
+- **REQ-S06-14** ✅ 三元组：每批一行；同一批内 scene_id＋character_ids＋costume_id 出现多种即不通过，提示重切批次，本阶段不改批次划分。
+- **REQ-S06-15** ✅ 跨批次：同一锚点（类型＋编号＋状态）在不同批次字符串不一致即不通过；分镜里的 `continuity_flags` 作为“全程必须保住”项记入。
+- **REQ-S06-16** 🟡 漂移只比较角色锚点，不比较场景和道具；重建台账时冻结值与现值取自同一份资产，恒为一致，只有把已落盘台账与当前资产对比（G-09 `check_drift`）才有意义。
+- **REQ-S06-17** ✅ 本阶段不生成图片／文字内容、不重新描述锚点、不改分镜、不改资产。
+
+### 产出与完成
+
+- **REQ-S06-20** ✅ 台账、人读版、共享锚点库、三元组字典四个文件一次发布（`publish_bundle`）：`06连贯性清单/output/continuity_ledger.json`、`06连贯性清单/docs/continuity_ledger.md`、`_shared/anchors/anchors.json`、`_shared/triplets/triplets.json`；写后读回校验，任一失败恢复旧字节；重复写入结果一致。
+- **REQ-S06-21** ✅ 问题闭环登记 `06连贯性清单/output/continuity_issues.json`：问题编号稳定（`CI-<类型>-<范围>`），状态待处理／已忽略／已解除；忽略必须写理由并记当时证据摘要；证据变化或问题复现则重开；修好自动解除；只有 L3 注入发布器才落盘，否则只读预览。
+- **REQ-S06-22** ✅ 严重度：职责自相矛盾、三元组不一致为“高”，锚点漂移、跨批次不一致为“中”。
+- **REQ-S06-23** ✅ 阶段完成 = SG-02 `ledger_ready` 通过且 `started`（台账已生成）。台账未生成时门禁放行但不算完成；台账有未处理问题时不通过；被忽略或已解除的问题不再拦；台账说有问题却算不出问题行时不擅自放行。
+- **REQ-S06-24** ❓ SG-02 只读已落盘台账，不核对它是否对应当前分镜／资产：台账生成后再改分镜或资产仍放行；另外，空分镜也能生成 0 批次的通过台账并被判完成。是否要求台账与当前输入同版，待拍板。
+- **REQ-S06-25** 🟡 页面为现场计算、不落盘；只有“手动生成连贯性清单”才写盘并同步问题登记。
+- **REQ-S06-26** ❓ 主观门禁 G-08（“多图抢同一件事”的优先级裁决）不计入台账待办，SG-02 不要求先裁决，只有“职责自相矛盾”阻塞；而 `confirm_gates` 和恢复提示（`stage_flow` RECOVERY_HINTS）把“人工裁决”写成本阶段要做的事。裁决是否应成为放行条件，待拍板。
+- **REQ-S06-27** 🟡 台账 `stage` 字段与 SG-02 返回的 artifacts 仍写旧内部标识 `03_continuity`（实际目录 `06连贯性清单`，artifacts 指向不存在的路径）；`stage_layout` 别名兼容读写，功能不受影响。旧 `05连贯性清单` 目录只读。
+
+### SKILL 与引擎
+
+- **REQ-S06-30** ✅ 本阶段 6 个 SKILL，位于 `skills/06连贯性SKILL/`：`pipeline-continuity`（总入口，预设默认勾选）、`continuity-anchor-freeze`、`continuity-conflict-adjudicate`、`continuity-cross-batch-guard`、`continuity-drift-audit`、`continuity-triplet-check`。
+- **REQ-S06-31** ✅ SKILL 的 `continuity.*` 工具在 `skill_tools` 登记；`continuity.buildLedger` 直接调用 `continuity_ledger.build/write` 本地落盘，其余工具对应页面上的裁决／校验表。
+- **REQ-S06-32** ❓ `pipeline-continuity` 声明由模型执行（capabilities 含 reasoning、vision，preferredModels qwen-max，输出 `continuityLedger`、`repairList`），实际实现是纯本地规则，且不存在 `repairList` 文件（对应物是 `continuity_issues.json`）。SKILL 描述与实现哪个为准，待拍板。
+- **REQ-S06-33** ❓ 三虎自动链没有自动生成台账的入口：`PET_STAGE_POLL` 不含 continuity，`desktop.pet_start` 对本阶段返回空串；自动档只会按推荐自动选 G-05／G-06／G-08 候选。因台账缺失时 SG-02 放行，自动链会越过本阶段。是否要补自动生成，待拍板。
+
+### 非目标（明确不做）
+
+- 不生成或重新描述锚点、不改写分镜、不重切批次（批次划分属 S03／S07）。
+- 不做首帧、白模、视频一致性的图像级比对。
+- 不设独立的“放行”权限：分镜定稿放行以 SG-02 为准，D 锁（`splice_mode`）只读用。

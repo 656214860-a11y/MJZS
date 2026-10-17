@@ -228,3 +228,49 @@
 | REQ-S05-33 | `test_asset_impact`、`test_asset_restore`、`test_asset_image_restore_service` |
 | REQ-S05-23 | `test_asset_context`、`test_asset_resume` |
 | REQ-S05-32（待定） | 暂无；拍板后补回归 |
+
+## S06 连贯性清单
+
+### 模块分工
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L4 | `desktop_media_pages`（`MediaPagesMixin`） | 连贯性清单页：现场算台账、“手动生成连贯性清单”落盘、问题闭环表与忽略入口 |
+| L4 | `desktop_automation_tick` | 半自动／全自动档下按推荐处理 G-05／G-06／G-08 候选 |
+| L3 | `stage_execution_service` | 问题登记的 L3 门面：`continuity_issue_report`／`sync_continuity_issues`／`decide_continuity_issue`，注入发布器 |
+| L3 | `stage_parallel` | `CONFIG['continuity']`、门禁 SG-01 `assets_locked`／SG-02 `ledger_ready` |
+| L3 | `stage_completion_service` | 完成核验：`'continuity': 'ledger_ready'` 且 `ok and started` |
+| L3 | `stage_flow` | 依赖 `DEPENDS`、手动按钮名、恢复提示 |
+| L3 | `confirm_gates` | 主观门禁 G-08（冲突裁决）候选与确认账本 |
+| L2 | `continuity_ledger` | 台账计算、发布包、问题闭环（纯规则，无模型调用） |
+| L2 | `skill_tools` | `continuity.*` 工具登记；`_continuity_ledger` 本地落盘 |
+| L0/契约 | `stage_layout`／`stage_path_service` | `06连贯性清单` 目录、`_shared` 共享索引路径、旧 `05连贯性清单` 只读 |
+| L0/契约 | `shot_batches`／`artifact_schema` | 批次与三元组归并；`continuity_ledger`／`continuity_issues` 的 schema |
+
+### 设计条目
+
+- **DES-S06-01**（REQ-S06-01）页面 `continuity_ledger_data` 读 `current_frame_json()` 的 `shots` 与 `asset_requirements()`，两者失败各自降为空后调用 `build`。
+- **DES-S06-02**（REQ-S06-02）`stage_flow.DEPENDS['continuity']=('assets',)`；`stage_parallel.GATES` 的 SG-01（assets→continuity）、SG-02（continuity→final）；`CONFIG['continuity']` 单 Agent、重试 2 次、`ON_BLOCK`。
+- **DES-S06-03**（REQ-S06-03）`script_contract.STAGE_LOCK_REQUIREMENTS` 不登记 continuity，`stage_handler_registry` 不对本阶段做制作锁检查。
+- **DES-S06-10**（REQ-S06-10/11）`build` 依次调用 `batches`、`anchors_of`、`conflicts`＋`adjudicate`、`cross_batch`、`triplets`、`drift`，再由 `resolve_problems` 汇总 `summary`。
+- **DES-S06-12**（REQ-S06-12）`anchors_of` 对角色用 `merged_anchor`（含服装状态覆盖），场景拼“光源／空间锚点／尺度”，道具拼“材质／尺度”；缺字段不补。
+- **DES-S06-13**（REQ-S06-13）`conflicts` 用 `IDENTITY_WORDS`／`SCENE_WORDS`／`MOTION_WORDS` 词表判定；`adjudicate` 取 refs 第一个为身份负责人；`ask` 为多图抢同一件事生成 2 个候选（G-08）。
+- **DES-S06-14**（REQ-S06-14/15）`triplets`／`cross_batch` 只比字符串；`continuity_flags` 去重后以 `kind='flag'` 记入。
+- **DES-S06-16**（REQ-S06-16）`drift` 仅遍历 `kind=='character'` 的冻结锚点，与 `merged_anchor` 现值比较；`confirm_gates.check_drift` 在有资产时重新比较。
+- **DES-S06-20**（REQ-S06-20）`publish_bundle` 先备份四个目标的旧字节，逐个写入，读回比对，失败 `restore_bytes`；`write` 只是兼容入口。边界由 `tests/architecture/test_continuity_publication_boundary` 守。
+- **DES-S06-21**（REQ-S06-21/22）`issues` 把台账未通过项转成结构化问题；`merge_issues` 为纯函数，`sync_issues`／`decide_issue` 仅在 L3 注入 `publish` 时落盘；`SEVERITIES`／`ISSUE_KINDS` 为权威表。
+- **DES-S06-23**（REQ-S06-23）`ledger_ready` 读台账；无台账返回 `ok=True, started=False`；有未通过项时用 `issue_gate` 判断是否全部为已忽略／已解除，且必须算得出问题行才放行；完成核验取 `ok and started`。
+- **DES-S06-30**（REQ-S06-30/31）SKILL 位于 `skills/06连贯性SKILL/`，`skill_registry` 以 `06` 目录归入 continuity；`workflow_settings` 预设默认 `pipeline-continuity`；`skill_tools` 登记 `continuity.buildLedger` 等。
+- **待定**（REQ-S06-24/26/32/33）台账版本核对、G-08 是否为放行条件、SKILL 与实现的一致方向、自动生成入口，待用户拍板后再设计。
+
+### 测试锚定
+
+| 需求 | 测试 |
+| --- | --- |
+| REQ-S06-02/03/11/20/22/23/30 | `test_continuity_scope` |
+| REQ-S06-12/13/14/15/16 | `test_continuity_ledger` |
+| REQ-S06-20（失败回滚） | `test_continuity_ledger`、`tests/architecture/test_continuity_publication_boundary` |
+| REQ-S06-21 | `test_continuity_issues` |
+| REQ-S06-02（门禁与依赖） | `test_stage_parallel`、`test_stage_flow` |
+| REQ-S06-23（完成核验） | `test_stage_completion_service`、`test_continuity_scope` |
+| REQ-S06-24/26/32/33 | 待定 |
