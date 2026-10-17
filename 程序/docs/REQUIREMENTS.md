@@ -4,7 +4,7 @@
 编号规则：`REQ-<阶段号>-<序号>`，删除的编号不复用。测试 docstring 写 `REQ-xx` 锚定。
 状态：✅ 已实现　🟡 部分实现／与代码不一致　⬜ 未实现　❓ 待人拍板
 
-> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜、S04 分镜预演。其余阶段按顺序逐阶段补。
+> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜、S04 分镜预演、S05 资产管理。其余阶段按顺序逐阶段补。
 
 ## S01 剧本准备
 
@@ -196,3 +196,53 @@
 - 不做节奏／时长／对白的自动评判；三项确认只能由人完成。
 - 不自动导出剪映工程。
 - 不修改分镜初稿；发现问题回到 S03 修订并重新采用。
+
+## S05 资产管理
+
+目标：把已采用的分镜初稿里出现的角色／场景／道具，整理成带稳定编号、可追溯来源的资产清单，并为角色建立正典板与锚点；资产图片全部导入、角色锚点锁定后，才放行连贯性清单（SG-01）。
+
+### 输入与依赖
+
+- **REQ-S05-01** ✅ 资产清单只由「已采用」的分镜 JSON 导出（`asset_plan` 在非采用流程里按 `storyboard_adoption_contract.adopted` 过滤来源）。项目里没有采用任何分镜时，`active_source` 报“请先…点「手动采用分镜」”，不凭空建清单。
+- **REQ-S05-02** ✅ 依赖分镜预演：`stage_flow.DEPENDS['assets']=('animatic',)`；入口闸 SG-B（分镜预演确认：Animatic 可播放，节奏、时长、对白同步已确认）。生成正式资产前由 `require_formal_asset_generation` 核验 SG-B，且必须选线上 API 模型；纯计划与浏览不受限。
+- **REQ-S05-03** ✅ 本阶段不采集、不要求制作锁值；`track`、`aspect_ratio`、`resolution` 等锁值由 S01 填写，本阶段只读用（画幅默认 `16:9`、分辨率默认 `1920x1080`，项目锁优先）。
+- **REQ-S05-04** ✅ 共享参考图目录 `reference_images` 由分镜预演准备、本阶段复用；资产提示词、正典板、锚点职责仍归本阶段。本地 ComfyUI 草图不进入正式资产登记。
+- **REQ-S05-05** 🟡 `pipeline-assets` SKILL 的 `input` 列了 `characterManifest`／`sceneManifest`／`propManifest`／`sceneBreakdown`／`emotionCurve`，但程序（`asset_plan`）并不读这些 manifest，清单完全从分镜镜头里的 `characters`／`location`／`props` 引用导出。S02 默认路径也不写这三份 manifest（见 REQ-S02-23）。两者口径需统一，待拍板。
+
+### 资产清单与契约
+
+- **REQ-S05-10** ✅ 资产编号格式 `CHAR_###`／`LOC_###`／`PROP_###`（至少三位）；分镜里写的是名称时，按名称／别名匹配已有编号，匹配到多个编号报错要求在分镜中指定，匹配不到则新分配下一个空号。
+- **REQ-S05-11** ✅ 清单同步不覆盖已有内容：只补缺失的契约字段（`asset_contract.normalize` 只补缺的键），已有值一个不动；`used_in` 记录引用该资产的镜头编号。
+- **REQ-S05-12** ✅ 只有被标记“需要独立资产”的道具才进清单（`prop_assets.requires_asset`）；普通道具写进镜头提示词，不分配编号。
+- **REQ-S05-13** ✅ 角色字段：`character_anchor`（锚点字符串）、`base_anchor`、`canonical_board`／`canon_board_views`（正典板，7 格：前／右／左／背 4 张全身 + 3/4 左／正面／3/4 右 3 张头部）、`state_variants`（编号 `CST-01` 起，每项含 `override`）、`reference_role`（默认“面部、发型、服装”）、`reference_exclude`（默认“场景、动作、镜头”）、`locked`、字段化 `physical_features`。
+- **REQ-S05-14** ✅ 校验规则（`asset_contract.validate`，返回问题列表，空为通过）：角色锁定前锚点不能为空；正典板视角名须是 7 个已知视角；状态编号须形如 `CST-01`、不得重复、必须有 `override`；`physical_features` 不得是整句字符串；缺 `canonical_board` 且无 `canon_board_views` 报缺。场景须有合法 `aspect_ratio`（如 `16:9`）、`resolution`（如 `1920x1080`）和成对的 `spatial_anchors`（`object`+`position`）。道具 `holder` 为空或形如 `CHAR_###`。
+- **REQ-S05-15** ✅ 分镜引用的编号在清单里缺 `name` 或生图提示词，由 `missing_ids` 报出（门禁 G-04 使用）。
+- **REQ-S05-16** ✅ 清单、名称编号对照、来源、导入进度四份文件作为一个发布包原子写入，写后复核；失败则整体回滚到发布前（`asset_plan._publish_plan_bundle`）。
+- **REQ-S05-17** ✅ 只有登记过且文件真实存在于资产库内的图片才算“已导入”；计划里自带的 `image` 路径不被采信（`sync_plan` 先剔除再按登记表回填，状态为“已导入／待导入”）。
+
+### 流程与执行
+
+- **REQ-S05-20** ✅ 一项资产一个 Agent；每项内部固定串行：正典板 → 状态变体 → 锚点 → 参考职责。并发 3–5（上限 5）；失败重试 2 次（固定间隔），耗尽后阻塞（`ON_BLOCK`）。
+- **REQ-S05-21** ✅ 默认只出提示词，不因启动本阶段自动出图；实际出图须有明确授权，沿用候选确认、预算与执行器。付费阶段（`PAID_STAGES` 含 `assets`）受预算约束。
+- **REQ-S05-22** ✅ 资产图片制作后端：本地与云端模型名由 L0 `production_model_contract` 统一；正式资产请选线上 API 模型。
+- **REQ-S05-23** ✅ 新写入目录为 `05资产管理/`；旧 `04资产管理`（R1124 前编号）与 `episode/assets/资产清单` 仅只读兼容，不再写回；旧目录 `02_assets` 为更早的别名。
+
+### 产出与完成
+
+- **REQ-S05-30** ✅ 阶段完成 = SG-01（`assets_locked`）通过且 `started`：清单每项都导入了真实非空图片；每个 `CHAR` 都 `locked`；每个 `CHAR` 都有 `character_anchor`（或 `base_anchor`）。模型文字、界面提示、manifest 是否存在都不算证据（`stage_completion_service`）。
+- **REQ-S05-31** ✅ SG-01 只拦“做过但没做全”：清单不存在、读不出来，或只有刚扫出来的名字（无图、无锁、无锚点）且阶段机没跑过，一律放行并标未开始。
+- **REQ-S05-32** ❓ 需拍板（疑似缺陷）：SG-01 读 `资产清单/assets.json` 里的 `image`，但程序登记图片只写图片登记表 `<资产库>/assets.json`（`asset_batch_service.register_image`／`import_asset_image`／恢复）；`sync_plan` 又把 `image` 从清单文件剔除。实测：清单里有锁与锚点、登记表里有真实图片时，SG-01 仍报“1 项资产还没导入图片”。端到端探针靠手工把 `image` 同时写进两份文件才通过。需确认是以登记表还是清单为准，再改门禁或写入点。
+- **REQ-S05-33** ✅ 用户可见的资产删除走回收站（`storage_maintenance.recycle_paths`）；删除前由 `deletion_references`／`asset_impact` 列出被哪些镜头引用；恢复可还原相同字节。
+
+### SKILL
+
+- **REQ-S05-40** ✅ 本阶段 SKILL 位于 `skills/05资产管理SKILL/`：`pipeline-assets`（总入口，`dependsOn: pipeline-animatic`，不并行，不付费，输出 `assetManifest`／`canonBoard`／`anchors`）、`asset-auto-fill`、`asset-candidate-wall`（用户确认后才入库）、`asset-copyright-filter`、`asset-dedupe`、`asset-visual-rank`。
+- **REQ-S05-41** ✅ 资产缺少来源、身份锚点或版本时不得进入正典；发现冲突只生成待修复项，不覆盖已确认资产。SKILL 只按需读取 `continuity-bible.md` 与 `image-model-adapters.md` 的相应章节，不注入 00 包全文。
+- **REQ-S05-42** 🟡 `asset_contract.panel_text()` 仍写“资产管理页（02_assets）”“06 连贯性清单”，与现行 `05资产管理`、阶段 06 编号不符（代码文案陈旧，未改动）。
+
+### 非目标（明确不做）
+
+- 不在本阶段生成首帧、视频或配音。
+- 不覆盖已确认的资产或锚点；不改写用户项目里的参考图。
+- 不设 SG-01 之外的本阶段出口闸；SG-B 是入口闸。
+- 不把 `emotion_curve`／`scene_breakdown` 等 manifest 作为程序必需输入（见 REQ-S05-05）。

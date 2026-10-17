@@ -178,3 +178,53 @@
 | REQ-S04-30/31/32/33 | `test_animatic_service`（整包发布、越界、回滚） |
 | REQ-S04-40/41/42/43 | `test_animatic_service`（确认、流式核验、缺失媒体）、`test_stage_parallel`、`test_animatic_scope`（SG-B 登记） |
 | REQ-S04-26 | `test_animatic_service`（正式资产须线上 API） |
+
+## S05 资产管理
+
+### 模块分工
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L4 | `desktop_asset_pages`、`asset_detail`、`asset_reference_images`、`cloud_assets` | 资产页、详情页、参考图窗、云端后端；只注入回调 |
+| L3 | `stage_execution_service` | `require_formal_asset_generation`（SG-B + 线上模型）、`plan_unattended_assets`、`import_pending_generated_assets`、资产写入网关 |
+| L3 | `stage_flow` / `stage_parallel` | `DEPENDS`、`PAID_STAGES`、`CONFIG['assets']`、`GATES`、`assets_locked`（SG-01） |
+| L3 | `stage_completion_service` | `assets` 完成 = `assets_locked` 的 `ok and started` |
+| L2 | `asset_plan` | 从已采用分镜同步清单；原子发布四件套；`asset_impact`／`deletion_references` |
+| L2 | `asset_context` | 资产库定位 `library_dir`、来源 `active_source`、`generated_dir` |
+| L2 | `asset_batch_service`、`asset_generated_import_service`、`asset_*_service` | 图片登记（登记表）、批量生成、导入、恢复、重命名 |
+| L2 | `prop_assets` | 道具是否需要独立资产 |
+| L0/契约 | `asset_contract` | 编号前缀、正典板视角、默认值、`normalize`、`validate`、`missing_ids`、`schema` |
+| L0/契约 | `production_model_contract` | 资产批量后端名 |
+| L0/契约 | `stage_layout`／`stage_path_service` | `05资产管理` 目录；`04资产管理` 与 `episode/assets/资产清单` 只读 |
+
+### 设计条目
+
+- **DES-S05-01**（REQ-S05-01）`asset_plan._sync_plan` 取 `active_source`；非采用流程用 `storyboard_adoption_contract.adopted` 过滤来源；无采用分镜时 `active_source` 抛“请先…手动采用分镜”。
+- **DES-S05-02**（REQ-S05-02）`stage_flow.DEPENDS['assets']=('animatic',)`；`GATES` 的 SG-B 检查 `animatic_ready`；`require_formal_asset_generation` 调 `stage_parallel.evaluate(project,'assets')` 并要求线上模型。
+- **DES-S05-03**（REQ-S05-03）`asset_contract.resolve_aspect_ratio`：项目锁 > 已存偏好 > `16:9`；本阶段不在 `STAGE_LOCK_REQUIREMENTS` 登记。
+- **DES-S05-04**（REQ-S05-04）`stage_path_service.shared_reference_dir`／`shared_reference_read_dirs`；本地草图经 `generate_animatic_reference` 发布，不进登记表。
+- **DES-S05-10**（REQ-S05-10/11/12）`_sync_plan` 先预留显式编号再按别名映射／分配新号；`asset_contract.normalize` 只补缺的键；`prop_assets.requires_asset` 过滤道具。
+- **DES-S05-13**（REQ-S05-13/14）`asset_contract.VIEWS`（`TURNAROUND`+`HEADS`）、`defaults`、`validate`；`schema()` 输出 JSON Schema。
+- **DES-S05-15**（REQ-S05-15）`asset_contract.missing_ids` 逐镜取 `character_ids`／`characters`／`scene_id`／`location`／`costume_id`。
+- **DES-S05-16**（REQ-S05-16）`_publish_plan_bundle` 记录发布前字节，失败逐项还原或删除；写后复核四份文件。
+- **DES-S05-17**（REQ-S05-17）`_sync_plan` 对每项 `entry.pop('image')`，再按登记表回填，路径须在资产库内且文件存在才标“已导入”。
+- **DES-S05-20**（REQ-S05-20）`stage_parallel.CONFIG['assets']`：`unit=ASSET`、`min3/max5/limit5`、`serial=True`、重试 2 次固定间隔、耗尽 `ON_BLOCK`；`why` 写明单资产内部顺序。
+- **DES-S05-21**（REQ-S05-21/22）`stage_flow.PAID_STAGES`；`pipeline-assets` 声明“默认只出提示词”；后端名来自 `production_model_contract`。
+- **DES-S05-23**（REQ-S05-23）`write_dir(project,'assets')` → `05资产管理`；`read_dirs` 追加 `LEGACY_NUMBERED['assets']='04资产管理'` 与 `_LEGACY['assets']`（`episode/assets/资产清单`，2027-03-31 后停读）；`library_dir` 在新目录已有清单时优先新目录。
+- **DES-S05-30**（REQ-S05-30/31）`stage_parallel.assets_locked` 读 `library_dir/assets/资产清单/assets.json`；`missing`／`unlocked`／`noanchor` 三类问题；`touched`（有图／有锁／有锚点）或 `has_run` 才算 `started`；`stage_completion_service` 对 `assets` 要求 `ok and started`。
+- **DES-S05-32**（REQ-S05-32 ❓）待定：门禁读清单文件的 `image`，而图片只写登记表 `<资产库>/assets.json`（`asset_batch_service.register_image`／`import_asset_image`／恢复）。拍板后二选一：门禁改读登记表（与 `image_ready` 一致），或在登记时同步写清单；同步写会违背 `_sync_plan` 对 `image` 的剔除口径，需一并改。
+- **DES-S05-33**（REQ-S05-33）删除经 `storage_maintenance.recycle_paths`；`asset_plan.deletion_references` 列引用镜头；恢复经 `restore_latest_recycled_child`。
+- **DES-S05-40**（REQ-S05-40/41）SKILL 位于 `skills/05资产管理SKILL/`；`pipeline-assets` 的 `dependsOn: [pipeline-animatic]`、`parallelizable: false`、`paid: false`。
+
+### 测试锚定
+
+| 需求 | 测试 |
+| --- | --- |
+| REQ-S05-02/10/13/14/20/21/23/30/31/40 | `test_assets_scope` |
+| REQ-S05-01/11/16/17 | `test_asset_plan`、`test_assets` |
+| REQ-S05-13/14/15 | `test_asset_contract` |
+| REQ-S05-20 | `test_stage_parallel`、`test_asset_skill_batch`、`test_asset_batch_controller` |
+| REQ-S05-30/31 | `test_asset_gating`、`test_stage_gate_e2e_probe`、`test_stage_completion_service` |
+| REQ-S05-33 | `test_asset_impact`、`test_asset_restore`、`test_asset_image_restore_service` |
+| REQ-S05-23 | `test_asset_context`、`test_asset_resume` |
+| REQ-S05-32（待定） | 暂无；拍板后补回归 |
