@@ -67,9 +67,9 @@
 - **REQ-S02-20** ✅ 结构剧本只能经 `write_structured_script` 原子发布；空正文拒绝；原稿保持不变；发布同时记录来源血缘。
 - **REQ-S02-21** ✅ 一份稿件算“结构剧本”，需标题为「# 结构化剧本」、有档案区，且来源不是大纲／梗概；记录的来源原稿被删除后，该结构稿不再显示，不删文件。
 - **REQ-S02-22** ✅ 阶段完成 = 能解析到合格的结构剧本。模型文字、界面提示、manifest 是否存在都不算证据。
-- **REQ-S02-23** ❓ `character_manifest.json`／`scene_manifest.json`／`prop_manifest.json` 归本阶段（`script-character-extraction` SKILL）。现状：默认本地规则路径不写这三份，只有模型执行该 SKILL 时才可能落盘，且无程序核验。是否要求本阶段必须产出并核验，待拍板。
+- **REQ-S02-23** ✅ `character_manifest.json`／`scene_manifest.json`／`prop_manifest.json` 归本阶段（`script-character-extraction` SKILL）。用户裁决（2026-10-17）：由本阶段产出并核验。实现：`write_structured_script` 发布结构剧本时同步由其「角色／场景／道具档案」派生并原子写入 `02剧本结构/output/`（`script_contract.write_structure_manifests`）；`skill_orchestrator.verified_stage_output` 在结构剧本合法之外，还要 `structure_manifest_problems` 为空（文件在、抬头对、编号唯一、条目合规、名单与当前结构剧本一致），否则本阶段不算完成。「待确认」字段在 manifest 中留空，不拦完成。局限：此前已完成的旧项目没有三份文件，需重新整理一次结构剧本。
 - **REQ-S02-24** ✅ 新结构剧本写入 `02剧本结构/结构剧本/`；旧 `writing/` 目录只读兼容，不再写回。
-- **REQ-S02-25** ❓ `PRODUCERS` 登记的 manifest 落盘目录仍是旧名 `00_script`，与本阶段新写目录 `02剧本结构` 不一致。是否改为新目录，待拍板。
+- **REQ-S02-25** ✅ `PRODUCERS` 登记的落盘目录原为旧名 `00_script`。用户裁决：修复。现按产出阶段登记：三份清单 `02剧本结构`、`scene_breakdown.json` `03初步分镜`、`emotion_curve.json` `01剧本准备`；`stage_layout.STAGES` 各阶段 outputs 同源于 `script_manifest_contract.STAGE_MANIFESTS`；`00_script` 只作 `LEGACY_STAGE_ALIASES` 只读别名。
 
 ### SKILL
 
@@ -106,8 +106,8 @@
 - **REQ-S03-16** ✅ 背景人物、群演、路人、不露脸或一次性角色不写入 `characters`、不分配 CHAR 编号；普通道具写 `ordinary_props`，不分配 PROP 编号。
 - **REQ-S03-17** ✅ 每镜补充 `action_complexity`（simple/medium/complex）及 `complexity_reason`，决定后续是否需要白模。
 - **REQ-S03-18** ✅ 提交前须用 `validate_episode(JSON对象, media_root(JSON路径))` 本地校验，仅查本地数据、不调用模型；必须修复全部错误才算完成，未生成参考图只是待制作警告。
-- **REQ-S03-19** ❓ 契约与阶段输出契约都把"通过校验并采用后的 JSON"称为"分镜定稿"，并称其"锁定"来源剧本、编号、镜头编号、时长、台词与连续性约束；但 `pet_bus.STAGES` 的"分镜定稿"是第 07 阶段，且 07 才做批次划分与三元组补全。冲突证据：`storyboard_contract.py:44`、`workflow_settings.py:130` 对 `stage_layout.py:49`（07 的职责）。请拍板：03 采用后仍叫"分镜初稿"，"分镜定稿"留给 07；或两者保持现状。
-- **REQ-S03-20** ❓ 阶段并行提示要求本阶段"生成每个镜头时核对三元组并写入 `batch_id`"（`stage_parallel.py:203`），但批次划分的权威阶段是 07 分镜定稿（SG-03 查 `batch_id`、每批 ≤4 镜且 ≤18 秒，`stage_layout.py:49`）。03 是否要写 `batch_id`、写了是否算数，请拍板。
+- **REQ-S03-19** ✅ 契约与阶段输出契约原把"通过校验并采用后的 JSON"称为"分镜定稿"。用户裁决：03 叫"分镜初稿"，资产尚未同步，"分镜定稿"留给 07。已改 `storyboard_contract.py`、`workflow_settings.py` 文案及 03 页表头（"结构剧本"／"分镜初稿"，`test_ui_edges` 表头断言随标签契约同步）。
+- **REQ-S03-20** ✅ 用户裁决：由实现方决定。决定：03 不写 `batch_id`，批次划分归 07（`shot_batches.group` 回填）；`stage_parallel` 的 03 阶段提示已改为"批次划分属于 07，本阶段不写"。
 
 ### 采用（分镜初稿 → 后续阶段）
 
@@ -123,8 +123,8 @@
 - **REQ-S03-40** ✅ 新分镜 JSON 写入 `03初步分镜/分镜拆分/`，可读文档写入 `03初步分镜/分镜文档/`；旧 `storyboard/分镜拆分` 目录只读兼容。同一媒体根（`media_root`）对新旧目录一致。目录扫描拒绝符号链接逃逸、空文件，并忽略 `历史版本`、`分镜历史`、`剧本输入`、`frames`、`video_prompts`、`assets`、`首帧任务` 等内部目录。
 - **REQ-S03-41** ✅ 阶段完成 = 至少有一份已采用且含镜头的分镜 JSON（`stage_completion_service` → `stage_parallel._adopted`）。模型文字、界面提示不算证据；没有已采用分镜时报"还没有已采用且含镜头的分镜 JSON"。
 - **REQ-S03-42** ✅ 门禁 SG-A（初步分镜 → 分镜预演）：已采用分镜且各镜提示词与时长完整，否则挡住，提示"先完成并采用初步分镜"。
-- **REQ-S03-43** ❓ `stage_layout.STAGES` 与 `architecture.md` 声明本阶段产物名为固定的 `storyboard_draft.json`，并作为 04–07 阶段的输入名；实际没有任何代码写这个文件名，产物是模型命名的分镜 JSON（`分镜拆分/` 下），后续阶段读的是"已采用分镜清单"。该名只剩声明（仅 `tests/test_animatic_service.py` 用作测试夹具文件名）。请拍板：把声明改为"已采用的分镜 JSON"，或真的固定文件名。（architecture.md 已按现状改写，stage_layout 属契约代码，本轮未动。）
-- **REQ-S03-44** ❓ `script_manifest_schema.PRODUCERS` 把 `scene_breakdown.json` 的产出方登记为本阶段 `storyboard-scene-breakdown` SKILL，其他文档也称之为"五类剧本 manifest"之一。现状：阶段完成与 SG-A 都不检查它，没有任何下游消费它，默认流程也不要求产出；与 REQ-S02-23 同类。请拍板：是否要求本阶段必须产出并核验 `scene_breakdown.json`。落盘目录同样沿用旧名 `00_script`（同 REQ-S02-25）。
+- **REQ-S03-43** ✅ `storyboard_draft.json` 原只有声明、无人写入。用户裁决：修复。现由 `storyboard_selection.sync_draft_outputs` 在采用／取消采用／清理失效采用时写 `03初步分镜/output/storyboard_draft.json`（已采用分镜清单的索引：来源路径、episode_id、镜头编号）。后续阶段仍读"已采用分镜清单"，本文件是其落盘凭据，与清单不一致时 `draft_problems` 拦截。
+- **REQ-S03-44** ✅ `scene_breakdown.json` 原无人核验。用户裁决：修复。现由同一同步点按"连续同一 location 的镜头为一场"从已采用分镜派生（`breakdown_id`／`scene_id`／`boundary`／`characters`／`shot_ids`），落 `03初步分镜/output/`（目录同 REQ-S02-25）；`stage_completion_service`（storyboard）与 SG-A（`animatic_input_ready`）调用 `storyboard_selection.draft_problems` 核验：两份文件在、与当前已采用分镜一致、覆盖全部镜头、编号唯一。缺文件的旧项目在核验时按已采用分镜补写一次。场景／角色编号是否为 `LOC_`／`CHAR_` 形态由 SG-01 判定，此处不拦。
 
 ### SKILL
 

@@ -255,8 +255,8 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 序号  | ID                 | 阶段    | 核心产物                                             |
 | ---:| ------------------ | ----- | ------------------------------------------------ |
 | 01  | `script`           | 剧本准备  | 剧本/设定、`emotion_curve.json`、离线编剧任务书成果包。                    |
-| 02  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；新稿写入 `02剧本结构/结构剧本/`，具体读写目标由 `script_contract` 解析；需求与设计见 `docs/`。 |
-| 03  | `storyboard`       | 初步分镜  | 已采用的分镜 JSON（`03初步分镜/分镜拆分/`，文件名由模型产出；`stage_layout` 中的 `storyboard_draft.json` 只是声明名，无代码写入，是否固定见 docs/REQUIREMENTS.md REQ-S03-43）；需求与设计见 `docs/`。 |
+| 02  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；新稿写入 `02剧本结构/结构剧本/`，同时派生写入 `02剧本结构/output/` 的角色／场景／道具三份 manifest 并核验（`script_contract.write_structure_manifests`／`structure_manifest_problems`）；具体读写目标由 `script_contract` 解析；需求与设计见 `docs/`。 |
+| 03  | `storyboard`       | 初步分镜  | 已采用的分镜 JSON（`03初步分镜/分镜拆分/`，文件名由模型产出；采用时由 `storyboard_selection.sync_draft_outputs` 同步写 `03初步分镜/output/storyboard_draft.json` 与派生的 `scene_breakdown.json`，完成与 SG-A 经 `draft_problems` 核验，见 docs/REQUIREMENTS.md REQ-S03-43/44）；需求与设计见 `docs/`。 |
 | 04  | `animatic`         | 分镜预演  | 参考图与分镜提示词生成的预演草图、Animatic、`animatic_manifest.json`。 |
 | 05  | `assets`           | 资产管理  | `assets.json`、正典板、锚点。                            |
 | 06  | `continuity`       | 连贯性清单 | `continuity_ledger.json`、`continuity_ledger.md`、`continuity_issues.json`，另发布共享锚点库与三元组字典。 |
@@ -330,7 +330,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | ----- | ---------------------------- | --------------------------------------------------------------- | ----------------- |
 | 剧本准备  | 创意、剧本阶段输入、接续                | 创意简报、台词润色、情绪曲线                                                  | Markdown、JSON     |
 | 剧本结构  | 权威服务解析的被采用自然剧本 | 结构剧本（角色/场景/道具/分场内容），位于 `02剧本结构/结构剧本/`，旧 writing/ 只读兼容；提取 SKILL 可另产出 manifest、世界观（manifest 是否必须产出待定，见 docs/REQUIREMENTS.md REQ-S02-23） | Markdown、JSON     |
-| 初步分镜  | “初步分镜”栏已选的结构剧本                        | 分镜 JSON（经校验后采用）；场次拆分 `scene_breakdown.json` 是否必须产出待定，见 docs/REQUIREMENTS.md REQ-S03-44                                                         | JSON              |
+| 初步分镜  | “初步分镜”栏已选的结构剧本                        | 分镜 JSON（经校验后采用）；场次拆分 `scene_breakdown.json` 由已采用分镜派生并核验（REQ-S03-44）                                                     | JSON              |
 | 分镜预演  | 分镜初稿、共享参考图、临时声音 | 预演草图、Animatic、`animatic_manifest.json` | 视频、JSON |
 | 资产管理  | 分镜、资产需求、参考图                  | 资产表、正典板、锚点                                                      | JSON、图片           |
 | 连贯性清单 | 被采用分镜、资产（含锚点）                | 台账（含冲突裁决）、问题闭环登记 `continuity_issues.json`                    | JSON、Markdown     |

@@ -496,9 +496,9 @@ class UiEdgeTests(unittest.TestCase):
                 boxes = [w for w in d.content.winfo_children() if style_of(w) == "Tokens.Card.TFrame"]
                 self.assertEqual(len(boxes), 2)
                 self.assertEqual(first_tree(boxes[0]).heading("#0")["text"], "")
-                self.assertEqual(first_tree(boxes[0]).heading("#1")["text"], "分镜初稿")
+                self.assertEqual(first_tree(boxes[0]).heading("#1")["text"], "结构剧本")
                 self.assertEqual(first_tree(boxes[1]).heading("#0")["text"], "")
-                self.assertEqual(first_tree(boxes[1]).heading("#1")["text"], "分镜定稿")
+                self.assertEqual(first_tree(boxes[1]).heading("#1")["text"], "分镜初稿")
             finally:
                 win.destroy()
 

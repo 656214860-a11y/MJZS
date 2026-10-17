@@ -70,11 +70,11 @@ class PipelineStageIoContractTests(unittest.TestCase):
                                 '%s 的输入 %s 没有上游来源或入口豁免' % (pipeline.name, value))
 
     def test_manifest_owners_and_pipeline_outputs_derive_from_contract_sources(self):
-        layout_script_stage = stage_layout.stage_dir(script_contract.STAGE)[1]
-        expected_files = set(stage_layout.stage_dir(script_contract.STAGE)[5])
         for filename, (producer, folder) in script_contract.PRODUCERS.items():
-            self.assertIn(filename, expected_files)
-            self.assertEqual(stage_layout.stage_dir(folder)[1], layout_script_stage)
+            # REQ-S02-25：每份 manifest 落在产出它的阶段目录，而不是统一堆进旧名 00_script。
+            row = stage_layout.stage_dir(folder)
+            self.assertIn(filename, row[5])
+            self.assertNotIn(row[0], stage_layout.LEGACY_STAGE_ALIASES)
             owner = self.skills[producer]
             semantic_output = _camel_from_manifest(filename)
             producer_pipeline = next(skill for skill in self.skills.values()

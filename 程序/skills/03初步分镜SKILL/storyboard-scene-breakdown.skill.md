@@ -41,11 +41,11 @@ examples:
 ### 输入／输出
 - 输入：结构化剧本。
 - 输出：场次清单（时空、人物、戏剧任务、进出场边界）。
-- 落盘：scene_breakdown.json（每场一条，编号 SC_###，场号与剧本一致）。
+- 落盘：`03初步分镜/output/scene_breakdown.json`（采用分镜时程序按已采用分镜同步写入并核验；每场一条，编号 SC_###，场号与剧本一致）。
 
 ### 用到的工具
-- `storyboard.generate`：02 初步分镜 → 分镜创作
-- `storyboard.continuityCheck`：02 初步分镜 → 连续性检查
+- `storyboard.generate`：03 初步分镜 → 分镜创作
+- `storyboard.continuityCheck`：03 初步分镜 → 连续性检查
 
 ### 约束与验收
 - 场号与剧本一致：不许自己重新编号。

@@ -5,8 +5,8 @@
 东西落成能跑、能验的代码，不再只是报告里的一段话：
 
 - 任务 5：剧本阶段要产出五类 JSON —— character_manifest／scene_manifest／prop_manifest／
-  scene_breakdown／emotion_curve。`MANIFESTS` 是这五个文件名，`STAGE_OUTPUTS` 交给
-  `stage_layout.STAGES` 的 00_script 那一段，`manifest()` 把条目收成一份带抬头的文件
+  scene_breakdown／emotion_curve。`MANIFESTS` 是这五个文件名，`STAGE_MANIFESTS` 按产出阶段
+  交给 `stage_layout.STAGES` 各阶段的输出，`manifest()` 把条目收成一份带抬头的文件
   （抬头三件：manifest／kind／items）。
 - 任务 6：character_manifest.json 里每个角色的 physical_features 必须是字段化的五件：
   skin_tone／hair／eyes／distinctive_marks／body_type。整句自然语言交给 `field_features()` 拆字段，
@@ -29,7 +29,7 @@
 | emotion_curve.json | pipeline-script-preparation（全流程AIGC·剧本） | 剧本准备 |
 | scene_breakdown.json | storyboard-scene-breakdown（场次拆分） | 初步分镜 |
 
-场次拆分那个 SKILL 归在「初步分镜」，产物按契约落在 00_script/output（剧本阶段自己再核对一遍），
+场次拆分那个 SKILL 归在「初步分镜」，产物按契约落在 03初步分镜/output（由已采用分镜派生并核验），
 所以它也算剧本阶段的产出——`PRODUCERS` 里照实写，别归错。
 """
 import json
@@ -39,7 +39,7 @@ import hashlib
 from datetime import datetime
 from pathlib import Path
 from script_manifest_contract import (HEADER, KIND_OF_MANIFEST, KINDS, MANIFEST_OF_KIND,
-                                      MANIFESTS, STAGE_OUTPUTS)
+                                      MANIFESTS, STAGE_OUTPUTS, STRUCTURE_MANIFESTS)
 
 # ── 五类产出（任务 5）─────────────────────────────────────────────────────────
 
@@ -802,6 +802,7 @@ def write_structured_script(project, content=None, source=None, publisher=None):
 
     def update_index(published):
         record(root, published, source, '结构剧本')
+        write_structure_manifests(root, rendered)
 
     if publisher is None:
         update_index(target)
@@ -809,6 +810,105 @@ def write_structured_script(project, content=None, source=None, publisher=None):
         publisher(target, rendered, lambda value: bool(str(value).strip()),
                   update_index)
     return target
+
+
+# ── 02 剧本结构的三份 manifest（REQ-S02-23）：由结构剧本的档案区派生，程序写、程序核验 ──
+def _known(value):
+    """档案字段里「待确认」不是事实，manifest 里留空，不把占位文字当内容。"""
+    text = re.sub(r'（来源：原稿声明）', '', str(value or '')).strip()
+    return '' if not text or text.startswith('待确认') else text
+
+
+def _cards(text, heading):
+    """档案区里每个「### 标题」小节 → (标题, {字段名: 字段值})。"""
+    for block in re.split(r'(?m)^### ', _section(text, heading))[1:]:
+        title, _, body = block.partition('\n')
+        yield title.strip(), dict(re.findall(r'(?m)^- ([^：\n]+)：(.*)$', body))
+
+
+def _character_items(text):
+    items = []
+    for name, card in _cards(text, '角色档案'):
+        alias = _known(card.get('别名'))
+        clothing = _known(card.get('默认服装'))
+        items.append({'name': name, 'aliases': [alias] if alias else [],
+                      'cross_episode_id': card.get('跨集 ID', '').split('（')[0],
+                      'description': ('默认服装：' + clothing) if clothing else '',
+                      'physical_features': field_features(_known(card.get('物理特征')))})
+    return items
+
+
+def _scene_items(text):
+    return [{'name': re.sub(r'^场景\s*\d+[：:]', '', title).strip() or title,
+             'description': _known(card.get('空间锚点')),
+             'time_of_day': _known(card.get('光照方向')),
+             'timeline': _known(card.get('时间线'))}
+            for title, card in _cards(text, '场景档案')]
+
+
+def _prop_items(text):
+    names = (re.match(r'- ([^：\n]+)：', line) for line in _section(text, '道具档案').splitlines())
+    return [{'name': match.group(1).strip(), 'description': '', 'holder': ''}
+            for match in names if match and not match.group(1).startswith('待确认')]
+
+
+def structure_manifests(structured_text):
+    """结构剧本正文 → {文件名: manifest}（角色／场景／道具三份）。"""
+    text = str(structured_text or '')
+    return {'character_manifest.json': manifest('character', _character_items(text)),
+            'scene_manifest.json': manifest('scene', _scene_items(text)),
+            'prop_manifest.json': manifest('prop', _prop_items(text))}
+
+
+def structure_manifest_dir(project):
+    import stage_layout
+    return stage_layout.paths(Path(project), STRUCTURE_STAGE)['output']
+
+
+def write_structure_manifests(project, structured_text):
+    """把三份 manifest 原子写入 02剧本结构/output/；返回目录。"""
+    from agent.core import save_text
+    folder = structure_manifest_dir(project)
+    for name, data in structure_manifests(structured_text).items():
+        save_text(folder / name, json.dumps(data, ensure_ascii=False, indent=2))
+    return folder
+
+
+def _manifest_file_problems(path, name):
+    kind = KIND_OF_MANIFEST[name]
+    if not path.is_file():
+        return [name + ' 还没产出'], None
+    try:
+        data = read(path)
+    except (OSError, ValueError) as exc:
+        return ['%s 读不出来：%s' % (name, exc)], None
+    problems = [] if (manifest_name(data) == name and data.get('kind') == kind) else ['%s 抬头（manifest／kind）不对' % name]
+    problems += duplicate_ids({name: data})
+    for index, item in enumerate(items_of(data), 1):
+        # 物理特征全空是「待确认」，由人工补充；这里只拦结构性错误。
+        problems += ['%s 第 %d 条：%s' % (name, index, text) for text in validate(kind, item)
+                     if not text.startswith('物理特征五件')]
+    return problems, items_of(data)
+
+
+def structure_manifest_problems(project, structured_path=None):
+    """核验 02 的三份 manifest：文件在、抬头对、编号唯一、条目合规、名单与结构剧本一致。空列表＝通过。"""
+    folder = structure_manifest_dir(project)
+    problems = []
+    expected = None
+    if structured_path is not None:
+        try:
+            expected = structure_manifests(Path(structured_path).read_text(encoding='utf-8-sig', errors='replace'))
+        except OSError:
+            expected = None
+    for name in STRUCTURE_MANIFESTS:
+        found, items = _manifest_file_problems(folder / name, name)
+        problems += found
+        if items is not None and expected is not None:
+            want = sorted(item['name'] for item in expected[name]['items'])
+            if sorted(str(item.get('name') or '') for item in items) != want:
+                problems.append('%s 的名单与当前结构剧本不一致，需要重新整理' % name)
+    return problems
 # 此值是旧 manifest 的兼容键，不是新建目录名：stage_layout 会将它解析为
 # 「01剧本准备」。剧本工作流已拆成「剧本准备」和「剧本结构」两段。
 SCRIPT_SKILL_STAGES = ('script', 'script_structure')
@@ -1010,6 +1110,8 @@ from script_manifest_schema import (
           SAMPLE,
           SPLIT,
           STAGE,
+          STORYBOARD_STAGE,
+          STRUCTURE_STAGE,
           _box,
           _copy,
           _features_box,

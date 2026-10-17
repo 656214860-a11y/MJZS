@@ -2109,9 +2109,9 @@ manifest 与分镜阶段的 shotChain 承担）。另外，所有 SKILL 的 `inp
 **一份都没有**（全项目搜零命中），本期补上：
 
 - `MANIFESTS` 是那五个文件名，`manifest()` 把条目收成「抬头三件（manifest／kind／items）＋ items」，
-  `stage_layout.STAGES` 的 00_script 输出直接接 `script_contract.STAGE_OUTPUTS`（一处定义两处用）；
+  `stage_layout.STAGES` 各阶段输出按产出阶段接 `script_manifest_contract.STAGE_MANIFESTS`（一处定义两处用）；
 - 产出者照实登记：三类角色／场景／道具清单与情绪曲线是剧本准备的 SKILL 出的，**场次拆分是初步分镜**
-  的 `storyboard-scene-breakdown` 出的（产物按契约落在 00_script/output，剧本阶段自己核对一遍）；
+  的 `storyboard-scene-breakdown` 出的（产物按契约落在 03初步分镜/output，由已采用分镜派生并核验）；
 - `completeness(folder)` 出完整性报告：每一类一行，状态是「已产出／缺失／有问题」，有问题的连第几条、
   错在哪一起报。
 

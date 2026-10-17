@@ -11,3 +11,10 @@ MANIFEST_OF_KIND = dict(zip(KINDS, MANIFESTS))
 KIND_OF_MANIFEST = dict(zip(MANIFESTS, KINDS))
 HEADER = ('manifest', 'kind', 'items')
 STAGE_OUTPUTS = MANIFESTS
+# 每份 manifest 落在哪个阶段目录（REQ-S02-25）：键是状态机阶段 id，值是该阶段 output/ 下的文件。
+STAGE_MANIFESTS = {
+    'script': ('emotion_curve.json',),
+    'script_structure': ('character_manifest.json', 'scene_manifest.json', 'prop_manifest.json'),
+    'storyboard': ('scene_breakdown.json',),
+}
+STRUCTURE_MANIFESTS = STAGE_MANIFESTS['script_structure']

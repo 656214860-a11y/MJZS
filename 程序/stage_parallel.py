@@ -200,8 +200,8 @@ def brief_lines(stage):
              '同一条里必须串行（做完一个再做下一个），不同条之间才可以并行。' if row['serial']
              else '各单元之间互不依赖，可以并行推进。']
     if stage == 'storyboard':
-        lines.append('生成每个镜头时立刻核对三元组（scene_id＋character_ids＋costume_id）与前一个镜头一致，'
-                     '并写入 batch_id；资产已锁定时，锚点从资产清单逐字引用。')
+        lines.append('生成每个镜头时立刻核对三元组（scene_id＋character_ids＋costume_id）与前一个镜头一致；'
+                     '批次划分（batch_id）属于 07 分镜定稿，本阶段不写；资产已锁定时，锚点从资产清单逐字引用。')
         lines.append('各场景做完后按剧本顺序拼接成一份分镜 JSON，并核对跨场景衔接（上一场结束状态＝下一场开始状态）。')
         lines.append('同一集只输出一份分镜 JSON，发现已存在就跳过并说明，不生成副本、不换文件名重写。')
     if stage == 'assets':
@@ -653,6 +653,10 @@ def animatic_input_ready(project):
             raise ValueError('尚未采用分镜初稿')
         for _source, shots in adopted:
             shots_of({'shots': shots})
+        from storyboard_selection import draft_problems
+        problems = draft_problems(project)
+        if problems:
+            raise ValueError('；'.join(problems[:2]))
         return _result(gate_for('animatic'), True, True, '分镜初稿已就绪')
     except (ValueError, TypeError, KeyError) as error:
         return _result(gate_for('animatic'), False, True, str(error))

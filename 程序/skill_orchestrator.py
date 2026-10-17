@@ -60,7 +60,8 @@ def verified_stage_output(project, stage):
             return script_contract.resolve_script_source(root) is not None
         if stage == 'script_structure':
             output = script_contract.structured_script_path(root)
-            return script_contract.is_structured_script(output)
+            return (script_contract.is_structured_script(output)
+                    and not script_contract.structure_manifest_problems(root, output))
     except (OSError, TypeError, ValueError):
         return False
     return False

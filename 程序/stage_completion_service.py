@@ -433,7 +433,11 @@ def completion_evidence(root, stage, video_ready=None):
             return evidence(root)
         if stage == 'storyboard':
             from stage_parallel import _adopted
-            return bool(any(shots for _source, shots in _adopted(root))), '还没有已采用且含镜头的分镜 JSON'
+            from storyboard_selection import draft_problems
+            if not any(shots for _source, shots in _adopted(root)):
+                return False, '还没有已采用且含镜头的分镜 JSON'
+            problems = draft_problems(root)
+            return not problems, '；'.join(problems[:2])
         checks = {'assets': 'assets_locked', 'continuity': 'ledger_ready', 'final': 'batches_ready',
                   'keyframe': 'frames_ready', 'previs': 'previs_ready'}
         if stage in checks:

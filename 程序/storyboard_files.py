@@ -796,7 +796,7 @@ def show(desktop):
         button=SecondaryButton(toolbar,text=text,command=lambda c=command:desktop.safe(c))
         button.pack(side='left',padx=(SPACING['none'], SPACING['xs']))
         if text=='删除选中剧本':controls['delete_script']=button
-    first_labels={'script':'分镜初稿','storyboard':'分镜定稿'}
+    first_labels={'script':'结构剧本','storyboard':'分镜初稿'}
     for kind in ('script','storyboard'):
         # 第 31 期第 4 条：内容框用没有标签行的卡片样式，紧贴上方「刷新列表」那一行。
         box=Card(desktop.content,padding=SPACING['sm'])

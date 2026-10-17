@@ -70,7 +70,7 @@ R1124 插入 Animatic 后，旧中文编号目录由 `stage_path_service.read_di
 复杂镜头的可播放白模预演 ── SG-05 ──> 视频生成
 ```
 
-五类剧本 manifest 是 `character_manifest`、`scene_manifest`、`prop_manifest`、`scene_breakdown`、`emotion_curve`；它们为资产、分镜和连续性阶段提供结构化输入。产出方唯一定义在 `script_manifest_schema.PRODUCERS`：`emotion_curve` 由 01 剧本准备产出，`character_manifest`／`scene_manifest`／`prop_manifest` 由 02 剧本结构产出，`scene_breakdown` 由 03 初步分镜产出。门禁只在上游已开始却不完整时拦截；空项目始终放行。
+五类剧本 manifest 是 `character_manifest`、`scene_manifest`、`prop_manifest`、`scene_breakdown`、`emotion_curve`；它们为资产、分镜和连续性阶段提供结构化输入。产出方与落盘阶段唯一定义在 `script_manifest_schema.PRODUCERS`（各阶段 outputs 同源于 `script_manifest_contract.STAGE_MANIFESTS`；02 的三份由结构剧本派生写入并核验，03 的 `scene_breakdown` 由已采用分镜派生并核验）：`emotion_curve` 由 01 剧本准备产出，`character_manifest`／`scene_manifest`／`prop_manifest` 由 02 剧本结构产出，`scene_breakdown` 由 03 初步分镜产出。门禁只在上游已开始却不完整时拦截；空项目始终放行。
 
 ## 验证地图
 

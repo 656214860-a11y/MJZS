@@ -101,9 +101,12 @@ class AuditTests(unittest.TestCase):
 
     def test_the_stage_layout_prints_the_five_outputs(self):
         import stage_layout
-        outputs = stage_layout.stage_dir("00_script")[5]
         for name in sc.MANIFESTS:
-            self.assertIn(name, outputs, name)
+            folder = sc.PRODUCERS[name][1]
+            self.assertIn(name, stage_layout.stage_dir(folder)[5], name)
+        outputs = stage_layout.stage_dir("00_script")[5]
+        self.assertEqual([n for n in sc.MANIFESTS if n in outputs], ["emotion_curve.json"],
+                         "REQ-S02-25：旧名 00_script 只剩别名，不再堆放全部 manifest")
         self.assertIn("episode.json", outputs, "老的三份一个都不动")
 
     def test_the_audit_covers_every_script_skill(self):

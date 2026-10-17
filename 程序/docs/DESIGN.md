@@ -74,7 +74,7 @@
 - **DES-S02-22**（REQ-S02-22）`stage_completion_service` → `skill_orchestrator.verified_stage_output` → `structured_script_path` 指向的文件满足 `is_structured_script`；步骤做完但无可读结构稿时标 FAILED。
 - **DES-S02-24**（REQ-S02-24）新稿位置 `canonical_structured_script_path`（`write_dir(project,'structure')/结构剧本/`）；旧目录由 `read_dirs` 只读发现，同内容按 SHA256 去重。
 - **DES-S02-30**（REQ-S02-30/31）SKILL 位于 `skills/02 剧本整理SKILL/`；`script_manifest_schema.MERGED` 记录台词润色并回正稿、世界观落 `docs/world_bible.md`。
-- **待定**（REQ-S02-23/25）manifest 的写入点与核验点、落盘目录待用户拍板后再设计。
+- **DES-S02-23**（REQ-S02-23/25）`script_manifest_contract.STAGE_MANIFESTS` 定义每份 manifest 的归属阶段，`stage_layout.STAGES` 与 `script_manifest_schema.PRODUCERS` 同源引用。`write_structured_script` 的 `update_index` 回调里调 `write_structure_manifests`：`structure_manifests(正文)` 解析「角色档案／场景档案／道具档案」三个区，经 `manifest()` 补编号后原子写入 `02剧本结构/output/`。`structure_manifest_problems(project, 结构稿路径)` 是核验口径，被 `verified_stage_output` 调用；`stage_completion_service` 经它间接核验。
 
 ### 测试锚定
 
@@ -85,7 +85,7 @@
 | REQ-S02-10/11/22 | `test_script_structure`（六步执行与写入）、`test_stage_completion_service` |
 | REQ-S02-24 | `test_script_structure`、`test_script_workspace_service` |
 | REQ-S02-02/15/30/31 | `test_script_structure_scope` |
-| REQ-S02-23（归属部分） | `test_script_structure_scope` |
+| REQ-S02-23/25 | `test_script_structure_scope`（`StructureManifestTests`）、`test_script_contract`、`test_pipeline_stage_io_contract` |
 
 ## S03 初步分镜
 
@@ -119,7 +119,8 @@
 - **DES-S03-40**（REQ-S03-40）`working_dir=storyboard(root)/'分镜拆分'`，`document_dir=storyboard(root)/'分镜文档'`；`storyboard_paths.media_root` 对 `分镜拆分`／`分镜文档` 取同一父目录；`discover_files` 用 `os.walk(followlinks=False)`，剔除链接、junction、空文件、`IGNORED` 目录。旧目录 `storyboard/分镜拆分` 在 `stage_path_service._LEGACY` 登记为只读。
 - **DES-S03-41**（REQ-S03-41/42）`stage_completion_service`：`stage=='storyboard'` → `any(shots for _s,shots in stage_parallel._adopted(root))`。`_adopted` 对读不出的文件跳过。SG-A `animatic_input_ready` 要求 `_adopted` 非空，且每份 `animatic_service.shots_of` 不抛 ValueError/TypeError/KeyError。
 - **DES-S03-50**（REQ-S03-50）6 个 SKILL 位于 `skills/03初步分镜SKILL/`，frontmatter `stage: 初步分镜`；`BUILTIN_WORKFLOW_PRESETS['AIGC全流程'].stage_skills['storyboard']=['pipeline-storyboard-draft']`。
-- **待定**（REQ-S03-19/20/43/44/51）命名、`batch_id` 归属、`storyboard_draft.json` 声明、`scene_breakdown.json` 核验与默认技能入口待用户拍板后再设计。
+- **DES-S03-43**（REQ-S03-19/20/43/44）文案：03 只称"分镜初稿"，`batch_id` 不由 03 写。`storyboard_selection.sync_draft_outputs` 在 `adopt`／`remove`／`prune_invalid_adoptions` 末尾写 `storyboard_draft.json` 与派生的 `scene_breakdown.json`；`draft_problems` 在两份文件都缺时先补写（旧项目），再核验一致性与覆盖度。调用点：`stage_completion_service.completion_evidence`（storyboard）与 `stage_parallel.animatic_input_ready`。
+- **待定**（REQ-S03-51）默认技能入口待用户拍板后再设计。
 
 ### 测试锚定
 
@@ -132,7 +133,7 @@
 | REQ-S03-30/31/32/33/34 | `test_storyboard_adoption_service`、`test_storyboard_current_source`、`test_storyboard_source_service` |
 | REQ-S03-35/40 | `test_storyboard_catalog_snapshot`、`test_storyboard_rows_service`、`test_stage_path_service` |
 | REQ-S03-41/42 | `test_stage_completion_service`、`test_stage_parallel`；`test_storyboard_scope` 锚定 SG-A 登记 |
-| REQ-S03-44（归属部分） | `test_storyboard_scope`、`test_script_contract` |
+| REQ-S03-43/44 | `test_storyboard_scope`（`DraftOutputTests`）、`test_script_contract` |
 
 ## S04 分镜预演
 

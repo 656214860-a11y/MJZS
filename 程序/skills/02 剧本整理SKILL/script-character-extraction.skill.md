@@ -40,7 +40,7 @@ examples:
 ### 输入／输出
 - 输入：剧本或大纲正文（当前项目里最新那一份）、画风与年代设定。
 - 输出：资产条目表，每条带类别、名称、别名、外观描述、首次出场位置。
-- 落盘：output 下的 character_manifest.json／scene_manifest.json／prop_manifest.json
+- 落盘：`02剧本结构/output/` 下的 character_manifest.json／scene_manifest.json／prop_manifest.json（本地规则整理时由程序随结构剧本同步写入并核验）
   （编号分别用 CHAR_／LOC_／PROP_，角色带 physical_features 五件字段）。
 
 ### 用到的工具
