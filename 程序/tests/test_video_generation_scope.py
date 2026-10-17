@@ -45,7 +45,7 @@ class VideoGenerationScopeTests(unittest.TestCase):
 
     def test_req_s10_03_flow_dependency_names_keyframe_only(self):
         self.assertEqual(stage_flow.DEPENDS['video'], ('keyframe',))
-        self.assertEqual(stage_flow.DEPENDS['edit'], ('video',))
+        self.assertEqual(stage_flow.DEPENDS['edit'], ('video', 'audio'))
 
     def test_req_s10_04_sg05_gates_previs_to_video_and_passes_an_empty_project(self):
         row = stage_parallel.gate_for('video')
