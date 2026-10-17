@@ -86,5 +86,17 @@ class StaticHygieneTests(unittest.TestCase):
         self.assertEqual(offenders, [], "生产运行时代码禁止内建 eval/exec；确需请登记并说明理由")
 
 
+    def test_scan_scope_excludes_non_maintained_skill_packages(self) -> None:
+        """`skills/` 是独立版本化的外部技能包，显式排除在本仓静态卫生范围之外（R1649）。
+
+        门禁绿只代表本仓自有的 .py 无此类问题：曾经存在的
+        `skills/.../short-drama-director/scripts/check_package.py` 无效转义已在 R1649 修复，
+        但 skills/ 下的文件不受本门禁保护，不能把「绿」读成「全仓无此问题」。
+        """
+        self.assertIn("skills", _EXCLUDED_PARTS, "静态卫生必须显式排除外部技能包")
+        leaked = [path.relative_to(ROOT).as_posix() for path in _all_sources()
+                  if "skills" in path.relative_to(ROOT).parts]
+        self.assertEqual(leaked, [], "外部技能包不得计入本仓静态卫生扫描范围")
+
 if __name__ == "__main__":
     unittest.main()

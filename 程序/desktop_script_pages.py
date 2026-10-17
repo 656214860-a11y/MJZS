@@ -26,6 +26,22 @@ PAGE = pet_state.PAGE_OF
 LOGGER = logging.getLogger(__name__)
 
 
+def _safe_after(widget, delay, callback):
+    """安排一次性 Tk 定时器；窗口销毁后 after 会抛 TclError，吞掉并返回 None 让轮询停下。"""
+    try:
+        return widget.after(delay, callback)
+    except tk.TclError:
+        return None
+
+
+def _safe_after_idle(widget, callback):
+    """安排空闲回调；窗口销毁时吞掉 TclError，与 await_preview 既有守卫同构。"""
+    try:
+        return widget.after_idle(callback)
+    except tk.TclError:
+        return None
+
+
 @dataclass(frozen=True)
 class ScriptPageServices:
     """剧本页的外部 UI 能力；由组合入口提供，不携带全局宿主。"""
@@ -133,8 +149,8 @@ class ScriptPagesMixin:
             except (OSError, UnicodeError, ValueError) as exc:
                 # A file may still be being written. Keep the watcher, without resubmitting to a model.
                 if target.exists():self.status.set('剧本质检等待完整文件：' + str(exc))
-            self.win.after(2000, poll)
-        self.win.after(2000, poll)
+            _safe_after(self.win, 2000, poll)
+        _safe_after(self.win, 2000, poll)
     def update_script_interrupt_button(self):
         """按剧本 API 请求或剧本 Agent 的运行状态更新中断按钮。"""
         button=getattr(self,'idea_interrupt',None)
@@ -414,7 +430,7 @@ class ScriptPagesMixin:
                     preview.edit_reset()
                     preview.configure(state='disabled')
                 else:
-                    self.win.after_idle(append_chunk)
+                    _safe_after_idle(self.win, append_chunk)
             def load_preview(path):
                 """大文本在后台读取；选中项变化或进入编辑态时丢弃旧结果。"""
                 preview_ticket['value'] += 1
@@ -448,7 +464,7 @@ class ScriptPagesMixin:
                             set_preview(value, ticket=ticket)
                     except tk.TclError:
                         pass
-                self.win.after(20, await_preview)
+                _safe_after(self.win, 20, await_preview)
             load_preview(active['path'])
             def select_document(_event=None):
                 selected = file_list.selection()

@@ -64,3 +64,17 @@ class LayerDirectionTests(unittest.TestCase):
         for item in items:
             self.assertEqual(item["disposition"], "exempt")
             self.assertEqual(item["reason"], "既存越层，待专项收口")
+
+    def test_registered_names_resolve_to_a_file_tool_or_historical_entry(self) -> None:
+        """登记表每一名须有实体文件、或声明为工具、或是已登记的历史名称（R1649）。"""
+        ledger = json.loads(LEDGER.read_text(encoding="utf-8"))
+        historical = set(ledger["historical_name_audit"]["entrypoints"])
+        unresolved = sorted(
+            name for name in LAYERS
+            if not (ROOT / f"{name}.py").is_file()
+            and not (ROOT / name / "__init__.py").is_file()
+            and name not in TOOLS
+            and name not in historical
+        )
+        self.assertEqual(unresolved, [],
+                         "僵尸登记名（无实体文件、非工具、未登记历史）：" + ", ".join(unresolved))

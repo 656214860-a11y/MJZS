@@ -23,12 +23,14 @@ _register(2, "task_center_service", "keyframe_evidence", "animatic_service", "wr
           "asset_batch_service", "asset_batch_state_service", "asset_batch_selection_service", "asset_generated_import_service", "asset_detail_service",
           "keyframe", "keyframe_api", "keyframe_batch", "keyframe_lifecycle_service", "cloud_video_service", "white_model_service", "storyboard_source_service", "tts_api", "subtitle_timing", "pet_test_service", "pet_performance_service", "local_video_settings_service",
           "previs", "previs_routing", "previs_progress_service", "handoff_service", "edit_service", "final_service", "storyboard_adoption_service", "delivery_import_service", "confirm_gates", "recycle_recovery_service")
+# R1649：删除 3 个既无实体文件、也无采用方的僵尸登记名（project_storage／asset_detail_ui／workflow）；
+# 登记表每一名须满足「有实体 .py ∨ 在 TOOLS ∨ 在 historical_name_audit.entrypoints」，由 test_layers 断言。
 _register(3, "exit_maintenance", "pet_chat_coordinator", "project_context_factory", "stage_flow", "stage_exec", "stage_parallel", "stage_config", "stage_models",
-          "skill_notes", "skill_orchestrator", "skill_registry", "codex_skill_sync", "workflow", "workflow_tasks",
-          "agent_dispatch", "engine", "integrations", "project_storage", "stage_contract_report", "stage_execution_service", "stage_publication", "stage_write_preparation_service", "stage_download_inbox_service", "desktop_startup_service", "desktop_automation_service", "idea_chat_controller", "idea_semantic_brief_service",
+          "skill_notes", "skill_orchestrator", "skill_registry", "codex_skill_sync", "workflow_tasks",
+          "agent_dispatch", "engine", "integrations", "stage_contract_report", "stage_execution_service", "stage_publication", "stage_write_preparation_service", "stage_download_inbox_service", "desktop_startup_service", "desktop_automation_service", "idea_chat_controller", "idea_semantic_brief_service",
           "writing_api", "script_skill_report", "storyboard_plan_service", "storyboard_final", "storyboard_final_controller", "storyboard_page_controller", "keyframe_page_controller", "storyboard_selection", "storyboard_catalog", "asset_batch_controller", "asset_page_controller", "editing_page_controller",
           "previs_automation", "previs_batch_service", "previs_monitor", "asset_auto_batch_service", "asset_batch_execution", "stage_completion_service", "white_model_persistence_controller")
-_register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geometry", "pet_cloud_shape", "pet_cloud_tail", "pet_cloud_timing", "pet_cloud_hint", "responsive_ui", "ui_theme", "ui_widgets", "ui_dialogs", "ui_shortcuts", "ui_icons", "cell_hover", "prompt_window", "asset_detail_ui", "asset_detail", "asset_batch", "native_assets", "storyboard_files", "storyboard_table_ui", "cloud_video", "local_video", "local_previs", "previs_progress", "white_model", "production_lock_fields", "skill_panel", "skill_panel_support", "app")
+_register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geometry", "pet_cloud_shape", "pet_cloud_tail", "pet_cloud_timing", "pet_cloud_hint", "responsive_ui", "ui_theme", "ui_widgets", "ui_dialogs", "ui_shortcuts", "ui_icons", "cell_hover", "prompt_window", "asset_detail", "asset_batch", "native_assets", "storyboard_files", "storyboard_table_ui", "cloud_video", "local_video", "local_previs", "previs_progress", "white_model", "production_lock_fields", "skill_panel", "skill_panel_support", "app")
 _register(5, "app_shortcut")
 
 # R741：顶层运行期模块必须逐一入表。层级按实际静态依赖和职责判断，不能以名称后缀代替。

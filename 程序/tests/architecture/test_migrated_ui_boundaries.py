@@ -82,3 +82,39 @@ class MigratedViewBoundaryTests(unittest.TestCase):
                     violations.append(f'{module}.py:{line} {package}.{name or "*"}')
         self.assertEqual(violations, [],
                          '新增本机适配必须先登记入口：' + '; '.join(violations))
+
+def _catches_tcl_error(node):
+    for handler in node.handlers:
+        if handler.type is None:
+            return True
+        names = {child.attr for child in ast.walk(handler.type) if isinstance(child, ast.Attribute)}
+        names |= {child.id for child in ast.walk(handler.type) if isinstance(child, ast.Name)}
+        if 'TclError' in names:
+            return True
+    return False
+
+
+class ViewTimerLifecycleTests(unittest.TestCase):
+    """R1649：页面重排 Tk 定时器时，关窗竞态不得逃逸为未捕获的 tk.TclError。
+
+    `desktop_script_pages.py` 是 P2-3 定位到的未保护重排点文件；其它页面改用
+    `after_cancel` 在销毁时撤销定时器（另一条等价路径），故本门禁只钉这一处已知回归面。
+    """
+
+    GUARDED_FILES = ('desktop_script_pages',)
+
+    def test_timer_reschedules_are_guarded_against_a_destroyed_window(self):
+        unguarded = []
+        for module in self.GUARDED_FILES:
+            tree = parse(ROOT / (module + '.py'))
+            guarded = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Try) and _catches_tcl_error(node):
+                    guarded.update(id(inner) for inner in ast.walk(node))
+            for node in ast.walk(tree):
+                if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                        and node.func.attr in ('after', 'after_idle')
+                        and id(node) not in guarded):
+                    unguarded.append(module + '.py:' + str(node.lineno))
+        self.assertEqual(unguarded, [],
+                         '关窗后重排定时器须捕获 tk.TclError：' + ', '.join(unguarded))
