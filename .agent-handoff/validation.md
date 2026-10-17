@@ -4,11 +4,19 @@
 R1624：HEAD 13dea0a92396b5abd2317009caec19dbfad8d6a0，2026-10-17 02:01:23 绿、502 秒、0 红，凭据 round 1624／内容树 bde64b00（`--all --safe` 已含架构门禁）。`.git/full-safe-receipts.json` 与 `.git/auto-full-safe-result.json` 为权威。
 历史上一档：R1619（b6863b4）678 秒 0 红；再上是 R1605（e59e513）5346 项、615.7 秒。
 
+## R1675–R1679（2026-10-18）
+- R1675（合并轮）：`fix/int` R1667–R1674 合入 master（8a655ea4）；69 个文件与 int 逐字节一致，master 原有 6 个文件未变；282 条核心非 GUI 用例全绿；未跑 `--all --safe`。
+- R1676（修复轮）：双击目录表头误开文件；定向 1/1、默认冒烟 8/8；架构子集 `test_round_baselines` 4/5，唯一红为全量欠账门禁。
+- R1677（修复轮）：文档先行锚点同步（edit 依赖 video+audio），见 `tasks_round_1677_result.md`。
+- R1678（结构治理轮）：新增 `test_requirement_traceability`，基线 152/298；AGENTS 瘦身；见 `tasks_round_1678_result.md`。
+- R1679（状态接续轮）：只更新交接文件，未跑测试。
+- 欠账：上次真实绿 R1624（旧树）；截至 R1678 累计 13 个源码轮次（门禁线 8）。`auto_full_safe --status` 显示后台已触发；上次运行因 `.wt/ci` 缺失以 `BrokenProcessPool` 退出，需重建后重跑。
+
 ## R1645–R1652 结构治理清单执行期证据
 - R1645（只读诊断）：`smoke_test.py --architecture` **356/356 OK（177.9 秒，本轮实测）**、默认冒烟 **8/8**；未跑全量。该轮报告 C–I／L／M 各节的机检依据即这次门禁。
 - R1646–R1651（清单收口，报告见 `程序/tasks_round/tasks_round_16*_result.md`）：架构门禁随轮上升 **356→357**（R1646 190.1 秒；R1647 265.0 秒）**→359**（R1648 288.9 秒）**→362**（R1649 290.9 秒）**→364**（R1650 299.7 秒；R1651 298.5 秒）；默认冒烟各轮均 **8/8**。定向：R1646 `test_pet_ui` 599/599；R1647 12 模块 142/142；R1648 6/6；R1649 29/29＋24/24；R1650 20/20＋行尾轮次 21/21；R1651 28/28。
 - 欠账：R1646–R1651 中改产品源码的轮次按 §5 计入 ⇒ **5/8 → 6/8**。各轮**均未跑全量**（沙箱内派生进程被拒，全量须在沙箱外跑），不冒称同树全量。
-- 后台全量遗留红（非清单引入）：`tests/test_distribution_selfcheck.py::test_manifest_covers_every_file` —— `程序/data_model.md`、`程序/runbook.md`、`程序/task_states.md`（R1625 新增）未在 `程序/distribution_manifest.md` 声明；R1652 只读复核确认仍缺，属 1 行级补齐，已登记待用户裁决，**未修**。
+- 后台全量遗留红：R1654 已补齐 `程序/distribution_manifest.md` 对 `data_model.md`／`runbook.md`／`task_states.md` 的声明（`test_distribution_selfcheck` 3/3、冒烟 8/8）。当前阻塞改为 `.wt/ci` 缺失导致的中断，见上节。
 - R1652（状态接续轮）：只改 `.agent-handoff/` 4 个文件＋`project_status.md` 轮次头＋本轮报告，**未跑测试**；三条基线沿用 R1651 实测（冒烟 8/8、架构门禁 364/364、欠账 6/8）。
 ## 阶段4 清单执行期（R1627–R1632）证据
 - 这几轮改的是 `tests/`、`说明/`、状态页与交接文件：按 §5 不计源码轮，各自只跑定向＋默认冒烟 8/8＋架构门禁（356 项），**没有**各自跑全量，也没有新增全量欠账。

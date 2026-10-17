@@ -10,6 +10,12 @@
 - 全量周期、凭据、认领和提交遵循程序 AGENTS，接力不另设例外。
 - 不读取或更改无关用户数据、private/、episode/、writing/、配置/宠物/配置.json、密钥。
 
+## 备份与 Git 目录（2026-10-18）
+
+- Git common-dir：`D:\repo-meta\漫剧制作助手.git`；主工作树只登记 `D:\漫剧制作助手`。
+- 工作树补丁／bundle：`D:\repo-meta\wt-backup-20261018`；恢复备份：`D:\repo-meta\漫剧制作助手恢复备份`（982 文件、73.2MB）。
+- 后台全量工作树 `.wt/ci` 由 `scripts/auto_full_safe.py` 按 HEAD 重建；缺失时不要手工复用旧目录，先看 `auto_full_safe.py --status` 与 `程序/logs/auto_full_safe.log`。
+
 ## 干净全量工作树依赖（R1418 实核）
 
 - 使用仓库随附 Python 的绝对路径，不复制用户配置或项目登记表。

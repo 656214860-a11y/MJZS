@@ -2,6 +2,12 @@
 
 R1596 清单 O1–O12 全部完成（R1597–R1609）；R1610 清单 Q1–Q12 全部完成（R1611–R1626）。两个清单内均无待办，后续工作须由用户新授权。
 
+## 当前接续（2026-10-18）
+- R1675：`fix/int`（R1667–R1674）已合并入 master；工作树与分支清理完成，备份在 `D:\repo-meta\wt-backup-20261018`。
+- R1676：用户既有 3 项改动、R1675 接力快照、`.claude/settings.local.json` 已提交；双击目录表头误开文件已修复（定向 1/1、默认冒烟 8/8）。
+- R1677／R1678：并行会话完成文档先行锚点同步与需求锚定门禁；交接时 master HEAD `ecfcd7ca`；R1679 提交紧随其后。
+- 未授权新功能。安全全量欠账 13/8，后台补跑需先重建 `.wt/ci`；完成前不声称全量通过。
+
 ## 完成明细
 - R1597–R1605：O1许可、O2并发覆盖、O7发布恢复、O3持久队列、O4期限取消、O5运行投影、O6失败路由、O11尝试链路。
 - R1606：O8 页面服务注入（a013e75）。
@@ -47,7 +53,7 @@ Q10 出口脚本（R1624，13dea0a）、Q11 文档三件（R1625，ce35a5f）、
 - 未完成项：无。P2-7 前半（L2 `migrate()` 进度回调）判为范围外，残余缺口＝`_copy_tree`／哈希循环无进度回调（R1651 D 节）。
 
 ## 待用户裁决（2026-10-17 登记，未授权执行）
-1. `程序/distribution_manifest.md` 未声明 `程序/data_model.md`、`程序/runbook.md`、`程序/task_states.md`（R1625 新增）⇒ 后台全量 `tests/test_distribution_selfcheck.py::test_manifest_covers_every_file` 红，是欠账（6/8）无法清零的直接原因。最小闭环＝清单「必须保留」表补一行；判据＝该用例转绿。
+1. ~~`程序/distribution_manifest.md` 未声明 `程序/data_model.md`、`程序/runbook.md`、`程序/task_states.md`~~ 已由 R1654 补齐（`test_distribution_selfcheck` 3/3、冒烟 8/8）；不再是欠账原因。
 2. P1-2 残余 3 条越层：`asset_batch_service → asset_prompt_rules / asset_reference_prompts / asset_reference_images`（R1647 记为「下一批应作为一整组」）。判据＝豁免 35→32 且不新增豁免。
 3. U14：`程序/skills/00全流程SKILL/AIGC创作全流程` 是 gitlink 嵌套仓库（mode 160000、无 `.gitmodules`），父仓无法提交其修改；上游 `check_package.py:2239` 告警属跨仓扫描副产物（R1651 更正 R1649 结论）。已登记 `程序/维护记录/优化待办队列.md`。
 4. 门禁侧可选最小闭环：在 `test_unification_ratchet`／`test_static_hygiene` 注明「跨仓扫描属有意行为、可能打印外部包告警」；判据＝架构门禁总数不变。

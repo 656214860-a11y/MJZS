@@ -12,6 +12,10 @@
 - `test_desktop_startup_perf` 的「首日选择框 1 秒内可见」在并发负载下会抖：d8d0fc5 的全量里红、单跑 14/14 绿。全量收尾阶段不要再并发跑自检，否则可能污染凭据。
 - `本地CI.cmd exit`／`local_ci.py exit` 只到「默认冒烟＋静态门禁＋架构门禁」，**不等于全量绿**；全量仍需 `run_selftests.py --all --safe` 的凭据。
 - 随附解释器是 3.15.0a2（alpha），标准库按设计裁掉 58 个模块（`tests/test_stdlib_closure.py` 的 `PRUNED`）：缺 `trace`／`symtable`／`sqlite3` 等属正常。迁稳定版时必须重新决定裁剪清单，不能沿用（R1626 §9）。
-- 用户预设文件仍有未提交改动；不覆盖、暂存或提交用户配置及 .claude 目录。
+- R1676 已按用户授权提交 `程序/配置/SKILL/预设.json` 与 `.claude/settings.local.json`；后者是本机绝对路径配置，换机后需复核。`.claude/scheduled_tasks.lock` 仍按仓库 `.git/info/exclude` 的 claude-code-runtime 规则不跟踪（运行期 PID／会话锁）。
+
+- 安全全量欠账：上次真实绿仍是 R1624（旧内容树）；截至 R1678 已累计 13 个源码轮次（门禁线 8）。后台已触发，但 `.wt/ci` 工作树当前不存在，上次运行在 `.wt/ci/程序/run_selftests.py` 缺失时以 `BrokenProcessPool` 退出（78 秒，非断言失败）；同段日志还有 `test_idea_inline_brief` 16 条中 9 条失败。后台补跑完成前不得声称当前树全量通过。
+- R1654 已补齐 `distribution_manifest.md` 对 `data_model.md`／`runbook.md`／`task_states.md` 的声明（`test_distribution_selfcheck` 3/3、冒烟 8/8）；不要再把 R1625 的该项红当作当前阻塞。
+- R1678 新增需求锚定门禁 `tests/architecture/test_requirement_traceability.py`：✅ 需求必须有测试锚点，基线 `维护记录/需求锚定基线.json` 记录现状欠账 152/298，只许减少；新增或修改 ✅ 需求须同轮补锚点。
 
 完整旧记录见[风险归档](history/r1591-handoff-before/risks.md)。

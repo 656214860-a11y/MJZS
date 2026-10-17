@@ -1,3 +1,9 @@
+## 2026-10-18 R1679（状态接续轮）：交接同步到 R1678
+- 更新 `.agent-handoff/{snapshot,risks,backlog,validation,work-log,workspace,decisions}.md`；修正 R1676 快照中被 Tab 破坏的 `test_round_baselines`；记录 `.wt/ci` 缺失导致的 `BrokenProcessPool` 与 `test_idea_inline_brief` 9 条失败；未改代码、未跑测试。见 [R1679](../程序/tasks_round/tasks_round_1679_result.md)。
+## 2026-10-18 R1676（修复轮）：双击目录表头误开文件 + 用户既有改动入库
+- 双击只认落点行（`responsive_ui.row_toggle_target`），键盘 Enter 保持原行为；新增真实 Tk 回归 1 条。定向 1/1、默认冒烟 8/8；架构子集 `test_round_baselines` 4/5（唯一红为全量欠账）。提交 `75c52a2b`，见 [R1676](../程序/tasks_round/tasks_round_1676_result.md)。
+## 2026-10-18 R1675（合并轮）：`fix/int` 集成收尾
+- R1667–R1674 合入 master（`8a655ea4`）；69 个文件与 int 逐字节一致，master 原有 6 个文件未变；282 条核心非 GUI 用例全绿；未跑 `--all --safe`。删除 fa–fe 与 int 工作树、迁移恢复备份；证据见快照与 `D:\repo-meta\wt-backup-20261018`。
 ## 2026-10-17 R1652（状态接续轮）：交接文件更新至 R1651
 - 用户指令＝「完成项目状态交接并继续完成任务」＋ `git commit`；本轮只改 `.agent-handoff/{snapshot,backlog,validation,work-log}.md` ＋ `project_status.md` 轮次头 ＋ 本轮报告，**零代码、未跑测试**。
 - 记录指令冲突：会话顶部提示仍是「结构治理轮（子场景：只读诊断）」，与 §3.5 的写入边界（只准新增结果文件）冲突，以用户最新指令为准；A–M 诊断不重复第二轮（R1645 已产出并全部收口）。
