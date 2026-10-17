@@ -59,7 +59,7 @@ TASK_TRUNCATED = ('length', 'max_tokens', 'max_output_tokens')
 # 每条模型最近一次完整任务的结果（只存元数据与配置版本，不存正文）。
 HEALTH_KEY = 'model_health'
 # Provider 只登记「这条是谁家的」：真发请求仍看 wire_api（默认 OpenAI 兼容），所以它只是标签。
-PROVIDERS = (('openai-compatible', 'openai-compatible'), ('anthropic', 'anthropic'),
+PROVIDERS = (('openai-compatible', 'OpenAI 兼容接口'), ('anthropic', 'anthropic'),
              ('custom', '自定义'))
 PROVIDER_IDS = tuple(value for value, _label in PROVIDERS)
 PROVIDER_LABELS = dict(PROVIDERS)

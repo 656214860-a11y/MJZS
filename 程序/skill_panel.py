@@ -78,7 +78,7 @@ import stage_models
 import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
-from ui_tokens import COLORS, FONTS, SPACING, PRODUCTION_LOCK_WIDTH
+from ui_tokens import COLORS, FONTS, SPACING, FORM_LABEL_WIDTH
 from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
                         TextArea,
                         SecondaryButton, Tooltip, ask_confirmation, notify)
@@ -258,7 +258,7 @@ class Panel(ttk.Frame):
         # 阶段配置以连续表单阅读为主，统一使用最小设计间距和标签宽度，避免控件跳列。
         pad = SPACING['xs']
         section_gap = max(1, round(pad / 3))
-        label_width = 10
+        label_width = FORM_LABEL_WIDTH
         # 预设决定整套配置，因此置于厂商／模型之前。
         row = ttk.Frame(self)
         row.pack(fill='x', pady=(0, section_gap))
@@ -389,7 +389,7 @@ class Panel(ttk.Frame):
         header = ttk.Frame(parent or self)
         header.pack(fill='x')
         header.columnconfigure(1, weight=1)
-        ttk.Label(header, text='总控', style='Muted.TLabel', width=10).grid(row=0, column=0, sticky='w')
+        ttk.Label(header, text='总控', style='Muted.TLabel', width=FORM_LABEL_WIDTH).grid(row=0, column=0, sticky='w')
         self.workflow_box = SelectBox(header, textvariable=self.workflow_choice, values=names)
         self.workflow_box.grid(row=0, column=1, sticky='w', padx=(SPACING['xs'], SPACING['sm']))
         self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
@@ -413,7 +413,6 @@ class Panel(ttk.Frame):
         self.optional_lock_row = ProductionLockFields(
             parent or self, on_change=self.save_workflow_locks,
             definitions=tuple(item for item in PRODUCTION_LOCK_DEFINITIONS if item['key'] in optional))
-        self.optional_lock_row.inputs['style_directors'].configure(width=PRODUCTION_LOCK_WIDTH['normal'])
         self.lock_inputs = {**self.lock_row.inputs, **self.new_lock_row.inputs, **self.optional_lock_row.inputs}
         self._saved_workflow_locks = {}
 
@@ -605,7 +604,7 @@ class Panel(ttk.Frame):
         # 区域一：操作栏只放标签与 SKILL 操作下拉，不与勾选框混排。
         self.skill_action_row = ttk.Frame(parent)
         self.skill_action_row.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
-        self.flow_skill_label = ttk.Label(self.skill_action_row, text='SKILL', style='Muted.TLabel', width=10)
+        self.flow_skill_label = ttk.Label(self.skill_action_row, text='SKILL', style='Muted.TLabel', width=FORM_LABEL_WIDTH)
         self.flow_skill_label.pack(side='left')
         self.skill_action = tk.StringVar(value='请选择')
         action = SelectBox(self.skill_action_row, textvariable=self.skill_action,

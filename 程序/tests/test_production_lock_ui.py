@@ -9,6 +9,8 @@ from unittest.mock import patch
 import skill_panel
 import script_contract
 import stage_config
+from ui_tokens import COMBOBOX_MAX_WIDTH
+from ui_widgets import SelectBox
 
 
 class ProductionLockUITests(unittest.TestCase):
@@ -42,7 +44,11 @@ class ProductionLockUITests(unittest.TestCase):
             self.assertTrue(entry.bind('<Return>'))
             self.assertTrue(entry.bind('<KeyRelease>'))
             self.assertTrue(entry.bind('<FocusOut>'))
-            self.assertLess(int(entry.cget('width')), 14)
+            # 制作锁下拉改为按「选项＋当前值」最长项自适应（R1684 契约有意变更）：
+            # 宽度等于最长显示项（CJK 按 2 计），封顶 COMBOBOX_MAX_WIDTH，不再是固定 6/12。
+            self.assertLessEqual(int(entry.cget('width')), COMBOBOX_MAX_WIDTH)
+            self.assertEqual(int(entry.cget('width')),
+                             SelectBox._fit_width(tuple(entry.cget('values')), entry.get()))
         self.assertIs(panel.lock_row.master, panel.workflow_box.master)
         self.assertFalse(hasattr(panel, 'workflow_summary'))
         self.assertEqual(len(panel.lock_row.winfo_children()), len(legacy))

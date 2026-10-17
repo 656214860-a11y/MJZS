@@ -247,27 +247,38 @@ class SelectBox(ttk.Combobox):
     """统一下拉框：只读默认、自适应宽度封顶、弹出高度受限。
 
     保持 Combobox 的 textvariable/current/get 语义。
+    ``fit=True`` 时即使可编辑（state='normal'）也按全部选项＋当前值自适应宽度，
+    选项列表或当前值变化后可用 ``refit()`` 重算。
     """
 
     def __init__(self, master=None, *, values=(), height=COMBOBOX_POPDOWN_HEIGHT,
-                 width=None, state="readonly", **kwargs):
+                 width=None, state="readonly", fit=False, **kwargs):
         _styles(master)
         values = tuple(values)
+        self._fit = bool(fit)
         if width is None:
-            width = self._fit_width(values) if state == "readonly" else COMBOBOX_WIDTH
+            width = self._fit_width(values) if (self._fit or state == "readonly") else COMBOBOX_WIDTH
         super().__init__(master, values=values, height=height, width=width,
                          state=state, **kwargs)
 
     @staticmethod
-    def _fit_width(values):
-        if not values:
+    def _fit_width(values, current=''):
+        """全部选项＋当前值的最长显示宽度（CJK 按 2 计），封顶 COMBOBOX_MAX_WIDTH。"""
+        widths = [_display_width(v) for v in values]
+        if current:
+            widths.append(_display_width(current))
+        if not widths:
             return COMBOBOX_WIDTH
-        return min(COMBOBOX_MAX_WIDTH, max(_display_width(v) for v in values))
+        return min(COMBOBOX_MAX_WIDTH, max(widths))
+
+    def refit(self):
+        """按当前选项与当前值重算宽度；可编辑框在用户输入长文本后调用。"""
+        self.configure(width=self._fit_width(tuple(self.cget('values')), self.get()))
 
     def set_values(self, values, *, refit=True):
         values = tuple(values)
         self.configure(values=values)
-        if refit and "readonly" in self.state():
+        if refit and (self._fit or "readonly" in self.state()):
             self.configure(width=self._fit_width(values))
 
 

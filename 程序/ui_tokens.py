@@ -68,6 +68,9 @@ COMBOBOX_FIELD_BACKGROUND = COLORS["background_card"]
 COMBOBOX_FOREGROUND = COLORS["text_primary"]
 COMBOBOX_ARROW_COLOR = COLORS["text_secondary"]
 
+# 表单标签列宽（字符数）：总控／厂商／制作锁等相邻表单行的标签列共用同一基准，保证纵向对齐。
+FORM_LABEL_WIDTH = 10
+
 # 输入框的视觉与状态只由 ui_widgets.LineInput / TextArea 消费；页面只传内容、
 # 宽高与领域校验，不能重新拼字体、颜色、边框或占位态。
 INPUT_FONT = FONTS["body"]
@@ -196,6 +199,3 @@ PET_LAYOUT = {
     "caption_height": 20,
     "header_gap": SPACING["sm"],
 }
-
-# 制作锁输入宽度（字符数），两处编辑入口共用。
-PRODUCTION_LOCK_WIDTH = {"compact": 6, "normal": 12, "directors": 24}

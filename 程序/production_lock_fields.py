@@ -2,13 +2,13 @@
 from tkinter import ttk
 from responsive_ui import FlowBar
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, production_lock_active
-from ui_tokens import COLORS, SPACING, PRODUCTION_LOCK_WIDTH
+from ui_tokens import COLORS, SPACING, FORM_LABEL_WIDTH
 from ui_widgets import SelectBox
 
 
 class ProductionLockFields(FlowBar):
     def __init__(self, parent, *, on_change=None, definitions=PRODUCTION_LOCK_DEFINITIONS,
-                 prefix=None, horizontal=False):
+                 prefix=None, horizontal=False, label_width=FORM_LABEL_WIDTH):
         self.horizontal = horizontal
         super().__init__(parent)
         self.definitions = definitions
@@ -26,10 +26,8 @@ class ProductionLockFields(FlowBar):
                 field.grid(row=0, column=column, sticky='ew', padx=SPACING['xs'])
             else:
                 field.pack(side='left', padx=SPACING['xs'])
-            ttk.Label(field, text=item['label']).grid(row=0, column=0, sticky='w')
-            width = PRODUCTION_LOCK_WIDTH['compact' if key in ('aspect_ratio', 'fps') else
-                                          'directors' if key == 'style_directors' else 'normal']
-            entry = SelectBox(field, values=item.get('options') or (), state='normal', width=width)
+            ttk.Label(field, text=item['label'], width=label_width).grid(row=0, column=0, sticky='w')
+            entry = SelectBox(field, values=item.get('options') or (), state='normal', fit=True)
             field.columnconfigure(1, weight=1)
             entry.grid(row=0, column=1, sticky='ew', padx=SPACING['xs'])
             hint = ttk.Label(field, foreground=COLORS['warning'])
@@ -74,6 +72,9 @@ class ProductionLockFields(FlowBar):
                 self.hints[key].grid()
             else:
                 self.hints[key].grid_remove()
+        # 选项之外的当前值（手填导演卡、自定义模型名）也要算进宽度，避免长值被截断。
+        for entry in self.inputs.values():
+            entry.refit()
         self.schedule()
 
     def changed(self, _event=None):
