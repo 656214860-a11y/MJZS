@@ -394,8 +394,8 @@
 
 ### 产出清单
 
-- **REQ-S08-40** ❓ 阶段产出清单的名字与位置有三处不一致：`stage_layout` 契约写 `frames.json`；流程模板第 4 步和 `architecture.md` 写 `keyframe_manifest.json`；实际“完成”的依据是已采用分镜 JSON 里每镜的 `frame`／`frame_evidence`，两个文件名都没有 Python 代码写入。方向待拍板：A 以现状为准，删掉模板第 4 步和文档里的 `keyframe_manifest.json`；B 补实现并核验清单。
-- **REQ-S08-41** 🟡 `pipeline-keyframe` SKILL 的 `output` 写 `keyframeManifest`，与 REQ-S08-40 同源；随其决议一并处理。
+- **REQ-S08-40** ✅ 阶段产出清单统一为 `stage_layout` 契约名 `08首帧管理/output/frames.json`（用户裁决：修复，让代码与文档一致）。阶段核验 `frames_ready` 通过、发出完成事件前，`stage_completion_service.publish_stage_manifest()` 把已采用分镜每镜的 `frame`、`frame_deleted`、`frame_evidence.image.sha256` 写入该文件；它是回执，不是完成证据（完成仍只认 REQ-S08-30 的核验），写入失败则本次完成不成立。流程模板第 4 步改为“写入 frames.json”（action `write_frames_manifest`），`architecture.md` 不再出现 `keyframe_manifest.json`。
+- **REQ-S08-41** ✅ `pipeline-keyframe` SKILL 的 `output` 里的 `keyframeManifest` 是逻辑名，落盘文件即 `frames.json`（SKILL 正文已写明对应关系；`不得发布 keyframeManifest` 的门槛措辞保持不变）。
 
 ### SKILL
 
@@ -446,16 +446,16 @@
 - **REQ-S09-30** ✅ 每镜一份 `预演记录.json`（`preview`、`project_file`、`shot_id`、`notes`、`updated_at`、`evidence`），存放在白模成果目录 `<工作区>/<项目身份>/<集>/<镜头号>/`，不在项目的 `09白模预演` 阶段目录内。工作区默认 `%LOCALAPPDATA%\漫剧制作助手\白模项目`，可由环境变量或设置文件改，绝不指向 Blender 安装目录。
 - **REQ-S09-31** ✅ 一镜“预演就绪”＝记录里的 `preview` 文件存在、非空、后缀为 mp4／mov／webm，且证据未变：来源分镜摘要（动作、机位、时长、首帧、角色、资产等字段）与预演文件的字节数、修改时间都与登记一致。来源或文件变过只判过期、不删成果；升级前未登记来源的旧成果需重新校验一次后才复用。
 - **REQ-S09-32** ✅ 项目身份是项目 `config.json` 的 `project_id`，白模目录随它走，项目改名或移动不串到同名项目。无身份的旧布局（`<工作区>/<项目目录名>/<镜头号>`）只读兼容，打开白模页时一次性迁入新布局：可重复、不覆盖、中途失败原样搬回；找不到对应分镜或同一镜头出现在两集时整批不迁，不藏起旧成果。
-- **REQ-S09-33** ✅ SG-05（预演 → 视频生成）：每个“复杂”镜头都有就绪预演才放行；没有已采用分镜、没有复杂镜头、或白模阶段还没开始时放行；已开始但仍缺预演则拦并列出缺的镜头号。简单与中等镜头不要求预演。
-- **REQ-S09-34** ✅ 阶段完成＝SG-05 校验通过且已开始（`previs_ready` 的 ok 与 started 同时为真）。模型文字、界面提示、manifest 是否存在都不算证据。因 REQ-S09-33，没有复杂镜头的项目该阶段视为完成。
-- **REQ-S09-35** ❓ 阶段产物的名称与位置有四种说法互不一致：`stage_layout` 与 README 声明本阶段产物为 `previs.json`（视频阶段的输入也列它），架构文档与 SKILL 写 `previs_manifest.json`／`previsManifest`，代码实际只写镜头级 `预演记录.json`（在外部工作区，见 REQ-S09-30），`previs_notes.md` 仅登记在阶段文档表、无代码写入；`previs.json` 与 `previs_manifest.json` 都没有写入方。是否要把预演结果汇总成一份项目内的 `previs.json`（并让视频阶段读它），还是改文档承认 `预演记录.json` 才是唯一契约，待拍板。
-- **REQ-S09-36** ❓ 白模成果在项目目录之外：项目拷贝、备份或移动时预演视频不跟着走，而 SG-05 仍以它判就绪。是否要把成果（或至少索引）放进项目 `09白模预演` 目录，待拍板。
-- **REQ-S09-37** ❓ 中等动作镜头被标为“线上简单白模，制作后导入”，但 SG-05 只对复杂镜头强制预演，中等镜头不导入也能进视频生成。是否应强制（或至少提示）中等镜头的预演，待拍板。
+- **REQ-S09-33** ✅ SG-05（预演 → 视频生成）：每个“复杂”与“中等”动作镜头都有就绪预演才放行（中等动作自 REQ-S09-37 起纳入）；没有已采用分镜、没有这两类镜头、或白模阶段还没开始时放行；已开始但仍缺预演则拦并列出缺的镜头号。简单镜头不要求预演。
+- **REQ-S09-34** ✅ 阶段完成＝SG-05 校验通过且已开始（`previs_ready` 的 ok 与 started 同时为真）。模型文字、界面提示、`previs.json` 是否存在都不算证据。因 REQ-S09-33，没有复杂／中等动作镜头的项目该阶段视为完成。
+- **REQ-S09-35** ✅ 本阶段项目内权威产物为 `09白模预演/output/previs.json`（用户裁决：修复）。它是汇总索引：`shots` 记每镜的项目内副本相对路径、字节数、来源分镜摘要，`required` 记需要预演的镜头及其等级；每镜校验通过（`record_previs_evidence`／自动制作 `verify`）时增量登记，阶段核验通过后由 `publish_stage_manifest()` 刷新。镜头级 `预演记录.json`（REQ-S09-30）仍是每镜记录，`previs_notes.md` 仍只是阶段文档表登记项（无写入方，不是产物）。流程模板第 4 步改为“写入 previs.json”（action `write_previs_index`），`architecture.md` 不再出现 `previs_manifest.json`，SKILL 里的 `previsManifest` 是 `previs.json` 的逻辑名。视频阶段通过 SG-05 的就绪判定（`previs_routing.ready` 读该索引，见 REQ-S09-36）消费它；视频生成取参考视频仍按 `预演记录.json` 路径（`white_model_ref`），未改。
+- **REQ-S09-36** ✅ 校验通过的预演视频在项目内留一份副本 `09白模预演/assets/<镜头号>/<原文件名>`，并登记进 `previs.json`（用户裁决：修复）。白模成果目录（REQ-S09-30）位置不变，避免牵动既有目录迁移；SG-05 的 `previs_routing.ready` 以工作区预览为准，仅当工作区没有可用预览（被清理、换机、项目被拷走）时退回项目内副本，且副本须文件在、字节数一致、来源分镜摘要未变。工作区有预览但已过期（REQ-S09-31 判 changed）时不借副本放行。副本写入失败只记日志，不否定已通过的校验。旧副本不自动清理。
+- **REQ-S09-37** ✅ 中等动作镜头纳入 SG-05 强制（用户裁决：修复）：`previs_ready` 对 `complex` 与 `medium` 都要求就绪预演；缺中等镜头时拦截，并提示“用线上白模入口制作后导入；确实不需要时可把该镜复杂度改选「简单」”。手动覆盖为简单后放行。仍沿用“白模阶段没开始就不拦”的前提。
 
 ### SKILL 与引擎
 
 - **REQ-S09-40** ✅ 本阶段只有一个 SKILL：`pipeline-previs`（`skills/09白模预演SKILL/`），依赖 `pipeline-keyframe`，不可并行；直接读取项目锁，不再向用户重问；缺必填锁时记缺项并退回补齐。预演不可播放、缺镜头时间线、调度冲突或超出运动预算的不得进入视频生成。
-- **REQ-S09-41** ❓ 白模引擎的“默认 SKILL”两处说法冲突：`pipeline-previs` 声明外部 `create-blender-story-video` 不是本阶段自动默认入口，而桌面工作流设置里 `previs` 的默认 SKILL 与可选 SKILL 就是 `create-blender-story-video`。哪一个是默认执行入口，待拍板。
+- **REQ-S09-41** ✅ 两处说法描述的是两个通道，不是冲突（用户裁决：修复，使文字与代码一致）：全流程预设（`BUILTIN_WORKFLOW_PRESETS['AIGC全流程']`）里本阶段入口是 `pipeline-previs`；桌面白模页的默认技能（`DEFAULT_SKILLS['previs']`）是 `create-blender-story-video`，只在用户手动走白模页时使用，不是全流程自动入口。`pipeline-previs` 已写明这两条，并保留“项目设置与锁优先”。代码默认值未改。
 - **REQ-S09-42** ✅ 本阶段不使用付费 API 与 4K 精片：自动制作任务书明确只做简化白模与低分辨率预览，由 Blender 后台渲染，不安装、卸载或移动 Blender。
 
 ### 非目标（明确不做）
@@ -463,7 +463,7 @@
 - 不替代正式视频成片，不做 4K 精片，不调用付费图像／视频接口。
 - 不改写分镜、首帧或资产；动作复杂度手动覆盖只影响分流，不回写分镜。
 - 不自动安装 Blender；找不到时自动制作拦下，手动导入仍可用。
-- 不对简单、中等镜头强制白模（见 REQ-S09-37 待定）。
+- 不对简单镜头强制白模（中等镜头自 REQ-S09-37 起强制，见 REQ-S09-33）。
 
 ## S10 视频生成
 

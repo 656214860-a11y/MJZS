@@ -227,6 +227,80 @@ def record_evidence(root, sid, source, *, publish, media=None, preview=None):
     return data['evidence']
 
 
+PROJECT_INDEX = 'previs.json'
+_PREVIEW_SUFFIXES = ('.mp4', '.webm', '.mov')
+
+
+def project_index_path(context, *, write=False):
+    """项目内预演索引 `09白模预演/output/previs.json`（stage_layout 契约名）；读取时旧目录只读兼容。"""
+    from stage_path_service import read_file, write_dir
+    root = _context(context).root
+    if write:
+        return write_dir(root, 'previs') / 'output' / PROJECT_INDEX
+    return read_file(root, 'previs', 'output', PROJECT_INDEX)
+
+
+def read_project_index(context):
+    data = _json_quiet(project_index_path(context))
+    shots = data.get('shots') if isinstance(data, dict) else None
+    return {'schema': 1, 'shots': dict(shots) if isinstance(shots, dict) else {}}
+
+
+def sync_project_copy(context, sid, source, *, publish):
+    """已通过校验的预演视频在项目内留一份副本并登记 previs.json；工作区丢失后仍可凭此判就绪。
+
+    工作区记录无可用预览或证据不是 ok 时不动，返回 None；副本失败抛 OSError 由调用方决定。
+    """
+    context = _context(context)
+    record = read_record(shot_directory(context, sid, source=source))
+    value = record.get('preview')
+    path = Path(value) if value else None
+    if not (path and path.is_file() and path.stat().st_size
+            and path.suffix.lower() in _PREVIEW_SUFFIXES):
+        return None
+    if evidence_state(record, path, source, sid) != 'ok':
+        return None
+    from stage_path_service import write_dir
+    folder = write_dir(context.root, 'previs') / 'assets' / _segment(sid)
+    target = folder / path.name
+    if not target.is_file() or target.stat().st_size != path.stat().st_size:
+        folder.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_suffix(target.suffix + '.importing')
+        try:
+            shutil.copy2(path, temporary)
+            temporary.replace(target)
+        finally:
+            remove_temporary_file(temporary)
+    index = read_project_index(context)
+    entry = {'shot_id': str(sid), 'source': str(source) if source else '',
+             'source_sha256': source_digest(source, sid),
+             'preview': target.relative_to(context.root).as_posix(),
+             'preview_bytes': target.stat().st_size,
+             'synced_at': datetime.now().isoformat(timespec='seconds')}
+    index['shots'][str(sid)] = entry
+    publish(project_index_path(context, write=True), index)
+    return entry
+
+
+def project_copy_ready(context, sid, source=None):
+    """项目内副本是否还能证明这一镜预演就绪：文件在、大小对得上、来源分镜未变。"""
+    context = _context(context)
+    entry = read_project_index(context)['shots'].get(str(sid))
+    if not isinstance(entry, dict) or not entry.get('source_sha256'):
+        return False
+    root = context.root.resolve()
+    try:
+        target = (root / str(entry.get('preview') or '')).resolve()
+        if not target.is_relative_to(root) or target.suffix.lower() not in _PREVIEW_SUFFIXES:
+            return False
+        if not target.is_file() or target.stat().st_size != int(entry.get('preview_bytes') or -1):
+            return False
+    except (OSError, ValueError):
+        return False
+    current = source_digest(source, sid)
+    return not current or current == entry['source_sha256']
+
+
 def read_record(root):
     path = root / '预演记录.json'
     if not path.is_file(): return {}

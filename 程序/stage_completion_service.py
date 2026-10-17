@@ -466,6 +466,57 @@ def emit_verified_completion(root, stage, text, emit, video_ready=None, before_e
     ok, detail = completion_evidence(root, stage, video_ready)
     if not ok:
         return False, detail, None
+    if stage in ('keyframe', 'previs'):
+        try:
+            publish_stage_manifest(root, stage)
+        except (OSError, ValueError) as exc:
+            return False, '阶段输出清单写入失败：%s' % exc, None
     if callable(before_emit):
         before_emit()
     return True, '', emit('stage.completed', stage=str(stage or ''), text=text)
+
+
+def publish_stage_manifest(root, stage):
+    """核验通过后落盘阶段输出清单（stage_layout 契约名 frames.json／previs.json）；清单是回执，不是完成证据。"""
+    from datetime import datetime
+    from agent.core import save
+    from project_context_factory import project_context
+    from stage_parallel import _adopted
+    from stage_path_service import write_dir
+    root = Path(root)
+    stamp = datetime.now().isoformat(timespec='seconds')
+    if stage == 'keyframe':
+        from storyboard_paths import media_root
+        episodes = []
+        for source, shots in _adopted(root):
+            base = media_root(source).resolve()
+            rows = []
+            for shot in shots:
+                evidence = shot.get('frame_evidence')
+                image = evidence.get('image') if isinstance(evidence, dict) else None
+                rows.append({'id': shot.get('id'), 'frame': shot.get('frame'),
+                             'deleted': bool(shot.get('frame_deleted')),
+                             'sha256': image.get('sha256') if isinstance(image, dict) else None})
+            episodes.append({'source': str(source), 'media_root': str(base), 'shots': rows})
+        target = write_dir(root, 'keyframe') / 'output' / 'frames.json'
+        save(target, {'schema': 1, 'stage': 'keyframe', 'generated_at': stamp, 'episodes': episodes})
+        return target
+    import white_model_service as wm
+    from previs_routing import decisions_for
+    context = project_context(root)
+    required = {}
+    for source, shots in _adopted(root):
+        decisions = decisions_for(context, source, shots)
+        for sid, item in decisions.items():
+            if item.get('level') in ('complex', 'medium'):
+                required[sid] = item['level']
+                try:
+                    wm.sync_project_copy(context, sid, source, publish=save)
+                except (OSError, ValueError):
+                    import app_logging
+                    app_logging.swallowed('预演项目内副本未写入')
+    index = wm.read_project_index(context)
+    index.update(stage='previs', generated_at=stamp, required=required)
+    target = wm.project_index_path(context, write=True)
+    save(target, index)
+    return target

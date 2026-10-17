@@ -1,4 +1,4 @@
-"""REQ-S08-01/02/03/04/10/50/51：首帧管理阶段的位置、依赖、锁、门禁、格式与 SKILL。"""
+"""REQ-S08-01/02/03/04/10/40/41/50/51：首帧管理阶段的位置、依赖、锁、门禁、格式与 SKILL。"""
 import unittest
 from pathlib import Path
 
@@ -59,6 +59,38 @@ class KeyframeScopeTests(unittest.TestCase):
         text = (SKILL_DIR / 'pipeline-keyframe.skill.md').read_text(encoding='utf-8')
         self.assertIn('dependsOn: [pipeline-storyboard-final]', text)
         self.assertIn('每个首帧文件非空', text)
+
+    def test_req_s08_40_completion_publishes_frames_json_receipt_per_adopted_shot(self):
+        import json
+        import tempfile
+        import stage_completion_service as completion
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source = root / 'storyboard' / 'EP001.json'
+            source.parent.mkdir()
+            source.write_text(json.dumps({'episode_id': 'EP001', 'shots': [
+                {'id': 'SH001', 'frame': 'frames/SH001.png',
+                 'frame_evidence': {'image': {'sha256': 'abc'}}},
+                {'id': 'SH002', 'frame': 'frames/SH002.png', 'frame_deleted': True}]}), encoding='utf-8')
+            (root / 'ui_settings.json').write_text(
+                json.dumps({'adopted_storyboards': [str(source)]}), encoding='utf-8')
+            target = completion.publish_stage_manifest(root, 'keyframe')
+            self.assertEqual(target, root / '08首帧管理' / 'output' / 'frames.json')
+            rows = json.loads(target.read_text(encoding='utf-8'))['episodes'][0]['shots']
+            self.assertEqual([(r['id'], r['deleted'], r['sha256']) for r in rows],
+                             [('SH001', False, 'abc'), ('SH002', True, None)])
+
+    def test_req_s08_40_template_and_docs_use_the_layout_name_frames_json(self):
+        row = next(item for item in stage_layout.STAGES if item[1] == 'keyframe')
+        self.assertIn('frames.json', row[5])
+        template = (ROOT / 'skills' / 'templates' / 'keyframe_process_template.yaml').read_text(encoding='utf-8')
+        self.assertIn('frames.json', template)
+        self.assertNotIn('keyframe_manifest.json', template)
+        self.assertNotIn('keyframe_manifest.json', (ROOT / 'architecture.md').read_text(encoding='utf-8'))
+
+    def test_req_s08_41_skill_logical_name_maps_to_frames_json(self):
+        text = (SKILL_DIR / 'pipeline-keyframe.skill.md').read_text(encoding='utf-8')
+        self.assertIn('`keyframeManifest`（文件即 `08首帧管理/output/frames.json`', text)
 
 
 if __name__ == '__main__':

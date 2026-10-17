@@ -372,7 +372,7 @@
 - **DES-S08-30**（REQ-S08-30/31）`frames_ready` 读已采用分镜的 `frame`／`frame_deleted`，路径须在 `media_root` 内，非空，且 `frame_problem(…, aspect_ratio=workflow_lock(project)['aspect_ratio'])` 为空；`stage_completion_service` 的 `checks['keyframe']='frames_ready'`，要求 `ok` 且 `started`。
 - **DES-S08-32**（REQ-S08-32）`engine.py`、`app.py`、`local_video.py` 缺首帧时抛错／跳过，并经 `pet_bus.stage_step('keyframe')` 指向本阶段。
 - **DES-S08-50**（REQ-S08-50/51）SKILL 位于 `skills/08首帧管理SKILL/`；`skills/templates/keyframe_process_template.yaml` 四步，第 3 步 `needs_confirmation`。
-- **待定**（REQ-S08-40/41）清单文件名与写入点待用户拍板后再设计。
+- **DES-S08-40**（REQ-S08-40/41）`stage_completion_service.publish_stage_manifest(root, 'keyframe')`：遍历 `stage_parallel._adopted`，每镜取 `frame`／`frame_deleted`／`frame_evidence.image.sha256`，经 `agent.core.save` 写入 `write_dir(root, 'keyframe')/output/frames.json`；`emit_verified_completion` 在核验通过、发完成事件前调用，失败返回未完成。SKILL 的 `keyframeManifest` 是该文件的逻辑名。
 
 ### 测试锚定
 
@@ -387,6 +387,7 @@
 | REQ-S08-19 | `test_stage_parallel` |
 | REQ-S08-23 | `test_keyframe_lifecycle_service` |
 | REQ-S08-31 | `test_stage_parallel`（缺帧阻塞预演） |
+| REQ-S08-40/41 | `test_keyframe_scope`（frames.json 回执、模板与文档命名、SKILL 对应关系） |
 
 ## S09 白模预演
 
@@ -422,10 +423,11 @@
 - **DES-S09-26**（REQ-S09-26）`white_model_ref.SUPPORT` 为唯一能力表，`descriptor` 校验存在／后缀／非空／上限，`entries` 按槽位（`media`／`content`）拼请求；`white_model.validate_video_submission` 在提交前调用。
 - **DES-S09-30**（REQ-S09-30/32）`white_model_service.shot_directory`：`<workspace()>/<project_id 或项目目录名>/<集>/<镜头号>`，集取镜头号 `EPnnn_` 前缀，其次当前分镜 `episode_id`，否则“未分集”；`workspace()` 取环境变量→设置文件→默认用户数据目录；`migrate_legacy_directories` 先算完整清单再搬，失败回滚，成功才写 `project_id` 并落迁移清单。
 - **DES-S09-31**（REQ-S09-31）`evidence_state` 返回 `ok／changed／unbound／missing`；`previs_routing.ready` 对 `changed` 与（有来源时的）`unbound` 返回 False；`SOURCE_FIELDS` 决定来源摘要。
-- **DES-S09-33**（REQ-S09-33）`previs_ready` 取所有已采用分镜 → `decisions_for` → 只收集 `level=='complex'` → 逐镜 `ready`；缺失且 `has_run` 或已有任一就绪才拦。
+- **DES-S09-33**（REQ-S09-33/37）`previs_ready` 取所有已采用分镜 → `decisions_for` → 收集 `level` 为 `complex` 或 `medium` 的镜头 → 逐镜 `ready`；缺失且 `has_run` 或已有任一就绪才拦；缺中等镜头时追加复杂度改选提示。
 - **DES-S09-34**（REQ-S09-34）`stage_completion_service` 的 `checks['previs']='previs_ready'`，通过条件 `ok and started`。
 - **DES-S09-40**（REQ-S09-40/41）SKILL 位于 `skills/09白模预演SKILL/pipeline-previs.skill.md`；工作流设置的 `FLOWS['previs']`、`DEFAULT_SKILLS['previs']`、`FLOW_SKILLS['previs']` 在桌面通道登记 `create-blender-story-video`。
-- **待定**（REQ-S09-35/36/37/41）产物契约名与位置、成果是否入项目目录、中等镜头是否强制、默认 SKILL，待用户拍板后再设计。
+- **DES-S09-35**（REQ-S09-35/36）`white_model_service.sync_project_copy(context, sid, source, publish)`：工作区记录证据为 `ok` 的预览复制到 `write_dir(root, 'previs')/assets/<镜头号>/`（临时文件＋替换），再把条目写入 `output/previs.json`（`project_index_path` 读侧用 `read_file` 兼容旧目录）；`project_copy_ready` 校验副本在、字节数一致、来源摘要未变。调用方 L3：`stage_execution_service.record_previs_evidence`／`sync_previs_copy`、`previs_automation.verify`、`stage_completion_service.publish_stage_manifest(root, 'previs')`（补全并写 `required`）。`previs_routing.ready` 仅在工作区无可用预览时退回 `project_copy_ready`。L2 不写 JSON，只用注入的 `publish`。
+- **DES-S09-41**（REQ-S09-41）无代码改动；`pipeline-previs` 正文写明两通道入口。
 
 ### 测试锚定
 
@@ -437,6 +439,7 @@
 | REQ-S09-24/30/32 | `test_white_model_workspace`、`test_white_model_identity`、`test_white_model_import_boundary`、`test_previs_scope` |
 | REQ-S09-26 | `test_white_model_ref`、`test_previs_scope` |
 | REQ-S09-31 | `test_previs`、`test_previs_scope` |
+| REQ-S09-35/36/37/41 | `test_previs_scope`（`PrevisProjectIndexTests`）、`test_previs`（门禁回归） |
 | REQ-S09-01/02/03/04/33/34/40 | `test_previs_scope`（契约与门禁事实） |
 | 层级与 JSON 边界（REQ-S09-12/21/30） | `tests/architecture/` 下 `test_previs_routing_publication_boundary`、`test_previs_automation_json_boundary`、`test_previs_batch_json_boundary`、`test_previs_monitor_json_boundary`、`test_local_previs_json_boundary`、`test_white_model_json_boundary`、`test_white_model_service_json_boundary` |
 

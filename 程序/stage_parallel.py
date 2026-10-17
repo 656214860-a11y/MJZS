@@ -862,7 +862,7 @@ def frames_ready(project):
 
 
 def previs_ready(project):
-    """SG-05：需要白模的镜头都有可播放的预演产物。"""
+    """SG-05：需要白模的镜头（复杂动作与中等动作）都有可播放的预演产物。"""
     row = gate_for('video')
     from previs_routing import classify, decisions_for, ready
     from project_context_factory import project_context
@@ -871,6 +871,7 @@ def previs_ready(project):
     if not adopted:
         return _result(row, True, False, '还没有已采用的分镜，先不拦')
     need = []
+    levels = {}
     for source, shots in adopted:
         try:
             decisions = decisions_for(context, source, shots)
@@ -888,8 +889,9 @@ def previs_ready(project):
                     continue
             else:
                 level = item.get('level')
-            if level == 'complex':
+            if level in ('complex', 'medium'):
                 need.append((sid, source))
+                levels[sid] = level
     if not need:
         return _result(row, True, True, '没有需要白模的镜头', (), [str(source) for source, _ in adopted])
     missing = []
@@ -906,8 +908,10 @@ def previs_ready(project):
     made = has_run(project, 'previs') or any(ready(context, sid, source) for sid, source in need)
     if not made:
         return _result(row, True, False, '白模预演还没做，先不拦', (), artifacts)
-    return _result(row, False, True, '%d 个镜头还没有白模预演' % len(missing),
-                   ['缺预演：' + '、'.join(map(str, missing[:6]))], artifacts)
+    problems = ['缺预演：' + '、'.join(map(str, missing[:6]))]
+    if any(levels.get(sid) == 'medium' for sid in missing):
+        problems.append('中等动作镜头请在白模页用线上白模入口制作后导入；确实不需要时可把该镜复杂度改选「简单」')
+    return _result(row, False, True, '%d 个镜头还没有白模预演' % len(missing), problems, artifacts)
 
 
 def evaluate(project, stage, *, mode=BROWSE):

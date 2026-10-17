@@ -797,7 +797,7 @@ def record_previs_evidence(project, sid, source, media=None):
     from agent.core import save
     from white_model_service import record_evidence
     root = white_model_shot_directory(project, sid, source=source)
-    return record_evidence(root, sid, source, publish=save, media=media)
+    return _with_previs_copy(record_evidence(root, sid, source, publish=save, media=media), project, sid, source)
 
 
 def previs_records_directory(project, state):
@@ -1403,3 +1403,19 @@ def storyboard_catalog_snapshot(project, ignored=None):
     from storyboard_catalog_service import catalog_snapshot
     context = project_context(project)
     return catalog_snapshot(context) if ignored is None else catalog_snapshot(context, ignored)
+
+
+def sync_previs_copy(project, sid, source):
+    """已校验的预演在项目内留副本并登记 previs.json；副本失败不否定已通过的校验。"""
+    from agent.core import save
+    from white_model_service import sync_project_copy
+    try:
+        return sync_project_copy(project_context(project), sid, source, publish=save)
+    except (OSError, ValueError):
+        app_logging.swallowed('预演项目内副本未写入')
+        return None
+
+
+def _with_previs_copy(evidence, project, sid, source):
+    sync_previs_copy(project, sid, source)
+    return evidence

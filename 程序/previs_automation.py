@@ -27,6 +27,8 @@ def verify(project,sid,seconds,source=None):
     if wm.evidence_state(data,paths[0],source,sid)!='ok':
         wm.record_evidence(root,sid,source,publish=save,preview=paths[0],
                            media={'duration':duration,'has_video':True})
+    from stage_execution_service import sync_previs_copy
+    sync_previs_copy(project,sid,source)
     return True
 
 

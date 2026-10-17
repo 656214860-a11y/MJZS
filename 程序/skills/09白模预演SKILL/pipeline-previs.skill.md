@@ -34,7 +34,7 @@ examples:
 ## 新版子技能章节（按职责读取）
 
 新版三个引擎未提供独立 PREVIS 章节，按已采用分镜的戏型选择 [通用打戏动作与节奏流程](../00全流程SKILL/AIGC创作全流程/sd-combat-engine/SKILL.md#四工作流程五步)、[真人写实动力链与空间流程](../00全流程SKILL/AIGC创作全流程/sd-real-engine/SKILL.md#四工作流程六步--asset-first-精简版) 或 [玄幻攻防与尺度流程](../00全流程SKILL/AIGC创作全流程/sd-xuanhuan-engine/SKILL.md#四工作流程五步)，仅用于校验预演动作、受力、站位、节奏和尺度，不重新设计剧情，不同时套用互斥戏型规则。非打戏不启用这些专精约束。
-可播放白模仍由本阶段既有建模／运镜工具实现并验收；动作文字和提示词机检不能冒充可播放预演。外部 create-blender-story-video 不是本阶段自动默认入口，其规格或再次选锁流程不得覆盖项目设置。
+可播放白模仍由本阶段既有建模／运镜工具实现并验收；动作文字和提示词机检不能冒充可播放预演。`previsManifest` 的落盘文件是 `09白模预演/output/previs.json`，`keyframeManifest` 对应 `08首帧管理/output/frames.json`。预演入口分两路：全流程预设里的本阶段入口是 `pipeline-previs`；桌面白模页的默认技能是 `create-blender-story-video`，仅在用户手动走白模页时使用，不是全流程自动入口。两者都以项目设置与项目锁为准，外部 create-blender-story-video 的规格或再次选锁流程不得覆盖项目设置。
 
 本文件仅声明所需章节，不授权加载整个总控包；读取时以项目锁及本阶段职责为边界。
 
