@@ -11,13 +11,14 @@ import time
 from dataclasses import dataclass
 from typing import Callable
 import project_stages
+import script_view_style
 import tkinter as tk
 import ui_plugin_registry
 from desktop_idea_chat import model_error_display
 from pathlib import Path
 from responsive_ui import FlowBar
 from tkinter import ttk
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import COLORS, SCRIPT_VIEW_FONT, SCRIPT_VIEW_PADDING, SPACING
 from ui_widgets import DataTable, PrimaryButton, SecondaryButton, TextArea
 from desktop_page_support import STAGE_ACTION_WIDTH
 
@@ -40,6 +41,30 @@ def _safe_after_idle(widget, callback):
         return widget.after_idle(callback)
     except tk.TclError:
         return None
+
+
+def _set_script_wrap(preview, horizontal, styled):
+    """小文件按词换行并收起横向滚动条；大文件保留横向滚动。"""
+    preview.configure(wrap='word' if styled else 'none')
+    if styled:
+        horizontal.grid_remove()
+    else:
+        horizontal.grid()
+
+
+def _build_script_preview(text_area):
+    """剧本正文文本框与两条滚动条；返回 (文本框, 横向滚动条)。"""
+    preview = TextArea(text_area, bg=COLORS["background_card"], fg=COLORS["text_primary"], height=1,
+                       wrap='word', undo=True, maxundo=-1, font=SCRIPT_VIEW_FONT, relief='flat',
+                       padx=SCRIPT_VIEW_PADDING[0], pady=SCRIPT_VIEW_PADDING[1])
+    scroll = ttk.Scrollbar(text_area, orient='vertical', command=preview.yview)
+    # 大文件保留全文，以横向滚动浏览长行；小文件由 set_preview 改为按词换行。
+    horizontal = ttk.Scrollbar(text_area, orient='horizontal', command=preview.xview)
+    preview.configure(yscrollcommand=scroll.set, xscrollcommand=horizontal.set)
+    preview.grid(row=0, column=0, sticky='nsew'); scroll.grid(row=0, column=1, sticky='ns')
+    horizontal.grid(row=1, column=0, sticky='ew')
+    text_area.columnconfigure(0, weight=1); text_area.rowconfigure(0, weight=1)
+    return preview, horizontal
 
 
 @dataclass(frozen=True)
@@ -352,7 +377,8 @@ class ScriptPagesMixin:
         structure_note = ('剧本整理：本地规则提取人物、场景、道具、事件、冲突、台词与分场要素，再由规则校验完整性和一致性后输出结构剧本（未调用模型）；'
                           '不切镜头、不生成分镜 JSON，也不会改动自然语言原稿。')
         from script_preview_service import LOADING_PREVIEW, preview_chunks, read_preview, should_load_async
-        def content_box(parent, title, file_heading, documents, active_path, empty, attribute, editable=True):
+        def content_box(parent, title, file_heading, documents, active_path, empty, attribute,
+                        editable=True, kind='natural'):
             # 文件栏与正文同一行：左列只管选择／确认剧本文件，右列专心阅读和编辑正文。
             # 不再把这份文件清单重复放到页面底部。
             box = ttk.Frame(parent, padding=SPACING["sm"])
@@ -384,21 +410,14 @@ class ScriptPagesMixin:
             controls = ttk.Frame(preview_header)
             controls.pack(side='right')
             text_area = ttk.Frame(preview_area); text_area.pack(fill='both', expand=True)
-            preview = TextArea(text_area, bg=COLORS["background_card"], fg=COLORS["text_primary"], height=1,
-                              wrap='none', undo=True, maxundo=-1, font=FONTS["caption"], relief='flat',
-                              padx=SPACING["md"], pady=SPACING["sm"])
-            scroll = ttk.Scrollbar(text_area, orient='vertical', command=preview.yview)
-            # 中文正文自动换行会在 Tcl 内反复量宽；保留全文，以横向滚动浏览长行。
-            horizontal = ttk.Scrollbar(text_area, orient='horizontal', command=preview.xview)
-            preview.configure(yscrollcommand=scroll.set, xscrollcommand=horizontal.set)
-            preview.grid(row=0, column=0, sticky='nsew'); scroll.grid(row=0, column=1, sticky='ns')
-            horizontal.grid(row=1, column=0, sticky='ew')
-            text_area.columnconfigure(0, weight=1); text_area.rowconfigure(0, weight=1)
+            preview, horizontal = _build_script_preview(text_area)
             body.add(files, weight=1)
             body.add(preview_area, weight=4)
             preview_ticket = {'value': 0}
             def set_preview(value, ticket=None):
                 """小文本立即显示；大文本在 Tk 空闲时分块插入，避免一次性重排。"""
+                styled = script_view_style.should_style(value)
+                _set_script_wrap(preview, horizontal, styled)
                 preview.configure(state='normal')
                 preview.delete('1.0', 'end')
                 preview.configure(state='disabled')
@@ -411,6 +430,8 @@ class ScriptPagesMixin:
                     except StopIteration:
                         try:
                             preview.configure(state='normal')
+                            if styled:
+                                script_view_style.apply_tags(preview, value, kind)
                             # 初始预览不能成为“恢复删除”的一条历史记录；只恢复用户本次编辑中的动作。
                             preview.edit_reset()
                             preview.configure(state='disabled')
@@ -427,6 +448,8 @@ class ScriptPagesMixin:
                 if ticket is None:
                     preview.configure(state='normal')
                     preview.insert('end', value)
+                    if styled:
+                        script_view_style.apply_tags(preview, value, kind)
                     preview.edit_reset()
                     preview.configure(state='disabled')
                 else:
@@ -544,7 +567,7 @@ class ScriptPagesMixin:
             '自然剧本（采用：'+source.name+'）' if source else '自然剧本（待选择采用版本）',
             '自然剧本目录（01剧本准备）', structure.source_documents, source,
             '尚未找到剧本准备阶段的剧本。请先生成、下载或导入剧本。',
-            'script_structure_source_preview', editable=source is not None)
+            'script_structure_source_preview', editable=source is not None, kind='natural')
         self.script_structure_source_box.grid(row=0, column=0, sticky='nsew', pady=(SPACING["xs"], SPACING["none"]))
         actions = FlowBar(split_area); actions.grid(row=1, column=0, sticky='ew', pady=(SPACING["sm"], SPACING["xs"]))
         def start_structure():
@@ -576,7 +599,7 @@ class ScriptPagesMixin:
             split_area,
             '结构剧本', '结构剧本目录（02剧本结构）', structure.output_documents, target,
             '尚未生成结构化剧本。点击上方“手动制作结构剧本”，或由三虎全自动模式执行。',
-            'script_structure_output_preview', editable=True)
+            'script_structure_output_preview', editable=True, kind='structured')
         self.script_structure_output_box.grid(row=2, column=0, sticky='nsew', pady=(SPACING["none"], SPACING["none"]))
         # 流程说明留在两块内容之后的右下角，避免占用顶部阅读空间。
         info = ttk.Label(self.content, text=structure_note, style='Muted.TLabel', justify='right', wraplength=760)
