@@ -1807,7 +1807,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         result=ensure_delivery_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         delivery_dir,_=result.data
-        p=FileDialog(self.win).open_file(initialdir=delivery_dir,filetypes=[('成片','*.mp4 *.mov')])
+        p=FileDialog(self.win).open_file(initialdir=delivery_dir,filetypes=[('成片','*.mp4 *.mov *.mkv')])
         if not p:return
         def work():
             from service_contract import UserError
@@ -1851,7 +1851,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             if not confirm(self.win,'确认本集成果',
                 '媒体技术校验通过。请确认以下文件属于当前集，内容完整且已人工审核：\n'
                 +prepared['scope']['episode']+'\n'+names
-                +('\n此操作不代表商用授权或内容合规通过。' if stage=='delivery' else '')):return
+                +('\n质检：'+('通过' if (prepared.get('qc') or {}).get('passed') else '未通过')
+                  +''.join('\n警告：'+item for item in (prepared.get('qc') or {}).get('warnings', []))
+                  +'\n此操作不代表商用授权或内容合规通过。' if stage=='delivery' else '')):return
             confirm_media_completion(root,stage,prepared)
             self.pet.report_done(stage,'本集成果已校验并确认')
         self.async_(work,done)

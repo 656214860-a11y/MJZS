@@ -81,7 +81,7 @@ R1139：L3 `codex_skill_sync` 通过注册表物化所有已登记阶段（含�
 | 各阶段内容 SKILL（`skills/09白模预演SKILL/`） | 白模预演 | 生成白模场景、走位、机位路径、动作和节奏预览。 |
 | 各阶段内容 SKILL（`skills/10视频生成SKILL/`） | 视频生成 | 视频批量提交、模型分流、轮询、质检和失败重跑。 |
 | 各阶段内容 SKILL（`skills/11配音字幕SKILL/`） | 配音与字幕 | 多角色配音、情绪核验、字幕对齐及 SRT＋ASS 同批导出（`subtitle_timing.ass_text`、`subtitle_export_service.export_ass`）。 |
-| 各阶段内容 SKILL（`skills/12后期剪辑SKILL/`） | 后期剪辑 | 合成、配乐、预览、转场和多平台导出。 |
+| 各阶段内容 SKILL（`skills/12后期剪辑SKILL/`） | 后期剪辑 | 粗剪合成、镜头间转场、背景音乐、平台版本导出与剪映交接（音效、配音混音、预览生成未实现）。 |
 | 各阶段内容 SKILL（`skills/13质检交付SKILL/`） | 质检与交付 | 质检、合规与风格检查、归档和交付报告。 |
 
 阶段模板位于 `skills/templates/`：`script`、`script_structure`、`storyboard`、`asset`、`continuity`、`final`、`keyframe`、`previs`、`video`、`audio`、`edit`、`delivery` 各一份 YAML。每份均含读取/分析、生成（可确认）和写入产物步骤。
@@ -266,7 +266,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 10  | `video`            | 视频生成  | 视频任务/片段；`output/` 下 `videos.json`／`video_manifest.json` 由 `Studio.publish_manifest` 写出；每项目上限 100 镜。 |
 | 11  | `audio`            | 配音与字幕 | 音轨、字幕；完成凭据为人工确认的 `成果确认/<hash>.json`；`output/` 下 `voice.json`／`subtitles.json`／`audio_manifest.json` 由 `stage_execution_service.refresh_audio_manifests` 在成果变化后写出，不作完成证据。 |
 | 12  | `edit`             | 后期剪辑  | 粗剪成片 `MASTER.mp4`（落 `13质检交付/导出成片/`）、`edit_manifest.json`／`edit_bundle.json`、EDL／FCPXML；需求与设计见 `docs/`。 |
-| 13  | `delivery`         | 质检与交付 | 已确认成片的成果确认清单（`成果确认/*.json`）、商用待填资料；`delivery_manifest.json` 现无代码写入，待定见 REQ-S13-24。 |
+| 13  | `delivery`         | 质检与交付 | 已确认成片的成果确认清单（`成果确认/*.json`，含与成片绑定的 `qc` 质检结论）、`qc_report.json`／`delivery.json`／`delivery_manifest.json`／`delivery_report.md`、商用待填资料。 |
 
 三虎逐步发布 `stage.started/completed/failed/retrying/executing/paused` 等事件，记录检查点，支持恢复；手动模式仅在模板标记确认的步骤等待用户，全自动模式不等待但逐步播报。门禁为资产/锚点 → SG01 → 连贯性 → SG02 → 定稿 → SG03 → 首帧 → SG04 → 预演 → SG05 → 视频。
 
@@ -356,7 +356,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 白模 Agent                         | 白模预演      | 场景、走位、机位和预演。                      |
 | 视频 Agent                         | 视频生成      | 本地/云任务、轮询、限流和重试。                  |
 | 音频字幕 Agent                       | 配音与字幕     | TTS、多角色音色、字幕对齐和导出。                |
-| 后期 Agent                         | 后期剪辑      | 时间线、转场、音效、导出。                     |
+| 后期 Agent                         | 后期剪辑      | 粗剪、转场、背景音乐、平台导出（不含音效）。   |
 | 质检/交付 Agent                      | 质检与交付     | 画面/音频/字幕/合规/风格检查、报告、归档。           |
 | ChatGPT Desktop / Claude Desktop | 任意显式选择阶段；或 GPT/Anthropic API 且本机程序可启动 | 本机桌面 Agent 引擎；后者是运行时本机优先，启动失败回退原 API。         |
 

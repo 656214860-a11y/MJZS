@@ -61,7 +61,7 @@ DEPENDS = {'script': (), 'script_structure': ('script',), 'storyboard': ('script
            'animatic': ('storyboard',), 'assets': ('animatic',),
            'continuity': ('assets',), 'final': ('storyboard',), 'keyframe': ('final',),
            'previs': ('keyframe',), 'video': ('keyframe',), 'audio': ('final',),
-           'edit': ('video',), 'delivery': ('edit',)}
+           'edit': ('video', 'audio'), 'delivery': ('edit',)}
 
 # 预算：编排一次 SKILL 的往返按半分钟粗估——弹窗写的就是「约」。
 SECONDS_PER_SKILL = 30

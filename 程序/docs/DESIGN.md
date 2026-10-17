@@ -580,7 +580,7 @@
 
 ### 设计条目
 
-- **DES-S12-01**（REQ-S12-01）`stage_flow.DEPENDS['edit']=('video',)`、`DEPENDS['delivery']=('edit',)`。
+- **DES-S12-01**（REQ-S12-01/04）`stage_flow.DEPENDS['edit']=('video','audio')`、`DEPENDS['delivery']=('edit',)`；`Studio.edit_inputs` 登记 S11 配音／字幕文件路径与摘要，写入 `edits.json.inputs`。
 - **DES-S12-02**（REQ-S12-02/03）`engine.approved_versions` 取已下载＋`qc_pass`＋`review=='pass'`；`adopted_edit_version` 在其中先取 `pinned is True`，否则最后一条，再核文件存在与 `file_hash==sha256`，失败返回 `unapproved／missing／replaced／unreadable`；`review_source／content_reviewed／review_label` 区分真人与自动放行。
 - **DES-S12-05**（REQ-S12-05）`Studio.output_spec` → `stage_config.workflow_lock` → `script_contract.resolve_output_spec`；`output_spec_text` 供页面显示。
 - **DES-S12-10**（REQ-S12-10/13）`Studio._encode` 逐镜 ffmpeg 重编码（`output_filter`＋`loudness_filter`，无音轨补 `anullsrc` 并写 `_音轨说明.json`，`post_overlay` 用 `drawtext`），`concat -c copy` 到 `.partial.mp4`，`-xerror` 解码核验后 `replace` 为 `MASTER.mp4`。
@@ -591,17 +591,17 @@
 - **DES-S12-20**（REQ-S12-20/21）`Studio.assemble` 用 `project_stages.exports` ＋ `project_naming.dated_path` 建成片目录；`publish_edit_bundle` 先原子写 `edit_bundle.json`，再写 `qc.json`、`edit_manifest.json`；`read_edit_bundle` 在无 bundle 时退回两份索引（`legacy`）。
 - **DES-S12-22**（REQ-S12-22）`_encode` 在 `report['errors']` 非空时在发布 bundle 与交换清单之后才抛错；`publish_edit_lists` 失败只返回 `{'ok':False}`，不删成片。
 - **DES-S12-23**（REQ-S12-23/24）`media_output_folders('edit')`＝`read_dirs('edit')`＋各 `delivery` 读目录下 `导出成片`，后缀 mp4／mov／mkv；`prepare_media_completion` 技术校验并生成 `pending_review`；`confirm_media_completion` 写 `complete／reviewed`；`media_scope` 绑定当前采用分镜；`completion_evidence` 把 `edit` 路由到 `media_completion_evidence`。
-- **DES-S12-25**（REQ-S12-25）`stage_layout.STAGES` 的 `('12后期剪辑','edit',…,('videos.json','voice.json','subtitles.json'),('edits.json',))`；未被读写，状态待裁决。
+- **DES-S12-25**（REQ-S12-25/33）`edit_export` 提供 `normalize_edits／transition_filter／transition_seconds／music_filter／PLATFORMS／platform_spec`（纯文本、无 I/O）；`Studio.save_edit_settings` 写 `12后期剪辑/edits.json`，`Studio._join_shots` 无转场走无损 concat、有转场走 `xfade`＋`acrossfade` 重编码、有配乐再混一遍，`publish_edit_bundle` 在成片目录写 `edits.json`（含 `inputs`）并在 `edit_bundle.json` 记 `edits／music`；背景音乐经 `Studio._project_music` 复制进 `12后期剪辑/背景音乐/` 并写 `.source.json`。`_encode` 仍保持临时文件→完整性校验→`replace`→`publish_edit_bundle`。
 - **DES-S12-26**（REQ-S12-26）`stage_parallel.CONFIG['edit']`：`min/max/limit=1`、`serial=False`、`retry.attempts=2`、`on_exhaust=ON_BLOCK`。
 - **DES-S12-30**（REQ-S12-30）`workflow_settings` 默认 `'edit':['pipeline-editing']`；`skill_registry` 目录号 `12`→`edit`。
-- **DES-S12-31**（REQ-S12-31/32）`skill_tools.READY` 含 `edit.compose`、`edit.export*`（只回规格）；`skill_tools.PAGES` 含 `edit.assemble／validate／addTransition／addSFX／addBGM`，`call` 对 PAGES 条目抛 `ToolNeedsPage`。
+- **DES-S12-31**（REQ-S12-31/32）`skill_tools.READY` 含 `edit.compose`、`edit.export*`（回规格，同一份 `edit_export.PLATFORMS`）；`skill_tools.PAGES` 含 `edit.assemble／validate／addTransition／addSFX／addBGM`，`call` 对 PAGES 条目抛 `ToolNeedsPage`；平台转码由后期页按钮经 `EditingPageController.export_platform` → `Studio.export_platform` 完成，输出到 `<成片目录>/平台版本/<平台>.mp4`。
 - **DES-S12-35**（REQ-S12-35）`edit_export.build_edl／build_fcpxml／build_tracks／export_texts`，写盘由 `Studio.publish_edit_lists` 经 `agent.core.save／save_text` 完成。
 
 ### 测试锚定
 
 | 需求 | 测试 |
 | --- | --- |
-| REQ-S12-01 | `test_editing_scope`（新）、`test_stage_flow` |
+| REQ-S12-01/04 | `test_editing_scope`（新）、`test_stage_flow` |
 | REQ-S12-02/03 | `test_edit_adoption`、`test_editing_scope`（新） |
 | REQ-S12-05 | 暂无断言（输出规格解析由 `script_contract` 既有测试覆盖） |
 | REQ-S12-10/11 | `test_integration`、`test_editing_page_controller` |
@@ -611,8 +611,8 @@
 | REQ-S12-20/21 | `test_editing_scope`（新，目录位置）、`test_edit_adoption`（bundle 用例）、`architecture/test_edit_publication_boundary` |
 | REQ-S12-22/35 | `test_edit_export` |
 | REQ-S12-23 | `test_stage_completion_service`、`test_editing_scope`（新） |
-| REQ-S12-25/26/30/31/32 | `test_editing_scope`（新） |
-| REQ-S12-15/24/33/34 | 现状差距，暂无断言（待用户裁决后再补） |
+| REQ-S12-25/26/30/31/32/33 | `test_editing_scope`（新；含 ffmpeg 真实转场／配乐／平台导出用例，缺 ffmpeg 时跳过） |
+| REQ-S12-15/24/34 | 现状差距，暂无断言（待用户裁决后再补） |
 
 ## S13 质检与交付
 
@@ -640,27 +640,27 @@
 - **DES-S13-03**（REQ-S13-03）`prepare_media_completion` 取 `config.json` 的 `ffprobe` 或 `platform_tools.tool_path('ffprobe')`，缺失抛 `ValueError`；探测由 `agent.media.probe`＋`media_facts` 完成。
 - **DES-S13-04**（REQ-S13-04）`STAGE_LOCK_REQUIREMENTS` 键为 `script/keyframe/previs/video`，不含 `delivery`。
 - **DES-S13-10**（REQ-S13-10）交付页按钮：导入剪映最终成片、校验并确认本阶段成果、生成商用待填资料、核验商用交付资料、选择采用版本、打开目录。
-- **DES-S13-11**（REQ-S13-11）`delivery_import_service.ALLOWED_SUFFIXES={'.mp4','.mov'}`；目标文件名＝原名＋6 位随机＋原后缀；发布走 `stage_completion_service.publish_imported_media`，同时写 `<文件>.source.json`（`rights_status='unknown'`）。
+- **DES-S13-11**（REQ-S13-11/26）`delivery_import_service.ALLOWED_SUFFIXES={'.mp4','.mov','.mkv'}`，`media_output_folders('delivery')` 复用同一集合；目标文件名＝原名＋6 位随机＋原后缀；发布走 `stage_completion_service.publish_imported_media`，同时写 `<文件>.source.json`（`rights_status='unknown'`）。
 - **DES-S13-12**（REQ-S13-12/13）`prepare_media_completion` 逐文件：`_media_path`（目录＋后缀＋非空）→ 哈希 → 探测 → 再哈希；全部通过后生成 `status='pending_review'` 清单并自校验。
 - **DES-S13-14**（REQ-S13-14）`confirm_media_completion` 仅由显式确认入口调用，写 `complete/reviewed=True`；`delivery` 另加 `commercial_status='pending'`；落盘到 `media_manifest_path`＝`write_dir(root,'delivery')/成果确认/<fingerprint(来源)[:24]>.json`。
 - **DES-S13-20**（REQ-S13-20/21/22/23）`completion_evidence` 对 `audio/edit/delivery` 走 `media_completion_evidence`→`_validate_media_completion`（schema、阶段、范围、状态、技术校验、大小与哈希）；`emit_verified_completion` 核验通过后才发 `stage.completed`。商用函数不在此路径上。
-- **DES-S13-24**（REQ-S13-24/25/26/28）待定：`stage_layout` 声明产物、`pipeline-delivery` 的工具与约束、后缀集合、`commercial_status`／`delivery.ready` 的归属，按需求裁决后再设计。
+- **DES-S13-24**（REQ-S13-24/25/28/52）`prepare_media_completion('delivery')` 调 `build_delivery_qc` 生成 `data['qc']={passed,errors,warnings,outputs,bound}`；`confirm_media_completion` 在 `qc.passed` 假时拒绝，通过后 `publish_delivery_artifacts` 写 `qc_report.json／delivery.json／delivery_manifest.json`；`_validate_media_completion(require_review=True)` 校验 `qc.passed` 与 `qc.bound`。`delivery_record／package_delivery／publish_delivery_report` 供 `skill_tools` 的 `delivery.validate／package` 与 `stage_exec._run_delivery` 调用（`run_stage_with_template` 四动作）。`commercial_status(root)` 供交付页常驻显示，`confirm_commercial_evidence` 把清单 `commercial_status` 置 `verified`。`delivery.ready` 仍仅声明。
 - **DES-S13-30**（REQ-S13-30/31）`create_commercial_template` 目标为 `<成果确认>/<指纹>.commercial.pending.json`，已存在即拒绝；`_commercial_inventory` 预填剧本（经 `board_source_script`）、成片、`edit_bundle.json` 的 `manifest/fonts/references`、`font.ttc`，授权字段留空。
 - **DES-S13-32**（REQ-S13-32~36）`validate_commercial_evidence`：范围与成片摘要一致 → 清单完成声明与审核人 → 七类逐类（`COMMERCIAL_CATEGORIES`）→ 条目字段与授权文件冻结校验 → 覆盖实际剧本来源／成片／镜头来源／参考／字体 → `content_review` 三项 `cleared`＋审核人＋证据。确认后写 `<指纹>.commercial.json`。
 - **DES-S13-40**（REQ-S13-40）`usage_overview.read_events` 读 `model_diagnostics`；`_add` 对无用量事件计 `unknown_usage`，`not_submitted` 单独计数。
 - **DES-S13-41**（REQ-S13-41/42/43）`delivery_duration` 逐份校验确认清单（`complete`、`reviewed`、范围、来源哈希、`validation.passed`、大小与哈希）后累加时长；`cost_per_minute` 对缺项返回 `None`/缺项列表，`basis='recorded_usage_estimate_not_supplier_invoice'`。
 - **DES-S13-50**（REQ-S13-50）`workflow_settings` 阶段默认 SKILL＝`['pipeline-delivery']`；SKILL 位于 `skills/13质检交付SKILL/`。
 - **DES-S13-51**（REQ-S13-51）`stage_parallel.CONFIG['delivery']`：`unit=CHECK, min=2, max=4, serial=False, limit=4, retry={attempts:2, backoff:'fixed', on_exhaust:ON_REPORT}`。
-- **DES-S13-53**（REQ-S13-53）`skill_tools.READY` 含 `qa.visualCheck/audioCheck/subtitleCheck`、`delivery.generateReport/exportManifest`；`PAGES` 含 `qa.styleCheck/complianceCheck`、`delivery.archive/validate/package`。
-- **待定**（REQ-S13-52）模板步骤是否程序化，待总控拍板。
+- **DES-S13-53**（REQ-S13-53）`skill_tools.READY` 含 `qa.visualCheck/audioCheck/subtitleCheck`、`delivery.generateReport/exportManifest/validate/package`；`PAGES` 含 `qa.styleCheck/complianceCheck`、`delivery.archive`。
+- REQ-S13-52 已由 DES-S13-24 的 `_run_delivery` 落实。
 
 ### 测试锚定
 
 | 需求 | 测试 |
 | --- | --- |
 | REQ-S13-01/04/50/51 | `test_delivery_scope` |
-| REQ-S13-11 | `test_delivery_scope`、`test_delivery_import_service`、`architecture/test_delivery_import_boundary` |
+| REQ-S13-11/26 | `test_delivery_scope`、`test_delivery_import_service`、`architecture/test_delivery_import_boundary` |
 | REQ-S13-12/14/20/21 | `test_stage_completion_service` |
 | REQ-S13-30~36 | `test_stage_completion_service`、`test_delivery_scope`（七类常量） |
 | REQ-S13-40~43 | `test_usage_overview` |
-| REQ-S13-24/26/53 | `test_delivery_scope`（声明产物、后缀差异、工具表登记情况） |
+| REQ-S13-24/25/28/52/53 | `test_delivery_scope`（`DeliveryQcTests`：质检通过／拒绝、产物落盘、工具、商用状态、旧确认需重确认） |

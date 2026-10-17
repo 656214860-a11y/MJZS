@@ -8,7 +8,7 @@ from service_contract import SystemError, UserError, success
 from agent.media import MediaValidationError
 
 
-ALLOWED_SUFFIXES = frozenset({'.mp4', '.mov'})
+ALLOWED_SUFFIXES = frozenset({'.mp4', '.mov', '.mkv'})
 LOGGER = logging.getLogger(__name__)
 
 
@@ -21,7 +21,7 @@ def import_final_master(context, source, publish=None):
     source = Path(source)
     try:
         if source.suffix.lower() not in ALLOWED_SUFFIXES:
-            return UserError('请选择 MP4 或 MOV 成片文件')
+            return UserError('请选择 MP4、MOV 或 MKV 成片文件')
         if not source.is_file() or not source.stat().st_size:
             return UserError('成片文件为空，请选择有效文件')
         target_dir = context.stage_resolver('delivery')

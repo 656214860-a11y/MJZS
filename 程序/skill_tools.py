@@ -352,6 +352,29 @@ def _delivery_manifest(context):
     return {'ok': True, 'manifest': str(target), 'files': files}
 
 
+def _delivery_validate(context):
+    """质检：核验成片已确认且质检结论通过（依据成果确认清单里的可复核事实，不采信模型文字）。"""
+    import stage_completion_service as service
+    project = project_of(context or {})
+    try:
+        record = service.delivery_record(project)
+    except ValueError as exc:
+        return {'ok': False, 'problems': [str(exc)]}
+    qc = record['qc']
+    return {'ok': True, 'outputs': [item['path'] for item in record['outputs']], 'warnings': list(qc.get('warnings') or [])}
+
+
+def _delivery_package(context):
+    """打包交付：落盘质检报告、交付摘要和带摘要的文件清单；质检未通过时拒绝。"""
+    import stage_completion_service as service
+    project = project_of(context or {})
+    try:
+        files = service.package_delivery(project)
+    except ValueError as exc:
+        return {'ok': False, 'problems': [str(exc)]}
+    return {'ok': True, 'files': files}
+
+
 def _continuity_ledger(context):
     """连贯性台账：按当前分镜与资产清单现场算一份，落 03_continuity/output（本机跑得完）。"""
     import continuity_ledger
@@ -368,21 +391,16 @@ def _continuity_ledger(context):
             'problems': list(summary.get('problems') or [])}
 
 
-PLATFORMS = {
-    'douyin': {'label': '抖音', 'width': 1080, 'height': 1920, 'fps': 30, 'bitrate': '8M', 'aspect': '9:16'},
-    'bilibili': {'label': 'B站', 'width': 1920, 'height': 1080, 'fps': 30, 'bitrate': '12M', 'aspect': '16:9'},
-    'youtube': {'label': 'YouTube', 'width': 3840, 'height': 2160, 'fps': 30, 'bitrate': '45M', 'aspect': '16:9'},
-}
-
-
 def platform_spec(name):
-    """导出规范表：页面上的导出与编排器共用这一份（custom 走用户自定义参数）。"""
-    key = str(name or '').strip().lower()
-    if key == 'custom':
-        return dict(PLATFORMS['bilibili'], label='自定义')
-    if key in PLATFORMS:
-        return dict(PLATFORMS[key], key=key)
-    raise ToolError('没登记的平台：' + str(name))
+    """导出规范表：页面上的导出与编排器共用 edit_export 的那一份。"""
+    from edit_export import platform_spec as table
+    try:
+        spec = table(name)
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    if spec.get('key') == 'custom':
+        spec.pop('key')
+    return spec
 
 
 def _export(context):
@@ -393,7 +411,7 @@ def _export(context):
     custom = ctx.get('customParams') if isinstance(ctx.get('customParams'), dict) else {}
     spec.update({key: custom[key] for key in ('width', 'height', 'fps', 'bitrate') if key in custom})
     return {'ok': True, 'platform': platform, 'spec': spec,
-            'note': '转码在「' + stage_label('edit') + '」页面上按对应平台的导出按钮执行'}
+            'note': '转码在「' + stage_label('edit') + '」页面上按对应平台的导出按钮执行（Studio.export_platform）'}
 
 
 READY = {
@@ -421,6 +439,8 @@ READY = {
     'edit.compose': (_edit_compose, 'engine.Studio.assemble：按页面同一套参数合片'),
     'delivery.generateReport': (_delivery_report, 'pet_report.daily：耗时／成本／重试／Token'),
     'delivery.exportManifest': (_delivery_manifest, '写出交付清单 manifest.json'),
+    'delivery.validate': (_delivery_validate, 'stage_completion_service.delivery_record：成片已确认且质检通过'),
+    'delivery.package': (_delivery_package, 'stage_completion_service.package_delivery：质检报告与交付清单'),
     'continuity.buildLedger': (_continuity_ledger, 'continuity_ledger.build：现场算一份台账并落盘'),
     'edit.exportDouyin': (_export, 'platform_spec：抖音 1080×1920 / 8M'),
     'edit.exportBilibili': (_export, 'platform_spec：B站 1920×1080 / 12M'),
@@ -492,8 +512,6 @@ PAGES = {
     'audio.validate': (_AUDIO, '校验配音与字幕'),
     'edit.assemble': (_EDIT, '自动合成'),
     'edit.validate': (_EDIT, '校验后期合成'),
-    'delivery.validate': (_DELIVERY, '质检'),
-    'delivery.package': (_DELIVERY, '打包交付'),
 }
 
 # 页号与显示名均随阶段权威源顺延，动作说明保持原有语义。
