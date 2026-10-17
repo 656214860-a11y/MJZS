@@ -43,7 +43,7 @@ R1247 数据边界：剧本聊天及回收站位于 `01剧本准备/模型会话
 | 分镜预演 | `04分镜预演` | 分镜提示词、共享参考图、临时声音 | `animatic_manifest.json`、镜头草图、Animatic 视频 |
 | 资产管理 | `05资产管理` | 已采用分镜初稿（`storyboard_draft.json`）、预演确认（SG-B）、参考图 | `assets.json`、正典板、锚点 |
 | 连贯性清单 | `06连贯性清单` | 被采用分镜、资产 | `continuity_ledger.json`、`continuity_ledger.md`、`continuity_issues.json` |
-| 分镜定稿 | `07分镜定稿` | 初稿、台账 | 已采用分镜、`batch_id` |
+| 分镜定稿 | `07分镜定稿` | 初稿、资产、台账 | 已采用分镜、`batch_id`（`episode.json` + `assets.json`） |
 | 首帧管理 | `08首帧管理` | 批次、锚点 | 非空首帧文件 |
 | 白模预演 | `09白模预演` | 首帧、镜头动作 | 可播放预演 |
 | 视频生成 | `10视频生成` | 预演、视频提示词 | 视频任务/成片 |

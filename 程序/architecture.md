@@ -260,7 +260,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 04  | `animatic`         | 分镜预演  | 参考图与分镜提示词生成的预演草图、Animatic、`animatic_manifest.json`。 |
 | 05  | `assets`           | 资产管理  | `assets.json`、正典板、锚点。                            |
 | 06  | `continuity`       | 连贯性清单 | `continuity_ledger.json`、`continuity_ledger.md`、`continuity_issues.json`，另发布共享锚点库与三元组字典。 |
-| 07  | `final`            | 分镜定稿  | 采用分镜、提示词、批次 ID。                                  |
+| 07  | `final`            | 分镜定稿  | 采用分镜、提示词、批次 ID；落盘为 `07分镜定稿/分镜/<EP>_分镜定稿[_日期]/` 下的 `episode.json` + `assets.json`。 |
 | 08  | `keyframe`         | 首帧管理  | 非空首帧、`keyframe_manifest.json`。                   |
 | 09  | `previs`           | 白模预演  | 可播放预演、`previs_manifest.json`。                    |
 | 10  | `video`            | 视频生成  | 视频任务/片段、`video_manifest.json`。                   |

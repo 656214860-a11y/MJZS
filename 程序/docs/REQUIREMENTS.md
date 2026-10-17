@@ -4,7 +4,7 @@
 编号规则：`REQ-<阶段号>-<序号>`，删除的编号不复用。测试 docstring 写 `REQ-xx` 锚定。
 状态：✅ 已实现　🟡 部分实现／与代码不一致　⬜ 未实现　❓ 待人拍板
 
-> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜、S04 分镜预演、S05 资产管理、S06 连贯性清单。其余阶段按顺序逐阶段补。
+> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜、S04 分镜预演、S05 资产管理、S06 连贯性清单、S07 分镜定稿。其余阶段按顺序逐阶段补。
 
 ## S01 剧本准备
 
@@ -291,3 +291,63 @@
 - 不生成或重新描述锚点、不改写分镜、不重切批次（批次划分属 S03／S07）。
 - 不做首帧、白模、视频一致性的图像级比对。
 - 不设独立的“放行”权限：分镜定稿放行以 SG-02 为准，D 锁（`splice_mode`）只读用。
+
+## S07 分镜定稿
+
+> 编号说明：第 07 阶段，阶段键 `final`，目录 `07分镜定稿`（`stage_layout.STAGES`）。旧目录名 `06分镜定稿` 仅存在于 `stage_path_service.LEGACY_NUMBERED`，只读兼容；当前 `06` 是 `continuity` 连贯性清单。
+
+目标：把已采用的分镜初稿，对齐资产清单（角色／场景／道具编号与参考图），按镜头三元组切批次并回填 `batch_id`，发布一份可追溯的定稿（`episode.json` + `assets.json`），供首帧阶段使用。定稿后原工作稿经回收站退役，不静默覆盖。
+
+### 输入与依赖
+
+- **REQ-S07-01** ✅ 输入是一份分镜 JSON（顶层对象、`shots` 为数组）加资产清单；`finalize` 在 `storyboard_final.py:49` 校验格式，不合格抛错且不写任何产出。手动入口缺源文件时直接报错（`desktop.py:1758`）。
+- **REQ-S07-02** ✅ 进入本阶段受 SG-02（`ledger_ready`）约束：连贯性台账已生成且无未裁决待办；台账读不出或不存在时放行（只拦“已开始但不完整”）。证据：`stage_parallel.py:525,724-751`。
+- **REQ-S07-03** 🟡 阶段依赖表 `stage_flow.DEPENDS['final']=('storyboard',)`（`stage_flow.py:62`），不含 `continuity`／`assets`；连贯性与资产的前置只由 SG-01／SG-02 门禁表达。门禁与依赖表口径不一致，是否把依赖补成 `('continuity',)` 待定。
+- **REQ-S07-04** ✅ 本阶段执行为全局单任务：`stage_parallel.CONFIG['final']` 为 `min=max=1`、失败重试 2 次后阻塞（`stage_parallel.py:66-68`）。
+- **REQ-S07-05** ✅ 定稿期间不得有制作任务在跑：手动入口在有 `worker` 或视频会话忙时拒绝（`desktop.py:1760`）；自动入口遇忙等待，不抢跑（`final_service.py`、`desktop_auto_flows.py:352-355`）。
+
+### 定稿流程
+
+- **REQ-S07-10** ✅ 资产对齐：镜头里的角色／场景／道具先解析为资产编号（`CHAR_`／`LOC_`／`PROP_` + 数字，或经“名称编号对照”映射）；解析不到编号即抛“无法匹配资产编号”，不静默跳过（`storyboard_final.py:56-71`）。
+- **REQ-S07-11** ✅ 每镜写入 `asset_bindings`（名称、图片、状态）、`reference_images`（仅已导入资产的图）、`asset_status`（待补齐资产／已匹配资产）；未导入的资产汇入顶层 `missing_assets`，`assets_ready` 随之为假。资产缺图不阻止定稿，只标缺（`storyboard_final.py:81-91`）。
+- **REQ-S07-12** ✅ 台词 `speaker` 按名称映射替换为角色编号（`storyboard_final.py:77-80`）。
+- **REQ-S07-13** ✅ 批次划分：三元组 `(scene_id, character_ids, costume_id)` 任一变化即切新批；同批 ≤4 镜（`BATCH_MAX_SHOTS`）、累计时长 ≤18 秒（长段落参数放宽到 25 秒）；`batch_id` 形如 `B01…`。同时补齐九个必填字段，只增不改，老字段（`id/characters/location/duration`）不动。证据：`shot_batches.py:24-48,115-145`、`storyboard_final.py:85-89`。
+- **REQ-S07-14** ✅ 批次设计区间（每批 3–5 镜、每集 18–25 镜／5–7 批、单镜 2–5 秒）只作 `advise` 提醒，不是错误；硬校验只有“每批 ≤4 镜、≤18 秒、三元组一致”（`shot_batches.py:199-240`）。
+- **REQ-S07-15** 🟡 `finalize` 对批次划分异常整体吞掉（`try/except Exception` + `app_logging.swallowed`，`storyboard_final.py:85-89`）：切批失败时仍继续发布无 `batch_id` 的定稿，之后只会在 SG-03 处被拦。是否应让切批失败直接中止定稿，待定。
+- **REQ-S07-16** ✅ 定稿以内容签名复用：已存在签名相同的定稿则不新建，只补血缘并按需退役工作稿（`storyboard_final.py:95-114`）。
+- **REQ-S07-17** ✅ 同一集再次定稿写回同一目录（同 `episode_id` 的别名映射，或源本身就是定稿）；新目录命名 `<EP>_分镜定稿[_日期]`（`storyboard_final.py:115-127`）。
+- **REQ-S07-18** ✅ 发布前后各复核：源文件在同步期间被修改则中止并保留原 JSON（`storyboard_final.py:154-155`）；两次 `validate_episode`。
+- **REQ-S07-19** ✅ 发布走原子发布包：`episode.json` 与 `assets.json` 经 `publish_final_storyboard_bundle` 成对落盘；资产图与帧图复制进定稿目录，同名异内容时加哈希／随机后缀并改写引用（`storyboard_final.py:129-168`；`stage_execution_service.py:906`）。
+- **REQ-S07-20** ✅ 发布完成后才退役工作稿：仅当源是“工作稿”（`storyboard_lifecycle.is_working_source`）时，经 L3 注入的 `retire_storyboard` 进回收站并留别名；L2 `finalize` 本身不持有退役实现，缺注入即抛 `TypeError`（`storyboard_final.py:170-173`、`storyboard_final_controller.py:20-32`）。
+- **REQ-S07-21** ✅ 来源血缘：定稿记录追溯到稳定的结构剧本（源 JSON 的 `source_script`），而不是会被退役的工作 JSON；源本身是定稿时不新记（`storyboard_final.py:13-35`）。
+
+### 入口与交互
+
+- **REQ-S07-30** ✅ 手动入口按钮名“手动同步资产”（`stage_flow.MANUAL_LABELS['final']`），实现为 `make_final_storyboard`，对当前选中的分镜 JSON 异步定稿，完成后三虎播报并重建定稿页。
+- **REQ-S07-31** ✅ 无人值守自动定稿：仅当用户在定稿页显式勾选（`should_auto_run('final')`）、当前分镜仍是工作稿、同一份稿只定稿一次（签名去重）、失败退避重试（`desktop_auto_flows.py:333-364`、`final_service.automatic_finalize_decision`）。
+- **REQ-S07-32** ✅ 定稿页只读预览、编辑保存与镜头导航：保存前先校验是合法 JSON，再经 L3 `save_edited_stage_storyboard` 原子发布，发布失败保留原预览（`storyboard_final_controller.FinalStoryboardController`）。
+- **REQ-S07-33** ✅ 目录识别：定稿目录名以“定稿”开头或含“_分镜定稿_”（`storyboard_paths.is_final_dir`）；新写入走 `stage_path_service.write_dir(project,'final')` 即 `07分镜定稿`，`06分镜定稿` 旧目录只读。
+
+### 产出与完成
+
+- **REQ-S07-40** ✅ 定稿落在 `07分镜定稿/分镜/<EP>_分镜定稿[_日期]/`，含 `episode.json`、`assets.json` 及资产图、`frames/`。
+- **REQ-S07-41** ✅ 阶段完成 = `batches_ready` 返回 `ok` 且 `started`（`stage_completion_service.py:437-442`）；模型文字、界面提示不作证据。`started` 为阶段机跑过或任一已采用镜头已带 `batch_id`。
+- **REQ-S07-42** ✅ 出口门禁 SG-03（`batches_ready`）：每镜有 `batch_id`、每批 ≤4 镜且 ≤18 秒、批内三元组一致；无已采用分镜时放行，未开始且有问题时放行，开始后有问题才拦（`stage_parallel.py:528,754-782`）。九个新字段不作门禁，另由 `shot_batches.validate` 校验。
+- **REQ-S07-43** 🟡 `stage_layout.STAGES` 为本阶段声明的产出是 `storyboard_final.json`（`stage_layout.py:49-50`；`README.md:1412` 同），实际产出是 `episode.json` + `assets.json`，全仓无任何代码写 `storyboard_final.json`。应把声明改成实际文件名，改动面涉及 `stage_layout` 常量与引用它的契约，待统一后处理。
+- **REQ-S07-44** 🟡 `stage_layout` 声明 `07分镜定稿/docs/` 下有 `batch_plan.md`（批次划分说明）与 `shot_table.md`（镜头表）（`stage_layout.py:136,370`），但全仓没有任何代码生成这两份文件；`architecture.md` 对本阶段输出类型写“JSON、Markdown”亦无代码对应（只可能由 SKILL 引擎产出）。需决定：补生成，还是从声明删除。
+- **REQ-S07-45** 🟡 SG-02 门禁报告的 artifacts 路径写成旧式 `<项目>/03_continuity/output/continuity_ledger.json`（`stage_parallel.py:751`），而实际读取走 `read_file(project,'continuity','output',…)`（当前目录优先，`continuity_ledger.py:341-345`）。仅影响面板展示的路径，建议改为实际解析到的文件。
+
+### SKILL 与引擎
+
+- **REQ-S07-50** ✅ 本阶段有 6 个 SKILL（`skills/07分镜定稿SKILL/`）：`pipeline-storyboard-final`（总入口，默认勾选，`workflow_settings.py:50`）、`storyboard-asset-sync`、`storyboard-consistency-lock`、`storyboard-final-validate`、`storyboard-prompt-render`、`storyboard-version-snapshot`；frontmatter `stage` 均为“分镜定稿”。
+- **REQ-S07-51** ✅ 总入口 SKILL 读取项目锁（`track/material_source/aspect_ratio/resolution/fps/delivery_format/video_model_version/splice_mode/style_*`）而不重新询问；必填缺失退回剧本准备；`splice_mode`（D 锁）在本阶段放行，段缝须冻结 `in_state/out_state/cut_type/audio_bridge/owner`；不加载 00 包全文。
+- **REQ-S07-52** ❓ 两条定稿路径并存、口径不同。路径 A：程序内 `storyboard_final.finalize`（桌面“手动同步资产”和自动定稿用），只做资产对齐、切批、发布，**不读连贯性台账、不查 D 锁段缝字段**。路径 B：总入口 SKILL（模型引擎执行），约束“只采用连续性审核通过的镜头”“任一段缝字段缺失即退回修订，不发布”。两边证据：SKILL 写在 `pipeline-storyboard-final.skill.md:16,47`；程序 `storyboard_final.py` 全文无台账／段缝引用，仅 SG-02 在阶段级拦台账。待拍板：段缝冻结与“只采用审核通过镜头”是否要在 `finalize` 里程序化核验，还是保持仅由 SKILL 提示词约束。
+- **REQ-S07-53** 🟡 SKILL `storyboard-version-snapshot`（“可回滚可对比”）声明了 `storyboard.save` 等 tools，程序里没有对应的“版本快照／回滚”实现；`architecture.md:79` 把“输出提示词和快照”列为本阶段职责。现状是定稿目录带日期后缀与回收站退役，并非快照。是否保留此 SKILL 描述，待定。
+
+### 非目标（明确不做）
+
+- 不改写剧情、镜头内容与台词（只补字段、换编号、挂资产）。
+- 不生成首帧、不调用图像／视频模型（属后续阶段）。
+- 不删除源工作稿：只经回收站退役，可恢复。
+- 不设置第二个定稿入口（手动与自动共用 `finalize_stage_storyboard`）。
+- 不把设计区间（3–5 镜／批等）当错误拦截。

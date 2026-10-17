@@ -274,3 +274,55 @@
 | REQ-S06-02（门禁与依赖） | `test_stage_parallel`、`test_stage_flow` |
 | REQ-S06-23（完成核验） | `test_stage_completion_service`、`test_continuity_scope` |
 | REQ-S06-24/26/32/33 | 待定 |
+
+## S07 分镜定稿
+
+### 模块分工
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L5/L4 | `desktop`（`make_final_storyboard`／`apply_final`） | 手动“手动同步资产”入口、定稿后收尾；只注入回调 |
+| L4 | `desktop_auto_flows`（`poll_auto_final`） | 无人值守自动定稿轮询；签名去重、等待、退避 |
+| L4 | `storyboard_files.show_final` | 定稿页（预览／编辑／镜头导航），状态由控制器持有 |
+| L3 | `storyboard_final_controller` | `finalize_stage_storyboard`、`retire_stage_storyboard`、`FinalStoryboardController`（无 Tk） |
+| L3 | `stage_execution_service` | `storyboard_resolve_source`、`storyboard_working_source`、`retire_storyboard`、`publish_final_storyboard_bundle`、`save_edited_stage_storyboard`、`asset_plan_gateway` |
+| L3 | `stage_parallel` | `CONFIG['final']`、门禁 SG-02／SG-03、`ledger_ready`／`batches_ready`、`_adopted` |
+| L3 | `stage_flow`／`stage_completion_service` | 依赖表 `DEPENDS`、手动按钮名；完成证据核验 |
+| L3 | `workflow_settings` | 默认 SKILL `pipeline-storyboard-final` |
+| L2 | `storyboard_final` | `finalize`：资产对齐、切批、复用判定、原子发布、血缘；退役由注入函数完成 |
+| L2 | `shot_batches` | 批次算法、九字段 `normalize/validate`、`advise`、`check_batches`、Schema |
+| L2 | `final_service` | `automatic_finalize_decision`（skip／wait／dispatch） |
+| L2 | `storyboard_lifecycle`／`storyboard_selection`／`storyboard_paths` | 工作稿判定与退役、已采用／当前定稿视图、定稿目录识别 |
+| L0/契约 | `pet_bus`、`stage_layout`、`stage_path_service` | 阶段键与名称；`07分镜定稿` 目录；`write_dir`／`read_dirs`（含旧 `06分镜定稿` 只读） |
+
+### 设计条目
+
+- **DES-S07-01**（REQ-S07-01）`finalize` 先 `storyboard_resolve_source` 取源，再要求顶层 dict 且 `shots` 为 list，否则 `ValueError`，此时尚未创建任何目录。
+- **DES-S07-02**（REQ-S07-02/03/04）SG-02 在 `stage_parallel.GATES`，检查函数 `ledger_ready` 读台账并用 `continuity_ledger.gate`／`issue_gate`；`CONFIG['final']` 为单任务、重试 2 次后 `ON_BLOCK`。`DEPENDS['final']` 在 `stage_flow`，与门禁各自独立。
+- **DES-S07-03**（REQ-S07-05）手动：`make_final_storyboard` 判断 `self.worker`／视频会话忙；自动：`automatic_finalize_decision(signature, previous, production_busy)`，签名相同 skip、忙则 wait、否则 dispatch。
+- **DES-S07-10**（REQ-S07-10/11/12）`_sync_plan` 先刷新资产清单与“名称编号对照”；逐镜按 `CHAR/LOC/PROP` 前缀解析编号，未入库抛错；`prop_assets.normalize_shot` 先补道具字段；状态不是“已导入”的资产记入 `missing`。
+- **DES-S07-13**（REQ-S07-13/14）`shot_batches.assign` = `group`（三元组变化／满 4 镜／超 18 秒切批）+ 回填 `B%02d`；`check_batches` 为硬校验，`advise` 为软提示；`finalize` 在 `try` 里调用 `assign`，异常经 `app_logging.swallowed` 记录。
+- **DES-S07-16**（REQ-S07-16/17）`storyboard_lifecycle.signature(episode, assets, base)` 为内容指纹（忽略 `used_in/status`，含图片哈希）；在 `final/分镜` 与 `分镜拆分` 两个读目录里按签名找已有定稿；找不到则 `dated_path(.../分镜, <EP>_分镜定稿)`，或经别名文件复用同 `episode_id` 的上一次目录。
+- **DES-S07-18**（REQ-S07-18/19）发布前比对源哈希，不一致抛“分镜在同步期间已修改”；`publish_stage_text` 写 `episode.json`，其回调再调 `publish_final_storyboard_bundle` 成对写 `assets.json`；资产图 `copy2`，冲突时加 12 位哈希并记入 `image_rewrites` 回改引用。
+- **DES-S07-20**（REQ-S07-20）`retire_working` 参数由 L3 的 `retire_stage_storyboard` 提供，别名发布器 `storyboard_lifecycle_gateway()` 同样由 L3 注入；`retire` 校验目标已落盘、源未被改、更新别名后调用 `storage_maintenance.recycle_paths`（回收站），失败则保留原稿。由 `tests/architecture/test_final_bundle_boundary` 守“桌面只经控制器调用”。
+- **DES-S07-21**（REQ-S07-21）`_lineage_source` 取源 JSON 的 `source_script`（项目内且存在），否则回退源；源是定稿目录的 `episode.json` 时返回 None 不记。
+- **DES-S07-30**（REQ-S07-30/31）按钮名在 `stage_flow.MANUAL_LABELS`；自动入口在 `poll_auto_final`，用 `file_hash(source)` 做签名，守卫 `pet.should_auto_run('final')`。
+- **DES-S07-32**（REQ-S07-32）`FinalStoryboardController.save_edited` 先 `json.loads`，再 `save_edited_stage_storyboard`，失败抛 `ValueError` 且不替换当前预览。
+- **DES-S07-33**（REQ-S07-33/40）`stage_path_service.write_dir(project,'final')` → `stage_layout` 的 `07分镜定稿`；`read_dirs` 追加 `LEGACY_NUMBERED['final']`（`06分镜定稿`）；`is_final_dir` 判定目录名。
+- **DES-S07-41**（REQ-S07-41/42）`stage_completion_service` 的 `checks['final']='batches_ready'`，要求 `ok and started`；`batches_ready` 以 `_adopted` 的已采用分镜为对象，`started = has_run(final) or 任一镜头带 batch_id`。
+- **DES-S07-50**（REQ-S07-50/51）SKILL 位于 `skills/07分镜定稿SKILL/`；默认勾选来自 `workflow_settings` 的 `'final':['pipeline-storyboard-final']`；D 锁段缝字段写在总入口 SKILL 正文，不由程序核验。
+- **待定**（REQ-S07-03/15/43/44/45/52/53）见需求中标 🟡／❓ 的条目；其中 REQ-S07-52 需用户拍板（是否程序化核验台账与段缝），其余为单向修订，待统一后处理。
+
+### 测试锚定
+
+| 需求 | 测试 |
+| --- | --- |
+| REQ-S07-13/14 | `test_shot_batches` |
+| REQ-S07-05（自动决策） | `test_final_service` |
+| REQ-S07-20/32 | `test_storyboard_final_controller`、`tests/architecture/test_final_bundle_boundary` |
+| REQ-S07-33（选择视图） | `test_storyboard_final_selection`、`tests/architecture/test_storyboard_final_selection_boundary` |
+| REQ-S07-41 | `test_stage_completion_service` |
+| REQ-S07-02/04（门禁清单、并行配置） | `test_stage_parallel`、`test_storyboard_final_scope` |
+| REQ-S07-42（`batches_ready` 行为） | `test_storyboard_final_scope`（`test_stage_parallel` 未直接测此函数） |
+| REQ-S07-01/04/13/33/41/42/50/51 的事实范围 | `test_storyboard_final_scope` |
+| REQ-S07-10/11/12/16/17/18/19/21 | 暂无直接 `finalize` 端到端测试（相邻覆盖：`test_asset_plan`）——测试缺口，待补 |
