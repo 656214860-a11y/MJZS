@@ -10,8 +10,8 @@
 | `color.background.card` | `#FFFFFF` | 卡片、输入框与次按钮背景 |
 | `color.border.default` | `#E5E7EB` | 默认 1px 边框 |
 | `color.text.primary` | `#1F2937` | 主文字 |
-| `color.text.secondary` | `#6B7280` | 次文字 |
-| `color.text.muted` | `#9CA3AF` | 弱文字、禁用文字 |
+| `color.text.secondary` | `#4B5563` | 次文字（白底对比度 7.6:1） |
+| `color.text.muted` | `#6B7280` | 弱文字（白底对比度 4.8:1，正文可读下限；禁用态另用 `color.disabled.text`） |
 | `color.primary` | `#2563EB` | 主按钮、强调 |
 | `color.primary.subtle` | `#EFF6FF` | 悬停浅色背景 |
 | `color.danger` | `#DC2626` | 危险操作与错误 |
@@ -35,11 +35,8 @@
 | `color.selection.border` | `#93C5FD` | 选中描边（R1428 派生） |
 | `color.success.text` | `#15803D` | 成功文字（R1428 派生） |
 | `color.success.subtle` | `#DCFCE7` | 成功提示底色（R1428 派生） |
-| `color.warning.text` | `#B45309` | 警告文字（R1428 派生） |
-| `color.warning.hover` | `#F59E0B` | 强调按钮悬停（R1428 派生） |
-| `color.warning.pressed` | `#B45309` | 强调按钮按下（R1428 派生） |
-| `color.emphasis` | `#EA580C` | 阶段配置等醒目按钮（R1428 派生） |
-| `color.emphasis.pressed` | `#C2410C` | 醒目按钮按下（R1428 派生） |
+| `color.warning.text` | `#B45309` | 警告文字（白底对比度 5.0:1）；警告色只用于状态与文字，不作按钮底色 |
+| `color.focus` | `#2563EB` | 键盘焦点环（R1689 新增） |
 | `color.danger.hover` | `#B91C1C` | 危险悬停（R1428 派生） |
 | `color.danger.text` | `#991B1B` | 错误文字（R1428 派生） |
 | `color.danger.subtle` | `#FEF2F2` | 错误提示底色（R1428 派生） |
@@ -68,12 +65,32 @@
 
 ## 字体
 
-| Token | 字体 |
-| --- | --- |
-| `font.title` | 微软雅黑，14px，bold |
-| `font.body` | 微软雅黑，12px |
-| `font.assistive` | 微软雅黑，10px |
-| `font.numeric` | Consolas，12px |
+字体统一使用系统 `Microsoft YaHei UI`，单位是 Tk 的 pt（Windows 96 DPI 下 10pt 约 13px）；不随包分发字体。层级收敛为四档，页面只能取下表 token，不得手写字号。
+
+| Token（`ui_tokens.FONTS`） | 字体 | 用途 |
+| --- | --- | --- |
+| `heading_1` | 微软雅黑 UI 16 bold | 页面标题 |
+| `title` / `heading_2` | 微软雅黑 UI 14 bold | 区块标题、弹窗标题 |
+| `body` / `caption` | 微软雅黑 UI 10 | 正文、表单、按钮、表格、说明；本文其它章节写的 `font.body`＝`body`，`font.assistive`＝`caption` |
+| `body_bold` | 微软雅黑 UI 10 bold | 正文内强调 |
+| `hint` | 微软雅黑 UI 9 italic | 辅助提示（最小可读字号，不再往下缩） |
+| `numeric` / `code` | Consolas 10 | 数字、代码 |
+| `heading_3` / `heading_4` | 微软雅黑 UI 12 / 11 bold | 仅用于 Markdown 阅读区（技能说明、剧本内容）内部层级 |
+| `pet_body` / `pet_hint` | 微软雅黑 UI 9 / 8 | 仅三虎气泡 |
+
+`caption` 与 `body` 当前同为 10pt，是有意合并：说明文字靠颜色（`text.secondary`）而不是更小字号区分层级。
+
+## 控件尺寸与密度（R1689 裁决）
+
+主界面走“平静、专业、密集”的紧凑桌面密度，宠物层保留个性。
+
+| Token | 值 | 规则 |
+| --- | --- | --- |
+| `CONTROL_HEIGHT` | 32px | 按钮、单行输入、下拉框的视觉高度；同一行的控件必须同高 |
+| `CONTROL_HIT_MIN` | 32px | 任何可点击元素的最小点击区；小于它的图标要外扩点击区（宠物齿轮、猫爪待迁移） |
+| 焦点环 | 2px `color.focus` | 所有可操作控件必须有可见键盘焦点 |
+
+主色只有蓝色一套：橙色／琥珀色不再作按钮或强调底色（旧 `emphasis`、`warning.hover`、`warning.pressed` 已删除）。需要“醒目”的按钮用更深一档的 `color.primary.pressed`。文字与底色的对比度不低于 4.5:1。
 
 ## 下拉框（Combobox）
 

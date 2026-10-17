@@ -66,14 +66,9 @@ def apply(win):
 
     s.map('Primary.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['primary_hover']),('active',COLORS['primary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
 
-    # 阶段配置与手动制作/发送属于同一操作层级：尺寸一致，暖色只表示配置语义。
-    s.configure('StageConfig.TButton',font=('Microsoft YaHei UI',11,'bold'),background=COLORS['emphasis'],foreground='white',padding=(18,8),borderwidth=0,focuscolor=COLORS['emphasis'])
-    s.map('StageConfig.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['emphasis_pressed']),('active',COLORS['emphasis_pressed'])],foreground=[('disabled',COLORS['disabled_text'])])
-
-    # 第 45 期：用户要「按钮 MCP 优化醒目提示」。主色（蓝）已经归「手动制作提示词」，
-    # 这里用琥珀色——与左上角那颗「设置」齿轮同一档，一眼就能看出这是要花钱的那一步。
-    s.configure('Highlight.TButton',font=('Microsoft YaHei UI',10,'bold'),background=COLORS['warning'],foreground='white',padding=(14,7),borderwidth=0,focuscolor=COLORS['warning'])
-    s.map('Highlight.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['warning_pressed']),('active',COLORS['warning_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
+    # 「MCP 优化」是要花钱的那一步：用比主按钮更深一档的主色表示，不再使用橙色／琥珀色。
+    s.configure('Highlight.TButton',font=('Microsoft YaHei UI',10,'bold'),background=COLORS['primary_pressed'],foreground='white',padding=(14,7),borderwidth=0,focuscolor=COLORS['focus'])
+    s.map('Highlight.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['primary_pressed']),('active',COLORS['primary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
 
     s.configure('Project.Treeview',rowheight=24)
 

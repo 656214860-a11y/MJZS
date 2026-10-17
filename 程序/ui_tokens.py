@@ -5,8 +5,10 @@ COLORS = {
     "background_card": "#FFFFFF",
     "border_default": "#E5E7EB",
     "text_primary": "#1F2937",
-    "text_secondary": "#6B7280",
-    "text_muted": "#9CA3AF",
+    # 文字层级对比度（白底）：primary 14.7、secondary 7.6、muted 4.8，均达到 4.5:1；
+    # 禁用态不在此列，另用 disabled_text。
+    "text_secondary": "#4B5563",
+    "text_muted": "#6B7280",
     "primary": "#2563EB",
     "primary_subtle": "#EFF6FF",
     "danger": "#DC2626",
@@ -33,10 +35,7 @@ COLORS = {
     "success_text": "#15803D",
     "success_subtle": "#DCFCE7",
     "warning_text": "#B45309",
-    "warning_hover": "#F59E0B",
-    "warning_pressed": "#B45309",
-    "emphasis": "#EA580C",
-    "emphasis_pressed": "#C2410C",
+    "focus": "#2563EB",
     "danger_hover": "#B91C1C",
     "danger_text": "#991B1B",
     "danger_subtle": "#FEF2F2",
@@ -45,6 +44,9 @@ COLORS = {
 
 SPACING = {"none": 0, "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "2xl": 32}
 RADIUS = {"sm": 4, "md": 8, "lg": 12}
+# 紧凑桌面密度：按钮、输入框、下拉框的视觉高度与最小点击区都是 32px。
+CONTROL_HEIGHT = SPACING["2xl"]
+CONTROL_HIT_MIN = SPACING["2xl"]
 FONTS = {
     "pet_body": ("Microsoft YaHei UI", 9),
     "pet_hint": ("Microsoft YaHei UI", 8),

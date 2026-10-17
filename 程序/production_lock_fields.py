@@ -30,7 +30,7 @@ class ProductionLockFields(FlowBar):
             entry = SelectBox(field, values=item.get('options') or (), state='normal', fit=True)
             field.columnconfigure(1, weight=1)
             entry.grid(row=0, column=1, sticky='ew', padx=SPACING['xs'])
-            hint = ttk.Label(field, foreground=COLORS['warning'])
+            hint = ttk.Label(field, foreground=COLORS['warning_text'])
             hint.grid(row=1, column=0, columnspan=2, sticky='w')
             self.inputs[key], self.hints[key] = entry, hint
             for event in ('<Return>', '<KeyRelease>', '<FocusOut>', '<<ComboboxSelected>>'):

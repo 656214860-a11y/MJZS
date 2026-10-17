@@ -9,11 +9,13 @@
 | 背景 | `color.primary` |
 | 文字 | 白色 |
 | 圆角 | `radius.md` |
-| 内边距 | `padx=space.lg`，`pady=space.sm` |
-| 悬停 | `color.primary.subtle` |
-| 禁用 | 背景 `color.border.default`，文字 `color.text.muted` |
+| 字体 | `font.body`（10pt），不再用 11pt bold |
+| 尺寸 | 视觉高度 `CONTROL_HEIGHT`（32px）；水平内边距 `space.md` |
+| 悬停 | 背景 `color.primary.subtle`，文字 `color.primary` |
+| 禁用 | 背景 `color.border.default`，文字 `color.disabled.text` |
+| 焦点 | 2px `color.focus` 焦点环 |
 
-用于页面的首要、提交、确认动作；同一操作组最多一个主按钮。
+用于页面的首要、提交、确认动作；同一操作组最多一个主按钮。需要比主按钮更醒目的花钱步骤（如“MCP 优化”）用 `Highlight.TButton`（更深一档的 `color.primary.pressed`），不使用橙色。样式只有 `ui_widgets.setup_styles()` 一个定义入口：`ui_theme.apply()` 中重复的 `TButton`／`Primary.TButton` 定义由后续批次删除，以 `Tokens.*` 为准。
 
 ## 次按钮
 
@@ -23,7 +25,8 @@
 | 边框 | 1px `color.border.default` |
 | 文字 | `color.text.primary` |
 | 圆角 | `radius.md` |
-| 内边距 | `padx=space.lg`，`pady=space.sm` |
+| 字体与尺寸 | 同主按钮：`font.body`、高度 `CONTROL_HEIGHT`、水平内边距 `space.md` |
+| 焦点 | 2px `color.focus` 焦点环 |
 
 用于次要、返回、刷新等不应抢占主动作视觉层级的操作。
 
@@ -59,6 +62,8 @@
 ## 通知
 
 `ui_widgets.NotificationDispatcher` 是错误、警告、成功与一般提示的唯一分发入口。调用方只提供业务文案、级别和是否需要模态提示；分发器先更新既有状态栏，模态提示仍复用 Tk 的 `messagebox`，不另建第二套窗口。新建页面不得直接组合 `status.set()` 与 `messagebox.show*()` 表达同一结果；历史页面按独立轮次迁移。
+
+**错误策略（R1689 裁决，随批次 5／7 落地）**：可恢复的错误（网络、模型、校验）默认非模态，在状态栏／字段旁提示并保留“查看详情／重试”；只有删除、覆盖等破坏性操作保留模态确认。当前 `error()` 仍默认 `modal=True`，属已知偏差，调用方迁移完成前以本条为目标。状态栏颜色按级别区分（就绪中性、成功绿、警告、错误红），不再一律绿色。
 
 ## 右键菜单
 

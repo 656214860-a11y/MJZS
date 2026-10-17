@@ -45,7 +45,7 @@ def setup_styles(root):
         "background": [("active", COLORS["primary_subtle"]),
                        ("disabled", COLORS["border_default"])],
         "foreground": [("active", COLORS["primary"]),
-                       ("disabled", COLORS["text_muted"])],
+                       ("disabled", COLORS["disabled_text"])],
     }
 
     style.configure("TButton", **button_options)
@@ -67,7 +67,7 @@ def setup_styles(root):
                           ("disabled", COLORS["border_default"])],
               # 浅色悬停底必须切回主色文字；保留白字会使标签近乎不可见。
               foreground=[("active", COLORS["primary"]),
-                          ("disabled", COLORS["text_muted"])])
+                          ("disabled", COLORS["disabled_text"])])
     style.configure("Tokens.Secondary.TButton", background=COLORS["background_card"],
                     foreground=COLORS["text_primary"], font=FONTS["body"],
                     padding=(SPACING["md"], SPACING["xs"]), borderwidth=1)
@@ -75,7 +75,7 @@ def setup_styles(root):
               background=[("active", COLORS["primary_subtle"]),
                           ("disabled", COLORS["border_default"])],
               foreground=[("active", COLORS["primary"]),
-                          ("disabled", COLORS["text_muted"])])
+                          ("disabled", COLORS["disabled_text"])])
     style.configure("Tokens.Icon.TButton", background=COLORS["background_card"],
                     foreground=COLORS["text_primary"], font=ICON_FONT,
                     padding=(SPACING["sm"], SPACING["xs"]), borderwidth=1)
@@ -83,7 +83,7 @@ def setup_styles(root):
               background=[("active", COLORS["primary_subtle"]),
                           ("disabled", COLORS["border_default"])],
               foreground=[("active", COLORS["primary"]),
-                          ("disabled", COLORS["text_muted"])])
+                          ("disabled", COLORS["disabled_text"])])
     style.configure("Tokens.Danger.TButton", background=COLORS["danger"],
                     foreground=COLORS["background_card"], font=FONTS["body"],
                     padding=(SPACING["md"], SPACING["xs"]), borderwidth=1)
@@ -91,7 +91,7 @@ def setup_styles(root):
               background=[("active", COLORS["primary_subtle"]),
                           ("disabled", COLORS["border_default"])],
               foreground=[("active", COLORS["danger"]),
-                          ("disabled", COLORS["text_muted"])])
+                          ("disabled", COLORS["disabled_text"])])
     style.configure("Tokens.Card.TFrame", background=COLORS["background_card"],
                     bordercolor=COLORS["border_default"], borderwidth=1, relief="solid")
     # 表单的普通标签、分组标题和勾选项必须与按钮／输入框同用正文 token。
@@ -140,7 +140,7 @@ def setup_styles(root):
     style.map("TCombobox",
               fieldbackground=[("readonly", COMBOBOX_FIELD_BACKGROUND),
                                ("disabled", COLORS["border_default"])],
-              foreground=[("disabled", COLORS["text_muted"])])
+              foreground=[("disabled", COLORS["disabled_text"])])
     # ttk 的箭头色是 Tcl 层的主题选项；不支持该选项的旧主题安全忽略，
     # 其余视觉规格仍由上面的标准 Style 配置统一。
     try:

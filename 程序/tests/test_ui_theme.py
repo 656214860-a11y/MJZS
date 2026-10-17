@@ -87,7 +87,7 @@ class TokenButtonStateTests(unittest.TestCase):
         self.assertEqual(style.lookup('Tokens.Primary.TButton', 'foreground', ('active',)),
                          COLORS['primary'])
         self.assertEqual(style.lookup('Tokens.Primary.TButton', 'foreground', ('disabled',)),
-                         COLORS['text_muted'])
+                         COLORS['disabled_text'])
 
     def test_secondary_hover_and_disabled_text_follow_tokens(self):
         SecondaryButton(self.win, text='阶段配置')
@@ -97,7 +97,7 @@ class TokenButtonStateTests(unittest.TestCase):
         self.assertEqual(style.lookup('Tokens.Secondary.TButton', 'foreground', ('active',)),
                          COLORS['primary'])
         self.assertEqual(style.lookup('Tokens.Secondary.TButton', 'foreground', ('disabled',)),
-                         COLORS['text_muted'])
+                         COLORS['disabled_text'])
 
     def test_global_and_legacy_button_styles_are_compact_and_readable(self):
         setup_styles(self.win)
