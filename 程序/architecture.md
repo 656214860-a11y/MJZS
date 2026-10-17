@@ -151,7 +151,7 @@ R709 将白模预演进度 JSON 作为“读走缓存、写走原子服务”的
 
 R708 将音频导入列为首个“L3 发布器注入”迁移：`audio_import_service.import_audio()` 只接收调用方给定的发布器，`stage_execution_service.import_stage_audio()` 注入统一的 `publish_stage_bytes()`，桌面不再直连 L2。该迁移不改变格式、非空和发布后大小校验；其他 L2 写服务仍按路线图逐批迁移。
 
-当前架构门禁的文件清单以 `AGENTS.md`「当前架构门禁清单」为入口，并由 `test_agents_md.py` 强制与 `tests/architecture/test_*.py` 的实际集合完全一致；总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。R706 增加 `service_contract` 与交付成片导入试点的结果契约门禁，后续 L2 写服务须逐批迁移。R567 将历史兼容入口收口到 `legacy_compat.FACADE_MANIFEST`，逐项记录唯一所有者、真实调用方与 2027-03-31 淘汰日；`tests/architecture/test_legacy_facade_manifest.py` 的 AST 门禁拒绝未登记调用与到期未处置 facade。R565 在 `workflow_context` 定义“剧本完整索引／非剧本阶段摘要”两种上下文策略，`desktop` 在保留原任务、SKILL、阶段契约与续接语义的前提下选择策略；`workflow_context_budget` 对最终初始/续接提示统一去重、执行既有上限并生成不含正文的预算元数据，收据可观察阶段、策略、字符数、上限和余量。R564 将剧本结构页 `Desktop.script_structure()` 的颜色、字体与间距完全收口到 L1 `ui_tokens`，并以 L4 `PrimaryButton`／`SecondaryButton` 承担高亮和次级操作的状态样式；组件悬停态保持可读的主色文字，页面不再自行定义按钮视觉值。 R563 将缓存失效收口为 L1 `file_cache` 的 `published`、`recycled` 与 `externally_overwritten` 事件：`agent.core` 原子发布和 `storage_maintenance` 回收/恢复在文件操作成功后通知该权威，统一淘汰 JSON、文本及字节缓存；外部适配器覆写时必须显式通知，mtime/哈希只保留为旧路径安全兜底，页面不得以刷新承担一致性。R562 使定稿大 JSON 读取按需后台完成、以页面代次取消旧结果并以空闲分片写入 Tk，仍复用 `file_cache` 的签名/内容哈希缓存；资产缩略图任务绑定可销毁页面控件，离页由既有任务失活检查丢弃。R561 将剧本准备文件表改为无 Tk 服务逐项发现、L4 每批 24 条空闲提交及销毁/刷新代次取消，最终仍按修改时间排序；R560 新增迁移 UI 边界门禁，防止服务重新导入 Tk、视图重新直连进程/网络或新增未登记适配器入口。
+当前架构门禁的文件清单以本文件末尾 §“当前架构门禁清单”为入口，并由 `test_agents_md.py` 强制与 `tests/architecture/test_*.py` 的实际集合完全一致；总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。R706 增加 `service_contract` 与交付成片导入试点的结果契约门禁，后续 L2 写服务须逐批迁移。R567 将历史兼容入口收口到 `legacy_compat.FACADE_MANIFEST`，逐项记录唯一所有者、真实调用方与 2027-03-31 淘汰日；`tests/architecture/test_legacy_facade_manifest.py` 的 AST 门禁拒绝未登记调用与到期未处置 facade。R565 在 `workflow_context` 定义“剧本完整索引／非剧本阶段摘要”两种上下文策略，`desktop` 在保留原任务、SKILL、阶段契约与续接语义的前提下选择策略；`workflow_context_budget` 对最终初始/续接提示统一去重、执行既有上限并生成不含正文的预算元数据，收据可观察阶段、策略、字符数、上限和余量。R564 将剧本结构页 `Desktop.script_structure()` 的颜色、字体与间距完全收口到 L1 `ui_tokens`，并以 L4 `PrimaryButton`／`SecondaryButton` 承担高亮和次级操作的状态样式；组件悬停态保持可读的主色文字，页面不再自行定义按钮视觉值。 R563 将缓存失效收口为 L1 `file_cache` 的 `published`、`recycled` 与 `externally_overwritten` 事件：`agent.core` 原子发布和 `storage_maintenance` 回收/恢复在文件操作成功后通知该权威，统一淘汰 JSON、文本及字节缓存；外部适配器覆写时必须显式通知，mtime/哈希只保留为旧路径安全兜底，页面不得以刷新承担一致性。R562 使定稿大 JSON 读取按需后台完成、以页面代次取消旧结果并以空闲分片写入 Tk，仍复用 `file_cache` 的签名/内容哈希缓存；资产缩略图任务绑定可销毁页面控件，离页由既有任务失活检查丢弃。R561 将剧本准备文件表改为无 Tk 服务逐项发现、L4 每批 24 条空闲提交及销毁/刷新代次取消，最终仍按修改时间排序；R560 新增迁移 UI 边界门禁，防止服务重新导入 Tk、视图重新直连进程/网络或新增未登记适配器入口。
 
 R841 固化事件总线边界：跨模块状态发送只能走 `pet_bus.emit_safe()`，`pet_agent._emit()` 与 `pet_ui._emit()` 是仅有的受控转发器；`Bus.emit()` 的实现仅留在 L0，`broadcaster` 则仅用于 `desktop`／`pet_ui` 的用户可见文本日志，不能成为状态传输旁路。
 
@@ -433,3 +433,45 @@ R1305：`writing_quality`（L2）解析自然剧本附带的四项辅助质检�
 
 ## R1609 / O12：不付费场景与成本估算
 来源：tasks_round/tasks_round_1596_result.md 的 O12。usage_overview.estimate_scenario 按场景给定的阶段用量乘费率，复用 pet_llm.RequestLedger._model_price；缺模型费率、币种或价格表版本时整场景金额返回 None 并单列未知阶段，绝不补零。场景矩阵与公式见 维护记录/成本估算与场景矩阵_20261016.md。O12 的真实账单核对部分仍按既有延期处理，不自行发起付费任务。
+
+## 权威源补充条款（自 AGENTS §2.2 迁入）
+
+以下条款原写在 `AGENTS.md` §2.2，因属专题／路线图细则迁入此处，AGENTS 保留一句话摘要。
+
+### 权威源表细则
+
+| 类别 | 细则 |
+| --- | --- |
+| L2 写服务结果 | 第 1 项已解冻（2026-10-04 用户授权）；分批复用 `service_contract` 四字段结果，每轮最多 3 个 service；同轮迁移调用方、测试与采用方棘轮，不创造第三种返回形状。采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准；执行顺序见路线图。 |
+| 项目操作上下文 | 第 2 项已解冻（2026-10-04 用户授权）；按路线图顺序复用 L3 注入的 `project_context.ProjectContext`，每轮最多 3 个 service；采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准。 |
+| 阶段成果发布器 | `stage_execution_service.publish_stage_text()`／`publish_stage_bytes()`／`publish_stage_bundle()`；L2 写服务只能接收 L3 注入的发布器，音频导入经 `import_stage_audio()`、自动粗剪完成标记经 `save_automatic_assemble_marker()`、自动交接完成标记经 `save_automatic_handoff_marker()`、首帧删除／恢复／替换经 `delete_stage_keyframe()`／`restore_stage_keyframe()`／`replace_stage_keyframe()` 注入 |
+| 正式 JSON 读写 | 读取优先 `file_cache.read_json()`，写入只经 `agent.core.save()`／`save_text()` 或 L3 发布器；L2 不得直接向正式路径 `json.dump()` 或裸写入 |
+| 持久化产物版本 | rtifact_schema：正式 JSON 产物的版本、必备字段与迁移入口；新写入写 schema_version，读取侧容忍缺版本 |
+
+### 总控 SKILL 宪法
+
+总控宪法（R1433 起取代统筹宪法，用户 2026-10-14 授权）：总控 SKILL 负责统一调度与内容更新。① 唯一来源是 `skills/00全流程SKILL/总控.json`，清单缺失或损坏时退回出厂内置表并在体检中报明；② 指纹覆盖清单、全流程包入口、各阶段总控 SKILL 及其直接引用，指纹一变即由 `master_skill.sync` 自动同步各阶段并提示——只替换上次总控给的项，用户自加的 SKILL 保留、用户取消勾选的总控项不重新勾上、整体弃用总控建议的阶段不追加；③ 各阶段 SKILL 勾选始终由用户自由决定，总控不锁定勾选，一切既有 SKILL 编辑与试跑入口（浏览新增、改 md 即生效、重置、按引擎附加清单）不得因总控模式而移除或变灰；④ 门禁（`master_skill.gate` 与 `stage_handler_registry` 制作锁检查）在总控模式下对手动与自动路径一律阻断：本阶段必填制作锁缺失、已勾选 SKILL 的引用不可加载；剧本准备的简报采集对话除外，由简报门禁负责。
+
+## 当前架构门禁清单
+
+（自 AGENTS §5 迁入，内容未改。）
+
+当前架构门禁清单（`tests/architecture/`）：总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。
+
+- 卡片与忙碌状态补充：`test_card_boundary.py`、`test_busy_state_boundary.py`。
+- 分层与一致性：`test_agents_md.py`、`test_layers.py`、`test_no_circular_import.py`、`test_path_authority.py`、`test_stage_paths.py`、`test_storyboard_edit_boundary.py`、`test_storyboard_final_selection_boundary.py`。
+- 写入与删除边界：`test_atomic_write_boundary.py`、`test_asset_batch_ledger_boundary.py`、`test_asset_batch_settings_boundary.py`、`test_asset_detail_binding_boundary.py`、`test_asset_generated_import_boundary.py`、`test_asset_image_import_boundary.py`、`test_asset_plan_publication_boundary.py`、`test_asset_rename_boundary.py`、`test_asset_image_removal_boundary.py`、`test_asset_image_restore_boundary.py`、`test_audio_import_boundary.py`、`test_cloud_video_settings_boundary.py`、`test_continuity_publication_boundary.py`、`test_delivery_import_boundary.py`、`test_desktop_settings_boundary.py`、`test_edit_publication_boundary.py`、`test_final_bundle_boundary.py`、`test_handoff_publication_boundary.py`、`test_keyframe_delete_boundary.py`、`test_keyframe_restore_boundary.py`、`test_keyframe_replace_boundary.py`、`test_keyframe_reference_publication_boundary.py`、`test_legacy_adoption_boundary.py`、`test_local_video_settings_boundary.py`、`test_manual_creative_publication_boundary.py`、`test_previs_routing_publication_boundary.py`、`test_stage_workspace_boundary.py`、`test_structured_script_write_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_tts_publication_boundary.py`、`test_video_delete_boundary.py`、`test_video_options_boundary.py`、`test_video_prompt_publication_boundary.py`、`test_video_publication_boundary.py`、`test_white_model_import_boundary.py`、`test_writing_preparation_path_boundary.py`、`test_deletion_gateway.py`、`test_remove_authority.py`、`test_recycle_service.py`。
+- 剧本重命名边界：`test_script_rename_boundary.py`。
+- 阶段/UI 契约：`test_dynamic_import_registry.py`、`test_stage_command_contract.py`、`test_completion_gate.py`、`test_event_bus_boundary.py`、`test_skill_dependency_dag.py`、`test_pipeline_stage_io_contract.py`、`test_skill_reference_injection.py`、`test_project_entry_boundary.py`。
+- 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_migrated_ui_boundaries.py`。
+- 体验与布局：`test_responsive_layout_contract.py`、`test_combobox_boundary.py`。
+- 启动预算：`test_startup_budget.py`。
+- 历史兼容门面：`test_legacy_facade_manifest.py`。
+- 轮次与基线／测试卫生：`test_round_baselines.py`、`test_skip_hygiene.py`、`test_silent_exception_ratchet.py`、`test_module_size_ratchet.py`、`test_todo_comment_snapshot.py`、`test_static_hygiene.py`、`test_function_size_ratchet.py`、`test_print_ratchet.py`。
+- 文档先行锚定：`test_requirement_traceability.py`（REQUIREMENTS 里 ✅ 须有测试锚定，历史欠账见 `维护记录/需求锚定基线.json`，只许减少）。
+- 覆盖率审计棘轮：`test_coverage_audit_ratchet.py`、`test_secret_sink_audit.py`、`test_coverage_baseline.py`。
+  行覆盖度量为定向测量：工具 `scripts/coverage_report.py`（`sys.settrace`，零第三方依赖），基线 `维护记录/覆盖率基线.json`；只记基线＋核心路径下限，不重跑测量，口径与诚实边界见 `tasks_round/tasks_round_1616_result.md`。
+  密钥静态审计仅覆盖有限函数内传播，支持范围与漏检／误报边界见 `tasks_round/tasks_round_1054_result.md` D–F，不将零命中解释为全路径安全。
+- JSON／服务／统筹补充：`test_confirm_gates_json_boundary.py`、`test_context_menu_boundary.py`、`test_data_table_boundary.py`、`test_dialog_boundary.py`、`test_button_boundary.py`、`test_file_dialog_boundary.py`、`test_idea_attachment_publication_boundary.py`、`test_input_boundary.py`、`test_json_io_boundary.py`、`test_keyframe_batch_json_boundary.py`、`test_local_previs_json_boundary.py`、`test_notification_boundary.py`、`test_previs_automation_json_boundary.py`、`test_previs_batch_json_boundary.py`、`test_previs_monitor_json_boundary.py`、`test_project_context_boundary.py`、`test_service_return_contract.py`、`test_shortcut_registry_boundary.py`、`test_skill_orchestrator_json_boundary.py`、`test_stage_display_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_text_component_boundary.py`、`test_tooltip_boundary.py`、`test_ui_icons_boundary.py`、`test_scrollbar_theme_boundary.py`、`test_token_boundary.py`、`test_copy_entry_boundary.py`、`test_unification_ratchet.py`、`test_video_navigation_json_boundary.py`、`test_white_model_json_boundary.py`、`test_white_model_service_json_boundary.py`、`test_workflow_settings_json_boundary.py`、`test_writing_api_json_boundary.py`、`test_writing_publication_boundary.py`。
+
+新增或删除架构测试时，必须在同一轮更新以上清单、架构基线和结果报告；不得只更新测试而遗漏本入口说明。

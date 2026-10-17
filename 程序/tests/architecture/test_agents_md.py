@@ -153,11 +153,11 @@ class AgentsMdConsistencyTests(unittest.TestCase):
         self.assertIn("{'GPT': 'codex', 'Anthropic': 'claude'}", source)
 
     def test_architecture_guard_list_matches_actual_test_files(self) -> None:
-        section = _section(self.agents, '当前架构门禁清单')
+        section = _section(_read(ARCHITECTURE), '## 当前架构门禁清单')
         documented = set(re.findall(r'`(test_[a-z0-9_]+\.py)`', section))
         actual = {path.name for path in (ROOT / 'tests' / 'architecture').glob('test_*.py')}
         self.assertEqual(documented, actual,
-                         'AGENTS 架构门禁清单必须与实际测试文件集合完全相等')
+                         'architecture.md 架构门禁清单必须与实际测试文件集合完全相等')
 
     def test_gitignore_covers_runtime_and_secret_boundaries(self) -> None:
         """版本控制兼容轮：必排除项缺一即红，防止用户数据或凭据进入暂存区。"""

@@ -56,13 +56,13 @@
 | 阶段完成核验 | `stage_completion_service`                                                                         |
 | 回收服务   | `storage_maintenance.recycle_paths()`                                                              |
 | UI 组件与弹窗 | `ui_widgets`（组件与全局 Style）／`ui_tokens`（视觉 token）／`ui_shortcuts`（快捷键登记）          |
-| L2 写服务结果 | 第 1 项已解冻（2026-10-04 用户授权）；分批复用 `service_contract` 四字段结果，每轮最多 3 个 service；同轮迁移调用方、测试与采用方棘轮，不创造第三种返回形状。采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准；执行顺序见路线图。 |
-| 项目操作上下文 | 第 2 项已解冻（2026-10-04 用户授权）；按路线图顺序复用 L3 注入的 `project_context.ProjectContext`，每轮最多 3 个 service；采用方和待迁移范围以 `维护记录/架构统一基数.json` 为准。 |
-| 阶段成果发布器 | `stage_execution_service.publish_stage_text()`／`publish_stage_bytes()`／`publish_stage_bundle()`；L2 写服务只能接收 L3 注入的发布器，音频导入经 `import_stage_audio()`、自动粗剪完成标记经 `save_automatic_assemble_marker()`、自动交接完成标记经 `save_automatic_handoff_marker()`、首帧删除／恢复／替换经 `delete_stage_keyframe()`／`restore_stage_keyframe()`／`replace_stage_keyframe()` 注入 |
-| 正式 JSON 读写 | 读取优先 `file_cache.read_json()`，写入只经 `agent.core.save()`／`save_text()` 或 L3 发布器；L2 不得直接向正式路径 `json.dump()` 或裸写入 |
-| 持久化产物版本 | rtifact_schema：正式 JSON 产物的版本、必备字段与迁移入口；新写入写 schema_version，读取侧容忍缺版本 |
+| L2 写服务结果 | 复用 `service_contract` 四字段结果，不创造第三种返回形状；每轮最多迁 3 个 service。细则与待迁范围见 `architecture.md` §“权威源补充条款”。 |
+| 项目操作上下文 | 复用 L3 注入的 `project_context.ProjectContext`；每轮最多 3 个 service。细则见 `architecture.md` §“权威源补充条款”。 |
+| 阶段成果发布器 | `stage_execution_service.publish_stage_text()`／`publish_stage_bytes()`／`publish_stage_bundle()`；L2 只能接收 L3 注入的发布器。注入清单见 `architecture.md` §“权威源补充条款”。 |
+| 正式 JSON 读写 | 读取优先 `file_cache.read_json()`，写入只经 `agent.core.save()`／`save_text()` 或 L3 发布器；L2 不得直接向正式路径写 JSON。 |
+| 持久化产物版本 | `artifact_schema`：正式 JSON 产物的版本、必备字段与迁移入口；新写入写 `schema_version`，读取侧容忍缺版本。 |
 
-总控宪法（R1433 起取代统筹宪法，用户 2026-10-14 授权）：总控 SKILL 负责统一调度与内容更新。① 唯一来源是 `skills/00全流程SKILL/总控.json`，清单缺失或损坏时退回出厂内置表并在体检中报明；② 指纹覆盖清单、全流程包入口、各阶段总控 SKILL 及其直接引用，指纹一变即由 `master_skill.sync` 自动同步各阶段并提示——只替换上次总控给的项，用户自加的 SKILL 保留、用户取消勾选的总控项不重新勾上、整体弃用总控建议的阶段不追加；③ 各阶段 SKILL 勾选始终由用户自由决定，总控不锁定勾选，一切既有 SKILL 编辑与试跑入口（浏览新增、改 md 即生效、重置、按引擎附加清单）不得因总控模式而移除或变灰；④ 门禁（`master_skill.gate` 与 `stage_handler_registry` 制作锁检查）在总控模式下对手动与自动路径一律阻断：本阶段必填制作锁缺失、已勾选 SKILL 的引用不可加载；剧本准备的简报采集对话除外，由简报门禁负责。
+总控 SKILL 宪法（四条：唯一来源 `总控.json`、指纹自动同步、勾选始终由用户决定、门禁对手动与自动一律阻断）全文见 `architecture.md` §“权威源补充条款”。
 
 目录阶段契约由 `stage_layout.validate_stage_contract()` 守卫；任何变更 `pet_bus.STAGES` 或 `stage_layout.STAGES` 的轮次都必须使该校验通过。JSON/MD 对照表中的 MD 路径必须以当前编号阶段目录和 `docs/` 为前缀，禁止重新写出旧内部目录名。
 
@@ -136,12 +136,12 @@
 
 ## 2.7 文档先行：需求 → 设计 → 实现
 
-适用范围：`docs/` 下已建 `REQUIREMENTS.md`／`DESIGN.md` 的阶段（目前仅 S01 剧本准备）。未建文档的阶段仍按本文件其余条款执行。
+适用范围：`docs/` 下已建 `REQUIREMENTS.md`／`DESIGN.md` 的阶段（01–13 已全部建立）。
 
-1. **顺序固定**：先改需求（`REQ-<阶段>-<序号>`），再改设计（`DES-<阶段>-<序号>`，标注对应 REQ），最后改代码与测试；不得先写代码再补文档。
+1. **何时必须先改文档**：只有**功能轮**与**契约轮**改变阶段行为时，先改需求（`REQ-<阶段>-<序号>`），再改设计（`DES-<阶段>-<序号>`，标注对应 REQ），最后改代码与测试，不得先写代码再补文档。**修复轮**按 §3.2 先判断是代码偏离需求还是需求要改；性能、可靠性、兼容、结构治理、测试搬家、验证基线、只读诊断、状态接续各轮不要求先改文档，但改动使某条 REQ 的事实变化（含锚点测试变红）时，同轮同步该条 REQ／DES 文字，结果文件注明。
 2. **文档原地修改，不记历史**：历史看 git；删除的编号不复用；状态用 ✅ 已实现／🟡 部分实现或与代码不一致／⬜ 未实现／❓ 待人拍板。
 3. **需求与代码冲突时不自行选边**：标 🟡 或 ❓，列出两边证据，由用户拍板；执行者不得为了让文档与代码一致而擅自回退或改写另一边。
-4. **测试锚定需求**：测试 docstring 写 `REQ-xx`；`DESIGN.md` 的“测试锚定”表列出需求到测试的对应。无测试的 ✅ 需求视为欠账，须补测试或降为 🟡。
+4. **测试锚定需求（有门禁）**：测试名或 docstring 写 `REQ-xx`（支持 `REQ-S10-01/02` 简写）。`tests/architecture/test_requirement_traceability.py` 强制：新增的 ✅ 需求没有测试锚定即红（补测试或降为 🟡）；测试引用不存在的编号即红；历史欠账登记在 `维护记录/需求锚定基线.json`，只许减少，补上锚点后必须同轮从基线删除。
 5. **阶段级条款只写在 docs/**：已建文档的阶段，其专属规则（字段、流程、文件名、产出范围）写入 REQUIREMENTS／DESIGN，不再追加到本文件或 `architecture.md`；本文件只保留跨阶段硬约束。
 6. **与 `architecture.md` 的分工**：全局分层、权威源表、目录树仍以 `architecture.md` 与 §2.2 为准；`DESIGN.md` 只描述该阶段内部的模块分工与设计条目，不另立第二套分层。
 
@@ -278,9 +278,9 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
 | 发布前／用户明确要求 | `run_selftests.py --all --safe`         | 完整安全回归；不通过先修复                                |
 | 收尾时 | 核对 §2.5 轮次、认领与实际欠账 | 不伪造轮次或凭据；失败按 §8 继续处理 |
 
-**全量欠账口径（R1439，用户批准）**：唯一实现是 `run_selftests.FULL_SAFE_ROUND_INTERVAL`（8）、`source_rounds_since()`、`full_safe_required()`。只数 `last_full_safe_all_round` 之后、提交标题为 `R<n>:`／`R<n>-FAIL:` 且改过源码的轮次；纯文档、测试、`tasks_round/`、`维护记录/`、`说明/` 的轮次不计（`skills/` 下的 md 是 SKILL 源，计入）；读不出 git 历史时退回按全部轮次计。本节所列风险触发不受阈值影响：启动入口（`启动漫剧制作助手.pyw`／`启动助手.cmd`）、`storage_maintenance.py`（删除语义）、`tests/architecture/_layers.py`（层级登记表）由 `has_risk_change()` 按路径自动判定，任一轮改过就**立即触发后台补跑**，但门禁有宽限（`FULL_SAFE_RISK_GRACE`＝3）：自最早一次风险改动之后再积累 3 个源码轮次仍无凭据才报红，连续几轮改启动文件合并成一次全量（`risk_overdue()`）；Tk 控件生命周期（销毁／重建）无法静态判定，仍由执行者人工判断并手动跑全量。
+**全量欠账口径**：每累计 8 个改过源码的轮次要求一次完整安全全量，另有风险路径宽限；唯一实现是 `run_selftests.full_safe_required()`／`risk_overdue()`，细则见 `runbook.md` §4。
 
-**后台自动补跑**（带防抖）：欠账达到门禁线前 `FULL_SAFE_AUTO_LEAD`（2）个源码轮次，master 的 git post-commit 钩子（`维护记录/基准脚本/hooks/post-commit`，由 `install_git_hooks.py` 安装）调用 `scripts/auto_full_safe.py --spawn`，先起一个后台等待者（`--wait-run`，同一时刻只有一个）：等「安静」15 分钟（期间每有新提交就重新计时）再跑一次，连续拆分系列的 N 轮只补跑 1 次；欠账已让门禁报红或等满 60 分钟则立即跑。跑时在根目录 `.wt/ci` 干净分离检出上后台跑 `--all --safe`，绿凭据写入 common-dir 的 `full-safe-receipts.json`，日志在 `程序/logs/auto_full_safe.log`。钩子失败或已有同类任务在跑都静默跳过，不阻塞提交；后台运行期间（`auto_full_running()`）架构门禁不报「欠全量」，手动 `--all --safe` 也会被拒绝并提示等待（`--force` 可强制）——**欠账红灯出现时不要立刻手动跑全量，先看后台是否已在补跑**；`scripts/auto_full_safe.py --status` 查看欠账。后台全量红了不会自动改任何文件，按 §8 失败处置人工接续；结果写入 common-dir 的 `auto-full-safe-result.json`，post-commit 钩子每次提交先跑 `--notice`，上次未通过就在提交输出里打印红的测试文件与日志路径，`--status` 也会显示。`round_claim.py next` 领号时会自检 git 钩子，缺失或与版本受控源不一致就自动安装，新克隆无需手工装钩子。
+**后台自动补跑**：master 的 post-commit 钩子防抖后在 `.wt/ci` 干净检出上跑 `--all --safe`；**欠账红灯时不要手动全量，先看后台是否已在补跑**（`scripts/auto_full_safe.py --status`）；后台红了按 §8 人工接续。细则见 `runbook.md` §4。
 
 纯服务或小拆分另跑 `run_selftests.py -k <本轮改动模块>`；文档整理跑文档一致性回归。跨层改动仍须覆盖架构门禁；运行全量时按下述去重规则执行。
 
@@ -288,24 +288,7 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
 
 全量成功凭据记录 `{tree, round, seconds, at}`，由现有执行器写入 common-dir 的 `full-safe-receipts.json`；七日内同 `HEAD:程序` 内容树可复用真实绿凭据。不得以文档数字代替或伪造凭据。当前实测与历史绿色记录分开列于 `project_status.md` 的“验证基线”；失败处置见 §8，检查点提交见 §2.6。
 
-当前架构门禁清单（`tests/architecture/`）：总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。
-
-- 卡片与忙碌状态补充：`test_card_boundary.py`、`test_busy_state_boundary.py`。
-- 分层与一致性：`test_agents_md.py`、`test_layers.py`、`test_no_circular_import.py`、`test_path_authority.py`、`test_stage_paths.py`、`test_storyboard_edit_boundary.py`、`test_storyboard_final_selection_boundary.py`。
-- 写入与删除边界：`test_atomic_write_boundary.py`、`test_asset_batch_ledger_boundary.py`、`test_asset_batch_settings_boundary.py`、`test_asset_detail_binding_boundary.py`、`test_asset_generated_import_boundary.py`、`test_asset_image_import_boundary.py`、`test_asset_plan_publication_boundary.py`、`test_asset_rename_boundary.py`、`test_asset_image_removal_boundary.py`、`test_asset_image_restore_boundary.py`、`test_audio_import_boundary.py`、`test_cloud_video_settings_boundary.py`、`test_continuity_publication_boundary.py`、`test_delivery_import_boundary.py`、`test_desktop_settings_boundary.py`、`test_edit_publication_boundary.py`、`test_final_bundle_boundary.py`、`test_handoff_publication_boundary.py`、`test_keyframe_delete_boundary.py`、`test_keyframe_restore_boundary.py`、`test_keyframe_replace_boundary.py`、`test_keyframe_reference_publication_boundary.py`、`test_legacy_adoption_boundary.py`、`test_local_video_settings_boundary.py`、`test_manual_creative_publication_boundary.py`、`test_previs_routing_publication_boundary.py`、`test_stage_workspace_boundary.py`、`test_structured_script_write_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_tts_publication_boundary.py`、`test_video_delete_boundary.py`、`test_video_options_boundary.py`、`test_video_prompt_publication_boundary.py`、`test_video_publication_boundary.py`、`test_white_model_import_boundary.py`、`test_writing_preparation_path_boundary.py`、`test_deletion_gateway.py`、`test_remove_authority.py`、`test_recycle_service.py`。
-- 剧本重命名边界：`test_script_rename_boundary.py`。
-- 阶段/UI 契约：`test_dynamic_import_registry.py`、`test_stage_command_contract.py`、`test_completion_gate.py`、`test_event_bus_boundary.py`、`test_skill_dependency_dag.py`、`test_pipeline_stage_io_contract.py`、`test_skill_reference_injection.py`、`test_project_entry_boundary.py`。
-- 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_migrated_ui_boundaries.py`。
-- 体验与布局：`test_responsive_layout_contract.py`、`test_combobox_boundary.py`。
-- 启动预算：`test_startup_budget.py`。
-- 历史兼容门面：`test_legacy_facade_manifest.py`。
-- 轮次与基线／测试卫生：`test_round_baselines.py`、`test_skip_hygiene.py`、`test_silent_exception_ratchet.py`、`test_module_size_ratchet.py`、`test_todo_comment_snapshot.py`、`test_static_hygiene.py`、`test_function_size_ratchet.py`、`test_print_ratchet.py`。
-- 覆盖率审计棘轮：`test_coverage_audit_ratchet.py`、`test_secret_sink_audit.py`、`test_coverage_baseline.py`。
-  行覆盖度量为定向测量：工具 `scripts/coverage_report.py`（`sys.settrace`，零第三方依赖），基线 `维护记录/覆盖率基线.json`；只记基线＋核心路径下限，不重跑测量，口径与诚实边界见 `tasks_round/tasks_round_1616_result.md`。
-  密钥静态审计仅覆盖有限函数内传播，支持范围与漏检／误报边界见 `tasks_round/tasks_round_1054_result.md` D–F，不将零命中解释为全路径安全。
-- JSON／服务／统筹补充：`test_confirm_gates_json_boundary.py`、`test_context_menu_boundary.py`、`test_data_table_boundary.py`、`test_dialog_boundary.py`、`test_button_boundary.py`、`test_file_dialog_boundary.py`、`test_idea_attachment_publication_boundary.py`、`test_input_boundary.py`、`test_json_io_boundary.py`、`test_keyframe_batch_json_boundary.py`、`test_local_previs_json_boundary.py`、`test_notification_boundary.py`、`test_previs_automation_json_boundary.py`、`test_previs_batch_json_boundary.py`、`test_previs_monitor_json_boundary.py`、`test_project_context_boundary.py`、`test_service_return_contract.py`、`test_shortcut_registry_boundary.py`、`test_skill_orchestrator_json_boundary.py`、`test_stage_display_boundary.py`、`test_subtitle_export_publication_boundary.py`、`test_text_component_boundary.py`、`test_tooltip_boundary.py`、`test_ui_icons_boundary.py`、`test_scrollbar_theme_boundary.py`、`test_token_boundary.py`、`test_copy_entry_boundary.py`、`test_unification_ratchet.py`、`test_video_navigation_json_boundary.py`、`test_white_model_json_boundary.py`、`test_white_model_service_json_boundary.py`、`test_workflow_settings_json_boundary.py`、`test_writing_api_json_boundary.py`、`test_writing_publication_boundary.py`。
-
-新增或删除架构测试时，必须在同一轮更新以上清单、架构基线和结果报告；不得只更新测试而遗漏本入口说明。
+当前架构门禁清单已迁入 `architecture.md` §“当前架构门禁清单”；总数以 `python smoke_test.py --architecture` 当轮输出为准，基线只增不减。新增或删除架构测试时，必须在同一轮更新该清单、架构基线和结果报告（`test_agents_md` 核对清单与实际文件集合相等）。
 
 - 架构门禁去重：跑 `run_selftests.py --all --safe` 的那一轮，`--all` 已含架构门禁，不再单独跑 `smoke_test.py --architecture`；只跑架构门禁的轮次不变。
 - 失败复验走增量：全量失败后，先用 `--affected`／`-k` 在定向层面修到绿，再复验全量；禁止把全量当排错工具反复兜底。
