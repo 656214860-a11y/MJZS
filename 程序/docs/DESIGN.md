@@ -432,3 +432,65 @@
 | REQ-S09-31 | `test_previs`、`test_previs_scope` |
 | REQ-S09-01/02/03/04/33/34/40 | `test_previs_scope`（契约与门禁事实） |
 | 层级与 JSON 边界（REQ-S09-12/21/30） | `tests/architecture/` 下 `test_previs_routing_publication_boundary`、`test_previs_automation_json_boundary`、`test_previs_batch_json_boundary`、`test_previs_monitor_json_boundary`、`test_local_previs_json_boundary`、`test_white_model_json_boundary`、`test_white_model_service_json_boundary` |
+
+## S10 视频生成
+
+### 模块分工
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L4 | `cloud_video`（`settings_window`） | 云端调用设置页：服务商／模型／密钥／本地秒数上限；保存只建会话，不提交 |
+| L4 | `local_video`（`LocalAPI`、`LocalStudio`、设置窗） | 本地 ComfyUI 后端：回环地址校验、提交、查询取回；`auto_plan`／`auto_batch` 为无人值守本地补视频 |
+| L4 | `video_navigation`、`video_progress`、`video_prompt_results`、`shared_video_controls` | 视频页导航、进度、提示词结果与共享控件 |
+| L3 | `engine`（`Studio`） | 云端提交、轮询、下载、质检、验收、锁定版本、拼装；`auto_edit_ready` 给出成片指纹 |
+| L3 | `stage_flow` / `stage_parallel` | 依赖 `DEPENDS`、付费阶段 `PAID_STAGES`、并发与重试 `CONFIG['video']`、限流 `rate_limited`、SG-05 门禁 `previs_ready` |
+| L3 | `stage_completion_service` | `completion_evidence` 视频分支，核验回调由桌面注入 |
+| L2 | `video_task_state` | 任务活动判定、提交阻断原因、服务商终态原因、提示词编辑锁 |
+| L2 | `video_lifecycle_service` | 镜头视频删除标记、素材／声音选项、白模上传选项，经 L3 注入的发布器原子保存并回滚 |
+| L2 | `cloud_video_service` | 云视频服务商表、会话目录、凭据查询、会话配置发布（经注入） |
+| L2 | `video_source_evidence` | 从脱敏的实际请求解析首帧／白模／参考图的 SHA-256 摘要 |
+| L2/适配 | `agent/wan.py`、`agent/volcengine.py`、`agent/shot_assets.py` | 万相／Seedance 协议适配与镜头参考素材准备 |
+| L1 | `pet_llm`（`RequestLedger`、`record_request`）、`model_pool` | 逐次调用台账、API Key（DPAPI） |
+| L0/契约 | `script_contract.STAGE_LOCK_REQUIREMENTS`、`stage_layout`、`stage_path_service` | 三项锁值、阶段目录与旧目录只读兼容 |
+
+### 设计条目
+
+- **DES-S10-01**（REQ-S10-01）`stage_layout.py:55-56` 登记 `10视频生成`；`stage_path_service.py:27` 的 `LEGACY_NUMBERED['video']='09视频生成'` 仅供读取。`Studio.validate`（`engine.py:228`）校验时长 2–15 秒与非空 `video_prompt`；`Studio.frame`（`engine.py:240`）缺首帧时提示回首帧阶段。
+- **DES-S10-02**（REQ-S10-02）`script_contract.py:830` 把 `video` 列入 `STAGE_LOCK_REQUIREMENTS`，字段与 `keyframe`、`previs` 相同。
+- **DES-S10-03**（REQ-S10-03，待定）`stage_flow.py:60-64` 的 `DEPENDS['video']=('keyframe',)`；SKILL `dependsOn: [pipeline-previs]` 与它不一致。待用户拍板后再决定是否并入 `previs`。
+- **DES-S10-04**（REQ-S10-04）`stage_parallel.py:534` 的 SG-05 行 `{'id':'SG-05','from':'previs','to':'video','check':'previs_ready'}`；`previs_ready`（`stage_parallel.py:841` 起）无已采用分镜或无复杂镜头即放行，其余逐镜用 `previs_routing.ready` 核对可播放预演，缺失的镜头列入问题清单。
+- **DES-S10-05**（REQ-S10-05）`stage_flow.py:76` 的 `PAID_STAGES`；`pet_ui_stages.py:275` 以 `paid=stage in PAID_STAGES` 调 `agent.approve('stage.run', ...)`。
+- **DES-S10-06**（REQ-S10-06）`stage_parallel.py:75-78` 的 `CONFIG['video']`（串行、2–3 镜、上限 3、重试 2 次、`on_exhaust` 转人工、`rate_limit=True`）；`rate_limited`（`stage_parallel.py:140`）只对视频返回真。
+- **DES-S10-10**（REQ-S10-10）`Studio.submit`（`engine.py:329`）：离线拒绝 → `submission_block_reason`（`video_task_state.py:65`）→ 时长对剩余秒数（`engine.py:341`）→ 先写 `submitting` 版本再联网（`engine.py:368`）。服务端 5xx 与连接中断记 `unknown` 且保留预留，不自动重发（`engine.py:390-400`）。
+- **DES-S10-11**（REQ-S10-11）服务商表 `cloud_video_service.py:23-28`；会话目录 `session_folder`（`cloud_video_service.py:64`）按“服务商＋模型＋分镜源”复用或新建；`saved_provider_key`（`cloud_video_service.py:80`）优先读模型池，旧 `.env` 只读兼容。`cloud_video.py:172` 经 `model_pool.save_named_key` 保存密钥，会话配置只写 `key_provider='model_pool'`（`cloud_video.py:173`）。
+- **DES-S10-12**（REQ-S10-12）`LocalAPI.__init__`（`local_video.py:29`）仅放行 `http` 与 `127.0.0.1`／`localhost`／`::1`；`reattach`（`local_video.py:178`）按 `client_id` 找回任务；`auto_plan`（`local_video.py:297`）遇非 `LocalStudio` 抛错，不静默提交云端。
+- **DES-S10-13**（REQ-S10-13）云端：`ledger.authorize_units`（`engine.py:378`）→ 提交 → `settle_units`（`engine.py:394,399,433`）。落盘后 `record_video_usage`（`engine.py:296`）记 `videos` 条数与估算 `seconds`，已有 `money_request_id` 即跳过。本地版本 `charged=False`，只走 `record_video_usage`。
+- **DES-S10-14**（REQ-S10-14）`task_receipt.json`（`engine.py:388`）与 `poll` 的回执恢复（`engine.py:411-416`）；下载失败保留 `succeeded` 并写 `download_error`（`engine.py:449-452`）；质检 `agent.media.check` 加 FFmpeg 解码（`engine.py:455-456`）；`provider_failure_reason`（`video_task_state.py:9`）；`submitted_sources`（`video_source_evidence.py:5`）要求 `sha256:` 64 位十六进制摘要。
+- **DES-S10-15**（REQ-S10-15）`Studio.review`（`engine.py:471`）、`review_many`（`engine.py:509`）、`pin_version`（`engine.py:493`）；自动验收云端读 `project_settings.auto_review`（`engine.py:457`），本地读 `pet_ui.should_auto_run`（`local_video.py:236`）。
+- **DES-S10-16**（REQ-S10-16）`assert_prompt_editable`／`prompt_locked`（`video_task_state.py:46-52`）；`generation_active`（`video_task_state.py:20`）还扫 `cloud_video/*/config.json` 中指向同一分镜的其他会话。
+- **DES-S10-17**（REQ-S10-17）`mark_video_deleted`（`video_lifecycle_service.py:33`）遇未决状态返回 `UserError`，发布失败时 `shot.clear()`／`update(previous)` 回滚。
+- **DES-S10-18**（REQ-S10-18，待定）两路自动验收判据来源不同，见 DES-S10-15。
+- **DES-S10-20**（REQ-S10-20）`Studio.task_folder`（`engine.py:280`）与 `submit` 落盘的 `request.json`／`assets_manifest.json`／`实际提交提示词.txt`（`engine.py:371-373`）、`publish_downloaded_video`（`engine.py:283`）写 `qc.json` 并带 `sha256`。
+- **DES-S10-21**（REQ-S10-21，待定）`stage_layout.py:56` 声明输出 `videos.json`；全仓库无写入点（`video_manifest.json` 同）。处理方式待用户拍板。
+- **DES-S10-22**（REQ-S10-22）`completion_evidence`（`stage_completion_service.py:413`）的 `stage == 'video' and callable(video_ready)` 分支（`:443-445`）要求 `auto_edit_ready` 返回的指纹为真；无回调则落到通用媒体文件检查（`:446-455`）。调用方 `pet_ui_stages.py:28-30,35-37,99-101` 均传 `studio.auto_edit_ready`。
+- **DES-S10-23**（REQ-S10-23）`approved_versions`（`engine.py:17`）、`adopted_edit_version`（`engine.py:64`）：锁定版优先，其次最后已验收版；文件缺失／摘要不符返回 `missing`／`replaced`。`auto_edit_ready`、`assemble` 与界面采用显示共用该口径。
+- **DES-S10-30**（REQ-S10-30/31/32/33）SKILL 位于 `skills/10视频生成SKILL/`；`skill_tools.py:461-464` 把 `video.batchSubmit`／`retry`／`pause`／`resume` 登记为页面步骤，`skill_tools.py:416,420,488-489` 登记 `video.qualityCheck`、`video.pollStatus`、`video.submit`、`video.validate`。视频提示词规则见 `stage_layout.py:156` 与 `stage_parallel.py:214`。
+- **DES-S10-40**（REQ-S10-40）`tests/architecture/_layers.py` 把 `cloud_video`、`local_video` 登记为 L4，`engine` 为 L3，`cloud_video_service` 为 L2；`architecture.md` 的 L2 行原误含 `cloud_video`、`local_video`，已移到 L4 行。
+
+### 测试锚定
+
+| 需求 | 测试 |
+| --- | --- |
+| REQ-S10-01/02/03/04/05/06 | `test_video_generation_scope`；`test_stage_flow`、`test_stage_parallel`、`test_stage_layout` |
+| REQ-S10-10 | `test_video_generation_scope`（阻断判定）；`test_video`、`test_video_revision`、`test_video_task_status` |
+| REQ-S10-11 | `test_cloud_video`、`test_cloud_video_settings_boundary` |
+| REQ-S10-12 | `test_video_generation_scope`（回环、仅本地）；`test_video`、`test_video_ui` |
+| REQ-S10-13 | `test_video`、`test_request_ledger`、`test_request_recording` |
+| REQ-S10-14 | `test_video_generation_scope`（终态原因、摘要）；`test_video_result_polling`、`test_video_source_evidence` |
+| REQ-S10-15/23 | `test_video_generation_scope`（已验收口径、锁定版）；`test_video_revision`、`test_version_pin`、`test_edit_adoption` |
+| REQ-S10-16 | `test_video_task_status`、`test_video_prompt_publication` |
+| REQ-S10-17 | `test_video_generation_scope`；`test_video_lifecycle_service`、`test_video_delete_boundary` |
+| REQ-S10-20 | `test_video` |
+| REQ-S10-22 | `test_video_generation_scope`；`test_stage_completion_service` |
+| REQ-S10-30/32/40 | `test_video_generation_scope` |
+| REQ-S10-18/21/31 | 待用户拍板后补测试（现为 ❓／🟡，不测实现） |
