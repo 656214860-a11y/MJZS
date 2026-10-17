@@ -326,3 +326,57 @@
 | REQ-S07-42（`batches_ready` 行为） | `test_storyboard_final_scope`（`test_stage_parallel` 未直接测此函数） |
 | REQ-S07-01/04/13/33/41/42/50/51 的事实范围 | `test_storyboard_final_scope` |
 | REQ-S07-10/11/12/16/17/18/19/21 | 暂无直接 `finalize` 端到端测试（相邻覆盖：`test_asset_plan`）——测试缺口，待补 |
+
+## S08 首帧管理
+
+### 模块分工
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L4 | `desktop_storyboard_page.StoryboardPageMixin` | 首帧管理页（方法名 `storyboard` 为历史沿用）；只注入回调 |
+| L4 | `desktop_media_pages`、`desktop_auto_flows` | 首帧删除／恢复、自动补帧入口与播报 |
+| L3 | `keyframe_comfy` | 本地 ComfyUI 批量生成、缺帧对话框、自动批次 |
+| L3 | `keyframe_import` | 外部生成结果登记、导入、监听、陈旧任务清理 |
+| L3 | `keyframe_page_controller` | 页面行与批次选择（不持有 Tk 控件） |
+| L3 | `stage_handler_registry.start` | 启动前检查三项必填锁 |
+| L2 | `keyframe_batch` | 批量计划（补缺／重试／替换）与不可生成状态 |
+| L2 | `keyframe_lifecycle_service` | 删除、恢复、替换首帧（回收站 + 事务回滚） |
+| L2 | `keyframe_model_service` | 首帧模型选择 |
+| L2 | `keyframe_evidence` | PNG 事实、来源证据、`frame_problem` 校验 |
+| L3 | `stage_parallel` | `frames_ready`（SG-04）、`batches_ready`（SG-03）、限速与并行 |
+| L3 | `stage_completion_service` | 阶段完成核验，`keyframe → frames_ready` |
+| L0 | `stage_layout`、`stage_path_service` | 目录 `08首帧管理`、旧 `07首帧管理` 只读兼容 |
+| L0 | `script_contract` | `STAGE_LOCK_REQUIREMENTS['keyframe']` |
+
+### 设计条目
+
+- **DES-S08-01**（REQ-S08-01/02）`stage_flow.DEPENDS['keyframe']=('final',)`；`stage_layout` 行 `('08首帧管理','keyframe',…,输入 storyboard_final.json)`。
+- **DES-S08-03**（REQ-S08-03）`script_contract.STAGE_LOCK_REQUIREMENTS['keyframe']=('aspect_ratio','video_model_version','delivery_format')`，`stage_handler_registry.start` 对非剧本阶段按它取必填锁。
+- **DES-S08-04**（REQ-S08-02/04）`stage_parallel.GATES` 含 `SG-03(final→keyframe, batches_ready)`、`SG-04(keyframe→previs, frames_ready)`；`frames_ready` 在没有已采用分镜时返回放行。
+- **DES-S08-10**（REQ-S08-10/11）`keyframe_evidence.image_facts` 全量解码 PNG 一次（按内容哈希缓存，不信文件名／mtime），拒绝非 PNG、空文件、>64MB、CRC 错；`_check_dimensions` 校验画幅。
+- **DES-S08-12**（REQ-S08-12/13/14）`keyframe_batch` 的 `STATE_*` 状态机与 `MODE_MISSING/RETRY/REPLACE` 计划；`ATTEMPT_NOTES` 区分 sending／uncertain／completed／pending／cancelled。
+- **DES-S08-15**（REQ-S08-15）首帧提示词取 `frame_prompt`，缺则 `keyframe_prompt`，不读视频提示词。
+- **DES-S08-16**（REQ-S08-16/17）`keyframe_import.register` 在来源指纹不符时拒绝；关联失败保持旧来源与已发布首帧。
+- **DES-S08-18**（REQ-S08-18）`keyframe_model_service.current_model` 读 `stage_config` 的 `keyframe.model`。
+- **DES-S08-19**（REQ-S08-19）`stage_parallel.CONFIG` 对 `keyframe` 限速，`parallel_map(…, resource=镜头号)` 保证同镜头不并发。
+- **DES-S08-20**（REQ-S08-20/21/22）`keyframe_evidence.make_evidence` 写 `frame_evidence{version:1, image, expected_size, aspect_ratio, source}`；`source_evidence` 只取该镜头引用的资产，故其他镜头不受影响；`frame_problem` 返回可执行的复核原因，空串表示通过。
+- **DES-S08-23**（REQ-S08-23）`keyframe_lifecycle_service.delete/restore/replace_keyframe` 经 `storage_maintenance.recycle_paths`／`restore_latest_recycled_*`，保存分镜失败回滚；L2 要求 L3 注入发布回调。
+- **DES-S08-24**（REQ-S08-24）`stage_path_service.write_dir(project,'keyframe')`；`LEGACY_NUMBERED['keyframe']='07首帧管理'` 经 `read_dirs` 只读回退。
+- **DES-S08-30**（REQ-S08-30/31）`frames_ready` 读已采用分镜的 `frame`／`frame_deleted`，路径须在 `media_root` 内，非空，且 `frame_problem(…, aspect_ratio=workflow_lock(project)['aspect_ratio'])` 为空；`stage_completion_service` 的 `checks['keyframe']='frames_ready'`，要求 `ok` 且 `started`。
+- **DES-S08-32**（REQ-S08-32）`engine.py`、`app.py`、`local_video.py` 缺首帧时抛错／跳过，并经 `pet_bus.stage_step('keyframe')` 指向本阶段。
+- **DES-S08-50**（REQ-S08-50/51）SKILL 位于 `skills/08首帧管理SKILL/`；`skills/templates/keyframe_process_template.yaml` 四步，第 3 步 `needs_confirmation`。
+- **待定**（REQ-S08-40/41）清单文件名与写入点待用户拍板后再设计。
+
+### 测试锚定
+
+| 需求 | 测试 |
+| --- | --- |
+| REQ-S08-01/02/03/04/50/51 | `test_keyframe_scope` |
+| REQ-S08-10/21/22 | `test_keyframe_evidence`、`test_keyframe_scope`（PNG 拒绝） |
+| REQ-S08-11/20/30 | `test_keyframe_evidence`、`test_stage_parallel`（frames_ready） |
+| REQ-S08-12/13/14 | `test_keyframe_batch_plan` |
+| REQ-S08-15/16/17 | `test_keyframe`（导入与提示词） |
+| REQ-S08-18 | `test_keyframe_model_service` |
+| REQ-S08-19 | `test_stage_parallel` |
+| REQ-S08-23 | `test_keyframe_lifecycle_service` |
+| REQ-S08-31 | `test_stage_parallel`（缺帧阻塞预演） |
