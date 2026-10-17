@@ -494,3 +494,53 @@
 | REQ-S10-22 | `test_video_generation_scope`；`test_stage_completion_service` |
 | REQ-S10-30/32/40 | `test_video_generation_scope` |
 | REQ-S10-18/21/31 | 待用户拍板后补测试（现为 ❓／🟡，不测实现） |
+
+## S11 配音与字幕
+
+### 模块表（按层）
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L0 | `pet_bus`、`stage_layout`、`stage_path_service` | 阶段键与名称、目录与声明产出、新写目录 `write_dir`／旧目录只读 `read_dirs` |
+| L1 | `agent.media`（ffprobe 校验）、`pet_llm.RequestLedger`（计量与预算） | 媒体探测、付费请求登记 |
+| L2 | `tts_api` | 音轨用途、音色解析、逐句批次身份与续跑、成本预览、整段／逐句合成（发布器由 L3 注入） |
+| L2 | `audio_import_service` | 导入音频校验与落盘（发布器由 L3 注入） |
+| L2 | `subtitle_timing` | 估算／校准字幕时间轴、时间校验、SRT 行渲染（纯计算） |
+| L2 | `subtitle_export_service` | 准备 SRT／对白脚本／校准状态文本，交注入发布器发布 |
+| L2 | `stage_completion_service` | 媒体成果技术校验、人工确认清单、阶段完成核验 |
+| L3 | `stage_execution_service` | `import_stage_audio`、`export_stage_srt`、`export_stage_dialogue_script`、`run_tts_lines`、整段配音发布与复用的编排与发布器注入 |
+| L3 | `stage_flow`、`stage_parallel`、`workflow_settings`、`skill_registry` | 依赖、付费、并行与重试、SKILL 默认勾选与加载 |
+| L4 | `desktop_media_pages`（配音页）、`tts_settings` | 导入／合成／导出按钮、付费确认框、设置对话框 |
+| SKILL | `skills/11配音字幕SKILL/*.skill.md` | 六个内容 SKILL（见 REQ-S11-30） |
+
+### 设计条目
+
+- **DES-S11-01**（REQ-S11-01/02/03）阶段顺序在 `pet_bus.STAGES`；目录行 `('11配音与字幕','audio',…,('storyboard_final.json',),('voice.json','subtitles.json'))` 在 `stage_layout.STAGES`；依赖 `stage_flow.DEPENDS['audio']=('final',)`，付费 `PAID_STAGES`，并行 `stage_parallel.CONFIG['audio']`（单位=角色轨，`serial=True`，重试 2 次，耗尽转手动）。
+- **DES-S11-04**（REQ-S11-04）`media_scope` 取当前已采用分镜及其 sha256；`prepare_media_completion` 做路径限制（须在本阶段 `音频/` 目录内、扩展名限四种、非空）、ffprobe 探测并冻结 `pending_review` 清单；至少一条 `audio_kind==dialogue`；`confirm_media_completion` 仅在人工确认入口调用，写 `成果确认/<fingerprint(source)[:24]>.json`。`_validate_media_completion` 在读取时重核 scope、技术校验、文件大小与 sha256。
+- **DES-S11-10**（REQ-S11-10）`AUDIO_KIND_PREFIXES`（旁白_／BGM_／音效_／整轨_）；对白保持原名；`audio_kind` 从文件名前缀推断，识别不出按对白。
+- **DES-S11-11**（REQ-S11-11）`import_audio` 做阶段／用途／后缀／空文件检查，目标名 `<标记名>_<6位随机>.<后缀>` 放入 `project_stages.audio(project)`（`<阶段目录>/音频`）；校验与落盘由 `stage_execution_service.media_import_publisher` 注入，经 `publish_imported_media` 用 `agent.media.validate_import`。
+- **DES-S11-12**（REQ-S11-12）整段：`script_signature` → `reusable_tts_full_track`／`publish_tts_full_track`。逐句：`build_lines` → `resume_folder` 取续跑目录（`配音分句/`）→ `batch_cost_preview` 只读预览 → 用户确认 → `run_lines`：`freeze_settings` 开批冻结；每句 `RequestLedger.metered_units` 计量；`时间轴.json` 逐句落清单（状态 sending／ok／failed／uncertain）；`批次.json` 存签名与身份；`line_done` 以 sha256 判定沿用；sending／uncertain 的同身份句子不自动重发；`stop` 事件可中断后续跑。发布走注入的 `publish_json／publish_bytes`。
+- **DES-S11-13**（REQ-S11-13）`voice_for(voices, speaker, name)`：ID 优先，显示名其次，空串=默认音色。
+- **DES-S11-20**（REQ-S11-20/22）`_dialogue_rows` 解析对白（字符串旧格式与 dict 新格式）；镜内混合标注直接 `ValueError`；`_distribute` 先扣已知真实时长，剩余按 `line_weight`（可见字符数）分配；已知合计占满或超出镜头则压缩并记 overflow；`calibrate_entries` 返回 (entries, report)，report.mode ∈ estimate／length／mixed／explicit／audio。
+- **DES-S11-21**（REQ-S11-21）`validate_entries` 在每次导出前强制调用（`_calibrated`），失败即抛错，不静默修正；`_clamp` 仅用于把作者标注的区间夹进镜头内，不用于修复非法值。
+- **DES-S11-23**（REQ-S11-23）`export_srt`：校准 → 校验 → `rows_from_entries` → 注入发布器以 `utf-8-sig` 发布到 `project_stages.subtitles(project)`（`<阶段目录>/字幕`）的 `对白_<6位>.srt`，成功后再发布 `字幕校准.json`（失败只记警告，不影响 SRT）；`export_dialogue_script` 发布 `对白脚本_<6位>.txt`；L2 无发布器时抛 `TypeError`，写盘失败返回 `SystemError`，空对白返回 `UserError`。
+- **DES-S11-30**（REQ-S11-30/31）SKILL 由 `skill_registry` 递归扫描 `skills/11配音字幕SKILL/`；总入口 `pipeline-audio-subtitle` 在 `workflow_settings` 阶段默认勾选；`voice-multi-character` 描述标注“已合并”，ID 仅供旧配置兼容。
+
+### 待决设计（与 REQ 中 ❓ 对应）
+
+- **DES-S11-24**（REQ-S11-24）ASS 导出无实现；设计上若补，须沿用 `subtitle_export_service` 的“L2 只准备文本、L3 注入发布器”模式，并复用 `calibrate_entries/validate_entries`。未补之前，文档与 SKILL 不得承诺 ASS。
+- **DES-S11-40**（REQ-S11-40）声明产出（`voice.json`／`subtitles.json`）与真实完成凭据（`成果确认/*.json`）分离；后期剪辑阶段声明读取前者，实际读取字幕与音频目录文件。统一方向待拍板。
+
+### 测试锚定
+
+| REQ | 测试 |
+| --- | --- |
+| REQ-S11-01/02/03/04/10/11/12/20/21/22/23/24/30/31/40 | `tests/test_audio_subtitle_scope.py`（16 条，本批新增，断言均为已核实事实） |
+| REQ-S11-04 | `tests/test_stage_completion_service.py` 等既有完成度测试（清单链路，本批未逐条核对） |
+| REQ-S11-11 | `tests/test_audio_import_service.py`、`tests/architecture/test_audio_import_boundary.py` |
+| REQ-S11-12 | `tests/test_tts.py`、`tests/architecture/test_tts_publication_boundary.py` |
+| REQ-S11-13 | `tests/test_audio_role_binding.py` |
+| REQ-S11-20/21 | `tests/test_subtitles.py` |
+| REQ-S11-22 | `tests/test_subtitle_calibration.py` |
+| REQ-S11-23 | `tests/test_subtitle_export_service.py`、`tests/architecture/test_subtitle_export_publication_boundary.py` |
+| REQ-S11-14/32 | 无测试（⬜／🟡） |

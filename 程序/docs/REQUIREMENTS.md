@@ -4,7 +4,7 @@
 编号规则：`REQ-<阶段号>-<序号>`，删除的编号不复用。测试 docstring 写 `REQ-xx` 锚定。
 状态：✅ 已实现　🟡 部分实现／与代码不一致　⬜ 未实现　❓ 待人拍板
 
-> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜、S04 分镜预演、S05 资产管理、S06 连贯性清单、S07 分镜定稿、S08 首帧管理、S09 白模预演、S10 视频生成。其余阶段按顺序逐阶段补。
+> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜、S04 分镜预演、S05 资产管理、S06 连贯性清单、S07 分镜定稿、S08 首帧管理、S09 白模预演、S10 视频生成、S11 配音与字幕。其余阶段按顺序逐阶段补。
 
 ## S01 剧本准备
 
@@ -515,3 +515,51 @@
 - 不做配音、字幕、剪辑和交付（S11–S13）。
 - 不把技术放行当成内容审核。
 - 本阶段不接入腾讯混元（设置页仅有说明链接，标“尚未接入”）。
+
+## S11 配音与字幕
+
+目标：对已采用的定稿分镜，导入或合成对白音轨，导出与音轨对齐的 SRT 字幕与对白核对脚本，经人工确认后作为后期剪辑（S12）的音频输入。不改分镜台词，不覆盖已确认配音。
+
+编号说明：本阶段是 `pet_bus.STAGES` 第 11 位（下标 10，目录 `11配音与字幕`），章节号 S11 与之一致；上游为 S07 分镜定稿，下游为 S12 后期剪辑。
+
+证据列：✅ 代码+测试可核；🟡 代码已有但无专项测试或只有部分覆盖；⬜ 未实现；❓ 方向冲突待拍板。
+
+### 输入与依赖
+
+- **REQ-S11-01** ✅ 阶段键 `audio`，显示名“配音与字幕”，位于流程第 11 位，目录 `11配音与字幕`。证据：`pet_bus.STAGES/STAGE_NAMES`、`stage_layout.STAGES`。
+- **REQ-S11-02** ✅ 依赖 `final`（S07 分镜定稿），声明输入 `storyboard_final.json`；不依赖 S10 视频成片（`PROJECT_MAP.md` 原写“成片”为误，已改）。证据：`stage_flow.DEPENDS['audio']==('final',)`。
+- **REQ-S11-03** ✅ 本阶段为付费阶段（`PAID_STAGES`）；并行单位为角色轨，串行执行，失败重试 2 次后转手动。证据：`stage_parallel.CONFIG['audio']`（serial=True、attempts=2）。
+- **REQ-S11-04** ✅ 阶段完成 = 存在人工确认的媒体成果清单 `成果确认/<hash>.json`：音频经 ffprobe 校验为有限正时长的 audio 流、至少含一条对白音轨、清单绑定当前已采用分镜及其 sha256、`status=complete` 且 `reviewed=True`；分镜改动或切集使确认失效；成果文件被替换须重验。字幕文件、模型文字、界面提示不算证据。证据：`stage_completion_service.prepare_media_completion/_validate_media_completion/confirm_media_completion`。专项测试仅锚定可接受扩展名（REQ-S11-04），清单链路由既有完成度测试覆盖。🟡
+
+### 配音
+
+- **REQ-S11-10** ✅ 音轨用途分 对白／旁白／BGM／音效／整轨 五类；非对白音轨文件名带用途前缀，无前缀一律按对白。导入 BGM 不能代替对白配音完成核验。证据：`tts_api.AUDIO_KINDS/audio_kind/marked_audio_name`、`prepare_media_completion` 的对白音轨检查。
+- **REQ-S11-11** ✅ 导入配音：仅收 wav／mp3／m4a／aac，空文件拒绝；阶段只认 `audio`／`animatic`，用途须在五类内；发布必须由 L3 注入的发布器（经 ffprobe 校验后落盘），L2 不直接写盘。证据：`audio_import_service.import_audio`、`stage_execution_service.import_stage_audio`、`tests/test_audio_import_service.py`、`tests/architecture/test_audio_import_boundary.py`。
+- **REQ-S11-12** ✅ 付费合成两种方式：整段（超 4000 字拒绝，请改逐句）与逐句。整段按台词＋设置签名复用已有成品，不重复扣费；逐句每句以 (镜头, 文本, 音色, 语速, 模型, 端点) 为身份，成功句 sha256 校验后沿用，中断可接续；开批时冻结端点与模型；提交前给出只读成本预览并须用户确认；状态为 sending／uncertain 的句子不自动重发。证据：`tts_api.run_lines/batch_cost_preview/freeze_settings/line_done`、`desktop_media_pages.generate_tts*`、`tests/test_tts.py`、`tests/architecture/test_tts_publication_boundary.py`。
+- **REQ-S11-13** 🟡 音色按稳定角色 ID 优先、显示名其次、再退默认音色（`voice_for`）；`tests/test_audio_role_binding.py` 覆盖绑定，未覆盖“一角一音色、与年龄性别相符”（SKILL 约束，属人工判断，程序不核验）。
+- **REQ-S11-14** ⬜ `voice-emotion-check` 的“逐句比对情绪标注、偏差大的列出来”只在 SKILL 文本，程序无对应实现，仅靠模型执行，无核验。
+
+### 字幕
+
+- **REQ-S11-20** ✅ 同一镜头内对白时间“部分标注、部分未标注”直接报错，不静默补齐。证据：`subtitle_timing.timed_entries/calibrate_entries`。
+- **REQ-S11-21** ✅ 字幕时间轴非有限、负数、结束不大于开始、与上一句重叠、越过总时长一律报错，不静默修正。证据：`subtitle_timing.validate_entries`、`tests/test_subtitles.py`。
+- **REQ-S11-22** ✅ 未给音频时按镜头时长与句长权重估算（校准报告标 estimate／uncalibrated，导出前可列出待校准句）；给出真实音频时长或对齐区间则按其校准；总和超出镜头时压缩并记 overflow 待人工确认。证据：`calibrate_entries/_distribute`、`subtitle_export_service.pending_calibration`、`tests/test_subtitle_calibration.py`。
+- **REQ-S11-23** ✅ SRT 导出：时间码 `HH:MM:SS,mmm`，多行台词压成单行，空对白拒绝；以 utf-8-sig 由注入发布器原子发布到 `字幕/对白_<6位>.srt`，并同写 `字幕校准.json`；另可导出供配音核对的 `对白脚本_<6位>.txt`。证据：`subtitle_export_service.export_srt/export_dialogue_script/export_calibration`、`tests/test_subtitle_export_service.py`、`tests/architecture/test_subtitle_export_publication_boundary.py`。
+- **REQ-S11-24** ❓ ASS 导出：`subtitle-auto-align`／`subtitle-format-export` 两个 SKILL 承诺 SRT＋ASS（含样式，`subtitle.exportAss`），`architecture.md` 原文同写；代码只有 SRT，无任何 ASS 导出。二选一：（a）程序补 ASS；（b）删去 SKILL 与文档中的 ASS 承诺。本轮文档按现状改为“仅 SRT”。
+
+### 阶段声明产出
+
+- **REQ-S11-40** ❓ 三处对产出的说法互不一致，且没有一处有程序产出方：`stage_layout` 声明 `voice.json`＋`subtitles.json`（后期剪辑阶段声明读取它们），`architecture.md` 原写 `audio_manifest.json`，SKILL 写 `audioManifest`。真实完成凭据是 REQ-S11-04 的 `成果确认/<hash>.json`。待拍板：以 `成果确认` 清单为准并改正 `stage_layout` 的声明，或补产出 `voice.json`／`subtitles.json`。
+
+### SKILL
+
+- **REQ-S11-30** ✅ 本阶段 6 个 SKILL：`pipeline-audio-subtitle`（总入口，付费，依赖 `pipeline-storyboard-final`，默认勾选）、`voice-tts-synthesis`（付费）、`voice-emotion-check`、`subtitle-auto-align`、`subtitle-format-export`、`voice-multi-character`。证据：`skills/11配音字幕SKILL/`、`workflow_settings.py:51`。
+- **REQ-S11-31** ✅ `voice-multi-character` 已合并入 `voice-tts-synthesis`，仅保留 ID 兼容旧项目配置，不再单独执行。
+- **REQ-S11-32** 🟡 `workflow_settings.DEFAULT_SKILLS['audio']` 为空串，旧工作流入口 `FLOWS['audio']` 的默认 SKILL 为空，而阶段级默认勾选为 `pipeline-audio-subtitle`；两条路径并存，未见专项测试说明其关系。
+
+### 非目标（明确不做）
+
+- 不改写分镜台词与角色。
+- 不做剪辑、混音、烧录字幕（属 S12）。
+- 不在无人工确认时自动判定完成。
+- 不自动重录（`voice-emotion-check` 约束）。

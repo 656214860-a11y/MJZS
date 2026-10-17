@@ -80,7 +80,7 @@ R1139：L3 `codex_skill_sync` 通过注册表物化所有已登记阶段（含�
 | 各阶段内容 SKILL（`skills/08首帧管理SKILL/`） | 首帧管理 | 首帧批量生成、质检重试及缩略图缓存。 |
 | 各阶段内容 SKILL（`skills/09白模预演SKILL/`） | 白模预演 | 生成白模场景、走位、机位路径、动作和节奏预览。 |
 | 各阶段内容 SKILL（`skills/10视频生成SKILL/`） | 视频生成 | 视频批量提交、模型分流、轮询、质检和失败重跑。 |
-| 各阶段内容 SKILL（`skills/11配音字幕SKILL/`） | 配音与字幕 | 多角色配音、情绪核验、字幕对齐及 SRT/ASS 导出。 |
+| 各阶段内容 SKILL（`skills/11配音字幕SKILL/`） | 配音与字幕 | 多角色配音、情绪核验、字幕对齐及 SRT 导出（ASS 仅见于 SKILL 文本，程序无导出实现）。 |
 | 各阶段内容 SKILL（`skills/12后期剪辑SKILL/`） | 后期剪辑 | 合成、配乐、预览、转场和多平台导出。 |
 | 各阶段内容 SKILL（`skills/13质检交付SKILL/`） | 质检与交付 | 质检、合规与风格检查、归档和交付报告。 |
 
@@ -264,7 +264,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 08  | `keyframe`         | 首帧管理  | 非空首帧；来源证据记在已采用分镜 JSON 的每镜 `frame_evidence`（独立清单文件待定，见 REQUIREMENTS REQ-S08-40）。                   |
 | 09  | `previs`           | 白模预演  | 可播放预演；镜头级记录 `预演记录.json` 存于白模成果目录（项目目录之外），无 `previs_manifest.json`。 |
 | 10  | `video`            | 视频生成  | 视频任务/片段、`video_manifest.json`。                   |
-| 11  | `audio`            | 配音与字幕 | 音轨、字幕、`audio_manifest.json`。                     |
+| 11  | `audio`            | 配音与字幕 | 音轨、字幕；完成凭据为人工确认的 `成果确认/<hash>.json`（`audio_manifest.json` 无程序产出方）。 |
 | 12  | `edit`             | 后期剪辑  | 预览/成片、`edit_manifest.json`。                      |
 | 13  | `delivery`         | 质检与交付 | 报告、交付包、`delivery_manifest.json`。                 |
 
@@ -338,7 +338,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 首帧管理  | 定稿镜头、提示词、资产参考                | 首帧、缩略图、清单                                                       | 图片、JSON           |
 | 白模预演  | 首帧、镜头时间线                     | 预演、清单                                                           | 视频、JSON           |
 | 视频生成  | 预演、提示词、关键帧                   | 片段、任务、清单                                                        | 视频、JSON           |
-| 配音与字幕 | 时间线、对白、音色                    | 音轨、字幕、清单                                                        | 音频、SRT、ASS、JSON   |
+| 配音与字幕 | 时间线、对白、音色                    | 音轨、字幕、清单                                                        | 音频、SRT、JSON        |
 | 后期剪辑  | 视频、音频、字幕                     | 预览/成片、剪辑清单                                                      | 视频、JSON           |
 | 质检与交付 | 成片、字幕、清单                     | 质检报告、交付包                                                        | Markdown、JSON、压缩包 |
 
