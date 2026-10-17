@@ -70,11 +70,17 @@ def prompt_with_settings(prompt,config,stage=None):
         media_apps = ''
     return skill_prompt(config, stage=stage)+stage_output_contract(stage)+writer_style_prompt(config,stage)+prompt+('\n用户补充制作要求：\n'+extra if extra else '')+language+media_apps
 
-def background_command(config,project,output,report):
+def background_command(config,project,output,report,prompt_file=None):
     if config['engine'] in ('claude-desktop-app', 'desktop-app'):
         raise ValueError(ENGINES[config['engine']]+' 需要在桌面窗口中手动发送，请使用手动制作入口')
     exe=find_program(config)
     if config['engine']=='claude' and gui_claude_program(exe):raise ValueError(GUI_CLAUDE_CLI_HINT)
+    if config['engine']=='opencode':
+        if not prompt_file:raise ValueError('OpenCode 后台调用缺少提示词文件')
+        args=[exe,'run','--auto','--format','json']
+        if config.get('model'):args+=['-m',config['model']]
+        args+=['--file',str(Path(prompt_file)),'执行附件中的制作任务']
+        return args
     if config['engine']=='codex':
         args=[exe,'exec','--skip-git-repo-check','--sandbox','workspace-write','--cd',str(project),'--add-dir',str(output),'--color','never','-o',str(report)]
     else:
@@ -125,6 +131,48 @@ def _run(args,project,prompt,stdout,stderr):
     return process.returncode
 
 
+def _opencode_prompt_file(report):
+    return Path(report).with_suffix('.opencode-prompt.md').resolve()
+
+
+def _opencode_report_text(raw):
+    parts=[]
+    for number,line in enumerate(raw.splitlines(),1):
+        line=line.strip()
+        if not line:continue
+        try:event=json.loads(line)
+        except ValueError as exc:
+            raise ValueError('OpenCode 事件流第 %d 行不是有效 JSON，请查看运行日志' % number) from exc
+        if not isinstance(event,dict):
+            raise ValueError('OpenCode 事件流第 %d 行不是 JSON 对象，请查看运行日志' % number)
+        if event.get('type')!='text':continue
+        part=event.get('part') or {}
+        text=part.get('text') if isinstance(part,dict) else None
+        if isinstance(text,str):parts.append(text)
+    return ''.join(parts).strip()
+
+
+def _run_opencode(config,project,output,report,logfile,prompt):
+    prompt_file=_opencode_prompt_file(report)
+    save_text(prompt_file,prompt)
+    response=Path(report).with_suffix('.response.jsonl')
+    response_temp=temporary_path(response)
+    try:
+        with response_temp.open('w',encoding='utf-8') as out, Path(logfile).open('w',encoding='utf-8') as log:
+            returncode=_run(background_command(config,project,output,report,prompt_file),project,'',out,log)
+        if returncode:
+            replace(response_temp,response)
+            raise ValueError('OpenCode CLI 执行失败（退出码 %s），请查看运行日志（安装版本、登录、额度或权限）' % returncode)
+        report_text=_opencode_report_text(response_temp.read_text(encoding='utf-8-sig'))
+        if not report_text:
+            replace(response_temp,response)
+            raise ValueError('OpenCode 未返回制作报告正文，请查看响应记录')
+        replace(response_temp,response)
+        save_text(Path(report),report_text)
+    finally:
+        if response_temp.exists():remove_temporary_file(response_temp)
+
+
 def run_background(config,project,output,report,logfile,prompt):
     prompt=ensure_request_context(prompt, config.get('stage', '当前阶段'))
     slot=reserve_stage_process_slot(project, config.get('stage', '当前阶段'))
@@ -132,6 +180,8 @@ def run_background(config,project,output,report,logfile,prompt):
         if config['engine']=='qwen':
             from qwen_adapter import run_background as run_qwen
             return run_qwen(config,project,output,report,logfile,prompt)
+        if config['engine']=='opencode':
+            return _run_opencode(config,project,output,report,logfile,prompt)
         args=background_command(config,project,output,report)
         with Path(logfile).open('w',encoding='utf-8') as log:
             if config['engine']=='codex':
@@ -184,6 +234,8 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
     prompt=ensure_request_context(prompt, stage)
     if config['engine'] == 'desktop-app':
         raise ValueError('Desktop 模型请通过桌面发送入口打开，不支持命令行参数')
+    if config['engine'] == 'opencode':
+        raise ValueError('OpenCode CLI 仅支持后台制作入口；请使用手动／后台运行，不支持交互启动')
     if config['engine']=='qwen':
         slot=slot or reserve_stage_process_slot(project, stage)
         try:

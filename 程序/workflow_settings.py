@@ -17,7 +17,7 @@ from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
 from ui_widgets import LineInput, TextArea
 from ui_tokens import SPACING
 
-ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop','desktop-app':'自定义桌面应用'}
+ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop','desktop-app':'自定义桌面应用','opencode':'opencode CLI（自动放行权限）'}
 FLOWS={'writing':'剧本创作','storyboard':'初步分镜','assets':'资产图片制作','frames':'批量首帧','previs':'白模预演','video_prompt':'视频提示词','audio':'配音与字幕'}
 DEFAULT_SKILLS={'writing':'coconah-ai-short-drama-agent-skill','storyboard':'short-drama-storyboard','assets':'.system/imagegen','frames':'.system/imagegen','previs':'create-blender-story-video','video_prompt':'short-drama-storyboard','audio':''}
 SKILL_PRESETS=[('万能剧本工作流','coconah-ai-short-drama-agent-skill'),('鲸剧工作流','jingju-skills'),
@@ -618,9 +618,10 @@ def find_model_program(model, mode):
         raise ValueError('请先填写本地应用的模型 ID 并选择 Desktop 或 CLI')
     if mode == 'CLI':
         aliases = {'claude-code': 'claude', 'claude-code-cli': 'claude',
-                   'claude-desktop': 'claude', 'qwen-code': 'qwen', 'codex-cli': 'codex'}
+                   'claude-desktop': 'claude', 'qwen-code': 'qwen', 'codex-cli': 'codex',
+                   'opencode-cli': 'opencode'}
         engine = aliases.get(name, name)
-        if engine in ('claude', 'codex', 'qwen'):
+        if engine in ('claude', 'codex', 'qwen', 'opencode'):
             return find_program({'engine': engine, 'program': ''})
         raise ValueError('未找到对应的受支持 CLI：' + str(model))
     if name in ('claude', 'claude-desktop', 'claude-desktop-app'):
@@ -686,6 +687,14 @@ def find_program(config):
     if config['engine']=='qwen':
         from qwen_adapter import command
         return command(config)[0]
+    if config['engine']=='opencode':
+        found=shutil.which('opencode-cli.exe')
+        if found:return found
+        appdata=os.environ.get('APPDATA')
+        if appdata:
+            choices=list((Path(appdata)/'ai.opencode.desktop'/'cli').glob('*/opencode-cli.exe'))
+            if choices:return str(max(choices,key=lambda p:p.stat().st_mtime))
+        raise ValueError('未找到 OpenCode CLI（opencode-cli.exe），请安装后在“调用设置”选择其 .exe')
     engine=config['engine'];found=shutil.which(engine+'.exe')
     if found:return found
     if engine=='codex':
@@ -977,7 +986,7 @@ def _one_skill_prompt(config,skill,inline=False):
                  '沿用项目已确认的剧本、角色固定外观、场景、画风和资产编号，补齐缺项，不重新开始设定。'
                  '不调用媒体生成服务。本次明确要求图片及视频提示词，需同时交付。'
                  'Skill 自带的通用表格或脚手架不能直接当成本助手最终 JSON；须逐镜依据剧本细化，并按后文输出契约和校验器转换。\n')
-    if config['engine'] in ('claude','qwen','claude-desktop-app','desktop-app'):
+    if config['engine'] in ('claude','qwen','opencode','claude-desktop-app','desktop-app'):
         return f'请先完整读取并遵循本地技能文件 {path}，相对引用以该技能文件所在目录为基准。'+adapter
     text=path.read_text(encoding='utf-8-sig')
     match=re.search(r'^name:\s*[\"\']?([A-Za-z0-9_-]+)',text,re.M)

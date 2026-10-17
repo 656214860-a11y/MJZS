@@ -155,7 +155,8 @@ def stage_button_label(desktop, stage, fallback='阶段配置'):
             for model_id, record in records.items():
                 if str(record.get('model') or '').strip() == str(actual).strip():
                     return model_pool.provider_name(model_id, record) or fallback
-            return {'codex': 'Codex', 'claude': 'Anthropic', 'qwen': 'Qwen'}.get(
+            return {'codex': 'Codex', 'claude': 'Anthropic', 'qwen': 'Qwen',
+                    'opencode': 'OpenCode'}.get(
                 config.get('engine'), fallback)
         except Exception:
             return fallback

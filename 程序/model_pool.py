@@ -948,4 +948,4 @@ def call_mode(value, model_id=''):
     if value.get('provider') != 'desktop':
         return 'API'
     engine = desktop_engine(model_id) or desktop_engine(value.get('model')) or value.get('model')
-    return 'CLI' if engine in ('claude', 'qwen') else 'Desktop'
+    return 'CLI' if engine in ('claude', 'qwen', 'opencode') else 'Desktop'
