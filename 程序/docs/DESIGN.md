@@ -544,3 +544,59 @@
 | REQ-S11-22 | `tests/test_subtitle_calibration.py` |
 | REQ-S11-23 | `tests/test_subtitle_export_service.py`、`tests/architecture/test_subtitle_export_publication_boundary.py` |
 | REQ-S11-14/32 | 无测试（⬜／🟡） |
+
+## S12 后期剪辑
+
+### 模块分工
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L4 | `desktop_media_pages`（`MediaPagesMixin.editing／handoff／verify_handoff／edit_ready`） | 后期页：自动粗剪、素材交接包、校验交接包、校验并确认成果、剪辑优化清单；只注入回调 |
+| L4 | `desktop_auto_flows.poll_auto_edit` | 无人值守自动粗剪的轮询与线程派发 |
+| L4 | `desktop.confirm_stage_media` | 成果文件选择、确认框、调用 L3 确认 |
+| L3 | `editing_page_controller` | 无 Tk 的后期页状态：有无已下载视频、粗剪结果文案、规格文案 |
+| L3 | `stage_execution_service` | 剪辑优化清单、自动粗剪／自动交接标记、交接包的原子发布器注入；`verify_handoff_bundle` |
+| L3 | `stage_completion_service` | 媒体成果技术校验、冻结待审清单、显式确认、完成证据（`edit` 走 `media_completion_evidence`） |
+| L3 | `stage_flow`／`stage_parallel`／`skill_tools` | 依赖 `DEPENDS`、`CONFIG['edit']`、SKILL 工具表（READY／PAGES） |
+| L2 | `engine`（`Studio`） | 采用版本 `adopted_edit_version`、`assemble`、`_encode`、`publish_edit_bundle`、`publish_edit_lists`、`auto_edit_ready` |
+| L2 | `edit_service` | 优化清单与自动粗剪标记（发布器由 L3 注入）、`automatic_assemble_decision` |
+| L2 | `handoff_service` | 交接包描述与清单校验（发布器由 L3 注入） |
+| L2 | `edit_export` | EDL／FCPXML／分轨素材清单文本，不写盘 |
+| L0/契约 | `stage_layout`／`stage_path_service`／`project_stages` | 阶段目录 `12后期剪辑`、旧 `11后期剪辑` 只读、成片目录 `13质检交付/导出成片` |
+| L0/契约 | `pet_bus` | 阶段 `edit`＝第 12 阶段、显示名“后期剪辑” |
+
+### 设计条目
+
+- **DES-S12-01**（REQ-S12-01）`stage_flow.DEPENDS['edit']=('video',)`、`DEPENDS['delivery']=('edit',)`。
+- **DES-S12-02**（REQ-S12-02/03）`engine.approved_versions` 取已下载＋`qc_pass`＋`review=='pass'`；`adopted_edit_version` 在其中先取 `pinned is True`，否则最后一条，再核文件存在与 `file_hash==sha256`，失败返回 `unapproved／missing／replaced／unreadable`；`review_source／content_reviewed／review_label` 区分真人与自动放行。
+- **DES-S12-05**（REQ-S12-05）`Studio.output_spec` → `stage_config.workflow_lock` → `script_contract.resolve_output_spec`；`output_spec_text` 供页面显示。
+- **DES-S12-10**（REQ-S12-10/13）`Studio._encode` 逐镜 ffmpeg 重编码（`output_filter`＋`loudness_filter`，无音轨补 `anullsrc` 并写 `_音轨说明.json`，`post_overlay` 用 `drawtext`），`concat -c copy` 到 `.partial.mp4`，`-xerror` 解码核验后 `replace` 为 `MASTER.mp4`。
+- **DES-S12-11**（REQ-S12-11）`Studio.assemble(shot_ids, skip_unready, report)` 在项目锁内挑选并记 `coverage`（included／expected／duration／skipped），编码放在锁外；`EditingPageController.assemble／assembled_message` 组织文案。
+- **DES-S12-12**（REQ-S12-12）`desktop_auto_flows.poll_auto_edit` → `edit_ready`（签名＋`Studio.auto_edit_ready` 指纹）→ `edit_service.automatic_assemble_decision`（skip／wait／complete／dispatch）；完成后 L3 `save_automatic_assemble_marker` 写 `自动粗剪.json`。
+- **DES-S12-14**（REQ-S12-14/15）`MediaPagesMixin.handoff` 选版后交 `stage_execution_service.publish_stage_handoff_bundle` → `handoff_service.publish_bundle`；`verify_handoff_bundle` ＋ `handoff_service.verify_manifest` 做离线核对。
+- **DES-S12-16**（REQ-S12-16）`edit_service.save_editing_checklist` 只收 L3 注入的发布器；`stage_execution_service.save_stage_editing_checklist` 以 `allow_empty=True` 注入。
+- **DES-S12-20**（REQ-S12-20/21）`Studio.assemble` 用 `project_stages.exports` ＋ `project_naming.dated_path` 建成片目录；`publish_edit_bundle` 先原子写 `edit_bundle.json`，再写 `qc.json`、`edit_manifest.json`；`read_edit_bundle` 在无 bundle 时退回两份索引（`legacy`）。
+- **DES-S12-22**（REQ-S12-22）`_encode` 在 `report['errors']` 非空时在发布 bundle 与交换清单之后才抛错；`publish_edit_lists` 失败只返回 `{'ok':False}`，不删成片。
+- **DES-S12-23**（REQ-S12-23/24）`media_output_folders('edit')`＝`read_dirs('edit')`＋各 `delivery` 读目录下 `导出成片`，后缀 mp4／mov／mkv；`prepare_media_completion` 技术校验并生成 `pending_review`；`confirm_media_completion` 写 `complete／reviewed`；`media_scope` 绑定当前采用分镜；`completion_evidence` 把 `edit` 路由到 `media_completion_evidence`。
+- **DES-S12-25**（REQ-S12-25）`stage_layout.STAGES` 的 `('12后期剪辑','edit',…,('videos.json','voice.json','subtitles.json'),('edits.json',))`；未被读写，状态待裁决。
+- **DES-S12-26**（REQ-S12-26）`stage_parallel.CONFIG['edit']`：`min/max/limit=1`、`serial=False`、`retry.attempts=2`、`on_exhaust=ON_BLOCK`。
+- **DES-S12-30**（REQ-S12-30）`workflow_settings` 默认 `'edit':['pipeline-editing']`；`skill_registry` 目录号 `12`→`edit`。
+- **DES-S12-31**（REQ-S12-31/32）`skill_tools.READY` 含 `edit.compose`、`edit.export*`（只回规格）；`skill_tools.PAGES` 含 `edit.assemble／validate／addTransition／addSFX／addBGM`，`call` 对 PAGES 条目抛 `ToolNeedsPage`。
+- **DES-S12-35**（REQ-S12-35）`edit_export.build_edl／build_fcpxml／build_tracks／export_texts`，写盘由 `Studio.publish_edit_lists` 经 `agent.core.save／save_text` 完成。
+
+### 测试锚定
+
+| 需求 | 测试 |
+| --- | --- |
+| REQ-S12-01 | `test_editing_scope`（新）、`test_stage_flow` |
+| REQ-S12-02/03 | `test_edit_adoption`、`test_editing_scope`（新） |
+| REQ-S12-05 | 暂无断言（输出规格解析由 `script_contract` 既有测试覆盖） |
+| REQ-S12-10/11 | `test_integration`、`test_editing_page_controller` |
+| REQ-S12-12 | `test_edit_service` |
+| REQ-S12-14 | `test_handoff_bundle`、`test_handoff_service`、`architecture/test_handoff_publication_boundary` |
+| REQ-S12-16 | `test_edit_service`、`architecture/test_edit_publication_boundary` |
+| REQ-S12-20/21 | `test_editing_scope`（新，目录位置）、`test_edit_adoption`（bundle 用例）、`architecture/test_edit_publication_boundary` |
+| REQ-S12-22/35 | `test_edit_export` |
+| REQ-S12-23 | `test_stage_completion_service`、`test_editing_scope`（新） |
+| REQ-S12-25/26/30/31/32 | `test_editing_scope`（新） |
+| REQ-S12-15/24/33/34 | 现状差距，暂无断言（待用户裁决后再补） |

@@ -4,7 +4,7 @@
 编号规则：`REQ-<阶段号>-<序号>`，删除的编号不复用。测试 docstring 写 `REQ-xx` 锚定。
 状态：✅ 已实现　🟡 部分实现／与代码不一致　⬜ 未实现　❓ 待人拍板
 
-> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜、S04 分镜预演、S05 资产管理、S06 连贯性清单、S07 分镜定稿、S08 首帧管理、S09 白模预演、S10 视频生成、S11 配音与字幕。其余阶段按顺序逐阶段补。
+> 已覆盖阶段：S01 剧本准备、S02 剧本结构、S03 初步分镜、S04 分镜预演、S05 资产管理、S06 连贯性清单、S07 分镜定稿、S08 首帧管理、S09 白模预演、S10 视频生成、S11 配音与字幕、S12 后期剪辑。其余阶段按顺序逐阶段补。
 
 ## S01 剧本准备
 
@@ -563,3 +563,49 @@
 - 不做剪辑、混音、烧录字幕（属 S12）。
 - 不在无人工确认时自动判定完成。
 - 不自动重录（`voice-emotion-check` 约束）。
+
+## S12 后期剪辑
+
+目标：把本集每个镜头“被采用的已验收视频”拼成可审核的成片，并随成片发布质检报告、来源清单和 EDL／FCPXML／分轨素材清单；成片经用户显式确认后，阶段才算完成并进入 S13 质检交付。精剪、字幕、音量、转场由用户在剪映等外部软件完成，本阶段只出粗剪与交接物。
+
+### 输入与依赖
+
+- **REQ-S12-01** ✅ 依赖 S10 视频生成完成（`DEPENDS['edit']=('video',)`）；S13 质检交付依赖本阶段（`DEPENDS['delivery']=('edit',)`）。
+- **REQ-S12-02** ✅ 每镜进成片的只有“采用版本”：已下载＋技术质检通过＋已验收（`review=='pass'`）的版本中，用户锁定（`pinned`）的优先，否则取最后一条；且视频文件必须在、sha256 与验收记录一致。文件缺失／被替换／无法读取／尚未验收，各自有明确原因，不静默取别的版本。`video_deleted` 的镜头不参与。
+- **REQ-S12-03** ✅ 无人值守的“自动技术放行”（`review_by=='auto'`）计入已验收，但不等于真人看过内容；界面须区分“通过（您已确认内容）”与“技术自动放行（未做内容审核）”。
+- **REQ-S12-04** ❓ 阶段依赖口径不一致：SKILL `pipeline-editing` 声明依赖音频流水线、输入 `audioTracks／subtitles／audioManifest`，但 `DEPENDS['edit']` 只有 `video`，拼装代码也不读 S11 产物。方向待定：(a) 以代码为准，SKILL 改为“只依赖视频”；(b) 以 SKILL 为准，拼装需并入 S11 音轨与字幕、`DEPENDS` 加 `audio`。证据：`pipeline-editing.skill.md:10,14` 对 `stage_flow.py:64`、`engine.py:669-717`。
+- **REQ-S12-05** ✅ 输出规格（画幅／分辨率／帧率）来自项目制作锁（`workflow_lock` → `resolve_output_spec`），缺省才用出厂默认；等比缩放＋居中留边，不裁切；界面在导出前显示实际规格。
+
+### 拼装流程
+
+- **REQ-S12-10** ✅ 拼装 = 每个采用镜头先重编码到统一规格（`output_filter`、响度滤镜、x264／aac 48k 立体声）→ `concat -c copy` 合成 `MASTER.mp4`。源视频没有音轨时补静音仅用于拼接，并写 `<镜头>_音轨说明.json`，不生成对白或音效。
+- **REQ-S12-11** ✅ 手动“自动粗剪整集”以 `skip_unready=True` 跳过未就绪镜头，把跳过原因和“已包含 N/M 镜、总时长”写进状态栏，部分粗剪不得冒充完整成片；不跳过时（`skip_unready=False`）任一镜头未就绪即报错，不拼装。一镜都没有时报错。
+- **REQ-S12-12** ✅ 无人值守（自动等级放行 `edit`）：本集所有未删除镜头都有采用版本时才给出成片指纹；同一指纹只拼一次（标记 `12后期剪辑/自动粗剪.json`），镜头重做并重新验收后才再拼一版；分镜未对齐、正在定稿时等待。
+- **REQ-S12-13** ✅ 本阶段不做：混音、配乐、音效、转场、字幕烧录、片头片尾。唯一的画面叠加是镜头自带的 `post_overlay` 文字（用系统微软雅黑，字体副本与摘要进 bundle）。界面明示“剪映负责精剪、音量、字幕和转场”。
+- **REQ-S12-14** ✅ “整理剪映素材交接包”：已下载镜头按 `NNN_<镜头>.mp4` 编号的视频＋（镜头齐全时）`对白.srt`＋`镜头顺序.json`＋`导入剪映说明.txt`＋`交接包清单.json`；不是剪映草稿，缺镜不补齐，缺镜时不附全片字幕。可用“校验交接包”离线按清单核对文件和摘要。无人值守时按同一指纹只整理一次（`12后期剪辑/自动交接.json`）。
+- **REQ-S12-15** 🟡 交接包选版口径与成片不一致：交接包取 `(approved or vs)[-1]`（`desktop_media_pages.py:904-905`），不看 `pinned`、不核文件摘要，且没有任何已验收版本时退回最新未验收版；而代码注释声称“与自动粗剪取同一版”，成片走 `adopted_edit_version`（`engine.py:64-82`）。结果：用户锁定旧版后，成片用旧版、交接包用最后一版。
+- **REQ-S12-16** ✅ “剪辑优化清单.md”由用户维护，可保存、可清空，位于 `12后期剪辑/`；写入经 L3 发布器，L2 无权自行放宽空正文。
+
+### 产出与完成
+
+- **REQ-S12-20** ✅ 成片目录为 `13质检交付/导出成片/<镜头标签>_<YYYYMMDD>[_序号]/`（归属交付阶段，`project_stages.exports`），内含：`MASTER.mp4`、各镜 `<镜头>.mp4`、`concat.txt`、`qc.json`、`edit_manifest.json`、`edit_bundle.json`、`剪辑清单.edl`、`剪辑清单.fcpxml`、`分轨素材清单.json`。本阶段自己的目录 `12后期剪辑/` 只放 `剪辑优化清单.md`、`自动粗剪.json`、`自动交接.json`、`成果确认/`、交接包。
+- **REQ-S12-21** ✅ `edit_bundle.json` 一次性原子绑定“成片＋摘要＋质检报告＋逐镜来源（镜头、版本、sha256、相对路径）＋覆盖范围＋参考资产摘要＋字体摘要”，再写 `qc.json`、`edit_manifest.json` 两份索引；成片不在输出目录内或不存在时拒绝登记。老成片只有两份索引时按 legacy 读取。
+- **REQ-S12-22** ✅ 成片先写临时文件，`-xerror` 全量解码失败则抛错、不替换；解码通过后替换为 `MASTER.mp4` 并发布 bundle，技术检查（时长等）有 `errors` 时成片与报告仍保留，但本次拼装抛错；EDL／FCPXML／分轨清单写失败时不删成片，如实报“剪辑交付包不完整”。
+- **REQ-S12-23** ✅ 阶段完成不由拼装触发，只认 `stage_completion_service.media_completion_evidence`：用户点“校验并确认本阶段成果”选文件 → FFprobe 技术校验（真实视频流、有限正时长）→ 冻结 `pending_review` 清单于 `12后期剪辑/成果确认/` → 用户在确认框明确点同意才写 `complete／reviewed`。清单绑定当前被采用的分镜（路径＋sha256）和文件摘要，切集、改分镜、文件被替换均使确认失效。模型文字或界面提示不作证据。
+- **REQ-S12-24** 🟡 确认只校验“所选文件在 `12后期剪辑/`（含旧 `11后期剪辑`）或 `13质检交付/导出成片/` 下、扩展名为 mp4／mov／mkv、技术合格”，不要求它就是 `edit_bundle.json` 登记的 `MASTER.mp4`，也不核对与 bundle 摘要一致；用户选了某个单镜 `<镜头>.mp4` 同样能完成本阶段。证据：`stage_completion_service.py:13-14,45-53` 无 bundle 比对。
+- **REQ-S12-25** ❓ 契约与实际产物不符：`stage_layout.STAGES` 为本阶段声明输入 `videos.json／voice.json／subtitles.json`、输出 `edits.json`，且把 `edits.json` 列为 S13 的输入；全库没有任何代码读写这些文件（`edits.json` 只出现在 `stage_layout.py:60,62`），实际产物是 REQ-S12-20 的那组。方向待定：改契约声明为实际产物，还是真的产出 `edits.json`。
+- **REQ-S12-26** ✅ 并行与重试：单 Agent、不并行（时间线拼接是全局操作），失败重试 2 次后阻塞（`on_exhaust=ON_BLOCK`）。
+- **REQ-S12-27** ✅ 无可用成片时的手动出路：`stage_flow.RECOVERY_HINTS['edit']`——改用剪辑软件人工剪辑；静帧替代镜头须明确审核，不当作 AI 视频成功。手动路径同样要走 REQ-S12-23 的确认。
+
+### SKILL 与引擎
+
+- **REQ-S12-30** ✅ 阶段默认 SKILL 为 `pipeline-editing`（`workflow_settings`）；`skills/12后期剪辑SKILL/` 共 7 个 SKILL，`skill_registry` 把目录号 `12` 归入 `edit`。`pipeline-editing` 规定：任一媒体不在同一时间线、切换无可追溯依据、预览不可审核时不得发布 `previewMaster／editManifest`；不得借剪辑跳过上游核验。
+- **REQ-S12-31** ✅ SKILL 工具的真实状态：`edit.compose` 直接调用 `Studio.assemble`（READY）；`edit.assemble／edit.validate／edit.addTransition／edit.addSFX／edit.addBGM` 只是“页面步骤”，调用只会引导到后期页（`ToolNeedsPage`），不执行任何剪辑。
+- **REQ-S12-32** ❓ `edit.exportDouyin／Bilibili／YouTube／Custom`（SKILL `edit-multi-format-export`）只返回平台规格并记账，提示“转码在后期页面上按对应平台的导出按钮执行”，但后期页没有任何平台导出按钮，全库也没有按平台转码的代码；成片只有项目锁规格一份。方向待定：补平台导出，还是删掉该 SKILL／工具声明。证据：`skill_tools.py:388-396,425-428` 对 `desktop_media_pages.py:813-858`。
+- **REQ-S12-33** ❓ 另外 5 个 SKILL（`edit-auto-compose` 声称“自动合成视频片段、添加转场、音效、背景音乐”，`edit-bgm-sfx`、`edit-transition-library`、`edit-preview-generate`、`video-audio-sync-precheck`）以及 `architecture.md:84,359`（“合成、配乐、预览、转场和多平台导出”“时间线、转场、音效、导出”）描述的能力，拼装代码都没有（REQ-S12-13）；产品页则明说交给剪映。方向待定：实现，还是把 SKILL 与架构文档改成“粗剪＋交接”的真实范围。
+- **REQ-S12-34** 🟡 `pipeline-editing` 要求 `editManifest` “逐段保留源视频、音轨、字幕、时间码和修复／切换依据”，实际 `edit_manifest.json` 每镜只有 `shot／version／sha256／source`（`engine.py:606-612`）；时间码只在 EDL／FCPXML 里，没有音轨、字幕、切换依据字段。
+- **REQ-S12-35** ✅ 交换文件：EDL（CMX3600）、FCPXML、分轨素材清单，时间码非丢帧、按帧数累计防漂移；不臆造剪映草稿格式（无公开稳定规范）。
+
+### 非目标
+
+- **REQ-S12-40** ✅ 不生成或合成对白、配音、字幕（S11）；不做质检报告、商用核验、打包交付（S13）；不改上游视频与验收记录；不静默使用未验收版本；不生成剪映草稿；不查询云端任务。

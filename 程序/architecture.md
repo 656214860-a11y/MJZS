@@ -265,7 +265,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 09  | `previs`           | 白模预演  | 可播放预演；镜头级记录 `预演记录.json` 存于白模成果目录（项目目录之外），无 `previs_manifest.json`。 |
 | 10  | `video`            | 视频生成  | 视频任务/片段、`video_manifest.json`。                   |
 | 11  | `audio`            | 配音与字幕 | 音轨、字幕；完成凭据为人工确认的 `成果确认/<hash>.json`（`audio_manifest.json` 无程序产出方）。 |
-| 12  | `edit`             | 后期剪辑  | 预览/成片、`edit_manifest.json`。                      |
+| 12  | `edit`             | 后期剪辑  | 粗剪成片 `MASTER.mp4`（落 `13质检交付/导出成片/`）、`edit_manifest.json`／`edit_bundle.json`、EDL／FCPXML；需求与设计见 `docs/`。 |
 | 13  | `delivery`         | 质检与交付 | 报告、交付包、`delivery_manifest.json`。                 |
 
 三虎逐步发布 `stage.started/completed/failed/retrying/executing/paused` 等事件，记录检查点，支持恢复；手动模式仅在模板标记确认的步骤等待用户，全自动模式不等待但逐步播报。门禁为资产/锚点 → SG01 → 连贯性 → SG02 → 定稿 → SG03 → 首帧 → SG04 → 预演 → SG05 → 视频。
