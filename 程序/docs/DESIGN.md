@@ -133,3 +133,48 @@
 | REQ-S03-35/40 | `test_storyboard_catalog_snapshot`、`test_storyboard_rows_service`、`test_stage_path_service` |
 | REQ-S03-41/42 | `test_stage_completion_service`、`test_stage_parallel`；`test_storyboard_scope` 锚定 SG-A 登记 |
 | REQ-S03-44（归属部分） | `test_storyboard_scope`、`test_script_contract` |
+
+## S04 分镜预演
+
+### 模块分工
+
+| 层 | 模块 | 职责 |
+| --- | --- | --- |
+| L4 | `desktop_media_pages.animatic_page` | 预演页：选分镜／音频、导入参考图、本地生成参考草图、生成、观看、三项确认；只注入回调 |
+| L3 | `stage_handler_registry.start`（`animatic` 分支） | 手动启动只切页并提示，不出图 |
+| L3 | `stage_execution_service` | `run_animatic`、`confirm_animatic`、`animatic_video`、`import_animatic_references`、`import_animatic_audio`、`generate_animatic_reference`、`publish_animatic_bundle`、`animatic_preview_spec` |
+| L3 | `stage_parallel` | `CONFIG['animatic']`、SG-A `animatic_input_ready`、SG-B `animatic_ready` |
+| L3 | `stage_completion_service` | `stage=='animatic'` → `animatic_service.evidence` |
+| L2 | `animatic_service` | 分镜取值、草图、整包构建与校验、完成核验；不直接写正式成果，发布由注入的 L3 发布器执行 |
+| L2 | `edit_service.assemble_image_timeline` | 图片时间线合成与媒体核验（暂存区内） |
+| L2 | `audio_import_service.import_audio(stage='animatic')`、`tts_api` | 临时音频导入与临时 TTS |
+| L2 | `comfy_service` | 本地 ComfyUI 参考图图谱、提交回执与结果收集 |
+| L0/契约 | `artifact_schema`（`animatic_manifest`）、`stage_layout`、`stage_path_service`、`project_stages` | 清单必备字段、阶段目录、共享参考图目录 |
+
+### 设计条目
+
+- **DES-S04-01**（REQ-S04-01/03）`stage_flow.DEPENDS` 登记前后依赖；`start('animatic')` 先过 `_workflow_lock_error`（本阶段无锁要求，放行），再 `desktop.show(STAGES.index('animatic'))` 并返回 `_fail(...)` 提示文本，不调用任何生成函数。
+- **DES-S04-02**（REQ-S04-02/05）`run_animatic` 先 `stage_parallel.evaluate(project,'animatic')`（SG-A），再要求 `Path(source).resolve()` 属于 `storyboard_selection.adopted(project)`；`build_bundle` 再要求来源在项目根内、参考图非空、`shots_of` 通过。`shots_of` 的校验规则：ID 匹配 `[A-Za-z0-9_-]+` 且唯一，提示词取 `image_prompt/prompt/video_prompt/description` 第一个非空，时长取 `estimated_duration/duration` 且 0<x≤600。
+- **DES-S04-03**（REQ-S04-04/06）`animatic_preview_spec` = `script_contract.preview_spec(stage_config.workflow_lock(project))`；`run_animatic` 对 `ffmpeg/ffprobe` 依次取 settings、`config.json`、`platform_tools.tool_path`，缺失抛错；随后 `comfy_runtime.wait_comfy`。
+- **DES-S04-04**（REQ-S04-10/11）`import_animatic_references` 校验后缀与大小，以内容 SHA-256 命名，经 `publish_stage_bundle` 发布；`animatic_reference_paths` 遍历 `shared_reference_read_dirs`（新旧目录）并去重。`prepare_reference` 复用 `Comfy.submit` 与 `_collect_sketch`，再交 `import_animatic_references`。
+- **DES-S04-05**（REQ-S04-20/21/22/23）`local_sketch` 用 `reference_graph` 构图并把图中所有 `seed/noise_seed` 设为固定种子；`build_bundle` 按 `batch` 分组，`run_batches` 由 L3 注入 `stage_parallel.parallel_map('animatic', ...)`（批间并行、批内串行）；只捕获 `ComfyGenerationFailed` 重试，`retry_attempts` 来自 `stage_parallel.retry_attempts('animatic')`；`_collect_sketch` 在超时内轮询 `collect`，超时抛"不自动重复提交"。持久工作区 `04分镜预演/.work/run-*`。
+- **DES-S04-06**（REQ-S04-24）`tts_api.script_signature(text, settings)` 参与临时音频文件名；文件已存在且非空则复用；持久工作区下用 `request_id='tts-previs:'+signature` 让重复请求幂等。
+- **DES-S04-07**（REQ-S04-25）`assemble_image_timeline`：逐镜 `-loop 1 -t 秒` 生成片段 → concat 清单 → 叠加音频（`apad`、`-t` 总时长）→ `ffprobe` 核验含 video/audio 流且时长差 ≤1 秒 → `-xerror` 全量解码；每镜时长必须有限且 0<x≤600。
+- **DES-S04-08**（REQ-S04-30/31/32）`build_bundle` 在读取来源时用 `file_cache.read_stable_json_snapshot`，组装 artifacts 与清单（含 `source_sha256`、`files` 摘要、`confirmed` 三项 `False`）；发布前再次比对来源字节。`validate_bundle` 做整包一致性校验；`publish_animatic_bundle` 做路径越界与索引保留名检查，生成 `animatic_index.json`，通过 `publish_stage_bundle` 原子发布并在失败时回滚（含索引）。
+- **DES-S04-09**（REQ-S04-40）`confirm_animatic`：三参数必须全为 `True` → `evidence(require_confirmation=False)` 通过 → `deepcopy` 清单写 `confirmed` → `publish_stage_text` 校验后发布。重新生成走 `build_bundle`，清单重新以 `False` 开始。
+- **DES-S04-10**（REQ-S04-41/42/43）`evidence(project, require_confirmation=True)`：读清单 → 来源摘要 → `files` 逐项路径在阶段目录内、非空、`file_cache.file_digest` 一致 → 镜头图均登记 → 三项确认。任一环节异常统一返回 `(False, '分镜预演未就绪、源文件已变化，或节奏／时长／对白同步尚未确认')`。SG-B 与 `stage_completion_service` 共用该函数，无第二套判定。
+- **DES-S04-11**（REQ-S04-50/51/52）`skills/04 分镜预演SKILL/pipeline-animatic.skill.md`，`tools: [animatic.generate, animatic.validate]` 在 `skill_tools.PAGES` 登记为打开预演页（`status_of=='page'`）。
+- **待定**（REQ-S04-52/60/61/62）SKILL 锁段落收窄、`storyboard_draft.json` 与 `animatic_notes.md` 声明、`batch_id` 归属、成果下游消费，待最终验收拍板后再设计。
+
+### 测试锚定
+
+| 需求 | 测试 |
+| --- | --- |
+| REQ-S04-01/04/50/51 | `test_animatic_scope` |
+| REQ-S04-02/05 | `test_animatic_service`（`shots_of`、来源约束）、`test_animatic_scope`（SG-A 登记） |
+| REQ-S04-03 | `test_animatic_scope`（手动启动只切页） |
+| REQ-S04-10/11 | `test_media_import_validation`、`test_animatic_service` |
+| REQ-S04-20…25 | `test_animatic_service`（重试与不重投、TTS 复用）、`test_animatic_timeline` |
+| REQ-S04-30/31/32/33 | `test_animatic_service`（整包发布、越界、回滚） |
+| REQ-S04-40/41/42/43 | `test_animatic_service`（确认、流式核验、缺失媒体）、`test_stage_parallel`、`test_animatic_scope`（SG-B 登记） |
+| REQ-S04-26 | `test_animatic_service`（正式资产须线上 API） |
