@@ -11,7 +11,7 @@ import project_stages
 import tkinter as tk
 import ui_plugin_registry
 from pathlib import Path
-from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height
+from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height, row_toggle_target
 from tkinter import simpledialog, ttk
 from ui_tokens import COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_PADDING, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SPACING
 from desktop_page_support import ContextMenu, confirm, confirm_project_removal_from_last_script, open_path
@@ -460,11 +460,22 @@ class WritingPageMixin:
                 if tree.selection():return tree
             return None
         def open_script_file(event=None):
-            tree=current_script_tree()
-            selected=tree.selection() if tree else ()
-            if not selected:return
-            path=Path(selected[0])
+            # 表头（分类名/全选）与列宽分隔线也在 Treeview 的 <Double-1> 范围内；
+            # 此时 selection() 仍保留着上次勾选/高亮的行，不能直接拿它打开文件。
+            # 鼠标双击只认落点所在的行；键盘 Enter 仍打开当前高亮行。
+            event_type=getattr(getattr(event,'type',None),'name',getattr(event,'type',None))
+            if event_type=='ButtonPress':
+                tree=event.widget
+                if not isinstance(tree,ttk.Treeview):return
+                row=row_toggle_target(tree,event.x,event.y)
+            else:
+                tree=current_script_tree()
+                selected=tree.selection() if tree else ()
+                row=selected[0] if selected else ''
+            if not row:return
+            path=Path(row)
             if path.is_file():open_path(path)
+        self.open_script_file=open_script_file
         for tree in script_trees.values():
             tree.bind('<Double-1>',open_script_file)
             tree.bind('<Return>',open_script_file)

@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tasklist *)",
+      "Read(//d/漫剧下载/项目/**)",
+      "Bash(find . -name preparation_state.json -printf '%TY-%Tm-%Td %TH:%TM  %p\\\\n')",
+      "Bash(cat preparation_state.json)",
+      "Bash(ls -la)",
+      "Bash(ls -laR 项目设定*)",
+      "Bash(ls -laR)",
+      "Bash(D:/漫剧制作助手/运行环境/Python/python.exe -c ' *)",
+      "Bash(D:/漫剧制作助手/运行环境/Python/python.exe -c ' *2)",
+      "Bash(../运行环境/Python/python.exe -B round_claim.py next)",
+      "Bash(../运行环境/Python/python.exe -B 维护记录/基准脚本/round_claim.py next)",
+      "Bash(cd *)",
+      "WebFetch(domain:www.zhihu.com)"
+    ]
+  }
+}

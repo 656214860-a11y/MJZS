@@ -11,7 +11,7 @@
     },
     "script": {
       "最强编剧模型": {
-        "model": "claude-opus-5.5",
+        "model": "claude code cli",
         "skills": [
           "pipeline-script-preparation"
         ]
@@ -20,6 +20,24 @@
         "model": "deepseek-v4-pro-0813",
         "skills": [
           "screenplay-production-line"
+        ]
+      },
+      "Gemini 4": {
+        "model": "Google Gemini 4 Argon",
+        "skills": [
+          "pipeline-script-preparation"
+        ]
+      },
+      "CCC": {
+        "model": "claude code cli",
+        "skills": [
+          "pipeline-script-preparation"
+        ]
+      },
+      "Qwen": {
+        "model": "qwen3.8-max",
+        "skills": [
+          "pipeline-script-preparation"
         ]
       }
     }

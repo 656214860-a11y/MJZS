@@ -931,6 +931,35 @@ class SendMessageTests(_Harness):
             self.assertIn(str(path), tree.get_children())
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '延迟填表后不能仍显示暂无数据')
 
+    def test_double_click_on_script_header_does_not_open_selected_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            path = writing_dir(proj) / 'GPT' / 'Codex' / '创意_20261007' / '项目剧本' / '第一集.md'
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('第1集\n场景 1：室内', encoding='utf-8')
+            d, win = self.desktop(proj)
+            d.show(0); win.deiconify()
+            self.settle_script_page(win, .4)
+            tree = d.script_trees['script']
+            item = str(path)
+            self.assertIn(item, tree.get_children())
+            tree.selection_set(item)
+            header_x = tree.bbox(item)[0] + 4
+            row_x, row_y, row_w, row_h = tree.bbox(item)
+            heading_y = max(2, row_y // 2)
+            self.assertEqual(tree.identify_region(header_x, heading_y), 'heading')
+            with patch('desktop.open_path') as opened:
+                d.open_script_file(SimpleNamespace(type='ButtonPress', widget=tree,
+                                                   x=header_x, y=heading_y))
+            opened.assert_not_called()
+            with patch('desktop.open_path') as opened:
+                d.open_script_file(SimpleNamespace(type='ButtonPress', widget=tree,
+                                                   x=row_x + row_w // 2, y=row_y + row_h // 2))
+            opened.assert_called_once_with(path)
+            with patch('desktop.open_path') as opened:
+                d.open_script_file(SimpleNamespace(type='KeyPress'))
+            opened.assert_called_once_with(path)
+
     def test_refresh_script_workspace_shows_agent_internal_draft(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
