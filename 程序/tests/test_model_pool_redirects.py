@@ -51,6 +51,18 @@ class ModelRedirectTests(unittest.TestCase):
                         self.assertEqual(seen[0].get_header('X-api-key'), 'SYNTHETIC')
                         self.assertEqual(chunks, [])
 
+    def test_requests_carry_a_non_urllib_user_agent(self):
+        for streaming in (False, True):
+            with self.subTest(streaming=streaming):
+                _, seen, _ = self.request(streaming, 200)
+                agent = seen[0].get_header('User-agent')
+                self.assertEqual(agent, model_pool.HTTP_USER_AGENT)
+                self.assertNotIn('Python-urllib', agent)
+
+    def test_caller_supplied_user_agent_is_kept(self):
+        merged = model_pool._request_headers({'user-agent': 'custom/2', 'Authorization': 'x'})
+        self.assertEqual(merged, {'user-agent': 'custom/2', 'Authorization': 'x'})
+
     def test_successful_responses_are_unchanged(self):
         for streaming in (False, True):
             with self.subTest(streaming=streaming):

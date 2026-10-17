@@ -832,6 +832,17 @@ def http_transport(url, payload, headers, timeout):
     return result
 
 
+HTTP_USER_AGENT = 'ManjuAssistant/1.0'
+
+
+def _request_headers(headers):
+    """补默认 User-Agent；Cloudflare 等网关会以 error 1010 拒绝 urllib 默认签名。"""
+    merged = dict(headers or {})
+    if not any(str(name).lower() == 'user-agent' for name in merged):
+        merged['User-Agent'] = HTTP_USER_AGENT
+    return merged
+
+
 def _http_transport(url, payload, headers, timeout):
     """模型供应商通用 HTTP 传输；仅在实际请求时加载网络栈。"""
     import ssl
@@ -839,7 +850,7 @@ def _http_transport(url, payload, headers, timeout):
     import urllib.request
 
     body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
-    request = urllib.request.Request(url, data=body, headers=dict(headers), method='POST')
+    request = urllib.request.Request(url, data=body, headers=_request_headers(headers), method='POST')
     from platform_tools import current_execution
     control = current_execution()
     for attempt in range(3):
@@ -878,7 +889,7 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
     body = dict(payload or {})
     body['stream'] = True
     request = urllib.request.Request(url, data=json.dumps(body, ensure_ascii=False).encode('utf-8'),
-                                     headers=dict(headers), method='POST')
+                                     headers=_request_headers(headers), method='POST')
     parts = []
     finish_reason = ''
     try:
