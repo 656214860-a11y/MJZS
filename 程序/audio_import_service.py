@@ -45,3 +45,46 @@ def import_audio(project, source, *, publish, stage='audio', kind='dialogue'):
         LOGGER.exception('音频导入失败')
         return SystemError('音频导入失败，请检查源文件、文件权限和磁盘空间后重试。')
     return success(destination)
+
+
+MANIFEST_NAMES = ('voice.json', 'subtitles.json', 'audio_manifest.json')
+_SUBTITLE_SUFFIXES = {'.srt': 'srt', '.ass': 'ass', '.txt': 'dialogue_script', '.json': 'calibration'}
+
+
+def _listing(folder, project, suffixes):
+    if not folder.is_dir():
+        return []
+    rows = []
+    for path in sorted(folder.iterdir()):
+        if path.is_file() and path.suffix.lower() in suffixes:
+            rows.append((path, path.relative_to(project).as_posix(), path.stat().st_size))
+    return rows
+
+
+def _sha256(path):
+    import hashlib
+    digest = hashlib.sha256()
+    with path.open('rb') as handle:
+        for block in iter(lambda: handle.read(1 << 20), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def audio_manifests(project):
+    """按磁盘上已发布的音频与字幕成果生成三份配音字幕清单载荷：{文件名: 载荷}。
+
+    只读目录，不做哈希之外的内容解析；音轨用途沿用文件名前缀口径（认不出按对白）。
+    """
+    from project_stages import audio, subtitles
+    from tts_api import audio_kind
+    project = Path(project).resolve()
+    tracks = [{'file': rel, 'kind': audio_kind(path.name), 'bytes': size}
+              for path, rel, size in _listing(audio(project), project, _SUFFIXES)]
+    files = [{'file': rel, 'format': _SUBTITLE_SUFFIXES[path.suffix.lower()], 'bytes': size,
+              'sha256': _sha256(path)}
+             for path, rel, size in _listing(subtitles(project), project, set(_SUBTITLE_SUFFIXES))]
+    voice = {'stage': 'audio', 'tracks': tracks}
+    subtitle = {'stage': 'audio', 'files': files}
+    return {'voice.json': voice, 'subtitles.json': subtitle,
+            'audio_manifest.json': {'stage': 'audio', 'voice': voice, 'subtitles': subtitle,
+                                    'track_count': len(tracks), 'subtitle_count': len(files)}}

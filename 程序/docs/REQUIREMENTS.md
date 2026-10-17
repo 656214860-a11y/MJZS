@@ -493,14 +493,14 @@
 ### 产出与完成
 
 - **REQ-S10-20** ✅ 每次提交一个版本目录 `data/<镜头>/vNNN/`（云端工作区为 `镜头/<镜头>/<模型>_<会话>/vNNN/`），含 `request.json`、`assets_manifest.json`、`实际提交提示词.txt`、`task_receipt.json`、`qc.json` 与 `<镜头>.mp4`；版本状态汇总在 `data/state.json`。
-- **REQ-S10-21** ❓ 阶段目录契约和架构文档声明本阶段产出 `videos.json`／`video_manifest.json`，SKILL 也写 `videoManifest`，但代码里没有任何位置写出这两个文件；现行真实成果索引是 `data/state.json` 与各版本目录。应改文档对齐现状，还是补写清单，待用户拍板。
+- **REQ-S10-21** ✅ 视频阶段清单真实产出：`Studio.publish_manifest` 在视频下载发布、验收（`review`）、选择采用版本（`pin_version`）后，把同一份载荷（`stage`、`shot_count`、`adopted_count`、每镜 `id`／`duration`／`deleted`／`versions`／`adopted_version`／`file`／`sha256`）经 `agent.core.save` 原子写成 `10视频生成/output/videos.json` 与 `video_manifest.json`（落点取 `stage_path_service.write_dir` 与 `stage_layout` 的 `output` 子目录）；采用口径沿用 `adopted_edit_version`；写失败只记警告，不回滚已落盘成片。证据：`engine.py` 的 `video_manifest`／`publish_manifest`、`video_task_state.MANIFEST_NAMES`、`tests/test_video_manifest_scope.py`。（用户裁决“修复”，原 ❓ 已解。镜头删除不触发重写，下一次下载／验收／采用时对齐。）
 - **REQ-S10-22** ✅ 阶段完成 = 本集每个未删除镜头都有“已下载＋技术合格＋已验收”且文件与摘要一致的版本（`auto_edit_ready` 返回指纹）。模型文字、界面提示不算证据。未注入该核验回调时，完成判定退化为“阶段目录有任意非空媒体文件”，口径更弱（现行界面均注入，见 `pet_ui_stages`）。
 - **REQ-S10-23** ✅ 进入成片的版本只认一个口径：锁定版优先，否则取最后一个已验收版；文件缺失、被替换或不可读时该镜判为不可用，不进剪辑。
 
 ### SKILL
 
 - **REQ-S10-30** ✅ 本阶段有 5 个 SKILL（`skills/10视频生成SKILL/`）：`pipeline-video-generation`（总入口）、`video-batch-submit`、`video-multi-model-route`、`video-quality-check`、`video-retry`。
-- **REQ-S10-31** ❓ `video-batch-submit` 约束写“视频 100 镜/项目”，代码中不存在该上限（`stage_parallel`、`engine` 均无）。是实现上限，还是删去 SKILL 里的这条约束，待用户拍板。
+- **REQ-S10-31** ✅ “视频 100 镜/项目”上限已在代码实现：`video_task_state.VIDEO_MAX_SHOTS = 100` 与 `shot_count_error(shots)` 是唯一判定（已标记 `video_deleted` 的镜头不计数），`Studio.validate` 在打开本集视频工作台时调用，超限抛出“本项目有 N 个视频镜头，超过上限 100 镜/项目；请把剧本拆成多集或多个项目后再制作视频”，云端与本地工作台共用。证据：`tests/test_video_manifest_scope.py`（用户裁决“修复”，原 ❓ 已解）。
 - **REQ-S10-32** 🟡 SKILL 文字与现状不一致：5 个 SKILL 的“页面位置”仍写“08 视频生成”（真实是第 10 阶段）；`video.batchSubmit`／`retry`／`pause`／`resume` 登记为“只能在页面上按”的步骤，不是可由模型直接执行的工具；总入口 `parallelizable: false` 而其余四个为 `true`。
 - **REQ-S10-33** ✅ 视频提示词只写动作与运镜，不重复写场景、人物和风格（场景人物靠首帧图承载）。
 
@@ -545,11 +545,11 @@
 - **REQ-S11-21** ✅ 字幕时间轴非有限、负数、结束不大于开始、与上一句重叠、越过总时长一律报错，不静默修正。证据：`subtitle_timing.validate_entries`、`tests/test_subtitles.py`。
 - **REQ-S11-22** ✅ 未给音频时按镜头时长与句长权重估算（校准报告标 estimate／uncalibrated，导出前可列出待校准句）；给出真实音频时长或对齐区间则按其校准；总和超出镜头时压缩并记 overflow 待人工确认。证据：`calibrate_entries/_distribute`、`subtitle_export_service.pending_calibration`、`tests/test_subtitle_calibration.py`。
 - **REQ-S11-23** ✅ SRT 导出：时间码 `HH:MM:SS,mmm`，多行台词压成单行，空对白拒绝；以 utf-8-sig 由注入发布器原子发布到 `字幕/对白_<6位>.srt`，并同写 `字幕校准.json`；另可导出供配音核对的 `对白脚本_<6位>.txt`。证据：`subtitle_export_service.export_srt/export_dialogue_script/export_calibration`、`tests/test_subtitle_export_service.py`、`tests/architecture/test_subtitle_export_publication_boundary.py`。
-- **REQ-S11-24** ❓ ASS 导出：`subtitle-auto-align`／`subtitle-format-export` 两个 SKILL 承诺 SRT＋ASS（含样式，`subtitle.exportAss`），`architecture.md` 原文同写；代码只有 SRT，无任何 ASS 导出。二选一：（a）程序补 ASS；（b）删去 SKILL 与文档中的 ASS 承诺。本轮文档按现状改为“仅 SRT”。
+- **REQ-S11-24** ✅ ASS 导出已实现（仅标准库）：`subtitle_timing.ass_text` 渲染含默认样式（Microsoft YaHei 60、白字黑描边、底部居中）的 ASS，时间码 `H:MM:SS.cc`，花括号转全角避免被当作样式覆盖码；`subtitle_export_service.export_ass` 与 `export_srt` 同批发布，共用同一校准轴、时间校验与 6 位文件名主干（`字幕/对白_<6位>.srt` 与 `.ass`，均 utf-8-sig，经注入发布器原子发布）。SRT 先发布，ASS 或校准状态写入失败只记警告、不影响已发布的 SRT。证据：`tests/test_audio_manifest_scope.py`、`tests/test_audio_subtitle_scope.py`（用户裁决“修复”，原 ❓ 已解；SKILL 里 `subtitle.exportAss` 为页面步骤，见交付报告）。
 
 ### 阶段声明产出
 
-- **REQ-S11-40** ❓ 三处对产出的说法互不一致，且没有一处有程序产出方：`stage_layout` 声明 `voice.json`＋`subtitles.json`（后期剪辑阶段声明读取它们），`architecture.md` 原写 `audio_manifest.json`，SKILL 写 `audioManifest`。真实完成凭据是 REQ-S11-04 的 `成果确认/<hash>.json`。待拍板：以 `成果确认` 清单为准并改正 `stage_layout` 的声明，或补产出 `voice.json`／`subtitles.json`。
+- **REQ-S11-40** ✅ 声明产出已有产出方：`audio_import_service.audio_manifests` 按磁盘上已发布的音频与字幕生成 `voice.json`（音轨：相对路径、用途、字节数）、`subtitles.json`（字幕文件：相对路径、格式 srt／ass／对白脚本／校准、字节数、sha256）与聚合清单 `audio_manifest.json`（即 SKILL 的 `audioManifest`）；`stage_execution_service.refresh_audio_manifests` 在音频导入、TTS 单句与整轨发布、SRT／ASS／对白脚本导出成功后经 `agent.core.save` 写入 `11配音与字幕/output/`，写失败只记警告。真实完成凭据仍是 REQ-S11-04 的 `成果确认/<hash>.json`，清单不作完成证据。证据：`tests/test_audio_manifest_scope.py`（用户裁决“修复”，原 ❓ 已解）。
 
 ### SKILL
 

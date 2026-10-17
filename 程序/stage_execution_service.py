@@ -207,9 +207,30 @@ def poll_pet_test_check(session, project, at=None):
 
 
 def import_stage_audio(project, source):
+    """音频导入编排：导入成功后刷新配音字幕清单。"""
+    result = _import_audio_file(project, source)
+    if result.ok:
+        refresh_audio_manifests(project)
+    return result
+
+
+def _import_audio_file(project, source):
     """音频导入编排：L3 注入校验与有界文件发布器。"""
     from audio_import_service import import_audio
     return import_audio(project, source, publish=media_import_publisher(project, 'audio'))
+
+
+def refresh_audio_manifests(project):
+    """配音字幕成果变化后重写 voice／subtitles／audio_manifest；清单写入失败只记警告，不回滚已发布成果。"""
+    import logging
+    from agent.core import save
+    from audio_import_service import audio_manifests
+    try:
+        folder = write_dir(project, 'audio') / 'output'
+        for name, payload in audio_manifests(project).items():
+            save(folder / name, payload)
+    except OSError:
+        logging.getLogger(__name__).warning('配音字幕清单写入失败', exc_info=True)
 
 
 def media_import_publisher(project, kind):
@@ -229,7 +250,10 @@ def media_import_publisher(project, kind):
 def export_stage_srt(project, episode):
     """字幕导出编排：L3 注入统一文本阶段发布器。"""
     from subtitle_export_service import export_srt
-    return export_srt(project, episode, publish=publish_stage_text)
+    result = export_srt(project, episode, publish=publish_stage_text)
+    if result.ok:
+        refresh_audio_manifests(project)
+    return result
 
 
 def video_prompt_gateway():
@@ -261,7 +285,10 @@ def import_video_prompt(studio, sid, text):
 def export_stage_dialogue_script(project, episode, assets):
     """对白脚本导出编排：L3 注入统一文本阶段发布器。"""
     from subtitle_export_service import export_dialogue_script
-    return export_dialogue_script(project, episode, assets, publish=publish_stage_text)
+    result = export_dialogue_script(project, episode, assets, publish=publish_stage_text)
+    if result.ok:
+        refresh_audio_manifests(project)
+    return result
 
 
 def adopt_natural_script(project, source_path):
@@ -608,7 +635,9 @@ def save_tts_key(base_url, model, voice, key, voices=None, speeds=None):
 
 def publish_tts_full_track(project, signature, raw):
     from tts_api import publish_full_track
-    return publish_full_track(project_context(project), signature, raw, gateway=tts_gateway())
+    result = publish_full_track(project_context(project), signature, raw, gateway=tts_gateway())
+    refresh_audio_manifests(project)
+    return result
 
 
 def reusable_tts_full_track(project, signature):
@@ -650,7 +679,10 @@ def migrate_white_model_directories(project):
 
 def run_tts_lines(lines, folder, generate=None, report=None, stop=None, episode=None, project=None):
     from tts_api import run_lines
-    return run_lines(lines, folder, generate, report, stop, gateway=tts_gateway(), episode=episode, project=project)
+    result = run_lines(lines, folder, generate, report, stop, gateway=tts_gateway(), episode=episode, project=project)
+    if project:
+        refresh_audio_manifests(project)
+    return result
 
 
 def cloud_video_gateway():

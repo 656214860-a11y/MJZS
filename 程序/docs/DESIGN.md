@@ -481,7 +481,8 @@
 - **DES-S10-17**（REQ-S10-17）`mark_video_deleted`（`video_lifecycle_service.py:33`）遇未决状态返回 `UserError`，发布失败时 `shot.clear()`／`update(previous)` 回滚。
 - **DES-S10-18**（REQ-S10-18，待定）两路自动验收判据来源不同，见 DES-S10-15。
 - **DES-S10-20**（REQ-S10-20）`Studio.task_folder`（`engine.py:280`）与 `submit` 落盘的 `request.json`／`assets_manifest.json`／`实际提交提示词.txt`（`engine.py:371-373`）、`publish_downloaded_video`（`engine.py:283`）写 `qc.json` 并带 `sha256`。
-- **DES-S10-21**（REQ-S10-21，待定）`stage_layout.py:56` 声明输出 `videos.json`；全仓库无写入点（`video_manifest.json` 同）。处理方式待用户拍板。
+- **DES-S10-21**（REQ-S10-21）`Studio.video_manifest` 组装载荷，`Studio.publish_manifest` 经 `agent.core.save` 写 `write_dir(project_root(root), 'video')/output/` 下 `video_task_state.MANIFEST_NAMES` 两个同载荷文件；`publish_downloaded_video`、`review`、`pin_version` 在各自状态落盘后调用；`LocalStudio` 继承同一发布点；采用版本用 `adopted_edit_version(versions)`（不带 root，不重算成片哈希，沿用版本记录里的 `sha256`）。云端工作集的清单只反映当前会话工作集。
+- **DES-S10-31**（REQ-S10-31）`video_task_state.VIDEO_MAX_SHOTS`／`shot_count_error` 为上限唯一权威；`Studio.validate` 首先调用，`LocalStudio` 同走。
 - **DES-S10-22**（REQ-S10-22）`completion_evidence`（`stage_completion_service.py:413`）的 `stage == 'video' and callable(video_ready)` 分支（`:443-445`）要求 `auto_edit_ready` 返回的指纹为真；无回调则落到通用媒体文件检查（`:446-455`）。调用方 `pet_ui_stages.py:28-30,35-37,99-101` 均传 `studio.auto_edit_ready`。
 - **DES-S10-23**（REQ-S10-23）`approved_versions`（`engine.py:17`）、`adopted_edit_version`（`engine.py:64`）：锁定版优先，其次最后已验收版；文件缺失／摘要不符返回 `missing`／`replaced`。`auto_edit_ready`、`assemble` 与界面采用显示共用该口径。
 - **DES-S10-30**（REQ-S10-30/31/32/33）SKILL 位于 `skills/10视频生成SKILL/`；`skill_tools.py:461-464` 把 `video.batchSubmit`／`retry`／`pause`／`resume` 登记为页面步骤，`skill_tools.py:416,420,488-489` 登记 `video.qualityCheck`、`video.pollStatus`、`video.submit`、`video.validate`。视频提示词规则见 `stage_layout.py:156` 与 `stage_parallel.py:214`。
@@ -502,6 +503,7 @@
 | REQ-S10-17 | `test_video_generation_scope`；`test_video_lifecycle_service`、`test_video_delete_boundary` |
 | REQ-S10-20 | `test_video` |
 | REQ-S10-22 | `test_video_generation_scope`；`test_stage_completion_service` |
+| REQ-S10-21/31 | `test_video_manifest_scope` |
 | REQ-S10-30/32/40 | `test_video_generation_scope` |
 | REQ-S10-18/21/31 | 待用户拍板后补测试（现为 ❓／🟡，不测实现） |
 
@@ -536,16 +538,17 @@
 - **DES-S11-23**（REQ-S11-23）`export_srt`：校准 → 校验 → `rows_from_entries` → 注入发布器以 `utf-8-sig` 发布到 `project_stages.subtitles(project)`（`<阶段目录>/字幕`）的 `对白_<6位>.srt`，成功后再发布 `字幕校准.json`（失败只记警告，不影响 SRT）；`export_dialogue_script` 发布 `对白脚本_<6位>.txt`；L2 无发布器时抛 `TypeError`，写盘失败返回 `SystemError`，空对白返回 `UserError`。
 - **DES-S11-30**（REQ-S11-30/31）SKILL 由 `skill_registry` 递归扫描 `skills/11配音字幕SKILL/`；总入口 `pipeline-audio-subtitle` 在 `workflow_settings` 阶段默认勾选；`voice-multi-character` 描述标注“已合并”，ID 仅供旧配置兼容。
 
-### 待决设计（与 REQ 中 ❓ 对应）
+### 已决设计（原待决，用户裁决“修复”）
 
-- **DES-S11-24**（REQ-S11-24）ASS 导出无实现；设计上若补，须沿用 `subtitle_export_service` 的“L2 只准备文本、L3 注入发布器”模式，并复用 `calibrate_entries/validate_entries`。未补之前，文档与 SKILL 不得承诺 ASS。
-- **DES-S11-40**（REQ-S11-40）声明产出（`voice.json`／`subtitles.json`）与真实完成凭据（`成果确认/*.json`）分离；后期剪辑阶段声明读取前者，实际读取字幕与音频目录文件。统一方向待拍板。
+- **DES-S11-24**（REQ-S11-24）`subtitle_timing.ass_text/ass_stamp` 渲染 ASS；`subtitle_export_service.export_ass` 沿用“L2 只准备文本、L3 注入发布器”，复用 `_calibrated`（`calibrate_entries`＋`validate_entries`）；`export_srt` 在 SRT 发布成功后以同一 stem 追加 ASS 与 `字幕校准.json`，后两者失败仅记警告。
+- **DES-S11-40**（REQ-S11-40）`audio_import_service.audio_manifests`（L2，只读目录、不 import L3）生成三份载荷；`stage_execution_service.refresh_audio_manifests`（L3）写入 `write_dir(project, 'audio')/output/`，并挂在 `import_stage_audio`、`export_stage_srt`、`export_stage_dialogue_script`、`publish_tts_full_track`、`run_tts_lines` 成功之后。声明产出与真实完成凭据（`成果确认/*.json`）仍分离，清单不作完成证据。
 
 ### 测试锚定
 
 | REQ | 测试 |
 | --- | --- |
-| REQ-S11-01/02/03/04/10/11/12/20/21/22/23/24/30/31/40 | `tests/test_audio_subtitle_scope.py`（16 条，本批新增，断言均为已核实事实） |
+| REQ-S11-01/02/03/04/10/11/12/20/21/22/23/24/30/31/40 | `tests/test_audio_subtitle_scope.py`（16 条；24、40 两条随“修复”裁决改为正向断言） |
+| REQ-S11-24/40 | `tests/test_audio_manifest_scope.py` |
 | REQ-S11-04 | `tests/test_stage_completion_service.py` 等既有完成度测试（清单链路，本批未逐条核对） |
 | REQ-S11-11 | `tests/test_audio_import_service.py`、`tests/architecture/test_audio_import_boundary.py` |
 | REQ-S11-12 | `tests/test_tts.py`、`tests/architecture/test_tts_publication_boundary.py` |

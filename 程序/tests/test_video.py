@@ -56,6 +56,7 @@ class VideoPublicationTests(unittest.TestCase):
                 def __init__(self): self.root, self.db = root, db
                 def task_folder(self, sid, version): return folder
                 def record_video_usage(self, sid, version): recorded.append((sid, version['version']))
+                def publish_manifest(self, state=None): pass
             recorded = []
             studio = FakeStudio(); version = state['shots']['SH001'][0]
             engine.Studio.publish_downloaded_video(studio, state, 'SH001', version, dest, {'errors': []})

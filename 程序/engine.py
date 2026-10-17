@@ -226,6 +226,9 @@ class Studio:
         return True
 
     def validate(self):
+        from video_task_state import shot_count_error
+        limit=shot_count_error(self.episode['shots'])
+        if limit:raise ValueError(limit)
         ids=[s['id'] for s in self.episode['shots']]
         if len(ids)!=len(set(ids)) or not ids:
             raise ValueError('镜头编号重复或为空')
@@ -292,7 +295,30 @@ class Studio:
         version['finished_at']=time.time()
         save(self.db,state)
         self.record_video_usage(sid,version)
+        self.publish_manifest(state)
         return version
+    def video_manifest(self,state):
+        """视频阶段机器可读清单：每镜实际采用版本（不哈希成片，哈希沿用版本记录里的 sha256）。"""
+        rows=[]
+        for shot in self.episode['shots']:
+            versions=state.get('shots',{}).get(shot['id']) or []
+            adopted,_reason=adopted_edit_version(versions)
+            rows.append({'id':shot['id'],'duration':shot.get('duration'),'deleted':bool(shot.get('video_deleted')),
+                         'versions':len(versions),'adopted_version':adopted.get('version') if adopted else None,
+                         'file':adopted.get('file') if adopted else None,'sha256':adopted.get('sha256') if adopted else None})
+        return {'stage':'video','shot_count':sum(1 for r in rows if not r['deleted']),
+                'adopted_count':sum(1 for r in rows if r['file']),'shots':rows}
+    def publish_manifest(self,state=None):
+        """把视频阶段清单同时写成 videos.json 与 video_manifest.json；写失败只记警告，不影响已落盘的成片。"""
+        import logging
+        from stage_path_service import write_dir
+        from video_task_state import MANIFEST_NAMES
+        try:
+            payload=self.video_manifest(state if state is not None else self.state())
+            folder=write_dir(project_root(self.root),'video')/'output'
+            for name in MANIFEST_NAMES:save(folder/name,payload)
+        except OSError:
+            logging.getLogger(__name__).warning('视频阶段清单写入失败',exc_info=True)
     def record_video_usage(self,sid,version):
         """视频成功落盘后记一笔请求台账：条数按实际下载、秒数按本镜声明时长（估算，非服务商上报）。"""
         if version.get('money_request_id'):return  # 云端成功时已结算，下载不再重复记费。
@@ -476,6 +502,7 @@ class Studio:
             if value=='pass' and (v['state']!='downloaded' or not v.get('qc_pass')): raise ValueError('仅下载且技术合格的版本可通过')
             if value not in ('pass','revise'): raise ValueError('无效验收值')
             v.update(review=value,review_by='user',review_note=note); save(self.db,st)
+            self.publish_manifest(st)
 
     def version_rows(self,sid):
         """本镜全部版本的事实清单，供「选择采用版本」使用；只读。"""
@@ -504,6 +531,7 @@ class Studio:
             for v in versions:v.pop('pinned',None)
             if target is not None:target['pinned']=True
             save(self.db,st)
+            self.publish_manifest(st)
         return number
 
     def review_many(self,shot_ids,value,note=''):

@@ -80,7 +80,7 @@ R1139：L3 `codex_skill_sync` 通过注册表物化所有已登记阶段（含�
 | 各阶段内容 SKILL（`skills/08首帧管理SKILL/`） | 首帧管理 | 首帧批量生成、质检重试及缩略图缓存。 |
 | 各阶段内容 SKILL（`skills/09白模预演SKILL/`） | 白模预演 | 生成白模场景、走位、机位路径、动作和节奏预览。 |
 | 各阶段内容 SKILL（`skills/10视频生成SKILL/`） | 视频生成 | 视频批量提交、模型分流、轮询、质检和失败重跑。 |
-| 各阶段内容 SKILL（`skills/11配音字幕SKILL/`） | 配音与字幕 | 多角色配音、情绪核验、字幕对齐及 SRT 导出（ASS 仅见于 SKILL 文本，程序无导出实现）。 |
+| 各阶段内容 SKILL（`skills/11配音字幕SKILL/`） | 配音与字幕 | 多角色配音、情绪核验、字幕对齐及 SRT＋ASS 同批导出（`subtitle_timing.ass_text`、`subtitle_export_service.export_ass`）。 |
 | 各阶段内容 SKILL（`skills/12后期剪辑SKILL/`） | 后期剪辑 | 合成、配乐、预览、转场和多平台导出。 |
 | 各阶段内容 SKILL（`skills/13质检交付SKILL/`） | 质检与交付 | 质检、合规与风格检查、归档和交付报告。 |
 
@@ -263,8 +263,8 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 07  | `final`            | 分镜定稿  | 采用分镜、提示词、批次 ID；落盘为 `07分镜定稿/分镜/<EP>_分镜定稿[_日期]/` 下的 `episode.json` + `assets.json`。 |
 | 08  | `keyframe`         | 首帧管理  | 非空首帧；来源证据记在已采用分镜 JSON 的每镜 `frame_evidence`；阶段核验通过时 `stage_completion_service.publish_stage_manifest()` 把各镜首帧回执写入 `08首帧管理/output/frames.json`（只是回执，完成仍以 `frames_ready` 核验为准）。 |
 | 09  | `previs`           | 白模预演  | 可播放预演；镜头级记录 `预演记录.json` 存于白模成果目录（项目目录之外），通过校验的预演视频在项目内留副本 `09白模预演/assets/<镜头>/`，并登记汇总索引 `09白模预演/output/previs.json`（权威名；SKILL 里的 `previsManifest` 是它的逻辑别名）。工作区预览缺失时 SG-05 退回该索引判就绪。 |
-| 10  | `video`            | 视频生成  | 视频任务/片段、`video_manifest.json`。                   |
-| 11  | `audio`            | 配音与字幕 | 音轨、字幕；完成凭据为人工确认的 `成果确认/<hash>.json`（`audio_manifest.json` 无程序产出方）。 |
+| 10  | `video`            | 视频生成  | 视频任务/片段；`output/` 下 `videos.json`／`video_manifest.json` 由 `Studio.publish_manifest` 写出；每项目上限 100 镜。 |
+| 11  | `audio`            | 配音与字幕 | 音轨、字幕；完成凭据为人工确认的 `成果确认/<hash>.json`；`output/` 下 `voice.json`／`subtitles.json`／`audio_manifest.json` 由 `stage_execution_service.refresh_audio_manifests` 在成果变化后写出，不作完成证据。 |
 | 12  | `edit`             | 后期剪辑  | 粗剪成片 `MASTER.mp4`（落 `13质检交付/导出成片/`）、`edit_manifest.json`／`edit_bundle.json`、EDL／FCPXML；需求与设计见 `docs/`。 |
 | 13  | `delivery`         | 质检与交付 | 已确认成片的成果确认清单（`成果确认/*.json`）、商用待填资料；`delivery_manifest.json` 现无代码写入，待定见 REQ-S13-24。 |
 
