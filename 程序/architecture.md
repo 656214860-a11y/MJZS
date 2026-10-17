@@ -237,7 +237,7 @@ R733 后架构门禁基线为 132/132，默认冒烟基线仍为 8/8。R734 后�
 
 项目接续快照：`workflow_context.snapshot()` 消费由 L3 注入的 `ProjectContext`，直接调用同层 `storyboard_catalog_service.catalog()`；L2 不得反向导入编排层。桌面与剧本 API 在进入快照前装配上下文。提示词入口传入预计算 `data` 时仍接受项目路径；省略 `data` 时必须传入上下文，避免 L2 自行构造依赖。
 
-`script_contract.STAGE_LOCK_REQUIREMENTS` 统一阶段必填锁，`PRODUCTION_LOCK_DEFINITIONS` 统一标签与别名；剧本准备只要求交付形态，首帧／视频／白模要求三项锁，其他阶段无必填锁。提示词头部仅在白名单阶段裁剪，其他阶段保留既有锁展示。
+`script_contract.STAGE_LOCK_REQUIREMENTS` 统一阶段必填锁，`PRODUCTION_LOCK_DEFINITIONS` 统一标签与别名；剧本准备要求交付形态、赛道、素材来源三项（旧项目缺后两项时只提示不阻断），首帧／视频／白模要求画幅、视频模型版本、交付形态三项，其他阶段无必填锁。提示词头部仅在白名单阶段裁剪，其他阶段保留既有锁展示。
 
 ### 剧本 SKILL 角色审核与编剧风格
 
@@ -254,7 +254,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 
 | 序号  | ID                 | 阶段    | 核心产物                                             |
 | ---:| ------------------ | ----- | ------------------------------------------------ |
-| 01  | `script`           | 剧本准备  | 剧本/设定、五类 manifest、离线编剧任务书成果包。                    |
+| 01  | `script`           | 剧本准备  | 剧本/设定、`emotion_curve.json`、离线编剧任务书成果包。                    |
 | 02  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；当前 MD 目录为 `02剧本结构/docs/`，具体读写目标由 `script_contract` 解析。 |
 | 03  | `storyboard`       | 初步分镜  | `storyboard_draft.json`。                         |
 | 04  | `animatic`         | 分镜预演  | 参考图与分镜提示词生成的预演草图、Animatic、`animatic_manifest.json`。 |

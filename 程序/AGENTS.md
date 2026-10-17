@@ -43,9 +43,8 @@
 | 阶段顺序   | `pet_bus.STAGES` / `STAGE_NAMES`                                                                   |
 | 并行与重试  | `stage_parallel.CONFIG`                                                                            |
 | 模型池    | 模型管理保存的模型池                                                                                         |
-| SKILL  | `skills/01—13 阶段目录/*.skill.md` 与 `skill_registry.py`；根目录遗留文件只在阶段配置懒迁移时按 stage 归档；阶段外部包只登记根 `SKILL.md`/README 总入口，不展开内部 SKILL；剧本阶段入口须同步登记 `script_contract.AUDIT`，且不得虚构 manifest |
+| SKILL  | `skills/01—13 阶段目录/*.skill.md` 与 `skill_registry.py`；根目录遗留文件只在阶段配置懒迁移时按 stage 归档；阶段外部包只登记根 `SKILL.md`/README 总入口，不展开内部 SKILL |
 | 总控 SKILL（原统筹 SKILL） | 清单 `skills/00全流程SKILL/总控.json`（`workflow_settings.MASTER_MANIFEST`）；项目投影为 `skill_config.json` 顶层 `workflow` 键，同步基线在 `workflow.applied` |
-| 锁采集 | 剧本准备简报流（创作信息窗） |
 | 分层依赖   | `architecture.md` 第 3 节分层表                                                                         |
 | 路径     | `stage_layout` / `storyboard_paths` / `script_contract` / `asset_contract` / `model_pool.env_file` |
 | 事件与前缀  | `pet_bus` 事件表 / `broadcaster` 前缀表                                                                  |
@@ -135,6 +134,17 @@
     - `git diff <合并前master>..HEAD -- 程序/project_status.md | grep '^-' | grep -v '^---' | grep -v '当前轮次：'`（表头「当前轮次」行每轮都会改，故排除）
     - `git show HEAD:程序/project_status.md | grep -oE '^R[0-9]+' | sort -u`
 
+## 2.7 文档先行：需求 → 设计 → 实现
+
+适用范围：`docs/` 下已建 `REQUIREMENTS.md`／`DESIGN.md` 的阶段（目前仅 S01 剧本准备）。未建文档的阶段仍按本文件其余条款执行。
+
+1. **顺序固定**：先改需求（`REQ-<阶段>-<序号>`），再改设计（`DES-<阶段>-<序号>`，标注对应 REQ），最后改代码与测试；不得先写代码再补文档。
+2. **文档原地修改，不记历史**：历史看 git；删除的编号不复用；状态用 ✅ 已实现／🟡 部分实现或与代码不一致／⬜ 未实现／❓ 待人拍板。
+3. **需求与代码冲突时不自行选边**：标 🟡 或 ❓，列出两边证据，由用户拍板；执行者不得为了让文档与代码一致而擅自回退或改写另一边。
+4. **测试锚定需求**：测试 docstring 写 `REQ-xx`；`DESIGN.md` 的“测试锚定”表列出需求到测试的对应。无测试的 ✅ 需求视为欠账，须补测试或降为 🟡。
+5. **阶段级条款只写在 docs/**：已建文档的阶段，其专属规则（字段、流程、文件名、产出范围）写入 REQUIREMENTS／DESIGN，不再追加到本文件或 `architecture.md`；本文件只保留跨阶段硬约束。
+6. **与 `architecture.md` 的分工**：全局分层、权威源表、目录树仍以 `architecture.md` 与 §2.2 为准；`DESIGN.md` 只描述该阶段内部的模块分工与设计条目，不另立第二套分层。
+
 ## 3. 轮次类型
 
 每轮开工前先声明轮次类型，不同类型走不同协议。
@@ -143,6 +153,7 @@
 
 适用：新增功能、扩展现有功能。
 
+- 涉及已建 `docs/` 的阶段时，先按 §2.7 改需求与设计，再写代码；结果文件注明对应的 REQ／DES 编号。
 - 只改本轮任务涉及的模块；不改分层、契约或权威源。
 - 完成后跑 `smoke_test.py --affected <模块>`。
 - 越界依赖须回退，自审见 §4。
@@ -152,6 +163,7 @@
 适用：修 bug、修偶发红、修阻塞。
 
 - 先定位根因，输出复现步骤。
+- 涉及已建 `docs/` 的阶段时，先判断是代码偏离了需求，还是需求本身要改（按 §2.7 第 3 条）；前者修代码，后者先改文档。
 - 只改根因所在模块，不许顺手重构；测试契约按 §2.4，自审见 §4。
 
 失败回归导致产品或测试资产修复时，一律归类为**修复轮（含全量基线验证）**，遵守根因、最小改动与同类问题复核要求；全量只是验证范围。仅记录、复核或更新基线而未修复资产时，归类为 §3.10 **验证/基线轮**；报告和状态台账不得使用“回归修复／基线轮”等未定义组合类型。

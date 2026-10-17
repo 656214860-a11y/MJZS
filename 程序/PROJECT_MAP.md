@@ -37,7 +37,7 @@ R1247 数据边界：剧本聊天及回收站位于 `01剧本准备/模型会话
 
 | 阶段 | 当前目录 | 主要输入 | 主要交付 |
 | --- | --- | --- | --- |
-| 剧本准备 | `01剧本准备` | 创意、对话、SKILL | 原稿、下载剧本、五类 manifest |
+| 剧本准备 | `01剧本准备` | 创意、对话、SKILL | 原稿、下载剧本、`emotion_curve.json` |
 | 剧本结构 | `02剧本结构` | 剧本原稿、创意简报 | 结构化剧本 |
 | 初步分镜 | `03初步分镜` | 已确认结构剧本 | 分镜初稿 JSON |
 | 分镜预演 | `04分镜预演` | 分镜提示词、共享参考图、临时声音 | `animatic_manifest.json`、镜头草图、Animatic 视频 |
@@ -70,7 +70,7 @@ R1124 插入 Animatic 后，旧中文编号目录由 `stage_path_service.read_di
 可播放白模预演          ── SG-05 ──> 视频生成
 ```
 
-五类剧本 manifest 是 `character_manifest`、`scene_manifest`、`prop_manifest`、`scene_breakdown`、`emotion_curve`；它们为资产、分镜和连续性阶段提供结构化输入。门禁只在上游已开始却不完整时拦截；空项目始终放行。
+五类剧本 manifest 是 `character_manifest`、`scene_manifest`、`prop_manifest`、`scene_breakdown`、`emotion_curve`；它们为资产、分镜和连续性阶段提供结构化输入。产出方唯一定义在 `script_manifest_schema.PRODUCERS`：`emotion_curve` 由 01 剧本准备产出，`character_manifest`／`scene_manifest`／`prop_manifest` 由 02 剧本结构产出，`scene_breakdown` 由 03 初步分镜产出。门禁只在上游已开始却不完整时拦截；空项目始终放行。
 
 ## 验证地图
 
