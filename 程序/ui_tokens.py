@@ -25,6 +25,7 @@ COLORS = {
     "disabled_text": "#9CA3AF",
     "border_strong": "#D1D5DB",
     "header_bg": "#F3F4F6",
+    "code_background": "#F3F4F6",
     "trough": "#E5E7EB",
     "selection_bg": "#DBEAFE",
     "selection_text": "#1E3A8A",
@@ -52,9 +53,24 @@ FONTS = {
     # 正文、短说明和下拉展开项共用这一档；标题仅用字重和尺寸表达层级。
     "title": ("Microsoft YaHei UI", 14, "bold"),
     "body": ("Microsoft YaHei UI", 10),
+    "body_bold": ("Microsoft YaHei UI", 10, "bold"),
     "caption": ("Microsoft YaHei UI", 10),
     "numeric": ("Consolas", 10),
+    "code": ("Consolas", 10),
+    "hint": ("Microsoft YaHei UI", 9, "italic"),
+    "heading_1": ("Microsoft YaHei UI", 16, "bold"),
+    "heading_2": ("Microsoft YaHei UI", 14, "bold"),
+    "heading_3": ("Microsoft YaHei UI", 12, "bold"),
+    "heading_4": ("Microsoft YaHei UI", 11, "bold"),
 }
+
+# 阶段配置「技能说明」栏的布局规格：目录宽度按显示宽度自适应，正文高度由页面按紧凑档选用。
+NOTE_LIST_MIN_WIDTH = 12
+NOTE_LIST_MAX_WIDTH = 28
+NOTE_HEIGHT_COMPACT = 8
+NOTE_HEIGHT_REGULAR = 16
+NOTE_PADDING_X = SPACING["md"]
+NOTE_PADDING_Y = SPACING["sm"]
 
 PET_CLOUD_AUTO_CLOSE_MS = 10000
 

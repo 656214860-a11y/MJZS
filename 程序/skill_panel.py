@@ -68,6 +68,7 @@ from tkinter import messagebox, simpledialog, ttk
 
 import model_pool
 import model_router
+import skill_note_render
 import skill_notes
 from tk_timers import repeat
 import skill_budget
@@ -78,10 +79,12 @@ import stage_models
 import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
-from ui_tokens import COLORS, FONTS, SPACING, FORM_LABEL_WIDTH
+from ui_tokens import (COLORS, FONTS, SPACING, FORM_LABEL_WIDTH, NOTE_HEIGHT_COMPACT,
+                       NOTE_HEIGHT_REGULAR, NOTE_LIST_MAX_WIDTH, NOTE_LIST_MIN_WIDTH,
+                       NOTE_PADDING_X, NOTE_PADDING_Y)
 from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
                         TextArea,
-                        SecondaryButton, Tooltip, ask_confirmation, notify)
+                        SecondaryButton, Tooltip, ask_confirmation, notify, _display_width)
 from ui_dialogs import FileDialog
 
 TITLE = '阶段配置'
@@ -951,9 +954,11 @@ class Panel(ttk.Frame):
         # 说明框占用面板剩余空间：窗口放大时目录和正文一起变高，优先露出更多 SKILL。
         box.columnconfigure(1, weight=0)
         box.rowconfigure(0, weight=1)
-        height = 5 if self.compact else 12
-        self.note_list = tk.Listbox(box, height=height, width=18, exportselection=False,
-                                    activestyle='none', font=FONTS['caption'])
+        height = NOTE_HEIGHT_COMPACT if self.compact else NOTE_HEIGHT_REGULAR
+        self.note_list = tk.Listbox(box, height=height, width=NOTE_LIST_MIN_WIDTH,
+                                    exportselection=False, activestyle='none',
+                                    font=FONTS['body'], selectbackground=COLORS['selection_bg'],
+                                    selectforeground=COLORS['selection_text'])
         self.note_list.grid(row=0, column=0, sticky='ns')
         self.note_list.bind('<<ListboxSelect>>', lambda event: self.show_note())
         self.note_list_bar = ttk.Scrollbar(box, orient='vertical', command=self.note_list.yview)
@@ -966,9 +971,11 @@ class Panel(ttk.Frame):
         body.rowconfigure(0, weight=1)
         bar = ttk.Scrollbar(body, orient='vertical')
         bar.grid(row=0, column=1, sticky='ns')
-        self.note_text = TextArea(body, height=height, wrap='word', relief='flat', bg=COLORS['background_card'],
-                                 fg=COLORS['text_primary'], font=FONTS['caption'], padx=SPACING['sm'], pady=SPACING['xs'],
-                                 yscrollcommand=bar.set)
+        self.note_text = TextArea(body, height=height, wrap='word', relief='flat',
+                                 bg=COLORS['background_card'], fg=COLORS['text_primary'],
+                                 font=FONTS['body'], padx=NOTE_PADDING_X, pady=NOTE_PADDING_Y,
+                                 selectbackground=COLORS['selection_bg'],
+                                 selectforeground=COLORS['selection_text'], yscrollcommand=bar.set)
         self.note_text.grid(row=0, column=0, sticky='nsew')
         bar.configure(command=self.note_text.yview)
         self.note_text.configure(state='disabled')
@@ -991,13 +998,17 @@ class Panel(ttk.Frame):
         self.note_items = self.note_entries()
         self.note_list.delete(0, 'end')
         selected = 0
+        width = NOTE_LIST_MIN_WIDTH
         for index, entry in enumerate(self.note_items):
             label = (entry[1].displayName or entry[1].name
                      if entry[0] == 'registered' else entry[1])
-            self.note_list.insert('end', chinese_skill_display(label))
+            shown = chinese_skill_display(label)
+            self.note_list.insert('end', shown)
+            width = max(width, _display_width(shown))
             path = entry[1].path if entry[0] == 'registered' else entry[2]
             if str(path) == target:
                 selected = index
+        self.note_list.configure(width=min(NOTE_LIST_MAX_WIDTH, width))
         if self.note_items:
             self.note_list.selection_set(selected)
         self.show_note()
@@ -1036,10 +1047,7 @@ class Panel(ttk.Frame):
         return body
 
     def render_note(self, body):
-        self.note_text.configure(state='normal')
-        self.note_text.delete('1.0', 'end')
-        self.note_text.insert('1.0', body)
-        self.note_text.configure(state='disabled')
+        skill_note_render.apply(self.note_text, body)
 
     def translate_note(self, source, shown):
         """利用既有后台执行器翻译；忙时等待，切换条目后不回填旧内容。"""
