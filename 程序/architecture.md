@@ -255,7 +255,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 序号  | ID                 | 阶段    | 核心产物                                             |
 | ---:| ------------------ | ----- | ------------------------------------------------ |
 | 01  | `script`           | 剧本准备  | 剧本/设定、`emotion_curve.json`、离线编剧任务书成果包。                    |
-| 02  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；当前 MD 目录为 `02剧本结构/docs/`，具体读写目标由 `script_contract` 解析。 |
+| 02  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；新稿写入 `02剧本结构/结构剧本/`，具体读写目标由 `script_contract` 解析；需求与设计见 `docs/`。 |
 | 03  | `storyboard`       | 初步分镜  | `storyboard_draft.json`。                         |
 | 04  | `animatic`         | 分镜预演  | 参考图与分镜提示词生成的预演草图、Animatic、`animatic_manifest.json`。 |
 | 05  | `assets`           | 资产管理  | `assets.json`、正典板、锚点。                            |
@@ -329,7 +329,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 阶段    | 输入                           | 输出                                                              | 格式                |
 | ----- | ---------------------------- | --------------------------------------------------------------- | ----------------- |
 | 剧本准备  | 创意、剧本阶段输入、接续                | 创意简报、台词润色、情绪曲线                                                  | Markdown、JSON     |
-| 剧本结构  | 权威服务解析的剧本原稿、创意简报 | 结构剧本（角色/场景/道具/分场内容）；当前 MD 位于编号阶段 docs/，旧 writing/ 只读兼容；既有提取 SKILL 可另产出 manifest、世界观 | Markdown、JSON     |
+| 剧本结构  | 权威服务解析的被采用自然剧本 | 结构剧本（角色/场景/道具/分场内容），位于 `02剧本结构/结构剧本/`，旧 writing/ 只读兼容；提取 SKILL 可另产出 manifest、世界观（manifest 是否必须产出待定，见 docs/REQUIREMENTS.md REQ-S02-23） | Markdown、JSON     |
 | 初步分镜  | 已确认剧本                        | 场次、分镜初稿                                                         | JSON              |
 | 分镜预演  | 分镜初稿、共享参考图、临时声音 | 预演草图、Animatic、`animatic_manifest.json` | 视频、JSON |
 | 资产管理  | 分镜、资产需求、参考图                  | 资产表、正典板、锚点                                                      | JSON、图片           |
