@@ -20,6 +20,7 @@ class AnimaticTests(unittest.TestCase):
         self.assertEqual(shots[0]['seconds'], 10)
 
     def test_formal_assets_require_confirmation_and_online_model(self):
+        """REQ-S04-26：预演不改资产；正式资产仍走线上 API 生成。"""
         from stage_execution_service import require_formal_asset_generation
         with tempfile.TemporaryDirectory() as temporary:
             with self.assertRaises(ValueError):
@@ -37,6 +38,7 @@ class AnimaticTests(unittest.TestCase):
         self.assertEqual(skill_tools.PAGES['asset.plan'][0], STAGES.index('assets'))
 
     def test_generated_bundle_requires_confirmation_and_detects_source_changes(self):
+        """REQ-S04-30/32/40：整包发布进阶段目录、清单记来源摘要且产源变化即失效、确认只改 confirmed。"""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = root / 'storyboard_draft.json'
@@ -75,6 +77,7 @@ class AnimaticTests(unittest.TestCase):
             self.assertFalse(service.evidence(root)[0])
 
     def test_persistent_previs_reuses_tts_after_later_render_failure(self):
+        """REQ-S04-24：临时 TTS 文件名含脚本签名，已存在且非空即复用，出图失败重跑仍复用。"""
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             source = root / 'storyboard.json'
@@ -94,7 +97,7 @@ class AnimaticTests(unittest.TestCase):
                 self.assertTrue(synth.call_args.kwargs['request_id'].startswith('tts-previs:'))
 
     def test_evidence_streams_large_media_without_reading_bytes(self):
-        """大媒体校验走流式摘要：mp4／临时音频／镜头图都不再整份读进内存。"""
+        """REQ-S04-43：大媒体校验走流式摘要（file_cache.file_digest），mp4／临时音频／镜头图都不整份读进内存。"""
         import file_cache
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -176,6 +179,7 @@ class AnimaticTests(unittest.TestCase):
                 service.shots_of({'shots': rows})
 
     def test_publication_rejects_escape_and_rolls_back_index_failure(self):
+        """REQ-S04-30：成果路径越界即拒绝，索引更新失败整包回滚、不留半包。"""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             folder = write_dir(root, 'animatic')

@@ -22,6 +22,7 @@ class AnimaticTimelineTests(unittest.TestCase):
             write_temporary=lambda path, raw: path.write_bytes(raw), run=execute)
 
     def test_timeline_maps_audio_and_decodes_before_success(self):
+        """REQ-S04-25：拼接后叠加声音、含视频与音频流、总时长匹配且完整解码后才算通过。"""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             result = self.render(root, {'streams': [{'codec_type': 'video'}, {'codec_type': 'audio'}],
@@ -33,6 +34,7 @@ class AnimaticTimelineTests(unittest.TestCase):
             self.assertEqual((root / 'animatic_concat.txt').read_text(), "file 'segment_0000.mp4'\n")
 
     def test_missing_audio_and_wrong_duration_are_rejected(self):
+        """REQ-S04-25：缺音频流或总时长与各镜之和相差超过 1 秒即不发布。"""
         for streams, duration in [([{'codec_type': 'video'}], '2'),
                                   ([{'codec_type': 'video'}, {'codec_type': 'audio'}], '20')]:
             with self.subTest(streams=streams, duration=duration), tempfile.TemporaryDirectory() as temporary:
@@ -40,6 +42,7 @@ class AnimaticTimelineTests(unittest.TestCase):
                     self.render(Path(temporary), {'streams': streams, 'format': {'duration': duration}})
 
     def test_invalid_duration_never_starts_process(self):
+        """REQ-S04-25：每镜时长必须有限且在 0–600 秒内，无效输入不得启动编码进程。"""
         def forbidden(*args, **kwargs):
             self.fail('无效输入不应启动进程')
         with self.assertRaises(ValueError):
