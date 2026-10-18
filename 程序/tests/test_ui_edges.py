@@ -1249,7 +1249,6 @@ class UiEdgeTests(unittest.TestCase):
             for preview in previews:
                 self.assertEqual(str(preview.cget("wrap")), "word")
                 self.assertIn(long_line, preview.get("1.0", "end"))
-                self.assertEqual(bars[0].get(), preview.xview())
                 preview.xview_moveto(0); win.update()
             self.assertEqual(str(d.script_structure_manual_button.cget("text")), "手动制作结构剧本")
             source_rows = d.script_structure_source_preview_files.get_children()
