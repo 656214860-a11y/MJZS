@@ -359,6 +359,10 @@ class SavingTests(unittest.TestCase):
             self.assertEqual(reply.name, root.name + '_自然剧本_模型输出_19700101.md')
 
     def test_saved_reply_uses_provider_and_model_subdirectories(self):
+        import model_pool
+        # 隔离本机模型池：本用例断言的是内建 DeepSeek V4 Flash 的归属目录，不能被
+        # 用户自定义的「配置/宠物/配置.json」影响（与同文件其它用例同口径）。
+        self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             reply = idea_chat.save_reply(td, '项目剧本：模型回复', at=0,
                                          provider='DeepSeek', model='DeepSeek V4 Flash', publish=publish_idea_creative)
@@ -562,6 +566,9 @@ class SavingTests(unittest.TestCase):
                              ['旧模型的创意', '旧模型的回复'])
 
     def test_model_history_is_stored_by_stable_id_and_imports_legacy_rows(self):
+        import model_pool
+        # 隔离本机模型池：稳定 ID 目录（模型会话/<stable-id>/）来自内建模型池。
+        self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             idea_chat.append(td, 'user', '旧位置的 DeepSeek 创意', model='DeepSeek V4 Flash')
             path = idea_chat.model_history_path(td, 'DeepSeek V4 Flash')
@@ -1359,6 +1366,10 @@ class SendMessageTests(_Harness):
                              '启动失败也不能留下未获模型回复的剧本文档')
 
     def queued_api_request(self, proj):
+        import model_pool
+        # 隔离本机模型池：deepseek-v4-flash 必须解析成「直接 API 模型」才会走排队路径；
+        # 用户自定义模型池里没有这条内建模型时会被误判成本机 Agent 路由。
+        self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         import stage_config
         import workflow_process_registry as registry
         stage_config.put(proj, 'script', model='deepseek-v4-flash',
@@ -1512,7 +1523,10 @@ class SendMessageTests(_Harness):
             d.send_message.assert_not_called()
 
     def test_direct_reply_failure_shows_the_error_and_next_request_is_accepted(self):
+        import model_pool
         import stage_config
+        # 隔离本机模型池：本用例走「直接 API 回复」路径，需要内建 deepseek-v4-flash 可解析。
+        self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             stage_config.put(proj, 'script', model='deepseek-v4-flash',
@@ -1534,7 +1548,10 @@ class SendMessageTests(_Harness):
 
     def test_direct_model_failure_ends_an_active_script_stage(self):
         """直接 API 调用失败不能只留在状态栏，自动链必须收到 script 失败事件。"""
+        import model_pool
         import stage_config
+        # 隔离本机模型池：本用例瞄准直接 API 失败事件，需要内建 deepseek-v4-flash 可解析。
+        self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             stage_config.put(proj, 'script', model='deepseek-v4-flash',

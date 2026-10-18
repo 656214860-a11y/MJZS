@@ -1069,8 +1069,12 @@ class DesktopModelPoolTests(unittest.TestCase):
 
     def test_deepseek_api_model_never_falls_back_to_codex(self):
         """阶段配置显示 DeepSeek 时，三虎派发必须使用同一条兼容 API。"""
+        import model_pool
         import stage_config
         import workflow_settings
+        # 隔离本机模型池：内建 deepseek-v4-flash 必须在池里，才会被认成兼容 API 模型
+        # 而不是回落到默认 Codex（用户自定义模型池可能没有这条内建模型）。
+        self.enterContext(patch.object(model_pool, 'pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             stage_config.put(proj, 'storyboard', model='deepseek-v4-flash')
@@ -1082,8 +1086,11 @@ class DesktopModelPoolTests(unittest.TestCase):
                              'deepseek-v4-flash')
 
     def test_summary_uses_the_same_stage_model_route_as_dispatch(self):
+        import model_pool
         import stage_config
         import workflow_settings
+        # 隔离本机模型池：摘要必须与派发同路由，前提是内建 deepseek-v4-flash 可被解析。
+        self.enterContext(patch.object(model_pool, 'pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             proj = make_project(td)
             stage_config.put(proj, 'storyboard', model='deepseek-v4-flash')

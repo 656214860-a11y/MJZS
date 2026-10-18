@@ -140,6 +140,11 @@ class ThumbnailTests(unittest.TestCase):
         asset_thumbs.forget()
         asset_thumbs.reset_worker()                         # 换了缓存目录，后台进程按新的起
         self.addCleanup(setattr, asset_thumbs, "CACHE_ROOT", original)
+        # 收尾口（addCleanup 后进先出，故注册在 CACHE_ROOT 还原之后、TemporaryDirectory 清目录之前）：
+        # 先撤下本拍待收任务、取消轮询定时器，再 terminate+wait 收掉后台进程。否则后台进程可能仍按着
+        # cache/jobs/*.json 在读，临时目录清理会撞上 WinError 32「另一个程序正在使用此文件」。
+        self.addCleanup(asset_thumbs.reset_worker)
+        self.addCleanup(asset_thumbs.forget)
 
     def test_result_poll_checks_a_bounded_batch_of_pending_jobs(self):
         """长列表滚动时，单个 Tk tick 不能为全部待处理缩略图反复做磁盘检查。"""
