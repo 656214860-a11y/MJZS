@@ -17,5 +17,6 @@
 - 安全全量欠账：上次真实绿仍是 R1624（旧内容树）；截至 R1678 已累计 13 个源码轮次（门禁线 8）。后台已触发，但 `.wt/ci` 工作树当前不存在，上次运行在 `.wt/ci/程序/run_selftests.py` 缺失时以 `BrokenProcessPool` 退出（78 秒，非断言失败）；同段日志还有 `test_idea_inline_brief` 16 条中 9 条失败。后台补跑完成前不得声称当前树全量通过。
 - R1654 已补齐 `distribution_manifest.md` 对 `data_model.md`／`runbook.md`／`task_states.md` 的声明（`test_distribution_selfcheck` 3/3、冒烟 8/8）；不要再把 R1625 的该项红当作当前阻塞。
 - R1678 新增需求锚定门禁 `tests/architecture/test_requirement_traceability.py`：✅ 需求必须有测试锚点，基线 `维护记录/需求锚定基线.json` 记录现状欠账 152/298，只许减少；新增或修改 ✅ 需求须同轮补锚点。
+- R1696 的维护脚本本身通过直接 unittest（9/9），但执行器证据不完整：`run_selftests -k aigc_package_diff` 汇总后未退出，`smoke_test.py --gate` 两次在跨树 GUI 令牌等待处 900 秒超时。不要把 9 条 0 红或默认冒烟 8/8 当成门禁通过；复跑前先确认无并行 GUI 自检会话。
 
 完整旧记录见[风险归档](history/r1591-handoff-before/risks.md)。

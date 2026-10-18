@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "absorbed_commit": "1a43ae5a019d157eb3d45ad73e800081cb127763",
+  "说明": "AIGC创作全流程包的一级目录职责与建议阶段。stages 使用 01—13 阶段编号；不确定的目录保留空数组并标注待定，不猜测归属。",
+  "engines": {
+    "assets": {
+      "role": "包内共享资源目录",
+      "stages": [],
+      "note": "任务书忽略其差异与图片；归属待定"
+    },
+    "sd-asset-engine": {
+      "role": "待定",
+      "stages": [],
+      "note": "待定"
+    },
+    "sd-combat-engine": {
+      "role": "战斗题材专项方法",
+      "stages": [
+        "03"
+      ],
+      "note": "待核"
+    },
+    "sd-decision-engine": {
+      "role": "剧本节拍与镜头情境决策",
+      "stages": [
+        "01",
+        "03"
+      ],
+      "note": "01 节拍已吸收；03 镜头选型待接"
+    },
+    "sd-feed-engine": {
+      "role": "待定",
+      "stages": [],
+      "note": "待定"
+    },
+    "sd-jieshuo-engine": {
+      "role": "解说与旁白稿写作",
+      "stages": [
+        "01"
+      ],
+      "note": "按素材来源条件引用"
+    },
+    "sd-overseas-engine": {
+      "role": "海外剧赛道规则",
+      "stages": [
+        "01"
+      ],
+      "note": "按赛道条件引用"
+    },
+    "sd-qc-engine": {
+      "role": "待定",
+      "stages": [],
+      "note": "待定"
+    },
+    "sd-real-engine": {
+      "role": "现实题材专项方法",
+      "stages": [
+        "03"
+      ],
+      "note": "待核"
+    },
+    "sd-recon-engine": {
+      "role": "采风与素材来源检索",
+      "stages": [
+        "01"
+      ],
+      "note": "按素材来源条件引用"
+    },
+    "sd-script-engine": {
+      "role": "剧本创作与分集结构方法",
+      "stages": [
+        "01"
+      ],
+      "note": ""
+    },
+    "sd-storyboard-engine": {
+      "role": "初步分镜方法与镜头链",
+      "stages": [
+        "03"
+      ],
+      "note": "待核"
+    },
+    "sd-xuanhuan-engine": {
+      "role": "玄幻与奇幻题材专项方法",
+      "stages": [
+        "03"
+      ],
+      "note": "待核"
+    },
+    "short-drama-director": {
+      "role": "全流程总控与导演包入口",
+      "stages": [],
+      "note": "总控包入口"
+    }
+  }
+}

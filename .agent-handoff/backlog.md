@@ -3,6 +3,7 @@
 R1596 清单 O1–O12 全部完成（R1597–R1609）；R1610 清单 Q1–Q12 全部完成（R1611–R1626）。两个清单内均无待办，后续工作须由用户新授权。
 
 ## 当前接续（2026-10-18）
+- R1696：AIGC 包只读核对脚本已交付但未提交；需 Claude 验收后在无并行 GUI 自检的会话重跑 `smoke_test.py --gate`，并确认 `sd-asset-engine`、`sd-feed-engine`、`sd-qc-engine` 的待定阶段归属。
 - R1675：`fix/int`（R1667–R1674）已合并入 master；工作树与分支清理完成，备份在 `D:\repo-meta\wt-backup-20261018`。
 - R1676：用户既有 3 项改动、R1675 接力快照、`.claude/settings.local.json` 已提交；双击目录表头误开文件已修复（定向 1/1、默认冒烟 8/8）。
 - R1677／R1678：并行会话完成文档先行锚点同步与需求锚定门禁；交接时 master HEAD `ecfcd7ca`；R1679 提交紧随其后。
