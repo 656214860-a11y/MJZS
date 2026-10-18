@@ -4,6 +4,8 @@ R1620（Q9-3）从 skill_panel.py 拆出；公开名由 skill_panel 按原名转
 """
 import re
 from pathlib import Path
+import tkinter as tk
+from tkinter import ttk
 import model_pool
 import model_router
 import skill_notes
@@ -13,7 +15,7 @@ import stage_config
 import stage_models
 import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
-from ui_tokens import SPACING
+from ui_tokens import COLORS, SPACING
 from ui_widgets import PrimaryButton
 
 
@@ -32,6 +34,178 @@ SKILL_FLOW_ORDER = ('script', 'storyboard', 'asset', 'firstframe', 'whitemodel',
 
 
 MANUAL_NAME = '阶段手动配置.json'          # 手动配的那一档落在项目里（与自动档的 skill_config.json 分开）
+
+
+# 还开着的面板：模型池变了一次就把它们的下拉框都刷一遍（不用重开窗口）。
+_LIVE_PANELS = []
+
+
+def register_live(panel):
+    """登记一个已打开的阶段配置面板。"""
+    _LIVE_PANELS.append(panel)
+    return panel
+
+
+def unregister_live(panel):
+    """面板销毁后从活动名单移除（重复移除不报错）。"""
+    try:
+        _LIVE_PANELS.remove(panel)
+    except ValueError:
+        pass
+    return panel
+
+
+def refresh_all():
+    """模型管理里加／改／删了一条之后调它一次：还开着的面板跟着换选项。"""
+    live = []
+    for panel in _LIVE_PANELS:
+        try:
+            if panel.winfo_exists():
+                live.append(panel)
+        except Exception:
+            continue
+    _LIVE_PANELS[:] = live
+    for panel in live:
+        try:
+            panel.refresh_models()
+        except Exception:
+            continue
+    return len(live)
+
+
+class WrappingActionRow(ttk.Frame):
+    """动作栏：一行放不下时换行，控件至少保留文字所需的请求宽度。
+
+    与 ``responsive_ui.FlowBar`` 同一套换行思路，但这里是阶段配置内部使用，且**不改**
+    子标签的 ``wraplength``（外部包提示必须保持单行免撑高操作栏）。
+    """
+
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
+        self._wrap_job = None
+        self.bind('<Configure>', self._schedule_wrap, add='+')
+        self.bind('<Destroy>', self._cancel_wrap, add='+')
+
+    def _schedule_wrap(self, event=None):
+        if self._wrap_job is None:
+            self._wrap_job = self.after_idle(self._wrap)
+
+    def _cancel_wrap(self, event=None):
+        if event is not None and event.widget is not self:
+            return
+        job = self._wrap_job
+        self._wrap_job = None
+        if job is not None:
+            try:
+                self.after_cancel(job)
+            except tk.TclError:
+                pass
+
+    def _wrap(self):
+        self._wrap_job = None
+        if not self.winfo_exists():
+            return
+        available = self.winfo_width()
+        if available <= 1:
+            available = self.master.winfo_width() if self.master is not None else 1
+        if available <= 1:
+            return
+        available = max(1, int(available))
+        gap = SPACING['xs']
+        x = y = row_height = 0
+        for child in self.winfo_children():
+            if child.winfo_manager() == 'pack':
+                child.pack_forget()
+            width = min(available, max(1, child.winfo_reqwidth()))
+            height = max(1, child.winfo_reqheight())
+            if x and x + width > available:
+                y += row_height + gap
+                x = 0
+                row_height = 0
+            child.place(x=x, y=y, width=width, height=height)
+            x += width + gap
+            row_height = max(row_height, height)
+        height = y + row_height
+        if int(self.cget('height')) != height:
+            self.configure(height=height)
+
+
+class FormScrollMixin:
+    """阶段配置表单主体的纵向滚动兜底；底栏与技能说明区留在滚动区之外。
+
+    说明区继续按窗口余量伸缩，底栏固定在底部；窗口低到表单放不下时（800×460），
+    主体出现滚动条，SKILL 勾选区可以滚到完整可见。
+    """
+
+    def _build_form_body(self):
+        if not getattr(self, 'scroll', False):
+            self.form_body = self
+            return self
+        self.form_view = ttk.Frame(self)
+        self.form_view.pack(fill='x')
+        self.form_canvas = tk.Canvas(self.form_view, highlightthickness=0, bd=0,
+                                     bg=COLORS['background_primary'])
+        self.form_scroll = ttk.Scrollbar(self.form_view, orient='vertical',
+                                         command=self.form_canvas.yview)
+        self.form_canvas.configure(yscrollcommand=self.form_scroll.set)
+        self.form_canvas.pack(side='left', fill='x', expand=True)
+        self.form_body = ttk.Frame(self.form_canvas)
+        self._form_window = self.form_canvas.create_window((0, 0), window=self.form_body,
+                                                           anchor='nw')
+        self.form_body.bind('<Configure>', self._sync_form_view, add='+')
+        self.form_canvas.bind('<Configure>', self._resize_form_view, add='+')
+        return self.form_body
+
+    def _sync_form_view(self, event=None):
+        """按表单请求高度同步滚动区；内容放得下时收起滚动条。"""
+        if event is not None and event.widget is not self.form_body:
+            return
+        if self.form_canvas is None or not self.form_canvas.winfo_exists():
+            return
+        if not self.form_canvas.winfo_ismapped():
+            return
+        content = max(1, self.form_body.winfo_reqheight())
+        width = max(1, self.form_canvas.winfo_width())
+        self.form_canvas.itemconfigure(self._form_window, width=width)
+        viewport = max(1, self.form_canvas.winfo_height())
+        self.form_canvas.configure(scrollregion=(0, 0, width, max(content, viewport)))
+        if int(self.form_canvas.cget('height')) != content:
+            self.form_canvas.configure(height=content)
+        need_scroll = content > viewport + 1
+        has_scroll = bool(self.form_scroll.winfo_manager())
+        if need_scroll == has_scroll:
+            return
+        if need_scroll:
+            self.form_scroll.pack(side='right', fill='y', before=self.form_canvas)
+        else:
+            self.form_scroll.pack_forget()
+
+    def _resize_form_view(self, event):
+        if event.widget is not self.form_canvas:
+            return
+        self.form_canvas.itemconfigure(self._form_window, width=max(1, event.width))
+        self._sync_form_view()
+
+    def _form_wheel(self, event):
+        """滚动区放到不整屏时，鼠标滚轮滚表单而不是整页。"""
+        if self.form_canvas is None or not self.form_canvas.winfo_exists():
+            return None
+        first, last = self.form_canvas.yview()
+        if last - first >= 0.999:
+            return None
+        self.form_canvas.yview_scroll(-1 if getattr(event, 'delta', 0) > 0 else 1, 'units')
+        return 'break'
+
+    def _bind_form_wheel(self, widget=None):
+        if self.form_canvas is None:
+            return
+        target = self.form_body if widget is None else widget
+        try:
+            target.bind('<MouseWheel>', self._form_wheel, add='+')
+        except tk.TclError:
+            return
+        for child in target.winfo_children():
+            self._bind_form_wheel(child)
 
 
 def skill_order(name):
@@ -254,6 +428,58 @@ def stage_for(value):
 def stage_label(stage):
     """阶段 id → 「08 首帧管理」（认不出的原样退回，面板抬头用它）；权威实现见 pet_bus.stage_label。"""
     return _bus_stage_label(stage)
+
+
+def stage_button_label_for(desktop, stage, fallback='阶段配置', stage_flow=None,
+                           *, project_of=None, stage_of=None, config=None,
+                           models=None, pool=None, pool_records_of=None):
+    """阶段入口显示实际会被派发的模型／引擎，避免按钮与三虎调用目标不一致。
+
+    依赖以参数传入，调用模块可保持原有补丁点（``stage_for``、``desktop_project``、
+    ``pool_records``、``STAGE_FLOW`` 等）继续生效。
+    """
+    project_of = project_of or desktop_project
+    stage_of = stage_of or stage_for
+    config = config or stage_config
+    models = models or stage_models
+    pool = pool or model_pool
+    pool_records_of = pool_records_of or pool_records
+    project = project_of(desktop)
+    if not project:
+        return fallback
+    try:
+        chosen = str(config.get(project, stage_of(stage)).get('model') or '').strip()
+    except Exception:
+        return fallback
+    if not chosen or chosen == model_router.AUTO:
+        # 「自动」不是没有模型：三虎仍会按该流程当前有效引擎启动。按钮直接说出
+        # 实际目标，避免用户看到“阶段配置”却发现启动了 Codex／Claude。
+        flow = (stage_flow or {}).get(stage_of(stage))
+        if not flow:
+            return fallback
+        try:
+            import workflow_settings
+            current = workflow_settings.current(project, flow)
+            actual = workflow_settings.effective_model(project, flow)
+            records = pool_records_of(desktop)
+            for model_id, record in records.items():
+                if str(record.get('model') or '').strip() == str(actual).strip():
+                    return pool.provider_name(model_id, record) or fallback
+            return {'codex': 'Codex', 'claude': 'Anthropic', 'qwen': 'Qwen',
+                    'opencode': 'OpenCode'}.get(
+                current.get('engine'), fallback)
+        except Exception:
+            return fallback
+    # 资产／首帧的本地生产模型不会登记到 API 模型池；此前直接查模型池会得到空名称，
+    # 使阶段配置按钮错误回退为“阶段配置”。优先从该页面的生产模型清单取显示名。
+    try:
+        for model_id, label in models.production_choices(stage_of(stage), project):
+            if str(model_id) == chosen:
+                return str(label) or fallback
+    except Exception as exc:
+        return fallback + '（生产模型读取失败：%s）' % exc
+    record = pool_records_of(desktop).get(chosen, {})
+    return pool.provider_name(chosen, record) or fallback
 
 
 def panel_title(stage):

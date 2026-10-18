@@ -18,7 +18,7 @@ from desktop_idea_chat import model_error_display
 from pathlib import Path
 from responsive_ui import FlowBar
 from tkinter import ttk
-from ui_tokens import COLORS, SCRIPT_VIEW_FONT, SCRIPT_VIEW_PADDING, SPACING
+from ui_tokens import COLORS, SCRIPT_VIEW_FONT, SCRIPT_VIEW_PADDING, SPACING, TEXT_DESC
 from ui_widgets import DataTable, PrimaryButton, SecondaryButton, TextArea
 from desktop_page_support import STAGE_ACTION_WIDTH
 
@@ -231,11 +231,11 @@ class ScriptPagesMixin:
                 if log_only:
                     LOGGER.warning('刷新正文模型调用失败（kind=%s）：%s', result.get('kind') or 'missing',
                                    result.get('error'))
-                self.notifier.error(text, title='模型调用失败')
+                self.notifier.error(text, title='模型调用失败', modal=False)
                 self.status.set('刷新正文失败：' + text)
                 return
             if not reply:
-                self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
+                self.notifier.error(idea_chat.why_empty(result), title='模型调用失败', modal=False)
                 self.status.set(idea_chat.why_empty(result));return
             self.show_conversation();self.update_script_download_button()
             self.status.set(result.get('quality_summary') or ('已恢复并刷新 ' + model + ' 的正文；完整剧本可下载保存。'))
@@ -603,7 +603,8 @@ class ScriptPagesMixin:
             'script_structure_output_preview', editable=True, kind='structured')
         self.script_structure_output_box.grid(row=2, column=0, sticky='nsew', pady=(SPACING["none"], SPACING["none"]))
         # 流程说明留在两块内容之后的右下角，避免占用顶部阅读空间。
-        info = ttk.Label(self.content, text=structure_note, style='Muted.TLabel', justify='right', wraplength=760)
+        info = ttk.Label(self.content, text=structure_note, style='Muted.TLabel', justify='right',
+                         wraplength=TEXT_DESC['wraplength'])
         info.pack(anchor='e', pady=(SPACING["xs"], SPACING["none"]))
         self.script_structure_info_label = info
         self.script_structure_source_directory = source_directory

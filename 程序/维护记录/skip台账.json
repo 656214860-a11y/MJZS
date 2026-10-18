@@ -2117,6 +2117,24 @@
       "reference": ""
     },
     {
+      "file": "tests/test_ui_batch5_stage_panel_and_script_page.py",
+      "test": "StagePanelLayoutTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_batch5_stage_panel_and_script_page.py",
+      "test": "ScriptPageLayoutTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
       "file": "tests/test_ui_batch8_video_ui_tokens.py",
       "test": "Batch8TokenTests.test_white_model_title_font_token_measures_in_real_tk",
       "ordinal": 1,

@@ -42,6 +42,12 @@ from skill_panel_support import (
     program_of,
     stage_context,
     panel_window_size,
+    WrappingActionRow,
+    FormScrollMixin,
+    stage_button_label_for,
+    refresh_all,
+    register_live,
+    unregister_live,
 )
 # -*- coding: utf-8 -*-
 """统一阶段配置面板：模型下拉 ＋ SKILL 勾选 ＋ 接口 ＋ SKILL 说明 ＋ 保存为预设／重置。
@@ -89,7 +95,6 @@ from ui_dialogs import FileDialog
 
 TITLE = '阶段配置'
 confirm = ask_confirmation
-_LIVE = []            # 还开着的面板：模型池变了一次就把它们的下拉框都刷一遍（不用重开窗口）
 # 老页面上的流程名 → 新的制作阶段 id：面板两边都认，省得每个调用点各写一遍。
 # 反过来查：阶段 id → 工作流名字。只收 workflow_settings 真正认得的七个流程——
 # final／edit／delivery 那三个阶段本来就没有「调用设置」这一档，别凭空造出一个按钮来。
@@ -133,43 +138,15 @@ PRESET_PLACEHOLDER = '请选择'
 
 
 def stage_button_label(desktop, stage, fallback='阶段配置'):
-    """阶段入口显示实际会被派发的模型／引擎，避免按钮与三虎调用目标不一致。"""
-    project = desktop_project(desktop)
-    if not project:
-        return fallback
-    try:
-        chosen = str(stage_config.get(project, stage_for(stage)).get('model') or '').strip()
-    except Exception:
-        return fallback
-    if not chosen or chosen == model_router.AUTO:
-        # 「自动」不是没有模型：三虎仍会按该流程当前有效引擎启动。按钮直接说出
-        # 实际目标，避免用户看到“阶段配置”却发现启动了 Codex／Claude。
-        flow = STAGE_FLOW.get(stage_for(stage))
-        if not flow:
-            return fallback
-        try:
-            import workflow_settings
-            config = workflow_settings.current(project, flow)
-            actual = workflow_settings.effective_model(project, flow)
-            records = pool_records(desktop)
-            for model_id, record in records.items():
-                if str(record.get('model') or '').strip() == str(actual).strip():
-                    return model_pool.provider_name(model_id, record) or fallback
-            return {'codex': 'Codex', 'claude': 'Anthropic', 'qwen': 'Qwen',
-                    'opencode': 'OpenCode'}.get(
-                config.get('engine'), fallback)
-        except Exception:
-            return fallback
-    # 资产／首帧的本地生产模型不会登记到 API 模型池；此前直接查模型池会得到空名称，
-    # 使阶段配置按钮错误回退为“阶段配置”。优先从该页面的生产模型清单取显示名。
-    try:
-        for model_id, label in stage_models.production_choices(stage_for(stage), project):
-            if str(model_id) == chosen:
-                return str(label) or fallback
-    except Exception as exc:
-        return fallback + '（生产模型读取失败：%s）' % exc
-    record = pool_records(desktop).get(chosen, {})
-    return model_pool.provider_name(chosen, record) or fallback
+    """阶段入口显示实际会被派发的模型／引擎，避免按钮与三虎调用目标不一致。
+
+    本模块既是公开入口，也是既有测试的补丁点：把当前模块全局显式传给实现，
+    对 ``STAGE_FLOW``／``stage_for``／``desktop_project``／``pool_records`` 的补丁仍然有效。
+    """
+    return stage_button_label_for(
+        desktop, stage, fallback, STAGE_FLOW,
+        project_of=desktop_project, stage_of=stage_for, config=stage_config,
+        models=stage_models, pool=model_pool, pool_records_of=pool_records)
 
 
 def stage_button(parent, desktop, index, text='阶段配置'):
@@ -185,33 +162,21 @@ def stage_button(parent, desktop, index, text='阶段配置'):
     return button
 
 
-def refresh_all():
-    """模型管理里加／改／删了一条之后调它一次：还开着的面板跟着换选项（不用重开软件）。"""
-    live = []
-    for panel in _LIVE:
-        try:
-            if panel.winfo_exists():
-                live.append(panel)
-        except Exception:
-            continue
-    _LIVE[:] = live
-    for panel in live:
-        try:
-            panel.refresh_models()
-        except Exception:
-            continue
-    return len(live)
-
-
-class Panel(ttk.Frame):
+class Panel(FormScrollMixin, ttk.Frame):
     """一块阶段配置面板：模型 ＋ SKILL 勾选 ＋ 底部三个按钮。"""
 
-    def __init__(self, master, desktop, stage, function=None, compact=True):
+    def __init__(self, master, desktop, stage, function=None, compact=True, scroll=False):
         ttk.Frame.__init__(self, master)
         self.desktop = desktop
         self.stage = stage_for(stage)
         self.function = function
         self.compact = bool(compact)
+        # 弹窗形态才启用主体纵向滚动：底栏固定，表单与 SKILL 勾选区在 800×460 可滚动看全。
+        self.scroll = bool(scroll)
+        self.form_view = None
+        self.form_canvas = None
+        self.form_scroll = None
+        self.form_body = self
         self.registry = skill_registry.default_registry()
         # SKILL 是用户可随时导入／移除的文件。阶段配置是用户主动打开的懒加载入口，
         # 此处强制刷新而非等启动缓存失效，保证新文件立刻出现、已删文件不再有勾选框。
@@ -234,15 +199,12 @@ class Panel(ttk.Frame):
         self.workflow_choice = tk.StringVar(value=NO_MASTER)
         self._build()
         self.bind('<Destroy>', self.cancel_skill_layout, add='+')
-        _LIVE.append(self)
+        register_live(self)
 
     def destroy(self):
         """关掉就从「还开着的面板」名单里划掉（模型池变了不用再刷它）。"""
         self.cancel_skill_layout()
-        try:
-            _LIVE.remove(self)
-        except ValueError:
-            pass
+        unregister_live(self)
         return ttk.Frame.destroy(self)
 
     def cancel_skill_layout(self, event=None):
@@ -261,7 +223,8 @@ class Panel(ttk.Frame):
     def _build(self):
         # 阶段配置以连续表单阅读为主，统一使用最小设计间距和标签宽度，避免控件跳列。
         pad = SPACING['xs']
-        section_gap = max(1, round(pad / 3))
+        # 卡片之间不留额外空隙：相邻卡片的 1px 边框就是分隔线，间距取 none 档。
+        section_gap = SPACING['none']
         label_width = FORM_LABEL_WIDTH
         # 底栏（确认并关闭）先占位再排其余区域：Tk 按 pack 顺序分配空间，窗口压到
         # 800x460 时若最后才 pack 底栏，前面的表单会把它挤出可见区，用户就找不到确认按钮。
@@ -274,8 +237,9 @@ class Panel(ttk.Frame):
         self.confirm_button = PrimaryButton(self.bottom_bar, text='确认并关闭', width=12,
                                             command=self.confirm)
         self.confirm_button.pack(side='right')
-        # 预设决定整套配置，因此置于厂商／模型之前。
-        row = ttk.Frame(self)
+        body = self._build_form_body()
+        # 预设决定整套配置，因此置于厂商／模型之前；与下方卡片使用同一左内边距，标签对齐。
+        row = WrappingActionRow(body, padding=(pad, 0))
         row.pack(fill='x', pady=(0, section_gap))
         ttk.Label(row, text='预设', style='Muted.TLabel', width=label_width).pack(side='left')
         self.presets = SelectBox(row, textvariable=self.preset,
@@ -291,12 +255,13 @@ class Panel(ttk.Frame):
                                                        command=self.reset_defaults)
         self.restore_defaults_button.pack(side='left')
         HintLabel(row, text='勾选项与模型已自动保存').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+        row._schedule_wrap()
 
-        coordinator = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
+        coordinator = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
         coordinator.pack(fill='x', pady=(0, section_gap))
         self.build_workflow_coordinator(pad, coordinator)
 
-        engine = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
+        engine = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
         engine.pack(fill='x', pady=(0, section_gap))
         top = ttk.Frame(engine)
         top.pack(fill='x')
@@ -313,13 +278,13 @@ class Panel(ttk.Frame):
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
         self.route_hint = HintLabel(engine, text='')
-        specific = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
+        specific = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
         specific.pack(fill='x', pady=(0, section_gap))
         self.build_writer_style_editor(pad, specific)
         self.build_interfaces(pad, specific)
         if not specific.winfo_children():
             specific.pack_forget()
-        skill_section = ttk.Frame(self, padding=pad, relief='solid', borderwidth=1)
+        skill_section = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
         skill_section.pack(fill='x', pady=(0, section_gap))
         self.skill_content = ttk.Frame(skill_section)
         self.skill_content.pack(fill='x')
@@ -330,12 +295,15 @@ class Panel(ttk.Frame):
         self.reason = DescriptionBlock(skill_section, text='')
         self.build_notes(pad)
         self.load()
+        if self.form_canvas is not None:
+            self._sync_form_view()
+            self._bind_form_wheel()
 
     def build_writer_style_editor(self, pad, parent=None):
         """仅剧本阶段提供编剧风格编辑，避免无关页面出现无效入口。"""
         if self.stage not in stage_config.WRITER_STYLE_STAGES:
             return None
-        row = ttk.Frame(parent or self)
+        row = WrappingActionRow(parent or self)
         row.pack(fill='x', pady=(SPACING['none'], pad))
         ttk.Label(row, text='编剧风格', style='Muted.TLabel').pack(side='left')
         self.writer_style_button = SecondaryButton(row, text='编辑编剧风格', width=14,
@@ -343,13 +311,15 @@ class Panel(ttk.Frame):
         self.writer_style_button.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         DescriptionBlock(row, text='编剧角色按此风格创作并审核五阶门控，例如参考好莱坞编剧；留空则不附加风格。').pack(
             side='left', padx=(SPACING['sm'], SPACING['none']))
+        row._schedule_wrap()
         return row
 
     def open_writer_style_editor(self):
         """在独立弹窗编辑项目级编剧风格；留空即不附加，不写程序内置 SKILL。"""
         project = desktop_project(self.desktop)
         if not project:
-            notify(self.winfo_toplevel(), '请先选择项目。', title=TITLE, status=getattr(self.desktop, 'status', None))
+            notify(self.winfo_toplevel(), '请先选择项目。', title=TITLE,
+                   status=getattr(self.desktop, 'status', None), modal=False)
             return None
         title = '编辑编剧风格'
         current = stage_config.writer_style(project, self.stage)
@@ -429,7 +399,13 @@ class Panel(ttk.Frame):
             self.more_locks_button.configure(text='更多制作锁')
         else:
             self.optional_lock_row.pack(fill='x')
+            bind_wheel = getattr(self, '_bind_form_wheel', None)
+            if callable(bind_wheel):
+                bind_wheel(self.optional_lock_row)
             self.more_locks_button.configure(text='收起选填锁')
+        sync_form = getattr(self, '_sync_form_view', None)
+        if callable(sync_form):
+            sync_form()
 
     def save_workflow_locks(self):
         from stage_execution_service import save_writing_production_locks
@@ -513,7 +489,8 @@ class Panel(ttk.Frame):
             lines.append('%s\n当前：%s\n建议：%s' %
                          (label, '、'.join(values['current']) or '空',
                           '、'.join(values['suggested']) or '空'))
-        notify(self.winfo_toplevel(), '\n\n'.join(lines), title='本地修改明细', status=getattr(self.desktop, 'status', None))
+        notify(self.winfo_toplevel(), '\n\n'.join(lines), title='本地修改明细',
+               status=getattr(self.desktop, 'status', None), modal=False)
 
     def workflow_apply_dialog(self, choice, preset, switching):
         """逐阶段选择“套用／保留”；默认不重写已有勾选。"""
@@ -523,7 +500,7 @@ class Panel(ttk.Frame):
         old_preset = workflow_settings.WORKFLOW_PRESETS.get(str(old.get('name') or ''), {})
         dialog = BaseDialog(self.winfo_toplevel(), '切换总控' if switching else '套用总控建议',
                             modal=False, chrome=False); dialog.resizable(True, True)
-        body = ttk.Frame(dialog, padding=12); body.pack(fill='both', expand=True)
+        body = ttk.Frame(dialog, padding=SPACING['md']); body.pack(fill='both', expand=True)
         DescriptionBlock(body, text=(
             '「' + choice + '」为每个制作阶段推荐了一组 SKILL（制作规范）。下表逐阶段对照'
             '「现在用的」和「总控建议」：\n'
@@ -609,7 +586,7 @@ class Panel(ttk.Frame):
         if not self._flow and not self.skills:
             return None
         # 区域一：操作栏只放标签与 SKILL 操作下拉，不与勾选框混排。
-        self.skill_action_row = ttk.Frame(parent)
+        self.skill_action_row = WrappingActionRow(parent)
         self.skill_action_row.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.flow_skill_label = ttk.Label(self.skill_action_row, text='SKILL', style='Muted.TLabel', width=FORM_LABEL_WIDTH)
         self.flow_skill_label.pack(side='left')
@@ -661,6 +638,7 @@ class Panel(ttk.Frame):
             self.empty = HintLabel(self.flow_skill_row, text='这一阶段还没有附加 SKILL')
             self.add_skill_control(self.empty)
         self.schedule_skill_layout()
+        self.skill_action_row._schedule_wrap()
         return self.flow_skill_row
 
     @staticmethod
@@ -763,6 +741,12 @@ class Panel(ttk.Frame):
             child.destroy()
         self.vars = {}
         self.build_flow_skill(self.skill_content)
+        bind_wheel = getattr(self, '_bind_form_wheel', None)
+        if callable(bind_wheel):
+            bind_wheel(self.skill_content)
+        sync_form = getattr(self, '_sync_form_view', None)
+        if callable(sync_form):
+            sync_form()
         self.load()
         label = target.parent.name if plan['kind'] == 'package' else target.name
         self.state.configure(text='已新增 SKILL：' + label + ('（整包导入）' if plan['kind'] == 'package' else ''))
@@ -803,7 +787,8 @@ class Panel(ttk.Frame):
             if path.suffixes[-2:] == ['.skill', '.md'] and path.is_file() and path.is_relative_to(skills_root):
                 paths.append((item, path))
         if not paths:
-            notify(self.winfo_toplevel(), '没有可删除的程序 SKILL。', title=TITLE, status=getattr(self.desktop, 'status', None))
+            notify(self.winfo_toplevel(), '没有可删除的程序 SKILL。', title=TITLE,
+                   status=getattr(self.desktop, 'status', None), modal=False)
             return []
         refs = self._referenced_skills([item for item, _path in paths])
         names = '、'.join(item.displayName or item.name for item, _path in paths)
@@ -924,13 +909,15 @@ class Panel(ttk.Frame):
         self.interface_buttons = []
         for label, opener in interfaces_of(self.desktop, self.stage, self.function):
             if not self.interface_buttons:
-                line = ttk.Frame(parent or self)
+                line = WrappingActionRow(parent or self)
                 line.pack(fill='x', pady=(pad, 0))
                 ttk.Label(line, text='接口', style='Muted.TLabel').pack(side='left')
             button = SecondaryButton(line, text=label,
                                      command=lambda f=opener: self.open_interface(f))
             button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
             self.interface_buttons.append(button)
+        if self.interface_buttons:
+            line._schedule_wrap()
         return self.interface_buttons
 
     def open_interface(self, opener):
@@ -951,7 +938,7 @@ class Panel(ttk.Frame):
         if not self.note_items:
             return None
         box = ttk.LabelFrame(self, text='技能说明', padding=pad)
-        box.pack(fill='both', expand=True, pady=(max(1, round(pad / 3)), 0))
+        box.pack(fill='both', expand=True, pady=(SPACING['none'], 0))
         # LabelFrame 默认会按子控件的请求高度收缩；锁定其几何传播后再按面板
         # 剩余高度分配，拖动阶段配置窗口才不会留下空白而说明区仍停在 12 行。
         box.grid_propagate(False)
@@ -1249,7 +1236,8 @@ class Panel(ttk.Frame):
             if stage == self.stage:
                 continue
             variable = tk.BooleanVar(value=False)
-            ttk.Checkbutton(body, text=STAGE_NAMES.get(stage, stage), variable=variable).pack(anchor='w', pady=2)
+            ttk.Checkbutton(body, text=STAGE_NAMES.get(stage, stage), variable=variable).pack(
+                anchor='w', pady=SPACING['xs'])
             choices.append((stage, variable))
 
         def submit():
@@ -1375,11 +1363,13 @@ class Panel(ttk.Frame):
         try:
             project = self.project()
         except Exception as exc:
-            notify(self.winfo_toplevel(), str(exc), title=TITLE, status=getattr(self.desktop, 'status', None))
+            notify(self.winfo_toplevel(), str(exc), title=TITLE,
+                   status=getattr(self.desktop, 'status', None), modal=False)
             return None
         names = self.selected()
         if not names:
-            notify(self.winfo_toplevel(), '先勾上要跑的 SKILL。', title=TITLE, status=getattr(self.desktop, 'status', None))
+            notify(self.winfo_toplevel(), '先勾上要跑的 SKILL。', title=TITLE,
+                   status=getattr(self.desktop, 'status', None), modal=False)
             return None
         self.save(save_model=False)
         orch = build_orchestrator(self.desktop, project)
@@ -1396,7 +1386,7 @@ class Panel(ttk.Frame):
         window = self.winfo_toplevel()
         if any(row.get('queued') for row in pending):
             notify(window, '这几个要花钱的活先排着队（现在不打扰您）：%s' % names,
-                   title=TITLE, status=getattr(self.desktop, 'status', None))
+                   title=TITLE, status=getattr(self.desktop, 'status', None), modal=False)
             return []
         if not confirm(window, TITLE, '这几个要花钱：%s\n\n现在做吗？' % names, dangerous=True):
             orch.confirm_all(False)
@@ -1439,7 +1429,8 @@ def show(desktop, stage, function=None, launcher_button=None):
     阶段只会让人分不清「我刚配的到底是哪一步」。
     """
     if desktop_project(desktop) is None:
-        notify(getattr(desktop, 'win', None), '请先选择项目。', title=TITLE, status=getattr(desktop, 'status', None))
+        notify(getattr(desktop, 'win', None), '请先选择项目。', title=TITLE,
+               status=getattr(desktop, 'status', None), modal=False)
         return None
     stage = stage_for(stage)
     parent = getattr(desktop, 'win', None)
@@ -1459,7 +1450,7 @@ def show(desktop, stage, function=None, launcher_button=None):
     ttk.Label(head, text=panel_title(stage), style='Tokens.Title.TLabel').pack(side='left')
     host = ttk.Frame(body)
     host.pack(fill='both', expand=True)
-    panel = Panel(host, desktop, stage, function=function, compact=False)
+    panel = Panel(host, desktop, stage, function=function, compact=False, scroll=True)
     panel.launcher_button = launcher_button
     panel.pack(fill='both', expand=True)
 
@@ -1481,6 +1472,7 @@ def open_for_page(desktop, index=None, launcher_button=None):
     page = getattr(desktop, 'page_index', index)
     stage = stage_of_page(int(page or 0))
     if not stage:
-        notify(getattr(desktop, 'win', None), '这一页没有制作阶段。', title=TITLE, status=getattr(desktop, 'status', None))
+        notify(getattr(desktop, 'win', None), '这一页没有制作阶段。', title=TITLE,
+               status=getattr(desktop, 'status', None), modal=False)
         return None
     return show(desktop, stage, launcher_button=launcher_button)
