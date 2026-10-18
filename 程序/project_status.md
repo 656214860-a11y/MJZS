@@ -96,6 +96,8 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
+R1691 本轮实测（功能轮，源码轮）：**完整安全全量 5806 条、726.6 秒、0 文件有红、实际跳过 1 条**（`test_core.test_stage_profile_wrong_preset_rejected`，既有登记位），命令 `run_selftests.py --all --safe --jobs 4 --gui-jobs 2`，内容树 `ee4df14091950a16cb21670815fd3a263435d0b4`＝提交 `e44f4c86:程序`，凭据 `last_full_safe_all_round=1691`（复算 `full_safe_required`→False，R1624 以来累计 20 个源码轮的欠账清零）。默认冒烟 8/8；架构门禁 368/368（含全量欠账门禁，随凭据转绿）；定向 200/200；新增用例 38/38（`test_recon_service` 29、`test_model_pool_tools` 9）。首跑 8 个红文件全部是 R1624 以来「改实现未同步测试资产」的欠账，三批收口、断言未弱化，逐条根因见 [R1691](tasks_round/tasks_round_1691_result.md)。**未联网实测**（本机无 `DEEPSEEK_API_KEY`），不据此宣称 Search／Fetch 真实可用。
+
 R1507 核验：R1506 正式记录 tree=`1844649ecd07befa6f6fabd2c0e12e486cb40657`，与开工 `HEAD:程序` 一致，650.358 秒，执行器可复用。凭据未保存当次总数，不追认数字；本轮文档变更后的树不冒称重新全量。详见 R1507 报告。
 
 R1418 首轮历史记录：缓存边界 8/8（13.862 秒）、受影响 44/44（18.6 秒）、默认冒烟 8/8；架构/文档定向 28/29（10.419 秒），唯一失败为当时 R1418 完整安全全量欠账，现已由 R1420 闭环。当时最近真实全量为 R1403：5006/5006、557.302 秒，tree=`f44ace210cffd75885fa71c39ac3627f3c5ffaa4`，来源 common-dir `full-safe-receipts.json`。详见 [R1418](tasks_round/tasks_round_1418_result.md)。

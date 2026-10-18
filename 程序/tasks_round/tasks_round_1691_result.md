@@ -3,8 +3,8 @@
 ## §7 三问
 
 1. **本轮属于 §3 哪种类型？** §3.1 功能轮（源码轮）。新增 L2 `recon_service` 与 L1 `model_pool` 的两个工具接口，把「③对标爆款／④热点速成」的采风检索接成程序能力；按 §2.7 先改 `docs/REQUIREMENTS.md`／`docs/DESIGN.md` 的 S01 条目（REQ-S01-40～45、DES-S01-40～42）再写代码。
-2. **测试跑了吗？三个基线过了吗？** 默认冒烟 **8/8**；架构门禁 **367/368**（唯一红项是 §5 全量欠账门禁，本轮以安全全量闭环，见回填节）；定向 `-k recon_service model_pool skill_tools stage_layout script_contract artifact_schema idea_brief_form` **200/200**；新增用例 38 条（`tests/test_recon_service.py` 29 条、`tests/test_model_pool_tools.py` 9 条）全绿。**联网实测未做**——本机没有 `DEEPSEEK_API_KEY`（详见「未验证」）。
-3. **project_status.md 的欠账少了吗？** 少了：本轮触发并执行一次完整安全全量（开工实测 `source_rounds_since=20`、`risk_overdue=True`，欠账早已过门禁线 8）；开工前后台自动全量在 `c9326e8` 上是**假红**（`.wt/ci\程序\run_selftests.py` 不存在，78 秒即退），不是测试失败。本轮以主干人工全量接续，见「回填」节。
+2. **测试跑了吗？三个基线过了吗？** 默认冒烟 **8/8**；架构门禁 **368/368**（含全量欠账门禁，跑完整安全全量后转绿）；定向 `-k recon_service model_pool skill_tools stage_layout script_contract artifact_schema idea_brief_form` **200/200**；新增用例 38 条（`tests/test_recon_service.py` 29 条、`tests/test_model_pool_tools.py` 9 条）全绿；**完整安全全量 5806 条、726.6 秒、0 文件有红、凭据已写入**（见 D 节）。**联网实测未做**——本机没有 `DEEPSEEK_API_KEY`（详见「未验证」）。
+3. **project_status.md 的欠账少了吗？** 少了：本轮触发并执行完整安全全量（开工实测 `source_rounds_since=20`、`risk_overdue=True`，早已过门禁线 8）；开工前后台自动全量在 `c9326e8` 上是**假红**（`.wt/ci\程序\run_selftests.py` 不存在，78 秒即退，不是测试失败）。本轮以主干人工全量接续并写入凭据 `round=1691`，`full_safe_required` 复算为 **False**。
 
 ## A 改动
 
@@ -48,7 +48,22 @@
 
 ### 全量安全回归
 
-（回填节：见文末「D 全量回填」。）
+**5806 条用例 / 726.6 秒 / 0 个文件有红 / 实际跳过 1 条（`test_core.test_stage_profile_wrong_preset_rejected`，既有登记位：发行包未含受测 bundled skill）**，命令 `run_selftests.py --all --safe --jobs 4 --gui-jobs 2`，内容树 `ee4df14091950a16cb21670815fd3a263435d0b4`（＝提交 `e44f4c86:程序`），凭据写入后 `last_full_safe_all_round=1691`，`full_safe_required()` 复算 **False**。
+
+### 全量首跑红：三批收口（都不是本轮新代码）
+
+首跑（620.7 秒）8 个文件红，全部是 R1624 以来「改过实现但没同步测试资产」的欠账；本轮逐条核实根因后收口，**没有放宽任何断言**：
+
+| 红项 | 根因 | 收口 |
+| --- | --- | --- |
+| `test_skills.test_the_panel_shows_the_skill_markdown` | R1685 把说明栏改成 Markdown 排版，测试仍比对原文 | 比对面改为 `skill_note_render.parse()` 的可见文字（正文仍逐字比对） |
+| `test_version_pin` 2 条 | `Studio.pin_version` 现在重发交付清单，替身缺 `publish_manifest` | 替身补该接缝，并**新增**一条「采用后必须重发清单」断言 |
+| `test_edit_adoption` 4 条 | `publish_edit_bundle` 现在写 `edits.json.inputs`，测试拿 `None` 当 self | 换 `BundleStudio` 替身，并**新增**「inputs 已记入 edits.json」断言 |
+| `test_critical_chains` / `test_pet_ui` 各 1 条 | 镜头夹具没有 `location`／`title`，程序派生的 `scene_breakdown` 因此缺 `name`（manifest 契约要求） | 夹具补成真实形状（`SH001`＋`LOC_001`＋标题），断言未动 |
+| `test_copy_rules` 1 条 | R1688 的 OpenCode 弹窗 62 字，超 45 字上限 | 文案压到 34 字，语义不变 |
+| `test_ui_edges` 1 条 | R1690 改了 `wrap`（≤20 万字符按词换行），测试仍期待 `none` | 改为断 `word`＋全文保留；阈值与横向滚动条联动本已由 `test_script_view_style` 覆盖 |
+| `test_soak_light` 1 条 | 8 路并行时逐轮 10.95 秒超 10 秒记录上限；单独跑与 4 路并行均绿（34.4 秒／4 条） | 不改阈值，改验收并行度（`--jobs 4 --gui-jobs 2`）；本机另有一个 4.6 CPU-小时的空命令行 python 进程（PID 37328，父进程已退出），属既有环境负载，未擅自处置 |
+| `architecture.test_round_baselines` 1 条 | 结果文件 1691 存在后轮次头仍是 1691 | 状态页轮次头置 **1692** |
 
 ## C 未验证／待裁决
 
@@ -60,8 +75,22 @@
 
 ## D 全量回填
 
-（本节在安全全量跑完后回填：命令、总数、耗时、失败集合与凭据 tree。）
+- 命令：`python -B run_selftests.py --all --safe --jobs 4 --gui-jobs 2`（工作目录＝`程序`）
+- 结果：**5806 条用例、726.6 秒、0 个文件有红**；实际跳过 1 条（既有登记位，需实机复验 bundled skill）
+- 内容树：`ee4df14091950a16cb21670815fd3a263435d0b4`（＝提交 `e44f4c86:程序`）
+- 凭据：`D:\repo-meta\漫剧制作助手.git\full-safe-receipts.json`，`last_full_safe_all_round=1691`
+- 复算：`run_selftests.full_safe_required(1692, 1691, True, ...)` → **False**（欠账清零）
+- 前两次全量：第 1 次 620.7 秒 8 文件红（过期测试资产）、第 2 次 622.4 秒 2 文件红（其中 1 条是本轮我自己引入的 `docs/` 字面路径），均已闭环；日志留在 `程序/.selftmp/`（可弃）
 
 ## 提交
 
-（见回填。）
+| 提交 | 内容 |
+| --- | --- |
+| `f1a21062` | 本轮内容：`model_pool` 工具接口、`recon_service`、登记表／契约／文档、38 条用例、覆盖率与架构台账 |
+| `123227a3` | 全量首跑红收口（一）：`test_skills` 排版比对、`test_version_pin` 替身 |
+| `04dec0d9` | 全量首跑红收口（二）：`test_edit_adoption`／`test_critical_chains`／`test_pet_ui`／`test_ui_edges`、OpenCode 弹窗文案、轮次头置 1692 |
+| `03918581` | `test_ui_edges` 残留断言（横向滚动条变量） |
+| `e44f4c86` | 采风说明段去掉 `docs/` 字面路径（SKILL 作用域门禁） |
+| 本报告与状态页 | 回填全量与收尾（见 `git log`） |
+
+未运行：真实 Search／Fetch 请求（缺钥匙）、真实 Tk 窗口、真实用户项目。
