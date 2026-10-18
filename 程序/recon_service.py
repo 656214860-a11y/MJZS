@@ -128,10 +128,18 @@ def tier_of(source, official_hosts=()):
     return 'T1.5'
 
 
+def clean_url(url):
+    """去掉 #锚点：同一篇文章的 `#1`／`#1#1` 变体不是不同信源（真机实测常见）。"""
+    text = str(url or '').strip()
+    head, separator, _tail = text.partition('#')
+    return head if separator else text
+
+
 def normalize_source(item, query=''):
     """把一条接口结果补成卡片里的来源记录；没有 url 的结果整条丢掉（无法追溯就不收）。"""
     row = item if isinstance(item, dict) else {}
-    url = str(row.get('url') or '').strip()
+    raw = str(row.get('url') or '').strip()
+    url = clean_url(raw)
     if not host_of(url):
         return {}
     source = {
@@ -147,6 +155,8 @@ def normalize_source(item, query=''):
         'evidence': 'content' if str(row.get('content') or '').strip() else 'summary',
         'query': str(query or ''),
     }
+    if raw and raw != url:
+        source['url_raw'] = raw           # 原始地址留档：去锚点只影响去重，不抹掉证据
     source['tier'] = tier_of(source)
     return source
 
@@ -220,7 +230,11 @@ def _dedupe(values):
 
 
 def plan_queries(target, material_source):
-    """按「一次采风只回答一到两个主问题」出检索词：③找单剧，④找选题方向。"""
+    """按「一次采风只回答一到两个主问题」出检索词：③找单剧，④找选题方向。
+
+    ④ 只用题材词拼三条方向词：真机实测把整句问题拼进去会得到「都市情感 这个题材最近
+    有哪些能用的结构」这类废词，白花一次计费请求。
+    """
     item = target if isinstance(target, dict) else {'name': str(target or '')}
     name = str(item.get('name') or '').strip()
     topic = str(item.get('topic') or '').strip()
@@ -233,8 +247,8 @@ def plan_queries(target, material_source):
         queries = [topic + ' 短剧 题材', topic + ' 短剧 爆款 结构', topic + ' 短剧 平台 排行']
     else:
         queries = [name + ' 短剧', name + ' 短剧 热度', name + ' 短剧 剧情 结构']
-    if question:
-        queries.append(base + ' ' + question[:48])
+        if question:
+            queries.append(base + ' ' + question[:48])
     return _dedupe(queries)[:LIMITS['search']]
 
 

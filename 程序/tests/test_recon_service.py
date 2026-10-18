@@ -74,6 +74,17 @@ class QueryTests(unittest.TestCase):
         self.assertTrue(all('都市情感' in query for query in topic), topic)
         self.assertEqual(recon.plan_queries({}, '对标爆款'), [], '没有对象就没有检索词')
 
+    def test_topic_queries_skip_the_question_sentence(self):
+        """④ 只用题材词拼三条方向词；真机实测把整句问题拼进去会变成废检索词。"""
+        queries = recon.plan_queries({'type': 'topic', 'topic': '都市情感',
+                                      'question': '这个题材最近有哪些能用的结构'}, '热点速成')
+        self.assertEqual(len(queries), 3, queries)
+        self.assertFalse(any('这个题材最近' in query for query in queries), queries)
+        self.assertTrue(all('都市情感' in query for query in queries))
+        drama = recon.plan_queries({'name': '某剧', 'question': '怎么成的'}, '对标爆款')
+        self.assertTrue(any('怎么成的' in query for query in drama),
+                        '③ 单剧保留主问题，用来收窄这部剧的具体问法')
+
     def test_cli_skip_when_material_source_is_not_recon(self):
         """REQ-S01-40：只有③④激活采风，其余来源不打扰用户。"""
         with tempfile.TemporaryDirectory() as td:
@@ -107,6 +118,18 @@ class TierTests(unittest.TestCase):
 
     def test_rows_without_url_are_dropped(self):
         self.assertEqual(recon.normalize_source({'title': '无链接', 'url': ''}), {})
+
+    def test_url_fragments_are_the_same_source(self):
+        """真机实测：同一篇文章会带 `#1`／`#1#1` 锚点，去重必须按无锚点地址算。"""
+        first = recon.normalize_source(row('https://www.thepaper.cn/newsDetail_forward_1#1'))
+        second = recon.normalize_source(row('https://www.thepaper.cn/newsDetail_forward_1#1#1'))
+        self.assertEqual(first['url'], 'https://www.thepaper.cn/newsDetail_forward_1')
+        self.assertEqual(first['url'], second['url'], '锚点不同的同一篇不能算两个信源')
+        self.assertEqual(first['url_raw'], 'https://www.thepaper.cn/newsDetail_forward_1#1',
+                         '原始地址留档，去锚点只影响去重')
+        card = collect(results=[row('https://a.com/x#1'), row('https://a.com/x#1#1')])
+        self.assertEqual(len(card['sources']), 1)
+        self.assertEqual(card['independent_domains'], 1)
 
     def test_independent_domains_ignore_subdomains_and_second_level_suffix(self):
         self.assertEqual(recon.domain_of('https://www.douyin.com/a'), 'douyin.com')
