@@ -72,6 +72,7 @@
 - **十三项字段仍需模型填**：程序只把来源、分级、预算与机检做出来（`state='sources_ready'`），字段值要由 SKILL/模型据卡填写后再过 `evidence()`；本轮没有把「填字段」也做成工具，避免在程序里编造字段名（`sd-recon-engine` 的字段清单仍是唯一权威）。
 - **`scope_audit_pending` 从空变 1**：新 L2 写服务 `recon_service` 未采用 `service_contract` 四字段结果，按「未审计不能算已迁移」如实登记为待审计项，没有塞进 `exempt_items` 充数。后续迁移是独立一轮。
 - **未做**：图片检索（接口只回文本）、平台内部数据（播放量／分账）、定时抓取、评分门槛与聚簇——均与 `sd-recon-engine` 轻量版边界一致，已写进 REQUIREMENTS 非目标。
+- **S3（平台规格／模型版本巡检）按期外延，不在本轮**：把「查一个外部事实并留源」抽成通用函数、再去 diff `edit_export` 的平台规格（[edit_export.py:184](../edit_export.py#L184)）与 `video_model_version` 官方文档，属于「要不要允许程序推导权威源常量变更」的决策，必须单独一轮并先定口径；本轮只把这条列入后续，不动那两个权威源。
 
 ## D 全量回填
 
