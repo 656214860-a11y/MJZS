@@ -329,6 +329,126 @@ class ToolTests(unittest.TestCase):
             self.assertFalse(any('MARKER' in query for query in queries), queries)
 
 
+class RequestTests(unittest.TestCase):
+    """REQ-S01-47：采风请求只由 input/recon_request.json 一处表达。"""
+
+    def test_request_roundtrip_and_target_precedence(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self.assertEqual(recon.load_request(root), {})
+            target = recon.save_request(root, {'name': '某剧', 'material_source': '对标爆款'})
+            self.assertEqual(target, recon.request_path(root))
+            self.assertEqual(recon.load_request(root)['name'], '某剧')
+            self.assertEqual(skill_tools._recon_target({}, root, '对标爆款').get('name'), '某剧')
+            # 本次上下文优先于文件
+            self.assertEqual(skill_tools._recon_target({'recon_target': {'name': '另一部'}},
+                                                       root, '对标爆款').get('name'), '另一部')
+
+    def test_topic_request_without_name_falls_back_to_the_brief(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            recon.save_request(root, {'material_source': '热点速成'})
+            self.assertEqual(skill_tools._recon_target({}, root, '热点速成'), {},
+                             '没有名字也没有题材时不能瞎猜，交给「还缺输入」')
+
+
+class EntryTests(unittest.TestCase):
+    """REQ-S01-46：页面只做「查来源 → 问剧名 → 写请求 → 交后台」，不联网、不写卡片。"""
+
+    class Page:
+        def __init__(self, root):
+            self.root, self.win = str(root), None
+            self.shown, self.jobs = [], []
+            page = self
+
+            class Status:
+                def set(self, text):
+                    page.shown.append(str(text))
+            self.status = Status()
+
+            class Notifier:
+                def notify(self, message, **_kwargs):
+                    page.shown.append(str(message))
+            self.notifier = Notifier()
+
+        def async_(self, fn, done=None, label=None, **_kwargs):
+            self.jobs.append((fn, done, label))
+
+        def recon_done(self, result):
+            from desktop_writing_page import WritingPageMixin
+            return WritingPageMixin.recon_done(self, result)
+
+    def make_project(self, root, source):
+        (root / 'skill_config.json').write_text(json.dumps(
+            {'workflow': {'name': 'AIGC全流程',
+                          'lock': {'AIGC全流程': {'material_source': source}}}},
+            ensure_ascii=False), encoding='utf-8')
+
+    def test_wrong_material_source_is_explained_without_running_anything(self):
+        from desktop_writing_page import WritingPageMixin
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self.make_project(root, '原创')
+            page = self.Page(root)
+            WritingPageMixin.collect_recon(page)
+            self.assertEqual(page.jobs, [])
+            self.assertTrue(any('素材来源' in text for text in page.shown), page.shown)
+            self.assertFalse(recon.request_path(root).exists())
+
+    def test_a_drama_name_is_written_to_the_request_and_run_in_the_background(self):
+        from unittest import mock
+        from desktop_writing_page import WritingPageMixin
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self.make_project(root, '对标爆款')
+            page = self.Page(root)
+            with mock.patch('desktop_writing_page.simpledialog.askstring', return_value=' 《某剧》 '):
+                WritingPageMixin.collect_recon(page)
+            self.assertEqual(len(page.jobs), 1)
+            self.assertEqual(page.jobs[0][2], '采集对标情报')
+            request = recon.load_request(root)
+            self.assertEqual(request['name'], '《某剧》')
+            self.assertEqual(request['material_source'], '对标爆款')
+            self.assertFalse(recon.card_path(root).exists(), '页面不许自己写卡片')
+
+    def test_topic_mode_writes_no_name(self):
+        from unittest import mock
+        from desktop_writing_page import WritingPageMixin
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self.make_project(root, '热点速成')
+            page = self.Page(root)
+            with mock.patch('desktop_writing_page.simpledialog.askstring', return_value='   '):
+                WritingPageMixin.collect_recon(page)
+            self.assertEqual(len(page.jobs), 1)
+            self.assertNotIn('name', recon.load_request(root))
+
+    def test_cancel_writes_nothing(self):
+        from unittest import mock
+        from desktop_writing_page import WritingPageMixin
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            self.make_project(root, '对标爆款')
+            page = self.Page(root)
+            with mock.patch('desktop_writing_page.simpledialog.askstring', return_value=None):
+                WritingPageMixin.collect_recon(page)
+            self.assertEqual(page.jobs, [])
+            self.assertFalse(recon.request_path(root).exists())
+
+    def test_results_are_reported_honestly(self):
+        from desktop_writing_page import WritingPageMixin
+        page = self.Page('.')
+        WritingPageMixin.recon_done(page, {'ok': True, 'sources': 3,
+                                           'not_found': ['一条'], 'problems': ['缺口']})
+        self.assertIn('3 个来源', page.shown[-1])
+        self.assertIn('没查到的 1 条', page.shown[-1])
+        self.assertIn('机检待处理 1 条', page.shown[-1])
+        WritingPageMixin.recon_done(page, {'ok': False, 'needs': '缺对标对象'})
+        self.assertIn('需要先给出对标对象', page.shown[-1])
+        WritingPageMixin.recon_done(page, {'skipped': True, 'reason': '素材来源是「原创」'})
+        self.assertIn('素材来源是「原创」', page.shown[-1])
+
+
 def _transport(url, payload, headers, timeout):
     if url.endswith('/v1/tools/search'):
         return {'ok': True, 'status': 200, 'data': {'results': [row('https://a.com/x', content='')]}}

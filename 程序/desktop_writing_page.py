@@ -227,8 +227,7 @@ class WritingPageMixin:
         open_folder_button=SecondaryButton(foot,text='剧本目录',width=script_action_width,
                                       command=lambda:self.safe(lambda:self.open_folder(project_stages.writing(self.root))))
         open_folder_button.pack(side='right',padx=(SPACING['none'],SPACING['sm']));self.idea_open_folder=open_folder_button
-        SecondaryButton(foot,text='查看质检报告',command=lambda:self.safe(self.open_script_quality)).pack(side='right')
-        SecondaryButton(foot,text='质检目录',command=lambda:self.safe(lambda:self.open_script_quality(folder=True))).pack(side='right')
+        self.build_script_quality_buttons(foot)
         download_button.pack(side='right',padx=(SPACING['none'],SPACING['xs']))
         for action_button in foot.winfo_children():
             action_button.configure(width=script_action_width,padding=SCRIPT_ACTION_PADDING)
@@ -630,3 +629,60 @@ class WritingPageMixin:
             return menu.popup(event)
         for tree in script_trees.values():
             tree.bind('<Button-3>',lambda event,tree=tree:script_menu(tree,event))
+
+    def build_script_quality_buttons(self, foot):
+        """页脚右侧那组「质检／采风」。创建顺序就是动作栏顺序，调用位置不能挪到「下载文件」之后。"""
+        SecondaryButton(foot,text='查看质检报告',command=lambda:self.safe(self.open_script_quality)).pack(side='right')
+        SecondaryButton(foot,text='质检目录',command=lambda:self.safe(lambda:self.open_script_quality(folder=True))).pack(side='right')
+        self.recon_button=SecondaryButton(foot,text='采风',command=lambda:self.safe(self.collect_recon))
+        self.recon_button.pack(side='right',padx=(SPACING['none'],SPACING['xs']))
+
+    def collect_recon(self):
+        """采集对标情报：素材来源为③④时把公开情报抓回项目，落《对标情报卡》。
+
+        页面只做「查素材来源 → 问剧名 → 写请求 → 交给后台」，不联网、不写卡片：
+        检索与抓取在 L2 `recon_service`，网络在 L1 `model_pool`。
+        """
+        import recon_service, stage_config, skill_tools
+        project = self.root
+        if not project:
+            return self.status.set('先选项目，再采集对标情报')
+        source = str(stage_config.workflow_lock(project).get('material_source') or '')
+        if source not in recon_service.MATERIAL_SOURCES:
+            self.notifier.notify('当前素材来源是「%s」。先在阶段配置把「素材来源」选成「对标爆款」或「热点速成」，再来采集。'
+                                 % (source or '未选'), title='采集对标情报')
+            return self.status.set('采集对标情报：素材来源不符（%s）' % (source or '未选'))
+        name = simpledialog.askstring('采集对标情报',
+                                      '对标剧名（填剧名＝对标这一部；留空＝按简报里的题材找方向）：',
+                                      parent=self.win)
+        if name is None:
+            return self.status.set('已取消采集')
+        values = {'material_source': source}
+        if name.strip():
+            values.update({'name': name.strip(), 'question': '这部剧怎么成的'})
+        recon_service.save_request(project, values)
+        context = {'project': str(project), 'material_source': source}
+
+        def work():
+            try:
+                return skill_tools.call('recon.card', context)
+            except skill_tools.ToolNeedsInput as exc:
+                return {'ok': False, 'needs': str(exc)}
+        self.status.set('正在采集公开情报（联网检索，约十几秒）…')
+        self.async_(work, self.recon_done, label='采集对标情报')
+
+    def recon_done(self, result):
+        """采风结果落状态栏：来源数、未查到、机检待处理都如实说，不吞也不美化。"""
+        result = result or {}
+        if result.get('needs'):
+            return self.status.set('采风需要先给出对标对象：' + str(result['needs']))
+        if result.get('skipped'):
+            return self.status.set(str(result.get('reason') or '未采集'))
+        text = '采风完成：%s 个来源' % (result.get('sources') or 0)
+        missing = result.get('not_found') or []
+        if missing:
+            text += '，还有没查到的 %d 条' % len(missing)
+        problems = result.get('problems') or []
+        if problems:
+            text += '，机检待处理 %d 条' % len(problems)
+        return self.status.set(text + '；卡片在 01剧本准备/input/recon_card.json')

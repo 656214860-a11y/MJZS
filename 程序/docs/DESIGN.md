@@ -34,6 +34,7 @@
 - **DES-S01-40**（REQ-S01-40/41）`model_pool.tools_search()` / `tools_fetch()` 是这两个接口的唯一传输入口：复用既有 `_http_transport`／`_request_headers`／`credential('DEEPSEEK_API_KEY')`，不新开网络栈，也不新增密钥来源；`recon_service` 不 import urllib、不持有密钥。
 - **DES-S01-41**（REQ-S01-42/43/45）`recon_service` 负责检索词拼装、预算、卡片装配与六条证据机检：来源分级由 `tier_of()` 现算（`summary` 封顶 T2、`authority≥3` 或官方域名且拿到正文才 T1），独立信源按域名去重计数。卡片落 `01剧本准备/input/recon_card.json`（`artifact_schema` kind=`recon_card`），人读版落 `01剧本准备/docs/intel_card.md`（登记在 `stage_layout.DOCS`）。
 - **DES-S01-42**（REQ-S01-44）`skill_tools` 登记 `recon.card`；素材来源不是③④时跳过，缺 `DEEPSEEK_API_KEY` 或没有对标对象时按「还缺输入」返回，不阻断阶段；`stage_completion_service` 的核验项不含情报卡。
+- **DES-S01-43**（REQ-S01-46/47）`recon_service.request_path()`／`save_request()`／`load_request()` 是采风请求的唯一读写口；`desktop_writing_page.WritingPageMixin.collect_recon()` 只做「查素材来源 → 问剧名 → 写请求 → `self.async_(skill_tools.call('recon.card'))`」，页面不联网、不写卡片；`skipped`／`needs` 走状态栏，不弹错误。`recon_done()` 只汇报来源数、未查到与机检待处理条数。
 
 ### 测试锚定（待补 docstring）
 

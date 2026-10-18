@@ -156,13 +156,8 @@ def _revise_structured_script(context):
 
 def _recon_request(project):
     """用户在 input/recon_request.json 里写下的采风请求（有就用，没有返回空表）。"""
-    from file_cache import read_json
-    from recon_service import stage_paths
-    try:
-        value = read_json(stage_paths(project)['input'] / 'recon_request.json')
-    except (OSError, ValueError):
-        return {}
-    return value if isinstance(value, dict) else {}
+    from recon_service import load_request
+    return load_request(project)
 
 
 def _recon_topic(project):

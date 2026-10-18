@@ -26,6 +26,7 @@ from stage_path_service import write_dir
 STAGE = 'script'
 KIND = 'recon_card'
 CARD_NAME = 'recon_card.json'
+REQUEST_NAME = 'recon_request.json'
 DOC_NAME = 'intel_card.md'
 UNKNOWN = '未找到'
 STATES = ('sources_ready', 'filled')
@@ -55,6 +56,31 @@ def stage_paths(project):
 
 def card_path(project):
     return stage_paths(project)['input'] / CARD_NAME
+
+
+def request_path(project):
+    """采风请求的唯一文件：页面写它，工具读它，两边不各写一套判断。"""
+    return stage_paths(project)['input'] / REQUEST_NAME
+
+
+def load_request(project):
+    """读采风请求；缺失或损坏返回空表（采风不是阶段完成条件，读不到不算错）。"""
+    try:
+        value = read_json(request_path(project))
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def save_request(project, values, save=None):
+    """写采风请求（原子发布）：`name` 用于③单剧，`type=topic` 让④按简报题材起手。
+
+    `save` 是自检注入点；生产默认 `agent.core.save`，与 `save_card()` 同一写法——
+    L2 不保留裸写正式路径的回退（第三项棘轮）。
+    """
+    target = request_path(project)
+    (save or core.save)(target, dict(values or {}))
+    return target
 
 
 def doc_path(project):
