@@ -384,7 +384,7 @@ def idea_attachment_local_mode(project):
         return False
     config = current_config(project, 'writing')
     engine = model_pool.desktop_engine(config.get('model')) or config.get('engine')
-    return engine in {'codex', 'claude', 'qwen', 'opencode'} and not config.get('api')
+    return engine in {'codex', 'claude', 'qwen', 'opencode', 'client-cli'} and not config.get('api')
 
 
 def archive_idea_attachments(project, paths, now=None):

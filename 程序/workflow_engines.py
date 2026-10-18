@@ -15,6 +15,7 @@ from workflow_process_registry import (register_process, forget_process, process
                                        cancel_project_slot_requests, cancel_slot_request)
 from platform_tools import hidden_console_flags, launch_windows_app, terminate_process_tree
 from workflow_context_budget import ensure_request_context
+import client_profiles
 
 
 def reserve_stage_process_slot(project, stage):
@@ -70,7 +71,30 @@ def prompt_with_settings(prompt,config,stage=None):
         media_apps = ''
     return skill_prompt(config, stage=stage)+stage_output_contract(stage)+writer_style_prompt(config,stage)+prompt+('\n用户补充制作要求：\n'+extra if extra else '')+language+media_apps
 
-def background_command(config,project,output,report,prompt_file=None):
+def _client_profile(config):
+    found = client_profiles.profile_for_config(config)
+    if not found:
+        raise ValueError('未识别本地客户端；请在模型管理重新点「检测」或手动指定 .exe')
+    return found
+
+
+def _client_command(config, project, output, report, prompt_file='', prompt=''):
+    item = _client_profile(config)
+    if not item.get('invoke'):
+        raise ValueError('该命令行程序未识别投递参数；请改用手动制作入口打开交互式窗口，或在模型管理重新检测')
+    exe = find_program(config)
+    args = client_profiles.executable_command(item, exe)
+    args += client_profiles.build_invocation(item, prompt, prompt_file,
+                                             title=str(config.get('title') or ''),
+                                             model=str(config.get('model') or ''))
+    if not args:
+        raise ValueError('该命令行程序未识别可用参数；请改用手动制作入口打开交互式窗口')
+    return args
+
+
+def background_command(config,project,output,report,prompt_file=None,*,prompt=''):
+    if config['engine'] == 'client-cli':
+        return _client_command(config, project, output, report, prompt_file or '', prompt)
     if config['engine'] in ('claude-desktop-app', 'desktop-app'):
         raise ValueError(ENGINES[config['engine']]+' 需要在桌面窗口中手动发送，请使用手动制作入口')
     exe=find_program(config)
@@ -177,6 +201,27 @@ def run_background(config,project,output,report,logfile,prompt):
     prompt=ensure_request_context(prompt, config.get('stage', '当前阶段'))
     slot=reserve_stage_process_slot(project, config.get('stage', '当前阶段'))
     try:
+        if config['engine']=='client-cli':
+            prompt_file=Path(report).with_suffix('.client-prompt.md')
+            save_text(prompt_file,prompt)
+            args=background_command(config,project,output,report,prompt_file,prompt=prompt)
+            response=Path(report).with_suffix('.client-response.txt')
+            response_temp=temporary_path(response)
+            item=_client_profile(config)
+            try:
+                with response_temp.open('w',encoding='utf-8') as out, Path(logfile).open('w',encoding='utf-8') as log:
+                    returncode=_run(args,project,client_profiles.stdin_text(item,prompt),out,log)
+                text=response_temp.read_text(encoding='utf-8-sig').strip()
+                replace(response_temp,response)
+                if returncode:
+                    raise ValueError('%s 执行失败（退出码 %s）；任务文件已保留，请查看运行日志或改用交互式窗口'
+                                     % (item['display'],returncode))
+                if not text:
+                    raise ValueError('%s 未返回制作报告正文；请查看运行日志或改用交互式窗口' % item['display'])
+                save_text(Path(report),text)
+            finally:
+                if response_temp.exists():remove_temporary_file(response_temp)
+            return None
         if config['engine']=='qwen':
             from qwen_adapter import run_background as run_qwen
             return run_qwen(config,project,output,report,logfile,prompt)
@@ -234,6 +279,29 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
     prompt=ensure_request_context(prompt, stage)
     if config['engine'] == 'desktop-app':
         raise ValueError('Desktop 模型请通过桌面发送入口打开，不支持命令行参数')
+    if config['engine'] == 'client-cli':
+        item=_client_profile(config);project=Path(project)
+        folder=project/'工作流任务'/'交互任务'/stage/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+        folder.mkdir(parents=True)
+        task=folder/'任务.md';save_text(task,prompt);save(folder/'调用配置.json',config)
+        exe=find_program(config)
+        args=client_profiles.executable_command(item,exe)
+        args+=client_profiles.build_invocation(item,prompt,str(task),title=title,
+                                               model=str(config.get('model') or ''))
+        slot=slot or reserve_stage_process_slot(project, stage)
+        try:
+            process=launch_windows_app(args[0],item['display'],args=args,cwd=project,
+                                       creationflags=getattr(subprocess,'CREATE_NEW_CONSOLE',0))
+        except ValueError as exc:
+            release_process_slot(slot)
+            raise ValueError('本机命令行客户端无法启动；任务已保存到 %s，请手动打开并粘贴。' % task) from exc
+        process.workflow_process_slot=slot
+        register_process(project,process)
+        process.agent_folder=folder;process.agent_engine='client-cli'
+        reason=('已按档案参数启动 '+item['display']+'，任务已提交。'
+                if item.get('invoke') else
+                '未识别该客户端的参数，已打开交互式窗口；任务已保存到 %s，请在该窗口手动粘贴或打开任务文件。' % task)
+        return {'engine':item['display'],'task_file':str(task),'process':process,'reason':reason}
     if config['engine'] == 'opencode':
         raise ValueError('OpenCode CLI 仅支持后台制作入口；请使用手动／后台运行，不支持交互启动')
     if config['engine']=='qwen':

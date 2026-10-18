@@ -307,6 +307,46 @@ def settings_page(parent, pet, close=None, with_manager=True):
             'manager': manager_button}
 
 
+def _derive_client_profile(path, display, mode, entries, *, probe):
+    '''Adapt one executable and fill the model id when only a path was given.'''
+    from client_profiles import adapt_executable
+    adapted = adapt_executable(path, display=display, probe=probe)
+    profile = adapted.get('profile') or {}
+    kind = profile.get('kind')
+    switched = ''
+    if kind:
+        wanted = 'CLI' if kind == 'cli' else 'Desktop'
+        if mode.get() != wanted:
+            mode.set(wanted)
+            switched = wanted
+        if not entries['model'].get().strip():
+            entries['model'].insert(0, profile.get('id', ''))
+    return adapted, switched
+
+
+def _probe_local_model(pet, value, mode, entries, program_entry, hint):
+    '''Locate and adapt a local Desktop program, filling the path back into the form.'''
+    from pathlib import Path
+    from workflow_settings import find_model_program, current_store_program
+    if not value.get('program') and not value.get('model'):
+        hint.set('先填模型 ID，或点“浏览…”选择 .exe。')
+        return None
+    try:
+        path = (current_store_program(value['program']) if value['program'] else
+                find_model_program(value['model'], mode.get()))
+        if not Path(path).is_file():
+            raise ValueError('应用路径不存在')
+        program_entry.delete(0, 'end')
+        program_entry.insert(0, path)
+        adapted, _switched = _derive_client_profile(
+            path, value.get('label') or value.get('model'), mode, entries, probe=True)
+        hint.set('已找到程序：%s；%s。请保存这条。' %
+                 (path, adapted.get('reason') or '已记录程序路径'))
+    except (ValueError, KeyError) as exc:
+        hint.set('检查程序失败：' + str(exc))
+    return value
+
+
 def open_manager(pet):
     """模型管理…：模型池＋API 配置的唯一入口（增／删／改／测连接）。"""
     program = program_of(pet)
@@ -716,6 +756,11 @@ def open_manager(pet):
                 from workflow_settings import gui_claude_program, GUI_CLAUDE_CLI_HINT
                 if mode.get() == 'CLI' and gui_claude_program(str(path)):
                     raise ValueError(GUI_CLAUDE_CLI_HINT)
+                _adapted, switched = _derive_client_profile(
+                    str(path), entries['label'].get().strip(), mode, entries, probe=False)
+                if switched:
+                    hint.set('PE 头显示这是%s程序，已切换调用方式；请确认后保存。' %
+                             ('命令行' if switched == 'CLI' else '桌面'))
             if not desktop_mode() and key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
                 local_save()
             pet.save_pool(read_form(), state['id'])
@@ -750,22 +795,11 @@ def open_manager(pet):
 
     def probe_one():
         value = read_form()
+        if value['provider'] == 'desktop':
+            return _probe_local_model(pet, value, mode, entries, program_entry, hint)
         if not value.get('model'):
             hint.set('先填模型 ID。')
             return None
-        if value['provider'] == 'desktop':
-            from workflow_settings import find_model_program, current_store_program
-            from pathlib import Path
-            try:
-                path = (current_store_program(value['program']) if value['program'] else
-                        find_model_program(value['model'], mode.get()))
-                if not Path(path).is_file():raise ValueError('应用路径不存在')
-                program_entry.delete(0, 'end')
-                program_entry.insert(0, path)
-                hint.set('已找到程序：' + path + '；请保存这条。')
-            except (ValueError, KeyError) as exc:
-                hint.set('检查程序失败：' + str(exc))
-            return value
         hint.set(probe_line(model_pool.record(value), pet))
         return value
 

@@ -10,6 +10,7 @@ import tkinter as tk
 from agent.core import save
 from file_cache import read_json
 import skill_registry
+import client_profiles
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
 from ui_dialogs import FileDialog
@@ -17,7 +18,7 @@ from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
 from ui_widgets import LineInput, TextArea
 from ui_tokens import SPACING
 
-ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop','desktop-app':'自定义桌面应用','opencode':'opencode CLI（自动放行权限）'}
+ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop','desktop-app':'自定义桌面应用','client-cli':'自定义命令行客户端','opencode':'opencode CLI（自动放行权限）'}
 FLOWS={'writing':'剧本创作','storyboard':'初步分镜','assets':'资产图片制作','frames':'批量首帧','previs':'白模预演','video_prompt':'视频提示词','audio':'配音与字幕'}
 DEFAULT_SKILLS={'writing':'coconah-ai-short-drama-agent-skill','storyboard':'short-drama-storyboard','assets':'.system/imagegen','frames':'.system/imagegen','previs':'create-blender-story-video','video_prompt':'short-drama-storyboard','audio':''}
 SKILL_PRESETS=[('万能剧本工作流','coconah-ai-short-drama-agent-skill'),('鲸剧工作流','jingju-skills'),
@@ -451,8 +452,12 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     else:
         selected, item = model_snapshot
     explicit_engine = model_pool.desktop_engine(selected)
-    if not explicit_engine and item and model_pool.call_mode(item, selected) == 'Desktop':
-        explicit_engine = 'desktop-app'
+    if not explicit_engine and item:
+        selected_mode = model_pool.call_mode(item, selected)
+        if selected_mode == 'Desktop':
+            explicit_engine = 'desktop-app'
+        elif selected_mode == 'CLI' and str(item.get('program') or '').strip():
+            explicit_engine = 'client-cli'
     if explicit_engine:
         engine = explicit_engine
     else:
@@ -470,6 +475,20 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     if engine == 'desktop-app':
         profile['program'] = str(item.get('program') or '').strip()
         profile['model'] = ''
+    if explicit_engine in ('desktop-app', 'client-cli'):
+        found = client_profiles.profile_for_model(selected, item) or \
+            client_profiles.profile_for_mode(selected, model_pool.call_mode(item, selected))
+        profile['client_profile'] = found.get('id', '')
+        profile['delivery'] = found.get('delivery', 'paste' if explicit_engine == 'desktop-app' else 'cli_stdin')
+        profile['app_name'] = found.get('display', '') or str(item.get('label') or selected or '').strip()
+        profile['client_process_names'] = list(found.get('process_names') or ())
+        profile['client_window'] = dict(found.get('window') or {})
+        if not profile.get('program') and found:
+            try:
+                profile['program'] = client_profiles.detect_executable(
+                    found, store_finder=store_package_program)
+            except Exception:
+                app_logging.swallowed()
     if explicit_engine and item.get('program'):
         if explicit_engine == 'codex':
             profile['desktop_program'] = item['program']
@@ -624,12 +643,27 @@ def find_model_program(model, mode):
         engine = aliases.get(name, name)
         if engine in ('claude', 'codex', 'qwen', 'opencode'):
             return find_program({'engine': engine, 'program': ''})
+        found = client_profiles.profile_for_mode(name, 'CLI')
+        if found:
+            path = client_profiles.detect_executable(found, store_finder=store_package_program)
+            if path:
+                return path
+            raise ValueError('未找到“%s”的命令行程序；请手动浏览 .exe，或改用交互式窗口' % model)
         raise ValueError('未找到对应的受支持 CLI：' + str(model))
     if name in ('claude', 'claude-desktop', 'claude-desktop-app'):
         return find_program({'engine': 'claude-desktop-app', 'program': ''})
     aliases = {'chatgpt-desktop': 'codex', 'codex-desktop': 'codex',
                'google-gemini': 'gemini'}
     app = aliases.get(name, name)
+    legacy = {'claude', 'claude-desktop', 'claude-desktop-app', 'chatgpt-desktop',
+              'codex-desktop', 'google-gemini', 'gemini'}
+    if name not in legacy:
+        found = client_profiles.profile_for_mode(name, 'Desktop')
+        if found:
+            path = client_profiles.detect_executable(found, store_finder=store_package_program)
+            if path:
+                return path
+            raise ValueError('未找到“%s”的 Desktop 安装程序；请确认已安装，或点“浏览…”指定 .exe' % model)
     if re.fullmatch(r'(google-)?gemini(?:-[0-9.]+(?:-[a-z0-9]+)*)?', name):
         app = 'gemini'
     if not re.fullmatch(r'[a-z0-9][a-z0-9.-]*', app):
@@ -665,15 +699,39 @@ def find_model_program(model, mode):
             candidate = root / folder / executable
             if candidate.is_file():
                 return str(candidate)
+    for app_name in (app, name):
+        found = client_profiles.profile_for_mode(app_name, 'Desktop')
+        if found:
+            path = client_profiles.detect_executable(found, store_finder=store_package_program)
+            if path:
+                return path
     raise ValueError('未找到“%s”的 Desktop 安装程序；请确认已安装对应桌面应用，或点“浏览…”指定 .exe' % model)
 
 
 def find_program(config):
     if config['program']:return current_store_program(config['program'])
-    if config['engine'] not in ENGINES:
-        raise ValueError('未知的本地调用引擎：' + str(config['engine']))
+    engine = config['engine']
+    if engine not in ENGINES:
+        found = client_profiles.profile_for_config(config) or client_profiles.profile(engine)
+        if found:
+            path = client_profiles.detect_executable(found, store_finder=store_package_program)
+            if path:return path
+            raise ValueError('未找到“%s”的程序；请在模型管理指定 .exe，或改用交互式窗口' % found['display'])
+        raise ValueError('未知的本地调用引擎：' + str(engine))
     if config['engine'] == 'desktop-app':
+        found = client_profiles.profile_for_config(config)
+        if found:
+            path = client_profiles.detect_executable(found, store_finder=store_package_program)
+            if path:return path
+            raise ValueError('未找到桌面程序路径；请在模型管理为此 Desktop 模型指定 .exe')
         raise ValueError('请在模型管理为此 Desktop 模型指定桌面程序路径')
+    if config['engine'] == 'client-cli':
+        found = client_profiles.profile_for_config(config)
+        if not found:
+            raise ValueError('请在模型管理为此命令行模型指定 .exe，或重新点「检测」生成档案')
+        path = client_profiles.detect_executable(found, store_finder=store_package_program)
+        if path:return path
+        raise ValueError('未找到“%s”的命令行程序；请在模型管理指定 .exe，或改用交互式窗口' % found['display'])
     if config['engine'] == 'claude-desktop-app':
         local = Path(os.environ.get('LOCALAPPDATA', ''))
         candidates = [local/'AnthropicClaude/claude.exe', local/'Programs/Claude/Claude.exe']

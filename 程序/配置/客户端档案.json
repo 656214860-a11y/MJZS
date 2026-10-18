@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "chatgpt-desktop",
+      "kind": "desktop",
+      "display": "ChatGPT / Codex 桌面",
+      "aliases": ["chatgpt-desktop", "chatgpt", "codex-desktop"],
+      "detect": {
+        "exe_names": ["ChatGPT.exe"],
+        "known_dirs": [],
+        "known_globs": [],
+        "registry": ["ChatGPT.exe"],
+        "store_packages": [
+          {"package": "OpenAI.Codex", "relative": "app/ChatGPT.exe"},
+          {"package": "OpenAI.ChatGPT", "relative": "app/ChatGPT.exe"}
+        ]
+      },
+      "process_names": ["ChatGPT"],
+      "window": {"titles": ["ChatGPT"], "classes": []},
+      "delivery": "paste",
+      "invoke": [],
+      "output": ""
+    },
+    {
+      "id": "codex-cli",
+      "kind": "cli",
+      "display": "Codex CLI",
+      "aliases": ["codex-cli", "codex"],
+      "detect": {
+        "exe_names": ["codex.exe"],
+        "known_dirs": [],
+        "known_globs": ["%LOCALAPPDATA%/OpenAI/Codex/bin/*/codex.exe"],
+        "registry": [],
+        "store_packages": []
+      },
+      "process_names": ["codex"],
+      "window": {"titles": ["Codex"], "classes": ["ConsoleWindowClass"]},
+      "delivery": "cli_arg",
+      "invoke": ["exec", "-"],
+      "output": "text"
+    },
+    {
+      "id": "claude-desktop",
+      "kind": "desktop",
+      "display": "Claude Desktop",
+      "aliases": ["claude-desktop", "claude-desktop-app"],
+      "detect": {
+        "exe_names": ["claude.exe", "Claude.exe"],
+        "known_dirs": ["%LOCALAPPDATA%/AnthropicClaude", "%LOCALAPPDATA%/Programs/Claude"],
+        "known_globs": ["%LOCALAPPDATA%/AnthropicClaude/app-*/claude.exe"],
+        "registry": [],
+        "store_packages": [{"package": "Claude", "relative": "app/Claude.exe"}]
+      },
+      "process_names": ["claude", "Claude"],
+      "window": {"titles": ["Claude"], "classes": []},
+      "delivery": "paste",
+      "invoke": [],
+      "output": ""
+    },
+    {
+      "id": "claude-code",
+      "kind": "cli",
+      "display": "Claude Code CLI",
+      "aliases": ["claude-code", "claude", "claude-code-cli"],
+      "detect": {
+        "exe_names": ["claude.exe"],
+        "known_dirs": ["%USERPROFILE%/.local/bin"],
+        "known_globs": ["%APPDATA%/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe"],
+        "registry": [],
+        "store_packages": []
+      },
+      "process_names": ["claude"],
+      "window": {"titles": ["Claude"], "classes": ["ConsoleWindowClass"]},
+      "delivery": "cli_arg",
+      "invoke": ["-p", "--output-format", "json"],
+      "output": "json"
+    },
+    {
+      "id": "qwen-code",
+      "kind": "cli",
+      "display": "Qwen Code CLI",
+      "aliases": ["qwen-code", "qwen"],
+      "detect": {
+        "exe_names": ["qwen.exe"],
+        "known_dirs": [],
+        "known_globs": [],
+        "registry": [],
+        "store_packages": []
+      },
+      "process_names": ["qwen"],
+      "window": {"titles": ["Qwen"], "classes": ["ConsoleWindowClass"]},
+      "delivery": "cli_arg",
+      "invoke": ["-p"],
+      "output": "text"
+    },
+    {
+      "id": "opencode-desktop",
+      "kind": "desktop",
+      "display": "opencode 桌面",
+      "aliases": ["opencode-desktop", "opencode"],
+      "detect": {
+        "exe_names": ["OpenCode.exe"],
+        "known_dirs": ["%LOCALAPPDATA%/Programs/@opencodedesktop"],
+        "known_globs": [],
+        "registry": [],
+        "store_packages": []
+      },
+      "process_names": ["OpenCode"],
+      "window": {"titles": ["opencode", "OpenCode"], "classes": []},
+      "delivery": "paste",
+      "invoke": [],
+      "output": ""
+    },
+    {
+      "id": "opencode-cli",
+      "kind": "cli",
+      "display": "opencode CLI",
+      "aliases": ["opencode-cli"],
+      "detect": {
+        "exe_names": ["opencode-cli.exe"],
+        "known_dirs": [],
+        "known_globs": ["%APPDATA%/ai.opencode.desktop/cli/*/opencode-cli.exe"],
+        "registry": [],
+        "store_packages": []
+      },
+      "process_names": ["opencode-cli"],
+      "window": {"titles": ["opencode"], "classes": ["ConsoleWindowClass"]},
+      "delivery": "cli_file",
+      "invoke": ["run", "--auto", "--format", "json", "--file", "{task_file}", "执行附件中的制作任务"],
+      "output": "jsonl"
+    },
+    {
+      "id": "gemini-desktop",
+      "kind": "desktop",
+      "display": "Gemini 桌面",
+      "aliases": ["gemini-desktop", "gemini", "google-gemini"],
+      "detect": {
+        "exe_names": ["Gemini.exe"],
+        "known_dirs": ["%LOCALAPPDATA%/Google/Gemini"],
+        "known_globs": ["%LOCALAPPDATA%/Google/Gemini/app-*/Gemini.exe"],
+        "registry": ["Gemini.exe"],
+        "store_packages": []
+      },
+      "process_names": ["Gemini"],
+      "window": {"titles": ["Gemini"], "classes": []},
+      "delivery": "paste",
+      "invoke": [],
+      "output": ""
+    },
+    {
+      "id": "deepseek-harness",
+      "kind": "desktop",
+      "display": "DeepSeek Harness",
+      "aliases": ["deepseek-harness", "deepseek", "dsh-desktop"],
+      "detect": {
+        "exe_names": ["DeepSeek Harness.exe"],
+        "known_dirs": ["F:/DeepSeek Harnesss", "%LOCALAPPDATA%/Programs/DeepSeek Harness", "%APPDATA%/@deepseek-ai/dsh-desktop"],
+        "known_globs": [],
+        "registry": [],
+        "store_packages": []
+      },
+      "process_names": ["DeepSeek Harness"],
+      "window": {"titles": ["DeepSeek Harness", "DeepSeek"], "classes": []},
+      "delivery": "paste",
+      "invoke": [],
+      "output": ""
+    },
+    {
+      "id": "deepseek-harness-cli",
+      "kind": "cli",
+      "display": "DeepSeek Harness CLI (dsh)",
+      "aliases": ["deepseek-harness-cli", "dsh", "dsh-cli"],
+      "detect": {
+        "exe_names": ["dsh.cmd", "dsh.exe"],
+        "known_dirs": ["F:/DeepSeek Harnesss/resources/runtime/cli/bin"],
+        "known_globs": [],
+        "registry": [],
+        "store_packages": []
+      },
+      "process_names": ["dsh"],
+      "window": {"titles": ["DeepSeek Harness"], "classes": ["ConsoleWindowClass"]},
+      "delivery": "cli_arg",
+      "invoke": ["headless", "{prompt}"],
+      "output": "text"
+    }
+  ]
+}

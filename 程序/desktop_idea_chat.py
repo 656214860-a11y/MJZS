@@ -73,26 +73,37 @@ BUBBLE_SLACK=26        # 量字宽只是估算（字号、全角半角都有出�
 
 
 def _deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text,
-                         program, app, paste):
+                         program, app, paste, delivery='paste'):
     """启动 Desktop 程序；发送入口启用时尝试粘贴，失败如实回落为手动粘贴。"""
     from platform_tools import launch_windows_app
+    app = str(app or '桌面模型')
+    if not program:
+        message = '已复制到剪贴板；未找到 '+app+' 的程序路径，请在模型管理指定 .exe 后手动粘贴并发送。'
+        finish(receipt,'prepared',message,task_file=task_file); host.status.set(message)
+        host.notifier.info(message,title='请手动粘贴')
+        return
     launch_windows_app(program, app)
-    if not paste:
+    if not paste or delivery != 'paste':
         message = '已打开 '+app+'，任务已复制到剪贴板；请切到该窗口粘贴并手动发送。'
-        finish(receipt,'prepared',message,task_file=task_file)
-        host.status.set(message)
+        finish(receipt,'prepared',message,task_file=task_file); host.status.set(message)
         host.notifier.info(message,title='请粘贴并发送')
         return
     from codex_paste import paste_existing
     def pasted(value):
+        reason = str(value.get('reason') or '')
+        if not value['ok'] and '剪贴板' not in reason: reason = '任务已复制到剪贴板；' + reason
         state = 'prepared' if value['ok'] else 'failed'
-        finish(receipt,state,value['reason'],task_file=task_file)
-        host.status.set(value['reason'])
-        host.notifier.info(value['reason'],
-                           title='请检查并发送' if value['ok'] else '请手动粘贴')
+        finish(receipt,state,reason,task_file=task_file)
+        host.status.set(reason)
+        host.notifier.info(reason,title='请检查并发送' if value['ok'] else '请手动粘贴')
     host.status.set('正在将本次任务粘贴到 '+app+'，请检查后手动发送…')
-    host.async_(lambda: paste_existing(title,clipboard_text,program=program,
-                                       app_name=app,deadline_seconds=45),pasted)
+    def attempt():
+        try:
+            return paste_existing(title,clipboard_text,program=program,
+                                  app_name=app,deadline_seconds=45)
+        except Exception as exc:
+            return {'ok':False,'reason':'未能自动粘贴（%s）；任务已复制到剪贴板，请手动粘贴并发送。' % exc}
+    host.async_(attempt,pasted)
 
 
 class IdeaChatMixin:
@@ -1457,7 +1468,8 @@ class IdeaChatMixin:
                 if config['engine'] == 'desktop-app':
                     app = config.get('display_model') or '桌面模型'
                     _deliver_desktop_app(self, finish, receipt, task_file, title,
-                                         clipboard_text, program, app, desktop_paste)
+                                         clipboard_text, program, app, desktop_paste,
+                                         config.get('delivery') or 'paste')
                     return
                 launch_windows_app(program, 'Claude Desktop')
                 from codex_paste import paste_existing

@@ -1005,15 +1005,15 @@
             },
             {
                 "file": "model_pool.py",
-                "point": "863",
+                "point": "873",
                 "disposition": "exempt",
-                "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。（R1691 行号平移 852→863，新增 Search／Fetch 工具接口插在其前）"
+                "reason": "R828：HTTP 响应体 JSON 解析，不是文件读取；模型路由网络出口的响应解码。（R1706 行号平移 863→873，客户端档案路由插在其前）"
             },
             {
                 "file": "model_pool.py",
-                "point": "909",
+                "point": "919",
                 "disposition": "exempt",
-                "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。（R1691 行号平移 898→909）"
+                "reason": "R828：SSE data 事件 JSON 解析，不是文件读取；模型流式响应的事件解码。（R1706 行号平移 909→919，客户端档案路由插在其前）"
             },
             {
                 "file": "pet_agent.py",
@@ -1203,15 +1203,15 @@
             },
             {
                 "file": "workflow_engines.py",
-                "point": "143",
+                "point": "167",
                 "disposition": "exempt",
-                "reason": "网络响应解析（R1691 行号平移 146→143：OpenCode 事件流逐行 JSON 解码，不是文件读取）"
+                "reason": "网络响应解析（R1706 行号平移 143→167：OpenCode 事件流逐行 JSON 解码，不是文件读取）"
             },
             {
                 "file": "workflow_engines.py",
-                "point": "196",
+                "point": "241",
                 "disposition": "exempt",
-                "reason": "R1691 登记：读取 OpenCode CLI 自己写出的 .response.json 临时响应文件，外部进程产物不是正式项目数据，不走 file_cache。"
+                "reason": "R1691 登记：读取 OpenCode CLI 自己写出的 .response.json 临时响应文件，外部进程产物不是正式项目数据，不走 file_cache。（R1706 行号平移 196→241）"
             },
             {
                 "file": "skills/09\u767d\u6a21\u9884\u6f14SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",

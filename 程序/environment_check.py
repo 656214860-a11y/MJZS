@@ -11,6 +11,7 @@ import shutil
 from pathlib import Path
 
 import comfy_runtime
+import client_profiles
 import file_cache
 import model_pool
 import white_model_service
@@ -22,6 +23,30 @@ PROGRAM = Path(__file__).resolve().parent
 DESKTOP_PROGRAMS = (('claude-desktop-app', 'Claude Desktop', '剧本准备可选「Claude Desktop」手动发送'),
                     ('codex', 'ChatGPT / Codex', '剧本准备可选「ChatGPT Desktop · Codex」'),
                     ('claude', 'Claude Code 命令行', '阶段工作流可选「Claude Code」命令行模型'))
+
+
+def _find_profile(profile_row):
+    path = client_profiles.detect_executable(
+        profile_row, store_finder=workflow_settings.store_package_program)
+    if path:
+        return path
+    raise ValueError('未找到档案中的程序')
+
+
+def check_client_profiles(profiles=None, find=_find_profile):
+    """Each built-in client profile gets one row; read-only and never launches."""
+    rows = []
+    for profile_id, item in (profiles or client_profiles.load_profiles()).items():
+        kind = '桌面' if item['kind'] == 'desktop' else '命令行'
+        use = '%s · 投递 %s' % (kind, item['delivery'])
+        try:
+            path = find(item)
+        except Exception as exc:
+            rows.append(row(profile_id, item['display'], WARN, '未找到：%s' % exc,
+                            '需要时在模型管理点「检测」或手动选择 .exe；%s' % use))
+            continue
+        rows.append(row(profile_id, item['display'], OK, str(path), use))
+    return rows
 
 
 def row(key, label, status, detail, next_step=''):
@@ -104,7 +129,7 @@ def check_model_keys(models, program=None, key_of=model_pool.key_of):
 
 def run_checks(program=None, *, config=None, settings=None, models=None, which=shutil.which,
                find_blender=white_model_service.find_blender, find_program=workflow_settings.find_program,
-               key_of=model_pool.key_of):
+               key_of=model_pool.key_of, profiles=None, find_profile=_find_profile):
     root = Path(program or PROGRAM)
     config = config if config is not None else _json(root / 'config.json')
     settings = settings if settings is not None else _json(root / 'desktop_settings.json')
@@ -112,7 +137,10 @@ def run_checks(program=None, *, config=None, settings=None, models=None, which=s
     rows = check_ffmpeg(config, which)
     rows.append(check_comfy(settings))
     rows.append(check_blender(find_blender))
-    rows.extend(check_desktop_programs(find_program))
+    if profiles is None and find_program is workflow_settings.find_program:
+        profiles = client_profiles.load_profiles()
+    rows.extend(check_client_profiles(profiles, find_profile) if profiles is not None
+                else check_desktop_programs(find_program))
     rows.append(check_model_keys(models, root, key_of))
     return rows
 

@@ -19,6 +19,7 @@ from pathlib import Path
 
 import model_secrets
 import token_saver
+import client_profiles
 from agent.core import save, replace, temporary_path
 from api_endpoints import configured_key, normalize_url
 from pet_bus import read_json
@@ -136,7 +137,10 @@ def desktop_engine(model_id):
     # 模型管理允许手填 ID；Claude Code 的常用写法仍是同一个 CLI，
     # 不按 claude 前缀猜测，避免把 Claude API 或桌面应用误识别为 CLI。
     alias = re.sub(r'[\s_-]+', '-', name.casefold())
-    return 'claude' if alias in ('claude-code', 'claude-code-cli') else ''
+    if alias in ('claude-code', 'claude-code-cli'):
+        return 'claude'
+    # 新客户端由档案决定路由；档案缺失时仍返回空串，走原有 API 判定。
+    return client_profiles.engine_for_model(name)
 
 
 def provider_name(model_id, value):
@@ -146,7 +150,13 @@ def provider_name(model_id, value):
         return str(value['provider_label']).strip()
     if model_id == 'chatgpt-desktop' or model.startswith('gpt-'):
         return 'GPT'
-    if desktop_engine(model_id):
+    engine = desktop_engine(model_id)
+    if engine:
+        if engine in ('claude', 'claude-desktop-app'):
+            return 'Anthropic'
+        found = client_profiles.profile_for_model(model_id, value)
+        if found:
+            return found['display']
         return 'Anthropic'
     configured = str((value or {}).get('provider') or '').strip()
     # 用户在 API 统一配置中手填的厂商名是该条模型的展示归属，不能在阶段配置里
@@ -1086,4 +1096,4 @@ def call_mode(value, model_id=''):
     if value.get('provider') != 'desktop':
         return 'API'
     engine = desktop_engine(model_id) or desktop_engine(value.get('model')) or value.get('model')
-    return 'CLI' if engine in ('claude', 'qwen', 'opencode') else 'Desktop'
+    return 'CLI' if engine in ('claude', 'qwen', 'opencode', 'client-cli') else 'Desktop'
