@@ -33,6 +33,7 @@
 - **DES-S01-22**（REQ-S01-22）`stage_completion_service` → `skill_orchestrator.verified_stage_output` → `script_contract.resolve_script_source(root) is not None`。
 - **DES-S01-30**（REQ-S01-30/31）API 与桌面共用 `capture_request` / `freeze_skills` 快照；正式交付条款仅桌面启用；`call_mode=Desktop` 回执为 `prepared`，后台与 CLI 拒绝此模式。
 - **DES-S01-50**（REQ-S01-50）`desktop_idea_chat.IdeaChatMixin.open_flow_agent` 的 `desktop-app` 分支在剧本发送入口（`start_script_workflow` 与简报提取）传入 `desktop_paste=True` 时，启动所选程序后调用 `codex_paste.paste_existing(..., program=program, app_name=display_model)`；直接调用默认保留原「仅复制」提示；`codex_paste.ps1` 按进程名与程序路径（含同目录 `app-*` 版本化子目录）匹配窗口，用 UI Automation 选择最大可编辑控件，输入框已有草稿时不覆盖。找不到窗口或粘贴失败时返回 `ok=false`，回执 `failed` 并只提示「已复制到剪贴板，请手动粘贴并发送」；`claude-desktop-app` 与 GPT 桌面不传 `app_name` 时沿用原文案与行为。
+- **DES-S01-51**（REQ-S01-51）`idea_chat.import_downloaded_documents` 对四段式 `stage-v1` 文件名保持原有「项目／类型／Provider 内容段」匹配；解析失败或不是 `stage-v1` 的 `.md` 改读正文（`utf-8-sig`），经 `is_project_document_text` 与 `_project_file_type` 判类后，从正文的 `项目名／项目名称／剧名` 字段（容许 `《》`）或首行标题中类型标签后的剩余名称取项目名，与 `script_contract.project_name(root)` 比较，正文写了项目名而不一致即跳过；正文取不到项目名时一律跳过；正文分支不比 Provider 内容段，落盘目录仍用调用方传入的 Provider／模型。每类仍只取最新一份、必须比该模型已保存文件新、沿用三天窗口与 `save_reply`，下载原件不动，仅扫描下载目录顶层 `*.md`。
 - **DES-S01-40**（REQ-S01-40/41）`model_pool.tools_search()` / `tools_fetch()` 是这两个接口的唯一传输入口：复用既有 `_http_transport`／`_request_headers`／`credential('DEEPSEEK_API_KEY')`，不新开网络栈，也不新增密钥来源；`recon_service` 不 import urllib、不持有密钥。
 - **DES-S01-41**（REQ-S01-42/43/45/48/49）`recon_service` 负责检索词拼装、预算、卡片装配与六条证据机检：来源分级由 `tier_of()` 现算（`summary` 封顶 T2、`authority≥3` 或官方域名且拿到正文才 T1；`ENCYCLOPEDIA_HOSTS` 经 `is_encyclopedia_host()` 单一入口封顶 T2），独立信源由 `publisher_of()` 按 `PUBLISHER_ALIASES` 归并发布方、由 `article_digest()` 对规范化正文取哈希后交给 `independent_source_count()` 计数，落盘字段仍名 `independent_domains` 以兼容旧卡。卡片落 `01剧本准备/input/recon_card.json`（`artifact_schema` kind=`recon_card`），人读版落 `01剧本准备/docs/intel_card.md`（登记在 `stage_layout.DOCS`）。
 - **DES-S01-42**（REQ-S01-44）`skill_tools` 登记 `recon.card`；素材来源不是③④时跳过，缺 `DEEPSEEK_API_KEY` 或没有对标对象时按「还缺输入」返回，不阻断阶段；`stage_completion_service` 的核验项不含情报卡。
@@ -51,6 +52,7 @@
 | REQ-S01-30/31 | `test_writing_api_output_budget`、`test_claude_writing_session` |
 | REQ-S01-15 | `test_script_preparation_roles` |
 | REQ-S01-23 | `test_script_preparation_manifest_scope` |
+| REQ-S01-51 | `test_idea_download_import` |
 
 ## S02 剧本结构
 

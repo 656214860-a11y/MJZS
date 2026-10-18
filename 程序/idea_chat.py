@@ -122,16 +122,57 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None):
 
 _DOWNLOAD_COPY_SUFFIX = re.compile(r'\s*\(\d+\)(?=\.md$)', re.I)
 DOWNLOAD_IMPORT_MAX_AGE = 3 * 24 * 3600   # 只收回近三天下载的文件，不翻旧账
+_DOCUMENT_PROJECT_FIELD = re.compile(
+    r'(?im)^[ \t]*(?:[-*#]+[ \t]*)?(?:项目名(?:称)?|剧名|片名)[ \t]*[：:][ \t]*([^\r\n]*)')
+_DOCUMENT_TITLE_LABELS = ('项目设定', '世界观', '需求梳理', '项目大纲', '剧本大纲', '故事大纲',
+                          '分集大纲', '纲要', '角色卡', '人物设定', '自然剧本', '项目剧本')
+
+
+def _document_project_name(text):
+    "从创作正文中取项目名；只认明确字段或首行标题里的类型标签，取不到返回空串。"
+    value = str(text or '').replace('\r\n', '\n')
+    match = _DOCUMENT_PROJECT_FIELD.search(value)
+    if match:
+        raw = match.group(1).strip()
+        found = re.search(r'《([^》]+)》', raw)
+        candidate = found.group(1) if found else raw.strip('《》')
+        candidate = candidate.strip()
+        if candidate and candidate not in _DOCUMENT_TITLE_LABELS:
+            return candidate
+    heading = next((line.strip() for line in value.split('\n') if line.strip()), '')
+    heading = heading.lstrip('# \t').strip()
+    if not heading:
+        return ''
+    found = re.search(r'《([^》]+)》', heading)
+    if found and any(label in heading for label in _DOCUMENT_TITLE_LABELS):
+        candidate = found.group(1).strip()
+        if candidate not in _DOCUMENT_TITLE_LABELS:
+            return candidate
+    for label in sorted(_DOCUMENT_TITLE_LABELS, key=len, reverse=True):
+        position = heading.find(label)
+        if position < 0:
+            continue
+        candidate = (heading[:position] + heading[position + len(label):]).strip(' \t：:｜|-—·_')
+        if candidate and candidate not in _DOCUMENT_TITLE_LABELS:
+            return candidate
+    return ''
+
+
+def _same_project_name(candidate, expected):
+    def normalize(value):
+        return re.sub(r'\s+', ' ', str(value or '').replace('《', '').replace('》', '')).strip().casefold()
+    return bool(normalize(candidate)) and normalize(candidate) == normalize(expected)
 
 
 def import_downloaded_documents(root, folder, provider='', model='', *, publish=None, now=None):
     """收回用户从桌面 Agent 窗口（如 Claude Desktop）下载到「下载」文件夹的创作文件。
 
-    桌面窗口有时只给出下载文件而不直接写入任务书指定的路径；这里按四段式文件名
-    ``项目名_文件类型_内容_年月日.md``（浏览器追加的「 (N)」也认）找回同项目、同
-    Provider 的文件。每类只取最新一份，且必须比本模型该类已保存的最新文件更新、
-    正文分类与文件名一致；落盘复用 ``save_reply``：设定／大纲／角色卡覆盖同一份，
-    自然剧本同稿复用、异稿编号。下载目录里的原文件保持不动。
+    桌面窗口有时只给出下载文件而不直接写入任务书指定的路径；四段式文件名
+    ``项目名_文件类型_内容_年月日.md``（浏览器追加的「 (N)」也认）按项目／类型／
+    Provider 内容段找回；文件名不合格式时改为按正文判类，并用正文里的项目名与当前
+    项目核对。每类只取最新一份，且必须比本模型该类已保存的最新文件更新；落盘复用
+    ``save_reply``：设定／大纲／角色卡覆盖同一份，自然剧本同稿复用、异稿编号。
+    下载目录里的原文件保持不动。
 
     返回 ``[(文件类型, 已写入路径), ...]``；没有可收回的文件时返回空列表。
     """
@@ -159,22 +200,34 @@ def import_downloaded_documents(root, folder, provider='', model='', *, publish=
             continue
         if now - mtime > DOWNLOAD_IMPORT_MAX_AGE:
             continue
+        body = None
         info = stage_file_info(_DOWNLOAD_COPY_SUFFIX.sub('', path.name))
-        if not info or info.get('format') != 'stage-v1':
-            continue
-        file_type = info.get('file_type')
-        if info.get('project') != expected_project or file_type not in PROJECT_DOCUMENT_DIRS:
-            continue
-        content = re.sub(r'\(\d+\)$', '', str(info.get('content') or '')).strip()
-        if expected_provider and content != expected_provider:
-            continue
+        if info and info.get('format') == 'stage-v1':
+            file_type = info.get('file_type')
+            if info.get('project') != expected_project or file_type not in PROJECT_DOCUMENT_DIRS:
+                continue
+            content = re.sub(r'\(\d+\)$', '', str(info.get('content') or '')).strip()
+            if expected_provider and content != expected_provider:
+                continue
+        else:
+            try:
+                body = path.read_text(encoding='utf-8-sig')
+            except (OSError, UnicodeDecodeError):
+                continue
+            if not is_project_document_text(body):
+                continue
+            file_type = _project_file_type(body)
+            if file_type not in PROJECT_DOCUMENT_DIRS:
+                continue
+            if not _same_project_name(_document_project_name(body), expected_project):
+                continue
         if file_type not in newest or mtime > newest[file_type][0]:
-            newest[file_type] = (mtime, path)
+            newest[file_type] = (mtime, path, body)
     if not newest:
         return []
     model_dir = write_dir(context.root, 'script') / _storage_name(provider, '未知Provider') / _storage_name(model, '未知模型')
     imported = []
-    for file_type, (mtime, path) in sorted(newest.items()):
+    for file_type, (mtime, path, body) in sorted(newest.items()):
         latest = 0
         category = project_document_directory(file_type)
         try:
@@ -189,10 +242,13 @@ def import_downloaded_documents(root, folder, provider='', model='', *, publish=
                 continue
         if mtime <= latest:
             continue
-        try:
-            text = path.read_text(encoding='utf-8-sig')
-        except (OSError, UnicodeDecodeError):
-            continue
+        if body is None:
+            try:
+                text = path.read_text(encoding='utf-8-sig')
+            except (OSError, UnicodeDecodeError):
+                continue
+        else:
+            text = body
         if not is_project_document_text(text) or _project_file_type(text) != file_type:
             continue
         value = text.replace('\r\n', '\n').strip()

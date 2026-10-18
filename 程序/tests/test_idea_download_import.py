@@ -106,6 +106,87 @@ class DownloadImportTests(unittest.TestCase):
             idea_chat.import_downloaded_documents(self.context, self.downloads, provider='Anthropic')
 
 
+SETTING = '# 项目设定\n\n项目名：《摄影侠》\n故事大体环境：真城。\n'
+
+
+class BodyNamedDownloadImportTests(unittest.TestCase):
+    "REQ-S01-51：文件名不是四段式时，按正文类型与正文项目名安全收回。"
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        base = Path(self._tmp.name)
+        self.project = base / '摄影侠_20260930'
+        self.project.mkdir()
+        self.downloads = base / 'Downloads'
+        self.downloads.mkdir()
+        self.context = project_context(self.project)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _download(self, name, text, age=0):
+        path = self.downloads / name
+        path.write_text(text, encoding='utf-8')
+        stamp = time.time() - age
+        os.utime(path, (stamp, stamp))
+        return path
+
+    def _import(self, provider='Google', model='Gemini Desktop'):
+        return idea_chat.import_downloaded_documents(
+            self.context, self.downloads, provider=provider, model=model, publish=publish_idea_creative)
+
+    def test_req_s01_51_google_named_setting_is_imported_by_body(self):
+        source = self._download('google_20261018.md', SETTING)
+        imported = self._import()
+        self.assertEqual([kind for kind, _path in imported], ['项目设定'])
+        saved = imported[0][1]
+        self.assertEqual(saved.parent.name, '项目设定')
+        self.assertEqual(saved.parents[2].name, 'Gemini Desktop')
+        self.assertEqual(saved.read_text(encoding='utf-8').strip(), SETTING.strip())
+        self.assertTrue(source.is_file(), '下载原件保持不动')
+
+    def test_req_s01_51_body_project_mismatch_or_missing_is_ignored(self):
+        self._download('google_20261018.md', '# 项目设定\n\n项目名：《别的项目》\n故事大体环境：别处。\n')
+        self._download('google_20261018 (1).md', '# 项目设定\n\n故事大体环境：没有项目名。\n')
+        self._download('摄影侠 项目大纲 20261018.md', '# 剧本大纲\n\n## 一句话简介\n少年拿起相机。\n')
+        self.assertEqual(self._import(), [])
+
+    def test_req_s01_51_title_project_name_imports_outline_role_card_and_script(self):
+        self._download('google_20261018.md', '# 剧本大纲：摄影侠\n\n## 一句话简介\n少年拿起相机。\n')
+        self._download('google_20261018 (1).md', '# 角色卡：摄影侠\n\n## 林夏\n- 姓名：林夏\n')
+        self._download('google_20261018 (2).md', '# 摄影侠 自然剧本\n\n第1集\n\n林夏抬头看向照相馆的灯。\n')
+        kinds = sorted(kind for kind, _path in self._import())
+        self.assertEqual(kinds, ['自然剧本', '角色卡', '项目大纲'])
+
+    def test_req_s01_51_newest_unsuffixed_candidate_wins(self):
+        self._download('google_20261018.md', '# 项目设定\n\n项目名：《摄影侠》\n故事大体环境：旧版。\n', age=60)
+        self._download('google_20261018 (1).md', '# 项目设定\n\n项目名：《摄影侠》\n故事大体环境：新版。\n')
+        imported = self._import()
+        self.assertEqual([kind for kind, _path in imported], ['项目设定'])
+        self.assertIn('新版', imported[0][1].read_text(encoding='utf-8'))
+        self.assertEqual(len(list(imported[0][1].parent.glob('*.md'))), 1)
+
+    def test_req_s01_51_older_than_saved_file_does_not_overwrite(self):
+        saved = idea_chat.save_reply(self.context, SETTING, provider='Google', model='Gemini Desktop',
+                                     publish=publish_idea_creative)
+        stamp = time.time() - 600
+        os.utime(saved, (stamp, stamp))
+        self._download('google_20261018.md',
+                       '# 项目设定\n\n项目名：《摄影侠》\n故事大体环境：更旧的下载。\n', age=3600)
+        self.assertEqual(self._import(), [])
+        self.assertEqual(saved.read_text(encoding='utf-8').strip(), SETTING.strip())
+
+    def test_req_s01_51_download_older_than_three_days_is_ignored(self):
+        self._download('google_20261018.md', SETTING,
+                       age=idea_chat.DOWNLOAD_IMPORT_MAX_AGE + 60)
+        self.assertEqual(self._import(), [])
+
+    def test_req_s01_51_non_markdown_or_non_creative_is_ignored(self):
+        self._download('google_20261018.txt', SETTING)
+        self._download('google_20261018.md', '今天天气不错，先聊聊天。\n')
+        self.assertEqual(self._import(), [])
+
+
 class DownloadsDirectoryTests(unittest.TestCase):
     def test_falls_back_to_home_downloads_without_registry(self):
         with patch.object(platform_tools, 'windows_registry', return_value=None):
