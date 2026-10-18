@@ -8,10 +8,16 @@ REQUIREMENTS.md 里标 ✅ 的需求必须有测试锚定（测试名 ``test_req
 - 基线里的编号一旦有了锚点、或不再是 ✅，必须从基线删除（只许减少）；
 - 测试里引用了 REQUIREMENTS.md 不存在的编号即失败（编号删除后不复用）。
 """
+import ast
 import json
 import re
+import sys
 import unittest
 from pathlib import Path
+
+_SCRIPT_ROOT = Path(__file__).resolve().parents[2]
+if str(_SCRIPT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_ROOT))
 
 from tests.architecture._scan import ROOT
 
@@ -32,13 +38,79 @@ def anchored_requirements():
     for path in (ROOT / 'tests').rglob('*.py'):
         if path.name == Path(__file__).name:
             continue
-        text = path.read_text(encoding='utf-8', errors='ignore')
-        for m in DOC_ANCHOR.finditer(text):
-            for number in m.group(2).split('/'):
-                found.add(f'REQ-S{m.group(1)}-{number}')
-        for m in NAME_ANCHOR.finditer(text):
-            found.add(f'REQ-S{m.group(1)}-{m.group(2)}')
+        found.update(_anchor_ids(path.read_text(encoding='utf-8', errors='ignore')))
     return found
+
+
+def find_anchors(requirement_id):
+    """返回锚定指定需求的 ``(测试文件, 测试类或方法)``，供 --find 命令查询。"""
+    wanted = requirement_id.strip().upper()
+    hits = set()
+    for path in (ROOT / 'tests').rglob('*.py'):
+        if path.resolve() == Path(__file__).resolve():
+            continue
+        text = path.read_text(encoding='utf-8', errors='ignore')
+        if wanted not in _anchor_ids(text):
+            continue
+        try:
+            tree = ast.parse(text, filename=str(path))
+        except SyntaxError:
+            scopes = []
+        else:
+            scopes = _test_scopes(tree)
+        for matched in DOC_ANCHOR.finditer(text):
+            ids = {f'REQ-S{matched.group(1)}-{number}'
+                   for number in matched.group(2).split('/')}
+            if wanted in ids:
+                line = text.count('\n', 0, matched.start()) + 1
+                for target in _targets_at(scopes, line):
+                    hits.add((path.relative_to(ROOT).as_posix(), target))
+        for matched in NAME_ANCHOR.finditer(text):
+            if f'REQ-S{matched.group(1)}-{matched.group(2)}' == wanted:
+                line = text.count('\n', 0, matched.start()) + 1
+                for target in _targets_at(scopes, line):
+                    hits.add((path.relative_to(ROOT).as_posix(), target))
+    return sorted(hits)
+
+
+def _anchor_ids(text):
+    found = set()
+    for matched in DOC_ANCHOR.finditer(text):
+        for number in matched.group(2).split('/'):
+            found.add(f'REQ-S{matched.group(1)}-{number}')
+    for matched in NAME_ANCHOR.finditer(text):
+        found.add(f'REQ-S{matched.group(1)}-{matched.group(2)}')
+    return found
+
+
+def _test_scopes(tree):
+    """收集测试类与方法的作用域 ``(起, 止, 名称, 报告目标)``。"""
+    scopes = []
+
+    def visit(node, prefix=''):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.ClassDef):
+                name = f'{prefix}{child.name}'
+                methods = [f'{name}.{item.name}' for item in child.body
+                           if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                           and item.name.startswith('test')]
+                scopes.append((child.lineno, child.end_lineno, name, methods or [name]))
+                visit(child, name + '.')
+            elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                name = f'{prefix}{child.name}'
+                if child.name.startswith('test'):
+                    scopes.append((child.lineno, child.end_lineno, name, [name]))
+                visit(child, name + '.')
+
+    visit(tree)
+    return scopes
+
+
+def _targets_at(scopes, line):
+    candidates = [scope for scope in scopes if scope[0] <= line <= scope[1]]
+    if not candidates:
+        return ['<module>']
+    return max(candidates, key=lambda scope: scope[0])[3]
 
 
 def untested_done_requirements():
@@ -70,5 +142,20 @@ class RequirementTraceabilityTests(unittest.TestCase):
                          '以下编号已有测试锚定或不再是 ✅，请从 维护记录/需求锚定基线.json 删除')
 
 
+def _find_main(argv):
+    if len(argv) != 1 or not re.fullmatch(r'(?i)REQ-S\d+-\d+', argv[0]):
+        print('用法：python -B tests/architecture/test_requirement_traceability.py --find REQ-Sxx-nn')
+        return 2
+    hits = find_anchors(argv[0])
+    if not hits:
+        print(f'未找到锚定 {argv[0].upper()} 的测试')
+        return 1
+    for path, target in hits:
+        print(f'{path}: {target}')
+    return 0
+
+
 if __name__ == '__main__':
+    if len(sys.argv) >= 2 and sys.argv[1] == '--find':
+        sys.exit(_find_main(sys.argv[2:]))
     unittest.main()
