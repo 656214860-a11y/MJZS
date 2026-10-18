@@ -1730,6 +1730,24 @@
       "reference": ""
     },
     {
+      "file": "tests/test_ui_writing_recon.py",
+      "test": "WritingReconButtonTests.test_the_recon_button_is_on_the_writing_page",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_writing_recon.py",
+      "test": "WritingReconButtonTests.test_the_recon_button_is_on_the_writing_page",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
       "file": "tests/test_ui_widgets_dialogs.py",
       "test": "DialogWidgetTests.setUp",
       "ordinal": 1,
