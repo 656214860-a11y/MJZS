@@ -222,6 +222,39 @@ class CleanWorktreeTests(unittest.TestCase):
         self.assertIn('lock', calls[0])
 
 
+class IgnoredInputTests(unittest.TestCase):
+    """R1693 实测：`test_agents_md` 要读 `维护记录/基准历史.json`，而它被 .gitignore 排除，
+    干净检出里天然没有——不补这一份，后台全量每次都会红在同一条上。"""
+
+    def test_the_local_benchmark_history_is_supplied_to_the_checkout(self):
+        with tempfile.TemporaryDirectory() as folder:
+            main, target = Path(folder) / 'main', Path(folder) / 'ci'
+            records = main / '程序' / '维护记录'
+            records.mkdir(parents=True)
+            (records / '基准历史.json').write_text('[]', encoding='utf-8')
+            (records / 'auto_full_safe.log').write_text('不该被拷走', encoding='utf-8')
+            auto._fill_ignored_inputs(main, target)
+            copied = target / '程序' / '维护记录' / '基准历史.json'
+            self.assertEqual(copied.read_text(encoding='utf-8'), '[]')
+            self.assertFalse((target / '程序' / '维护记录' / 'auto_full_safe.log').exists(),
+                             '只补显式清单，日志与台账不能进检出')
+            self.assertIn('维护记录/基准历史.json', auto.IGNORED_INPUTS)
+
+    def test_a_missing_input_is_tolerated(self):
+        with tempfile.TemporaryDirectory() as folder:
+            auto._fill_ignored_inputs(Path(folder) / 'main', Path(folder) / 'ci')   # 不抛即可
+
+    def test_an_existing_copy_is_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as folder:
+            main, target = Path(folder) / 'main', Path(folder) / 'ci'
+            (main / '程序' / '维护记录').mkdir(parents=True)
+            (main / '程序' / '维护记录' / '基准历史.json').write_text('新', encoding='utf-8')
+            (target / '程序' / '维护记录').mkdir(parents=True)
+            (target / '程序' / '维护记录' / '基准历史.json').write_text('旧', encoding='utf-8')
+            auto._fill_ignored_inputs(main, target)
+            self.assertEqual((target / '程序' / '维护记录' / '基准历史.json').read_text(encoding='utf-8'), '旧')
+
+
 class ScanIsolationTests(unittest.TestCase):
     """R1693：`.wt/ci` 常驻后，扫描口径必须把它当检出副本，不能算第二批生产模块。"""
 

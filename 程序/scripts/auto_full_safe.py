@@ -273,10 +273,27 @@ def _sync_clean_worktree(root: Path, head: str) -> Path:
         target.parent.mkdir(parents=True, exist_ok=True)
         _git("worktree", "add", "--detach", "-f", str(target), head, cwd=root)
     _fill_embedded_repos(root, target)
+    _fill_ignored_inputs(root, target)
     _lock_worktree(target)
     if not (target / PROGRAM.name / "run_selftests.py").is_file():
         raise RuntimeError("干净检出缺少 程序/run_selftests.py：%s" % target)
     return target / PROGRAM.name
+
+
+# 测试要读、却被 .gitignore 排除的本地输入：干净检出里天然没有，只能从主工作树补。
+# R1693 实测：`test_agents_md` 要核对 基准历史.json 是否被声明为「仅历史」，缺了就是 1 条红。
+IGNORED_INPUTS = ("维护记录/基准历史.json",)
+
+
+def _fill_ignored_inputs(root: Path, target: Path) -> None:
+    """把显式清单里的被忽略输入补进检出；不整体拷 维护记录/，避免把日志与私有数据带进去。"""
+    for relative in IGNORED_INPUTS:
+        source = root / PROGRAM.name / relative
+        destination = target / PROGRAM.name / relative
+        if not source.is_file() or destination.exists():
+            continue
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
 
 
 def _fill_embedded_repos(root: Path, target: Path) -> None:
