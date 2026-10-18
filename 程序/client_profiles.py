@@ -185,11 +185,22 @@ def profile_for_mode(identifier, mode, *, builtin_path=None, user_path=None, ref
     return {}
 
 
-def profile_for_model(model_id='', item=None, *, refresh=False):
-    """Resolve a model-pool record to a profile using id, label, or program."""
+def profile_for_model(model_id='', item=None, *, kind='', refresh=False):
+    """Resolve a model-pool record to a profile using id, label, or program.
+
+    ``kind`` (``desktop`` / ``cli``) restricts the result to that call mode so
+    an alias shared with a desktop profile cannot leak into the CLI branch.
+    ``kind=''`` keeps the historical first-match behavior for other callers.
+    """
     record = item if isinstance(item, dict) else {}
+    wanted = _plain(kind).casefold()
+    if wanted not in ('desktop', 'cli'):
+        wanted = ''
     for value in (model_id, record.get('model'), record.get('label'), record.get('program')):
-        found = profile(value, refresh=refresh)
+        if wanted:
+            found = profile_for_mode(value, wanted, refresh=refresh)
+        else:
+            found = profile(value, refresh=refresh)
         if found:
             return found
     return {}

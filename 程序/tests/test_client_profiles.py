@@ -327,5 +327,24 @@ class BuiltinEnginePrecedenceTests(unittest.TestCase):
             {'provider': 'desktop', 'model': 'dsh'}), 'CLI')
 
 
+class CliProfileSelectionRegressionTests(unittest.TestCase):
+    """R1706c 回归：client-cli 分支只能取 CLI 档案，不能命中共用别名的桌面档案。"""
+
+    def test_regression_r1706c_client_cli_branch_selects_cli_profile(self):
+        with tempfile.TemporaryDirectory() as td:
+            record = {
+                'label': 'opencode CLI',
+                'provider': 'desktop',
+                'model': 'opencode',
+                'call_mode': 'CLI',
+                'program': 'C:/tools/opencode-cli.exe',
+            }
+            config = workflow_settings.current(
+                Path(td), 'writing', model_snapshot=('opencode', record))
+        self.assertEqual(config['engine'], 'client-cli')
+        self.assertEqual(config['client_profile'], 'opencode-cli')
+        self.assertEqual(config['delivery'], 'cli_file')
+
+
 if __name__ == '__main__':
     unittest.main()

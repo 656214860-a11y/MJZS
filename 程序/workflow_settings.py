@@ -476,8 +476,9 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
         profile['program'] = str(item.get('program') or '').strip()
         profile['model'] = ''
     if explicit_engine in ('desktop-app', 'client-cli'):
-        found = client_profiles.profile_for_model(selected, item) or \
-            client_profiles.profile_for_mode(selected, model_pool.call_mode(item, selected))
+        wanted = 'desktop' if explicit_engine == 'desktop-app' else 'cli'
+        found = client_profiles.profile_for_model(selected, item, kind=wanted) or \
+            client_profiles.profile_for_mode(selected, wanted)
         profile['client_profile'] = found.get('id', '')
         profile['delivery'] = found.get('delivery', 'paste' if explicit_engine == 'desktop-app' else 'cli_stdin')
         profile['app_name'] = found.get('display', '') or str(item.get('label') or selected or '').strip()
