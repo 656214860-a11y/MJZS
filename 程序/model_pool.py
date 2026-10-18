@@ -940,6 +940,144 @@ def _http_opener():
     return urllib.request.build_opener(NoRedirect())
 
 
+# ── DeepSeek Search／Fetch 工具接口 ───────────────────────────────────────────
+# 这两个接口是只读的原始 JSON API，和模型调用共用同一把钥匙（DEEPSEEK_API_KEY）与同一套
+# 传输栈。放在这里而不是新开模块，是因为「出站 HTTP 只有一个实现」「密钥只有一条读取链」
+# 本来就是本模块的职责；调用方（L2 采风服务）只管业务，不碰网络栈、不碰密钥。
+TOOLS_BASE_URL = 'https://api.deepseek.com'
+TOOLS_SEARCH_PATH = '/v1/tools/search'
+TOOLS_FETCH_PATH = '/v1/tools/fetch'
+TOOLS_KEY_ENV = 'DEEPSEEK_API_KEY'
+TOOLS_QUERY_LIMIT = 128          # 文档：query 1～128 个 Unicode 字符，不能全为空白
+TOOLS_COUNT_RANGE = (1, 50)      # 文档：count 1～50，默认 10
+TOOLS_URL_LIMIT = 8192
+TOOLS_TIMEOUT = 20
+# 文档的错误分工：408／429／5xx 等一等再试；402 先充值；其余 4xx 不改请求就别重试。
+# 0 是本地网络异常，和 408 一样按可重试处理（与 pet_llm.RETRYABLE_STATUS 同口径）。
+TOOLS_RETRY_STATUS = (0, 408, 425, 429, 500, 502, 503, 504)
+TOOLS_BALANCE_STATUS = 402
+TOOLS_RATE_STATUS = 429
+TOOLS_URL_PATTERN = re.compile(r'^https?://[^\s/?#]+', re.IGNORECASE)
+
+
+def tools_base(program=None):
+    """Search／Fetch 的根地址：模型池里 DeepSeek 那条的地址优先，其次出厂地址。
+
+    用户把 DeepSeek 换成自建代理时，这三个接口应当跟着模型走，而不是绕回出厂域名。
+    """
+    try:
+        for item in (pool(program=program) or {}).values():
+            url = str((item or {}).get('base_url') or '').strip()
+            if 'deepseek' in url.lower():
+                return normalize_url(url)
+    except Exception:
+        # 配置读不出来不该让采风变成「崩溃」，退回出厂地址由请求自己报鉴权错。
+        return TOOLS_BASE_URL
+    return TOOLS_BASE_URL
+
+
+def tools_headers(program=None):
+    """这两个接口的鉴权头：与模型调用同一把钥匙，缺钥匙时抛 ValueError（调用方转成用户提示）。"""
+    return {'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + credential(TOOLS_KEY_ENV, program)}
+
+
+def tools_error_kind(status):
+    """HTTP 状态 → 重试策略：balance（先充值）／rate（退避）／auth／blocked／empty／server…"""
+    if status == TOOLS_BALANCE_STATUS:
+        return 'balance'
+    if status == TOOLS_RATE_STATUS:
+        return 'rate'
+    if status == 403:
+        return 'blocked'
+    if status == 404:
+        return 'empty'
+    return _http_error_kind(status)
+
+
+def tools_retryable(status):
+    """这一状态值得等一等再试吗（402 充值、401 换钥匙、其余 4xx 都不该重试）。"""
+    try:
+        return int(status) in TOOLS_RETRY_STATUS
+    except (TypeError, ValueError):
+        return False
+
+
+def _tools_url_problem(url):
+    """文档要求的 url 形状：含 host 的 http(s)，且不带用户名密码。"""
+    if not url:
+        return 'url 不能为空'
+    if len(url) > TOOLS_URL_LIMIT:
+        return 'url 超过 %d 个字符' % TOOLS_URL_LIMIT
+    match = TOOLS_URL_PATTERN.match(url)
+    if not match:
+        return 'url 必须是含 host 的 HTTP／HTTPS 地址'
+    authority = re.sub(r'^https?://', '', match.group(0), flags=re.IGNORECASE)
+    if '@' in authority:
+        return 'url 不能携带用户名或密码'
+    return ''
+
+
+def _tools_request(path, payload, timeout, transport, program, headers=None):
+    """一次只读工具请求：形状与 http_transport 一致，ok 时带上已解析的 data。"""
+    try:
+        merged = dict(headers) if headers else tools_headers(program)
+    except ValueError as exc:
+        return {'ok': False, 'status': 0, 'kind': 'auth', 'error': str(exc)}
+    sender = transport or http_transport
+    result = sender(tools_base(program) + path, payload, merged, timeout)
+    if not isinstance(result, dict):
+        return {'ok': False, 'status': 0, 'kind': 'bug', 'error': '传输没有返回结果'}
+    status = int(result.get('status') or 0)
+    if not result.get('ok'):
+        return {'ok': False, 'status': status, 'kind': tools_error_kind(status),
+                'error': str(result.get('error') or '请求失败')}
+    data = result.get('data')
+    return {'ok': True, 'status': status or 200, 'data': data if isinstance(data, dict) else {}}
+
+
+def tools_search(query, count=10, ori_question=None, need_content=False, localization='',
+                 timeout=TOOLS_TIMEOUT, transport=None, program=None, headers=None):
+    """DeepSeek 网页搜索：返回 {ok,status,kind,data,results}；results 为空数组是正常结果。
+
+    `transport`／`headers` 是自检注入点：不传时走真实传输与模型池里的密钥链。
+    """
+    text = str(query or '')
+    if not text.strip() or len(text) > TOOLS_QUERY_LIMIT:
+        return {'ok': False, 'status': 400, 'kind': 'invalid',
+                'error': 'query 必须是 1～%d 个字符且不能全为空白' % TOOLS_QUERY_LIMIT}
+    try:
+        number = int(count)
+    except (TypeError, ValueError):
+        number = 10
+    payload = {'query': text, 'count': max(TOOLS_COUNT_RANGE[0], min(TOOLS_COUNT_RANGE[1], number)),
+               'need_content': bool(need_content)}
+    question = str(ori_question or '').strip()
+    if question:
+        payload['ori_question'] = question[:TOOLS_QUERY_LIMIT]
+    if localization:
+        payload['localization'] = str(localization)
+    result = _tools_request(TOOLS_SEARCH_PATH, payload, timeout, transport, program, headers)
+    if result.get('ok'):
+        rows = result['data'].get('results')
+        result['results'] = list(rows) if isinstance(rows, list) else []
+    return result
+
+
+def tools_fetch(url, timeout=TOOLS_TIMEOUT, transport=None, program=None, headers=None):
+    """DeepSeek 网页抓取：返回 {ok,status,kind,data,title,content}（正文为 Markdown）。"""
+    text = str(url or '').strip()
+    problem = _tools_url_problem(text)
+    if problem:
+        return {'ok': False, 'status': 400, 'kind': 'invalid', 'error': problem}
+    result = _tools_request(TOOLS_FETCH_PATH, {'url': text}, timeout, transport, program, headers)
+    if result.get('ok'):
+        data = result['data']
+        result['title'] = str(data.get('title') or '')
+        result['content'] = str(data.get('content') or '')
+    return result
+
+
 def call_mode(value, model_id=''):
     """显式调用方式优先；旧本地记录按现有引擎兼容分类。"""
     mode = value.get('call_mode', '')

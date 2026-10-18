@@ -124,6 +124,7 @@ DOCS = {
     '04分镜预演': (('animatic_notes.md', '节奏、时长与对白同步确认记录'),),
     '01剧本准备': (('story_brief.md', '创意与需求原稿'), ('outline.md', '全局大纲'),
                   ('characters.md', '角色设定（自然语言，人读）'), ('episode_plan.md', '分集规划'),
+                  ('intel_card.md', '对标情报卡（来源与分级，人读；机器读同级 input/recon_card.json）'),
                   ('world_bible.md', '世界观设定集（人读；script-worldbuilding 那一段并回正稿）')),
     '02剧本结构': (('script_raw.md', '剧本原稿（输入）'), ('script.md', '结构化剧本正稿（输出）')),
     '03初步分镜': (('storyboard_notes.md', '拆镜思路与取舍'),
@@ -373,6 +374,8 @@ def json_md_rows():
          '台账 JSON 是机器输入，人读版在 docs'),
         ('shot.video_prompt', '10视频生成/docs/video_prompt_log.md',
          '视频提示词只写动作与运镜'),
+        ('01剧本准备/input/recon_card.json', '01剧本准备/docs/intel_card.md',
+         '来源、分级与预算留在 JSON，人读版在 docs；情报卡是来源不是设定依据'),
     )
 
 

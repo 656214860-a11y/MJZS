@@ -6,7 +6,7 @@ stage: 剧本准备
 capabilities: [creative-writing, structured-output, reasoning]
 preferredModels: [qwen-max]
 fallbackModels: [deepseek-v4-pro]
-tools: [script.generate, script.validate]
+tools: [recon.card, script.generate, script.validate]
 dependsOn: []
 conflictsWith: []
 parallelizable: false
@@ -33,7 +33,7 @@ examples:
 - [决策引擎：节拍与情境决策](../00全流程SKILL/AIGC创作全流程/sd-decision-engine/SKILL.md#四工作流程)
 - [剧本引擎：六阶段链](../00全流程SKILL/AIGC创作全流程/sd-script-engine/SKILL.md#六阶段链)
 - 仅 `track` 为海外剧时追加 [海外剧本与风格保护](../00全流程SKILL/AIGC创作全流程/sd-overseas-engine/SKILL.md#六剧本层执行规则)；仅解说叙事类追加 [旁白稿写作规范](../00全流程SKILL/AIGC创作全流程/sd-jieshuo-engine/SKILL.md#六旁白稿vo-script写作规范核心)。
-- 仅 `material_source` 为对标爆款／热点速成时追加 [采风四步](../00全流程SKILL/AIGC创作全流程/sd-recon-engine/SKILL.md#四采风四步轻量流水线)，证据与来源随简报交接。
+- 仅 `material_source` 为对标爆款／热点速成时追加 [采风四步](../00全流程SKILL/AIGC创作全流程/sd-recon-engine/SKILL.md#四采风四步轻量流水线)，证据与来源随简报交接。本阶段工具 `recon.card` 执行其中的「检索 → 落卡」两步：产物为 `01剧本准备/input/recon_card.json`（机器读）与 `01剧本准备/docs/intel_card.md`（人读）；卡片经用户确认后才进四步创作，且**卡是来源不是设定依据**——引用时保留来源与分级，T2 讨论不得当事实。
 - 六阶段链映射到本项目既有四步文档与确认流程；不因此额外输出下游分镜、图像或投喂稿。外部写作包只作已选用方法，不能覆盖项目锁或恢复重复询问。
 
 引用仅作为相应职责的方法来源，不授予跨阶段执行权限；以下项目交付契约与锁读取规则优先于引用章节中的交互流程及示例输出路径。

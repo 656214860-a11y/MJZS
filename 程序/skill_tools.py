@@ -154,6 +154,73 @@ def _revise_structured_script(context):
             'characters': rendered.get('characters', 0)}
 
 
+def _recon_request(project):
+    """用户在 input/recon_request.json 里写下的采风请求（有就用，没有返回空表）。"""
+    from file_cache import read_json
+    from recon_service import stage_paths
+    try:
+        value = read_json(stage_paths(project)['input'] / 'recon_request.json')
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _recon_topic(project):
+    """热点速成只借「故事题材」这一个方向词起手；梗概等原创内容不出去。"""
+    from idea_brief_form import brief_creation_values
+    from project_context_factory import project_context
+    try:
+        values = brief_creation_values(project_context(project))
+    except (OSError, ValueError, TypeError):
+        # 简报读不出来就不推断方向：宁可让采风停在「还缺输入」，也不拿废话去搜。
+        return ''
+    return str((values or {}).get('故事题材') or '').strip()
+
+
+def _recon_target(context, project, material_source):
+    """对标对象从哪来：本次上下文 → 采风请求文件 → ④ 用简报题材方向。"""
+    raw = (context or {}).get('recon_target')
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, str) and raw.strip():
+        return {'name': raw.strip()}
+    request = _recon_request(project)
+    if request and (request.get('name') or request.get('topic')):
+        request.setdefault('material_source', material_source)
+        return request
+    if material_source == '热点速成':
+        topic = _recon_topic(project)
+        if topic:
+            return {'type': 'topic', 'topic': topic,
+                    'question': '这个题材最近有哪些能用的结构'}
+    return {}
+
+
+def _recon_card(context):
+    """素材采风：③④ 才激活；把对标对象的公开情报抓回来装成《对标情报卡》。"""
+    from recon_service import MATERIAL_SOURCES, collect, save_card, summary
+    import stage_config
+    ctx = context or {}
+    project = project_of(ctx)
+    lock = stage_config.workflow_lock(project) or {}
+    material_source = str(ctx.get('material_source') or lock.get('material_source') or '').strip()
+    if material_source not in MATERIAL_SOURCES:
+        return {'ok': True, 'skipped': True,
+                'reason': '素材来源是「%s」，只有对标爆款／热点速成才采风' % (material_source or '未选')}
+    target = _recon_target(ctx, project, material_source)
+    if not target:
+        raise ToolNeedsInput('采风需要先给出对标对象：在阶段配置选对标爆款并写明剧名，'
+                             '或在阶段 input/recon_request.json 里写下 name／topic')
+    card = collect(target, material_source, transport=ctx.get('transport'),
+                   headers=ctx.get('headers'), pause=ctx.get('pause'),
+                   program=ctx.get('program'))
+    saved = save_card(project, card, save=ctx.get('save'), save_text=ctx.get('save_text'))
+    return {'ok': True, 'card': saved['card'], 'doc': saved['doc'],
+            'sources': len(card.get('sources') or ()), 'problems': saved['problems'],
+            'summary': summary(card), 'not_found': card.get('not_found'),
+            'budget': card.get('budget')}
+
+
 def _copyright_filter(context):
     """版权过滤与来源记录：复用参考图搜索那份许可表（CC0／CC-BY 优先，不明就拦掉）。"""
     from asset_reference_search import normalize, copyright_decision
@@ -446,6 +513,7 @@ READY = {
     'edit.exportBilibili': (_export, 'platform_spec：B站 1920×1080 / 12M'),
     'edit.exportYouTube': (_export, 'platform_spec：YouTube 3840×2160 / 45M'),
     'edit.exportCustom': (_export, 'platform_spec：自定义参数'),
+    'recon.card': (_recon_card, 'recon_service：③④ 采风，检索公开情报并落《对标情报卡》'),
 }
 
 # 只能在页面上按的那几步：页序号按 STAGES 的顺序（与左侧导航一一对应）。
