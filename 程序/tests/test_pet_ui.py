@@ -155,6 +155,25 @@ class PetTestCase(unittest.TestCase):
         self.addCleanup(self.pet.stop)
         self.addCleanup(self.win.destroy)
 
+    def wait_for_the_reply(self, cloud, timeout=5.0):
+        """等后台那句回完再收工（用 `addCleanup` 挂在 submit 的用例上）。
+
+        `cloud.submit()` 只是把这句话交给后台线程去想；那句话没命中规则表时会真的问一次
+        模型，并把诊断事件写进 `<项目>/model_diagnostics/`。线程不许抢在
+        `TemporaryDirectory.cleanup` 前面动那个目录，否则清理会撞上
+        `OSError [WinError 145]`／`PermissionError [WinError 32]`。
+        `addCleanup` 后进先出，用例里注册的这条排在 `setUp` 里那条 `tmp.cleanup` 之后，
+        所以会先执行。超时不静默吞：没回完就直接让用例失败，说明后台还在写。
+        """
+        if cloud is None:
+            return
+        deadline = time.time() + timeout
+        while time.time() < deadline and cloud.busy:
+            cloud.drain()
+            time.sleep(0.01)
+        if cloud.busy:
+            self.fail('后台那句 %.0f 秒内没回完：临时目录还在被它写，不能就这样收工' % timeout)
+
     def pad_of(self, widget):
         return [int(float(item)) for item in re.findall(r"-?\d+\.?\d*", str(widget.cget("padding")))]
 
@@ -2067,6 +2086,7 @@ class CloudTests(PetTestCase):
                         '第 29 期第 5 条：一打开三虎先问这一页该做的事')
         self.assertIn(pet_ui.PAGE_ASKS[0][0], lines[-1])
         command = pet_ui.PAGE_ASKS[0][1]
+        self.addCleanup(self.wait_for_the_reply, cloud)
         self.assertEqual(cloud.page_ask(), command, '现场问出这一页该做的事')
         self.assertEqual(cloud.submit(), command)
         self.assertIn('您：' + command, cloud.transcript(), '确认这件事要记进记录')
@@ -2167,6 +2187,7 @@ class CloudTests(PetTestCase):
         self.pet.chat_task = lambda index=None: ('', '')
         self.addCleanup(setattr, self.pet, 'chat_task', original_task)
         cloud.propose('')
+        self.addCleanup(self.wait_for_the_reply, cloud)
         cloud.submit()
         self.assertEqual(cloud._hold, first)
         cloud.queue.put({'text': '查一下进度',
@@ -3930,6 +3951,7 @@ class ReplyBoxTests(PetTestCase):
         cloud.show(pinned=True)
         cloud.propose('查一下进度')
         cloud.reply.insert(0, '  按你这句办  ')
+        self.addCleanup(self.wait_for_the_reply, cloud)
         self.assertEqual(cloud.submit(), '按你这句办', '回复框里写的字就是发出去的那句')
         self.assertIn('您：按你这句办', cloud.transcript(), '说过的话要留在记录里')
         self.assertEqual(cloud.reply.get(), '', '发出去就清空，等着下一句')
@@ -3938,6 +3960,7 @@ class ReplyBoxTests(PetTestCase):
         cloud = self.pet.cloud()
         cloud.show(pinned=True)
         cloud.propose('查一下进度')
+        self.addCleanup(self.wait_for_the_reply, cloud)
         self.assertEqual(cloud.submit(), '查一下进度', '空着回车＝原来按一下确认')
 
     def test_the_reply_box_is_locked_while_the_pet_is_thinking(self):
@@ -4004,6 +4027,7 @@ class ConfirmDoesTheTaskTests(PetTestCase):
         cloud = self.pet.cloud()
         cloud.show(pinned=True)
         cloud.propose('')
+        self.addCleanup(self.wait_for_the_reply, cloud)
         self.assertEqual(cloud.page_ask(), pet_ui.PAGE_ASKS[5][1], '问的是当前这一页')
         self.assertEqual(cloud.submit(), pet_ui.PAGE_ASKS[5][1])
         self.assertIn('您：' + pet_ui.PAGE_ASKS[5][1], cloud.transcript())
@@ -5819,6 +5843,7 @@ class RecordScopeTests(PetTestCase):
         cloud = self.pet.cloud()
         self.pet.open_chat()
         cloud.propose('查一下进度')
+        self.addCleanup(self.wait_for_the_reply, cloud)
         cloud.submit()
         self.assertTrue(any(line.startswith('您：') for line in cloud.lines), '聊天记录要留下')
 
