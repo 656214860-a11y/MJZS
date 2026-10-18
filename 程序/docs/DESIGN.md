@@ -26,6 +26,7 @@
 - **DES-S01-12**（REQ-S01-12）肯定词表在 `writing_api`；取首行、去句末标点后比较。
 - **DES-S01-14**（REQ-S01-14）重写请求暂存在 `preparation_state.json` 的 revision 中，确认后替换当前及下游的确认，并撤销自然稿采用。
 - **DES-S01-15**（REQ-S01-15）三角色由 `skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md` 的「定向注入（00 包）」定义；外部 SKILL 包只登记 `script_contract.AUDIT`，不产生 manifest。
+- **DES-S01-16**（REQ-S01-16/17）节拍表的列、条数与铁律唯一定义在 `pipeline-script-preparation.skill.md` 的「4. 自然剧本」模板与「节拍表」小节；阶段输出契约 `workflow_settings._STAGE_OUTPUT_CONTRACTS['writing']` 与 `workflow_tasks` 两处任务提示只写「自然剧本含每集节拍表」这一句，不复制列定义。方法来源：`sd-decision-engine` 步骤 2（切分节拍）与 `emotion-anchor-table.md` 前三列／硬约束 1、3、4；`sd-script-engine` 长剧批次合同与台词拟人化（`dialogue-naturalization.md`）。节拍表随自然剧本进同一文件，`script_contract`、`script_manifest_schema.PRODUCERS`、02 的输入口径均不变。
 - **DES-S01-23**（REQ-S01-23）manifest 产出方唯一定义在 `script_manifest_schema.PRODUCERS`；`emotion_curve.json` 由 `pipeline-script-preparation` SKILL 指示模型写出，`writing_api` 不写 manifest。
 - **DES-S01-20**（REQ-S01-20）文件名由 `script_contract.stage_file_name` 生成；同内容不同稿在模型名后加 `(N)`；按 Provider/模型/日期批次分类目录。
 - **DES-S01-21**（REQ-S01-21）采用记录 `01剧本准备/natural_script_selection.json`，绑定相对路径 + SHA256。

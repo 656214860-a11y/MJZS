@@ -60,6 +60,29 @@ class WritingStageInstructionsTests(unittest.TestCase):
         self.assertIn('character_manifest', text)
         self.assertNotIn('docs/', text)
 
+    def test_req_s01_16_17_natural_script_carries_beat_table_without_shot_layer(self):
+        """REQ-S01-16/17：④自然剧本每集带节拍表；镜头层（情境 ID／80-15-5／雷区）不进本阶段。"""
+        program = Path(__file__).resolve().parents[1]
+        text = (program / 'skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md').read_text(encoding='utf-8')
+        template = text.split('### 4. 自然剧本', 1)[1].split('### 节拍表', 1)[0]
+        self.assertIn('## 本集节拍表', template)
+        self.assertIn('| 场次 | 节拍＃ | 情绪关键词 | 服务的剧本动作 | 权重 | 强度 |', template)
+        rules = text.split('### 节拍表', 1)[1].split('## 定向注入', 1)[0]
+        for phrase in ('每场 3–5 个节拍', '禁止“复杂”“微妙”', '每场至多 1 个', '4 个同类节拍等于戏没推进',
+                       '不写情境 ID、镜头组合、机位、构图雷区', '留给 03／07'):
+            self.assertIn(phrase, rules + text)
+        # 同一份自然剧本文件内交付，不另立文件。
+        self.assertNotIn('beat_sheet.json', text)
+        clause = '每集在正文前附本集节拍表'
+        with tempfile.TemporaryDirectory() as directory:
+            with patch('workflow_tasks._agent_delivery_contract', return_value='规范路径清单'):
+                prompts = [stage_output_contract('writing'),
+                           script_prompt(directory, None, 'writing', creative_text='素材'),
+                           script_followup(None, 'writing', project=directory, creative_text='修改人物')]
+        for prompt in prompts:
+            self.assertIn(clause, prompt)
+            self.assertIn('不含机位、情境 ID 等镜头层内容', prompt)
+
     def _installed_skill(self, directory):
         source = Path(__file__).resolve().parents[1] / 'skills'
         root = Path(directory) / 'program' / 'skills'
@@ -118,6 +141,8 @@ class WritingStageInstructionsTests(unittest.TestCase):
             added_engines = {
                 'sd-decision-engine/SKILL.md#四工作流程',
                 'sd-script-engine/SKILL.md#六阶段链',
+                'sd-script-engine/SKILL.md#长剧批次合同',
+                'sd-script-engine/references/dialogue-naturalization.md',
                 'sd-overseas-engine/SKILL.md#六剧本层执行规则',
                 'sd-jieshuo-engine/SKILL.md#六旁白稿vo-script写作规范核心',
                 'sd-recon-engine/SKILL.md#四采风四步轻量流水线',
