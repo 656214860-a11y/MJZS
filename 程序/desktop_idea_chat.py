@@ -72,6 +72,29 @@ BUBBLE_SLACK=26        # 量字宽只是估算（字号、全角半角都有出�
                        # 免得一句话末了一个字被挤到下一行
 
 
+def _deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text,
+                         program, app, paste):
+    """启动 Desktop 程序；发送入口启用时尝试粘贴，失败如实回落为手动粘贴。"""
+    from platform_tools import launch_windows_app
+    launch_windows_app(program, app)
+    if not paste:
+        message = '已打开 '+app+'，任务已复制到剪贴板；请切到该窗口粘贴并手动发送。'
+        finish(receipt,'prepared',message,task_file=task_file)
+        host.status.set(message)
+        host.notifier.info(message,title='请粘贴并发送')
+        return
+    from codex_paste import paste_existing
+    def pasted(value):
+        state = 'prepared' if value['ok'] else 'failed'
+        finish(receipt,state,value['reason'],task_file=task_file)
+        host.status.set(value['reason'])
+        host.notifier.info(value['reason'],
+                           title='请检查并发送' if value['ok'] else '请手动粘贴')
+    host.status.set('正在将本次任务粘贴到 '+app+'，请检查后手动发送…')
+    host.async_(lambda: paste_existing(title,clipboard_text,program=program,
+                                       app_name=app,deadline_seconds=45),pasted)
+
+
 class IdeaChatMixin:
     """Desktop 的创意对话与 Agent 派发方法集（见模块说明）。"""
     # 这些兼容属性保留既有桌面控件与测试的访问方式；状态归属在无 Tk 控制器。
@@ -781,7 +804,7 @@ class IdeaChatMixin:
         self._idea_semantic_pending = pending
         try:
             if local:
-                self.open_flow_agent('writing', '简报信息提取', request['prompt'], request['prompt'], intake_only=True)
+                self.open_flow_agent('writing', '简报信息提取', request['prompt'], request['prompt'], intake_only=True, desktop_paste=True)
             else:
                 project = self.root
                 def extract():
@@ -1212,7 +1235,7 @@ class IdeaChatMixin:
             text='\n'.join(label+'：' for label in dict.fromkeys((*IDEA_FIELDS, *INLINE_REQUIRED_LABELS)))+'\n'
         self._idea_example=text
         return text
-    def open_flow_agent(self,stage,label,prompt,followup=None,on_receipt=None,_config=None,*,intake_only=False,new_session=False):
+    def open_flow_agent(self,stage,label,prompt,followup=None,on_receipt=None,_config=None,*,intake_only=False,new_session=False,desktop_paste=False):
         from workflow_settings import current,writer_style_summary
         from workflow_engines import prompt_with_settings,launch_interactive
         from agent_dispatch import signature,claim,finish,outcome,retryable
@@ -1433,11 +1456,8 @@ class IdeaChatMixin:
                 program = find_program(config)
                 if config['engine'] == 'desktop-app':
                     app = config.get('display_model') or '桌面模型'
-                    launch_windows_app(program, app)
-                    message = '已打开 '+app+'，任务已复制到剪贴板；请切到该窗口粘贴并手动发送。'
-                    finish(receipt,'prepared',message,task_file=task_file)
-                    self.status.set(message)
-                    self.notifier.info(message,title='请粘贴并发送')
+                    _deliver_desktop_app(self, finish, receipt, task_file, title,
+                                         clipboard_text, program, app, desktop_paste)
                     return
                 launch_windows_app(program, 'Claude Desktop')
                 from codex_paste import paste_existing

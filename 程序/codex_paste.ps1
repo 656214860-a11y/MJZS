@@ -1,4 +1,10 @@
-﻿param([Parameter(Mandatory=$true)][string]$PayloadFile,[ValidateRange(1,120)][int]$DeadlineSeconds=15)
+﻿param(
+ [string]$PayloadFile='',
+ [ValidateRange(1,120)][int]$DeadlineSeconds=15,
+ [string]$SelfTestTarget='',
+ [string]$SelfTestProcess='',
+ [string]$SelfTestProgram=''
+)
 $ErrorActionPreference='Stop'
 [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
 Add-Type -AssemblyName UIAutomationClient
@@ -13,11 +19,8 @@ public static class PasteWindow {
  [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr handle, int command);
 }
 "@
-$payload=[IO.File]::ReadAllText($PayloadFile,[Text.Encoding]::UTF8)|ConvertFrom-Json
-$prompt=[string]$payload.prompt
-$claudeProgram=[string]$payload.program
-$appName=if($claudeProgram){'Claude Desktop'}else{'GPT 桌面'}
-if($null -ne $payload.deadline){$DeadlineSeconds=[Math]::Min(120,[Math]::Max(1,[int]$payload.deadline))}
+$claudeProgram=''
+$appName='GPT 桌面'
 function Finish($ok,$reason){
  @{ok=$ok;reason=$reason;send_dispatched=$false}|ConvertTo-Json -Compress
  exit
@@ -30,17 +33,36 @@ function Test-CodexProcess($process){
  }
  return $process.ProcessName -eq 'Codex' -and $path -match '(?i)[\\/]Codex(?:[\\/]|\.exe$)'
 }
+function Test-TargetMatch($processName,$actualPath,$expectedProgram){
+ if(!$expectedProgram -or !$processName -or !$actualPath){return $false}
+ $expected=[IO.Path]::GetFullPath([string]$expectedProgram)
+ $expectedName=[IO.Path]::GetFileNameWithoutExtension($expected)
+ if($processName -ine $expectedName){return $false}
+ $actual=[string]$actualPath
+ if($actual -ieq $expected){return $true}
+ # 根目录启动器可转交同安装目录内的版本化程序（如 app-1.15.0/Gemini.exe、app-*/Claude.exe）。
+ $root=[IO.Path]::GetDirectoryName($expected)
+ $expectedFile=[IO.Path]::GetFileName($expected)
+ return $actual -match ('(?i)^'+[regex]::Escape($root)+'[\\/](?:app-[^\\/]+[\\/])?'+[regex]::Escape($expectedFile)+'$')
+}
 function Test-TargetProcess($process){
  if(!$claudeProgram){return Test-CodexProcess $process}
- if(!$process -or $process.ProcessName -ne 'Claude'){return $false}
- $actual=[string]$process.Path
- if(!$actual){return $false}
- $expected=[IO.Path]::GetFullPath($claudeProgram)
- if($actual -ieq $expected){return $true}
- # Squirrel 的根目录启动器可转交同安装目录内的版本化 Claude.exe。
- $root=[IO.Path]::GetDirectoryName($expected)
- return $actual -match ('(?i)^'+[regex]::Escape($root)+'[\\/]app-[^\\/]+[\\/]Claude\.exe$')
+ if(!$process){return $false}
+ $actual=''
+ try{$actual=[string]$process.Path}catch{$actual=''}
+ return Test-TargetMatch $process.ProcessName $actual $claudeProgram
 }
+
+if($SelfTestTarget){
+ @{match=(Test-TargetMatch $SelfTestProcess $SelfTestTarget $SelfTestProgram)}|ConvertTo-Json -Compress
+ exit
+}
+
+$payload=[IO.File]::ReadAllText($PayloadFile,[Text.Encoding]::UTF8)|ConvertFrom-Json
+$prompt=[string]$payload.prompt
+$claudeProgram=[string]$payload.program
+$appName=if($payload.app_name){[string]$payload.app_name}elseif($claudeProgram){'Claude Desktop'}else{'GPT 桌面'}
+if($null -ne $payload.deadline){$DeadlineSeconds=[Math]::Min(120,[Math]::Max(1,[int]$payload.deadline))}
 
 try{
  $deadline=[DateTime]::UtcNow.AddSeconds($DeadlineSeconds)
@@ -61,7 +83,7 @@ try{
   $edit=$edits|Sort-Object { $_.Current.BoundingRectangle.Width * $_.Current.BoundingRectangle.Height } -Descending|Select-Object -First 1
   if(!$edit){continue}
   if($claudeProgram){
-   # Claude 草稿不能被覆盖；无法读取输入内容时也不冒险全选替换。
+   # 桌面程序的草稿不能被覆盖；无法读取输入内容时也不冒险全选替换。
    $valuePattern=$null;$textPattern=$null;$content=$null
    if($edit.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern,[ref]$valuePattern)){
     $content=$valuePattern.Current.Value
@@ -70,8 +92,12 @@ try{
    }
    if($null -eq $content){continue}
    if($content.Trim()){
-    if($content.Trim() -eq $prompt.Trim()){Finish $true 'Claude Desktop 输入框已有本次任务路径，请手动发送。'}
-    Finish $false 'Claude Desktop 输入框已有草稿，未覆盖；任务路径已复制，请自行粘贴并手动发送。'
+    if($content.Trim() -eq $prompt.Trim()){
+     $same=if($appName -eq 'Claude Desktop'){'Claude Desktop 输入框已有本次任务路径，请手动发送。'}else{"$appName 输入框已有本次任务内容，请手动发送。"}
+     Finish $true $same
+    }
+    $draft=if($appName -eq 'Claude Desktop'){'Claude Desktop 输入框已有草稿，未覆盖；任务路径已复制，请自行粘贴并手动发送。'}else{"$appName 输入框已有草稿，未覆盖；任务已复制到剪贴板，请自行粘贴并手动发送。"}
+    Finish $false $draft
    }
   }
   [void][PasteWindow]::ShowWindowAsync($handle,9)
@@ -84,7 +110,7 @@ try{
   [System.Windows.Forms.SendKeys]::SendWait('^v')
   Finish $true "已粘贴到 $appName，请检查内容并手动点击发送。"
  }
- Finish $false "已复制任务内容；未能自动粘贴，请在 $appName 输入框中粘贴并手动发送。"
+ Finish $false "已复制到剪贴板；未能自动粘贴，请在 $appName 输入框中手动粘贴并发送。"
 }catch{
- Finish $false "自动粘贴未完成，内容已复制；请在 $appName 输入框中粘贴并手动发送。"
+ Finish $false "自动粘贴未完成；任务已复制到剪贴板，请在 $appName 输入框中手动粘贴并发送。"
 }

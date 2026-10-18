@@ -110,7 +110,8 @@ class ScriptPagesMixin:
             prompt += turn
             followup += turn
         self.open_flow_agent('writing', '剧本准备', prompt, followup, _config=config,
-                             new_session=writing_restart_requested(creative))
+                             new_session=writing_restart_requested(creative),
+                             desktop_paste=True)
         from workflow_settings import skill_prompt
         from writing_quality import enabled
         if enabled(skill_prompt(config or current_config(self.root, 'writing'), inline=True)):
