@@ -10,12 +10,14 @@
 窗口照 skill_panel 那套来：Toplevel ＋ transient ＋ Escape 关闭，关掉不留尾巴。
 """
 import tkinter as tk
+from tkinter import font as tkfont
 from tkinter import ttk
 
 import model_pool
-from ui_tokens import FONTS, SPACING
+from ui_tokens import FONTS, FORM_LABEL_WIDTH, SPACING, TEXT_DESC, TEXT_HINT
 from ui_dialogs import FileDialog
-from ui_widgets import SelectBox, BaseDialog, Card, DataTable, LineInput, PrimaryButton, SecondaryButton
+from ui_widgets import (NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
+                        LineInput, PrimaryButton, SecondaryButton)
 
 TITLE = '三虎 · 设置'
 SETTINGS_TITLE = '三虎模型配置'          # 第 46 期第 6 条：这一页与它的独立窗口都叫这个名字
@@ -24,6 +26,29 @@ MANAGER_BUTTON = 'API 统一配置'          # 第 46 期第 6 条：原「打�
 # 格式不一致；现在与同排的分页按钮／「关闭」一样用 Compact.TButton，名字也补上那个半角空格。
 MANAGER_TITLE = '模型管理'
 SETTINGS_GEOMETRY = '700x430'
+# 这两扇窗都是内容型表单，不允许被系统压成 1×1 后只剩一条边；最小值只保动作区与首行可见。
+SETTINGS_MIN = (620, 430)
+
+
+def form_column_width(labels):
+    """表单标签列宽：令牌字符宽给下限，再按实际标签量出像素，避免中文标签被裁。
+
+    `FORM_LABEL_WIDTH` 是共用表单基准（skill_panel 的同名列同源）；中文标签按字符数
+    直接当像素会裁字，所以再用令牌字体实测一次，取两者较大值。标签列还要留出与输入列
+    之间的 `SPACING['md']` 间距，一并计入后同一窗口的各页才能共用同一条输入竖线。
+    """
+    measure = tkfont.Font(font=FONTS['body']).measure
+    gap = SPACING['md']
+    floor = measure('0') * FORM_LABEL_WIDTH + gap
+    return max([floor] + [measure(str(label)) + gap for label in labels])
+
+
+def report_error(hint, message):
+    """可恢复错误只写非模态提示（`NotificationDispatcher.error` 默认 modal=False）。
+
+    模型检测、保存失败等失败不应弹模态框锁住整扇窗；破坏性删除仍走宿主确认。
+    """
+    return NotificationDispatcher(hint).error(str(message))
 
 
 def model_options(records, with_auto=True):
@@ -48,6 +73,13 @@ COLUMNS = (('provider', 'Provider', 100), ('model', '模型 ID', 140), ('label',
            ('wire_api', '协议', 80), ('key_env', '密钥名', 130), ('state', '状态', 120))
 FORM_FIELDS = (('label', '显示名'), ('model', '模型 ID'), ('base_url', 'API 根地址'),
                ('key_env', '密钥名（.env 里的变量名）'))
+TASK_FIELD_LABELS = tuple(label for _key, label, _note in model_pool.TASK_FIELDS)
+# 模型管理表单的全部标签；列宽按最宽的一条量，避免中文标签被定宽裁掉。
+MANAGER_FORM_LABELS = ('调用方式', 'Provider', '模型 ID', '显示名', 'API 根地址',
+                       '密钥名（.env 里的变量名）', '直接输入密钥', '协议', '能力标签',
+                       '上下文长度（可选）', '备注（可选）', '应用安装路径', '命令行程序路径')
+# 密钥框只给占位宽度，真正可输入区由输入列伸缩；不把整把密钥回显到界面。
+SECRET_FIELD_WIDTH = 30
 
 
 def parent_of(pet):
@@ -98,12 +130,14 @@ def transport_of(pet):
     return getattr(pet, 'probe_transport', None)
 
 
-def window(pet, title, geometry):
+def window(pet, title, geometry, minsize=None):
     """一扇小窗：transient 挂在三虎的窗口上，Escape 关掉。"""
     parent = parent_of(pet)
     win = BaseDialog(parent, '', modal=False, chrome=False)
     win.title(title)
     win.geometry(geometry)
+    if minsize:
+        win.minsize(*minsize)
     win.transient(parent or None)
     win.bind('<Escape>', lambda event: win.destroy())
     body = Card(win)
@@ -114,7 +148,7 @@ def window(pet, title, geometry):
 def heading(body, title, note, columns=3):
     ttk.Label(body, text=title, font=FONTS['title']).grid(
         row=0, column=0, columnspan=columns, sticky='w')
-    ttk.Label(body, text=note, style='Muted.TLabel', wraplength=620).grid(
+    ttk.Label(body, text=note, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
         row=1, column=0, columnspan=columns, sticky='w', pady=(SPACING['xs'], SPACING['md']))
     return 2
 
@@ -179,13 +213,13 @@ def open_settings(pet):
 
     第 44 期：整页抽成 settings_page——「设置」窗口把它当一格嵌进去，右键那条路照旧单独开窗。
     """
-    win, body = window(pet, SETTINGS_TITLE, SETTINGS_GEOMETRY)
+    win, body = window(pet, SETTINGS_TITLE, SETTINGS_GEOMETRY, minsize=SETTINGS_MIN)
     page = settings_page(body, pet, close=win.destroy)
     win._pet_hint, win._pet_refresh = page['hint'], page['refresh']
     return win
 
 
-def settings_page(parent, pet, close=None, with_manager=True):
+def settings_page(parent, pet, close=None, with_manager=True, label_width=None, show_save=True):
     """把「模型配置」这一页画进 parent；给了 close 才多摆一颗「关闭」（嵌进分页时由分页自己收）。
 
     第 48 期第 1 条：「API统一配置」那颗键往上挪一级——嵌在「设置」的分页按钮行上（就在
@@ -196,11 +230,16 @@ def settings_page(parent, pet, close=None, with_manager=True):
     records = pet.agent_model_records()
     choices = {'default': model_options(records, with_auto=True),
                'plain': model_options(records, with_auto=False)}
-    body = parent
+    # 底部动作区先占住窗口底边，窗口被压矮时只压缩上面的表单，保存／关闭不会掉出可视区。
+    actions = ttk.Frame(parent)
+    actions.pack(side='bottom', fill='x', pady=(SPACING['md'], SPACING['none']))
+    body = ttk.Frame(parent)
+    body.pack(fill='both', expand=True)
+    body.columnconfigure(0, minsize=label_width or form_column_width(TASK_FIELD_LABELS))
     body.columnconfigure(1, weight=1)
     # 第 46 期第 6 条：抬头那行标题文字（原来在分页里显示成「三虎模型设置」）删掉——分页上已经写着
     # 「三虎模型配置」，页里再写一遍是重影。
-    ttk.Label(body, text=NOTE_ABOUT, style='Muted.TLabel', wraplength=560).grid(
+    ttk.Label(body, text=NOTE_ABOUT, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
         row=0, column=0, columnspan=2, sticky='w')
     manager_button = None
     if with_manager:
@@ -218,11 +257,11 @@ def settings_page(parent, pet, close=None, with_manager=True):
         var = tk.StringVar(value=model_pool.label_of(tasks.get(key) or model_pool.TASKS_DEFAULT[key],
                                                      records, labeler=workflow_settings.desktop_model_label))
         picked[key] = var
-        ttk.Label(body, text=label).grid(row=row, column=0, sticky='w', padx=(0, SPACING['md']), pady=(SPACING['xs'], 0))
+        ttk.Label(body, text=label).grid(row=row, column=0, sticky='w', pady=(SPACING['xs'], SPACING['none']))
         SelectBox(body, textvariable=var, values=values).grid(
-            row=row, column=1, sticky='w', pady=(SPACING['xs'], 0))
-        state = ttk.Label(body, text='', style='Muted.TLabel', wraplength=280)
-        state.grid(row=row, column=2, sticky='w', padx=(SPACING['md'], 0), pady=(SPACING['xs'], 0))
+            row=row, column=1, sticky='ew', pady=(SPACING['xs'], SPACING['none']))
+        state = ttk.Label(body, text='', style='Muted.TLabel', wraplength=TEXT_HINT['wraplength'])
+        state.grid(row=row, column=2, sticky='w', padx=(SPACING['md'], SPACING['none']), pady=(SPACING['xs'], SPACING['none']))
         states[key] = state
         row += 1
         ttk.Label(body, text=note, style='Muted.TLabel').grid(row=row, column=1, columnspan=2, sticky='w')
@@ -256,7 +295,7 @@ def settings_page(parent, pet, close=None, with_manager=True):
                     continue
                 seen.append(name)
         if not seen:
-            hint.set('池里还没有可测的模型，先去「模型管理」加一条。')
+            report_error(hint, '池里还没有可测的模型，先去「模型管理」加一条。')
             return []
         lines = [probe_line(records[name], pet) for name in seen]
         hint.set('\n\n'.join(lines))
@@ -267,7 +306,7 @@ def settings_page(parent, pet, close=None, with_manager=True):
         """小样本验证：只在「默认模型」这一条上发一次真实短请求，跑完记下最近完整任务。"""
         model_id = model_of('default')
         if model_id == model_pool.AUTO or model_id not in records:
-            hint.set('先在「默认模型」里选一条具体模型，再点「小样本验证」。')
+            report_error(hint, '先在「默认模型」里选一条具体模型，再点「小样本验证」。')
             return None
         line = verify_line(records[model_id], pet)
         hint.set(line)
@@ -276,10 +315,15 @@ def settings_page(parent, pet, close=None, with_manager=True):
 
     def save():
         chosen = {key: model_of(key) for key, _label, _note in model_pool.TASK_FIELDS}
-        pet.save_agent_models(chosen)
+        try:
+            pet.save_agent_models(chosen)
+        except (ValueError, OSError) as exc:
+            report_error(hint, exc)
+            return None
         refresh()
         hint.set('已保存：默认模型＝%s（下一次调用生效）。'
                  % model_pool.label_of(chosen['default'], records))
+        return chosen
 
     def reset():
         now = pet.agent_model_tasks()
@@ -289,18 +333,22 @@ def settings_page(parent, pet, close=None, with_manager=True):
         hint.set('已按盘上的设置还原。')
 
     refresh()
-    ttk.Label(body, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=640).grid(
-        row=row, column=0, columnspan=3, sticky='w', pady=(SPACING['md'], 0))
+    ttk.Label(body, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
+        row=row, column=0, columnspan=3, sticky='w', pady=(SPACING['md'], SPACING['none']))
     row += 1
-    bar = ttk.Frame(body)
-    bar.grid(row=row, column=0, columnspan=3, sticky='ew', pady=(SPACING['md'], 0))
+    bar = ttk.Frame(actions)
+    bar.pack(fill='x')
     SecondaryButton(bar, text='测试连接', command=probe_all).pack(side='left')
     SecondaryButton(bar, text='小样本验证',
-                    command=probe_sample).pack(side='left', padx=(SPACING['sm'], 0))
-    SecondaryButton(bar, text='重置', command=reset).pack(side='right', padx=(0, SPACING['sm']))
-    PrimaryButton(bar, text='保存', command=save).pack(side='right', padx=(0, SPACING['sm']))
+                    command=probe_sample).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+    # 主操作贴最右，取消（关闭）紧挨其左，重置再往左：关窗键不再压在主按钮右侧。
+    if show_save:
+        PrimaryButton(bar, text='保存', command=save).pack(side='right')
     if close is not None:
-        SecondaryButton(bar, text='关闭', command=close).pack(side='right')
+        SecondaryButton(bar, text='关闭', command=close).pack(
+            side='right', padx=(SPACING['none'], SPACING['sm']))
+    SecondaryButton(bar, text='重置', command=reset).pack(
+        side='right', padx=(SPACING['none'], SPACING['sm']))
     return {'hint': hint, 'refresh': refresh, 'picked': picked, 'states': states, 'records': records,
             'choice_groups': choices, 'probe_all': probe_all, 'probe_sample': probe_sample,
             'save': save, 'reset': reset,
@@ -329,7 +377,7 @@ def _probe_local_model(pet, value, mode, entries, program_entry, hint):
     from pathlib import Path
     from workflow_settings import find_model_program, current_store_program
     if not value.get('program') and not value.get('model'):
-        hint.set('先填模型 ID，或点“浏览…”选择 .exe。')
+        report_error(hint, '先填模型 ID，或点“浏览…”选择 .exe。')
         return None
     try:
         path = (current_store_program(value['program']) if value['program'] else
@@ -343,15 +391,20 @@ def _probe_local_model(pet, value, mode, entries, program_entry, hint):
         hint.set('已找到程序：%s；%s。请保存这条。' %
                  (path, adapted.get('reason') or '已记录程序路径'))
     except (ValueError, KeyError) as exc:
-        hint.set('检查程序失败：' + str(exc))
+        report_error(hint, '检查程序失败：' + str(exc))
     return value
 
 
 def open_manager(pet):
     """模型管理…：模型池＋API 配置的唯一入口（增／删／改／测连接）。"""
     program = program_of(pet)
-    win, body = window(pet, MANAGER_TITLE, MANAGER_GEOMETRY)
+    win, card = window(pet, MANAGER_TITLE, MANAGER_GEOMETRY, minsize=MANAGER_MIN)
     fit_to_main(win, parent_of(pet), MANAGER_GEOMETRY)     # 第 52 期第 1 条：比主界面小一圈、居中
+    # 动作区先占住窗口底边，窗口被压矮时只压缩上面的模型列表与表单。
+    footer = ttk.Frame(card)
+    footer.pack(side='bottom', fill='x')
+    body = ttk.Frame(card)
+    body.pack(fill='both', expand=True)
     body.columnconfigure(0, weight=1)
     body.rowconfigure(2, weight=1)
     row = heading(body, MANAGER_TITLE, NOTE_MANAGER, columns=1)
@@ -365,13 +418,10 @@ def open_manager(pet):
         tree.heading(key, text=title)
         tree.column(key, width=width, anchor='w', stretch=True)
     table_shell.grid(row=2, column=0, sticky='nsew')
-    form = ttk.Frame(body, padding=(0, SPACING['xs']))
+    form = ttk.Frame(body, padding=(SPACING['none'], SPACING['xs']))
     form.grid(row=3, column=0, columnspan=2, sticky='ew')
+    form.columnconfigure(0, minsize=form_column_width(MANAGER_FORM_LABELS))
     form.columnconfigure(1, weight=1)
-    style = ttk.Style(form)
-    # 模型管理的字段都是单行输入。专用紧凑样式把默认控件的纵向空白压到最小，
-    # 不牵连其他设置页或聊天输入框。
-    style.configure('ModelManager.TEntry', font=FONTS['caption'], padding=(SPACING['xs'], 0))
     entries = {}
     caps = {}
     provider = tk.StringVar(value=model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
@@ -380,18 +430,18 @@ def open_manager(pet):
 
     def text_row(index, key, label):
         """一行「标签 ＋ 输入框」；行号往下走，表单中间插下拉框／多选都不会错位。"""
-        ttk.Label(form, text=label).grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
-        entry = LineInput(form, style='ModelManager.TEntry')
+        ttk.Label(form, text=label).grid(row=index, column=0, sticky='w')
+        entry = LineInput(form)
         entry.grid(row=index, column=1, sticky='ew')
         entries[key] = entry
         return index + 1
 
     # 表单次序：Provider、模型 ID、显示名（按 ID 自动推断）、根地址、密钥、协议、能力标签、上下文、备注。
-    ttk.Label(form, text='调用方式').grid(row=0, column=0, sticky='w', padx=(0, SPACING['md']))
+    ttk.Label(form, text='调用方式').grid(row=0, column=0, sticky='w')
     mode_box = SelectBox(form, textvariable=mode, values=('Desktop', 'API', 'CLI'))
     mode_box.grid(row=0, column=1, sticky='ew')
     index = 1
-    ttk.Label(form, text='Provider').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
+    ttk.Label(form, text='Provider').grid(row=index, column=0, sticky='w')
     # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
     # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
     # 挑现成的，或者直接敲一个名字；存的就是填进去的那个名字。
@@ -416,30 +466,30 @@ def open_manager(pet):
     index = text_row(index, 'base_url', 'API 根地址')
     index = text_row(index, 'key_env', '密钥名（.env 里的变量名）')
     # 规格里的第二种放法：密钥直接输进来，用系统加密存本机（明文不落盘、配置 JSON 里不写）。
-    ttk.Label(form, text='直接输入密钥').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
+    ttk.Label(form, text='直接输入密钥').grid(row=index, column=0, sticky='w')
     key_row = ttk.Frame(form)
     key_row.grid(row=index, column=1, sticky='w')
-    key_entry = LineInput(key_row, width=30, show='*', style='ModelManager.TEntry')
+    key_entry = LineInput(key_row, width=SECRET_FIELD_WIDTH, show='*')
     key_entry.pack(side='left')
-    SecondaryButton(key_row, text='保存到本机', command=lambda: local_save()).pack(side='left', padx=(SPACING['sm'], 0))
-    SecondaryButton(key_row, text='清除本机密钥', command=lambda: local_clear()).pack(side='left', padx=(SPACING['xs'], 0))
+    SecondaryButton(key_row, text='保存到本机', command=lambda: local_save()).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+    SecondaryButton(key_row, text='清除本机密钥', command=lambda: local_clear()).pack(side='left', padx=(SPACING['xs'], SPACING['none']))
     # 密钥状态紧跟在按钮后面，不再单独占一行。
     key_state = tk.StringVar(value='')
-    ttk.Label(key_row, textvariable=key_state, style='Muted.TLabel').pack(side='left', padx=(SPACING['sm'], 0))
+    ttk.Label(key_row, textvariable=key_state, style='Muted.TLabel').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
     index += 1
-    ttk.Label(form, text='协议').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
+    ttk.Label(form, text='协议').grid(row=index, column=0, sticky='w')
     SelectBox(form, textvariable=wire,
                  values=[label for _value, label in model_pool.WIRE_APIS]).grid(
-        row=index, column=1, sticky='w')
+        row=index, column=1, sticky='ew')
     index += 1
-    ttk.Label(form, text='能力标签').grid(row=index, column=0, sticky='w', padx=(0, SPACING['md']))
+    ttk.Label(form, text='能力标签').grid(row=index, column=0, sticky='w')
     cap_row = ttk.Frame(form)
     cap_row.grid(row=index, column=1, sticky='w')
     for tag in model_pool.CAPABILITY_TAGS:
         var = tk.BooleanVar(value=False)
         caps[tag] = var
         ttk.Checkbutton(cap_row, text=model_pool.CAPABILITY_LABELS[tag],
-                        variable=var).pack(side='left', padx=(0, SPACING['sm']))
+                        variable=var).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
     index = text_row(index + 1, 'context_length', '上下文长度（可选）')
     text_row(index, 'note', '备注（可选）')
     hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
@@ -447,11 +497,11 @@ def open_manager(pet):
     api_controls = [widget for widget in form.winfo_children()
                     if int(widget.grid_info().get('row', -1)) in api_rows]
     program_label = ttk.Label(form, text='应用安装路径')
-    program_label.grid(row=4, column=0, sticky='w', padx=(0, SPACING['md']))
+    program_label.grid(row=4, column=0, sticky='w')
     program_row = ttk.Frame(form)
     program_row.grid(row=4, column=1, sticky='ew')
     program_row.columnconfigure(0, weight=1)
-    program_entry = LineInput(program_row, style='ModelManager.TEntry')
+    program_entry = LineInput(program_row)
     program_entry.grid(row=0, column=0, sticky='ew')
     entries['program'] = program_entry
     from desktop_automation_service import BackgroundTaskLifecycle
@@ -480,7 +530,7 @@ def open_manager(pet):
         from workflow_settings import find_model_program
         model = entries['model'].get().strip()
         if not model:
-            hint.set('请先填写模型 ID，再自动搜寻安装路径。')
+            report_error(hint, '请先填写模型 ID，再自动搜寻安装路径。')
             return None
         if pending['after'] is not None:
             win.after_cancel(pending['after'])
@@ -513,7 +563,7 @@ def open_manager(pet):
                 hint.set('搜寻已结束；保留您手动填写的安装路径。')
                 return
             if not path:
-                hint.set('未自动找到安装路径：%s' % error)
+                report_error(hint, '未自动找到安装路径：%s' % error)
                 return
             program_entry.delete(0, 'end')
             program_entry.insert(0, path)
@@ -523,9 +573,9 @@ def open_manager(pet):
         search_poll['after'] = win.after(50, poll)
 
     search_button = SecondaryButton(program_row, text='自动搜寻', command=lambda: detect_program(quiet=False))
-    search_button.grid(row=0, column=1, padx=(SPACING['xs'], 0))
+    search_button.grid(row=0, column=1, padx=(SPACING['xs'], SPACING['none']))
     SecondaryButton(program_row, text='浏览…', command=browse_program).grid(
-        row=0, column=2, padx=(SPACING['xs'], 0))
+        row=0, column=2, padx=(SPACING['xs'], SPACING['none']))
     def desktop_mode():
         return mode.get() in ('Desktop', 'CLI')
 
@@ -587,7 +637,8 @@ def open_manager(pet):
     entries['model'].bind('<KeyRelease>', fill_label, add='+')
     entries['model'].bind('<FocusOut>', detect_program, add='+')
     entries['model'].bind('<KeyRelease>', refresh_connection_fields, add='+')
-    manager_hint = ttk.Label(body, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=860)
+    manager_hint = ttk.Label(body, textvariable=hint, style='PaleGreenHint.TLabel',
+                             wraplength=TEXT_DESC['wraplength'])
     manager_hint.grid(
         row=4, column=0, columnspan=2, sticky='w', pady=(SPACING['xs'], SPACING['xs']))
     state = {'id': ''}
@@ -634,7 +685,7 @@ def open_manager(pet):
             model_pool.save_key_env(item, text, program, state['id'])
             item['key_env'] = model_pool.secret_name(item, state['id'])
         except (ValueError, OSError) as exc:
-            hint.set(str(exc))
+            report_error(hint, exc)
             return None
         key_entry.delete(0, 'end')
         self_id = state['id']
@@ -764,8 +815,8 @@ def open_manager(pet):
             if not desktop_mode() and key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
                 local_save()
             pet.save_pool(read_form(), state['id'])
-        except ValueError as exc:
-            hint.set(str(exc))
+        except (ValueError, OSError) as exc:
+            report_error(hint, exc)
             return None
         load_rows()
         hint.set('已保存「%s」；「切换模型」里立刻点得到。' % (read_form().get('label') or ''))
@@ -777,7 +828,7 @@ def open_manager(pet):
         selected = tree.selection()
         model_id = selected[0] if selected else ''
         if not model_id:
-            hint.set('先选一条。')
+            report_error(hint, '先选一条。')
             return None
         item = pet.agent_model_records().get(model_id) or {}
         name = item.get('label') or model_id
@@ -786,7 +837,7 @@ def open_manager(pet):
         pet.delete_pool_model(model_id)
         # 保存后必须回读确认；否则表格刷新看似消失、重开又出现时用户会误以为已经删除。
         if model_id in pet.agent_model_records():
-            hint.set('未能删除「%s」，请重试。' % name)
+            report_error(hint, '未能删除「%s」，请重试。' % name)
             return None
         state['id'] = ''
         load_rows()
@@ -798,25 +849,28 @@ def open_manager(pet):
         if value['provider'] == 'desktop':
             return _probe_local_model(pet, value, mode, entries, program_entry, hint)
         if not value.get('model'):
-            hint.set('先填模型 ID。')
+            report_error(hint, '先填模型 ID。')
             return None
         hint.set(probe_line(model_pool.record(value), pet))
         return value
 
     tree.bind('<<TreeviewSelect>>', on_select)
     load_rows()
-    bar = ttk.Frame(body)
-    bar.grid(row=5, column=0, columnspan=2, sticky='ew')
+    bar = ttk.Frame(footer)
+    bar.pack(fill='x')
     SecondaryButton(bar, text='新建一条', command=new_one).pack(side='left')
     probe_button = SecondaryButton(bar, text='测试连接', command=probe_one)
-    probe_button.pack(side='left', padx=(SPACING['sm'], 0))
+    probe_button.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
     provider.trace_add('write', refresh_connection_fields)
     mode.trace_add('write', changed_identity)
     model_text.trace_add('write', changed_identity)
     refresh_connection_fields()
-    SecondaryButton(bar, text='删除这条', command=delete_one).pack(side='left', padx=(SPACING['sm'], 0))
-    SecondaryButton(bar, text='关闭', command=win.destroy).pack(side='right')
-    PrimaryButton(bar, text='保存这条', command=save_one).pack(side='right', padx=(0, SPACING['sm']))
+    SecondaryButton(bar, text='删除这条', command=delete_one).pack(
+        side='left', padx=(SPACING['sm'], SPACING['none']))
+    # 主操作贴最右，取消（关闭）紧挨其左：关窗键不再压在主按钮右侧。
+    PrimaryButton(bar, text='保存这条', command=save_one).pack(side='right')
+    SecondaryButton(bar, text='关闭', command=win.destroy).pack(
+        side='right', padx=(SPACING['none'], SPACING['sm']))
     win._pet_api_controls = api_controls
     win._pet_program_row = program_row
     win._pet_reload = load_rows
