@@ -4525,7 +4525,8 @@ class DesktopPetSeamTests(unittest.TestCase):
         board = self.base / 'storyboard' / '分镜拆分' / 'EP001_分镜.json'
         board.parent.mkdir(parents=True, exist_ok=True)
         board.write_text(json.dumps({'episode_id':'EP001','title':'测试','source_script':'writing/第01集.md',
-                                     'shots':[{'id':'SH001'}]}, ensure_ascii=False), encoding='utf-8')
+                                     'shots':[{'id':'SH001','location':'LOC_001','title':'开场'}]},
+                                    ensure_ascii=False), encoding='utf-8')
         (self.base / 'ui_settings.json').write_text(json.dumps({
             'storyboard_scripts':['writing/第01集.md'],
             'adopted_storyboards':['storyboard/分镜拆分/EP001_分镜.json']}, ensure_ascii=False), encoding='utf-8')

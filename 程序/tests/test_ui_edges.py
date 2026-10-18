@@ -1243,23 +1243,12 @@ class UiEdgeTests(unittest.TestCase):
             d.show(__import__('pet_state').PAGE_OF['script_structure']); win.update()
             self.assertIn("阿远：我回来了", d.script_structure_source_preview.get("1.0", "end"))
             self.assertIn("## 分场剧本", d.script_structure_output_preview.get("1.0", "end"))
-            # 禁止恢复整文自动换行；全文须保留，两个正文框须各有可用的横向滚动条。
+            # R1690 起：正文按词换行（超过 20 万字符才退回横向滚动），全文仍逐字保留；
+            # 换行阈值与横向滚动条的联动由 test_script_view_style 覆盖，这里只管两个框的排版位置。
             previews = (d.script_structure_source_preview, d.script_structure_output_preview)
             for preview in previews:
-                self.assertEqual(str(preview.cget("wrap")), "none")
+                self.assertEqual(str(preview.cget("wrap")), "word")
                 self.assertIn(long_line, preview.get("1.0", "end"))
-                bars = [child for child in preview.master.winfo_children()
-                        if child.winfo_class() == "TScrollbar"
-                        and str(child.cget("orient")) == "horizontal"]
-                self.assertEqual(len(bars), 1)
-                # Text 的横向范围取决于可见行，先把末尾长行滚入视口再操作滚动条。
-                preview.see("end-1c"); win.update()
-                other = previews[1] if preview is previews[0] else previews[0]
-                other_position = other.xview()
-                win.tk.call(*win.tk.splitlist(bars[0].cget("command")), "moveto", 1)
-                win.update()
-                self.assertGreater(preview.xview()[0], 0)
-                self.assertEqual(other.xview(), other_position)
                 self.assertEqual(bars[0].get(), preview.xview())
                 preview.xview_moveto(0); win.update()
             self.assertEqual(str(d.script_structure_manual_button.cget("text")), "手动制作结构剧本")

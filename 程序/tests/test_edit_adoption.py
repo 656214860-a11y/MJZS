@@ -57,6 +57,20 @@ class AdoptedVersionTests(unittest.TestCase):
         self.assertFalse(summary['latest_is_adopted'])
 
 
+class BundleStudio:
+    """成片清单只用到 Studio 的这两样：项目根与上游配音／字幕登记。
+
+    `publish_edit_bundle` 会把 `edit_inputs()` 一起写进 `edits.json`（后期依赖 S11），
+    所以替身必须提供同一接缝，不能再拿 None 当 self。"""
+
+    def __init__(self, root, inputs=None):
+        self.root = Path(root)
+        self._inputs = {'audio': [], 'subtitles': []} if inputs is None else dict(inputs)
+
+    def edit_inputs(self):
+        return dict(self._inputs)
+
+
 class EditBundleTests(unittest.TestCase):
     """成片＋质检＋来源清单先合成一份可恢复清单，索引任一份写失败都还能核对来源。"""
 
@@ -70,14 +84,14 @@ class EditBundleTests(unittest.TestCase):
                 {'path': str(reference), 'sha256': 'generation-time-digest'}],
                 'first_frame': {'path': str(root / 'frame.png'), 'sha256': 'frame-digest', 'category': 'image'}})
             chosen = [({'id': 'S01'}, {'version': 1, 'sha256': engine.file_hash(clip)}, clip)]
-            engine.Studio.publish_edit_bundle(None, out, master, {}, chosen)
+            engine.Studio.publish_edit_bundle(BundleStudio(root), out, master, {}, chosen)
             bundle = engine.read(out / 'edit_bundle.json')
             self.assertEqual(bundle['references'], [
                 {'path': '../reference.png', 'sha256': 'generation-time-digest'},
                 {'path': '../frame.png', 'sha256': 'frame-digest', 'category': 'image'}])
             engine.save(root / 'assets_manifest.json', {'assets': [{'path': str(reference)}]})
             with self.assertRaisesRegex(ValueError, '路径或摘要'):
-                engine.Studio.publish_edit_bundle(None, out, master, {}, chosen)
+                engine.Studio.publish_edit_bundle(BundleStudio(root), out, master, {}, chosen)
 
     def _publish(self, out):
         master = out / 'MASTER.mp4'
@@ -87,27 +101,33 @@ class EditBundleTests(unittest.TestCase):
                                'skipped': ['SH003 缺少已下载、质检及验收通过的视频']}}
         chosen = [({'id': 'SH001'}, {'version': 1, 'sha256': 'a'}, Path('x')),
                   ({'id': 'SH002'}, {'version': 2, 'sha256': 'b'}, Path('y'))]
-        engine.Studio.publish_edit_bundle(None, out, master, report, chosen)
+        studio = BundleStudio(out, {'audio': [{'path': 'audio/voice.wav', 'sha256': 'v1'}],
+                                    'subtitles': []})
+        engine.Studio.publish_edit_bundle(studio, out, master, report, chosen)
+        return studio
 
     def test_bundle_records_the_actual_overlay_font_digest(self):
         with tempfile.TemporaryDirectory() as td:
             out = Path(td); master = out / 'MASTER.mp4'; master.write_bytes(b'film')
             font = out / 'font.ttc'; font.write_bytes(b'test-only font fixture')
             chosen = [({'id': 'S01', 'post_overlay': 'title'}, {'version': 1, 'sha256': 'source'}, Path('clip'))]
-            engine.Studio.publish_edit_bundle(None, out, master, {}, chosen)
+            engine.Studio.publish_edit_bundle(BundleStudio(out), out, master, {}, chosen)
             bundle = json.loads((out / 'edit_bundle.json').read_text(encoding='utf-8'))
             self.assertEqual(bundle['fonts'], [{'path': 'font.ttc', 'sha256': engine.file_hash(font)}])
 
     def test_bundle_binds_master_and_indexes(self):
         with tempfile.TemporaryDirectory() as td:
             out = Path(td)
-            self._publish(out)
+            studio = self._publish(out)
             bundle = json.loads((out / 'edit_bundle.json').read_text(encoding='utf-8'))
             self.assertEqual(bundle['master'], 'MASTER.mp4')
             self.assertEqual(bundle['master_sha256'], engine.file_hash(out / 'MASTER.mp4'))
             self.assertEqual([item['shot'] for item in bundle['manifest']], ['SH001', 'SH002'])
             self.assertEqual((out / bundle['manifest'][0]['source']).resolve(), Path('x').resolve())
             self.assertEqual(bundle['coverage']['included'], ['SH001', 'SH002'])
+            applied = json.loads((out / 'edits.json').read_text(encoding='utf-8'))
+            self.assertEqual(applied['inputs'], studio.edit_inputs(),
+                             '上游配音与字幕的路径与摘要要一并记进 edits.json')
             index = json.loads((out / 'edit_manifest.json').read_text(encoding='utf-8'))
             self.assertEqual([item['shot'] for item in index], ['SH001', 'SH002'])
 

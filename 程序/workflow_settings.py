@@ -694,7 +694,7 @@ def find_program(config):
         if appdata:
             choices=list((Path(appdata)/'ai.opencode.desktop'/'cli').glob('*/opencode-cli.exe'))
             if choices:return str(max(choices,key=lambda p:p.stat().st_mtime))
-        raise ValueError('未找到 OpenCode CLI（opencode-cli.exe），请安装后在“调用设置”选择其 .exe')
+        raise ValueError('未找到 OpenCode CLI，请安装后在“调用设置”选择它的 .exe')
     engine=config['engine'];found=shutil.which(engine+'.exe')
     if found:return found
     if engine=='codex':

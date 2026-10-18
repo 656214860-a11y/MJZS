@@ -336,7 +336,8 @@ class ScriptToStoryboardChainTests(unittest.TestCase):
              {'frame_json': str(empty), 'adopted_storyboards': [str(empty)]})
         self.assertFalse(completion_evidence(self.root, 'storyboard')[0])
         ready = storyboard_dir / 'episode_v2.json'
-        save(ready, {'id': 'EP01', 'shots': [{'id': 'S01'}]})
+        save(ready, {'episode_id': 'EP001', 'title': '第1集',
+                     'shots': [{'id': 'SH001', 'location': 'LOC_001', 'title': '开场'}]})
         save(self.root / 'ui_settings.json',
              {'frame_json': str(ready), 'adopted_storyboards': [str(ready)]})
         self.assertTrue(completion_evidence(self.root, 'storyboard')[0])
