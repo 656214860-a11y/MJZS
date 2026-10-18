@@ -27,6 +27,7 @@ class FakeStudio:
             item['sha256'] = engine.file_hash(target)
         self.data = {'schema': 1, 'shots': {'SH001': versions}}
         self.episode = {'shots': [{'id': 'SH001'}]}
+        self.manifests = []
 
     @contextmanager
     def lock(self):
@@ -34,6 +35,10 @@ class FakeStudio:
 
     def state(self):
         return json.loads(self.db.read_text(encoding='utf-8')) if self.db.is_file() else self.data
+
+    def publish_manifest(self, state):
+        """真的 Studio 采用版本后会重发交付清单（videos.json／video_manifest.json）；替身只记调用。"""
+        self.manifests.append(state)
 
 
 class PinTests(unittest.TestCase):
@@ -68,6 +73,7 @@ class PinTests(unittest.TestCase):
             rows = studio.version_rows('SH001')
             self.assertFalse(any(row['pinned'] for row in rows))
             self.assertEqual([row['adopted'] for row in rows], [False, True, False])
+            self.assertTrue(studio.manifests, '采用版本后必须重发一次交付清单')
             with self.assertRaises(ValueError):
                 studio.pin_version('NOPE', 1)
 

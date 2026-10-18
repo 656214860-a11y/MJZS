@@ -38,6 +38,7 @@ import pet_bus
 import pet_ui
 import skill_budget
 import skill_orchestrator
+import skill_note_render
 import skill_panel
 import skill_registry
 import skill_tools
@@ -1397,8 +1398,10 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(len(panel.note_list.get(0, 'end')), len(expected))
         first = panel.note_items[0]
         shown = panel.note_text.get('1.0', 'end').strip()
-        self.assertEqual(shown, skill_panel.note_text(first[1]),
-                         '注册表首项应在打开面板时立即显示说明内容')
+        body = skill_panel.note_text(first[1])
+        rendered = ''.join(fragment for fragment, _tags in skill_note_render.parse(body)).strip()
+        self.assertEqual(shown, rendered,
+                         '注册表首项应在打开面板时立即显示说明内容（Markdown 排版后的可见文字）')
         registered_index = 1
         panel.note_list.selection_clear(0, 'end')
         panel.note_list.selection_set(registered_index)
