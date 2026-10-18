@@ -133,6 +133,7 @@
 - **DES-S03-40**（REQ-S03-40）`working_dir=storyboard(root)/'分镜拆分'`，`document_dir=storyboard(root)/'分镜文档'`；`storyboard_paths.media_root` 对 `分镜拆分`／`分镜文档` 取同一父目录；`discover_files` 用 `os.walk(followlinks=False)`，剔除链接、junction、空文件、`IGNORED` 目录。旧目录 `storyboard/分镜拆分` 在 `stage_path_service._LEGACY` 登记为只读。
 - **DES-S03-41**（REQ-S03-41/42）`stage_completion_service`：`stage=='storyboard'` → `any(shots for _s,shots in stage_parallel._adopted(root))`。`_adopted` 对读不出的文件跳过。SG-A `animatic_input_ready` 要求 `_adopted` 非空，且每份 `animatic_service.shots_of` 不抛 ValueError/TypeError/KeyError。
 - **DES-S03-50**（REQ-S03-50）6 个 SKILL 位于 `skills/03初步分镜SKILL/`，frontmatter `stage: 初步分镜`；`BUILTIN_WORKFLOW_PRESETS['AIGC全流程'].stage_skills['storyboard']=['pipeline-storyboard-draft']`。
+- **DES-S03-51**（REQ-S03-52）决策结果只写进实际分镜初稿 `03初步分镜/分镜拆分/EP…_分镜.json`（不是程序派生的索引 `storyboard_draft.json`）：镜头级 `beat_no`／`context_id`／`forbidden_limits`，顶层 `beat_source`／`emotion_anchor_table`／`shot_count_decision`／`forbidden_zone_report`。`validate_episode` 不校验这些扩展字段，程序不新增门禁；`storyboard_final.finalize` 用 `copy.deepcopy` 读源，顶层与镜头扩展字段原样保留，供 07 追溯。节拍优先取 01「本集节拍表」，缺失时按决策引擎步骤 2 补切并在 `beat_source` 声明。引用只作方法来源，不全文注入。
 - **DES-S03-43**（REQ-S03-19/20/43/44）文案：03 只称"分镜初稿"，`batch_id` 不由 03 写。`storyboard_selection.sync_draft_outputs` 在 `adopt`／`remove`／`prune_invalid_adoptions` 末尾写 `storyboard_draft.json` 与派生的 `scene_breakdown.json`；`draft_problems` 在两份文件都缺时先补写（旧项目），再核验一致性与覆盖度。调用点：`stage_completion_service.completion_evidence`（storyboard）与 `stage_parallel.animatic_input_ready`。
 - **待定**（REQ-S03-51）默认技能入口待用户拍板后再设计。
 
@@ -148,6 +149,7 @@
 | REQ-S03-35/40 | `test_storyboard_catalog_snapshot`、`test_storyboard_rows_service`、`test_stage_path_service` |
 | REQ-S03-41/42 | `test_stage_completion_service`、`test_stage_parallel`；`test_storyboard_scope` 锚定 SG-A 登记 |
 | REQ-S03-43/44 | `test_storyboard_scope`（`DraftOutputTests`）、`test_script_contract` |
+| REQ-S03-52 | `test_req_anchor_s03_s07` |
 
 ## S04 分镜预演
 
@@ -331,6 +333,7 @@
 - **DES-S07-41**（REQ-S07-41/42）`stage_completion_service` 的 `checks['final']='batches_ready'`，要求 `ok and started`；`batches_ready` 以 `_adopted` 的已采用分镜为对象，`started = has_run(final) or 任一镜头带 batch_id`。
 - **DES-S07-50**（REQ-S07-50/51）SKILL 位于 `skills/07分镜定稿SKILL/`；默认勾选来自 `workflow_settings` 的 `'final':['pipeline-storyboard-final']`；D 锁段缝字段写在总入口 SKILL 正文，不由程序核验。
 - **DES-S07-52**（REQ-S07-52）`finalize` 在 `normalize_shot` 之后调用 `continuity_ledger.require_final_ready(project, shots)`：未生成放行，与待定稿镜头不对应或有未裁决待办则 `ValueError`；`open_problems` 与 SG-02 共用。该调用与上一行写在同一物理行，避免平移 `storyboard_final.py:164` 的裸 `json.loads` 债务标识。
+- **DES-S07-53**（REQ-S07-54）定稿沿用 `storyboard-asset-sync` 的资产对齐清单与 `finalize` 的资产编号解析，只在清单／镜头表增加一列「节拍＃／E-ID」追溯（取 `beat_no`／`context_id` 组合）；`copy.deepcopy` 与 `shot_batches.normalize` 都保留既有扩展字段，故只核对不重写。缺失时不补造，退回 03。
 - **待定**（REQ-S07-03/15/43/44/45/53）见需求中标 🟡／❓ 的条目；其余为单向修订，待统一后处理。REQ-S07-52 已按裁决落地（见 DES-S07-52）。
 
 ### 测试锚定
@@ -347,6 +350,7 @@
 | REQ-S07-42（`batches_ready` 行为） | `test_storyboard_final_scope`（`test_stage_parallel` 未直接测此函数） |
 | REQ-S07-01/04/13/33/41/42/50/51 的事实范围 | `test_storyboard_final_scope` |
 | REQ-S07-10/11/12/16/17/18/19/21 | 暂无直接 `finalize` 端到端测试（相邻覆盖：`test_asset_plan`）——测试缺口，待补 |
+| REQ-S07-54 | `test_req_anchor_s03_s07` |
 
 ## S08 首帧管理
 

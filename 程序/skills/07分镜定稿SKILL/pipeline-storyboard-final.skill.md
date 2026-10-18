@@ -36,6 +36,8 @@ examples:
 按 [分镜工作流程](../00全流程SKILL/AIGC创作全流程/sd-storyboard-engine/SKILL.md#四工作流程) 核对已采用镜头、台词承接和空间事实，不在定稿阶段重写已确认剧情。
 投喂前核对 [上游材料齐备度](../00全流程SKILL/AIGC创作全流程/sd-feed-engine/SKILL.md#步骤-1--判断上游材料齐备度)、[投喂闸门入口](../00全流程SKILL/AIGC创作全流程/sd-feed-engine/SKILL.md#步骤-8--过六道闸门) 及 [六道闸门](../00全流程SKILL/AIGC创作全流程/sd-feed-engine/references/feed-mode-and-gates.md#二-输出前六道闸门核心)。素材形态从上游清单继承：M0 使用文字档案且不写图号；M1 校验编号册与接线单，不把缺实体图片判作缺稿；M2 才核验已入库图片。`material_source` 是素材来源锁，不是 M0/M1/M2。
 
+- [决策引擎：雷区判定流程](../00全流程SKILL/AIGC创作全流程/sd-decision-engine/references/forbidden-zone-whitelist.md#六雷区自查流程生成完每个大分镜后过) 与 [情绪锚点表格式](../00全流程SKILL/AIGC创作全流程/sd-decision-engine/references/emotion-anchor-table.md#一标准格式6-列)：定稿阶段不重做镜头选型、不重分配 80/15/5、不补造 E-ID，只逐镜核对 03 初稿的 `beat_no`／`context_id`／`forbidden_limits`（B 类「限制：…」）是否保留；缺失或对不上退回 03 修订。资产对齐清单沿用 `storyboard-asset-sync` 与 `名称编号对照`：以分镜编号为主键，在分镜编号右侧增加一列「节拍＃／E-ID」追溯（取 `beat_no`／`context_id` 组合），再列资产编号；资产编号与分镜编号的锁定、对齐规则本身不变。追溯字段只进清单与镜头元数据，不写进投喂提示词正文。
+
 本文件仅声明所需章节，不授权加载整个总控包；读取时以项目锁及本阶段职责为边界。
 
 ## 定向注入（00 包）

@@ -156,6 +156,7 @@
 
 - **REQ-S03-50** ✅ 本阶段有 6 个 SKILL（`skills/03初步分镜SKILL/`）：`pipeline-storyboard-draft`（总入口，AIGC 全流程预设默认使用）、`storyboard-scene-breakdown`（场次拆分）、`storyboard-shot-generation`（镜头链）、`storyboard-camera-language`（景别角度运镜）、`storyboard-duration-estimate`（时长预估）、`storyboard-pacing-check`（节奏检查）。
 - **REQ-S03-51** 🟡 `workflow_settings` 的单独"初步分镜"流程默认技能是外部包 `short-drama-storyboard`，与 AIGC 全流程预设里的 `pipeline-storyboard-draft` 并存；两条入口对应哪种用户场景、何者为准，文档未说明。暂按现状记录，待确认。
+- **REQ-S03-52** ✅ 03 初步分镜接入决策引擎步骤 3–6：以 01 自然剧本的「本集节拍表」为输入，不重新切分节拍；节拍表缺失时才按步骤 2 就地补切并在初稿 `beat_source` 声明。逐节拍选 E-ID（只认 E01–E15 或用户授权后的 EX01，禁止编造；查不到先询问用户）、分配 80/15/5、按雷区流程自查。结果落在分镜初稿 JSON 同文件：每镜带 `beat_no`（`场<场次>-节拍<编号>`）、`context_id`、`forbidden_limits`（B 类「限制：…」逐条，无则空数组）追溯字段，顶层带 6 列 `emotion_anchor_table`、`shot_count_decision` 一句话，有雷区时带 `forbidden_zone_report`；追溯字段不写进 `frame_prompt`／`video_prompt` 正文。不新增文件路径、代码或执行门禁；景别阶梯与机位配额仍以既有权威为准。
 
 ### 非目标（明确不做）
 
@@ -369,6 +370,7 @@
 - **REQ-S07-51** ✅ 总入口 SKILL 读取项目锁（`track/material_source/aspect_ratio/resolution/fps/delivery_format/video_model_version/splice_mode/style_*`）而不重新询问；必填缺失退回剧本准备；`splice_mode`（D 锁）在本阶段放行，段缝须冻结 `in_state/out_state/cut_type/audio_bridge/owner`；不加载 00 包全文。
 - **REQ-S07-52** ✅ `storyboard_final.finalize` 现在读连贯性台账（`continuity_ledger.require_final_ready`），口径与 SG-02 一致：台账未生成或读不出来放行；台账与待定稿镜头不对应则拒绝（`ValueError`，提示重新生成连贯性清单）；台账仍有未裁决待办（已忽略／已解除不算）则拒绝。D 锁段缝字段仍只由总入口 SKILL 提示词约束，程序不核验（本次裁决范围外，保持现状）。
 - **REQ-S07-53** 🟡 SKILL `storyboard-version-snapshot`（“可回滚可对比”）声明了 `storyboard.save` 等 tools，程序里没有对应的“版本快照／回滚”实现；`architecture.md:79` 把“输出提示词和快照”列为本阶段职责。现状是定稿目录带日期后缀与回收站退役，并非快照。是否保留此 SKILL 描述，待定。
+- **REQ-S07-54** ✅ 07 定稿不重做镜头选型：逐镜核对并保持 03 的 `beat_no`／`context_id`／`forbidden_limits` 未丢，缺失或对不上退回 03 修订，不补造 E-ID。资产对齐清单以分镜编号为主键，在分镜编号右侧增加一列「节拍＃／E-ID」追溯（取 `beat_no`／`context_id` 组合），再列资产编号；资产编号与分镜编号的锁定、对齐规则不变。
 
 ### 非目标（明确不做）
 

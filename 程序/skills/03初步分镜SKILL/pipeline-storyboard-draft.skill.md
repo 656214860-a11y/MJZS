@@ -32,6 +32,8 @@ examples:
 
 - [初步分镜工作流程](../00全流程SKILL/AIGC创作全流程/sd-storyboard-engine/SKILL.md#四工作流程)。将镜头方法映射到既有镜头编号和初稿结构，不直接执行其后续投喂、出图或定稿。
 - 仅打戏段追加 [攻防节拍](../00全流程SKILL/AIGC创作全流程/sd-combat-engine/SKILL.md#四工作流程五步)；玄幻段使用 [玄幻攻防设计](../00全流程SKILL/AIGC创作全流程/sd-xuanhuan-engine/SKILL.md#四工作流程五步)；写实格斗段使用 [写实拆招与镜头设计](../00全流程SKILL/AIGC创作全流程/sd-real-engine/SKILL.md#四工作流程六步--asset-first-精简版)。只采用当前段对应方法，封装与 PREVIS 留给后续阶段。
+- [决策引擎：情境选型与雷区判定](../00全流程SKILL/AIGC创作全流程/sd-decision-engine/SKILL.md#四工作流程)：取步骤 3–6，以 01 自然剧本的「本集节拍表」为输入，不重新切分节拍；节拍表缺失时才按步骤 2 就地补切，并在初稿 `beat_source` 声明来源。逐节拍按 [选 ID 优先级流程](../00全流程SKILL/AIGC创作全流程/sd-decision-engine/references/context-mapping.md#六选-id-的优先级流程) 选 E-ID（只认 E01–E15 或用户授权后自定义的 EX01，禁止编造；查不到先询问用户），按 [80/15/5 权重机制](../00全流程SKILL/AIGC创作全流程/sd-decision-engine/references/context-mapping.md#一80155-权重机制核心) 分配 80/15/5，按 [雷区自查流程](../00全流程SKILL/AIGC创作全流程/sd-decision-engine/references/forbidden-zone-whitelist.md#六雷区自查流程生成完每个大分镜后过) 逐镜判定。结果落在分镜初稿 JSON 同文件：每镜带 `beat_no`（`场<场次>-节拍<编号>`）、`context_id`、`forbidden_limits`（B 类「限制：…」逐条，无则空数组），顶层按 [6 列标准格式](../00全流程SKILL/AIGC创作全流程/sd-decision-engine/references/emotion-anchor-table.md#一标准格式6-列) 写 `emotion_anchor_table`，并写 `beat_source`、一句 `shot_count_decision`；有雷区时附 `forbidden_zone_report`。追溯字段只作机器元数据，不写进 `frame_prompt`／`video_prompt` 正文；景别阶梯跃迁与机位配额仍以既有权威为准。
+- 上一条的「分镜初稿 JSON」指实际工作稿 `03初步分镜/分镜拆分/EP…_分镜.json`；程序派生的 `storyboard_draft.json` 只是已采用索引，不承载锚点表。
 
 引用仅作为相应职责的方法来源，不授予跨阶段执行权限；以下项目交付契约与锁读取规则优先于引用章节中的交互流程及示例输出路径。
 
