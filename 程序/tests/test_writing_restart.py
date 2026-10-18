@@ -204,3 +204,66 @@ class WritingRestartTests(unittest.TestCase):
             restart.assert_called_with(stage)
             actions['放弃重写，恢复原稿']()
             restart.assert_called_with(None)
+
+    class _TextBox:
+        def __init__(self, text=''):
+            self.text = text
+            self.focused = False
+
+        def winfo_exists(self):
+            return True
+
+        def get(self, start, end):
+            return self.text
+
+        def delete(self, start, end):
+            self.text = ''
+
+        def insert(self, index, value):
+            self.text = value
+
+        def focus_set(self):
+            self.focused = True
+
+    def _restart_for_desktop(self, text, model):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        import desktop_writing_page
+        box = self._TextBox(text)
+        status = Mock()
+        host = SimpleNamespace(root=self.project, idea_input=box, status=status)
+        refresh = Mock()
+        restart = Mock()
+        patches = (patch.object(writing_api, 'selected_model', return_value=(model, {})),
+                   patch('stage_execution_service.restart_writing_preparation', restart))
+        return desktop_writing_page._restart_preparation, host, refresh, status, box, restart, patches
+
+    def test_req_s01_52_desktop_model_prefills_explicit_restart_command(self):
+        "REQ-S01-52：桌面／命令行模型右键重写不报缺 API 模型，而是填入可识别的重写指令。"
+        from workflow_tasks import writing_restart_requested
+        call, host, refresh, status, box, restart, patches = self._restart_for_desktop(
+            '第三幕节奏再快一点', '')
+        with patches[0], patches[1]:
+            call(host, '剧本大纲', refresh)
+            restart.assert_not_called()
+            refresh.assert_not_called()
+            self.assertEqual(box.text.split('\n')[0], '重新生成剧本大纲')
+            self.assertIn('第三幕节奏再快一点', box.text)
+            self.assertTrue(writing_restart_requested(box.text))
+            self.assertTrue(box.focused)
+            self.assertIn('重新生成剧本大纲', status.set.call_args.args[0])
+            call(host, '剧本大纲', refresh)
+            self.assertEqual(box.text.count('重新生成剧本大纲'), 1)
+
+    def test_req_s01_52_api_model_and_cancel_keep_revision_path(self):
+        "REQ-S01-52：API 模型仍写重写记录；放弃重写不要求 API 模型。"
+        call, host, refresh, _status, box, restart, patches = self._restart_for_desktop('', 'deepseek-v4-flash')
+        with patches[0], patches[1]:
+            call(host, '角色卡', refresh)
+            restart.assert_called_once_with(self.project, '角色卡')
+            refresh.assert_called_once_with()
+        call, host, refresh, _status, box, restart, patches = self._restart_for_desktop('', '')
+        with patches[0], patches[1]:
+            call(host, None, refresh)
+            restart.assert_called_once_with(self.project, None)
+            self.assertEqual(box.text, '')

@@ -33,7 +33,8 @@
 - **DES-S01-22**（REQ-S01-22）`stage_completion_service` → `skill_orchestrator.verified_stage_output` → `script_contract.resolve_script_source(root) is not None`。
 - **DES-S01-30**（REQ-S01-30/31）API 与桌面共用 `capture_request` / `freeze_skills` 快照；正式交付条款仅桌面启用；`call_mode=Desktop` 回执为 `prepared`，后台与 CLI 拒绝此模式。
 - **DES-S01-50**（REQ-S01-50）`desktop_idea_chat.IdeaChatMixin.open_flow_agent` 的 `desktop-app` 分支在剧本发送入口（`start_script_workflow` 与简报提取）传入 `desktop_paste=True` 时，启动所选程序后调用 `codex_paste.paste_existing(..., program=program, app_name=display_model)`；直接调用默认保留原「仅复制」提示；`codex_paste.ps1` 按进程名与程序路径（含同目录 `app-*` 版本化子目录）匹配窗口，用 UI Automation 选择最大可编辑控件，输入框已有草稿时不覆盖。找不到窗口或粘贴失败时返回 `ok=false`，回执 `failed` 并只提示「已复制到剪贴板，请手动粘贴并发送」；`claude-desktop-app` 与 GPT 桌面不传 `app_name` 时沿用原文案与行为。
-- **DES-S01-51**（REQ-S01-51）`idea_chat.import_downloaded_documents` 对四段式 `stage-v1` 文件名保持原有「项目／类型／Provider 内容段」匹配；解析失败或不是 `stage-v1` 的 `.md` 改读正文（`utf-8-sig`），经 `is_project_document_text` 与 `_project_file_type` 判类后，从正文的 `项目名／项目名称／剧名` 字段（容许 `《》`）或首行标题中类型标签后的剩余名称取项目名，与 `script_contract.project_name(root)` 比较，正文写了项目名而不一致即跳过；正文取不到项目名时一律跳过；正文分支不比 Provider 内容段，落盘目录仍用调用方传入的 Provider／模型。每类仍只取最新一份、必须比该模型已保存文件新、沿用三天窗口与 `save_reply`，下载原件不动，仅扫描下载目录顶层 `*.md`。
+- **DES-S01-51**（REQ-S01-51）`idea_chat.import_downloaded_documents` 对四段式 `stage-v1` 文件名保持原有「项目／类型／Provider 内容段」匹配；解析失败或不是 `stage-v1` 的 `.md` 改读正文（`utf-8-sig`），经 `is_project_document_text` 与 `_project_file_type` 判类后，从正文的 `项目名／项目名称／剧名` 字段（容许 `《》`）或首行标题中类型标签后的剩余名称取项目名，与 `script_contract.project_name(root)` 比较。正文写了项目名时以正文为准，不一致即跳过；正文取不到项目名时由 `_filename_names_project` 兜底：去掉浏览器追加的「 (N)」与 `.md`，按空白、下划线、短横线、`·`、`｜`、逗号等分隔符切段，任一段经 `_same_project_name` 规范化后等于当前项目名才收，`摄影侠外传` 不等于 `摄影侠`。正文分支不比 Provider 内容段，落盘目录仍用调用方传入的 Provider／模型。每类仍只取最新一份、必须比该模型已保存文件新、沿用三天窗口与 `save_reply`，下载原件不动，仅扫描下载目录顶层 `*.md`。
+- **DES-S01-52**（REQ-S01-52）`desktop_writing_page` 的 `restart_preparation` 只保留一行委托给模块级 `_restart_preparation`，避免扩大 `writing()` 行数。`writing_api.selected_model` 为空且指定了阶段时，不调用 `restart_writing_preparation`，改为把 `idea_input` 首行设为「重新生成<阶段>」（已是该句则不重复插入，原有内容下移保留），聚焦输入框并提示可在下一行补充要求，由发送路径的 `workflow_tasks.writing_restart_requested` 识别并开新会话；API 模型仍写重写记录；`stage is None` 时照常调用以清除 revision。
 - **DES-S01-53**（REQ-S01-53）新增 L1 `client_profiles`：只读 `配置/客户端档案.json` 与可选 `data/客户端档案.json`，按 `id` 合并，内置先入表、用户同名项跳过；两份清单都允许缺字段、缺 `schema_version`，坏 JSON 按空表处理。档案是「发现／启动／投递／窗口识别」的唯一数据源，`ENGINES` 仍保留已知引擎的兼容分支。
 - **DES-S01-54**（REQ-S01-54）`desktop_idea_chat._deliver_desktop_app` 接受档案的 `delivery`：`paste` 调用 R1699 的 `codex_paste.paste_existing(..., program, app_name)`，异常或 `ok=false` 统一回落为「已复制到剪贴板，请手动粘贴并发送」并以 `prepared` 收尾，不把可恢复失败写成调用失败；`clipboard` 不调用粘贴脚本。`workflow_engines` 的 `client-cli` 分支按档案 `invoke` 拼参数，`invoke` 为空时只打开该程序的控制台窗口供用户继续输入；后台入口缺少可用模板时返回可执行建议而非「未知引擎」。
 - **DES-S01-55**（REQ-S01-55）`client_profiles.pe_subsystem()` 只读 DOS／PE 头和 Optional Header，返回 `gui`／`console`／空；`adapt_executable()` 由子系统派生 `kind`、`process_names`、`delivery`，GUI 路径绝不调用探测命令。Console 路径的 `probe_cli()` 使用注入的 `subprocess.run`、`shell=False`、5 秒超时和最小环境，解析帮助／版本输出后写入用户档案；异常、超时、无法识别都保留空 `invoke` 并记录原因。模型管理「自动搜寻／检查程序／保存这条」均可在用户显式操作后调用该派生入口。
@@ -57,6 +58,7 @@
 | REQ-S01-15 | `test_script_preparation_roles` |
 | REQ-S01-23 | `test_script_preparation_manifest_scope` |
 | REQ-S01-51 | `test_idea_download_import` |
+| REQ-S01-52 | `test_writing_restart` |
 
 ## S02 剧本结构
 

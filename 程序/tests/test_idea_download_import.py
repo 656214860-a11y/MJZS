@@ -148,7 +148,30 @@ class BodyNamedDownloadImportTests(unittest.TestCase):
     def test_req_s01_51_body_project_mismatch_or_missing_is_ignored(self):
         self._download('google_20261018.md', '# 项目设定\n\n项目名：《别的项目》\n故事大体环境：别处。\n')
         self._download('google_20261018 (1).md', '# 项目设定\n\n故事大体环境：没有项目名。\n')
-        self._download('摄影侠 项目大纲 20261018.md', '# 剧本大纲\n\n## 一句话简介\n少年拿起相机。\n')
+        self._download('google_20261018 (2).md', '# 剧本大纲\n\n## 一句话简介\n少年拿起相机。\n')
+        self.assertEqual(self._import(), [])
+
+    def test_req_s01_51_filename_project_falls_back_when_body_has_none(self):
+        self._download('摄影侠 项目大纲 Google 20261018.md',
+                       '# 剧本大纲\n\n## 一句话简介\n少年拿起相机。\n')
+        imported = self._import()
+        self.assertEqual([kind for kind, _path in imported], ['项目大纲'])
+        self.assertEqual(imported[0][1].read_text(encoding='utf-8').strip(),
+                         '# 剧本大纲\n\n## 一句话简介\n少年拿起相机。')
+
+    def test_req_s01_51_filename_project_mismatch_is_ignored(self):
+        self._download('别的项目 角色卡 Google 20261018.md',
+                       '# 角色卡\n\n## 林夏\n- 姓名：林夏\n')
+        self.assertEqual(self._import(), [])
+
+    def test_req_s01_51_body_project_takes_priority_over_filename(self):
+        self._download('摄影侠 项目设定 Google 20261018.md',
+                       '# 项目设定\n\n项目名：《别的项目》\n故事大体环境：别处。\n')
+        self.assertEqual(self._import(), [])
+
+    def test_req_s01_51_partial_filename_project_name_is_ignored(self):
+        self._download('摄影侠外传 角色卡 20261018.md',
+                       '# 角色卡\n\n## 林夏\n- 姓名：林夏\n')
         self.assertEqual(self._import(), [])
 
     def test_req_s01_51_title_project_name_imports_outline_role_card_and_script(self):

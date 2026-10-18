@@ -74,6 +74,28 @@ def _build_layout_scheduler(win):
     return schedule_layout, cancel_layout_job
 
 
+def _restart_preparation(host, stage, refresh):
+    """右键重写：API 模型写重写记录；桌面／命令行模型改为填入可识别的发送指令。"""
+    import writing_api
+    from stage_execution_service import restart_writing_preparation
+    if stage and not writing_api.selected_model(host.root)[0]:
+        command = '重新生成' + stage
+        box = getattr(host, 'idea_input', None)
+        if box is None or not box.winfo_exists():
+            raise ValueError('当前页面未找到剧本准备输入框')
+        current = box.get('1.0', 'end-1c')
+        if current.split('\n', 1)[0].strip() != command:
+            box.delete('1.0', 'end')
+            box.insert('1.0', command + ('\n' + current if current else ''))
+        box.focus_set()
+        host.status.set('已在输入框填入「' + command + '」：可在下一行补充修改要求，再点发送')
+        return
+    restart_writing_preparation(host.root, stage)
+    refresh()
+    host.status.set(('开始重写' + stage + '：请发送创作要求，新稿定稿前原稿照常可用')
+                    if stage else '已放弃重写，恢复原稿')
+
+
 class WritingPageMixin:
     """Desktop 的剧本准备页构建（见模块说明）。"""
     def writing(self):
@@ -587,14 +609,7 @@ class WritingPageMixin:
             fill_script_list()
             self.status.set('已采用自然剧本：'+adopted.name+'；后续结构化使用此版本')
         def restart_preparation(stage):
-            from stage_execution_service import restart_writing_preparation
-            import writing_api
-            if not writing_api.selected_model(self.root)[0]:
-                raise ValueError('请先在阶段配置中选择 API 模型')
-            restart_writing_preparation(self.root,stage)
-            fill_script_list()
-            self.status.set(('开始重写'+stage+'：请发送创作要求，新稿定稿前原稿照常可用')
-                            if stage else '已放弃重写，恢复原稿')
+            _restart_preparation(self,stage,fill_script_list)
         def confirm_document(stage):
             """把用户改过的当前文件设为该阶段定稿；之后各阶段的定稿会失效。"""
             path=selected_script()

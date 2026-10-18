@@ -164,13 +164,25 @@ def _same_project_name(candidate, expected):
     return bool(normalize(candidate)) and normalize(candidate) == normalize(expected)
 
 
+_FILENAME_PROJECT_SPLIT = re.compile(r'[\s_\-—·｜|,，、;；:：()（）\[\]【】]+')
+
+
+def _filename_names_project(filename, expected):
+    "文件名兜底：去掉浏览器副本后缀与 .md 后，任一完整段等于当前项目名才认。"
+    name = _DOWNLOAD_COPY_SUFFIX.sub('', Path(str(filename or '')).name)
+    name = re.sub(r'\.md$', '', name, flags=re.I)
+    return any(_same_project_name(part, expected)
+               for part in _FILENAME_PROJECT_SPLIT.split(name) if part)
+
+
 def import_downloaded_documents(root, folder, provider='', model='', *, publish=None, now=None):
     """收回用户从桌面 Agent 窗口（如 Claude Desktop）下载到「下载」文件夹的创作文件。
 
     桌面窗口有时只给出下载文件而不直接写入任务书指定的路径；四段式文件名
     ``项目名_文件类型_内容_年月日.md``（浏览器追加的「 (N)」也认）按项目／类型／
     Provider 内容段找回；文件名不合格式时改为按正文判类，并用正文里的项目名与当前
-    项目核对。每类只取最新一份，且必须比本模型该类已保存的最新文件更新；落盘复用
+    项目核对；正文没写项目名时，由文件名中的完整项目名段兜底。每类只取最新一份，
+    且必须比本模型该类已保存的最新文件更新；落盘复用
     ``save_reply``：设定／大纲／角色卡覆盖同一份，自然剧本同稿复用、异稿编号。
     下载目录里的原文件保持不动。
 
@@ -219,7 +231,11 @@ def import_downloaded_documents(root, folder, provider='', model='', *, publish=
             file_type = _project_file_type(body)
             if file_type not in PROJECT_DOCUMENT_DIRS:
                 continue
-            if not _same_project_name(_document_project_name(body), expected_project):
+            body_project = _document_project_name(body)
+            if body_project:
+                if not _same_project_name(body_project, expected_project):
+                    continue
+            elif not _filename_names_project(path.name, expected_project):
                 continue
         if file_type not in newest or mtime > newest[file_type][0]:
             newest[file_type] = (mtime, path, body)
