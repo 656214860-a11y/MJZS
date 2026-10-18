@@ -14,6 +14,7 @@ from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
 from ui_dialogs import FileDialog
+from ui_tokens import SPACING
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, notify
 
 
@@ -51,21 +52,21 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
         tick_images = ['', '']
     win = BaseDialog(parent, '参考图候选 · 打分与入库', geometry='1000x640',
                      minsize=(780, 480), modal=False, chrome=False); win.withdraw()
-    body = Card(win, padding=12); body.pack(fill='both', expand=True)
+    body = Card(win, padding=SPACING['md']); body.pack(fill='both', expand=True)
     tools = ttk.Frame(body); tools.pack(fill='x')
     ttk.Label(tools, text='资产').pack(side='left')
-    asset_box = SelectBox(tools, values=list(labels)); asset_box.pack(side='left', padx=(4, 10))
+    asset_box = SelectBox(tools, values=list(labels)); asset_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
     asset_box.set(next((text for text, key in labels.items() if key == aid), next(iter(labels), '')))
     ttk.Label(tools, text='参考用途').pack(side='left')
-    role_box = SelectBox(tools); role_box.pack(side='left', padx=(4, 10))
+    role_box = SelectBox(tools); role_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
     ttk.Label(tools, text='打分阈值').pack(side='left')
     threshold_box = ttk.Spinbox(tools, from_=0, to=100, width=5); threshold_box.set(search.DEFAULT_THRESHOLD)
-    threshold_box.pack(side='left', padx=(4, 10))
+    threshold_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
     ttk.Label(tools, text='最多显示').pack(side='left')
     limit_box = ttk.Spinbox(tools, from_=1, to=24, width=5); limit_box.set(search.DEFAULT_LIMIT)
-    limit_box.pack(side='left', padx=(4, 10))
+    limit_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
     status = tk.StringVar()
-    table_box = ttk.Frame(body); table_box.pack(fill='both', expand=True, pady=(10, 6))
+    table_box = ttk.Frame(body); table_box.pack(fill='both', expand=True, pady=(SPACING['sm'], SPACING['xs']))
     table_shell = DataTable(table_box, columns=[
         ('score', '分数', 60), ('license', '许可', 150), ('commercial', '可商用', 70),
         ('title', '标题', 240), ('page', '来源页', 240), ('reasons', '打分理由', 460),
@@ -87,7 +88,7 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
     table.heading('#0', command=box.toggle_all)
     bind_row_toggle(table, box.toggle)
     ttk.Label(body, textvariable=status, wraplength=960, justify='left').pack(fill='x')
-    bottom = ttk.Frame(body); bottom.pack(fill='x', pady=(10, 0))
+    bottom = ttk.Frame(body); bottom.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
     state = {'items': []}
     dropped = set()          # 第 46 期第 9 条：右键「删除」剔掉的那些候选（只影响这一批结果）
 
@@ -175,7 +176,7 @@ def show(app, aid=None, parent=None, on_saved=None, assets=None, base=None, cand
     SecondaryButton(tools, text='重新打分', command=lambda: safe(reload)).pack(side='left')
     SecondaryButton(bottom, text='打开候选清单…',
                     command=lambda: safe(pick_file)).pack(side='left')
-    PrimaryButton(bottom, text='确认入库', command=safe_commit).pack(side='left', padx=(8, 0))
+    PrimaryButton(bottom, text='确认入库', command=safe_commit).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
     SecondaryButton(bottom, text='取消', command=win.destroy).pack(side='right')
 
     def safe(fn):

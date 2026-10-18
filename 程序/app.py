@@ -607,8 +607,8 @@ class App:
         from writing import STAGES
         from stage_execution_service import prepare_writing_project
         win=BaseDialog(self.window,'剧本准备 · 五阶段编剧技能',geometry='780x540',modal=False,chrome=False);win.attributes('-alpha',0)
-        ttk.Label(win,text='填写创意或粘贴已有剧本：').pack(anchor='w',padx=12,pady=6)
-        brief=TextArea(win,height=15,wrap='word');brief.pack(fill='both',expand=True,padx=12)
+        ttk.Label(win,text='填写创意或粘贴已有剧本：').pack(anchor='w',padx=SPACING['md'],pady=SPACING['xs'])
+        brief=TextArea(win,height=15,wrap='word');brief.pack(fill='both',expand=True,padx=SPACING['md'])
         # 第 45 期：这一栏里的示例以前是正常黑字，看着像用户自己写的，一按「生成编剧任务书」才发现
         # 交上去的是软件自带的那几句话。现在示例默认置灰（只是提示）：一动键盘整段让位，
         # 空着再离开焦点就把灰色的示例放回来；真拿着示例去生成会被拦下并说清。
@@ -631,9 +631,9 @@ class App:
         brief.bind('<KeyPress>',brief_key,add='+');brief.bind('<<Paste>>',clear_example,add='+')
         brief.bind('<FocusOut>',brief_blur,add='+')
         show_example()
-        row=ttk.Frame(win);row.pack(fill='x',padx=12,pady=8)
+        row=ttk.Frame(win);row.pack(fill='x',padx=SPACING['md'],pady=SPACING['sm'])
         stage=SelectBox(row,values=STAGES);stage.current(0);stage.pack(side='left')
-        ttk.Label(row,text='目标秒数：').pack(side='left',padx=8);duration=LineInput(row,width=8);duration.insert(0,'40');duration.pack(side='left')
+        ttk.Label(row,text='目标秒数：').pack(side='left',padx=SPACING['sm']);duration=LineInput(row,width=8);duration.insert(0,'40');duration.pack(side='left')
         def generate():
             try:
                 if self.busy:raise ValueError('请等待当前操作完成')
@@ -644,7 +644,7 @@ class App:
                 self.write('编剧任务书已生成：'+str(folder));open_path(folder)
                 self.notifier.success('任务书、技能说明、资产表和JSON模板已保存。\n交给 Codex 执行即可，本按钮不调用模型。', title='已准备', modal=True)
             except Exception as e:self.notifier.error(str(e), title='无法准备')
-        PrimaryButton(win,text='生成编剧任务书（离线）',command=generate).pack(pady=12)
+        PrimaryButton(win,text='生成编剧任务书（离线）',command=generate).pack(pady=SPACING['md'])
     def import_json(self):
         from writing import validate_episode
         from agent.core import read

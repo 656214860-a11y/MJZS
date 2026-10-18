@@ -12,7 +12,7 @@ from platform_tools import open_path
 import ui_plugin_registry
 from responsive_ui import FlowBar, CHECK_COLUMN_WIDTH, configure_check_column, refresh_check_heading, scroll_form
 from storyboard_paths import media_root
-from ui_tokens import COLORS, SPACING
+from ui_tokens import COLORS, FONTS, SPACING
 from keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING,
                             batch_plan, frame_prompt, frame_state, plan_summary)
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
@@ -276,9 +276,9 @@ def show(app, source, initial=None):
     view = scroll_form(viewport, bg=COLORS['background_primary'])
     form = view.form                      # 滚动表单区与批量资产共用一份实现
 
-    ttk.Label(form, text='勾选镜头 → 开始逐镜生成 → 按镜头编号自动导入', style='Tokens.Title.TLabel').pack(anchor='w', padx=14, pady=SPACING['md'])
-    DescriptionBlock(form, text=scope + '；只处理尚未有首帧的镜头。').pack(anchor='w', padx=14)
-    DescriptionBlock(form, text='提示词沿用镜头 JSON 的 frame_prompt，参考图沿用资产图片；缺少参考图或提示词的镜头会被列出并跳过。').pack(anchor='w', padx=14, pady=SPACING['xs'])
+    ttk.Label(form, text='勾选镜头 → 开始逐镜生成 → 按镜头编号自动导入', style='Tokens.Title.TLabel').pack(anchor='w', padx=SPACING['md'], pady=SPACING['md'])
+    DescriptionBlock(form, text=scope + '；只处理尚未有首帧的镜头。').pack(anchor='w', padx=SPACING['md'])
+    DescriptionBlock(form, text='提示词沿用镜头 JSON 的 frame_prompt，参考图沿用资产图片；缺少参考图或提示词的镜头会被列出并跳过。').pack(anchor='w', padx=SPACING['md'], pady=SPACING['xs'])
     table_shell = DataTable(form, columns=[
         ('shot', '镜头号', 130), ('title', '内容', 150),
         ('references', '参考图', 70), ('prompt', '首帧提示词', 430),
@@ -309,11 +309,11 @@ def show(app, source, initial=None):
         table.column('prompt', width=max(180, available - CHECK_COLUMN_WIDTH - shot_width - title_width - ref_width))
 
     table.bind('<Configure>', lambda event: fit_columns(event.width), add='+')
-    table_shell.pack(fill='x', padx=14)
+    table_shell.pack(fill='x', padx=SPACING['md'])
     status = tk.StringVar()
-    ProgressLabel(form, textvariable=status).pack(anchor='w', padx=14, pady=6)
+    ProgressLabel(form, textvariable=status).pack(anchor='w', padx=SPACING['md'], pady=SPACING['xs'])
     plan_note = tk.StringVar()
-    DescriptionBlock(form, textvariable=plan_note).pack(anchor='w', padx=14)
+    DescriptionBlock(form, textvariable=plan_note).pack(anchor='w', padx=SPACING['md'])
     rows = {shot['id']: shot for shot in pending_shots(episode.get('shots'), base)}
     excluded = set()
     if initial is not None:
@@ -418,19 +418,19 @@ def show(app, source, initial=None):
     poll_id = None
     agent_stamp = [0]
     model_box = Card(form)
-    model_box.pack(fill='x', padx=14, pady=6)
+    model_box.pack(fill='x', padx=SPACING['md'], pady=SPACING['xs'])
     model_box.columnconfigure(1, weight=1)
     ttk.Label(model_box, text='生成模型与接口').grid(row=0, column=0, columnspan=6, sticky='w')
     # 第 46 期第 7 条：这一格原来是一个「模型」下拉框（本地 ComfyUI／Seedream／首帧 Agent 引擎
     # 三条模型都摆在这儿，与阶段配置的模型下拉重复）。现在只剩只读的一行——挑模型的地方只有
     # 阶段配置那一处，右边留一颗「阶段配置」就地打开它（与页面上那颗按钮同一个面板）。
-    ttk.Label(model_box, text='模型').grid(row=1, column=0, sticky='w', padx=(0, 6))
+    ttk.Label(model_box, text='模型').grid(row=1, column=0, sticky='w', padx=(SPACING['none'], SPACING['xs']))
     selector = ttk.Label(model_box, textvariable=model, anchor='w')
     selector.grid(row=1, column=1, sticky='w')
-    ttk.Label(model_box, text='画幅').grid(row=1, column=2, padx=(12, 4))
+    ttk.Label(model_box, text='画幅').grid(row=1, column=2, padx=(SPACING['md'], SPACING['xs']))
     shape = SelectBox(model_box, textvariable=aspect, values=list(ASPECTS), state='disabled', width=8)
     shape.grid(row=1, column=3, padx=SPACING['xs'])
-    ttk.Label(model_box, text='批次意图').grid(row=1, column=4, padx=(12, 4))
+    ttk.Label(model_box, text='批次意图').grid(row=1, column=4, padx=(SPACING['md'], SPACING['xs']))
     mode_box = SelectBox(model_box, textvariable=mode_var,
                          values=[MODE_LABELS[key] for key in (MODE_MISSING, MODE_RETRY)],
                          state='readonly', width=10)
@@ -444,7 +444,7 @@ def show(app, source, initial=None):
     skill_button.grid(row=3, column=1, sticky='w')
     stage_button = SecondaryButton(model_box, text='阶段配置',
                               command=lambda: app.safe(open_stage_config))
-    stage_button.grid(row=3, column=2, sticky='w', padx=6)
+    stage_button.grid(row=3, column=2, sticky='w', padx=SPACING['xs'])
 
     def build_choices():
         """把「阶段配置 → 模型」里挑的那一档翻成 (种类, 引擎)：本地 ComfyUI／Seedream／首帧 Agent。
@@ -481,20 +481,20 @@ def show(app, source, initial=None):
     local_box = Card(form)
     local_box.columnconfigure(1, weight=1)
     ttk.Label(local_box, text='ComfyUI 连接与模型接口').grid(row=0, column=0, columnspan=2, sticky='w')
-    ttk.Label(local_box, text='图片格式').grid(row=1, column=0, sticky='w', padx=SPACING['xs'], pady=2)
+    ttk.Label(local_box, text='图片格式').grid(row=1, column=0, sticky='w', padx=SPACING['xs'], pady=SPACING['none'])
     SelectBox(local_box, textvariable=ratio, values=list(FORMATS)).grid(row=1, column=1, sticky='w', padx=SPACING['xs'])
     fields = {}
     for index, (key, label, variable) in enumerate(
             [('url', '本机地址', url), ('model', '图像模型', model_name), ('text_encoder', '文本编码器', encoder), ('vae', 'VAE', vae)], start=1):
-        ttk.Label(local_box, text=label).grid(row=index + 1, column=0, sticky='w', padx=SPACING['xs'], pady=2)
+        ttk.Label(local_box, text=label).grid(row=index + 1, column=0, sticky='w', padx=SPACING['xs'], pady=SPACING['none'])
         field = LineInput(local_box, textvariable=variable) if key == 'url' else SelectBox(local_box, textvariable=variable, state='normal')
         field.grid(row=index + 1, column=1, sticky='ew', padx=SPACING['xs'])
         fields[key] = field
-    PrimaryButton(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=2, column=2, padx=6)
-    SecondaryButton(local_box, text='启动并检测', command=lambda: app.safe(detect)).grid(row=3, column=2, padx=6)
-    SecondaryButton(local_box, text='删除模型', command=lambda: app.safe(delete_model)).grid(row=4, column=2, padx=6)
-    log = TextArea(form, height=7, wrap='word', state='disabled', bg=COLORS['background_card'], fg=COLORS['text_primary'], font=('Microsoft YaHei UI', 10), padx=10, pady=SPACING['sm'])
-    log.pack(fill='both', expand=True, padx=14, pady=6)
+    PrimaryButton(local_box, text='保存设置', command=lambda: app.safe(save_api)).grid(row=2, column=2, padx=SPACING['xs'])
+    SecondaryButton(local_box, text='启动并检测', command=lambda: app.safe(detect)).grid(row=3, column=2, padx=SPACING['xs'])
+    SecondaryButton(local_box, text='删除模型', command=lambda: app.safe(delete_model)).grid(row=4, column=2, padx=SPACING['xs'])
+    log = TextArea(form, height=7, wrap='word', state='disabled', bg=COLORS['background_card'], fg=COLORS['text_primary'], font=FONTS['body'], padx=SPACING['sm'], pady=SPACING['sm'])
+    log.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['xs'])
 
     def log_lines(text):
         log.configure(state='normal')
@@ -520,7 +520,7 @@ def show(app, source, initial=None):
             if local_box.winfo_manager():
                 local_box.pack_forget()
         elif not local_box.winfo_manager():
-            local_box.pack(fill='x', padx=14, pady=6, after=model_box)
+            local_box.pack(fill='x', padx=SPACING['md'], pady=SPACING['xs'], after=model_box)
         shape.configure(state='readonly' if current == 'cloud' else 'disabled')
         if current == 'cloud':
             account.grid()
@@ -796,20 +796,20 @@ def show(app, source, initial=None):
     except Exception:
         app_logging.swallowed()
     bar = FlowBar(footer)
-    bar.pack(fill='x', padx=14, pady=SPACING['sm'])
+    bar.pack(fill='x', padx=SPACING['md'], pady=SPACING['sm'])
     start_button = PrimaryButton(bar, text='开始逐镜生成', command=lambda: app.safe(start))
     start_button.pack(side='left')
     halt = SecondaryButton(bar, text='停止后续镜头', command=stop_request)
-    halt.pack(side='left', padx=6)
+    halt.pack(side='left', padx=SPACING['xs'])
     check_button = SecondaryButton(bar, text='检查参考资产', command=lambda: app.safe(preflight_check))
-    check_button.pack(side='left', padx=6)
+    check_button.pack(side='left', padx=SPACING['xs'])
     def preview_cost():
         checked = check_values()
         if checked['model'] != SEEDREAM:raise ValueError('当前金额预估支持 Seedream 直连，请按实际供应商核对其他模型费用。')
         log_lines(seedream_cost_preview(project, source, checked['shots'], checked))
-    SecondaryButton(bar, text='预估费用', command=lambda: app.safe(preview_cost)).pack(side='left', padx=6)
-    SecondaryButton(bar, text='生成记录', command=records).pack(side='left', padx=6)
-    SecondaryButton(bar, text='关闭', command=lambda: app.safe(close)).pack(side='left', padx=6)
+    SecondaryButton(bar, text='预估费用', command=lambda: app.safe(preview_cost)).pack(side='left', padx=SPACING['xs'])
+    SecondaryButton(bar, text='生成记录', command=records).pack(side='left', padx=SPACING['xs'])
+    SecondaryButton(bar, text='关闭', command=lambda: app.safe(close)).pack(side='left', padx=SPACING['xs'])
 
     def poll():
         nonlocal busy, poll_id
