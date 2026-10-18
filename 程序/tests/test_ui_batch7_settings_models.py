@@ -317,5 +317,37 @@ class RecoverableErrorTests(Batch7Case):
         self.assertIn('正整数', str(dispatcher.return_value.error.call_args.args))
 
 
+class HubDefaultTabTests(Batch7Case):
+    """UI 批次 7c：齿轮无参打开设置窗时，默认落在分页第一项「基础功能」。"""
+
+    def _open_without_tab(self):
+        scanner = mock.patch('pet_settings_ui.token_saver.scan', return_value={})
+        scanner.start()
+        self.addCleanup(scanner.stop)
+        return self._show(pet_settings_ui.open_hub(self.pet))
+
+    def test_open_without_tab_lands_on_basic_with_built_content(self):
+        win = self._open_without_tab()
+        self.assertEqual(pet_settings_ui.current(win), 'basic',
+                         '无参打开必须落在「基础功能」，不能停在空窗')
+        basic = win._pet_pages['basic']
+        self.assertTrue(basic.winfo_ismapped(), '基础功能页必须真的摆出来')
+        texts = [str(child.cget('text')) for child in _descendants(basic) if 'text' in child.keys()]
+        self.assertIn('基础功能', texts, '内容区的抬头已构建')
+        self.assertIn('宠物名字', texts, '基础功能表单已构建')
+        self.assertTrue(any(child.winfo_class() == 'TSpinbox' for child in _descendants(basic)),
+                        '免打扰时段输入已构建')
+        self.assertIn('disabled', _button(win, '保存').state(),
+                      '基础功能没有可保存内容，底部保存应置灰')
+
+    def test_explicit_model_tab_still_lands_on_the_model_page(self):
+        win = self._hub('model')
+        self.assertEqual(pet_settings_ui.current(win), 'model')
+        self.assertTrue(win._pet_pages['model'].winfo_ismapped())
+        self.assertFalse(win._pet_pages['basic'].winfo_ismapped(),
+                         '显式传 model 时不应再摆着基础功能页')
+
+
 if __name__ == '__main__':
     unittest.main()
+

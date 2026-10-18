@@ -26,6 +26,8 @@ from ui_tokens import FONTS, SPACING, TEXT_DESC, TEXT_HINT
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea, SelectBox
 
 HUB_TITLE = '设置'
+# 齿轮是无参调用：没指定落在哪一格时，默认与分页行第一项「基础功能」一致。
+DEFAULT_TAB = TABS[0][0]
 HUB_GEOMETRY = '880x620'
 # 内容型设置窗不允许被系统压成 1×1；下限保住底部动作区与首行表单。
 HUB_MIN = (760, 560)
@@ -104,7 +106,11 @@ def parent_of(pet):
 
 
 def open_hub(pet, tab=None):
-    """打开「设置」；tab 给了 'basic'／'model'／'level'／'budget' 就直接落在那一格。"""
+    """打开「设置」；tab 给了 'basic'／'model'／'level'／'budget' 就直接落在那一格。
+
+    齿轮入口不传 tab：这时落到分页行第一项「基础功能」，并走与手动切页相同的 select()，
+    底部「保存」的可用状态也随之算对，不会留一扇没有内容的空窗。
+    """
     parent = parent_of(pet)
     win = BaseDialog(parent, '', modal=False, chrome=False)
     win.title(HUB_TITLE)
@@ -163,7 +169,7 @@ def open_hub(pet, tab=None):
     win._pet_footer = footer
     win._pet_save = save_button
     win._pet_close = close_button
-    select(win, tab)
+    select(win, tab or DEFAULT_TAB)
     return win
 
 
