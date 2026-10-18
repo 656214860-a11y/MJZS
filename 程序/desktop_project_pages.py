@@ -13,7 +13,8 @@ from datetime import date
 from pathlib import Path
 from projects import needs_cleanup_after_open_error
 from tkinter import ttk
-from ui_tokens import COLORS, SPACING
+from responsive_ui import FlowBar
+from ui_tokens import COLORS, FONTS, SPACING, TEXT_DESC
 from ui_widgets import BaseDialog, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton
 from desktop_page_support import ContextMenu, confirm, open_path
 
@@ -53,6 +54,11 @@ class ProjectPagesMixin:
         """项目登记写服务的 L3 结果只在桌面编排层解包。"""
         from stage_execution_service import unwrap_project_result
         return unwrap_project_result(result)
+    def _project_action(self,bar,text,command,*,primary=False):
+        """项目动作统一交给可换行的 FlowBar；主操作换主按钮样式，窄窗只增行不裁字。"""
+        button=self.button(bar,text,command)
+        if primary:button.configure(style='Tokens.Primary.TButton')
+        return button
     def fill_projects(self,tree):
         tree.delete(*tree.get_children())
         for state,label in [('making','在制作项目'),('completed','已完成项目')]:
@@ -220,12 +226,21 @@ class ProjectPagesMixin:
             except (ValueError,OSError):
                 self.status.set('今天选定的项目已不可用，请选择其他项目或导入新剧本')
         popup=BaseDialog(self.win,'选择项目 · '+APP_NAME,geometry='640x480',minsize=(500,380),modal=False,chrome=False);popup.attributes('-alpha',0)
-        ttk.Label(popup,text='今天继续哪个故事？',font=('Microsoft YaHei UI',17,'bold')).pack(anchor='w',padx=22,pady=(22,8))
-        ttk.Label(popup,text='选择项目后点击进入，或双击项目名称。',style='Muted.TLabel').pack(anchor='w',padx=22,pady=(0,12))
+        # 动作区先占底边：窗口再矮也只压缩项目列表，不把按钮挤到可视区外；
+        # FlowBar 在窄窗里自动换行，每个按钮保持自己的请求宽度。
+        actions=FlowBar(popup)
+        actions.pack(side='bottom',fill='x',padx=SPACING['xl'],pady=(SPACING['none'],SPACING['lg']))
+        ttk.Label(popup,text='今天继续哪个故事？',font=FONTS['heading_1']).pack(anchor='w',padx=SPACING['xl'],pady=(SPACING['xl'],SPACING['sm']))
+        ttk.Label(popup,text='选择项目后点击进入，或双击项目名称。',style='Muted.TLabel').pack(anchor='w',padx=SPACING['xl'],pady=(SPACING['none'],SPACING['md']))
         missing_notice='项目目录不存在或已被移动，不能进入项目。可“重新查找项目”；选择清除时只清除登记，不动磁盘。'
         notice=tk.StringVar(value=missing_notice if cleanup_path else '')
-        ttk.Label(popup,textvariable=notice,foreground=COLORS['warning_text'],wraplength=590).pack(anchor='w',padx=22,pady=(0,8))
-        tree=ttk.Treeview(popup,show='tree',selectmode='browse');tree.pack(fill='both',expand=True,padx=22);self.fill_projects(tree)
+        notice_label=ttk.Label(popup,textvariable=notice,foreground=COLORS['warning_text'],wraplength=TEXT_DESC['wraplength'])
+        notice_label.pack(anchor='w',padx=SPACING['xl'],pady=(SPACING['none'],SPACING['sm']))
+        def fit_notice(event):
+            if event.width>SPACING['xl']*2:
+                notice_label.configure(wraplength=event.width-SPACING['xl']*2)
+        popup.bind('<Configure>',fit_notice,add='+')
+        tree=ttk.Treeview(popup,show='tree',selectmode='browse');tree.pack(fill='both',expand=True,padx=SPACING['xl']);self.fill_projects(tree)
         selected_path=cleanup_path or self.projects.info.get('active')
         if selected_path and tree.exists(selected_path):tree.selection_set(selected_path);tree.see(selected_path)
         def delete_selected_project():
@@ -281,19 +296,20 @@ class ProjectPagesMixin:
             choices=outcome.get('choices',[])
             if not choices:
                 notice.set('没有找到可认领的目录；可只清除这条失效登记。');return
-            picker=BaseDialog(popup,'选择重新找到的项目目录',modal=False,chrome=False)
-            ttk.Label(picker,text='找到多个候选目录，请确认实际项目：').pack(anchor='w',padx=SPACING['lg'],pady=(16,8))
+            picker=BaseDialog(popup,'选择重新找到的项目目录',modal=False)
+            ttk.Label(picker.content,text='找到多个候选目录，请确认实际项目：').pack(anchor='w',pady=(SPACING['none'],SPACING['sm']))
             candidate=tk.StringVar(value=choices[0])
             for value in choices:
-                ttk.Radiobutton(picker,text=value,variable=candidate,value=value).pack(anchor='w',padx=SPACING['lg'],pady=3)
+                ttk.Radiobutton(picker.content,text=value,variable=candidate,value=value).pack(anchor='w',pady=SPACING['xs'])
             def claim():
                 try:claimed=self._project_result_data(self.projects.reconcile_missing(old,selected=candidate.get()))
                 except Exception as exc:
                     NotificationDispatcher(self.status, parent=picker).error(str(exc), title='无法同步项目登记');return
-                picker.destroy();self.reload();self.fill_projects(tree)
+                picker.close();self.reload();self.fill_projects(tree)
                 new=claimed['path'];tree.selection_set(new);tree.see(new)
                 notice.set('已按新位置同步项目登记。')
-            PrimaryButton(picker,text='认领此目录',command=claim).pack(pady=SPACING['lg'])
+            picker.add_action('取消',picker.close)
+            picker.add_action('认领此目录',claim,primary=True)
         def enter(event=None):
             selected=tree.selection()
             if not selected or selected[0].startswith('group:'):return
@@ -307,31 +323,33 @@ class ProjectPagesMixin:
             # 同侧栏入口：成功认领后以 load() 解析出的实际根目录记忆当天选择。
             self.remember_daily_project_choice(getattr(self,'root',None) or selected[0])
             popup.destroy()
-        row=ttk.Frame(popup);row.pack(fill='x',padx=22,pady=18)
-        PrimaryButton(row,text='+ 新建项目',command=lambda:(popup.destroy(),self.safe(self.new))).pack(side='left')
-        SecondaryButton(row,text='恢复回收站内容…',command=lambda:self.safe(self.open_recycle_recovery)).pack(side='left',padx=(8,0))
-        SecondaryButton(row,text='重新查找项目',command=refind_selected_project).pack(side='left',padx=(8,0))
-        SecondaryButton(row,text='删除选中项目',command=lambda:self.safe(delete_selected_project)).pack(side='left',padx=(8,0))
-        PrimaryButton(row,text='进入项目 →',command=enter).pack(side='right')
+        PrimaryButton(actions,text='进入项目 →',command=enter)
+        SecondaryButton(actions,text='+ 新建项目',command=lambda:(popup.destroy(),self.safe(self.new)))
+        SecondaryButton(actions,text='恢复回收站内容…',command=lambda:self.safe(self.open_recycle_recovery))
+        SecondaryButton(actions,text='重新查找项目',command=refind_selected_project)
+        SecondaryButton(actions,text='删除选中项目',command=lambda:self.safe(delete_selected_project))
         tree.bind('<Double-1>',enter);tree.bind('<Return>',enter)
         popup.bind('<Escape>',lambda e:popup.destroy());popup.grab_set();tree.focus_set()
     def project_home(self):
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
-        tree=ttk.Treeview(self.content,show='tree',height=13,selectmode='browse');tree.pack(fill='both',expand=True,pady=SPACING['md']);self.fill_projects(tree)
+        tree=ttk.Treeview(self.content,show='tree',height=13,selectmode='browse')
+        # 动作区先占底边：矮窗口只缩短项目列表，不允许把动作按钮推出可视区。
+        actions=FlowBar(self.content);actions.pack(side='bottom',fill='x',pady=SPACING['sm'])
+        tree.pack(fill='both',expand=True,pady=SPACING['md']);self.fill_projects(tree)
         self._project_home_tree=tree
         tree.bind('<Button-3>',lambda e:self.project_menu(e,tree))
         def enter(event=None):
             selected=tree.selection()
             if selected and not selected[0].startswith('group:'):self.safe(lambda:self.open_project_or_cleanup(selected[0]))
         tree.bind('<Double-1>',enter);tree.bind('<Return>',enter)
-        self.button(self.content,'进入选中的项目 →',enter)
-        self.button(self.content,'＋ 创建新项目',self.new)
-        self.button(self.content,'创建练习项目：雨夜修伞',self.create_practice_project)
-        self.button(self.content,'当前项目存储盘点（只读）',self.show_project_storage)
-        self.button(self.content,'恢复回收站内容…',self.open_recycle_recovery)
-        self.button(self.content,'重建项目索引',self.rebuild_project_index)
-        self.button(self.content,'导出诊断包…',self.export_diagnostics_package)
-        self.button(self.content,'运行状况…',lambda:ui_plugin_registry.module('task_center_ui').show(self))
+        self._project_action(actions,'进入选中的项目 →',enter,primary=True)
+        self._project_action(actions,'＋ 创建新项目',self.new)
+        self._project_action(actions,'创建练习项目：雨夜修伞',self.create_practice_project)
+        self._project_action(actions,'当前项目存储盘点（只读）',self.show_project_storage)
+        self._project_action(actions,'恢复回收站内容…',self.open_recycle_recovery)
+        self._project_action(actions,'重建项目索引',self.rebuild_project_index)
+        self._project_action(actions,'导出诊断包…',self.export_diagnostics_package)
+        self._project_action(actions,'运行状况…',lambda:ui_plugin_registry.module('task_center_ui').show(self))
     def create_practice_project(self):
         """复用项目创建器隔离练习数据；不调用模型、不伪造阶段完成。"""
         sample = Path(__file__).resolve().parent / '说明' / '示例' / '雨夜修伞'
@@ -376,12 +394,12 @@ class ProjectPagesMixin:
         controller=RecycleRecoveryController(self.root,self.projects.base,
             register_restored=self.projects.register_restored_projects)
         batches=[]
-        ttk.Label(dialog.content,text='选择回收批次后可恢复整批，或选择下方原位置只恢复一项；目标已存在时不会覆盖。').pack(anchor='w',pady=(0,6))
+        ttk.Label(dialog.content,text='选择回收批次后可恢复整批，或选择下方原位置只恢复一项；目标已存在时不会覆盖。').pack(anchor='w',pady=(SPACING['none'],SPACING['xs']))
         batch_table=DataTable(dialog.content,columns=[('scope','位置',110),('created','创建时间',155),('reason','原因',390)],show='tree headings',height=8,auto_hide_scrollbars=True)
         batch_tree=batch_table.tree
         batch_tree.heading('#0',text='批次');batch_tree.column('#0',width=180,stretch=False)
         batch_table.pack(fill='x',expand=False)
-        ttk.Label(dialog.content,text='批次条目（原位置）').pack(anchor='w',pady=(10,3))
+        ttk.Label(dialog.content,text='批次条目（原位置）').pack(anchor='w',pady=(SPACING['sm'],SPACING['xs']))
         item_table=DataTable(dialog.content,columns=[('recycled','回收位置',420)],show='tree headings',height=9,auto_hide_scrollbars=True)
         item_tree=item_table.tree
         item_tree.heading('#0',text='原位置');item_tree.column('#0',width=420)
@@ -415,10 +433,11 @@ class ProjectPagesMixin:
             restored=controller.restore_item(record,source)
             refresh();self.reload();self.status.set('已恢复：'+str(restored[0].name))
         batch_tree.bind('<<TreeviewSelect>>',show_items)
+        # 统一动作区：关闭在最右，主操作紧挨其左，刷新降为最左的次操作。
         dialog.add_action('关闭',dialog.close)
-        dialog.add_action('刷新',lambda:self.safe(refresh))
         dialog.add_action('恢复选中条目',lambda:self.safe(restore_selected),primary=True)
         dialog.add_action('恢复整批',lambda:self.safe(restore_all),primary=True)
+        dialog.add_action('刷新',lambda:self.safe(refresh))
         refresh()
         return dialog
     def project_menu(self,event,tree=None):

@@ -2097,6 +2097,24 @@
       "reason_constant": "MISSING_FFMPEG",
       "reason": "缺外部程序：当前机器没有可用的 FFmpeg／FFprobe；装好编码器后应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_ui_batch4_desktop_project_pages.py",
+      "test": "ProjectActionLayoutTests.test_project_home_actions_fit_at_every_size",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_batch4_desktop_project_pages.py",
+      "test": "ProjectActionLayoutTests.test_project_picker_actions_fit_at_every_size",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
     }
   ]
 }
