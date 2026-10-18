@@ -96,7 +96,9 @@ R1036 后续文档收尾（用户明确授权）：归档原诊断报告与优�
 
 ## 验证基线
 
-R1691 本轮实测（功能轮，源码轮）：**完整安全全量 5806 条、726.6 秒、0 文件有红、实际跳过 1 条**（`test_core.test_stage_profile_wrong_preset_rejected`，既有登记位），命令 `run_selftests.py --all --safe --jobs 4 --gui-jobs 2`，内容树 `ee4df14091950a16cb21670815fd3a263435d0b4`＝提交 `e44f4c86:程序`，凭据 `last_full_safe_all_round=1691`（复算 `full_safe_required`→False，R1624 以来累计 20 个源码轮的欠账清零）。默认冒烟 8/8；架构门禁 368/368（含全量欠账门禁，随凭据转绿）；定向 200/200；新增用例 38/38（`test_recon_service` 29、`test_model_pool_tools` 9）。首跑 8 个红文件全部是 R1624 以来「改实现未同步测试资产」的欠账，三批收口、断言未弱化，逐条根因见 [R1691](tasks_round/tasks_round_1691_result.md)。**未联网实测**（本机无 `DEEPSEEK_API_KEY`），不据此宣称 Search／Fetch 真实可用。
+R1693 本轮实测（修复轮，开发基础设施）：后台自动全量通道修好后由**通道自己**在 `.wt/ci` 干净检出上跑出 **5822 条、709.2 秒、0 文件有红**、跳过 1 条既有登记位（`returncode=0`，凭据 `last_full_safe_all_round=1693`，欠账 0/8），命令 `scripts/auto_full_safe.py --run`，受测内容树 `41f20ef4:程序`；首次端到端（5819 条）红在 `test_agents_md`——干净检出缺被 `.gitignore` 排除的 `维护记录/基准历史.json`，已用显式清单补齐。定向四门禁 69/69、`test_auto_full_safe` 25/25；真机验证工作树新建／复用／重建／加锁四步。详见 [R1693](tasks_round/tasks_round_1693_result.md)。R1692（修复轮）：真机实测修掉 URL 锚点重复与 ④ 废检索词，定向 31/31、受影响冒烟 9/9，未跑全量。
+
+R1691 本轮实测（功能轮，源码轮）：**完整安全全量 5806 条、726.6 秒、0 文件有红、实际跳过 1 条**（`test_core.test_stage_profile_wrong_preset_rejected`，既有登记位），命令 `run_selftests.py --all --safe --jobs 4 --gui-jobs 2`，内容树 `ee4df14091950a16cb21670815fd3a263435d0b4`＝提交 `e44f4c86:程序`，凭据 `last_full_safe_all_round=1691`（复算 `full_safe_required`→False，R1624 以来累计 20 个源码轮的欠账清零）。默认冒烟 8/8；架构门禁 368/368（含全量欠账门禁，随凭据转绿）；定向 200/200；新增用例 38/38（`test_recon_service` 29、`test_model_pool_tools` 9）。首跑 8 个红文件全部是 R1624 以来「改实现未同步测试资产」的欠账，三批收口、断言未弱化，逐条根因见 [R1691](tasks_round/tasks_round_1691_result.md)。**联网实测未做**（当轮本机无 `DEEPSEEK_API_KEY`；R1692 已补做真实采风，见该轮报告）。
 
 R1507 核验：R1506 正式记录 tree=`1844649ecd07befa6f6fabd2c0e12e486cb40657`，与开工 `HEAD:程序` 一致，650.358 秒，执行器可复用。凭据未保存当次总数，不追认数字；本轮文档变更后的树不冒称重新全量。详见 R1507 报告。
 
