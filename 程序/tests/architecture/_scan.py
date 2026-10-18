@@ -9,7 +9,10 @@ _EXCLUDED_STEMS = frozenset({"smoke_test", "run_selftests", "selftest_sandbox"})
 
 # 递归生产模块口径（R922／R1381 起确立）：覆盖 batch_frames_tool／agent／scripts 等子目录；
 # 测试、轮次记录、维护记录与字节码缓存不参与生产门禁。
-EXCLUDED_PARTS = frozenset({"tests", "tasks_round", "维护记录", ".git", "__pycache__"})
+# `.wt` 是本仓库的干净检出区（后台全量在 `.wt/ci` 上跑），里面是同一份生产模块的副本，
+# 不能算成第二批模块；`.selftmp` 是自检临时区（gitignored、随时被清），探针脚本不是产品模块。
+# R1693 之前这两处要么不存在、要么没人往里放 .py，才没暴露这个问题。
+EXCLUDED_PARTS = frozenset({"tests", "tasks_round", "维护记录", ".git", ".wt", ".selftmp", "__pycache__"})
 
 
 def production_files_recursive() -> tuple[Path, ...]:

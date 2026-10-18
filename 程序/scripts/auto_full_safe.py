@@ -15,6 +15,7 @@
 """
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import os
 import re
@@ -38,6 +39,11 @@ MAX_WAIT_SECONDS = 60 * 60
 POLL_SECONDS = 60
 WAITER_LOCK_NAME = "auto-full-waiter.lock"
 STALE_SECONDS = 3 * 3600       # 全量最长按小时计；超过即视为崩溃遗留的锁
+# 「环境不允许派生工作进程」的可靠特征：沙箱会话里提交时，钩子继承了同一限制，
+# 全量会在 78 秒左右崩在进程池上。这类失败不是测试红，不能记成「未通过」。
+BLOCKED_MARKERS = ('BrokenProcessPool', 'process pool is not usable',
+                   'A child process terminated abruptly', 'Access is denied')
+BLOCKED_CODE = -1
 
 
 def _git(*args, cwd=None):
@@ -81,7 +87,7 @@ def red_modules(log_text: str) -> list[str]:
     return found
 
 
-def write_result(head: str, returncode: int, seconds: float) -> None:
+def write_result(head: str, returncode: int, seconds: float, blocked: str = '') -> None:
     try:
         text = LOG.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -89,6 +95,8 @@ def write_result(head: str, returncode: int, seconds: float) -> None:
     payload = {"head": head, "returncode": returncode, "seconds": round(seconds),
                "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
                "red": red_modules(text), "log": str(LOG)}
+    if blocked:
+        payload["blocked"] = str(blocked)
     _result_path().write_text(json.dumps(payload, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
@@ -100,10 +108,50 @@ def last_result() -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def blocked_reason(text: str) -> str:
+    """从日志判断这是「环境不允许派生工作进程」而不是测试失败（纯函数）。"""
+    haystack = str(text or "")
+    for marker in BLOCKED_MARKERS:
+        if marker in haystack:
+            return marker
+    return ""
+
+
+def spawn_problem(run=None) -> str:
+    """能不能派生工作进程：不能就返回原因，空串表示可用。
+
+    沙箱会话里提交时钩子继承了同一限制，全量必然崩在进程池上；与其跑 78 秒再假装「未通过」，
+    不如先花零点几秒问一句。`run` 是自检注入点。
+    """
+    probe = run or _probe_pool
+    try:
+        return str(probe() or '')
+    except Exception as exc:            # 探测本身崩了也算不可用，但绝不让它冒泡
+        return '%s：%s' % (type(exc).__name__, exc)
+
+
+def _probe_pool():
+    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as pool:
+        if pool.submit(int, '1').result(timeout=30) != 1:
+            return '进程池返回值异常'
+    return ''
+
+
 def failure_notice() -> str:
     """上次后台全量没通过时的一句话提示；通过、没跑过或读不出来都返回空串。"""
     result = last_result()
-    if not result or result.get("returncode") == 0:
+    if not result:
+        return ""
+    blocked = str(result.get("blocked") or "")
+    if not blocked and result.get("returncode") != 0:
+        try:
+            blocked = blocked_reason(LOG.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            blocked = ""
+    if blocked:
+        return ("[自动全量] 上次未能测量：环境不允许派生工作进程（多见于沙箱会话里提交，钩子继承同一限制），"
+                "不是测试失败。请在非沙箱会话手动跑 `run_selftests.py --all --safe`；原因：%s" % blocked[:160])
+    if result.get("returncode") == 0:
         return ""
     red = "、".join(result.get("red") or []) or "见日志"
     return ("[自动全量] 上次后台全量未通过（HEAD %s，%s，退出码 %s）：%s；日志 %s"
@@ -191,16 +239,43 @@ def spawn() -> int:
     return 0
 
 
+def _remove_worktree(root: Path, target: Path) -> None:
+    """删掉半成品检出：锁着要先解锁，最后 prune 一次，失败一律不抛（下一句 add 才是判据）。"""
+    for args in (("worktree", "unlock", str(target)),
+                 ("worktree", "remove", "--force", str(target)),
+                 ("worktree", "prune")):
+        try:
+            _git(*args, cwd=root)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    shutil.rmtree(target, ignore_errors=True)
+
+
+def _lock_worktree(target: Path) -> None:
+    """锁住 ``.wt/ci``：仓库卫生只回收「已并净且干净」的 ``.wt`` 工作树，不锁的话
+    应用退出后它随时可能被删，后台全量随即以「找不到 run_selftests.py」假红收场。"""
+    try:
+        _git("worktree", "lock", "--reason", "auto full safe", str(target))
+    except (OSError, subprocess.SubprocessError):
+        pass        # 已锁或旧版 git 不认 --reason，都不影响本轮运行
+
+
 def _sync_clean_worktree(root: Path, head: str) -> Path:
-    """让 ``.wt/ci`` 成为 HEAD 的干净分离检出；已存在就强制对齐，不存在就新建。"""
+    """让 ``.wt/ci`` 成为 HEAD 的干净分离检出；已存在就强制对齐，坏掉就重建。"""
     target = root / ".wt" / "ci"
-    if (target / ".git").exists():
+    script = target / PROGRAM.name / "run_selftests.py"
+    if (target / ".git").exists() and script.is_file():
         _git("checkout", "-f", "--detach", head, cwd=target)
         _git("clean", "-fdq", cwd=target)
     else:
+        # 半成品（上次被清掉／中途中断）不能直接对齐：没有脚本的检出跑起来只会再假红一次。
+        _remove_worktree(root, target)
         target.parent.mkdir(parents=True, exist_ok=True)
         _git("worktree", "add", "--detach", "-f", str(target), head, cwd=root)
     _fill_embedded_repos(root, target)
+    _lock_worktree(target)
+    if not (target / PROGRAM.name / "run_selftests.py").is_file():
+        raise RuntimeError("干净检出缺少 程序/run_selftests.py：%s" % target)
     return target / PROGRAM.name
 
 
@@ -256,6 +331,14 @@ def run() -> int:
 def _run_locked() -> int:
     root = repo_root()
     head = _git("rev-parse", "HEAD")
+    # 先问一句能不能派生工作进程：不能就别建工作树、别跑 78 秒、更别记成「测试未通过」。
+    blocked = spawn_problem()
+    if blocked:
+        LOG.parent.mkdir(parents=True, exist_ok=True)
+        LOG.write_text("[自动全量] 环境不允许派生工作进程，本轮未测（未建工作树、未写凭据）\n%s\n"
+                       % blocked, encoding="utf-8")
+        write_result(head, BLOCKED_CODE, 0.0, blocked=blocked)
+        return 0
     program = _sync_clean_worktree(root, head)
     # 主干检出才能产凭据；本检出是分离的，用这个变量告诉执行器「此 HEAD 取自 master」。
     env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", PYTHONIOENCODING="utf-8", AUTO_FULL_SAFE_HEAD=head,

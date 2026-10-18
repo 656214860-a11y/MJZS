@@ -26,8 +26,10 @@ import unittest
 from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
-# 与 tests/architecture/_scan.py 同口径：测试、轮次记录、维护记录与字节码缓存不参与。
-EXCLUDED_PARTS = frozenset({'tests', 'tasks_round', '维护记录', '.git', '__pycache__'})
+# 与 tests/architecture/_scan.py 同口径：测试、轮次记录、维护记录与字节码缓存不参与；
+# `.wt` 是仓库的干净检出区（后台全量在 `.wt/ci` 上跑），副本不能算第二批生产模块；
+# `.selftmp` 是自检临时区，探针脚本不是产品模块。
+EXCLUDED_PARTS = frozenset({'tests', 'tasks_round', '维护记录', '.git', '.wt', '.selftmp', '__pycache__'})
 # 非产品目录：技能随附脚本、开发维护脚本、参考资料、构建产物、外部附加工具。
 NON_PRODUCT_PARTS = frozenset({'skills', 'scripts', 'reference', 'outputs', '附加工具'})
 SKIP_STEMS = frozenset({'smoke_test', 'run_selftests', 'selftest_sandbox'})
