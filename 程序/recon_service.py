@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
@@ -38,9 +39,21 @@ ATTEMPTS = 3
 MIN_RERANK = 1.5                 # 文档：≥1.5 分算优质结果
 MIN_AUTHORITY = 3                # 文档：≥3 分算极权威结果
 TIERS = ('T1', 'T1.5', 'T2')
-# 常见二级后缀：独立信源数按「注册域」去重，不按 url 条数。
+# 常见二级后缀：注册域仍用于归类和别名查找；独立信源另按发布方与同稿合并计数。
 SECOND_LEVEL = {'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'edu.cn', 'co.uk', 'org.uk',
                 'ac.uk', 'com.hk', 'com.tw', 'co.jp', 'co.kr', 'com.au'}
+# 发布方别名：同一发布主体的多个域名只算一个独立信源。
+# 依据：新华社／新华网同时使用 news.cn（新华网）与 xinhuanet.com（新华网）；
+# xinhuanet.com.cn 是同一主体的历史域名，R1698 真机样本同一篇稿同时出现在三者。
+# 只登记能确认的同主体域名，拿不准的不加。
+PUBLISHER_ALIASES = {
+    'news.cn': 'xinhua',
+    'xinhuanet.com': 'xinhua',
+    'xinhuanet.com.cn': 'xinhua',
+}
+# 多人可编辑的百科站点：无论 authority 多高、是否抓到正文，最高只算 T2。
+# 依据：用户 2026-10-18 裁决（R1698 任务书第 5 点）；只登记明确点名的站点。
+ENCYCLOPEDIA_HOSTS = ('baike.baidu.com', 'baike.sogou.com', 'wikipedia.org', 'baike.com')
 INFERENCE_WORDS = ('可能', '大概', '预计', '应该是', '推测', '估计')
 SCHEME = re.compile(r'^https?://([^/?#]+)', re.IGNORECASE)
 
@@ -123,7 +136,7 @@ def host_of(url):
 
 
 def domain_of(url):
-    """url → 注册域近似（独立信源按它去重，转载不算新来源）。"""
+    """url → 注册域近似（别名查找用；无别名时它就是发布主体）。"""
     host = host_of(url)
     parts = [part for part in host.split('.') if part]
     if len(parts) <= 2:
@@ -131,6 +144,65 @@ def domain_of(url):
     if '.'.join(parts[-2:]) in SECOND_LEVEL:
         return '.'.join(parts[-3:])
     return '.'.join(parts[-2:])
+
+
+def publisher_of(url):
+    """url → 发布主体：先查别名表，查不到就用注册域。"""
+    domain = domain_of(url)
+    return PUBLISHER_ALIASES.get(domain, domain)
+
+
+def is_encyclopedia_host(host):
+    """主机名是否属于多人可编辑的百科站点（含其子域名）。"""
+    text = str(host or '')
+    return any(text == item or text.endswith('.' + item) for item in ENCYCLOPEDIA_HOSTS)
+
+
+def normalize_content(text):
+    """正文规范化：去掉空白与零宽字符，供同稿转载比对。"""
+    value = str(text or '').replace('\ufeff', '')
+    return re.sub(r'[\s\u200b\u200c\u200d]+', '', value)
+
+
+def article_digest(source):
+    """抓到正文时返回规范化正文的 SHA-256；没有正文返回空串。"""
+    text = normalize_content((source or {}).get('content'))
+    if not text:
+        return ''
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+
+def _title_date_key(source):
+    """无正文时的同稿线索：规范化标题＋发布日期；缺一项就不算。"""
+    title = re.sub(r'\s+', '', str((source or {}).get('title') or '')).casefold()
+    date = str((source or {}).get('date') or '').strip()
+    return (title, date) if title and date else ()
+
+
+def independent_source_count(sources):
+    """按来源主体计数：同发布方算 1；正文相同（无正文时同标题同日期）的转载合并。"""
+    publishers = set()
+    digests = set()
+    title_dates = set()
+    for source in sources or ():
+        if not isinstance(source, dict):
+            continue
+        publisher = publisher_of(source.get('url'))
+        if not publisher:
+            continue
+        digest = article_digest(source)
+        key = _title_date_key(source)
+        if digest:
+            if digest in digests:
+                continue
+        elif key and key in title_dates:
+            continue
+        if digest:
+            digests.add(digest)
+        if key:
+            title_dates.add(key)
+        publishers.add(publisher)
+    return len(publishers)
 
 
 def _authority_of(value):
@@ -146,9 +218,11 @@ def _official(host, official_hosts):
 
 def tier_of(source, official_hosts=()):
     """来源分级现算，不采信调用方自报：摘要封顶 T2；拿到正文且权威才算 T1。"""
+    host = host_of(source.get('url'))
+    if is_encyclopedia_host(host):
+        return 'T2'
     if str(source.get('evidence') or '') != 'content':
         return 'T2'
-    host = host_of(source.get('url'))
     if _authority_of(source.get('authority')) >= MIN_AUTHORITY or _official(host, official_hosts):
         return 'T1'
     return 'T1.5'
@@ -238,9 +312,9 @@ def evidence(card, official_hosts=()):
             if _rerank_of(matched[0]) < MIN_RERANK:
                 problems.append('字段「%s」只由一个低分结果支撑（rerank<%.1f）' % (name, MIN_RERANK))
     declared = card.get('independent_domains')
-    computed_domains = len({domain_of(item.get('url')) for item in sources if host_of(item.get('url'))})
+    computed_domains = independent_source_count(sources)
     if declared is not None and int(declared) != computed_domains:
-        problems.append('独立信源数声明 %s，实际按域名去重是 %d' % (declared, computed_domains))
+        problems.append('独立信源数声明 %s，实际按来源主体去重是 %d' % (declared, computed_domains))
     return problems
 
 
@@ -402,7 +476,7 @@ def collect(target, material_source, sender=None, pause=None, limits=None,
         'sources': tiered,
         'fields': {},
         'missing': [],
-        'independent_domains': len({domain_of(item['url']) for item in tiered if host_of(item['url'])}),
+        'independent_domains': independent_source_count(tiered),
         'budget': budget,
         'not_found': list(notes),
         'collected_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
@@ -482,7 +556,7 @@ def render(card):
 def summary(card):
     """一句话摘要，给播报和工具返回值用。"""
     item = card or {}
-    return '情报卡：%s 个来源（独立域名 %s 个），检索 %s 次／抓取 %s 次' % (
+    return '情报卡：%s 个来源（独立信源 %s 个），检索 %s 次／抓取 %s 次' % (
         len(item.get('sources') or ()), item.get('independent_domains'),
         (item.get('budget') or {}).get('search_used'), (item.get('budget') or {}).get('fetch_used'))
 

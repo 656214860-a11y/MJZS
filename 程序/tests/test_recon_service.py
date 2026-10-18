@@ -57,6 +57,21 @@ def model_kind(status):
     return model_pool.tools_error_kind(status)
 
 
+def content_sender(results=None, pages=None):
+    """假发送器：检索回固定结果，抓取按 url 回不同正文（用于同稿／异稿去重）。"""
+    calls = []
+    pages = pages or {}
+
+    def send(kind, value, count=5):
+        calls.append((kind, value, count))
+        if kind == 'search':
+            return {'ok': True, 'status': 200, 'data': {}, 'results': list(results or [])}
+        return {'ok': True, 'status': 200, 'data': {'title': '抓到的'},
+                'title': '抓到的', 'content': pages.get(value, '')}
+    send.calls = calls
+    return send
+
+
 def collect(results=None, **options):
     return recon.collect({'name': '某剧', 'question': '怎么成的'}, '对标爆款',
                          sender=options.pop('sender', None) or sender(results=results),
@@ -187,6 +202,79 @@ class EvidenceTests(unittest.TestCase):
         card = self.clean_card()
         card['independent_domains'] = 9
         self.assertTrue(any('独立信源数' in item for item in recon.evidence(card)))
+
+
+class PublisherDedupTests(unittest.TestCase):
+    """REQ-S01-48：独立信源按来源主体去重，字段名 independent_domains 保持不变。"""
+
+    def collect_with_pages(self, rows, pages):
+        return recon.collect({'name': '某剧'}, '对标爆款',
+                             sender=content_sender(rows, pages),
+                             pause=lambda _s: None)
+
+    def test_req_s01_48_same_xinhua_article_across_domains_counts_once(self):
+        first = 'http://xinhuanet.com.cn/ent/20260309/e5d0a170/'
+        second = 'https://www.news.cn/ent/20260310/4607eda1/c.html'
+        rows = [row(first, title='新华社稿'), row(second, title='新华社稿')]
+        pages = {first: '新华社正文 2598', second: '新华社正文\n2598'}
+        card = self.collect_with_pages(rows, pages)
+        self.assertEqual(len(card['sources']), 2)
+        self.assertEqual(card['independent_domains'], 1)
+
+    def test_req_s01_48_same_publisher_different_articles_counts_once(self):
+        first = 'https://www.news.cn/ent/a.html'
+        second = 'https://www.xinhuanet.com/ent/b.html'
+        rows = [row(first, title='稿A'), row(second, title='稿B')]
+        card = self.collect_with_pages(rows, {first: '正文A', second: '正文B'})
+        self.assertEqual(card['independent_domains'], 1)
+
+    def test_req_s01_48_unrelated_domains_with_different_content_count_separately(self):
+        first = 'https://a.com/x'
+        second = 'https://b.com/y'
+        rows = [row(first, title='A稿'), row(second, title='B稿')]
+        card = self.collect_with_pages(rows, {first: '正文A', second: '正文B'})
+        self.assertEqual(card['independent_domains'], 2)
+
+    def test_req_s01_48_legacy_card_without_new_fields_is_readable(self):
+        card = {'schema_version': 1, 'kind': recon.KIND,
+                'target': {'name': '某剧'}, 'fields': {},
+                'sources': [recon.normalize_source(row('https://a.com/x'))],
+                'independent_domains': 1}
+        self.assertEqual(recon.evidence(card), [])
+        self.assertIn('独立信源：1 个', recon.render(card))
+
+    def test_req_s01_48_evidence_flags_false_independent_count(self):
+        first = 'https://www.news.cn/ent/a.html'
+        second = 'https://www.xinhuanet.com/ent/b.html'
+        rows = [row(first, title='稿A'), row(second, title='稿B')]
+        card = self.collect_with_pages(rows, {first: '正文A', second: '正文B'})
+        self.assertEqual(card['independent_domains'], 1)
+        card['independent_domains'] = 2
+        self.assertTrue(any('独立信源数' in item for item in recon.evidence(card)))
+
+
+class EncyclopediaTierTests(unittest.TestCase):
+    """REQ-S01-49：百科抓到正文也封顶 T2，且照常计入独立信源。"""
+
+    def test_req_s01_49_encyclopedia_with_content_is_capped_at_t2(self):
+        source = recon.normalize_source(row('https://baike.baidu.com/item/x',
+                                            content='正文', authority=5))
+        self.assertEqual(source['tier'], 'T2')
+        self.assertEqual(recon.tier_of(source, official_hosts=('baike.baidu.com',)), 'T2')
+
+    def test_req_s01_49_news_site_with_same_authority_still_reaches_t1(self):
+        source = recon.normalize_source(row('https://news.example.com/x',
+                                            content='正文', authority=5))
+        self.assertEqual(recon.tier_of(source, official_hosts=('news.example.com',)), 'T1')
+
+    def test_req_s01_49_encyclopedia_still_counts_as_one_independent_source(self):
+        url = 'https://baike.baidu.com/item/x'
+        card = recon.collect({'name': '某剧'}, '对标爆款',
+                             sender=content_sender([row(url, title='百科词条')], {url: '百科正文'}),
+                             pause=lambda _s: None)
+        self.assertEqual(len(card['sources']), 1)
+        self.assertEqual(card['independent_domains'], 1)
+        self.assertEqual(card['sources'][0]['tier'], 'T2')
 
 
 class BudgetTests(unittest.TestCase):
