@@ -47,6 +47,11 @@ RADIUS = {"sm": 4, "md": 8, "lg": 12}
 # 紧凑桌面密度：按钮、输入框、下拉框的视觉高度与最小点击区都是 32px。
 CONTROL_HEIGHT = SPACING["2xl"]
 CONTROL_HIT_MIN = SPACING["2xl"]
+# Tk 没有控件高度属性，只能由「字体行高 + 上下内边距 + 边框」凑出 32px（测试容忍 ±2）。
+# 10pt 微软雅黑 UI 在 100% DPI 下 linespace=19px；单行输入用 6px 上下内边距：
+# 19 + 2×6 + 2×1 边框 = 33px。6 = xs(4) + xs//2，仍由 4px 刻度派生，不手写魔法值。
+# 按钮沿用既有 (space.md, space.xs) 内边距，19 + 2×4 + 主题边框/焦点占位 6 = 33px。
+CONTROL_PADDING_Y = SPACING["xs"] + SPACING["xs"] // 2
 FONTS = {
     "pet_body": ("Microsoft YaHei UI", 9),
     "pet_hint": ("Microsoft YaHei UI", 8),
@@ -91,6 +96,9 @@ COMBOBOX_POPDOWN_HEIGHT = 12
 COMBOBOX_MAX_WIDTH = 28
 COMBOBOX_FONT = FONTS["body"]
 COMBOBOX_PADDING = (SPACING["sm"], SPACING["xs"])
+# SelectBox 的统一控件样式把垂直内边距加到 CONTROL_PADDING_Y，使下拉框与
+# TEntry／TSpinbox 同高（Tk 的 TCombobox 高度只由 padding 决定）。
+COMBOBOX_CONTROL_PADDING = (COMBOBOX_PADDING[0], CONTROL_PADDING_Y)
 COMBOBOX_FIELD_BACKGROUND = COLORS["background_card"]
 COMBOBOX_FOREGROUND = COLORS["text_primary"]
 COMBOBOX_ARROW_COLOR = COLORS["text_secondary"]
@@ -109,12 +117,20 @@ INPUT_ERROR_BORDER = COLORS["danger"]
 INPUT_PADDING_X = SPACING["md"]
 INPUT_PADDING_Y = SPACING["sm"]
 INPUT_BORDER_WIDTH = 1
+# 按钮常态不画可见边框：1px 的 solid 边框用按钮自身底色当边框色，只有键盘焦点
+# 状态把它映射为 color.focus。这样既保持扁平观感，又保留键盘焦点环。
+BUTTON_BORDER_WIDTH = 1
 
 # 弹窗视觉规格只由 ui_widgets 的 BaseDialog 系列消费；业务页不得另行设置标题、内容区或按钮区样式。
 DIALOG_TITLE_FONT = FONTS["title"]
 DIALOG_CONTENT_PADDING = SPACING["lg"]
 DIALOG_ACTION_HEIGHT = SPACING["xl"]
 DIALOG_ACTION_GAP = SPACING["sm"]
+# 弹窗最小尺寸：至少并排放下两个 96px 按钮＋12px 间距＋两侧 16px 留白（≈236→240），
+# 高度至少容下标题、两行说明和底部动作区（≈160）。低于此值内容必被裁切，
+# 因此定位时只允许缩到这两个下限，不再降到 1×1。
+DIALOG_MIN_WIDTH = 240
+DIALOG_MIN_HEIGHT = 160
 
 # Tooltip 的出现节奏和视觉只由 ui_widgets.Tooltip 消费；页面只提供说明文本，
 # 不得各自创建无边框窗口或复制 Enter/Leave 的延迟与销毁逻辑。
@@ -145,6 +161,10 @@ TABLE_EMPTY_PADDING = SPACING["lg"]
 TABLE_COMPACT_HEADER_PADDING = (SPACING["sm"], SPACING["xs"] // 4)
 SCRIPT_ACTION_WIDTH = 0  # 依文字请求宽度，长中文按钮不得裁字。
 DESKTOP_LAYOUT = {
+    # 产品裁决：主窗口默认 1280×800、最小 800×600；屏幕可用区更小时按下面
+    # 的边距收缩（ui_theme.main_window_size），不改变最小值。
+    'default_width': 1280, 'default_height': 800,
+    'window_margin_x': SPACING['xl'], 'window_margin_y': SPACING['xl'] * 2,
     'min_width': 800, 'min_height': 600,
     'sidebar_width': 154, 'sidebar_padding': 6, 'row_gap': 1,
     'compact_below': 690, 'project_min_rows': 3,

@@ -1656,7 +1656,10 @@ class UiEdgeTests(unittest.TestCase):
                 for _ in range(3):
                     win.update()
             d.worker = False
-            self.assertEqual(len(errors), 1)                   # 切换被拦下并给出提示
+            # UI 批次 2：可恢复错误默认非模态（产品裁决 2026-10-18）
+            self.assertEqual(errors, [], "可恢复错误默认非模态：不得弹系统模态框")
+            self.assertEqual(d.status.get(), "当前操作尚未结束，请稍后",
+                             "同一条错误文本必须落在非模态状态栏")
             self.assertEqual(d.current_frame_json(), before)   # 当前分镜没有被切换
             self.assertEqual(selector().current(), start)      # 下拉框显示也回到真实文件
 
@@ -2657,11 +2660,13 @@ class UiEdgeTests(unittest.TestCase):
             Desktop.storyboard = lambda self: (_ for _ in ()).throw(ValueError("分镜数据坏了"))
             self.addCleanup(setattr, Desktop, "storyboard", original_storyboard)
             d.go(PAGE["keyframe"])                   # Desktop.storyboard 当前对应首帧页
-            self.assertEqual(len(shown), 1)
-            self.assertEqual(shown[0], ("页面无法显示", "分镜数据坏了"))
+            # UI 批次 2：可恢复错误默认非模态（产品裁决 2026-10-18）
+            self.assertEqual(shown, [], "可恢复错误默认非模态：不得弹系统模态框")
+            self.assertEqual(d.status.get(), "分镜数据坏了",
+                             "同一条错误文本必须落在非模态状态栏")
             with self.assertRaises(ValueError):
                 d.show(PAGE["keyframe"])             # 程序内调用仍抛异常，测试不会漏掉真故障
-            self.assertEqual(len(shown), 1)
+            self.assertEqual(shown, [])
 
 
     def test_handoff_prefers_approved_take(self):

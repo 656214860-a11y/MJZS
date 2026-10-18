@@ -4010,7 +4010,7 @@ class ReplyBoxTests(PetTestCase):
             ui_theme.apply(other)
             style = ttk.Style(other)
             self.assertEqual(str(style.configure('Send.TButton', 'background')), ui_theme.ACCENT)
-            self.assertEqual(str(style.configure('Send.TButton', 'foreground')), 'white')
+            self.assertEqual(other.winfo_rgb(str(style.configure('Send.TButton','foreground'))), other.winfo_rgb('white'))
         finally:
             other.destroy()
 
@@ -6319,6 +6319,16 @@ class CloudFitTests(PetTestCase):
 
     def test_the_commands_roll_inside_the_reply_box(self):
         """第 37 期第 4 条：基本指令放进回复框里、小字、自己往右滚，不再写「三虎听得懂：」。"""
+        # UI 批次 2：原断言靠 'white'／'#FFFFFF' 字面差异通过，改为两色真不同时按颜色值比较
+        import ui_widgets
+        from ui_tokens import COLORS
+        # 先装全局样式：open_chat() 建回复框时 LineInput 会调 setup_styles() 整表重写 TEntry，
+        # 生产里 ui_theme.apply() 在启动时已做过同一件事；不先装，下面临时改的底色会被它盖回去。
+        ui_widgets.setup_styles(self.win)
+        style = self.ttk.Style(self.win)
+        original_field_bg = style.lookup('TEntry', 'fieldbackground', '')
+        style.configure('TEntry', fieldbackground=COLORS['background_primary'])
+        self.addCleanup(style.configure, 'TEntry', fieldbackground=original_field_bg)
         cloud = self.pet.cloud()
         self.pet.open_chat()
         self.assertIn(cloud.hint, cloud.chat_row.winfo_children(), '小字就挂在回复框这一行里')
@@ -6326,7 +6336,8 @@ class CloudFitTests(PetTestCase):
         self.assertEqual(float(cloud.hint.place_info().get('relx')), 0.0, '贴着回复框左沿')
         self.assertEqual(cloud.hint.place_info().get('anchor'), 'w', '左对齐：小字往右长')
         self.assertEqual(str(cloud.hint.cget('bg')), cloud.field_bg(), '底色跟着 ttk.Entry 走')
-        self.assertNotEqual(str(cloud.hint.cget('bg')), cloud.fill(), '不再刷云身色')
+        self.assertNotEqual(self.win.winfo_rgb(str(cloud.hint.cget('bg'))),
+                            self.win.winfo_rgb(cloud.fill()), '不再刷云身色')
         self.assertGreaterEqual(pet_cloud.HINT_MS, 400, '慢慢挪')
         self.assertLess(pet_cloud.HINT_FONT[1], pet_cloud.REPLY_FONT[1], '小字比回复框的字小一档')
         self.assertIn(str(pet_cloud.HINT_FONT[1]), str(cloud.hint.cget('font')), '真的挂在这一档上')

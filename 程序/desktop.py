@@ -126,7 +126,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self._cloud_monitor_ticket=0;self.cloud_monitor_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.cloud_monitor_result=queue.Queue()
         self.settings_file=self.app/'desktop_settings.json';self.settings=read(self.settings_file) if self.settings_file.exists() else {'comfy_url':'http://127.0.0.1:8189','jianying':''}
         win.title(APP_NAME+' · '+VERSION);win.state('normal')
-        win.geometry('%dx%d'%(min(1360,win.winfo_screenwidth()-80),min(900,win.winfo_screenheight()-100)))
+        win.geometry('%dx%d'%(min(DESKTOP_LAYOUT['default_width'],win.winfo_screenwidth()-DESKTOP_LAYOUT['window_margin_x']),min(DESKTOP_LAYOUT['default_height'],win.winfo_screenheight()-DESKTOP_LAYOUT['window_margin_y'])))
         # 第 19 期：安装后的图标（三虎）——主窗口标题栏／任务栏都用它，拿不到就照旧用 Tk 默认图标。
         try:
             import app_icon;app_icon.apply(win)

@@ -1453,19 +1453,34 @@ class WritingSheetExampleTests(unittest.TestCase):
         import writing
         from tkinter import ttk
         seen = []
+        dialogs = []
+        notices = []
         original_prepare = writing.prepare
         original_error = app_module.messagebox.showerror
+        original_notifier_error = app_module.NotificationDispatcher.error
         writing.prepare = lambda *args, **kwargs: seen.append("prepare")
-        app_module.messagebox.showerror = lambda title, text, **kwargs: seen.append((title, text))
+        app_module.messagebox.showerror = lambda title, text, **kwargs: dialogs.append((title, text))
+        def record_notifier_error(dispatcher, message, **kwargs):
+            notices.append((dispatcher, message, kwargs))
+            return original_notifier_error(dispatcher, message, **kwargs)
+        app_module.NotificationDispatcher.error = record_notifier_error
         self.addCleanup(setattr, writing, "prepare", original_prepare)
         self.addCleanup(setattr, app_module.messagebox, "showerror", original_error)
+        self.addCleanup(setattr, app_module.NotificationDispatcher, "error", original_notifier_error)
         button = [w for w in self.walk(sheet, ttk.Button)
                   if str(w.cget("text")).startswith("生成编剧任务书")][0]
         button.invoke()
         win.update()
-        self.assertEqual(len(seen), 1, "灰色示例被拦下，没有真去准备任务书")
-        self.assertEqual(seen[0][0], "无法准备")
-        self.assertIn("示例", seen[0][1])
+        # UI 批次 2：可恢复错误默认非模态（产品裁决 2026-10-18）
+        self.assertEqual(seen, [], "灰色示例被拦下，没有真去准备任务书")
+        self.assertEqual(dialogs, [], "可恢复错误默认非模态：不得弹系统模态框")
+        self.assertEqual(len(notices), 1)
+        dispatcher, message, kwargs = notices[0]
+        self.assertEqual(message, "灰色的只是软件示例，请先改成您自己的创意")
+        self.assertEqual(kwargs.get("title"), "无法准备")
+        self.assertFalse(kwargs.get("modal", False), "可恢复错误默认不得模态")
+        self.assertEqual(dispatcher.status.get(), message,
+                         "同一条错误文本必须落在非模态状态栏")
 
     def test_typing_away_the_example_and_an_empty_box_brings_it_back(self):
         win, sheet, box = self.sheet()

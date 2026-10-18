@@ -52,7 +52,7 @@ class NotificationDispatcherTests(unittest.TestCase):
         status, dialogs, parent = _Status(), _Dialogs(), object()
         notifier = NotificationDispatcher(status, parent=parent, dialogs=dialogs)
 
-        self.assertEqual(notifier.error("  保存失败\n请重试  "), "保存失败 请重试")
+        self.assertEqual(notifier.error("  保存失败\n请重试  ", modal=True), "保存失败 请重试")
         self.assertEqual(status.values, ["保存失败 请重试"])
         self.assertEqual(dialogs.calls, [("error", "操作提示", "保存失败 请重试", parent)])
 

@@ -263,6 +263,17 @@ class Panel(ttk.Frame):
         pad = SPACING['xs']
         section_gap = max(1, round(pad / 3))
         label_width = FORM_LABEL_WIDTH
+        # 底栏（确认并关闭）先占位再排其余区域：Tk 按 pack 顺序分配空间，窗口压到
+        # 800x460 时若最后才 pack 底栏，前面的表单会把它挤出可见区，用户就找不到确认按钮。
+        # 底栏固定优先，其次是不可伸缩的阶段配置，最后是可伸缩的技能说明区。
+        self.bottom_bar = ttk.Frame(self)
+        self.bottom_bar.pack(side='bottom', fill='x', pady=(pad, 0))
+        self.state = ProgressLabel(self.bottom_bar, text='选择预设即可套用；确认保存本页。')
+        self.state.pack(side='left')
+        self.preset_hint = self.state
+        self.confirm_button = PrimaryButton(self.bottom_bar, text='确认并关闭', width=12,
+                                            command=self.confirm)
+        self.confirm_button.pack(side='right')
         # 预设决定整套配置，因此置于厂商／模型之前。
         row = ttk.Frame(self)
         row.pack(fill='x', pady=(0, section_gap))
@@ -317,14 +328,6 @@ class Panel(ttk.Frame):
         # 得回页面按的和缺文件的分开讲，用户才知道下一步该去哪儿。
         # 执行编排时的细节仍独占一行，避免覆盖上面的结果摘要。
         self.reason = DescriptionBlock(skill_section, text='')
-        self.bottom_bar = ttk.Frame(self)
-        self.bottom_bar.pack(side='bottom', fill='x', pady=(pad, 0))
-        self.state = ProgressLabel(self.bottom_bar, text='选择预设即可套用；确认保存本页。')
-        self.state.pack(side='left')
-        self.preset_hint = self.state
-        self.confirm_button = PrimaryButton(self.bottom_bar, text='确认并关闭', width=12,
-                                            command=self.confirm)
-        self.confirm_button.pack(side='right')
         self.build_notes(pad)
         self.load()
 

@@ -8,25 +8,34 @@
 | --- | --- |
 | 背景 | `color.primary` |
 | 文字 | 白色 |
+| 边框 | 无可见边框：1px `solid` 取 `color.primary` 自身底色；仅键盘焦点时为 `color.focus` |
 | 圆角 | `radius.md` |
 | 字体 | `font.body`（10pt），不再用 11pt bold |
-| 尺寸 | 视觉高度 `CONTROL_HEIGHT`（32px）；水平内边距 `space.md` |
+| 尺寸 | 视觉高度 `CONTROL_HEIGHT`（32px）；水平内边距 `space.md`、垂直 `space.xs`；Tk 实测 33px（32±2，见下） |
 | 悬停 | 背景 `color.primary.subtle`，文字 `color.primary` |
 | 禁用 | 背景 `color.border.default`，文字 `color.disabled.text` |
-| 焦点 | 2px `color.focus` 焦点环 |
+| 焦点 | `focuscolor` = `color.focus`，1px 焦点边框 |
 
-用于页面的首要、提交、确认动作；同一操作组最多一个主按钮。需要比主按钮更醒目的花钱步骤（如“MCP 优化”）用 `Highlight.TButton`（更深一档的 `color.primary.pressed`），不使用橙色。样式只有 `ui_widgets.setup_styles()` 一个定义入口：`ui_theme.apply()` 中重复的 `TButton`／`Primary.TButton` 定义由后续批次删除，以 `Tokens.*` 为准。
+用于页面的首要、提交、确认动作；同一操作组最多一个主按钮。需要比主按钮更醒目的花钱步骤（如“MCP 优化”）用 `Highlight.TButton`（更深一档的 `color.primary.pressed`），不使用橙色。
+
+**唯一样式来源（UI 批次 2）**：`ui_widgets.setup_styles()` 是按钮、输入框、下拉框、数值框与焦点样式的唯一定义处（按钮在 `_install_button_styles()`，输入在 `_install_input_styles()`）；`ui_theme.apply()` 只安装主题、选项库、滚动条与窗口策略，末尾调用 `setup_styles()`。页面不得再用 `ttk.Style` 配置同名样式，也不得另建局部 Style。
+
+**32px 怎么来**：Tk 的 ttk 控件没有 height 属性，控件高度 = 字体行高 + 2×上下内边距 + 主题边框/焦点占位。10pt 微软雅黑 UI 在 100% DPI 下 `linespace=19px`；按钮沿用 `(space.md, space.xs)` 内边距，`19 + 2×4 + 6 = 33px`。输入类用 `CONTROL_PADDING_Y = space.xs + space.xs//2 = 6px`，`19 + 2×6 + 2×1 = 33px`。两者都落在 32±2px；`tests/test_ui_style_engine.py` 用真 Tk 根窗口实测 `winfo_reqheight()`，非 100% 缩放按 `tk scaling` 折算。
+
+**扁平规则（UI 批次 2 返工）**：按钮常态不画可见边框、不使用 raised 浮雕。clam 主题的 1px `solid` 边框统一用按钮自身底色绘制（`bordercolor`／`lightcolor`／`darkcolor` 同底色，`BUTTON_BORDER_WIDTH`），所以导航、侧栏与主区动作按钮看起来与改前一样扁平；只有键盘焦点状态把同一边框映射为 `color.focus`。禁止再把 `TButton` 基样式或 `Nav.TButton`／`ProjectAction.TButton` 设成可见边框或 raised；`ProjectAction.TButton` 的字号／内边距仍由 `Desktop.fit_sidebar()` 单独紧缩，但不得改颜色与边框。
+
+**唯一例外**：侧栏可用高度低于 `DESKTOP_LAYOUT['compact_below']` 时，`Desktop.fit_sidebar()` 会只缩小 `Compact.TButton`／导航按钮／`ProjectAction.TButton` 的字号与纵向内边距，以便 14 个阶段仍可见；它不定义颜色、背景或焦点色，窗口回到常规高度后仍以本入口的 32px 规则为准。
 
 ## 次按钮
 
 | 属性 | Token / 规则 |
 | --- | --- |
 | 背景 | `color.background.card` |
-| 边框 | 1px `color.border.default` |
+| 边框 | 无可见边框：1px `solid` 取 `color.background.card` 自身底色；仅键盘焦点时为 `color.focus` |
 | 文字 | `color.text.primary` |
 | 圆角 | `radius.md` |
 | 字体与尺寸 | 同主按钮：`font.body`、高度 `CONTROL_HEIGHT`、水平内边距 `space.md` |
-| 焦点 | 2px `color.focus` 焦点环 |
+| 焦点 | 1px `color.focus` 焦点环（常态无可见边框） |
 
 用于次要、返回、刷新等不应抢占主动作视觉层级的操作。
 
@@ -48,7 +57,9 @@
 | 背景 | `color.background.card` |
 | 边框 | 1px `color.border.default` |
 | 圆角 | `radius.md` |
-| 内边距 | `padx=space.md`，`pady=space.sm` |
+| 内边距 | `padx=space.md`，`pady=CONTROL_PADDING_Y`（6px） |
+| 尺寸 | 视觉高度 32px（`19px 行高 + 2×6px + 2×1px 边框 = 33px`，32±2） |
+| 焦点 | 边框 `color.focus` |
 | 正文 | `font.body` + `color.text.primary` |
 | 提示/辅助 | `font.assistive` + `color.text.secondary` |
 
@@ -56,6 +67,8 @@
 | --- | --- | --- |
 | `LineInput` | 单行名称、短文本或编码字段 | 使用 `placeholder`、`set_error()`、`set_readonly()` 表达状态；业务页不得直接构造 `ttk.Entry`。 |
 | `TextArea` | 梗概、备注、说明等多行字段 | 使用同一套占位、只读和错误态；业务页不得手拼 `tk.Text` 的字体、边框、颜色和内边距。 |
+| `SelectBox` | 选项选择 | 统一套用 `Tokens.Combobox.TCombobox`，与 `TEntry`／`TSpinbox` 同高；见“下拉框”。 |
+| `TSpinbox` | 数值（小时、分钟、阈值） | 直接使用全局 `TSpinbox` 样式，不另写字体、内边距或颜色。 |
 
 既有历史输入框按独立轮次迁移；首迁页面是“填写创作信息”表单，字段保存接口仍按 `Text.get('1.0', 'end-1c')` 读取，组件不得改变其结果。
 
@@ -63,7 +76,7 @@
 
 `ui_widgets.NotificationDispatcher` 是错误、警告、成功与一般提示的唯一分发入口。调用方只提供业务文案、级别和是否需要模态提示；分发器先更新既有状态栏，模态提示仍复用 Tk 的 `messagebox`，不另建第二套窗口。新建页面不得直接组合 `status.set()` 与 `messagebox.show*()` 表达同一结果；历史页面按独立轮次迁移。
 
-**错误策略（R1689 裁决，随批次 5／7 落地）**：可恢复的错误（网络、模型、校验）默认非模态，在状态栏／字段旁提示并保留“查看详情／重试”；只有删除、覆盖等破坏性操作保留模态确认。当前 `error()` 仍默认 `modal=True`，属已知偏差，调用方迁移完成前以本条为目标。状态栏颜色按级别区分（就绪中性、成功绿、警告、错误红），不再一律绿色。
+**错误策略（R1689 裁决，UI 批次 2 落地）**：可恢复的错误（网络、模型、校验）默认非模态——`NotificationDispatcher.error()` 默认 `modal=False`，只把完整文案落到状态栏，不弹系统框、不锁界面；需要“查看详情／重试”的页面自行在动作附近提供。只有删除、覆盖等破坏性确认保留模态，但它们走 `ConfirmDialog`／`ask_confirmation`，不在本函数内。仅当后续代码确实必须等用户关掉提示才能继续时，调用方才显式传 `modal=True` 并写明理由。状态栏颜色按级别区分（就绪中性、成功绿、警告、错误红），不再一律绿色。
 
 ## 右键菜单
 
@@ -95,7 +108,7 @@
 
 ## 下拉框
 
-业务页必须通过 `SelectBox` 创建下拉框（继承 `ttk.Combobox`）。默认只读，选项自适应宽度封顶 28、弹出列表默认 12 行；可编辑框显式传 `state="normal"`。动态选项更新用 `set_values(values)`，需要保持显式布局宽度时传 `refit=False`；保留 textvariable/current/get 语义。所有下拉框由 `ui_widgets.setup_styles(root)` 作为唯一样式入口。字段、只读态、弹出列表、字体、边框与内边距使用 `design_tokens.md` 的 `combobox.*` token；页面只负责选项、数据绑定和必要的内容宽度，不得复制颜色或字体配置。
+业务页必须通过 `SelectBox` 创建下拉框（继承 `ttk.Combobox`）。默认只读，选项自适应宽度封顶 28、弹出列表默认 12 行；可编辑框显式传 `state="normal"`。动态选项更新用 `set_values(values)`，需要保持显式布局宽度时传 `refit=False`；保留 textvariable/current/get 语义。`SelectBox` 固定套用 `Tokens.Combobox.TCombobox`，控件高度与 `TEntry`／`TSpinbox` 同档（32±2px）；`TCombobox` 基样式只作默认继承，不是页面入口。所有下拉框由 `ui_widgets.setup_styles(root)` 作为唯一样式入口。字段、只读态、弹出列表、字体、边框与内边距使用 `design_tokens.md` 的 `combobox.*` token；页面只负责选项、数据绑定和必要的内容宽度，不得复制颜色或字体配置。
 
 ## 文字组件
 
@@ -118,6 +131,12 @@
 业务页禁止新建裸 `tk.Toplevel(...)` 作对话框；已有历史弹窗按独立轮次迁移，不在一次组件改造中批量替换。
 
 普通弹窗经 `ui_theme.install_window_placement` 首次定位时，宽高不超过主窗口；随后允许用户缩放，不以主窗口大小作为永久上限，也不沿用业务页面的固定大小或最小尺寸。仍遵守系统桌面尺寸限制；无边框提示层、贴片不属于可缩放对话框。
+
+弹窗最小尺寸由 `DIALOG_MIN_WIDTH`（240px）×`DIALOG_MIN_HEIGHT`（160px）兜底：至少并排放得下两个 96px 按钮＋12px 间距＋两侧 16px 留白（约 236→240），高度至少容下标题、两行说明和底部动作区。定位时只允许缩到这两个下限，不再降到 1×1。
+
+## 窗口尺寸
+
+主窗口首次尺寸由 `DESKTOP_LAYOUT['default_width']`×`DESKTOP_LAYOUT['default_height']` 决定，默认 1280×800；最小尺寸 `min_width`×`min_height` 为 800×600。屏幕可用区更小时，`ui_theme.main_window_size()` 按 `window_margin_x`（24px）／`window_margin_y`（48px）收缩，返回值永不超过可用区；用户之后仍可自由缩放。`desktop.Desktop.__init__` 与 `ui_theme.install_window_placement` 共用这组 token，不各写一套数字。
 
 ## 表格
 

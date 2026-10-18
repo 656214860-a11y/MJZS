@@ -2,10 +2,10 @@
 
 import app_logging
 from tkinter import ttk
-from ui_tokens import COLORS
+from ui_tokens import COLORS, DESKTOP_LAYOUT, DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH, FONTS
 from responsive_ui import row_height_for,font_linespace
 
-FONT=('Microsoft YaHei UI',10)     # 全局字体（行高就按它量出来的一行算）
+FONT=FONTS['body']     # 全局字体（行高就按它量出来的一行算）
 
 BG=COLORS['background_primary']
 
@@ -46,48 +46,7 @@ def apply(win):
     # 但仍保持深色文字，长提示与错误提示都能清楚阅读。
     s.configure('PaleGreenHint.TLabel', background=COLORS['success_subtle'], foreground=COLORS['success_text'], padding=(8, 4))
 
-    s.configure('TButton',font=('Microsoft YaHei UI',9),padding=(9,5),background=COLORS['secondary_bg'],foreground=COLORS['secondary_text'],borderwidth=0,focuscolor=ACCENT)
-
-    s.map('TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['secondary_pressed']),('active',COLORS['secondary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
-
-    s.configure('Compact.TButton',font=('Microsoft YaHei UI',9),padding=(6,4))
-    s.configure('Send.TButton',font=('Microsoft YaHei UI',11,'bold'),padding=(10,4),background=ACCENT,foreground='white',borderwidth=0,focuscolor=ACCENT)
-    s.map('Send.TButton',background=[('disabled',COLORS['secondary_bg']),('pressed',COLORS['primary_hover']),('active',COLORS['primary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
-
-    s.configure('Selected.Compact.TButton',font=('Microsoft YaHei UI',9),padding=(7,4),background=ACCENT,foreground='white')
-
-    s.map('Selected.Compact.TButton',background=[('active',COLORS['primary_hover'])],foreground=[('active','white')])
-
-    s.configure('Asset.TButton',font=('Microsoft YaHei UI',10),padding=(14,8))
-
-    s.map('Asset.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['secondary_pressed']),('active',COLORS['secondary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
-
-    s.configure('Primary.TButton',font=('Microsoft YaHei UI',11,'bold'),background=ACCENT,foreground='white',padding=(18,8),borderwidth=0,focuscolor=ACCENT)
-
-    s.map('Primary.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['primary_hover']),('active',COLORS['primary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
-
-    # 「MCP 优化」是要花钱的那一步：用比主按钮更深一档的主色表示，不再使用橙色／琥珀色。
-    s.configure('Highlight.TButton',font=('Microsoft YaHei UI',10,'bold'),background=COLORS['primary_pressed'],foreground='white',padding=(14,7),borderwidth=0,focuscolor=COLORS['focus'])
-    s.map('Highlight.TButton',background=[('disabled',COLORS['disabled_bg']),('pressed',COLORS['primary_pressed']),('active',COLORS['primary_hover'])],foreground=[('disabled',COLORS['disabled_text'])])
-
     s.configure('Project.Treeview',rowheight=24)
-
-    s.configure('Nav.TButton',anchor='w',background=BG,padding=(12,5))
-    # 第 71 期任务 2：侧栏的二级入口（「05 资产管理」下面的「资产清单」）——左边留一截缩进，
-    # 一眼看出它挂在上一格下面。
-    s.configure('Sub.Nav.TButton',anchor='w',background=BG,padding=(26,4))
-    s.configure('Selected.Sub.Nav.TButton',anchor='w',background=ACCENT,foreground='white',padding=(26,4))
-    s.map('Selected.Sub.Nav.TButton',background=[('active',COLORS['primary_hover'])],foreground=[('active','white')])
-
-    s.configure('Selected.Nav.TButton',background=ACCENT,foreground='white')
-
-    s.map('Selected.Nav.TButton',background=[('active',COLORS['primary_hover'])],foreground=[('active','white')])
-
-    s.configure('TEntry',fieldbackground='white',foreground=INK,padding=7)
-
-    s.configure('TCombobox',fieldbackground='white',foreground=INK,padding=6)
-
-    s.map('TCombobox',fieldbackground=[('readonly','white')],foreground=[('readonly',INK)])
 
     # 第 58 期第 2 条：内容框的行高按格子里最高的那点内容算。纯文字的表（剧本、
     # 分镜…）只需要一行字加一小截余地，不再写死 34；摆缩略图的那几张各自
@@ -121,9 +80,12 @@ def apply(win):
                     arrowcolor=SCROLLBAR_ARROW, borderwidth=SCROLLBAR_BORDER_WIDTH)
         s.map(name, background=[('active', SCROLLBAR_THUMB_ACTIVE)])
 
-    s.map('TEntry',bordercolor=[('focus',ACCENT)])
-
     s.map('TCheckbutton',background=[('active',BG)],foreground=[('disabled',COLORS['disabled_text'])])
+
+    # 按钮／输入／焦点样式只有一个定义处：ui_widgets.setup_styles()。主题先装，
+    # 再调用它；Desktop 里随后的 setup_styles() 命中同一主题缓存，不会二次覆盖。
+    from ui_widgets import setup_styles
+    setup_styles(win)
 
 
 
@@ -180,6 +142,18 @@ def install_tick_indicators(win,style):
 # 画键的代码与那一处接线一并删掉，弹窗右上角只剩系统那颗 ×（弹窗照旧居中、抓取与置顶）。
 
 
+def main_window_size(work_width, work_height):
+    """主窗口首次尺寸：默认 1280×800，屏幕放不下时按可用区收缩。
+
+    保留原有 24px／48px 边缘留白的意图；返回值永不超过传入的可用区。
+    """
+    width = min(DESKTOP_LAYOUT['default_width'],
+                max(0, int(work_width) - DESKTOP_LAYOUT['window_margin_x']))
+    height = min(DESKTOP_LAYOUT['default_height'],
+                 max(0, int(work_height) - DESKTOP_LAYOUT['window_margin_y']))
+    return max(1, min(width, int(work_width))), max(1, min(height, int(work_height)))
+
+
 def install_window_placement(root):
 
     """Center each window once; leave subsequent user moves alone."""
@@ -189,7 +163,6 @@ def install_window_placement(root):
     if getattr(root,'_drama_place_enabled',False):return
 
     root._drama_place_enabled=True
-
     # Hide new application windows before their first native Map event.
 
     if not getattr(tk.Toplevel,'_drama_hidden_init',False):
@@ -315,16 +288,17 @@ def install_window_placement(root):
             width=min(width,parent.winfo_width())
             height=min(height,parent.winfo_height())
             window.resizable(True,True)
-            window.minsize(1,1)
+            # 弹窗不再被压到 1×1：未声明也至少保留 240×160 的内容下限。
+            window.minsize(DIALOG_MIN_WIDTH,DIALOG_MIN_HEIGHT)
             window.maxsize(window.winfo_vrootwidth(),window.winfo_vrootheight())
 
         if parent is None:
 
             window.state('normal')
 
-            width=min(1080,int((right-left)*0.80));height=min(740,int((bottom-top)*0.80))
+            width,height=main_window_size(right-left,bottom-top)
 
-        minw,minh=window.minsize();window.minsize(min(minw,width),min(minh,height))
+            minw,minh=window.minsize();window.minsize(min(minw,width),min(minh,height))
 
         if parent:
 

@@ -86,11 +86,33 @@
 
 | Token | 值 | 规则 |
 | --- | --- | --- |
-| `CONTROL_HEIGHT` | 32px | 按钮、单行输入、下拉框的视觉高度；同一行的控件必须同高 |
+| `CONTROL_HEIGHT` | 32px | 按钮、单行输入、下拉框、数值框的视觉高度；同一行的控件必须同高 |
+| `CONTROL_PADDING_Y` | 6px（`space.xs + space.xs//2`） | 单行输入／下拉框／数值框的上下内边距；按钮沿用 `space.xs` |
 | `CONTROL_HIT_MIN` | 32px | 任何可点击元素的最小点击区；小于它的图标要外扩点击区（宠物齿轮、猫爪待迁移） |
-| 焦点环 | 2px `color.focus` | 所有可操作控件必须有可见键盘焦点 |
+| `BUTTON_BORDER_WIDTH` | 1px | 按钮常态 `solid` 边框宽度；边框色取按钮自身底色（不可见），焦点时取 `color.focus` |
+| 焦点环 | `focuscolor` = `color.focus` | 所有可操作控件必须有可见键盘焦点 |
+
+**32px 计算式（100% DPI）**：ttk 控件没有 height 属性，高度 = 字体行高 + 2×上下内边距 + 主题边框/焦点占位。10pt 微软雅黑 UI 的 `linespace` 实测 19px。
+
+- 按钮：`19 + 2×space.xs(4) + 6（1px 边框＋焦点占位）= 33px`；
+- 单行输入／下拉框／数值框：`19 + 2×CONTROL_PADDING_Y(6) + 2×1px 边框 = 33px`。
+
+两者都在 32±2px 内；`tests/test_ui_style_engine.py` 用真 Tk 根窗口实测 `winfo_reqheight()`，非 100% 缩放按 `tk scaling` 折算。唯一定义处是 `ui_widgets.setup_styles()`；`ui_theme.apply()` 只装主题并调用它。
+
+**扁平按钮规则（UI 批次 2 返工）**：按钮常态不画可见边框、不使用 raised 浮雕。`ui_widgets._configure_button()` 统一使用 `borderwidth=BUTTON_BORDER_WIDTH`、`relief="solid"`，并把 `bordercolor`／`lightcolor`／`darkcolor` 设成按钮自身 `background`；仅 `focus` 状态把三者映射为 `color.focus`。导航（`Nav.TButton`／`Sub.Nav.TButton`）、侧栏与主区动作按钮（`TButton`／`ProjectAction.TButton`）都继承同一扁平规则，不得回退为可见边框或 raised。
 
 主色只有蓝色一套：橙色／琥珀色不再作按钮或强调底色（旧 `emphasis`、`warning.hover`、`warning.pressed` 已删除）。需要“醒目”的按钮用更深一档的 `color.primary.pressed`。文字与底色的对比度不低于 4.5:1。
+
+## 窗口尺寸
+
+| Token | 值 | 规则 |
+| --- | --- | --- |
+| `DESKTOP_LAYOUT['default_width']`／`['default_height']` | 1280×800 | 主窗口首次尺寸 |
+| `DESKTOP_LAYOUT['min_width']`／`['min_height']` | 800×600 | 主窗口最小尺寸 |
+| `DESKTOP_LAYOUT['window_margin_x']`／`['window_margin_y']` | 24px／48px | 屏幕可用区小于默认值时保留的边缘留白 |
+| `DIALOG_MIN_WIDTH`／`DIALOG_MIN_HEIGHT` | 240×160 | 弹窗最小尺寸；由两个 96px 按钮并排（约 236px）和标题＋两行说明＋动作区（约 160px）得出 |
+
+`ui_theme.main_window_size()` 返回 `min(默认值, 可用区 − 边距)`，永不超过可用区；`desktop.Desktop.__init__` 与 `ui_theme.install_window_placement` 共用这组值。弹窗定位只允许缩到 240×160，不再降到 1×1。
 
 ## 下拉框（Combobox）
 
@@ -102,15 +124,18 @@
 | `COMBOBOX_MAX_WIDTH` | 28 字符 | 只读框自适应宽度上限 |
 | `COMBOBOX_POPDOWN_HEIGHT` | 12 行 | 弹出列表默认最大行数 |
 | `combobox.font` | `font.body` | 输入区和下拉列表文字 |
-| `combobox.padding` | `space.sm` × `space.xs` | 字段水平／垂直内边距 |
+| `combobox.padding` | `space.sm` × `CONTROL_PADDING_Y`（6px） | `SelectBox` 统一控件样式的水平／垂直内边距 |
 | `combobox.field.background` | `color.background.card` | 可编辑与只读字段背景 |
 | `combobox.foreground` | `color.text.primary` | 正常文字 |
 | `combobox.arrow.color` | `color.text.secondary` | 下拉箭头；主题不支持时安全回退系统箭头 |
 | `combobox.list.selection` | `color.primary` + `color.background.card` | 弹出列表选中项前景／背景 |
+| `combobox.focus` | `color.focus` | 字段获得焦点时的边框色 |
+
+`SelectBox` 固定使用 `Tokens.Combobox.TCombobox`（`COMBOBOX_CONTROL_PADDING = (space.sm, CONTROL_PADDING_Y)`）；旧 `TCombobox` 基样式保留 `COMBOBOX_PADDING` 供默认继承，页面不得直接构造裸 `ttk.Combobox`。
 
 ## 输入框（LineInput／TextArea）
 
-单行输入必须使用 `ui_widgets.LineInput`，多行输入必须使用 `ui_widgets.TextArea`。组件统一占位文字、只读态和错误边框；页面仅提供字段内容、尺寸和领域校验，不得重写视觉参数。
+单行输入必须使用 `ui_widgets.LineInput`，多行输入必须使用 `ui_widgets.TextArea`。组件统一占位文字、只读态和错误边框；页面仅提供字段内容、尺寸和领域校验，不得重写视觉参数。全局 `TEntry` 与 `TSpinbox` 样式同样只在这里定义：10pt 字体、`(space.md, CONTROL_PADDING_Y)` 内边距、1px 边框，焦点边框为 `color.focus`；`TextArea` 是多行控件，不套用 32px 控件高度。
 
 | Token | 值 | 用途 |
 | --- | --- | --- |
@@ -120,7 +145,8 @@
 | `input.background` | `color.background.card` | 输入区底色 |
 | `input.border` | `color.border.default` | 默认 1px 边框 |
 | `input.error.border` | `color.danger` | 校验失败边框 |
-| `input.padding` | `space.md` × `space.sm` | 水平／垂直内边距 |
+| `input.focus.border` | `color.focus` | 获得焦点时的边框 |
+| `input.padding` | `space.md` × `CONTROL_PADDING_Y`（6px） | 水平／垂直内边距；垂直值使单行控件落在 32±2px |
 
 ## 文字层级
 
