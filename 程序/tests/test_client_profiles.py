@@ -302,5 +302,30 @@ class EnvironmentRowsTests(unittest.TestCase):
         self.assertIn('opencode-cli', keys)
 
 
+class BuiltinEnginePrecedenceTests(unittest.TestCase):
+    """R1706b 回归：内建 CLI 引擎优先于同名客户端档案，不得被改判为桌面。"""
+
+    def test_regression_r1706b_builtin_cli_models_keep_cli_call_mode(self):
+        for name in ('opencode', 'qwen', 'claude-code', 'claude', 'claude-code-cli'):
+            with self.subTest(name=name):
+                self.assertNotEqual(model_pool.desktop_engine(name), 'desktop-app',
+                                    '内建引擎 %s 不应命中桌面档案' % name)
+                self.assertEqual(model_pool.call_mode(
+                    {'provider': 'desktop', 'model': name}), 'CLI',
+                    '内建引擎 %s 的调用方式仍是 CLI' % name)
+
+    def test_regression_r1706b_new_clients_still_use_the_profile_fallback(self):
+        # 旧名不再由档案改判调用方式，但档案仍负责找到它们的桌面程序。
+        for legacy in ('gemini', 'google-gemini', 'codex-desktop'):
+            with self.subTest(legacy=legacy):
+                self.assertEqual(model_pool.desktop_engine(legacy), '')
+        self.assertEqual(client_profiles.profile_for_mode('gemini', 'Desktop')['id'],
+                         'gemini-desktop')
+        self.assertEqual(model_pool.desktop_engine('deepseek-harness'), 'desktop-app')
+        self.assertEqual(model_pool.desktop_engine('dsh'), 'client-cli')
+        self.assertEqual(model_pool.call_mode(
+            {'provider': 'desktop', 'model': 'dsh'}), 'CLI')
+
+
 if __name__ == '__main__':
     unittest.main()

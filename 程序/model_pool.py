@@ -139,8 +139,8 @@ def desktop_engine(model_id):
     alias = re.sub(r'[\s_-]+', '-', name.casefold())
     if alias in ('claude-code', 'claude-code-cli'):
         return 'claude'
-    # 新客户端由档案决定路由；档案缺失时仍返回空串，走原有 API 判定。
-    return client_profiles.engine_for_model(name)
+    # 新客户端由档案决定路由，但 R1706 之前就有路由的名字优先，档案只给它们兜底。
+    return '' if alias in client_profiles.BUILTIN_MODEL_NAMES else client_profiles.engine_for_model(name)
 
 
 def provider_name(model_id, value):

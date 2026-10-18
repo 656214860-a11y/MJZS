@@ -25,6 +25,11 @@ SCHEMA_VERSION = 1
 DESKTOP_KINDS = ('desktop',)
 CLI_KINDS = ('cli',)
 DELIVERIES = ('paste', 'clipboard', 'cli_file', 'cli_stdin', 'cli_arg')
+# R1706b：档案只给既有路由识别不了的新客户端兜底。这些名字在 R1706 之前就有
+# 内建路由（内建 CLI 引擎或旧桌面别名），同名桌面项（opencode-desktop 的
+# opencode 别名、gemini-desktop 的 gemini 别名）不得抢先改写它们的调用方式。
+BUILTIN_MODEL_NAMES = ('codex', 'claude', 'qwen', 'opencode',
+                       'codex-desktop', 'gemini', 'google-gemini')
 DEFAULT_TIMEOUT = 5
 _CACHE = {'stamp': None, 'profiles': {}}
 
