@@ -138,6 +138,19 @@ class ContinuityScopeTests(unittest.TestCase):
         preset = workflow_settings.BUILTIN_WORKFLOW_PRESETS['AIGC全流程']['stage_skills']
         self.assertEqual(preset['continuity'], ['pipeline-continuity'])
 
+    def test_req_s06_26_g08_is_optional_and_sg02_does_not_depend_on_it(self):
+        """REQ-S06-26：G-08 人工裁决可选、建议，不是 SG-02 的放行条件。"""
+        import confirm_gates
+        gate = confirm_gates.by_id('G-08')
+        self.assertEqual(gate['type'], confirm_gates.SUBJECTIVE)
+        self.assertEqual(gate['ask'], 'conflicts')
+        self.assertIn('可选', gate['condition'])
+        self.assertIn('不影响 SG-02', gate['reject'])
+        self.assertIn('可选', stage_flow.RECOVERY_HINTS['continuity'])
+        sg02 = next(row for row in stage_parallel.GATES if row['id'] == 'SG-02')
+        self.assertEqual(sg02['check'], 'ledger_ready')
+        self.assertNotIn('G-08', str(sg02))
+
 
 if __name__ == '__main__':
     unittest.main()

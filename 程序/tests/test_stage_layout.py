@@ -119,11 +119,16 @@ class ContractTests(unittest.TestCase):
             stage_layout.paths(".", "没有这个目录")
 
     def test_every_stage_has_a_chinese_name_and_a_docs_list(self):
+        """REQ-S04-60：docs 清单按阶段声明；04 分镜预演的确认记录在 animatic_manifest.json，docs 清单显式为空。"""
         self.assertEqual(len(stage_layout.stage_names()), 13)
         self.assertTrue(all(stage_layout.stage_names()))
         folders = {row[0] for row in stage_layout.docs_rows()}
         for name in stage_layout.names():
-            self.assertIn(name, folders, name + " 该有 docs 清单")
+            self.assertIn(name, stage_layout.DOCS, name + " 该有 docs 清单")
+            if name == '04分镜预演':
+                self.assertEqual(stage_layout.DOCS[name], (), "确认记录在 animatic_manifest.json 的 confirmed")
+            else:
+                self.assertIn(name, folders, name + " 该有 docs 清单")
 
     def test_runtime_and_directory_stage_contracts_have_the_same_order(self):
         """运行时阶段和用户目录阶段不能各自扩容后悄悄漂移。"""

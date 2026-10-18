@@ -121,7 +121,9 @@ LEGACY = (
 
 # 每个阶段的 docs/ 该有哪些 MD（任务 11：各阶段 docs/ 目录文件清单）。机器一个都不读。
 DOCS = {
-    '04分镜预演': (('animatic_notes.md', '节奏、时长与对白同步确认记录'),),
+    # 04 分镜预演不再登记 animatic_notes.md：确认记录以 output/animatic_manifest.json
+    # 的 confirmed 为准（REQ-S04-60，2026-10-19 裁决），本阶段 docs/ 无必产 MD。
+    '04分镜预演': (),
     '01剧本准备': (('story_brief.md', '创意与需求原稿'), ('outline.md', '全局大纲'),
                   ('characters.md', '角色设定（自然语言，人读）'), ('episode_plan.md', '分集规划'),
                   ('intel_card.md', '对标情报卡（来源与分级，人读；机器读同级 input/recon_card.json）'),

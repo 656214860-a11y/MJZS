@@ -1,4 +1,4 @@
-"""REQ-S04-01/03/04/21/22/50/51：分镜预演阶段的位置、依赖、锁、门禁、并行与 SKILL。"""
+"""REQ-S04-01/03/04/21/22/50/51/60：分镜预演阶段的位置、依赖、锁、门禁、并行、输入索引与 SKILL。"""
 import tempfile
 import unittest
 from pathlib import Path
@@ -68,6 +68,55 @@ class AnimaticScopeTests(unittest.TestCase):
         self.assertIn('tools: [animatic.generate, animatic.validate]', text)
         self.assertIn('不替代正式资产或首帧或正式视频', text)
         self.assertEqual(len(list(SKILL.parent.glob('*.skill.md'))), 1)
+
+    def test_req_s04_60_sga_reads_storyboard_draft_index_for_readiness(self):
+        """REQ-S04-60：采用分镜时写下的 storyboard_draft.json 是预演输入就绪判定的落盘索引。"""
+        import storyboard_selection
+        from agent.core import read, save
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            source = root / '03初步分镜' / '分镜拆分' / 'ep1.json'
+            save(source, {'episode_id': 'EP001', 'shots': [
+                {'id': 'SH001', 'location': 'LOC_001', 'characters': ['CHAR_001'],
+                 'image_prompt': '门边的人', 'duration': 1}]})
+            save(root / 'ui_settings.json', {'adopted_storyboards': ['03初步分镜/分镜拆分/ep1.json']})
+            index = storyboard_selection.sync_draft_outputs(root) / 'storyboard_draft.json'
+            self.assertTrue(index.is_file())
+            self.assertTrue(stage_parallel.animatic_input_ready(root)['ok'])
+            draft = read(index)
+            draft['sources'] = []
+            save(index, draft)
+            result = stage_parallel.animatic_input_ready(root)
+        self.assertFalse(result['ok'])
+        self.assertIn('storyboard_draft.json', result['detail'])
+
+    def test_req_s04_60_animatic_docs_no_longer_declare_notes_file(self):
+        """REQ-S04-60：确认记录以 animatic_manifest.json 的 confirmed 为准，预演不再登记 animatic_notes.md。"""
+        row = next(item for item in stage_layout.STAGES if item[1] == 'animatic')
+        names = [name for folder, name, _text in stage_layout.docs_rows() if folder == row[0]]
+        self.assertNotIn('animatic_notes.md', names)
+        self.assertNotIn('animatic_notes.md', stage_layout.readme_text(row))
+
+    def test_req_s04_61_without_batch_id_defaults_to_one_default_batch(self):
+        """REQ-S04-61：03 不写 batch_id，预演缺省只有 default 一批；批间并行只是保留能力。"""
+        import animatic_service
+        shots = animatic_service.shots_of({'shots': [
+            {'id': 'SH001', 'image_prompt': '提示一', 'duration': 1},
+            {'id': 'SH002', 'image_prompt': '提示二', 'duration': 1},
+        ]})
+        self.assertEqual([row['batch'] for row in shots], ['default', 'default'])
+
+    def test_req_s04_62_animatic_products_stay_upstream_only(self):
+        """REQ-S04-62：预演成果只在本阶段保留，下游不读、不做下游消费。"""
+        by_stage = {row[1]: row for row in stage_layout.STAGES}
+        animatic_products = {'animatic_manifest.json', 'animatic.mp4', 'temporary_audio'}
+        self.assertIn('animatic_manifest.json', by_stage['animatic'][5])
+        for stage in ('assets', 'continuity', 'final', 'keyframe', 'previs', 'video'):
+            with self.subTest(stage=stage):
+                self.assertFalse(animatic_products & set(by_stage[stage][4]))
+        from_animatic = [gate for gate in stage_parallel.GATES if gate['from'] == 'animatic']
+        self.assertEqual([(gate['id'], gate['to'], gate['check']) for gate in from_animatic],
+                         [('SG-B', 'assets', 'animatic_ready')])
 
 
 if __name__ == '__main__':

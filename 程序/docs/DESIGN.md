@@ -174,14 +174,17 @@
 - **DES-S04-02**（REQ-S04-02/05）`run_animatic` 先 `stage_parallel.evaluate(project,'animatic')`（SG-A），再要求 `Path(source).resolve()` 属于 `storyboard_selection.adopted(project)`；`build_bundle` 再要求来源在项目根内、参考图非空、`shots_of` 通过。`shots_of` 的校验规则：ID 匹配 `[A-Za-z0-9_-]+` 且唯一，提示词取 `image_prompt/prompt/video_prompt/description` 第一个非空，时长取 `estimated_duration/duration` 且 0<x≤600。
 - **DES-S04-03**（REQ-S04-04/06）`animatic_preview_spec` = `script_contract.preview_spec(stage_config.workflow_lock(project))`；`run_animatic` 对 `ffmpeg/ffprobe` 依次取 settings、`config.json`、`platform_tools.tool_path`，缺失抛错；随后 `comfy_runtime.wait_comfy`。
 - **DES-S04-04**（REQ-S04-10/11）`import_animatic_references` 校验后缀与大小，以内容 SHA-256 命名，经 `publish_stage_bundle` 发布；`animatic_reference_paths` 遍历 `shared_reference_read_dirs`（新旧目录）并去重。`prepare_reference` 复用 `Comfy.submit` 与 `_collect_sketch`，再交 `import_animatic_references`。
-- **DES-S04-05**（REQ-S04-20/21/22/23）`local_sketch` 用 `reference_graph` 构图并把图中所有 `seed/noise_seed` 设为固定种子；`build_bundle` 按 `batch` 分组，`run_batches` 由 L3 注入 `stage_parallel.parallel_map('animatic', ...)`（批间并行、批内串行）；只捕获 `ComfyGenerationFailed` 重试，`retry_attempts` 来自 `stage_parallel.retry_attempts('animatic')`；`_collect_sketch` 在超时内轮询 `collect`，超时抛"不自动重复提交"。持久工作区 `04分镜预演/.work/run-*`。
+- **DES-S04-05**（REQ-S04-20/21/22/23）`local_sketch` 用 `reference_graph` 构图并把图中所有 `seed/noise_seed` 设为固定种子；`build_bundle` 按 `batch` 分组，`run_batches` 由 L3 注入 `stage_parallel.parallel_map('animatic', ...)`（批间并行、批内串行）；只捕获 `ComfyGenerationFailed` 重试，`retry_attempts` 来自 `stage_parallel.retry_attempts('animatic')`；`_collect_sketch` 在超时内轮询 `collect`，超时抛"不自动重复提交"。持久工作区 `04分镜预演/.work/run-*`。03 不写 `batch_id`、批次由 07 划定，默认流程只有 `default` 一批，批间并行仅是保留能力。
 - **DES-S04-06**（REQ-S04-24）`tts_api.script_signature(text, settings)` 参与临时音频文件名；文件已存在且非空则复用；持久工作区下用 `request_id='tts-previs:'+signature` 让重复请求幂等。
 - **DES-S04-07**（REQ-S04-25）`assemble_image_timeline`：逐镜 `-loop 1 -t 秒` 生成片段 → concat 清单 → 叠加音频（`apad`、`-t` 总时长）→ `ffprobe` 核验含 video/audio 流且时长差 ≤1 秒 → `-xerror` 全量解码；每镜时长必须有限且 0<x≤600。
 - **DES-S04-08**（REQ-S04-30/31/32）`build_bundle` 在读取来源时用 `file_cache.read_stable_json_snapshot`，组装 artifacts 与清单（含 `source_sha256`、`files` 摘要、`confirmed` 三项 `False`）；发布前再次比对来源字节。`validate_bundle` 做整包一致性校验；`publish_animatic_bundle` 做路径越界与索引保留名检查，生成 `animatic_index.json`，通过 `publish_stage_bundle` 原子发布并在失败时回滚（含索引）。
 - **DES-S04-09**（REQ-S04-40）`confirm_animatic`：三参数必须全为 `True` → `evidence(require_confirmation=False)` 通过 → `deepcopy` 清单写 `confirmed` → `publish_stage_text` 校验后发布。重新生成走 `build_bundle`，清单重新以 `False` 开始。
 - **DES-S04-10**（REQ-S04-41/42/43）`evidence(project, require_confirmation=True)`：读清单 → 来源摘要 → `files` 逐项路径在阶段目录内、非空、`file_cache.file_digest` 一致 → 镜头图均登记 → 三项确认。任一环节异常统一返回 `(False, '分镜预演未就绪、源文件已变化，或节奏／时长／对白同步尚未确认')`。SG-B 与 `stage_completion_service` 共用该函数，无第二套判定。
 - **DES-S04-11**（REQ-S04-50/51/52）`skills/04 分镜预演SKILL/pipeline-animatic.skill.md`，`tools: [animatic.generate, animatic.validate]` 在 `skill_tools.PAGES` 登记为打开预演页（`status_of=='page'`）。
-- **待定**（REQ-S04-52/60/61/62）SKILL 锁段落收窄、`storyboard_draft.json` 与 `animatic_notes.md` 声明、`batch_id` 归属、成果下游消费，待最终验收拍板后再设计。
+- **DES-S04-12**（REQ-S04-61）`animatic_service.shots_of` 仍接受 `batch_id` 分组，缺省归 `default`；03 不写 `batch_id`、07 划定批次，因此默认流程只跑一批。`stage_parallel.CONFIG['animatic']` 的批间并行配置保留为能力，不把跨批并行写成默认流程承诺。
+- **DES-S04-13**（REQ-S04-62）草图、临时声音、`animatic.mp4` 只保留在 `04分镜预演/` 供本阶段核对与追溯；资产、首帧、白模等下游只消费 SG-B 的通过结论，不读取这些文件，也不把它们登记为下游输入。
+- **DES-S04-14**（REQ-S04-60）采用分镜时 `storyboard_selection.sync_draft_outputs` 写 `03初步分镜/output/storyboard_draft.json`（来源路径、episode_id、镜头编号）；SG-A `animatic_input_ready` 经 `draft_problems` 读该落盘索引，与当前已采用分镜不一致即拒绝进入。确认记录只以 `animatic_manifest.json` 的 `confirmed` 为准，`stage_layout.DOCS` 不再为 `04分镜预演` 登记 `animatic_notes.md`。
+- **待定**（REQ-S04-52）REQ-S04-52 的 SKILL 锁段落收窄仍待最终验收。
 
 ### 测试锚定
 
@@ -195,6 +198,9 @@
 | REQ-S04-30/31/32/33 | `test_animatic_service`（整包发布、越界、回滚） |
 | REQ-S04-40/41/42/43 | `test_animatic_service`（确认、流式核验、缺失媒体）、`test_stage_parallel`、`test_animatic_scope`（SG-B 登记） |
 | REQ-S04-26 | `test_animatic_service`（正式资产须线上 API） |
+| REQ-S04-61 | `test_animatic_scope`（缺 `batch_id` 时默认 `default` 一批） |
+| REQ-S04-62 | `test_animatic_scope`（下游模块不读预演成果） |
+| REQ-S04-60 | `test_animatic_scope`（SG-A 读 `storyboard_draft.json` 落盘索引；不再登记 `animatic_notes.md`） |
 
 ## S05 资产管理
 
@@ -258,7 +264,7 @@
 | L3 | `stage_parallel` | `CONFIG['continuity']`、门禁 SG-01 `assets_locked`／SG-02 `ledger_ready` |
 | L3 | `stage_completion_service` | 完成核验：`'continuity': 'ledger_ready'` 且 `ok and started` |
 | L3 | `stage_flow` | 依赖 `DEPENDS`、手动按钮名、恢复提示 |
-| L3 | `confirm_gates` | 主观门禁 G-08（冲突裁决）候选与确认账本 |
+| L3 | `confirm_gates` | 主观门禁 G-08（冲突裁决）候选与确认账本；可选、建议，不作为 SG-02 放行条件 |
 | L2 | `continuity_ledger` | 台账计算、发布包、问题闭环（纯规则，无模型调用） |
 | L2 | `skill_tools` | `continuity.*` 工具登记；`_continuity_ledger` 本地落盘 |
 | L0/契约 | `stage_layout`／`stage_path_service` | `06连贯性清单` 目录、`_shared` 共享索引路径、旧 `05连贯性清单` 只读 |
@@ -281,7 +287,7 @@
 - **DES-S06-24**（REQ-S06-24）`continuity_ledger.stale_reason(ledger, shots)` 比对规范化镜头编号与各批次 `shot_ids`；`stage_parallel._current_shots` 取 `frame_json` 对应的已采用分镜；`ledger_ready` 在“台账存在”之后先查它，再用共享的 `continuity_ledger.open_problems` 查待办。`generate_continuity_ledger` 对 0 镜头抛 `ValueError`。
 - **DES-S06-32**（REQ-S06-32）以实现为准，改 SKILL 不改代码；`test_skill_reference_injection` 要求保留的 `repairList` 字样保留并注明对应 `continuity_issues.json`。
 - **DES-S06-33**（REQ-S06-33）`desktop_media_pages.MediaPagesMixin.generate_continuity_ledger` 是手动与自动的唯一实现，`pet_continuity_ledger` 为自动链薄包装，由 `desktop._start_unattended_stage` 的 continuity 分支调用，入口仍是 `stage_handler_registry.start()`。
-- **待定**（REQ-S06-26）G-08 是否为放行条件，待用户拍板后再设计。
+- **DES-S06-26**（REQ-S06-26）G-08（“多图抢同一件事”的优先级裁决）是可选、建议项，不是 SG-02 放行条件：`stage_parallel` 的 SG-02 仍只调 `ledger_ready`，不要求先有 G-08 确认；`confirm_gates` 的 G-08 说明与 `stage_flow.RECOVERY_HINTS['continuity']` 统一改为“可跳过、不影响 SG-02 放行”，人工裁决能力保留。
 
 ### 测试锚定
 
@@ -294,7 +300,7 @@
 | REQ-S06-02（门禁与依赖） | `test_stage_parallel`、`test_stage_flow` |
 | REQ-S06-23（完成核验） | `test_stage_completion_service`、`test_continuity_scope` |
 | REQ-S06-24/32/33 | `test_continuity_scope` |
-| REQ-S06-26 | 待定 |
+| REQ-S06-26 | `test_continuity_scope`（G-08 可选口径、SG-02 不依赖 G-08） |
 
 ## S07 分镜定稿
 
