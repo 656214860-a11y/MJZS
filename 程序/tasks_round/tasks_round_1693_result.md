@@ -27,11 +27,18 @@
 
 | 项 | 结果 |
 | --- | --- |
-| `tests/test_auto_full_safe.py` | **22/22**（原 9 条 + 环境阻塞 6 条 + 工作树 3 条 + 扫描隔离 2 条 + 原有的 2 条改口） |
+| `tests/test_auto_full_safe.py` | **25/25**（原 9 条 + 环境阻塞 6 + 工作树 3 + 被忽略输入 3 + 扫描隔离 2 + 原断言改口 2） |
 | 定向四门禁 | **69/69**（`auto_full_safe`／`coverage_baseline`／`coverage_audit_ratchet`／`layers`／`agents_md`），且 `.wt/ci` 真实存在的情况下跑过 |
 | 真机工作树四步 | 新建→`程序/run_selftests.py` 存在；复用具同一目录；`worktree remove --force` 后**自动重建**；`git worktree list --porcelain` 显示 `locked auto full safe` |
 | `--status` | 由「上次后台全量未通过…」改为「上次未能测量：环境不允许派生工作进程…不是测试失败…原因：BrokenProcessPool」 |
-| 安全全量 | 改由修好的通道（`auto_full_safe.py --run`）自己跑，见回填 |
+| **通道端到端（第 1 次）** | `--run` 真的跑完：**5819 条、708.8 秒、1 个文件红**——`architecture.test_agents_md`，根因是干净检出缺 `程序/维护记录/基准历史.json`（该文件被 `.gitignore:56` 明确排除） |
+| **通道端到端（第 2 次）** | 补上 `_fill_ignored_inputs()` 后 `--run` 再跑：**5822 条、709.2 秒、0 个文件有红**、跳过 1 条既有登记位；`auto-full-safe-result.json` 记 `returncode=0`；`--status` 显示「通过或尚未运行」，`last_full_safe_all_round=1693`、欠账 **0/8** |
+
+### 第 1 次端到端暴露的第三个问题（已修）
+
+`.wt/ci` 是 `git checkout` 出来的干净树，而 `test_agents_md` 要读 `维护记录/基准历史.json` 来核对「基准历史是否被声明为仅历史」。该文件被 `.gitignore` 排除（本机历史数据），干净检出里天然没有 → 后台全量**每次都会红在同一条**。
+
+修复：`IGNORED_INPUTS = ('维护记录/基准历史.json',)` ＋ `_fill_ignored_inputs()`，只按显式清单从主工作树补这一份；**不整体拷 `维护记录/`**（避免把日志、台账、私有数据带进检出）。被忽略文件不显示在 `git status` 里，所以补完检出仍算干净、凭据照常可写（第 2 次实测已验证）。
 
 ## E 边界与未做
 
@@ -42,4 +49,10 @@
 
 ## 提交
 
-（见收尾提交与回填。）
+| 提交 | 内容 |
+| --- | --- |
+| `ab343692` | 主修复：`spawn_problem()` 预检＋`blocked` 结果＋提示改口；工作树脚本校验／重建／加锁；`.wt`／`.selftmp` 加入两处扫描口径；22 条用例 |
+| `41f20ef4` | 第 1 次端到端暴露的第三个问题：`_fill_ignored_inputs()` 把被忽略的 `基准历史.json` 补进检出（25 条用例） |
+| 本报告回填与状态页 | 见下一次提交 |
+
+本轮结束状态：**后台自动全量已可用**——`auto_full_safe.py --run` 在干净检出上跑出 5822 条 / 0 红并写入凭据（`round=1693`），`--status` 的欠账计数回到 0/8，提交输出不再出现假红提示。
