@@ -118,6 +118,7 @@ class ObjectiveTests(unittest.TestCase):
         self.assertIn("场景", result["problems"][0])
 
     def test_g04_catches_a_missing_asset(self):
+        """REQ-S05-15：门禁 G-04 使用 missing_ids 拦下清单里缺名称／提示词的资产。"""
         shots = [sb.normalize({"id": "SH001", "duration": 3, "characters": ["CHAR_007"],
                                "location": "LOC_001"}, 0)]
         result = cg.run("G-04", shots=shots, assets=GOOD_ASSETS)

@@ -66,6 +66,7 @@ class NormalizeShotTests(unittest.TestCase):
         self.assertEqual(normalize_shot({"props": 123}, {}).get("props"), [])
 
     def test_ordinary_prop_moves_out(self):
+        """REQ-S05-12：普通道具降级为镜头内描述，不分配 PROP 编号、不留在 props/first_frame_assets。"""
         shot = {"id": "SH001", "props": ["PROP_001"], "first_frame_assets": ["PROP_001"]}
         entries = {"PROP_001": {"name": "普通道具", "prop_importance": "ordinary"}}
         out = normalize_shot(shot, entries)
@@ -86,6 +87,7 @@ class NormalizeShotTests(unittest.TestCase):
         self.assertEqual(inline_text(None), "")
 
     def test_inline_text(self):
+        """REQ-S05-12：普通道具写进镜头提示词的文字，而不是进入需要独立生图的资产清单。"""
         shot = {"ordinary_props": [{"name": "杯子", "description": "桌上玻璃杯"}]}
         text = inline_text(shot)
         self.assertIn("杯子", text)

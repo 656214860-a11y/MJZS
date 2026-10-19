@@ -17,6 +17,7 @@ def gateway():
 
 class AssetPlanPublicationTests(unittest.TestCase):
     def test_failed_bundle_publication_restores_all_existing_files(self) -> None:
+        """REQ-S05-16：四份发布文件写入失败时整体回滚到发布前的字节。"""
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary) / 'assets' / '资产清单'
             folder.mkdir(parents=True)
@@ -44,6 +45,7 @@ class AssetPlanPublicationTests(unittest.TestCase):
             self.assertEqual({name: (folder / name).read_bytes() for name in originals}, originals)
 
     def test_bundle_publication_writes_and_verifies_all_four_files(self) -> None:
+        """REQ-S05-16：清单、名称编号对照、来源、导入进度四份文件作为发布包写入并复核。"""
         with tempfile.TemporaryDirectory() as temporary:
             folder = Path(temporary) / 'assets' / '资产清单'
             result = asset_plan.publish_plan_bundle(folder, {'CHAR:甲': 'CHAR_001'}, {'CHAR_001': {'name': '甲'}},

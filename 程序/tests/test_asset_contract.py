@@ -38,6 +38,7 @@ class DefaultsTests(unittest.TestCase):
         self.assertEqual(ac.defaults("没有这一类"), {})
 
     def test_normalize_fills_missing_keys_without_touching_the_rest(self):
+        """REQ-S05-11：清单同步只补缺失的契约字段，已有值一个不动。"""
         old = {"name": "老角色", "image_prompt": "写好的提示词"}
         data = ac.normalize(old, "CHAR_001")
         self.assertEqual(data["name"], "老角色", "老键一个都不动")
@@ -50,6 +51,7 @@ class DefaultsTests(unittest.TestCase):
         self.assertNotIn("character_anchor", old, "不就地改原对象")
 
     def test_normalize_keeps_existing_values(self):
+        """REQ-S05-11：同步时已有的锚点、锁定与正典板值原样保留。"""
         data = ac.normalize(character(locked=True, canonical_board="a/turnaround.png"), "CHAR_001")
         self.assertTrue(data["locked"])
         self.assertEqual(data["canonical_board"], "a/turnaround.png")
@@ -196,6 +198,7 @@ class ValidateTests(unittest.TestCase):
 
 class MissingAndSchemaTests(unittest.TestCase):
     def test_missing_ids_reports_unknown_and_promptless_assets(self):
+        """REQ-S05-15：分镜引用的编号缺 name 或生图提示词时由 missing_ids 报出。"""
         assets = {"CHAR_001": {"name": "主角", "image_prompt": "提示词"}}
         shots = [{"characters": ["CHAR_001"], "location": "LOC_001"},
                  {"characters": ["CHAR_002"], "location": ""}]

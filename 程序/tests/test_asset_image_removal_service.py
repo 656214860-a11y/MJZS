@@ -22,6 +22,7 @@ class AssetImageRemovalServiceTests(unittest.TestCase):
         save(self.index, {'CHAR_001': {'name': '角色', 'image': 'assets/characters/CHAR_001.png'}})
 
     def test_recycles_image_then_clears_registered_pointer(self):
+        """REQ-S05-33：用户可见的资产图片删除先走回收站，成功后清掉登记指针。"""
         result = asset_batch_service.remove_asset_image(self.base, 'CHAR_001', gateway=self.gateway())
         self.assertEqual(result, self.image.resolve())
         self.assertFalse(self.image.exists())

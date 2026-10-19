@@ -24,6 +24,7 @@ class AssetImageRestoreServiceTests(unittest.TestCase):
         self.assertTrue(recycle_paths(self.base, (self.image,), '测试删除'))
 
     def test_restores_image_then_registers_pointer(self):
+        """REQ-S05-33：回收后的资产图片可恢复，并重新登记到资产索引。"""
         result = asset_batch_service.restore_asset_image(self.base, 'CHAR_001', gateway=self.gateway())
         self.assertEqual(result, self.image.resolve())
         self.assertTrue(self.image.is_file())
