@@ -40,6 +40,7 @@ import skill_budget
 import skill_orchestrator
 import skill_note_render
 import skill_panel
+import skill_panel_presets
 import skill_registry
 import skill_tools
 import stage_config
@@ -1314,9 +1315,9 @@ class PanelTests(unittest.TestCase):
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.assertEqual(panel.preset.get(), '请选择')
         self.assertEqual(tuple(panel.presets.cget('values'))[0], '请选择')
-        real = skill_panel.simpledialog
-        skill_panel.simpledialog = Typed
-        self.addCleanup(setattr, skill_panel, 'simpledialog', real)
+        real = skill_panel_presets.simpledialog
+        skill_panel_presets.simpledialog = Typed
+        self.addCleanup(setattr, skill_panel_presets, 'simpledialog', real)
         panel.model.set('Qwen-Max')
         panel.preset.set('A预设')
         self.assertEqual(panel.save_preset(), 'A预设')
@@ -1369,9 +1370,9 @@ class PanelTests(unittest.TestCase):
         panel.presets.configure(values=panel.preset_names())
         self.assertEqual(panel.rename_preset(), '', '没在下拉框里挑，就先别说改名')
         self.assertIn('先在下拉框里挑', panel.state.cget('text'))
-        real = skill_panel.simpledialog
-        skill_panel.simpledialog = Typed('  新 名字  ')
-        self.addCleanup(setattr, skill_panel, 'simpledialog', real)
+        real = skill_panel_presets.simpledialog
+        skill_panel_presets.simpledialog = Typed('  新 名字  ')
+        self.addCleanup(setattr, skill_panel_presets, 'simpledialog', real)
         panel.preset.set('旧名字')
         self.assertEqual(panel.rename_preset(), '新 名字')
         self.assertEqual(panel.preset.get(), '新 名字', '改完下拉框里那份还选着')
