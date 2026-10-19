@@ -10,11 +10,17 @@
 断言只调用真实函数（``stage_completion_service``／``script_contract``／
 ``workflow_context_budget``／``workflow_settings``／``stage_path_service``），不 mock
 被测事实、不检查源码字符串；需要落盘时一律在 ``tempfile.TemporaryDirectory()`` 隔离目录内。
+
+本文件另有一条真 Tk 锚点（``IdeaBubbleAnchorTests``）：REQ-S01-01 的「气泡式界面」此前只由
+持久化往返用例间接覆盖，这里补一条真 Tk 几何用例，按气泡渲染代码的实际契约断言容器、底色／对齐、
+宽度与重启重建。
 """
 import tempfile
+import tkinter
 import unittest
 from pathlib import Path
 
+import desktop_idea_chat
 import script_contract
 import stage_completion_service
 import stage_config
@@ -22,6 +28,9 @@ import workflow_context_budget
 import workflow_settings
 from agent.core import save
 from stage_path_service import write_dir
+from tests.test_idea_chat import _Harness, idea_chat
+from tests.test_ui_edges import make_minimal_project
+from ui_tokens import COLORS
 
 RAW = (
     '第 1 集\n'
@@ -80,6 +89,89 @@ class S01AnchorTests(unittest.TestCase):
         # 预算内的 SKILL 原样返回，不截断、不静默省略。
         text, _budget = workflow_context_budget.prepare_request_context('技能正文', 'SKILL', report=True)
         self.assertEqual(text, '技能正文')
+
+
+class IdeaBubbleAnchorTests(_Harness):
+    """REQ-S01-01：创意对话的消息在真 Tk 下渲染成独立气泡，重建后仍按原顺序出现。"""
+
+    USER = '想法：夜班照相馆收到会显影未来的旧底片'
+    MODEL = '收到，先把这条设定记进第一集。'
+
+    def settle_bubbles(self, d, win):
+        """让首帧、模型键解析与分片插入都落地，再按真实宽度重摆一次气泡。"""
+        win.deiconify()
+        self.settle_script_page(win)
+        d.show_conversation()
+        self.settle_script_page(win)
+        d.refit_bubbles()
+        win.update_idletasks()
+
+    @staticmethod
+    def bbox_x(box, index):
+        """文字首像素的横坐标；不可见时返回 None（不掩盖失败，由断言点出来）。"""
+        try:
+            found = box.bbox(index)
+        except tkinter.TclError:
+            return None
+        return None if found is None else int(found[0])
+
+    def assert_rendered_bubbles(self, box):
+        """两条消息＝两只独立气泡；按代码实际契约分别断言容器、底色／对齐和宽度。"""
+        spans = {}
+        for name in ('bubble_0', 'bubble_1'):
+            # 契约：add_bubble 给每条消息建一个 bubble_<序号> 标签（desktop_idea_chat.py:600），
+            # 正文单独插在该标签下（:635）——标签范围就是这条消息自己的气泡容器。
+            ranges = box.tag_ranges(name)
+            self.assertEqual(len(ranges), 2, name + ' 应为一段独立的气泡正文')
+            spans[name] = ranges
+        self.assertLessEqual(box.index(spans['bubble_0'][1]), box.index(spans['bubble_1'][0]),
+                             '两只气泡的正文容器互不重叠')
+        # 文字完整：预览即全文（desktop_idea_chat.py:633-635）。
+        self.assertEqual(str(box.get(*spans['bubble_0'])).strip(), self.USER)
+        self.assertEqual(str(box.get(*spans['bubble_1'])).strip(), self.MODEL)
+        # 契约：用户气泡底色 success_subtle，模型气泡底色另取模型色（desktop_idea_chat.py:606-608）。
+        user_bg = str(box.tag_cget('bubble_0', 'background')).lower()
+        model_bg = str(box.tag_cget('bubble_1', 'background')).lower()
+        self.assertEqual(user_bg, COLORS['success_subtle'].lower())
+        self.assertNotEqual(model_bg, user_bg, '模型气泡与用户气泡的底色必须区分开')
+        # 契约：用户贴右（左边距更大），模型贴左（正好一个 BUBBLE_GAP）（desktop_idea_chat.py:212-215）。
+        user_left = int(float(box.tag_cget('bubble_0', 'lmargin1')))
+        model_left = int(float(box.tag_cget('bubble_1', 'lmargin1')))
+        self.assertEqual(model_left, desktop_idea_chat.BUBBLE_GAP)
+        self.assertGreater(user_left, model_left, '用户气泡贴在右侧')
+        # 真几何：气泡正文宽度＝对话区实际宽度 − 左右边距，不超过对话区宽度且非空。
+        width = int(box.winfo_width())
+        self.assertGreater(width, 1, '对话区应有真实宽度')
+        for name in ('bubble_0', 'bubble_1'):
+            left = int(float(box.tag_cget(name, 'lmargin1')))
+            right = int(float(box.tag_cget(name, 'rmargin')))
+            body = width - left - right
+            self.assertGreater(body, 0, name + ' 的气泡正文宽度必须为正')
+            self.assertLessEqual(body, width, name + ' 的气泡不得宽过对话区')
+        # 真几何：用户气泡正文首像素落在模型气泡右侧。
+        user_x = self.bbox_x(box, 'bubble_0.first')
+        model_x = self.bbox_x(box, 'bubble_1.first')
+        self.assertIsNotNone(user_x, '用户气泡应落在可视区内')
+        self.assertIsNotNone(model_x, '模型气泡应落在可视区内')
+        self.assertGreater(user_x, model_x, '用户气泡排在模型气泡右侧')
+
+    def test_req_s01_01_idea_messages_render_as_bubbles_and_survive_restart(self):
+        """REQ-S01-01：创意对话按气泡渲染；销毁界面、用同一目录重建后仍按原顺序出现。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            # 数据只走现有持久化接口，落在临时项目里。
+            idea_chat.append(proj, 'user', self.USER)
+            idea_chat.append(proj, 'assistant', self.MODEL)
+            d, win = self.desktop(proj)
+            d.show(0)
+            self.settle_bubbles(d, win)
+            self.assert_rendered_bubbles(d.idea_log)
+            # 模拟重启：销毁界面，用同一目录重建，两只气泡按原顺序回来。
+            win.destroy()
+            d2, win2 = self.desktop(proj)
+            d2.show(0)
+            self.settle_bubbles(d2, win2)
+            self.assert_rendered_bubbles(d2.idea_log)
 
 
 if __name__ == '__main__':
