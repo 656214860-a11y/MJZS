@@ -176,6 +176,51 @@ class TextHierarchyTests(_Harness):
                     self.assertIn('（还没定稿：用下面的候选点一下，或点「编辑」自己写）', self.texts(content))
                     content.destroy()
 
+    def test_asset_hints_and_empty_states_use_shared_text_components(self):
+        from types import SimpleNamespace
+        from ui_tokens import TEXT_DESC, TEXT_HINT
+        from ui_widgets import DescriptionBlock, HintLabel
+        win = self.tk.Tk(); win.withdraw()
+        self.addCleanup(win.destroy)
+        content = self.ttk.Frame(win)
+        content.pack()
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            (base / 'front.png').write_bytes(png(8, 8))
+            d = SimpleNamespace(content=content, root=base, asset_base=lambda: base,
+                                safe=lambda callback: callback(),
+                                open_asset_detail=lambda _aid: None)
+            with mock.patch.object(ac, 'cells', return_value=[
+                    {'label': '正面', 'ready': True, 'image': 'front.png', 'view': 'front'}]), \
+                 mock.patch.object(asset_detail.asset_thumbs, 'thumbnail', return_value=None):
+                asset_detail._board_block(d, 'CHAR_001', {'name': '主角'})
+            asset_detail._variants_block(d, 'CHAR_001', {'name': '主角'})
+            asset_detail._roster_role(d, 'CHAR_001', {'name': '主角'})
+            win.update_idletasks()
+
+        def collect(widget, cls):
+            found = [widget] if isinstance(widget, cls) else []
+            for child in widget.winfo_children():
+                found.extend(collect(child, cls))
+            return found
+
+        hints = collect(content, HintLabel)
+        descriptions = collect(content, DescriptionBlock)
+        hint_texts = [str(widget.cget('text')) for widget in hints]
+        description_texts = [str(widget.cget('text')) for widget in descriptions]
+        self.assertIn('（缩略图暂不可用）', hint_texts)
+        self.assertIn('（缺图）', hint_texts)
+        self.assertIn('还没有：剧本有换装需求时再新增（编号自动排 CST-01、CST-02…）', description_texts)
+        self.assertIn('还没有状态变体：剧本有换装需求时，在详情页新增（编号自动排 CST-01…）', description_texts)
+        self.assertIn('正典板 0/7 格已绑定 · 状态变体 0 个', description_texts)
+        for widget in hints:
+            self.assertEqual(str(widget.cget('foreground')), TEXT_HINT['foreground'])
+            self.assertEqual(widget.linespace, TEXT_HINT['linespace'])
+        for widget in descriptions:
+            self.assertEqual(str(widget.cget('foreground')), TEXT_DESC['foreground'])
+            self.assertEqual(widget.linespace, TEXT_DESC['linespace'])
+        content.destroy()
+
 
 class ScalingIsolationTests(_Harness):
     def test_text_hierarchy_restores_shared_tk_scaling(self):

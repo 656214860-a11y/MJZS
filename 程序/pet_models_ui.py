@@ -16,7 +16,7 @@ from tkinter import ttk
 import model_pool
 from ui_tokens import FONTS, FORM_LABEL_WIDTH, SPACING, TEXT_DESC, TEXT_HINT
 from ui_dialogs import FileDialog
-from ui_widgets import (NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
+from ui_widgets import (BusyState, NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
                         LineInput, PrimaryButton, SecondaryButton)
 
 TITLE = '三虎 · 设置'
@@ -395,6 +395,19 @@ def _probe_local_model(pet, value, mode, entries, program_entry, hint):
     return value
 
 
+def _apply_program_search(path, error, original_path, program_entry, hint):
+    """自动搜寻结束后回填路径；用户在等待期间手填过就不覆盖。"""
+    if program_entry.get() != original_path:
+        hint.set('搜寻已结束；保留您手动填写的安装路径。')
+        return
+    if not path:
+        report_error(hint, '未自动找到安装路径：%s' % error)
+        return
+    program_entry.delete(0, 'end')
+    program_entry.insert(0, path)
+    hint.set('已自动找到安装路径：%s；确认后点「保存这条」。' % path)
+
+
 def open_manager(pet):
     """模型管理…：模型池＋API 配置的唯一入口（增／删／改／测连接）。"""
     program = program_of(pet)
@@ -509,13 +522,15 @@ def open_manager(pet):
     from threading import Thread
     search = BackgroundTaskLifecycle()
     search_poll = {'after': None}
+    search_busy = BusyState(hint)
 
     def stop_search():
         search.cancel()
         if search_poll['after'] is not None:
             win.after_cancel(search_poll['after'])
             search_poll['after'] = None
-        search_button.configure(text='自动搜寻', state='normal')
+        search_busy.set_busy(False)
+        search_button.configure(text='自动搜寻')
 
     def browse_program():
         stop_search()
@@ -540,7 +555,8 @@ def open_manager(pet):
         call_mode, original_path = mode.get(), program_entry.get()
         results = Queue()
         hint.set('正在搜寻「%s」：检查注册表、商店安装记录和常见安装目录…' % model)
-        search_button.configure(text='正在搜寻…', state='disabled')
+        search_button.configure(text='正在搜寻…')
+        search_busy.set_busy(True, controls=(search_button,), progress=False)
 
         def worker():
             try:
@@ -558,16 +574,9 @@ def open_manager(pet):
                 search_poll['after'] = win.after(50, poll)
                 return
             search.finish(ticket, succeeded=bool(path), error=error)
-            search_button.configure(text='自动搜寻', state='normal')
-            if program_entry.get() != original_path:
-                hint.set('搜寻已结束；保留您手动填写的安装路径。')
-                return
-            if not path:
-                report_error(hint, '未自动找到安装路径：%s' % error)
-                return
-            program_entry.delete(0, 'end')
-            program_entry.insert(0, path)
-            hint.set('已自动找到安装路径：%s；确认后点「保存这条」。' % path)
+            search_busy.set_busy(False)
+            search_button.configure(text='自动搜寻')
+            _apply_program_search(path, error, original_path, program_entry, hint)
 
         Thread(target=worker, daemon=True).start()
         search_poll['after'] = win.after(50, poll)

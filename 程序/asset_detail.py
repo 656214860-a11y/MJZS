@@ -27,7 +27,7 @@ from agent.core import read
 from platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, Card, DescriptionBlock, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
+from ui_widgets import BaseDialog, Card, DescriptionBlock, HintLabel, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
 import pet_bus
 from ui_tokens import COLORS, FONTS, SPACING, TEXT_DESC, TEXT_HINT
 
@@ -352,10 +352,10 @@ def _board_block(desktop, aid, asset):
             text = Path(cell['image']).name
         elif thumbnail_unavailable:
             # 文件已绑定但缩略图服务暂时没有可用图，不能误导用户以为绑定丢了。
-            ttk.Label(holder, text='（缩略图暂不可用）', foreground=COLORS['text_muted']).pack(anchor='w')
+            HintLabel(holder, text='（缩略图暂不可用）').pack(anchor='w')
             text = Path(cell['image']).name + '（可重新选择图片）'
         else:
-            ttk.Label(holder, text='（缺图）', foreground=COLORS['text_muted']).pack(anchor='w')
+            HintLabel(holder, text='（缺图）').pack(anchor='w')
             text = '还没绑定'
         ttk.Label(holder, text=text, foreground=COLORS['text_secondary'], wraplength=CELL_SIZE + SPACING['2xl'] + SPACING['sm'],
                   justify='left').pack(anchor='w')
@@ -439,8 +439,7 @@ def _variants_block(desktop, aid, asset):
     button.pack(anchor='w')
     base = _base(desktop)
     if not rows:
-        ttk.Label(body, text='还没有：剧本有换装需求时再新增（编号自动排 CST-01、CST-02…）',
-                  foreground=COLORS['text_muted']).pack(anchor='w')
+        DescriptionBlock(body, text='还没有：剧本有换装需求时再新增（编号自动排 CST-01、CST-02…）').pack(anchor='w')
     for item in rows:
         line = ttk.Frame(body)
         line.pack(fill='x', anchor='w', pady=SPACING['xs'])
@@ -623,7 +622,7 @@ def _roster_role(desktop, aid, asset):
                   foreground=COLORS['success_text'] if cell['ready'] else COLORS['text_muted']).pack(anchor='w')
         if _roster_thumb(desktop, holder, base, cell['image'] if cell['ready'] else '',
                          aid + ' · ' + cell['label'], side='top') is None:
-            ttk.Label(holder, text='（缺图）', foreground=COLORS['text_muted']).pack(anchor='w')
+            HintLabel(holder, text='（缺图）').pack(anchor='w')
         else:
             bound += 1
     states = state_variants(asset) if aid.startswith('CHAR_') else []
@@ -633,8 +632,7 @@ def _roster_role(desktop, aid, asset):
         ttk.Label(panel, text='换状态', width=ROSTER_PANEL_WIDTH,
                   foreground=COLORS['text_heading']).pack(side='left', anchor='n')
         if not states:
-            ttk.Label(panel, text='还没有状态变体：剧本有换装需求时，在详情页新增（编号自动排 CST-01…）',
-                      foreground=COLORS['text_muted']).pack(side='left')
+            DescriptionBlock(panel, text='还没有状态变体：剧本有换装需求时，在详情页新增（编号自动排 CST-01…）').pack(side='left')
         for item in states:
             line = ttk.Frame(panel)
             line.pack(side='left', padx=(SPACING['none'], SPACING['md']), anchor='n')
@@ -648,9 +646,9 @@ def _roster_role(desktop, aid, asset):
     foot.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
     SecondaryButton(foot, text='编辑这一项',
                command=lambda: desktop.safe(lambda: desktop.open_asset_detail(aid))).pack(side='left')
-    ttk.Label(foot, text='正典板 ' + str(bound) + '/' + str(len(grid)) + ' 格已绑定 · 状态变体 '
-                         + str(len(states)) + ' 个', foreground=COLORS['text_secondary']).pack(
-                             side='left', padx=(SPACING['md'], SPACING['none']))
+    DescriptionBlock(foot, text='正典板 ' + str(bound) + '/' + str(len(grid)) + ' 格已绑定 · 状态变体 '
+                                + str(len(states)) + ' 个').pack(
+                                    side='left', padx=(SPACING['md'], SPACING['none']))
     return box
 
 

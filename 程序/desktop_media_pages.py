@@ -22,7 +22,7 @@ from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, refres
 from storyboard_paths import media_root
 from tkinter import simpledialog, ttk
 from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
-from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton
+from ui_widgets import Card, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton
 from desktop_page_support import ASSET_ROW_LABEL, FileDialog, STAGE_ACTION_WIDTH, _prefs, comfy_executable, confirm, find_editor_shortcut, open_path, open_studio
 
 PAGE = pet_state.PAGE_OF
@@ -231,8 +231,8 @@ class MediaPagesMixin:
         head=ttk.Frame(self.content);head.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         ttk.Label(head,text=line(),foreground=COLORS['success_text'] if passed else COLORS['warning_text']).pack(side='left')
         file=self.continuity_folder()/'continuity_ledger.json'
-        ttk.Label(head,text=('已落盘：'+file.name) if file.is_file() else '还没生成，按左边的按钮生成',
-                  foreground=COLORS['text_secondary']).pack(side='left',padx=(SPACING['sm'],SPACING['none']))
+        DescriptionBlock(head,text=('已落盘：'+file.name) if file.is_file() else '还没生成，按左边的按钮生成').pack(
+            side='left',padx=(SPACING['sm'],SPACING['none']))
         def table_of(title,columns,rows,height,detail=''):
             """一张小表：抬头 ＋ 表头 ＋ 若干行（这一页的清单就是这几张表）。
 
@@ -320,8 +320,7 @@ class MediaPagesMixin:
             text=' ／ '.join('候选%d %s'%(index+1,value)
                             for index,value in enumerate(item['candidates']))
             ttk.Label(box,text=item['title']+'：'+text,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
-            ttk.Label(box,text='理由：'+str(item.get('reason') or ''),foreground=COLORS['text_secondary'],
-                      wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
+            DescriptionBlock(box,text='理由：'+str(item.get('reason') or '')).pack(anchor='w')
             choice=item['candidates'][item.get('recommended',0)]
             PrimaryButton(box,text='采用推荐',
                        command=lambda key=item['key'],value=choice,digest=item.get('digest',''):self.safe(
