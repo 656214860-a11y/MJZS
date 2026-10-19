@@ -411,13 +411,11 @@ class Panel(FormScrollMixin, ttk.Frame):
         self.lock_fields.pack(fill='x')
         self.workflow_box = self.lock_fields.leading_inputs['workflow']
         self.lock_inputs = dict(self.lock_fields.inputs)
-        lock_status = ttk.Frame(coordinator)
-        lock_status.pack(fill='x')
-        self.more_locks_button = SecondaryButton(lock_status, text='更多制作锁',
+        self.more_locks_button = SecondaryButton(self.lock_fields, text='更多制作锁',
                                                  command=self.toggle_optional_locks)
-        self.more_locks_button.pack(side='left')
-        self.lock_notice = ttk.Label(lock_status, text='', style='Muted.TLabel')
-        self.lock_notice.pack(side='left', padx=STAGE_PANEL_LAYOUT['field_gap'])
+        self.lock_fields.insert_after('material_source', self.more_locks_button, key='more_locks_button')
+        self.lock_notice = ttk.Label(self.lock_fields, text='', style='Muted.TLabel')
+        self.lock_fields.insert_after('more_locks_button', self.lock_notice, key='lock_notice')
         self._saved_workflow_locks = {}
 
     def toggle_optional_locks(self):
@@ -443,10 +441,12 @@ class Panel(FormScrollMixin, ttk.Frame):
             save_writing_production_locks(self.project(), values)
         except (ValueError, OSError) as exc:
             self.lock_notice.configure(text='制作锁保存失败：' + str(exc))
+            self.lock_fields.schedule()
             self.state.configure(text='制作锁保存失败：' + str(exc))
             return 'break'
         self._saved_workflow_locks = values
         self.lock_notice.configure(text='制作锁已保存；已生成文件不变，后续创作使用新参数。')
+        self.lock_fields.schedule()
         return 'break'
 
     def refresh_workflow(self):
@@ -477,6 +477,7 @@ class Panel(FormScrollMixin, ttk.Frame):
         if getattr(self, 'lock_notice', None) is not None:
             self.lock_notice.configure(text=lock_error or (
                 '旧项目兼容：' + '、'.join(legacy_missing) + '未选，仅提示不阻断。' if legacy_missing else ''))
+            self.lock_fields.schedule()
         if synced:
             self.state.configure(text=synced)
 
@@ -596,7 +597,7 @@ class Panel(FormScrollMixin, ttk.Frame):
 
 
     def build_flow_skill(self, parent):
-        """三段式 SKILL 面板：操作栏、固定列勾选列表、说明区。"""
+        """SKILL 操作行：标签＋按内容定宽的下拉框＋勾选框流式排布＋外部包提示。"""
         self.flow_skill_row = None
         self.registered_boxes = {}          # 注册 SKILL id → 勾选框，供删除后立即移除
         self.skill_controls = []
@@ -604,8 +605,7 @@ class Panel(FormScrollMixin, ttk.Frame):
         self._flow = STAGE_FLOW.get(self.stage)
         if not self._flow and not self.skills:
             return None
-        # 区域一：操作栏只放标签与 SKILL 操作下拉，不与勾选框混排。
-        self.skill_action_row = FlowFields(parent, fill_last=True)
+        self.skill_action_row = FlowFields(parent, fill_last=False)
         self.skill_action_row.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.flow_skill_label = CompactLabel(self.skill_action_row, text='SKILL', style='Muted.TLabel')
         self.skill_action_row.add(self.flow_skill_label)
@@ -613,19 +613,15 @@ class Panel(FormScrollMixin, ttk.Frame):
         self.skill_action_box = SelectBox(
             self.skill_action_row, textvariable=self.skill_action,
             values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE))
-        self.skill_action_row.add(self.skill_action_box, grow=True)
+        self.skill_action_row.add(self.skill_action_box)
         self.skill_action_box.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
-        # 外部包的引擎说明从独占行收进 SKILL 操作行，保持表单行高与上方栏一致。
         self.external_package_hint = HintLabel(self.skill_action_row, text='')
-        # 行内提示不使用 HintLabel 的段落换行宽度，保留全文且不撑高操作行。
         self.external_package_hint.configure(wraplength=0)
-        self.skill_action_row.add(self.external_package_hint, grow=True)
-        # 区域二：所有勾选项独占列表容器；注册表顺序是主顺序，不再按自然宽度散排。
         count = len(self.skills)
-        self.skill_list_outer = ttk.Frame(parent)
-        self.skill_list_outer.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.skill_scrollbar = None
         if self.uses_skill_scrollbar(count):
+            self.skill_list_outer = ttk.Frame(parent)
+            self.skill_list_outer.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
             self.skill_canvas = tk.Canvas(self.skill_list_outer, height=156, highlightthickness=0, bd=0,
                                           bg=COLORS['background_card'])
             self.skill_scrollbar = ttk.Scrollbar(self.skill_list_outer, orient='vertical', command=self.skill_canvas.yview)
@@ -638,17 +634,15 @@ class Panel(FormScrollMixin, ttk.Frame):
             self.skill_canvas.bind('<Configure>', lambda event: self.skill_canvas.itemconfigure(self._skill_canvas_window,
                                                                                                   width=event.width))
         else:
-            self.skill_canvas = None
-            self.flow_skill_row = ttk.Frame(self.skill_list_outer)
-            self.flow_skill_row.pack(fill='x')
-
+            self.skill_canvas = self.skill_list_outer = None
+            self.flow_skill_row = self.skill_action_row  # 勾选框紧跟下拉框，复用操作行引用
         for item in self.skills:
             var = tk.BooleanVar(value=True)
             self.vars[item.name] = var
             # 每个包里的入口通常都叫 SKILL.md；从路径取名会把所有项降级为
             # 「自定义技能」。注册表 displayName 才是已解析的用户可见名称。
             shown = registered_skill_checkbox_label(item)
-            box = ttk.Checkbutton(self.flow_skill_row, text=shown, width=28,
+            box = ttk.Checkbutton(self.flow_skill_row, text=shown,
                                   variable=var, command=self.save_and_refresh_notes)
             box._skill_full_name = shown
             box._skill_path = self.resolved_skill_path(item.path)
@@ -657,6 +651,7 @@ class Panel(FormScrollMixin, ttk.Frame):
         if not self.skills:
             self.empty = HintLabel(self.flow_skill_row, text='这一阶段还没有附加 SKILL')
             self.add_skill_control(self.empty)
+        self.skill_action_row.add(self.external_package_hint)
         self.schedule_skill_layout()
         self.skill_action_row._schedule_wrap()
         return self.flow_skill_row
@@ -675,12 +670,15 @@ class Panel(FormScrollMixin, ttk.Frame):
                 if self.resolved_skill_path(item.path)}
 
     def add_skill_control(self, widget):
-        """登记一项列表勾选控件，并为被截断的名称保留悬停全文。"""
+        """登记一项勾选控件，并为被截断的名称保留悬停全文。"""
         self.skill_controls.append(widget)
         full = getattr(widget, '_skill_full_name', '')
         if full and len(str(full)) > 26:
             Tooltip(widget, full)
-        self.schedule_skill_layout()
+        if self.skill_canvas is None:
+            self.skill_action_row.add(widget)  # 流式，FlowFields 负责按可用宽度换行
+        else:
+            self.schedule_skill_layout()
         return widget
 
     def skill_label(self, label, limit=26):
@@ -694,13 +692,15 @@ class Panel(FormScrollMixin, ttk.Frame):
         return count > 10
 
     def schedule_skill_layout(self, _event=None):
-        """固定列布局不依赖容器宽度，创建控件后立即排入本区域。"""
-        self.layout_skill_controls()
+        """滚动容器排三列；流式布局由 FlowFields 在 idle 重排并跳过已销毁项。"""
+        if self.skill_canvas is not None:
+            return self.layout_skill_controls()
+        self.skill_action_row.schedule()
 
     def layout_skill_controls(self):
-        """勾选项统一按三列排列，长列表在同样的网格外提供滚动容器。"""
+        """滚动容器内的勾选项按三列网格排列。"""
         self._skill_layout_job = None
-        if self.flow_skill_row is None:
+        if self.flow_skill_row is None or self.skill_canvas is None:
             return
         for widget in self.skill_controls:
             widget.grid_forget()

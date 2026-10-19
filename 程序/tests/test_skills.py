@@ -1074,7 +1074,7 @@ class PanelTests(unittest.TestCase):
         self.addCleanup(panel.destroy)
         packed = list(panel.pack_slaves())
         self.assertLess(packed.index(panel.writer_style_button.master.master),
-                        packed.index(panel.skill_list_outer.master.master))
+                        packed.index(panel.skill_content.master))
         self.assertIs(panel.external_package_hint.master, panel.skill_action_row)
         def descendants(widget):
             return [child for item in widget.winfo_children()
@@ -1619,25 +1619,23 @@ class PanelTests(unittest.TestCase):
         deleted.assert_called_once_with()
         self.assertEqual(panel.skill_action.get(), skill_panel.MANAGE_ALL)
 
-    def test_skill_controls_use_fixed_columns_and_scroll_policy(self):
-        """勾选项固定三列；超过十项提供滚动，操作栏不参与网格。"""
+    def test_skill_controls_flow_into_action_row_and_scroll_policy(self):
+        """勾选框按注册表顺序流式排进操作行；超过十项提供滚动。"""
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.addCleanup(panel.destroy)
         panel.layout_skill_controls()
-        rows = [int(widget.grid_info()['row']) for widget in panel.skill_controls]
-        self.assertGreater(max(rows), 0)
-        self.assertTrue(all(widget.grid_info() for widget in panel.skill_controls))
-        for index, widget in enumerate(panel.skill_controls):
-            self.assertEqual(int(widget.grid_info()['row']), index // 3)
-            self.assertEqual(int(widget.grid_info()['column']), index % 3)
+        self.assertTrue(panel.skill_controls)
+        # 勾选框直接排在操作行里，不再用三列网格。
+        self.assertEqual(panel.flow_skill_row, panel.skill_action_row)
         self.assertTrue(all(widget.master is panel.flow_skill_row for widget in panel.skill_controls))
+        self.assertTrue(all(widget.winfo_manager() != 'grid' for widget in panel.skill_controls))
         self.assertTrue(panel.uses_skill_scrollbar(11))
         self.assertFalse(panel.uses_skill_scrollbar(10))
         clipped = panel.skill_label('名称' * 20, limit=12)
         self.assertTrue(clipped.endswith('...'))
         self.assertEqual(len(clipped), 12)
 
-    def test_writer_style_precedes_three_column_skills_and_hint_is_single_line(self):
+    def test_writer_style_precedes_skill_checks_and_hint_is_single_line(self):
         self.win.deiconify()
         self.win.geometry('1200x900')
         self.win.update_idletasks()
@@ -1655,9 +1653,9 @@ class PanelTests(unittest.TestCase):
         hint = panel.external_package_hint
         self.assertEqual(int(hint.cget('wraplength')), 0)
         self.assertGreaterEqual(hint.winfo_width(), hint.winfo_reqwidth())
-        for index, widget in enumerate(panel.skill_controls):
-            self.assertEqual(int(widget.grid_info()['column']), index % 3)
-            self.assertLessEqual(widget.winfo_x() + widget.winfo_width(), panel.flow_skill_row.winfo_width())
+        for widget in panel.skill_controls:
+            self.assertLessEqual(widget.winfo_x() + widget.winfo_width(),
+                                 panel.flow_skill_row.winfo_width())
 
     def test_stage_panel_skill_display_keeps_chinese_and_aigc_name(self):
         self.assertEqual(skill_panel.chinese_skill_display('全流程AIGC·剧本'), '全流程AIGC·剧本')

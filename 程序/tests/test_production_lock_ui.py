@@ -38,7 +38,8 @@ class ProductionLockUITests(unittest.TestCase):
         legacy = script_contract.PRODUCTION_LOCK_DEFINITIONS
         self.assertEqual(list(panel.lock_inputs), [item['key'] for item in legacy])
         self.assertIs(panel.workflow_box.master.master, panel.lock_fields)
-        self.assertEqual(len(panel.lock_fields.winfo_children()), len(legacy) + 1)
+        # 子项＝1 个总控 + 全部制作锁 + 「更多制作锁」按钮 + 提示，共 len(legacy) + 3。
+        self.assertEqual(len(panel.lock_fields.winfo_children()), len(legacy) + 3)
         for entry in panel.lock_inputs.values():
             self.assertTrue(entry.bind('<Return>'))
             self.assertTrue(entry.bind('<KeyRelease>'))

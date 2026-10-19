@@ -38,7 +38,7 @@ class ImportedPackagePanelTests(unittest.TestCase):
         self.assertIn(imported.name, panel.registered_boxes)
         box = panel.registered_boxes[imported.name]
         self.assertEqual(str(box.cget('text')), skill_panel.registered_skill_checkbox_label(imported))
-        self.assertEqual(box.winfo_manager(), 'grid')
+        self.assertIs(box.master, panel.flow_skill_row)
         expected = {'ordinary-skill', imported.name}
         self.assertEqual(set(panel.check_all_skills(True)), expected)
         self.assertEqual({item.name for item in panel.selected_skill_items()}, expected)

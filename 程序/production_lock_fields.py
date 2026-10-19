@@ -59,6 +59,36 @@ class FlowFields(ttk.Frame):
                 return item
         return None
 
+    def insert_after(self, after_key, widget, *, grow=False, key=None):
+        """把一项插到指定 key 项之后，参与同一套流式换行。"""
+        if widget.winfo_manager() == 'pack':
+            widget.pack_forget()
+        elif widget.winfo_manager() == 'grid':
+            widget.grid_forget()
+        item = {'widget': widget, 'grow': bool(grow), 'key': key,
+                'visible': True}
+        index = next((i for i, existing in enumerate(self._items)
+                      if existing['key'] == after_key), None)
+        if index is None:
+            self._items.append(item)
+        else:
+            self._items.insert(index + 1, item)
+        self._force_reflow = True
+        self._schedule()
+        return widget
+
+    def remove(self, widget):
+        """从流式布局移除一项（删除勾选框后立即腾出位置）。"""
+        for index, item in enumerate(self._items):
+            if item['widget'] is widget:
+                self._items.pop(index)
+                if widget.winfo_manager() == 'place':
+                    widget.place_forget()
+                self._force_reflow = True
+                self._schedule()
+                return item
+        return None
+
     def set_visible(self, key, visible):
         item = self.item(key)
         if item is None or item['visible'] == bool(visible):
@@ -124,7 +154,8 @@ class FlowFields(ttk.Frame):
         if available <= 1:
             return
         available = max(1, available)
-        visible = [item for item in self._items if item['visible']]
+        visible = [item for item in self._items
+                   if item['visible'] and item['widget'].winfo_exists()]
         if not visible:
             self.configure(height=1)
             return
@@ -177,12 +208,13 @@ class FlowFields(ttk.Frame):
         if (self.fill_last or not last) and widths:
             leftover = available - (sum(widths) + self.gap * (len(row) - 1))
             if leftover:
-                target = len(row) - 1
+                target = None
                 for index in range(len(row) - 1, -1, -1):
                     if row[index]['grow']:
                         target = index
                         break
-                widths[target] = max(1, widths[target] + leftover)
+                if target is not None:
+                    widths[target] = max(1, widths[target] + leftover)
         row_height = max(item['height'] for item in row)
         x = 0
         for item, width in zip(row, widths):

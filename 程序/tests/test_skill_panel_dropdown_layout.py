@@ -149,17 +149,22 @@ class DropdownLayoutTests(unittest.TestCase):
                 expected = [panel.workflow_box]
                 expected.extend(panel.lock_inputs[key] for key in keys[1:])
                 fields = [entry.master for entry in expected]
+                # 按钮与提示也是锁流式布局的项，纳入「每行填满」与越界检查。
+                layout_items = fields + [panel.more_locks_button, panel.lock_notice]
                 self.assertEqual(expected,
                                  sorted(expected, key=lambda entry: (
                                      entry.master.winfo_rooty(), entry.master.winfo_rootx())),
                                  '总控与制作锁必须按定义顺序从左到右、从上到下排列')
-                rows = self._rows(fields)
+                rows = self._rows(layout_items)
                 container = panel.workflow_coordinator
                 right = container.winfo_rootx() + container.winfo_width()
-                for field in fields:
+                for field in layout_items:
                     self.assertLessEqual(field.winfo_rootx() + field.winfo_width(), right + 1,
                                          '控件折行后仍越出配置区：%s' % field)
+                lock_fields = set(fields)
                 for row in rows[:-1]:
+                    if not any(item in lock_fields for item in row):
+                        continue  # 纯按钮/提示行（窄窗独占一行）不参与「填满」检查
                     row_right = max(field.winfo_rootx() + field.winfo_width() for field in row)
                     self.assertGreaterEqual(row_right, right - SPACING['md'],
                                             '第 %d 行没有填满' % (rows.index(row) + 1))
@@ -188,7 +193,7 @@ class DropdownLayoutTests(unittest.TestCase):
                                             '下拉框内容被裁：%s 需要 %dpx，实际 %dpx'
                                             % (entry, needed, entry.winfo_width()))
 
-    def test_skill_action_row_has_no_right_blank(self):
+    def test_skill_action_row_flows_checkboxes_without_overflow(self):
         for name, width, height in SIZES:
             with self.subTest(size=name):
                 panel = self._build(width, height, expand=True)
@@ -197,10 +202,9 @@ class DropdownLayoutTests(unittest.TestCase):
                 visible = [child for child in row.winfo_children()
                            if child.winfo_ismapped() and child.winfo_width() > 1]
                 self.assertTrue(visible)
-                row_right = max(child.winfo_rootx() + child.winfo_width() for child in visible)
-                self.assertLessEqual(row_right, right + 1)
-                self.assertGreaterEqual(row_right, right - SPACING['md'],
-                                        'SKILL 操作行右侧仍留空白 %dpx' % (right - row_right))
+                for child in visible:
+                    self.assertLessEqual(child.winfo_rootx() + child.winfo_width(), right + 1,
+                                         '操作行子项越出右侧边界')
 
     def test_configuration_gives_height_back_to_skill_notes(self):
         panel = self._build(1280, 800)
@@ -282,6 +286,51 @@ class DropdownLayoutTests(unittest.TestCase):
             source = Path(module.__file__).read_text(encoding='utf-8')
             self.assertIn('STAGE_PANEL_LAYOUT', source,
                           '%s 未引用 STAGE_PANEL_LAYOUT 令牌' % module.__name__)
+
+
+    def test_more_locks_button_sits_next_to_material_source(self):
+        """更多制作锁按钮紧跟素材来源，成为制作锁流式布局里的一项。"""
+        panel = self._build(1280, 800, expand=True)
+        button = panel.more_locks_button
+        source = panel.lock_inputs['material_source']
+        self.assertLessEqual(abs(button.winfo_rooty() - source.winfo_rooty()), 2,
+                             '更多制作锁按钮应与素材来源下拉框同一行')
+        self.assertGreaterEqual(button.winfo_rootx(),
+                                source.winfo_rootx() + source.winfo_width(),
+                                '按钮应排在素材来源右侧')
+
+    def test_skill_action_dropdown_width_fits_content_not_row(self):
+        """SKILL 下拉框按内容定宽，不再撑满整行余宽。"""
+        panel = self._build(1280, 800)
+        box = panel.skill_action_box
+        values = list(_values(box)) + [box.get()]
+        font = self._font(box)
+        needed = max(font.measure(str(value)) for value in values) + ARROW_WIDTH
+        self.assertGreaterEqual(box.winfo_width(), needed, '下拉框内容不得被裁')
+        self.assertLessEqual(box.winfo_width(), needed + SPACING['xl'],
+                             '下拉框应按内容定宽，不再撑满整行')
+
+    def test_first_checkbox_sits_next_to_skill_dropdown(self):
+        """第一个 SKILL 勾选框与下拉框同一行，位于其右侧。"""
+        panel = self._build(1280, 800)
+        box = panel.skill_action_box
+        boxes = list(panel.registered_boxes.values())
+        self.assertTrue(boxes, '脚本阶段应至少有一个注册 SKILL 勾选框')
+        first = boxes[0]
+        self.assertLessEqual(abs(first.winfo_rooty() - box.winfo_rooty()), 2,
+                             '第一个勾选框应与 SKILL 下拉框同一行')
+        self.assertGreaterEqual(first.winfo_rootx(),
+                                box.winfo_rootx() + box.winfo_width(),
+                                '勾选框应排在下拉框右侧')
+
+    def test_checkboxes_stay_within_container_at_min_size(self):
+        """最小窗口档下所有勾选框都在容器内，不被横向截断。"""
+        panel = self._build(560, 430)
+        container = panel.skill_action_row
+        right = container.winfo_rootx() + container.winfo_width()
+        for name, box in panel.registered_boxes.items():
+            self.assertLessEqual(box.winfo_rootx() + box.winfo_width(), right + 1,
+                                 '窄窗下勾选框被截断：%s' % name)
 
 
 if __name__ == '__main__':
