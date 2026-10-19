@@ -11,8 +11,7 @@ from desktop import Desktop, PAGE
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
 import project_stages
-from ui_tokens import DESKTOP_LAYOUT, SPACING
-from ui_widgets import SecondaryButton
+from ui_tokens import CONTROL_HEIGHT, DESKTOP_LAYOUT
 
 
 class CompactDesktopGeometryTests(unittest.TestCase):
@@ -49,11 +48,23 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         self.pump()
         self.assertEqual((self.win.winfo_width(), self.win.winfo_height()), (width, height))
 
+    def reveal(self, widget):
+        """把侧栏控件滚到视口内；只动侧栏画布，不依赖真实指针或焦点。"""
+        canvas = self.desktop.sidebar_canvas
+        self.win.update_idletasks()
+        box = canvas.bbox('all')
+        total = max(1, box[3] - box[1]) if box else 1
+        offset = widget.winfo_rooty() - canvas.winfo_rooty() + canvas.canvasy(0)
+        canvas.yview_moveto(max(0.0, min(1.0, offset / total)))
+        self.pump(.08)
+
     def test_header_sidebar_and_file_area_remain_visible_after_shrink_and_grow(self):
         d = self.desktop
         for width, height in ((942, 1032), (800, 600), (990, 632), (942, 1032)):
             with self.subTest(size=(width, height)):
                 self.resize(width, height)
+                # 上一档可能把侧栏留在底部；每档从顶部量起，后续断言才不受滚动位置影响。
+                d.sidebar_canvas.yview_moveto(0);d.align_header();self.pump(.05)
                 self.assertEqual(d.app_title.cget('text'), APP_NAME)
                 self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.list.winfo_rooty(), delta=2)
                 self.assertLess(d.title.winfo_rooty(), d.app_title.winfo_rooty() + d.app_title.winfo_height())
@@ -70,7 +81,13 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 for widget in (*d.project_buttons, *d.nav):
                     self.assertGreaterEqual(widget.winfo_rooty(), previous_bottom)
                     previous_bottom = widget.winfo_rooty()+widget.winfo_height()
-                    self.assertLessEqual(previous_bottom, self.win.winfo_rooty()+height)
+                self.assertEqual(len(d.nav), 14, '14 个阶段按钮都要在侧栏里')
+                canvas = d.sidebar_canvas
+                for widget in (*d.project_buttons, *d.nav):
+                    self.reveal(widget)
+                    self.assertGreaterEqual(widget.winfo_rooty(), canvas.winfo_rooty()-1)
+                    self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(),
+                                         canvas.winfo_rooty()+canvas.winfo_height()+1)
                     self.assertGreaterEqual(widget.winfo_height(), widget.winfo_reqheight())
                 self.assertLessEqual(d.script_box.winfo_rooty()+d.script_box.winfo_height(), d.canvas.winfo_rooty()+d.canvas.winfo_height()+2)
                 self.assertLessEqual(d.content.winfo_height(), d.canvas.winfo_height()+2)
@@ -136,38 +153,22 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         d.schedule_sidebar_fit(); self.pump()
         self.assertEqual(int(tree.cget('height')), 4)
 
-    def test_project_buttons_are_half_the_previous_layout_height(self):
+    def control_height(self):
+        """用 setup_styles 配好的默认按钮量全局控件高度，不写死像素。"""
+        reference = ttk.Button(self.win, text='控件高度', style='TButton')
+        self.win.update_idletasks()
+        height = reference.winfo_reqheight()
+        reference.destroy()
+        return height
+
+    def test_project_buttons_match_global_control_height(self):
         self.resize(942, 1032)
         d = self.desktop
-        # 重建改动前的网格分配规则，用同一 Tk 字体/DPI 测旧按钮实际高度，
-        # 不把截图的 45px 硬写成跨机器标准。
-        old = ttk.Frame(self.win, padding=DESKTOP_LAYOUT['sidebar_padding'])
-        old.place(x=0, y=0, width=d.sidebar.winfo_width(), height=d.sidebar.winfo_height())
-        old.grid_propagate(False)
-        old.columnconfigure(0, weight=1)
-        old_buttons=[]
-        try:
-            for row, source in enumerate(d.sidebar.winfo_children()):
-                if source is d.list:
-                    item = ttk.Treeview(old, show='tree', height=3, style='Project.Treeview')
-                    weight = 3
-                elif source in d.project_buttons:
-                    item = SecondaryButton(old, text=source.cget('text'), style='Compact.TButton')
-                    old_buttons.append(item);weight=1
-                else:
-                    old_height=source.winfo_reqheight()
-                    if source is d.sidebar_head:
-                        # 旧布局还包含侧栏口号及上下 padding；不能用删行后的
-                        # 新页头高度代替旧基准，否则会虚增旧按钮的伸展高度。
-                        old_height+=d.header_slogan.winfo_reqheight()+SPACING['sm']+SPACING['xs']//2
-                    item = ttk.Frame(old, height=old_height)
-                    weight = 1 if source in d.nav else 0
-                old.rowconfigure(row, weight=weight, minsize=SPACING['xs'] if isinstance(source, ttk.Separator) else 0)
-                item.grid(row=row, column=0, sticky='nsew', pady=DESKTOP_LAYOUT['row_gap'])
-            self.win.update_idletasks()
-            for before, after in zip(old_buttons, d.project_buttons):
-                self.assertAlmostEqual(after.winfo_height(), before.winfo_height()/2, delta=2)
-        finally:old.destroy()
+        expected = self.control_height()
+        self.assertAlmostEqual(expected, CONTROL_HEIGHT, delta=2)
+        for button in d.project_buttons:
+            self.assertAlmostEqual(button.winfo_height(), expected, delta=2)
+            self.assertGreaterEqual(button.winfo_height(), button.winfo_reqheight())
 
     def test_actions_hint_and_full_file_details(self):
         self.resize(800, 600)

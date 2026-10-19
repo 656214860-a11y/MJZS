@@ -20,7 +20,7 @@ from tkinter import ttk, messagebox, simpledialog
 from agent.core import read,save,save_text,save_bytes
 import project_settings
 from projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
-from responsive_ui import FlowBar,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
+from responsive_ui import FlowBar,ScrollForm,growable_extra,configure_check_column,refresh_check_heading,CheckboxColumn,fit_columns_by_content,auto_columns,bind_row_toggle,fit_row_height,row_height_for,bind_show_all
 from engine import approved_versions, review_label, adoption_summary
 from local_video import open_studio,skip_summary
 from app import App
@@ -110,6 +110,18 @@ from desktop_automation_tick import AutomationTickMixin
 
 bind_host(sys.modules[__name__])  # 剧本准备页的 confirm／ContextMenu 等转发到本模块，保持按 desktop.<名字> 打补丁有效
 
+
+STATUS_ERROR_MARKERS=('失败','错误','异常','无法','未能','未完成','未启动','出错','中断','超时','暂缓')
+STATUS_RUNNING_MARKERS=('正在','处理中','执行中','生成中','加载中','检测中','排队','请稍候','等待')
+
+
+def status_kind(message):
+    """把状态栏文本归为就绪／执行中／失败三类；失败优先于执行中。"""
+    text='' if message is None else str(message)
+    if any(marker in text for marker in STATUS_ERROR_MARKERS):return 'error'
+    if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
+    return 'ready'
+
 class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin):
     def __init__(self,win,root=ROOT,*,script_page_services=None):
         self._diagnostic_start=time.perf_counter()
@@ -132,22 +144,13 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             import app_icon;app_icon.apply(win)
         except Exception:app_logging.swallowed()
         win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);setup_styles(win);install_window_placement(win)
-        # 左侧阶段导航从 230px 缩至约三分之二，正文阅读区在小窗口也能保留空间。
-        sidebar_area=ttk.Frame(win,width=DESKTOP_LAYOUT['sidebar_width']);sidebar_area.pack(side='left',fill='y');sidebar_area.pack_propagate(False)
-        side=ttk.Frame(sidebar_area,padding=DESKTOP_LAYOUT['sidebar_padding']);self.sidebar=side
-        side.pack(fill='both',expand=True);side.grid_propagate(False)
-        # 左上角只保留应用名；设置齿轮由 pet_ui 放在相邻的根层安全位。
-        self.sidebar_head=ttk.Frame(side)
-        self.app_title=ttk.Label(self.sidebar_head,text=APP_NAME,font=('Microsoft YaHei UI',16,'bold'))
-        self.app_title.pack(side='left',pady=(2,4))
-        self.sidebar_head.pack(fill='x',anchor='w')
+        self._build_sidebar(win)
+        side=self.sidebar
         # 设置齿轮直接落在主窗口根层，避免侧栏或页面画布在窄窗口时裁掉入口；
         # 实际文字尺寸决定齿轮位置；字号或显示名改变时不留旧名称的空洞。
         self.settings_gear_layer=win
         self.settings_gear_position=(0,0)
-        self.project_label=ttk.Label(side,text='我的项目')
-        self.project_label.pack(anchor='w',pady=(DESKTOP_LAYOUT['project_label_gap'],SPACING['none']))
-        self.list=ttk.Treeview(side,show='tree',height=3,selectmode='browse',style='Project.Treeview');self.list.column('#0',width=136,minwidth=96,stretch=True);self.list.pack(fill='x',pady=SPACING['xs'])
+        self.list=ttk.Treeview(side,show='tree',height=3,selectmode='browse',style='Project.Treeview');self.list.column('#0',width=136,minwidth=96,stretch=True);self.list.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         self.list.bind('<<TreeviewSelect>>',self.switch);self.list.bind('<Button-3>',self.project_menu)
         self.project_tip=TreeRowTooltip(self.list,lambda item:self.list.item(item,'text'))
         self.project_buttons=(self.button(side,'+ 新建项目',self.new),self.button(side,'打开项目目录',self.open_current_project))
@@ -166,31 +169,25 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
                 sub=SecondaryButton(side,text='资产清单',command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
                 sub.pack(anchor='w',fill='x',pady=(0,2))
                 self.asset_list_button=sub
-        # 项目列表只占可见行数，剩余空间留在导航下方。
-        side.columnconfigure(0,weight=1)
-        for row,child in enumerate(side.winfo_children()):
-            child.pack_forget()
-            separator=isinstance(child,ttk.Separator)
-            side.rowconfigure(row,weight=0,minsize=SPACING['xs'] if separator else 0)
-            child.grid(row=row,column=0,sticky='ew' if isinstance(child,ttk.Label) or separator else 'nsew',pady=DESKTOP_LAYOUT['row_gap'])
-        side.rowconfigure(len(side.winfo_children()),weight=1)
+        # 侧栏内容按自然高度依次 pack；超出视口的部分由外层 ScrollForm 滚动。
         self.sidebar_size=None
         self.list.bind('<<TreeviewOpen>>',self.schedule_sidebar_fit,add='+')
         self.list.bind('<<TreeviewClose>>',self.schedule_sidebar_fit,add='+')
-        side.bind('<Configure>',self.fit_sidebar)
+        side.bind('<Configure>',self.schedule_sidebar_fit)
+        self.sidebar_canvas.bind('<Configure>',self.schedule_sidebar_fit,add='+')
         self.body=ttk.Frame(win,padding=DESKTOP_LAYOUT['body_padding']);self.body.pack(side='left',fill='both',expand=True)
         self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
         self.pet_layer=self.title_row
-        self.title=ttk.Label(self.title_row,font=('Microsoft YaHei UI',18,'bold'));self.title.pack(side='left',anchor='n',padx=(DESKTOP_LAYOUT['title_inset'],0))
+        self.title=ttk.Label(self.title_row,font=FONTS['heading_1']);self.title.pack(side='left',anchor='n',padx=(DESKTOP_LAYOUT['title_inset'],0))
         self.header_slogan=ttk.Label(self.title_row,text='✦  把灵感变成故事',
                                    style='Muted.TLabel',font=DESKTOP_LAYOUT['slogan_font'])
         self.title.bind('<Configure>',self.align_header,add='+')
         self.app_title.bind('<Configure>',self.align_header,add='+')
-        self.list.bind('<Configure>',self.fit_sidebar,add='+')
+        self.list.bind('<Configure>',self.schedule_sidebar_fit,add='+')
         self.title_row.bind('<Configure>',self.align_header,add='+')
         self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(12,0))
-        self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=('Microsoft YaHei UI',8),anchor='e');self.header_model.pack(side='bottom',fill='x')
-        self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=('Microsoft YaHei UI',8),anchor='e',justify='right');self.header_status.pack(side='top',fill='x')
+        self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e');self.header_model.pack(side='bottom',fill='x')
+        self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e',justify='right');self.header_status.pack(side='top',fill='x')
         # 第 30 期第 6／8 条：阶段配置那颗按钮从标题栏挪到「剧本准备」页的「创作入口」那一行，
         # 紧挨着「手动制作剧本」（按钮那时才建得出来，见 brief_editor）；这里先留个占位，别的页没有它。
         self.stage_button=None
@@ -215,6 +212,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         protect_readonly_combobox(win);protect_tk_gc(win)
         win.bind_class('DramaPageWheel','<MouseWheel>',self.scroll_page)
         win.bind_all('<MouseWheel>',self.scroll_page,add='+')
+        for key in ('<Prior>','<Next>','<Home>','<End>'):win.bind(key,self.scroll_page_key,add='+')
         # 最小化恢复时 Windows 可能先交付一枚滚轮事件，随后才派发画布的新尺寸。
         # 重新映射后沿用既有的合并空闲布局，确保滚动区域已按恢复后的可视高度计算。
         win.bind('<Map>',self.on_window_map,add='+')
@@ -236,6 +234,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.status_label=ttk.Label(self.body,textvariable=self.banner_status,
                                     style='PaleGreenHint.TLabel',wraplength=700)
         self.status_label.pack(fill='x',pady=(4,6))
+        self._install_status_styles();self.status.trace_add('write',self.sync_status_style);self.sync_status_style()
         self.sizegrip=ttk.Sizegrip(win);self.sizegrip.place(relx=1.0,rely=1.0,anchor='se')
         # Timed callbacks cannot run inside the placement code's update_idletasks.
         # An idle modal here would block the root while it is still transparent.
@@ -286,6 +285,36 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         # 项目续开可能仍在构造剧本准备页；把首次招呼留到首帧稳定之后，
         # 不让气泡的浮窗映射与页面回填争用同一轮 Tk 事件循环。
         pet_ui.start(self,delay_ms=5000)
+
+
+    def _build_sidebar(self,win):
+        """左侧阶段导航放进可滚动容器；窗口再矮也能滚到最后一项。"""
+        sidebar_area=ttk.Frame(win,width=DESKTOP_LAYOUT['sidebar_width']);sidebar_area.pack(side='left',fill='y');sidebar_area.pack_propagate(False)
+        scroll=ScrollForm(sidebar_area,bg=COLORS['background_primary'])
+        self.sidebar_viewport=sidebar_area;self.sidebar_scroll=scroll;self.sidebar_canvas=scroll.canvas
+        scroll.canvas.configure(takefocus=True)
+        side=ttk.Frame(scroll.form,padding=DESKTOP_LAYOUT['sidebar_padding']);self.sidebar=side
+        side.pack(fill='both',expand=True)
+        # 左上角只保留应用名；设置齿轮由 pet_ui 放在相邻的根层安全位。
+        self.sidebar_head=ttk.Frame(side)
+        self.app_title=ttk.Label(self.sidebar_head,text=APP_NAME,font=FONTS['heading_1'])
+        self.app_title.pack(side='left',pady=(2,4))
+        self.sidebar_head.pack(fill='x',anchor='w')
+        self.project_label=ttk.Label(side,text='我的项目')
+        self.project_label.pack(anchor='w',pady=(DESKTOP_LAYOUT['row_gap'],SPACING['none']))
+
+
+    def _install_status_styles(self):
+        """状态栏三类语义色；就绪沿用既有 PaleGreenHint，执行中／失败只在本页登记。"""
+        style=ttk.Style(self.win)
+        style.configure('Tokens.Status.Running.TLabel',background=COLORS['primary_subtle'],foreground=COLORS['primary_pressed'],padding=(SPACING['sm'],SPACING['xs']))
+        style.configure('Tokens.Status.Error.TLabel',background=COLORS['danger_subtle'],foreground=COLORS['danger_text'],padding=(SPACING['sm'],SPACING['xs']))
+
+
+    def sync_status_style(self,*_unused):
+        kind=status_kind(self.status.get())
+        name={'ready':'PaleGreenHint.TLabel','running':'Tokens.Status.Running.TLabel','error':'Tokens.Status.Error.TLabel'}[kind]
+        self.status_label.configure(style=name)
 
 
     def _initialize_automation_state(self):
@@ -348,9 +377,10 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             self.fit_sidebar()
         self._sidebar_fit_job=self.win.after_idle(run)
     def fit_sidebar(self,event=None):
-        compact=self.sidebar.winfo_height()<DESKTOP_LAYOUT['compact_below']
+        viewport=getattr(self,'sidebar_canvas',self.sidebar)
+        compact=viewport.winfo_height()<DESKTOP_LAYOUT['compact_below']
         style=ttk.Style(self.win)
-        font=('Microsoft YaHei UI',9 if compact else 10)
+        font=FONTS['pet_body'] if compact else FONTS['body']
         row_height=20 if compact else 24
         if self.sidebar_size!=compact:
             self.sidebar_size=compact
@@ -358,7 +388,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
                 style.configure(name,font=font,padding=(10,1 if compact else 4))
             for name in ('Sub.Nav.TButton','Selected.Sub.Nav.TButton'):
                 style.configure(name,font=font,padding=(26,1 if compact else 4))
-            style.configure('ProjectAction.TButton',font=font,padding=DESKTOP_LAYOUT['project_button_padding'])
+            # 项目动作与全局控件同高：横向沿用侧栏紧凑内边距，纵向取 4px 刻度。
+            style.configure('ProjectAction.TButton',font=font,
+                            padding=(DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs']))
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         # 由可用像素反算最大整行数；不以 Treeview 上一次请求高度作为下一次预算。
         gap=DESKTOP_LAYOUT['row_gap']*2
@@ -371,7 +403,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         def visible(parent=''):
             return sum(1+(visible(item) if self.list.item(item,'open') else 0)
                        for item in self.list.get_children(parent))
-        maximum=max(DESKTOP_LAYOUT['project_min_rows'],(self.sidebar.winfo_height()-fixed-chrome)//row_height)
+        maximum=max(DESKTOP_LAYOUT['project_min_rows'],(viewport.winfo_height()-fixed-chrome)//row_height)
         rows=min(maximum,max(DESKTOP_LAYOUT['project_min_rows'],visible()))
         if int(self.list.cget('height'))!=rows:self.list.configure(height=rows)
         self.align_header()
@@ -388,6 +420,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             canvas.place_configure(x=x,y=y)
         minimum=max(self.title.winfo_reqheight(),pet_ui.PATCH_ROOM)
         list_top=self.list.winfo_rooty()-self.title_row.winfo_rooty()
+        # 侧栏可滚动后，屏幕坐标会随画布偏移变化；换算回内容坐标再参与表头对齐。
+        sidebar_canvas=getattr(self,'sidebar_canvas',None)
+        if sidebar_canvas is not None:list_top+=sidebar_canvas.canvasy(0)
         measurement=(list_top,minimum)
         if self.list.winfo_ismapped() and measurement!=getattr(self,'_header_list_measurement',None):
             self._header_list_measurement=measurement
@@ -395,7 +430,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             gap=max(SPACING['none'],minimum-(list_top-previous))
             if gap!=previous:
                 self._header_list_gap=gap
-                self.list.grid_configure(pady=(DESKTOP_LAYOUT['row_gap']+gap,DESKTOP_LAYOUT['row_gap']))
+                self.list.pack_configure(pady=(DESKTOP_LAYOUT['row_gap']+gap,DESKTOP_LAYOUT['row_gap']))
         height=max(minimum,list_top)
         if int(self.title_row.cget('height'))!=height:self.title_row.configure(height=height)
         content=getattr(self,'content',None)
@@ -542,6 +577,11 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         if hover is None:return
         try:hover.clear()
         except tk.TclError:pass
+    def _inside_path(self,widget,ancestor):
+        """控件是否就是 ancestor 或在其下；不能只比字符串前缀（.!frame 会误吞 .!frame2）。"""
+        try:path=str(widget);base=str(ancestor)
+        except tk.TclError:return False
+        return bool(path) and (path==base or path.startswith(base+'.'))
     def scroll_page(self,event):
         widget=event.widget
         steps=self.wheel_steps(event)
@@ -561,7 +601,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             self.win.tk.call(target,'yview','scroll',steps,'units')
             return 'break'
         if widget.winfo_toplevel()!=self.win:return
-        if str(widget).startswith(str(self.sidebar)):return
+        if self._inside_path(widget,getattr(self,'sidebar_viewport',self.sidebar)):
+            if steps and not self.native_wheel(widget):self.sidebar_canvas.yview_scroll(steps,'units')
+            return 'break'
         if not steps:return 'break'
         # This bindtag runs before native widget bindings, so one wheel event
         # moves either the hovered editor/table or the surrounding page once.
@@ -573,6 +615,32 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             widget=getattr(widget,'master',self.win)
             if widget is None:break
         self.canvas.yview_scroll(steps,'units')
+        return 'break'
+    def _page_scroll_target(self,widget=None):
+        focus=self.win.focus_get() if widget is None else widget
+        if focus is not None:
+            try:path=str(focus)
+            except tk.TclError:path=''
+            if path and self._inside_path(focus,self.sidebar_viewport):
+                return self.sidebar_canvas
+        return self.canvas
+    def scroll_page_key(self,event):
+        """PageUp／PageDown／Home／End 翻主内容或侧栏，文本框与表格保留自己的按键。"""
+        owned=('Text','Entry','Spinbox','TEntry','TCombobox','TSpinbox','Listbox','Treeview')
+        focus=self.win.focus_get();receiver=getattr(event,'widget',None)
+        # 按键事件先认实际接收控件；真实键盘输入时它就是焦点控件。
+        widgets=(receiver,focus) if receiver is not None else (focus,)
+        for widget in widgets:
+            if widget is None:continue
+            try:klass=widget.winfo_class()
+            except tk.TclError:klass=''
+            if klass in owned:return None
+        target=self._page_scroll_target(receiver if receiver is not None else focus);key=event.keysym
+        if key=='Prior':target.yview_scroll(-1,'pages')
+        elif key=='Next':target.yview_scroll(1,'pages')
+        elif key=='Home':target.yview_moveto(0)
+        elif key=='End':target.yview_moveto(1)
+        else:return None
         return 'break'
     def on_window_map(self,event=None):
         """主窗口从最小化恢复后，重新排定整页滚动范围。"""
@@ -1622,7 +1690,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             # Windows 因而一直只能显示旧页。先摆出当前阶段的轻量壳，等一个
             # 确定的绘制时隙后才创建聊天、文件表和它们的绑定。
             target=self.root
-            ttk.Label(self.content,text='剧本准备',font=('Microsoft YaHei UI',16,'bold')).pack(anchor='w',padx=SPACING['lg'],pady=(18,6))
+            ttk.Label(self.content,text='剧本准备',font=FONTS['heading_1']).pack(anchor='w',padx=SPACING['lg'],pady=(18,6))
             ttk.Label(self.content,text='正在打开剧本准备…',style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'])
             self.status.set('正在打开剧本准备…')
             self.fit_content()
