@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 import ast
+import hashlib
 import unittest
 import json
 import re
@@ -34,6 +35,30 @@ def _key(path):
         return path.relative_to(ROOT).as_posix()
     except ValueError:
         return path.name
+
+
+def _scope_ranges(tree):
+    """预计算作用域区间，避免对每个命中节点重复 ast.walk（O(n²)→O(n)）。"""
+    return sorted((candidate.lineno,
+                   getattr(candidate, 'end_lineno', candidate.lineno),
+                   candidate.name)
+                  for candidate in ast.walk(tree)
+                  if isinstance(candidate, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)))
+
+
+def _scope(scopes, node):
+    line = node.lineno
+    return '.'.join(name for start, end, name in scopes if start <= line <= end) or '<module>'
+
+
+def _anchor(path, tree, node, kind, duplicates):
+    """生成可随无关行平移的审计登记键；作用域区间只在本文件首次命中时才算。"""
+    if '<scopes>' not in duplicates:
+        duplicates['<scopes>'] = _scope_ranges(tree)
+    base = f'{_scope(duplicates["<scopes>"], node)}:{kind}:' + hashlib.sha256(
+        ast.dump(node, include_attributes=False).encode('utf-8')).hexdigest()[:16]
+    duplicates[base] = duplicates.get(base, 0) + 1
+    return f'{_key(path)}:{base}:{duplicates[base]}'
 def dot(n):
     if isinstance(n,ast.Name): return n.id
     if isinstance(n,ast.Attribute):
@@ -88,6 +113,7 @@ def _scan23(paths=None):
         if p.stem in P23:
             continue
         verified=_completion_verification(tree)
+        duplicates = {}
         owners={}
         for function in (node for node in ast.walk(tree) if isinstance(node,ast.FunctionDef)):
             for node in ast.walk(function):
@@ -102,7 +128,7 @@ def _scan23(paths=None):
                 continue
             owner=owners.get(id(node))
             if owner is None or id(owner) not in verified:
-                out.add(f'{_key(p)}:{node.lineno}')
+                out.add(_anchor(p, tree, node, '23', duplicates))
     return out
 
 def _audit19_config_writes():
@@ -136,6 +162,7 @@ def scan(kind, paths=None):
     for p in (production_runtime_files() if paths is None else paths):
         tree=parse(p) if paths is None else ast.parse(p.read_text(encoding='utf-8'))
         functions={node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
+        duplicates = {}
         if kind == '20':
             for name, function in functions.items():
                 calls=[dot(node.func) for node in ast.walk(function) if isinstance(node, ast.Call)]
@@ -144,7 +171,7 @@ def scan(kind, paths=None):
                 # agent.core 的原子发布由签名变化自动换代缓存；只有绕过该入口的
                 # replace_file 是“外部覆写”，必须显式广播失效事件。
                 if replaces and publishes < replaces:
-                    out.add(f'{_key(p)}:{function.lineno}')
+                    out.add(_anchor(p, tree, function, '20', duplicates))
             continue
         for n in ast.walk(tree):
             if not isinstance(n,ast.Call): continue
@@ -152,7 +179,7 @@ def scan(kind, paths=None):
             dynamic_target=_dynamic_target(n)
             event_kind = _event_kind(n, name)
             hit=(kind=='21' and name in {'subprocess.run','subprocess.Popen','os.startfile'} and mod not in P21) or (kind=='22' and name in {'os.remove','os.unlink','shutil.rmtree'} and mod not in {'storage_maintenance','file_cache','asset_batch_lifecycle','storyboard_lifecycle'}) or (kind=='24' and name in {'__import__','import_module','importlib.import_module'} and mod not in P24 and (dynamic_target is None or 'plugin' in dynamic_target.lower() or 'handler' in dynamic_target.lower())) or (kind=='25' and (name == 'pet_bus.emit_safe' or (name or '').endswith('._emit')) and event_kind is not None and event_kind not in CONTRACT) or (kind=='26' and name in {'requests.get','requests.post','urllib.request.urlopen'} and mod not in P26)
-            if hit: out.add(f'{_key(p)}:{n.lineno}')
+            if hit: out.add(_anchor(p, tree, n, kind, duplicates))
     return out
 class CoverageAuditCanaryTests(unittest.TestCase):
     def test_each_predicate_hits_canary(self):

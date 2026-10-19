@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import unittest
+from collections import defaultdict
 from pathlib import Path
 
 from tests.architecture._layers import LAYERS
@@ -28,16 +30,45 @@ def _json_source_files():
     return sorted(path for path in files if path.is_file())
 
 
-def _bare_json_loads():
+def _scope_ranges(tree):
+    """预计算作用域区间，避免对每个节点重复 ast.walk（O(n²)→O(n)）。"""
+    return sorted((candidate.lineno,
+                   getattr(candidate, 'end_lineno', candidate.lineno),
+                   candidate.name)
+                  for candidate in ast.walk(tree)
+                  if isinstance(candidate, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)))
+
+
+def _enclosing_scope(scopes, node):
+    line = node.lineno
+    return '.'.join(name for start, end, name in scopes if start <= line <= end) or '<module>'
+
+
+def _bare_json_load_anchor(scopes, node, duplicates):
+    """返回可随无关行平移的 json.loads 登记锚点。"""
+    scope = _enclosing_scope(scopes, node)
+    digest = hashlib.sha256(ast.dump(node, include_attributes=False).encode('utf-8')).hexdigest()[:16]
+    base = f'{scope}:json.loads:{digest}'
+    duplicates[base] += 1
+    return f'{base}:{duplicates[base]}'
+
+
+def _bare_json_loads(paths=None, *, root=ROOT):
     found = set()
-    for path in _json_source_files():
+    for path in _json_source_files() if paths is None else paths:
         source = path.read_text(encoding='utf-8')
         tree = ast.parse(source, filename=str(path))
-        for node in ast.walk(tree):
-            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                    and node.func.attr == 'loads' and isinstance(node.func.value, ast.Name)
-                    and node.func.value.id == 'json'):
-                found.add(f'{path.relative_to(ROOT).as_posix()}:{node.lineno}')
+        calls = sorted((node for node in ast.walk(tree)
+                        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                        and node.func.attr == 'loads' and isinstance(node.func.value, ast.Name)
+                        and node.func.value.id == 'json'),
+                       key=lambda node: (node.lineno, node.col_offset))
+        if not calls:
+            continue
+        scopes = _scope_ranges(tree)
+        duplicates = defaultdict(int)
+        for node in calls:
+            found.add(f'{path.relative_to(root).as_posix()}:{_bare_json_load_anchor(scopes, node, duplicates)}')
     return found
 
 
@@ -137,13 +168,19 @@ def _projects_direct_storage_calls():
     return found
 
 
-def _point_exists(item):
+def _point_exists(item, actual=None):
     path = ROOT / item['file']
     if not path.is_file():
         return False
     point = str(item['point'])
     if point.isdigit():
         return int(point) <= len(path.read_text(encoding='utf-8').splitlines())
+    if point.startswith('retired:'):
+        return item['disposition'] != 'pending'
+    if ':json.loads:' in point:
+        # 复用本段已算出的实际命中集合，避免逐项重扫全部源码。
+        hits = _bare_json_loads() if actual is None else actual
+        return f"{item['file']}:{point}" in hits
     tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
     return any(isinstance(node, ast.FunctionDef) and node.name == point for node in ast.walk(tree))
 
@@ -169,7 +206,7 @@ class UnificationRatchetTests(unittest.TestCase):
             self.assertIn(item['disposition'], {'pending', 'migrated', 'exempt', 'noise'})
             if item['disposition'] in {'migrated', 'exempt', 'noise'}:
                 self.assertTrue(item.get('reason', '').strip(), f'{section} 已处置项必须写 reason')
-            self.assertTrue(_point_exists(item), f'{section} 台账项不可定位：{item}')
+            self.assertTrue(_point_exists(item, actual), f'{section} 台账项不可定位：{item}')
 
     def test_l2_formal_publish_debt_is_a_nonincreasing_subset(self):
         self._assert_ratchet('第三项', _formal_publish_fallbacks())
