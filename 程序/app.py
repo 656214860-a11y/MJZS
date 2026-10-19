@@ -25,7 +25,7 @@ import ui_plugin_registry
 from platform_tools import open_path
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import (SelectBox, BaseDialog, Card, BusyState, ContextMenu, DataTable, LineInput, NotificationDispatcher,
-                        ask_confirmation,
+                        ask_confirmation, ask_string,
                         PrimaryButton, SecondaryButton, TextArea)
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
@@ -1303,8 +1303,7 @@ class App:
             return '批量提交结束：'+'；'.join(results)
         self.run(work)
     def attach(self):
-        from tkinter.simpledialog import askstring
-        sid=self.sid();value=askstring('恢复编号','请从控制台核实是该镜头后，粘贴任务ID（不是API Key）：',parent=self.window)
+        sid=self.sid();value=ask_string(self.window,'恢复编号','请从控制台核实是该镜头后，粘贴任务ID（不是API Key）：')
         if not value:return
         task_id=value.strip()
         if not task_id:return

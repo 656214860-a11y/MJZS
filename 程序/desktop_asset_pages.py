@@ -15,9 +15,9 @@ from desktop_auto_flows import ASSET_RETRY_LIMIT
 from pathlib import Path
 from platform_tools import open_target
 from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_row_toggle, bind_show_all, configure_check_column, fit_row_height, refresh_check_heading, refresh_request_width, remember_columns
-from tkinter import simpledialog, ttk
+from tkinter import ttk
 from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_HINT
-from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea
+from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_string
 from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_HEIGHT, ASSET_ROW_LABEL, Desktop, FileDialog, STAGE_ACTION_WIDTH, THUMB_SIZE, confirm, open_path
 
 PAGE = pet_state.PAGE_OF
@@ -761,7 +761,7 @@ class AssetPagesMixin:
     def rename_asset(self,aid,name=None,refresh=True):
         if not aid:raise ValueError('请先选择资产')
         rows=self.asset_requirements();old=rows[aid].get('name',aid)
-        if name is None:name=simpledialog.askstring('修改资产名称','新的名称：',initialvalue=old,parent=self.win)
+        if name is None:name=ask_string(self.win,'修改资产名称','新的名称：',initialvalue=old)
         if name is None:return
         name=name.strip()
         if not name:raise ValueError('资产名称不能为空')
@@ -773,7 +773,7 @@ class AssetPagesMixin:
         base=self.asset_base()/'assets'
         p=FileDialog(self.win).open_file(initialdir=initial or (base/kind if kind!='all' else base),filetypes=[('图片','*.png *.jpg *.jpeg *.webp')])
         if not p:return
-        aid=selected or simpledialog.askstring('资产编号','例如 CHAR_001 / LOC_001 / PROP_001',parent=self.win)
+        aid=selected or ask_string(self.win,'资产编号','例如 CHAR_001 / LOC_001 / PROP_001')
         if not aid:return
         from asset_batch_service import import_asset_image
         kind,result=import_asset_image(Desktop.asset_write_base(self),self.root,aid,p,self.asset_requirements(),gateway=Desktop.asset_batch_gateway())

@@ -503,7 +503,7 @@ class AnchorTests(_Harness):
             proj = project_with(td)
             d, win = self.desktop(proj)
             d.open_asset_detail("CHAR_001"); win.update()
-            with mock.patch.object(asset_detail.simpledialog, "askstring", return_value="  定稿锚点  "):
+            with mock.patch.object(asset_detail, "ask_string", return_value="  定稿锚点  "):
                 self.assertEqual(asset_detail.edit_anchor(d, "CHAR_001"), "定稿锚点")
             self.assertEqual(plan_of(proj, "CHAR_001")["character_anchor"], "定稿锚点")
             self.assertEqual(d.status.get(), '锚点已保存并与资产 JSON 核对一致')
@@ -523,7 +523,7 @@ class AnchorTests(_Harness):
             desktop_module.Desktop.gate_level = lambda self: "hint"
             self.addCleanup(setattr, desktop_module.Desktop, "gate_level", original)
             d.open_asset_detail("CHAR_001"); win.update()
-            with mock.patch.object(asset_detail.simpledialog, "askstring", return_value="   "):
+            with mock.patch.object(asset_detail, "ask_string", return_value="   "):
                 with mock.patch.object(asset_detail, "notify", wraps=asset_detail.notify) as notice, \
                         mock.patch.object(asset_detail.messagebox, "showerror") as modal_error:
                     self.assertIsNone(asset_detail.edit_anchor(d, "CHAR_001"))
@@ -572,7 +572,7 @@ class VariantTests(_Harness):
             proj = project_with(td)
             d, win = self.desktop(proj)
             d.open_asset_detail("CHAR_001"); win.update()
-            with mock.patch.object(asset_detail.simpledialog, "askstring",
+            with mock.patch.object(asset_detail, "ask_string",
                                    side_effect=["雨夜装", "深色雨衣"]):
                 asset_detail.add_variant(d, "CHAR_001")
             rows = plan_of(proj, "CHAR_001")["state_variants"]
@@ -615,7 +615,7 @@ class VariantTests(_Harness):
             proj = project_with(td)
             d, win = self.desktop(proj)
             d.open_asset_detail("CHAR_001"); win.update()
-            with mock.patch.object(asset_detail.simpledialog, "askstring",
+            with mock.patch.object(asset_detail, "ask_string",
                                    side_effect=["面部、发型", "场景、动作"]):
                 asset_detail.edit_role(d, "CHAR_001")
             row = plan_of(proj, "CHAR_001")
@@ -647,7 +647,7 @@ class EndToEndTests(_Harness):
                 record_stage_confirmation(proj, "anchor:" + aid, aid + " 的定稿锚点")
                 apply_gate_choice(proj, "anchor:" + aid, aid + " 的定稿锚点")
                 apply_gate_choice(proj, "canon:" + aid, aid + " 的正典板方案一")
-                with mock.patch.object(asset_detail.simpledialog, "askstring",
+                with mock.patch.object(asset_detail, "ask_string",
                                        side_effect=["日常装", "米色针织衫"]):
                     d.open_asset_detail(aid); win.update()
                     asset_detail.add_variant(d, aid)

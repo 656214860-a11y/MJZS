@@ -20,14 +20,14 @@
 import json
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox, simpledialog, ttk
+from tkinter import messagebox, ttk
 
 import asset_thumbs
 from agent.core import read
 from platform_tools import open_path
 from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
-from ui_widgets import BaseDialog, Card, DescriptionBlock, HintLabel, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
+from ui_widgets import BaseDialog, Card, DescriptionBlock, HintLabel, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, ask_string, notify
 import pet_bus
 from ui_tokens import COLORS, FONTS, SPACING, TEXT_DESC, TEXT_HINT
 
@@ -129,9 +129,9 @@ def edit_anchor(desktop, aid):
     """编辑锚点：写完立刻按资产 JSON 核对一遍（附件任务 2.2 区域 3 的「编辑后校验」）。"""
     asset = desktop.asset_requirements().get(aid) or {}
     current = str(asset.get('character_anchor') or asset.get('base_anchor') or '')
-    value = simpledialog.askstring('编辑锚点字符串',
-                                   '锚点字符串（逐字复用，下游不许改写）：',
-                                   initialvalue=current, parent=desktop.win)
+    value = ask_string(desktop.win, '编辑锚点字符串',
+                       '锚点字符串（逐字复用，下游不许改写）：',
+                       initialvalue=current)
     if value is None:
         return None
     value = value.strip()
@@ -156,16 +156,14 @@ def edit_role(desktop, aid):
     """编辑参考职责声明：负责什么 ＋ 不继承什么（附件任务 2.2 区域 4）。"""
     from asset_contract import DEFAULT_EXCLUDE, DEFAULT_RESPONSIBILITY
     asset = desktop.asset_requirements().get(aid) or {}
-    role = simpledialog.askstring('参考职责 · 负责',
-                                  '这一项参考图负责什么：',
-                                  initialvalue=str(asset.get('reference_role') or DEFAULT_RESPONSIBILITY),
-                                  parent=desktop.win)
+    role = ask_string(desktop.win, '参考职责 · 负责',
+                      '这一项参考图负责什么：',
+                      initialvalue=str(asset.get('reference_role') or DEFAULT_RESPONSIBILITY))
     if role is None:
         return None
-    exclude = simpledialog.askstring('参考职责 · 不继承',
-                                     '这一项参考图不继承什么：',
-                                     initialvalue=str(asset.get('reference_exclude') or DEFAULT_EXCLUDE),
-                                     parent=desktop.win)
+    exclude = ask_string(desktop.win, '参考职责 · 不继承',
+                         '这一项参考图不继承什么：',
+                         initialvalue=str(asset.get('reference_exclude') or DEFAULT_EXCLUDE))
     if exclude is None:
         return None
     _fields(desktop, aid, {'reference_role': role.strip(), 'reference_exclude': exclude.strip()})
@@ -188,11 +186,10 @@ def add_variant(desktop, aid):
     from asset_contract import STATE_PREFIX, normalize_variant, state_variants
     asset = desktop.asset_requirements().get(aid) or {}
     rows = [dict(item) for item in state_variants(asset)]
-    name = simpledialog.askstring('新增状态变体', '状态名称（例如「日常装」）：', parent=desktop.win)
+    name = ask_string(desktop.win, '新增状态变体', '状态名称（例如「日常装」）：')
     if not name:
         return None
-    override = simpledialog.askstring('新增状态变体', '换状态时改什么（服装／发型／受伤／脏污）：',
-                                      parent=desktop.win)
+    override = ask_string(desktop.win, '新增状态变体', '换状态时改什么（服装／发型／受伤／脏污）：')
     if override is None:
         return None
     rows.append(normalize_variant({'name': name.strip(), 'override': override.strip()}, len(rows) + 1))
@@ -209,12 +206,12 @@ def edit_variant(desktop, aid, state_id):
     target = next((item for item in rows if item.get('state_id') == state_id), None)
     if target is None:
         raise ValueError('这一条状态变体已经不在了，请刷新')
-    name = simpledialog.askstring('编辑状态变体', '状态名称：', initialvalue=str(target.get('name') or ''),
-                                  parent=desktop.win)
+    name = ask_string(desktop.win, '编辑状态变体', '状态名称：',
+                      initialvalue=str(target.get('name') or ''))
     if name is None:
         return None
-    override = simpledialog.askstring('编辑状态变体', '换状态时改什么：',
-                                      initialvalue=str(target.get('override') or ''), parent=desktop.win)
+    override = ask_string(desktop.win, '编辑状态变体', '换状态时改什么：',
+                          initialvalue=str(target.get('override') or ''))
     if override is None:
         return None
     if not name.strip() or not override.strip():

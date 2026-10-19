@@ -16,7 +16,7 @@ from pathlib import Path
 from file_cache import remove_temporary_file
 from storyboard_paths import media_root
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox
 from agent.core import read,save,save_text,save_bytes
 import project_settings
 from projects import Projects, needs_cleanup_after_open_error, is_missing_storyboard_open_error
@@ -42,7 +42,7 @@ from ui_tokens import COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDT
 from ui_dialogs import FileDialog
 from ui_shortcuts import ShortcutRegistry
 from ui_widgets import (SelectBox, BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
-                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, TreeRowTooltip, EllipsisLabel, ask_confirmation, setup_styles)
+                        PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, TreeRowTooltip, EllipsisLabel, ask_confirmation, ask_string, setup_styles)
 
 ROOT=Path(__file__).resolve().parent
 LOGGER=logging.getLogger(__name__)
@@ -956,7 +956,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         if Path(path)!=self.root:self.safe(lambda:self.request_project_switch(path))
 
     def new(self):
-        name=simpledialog.askstring('新建项目','项目名称：',parent=self.win)
+        name=ask_string(self.win,'新建项目','项目名称：')
         if name:
             p=self._project_result_data(self.projects.create(name));self.reload();self.load(p)
             self.remember_daily_project_choice(p)

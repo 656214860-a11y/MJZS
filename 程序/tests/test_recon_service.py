@@ -517,7 +517,7 @@ class EntryTests(unittest.TestCase):
             root = Path(td)
             self.make_project(root, '对标爆款')
             page = self.Page(root)
-            with mock.patch('desktop_writing_page.simpledialog.askstring', return_value=' 《某剧》 '):
+            with mock.patch('desktop_writing_page.ask_string', return_value=' 《某剧》 '):
                 WritingPageMixin.collect_recon(page)
             self.assertEqual(len(page.jobs), 1)
             self.assertEqual(page.jobs[0][2], '采集对标情报')
@@ -533,7 +533,7 @@ class EntryTests(unittest.TestCase):
             root = Path(td)
             self.make_project(root, '热点速成')
             page = self.Page(root)
-            with mock.patch('desktop_writing_page.simpledialog.askstring', return_value='   '):
+            with mock.patch('desktop_writing_page.ask_string', return_value='   '):
                 WritingPageMixin.collect_recon(page)
             self.assertEqual(len(page.jobs), 1)
             self.assertNotIn('name', recon.load_request(root))
@@ -545,7 +545,7 @@ class EntryTests(unittest.TestCase):
             root = Path(td)
             self.make_project(root, '对标爆款')
             page = self.Page(root)
-            with mock.patch('desktop_writing_page.simpledialog.askstring', return_value=None):
+            with mock.patch('desktop_writing_page.ask_string', return_value=None):
                 WritingPageMixin.collect_recon(page)
             self.assertEqual(page.jobs, [])
             self.assertFalse(recon.request_path(root).exists())

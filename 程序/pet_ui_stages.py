@@ -10,7 +10,7 @@ import stage_flow
 import stage_handler_registry
 import stage_parallel
 from tkinter import TclError
-from ui_widgets import ask_confirmation
+from ui_widgets import ask_confirmation, ask_string
 from pet_ui_support import ADVANCE_SECONDS, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, CONFIRM_NEED, CONFIRM_TITLE, FALLBACK_ASK, LEVEL_SWITCH_NOTES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PAW_LEVELS, SANHU_MODES, STAGE_ASK_SECONDS, _BooleanFlag
 
 
@@ -587,8 +587,7 @@ class PetStagesMixin:
     def template_choice(self, text):
         """手动模板门禁：由用户确认生成类步骤；不可交互时保守跳过。"""
         try:
-            from tkinter import simpledialog
-            return str(simpledialog.askstring('确认三虎步骤', text, parent=self.win) or '').strip()
+            return str(ask_string(self.win, '确认三虎步骤', text) or '').strip()
         except Exception as exc:
             self.errors.append(('template.ask', str(exc)))
             return ''
@@ -671,8 +670,7 @@ class PetStagesMixin:
                 self.errors.append(('recovery.ask', str(exc)))
                 return ''
         try:
-            from tkinter import simpledialog
-            return str(simpledialog.askstring('恢复三虎任务', text, parent=self.win) or '').strip()
+            return str(ask_string(self.win, '恢复三虎任务', text) or '').strip()
         except Exception as exc:
             self.errors.append(('recovery.ask', str(exc)))
             return ''

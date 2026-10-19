@@ -184,18 +184,18 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 self.assertIsNotNone(desktop._tick_id)
                 # 后续手动取消不能重写状态或新建项目。
                 desktop.status.set('保留当前操作结果')
-                with mock.patch('desktop.simpledialog.askstring', return_value=None):
+                with mock.patch('desktop.ask_string', return_value=None):
                     desktop.new()
                 self.assertEqual(desktop.status.get(), '保留当前操作结果')
                 self.assertEqual(desktop.projects.info['projects'], [])
-                with mock.patch('desktop.simpledialog.askstring', return_value='取消后新建'):
+                with mock.patch('desktop.ask_string', return_value='取消后新建'):
                     desktop.new()
                 self.assertIsNotNone(desktop.root)
                 self.assertTrue(desktop.root.is_relative_to(Path(temporary)))
                 self.assertFalse(desktop._startup_project_choice)
                 selected = desktop.root
                 desktop.status.set('保留已打开项目')
-                with mock.patch('desktop.simpledialog.askstring', return_value=None):
+                with mock.patch('desktop.ask_string', return_value=None):
                     desktop.new()
                 self.assertEqual(desktop.root, selected)
                 self.assertEqual(desktop.status.get(), '保留已打开项目')
@@ -213,7 +213,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
             win=object(), root=None, _startup_project_choice=True,
             shutting_down=True, status=mock.Mock(),
             _request_tick_resume_after_first_paint=mock.Mock())
-        with mock.patch('desktop.simpledialog.askstring', return_value=None):
+        with mock.patch('desktop.ask_string', return_value=None):
             Desktop.new(desktop)
         self.assertFalse(desktop._startup_project_choice)
         desktop.status.set.assert_not_called()

@@ -4,13 +4,13 @@ SPSPLIT 从 skill_panel.py 的 Panel 拆出；Panel 继承 ``PresetMixin``，公
 本模块与 skill_panel 同处 L4，不 import skill_panel（避免循环），只依赖下层模块与 ui_widgets。
 """
 import tkinter as tk
-from tkinter import simpledialog, ttk
+from tkinter import ttk
 
 import stage_config
 from pet_bus import STAGE_NAMES
 from skill_panel_support import program_of
 from ui_tokens import SPACING
-from ui_widgets import BaseDialog, DescriptionBlock, PrimaryButton, SecondaryButton
+from ui_widgets import BaseDialog, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
 
 
 # 预设不是必填项；用明确的占位项避免刚打开面板就误把第一份预设当作当前选择。
@@ -105,8 +105,7 @@ class PresetMixin:
         current = str(self.preset.get() or '').strip()
         if current == PRESET_PLACEHOLDER:
             current = ''
-        name = simpledialog.askstring('保存为预设', '预设名称（同名将覆盖）：', initialvalue=current,
-                                      parent=self.winfo_toplevel())
+        name = ask_string(self.winfo_toplevel(), '保存为预设', '预设名称（同名将覆盖）：', initialvalue=current)
         name = str(name or '').strip()
         if not name:
             return ''
@@ -140,8 +139,7 @@ class PresetMixin:
         if not old or old == PRESET_PLACEHOLDER:
             self.state.configure(text='先在下拉框里挑一份预设，再改名')
             return ''
-        name = simpledialog.askstring('重命名预设', '把「%s」改成：' % old, initialvalue=old,
-                                      parent=self.winfo_toplevel())
+        name = ask_string(self.winfo_toplevel(), '重命名预设', '把「%s」改成：' % old, initialvalue=old)
         name = ' '.join(str(name or '').split())
         if not name or name == old:
             return ''

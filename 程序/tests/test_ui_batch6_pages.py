@@ -212,7 +212,7 @@ class FeedbackTests(unittest.TestCase):
             asset_requirements=lambda: {'CHAR_001': {'name': '猫'}},
             root=Path(tempfile.gettempdir()),
         )
-        with mock.patch.object(asset_detail.simpledialog, 'askstring', return_value=''), \
+        with mock.patch.object(asset_detail, 'ask_string', return_value=''), \
                 mock.patch.object(asset_detail, 'notify') as notify:
             self.assertIsNone(asset_detail.edit_anchor(desktop, 'CHAR_001'))
         notify.assert_called_once()

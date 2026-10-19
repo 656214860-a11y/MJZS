@@ -72,7 +72,7 @@ from pathlib import Path
 import re
 
 import tkinter as tk
-from tkinter import messagebox, simpledialog, ttk
+from tkinter import messagebox, ttk
 from production_lock_fields import CompactLabel, FlowFields
 
 import model_pool

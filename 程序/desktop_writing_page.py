@@ -12,10 +12,10 @@ import tkinter as tk
 import ui_plugin_registry
 from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height, row_toggle_target
-from tkinter import simpledialog, ttk
+from tkinter import ttk
 from ui_tokens import COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_PADDING, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SPACING
 from desktop_page_support import ContextMenu, confirm, confirm_project_removal_from_last_script, open_path
-from ui_widgets import DataTable, EllipsisLabel, HintLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, TreeRowTooltip
+from ui_widgets import DataTable, EllipsisLabel, HintLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, TreeRowTooltip, ask_string
 
 PAGE = pet_state.PAGE_OF
 
@@ -551,7 +551,7 @@ class WritingPageMixin:
             bind_row_toggle(tree,script_checks[category].toggle)
         def rename_script():
             path=selected_script()
-            new=simpledialog.askstring('重命名文件','新文件名：',initialvalue=path.name,parent=self.win)
+            new=ask_string(self.win,'重命名文件','新文件名：',initialvalue=path.name)
             if not new:return
             from script_workspace_service import rename_script_document
             result=rename_script_document(self.root,path,new)
@@ -667,9 +667,8 @@ class WritingPageMixin:
             self.notifier.notify('当前素材来源是「%s」。先在阶段配置把「素材来源」选成「对标爆款」或「热点速成」，再来采集。'
                                  % (source or '未选'), title='采集对标情报')
             return self.status.set('采集对标情报：素材来源不符（%s）' % (source or '未选'))
-        name = simpledialog.askstring('采集对标情报',
-                                      '对标剧名（填剧名＝对标这一部；留空＝按简报里的题材找方向）：',
-                                      parent=self.win)
+        name = ask_string(self.win, '采集对标情报',
+                          '对标剧名（填剧名＝对标这一部；留空＝按简报里的题材找方向）：')
         if name is None:
             return self.status.set('已取消采集')
         values = {'material_source': source}

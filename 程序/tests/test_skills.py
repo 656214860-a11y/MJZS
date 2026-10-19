@@ -1304,7 +1304,7 @@ class PanelTests(unittest.TestCase):
             seen = {}
 
             @classmethod
-            def askstring(cls, *args, **kwargs):
+            def ask_string(cls, *args, **kwargs):
                 cls.seen = kwargs
                 return kwargs.get('initialvalue', '')
 
@@ -1315,9 +1315,9 @@ class PanelTests(unittest.TestCase):
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
         self.assertEqual(panel.preset.get(), '请选择')
         self.assertEqual(tuple(panel.presets.cget('values'))[0], '请选择')
-        real = skill_panel_presets.simpledialog
-        skill_panel_presets.simpledialog = Typed
-        self.addCleanup(setattr, skill_panel_presets, 'simpledialog', real)
+        real = skill_panel_presets.ask_string
+        skill_panel_presets.ask_string = Typed.ask_string
+        self.addCleanup(setattr, skill_panel_presets, 'ask_string', real)
         panel.model.set('Qwen-Max')
         panel.preset.set('A预设')
         self.assertEqual(panel.save_preset(), 'A预设')
@@ -1361,7 +1361,7 @@ class PanelTests(unittest.TestCase):
             def __init__(self, answer):
                 self.answer = answer
 
-            def askstring(self, *args, **kwargs):
+            def ask_string(self, *args, **kwargs):
                 return self.answer
 
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
@@ -1370,9 +1370,9 @@ class PanelTests(unittest.TestCase):
         panel.presets.configure(values=panel.preset_names())
         self.assertEqual(panel.rename_preset(), '', '没在下拉框里挑，就先别说改名')
         self.assertIn('先在下拉框里挑', panel.state.cget('text'))
-        real = skill_panel_presets.simpledialog
-        skill_panel_presets.simpledialog = Typed('  新 名字  ')
-        self.addCleanup(setattr, skill_panel_presets, 'simpledialog', real)
+        real = skill_panel_presets.ask_string
+        skill_panel_presets.ask_string = Typed('  新 名字  ').ask_string
+        self.addCleanup(setattr, skill_panel_presets, 'ask_string', real)
         panel.preset.set('旧名字')
         self.assertEqual(panel.rename_preset(), '新 名字')
         self.assertEqual(panel.preset.get(), '新 名字', '改完下拉框里那份还选着')
@@ -1992,7 +1992,7 @@ class PetIntegrationTests(unittest.TestCase):
         self.asked = []
         self.pet.asker = lambda title, text: self.asked.append((title, text)) or True
         # run_skill 的手动模板门禁会打开真实对话框；单元测试须明确提供用户选择，
-        # 否则隐藏的 Tk 根窗口会让 simpledialog 永久等待。
+        # 否则隐藏的 Tk 根窗口会让 ask_string 永久等待。
         self.pet.template_choice = lambda text: '确认'
 
     def test_natural_language_can_name_a_skill(self):

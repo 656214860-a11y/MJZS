@@ -20,9 +20,9 @@ from platform_tools import launch_windows_app, open_target, tcp_listener
 from project_naming import dated_path
 from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, refresh_request_width, remember_columns
 from storyboard_paths import media_root
-from tkinter import simpledialog, ttk
+from tkinter import ttk
 from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
-from ui_widgets import Card, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton
+from ui_widgets import Card, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
 from desktop_page_support import ASSET_ROW_LABEL, FileDialog, STAGE_ACTION_WIDTH, _prefs, comfy_executable, confirm, find_editor_shortcut, open_path, open_studio
 
 PAGE = pet_state.PAGE_OF
@@ -345,7 +345,7 @@ class MediaPagesMixin:
             self.status.set('问题闭环台账没写成：'+str(exc));return []
     def ignore_continuity_issue(self,iid):
         """忽略一条问题：必须先写理由（记下当时那一版证据），再刷新页面。"""
-        reason=simpledialog.askstring('忽略这条问题','忽略这条问题的理由：',parent=self.win)
+        reason=ask_string(self.win,'忽略这条问题','忽略这条问题的理由：')
         if reason is None:return
         reason=str(reason).strip()
         if not reason:

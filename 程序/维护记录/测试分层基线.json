@@ -2,8 +2,8 @@
  "architecture": {
   "elapsed_seconds": 25.919,
   "failed_modules": [],
-  "test_count": 312,
-  "unit_count": 104,
+  "test_count": 313,
+  "unit_count": 105,
   "updated_at": "2026-10-12T08:08:40"
  },
  "full_safe_verified_trees": [

@@ -42,7 +42,7 @@ R1610：结构治理轮·只读诊断。按规范/静态检查、接口契约、
 
 旧文首检查点已保留至.agent-handoff/history/r1606-handoff-before/project_status.md。R1606已合入主干，主干最新报告为1606，轮次头已改1607。
 
-更新：2026-10-20｜当前轮次：1748（prune_invalid_adoptions 对 N 个已采用分镜原先约扫 2N 次剧本/分镜目录，改为惰性取数器：有板到达来源比对才扫 1 次，提前返回 0 次；discover_files 去掉逐文件 resolve()；新增 8 条扫描次数测试。；更早各轮见 tasks_round/ 结果文件与 git log）
+更新：2026-10-20｜当前轮次：1749（ui_widgets 新增 StringDialog／ask_string（BaseDialog 派生，统一令牌样式），18 处 simpledialog.askstring 全部迁移；新增 test_ask_string 与架构门禁 test_simpledialog_boundary，生产代码不得再 import simpledialog。；更早各轮见 tasks_round/ 结果文件与 git log）
 
 历史验收记录：更新：2026-10-10｜当前轮次：1223（R1222 文档收尾，R1219 修复阶段旧路径阻断，实现 7faa7ae。干净 master f40beb4 安全全量 --jobs 4：4304/4304、347.409 秒，含架构 311/311；前两次并发保存失败及定向复验详见 tasks_round/tasks_round_1219_result.md。正式全量 R1219，未重启或实发 API。）
 阅读索引：[当前待办](#已知阻塞与待办)｜[验证基线](#验证基线)｜[优化队列](维护记录/优化待办队列.md)｜[R504 历史快照](#r504-阻塞归类与整改路线)。带 R 编号的历史条目仅证明对应轮次；当前范围、未验收条件与后续顺序以当前待办及队列为准。

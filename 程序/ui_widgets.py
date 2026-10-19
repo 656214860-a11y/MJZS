@@ -901,6 +901,49 @@ def ask_confirmation(parent, title, message, *, dangerous=False):
     return bool(dialog.result)
 
 
+class StringDialog(FormDialog):
+    """单行文本输入的标准弹窗；结果通过 ``result`` 给调用方。
+
+    确认返回输入内容（空串表示用户明确留空）；取消、Esc 与关闭都保持
+    ``result is None``，与空串严格区分。
+    """
+
+    def __init__(self, parent, title, prompt, *, initialvalue="", **kwargs):
+        self.result = None
+        super().__init__(parent, title, **kwargs)
+        DescriptionBlock(self.content, text=prompt).pack(fill="x", pady=(0, SPACING["md"]))
+        self.entry = LineInput(self.content)
+        self.entry.pack(fill="x")
+        if initialvalue:
+            self.entry.insert(0, initialvalue)
+        self.entry.bind("<Return>", self._confirm, add="+")
+        self.add_form_actions("确定", self._confirm)
+
+    def _confirm(self, _event=None):
+        self.result = self.entry.get()
+        self.close()
+        return "break"
+
+    def cancel(self, _event=None):
+        """等价关闭语义：取消输入，``result`` 保持 ``None``（与关闭／Esc 一致）。"""
+        self.close()
+
+
+def ask_string(parent, title, prompt, *, initialvalue=""):
+    """以统一文本输入窗提供旧式同步文本输入的语义。
+
+    确认返回输入内容（空串表示用户明确留空），取消、Esc 与关闭窗口都稳定返回
+    ``None``，两者必须区分。父窗口在等待期间已销毁时按“未确认”返回 ``None``。
+    """
+    dialog = StringDialog(parent, title, prompt, initialvalue=initialvalue)
+    try:
+        dialog.wait_window()
+    except tk.TclError:
+        # 父窗口在确认期间已销毁时，按“未确认”处理，绝不继续后续写入。
+        return None
+    return dialog.result
+
+
 class Tooltip:
     """统一的短说明浮层，鼠标和键盘焦点都可触发且不会取得输入 grab。"""
 

@@ -57,8 +57,8 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
         self.assertEqual(1, len(methods))
         for result in (SystemError('保存失败'), success(Path('new.md'))):
             app, dialog, refresh = Mock(), Mock(), Mock()
-            dialog.askstring.return_value = 'new.md'
-            env = dict(self=app, simpledialog=dialog, fill_script_list=refresh,
+            dialog.ask_string.return_value = 'new.md'
+            env = dict(self=app, ask_string=dialog.ask_string, fill_script_list=refresh,
                        selected_script=Mock(return_value=Path('old.md')))
             exec(compile(ast.Module(body=methods, type_ignores=[]), str(source), 'exec'), env)
             with patch('script_workspace_service.rename_script_document', return_value=result) as service:
@@ -71,7 +71,7 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
                         env['rename_script']()
                     refresh.assert_not_called()
                     app.status.set.assert_not_called()
-                dialog.askstring.return_value = ''
+                dialog.ask_string.return_value = ''
                 service.reset_mock()
                 env['rename_script']()
                 service.assert_not_called()
