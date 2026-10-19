@@ -48,6 +48,7 @@ class OutputSpecContractTests(unittest.TestCase):
         self.assertEqual(portrait['aspect_ratio'], '9:16')
 
     def test_output_filter_pads_and_never_crops(self):
+        """REQ-S12-05：等比缩放（decrease）后居中留边（pad），绝不裁切（无 crop）。"""
         text = script_contract.output_filter(script_contract.resolve_output_spec({'aspect_ratio': '9:16'}))
         self.assertIn('scale=1080:1920:force_original_aspect_ratio=decrease', text)
         self.assertIn('pad=1080:1920:(ow-iw)/2:(oh-ih)/2', text)
@@ -74,6 +75,9 @@ class OutputSpecContractTests(unittest.TestCase):
 
 
 class EngineOutputSpecTests(unittest.TestCase):
+    """REQ-S12-05：Studio 的输出规格取自项目制作锁（workflow_lock → resolve_output_spec），
+    缺省才用出厂默认；output_spec_text 供界面在导出前显示实际规格。"""
+
     def test_studio_spec_reads_the_project_lock(self):
         import engine
         with tempfile.TemporaryDirectory() as temporary:

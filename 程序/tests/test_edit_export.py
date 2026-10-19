@@ -11,6 +11,8 @@ SPEC = {'fps': 24, 'width': 1080, 'height': 1920}
 
 
 class EditExportTests(unittest.TestCase):
+    """REQ-S12-35：EDL（CMX3600）、FCPXML 与分轨素材清单；时间码非丢帧，按帧数累计防漂移。"""
+
     def test_timecode_and_layout_accumulate_frames_without_drift(self):
         self.assertEqual(ex.timecode(0, 24), '00:00:00:00')
         self.assertEqual(ex.timecode(24 * 3661 + 5, 24), '01:01:01:05')
@@ -52,6 +54,8 @@ class EditExportTests(unittest.TestCase):
 
 
 class PublishEditListsTests(unittest.TestCase):
+    """REQ-S12-22：EDL／FCPXML／分轨清单写失败时不删成片，如实报「剪辑交付包不完整」。"""
+
     def test_encode_does_not_report_success_when_delivery_lists_fail(self):
         import tempfile
         from pathlib import Path

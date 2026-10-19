@@ -9,6 +9,8 @@ from service_contract import SystemError, UserError, success
 
 
 class AutomaticDecisionTests(unittest.TestCase):
+    """REQ-S12-14：无人值守交接按同一指纹只整理一次（skip／complete），未就绪则等待。"""
+
     def test_decision_distinguishes_repeat_wait_complete_and_dispatch(self):
         from handoff_service import automatic_decision
         self.assertEqual(automatic_decision(('state',), 'digest', ('state',), {})['action'], 'skip')
@@ -19,6 +21,8 @@ class AutomaticDecisionTests(unittest.TestCase):
 
 
 class AutomaticMarkerPublicationTests(unittest.TestCase):
+    """REQ-S12-14：自动交接完成标记写到 12后期剪辑/自动交接.json。"""
+
     def test_marker_is_published_in_editing_stage(self):
         from handoff_service import AUTOMATIC_HANDOFF_MARKER_NAME
         from project_stages import editing

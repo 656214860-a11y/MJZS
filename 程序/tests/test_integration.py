@@ -244,7 +244,8 @@ class DownloadResumeTests(unittest.TestCase):
 
 
 class AutoEditReadyTests(unittest.TestCase):
-    """无人值守自动粗剪：整集验收通过才拼接，同一批验收结果只拼一次，编码期间不占项目锁。"""
+    """REQ-S12-12：无人值守自动粗剪——本集每个未删除镜头都有采用版本才给出成片指纹，
+    同一批验收结果指纹稳定、只拼一次；镜头重做并重新验收后指纹才变（分镜未对齐时等待）。"""
 
     def download(self, td, auto=True):
         from pathlib import Path as _Path
@@ -428,7 +429,8 @@ class BatchReviewTests(unittest.TestCase):
 
 
 class PartialAssembleTests(unittest.TestCase):
-    """无人值守自动剪辑：部分镜头未就绪时跳过它们先出成片；全部未就绪仍报错。"""
+    """REQ-S12-11：手动粗剪跳过未就绪镜头并如实记覆盖率（included／expected／duration／skipped）；
+    不跳过时任一镜头未就绪即报错，一镜都没有时报错。"""
 
     def prepare(self, td, count=3, ready=2):
         proj = build_project(td)

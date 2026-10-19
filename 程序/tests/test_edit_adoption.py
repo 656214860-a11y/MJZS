@@ -72,7 +72,9 @@ class BundleStudio:
 
 
 class EditBundleTests(unittest.TestCase):
-    """成片＋质检＋来源清单先合成一份可恢复清单，索引任一份写失败都还能核对来源。"""
+    """REQ-S12-21：成片＋质检＋来源清单先合成一份 edit_bundle.json 一次性原子绑定，
+    再写 qc.json／edit_manifest.json 两份索引；索引任一份写失败都还能核对来源。
+    老成片只有两份索引时按 legacy 读取。"""
 
     def test_bundle_preserves_generation_reference_digest(self):
         with tempfile.TemporaryDirectory() as td:
@@ -107,6 +109,7 @@ class EditBundleTests(unittest.TestCase):
         return studio
 
     def test_bundle_records_the_actual_overlay_font_digest(self):
+        """REQ-S12-13：唯一的画面叠加是镜头自带的 post_overlay 文字，字体副本与摘要进 bundle。"""
         with tempfile.TemporaryDirectory() as td:
             out = Path(td); master = out / 'MASTER.mp4'; master.write_bytes(b'film')
             font = out / 'font.ttc'; font.write_bytes(b'test-only font fixture')

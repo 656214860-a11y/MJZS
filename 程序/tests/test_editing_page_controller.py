@@ -36,6 +36,7 @@ class EditingPageControllerTests(unittest.TestCase):
             self.assertTrue(controller.has_downloaded_video())
 
     def test_assemble_preserves_skip_report_for_page_status(self):
+        """REQ-S12-11：手动粗剪以 skip_unready=True 跳过未就绪镜头，跳过原因留给状态栏。"""
         with tempfile.TemporaryDirectory() as folder:
             studio = _Studio({'shots': {'SH001': [], 'SH002': []}}, result='out/MASTER.mp4')
             controller = EditingPageController(folder, studio)
@@ -45,7 +46,7 @@ class EditingPageControllerTests(unittest.TestCase):
                              '已跳过 1 个未就绪镜头：SH002；成片：out/MASTER.mp4')
 
     def test_assembled_message_reports_coverage_and_duration(self):
-        """给了覆盖率就一并报出包含/缺失镜头与总时长，别让部分粗剪冒充完整成片。"""
+        """REQ-S12-11：给了覆盖率就报出「已包含 N/M 镜」与总时长，别让部分粗剪冒充完整成片。"""
         with tempfile.TemporaryDirectory() as folder:
             studio = _Studio({'shots': {'SH001': [], 'SH002': []}}, result='out/MASTER.mp4')
             controller = EditingPageController(folder, studio)

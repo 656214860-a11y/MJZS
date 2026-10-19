@@ -33,6 +33,8 @@ class EditingResultTests(unittest.TestCase):
 
 
 class AutomaticAssembleDecisionTests(unittest.TestCase):
+    """REQ-S12-12：同一批验收结果只拼一次（skip／complete），指纹未就绪则等待，重做后重新派发。"""
+
     def test_decision_distinguishes_repeat_wait_complete_and_dispatch(self):
         from edit_service import automatic_assemble_decision
         self.assertEqual(automatic_assemble_decision(('state',), 'digest', ('state',), {})['action'], 'skip')
@@ -44,6 +46,8 @@ class AutomaticAssembleDecisionTests(unittest.TestCase):
 
 
 class EditingChecklistPublicationTests(unittest.TestCase):
+    """REQ-S12-16：剪辑优化清单由用户维护，可保存、可清空，位于 12后期剪辑/。"""
+
     def test_checklist_is_published_under_the_editing_stage(self):
         from edit_service import CHECKLIST_NAME
         from project_stages import editing
@@ -61,6 +65,8 @@ class EditingChecklistPublicationTests(unittest.TestCase):
 
 
 class AutomaticAssembleMarkerPublicationTests(unittest.TestCase):
+    """REQ-S12-12：自动粗剪完成标记写到 12后期剪辑/自动粗剪.json（同一指纹只拼一次）。"""
+
     def test_marker_is_published_under_the_editing_stage(self):
         from edit_service import AUTOMATIC_ASSEMBLE_MARKER_NAME
         from stage_execution_service import save_automatic_assemble_marker

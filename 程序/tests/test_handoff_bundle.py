@@ -27,6 +27,9 @@ def _build_bundle(root):
 
 
 class ManifestBuildTests(unittest.TestCase):
+    """REQ-S12-14：交接包含 NNN_<镜头>.mp4 编号视频、镜头顺序.json、导入剪映说明.txt
+    与交接包清单.json；清单记录文件摘要与镜头覆盖（缺镜不补齐、如实标注）。"""
+
     def test_manifest_records_files_summary_and_coverage(self):
         with tempfile.TemporaryDirectory() as folder:
             out = _build_bundle(Path(folder))
@@ -47,6 +50,8 @@ class ManifestBuildTests(unittest.TestCase):
 
 
 class OfflineVerifyTests(unittest.TestCase):
+    """REQ-S12-14：「校验交接包」离线按清单核对文件与摘要；声明含字幕却没有对白.srt 即失败。"""
+
     def test_intact_bundle_passes_and_reports_declared_missing(self):
         with tempfile.TemporaryDirectory() as folder:
             out = _build_bundle(Path(folder))
