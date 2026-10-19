@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import animatic_service
 import asset_batch_service
+import asset_contract
 import asset_plan
 import cloud_assets
 import confirm_gates
@@ -46,6 +47,29 @@ def _skill_text():
 
 
 class ReqS05AnchorTests(unittest.TestCase):
+    # --- 场景默认值与项目锁 ----------------------------------------------
+    def test_req_s05_03_scene_resolution_uses_project_lock_then_default(self):
+        """REQ-S05-03：场景画幅与分辨率默认 16:9／1920x1080，项目锁优先。"""
+        self.assertEqual(
+            asset_contract.defaults('scene', {'resolution': '1280x720'})['resolution'],
+            '1280x720', '锁里有 resolution 时用锁值')
+        self.assertEqual(
+            asset_contract.defaults('scene', {})['resolution'],
+            '1920x1080', '无锁时用默认分辨率')
+        self.assertEqual(
+            asset_contract.defaults('scene')['resolution'],
+            '1920x1080', '不传锁时用默认分辨率')
+        # 画幅锁优先也一并断言
+        self.assertEqual(
+            asset_contract.defaults('scene', {'aspect_ratio': '9:16'}, '1:1')['aspect_ratio'],
+            '9:16', '画幅项目锁优先')
+        self.assertEqual(
+            asset_contract.defaults('scene', {}, '1:1')['aspect_ratio'],
+            '1:1', '无锁时用已存偏好')
+        self.assertEqual(
+            asset_contract.defaults('scene')['aspect_ratio'],
+            '16:9', '默认画幅')
+
     # --- 清单来源与同步 ---------------------------------------------------
     def test_req_s05_01_only_adopted_storyboards_export_assets(self):
         """REQ-S05-01：清单只由「已采用」分镜导出；没有采用分镜时不凭默认目录建清单。"""

@@ -46,6 +46,12 @@ def resolve_aspect_ratio(workflow_lock=None, saved_preference=None, default='16:
     return str(lock.get('aspect_ratio') or saved_preference or default)
 
 
+def resolve_resolution(workflow_lock=None, default='1920x1080'):
+    """统一分辨率优先级（项目锁 > 默认）；纯契约函数，不读取项目文件也不改变校验语义。"""
+    lock = workflow_lock if isinstance(workflow_lock, dict) else {}
+    return str(lock.get('resolution') or default)
+
+
 def legacy_asset_paths(project):
     """Read-only locations used by pre-stage-layout project archives."""
     root = Path(project)
@@ -68,7 +74,8 @@ def defaults(kind, workflow_lock=None, saved_preference=None):
     if kind == 'scene':
         return {'scene_id': '', 'reference_image': '',
                 'aspect_ratio': resolve_aspect_ratio(workflow_lock, saved_preference, '16:9'),
-                'resolution': '1920x1080', 'spatial_anchors': [], 'lighting_direction': '',
+                'resolution': resolve_resolution(workflow_lock, '1920x1080'),
+                'spatial_anchors': [], 'lighting_direction': '',
                 'scale_reference': ''}
     if kind == 'prop':
         return {'prop_id': '', 'reference_image': '', 'scale': '', 'material': '', 'holder': ''}
