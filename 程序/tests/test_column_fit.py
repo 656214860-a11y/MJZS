@@ -185,6 +185,53 @@ class ColumnFitTests(unittest.TestCase):
         self.addCleanup(ttk.Style(self.tree).configure, 'Treeview', font=('Microsoft YaHei UI', 10))
         self.assertIsNot(self.ui.cached_fonts(self.tree)[0], body)
 
+    def _narrow_view_tree(self, columns=('a', 'b')):
+        """把一张列宽超过可视宽度的真表放进窄容器里，供请求宽度刷新用例量几何。"""
+        from tkinter import ttk
+        self.win.deiconify()
+        self.win.geometry('260x140+40+40')
+        frame = ttk.Frame(self.win, width=220, height=120)
+        frame.pack_propagate(False)
+        frame.pack()
+        self.addCleanup(lambda: frame.winfo_exists() and frame.destroy())
+        tree = ttk.Treeview(frame, columns=columns, show='tree headings')
+        for column in tree['columns']:
+            tree.heading(column, text='列' + column)
+            tree.column(column, width=180, minwidth=180)
+        tree.pack(fill='both', expand=True)
+        self.win.update()
+        return tree
+
+    def test_request_width_is_refreshed_when_columns_exceed_the_view(self):
+        """列宽超过可视宽度时，<Configure> 会按当前宽度重设一次 displaycolumns（下游三页共用）。"""
+        tree = self._narrow_view_tree(('a', 'b', 'c'))
+        self.assertGreater(tree.winfo_reqwidth(), tree.winfo_width(),
+                           '测试前提：请求宽度大于实际宽度')
+        self.ui.refresh_request_width(tree)
+        with mock.patch.object(tree, 'configure', wraps=tree.configure) as spy:
+            tree.event_generate('<Configure>')
+            self.win.update_idletasks()
+        refreshes = [call for call in spy.call_args_list if 'displaycolumns' in call.kwargs]
+        self.assertEqual(len(refreshes), 1, '请求宽度过大时按当前宽度刷新一次')
+        self.assertEqual(refreshes[0].kwargs['displaycolumns'], tree['columns'])
+        self.assertEqual(getattr(tree, '_request_refresh_width', None), tree.winfo_width())
+
+    def test_a_pending_callback_is_cancelled_when_the_tree_is_destroyed(self):
+        """控件销毁时取消还挂着的 after_idle；销毁后重跑事件循环不报错。"""
+        tree = self._narrow_view_tree()
+        self.ui.refresh_request_width(tree)
+        tree.event_generate('<Configure>')
+        self.assertTrue(getattr(tree, '_request_refresh_pending', False),
+                        '测试前提：有一个挂起的重排回调')
+        pending = tree._request_refresh_after_id
+        self.assertIsNotNone(pending)
+        with mock.patch.object(tree, 'after_cancel', wraps=tree.after_cancel) as cancel:
+            tree.destroy()
+        cancel.assert_called_once_with(pending)
+        self.assertFalse(tree._request_refresh_pending)
+        self.assertIsNone(tree._request_refresh_after_id)
+        self.win.update_idletasks(); self.win.update()   # 销毁后跑一遍事件循环不报错
+
 
 if __name__ == "__main__":
     unittest.main()

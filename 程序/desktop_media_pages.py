@@ -18,7 +18,7 @@ from local_video import skip_summary
 from pathlib import Path
 from platform_tools import launch_windows_app, open_target, tcp_listener
 from project_naming import dated_path
-from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, remember_columns
+from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, refresh_request_width, remember_columns
 from storyboard_paths import media_root
 from tkinter import simpledialog, ttk
 from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
@@ -36,50 +36,6 @@ def _configure_table_style(tree):
     current.configure(style + '.Heading', font=TABLE_HEADER_FONT,
                       foreground=COLORS['text_primary'])
     fit_row_height(tree, 0, style=style)
-
-
-def _refresh_request_width(tree):
-    """窄窗时让 Treeview 按当前列宽重算请求宽度，避免旧宽度把内容区顶出窗口。"""
-    def refresh():
-        width = tree.winfo_width()
-        if width <= 1 or tree.winfo_reqwidth() <= width:
-            return
-        if getattr(tree, '_request_refresh_width', None) == width:
-            return
-        tree._request_refresh_width = width
-        tree.configure(displaycolumns=tree['columns'])
-    def run():
-        tree._request_refresh_pending = False
-        tree._request_refresh_after_id = None
-        try:
-            if tree.winfo_exists():
-                refresh()
-        except tk.TclError:
-            pass
-    def on_configure(event=None):
-        if event is not None and getattr(event, 'widget', None) is not tree:
-            return
-        if getattr(tree, '_request_refresh_pending', False):
-            return
-        tree._request_refresh_pending = True
-        try:
-            tree._request_refresh_after_id = tree.after_idle(run)
-        except tk.TclError:
-            tree._request_refresh_pending = False
-    def on_destroy(event=None):
-        if event is not None and getattr(event, 'widget', None) is not tree:
-            return
-        job = getattr(tree, '_request_refresh_after_id', None)
-        if job:
-            try:
-                tree.after_cancel(job)
-            except tk.TclError:
-                pass
-        tree._request_refresh_after_id = None
-        tree._request_refresh_pending = False
-    tree.bind('<Configure>', on_configure, add='+')
-    tree.bind('<Destroy>', on_destroy, add='+')
-    return tree
 
 
 class MediaPagesMixin:
@@ -298,7 +254,7 @@ class MediaPagesMixin:
                 tree.column(key,width=MIN_COL,minwidth=MIN_COL,stretch=key==last)
             remember_columns(tree,[(key,width) for key,label,width in columns])
             auto_columns(tree)
-            _refresh_request_width(tree)
+            refresh_request_width(tree)
             for row in rows:tree.insert('','end',values=row)
             table.pack(fill='both',expand=True)
             if detail:

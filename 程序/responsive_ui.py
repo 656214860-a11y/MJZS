@@ -375,6 +375,55 @@ def fit_current_columns(tree,minwidth=MIN_COL):
     return widths
 
 
+def refresh_request_width(tree):
+    """窄窗时让 Treeview 按当前列宽重算请求宽度，避免旧宽度把内容区顶出窗口。
+
+    列宽被 ``fit_current_columns`` 收小后 Tk 仍把旧的请求宽度钉住，内容区会被顶出窗口；
+    这里在 ``<Configure>`` 时重设一次 ``displaycolumns``，让 Tk 重算请求宽度。重设去抖到
+    ``after_idle``，同一时刻只挂一个；控件销毁时取消还挂着的回调。
+    """
+    def refresh():
+        width = tree.winfo_width()
+        if width <= 1 or tree.winfo_reqwidth() <= width:
+            return
+        if getattr(tree, '_request_refresh_width', None) == width:
+            return
+        tree._request_refresh_width = width
+        tree.configure(displaycolumns=tree['columns'])
+    def run():
+        tree._request_refresh_pending = False
+        tree._request_refresh_after_id = None
+        try:
+            if tree.winfo_exists():
+                refresh()
+        except tk.TclError:
+            pass
+    def on_configure(event=None):
+        if event is not None and getattr(event, 'widget', None) is not tree:
+            return
+        if getattr(tree, '_request_refresh_pending', False):
+            return
+        tree._request_refresh_pending = True
+        try:
+            tree._request_refresh_after_id = tree.after_idle(run)
+        except tk.TclError:
+            tree._request_refresh_pending = False
+    def on_destroy(event=None):
+        if event is not None and getattr(event, 'widget', None) is not tree:
+            return
+        job = getattr(tree, '_request_refresh_after_id', None)
+        if job:
+            try:
+                tree.after_cancel(job)
+            except tk.TclError:
+                pass
+        tree._request_refresh_after_id = None
+        tree._request_refresh_pending = False
+    tree.bind('<Configure>', on_configure, add='+')
+    tree.bind('<Destroy>', on_destroy, add='+')
+    return tree
+
+
 def _bind_debounced_configure(tree, bound_attr, pending_attr, run):
     """仅在内容框实际变宽时，于 idle 阶段执行一次列重排。"""
     if getattr(tree, bound_attr, False):
