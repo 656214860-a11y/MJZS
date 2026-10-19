@@ -34,6 +34,7 @@ Round 1（2026-09-23）：缩略图不再在界面线程里整张解 PNG（95 �
 import app_logging
 import atexit
 import hashlib
+import logging
 import os
 import struct
 import subprocess
@@ -477,18 +478,44 @@ def forget():
     _PENDING_CURSOR = 0
 
 
-def reset_worker():
-    """收掉后台进程（自检换缓存目录时用）：下一次登记任务会按新目录重起一个。"""
+def reset_worker(timeout=2.0):
+    """收掉后台进程（自检换缓存目录时用）：下一次登记任务会按新目录重起一个。
+
+    terminate 等不到退出就升级到 kill；两者都收不掉时返回 False 并写一条 warning 日志，
+    不再像从前那样把 TimeoutExpired 吞掉、让调用方以为进程已经走了。返回 True 表示
+    句柄已回收（没有进程，或进程确认退出）。
+    """
     global _WORKER, _WORKER_AT, _WORKER_BAD
-    if _WORKER is not None:
+    worker = _WORKER
+    reaped = True
+    if worker is not None and callable(getattr(worker, 'wait', None)):
         try:
-            _WORKER.terminate()
-            _WORKER.wait(timeout=2)      # 回收掉，别留一个「还在跑」的句柄（自检会报 ResourceWarning）
+            worker.terminate()
         except Exception:
             app_logging.swallowed()
+        try:
+            worker.wait(timeout=timeout)   # 回收掉，别留一个「还在跑」的句柄（自检会报 ResourceWarning）
+        except subprocess.TimeoutExpired:
+            reaped = False
+            try:
+                worker.kill()
+                worker.wait(timeout=timeout)
+                reaped = True
+            except subprocess.TimeoutExpired:
+                pass
+            except Exception:
+                app_logging.swallowed()
+        except Exception:
+            reaped = False
+            app_logging.swallowed()
+        if not reaped:
+            logging.getLogger(__name__).warning(
+                '后台缩略图进程未能在 %.1f 秒内退出：已尝试 terminate/kill，它可能仍占用缓存文件',
+                timeout)
     _WORKER = None
     _WORKER_AT = 0.0
     _WORKER_BAD = False
+    return reaped
 
 
 def _worker_environment():

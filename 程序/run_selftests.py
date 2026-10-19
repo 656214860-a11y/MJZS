@@ -70,7 +70,11 @@ SKIP_REPORT_LIMIT = 40  # 实际跳过清单最多打印这么多条；总数始
 CACHE_NAME = 'selftest-incremental.json'
 FULL_SAFE_LOCK_NAME = 'full-safe-selftest.lock'
 GUI_LOCK_NAME = 'gui-selftest.lock'
+GUI_QUEUE_NAME = 'gui-selftest.queue'
+GUI_QUEUE_SUFFIX = '.ticket'
 GUI_WAIT_SECONDS = 900
+GUI_WAIT_NOTICE_SECONDS = 30.0
+GUI_LOCK_POLL_SECONDS = 0.1
 _GUI_LOCK_DEPTH = {}
 _FULL_LOCK_DEPTH = {}
 LAYER_BASELINE_NAME = os.path.join('维护记录', '测试分层基线.json')
@@ -294,20 +298,129 @@ def release_pid_lock(path):
         pass
 
 
+def _gui_queue_dir(common_dir):
+    queue = os.path.join(common_dir, GUI_QUEUE_NAME)
+    os.makedirs(queue, exist_ok=True)
+    return queue
+
+
+def _gui_queue_tickets(queue):
+    try:
+        return sorted(name for name in os.listdir(queue) if name.endswith(GUI_QUEUE_SUFFIX))
+    except OSError:
+        return []
+
+
+def _drop_dead_gui_tickets(queue):
+    """等待者进程已经没了，它留下的号不能永久占住队首。"""
+    for name in _gui_queue_tickets(queue):
+        path = os.path.join(queue, name)
+        holder = lock_holder(path)
+        pid = holder.get('pid')
+        if pid not in (None, os.getpid()) and not _pid_is_alive(pid):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+
+def _join_gui_queue(queue):
+    """按到达顺序取号：文件名前缀是纳秒时间，天然按先来后到排序。"""
+    descriptor, path = tempfile.mkstemp(
+        prefix='%020d-%d-' % (time.time_ns(), os.getpid()), suffix=GUI_QUEUE_SUFFIX, dir=queue)
+    try:
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as handle:
+            json.dump({'pid': os.getpid(), 'started_at': time.time()}, handle, ensure_ascii=False)
+    except Exception:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise
+    return path
+
+
+def _leave_gui_queue(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
+def _gui_queue_position(queue, ticket):
+    _drop_dead_gui_tickets(queue)
+    tickets = _gui_queue_tickets(queue)
+    for index, name in enumerate(tickets):
+        if os.path.join(queue, name) == ticket:
+            return index + 1
+    return len(tickets) + 1
+
+
+def _gui_queue_is_first(queue, ticket):
+    _drop_dead_gui_tickets(queue)
+    tickets = _gui_queue_tickets(queue)
+    return bool(tickets) and os.path.join(queue, tickets[0]) == ticket
+
+
+def _gui_wait_report(common, waited, queue, ticket):
+    """每 30 秒左右告诉等待者：谁占着、占了多久、自己等了多久。"""
+    holder = lock_holder(os.path.join(common, GUI_LOCK_NAME))
+    pid = holder.get('pid', '?')
+    try:
+        started_at = float(holder.get('started_at'))
+    except (TypeError, ValueError):
+        started_at = None
+    if started_at is None:
+        started_text, held_text = '未知', '未知'
+    else:
+        started_text = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(started_at))
+        held_text = '%.0f 秒' % max(0.0, time.time() - started_at)
+    print('[GUI_WAIT] 等待跨树 GUI 令牌：占用者 PID %s，自 %s 起（已占 %s），'
+          '本进程已等 %.0f 秒（队列第 %d 位）' %
+          (pid, started_text, held_text, waited, _gui_queue_position(queue, ticket)), flush=True)
+
+
 def acquire_gui_lock(common_dir=None, wait=GUI_WAIT_SECONDS):
     if wait < 0:
         raise ValueError('--gui-wait 必须非负')
+    common = common_dir or git_common_dir()
+    if not common:
+        raise RuntimeError('无法定位 Git common-dir，拒绝无令牌执行')
+    try:
+        path = acquire_pid_lock(GUI_LOCK_NAME, common, reentrant=True)
+        _GUI_LOCK_DEPTH[path] = _GUI_LOCK_DEPTH.get(path, 0) + 1
+        return path
+    except RuntimeError as exc:
+        holder_error = exc
     deadline = time.monotonic() + wait
-    while True:
-        try:
-            path = acquire_pid_lock(GUI_LOCK_NAME, common_dir, reentrant=True)
-            _GUI_LOCK_DEPTH[path] = _GUI_LOCK_DEPTH.get(path, 0) + 1
-            return path
-        except RuntimeError as exc:
-            if time.monotonic() >= deadline:
-                print('[GUI_DEFERRED] GUI 令牌等待超时：%s' % exc)
+    if time.monotonic() >= deadline:
+        print('[GUI_DEFERRED] GUI 令牌等待超时：%s' % holder_error)
+        return None
+    queue = _gui_queue_dir(common)
+    ticket = _join_gui_queue(queue)
+    entered = time.monotonic()
+    last_report = None
+    try:
+        while True:
+            # 只有队首可以尝试拿锁：后到的不许每 0.1 秒插一次队。
+            if _gui_queue_is_first(queue, ticket):
+                try:
+                    path = acquire_pid_lock(GUI_LOCK_NAME, common, reentrant=True)
+                    _GUI_LOCK_DEPTH[path] = _GUI_LOCK_DEPTH.get(path, 0) + 1
+                    return path
+                except RuntimeError as exc:
+                    holder_error = exc
+            waited = time.monotonic() - entered
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                print('[GUI_DEFERRED] GUI 令牌等待超时：%s' % holder_error)
                 return None
-            time.sleep(min(0.1, max(0, deadline - time.monotonic())))
+            if last_report is None or waited - last_report >= GUI_WAIT_NOTICE_SECONDS:
+                _gui_wait_report(common, waited, queue, ticket)
+                last_report = waited
+            time.sleep(min(GUI_LOCK_POLL_SECONDS, remaining))
+    finally:
+        _leave_gui_queue(ticket)
 
 
 def release_gui_lock(path):
@@ -1294,15 +1407,6 @@ def main(argv=None):
     if not serial and not jobs:
         jobs = max(2, min(JOBS_CAP, (os.cpu_count() or 4)))
     try:
-        selected_gui = [name for name in names if gui_test_module(name)]
-        if selected_gui:
-            print('申请跨树 GUI 令牌（最多等待 %.1f 秒）' % gui_wait, flush=True)
-            gui_lock = acquire_gui_lock(wait=gui_wait)
-            if gui_lock:
-                atexit.register(release_gui_lock, gui_lock)
-            else:
-                deferred = selected_gui
-                names = [name for name in names if name not in deferred]
         protect_tk()
         fails = import_all()
         if fails:
@@ -1333,23 +1437,51 @@ def main(argv=None):
         # 字体量宽」是全机共享的资源，被别的用例抢慢好几倍时，会把自己的抖动判成性能退化
         # （第 72 期实测：并行时资产页打开 3.9～6.8 s，单独跑 0.3～0.5 s）。挑出来等池子空了自己跑。
         todo, perf = split_performance_units(todo)
+        non_gui, gui = split_safe_units(todo)
+        perf_non_gui, perf_gui = split_safe_units(perf)
         print('跑 %d 个测试文件 / %d 路工作单元（%s）' % (len(todo_names), len(todo),
                                                       '串行' if serial else '%d 路并行' % jobs))
         if perf:
             print('另有 %d 个工作单元是性能用例，排在并行池之后单独串行跑' % len(perf))
+        gui_jobs = safe_gui_jobs(jobs, gui_override) if safe else jobs
         started = time.time()
-        if safe:
-            non_gui, gui = split_safe_units(todo)
-            gui_jobs = safe_gui_jobs(jobs, gui_override)
-            if non_gui or gui:
-                print('安全分池：%d 路无 Tk 并行（%d workers），%d 路 Tk 受控并行（%d workers）' %
-                      (len(non_gui), jobs, len(gui), gui_jobs))
-            got = run_units(non_gui, jobs) if non_gui else []
-            got += run_units(prioritize_gui_units(gui), gui_jobs) if gui else []
-            got += run_safe_serial(perf)
+        if safe and (non_gui or gui):
+            print('安全分池：%d 路无 Tk 并行（%d workers），%d 路 Tk 受控并行（%d workers）' %
+                  (len(non_gui), jobs, len(gui), gui_jobs))
+        # 非 GUI 用例先跑完，再申请令牌：GUI 令牌只在真正执行 Tk 用例期间持有。
+        if non_gui:
+            got = run_serial(non_gui) if serial else run_units(non_gui, jobs)
         else:
-            got = run_serial(todo) if serial else run_units(todo, jobs)
-            got += run_serial(perf)
+            got = []
+        if gui or perf_gui:
+            print('申请跨树 GUI 令牌（最多等待 %.1f 秒）' % gui_wait, flush=True)
+            gui_lock = acquire_gui_lock(wait=gui_wait)
+            if gui_lock:
+                atexit.register(release_gui_lock, gui_lock)
+            else:
+                deferred = []
+                for unit in gui + perf_gui:
+                    if unit[1] not in deferred:
+                        deferred.append(unit[1])
+                gui, perf_gui = [], []
+            try:
+                if gui:
+                    if safe:
+                        got += run_units(prioritize_gui_units(gui), gui_jobs)
+                    elif serial:
+                        got += run_serial(gui)
+                    else:
+                        got += run_units(gui, jobs)
+                if perf_gui:
+                    got += run_safe_serial(perf_gui) if safe else run_serial(perf_gui)
+            finally:
+                # 跑完 GUI 用例立刻还牌，不等汇总、台账或进程退出。
+                if gui_lock:
+                    atexit.unregister(release_gui_lock)
+                    release_gui_lock(gui_lock)
+                    gui_lock = None
+        if perf_non_gui:
+            got += run_safe_serial(perf_non_gui) if safe else run_serial(perf_non_gui)
         elapsed = time.time() - started
         total = sum(item[2] for item in got)
         reds = [(item[1], item[3], item[4]) for item in got if item[3]]
@@ -1375,6 +1507,8 @@ def main(argv=None):
             print('[SUSPECT_CONCURRENCY] 红项发生时有其他 PID 持有 GUI 令牌；建议串行复跑。')
         if deferred:
             print('[GUI_DEFERRED] 未执行、不计通过：' + ' '.join(deferred))
+            print('GUI 测试 %d 个未运行（等待令牌超时，未执行、未计入通过）：%s' %
+                  (len(deferred), ' '.join(deferred)))
         if full_safe and not no_receipt and not measurement_unchanged(start_head, tree):
             print('验收无效：测量期间 HEAD 或工作树变化，不写入绿凭据。')
             raise SystemExit(2)

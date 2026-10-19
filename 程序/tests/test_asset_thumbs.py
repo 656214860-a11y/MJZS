@@ -17,7 +17,7 @@ from skip_reasons import (
     PLATFORM_WORKING_SET,
     REQUIRES_BUNDLED_SKILL,
 )
-import os, struct, sys, tempfile, time, unittest, zlib
+import os, struct, subprocess, sys, tempfile, time, unittest, zlib
 from unittest import mock
 from pathlib import Path
 
@@ -114,6 +114,64 @@ class QueueLimitTests(unittest.TestCase):
         result = asset_thumbs.request(None, ('root', 'new'), Path('new.png'), 36, 1, 'new-token')
         self.assertIsNone(result)
         self.assertEqual(set(asset_thumbs._PENDING), {'already-queued'})
+
+
+class WorkerResetTests(unittest.TestCase):
+    """收后台进程时不许把「没收掉」吞掉：先 terminate，再 kill，实在收不掉要报出来。"""
+
+    def setUp(self):
+        self.original = (asset_thumbs._WORKER, asset_thumbs._WORKER_AT, asset_thumbs._WORKER_BAD)
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        asset_thumbs._WORKER, asset_thumbs._WORKER_AT, asset_thumbs._WORKER_BAD = self.original
+
+    def test_reset_worker_kills_and_reaps_a_worker_that_ignores_terminate(self):
+        class Stubborn:
+            def __init__(self):
+                self.killed = False
+                self.waits = 0
+
+            def terminate(self):
+                pass
+
+            def poll(self):
+                return None
+
+            def kill(self):
+                self.killed = True
+
+            def wait(self, timeout=None):
+                self.waits += 1
+                if self.waits == 1:
+                    raise subprocess.TimeoutExpired('worker', timeout)
+                return 0
+
+        worker = Stubborn()
+        asset_thumbs._WORKER = worker
+        self.assertTrue(asset_thumbs.reset_worker(), '收掉进程后必须返回成功')
+        self.assertTrue(worker.killed, 'terminate 等不到退出就要升级到 kill')
+        self.assertIsNone(asset_thumbs._WORKER)
+
+    def test_reset_worker_reports_when_the_process_cannot_be_reaped(self):
+        class Unreapable:
+            def terminate(self):
+                pass
+
+            def poll(self):
+                return None
+
+            def kill(self):
+                pass
+
+            def wait(self, timeout=None):
+                raise subprocess.TimeoutExpired('worker', timeout)
+
+        asset_thumbs._WORKER = Unreapable()
+        with self.assertLogs('asset_thumbs', level='WARNING') as logs:
+            self.assertFalse(asset_thumbs.reset_worker(), '收不掉必须让调用方知道')
+        self.assertTrue(any('未能在' in line for line in logs.output), logs.output)
+        self.assertIsNone(asset_thumbs._WORKER)
 
 
 class ThumbnailTests(unittest.TestCase):
