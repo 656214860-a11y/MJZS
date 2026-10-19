@@ -7,13 +7,13 @@ import pet_agent
 import pet_bus
 from pathlib import Path
 from tkinter import TclError
-from ui_tokens import PET_LAYOUT
+from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, CONTROL_HIT_MIN, PET_LAYOUT
 
 PROGRAM = Path(__file__).resolve().parent
 SIZE = PET_LAYOUT['avatar_size']  # 显示与命中区域共用的贴片边长
 IDLE_MS = 500                    # 闲置 2fps
 ACTIVE_MS = 125                  # 忙时 8fps
-CANVAS_BG = '#f3f6fa'
+CANVAS_BG = COLORS['background_primary']
 SANHU_FUR = '#ff8a3d'             # 与桌面图标一致的虎皮橙：三虎不再因为模式切换失去识别度
 SANHU_EAR = '#ff9292'             # 桌面图标同款暖粉耳窝
 SANHU_MUZZLE = '#fff2d9'          # 桌面图标同款奶白口鼻
@@ -24,6 +24,7 @@ SANHU_BLUSH = '#ff8d9b'           # Q 版头像的小腮红
 PAW_SIZE = PET_LAYOUT['paw_size']                  # 单个猫爪按钮的边长
 PAW_GAP = PET_LAYOUT['paw_gap']                    # 爪印之间的间距
 PAW_WIDTH = 3 * PAW_SIZE + 2 * PAW_GAP            # 一整排猫爪的宽度
+PAW_HIT_SIZE = CONTROL_HIT_MIN                     # 每只猫爪的键盘／鼠标命中区
 PAW_LEVELS = ('hint', 'semi', 'auto')             # 从左到右：正常／半自动／全自动
 SANHU_MODES = ('manual', 'auto')                  # 三虎控制面的两档：手动／全自动
 # 自动制作变量由三虎创建、持有和写入；页面只能通过 ``auto_variable`` 取得并读取。
@@ -69,7 +70,7 @@ LEVEL_SWITCH_NOTES = {
 CAPTION_RIGHT = PET_LAYOUT['caption_right']
 CAPTION_ROOM = PET_LAYOUT['caption_width']
 PATCH_X = -(CAPTION_RIGHT + CAPTION_ROOM + PET_LAYOUT['right_gap'])
-CAPTION_INK = '#000000'                           # 第 21 期：三档小字一律黑色（用户要的「全部用黑色」）
+CAPTION_INK = '#000000'                           # 第 21 期：三档小字一律黑色（既有用例与用户要求都钉死这一色）
 # PATCH_X 已含右侧状态字的占位；再向左让出头像／爪排宽度和标题间距即可。
 HEAD_PAD = -PATCH_X + max(SIZE, PAW_WIDTH) + PET_LAYOUT['header_gap']
 # 第 20 期：用户报「3 个猫爪型按钮被遮挡」——原来这排爪子的右沿只比贴片右沿往里 8 像素，
@@ -77,16 +78,17 @@ HEAD_PAD = -PATCH_X + max(SIZE, PAW_WIDTH) + PET_LAYOUT['header_gap']
 # 现在挪到贴片正下方：右沿与贴片对齐，纵向从贴片底边再往下 PAW_GAP_Y。
 PAW_ROW_X = PATCH_X + (PAW_WIDTH - SIZE) // 2       # 猫爪排与头像中心对齐
 PAW_Y = PET_LAYOUT['top'] + SIZE + PAW_GAP_Y        # 猫爪排落在贴片正下方
-PATCH_ROOM = PAW_Y + PAW_SIZE + PAW_ARC           # 贴片＋猫爪的总高度：标题行必须留够，否则猫脸被裁
+PATCH_ROOM = PAW_Y + max(PAW_SIZE + PAW_ARC, PAW_HIT_SIZE)  # 贴片＋猫爪命中区的总高度
 CAPTION_Y = PET_LAYOUT['top'] + max(0, (SIZE - PET_LAYOUT['caption_height']) // 2)
 # 第 44 期：设置入口做成齿轮，摆在窗口左上角标题（V0.7）旁边。用户要的是「醒目提示」——
-# 它不藏在右键菜单里：琥珀色齿身 ＋ 深墨描边，鼠标停上去再亮一档，旁边跟着一句「设置」。
-GEAR_SIZE = 22                                    # 齿轮按钮的边长
-GEAR_COLOR = ('#f0a03a', '#7a4a0c')               # 齿身／描边
-GEAR_HOVER = ('#ffc061', '#a8620f')               # 鼠标停上去时各亮一档
+# 它不藏在右键菜单里：主题蓝齿身 ＋ 深色描边，鼠标停上去再加深一档；旁边那句「设置」后来删了。
+GEAR_SIZE = 22                                    # 齿轮图形的边长
+GEAR_HIT_SIZE = CONTROL_HIT_MIN                    # 齿轮按钮的命中边长
+GEAR_COLOR = (COLORS['primary'], COLORS['primary_pressed'])          # 齿身／描边
+GEAR_HOVER = (COLORS['primary_hover'], COLORS['primary_pressed'])    # 鼠标停上去时加深
 # 第 45 期：原先齿轮旁边还写着一句「设置」，230 像素宽的侧栏装不下（应用名 ＋ V0.7 ＋ 齿轮
 # 之后它排在最后，整句被裁掉——用户报的「齿轮旁边的文字被遮挡」）。用户要删掉，所以只留这颗
-# 琥珀色齿轮本身（够醒目）；这句话退成无障碍名字，不再画出来。
+# 主题蓝齿轮本身（与主操作同色）；这句话退成无障碍名字，不再画出来。
 GEAR_TIP = '设置'
 # 第 22 期重做形象：用户要的「配色冷酷、线条流畅、造型醒目」。
 # 三件事怎么分：造型与线条归 paint()（尖耳、钟形脸、上挑的细长眼、长胡须）；
@@ -271,7 +273,7 @@ def gear_parts(size=GEAR_SIZE, teeth=8):
 class GearButton:
     """左上角那颗齿轮（第 44 期）：点一下开「设置」。
 
-    用户要「醒目提示」，所以它不藏在菜单里——琥珀色齿身 ＋ 深墨描边，鼠标停上去再亮一档。
+    用户要「醒目提示」，所以它不藏在菜单里——主色齿身 ＋ 深色描边，鼠标停上去再加深一档。
     第 45 期起不再在旁边写字：那句「设置」在侧栏里会被裁掉，用户要的就是把它删掉（见 GEAR_TIP）。
     画布 pack 进宿主给的那一行（desktop.sidebar_head），与贴片同一套做法：
     只往既有容器里塞一个控件，不动原布局代码。
@@ -281,27 +283,47 @@ class GearButton:
         import tkinter as tk
         self.command = command
         self.tip_text = tip
-        self.canvas = tk.Canvas(master, width=size, height=size, bd=0, highlightthickness=0,
-                                bg=bg, cursor='hand2')
+        self.visual_size = int(size)
+        self.hit_size = max(self.visual_size, GEAR_HIT_SIZE)
+        self._offset = (self.hit_size - self.visual_size) // 2
+        self.canvas = tk.Canvas(master, width=self.hit_size, height=self.hit_size, bd=0,
+                                highlightthickness=0, bg=bg, cursor='hand2', takefocus=1)
         self._hover = False
+        self._focused = False
         self.canvas.bind('<Button-1>', self.click)
         self.canvas.bind('<Enter>', self.hover_on)
         self.canvas.bind('<Leave>', self.hover_off)
+        self.canvas.bind('<FocusIn>', self.focus_on)
+        self.canvas.bind('<FocusOut>', self.focus_off)
+        self.canvas.bind('<Return>', self.click)
+        self.canvas.bind('<Key-space>', self.click)
         self.draw()
         return None
 
     def draw(self):
-        """按当前状态重画一颗齿轮（悬停时换亮一档的颜色）。"""
-        shape = gear_parts(int(self.canvas.cget('width')))
+        """按当前状态重画齿轮与键盘焦点环；图形尺寸不变，画布只多出命中留白。"""
+        shape = gear_parts(self.visual_size)
+        offset = self._offset
+        points = tuple(value + offset for value in shape['teeth'])
         fill, outline = GEAR_HOVER if self._hover else GEAR_COLOR
         self.canvas.delete('gear')
-        self.canvas.create_polygon(*shape['teeth'], fill=fill, outline=outline, width=1.4,
+        self.canvas.delete('gear-focus')
+        if self._focused:
+            inset = BUTTON_BORDER_WIDTH
+            self.canvas.create_rectangle(
+                inset, inset, self.hit_size - inset, self.hit_size - inset,
+                outline=COLORS['focus'], width=BUTTON_BORDER_WIDTH * 2, tags=('gear-focus',))
+        self.canvas.create_polygon(*points, fill=fill, outline=outline, width=1.4,
                                    tags=('gear', 'gear-teeth'))
         centre_x, centre_y, radius = shape['body']
+        centre_x += offset
+        centre_y += offset
         self.canvas.create_oval(centre_x - radius, centre_y - radius, centre_x + radius,
                                 centre_y + radius, fill=fill, outline=outline, width=1.4,
                                 tags=('gear', 'gear-body'))
         hole_x, hole_y, hole = shape['hole']
+        hole_x += offset
+        hole_y += offset
         self.canvas.create_oval(hole_x - hole, hole_y - hole, hole_x + hole, hole_y + hole,
                                 fill=CANVAS_BG, outline=outline, width=1.2, tags=('gear', 'gear-hole'))
         return self.canvas.find_withtag('gear')
@@ -316,8 +338,22 @@ class GearButton:
         self.draw()
         return self._hover
 
+    def focus_on(self, event=None):
+        self._focused = True
+        self.draw()
+        return self._focused
+
+    def focus_off(self, event=None):
+        self._focused = False
+        self.draw()
+        return self._focused
+
     def click(self, event=None):
-        """点一下＝开设置；动作坏了只记账，绝不把异常抛回 Tk 的事件循环。"""
+        """点击、Enter 与空格都走同一个回调。"""
+        try:
+            self.canvas.focus_set()
+        except TclError:
+            pass
         if not callable(self.command):
             return None
         return self.command()

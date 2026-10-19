@@ -698,7 +698,16 @@ class Cloud(CloudTimingMixin, CloudHintMixin):
         """
         try:
             style = ttk.Style(self.win)
-            colour = style.lookup('TEntry', 'fieldbackground', '') or style.lookup('TEntry', 'background', '')
+            reply = getattr(self, 'reply', None)
+            style_name = str(reply.cget('style') or 'Tokens.LineInput.TEntry') if reply is not None else 'TEntry'
+            colour = (style.lookup(style_name, 'fieldbackground', '')
+                      or style.lookup(style_name, 'background', ''))
+            legacy = (style.lookup('TEntry', 'fieldbackground', '')
+                      or style.lookup('TEntry', 'background', ''))
+            # 回复框自己的样式优先；仍保留旧基样式被显式覆盖时的兼容口径。
+            if (style_name != 'TEntry' and colour == COLORS['background_card']
+                    and legacy and legacy != colour):
+                colour = legacy
             if colour:
                 return str(colour)
         except Exception as exc:

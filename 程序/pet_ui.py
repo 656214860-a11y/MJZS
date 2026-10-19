@@ -375,6 +375,8 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin):
         self.gear = None                  # 第 44 期：窗口左上角那颗齿轮（设置入口）
         self._paws_key = None             # 上一次画的样子（档位 ＋ 悬停在哪只爪）：没变就不白画一遍
         self._paw_hover = None            # 鼠标这会儿停在第几只爪上（None＝没停）
+        self._paw_focus = None            # 键盘焦点落在第几只爪上（None＝没落）
+        self.paw_hits = []                # 三只猫爪各自的 32×32 外层承接区
         self._lifted_at = None            # 上一次把贴片抬到最上层的钟点
         self._progress_at = None          # 上一次冒进度圆气泡的钟点（三虎自己判断时机）
         self._progress_stage = None       # 上一次冒进度气泡时的阶段：换阶段就再说一次
