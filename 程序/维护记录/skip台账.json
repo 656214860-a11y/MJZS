@@ -650,6 +650,24 @@
       "reference": ""
     },
     {
+      "file": "tests/test_page_paint_metric.py",
+      "test": "PagePaintMetricTests._make_desktop",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_paint_metric.py",
+      "test": "PagePaintMetricTests._make_desktop",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
       "file": "tests/test_perf_baseline.py",
       "test": "PerfBaseline.desktop",
       "ordinal": 1,

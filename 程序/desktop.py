@@ -104,6 +104,21 @@ UNATTENDED_SWITCH={'auto_adopt':'set_auto_adopt','auto_asset':'set_auto_asset','
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
 from app_metadata import APP_NAME, VERSION
 from desktop_page_registry import CACHED_PAGES, PAGE, PAGES, PAGE_SITES
+
+# 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。
+_PAGE_PAINT_KEYS = {index: stage for stage, index in PAGE.items()}
+_PAGE_PAINT_KEYS[PAGE_SITES] = 'sites'
+
+def _page_paint_key(index):
+    return 'page.paint.' + _PAGE_PAINT_KEYS.get(index, str(index))
+
+def _page_paint_timed(func):
+    """在 ``page.show`` 之外补记「从 show() 到该页第一次画完」的按页耗时。"""
+    def wrapper(self, index, *args, **kwargs):
+        app_logging.begin_page_paint(self, _page_paint_key(index))
+        return func(self, index, *args, **kwargs)
+    return wrapper
+
 from desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
                         _PENDING_TK_GC, _KEEP_APPS)
 from desktop_automation_tick import AutomationTickMixin
@@ -1595,7 +1610,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         if index==PAGE['script_structure']:
             from script_workspace_service import script_structure_signature
             cache[index]['signature']=script_structure_signature(self.root)
+
     @app_logging.timed('page.show',800)
+    @_page_paint_timed
     def show(self,index,video_mode=None):
         pending=getattr(self,'_navigation_job',None)
         if pending is not None:

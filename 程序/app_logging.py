@@ -83,20 +83,80 @@ class timed(contextlib.ContextDecorator):
         return self
 
     def __exit__(self, *exc):
-        try:
-            elapsed = (time.perf_counter() - self._start) * 1000.0
-            with _swallow_lock:
-                row = _metrics.setdefault(self.name, {"count": 0, "total_ms": 0.0, "max_ms": 0.0, "slow": 0})
-                row["count"] += 1
-                row["total_ms"] += elapsed
-                row["max_ms"] = max(row["max_ms"], elapsed)
-                if elapsed >= self.warn_ms:
-                    row["slow"] += 1
-            if elapsed >= self.warn_ms:
-                logging.getLogger("perf").warning("慢操作 %s %.0fms（阈值 %.0fms）", self.name, elapsed, self.warn_ms)
-        except Exception:
-            pass
+        elapsed = (time.perf_counter() - self._start) * 1000.0
+        record_elapsed(self.name, elapsed, self.warn_ms)
         return False
+
+
+def record_elapsed(name: str, elapsed_ms: float, warn_ms: float = 1000.0) -> None:
+    """记录一条已知耗时，复用 ``timed`` 的累计与告警口径。
+
+    供「页面第一次画完」这类无法用 ``with``/装饰器包住的测量在事后补记；任何异常都
+    静默，不改变调用方行为。累计进 ``_metrics``，由 ``flush_metrics`` 统一落盘。
+    """
+    try:
+        with _swallow_lock:
+            row = _metrics.setdefault(name, {"count": 0, "total_ms": 0.0, "max_ms": 0.0, "slow": 0})
+            row["count"] += 1
+            row["total_ms"] += elapsed_ms
+            row["max_ms"] = max(row["max_ms"], elapsed_ms)
+            if elapsed_ms >= warn_ms:
+                row["slow"] += 1
+        if elapsed_ms >= warn_ms:
+            logging.getLogger("perf").warning("慢操作 %s %.0fms（阈值 %.0fms）", name, elapsed_ms, warn_ms)
+    except Exception:
+        pass
+
+
+# 「页面第一次画完」告警阈值（毫秒）。真实项目副本上 02 剧本结构约 2.3s、01 剧本准备约
+# 1.4s，都明显超出体感可接受的 1s；05 资产管理约 0.5s 不应告警。取 1000ms 作为
+# 「切页可感知卡顿」的分界线，既能抓住慢页，又不把正常翻页刷成告警。
+PAGE_PAINT_WARN_MS = 1000.0
+
+
+def begin_page_paint(desktop, name):
+    """启动「从 show() 到该页第一次画完」的按页计时；后一次 show 作废前一次未完成测量。
+
+    ``desktop`` 是持有 ``win``（Tk 根）与 ``_fit_pending``（是否有待跑布局）的桌面实例。
+    本模块不 import tkinter，靠鸭子类型调用；任何异常都静默，绝不影响页面显示。
+    """
+    try:
+        desktop._page_paint_gen = getattr(desktop, '_page_paint_gen', 0) + 1
+        gen = desktop._page_paint_gen
+        old = getattr(desktop, '_page_paint_job', None)
+        if old is not None:
+            try:
+                desktop.win.after_cancel(old)
+            except Exception:
+                swallowed()
+        _schedule_page_paint(desktop, gen, time.perf_counter(), name)
+    except Exception:
+        swallowed()
+
+
+def _schedule_page_paint(desktop, gen, started, name):
+    def finish():
+        if getattr(desktop, '_page_paint_gen', None) != gen:
+            return
+        desktop._page_paint_job = None
+        try:
+            if not desktop.win.winfo_exists():
+                return
+        except Exception:
+            return
+        # Tk 的重绘／布局是 idle 回调；fit_content 通过 after_idle 逐轮收敛布局。
+        # 仍有待跑布局就让到它后面，否则会量到「控件建完、布局未做」的中间时刻。
+        if getattr(desktop, '_fit_pending', False):
+            try:
+                desktop._page_paint_job = desktop.win.after_idle(finish)
+            except Exception:
+                desktop._page_paint_job = None
+            return
+        record_elapsed(name, (time.perf_counter() - started) * 1000.0, PAGE_PAINT_WARN_MS)
+    try:
+        desktop._page_paint_job = desktop.win.after_idle(finish)
+    except Exception:
+        desktop._page_paint_job = None
 
 
 def metrics_snapshot() -> dict:
