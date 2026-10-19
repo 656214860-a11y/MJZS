@@ -255,8 +255,8 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 序号  | ID                 | 阶段    | 核心产物                                             |
 | ---:| ------------------ | ----- | ------------------------------------------------ |
 | 01  | `script`           | 剧本准备  | 剧本/设定、`emotion_curve.json`、离线编剧任务书成果包。                    |
-| 02  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；新稿写入 `02剧本结构/结构剧本/`，同时派生写入 `02剧本结构/output/` 的角色／场景／道具三份 manifest 并核验（`script_contract.write_structure_manifests`／`structure_manifest_problems`）；具体读写目标由 `script_contract` 解析；需求与设计见 `docs/`。 |
-| 03  | `storyboard`       | 初步分镜  | 已采用的分镜 JSON（`03初步分镜/分镜拆分/`，文件名由模型产出；采用时由 `storyboard_selection.sync_draft_outputs` 同步写 `03初步分镜/output/storyboard_draft.json` 与派生的 `scene_breakdown.json`，完成与 SG-A 经 `draft_problems` 核验，见 docs/REQUIREMENTS.md REQ-S03-43/44）；需求与设计见 `docs/`。 |
+| 02  | `script_structure` | 剧本结构  | 原稿整理为结构剧本；新稿写入 `02剧本结构/结构剧本/`，同时派生写入 `02剧本结构/output/` 的角色／场景／道具三份 manifest 并核验（`script_contract.write_structure_manifests`／`structure_manifest_problems`）；具体读写目标由 `script_contract` 解析；需求与设计见 `docs/stages/`。 |
+| 03  | `storyboard`       | 初步分镜  | 已采用的分镜 JSON（`03初步分镜/分镜拆分/`，文件名由模型产出；采用时由 `storyboard_selection.sync_draft_outputs` 同步写 `03初步分镜/output/storyboard_draft.json` 与派生的 `scene_breakdown.json`，完成与 SG-A 经 `draft_problems` 核验，见 `docs/stages/S03_初步分镜.md` REQ-S03-43/44）；需求与设计见 `docs/stages/`。 |
 | 04  | `animatic`         | 分镜预演  | 参考图与分镜提示词生成的预演草图、Animatic、`animatic_manifest.json`。 |
 | 05  | `assets`           | 资产管理  | `assets.json`、正典板、锚点。                            |
 | 06  | `continuity`       | 连贯性清单 | `continuity_ledger.json`、`continuity_ledger.md`、`continuity_issues.json`，另发布共享锚点库与三元组字典。 |
@@ -265,7 +265,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 09  | `previs`           | 白模预演  | 可播放预演；镜头级记录 `预演记录.json` 存于白模成果目录（项目目录之外），通过校验的预演视频在项目内留副本 `09白模预演/assets/<镜头>/`，并登记汇总索引 `09白模预演/output/previs.json`（权威名；SKILL 里的 `previsManifest` 是它的逻辑别名）。工作区预览缺失时 SG-05 退回该索引判就绪。 |
 | 10  | `video`            | 视频生成  | 视频任务/片段；`output/` 下 `videos.json`／`video_manifest.json` 由 `Studio.publish_manifest` 写出；每项目上限 100 镜。 |
 | 11  | `audio`            | 配音与字幕 | 音轨、字幕；完成凭据为人工确认的 `成果确认/<hash>.json`；`output/` 下 `voice.json`／`subtitles.json`／`audio_manifest.json` 由 `stage_execution_service.refresh_audio_manifests` 在成果变化后写出，不作完成证据。 |
-| 12  | `edit`             | 后期剪辑  | 粗剪成片 `MASTER.mp4`（落 `13质检交付/导出成片/`）、`edit_manifest.json`／`edit_bundle.json`、EDL／FCPXML；需求与设计见 `docs/`。 |
+| 12  | `edit`             | 后期剪辑  | 粗剪成片 `MASTER.mp4`（落 `13质检交付/导出成片/`）、`edit_manifest.json`／`edit_bundle.json`、EDL／FCPXML；需求与设计见 `docs/stages/`。 |
 | 13  | `delivery`         | 质检与交付 | 已确认成片的成果确认清单（`成果确认/*.json`，含与成片绑定的 `qc` 质检结论）、`qc_report.json`／`delivery.json`／`delivery_manifest.json`／`delivery_report.md`、商用待填资料。 |
 
 三虎逐步发布 `stage.started/completed/failed/retrying/executing/paused` 等事件，记录检查点，支持恢复；手动模式仅在模板标记确认的步骤等待用户，全自动模式不等待但逐步播报。门禁为资产/锚点 → SG01 → 连贯性 → SG02 → 定稿 → SG03 → 首帧 → SG04 → 预演 → SG05 → 视频。
@@ -329,7 +329,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 | 阶段    | 输入                           | 输出                                                              | 格式                |
 | ----- | ---------------------------- | --------------------------------------------------------------- | ----------------- |
 | 剧本准备  | 创意、剧本阶段输入、接续                | 创意简报、台词润色、情绪曲线                                                  | Markdown、JSON     |
-| 剧本结构  | 权威服务解析的被采用自然剧本 | 结构剧本（角色/场景/道具/分场内容），位于 `02剧本结构/结构剧本/`，旧 writing/ 只读兼容；提取 SKILL 可另产出 manifest、世界观（manifest 是否必须产出待定，见 docs/REQUIREMENTS.md REQ-S02-23） | Markdown、JSON     |
+| 剧本结构  | 权威服务解析的被采用自然剧本 | 结构剧本（角色/场景/道具/分场内容），位于 `02剧本结构/结构剧本/`，旧 writing/ 只读兼容；提取 SKILL 可另产出 manifest、世界观（manifest 是否必须产出待定，见 `docs/stages/S02_剧本结构.md` REQ-S02-23） | Markdown、JSON     |
 | 初步分镜  | “初步分镜”栏已选的结构剧本                        | 分镜 JSON（经校验后采用）；场次拆分 `scene_breakdown.json` 由已采用分镜派生并核验（REQ-S03-44）                                                     | JSON              |
 | 分镜预演  | 分镜初稿、共享参考图、临时声音 | 预演草图、Animatic、`animatic_manifest.json` | 视频、JSON |
 | 资产管理  | 分镜、资产需求、参考图                  | 资产表、正典板、锚点                                                      | JSON、图片           |
@@ -468,7 +468,7 @@ R1305：`writing_quality`（L2）解析自然剧本附带的四项辅助质检�
 - 启动预算：`test_startup_budget.py`。
 - 历史兼容门面：`test_legacy_facade_manifest.py`。
 - 轮次与基线／测试卫生：`test_round_baselines.py`、`test_skip_hygiene.py`、`test_silent_exception_ratchet.py`、`test_module_size_ratchet.py`、`test_todo_comment_snapshot.py`、`test_static_hygiene.py`、`test_function_size_ratchet.py`、`test_print_ratchet.py`、`test_stable_registration.py`。
-- 文档先行锚定：`test_requirement_traceability.py`（REQUIREMENTS 里 ✅ 须有测试锚定，历史欠账见 `维护记录/需求锚定基线.json`，只许减少）。
+- 文档先行锚定：`test_requirement_traceability.py`（`docs/stages/` 里 ✅ 须有测试锚定，历史欠账见 `维护记录/需求锚定基线.json`，只许减少）。
 - 覆盖率审计棘轮：`test_coverage_audit_ratchet.py`、`test_secret_sink_audit.py`、`test_coverage_baseline.py`。
   行覆盖度量为定向测量：工具 `scripts/coverage_report.py`（`sys.settrace`，零第三方依赖），基线 `维护记录/覆盖率基线.json`；只记基线＋核心路径下限，不重跑测量，口径与诚实边界见 `tasks_round/tasks_round_1616_result.md`。
   密钥静态审计仅覆盖有限函数内传播，支持范围与漏检／误报边界见 `tasks_round/tasks_round_1054_result.md` D–F，不将零命中解释为全路径安全。

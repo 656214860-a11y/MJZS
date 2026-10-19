@@ -1,5 +1,5 @@
 {
-  "说明": "REQUIREMENTS.md 中标 ✅ 但尚无测试锚定的需求（只许减少，见 tests/architecture/test_requirement_traceability.py）",
+  "说明": "docs/stages/*.md 中标 ✅ 但尚无测试锚定的需求（只许减少，见 tests/architecture/test_requirement_traceability.py）",
   "untested_done": [
     "REQ-S03-03",
     "REQ-S03-04",

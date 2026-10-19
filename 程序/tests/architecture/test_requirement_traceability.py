@@ -1,12 +1,14 @@
 """文档先行的需求锚定棘轮（AGENTS §2.7 第 4 条）。
 
-REQUIREMENTS.md 里标 ✅ 的需求必须有测试锚定（测试名 ``test_req_s10_03_*`` 或 docstring/注释写
-``REQ-S10-03``，支持 ``REQ-S10-01/02/03`` 斜杠简写）。历史上补写文档时已有一批 ✅ 没有锚点，
+需求按阶段拆在 ``docs/stages/Sxx_*.md``（每个文件 ``## 需求`` 节里的 ``- **REQ-Sxx-nn** 状态`` 行）。
+标 ✅ 的需求必须有测试锚定（测试名 ``test_req_s10_03_*`` 或 docstring/注释写 ``REQ-S10-03``，
+支持 ``REQ-S10-01/02/03`` 斜杠简写）。历史上补写文档时已有一批 ✅ 没有锚点，
 登记在 ``维护记录/需求锚定基线.json``：
 
 - 新增的 ✅ 需求没有测试锚定即失败（补测试，或降为 🟡）；
 - 基线里的编号一旦有了锚点、或不再是 ✅，必须从基线删除（只许减少）；
-- 测试里引用了 REQUIREMENTS.md 不存在的编号即失败（编号删除后不复用）。
+- 测试里引用了阶段文件里不存在的编号即失败（编号删除后不复用）；
+- 每条需求的定义行只许写在它所属阶段的 ``Sxx_*.md`` 里（正文里的跨阶段引用不受限）。
 """
 import ast
 import json
@@ -21,16 +23,30 @@ if str(_SCRIPT_ROOT) not in sys.path:
 
 from tests.architecture._scan import ROOT
 
-REQUIREMENTS = ROOT / 'docs' / 'REQUIREMENTS.md'
+STAGE_DIR = ROOT / 'docs' / 'stages'
 BASELINE = ROOT / '维护记录' / '需求锚定基线.json'
 ROW = re.compile(r'^- \*\*(REQ-S\d+-\d+)\*\*\s*(\S+)', re.M)
 DOC_ANCHOR = re.compile(r'(?i)req-s(\d+)-(\d+(?:/\d+)*)')
 NAME_ANCHOR = re.compile(r'(?i)req_s(\d+)_(\d+)')
 
 
+def stage_files():
+    """按阶段顺序返回 ``docs/stages`` 下的阶段文件。"""
+    files = sorted(STAGE_DIR.glob('S*.md'))
+    if not files:
+        raise AssertionError('docs/stages 下找不到阶段文件')
+    return files
+
+
+def requirement_rows():
+    """逐文件产出 ``(阶段文件, 编号, 状态)``，用于定位需求写在哪个阶段文件。"""
+    for path in stage_files():
+        for matched in ROW.finditer(path.read_text(encoding='utf-8')):
+            yield path, matched.group(1), matched.group(2)
+
+
 def requirement_status():
-    text = REQUIREMENTS.read_text(encoding='utf-8')
-    return {m.group(1): m.group(2) for m in ROW.finditer(text)}
+    return {rid: mark for _, rid, mark in requirement_rows()}
 
 
 def anchored_requirements():
@@ -121,13 +137,19 @@ def untested_done_requirements():
 
 class RequirementTraceabilityTests(unittest.TestCase):
     def test_requirement_ids_are_unique(self):
-        ids = ROW.findall(REQUIREMENTS.read_text(encoding='utf-8'))
-        seen = [rid for rid, _ in ids]
-        self.assertEqual(len(seen), len(set(seen)), '需求编号重复；删除的编号不得复用')
+        ids = [rid for _, rid, _ in requirement_rows()]
+        self.assertEqual(len(ids), len(set(ids)), '需求编号重复；删除的编号不得复用')
+
+    def test_requirements_stay_in_their_stage_file(self):
+        for path, rid, _ in requirement_rows():
+            stage = path.name.split('_', 1)[0]
+            self.assertTrue(
+                rid.startswith('REQ-%s-' % stage),
+                '%s 写在了 %s，应写在 %s 的阶段文件里' % (rid, path.name, stage))
 
     def test_tests_do_not_reference_unknown_requirements(self):
         unknown = sorted(anchored_requirements() - set(requirement_status()))
-        self.assertEqual(unknown, [], '测试引用了 REQUIREMENTS.md 不存在的编号')
+        self.assertEqual(unknown, [], '测试引用了阶段文件里不存在的编号')
 
     def test_new_done_requirement_needs_a_test_anchor(self):
         baseline = set(json.loads(BASELINE.read_text(encoding='utf-8'))['untested_done'])
