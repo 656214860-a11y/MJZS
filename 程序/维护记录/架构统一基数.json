@@ -1077,7 +1077,7 @@
             },
             {
                 "file": "smoke_test.py",
-                "point": "114",
+                "point": "115",
                 "disposition": "exempt",
                 "reason": "\u6d4b\u8bd5\u57fa\u5efa"
             },

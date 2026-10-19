@@ -19,6 +19,7 @@
 （实测全量约 318 秒，原来写 300 秒会误报超时）；输出落临时文件、不走管道，超时也不会卡住
 （走上管道时，进程池里那些子进程会攥着管道不放，`communicate()` 一直等 EOF，实测挂 15 分钟不返回）。
 """
+import ast
 import importlib
 import json
 import os
@@ -470,20 +471,64 @@ _AFFECTED_TEST_ALIASES = {
 }
 
 
+def _test_module_name(path, tests_dir):
+    """将 tests/ 下的文件路径还原为 run_selftests 使用的模块名。"""
+    return '.'.join(path.relative_to(tests_dir).with_suffix('').parts)
+
+
+def _direct_imports(path):
+    """读取一个测试文件的顶层导入名；坏文件交给真正的门禁报告，不在这里中断。"""
+    try:
+        tree = ast.parse(path.read_text(encoding='utf-8'))
+    except (OSError, SyntaxError, UnicodeError):
+        return frozenset()
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.update(alias.name.split('.', 1)[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and not node.level and node.module:
+            names.add(node.module.split('.', 1)[0])
+    return frozenset(names)
+
+
+def _affected_test_plan(affected):
+    """在 --affected 实际被调用时，找出筛选词及将被运行的测试模块。"""
+    names = tuple(str(name) for name in affected if str(name))
+    aliases = affected_test_filters(names)
+    targets = {name.split('.', 1)[0] for name in names}
+    tests_dir = HERE / 'tests'
+    test_imports = tuple(
+        (_test_module_name(path, tests_dir), _direct_imports(path))
+        for path in sorted(tests_dir.glob('**/test_*.py'))
+    ) if targets else ()
+    consumers = tuple(name for name, imports in test_imports if targets & imports)
+    filters = tuple(dict.fromkeys((*aliases, *consumers)))
+    keys = tuple(key for item in filters for key in item.split())
+    selected = tuple(name for name, _imports in test_imports
+                     if any(key in name for key in keys))
+    return filters, selected
+
+
 def affected_test_filters(affected):
-    """将源码模块名转换为 run_selftests 的测试文件筛选词，并保持输入顺序去重。"""
+    """保留既有的源码模块名到 run_selftests 筛选词映射。"""
     return tuple(dict.fromkeys(_AFFECTED_TEST_ALIASES.get(str(name), str(name))
                                for name in affected if str(name)))
 
 
-def gate_args(full, safe=False, affected=()):
+def affected_test_modules(affected):
+    """返回 run_selftests 会因 --affected 选中的测试模块，供显示与回归测试使用。"""
+    return _affected_test_plan(affected)[1]
+
+
+def gate_args(full, safe=False, affected=(), filters=None):
     """门禁一律串行，避免冒烟时并行 Tk／缩略图 worker 抢占用户电脑。"""
     if safe:
         return ['--safe']
     if full:
         return ['--all', '--serial']
     if affected:
-        return ['--serial', '-k', ' '.join(affected_test_filters(affected))]
+        filters = affected_test_filters(affected) if filters is None else filters
+        return ['--serial', '-k', ' '.join(filters)]
     return ['--serial']
 
 
@@ -500,12 +545,16 @@ def check_the_gate(full, safe=False, affected=()):
             ('定向：' + '、'.join(affected) if affected else '增量串行')))
     # 子进程输出直接落文件，避免 Tk 子进程继承 PIPE 后让 communicate() 等不到 EOF；
     # 同时用 -u 和下面的增量读取把进度实时还给用户，不能再出现数分钟「像卡死」的空白。
-    cmd = [sys.executable, '-u', str(suite)] + gate_args(full, safe, affected)
+    filters, selected = _affected_test_plan(affected) if affected else ((), ())
+    cmd = [sys.executable, '-u', str(suite)] + gate_args(full, safe, affected, filters)
     print('\n--- 门禁：run_selftests.py（%s）---' % mode)
     print('    ' + ' '.join(cmd))
     print('    工作目录：%s' % HERE)
     if affected:
         print('    （只执行与本轮改动相关的测试模块）')
+        preview = '、'.join(selected[:8])
+        suffix = ' …' if len(selected) > 8 else ''
+        print('    已选测试：%d 个%s%s' % (len(selected), '；' + preview if preview else '', suffix))
     elif not full:
         print('    （按台账只跑动过的测试文件；全量改用 python smoke_test.py --all）')
     log = Path(tempfile.gettempdir()) / ('smoke_gate_%s.log' % os.getpid())
