@@ -18,14 +18,68 @@ from local_video import skip_summary
 from pathlib import Path
 from platform_tools import launch_windows_app, open_target, tcp_listener
 from project_naming import dated_path
-from responsive_ui import FlowBar
+from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, remember_columns
 from storyboard_paths import media_root
 from tkinter import simpledialog, ttk
-from ui_tokens import COLORS, SPACING
+from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
 from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton
 from desktop_page_support import ASSET_ROW_LABEL, FileDialog, STAGE_ACTION_WIDTH, _prefs, comfy_executable, confirm, find_editor_shortcut, open_path, open_studio
 
 PAGE = pet_state.PAGE_OF
+
+
+def _configure_table_style(tree):
+    """清单表的表头与行字体取自 ui_tokens，避免每张表各写一套。"""
+    style = tree.cget('style') or 'Treeview'
+    current = ttk.Style(tree)
+    current.configure(style, font=TABLE_ROW_FONT)
+    current.configure(style + '.Heading', font=TABLE_HEADER_FONT,
+                      foreground=COLORS['text_primary'])
+    fit_row_height(tree, 0, style=style)
+
+
+def _refresh_request_width(tree):
+    """窄窗时让 Treeview 按当前列宽重算请求宽度，避免旧宽度把内容区顶出窗口。"""
+    def refresh():
+        width = tree.winfo_width()
+        if width <= 1 or tree.winfo_reqwidth() <= width:
+            return
+        if getattr(tree, '_request_refresh_width', None) == width:
+            return
+        tree._request_refresh_width = width
+        tree.configure(displaycolumns=tree['columns'])
+    def run():
+        tree._request_refresh_pending = False
+        tree._request_refresh_after_id = None
+        try:
+            if tree.winfo_exists():
+                refresh()
+        except tk.TclError:
+            pass
+    def on_configure(event=None):
+        if event is not None and getattr(event, 'widget', None) is not tree:
+            return
+        if getattr(tree, '_request_refresh_pending', False):
+            return
+        tree._request_refresh_pending = True
+        try:
+            tree._request_refresh_after_id = tree.after_idle(run)
+        except tk.TclError:
+            tree._request_refresh_pending = False
+    def on_destroy(event=None):
+        if event is not None and getattr(event, 'widget', None) is not tree:
+            return
+        job = getattr(tree, '_request_refresh_after_id', None)
+        if job:
+            try:
+                tree.after_cancel(job)
+            except tk.TclError:
+                pass
+        tree._request_refresh_after_id = None
+        tree._request_refresh_pending = False
+    tree.bind('<Configure>', on_configure, add='+')
+    tree.bind('<Destroy>', on_destroy, add='+')
+    return tree
 
 
 class MediaPagesMixin:
@@ -209,20 +263,20 @@ class MediaPagesMixin:
                                                  '全部通过' if passed else '有待办')
         def make():
             self.generate_continuity_ledger(ledger)
-        bar=FlowBar(self.content);bar.pack(fill='x',pady=(0,3))
+        bar=FlowBar(self.content);bar.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
         ttk.Label(bar,text='清单',width=ASSET_ROW_LABEL).pack(side='left')
         _make=PrimaryButton(bar,text='手动生成连贯性清单',style='Primary.TButton',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(make))
-        _make.pack(side='left',padx=(0,3),pady=2)
+        _make.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
         ui_plugin_registry.module('stage_flow').follow(_make,'continuity')     # 三虎在跑这一步就写「自动执行中」并置灰
         self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(bar,self,PAGE['continuity'])
-        self.stage_button.pack(side='left',padx=(6,3),pady=2)
+        self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
         SecondaryButton(bar,text='清单目录',style='Asset.TButton',
-                   command=lambda:self.safe(lambda:open_path(self.continuity_folder()))).pack(side='left',padx=3,pady=2)
-        head=ttk.Frame(self.content);head.pack(fill='x',pady=(2,0))
+                   command=lambda:self.safe(lambda:open_path(self.continuity_folder()))).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
+        head=ttk.Frame(self.content);head.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         ttk.Label(head,text=line(),foreground=COLORS['success_text'] if passed else COLORS['warning_text']).pack(side='left')
         file=self.continuity_folder()/'continuity_ledger.json'
         ttk.Label(head,text=('已落盘：'+file.name) if file.is_file() else '还没生成，按左边的按钮生成',
-                  foreground=COLORS['text_secondary']).pack(side='left',padx=(8,0))
+                  foreground=COLORS['text_secondary']).pack(side='left',padx=(SPACING['sm'],SPACING['none']))
         def table_of(title,columns,rows,height,detail=''):
             """一张小表：抬头 ＋ 表头 ＋ 若干行（这一页的清单就是这几张表）。
 
@@ -230,16 +284,21 @@ class MediaPagesMixin:
             620／700 像素，界面一窄就被挤没、界面一宽又留一大片白。detail 写某一列时，
             点这一列的格子弹一扇只读窗把整段字显示全（表格格子放不下长说明）。
             """
-            frame=Card(self.content,padding=4)
-            frame.pack(fill='both',expand=True,pady=(4,0))
+            frame=Card(self.content)
+            frame.pack(fill='both',expand=True,pady=(SPACING['xs'],SPACING['none']))
             ttk.Label(frame,text=title).pack(anchor='w')
-            table=DataTable(frame,columns=columns,show='headings',height=height,
+            compact=[(key,label,MIN_COL) for key,label,width in columns]
+            table=DataTable(frame,columns=compact,show='headings',height=height,
                             selectmode='browse',empty_text='暂无'+title)
             tree=table.tree
+            _configure_table_style(tree)
             last=columns[-1][0]
             for key,label,width in columns:
                 tree.heading(key,text=label)
-                tree.column(key,width=width,minwidth=60,stretch=key==last)
+                tree.column(key,width=MIN_COL,minwidth=MIN_COL,stretch=key==last)
+            remember_columns(tree,[(key,width) for key,label,width in columns])
+            auto_columns(tree)
+            _refresh_request_width(tree)
             for row in rows:tree.insert('','end',values=row)
             table.pack(fill='both',expand=True)
             if detail:
@@ -290,32 +349,32 @@ class MediaPagesMixin:
                        row.get('evidence') or row.get('detail') or '')
                       for row in issue_rows],min(8,max(2,len(issue_rows))),detail='evidence')
         problems=list(summary.get('problems') or [])
-        foot=Card(self.content,padding=4);foot.pack(fill='x',pady=(4,0))
+        foot=Card(self.content);foot.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         ttk.Label(foot,text='待办与裁决').pack(anchor='w')
         if problems:
-            for text in problems[:8]:ttk.Label(foot,text='· '+text,wraplength=760,justify='left').pack(anchor='w')
+            for text in problems[:8]:ttk.Label(foot,text='· '+text,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
         else:
             ttk.Label(foot,text='没有待办：批次、锚点与三元组都对得上。',foreground=COLORS['success_text']).pack(anchor='w')
         asks=run_stage_confirmation_gate(self.root, 'G-08', ledger=ledger).get('ask') or ()
         if asks:
             ttk.Label(foot,text='参考图优先级（每条选一个，问过就不再问）：',
-                      foreground=COLORS['warning_text']).pack(anchor='w',pady=(4,0))
+                      foreground=COLORS['warning_text']).pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
         for item in asks:
-            box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=2)
+            box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=SPACING['xs'])
             text=' ／ '.join('候选%d %s'%(index+1,value)
                             for index,value in enumerate(item['candidates']))
-            ttk.Label(box,text=item['title']+'：'+text,wraplength=760,justify='left').pack(anchor='w')
+            ttk.Label(box,text=item['title']+'：'+text,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
             ttk.Label(box,text='理由：'+str(item.get('reason') or ''),foreground=COLORS['text_secondary'],
-                      wraplength=760,justify='left').pack(anchor='w')
+                      wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
             choice=item['candidates'][item.get('recommended',0)]
             PrimaryButton(box,text='采用推荐',
                        command=lambda key=item['key'],value=choice,digest=item.get('digest',''):self.safe(
                            lambda:self.pick_gate(key,value,
                                lambda:self.show(PAGE['continuity']),digest))).pack(anchor='w')
         for row in [item for item in issue_rows if item.get('state')=='open']:
-            box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=2)
+            box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=SPACING['xs'])
             ttk.Label(box,text='%s %s：%s'%(row.get('severity') or '',row.get('id') or '',
-                                          row.get('detail') or ''),wraplength=760,justify='left').pack(anchor='w')
+                                          row.get('detail') or ''),wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
             SecondaryButton(box,text='忽略（写明理由）',
                             command=lambda iid=row.get('id'):self.safe(lambda:self.ignore_continuity_issue(iid))).pack(anchor='w')
     def continuity_issue_rows(self,ledger):
@@ -581,19 +640,19 @@ class MediaPagesMixin:
         # 第 38 期第 2 条：「线上走」和「API（按秒计费）」之间那个空格是整句唯一的断点，
         # 窗口一窄就把这两个词劈成两行；改成不换行空格粘住，并自己在这里断句，两种方式各占一行。
         lead=ttk.Label(self.content,text='本地走本机 ComfyUI（免费，用显卡），线上走\u00a0API（按秒计费）。\n两种都用同一份分镜与首帧；先确认下面几项，选定方式后再挑镜头。',
-                       wraplength=760,justify='left',style='Muted.TLabel')
-        lead.pack(anchor='w',pady=(2,8))
+                       wraplength=TEXT_DESC['wraplength'],justify='left',style='Muted.TLabel')
+        lead.pack(anchor='w',pady=(SPACING['xs'],SPACING['sm']))
         # 折行交给 _fit_content_now：它按内容框的实际宽度重排所有带 wraplength 的标签。
         # 自己再绑一个 <Configure> 会和它打架——标签按被压窄后的宽度折行，越折越窄。
-        facts=Card(self.content,padding=14);facts.pack(fill='x',pady=(0,10))
+        facts=Card(self.content);facts.pack(fill='x',pady=(SPACING['none'],SPACING['md']))
         ttk.Label(facts,text='开工前先确认').grid(row=0,column=0,columnspan=2,sticky='w')
         for row,(label,value) in enumerate(confirm_rows(self)):
-            ttk.Label(facts,text=label,width=10).grid(row=row+1,column=0,sticky='nw',pady=3)
-            ttk.Label(facts,text=value,wraplength=640,justify='left',style='Muted.TLabel').grid(row=row+1,column=1,sticky='w',pady=3)
-        local=Card(self.content,padding=16);local.pack(fill='x',pady=(0,10))
+            ttk.Label(facts,text=label,width=10).grid(row=row+1,column=0,sticky='nw',pady=SPACING['xs'])
+            ttk.Label(facts,text=value,wraplength=TEXT_DESC['wraplength'],justify='left',style='Muted.TLabel').grid(row=row+1,column=1,sticky='w',pady=SPACING['xs'])
+        local=Card(self.content);local.pack(fill='x',pady=(SPACING['none'],SPACING['md']))
         ttk.Label(local,text='本地生成').pack(anchor='w')
         ttk.Label(local,text='用本机 ComfyUI 与已安装的视频模型出片，不花云端额度；缺视频的镜头可以交给无人值守自动补。',
-                  wraplength=650,justify='left',style='Muted.TLabel').pack(anchor='w')
+                  wraplength=TEXT_DESC['wraplength'],justify='left',style='Muted.TLabel').pack(anchor='w')
         self.pet.auto_variable('auto_video_var')
         auto=self.auto_video_var
         state=tk.StringVar()
@@ -601,18 +660,18 @@ class MediaPagesMixin:
             state.set('已开启：缺视频的镜头按顺序自动提交并取回（免费通道）' if auto.get()
                       else '未开启：进去后仍可逐个镜头手动生成')
         say_state()
-        ttk.Label(local,textvariable=state,style='Muted.TLabel').pack(anchor='w',pady=(4,0))
+        ttk.Label(local,textvariable=state,style='Muted.TLabel').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
         PrimaryButton(local,text='进入本地生成',
-                   command=lambda:self.safe(lambda:self.show(PAGE['video'],video_mode='local'))).pack(anchor='w',pady=(12,0))
-        cloud=Card(self.content,padding=16);cloud.pack(fill='x')
+                   command=lambda:self.safe(lambda:self.show(PAGE['video'],video_mode='local'))).pack(anchor='w',pady=(SPACING['md'],SPACING['none']))
+        cloud=Card(self.content);cloud.pack(fill='x')
         ttk.Label(cloud,text='线上生成').pack(anchor='w')
         ttk.Label(cloud,text='用万相 / Seedance API 出片，按秒计费；读取已采用分镜的镜头与首帧，提交前会先问一次。',
-                  wraplength=650,justify='left',style='Muted.TLabel').pack(anchor='w')
-        entry=FlowBar(cloud);entry.pack(fill='x',pady=(12,0))
+                  wraplength=TEXT_DESC['wraplength'],justify='left',style='Muted.TLabel').pack(anchor='w')
+        entry=FlowBar(cloud);entry.pack(fill='x',pady=(SPACING['md'],SPACING['none']))
         PrimaryButton(entry,text='进入线上生成',
                    command=lambda:self.safe(lambda:self.show(PAGE['video'],video_mode='cloud'))).pack(side='left')
         ttk.Label(entry,text='（线上接口在「阶段配置」→「接口」里配）',
-                  style='Muted.TLabel').pack(side='left',padx=(8,0))
+                  style='Muted.TLabel').pack(side='left',padx=(SPACING['sm'],SPACING['none']))
     def videos(self):
         mode=getattr(self,'video_mode',None)
         if mode is None:
@@ -621,11 +680,11 @@ class MediaPagesMixin:
         self.title.configure(text=pet_bus.stage_label('video')+' · '+('线上生成' if mode=='cloud' else '本地生成'))
         from video_navigation import show_back
         show_back(self)
-        top=ttk.Frame(self.content);top.pack(fill='x',pady=(0,4))
+        top=ttk.Frame(self.content);top.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
         heading=ttk.Frame(top);heading.pack(side='left',fill='both',expand=True)
         def header_note(text):
-            label=ttk.Label(heading,text=text,wraplength=600,style='Muted.TLabel',font=('Microsoft YaHei UI',9));label.pack(anchor='w',fill='x',pady=1)
-            label.bind('<Configure>',lambda e,w=label:w.configure(wraplength=max(160,e.width)))
+            label=ttk.Label(heading,text=text,wraplength=TEXT_DESC['wraplength'],style='Muted.TLabel',font=TEXT_DESC['font']);label.pack(anchor='w',fill='x',pady=SPACING['xs'])
+            label.bind('<Configure>',lambda e,w=label:w.configure(wraplength=max(SPACING['2xl']*5,e.width)))
         prefs_path=self.root/'ui_settings.json'
         prefs=read(prefs_path) if prefs_path.is_file() else {}
         video_root=self.root
@@ -661,7 +720,7 @@ class MediaPagesMixin:
         session_key=(str(video_root.resolve()),str(source.resolve()))
         cached=self.video_sessions.get(session_key)
         if cached:
-            self.video=cached;cached.window.pack(fill='both',expand=True);cached.footer.pack(side='bottom',fill='x',pady=3)
+            self.video=cached;cached.window.pack(fill='both',expand=True);cached.footer.pack(side='bottom',fill='x',pady=SPACING['xs'])
             if not cached.busy:
                 cached.studio.cfg=read(video_root/'config.json')
                 cached.studio.episode=read(cached.studio.episode_path)

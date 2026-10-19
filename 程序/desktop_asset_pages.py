@@ -14,13 +14,66 @@ from agent.core import read
 from desktop_auto_flows import ASSET_RETRY_LIMIT
 from pathlib import Path
 from platform_tools import open_target
-from responsive_ui import CheckboxColumn, FlowBar, auto_columns, bind_row_toggle, bind_show_all, configure_check_column, fit_row_height, refresh_check_heading
+from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_row_toggle, bind_show_all, configure_check_column, fit_row_height, refresh_check_heading, remember_columns
 from tkinter import simpledialog, ttk
-from ui_tokens import COLORS, SPACING
+from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_HINT
 from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea
 from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_HEIGHT, ASSET_ROW_LABEL, Desktop, FileDialog, STAGE_ACTION_WIDTH, THUMB_SIZE, confirm, open_path
 
 PAGE = pet_state.PAGE_OF
+
+
+def _configure_table_style(tree, style, thumb):
+    """表格行高与表头共用 ui_tokens，页面只给样式名和缩略图尺寸。"""
+    current = ttk.Style(tree)
+    current.configure(style, font=TABLE_ROW_FONT)
+    current.configure(style + '.Heading', font=TABLE_HEADER_FONT,
+                      foreground=COLORS['text_primary'])
+    fit_row_height(tree, thumb, style=style)
+
+
+def _refresh_request_width(tree):
+    """窄窗时让 Treeview 按当前列宽重算请求宽度，避免旧宽度把内容区顶出窗口。"""
+    def refresh():
+        width = tree.winfo_width()
+        if width <= 1 or tree.winfo_reqwidth() <= width:
+            return
+        if getattr(tree, '_request_refresh_width', None) == width:
+            return
+        tree._request_refresh_width = width
+        tree.configure(displaycolumns=tree['columns'])
+    def run():
+        tree._request_refresh_pending = False
+        tree._request_refresh_after_id = None
+        try:
+            if tree.winfo_exists():
+                refresh()
+        except tk.TclError:
+            pass
+    def on_configure(event=None):
+        if event is not None and getattr(event, 'widget', None) is not tree:
+            return
+        if getattr(tree, '_request_refresh_pending', False):
+            return
+        tree._request_refresh_pending = True
+        try:
+            tree._request_refresh_after_id = tree.after_idle(run)
+        except tk.TclError:
+            tree._request_refresh_pending = False
+    def on_destroy(event=None):
+        if event is not None and getattr(event, 'widget', None) is not tree:
+            return
+        job = getattr(tree, '_request_refresh_after_id', None)
+        if job:
+            try:
+                tree.after_cancel(job)
+            except tk.TclError:
+                pass
+        tree._request_refresh_after_id = None
+        tree._request_refresh_pending = False
+    tree.bind('<Configure>', on_configure, add='+')
+    tree.bind('<Destroy>', on_destroy, add='+')
+    return tree
 
 
 class AssetPagesMixin:
@@ -150,28 +203,30 @@ class AssetPagesMixin:
                 ('LobeHub','https://lobehub.com/','AI助手与Agent工作空间，组织对话和工作流。'),
                 ('SkillsMP','https://skillsmp.com/zh','搜索Agent技能，查看技能说明与源代码入口。')])]
         for category,sites in groups:
-            group=Card(self.content,padding=8)
-            group.pack(fill='x',pady=5)
+            group=Card(self.content)
+            group.pack(fill='x',pady=SPACING['xs'])
             ttk.Label(group,text=category).grid(row=0,column=0,columnspan=2,sticky='w')
             cards=[]
             for name,url,description in sites:
-                card=ttk.Frame(group,padding=(4,3))
+                card=ttk.Frame(group,padding=(SPACING['xs'],SPACING['xs']))
                 SecondaryButton(card,text=name,command=lambda u=url:self.safe(lambda:open_target(u))).pack(anchor='w')
-                link=ttk.Label(card,text=url,style='Muted.TLabel',cursor='hand2',wraplength=240,justify='left')
-                link.local_wrap=True;link.pack(anchor='w',fill='x',pady=(4,2))
+                link=ttk.Label(card,text=url,style='Muted.TLabel',cursor='hand2',wraplength=TEXT_HINT['wraplength'],justify='left')
+                link.local_wrap=True;link.pack(anchor='w',fill='x',pady=(SPACING['xs'],SPACING['none']))
                 link.bind('<Button-1>',lambda event,u=url:self.safe(lambda:open_target(u)))
-                detail=ttk.Label(card,text=description,wraplength=240,justify='left')
+                detail=ttk.Label(card,text=description,wraplength=TEXT_HINT['wraplength'],justify='left')
                 detail.local_wrap=True;detail.pack(anchor='w',fill='x')
                 cards.append((card,link,detail))
             def arrange(event,box=group,items=cards):
                 columns=2 if event.width>=620 else 1
-                available=max(120,(event.width-32)//columns-24)
+                available=max(120,(event.width-SPACING['2xl'])//columns-SPACING['xl'])
                 layout=(columns,available)
                 if getattr(box,'site_layout',None)==layout:return
                 box.site_layout=layout
                 for col in range(2):box.columnconfigure(col,weight=1 if col<columns else 0,uniform='sites' if col<columns else '',minsize=0)
                 for index,(card,link,detail) in enumerate(items):
-                    card.grid(row=index//columns+1,column=index%columns,sticky='nsew',padx=(0,8) if columns==2 and index%2==0 else 0,pady=SPACING['xs'])
+                    card.grid(row=index//columns+1,column=index%columns,sticky='nsew',
+                              padx=(SPACING['none'],SPACING['sm']) if columns==2 and index%2==0 else SPACING['none'],
+                              pady=SPACING['xs'])
                     link.configure(wraplength=available);detail.configure(wraplength=available)
             group.bind('<Configure>',arrange)
             # Mount cards before the first layout event; width is then set by the page.
@@ -383,21 +438,19 @@ class AssetPagesMixin:
         asset_columns=[('id','资产编号',130),('name','名称',230),('status','资产图片',96),
                        ('references','参考图（类目）',190),('note','外观要求',230),
                        ('prompt','资产提示词',360)]
-        table_shell=DataTable(table_box,columns=asset_columns,show='tree headings',height=7,
-                              style='Asset.Treeview',empty_text='暂无资产',
-                              auto_hide_scrollbars=True)
-        table=table_shell.tree
-        fit_row_height(table,THUMB_SIZE,style='Asset.Treeview')   # 第 58 期第 2 条：行高跟着 72 像素的缩略图
-        configure_check_column(table)
-        # 第 52 期第 3 条：两列改名（「名称(点击修改)」→「名称」、「导入状态(点击查看)」→「导入图片」）。
-        # 第 55 期第 4 条：「外观要求(点击查看)」「资产提示词(点击查看)」两列去掉「(点击查看)」
-        # ——单击就能打开这件事在上一轮已经写进说明，列名越长越挤（其余列的早删干净了）。
         # 第 55 期第 6 条：「参考图」这一栏改成「参考图（类目）」：格子里写的不再只是张数，
         # 而是「几张 · 按类目各几张」——角色／场景／道具各有自己的类目（见 ROLE_GROUPS）。
         # 第 57 期第 6 条：这一栏改名「资产图片」（原来叫「导入图片」，与它上面那一行按钮同名）。
+        compact=[(key,label,MIN_COL) for key,label,width in asset_columns]
+        table_shell=DataTable(table_box,columns=compact,show='tree headings',height=7,
+                              style='Asset.Treeview',empty_text='暂无资产',
+                              auto_hide_scrollbars=True)
+        table=table_shell.tree
+        _configure_table_style(table,'Asset.Treeview',THUMB_SIZE);configure_check_column(table)
         for col,title,width in asset_columns:
-            table.heading(col,text=title);table.column(col,width=width,minwidth=80,stretch=col in ('note','prompt'))
-        auto_columns(table)
+            table.heading(col,text=title);table.column(col,width=MIN_COL,minwidth=MIN_COL,stretch=col in ('note','prompt'))
+        remember_columns(table,[(col,width) for col,title,width in asset_columns]);auto_columns(table)
+        _refresh_request_width(table)
         table.tag_configure('completed',background=COLORS['border_default'],foreground=COLORS['success'])
         table_shell.grid(row=0,column=0,sticky='nsew')
         from responsive_ui import auto_height

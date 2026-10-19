@@ -479,9 +479,15 @@ class AnchorTests(_Harness):
             self.addCleanup(setattr, desktop_module.Desktop, "gate_level", original)
             d.open_asset_detail("CHAR_001"); win.update()
             with mock.patch.object(asset_detail.simpledialog, "askstring", return_value="   "):
-                with mock.patch.object(asset_detail.messagebox, "showerror") as loudly:
+                with mock.patch.object(asset_detail, "notify", wraps=asset_detail.notify) as notice, \
+                        mock.patch.object(asset_detail.messagebox, "showerror") as modal_error:
                     self.assertIsNone(asset_detail.edit_anchor(d, "CHAR_001"))
-                    self.assertTrue(loudly.called, "必须弹一句「不能为空」")
+                    self.assertEqual(notice.call_count, 1, "必须提示一句「不能为空」")
+                    args, kwargs = notice.call_args
+                    self.assertIn("不能为空", args[1], "提示文字必须说清哪里不能为空")
+                    self.assertFalse(kwargs.get("modal", True), "可恢复错误必须走非模态通道")
+                    modal_error.assert_not_called()
+            self.assertIn("不能为空", d.status.get(), "用户必须能在状态栏看到这句提示")
             self.assertFalse(plan_of(proj, "CHAR_001").get("character_anchor"),
                              "空锚点不许写进去")
 

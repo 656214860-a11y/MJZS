@@ -11,14 +11,67 @@ import tkinter as tk
 import ui_plugin_registry
 from agent.core import read
 from pathlib import Path
-from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_columns_by_content, fit_row_height
+from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_row_toggle, configure_check_column, fit_columns_by_content, fit_row_height
 from storyboard_paths import media_root
 from tkinter import ttk
-from ui_tokens import COLORS, SPACING
+from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT
 from ui_widgets import DataTable, SelectBox
 from desktop_page_support import ASSET_ROW_HEIGHT, FileDialog, THUMB_SIZE, confirm, open_path
 
 PAGE = pet_state.PAGE_OF
+
+
+def _configure_table_style(tree, style, thumb):
+    """表格行高与表头共用 ui_tokens，页面只给样式名和缩略图尺寸。"""
+    current = ttk.Style(tree)
+    current.configure(style, font=TABLE_ROW_FONT)
+    current.configure(style + '.Heading', font=TABLE_HEADER_FONT,
+                      foreground=COLORS['text_primary'])
+    fit_row_height(tree, thumb, style=style)
+
+
+def _refresh_request_width(tree):
+    """窄窗时让 Treeview 按当前列宽重算请求宽度，避免旧宽度把内容区顶出窗口。"""
+    def refresh():
+        width = tree.winfo_width()
+        if width <= 1 or tree.winfo_reqwidth() <= width:
+            return
+        if getattr(tree, '_request_refresh_width', None) == width:
+            return
+        tree._request_refresh_width = width
+        tree.configure(displaycolumns=tree['columns'])
+    def run():
+        tree._request_refresh_pending = False
+        tree._request_refresh_after_id = None
+        try:
+            if tree.winfo_exists():
+                refresh()
+        except tk.TclError:
+            pass
+    def on_configure(event=None):
+        if event is not None and getattr(event, 'widget', None) is not tree:
+            return
+        if getattr(tree, '_request_refresh_pending', False):
+            return
+        tree._request_refresh_pending = True
+        try:
+            tree._request_refresh_after_id = tree.after_idle(run)
+        except tk.TclError:
+            tree._request_refresh_pending = False
+    def on_destroy(event=None):
+        if event is not None and getattr(event, 'widget', None) is not tree:
+            return
+        job = getattr(tree, '_request_refresh_after_id', None)
+        if job:
+            try:
+                tree.after_cancel(job)
+            except tk.TclError:
+                pass
+        tree._request_refresh_after_id = None
+        tree._request_refresh_pending = False
+    tree.bind('<Configure>', on_configure, add='+')
+    tree.bind('<Destroy>', on_destroy, add='+')
+    return tree
 
 
 class StoryboardPageMixin:
@@ -72,21 +125,19 @@ class StoryboardPageMixin:
             side='left', padx=(SPACING['none'], SPACING['sm'])
         )
         if available_shots:target.current(0)
-        # 第 53 期第 5 条：「图片文件」那一列要盖一层首帧缩略图（Tk 的 value 格只写得了文字），
-        # 行高得跟着放大——这一张表单给一个样式，别的内容框照旧 34。
-        table_shell=DataTable(table_box, columns=[
-            ('id', '镜头', 155), ('title', '内容', 175), ('duration', '秒数', 60),
-            ('status', '首帧状态', 120), ('file', '图片文件(点击查看)', 180),
-            ('prompt', '首帧图片提示词(点击查看)', 480),
-        ], show='tree headings', height=9, selectmode='browse', style='Frame.Treeview',
-            auto_hide_scrollbars=True)
+        frame_columns=[('id','镜头',155),('title','内容',175),('duration','秒数',60),
+                       ('status','首帧状态',120),('file','图片文件(点击查看)',180),
+                       ('prompt','首帧图片提示词(点击查看)',480)]
+        table_shell=DataTable(table_box, columns=[(key,title,MIN_COL) for key,title,width in frame_columns],
+            show='tree headings', height=9, selectmode='browse', style='Frame.Treeview',
+            empty_text='暂无镜头', auto_hide_scrollbars=True)
         table=table_shell.tree
-        fit_row_height(table,THUMB_SIZE,style='Frame.Treeview')   # 第 58 期第 2 条：同上
+        _configure_table_style(table,'Frame.Treeview',THUMB_SIZE);_refresh_request_width(table)
         table_shell.grid(row=0,column=0,sticky='nsew')
         table_box.columnconfigure(0,weight=1);table_box.rowconfigure(0,weight=1)
         configure_check_column(table)
-        for key,title,width in [('id','镜头',155),('title','内容',175),('duration','秒数',60),('status','首帧状态',120),('file','图片文件(点击查看)',180),('prompt','首帧图片提示词(点击查看)',480)]:
-            table.heading(key,text=title);table.column(key,width=width,minwidth=50)
+        for key,title,width in frame_columns:
+            table.heading(key,text=title);table.column(key,width=MIN_COL,minwidth=MIN_COL)
         table.tag_configure(
             'completed', background=COLORS['border_default'], foreground=COLORS['success']
         )

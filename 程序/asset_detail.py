@@ -29,7 +29,7 @@ from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, Card, DescriptionBlock, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
 import pet_bus
-from ui_tokens import COLORS, SPACING
+from ui_tokens import COLORS, FONTS, SPACING, TEXT_DESC, TEXT_HINT
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
 ZOOM_SIZE = 900                      # 点一下放大后的长边（不放大原图，只按原分辨率显示）
@@ -56,7 +56,7 @@ def _open_zoom(desktop, path, title=''):
     tk.Label(win, image=image).pack(padx=SPACING['sm'], pady=SPACING['sm'])
     win.image = image                        # 图元必须留引用，否则画面上只剩空框
     close = SecondaryButton(win, text='关闭', command=win.close)
-    close.pack(pady=(0, 8))
+    close.pack(pady=(SPACING['none'], SPACING['sm']))
     # Windows 激活新窗口晚于 idle；仅接管窗口自身的焦点，不抢子控件焦点。
     win.bind('<FocusIn>', lambda event: close.focus_set() if event.widget is win else None,
              add='+')
@@ -136,17 +136,17 @@ def edit_anchor(desktop, aid):
         return None
     value = value.strip()
     if not value:
-        notify(desktop.win, '锚点字符串不能为空。', level='error', title='无法保存', status=desktop.status)
+        notify(desktop.win, '锚点字符串不能为空。', level='error', title='无法保存', status=desktop.status, modal=False)
         return None
     if '\n' in value or '\r' in value or len(value) > ANCHOR_LIMIT:
         notify(desktop.win, '锚点字符串必须是一行、且不超过 ' + str(ANCHOR_LIMIT) + ' 个字。',
-               level='error', title='无法保存', status=desktop.status)
+               level='error', title='无法保存', status=desktop.status, modal=False)
         return None
     _fields(desktop, aid, {'character_anchor': value, 'base_anchor': value})
     saved = str((desktop.asset_requirements().get(aid) or {}).get('character_anchor') or '')
     if saved != value:
         notify(desktop.win, '资产 JSON 里读回来的锚点与刚写的对不上：' + saved,
-               level='error', title='保存没生效', status=desktop.status)
+               level='error', title='保存没生效', status=desktop.status, modal=False)
         return None
     _complete(desktop, aid, '锚点已保存并与资产 JSON 核对一致')
     return value
@@ -218,7 +218,7 @@ def edit_variant(desktop, aid, state_id):
     if override is None:
         return None
     if not name.strip() or not override.strip():
-        notify(desktop.win, '状态名称与覆盖描述都要写。', level='error', title='无法保存', status=desktop.status)
+        notify(desktop.win, '状态名称与覆盖描述都要写。', level='error', title='无法保存', status=desktop.status, modal=False)
         return None
     target['name'] = name.strip()
     target['override'] = override.strip()
@@ -279,42 +279,42 @@ def _gates_block(desktop, aid):
     if not rows:
         box.destroy()
         return None
-    box.pack(fill='x', pady=(4, 0))
+    box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
     for item in rows:
         line = ttk.Frame(box)
-        line.pack(fill='x', anchor='w', pady=2)
+        line.pack(fill='x', anchor='w', pady=SPACING['xs'])
         ttk.Label(line, text=item['title'] + '：', foreground=COLORS['warning_text']).pack(anchor='w')
         for index, candidate in enumerate(item['candidates']):
             row = ttk.Frame(box)
-            row.pack(fill='x', anchor='w', padx=(10, 0))
+            row.pack(fill='x', anchor='w', padx=(SPACING['md'], SPACING['none']))
             ttk.Label(row, text='候选' + str(index + 1) + ' ' + str(candidate),
-                      wraplength=760, justify='left').pack(side='left')
+                      wraplength=TEXT_DESC['wraplength'], justify='left').pack(side='left')
             SecondaryButton(row, text='采用',
                        command=lambda key=item['key'], value=candidate, digest=item.get('digest', ''):
-                       desktop.safe(lambda: _pick(desktop, key, value, aid, digest))).pack(side='left', padx=6)
-        DescriptionBlock(box, text='理由：' + str(item.get('reason') or '')).pack(anchor='w', padx=(10, 0))
+                       desktop.safe(lambda: _pick(desktop, key, value, aid, digest))).pack(side='left', padx=SPACING['sm'])
+        DescriptionBlock(box, text='理由：' + str(item.get('reason') or '')).pack(anchor='w', padx=(SPACING['md'], SPACING['none']))
         recommended = item['candidates'][item.get('recommended', 0)]
         PrimaryButton(box, text='采用推荐（候选' + str(int(item.get('recommended', 0)) + 1) + '）',
                    command=lambda key=item['key'], value=recommended, digest=item.get('digest', ''):
-                   desktop.safe(lambda: _pick(desktop, key, value, aid, digest))).pack(anchor='w', pady=(2, 6))
+                   desktop.safe(lambda: _pick(desktop, key, value, aid, digest))).pack(anchor='w', pady=(SPACING['xs'], SPACING['sm']))
     return box
 
 
 def _header(desktop, aid, asset):
     head = FlowBar(desktop.content)
-    head.pack(fill='x', pady=(0, 4))
+    head.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
     back = SecondaryButton(head, text='← 返回资产管理',
                            command=lambda: desktop.safe(desktop.close_asset_detail))
-    back.pack(side='left', padx=(0, 12), pady=2)
+    back.pack(side='left', padx=(SPACING['none'], SPACING['md']), pady=SPACING['xs'])
     back.focus_set()
     ttk.Label(head, text=aid + ' · ' + str(asset.get('name', aid)),
-              font=('Microsoft YaHei UI', 13, 'bold')).pack(side='left')
+              font=FONTS['heading_3']).pack(side='left')
     ttk.Label(head, text='　' + TYPE_NAMES.get(aid.split('_')[0], '资产')).pack(side='left')
     locked = bool(asset.get('locked'))
     ttk.Label(head, text='　' + ('已锁定' if locked else '未锁定'),
               foreground=COLORS['success_text'] if locked else COLORS['warning_text']).pack(side='left')
     SecondaryButton(head, text='解锁' if locked else '锁定',
-               command=lambda: desktop.safe(lambda: toggle_lock(desktop, aid))).pack(side='left', padx=SPACING['sm'], pady=2)
+               command=lambda: desktop.safe(lambda: toggle_lock(desktop, aid))).pack(side='left', padx=SPACING['sm'], pady=SPACING['xs'])
     return head
 
 
@@ -323,7 +323,7 @@ def _board_block(desktop, aid, asset):
     from asset_contract import cells
     box = Card(desktop.content)
     ttk.Label(box, text='正典板').pack(anchor='w')
-    box.pack(fill='x', pady=(4, 0))
+    box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
     grid = ttk.Frame(box)
     grid.pack(fill='x')
     base = _base(desktop)
@@ -357,7 +357,7 @@ def _board_block(desktop, aid, asset):
         else:
             ttk.Label(holder, text='（缺图）', foreground=COLORS['text_muted']).pack(anchor='w')
             text = '还没绑定'
-        ttk.Label(holder, text=text, foreground=COLORS['text_secondary'], wraplength=CELL_SIZE + 40,
+        ttk.Label(holder, text=text, foreground=COLORS['text_secondary'], wraplength=CELL_SIZE + SPACING['2xl'] + SPACING['sm'],
                   justify='left').pack(anchor='w')
         buttons = ttk.Frame(holder)
         buttons.pack(anchor='w')
@@ -369,7 +369,7 @@ def _board_block(desktop, aid, asset):
                        command=lambda view=cell['view']:
                        desktop.safe(lambda: clear_view(desktop, aid, view))).pack(side='left', padx=SPACING['xs'])
     foot = ttk.Frame(box)
-    foot.pack(fill='x', pady=(4, 0))
+    foot.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
     PrimaryButton(foot, text='重新生成',
                command=lambda: desktop.safe(lambda: regenerate(desktop, aid))).pack(side='left')
     board = str(asset.get('canonical_board') or '').strip()
@@ -382,23 +382,24 @@ def _anchor_block(desktop, aid, asset):
     from asset_contract import card_lines
     box = Card(desktop.content)
     ttk.Label(box, text='锚点字符串').pack(anchor='w')
-    box.pack(fill='x', pady=(4, 0))
+    box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
     anchor = str(asset.get('character_anchor') or asset.get('base_anchor') or '').strip()
     ttk.Label(box, text=anchor or '（还没定稿：用下面的候选点一下，或点「编辑」自己写）',
-              wraplength=760, justify='left', foreground=COLORS['success_text'] if anchor else COLORS['text_muted']).pack(anchor='w')
+              wraplength=TEXT_DESC['wraplength'], justify='left',
+              foreground=COLORS['success_text'] if anchor else COLORS['text_muted']).pack(anchor='w')
     row = ttk.Frame(box)
-    row.pack(fill='x', pady=(4, 0))
+    row.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
     def copy_anchor():
         reason = desktop.copy_text(anchor)
         desktop.status.set('复制失败：' + reason if reason else '锚点字符串已复制')
     SecondaryButton(row, text='复制',
                command=lambda: desktop.safe(copy_anchor)).pack(side='left')
     SecondaryButton(row, text='编辑',
-               command=lambda: desktop.safe(lambda: edit_anchor(desktop, aid))).pack(side='left', padx=6)
+               command=lambda: desktop.safe(lambda: edit_anchor(desktop, aid))).pack(side='left', padx=SPACING['sm'])
     for title, text in card_lines(asset):
         if title in ('锚点字符串（逐字复用，可复制）', '正典板'):
             continue
-        DescriptionBlock(box, text=title + '：' + text).pack(anchor='w', pady=(2, 0))
+        DescriptionBlock(box, text=title + '：' + text).pack(anchor='w', pady=(SPACING['xs'], SPACING['none']))
     return box
 
 
@@ -406,13 +407,13 @@ def _role_block(desktop, aid, asset):
     from asset_contract import DEFAULT_EXCLUDE, DEFAULT_RESPONSIBILITY
     box = Card(desktop.content)
     ttk.Label(box, text='参考职责声明').pack(anchor='w')
-    box.pack(fill='x', pady=(4, 0))
+    box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
     role = str(asset.get('reference_role') or DEFAULT_RESPONSIBILITY)
     exclude = str(asset.get('reference_exclude') or DEFAULT_EXCLUDE)
     DescriptionBlock(box, text='负责：' + role).pack(anchor='w')
     DescriptionBlock(box, text='不继承：' + exclude).pack(anchor='w')
     SecondaryButton(box, text='编辑',
-               command=lambda: desktop.safe(lambda: edit_role(desktop, aid))).pack(anchor='w', pady=(4, 0))
+               command=lambda: desktop.safe(lambda: edit_role(desktop, aid))).pack(anchor='w', pady=(SPACING['xs'], SPACING['none']))
     return box
 
 
@@ -421,14 +422,14 @@ def _variants_block(desktop, aid, asset):
     from asset_contract import state_variants
     rows = state_variants(asset)
     box = ttk.Frame(desktop.content)
-    box.pack(fill='x', pady=(4, 0))
+    box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
     body = Card(desktop.content)
     ttk.Label(body, text='状态变体').pack(anchor='w')
     state = {'open': False}
     def toggle():
         state['open'] = not state['open']
         if state['open']:
-            body.pack(fill='x', pady=(2, 0))
+            body.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
         else:
             body.pack_forget()
         button.configure(text=title_text() + ('（收起）' if state['open'] else '（展开）'))
@@ -442,7 +443,7 @@ def _variants_block(desktop, aid, asset):
                   foreground=COLORS['text_muted']).pack(anchor='w')
     for item in rows:
         line = ttk.Frame(body)
-        line.pack(fill='x', anchor='w', pady=2)
+        line.pack(fill='x', anchor='w', pady=SPACING['xs'])
         image = None
         thumbnail_unavailable = False
         value = str(item.get('reference_image') or '').strip()
@@ -458,13 +459,14 @@ def _variants_block(desktop, aid, asset):
                                     command=lambda value=value, name=title: desktop.safe(
                                         lambda: _open_zoom(desktop, (base / value).resolve(), name)))
             label.image = image
-            label.pack(side='left', padx=(0, 8))
+            label.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
             label.bind('<Return>', lambda _e, button=label: (button.invoke(), 'break')[1])
         else:
             label = '（缩略图暂不可用）' if thumbnail_unavailable else '（缺缩略图）'
-            ttk.Label(line, text=label, foreground=COLORS['text_muted'], width=12).pack(side='left', padx=(0, 8))
+            ttk.Label(line, text=label, foreground=COLORS['text_muted'], width=12).pack(
+                side='left', padx=(SPACING['none'], SPACING['sm']))
         ttk.Label(line, text=item['state_id'] + ' · ' + (item['name'] or '未命名') + '：'
-                           + (item['override'] or '缺覆盖描述'), wraplength=520,
+                           + (item['override'] or '缺覆盖描述'), wraplength=TEXT_DESC['wraplength'],
                   justify='left').pack(side='left')
         SecondaryButton(line, text='缩略图',
                    command=lambda sid=item['state_id']:
@@ -476,7 +478,8 @@ def _variants_block(desktop, aid, asset):
                    command=lambda sid=item['state_id']:
                    desktop.safe(lambda: delete_variant(desktop, aid, sid))).pack(side='left', padx=SPACING['xs'])
     SecondaryButton(body, text='新增状态变体',
-               command=lambda: desktop.safe(lambda: add_variant(desktop, aid))).pack(anchor='w', pady=(6, 0))
+               command=lambda: desktop.safe(lambda: add_variant(desktop, aid))).pack(
+                   anchor='w', pady=(SPACING['sm'], SPACING['none']))
     return box
 
 
@@ -497,14 +500,14 @@ def _bind_variant_image(desktop, aid, state_id):
 def _raw_block(desktop, aid):
     """区域 6：原始 JSON（折叠；只读，便于核对）。"""
     holder = ttk.Frame(desktop.content)
-    holder.pack(fill='x', pady=(4, 8))
+    holder.pack(fill='x', pady=(SPACING['xs'], SPACING['sm']))
     body = Card(desktop.content)
     ttk.Label(body, text='原始数据').pack(anchor='w')
     state = {'open': False}
     def toggle():
         state['open'] = not state['open']
         if state['open']:
-            body.pack(fill='both', pady=(2, 8))
+            body.pack(fill='both', pady=(SPACING['xs'], SPACING['sm']))
         else:
             body.pack_forget()
         button.configure(text='资产 JSON 原文' + ('（收起）' if state['open'] else '（展开）'))
@@ -518,7 +521,8 @@ def _raw_block(desktop, aid):
         text = json.dumps(row if row is not None else {}, ensure_ascii=False, indent=2)
     except (OSError, ValueError):
         text = '（读不出来）'
-    view = TextArea(body, wrap='none', height=12, bg=COLORS['background_card'], fg=COLORS['text_primary'], padx=10, pady=10)
+    view = TextArea(body, wrap='none', height=12, bg=COLORS['background_card'], fg=COLORS['text_primary'],
+                    padx=SPACING['md'], pady=SPACING['md'])
     view.insert('1.0', text)
     view.configure(state='disabled')
     view.pack(fill='both', expand=True)
@@ -535,7 +539,9 @@ def show(desktop, aid):
         # 状态栏会在页面重排时被覆盖；错误必须同时留在当前页面，用户和自动化测试
         # 都能看到这次打开失败的原因。
         desktop.note(message)
-        ttk.Label(desktop.content,text=message,style='Muted.TLabel',wraplength=640).pack(anchor='w',padx=SPACING['sm'],pady=(8,4))
+        ttk.Label(desktop.content, text=message, style='Muted.TLabel',
+                  wraplength=TEXT_DESC['wraplength']).pack(
+                      anchor='w', padx=SPACING['sm'], pady=(SPACING['sm'], SPACING['xs']))
         SecondaryButton(desktop.content, text='← 返回资产管理',
                    command=lambda: desktop.safe(desktop.close_asset_detail)).pack(anchor='w',padx=SPACING['sm'])
         return None
@@ -590,7 +596,7 @@ def _roster_thumb(desktop, parent, base, value, title, side='left'):
         return None
     label = tk.Label(parent, image=image, cursor='hand2')
     label.image = image                       # 图元必须留引用，否则画面上只剩空框
-    label.pack(side=side, padx=(0, 8), pady=1)
+    label.pack(side=side, padx=(SPACING['none'], SPACING['sm']), pady=SPACING['xs'] // 4)
     label.bind('<Button-1>', lambda _e, path=path, name=title:
                desktop.safe(lambda: _open_zoom(desktop, path, name)))
     return label
@@ -603,7 +609,7 @@ def _roster_role(desktop, aid, asset):
     box = Card(desktop.content)
     ttk.Label(box, text=aid + ' · ' + str(asset.get('name') or aid) + '　'
                        + TYPE_NAMES.get(aid.split('_')[0], '资产')).pack(anchor='w')
-    box.pack(fill='x', pady=(4, 0))
+    box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
     grid = cells(asset)
     board = ttk.Frame(box)
     board.pack(fill='x')
@@ -612,7 +618,7 @@ def _roster_role(desktop, aid, asset):
     bound = 0
     for cell in grid:
         holder = ttk.Frame(board)
-        holder.pack(side='left', padx=(0, 10), anchor='n')
+        holder.pack(side='left', padx=(SPACING['none'], SPACING['md']), anchor='n')
         ttk.Label(holder, text=cell['label'],
                   foreground=COLORS['success_text'] if cell['ready'] else COLORS['text_muted']).pack(anchor='w')
         if _roster_thumb(desktop, holder, base, cell['image'] if cell['ready'] else '',
@@ -623,7 +629,7 @@ def _roster_role(desktop, aid, asset):
     states = state_variants(asset) if aid.startswith('CHAR_') else []
     if aid.startswith('CHAR_'):
         panel = ttk.Frame(box)
-        panel.pack(fill='x', pady=(6, 0))
+        panel.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
         ttk.Label(panel, text='换状态', width=ROSTER_PANEL_WIDTH,
                   foreground=COLORS['text_heading']).pack(side='left', anchor='n')
         if not states:
@@ -631,19 +637,20 @@ def _roster_role(desktop, aid, asset):
                       foreground=COLORS['text_muted']).pack(side='left')
         for item in states:
             line = ttk.Frame(panel)
-            line.pack(side='left', padx=(0, 12), anchor='n')
+            line.pack(side='left', padx=(SPACING['none'], SPACING['md']), anchor='n')
             _roster_thumb(desktop, line, base, item.get('reference_image'),
                           aid + ' · ' + str(item.get('state_id') or ''))
             ttk.Label(line, text=str(item.get('state_id') or '') + ' · '
                                + str(item.get('name') or '未命名') + '：'
                                + str(item.get('override') or '缺覆盖描述'),
-                      wraplength=230, justify='left').pack(side='left')
+                      wraplength=TEXT_HINT['wraplength'], justify='left').pack(side='left')
     foot = ttk.Frame(box)
-    foot.pack(fill='x', pady=(6, 0))
+    foot.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
     SecondaryButton(foot, text='编辑这一项',
                command=lambda: desktop.safe(lambda: desktop.open_asset_detail(aid))).pack(side='left')
     ttk.Label(foot, text='正典板 ' + str(bound) + '/' + str(len(grid)) + ' 格已绑定 · 状态变体 '
-                         + str(len(states)) + ' 个', foreground=COLORS['text_secondary']).pack(side='left', padx=(10, 0))
+                         + str(len(states)) + ' 个', foreground=COLORS['text_secondary']).pack(
+                             side='left', padx=(SPACING['md'], SPACING['none']))
     return box
 
 
@@ -652,10 +659,11 @@ def show_roster(desktop):
     registry = desktop.asset_requirements()
     rows = roster_rows(registry)
     head = FlowBar(desktop.content)
-    head.pack(fill='x', pady=(0, 4))
+    head.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
     SecondaryButton(head, text='← 返回资产管理',
-               command=lambda: desktop.safe(desktop.close_asset_detail)).pack(side='left', padx=(0, 12), pady=2)
-    ttk.Label(head, text='资产清单', font=('Microsoft YaHei UI', 13, 'bold')).pack(side='left')
+               command=lambda: desktop.safe(desktop.close_asset_detail)).pack(
+                   side='left', padx=(SPACING['none'], SPACING['md']), pady=SPACING['xs'])
+    ttk.Label(head, text='资产清单', font=FONTS['heading_3']).pack(side='left')
     ttk.Label(head, text='　共 ' + str(len(rows)) + ' 项').pack(side='left')
     if not rows:
         desktop.note('这个项目还没有资产清单：先到'+pet_bus.stage_step('storyboard')+'采用一份分镜，回来点「手动制作资产」。')
