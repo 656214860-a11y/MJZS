@@ -280,6 +280,7 @@ class RepeatReadTests(unittest.TestCase):
             self.assertIn('来源已变更', entries[0]['title'])
 
     def test_final_lineage_prefers_stable_structured_script_over_working_json(self):
+        """REQ-S07-21：定稿血缘追溯到稳定的结构剧本，而不是会被退役的分镜工作 JSON。"""
         with tempfile.TemporaryDirectory() as td:
             project = Path(td) / 'p'
             source = project / '02剧本结构' / '结构剧本' / 'p_结构剧本_正稿_20260927.md'

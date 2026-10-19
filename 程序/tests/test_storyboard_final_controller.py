@@ -1,3 +1,4 @@
+"""定稿页的无 Tk 预览、编辑与镜头导航控制器回归（REQ-S07-32 见各测试 docstring）。"""
 import tempfile
 import unittest
 from pathlib import Path
@@ -18,6 +19,7 @@ class FinalStoryboardControllerTests(unittest.TestCase):
         self.controller = FinalStoryboardController(self.project)
 
     def test_choose_persists_view_and_tracks_preview_navigation(self):
+        """REQ-S07-32：选中的定稿只读预览，并按 shots 建立镜头导航。"""
         preview, note = self.controller.choose(self.path)
         self.assertEqual(preview.path, self.path.resolve())
         self.assertIn('已选：06分镜定稿/分镜/EP001.json', note)
@@ -28,6 +30,7 @@ class FinalStoryboardControllerTests(unittest.TestCase):
                          '06分镜定稿/分镜/EP001.json')
 
     def test_save_edited_validates_before_atomic_persistence(self):
+        """REQ-S07-32：保存前先校验是合法 JSON，再经 L3 原子发布。"""
         self.controller.load(self.path)
         with self.assertRaisesRegex(ValueError, '合法 JSON'):
             self.controller.save_edited('{')
@@ -45,6 +48,7 @@ class FinalStoryboardControllerTests(unittest.TestCase):
         self.assertEqual(self.controller.shot_ids, ('S01', 'S02'))
 
     def test_failed_publish_preserves_document_preview_and_navigation(self):
+        """REQ-S07-32：发布失败保留原预览、镜头列表与当前选中镜头。"""
         preview = self.controller.load(self.path)
         self.controller.select_shot('S02')
         original = self.path.read_bytes()
