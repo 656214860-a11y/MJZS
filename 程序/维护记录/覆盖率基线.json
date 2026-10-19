@@ -326,13 +326,19 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 1529,
+   "total": 1106,
    "percent": 0.0
   },
   {
    "module": "desktop_asset_pages.py",
    "covered": 0,
    "total": 569,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_async_tasks.py",
+   "covered": 0,
+   "total": 110,
    "percent": 0.0
   },
   {
@@ -366,6 +372,12 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_layout.py",
+   "covered": 0,
+   "total": 257,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_media_pages.py",
    "covered": 0,
    "total": 831,
@@ -381,6 +393,12 @@
    "module": "desktop_page_support.py",
    "covered": 0,
    "total": 43,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_pet_bridge.py",
+   "covered": 0,
+   "total": 92,
    "percent": 0.0
   },
   {
@@ -1729,5 +1747,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 286
+ "modules_total": 289
 }

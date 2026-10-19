@@ -91,15 +91,6 @@ import pet_bus
 # 再加一个阶段时只改 pet_bus.STAGES／STAGE_NAMES。
 import pet_state
 
-# 宠物「自动推进」用的对照表（第 23 期）：制作阶段 → 那一步的无人值守轮询名。
-# 只登记真的带无人值守轮询的阶段；剧本与配音没有轮询，不在表里（宠物问到时老实说没有）。
-PET_STAGE_POLL={'storyboard':'auto_adopt','assets':'auto_asset','final':'auto_final','keyframe':'auto_keyframe',
-                'previs':'auto_previs','video':'auto_video','edit':'auto_edit','delivery':'auto_handoff'}
-# 第 67 期任务 5：无人值守轮询名 → 打开它的那一把开关（project_settings 里的 set_auto_*）。
-# 用户切到自动档之后，三虎要「自动开始每个阶段的任务」：先把这一步的开关替他打开，再起跑。
-UNATTENDED_SWITCH={'auto_adopt':'set_auto_adopt','auto_asset':'set_auto_asset','auto_final':'set_auto_final',
-                   'auto_keyframe':'set_auto_keyframe','auto_previs':'set_auto_previs','auto_video':'set_auto_video',
-                   'auto_edit':'set_auto_edit','auto_handoff':'set_auto_handoff'}
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
 from app_metadata import APP_NAME, VERSION
@@ -122,6 +113,9 @@ def _page_paint_timed(func):
 from desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
                         _PENDING_TK_GC, _KEEP_APPS)
 from desktop_automation_tick import AutomationTickMixin
+from desktop_layout import LayoutMixin
+from desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
+from desktop_async_tasks import AsyncTasksMixin
 
 bind_host(sys.modules[__name__])  # 剧本准备页的 confirm／ContextMenu 等转发到本模块，保持按 desktop.<名字> 打补丁有效
 
@@ -139,7 +133,7 @@ def status_kind(message):
     if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
     return 'ready'
 
-class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin):
+class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin):
     def __init__(self,win,root=ROOT,*,script_page_services=None):
         self._diagnostic_start=time.perf_counter()
         self.script_page_services = script_page_services if script_page_services is not None else ScriptPageServices(
@@ -387,283 +381,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.auto_handoff_queue=pet_ui.StageQueue('delivery',self.pet.drain)
         self.auto_handoff_signature=None
         self.auto_handoff_error=''
-    def schedule_sidebar_fit(self,event=None):
-        if getattr(self,'_sidebar_fit_job',None) is not None:return
-        def run():
-            self._sidebar_fit_job=None
-            self.fit_sidebar()
-        self._sidebar_fit_job=self.win.after_idle(run)
-    def fit_sidebar(self,event=None):
-        viewport=getattr(self,'sidebar_canvas',self.sidebar)
-        compact=viewport.winfo_height()<DESKTOP_LAYOUT['compact_below']
-        style=ttk.Style(self.win)
-        font=FONTS['pet_body'] if compact else FONTS['body']
-        row_height=20 if compact else 24
-        if self.sidebar_size!=compact:
-            self.sidebar_size=compact
-            for name in ('Compact.TButton','Nav.TButton','Selected.Nav.TButton'):
-                style.configure(name,font=font,padding=(10,1 if compact else 4))
-            for name in ('Sub.Nav.TButton','Selected.Sub.Nav.TButton'):
-                style.configure(name,font=font,padding=(26,1 if compact else 4))
-            # 项目动作与全局控件同高：横向沿用侧栏紧凑内边距，纵向取 4px 刻度。
-            style.configure('ProjectAction.TButton',font=font,
-                            padding=(DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs']))
-            style.configure('Project.Treeview',font=font,rowheight=row_height)
-        # 由可用像素反算最大整行数；不以 Treeview 上一次请求高度作为下一次预算。
-        gap=DESKTOP_LAYOUT['row_gap']*2
-        fixed=DESKTOP_LAYOUT['sidebar_padding']*2+getattr(self,'_header_list_gap',SPACING['none'])
-        for child in self.sidebar.winfo_children():
-            fixed+=gap
-            if child is not self.list:
-                fixed+=max(child.winfo_reqheight(),SPACING['xs'] if isinstance(child,ttk.Separator) else 0)
-        chrome=max(0,self.list.winfo_reqheight()-int(self.list.cget('height'))*row_height)
-        def visible(parent=''):
-            return sum(1+(visible(item) if self.list.item(item,'open') else 0)
-                       for item in self.list.get_children(parent))
-        maximum=max(DESKTOP_LAYOUT['project_min_rows'],(viewport.winfo_height()-fixed-chrome)//row_height)
-        rows=min(maximum,max(DESKTOP_LAYOUT['project_min_rows'],visible()))
-        if int(self.list.cget('height'))!=rows:self.list.configure(height=rows)
-        self.align_header()
-    def align_header(self,event=None):
-        """用真实控件边界对齐齿轮与聊天顶边，不参与页面业务或读盘。"""
-        if not hasattr(self,'title_row'):return
-        title=self.app_title
-        gear=getattr(getattr(self,'pet',None),'gear',None)
-        if gear is not None:
-            canvas=gear.canvas
-            x=title.winfo_rootx()-self.win.winfo_rootx()+title.winfo_reqwidth()+DESKTOP_LAYOUT['gear_gap']
-            y=title.winfo_rooty()-self.win.winfo_rooty()+round((title.winfo_reqheight()-canvas.winfo_reqheight())/2)
-            self.settings_gear_position=(x,y)
-            canvas.place_configure(x=x,y=y)
-        minimum=max(self.title.winfo_reqheight(),pet_ui.PATCH_ROOM)
-        list_top=self.list.winfo_rooty()-self.title_row.winfo_rooty()
-        # 侧栏可滚动后，屏幕坐标会随画布偏移变化；换算回内容坐标再参与表头对齐。
-        sidebar_canvas=getattr(self,'sidebar_canvas',None)
-        if sidebar_canvas is not None:list_top+=sidebar_canvas.canvasy(0)
-        measurement=(list_top,minimum)
-        if self.list.winfo_ismapped() and measurement!=getattr(self,'_header_list_measurement',None):
-            self._header_list_measurement=measurement
-            previous=getattr(self,'_header_list_gap',SPACING['none'])
-            gap=max(SPACING['none'],minimum-(list_top-previous))
-            if gap!=previous:
-                self._header_list_gap=gap
-                self.list.pack_configure(pady=(DESKTOP_LAYOUT['row_gap']+gap,DESKTOP_LAYOUT['row_gap']))
-        height=max(minimum,list_top)
-        if int(self.title_row.cget('height'))!=height:self.title_row.configure(height=height)
-        content=getattr(self,'content',None)
-        if content is None:return
-        box=getattr(self,'idea_log',None)
-        script=self.page_index==PAGE['script'] and box is not None and box.winfo_exists()
-        anchor=box if script else content
-        inset=max(SPACING['none'],anchor.winfo_rootx()-self.title_row.winfo_rootx())
-        def horizontal_pad(widget):
-            value=widget.pack_info()['padx']
-            values=tuple(map(int,value if isinstance(value,tuple) else widget.tk.splitlist(str(value))))
-            return values if len(values)>1 else values*2
-        title_pad=(inset,SPACING['none'])
-        if horizontal_pad(self.title)!=title_pad:
-            self.title.pack_configure(padx=title_pad)
-        pet=getattr(self,'pet',None)
-        obstacles=[w for w in (getattr(pet,'canvas',None),getattr(pet,'paws',None),
-                               getattr(pet,'caption',None)) if w is not None and w.winfo_exists()]
-        if script and box.winfo_ismapped():
-            dialog=box.master
-            overlapping=[w for w in obstacles if w.winfo_rooty()<box.winfo_rooty()+box.winfo_height()
-                         and w.winfo_rooty()+w.winfo_height()>box.winfo_rooty()]
-            right=dialog.master.winfo_rootx()+dialog.master.winfo_width()-SPACING['xs']
-            reserve=max([SPACING['none']]+[right-w.winfo_rootx()+DESKTOP_LAYOUT['pet_clearance'] for w in overlapping])
-            dialog_pad=(SPACING['none'],reserve)
-            if horizontal_pad(dialog)!=dialog_pad:
-                dialog.pack_configure(padx=dialog_pad)
-        slogan=self.header_slogan
-        x=inset+self.title.winfo_reqwidth()+DESKTOP_LAYOUT['slogan_gap']
-        edge=min([self.title_row.winfo_width()]+[w.winfo_rootx()-self.title_row.winfo_rootx() for w in obstacles])
-        stage=getattr(self,'header_stage_button',None)
-        if stage is not None and stage.winfo_exists() and stage.winfo_ismapped():
-            edge=min(edge,stage.winfo_rootx()-self.title_row.winfo_rootx())
-        if x+slogan.winfo_reqwidth()+DESKTOP_LAYOUT['slogan_gap']<=edge:
-            y=round(self.title.winfo_y()+self.title.winfo_height()/2)
-            placed=slogan.place_info()
-            if not placed or (int(placed['x']),int(placed['y']))!=(x,y):
-                slogan.place(x=x,y=y,anchor='w')
-                slogan.tk.call('raise',str(slogan))
-        else:slogan.place_forget()
-    def fit_content(self,event=None):
-        # 迟到的请求不能丢：内容框行数变化常发生在一次重算过程中，若不补算一次，
-        # 页面滚动区域会停留在旧高度，底部按钮就可能被滚出可视区。
-        if getattr(self,'_fit_pending',False):
-            self._fit_again=True
-            return
-        self._fit_pending=True
-        def run():
-            self._fit_job=None
-            self._fit_pending=False
-            layout_key=None
-            try:layout_key=self._fit_content_now()
-            except Exception:app_logging.swallowed()
-            if getattr(self,'_fit_again',False):
-                self._fit_again=False
-                self.fit_content()
-                return
-            # Canvas 固定内容高度后，子控件请求高度变化不再触发内容框 Configure。
-            # 沿现有空闲队列等请求尺寸逐层传播；最多补八轮，避免异常布局反复排队。
-            signature=getattr(self,'_fit_request_signature',layout_key)
-            changed=signature!=getattr(self,'_last_fit_request_signature',None)
-            self._last_fit_request_signature=signature
-            passes=getattr(self,'_fit_stability_passes',0)
-            if changed and passes<8:
-                self._fit_stability_passes=passes+1
-                self.fit_content()
-                return
-            self._fit_stability_passes=0
-            pending_scroll=getattr(self,'_pending_scroll_restore',None)
-            if pending_scroll is not None:
-                if getattr(self,'_pending_scroll_layout',None)!=layout_key:
-                    self._pending_scroll_layout=layout_key
-                    self.fit_content()
-                    return
-                self._pending_scroll_restore=None
-                self._pending_scroll_layout=None
-                self.restore_scroll(pending_scroll)
-        try:self._fit_job=self.win.after_idle(run)
-        except tk.TclError:
-            self._fit_job=None
-            self._fit_pending=False
-    def _fit_content_now(self):
-        width=max(1,self.canvas.winfo_width());height=max(1,self.canvas.winfo_height())
-        req=self.content.winfo_reqheight()
-        req_min=max(1,req-growable_extra())
-        target=max(height,req_min)
-        self.canvas.itemconfigure(self.content_id,width=width,height=target)
-        # 滚动区域就是内容实际高度：内容框（Treeview）会长到填满窗口，若按请求高度
-        # 记录滚动区域，窗口缩小时会残留旧高度，底部按钮可能被滚出可视区。
-        self.canvas.configure(scrollregion=(0,0,width,target))
-        if hasattr(self,'status_label'):self.status_label.configure(wraplength=max(200,width-12))
-        resized=getattr(self,'_last_fit_width',None)!=width
-        if resized:self._last_fit_width=width
-        # 页面重建（切换分镜、刷新列表）会产生新控件，必须每次重新补挂滚轮标签：
-        # 漏挂标签时滚轮会落到控件自身的绑定上，只读下拉框会直接换选项并重建整页，
-        # 表现出来就是「滚轮滑过下拉框，文件被切换，内容抖动」。
-        measured_requests=[]
-        def resize(widget):
-            for child in widget.winfo_children():
-                tags=child.bindtags()
-                if 'DramaPageWheel' not in tags:child.bindtags(('DramaPageWheel',)+tags)
-                if resized and isinstance(child,ttk.Label) and not getattr(child,'local_wrap',False) and int(child.cget('wraplength') or 0)>0:
-                    child.configure(wraplength=max(200,width-28))
-                measured_requests.append((str(child),child.winfo_reqwidth(),child.winfo_reqheight()))
-                resize(child)
-        resize(self.content)
-        if self.page_index==PAGE['script'] and hasattr(self,'_fit_talk'):
-            self._fit_talk()
-        self._fit_request_signature=(width,req,target,tuple(measured_requests))
-        # 缓存页会替换 content，且等宽标题切换不会触发 Configure。
-        # 在当前页几何收敛时统一刷新，不沿用上一页的聊天内边距。
-        self.align_header()
-        return (width,req,target)
-    def wheel_steps(self,event):
-        delta=getattr(event,'delta',0)
-        if not delta:return 0
-        return -max(1,abs(int(delta/120))) if delta>0 else max(1,abs(int(delta/120)))
-    def popdown_listbox(self,widget):
-        """下拉框展开时返回弹出的列表控件路径；未展开时返回 None。
-
-        Tk 直接创建的下拉列表只会在事件里给出路径字符串，所以这里同时接受控件和路径。
-        """
-        path=str(widget)
-        if '.popdown' in path:
-            target=path.split('.popdown')[0]+'.popdown.f.l'
-        elif isinstance(widget,ttk.Combobox):
-            try:target=str(self.win.tk.call('ttk::combobox::PopdownWindow',path))+'.f.l'
-            except tk.TclError:return None
-        else:return None
-        try:
-            if not self.win.tk.call('winfo','exists',target):return None
-            if not self.win.tk.call('winfo','ismapped',target):return None
-        except tk.TclError:return None
-        return target
-    def native_wheel(self,widget):
-        """Tk 自建控件（下拉列表、滚动条）是否已有类级滚轮绑定：有就不要再滚一次。"""
-        try:
-            name=self.win.tk.call('winfo','class',widget)
-            return bool(self.win.tk.call('bind',name,'<MouseWheel>'))
-        except tk.TclError:return False
-    def clear_hover(self,widget):
-        """滚轮滚动内容框后清掉悬停高亮：高亮是按旧坐标浮在表格上的，不跟着滚动就会停在错行上。"""
-        hover=getattr(widget,'cell_hover',None)
-        if hover is None:return
-        try:hover.clear()
-        except tk.TclError:pass
-    def _inside_path(self,widget,ancestor):
-        """控件是否就是 ancestor 或在其下；不能只比字符串前缀（.!frame 会误吞 .!frame2）。"""
-        try:path=str(widget);base=str(ancestor)
-        except tk.TclError:return False
-        return bool(path) and (path==base or path.startswith(base+'.'))
-    def scroll_page(self,event):
-        widget=event.widget
-        steps=self.wheel_steps(event)
-        if isinstance(widget,str):
-            # 下拉框弹出的列表／滚动条由 Tk 自己创建，事件里拿到的是路径字符串。
-            target=self.popdown_listbox(widget)
-            if not target:return
-            try:
-                # Listbox／TScrollbar 的类绑定已经滚过它；再滚一次一次跳两倍，看起来就是内容抖动。
-                if not self.native_wheel(widget):self.win.tk.call(target,'yview','scroll',steps,'units')
-            except tk.TclError:pass
-            return 'break'
-
-        # 下拉框展开时滚轮只滚弹出的列表：既不换选项，也不重建页面；任何窗口都适用。
-        target=self.popdown_listbox(widget)
-        if target and steps:
-            self.win.tk.call(target,'yview','scroll',steps,'units')
-            return 'break'
-        if widget.winfo_toplevel()!=self.win:return
-        if self._inside_path(widget,getattr(self,'sidebar_viewport',self.sidebar)):
-            if steps and not self.native_wheel(widget):self.sidebar_canvas.yview_scroll(steps,'units')
-            return 'break'
-        if not steps:return 'break'
-        # This bindtag runs before native widget bindings, so one wheel event
-        # moves either the hovered editor/table or the surrounding page once.
-        while widget is not self.content and widget is not self.win:
-            if isinstance(widget,(tk.Text,tk.Listbox,ttk.Treeview)):
-                top,bottom=widget.yview()
-                if (steps<0 and top>0.000001) or (steps>0 and bottom<0.999999):
-                    widget.yview_scroll(steps,'units');self.clear_hover(widget);return 'break'
-            widget=getattr(widget,'master',self.win)
-            if widget is None:break
-        self.canvas.yview_scroll(steps,'units')
-        return 'break'
-    def _page_scroll_target(self,widget=None):
-        focus=self.win.focus_get() if widget is None else widget
-        if focus is not None:
-            try:path=str(focus)
-            except tk.TclError:path=''
-            if path and self._inside_path(focus,self.sidebar_viewport):
-                return self.sidebar_canvas
-        return self.canvas
-    def scroll_page_key(self,event):
-        """PageUp／PageDown／Home／End 翻主内容或侧栏，文本框与表格保留自己的按键。"""
-        owned=('Text','Entry','Spinbox','TEntry','TCombobox','TSpinbox','Listbox','Treeview')
-        focus=self.win.focus_get();receiver=getattr(event,'widget',None)
-        # 按键事件先认实际接收控件；真实键盘输入时它就是焦点控件。
-        widgets=(receiver,focus) if receiver is not None else (focus,)
-        for widget in widgets:
-            if widget is None:continue
-            try:klass=widget.winfo_class()
-            except tk.TclError:klass=''
-            if klass in owned:return None
-        target=self._page_scroll_target(receiver if receiver is not None else focus);key=event.keysym
-        if key=='Prior':target.yview_scroll(-1,'pages')
-        elif key=='Next':target.yview_scroll(1,'pages')
-        elif key=='Home':target.yview_moveto(0)
-        elif key=='End':target.yview_moveto(1)
-        else:return None
-        return 'break'
-    def on_window_map(self,event=None):
-        """主窗口从最小化恢复后，重新排定整页滚动范围。"""
-        if event is not None and event.widget is not self.win:return
-        if getattr(self,'shutting_down',False):return
-        self.fit_content()
     def save_brief(self,path,value):
         path=Path(path)
         # 第 37 期第 2 条：预置示例随程序打包（默认创意示例.md），比的是程序里那一份——
@@ -854,80 +571,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         result=diagnostic_capture.export(target)
         self.status.set('诊断包已导出：'+str(result))
         return result
-    def async_(self,fn,done=None,show_progress=True,label=None):
-        self._async_ticket+=1;ticket=self.background_tasks.submit(self._async_ticket,label=label,project=getattr(self,'root',None))
-        self.worker=True
-        self.busy_state.set_busy(True, message=label or '正在处理… 界面保持响应',
-                                 progress=show_progress)
-        def run():
-            try:self.q.put((ticket,True,self.background_tasks.run(ticket,fn),done))
-            except Exception as e:
-                import diagnostic_capture
-                diagnostic_capture.record_degradation(
-                    e, page=PAGES[getattr(self,'page_index',0)],
-                    project=str(getattr(self,'root', '') or ''),
-                    automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
-                self.q.put((ticket,False,str(e),None))
-        threading.Thread(target=run,daemon=True).start()
-        self._schedule_async_result_poll(ticket)
-        return ticket
-    def async_queued(self,fn,done=None,label=None,show_progress=True,retryable=False):
-        """后台空闲就立即执行，忙就排队（最多 10 个）；只给互相独立、可延后的任务用。
-
-        ``retryable=True`` 表示任务只读／幂等：失败后可在「运行状况」里手动重试；不会自动重试。
-        """
-        if not self.worker:
-            ticket=self.async_(fn,done,show_progress,label=label)
-            if retryable:self.retry_registry.remember(ticket,(fn,done,label,show_progress))
-            return ticket
-        position=self.task_queue.enqueue(fn,done,label or '',show_progress,retryable)
-        self.status.set('已排队（第%d个）：%s'%(position,label or '后台任务'))
-        return None
-    def async_descriptor(self,kind,payload,*,label='',priority=0,expires_at=None):
-        task_id=self.task_queue.enqueue_descriptor(kind,payload,label=label,priority=priority,expires_at=expires_at)
-        self.status.set('已排队：'+label)
-        self._start_next_queued()
-        return task_id
-    def _start_next_queued(self):
-        """当前主动任务收尾后继续待办；关闭期间不领取，持久待办留待重启。"""
-        if self.worker or getattr(self,'shutting_down',False):return
-        item=self.task_queue.pop()
-        if item:
-            ticket=self.async_(item['fn'],item['done'],item['show_progress'],label=item['label'] or None)
-            if item['retryable']:self.retry_registry.remember(ticket,(item['fn'],item['done'],item['label'] or None,item['show_progress']))
-    def retry_failed_task(self):
-        """手动重试最近一次失败的可重试任务；没有则返回 False。"""
-        spec=self.retry_registry.take_latest_failed(self.background_tasks.history())
-        if spec is None:return False
-        self.async_queued(*spec,retryable=True)
-        return True
-    def _schedule_async_result_poll(self,ticket):
-        """启动早期的全局 tick 暂停时，也要能交付用户主动任务的后台结果。"""
-        if getattr(self,'shutting_down',False):return None
-        if getattr(self,'_async_result_poll_id',None) is None:
-            self._async_result_poll_id=self.win.after(50,lambda:self._poll_async_result(ticket))
-        return self._async_result_poll_id
-    def _poll_async_result(self,ticket):
-        self._async_result_poll_id=None
-        if (getattr(self,'shutting_down',False) or ticket!=self._async_ticket
-                or not self.background_tasks.accepts(ticket)):return
-        self._tick_async_result()
-        if self.worker and ticket==self._async_ticket:
-            self._schedule_async_result_poll(ticket)
-    def _schedule_auto_edit_result_poll(self):
-        """启动期暂停全局 tick 时，仍交付已经派发的自动粗剪结果。"""
-        if (getattr(self,'shutting_down',False) or not getattr(self,'_startup_tick_paused',False)
-                or getattr(self,'_auto_edit_result_poll_id',None) is not None):
-            return None
-        self._auto_edit_result_poll_id=self.win.after(50,self._poll_auto_edit_result)
-        return self._auto_edit_result_poll_id
-    def _schedule_auto_handoff_result_poll(self):
-        """启动期暂停全局 tick 时，仍交付已经派发的自动交接结果。"""
-        if (getattr(self,'shutting_down',False) or not getattr(self,'_startup_tick_paused',False)
-                or getattr(self,'_auto_handoff_result_poll_id',None) is not None):
-            return None
-        self._auto_handoff_result_poll_id=self.win.after(50,self._poll_auto_handoff_result)
-        return self._auto_handoff_result_poll_id
     def queue_initial_brief_document(self,input_box,provisional):
         """后台发现创意历史；翻页或重建后绝不把旧结果写回新页面。"""
         self._idea_brief_generation=getattr(self,'_idea_brief_generation',0)+1
@@ -1050,10 +693,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         except tk.TclError:
             # 销毁阶段 worker 可能已释放；其他失败不可吞没。
             pass
-    def _set_automation_error(self,prefix,exc):
-        try:
-            self.status.set(prefix+str(exc))
-        except Exception:app_logging.swallowed()
 
 
     def shot_numbering_hint(self):
@@ -1067,49 +706,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             problems=shot_numbering.verify(self.root,[entry['path'] for entry in catalog(self.root,'storyboard')])
         except (OSError,ValueError):return ''
         return '；镜头编号与剧本顺序不一致（'+problems[0]+'），可在 '+pet_bus.stage_label('storyboard')+' 点“重排镜头编号”修正' if problems else ''
-    def _tick_async_result(self):
-        """消费主后台任务结果，并恢复相关 UI 与自动链。"""
-        # 首帧的创意历史发现不属于用户操作，单独回收，绝不改变 worker 状态。
-        try:
-            while True:
-                generation,root,apply,path,error=self._brief_load_results.get_nowait()
-                if (generation==getattr(self,'_idea_brief_generation',0)
-                        and root==self.root and not self.shutting_down):
-                    if error:self.status.set('创意历史未加载：%s；请稍后重试。' % error)
-                    else:apply(path)
-        except queue.Empty:pass
-        try:
-            ticket,ok,value,done=self.q.get_nowait()
-            was_active=self.background_tasks.accepts(ticket)
-            if not self.background_tasks.finish(ticket, succeeded=ok, error='' if ok else str(value)) or ticket!=self._async_ticket:
-                if was_active and ticket==self._async_ticket:
-                    self.worker=False;self.busy_state.set_busy(False)
-                    self.status.set('本机已停止等待；在途任务与迟到结果可在运行状况核对。')
-                    self._start_next_queued()
-                return
-            self.worker=False;self.busy_state.set_busy(False)
-            if ok and done:done(value)
-            elif ok:self.status.set(str(value))
-            elif not ok:
-                # 创意对话失败也要恢复发送框；否则一次网络错误会把唯一发送入口永久锁住。
-                if getattr(self,'_idea_requesting',False):
-                    self.idea_chat_controller.cancel_request()
-                    send=getattr(self,'idea_send',None)
-                    if send is not None and send.winfo_exists():send.state(['!disabled'])
-                self._script_agent_launching=False
-                self.update_script_interrupt_button()
-                self.clear_thinking()
-                self.notifier.error(str(value), title='操作未完成')
-            # 自动链派到结构剧本时，若恰有另一项后台工作在收尾，不能把这次
-            # 暂时占用误判成永久失败。只保留一个待派发标记；当前队列清空后
-            # 仍走 L3 注册器重新启动，避免在 UI 层复制派发逻辑或无限重试。
-            if getattr(self, '_auto_structure_retry', False) and not self.worker:
-                self._auto_structure_retry=False
-                try:self.pet_start('script_structure')
-                except (OSError, ValueError, KeyError, TypeError) as exc:
-                    self.status.set('自动恢复结构剧本暂缓：'+str(exc))
-            self._start_next_queued()
-        except queue.Empty:pass
 
     def final_storyboard_hint(self,source=None):
         """当前分镜还是工作稿、且引用的资产都已导入时，提示可以去分镜定稿页生成定稿。
@@ -1126,98 +722,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         if not shots:return ''
         if self.final_missing_assets(source):return ''
         return '；当前分镜引用的资产都已导入，可在'+pet_bus.stage_step('final')+'「分镜定稿」生成定稿（定稿接管后续流程，工作稿移入回收站）'
-    def pet_show_text(self,title,text,receipt=''):
-        """宠物「查看详情」的只读文本：复用全程序唯一的只读文本窗口（prompt_window），不另造一个。"""
-        from prompt_window import show
-        return show(self.win,title,text,status=self.status,receipt=receipt,button='复制详情')
-    def pet_goto(self,stage):
-        """宠物说「切到某一页」时真的把那页翻开（第 23 期）。
-
-        页序号只认 pet_state.PAGE_OF 那一份（阶段枚举与页面一一对应）；没有项目、认不出这一步、
-        页面翻不动都返回空串——聊天里先听到一句「切到「剪辑」这一步」然后什么也没发生，比不说还糟。
-        返回真正翻过去的那一页标题。
-        """
-        import pet_state
-        index=pet_state.PAGE_OF.get(stage)
-        if index is None or self.root is None:return ''
-        try:
-            self.show(index)
-        except Exception as exc:
-            self.status.set('切页失败，已忽略：'+str(exc));return ''
-        return PAGES[index]
-    def pet_advance(self,stage):
-        """宠物「自动推进」的接缝（第 23 期）：把这一步对应的无人值守轮询提前叫醒一轮。
-
-        只把 due 拉到当前（下一次心跳就会轮到它），不碰任何开关、不代按任何按钮：
-        那一步该不该跑、要怎么跑，仍然由它自己的轮询与用户在页面上勾的开关说了算。
-        没项目、这一步没有轮询、正在退避（due 比正常节流周期还远）都原样不动，返回空串。
-        """
-        name=PET_STAGE_POLL.get(stage)
-        if name is None or self.root is None:return ''
-        if getattr(self,name+'_busy',False):return ''
-        now=time.monotonic()
-        if getattr(self,name+'_due',0)>now+UNATTENDED_BACKOFF_FLOOR:return ''
-        setattr(self,name+'_due',0)
-        import pet_bus
-        return '已把「'+pet_bus.STAGE_NAMES.get(stage,stage)+'」这一步提前叫醒一轮'
-    def pet_start(self,stage):
-        """第 67 期任务 5：三虎在自动档要「自动开始每个阶段的任务」。
-
-        先把这一步的无人值守开关替他打开（用户不必自己回页面上勾），再把它提前叫醒一轮——
-        开关一开，这一步的轮询从此每一轮都会接着做，直到做完（中途断了也照旧自己接着做）。
-        剧本结构虽没有常驻轮询，但有一条与手动按钮相同的确定性模板执行链，单独派发；
-        连贯性清单是本地规则计算，直接走与手动按钮同一个实现；其余没有无人值守的步骤（剧本、配音）老实给空串，让宠物自己说「没有能自动跑的路子」。
-        """
-        return stage_handler_registry.start(self,stage,trigger='auto',fallback=self._start_unattended_stage)
-    def _start_unattended_stage(self,stage,trigger):
-        """尚未拆出的无人值守阶段由 L3 启动适配器回调到此处。"""
-        if self.root is None:return ''
-        if stage=='script_structure':return self.pet_script_structure_batch(trigger=trigger)
-        if stage=='continuity':return self.pet_continuity_ledger()
-        # 首帧不是普通的轮询开关：自动链需要立即把当前缺口派发，并由批次的
-        # completed/failed 事件收场。经 L3 转到这里，避免 Pet UI 再另走一条直连路径。
-        if stage=='keyframe':return self.pet_frame_batch(trigger=trigger)
-        name=PET_STAGE_POLL.get(stage)
-        if name is None:return ''
-        import project_settings,pet_bus
-        turn_on=getattr(project_settings,UNATTENDED_SWITCH.get(name,''),None)
-        if callable(turn_on):
-            try:turn_on(self.root,True)
-            except (OSError,ValueError,KeyError,TypeError):pass
-        title=pet_bus.STAGE_NAMES.get(stage,stage)
-        if self.pet_advance(stage):
-            return '已自动开始「'+title+'」：无人值守已打开，跑完自己往下走'
-        return '「'+title+'」这一步已经在跑，等它收尾'
-    def pet_storyboard_batch(self, trigger='manual'):
-        """第 62 期任务 2：三虎要「自动制作分镜」时走这一条——与「手动制作分镜」同一份实现。
-
-        没有可做的输入（没勾剧本、或勾中的都做好了）返回空串，让宠物自己说「没有要做的事」；
-        真的派了就返回一句人话。派发本身是异步的（work 在后台线程里算），失败那句会走
-        「操作未完成」的既有出口，不在这里另造一套。
-        """
-        return stage_handler_registry.start(self,'storyboard',trigger=trigger)
-    def batch_blockers(self,source,pending):
-        """用引擎自己的逐镜检查（batch_frames.shot_inputs）列出无法生成的镜头与原因。
-
-        与批次内部判定的口径完全一致：只有真正能出图的镜头才值得启动一次批次。
-        """
-        from batch_frames_tool.batch_frames import load_assets,shot_inputs
-        assets=load_assets(source);result=[]
-        for shot in pending:
-            try:shot_inputs(shot,media_root(source),assets)
-            except ValueError as exc:result.append((shot['id'],str(exc)))
-        return result
-    def busy_reason(self):
-        """当前拦着退出的那件事（没有就返回空串）。
-
-        第 47 期第 7 条从 close 里拆出来：关窗要先知道「在等什么」，才问得出那句「要强制关闭吗」。
-        """
-        if getattr(self,'previs_jobs',{}).get('busy'):return '白模预演正在制作'
-        if self.worker:return '有一步 Agent 任务或批量任务正在执行'
-        if self.cloud_monitor_busy:return '正在查询线上任务'
-        if any(v.busy or getattr(v,'optimizer_busy',False) for v in self.video_sessions.values()):
-            return '视频提交、下载或提示词优化正在跑'
-        return ''
     def close(self):
         if getattr(self,'_closing',False):return
         reason=self.busy_reason()
@@ -1294,40 +798,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.win.destroy()
         from exit_maintenance import launch_cleanup
         launch_cleanup(self.app, forced=getattr(self, '_forcing_quit', False))
-    def pet_report(self,stage,text,ok=True):
-        """第 47 期第 5 条：某一步的制作收了尾，说给三虎听——各页共用这一条出口。
-
-        成了当场播报（pet.report_done）；没成仍走原来那条「待确认清单」（pet.drain），
-        由三虎按自动化等级决定重试还是问用户。宠物不在（自检里的宿主）就什么都不做。
-        """
-        pet=getattr(self,'pet',None)
-        if pet is None:return None
-        # 宠物报告是阶段状态链的一部分；真实报告器故障必须让调用者看见，
-        # 不能把完成／失败事件吞成“页面看似正常”。没有宠物的假宿主仍是无操作。
-        if ok:return pet.report_done(str(stage),str(text))
-        return pet.drain(str(stage),(False,str(text),None))
-    def pet_at_stage(self,index,*,automatic=False):
-        """进入制作页交给三虎统一协调：提示进度、半自动征询或全自动按 SKILL 执行。
-
-        宠物不在、问不出来都不影响翻页——它只是搭一句话，不参与页面本身。
-        """
-        pet=getattr(self,'pet',None)
-        if pet is None:return ''
-        try:
-            # 启动自动进页不得抢先打开聊天框；用户主动切页不受静默限制。
-            if automatic and pet.quiet():return ''
-            return pet.enter_stage(index)
-        except Exception:return ''
-    def pet_hides_instead_of_quitting(self):
-        """常驻模式（配置里明确开）：关主窗口＝收进宠物窗，不退出。
-
-        只有独立窗真的起来了才拦这一步：收不起来还硬拦，用户就再也关不掉程序了。
-        """
-        if getattr(self,'_forcing_quit',False):return False
-        pet=getattr(self,'pet',None)
-        if pet is None:return False
-        try:return bool(pet.hide_to_pet())
-        except Exception:return False
     def reload(self):
         self.fill_projects(self.list)
         self.schedule_sidebar_fit()

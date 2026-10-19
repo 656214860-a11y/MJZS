@@ -116,7 +116,7 @@ class ContinuityScopeTests(unittest.TestCase):
         self.assertIn('不调用模型', text)
 
     def test_req_s06_33_auto_chain_has_one_entry_through_the_registry(self):
-        source = (ROOT / 'desktop.py').read_text(encoding='utf-8')
+        source = (ROOT / 'desktop_pet_bridge.py').read_text(encoding='utf-8')  # SPLITD：pet_start/_start_unattended_stage 迁到 PetBridgeMixin
         self.assertIn("if stage=='continuity':return self.pet_continuity_ledger()", source)
         self.assertIn("stage_handler_registry.start(self,stage,trigger='auto',fallback=self._start_unattended_stage)",
                       source)

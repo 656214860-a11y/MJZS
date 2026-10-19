@@ -58,7 +58,8 @@ def parse(path: Path) -> ast.Module:
 # 行为（调用、方法体）的门禁用下面两个入口，别再直接读 desktop.py，否则迁出的方法会"消失"。
 DESKTOP_PARTS = ("desktop.py", "desktop_auto_flows.py", "desktop_idea_chat.py", "desktop_writing_page.py",
                  "desktop_storyboard_page.py",
-                 "desktop_idea_menus.py", "desktop_asset_pages.py", "desktop_script_pages.py", "desktop_media_pages.py", "desktop_project_pages.py")
+                 "desktop_idea_menus.py", "desktop_asset_pages.py", "desktop_script_pages.py", "desktop_media_pages.py", "desktop_project_pages.py",
+                 "desktop_layout.py", "desktop_pet_bridge.py", "desktop_async_tasks.py")
 
 
 def desktop_text() -> str:

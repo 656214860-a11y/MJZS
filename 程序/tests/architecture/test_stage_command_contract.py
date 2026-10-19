@@ -8,7 +8,7 @@ from tests.architecture._layers import LAYERS
 from tests.architecture._scan import ROOT, module_name, parse
 
 
-_L4_COMMAND_MODULES = frozenset({'desktop', 'app', 'pet_ui'})
+_L4_COMMAND_MODULES = frozenset({'desktop', 'desktop_pet_bridge', 'app', 'pet_ui'})  # SPLITD：pet_start/pet_storyboard_batch 迁到 PetBridgeMixin
 _DIRECT_STAGE_IMPLEMENTATIONS = frozenset({
     'stage_exec', 'stage_execution_service', 'stage_parallel', 'skill_orchestrator',
     'workflow', 'workflow_tasks',
