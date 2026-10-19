@@ -152,11 +152,16 @@ def current_source(project, legacy_sources=(), fallbacks=(), remember=None):
     raise ValueError('这个项目还没有分镜 JSON，请先到'+pet_bus.stage_step('storyboard')+'采用一份。')
 
 
-def source_script_error(project, board):
+def source_script_error(project, board, available=None):
     """JSON 必须来自当前“初步分镜”栏中实际可用的一份剧本。
 
     迁移目录后，旧 JSON 常保留 ``writing/script.md`` 之类已经失效的来源。
     它们可以留在磁盘供用户查看，但不能继续被采用并推进后续阶段。
+
+    ``available`` 是可选预取参数：可以是“当前可用剧本集合”，也可以是取数器；
+    取数器只在 ``source is not None`` 之后调用，保证没有任何板到达来源比对时零扫描。
+    批量校验（prune_invalid_adoptions）传惰性取数器，只有真正需要来源比对时才扫一次，
+    之后各板复用；提前返回的板与空采用列表都不触发扫描。
     """
     from storyboard_catalog_service import board_source_script, catalog
     project=Path(project).resolve();board=Path(board).resolve()
@@ -169,7 +174,16 @@ def source_script_error(project, board):
     try:source=board_source_script(project_context(project),board)
     except (OSError,ValueError,TypeError):return '无法读取 JSON 的分镜初稿来源'
     if source is None:return 'JSON 未记录分镜初稿来源'
-    available={entry['path'] for entry in catalog(project_context(project),'script')}
+    # 先通过来源读取检查，确认真的要做来源比对了再取“当前可用剧本集合”。
+    # 批量校验的取数器在此才触发，且只扫一次；提前返回的板不会让它扫描。
+    if callable(available) and not isinstance(available,(set,frozenset)):
+        available=available()
+    if available is None:
+        # 只取剧本路径集合，不需要“已制作分镜”标记：传空 completed 避免 produced_scripts
+        # 顺带再扫一遍分镜目录。
+        available=catalog(project_context(project),'script',completed=set())
+    if not isinstance(available,(set,frozenset)):
+        available={entry['path'] for entry in available}
     if source not in available:
         return '对应分镜初稿不存在或已迁移：'+str(source)
     return ''
@@ -180,12 +194,21 @@ def prune_invalid_adoptions(project):
     project=Path(project).resolve();data=writable_prefs(project)
     values=data.get('adopted_storyboards')
     if not isinstance(values,list):return ()
+    # 惰性扫描、多板复用：第一个真正要做来源比对的板才取一次“当前可用剧本集合”，
+    # 调用次数不随已采用分镜数增长（N 个板到达比对时都只扫一遍剧本目录）；
+    # 空采用列表或所有板提前返回时一次都不扫，不给 UI 线程新增整库扫描。
+    from storyboard_catalog_service import catalog
+    cache=[]
+    def available():
+        if not cache:
+            cache.append(catalog(project_context(project),'script',completed=set()))
+        return cache[0]
     valid=[];removed=[]
     for value in values:
         try:board=paths(project,[value])[0]
         except (OSError,ValueError,IndexError):
             removed.append(str(value));continue
-        if source_script_error(project,board):
+        if source_script_error(project,board,available=available):
             removed.append(str(board));continue
         if board not in valid:valid.append(board)
     if not removed:return ()

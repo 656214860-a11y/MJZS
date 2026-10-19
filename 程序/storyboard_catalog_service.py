@@ -32,7 +32,13 @@ def document_dir(context):
 
 
 def discover_files(roots, suffixes, ignored, ignored_name=None):
-    """逐一返回 ``(原路径, 解析路径, stat)``，不创建目录也不修改项目文件。"""
+    """逐一返回 ``(原路径, 解析路径, stat)``，不创建目录也不修改项目文件。
+
+    ``解析路径`` 不再逐文件 ``Path.resolve()``：``os.walk(followlinks=False)`` 已排除链接目录，
+    上面的循环又排除了符号链接／联接点目录与符号链接文件，且 ``root`` 在进入循环前已 resolve，
+    因此 ``path`` 不含任何符号链接／联接点分量，逐文件 ``realpath`` 只是重复做 root 已做过的事。
+    仍保留 ``is_relative_to(root)`` 的越界保护（此时等价于词法边界，实际隔离由链接排除承担）。
+    """
     suffixes = {str(value).lower() for value in suffixes}
     ignored = set(ignored)
     for root in roots:
@@ -49,13 +55,12 @@ def discover_files(roots, suffixes, ignored, ignored_name=None):
                 if callable(ignored_name) and ignored_name(name):
                     continue
                 try:
-                    resolved = path.resolve()
                     stat = path.stat()
                 except OSError:
                     continue
-                if not resolved.is_relative_to(root) or not stat.st_size:
+                if not path.is_relative_to(root) or not stat.st_size:
                     continue
-                yield path, resolved, stat
+                yield path, path, stat
 
 
 def content_preview(path):
@@ -422,9 +427,14 @@ def _is_initial_storyboard(data):
             }])
 
 
-def catalog(context, kind, ignored=IGNORED):
-    """Build the script/storyboard catalog without importing Tk page code."""
-    return _catalog(context, kind, ignored)
+def catalog(context, kind, ignored=IGNORED, completed=None):
+    """Build the script/storyboard catalog without importing Tk page code.
+
+    ``completed`` 是已制作分镜的剧本路径集合，供 script 目录复用：调用方已经拿到该集合
+    （如 catalog_snapshot，或 prune 只需剧本路径集合、不需要“已制作分镜”标记）时传入，
+    _catalog 就不必再经 produced_scripts 多扫一遍分镜目录。
+    """
+    return _catalog(context, kind, ignored, completed=completed)
 
 
 def catalog_snapshot(context, ignored=IGNORED):
