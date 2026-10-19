@@ -210,8 +210,13 @@ def _recon_card(context):
                    headers=ctx.get('headers'), pause=ctx.get('pause'),
                    program=ctx.get('program'))
     saved = save_card(project, card, save=ctx.get('save'), save_text=ctx.get('save_text'))
-    return {'ok': True, 'card': saved['card'], 'doc': saved['doc'],
-            'sources': len(card.get('sources') or ()), 'problems': saved['problems'],
+    if not saved.ok:
+        # 原来 save_card 抛 ValueError，本工具不拦，交给编排器记失败／页面报错；
+        # 现在契约把错误放进结果，这里仍抛工具错误，用户看到的原因与原来一致。
+        raise ToolError(saved.reason)
+    data = saved.data or {}
+    return {'ok': True, 'card': data['card'], 'doc': data['doc'],
+            'sources': len(card.get('sources') or ()), 'problems': data['problems'],
             'summary': summary(card), 'not_found': card.get('not_found'),
             'budget': card.get('budget')}
 

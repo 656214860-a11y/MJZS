@@ -347,8 +347,9 @@ class SavingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             saved = recon.save_card(root, card)
-            card_file = Path(saved['card'])
-            doc_file = Path(saved['doc'])
+            self.assertTrue(saved.ok, getattr(saved, 'reason', ''))
+            card_file = Path(saved.data['card'])
+            doc_file = Path(saved.data['doc'])
             self.assertEqual(card_file.relative_to(root),
                              Path('01剧本准备') / 'input' / recon.CARD_NAME)
             self.assertEqual(doc_file.relative_to(root),
@@ -360,6 +361,30 @@ class SavingTests(unittest.TestCase):
             text = doc_file.read_text(encoding='utf-8')
             self.assertIn('对标情报卡', text)
             self.assertIn('https://a.com/x', text)
+
+    def test_invalid_card_returns_user_error_instead_of_raising(self):
+        """契约：校验失败是用户可修正的错误，不抛裸 ValueError，也不落任何文件。"""
+        from service_contract import UserError
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            result = recon.save_card(root, {'sources': []})
+            self.assertIsInstance(result, UserError)
+            self.assertFalse(result.ok)
+            self.assertIn('缺少必备字段', result.reason)
+            self.assertFalse(recon.card_path(root).exists())
+            self.assertFalse(recon.doc_path(root).exists())
+
+    def test_run_returns_service_result(self):
+        """run 是写入口：成功也走 service_contract，调用方从 .data 取原字段。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            result = recon.run(root, {'name': '某剧'}, '对标爆款',
+                               sender=sender(results=[row('https://a.com/x')]),
+                               pause=lambda _s: None)
+            self.assertTrue(result.ok, getattr(result, 'reason', ''))
+            self.assertEqual(Path(result.data['card']).name, recon.CARD_NAME)
+            self.assertEqual(result.data['sources'], 1)
+            self.assertTrue(Path(result.data['card']).is_file())
 
     def test_missing_card_is_not_an_error(self):
         with tempfile.TemporaryDirectory() as td:
@@ -425,7 +450,8 @@ class RequestTests(unittest.TestCase):
             root = Path(td)
             self.assertEqual(recon.load_request(root), {})
             target = recon.save_request(root, {'name': '某剧', 'material_source': '对标爆款'})
-            self.assertEqual(target, recon.request_path(root))
+            self.assertTrue(target.ok, getattr(target, 'reason', ''))
+            self.assertEqual(target.data, recon.request_path(root))
             self.assertEqual(recon.load_request(root)['name'], '某剧')
             self.assertEqual(skill_tools._recon_target({}, root, '对标爆款').get('name'), '某剧')
             # 本次上下文优先于文件
@@ -435,7 +461,8 @@ class RequestTests(unittest.TestCase):
     def test_topic_request_without_name_falls_back_to_the_brief(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            recon.save_request(root, {'material_source': '热点速成'})
+            saved = recon.save_request(root, {'material_source': '热点速成'})
+            self.assertTrue(saved.ok, getattr(saved, 'reason', ''))
             self.assertEqual(skill_tools._recon_target({}, root, '热点速成'), {},
                              '没有名字也没有题材时不能瞎猜，交给「还缺输入」')
 

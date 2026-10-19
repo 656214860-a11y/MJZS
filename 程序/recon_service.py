@@ -22,6 +22,7 @@ import model_pool
 import stage_layout
 from agent import core
 from file_cache import read_json
+from service_contract import UserError, success
 from stage_path_service import write_dir
 
 STAGE = 'script'
@@ -89,11 +90,11 @@ def save_request(project, values, save=None):
     """写采风请求（原子发布）：`name` 用于③单剧，`type=topic` 让④按简报题材起手。
 
     `save` 是自检注入点；生产默认 `agent.core.save`，与 `save_card()` 同一写法——
-    L2 不保留裸写正式路径的回退（第三项棘轮）。
+    L2 不保留裸写正式路径的回退（第三项棘轮）。写入成功的数据是请求文件路径。
     """
     target = request_path(project)
     (save or core.save)(target, dict(values or {}))
-    return target
+    return success(target)
 
 
 def doc_path(project):
@@ -111,18 +112,22 @@ def load_card(project):
 
 
 def save_card(project, card, save=None, save_text=None):
-    """按正式产物写：JSON 带 schema_version 走原子发布，人读版同步落 docs/。"""
+    """按正式产物写：JSON 带 schema_version 走原子发布，人读版同步落 docs/。
+
+    校验失败是可修正的输入错误：返回 `UserError`，由调用方按工具失败展示；
+    成功的数据保留原返回内容 `{card, doc, problems}`。
+    """
     payload = artifact_schema.stamp(KIND, card)
     problems = artifact_schema.validate(KIND, payload)
     if problems:
-        raise ValueError('；'.join(problems))
+        return UserError('；'.join(problems))
     issues = evidence(payload)
     payload['evidence_report'] = list(issues)
     target = card_path(project)
     writer = save or core.save
     writer(target, payload)
     (save_text or core.save_text)(doc_path(project), render(payload))
-    return {'card': str(target), 'doc': str(doc_path(project)), 'problems': list(issues)}
+    return success({'card': str(target), 'doc': str(doc_path(project)), 'problems': list(issues)})
 
 
 # ── 来源分级与证据机检 ─────────────────────────────────────────────────────
@@ -487,14 +492,21 @@ def collect(target, material_source, sender=None, pause=None, limits=None,
 def run(project, target, material_source, sender=None, pause=None, limits=None,
         clock=time.time, official_hosts=(), transport=None, headers=None, program=None,
         save=None, save_text=None):
-    """采风并落盘：卡片 JSON ＋ 人读 MD。返回 {card, doc, problems, summary}。"""
+    """采风并落盘：卡片 JSON ＋ 人读 MD。
+
+    返回 `ServiceResult`，成功数据保留原字段
+    `{card, doc, problems, sources, queries, not_found, budget}`；落盘失败原样透传。
+    """
     card = collect(target, material_source, sender=sender, pause=pause, limits=limits,
                    clock=clock, official_hosts=official_hosts, transport=transport,
                    headers=headers, program=program)
     saved = save_card(project, card, save=save, save_text=save_text)
-    return {'card': saved['card'], 'doc': saved['doc'], 'problems': saved['problems'],
-            'sources': len(card['sources']), 'queries': card['queries'],
-            'not_found': card['not_found'], 'budget': card['budget']}
+    if not saved.ok:
+        return saved
+    data = saved.data or {}
+    return success({'card': data['card'], 'doc': data['doc'], 'problems': data['problems'],
+                    'sources': len(card['sources']), 'queries': card['queries'],
+                    'not_found': card['not_found'], 'budget': card['budget']})
 
 
 # ── 人读版 ─────────────────────────────────────────────────────────────────

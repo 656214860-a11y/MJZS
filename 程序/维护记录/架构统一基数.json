@@ -19,6 +19,7 @@
             "keyframe_lifecycle_service",
             "legacy_adoption_service",
             "projects",
+            "recon_service",
             "recycle_recovery_service",
             "script_workspace_service",
             "stage_workspace_service",
@@ -31,9 +32,7 @@
             "writing_tools",
             "writing_quality"
         ],
-        "scope_audit_pending": [
-            "recon_service"
-        ],
+        "scope_audit_pending": [],
         "historical_name_audit_pending": [],
         "historical_name_audited": [
             "asset_gating",
