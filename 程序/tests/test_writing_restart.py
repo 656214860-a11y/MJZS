@@ -36,6 +36,7 @@ class WritingRestartTests(unittest.TestCase):
             return writing_api.reply(self.project, creative, publish=publish_stage_text)
 
     def test_restart_each_stage_preserves_adopted_until_confirmation(self):
+        """REQ-S01-14：①②③任一步可显式重写；重写未确认前旧稿仍在、不删除。"""
         for index, stage in enumerate(writing_api.PREPARATION_STAGES):
             with self.subTest(stage=stage):
                 save(self.target, self.original)
@@ -51,6 +52,7 @@ class WritingRestartTests(unittest.TestCase):
                     self.assertTrue((self.target.parent / document['path']).is_file())
 
     def test_confirm_new_outline_invalidates_character_and_script(self):
+        """REQ-S01-14：确认重写后该步及下游确认失效，已采用的自然稿撤销采用。"""
         restart_writing_preparation(self.project, '剧本大纲')
         result = self.reply('剧本大纲')
         self.reply('人物设定（角色卡）', '确认')

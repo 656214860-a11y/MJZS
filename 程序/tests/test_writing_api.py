@@ -45,6 +45,7 @@ def script_stage_probe():
 
 class WritingApiTests(unittest.TestCase):
     def test_custom_desktop_model_uses_its_program_without_api(self):
+        """REQ-S01-30：桌面模型走桌面调用方式，不落 API 配置，直接投给该程序。"""
         record = {'label': 'gemini', 'model': 'Google Gemini 4 Argon', 'provider': 'desktop',
                   'call_mode': 'Desktop', 'program': 'C:/Apps/Gemini.exe', 'base_url': ''}
         with tempfile.TemporaryDirectory() as td, patch('model_pool.pool', return_value={'gemini': record}):
@@ -132,6 +133,7 @@ class WritingApiTests(unittest.TestCase):
                 self.assertEqual(snapshots[1]['id'], 'deepseek-v4-flash')
 
     def test_missing_selection_survives_refresh_and_blocks_transport(self):
+        """REQ-S01-31：已勾选 SKILL 缺失时阻止发送，不静默按未勾选处理。"""
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
@@ -201,6 +203,7 @@ class WritingApiTests(unittest.TestCase):
             self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
 
     def test_preparation_requires_each_confirmation_and_hands_all_documents_to_script_request(self):
+        """REQ-S01-10/13：四步固定（①项目设定→②剧本大纲→③角色卡→④自然剧本），④只在①②③全确认后启动。"""
         import json
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:
@@ -285,6 +288,7 @@ class WritingApiTests(unittest.TestCase):
         self.assertLessEqual(len(history), writing_api.CHAT_HISTORY_CHAR_LIMIT)
 
     def test_confirmation_uses_user_message_not_attachment_context(self):
+        """REQ-S01-12：肯定回复只认输入框原文首行，附档正文里的“确认”不顶替。"""
         from agent.core import save
         from stage_execution_service import reply_to_writing
         with tempfile.TemporaryDirectory() as td:
@@ -445,6 +449,7 @@ class WritingApiTests(unittest.TestCase):
             roles.assert_not_called()
 
     def test_incomplete_preparation_output_never_publishes_or_advances(self):
+        """REQ-S01-11：一次请求只产一步；不合格输出不发布、不推进到下一步。"""
         from agent.core import save
         for response in ({'ok': True, 'text': '# 项目设定\n雨夜。\n待确认', 'response_meta': {'finish_reason': 'length'}},
                          {'ok': True, 'text': '# 自然剧本\n不允许跳阶段。\n待确认'},
@@ -655,6 +660,7 @@ class WritingApiTests(unittest.TestCase):
             self.assertEqual(len(list((project / 'logs' / 'model_diagnostics').glob('*.json'))), 1)
 
     def test_direct_api_uses_complete_brief_and_auto_saves(self):
+        """REQ-S01-30：API 方式由程序自动归档正文（script_raw 与正式自然剧本）。"""
         with tempfile.TemporaryDirectory() as td:
             project = make_project(td)
             stage_config.put(project, 'script', model='gpt-4o')
@@ -671,6 +677,7 @@ class WritingApiTests(unittest.TestCase):
             self.assertEqual(Path(result['natural_script_path']).read_text(encoding='utf-8').strip(), text.strip())
 
     def test_api_formal_script_reuses_download_path_and_versions_changed_text(self):
+        """REQ-S01-20：同一阶段多份稿件并存且可区分，正文有变才另存新稿，不覆盖旧稿。"""
         import idea_chat
         from project_context_factory import project_context
         from stage_execution_service import publish_idea_creative

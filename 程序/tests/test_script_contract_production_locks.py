@@ -41,6 +41,7 @@ class ProductionLockContractTests(unittest.TestCase):
                 self.assertIsNone(stage_config.project_created_at(root))
 
     def test_gate_old_warns_new_blocks_and_selected_passes(self):
+        """REQ-S01-03：制作锁必填项按项目创建日期生效；旧项目缺赛道／素材来源只提示，新项目阻断。"""
         config = {'workflow_name': 'AIGC全流程', 'stage': 'writing', 'project_created_at': '2026-10-14'}
         self.assertEqual(master_skill.gate(config, check_references=False), '')
         self.assertEqual(len(config['workflow_lock_warnings']), 2)

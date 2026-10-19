@@ -76,7 +76,10 @@ class ConfirmPreparationDocumentTests(unittest.TestCase):
         self.assertEqual(texts, ['# 项目设定\n新设定\n'])
 
     def test_confirm_refuses_when_previous_stage_unconfirmed(self):
-        """不能跳过前置阶段：上一阶段未确认时拒绝登记。"""
+        """不能跳过前置阶段：上一阶段未确认时拒绝登记。
+
+        REQ-S01-11：前一步未确认，不进入下一步。
+        """
         _, setting = confirmed(self.project, '项目设定', '项目设定/待确认.md', '# 项目设定\n草稿\n')
         setting['confirmed'] = False
         self.write_state([setting])

@@ -84,6 +84,7 @@ class FakeClient:
 
 class SavingTests(unittest.TestCase):
     def test_model_rename_keeps_history_and_deleted_message_identity(self):
+        """REQ-S01-04：每个模型的对话独立归档，模型显示名变化不影响已有记录。"""
         import model_pool
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
@@ -427,6 +428,7 @@ class SavingTests(unittest.TestCase):
                 idea_chat.save_reply(td, '你好，我正在思考。', publish=publish_idea_creative)
 
     def test_brief_intake_writes_raw_then_complete_only_after_required_fields(self):
+        """REQ-S01-02：创作简报必填项缺一不可，缺项时不完成、提示补齐。"""
         with tempfile.TemporaryDirectory() as td:
             first = idea_chat.receive_brief(td, '故事梗概：夜班照相馆收到一张会显影未来的旧底片。')
             self.assertTrue(first['raw_path'].is_file())
@@ -540,6 +542,7 @@ class SavingTests(unittest.TestCase):
             self.assertEqual(done['fields']['genre'], '都市悬疑')
 
     def test_the_conversation_round_trips_and_feeds_the_next_prompt(self):
+        """REQ-S01-01：创意对话内容落盘、重载后原样取回并喂给下一次请求。"""
         with tempfile.TemporaryDirectory() as td:
             idea_chat.append(td, 'user', '一个夜班照相馆')
             idea_chat.append(td, 'assistant', '主线：旧底片', model='DeepSeek Chat')

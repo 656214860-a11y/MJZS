@@ -66,6 +66,7 @@ class ScriptStructureTests(unittest.TestCase):
             record.assert_not_called()
 
     def test_multiple_model_drafts_require_explicit_adoption_and_pin_content(self):
+        """REQ-S01-21：多份自然稿并存时必须由用户明确采用一份，不按时间自动采用。"""
         from stage_execution_service import adopt_natural_script
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

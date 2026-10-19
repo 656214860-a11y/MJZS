@@ -19,6 +19,7 @@ from stage_execution_service import project_context
 
 class IdeaAttachmentsTests(unittest.TestCase):
     def test_local_markdown_reuses_conversion_without_embedding_text(self):
+        """REQ-S01-01：创意输入可附受控文本附档（转成 Markdown 引用，正文不入提示词）。"""
         from agent.core import save_bytes, save_text
         with tempfile.TemporaryDirectory() as td:
             context = project_context(td)
