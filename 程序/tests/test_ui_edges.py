@@ -3435,7 +3435,8 @@ class UiEdgeTests(unittest.TestCase):
             asked = []
             def refuse(_parent, title, message, **kwargs):
                 asked.append((title, message)); return False
-            with patch.object(desktop_module, "confirm", refuse), patch.object(tts_api, "synthesize", fake_synthesize):
+            with patch.object(desktop_module, "confirm", refuse), patch.object(tts_api, "synthesize", fake_synthesize), \
+                 patch.object(tts_api, "load_key", lambda: "sk-fixed-test-key"):
                 d.generate_tts_per_line()
             self.assertEqual(calls, [])                       # 取消：一句都不提交，也不产生费用
             self.assertIn("未提交", d.status.get())
@@ -3443,11 +3444,13 @@ class UiEdgeTests(unittest.TestCase):
             self.assertIn("6 字", asked[0][1])
             self.assertIn("价格版本", asked[0][1])
             self.assertIn("本批预计", asked[0][1])
-            with patch.object(desktop_module, "confirm", lambda *a, **k: True), patch.object(tts_api, "synthesize", fake_synthesize):
+            with patch.object(desktop_module, "confirm", lambda *a, **k: True), patch.object(tts_api, "synthesize", fake_synthesize), \
+                 patch.object(tts_api, "load_key", lambda: "sk-fixed-test-key"):
                 d.generate_tts_per_line()
             self.assertEqual(calls, ["第一句", "第二句"])      # 确认后按预览的句数提交
             self.assertIn("逐句配音完成", d.status.get())
-            with patch.object(desktop_module, "confirm", refuse), patch.object(tts_api, "synthesize", fake_synthesize):
+            with patch.object(desktop_module, "confirm", refuse), patch.object(tts_api, "synthesize", fake_synthesize), \
+                 patch.object(tts_api, "load_key", lambda: "sk-fixed-test-key"):
                 d.generate_tts_per_line()                     # 同一批再点：全部沿用，连确认框都不弹
             self.assertEqual(calls, ["第一句", "第二句"])
             self.assertIn("都已有成品", d.status.get())

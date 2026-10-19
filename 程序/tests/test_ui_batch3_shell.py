@@ -159,4 +159,18 @@ class ShellScrollAndStatusTests(unittest.TestCase):
                              d.canvas.winfo_rooty()+d.canvas.winfo_height()+1)
 
 
+class StatusKindZeroCountTests(unittest.TestCase):
+    """状态栏分色：数量为零的失败不计为错误，普通失败仍按错误上色。"""
+
+    def test_zero_failure_counts_are_not_errors(self):
+        for message in ('完成 12 个，失败 0 个','0 个失败','失败：0'):
+            with self.subTest(message=message):
+                self.assertEqual(status_kind(message),'ready')
+
+    def test_nonzero_and_plain_failures_stay_errors(self):
+        for message in ('失败 2 个','生成失败'):
+            with self.subTest(message=message):
+                self.assertEqual(status_kind(message),'error')
+
+
 if __name__=='__main__':unittest.main()

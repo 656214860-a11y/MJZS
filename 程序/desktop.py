@@ -113,12 +113,14 @@ bind_host(sys.modules[__name__])  # 剧本准备页的 confirm／ContextMenu 等
 
 STATUS_ERROR_MARKERS=('失败','错误','异常','无法','未能','未完成','未启动','出错','中断','超时','暂缓')
 STATUS_RUNNING_MARKERS=('正在','处理中','执行中','生成中','加载中','检测中','排队','请稍候','等待')
+# 数量为零的写法（「失败 0 个」「0 个失败」「失败：0」）只报计数，不算错误；分色前先把这些片段抹掉。
+_STATUS_ZERO_COUNT=re.compile(r'(?:'+('|'.join(STATUS_ERROR_MARKERS))+r')\s*[:：]?\s*0(?![\d.])|(?<![\d.])0\s*个?\s*(?:'+('|'.join(STATUS_ERROR_MARKERS))+r')')
 
 
 def status_kind(message):
-    """把状态栏文本归为就绪／执行中／失败三类；失败优先于执行中。"""
+    """把状态栏文本归为就绪／执行中／失败三类；失败优先于执行中，零计数的失败不算错误。"""
     text='' if message is None else str(message)
-    if any(marker in text for marker in STATUS_ERROR_MARKERS):return 'error'
+    if any(marker in _STATUS_ZERO_COUNT.sub('', text) for marker in STATUS_ERROR_MARKERS):return 'error'
     if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
     return 'ready'
 
