@@ -27,7 +27,7 @@ class ProductionLockUITests(unittest.TestCase):
         self.desktop = SimpleNamespace(win=self.win, root=root, app=app,
                                        status=tk.StringVar(master=self.win, value=''))
 
-    def test_production_lock_inputs_are_horizontal_and_save(self):
+    def test_production_lock_inputs_save_and_wrap(self):
         import workflow_settings
         name = next(iter(workflow_settings.WORKFLOW_PRESETS))
         stage_config.put_workflow(self.desktop.root, {'name': name,
@@ -35,11 +35,10 @@ class ProductionLockUITests(unittest.TestCase):
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
         self.addCleanup(panel.destroy)
         panel.refresh_workflow()
-        legacy = script_contract.PRODUCTION_LOCK_DEFINITIONS[:5]
-        for column, definition in enumerate(legacy):
-            entry = panel.lock_inputs[definition['key']]
-            self.assertEqual(int(entry.master.grid_info()['row']), 0)
-            self.assertEqual(int(entry.master.grid_info()['column']), column)
+        legacy = script_contract.PRODUCTION_LOCK_DEFINITIONS
+        self.assertEqual(list(panel.lock_inputs), [item['key'] for item in legacy])
+        self.assertIs(panel.workflow_box.master.master, panel.lock_fields)
+        self.assertEqual(len(panel.lock_fields.winfo_children()), len(legacy) + 1)
         for entry in panel.lock_inputs.values():
             self.assertTrue(entry.bind('<Return>'))
             self.assertTrue(entry.bind('<KeyRelease>'))
@@ -49,15 +48,16 @@ class ProductionLockUITests(unittest.TestCase):
             self.assertLessEqual(int(entry.cget('width')), COMBOBOX_MAX_WIDTH)
             self.assertEqual(int(entry.cget('width')),
                              SelectBox._fit_width(tuple(entry.cget('values')), entry.get()))
-        self.assertIs(panel.lock_row.master, panel.workflow_box.master)
         self.assertFalse(hasattr(panel, 'workflow_summary'))
-        self.assertEqual(len(panel.lock_row.winfo_children()), len(legacy))
-        self.assertEqual(panel.optional_lock_row.winfo_manager(), '')
-        self.assertEqual(panel.new_lock_row.winfo_manager(), 'pack')
+        self.assertFalse(panel.lock_fields.field_visible('reference_mode'))
+        self.assertFalse(panel.lock_fields.field_visible('style_base'))
+        self.assertTrue(panel.lock_fields.field_visible('track'))
         self.assertEqual(set(panel.lock_inputs), {item['key'] for item in script_contract.PRODUCTION_LOCK_DEFINITIONS})
+        for definition in script_contract.PRODUCTION_LOCK_DEFINITIONS:
+            entry = panel.lock_inputs[definition['key']]
+            self.assertIs(entry.master.master, panel.lock_fields)
         for definition in script_contract.PRODUCTION_LOCK_DEFINITIONS[5:]:
             entry = panel.lock_inputs[definition['key']]
-            self.assertIn(entry.master.master, (panel.new_lock_row, panel.optional_lock_row))
             # 每个新增锁都通过原有失焦事件保存；折叠区也保留输入值。
             value = (definition.get('options') or ('测试导演卡',))[-1]
             if definition['key'] == 'reference_mode':
@@ -82,12 +82,14 @@ class ProductionLockUITests(unittest.TestCase):
         panel.refresh_workflow()
         self.assertEqual(entry.get(), '16:9')
         panel.toggle_optional_locks()
-        self.assertEqual(panel.optional_lock_row.winfo_manager(), 'pack')
+        self.assertTrue(panel.lock_fields.field_visible('reference_mode'))
+        self.assertTrue(panel.lock_fields.field_visible('style_base'))
         for definition in script_contract.PRODUCTION_LOCK_DEFINITIONS[5:]:
             key = definition['key']
             self.assertEqual(panel.lock_inputs[key].get(), stage_config.workflow_lock(self.desktop.root)[key])
         panel.toggle_optional_locks()
-        self.assertEqual(panel.optional_lock_row.winfo_manager(), '')
+        self.assertFalse(panel.lock_fields.field_visible('reference_mode'))
+        self.assertFalse(panel.lock_fields.field_visible('style_base'))
 
 
     def test_autosave_skips_unchanged_values_and_reports_failed_write(self):

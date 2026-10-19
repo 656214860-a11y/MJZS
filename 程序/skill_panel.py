@@ -71,6 +71,7 @@ import re
 
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
+from production_lock_fields import CompactLabel, FlowFields
 
 import model_pool
 import model_router
@@ -85,9 +86,9 @@ import stage_models
 import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
-from ui_tokens import (COLORS, FONTS, SPACING, FORM_LABEL_WIDTH, NOTE_HEIGHT_COMPACT,
+from ui_tokens import (COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,
                        NOTE_HEIGHT_REGULAR, NOTE_LIST_MAX_WIDTH, NOTE_LIST_MIN_WIDTH,
-                       NOTE_PADDING_X, NOTE_PADDING_Y)
+                       NOTE_PADDING_X, NOTE_PADDING_Y, STAGE_PANEL_LAYOUT)
 from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
                         TextArea,
                         SecondaryButton, Tooltip, ask_confirmation, notify, _display_width)
@@ -219,13 +220,39 @@ class Panel(FormScrollMixin, ttk.Frame):
                 pass
             self._skill_layout_job = None
 
+    def _sync_form_view(self, event=None):
+        """表单高度按窗口余量封顶：矮窗口留出滚动兜底，正常窗口让说明区吃掉余量。"""
+        if ((event is not None and event.widget is not self.form_body)
+                or self.form_canvas is None or not self.form_canvas.winfo_exists()
+                or not self.form_canvas.winfo_ismapped()):
+            return
+        content = max(1, self.form_body.winfo_reqheight())
+        width = max(1, self.form_canvas.winfo_width())
+        self.form_canvas.itemconfigure(self._form_window, width=width)
+        notes = getattr(self, 'note_list', None)
+        notes_floor = SPACING['2xl'] * 4
+        notes_min = min(notes.winfo_reqheight(), notes_floor) if notes is not None else notes_floor
+        chrome = self.bottom_bar.winfo_reqheight() if getattr(self, 'bottom_bar', None) else 0
+        room = max(1, self.winfo_height() - chrome - notes_min)
+        height = min(content, room)
+        if int(self.form_canvas.cget('height')) != height:
+            self.form_canvas.configure(height=height)
+        self.form_canvas.configure(scrollregion=(0, 0, width, max(content, height)))
+        need_scroll = content > height + 1
+        has_scroll = bool(self.form_scroll.winfo_manager())
+        if need_scroll == has_scroll:
+            return
+        if need_scroll:
+            self.form_scroll.pack(side='right', fill='y', before=self.form_canvas)
+        else:
+            self.form_scroll.pack_forget()
+
     # ── 画界面 ──────────────────────────────────────────────────────────────
     def _build(self):
         # 阶段配置以连续表单阅读为主，统一使用最小设计间距和标签宽度，避免控件跳列。
         pad = SPACING['xs']
         # 卡片之间不留额外空隙：相邻卡片的 1px 边框就是分隔线，间距取 none 档。
         section_gap = SPACING['none']
-        label_width = FORM_LABEL_WIDTH
         # 底栏（确认并关闭）先占位再排其余区域：Tk 按 pack 顺序分配空间，窗口压到
         # 800x460 时若最后才 pack 底栏，前面的表单会把它挤出可见区，用户就找不到确认按钮。
         # 底栏固定优先，其次是不可伸缩的阶段配置，最后是可伸缩的技能说明区。
@@ -241,15 +268,15 @@ class Panel(FormScrollMixin, ttk.Frame):
         # 预设决定整套配置，因此置于厂商／模型之前；与下方卡片使用同一左内边距，标签对齐。
         row = WrappingActionRow(body, padding=(pad, 0))
         row.pack(fill='x', pady=(0, section_gap))
-        ttk.Label(row, text='预设', style='Muted.TLabel', width=label_width).pack(side='left')
+        CompactLabel(row, text='预设', style='Muted.TLabel').pack(side='left')
         self.presets = SelectBox(row, textvariable=self.preset,
                                     values=[PRESET_PLACEHOLDER] + self.preset_names())
-        self.presets.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
+        self.presets.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], STAGE_PANEL_LAYOUT['field_gap']))
         self.presets.bind('<<ComboboxSelected>>', lambda event: self.apply_preset())
         self.preset_actions = SelectBox(
             row, textvariable=self.preset_action,
             values=['选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'])
-        self.preset_actions.pack(side='left', padx=(0, SPACING['xs']))
+        self.preset_actions.pack(side='left', padx=(0, STAGE_PANEL_LAYOUT['field_gap']))
         self.preset_actions.bind('<<ComboboxSelected>>', lambda event: self.run_preset_action())
         self.restore_defaults_button = SecondaryButton(row, text='恢复默认', width=12,
                                                        command=self.reset_defaults)
@@ -263,18 +290,18 @@ class Panel(FormScrollMixin, ttk.Frame):
 
         engine = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
         engine.pack(fill='x', pady=(0, section_gap))
-        top = ttk.Frame(engine)
+        top = WrappingActionRow(engine)
         top.pack(fill='x')
-        ttk.Label(top, text='厂商', style='Muted.TLabel', width=label_width).pack(side='left')
+        CompactLabel(top, text='厂商', style='Muted.TLabel').pack(side='left')
         self.providers = SelectBox(top, textvariable=self.provider,
                                       values=list(self.groups))
-        self.providers.pack(side='left', padx=(SPACING['xs'], SPACING['xs']))
+        self.providers.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], STAGE_PANEL_LAYOUT['field_gap']))
         self.providers.bind('<<ComboboxSelected>>', lambda event: self.choose_provider())
         # 第 50 期第 1 条：最后一项是「+ 添加模型…」——原来那颗「手动配置模型与
         # SKILL」里的「自定义模型」入口，现在就在挑模型的那一格旁边。
         self.models = SelectBox(top, textvariable=self.model,
                                    values=self.provider_labels() + [ADD_MODEL_LABEL])
-        self.models.pack(side='left', padx=(SPACING['xs'], 0))
+        self.models.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], 0))
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
         self.route_hint = HintLabel(engine, text='')
@@ -362,47 +389,45 @@ class Panel(FormScrollMixin, ttk.Frame):
     def build_workflow_coordinator(self, pad, parent=None):
         """受控统筹入口；阶段勾选网格仍是唯一可编辑清单。"""
         import workflow_settings
-        names = list(workflow_settings.refresh_workflow_presets()) + ['浏览本地…', NO_MASTER]
-        header = ttk.Frame(parent or self)
-        header.pack(fill='x')
-        header.columnconfigure(1, weight=1)
-        ttk.Label(header, text='总控', style='Muted.TLabel', width=FORM_LABEL_WIDTH).grid(row=0, column=0, sticky='w')
-        self.workflow_box = SelectBox(header, textvariable=self.workflow_choice, values=names)
-        self.workflow_box.grid(row=0, column=1, sticky='w', padx=(SPACING['xs'], SPACING['sm']))
-        self.workflow_box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
         from production_lock_fields import ProductionLockFields
         from script_contract import PRODUCTION_LOCK_DEFINITIONS
-        optional = {'reference_mode', 'splice_mode', 'style_base', 'style_directors'}
-        self.lock_row = ProductionLockFields(header, on_change=self.save_workflow_locks,
-                                             definitions=PRODUCTION_LOCK_DEFINITIONS[:5], horizontal=True)
-        self.lock_row.grid(row=1, column=0, columnspan=2, sticky='ew')
-        self.new_lock_row = ProductionLockFields(
-            parent or self, on_change=self.save_workflow_locks,
-            definitions=tuple(item for item in PRODUCTION_LOCK_DEFINITIONS[5:] if item['key'] not in optional))
-        self.new_lock_row.pack(fill='x')
-        lock_status = ttk.Frame(parent or self)
+        names = list(workflow_settings.refresh_workflow_presets()) + ['浏览本地…', NO_MASTER]
+        coordinator = parent or self
+        self.workflow_coordinator = coordinator
+        self._optional_lock_keys = {'reference_mode', 'splice_mode', 'style_base', 'style_directors'}
+        self._optional_locks_expanded = False
+        def workflow_field(field):
+            box = SelectBox(field, textvariable=self.workflow_choice, values=names)
+            box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
+            return box
+
+        self.lock_fields = ProductionLockFields(
+            coordinator, on_change=self.save_workflow_locks,
+            definitions=PRODUCTION_LOCK_DEFINITIONS,
+            leading=({'key': 'workflow', 'label': '总控', 'style': 'Muted.TLabel',
+                      'factory': workflow_field},),
+            visible_keys={item['key'] for item in PRODUCTION_LOCK_DEFINITIONS
+                          if item['key'] not in self._optional_lock_keys})
+        self.lock_fields.pack(fill='x')
+        self.workflow_box = self.lock_fields.leading_inputs['workflow']
+        self.lock_inputs = dict(self.lock_fields.inputs)
+        lock_status = ttk.Frame(coordinator)
         lock_status.pack(fill='x')
         self.more_locks_button = SecondaryButton(lock_status, text='更多制作锁',
                                                  command=self.toggle_optional_locks)
         self.more_locks_button.pack(side='left')
         self.lock_notice = ttk.Label(lock_status, text='', style='Muted.TLabel')
-        self.lock_notice.pack(side='left', padx=SPACING['xs'])
-        self.optional_lock_row = ProductionLockFields(
-            parent or self, on_change=self.save_workflow_locks,
-            definitions=tuple(item for item in PRODUCTION_LOCK_DEFINITIONS if item['key'] in optional))
-        self.lock_inputs = {**self.lock_row.inputs, **self.new_lock_row.inputs, **self.optional_lock_row.inputs}
+        self.lock_notice.pack(side='left', padx=STAGE_PANEL_LAYOUT['field_gap'])
         self._saved_workflow_locks = {}
 
     def toggle_optional_locks(self):
-        if self.optional_lock_row.winfo_manager():
-            self.optional_lock_row.pack_forget()
-            self.more_locks_button.configure(text='更多制作锁')
-        else:
-            self.optional_lock_row.pack(fill='x')
-            bind_wheel = getattr(self, '_bind_form_wheel', None)
-            if callable(bind_wheel):
-                bind_wheel(self.optional_lock_row)
-            self.more_locks_button.configure(text='收起选填锁')
+        self._optional_locks_expanded = not self._optional_locks_expanded
+        for key in self._optional_lock_keys:
+            self.lock_fields.set_visible(key, self._optional_locks_expanded)
+        self.more_locks_button.configure(text='收起选填锁' if self._optional_locks_expanded else '更多制作锁')
+        bind_wheel = getattr(self, '_bind_form_wheel', None)
+        if self._optional_locks_expanded and callable(bind_wheel):
+            bind_wheel(self.lock_fields)
         sync_form = getattr(self, '_sync_form_view', None)
         if callable(sync_form):
             sync_form()
@@ -410,8 +435,8 @@ class Panel(FormScrollMixin, ttk.Frame):
     def save_workflow_locks(self):
         from stage_execution_service import save_writing_production_locks
         values = {key: entry.get() for key, entry in self.lock_inputs.items()}
-        self.optional_lock_row.context_values = values
-        self.optional_lock_row.refresh_states()
+        self.lock_fields.context_values = values
+        self.lock_fields.refresh_states()
         if values == self._saved_workflow_locks:
             return 'break'
         try:
@@ -443,13 +468,7 @@ class Panel(FormScrollMixin, ttk.Frame):
             entry.insert(0, str(locks.get(key) or ''))
             if not name:
                 entry.state(['disabled'])
-        # 旧视图适配仍只需提供 lock_inputs；完整视图额外处理默认值与依赖。
-        if getattr(self, 'lock_row', None) is not None:
-            self.lock_row.set_values(locks, enabled=bool(name))
-        if getattr(self, 'new_lock_row', None) is not None:
-            self.new_lock_row.set_values(locks, enabled=bool(name))
-        if getattr(self, 'optional_lock_row', None) is not None:
-            self.optional_lock_row.set_values(locks, enabled=bool(name))
+        self.lock_fields.set_values(locks, enabled=bool(name))
         self._saved_workflow_locks = {key: entry.get() for key, entry in self.lock_inputs.items()}
         from script_contract import stage_lock_requirements
         required = stage_lock_requirements('script', stage_config.project_created_at(self.project()))
@@ -586,20 +605,21 @@ class Panel(FormScrollMixin, ttk.Frame):
         if not self._flow and not self.skills:
             return None
         # 区域一：操作栏只放标签与 SKILL 操作下拉，不与勾选框混排。
-        self.skill_action_row = WrappingActionRow(parent)
+        self.skill_action_row = FlowFields(parent, fill_last=True)
         self.skill_action_row.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
-        self.flow_skill_label = ttk.Label(self.skill_action_row, text='SKILL', style='Muted.TLabel', width=FORM_LABEL_WIDTH)
-        self.flow_skill_label.pack(side='left')
+        self.flow_skill_label = CompactLabel(self.skill_action_row, text='SKILL', style='Muted.TLabel')
+        self.skill_action_row.add(self.flow_skill_label)
         self.skill_action = tk.StringVar(value='请选择')
-        action = SelectBox(self.skill_action_row, textvariable=self.skill_action,
-                              values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE))
-        action.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
-        action.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
+        self.skill_action_box = SelectBox(
+            self.skill_action_row, textvariable=self.skill_action,
+            values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE))
+        self.skill_action_row.add(self.skill_action_box, grow=True)
+        self.skill_action_box.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
         # 外部包的引擎说明从独占行收进 SKILL 操作行，保持表单行高与上方栏一致。
         self.external_package_hint = HintLabel(self.skill_action_row, text='')
         # 行内提示不使用 HintLabel 的段落换行宽度，保留全文且不撑高操作行。
         self.external_package_hint.configure(wraplength=0)
-        self.external_package_hint.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+        self.skill_action_row.add(self.external_package_hint, grow=True)
         # 区域二：所有勾选项独占列表容器；注册表顺序是主顺序，不再按自然宽度散排。
         count = len(self.skills)
         self.skill_list_outer = ttk.Frame(parent)
@@ -1442,7 +1462,9 @@ def show(desktop, stage, function=None, launcher_button=None):
         window.geometry('%dx%d' % (width, height))
     else:
         window.geometry('880x720')
-    window.minsize(1, 1)
+    # 最小窗口取令牌值；屏幕可用区比它小时按可用区收缩，不让窗口超出屏幕。
+    window.minsize(min(STAGE_PANEL_LAYOUT['min_width'], window.winfo_screenwidth()),
+                   min(STAGE_PANEL_LAYOUT['min_height'], window.winfo_screenheight()))
     body = ttk.Frame(window, padding=SPACING['md'])
     body.pack(fill='both', expand=True)
     head = ttk.Frame(body)

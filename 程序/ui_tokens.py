@@ -174,6 +174,22 @@ DESKTOP_LAYOUT = {
     'slogan_gap': SPACING['md'], 'slogan_font': FONTS['pet_body'],
     'project_label_gap': SPACING['sm'], 'pet_clearance': SPACING['xs'],
 }
+# 阶段配置弹窗与制作锁流式布局的规格：最小窗口尺寸、标签与下拉框间距、行间距、
+# 行尾允许空白与标签旧契约宽度。SP 批次把下拉框改成按行填满的 FlowFields，这些
+# 间距原先散落在 skill_panel.py / production_lock_fields.py 里临时挑 SPACING 档位，
+# 现统一在这里取值，值保持不变。
+STAGE_PANEL_LAYOUT = {
+    # 最小窗口 560×430；屏幕可用区更小时按可用区收缩，不让窗口超出屏幕。
+    'min_width': 560, 'min_height': 430,
+    # 标签与下拉框／字段之间的水平间距（FlowFields.gap 与 label-entry padx）。
+    'field_gap': SPACING['xs'],
+    # FlowFields 换行后的行间距。
+    'row_gap': SPACING['xs'],
+    # 行尾允许空白：行未填满时允许的尾部空白容差（真 Tk 几何断言据此判定「填满」）。
+    'row_end_tolerance': SPACING['md'],
+    # CompactLabel 保留的旧 width=10 契约，真实排版按文字宽度请求。
+    'label_width': 10,
+}
 # 剧本准备文件列表：比正文小一档，一屏多放几个文件名，9 号雅黑仍清晰。
 SCRIPT_FILE_FONT = ("Microsoft YaHei UI", 9)
 SCRIPT_ACTION_PADDING = (SPACING["md"] // 2, SPACING["xs"])

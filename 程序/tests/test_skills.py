@@ -1910,7 +1910,11 @@ class PanelTests(unittest.TestCase):
         self.assertEqual((window.winfo_width(), window.winfo_height()), (1250, 850))
         window.geometry('400x300')
         window.update_idletasks()
-        self.assertEqual((window.winfo_width(), window.winfo_height()), (400, 300))
+        from ui_tokens import STAGE_PANEL_LAYOUT
+        min_width = min(STAGE_PANEL_LAYOUT['min_width'], self.win.winfo_screenwidth())
+        min_height = min(STAGE_PANEL_LAYOUT['min_height'], self.win.winfo_screenheight())
+        self.assertGreaterEqual(window.winfo_width(), min_width)
+        self.assertGreaterEqual(window.winfo_height(), min_height)
 
     def test_the_report_splits_done_from_needs_the_page(self):
         """第 30 期第 7 条：两个都「得回页面按」时，不再报「成了 2 个」。"""

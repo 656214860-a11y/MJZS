@@ -2081,6 +2081,15 @@
       "reference": ""
     },
     {
+      "file": "tests/test_skill_panel_dropdown_layout.py",
+      "test": "DropdownLayoutTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "平台限制：当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
       "file": "tests/test_skill_panel_production_locks.py",
       "test": "ProductionLockViewTests.setUp",
       "ordinal": 1,

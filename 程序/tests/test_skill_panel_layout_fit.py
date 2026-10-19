@@ -70,8 +70,7 @@ class LockFitTests(unittest.TestCase):
                 self.win.geometry('%dx800' % width)
                 panel = self._build_panel()
                 self.win.update()
-                coordinator = panel.new_lock_row.master
-                self.assertIs(coordinator, panel.optional_lock_row.master)
+                coordinator = panel.workflow_coordinator
                 right = coordinator.winfo_rootx() + coordinator.winfo_width()
                 for widget in _descendants(coordinator):
                     if widget.winfo_width() <= 1:
@@ -79,8 +78,7 @@ class LockFitTests(unittest.TestCase):
                     self.assertLessEqual(widget.winfo_rootx() + widget.winfo_width(),
                                          right + 1,
                                          '子控件越出面板：%s' % widget)
-                for row in (panel.lock_row, panel.new_lock_row, panel.optional_lock_row):
-                    self._assert_no_overlap_in_row(row)
+                self._assert_no_overlap_in_row(panel.lock_fields)
                 panel.destroy()
                 self.win.withdraw()
 
