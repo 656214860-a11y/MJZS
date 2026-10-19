@@ -1,18 +1,6 @@
 {
   "说明": "docs/stages/*.md 中标 ✅ 但尚无测试锚定的需求（只许减少，见 tests/architecture/test_requirement_traceability.py）",
   "untested_done": [
-    "REQ-S03-03",
-    "REQ-S03-04",
-    "REQ-S03-06",
-    "REQ-S03-15",
-    "REQ-S03-20",
-    "REQ-S03-30",
-    "REQ-S03-31",
-    "REQ-S03-32",
-    "REQ-S03-33",
-    "REQ-S03-34",
-    "REQ-S03-35",
-    "REQ-S03-41",
     "REQ-S05-01",
     "REQ-S05-03",
     "REQ-S05-04",
