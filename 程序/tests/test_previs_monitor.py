@@ -30,7 +30,7 @@ def progress_file(directory, sid, **fields):
 
 
 class ProgressTests(unittest.TestCase):
-    """这一镜走到哪一步了。"""
+    """REQ-S09-23：这一镜走到哪一步了；进度只认 Blender 写出的帧数，缺失／无效保持制作中。"""
 
     def test_a_missing_file_still_says_it_is_being_made(self):
         with tempfile.TemporaryDirectory() as td:
@@ -131,7 +131,7 @@ class RowTests(unittest.TestCase):
 
 
 class PageTests(unittest.TestCase):
-    """整页 HTML（自检直接读字符串）。"""
+    """REQ-S09-23：整页 HTML（自检直接读字符串），每 5 秒自己刷新。"""
 
     def test_the_page_carries_the_shot_numbers_and_the_closing_row(self):
         with tempfile.TemporaryDirectory() as td:
@@ -252,7 +252,7 @@ def make_episode(td, ids=('SH001',)):
 
 
 class DispatchTests(unittest.TestCase):
-    """派发那一条线：手动派发开监视页；工作线程不再碰桌面 Blender。"""
+    """REQ-S09-23：派发那一条线：手动派发开监视页；无人值守不弹浏览器。"""
 
     def setUp(self):
         import native_apps, previs_automation, previs_batch_service, previs_routing

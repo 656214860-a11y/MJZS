@@ -47,6 +47,9 @@ class AgentSelectionTests(unittest.TestCase):
 
 
 class ClassifyTests(unittest.TestCase):
+    """REQ-S09-11：优先采用分镜定稿标注（中英文档位），否则按动作／机位规则判断；
+    肢体互动、物件交接、快速运动和 ≥5 步动作链为复杂，走位或物件操作为中等，
+    站定／表情／对白为简单；否定表述不算动作，信息不足按中等。"""
     def test_explicit_simple(self):
         self.assertEqual(classify({"action_complexity": "简单"})[0], "simple")
 
@@ -465,7 +468,8 @@ class ForceStopTests(unittest.TestCase):
 
 
 class RoutingGateConsistencyTests(unittest.TestCase):
-    """O08：页面、调度与阶段门禁共用一个有效决策，手工覆盖必须同时改变三者。"""
+    """REQ-S09-13（O08）：页面、调度与阶段门禁共用一个有效决策，手工覆盖必须同时改变三者；
+    读不到覆盖时退回自动分类。"""
 
     def setUp(self):
         from unittest.mock import patch
