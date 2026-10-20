@@ -72,6 +72,19 @@ def inline_template_labels(text):
                                          str(text or ''), re.MULTILINE)))
 
 
+def unlabeled_story_summary(text):
+    """无标签的整段非空正文回退为故事梗概；有显式「故事梗概」标签（含别名）则只认标签值。"""
+    value = str(text or '').strip()
+    if not value:
+        return ''
+    fields = extract_brief_creation(value)
+    if str(fields.get('故事梗概') or '').strip():
+        return fields['故事梗概']
+    if re.search(r'(?m)^[ \t]*(?:[-*#]+[ \t]*)?(?:故事梗概|故事主体|故事主线|故事概述|剧情)[ \t]*[：:\t]', value):
+        return ''
+    return value
+
+
 def inline_required_missing(template_text, draft_text, required_labels=INLINE_REQUIRED_LABELS,
                             attachment_fields=None, *, stage='script',
                             lock_definitions=PRODUCTION_LOCK_DEFINITIONS, created_at=None):
@@ -88,6 +101,10 @@ def inline_required_missing(template_text, draft_text, required_labels=INLINE_RE
                                       extra_labels=labels, include_extra=True)
     draft = extract_brief_creation(strip_inline_required_markers(draft_text),
                                    extra_labels=labels, include_extra=True)
+    if not str(draft.get('故事梗概') or '').strip():
+        summary = unlabeled_story_summary(strip_inline_required_markers(draft_text))
+        if summary:
+            draft['故事梗概'] = summary
     def normalized(fields, label):
         return next((''.join(str(fields.get(alias) or '').split())
                      for alias in lock_aliases.get(label, (label,))

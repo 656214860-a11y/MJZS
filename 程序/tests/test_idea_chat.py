@@ -827,6 +827,20 @@ class SendMessageTests(_Harness):
             notice.assert_not_called()
             self.assertEqual(d.idea_row.winfo_manager(), 'pack', '启动工作流后发送框仍固定显示')
 
+    def test_unlabelled_prose_falls_back_to_story_summary(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            self.say(d, '少年卡梅隆出生就拥有摄像头一样的眼睛，用超能力助人，最后发现被救的是自己。')
+            with patch.object(d.notifier, 'info') as notice:
+                d.send_message(); win.update()
+            fields = tuple(d._idea_missing_dialog.brief_fields)
+            self.assertNotIn('故事梗概', fields, '无标签整段正文应回退为故事梗概，不再列为缺失')
+            self.assertIn('故事题材', fields)
+            self.assertIn('故事角色', fields)
+            notice.assert_not_called()
+
     def test_the_composer_expands_for_content_and_enter_sends(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
