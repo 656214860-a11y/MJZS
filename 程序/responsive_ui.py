@@ -37,7 +37,7 @@ class QuietVar(tk.StringVar):
         if super().get()!=value:super().set(value)
 
 
-CHECK_COLUMN_WIDTH = 36
+CHECK_COLUMN_WIDTH = 28
 
 def configure_check_column(tree, command=None):
     """把 #0 配置为独立勾选列，供各内容框复用。"""

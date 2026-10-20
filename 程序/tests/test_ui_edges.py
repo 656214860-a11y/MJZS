@@ -1200,7 +1200,7 @@ class UiEdgeTests(unittest.TestCase):
                 self.assertEqual(tuple(tree["columns"]), ("name",))
                 self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
                 self.assertEqual(int(tree.cget("height")), 1, "每一类文件单独从上到下紧凑排列")
-                self.assertEqual(int(tree.column("#0")["width"]), 36,
+                self.assertEqual(int(tree.column("#0")["width"]), 28,
                                  "剧本文件表首列应复用分镜页的勾选列宽度")
             names = {
                 category: [d.script_trees[category].item(item, "values")[0]

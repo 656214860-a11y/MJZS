@@ -341,7 +341,8 @@ class WritingPageMixin:
         for column,(category,title) in enumerate(categories):
             script_lists.columnconfigure(column,weight=1,uniform='script-files')
             table=DataTable(script_lists,columns=[('name',title,180)],show='tree headings',height=1,
-                            selectmode='browse',style='Script.Treeview',auto_hide_scrollbars=True,empty_text='')
+                            selectmode='browse',style='Script.Treeview',auto_hide_scrollbars=True,empty_text='',
+                            horizontal=False)
             tree=table.tree
             configure_check_column(tree)
             tree.heading('#0',anchor='center')

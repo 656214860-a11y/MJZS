@@ -253,7 +253,7 @@ class DataTable(ttk.Frame):
 
     def __init__(self, master, *, columns, height=4, selectmode="browse",
                  show="headings", empty_text="暂无数据", on_select=None,
-                 auto_hide_scrollbars=False, **kwargs):
+                 auto_hide_scrollbars=False, horizontal=True, **kwargs):
         setup_styles(master)
         # 表格壳只负责表格本身，不能成为业务页的一张额外 Card；
         # 页面已有 Card 时保留其原有信息层级和间距。
@@ -268,17 +268,21 @@ class DataTable(ttk.Frame):
             **kwargs)
         self.vertical_scrollbar = ttk.Scrollbar(self, orient="vertical",
                                                 command=self.tree.yview)
-        self.horizontal_scrollbar = ttk.Scrollbar(self, orient="horizontal",
-                                                  command=self.tree.xview)
+        # 单列且 stretch 的表格永远不横向溢出；此时不建横向滚动条，省掉底部一整行。
+        self.horizontal_scrollbar = (
+            ttk.Scrollbar(self, orient="horizontal", command=self.tree.xview)
+            if horizontal else None)
         self._auto_hide_scrollbars = auto_hide_scrollbars
         self.tree.configure(
             yscrollcommand=lambda first, last: self._scroll_state(
                 self.vertical_scrollbar, first, last),
-            xscrollcommand=lambda first, last: self._scroll_state(
-                self.horizontal_scrollbar, first, last))
+            xscrollcommand=(lambda first, last: self._scroll_state(
+                self.horizontal_scrollbar, first, last)) if horizontal
+            else (lambda first, last: None))
         self.tree.grid(row=0, column=0, sticky="nsew")
         self.vertical_scrollbar.grid(row=0, column=1, sticky="ns")
-        self.horizontal_scrollbar.grid(row=1, column=0, sticky="ew")
+        if horizontal:
+            self.horizontal_scrollbar.grid(row=1, column=0, sticky="ew")
         self.empty_label = ttk.Label(self, text=empty_text, style="Muted.TLabel",
                                      padding=TABLE_EMPTY_PADDING)
         self.empty_label.grid(row=0, column=0, sticky="nsew")
@@ -312,9 +316,13 @@ class DataTable(ttk.Frame):
         scrollbar.set(first, last)
         if not self._auto_hide_scrollbars:
             return
-        if float(first) <= 0 and float(last) >= 1:
+        should_hide = float(first) <= 0 and float(last) >= 1
+        hidden = not bool(scrollbar.winfo_manager())
+        # 只在可见性真的变化时改布局：反复 grid/grid_remove 会让表格宽度来回抖，
+        # 拖动窗口时与各 Configure 回调互相喂，放大成持续重排。
+        if should_hide and not hidden:
             scrollbar.grid_remove()
-        else:
+        elif not should_hide and hidden:
             scrollbar.grid()
 
     def sort_by(self, column):
