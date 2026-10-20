@@ -38,6 +38,16 @@ LR_DEFAULTSIZE = 0x00000040
 GWL_WNDPROC = -4
 IDI_APPLICATION = 32512
 DETACHED_PROCESS = 0x00000008
+# 托盘右键菜单（Win32 TrackPopupMenu，不依赖主窗是否 withdrawn）
+MF_STRING = 0x00000000
+MF_SEPARATOR = 0x00000800
+TPM_RIGHTBUTTON = 0x0002
+TPM_RETURNCMD = 0x0100
+TPM_NONOTIFY = 0x0080
+WM_NULL = 0x0000
+_CMD_RESTORE = 1
+_CMD_RESTART = 2
+_CMD_QUIT = 3
 
 # WPARAM／LPARAM／LRESULT 都是指针宽度整数；WNDPROC 签名 LRESULT(HWND, UINT, WPARAM, LPARAM)。
 _PTR = ctypes.c_ssize_t
@@ -79,7 +89,6 @@ class TrayIcon:
         self._icon_handle = None
         self._original_wndproc = None
         self._wndproc = None  # 持有引用，防止 WINFUNCTYPE 被 GC 后回调段错误
-        self._menu = None
         self._active = False
 
     def _load_icon(self):
@@ -155,27 +164,43 @@ class TrayIcon:
         self._wndproc = None
 
     def _show_menu(self):
-        try:
-            if not self.window.winfo_exists():
-                return
-        except tk.TclError:
+        user32 = self._user32
+        user32.CreatePopupMenu.restype = wintypes.HMENU
+        user32.AppendMenuW.argtypes = (wintypes.HMENU, wintypes.UINT, ctypes.c_size_t, wintypes.LPCWSTR)
+        user32.AppendMenuW.restype = wintypes.BOOL
+        user32.TrackPopupMenu.argtypes = (wintypes.HMENU, wintypes.UINT, ctypes.c_int, ctypes.c_int,
+                                          ctypes.c_int, wintypes.HWND, ctypes.c_void_p)
+        user32.TrackPopupMenu.restype = ctypes.c_int
+        user32.DestroyMenu.argtypes = (wintypes.HMENU,)
+        user32.DestroyMenu.restype = wintypes.BOOL
+        user32.SetForegroundWindow.argtypes = (wintypes.HWND,)
+        user32.SetForegroundWindow.restype = wintypes.BOOL
+        menu = user32.CreatePopupMenu()
+        if not menu:
             return
-        if self._menu is None:
-            menu = tk.Menu(self.window, tearoff=0)
-            menu.add_command(label='恢复窗口', command=self.on_restore)
-            menu.add_command(label='强制重启', command=self.on_force_restart)
-            menu.add_separator()
-            menu.add_command(label='退出', command=self.on_quit)
-            self._menu = menu
-        point = wintypes.POINT()
-        self._user32.GetCursorPos(ctypes.byref(point))
+        command = 0
         try:
-            self._menu.tk_popup(point.x, point.y)
+            user32.AppendMenuW(menu, MF_STRING, _CMD_RESTORE, '恢复窗口')
+            user32.AppendMenuW(menu, MF_STRING, _CMD_RESTART, '强制重启')
+            user32.AppendMenuW(menu, MF_SEPARATOR, 0, None)
+            user32.AppendMenuW(menu, MF_STRING, _CMD_QUIT, '退出')
+            # 关键：先把托盘属主窗口设为前台，菜单才会在点别处时正确收起；
+            # 否则菜单僵住、图标可能被 Shell 移除。
+            user32.SetForegroundWindow(self._hwnd)
+            point = wintypes.POINT()
+            user32.GetCursorPos(ctypes.byref(point))
+            command = user32.TrackPopupMenu(
+                menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
+                point.x, point.y, 0, self._hwnd, None)
         finally:
-            try:
-                self._menu.grab_release()
-            except tk.TclError:
-                pass
+            user32.DestroyMenu(menu)
+            user32.PostMessageW(self._hwnd, WM_NULL, 0, 0)
+        if command == _CMD_RESTORE:
+            self.on_restore()
+        elif command == _CMD_RESTART:
+            self.on_force_restart()
+        elif command == _CMD_QUIT:
+            self.on_quit()
 
 
 def force_restart():

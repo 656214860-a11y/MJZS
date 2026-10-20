@@ -45,6 +45,26 @@ class TrayIconTests(unittest.TestCase):
         # 强制重启用脱离的辅助进程稍候拉起，避开单实例互斥量竞态。
         self.assertTrue(callable(force_restart))
 
+    def test_menu_commands_dispatch_to_callbacks(self):
+        from unittest.mock import Mock
+        tray = TrayIcon(self.win, on_restore=lambda: None, on_quit=lambda: None,
+                        on_force_restart=lambda: None)
+        tray._hwnd = int(self.win.winfo_id())
+        calls = []
+        tray.on_restore = lambda: calls.append('restore')
+        tray.on_quit = lambda: calls.append('quit')
+        tray.on_force_restart = lambda: calls.append('restart')
+        user32 = Mock()
+        user32.CreatePopupMenu.return_value = 1
+        user32.AppendMenuW.return_value = True
+        user32.SetForegroundWindow.return_value = True
+        user32.DestroyMenu.return_value = True
+        user32.TrackPopupMenu.side_effect = [1, 3]  # 恢复窗口、退出
+        tray._user32 = user32
+        tray._show_menu()
+        tray._show_menu()
+        self.assertEqual(calls, ['restore', 'quit'])
+
 
 if __name__ == '__main__':
     unittest.main()
