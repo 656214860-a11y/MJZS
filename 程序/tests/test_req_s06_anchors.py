@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import artifact_schema
 import continuity_ledger
 from agent.core import save
 from desktop_media_pages import MediaPagesMixin
@@ -52,6 +53,24 @@ class ReqS06AnchorTests(unittest.TestCase):
             self.assertEqual(page.writes, [ledger])
             self.assertEqual(page.issued, [ledger])
             self.assertEqual(page.shown, [])
+
+    def test_req_s06_27_new_ledger_uses_current_stage_and_old_ledger_stays_readable(self):
+        """REQ-S06-27：新台账写现行 stage；旧 stage 台账仍可读、校验与判定是否陈旧。"""
+        shots = [dict(continuity_ledger.normalize(
+            {'id': 'SH001', 'characters': ['CHAR_001'], 'location': 'LOC_001',
+             'estimated_duration': 3}, 0), batch_id='B01')]
+        ledger = continuity_ledger.build(shots, {})
+        self.assertEqual(ledger['stage'], 'continuity')
+        self.assertEqual(artifact_schema.validate('continuity_ledger', ledger), [])
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            legacy = dict(ledger, stage='03_continuity')
+            legacy_path = root / '05连贯性清单' / 'output' / continuity_ledger.LEDGER_NAME
+            save(legacy_path, legacy)
+            self.assertEqual(continuity_ledger.read(root), legacy)
+            self.assertEqual(artifact_schema.validate('continuity_ledger', legacy), [])
+            self.assertEqual(continuity_ledger.stale_reason(legacy, shots), '')
 
 
 if __name__ == '__main__':

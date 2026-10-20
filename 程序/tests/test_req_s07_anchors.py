@@ -23,6 +23,7 @@ from unittest import mock
 
 import pet_state
 import stage_flow
+import stage_parallel
 from agent.core import file_hash, read, save
 from desktop import Desktop
 from desktop_auto_flows import AutoFlowsMixin
@@ -522,14 +523,45 @@ class S07AnchorTests(unittest.TestCase):
 
     def test_req_s07_03_depends_is_data_graph_and_sg_gates_are_business_preconditions(self):
         """REQ-S07-03：DEPENDS['final'] 只表数据依赖；连贯性／资产前置由 SG-02／SG-01 表达。"""
-        import stage_parallel
-
         self.assertEqual(stage_flow.DEPENDS['final'], ('storyboard',))
         gates = {row['id']: row for row in stage_parallel.GATES}
         self.assertEqual((gates['SG-01']['to'], gates['SG-01']['check']),
                          ('continuity', 'assets_locked'))
         self.assertEqual((gates['SG-02']['to'], gates['SG-02']['check']),
                          ('final', 'ledger_ready'))
+
+    def test_req_s07_45_ledger_artifacts_are_real_paths_in_both_blocking_branches(self):
+        """REQ-S07-45：SG-02 陈旧与待办分支都返回实际读到的台账文件。"""
+        matching = [{'id': 'SH001', 'characters': ['CHAR_001'], 'location': 'LOC_001'}]
+        stale_shots = [{'id': 'SH002', 'characters': ['CHAR_001'], 'location': 'LOC_001'}]
+        for folder in ('06连贯性清单', '05连贯性清单'):
+            with self.subTest(layout=folder), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                file = root / folder / 'output' / 'continuity_ledger.json'
+                save(file, {'version': 1, 'stage': 'continuity',
+                            'batches': [{'batch_id': 'B01', 'shot_ids': ['SH001']}],
+                            'summary': {'ok': True, 'problems': []}})
+
+                with mock.patch.object(stage_parallel, '_current_shots',
+                                       return_value=stale_shots):
+                    stale = stage_parallel.ledger_ready(str(root))
+                self.assertFalse(stale['ok'])
+                self.assertTrue(stale['problems'])
+                self.assertEqual(Path(stale['artifacts'][0]), file)
+                self.assertTrue(Path(stale['artifacts'][0]).is_file())
+
+                with mock.patch.object(stage_parallel, '_current_shots',
+                                       return_value=matching), \
+                        mock.patch('continuity_ledger.open_problems',
+                                   return_value=('待裁决问题',)):
+                    pending = stage_parallel.ledger_ready(str(root))
+                self.assertFalse(pending['ok'])
+                self.assertEqual(Path(pending['artifacts'][0]), file)
+                self.assertTrue(Path(pending['artifacts'][0]).is_file())
+
+        with tempfile.TemporaryDirectory() as temporary:
+            empty = stage_parallel.ledger_ready(temporary)
+        self.assertEqual(empty['artifacts'], ())
 
     def test_req_s07_53_skill_describes_registration_not_unimplemented_snapshots(self):
         """REQ-S07-53：版本 SKILL 如实描述登记与日期后缀，不再承诺快照、对比或回滚。"""

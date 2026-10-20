@@ -11,7 +11,7 @@ continuity_ledger.json，含四样东西：
 
 Agent 的定位（附件）：只做检查与裁决，不做内容生成；锚点字符串逐字复用，禁止重新描述。
 第 62 期任务 11：它已是独立的一步（侧栏「06 连贯性清单」，资产管理之后、分镜定稿之前），
-不再折在资产页底部；目录与契约照旧（03_continuity/），产物照旧落盘。
+不再折在资产页底部；产物写现行阶段目录，历史内部阶段标识由路径服务只读兼容。
 """
 import re
 from copy import deepcopy
@@ -234,7 +234,7 @@ def build(shots, assets=None):
                        'seconds': sum(int(item.get('estimated_duration') or 0) for item in items),
                        'frozen_anchors': frozen})
     found = conflicts(shots, assets)
-    ledger = {'version': 1, 'stage': '03_continuity', 'prompt': PROMPT,
+    ledger = {'version': 1, 'stage': 'continuity', 'prompt': PROMPT,
               'prescreen_prompt': PRESCREEN_PROMPT,
               'batches': blocks, 'conflicts': list(adjudicate(found)),
               'cross_batch': list(cross_batch(shots, assets)),
@@ -309,7 +309,7 @@ def _triplet_rows(ledger):
 def publish_bundle(project, ledger):
     """原子发布连贯性成果及共享索引；任一失败则恢复本轮之前的全部文件。"""
     import stage_layout
-    paths = stage_layout.paths(project, '03_continuity')
+    paths = stage_layout.paths(project, '06连贯性清单')
     file = paths['output'] / LEDGER_NAME
     targets = (
         (file, save, ledger),
@@ -340,8 +340,7 @@ def write(project, ledger):
 
 def read(project):
     """读回台账（没有就是空 dict）。"""
-    from stage_path_service import read_file
-    file = read_file(project, 'continuity', 'output', LEDGER_NAME)
+    file = ledger_path(project)
     if not file.is_file():
         return {}
     try:
@@ -349,6 +348,12 @@ def read(project):
     except (OSError, ValueError):
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def ledger_path(project):
+    """已生成台账的实际路径：当前目录优先，历史编号目录只读回退。"""
+    from stage_path_service import read_file
+    return read_file(project, 'continuity', 'output', LEDGER_NAME)
 
 
 def write_anchors(project, ledger):
@@ -426,7 +431,7 @@ def gate(ledger):
     return (not problems), problems
 
 
-# ── 问题闭环（O23）：发现 → 处理决定 → 解除／重开，登记在 03_continuity/output/continuity_issues.json ──
+# ── 问题闭环（O23）：发现 → 处理决定 → 解除／重开，登记在现行阶段 output/continuity_issues.json ──
 ISSUE_NAME = 'continuity_issues.json'
 OPEN, IGNORED, RESOLVED = 'open', 'ignored', 'resolved'
 ISSUE_STATES = (OPEN, IGNORED, RESOLVED)
@@ -492,9 +497,9 @@ def issues(ledger):
 
 
 def issues_path(project):
-    """问题闭环登记表落在 03_continuity/output/continuity_issues.json。"""
+    """问题闭环登记表落在当前阶段目录的 output/continuity_issues.json。"""
     import stage_layout
-    return stage_layout.paths(project, '03_continuity')['output'] / ISSUE_NAME
+    return stage_layout.paths(project, '06连贯性清单')['output'] / ISSUE_NAME
 
 
 def read_issues(project):

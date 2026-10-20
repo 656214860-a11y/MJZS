@@ -17,6 +17,7 @@ import asset_contract
 import asset_plan
 import cloud_assets
 import confirm_gates
+import pet_bus
 import production_model_contract
 from asset_context import active_source, library_dir
 from project_context_factory import project_context
@@ -268,6 +269,16 @@ class ReqS05AnchorTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['gate_id'], 'G-08')
         self.assertEqual(assets, before, '冲突只生成待修复项，不改已确认资产')
+
+    def test_req_s05_42_panel_text_uses_current_stage_labels(self):
+        """REQ-S05-42：组件图使用 pet_bus 的现行阶段标签，不残留旧内部标识。"""
+        text = asset_contract.panel_text()
+        assets = pet_bus.stage_label('assets')
+        continuity = pet_bus.stage_label('continuity')
+        self.assertTrue(text.startswith('资产管理页（%s）\n' % assets))
+        self.assertIn(continuity, text)
+        for stale in ('02_assets', '03_continuity'):
+            self.assertNotIn(stale, text)
 
 
 if __name__ == '__main__':
