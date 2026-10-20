@@ -78,7 +78,7 @@ class ContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             stage_layout.ensure(td)
             text = (Path(td) / "07分镜定稿" / "README.md").read_text(encoding="utf-8")
-            self.assertIn("storyboard_final.json", text)
+            self.assertIn("episode.json", text)
             self.assertIn("input/", text)
             self.assertIn("docs/", text)
             self.assertIn("JSON 为唯一机器输入", text)

@@ -20,7 +20,7 @@ class KeyframeScopeTests(unittest.TestCase):
         self.assertEqual(pet_bus.STAGES.index('keyframe'), 7)
         row = next(item for item in stage_layout.STAGES if item[1] == 'keyframe')
         self.assertEqual(row[0], '08首帧管理')
-        self.assertIn('storyboard_final.json', row[4])
+        self.assertIn('episode.json', row[4])
 
     def test_req_s08_02_depends_on_final_and_gate_sg03_guards_entry(self):
         self.assertEqual(stage_flow.DEPENDS['keyframe'], ('final',))

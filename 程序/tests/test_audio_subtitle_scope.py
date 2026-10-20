@@ -28,7 +28,7 @@ class AudioSubtitleScopeTests(unittest.TestCase):
 
     def test_req_s11_02_depends_only_on_final_storyboard(self):
         self.assertEqual(stage_flow.DEPENDS['audio'], ('final',))
-        self.assertEqual(_audio_row()[4], ('storyboard_final.json',))
+        self.assertEqual(_audio_row()[4], ('episode.json',))
 
     def test_req_s11_03_audio_is_a_paid_stage(self):
         self.assertIn('audio', stage_flow.PAID_STAGES)

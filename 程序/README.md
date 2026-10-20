@@ -1409,11 +1409,11 @@ return batches
 | 01_storyboard_draft | 初步分镜 | episode.json、characters.json | storyboard_draft.json | — |
 | 02_assets | 资产管理 | storyboard_draft.json | assets.json | G-01、G-03、G-04、G-05、G-06 |
 | 03_continuity | 连贯性清单 | storyboard_draft.json、assets.json | continuity_ledger.json | G-02、G-03、G-08、G-09 |
-| 04_storyboard_final | 分镜定稿 | storyboard_draft.json、assets.json、continuity_ledger.json | storyboard_final.json | G-01、G-07 |
-| 05_first_frame | 首帧管理 | storyboard_final.json | frames.json | G-04 |
-| 06_previs | 白模预演 | storyboard_final.json、frames.json | previs.json | — |
+| 04_storyboard_final | 分镜定稿 | storyboard_draft.json、assets.json、continuity_ledger.json | episode.json、assets.json | G-01、G-07 |
+| 05_first_frame | 首帧管理 | episode.json、assets.json | frames.json | G-04 |
+| 06_previs | 白模预演 | episode.json、assets.json、frames.json | previs.json | — |
 | 07_video_gen | 视频生成 | frames.json、previs.json | videos.json | — |
-| 08_audio_subtitle | 配音与字幕 | storyboard_final.json | voice.json、subtitles.json | — |
+| 08_audio_subtitle | 配音与字幕 | episode.json | voice.json、subtitles.json | — |
 | 09_post_edit | 后期剪辑 | videos.json、voice.json、subtitles.json | edits.json | — |
 | 10_qc_delivery | 质检与交付 | edits.json | qc_report.json、delivery.json | — |
 
@@ -1482,7 +1482,7 @@ return batches
 | assets.json · character_anchor | 02_assets/docs/character_brief.md | 锚点字符串逐字复用；创意描述只给人看 |
 | assets.json · state_variants | 02_assets/docs/canon_board.md | 状态变体的数据结构在 JSON 里，说明写在 MD |
 | assets.json · scene_id／spatial_anchors | 02_assets/docs/scene_brief.md | 场景的空间锚点是机器输入，文字描述给人看 |
-| storyboard_final.json · batch_id | 04_storyboard_final/docs/batch_plan.md | 批次是机器切的，说明给人看 |
+| episode.json · batch_id | 04_storyboard_final/docs/batch_plan.md | 批次是机器切的，说明给人看 |
 | continuity_ledger.json | 03_continuity/docs/continuity_ledger.md | 台账 JSON 是机器输入，人读版在 docs |
 | shot.video_prompt | 07_video_gen/docs/video_prompt_log.md | 视频提示词只写动作与运镜 |
 

@@ -23,6 +23,7 @@ from unittest import mock
 
 import pet_state
 import stage_flow
+import stage_layout
 import stage_parallel
 from agent.core import file_hash, read, save
 from desktop import Desktop
@@ -635,6 +636,18 @@ class S07AnchorTests(unittest.TestCase):
             docs = paths(project, dirname_of('final'))['docs']
             self.assertFalse((docs / 'batch_plan.md').is_file())
             self.assertFalse((docs / 'shot_table.md').is_file())
+
+    def test_req_s07_43_stage_layout_declares_the_real_final_files(self):
+        """REQ-S07-43：07 声明实际产出的 episode.json＋assets.json，08／09／11 输入与各自实际读取一致。"""
+        by_stage = {row[1]: row for row in stage_layout.STAGES}
+        self.assertEqual(by_stage['final'][5], ('episode.json', 'assets.json'))
+        self.assertEqual(by_stage['keyframe'][4], ('episode.json', 'assets.json'))
+        self.assertEqual(by_stage['previs'][4], ('episode.json', 'assets.json', 'frames.json'))
+        self.assertEqual(by_stage['audio'][4], ('episode.json',))
+        declared = [name for row in stage_layout.STAGES for name in row[4] + row[5]]
+        self.assertNotIn('storyboard_final.json', declared)
+        self.assertIn(('episode.json · batch_id', '07分镜定稿/docs/batch_plan.md',
+                       '批次是机器切的，说明给人看'), stage_layout.json_md_rows())
 
     def test_req_s07_53_skill_describes_registration_not_unimplemented_snapshots(self):
         """REQ-S07-53：版本 SKILL 如实描述登记与日期后缀，不再承诺快照、对比或回滚。"""
