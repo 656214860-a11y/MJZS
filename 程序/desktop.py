@@ -219,9 +219,8 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.canvas.pack(fill='both',expand=True)
         self.page_scrollbar=None
         self.content=ttk.Frame(self.canvas);self.content_id=self.canvas.create_window(0,0,window=self.content,anchor='nw')
-        self.content.bind('<Configure>',self.fit_content)
         self.content.bind('<Configure>',self.align_header,add='+')
-        self.canvas.bind('<Configure>',self.fit_content)
+        self.watch_window_resize(win)
         protect_readonly_combobox(win);protect_tk_gc(win)
         win.bind_class('DramaPageWheel','<MouseWheel>',self.scroll_page)
         win.bind_all('<MouseWheel>',self.scroll_page,add='+')
@@ -604,7 +603,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
     def cancel_timers(self,event=None):
         # 先停掉定时器再销毁窗口：残留的 after 回调会在 Tk 里报 invalid command name。
         if event is not None and event.widget is not self.win:return
-        self.shutting_down=True
+        self.shutting_down=True;self.cancel_resize()
         for name in ('_navigation_job','_sidebar_fit_job'):
             job=getattr(self,name,None)
             if job is not None:

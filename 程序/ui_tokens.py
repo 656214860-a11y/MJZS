@@ -173,6 +173,11 @@ DESKTOP_LAYOUT = {
     'title_inset': SPACING['xs'], 'gear_gap': SPACING['xs'],
     'slogan_gap': SPACING['md'], 'slogan_font': FONTS['pet_body'],
     'project_label_gap': SPACING['sm'], 'pet_clearance': SPACING['xs'],
+    # 主窗口拖动：停止拖动后等这么久没有新尺寸才整页重排一次（约 8 帧，远长于
+    # Windows 拖动时 WM_SIZE 的间隔，又不至于松手后明显停顿）。
+    'resize_quiet_ms': 128,
+    # 外框可调整区的命中宽度；同时是 Tk 数窗口尺寸时外框到工作区的内缩。
+    'resize_edge_px': 4,
 }
 # 阶段配置弹窗与制作锁流式布局的规格：最小窗口尺寸、标签与下拉框间距、行间距、
 # 行尾允许空白与标签旧契约宽度。SP 批次把下拉框改成按行填满的 FlowFields，这些

@@ -112,7 +112,7 @@ class App:
         # 独立嵌入或界面测试没有宿主时，保留直接执行这一最小、可预期的降级行为。
         self.manual_command_factory=manual_command_factory or (lambda _host, _stage, action, _parent: action)
         self.missing_frame_callback=missing_frame_callback
-        self.root=Path(root or ROOT); self.window=window; self.scheduler=window.winfo_toplevel(); self.studio=open_studio(self.root,episode_file=episode_file); self.busy=False; self.results=queue.Queue()
+        self.root=Path(root or ROOT); self.window=window; self.resize_scheduler=None; self.scheduler=window.winfo_toplevel(); self.studio=open_studio(self.root,episode_file=episode_file); self.busy=False; self.results=queue.Queue()
         self.prompt_buttons=[];self.submitting_sid=None;self.next_ui_update=0;self.last_poll_messages={};self.polling_sid=None;self.poll_wait=5
         self.next_poll=0;self.quiet_run=False;self.poll_cursor=0;self.editing_sid=None;self.edit_checks={};self.local_messages=queue.Queue();self.local_submit_sid=None;self.local_submit_error={}
         self.auto_submitted=set();self.auto_submit_due=0
@@ -513,8 +513,12 @@ class App:
 
         窗口太矮时先压日志（可压到 LOG_ROWS_MIN 行），提示词实在装不下才用滚动条。
         event 是 <Configure> 那一份：只有这一页自己变了才重算（子控件的 Configure 不算）。
+        拖动主窗口边框期间并进松手后的整页重排，不逐帧量文字框。
         """
         if event is not None and getattr(event, 'widget', None) is not self.window:
+            return
+        coalescer = getattr(self, 'resize_scheduler', None)
+        if coalescer is not None and coalescer.schedule(self.fit_page_heights, event=event):
             return
         if getattr(self, '_fitting_heights', False):
             return

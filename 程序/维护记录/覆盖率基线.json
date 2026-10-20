@@ -50,7 +50,7 @@
   {
    "module": "app.py",
    "covered": 0,
-   "total": 1137,
+   "total": 1139,
    "percent": 0.0
   },
   {
@@ -128,7 +128,7 @@
   {
    "module": "asset_contract.py",
    "covered": 0,
-   "total": 218,
+   "total": 222,
    "percent": 0.0
   },
   {
@@ -374,13 +374,19 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 257,
+   "total": 297,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_layout_resize.py",
+   "covered": 0,
+   "total": 161,
    "percent": 0.0
   },
   {
    "module": "desktop_media_pages.py",
    "covered": 0,
-   "total": 831,
+   "total": 832,
    "percent": 0.0
   },
   {
@@ -440,7 +446,7 @@
   {
    "module": "desktop_writing_page.py",
    "covered": 0,
-   "total": 563,
+   "total": 565,
    "percent": 0.0
   },
   {
@@ -740,7 +746,7 @@
   {
    "module": "pet_models_ui.py",
    "covered": 0,
-   "total": 679,
+   "total": 686,
    "percent": 0.0
   },
   {
@@ -794,7 +800,7 @@
   {
    "module": "pet_ui_stages.py",
    "covered": 0,
-   "total": 873,
+   "total": 871,
    "percent": 0.0
   },
   {
@@ -896,7 +902,7 @@
   {
    "module": "recon_service.py",
    "covered": 0,
-   "total": 403,
+   "total": 407,
    "percent": 0.0
   },
   {
@@ -1058,7 +1064,7 @@
   {
    "module": "skill_tools.py",
    "covered": 0,
-   "total": 409,
+   "total": 412,
    "percent": 0.0
   },
   {
@@ -1118,7 +1124,7 @@
   {
    "module": "storyboard_catalog_service.py",
    "covered": 0,
-   "total": 413,
+   "total": 412,
    "percent": 0.0
   },
   {
@@ -1184,7 +1190,7 @@
   {
    "module": "storyboard_selection.py",
    "covered": 0,
-   "total": 390,
+   "total": 401,
    "percent": 0.0
   },
   {
@@ -1292,7 +1298,7 @@
   {
    "module": "ui_widgets.py",
    "covered": 0,
-   "total": 895,
+   "total": 921,
    "percent": 0.0
   },
   {
@@ -1572,6 +1578,12 @@
    "percent": 24.9
   },
   {
+   "module": "app_logging.py",
+   "covered": 55,
+   "total": 216,
+   "percent": 25.5
+  },
+  {
    "module": "stage_layout.py",
    "covered": 54,
    "total": 203,
@@ -1582,12 +1594,6 @@
    "covered": 93,
    "total": 348,
    "percent": 26.7
-  },
-  {
-   "module": "app_logging.py",
-   "covered": 51,
-   "total": 182,
-   "percent": 28.0
   },
   {
    "module": "project_naming.py",
@@ -1747,5 +1753,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 289
+ "modules_total": 290
 }

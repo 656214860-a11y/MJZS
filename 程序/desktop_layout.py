@@ -8,13 +8,38 @@ import tkinter as tk
 from tkinter import ttk
 
 import pet_ui
+from desktop_layout_resize import ResizeCoalescer
 from desktop_page_registry import PAGE
 from responsive_ui import growable_extra
 from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING
 
 
 class LayoutMixin:
+    def _join_resize(self,apply,event=None):
+        """拖动改窗口期间把这次重排并进松手后的补做；返回 True 表示这次不必立即做。"""
+        coalescer=getattr(self,'resize_scheduler',None)
+        if coalescer is None or event is None:return False
+        return coalescer.schedule(apply,event=event)
+    def cancel_resize(self):
+        coalescer=getattr(self,'resize_scheduler',None)
+        if coalescer is not None:coalescer.cancel()
+    def watch_window_resize(self,win):
+        """主窗口／页面画布／内容框的尺寸变化统一经合并器；子控件变化照旧立即处理。"""
+        self.resize_scheduler=ResizeCoalescer(win)
+        for widget in (win,self.canvas,self.content):
+            widget.bind('<Configure>',self._on_resize_configure,add='+')
+    def _on_resize_configure(self,event=None):
+        """尺寸变了：拖动期间只登记一次整页补做，其余场景照旧立即重排。"""
+        if event is not None and getattr(event,'widget',None) is self.win:
+            # 移动窗口也发 Configure；只有宽高真的变了才重排。
+            size=(event.width,event.height)
+            if getattr(self,'_last_window_size',None)==size:return
+            self._last_window_size=size
+        if self._join_resize(self._layout_all,event):return
+        self.fit_content()
     def schedule_sidebar_fit(self,event=None):
+        # 拖动改窗口期间保持稳定：侧栏行数、表头对齐都并进松手后的那一次整页重排。
+        if self._join_resize(self._layout_all,event):return
         if getattr(self,'_sidebar_fit_job',None) is not None:return
         def run():
             self._sidebar_fit_job=None
@@ -116,8 +141,18 @@ class LayoutMixin:
                 slogan.tk.call('raise',str(slogan))
         else:slogan.place_forget()
     def fit_content(self,event=None):
-        # 迟到的请求不能丢：内容框行数变化常发生在一次重算过程中，若不补算一次，
-        # 页面滚动区域会停留在旧高度，底部按钮就可能被滚出可视区。
+        # 尺寸事件落在拖动期间：并进松手后的补做。主动调用（页面切换、最小化恢复）
+        # 不带事件，保持原来的同步 after_idle 语义，不受静默影响。
+        if event is not None and self._join_resize(self._layout_all,event):return
+        self._apply_layout()
+    def _layout_all(self):
+        """松手补做：内容高度、侧栏行数、表头一次排好，结果与改前同尺寸一致。"""
+        if getattr(self,'shutting_down',False):return
+        self._apply_layout()
+        self.fit_sidebar()
+        self.align_header()
+    def _apply_layout(self):
+        """等同改前 fit_content 的重算主体。"""
         if getattr(self,'_fit_pending',False):
             self._fit_again=True
             return
@@ -130,7 +165,7 @@ class LayoutMixin:
             except Exception:app_logging.swallowed()
             if getattr(self,'_fit_again',False):
                 self._fit_again=False
-                self.fit_content()
+                self._relayout()
                 return
             # Canvas 固定内容高度后，子控件请求高度变化不再触发内容框 Configure。
             # 沿现有空闲队列等请求尺寸逐层传播；最多补八轮，避免异常布局反复排队。
@@ -140,7 +175,7 @@ class LayoutMixin:
             passes=getattr(self,'_fit_stability_passes',0)
             if changed and passes<8:
                 self._fit_stability_passes=passes+1
-                self.fit_content()
+                self._relayout()
                 return
             self._fit_stability_passes=0
             pending_scroll=getattr(self,'_pending_scroll_restore',None)
@@ -156,6 +191,11 @@ class LayoutMixin:
         except tk.TclError:
             self._fit_job=None
             self._fit_pending=False
+    def _relayout(self):
+        """补算一次整页：拖动期间并入静默补做，其余情况照旧立即排队。"""
+        coalescer=getattr(self,'resize_scheduler',None)
+        if coalescer is not None and coalescer.schedule(self._layout_all):return
+        self._apply_layout()
     def _fit_content_now(self):
         width=max(1,self.canvas.winfo_width());height=max(1,self.canvas.winfo_height())
         req=self.content.winfo_reqheight()
@@ -288,6 +328,9 @@ class LayoutMixin:
         return 'break'
     def on_window_map(self,event=None):
         """主窗口从最小化恢复后，重新排定整页滚动范围。"""
+        # 最小化恢复属于非拖动场景：撤销挂起的拖动合并，立即重排。
+        coalescer=getattr(self,'resize_scheduler',None)
+        if coalescer is not None:coalescer.flush()
         if event is not None and event.widget is not self.win:return
         if getattr(self,'shutting_down',False):return
         self.fit_content()

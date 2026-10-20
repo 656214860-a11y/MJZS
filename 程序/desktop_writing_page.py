@@ -378,6 +378,8 @@ class WritingPageMixin:
             于是窗口怎么缩，它们都还在可视区里。
             """
             if not box.winfo_exists():return
+            # 拖动主窗口边框期间并进松手后的整页重排；切页、输入引起的重算照旧立即。
+            if self._join_resize(self._layout_all,event):return
             viewport=int(self.canvas.winfo_height() or 0)
             if viewport<=1:return                      # 还没量出窗口尺寸：等下一拍
             try:
@@ -395,6 +397,7 @@ class WritingPageMixin:
             except (tk.TclError,ValueError):pass
         self._fit_talk=fit_talk
         def fit_talk_container(event=None):
+            if self._join_resize(self._layout_all,event):return
             fit_talk(event)
             # 动作栏换行或聊天请求高度变化后，容器完成几何传播才重新量画布。
             # 即使聊天行数没变也要收敛；固定画布自身不会收到请求高度变化事件。
