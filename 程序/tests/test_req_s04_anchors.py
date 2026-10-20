@@ -11,6 +11,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import animatic_service as service
+import script_contract
+import script_output_spec
 import stage_parallel
 from animatic_service import CONFIRMATIONS, MANIFEST, build_bundle, local_sketch, prepare_reference, validate_bundle
 from project_context_factory import project_context
@@ -340,6 +342,18 @@ class ReqS04AnchorTests(unittest.TestCase):
                 self.assertEqual(stage_parallel.animatic_ready(root)['detail'], '同一核验')
                 self.assertEqual(completion_evidence(root, 'animatic'), (False, '同一核验'))
             self.assertTrue(shared.call_count >= 2)
+
+    def test_req_s04_52_skill_only_promises_the_locks_the_stage_reads(self):
+        """REQ-S04-52：SKILL 只声明本阶段实际读取的画幅／预览规格，不再承诺配置缺口门禁。"""
+        text = (Path(__file__).resolve().parents[1] / 'skills' /
+                '04 分镜预演SKILL' / 'pipeline-animatic.skill.md').read_text(encoding='utf-8')
+        self.assertNotIn('配置缺口', text)
+        self.assertNotIn('返回准备阶段', text)
+        self.assertIn('画幅', text)
+        self.assertNotIn('animatic', script_contract.STAGE_LOCK_REQUIREMENTS,
+                         '代码事实：本阶段没有必填制作锁')
+        self.assertEqual(script_output_spec.preview_spec({'aspect_ratio': '9:16'})['aspect_ratio'],
+                         '9:16', '代码事实：预览规格继续读取项目画幅')
 
 
 if __name__ == '__main__':

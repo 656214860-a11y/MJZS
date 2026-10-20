@@ -5,6 +5,7 @@
 条目（12/15/16 全部，11/33 的一部分）只在原测试 docstring 认领，本文件补其余行为。
 """
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -117,6 +118,28 @@ class ReqS05AnchorTests(unittest.TestCase):
             self.assertIn(target, animatic_reference_paths(root))
             self.assertFalse((write_dir(root, 'assets') / 'assets' / '资产清单' / 'assets.json').exists())
             self.assertFalse((write_dir(root, 'assets') / 'assets.json').exists())
+
+    def test_req_s05_05_skill_inputs_do_not_require_manifests(self):
+        """REQ-S05-05：SKILL 输入只列分镜与资产需求，清单导出不依赖任何 manifest。"""
+        line = re.search(r'^input:.*$', _skill_text(), re.MULTILINE)
+        self.assertIsNotNone(line)
+        for unexpected in ('characterManifest', 'sceneManifest', 'propManifest',
+                           'sceneBreakdown', 'emotionCurve'):
+            self.assertNotIn(unexpected, line.group(0))
+        self.assertIn('storyboardDraft', line.group(0))
+        self.assertIn('assetRequirements', line.group(0))
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            _board(root / 'storyboard' / '分镜拆分' / 'board.json')
+            _write(root / 'ui_settings.json', {
+                'adopted_storyboards': ['storyboard/分镜拆分/board.json']})
+            rows = asset_plan._sync_plan(
+                root, library_dir(root), ['storyboard/分镜拆分/board.json'], scope='adopted',
+                _adopting=False, context=project_context(root), gateway=asset_plan_gateway())
+            self.assertIn('CHAR_001', rows)
+            self.assertIn('LOC_001', rows)
+            self.assertFalse((root / 'characterManifest.json').exists())
 
     def test_req_s05_11_sync_preserves_existing_fields_and_records_used_in(self):
         """REQ-S05-11：同步只补缺失契约字段，已有值一个不动；used_in 记录引用镜头编号。"""

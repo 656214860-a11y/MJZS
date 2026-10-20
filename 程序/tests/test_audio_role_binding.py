@@ -24,10 +24,12 @@ def line(index, speaker="CHAR_001"):
 
 class VoiceMappingTests(unittest.TestCase):
     def test_id_takes_precedence_over_renamed_display_name(self):
+        """REQ-S11-13：稳定角色 ID 优先于显示名，程序只负责绑定与回退。"""
         voices = {"CHAR_001": "voice_a"}
         self.assertEqual(tts_api.voice_for(voices, "CHAR_001", "改名前"), "voice_a")
 
     def test_name_fallback_and_empty(self):
+        """REQ-S11-13：显示名次之，缺失时回退默认空音色；一角一音色仍由人工判断。"""
         self.assertEqual(tts_api.voice_for({"小明": "voice_b"}, "CHAR_009", "小明"), "voice_b")
         self.assertEqual(tts_api.voice_for({}, "CHAR_001"), "")
 

@@ -75,6 +75,16 @@ class _Host:
         self.pet.reported.append((stage, text))
 
 
+class ReqS03DocAnchorTests(unittest.TestCase):
+    def test_req_s03_51_legacy_flow_coexists_but_stage_preset_is_authoritative(self):
+        """REQ-S03-51：旧单独流程默认技能是兼容层，AIGC 全流程阶段预设才是权威。"""
+        legacy = workflow_settings.DEFAULT_SKILLS['storyboard']
+        preset = workflow_settings.BUILTIN_WORKFLOW_PRESETS['AIGC全流程']['stage_skills']['storyboard']
+        self.assertEqual(legacy, 'short-drama-storyboard')
+        self.assertEqual(preset, ['pipeline-storyboard-draft'])
+        self.assertNotEqual(legacy, preset[0], '兼容层与阶段预设必须保留为两条不同入口')
+
+
 class ReqS03AnchorTests(unittest.TestCase):
     # --- 启动与输入 -------------------------------------------------------
     def test_req_s03_03_workflow_lock_blocks_manual_and_auto_before_start(self):

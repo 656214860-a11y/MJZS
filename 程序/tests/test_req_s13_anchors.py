@@ -487,6 +487,21 @@ class DeliveryRequirementAnchorTests(unittest.TestCase):
             self.assertEqual(cost['human_minutes'], 15)
             self.assertEqual(cost['including_human_per_minute'], 4)
 
+    def test_req_s13_27_edit_completion_reads_delivery_export_folder(self):
+        """REQ-S13-27：后期剪辑完成核验读取交付阶段归属的 13质检交付/导出成片。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folders, suffixes = stage_completion_service.media_output_folders(root, 'edit')
+            delivery_folder = next(folder for folder in folders if folder.name == '导出成片')
+            self.assertIn('.mp4', suffixes)
+            target = delivery_folder / 'MASTER.mp4'
+            target.parent.mkdir(parents=True)
+            target.write_bytes(b'fixture-media')
+            self.assertEqual(stage_completion_service._media_path(root, 'edit', target), target.resolve())
+            target.unlink()
+            with self.assertRaisesRegex(ValueError, '有效媒体文件'):
+                stage_completion_service._media_path(root, 'edit', target)
+
 
 if __name__ == '__main__':
     unittest.main()

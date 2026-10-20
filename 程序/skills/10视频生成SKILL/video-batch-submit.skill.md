@@ -44,7 +44,7 @@ examples:
 - 输出：已提交、已完成（含文件路径）、失败（含原因）。
 
 ### 用到的工具
-- `video.batchSubmit`（08 视频生成 → 手动制作视频／批量生成勾选镜头）
+- `video.batchSubmit`（10 视频生成 → 手动制作视频／批量生成勾选镜头）
 - `video.pollStatus`（查任务，页面上的「刷新」也走它）
 - `video.retry`／`video.pause`／`video.resume`（重试失败项／暂停／继续）
 

@@ -520,6 +520,28 @@ class S07AnchorTests(unittest.TestCase):
             state = AutomationTickMixin.auto_final_scan(scan)
             self.assertNotIn(final_dir, [p.parent for p in state['pending']])
 
+    def test_req_s07_03_depends_is_data_graph_and_sg_gates_are_business_preconditions(self):
+        """REQ-S07-03：DEPENDS['final'] 只表数据依赖；连贯性／资产前置由 SG-02／SG-01 表达。"""
+        import stage_parallel
+
+        self.assertEqual(stage_flow.DEPENDS['final'], ('storyboard',))
+        gates = {row['id']: row for row in stage_parallel.GATES}
+        self.assertEqual((gates['SG-01']['to'], gates['SG-01']['check']),
+                         ('continuity', 'assets_locked'))
+        self.assertEqual((gates['SG-02']['to'], gates['SG-02']['check']),
+                         ('final', 'ledger_ready'))
+
+    def test_req_s07_53_skill_describes_registration_not_unimplemented_snapshots(self):
+        """REQ-S07-53：版本 SKILL 如实描述登记与日期后缀，不再承诺快照、对比或回滚。"""
+        import skill_tools
+
+        text = (Path(__file__).resolve().parents[1] / 'skills' /
+                '07分镜定稿SKILL' / 'storyboard-version-snapshot.skill.md').read_text(encoding='utf-8')
+        for false_promise in ('回滚', '快照', '可对比'):
+            self.assertNotIn(false_promise, text)
+        self.assertIn('日期后缀', text)
+        self.assertIn('登记这份分镜', skill_tools.READY['storyboard.save'][1])
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

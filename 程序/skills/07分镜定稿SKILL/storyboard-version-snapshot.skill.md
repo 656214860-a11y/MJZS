@@ -1,7 +1,7 @@
 ---
 name: storyboard-version-snapshot
-displayName: 版本快照
-description: 给这一版定稿拍个快照，可回滚可对比
+displayName: 定稿版本登记
+description: 登记这一版定稿；日期后缀区分版本，旧版由回收站退役
 stage: 分镜定稿
 capabilities: [structured-output]
 preferredModels: [deepseek-v4-flash]
@@ -12,43 +12,41 @@ conflictsWith: []
 parallelizable: true
 paid: false
 input: [syncedStoryboard]
-output: [snapshot, versionList]
-constraints: [只加不改, 可回滚, 记时间与摘要]
+output: [registeredStoryboard, versionList]
+constraints: [只登记已校验分镜, 不覆盖历史版本, 记时间与摘要]
 feedback:
   - onProgress: 更新三虎进度
   - onError: 可重试自动重试, 不可重试通知
   - onComplete: 通知并推进阶段
 examples:
-  - 用户："给这一版留个底" → storyboard.snapshotVersion({ source })
-  - 用户："上次那版跟现在差在哪" → storyboard.listVersions({ source })
+  - 用户："把这一版登记下来" → storyboard.save({ source })
+  - 用户："现在用的是哪一版" → 查看定稿日期后缀目录
 ---
 
 ## 说明
 ### 这个 SKILL 干什么
-每定一版就拍一张快照：分镜 JSON 与资产清单一起存进版本目录，附时间、摘要与指纹。
-后面想回到哪一版，照清单挑。
+每定一版就登记一次分镜，记录时间和摘要。定稿目录带日期后缀用来区分版本；需要退役旧版时走回收站，不在程序里另建版本目录。
 
-### 具体做四件事
-1. 算指纹：对分镜与资产清单各算一个指纹。
-2. 存快照：整份复制进分镜历史下的时间戳目录。
-3. 写摘要：记时间、镜头数、与上一版的差别摘要。
-4. 列版本：维护一份版本清单，最新的排最前。
+### 具体做三件事
+1. 校验：登记前先过一遍分镜契约校验。
+2. 登记：调用 `storyboard.save` 登记当前定稿。
+3. 记录：在交付说明里写时间、镜头数和本次变更摘要。
 
 ### 什么时候用它
-- 定稿采用之前，先给当前这版留一张。
-- 想比较两版之间改了哪几镜。
+- 定稿完成后登记当前版本。
+- 需要说明本次改了哪几镜、用了哪份定稿时。
 
 ### 输入／输出
 - 输入：对齐并通过校验的分镜 JSON（连同资产清单）。
-- 输出：快照目录、版本清单。
+- 输出：已登记的分镜、版本说明。
 
 ### 用到的工具
-- `storyboard.save`：05 分镜定稿 → 保存分镜
+- `storyboard.save`：登记这份分镜
 - `storyboard.validate`：存之前先过一遍契约校验
 
 ### 约束与验收
-- 只加不改：快照目录里的旧版本一个都不动。
-- 回滚要问过用户：这一步只负责拍快照与列清单。
+- 只登记已通过校验的分镜，不覆盖旧版文件。
+- 版本以定稿目录的日期后缀为准；旧版退役必须走回收站。
 - 摘要要写人话（改了哪几镜、加了几个资产），别只写文件指纹。
 
 ### 进度与反馈
