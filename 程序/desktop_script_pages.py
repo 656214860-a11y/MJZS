@@ -13,13 +13,25 @@ from typing import Callable
 import project_stages
 import script_view_style
 import tkinter as tk
+import tkinter.font as tkfont
 import ui_plugin_registry
 from desktop_idea_chat import model_error_display
 from pathlib import Path
 from responsive_ui import FlowBar
 from tkinter import ttk
-from ui_tokens import COLORS, SCRIPT_VIEW_FONT, SCRIPT_VIEW_PADDING, SPACING, TEXT_DESC
-from ui_widgets import DataTable, PrimaryButton, SecondaryButton, TextArea
+from ui_tokens import (
+    COLORS,
+    FONTS,
+    SCRIPT_DIRECTORY_COLUMN_PADDING,
+    SCRIPT_DIRECTORY_MAX_ROWS,
+    SCRIPT_DIRECTORY_MAX_WIDTH,
+    SCRIPT_DIRECTORY_MIN_WIDTH,
+    SCRIPT_VIEW_FONT,
+    SCRIPT_VIEW_PADDING,
+    SPACING,
+    TEXT_DESC,
+)
+from ui_widgets import DataTable, PrimaryButton, SecondaryButton, TextArea, TreeRowTooltip
 from desktop_page_support import STAGE_ACTION_WIDTH
 
 PAGE = pet_state.PAGE_OF
@@ -65,6 +77,35 @@ def _build_script_preview(text_area):
     horizontal.grid(row=1, column=0, sticky='ew')
     text_area.columnconfigure(0, weight=1); text_area.rowconfigure(0, weight=1)
     return preview, horizontal
+
+
+def _fit_script_directory(file_list, file_table, available):
+    """目录列宽按最长文件名自适应、行数 1..6，长名悬停看全文；正文分栏拿剩余空间。"""
+    names = [path.name for path in available] or ['尚无可用文件']
+    name_font = tkfont.Font(root=file_list, font=FONTS["body"])
+    column_width = max(name_font.measure(name) for name in names)
+    column_width = max(
+        SCRIPT_DIRECTORY_MIN_WIDTH,
+        min(SCRIPT_DIRECTORY_MAX_WIDTH,
+            column_width + SCRIPT_DIRECTORY_COLUMN_PADDING),
+    )
+    file_list.column('script', anchor='w', width=column_width,
+                     minwidth=SCRIPT_DIRECTORY_MIN_WIDTH, stretch=False)
+    file_list.configure(height=min(SCRIPT_DIRECTORY_MAX_ROWS,
+                                   max(1, len(available))))
+    file_table._row_tooltip = TreeRowTooltip(
+        file_list, lambda item: file_list.set(item, 'script'))
+    file_table.pack(fill='x', anchor='n')
+
+
+def _reset_preview_text(preview, text, kind):
+    """清空预览并整段刷入文本、按需加样式；返回后留在 normal 态由调用方决定下一步。"""
+    preview.configure(state='normal')
+    preview.delete('1.0', 'end')
+    preview.insert('1.0', text)
+    if script_view_style.should_style(text):
+        script_view_style.apply_tags(preview, text, kind)
+    preview.edit_reset()
 
 
 @dataclass(frozen=True)
@@ -382,7 +423,7 @@ class ScriptPagesMixin:
                         editable=True, kind='natural'):
             # 文件栏与正文同一行：左列只管选择／确认剧本文件，右列专心阅读和编辑正文。
             # 不再把这份文件清单重复放到页面底部。
-            box = ttk.Frame(parent, padding=SPACING["sm"])
+            box = ttk.Frame(parent, padding=(SPACING["xs"], SPACING["none"]))
             # 可拖动的横向分隔条：自然／结构剧本目录列与正文列都可按阅读需要调宽。
             body = ttk.Panedwindow(box, orient='horizontal'); body.pack(fill='both', expand=True)
             files = ttk.Frame(body)
@@ -391,11 +432,9 @@ class ScriptPagesMixin:
             file_table = DataTable(files, columns=[('script', file_heading, 170)], show='headings',
                                    height=1, selectmode='browse', auto_hide_scrollbars=True)
             file_list = file_table.tree
-            # 文件栏仅用于选择；正文是本页的主要阅读区。原来的 260px 在窄窗口
-            # 抢走过多空间，缩为约三分之二并允许随窗口继续收缩。
-            file_list.column('script', anchor='w', width=170, minwidth=105, stretch=True)
-            file_table.pack(fill='both', expand=True)
+            # 文件栏仅用于选择；正文是本页的主要阅读区，目录按文件名自适应窄栏。
             available = tuple(path for path in documents if path and path.is_file())
+            _fit_script_directory(file_list, file_table, available)
             active = {'path': active_path if active_path in available else (available[0] if available else None)}
             if available:
                 for path in available:
@@ -405,24 +444,27 @@ class ScriptPagesMixin:
                 file_list.insert('', 'end', values=('尚无可用文件',))
             preview_area = ttk.Frame(body)
             preview_header = ttk.Frame(preview_area)
-            preview_header.pack(fill='x', pady=(SPACING["none"], SPACING["xs"]))
+            preview_header.pack(fill='x')
             ttk.Label(preview_header, text='剧本内容', style='Muted.TLabel').pack(side='left')
             # 编辑操作贴着正文标题的右侧，不再占用内容框上方的一整行。
             controls = ttk.Frame(preview_header)
             controls.pack(side='right')
             text_area = ttk.Frame(preview_area); text_area.pack(fill='both', expand=True)
             preview, horizontal = _build_script_preview(text_area)
-            body.add(files, weight=1)
-            body.add(preview_area, weight=4)
+            body.add(files, weight=0)
+            body.add(preview_area, weight=1)
             preview_ticket = {'value': 0}
+            loaded = {'raw': ''}
             def set_preview(value, ticket=None):
                 """小文本立即显示；大文本在 Tk 空闲时分块插入，避免一次性重排。"""
-                styled = script_view_style.should_style(value)
+                loaded['raw'] = str(value or '')
+                shown = script_view_style.compact_display(loaded['raw'])
+                styled = script_view_style.should_style(shown)
                 _set_script_wrap(preview, horizontal, styled)
                 preview.configure(state='normal')
                 preview.delete('1.0', 'end')
                 preview.configure(state='disabled')
-                chunks = iter(preview_chunks(value))
+                chunks = iter(preview_chunks(shown))
                 def append_chunk():
                     if ticket is not None and ticket != preview_ticket['value']:
                         return
@@ -432,7 +474,7 @@ class ScriptPagesMixin:
                         try:
                             preview.configure(state='normal')
                             if styled:
-                                script_view_style.apply_tags(preview, value, kind)
+                                script_view_style.apply_tags(preview, shown, kind)
                             # 初始预览不能成为“恢复删除”的一条历史记录；只恢复用户本次编辑中的动作。
                             preview.edit_reset()
                             preview.configure(state='disabled')
@@ -447,11 +489,7 @@ class ScriptPagesMixin:
                     except tk.TclError:
                         pass
                 if ticket is None:
-                    preview.configure(state='normal')
-                    preview.insert('end', value)
-                    if styled:
-                        script_view_style.apply_tags(preview, value, kind)
-                    preview.edit_reset()
+                    _reset_preview_text(preview, shown, kind)
                     preview.configure(state='disabled')
                 else:
                     _safe_after_idle(self.win, append_chunk)
@@ -527,7 +565,8 @@ class ScriptPagesMixin:
             def begin_edit():
                 if not editable or active['path'] is None:
                     raise ValueError('当前没有可修改的剧本文档。')
-                preview.configure(state='normal')
+                _reset_preview_text(preview, loaded['raw'], kind)
+                preview.edit_modified(False)
                 edit.state(['disabled']); restore.state(['!disabled']); save.state(['!disabled'])
                 preview.focus_set()
             def save_edit():
@@ -537,9 +576,12 @@ class ScriptPagesMixin:
                 if not value:
                     raise ValueError('剧本内容不能为空。')
                 destination = Path(active['path'])
-                from script_contract import save_natural_script
-                save_natural_script(destination, value)
-                preview.configure(state='disabled')
+                if preview.edit_modified():
+                    from script_contract import save_natural_script
+                    save_natural_script(destination, value)
+                    set_preview(value + '\n')
+                else:
+                    set_preview(loaded['raw'])
                 edit.state(['!disabled']); restore.state(['disabled']); save.state(['disabled'])
                 self.status.set('已保存'+title+'：'+destination.name)
                 if destination == source:
@@ -566,7 +608,7 @@ class ScriptPagesMixin:
         self.script_structure_source_box = content_box(
             split_area,
             '自然剧本（采用：'+source.name+'）' if source else '自然剧本（待选择采用版本）',
-            '自然剧本目录（01剧本准备）', structure.source_documents, source,
+            '自然剧本', structure.source_documents, source,
             '尚未找到剧本准备阶段的剧本。请先生成、下载或导入剧本。',
             'script_structure_source_preview', editable=source is not None, kind='natural')
         self.script_structure_source_box.grid(row=0, column=0, sticky='nsew', pady=(SPACING["xs"], SPACING["none"]))
@@ -598,7 +640,7 @@ class ScriptPagesMixin:
         self.stage_button.pack(side='left', padx=(SPACING["sm"], SPACING["xs"]))
         self.script_structure_output_box = content_box(
             split_area,
-            '结构剧本', '结构剧本目录（02剧本结构）', structure.output_documents, target,
+            '结构剧本', '结构剧本', structure.output_documents, target,
             '尚未生成结构化剧本。点击上方“手动制作结构剧本”，或由三虎全自动模式执行。',
             'script_structure_output_preview', editable=True, kind='structured')
         self.script_structure_output_box.grid(row=2, column=0, sticky='nsew', pady=(SPACING["none"], SPACING["none"]))

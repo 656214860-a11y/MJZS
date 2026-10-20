@@ -60,6 +60,22 @@ def wrap_mode(text):
     return "word" if should_style(text) else "none"
 
 
+def compact_display(text):
+    """折叠代码块外的空白行；只用于展示，不改变源文件。"""
+    value = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    if not value:
+        return value
+    lines = []
+    in_code = False
+    for line in value.split("\n"):
+        if _FENCE.match(line):
+            in_code = not in_code
+            lines.append(line)
+        elif in_code or line.strip():
+            lines.append(line)
+    return "\n".join(lines)
+
+
 def _span(line_no, start, end, tag):
     if end <= start:
         return None

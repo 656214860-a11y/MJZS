@@ -1,7 +1,7 @@
 """把 SKILL 说明的 Markdown 排版到 Tk Text；解析层不依赖 Tk，也不读写文件。"""
 import re
 
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import COLORS, FONTS, NOTE_PARAGRAPH_SPACING, SPACING
 
 
 BODY = "body"
@@ -117,7 +117,6 @@ def parse(markdown):
         line = _INLINE_COMMENT.sub("", line)
         stripped = line.strip()
         if not stripped:
-            fragments.append(("\n", (BODY,)))
             continue
         if _FENCE.match(line):
             in_code = True
@@ -173,7 +172,7 @@ def _configure_tags(widget):
         "foreground": COLORS["text_primary"],
         "spacing1": SPACING["none"],
         "spacing2": SPACING["xs"],
-        "spacing3": SPACING["none"],
+        "spacing3": NOTE_PARAGRAPH_SPACING,
     }
     widget.tag_configure(BODY, **body)
     for level, tag in HEADING_TAGS.items():
