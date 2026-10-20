@@ -1,6 +1,7 @@
 """Local production state machine. No API calls during construction/import."""
 import json
 import os
+import re
 import time
 import uuid
 from contextlib import contextmanager
@@ -29,9 +30,44 @@ AUTO_REVIEW_NOTE=AUTO_REVIEW_MARK+'：技术质检通过，未做内容审核，
 QC_NAME='qc.json'
 EDIT_MANIFEST_NAME='edit_manifest.json'
 EDIT_BUNDLE_NAME='edit_bundle.json'
+# edit_manifest 顶层版本号：2＝逐镜在 shot／version／sha256／source 之外还记时间码、音轨、
+# 字幕与切换依据；读旧清单（顶层数组）的读取方必须继续兼容。
+EDIT_MANIFEST_SCHEMA=2
 PLATFORM_FOLDER='平台版本'
 AUDIO_SUFFIXES=frozenset({'.wav','.mp3','.m4a','.aac','.flac'})
 SUBTITLE_SUFFIXES=frozenset({'.srt','.ass'})
+
+
+def edit_clips(chosen):
+    """成片镜头序列：EDL／FCPXML 与 edit_manifest 时间码共用这一份时长来源，不另算第二套。"""
+    return [{'shot':shot['id'],'file':shot['id']+'.mp4','duration':shot.get('duration') or 0}
+            for shot,_version,_path in chosen]
+
+
+def out_relative(out,path):
+    """成片目录下的相对路径；跨盘保留绝对路径。清单里的 ``source`` 与音轨／字幕同用这一口径。"""
+    path=Path(path).resolve();out=Path(out).resolve()
+    value=os.path.relpath(path,out) if path.drive.casefold()==out.drive.casefold() else str(path)
+    return value.replace('\\','/')
+
+
+def shot_input_assets(inputs,shot_id):
+    """从 S11 配音／字幕登记（``edits.json.inputs``）里挑出文件名带本镜镜头号的条目。
+
+    整词匹配：``001_SH001_对白`` 命中 ``SH001``，``SH0011`` 不命中；音轨与字幕分别返回，
+    没有就返回空列表，由调用方保留键、不省略。
+    """
+    needle=str(shot_id).casefold();rows={'audio':[],'subtitles':[]}
+    for key in ('audio','subtitles'):
+        for item in (inputs or {}).get(key) or []:
+            if not isinstance(item,dict):continue
+            path=str(item.get('path') or '')
+            if not path:continue
+            tokens=[token for token in re.split(r'[^0-9a-z]+',Path(path).stem.casefold()) if token]
+            if needle in tokens:
+                rows[key].append({'path':path,'sha256':str(item.get('sha256') or '')})
+    return rows
+
 
 def review_source(version):
     """这条验收是谁给的：'user' 真人点过，'auto' 无人值守按设置自动放行，'' 还没验收。
@@ -116,6 +152,7 @@ def read_edit_bundle(out):
         manifest=read(out/EDIT_MANIFEST_NAME)
     except (OSError,ValueError):
         manifest=None
+    if isinstance(manifest,dict):manifest=manifest.get('manifest')
     if not isinstance(manifest,list):return None
     return {'master':'MASTER.mp4','master_sha256':'','manifest':manifest,'qc':None,'coverage':{},'legacy':True}
 
@@ -629,18 +666,47 @@ class Studio:
         先把「成片＋质检＋来源清单」合成一份 ``edit_bundle.json`` 一次性原子落盘，再写两份可读索引。
         索引任一份写失败都能靠这份 bundle 恢复，不会再出现「有清单没质检」或反过来的半份成果；
         界面和交付据此核对真实成片来源。
+
+        新版 ``edit_manifest.json`` 顶层为 ``{'schema','manifest'}``：每镜在原四字段外记时间码
+        （与 EDL／FCPXML 同一 ``edit_export.layout`` 与帧率）、音轨、字幕与切换依据。
         """
         out = Path(out).resolve()
         master = Path(master).resolve()
         if not master.is_file() or not master.is_relative_to(out):
             raise ValueError('成片尚未安全发布，不能登记剪辑成果')
-        manifest = [
-            {'shot': shot['id'], 'version': version['version'], 'sha256': version['sha256'],
-             'source': (os.path.relpath(Path(source).resolve(), out)
-                        if Path(source).resolve().drive.casefold() == out.drive.casefold()
-                        else str(Path(source).resolve())).replace('\\', '/')}
-            for shot, version, source in chosen
-        ]
+        from edit_export import EDITS_NAME, TRANSITIONS, layout, nominal_fps, timecode
+        inputs = self.edit_inputs()
+        clips = edit_clips(chosen)
+        spec = report.get('output_spec') if isinstance(report.get('output_spec'), dict) else {}
+        fps = spec.get('fps')
+        spans = layout(clips, fps)
+        frame_rate = nominal_fps(fps)
+        transition = (edits or {}).get('transition') if isinstance((edits or {}).get('transition'), dict) else {}
+        kind = transition.get('kind') if transition.get('kind') in TRANSITIONS else 'none'
+        per = round(float(overlap) / (len(chosen) - 1), 3) if len(chosen) > 1 and overlap else 0.0
+        if kind == 'none' or per <= 0:
+            kind, per = 'cut', 0.0
+            switch_reason = '未设置转场：concat 无损拼接，硬切'
+        else:
+            switch_reason = '转场设置「%s」：相邻镜头 xfade／acrossfade 重叠 %s 秒' % (TRANSITIONS[kind], per)
+        manifest = []
+        for index, (shot, version, source) in enumerate(chosen):
+            assets = shot_input_assets(inputs, shot['id'])
+            span = spans[index]
+            manifest.append({
+                'shot': shot['id'], 'version': version['version'], 'sha256': version['sha256'],
+                'source': out_relative(out, source),
+                'timecode': {'in': timecode(span['start'], fps), 'out': timecode(span['end'], fps),
+                             'in_seconds': round(span['start'] / frame_rate, 3),
+                             'out_seconds': round(span['end'] / frame_rate, 3), 'fps': frame_rate},
+                'audio': [{'path': out_relative(out, Path(self.root) / item['path']),
+                           'sha256': item['sha256']} for item in assets['audio']],
+                'subtitles': [{'path': out_relative(out, Path(self.root) / item['path']),
+                               'sha256': item['sha256']} for item in assets['subtitles']],
+                'transition': {'kind': 'cut' if index == 0 else kind,
+                               'seconds': 0.0 if index == 0 else per,
+                               'reason': '首镜，无前一镜' if index == 0 else switch_reason},
+            })
         references = []
         for _, _, source in chosen:
             assets_path = Path(source).resolve().parent / 'assets_manifest.json'
@@ -673,10 +739,11 @@ class Studio:
         applied = {'transition': (edits or {}).get('transition') or {'kind': 'none'},
                    'transition_overlap_seconds': round(float(overlap), 3),
                    'music': (edits or {}).get('music') or {'file': ''},
-                   'inputs': self.edit_inputs(), 'platform_exports': [],
+                   'inputs': inputs, 'platform_exports': [],
                    'shots': [shot['id'] for shot, _, _ in chosen]}
         save(out/EDITS_NAME, applied)
         save(out/EDIT_BUNDLE_NAME, {
+            'schema': EDIT_MANIFEST_SCHEMA,
             'edits': applied, 'music': music, 'master': master.name, 'master_sha256': file_hash(master),
             'output_spec': report.get('output_spec'), 'qc': report,
             'manifest': manifest, 'coverage': report.get('coverage') or {},
@@ -686,15 +753,14 @@ class Studio:
             'published_at': time.time(),
         })
         save(out/QC_NAME, report)
-        save(out/EDIT_MANIFEST_NAME, manifest)
+        save(out/EDIT_MANIFEST_NAME, {'schema': EDIT_MANIFEST_SCHEMA, 'manifest': manifest})
 
     def publish_edit_lists(self, out, chosen, spec):
         """发布剪辑交换清单并返回实际结果；失败不删除已发布成片。"""
         import logging
         from edit_export import export_texts, TRACKS_NAME
         try:
-            clips = [{'shot': shot['id'], 'file': shot['id'] + '.mp4', 'duration': shot['duration']}
-                     for shot, _version, _path in chosen]
+            clips = edit_clips(chosen)
             sources = {shot['id']: {'version': version.get('version'), 'sha256': version.get('sha256')}
                        for shot, version, _path in chosen}
             for name, content in export_texts(Path(out).name, clips, spec, sources).items():

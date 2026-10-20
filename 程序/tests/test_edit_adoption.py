@@ -132,7 +132,8 @@ class EditBundleTests(unittest.TestCase):
             self.assertEqual(applied['inputs'], studio.edit_inputs(),
                              '上游配音与字幕的路径与摘要要一并记进 edits.json')
             index = json.loads((out / 'edit_manifest.json').read_text(encoding='utf-8'))
-            self.assertEqual([item['shot'] for item in index], ['SH001', 'SH002'])
+            self.assertEqual(index['schema'], engine.EDIT_MANIFEST_SCHEMA)
+            self.assertEqual([item['shot'] for item in index['manifest']], ['SH001', 'SH002'])
 
     def test_bundle_recovers_source_when_index_write_failed(self):
         with tempfile.TemporaryDirectory() as td:
