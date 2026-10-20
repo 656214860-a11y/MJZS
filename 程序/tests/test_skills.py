@@ -1001,6 +1001,108 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(stage_config.get(self.desktop.root, 'script')['skills'],
                          ['screenplay-writer'])
 
+    @staticmethod
+    def _thirteen_stage_preset():
+        """13 个阶段、每阶段 6 条 SKILL：复现「窗口比屏幕还高」的真实数据量。"""
+        return {'package': 'skills/AIGC/SKILL.md',
+                'stage_skills': {stage: ['pipeline-script-preparation', 'screenplay-writer',
+                                         'pipeline-storyboard-draft', 'asset-manager',
+                                         'frame-artist', 'video-director']
+                                 for stage in pet_bus.STAGES}}
+
+    def test_workflow_apply_dialog_fits_screen_and_keeps_actions_visible(self):
+        """REQ-S01-57 套用总控对话框不超屏，确认／取消常驻底部，长表格可滚动。"""
+        preset = self._thirteen_stage_preset()
+        # 真 Tk 要量可见几何：根窗口必须先映射，transient 对话框才会显示。
+        self.win.deiconify()
+        self.win.update()
+        # 任务书口径：可用高度＝屏幕高度减去标题栏 32、任务栏 48 的余量。
+        for screen_h, switching in ((800, False), (800, True), (700, False)):
+            with self.subTest(screen_h=screen_h, switching=switching):
+                panel = skill_panel.Panel(self.win, self.desktop, 'script')
+                self.addCleanup(panel.destroy)
+                with mock.patch.object(skill_panel.tk.Misc, 'winfo_screenheight',
+                                       return_value=screen_h), \
+                     mock.patch.object(skill_panel.tk.Misc, 'winfo_screenwidth',
+                                       return_value=1280):
+                    dialog, checks, buttons = self._workflow_dialog_controls(
+                        panel, preset, switching)
+                    dialog.update()
+                    available = screen_h - 32 - 48
+                    self.assertLessEqual(dialog.winfo_height(), available,
+                                         '对话框高度超过屏幕可用高度')
+                    self.assertGreaterEqual(dialog.winfo_height(), 240)
+                    for text in ('确认套用', '取消'):
+                        button = buttons[text]
+                        self.assertTrue(button.winfo_viewable(), text + ' 不可见')
+                        bottom = (button.winfo_rooty() - dialog.winfo_rooty()
+                                  + button.winfo_height())
+                        self.assertLessEqual(bottom, dialog.winfo_height(),
+                                             text + ' 超出对话框底边')
+                        self.assertLessEqual(button.winfo_rooty() + button.winfo_height(),
+                                             screen_h, text + ' 落到屏幕外')
+                    def descendants(widget):
+                        return [child for item in widget.winfo_children()
+                                for child in [item] + descendants(item)]
+                    bars = [widget for widget in descendants(dialog)
+                            if widget.winfo_class() == 'TScrollbar'
+                            and widget.winfo_viewable()]
+                    self.assertTrue(bars, '长表格没有可用的滚动条')
+                    canvas = next(widget for widget in descendants(dialog)
+                                  if widget.winfo_class() == 'Canvas')
+                    table = canvas.winfo_children()[0]
+                    self.assertLessEqual(table.winfo_reqwidth(), canvas.winfo_width(),
+                                         '对照表宽度被裁切，列看不全')
+                    before = canvas.yview()
+                    table.event_generate('<MouseWheel>', delta=-120)
+                    dialog.update()
+                    self.assertNotEqual(canvas.yview(), before, '鼠标滚轮没有滚动表格')
+                    self.assertGreaterEqual(dialog.winfo_x(), 0)
+                    self.assertGreaterEqual(dialog.winfo_y(), 0)
+                    self.assertLessEqual(dialog.winfo_x() + dialog.winfo_width(), 1280)
+                    self.assertLessEqual(dialog.winfo_y() + dialog.winfo_height(), screen_h)
+
+    def test_workflow_dialog_close_paths_restore_saved_master(self):
+        """REQ-S01-57 取消／标题栏关闭／Esc 未确认时，总控显示还原为已保存值。"""
+        preset = {'package': 'skills/AIGC/SKILL.md',
+                  'stage_skills': {'script': ['pipeline-script-preparation']}}
+        saved = {'name': 'AIGC全流程', 'skill_ref': 'skills/AIGC/SKILL.md', 'lock': {}}
+        self.win.deiconify()
+        self.win.update()
+        for has_saved in (True, False):
+            with self.subTest(has_saved=has_saved):
+                stage_config.clear_workflow(self.desktop.root)
+                if has_saved:
+                    stage_config.put_workflow(self.desktop.root, saved)
+                panel = skill_panel.Panel(self.win, self.desktop, 'script')
+                self.addCleanup(panel.destroy)
+                expected = 'AIGC全流程' if has_saved else skill_panel.NO_MASTER
+                for path in ('cancel', 'wm', 'escape'):
+                    with self.subTest(path=path):
+                        # 用户在下拉框里挑了另一项，但还没有点「确认套用」。
+                        panel.workflow_choice.set(
+                            skill_panel.NO_MASTER if has_saved else 'AIGC全流程')
+                        with mock.patch.object(skill_panel.tk.Misc, 'winfo_screenheight',
+                                               return_value=800), \
+                             mock.patch.object(skill_panel.tk.Misc, 'winfo_screenwidth',
+                                               return_value=1280):
+                            dialog, _checks, buttons = self._workflow_dialog_controls(
+                                panel, preset)
+                            dialog.update()
+                            if path == 'cancel':
+                                buttons['取消'].invoke()
+                            elif path == 'wm':
+                                dialog.tk.call(dialog.protocol('WM_DELETE_WINDOW'))
+                            else:
+                                # 真实键盘事件只发给焦点窗口；先让对话框取得焦点再按 Esc。
+                                dialog.focus_force()
+                                dialog.update()
+                                dialog.event_generate('<Escape>')
+                            dialog.update()
+                        self.assertFalse(dialog.winfo_exists())
+                        self.assertEqual(panel.workflow_choice.get(), expected,
+                                         '未确认关闭后总控下拉显示没有还原')
+
     def test_imported_package_hint_only_appears_for_api_models(self):
         """外部包总入口在 API 模型下必须明确提示，桌面与普通 SKILL 均不提示。"""
         imported = skill_registry.Skill({'name': 'external-package',

@@ -33,3 +33,99 @@ class ProductionLockViewTests(unittest.TestCase):
         view.set_values({'video_model_version': 'Seedance 2.0'})
         self.assertTrue(view.inputs['reference_mode'].instate(['disabled']))
         self.assertEqual(view.hints['reference_mode'].cget('text'), '仅 Seedance 2.5')
+
+
+class WorkflowLockEnablementTests(unittest.TestCase):
+    """REQ-S01-57 总控未确认时制作锁灰态提示，确认后才可选并写回项目。"""
+
+    def setUp(self):
+        import tempfile
+        import tkinter as tk
+        from pathlib import Path
+        try:
+            self.win = tk.Tk()
+        except tk.TclError as exc:
+            self.skipTest(PLATFORM_TK_DISPLAY)
+        self.win.withdraw()
+        self.addCleanup(self.win.destroy)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+        class Fake(object):
+            pass
+
+        self.desktop = Fake()
+        self.desktop.win = self.win
+        self.desktop.root = Path(self.tmp.name) / 'p'
+        self.desktop.root.mkdir(parents=True, exist_ok=True)
+        self.desktop.app = Path(self.tmp.name) / '程序'
+        self.desktop.app.mkdir(parents=True, exist_ok=True)
+        self.desktop.status = tk.StringVar(master=self.win, value='')
+
+    def _panel(self):
+        import skill_panel
+        panel = skill_panel.Panel(self.win, self.desktop, 'script')
+        self.addCleanup(panel.destroy)
+        return panel
+
+    def test_lock_notice_tells_user_to_confirm_master(self):
+        """REQ-S01-57 总控未生效时，制作锁灰态旁提示先选总控并点「确认套用」。"""
+        import stage_config
+        panel = self._panel()
+        self.assertTrue(panel.lock_inputs['aspect_ratio'].instate(['disabled']))
+        self.assertIn('确认套用', panel.lock_notice.cget('text'))
+        # 下拉框显示已挑的总控，但没确认：锁仍灰，提示不能被这句显示掩盖。
+        panel.workflow_choice.set('AIGC全流程')
+        self.assertTrue(panel.lock_inputs['aspect_ratio'].instate(['disabled']))
+        self.assertIn('确认套用', panel.lock_notice.cget('text'))
+        # 生效后锁解锁，提示让位给原有的旧项目兼容提示（不互相覆盖）。
+        stage_config.put_workflow(self.desktop.root,
+                                  {'name': 'AIGC全流程',
+                                   'skill_ref': 'skills/AIGC/SKILL.md', 'lock': {}})
+        panel.refresh_workflow()
+        self.assertFalse(panel.lock_inputs['aspect_ratio'].instate(['disabled']))
+        notice = panel.lock_notice.cget('text')
+        self.assertNotIn('确认套用', notice)
+        self.assertTrue(notice == '' or '旧项目兼容' in notice, notice)
+
+    def test_confirm_master_enables_locks_and_saves_change(self):
+        """REQ-S01-57 选总控→确认套用→锁可选→改画幅写回 stage_config.workflow_lock。"""
+        import stage_config
+
+        def descendants(widget):
+            return [child for item in widget.winfo_children()
+                    for child in [item] + descendants(item)]
+
+        panel = self._panel()
+        self.assertTrue(panel.lock_inputs['aspect_ratio'].instate(['disabled']))
+        panel.workflow_choice.set('AIGC全流程')
+        # 真 Tk 量可见几何：根窗口映射后 transient 对话框才会显示。
+        self.win.deiconify()
+        self.win.update()
+        from unittest import mock
+        import tkinter as tk
+        with mock.patch.object(tk.Misc, 'winfo_screenheight', return_value=800), \
+             mock.patch.object(tk.Misc, 'winfo_screenwidth', return_value=1280):
+            panel.choose_workflow()
+            self.win.update()
+            dialogs = [widget for widget in self.win.winfo_children()
+                       if widget.winfo_class() == 'Toplevel']
+            self.assertEqual(len(dialogs), 1, '选择总控后应弹出套用建议窗口')
+            dialog = dialogs[0]
+            buttons = {widget.cget('text'): widget for widget in descendants(dialog)
+                       if widget.winfo_class() in ('TButton', 'Button')}
+            confirm = buttons['确认套用']
+            self.assertTrue(confirm.winfo_viewable(), '确认套用按钮不可见，用户点不到')
+            bottom = confirm.winfo_rooty() - dialog.winfo_rooty() + confirm.winfo_height()
+            self.assertLessEqual(bottom, dialog.winfo_height(),
+                                 '确认套用按钮在窗口外，用户点不到')
+            self.assertLessEqual(confirm.winfo_rooty() + confirm.winfo_height(), 800,
+                                 '确认套用按钮落到屏幕外，用户点不到')
+            confirm.invoke()
+            self.win.update()
+        self.assertFalse(panel.lock_inputs['aspect_ratio'].instate(['disabled']),
+                         '确认总控后制作锁仍不可选')
+        panel.lock_inputs['aspect_ratio'].set('9:16')
+        panel.save_workflow_locks()
+        self.assertEqual(stage_config.workflow_lock(self.desktop.root).get('aspect_ratio'),
+                         '9:16')

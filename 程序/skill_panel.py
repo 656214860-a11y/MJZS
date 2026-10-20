@@ -90,7 +90,8 @@ from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
 from ui_tokens import (COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,
                        NOTE_HEIGHT_REGULAR, NOTE_LIST_MAX_WIDTH, NOTE_LIST_MIN_WIDTH,
-                       NOTE_PADDING_X, NOTE_PADDING_Y, STAGE_PANEL_LAYOUT)
+                       NOTE_PADDING_X, NOTE_PADDING_Y, STAGE_PANEL_LAYOUT,
+                       DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH)
 from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
                         TextArea,
                         SecondaryButton, Tooltip, ask_confirmation, notify, _display_width)
@@ -98,6 +99,32 @@ from ui_dialogs import FileDialog
 
 TITLE = '阶段配置'
 confirm = ask_confirmation
+
+# 「套用总控建议」对话框的屏幕留白：上留标题栏／拖动余量，下留任务栏余量，左右各留一档。
+# 表体超高时只在对话框内部滚动，窗口本身永远不超过这块可用区。
+DIALOG_SCREEN_MARGIN_X = SPACING['xl']
+DIALOG_SCREEN_MARGIN_TOP = SPACING['2xl']
+DIALOG_SCREEN_MARGIN_BOTTOM = SPACING['2xl'] + SPACING['lg']
+# 总控还没生效时制作锁为什么是灰的：锁解锁只发生在「确认套用」之后。
+NO_MASTER_LOCK_HINT = '先选择总控并点「确认套用」后才能设置制作锁。'
+
+
+def dialog_working_area(widget):
+    """返回对话框可用的屏幕工作区 ``(left, top, right, bottom)``。
+
+    只按屏幕尺寸扣掉标题栏与任务栏余量，不去探测窗口管理器；测试用
+    ``winfo_screenheight`` 的包装固定尺寸，不依赖本机真实分辨率。
+    """
+    try:
+        width = int(widget.winfo_screenwidth())
+        height = int(widget.winfo_screenheight())
+    except tk.TclError:
+        width, height = 1280, 800
+    return (DIALOG_SCREEN_MARGIN_X,
+            DIALOG_SCREEN_MARGIN_TOP,
+            max(DIALOG_SCREEN_MARGIN_X + DIALOG_MIN_WIDTH, width - DIALOG_SCREEN_MARGIN_X),
+            max(DIALOG_SCREEN_MARGIN_TOP + DIALOG_MIN_HEIGHT, height - DIALOG_SCREEN_MARGIN_BOTTOM))
+
 # 老页面上的流程名 → 新的制作阶段 id：面板两边都认，省得每个调用点各写一遍。
 # 反过来查：阶段 id → 工作流名字。只收 workflow_settings 真正认得的七个流程——
 # final／edit／delivery 那三个阶段本来就没有「调用设置」这一档，别凭空造出一个按钮来。
@@ -475,8 +502,15 @@ class Panel(FormScrollMixin, PresetMixin, ttk.Frame):
         legacy_missing = [label for key, label in (('track', '赛道'), ('material_source', '素材来源'))
                           if key not in required and not locks.get(key)]
         if getattr(self, 'lock_notice', None) is not None:
-            self.lock_notice.configure(text=lock_error or (
-                '旧项目兼容：' + '、'.join(legacy_missing) + '未选，仅提示不阻断。' if legacy_missing else ''))
+            if not name:
+                notice = NO_MASTER_LOCK_HINT
+            elif legacy_missing:
+                notice = '旧项目兼容：' + '、'.join(legacy_missing) + '未选，仅提示不阻断。'
+            else:
+                notice = ''
+            if lock_error:
+                notice = notice + '\n' + lock_error if notice else lock_error
+            self.lock_notice.configure(text=notice)
             self.lock_fields.schedule()
         if synced:
             self.state.configure(text=synced)
@@ -518,8 +552,13 @@ class Panel(FormScrollMixin, PresetMixin, ttk.Frame):
         old = stage_config.current_workflow(self.project())
         rows = stage_config.workflow_differences(self.project(), preset)
         old_preset = workflow_settings.WORKFLOW_PRESETS.get(str(old.get('name') or ''), {})
+        # 取消、标题栏 ✕、Esc 都只关窗，不写总控；关闭后下拉框必须还原为已保存值。
         dialog = BaseDialog(self.winfo_toplevel(), '切换总控' if switching else '套用总控建议',
-                            modal=False, chrome=False); dialog.resizable(True, True)
+                            modal=False, chrome=False, on_close=self.refresh_workflow)
+        dialog.resizable(True, True)
+        # 动作区先占底部：Tk 按 pack 顺序分空间，最后才 pack 会被长表格挤出窗口。
+        actions = ttk.Frame(dialog, padding=(SPACING['md'], 0, SPACING['md'], SPACING['md']))
+        actions.pack(side='bottom', fill='x')
         body = ttk.Frame(dialog, padding=SPACING['md']); body.pack(fill='both', expand=True)
         DescriptionBlock(body, text=(
             '「' + choice + '」为每个制作阶段推荐了一组 SKILL（制作规范）。下表逐阶段对照'
@@ -537,7 +576,46 @@ class Panel(FormScrollMixin, PresetMixin, ttk.Frame):
                     names[sid] = registered_skill_checkbox_label(item) if item else sid
                 labels.append(names[sid])
             return '\n'.join(labels) or empty
-        table = ttk.Frame(body); table.pack(fill='x', pady=(SPACING['md'], 0))
+        # 阶段对照表放进画布：表体超高时只在框内滚动，窗口高度不跟着长。
+        table_view = ttk.Frame(body)
+        table_view.pack(fill='both', expand=True, pady=(SPACING['md'], 0))
+        canvas = tk.Canvas(table_view, highlightthickness=0, bd=0,
+                           bg=COLORS['background_card'])
+        scrollbar = ttk.Scrollbar(table_view, orient='vertical', command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side='left', fill='both', expand=True)
+        table = ttk.Frame(canvas)
+        table_window = canvas.create_window((0, 0), window=table, anchor='nw')
+        def sync_table(_event=None):
+            if not canvas.winfo_exists():
+                return
+            viewport_w = max(1, canvas.winfo_width())
+            viewport_h = max(1, canvas.winfo_height())
+            content_w = max(1, table.winfo_reqwidth())
+            content_h = max(1, table.winfo_reqheight())
+            width = max(viewport_w, content_w)
+            canvas.itemconfigure(table_window, width=width)
+            canvas.configure(scrollregion=(0, 0, width, max(content_h, viewport_h)))
+            need_scroll = content_h > viewport_h + 1
+            has_scroll = bool(scrollbar.winfo_manager())
+            if need_scroll == has_scroll:
+                return
+            if need_scroll:
+                scrollbar.pack(side='right', fill='y', before=canvas)
+            else:
+                scrollbar.pack_forget()
+        table.bind('<Configure>', sync_table, add='+')
+        canvas.bind('<Configure>', sync_table, add='+')
+        def wheel(event):
+            first, last = canvas.yview()
+            if last - first >= 0.999:
+                return None
+            canvas.yview_scroll(-1 if getattr(event, 'delta', 0) > 0 else 1, 'units')
+            return 'break'
+        def bind_wheel(widget):
+            widget.bind('<MouseWheel>', wheel, add='+')
+            for child in widget.winfo_children():
+                bind_wheel(child)
         headers = ['阶段', '现在用的 SKILL', '总控建议的 SKILL', '是否替换']
         if switching:
             headers.insert(1, '上一个总控的建议')
@@ -560,7 +638,6 @@ class Panel(FormScrollMixin, PresetMixin, ttk.Frame):
             same = current == suggested
             ttk.Checkbutton(table, text='已一致，无需重复套用' if same else '用建议替换',
                             variable=value).grid(row=row, column=len(cells), sticky='nw', pady=SPACING['xs'])
-        actions = ttk.Frame(body); actions.pack(fill='x', pady=(SPACING['md'], 0))
         def apply_selected():
             workflow = dict(old)
             workflow.update({'name': choice, 'skill_ref': preset['package'],
@@ -578,9 +655,30 @@ class Panel(FormScrollMixin, PresetMixin, ttk.Frame):
             self.refresh_external_package_hint()
             self.state.configure(text='总控已更新；未选择的阶段勾选已保留。' + self.sync_master_skill(quiet=True))
         PrimaryButton(actions, text='确认套用', command=apply_selected).pack(side='left')
-        SecondaryButton(actions, text='取消', command=lambda: (dialog.destroy(), self.refresh_workflow())).pack(side='left', padx=(SPACING['sm'], 0))
+        SecondaryButton(actions, text='取消', command=dialog.close).pack(
+            side='left', padx=(SPACING['sm'], 0))
+        # 先按表体自然高度量出窗口，再压到屏幕可用区内；表体差多少由滚动条补。
         dialog.update_idletasks()
-        dialog.geometry('+%d+%d' % (self.winfo_rootx() + 30, self.winfo_rooty() + 30))
+        left, top, right, bottom = dialog_working_area(self.winfo_toplevel())
+        available_w = max(DIALOG_MIN_WIDTH, right - left)
+        available_h = max(DIALOG_MIN_HEIGHT, bottom - top)
+        chrome_h = max(0, dialog.winfo_reqheight() - canvas.winfo_reqheight())
+        height = max(DIALOG_MIN_HEIGHT,
+                     min(chrome_h + table.winfo_reqheight(), available_h))
+        canvas.configure(height=max(1, height - chrome_h))
+        dialog.update_idletasks()
+        # 画布不会把内嵌表格的请求宽度传给窗口，宽度要按表体本身量，给滚动条留一档。
+        chrome_w = max(0, dialog.winfo_reqwidth() - canvas.winfo_reqwidth())
+        width = max(dialog.winfo_reqwidth(),
+                    chrome_w + table.winfo_reqwidth() + scrollbar.winfo_reqwidth() + SPACING['xs'])
+        width = max(DIALOG_MIN_WIDTH, min(width, available_w))
+        x = max(left, min(self.winfo_rootx() + SPACING['2xl'], right - width))
+        y = max(top, min(self.winfo_rooty() + SPACING['2xl'], bottom - height))
+        dialog.geometry('%dx%d+%d+%d' % (width, height, x, y))
+        bind_wheel(table)
+        canvas.bind('<MouseWheel>', wheel, add='+')
+        dialog.update_idletasks()
+        sync_table()
         return dialog
 
     def choose_workflow(self):
@@ -589,7 +687,9 @@ class Panel(FormScrollMixin, PresetMixin, ttk.Frame):
         if choice == NO_MASTER:
             stage_config.clear_workflow(self.project()); self.refresh_workflow(); return
         if choice == '浏览本地…':
-            self.workflow_choice.set(NO_MASTER); self.state.configure(text='总控只认 skills/00全流程SKILL/总控.json 里登记的预设；要加新的总控请编辑该清单。'); return
+            # 没有确认就没有写入；下拉框立即回到已保存的总控。
+            self.refresh_workflow()
+            self.state.configure(text='总控只认 skills/00全流程SKILL/总控.json 里登记的预设；要加新的总控请编辑该清单。'); return
         preset = workflow_settings.WORKFLOW_PRESETS.get(choice)
         if not preset: return
         previous = str(stage_config.current_workflow(self.project()).get('name') or '')
