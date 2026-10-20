@@ -169,7 +169,6 @@ class WritingPageMixin:
         self.idea_uploaded_table.tree.bind('<Button-1>',lambda event:self.toggle_uploaded_idea_attachment(self.uploaded_idea_attachment_at(event)))
         self.idea_uploaded_table.tree.bind('<Double-Button-1>',lambda event:self.safe(lambda:self.open_uploaded_idea_attachment(event)))
         Tooltip(self.idea_uploaded_table.tree,'单击勾选，可多选；双击打开附件')
-        self.update_idea_attachment_status()
         input_hint=ttk.Label(composer,text='可在阶段配置中修改模型和SKILL',style='Muted.TLabel')
         self.idea_input_hint=input_hint
         def stop_input_hint():
@@ -307,7 +306,9 @@ class WritingPageMixin:
         box.bind('<Configure>',self.refit_bubbles,add='+')
         self.restore_idea_draft()
         update_input_hint()
-        self.show_conversation()
+        # 首绘只放示例气泡；真实历史与附件回填等布局稳定后再补，避免拖住 page.paint。
+        self.show_example_bubble()
+        self.defer_idea_page_updates()
         # 下载按钮初始即为禁用；判断历史回复是否可下载会递归扫描旧项目的
         # Markdown，不能占用“打开项目”的首帧。页面仍在当前代次时再补状态。
         page_generation=getattr(self,'_script_page_generation',0)+1

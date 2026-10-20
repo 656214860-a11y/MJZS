@@ -136,14 +136,20 @@ def _sync_plan(project,episode_dir,storyboard=None,*,scope='current',_adopting=F
             if shot.get('id') and shot['id'] not in used:used.append(shot['id'])
             history=planned[aid].setdefault('used_in',[])
             if shot.get('id') and shot['id'] not in history:history.append(shot['id'])
-    from asset_reference_prompts import sync_reference_prompts,AUTO_FIELDS
+    from asset_reference_prompts import sync_reference_prompts,AUTO_FIELDS,discover as discover_reference_documents
+    reference_documents={}
     for _,ep in episodes:
         # 上面这几步往清单里补过编号，这一份重新算一次；口径与 normalize_shot 内部一致。
         removed=removed_ids(planned)
         ids={value if re.fullmatch(prefix+r'_\d{3,}',value) else mappings.get(prefix+':'+value)
              for shot in ep.get('shots',[]) for prefix,value in references(normalize_shot(shot,planned,removed))}
         active={aid:planned[aid] for aid in ids if aid in planned}
-        sync_reference_prompts(project,active,ep.get('source_script'))
+        script=ep.get('source_script')
+        # 已采用分镜多对同一份剧本时，逐集重复递归扫描 writing 只有重复成本。
+        documents=reference_documents.get(script)
+        if documents is None:
+            documents=reference_documents[script]=discover_reference_documents(project,script)
+        sync_reference_prompts(project,active,script,documents=documents)
     # 第 64 期任务 13：契约字段（正典板、锚点字符串、状态变体、锁定…）落到资产清单里。
     # 以前只在内存里被 normalize 补出来、从没落过盘，用户看到的就是「正典板和换状态面板两次
     # 新增都失败」。只补缺的键，已有的值一个都不动。

@@ -19,6 +19,7 @@ from tkinter import ttk
 
 import pet_state
 import ui_plugin_registry
+from desktop_idea_deferred import IdeaDeferredMixin
 from idea_chat_controller import bubble_timestamp, collapse_preview
 from platform_tools import open_target
 from ui_tokens import COLORS, FONTS, SPACING
@@ -27,7 +28,6 @@ from ui_widgets import FormDialog, TextArea
 ROOT = Path(__file__).resolve().parent
 LOGGER = logging.getLogger(__name__)
 PAGE = pet_state.PAGE_OF
-
 
 def script_raw_saved_notice(formal_path=''):
     """剧本原稿发布后的三虎提示。"""
@@ -106,7 +106,7 @@ def _deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text
     host.async_(attempt,pasted)
 
 
-class IdeaChatMixin:
+class IdeaChatMixin(IdeaDeferredMixin):
     """Desktop 的创意对话与 Agent 派发方法集（见模块说明）。"""
     # 这些兼容属性保留既有桌面控件与测试的访问方式；状态归属在无 Tk 控制器。
     @property

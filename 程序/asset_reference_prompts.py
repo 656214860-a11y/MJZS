@@ -48,8 +48,10 @@ def discover(project,source_script=None):
     local=[item for item in candidates if preferred and item[0].parent==preferred]
     return sorted(local or candidates,key=lambda item:item[2],reverse=True)
 
-def sync_reference_prompts(project,planned,source_script=None):
-    project=Path(project).resolve();documents=discover(project,source_script);index={}
+def sync_reference_prompts(project,planned,source_script=None,documents=None):
+    project=Path(project).resolve()
+    if documents is None:documents=discover(project,source_script)
+    index={}
     for path,found,modified in documents:
         local={}
         for card in found:local.setdefault(key(card['name']),[]).append(card)

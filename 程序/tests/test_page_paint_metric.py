@@ -114,5 +114,50 @@ class PagePaintMetricTests(unittest.TestCase):
         self.assertTrue(hasattr(Desktop.show, '__wrapped__'))
 
 
+    def test_page_paint_waits_for_layout_without_clearing_other_idle_jobs(self):
+        """REQ-S01-22 回归（SLOWPAGE）：等布局时只登记定时器让位，不在 after_idle 里跑别人的空闲回调。
+
+        首次显示的项目副本上指标曾记两次（394ms 与 1055ms）：等待布局的 after_idle 回调
+        被重排后，在同一趟空闲处理里把页面自己排好的建页工作一并跑掉了。
+        """
+        window = desktop = None
+        with tempfile.TemporaryDirectory(prefix='page-paint-wait-') as td:
+            window, desktop = self._make_desktop(td)
+            desktop._fit_pending = True
+            other_idle = []
+            job = None
+            original_record = app_logging.record_elapsed
+            app_logging.record_elapsed = lambda name, elapsed, *a, **k: other_idle.append(('recorded', name))
+            try:
+                app_logging.begin_page_paint(desktop, 'page.paint.script')
+                job = desktop._page_paint_job
+                window.after_idle(lambda: other_idle.append(('other', 'page build')))
+                for _ in range(20):
+                    window.update_idletasks()
+                self.assertIn(('other', 'page build'), other_idle,
+                              '测量等待期间不应阻止同一解释器里其他已排队的空闲工作')
+                self.assertNotIn('page.paint.script', [name for kind, name in other_idle if kind == 'recorded'])
+                self.assertTrue(job is not None)
+            finally:
+                app_logging.record_elapsed = original_record
+        self._cleanup(window, desktop)
+
+    def test_page_paint_records_once_per_show(self):
+        """REQ-S01-22：一次 show() 只记一条 page.paint.*，重复测量不能把同一页记两次。"""
+        from desktop import PAGE
+        app_logging._metrics.clear()
+        window = desktop = None
+        with tempfile.TemporaryDirectory(prefix='page-paint-once-') as td:
+            window, desktop = self._make_desktop(td)
+            desktop.show(PAGE['script'])
+            desktop._fit_pending = True
+            window.update()
+            window.update_idletasks()
+            window.update()
+        snap = app_logging.metrics_snapshot()
+        self.assertEqual(snap.get('page.paint.script', {}).get('count'), 1)
+        self._cleanup(window, desktop)
+
+
 if __name__ == '__main__':
     unittest.main()

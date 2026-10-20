@@ -158,7 +158,7 @@
   {
    "module": "asset_plan.py",
    "covered": 0,
-   "total": 235,
+   "total": 240,
    "percent": 0.0
   },
   {
@@ -182,7 +182,7 @@
   {
    "module": "asset_reference_prompts.py",
    "covered": 0,
-   "total": 79,
+   "total": 81,
    "percent": 0.0
   },
   {
@@ -356,7 +356,13 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 1305,
+   "total": 1306,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_idea_deferred.py",
+   "covered": 0,
+   "total": 42,
    "percent": 0.0
   },
   {
@@ -1560,6 +1566,12 @@
    "percent": 23.4
   },
   {
+   "module": "app_logging.py",
+   "covered": 59,
+   "total": 248,
+   "percent": 23.8
+  },
+  {
    "module": "stage_flow.py",
    "covered": 65,
    "total": 272,
@@ -1576,12 +1588,6 @@
    "covered": 59,
    "total": 237,
    "percent": 24.9
-  },
-  {
-   "module": "app_logging.py",
-   "covered": 55,
-   "total": 216,
-   "percent": 25.5
   },
   {
    "module": "stage_layout.py",
@@ -1753,5 +1759,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 290
+ "modules_total": 291
 }

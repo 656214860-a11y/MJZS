@@ -112,6 +112,10 @@ def record_elapsed(name: str, elapsed_ms: float, warn_ms: float = 1000.0) -> Non
 # 1.4s，都明显超出体感可接受的 1s；05 资产管理约 0.5s 不应告警。取 1000ms 作为
 # 「切页可感知卡顿」的分界线，既能抓住慢页，又不把正常翻页刷成告警。
 PAGE_PAINT_WARN_MS = 1000.0
+# 等布局的轮询间隔与上限：递归 after_idle 会在同一趟空闲处理里把页面自己排好的建页工作
+# 一并跑完，指标因此记到「测量器造成的延迟」上。改用短定时器让出空闲队列，最多等约 4s。
+PAGE_PAINT_WAIT_MS = 16
+PAGE_PAINT_MAX_WAITS = 250
 
 
 def begin_page_paint(desktop, name):
@@ -123,6 +127,7 @@ def begin_page_paint(desktop, name):
     try:
         desktop._page_paint_gen = getattr(desktop, '_page_paint_gen', 0) + 1
         gen = desktop._page_paint_gen
+        desktop._page_paint_waits = 0
         old = getattr(desktop, '_page_paint_job', None)
         if old is not None:
             try:
@@ -132,6 +137,40 @@ def begin_page_paint(desktop, name):
         _schedule_page_paint(desktop, gen, time.perf_counter(), name)
     except Exception:
         swallowed()
+
+
+def end_page_paint(desktop):
+    """作废未完成的按页测量并解绑根窗口的 ``<Destroy>`` 处理；窗口销毁时调用。"""
+    try:
+        desktop._page_paint_gen = getattr(desktop, '_page_paint_gen', 0) + 1
+        old = getattr(desktop, '_page_paint_job', None)
+        desktop._page_paint_job = None
+        if old is not None:
+            try:
+                desktop.win.after_cancel(old)
+            except Exception:
+                swallowed()
+        binding = getattr(desktop, '_page_paint_destroy_binding', None)
+        desktop._page_paint_destroy_binding = None
+        if binding:
+            try:
+                desktop.win.unbind('<Destroy>', binding)
+            except Exception:
+                swallowed()
+    except Exception:
+        swallowed()
+
+
+def _arm_paint_timer(desktop, call):
+    """在 Tk 根上登记定时器；根销毁时一并作废，避免留下 ``invalid command name``。"""
+    win = desktop.win
+    if not getattr(desktop, '_page_paint_destroy_binding', None):
+        try:
+            desktop._page_paint_destroy_binding = win.bind(
+                '<Destroy>', lambda event: end_page_paint(desktop) if event.widget is win else None, add='+')
+        except Exception:
+            desktop._page_paint_destroy_binding = None
+    return win.after(PAGE_PAINT_WAIT_MS, call)
 
 
 def _schedule_page_paint(desktop, gen, started, name):
@@ -147,14 +186,19 @@ def _schedule_page_paint(desktop, gen, started, name):
         # Tk 的重绘／布局是 idle 回调；fit_content 通过 after_idle 逐轮收敛布局。
         # 仍有待跑布局就让到它后面，否则会量到「控件建完、布局未做」的中间时刻。
         if getattr(desktop, '_fit_pending', False):
-            try:
-                desktop._page_paint_job = desktop.win.after_idle(finish)
-            except Exception:
-                desktop._page_paint_job = None
-            return
+            waits = getattr(desktop, '_page_paint_waits', 0)
+            if waits < PAGE_PAINT_MAX_WAITS:
+                desktop._page_paint_waits = waits + 1
+                try:
+                    desktop._page_paint_job = _arm_paint_timer(desktop, finish)
+                except Exception:
+                    desktop._page_paint_job = None
+                return
+            # 布局迟迟不收敛也按当前时间记一条：一次 show 至多一条记录，且不永远挂住。
+            logging.getLogger("perf").warning("页面布局等待超时 %s", name)
         record_elapsed(name, (time.perf_counter() - started) * 1000.0, PAGE_PAINT_WARN_MS)
     try:
-        desktop._page_paint_job = desktop.win.after_idle(finish)
+        desktop._page_paint_job = _arm_paint_timer(desktop, finish)
     except Exception:
         desktop._page_paint_job = None
 
