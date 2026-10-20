@@ -128,7 +128,7 @@
   {
    "module": "asset_contract.py",
    "covered": 0,
-   "total": 222,
+   "total": 225,
    "percent": 0.0
   },
   {
@@ -314,7 +314,7 @@
   {
    "module": "continuity_ledger.py",
    "covered": 0,
-   "total": 494,
+   "total": 497,
    "percent": 0.0
   },
   {
@@ -326,7 +326,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 1106,
+   "total": 1109,
    "percent": 0.0
   },
   {
@@ -380,7 +380,7 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 297,
+   "total": 305,
    "percent": 0.0
   },
   {
@@ -392,7 +392,7 @@
   {
    "module": "desktop_media_pages.py",
    "covered": 0,
-   "total": 832,
+   "total": 830,
    "percent": 0.0
   },
   {
@@ -422,7 +422,7 @@
   {
    "module": "desktop_script_pages.py",
    "covered": 0,
-   "total": 515,
+   "total": 535,
    "percent": 0.0
   },
   {
@@ -450,6 +450,12 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_tray.py",
+   "covered": 0,
+   "total": 177,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_writing_page.py",
    "covered": 0,
    "total": 565,
@@ -464,7 +470,7 @@
   {
    "module": "download_inbox.py",
    "covered": 0,
-   "total": 78,
+   "total": 80,
    "percent": 0.0
   },
   {
@@ -548,7 +554,7 @@
   {
    "module": "idea_brief_form.py",
    "covered": 0,
-   "total": 122,
+   "total": 137,
    "percent": 0.0
   },
   {
@@ -722,7 +728,7 @@
   {
    "module": "pet_cloud_hint.py",
    "covered": 0,
-   "total": 84,
+   "total": 97,
    "percent": 0.0
   },
   {
@@ -974,7 +980,7 @@
   {
    "module": "script_view_style.py",
    "covered": 0,
-   "total": 157,
+   "total": 171,
    "percent": 0.0
   },
   {
@@ -1028,7 +1034,7 @@
   {
    "module": "skill_note_render.py",
    "covered": 0,
-   "total": 166,
+   "total": 165,
    "percent": 0.0
   },
   {
@@ -1046,7 +1052,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 988,
+   "total": 1060,
    "percent": 0.0
   },
   {
@@ -1076,7 +1082,7 @@
   {
    "module": "stage_completion_service.py",
    "covered": 0,
-   "total": 545,
+   "total": 576,
    "percent": 0.0
   },
   {
@@ -1154,7 +1160,7 @@
   {
    "module": "storyboard_final.py",
    "covered": 0,
-   "total": 156,
+   "total": 192,
    "percent": 0.0
   },
   {
@@ -1298,13 +1304,13 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 92,
+   "total": 97,
    "percent": 0.0
   },
   {
    "module": "ui_widgets.py",
    "covered": 0,
-   "total": 921,
+   "total": 925,
    "percent": 0.0
   },
   {
@@ -1459,9 +1465,9 @@
   },
   {
    "module": "engine.py",
-   "covered": 79,
-   "total": 694,
-   "percent": 11.4
+   "covered": 85,
+   "total": 740,
+   "percent": 11.5
   },
   {
    "module": "stage_config.py",
@@ -1490,7 +1496,7 @@
   {
    "module": "stage_parallel.py",
    "covered": 103,
-   "total": 663,
+   "total": 665,
    "percent": 15.5
   },
   {
@@ -1735,9 +1741,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 131,
+   "covered": 133,
    "total": 146,
-   "percent": 89.7
+   "percent": 91.1
   },
   {
    "module": "video_lifecycle_service.py",
@@ -1759,5 +1765,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 291
+ "modules_total": 292
 }

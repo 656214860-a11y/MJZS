@@ -118,6 +118,7 @@ from desktop_automation_tick import AutomationTickMixin
 from desktop_layout import LayoutMixin
 from desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
 from desktop_async_tasks import AsyncTasksMixin
+from desktop_tray import TrayMixin
 
 bind_host(sys.modules[__name__])  # 剧本准备页的 confirm／ContextMenu 等转发到本模块，保持按 desktop.<名字> 打补丁有效
 
@@ -135,7 +136,7 @@ def status_kind(message):
     if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
     return 'ready'
 
-class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin):
+class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,*,script_page_services=None):
         self._diagnostic_start=time.perf_counter()
         self.script_page_services = script_page_services if script_page_services is not None else ScriptPageServices(
@@ -297,6 +298,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         # 项目续开可能仍在构造剧本准备页；把首次招呼留到首帧稳定之后，
         # 不让气泡的浮窗映射与页面回填争用同一轮 Tk 事件循环。
         pet_ui.start(self,delay_ms=5000)
+        self.setup_tray()
 
 
     def _build_sidebar(self,win):
@@ -779,6 +781,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         return killed
     def finish_close(self):
         """真的收摊：停表、停监视页、销毁窗口、清一次缓存（第 18 期从 close 里拆出来）。"""
+        self.close_tray()
         self.cancel_timers()
         # 未标记 busy 的已派发任务也随程序退出，避免后台模型留存并拖慢下一次启动。
         self.stop_automation_processes()
