@@ -105,6 +105,8 @@ def _page_paint_key(index):
 
 def _page_paint_timed(func):
     """在 ``page.show`` 之外补记「从 show() 到该页第一次画完」的按页耗时。"""
+    import functools
+    @functools.wraps(func)
     def wrapper(self, index, *args, **kwargs):
         app_logging.begin_page_paint(self, _page_paint_key(index))
         return func(self, index, *args, **kwargs)
