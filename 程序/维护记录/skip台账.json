@@ -2223,6 +2223,24 @@
       "reason_constant": "PLATFORM_TK_DISPLAY",
       "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_desktop_tray.py",
+      "test": "TrayMinimizeCycleTests.test_minimize_and_click_tray_cycles_without_crash",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_skill_panel_production_locks.py",
+      "test": "WorkflowLockEnablementTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
     }
   ]
 }
