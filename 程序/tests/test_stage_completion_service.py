@@ -116,6 +116,70 @@ class MediaCompletionTests(unittest.TestCase):
                 self.assertEqual(read(manifest)['scope'], media_scope(self.root))
                 self.assertEqual(completion_evidence(self.root, stage), (True, ''))
 
+    def test_req_s12_24_edit_completion_bundle_must_match_selected_master(self):
+        """REQ-S12-24：剪辑成果须与同目录来源清单的成片摘要和质检结论一致，单镜文件不能冒充成片。"""
+        from agent.core import file_hash
+        folder = self.root / '13质检交付' / '导出成片' / 'EP01_20261021'
+        folder.mkdir(parents=True)
+        master = folder / 'MASTER.mp4'; master.write_bytes(b'registered-master')
+        shots = [folder / 'S01.mp4', folder / 'S02.mp4']
+        for index, shot in enumerate(shots, 1):
+            shot.write_bytes(('single-shot-%d' % index).encode())
+        bundle_path = folder / 'edit_bundle.json'
+        bundle = {'master': master.name, 'master_sha256': file_hash(master), 'qc': {'errors': []}}
+        save(bundle_path, bundle)
+
+        prepared = self.prepare('edit', master)
+        self.assertEqual(prepared.get('warnings', []), [])
+        confirm_media_completion(self.root, 'edit', prepared)
+        self.assertTrue(completion_evidence(self.root, 'edit')[0])
+        for shot in shots:
+            with self.subTest(shot=shot.name), self.assertRaisesRegex(ValueError, '不是该次剪辑登记的成片'):
+                self.prepare('edit', shot)
+        renamed = folder / 'final_cut.mp4'; renamed.write_bytes(master.read_bytes())
+        self.prepare('edit', renamed)
+
+        bundle['master_sha256'] = 'deadbeef'
+        save(bundle_path, bundle)
+        with self.assertRaisesRegex(ValueError, '不是该次剪辑登记的成片'):
+            self.prepare('edit', master)
+        bundle['master_sha256'] = file_hash(master)
+        bundle['qc'] = {'errors': ['画面尺寸与规格不符']}
+        save(bundle_path, bundle)
+        with self.assertRaisesRegex(ValueError, '剪辑质检未通过'):
+            self.prepare('edit', master)
+        for malformed in ([], {'master': master.name}):
+            save(bundle_path, malformed)
+            with self.subTest(bundle=malformed), self.assertRaises(ValueError):
+                self.prepare('edit', master)
+
+        bundle_path.unlink()
+        external = self.prepare('edit', master)
+        self.assertTrue(any('无来源清单' in item for item in external.get('warnings', [])))
+        confirm_media_completion(self.root, 'edit', external)
+
+    def test_req_s12_24_edit_completion_rechecks_bundle_before_final_confirmation(self):
+        """REQ-S12-24：冻结待审后来源清单或质检结论变化，最终确认和完成证据都必须失效。"""
+        from agent.core import file_hash
+        folder = self.root / '13质检交付' / '导出成片' / 'EP01_20261021'
+        folder.mkdir(parents=True)
+        master = folder / 'MASTER.mp4'; master.write_bytes(b'registered-master')
+        bundle_path = folder / 'edit_bundle.json'
+        bundle = {'master': master.name, 'master_sha256': file_hash(master), 'qc': {'errors': []}}
+        save(bundle_path, bundle)
+        prepared = self.prepare('edit', master)
+
+        bundle['master_sha256'] = 'deadbeef'; save(bundle_path, bundle)
+        with self.assertRaisesRegex(ValueError, '不是该次剪辑登记的成片'):
+            confirm_media_completion(self.root, 'edit', prepared)
+        self.assertFalse(completion_evidence(self.root, 'edit')[0])
+        bundle['master_sha256'] = file_hash(master)
+        bundle['qc'] = {'errors': ['成片时长不足']}; save(bundle_path, bundle)
+        with self.assertRaisesRegex(ValueError, '剪辑质检未通过'):
+            confirm_media_completion(self.root, 'edit', prepared)
+        save(bundle_path, {'master': master.name})
+        self.assertFalse(completion_evidence(self.root, 'edit')[0])
+
     def commercial_fixture(self):
         from agent.core import file_hash
         from stage_completion_service import commercial_template

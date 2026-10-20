@@ -61,6 +61,31 @@ def _technical_media(stage, data):
     return media_facts('audio' if stage == 'audio' else 'video', data)
 
 
+def _edit_bundle_status(path, digest):
+    """剪辑成果须与同目录来源清单的成片摘要及质检结论一致；无清单的外部成片返回警告。"""
+    from agent.core import read
+    bundle_path = Path(path).parent / 'edit_bundle.json'
+    if not bundle_path.is_file():
+        return '无来源清单，须人工核对'
+    try:
+        bundle = read(bundle_path)
+    except (OSError, ValueError, TypeError) as exc:
+        raise ValueError('剪辑来源清单无法读取，请重新导出或补齐清单') from exc
+    if not isinstance(bundle, dict):
+        raise ValueError('剪辑来源清单格式无效，不能确认后期剪辑完成')
+    if bundle.get('master_sha256') != digest:
+        raise ValueError('这不是该次剪辑登记的成片（可能是单镜文件）')
+    qc = bundle.get('qc')
+    if not isinstance(qc, dict):
+        raise ValueError('剪辑来源清单缺少质检结论，不能确认后期剪辑完成')
+    errors = qc.get('errors')
+    if not isinstance(errors, list):
+        raise ValueError('剪辑来源清单的质检结论格式无效，不能确认后期剪辑完成')
+    if errors:
+        raise ValueError('该成片的剪辑质检未通过，不能确认后期剪辑完成')
+    return ''
+
+
 def prepare_media_completion(root, stage, paths, *, scope=None):
     """后台技术校验并冻结待审核清单；不因导入或探测成功自动完成。"""
     from agent.core import file_hash, read
@@ -77,8 +102,13 @@ def prepare_media_completion(root, stage, paths, *, scope=None):
     if not executable:
         raise ValueError('请先配置 FFprobe，再校验媒体成果')
     outputs = []
+    warnings = []
     for path in dict.fromkeys(_media_path(root, stage, value) for value in paths):
         digest = file_hash(path)
+        if stage == 'edit':
+            warning = _edit_bundle_status(path, digest)
+            if warning and warning not in warnings:
+                warnings.append(warning)
         probed = probe(path, {'ffprobe': executable})
         validation = _technical_media(stage, probed)
         if file_hash(path) != digest:
@@ -94,6 +124,8 @@ def prepare_media_completion(root, stage, paths, *, scope=None):
         if not any(audio_kind(Path(output['path']).name) == 'dialogue' for output in outputs):
             raise ValueError('所选音频都不是对白音轨（只有 BGM／音效／旁白），不能代替对白配音完成核验')
     data = {'schema': 1, 'stage': stage, 'scope': scope, 'status': 'pending_review', 'outputs': outputs}
+    if warnings:
+        data['warnings'] = warnings
     if stage == 'delivery':
         data['qc'] = build_delivery_qc(root, outputs)
     _validate_media_completion(root, stage, data, require_review=False)
@@ -121,6 +153,8 @@ def _validate_media_completion(root, stage, data, *, require_review=True):
             raise ValueError('成果清单缺少有效技术校验结果')
         if path.stat().st_size != output.get('size') or file_hash(path) != output.get('sha256'):
             raise ValueError('成果文件已替换或修改，请重新校验确认：' + path.name)
+        if stage == 'edit':
+            _edit_bundle_status(path, output.get('sha256'))
     if stage == 'delivery' and require_review:
         qc = data.get('qc')
         if (not isinstance(qc, dict) or qc.get('passed') is not True
