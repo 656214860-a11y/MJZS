@@ -127,7 +127,7 @@
 40. 每轮结果文件 `tasks_round_N_result.md` 中记录本轮是否已提交，以及 commit hash（若已提交）。
 41. 协作 hooks 源码位于 `维护记录/基准脚本/hooks/`；每个工作树初始化后运行 `维护记录/基准脚本/install_git_hooks.py` 安装到共享 Git hooks。提交包含非默认文档的 `程序/` 文件时，必须显式设置 `CODEX_STAGE_ALLOWLIST`（分号分隔 repo 相对路径）；禁止用 `git add -A` 绕过最小暂存清单。仅 master 可提交 `project_status.md`。
 
-    非 master 分支／worktree 也不得写 `.agent-handoff/backlog.md` 与 `.agent-handoff/snapshot.md`；分支记录只写 `程序/tasks_round/tasks_round_<n>_result.md`，合入 master 后单独提交一次补进 `project_status.md`（提交信息 `R<n>: 补记分支 <分支名> 的轮次记录`）。
+    分支记录只写 `程序/tasks_round/tasks_round_<n>_result.md`，合入 master 后单独提交一次补进 `project_status.md`（提交信息 `R<n>: 补记分支 <分支名> 的轮次记录`）。
 
     合并时上述共享状态文件不得整块取一边，必须保留双方全部记录；合并提交后把下列命令的原始输出贴进结果文件，只写「已解决冲突」不算通过——第一条输出必须为空，第二条轮次号必须是两边的并集：
 
@@ -287,4 +287,4 @@ Animatic 阶段契约变更须覆盖 SG-A/SG-B、13 阶段顺序、旧编号目�
 
 ## 9. 上下文与接力
 
-上下文不足或执行被中断时，记录目标、已改文件、实际验证、阻塞和下一条安全操作，遵循根目录接力协议；压缩上下文不代表任务完成。新会话只按 §0 恢复，不重复另设阅读顺序。
+上下文不足或执行被中断时，记录目标、已改文件、实际验证、阻塞和下一条安全操作，把这些写入本轮结果文件（`tasks_round_<n>_result.md` 或 pending 结果文件），不再写 `.agent-handoff/`；压缩上下文不代表任务完成。新会话只按 §0 恢复，不重复另设阅读顺序。
