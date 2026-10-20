@@ -5,7 +5,7 @@ from file_cache import remove_temporary_file
 # 第 34 期第 9 条：`urllib.request`／`urllib.error` 连 ssl 一起加载（约 4.4 MB 常驻），
 # 本模块只在真要发本机 HTTP 时用得到——都改成函数内 import。
 from urllib.parse import urlparse,urlencode,quote
-from engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE
+from engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE, auto_review_ready
 from agent.core import read,save,file_hash,command,fingerprint,temporary_path,replace
 from agent.media import check, png_size
 import project_settings
@@ -233,7 +233,7 @@ class LocalStudio(Studio):
                 picture=next((x for x in streams if x.get('codec_type')=='video'),None)
                 if picture and v.get('source_aspect') and abs((picture['width']/picture['height'])/v['source_aspect']-1)>0.04:report['errors'].append('视频比例与首帧不一致')
                 command([self.cfg['ffmpeg'],'-v','error','-xerror','-i',dest,'-f','null','-'])
-                if not report['errors'] and __import__('pet_ui').should_auto_run(self, self.root, 'auto_review'):
+                if auto_review_ready(self.root,report):
                     v.update(review=REVIEW_PASS,review_by='auto',review_note=AUTO_REVIEW_NOTE)
             except Exception as exc:
                 self.publish_downloaded_video(st,sid,v,dest,qc_error=exc)
