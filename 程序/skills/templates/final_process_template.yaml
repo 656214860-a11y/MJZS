@@ -16,6 +16,6 @@ steps:
     needs_confirmation: true
     question: "分镜与资产已核验，是否生成分镜定稿？"
   - index: 4
-    name: 写入 storyboard_final.json
+    name: 写入 episode.json 与 assets.json
     action: write_final_storyboard
     needs_confirmation: false

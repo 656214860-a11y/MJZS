@@ -32,3 +32,12 @@ class StageTemplateTests(unittest.TestCase):
             )
 
         self.assertEqual(set(found_stages), set(STAGES))
+
+    def test_final_template_name_no_longer_mentions_legacy_storyboard_final_json(self):
+        text = (TEMPLATE_ROOT / 'final_process_template.yaml').read_text(encoding='utf-8')
+        self.assertNotIn(
+            'storyboard_final.json', text,
+        )
+        self.assertIn(
+            'episode.json', text,
+        )

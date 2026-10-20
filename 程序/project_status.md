@@ -42,7 +42,7 @@ R1610：结构治理轮·只读诊断。按规范/静态检查、接口契约、
 
 旧文首检查点已保留至.agent-handoff/history/r1606-handoff-before/project_status.md。R1606已合入主干，主干最新报告为1606，轮次头已改1607。
 
-更新：2026-10-21｜当前轮次：1766（S07-43 收口：stage_layout.STAGES 的 07 产出声明为 episode.json＋assets.json，08／09／11 输入声明与实际读取一致，json_md_rows 对照行同步；README 与 S07／S08／S11 文档对齐，REQ-S07-43 改 ✅ 并补锚点。遗留：skills/templates/final_process_template.yaml:19 仍写旧名。；更早各轮见 tasks_round/ 结果文件与 git log）
+更新：2026-10-21｜当前轮次：1767（C5：final_process_template.yaml 第 4 步 name 由“写入 storyboard_final.json”改为“写入 episode.json 与 assets.json”，与 R1765 的阶段声明一致；test_stage_templates 追加 1 条模板文本断言。本轮首次用 dispatch_v8（Codex 经 magpie）派发，一次完成。；更早各轮见 tasks_round/ 结果文件与 git log）
 
 历史验收记录：更新：2026-10-10｜当前轮次：1223（R1222 文档收尾，R1219 修复阶段旧路径阻断，实现 7faa7ae。干净 master f40beb4 安全全量 --jobs 4：4304/4304、347.409 秒，含架构 311/311；前两次并发保存失败及定向复验详见 tasks_round/tasks_round_1219_result.md。正式全量 R1219，未重启或实发 API。）
 阅读索引：[当前待办](#已知阻塞与待办)｜[验证基线](#验证基线)｜[优化队列](维护记录/优化待办队列.md)｜[R504 历史快照](#r504-阻塞归类与整改路线)。带 R 编号的历史条目仅证明对应轮次；当前范围、未验收条件与后续顺序以当前待办及队列为准。
