@@ -14,6 +14,8 @@ import tempfile
 import threading
 import time
 import tkinter as tk
+from tkinter import ttk
+import types
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -219,6 +221,54 @@ class WindowResizeCoalescingTests(unittest.TestCase):
         self.assertTrue(self.marks[0][0])
         self.assertEqual(self.drag_calls, 0, '拖动补做重复排了一次整页')
         self.held = False
+
+    def test_layout_does_not_feed_on_its_own_content_resize(self):
+        """布局自己把内容框撑到目标尺寸后，那次 <Configure> 不能再排一次整页重排。
+
+        页面里的自动定高区域在内容框变高后会请求更高；若布局写出的尺寸又被当成
+        一次「外部变化」，两者互相喂养，空闲队列永远排不空（窗口卡死、update() 不返回）。
+        """
+        d = self.desktop
+        self.held = False
+        d.fit_content()
+        self.pump(.3)
+        size = (int(float(d.canvas.itemcget(d.content_id, 'width'))),
+                int(float(d.canvas.itemcget(d.content_id, 'height'))))
+        self.calls = 0
+        # 布局刚刚把内容框设成这个尺寸；Tk 随后送来的同尺寸 <Configure> 不是外部变化。
+        event = types.SimpleNamespace(widget=d.content, width=size[0], height=size[1])
+        d._on_resize_configure(event)
+        self.pump(.3)
+        self.assertEqual(self.calls, 0,
+                         '布局自己写出的内容框尺寸又被当成外部变化，重排了 %d 次' % self.calls)
+
+    def test_descendant_configure_does_not_trigger_page_relayout(self):
+        """子控件尺寸变化不是页面尺寸变化：绑定在顶层窗口上的 <Configure>
+        会经 bindtags 收到所有后代控件的事件，不能把每次子控件变化都当成整页重排。
+
+        整页重排会改子控件尺寸，若后代事件也触发重排就会自我喂养，update() 永远不返回。
+        （刻意不写需求编号：本次依据是真实环境证据与本确定性用例，不冒认既有需求锚点。）
+        """
+        d = self.desktop
+        self.held = False
+        d.fit_content()
+        self.pump(.3)
+        self.calls = 0
+        descendant = ttk.Label(d.content, text='后代控件')
+        self.addCleanup(lambda: descendant.destroy() if descendant.winfo_exists() else None)
+        d._on_resize_configure(types.SimpleNamespace(
+            widget=descendant,
+            width=descendant.winfo_reqwidth(), height=descendant.winfo_reqheight()))
+        self.pump(.3)
+        self.assertEqual(self.calls, 0,
+                         '后代子控件 %s 的 <Configure> 触发了整页重排 %d 次'
+                         % (descendant, self.calls))
+        # 正向：来自主窗口且宽高真的变了（各变 1 像素即可离开上一次记录），仍要重排。
+        width, height = self.win.winfo_width(), self.win.winfo_height()
+        d._on_resize_configure(types.SimpleNamespace(
+            widget=self.win, width=width + 1, height=height + 1))
+        self.assertTrue(self.wait_for(lambda: self.calls >= 1, seconds=3.0),
+                        '主窗口宽高变化没有触发整页重排')
 
     def test_quiet_and_edge_are_tokens(self):
         """静默时长与命中圈取自 ui_tokens 既有常量表，不写魔法数字。"""

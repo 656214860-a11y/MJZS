@@ -28,8 +28,18 @@ class LayoutMixin:
         self.resize_scheduler=ResizeCoalescer(win)
         for widget in (win,self.canvas,self.content):
             widget.bind('<Configure>',self._on_resize_configure,add='+')
+    def _own_content_configure(self,event):
+        """布局刚把内容框设成这个尺寸：同尺寸 <Configure> 是自己写出的几何，不是外部变化。"""
+        if event is None or getattr(event,'widget',None) is not getattr(self,'_content_applied_widget',None):return False
+        return (event.width,event.height)==getattr(self,'_content_applied_size',None)
     def _on_resize_configure(self,event=None):
-        """尺寸变了：拖动期间只登记一次整页补做，其余场景照旧立即重排。"""
+        """尺寸变了：拖动期间只登记一次整页补做，其余场景照旧立即重排。
+
+        绑在顶层窗口上的 <Configure> 也会经 bindtags 收到所有后代控件的尺寸事件；
+        只有本页画布／内容框自身的尺寸变化才重排，子控件变化交给原绑定处理。
+        """
+        if event is not None and getattr(event,'widget',None) not in (None,self.win,self.canvas,self.content):return
+        if self._own_content_configure(event):return
         if event is not None and getattr(event,'widget',None) is self.win:
             # 移动窗口也发 Configure；只有宽高真的变了才重排。
             size=(event.width,event.height)
@@ -143,6 +153,7 @@ class LayoutMixin:
     def fit_content(self,event=None):
         # 尺寸事件落在拖动期间：并进松手后的补做。主动调用（页面切换、最小化恢复）
         # 不带事件，保持原来的同步 after_idle 语义，不受静默影响。
+        if self._own_content_configure(event):return
         if event is not None and self._join_resize(self._layout_all,event):return
         self._apply_layout()
     def _layout_all(self):
@@ -202,6 +213,7 @@ class LayoutMixin:
         req_min=max(1,req-growable_extra())
         target=max(height,req_min)
         self.canvas.itemconfigure(self.content_id,width=width,height=target)
+        self._content_applied_widget=self.content;self._content_applied_size=(width,target)
         # 滚动区域就是内容实际高度：内容框（Treeview）会长到填满窗口，若按请求高度
         # 记录滚动区域，窗口缩小时会残留旧高度，底部按钮可能被滚出可视区。
         self.canvas.configure(scrollregion=(0,0,width,target))
