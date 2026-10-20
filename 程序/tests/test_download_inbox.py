@@ -73,6 +73,15 @@ class DownloadInboxTests(unittest.TestCase):
         self.assertEqual(collect_download_inbox(self.project, now=now, downloads=self.downloads), [target])
         self.assertEqual(target.read_text(encoding='utf-8'), '新大纲')
 
+    def test_space_separated_download_matches_underscore_target(self):
+        target = self.project / '01剧本准备' / '项目设定' / '一百块流浪记_项目设定_Google_20261021.md'
+        now = time.time()
+        register_download_inbox(self.project, str(target), now=now - 10)
+        self._download('一百块流浪记 项目设定 Google 20261021.md', '设定'.encode('utf-8'), at=now)
+        done = collect_download_inbox(self.project, now=now, downloads=self.downloads)
+        self.assertEqual(done, [target])
+        self.assertEqual(target.read_text(encoding='utf-8'), '设定')
+
     def test_expired_registrations_are_dropped(self):
         target = self.project / '05资产管理' / 'C01.png'
         now = time.time()

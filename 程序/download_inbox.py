@@ -54,8 +54,12 @@ def expected_targets(root, text):
     return tuple(found)
 
 
+_SEPARATOR_RUN = re.compile(r'[\s_]+')
+
+
 def _plain_name(name):
-    return _COPY_SUFFIX.sub('', name).casefold()
+    """把空格与下划线归一到同一形式再比较：桌面应用常把任务书里的 ``_`` 下成空格。"""
+    return _SEPARATOR_RUN.sub(' ', _COPY_SUFFIX.sub('', name).strip()).casefold()
 
 
 def match(downloads, pending, now):
@@ -76,7 +80,7 @@ def match(downloads, pending, now):
             continue
         if now - since > PENDING_MAX_AGE:
             continue
-        key = target.name.casefold()
+        key = _plain_name(target.name)
         if key not in by_name or since > by_name[key][1]:
             by_name[key] = (target, since)
     pairs = []
