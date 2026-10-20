@@ -34,6 +34,69 @@ def _record_lineage(project, episodefile, source):
         from artifact_lineage import record
         record(project, episodefile, lineage_source, 'final_storyboard')
 
+def _batch_plan_markdown(episode):
+    """批次划分说明（人读）：只从定稿镜头派生，不含时间戳。"""
+    from shot_batches import BATCH_MAX_SHOTS, BATCH_SECONDS, batches, duration
+    shots = episode.get('shots') if isinstance(episode, dict) else None
+    shots = shots if isinstance(shots, list) else []
+    grouped = batches(shots)
+    lines = ['# 批次划分说明', '',
+             '- 集号：' + str(episode.get('episode_id') or ''),
+             '- 镜头数：%d' % len(shots),
+             '- 批次：%d' % len(grouped),
+             '- 切批依据：按三元组（scene_id、character_ids、costume_id）划分；'
+             '三元组变化、单批满 %d 镜或累计超过 %d 秒即切新批。'
+             % (BATCH_MAX_SHOTS, BATCH_SECONDS), '']
+    for name, items in grouped.items():
+        seconds = sum(duration(item) for item in items)
+        ids = '、'.join(str(item.get('shot_id') or item.get('id') or '') for item in items)
+        first = items[0] if items else {}
+        chars = '、'.join(str(value) for value in (first.get('character_ids') or []))
+        lines += ['## ' + name, '',
+                  '- 镜头：%s（%d 镜）' % (ids, len(items)),
+                  '- 合计时长：%d 秒' % seconds,
+                  '- 三元组：场景 %s／角色 %s／状态变体 %s'
+                  % (str(first.get('scene_id') or '（未指定）'), chars or '（无）',
+                     str(first.get('costume_id') or '（未指定）')), '']
+    return '\n'.join(lines).rstrip('\n') + '\n'
+
+
+def _shot_table_markdown(episode):
+    """一镜一行的镜头表（人读）：只从定稿镜头派生，不含时间戳。"""
+    from shot_batches import duration
+    shots = episode.get('shots') if isinstance(episode, dict) else None
+    shots = shots if isinstance(shots, list) else []
+    lines = ['# 镜头表', '',
+             '| 镜头号 | 批次 | 场景 | 角色 | 时长（秒） |',
+             '| --- | --- | --- | --- | --- |']
+    for shot in shots:
+        if not isinstance(shot, dict):
+            continue
+        chars = '、'.join(str(value) for value in (shot.get('character_ids') or []))
+        cells = (str(shot.get('shot_id') or shot.get('id') or ''),
+                 str(shot.get('batch_id') or ''),
+                 str(shot.get('scene_id') or ''),
+                 chars,
+                 str(duration(shot)))
+        lines.append('| ' + ' | '.join(cell.replace('|', '／') for cell in cells) + ' |')
+    return '\n'.join(lines) + '\n'
+
+
+def _publish_final_docs(project, episode):
+    """在定稿写出成功后，按 stage_layout 声明的 docs/ 派生两份人读 Markdown。
+
+    路径来自 L0 权威（dirname_of＋paths），发布沿用 finalize 写 episode.json 的同一
+    L3 入口 ``publish_stage_text``；不直接 save_text。切批失败等路径不会走到这里。
+    """
+    from stage_layout import dirname_of, paths
+    docs = paths(project, dirname_of('final'))['docs']
+    from stage_execution_service import publish_stage_text
+    for name, text in (('batch_plan.md', _batch_plan_markdown(episode)),
+                       ('shot_table.md', _shot_table_markdown(episode))):
+        publish_stage_text(docs / name, text,
+                           lambda value: bool(str(value).strip()), lambda _target: None)
+
+
 def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     from asset_context import library_dir,references
     from stage_execution_service import storyboard_resolve_source as resolve_source
@@ -85,8 +148,9 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
     try:
         from shot_batches import assign
         episode['shots']=list(assign(episode['shots']))
-    except Exception:
+    except Exception as exc:
         app_logging.swallowed()
+        raise ValueError('批次划分失败，已中止定稿：'+str(exc)) from exc
     episode['missing_assets']=sorted(set(missing))
     episode['assets_ready']=not missing
     from writing import validate_episode
@@ -167,6 +231,7 @@ def finalize(project,episode_dir,source,retire_working=None,*,gateway=None):
             lambda saved_episode, saved_assets: validate_episode(saved_episode, output_base, saved_assets)),
     )
     _record_lineage(project, episodefile, source)
+    _publish_final_docs(project, episode)
     from stage_execution_service import storyboard_working_source as is_working_source
     if is_working_source(project,source):
         if not callable(retire_working):raise TypeError('定稿退役需要 L3 编排入口。')

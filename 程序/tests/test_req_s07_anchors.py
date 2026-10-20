@@ -563,6 +563,79 @@ class S07AnchorTests(unittest.TestCase):
             empty = stage_parallel.ledger_ready(temporary)
         self.assertEqual(empty['artifacts'], ())
 
+    def test_req_s07_15_batch_assignment_failure_aborts_finalize(self):
+        """REQ-S07-15：切批失败中止定稿：抛含中文原因的 ValueError，原异常作 __cause__，不写任何定稿产物。"""
+        with tempfile.TemporaryDirectory() as td:
+            project, episode, source = _project(Path(td) / 'p')
+            original = source.read_bytes()
+            finals_root = project / '07分镜定稿' / '分镜'
+            import shot_batches
+            failure = RuntimeError('三元组字典损坏')
+            retired = []
+            with mock.patch.object(shot_batches, 'assign', side_effect=failure):
+                with self.assertRaises(ValueError) as caught:
+                    finalize(project, episode, source, retire_working=lambda *a: retired.append(a),
+                             gateway=asset_plan_gateway())
+            message = str(caught.exception)
+            self.assertIn('批次', message)
+            self.assertIn('三元组字典损坏', message)
+            self.assertIs(caught.exception.__cause__, failure)
+            self.assertEqual(retired, [])                         # 不触发工作稿退役
+            self.assertEqual([p for p in finals_root.iterdir() if p.is_dir()]
+                             if finals_root.is_dir() else [], [])
+            self.assertFalse((finals_root / ALIAS_FILE).is_file())
+            self.assertEqual(source.read_bytes(), original)
+            from stage_layout import dirname_of, paths
+            docs = paths(project, dirname_of('final'))['docs']
+            self.assertEqual(sorted(p.name for p in docs.glob('*.md')) if docs.is_dir() else [], [])
+
+    def test_req_s07_44_finalize_derives_batch_plan_and_shot_table(self):
+        """REQ-S07-44：定稿写出后按 stage_layout 的 docs/ 派生批次说明与镜头表，只由定稿数据派生。"""
+        import shot_batches
+        from stage_layout import dirname_of, paths
+        with tempfile.TemporaryDirectory() as td:
+            project, episode, source = _project(Path(td) / 'p')
+            dest = finalize(project, episode, source, retire_working=lambda *a: None,
+                            gateway=asset_plan_gateway())
+            bundle = read(dest / 'episode.json')
+            docs = paths(project, dirname_of('final'))['docs']
+            plan, table = docs / 'batch_plan.md', docs / 'shot_table.md'
+            self.assertTrue(plan.is_file())
+            self.assertTrue(table.is_file())
+            plan_text = plan.read_text(encoding='utf-8')
+            grouped = shot_batches.batches(bundle['shots'])
+            self.assertGreaterEqual(len(grouped), 2)
+            for name, items in grouped.items():
+                self.assertIn(name, plan_text)
+                for item in items:
+                    self.assertIn(str(item.get('shot_id')), plan_text)
+            self.assertIn('三元组', plan_text)
+            rows = [line for line in table.read_text(encoding='utf-8').splitlines()
+                    if line.startswith('| ') and not line.startswith('| ---')]
+            self.assertEqual(len(rows), len(bundle['shots']) + 1)   # 表头 + 一镜一行
+            for item, line in zip(bundle['shots'], rows[1:]):
+                self.assertIn(str(item['shot_id']), line)
+                self.assertIn(str(item['batch_id']), line)
+                self.assertIn(str(item['scene_id']), line)
+                self.assertIn(str(item['estimated_duration']), line)
+            # 同一份输入再定稿（签名复用）内容不变，不重复生成多份。
+            again = finalize(project, episode, source, retire_working=lambda *a: None,
+                             gateway=asset_plan_gateway())
+            self.assertEqual(again, dest)
+            self.assertEqual(plan.read_text(encoding='utf-8'), plan_text)
+            self.assertEqual(sorted(p.name for p in docs.iterdir() if p.suffix == '.md'),
+                             ['batch_plan.md', 'shot_table.md'])
+        # 切批失败路径不派生这两份文件。
+        with tempfile.TemporaryDirectory() as td:
+            project, episode, source = _project(Path(td) / 'p')
+            with mock.patch.object(shot_batches, 'assign', side_effect=RuntimeError('坏批次')):
+                with self.assertRaises(ValueError):
+                    finalize(project, episode, source, retire_working=lambda *a: None,
+                             gateway=asset_plan_gateway())
+            docs = paths(project, dirname_of('final'))['docs']
+            self.assertFalse((docs / 'batch_plan.md').is_file())
+            self.assertFalse((docs / 'shot_table.md').is_file())
+
     def test_req_s07_53_skill_describes_registration_not_unimplemented_snapshots(self):
         """REQ-S07-53：版本 SKILL 如实描述登记与日期后缀，不再承诺快照、对比或回滚。"""
         import skill_tools
