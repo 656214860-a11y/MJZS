@@ -13,7 +13,7 @@ import tkinter as tk
 import ui_plugin_registry
 from agent.core import read
 from app import App
-from engine import adoption_summary, approved_versions, review_label
+from engine import adopted_edit_version, adoption_summary, review_label
 from local_video import skip_summary
 from pathlib import Path
 from platform_tools import launch_windows_app, open_target, tcp_listener
@@ -948,12 +948,11 @@ class MediaPagesMixin:
     def handoff(self,auto=False):
         st=self.studio.state();rows=[]
         for s in self.studio.episode['shots']:
-            vs=list(st['shots'][s['id']] or [])
-            # 与自动粗剪取同一版：优先「已下载＋质检通过＋已验收」的最后版本。取最后一版会让
-            # 重新生成后还没验收的新镜头混进交接包，和成片里用的版本对不上。
-            approved=approved_versions(vs)
-            v=(approved or vs)[-1] if vs else {}
-            if v.get('file'):rows.append((s,v))
+            # 与自动粗剪／成片同一口径：engine.adopted_edit_version 是唯一选版规则（pinned 优先，
+            # 否则最后一条已验收版，并核文件存在与验收摘要）。取不到采用版的镜头如实不进包，
+            # 由清单声明缺镜；不退回未验收版，也不把缺失／被替换的文件塞进交接包。
+            v,_reason=adopted_edit_version(st['shots'].get(s['id']),self.root)
+            if v is not None and v.get('file'):rows.append((s,v))
         subtitle=None
         if len(rows)==len(self.studio.episode['shots']):
             try:

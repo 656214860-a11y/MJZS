@@ -2706,11 +2706,15 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual((out / "001_SH001.mp4").read_bytes(), b"approved-take")
             manifest = json.loads((out / "镜头顺序.json").read_text(encoding="utf-8"))
             self.assertEqual([row["review"] for row in manifest], ["pass"])
-            # 一个已验收版本都没有时保持原行为：取最后一版，交接包仍可用于半成品集
+            # 一个已验收版本都没有时，该镜不进交接包（与成片同一口径，不再退回最新未验收版）；
+            # 单镜全缺时 publish_bundle 如实报「没有已下载视频」。
             save(proj / "data" / "state.json", versions(take_v2))
+            with self.assertRaisesRegex(ValueError, "没有已下载视频"):
+                d.handoff()
+            # 手动整理仍是一事一目录
+            save(proj / "data" / "state.json", versions(take_v1))
             out2 = d.handoff()
-            self.assertEqual((out2 / "001_SH001.mp4").read_bytes(), b"unapproved-take")
-            self.assertNotEqual(out, out2)                 # 手动整理仍是一事一目录
+            self.assertNotEqual(out, out2)
             # 就绪判定带上分镜文件：镜头编号与版本完全相同的另一份分镜不能沿用同一签名，
             # 否则第二集会被「签名没变」直接跳过，永远不粗剪也不整理交接包
             save(proj / "data" / "state.json", versions(take_v1))

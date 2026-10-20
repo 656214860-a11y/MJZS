@@ -9,11 +9,13 @@ import tempfile
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import engine
 import handoff_service
 import stage_flow
+from agent.core import file_hash
 from edit_export import normalize_edits
 
 
@@ -70,6 +72,30 @@ class _AssembleStudio:
 
 SPEC = {'aspect_ratio': '9:16', 'resolution': '1080x1920', 'width': 1080, 'height': 1920,
         'fps': 30, 'loudness': {'i': -16, 'tp': -1.5, 'lra': 11}}
+
+
+class _HandoffHost:
+    """``MediaPagesMixin.handoff`` 只用到 root／studio／subtitles；用鸭子类型避开 Tk 窗口。"""
+
+    def __init__(self, root, versions, shots, subtitle=b'1\n00:00:00,000 --> 00:00:01,000\n\xe4\xbd\xa0\xe5\xa5\xbd\n'):
+        self.root = Path(root)
+        self.studio = SimpleNamespace(state=lambda: {'shots': versions},
+                                      episode={'shots': shots})
+        self._subtitle = subtitle
+
+    def subtitles(self):
+        if self._subtitle is None:
+            raise ValueError('无对白')
+        return self._subtitle
+
+
+def _approved_version(root, path, number, *, review='pass', pinned=False):
+    """一条已下载、质检通过、默认已验收的版本记录；路径相对项目根，与 engine 口径一致。"""
+    version = {'version': number, 'state': 'downloaded', 'qc_pass': True, 'review': review,
+               'file': Path(path).relative_to(root).as_posix(), 'sha256': file_hash(path)}
+    if pinned:
+        version['pinned'] = True
+    return version
 
 
 class ReqS12AnchorTests(unittest.TestCase):
@@ -161,6 +187,100 @@ class ReqS12AnchorTests(unittest.TestCase):
             self.assertIn('不是剪映草稿', handoff_service.MEDIA_PACKAGE_NOTE)
             self.assertFalse(any('草稿' in name for name in names))
             self.assertIn('不是剪映草稿', (out / '导入剪映说明.txt').read_text(encoding='utf-8'))
+
+    def test_req_s12_15_handoff_uses_pinned_approved_version(self):
+        """REQ-S12-15：交接包选版与成片同一口径——已验收版本中用户锁定（pinned）的优先，
+        即便后面还有更新的已验收版；选中的必须就是 ``adopted_edit_version`` 返回的那一条。"""
+        from desktop import Desktop
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            clips = root / 'data' / 'clips'
+            clips.mkdir(parents=True)
+            old = clips / 'SH001_v1.mp4'; old.write_bytes(b'old-take')
+            new = clips / 'SH001_v2.mp4'; new.write_bytes(b'new-take')
+            first = _approved_version(root, old, 1, pinned=True)
+            second = _approved_version(root, new, 2)
+            shot = {'id': 'SH001', 'duration': 2}
+            host = _HandoffHost(root, {'SH001': [first, second]}, [shot])
+            with patch('stage_execution_service.publish_stage_handoff_bundle',
+                       return_value=root / 'bundle') as publish:
+                out = Desktop.handoff(host)
+            self.assertEqual(out, root / 'bundle')
+            rows = publish.call_args.args[2]
+            self.assertEqual([row[1]['version'] for row in rows], [1])
+            self.assertIs(rows[0][1], engine.adopted_edit_version([first, second], root)[0])
+
+    def test_req_s12_15_handoff_without_pin_uses_last_approved_version(self):
+        """REQ-S12-15：没有 pinned 时仍取最后一条已验收版（旧行为回归保护），
+        且与 ``adopted_edit_version`` 返回同一条。"""
+        from desktop import Desktop
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            clips = root / 'data' / 'clips'
+            clips.mkdir(parents=True)
+            old = clips / 'SH001_v1.mp4'; old.write_bytes(b'old-take')
+            new = clips / 'SH001_v2.mp4'; new.write_bytes(b'new-take')
+            first = _approved_version(root, old, 1)
+            second = _approved_version(root, new, 2)
+            shot = {'id': 'SH001', 'duration': 2}
+            host = _HandoffHost(root, {'SH001': [first, second]}, [shot])
+            with patch('stage_execution_service.publish_stage_handoff_bundle',
+                       return_value=root / 'bundle') as publish:
+                Desktop.handoff(host)
+            rows = publish.call_args.args[2]
+            self.assertEqual([row[1]['version'] for row in rows], [2])
+            self.assertIs(rows[0][1], engine.adopted_edit_version([first, second], root)[0])
+
+    def test_req_s12_15_handoff_skips_shot_without_approved_version(self):
+        """REQ-S12-15：只有未验收版本的镜头不进交接包（不退回最新未验收版），其余镜照常；
+        因为不是全镜进包，按既有逻辑不附全片字幕。"""
+        from desktop import Desktop
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            clips = root / 'data' / 'clips'
+            clips.mkdir(parents=True)
+            pending_file = clips / 'SH001_v1.mp4'; pending_file.write_bytes(b'pending-take')
+            ready_file = clips / 'SH002_v1.mp4'; ready_file.write_bytes(b'ready-take')
+            pending = _approved_version(root, pending_file, 1, review='pending')
+            ready = _approved_version(root, ready_file, 1)
+            shots = [{'id': 'SH001', 'duration': 2}, {'id': 'SH002', 'duration': 2}]
+            host = _HandoffHost(root, {'SH001': [pending], 'SH002': [ready]}, shots)
+            with patch('stage_execution_service.publish_stage_handoff_bundle',
+                       return_value=root / 'bundle') as publish:
+                Desktop.handoff(host)
+            rows = publish.call_args.args[2]
+            self.assertEqual([row[0]['id'] for row in rows], ['SH002'])
+            self.assertIsNone(publish.call_args.args[3], '缺镜时不得附全片字幕')
+            self.assertIsNone(engine.adopted_edit_version([pending], root)[0])
+            self.assertEqual(engine.adopted_edit_version([pending], root)[1], engine.ADOPT_UNAPPROVED)
+
+    def test_req_s12_15_handoff_skips_missing_or_replaced_adopted_file(self):
+        """REQ-S12-15：采用版文件被替换（sha256 与验收摘要不符）或缺失时，该镜同样不进包；
+        与成片口径一致，绝不把核不过的文件塞进交接包。"""
+        from desktop import Desktop
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            clips = root / 'data' / 'clips'
+            clips.mkdir(parents=True)
+            replaced_file = clips / 'SH001_v1.mp4'; replaced_file.write_bytes(b'original-take')
+            missing_file = clips / 'SH002_v1.mp4'; missing_file.write_bytes(b'missing-take')
+            ready_file = clips / 'SH003_v1.mp4'; ready_file.write_bytes(b'ready-take')
+            replaced = _approved_version(root, replaced_file, 1)
+            missing = _approved_version(root, missing_file, 1)
+            ready = _approved_version(root, ready_file, 1)
+            replaced_file.write_bytes(b'replaced-take')
+            missing_file.unlink()
+            shots = [{'id': 'SH001', 'duration': 2}, {'id': 'SH002', 'duration': 2},
+                     {'id': 'SH003', 'duration': 2}]
+            host = _HandoffHost(root, {'SH001': [replaced], 'SH002': [missing], 'SH003': [ready]}, shots)
+            with patch('stage_execution_service.publish_stage_handoff_bundle',
+                       return_value=root / 'bundle') as publish:
+                Desktop.handoff(host)
+            rows = publish.call_args.args[2]
+            self.assertEqual([row[0]['id'] for row in rows], ['SH003'])
+            self.assertIsNotNone(engine.adopted_edit_version([ready], root)[0])
+            self.assertEqual(engine.adopted_edit_version([replaced], root)[1], engine.ADOPT_REPLACED)
+            self.assertEqual(engine.adopted_edit_version([missing], root)[1], engine.ADOPT_MISSING)
 
 
 if __name__ == '__main__':
