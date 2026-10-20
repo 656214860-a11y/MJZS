@@ -65,6 +65,8 @@ SAFE_UNIT_TIMEOUT = 180 # 安全串行性能用例的一小段最长允许三分
 HEARTBEAT_SECONDS = 30  # 并行全量久未完成时仍需给出活跃心跳，方便定位是否只是慢
 SLOW_UNITS_LIMIT = 10   # 汇总只保留最慢若干工作单元，避免全量输出淹没结论
 SKIP_REPORT_LIMIT = 40  # 实际跳过清单最多打印这么多条；总数始终打印，避免把登记位读成已跳过
+# 票据在父进程里生成、子进程实际执行；子进程令牌晚于父进程，测例也可能在导入耗后才取 started_at。
+PID_REUSE_TOLERANCE_SECONDS = 120
 
 
 CACHE_NAME = 'selftest-incremental.json'
@@ -208,10 +210,70 @@ def cache_path():
     return os.path.join(HERE, '维护记录', '自检增量.json')
 
 
-def _pid_is_alive(pid):
+def _process_created_at(pid):
+    """取 PID 当前进程的创建时间（epoch 秒）；不支持或取不到时返回 None，由调用方退回只看 PID。"""
     try:
         pid = int(pid)
     except (ValueError, TypeError):
+        return None
+    if pid <= 0:
+        return None
+    if os.name != 'nt':
+        # 非 Windows 已用 kill(0) 判死；不引入 /proc 等平台专属探测。
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class FileTime(ctypes.Structure):
+            _fields_ = [('low', wintypes.DWORD), ('high', wintypes.DWORD)]
+
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel32.OpenProcess.restype = wintypes.HANDLE
+        kernel32.GetProcessTimes.argtypes = [wintypes.HANDLE, ctypes.POINTER(FileTime),
+                                             ctypes.POINTER(FileTime), ctypes.POINTER(FileTime),
+                                             ctypes.POINTER(FileTime)]
+        kernel32.GetProcessTimes.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        handle = kernel32.OpenProcess(0x1000, False, pid)
+        if not handle:
+            return None
+        try:
+            created = FileTime()
+            empty = [FileTime() for _ in range(3)]
+            if not kernel32.GetProcessTimes(handle, created, empty[0], empty[1], empty[2]):
+                return None
+            ticks = (created.high << 32) | created.low
+            return ticks / 10000000.0 - 11644473600
+        finally:
+            kernel32.CloseHandle(handle)
+    except Exception:
+        return None
+
+
+def _record_is_reused(pid, started_at):
+    """持有者记录的发起早于该 PID 当前进程创建时间，说明 PID 已被别的进程复用。"""
+    if started_at is None or started_at is False:
+        return False
+    try:
+        started_at = float(started_at)
+    except (TypeError, ValueError):
+        return False
+    created_at = _process_created_at(pid)
+    if created_at is None or started_at >= created_at - PID_REUSE_TOLERANCE_SECONDS:
+        return False
+    # 未来时间不按复用处理：时钟回拨或伪造记录不应把活锁误清。
+    return started_at <= time.time() + PID_REUSE_TOLERANCE_SECONDS
+
+
+def _pid_is_alive(pid, started_at=None):
+    try:
+        pid = int(pid)
+    except (ValueError, TypeError):
+        return False
+    if _record_is_reused(pid, started_at):
         return False
     if os.name == 'nt':
         # Windows 的 os.kill(pid, 0) 不可靠地报告 WinError 87；用进程句柄
@@ -259,9 +321,10 @@ def acquire_pid_lock(name, common_dir=None, round_number=None, reentrant=False):
                 except FileNotFoundError:
                     continue
                 holder = lock_holder(path)
-                if reentrant and holder.get('pid') == os.getpid():
+                if (reentrant and holder.get('pid') == os.getpid()
+                        and not _record_is_reused(holder.get('pid'), holder.get('started_at'))):
                     return path
-                if _pid_is_alive(holder.get('pid')):
+                if _pid_is_alive(holder.get('pid'), holder.get('started_at')):
                     raise RuntimeError('%s 已由 PID %s（R%s）持有' %
                                        (name, holder.get('pid'), holder.get('round', '?')))
                 # 只回收刚读到的失效实例，避免竞争者替换后误删新锁。
@@ -317,7 +380,10 @@ def _drop_dead_gui_tickets(queue):
         path = os.path.join(queue, name)
         holder = lock_holder(path)
         pid = holder.get('pid')
-        if pid not in (None, os.getpid()) and not _pid_is_alive(pid):
+        started_at = holder.get('started_at')
+        if not _record_is_reused(pid, started_at) and pid in (None, os.getpid()):
+            continue
+        if not _pid_is_alive(pid, started_at):
             try:
                 os.unlink(path)
             except OSError:
@@ -439,7 +505,8 @@ def other_gui_holder():
     holder = lock_holder(os.path.join(common, GUI_LOCK_NAME)) if common else {}
     pid = holder.get('pid')
     # 工作池子进程使用父进程的令牌，不是竞争工作流。
-    return pid if pid not in (os.getpid(), os.getppid()) and _pid_is_alive(pid) else None
+    return (pid if pid not in (os.getpid(), os.getppid())
+            and _pid_is_alive(pid, holder.get('started_at')) else None)
 
 
 def concurrency_warning():

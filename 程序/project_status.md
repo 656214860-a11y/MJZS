@@ -42,7 +42,7 @@ R1610：结构治理轮·只读诊断。按规范/静态检查、接口契约、
 
 旧文首检查点已保留至.agent-handoff/history/r1606-handoff-before/project_status.md。R1606已合入主干，主干最新报告为1606，轮次头已改1607。
 
-更新：2026-10-20｜当前轮次：1750（R1745 的 _page_paint_timed 装饰器缺 functools.wraps，Desktop.show 丢了函数身份、test_perf_baseline 红；补 @functools.wraps(func)，追加一条身份回归用例。；更早各轮见 tasks_round/ 结果文件与 git log）
+更新：2026-10-20｜当前轮次：1751（run_selftests 的 _pid_is_alive 只看 PID，Windows 复用 PID 后死票据／死锁被当成活的，GUI 令牌队列被死票堵到 900 秒超时；改为比对持有者记录的 started_at 与进程创建时间，取不到时退回只看 PID。；更早各轮见 tasks_round/ 结果文件与 git log）
 
 历史验收记录：更新：2026-10-10｜当前轮次：1223（R1222 文档收尾，R1219 修复阶段旧路径阻断，实现 7faa7ae。干净 master f40beb4 安全全量 --jobs 4：4304/4304、347.409 秒，含架构 311/311；前两次并发保存失败及定向复验详见 tasks_round/tasks_round_1219_result.md。正式全量 R1219，未重启或实发 API。）
 阅读索引：[当前待办](#已知阻塞与待办)｜[验证基线](#验证基线)｜[优化队列](维护记录/优化待办队列.md)｜[R504 历史快照](#r504-阻塞归类与整改路线)。带 R 编号的历史条目仅证明对应轮次；当前范围、未验收条件与后续顺序以当前待办及队列为准。
