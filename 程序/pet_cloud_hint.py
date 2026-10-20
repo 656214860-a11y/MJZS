@@ -45,12 +45,16 @@ class CloudHintMixin:
 
     def _sync_hint(self):
         """按「框里有没有字」立刻摆一次小字（打字／粘贴／清空都从这里过）。"""
-        if self.hint is None:
+        hint = self.hint
+        if hint is None:
             return ''
         text = REPLY_HINTS if self._hint_idle() else ''
         try:
-            self.hint.configure(text=text)
-            self.hint.place_configure(x=self._hint_x)
+            if hint.winfo_exists():
+                hint.configure(text=text)
+                hint.place_configure(x=self._hint_x)
+            else:
+                self.hint = None
         except Exception as exc:
             self.errors.append(('hint', str(exc)))
         return text
@@ -89,6 +93,13 @@ class CloudHintMixin:
         if not self._hint_on or self.hint is None:
             return None
         try:
+            if not self.hint.winfo_exists():
+                self.hint = None
+                return None
+        except Exception:
+            self.hint = None
+            return None
+        try:
             row_width = max(1, int(self.chat_row.winfo_width()))
         except Exception:
             row_width = 1
@@ -107,9 +118,14 @@ class CloudHintMixin:
                 self.parent.after_cancel(job)
             except Exception:
                 app_logging.swallowed()
-        if self.hint is not None:
+        hint = self.hint
+        if hint is not None:
             try:
-                self.hint.configure(text='')
+                if hint.winfo_exists():
+                    hint.configure(text='')
+                else:
+                    self.hint = None
             except Exception:
+                self.hint = None
                 app_logging.swallowed()
         return None
