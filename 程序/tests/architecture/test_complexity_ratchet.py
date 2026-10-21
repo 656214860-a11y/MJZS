@@ -18,7 +18,6 @@ CLASS_SLACK = 15
 NESTING_CAPS = {
     ('app.py', 'tick'): 6,
     ('asset_batch_execution.py', 'run_batch'): 6,
-    ('desktop_async_tasks.py', '_tick_async_result'): 6,
     ('workflow_engines.py', 'run_background'): 6,
 }
 PARAM_CAPS = {
