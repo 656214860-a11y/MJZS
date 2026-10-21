@@ -163,8 +163,11 @@ class DataTableBoundaryTests(unittest.TestCase):
 
     def test_final_storyboard_files_use_data_table_not_a_page_treeview(self):
         tree = parse(ROOT / 'storyboard_files.py')
-        method = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
-                      and node.name == 'show_final')
-        direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
+        # R1813：show_final 的闭包改写成了 _FinalStoryboardPage 类，页面构造代码现在在类里；两处都扫
+        methods = [node for node in tree.body
+                   if (isinstance(node, ast.FunctionDef) and node.name == 'show_final')
+                   or (isinstance(node, ast.ClassDef) and node.name == '_FinalStoryboardPage')]
+        self.assertEqual(len(methods), 2)
+        direct = [node for method in methods for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
         self.assertEqual(direct, [], '分镜文件页必须通过 DataTable 构造表格')
