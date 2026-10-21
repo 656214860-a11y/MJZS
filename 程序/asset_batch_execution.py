@@ -81,6 +81,18 @@ def resume_record(aid, job, prompt, url, references, generation, cloud, resumabl
     return None
 
 
+def _record_failure(project, state, aid, exc, publish_ledger):
+    """把单个资产的失败写回台账：提交不确定的保留可续取状态，确定失败的标为 failed。"""
+    if aid not in state: return
+    state[aid]['error'] = str(exc)
+    if isinstance(exc, AssetSubmissionUncertain): pass
+    elif isinstance(exc, ComfySubmissionUncertain):
+        state[aid]['state'] = 'submitting'
+        if getattr(exc, 'record', ''): state[aid]['record'] = str(exc.record)
+    elif isinstance(exc, ComfyGenerationFailed) or state[aid].get('state') == 'submitting' and isinstance(exc, ValueError): state[aid]['state'] = 'failed'
+    save_ledger(project, state, publish=publish_ledger)
+
+
 def run_batch(project, base, items, options, events, stop, client_factory=Comfy):
     """Generate and register one image per eligible asset without UI access."""
     from cloud_assets import LOCAL, MODELS, validate as validate_cloud, graph as cloud_graph, get_key
@@ -149,12 +161,5 @@ def run_batch(project, base, items, options, events, stop, client_factory=Comfy)
             success += 1; events.put(aid + '：' + result)
         except Exception as exc:
             failed += 1; events.put(aid + '：' + str(exc))
-            if aid in state:
-                state[aid]['error'] = str(exc)
-                if isinstance(exc, AssetSubmissionUncertain): pass
-                elif isinstance(exc, ComfySubmissionUncertain):
-                    state[aid]['state'] = 'submitting'
-                    if getattr(exc, 'record', ''): state[aid]['record'] = str(exc.record)
-                elif isinstance(exc, ComfyGenerationFailed) or state[aid].get('state') == 'submitting' and isinstance(exc, ValueError): state[aid]['state'] = 'failed'
-                save_ledger(project, state, publish=publish_ledger)
+            _record_failure(project, state, aid, exc, publish_ledger)
     return f'批量完成：成功 {success}，未完成 {failed}' + ('；已停止后续资产' if stop.is_set() else '')
