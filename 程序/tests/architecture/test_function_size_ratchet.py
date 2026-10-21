@@ -18,7 +18,6 @@ OVERSIZE_CAPS = {
     ('storyboard_files.py', 'show_final'): 401,
     ('storyboard_files.py', 'show'): 335,
     ('desktop_storyboard_page.py', 'storyboard'): 321,
-    ('app.py', '__init__'): 267,
     ('desktop_idea_chat.py', 'open_flow_agent'): 252,
     ('local_previs.py', 'show'): 252,
     ('desktop_script_pages.py', 'script_structure'): 244,

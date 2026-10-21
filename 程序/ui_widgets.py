@@ -3,6 +3,7 @@ import app_logging
 import os
 import tkinter as tk
 from tkinter import messagebox, ttk
+from app_metadata import APP_NAME
 
 from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        COMBOBOX_FIELD_BACKGROUND, COMBOBOX_FONT,
