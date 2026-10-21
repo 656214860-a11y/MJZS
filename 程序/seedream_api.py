@@ -1,7 +1,6 @@
 """Volcengine Seedream profiles and direct Images API, shared with the assistant."""
 import app_logging
 import base64
-import ctypes
 import json
 import os
 import re
@@ -54,25 +53,12 @@ def write_settings(data):
 
 
 def protect(data,decrypt=False,label='火山 API Key'):
-    """Windows DPAPI 加解密：全程序只有这一份实现，火山、TTS、Comfy 云模型共用。
+    """Windows DPAPI 加解密：实现只在 model_secrets.protect，这里留默认标签的入口给火山、TTS、Comfy 云模型。
 
     label 只用于出错时的中文提示（各家的 Key 名字不同），加解密行为完全一样。
     """
-    from ctypes import wintypes
-    class Blob(ctypes.Structure):
-        _fields_=[('cbData',wintypes.DWORD),('pbData',ctypes.POINTER(ctypes.c_ubyte))]
-    buffer=ctypes.create_string_buffer(data)
-    source=Blob(len(data),ctypes.cast(buffer,ctypes.POINTER(ctypes.c_ubyte)));output=Blob()
-    function=ctypes.windll.crypt32.CryptUnprotectData if decrypt else ctypes.windll.crypt32.CryptProtectData
-    function.argtypes=[ctypes.POINTER(Blob),ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,ctypes.c_void_p,wintypes.DWORD,ctypes.POINTER(Blob)]
-    function.restype=wintypes.BOOL
-    if not function(ctypes.byref(source),None,None,None,None,1,ctypes.byref(output)):
-        raise ValueError('Windows 无法读取或保存'+label+'，请在当前用户下重新保存。')
-    try:return ctypes.string_at(output.pbData,output.cbData)
-    finally:
-        ctypes.windll.kernel32.LocalFree.argtypes=[ctypes.c_void_p]
-        ctypes.windll.kernel32.LocalFree.restype=ctypes.c_void_p
-        ctypes.windll.kernel32.LocalFree(output.pbData)
+    import model_secrets
+    return model_secrets.protect(data,decrypt,label)
 
 
 def validate(base_url,model,key):

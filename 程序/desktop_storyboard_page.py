@@ -11,7 +11,7 @@ import tkinter as tk
 import ui_plugin_registry
 from agent.core import read
 from pathlib import Path
-from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_row_toggle, configure_check_column, fit_columns_by_content, fit_row_height, refresh_request_width
+from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_row_toggle, bind_space_toggle, configure_check_column, fit_columns_by_content, fit_row_height, refresh_request_width
 from storyboard_paths import media_root
 from tkinter import ttk
 from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT
@@ -112,16 +112,7 @@ class StoryboardPageMixin:
         def toggle_all_frames():
             box.toggle_all();selection_changed()
         table.heading('#0',command=toggle_all_frames)
-        def toggle_focus_check(event):
-            sid=table.focus()
-            if not sid or not table.exists(sid):
-                rows=table.selection()
-                sid=rows[0] if rows else None
-            if sid:
-                if table.selection()!=(sid,):table.selection_set(sid)
-                toggle_frame(sid)
-            return 'break'
-        table.bind('<space>',toggle_focus_check,add='+')
+        bind_space_toggle(table,toggle_frame)
         def selection_changed(event=None):
             valid=bool(table.selection())
             available=valid and exists(selected()) and not selected().get('frame_deleted')

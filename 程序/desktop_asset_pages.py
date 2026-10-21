@@ -14,7 +14,7 @@ from agent.core import read
 from desktop_auto_flows import ASSET_RETRY_LIMIT
 from pathlib import Path
 from platform_tools import open_target
-from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_row_toggle, bind_show_all, configure_check_column, fit_row_height, refresh_check_heading, refresh_request_width, remember_columns
+from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_row_toggle, bind_space_toggle, bind_show_all, configure_check_column, fit_row_height, refresh_check_heading, refresh_request_width, remember_columns
 from tkinter import ttk
 from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_HINT
 from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_string
@@ -460,15 +460,7 @@ class AssetPagesMixin:
         def toggle_all_assets():
             box.toggle_all()
         table.heading('#0',command=toggle_all_assets)
-        def toggle_focus_check(event):
-            aid=table.focus()
-            if not aid or not table.exists(aid):
-                rows=table.selection();aid=rows[0] if rows else None
-            if aid:
-                if table.selection()!=(aid,):table.selection_set(aid)
-                toggle_asset(aid)
-            return 'break'
-        table.bind('<space>',toggle_focus_check,add='+')
+        bind_space_toggle(table,toggle_asset)
         def preview():
             if not table.selection():raise ValueError('先在资产表中选择一项')
             asset=registry[table.selection()[0]]

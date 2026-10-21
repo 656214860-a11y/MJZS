@@ -38,68 +38,42 @@ def _cached_content(cache, key, token, data):
     return None
 
 
-@access()
-def read_json(path):
-    key = _key(path)
+def _read_through(cache, key, path, parse):
+    """按文件签名（修改时间＋大小）复用解析结果；签名变了但字节没变也复用，stat 失败则清掉旧条目再抛。"""
     try:
         stat = Path(path).stat()
     except OSError:
-        _CACHE.pop(key, None)
+        cache.pop(key, None)
         raise
     token = (stat.st_mtime_ns, stat.st_size)
-    hit = _CACHE.get(key)
+    hit = cache.get(key)
     if hit is not None and hit[0] == token:
         return hit[2]
     raw = Path(path).read_bytes()
-    cached = _cached_content(_CACHE, key, token, raw)
+    cached = _cached_content(cache, key, token, raw)
     if cached is not None:
         return cached
-    data = json.loads(raw)
-    _CACHE[key] = (token, _digest(raw), data)
+    data = parse(raw)
+    cache[key] = (token, _digest(raw), data)
     return data
+
+
+@access()
+def read_json(path):
+    return _read_through(_CACHE, _key(path), path, json.loads)
 
 
 @access()
 def read_text(path, encoding='utf-8-sig', errors=None):
     """读取用于 UI 预览的文本，并在文件未变时复用结果。"""
-    key = (_key(path), encoding, errors)
-    try:
-        stat = Path(path).stat()
-    except OSError:
-        _TEXT_CACHE.pop(key, None)
-        raise
-    token = (stat.st_mtime_ns, stat.st_size)
-    hit = _TEXT_CACHE.get(key)
-    if hit is not None and hit[0] == token:
-        return hit[2]
-    raw = Path(path).read_bytes()
-    cached = _cached_content(_TEXT_CACHE, key, token, raw)
-    if cached is not None:
-        return cached
-    data = raw.decode(encoding, errors=errors or 'strict')
-    _TEXT_CACHE[key] = (token, _digest(raw), data)
-    return data
+    return _read_through(_TEXT_CACHE, (_key(path), encoding, errors), path,
+                         lambda raw: raw.decode(encoding, errors=errors or 'strict'))
 
 
 @access()
 def read_bytes(path):
     """读取大文本的原始字节并按文件签名复用，供编码探测类预览使用。"""
-    key = _key(path)
-    try:
-        stat = Path(path).stat()
-    except OSError:
-        _BYTES_CACHE.pop(key, None)
-        raise
-    token = (stat.st_mtime_ns, stat.st_size)
-    hit = _BYTES_CACHE.get(key)
-    if hit is not None and hit[0] == token:
-        return hit[2]
-    data = Path(path).read_bytes()
-    cached = _cached_content(_BYTES_CACHE, key, token, data)
-    if cached is not None:
-        return cached
-    _BYTES_CACHE[key] = (token, _digest(data), data)
-    return data
+    return _read_through(_BYTES_CACHE, _key(path), path, bytes)
 
 
 @access()

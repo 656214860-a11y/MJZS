@@ -92,6 +92,18 @@ def bind_row_toggle(tree, toggle, link_columns=()):
         return 'break'
     tree.bind('<Button-1>',click,add='+')
 
+def bind_space_toggle(tree, toggle):
+    """空格键勾选／取消当前行：优先光标行，光标行失效时退到高亮行，并把高亮对齐到该行。"""
+    def press(event):
+        row=tree.focus()
+        if not row or not tree.exists(row):
+            rows=tree.selection();row=rows[0] if rows else None
+        if row:
+            if tree.selection()!=(row,):tree.selection_set(row)
+            toggle(row)
+        return 'break'
+    tree.bind('<space>',press,add='+')
+
 def checked_rows(tree, is_checked):
     """内容框里勾着的那几行（按表格里的先后次序）。
 

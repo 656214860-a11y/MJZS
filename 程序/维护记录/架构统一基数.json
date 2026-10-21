@@ -1032,12 +1032,6 @@
             },
             {
                 "file": "file_cache.py",
-                "point": "read_json:json.loads:a142745c58a77a7c:1",
-                "disposition": "exempt",
-                "reason": "\u7f13\u5b58\u6743\u5a01\u81ea\u8eab"
-            },
-            {
-                "file": "file_cache.py",
                 "point": "read_stable_json_snapshot:json.loads:7fedb55b216dfc4e:1",
                 "disposition": "exempt",
                 "reason": "R831\uff1a\u7f13\u5b58\u6743\u5a01\u96c6\u4e2d\u6267\u884c\u5e26\u524d\u540e\u7b7e\u540d\u6821\u9a8c\u7684\u7a33\u5b9a\u5de5\u4f5c JSON \u5feb\u7167\u8bfb\u53d6\u3002"

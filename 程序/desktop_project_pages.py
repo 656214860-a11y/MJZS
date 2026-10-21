@@ -19,6 +19,14 @@ from ui_widgets import BaseDialog, DataTable, NotificationDispatcher, PrimaryBut
 from desktop_page_support import ContextMenu, confirm, open_path
 
 
+def project_sort_key(item):
+    """项目列表按创建时间排；已登记 created_at 的不再碰磁盘（dict.get 的默认值会被提前求值）。"""
+    if 'created_at' in item:return item['created_at']
+    path=Path(item['path'])
+    try:return path.stat().st_ctime
+    except OSError:return 0
+
+
 class ProjectPagesMixin:
     """Desktop 的项目管理方法集（见模块说明）。"""
     def _start_legacy_project_migration(self):
@@ -65,7 +73,7 @@ class ProjectPagesMixin:
             items=[p for p in self.projects.info['projects'] if p.get('status','making')==state]
             tree.tag_configure('empty-group',foreground=COLORS['text_muted'])
             tree.insert('','end',iid='group:'+state,text=f'{label}（{len(items)}）',open=bool(items),tags=() if items else ('empty-group',))
-            for p in sorted(items,key=lambda item:item.get('created_at',Path(item['path']).stat().st_ctime if Path(item['path']).exists() else 0)):
+            for p in sorted(items,key=project_sort_key):
                 tree.insert('group:'+state,'end',iid=p['path'],text=self.project_row_text(p))
     def project_row_text(self,p):
         """项目行文字：当前打开的项目前加「●」，让用户随时看得出现在在哪个项目里。"""

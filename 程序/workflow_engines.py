@@ -18,23 +18,23 @@ from workflow_context_budget import ensure_request_context
 import client_profiles
 
 
-def reserve_stage_process_slot(project, stage):
-    """L3 在唯一并行配置上计算模型进程容量，L1 注册表只保存槽位。"""
+def _stage_slot_arguments(stage):
+    """阶段名（英文键或中文名）→ 槽位注册表要的 (键, 阶段并发上限, 全局上限, 显示名)。"""
     from pet_bus import STAGE_NAMES
     from stage_parallel import GLOBAL_LIMIT, concurrency_limit, label
     value = str(stage or '')
     key = next((name for name, text in STAGE_NAMES.items() if value in (name, text)), value)
     key = {'writing': 'script', 'frames': 'keyframe', 'video_prompt': 'video'}.get(key, key)
-    return reserve_process_slot(project, key, concurrency_limit(key), GLOBAL_LIMIT, label(key))
+    return key, concurrency_limit(key), GLOBAL_LIMIT, label(key)
+
+
+def reserve_stage_process_slot(project, stage):
+    """L3 在唯一并行配置上计算模型进程容量，L1 注册表只保存槽位。"""
+    return reserve_process_slot(project, *_stage_slot_arguments(stage))
 
 def request_stage_process_slot(project, stage):
     """申请交互模型槽位：满额时返回排队票据，调用方可在 UI 空闲时轮询。"""
-    from pet_bus import STAGE_NAMES
-    from stage_parallel import GLOBAL_LIMIT, concurrency_limit, label
-    value = str(stage or '')
-    key = next((name for name, text in STAGE_NAMES.items() if value in (name, text)), value)
-    key = {'writing': 'script', 'frames': 'keyframe', 'video_prompt': 'video'}.get(key, key)
-    return request_process_slot(project, key, concurrency_limit(key), GLOBAL_LIMIT, label(key))
+    return request_process_slot(project, *_stage_slot_arguments(stage))
 
 def claim_stage_process_slot(ticket):
     return claim_process_slot(ticket)

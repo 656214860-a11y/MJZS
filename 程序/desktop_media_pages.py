@@ -840,6 +840,18 @@ class MediaPagesMixin:
             else:
                 self.status.set('字幕时间已按实际配音／作者标注校准，共 %d 句。'%report.get('calibrated',0))
         return p
+    def stage_action_bar(self,stage,manual_text):
+        """后期／交付页顶部一行：「手动制作…」按钮＋该阶段的技能面板按钮（自动制作入口）。"""
+        from stage_models import manual_command
+        bar=FlowBar(self.content);bar.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
+        manual=PrimaryButton(bar,text=manual_text,width=STAGE_ACTION_WIDTH,
+                             command=lambda:self.safe(manual_command(self,stage,
+                                 lambda:ui_plugin_registry.module('stage_exec').show(self,stage),self.win)))
+        manual.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
+        ui_plugin_registry.module('stage_flow').follow(manual,stage)
+        self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(bar,self,PAGE[stage])
+        self.stage_button.configure(style='Tokens.Primary.TButton')
+        self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
     def editing(self):
         from editing_page_controller import EditingPageController
         from stage_workspace_service import ensure_editing_workspace
@@ -847,16 +859,7 @@ class MediaPagesMixin:
         result=ensure_editing_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         edit_dir,=result.data
-        from stage_models import manual_command as _manual_edit
-        _edit_bar=FlowBar(self.content);_edit_bar.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
-        _edit_button=PrimaryButton(_edit_bar,text='手动制作剪辑',width=STAGE_ACTION_WIDTH,
-                                command=lambda:self.safe(_manual_edit(self,'edit',
-                                    lambda:ui_plugin_registry.module('stage_exec').show(self,'edit'),self.win)))
-        _edit_button.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
-        ui_plugin_registry.module('stage_flow').follow(_edit_button,'edit')
-        self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(_edit_bar,self,PAGE['edit'])
-        self.stage_button.configure(style='Tokens.Primary.TButton')
-        self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
+        self.stage_action_bar('edit','手动制作剪辑')
         self.note('自动粗剪只拼装已验收的镜头：未验收的镜头会被跳过并列在状态栏，不再因为个别镜头卡住整集。本页可设置基础转场与背景音乐，并按平台导出成片副本；精细剪辑、对白音量和字幕烧录仍交给剪映，交接包保留镜头顺序。素材交接包只给有序视频与字幕，不是剪映草稿，可用「校验交接包」离线核对。本次输出规格：%s（等比缩放＋居中留边，不裁切）。'%controller.output_spec_text())
         edit_buttons=[]
         def edit_button(text,command,primary=False):
@@ -987,16 +990,7 @@ class MediaPagesMixin:
         result=ensure_delivery_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         delivery_dir,export_dir=result.data
-        from stage_models import manual_command as _manual_deliver
-        _deliver_bar=FlowBar(self.content);_deliver_bar.pack(fill='x',pady=(SPACING['xs'],SPACING['xs']))
-        _deliver_button=PrimaryButton(_deliver_bar,text='手动制作交付',width=STAGE_ACTION_WIDTH,
-                                   command=lambda:self.safe(_manual_deliver(self,'delivery',
-                                       lambda:ui_plugin_registry.module('stage_exec').show(self,'delivery'),self.win)))
-        _deliver_button.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
-        ui_plugin_registry.module('stage_flow').follow(_deliver_button,'delivery')
-        self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(_deliver_bar,self,PAGE['delivery'])
-        self.stage_button.configure(style='Tokens.Primary.TButton')
-        self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
+        self.stage_action_bar('delivery','手动制作交付')
         self.note('查看本地任务和技术质检状态，再由您确认画面、对白和剧情。这里不会查询云端任务。')
         def delivery_button(text,command,primary=False):
             """保留共享事件封装，只让交付页采用统一的视觉组件样式。"""
