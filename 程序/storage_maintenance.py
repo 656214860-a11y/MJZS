@@ -652,6 +652,30 @@ def source_protection(root, now=None):
     return protected, errors
 
 
+def _shot_versions(root, ledger, shot, rows, select_adopted, scan):
+    """storage_summary 的一个镜头：逐版本判定保留理由，把行写进 scan['versions']、文件归进候选／采用／其它三个集合。"""
+    file_sizes, protected = scan['file_sizes'], scan['protected']
+    newest = max((v.get('version', 0) for v in rows), default=0)
+    adopted = select_adopted(rows, ledger.parent.parent)[0] if select_adopted else None
+    for version in rows:
+        if version.get('cleaned_at'):
+            continue
+        folder = _version_folder(root, ledger, shot, version)
+        reason = version_retention(version, shot, newest, scan['referenced'], scan['digests'], scan['now'], scan['retention'])
+        if folder is None:
+            scan['versions'].append({'shot': shot, 'version': version.get('version'), 'bytes': 0, 'reason': '生成目录无法安全定位', 'candidate': False})
+            continue
+        files = {p for p in file_sizes if p.is_relative_to(folder)}
+        if not reason and any(p == folder or p.is_relative_to(folder) for p in protected):
+            reason = '来源或授权资料仍被引用'
+        if not reason:
+            scan['candidate_files'].update(files)
+        (scan['adopted_files'] if version is adopted else scan['other_files']).update(files)
+        scan['versions'].append({'shot': shot, 'version': version.get('version'), 'bytes': sum(file_sizes[p] for p in files),
+                                 'reason': RETAIN_REASONS.get(reason, reason) or VERSION_CLEAN_REASON,
+                                 'candidate': not bool(reason), 'adopted': version is adopted if select_adopted else None})
+
+
 def storage_summary(root, now=None, select_adopted=None):
     """只读盘点；未发现引用不等于可删除，同盘回收不等于释放容量。"""
     root = Path(root).resolve()
@@ -680,28 +704,13 @@ def storage_summary(root, now=None, select_adopted=None):
         for ledger in list(root.glob('**/data/state.json')) + list(root.glob('**/06_本地生成/state.json')):
             if not _within(ledger, root) or _within(ledger, _recycle_base(root)):
                 continue
+            scan = {'file_sizes': file_sizes, 'protected': protected, 'referenced': referenced, 'digests': digests,
+                    'now': now, 'retention': retention, 'versions': versions, 'candidate_files': candidate_files,
+                    'adopted_files': adopted_files, 'other_files': other_files}
             try:
                 state = read_json(ledger)
                 for shot, rows in state['shots'].items():
-                    newest = max((v.get('version', 0) for v in rows), default=0)
-                    adopted = select_adopted(rows, ledger.parent.parent)[0] if select_adopted else None
-                    for version in rows:
-                        if version.get('cleaned_at'):
-                            continue
-                        folder = _version_folder(root, ledger, shot, version)
-                        reason = version_retention(version, shot, newest, referenced, digests, now, retention)
-                        if folder is None:
-                            versions.append({'shot': shot, 'version': version.get('version'), 'bytes': 0, 'reason': '生成目录无法安全定位', 'candidate': False})
-                            continue
-                        files = {p for p in file_sizes if p.is_relative_to(folder)}
-                        if not reason and any(p == folder or p.is_relative_to(folder) for p in protected):
-                            reason = '来源或授权资料仍被引用'
-                        if not reason:
-                            candidate_files.update(files)
-                        (adopted_files if version is adopted else other_files).update(files)
-                        versions.append({'shot': shot, 'version': version.get('version'), 'bytes': sum(file_sizes[p] for p in files),
-                                         'reason': RETAIN_REASONS.get(reason, reason) or VERSION_CLEAN_REASON,
-                                         'candidate': not bool(reason), 'adopted': version is adopted if select_adopted else None})
+                    _shot_versions(root, ledger, shot, rows, select_adopted, scan)
             except (OSError, ValueError, TypeError, KeyError) as exc:
                 errors.append(str(ledger.relative_to(root)) + '：' + str(exc))
     return {'bytes': sizes, 'errors': errors, 'retention_days': retention // 86400 if retention else None,
