@@ -58,12 +58,12 @@ from ui_tokens import COLORS, FONTS, SPACING, PET_LAYOUT, PET_CLOUD_AUTO_CLOSE_M
 from pet_cloud_timing import (ALPHA, FADE_MS, FADE_OUT_MS, FADE_OUT_STEPS, FADE_STEPS, GROW_ROOM, GROW_STEPS,
                               HOLD_MS, READ_MAX_MS, READ_MS_PER_CHAR, WATCH_RECHECK_MS, CloudTimingMixin)
 from pet_cloud_hint import (HINT_MS, HINT_STEP_PX, HINT_X, REPLY_HINTS, CloudHintMixin)
+from pet_cloud_place import (ANCHOR_DROP, ANCHOR_RATIO, CHEEK_X, CHEEK_Y, DOCK_TOP, EAR_RATIO, MARGIN, MAX_BODY,
+                             MAX_BODY_DOWN, MAX_GAP, MIN_BODY, PET_GAP, PET_SIZE, POSITION_RETRY_MAX,
+                             POSITION_RETRY_MS, SHAPE_MIN_BODY, TAIL, TAIL_BASE, TAIL_SPAN_X, TAIL_SPAN_Y, TIP_IN,
+                             shape_min_body, shape_root, CloudPlaceMixin)
 
 WIDTH = 344                       # 方框对话框的宽度（第 21 期收窄；第 28 期随字号放大一档；第 30 期第 4 条再收窄）
-MIN_BODY = 96                     # 云身最小高度（第 28 期第 1 条随字号放大一档）
-MAX_BODY = 232                    # 云身最大高度（第 30 期第 4 条：框身整体收小一档，再长就交给滚轮翻）
-MAX_BODY_DOWN = 448               # 第 42 期第 2 条：贴着屏幕上沿、整朵翻到三虎下面时的上限——下面那一整屏都是空的，
-                                  # 框身长到刚好装下这条内容（约 16 行），再长照旧交给滚轮
 PAD = 16                          # 云身内边距
 ROW_H = 30                        # 输入行高度
 # 第 45 期：用户要「三虎对话框右上角有颗关闭按钮」。带输入行的那一方框对话框顶上因此空出一条
@@ -71,11 +71,6 @@ ROW_H = 30                        # 输入行高度
 CLOSE_H = 26                      # 顶上给「关闭」空出的那一条（第 59 期第 9 条：按钮放大，这一条跟着高一点）
 CLOSE_SIZE = 22                   # 那颗×的边长（第 59 期第 9 条：16 → 22，看得见、点得着）
 CLOSE_MARK = '×'                  # 按钮上画什么：一个乘号，够小也认得出
-TAIL = 30                         # 云身下方留给尾巴尖的带子（第 21 期起是一根尖角，不是三个圆点）
-TAIL_BASE = 16                    # 尾巴三角形的底边宽（底边长在云身里、被云身盖住，只露尖角）
-ANCHOR_DROP = TAIL                # 第 21 期：云身下沿比贴片下沿再低一条尾巴带——用户要的
-                                  # 「云朵框还要往下移，底部对齐左侧文字标题」（那张贴片下沿
-                                  # 正好是标题行里那行大字的底边）
 GUTTER = 46                       # 云身右边留给尾巴的那条空档：云身整个站在三虎左边，尾巴从这儿指过去
 WRAP = WIDTH - 2 * PAD - 12       # 文字换行宽度（方框这一形状的兜底值）
 STARTUP_LAYOUT_SETTLE_SECONDS = 8 # 首帧后的 Tk 空闲布局窗口；期间不能嵌套 spin
@@ -113,28 +108,13 @@ SHAPE_WIDTH = {SHAPE_CLOUD: WIDTH, SHAPE_PUFF: 400, SHAPE_ROUND: ROUND_WIDTH, SH
 # 原来 PUFF 200／ROUND 188／TAG 110 各是「一圈鼓包／椭圆／大圆角」内接写字框留下的底数，
 # 第 57 期外形统一成方框之后它们就只剩一个效果：一句话也留一大片空白——开机招呼那朵 374×230 的框里
 # 只有两行字（用户报的「打招呼的聊天框没有按内容自动调整大小」）。
-SHAPE_MIN_BODY = {SHAPE_CLOUD: MIN_BODY, SHAPE_PUFF: MIN_BODY,
-                  SHAPE_ROUND: MIN_BODY, SHAPE_TAG: MIN_BODY}
 # 可爱话／提示／标签是「一句话」的贴纸：只带最新那一条（第 21 期把提示框也归到这一类——进度那
 # 一段本身就好几行，再把前几条一起搬进来就会挤成一坨，用户报的就是「过大、排版乱」）。
-EAR_RATIO = 0.14                  # 贴片耳朵的纵向位置：圆气泡「从耳朵那头长出来」拿它当起点
-CHEEK_X = 0.30                    # 第 24 期：尾巴尖统一指三虎的脸颊——横向 0.30（贴着云身那半边脸）
-CHEEK_Y = 0.62                    # 脸颊的纵向位置（64 像素的贴片里在 40/64 那一行）
-ANCHOR_RATIO = 1.0                # 云身下沿对齐贴片的这个位置（1.0＝贴片下沿；再加 ANCHOR_DROP）
-TIP_IN = 6                        # 尾巴尖落在浮窗右下角往内这么多像素的地方
-TAIL_SPAN_X = 0.86                # 第 24 期：尾巴根（底边中点）落在云身宽度的这个比例上
-TAIL_SPAN_Y = 0.86                # 与云身高度的这个比例上：底边整条被云身盖住，只把尖角露在外面
-MARGIN = 8                        # 浮窗离屏幕边留一点，别贴着屏幕边
-PET_GAP = 6                       # 第 24 期：云身与三虎之间至少留这么宽一条缝（不许压住猫）
-MAX_GAP = 30                      # 第 25 期第 4 条：云身离三虎最多这么远（远了就往回收，别像两块不相干的板子）
-POSITION_RETRY_MS = 50              # 主窗口尚未映射完成时，给 Tk 一小拍完成布局
-POSITION_RETRY_MAX = 10             # 最多等 500ms；不能无限重试并把 (0,0) 当作有效坐标
 WHISPER_MS = 5200                 # 云朵框（做动作时随口一句）停留多久（第 24 期起还与阅读时间取大）
 BANNER_MS = 6000                  # 标签框（关软件前的日报／周报）渐入后停留多久
 PROGRESS_MS = 12000               # 进度圆气泡停留多久（与 pet_ui.PROGRESS_MS 同一口径）
 GREETING_MS = 5500                # 开机招呼的云朵框停留多久（用户要求再缩短一半，原 11000）；招呼只有两句，直接按它定，不与阅读时间底线取大
 WHEEL_PX = 30                     # 滚轮一格翻多少像素
-PET_SIZE = PET_LAYOUT['avatar_size']  # 贴片画不出来时的兜底边长
 LINE_LIMIT = 40                   # 只留最近这些段，云朵不当地志
 NUMBER_GAP = '\u00a0'             # 编号与正文之间那个空档：用不换行空格。普通空格在圆／标签／云朵框这
                                   # 些窄框里会被 Tk 当成换行点，整句正文挪到下一行、头一行只剩一个孤零零
@@ -187,7 +167,6 @@ ROUND_MIN_WIDTH = 216
 # 第 57 期第 1 条：四种方框各自收窄时的宽度下限（对话框与标签同一档，可爱话与提示各一档）。
 SHAPE_MIN_WIDTH = {SHAPE_CLOUD: MIN_WIDTH, SHAPE_PUFF: PUFF_MIN_WIDTH,
                    SHAPE_ROUND: ROUND_MIN_WIDTH, SHAPE_TAG: MIN_WIDTH}
-DOCK_TOP = 4                                    # 主界面上沿离屏幕上沿不超过这么多像素＝贴着屏幕顶（全屏／最大化）
 CONFIRM_PREFIX = '暂时不动手——'   # 回答里带这一句＝这一步要用户点头（drain 会另外弹通知气泡）
 # 第 21 期：尾巴从「三个由大到小的圆点」改成漫画对话框那样的一根尖角（用户要的
 # 「不使用圆形气泡，尖角处指向三虎耳朵」）——底边长在云身里，只把尖角露在外面。
@@ -228,14 +207,6 @@ def square_parts(width, height):
     return _square_parts(width, height, SQUARE_ROUND)
 
 
-def shape_root(shape, width, height):
-    """尾巴根（云身坐标）：长在框身靠右下那一带，尾巴点才不像是飘在空中的。
-
-    第 57 期第 1 条：四种聊天框都是同一个方框，落点也就只有这一处——根埋在框身偏右下的填充里
-    （底边整条被框身盖住，接缝露不出来），只把弯尖角甩到三虎的脸颊上。shape 只是个签名参数，
-    留着是为了调用方（含自检）不必改。
-    """
-    return _shape_root(width, height, TAIL_SPAN_X, TAIL_SPAN_Y)
 
 
 def shape_parts(shape, width, height):
@@ -267,8 +238,6 @@ def shape_width(shape):
     return _configured_value(shape, SHAPES, SHAPE_CLOUD, SHAPE_WIDTH)
 
 
-def shape_min_body(shape):
-    return _configured_value(shape, SHAPES, SHAPE_CLOUD, SHAPE_MIN_BODY)
 
 
 def shape_min_width(shape):
@@ -286,7 +255,7 @@ def text_box(shape, width, height, pad=PAD, long=False):
     return _shape_text_box(width, height, pad)
 
 
-class Cloud(CloudTimingMixin, CloudHintMixin):
+class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin):
     """三虎的对话框（方框／云朵／圆／标签）：show()/close() 管浮窗，broadcast() 播报，submit()
     说一句，drain() 贴回复。"""
 
@@ -717,430 +686,6 @@ class Cloud(CloudTimingMixin, CloudHintMixin):
     def edge(self):
         """这一形状的描边色。"""
         return shape_colors(self.shape)[1]
-
-    # ── 定位：云站在三虎左边，尾巴尖指着它的脸颊 ───────────────────────────
-    def _patch_rect(self):
-        """贴片在屏幕上的矩形 (left, top, width, height)：量不准就退回上一次可信的那一份。
-
-        第 49 期第 1 条（用户报「从助手切换出来时，聊天框从画面右边跳到画面左边」）：主窗口一
-        最小化／收起，winfo_rootx／rooty 就不再是贴片在屏幕上的位置了——Tk 那时报的是「窗口没
-        映射」时的相对坐标（实测画布宽 64 却报 left=768、top=1004，凭空挪到屏幕下半截）。任何
-        一次重排（播报把框顶出来、界面 Configure 跟一手）赶上这一刻，整朵云就落到屏幕另一边；
-        等用户切回来再量又是对的，看着就是「跳」。
-        所以这里先核一遍：贴片没映射、尺寸量成 0、坐标落到屏幕外，这一次的量值就都不作数，退回
-        上一次量准的那一份；一次都没量准过（开机头几拍）才照原样返回——那会儿 _origin 自己会把
-        落点夹进屏幕里。
-        """
-        try:
-            canvas = self.pet.canvas
-        except Exception:
-            canvas = None
-        if canvas is None:
-            return getattr(self, '_last_patch', None) or (0.0, 0.0, float(PET_SIZE), float(PET_SIZE))
-        width, height = float(PET_SIZE), float(PET_SIZE)
-        try:
-            width = float(int(canvas.winfo_width()) or int(canvas.cget('width')))
-        except Exception:
-            app_logging.swallowed()
-        try:
-            height = float(int(canvas.winfo_height()) or int(canvas.cget('height')))
-        except Exception:
-            app_logging.swallowed()
-        try:
-            left, top = float(int(canvas.winfo_rootx())), float(int(canvas.winfo_rooty()))
-        except Exception:
-            left = top = 0.0
-        if self._patch_is_trustworthy(canvas, left, top, width, height):
-            self._last_patch = (left, top, width, height)
-        elif getattr(self, '_last_patch', None) is not None:
-            return self._last_patch
-        return (left, top, width, height)
-
-    def _patch_is_trustworthy(self, canvas, left, top, width, height):
-        """这一次量出来的贴片矩形可信吗（第 49 期第 1 条）。
-
-        主判据是「贴片映射着没有」：窗口一最小化／收起，winfo_ismapped 当场变假，而那一刻的
-        rootx／rooty 全是假的——这一条在真机上实测过（贴片会报成屏幕下半截的位置）。
-        不拿「坐标有没有超出屏幕」当判据：多显示器时副屏的横坐标本来就大于主屏宽度，
-        那条判据会把好端端的副屏位置判成假的。
-        """
-        try:
-            if not bool(canvas.winfo_ismapped()):
-                return False
-        except Exception:
-            app_logging.swallowed()
-        if width < 8.0 or height < 8.0:
-            return False
-        return left >= 0.0 and top >= 0.0
-
-    def _ear(self):
-        """贴片耳朵在屏幕上的位置：圆气泡「从耳朵那头长出来」用它当起点（第 19 期）。"""
-        left, top, width, height = self._patch_rect()
-        return (left + max(8.0, width) * 0.5, top + max(8.0, height) * EAR_RATIO)
-
-    def _cheek(self):
-        """贴片脸颊在屏幕上的位置：四种形状的尾巴尖统一指这里（第 24 期用户要的「指向脸颊」）。
-
-        第 22 期指的是嘴边（脸正中的那一列）；脸颊往云身这一侧偏一点（CHEEK_X），尾巴斜着
-        伸过去才不会从整张脸中间穿过——「三虎正在说话」的感觉也正是这条斜尾巴给的。
-        """
-        left, top, width, height = self._patch_rect()
-        return (left + max(8.0, width) * CHEEK_X, top + max(8.0, height) * CHEEK_Y)
-
-    def _anchor(self):
-        """整朵云与尾巴共用的那一个锚点：三虎的脸颊（第 24 期起）。
-
-        云身右下沿、尾巴尖都按它算——所以窗口缩放、贴片挪位时，整朵云和那根尖角是**一起**动的，
-        不会出现「云跟着走了、尾巴还指着原处」。耳朵只留给圆气泡「长出来」的起点（_grow_to）。
-        """
-        return self._cheek()
-
-    def _bottom(self):
-        """贴片下沿：云身下沿落在这一条线上（第 18 期「底部和三虎对齐」＋第 21 期的 ANCHOR_DROP）。"""
-        left, top, width, height = self._patch_rect()
-        # 第 21 期：再往下 ANCHOR_DROP 一条尾巴带——云身下沿落在贴片下沿上（也就是标题行里那行
-        # 大字的底边），用户要的「云朵框还要往下移，底部对齐左侧文字标题」。
-        return top + max(8.0, height) * ANCHOR_RATIO + ANCHOR_DROP
-
-    def _work_right(self):
-        """屏幕右边界：云可以压在主界面之外，但不许整朵跑到屏幕外面去。"""
-        try:
-            return int(self.win.winfo_screenwidth())
-        except Exception:
-            return 0
-
-    def _window_rect(self):
-        """助手主窗口在屏幕上的矩形 (left, top, right, bottom)；拿不到就返回 None。"""
-        try:
-            left, top = int(self.parent.winfo_rootx()), int(self.parent.winfo_rooty())
-            width, height = int(self.parent.winfo_width()), int(self.parent.winfo_height())
-        except Exception:
-            return None
-        if width <= 1 or height <= 1:
-            return None
-        return (left, top, left + width, top + height)
-
-    def _inside_window(self, left, top):
-        """整朵云在屏幕外摆不下时把它挪进助手界面里（第 22 期用户要的「调整到界面内」）。
-
-        界面里总放得下——真放不下也还有滚轮。摆得下（原来那个落点已经整朵在屏幕里）就返回
-        None，调用方照旧用原落点，界面上看不出任何变化。
-        """
-        width, height = self.total_width(), self._body + TAIL
-        right = self._work_right()
-        screen = self._screen_height()
-        fits = (left >= MARGIN and (right <= 0 or left + width <= right - MARGIN)
-                and top >= MARGIN and (screen <= 0 or top + height <= screen - MARGIN))
-        if fits:
-            return None
-        rect = self._window_rect()
-        if rect is None:
-            return None
-        x0, y0, _x1, _y1 = rect
-        limit_x = (right - width - MARGIN) if right > 0 else x0 + MARGIN
-        inner_left = max(MARGIN, min(x0 + MARGIN, max(MARGIN, limit_x)))
-        limit_y = (screen - height - MARGIN) if screen > 0 else y0 + MARGIN
-        inner_top = max(0, min(y0 + MARGIN, max(0, limit_y)))
-        return int(inner_left), int(inner_top)
-
-    def _screen_height(self):
-        try:
-            return int(self.win.winfo_screenheight()) if self.win is not None else 0
-        except Exception:
-            return 0
-
-    def _room_above(self):
-        """三虎上方还剩多高（云身＋尾巴都得从这里排）。"""
-        return int(self._bottom() - MARGIN - TAIL)
-
-    def _room_below(self):
-        """三虎下方还剩多高：上方放不下时云身翻到它下面去。"""
-        screen = self._screen_height()
-        if screen <= 0:
-            return 0
-        return int(screen - MARGIN - self._bottom() - MARGIN - TAIL)
-
-    def _can_align_top(self, height=None):
-        if self.shape != SHAPE_CLOUD:
-            return False
-        left, top, _width, _height = self._patch_rect()
-        height = self._body if height is None else height
-        return (left >= self.width() + PET_GAP + MARGIN
-                and top >= MARGIN
-                and top + height + TAIL <= self._screen_height() - MARGIN)
-
-    def _flipped(self):
-        """上方连最小云身都放不下、下方反而更宽敞时，翻到三虎下面（全屏时就是这么救的）。
-
-        第 36 期第 7 条：_down（这一条内容上方真放不下、主界面又贴着屏幕上沿）也算翻下去——
-        判据从「连最小云身都放不下」换成「这条内容放不下」，见 _wants_down。
-        """
-        if self._can_align_top():
-            return False
-        if self._down:
-            return True
-        above = self._room_above()
-        return above < shape_min_body(self.shape) and self._room_below() > above
-
-    def _frame_top(self):
-        """主窗口**窗体**上沿的屏幕坐标（含标题栏）；量不到返回 None。
-
-        第 42 期第 2 条：winfo_rooty() 给的是客户区上沿——窗口被拖到屏幕上沿时 Windows 还留着一条
-        标题栏（实测客户区在屏幕下 31 像素，最大化时 23 像素），按它判「贴不贴顶」会漏判：全屏那一套
-        「整朵翻到三虎下面」的判据在「拖到最上面」时整条不生效，用户看到的就是「聊天框只显示一行」。
-        这里改问窗口管理器要窗体矩形（GetWindowRect），拿不到（非 Windows／接口不在）退回客户区上沿。
-        """
-        try:
-            import ctypes
-            import ctypes.wintypes
-            handle = int(self.parent.winfo_id())
-            frame = ctypes.windll.user32.GetParent(handle) or handle
-            rect = ctypes.wintypes.RECT()
-            if ctypes.windll.user32.GetWindowRect(frame, ctypes.byref(rect)):
-                return int(rect.top)
-        except Exception:
-            app_logging.swallowed()
-        rect = self._window_rect()
-        return None if rect is None else int(rect[1])
-
-    def _docked_top(self):
-        """主界面是不是贴在屏幕上沿（全屏／最大化／被拖到最上面）。拿不到窗口矩形当「不是」。"""
-        rect = self._window_rect()
-        if rect is None:
-            return False                       # 窗口还没映射出来（1×1）：别拿没量到的坐标当「贴着顶」
-        top = self._frame_top()
-        return False if top is None else int(top) <= DOCK_TOP
-
-    def _wants_down(self, wanted):
-        """这一条内容要不要整朵挪到三虎下面（第 36 期第 7 条：逐步下移显示更多内容）。
-
-        全屏、或主界面被拖到屏幕上沿时，三虎上方的余量只剩几十像素：原来只按「连最小云身都
-        放不下」判，内容稍长就压在那条窄带里、被 _fit_body 压到最小高度，字只能靠滚轮翻。
-        现在按**这条内容真正需要的高度**判——上方放不下、下方更宽敞就往下挪，框身一路往下长。
-        主界面不在屏幕顶时不改判据，界面里的落点与原来一模一样。
-        """
-        above = self._room_above()
-        if wanted <= above:
-            return False
-        below = self._room_below()
-        if below <= above:
-            return False
-        return self._docked_top() or above < shape_min_body(self.shape)
-
-    def _up(self):
-        """尾巴该往哪头伸：云身翻在三虎下面时往上（第 29 期第 3 条）。
-
-        向上翻的时候脸颊在云身上方，尾巴再从下边那条带子里挑出来就只能顶到画布上沿——离脸颊还差一整条云身，
-        用户看到的就是「箭头没碰到三虎的脸」。这时带子改在上方（见 _shift）。"""
-        return self._flipped()
-
-    def _shift(self):
-        """云身在画布里的纵向偏移：尾巴带在下时为 0，在上时为 TAIL。"""
-        return TAIL if self._up() else 0
-
-    def _body_ceiling(self):
-        """云身高度上限（第 42 期第 2 条）。
-
-        平时收在 MAX_BODY（第 30 期第 4 条那一档，再长交给滚轮）；主界面贴着屏幕顶、整朵被迫翻到
-        三虎下面时，下面那一整屏都是空的，用户要的「把框下移显示更多内容」就落在这里——上限放宽到
-        MAX_BODY_DOWN，框身长到刚好装下这条内容为止（内容短还是原来那么小，不会无端变胖）。
-        """
-        if self._flipped() and self._docked_top():
-            return MAX_BODY_DOWN
-        return MAX_BODY
-
-    def _fit_body(self, wanted):
-        """云身高度：放得下就按内容，放不下就压到能放的高度（其余内容靠滚轮看）。"""
-        if self._can_align_top(min(wanted, MAX_BODY_DOWN)):
-            self._down = False
-            return int(min(wanted, MAX_BODY_DOWN))
-        self._down = self._wants_down(wanted)      # 第 36 期第 7 条：先定朝向，再按那一侧算余量
-        room = self._room_below() if self._flipped() else self._room_above()
-        ceiling = self._body_ceiling()             # 第 42 期第 2 条：翻到下面时允许长过 MAX_BODY
-        floor = int(min(shape_min_body(self.shape), max(60, room)))
-        return int(max(floor, min(int(wanted), max(floor, min(ceiling, room)))))
-
-    def _avoid_pet(self, left, top):
-        """云身不许压住三虎（第 24 期第 9 条）：真压上了就往左／往上让开最少的距离。
-
-        用户的原话是「可以遮挡界面的文字，不能遮挡三虎」，而且「尽量不要移动太远」——
-        所以这里只挪到刚好不压着猫为止（先往左让，界面左边不够再往上），不重新挑落点。
-        没压着就一个像素都不动，直接返回原落点。
-
-        拿来比的是**云身**那一块方框，不含右边留尾巴的那条空档：那根尖角是「指到脸颊上」
-        的指针（见 _tip），按用户第 24 期的要求本来就顶着三虎的脸——把它也算进来，云身
-        就得为它再退开一整个尾巴的长度，尖角反而缩回空档里、指不到脸了。
-        """
-        rect = self._patch_rect()
-        patch_left = rect[0] - PET_GAP
-        patch_top = rect[1] - PET_GAP
-        patch_right = rect[0] + max(8.0, rect[2]) + PET_GAP
-        patch_bottom = rect[1] + max(8.0, rect[3]) + PET_GAP
-        width, height = self.width(), self._body
-        shift = self._shift()
-        body_top = float(top) + shift
-        if (left + width <= patch_left or left >= patch_right
-                or body_top + height <= patch_top or body_top >= patch_bottom):
-            return (left, top)                       # 没压着：落点一个像素都不动
-        left = left + (patch_left - (left + width))  # 往左让：让出的正好是压住的那一条
-        if left < MARGIN:
-            left = MARGIN
-            if self._up():
-                top = max(top, patch_bottom - shift)     # 云身在下：往下让，从三虎下面开始
-            else:
-                top = max(0, min(top, patch_top - height))   # 云身在上：左边让不开就往上让
-        return (int(left), int(top))
-
-    def _near_pet(self, left, top):
-        """云身离三虎太远就往回收（第 25 期第 4 条）：最多留 MAX_GAP 那么宽一条空档。
-
-        什么时候会太远：屏幕边不够、或者整朵在屏幕外摆不下被 _inside_window 挪进助手界面里，
-        落点会被推得很开——对话框看着就跟猫没关系了（用户报的「不能离三虎太远」）。
-        这里只拉这一条空档：拉回来压到三虎身上时就不拉（不压住猫是硬要求，见 _avoid_pet），
-        屏幕挤得拉不回来也不拉（宁远离，不越界）。尾巴尖照旧钉在脸颊上，见 _tip。
-        """
-        width, height = float(self.width()), float(self._body)
-        rect = self._patch_rect()
-        patch_left = float(rect[0])
-        patch_top = float(rect[1]) - PET_GAP
-        patch_bottom = float(rect[1]) + max(8.0, rect[3]) + PET_GAP
-        body_top = float(top) + self._shift()
-        if body_top + height <= patch_top or body_top >= patch_bottom:
-            return (int(left), int(top))            # 云身跟三虎不在同一条横带上：不掺和
-        gap = patch_left - (left + width)
-        if gap <= MAX_GAP:
-            return (int(left), int(top))            # 已经在近处：一个像素都不动
-        pulled = left + (gap - MAX_GAP)
-        floor = self._anchor()[0] - (self.total_width() - 2)   # 再往右，尾巴尖就顶出画布了
-        pulled = max(pulled, floor)
-        if pulled <= left:
-            return (int(left), int(top))            # 画布就这么宽，提不动：保持原样
-        right = self._work_right()
-        if right > 0 and pulled + self.total_width() + MARGIN > right:
-            return (int(left), int(top))            # 拉不进屏幕里就别拉
-        if pulled + width > patch_left - PET_GAP:
-            return (int(left), int(top))            # 拉回来会压住猫：不拉
-        return (int(pulled), int(top))
-
-    def _origin(self):
-        """浮窗左上角（屏幕坐标）：云身整个站在三虎左边，下沿与它对齐，尾巴从空档里指到脸颊。
-
-        左边按屏幕留边（贴片挨着屏幕右边也不顶出去）；上方放不下就翻到三虎下面去——
-        全屏时三虎贴着屏幕顶，「聊天框显示不正常」就是上方没有地方可放（第 18 期）。
-        整朵在屏幕外摆不下时挪进助手界面里（第 22 期）；最后再核一遍「不许压住三虎」（第 24 期）。
-        """
-        anchor_x, _anchor_y = self._anchor()
-        total = self.total_width()
-        left = int(anchor_x - (total - TIP_IN))
-        right = self._work_right()
-        if right > total + 2 * MARGIN:
-            left = max(MARGIN, min(left, right - total - MARGIN))
-        if self._can_align_top():
-            top = int(self._patch_rect()[1])
-        elif self._flipped():
-            # 第 29 期第 3 条：翻到三虎下面时，尾巴带在云身**上方**，带子的尖头就落在脸颊上——
-            # 以前下边那条带子是白留的，尖头被夹在画布里，顶多只能顶到画布上沿，
-            # 脸颊在上面一整条云身的地方——用户看到的就是「箭头没碰到脸」。
-            top = int(self._anchor()[1] - (TAIL - TIP_IN))
-        else:
-            top = int(self._bottom() - (self._body + TAIL))
-        # 第 22 期：整朵在屏幕外摆不下（顶到屏幕边／露不全）就挪进助手界面里。
-        inside = self._inside_window(left, top)
-        spot = self._avoid_pet(*(inside if inside is not None else (left, top)))
-        return self._near_pet(*spot)
-
-    def _tip(self):
-        """画布坐标下的尾巴尖＝贴片脸颊（夹在画布内：横向落在云身右边那条空档里）。
-
-        第 24 期第 9 条：界面怎么缩放，尖角都钉在「三虎的脸颊」这一处屏幕坐标上——它只由
-        _cheek() 算出来，与云身落在哪、长多高无关；云身跟着界面挪动、变高变矮，只是让这条尾巴
-        变长变短、变弯变直（见 tail_points），尖角原地不动。
-        """
-        left, top = self._origin()
-        cheek_x, cheek_y = self._anchor()
-        x = min(max(int(cheek_x - left), int(self.width() * 0.75)), self.total_width() - 2)
-        if self._up():
-            y = min(max(int(cheek_y - top), 2), TAIL - 2)      # 带子在上：尖头进不了下面去
-        else:
-            y = min(max(int(cheek_y - top), 8), self._body + TAIL - 2)
-        return (x, y)
-
-    def _tail_polygon(self):
-        """尾巴＝一根尖角折线：底边长在云身里（被云身盖住），尖角指向三虎的脸颊。
-
-        第 21 期把三个圆点换成一根尖角（漫画对话框那种）；第 22 期指到嘴边；第 24 期指到脸颊，
-        而且两条边各往外鼓一点（tail_points 里那两段弧）——用户要的「斜向外延伸出尖锐有弧度的
-        三角形」。四种形状共用这一根尾巴。
-        """
-        tip_x, tip_y = self._tip()
-        root_x, root_y = shape_root(self.shape, self.width(), self._body)
-        half = TAIL_BASE * 0.5
-        if self._up():
-            base_y = float(TAIL) + root_y               # 根还在云身里（被云身盖住），尖头朝上
-            return ('poly', tail_points((root_x - half, base_y - 2.0), (root_x + half, base_y + 2.0),
-                                        (float(tip_x), float(tip_y))))
-        return ('poly', tail_points((root_x - half, root_y + 2.0), (root_x + half, root_y - 2.0),
-                                    (float(tip_x), float(tip_y))))
-
-    def _place_window(self):
-        """按三虎贴片锚点摆浮窗；父窗或贴片未映射时每 50ms 重试，最多十次。"""
-        if self.win is None:
-            return None
-        try:
-            parent_rect = (self.parent.winfo_rootx(), self.parent.winfo_rooty(),
-                           self.parent.winfo_width(), self.parent.winfo_height())
-        except Exception as exc:
-            self.errors.append(('place', str(exc)))
-            return None
-        if (int(parent_rect[2]) <= 1 or int(parent_rect[3]) <= 1
-                or not self._position_anchor_ready()):
-            if self._position_retries < POSITION_RETRY_MAX and self._position_job is None:
-                try:
-                    self._position_retries += 1
-                    # 用闭包保持 Cloud 到回调实际执行／取消为止；直接登记绑定方法时，
-                    # Cloud 先被回收会令 Tcl 留下 ``..._place_window`` 无效命令。
-                    def retry(cloud=self):
-                        if cloud._position_job is None:
-                            return None
-                        # 只有这一张已排队的票真正开始执行时才清登记。同步触发的
-                        # follow/_place_window 不能清它，否则 Tcl 仍握着旧回调、
-                        # Python 却已不再持有该回调。
-                        cloud._position_job = None
-                        cloud._position_callback = None
-                        try:
-                            if not cloud.parent.winfo_exists():
-                                return None
-                        except Exception:
-                            return None
-                        return cloud._place_window()
-                    # after() 自身只挂 Tcl 命令名；字段持有闭包直到触发／取消，
-                    # 防止局部变量离开作用域后 Tk 留下悬空命令。
-                    self._position_callback = retry
-                    self._position_job = self.parent.after(POSITION_RETRY_MS, retry)
-                except Exception as exc:
-                    self.errors.append(('place.retry', str(exc)))
-            return None
-        self._position_retries = 0
-        # 云朵的语义是「三虎在说话」：落点必须来自贴片脸颊，而不能是父窗口中心。
-        # _origin 会同时处理副屏坐标、屏幕边界钳制以及不遮住三虎的间距。
-        left, top = self._origin()
-        try:
-            self.win.geometry('+%d+%d' % (int(left), int(top)))
-        except Exception as exc:
-            self.errors.append(('place', str(exc)))
-            return None
-        return left, top
-
-    def _position_anchor_ready(self):
-        """贴片屏幕坐标已稳定才允许定位，避免第一次映射时把 (0, 0) 当真。"""
-        try:
-            canvas = self.pet.canvas
-            width, height = float(canvas.winfo_width()), float(canvas.winfo_height())
-            left, top = float(canvas.winfo_rootx()), float(canvas.winfo_rooty())
-        except Exception:
-            # 仅供无贴片的轻量测试桩使用；真实 Cloud 一定持有 pet.canvas。
-            return not hasattr(self, 'pet')
-        return self._patch_is_trustworthy(canvas, left, top, width, height)
 
     # ── 记录排版与滚动 ──────────────────────────────────────────────────────
     def _body_text(self):

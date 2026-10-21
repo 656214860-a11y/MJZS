@@ -11,7 +11,6 @@ from tests.architecture._scan import ROOT, production_files
 LIMIT = 1500
 SLACK = 100
 OVERSIZE_CAPS = {
-    'pet_cloud.py': 1900,
 }
 
 
