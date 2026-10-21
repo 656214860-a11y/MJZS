@@ -69,6 +69,89 @@ def ensure_script_workspace(project):
     return success(writing_dir)
 
 
+def _find_draft(writing_dir, writing_root):
+    """本地 Agent 可只更新内部工作稿；返回 {'document', 'text'}，不是自然剧本或读不到时 document 为 None。
+
+    只探测当前阶段的固定路径，不为首屏调用递归的自然剧本检索。
+    """
+    draft = writing_dir / RAW_SCRIPT_NAME
+    state = {'document': None, 'text': ''}
+    try:
+        draft.resolve().relative_to(writing_root)
+        if draft.is_file() and draft.stat().st_size:
+            state['text'] = draft.read_text(encoding='utf-8', errors='ignore').strip()
+            if is_natural_script(state['text']):
+                state['document'] = ScriptDocument('script', draft, draft.stat().st_mtime, RAW_SCRIPT_NAME)
+    except (OSError, ValueError):
+        pass
+    return state
+
+
+def _uploaded_idea_documents(writing_dir, writing_root):
+    """用户上传的创意是剧本准备的项目设定来源，放在该列而不是混进模型生成的版本目录。"""
+    input_dir = writing_dir / '输入'
+    if not input_dir.is_dir():
+        return
+    for path in input_dir.glob('故事创意_*.md'):
+        if not path.is_file():
+            continue
+        try:
+            path.resolve().relative_to(writing_root)
+            yield ScriptDocument('setting', path, path.stat().st_mtime,
+                                 path.relative_to(writing_dir).as_posix())
+        except (OSError, ValueError):
+            continue
+
+
+def _creative_batches(writing_dir):
+    """创意批次的正式布局固定为 ``创意_*``（历史项目）或 ``Provider/Model/创意_*``（当前模型分区）。
+
+    不要在启动期用 rglob：它会把用户自行放入 writing 的任意深层资料树也扫进 Tk 首屏。
+    这个有界枚举同时保留两种已发布布局，并让未知深层目录保持用户按需打开时的惰性资源。
+    """
+    batches = []
+    for first in writing_dir.iterdir():
+        if not first.is_dir() or first.name == '输入':
+            continue
+        if first.name.startswith('创意_'):
+            batches.append(first)
+            continue
+        for second in first.iterdir():
+            if not second.is_dir():
+                continue
+            if second.name.startswith('创意_'):
+                batches.append(second)
+                continue
+            batches.extend(batch for batch in second.iterdir()
+                           if batch.is_dir() and batch.name.startswith('创意_'))
+    return batches
+
+
+def _batch_folder_documents(category, folder, writing_dir, writing_root, draft):
+    """一个批次分类目录里的可见文件；与内部工作稿同内容的正式剧本出现时，工作稿不再单独展示。"""
+    try:
+        folder.resolve().relative_to(writing_root)
+    except (OSError, ValueError):
+        return
+    for path in folder.iterdir():
+        if not path.is_file() or path.suffix.lower() not in VISIBLE_SUFFIXES:
+            continue
+        try:
+            path.resolve().relative_to(writing_root)
+            modified_at = path.stat().st_mtime
+            relative_path = path.relative_to(writing_dir).as_posix()
+        except (OSError, ValueError):
+            continue
+        if (draft['document'] is not None and category == 'script'
+                and path.suffix.lower() in {'.md', '.txt'}):
+            try:
+                if path.read_text(encoding='utf-8').strip() == draft['text']:
+                    draft['document'] = None
+            except (OSError, UnicodeError):
+                pass
+        yield ScriptDocument(category, path, modified_at, relative_path)
+
+
 def iter_script_documents(project):
     """逐项发现可见剧本文档，供 UI 在空闲批次中渐进消费。
 
@@ -82,82 +165,17 @@ def iter_script_documents(project):
         writing_root = writing_dir.resolve()
     except OSError:
         return
-
-    # 本地 Agent 可只更新内部工作稿；正式目录中没有同内容交付时才展示它。
-    # 只探测当前阶段的固定路径，不为首屏调用递归的自然剧本检索。
-    draft = writing_dir / RAW_SCRIPT_NAME
-    draft_document = None
-    draft_text = ''
-    try:
-        draft.resolve().relative_to(writing_root)
-        if draft.is_file() and draft.stat().st_size:
-            draft_text = draft.read_text(encoding='utf-8', errors='ignore').strip()
-            if is_natural_script(draft_text):
-                draft_document = ScriptDocument('script', draft, draft.stat().st_mtime, RAW_SCRIPT_NAME)
-    except (OSError, ValueError):
-        pass
-
-    # 用户上传的创意是剧本准备的项目设定来源，放在该列而不是混进模型生成的版本目录。
-    input_dir = writing_dir / '输入'
-    if input_dir.is_dir():
-        for path in input_dir.glob('故事创意_*.md'):
-            if not path.is_file():
-                continue
-            try:
-                path.resolve().relative_to(writing_root)
-                yield ScriptDocument('setting', path, path.stat().st_mtime,
-                                     path.relative_to(writing_dir).as_posix())
-            except (OSError, ValueError):
-                continue
-    # 创意批次的正式布局固定为 ``创意_*``（历史项目）或
-    # ``Provider/Model/创意_*``（当前模型分区）。不要在启动期用 rglob：
-    # 它会把用户自行放入 writing 的任意深层资料树也扫进 Tk 首屏。下面的
-    # 有界枚举同时保留两种已发布布局，并让未知深层目录保持用户按需打开时
-    # 的惰性资源，而不是启动负担。
-    creative_batches = []
-    for first in writing_dir.iterdir():
-        if not first.is_dir() or first.name == '输入':
-            continue
-        if first.name.startswith('创意_'):
-            creative_batches.append(first)
-            continue
-        for second in first.iterdir():
-            if not second.is_dir():
-                continue
-            if second.name.startswith('创意_'):
-                creative_batches.append(second)
-                continue
-            for batch in second.iterdir():
-                if batch.is_dir() and batch.name.startswith('创意_'):
-                    creative_batches.append(batch)
+    draft = _find_draft(writing_dir, writing_root)
+    yield from _uploaded_idea_documents(writing_dir, writing_root)
+    creative_batches = _creative_batches(writing_dir)
     for category, directory in SCRIPT_CATEGORIES.items():
         for batch in creative_batches:
             folder = batch / directory
             if not folder.is_dir() or not folder.parent.name.startswith('创意_'):
                 continue
-            try:
-                folder.resolve().relative_to(writing_root)
-            except (OSError, ValueError):
-                continue
-            for path in folder.iterdir():
-                if not path.is_file() or path.suffix.lower() not in VISIBLE_SUFFIXES:
-                    continue
-                try:
-                    path.resolve().relative_to(writing_root)
-                    modified_at = path.stat().st_mtime
-                    relative_path = path.relative_to(writing_dir).as_posix()
-                except (OSError, ValueError):
-                    continue
-                if (draft_document is not None and category == 'script'
-                        and path.suffix.lower() in {'.md', '.txt'}):
-                    try:
-                        if path.read_text(encoding='utf-8').strip() == draft_text:
-                            draft_document = None
-                    except (OSError, UnicodeError):
-                        pass
-                yield ScriptDocument(category, path, modified_at, relative_path)
-    if draft_document is not None:
-        yield draft_document
+            yield from _batch_folder_documents(category, folder, writing_dir, writing_root, draft)
+    if draft['document'] is not None:
+        yield draft['document']
 
 
 def discover_script_documents(project):

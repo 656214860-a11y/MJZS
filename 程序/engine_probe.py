@@ -312,40 +312,45 @@ USAGE = '''用法：python engine_probe.py [选项]
 '''
 
 
-def main(argv=None):
-    args = list(sys.argv[1:] if argv is None else argv)
-    engine, program, model, dry, write, show = 'claude', '', '', False, True, False
+_VALUE_FLAGS = ('--engine', '--program', '--model')
+_SWITCHES = {'--dry-run': ('dry', True), '--no-record': ('write', False), '--json': ('show', True)}
+
+
+def _parse_args(args):
+    """解析命令行：返回 (选项字典, None)；要退出时返回 (None, 退出码)，原因已打印。"""
+    options = {'engine': 'claude', 'program': '', 'model': '', 'dry': False, 'write': True, 'show': False}
     index = 0
     while index < len(args):
         arg = args[index]
-        if arg == '--dry-run':
-            dry = True
-        elif arg == '--no-record':
-            write = False
-        elif arg == '--json':
-            show = True
-        elif arg in ('--engine', '--program', '--model'):
+        if arg in _SWITCHES:
+            key, value = _SWITCHES[arg]
+            options[key] = value
+        elif arg in _VALUE_FLAGS:
             index += 1
             if index >= len(args):
                 print('%s 后面要跟一个值' % arg)
-                return 2
+                return None, 2
             value = args[index]
-            if arg == '--engine':
-                if value not in ENGINES:
-                    print('不认识的引擎：%s（可选的：%s）' % (value, '、'.join(ENGINES)))
-                    return 2
-                engine = value
-            elif arg == '--program':
-                program = value
-            else:
-                model = value
+            if arg == '--engine' and value not in ENGINES:
+                print('不认识的引擎：%s（可选的：%s）' % (value, '、'.join(ENGINES)))
+                return None, 2
+            options[arg[2:]] = value
         elif arg in ('-h', '--help'):
             print(USAGE)
-            return 0
+            return None, 0
         else:
             print('不认识的参数：%s\n\n%s' % (arg, USAGE))
-            return 2
+            return None, 2
         index += 1
+    return options, None
+
+
+def main(argv=None):
+    options, code = _parse_args(list(sys.argv[1:] if argv is None else argv))
+    if options is None:
+        return code
+    engine, program, model = options['engine'], options['program'], options['model']
+    dry, write, show = options['dry'], options['write'], options['show']
     print('引擎真机验证 · %s' % ENGINES[engine])
     folder = Path(tempfile.mkdtemp(prefix='engine_probe_'))
     try:

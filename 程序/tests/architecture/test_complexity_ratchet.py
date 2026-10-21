@@ -16,14 +16,12 @@ CLASS_LIMIT = 600
 CLASS_SLACK = 15
 
 NESTING_CAPS = {
-    ('engine_probe.py', 'main'): 7,
     ('app.py', 'tick'): 6,
     ('asset_batch_execution.py', 'run_batch'): 6,
     ('desktop_asset_pages.py', 'assets'): 6,
     ('desktop_asset_pages.py', 'open_cell'): 6,
     ('desktop_async_tasks.py', '_tick_async_result'): 6,
     ('pet_ui_support.py', 'flourish'): 6,
-    ('script_workspace_service.py', 'iter_script_documents'): 6,
     ('storage_maintenance.py', 'storage_summary'): 6,
     ('workflow_engines.py', 'run_background'): 6,
 }
