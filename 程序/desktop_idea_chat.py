@@ -668,68 +668,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             if getattr(self,'idea_send',None) is not None:self.idea_send.state(['disabled'])
             self.update_script_interrupt_button()
             self.show_thinking(model)
-            def received(result):
-                from writing_api import preparation_reply_message
-                if not self.idea_chat_controller.finish_request(token):return
-                if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
-                self.update_script_interrupt_button()
-                self.clear_thinking()
-                visible_reply = str(result.get('response_text') or result.get('text') or '')
-                self.show_script_quality(result)
-                if visible_reply.strip():
-                    idea_chat.append(self.idea_chat_context(),'assistant',visible_reply,model=model,gateway=self.idea_chat_gateway(),
-                                     context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
-                                     skill_injection=request_model['settings']['skill_injection'])
-                    self.show_conversation()
-                if not result.get('ok'):
-                    error=str(result.get('error') or '未收到模型回复')
-                    kind=('budget' if result.get('reason') == 'context_budget_exceeded'
-                          else str(result.get('kind') or ''))
-                    if kind in ('network', 'server'):
-                        message='模型暂时无法响应，请稍后重试'
-                    elif kind in ('auth', 'budget', 'client', ''):
-                        message='模型调用未完成：'+error
-                    else:
-                        message='系统内部错误，已记录日志'
-                    if kind not in ('auth', 'budget', 'client', ''):
-                        LOGGER.warning('模型调用失败（kind=%s）：%s', kind or 'missing', error)
-                    self.status.set(preparation_reply_message(result) or message)
-                    if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
-                        self.notifier.error(message, title='请求校验未通过')
-                    else:
-                        self.notifier.error(message, title='模型调用失败')
-                    # 直接 API 模型与桌面 Agent 共用“剧本准备”这个自动阶段。
-                    # 失败若只写状态栏，三虎会一直把 script 视为 active；仅当
-                    # 自动链确实正在等待 script 时，才把可恢复的调用失败交给它。
-                    auto=getattr(getattr(self,'pet',None),'auto',None)
-                    if getattr(auto,'active',None)=='script':
-                        # 直连 API 的失败已经是终态；再让通用 Agent 重试只会留下
-                        # 一个没有新请求的 retrying 状态。因此直接发出终态失败，
-                        # 明确停在可由用户重试的剧本阶段。
-                        self.pet._emit('stage.failed',stage='script',error=message)
-                    return
-                reply=str(result.get('text') or '').strip()
-                if not reply:
-                    self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
-                    self.status.set(idea_chat.why_empty(result));return
-                self.show_conversation();self.update_script_download_button()
-                if result.get('preparation_path'):
-                    refresh=getattr(self,'refresh_script_list',None)
-                    if callable(refresh):refresh()
-                    self.status.set(preparation_reply_message(result) or (result['preparation_stage']+'已保存，请审阅后回复“确认”；需要修改请直接说明。'))
-                    return
-                if result.get('script_raw_path'):
-                    refresh=getattr(self,'refresh_script_list',None)
-                    if callable(refresh):refresh()
-                    if result.get('quality_passed') is not False:
-                        self.pet_report('script', script_raw_saved_notice(result.get('natural_script_path', '')))
-                if result.get('quality_summary'):
-                    self.show_script_quality(result)
-                    return
-                if result.get('natural_script_path'):
-                    self.status.set(preparation_reply_message(result) or ('自然剧本已自动保存：'+result['natural_script_path']))
-                else:
-                    self.status.set('已收到 '+model+' 的回复；完整剧本可下载保存。')
+            received=lambda result:self._idea_api_received(token,model,request_model,result)
             def ask():
                 from stage_execution_service import reply_to_writing
                 return reply_to_writing(
@@ -742,6 +681,70 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             self.update_script_interrupt_button()
             self.status.set(prefix+'已提交创意并启动剧本 Agent；模型回复完整剧本后可下载保存。')
         self.update_script_download_button()
+    def _idea_api_received(self, token, model, request_model, result):
+        """直连 API 模型的回复落地：聊天记录、状态栏、失败提示与三虎终态。"""
+        import idea_chat
+        from writing_api import preparation_reply_message
+        if not self.idea_chat_controller.finish_request(token):return
+        if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
+        self.update_script_interrupt_button()
+        self.clear_thinking()
+        visible_reply = str(result.get('response_text') or result.get('text') or '')
+        self.show_script_quality(result)
+        if visible_reply.strip():
+            idea_chat.append(self.idea_chat_context(),'assistant',visible_reply,model=model,gateway=self.idea_chat_gateway(),
+                             context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
+                             skill_injection=request_model['settings']['skill_injection'])
+            self.show_conversation()
+        if not result.get('ok'):
+            error=str(result.get('error') or '未收到模型回复')
+            kind=('budget' if result.get('reason') == 'context_budget_exceeded'
+                  else str(result.get('kind') or ''))
+            if kind in ('network', 'server'):
+                message='模型暂时无法响应，请稍后重试'
+            elif kind in ('auth', 'budget', 'client', ''):
+                message='模型调用未完成：'+error
+            else:
+                message='系统内部错误，已记录日志'
+            if kind not in ('auth', 'budget', 'client', ''):
+                LOGGER.warning('模型调用失败（kind=%s）：%s', kind or 'missing', error)
+            self.status.set(preparation_reply_message(result) or message)
+            if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
+                self.notifier.error(message, title='请求校验未通过')
+            else:
+                self.notifier.error(message, title='模型调用失败')
+            # 直接 API 模型与桌面 Agent 共用“剧本准备”这个自动阶段。
+            # 失败若只写状态栏，三虎会一直把 script 视为 active；仅当
+            # 自动链确实正在等待 script 时，才把可恢复的调用失败交给它。
+            auto=getattr(getattr(self,'pet',None),'auto',None)
+            if getattr(auto,'active',None)=='script':
+                # 直连 API 的失败已经是终态；再让通用 Agent 重试只会留下
+                # 一个没有新请求的 retrying 状态。因此直接发出终态失败，
+                # 明确停在可由用户重试的剧本阶段。
+                self.pet._emit('stage.failed',stage='script',error=message)
+            return
+        reply=str(result.get('text') or '').strip()
+        if not reply:
+            self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
+            self.status.set(idea_chat.why_empty(result));return
+        self.show_conversation();self.update_script_download_button()
+        if result.get('preparation_path'):
+            refresh=getattr(self,'refresh_script_list',None)
+            if callable(refresh):refresh()
+            self.status.set(preparation_reply_message(result) or (result['preparation_stage']+'已保存，请审阅后回复“确认”；需要修改请直接说明。'))
+            return
+        if result.get('script_raw_path'):
+            refresh=getattr(self,'refresh_script_list',None)
+            if callable(refresh):refresh()
+            if result.get('quality_passed') is not False:
+                self.pet_report('script', script_raw_saved_notice(result.get('natural_script_path', '')))
+        if result.get('quality_summary'):
+            self.show_script_quality(result)
+            return
+        if result.get('natural_script_path'):
+            self.status.set(preparation_reply_message(result) or ('自然剧本已自动保存：'+result['natural_script_path']))
+        else:
+            self.status.set('已收到 '+model+' 的回复；完整剧本可下载保存。')
     def submit_idea_api_request(self, project, token, cancelled, ask, received, label, async_ticket=None):
         """发送与恢复共用票据生命周期；项目切换和取消均撤销本次排队。"""
         from workflow_engines import (request_stage_process_slot, claim_stage_process_slot,
