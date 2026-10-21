@@ -410,153 +410,244 @@ def _apply_program_search(path, error, original_path, program_entry, hint):
 
 def open_manager(pet):
     """模型管理…：模型池＋API 配置的唯一入口（增／删／改／测连接）。"""
-    program = program_of(pet)
-    win, card = window(pet, MANAGER_TITLE, MANAGER_GEOMETRY, minsize=MANAGER_MIN)
-    fit_to_main(win, parent_of(pet), MANAGER_GEOMETRY)     # 第 52 期第 1 条：比主界面小一圈、居中
-    # 动作区先占住窗口底边，窗口被压矮时只压缩上面的模型列表与表单。
-    footer = ttk.Frame(card)
-    footer.pack(side='bottom', fill='x')
-    body = ttk.Frame(card)
-    body.pack(fill='both', expand=True)
-    body.columnconfigure(0, weight=1)
-    body.rowconfigure(2, weight=1)
-    row = heading(body, MANAGER_TITLE, NOTE_MANAGER, columns=1)
-    keys = [key for key, _title, _width in COLUMNS]
-    # 表单行不叠加纵向外边距；控件保留自身内边距，窗口剩余高度全部交给模型列表。
-    # 列宽随窗口伸展，长名称与地址可以通过滚动条查看。
-    table_shell = DataTable(body, columns=COLUMNS, show='headings', height=20,
-                            empty_text='暂无模型配置')
-    tree = table_shell.tree
-    for key, title, width in COLUMNS:
-        tree.heading(key, text=title)
-        tree.column(key, width=width, anchor='w', stretch=True)
-    table_shell.grid(row=2, column=0, sticky='nsew')
-    form = ttk.Frame(body, padding=(SPACING['none'], SPACING['xs']))
-    form.grid(row=3, column=0, columnspan=2, sticky='ew')
-    form.columnconfigure(0, minsize=form_column_width(MANAGER_FORM_LABELS))
-    form.columnconfigure(1, weight=1)
-    entries = {}
-    caps = {}
-    provider = tk.StringVar(value=model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
-    wire = tk.StringVar(value=model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
-    mode = tk.StringVar(value='API')
+    return _ModelManager(pet).build()
 
-    def text_row(index, key, label):
+
+class _ModelManager:
+    """模型管理窗口（从 open_manager 的闭包原样改写成类，R1812）：共享的局部变量成了实例属性，嵌套函数成了方法。"""
+    def __init__(self, pet):
+        self.pet = pet
+
+    def build(self):
+        footer, body = self._build_window_and_table()
+        mode_box = self._build_form_fields()
+        self._build_program_row(body, footer, mode_box)
+        self.win._pet_detect_program = self.detect_program
+        self.win._pet_read_form = self.read_form
+        self.win._pet_provider_box = self.provider_box
+        self.win._pet_tree = self.tree
+        self.win._pet_delete_one = self.delete_one
+        # 自检要按的那两颗（密钥那条链只能从界面上走一遍）：本机保存／清除 ＋ 那个只写不读的输入框。
+        self.win._pet_key_entry = self.key_entry
+        self.win._pet_save_key = self.local_save
+        self.win._pet_save_typed = self.save_typed_key
+        self.win._pet_clear_key = self.local_clear
+        self.win._pet_key_state = self.key_state.get
+        return self.win
+
+    def _build_window_and_table(self):
+        """窗口外壳、标题与模型列表（从 build 原样切出，R1812）。"""
+        self.program = program_of(self.pet)
+        self.win, card = window(self.pet, MANAGER_TITLE, MANAGER_GEOMETRY, minsize=MANAGER_MIN)
+        fit_to_main(self.win, parent_of(self.pet), MANAGER_GEOMETRY)     # 第 52 期第 1 条：比主界面小一圈、居中
+        # 动作区先占住窗口底边，窗口被压矮时只压缩上面的模型列表与表单。
+        footer = ttk.Frame(card)
+        footer.pack(side='bottom', fill='x')
+        body = ttk.Frame(card)
+        body.pack(fill='both', expand=True)
+        body.columnconfigure(0, weight=1)
+        body.rowconfigure(2, weight=1)
+        row = heading(body, MANAGER_TITLE, NOTE_MANAGER, columns=1)
+        self.keys = [key for key, _title, _width in COLUMNS]
+        # 表单行不叠加纵向外边距；控件保留自身内边距，窗口剩余高度全部交给模型列表。
+        # 列宽随窗口伸展，长名称与地址可以通过滚动条查看。
+        self.table_shell = DataTable(body, columns=COLUMNS, show='headings', height=20,
+                                empty_text='暂无模型配置')
+        self.tree = self.table_shell.tree
+        for key, title, width in COLUMNS:
+            self.tree.heading(key, text=title)
+            self.tree.column(key, width=width, anchor='w', stretch=True)
+        self.table_shell.grid(row=2, column=0, sticky='nsew')
+        self.form = ttk.Frame(body, padding=(SPACING['none'], SPACING['xs']))
+        self.form.grid(row=3, column=0, columnspan=2, sticky='ew')
+        self.form.columnconfigure(0, minsize=form_column_width(MANAGER_FORM_LABELS))
+        self.form.columnconfigure(1, weight=1)
+        self.entries = {}
+        self.caps = {}
+        self.provider = tk.StringVar(value=model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
+        self.wire = tk.StringVar(value=model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
+        self.mode = tk.StringVar(value='API')
+
+        # 表单次序：Provider、模型 ID、显示名（按 ID 自动推断）、根地址、密钥、协议、能力标签、上下文、备注。
+        ttk.Label(self.form, text='调用方式').grid(row=0, column=0, sticky='w')
+        return footer, body
+
+    def _build_form_fields(self):
+        """表单：调用方式、Provider、模型 ID／显示名／地址／密钥、协议、能力标签（从 build 原样切出，R1812）。"""
+        mode_box = SelectBox(self.form, textvariable=self.mode, values=('Desktop', 'API', 'CLI'))
+        mode_box.grid(row=0, column=1, sticky='ew')
+        index = 1
+        ttk.Label(self.form, text='Provider').grid(row=index, column=0, sticky='w')
+        # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
+        # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
+        # 挑现成的，或者直接敲一个名字；存的就是填进去的那个名字。
+        self.provider_box = SelectBox(self.form, textvariable=self.provider, state='normal',
+                                    values=[label for _value, label in model_pool.PROVIDERS])
+        self.provider_box.grid(row=index, column=1, sticky='ew')
+        self.provider_box.bind('<<ComboboxSelected>>', self.match_wire)
+        self.provider_box.bind('<<ComboboxSelected>>', lambda event: self.detect_program(), add='+')
+
+        index = self.text_row(index + 1, 'model', '模型 ID')
+        index = self.text_row(index, 'label', '显示名')
+        index = self.text_row(index, 'base_url', 'API 根地址')
+        index = self.text_row(index, 'key_env', '密钥名（.env 里的变量名）')
+        # 规格里的第二种放法：密钥直接输进来，用系统加密存本机（明文不落盘、配置 JSON 里不写）。
+        ttk.Label(self.form, text='直接输入密钥').grid(row=index, column=0, sticky='w')
+        key_row = ttk.Frame(self.form)
+        key_row.grid(row=index, column=1, sticky='w')
+        self.key_entry = LineInput(key_row, width=SECRET_FIELD_WIDTH, show='*')
+        self.key_entry.pack(side='left')
+        SecondaryButton(key_row, text='保存到本机', command=lambda: self.local_save()).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+        SecondaryButton(key_row, text='清除本机密钥', command=lambda: self.local_clear()).pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        # 密钥状态紧跟在按钮后面，不再单独占一行。
+        self.key_state = tk.StringVar(value='')
+        ttk.Label(key_row, textvariable=self.key_state, style='Muted.TLabel').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+        index += 1
+        ttk.Label(self.form, text='协议').grid(row=index, column=0, sticky='w')
+        SelectBox(self.form, textvariable=self.wire,
+                     values=[label for _value, label in model_pool.WIRE_APIS]).grid(
+            row=index, column=1, sticky='ew')
+        index += 1
+        ttk.Label(self.form, text='能力标签').grid(row=index, column=0, sticky='w')
+        cap_row = ttk.Frame(self.form)
+        cap_row.grid(row=index, column=1, sticky='w')
+        for tag in model_pool.CAPABILITY_TAGS:
+            var = tk.BooleanVar(value=False)
+            self.caps[tag] = var
+            ttk.Checkbutton(cap_row, text=model_pool.CAPABILITY_LABELS[tag],
+                            variable=var).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+        index = self.text_row(index + 1, 'context_length', '上下文长度（可选）')
+        self.text_row(index, 'note', '备注（可选）')
+        self.hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
+        self.api_rows = {4, 5, 6, 7}
+        self.api_controls = [widget for widget in self.form.winfo_children()
+                        if int(widget.grid_info().get('row', -1)) in self.api_rows]
+        self.program_label = ttk.Label(self.form, text='应用安装路径')
+        self.program_label.grid(row=4, column=0, sticky='w')
+        self.program_row = ttk.Frame(self.form)
+        self.program_row.grid(row=4, column=1, sticky='ew')
+        self.program_row.columnconfigure(0, weight=1)
+        self.program_entry = LineInput(self.program_row)
+        self.program_entry.grid(row=0, column=0, sticky='ew')
+        return mode_box
+
+    def _build_program_row(self, body, footer, mode_box):
+        """应用安装路径行、自动搜寻与浏览按钮、连接字段显隐、身份变化监听（从 build 原样切出，R1812）。"""
+        self.entries['program'] = self.program_entry
+        from desktop_automation_service import BackgroundTaskLifecycle
+        from queue import Queue, Empty
+        self.Queue = Queue; self.Empty = Empty
+        from threading import Thread
+        self.Thread = Thread
+        self.search = BackgroundTaskLifecycle()
+        self.search_poll = {'after': None}
+        self.search_busy = BusyState(self.hint)
+
+        self.search_button = SecondaryButton(self.program_row, text='自动搜寻', command=lambda: self.detect_program(quiet=False))
+        self.search_button.grid(row=0, column=1, padx=(SPACING['xs'], SPACING['none']))
+        SecondaryButton(self.program_row, text='浏览…', command=self.browse_program).grid(
+            row=0, column=2, padx=(SPACING['xs'], SPACING['none']))
+
+        self.pending = {'after': None, 'loading': False}
+
+        self.win.bind('<Destroy>', self.cancel_detection, add='+')
+
+        self.model_text = tk.StringVar()
+        self.entries['model'].configure(textvariable=self.model_text)
+        self.auto_label = {'text': ''}
+
+        self.entries['model'].bind('<KeyRelease>', self.fill_label, add='+')
+        self.entries['model'].bind('<FocusOut>', self.detect_program, add='+')
+        self.entries['model'].bind('<KeyRelease>', self.refresh_connection_fields, add='+')
+        manager_hint = ttk.Label(body, textvariable=self.hint, style='PaleGreenHint.TLabel',
+                                 wraplength=TEXT_DESC['wraplength'])
+        manager_hint.grid(
+            row=4, column=0, columnspan=2, sticky='w', pady=(SPACING['xs'], SPACING['xs']))
+        self.state = {'id': ''}
+
+        self.key_entry.bind('<Return>', self.save_typed_key)
+        self.key_entry.bind('<FocusOut>', self.save_typed_key)
+
+        self.tree.bind('<<TreeviewSelect>>', self.on_select)
+        self.load_rows()
+        bar = ttk.Frame(footer)
+        bar.pack(fill='x')
+        SecondaryButton(bar, text='新建一条', command=self.new_one).pack(side='left')
+        self.probe_button = SecondaryButton(bar, text='测试连接', command=self.probe_one)
+        self.probe_button.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+        self.provider.trace_add('write', self.refresh_connection_fields)
+        self.mode.trace_add('write', self.changed_identity)
+        self.model_text.trace_add('write', self.changed_identity)
+        self.refresh_connection_fields()
+        SecondaryButton(bar, text='删除这条', command=self.delete_one).pack(
+            side='left', padx=(SPACING['sm'], SPACING['none']))
+        # 主操作贴最右，取消（关闭）紧挨其左：关窗键不再压在主按钮右侧。
+        PrimaryButton(bar, text='保存这条', command=self.save_one).pack(side='right')
+        SecondaryButton(bar, text='关闭', command=self.win.destroy).pack(
+            side='right', padx=(SPACING['none'], SPACING['sm']))
+        self.win._pet_api_controls = self.api_controls
+        self.win._pet_program_row = self.program_row
+        self.win._pet_reload = self.load_rows
+        self.win._pet_hint = self.hint
+        self.win._pet_manager_hint_label = manager_hint
+        self.win._pet_entries = self.entries
+        self.win._pet_provider = self.provider
+        self.win._pet_mode = self.mode
+        self.win._pet_mode_box = mode_box
+
+    def text_row(self, index, key, label):
         """一行「标签 ＋ 输入框」；行号往下走，表单中间插下拉框／多选都不会错位。"""
-        ttk.Label(form, text=label).grid(row=index, column=0, sticky='w')
-        entry = LineInput(form)
+        ttk.Label(self.form, text=label).grid(row=index, column=0, sticky='w')
+        entry = LineInput(self.form)
         entry.grid(row=index, column=1, sticky='ew')
-        entries[key] = entry
+        self.entries[key] = entry
         return index + 1
 
-    # 表单次序：Provider、模型 ID、显示名（按 ID 自动推断）、根地址、密钥、协议、能力标签、上下文、备注。
-    ttk.Label(form, text='调用方式').grid(row=0, column=0, sticky='w')
-    mode_box = SelectBox(form, textvariable=mode, values=('Desktop', 'API', 'CLI'))
-    mode_box.grid(row=0, column=1, sticky='ew')
-    index = 1
-    ttk.Label(form, text='Provider').grid(row=index, column=0, sticky='w')
-    # 第 65 期任务 5：用户报「provider → 自定义不可用」。原来这一格是只读下拉，只能挑三档固定
-    # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
-    # 挑现成的，或者直接敲一个名字；存的就是填进去的那个名字。
-    provider_box = SelectBox(form, textvariable=provider, state='normal',
-                                values=[label for _value, label in model_pool.PROVIDERS])
-    provider_box.grid(row=index, column=1, sticky='ew')
-    def match_wire(event=None):
+    def match_wire(self, event=None):
         """第 65 期任务 8：换了 Provider，「协议」栏自动摆到它默认的那一档。
 
         只挂「选中了一项」，不挂失焦——用户在协议栏手改过的那一档不会被蹭掉。
         """
-        if desktop_mode():
+        if self.desktop_mode():
             return None                  # 本机程序不走 HTTP 协议，换厂商名不改协议档
         value = model_pool.wire_for_provider(
-            model_pool.id_of_label(provider.get(), model_pool.PROVIDERS))
-        wire.set(model_pool.WIRE_LABELS.get(value, model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
-    provider_box.bind('<<ComboboxSelected>>', match_wire)
-    provider_box.bind('<<ComboboxSelected>>', lambda event: detect_program(), add='+')
+            model_pool.id_of_label(self.provider.get(), model_pool.PROVIDERS))
+        self.wire.set(model_pool.WIRE_LABELS.get(value, model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
 
-    index = text_row(index + 1, 'model', '模型 ID')
-    index = text_row(index, 'label', '显示名')
-    index = text_row(index, 'base_url', 'API 根地址')
-    index = text_row(index, 'key_env', '密钥名（.env 里的变量名）')
-    # 规格里的第二种放法：密钥直接输进来，用系统加密存本机（明文不落盘、配置 JSON 里不写）。
-    ttk.Label(form, text='直接输入密钥').grid(row=index, column=0, sticky='w')
-    key_row = ttk.Frame(form)
-    key_row.grid(row=index, column=1, sticky='w')
-    key_entry = LineInput(key_row, width=SECRET_FIELD_WIDTH, show='*')
-    key_entry.pack(side='left')
-    SecondaryButton(key_row, text='保存到本机', command=lambda: local_save()).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
-    SecondaryButton(key_row, text='清除本机密钥', command=lambda: local_clear()).pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-    # 密钥状态紧跟在按钮后面，不再单独占一行。
-    key_state = tk.StringVar(value='')
-    ttk.Label(key_row, textvariable=key_state, style='Muted.TLabel').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
-    index += 1
-    ttk.Label(form, text='协议').grid(row=index, column=0, sticky='w')
-    SelectBox(form, textvariable=wire,
-                 values=[label for _value, label in model_pool.WIRE_APIS]).grid(
-        row=index, column=1, sticky='ew')
-    index += 1
-    ttk.Label(form, text='能力标签').grid(row=index, column=0, sticky='w')
-    cap_row = ttk.Frame(form)
-    cap_row.grid(row=index, column=1, sticky='w')
-    for tag in model_pool.CAPABILITY_TAGS:
-        var = tk.BooleanVar(value=False)
-        caps[tag] = var
-        ttk.Checkbutton(cap_row, text=model_pool.CAPABILITY_LABELS[tag],
-                        variable=var).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
-    index = text_row(index + 1, 'context_length', '上下文长度（可选）')
-    text_row(index, 'note', '备注（可选）')
-    hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
-    api_rows = {4, 5, 6, 7}
-    api_controls = [widget for widget in form.winfo_children()
-                    if int(widget.grid_info().get('row', -1)) in api_rows]
-    program_label = ttk.Label(form, text='应用安装路径')
-    program_label.grid(row=4, column=0, sticky='w')
-    program_row = ttk.Frame(form)
-    program_row.grid(row=4, column=1, sticky='ew')
-    program_row.columnconfigure(0, weight=1)
-    program_entry = LineInput(program_row)
-    program_entry.grid(row=0, column=0, sticky='ew')
-    entries['program'] = program_entry
-    from desktop_automation_service import BackgroundTaskLifecycle
-    from queue import Queue, Empty
-    from threading import Thread
-    search = BackgroundTaskLifecycle()
-    search_poll = {'after': None}
-    search_busy = BusyState(hint)
+    def stop_search(self):
+        self.search.cancel()
+        if self.search_poll['after'] is not None:
+            self.win.after_cancel(self.search_poll['after'])
+            self.search_poll['after'] = None
+        self.search_busy.set_busy(False)
+        self.search_button.configure(text='自动搜寻')
 
-    def stop_search():
-        search.cancel()
-        if search_poll['after'] is not None:
-            win.after_cancel(search_poll['after'])
-            search_poll['after'] = None
-        search_busy.set_busy(False)
-        search_button.configure(text='自动搜寻')
-
-    def browse_program():
-        stop_search()
-        path = FileDialog(win).open_file(title='选择应用可执行文件', filetypes=[('程序', '*.exe')])
+    def browse_program(self):
+        self.stop_search()
+        path = FileDialog(self.win).open_file(title='选择应用可执行文件', filetypes=[('程序', '*.exe')])
         if path:
-            program_entry.delete(0, 'end')
-            program_entry.insert(0, path)
-    def detect_program(event=None, quiet=True):
+            self.program_entry.delete(0, 'end')
+            self.program_entry.insert(0, path)
+
+    def detect_program(self, event=None, quiet=True):
         """只用当前表单身份搜寻，绝不借用被编辑记录的旧 ID。"""
-        if not desktop_mode() or (quiet and program_entry.get().strip()):
+        if not self.desktop_mode() or (quiet and self.program_entry.get().strip()):
             return None
         from workflow_settings import find_model_program
-        model = entries['model'].get().strip()
+        model = self.entries['model'].get().strip()
         if not model:
-            report_error(hint, '请先填写模型 ID，再自动搜寻安装路径。')
+            report_error(self.hint, '请先填写模型 ID，再自动搜寻安装路径。')
             return None
-        if pending['after'] is not None:
-            win.after_cancel(pending['after'])
-            pending['after'] = None
-        stop_search()
-        ticket = search.submit(object(), label='安装路径搜寻')
-        call_mode, original_path = mode.get(), program_entry.get()
-        results = Queue()
-        hint.set('正在搜寻「%s」：检查注册表、商店安装记录和常见安装目录…' % model)
-        search_button.configure(text='正在搜寻…')
-        search_busy.set_busy(True, controls=(search_button,), progress=False)
+        if self.pending['after'] is not None:
+            self.win.after_cancel(self.pending['after'])
+            self.pending['after'] = None
+        self.stop_search()
+        ticket = self.search.submit(object(), label='安装路径搜寻')
+        call_mode, original_path = self.mode.get(), self.program_entry.get()
+        results = self.Queue()
+        self.hint.set('正在搜寻「%s」：检查注册表、商店安装记录和常见安装目录…' % model)
+        self.search_button.configure(text='正在搜寻…')
+        self.search_busy.set_busy(True, controls=(self.search_button,), progress=False)
 
         def worker():
             try:
@@ -565,103 +656,84 @@ def open_manager(pet):
                 results.put(('', str(exc)))
 
         def poll():
-            search_poll['after'] = None
-            if not search.accepts(ticket):
+            self.search_poll['after'] = None
+            if not self.search.accepts(ticket):
                 return
             try:
                 path, error = results.get_nowait()
-            except Empty:
-                search_poll['after'] = win.after(50, poll)
+            except self.Empty:
+                self.search_poll['after'] = self.win.after(50, poll)
                 return
-            search.finish(ticket, succeeded=bool(path), error=error)
-            search_busy.set_busy(False)
-            search_button.configure(text='自动搜寻')
-            _apply_program_search(path, error, original_path, program_entry, hint)
+            self.search.finish(ticket, succeeded=bool(path), error=error)
+            self.search_busy.set_busy(False)
+            self.search_button.configure(text='自动搜寻')
+            _apply_program_search(path, error, original_path, self.program_entry, self.hint)
 
-        Thread(target=worker, daemon=True).start()
-        search_poll['after'] = win.after(50, poll)
+        self.Thread(target=worker, daemon=True).start()
+        self.search_poll['after'] = self.win.after(50, poll)
 
-    search_button = SecondaryButton(program_row, text='自动搜寻', command=lambda: detect_program(quiet=False))
-    search_button.grid(row=0, column=1, padx=(SPACING['xs'], SPACING['none']))
-    SecondaryButton(program_row, text='浏览…', command=browse_program).grid(
-        row=0, column=2, padx=(SPACING['xs'], SPACING['none']))
-    def desktop_mode():
-        return mode.get() in ('Desktop', 'CLI')
+    def desktop_mode(self):
+        return self.mode.get() in ('Desktop', 'CLI')
 
-    def refresh_connection_fields(*_args):
-        local = desktop_mode()
-        for widget in api_controls:
+    def refresh_connection_fields(self, *_args):
+        local = self.desktop_mode()
+        for widget in self.api_controls:
             widget.grid_remove() if local else widget.grid()
-        for widget in (program_label, program_row):
+        for widget in (self.program_label, self.program_row):
             widget.grid() if local else widget.grid_remove()
-        program_label.configure(text='命令行程序路径' if mode.get() == 'CLI' else '应用安装路径')
-        tree.configure(displaycolumns=(('provider', 'model', 'label', 'capabilities', 'state')
-                                       if local else keys))
-        probe_button.configure(text='检查程序' if local else '测试连接')
-    pending = {'after': None, 'loading': False}
+        self.program_label.configure(text='命令行程序路径' if self.mode.get() == 'CLI' else '应用安装路径')
+        self.tree.configure(displaycolumns=(('provider', 'model', 'label', 'capabilities', 'state')
+                                       if local else self.keys))
+        self.probe_button.configure(text='检查程序' if local else '测试连接')
 
-    def changed_identity(*_args):
-        if pending['loading']:
+    def changed_identity(self, *_args):
+        if self.pending['loading']:
             return
-        stop_search()
-        if pending['after'] is not None:
-            win.after_cancel(pending['after'])
-            pending['after'] = None
-        program_entry.delete(0, 'end')
-        hint.set('正在编辑 %s 配置。' % mode.get())
-        refresh_connection_fields()
-        if desktop_mode() and model_text.get().strip():
-            pending['after'] = win.after(450, delayed_detect)
+        self.stop_search()
+        if self.pending['after'] is not None:
+            self.win.after_cancel(self.pending['after'])
+            self.pending['after'] = None
+        self.program_entry.delete(0, 'end')
+        self.hint.set('正在编辑 %s 配置。' % self.mode.get())
+        self.refresh_connection_fields()
+        if self.desktop_mode() and self.model_text.get().strip():
+            self.pending['after'] = self.win.after(450, self.delayed_detect)
 
-    def delayed_detect():
-        pending['after'] = None
-        detect_program()
+    def delayed_detect(self):
+        self.pending['after'] = None
+        self.detect_program()
 
-    def cancel_detection(event):
-        if event.widget is win:
-            search.cancel()
-            if search_poll['after'] is not None:
-                win.after_cancel(search_poll['after'])
-                search_poll['after'] = None
-        if event.widget is win and pending['after'] is not None:
-            win.after_cancel(pending['after'])
-            pending['after'] = None
+    def cancel_detection(self, event):
+        if event.widget is self.win:
+            self.search.cancel()
+            if self.search_poll['after'] is not None:
+                self.win.after_cancel(self.search_poll['after'])
+                self.search_poll['after'] = None
+        if event.widget is self.win and self.pending['after'] is not None:
+            self.win.after_cancel(self.pending['after'])
+            self.pending['after'] = None
 
-    win.bind('<Destroy>', cancel_detection, add='+')
-
-    model_text = tk.StringVar()
-    entries['model'].configure(textvariable=model_text)
-    auto_label = {'text': ''}
-
-    def fill_label(event=None):
+    def fill_label(self, event=None):
         """填模型 ID 时自动推断显示名；用户手改过的显示名不覆盖。"""
-        current = entries['label'].get().strip()
-        if current and current != auto_label['text']:
+        current = self.entries['label'].get().strip()
+        if current and current != self.auto_label['text']:
             return None
-        guess = model_pool.suggest_label(entries['model'].get(), pet.agent_model_records())
-        entries['label'].delete(0, 'end')
-        entries['label'].insert(0, guess)
-        auto_label['text'] = guess
+        guess = model_pool.suggest_label(self.entries['model'].get(), self.pet.agent_model_records())
+        self.entries['label'].delete(0, 'end')
+        self.entries['label'].insert(0, guess)
+        self.auto_label['text'] = guess
         return guess
-    entries['model'].bind('<KeyRelease>', fill_label, add='+')
-    entries['model'].bind('<FocusOut>', detect_program, add='+')
-    entries['model'].bind('<KeyRelease>', refresh_connection_fields, add='+')
-    manager_hint = ttk.Label(body, textvariable=hint, style='PaleGreenHint.TLabel',
-                             wraplength=TEXT_DESC['wraplength'])
-    manager_hint.grid(
-        row=4, column=0, columnspan=2, sticky='w', pady=(SPACING['xs'], SPACING['xs']))
-    state = {'id': ''}
 
-    def load_rows():
+    def load_rows(self):
         # 自定义 Provider 已随模型记录写入模型池；每次刷新列表时从同一份记录回填，
         # 新建下一条模型即可直接从下拉选择，无需再维护第二份厂商配置。
         builtins = [label for _value, label in model_pool.PROVIDERS]
         saved = {model_pool.provider_name(model_id, item)
-                 for model_id, item in pet.agent_model_records().items()}
-        provider_box.configure(values=[*builtins, *sorted((item for item in saved if item and item not in builtins),
+                 for model_id, item in self.pet.agent_model_records().items()}
+        self.provider_box.configure(values=[*builtins, *sorted((item for item in saved if item and item not in builtins),
                                                           key=str.casefold)])
-        tree.delete(*tree.get_children())
-        records = pet.agent_model_records()
+        self.tree.delete(*self.tree.get_children())
+        records = self.pet.agent_model_records()
         rows = sorted(((model_pool.provider_name(model_id, item), model_id, item)
                        for model_id, item in records.items()),
                       key=lambda row: (row[0].casefold(), str(row[2].get('label') or '').casefold(), row[1]))
@@ -669,235 +741,193 @@ def open_manager(pet):
         for name, model_id, item in rows:
             # 同一 Provider 只在分组第一行写名字，后面留空，读起来像合并单元格。
             shown, last = ('' if name == last else name), name
-            tree.insert('', 'end', iid=model_id,
+            self.tree.insert('', 'end', iid=model_id,
                         values=(shown, item['model'], item['label'],
                                 model_pool.capability_text(item['capabilities']),
                                 item['base_url'],
                                 model_pool.WIRE_LABELS.get(item['wire_api'], item['wire_api']),
-                                item['key_env'], status_text(item, program)))
-        table_shell.refresh_empty_state()
-        return tree
+                                item['key_env'], status_text(item, self.program)))
+        self.table_shell.refresh_empty_state()
+        return self.tree
 
-    def show_key_state(value=None):
+    def show_key_state(self, value=None):
         """本机加密那份现在什么情况：只报前 4 位 ＋ ****，别把整把钥匙摆到界面上。"""
-        item = value if isinstance(value, dict) else read_form()
-        local = model_pool.local_key_of(item, program, state['id'])
-        key_state.set(('本机已存密钥：%s（明文本机不落盘）' % model_pool.redacted(local)) if local
+        item = value if isinstance(value, dict) else self.read_form()
+        local = model_pool.local_key_of(item, self.program, self.state['id'])
+        self.key_state.set(('本机已存密钥：%s（明文本机不落盘）' % model_pool.redacted(local)) if local
                       else '本机没存密钥；走 .env 的话只填上面的密钥名')
         return local
 
-    def local_save():
+    def local_save(self):
         """保存直接输入的密钥到本机 DPAPI；回车和失焦均走此唯一入口。"""
-        text = key_entry.get().strip()
+        text = self.key_entry.get().strip()
         try:
-            item = model_pool.record(read_form(), state['id'])
-            model_pool.save_key_env(item, text, program, state['id'])
-            item['key_env'] = model_pool.secret_name(item, state['id'])
+            item = model_pool.record(self.read_form(), self.state['id'])
+            model_pool.save_key_env(item, text, self.program, self.state['id'])
+            item['key_env'] = model_pool.secret_name(item, self.state['id'])
         except (ValueError, OSError) as exc:
-            report_error(hint, exc)
+            report_error(self.hint, exc)
             return None
-        key_entry.delete(0, 'end')
-        self_id = state['id']
-        state['id'] = model_pool.model_id_of(item, self_id)
-        pet.save_pool(item, self_id)
-        load_rows()
-        show_key_state(item)
-        hint.set('密钥已加密保存到当前 Windows 用户的本机存储；界面只露前 4 位。')
+        self.key_entry.delete(0, 'end')
+        self_id = self.state['id']
+        self.state['id'] = model_pool.model_id_of(item, self_id)
+        self.pet.save_pool(item, self_id)
+        self.load_rows()
+        self.show_key_state(item)
+        self.hint.set('密钥已加密保存到当前 Windows 用户的本机存储；界面只露前 4 位。')
         return item
 
-    def local_clear():
+    def local_clear(self):
         """删掉本机加密那份密钥。"""
-        if not model_pool.clear_local_key(read_form(), program, state['id']):
-            hint.set('本机本来就没存这一条。')
+        if not model_pool.clear_local_key(self.read_form(), self.program, self.state['id']):
+            self.hint.set('本机本来就没存这一条。')
             return False
-        show_key_state()
-        hint.set('已删掉本机加密的那份密钥。')
+        self.show_key_state()
+        self.hint.set('已删掉本机加密的那份密钥。')
         return True
 
-    def save_typed_key(event=None):
+    def save_typed_key(self, event=None):
         """第 65 期任务 5：密钥框里一敲进去就自动存，回车或点到别处都算一次提交。
 
         用户报「密钥名和密钥输入后没有自动保存」——原来必须再点一下「保存到本机」。框里
         是空的就什么都不做，免得点来点去把提示刷成报错。
         """
-        if desktop_mode() or not key_entry.get().strip():
+        if self.desktop_mode() or not self.key_entry.get().strip():
             return None
         try:
-            return local_save()
+            return self.local_save()
         except Exception:
             return None
 
-    key_entry.bind('<Return>', save_typed_key)
-    key_entry.bind('<FocusOut>', save_typed_key)
-
-    def fill(model_id, item):
-        stop_search()
-        pending['loading'] = True
-        if pending['after'] is not None:
-            win.after_cancel(pending['after'])
-            pending['after'] = None
-        state['id'] = model_id
-        mode.set(model_pool.call_mode(item, model_id))
-        key_entry.delete(0, 'end')          # 只写不读：界面里从不回显整把密钥
+    def fill(self, model_id, item):
+        self.stop_search()
+        self.pending['loading'] = True
+        if self.pending['after'] is not None:
+            self.win.after_cancel(self.pending['after'])
+            self.pending['after'] = None
+        self.state['id'] = model_id
+        self.mode.set(model_pool.call_mode(item, model_id))
+        self.key_entry.delete(0, 'end')          # 只写不读：界面里从不回显整把密钥
         for key, _label in FORM_FIELDS:
-            entries[key].delete(0, 'end')
-            entries[key].insert(0, str(item.get(key) or ''))
-        entries['context_length'].delete(0, 'end')
+            self.entries[key].delete(0, 'end')
+            self.entries[key].insert(0, str(item.get(key) or ''))
+        self.entries['context_length'].delete(0, 'end')
         if item.get('context_length'):
-            entries['context_length'].insert(0, str(item['context_length']))
-        entries['note'].delete(0, 'end')
-        entries['note'].insert(0, str(item.get('note') or ''))
-        for tag, var in caps.items():
+            self.entries['context_length'].insert(0, str(item['context_length']))
+        self.entries['note'].delete(0, 'end')
+        self.entries['note'].insert(0, str(item.get('note') or ''))
+        for tag, var in self.caps.items():
             var.set(tag in (item.get('capabilities') or []))
         saved_provider = str(item.get('provider') or '').strip()
         if item.get('provider_label') or (saved_provider == 'desktop' and model_pool.desktop_engine(model_id)):
             # 本机 Claude／ChatGPT 显示厂商名；保存时由 read_form 按 desktop_mode 写回 desktop。
             vendor = model_pool.provider_name(model_id, item)
-            provider.set(model_pool.PROVIDER_LABELS.get(vendor.casefold(), vendor))
+            self.provider.set(model_pool.PROVIDER_LABELS.get(vendor.casefold(), vendor))
         else:
-            provider.set(model_pool.PROVIDER_LABELS.get(
+            self.provider.set(model_pool.PROVIDER_LABELS.get(
                 saved_provider, saved_provider or model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER]))
-        wire.set(model_pool.WIRE_LABELS.get(item.get('wire_api'), model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
-        program_entry.delete(0, 'end')
-        program_entry.insert(0, item.get('program') or '')
-        pending['loading'] = False
-        auto_label['text'] = entries['label'].get().strip()
-        refresh_connection_fields()
-        if saved_provider != 'desktop':show_key_state(item)
+        self.wire.set(model_pool.WIRE_LABELS.get(item.get('wire_api'), model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE]))
+        self.program_entry.delete(0, 'end')
+        self.program_entry.insert(0, item.get('program') or '')
+        self.pending['loading'] = False
+        self.auto_label['text'] = self.entries['label'].get().strip()
+        self.refresh_connection_fields()
+        if saved_provider != 'desktop':self.show_key_state(item)
 
-    def read_form():
-        value = {key: entries[key].get().strip() for key, _label in FORM_FIELDS}
+    def read_form(self):
+        value = {key: self.entries[key].get().strip() for key, _label in FORM_FIELDS}
         # 本机程序条目的存储协议仍是 desktop（model_pool.status 按它判定可用性）；界面只显示厂商名。
-        value['provider'] = 'desktop' if desktop_mode() else model_pool.id_of_label(provider.get(), model_pool.PROVIDERS)
-        value['provider_label'] = provider.get().strip() if desktop_mode() else ''
-        value['call_mode'] = mode.get()
-        value['wire_api'] = model_pool.id_of_label(wire.get(), model_pool.WIRE_APIS)
-        value['capabilities'] = [tag for tag, var in caps.items() if var.get()]
-        value['context_length'] = entries['context_length'].get().strip()
-        value['note'] = entries['note'].get().strip()
-        value['program'] = program_entry.get().strip()
+        value['provider'] = 'desktop' if self.desktop_mode() else model_pool.id_of_label(self.provider.get(), model_pool.PROVIDERS)
+        value['provider_label'] = self.provider.get().strip() if self.desktop_mode() else ''
+        value['call_mode'] = self.mode.get()
+        value['wire_api'] = model_pool.id_of_label(self.wire.get(), model_pool.WIRE_APIS)
+        value['capabilities'] = [tag for tag, var in self.caps.items() if var.get()]
+        value['context_length'] = self.entries['context_length'].get().strip()
+        value['note'] = self.entries['note'].get().strip()
+        value['program'] = self.program_entry.get().strip()
         return value
 
-    def on_select(event=None):
-        picked = tree.selection()
+    def on_select(self, event=None):
+        picked = self.tree.selection()
         if not picked:
             return None
-        item = pet.agent_model_records().get(picked[0]) or {}
-        fill(picked[0], item)
-        hint.set('正在改「%s」；改完点「保存这条」。' % (item.get('label') or picked[0]))
+        item = self.pet.agent_model_records().get(picked[0]) or {}
+        self.fill(picked[0], item)
+        self.hint.set('正在改「%s」；改完点「保存这条」。' % (item.get('label') or picked[0]))
         return item
 
-    def new_one():
-        pending['loading'] = True
-        state['id'] = ''
+    def new_one(self):
+        self.pending['loading'] = True
+        self.state['id'] = ''
         for key, _label in FORM_FIELDS:
-            entries[key].delete(0, 'end')
+            self.entries[key].delete(0, 'end')
         for key in ('context_length', 'note', 'program'):
-            entries[key].delete(0, 'end')
-        for var in caps.values():
+            self.entries[key].delete(0, 'end')
+        for var in self.caps.values():
             var.set(False)
-        key_entry.delete(0, 'end')
-        show_key_state()
-        provider.set(model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
-        wire.set(model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
-        pending['loading'] = False
-        auto_label['text'] = ''
-        changed_identity()
-        hint.set('新建 %s 模型：填写模型 ID；本地调用会自动搜寻对应程序。' % mode.get())
-        return state
+        self.key_entry.delete(0, 'end')
+        self.show_key_state()
+        self.provider.set(model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
+        self.wire.set(model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
+        self.pending['loading'] = False
+        self.auto_label['text'] = ''
+        self.changed_identity()
+        self.hint.set('新建 %s 模型：填写模型 ID；本地调用会自动搜寻对应程序。' % self.mode.get())
+        return self.state
 
-    def save_one():
+    def save_one(self):
         try:
-            if desktop_mode() and program_entry.get().strip():
+            if self.desktop_mode() and self.program_entry.get().strip():
                 from pathlib import Path
-                path = Path(program_entry.get().strip()).expanduser()
+                path = Path(self.program_entry.get().strip()).expanduser()
                 if not path.is_absolute() or path.suffix.lower() != '.exe' or not path.is_file():
                     raise ValueError('请选择存在的应用 .exe 安装路径')
                 from workflow_settings import gui_claude_program, GUI_CLAUDE_CLI_HINT
-                if mode.get() == 'CLI' and gui_claude_program(str(path)):
+                if self.mode.get() == 'CLI' and gui_claude_program(str(path)):
                     raise ValueError(GUI_CLAUDE_CLI_HINT)
                 _adapted, switched = _derive_client_profile(
-                    str(path), entries['label'].get().strip(), mode, entries, probe=False)
+                    str(path), self.entries['label'].get().strip(), self.mode, self.entries, probe=False)
                 if switched:
-                    hint.set('PE 头显示这是%s程序，已切换调用方式；请确认后保存。' %
+                    self.hint.set('PE 头显示这是%s程序，已切换调用方式；请确认后保存。' %
                              ('命令行' if switched == 'CLI' else '桌面'))
-            if not desktop_mode() and key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
-                local_save()
-            pet.save_pool(read_form(), state['id'])
+            if not self.desktop_mode() and self.key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
+                self.local_save()
+            self.pet.save_pool(self.read_form(), self.state['id'])
         except (ValueError, OSError) as exc:
-            report_error(hint, exc)
+            report_error(self.hint, exc)
             return None
-        load_rows()
-        hint.set('已保存「%s」；「切换模型」里立刻点得到。' % (read_form().get('label') or ''))
-        return read_form()
+        self.load_rows()
+        self.hint.set('已保存「%s」；「切换模型」里立刻点得到。' % (self.read_form().get('label') or ''))
+        return self.read_form()
 
-    def delete_one():
+    def delete_one(self):
         # 不能依赖上一次 <<TreeviewSelect>> 留下的缓存：刷新列表／点过「新建一条」后，
         # 那个缓存可能已经不是用户眼前选中的行。删除目标只认此刻高亮的这一条。
-        selected = tree.selection()
+        selected = self.tree.selection()
         model_id = selected[0] if selected else ''
         if not model_id:
-            report_error(hint, '先选一条。')
+            report_error(self.hint, '先选一条。')
             return None
-        item = pet.agent_model_records().get(model_id) or {}
+        item = self.pet.agent_model_records().get(model_id) or {}
         name = item.get('label') or model_id
-        if not pet.confirm_start('删除模型', '把「%s」从模型池里删掉？（.env 里的密钥不动）' % name):
+        if not self.pet.confirm_start('删除模型', '把「%s」从模型池里删掉？（.env 里的密钥不动）' % name):
             return None
-        pet.delete_pool_model(model_id)
+        self.pet.delete_pool_model(model_id)
         # 保存后必须回读确认；否则表格刷新看似消失、重开又出现时用户会误以为已经删除。
-        if model_id in pet.agent_model_records():
-            report_error(hint, '未能删除「%s」，请重试。' % name)
+        if model_id in self.pet.agent_model_records():
+            report_error(self.hint, '未能删除「%s」，请重试。' % name)
             return None
-        state['id'] = ''
-        load_rows()
-        hint.set('已删除「%s」。' % name)
+        self.state['id'] = ''
+        self.load_rows()
+        self.hint.set('已删除「%s」。' % name)
         return model_id
 
-    def probe_one():
-        value = read_form()
+    def probe_one(self):
+        value = self.read_form()
         if value['provider'] == 'desktop':
-            return _probe_local_model(pet, value, mode, entries, program_entry, hint)
+            return _probe_local_model(self.pet, value, self.mode, self.entries, self.program_entry, self.hint)
         if not value.get('model'):
-            report_error(hint, '先填模型 ID。')
+            report_error(self.hint, '先填模型 ID。')
             return None
-        hint.set(probe_line(model_pool.record(value), pet))
+        self.hint.set(probe_line(model_pool.record(value), self.pet))
         return value
-
-    tree.bind('<<TreeviewSelect>>', on_select)
-    load_rows()
-    bar = ttk.Frame(footer)
-    bar.pack(fill='x')
-    SecondaryButton(bar, text='新建一条', command=new_one).pack(side='left')
-    probe_button = SecondaryButton(bar, text='测试连接', command=probe_one)
-    probe_button.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
-    provider.trace_add('write', refresh_connection_fields)
-    mode.trace_add('write', changed_identity)
-    model_text.trace_add('write', changed_identity)
-    refresh_connection_fields()
-    SecondaryButton(bar, text='删除这条', command=delete_one).pack(
-        side='left', padx=(SPACING['sm'], SPACING['none']))
-    # 主操作贴最右，取消（关闭）紧挨其左：关窗键不再压在主按钮右侧。
-    PrimaryButton(bar, text='保存这条', command=save_one).pack(side='right')
-    SecondaryButton(bar, text='关闭', command=win.destroy).pack(
-        side='right', padx=(SPACING['none'], SPACING['sm']))
-    win._pet_api_controls = api_controls
-    win._pet_program_row = program_row
-    win._pet_reload = load_rows
-    win._pet_hint = hint
-    win._pet_manager_hint_label = manager_hint
-    win._pet_entries = entries
-    win._pet_provider = provider
-    win._pet_mode = mode
-    win._pet_mode_box = mode_box
-    win._pet_detect_program = detect_program
-    win._pet_read_form = read_form
-    win._pet_provider_box = provider_box
-    win._pet_tree = tree
-    win._pet_delete_one = delete_one
-    # 自检要按的那两颗（密钥那条链只能从界面上走一遍）：本机保存／清除 ＋ 那个只写不读的输入框。
-    win._pet_key_entry = key_entry
-    win._pet_save_key = local_save
-    win._pet_save_typed = save_typed_key
-    win._pet_clear_key = local_clear
-    win._pet_key_state = key_state.get
-    return win
