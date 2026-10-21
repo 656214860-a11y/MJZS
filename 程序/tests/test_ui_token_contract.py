@@ -43,7 +43,7 @@ class UiTokenContractTests(unittest.TestCase):
             self.assertNotIn(name, COLORS)
 
     def test_compact_control_size_contract(self):
-        self.assertEqual((CONTROL_HEIGHT, CONTROL_HIT_MIN), (32, 32))
+        self.assertEqual((CONTROL_HEIGHT, CONTROL_HIT_MIN), (36, 36))
         self.assertEqual(FONTS['body'][1], 10)
 
     def test_design_tokens_doc_lists_every_color_and_font_in_code(self):

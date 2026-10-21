@@ -1,24 +1,41 @@
 """由 design_tokens.md 代码化的 UI 视觉 token。"""
 
 COLORS = {
-    "background_primary": "#F7F8FA",
+    # 2026-10-21 现代色阶：页面底、卡片底、悬停面。
+    "background_primary": "#F7F9F9",
     "background_card": "#FFFFFF",
-    "border_default": "#E5E7EB",
-    "text_primary": "#1F2937",
-    # 文字层级对比度（白底）：primary 14.7、secondary 7.6、muted 4.8，均达到 4.5:1；
+    "surface_hover": "#EFF3F4",
+    "surface_pressed": "#DFE6E9",
+    # 分隔线两档：弱分隔线（卡片/容器/tooltip 描边）与输入框描边。
+    "border_default": "#EFF3F4",
+    "border_input": "#CFD9DE",
+    "border_input_hover": "#A9BAC4",
+    # 文字层级：正文/次级/弱化在白底分别为 18.5/6.1/5.3:1，弱化在悬停面 4.75:1，均 ≥4.5:1；
     # 禁用态不在此列，另用 disabled_text。
-    "text_secondary": "#4B5563",
-    "text_muted": "#6B7280",
-    "primary": "#2563EB",
-    "primary_subtle": "#EFF6FF",
+    "text_primary": "#0F1419",
+    "text_secondary": "#536471",
+    "text_muted": "#616D76",
+    "text_heading": "#0F1419",
+    # 主色（X 蓝深档）：与白 5.18:1、与页面底 4.90:1；悬停/按下逐档加深。
+    "primary": "#0F6FC0",
+    "primary_subtle": "#E8F3FB",
+    "primary_hover": "#0C5FA6",
+    "primary_pressed": "#0A4F8C",
+    "focus": "#0F6FC0",
+    # 装饰色（X 蓝）：聚焦环、侧边指示条等非文字用途，对白 3.0:1；不得作按钮底色或文字色。
+    "accent": "#1D9BF0",
     "danger": "#DC2626",
-    "success": "#16A34A",
+    "danger_hover": "#B91C1C",
+    "danger_pressed": "#7F1D1D",
+    "danger_text": "#991B1B",
+    "danger_subtle": "#FEF2F2",
+    # success 由 #16A34A 加深一档，使白字对比度 3.3→5.0（V1 要求实色按钮白字 ≥4.5:1）。
+    "success": "#15803D",
+    "success_text": "#15803D",
+    "success_subtle": "#DCFCE7",
     "warning": "#D97706",
-    # R1428 统一调色板：主题与业务页的派生色一律在此登记，不再各写 hex。
-    "text_heading": "#374151",
-    "primary_hover": "#1D4ED8",
-    "primary_pressed": "#1E40AF",
-    "progress": "#2563EB",
+    "warning_text": "#B45309",
+    # 旧式次按钮（默认 TButton 族）逐档加深的浅蓝：secondary_hover/pressed 本轮起被实际消费。
     "secondary_bg": "#DBEAFE",
     "secondary_hover": "#BFDBFE",
     "secondary_pressed": "#93C5FD",
@@ -26,32 +43,26 @@ COLORS = {
     "disabled_bg": "#F3F4F6",
     "disabled_text": "#9CA3AF",
     "border_strong": "#D1D5DB",
-    "header_bg": "#F3F4F6",
+    "header_bg": "#F7F9F9",
     "code_background": "#F3F4F6",
-    "trough": "#E5E7EB",
-    "selection_bg": "#DBEAFE",
-    "selection_text": "#1E3A8A",
-    "selection_border": "#93C5FD",
-    "success_text": "#15803D",
-    "success_subtle": "#DCFCE7",
-    "warning_text": "#B45309",
-    "focus": "#2563EB",
-    "danger_hover": "#B91C1C",
-    "danger_text": "#991B1B",
-    "danger_subtle": "#FEF2F2",
+    "trough": "#EFF3F4",
+    "selection_bg": "#E8F3FB",
+    "selection_text": "#0A4F8C",
+    "selection_border": "#B7D3EC",
+    "progress": "#0F6FC0",
     "row_done_bg": "#F0FDF4",
 }
 
 SPACING = {"none": 0, "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "2xl": 32}
 RADIUS = {"sm": 4, "md": 8, "lg": 12}
-# 紧凑桌面密度：按钮、输入框、下拉框的视觉高度与最小点击区都是 32px。
-CONTROL_HEIGHT = SPACING["2xl"]
-CONTROL_HIT_MIN = SPACING["2xl"]
-# Tk 没有控件高度属性，只能由「字体行高 + 上下内边距 + 边框」凑出 32px（测试容忍 ±2）。
-# 10pt 微软雅黑 UI 在 100% DPI 下 linespace=19px；单行输入用 6px 上下内边距：
-# 19 + 2×6 + 2×1 边框 = 33px。6 = xs(4) + xs//2，仍由 4px 刻度派生，不手写魔法值。
-# 按钮沿用既有 (space.md, space.xs) 内边距，19 + 2×4 + 主题边框/焦点占位 6 = 33px。
-CONTROL_PADDING_Y = SPACING["xs"] + SPACING["xs"] // 2
+# 桌面密度（2026-10-21 密度放松）：按钮、输入框、下拉框的视觉高度与最小点击区 32→36px。
+CONTROL_HEIGHT = SPACING["2xl"] + SPACING["xs"]
+CONTROL_HIT_MIN = CONTROL_HEIGHT
+# Tk 没有控件高度属性，只能由「字体行高 + 上下内边距 + 边框」凑出 36px（测试容忍 ±2）。
+# 10pt 微软雅黑 UI 在 100% DPI 下 linespace=19px；单行输入用 8px 上下内边距：
+# 19 + 2×8 + 2×1 边框 = 37px（36±2 内）。8 = space.sm，由 4px 刻度派生，不手写魔法值。
+# 按钮沿用 CONTROL_PADDING_Y 作垂直内边距，19 + 2×8 + 焦点/圆角占位 ≈ 37px。
+CONTROL_PADDING_Y = SPACING["sm"]
 FONTS = {
     "pet_body": ("Microsoft YaHei UI", 9),
     "pet_hint": ("Microsoft YaHei UI", 8),
@@ -64,7 +75,7 @@ FONTS = {
     "caption": ("Microsoft YaHei UI", 10),
     "numeric": ("Consolas", 10),
     "code": ("Consolas", 10),
-    "hint": ("Microsoft YaHei UI", 9, "italic"),
+    "hint": ("Microsoft YaHei UI", 9),
     "heading_1": ("Microsoft YaHei UI", 16, "bold"),
     "heading_2": ("Microsoft YaHei UI", 14, "bold"),
     "heading_3": ("Microsoft YaHei UI", 12, "bold"),
@@ -117,13 +128,23 @@ INPUT_FONT = FONTS["body"]
 INPUT_FOREGROUND = COLORS["text_primary"]
 INPUT_PLACEHOLDER_FOREGROUND = COLORS["text_secondary"]
 INPUT_BACKGROUND = COLORS["background_card"]
-INPUT_BORDER = COLORS["border_default"]
+INPUT_BORDER = COLORS["border_input"]
+INPUT_BORDER_HOVER = COLORS["border_input_hover"]
+INPUT_FOCUS_BORDER = COLORS["primary"]
 INPUT_ERROR_BORDER = COLORS["danger"]
-INPUT_PADDING_X = SPACING["md"]
+INPUT_PADDING_X = SPACING["lg"]
 INPUT_PADDING_Y = SPACING["sm"]
 INPUT_BORDER_WIDTH = 1
-# 按钮常态不画可见边框：1px 的 solid 边框用按钮自身底色当边框色，只有键盘焦点
-# 状态把它映射为 color.focus。这样既保持扁平观感，又保留键盘焦点环。
+# 按钮圆角底图：半径取 RADIUS['md']，图元按 (颜色, 半径, 尺寸) 缓存；焦点环仍用 color.focus。
+BUTTON_RADIUS = RADIUS["md"]
+# ttk 把圆角底图透明处露出的是样式的 background：它必须是控件背后的表面色（页面底），
+# 不能是控件自身的填充色，否则圆角会被填成实心方角。
+CONTROL_CORNER_SURFACE = COLORS["background_primary"]
+# 圆角底图中心区（宽, 高，100% 缩放下的像素）：ttk 的 image 元素把中心区按平铺重绘，
+# 中心太小会让一个宽控件每次重绘铺几万次（实测整页慢 20 倍）。按钮 128×64 够一个按钮铺 1～2 片，
+# 卡片 256×256 够整块卡片只铺个位数；图越大只是内存多几百 KB，生成代价与尺寸几乎无关。
+ROUND_TILE_BUTTON = (128, 64)
+ROUND_TILE_CARD = (256, 256)
 BUTTON_BORDER_WIDTH = 1
 
 # 弹窗视觉规格只由 ui_widgets 的 BaseDialog 系列消费；业务页不得另行设置标题、内容区或按钮区样式。
@@ -150,12 +171,13 @@ TOOLTIP_BORDER_WIDTH = 1
 # 长说明（如会话摘要）折行显示，避免单行浮层伸出屏幕。
 TOOLTIP_WRAPLENGTH = 480
 
-# TScrollbar 的视觉只由 ui_theme.apply() 消费；页面只建立标准 ttk.Scrollbar。
-SCROLLBAR_THUMB = "#C6D2E1"
-SCROLLBAR_THUMB_ACTIVE = "#9FB4CC"
+# TScrollbar 的视觉只由 ui_widgets.setup_styles() 消费（从 ui_theme 迁入）；
+# 页面只建立标准 ttk.Scrollbar。细条：无箭头，厚度走 arrowsize。
+SCROLLBAR_THUMB = "#C4CCD2"
+SCROLLBAR_THUMB_ACTIVE = "#A8B3BC"
 SCROLLBAR_TROUGH = COLORS["background_primary"]
-SCROLLBAR_ARROW = "#52677F"
 SCROLLBAR_BORDER_WIDTH = 0
+SCROLLBAR_WIDTH = SPACING["sm"]
 
 # 表格视觉规格只由 ui_widgets.DataTable 消费；业务页只给列定义与数据，
 # 不得各自复制 Treeview 样式、滚动条或空态。
@@ -171,10 +193,14 @@ DESKTOP_LAYOUT = {
     'default_width': 1280, 'default_height': 800,
     'window_margin_x': SPACING['xl'], 'window_margin_y': SPACING['xl'] * 2,
     'min_width': 800, 'min_height': 600,
-    'sidebar_width': 154, 'sidebar_padding': 6, 'row_gap': 1,
+    'sidebar_width': 154, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,
+    # 侧栏导航胶囊之间的垂直间距与「我的项目」「导航」两段之间的呼吸距。
+    'nav_gap': SPACING['xs'], 'section_gap': SPACING['md'],
     'compact_below': 690, 'project_min_rows': 3,
     'project_button_padding': (SPACING['sm'], SPACING['none']),
-    'body_padding': (14, SPACING['sm'], 14, SPACING['sm']),
+    # 页面边距加大一档：内容与窗口边缘、进度条与状态栏之间都留出呼吸感。
+    'body_padding': (SPACING['xl'], SPACING['lg'], SPACING['xl'], SPACING['md']),
+    'status_gap': (SPACING['sm'], SPACING['md']),
     'title_inset': SPACING['xs'], 'gear_gap': SPACING['xs'],
     'slogan_gap': SPACING['md'], 'slogan_font': FONTS['pet_body'],
     'project_label_gap': SPACING['sm'], 'pet_clearance': SPACING['xs'],
@@ -257,3 +283,21 @@ PET_LAYOUT = {
     "caption_height": 20,
     "header_gap": SPACING["sm"],
 }
+
+# 表格行悬停：行背景由底色淡入到悬停面（STEPS 帧、每帧 FRAME_MS 毫秒），只用 Treeview 标签实现。
+ROW_HOVER_TAG = "row_hover"
+ROW_HOVER_STEPS = 4
+ROW_HOVER_FRAME_MS = 16
+
+# 加载动画：Canvas 画一段旋转圆弧（弧长 EXTENT 度、每帧转 STEP 度）；颜色取主色。
+SPINNER_SIZE = SPACING["lg"]
+SPINNER_WIDTH = SPACING["xs"] // 2
+SPINNER_EXTENT = 100
+SPINNER_STEP = 30
+SPINNER_FRAME_MS = 50
+SPINNER_MARGIN = SPACING["md"]
+
+# 空态图标：柔和圆角底＋三道文字线，尺寸与线条都按 4px 刻度派生。
+EMPTY_ICON_SIZE = SPACING["2xl"] + SPACING["xl"]
+EMPTY_ICON_LINE = SPACING["xs"] // 2 + 1
+EMPTY_TEXT_GAP = SPACING["sm"]

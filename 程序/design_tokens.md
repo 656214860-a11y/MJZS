@@ -6,41 +6,48 @@
 
 | Token | 值 | 用途 |
 | --- | --- | --- |
-| `color.background.primary` | `#F7F8FA` | 主背景 |
+| `color.background.primary` | `#F7F9F9` | 主背景 |
 | `color.background.card` | `#FFFFFF` | 卡片、输入框与次按钮背景 |
-| `color.border.default` | `#E5E7EB` | 默认 1px 边框 |
-| `color.text.primary` | `#1F2937` | 主文字 |
-| `color.text.secondary` | `#4B5563` | 次文字（白底对比度 7.6:1） |
-| `color.text.muted` | `#6B7280` | 弱文字（白底对比度 4.8:1，正文可读下限；禁用态另用 `color.disabled.text`） |
-| `color.primary` | `#2563EB` | 主按钮、强调 |
-| `color.primary.subtle` | `#EFF6FF` | 悬停浅色背景 |
+| `color.surface.hover` | `#EFF3F4` | 次按钮/文字按钮悬停面 |
+| `color.surface.pressed` | `#DFE6E9` | 次按钮/文字按钮按下 |
+| `color.border.default` | `#EFF3F4` | 弱分隔线：卡片、容器与 Tooltip 描边 |
+| `color.border.input` | `#CFD9DE` | 输入框默认描边 |
+| `color.border.input.hover` | `#A9BAC4` | 输入框悬停描边 |
+| `color.text.primary` | `#0F1419` | 主文字（白底 18.5:1） |
+| `color.text.secondary` | `#536471` | 次文字（白底 6.1:1） |
+| `color.text.muted` | `#616D76` | 弱文字（白底 5.3:1、悬停面 4.75:1；禁用态另用 `color.disabled.text`） |
+| `color.text.heading` | `#0F1419` | 标题文字（与正文同灰度，靠字重区分） |
+| `color.primary` | `#0F6FC0` | 主按钮、强调（与白 5.18:1、与页面底 4.90:1） |
+| `color.primary.subtle` | `#E8F3FB` | 主色浅底（选中背景） |
+| `color.primary.hover` | `#0C5FA6` | 主色悬停（白 6.56:1） |
+| `color.primary.pressed` | `#0A4F8C` | 主色按下（白 8.37:1） |
+| `color.focus` | `#0F6FC0` | 键盘焦点环 / 输入框聚焦描边 |
+| `color.accent` | `#1D9BF0` | 装饰色（聚焦环、侧边指示条等非文字用途，对白 3.0:1；不作按钮底色或文字色） |
 | `color.danger` | `#DC2626` | 危险操作与错误 |
-| `color.success` | `#16A34A` | 成功状态 |
-| `color.warning` | `#D97706` | 警告状态 |
-| `color.text.heading` | `#374151` | 表头、分组标题文字（R1428 派生） |
-| `color.primary.hover` | `#1D4ED8` | 主色悬停/选中导航（R1428 派生） |
-| `color.primary.pressed` | `#1E40AF` | 主色按下（R1428 派生） |
-| `color.progress` | `#2563EB` | 进度条（R1428 派生） |
-| `color.secondary.bg` | `#DBEAFE` | 旧式次按钮背景（R1428 派生） |
-| `color.secondary.hover` | `#BFDBFE` | 旧式次按钮悬停（R1428 派生） |
-| `color.secondary.pressed` | `#93C5FD` | 旧式次按钮按下（R1428 派生） |
-| `color.secondary.text` | `#1E40AF` | 旧式次按钮文字（R1428 派生） |
-| `color.disabled.bg` | `#F3F4F6` | 禁用背景（R1428 派生） |
-| `color.disabled.text` | `#9CA3AF` | 禁用文字（R1428 派生） |
-| `color.border.strong` | `#D1D5DB` | 分组框、容器边框（R1428 派生） |
-| `color.header.bg` | `#F3F4F6` | 表头背景（R1428 派生） |
-| `color.trough` | `#E5E7EB` | 进度条槽（R1428 派生） |
-| `color.selection.bg` | `#DBEAFE` | 表格/单元格选中背景（R1428 派生） |
-| `color.selection.text` | `#1E3A8A` | 选中文字（R1428 派生） |
-| `color.selection.border` | `#93C5FD` | 选中描边（R1428 派生） |
-| `color.success.text` | `#15803D` | 成功文字（R1428 派生） |
-| `color.success.subtle` | `#DCFCE7` | 成功提示底色（R1428 派生） |
-| `color.warning.text` | `#B45309` | 警告文字（白底对比度 5.0:1）；警告色只用于状态与文字，不作按钮底色 |
-| `color.focus` | `#2563EB` | 键盘焦点环（R1689 新增） |
-| `color.danger.hover` | `#B91C1C` | 危险悬停（R1428 派生） |
-| `color.danger.text` | `#991B1B` | 错误文字（R1428 派生） |
-| `color.danger.subtle` | `#FEF2F2` | 错误提示底色（R1428 派生） |
-| `color.row.done.bg` | `#F0FDF4` | 已完成行底色（R1428 派生） |
+| `color.danger.hover` | `#B91C1C` | 危险悬停 |
+| `color.danger.pressed` | `#7F1D1D` | 危险按下 |
+| `color.danger.text` | `#991B1B` | 错误文字 |
+| `color.danger.subtle` | `#FEF2F2` | 错误提示底色 |
+| `color.success` | `#15803D` | 成功状态（由 #16A34A 加深一档，白字 5.0:1） |
+| `color.success.text` | `#15803D` | 成功文字 |
+| `color.success.subtle` | `#DCFCE7` | 成功提示底色 |
+| `color.warning` | `#D97706` | 警告状态（只作状态与文字，不作按钮底色） |
+| `color.warning.text` | `#B45309` | 警告文字（白底 5.0:1） |
+| `color.secondary.bg` | `#DBEAFE` | 默认 TButton 族浅蓝底 |
+| `color.secondary.hover` | `#BFDBFE` | 默认按钮悬停（本轮起被消费） |
+| `color.secondary.pressed` | `#93C5FD` | 默认按钮按下（本轮起被消费） |
+| `color.secondary.text` | `#1E40AF` | 默认按钮文字 |
+| `color.disabled.bg` | `#F3F4F6` | 禁用背景 |
+| `color.disabled.text` | `#9CA3AF` | 禁用文字 |
+| `color.border.strong` | `#D1D5DB` | 分组框、容器边框 |
+| `color.header.bg` | `#F7F9F9` | 表头背景 |
+| `color.code.background` | `#F3F4F6` | 代码块底色 |
+| `color.trough` | `#EFF3F4` | 进度条槽 |
+| `color.selection.bg` | `#E8F3FB` | 表格/单元格选中背景 |
+| `color.selection.text` | `#0A4F8C` | 选中文字 |
+| `color.selection.border` | `#B7D3EC` | 选中描边 |
+| `color.progress` | `#0F6FC0` | 进度条 |
+| `color.row.done.bg` | `#F0FDF4` | 已完成行底色 |
 
 ## 间距
 
@@ -57,11 +64,13 @@
 
 ## 圆角
 
-| Token | 值 |
-| --- | --- |
-| `radius.sm` | 4px |
-| `radius.md` | 8px |
-| `radius.lg` | 12px |
+| Token | 值 | 用途 |
+| --- | --- | --- |
+| `radius.sm` | 4px | 小控件（图标钮、滚动条滑块） |
+| `radius.md` | 8px | 按钮、输入框 |
+| `radius.lg` | 12px | 卡片 |
+
+圆角本轮起被真正消费：按钮与卡片由 `ui_widgets` 用标准库生成的带 alpha PNG 图元绘制，输入框保持矩形（见「输入框」）。
 
 ## 字体
 
@@ -73,33 +82,33 @@
 | `title` / `heading_2` | 微软雅黑 UI 14 bold | 区块标题、弹窗标题 |
 | `body` / `caption` | 微软雅黑 UI 10 | 正文、表单、按钮、表格、说明；本文其它章节写的 `font.body`＝`body`，`font.assistive`＝`caption` |
 | `body_bold` | 微软雅黑 UI 10 bold | 正文内强调 |
-| `hint` | 微软雅黑 UI 9 italic | 辅助提示（最小可读字号，不再往下缩） |
+| `hint` | 微软雅黑 UI 9 | 辅助提示（最小可读字号，不再往下缩；已删除中文斜体） |
 | `numeric` / `code` | Consolas 10 | 数字、代码 |
 | `heading_3` / `heading_4` | 微软雅黑 UI 12 / 11 bold | 仅用于 Markdown 阅读区（技能说明、剧本内容）内部层级 |
 | `pet_body` / `pet_hint` | 微软雅黑 UI 9 / 8 | 仅三虎气泡 |
 
 `caption` 与 `body` 当前同为 10pt，是有意合并：说明文字靠颜色（`text.secondary`）而不是更小字号区分层级。
 
-## 控件尺寸与密度（R1689 裁决）
+## 控件尺寸与密度（2026-10-21 密度放松）
 
-主界面走“平静、专业、密集”的紧凑桌面密度，宠物层保留个性。
+主界面走“平静、专业、透气”的桌面密度，宠物层保留个性。
 
 | Token | 值 | 规则 |
 | --- | --- | --- |
-| `CONTROL_HEIGHT` | 32px | 按钮、单行输入、下拉框、数值框的视觉高度；同一行的控件必须同高 |
-| `CONTROL_PADDING_Y` | 6px（`space.xs + space.xs//2`） | 单行输入／下拉框／数值框的上下内边距；按钮沿用 `space.xs` |
-| `CONTROL_HIT_MIN` | 32px | 任何可点击元素的最小点击区；小于它的图标要外扩点击区（宠物齿轮、猫爪待迁移） |
-| `BUTTON_BORDER_WIDTH` | 1px | 按钮常态 `solid` 边框宽度；边框色取按钮自身底色（不可见），焦点时取 `color.focus` |
+| `CONTROL_HEIGHT` | 36px（`space.2xl + space.xs`） | 按钮、单行输入、下拉框、数值框的视觉高度；同一行的控件必须同高 |
+| `CONTROL_PADDING_Y` | 8px（`space.sm`） | 单行输入／下拉框／数值框的上下内边距；按钮同样沿用 |
+| `CONTROL_HIT_MIN` | 36px | 任何可点击元素的最小点击区；小于它的图标要外扩点击区（宠物齿轮、猫爪待迁移） |
+| `BUTTON_RADIUS` | `radius.md`（8px） | 按钮圆角半径 |
 | 焦点环 | `focuscolor` = `color.focus` | 所有可操作控件必须有可见键盘焦点 |
 
-**32px 计算式（100% DPI）**：ttk 控件没有 height 属性，高度 = 字体行高 + 2×上下内边距 + 主题边框/焦点占位。10pt 微软雅黑 UI 的 `linespace` 实测 19px。
+**36px 计算式（100% DPI）**：ttk 控件没有 height 属性，高度 = 字体行高 + 2×上下内边距 + 主题边框/焦点占位。10pt 微软雅黑 UI 的 `linespace` 实测 19px。
 
-- 按钮：`19 + 2×space.xs(4) + 6（1px 边框＋焦点占位）= 33px`；
-- 单行输入／下拉框／数值框：`19 + 2×CONTROL_PADDING_Y(6) + 2×1px 边框 = 33px`。
+- 按钮：圆角图元高 `CONTROL_HEIGHT`（36px），文字 19px + 2×`CONTROL_PADDING_Y`(8) 仍落在图元内；
+- 单行输入／下拉框／数值框：`19 + 2×8 + 2×1px 边框 = 37px`。
 
-两者都在 32±2px 内；`tests/test_ui_style_engine.py` 用真 Tk 根窗口实测 `winfo_reqheight()`，非 100% 缩放按 `tk scaling` 折算。唯一定义处是 `ui_widgets.setup_styles()`；`ui_theme.apply()` 只装主题并调用它。
+两者都落在 36±2px 内；`tests/test_ui_style_engine.py` 用真 Tk 根窗口实测 `winfo_reqheight()`，非 100% 缩放按 `tk scaling` 折算。唯一定义处是 `ui_widgets.setup_styles()`；`ui_theme.apply()` 只装主题并调用它。
 
-**扁平按钮规则（UI 批次 2 返工）**：按钮常态不画可见边框、不使用 raised 浮雕。`ui_widgets._configure_button()` 统一使用 `borderwidth=BUTTON_BORDER_WIDTH`、`relief="solid"`，并把 `bordercolor`／`lightcolor`／`darkcolor` 设成按钮自身 `background`；仅 `focus` 状态把三者映射为 `color.focus`。导航（`Nav.TButton`／`Sub.Nav.TButton`）、侧栏与主区动作按钮（`TButton`／`ProjectAction.TButton`）都继承同一扁平规则，不得回退为可见边框或 raised。
+**圆角按钮规则（2026-10-21）**：按钮常态用圆角图元（`ui_rounded.py` 用标准库生成的带 alpha PNG，按 (颜色, 半径, 尺寸) 缓存）取代 raised 浮雕；样式 `background` 取 `CONTROL_CORNER_SURFACE`（按钮背后的页面底），填充色走 `fill` 选项，否则圆角会被填成方角；悬停加深一档、按下再深一档并让文字下移 1px。主按钮实心 `color.primary`，次按钮白底＋输入框级描边（`color.border.input`，在页面底上清晰可见），新增文字按钮无底、悬停浅底（`color.surface.hover`）。既有样式名全部保留，只改外观不改名。
 
 主色只有蓝色一套：橙色／琥珀色不再作按钮或强调底色（旧 `emphasis`、`warning.hover`、`warning.pressed` 已删除）。需要“醒目”的按钮用更深一档的 `color.primary.pressed`。文字与底色的对比度不低于 4.5:1。
 
@@ -143,10 +152,13 @@
 | `input.foreground` | `color.text.primary` | 正常输入文字 |
 | `input.placeholder.foreground` | `color.text.secondary` | 占位文字 |
 | `input.background` | `color.background.card` | 输入区底色 |
-| `input.border` | `color.border.default` | 默认 1px 边框 |
+| `input.border` | `color.border.input` | 默认 1px 边框 |
+| `input.border.hover` | `color.border.input.hover` | 悬停边框 |
 | `input.error.border` | `color.danger` | 校验失败边框 |
-| `input.focus.border` | `color.focus` | 获得焦点时的边框 |
-| `input.padding` | `space.md` × `CONTROL_PADDING_Y`（6px） | 水平／垂直内边距；垂直值使单行控件落在 32±2px |
+| `input.focus.border` | `color.focus`（＝`color.primary`） | 获得焦点时的描边（LineInput／SelectBox）；TextArea 用 `highlightcolor` 表达同一主色 |
+| `input.padding` | `space.lg` × `CONTROL_PADDING_Y`（8px） | 水平／垂直内边距；垂直值使单行控件落在 36±2px |
+
+输入框保持矩形（ttk.Entry／TCombobox 的图元改造会破坏占位、只读、错误态或下拉行为，故不为圆角牺牲既有行为）。
 
 ## 文字层级
 
@@ -183,7 +195,7 @@ Tooltip 仅由 `ui_widgets.Tooltip` 建立；页面不得自行创建无边框 `
 
 ### 滚动条
 
-标准 `ttk.Scrollbar` 的轨道、滑块、箭头和悬停色仅由 `ui_theme.apply()` 读取 `ui_tokens.py` 的 `SCROLLBAR_*` token 设置；业务页面不得为单个滚动条内联颜色、边框或另建 Style。横向和纵向使用同一视觉与 active 反馈。
+标准 `ttk.Scrollbar` 的轨道、滑块和悬停色仅由 `ui_widgets.setup_styles()` 读取 `ui_tokens.py` 的 `SCROLLBAR_*` token 设置（本轮从 `ui_theme.apply()` 迁入）；业务页面不得为单个滚动条内联颜色、边框或另建 Style。横向和纵向使用同一视觉与 active 反馈：无箭头、厚度 `SCROLLBAR_WIDTH`（8px）、滑块常态浅灰悬停加深、轨道与背景同色。
 
 | Token | 值 | 用途 |
 | --- | --- | --- |

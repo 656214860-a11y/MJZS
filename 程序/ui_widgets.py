@@ -8,153 +8,172 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        COMBOBOX_FIELD_BACKGROUND, COMBOBOX_FONT,
                        COMBOBOX_FOREGROUND, COMBOBOX_PADDING,
                        COMBOBOX_WIDTH, COMBOBOX_POPDOWN_HEIGHT, COMBOBOX_MAX_WIDTH,
-                       CONTROL_PADDING_Y, FONTS, SPACING, TEXT_DESC, TEXT_HINT,
-                       TEXT_PROGRESS, DIALOG_ACTION_GAP, DIALOG_ACTION_HEIGHT,
-                       DIALOG_CONTENT_PADDING, DIALOG_TITLE_FONT,
+                       CONTROL_HEIGHT, CONTROL_PADDING_Y, FONTS, RADIUS, SPACING,
+                       TEXT_DESC, TEXT_HINT, TEXT_PROGRESS, DIALOG_ACTION_GAP,
+                       DIALOG_ACTION_HEIGHT, DIALOG_CONTENT_PADDING, DIALOG_TITLE_FONT,
                        TOOLTIP_BACKGROUND, TOOLTIP_BORDER, TOOLTIP_BORDER_WIDTH, TOOLTIP_DELAY_MS,
                        TOOLTIP_FONT, TOOLTIP_FOREGROUND, TOOLTIP_OFFSET,
                        TOOLTIP_PADDING, TOOLTIP_WRAPLENGTH,
                        TABLE_EMPTY_PADDING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TABLE_COMPACT_HEADER_PADDING,
                        TABLE_ROW_HEIGHT, INPUT_BACKGROUND, INPUT_BORDER,
-                       INPUT_BORDER_WIDTH, INPUT_ERROR_BORDER, INPUT_FONT,
-                       INPUT_FOREGROUND, INPUT_PADDING_X, INPUT_PADDING_Y,
-                       INPUT_PLACEHOLDER_FOREGROUND, ICON_FONT, BUTTON_BORDER_WIDTH)
+                       INPUT_BORDER_HOVER, INPUT_BORDER_WIDTH, INPUT_ERROR_BORDER,
+                       INPUT_FOCUS_BORDER, INPUT_FONT, INPUT_FOREGROUND,
+                       INPUT_PADDING_X, INPUT_PADDING_Y, INPUT_PLACEHOLDER_FOREGROUND,
+                       ICON_FONT, BUTTON_RADIUS, CONTROL_CORNER_SURFACE,
+                       ROUND_TILE_BUTTON, ROUND_TILE_CARD,
+                       SCROLLBAR_THUMB, SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH,
+                       SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
+from ui_motion import bind_row_hover, empty_icon
+from ui_rounded import rounded_photo as _rounded_photo, rounded_png_bytes as _rounded_png_bytes
+
+
+def _install_rounded_layout(style, name, element):
+    style.layout(name, [(element, {"sticky": "nswe", "children": [
+        ("Button.focus", {"sticky": "nswe", "children": [
+            ("Button.padding", {"sticky": "nswe", "children": [
+                ("Button.label", {"sticky": "nswe"})]})]})]})])
 
 
 def _configure_button(style, name, *, background, foreground,
-                      active_background=COLORS["primary_subtle"],
-                      active_foreground=COLORS["primary"],
+                      active_background, active_foreground,
                       pressed_background=None,
-                      disabled_background=COLORS["border_default"],
+                      disabled_background=COLORS["disabled_bg"],
                       disabled_foreground=COLORS["disabled_text"],
-                      padding=(SPACING["md"], SPACING["xs"]),
-                      font=None, anchor=None, borderwidth=BUTTON_BORDER_WIDTH):
-    """Define one flat button style: invisible border, fixed focus ring.
+                      padding=(SPACING["md"], CONTROL_PADDING_Y),
+                      font=None, anchor=None, border_color=None, border_width=0):
+    """圆角按钮：底图是带 alpha 的圆角 PNG，四态各一张；按钮自身的 ``fill`` 选项记录填充色。
 
-    The normal border is a 1px ``solid`` border painted in the button's own
-    background, so it is not visible; the focus state maps the same border to
-    ``COLORS['focus']``.  This keeps the pre-UI-batch flat look while retaining
-    a keyboard focus ring, and avoids the raised clam border that previously
-    leaked into navigation/sidebar buttons through the base ``TButton`` style.
+    ttk 把圆角透明处露出的是样式的 ``background``，所以 ``background`` 必须是按钮背后的
+    表面色（``CONTROL_CORNER_SURFACE``），而不是按钮的填充色，否则四个角会被填成实心方角。
     """
-    options = {
-        "font": font or FONTS["body"],
-        "padding": padding,
-        "background": background,
-        "foreground": foreground,
-        "borderwidth": borderwidth,
-        "relief": "solid",
-        "bordercolor": background,
-        "lightcolor": background,
-        "darkcolor": background,
-        "focuscolor": COLORS["focus"],
-    }
+    root = style.master
+    pressed_background = pressed_background or active_background
+    states = (("normal", background), ("active", active_background),
+              ("pressed", pressed_background), ("disabled", disabled_background))
+    images = {}
+    tile_w, tile_h = ROUND_TILE_BUTTON
+    for state, color in states:
+        images[state], pr = _rounded_photo(root, color, BUTTON_RADIUS,
+                                           width=BUTTON_RADIUS * 2 + tile_w,
+                                           height=BUTTON_RADIUS * 2 + tile_h,
+                                           border=border_color, border_width=border_width)
+    element = "Drama.Rounded." + name.replace(".", "_")
+    if element not in style.element_names():
+        style.element_create(element, "image", images["normal"],
+                             ("active", images["active"]), ("pressed", images["pressed"]),
+                             ("disabled", images["disabled"]),
+                             border=(pr, pr, pr, pr), padding=(0, 0, 0, 0),
+                             width=1, height=1, sticky="nsew")
+    _install_rounded_layout(style, name, element)
+    options = {"font": font or FONTS["body"], "padding": padding,
+               "background": CONTROL_CORNER_SURFACE, "fill": background,
+               "foreground": foreground, "focuscolor": COLORS["focus"]}
     if anchor is not None:
         options["anchor"] = anchor
     style.configure(name, **options)
-    background_map = []
-    chroma_map = [("focus", COLORS["focus"])]
-    if pressed_background is not None:
-        background_map.append(("pressed", pressed_background))
-        chroma_map.append(("pressed", pressed_background))
-    background_map.extend((("active", active_background),
-                           ("disabled", disabled_background)))
-    chroma_map.extend((("active", active_background),
-                       ("disabled", disabled_background)))
-    foreground_map = [("active", active_foreground),
-                      ("disabled", disabled_foreground)]
-    style.map(name, background=background_map,
-              foreground=foreground_map,
-              bordercolor=chroma_map,
-              lightcolor=chroma_map,
-              darkcolor=chroma_map)
+    # 按下时文字下移 1px、上下合计高度不变（上加下减），按钮不会因按下而抖动整行。
+    style.map(name,
+              fill=[("pressed", pressed_background),
+                    ("active", active_background),
+                    ("disabled", disabled_background)],
+              foreground=[("active", active_foreground),
+                          ("disabled", disabled_foreground)],
+              padding=[("pressed", (padding[0], padding[1] + 1,
+                                    padding[0], max(0, padding[1] - 1)))])
 
 
-def _install_button_styles(style):
-    """The only place any TButton-family style is defined.
-
-    ``ui_theme.apply()`` calls this through ``setup_styles()``; it must not keep a
-    second copy.  All names currently used by pages stay unchanged.
-    """
-    # Normal/active/disabled colours stay exactly as the reviewed UI-batch-2
-    # version; this rework only changes how the 1px border is painted.
+def _install_button_styles(style, root):
+    solid = dict(foreground=COLORS["background_card"],
+                 active_background=COLORS["primary_hover"],
+                 active_foreground=COLORS["background_card"],
+                 pressed_background=COLORS["primary_pressed"])
+    _configure_button(style, "Primary.TButton", background=COLORS["primary"], **solid)
+    _configure_button(style, "Tokens.Primary.TButton", background=COLORS["primary"], **solid)
+    _configure_button(style, "Send.TButton", background=COLORS["primary"], **solid)
+    _configure_button(style, "Selected.Compact.TButton", background=COLORS["primary"], **solid)
+    _configure_button(style, "Selected.Nav.TButton", background=COLORS["primary"], anchor="w", **solid)
+    _configure_button(style, "Selected.Sub.Nav.TButton", background=COLORS["primary"],
+                      anchor="w", padding=(SPACING["xl"], CONTROL_PADDING_Y), **solid)
+    _configure_button(style, "Highlight.TButton", background=COLORS["primary_pressed"],
+                      foreground=COLORS["background_card"],
+                      active_background=COLORS["primary_pressed"],
+                      active_foreground=COLORS["background_card"],
+                      pressed_background=COLORS["primary_pressed"],
+                      font=FONTS["body_bold"])
     secondary = dict(background=COLORS["secondary_bg"],
-                     foreground=COLORS["secondary_text"])
+                     foreground=COLORS["secondary_text"],
+                     active_background=COLORS["secondary_hover"],
+                     active_foreground=COLORS["secondary_text"],
+                     pressed_background=COLORS["secondary_pressed"])
     _configure_button(style, "TButton", **secondary)
     _configure_button(style, "Compact.TButton", **secondary)
     _configure_button(style, "Asset.TButton", **secondary)
-    # Desktop.fit_sidebar() adjusts only this style's font/padding; keeping the
-    # base definition here means the project action buttons inherit the flat
-    # border and focus map before that responsive pass runs.
     _configure_button(style, "ProjectAction.TButton", **secondary)
-    _configure_button(style, "Primary.TButton", background=COLORS["primary"],
-                      foreground=COLORS["background_card"])
-    _configure_button(style, "Tokens.Primary.TButton", background=COLORS["primary"],
-                      foreground=COLORS["background_card"])
-    _configure_button(style, "Secondary.TButton",
-                      background=COLORS["background_card"],
-                      foreground=COLORS["text_primary"])
-    _configure_button(style, "Tokens.Secondary.TButton",
-                      background=COLORS["background_card"],
-                      foreground=COLORS["text_primary"])
+    ghost = dict(background=COLORS["background_card"],
+                 foreground=COLORS["text_primary"],
+                 active_background=COLORS["surface_hover"],
+                 active_foreground=COLORS["text_primary"],
+                 pressed_background=COLORS["surface_pressed"],
+                 border_color=COLORS["border_input"], border_width=1)
+    _configure_button(style, "Secondary.TButton", **ghost)
+    _configure_button(style, "Tokens.Secondary.TButton", **ghost)
+    _configure_button(style, "Tokens.Icon.TButton", font=ICON_FONT,
+                      padding=(SPACING["sm"], CONTROL_PADDING_Y), **ghost)
     _configure_button(style, "Tokens.Danger.TButton", background=COLORS["danger"],
                       foreground=COLORS["background_card"],
-                      active_background=COLORS["danger_subtle"],
-                      active_foreground=COLORS["danger"],
-                      pressed_background=COLORS["danger_hover"])
-    _configure_button(style, "Tokens.Icon.TButton",
-                      background=COLORS["background_card"],
-                      foreground=COLORS["text_primary"], font=ICON_FONT,
-                      padding=(SPACING["sm"], CONTROL_PADDING_Y))
-    _configure_button(style, "Send.TButton", background=COLORS["primary"],
-                      foreground=COLORS["background_card"],
-                      active_background=COLORS["primary_hover"],
+                      active_background=COLORS["danger_hover"],
                       active_foreground=COLORS["background_card"],
-                      pressed_background=COLORS["primary_hover"])
-    _configure_button(style, "Selected.Compact.TButton",
-                      background=COLORS["primary"],
-                      foreground=COLORS["background_card"],
-                      active_background=COLORS["primary_hover"],
-                      active_foreground=COLORS["background_card"])
-    _configure_button(style, "Highlight.TButton",
-                      background=COLORS["primary_pressed"],
-                      foreground=COLORS["background_card"],
-                      font=FONTS["body_bold"],
-                      active_background=COLORS["primary_hover"],
-                      active_foreground=COLORS["background_card"],
-                      pressed_background=COLORS["primary_pressed"])
-    nav = dict(secondary, background=COLORS["background_primary"],
-               foreground=COLORS["text_primary"])
+                      pressed_background=COLORS["danger_pressed"])
+    nav = dict(background=COLORS["background_primary"],
+               foreground=COLORS["text_primary"],
+               active_background=COLORS["surface_hover"],
+               active_foreground=COLORS["text_primary"],
+               pressed_background=COLORS["surface_pressed"])
     _configure_button(style, "Nav.TButton", anchor="w", **nav)
     _configure_button(style, "Sub.Nav.TButton", anchor="w",
-                      padding=(SPACING["xl"], SPACING["xs"]), **nav)
-    _configure_button(style, "Selected.Nav.TButton",
-                      background=COLORS["primary"],
-                      foreground=COLORS["background_card"],
-                      active_background=COLORS["primary_hover"],
-                      active_foreground=COLORS["background_card"], anchor="w")
-    _configure_button(style, "Selected.Sub.Nav.TButton",
-                      background=COLORS["primary"],
-                      foreground=COLORS["background_card"],
-                      active_background=COLORS["primary_hover"],
-                      active_foreground=COLORS["background_card"], anchor="w",
-                      padding=(SPACING["xl"], SPACING["xs"]))
+                      padding=(SPACING["xl"], CONTROL_PADDING_Y), **nav)
+    _configure_button(style, "Tokens.Text.TButton",
+                      background=COLORS["background_primary"],
+                      foreground=COLORS["primary"],
+                      active_background=COLORS["surface_hover"],
+                      active_foreground=COLORS["primary"],
+                      pressed_background=COLORS["surface_pressed"])
+
+
+def _install_card_style(style, root):
+    factor = float(root.tk.call("tk", "scaling")) / (96.0 / 72.0)
+    pr = max(1, round(RADIUS["lg"] * factor))
+    tile_w, tile_h = ROUND_TILE_CARD
+    image, _ = _rounded_photo(root, COLORS["background_card"], RADIUS["lg"],
+                              width=RADIUS["lg"] * 2 + tile_w, height=RADIUS["lg"] * 2 + tile_h,
+                              border=COLORS["border_default"], border_width=1)
+    element = "Drama.Card"
+    if element not in style.element_names():
+        # width/height=1：否则 ttk 把控件最小尺寸撑成整张底图（大中心区会让按钮高 80px）。
+        style.element_create(element, "image", image, border=(pr, pr, pr, pr),
+                             padding=(0, 0, 0, 0), width=1, height=1, sticky="nsew")
+    style.layout("Tokens.Card.TFrame", [(element, {"sticky": "nsew", "children": [
+        ("Button.padding", {"sticky": "nsew"})]})])
+    # 控件自身的 padding（Card 默认 lg）之外，再由样式补一档 sm，卡片内容离圆角边更透气。
+    style.configure("Tokens.Card.TFrame", background=CONTROL_CORNER_SURFACE,
+                    padding=SPACING["sm"])
 
 
 def _configure_combobox(style, name, padding):
     style.configure(name, fieldbackground=COMBOBOX_FIELD_BACKGROUND,
                     background=COMBOBOX_FIELD_BACKGROUND,
                     foreground=COMBOBOX_FOREGROUND, font=COMBOBOX_FONT,
-                    padding=padding, bordercolor=COLORS["border_default"])
+                    padding=padding, bordercolor=INPUT_BORDER,
+                    lightcolor=COMBOBOX_FIELD_BACKGROUND,
+                    darkcolor=COMBOBOX_FIELD_BACKGROUND)
     style.map(name,
               fieldbackground=[("readonly", COMBOBOX_FIELD_BACKGROUND),
-                               ("disabled", COLORS["border_default"])],
+                               ("disabled", COLORS["disabled_bg"])],
               foreground=[("disabled", COLORS["disabled_text"])],
-              bordercolor=[("focus", COLORS["focus"])])
+              bordercolor=[("focus", INPUT_FOCUS_BORDER)])
 
 
 def _install_input_styles(style, root):
-    """Single-line controls share the 32±2px geometry and the same focus token."""
     input_options = {
         "font": INPUT_FONT,
         "foreground": INPUT_FOREGROUND,
@@ -164,7 +183,8 @@ def _install_input_styles(style, root):
         "padding": (INPUT_PADDING_X, CONTROL_PADDING_Y),
     }
     style.configure("TEntry", **input_options)
-    style.map("TEntry", bordercolor=[("focus", COLORS["focus"])])
+    style.map("TEntry", bordercolor=[("focus", INPUT_FOCUS_BORDER),
+                                     ("hover", INPUT_BORDER_HOVER)])
     style.configure("Tokens.LineInput.TEntry", **input_options)
     style.configure("Tokens.LineInput.Placeholder.TEntry",
                     **dict(input_options, foreground=INPUT_PLACEHOLDER_FOREGROUND))
@@ -172,27 +192,24 @@ def _install_input_styles(style, root):
                     **dict(input_options, bordercolor=INPUT_ERROR_BORDER))
     for name in ("Tokens.LineInput.TEntry", "Tokens.LineInput.Placeholder.TEntry",
                  "Tokens.LineInput.Error.TEntry"):
-        style.map(name, bordercolor=[("focus", COLORS["focus"])])
+        style.map(name, bordercolor=[("focus", INPUT_FOCUS_BORDER),
+                                     ("hover", INPUT_BORDER_HOVER)])
     style.configure("TSpinbox", font=INPUT_FONT, foreground=INPUT_FOREGROUND,
                     fieldbackground=INPUT_BACKGROUND,
                     background=INPUT_BACKGROUND, bordercolor=INPUT_BORDER,
                     padding=(INPUT_PADDING_X, CONTROL_PADDING_Y),
                     borderwidth=INPUT_BORDER_WIDTH)
-    style.map("TSpinbox", bordercolor=[("focus", COLORS["focus"])])
+    style.map("TSpinbox", bordercolor=[("focus", INPUT_FOCUS_BORDER),
+                                       ("hover", INPUT_BORDER_HOVER)])
 
-    # TCombobox keeps the legacy base padding for compatibility; SelectBox (the only
-    # component pages may use) selects the tokenized component style below.
     _configure_combobox(style, "TCombobox", COMBOBOX_PADDING)
     _configure_combobox(style, "Tokens.Combobox.TCombobox", COMBOBOX_CONTROL_PADDING)
-    # ttk 的箭头色是 Tcl 层的主题选项；不支持该选项的旧主题安全忽略，
-    # 其余视觉规格仍由上面的标准 Style 配置统一。
     for name in ("TCombobox", "Tokens.Combobox.TCombobox"):
         try:
             root.tk.call("ttk::style", "configure", name,
                          "-arrowcolor", COMBOBOX_ARROW_COLOR)
         except Exception:
             app_logging.swallowed()
-    # Popdown Listbox 不属于 ttk Style，须在同一入口通过 option database 统一。
     root.option_add("*TCombobox*Listbox.font", COMBOBOX_FONT)
     root.option_add("*TCombobox*Listbox.background", COMBOBOX_FIELD_BACKGROUND)
     root.option_add("*TCombobox*Listbox.foreground", COMBOBOX_FOREGROUND)
@@ -201,19 +218,27 @@ def _install_input_styles(style, root):
     root.option_add("*TCombobox.width", COMBOBOX_WIDTH)
 
 
+def _install_scrollbar_styles(style):
+    for name in ("Vertical.TScrollbar", "Horizontal.TScrollbar"):
+        style.configure(name, background=SCROLLBAR_THUMB, troughcolor=SCROLLBAR_TROUGH,
+                        arrowsize=SCROLLBAR_WIDTH, borderwidth=SCROLLBAR_BORDER_WIDTH,
+                        bordercolor=SCROLLBAR_TROUGH, lightcolor=SCROLLBAR_THUMB,
+                        darkcolor=SCROLLBAR_THUMB, relief="flat", gripcount=0)
+        style.map(name, background=[("active", SCROLLBAR_THUMB_ACTIVE)],
+                  lightcolor=[("active", SCROLLBAR_THUMB_ACTIVE)],
+                  darkcolor=[("active", SCROLLBAR_THUMB_ACTIVE)])
+    style.layout("Vertical.TScrollbar", [
+        ("Vertical.Scrollbar.trough", {"sticky": "ns", "children": [
+            ("Vertical.Scrollbar.thumb", {"sticky": "nswe"})]})])
+    style.layout("Horizontal.TScrollbar", [
+        ("Horizontal.Scrollbar.trough", {"sticky": "we", "children": [
+            ("Horizontal.Scrollbar.thumb", {"sticky": "nswe"})]})])
+
+
 def setup_styles(root):
-    """Install the compact, readable styles shared by every Tk page.
-
-    ``ttk.Style`` is scoped to the root Tcl interpreter, so configuring it once
-    after the application theme also covers legacy direct ``ttk.Button`` calls.
-
-    This function (through the two helpers above) is the **only** definition site
-    for button, entry, combobox and spinbox styles.  ``ui_theme.apply()`` installs
-    the theme and then calls this function instead of repeating any style.
-    """
+    """按钮/输入/下拉框/数值框/卡片/滚动条样式的唯一定义处；ui_theme.apply() 装主题后调用它。"""
     style = ttk.Style(root)
-    # 每个按钮/表格构造时都会调到这里；同一主题下样式已装好就不再重配
-    # （整套约 50 次 Tcl 调用，剧本准备建页时曾重复 20 次）。换主题后重新安装。
+    # 同一主题下样式已装好就不再重配；换主题后重新安装。
     interp = style.tk
     theme = style.theme_use()
     try:
@@ -221,11 +246,11 @@ def setup_styles(root):
             return
     except tk.TclError:
         pass
-    _install_button_styles(style)
+    _install_button_styles(style, root)
+    _install_card_style(style, root)
     _install_input_styles(style, root)
+    _install_scrollbar_styles(style)
     # 表单的普通标签、分组标题和勾选项必须与按钮／输入框同用正文 token。
-    # TCombobox 的显示区及其弹出 Listbox 在下方同样使用该 token，避免一页内
-    # 混入系统默认字体或不同字号。
     style.configure("TLabel", font=FONTS["body"])
     style.configure("TCheckbutton", font=FONTS["body"])
     style.configure("TLabelframe.Label", font=FONTS["body"])
@@ -238,12 +263,17 @@ def setup_styles(root):
                     background=COLORS["background_card"],
                     fieldbackground=COLORS["background_card"],
                     foreground=COLORS["text_primary"])
+    # 表头去掉 clam 的凸起斜面：平底、只留一条弱分隔线。
+    heading_flat = dict(relief="flat", background=COLORS["header_bg"],
+                        bordercolor=COLORS["border_default"],
+                        lightcolor=COLORS["header_bg"], darkcolor=COLORS["header_bg"])
+    style.configure("Treeview", bordercolor=COLORS["border_default"],
+                    lightcolor=COLORS["background_card"], darkcolor=COLORS["background_card"])
+    style.configure("Treeview.Heading", **heading_flat)
     style.configure("Tokens.DataTable.Treeview.Heading", font=TABLE_HEADER_FONT,
-                    foreground=COLORS["text_primary"])
+                    foreground=COLORS["text_primary"], **heading_flat)
     style.configure("Compact.Tokens.DataTable.Treeview.Heading",
                     padding=TABLE_COMPACT_HEADER_PADDING)
-    style.configure("Tokens.Card.TFrame", background=COLORS["background_card"],
-                    bordercolor=COLORS["border_default"], borderwidth=1, relief="solid")
     interp.globalsetvar("drama_styles_theme", theme)
 
 
@@ -282,8 +312,10 @@ class DataTable(ttk.Frame):
         self.vertical_scrollbar.grid(row=0, column=1, sticky="ns")
         if horizontal:
             self.horizontal_scrollbar.grid(row=1, column=0, sticky="ew")
+        # 柔和图标在文字上方（compound=top）；文本为空时本标签不显示，图标也随之不出现。
         self.empty_label = ttk.Label(self, text=empty_text, style="Muted.TLabel",
-                                     padding=TABLE_EMPTY_PADDING)
+                                     padding=TABLE_EMPTY_PADDING, image=empty_icon(self),
+                                     compound="top", anchor="center", justify="center")
         self.empty_label.grid(row=0, column=0, sticky="nsew")
         self.empty_label.lift()
         for name, label, width in columns:
@@ -291,6 +323,7 @@ class DataTable(ttk.Frame):
                               command=lambda column=name: self.sort_by(column))
             self.tree.column(name, width=width, minwidth=0, stretch=True)
         self.tree.bind("<<TreeviewSelect>>", self._selected, add="+")
+        bind_row_hover(self.tree)
         self.tree.bind("<Map>", lambda _event: self.refresh_empty_state(), add="+")
         # 兼容仍接收 Treeview 的页面 API，同时让填表函数能刷新统一空态。
         self.tree._data_table = self
@@ -455,11 +488,11 @@ class TextArea(tk.Text):
             "fg": INPUT_FOREGROUND,
             "insertbackground": COLORS["primary"],
             "font": INPUT_FONT,
-            "relief": "solid",
-            "bd": INPUT_BORDER_WIDTH,
+            "relief": "flat",
+            "bd": 0,
             "highlightthickness": INPUT_BORDER_WIDTH,
             "highlightbackground": INPUT_BORDER,
-            "highlightcolor": INPUT_BORDER,
+            "highlightcolor": INPUT_FOCUS_BORDER,
             "padx": INPUT_PADDING_X,
             "pady": INPUT_PADDING_Y,
         }
@@ -503,7 +536,7 @@ class TextArea(tk.Text):
     def clear_error(self):
         self.error_message = None
         self.configure(highlightbackground=INPUT_BORDER,
-                       highlightcolor=INPUT_BORDER)
+                       highlightcolor=INPUT_FOCUS_BORDER)
 
     def set_readonly(self, readonly=True):
         self.configure(state="disabled" if readonly else "normal")
@@ -617,9 +650,10 @@ def notify(parent, message, *, level="info", title=None, modal=True, status=None
 class BusyState:
     """共享主任务的忙碌／加载态，不拥有后台任务或取消语义。"""
 
-    def __init__(self, status, progress=None, *, idle_determinate=False):
+    def __init__(self, status, progress=None, *, idle_determinate=False, spinner=None):
         self.status = status
         self.progress = progress
+        self.spinner = spinner  # 可选 ui_motion.Spinner：忙碌时显示并转圈
         self.idle_determinate = idle_determinate
         self.busy = False
         self._controls = ()
@@ -636,7 +670,11 @@ class BusyState:
                 self.progress.start(progress_interval)
             if message and callable(getattr(self.status, 'set', None)):
                 self.status.set(message)
+            if self.spinner is not None:
+                self.spinner.start()
             return True
+        if self.spinner is not None:
+            self.spinner.stop()
         if self.progress is not None:
             self.progress.stop()
             if self.idle_determinate:self.progress.configure(mode='determinate', value=0)
