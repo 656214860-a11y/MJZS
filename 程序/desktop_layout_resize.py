@@ -118,7 +118,11 @@ class ResizeCoalescer:
     False 表示照旧立即布局。拖动中多次登记的回调按首次登记顺序去重，静默后各补做一次。
     """
 
-    def __init__(self, window, quiet_ms=None):
+    def __init__(self, window, quiet_ms=None, freeze=None, thaw=None):
+        # freeze/thaw：确认「正在拖外框」时收起内容区只画外层框架，松手（补做重排之前）再放回。
+        self.freeze = freeze
+        self.thaw = thaw
+        self._frozen = False
         self.window = window
         self.probe = _PROBE
         self.quiet_ms = int(DESKTOP_LAYOUT['resize_quiet_ms']) if quiet_ms is None else int(quiet_ms)
@@ -133,7 +137,32 @@ class ResizeCoalescer:
     def is_waiting(self):
         return self._waiting
 
+    def _thaw(self):
+        if not self._frozen:
+            return
+        self._frozen = False
+        if self.thaw is not None:
+            try:
+                self.thaw()
+            except tk.TclError:
+                pass
+            except Exception:
+                app_logging.swallowed()
+
+    def _freeze_once(self):
+        if self._frozen or self.freeze is None:
+            return
+        self._frozen = True
+        try:
+            self.freeze()
+        except tk.TclError:
+            pass
+        except Exception:
+            self._frozen = False
+            app_logging.swallowed()
+
     def _drop(self):
+        self._thaw()
         self._pending = []
         self._waiting = False
         job, self._job = self._job, None
@@ -180,8 +209,11 @@ class ResizeCoalescer:
         """
         if isinstance(apply, tk.Event) or apply is None:
             return False
-        if self.drag_active() is False:
+        drag = self.drag_active()
+        if drag is False:
             return False
+        if drag is True:
+            self._freeze_once()  # 只有确认在拖外框才收起内容；探测不到的降级路径不动画面
         if not any(callback is apply for callback in self._pending):
             self._pending.append(apply)
         self._waiting = True
@@ -217,6 +249,7 @@ class ResizeCoalescer:
             return
         pending, self._pending = self._pending, []
         self._waiting = False
+        self._thaw()  # 先放回内容，补做的整页重排才量得到真实尺寸
         for apply in pending:
             try:
                 apply()

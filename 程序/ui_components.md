@@ -162,3 +162,13 @@
 
 侧栏导航胶囊的悬停（`surface_hover`）与选中（`primary`）仍由 `Nav.TButton` / `Selected.Nav.TButton` 的圆角底图提供；
 页面边距、导航间距、状态栏间距取自 `DESKTOP_LAYOUT` 的 `body_padding`／`nav_gap`／`section_gap`／`status_gap`。
+
+## 动效与拖窗口（性能/资源轮）
+
+| 能力 | 入口 | 行为 | 令牌 |
+| --- | --- | --- | --- |
+| 平滑滚动 | `ui_scroll.eased_scroll(canvas, steps)`；主页面、侧栏、`ScrollForm` 的滚轮都走它 | 滚轮推「目标位置」，每帧走剩余距离的一半（缓出）；第一步在事件里同步走完；连续滚轮累加；翻页键／拖滚动条等别处移动画布时放弃剩余动画；不可滚或设了 `yscrollincrement` 时退回原生滚动；位移距离与原生 `units` 一致 | `SCROLL_*` |
+| 按钮悬停渐变 | `ui_hover_fade.install_hover_fade(root)`（`setup_styles` 自动安装）；对所有登记过圆角规格的 `ttk.Button` 样式生效 | 进出时临时切到派生样式 `Fade<k>.<原样式>`（`ui_rounded.button_specs` 登记的规格生成混色底图，按需生成并缓存），100ms 分 4 档，走完还原原样式；期间别处改了样式、按钮被禁用或销毁则立即停，不覆盖别人写的样式 | `HOVER_FADE_*` |
+| 拖窗口只画外层框架 | `desktop_layout_resize.ResizeCoalescer(freeze=, thaw=)`；`LayoutMixin._freeze_content/_thaw_content` | 确认光标捏着外框时收起页面内容与侧栏内容（画布窗口项设 `hidden`），松手后先放回再补做整页重排；探测不到（降级路径）只合并、不收起 | `resize_quiet_ms` |
+
+不覆盖：`Text`／`Treeview`／`Listbox` 内部滚动仍按行走（它们由控件自身的 `yview_scroll` 处理）；卡片没有悬停态，不做渐变。

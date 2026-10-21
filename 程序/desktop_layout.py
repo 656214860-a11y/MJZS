@@ -11,6 +11,7 @@ import pet_ui
 from desktop_layout_resize import ResizeCoalescer
 from desktop_page_registry import PAGE
 from responsive_ui import growable_extra
+from ui_scroll import eased_scroll
 from ui_tokens import CONTROL_PADDING_Y, DESKTOP_LAYOUT, FONTS, SPACING
 
 
@@ -25,9 +26,18 @@ class LayoutMixin:
         if coalescer is not None:coalescer.cancel()
     def watch_window_resize(self,win):
         """主窗口／页面画布／内容框的尺寸变化统一经合并器；子控件变化照旧立即处理。"""
-        self.resize_scheduler=ResizeCoalescer(win)
+        self.resize_scheduler=ResizeCoalescer(win,freeze=self._freeze_content,thaw=self._thaw_content)
         for widget in (win,self.canvas,self.content):
             widget.bind('<Configure>',self._on_resize_configure,add='+')
+    def _freeze_content(self):
+        """拖外框期间收起页面内容与侧栏内容，只画外层框架（标题栏、进度条、状态栏）；松手后放回。"""
+        self.canvas.itemconfigure(self.content_id,state='hidden')
+        side=getattr(self,'sidebar_scroll',None)
+        if side is not None:side.canvas.itemconfigure(side.window_id,state='hidden')
+    def _thaw_content(self):
+        self.canvas.itemconfigure(self.content_id,state='normal')
+        side=getattr(self,'sidebar_scroll',None)
+        if side is not None:side.canvas.itemconfigure(side.window_id,state='normal')
     def _own_content_configure(self,event):
         """布局刚把内容框设成这个尺寸：同尺寸 <Configure> 是自己写出的几何，不是外部变化。"""
         if event is None or getattr(event,'widget',None) is not getattr(self,'_content_applied_widget',None):return False
@@ -299,7 +309,7 @@ class LayoutMixin:
             return 'break'
         if widget.winfo_toplevel()!=self.win:return
         if self._inside_path(widget,getattr(self,'sidebar_viewport',self.sidebar)):
-            if steps and not self.native_wheel(widget):self.sidebar_canvas.yview_scroll(steps,'units')
+            if steps and not self.native_wheel(widget):eased_scroll(self.sidebar_canvas,steps)
             return 'break'
         if not steps:return 'break'
         # This bindtag runs before native widget bindings, so one wheel event
@@ -311,7 +321,7 @@ class LayoutMixin:
                     widget.yview_scroll(steps,'units');self.clear_hover(widget);return 'break'
             widget=getattr(widget,'master',self.win)
             if widget is None:break
-        self.canvas.yview_scroll(steps,'units')
+        eased_scroll(self.canvas,steps)
         return 'break'
     def _page_scroll_target(self,widget=None):
         focus=self.win.focus_get() if widget is None else widget

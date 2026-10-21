@@ -99,3 +99,19 @@ def empty_icon_photo(root, size, background, foreground, line, radius):
             top = side // 3 + index * thick * 3
             image.put(foreground, to=(left, top, left + length, top + thick))
     return image
+
+
+def rounded_layout(style, name, element):
+    """圆角按钮的布局：底图元素 → 焦点环 → 内边距 → 文字。"""
+    style.layout(name, [(element, {"sticky": "nswe", "children": [
+        ("Button.focus", {"sticky": "nswe", "children": [
+            ("Button.padding", {"sticky": "nswe", "children": [
+                ("Button.label", {"sticky": "nswe"})]})]})]})])
+
+
+def button_specs(root):
+    """样式名 → 圆角按钮规格（各态颜色、四态底图、描边、底图尺寸）；悬停渐变按它生成中间态。"""
+    specs = getattr(root, "_drama_button_specs", None)
+    if specs is None:
+        specs = root._drama_button_specs = {}
+    return specs

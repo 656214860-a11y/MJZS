@@ -301,3 +301,13 @@ SPINNER_MARGIN = SPACING["md"]
 EMPTY_ICON_SIZE = SPACING["2xl"] + SPACING["xl"]
 EMPTY_ICON_LINE = SPACING["xs"] // 2 + 1
 EMPTY_TEXT_GAP = SPACING["sm"]
+
+# 平滑滚动：滚轮把目标位置推远，每帧走剩余距离的 EASE 比例（缓出），剩余不足 SNAP_PX 像素就一步到位。
+# 6 帧 × 16ms 内收敛；第一步在滚轮事件里同步走，所以滚轮后立刻就有反馈。
+SCROLL_EASE = 0.5
+SCROLL_FRAME_MS = 16
+SCROLL_SNAP_PX = 1
+
+# 按钮悬停渐变：总时长 HOVER_FADE_MS 分 HOVER_FADE_STEPS 档（中间 STEPS-1 档是混色底图，按需生成并缓存）。
+HOVER_FADE_MS = 100
+HOVER_FADE_STEPS = 4

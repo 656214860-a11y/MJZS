@@ -24,14 +24,9 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        SCROLLBAR_THUMB, SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH,
                        SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
 from ui_motion import bind_row_hover, empty_icon
-from ui_rounded import rounded_photo as _rounded_photo, rounded_png_bytes as _rounded_png_bytes
-
-
-def _install_rounded_layout(style, name, element):
-    style.layout(name, [(element, {"sticky": "nswe", "children": [
-        ("Button.focus", {"sticky": "nswe", "children": [
-            ("Button.padding", {"sticky": "nswe", "children": [
-                ("Button.label", {"sticky": "nswe"})]})]})]})])
+from ui_hover_fade import install_hover_fade
+from ui_rounded import (button_specs, rounded_layout, rounded_photo as _rounded_photo,
+                        rounded_png_bytes as _rounded_png_bytes)
 
 
 def _configure_button(style, name, *, background, foreground,
@@ -64,7 +59,10 @@ def _configure_button(style, name, *, background, foreground,
                              ("disabled", images["disabled"]),
                              border=(pr, pr, pr, pr), padding=(0, 0, 0, 0),
                              width=1, height=1, sticky="nsew")
-    _install_rounded_layout(style, name, element)
+    rounded_layout(style, name, element)
+    button_specs(root)[name] = {
+        "colors": dict(states), "images": images,
+        "border": (border_color, border_width), "size": (tile_w, tile_h)}
     options = {"font": font or FONTS["body"], "padding": padding,
                "background": CONTROL_CORNER_SURFACE, "fill": background,
                "foreground": foreground, "focuscolor": COLORS["focus"]}
@@ -247,6 +245,7 @@ def setup_styles(root):
     except tk.TclError:
         pass
     _install_button_styles(style, root)
+    install_hover_fade(root)
     _install_card_style(style, root)
     _install_input_styles(style, root)
     _install_scrollbar_styles(style)
