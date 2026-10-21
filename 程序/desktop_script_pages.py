@@ -496,17 +496,16 @@ class _ScriptStructurePage:
 
 class _ContentBox:
     """剧本结构页的一个内容框：文档下拉、正文预览（大文本后台读取、分块插入）与修改／恢复／保存。"""
-    def __init__(self, owner, parent, title, file_heading, documents, active_path, empty, attribute, editable=True, kind='natural'):
+    _SPEC = ('title', 'file_heading', 'documents', 'active_path', 'empty', 'attribute', 'editable', 'kind')
+
+    def __init__(self, owner, parent, *spec):
+        # 参数对象：spec 按 _SPEC 顺序收拢内容框配置，editable／kind 可省略。
         self.owner = owner
         self.parent = parent
-        self.title = title
-        self.file_heading = file_heading
-        self.documents = documents
-        self.active_path = active_path
-        self.empty = empty
-        self.attribute = attribute
-        self.editable = editable
-        self.kind = kind
+        values = dict(zip(self._SPEC, spec))
+        values.setdefault('editable', True); values.setdefault('kind', 'natural')
+        for name in self._SPEC:
+            setattr(self, name, values[name])
 
     def build(self):
         # 剧本文件选择改为正文上方的横向下拉框，与操作按钮同一行；正文独占整行宽度。

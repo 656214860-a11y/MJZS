@@ -254,7 +254,126 @@ def show(app, source, initial=None):
     return _KeyframeComfyWindow(app, source, initial).build()
 
 
-class _KeyframeComfyWindow:
+class _KeyframeComfyRows:
+    """镜头列表：列宽、勾选与选择项（从窗口类拆出，控制类长度）。"""
+
+    def fit_columns(self, width=None):
+        from tkinter import font as tkfont
+        style = ttk.Style(self.win)
+        body = tkfont.Font(root=self.win, font=style.lookup('Treeview', 'font') or 'TkDefaultFont')
+        heading = tkfont.Font(root=self.win, font=style.lookup('Treeview.Heading', 'font') or 'TkHeadingFont')
+        items = self.table.get_children()
+        def measure(label, key, low, high):
+            widest = max([heading.measure(label)] + [body.measure(str(self.table.set(item, key))) for item in items])
+            return min(high, max(low, widest + 20))
+        shot_width = measure('镜头号', 'shot', 110, 210)
+        title_width = measure('内容', 'title', 100, 240)
+        ref_width = measure('参考图', 'references', 72, 120)
+        available = max(1, (width or self.table.winfo_width()) - 4)
+        self.table.column('shot', width=shot_width)
+        self.table.column('title', width=title_width)
+        self.table.column('references', width=ref_width)
+        self.table.column('prompt', width=max(180, available - CHECK_COLUMN_WIDTH - shot_width - title_width - ref_width))
+
+    def pending(self):
+        return [shot for shot in self.rows.values() if shot['id'] not in self.excluded]
+
+    def reload_rows(self):
+        self.episode = read(self.source)
+        self.rows = {shot['id']: shot for shot in pending_shots(self.episode.get('shots'), self.base)}
+
+    def refresh(self, keep=True):
+        position = self.table.yview()[0] if keep else 0
+        selected = self.table.selection()
+        focused = self.table.focus()
+        self.table.delete(*self.table.get_children())
+        for shot in self.rows.values():
+            self.table.insert('', 'end', iid=shot['id'], text='',
+                         image=self.app.win._tick_images[0 if shot['id'] in self.excluded else 1],
+                         values=(shot['id'], shot.get('title', ''), str(reference_count(shot)) + ' 个',
+                                 frame_prompt(shot).replace('\n', ' ') or '待补齐首帧提示词'))
+        ids = list(self.rows)
+        refresh_check_heading(self.table, self.app.win._tick_images, lambda sid: sid not in self.excluded)
+        self.table.selection_set([sid for sid in selected if self.table.exists(sid)])
+        if self.table.exists(focused):
+            self.table.focus(focused)
+        self.table.configure(height=max(2, min(6, len(ids))))
+        self.fit_columns()
+        self.table.yview_moveto(position)
+        incomplete = [sid for sid, shot in self.rows.items() if not frame_prompt(shot).strip() or not reference_count(shot)]
+        note = f'已勾选 {len(self.pending())} / {len(ids)} 镜'
+        if incomplete:
+            note += '；' + str(len(incomplete)) + ' 镜需补齐参考图或首帧提示词：' + '、'.join(incomplete[:8]) + ('…' if len(incomplete) > 8 else '')
+        self.status.set(note)
+        try:
+            self.plan_note.set(plan_summary(self.current_plan()))
+        except Exception as exc:
+            self.plan_note.set('目标集预览不可用：%s' % exc)
+
+    def toggle(self, sids):
+        for sid in sids:
+            if sid in self.excluded:
+                self.excluded.remove(sid)
+            else:
+                self.excluded.add(sid)
+        self.refresh()
+
+    def click_check(self, event):
+        sid = self.table.identify_row(event.y)
+        if sid and self.table.identify_region(event.x, event.y) in ('tree', 'cell'):
+            self.table.selection_set(sid)
+            self.table.focus(sid)
+            self.toggle([sid])
+            return 'break'
+
+    def space_check(self, event):
+        self.toggle(self.table.selection())
+        return 'break'
+
+    def select_checks(self, value):
+        ids = list(self.rows)
+        if value:
+            self.excluded.difference_update(ids)
+        else:
+            self.excluded.update(ids)
+        self.refresh()
+
+    def toggle_all(self):
+        ids = list(self.rows)
+        if not ids:
+            return
+        # 表头勾选框要「全选 ↔ 全部取消」：此前传的是当前状态，点表头只会全部取消，永远勾不上。
+        self.select_checks(not all(sid not in self.excluded for sid in ids))
+
+    def build_choices(self):
+        """把「阶段配置 → 模型」里挑的那一档翻成 (种类, 引擎)：本地 ComfyUI／Seedream／首帧 Agent。
+
+        第 46 期第 7 条：选项清单仍在这里算（它要读工作流设置里每个引擎当前的模型名），但不再喂给
+        本窗口的下拉框——显示的模型就是阶段配置里那一格；认不出来（比如那一格挑的是给 SKILL 编排
+        用的模型池条目）时按本地 ComfyUI 走。
+        """
+        from importlib import import_module
+        settings = import_module('workflow_settings')
+        cfg = settings.load(self.project, STAGE)
+        items = {LOCAL_MODEL: ('local', None), SEEDREAM: ('cloud', None)}
+        for engine_name, display in settings.ENGINES.items():
+            name = cfg['profiles'][engine_name].get('model', '').strip() or display
+            while name in items:
+                name += ' · ' + display
+            items[name] = ('agent', engine_name)
+        self.choices.clear(); self.choices.update(items)
+        chosen = current_model(self.project)
+        if chosen not in self.choices:
+            chosen = LOCAL_MODEL
+        self.model.set(chosen)
+        try:
+            self.agent_stamp[0] = settings.settings_path(self.project).stat().st_mtime_ns
+        except OSError:
+            self.agent_stamp[0] = 0
+        return cfg
+
+
+class _KeyframeComfyWindow(_KeyframeComfyRows):
     """首帧制作窗口：镜头勾选表、模型与接口设置、逐镜生成与轮询导入。"""
     def __init__(self, app, source, initial=None):
         self.app = app
@@ -427,121 +546,6 @@ class _KeyframeComfyWindow:
         SecondaryButton(self.local_box, text='删除模型', command=lambda: self.app.safe(self.delete_model)).grid(row=4, column=2, padx=SPACING['xs'])
         self.log = TextArea(form, height=7, wrap='word', state='disabled', bg=COLORS['background_card'], fg=COLORS['text_primary'], font=FONTS['body'], padx=SPACING['sm'], pady=SPACING['sm'])
         self.log.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['xs'])
-
-    def fit_columns(self, width=None):
-        from tkinter import font as tkfont
-        style = ttk.Style(self.win)
-        body = tkfont.Font(root=self.win, font=style.lookup('Treeview', 'font') or 'TkDefaultFont')
-        heading = tkfont.Font(root=self.win, font=style.lookup('Treeview.Heading', 'font') or 'TkHeadingFont')
-        items = self.table.get_children()
-        def measure(label, key, low, high):
-            widest = max([heading.measure(label)] + [body.measure(str(self.table.set(item, key))) for item in items])
-            return min(high, max(low, widest + 20))
-        shot_width = measure('镜头号', 'shot', 110, 210)
-        title_width = measure('内容', 'title', 100, 240)
-        ref_width = measure('参考图', 'references', 72, 120)
-        available = max(1, (width or self.table.winfo_width()) - 4)
-        self.table.column('shot', width=shot_width)
-        self.table.column('title', width=title_width)
-        self.table.column('references', width=ref_width)
-        self.table.column('prompt', width=max(180, available - CHECK_COLUMN_WIDTH - shot_width - title_width - ref_width))
-
-    def pending(self):
-        return [shot for shot in self.rows.values() if shot['id'] not in self.excluded]
-
-    def reload_rows(self):
-        self.episode = read(self.source)
-        self.rows = {shot['id']: shot for shot in pending_shots(self.episode.get('shots'), self.base)}
-
-    def refresh(self, keep=True):
-        position = self.table.yview()[0] if keep else 0
-        selected = self.table.selection()
-        focused = self.table.focus()
-        self.table.delete(*self.table.get_children())
-        for shot in self.rows.values():
-            self.table.insert('', 'end', iid=shot['id'], text='',
-                         image=self.app.win._tick_images[0 if shot['id'] in self.excluded else 1],
-                         values=(shot['id'], shot.get('title', ''), str(reference_count(shot)) + ' 个',
-                                 frame_prompt(shot).replace('\n', ' ') or '待补齐首帧提示词'))
-        ids = list(self.rows)
-        refresh_check_heading(self.table, self.app.win._tick_images, lambda sid: sid not in self.excluded)
-        self.table.selection_set([sid for sid in selected if self.table.exists(sid)])
-        if self.table.exists(focused):
-            self.table.focus(focused)
-        self.table.configure(height=max(2, min(6, len(ids))))
-        self.fit_columns()
-        self.table.yview_moveto(position)
-        incomplete = [sid for sid, shot in self.rows.items() if not frame_prompt(shot).strip() or not reference_count(shot)]
-        note = f'已勾选 {len(self.pending())} / {len(ids)} 镜'
-        if incomplete:
-            note += '；' + str(len(incomplete)) + ' 镜需补齐参考图或首帧提示词：' + '、'.join(incomplete[:8]) + ('…' if len(incomplete) > 8 else '')
-        self.status.set(note)
-        try:
-            self.plan_note.set(plan_summary(self.current_plan()))
-        except Exception as exc:
-            self.plan_note.set('目标集预览不可用：%s' % exc)
-
-    def toggle(self, sids):
-        for sid in sids:
-            if sid in self.excluded:
-                self.excluded.remove(sid)
-            else:
-                self.excluded.add(sid)
-        self.refresh()
-
-    def click_check(self, event):
-        sid = self.table.identify_row(event.y)
-        if sid and self.table.identify_region(event.x, event.y) in ('tree', 'cell'):
-            self.table.selection_set(sid)
-            self.table.focus(sid)
-            self.toggle([sid])
-            return 'break'
-
-    def space_check(self, event):
-        self.toggle(self.table.selection())
-        return 'break'
-
-    def select_checks(self, value):
-        ids = list(self.rows)
-        if value:
-            self.excluded.difference_update(ids)
-        else:
-            self.excluded.update(ids)
-        self.refresh()
-
-    def toggle_all(self):
-        ids = list(self.rows)
-        if not ids:
-            return
-        # 表头勾选框要「全选 ↔ 全部取消」：此前传的是当前状态，点表头只会全部取消，永远勾不上。
-        self.select_checks(not all(sid not in self.excluded for sid in ids))
-
-    def build_choices(self):
-        """把「阶段配置 → 模型」里挑的那一档翻成 (种类, 引擎)：本地 ComfyUI／Seedream／首帧 Agent。
-
-        第 46 期第 7 条：选项清单仍在这里算（它要读工作流设置里每个引擎当前的模型名），但不再喂给
-        本窗口的下拉框——显示的模型就是阶段配置里那一格；认不出来（比如那一格挑的是给 SKILL 编排
-        用的模型池条目）时按本地 ComfyUI 走。
-        """
-        from importlib import import_module
-        settings = import_module('workflow_settings')
-        cfg = settings.load(self.project, STAGE)
-        items = {LOCAL_MODEL: ('local', None), SEEDREAM: ('cloud', None)}
-        for engine_name, display in settings.ENGINES.items():
-            name = cfg['profiles'][engine_name].get('model', '').strip() or display
-            while name in items:
-                name += ' · ' + display
-            items[name] = ('agent', engine_name)
-        self.choices.clear(); self.choices.update(items)
-        chosen = current_model(self.project)
-        if chosen not in self.choices:
-            chosen = LOCAL_MODEL
-        self.model.set(chosen)
-        try:
-            self.agent_stamp[0] = settings.settings_path(self.project).stat().st_mtime_ns
-        except OSError:
-            self.agent_stamp[0] = 0
-        return cfg
 
     def kind(self):
         return self.choices.get(self.model.get(), ('local', None))[0]

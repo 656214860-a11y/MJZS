@@ -1260,7 +1260,7 @@
             },
             {
                 "file": "workflow_engines.py",
-                "point": "run_background:json.loads:6118d7cb6e968167:1",
+                "point": "_run_claude_json:json.loads:6118d7cb6e968167:1",
                 "disposition": "exempt",
                 "reason": "R1691 \u767b\u8bb0\uff1a\u8bfb\u53d6 OpenCode CLI \u81ea\u5df1\u5199\u51fa\u7684 .response.json \u4e34\u65f6\u54cd\u5e94\u6587\u4ef6\uff0c\u5916\u90e8\u8fdb\u7a0b\u4ea7\u7269\u4e0d\u662f\u6b63\u5f0f\u9879\u76ee\u6570\u636e\uff0c\u4e0d\u8d70 file_cache\u3002\uff08R1706 \u884c\u53f7\u5e73\u79fb 196\u2192241\uff09"
             },

@@ -72,7 +72,7 @@ PARAM_CAPS = {
 }
 CLASS_CAPS = {
     ('pet_cloud.py', 'Cloud'): 1115,
-    ('desktop_idea_chat.py', 'IdeaChatMixin'): 1031,
+    ('desktop_idea_chat.py', 'IdeaChatMixin'): 770,
     ('app.py', 'App'): 1388,
     ('desktop.py', 'Desktop'): 1302,
     ('skill_panel.py', 'Panel'): 1205,

@@ -866,23 +866,25 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         self._idea_example=text
         return text
     def open_flow_agent(self, stage, label, prompt, followup=None, on_receipt=None, _config=None, *, intake_only=False, new_session=False, desktop_paste=False):
-        return _FlowAgentLaunch(self, stage, label, prompt, followup, on_receipt, _config, intake_only=intake_only,
-                                new_session=new_session, desktop_paste=desktop_paste).build()
+        return _FlowAgentLaunch(self, _FlowAgentRequest(stage, label, prompt, followup, on_receipt, _config, intake_only,
+                                                       new_session, desktop_paste)).build()
+
+
+class _FlowAgentRequest:
+    """open_flow_agent 的参数对象（收拢 _FlowAgentLaunch 的入参）。"""
+    __slots__ = ('stage', 'label', 'prompt', 'followup', 'on_receipt', '_config', 'intake_only', 'new_session', 'desktop_paste')
+
+    def __init__(self, *values):
+        for name, value in zip(self.__slots__, values):
+            setattr(self, name, value)
 
 
 class _FlowAgentLaunch:
     """一次 Agent 任务的打开流程：准备任务与上下文、去重派发，按引擎走 CLI（含排队取槽）、Claude Desktop 或 GPT 桌面粘贴。"""
-    def __init__(self, host, stage, label, prompt, followup=None, on_receipt=None, _config=None, *, intake_only=False, new_session=False, desktop_paste=False):
+    def __init__(self, host, request):
         self.host = host
-        self.stage = stage
-        self.label = label
-        self.prompt = prompt
-        self.followup = followup
-        self.on_receipt = on_receipt
-        self._config = _config
-        self.intake_only = intake_only
-        self.new_session = new_session
-        self.desktop_paste = desktop_paste
+        for name in _FlowAgentRequest.__slots__:
+            setattr(self, name, getattr(request, name))
 
     def build(self):
         from workflow_settings import current,writer_style_summary

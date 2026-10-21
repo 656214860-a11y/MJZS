@@ -9,8 +9,8 @@ class LocalPrevisJsonBoundaryTests(unittest.TestCase):
         source = Path(__file__).resolve().parents[2] / 'local_previs.py'
         tree = ast.parse(source.read_text(encoding='utf-8'))
         self.assertIn('from file_cache import read_json', source.read_text(encoding='utf-8'))
-        method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
-                      and node.name == 'show')
+        method = next(node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
+                      and node.name == '_LocalPrevisWindow')  # R1836：show 改写成类
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name)]
         self.assertTrue(any(node.func.id == 'read_json' for node in calls))
