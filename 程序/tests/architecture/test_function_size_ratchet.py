@@ -17,7 +17,6 @@ OVERSIZE_CAPS = {
     ('local_previs.py', 'show'): 252,
     ('asset_batch.py', 'show'): 243,
     ('ui_theme.py', 'install_window_placement'): 224,
-    ('desktop_script_pages.py', 'content_box'): 181,
 }
 
 

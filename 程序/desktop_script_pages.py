@@ -474,172 +474,8 @@ class _ScriptStructurePage:
         self.page.script_structure_source_directory = source_directory
         self.page.script_structure_output_directory = structure_directory
 
-    def content_box(self, parent, title, file_heading, documents, active_path, empty, attribute,
-                    editable=True, kind='natural'):
-        # 剧本文件选择改为正文上方的横向下拉框，与操作按钮同一行；正文独占整行宽度。
-        box = ttk.Frame(parent, padding=(SPACING["xs"], SPACING["none"]))
-        available = tuple(path for path in documents if path and path.is_file())
-        preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
-        preview_header = ttk.Frame(preview_area)
-        preview_header.pack(fill='x')
-        # 编辑操作贴着标题行右侧，下拉框占用其余宽度。
-        controls = ttk.Frame(preview_header)
-        controls.pack(side='right', padx=(SPACING["sm"], SPACING["none"]))
-        file_list = _DocumentPicker(preview_header, available, active_path)
-        file_list.pack(side='left', fill='x', expand=True)
-        active = {'path': active_path if active_path in available else (available[0] if available else None)}
-        text_area = ttk.Frame(preview_area); text_area.pack(fill='both', expand=True)
-        preview, horizontal = _build_script_preview(text_area)
-        preview_ticket = {'value': 0}
-        loaded = {'raw': ''}
-        def set_preview(value, ticket=None):
-            """小文本立即显示；大文本在 Tk 空闲时分块插入，避免一次性重排。"""
-            loaded['raw'] = str(value or '')
-            shown = script_view_style.compact_display(loaded['raw'])
-            styled = script_view_style.should_style(shown)
-            _set_script_wrap(preview, horizontal, styled)
-            preview.configure(state='normal')
-            preview.delete('1.0', 'end')
-            preview.configure(state='disabled')
-            chunks = iter(self.preview_chunks(shown))
-            def append_chunk():
-                if ticket is not None and ticket != preview_ticket['value']:
-                    return
-                try:
-                    chunk = next(chunks)
-                except StopIteration:
-                    try:
-                        preview.configure(state='normal')
-                        if styled:
-                            script_view_style.apply_tags(preview, shown, kind)
-                        # 初始预览不能成为“恢复删除”的一条历史记录；只恢复用户本次编辑中的动作。
-                        preview.edit_reset()
-                        preview.configure(state='disabled')
-                    except tk.TclError:
-                        pass
-                    return
-                try:
-                    preview.configure(state='normal')
-                    preview.insert('end', chunk)
-                    preview.configure(state='disabled')
-                    self.page.win.after_idle(append_chunk)
-                except tk.TclError:
-                    pass
-            if ticket is None:
-                _reset_preview_text(preview, shown, kind)
-                preview.configure(state='disabled')
-            else:
-                _safe_after_idle(self.page.win, append_chunk)
-        def load_preview(path):
-            """大文本在后台读取；选中项变化或进入编辑态时丢弃旧结果。"""
-            preview_ticket['value'] += 1
-            ticket = preview_ticket['value']
-            if not self.should_load_async(path):
-                set_preview(self.read_preview(path, empty))
-                return
-            set_preview(self.LOADING_PREVIEW)
-            expected = Path(path) if path else None
-            # 不使用 self.async_：后者代表独占的业务工作，会错误地禁用用户操作。
-            # 预览读取独立排队，结果只由 Tk 主线程的 after 回写。
-            preview_results = queue.Queue(maxsize=1)
-            threading.Thread(
-                target=lambda: preview_results.put((ticket, expected, self.read_preview(expected, empty))),
-                daemon=True,
-            ).start()
-            def await_preview():
-                try:
-                    result_ticket, result_path, value = preview_results.get_nowait()
-                except queue.Empty:
-                    try:
-                        self.page.win.after(50, await_preview)
-                    except tk.TclError:
-                        pass
-                    return
-                if (result_ticket != preview_ticket['value'] or active['path'] != result_path or
-                        str(preview.cget('state')) != 'disabled'):
-                    return
-                try:
-                    if preview.winfo_exists():
-                        set_preview(value, ticket=ticket)
-                except tk.TclError:
-                    pass
-            _safe_after(self.page.win, 20, await_preview)
-        load_preview(active['path'])
-        def select_document(_event=None):
-            selected = file_list.selection()
-            if not selected or not available:
-                return
-            if str(preview.cget('state')) == 'normal':
-                file_list.selection_set(str(active['path']))
-                self.page.status.set('请先保存或完成当前修改，再切换剧本。')
-                return
-            chosen = Path(selected[0])
-            if chosen == active['path']:
-                return
-            active['path'] = chosen
-            load_preview(chosen)
-        file_list.bind('<<ComboboxSelected>>', select_document)
-        def delete_document():
-            """目录右键删除只移入项目回收站；来源稿删除后刷新会隐藏关联结构稿。"""
-            selected = file_list.selection()
-            from script_workspace_service import selected_workspace_document
-            destination = selected_workspace_document(available, selected[0] if selected else None)
-            from storage_maintenance import recycle_paths
-            records = recycle_paths(self.page.root, [destination], '删除' + title)
-            if not records:
-                raise ValueError('未能安全移入项目回收站，原文件未删除。')
-            self.page.show(PAGE['script_structure'])
-            self.page.status.set('已将' + destination.name + '移入回收站；关联的结构剧本已按来源刷新。')
-        def open_document_menu(event):
-            if not available:
-                return None
-            menu = self.page.script_page_services.context_menu(file_list).command('删除（移入回收站）', lambda:self.page.safe(delete_document))
-            self.page._script_structure_file_menu = menu
-            return menu.popup(event)
-        file_list.bind('<Button-3>', open_document_menu)
-        def begin_edit():
-            if not editable or active['path'] is None:
-                raise ValueError('当前没有可修改的剧本文档。')
-            _reset_preview_text(preview, loaded['raw'], kind)
-            preview.edit_modified(False)
-            edit.state(['disabled']); restore.state(['!disabled']); save.state(['!disabled'])
-            preview.focus_set()
-        def save_edit():
-            if not editable or active['path'] is None:
-                raise ValueError('当前没有可保存的剧本文档。')
-            value = preview.get('1.0', 'end-1c').strip()
-            if not value:
-                raise ValueError('剧本内容不能为空。')
-            destination = Path(active['path'])
-            if preview.edit_modified():
-                from script_contract import save_natural_script
-                save_natural_script(destination, value)
-                set_preview(value + '\n')
-            else:
-                set_preview(loaded['raw'])
-            edit.state(['!disabled']); restore.state(['disabled']); save.state(['disabled'])
-            self.page.status.set('已保存'+title+'：'+destination.name)
-            if destination == self.source:
-                self.page.status.set('已保存剧本准备阶段剧本；如需更新下方结构化剧本，请重新执行“手动制作结构剧本”。')
-        def restore_deleted():
-            if str(preview.cget('state')) == 'disabled':
-                raise ValueError('请先点击“修改内容”，再恢复刚删除的文字。')
-            try:
-                preview.edit_undo()
-            except tk.TclError as exc:
-                raise ValueError('没有可恢复的删除内容。') from exc
-        edit = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='修改内容', command=lambda:self.page.safe(begin_edit))
-        edit.pack(side='left')
-        restore = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='恢复删除', command=lambda:self.page.safe(restore_deleted))
-        restore.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); restore.state(['disabled'])
-        save = PrimaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='保存修改', command=lambda:self.page.safe(save_edit))
-        save.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); save.state(['disabled'])
-        setattr(self.page, attribute, preview)
-        setattr(self.page, attribute + '_edit_button', edit)
-        setattr(self.page, attribute + '_restore_button', restore)
-        setattr(self.page, attribute + '_save_button', save)
-        setattr(self.page, attribute + '_files', file_list)
-        return box
+    def content_box(self, parent, title, file_heading, documents, active_path, empty, attribute, editable=True, kind='natural'):
+        return _ContentBox(self, parent, title, file_heading, documents, active_path, empty, attribute, editable, kind).build()
 
     def start_structure(self):
         if self.script_contract.resolve_script_source(self.page.root) is None:
@@ -656,3 +492,192 @@ class _ScriptStructurePage:
         adopted = adopt_natural_script(self.page.root, selected[0])
         self.page.status.set('已采用自然剧本：'+adopted.name)
         self.page.show(self.page.page_index)
+
+
+class _ContentBox:
+    """剧本结构页的一个内容框：文档下拉、正文预览（大文本后台读取、分块插入）与修改／恢复／保存。"""
+    def __init__(self, owner, parent, title, file_heading, documents, active_path, empty, attribute, editable=True, kind='natural'):
+        self.owner = owner
+        self.parent = parent
+        self.title = title
+        self.file_heading = file_heading
+        self.documents = documents
+        self.active_path = active_path
+        self.empty = empty
+        self.attribute = attribute
+        self.editable = editable
+        self.kind = kind
+
+    def build(self):
+        # 剧本文件选择改为正文上方的横向下拉框，与操作按钮同一行；正文独占整行宽度。
+        box = ttk.Frame(self.parent, padding=(SPACING["xs"], SPACING["none"]))
+        self.available = tuple(path for path in self.documents if path and path.is_file())
+        preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
+        preview_header = ttk.Frame(preview_area)
+        preview_header.pack(fill='x')
+        # 编辑操作贴着标题行右侧，下拉框占用其余宽度。
+        controls = ttk.Frame(preview_header)
+        controls.pack(side='right', padx=(SPACING["sm"], SPACING["none"]))
+        self.file_list = _DocumentPicker(preview_header, self.available, self.active_path)
+        self.file_list.pack(side='left', fill='x', expand=True)
+        self.active = {'path': self.active_path if self.active_path in self.available else (self.available[0] if self.available else None)}
+        text_area = ttk.Frame(preview_area); text_area.pack(fill='both', expand=True)
+        self.preview, self.horizontal = _build_script_preview(text_area)
+        self.preview_ticket = {'value': 0}
+        self.loaded = {'raw': ''}
+        self.load_preview(self.active['path'])
+        self.file_list.bind('<<ComboboxSelected>>', self.select_document)
+        self.file_list.bind('<Button-3>', self.open_document_menu)
+        self.edit = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='修改内容', command=lambda:self.owner.page.safe(self.begin_edit))
+        self.edit.pack(side='left')
+        self.restore = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='恢复删除', command=lambda:self.owner.page.safe(self.restore_deleted))
+        self.restore.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); self.restore.state(['disabled'])
+        self.save = PrimaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='保存修改', command=lambda:self.owner.page.safe(self.save_edit))
+        self.save.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); self.save.state(['disabled'])
+        setattr(self.owner.page, self.attribute, self.preview)
+        setattr(self.owner.page, self.attribute + '_edit_button', self.edit)
+        setattr(self.owner.page, self.attribute + '_restore_button', self.restore)
+        setattr(self.owner.page, self.attribute + '_save_button', self.save)
+        setattr(self.owner.page, self.attribute + '_files', self.file_list)
+        return box
+
+    def set_preview(self, value, ticket=None):
+        """小文本立即显示；大文本在 Tk 空闲时分块插入，避免一次性重排。"""
+        self.loaded['raw'] = str(value or '')
+        shown = script_view_style.compact_display(self.loaded['raw'])
+        styled = script_view_style.should_style(shown)
+        _set_script_wrap(self.preview, self.horizontal, styled)
+        self.preview.configure(state='normal')
+        self.preview.delete('1.0', 'end')
+        self.preview.configure(state='disabled')
+        chunks = iter(self.owner.preview_chunks(shown))
+        def append_chunk():
+            if ticket is not None and ticket != self.preview_ticket['value']:
+                return
+            try:
+                chunk = next(chunks)
+            except StopIteration:
+                try:
+                    self.preview.configure(state='normal')
+                    if styled:
+                        script_view_style.apply_tags(self.preview, shown, self.kind)
+                    # 初始预览不能成为“恢复删除”的一条历史记录；只恢复用户本次编辑中的动作。
+                    self.preview.edit_reset()
+                    self.preview.configure(state='disabled')
+                except tk.TclError:
+                    pass
+                return
+            try:
+                self.preview.configure(state='normal')
+                self.preview.insert('end', chunk)
+                self.preview.configure(state='disabled')
+                self.owner.page.win.after_idle(append_chunk)
+            except tk.TclError:
+                pass
+        if ticket is None:
+            _reset_preview_text(self.preview, shown, self.kind)
+            self.preview.configure(state='disabled')
+        else:
+            _safe_after_idle(self.owner.page.win, append_chunk)
+
+    def load_preview(self, path):
+        """大文本在后台读取；选中项变化或进入编辑态时丢弃旧结果。"""
+        self.preview_ticket['value'] += 1
+        ticket = self.preview_ticket['value']
+        if not self.owner.should_load_async(path):
+            self.set_preview(self.owner.read_preview(path, self.empty))
+            return
+        self.set_preview(self.owner.LOADING_PREVIEW)
+        expected = Path(path) if path else None
+        # 不使用 self.async_：后者代表独占的业务工作，会错误地禁用用户操作。
+        # 预览读取独立排队，结果只由 Tk 主线程的 after 回写。
+        preview_results = queue.Queue(maxsize=1)
+        threading.Thread(
+            target=lambda: preview_results.put((ticket, expected, self.owner.read_preview(expected, self.empty))),
+            daemon=True,
+        ).start()
+        def await_preview():
+            try:
+                result_ticket, result_path, value = preview_results.get_nowait()
+            except queue.Empty:
+                try:
+                    self.owner.page.win.after(50, await_preview)
+                except tk.TclError:
+                    pass
+                return
+            if (result_ticket != self.preview_ticket['value'] or self.active['path'] != result_path or
+                    str(self.preview.cget('state')) != 'disabled'):
+                return
+            try:
+                if self.preview.winfo_exists():
+                    self.set_preview(value, ticket=ticket)
+            except tk.TclError:
+                pass
+        _safe_after(self.owner.page.win, 20, await_preview)
+
+    def select_document(self, _event=None):
+        selected = self.file_list.selection()
+        if not selected or not self.available:
+            return
+        if str(self.preview.cget('state')) == 'normal':
+            self.file_list.selection_set(str(self.active['path']))
+            self.owner.page.status.set('请先保存或完成当前修改，再切换剧本。')
+            return
+        chosen = Path(selected[0])
+        if chosen == self.active['path']:
+            return
+        self.active['path'] = chosen
+        self.load_preview(chosen)
+
+    def delete_document(self):
+        """目录右键删除只移入项目回收站；来源稿删除后刷新会隐藏关联结构稿。"""
+        selected = self.file_list.selection()
+        from script_workspace_service import selected_workspace_document
+        destination = selected_workspace_document(self.available, selected[0] if selected else None)
+        from storage_maintenance import recycle_paths
+        records = recycle_paths(self.owner.page.root, [destination], '删除' + self.title)
+        if not records:
+            raise ValueError('未能安全移入项目回收站，原文件未删除。')
+        self.owner.page.show(PAGE['script_structure'])
+        self.owner.page.status.set('已将' + destination.name + '移入回收站；关联的结构剧本已按来源刷新。')
+
+    def open_document_menu(self, event):
+        if not self.available:
+            return None
+        menu = self.owner.page.script_page_services.context_menu(self.file_list).command('删除（移入回收站）', lambda:self.owner.page.safe(self.delete_document))
+        self.owner.page._script_structure_file_menu = menu
+        return menu.popup(event)
+
+    def begin_edit(self):
+        if not self.editable or self.active['path'] is None:
+            raise ValueError('当前没有可修改的剧本文档。')
+        _reset_preview_text(self.preview, self.loaded['raw'], self.kind)
+        self.preview.edit_modified(False)
+        self.edit.state(['disabled']); self.restore.state(['!disabled']); self.save.state(['!disabled'])
+        self.preview.focus_set()
+
+    def save_edit(self):
+        if not self.editable or self.active['path'] is None:
+            raise ValueError('当前没有可保存的剧本文档。')
+        value = self.preview.get('1.0', 'end-1c').strip()
+        if not value:
+            raise ValueError('剧本内容不能为空。')
+        destination = Path(self.active['path'])
+        if self.preview.edit_modified():
+            from script_contract import save_natural_script
+            save_natural_script(destination, value)
+            self.set_preview(value + '\n')
+        else:
+            self.set_preview(self.loaded['raw'])
+        self.edit.state(['!disabled']); self.restore.state(['disabled']); self.save.state(['disabled'])
+        self.owner.page.status.set('已保存'+self.title+'：'+destination.name)
+        if destination == self.owner.source:
+            self.owner.page.status.set('已保存剧本准备阶段剧本；如需更新下方结构化剧本，请重新执行“手动制作结构剧本”。')
+
+    def restore_deleted(self):
+        if str(self.preview.cget('state')) == 'disabled':
+            raise ValueError('请先点击“修改内容”，再恢复刚删除的文字。')
+        try:
+            self.preview.edit_undo()
+        except tk.TclError as exc:
+            raise ValueError('没有可恢复的删除内容。') from exc
