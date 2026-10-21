@@ -356,18 +356,6 @@ def ledger_path(project):
     return read_file(project, 'continuity', 'output', LEDGER_NAME)
 
 
-def write_anchors(project, ledger):
-    """锚点库（_shared/anchors）：角色锚点逐字复用，机器只读它，不许重新描述。"""
-    import stage_layout
-    return save_json(stage_layout.anchors_path(project), _anchor_library(ledger))
-
-
-def write_triplets(project, ledger):
-    """三元组字典（_shared/triplets）：批次编号 → 元组，跨阶段对齐用。"""
-    import stage_layout
-    return save_json(stage_layout.triplets_path(project), _triplet_rows(ledger))
-
-
 def save_json(path, data):
     """原子写 JSON（目录缺了就补）。"""
     save(path, data)

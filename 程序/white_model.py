@@ -91,9 +91,6 @@ def diagnose():
 def diagnose_text(report=None):
     return _service.diagnose_text(report)
 
-def workspace_settings_path():
-    return _service.settings_path()
-
 def open_previs(desktop,sid=None):
     sid = sid or (desktop.video.sid() if desktop.video else None)
     if sid is None:

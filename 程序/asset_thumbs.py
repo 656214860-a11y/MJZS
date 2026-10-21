@@ -440,11 +440,6 @@ def pending():
     return len(_PENDING)
 
 
-def worker_bad():
-    """这一趟会话里后台进程是不是已经判了不可用（判了就一直走同步那条老路）。"""
-    return _WORKER_BAD
-
-
 def settle(master, seconds=30.0):
     """等这一批任务落地（自检与冒烟测试用；界面线程不调它）。
 

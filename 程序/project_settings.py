@@ -88,9 +88,6 @@ def auto_submit(project):
     """无人值守自动提交：云端批量提交不再逐次弹确认框，仅在不超剩余预算时直接提交。"""
     return get(project,'auto_submit',False) is True
 
-def set_auto_submit(project,value):
-    return put(project,'auto_submit',True if value else False) is True
-
 def auto_keyframe(project):
     """无人值守自动补首帧：缺首帧的镜头按「首帧制作」窗口当前保存的模型自动排队生成（不弹窗）。"""
     return get(project,'auto_keyframe',False) is True

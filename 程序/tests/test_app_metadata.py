@@ -22,7 +22,7 @@ PROGRAM = Path(__file__).resolve().parents[1]
 ROOT = PROGRAM.parent
 LEGACY_NAME = '漫剧制作助手'
 DISPLAY_SOURCES = (
-    PROGRAM / 'desktop.py', PROGRAM / 'ui_widgets.py', PROGRAM / 'pet_ui_settings.py',  # R1506：APP_NAME 的用法随设置方法迁到 pet_ui_settings
+    PROGRAM / 'desktop.py', PROGRAM / 'pet_ui_settings.py',  # R1506：APP_NAME 的用法随设置方法迁到 pet_ui_settings；R1788：ui_widgets 的启动画面（其唯一用法）已删，移出
     PROGRAM / 'pet_settings_ui.py', PROGRAM / 'app_shortcut.py',
     PROGRAM / 'pet_llm.py', PROGRAM / 'scripts' / 'clean_dev.py',
     ROOT / '启动漫剧制作助手.pyw',
