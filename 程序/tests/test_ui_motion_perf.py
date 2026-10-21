@@ -138,62 +138,85 @@ class EasedScrollTests(TkCase):
 class HoverFadeTests(TkCase):
     def setUp(self):
         super().setUp()
+        self.root.withdraw()  # 不映射就收不到真实指针的进出事件，只认测试自己 event_generate 的
         setup_styles(self.root)
         self.button = ttk.Button(self.root, text='发送', style='Primary.TButton')
         self.button.pack(padx=20, pady=20)
         self.root.update()
+        # 同步记录按钮上每一次 style 写入与 after 延迟：不靠轮询采样，机器忙时也不会漏帧。
+        self.written = []
+        self.delays = []
+        configure, after = self.button.configure, self.button.after
 
-    def styles_seen(self, seconds):
-        seen = []
-        end = time.monotonic() + seconds
+        def record_configure(*args, **kwargs):
+            if 'style' in kwargs:
+                self.written.append(str(kwargs['style']))
+            return configure(*args, **kwargs)
+
+        def record_after(ms, *args):
+            self.delays.append(ms)
+            return after(ms, *args)
+        self.button.configure = record_configure
+        self.button.after = record_after
+
+    def settle(self, limit=3.0):
+        """泵事件循环直到这颗按钮的渐变跑完（有上限，防卡死）。"""
+        end = time.monotonic() + limit
         while time.monotonic() < end:
             self.root.update()
-            name = str(self.button.cget('style'))
-            if not seen or seen[-1] != name:
-                seen.append(name)
+            fade = getattr(self.button, '_hover_fade', None)
+            if fade is None or fade.job is None:
+                return
             time.sleep(.002)
-        return seen
+        self.fail('渐变没有在限定时间内结束')
+
+    def levels(self):
+        return [int(name.split('.')[0][4:]) for name in self.written if name.startswith('Fade')]
 
     def test_enter_fades_through_intermediate_levels_then_restores_base(self):
         self.button.event_generate('<Enter>')
-        seen = self.styles_seen((HOVER_FADE_MS + 120) / 1000)
-        self.assertEqual(seen[0], 'Fade0.Primary.TButton', '进入的第一帧就切到常态色，避免瞬间翻成悬停色')
-        levels = [int(name.split('.')[0][4:]) for name in seen if name.startswith('Fade')]
-        self.assertEqual(levels, list(range(HOVER_FADE_STEPS)))
-        self.assertEqual(seen[-1], 'Primary.TButton')
+        self.assertEqual(self.written[0], 'Fade0.Primary.TButton', '进入的第一帧就切到常态色，避免瞬间翻成悬停色')
+        self.settle()
+        self.assertEqual(self.levels(), list(range(HOVER_FADE_STEPS)))
+        self.assertEqual(self.written[-1], 'Primary.TButton')
+        self.assertEqual(str(self.button.cget('style')), 'Primary.TButton')
 
     def test_leave_fades_back_down_and_restores_base(self):
         self.button.event_generate('<Enter>')
-        self.styles_seen(.3)
+        self.settle()
+        del self.written[:]
         self.button.event_generate('<Leave>')
-        seen = self.styles_seen(.3)
-        levels = [int(name.split('.')[0][4:]) for name in seen if name.startswith('Fade')]
-        self.assertEqual(levels, list(range(HOVER_FADE_STEPS, 0, -1)))
-        self.assertEqual(seen[-1], 'Primary.TButton')
+        self.settle()
+        self.assertEqual(self.levels(), list(range(HOVER_FADE_STEPS, 0, -1)))
+        self.assertEqual(self.written[-1], 'Primary.TButton')
 
-    def test_total_duration_is_bounded_by_the_token(self):
+    def test_frame_interval_and_frame_count_come_from_the_tokens(self):
         self.button.event_generate('<Enter>')
-        start = time.monotonic()
-        while str(self.button.cget('style')) != 'Primary.TButton' or time.monotonic() - start < .01:
-            self.root.update()
-            time.sleep(.002)
-            self.assertLess(time.monotonic() - start, HOVER_FADE_MS / 1000 + .15)
+        self.settle()
+        frame = max(1, HOVER_FADE_MS // HOVER_FADE_STEPS)
+        self.assertEqual(self.delays, [frame] * HOVER_FADE_STEPS)
+        self.assertLessEqual(frame * HOVER_FADE_STEPS, HOVER_FADE_MS)
 
     def test_reversal_midway_continues_from_current_level(self):
         self.button.event_generate('<Enter>')
-        self.pump((HOVER_FADE_MS / HOVER_FADE_STEPS) * 2 / 1000 + .01)
+        while len(self.written) < 3:  # Fade0、Fade1、Fade2 都已显示
+            self.root.update()
+            time.sleep(.002)
+        at_leave = self.button._hover_fade.level  # 与下一行之间不泵事件循环，不会被定时器抢先
+        del self.written[:]
         self.button.event_generate('<Leave>')
-        seen = self.styles_seen(.3)
-        self.assertEqual(seen[-1], 'Primary.TButton')
-        levels = [int(name.split('.')[0][4:]) for name in seen if name.startswith('Fade')]
-        self.assertEqual(levels, sorted(levels, reverse=True), '反向后只降不升')
-        self.assertLess(levels[-1], HOVER_FADE_STEPS - 1)
+        self.settle()
+        levels = self.levels()
+        self.assertEqual(levels, list(range(at_leave - 1, 0, -1)), '反向后从当前档的下一档往下走')
+        self.assertEqual(self.written[-1], 'Primary.TButton')
 
     def test_style_changed_elsewhere_is_never_overwritten(self):
         self.button.event_generate('<Enter>')
-        self.pump(.01)
         self.button.configure(style='Secondary.TButton')
-        self.pump(.3)
+        end = time.monotonic() + .3
+        while time.monotonic() < end:
+            self.root.update()
+            time.sleep(.002)
         self.assertEqual(str(self.button.cget('style')), 'Secondary.TButton')
 
     def test_disabled_button_does_not_fade(self):
@@ -224,13 +247,13 @@ class HoverFadeTests(TkCase):
         self.assertFalse([n for n in names_before if n.startswith('Drama.RoundedFade')],
                          '混色底图按需生成，安装样式时不预建')
         self.button.event_generate('<Enter>')
-        self.styles_seen(.2)
+        self.settle()
         first = {n for n in ttk.Style(root).element_names() if n.startswith('Drama.RoundedFade')}
         self.assertEqual(len(first), HOVER_FADE_STEPS)
         self.button.event_generate('<Leave>')
-        self.styles_seen(.2)
+        self.settle()
         self.button.event_generate('<Enter>')
-        self.styles_seen(.2)
+        self.settle()
         again = {n for n in ttk.Style(root).element_names() if n.startswith('Drama.RoundedFade')}
         self.assertEqual(first | {n for n in again if n.endswith('Primary_TButton')}, again)
         spec = button_specs(root)['Primary.TButton']
