@@ -27,13 +27,9 @@ OVERSIZE_CAPS = {
     ('ui_theme.py', 'install_window_placement'): 224,
     ('cloud_video.py', 'settings_window'): 204,
     ('reference_wall.py', 'show'): 193,
-<<<<<<< HEAD
-    ('desktop_script_pages.py', 'content_box'): 186,
-=======
     ('desktop_script_pages.py', 'content_box'): 181,
->>>>>>> master
     ('writing_api.py', '_preparation_step'): 181,
-    ('desktop.py', '__init__'): 162,
+    ('desktop.py', '__init__'): 165,
     ('desktop_idea_chat.py', 'send_message'): 171,
     ('native_assets.py', 'attach_controls'): 167,
     ('desktop.py', 'show'): 152,

@@ -733,6 +733,54 @@ def load_settings(program=None, config=None):
 SETTING_KEYS = ('level', 'dnd', 'budget_limits', 'anim', 'max_attempts', 'retry_delays', 'token')
 
 
+# 各键的规整函数：返回要写入的值，或 _SKIP（这一把键本次不写）。没登记的键原样带过。
+_SKIP = object()
+
+
+def _keep(value):
+    return value
+
+
+def _normalize_dnd(value):
+    window = tuple(value) if isinstance(value, (list, tuple)) else ()
+    if len(window) != 2:
+        return _SKIP
+    return [int(window[0]), int(window[1])]
+
+
+def _normalize_retry_delays(value):
+    if isinstance(value, (list, tuple)) and value:
+        return [int(item) for item in value]
+    return _SKIP
+
+
+def _normalize_budget_limits(value):
+    limits = {}
+    for kind, amount in dict(value or {}).items():
+        try:
+            name = normalize_kind(kind)
+        except ValueError:
+            continue
+        number = _int(amount)
+        if number and number > 0:
+            limits[name] = number
+    return limits
+
+
+def _normalize_max_attempts(value):
+    number = _int(value)
+    return number if number and number > 0 else _SKIP
+
+
+_SETTING_NORMALIZERS = {
+    'dnd': _normalize_dnd,
+    'retry_delays': _normalize_retry_delays,
+    'budget_limits': _normalize_budget_limits,
+    'anim': bool,
+    'max_attempts': _normalize_max_attempts,
+}
+
+
 def save_settings(values, program=None):
     """把这几把键并进全局配置（原子写）；返回落盘路径。
 
@@ -746,33 +794,9 @@ def save_settings(values, program=None):
     for key, value in dict(values or {}).items():
         if key not in SETTING_KEYS or value is None:
             continue
-        if key == 'dnd':
-            window = tuple(value) if isinstance(value, (list, tuple)) else ()
-            if len(window) != 2:
-                continue
-            data[key] = [int(window[0]), int(window[1])]
-        elif key == 'retry_delays':
-            if isinstance(value, (list, tuple)) and value:
-                data[key] = [int(item) for item in value]
-        elif key == 'budget_limits':
-            limits = {}
-            for kind, amount in dict(value or {}).items():
-                try:
-                    name = normalize_kind(kind)
-                except ValueError:
-                    continue
-                number = _int(amount)
-                if number and number > 0:
-                    limits[name] = number
-            data[key] = limits
-        elif key == 'anim':
-            data[key] = bool(value)
-        elif key == 'max_attempts':
-            number = _int(value)
-            if number and number > 0:
-                data[key] = number
-        else:
-            data[key] = value
+        normalized = _SETTING_NORMALIZERS.get(key, _keep)(value)
+        if normalized is not _SKIP:
+            data[key] = normalized
     save(path, data)
     return path
 

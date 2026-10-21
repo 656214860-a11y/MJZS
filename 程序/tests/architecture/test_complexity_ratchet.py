@@ -16,15 +16,10 @@ CLASS_LIMIT = 600
 CLASS_SLACK = 15
 
 NESTING_CAPS = {
-    ('pet_ui.py', 'click'): 10,
-    ('skill_orchestrator.py', 'resume_preview'): 9,
     ('idea_attachments.py', '_read_xlsx'): 8,
     ('model_router.py', 'chat'): 8,
     ('engine_probe.py', 'main'): 7,
-    ('pet_agent.py', 'save_settings'): 7,
-    ('stage_parallel.py', 'frames_ready'): 7,
     ('storage_maintenance.py', 'source_protection'): 7,
-    ('workspace_maintenance.py', 'parse_worktree_list'): 7,
     ('app.py', 'tick'): 6,
     ('asset_batch_execution.py', 'run_batch'): 6,
     ('desktop_asset_pages.py', 'assets'): 6,
@@ -102,7 +97,7 @@ CLASS_CAPS = {
     ('pet_ui_view.py', 'PetViewMixin'): 774,
     ('desktop_asset_pages.py', 'AssetPagesMixin'): 751,
     ('engine.py', 'Studio'): 735,
-    ('skill_orchestrator.py', 'Orchestrator'): 720,
+    ('skill_orchestrator.py', 'Orchestrator'): 719,
     ('pet_llm.py', 'RequestLedger'): 639,
     ('desktop_auto_flows.py', 'AutoFlowsMixin'): 638,
 }

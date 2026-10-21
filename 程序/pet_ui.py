@@ -304,6 +304,46 @@ def our_process_in_front():
         return True
 
 
+def _click_pause(pet, at):
+    pet.agent.pause('您在气泡里按了暂停')
+    pet.auto.pause()
+    pet.pause_running_stage()
+    pet.announce('已暂停自动执行：宠物只报告进度，不再自动推进', at=at)
+
+
+def _click_resume(pet, at):
+    pet.agent.resume()
+    pet.auto.resume()
+    pet.announce('已继续自动执行：按当前自动化等级推进，会花钱的步骤仍需您确认', at=at)
+
+
+def _click_level(pet, at):
+    # 按一次换一档；子菜单里可以直接点到某一档（set_level），两条路共用同一套实现。
+    order = list(pet_agent.LEVELS)
+    pet.set_paw_level(order[(order.index(pet.agent.level) + 1) % len(order)], at=at)
+
+
+def _click_snooze(pet, at):
+    pet.snooze()
+    pet.notice = '好，安静 %d 分钟：这段时间只记账，出安静期再报一次' % (SNOOZE_SECONDS // 60)
+
+
+# 一键操作的意图 → (动作, 是否把动作的返回值直接交还调用方)。动作里的 pet 方法都在调用时才取，
+# 测试替换宠物上的方法照样生效。
+_CLICK_ACTIONS = {
+    'pause': (_click_pause, False),
+    'resume': (_click_resume, False),
+    'retry': (lambda pet, at: pet.retry_failures(), False),
+    'oneclick': (lambda pet, at: pet.one_click(at=at), True),
+    'level': (_click_level, False),
+    'chat': (lambda pet, at: pet.open_chat(), True),
+    'skip': (lambda pet, at: pet.skip_failure(), False),
+    'model': (lambda pet, at: pet.switch_model(), False),
+    'snooze': (_click_snooze, False),
+    'details': (lambda pet, at: pet.show_details(), False),
+}
+
+
 class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin):
     """贴片宠物：画自己、说人话、把事件喂给父 Agent。界面线程独占，全部方法不抛异常。"""
 
@@ -547,64 +587,15 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin):
     def click(self, intent, at=None):
         """气泡/右键菜单的一键操作：只动宠物自己管得到的，其余记成意图事件。"""
         self.note_work(at=at)              # 第 60 期第 1 条：这一下也是「人在忙」的一笔
-        agent = self.agent
-        if intent == 'pause':
-            agent.pause('您在气泡里按了暂停')
-            self.auto.pause()
-            self.pause_running_stage()
-            self.announce('已暂停自动执行：宠物只报告进度，不再自动推进', at=at)
-        elif intent == 'resume':
-            agent.resume()
-            self.auto.resume()
-            self.announce('已继续自动执行：按当前自动化等级推进，会花钱的步骤仍需您确认', at=at)
-        elif intent == 'retry':
-            self.retry_failures()
-        elif intent == 'oneclick':
-            return self.one_click(at=at)
-        elif intent == 'level':
-            # 按一次换一档；子菜单里可以直接点到某一档（set_level），两条路共用同一套实现。
-            order = list(pet_agent.LEVELS)
-            self.set_paw_level(order[(order.index(agent.level) + 1) % len(order)], at=at)
-        elif intent == 'chat':
-            return self.open_chat()
-        elif intent == 'skip':
-            self.skip_failure()
-        elif intent == 'model':
-            self.switch_model()
-        elif intent == 'snooze':
-            self.snooze()
-            self.notice = '好，安静 %d 分钟：这段时间只记账，出安静期再报一次' % (SNOOZE_SECONDS // 60)
-        elif intent == 'details':
-            self.show_details()
+        action = _CLICK_ACTIONS.get(intent)
+        if action is not None:
+            run, hand_back = action
+            result = run(self, at)
+            if hand_back:                  # 一键制作／聊天自己收尾，不再补意图事件
+                return result
         self._emit('intent.command', text=str(intent), source='bubble')
         self.refresh(at=at)
         return intent
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     def tier_config(self):

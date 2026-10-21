@@ -107,6 +107,28 @@ def checkpoint_digest(stage, step, step_name):
     return hashlib.sha256(body.encode('utf-8')).hexdigest()[:32]
 
 
+def _step_verdict(index, step_index, total, checks, artifact_verified):
+    """恢复预览里某一步的处置：(verdict, reason)；先看范围，再分检查点前／后／当前步。"""
+    scope_ok, version_ok, project_ok, digest_ok = checks   # 检查点范围／版本／项目／摘要是否都对得上
+    if not scope_ok:
+        return 'verify', '检查点步骤 %d 落在当前 %d 步之外，需人工核实' % (step_index, total)
+    if index < step_index:
+        return 'skip', '检查点之前的步骤：工具已跑过（工具调用完成，不等于成果已采用）'
+    if index > step_index:
+        if artifact_verified:
+            return 'skip', '该阶段成果已验证，不重复执行'
+        return 'continue', '后续步骤'
+    if not version_ok:
+        return 'verify', '检查点由旧版格式写入，需人工核实'
+    if not project_ok:
+        return 'verify', '检查点属于另一个项目，需人工核实'
+    if not digest_ok:
+        return 'verify', '这一步与现在的步骤／技能集对不上，需人工核实'
+    if artifact_verified:
+        return 'skip', '该阶段成果已验证，不重复执行这一步'
+    return 'continue', '从这一步续做'
+
+
 class Run(dict):
     """一次 run 的结果：本身就是个字典（好存好传），另外挂上「只重试失败项」这个动作。"""
 
@@ -468,24 +490,8 @@ class Orchestrator:
 
         plan = []
         for index in range(1, total + 1):
-            if not scope_ok:
-                verdict, reason = 'verify', '检查点步骤 %d 落在当前 %d 步之外，需人工核实' % (step_index, total)
-            elif index < step_index:
-                verdict, reason = 'skip', '检查点之前的步骤：工具已跑过（工具调用完成，不等于成果已采用）'
-            elif index > step_index and artifact_verified:
-                verdict, reason = 'skip', '该阶段成果已验证，不重复执行'
-            elif index > step_index:
-                verdict, reason = 'continue', '后续步骤'
-            elif not version_ok:
-                verdict, reason = 'verify', '检查点由旧版格式写入，需人工核实'
-            elif not project_ok:
-                verdict, reason = 'verify', '检查点属于另一个项目，需人工核实'
-            elif not scope_ok or not digest_ok:
-                verdict, reason = 'verify', '这一步与现在的步骤／技能集对不上，需人工核实'
-            elif artifact_verified:
-                verdict, reason = 'skip', '该阶段成果已验证，不重复执行这一步'
-            else:
-                verdict, reason = 'continue', '从这一步续做'
+            verdict, reason = _step_verdict(index, step_index, total,
+                                            (scope_ok, version_ok, project_ok, digest_ok), artifact_verified)
             plan.append({'index': index, 'name': name_at(index), 'verdict': verdict, 'reason': reason})
 
         counts = {key: sum(1 for row in plan if row['verdict'] == key)

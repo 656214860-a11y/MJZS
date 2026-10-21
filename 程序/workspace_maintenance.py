@@ -202,33 +202,49 @@ def _decode_porcelain_path(raw: str) -> str:
     return raw
 
 
+# 前缀 → (字段, 取值转换)。顺序即匹配顺序，前缀互斥。
+_WORKTREE_FIELDS = (
+    ("worktree ", "path", lambda value: Path(_decode_porcelain_path(value))),
+    ("HEAD ", "head", str.strip),
+    ("branch ", "branch", _decode_porcelain_path),
+)
+_WORKTREE_FLAGS = (("locked", "locked"), ("prunable", "prunable"))
+
+
+def _apply_worktree_line(current: dict, line: str) -> None:
+    """把一行 porcelain 输出写进当前条目；认不出的行忽略。"""
+    for prefix, field, convert in _WORKTREE_FIELDS:
+        if line.startswith(prefix):
+            current[field] = convert(line[len(prefix):])
+            return
+    if line == "detached":
+        current["branch"] = None
+        return
+    for prefix, field in _WORKTREE_FLAGS:
+        if line.startswith(prefix):
+            current[field] = True
+            return
+
+
+def _flush_worktree(entries: list, current: dict | None) -> None:
+    if current and current.get("path"):
+        entries.append(current)
+
+
 def parse_worktree_list(text: str) -> tuple[dict, ...]:
     """解析 ``git worktree list --porcelain``；纯函数，供注入与单测。"""
     entries: list[dict] = []
     current: dict | None = None
     for line in (text or "").splitlines():
         if not line.strip():
-            if current and current.get("path"):
-                entries.append(current)
+            _flush_worktree(entries, current)
             current = None
             continue
         if current is None:
             current = {"path": None, "head": "", "branch": None,
                        "locked": False, "prunable": False}
-        if line.startswith("worktree "):
-            current["path"] = Path(_decode_porcelain_path(line[len("worktree "):]))
-        elif line.startswith("HEAD "):
-            current["head"] = line[len("HEAD "):].strip()
-        elif line.startswith("branch "):
-            current["branch"] = _decode_porcelain_path(line[len("branch "):])
-        elif line == "detached":
-            current["branch"] = None
-        elif line.startswith("locked"):
-            current["locked"] = True
-        elif line.startswith("prunable"):
-            current["prunable"] = True
-    if current and current.get("path"):
-        entries.append(current)
+        _apply_worktree_line(current, line)
+    _flush_worktree(entries, current)
     return tuple(entries)
 
 
