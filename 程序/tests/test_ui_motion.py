@@ -5,6 +5,7 @@ from tkinter import ttk
 from types import SimpleNamespace
 
 import ui_motion
+from skip_reasons import PLATFORM_TK_DISPLAY
 from desktop_project_pages import ProjectPagesMixin
 from ui_tokens import (COLORS, DESKTOP_LAYOUT, EMPTY_ICON_SIZE, ROW_HOVER_STEPS, ROW_HOVER_TAG,
                        SPACING, SPINNER_SIZE)
@@ -16,7 +17,7 @@ class MotionBase(unittest.TestCase):
         try:
             self.root = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest(str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY)
         self.root.withdraw()
         setup_styles(self.root)
 
