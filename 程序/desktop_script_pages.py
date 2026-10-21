@@ -13,7 +13,6 @@ from typing import Callable
 import project_stages
 import script_view_style
 import tkinter as tk
-import tkinter.font as tkfont
 import ui_plugin_registry
 from desktop_idea_chat import model_error_display
 from pathlib import Path
@@ -21,17 +20,11 @@ from responsive_ui import FlowBar
 from tkinter import ttk
 from ui_tokens import (
     COLORS,
-    FONTS,
-    SCRIPT_DIRECTORY_COLUMN_PADDING,
-    SCRIPT_DIRECTORY_MAX_ROWS,
-    SCRIPT_DIRECTORY_MAX_WIDTH,
-    SCRIPT_DIRECTORY_MIN_WIDTH,
     SCRIPT_VIEW_FONT,
     SCRIPT_VIEW_PADDING,
     SPACING,
-    TEXT_DESC,
 )
-from ui_widgets import DataTable, PrimaryButton, SecondaryButton, TextArea, TreeRowTooltip
+from ui_widgets import PrimaryButton, SecondaryButton, TextArea
 from desktop_page_support import STAGE_ACTION_WIDTH
 
 PAGE = pet_state.PAGE_OF
@@ -79,23 +72,31 @@ def _build_script_preview(text_area):
     return preview, horizontal
 
 
-def _fit_script_directory(file_list, file_table, available):
-    """目录列宽按最长文件名自适应、行数 1..6，长名悬停看全文；正文分栏拿剩余空间。"""
-    names = [path.name for path in available] or ['尚无可用文件']
-    name_font = tkfont.Font(root=file_list, font=FONTS["body"])
-    column_width = max(name_font.measure(name) for name in names)
-    column_width = max(
-        SCRIPT_DIRECTORY_MIN_WIDTH,
-        min(SCRIPT_DIRECTORY_MAX_WIDTH,
-            column_width + SCRIPT_DIRECTORY_COLUMN_PADDING),
-    )
-    file_list.column('script', anchor='w', width=column_width,
-                     minwidth=SCRIPT_DIRECTORY_MIN_WIDTH, stretch=False)
-    file_list.configure(height=min(SCRIPT_DIRECTORY_MAX_ROWS,
-                                   max(1, len(available))))
-    file_table._row_tooltip = TreeRowTooltip(
-        file_list, lambda item: file_list.set(item, 'script'))
-    file_table.pack(fill='x', anchor='n')
+SCRIPT_EDIT_BUTTON_WIDTH = 7  # 修改/恢复/保存三按钮的字符宽度，给下拉框让出横向空间。
+
+
+class _DocumentPicker(ttk.Combobox):
+    """剧本文件下拉框；对外保持 selection/get_children/item 接口，供页面逻辑与测试读取。"""
+    def __init__(self, master, paths, active):
+        self._paths = tuple(paths)
+        names = [path.name for path in self._paths] or ['尚无可用文件']
+        super().__init__(master, values=names, state='readonly', height=min(10, len(names)))
+        self.current(self._paths.index(active) if active in self._paths else 0)
+
+    def get_children(self):
+        # 无文件时保留一行占位，与旧目录表的“尚无可用文件”行一致（占位行不可选中）。
+        return tuple(str(path) for path in self._paths) or ('',)
+
+    def item(self, iid, option=None):
+        name = Path(iid).name if iid else '尚无可用文件'
+        return (name,) if option == 'values' else {'values': (name,)}
+
+    def selection(self):
+        return (str(self._paths[self.current()]),) if self._paths else ()
+
+    def selection_set(self, iid):
+        if self._paths and iid in self.get_children():
+            self.current(self.get_children().index(iid))
 
 
 def _reset_preview_text(preview, text, kind):
@@ -415,44 +416,25 @@ class ScriptPagesMixin:
         split_area.pack(fill='both', expand=True)
         split_area.columnconfigure(0, weight=1)
         split_area.rowconfigure(0, weight=1, uniform='script_structure_preview')
-        split_area.rowconfigure(2, weight=1, uniform='script_structure_preview')
-        structure_note = ('剧本整理：本地规则提取人物、场景、道具、事件、冲突、台词与分场要素，再由规则校验完整性和一致性后输出结构剧本（未调用模型）；'
-                          '不切镜头、不生成分镜 JSON，也不会改动自然语言原稿。')
+        split_area.rowconfigure(1, weight=1, uniform='script_structure_preview')
+        structure_note = '本地规则整理，不调用模型；不切镜头、不改自然语言原稿。'
         from script_preview_service import LOADING_PREVIEW, preview_chunks, read_preview, should_load_async
         def content_box(parent, title, file_heading, documents, active_path, empty, attribute,
                         editable=True, kind='natural'):
-            # 文件栏与正文同一行：左列只管选择／确认剧本文件，右列专心阅读和编辑正文。
-            # 不再把这份文件清单重复放到页面底部。
+            # 剧本文件选择改为正文上方的横向下拉框，与操作按钮同一行；正文独占整行宽度。
             box = ttk.Frame(parent, padding=(SPACING["xs"], SPACING["none"]))
-            # 可拖动的横向分隔条：自然／结构剧本目录列与正文列都可按阅读需要调宽。
-            body = ttk.Panedwindow(box, orient='horizontal'); body.pack(fill='both', expand=True)
-            files = ttk.Frame(body)
-            # 高度交给外层上下等分网格。这里若声明 12 行，会成为 Tk 的刚性
-            # 最小请求高度，窄窗口先撑满上框、把下方结构剧本挤出可视区。
-            file_table = DataTable(files, columns=[('script', file_heading, 170)], show='headings',
-                                   height=1, selectmode='browse', auto_hide_scrollbars=True)
-            file_list = file_table.tree
-            # 文件栏仅用于选择；正文是本页的主要阅读区，目录按文件名自适应窄栏。
             available = tuple(path for path in documents if path and path.is_file())
-            _fit_script_directory(file_list, file_table, available)
-            active = {'path': active_path if active_path in available else (available[0] if available else None)}
-            if available:
-                for path in available:
-                    file_list.insert('', 'end', iid=str(path), values=(path.name,))
-                file_list.selection_set(str(active['path']))
-            else:
-                file_list.insert('', 'end', values=('尚无可用文件',))
-            preview_area = ttk.Frame(body)
+            preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
             preview_header = ttk.Frame(preview_area)
             preview_header.pack(fill='x')
-            ttk.Label(preview_header, text='剧本内容', style='Muted.TLabel').pack(side='left')
-            # 编辑操作贴着正文标题的右侧，不再占用内容框上方的一整行。
+            # 编辑操作贴着标题行右侧，下拉框占用其余宽度。
             controls = ttk.Frame(preview_header)
-            controls.pack(side='right')
+            controls.pack(side='right', padx=(SPACING["sm"], SPACING["none"]))
+            file_list = _DocumentPicker(preview_header, available, active_path)
+            file_list.pack(side='left', fill='x', expand=True)
+            active = {'path': active_path if active_path in available else (available[0] if available else None)}
             text_area = ttk.Frame(preview_area); text_area.pack(fill='both', expand=True)
             preview, horizontal = _build_script_preview(text_area)
-            body.add(files, weight=0)
-            body.add(preview_area, weight=1)
             preview_ticket = {'value': 0}
             loaded = {'raw': ''}
             def set_preview(value, ticket=None):
@@ -541,7 +523,7 @@ class ScriptPagesMixin:
                     return
                 active['path'] = chosen
                 load_preview(chosen)
-            file_list.bind('<<TreeviewSelect>>', select_document)
+            file_list.bind('<<ComboboxSelected>>', select_document)
             def delete_document():
                 """目录右键删除只移入项目回收站；来源稿删除后刷新会隐藏关联结构稿。"""
                 selected = file_list.selection()
@@ -554,10 +536,8 @@ class ScriptPagesMixin:
                 self.show(PAGE['script_structure'])
                 self.status.set('已将' + destination.name + '移入回收站；关联的结构剧本已按来源刷新。')
             def open_document_menu(event):
-                row = file_list.identify_row(event.y)
-                if not row or row not in {str(path) for path in available}:
+                if not available:
                     return None
-                file_list.selection_set(row)
                 menu = self.script_page_services.context_menu(file_list).command('删除（移入回收站）', lambda:self.safe(delete_document))
                 self._script_structure_file_menu = menu
                 return menu.popup(event)
@@ -593,11 +573,11 @@ class ScriptPagesMixin:
                     preview.edit_undo()
                 except tk.TclError as exc:
                     raise ValueError('没有可恢复的删除内容。') from exc
-            edit = SecondaryButton(controls, text='修改内容', command=lambda:self.safe(begin_edit))
+            edit = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='修改内容', command=lambda:self.safe(begin_edit))
             edit.pack(side='left')
-            restore = SecondaryButton(controls, text='恢复删除', command=lambda:self.safe(restore_deleted))
+            restore = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='恢复删除', command=lambda:self.safe(restore_deleted))
             restore.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); restore.state(['disabled'])
-            save = PrimaryButton(controls, text='保存修改', command=lambda:self.safe(save_edit))
+            save = PrimaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='保存修改', command=lambda:self.safe(save_edit))
             save.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); save.state(['disabled'])
             setattr(self, attribute, preview)
             setattr(self, attribute + '_edit_button', edit)
@@ -612,7 +592,13 @@ class ScriptPagesMixin:
             '尚未找到剧本准备阶段的剧本。请先生成、下载或导入剧本。',
             'script_structure_source_preview', editable=source is not None, kind='natural')
         self.script_structure_source_box.grid(row=0, column=0, sticky='nsew', pady=(SPACING["xs"], SPACING["none"]))
-        actions = FlowBar(split_area); actions.grid(row=1, column=0, sticky='ew', pady=(SPACING["sm"], SPACING["xs"]))
+        self.script_structure_output_box = content_box(
+            split_area,
+            '结构剧本', '结构剧本', structure.output_documents, target,
+            '尚未生成结构化剧本。点击上方“手动制作结构剧本”，或由三虎全自动模式执行。',
+            'script_structure_output_preview', editable=True, kind='structured')
+        self.script_structure_output_box.grid(row=1, column=0, sticky='nsew')
+        actions = FlowBar(split_area); actions.grid(row=2, column=0, sticky='ew', pady=(SPACING["xs"], SPACING["none"]))
         def start_structure():
             if script_contract.resolve_script_source(self.root) is None:
                 raise ValueError('请先选择自然剧本并点击“采用选中剧本”；已采用文件被修改或删除后须重新采用。')
@@ -638,16 +624,9 @@ class ScriptPagesMixin:
         ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
         self.stage_button = ui_plugin_registry.module('skill_panel').stage_button(action_group, self, PAGE['script_structure'])
         self.stage_button.pack(side='left', padx=(SPACING["sm"], SPACING["xs"]))
-        self.script_structure_output_box = content_box(
-            split_area,
-            '结构剧本', '结构剧本', structure.output_documents, target,
-            '尚未生成结构化剧本。点击上方“手动制作结构剧本”，或由三虎全自动模式执行。',
-            'script_structure_output_preview', editable=True, kind='structured')
-        self.script_structure_output_box.grid(row=2, column=0, sticky='nsew', pady=(SPACING["none"], SPACING["none"]))
         # 流程说明留在两块内容之后的右下角，避免占用顶部阅读空间。
-        info = ttk.Label(self.content, text=structure_note, style='Muted.TLabel', justify='right',
-                         wraplength=TEXT_DESC['wraplength'])
-        info.pack(anchor='e', pady=(SPACING["xs"], SPACING["none"]))
+        info = ttk.Label(self.content, text=structure_note, style='Muted.TLabel', justify='left')
+        info.pack(anchor='center', pady=(SPACING["xs"], SPACING["none"]))
         self.script_structure_info_label = info
         self.script_structure_source_directory = source_directory
         self.script_structure_output_directory = structure_directory

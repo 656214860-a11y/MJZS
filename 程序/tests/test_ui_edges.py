@@ -1265,14 +1265,14 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(str(d.script_structure_output_box.winfo_class()), "TFrame")
             self.assertEqual(
                 d.script_structure_source_box.winfo_children()[0].winfo_class(),
-                "TPanedwindow",
+                "TFrame",
             )
             self.assertEqual(
                 d.script_structure_output_box.winfo_children()[0].winfo_class(),
-                "TPanedwindow",
+                "TFrame",
             )
-            self.assertEqual(str(d.script_structure_info_label.cget("justify")), "right")
-            self.assertIn("剧本整理：本地规则提取人物", str(d.script_structure_info_label.cget("text")))
+            self.assertEqual(str(d.script_structure_info_label.cget("justify")), "left")
+            self.assertIn("本地规则整理，不调用模型", str(d.script_structure_info_label.cget("text")))
             self.assertTrue(d.stage_button.winfo_exists(), "阶段配置按钮应在两内容框之间的操作行")
             output_position = d.script_structure_output_preview.yview()[0]
             d.script_structure_source_preview.yview_moveto(0.62); win.update()

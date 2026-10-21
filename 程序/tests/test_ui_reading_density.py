@@ -198,24 +198,13 @@ class ScriptDensityTests(unittest.TestCase):
                         preview.winfo_height(),
                         box.winfo_height() - line_height * 2,
                     )
-                    rows = len(tree.get_children())
-                    self.assertEqual(int(tree.cget("height")), min(6, max(1, rows)))
-                    table = tree._data_table
-                    self.assertLessEqual(
-                        table.winfo_height(),
-                        table.winfo_reqheight() + 2,
-                        "目录表被纵向拉伸，文件下方留下空白块",
-                    )
-                    if rows:
-                        last = tree.get_children()[min(rows, 6) - 1]
-                        bbox = tree.bbox(last)
-                        self.assertTrue(bbox)
-                        row_height = max(1, bbox[3])
-                        blank_height = tree.winfo_height() - (bbox[1] + bbox[3])
-                        self.assertLess(blank_height, row_height * 3)
+                    # 文件选择已改为正文上方的横向下拉框，不再占用左侧目录列。
+                    self.assertEqual(str(tree.winfo_class()), "TCombobox")
+                    self.assertLess(tree.winfo_rooty(), preview.winfo_rooty())
+                    self.assertEqual(len(tree["values"]), max(1, len(tree.get_children())))
 
-    def test_many_documents_keep_directory_scrollable_at_six_rows(self):
-        """REQ-S02-32：文件超过 6 份时保持目录滚动，而不是继续纵向撑高。"""
+    def test_many_documents_listed_in_dropdown(self):
+        """文件很多时全部进入下拉框。"""
         with tempfile.TemporaryDirectory() as td:
             project, writing = _make_project(td)
             structured = writing / "结构剧本"
@@ -232,14 +221,9 @@ class ScriptDensityTests(unittest.TestCase):
             self.addCleanup(lambda: win.winfo_exists() and win.destroy())
             desktop = _show_script_structure(win, project)
             tree = desktop.script_structure_output_preview_files
-            table = tree._data_table
 
             self.assertEqual(len(tree.get_children()), 8)
-            self.assertEqual(int(tree.cget("height")), 6)
-            self.assertTrue(table.vertical_scrollbar.winfo_ismapped())
-            tree.yview_moveto(1.0)
-            win.update()
-            self.assertAlmostEqual(tree.yview()[1], 1.0, places=3)
+            self.assertEqual(len(tree["values"]), 8)
 
     def test_long_document_name_does_not_squeeze_reading_area(self):
         """REQ-S02-32：最长文件名仍把正文宽度留在内容框的 85% 以上。"""
@@ -263,8 +247,7 @@ class ScriptDensityTests(unittest.TestCase):
             preview = desktop.script_structure_output_preview
             self.assertGreaterEqual(preview.winfo_width() / max(1, box.winfo_width()), 0.85)
             tree = desktop.script_structure_output_preview_files
-            row = tree.get_children()[0]
-            self.assertEqual(tree._data_table._row_tooltip.text_for(row), long_name)
+            self.assertEqual(tree["values"][0], long_name)
 
 
 if __name__ == "__main__":
