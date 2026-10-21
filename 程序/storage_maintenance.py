@@ -535,76 +535,63 @@ def version_retention(version, shot, newest, referenced, digests, now, retention
     return RETAIN_FRESH if not math.isfinite(created) or now-created<retention else ''
 
 
-def source_protection(root, now=None):
-    """收集明确来源声明与其项目内文件；读坏的声明不能被解释为没有引用。"""
-    root = Path(root).resolve()
-    protected, errors = set(), []
-    now = time.time() if now is None else now
-    try:
-        retention = retention_seconds(root)
-    except (OSError, ValueError) as exc:
-        return protected, [str(exc)]
-    recycle = _recycle_base(root)
-    names = {'episode.json', 'assets.json', *EXPORT_MANIFEST_NAMES}
-
-    def collect(value, parent):
-        if isinstance(value, dict):
-            for child in value.values():
-                collect(child, parent)
-        elif isinstance(value, list):
-            for child in value:
-                collect(child, parent)
-        elif isinstance(value, str) and value and len(value) < 1024:
-            # 路径同时兼容项目根及清单目录；只保护确实存在的项目内文件。
-            for base in (root, parent):
-                try:
-                    path = (base / value).resolve()
-                    if path.is_relative_to(root) and path.is_file():
-                        protected.add(path)
-                except (OSError, ValueError):
-                    continue
-
-    referenced, digests = edit_source_versions(root)
-    for path in root.rglob('*.json'):
-        if not _within(path, root) or _within(path, recycle):
-            continue
-        ledger = path.name == 'state.json' and path.parent.name in ('data', '06_本地生成')
-        if path.name not in names and '.commercial.' not in path.name and not ledger:
-            continue
-        protected.add(path.resolve())
+def _collect_sources(value, parent, root, protected):
+    """递归收集字符串引用：路径同时兼容项目根及清单目录；只保护确实存在的项目内文件。"""
+    if isinstance(value, dict):
+        for child in value.values():
+            _collect_sources(child, parent, root, protected)
+        return
+    if isinstance(value, list):
+        for child in value:
+            _collect_sources(child, parent, root, protected)
+        return
+    if not (isinstance(value, str) and value and len(value) < 1024):
+        return
+    for base in (root, parent):
         try:
-            data = read_json(path)
-            if not isinstance(data, (dict, list)):
-                raise ValueError('来源声明不是对象或清单')
-            if ledger:
-                shots = data.get('shots') if isinstance(data, dict) else None
-                if not isinstance(shots, dict):
-                    raise ValueError('生成台账缺少镜头表')
-                for shot, versions in shots.items():
-                    if not isinstance(versions, list) or any(not isinstance(v, dict) for v in versions):
-                        raise ValueError('生成版本列表无效')
-                    numbers = [v.get('version', 0) for v in versions]
-                    if any(type(number) is not int for number in numbers):
-                        raise ValueError('生成版本编号无效')
-                    newest = max(numbers, default=0)
-                    for version in versions:
-                        if version_retention(version, shot, newest, referenced, digests, now, retention):
-                            collect(version, path.parent.parent)
-                            folder = _version_folder(root, path, shot, version)
-                            if folder is not None and (folder / 'assets_manifest.json').is_file():
-                                protected.add((folder / 'assets_manifest.json').resolve())
+            path = (base / value).resolve()
+            if path.is_relative_to(root) and path.is_file():
+                protected.add(path)
+        except (OSError, ValueError):
+            continue
+
+
+def _protect_ledger(root, path, data, rules, protected):
+    """生成台账：每个镜头的保留版本引用的文件与该版本目录里的 assets_manifest.json 都要保护。
+
+    rules 是 (被成片引用的版本, 被引用的摘要, 现在, 保留期秒数)，原样传给 version_retention。
+    """
+    referenced, digests, now, retention = rules
+    shots = data.get('shots') if isinstance(data, dict) else None
+    if not isinstance(shots, dict):
+        raise ValueError('生成台账缺少镜头表')
+    for shot, versions in shots.items():
+        if not isinstance(versions, list) or any(not isinstance(v, dict) for v in versions):
+            raise ValueError('生成版本列表无效')
+        numbers = [v.get('version', 0) for v in versions]
+        if any(type(number) is not int for number in numbers):
+            raise ValueError('生成版本编号无效')
+        newest = max(numbers, default=0)
+        for version in versions:
+            if not version_retention(version, shot, newest, referenced, digests, now, retention):
                 continue
-            if path.name in EXPORT_MANIFEST_NAMES:
-                rows = data.get('manifest') if isinstance(data, dict) else data
-                if not isinstance(rows, list):
-                    raise ValueError('成片来源清单缺失')
-                if any(not isinstance(row, dict) or not row.get('shot') or
-                       (not row.get('sha256') and type(row.get('version')) is not int) for row in rows):
-                    raise ValueError('成片来源条目无法确认')
-            collect(data, path.parent)
-        except (OSError, ValueError) as exc:
-            errors.append(str(path.relative_to(root)) + '：' + str(exc))
-    # 只沿保留文件追踪旁证，不能把每个过期版本自己的清单变成永久保留理由。
+            _collect_sources(version, path.parent.parent, root, protected)
+            folder = _version_folder(root, path, shot, version)
+            if folder is not None and (folder / 'assets_manifest.json').is_file():
+                protected.add((folder / 'assets_manifest.json').resolve())
+
+
+def _check_export_manifest(data):
+    rows = data.get('manifest') if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        raise ValueError('成片来源清单缺失')
+    if any(not isinstance(row, dict) or not row.get('shot') or
+           (not row.get('sha256') and type(row.get('version')) is not int) for row in rows):
+        raise ValueError('成片来源条目无法确认')
+
+
+def _chase_receipts(root, recycle, protected, errors):
+    """只沿保留文件追踪旁证，不能把每个过期版本自己的清单变成永久保留理由。"""
     checked = set()
     while True:
         receipts = set()
@@ -625,9 +612,43 @@ def source_protection(root, now=None):
                 data = read_json(path)
                 if not isinstance(data, dict):
                     raise ValueError('来源旁证不是对象')
-                collect(data, path.parent)
+                _collect_sources(data, path.parent, root, protected)
             except (OSError, ValueError) as exc:
                 errors.append(str(path.relative_to(root)) + '：' + str(exc))
+
+
+def source_protection(root, now=None):
+    """收集明确来源声明与其项目内文件；读坏的声明不能被解释为没有引用。"""
+    root = Path(root).resolve()
+    protected, errors = set(), []
+    now = time.time() if now is None else now
+    try:
+        retention = retention_seconds(root)
+    except (OSError, ValueError) as exc:
+        return protected, [str(exc)]
+    recycle = _recycle_base(root)
+    names = {'episode.json', 'assets.json', *EXPORT_MANIFEST_NAMES}
+    referenced, digests = edit_source_versions(root)
+    for path in root.rglob('*.json'):
+        if not _within(path, root) or _within(path, recycle):
+            continue
+        ledger = path.name == 'state.json' and path.parent.name in ('data', '06_本地生成')
+        if path.name not in names and '.commercial.' not in path.name and not ledger:
+            continue
+        protected.add(path.resolve())
+        try:
+            data = read_json(path)
+            if not isinstance(data, (dict, list)):
+                raise ValueError('来源声明不是对象或清单')
+            if ledger:
+                _protect_ledger(root, path, data, (referenced, digests, now, retention), protected)
+                continue
+            if path.name in EXPORT_MANIFEST_NAMES:
+                _check_export_manifest(data)
+            _collect_sources(data, path.parent, root, protected)
+        except (OSError, ValueError) as exc:
+            errors.append(str(path.relative_to(root)) + '：' + str(exc))
+    _chase_receipts(root, recycle, protected, errors)
     return protected, errors
 
 
