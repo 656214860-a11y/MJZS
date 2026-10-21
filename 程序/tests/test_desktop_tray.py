@@ -138,7 +138,9 @@ class TrayIconTests(unittest.TestCase):
                 pass
 
         host = Host()
-        with mock.patch.object(desktop_tray.TrayIcon, 'add', side_effect=RuntimeError('托盘窗口创建超时')):
+        # 自检器默认设了 DRAMA_SUPPRESS_TRAY=1（setup_tray 直接返回）；这条要走真实建托盘的失败分支，所以局部清掉。
+        with mock.patch.dict(os.environ),                 mock.patch.object(desktop_tray.TrayIcon, 'add', side_effect=RuntimeError('托盘窗口创建超时')):
+            os.environ.pop(SUPPRESS_TRAY_ENV, None)
             host.setup_tray()  # 不抛
         self.assertIsNone(host.tray_icon)
 

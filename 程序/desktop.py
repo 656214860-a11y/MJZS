@@ -139,6 +139,61 @@ def status_kind(message):
 
 class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,*,script_page_services=None):
+        self._init_window_and_sidebar(script_page_services, win, root)
+        self._init_body_and_status(win)
+        # Timed callbacks cannot run inside the placement code's update_idletasks.
+        # An idle modal here would block the root while it is still transparent.
+        self._initialize_automation_state()
+        self.root=None
+        self.studio=None
+        self.asset_kind='all'
+        self.asset_detail_id=None
+        self.asset_roster=False
+        self.gate_auto_due=0
+        self.gate_auto_error=''
+        self._destroy_cleanup_done=False
+        self.reload()
+        self.show(0)
+        # 只记录启动壳完成耗时；采集不遍历项目目录，也不参与启动决策。
+        import diagnostic_capture
+        diagnostic_capture.record_startup_timing('desktop_shell_ready', (time.perf_counter()-self._diagnostic_start)*1000)
+        self.shutting_down=False
+        self._tick_id=None
+        self._startup_tick_paused=True
+        self._startup_tick_resume_id=None
+        self._startup_project_page_job=None
+        self._startup_script_build_job=None
+        self._startup_project_recovery_job=None
+        self._startup_project_choice=True
+        # 窗口只提供 Tk 调度与事件绑定；无 Tk 控制器保持首帧后才选择项目的时序。
+        self._startup_timer=None
+        self.startup_controller=DesktopStartupController(
+            schedule_after=win.after, schedule_idle=win.after_idle,
+            cancel_scheduled=win.after_cancel,
+            is_stopping=lambda:getattr(self,'shutting_down',False),
+            before_project_choice=self._after_first_paint,
+            choose_project=self.choose_project,
+            remember_timer=lambda timer:setattr(self,'_startup_timer',timer),
+        )
+        # 启动画面整块盖住、主窗口仍透明时，没有白屏可防，让步只需一次消息循环。
+        self.startup_controller.start(*((10,) if self._startup_window_held() else ()))
+        self.automation_scheduler=DesktopAutomationScheduler(
+            schedule_after=win.after, cancel_scheduled=win.after_cancel,
+            is_stopping=lambda:getattr(self,'shutting_down',False))
+        self.automation_scheduler.start(
+            'idea_attachments',100,self.poll_idea_attachment_preparation,
+            on_error=lambda exc:self._set_automation_error('附档后台任务异常，已忽略：',exc),
+            remember_timer=lambda timer:setattr(self,'_idea_attachment_poll_id',timer))
+        win.bind('<Destroy>',self.on_window_destroy,add='+')
+        win.protocol('WM_DELETE_WINDOW',self.close)
+        # 第 18 期：清掉上次的对话，再让三虎用爱心框打个招呼（推迟到主循环里再冒）。
+        # 项目续开可能仍在构造剧本准备页；把首次招呼留到首帧稳定之后，
+        # 不让气泡的浮窗映射与页面回填争用同一轮 Tk 事件循环。
+        pet_ui.start(self,delay_ms=5000)
+        self.setup_tray()
+
+    def _init_window_and_sidebar(self, script_page_services, win, root):
+        """服务、窗口外观与侧栏（项目列表、导航按钮、标题行），从 __init__ 原样切出，R1808。"""
         self._diagnostic_start=time.perf_counter()
         self.script_page_services = script_page_services if script_page_services is not None else ScriptPageServices(
             open_path=lambda *args, **kwargs: open_path(*args, **kwargs),
@@ -191,6 +246,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.list.bind('<<TreeviewClose>>',self.schedule_sidebar_fit,add='+')
         side.bind('<Configure>',self.schedule_sidebar_fit)
         self.sidebar_canvas.bind('<Configure>',self.schedule_sidebar_fit,add='+')
+
+    def _init_body_and_status(self, win):
+        """主体区：标题行右侧信息、页面画布、进度条、状态栏与尺寸把手，从 __init__ 原样切出，R1808。"""
         self.body=ttk.Frame(win,padding=DESKTOP_LAYOUT['body_padding']);self.body.pack(side='left',fill='both',expand=True)
         self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
         self.pet_layer=self.title_row
@@ -253,56 +311,6 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.busy_state.spinner=Spinner(self.body,host=self.status_label)
         self._install_status_styles();self.status.trace_add('write',self.sync_status_style);self.sync_status_style()
         self.sizegrip=ttk.Sizegrip(win);self.sizegrip.place(relx=1.0,rely=1.0,anchor='se')
-        # Timed callbacks cannot run inside the placement code's update_idletasks.
-        # An idle modal here would block the root while it is still transparent.
-        self._initialize_automation_state()
-        self.root=None
-        self.studio=None
-        self.asset_kind='all'
-        self.asset_detail_id=None
-        self.asset_roster=False
-        self.gate_auto_due=0
-        self.gate_auto_error=''
-        self._destroy_cleanup_done=False
-        self.reload()
-        self.show(0)
-        # 只记录启动壳完成耗时；采集不遍历项目目录，也不参与启动决策。
-        import diagnostic_capture
-        diagnostic_capture.record_startup_timing('desktop_shell_ready', (time.perf_counter()-self._diagnostic_start)*1000)
-        self.shutting_down=False
-        self._tick_id=None
-        self._startup_tick_paused=True
-        self._startup_tick_resume_id=None
-        self._startup_project_page_job=None
-        self._startup_script_build_job=None
-        self._startup_project_recovery_job=None
-        self._startup_project_choice=True
-        # 窗口只提供 Tk 调度与事件绑定；无 Tk 控制器保持首帧后才选择项目的时序。
-        self._startup_timer=None
-        self.startup_controller=DesktopStartupController(
-            schedule_after=win.after, schedule_idle=win.after_idle,
-            cancel_scheduled=win.after_cancel,
-            is_stopping=lambda:getattr(self,'shutting_down',False),
-            before_project_choice=self._after_first_paint,
-            choose_project=self.choose_project,
-            remember_timer=lambda timer:setattr(self,'_startup_timer',timer),
-        )
-        # 启动画面整块盖住、主窗口仍透明时，没有白屏可防，让步只需一次消息循环。
-        self.startup_controller.start(*((10,) if self._startup_window_held() else ()))
-        self.automation_scheduler=DesktopAutomationScheduler(
-            schedule_after=win.after, cancel_scheduled=win.after_cancel,
-            is_stopping=lambda:getattr(self,'shutting_down',False))
-        self.automation_scheduler.start(
-            'idea_attachments',100,self.poll_idea_attachment_preparation,
-            on_error=lambda exc:self._set_automation_error('附档后台任务异常，已忽略：',exc),
-            remember_timer=lambda timer:setattr(self,'_idea_attachment_poll_id',timer))
-        win.bind('<Destroy>',self.on_window_destroy,add='+')
-        win.protocol('WM_DELETE_WINDOW',self.close)
-        # 第 18 期：清掉上次的对话，再让三虎用爱心框打个招呼（推迟到主循环里再冒）。
-        # 项目续开可能仍在构造剧本准备页；把首次招呼留到首帧稳定之后，
-        # 不让气泡的浮窗映射与页面回填争用同一轮 Tk 事件循环。
-        pet_ui.start(self,delay_ms=5000)
-        self.setup_tray()
 
 
     def _build_sidebar(self,win):

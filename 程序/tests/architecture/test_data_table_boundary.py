@@ -70,7 +70,7 @@ class DataTableBoundaryTests(unittest.TestCase):
         tree = parse_desktop()
         desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
         methods = [node for node in desktop.body if isinstance(node, ast.FunctionDef)
-                   and node.name in {'__init__', 'choose_project', 'project_home'}]
+                   and node.name in {'__init__', '_init_window_and_sidebar', 'choose_project', 'project_home'}]  # R1808：__init__ 的侧栏段切到 _init_window_and_sidebar，计数断言不变
         direct = [node for method in methods for node in ast.walk(method)
                   if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                   and node.func.attr == 'Treeview']

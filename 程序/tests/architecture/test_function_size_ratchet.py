@@ -28,7 +28,6 @@ OVERSIZE_CAPS = {
     ('reference_wall.py', 'show'): 193,
     ('desktop_script_pages.py', 'content_box'): 181,
     ('writing_api.py', '_preparation_step'): 181,
-    ('desktop.py', '__init__'): 165,
     ('desktop_idea_chat.py', 'send_message'): 171,
     ('native_assets.py', 'attach_controls'): 167,
     ('desktop.py', 'show'): 152,
