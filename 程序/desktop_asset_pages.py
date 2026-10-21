@@ -777,14 +777,13 @@ class _AssetPage:
         if col=='#1':
             # 第 64 期任务 13：「资产编号」那一格就是进详情的入口（主页面不再嵌正典板）。
             # 走 after_idle：点这一格的是内容框自己的事件处理，等它结束再整页重建。
-            self.page.win.after_idle(lambda:self.page.safe(lambda:self.page.open_asset_detail(aid)))
-        elif col=='#2':
+            self.page.win.after_idle(lambda:self.page.safe(lambda:self.page.open_asset_detail(aid)));return
+        if col=='#2':
             def save_name(name):
                 self.page.rename_asset(aid,name,refresh=False)
                 self.registry[aid]['name']=name;self.table.set(aid,'name',name)
-            self.table.cell_hover.edit_name(aid,self.registry[aid].get('name',aid),save_name,self.page.status.set,'#2')
-        elif col=='#3':
-            if self.registry[aid]['status']=='已导入':self.preview()
+            self.table.cell_hover.edit_name(aid,self.registry[aid].get('name',aid),save_name,self.page.status.set,'#2');return
+        if col=='#3' and self.registry[aid]['status']=='已导入':self.preview()
         elif col=='#4':self.page.view_reference_images(aid)
         elif col=='#5':self.detail(aid,'note')
         elif col=='#6':self.show_prompt(self.page,aid,self.registry[aid])

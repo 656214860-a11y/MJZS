@@ -493,22 +493,26 @@ def flourish(canvas, pose, step, ox, oy, body, outline, accent, blush):
         for paw in (14, 44):
             canvas.create_oval(paw + ox, 50 + oy, paw + 10 + ox, 58 + oy,
                                fill=body, outline=outline, width=1, tags=('pose-walk', 'paw'))
-    elif pose == 'lick':
+        return pose
+    if pose == 'lick':
         canvas.create_line(50 + ox, 44 + oy, 58 + ox, 54 + oy, fill=body, width=6,
                            tags=('pose-lick', 'paw'))
         canvas.create_arc(27 + ox, 43 + oy, 37 + ox, 54 + oy, start=180, extent=180,
                           style='pieslice', fill=TONGUE, outline=outline, tags=('pose-lick', 'tongue'))
-    elif pose == 'yawn':
+        return pose
+    if pose == 'yawn':
         # 第 24 期第 6 条：原来打哈欠是在脸上张开一张墨色的嘴——64 像素里就是一个黑窟窿
         # （用户原话「像有个黑色大鼻子很丑」）。改成两团腮红：困意靠脸红说，脸不用张开。
         for side in (13, 43):
             canvas.create_oval(side + ox, 37 + oy, side + 8 + ox, 44 + oy, fill=blush,
                                outline='', tags=('pose-yawn', 'blush'))
-    elif pose == 'wag':
+        return pose
+    if pose == 'wag':
         sway = 6 if step % 2 else -6
         canvas.create_line(56 + ox, 54 + oy, 63 + ox, 54 + sway + oy, smooth=True,
                            fill=outline, width=3, tags=('pose-wag', 'tail'))
-    elif pose == 'nuzzle':
+        return pose
+    if pose == 'nuzzle':
         for side in (14, 42):
             canvas.create_oval(side + ox, 40 + oy, side + 8 + ox, 46 + oy, fill=blush,
                                outline='', tags=('pose-nuzzle', 'blush'))
