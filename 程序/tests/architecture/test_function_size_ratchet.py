@@ -16,7 +16,6 @@ OVERSIZE_CAPS = {
     ('desktop_idea_chat.py', 'open_flow_agent'): 252,
     ('local_previs.py', 'show'): 252,
     ('asset_batch.py', 'show'): 243,
-    ('ui_theme.py', 'install_window_placement'): 224,
 }
 
 

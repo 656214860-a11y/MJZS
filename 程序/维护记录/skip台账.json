@@ -2349,6 +2349,15 @@
       "reason_constant": "PLATFORM_TKINTER",
       "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_window_placement_equivalence.py",
+      "test": "WindowPlacementEquivalence.test_matches_legacy",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
     }
   ]
 }
