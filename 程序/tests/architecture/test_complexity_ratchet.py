@@ -16,7 +16,6 @@ CLASS_LIMIT = 600
 CLASS_SLACK = 15
 
 NESTING_CAPS = {
-    ('workflow_engines.py', 'run_background'): 6,
 }
 PARAM_CAPS = {
     ('recon_service.py', 'run'): 13,

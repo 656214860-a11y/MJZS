@@ -201,6 +201,26 @@ def _run_opencode(config,project,output,report,logfile,prompt):
         if response_temp.exists():remove_temporary_file(response_temp)
 
 
+def _run_claude_json(args,project,prompt,log,report):
+    """Claude 以 JSON 输出运行：响应落临时文件，成功后转正并写制作报告。"""
+    response=Path(report).with_suffix('.response.json')
+    response_temp=temporary_path(response)
+    try:
+        with response_temp.open('w',encoding='utf-8') as out:
+            returncode=_run(args,project,prompt,out,log)
+        if returncode==0:
+            result=json.loads(response_temp.read_text(encoding='utf-8-sig'))
+            replace(response_temp,response)
+            report_text = str(result.get('result', '')).strip()
+            if not report_text:
+                raise ValueError('Claude 未返回制作报告正文，请查看响应记录')
+            save_text(Path(report), report_text)
+            if result.get('is_error') or result.get('permission_denials'):
+                raise ValueError('Claude 未完成任务或所需操作未获授权，请查看制作报告及响应记录')
+    finally:
+        if response_temp.exists():remove_temporary_file(response_temp)
+    return returncode
+
 def run_background(config,project,output,report,logfile,prompt):
     prompt=ensure_request_context(prompt, config.get('stage', '当前阶段'))
     slot=reserve_stage_process_slot(project, config.get('stage', '当前阶段'))
@@ -236,22 +256,7 @@ def run_background(config,project,output,report,logfile,prompt):
             if config['engine']=='codex':
                 returncode=_run(args,project,prompt,log,log)
             else:
-                response=Path(report).with_suffix('.response.json')
-                response_temp=temporary_path(response)
-                try:
-                    with response_temp.open('w',encoding='utf-8') as out:
-                        returncode=_run(args,project,prompt,out,log)
-                    if returncode==0:
-                        result=json.loads(response_temp.read_text(encoding='utf-8-sig'))
-                        replace(response_temp,response)
-                        report_text = str(result.get('result', '')).strip()
-                        if not report_text:
-                            raise ValueError('Claude 未返回制作报告正文，请查看响应记录')
-                        save_text(Path(report), report_text)
-                        if result.get('is_error') or result.get('permission_denials'):
-                            raise ValueError('Claude 未完成任务或所需操作未获授权，请查看制作报告及响应记录')
-                finally:
-                    if response_temp.exists():remove_temporary_file(response_temp)
+                returncode=_run_claude_json(args,project,prompt,log,report)
         if returncode:raise ValueError(ENGINES[config['engine']]+' 执行失败，请查看运行日志（安装版本、登录、额度或权限）')
     finally:
         release_process_slot(slot)
