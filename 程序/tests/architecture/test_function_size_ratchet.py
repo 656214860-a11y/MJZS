@@ -14,7 +14,6 @@ SLACK = 15
 OVERSIZE_CAPS = {
     ('keyframe_comfy.py', 'show'): 626,
     ('desktop_idea_chat.py', 'open_flow_agent'): 252,
-    ('local_previs.py', 'show'): 252,
 }
 
 
