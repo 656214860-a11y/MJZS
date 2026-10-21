@@ -70,11 +70,57 @@ def _read_docx(path):
     return '\n'.join(lines).strip()
 
 
+_XLSX_NS = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
+
+
+def _xlsx_shared_strings(archive, budget):
+    if 'xl/sharedStrings.xml' not in archive.namelist():
+        return []
+    shared = ET.fromstring(budget.read('xl/sharedStrings.xml'))
+    return [''.join(node.text or '' for node in item.iter(_XLSX_NS + 't'))
+            for item in shared.findall(_XLSX_NS + 'si')]
+
+
+def _xlsx_member(target):
+    member = posixpath.normpath(target.lstrip('/') if target.startswith('/') else posixpath.join('xl', target))
+    if not member.startswith('xl/worksheets/'):
+        raise KeyError('worksheet target')
+    return member
+
+
+def _xlsx_cell_value(cell, strings):
+    value = cell.findtext(_XLSX_NS + 'v', '')
+    if cell.find(_XLSX_NS + 'f') is not None:
+        return value  # 公式只读取缓存值；没有缓存时保持空白。
+    kind = cell.get('t')
+    if kind == 's':
+        if not value.isascii() or not value.isdecimal() or int(value) >= len(strings):
+            raise KeyError('shared string index')
+        return strings[int(value)]
+    if kind == 'inlineStr':
+        inline = cell.find(_XLSX_NS + 'is')
+        return ''.join(node.text or '' for node in inline.iter(_XLSX_NS + 't')) if inline is not None else ''
+    return value  # 数值原样输出，不进行日期序列号换算。
+
+
+def _xlsx_row_lines(root, budget, strings):
+    lines = []
+    for row in root.findall(_XLSX_NS + 'sheetData/' + _XLSX_NS + 'row'):
+        budget.text('\n')
+        cells = []
+        for cell in row.findall(_XLSX_NS + 'c'):
+            value = _xlsx_cell_value(cell, strings)
+            if cells:
+                budget.text('\t')
+            cells.append(budget.text(value))
+        lines.append('\t'.join(cells))
+    return lines
+
+
 def _read_xlsx(path):
     """按工作簿顺序提取单元格文本；不执行公式、宏或嵌入对象。"""
     if path.stat().st_size > MAX_FILE_BYTES:
         raise ValueError('附档过大（单个文件最多 1 MB）：' + path.name)
-    ns = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
     rel_ns = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
     package_ns = '{http://schemas.openxmlformats.org/package/2006/relationships}'
     try:
@@ -85,42 +131,15 @@ def _read_xlsx(path):
             targets = {rel.attrib['Id']: rel.attrib['Target']
                        for rel in relations.findall(package_ns + 'Relationship')
                        if rel.get('TargetMode') != 'External'}
-            strings = []
-            if 'xl/sharedStrings.xml' in archive.namelist():
-                shared = ET.fromstring(budget.read('xl/sharedStrings.xml'))
-                strings = [''.join(node.text or '' for node in item.iter(ns + 't'))
-                           for item in shared.findall(ns + 'si')]
+            strings = _xlsx_shared_strings(archive, budget)
             lines = []
-            for sheet in workbook.findall(ns + 'sheets/' + ns + 'sheet'):
-                target = targets[sheet.attrib[rel_ns + 'id']]
-                member = posixpath.normpath(target.lstrip('/') if target.startswith('/')
-                                           else posixpath.join('xl', target))
-                if not member.startswith('xl/worksheets/'):
-                    raise KeyError('worksheet target')
+            for sheet in workbook.findall(_XLSX_NS + 'sheets/' + _XLSX_NS + 'sheet'):
+                member = _xlsx_member(targets[sheet.attrib[rel_ns + 'id']])
                 root = ET.fromstring(budget.read(member))
                 if lines:
                     budget.text('\n')
                 lines.append(budget.text('【工作表：%s】' % sheet.attrib['name']))
-                for row in root.findall(ns + 'sheetData/' + ns + 'row'):
-                    budget.text('\n')
-                    cells = []
-                    for cell in row.findall(ns + 'c'):
-                        value = cell.findtext(ns + 'v', '')
-                        if cell.find(ns + 'f') is not None:
-                            pass  # 公式只读取缓存值；没有缓存时保持空白。
-                        elif cell.get('t') == 's':
-                            if not value.isascii() or not value.isdecimal() or int(value) >= len(strings):
-                                raise KeyError('shared string index')
-                            value = strings[int(value)]
-                        elif cell.get('t') == 'inlineStr':
-                            inline = cell.find(ns + 'is')
-                            value = (''.join(node.text or '' for node in inline.iter(ns + 't'))
-                                     if inline is not None else '')
-                        # 数值原样输出，不进行日期序列号换算。
-                        if cells:
-                            budget.text('\t')
-                        cells.append(budget.text(value))
-                    lines.append('\t'.join(cells))
+                lines.extend(_xlsx_row_lines(root, budget, strings))
         return '\n'.join(lines).strip()
     except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError) as exc:
         raise ValueError('XLSX 无法读取：' + path.name) from exc

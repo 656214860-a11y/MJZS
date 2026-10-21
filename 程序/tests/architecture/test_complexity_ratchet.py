@@ -16,8 +16,6 @@ CLASS_LIMIT = 600
 CLASS_SLACK = 15
 
 NESTING_CAPS = {
-    ('idea_attachments.py', '_read_xlsx'): 8,
-    ('model_router.py', 'chat'): 8,
     ('engine_probe.py', 'main'): 7,
     ('storage_maintenance.py', 'source_protection'): 7,
     ('app.py', 'tick'): 6,
