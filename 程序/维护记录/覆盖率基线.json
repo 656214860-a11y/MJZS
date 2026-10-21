@@ -354,9 +354,15 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_idea_bubbles.py",
+   "covered": 0,
+   "total": 347,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 1306,
+   "total": 967,
    "percent": 0.0
   },
   {
@@ -1795,5 +1801,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 297
+ "modules_total": 298
 }
