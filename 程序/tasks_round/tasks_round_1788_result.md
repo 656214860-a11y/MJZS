@@ -50,3 +50,11 @@
 ## 提交
 
 - 已提交，commit hash 见 git log `R1788:`。
+
+## 合入 master（补记）
+
+- 分支与 master 合并无冲突（合并提交 `R1790`，R1786 UI 现代化同时改了 `ui_widgets.py`／`ui_tokens.py`，自动合并后 `Splash`／`SPLASH_*` 无残留），随后快进 master；状态页轮次头同步为 1789。
+- 合并后架构门禁 376 条：7 红，**均不由本轮引入**：
+  - 环境缺件 3 条（同前：`基准历史.json`、`AIGC创作全流程` gitlink、工作树轮次头）；
+  - R1786 新增 `ui_motion.py`／`ui_rounded.py`／`tests/test_ui_motion.py` 带来 4 条：`test_coverage_baseline` 2 条（基线 292 模块 vs 实际 294，需重跑覆盖率工具刷新基线）、`test_skip_hygiene` 2 条（`tests/test_ui_motion.py:19` 的 skip 缺模块级原因常量）。属 R1786 的收口，按规则 28 只记录、未在本轮改动。
+- 完整安全全量仍未跑；红后冷却已生效，合入后的首次后台补跑在带完整 gitlink 的 `.wt/ci` 干净检出上进行，该处不受上面 3 条环境缺件影响。
