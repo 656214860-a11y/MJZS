@@ -49,6 +49,11 @@ class FakeApp:
         return lambda *a, **k: self.log.append((name, len(a), tuple(sorted(k))))
 
 
+def _plain(value):
+    """替身对象的 repr 带内存地址（id='…'、at 0x…），抹掉后再比。"""
+    return re.sub(r" id='\d+'| at 0x[0-9A-Fa-f]+", '', repr(value))
+
+
 def clickable(widget):
     from page_diff_support import walk
     out = []
@@ -67,9 +72,9 @@ def drive(top, roots, log, skip=()):
     for text, button in clickable(top):
         if text in skip or not button.winfo_exists():
             continue
-        with mock.patch('tkinter.messagebox.showinfo'), mock.patch('tkinter.messagebox.showerror'), \
+        with mock.patch('webbrowser.open'), mock.patch('tkinter.messagebox.showinfo'), mock.patch('tkinter.messagebox.showerror'), \
                 mock.patch('tkinter.messagebox.showwarning'), mock.patch('tkinter.messagebox.askyesno', return_value=False):
             outcome = safe_call(button.invoke)
         pump(top)
-        steps.append((text, outcome, list(log), snapshot(top, roots) if top.winfo_exists() else None))
+        steps.append((text, _plain(outcome), _plain(log), snapshot(top, roots) if top.winfo_exists() else None))
     return steps
