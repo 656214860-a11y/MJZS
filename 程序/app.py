@@ -1403,38 +1403,7 @@ class App:
                 else:self.write('后台任务 '+sid+' · '+text)
             try:ok,value=self.results.get_nowait()
             except queue.Empty:pass
-            else:
-                self.busy=False;self.submitting_sid=None
-                if self.local_submit_sid:
-                    if not ok:self.local_submit_error[self.local_submit_sid]=str(value)
-                    self.local_submit_sid=None
-                callback=getattr(self,'on_success',None);self.on_success=None
-                if ok and callback:
-                    try:callback(value)
-                    except Exception as exc:self.write('成片目录打开失败：'+str(exc))
-                self.next_poll=(max(time.monotonic(),getattr(self,'poll_started',0)+self.poll_wait) if self.quiet_run else time.monotonic()) if ok else time.monotonic()+30
-                phase='write_result'
-                try:
-                    if not (ok and self.quiet_run and self.last_poll_messages.get(self.polling_sid)==str(value)):self.write(str(value))
-                    if ok and self.quiet_run:self.last_poll_messages[self.polling_sid]=str(value)
-                    # 第 47 期第 5 条：手动／批量提交收了尾就说一句；后台轮询的进度不报（太吵）。
-                    phase='report_done'
-                    if ok and not self.quiet_run:self.report_done(value)
-                    phase='window_state'
-                    if self.window.winfo_ismapped():
-                        phase='refresh'
-                        self.refresh()
-                        phase='update_progress'
-                        self.update_progress()
-                    phase='failure_notice'
-                    if not ok:
-                        if self.quiet_run:
-                            self.write('后台查询或下载暂时中断，30秒后自动重试；不会重新提交生成。')
-                        elif self.window.winfo_ismapped():
-                            self.notifier.error(str(value), title='操作未完成')
-                except Exception as exc:
-                    # Results/task IDs are persisted by the engine; rendering must not stop polling.
-                    self._record_result_render_failure(exc,phase)
+            else:self._tick_result(ok,value)
             if time.monotonic()>=self.next_ui_update:
                 self.next_ui_update=time.monotonic()+1
                 try:
@@ -1462,6 +1431,37 @@ class App:
                 except tk.TclError:
                     # Tk 可能在存活检查或注册下一次回调时已退出。
                     pass
+    def _tick_result(self,ok,value):
+        """收一条提交／轮询结果：复位忙碌状态、回调、写日志、刷新界面与失败提示。"""
+        self.busy=False;self.submitting_sid=None
+        if self.local_submit_sid:
+            if not ok:self.local_submit_error[self.local_submit_sid]=str(value)
+            self.local_submit_sid=None
+        callback=getattr(self,'on_success',None);self.on_success=None
+        if ok and callback:
+            try:callback(value)
+            except Exception as exc:self.write('成片目录打开失败：'+str(exc))
+        self.next_poll=(max(time.monotonic(),getattr(self,'poll_started',0)+self.poll_wait) if self.quiet_run else time.monotonic()) if ok else time.monotonic()+30
+        phase='write_result'
+        try:
+            if not (ok and self.quiet_run and self.last_poll_messages.get(self.polling_sid)==str(value)):self.write(str(value))
+            if ok and self.quiet_run:self.last_poll_messages[self.polling_sid]=str(value)
+            # 第 47 期第 5 条：手动／批量提交收了尾就说一句；后台轮询的进度不报（太吵）。
+            phase='report_done'
+            if ok and not self.quiet_run:self.report_done(value)
+            phase='window_state'
+            if self.window.winfo_ismapped():
+                phase='refresh';self.refresh()
+                phase='update_progress';self.update_progress()
+            phase='failure_notice'
+            if not ok:
+                if self.quiet_run:
+                    self.write('后台查询或下载暂时中断，30秒后自动重试；不会重新提交生成。')
+                elif self.window.winfo_ismapped():
+                    self.notifier.error(str(value), title='操作未完成')
+        except Exception as exc:
+            # Results/task IDs are persisted by the engine; rendering must not stop polling.
+            self._record_result_render_failure(exc,phase)
     def cancel_timers(self,event=None):
         # 视频页定时器挂在 Tk 主窗口上，窗口销毁后回调会报 invalid command name。
         if event is not None and event.widget is not self.window:return

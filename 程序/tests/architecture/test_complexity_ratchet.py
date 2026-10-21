@@ -16,7 +16,6 @@ CLASS_LIMIT = 600
 CLASS_SLACK = 15
 
 NESTING_CAPS = {
-    ('app.py', 'tick'): 6,
     ('asset_batch_execution.py', 'run_batch'): 6,
     ('workflow_engines.py', 'run_background'): 6,
 }
