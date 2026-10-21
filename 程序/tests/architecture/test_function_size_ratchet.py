@@ -13,8 +13,8 @@ LIMIT = 150
 SLACK = 15
 OVERSIZE_CAPS = {
     ('keyframe_comfy.py', 'show'): 626,
-    ('desktop_writing_page.py', 'writing'): 554,
-    ('pet_models_ui.py', 'open_manager'): 497,
+    ('desktop_writing_page.py', 'writing'): 531,
+    ('pet_models_ui.py', 'open_manager'): 493,
     ('storyboard_files.py', 'show_final'): 401,
     ('storyboard_files.py', 'show'): 335,
     ('desktop_storyboard_page.py', 'storyboard'): 323,

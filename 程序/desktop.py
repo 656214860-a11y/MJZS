@@ -302,9 +302,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
 
 
     def _build_sidebar(self,win):
-        """左侧阶段导航放进可滚动容器；窗口再矮也能滚到最后一项。"""
+        """左侧阶段导航放进可滚动容器；窗口再矮也能滚到最后一项（滚轮／翻页键，不显示滚动条）。"""
         sidebar_area=ttk.Frame(win,width=DESKTOP_LAYOUT['sidebar_width']);sidebar_area.pack(side='left',fill='y');sidebar_area.pack_propagate(False)
-        scroll=ScrollForm(sidebar_area,bg=COLORS['background_primary'])
+        scroll=ScrollForm(sidebar_area,bg=COLORS['background_primary'],scrollbar=False)
         self.sidebar_viewport=sidebar_area;self.sidebar_scroll=scroll;self.sidebar_canvas=scroll.canvas
         scroll.canvas.configure(takefocus=True)
         side=ttk.Frame(scroll.form,padding=DESKTOP_LAYOUT['sidebar_padding']);self.sidebar=side
