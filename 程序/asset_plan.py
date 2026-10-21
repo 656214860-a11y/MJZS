@@ -30,6 +30,20 @@ def _publishers(gateway):
     return values
 
 
+def _bundle_is_current(folder, mappings, planned, source_info, progress_text):
+    """四份发布文件都在，且解析后的内容与待发布的完全相同。
+
+    无人值守轮询每个节拍都会重算清单，内容几乎总是没变；这时再走一遍「写四份＋fsync＋回读复核」
+    只是白白磨盘。任何一份缺失、读不出或内容不同都按「不是最新」处理，仍整包重新发布。"""
+    try:
+        return (read(folder / '名称编号对照.json') == mappings
+                and read(folder / 'assets.json') == planned
+                and read(folder / '来源.json') == source_info
+                and (folder / '导入进度.md').read_text(encoding='utf-8') == progress_text)
+    except (OSError, ValueError):
+        return False
+
+
 def _publish_plan_bundle(folder, mappings, planned, source_info, progress_text, *, gateway=None):
     """发布同一资产清单的索引、正文、来源与进度；失败则恢复整个发布包。"""
     publishers = _publishers(gateway)
@@ -44,6 +58,9 @@ def _publish_plan_bundle(folder, mappings, planned, source_info, progress_text, 
         (folder / '来源.json', publishers['publish_json'], source_info),
         (folder / '导入进度.md', publishers['publish_text'], progress_text),
     )
+    if all(path.is_file() for path, _, _ in targets) and _bundle_is_current(
+            folder, mappings, planned, source_info, progress_text):
+        return
     previous = tuple((path, path.read_bytes() if path.is_file() else None) for path, _, _ in targets)
     try:
         for path, writer, content in targets:
