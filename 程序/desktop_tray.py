@@ -72,6 +72,9 @@ _CMD_QUIT = 3
 TRAY_POLL_MS = 120
 # 托盘线程建窗／收摊的等待上限（秒）。
 TRAY_THREAD_TIMEOUT_S = 5.0
+# 自检运行器（run_selftests／smoke_test）设为 1：测试里构造 Desktop 不再起真实托盘线程，
+# 否则每次构造都往任务栏塞一个真图标，并发满载时还会因建窗超时误红。托盘自身的测试清掉该变量。
+SUPPRESS_TRAY_ENV = 'DRAMA_SUPPRESS_TRAY'
 _WINDOW_CLASS = 'DramaStudioTrayWindow'
 
 # WPARAM／LPARAM／LRESULT 都是指针宽度整数；WNDPROC 签名 LRESULT(HWND, UINT, WPARAM, LPARAM)。
@@ -388,7 +391,7 @@ class TrayMixin:
 
     def setup_tray(self):
         """窗口就绪后建立托盘图标，并把最小化拦到托盘。"""
-        if sys_platform_non_windows():
+        if sys_platform_non_windows() or os.environ.get(SUPPRESS_TRAY_ENV) == '1':
             return
         if getattr(self, 'tray_icon', None) is not None:
             return

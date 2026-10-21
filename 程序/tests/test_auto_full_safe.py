@@ -69,6 +69,50 @@ class DebounceTests(unittest.TestCase):
         popen.assert_not_called()
 
 
+class RedCooldownTests(unittest.TestCase):
+    NOW = 1_800_000_000.0
+
+    def result(self, head='aaa', code=1, age=60.0):
+        import time
+        finished = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(self.NOW - age))
+        return {'head': head, 'returncode': code, 'finished_at': finished}
+
+    def test_same_head_that_already_went_red_is_not_rerun(self):
+        long_ago = auto.RED_COOLDOWN_SECONDS * 5
+        self.assertEqual(auto.red_cooldown(self.result('aaa', age=long_ago), 'aaa', self.NOW), 'head')
+
+    def test_a_new_head_waits_out_the_cooldown_then_is_allowed(self):
+        inside = auto.RED_COOLDOWN_SECONDS - 60
+        self.assertEqual(auto.red_cooldown(self.result('aaa', age=inside), 'bbb', self.NOW), 'time')
+        outside = auto.RED_COOLDOWN_SECONDS + 60
+        self.assertEqual(auto.red_cooldown(self.result('aaa', age=outside), 'bbb', self.NOW), '')
+
+    def test_green_blocked_or_missing_results_never_cool_down(self):
+        for result in ({}, self.result(code=0), self.result(code=auto.BLOCKED_CODE)):
+            with self.subTest(result=result):
+                self.assertEqual(auto.red_cooldown(result, 'aaa', self.NOW), '')
+
+    def test_unreadable_timestamp_does_not_block_a_rerun(self):
+        self.assertEqual(auto.red_cooldown({'head': 'a', 'returncode': 1, 'finished_at': '??'}, 'b', self.NOW), '')
+
+    def status_with(self, last, required):
+        with mock.patch.object(auto.run_selftests, 'load_layer_document', return_value={'last_full_safe_all_round': 1}),              mock.patch.object(auto.run_selftests, 'latest_completed_round', return_value=20),              mock.patch.object(auto.run_selftests, 'source_rounds_since', return_value=9),              mock.patch.object(auto.run_selftests, 'is_master_checkout', return_value=True),              mock.patch.object(auto.run_selftests, 'risk_overdue_since', return_value=False),              mock.patch.object(auto.run_selftests, 'full_safe_required', return_value=required),              mock.patch.object(auto.run_selftests, 'full_safe_auto_due', return_value=True),              mock.patch.object(auto, '_git', return_value='bbb'),              mock.patch.object(auto, 'last_result', return_value=last),              mock.patch.object(auto.time, 'time', return_value=self.NOW):
+            return auto.status()
+
+    def test_status_suppresses_auto_due_while_cooling(self):
+        info = self.status_with(self.result('aaa', age=60), required=False)
+        self.assertEqual(info['cooling'], 'time')
+        self.assertFalse(info['auto_due'])
+
+    def test_required_gate_overrides_the_time_cooldown_but_not_the_same_head(self):
+        info = self.status_with(self.result('aaa', age=60), required=True)
+        self.assertEqual(info['cooling'], '')
+        self.assertTrue(info['auto_due'])
+        same = self.status_with(self.result('bbb', age=60), required=True)
+        self.assertEqual(same['cooling'], 'head')
+        self.assertFalse(same['auto_due'])
+
+
 class EmbeddedRepoAlignTests(unittest.TestCase):
     def test_a_stale_embedded_copy_is_realigned_to_the_registered_commit(self):
         calls = []

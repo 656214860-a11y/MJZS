@@ -42,6 +42,8 @@ import subprocess
 import sys
 # 自检子进程继承：通知分发器不弹系统模态框，避免无人值守时卡住（见 ui_widgets.SUPPRESS_MODAL_ENV）。
 os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
+# 同理：测试里构造 Desktop 不起真实托盘线程（见 desktop_tray.SUPPRESS_TRAY_ENV）。
+os.environ.setdefault("DRAMA_SUPPRESS_TRAY", "1")
 import tempfile
 import time
 import unittest

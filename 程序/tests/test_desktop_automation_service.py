@@ -240,7 +240,7 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
         effects = []
         record = lambda *args, **kwargs: effects.append((args, kwargs))
         desktop = SimpleNamespace(
-            win=SimpleNamespace(after_cancel=record),
+            win=SimpleNamespace(after_cancel=record), cancel_resize=lambda: None,
             idea_chat_controller=SimpleNamespace(cancel_request=lambda: None),
             _async_ticket=1, _brief_load_results=queue.Queue(), worker=True,
             busy_state=SimpleNamespace(set_busy=record), status=SimpleNamespace(set=record),
