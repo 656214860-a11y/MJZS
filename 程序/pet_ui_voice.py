@@ -4,6 +4,7 @@
 ``PetVoiceMixin`` 获得；用到的模块级名字来自 ``pet_ui_support``。
 """
 import datetime
+import re
 import pet_agent
 import pet_bus
 import pet_cloud
@@ -12,7 +13,26 @@ import pet_state
 from broadcaster import Broadcaster, PREFIX_PATTERNS
 from pathlib import Path
 from tkinter import TclError
-from pet_ui_support import AWAY_PAUSE_SECONDS, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, CAPTION_INK, CHAT_HINT, FALLBACK_ASK, GAP_SECONDS, GREET_DELAY_MS, GREET_QUIET_SECONDS, LEVEL_CAPTIONS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, PAGE_ASKS, PAUSED_CAPTION, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, REPORT_QUIET_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, WEEKLY_FROM, asset_counts, duration, shot_stats
+from pet_ui_support import AWAY_PAUSE_SECONDS, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, CAPTION_INK, CHAT_HINT, FALLBACK_ASK, GAP_SECONDS, GREET_DELAY_MS, GREET_QUIET_SECONDS, LEVEL_CAPTIONS, OFFER_BACKOFF_MAX, OFFER_MAX_CHARS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, PAGE_ASKS, PAUSED_CAPTION, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, REPORT_QUIET_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, WEEKLY_FROM, asset_counts, duration, shot_stats
+
+
+
+def offer_verdict(word):
+    """「要不要一键执行」的回答：True 开工、False 先放着、None 不是在答这个问题。
+
+    整句命中词表最准；再认「不用了谢谢」「好啊做吧」这种以答词起头的说法，否定先认。
+    """
+    if word in OFFER_YES:
+        return True
+    if word in OFFER_NO:
+        return False
+    if any(word.startswith(no) for no in OFFER_NO if len(no) > 1):
+        return False
+    if any(word.startswith(yes) for yes in OFFER_YES if len(yes) > 1):
+        return True
+    if len(word) <= 4 and word[:1] in '好行':
+        return True                    # 「好啊做吧」「行吧」；「是什么」这类问句不算点头
+    return None
 
 
 class PetVoiceMixin:
@@ -154,10 +174,18 @@ class PetVoiceMixin:
             self.errors.append(('progress.voice', str(exc)))
             return ''
     def offer_text(self, parts):
-        """主动问的那一句（含选择项）：一眼看清盘上还差什么、我打算怎么做、怎么回我。"""
-        return ('%s：盘上还有 %s。要不要我按「一键执行」把不花钱的这几件一次做完？'
-                '（回「好」就开工，「先不用」就先放着；会花钱的步骤仍然只由您按）'
-                % (pet_agent.PET_NAME, '；'.join(parts)))
+        """主动问的那一句：只说头一件缺口和一共几件，导航与花钱说明留给「查看详情」。
+
+        原来把每条缺口连同「阶段 → 手动xxx」全拼进来，再跟两段括号，用户嫌长、不合时宜。
+        """
+        heads = [re.sub(r'（[^（）]*→[^（）]*）', '', str(part)).strip() for part in parts]
+        head = heads[0] if heads else ''
+        more = '等 %d 件事' % len(heads) if len(heads) > 1 else ''
+        text = '%s：还差：%s%s。要我「一键执行」不花钱的部分吗？回「好」开工，「先不用」先放着。' % (
+            pet_agent.PET_NAME, head, more)
+        if len(text) > OFFER_MAX_CHARS:
+            text = text[:OFFER_MAX_CHARS - 1] + '…'
+        return text
     def offer_parts(self, at=None):
         """这会儿值不值得问一句：盘上的缺口 ＋ 还没确认的失败项，凑成一句句人话。"""
         parts = list(self.gaps(at=at))
@@ -200,13 +228,23 @@ class PetVoiceMixin:
             waited = now - self._offer_at
             if waited < OFFER_SECONDS:
                 return ''
-            if signature == self._offer_sig and waited < OFFER_REPEAT:
+            if signature == getattr(self, '_offer_declined', None):
+                return ''                      # 用户刚说过「先不用」：这批缺口不再追问
+            if signature == self._offer_sig and waited < OFFER_REPEAT * getattr(self, '_offer_backoff', 1):
                 return ''
+            if signature == self._offer_sig and self._offer_open:
+                # 上回问了没人理：下一次再隔久一点，最多拉到 OFFER_BACKOFF_MAX 倍
+                self._offer_backoff = min(OFFER_BACKOFF_MAX, getattr(self, '_offer_backoff', 1) * 2)
+            elif signature != self._offer_sig:
+                self._offer_backoff = 1
+                self._offer_declined = None
             self._offer_at = now
             self._offer_sig = signature
             self._offer_open = True
             # 第 26 期第 5 条：这是一句「要不要办」的询问，用绿色对话框（长句子也放得下）
-            return self.broadcast(self.offer_text(parts), at=at, shape=pet_cloud.SHAPE_CLOUD)
+            text = self.offer_text(parts)
+            self.agent.pending_offer = text
+            return self.broadcast(text, at=at, shape=pet_cloud.SHAPE_CLOUD)
         except Exception as exc:
             self.errors.append(('offer', str(exc)))
             return ''
@@ -221,17 +259,21 @@ class PetVoiceMixin:
         if not self._offer_open:
             return None
         word = ' '.join(str(text or '').split()).strip(' 。．，,!！?？~')
-        if word in OFFER_YES:
+        verdict = offer_verdict(word)
+        if verdict is None:
+            return None
+        self.agent.pending_offer = ''
+        if verdict:
             self._offer_open = False
             return {'reply': '好，这就一键执行。',
                     'plan': {'intent': 'oneclick', 'params': {'confirmed': True}},
                     'decision': {'run': True, 'reason': ''}}
-        if word in OFFER_NO:
+        if verdict is False:
             self._offer_open = False
-            self._offer_at = None              # 用户说了先放着：下一次进度一动就见得着再问
+            # 用户说了先放着：同一批缺口今天不再问（原来清空 _offer_at，反倒更快再问一遍）
+            self._offer_declined = tuple(self._offer_sig or ())
             return {'reply': '好，那先不动手；想收尾的时候说一句「一键执行」就行。',
                     'plan': {}, 'decision': {'run': False, 'reason': ''}}
-        return None
     def progress_text(self, state=None, at=None, count=0):
         """进度气泡的正文（第 21 期瘦身）：一行进度 ＋ 一行「还要多久」＋ 缺口，一段一行。
 

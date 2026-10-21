@@ -403,6 +403,8 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin):
         self._offer_at = None             # 上一次问「要不要一键执行」的钟点（第 25 期第 3 条）
         self._offer_sig = ()              # 问的时候缺口长什么样：变了才是「进度又往前走了」
         self._offer_open = False          # 那个问题这会儿是不是还挂着（挂着他才认「好」这一句）
+        self._offer_backoff = 1           # 问了没人理就翻倍再问（见 OFFER_BACKOFF_MAX）
+        self._offer_declined = None       # 用户说「先不用」时的那批缺口：不再追问
         self._stage_page = None           # 第 36 期第 6 条：上一次问过的那一页（换了页才问）
         self._stage_at = None             # 上一次问「这一步要不要我做」的钟点
         self._stage_auto_started = set()  # 已由进页全自动启动过的阶段，切页／刷新不重复派发

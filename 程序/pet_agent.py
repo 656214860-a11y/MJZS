@@ -1110,6 +1110,10 @@ class Agent:
         projects = self.projects_snapshot()
         if projects:
             out['projects'] = projects
+        pending = getattr(self, 'pending_offer', '')
+        if pending:
+            # 三虎刚问过用户一句、还挂着：模型抽意图时要知道用户是在回哪个问题
+            out['pending_offer'] = str(pending)
         return out
 
     def progress(self, at=None):
