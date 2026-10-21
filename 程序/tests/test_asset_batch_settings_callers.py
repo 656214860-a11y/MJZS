@@ -3,6 +3,7 @@ import ast
 import copy
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 from service_contract import SystemError, success
@@ -30,12 +31,15 @@ class AssetBatchSettingsCallerTests(unittest.TestCase):
         return branches
 
     def environment(self, result):
-        return dict(save_settings=Mock(return_value=result), remove_model=Mock(return_value=result),
-                    project=object(), options={}, checks={}, model_key=Mock(return_value='id'),
-                    values={'url': Mock(), 'model': Mock()}, model='old', modelbox=MagicMock(),
-                    status=Mock(), app=Mock(), base=object(), items=[], win=Mock(),
-                    _launch_skill_batch=Mock(return_value=True), stop=Mock(), done=Mock(),
-                    run_batch=Mock(), events=Mock())
+        env = dict(save_settings=Mock(return_value=result), remove_model=Mock(return_value=result),
+                   project=object(), options={}, checks={}, model_key=Mock(return_value='id'),
+                   values={'url': Mock(), 'model': Mock()}, model='old', modelbox=MagicMock(),
+                   status=Mock(), app=Mock(), base=object(), items=[], win=Mock(),
+                   _launch_skill_batch=Mock(return_value=True), stop=Mock(), done=Mock(),
+                   run_batch=Mock(), events=Mock())
+        # show 改写成 _AssetBatchWindow 后共享状态挂在 self 上；self.<名字> 与同名局部替身是同一个对象。
+        env['self'] = SimpleNamespace(**{k: v for k, v in env.items() if k not in ('save_settings', 'remove_model')})
+        return env
 
     def test_failure_stops_all_four_branches(self):
         for line, code in self.branches():
