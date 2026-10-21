@@ -1,4 +1,5 @@
 import ast
+from types import SimpleNamespace
 import tempfile
 import unittest
 from pathlib import Path
@@ -58,9 +59,12 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
         for result in (SystemError('保存失败'), success(Path('new.md'))):
             app, dialog, refresh = Mock(), Mock(), Mock()
             dialog.ask_string.return_value = 'new.md'
-            env = dict(self=app, ask_string=dialog.ask_string, fill_script_list=refresh,
-                       selected_script=Mock(return_value=Path('old.md')))
+            # R1817：rename_script 成了 _WritingPage 的方法，原来的闭包变量成了实例属性、桌面主窗成了 page
+            env = dict(ask_string=dialog.ask_string)
             exec(compile(ast.Module(body=methods, type_ignores=[]), str(source), 'exec'), env)
+            page = SimpleNamespace(page=app, fill_script_list=refresh, selected_script=Mock(return_value=Path('old.md')))
+            rename = env['rename_script']
+            env['rename_script'] = lambda: rename(page)
             with patch('script_workspace_service.rename_script_document', return_value=result) as service:
                 if result.ok:
                     env['rename_script']()
@@ -81,8 +85,9 @@ class ScriptWorkspaceResultTests(unittest.TestCase):
         tree = ast.parse(source.read_text(encoding='utf-8'))
         desktop = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'WritingPageMixin')
         method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing')
+        page_class = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == '_WritingPage')  # R1817：页面主体改写成了类
         env = {}
-        exec(compile(ast.Module(body=[method], type_ignores=[]), str(source), 'exec'), env)
+        exec(compile(ast.Module(body=[method, page_class], type_ignores=[]), str(source), 'exec'), env)
         with patch('script_workspace_service.ensure_script_workspace', return_value=SystemError('初始化失败')):
             with self.assertRaisesRegex(ValueError, '初始化失败'):
                 env['writing'](Mock())

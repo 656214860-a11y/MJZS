@@ -198,7 +198,12 @@ class WritingRestartTests(unittest.TestCase):
                          self=SimpleNamespace(win=object(), safe=lambda call: call()),
                          restart_preparation=restart, open_script_file=Mock(), rename_script=Mock(),
                          adopt_script=Mock(), delete_script=Mock())
+        # R1817：script_menu 成了 _WritingPage 的方法：闭包变量改由实例属性提供，桌面主窗成了 page
+        page = SimpleNamespace(page=namespace.pop('self'), **{key: namespace.pop(key) for key in (
+            'script_row_category', 'restart_preparation', 'open_script_file', 'rename_script', 'adopt_script', 'delete_script')})
         exec(compile(ast.Module(body=[node], type_ignores=[]), str(source), 'exec'), namespace)
+        script_menu = namespace['script_menu']
+        namespace['script_menu'] = lambda tree, event: script_menu(page, tree, event)
         for category, stage in zip(('setting', 'outline', 'character'), writing_api.PREPARATION_STAGES):
             menu.reset_mock()
             tree.identify_row.return_value = 'row-' + category

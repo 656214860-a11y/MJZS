@@ -80,9 +80,10 @@ class DataTableBoundaryTests(unittest.TestCase):
     def test_script_file_lists_use_data_table_not_a_page_treeview(self):
         tree = parse_desktop()
         desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
-        method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef)
-                      and node.name == 'writing')
-        direct = [node for node in ast.walk(method) if isinstance(node, ast.Call)
+        # R1817：writing 的闭包改写成了 _WritingPage 类，页面构造代码现在在类里；薄方法和新类两处都扫
+        methods = [node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'writing'] + [cls for cls in tree.body if isinstance(cls, ast.ClassDef) and cls.name == '_WritingPage']
+        self.assertEqual(len(methods), 2)
+        direct = [node for method in methods for node in ast.walk(method) if isinstance(node, ast.Call)
                   and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
         self.assertEqual(direct, [], '剧本文件列表必须通过 DataTable 构造表格')
 
