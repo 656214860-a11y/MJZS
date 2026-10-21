@@ -865,255 +865,282 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             text='\n'.join(label+'：' for label in dict.fromkeys((*IDEA_FIELDS, *INLINE_REQUIRED_LABELS)))+'\n'
         self._idea_example=text
         return text
-    def open_flow_agent(self,stage,label,prompt,followup=None,on_receipt=None,_config=None,*,intake_only=False,new_session=False,desktop_paste=False):
+    def open_flow_agent(self, stage, label, prompt, followup=None, on_receipt=None, _config=None, *, intake_only=False, new_session=False, desktop_paste=False):
+        return _FlowAgentLaunch(self, stage, label, prompt, followup, on_receipt, _config, intake_only=intake_only,
+                                new_session=new_session, desktop_paste=desktop_paste).build()
+
+
+class _FlowAgentLaunch:
+    """一次 Agent 任务的打开流程：准备任务与上下文、去重派发，按引擎走 CLI（含排队取槽）、Claude Desktop 或 GPT 桌面粘贴。"""
+    def __init__(self, host, stage, label, prompt, followup=None, on_receipt=None, _config=None, *, intake_only=False, new_session=False, desktop_paste=False):
+        self.host = host
+        self.stage = stage
+        self.label = label
+        self.prompt = prompt
+        self.followup = followup
+        self.on_receipt = on_receipt
+        self._config = _config
+        self.intake_only = intake_only
+        self.new_session = new_session
+        self.desktop_paste = desktop_paste
+
+    def build(self):
         from workflow_settings import current,writer_style_summary
+        self.writer_style_summary = writer_style_summary
         from workflow_engines import prompt_with_settings,launch_interactive
+        self.prompt_with_settings = prompt_with_settings; self.launch_interactive = launch_interactive
         from agent_dispatch import signature,claim,finish,outcome,retryable
-        if self.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
-        if stage == 'writing' and getattr(self, '_script_agent_queue', None):
+        self.signature = signature; self.claim = claim; self.finish = finish; self.outcome = outcome; self.retryable = retryable
+        if self.host.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
+        if self.stage == 'writing' and getattr(self.host, '_script_agent_queue', None):
             raise ValueError('剧本模型请求正在排队，请等待或先点击中断；未重复发送。')
         # 「发送待核实」的安全重试必须沿用第一次已经解析的引擎。原来递归重进时会重新
         # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
-        if stage == 'writing' and not intake_only and _config is None:
+        if self.stage == 'writing' and not self.intake_only and self._config is None:
             from workflow_settings import validate_selected_skills
-            validate_selected_skills(self.root, stage)
-        config=_config if _config is not None else current(self.root,stage);followup=followup if followup is not None else prompt
-        if stage == 'writing' and not intake_only:
+            validate_selected_skills(self.host.root, self.stage)
+        self.config=self._config if self._config is not None else current(self.host.root,self.stage);self.followup=self.followup if self.followup is not None else self.prompt
+        if self.stage == 'writing' and not self.intake_only:
             from workflow_settings import freeze_skills
-            config = freeze_skills(config)
-        native_claude = config['engine'] in ('claude-desktop-app', 'desktop-app')
-        bounded_writing = stage == 'writing' and config['engine'] == 'claude'
-        if stage == 'writing' and config['engine'] == 'claude' and not intake_only and not new_session:
+            self.config = freeze_skills(self.config)
+        self.native_claude = self.config['engine'] in ('claude-desktop-app', 'desktop-app')
+        self.bounded_writing = self.stage == 'writing' and self.config['engine'] == 'claude'
+        if self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only and not self.new_session:
             from workflow_engines import claude_session_stale
-            new_session = claude_session_stale(self.root, stage)
-        new_session = bool(new_session and stage == 'writing' and config['engine'] == 'claude' and not intake_only)
-        use_cli = not native_claude and (config['engine']!='codex' or config['program'] or config['model'])
+            self.new_session = claude_session_stale(self.host.root, self.stage)
+        self.new_session = bool(self.new_session and self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only)
+        self.use_cli = not self.native_claude and (self.config['engine']!='codex' or self.config['program'] or self.config['model'])
         # CLI 继续复用同一进程；提取结束后不能占住唯一槽位又排队启动剧本进程。
-        setup_key=hashlib.sha256((json.dumps(config,sort_keys=True)+('brief-intake' if intake_only and not use_cli else '')).encode()).hexdigest()
+        self.setup_key=hashlib.sha256((json.dumps(self.config,sort_keys=True)+('brief-intake' if self.intake_only and not self.use_cli else '')).encode()).hexdigest()
         from codex_tasks import prepare_task
-        project=self.root
-        name=next((p['name'] for p in self.projects.info['projects'] if Path(p['path'])==project),project.name)
-        title=name+' '+label
-        if config['engine']=='qwen':
+        self.prepare_task = prepare_task
+        self.project=self.host.root
+        name=next((p['name'] for p in self.host.projects.info['projects'] if Path(p['path'])==self.project),self.project.name)
+        self.title=name+' '+self.label
+        if self.config['engine']=='qwen':
             from qwen_adapter import window_title
-            title=window_title(name,stage,getattr(self,'page_index',None))
-        def build():
-            from workflow_context import continuation_instruction,snapshot
-            from stage_execution_service import project_context
-            from workflow_context_controller import request_stage_instruction
-            from workflow_context_budget import prepare_request_context
-            if config['engine']=='codex':
-                from codex_skill_sync import sync_codex_skills
-                sync_result=sync_codex_skills()
-                if sync_result['errors'] or sync_result['conflicts']:
-                    raise ValueError('Codex 技能同步未完成：'+ '; '.join(
-                        sync_result['errors']+sync_result['conflicts']))
-            data={} if intake_only or bounded_writing else snapshot(project_context(project))
-            receipt=claim(project,signature(stage,prompt,followup,config,data),title)
-            if on_receipt is not None:on_receipt(receipt)
-            if receipt['duplicate'] and use_cli:return {'receipt':receipt}
-            if not use_cli:receipt['duplicate']=False
-            try:
-                if stage=='previs':
-                    from native_apps import open_blender
-                    open_blender()
-                if intake_only:
-                    # 提取阶段不得附加“直接生成剧本”的 SKILL/阶段交付指令。
-                    full,budget=prepare_request_context(prompt,stage,'brief_intake',report=True)
-                    continuation,continuation_budget=prepare_request_context(followup,stage,'brief_intake',report=True)
-                elif bounded_writing:
-                    full,budget=prepare_request_context(
-                        prompt_with_settings(prompt,config,stage=stage),stage,'explicit_writing_inputs',report=True)
-                    continuation,continuation_budget=prepare_request_context(
-                        prompt_with_settings(followup,config,stage=stage),stage,'explicit_writing_inputs',report=True)
-                else:
-                    context,strategy=request_stage_instruction(project,stage,data)
-                    full,budget=prepare_request_context(
-                        prompt_with_settings(context+prompt,config,stage=stage),stage,strategy,report=True)
-                    continuation,continuation_budget=prepare_request_context(
-                        prompt_with_settings(continuation_instruction(project,stage,data)+followup,config,stage=stage),
-                        stage,'continuation_summary',report=True)
-                finish(receipt,'preparing','',skill_injection=config.get('skill_injection'),context_budget={
-                    'initial':budget,'continuation':continuation_budget})
-                if native_claude:
-                    from codex_tasks import task_file_reference
-                    from stage_execution_service import register_download_inbox
-                    # Claude Desktop 常常不能直接写本机路径、只给下载文件：要求下载件沿用目标文件名，
-                    # 并登记目标，助手会从「下载」文件夹按文件名收回到原位置。
-                    full = full + ('\n\n【交付方式】优先直接写入任务中给出的目标路径；若无法写入本机文件，'
+            self.title=window_title(name,self.stage,getattr(self.host,'page_index',None))
+        self.host.async_(self.prepare,self.dispatch)
+
+    def prepare(self):
+        from workflow_context import continuation_instruction,snapshot
+        from stage_execution_service import project_context
+        from workflow_context_controller import request_stage_instruction
+        from workflow_context_budget import prepare_request_context
+        if self.config['engine']=='codex':
+            from codex_skill_sync import sync_codex_skills
+            sync_result=sync_codex_skills()
+            if sync_result['errors'] or sync_result['conflicts']:
+                raise ValueError('Codex 技能同步未完成：'+ '; '.join(
+                    sync_result['errors']+sync_result['conflicts']))
+        data={} if self.intake_only or self.bounded_writing else snapshot(project_context(self.project))
+        receipt=self.claim(self.project,self.signature(self.stage,self.prompt,self.followup,self.config,data),self.title)
+        if self.on_receipt is not None:self.on_receipt(receipt)
+        if receipt['duplicate'] and self.use_cli:return {'receipt':receipt}
+        if not self.use_cli:receipt['duplicate']=False
+        try:
+            if self.stage=='previs':
+                from native_apps import open_blender
+                open_blender()
+            if self.intake_only:
+                # 提取阶段不得附加“直接生成剧本”的 SKILL/阶段交付指令。
+                full,budget=prepare_request_context(self.prompt,self.stage,'brief_intake',report=True)
+                continuation,continuation_budget=prepare_request_context(self.followup,self.stage,'brief_intake',report=True)
+            elif self.bounded_writing:
+                full,budget=prepare_request_context(
+                    self.prompt_with_settings(self.prompt,self.config,stage=self.stage),self.stage,'explicit_writing_inputs',report=True)
+                continuation,continuation_budget=prepare_request_context(
+                    self.prompt_with_settings(self.followup,self.config,stage=self.stage),self.stage,'explicit_writing_inputs',report=True)
+            else:
+                context,strategy=request_stage_instruction(self.project,self.stage,data)
+                full,budget=prepare_request_context(
+                    self.prompt_with_settings(context+self.prompt,self.config,stage=self.stage),self.stage,strategy,report=True)
+                continuation,continuation_budget=prepare_request_context(
+                    self.prompt_with_settings(continuation_instruction(self.project,self.stage,data)+self.followup,self.config,stage=self.stage),
+                    self.stage,'continuation_summary',report=True)
+            self.finish(receipt,'preparing','',skill_injection=self.config.get('skill_injection'),context_budget={
+                'initial':budget,'continuation':continuation_budget})
+            if self.native_claude:
+                from codex_tasks import task_file_reference
+                from stage_execution_service import register_download_inbox
+                # Claude Desktop 常常不能直接写本机路径、只给下载文件：要求下载件沿用目标文件名，
+                # 并登记目标，助手会从「下载」文件夹按文件名收回到原位置。
+                full = full + ('\n\n【交付方式】优先直接写入任务中给出的目标路径；若无法写入本机文件，'
                                    '请以可下载文件交付，文件名必须与目标路径的文件名完全一致，'
                                    '用户下载后助手会自动放回对应位置。')
-                    task_file = task_file_reference(project, stage, full)
-                    try:register_download_inbox(project, full)
-                    except (OSError, ValueError) as exc:LOGGER.warning('下载收件箱登记失败：%s', exc)
-                    reference = (f'请读取并执行本次任务文件：{task_file}\n'
+                task_file = task_file_reference(self.project, self.stage, full)
+                try:register_download_inbox(self.project, full)
+                except (OSError, ValueError) as exc:LOGGER.warning('下载收件箱登记失败：%s', exc)
+                reference = (f'请读取并执行本次任务文件：{task_file}\n'
                                  '其中引用的 SKILL 和附件按任务需要读取，不重复加载无关内容。'
                                  '若无法读取本地文件，请提示启用文件访问并授权对应目录，或请用户上传文件；不要假定已读。')
-                    return {'receipt':receipt,'prompt':reference,'task_file':str(task_file)}
-                if use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
-                                   'context_budget':{'initial':budget,'continuation':continuation_budget}}
-                result=prepare_task(project,title,stage,full,followup=continuation,setup_key=setup_key,
-                                    delivery_summary='' if intake_only else writer_style_summary(config,stage))
-                result['receipt']=receipt;result['context_budget']={
-                    'initial':budget,'continuation':continuation_budget};return result
-            except Exception as exc:finish(receipt,'failed',str(exc));raise
-        def dispatch(result):
-            receipt=result['receipt']
-            if receipt['duplicate']:
-                sessions=getattr(self,'flow_processes',{})
-                key=(str(project),stage,config['engine'],setup_key)
-                live=key in sessions and sessions[key].poll() is None
-                if retryable(receipt,live):
-                    finish(receipt,'failed','上次发送结果未确认，且对应 Agent 窗口已关闭')
-                    self.status.set('上次 Agent 发送未确认且窗口已关闭，正在自动重新启动…')
-                    self.open_flow_agent(stage,label,prompt,followup,on_receipt,_config=config,intake_only=intake_only,new_session=new_session)
-                    return
-                if not live:
-                    finish(receipt,'failed','上次 Agent 窗口已关闭，请重新点击启动')
-                    self.notifier.info('上次 Agent 窗口未在运行，任务状态已重置；请再次点击“手动制作分镜”。', title='请重新点击', modal=True);return
-                state={'preparing':'正在打开或发送','sent':'已发送','uncertain':'发送结果待核实'}[receipt['state']]
-                self.status.set('相同任务'+state+'，已复用记录，本次不重复发送。请在对应 Agent 窗口继续。');return
-            if use_cli:
-                launch_cli(result);return
-            try:done(result)
-            except Exception as exc:finish(receipt,'failed',str(exc));raise
-        def launch_cli(result):
-            receipt=result['receipt'];full=result['prompt'];continuation=result['followup']
-            sessions=getattr(self,'flow_processes',{});key=(str(project),stage,config['engine'],setup_key)
-            if key in sessions and sessions[key].poll() is None:
-                if new_session:
-                    def close_old():
-                        from workflow_engines import close_for_restart
-                        try:close_for_restart(project,sessions[key])
-                        except Exception as exc:finish(receipt,'failed',str(exc));raise
-                    def closed(_):
-                        sessions.pop(key,None)
-                        launch_cli(result)
-                    self.status.set('正在结束空闲 Claude 会话，准备以新上下文重新创作…')
-                    self.async_(close_old,closed);return
-                def submit():
-                    try:
-                        if config['engine']=='qwen':
-                            from qwen_adapter import submit_existing
-                            text=submit_existing(sessions[key],continuation,title=title)
-                            return {'ok':True,'reason':text,'send_dispatched':True}
-                        from workflow_engines import submit_existing
-                        return submit_existing(sessions[key],continuation,title=title)
-                    except Exception as exc:
-                        finish(receipt,'uncertain',str(exc));raise
-                def submitted(value):
-                    outcome(receipt,value);self.status.set(value['reason'])
-                    if not value['ok']:self.notifier.info(value['reason'], title='请检查 Agent 输入框', modal=True)
-                self.async_(submit,submitted);return
-            def launched(result):
-                sessions[key]=result['process'];self.flow_processes=sessions
-                if stage=='writing':
-                    self._script_agent_launching=False
-                    self.update_script_interrupt_button()
-                finish(receipt,'sent','启动时已传入初始任务',task_file=result['task_file'])
-                self.status.set('已启动 '+result['engine']+'，初始任务已自动提交，可在窗口继续讨论。')
-            def launch(slot=None):
-                try:return launch_interactive(project,stage,title,full,config,followup=continuation,slot=slot,
-                                              **({'new_session':True} if new_session else {}))
-                except Exception as exc:
-                    from workflow_engines import release_stage_process_slot
-                    release_stage_process_slot(slot)
-                    finish(receipt,'failed',str(exc));raise
-            from workflow_engines import request_stage_process_slot, claim_stage_process_slot
-            request=request_stage_process_slot(project,stage)
-            if request['state']=='granted':
-                self.async_(lambda:launch(request['slot']),launched);return
-            from workflow_engines import cancel_stage_slot_request
-            pending = {'timer': None, 'cancelled': False, 'started': time.monotonic()}
-            def cleanup():
-                pending['cancelled'] = True
-                cancel_stage_slot_request(request['ticket'])
-                timer, pending['timer'] = pending['timer'], None
-                if timer is not None:
-                    try:self.win.after_cancel(timer)
-                    except tk.TclError:pass
-                if getattr(self, '_script_agent_queue', None) is pending:
-                    self._script_agent_queue = None
-                    self._script_agent_launching = False
-                    self.update_script_interrupt_button()
-            def cancel():
-                cleanup()
-                finish(receipt,'failed','模型排队请求已取消，尚未启动 CLI')
-            pending['cancel'] = cancel
-            if stage == 'writing':
-                self._script_agent_queue = pending
-                self._script_agent_launching = True
-                self.update_script_interrupt_button()
-            self.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % request['position'])
-            def poll_slot():
-                pending['timer'] = None
-                if pending['cancelled']:return
-                if self.root != project or getattr(self,'shutting_down',False) or getattr(self,'_closing',False):
-                    cancel()
-                    return
-                if time.monotonic() - pending['started'] >= 120:
-                    cleanup()
-                    message = '等待模型并发名额超过 120 秒，已退出排队；请检查已有 Agent 任务后重新发送。'
-                    finish(receipt,'failed',message)
-                    self.status.set(message)
-                    return
-                claimed=claim_stage_process_slot(request['ticket'])
-                if claimed['state']=='queued':
-                    self.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % claimed['position'])
-                    pending['timer'] = self.win.after(200,poll_slot);return
-                cleanup()
-                if claimed['state']=='granted':
-                    if stage == 'writing':
-                        self._script_agent_launching = True
-                        self.update_script_interrupt_button()
-                    self.status.set('已获得模型请求槽位，正在启动…')
-                    self.async_(lambda:launch(claimed['slot']),launched);return
-                finish(receipt,'failed',claimed['reason'])
-                self.status.set(claimed['reason'])
-            pending['timer'] = self.win.after(200,poll_slot)
-        def done(result):
-            receipt=result['receipt']
-            clipboard_text=result['prompt']
-            task_file=result.get('task_file')
-            if task_file and Path(task_file).is_file():
-                try:clipboard_text=Path(task_file).read_text(encoding='utf-8')
-                except OSError:clipboard_text=result['prompt']
-            from prompt_window import copy_text
-            copy_text(self.win,clipboard_text)
-            if native_claude:
-                from workflow_settings import find_program
-                from platform_tools import launch_windows_app
-                program = find_program(config)
-                if config['engine'] == 'desktop-app':
-                    app = config.get('display_model') or '桌面模型'
-                    _deliver_desktop_app(self, finish, receipt, task_file, title,
-                                         clipboard_text, program, app, desktop_paste,
-                                         config.get('delivery') or 'paste')
-                    return
-                launch_windows_app(program, 'Claude Desktop')
-                from codex_paste import paste_existing
-                def claude_pasted(value):
-                    finish(receipt,'prepared' if value['ok'] else 'failed',value['reason'],task_file=task_file)
-                    self.status.set(value['reason'])
-                    level=getattr(self,'gate_level',None)
-                    if value['ok'] and callable(level) and level()=='auto':
-                        # 全自动不拦截 Claude Desktop：它只能由用户点发送，这里明确提示，
-                        # 避免自动链看似停住却没有说明；状态栏原文也会转给三虎。
-                        message=('三虎全自动：'+label+' 的任务已粘贴到 Claude Desktop，'
-                                 '请切到 Claude Desktop 手动点击发送；完成后产物会自动收回。')
-                        self.status.set(message)
-                        self.notifier.warning(message,title='请手动发送')
-                self.status.set('正在将本次任务粘贴到 Claude Desktop，请检查后手动发送…')
-                self.async_(lambda:paste_existing(title,clipboard_text,program=program,deadline_seconds=45),claude_pasted)
+                return {'receipt':receipt,'prompt':reference,'task_file':str(task_file)}
+            if self.use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
+                               'context_budget':{'initial':budget,'continuation':continuation_budget}}
+            result=self.prepare_task(self.project,self.title,self.stage,full,followup=continuation,setup_key=self.setup_key,
+                                delivery_summary='' if self.intake_only else self.writer_style_summary(self.config,self.stage))
+            result['receipt']=receipt;result['context_budget']={
+                'initial':budget,'continuation':continuation_budget};return result
+        except Exception as exc:self.finish(receipt,'failed',str(exc));raise
+
+    def dispatch(self, result):
+        receipt=result['receipt']
+        if receipt['duplicate']:
+            sessions=getattr(self.host,'flow_processes',{})
+            key=(str(self.project),self.stage,self.config['engine'],self.setup_key)
+            live=key in sessions and sessions[key].poll() is None
+            if self.retryable(receipt,live):
+                self.finish(receipt,'failed','上次发送结果未确认，且对应 Agent 窗口已关闭')
+                self.host.status.set('上次 Agent 发送未确认且窗口已关闭，正在自动重新启动…')
+                self.host.open_flow_agent(self.stage,self.label,self.prompt,self.followup,self.on_receipt,_config=self.config,intake_only=self.intake_only,new_session=self.new_session)
                 return
-            if config.get('desktop_program'):
-                from platform_tools import launch_windows_app
-                launch_windows_app(config['desktop_program'], 'Codex 桌面')
-            open_target(result['url'])
+            if not live:
+                self.finish(receipt,'failed','上次 Agent 窗口已关闭，请重新点击启动')
+                self.host.notifier.info('上次 Agent 窗口未在运行，任务状态已重置；请再次点击“手动制作分镜”。', title='请重新点击', modal=True);return
+            state={'preparing':'正在打开或发送','sent':'已发送','uncertain':'发送结果待核实'}[receipt['state']]
+            self.host.status.set('相同任务'+state+'，已复用记录，本次不重复发送。请在对应 Agent 窗口继续。');return
+        if self.use_cli:
+            self.launch_cli(result);return
+        try:self.done(result)
+        except Exception as exc:self.finish(receipt,'failed',str(exc));raise
+
+    def launch_cli(self, result):
+        receipt=result['receipt'];full=result['prompt'];continuation=result['followup']
+        sessions=getattr(self.host,'flow_processes',{});key=(str(self.project),self.stage,self.config['engine'],self.setup_key)
+        if key in sessions and sessions[key].poll() is None:
+            if self.new_session:
+                def close_old():
+                    from workflow_engines import close_for_restart
+                    try:close_for_restart(self.project,sessions[key])
+                    except Exception as exc:self.finish(receipt,'failed',str(exc));raise
+                def closed(_):
+                    sessions.pop(key,None)
+                    self.launch_cli(result)
+                self.host.status.set('正在结束空闲 Claude 会话，准备以新上下文重新创作…')
+                self.host.async_(close_old,closed);return
+            def submit():
+                try:
+                    if self.config['engine']=='qwen':
+                        from qwen_adapter import submit_existing
+                        text=submit_existing(sessions[key],continuation,title=self.title)
+                        return {'ok':True,'reason':text,'send_dispatched':True}
+                    from workflow_engines import submit_existing
+                    return submit_existing(sessions[key],continuation,title=self.title)
+                except Exception as exc:
+                    self.finish(receipt,'uncertain',str(exc));raise
+            def submitted(value):
+                self.outcome(receipt,value);self.host.status.set(value['reason'])
+                if not value['ok']:self.host.notifier.info(value['reason'], title='请检查 Agent 输入框', modal=True)
+            self.host.async_(submit,submitted);return
+        def launched(result):
+            sessions[key]=result['process'];self.host.flow_processes=sessions
+            if self.stage=='writing':
+                self.host._script_agent_launching=False
+                self.host.update_script_interrupt_button()
+            self.finish(receipt,'sent','启动时已传入初始任务',task_file=result['task_file'])
+            self.host.status.set('已启动 '+result['engine']+'，初始任务已自动提交，可在窗口继续讨论。')
+        def launch(slot=None):
+            try:return self.launch_interactive(self.project,self.stage,self.title,full,self.config,followup=continuation,slot=slot,
+                                          **({'new_session':True} if self.new_session else {}))
+            except Exception as exc:
+                from workflow_engines import release_stage_process_slot
+                release_stage_process_slot(slot)
+                self.finish(receipt,'failed',str(exc));raise
+        from workflow_engines import request_stage_process_slot, claim_stage_process_slot
+        request=request_stage_process_slot(self.project,self.stage)
+        if request['state']=='granted':
+            self.host.async_(lambda:launch(request['slot']),launched);return
+        from workflow_engines import cancel_stage_slot_request
+        pending = {'timer': None, 'cancelled': False, 'started': time.monotonic()}
+        def cleanup():
+            pending['cancelled'] = True
+            cancel_stage_slot_request(request['ticket'])
+            timer, pending['timer'] = pending['timer'], None
+            if timer is not None:
+                try:self.host.win.after_cancel(timer)
+                except tk.TclError:pass
+            if getattr(self.host, '_script_agent_queue', None) is pending:
+                self.host._script_agent_queue = None
+                self.host._script_agent_launching = False
+                self.host.update_script_interrupt_button()
+        def cancel():
+            cleanup()
+            self.finish(receipt,'failed','模型排队请求已取消，尚未启动 CLI')
+        pending['cancel'] = cancel
+        if self.stage == 'writing':
+            self.host._script_agent_queue = pending
+            self.host._script_agent_launching = True
+            self.host.update_script_interrupt_button()
+        self.host.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % request['position'])
+        def poll_slot():
+            pending['timer'] = None
+            if pending['cancelled']:return
+            if self.host.root != self.project or getattr(self.host,'shutting_down',False) or getattr(self.host,'_closing',False):
+                cancel()
+                return
+            if time.monotonic() - pending['started'] >= 120:
+                cleanup()
+                message = '等待模型并发名额超过 120 秒，已退出排队；请检查已有 Agent 任务后重新发送。'
+                self.finish(receipt,'failed',message)
+                self.host.status.set(message)
+                return
+            claimed=claim_stage_process_slot(request['ticket'])
+            if claimed['state']=='queued':
+                self.host.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % claimed['position'])
+                pending['timer'] = self.host.win.after(200,poll_slot);return
+            cleanup()
+            if claimed['state']=='granted':
+                if self.stage == 'writing':
+                    self.host._script_agent_launching = True
+                    self.host.update_script_interrupt_button()
+                self.host.status.set('已获得模型请求槽位，正在启动…')
+                self.host.async_(lambda:launch(claimed['slot']),launched);return
+            self.finish(receipt,'failed',claimed['reason'])
+            self.host.status.set(claimed['reason'])
+        pending['timer'] = self.host.win.after(200,poll_slot)
+
+    def done(self, result):
+        receipt=result['receipt']
+        clipboard_text=result['prompt']
+        task_file=result.get('task_file')
+        if task_file and Path(task_file).is_file():
+            try:clipboard_text=Path(task_file).read_text(encoding='utf-8')
+            except OSError:clipboard_text=result['prompt']
+        from prompt_window import copy_text
+        copy_text(self.host.win,clipboard_text)
+        if self.native_claude:
+            from workflow_settings import find_program
+            from platform_tools import launch_windows_app
+            program = find_program(self.config)
+            if self.config['engine'] == 'desktop-app':
+                app = self.config.get('display_model') or '桌面模型'
+                _deliver_desktop_app(self.host, self.finish, receipt, task_file, self.title,
+                                     clipboard_text, program, app, self.desktop_paste,
+                                     self.config.get('delivery') or 'paste')
+                return
+            launch_windows_app(program, 'Claude Desktop')
             from codex_paste import paste_existing
-            def pasted(result):
-                finish(receipt,'prepared' if result['ok'] else 'failed',result['reason'])
-                self.status.set(result['reason'])
-            self.async_(lambda:paste_existing(result['title'],clipboard_text,result.get('draft_prompt',''),result.get('project',''),deadline_seconds=45 if result.get('mode')=='new' else 15),pasted)
-            self.status.set('正在将本次任务粘贴到 GPT 桌面，请在窗口中手动点击发送…')
-        self.async_(build,dispatch)
+            def claude_pasted(value):
+                self.finish(receipt,'prepared' if value['ok'] else 'failed',value['reason'],task_file=task_file)
+                self.host.status.set(value['reason'])
+                level=getattr(self.host,'gate_level',None)
+                if value['ok'] and callable(level) and level()=='auto':
+                    # 全自动不拦截 Claude Desktop：它只能由用户点发送，这里明确提示，
+                    # 避免自动链看似停住却没有说明；状态栏原文也会转给三虎。
+                    message=('三虎全自动：'+self.label+' 的任务已粘贴到 Claude Desktop，'
+                                 '请切到 Claude Desktop 手动点击发送；完成后产物会自动收回。')
+                    self.host.status.set(message)
+                    self.host.notifier.warning(message,title='请手动发送')
+            self.host.status.set('正在将本次任务粘贴到 Claude Desktop，请检查后手动发送…')
+            self.host.async_(lambda:paste_existing(self.title,clipboard_text,program=program,deadline_seconds=45),claude_pasted)
+            return
+        if self.config.get('desktop_program'):
+            from platform_tools import launch_windows_app
+            launch_windows_app(self.config['desktop_program'], 'Codex 桌面')
+        open_target(result['url'])
+        from codex_paste import paste_existing
+        def pasted(result):
+            self.finish(receipt,'prepared' if result['ok'] else 'failed',result['reason'])
+            self.host.status.set(result['reason'])
+        self.host.async_(lambda:paste_existing(result['title'],clipboard_text,result.get('draft_prompt',''),result.get('project',''),deadline_seconds=45 if result.get('mode')=='new' else 15),pasted)
+        self.host.status.set('正在将本次任务粘贴到 GPT 桌面，请在窗口中手动点击发送…')
