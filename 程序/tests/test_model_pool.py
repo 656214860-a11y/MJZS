@@ -713,3 +713,23 @@ class NamedKeyTests(unittest.TestCase):
     def test_an_unknown_name_reads_as_empty(self):
         with tempfile.TemporaryDirectory() as td:
             self.assertEqual(model_pool.named_key(ABSENT_KEY, env_dir(td, ())), '')
+
+
+class HttpErrorBodyScrubTests(unittest.TestCase):
+    """网关把请求头原样回显进错误体时，凭据不能流进 UI／任务 JSON（R1777 审计）。"""
+
+    def test_error_body_is_scrubbed_before_it_leaves_the_transport(self):
+        import io
+        import urllib.error
+        from unittest import mock
+        key = 'sk-abcdef1234567890'
+        error = urllib.error.HTTPError('https://x.test', 401, 'no', {}, io.BytesIO(
+            ('invalid key ' + key + ' api_key=zzz999').encode()))
+        opener = mock.Mock()
+        opener.open.side_effect = error
+        with mock.patch.object(model_pool, '_http_opener', return_value=opener):
+            result = model_pool._http_transport('https://x.test', {}, {'Authorization': 'Bearer ' + key}, 5)
+        self.assertFalse(result['ok'])
+        self.assertNotIn(key, result['error'])
+        self.assertNotIn('zzz999', result['error'])
+        self.assertIn('HTTP 401', result['error'])

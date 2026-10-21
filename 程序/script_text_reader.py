@@ -2,6 +2,9 @@
 from pathlib import Path
 from file_cache import read_bytes
 
+# Word 正文 XML 解压后的上限：正常剧本远小于此，恶意压缩包（解压炸弹）会被拦在读取阶段。
+MAX_DOCX_XML_BYTES = 20_000_000
+
 
 def script_text(path):
     path = Path(path)
@@ -10,7 +13,11 @@ def script_text(path):
         import zipfile
         try:
             with zipfile.ZipFile(path) as archive:
-                document = ET.fromstring(archive.read('word/document.xml'))
+                with archive.open('word/document.xml') as member:
+                    raw_xml = member.read(MAX_DOCX_XML_BYTES + 1)
+            if len(raw_xml) > MAX_DOCX_XML_BYTES:
+                raise ValueError('Word 剧本正文过大（解压后超过 20 MB），请拆分后再导入')
+            document = ET.fromstring(raw_xml)
         except (zipfile.BadZipFile, KeyError, ET.ParseError):
             raise ValueError('Word 剧本文件损坏或不是有效的 .docx，请另存后重试') from None
         ns = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}

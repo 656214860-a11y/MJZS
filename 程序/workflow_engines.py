@@ -151,6 +151,10 @@ def _run(args,project,prompt,stdout,stderr):
                              stdout=stdout,stderr=stderr,cwd=project,creationflags=hidden_console_flags())
     register_process(key,process)
     try:process.communicate(prompt)
+    except BaseException:
+        # 异常打断（含 Ctrl+C）时进程可能还在跑；先结束再注销，否则它脱离登记表后「强制停止」找不到。
+        terminate_process_tree(process)
+        raise
     finally:forget_process(key,process)
     return process.returncode
 

@@ -150,7 +150,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         win._desktop_first_paint_complete=False
         win._desktop_loading_project=False
         self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self._cloud_monitor_ticket=0;self.cloud_monitor_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.cloud_monitor_result=queue.Queue()
-        self.settings_file=self.app/'desktop_settings.json';self.settings=read(self.settings_file) if self.settings_file.exists() else {'comfy_url':'http://127.0.0.1:8189','jianying':''}
+        self.settings_file=self.app/'desktop_settings.json';from desktop_settings_service import load_desktop_settings;self.settings=load_desktop_settings(self.settings_file,{'comfy_url':'http://127.0.0.1:8189','jianying':''},read=read,preserve=lambda path:shutil.copy2(path,path.with_name(path.name+'.corrupt')))
         win.title(APP_NAME+' · '+VERSION);win.state('normal')
         win.geometry('%dx%d'%(min(DESKTOP_LAYOUT['default_width'],win.winfo_screenwidth()-DESKTOP_LAYOUT['window_margin_x']),min(DESKTOP_LAYOUT['default_height'],win.winfo_screenheight()-DESKTOP_LAYOUT['window_margin_y'])))
         # 第 19 期：安装后的图标（三虎）——主窗口标题栏／任务栏都用它，拿不到就照旧用 Tk 默认图标。
@@ -596,8 +596,10 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             from stage_execution_service import project_context
             try:
                 path=idea_chat.initial_brief_document(project_context(root));error=None
-            except (OSError,ValueError,TypeError,KeyError) as exc:
+            except Exception as exc:
                 # 线程只传递结果；Tk 状态须由 _tick_async_result 在主线程更新。
+                # 任何异常都要投递结果：线程静默退出会让输入框一直处于加载态。
+                app_logging.swallowed()
                 path=None;error=str(exc)
             self._brief_load_results.put((generation,root,apply,path,error))
         threading.Thread(target=discover,daemon=True).start()
@@ -928,8 +930,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         target=Path(project) if project else None
         def work():
             try:result=self.sync_stage_models(target)
-            except (OSError,ValueError,TypeError,KeyError) as exc:
+            except Exception as exc:
                 # 工作线程只带错误结果回主线程；不能在这里直接操作 Tk 状态栏。
+                app_logging.swallowed()
                 result={'error':str(exc), 'kind': 'bug'}
             self._stage_model_sync_results.put((generation,target,result))
             # 总控（00全流程SKILL）有更新就自动同步各阶段；只把提示文字带回主线程。
@@ -937,7 +940,8 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             try:
                 from master_skill import sync as sync_master_skill
                 message=sync_master_skill(target).get('message','')
-            except (OSError,ValueError,TypeError,KeyError) as exc:
+            except Exception as exc:
+                app_logging.swallowed()
                 message='总控同步未完成：%s；请打开阶段配置重试。' % exc
             if message:self._stage_model_sync_results.put((generation,target,{'master':message}))
         threading.Thread(target=work,daemon=True).start()

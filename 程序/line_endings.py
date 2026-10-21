@@ -93,16 +93,22 @@ def write_text(path, text, eol=None):
     # 不能复用固定 ``.tmp``：并行保存两个字幕或配置时会互相覆盖、
     # 甚至把对方的临时文件当作自己的清理掉。
     temp = temporary_path(path)
-    with io.open(temp, 'w', encoding='utf-8', newline='') as sink:   # newline=''：一个字节都不翻译
-        sink.write(body)
-    want = body.encode('utf-8')
-    if temp.read_bytes() != want:
-        try:
-            remove_temporary_file(temp)
-        except OSError:
-            pass
-        raise ValueError('写入校验没过（字节对不上），已拦下不落盘：%s' % path)
-    replace(temp, path)
+    try:
+        with io.open(temp, 'w', encoding='utf-8', newline='') as sink:   # newline=''：一个字节都不翻译
+            sink.write(body)
+            sink.flush()
+            os.fsync(sink.fileno())   # 先落盘再换名，断电后不会换出一个空文件
+        want = body.encode('utf-8')
+        if temp.read_bytes() != want:
+            raise ValueError('写入校验没过（字节对不上），已拦下不落盘：%s' % path)
+        replace(temp, path)
+    finally:
+        # 任何一步失败（写入、校验、换名）都清掉本轮临时文件；成功后它已不存在。
+        if temp.exists():
+            try:
+                remove_temporary_file(temp)
+            except OSError:
+                pass
     return eol
 
 

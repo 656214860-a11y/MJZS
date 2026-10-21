@@ -172,7 +172,13 @@ def transaction():
             raise
         finally:
             _LOCAL.active = None
-        _discard(folder)
+        # 成果已提交落盘：清理事务目录失败不能让调用方误判为发布失败。
+        # 残留的 committed 目录会在下一次 access() 里按已提交状态再清一遍。
+        try:
+            _discard(folder)
+        except OSError:
+            import logging
+            logging.getLogger(__name__).warning('发布事务临时目录清理未完成，下次访问时重试：%s', folder)
 
 
 def recover_pending():

@@ -19,12 +19,15 @@ class AsyncTasksMixin:
         def run():
             try:self.q.put((ticket,True,self.background_tasks.run(ticket,fn),done))
             except Exception as e:
-                import diagnostic_capture
-                diagnostic_capture.record_degradation(
-                    e, page=PAGES[getattr(self,'page_index',0)],
-                    project=str(getattr(self,'root', '') or ''),
-                    automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
+                # 先交付失败结果：诊断记录自己抛错时，worker／忙碌态仍要靠这条结果复位。
                 self.q.put((ticket,False,str(e),None))
+                try:
+                    import diagnostic_capture
+                    diagnostic_capture.record_degradation(
+                        e, page=PAGES[getattr(self,'page_index',0)],
+                        project=str(getattr(self,'root', '') or ''),
+                        automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
+                except Exception:app_logging.swallowed()
         threading.Thread(target=run,daemon=True).start()
         self._schedule_async_result_poll(ticket)
         return ticket
