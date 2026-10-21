@@ -9,14 +9,19 @@ PROGRAM = Path(__file__).resolve().parents[2]
 
 class ScrollbarThemeBoundaryTests(unittest.TestCase):
     def test_both_standard_scrollbar_orientations_use_shared_tokens_and_active_state(self):
-        tree = ast.parse((PROGRAM / 'ui_theme.py').read_text(encoding='utf-8'))
+        tree = ast.parse((PROGRAM / 'ui_widgets.py').read_text(encoding='utf-8'))
         source = ast.unparse(tree)
         for token in ('SCROLLBAR_THUMB', 'SCROLLBAR_THUMB_ACTIVE', 'SCROLLBAR_TROUGH',
-                      'SCROLLBAR_ARROW', 'SCROLLBAR_BORDER_WIDTH'):
+                      'SCROLLBAR_WIDTH', 'SCROLLBAR_BORDER_WIDTH'):
             self.assertIn(token, source)
         self.assertIn("'Vertical.TScrollbar'", source)
         self.assertIn("'Horizontal.TScrollbar'", source)
         self.assertIn("('active', SCROLLBAR_THUMB_ACTIVE)", source)
+
+    def test_scrollbar_style_definition_was_migrated_out_of_ui_theme(self):
+        source = ast.unparse(ast.parse((PROGRAM / 'ui_theme.py').read_text(encoding='utf-8')))
+        self.assertNotIn('TScrollbar', source,
+                         '滚动条样式定义已迁到 ui_widgets.setup_styles()，ui_theme 只调用它')
 
     def test_production_scrollbars_do_not_override_global_style(self):
         violations = []

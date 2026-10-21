@@ -82,20 +82,20 @@ class TokenButtonStateTests(unittest.TestCase):
     def test_primary_hover_and_disabled_text_follow_tokens(self):
         PrimaryButton(self.win, text='发送')
         style = ttk.Style(self.win)
-        self.assertEqual(style.lookup('Tokens.Primary.TButton', 'background', ('active',)),
-                         COLORS['primary_subtle'])
+        self.assertEqual(style.lookup('Tokens.Primary.TButton', 'fill', ('active',)),
+                         COLORS['primary_hover'])
         self.assertEqual(style.lookup('Tokens.Primary.TButton', 'foreground', ('active',)),
-                         COLORS['primary'])
+                         COLORS['background_card'])
         self.assertEqual(style.lookup('Tokens.Primary.TButton', 'foreground', ('disabled',)),
                          COLORS['disabled_text'])
 
     def test_secondary_hover_and_disabled_text_follow_tokens(self):
         SecondaryButton(self.win, text='阶段配置')
         style = ttk.Style(self.win)
-        self.assertEqual(style.lookup('Tokens.Secondary.TButton', 'background', ('active',)),
-                         COLORS['primary_subtle'])
+        self.assertEqual(style.lookup('Tokens.Secondary.TButton', 'fill', ('active',)),
+                         COLORS['surface_hover'])
         self.assertEqual(style.lookup('Tokens.Secondary.TButton', 'foreground', ('active',)),
-                         COLORS['primary'])
+                         COLORS['text_primary'])
         self.assertEqual(style.lookup('Tokens.Secondary.TButton', 'foreground', ('disabled',)),
                          COLORS['disabled_text'])
 
@@ -103,11 +103,17 @@ class TokenButtonStateTests(unittest.TestCase):
         setup_styles(self.win)
         style = ttk.Style(self.win)
         for name in ('TButton', 'Primary.TButton', 'Secondary.TButton'):
-            self.assertEqual(style.lookup(name, 'padding'), '12 4')
-            self.assertEqual(style.lookup(name, 'background', ('active',)),
-                             COLORS['primary_subtle'])
-            self.assertEqual(style.lookup(name, 'foreground', ('active',)),
-                             COLORS['primary'])
+            self.assertEqual(style.lookup(name, 'padding'), '12 8')
+        self.assertEqual(style.lookup('TButton', 'fill', ('active',)),
+                         COLORS['secondary_hover'])
+        self.assertEqual(style.lookup('Primary.TButton', 'fill', ('active',)),
+                         COLORS['primary_hover'])
+        self.assertEqual(style.lookup('Secondary.TButton', 'fill', ('active',)),
+                         COLORS['surface_hover'])
+        self.assertEqual(style.lookup('Primary.TButton', 'foreground', ('active',)),
+                         COLORS['background_card'])
+        self.assertEqual(style.lookup('Secondary.TButton', 'foreground', ('active',)),
+                         COLORS['text_primary'])
 
     def test_global_combobox_style_uses_the_design_tokens(self):
         setup_styles(self.win)

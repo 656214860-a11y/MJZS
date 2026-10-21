@@ -11,7 +11,7 @@ import pet_ui
 from desktop_layout_resize import ResizeCoalescer
 from desktop_page_registry import PAGE
 from responsive_ui import growable_extra
-from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING
+from ui_tokens import CONTROL_PADDING_Y, DESKTOP_LAYOUT, FONTS, SPACING
 
 
 class LayoutMixin:
@@ -67,9 +67,10 @@ class LayoutMixin:
                 style.configure(name,font=font,padding=(10,1 if compact else 4))
             for name in ('Sub.Nav.TButton','Selected.Sub.Nav.TButton'):
                 style.configure(name,font=font,padding=(26,1 if compact else 4))
-            # 项目动作与全局控件同高：横向沿用侧栏紧凑内边距，纵向取 4px 刻度。
+            # 项目动作与全局控件同高（36px）：横向沿用侧栏紧凑内边距，纵向取控件标准内边距；
+            # 只有矮窗口（compact）才收到 4px 刻度，把空间让给导航行。
             style.configure('ProjectAction.TButton',font=font,
-                            padding=(DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs']))
+                            padding=(DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs'] if compact else CONTROL_PADDING_Y))
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         # 由可用像素反算最大整行数；不以 Treeview 上一次请求高度作为下一次预算。
         gap=DESKTOP_LAYOUT['row_gap']*2

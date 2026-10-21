@@ -2,7 +2,7 @@
 
 import app_logging
 from tkinter import ttk
-from ui_tokens import COLORS, DESKTOP_LAYOUT, DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH, FONTS
+from ui_tokens import COLORS, DESKTOP_LAYOUT, DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH, FONTS, SPACING
 from responsive_ui import row_height_for,font_linespace
 
 FONT=FONTS['body']     # 全局字体（行高就按它量出来的一行算）
@@ -44,20 +44,20 @@ def apply(win):
     s.configure('Muted.TLabel',foreground=COLORS['text_secondary'])
     # 各设置页会随操作变化的说明统一用这一档：淡绿底区别于静态说明，
     # 但仍保持深色文字，长提示与错误提示都能清楚阅读。
-    s.configure('PaleGreenHint.TLabel', background=COLORS['success_subtle'], foreground=COLORS['success_text'], padding=(8, 4))
+    s.configure('PaleGreenHint.TLabel', background=COLORS['success_subtle'], foreground=COLORS['success_text'], padding=(SPACING['sm'], SPACING['xs']))
 
     s.configure('Project.Treeview',rowheight=24)
 
     # 第 58 期第 2 条：内容框的行高按格子里最高的那点内容算。纯文字的表（剧本、
     # 分镜…）只需要一行字加一小截余地，不再写死 34；摆缩略图的那几张各自
     # 按自己的图高设（见 responsive_ui.fit_row_height）。
-    s.configure('Treeview',rowheight=row_height_for(0,font_linespace(win,FONT)),background='white',fieldbackground='white',foreground=INK,borderwidth=0)
+    s.configure('Treeview',rowheight=row_height_for(0,font_linespace(win,FONT)),background=COLORS['background_card'],fieldbackground=COLORS['background_card'],foreground=INK,borderwidth=0)
 
-    s.configure('Treeview.Heading',background=COLORS['header_bg'],foreground=COLORS['text_heading'],padding=8)
+    s.configure('Treeview.Heading',background=COLORS['header_bg'],foreground=COLORS['text_heading'],padding=SPACING['sm'])
 
     s.map('Treeview',background=[('selected',COLORS['selection_bg'])],foreground=[('selected',COLORS['selection_text'])])
 
-    s.configure('TNotebook.Tab',padding=(14,9))
+    s.configure('TNotebook.Tab',padding=(SPACING['md'] + SPACING['xs'] // 2, SPACING['sm'] + SPACING['xs'] // 4))
 
     s.configure('Horizontal.TProgressbar',background=COLORS['progress'],troughcolor=COLORS['trough'],borderwidth=0)
 
@@ -73,16 +73,9 @@ def apply(win):
 
     s.configure('Box.TFrame',background=BG,bordercolor=COLORS['border_strong'],relief='solid',borderwidth=1)
 
-    from ui_tokens import (SCROLLBAR_ARROW, SCROLLBAR_BORDER_WIDTH, SCROLLBAR_THUMB,
-                           SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH)
-    for name in ('Vertical.TScrollbar', 'Horizontal.TScrollbar'):
-        s.configure(name, background=SCROLLBAR_THUMB, troughcolor=SCROLLBAR_TROUGH,
-                    arrowcolor=SCROLLBAR_ARROW, borderwidth=SCROLLBAR_BORDER_WIDTH)
-        s.map(name, background=[('active', SCROLLBAR_THUMB_ACTIVE)])
-
     s.map('TCheckbutton',background=[('active',BG)],foreground=[('disabled',COLORS['disabled_text'])])
 
-    # 按钮／输入／焦点样式只有一个定义处：ui_widgets.setup_styles()。主题先装，
+    # 按钮／输入／焦点／滚动条样式只有一个定义处：ui_widgets.setup_styles()。主题先装，
     # 再调用它；Desktop 里随后的 setup_styles() 命中同一主题缓存，不会二次覆盖。
     from ui_widgets import setup_styles
     setup_styles(win)
@@ -130,7 +123,7 @@ def install_tick_indicators(win,style):
 
         ('Checkbutton.focus',{'side':'left','sticky':'w','children':[('Checkbutton.label',{'sticky':'nswe'})]})]})])
 
-    style.configure('TCheckbutton',padding=(2,3),background=BG,foreground=INK)
+    style.configure('TCheckbutton',padding=(SPACING['xs'] // 2, SPACING['xs'] - SPACING['xs'] // 4),background=BG,foreground=INK)
 
 
 
