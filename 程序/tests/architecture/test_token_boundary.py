@@ -23,23 +23,37 @@ AUTHORITY_FILES = {"ui_tokens.py", "ui_theme.py", "ui_widgets.py", "ui_icons.py"
 
 _HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 _PADDING_ARGS = frozenset({"padx", "pady", "ipadx", "ipady"})
+_LAYOUT_ARGS = frozenset({"width", "height", "wraplength"})
+_LAYOUT_ALLOWED = (0, 1)  # 0／1 是“自动／最小”的哨兵值，不算魔法数字
 
 # R1389 冻结基线（R1388 审计口径，键＝相对 程序/ 的 posix 路径）。
 # R1428 统一调色板：主题与业务页迁移到 ui_tokens.COLORS；剩余为宠物插画色与监视页 HTML 样式。
 HEX_BASELINE = {
-    # R1506：pet_ui.py 原 45 处按迁出位置分到各 Mixin／support 模块（合计不增）
-    "pet_ui.py": 1, "pet_ui_support.py": 44, "previs_monitor.py": 1,
+    # R1777：按当前实测收紧（只减不增）；R1506 起 pet_ui 的 hex 分在各 Mixin／support 模块
+    "pet_ui.py": 1, "pet_ui_support.py": 39, "previs_monitor.py": 1,
 }
 PADDING_BASELINE = {
-    "agent/prompt_optimizer.py": 16, "app.py": 7, "asset_detail.py": 21,
-    "asset_reference_images.py": 18, "asset_reference_import.py": 7,
-    "background_characters.py": 3, "cell_hover.py": 4, "cloud_assets.py": 5,
-    # R1505：desktop.py 原 40 处按迁出位置分到各 Mixin 模块（合计不增）
-    "desktop.py": 8, "desktop_asset_pages.py": 1, "desktop_media_pages.py": 10, "desktop_project_pages.py": 7,
-    "keyframe_comfy.py": 36, "native_assets.py": 9,
-    "prompt_window.py": 3, "qwen_setup.py": 9, "seedream_settings.py": 9,
-    "shared_video_controls.py": 1, "skill_panel.py": 1, "storyboard_selection.py": 1,
-    "white_model.py": 12, "workflow_settings.py": 11,
+    # R1777：按当前实测收紧（只减不增）
+    "agent/prompt_optimizer.py": 6, "asset_reference_images.py": 5, "asset_reference_import.py": 7,
+    "background_characters.py": 2, "cell_hover.py": 4, "cloud_assets.py": 5, "desktop.py": 8,
+    "native_assets.py": 6, "qwen_setup.py": 6, "seedream_settings.py": 5,
+    "shared_video_controls.py": 1, "storyboard_selection.py": 1, "workflow_settings.py": 6,
+}
+
+# R1777 新增：控件 width／height／wraplength 的数字字面量（不含 0、1）。按文件冻结当前值，
+# 只许下降；迁移到 ui_tokens 的命名常量后同步下调。像素级布局数字要逐处裁定，所以不强制清零。
+LAYOUT_NUMBER_BASELINE = {
+    "agent/prompt_optimizer.py": 1, "app.py": 11, "asset_batch.py": 3, "asset_detail.py": 2,
+    "asset_reference_images.py": 8, "asset_reference_import.py": 2, "background_characters.py": 1,
+    "cloud_assets.py": 5, "cloud_video.py": 1, "comfy_service.py": 2, "desktop.py": 7,
+    "desktop_asset_pages.py": 2, "desktop_idea_chat.py": 2, "desktop_media_pages.py": 1,
+    "desktop_project_pages.py": 5, "desktop_storyboard_page.py": 1, "desktop_writing_page.py": 3,
+    "keyframe_comfy.py": 5, "local_previs.py": 7, "local_video.py": 2, "native_assets.py": 2,
+    "pet_models_ui.py": 1, "pet_ui_support.py": 13, "pet_ui_view.py": 1, "prompt_window.py": 1,
+    "qwen_setup.py": 2, "reference_wall.py": 4, "responsive_ui.py": 1, "scripts/ui_snapshot.py": 1,
+    "seedream_settings.py": 3, "skill_panel.py": 7, "skill_panel_support.py": 1,
+    "storyboard_files.py": 4, "task_center_ui.py": 1, "tts_settings.py": 2, "version_picker.py": 2,
+    "video_navigation.py": 2, "white_model.py": 6, "workflow_settings.py": 7,
 }
 
 
@@ -74,6 +88,20 @@ def numeric_padding_count(tree):
     return total
 
 
+def numeric_layout_count(tree):
+    """`width/height/wraplength` 取数字字面量（不含 0、1）的次数。"""
+    total = 0
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            for keyword in node.keywords:
+                value = keyword.value
+                if (keyword.arg in _LAYOUT_ARGS and isinstance(value, ast.Constant)
+                        and isinstance(value.value, (int, float)) and not isinstance(value.value, bool)
+                        and value.value not in _LAYOUT_ALLOWED):
+                    total += 1
+    return total
+
+
 class TokenBoundaryTests(unittest.TestCase):
     def _assert_ratchet(self, baseline, counter, label):
         actual = {}
@@ -92,6 +120,13 @@ class TokenBoundaryTests(unittest.TestCase):
 
     def test_numeric_padding_does_not_increase(self):
         self._assert_ratchet(PADDING_BASELINE, numeric_padding_count, '数字 padx/pady')
+
+    def test_numeric_layout_values_do_not_increase(self):
+        self._assert_ratchet(LAYOUT_NUMBER_BASELINE, numeric_layout_count, '数字 width/height/wraplength')
+
+    def test_layout_predicate_canary(self):
+        self.assertEqual(numeric_layout_count(ast.parse('w.configure(width=120, wraplength=300)')), 2)
+        self.assertEqual(numeric_layout_count(ast.parse('w.configure(width=0, height=1, width=WIDTH)')), 0)
 
     def test_authority_files_are_exempt(self):
         keys = {key for _, key in _production_files()}

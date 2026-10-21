@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 import unittest
 from tests.architecture._layers import LAYERS, LAYER_NAMES, TOOLS
-from tests.architecture._scan import ROOT, import_rows, module_name, production_files
+from tests.architecture._scan import ROOT, dynamic_import_rows, import_rows, module_name, production_files
 
 
 LEDGER = ROOT / "维护记录" / "架构统一基数.json"
@@ -25,7 +25,39 @@ def _upward_pairs() -> set[tuple[str, str, str]]:
                 pairs.add((path.name, importer, imported))
     return pairs
 
+# R1777 审计：常量字符串的 import_module／__import__ 绕开了上面的静态越层扫描，也不在台账里。
+# 下面是并入动态导入后才暴露的存量越层，只许减少、不许新增；消除一条就删一行。
+KNOWN_DYNAMIC_UPWARD = frozenset({
+    ("engine.py", "engine", "white_model"),
+    ("keyframe_batch.py", "keyframe_batch", "stage_parallel"),
+    ("keyframe_model_service.py", "keyframe_model_service", "workflow_settings"),
+    ("script_contract.py", "script_contract", "script_skill_report"),
+    ("stage_models.py", "stage_models", "workflow_settings"),
+})
+
+
+def _dynamic_upward_pairs() -> set[tuple[str, str, str]]:
+    pairs = set()
+    for path in production_files():
+        importer = module_name(path)
+        source_layer = LAYERS.get(importer)
+        if source_layer is None:
+            continue
+        for _line, imported in dynamic_import_rows(path):
+            target_layer = LAYERS.get(imported)
+            if target_layer is not None and source_layer < target_layer:
+                pairs.add((path.name, importer, imported))
+    return pairs
+
+
 class LayerDirectionTests(unittest.TestCase):
+    def test_dynamic_imports_do_not_add_upward_dependencies(self) -> None:
+        found = _dynamic_upward_pairs() - _upward_pairs()  # 静态口径已登记的不重复算
+        self.assertEqual(sorted(found - KNOWN_DYNAMIC_UPWARD), [],
+                         "动态导入出现新的越层依赖，请改依赖方向而不是登记：")
+        self.assertEqual(sorted(KNOWN_DYNAMIC_UPWARD - found), [],
+                         "下列动态越层已消除，请从 KNOWN_DYNAMIC_UPWARD 删除（棘轮只降不升）：")
+
     def test_idea_attachments_is_registered_as_l2_and_has_no_upward_dependency(self) -> None:
         """附件文本编排是领域服务，必须受分层扫描保护。"""
         source = "idea_attachments"
