@@ -18,7 +18,6 @@ OVERSIZE_CAPS = {
     ('asset_batch.py', 'show'): 243,
     ('ui_theme.py', 'install_window_placement'): 224,
     ('cloud_video.py', 'settings_window'): 204,
-    ('reference_wall.py', 'show'): 193,
     ('desktop_script_pages.py', 'content_box'): 181,
     ('desktop_idea_chat.py', 'send_message'): 171,
 }
