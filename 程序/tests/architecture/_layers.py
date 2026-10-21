@@ -42,7 +42,7 @@ _register(1, "api_endpoints", "artifact_lineage", "asset_thumbs", "broadcaster",
           "native_apps", "seedream_api", "token_saver", "tk_timers")
 _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export", "usage_overview",
           "desktop_settings_service", "legacy_adoption_service", "project_naming",
-          "projects", "script_preview_service", "script_workspace_service", "stage_workspace_service",
+          "projects", "script_preview_service", "script_structure_edit_controller", "script_workspace_service", "stage_workspace_service",
           "storyboard_adoption_contract", "storyboard_rows_service",
           "storyboard_storage", "subtitle_export_service", "video_lifecycle_service", "video_prompt_publication",
           "video_task_state", "workflow_context", "writing", "writing_tools", "writing_quality")

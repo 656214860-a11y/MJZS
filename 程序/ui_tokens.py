@@ -230,6 +230,9 @@ STAGE_PANEL_LAYOUT = {
 SCRIPT_FILE_FONT = ("Microsoft YaHei UI", 9)
 SCRIPT_ACTION_PADDING = (SPACING["md"] // 2, SPACING["xs"])
 
+# 剧本结构页「编辑」后自动保存的防抖间隔（毫秒）：连续输入在此间隔内只落盘一次。
+SCRIPT_EDIT_SAVE_DEBOUNCE_MS = 600
+
 # 三类用户可见文字只在 ui_widgets 的文字组件中消费；页面不再各自拼字体、颜色和折行规格。
 TEXT_HINT = {
     "font": FONTS["caption"],

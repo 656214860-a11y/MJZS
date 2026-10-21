@@ -121,8 +121,13 @@ def _structure_script(context):
 def _write_structured_script(context):
     """将已确认原稿原子写入唯一的结构化剧本目标。"""
     from script_contract import write_structured_script
+    root = project_of(context)
+
+    def supersede(paths):
+        from storage_maintenance import recycle_paths
+        recycle_paths(root, list(paths), '重新生成同源结构剧本，回收旧份')
     try:
-        target = write_structured_script(project_of(context))
+        target = write_structured_script(root, supersede=supersede)
     except ValueError as exc:
         raise ToolNeedsInput(str(exc))
     return {'ok': True, 'path': str(target)}

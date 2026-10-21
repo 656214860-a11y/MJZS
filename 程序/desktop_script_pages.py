@@ -72,7 +72,7 @@ def _build_script_preview(text_area):
     return preview, horizontal
 
 
-SCRIPT_EDIT_BUTTON_WIDTH = 7  # 修改/恢复/保存三按钮的字符宽度，给下拉框让出横向空间。
+SCRIPT_EDIT_BUTTON_WIDTH = 7  # 编辑/后退/恢复三按钮的字符宽度，给下拉框让出横向空间。
 
 
 class _DocumentPicker(ttk.Combobox):
@@ -107,6 +107,97 @@ def _reset_preview_text(preview, text, kind):
     if script_view_style.should_style(text):
         script_view_style.apply_tags(preview, text, kind)
     preview.edit_reset()
+
+
+def _install_script_edit_controls(page, controls, preview, loaded, active, kind, title, editable, attribute):
+    """给单个剧本预览框装上「编辑／后退／恢复」按钮与无 Tk 的编辑控制器。
+
+    控制器持有撤销栈与防抖保存；本函数只把 Tk 事件与按钮接到控制器回调，不写项目
+    数据（落盘由控制器注入的 save_document 完成）。按钮与控制器实例以
+    ``attribute + '_edit_button'`` 等名登记到页面实例上，供测试与页面逻辑读取。
+    """
+    from script_structure_edit_controller import ScriptStructureEditController
+    from ui_tokens import SCRIPT_EDIT_SAVE_DEBOUNCE_MS
+
+    def save_document(value):
+        destination = Path(active['path'])
+        value = str(value or '').strip()
+        if not value:
+            raise ValueError('剧本内容不能为空。')
+        if kind == 'natural':
+            from script_contract import save_natural_script
+            save_natural_script(destination, value)
+        else:
+            from agent.core import save_text
+            save_text(destination, value + '\n')
+
+    controller = ScriptStructureEditController(save=save_document,
+                                               debounce_ms=SCRIPT_EDIT_SAVE_DEBOUNCE_MS)
+    editing = {'value': False}
+    suppress = {'value': False}
+
+    def sync_buttons():
+        if editing['value']:
+            edit_button.state(['disabled'])
+            back_button.state(['!disabled'] if controller.can_undo else ['disabled'])
+            restore_button.state(['!disabled'])
+        else:
+            edit_button.state(['!disabled'])
+            back_button.state(['disabled'])
+            restore_button.state(['disabled'])
+
+    def begin_edit():
+        if not editable or active['path'] is None:
+            raise ValueError('当前没有可修改的剧本文档。')
+        _reset_preview_text(preview, loaded['raw'], kind)
+        preview.edit_modified(False)
+        controller.begin_edit(loaded['raw'])
+        editing['value'] = True
+        sync_buttons()
+        preview.focus_set()
+
+    def on_modified(_event=None):
+        if suppress['value'] or not editing['value'] or str(preview.cget('state')) != 'normal':
+            return
+        if not preview.edit_modified():
+            return
+        preview.edit_modified(False)
+        controller.record_edit(preview.get('1.0', 'end-1c'))
+        sync_buttons()
+
+    preview.bind('<<Modified>>', on_modified, add=True)
+
+    def back():
+        if not editable or active['path'] is None:
+            raise ValueError('当前没有可后退的剧本文档。')
+        text = controller.undo()
+        suppress['value'] = True
+        try:
+            _reset_preview_text(preview, text, kind)
+            preview.edit_modified(False)
+        finally:
+            suppress['value'] = False
+        sync_buttons()
+        page.status.set('已后退' + title + '：' + Path(active['path']).name)
+
+    def restore_deleted():
+        if not editing['value']:
+            raise ValueError('请先点击“编辑”，再恢复刚删除的文字。')
+        try:
+            preview.edit_undo()
+        except tk.TclError as exc:
+            raise ValueError('没有可恢复的删除内容。') from exc
+
+    edit_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='编辑', command=lambda: page.safe(begin_edit))
+    edit_button.pack(side='left')
+    back_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='后退', command=lambda: page.safe(back))
+    back_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); back_button.state(['disabled'])
+    restore_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='恢复', command=lambda: page.safe(restore_deleted))
+    restore_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); restore_button.state(['disabled'])
+    setattr(page, attribute + '_edit_button', edit_button)
+    setattr(page, attribute + '_back_button', back_button)
+    setattr(page, attribute + '_restore_button', restore_button)
+    setattr(page, attribute + '_controller', controller)
 
 
 @dataclass(frozen=True)
@@ -542,47 +633,8 @@ class ScriptPagesMixin:
                 self._script_structure_file_menu = menu
                 return menu.popup(event)
             file_list.bind('<Button-3>', open_document_menu)
-            def begin_edit():
-                if not editable or active['path'] is None:
-                    raise ValueError('当前没有可修改的剧本文档。')
-                _reset_preview_text(preview, loaded['raw'], kind)
-                preview.edit_modified(False)
-                edit.state(['disabled']); restore.state(['!disabled']); save.state(['!disabled'])
-                preview.focus_set()
-            def save_edit():
-                if not editable or active['path'] is None:
-                    raise ValueError('当前没有可保存的剧本文档。')
-                value = preview.get('1.0', 'end-1c').strip()
-                if not value:
-                    raise ValueError('剧本内容不能为空。')
-                destination = Path(active['path'])
-                if preview.edit_modified():
-                    from script_contract import save_natural_script
-                    save_natural_script(destination, value)
-                    set_preview(value + '\n')
-                else:
-                    set_preview(loaded['raw'])
-                edit.state(['!disabled']); restore.state(['disabled']); save.state(['disabled'])
-                self.status.set('已保存'+title+'：'+destination.name)
-                if destination == source:
-                    self.status.set('已保存剧本准备阶段剧本；如需更新下方结构化剧本，请重新执行“手动制作结构剧本”。')
-            def restore_deleted():
-                if str(preview.cget('state')) == 'disabled':
-                    raise ValueError('请先点击“修改内容”，再恢复刚删除的文字。')
-                try:
-                    preview.edit_undo()
-                except tk.TclError as exc:
-                    raise ValueError('没有可恢复的删除内容。') from exc
-            edit = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='修改内容', command=lambda:self.safe(begin_edit))
-            edit.pack(side='left')
-            restore = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='恢复删除', command=lambda:self.safe(restore_deleted))
-            restore.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); restore.state(['disabled'])
-            save = PrimaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='保存修改', command=lambda:self.safe(save_edit))
-            save.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); save.state(['disabled'])
+            _install_script_edit_controls(self, controls, preview, loaded, active, kind, title, editable, attribute)
             setattr(self, attribute, preview)
-            setattr(self, attribute + '_edit_button', edit)
-            setattr(self, attribute + '_restore_button', restore)
-            setattr(self, attribute + '_save_button', save)
             setattr(self, attribute + '_files', file_list)
             return box
         self.script_structure_source_box = content_box(

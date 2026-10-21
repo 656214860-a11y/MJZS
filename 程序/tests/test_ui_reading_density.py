@@ -135,7 +135,7 @@ class ScriptDensityTests(unittest.TestCase):
         self.assertIn("\n\n", code)
 
     def test_unchanged_edit_save_preserves_source_bytes(self):
-        """REQ-S02-32：进入编辑后原样保存不得重写剧本文件。"""
+        """REQ-S02-32：进入编辑后未作改动，自动保存不触发，源文件逐字节保持不变。"""
         with tempfile.TemporaryDirectory() as td:
             project, writing = _make_project(td)
             source = writing / "script_raw.md"
@@ -154,11 +154,8 @@ class ScriptDensityTests(unittest.TestCase):
             desktop.script_structure_source_preview_edit_button.invoke()
             win.update()
             self.assertEqual(str(preview.cget("state")), "normal")
-            desktop.script_structure_source_preview_save_button.invoke()
-            win.update()
 
             self.assertEqual(source.read_bytes(), original)
-            self.assertEqual(str(preview.cget("state")), "disabled")
 
     def test_script_text_and_directory_get_the_requested_space(self):
         """REQ-S02-32：1280×800 下正文占宽至少 85%，目录按 1..6 行紧凑显示。"""

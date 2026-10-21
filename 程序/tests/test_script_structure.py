@@ -41,7 +41,7 @@ class ScriptStructureTests(unittest.TestCase):
             source.write_text(RAW, encoding='utf-8')
             target = contract.write_structured_script(root)
             self.assertEqual(target, contract.canonical_structured_script_path(root))
-            self.assertRegex(target.name, r'^%s_结构剧本_正稿_\d{8}\.md$' % root.name)
+            self.assertRegex(target.name, r'^%s_结构剧本_本地_\d{8}\.md$' % root.name)
             self.assertEqual(source.read_text(encoding='utf-8'), RAW)
             self.assertIn('## 分场剧本', target.read_text(encoding='utf-8'))
 

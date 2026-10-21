@@ -66,8 +66,12 @@ def _run_script_structure(desktop, project, names, trigger):
                 raise ValueError('规则复审未通过：' + '；'.join(review['feedback']))
             return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': '规则复审通过，可写入正稿'}
         if action == 'write_structured_script':
+            def supersede(paths):
+                from storage_maintenance import recycle_paths
+                recycle_paths(project, list(paths), '重新生成同源结构剧本，回收旧份')
             target = script_contract.write_structured_script(
-                project, state.get('structured'), state.get('source'), publisher=publish_stage_text)
+                project, state.get('structured'), state.get('source'),
+                publisher=publish_stage_text, supersede=supersede)
             return {'ok': True, 'status': skill_orchestrator.DONE, 'detail': '已写入 ' + str(target)}
         raise ValueError('未知剧本结构动作：' + str(action))
 

@@ -489,8 +489,12 @@ def stage_file_info(path):
     return None
 
 
-def structured_script_file_name(project, file_type='结构剧本', content='正稿', at=None):
-    """剧本结构用户文件名，和剧本准备统一使用项目名四段式。"""
+def structured_script_file_name(project, file_type='结构剧本', content='本地', at=None):
+    """剧本结构用户文件名，和剧本准备统一使用项目名四段式。
+
+    内容段默认 ``本地``（本地规则生成，不调模型）；经模型生成时由调用方传入厂商名。
+    旧 ``_正稿_`` 文件不再新生成，仅作只读兼容识别，不批量改名。
+    """
     return stage_file_name(project, file_type, content, at=at)
 
 
@@ -522,8 +526,12 @@ def is_structured_script(path):
     return not any(mark in source_name for mark in ('大纲', '纲要', 'outline', '梗概'))
 
 
-def structured_script_paths(project):
-    """返回独立阶段中的结构剧本；兼容旧 writing 目录，迁移后不再写回旧处。"""
+def _structured_script_candidates(project, available_only=True):
+    """发现独立阶段与旧 writing 目录中的结构剧本文件。
+
+    ``available_only`` 为 True 时只保留来源仍可用的稿（供下拉框展示）；为 False 时
+    返回全部合格结构稿（供回收同源旧份时定位，来源已失效也要回收）。
+    """
     project = Path(project)
     from stage_path_service import read_dirs, write_dir
     writing = write_dir(project, 'script')
@@ -532,8 +540,10 @@ def structured_script_paths(project):
                    writing / STRUCTURED_SCRIPT_DIR,
                    *[legacy / STRUCTURED_SCRIPT_DIR for legacy in read_dirs(project, 'script')[1:]]):
         if folder.is_dir():
-            candidates.extend(path for path in folder.rglob('*.md')
-                              if is_structured_script(path) and _structured_source_is_available(project, path))
+            for path in folder.rglob('*.md'):
+                if is_structured_script(path) and (
+                        not available_only or _structured_source_is_available(project, path)):
+                    candidates.append(path)
     # Old projects kept a compatibility copy directly under ``writing/``.
     # Discover it read-only, rather than creating a duplicate in the current
     # stage directory when a historic project is opened.
@@ -542,28 +552,89 @@ def structured_script_paths(project):
         for legacy_root in read_dirs(project, 'script')[1:]
     ))
     for legacy in legacy_scripts:
-        if (is_structured_script(legacy)
-                and _structured_source_is_available(project, legacy)):
+        if is_structured_script(legacy) and (
+                not available_only or _structured_source_is_available(project, legacy)):
             candidates.append(legacy)
-    # 旧结构稿常由同一内容迁移／联接而来；只显示当前独立阶段里的一份。
-    visible = []
-    fingerprints = set()
-    for path in candidates:
-        try:
-            digest = hashlib.sha256(path.read_bytes()).digest()
-        except OSError:
+    return candidates
+
+
+def _structured_source_identity(project, path):
+    """结构稿的来源身份：有血缘记录用来源路径，无记录退化为内容指纹。
+
+    返回 ``('source', (相对来源路径, ...))`` 或 ``('content', sha256 十六进制)``；
+    读不动返回 None（调用方跳过）。
+    """
+    from artifact_lineage import check
+    try:
+        report = check(Path(project), Path(path))
+    except (OSError, ValueError):
+        report = {}
+    sources = tuple(sorted(
+        str(row.get('path') or '') for row in report.get('sources', ())
+        if isinstance(row, dict) and row.get('path')))
+    if sources:
+        return ('source', sources)
+    try:
+        digest = hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return None
+    return ('content', digest)
+
+
+def _is_newer(path, other):
+    """同一来源内比较新旧：mtime 优先，同名时按路径字符串兜底保证确定性。"""
+    try:
+        left = (Path(path).stat().st_mtime, str(path))
+        right = (Path(other).stat().st_mtime, str(other))
+    except OSError:
+        return False
+    return left > right
+
+
+def structured_script_paths(project):
+    """返回独立阶段中的结构剧本，同一来源只保留最新一份。
+
+    有血缘记录的结构稿按来源分组去重（同源只显示最新）；无来源记录的历史稿按内容
+    sha256 去重，不因没有来源记录而被误删或误合并。
+    """
+    latest = {}
+    for path in _structured_script_candidates(project):
+        key = _structured_source_identity(project, path)
+        if key is None:
             continue
-        if digest not in fingerprints:
-            fingerprints.add(digest)
-            visible.append(path)
-    return tuple(sorted(visible, key=lambda item: (item.stat().st_mtime, str(item)), reverse=True))
+        previous = latest.get(key)
+        if previous is None or _is_newer(path, previous):
+            latest[key] = path
+    return tuple(sorted(latest.values(),
+                        key=lambda item: (item.stat().st_mtime, str(item)), reverse=True))
 
 
-def canonical_structured_script_path(project):
-    """新建结构剧本的唯一位置：项目中的独立剧本结构阶段。"""
+def canonical_structured_script_path(project, content='本地'):
+    """新建结构剧本的唯一位置：项目中的独立剧本结构阶段。
+
+    ``content`` 是四段式文件名中的内容段：本地规则生成用 ``本地``，经模型生成用厂商名。
+    """
     from stage_path_service import write_dir
     return (write_dir(project, 'structure') / STRUCTURED_SCRIPT_DIR
-            / structured_script_file_name(project, '结构剧本', '正稿'))
+            / structured_script_file_name(project, '结构剧本', content))
+
+
+def superseded_structured_scripts(project, source, *, exclude=None):
+    """返回与 ``source`` 同来源、可被新稿取代的旧结构稿路径（不含 ``exclude``）。
+
+    只按血缘来源路径匹配；无来源记录的历史稿不会被当成同源份回收。
+    """
+    root = Path(project)
+    source = Path(source)
+    new_key = ('source', (_source_label(root, source),))
+    excluded = Path(exclude).resolve() if exclude is not None else None
+    superseded = []
+    for path in _structured_script_candidates(root, available_only=False):
+        if excluded is not None and Path(path).resolve() == excluded:
+            continue
+        if _structured_source_identity(root, path) == new_key:
+            superseded.append(path)
+    return superseded
 
 
 def structured_script_path(project):
@@ -778,8 +849,15 @@ def revise_structured_script(raw_text, feedback, source_name=RAW_SCRIPT_NAME):
     return structure_script(raw_text, source_name=source_name)
 
 
-def write_structured_script(project, content=None, source=None, publisher=None):
-    """原子写入项目的独立结构阶段；旧 writing 目录仅兼容读取。"""
+def write_structured_script(project, content=None, source=None, publisher=None,
+                            vendor=None, supersede=None):
+    """原子写入项目的独立结构阶段；旧 writing 目录仅兼容读取。
+
+    ``vendor`` 是文件名内容段：默认 ``本地``（本地规则生成，不调模型），经模型生成时
+    由调用方传厂商名（经 :func:`_file_name_part` 净化）。``supersede`` 是可选回调
+    ``supersede(paths)``，在新稿写入成功后把同来源的旧结构稿移入回收站（回收动作由
+    L3/L4 注入，本契约层不直接依赖回收服务）。
+    """
     root = Path(project)
     from stage_path_service import legacy_read_dirs, write_dir
     writing = write_dir(root, 'script').resolve()
@@ -794,7 +872,8 @@ def write_structured_script(project, content=None, source=None, publisher=None):
                 if content is None else str(content))
     if not rendered.strip():
         raise ValueError('结构剧本正文不能为空，未发布成果。')
-    target = canonical_structured_script_path(root)
+    name_segment = _file_name_part(vendor, '本地') if vendor else '本地'
+    target = canonical_structured_script_path(root, content=name_segment)
     from artifact_lineage import record
     if publisher is None:
         from agent.core import save_text
@@ -809,6 +888,10 @@ def write_structured_script(project, content=None, source=None, publisher=None):
     else:
         publisher(target, rendered, lambda value: bool(str(value).strip()),
                   update_index)
+    if supersede is not None:
+        superseded = superseded_structured_scripts(root, source, exclude=target)
+        if superseded:
+            supersede(superseded)
     return target
 
 

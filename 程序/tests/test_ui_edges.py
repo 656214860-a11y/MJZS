@@ -1284,9 +1284,8 @@ class UiEdgeTests(unittest.TestCase):
             d.script_structure_source_preview.delete("1.0", "1.4")
             d.script_structure_source_preview_restore_button.invoke(); win.update()
             self.assertEqual(d.script_structure_source_preview.get("1.0", "1.4"), original)
-            d.script_structure_source_preview_save_button.invoke(); win.update()
+            d.script_structure_source_preview_controller.save_now(); win.update()
             self.assertIn("新增修订。", (writing / "script_raw.md").read_text(encoding="utf-8"))
-            self.assertEqual(str(d.script_structure_source_preview.cget("state")), "disabled")
 
     def test_frame_checks_follow_the_frame_state(self):
         """04 首帧页：勾选与首帧状态双向同步，弹窗提交的那一批回写页面。"""
