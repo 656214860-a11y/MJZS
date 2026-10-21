@@ -21,7 +21,11 @@ class KeyframeReplaceBoundaryTests(unittest.TestCase):
     def test_keyframe_page_delegates_replace_persistence_to_service(self):
         tree = parse_desktop()
         desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1504：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
-        method = next(node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'storyboard')
+        # R1814：storyboard 的闭包改写成了 _FirstFramePage 类，页面代码现在在类里；薄方法和新类两处都扫，断言不变
+        method = ast.Module(body=[node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'storyboard']
+                            + [cls for cls in tree.body if isinstance(cls, ast.ClassDef) and cls.name == '_FirstFramePage'],
+                            type_ignores=[])
+        self.assertEqual(len(method.body), 2)
         calls = [node for node in ast.walk(method) if isinstance(node, ast.Call)]
         delegated = [node for node in calls if isinstance(node.func, ast.Name)
                      and node.func.id == 'replace_stage_keyframe']

@@ -14,7 +14,6 @@ SLACK = 15
 OVERSIZE_CAPS = {
     ('keyframe_comfy.py', 'show'): 626,
     ('desktop_writing_page.py', 'writing'): 531,
-    ('desktop_storyboard_page.py', 'storyboard'): 321,
     ('desktop_idea_chat.py', 'open_flow_agent'): 252,
     ('local_previs.py', 'show'): 252,
     ('desktop_script_pages.py', 'script_structure'): 244,
