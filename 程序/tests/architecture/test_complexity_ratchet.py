@@ -44,7 +44,6 @@ PARAM_CAPS = {
     ('skill_panel_support.py', 'stage_button_label_for'): 10,
     ('tts_api.py', 'run_lines'): 10,
     ('ui_widgets.py', '__init__'): 10,
-    ('writing_api.py', '_preparation_step'): 10,
     ('desktop_idea_chat.py', 'open_flow_agent'): 9,
     ('desktop_script_pages.py', 'content_box'): 9,
     ('edit_service.py', 'assemble_image_timeline'): 9,
