@@ -340,7 +340,7 @@ class ProjectPagesMixin:
         # 动作区先占底边：矮窗口只缩短项目列表，不允许把动作按钮推出可视区。
         actions=FlowBar(self.content);actions.pack(side='bottom',fill='x',pady=SPACING['sm'])
         bind_row_hover(tree)
-        tree._empty_state=EmptyState(self.content,'还没有项目\n点击下方「＋ 创建新项目」，开始你的第一个故事',anchor_widget=tree)
+        tree._empty_state=EmptyState(self.content,'还没有项目\n点击下方「＋ 创建新项目」，开始您的第一个故事',anchor_widget=tree)
         tree.pack(fill='both',expand=True,pady=SPACING['lg']);self.fill_projects(tree)
         self._project_home_tree=tree
         tree.bind('<Button-3>',lambda e:self.project_menu(e,tree))
