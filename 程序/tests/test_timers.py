@@ -109,6 +109,8 @@ class WindowTimerTests(unittest.TestCase):
             d.studio = open_studio(proj)
             # 先停掉主窗口自己的刷新循环，下面只观察这个批量窗口的定时器。
             d.cancel_timers()
+            # 托盘的 120ms 排空定时器（R1775）也挂在主窗口上，与批量窗口无关；先关掉免得算进「窗口销毁后残留」。
+            d.close_tray()
             registered = []
             original_repeat = tk_timers.repeat
             tk_timers.repeat = lambda widget, interval, callback: (
