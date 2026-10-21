@@ -1104,67 +1104,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
     @app_logging.timed('page.show',800)
     @_page_paint_timed
     def show(self,index,video_mode=None):
-        pending=getattr(self,'_navigation_job',None)
-        if pending is not None:
-            self.win.after_cancel(pending)
-            self._navigation_job=None
-        from video_navigation import hide_back
-        hide_back(self)
-        # 同一页重建（切换分镜、刷新列表、自动流程刷新）保留原来的滚动位置：
-        # 旧行为每次都把整页拉回顶部，换文件时看起来就是「内容抖动」。换页仍回到顶部。
-        previous_index=getattr(self,'page_index',None)
-        if previous_index==PAGE['script']:
-            self._idea_brief_generation=getattr(self,'_idea_brief_generation',0)+1
-            self.preserve_idea_draft()
-        scroll_offset=self.canvas.canvasy(0) if previous_index==index else 0
-        self.page_index=index
-        # 第 71 期任务 2：资产详情页与资产清单页都是「05 资产管理」的子路由；翻到别的页就回主页面。
-        if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
-
-        if index==PAGE['video']:
-            self.progress.pack_forget();self.status_label.pack_forget()
-        else:
-            self.progress.pack(fill='x',pady=(SPACING['sm'],SPACING['none']));self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
-        if index==PAGE['video']:
-            prefs_path=self.root/'ui_settings.json' if self.root else None
-            prefs=_prefs(prefs_path)
-            # 第 32 期第 3 条：本次启动第一次进这一页，先摆「选择生成方式」；用户在这里选过一次
-            # 之后，来回切页仍按他刚选的那个模式进，不会被反复拦在选择页上。
-            if video_mode=='choose':
-                self.video_mode=None;self.video_mode_picked=False
-            elif video_mode:
-                self.video_mode=video_mode
-            else:
-                self.video_mode=prefs.get('last_video_mode') if getattr(self,'video_mode_picked',False) else None
-            if self.video_mode in ('cloud','local'):
-                self.video_mode_picked=True
-                if prefs_path and prefs.get('last_video_mode')!=self.video_mode:
-                    from stage_execution_service import publish_cloud_video_workspace_preference
-                    prefs['last_video_mode']=self.video_mode
-                    publish_cloud_video_workspace_preference(prefs_path,prefs)
-        else:self.video_mode=None
-        if self.video:
-            self.video.window.pack_forget()
-            self.video.footer.pack_forget()
-            self.video=None
-        self.flush_brief()
-        retained={v.window for v in self.video_sessions.values()}
-        page_cache=self._page_cache_for(index,same_page=previous_index==index)
-        for c in self.content.winfo_children():
-            if c in retained:c.pack_forget()
-            else:c.destroy()
-        for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
-        # 第 71 期任务 2：二级入口只在它自己那一屏高亮
-        if self.asset_list_button is not None:self.asset_list_button.configure(style='Selected.Sub.Nav.TButton' if (index==PAGE['assets'] and self.asset_roster) else 'Sub.Nav.TButton')
-        self.header_status.configure(text='',textvariable='');self.header_model.configure(text='');self.title.configure(text=PAGES[index]);self.status.set(str(self.root))
-        self.stage_button=None                 # 那一行随页面重建：旧按钮这会儿已跟着 content 一起销毁
-        if self.header_stage_button is not None:
-            self.header_stage_button.destroy();self.header_stage_button=None    # 页标题旁那颗同理
-        # 只有真正换页才回到顶部：同一页重建（切换分镜、刷新列表）保留当前位置，否则看起来就是内容抖动。
-        if not scroll_offset:
-            self._pending_scroll_restore=None
-            self._pending_scroll_layout=None
-            self.canvas.yview_moveto(0)
+        scroll_offset, page_cache = self._show_reset_page(index, video_mode)
         if index==PAGE_SITES:
             self.reference_sites()
             # 参考网站页和普通制作页一样会在这里新增内容；不能因为提前返回而把
@@ -1255,6 +1195,71 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         # 留出短暂导航稳定期；期间再次切页会取消旧播报。
         try:self._pet_stage_job=self.win.after(150,speak)
         except tk.TclError:self._pet_stage_job=None
+
+    def _show_reset_page(self, index, video_mode):
+        """换页前置：取消待办导航、记录页码与滚动位置、视频模式偏好、清掉旧内容并刷新导航高亮，从 show 原样切出，R1809。"""
+        pending=getattr(self,'_navigation_job',None)
+        if pending is not None:
+            self.win.after_cancel(pending)
+            self._navigation_job=None
+        from video_navigation import hide_back
+        hide_back(self)
+        # 同一页重建（切换分镜、刷新列表、自动流程刷新）保留原来的滚动位置：
+        # 旧行为每次都把整页拉回顶部，换文件时看起来就是「内容抖动」。换页仍回到顶部。
+        previous_index=getattr(self,'page_index',None)
+        if previous_index==PAGE['script']:
+            self._idea_brief_generation=getattr(self,'_idea_brief_generation',0)+1
+            self.preserve_idea_draft()
+        scroll_offset=self.canvas.canvasy(0) if previous_index==index else 0
+        self.page_index=index
+        # 第 71 期任务 2：资产详情页与资产清单页都是「05 资产管理」的子路由；翻到别的页就回主页面。
+        if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
+
+        if index==PAGE['video']:
+            self.progress.pack_forget();self.status_label.pack_forget()
+        else:
+            self.progress.pack(fill='x',pady=(SPACING['sm'],SPACING['none']));self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+        if index==PAGE['video']:
+            prefs_path=self.root/'ui_settings.json' if self.root else None
+            prefs=_prefs(prefs_path)
+            # 第 32 期第 3 条：本次启动第一次进这一页，先摆「选择生成方式」；用户在这里选过一次
+            # 之后，来回切页仍按他刚选的那个模式进，不会被反复拦在选择页上。
+            if video_mode=='choose':
+                self.video_mode=None;self.video_mode_picked=False
+            elif video_mode:
+                self.video_mode=video_mode
+            else:
+                self.video_mode=prefs.get('last_video_mode') if getattr(self,'video_mode_picked',False) else None
+            if self.video_mode in ('cloud','local'):
+                self.video_mode_picked=True
+                if prefs_path and prefs.get('last_video_mode')!=self.video_mode:
+                    from stage_execution_service import publish_cloud_video_workspace_preference
+                    prefs['last_video_mode']=self.video_mode
+                    publish_cloud_video_workspace_preference(prefs_path,prefs)
+        else:self.video_mode=None
+        if self.video:
+            self.video.window.pack_forget()
+            self.video.footer.pack_forget()
+            self.video=None
+        self.flush_brief()
+        retained={v.window for v in self.video_sessions.values()}
+        page_cache=self._page_cache_for(index,same_page=previous_index==index)
+        for c in self.content.winfo_children():
+            if c in retained:c.pack_forget()
+            else:c.destroy()
+        for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
+        # 第 71 期任务 2：二级入口只在它自己那一屏高亮
+        if self.asset_list_button is not None:self.asset_list_button.configure(style='Selected.Sub.Nav.TButton' if (index==PAGE['assets'] and self.asset_roster) else 'Sub.Nav.TButton')
+        self.header_status.configure(text='',textvariable='');self.header_model.configure(text='');self.title.configure(text=PAGES[index]);self.status.set(str(self.root))
+        self.stage_button=None                 # 那一行随页面重建：旧按钮这会儿已跟着 content 一起销毁
+        if self.header_stage_button is not None:
+            self.header_stage_button.destroy();self.header_stage_button=None    # 页标题旁那颗同理
+        # 只有真正换页才回到顶部：同一页重建（切换分镜、刷新列表）保留当前位置，否则看起来就是内容抖动。
+        if not scroll_offset:
+            self._pending_scroll_restore=None
+            self._pending_scroll_layout=None
+            self.canvas.yview_moveto(0)
+        return scroll_offset, page_cache
 
     def text(self,value,height=10):
         t=TextArea(self.content,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t

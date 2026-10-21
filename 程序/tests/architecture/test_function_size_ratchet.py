@@ -30,7 +30,6 @@ OVERSIZE_CAPS = {
     ('writing_api.py', '_preparation_step'): 181,
     ('desktop_idea_chat.py', 'send_message'): 171,
     ('native_assets.py', 'attach_controls'): 167,
-    ('desktop.py', 'show'): 152,
 }
 
 
