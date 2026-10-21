@@ -12,7 +12,6 @@ from tests.architecture._scan import production_files
 LIMIT = 150
 SLACK = 15
 OVERSIZE_CAPS = {
-    ('keyframe_comfy.py', 'show'): 626,
 }
 
 
