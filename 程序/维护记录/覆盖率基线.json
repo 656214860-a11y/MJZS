@@ -380,13 +380,13 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 305,
+   "total": 315,
    "percent": 0.0
   },
   {
    "module": "desktop_layout_resize.py",
    "covered": 0,
-   "total": 161,
+   "total": 187,
    "percent": 0.0
   },
   {
@@ -938,7 +938,7 @@
   {
    "module": "responsive_ui.py",
    "covered": 0,
-   "total": 522,
+   "total": 523,
    "percent": 0.0
   },
   {
@@ -1278,6 +1278,12 @@
    "percent": 0.0
   },
   {
+   "module": "ui_hover_fade.py",
+   "covered": 0,
+   "total": 113,
+   "percent": 0.0
+  },
+  {
    "module": "ui_icons.py",
    "covered": 0,
    "total": 48,
@@ -1298,7 +1304,13 @@
   {
    "module": "ui_rounded.py",
    "covered": 0,
-   "total": 70,
+   "total": 79,
+   "percent": 0.0
+  },
+  {
+   "module": "ui_scroll.py",
+   "covered": 0,
+   "total": 88,
    "percent": 0.0
   },
   {
@@ -1316,13 +1328,13 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 102,
+   "total": 107,
    "percent": 0.0
   },
   {
    "module": "ui_widgets.py",
    "covered": 0,
-   "total": 845,
+   "total": 846,
    "percent": 0.0
   },
   {
@@ -1669,9 +1681,9 @@
   },
   {
    "module": "project_settings.py",
-   "covered": 30,
-   "total": 79,
-   "percent": 38.0
+   "covered": 31,
+   "total": 81,
+   "percent": 38.3
   },
   {
    "module": "file_cache.py",
@@ -1777,5 +1789,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 294
+ "modules_total": 296
 }

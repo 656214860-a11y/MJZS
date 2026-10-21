@@ -10,6 +10,7 @@ from types import SimpleNamespace
 
 import ui_hover_fade
 import ui_scroll
+from skip_reasons import PLATFORM_TK_DISPLAY
 from desktop_layout import LayoutMixin
 from desktop_layout_resize import ResizeCoalescer
 from ui_rounded import button_specs
@@ -22,7 +23,7 @@ class TkCase(unittest.TestCase):
         try:
             self.root = tk.Tk()
         except tk.TclError as exc:
-            self.skipTest(str(exc))
+            self.skipTest(PLATFORM_TK_DISPLAY)
         self.root.geometry('+40+40')
 
     def tearDown(self):
