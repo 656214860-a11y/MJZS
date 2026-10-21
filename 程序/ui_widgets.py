@@ -1319,6 +1319,9 @@ class Splash:
         self.progress = 0.0
         self._job = None
         self._size = None
+        # 各段与收尾的耗时（毫秒，距 Splash 创建）；收起时交给 on_finish，由调用方决定落到哪。
+        self.marks = {}
+        self.on_finish = None
         self.cover(rect)
         self._tick()
         self.win.update()
@@ -1376,15 +1379,30 @@ class Splash:
         self._paint()
         self._job = self.win.after(T.SPLASH_FRAME_MS, self._tick)
 
+    def _mark(self, name):
+        self.marks.setdefault(name, round((_time.perf_counter() - self.start) * 1000, 1))
+
+    def _report(self):
+        callback, self.on_finish = self.on_finish, None
+        if callback is None:
+            return
+        try:
+            callback(dict(self.marks))
+        except Exception:   # 计时只是诊断，绝不能挡住揭开主窗口
+            app_logging.swallowed()
+
     def step(self, index):
         """进入第 index 段（0 起），并立刻刷一帧。"""
         if not self.win.winfo_exists():
             return
         self.stage = max(self.stage, min(index, len(SPLASH_STAGES) - 1))
+        self._mark('stage_%d' % self.stage)
         self.progress = max(self.progress, SPLASH_STAGES[self.stage - 1][1] if self.stage else 0.0)
         self.canvas.itemconfigure(self.status, text=SPLASH_STAGES[self.stage][0])
         self._paint()
-        self.win.update()
+        # 只刷布局与重绘，不能用 update()：它会把已到期的 after 任务（项目加载、建页）整队排空，
+        # 全吞进这一次调用里，Splash 的动画帧就没机会执行，进度条冻结。加载交给主循环按拍推进。
+        self.win.update_idletasks()
 
     def wait(self, ready, done, track=None, timeout=15.0):
         """轮询 ready()；连续两拍就绪（或超时）后把进度条走满，再调 done() 并收起画面。
@@ -1402,10 +1420,12 @@ class Splash:
             if t < 1.0:
                 self.win.after(T.SPLASH_FRAME_MS, finish, start, begin)
                 return
+            self._mark('total')
             try:
                 done()
             finally:
                 self.close()
+                self._report()
 
         def poll():
             if not self.win.winfo_exists():
@@ -1417,6 +1437,7 @@ class Splash:
             hits[0] = hits[0] + 1 if ready() else 0
             if hits[0] >= 2 or _time.perf_counter() > deadline:
                 self.stage = len(SPLASH_STAGES) - 1
+                self._mark('ready')
                 # 收尾动画自己推进度，停掉逐帧爬升，免得两边抢着改进度条往回跳。
                 if self._job is not None:
                     self.win.after_cancel(self._job)
