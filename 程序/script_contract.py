@@ -1033,11 +1033,6 @@ WORKFLOW_LOCK_SCHEMA = {
 }
 
 
-def rhythm_template_reference():
-    """创意简报引用的节奏模板字段。"""
-    return {RHYTHM_TEMPLATE_FIELD: RHYTHM_TEMPLATE_PATH}
-
-
 def normalize_brief(values=None):
     """将创意接收层的字段收敛到唯一的剧本准备输入简报形状。"""
     source = values if isinstance(values, dict) else {}

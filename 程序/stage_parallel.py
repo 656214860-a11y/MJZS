@@ -107,10 +107,6 @@ def unit(stage):
     return config(stage)['unit']
 
 
-def unit_name(stage):
-    return UNIT_NAMES.get(unit(stage), str(unit(stage)))
-
-
 def degree(stage):
     """并行度区间 (下限, 上限)。"""
     row = config(stage)

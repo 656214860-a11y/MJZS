@@ -2241,6 +2241,24 @@
       "reason_constant": "PLATFORM_TK_DISPLAY",
       "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_ui_motion.py",
+      "test": "MotionBase.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_ui_motion_perf.py",
+      "test": "TkCase.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TK_DISPLAY",
+      "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
+      "reference": ""
     }
   ]
 }

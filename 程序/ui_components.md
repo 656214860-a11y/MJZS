@@ -6,36 +6,38 @@
 
 | 属性 | Token / 规则 |
 | --- | --- |
-| 背景 | `color.primary` |
+| 背景 | `color.primary`（圆角图元，标准库生成的带 alpha PNG） |
 | 文字 | 白色 |
-| 边框 | 无可见边框：1px `solid` 取 `color.primary` 自身底色；仅键盘焦点时为 `color.focus` |
-| 圆角 | `radius.md` |
+| 边框 | 无可见边框：圆角图元取代 raised 浮雕；仅键盘焦点时为 `color.focus` |
+| 圆角 | `radius.md`（本轮起真正消费） |
 | 字体 | `font.body`（10pt），不再用 11pt bold |
-| 尺寸 | 视觉高度 `CONTROL_HEIGHT`（32px）；水平内边距 `space.md`、垂直 `space.xs`；Tk 实测 33px（32±2，见下） |
-| 悬停 | 背景 `color.primary.subtle`，文字 `color.primary` |
-| 禁用 | 背景 `color.border.default`，文字 `color.disabled.text` |
-| 焦点 | `focuscolor` = `color.focus`，1px 焦点边框 |
+| 尺寸 | 视觉高度 `CONTROL_HEIGHT`（36px）；水平内边距 `space.md`、垂直 `CONTROL_PADDING_Y`（8px）；Tk 实测 37px（36±2） |
+| 悬停 | 背景 `color.primary.hover`（加深一档），文字白色 |
+| 按下 | 背景 `color.primary.pressed`（再深一档），文字下移 1px |
+| 禁用 | 背景 `color.disabled.bg`，文字 `color.disabled.text` |
+| 焦点 | `focuscolor` = `color.focus` |
 
 用于页面的首要、提交、确认动作；同一操作组最多一个主按钮。需要比主按钮更醒目的花钱步骤（如“MCP 优化”）用 `Highlight.TButton`（更深一档的 `color.primary.pressed`），不使用橙色。
 
-**唯一样式来源（UI 批次 2）**：`ui_widgets.setup_styles()` 是按钮、输入框、下拉框、数值框与焦点样式的唯一定义处（按钮在 `_install_button_styles()`，输入在 `_install_input_styles()`）；`ui_theme.apply()` 只安装主题、选项库、滚动条与窗口策略，末尾调用 `setup_styles()`。页面不得再用 `ttk.Style` 配置同名样式，也不得另建局部 Style。
+**唯一样式来源**：`ui_widgets.setup_styles()` 是按钮、输入框、下拉框、数值框、卡片与滚动条样式的唯一定义处（按钮在 `_install_button_styles()`，输入在 `_install_input_styles()`，滚动条在 `_install_scrollbar_styles()`）；`ui_theme.apply()` 只安装主题、选项库与窗口策略，末尾调用 `setup_styles()`。页面不得再用 `ttk.Style` 配置同名样式，也不得另建局部 Style。
 
-**32px 怎么来**：Tk 的 ttk 控件没有 height 属性，控件高度 = 字体行高 + 2×上下内边距 + 主题边框/焦点占位。10pt 微软雅黑 UI 在 100% DPI 下 `linespace=19px`；按钮沿用 `(space.md, space.xs)` 内边距，`19 + 2×4 + 6 = 33px`。输入类用 `CONTROL_PADDING_Y = space.xs + space.xs//2 = 6px`，`19 + 2×6 + 2×1 = 33px`。两者都落在 32±2px；`tests/test_ui_style_engine.py` 用真 Tk 根窗口实测 `winfo_reqheight()`，非 100% 缩放按 `tk scaling` 折算。
+**36px 怎么来**：Tk 的 ttk 控件没有 height 属性。按钮高度 = 字体行高 + 2×`CONTROL_PADDING_Y`（圆角图元不额外撑内边距，`padding=(0,0,0,0)`），`19px + 2×8px` 加焦点占位≈37px；输入类 `19 + 2×8 + 2×1px 边框 = 37px`。两者都落在 36±2px；`tests/test_ui_style_engine.py` 用真 Tk 根窗口实测 `winfo_reqheight()`，非 100% 缩放按 `tk scaling` 折算。
 
-**扁平规则（UI 批次 2 返工）**：按钮常态不画可见边框、不使用 raised 浮雕。clam 主题的 1px `solid` 边框统一用按钮自身底色绘制（`bordercolor`／`lightcolor`／`darkcolor` 同底色，`BUTTON_BORDER_WIDTH`），所以导航、侧栏与主区动作按钮看起来与改前一样扁平；只有键盘焦点状态把同一边框映射为 `color.focus`。禁止再把 `TButton` 基样式或 `Nav.TButton`／`ProjectAction.TButton` 设成可见边框或 raised；`ProjectAction.TButton` 的字号／内边距仍由 `Desktop.fit_sidebar()` 单独紧缩，但不得改颜色与边框。
+**圆角规则（2026-10-21）**：按钮常态用圆角图元取代 raised 浮雕；悬停加深一档、按下再深一档并让文字下移 1px（上加下减，按钮总高不变）。**样式的 `background` 必须是控件背后的表面色（`CONTROL_CORNER_SURFACE`），按钮填充色放在自定义选项 `fill`（含 active／pressed／disabled 映射）里**：ttk 把圆角透明处露出的是样式 `background`，若它等于填充色，四个角会被填成实心方角。圆角底图由 `ui_rounded.py` 用标准库生成（无 PIL），图对象缓存在 Tk 根窗口上永久保留。主按钮实心、次按钮白底＋弱描边、文字按钮无底悬停浅底；既有样式名全部保留，只改外观不改名。
 
-**唯一例外**：侧栏可用高度低于 `DESKTOP_LAYOUT['compact_below']` 时，`Desktop.fit_sidebar()` 会只缩小 `Compact.TButton`／导航按钮／`ProjectAction.TButton` 的字号与纵向内边距，以便 14 个阶段仍可见；它不定义颜色、背景或焦点色，窗口回到常规高度后仍以本入口的 32px 规则为准。
+**唯一例外**：侧栏可用高度低于 `DESKTOP_LAYOUT['compact_below']` 时，`Desktop.fit_sidebar()` 会只缩小 `Compact.TButton`／导航按钮／`ProjectAction.TButton` 的字号与纵向内边距，以便 14 个阶段仍可见；它不定义颜色、背景或焦点色，窗口回到常规高度后仍以本入口的 36px 规则为准。
 
 ## 次按钮
 
 | 属性 | Token / 规则 |
 | --- | --- |
-| 背景 | `color.background.card` |
-| 边框 | 无可见边框：1px `solid` 取 `color.background.card` 自身底色；仅键盘焦点时为 `color.focus` |
+| 背景 | `color.background.card`（圆角图元） |
+| 边框 | 极淡描边：1px `color.border.default`（弱分隔线色）；仅键盘焦点时为 `color.focus` |
 | 文字 | `color.text.primary` |
 | 圆角 | `radius.md` |
 | 字体与尺寸 | 同主按钮：`font.body`、高度 `CONTROL_HEIGHT`、水平内边距 `space.md` |
-| 焦点 | 1px `color.focus` 焦点环（常态无可见边框） |
+| 悬停 | 背景 `color.surface.hover`，文字 `color.text.primary` |
+| 焦点 | `color.focus` 焦点环 |
 
 用于次要、返回、刷新等不应抢占主动作视觉层级的操作。
 
@@ -43,10 +45,10 @@
 
 | 属性 | Token / 规则 |
 | --- | --- |
-| 背景 | `color.background.card` |
-| 边框 | 1px `color.border.default` |
-| 圆角 | `radius.lg` |
-| 内边距 | `space.lg` |
+| 背景 | `color.background.card`（圆角图元） |
+| 边框 | 极淡描边：1px `color.border.default` |
+| 圆角 | `radius.lg`（本轮起真正消费） |
+| 内边距 | `space.xl` |
 
 卡片承载一个完整的信息或操作单元；同一卡片内的标题、正文与辅助文字分别使用对应字体 token。
 
@@ -55,11 +57,11 @@
 | 属性 | Token / 规则 |
 | --- | --- |
 | 背景 | `color.background.card` |
-| 边框 | 1px `color.border.default` |
-| 圆角 | `radius.md` |
-| 内边距 | `padx=space.md`，`pady=CONTROL_PADDING_Y`（6px） |
-| 尺寸 | 视觉高度 32px（`19px 行高 + 2×6px + 2×1px 边框 = 33px`，32±2） |
-| 焦点 | 边框 `color.focus` |
+| 边框 | 1px `color.border.input`，悬停 `color.border.input.hover` |
+| 圆角 | 保持矩形（ttk.Entry／TCombobox 图元改造会破坏占位／只读／错误态／下拉行为） |
+| 内边距 | `padx=space.lg`，`pady=CONTROL_PADDING_Y`（8px） |
+| 尺寸 | 视觉高度 36px（`19px 行高 + 2×8px + 2×1px 边框 = 37px`，36±2） |
+| 焦点 | 描边 `color.focus`（＝`color.primary`）；TextArea 用 `highlightcolor` 表达同一主色 |
 | 正文 | `font.body` + `color.text.primary` |
 | 提示/辅助 | `font.assistive` + `color.text.secondary` |
 
@@ -96,7 +98,7 @@
 
 `ui_icons.IconLoader` 是页面图标位图的唯一构建入口。页面按语义名称请求图标，图标尺寸由入口参数统一，并按 Tk 宿主缓存；不得在业务页直接建立 `PhotoImage`。图标不能表达完整文字说明时，配合 `Tooltip`，不以图标替代可访问标签。
 
-标准 `ttk.Scrollbar` 的唯一视觉入口是 `ui_theme.apply()`：页面只声明方向和 `command`，不得给单个滚动条创建局部 Style 或内联视觉参数。表格优先由 `DataTable` 承载其横、纵滚动条。
+标准 `ttk.Scrollbar` 的唯一视觉入口是 `ui_widgets.setup_styles()`（本轮从 `ui_theme.apply()` 迁入）：页面只声明方向和 `command`，不得给单个滚动条创建局部 Style 或内联视觉参数。表格优先由 `DataTable` 承载其横、纵滚动条。
 
 ## 文案与复制
 
@@ -108,7 +110,7 @@
 
 ## 下拉框
 
-业务页必须通过 `SelectBox` 创建下拉框（继承 `ttk.Combobox`）。默认只读，选项自适应宽度封顶 28、弹出列表默认 12 行；可编辑框显式传 `state="normal"`。动态选项更新用 `set_values(values)`，需要保持显式布局宽度时传 `refit=False`；保留 textvariable/current/get 语义。`SelectBox` 固定套用 `Tokens.Combobox.TCombobox`，控件高度与 `TEntry`／`TSpinbox` 同档（32±2px）；`TCombobox` 基样式只作默认继承，不是页面入口。所有下拉框由 `ui_widgets.setup_styles(root)` 作为唯一样式入口。字段、只读态、弹出列表、字体、边框与内边距使用 `design_tokens.md` 的 `combobox.*` token；页面只负责选项、数据绑定和必要的内容宽度，不得复制颜色或字体配置。
+业务页必须通过 `SelectBox` 创建下拉框（继承 `ttk.Combobox`）。默认只读，选项自适应宽度封顶 28、弹出列表默认 12 行；可编辑框显式传 `state="normal"`。动态选项更新用 `set_values(values)`，需要保持显式布局宽度时传 `refit=False`；保留 textvariable/current/get 语义。`SelectBox` 固定套用 `Tokens.Combobox.TCombobox`，控件高度与 `TEntry`／`TSpinbox` 同档（36±2px）；`TCombobox` 基样式只作默认继承，不是页面入口。所有下拉框由 `ui_widgets.setup_styles(root)` 作为唯一样式入口。字段、只读态、弹出列表、字体、边框与内边距使用 `design_tokens.md` 的 `combobox.*` token；页面只负责选项、数据绑定和必要的内容宽度，不得复制颜色或字体配置。
 
 ## 文字组件
 
@@ -148,4 +150,25 @@
 
 每个组件只能有以上一种写法。新增页面必须复用既有组件实现或先扩展本契约；不得在页面内复制、修改样式参数形成第二种写法。
 
-`Toplevel` 弹窗与普通页面遵循完全相同的 token 和组件规则：标题、内容区、输入框和操作按钮均不得退回通用 ttk 样式。主按钮悬停为浅主色底加主色文字；次按钮悬停同样保持可读的主色文字。
+`Toplevel` 弹窗与普通页面遵循完全相同的 token 和组件规则：标题、内容区、输入框和操作按钮均不得退回通用 ttk 样式。主按钮悬停加深一档（`color.primary.hover`）保持白字；次按钮悬停为 `color.surface.hover` 底配主文字，二者文字都保持可读。
+
+## 微交互与空态（`ui_motion.py`）
+
+| 组件 | 入口 | 行为 | 令牌 |
+| --- | --- | --- | --- |
+| 行悬停 | `bind_row_hover(tree)`；`DataTable` 与侧栏项目树自动安装 | 鼠标划过的行背景在 `ROW_HOVER_STEPS` 帧内由底色淡入到 `surface_hover`；选中行不加；只增减 `row_hover` 标签，不动行上其他标签 | `ROW_HOVER_*` |
+| 加载转圈 | `Spinner(master, host=控件)`，挂到 `BusyState(spinner=…)` | 忙碌时叠在 host 右端转一段主色圆弧，结束即撤并停定时器；主窗口挂在状态栏上 | `SPINNER_*` |
+| 空态 | `EmptyState(master, 文案, anchor_widget=列表)`；`DataTable.empty_label` 同样带图标 | 柔和圆角图标（`ui_rounded.empty_icon_photo`，缓存在根窗口）在文字上方，居中盖在列表上 | `EMPTY_*` |
+
+侧栏导航胶囊的悬停（`surface_hover`）与选中（`primary`）仍由 `Nav.TButton` / `Selected.Nav.TButton` 的圆角底图提供；
+页面边距、导航间距、状态栏间距取自 `DESKTOP_LAYOUT` 的 `body_padding`／`nav_gap`／`section_gap`／`status_gap`。
+
+## 动效与拖窗口（性能/资源轮）
+
+| 能力 | 入口 | 行为 | 令牌 |
+| --- | --- | --- | --- |
+| 平滑滚动 | `ui_scroll.eased_scroll(canvas, steps)`；主页面、侧栏、`ScrollForm` 的滚轮都走它 | 滚轮推「目标位置」，每帧走剩余距离的一半（缓出）；第一步在事件里同步走完；连续滚轮累加；翻页键／拖滚动条等别处移动画布时放弃剩余动画；不可滚或设了 `yscrollincrement` 时退回原生滚动；位移距离与原生 `units` 一致 | `SCROLL_*` |
+| 按钮悬停渐变 | `ui_hover_fade.install_hover_fade(root)`（`setup_styles` 自动安装）；对所有登记过圆角规格的 `ttk.Button` 样式生效 | 进出时临时切到派生样式 `Fade<k>.<原样式>`（`ui_rounded.button_specs` 登记的规格生成混色底图，按需生成并缓存），100ms 分 4 档，走完还原原样式；期间别处改了样式、按钮被禁用或销毁则立即停，不覆盖别人写的样式 | `HOVER_FADE_*` |
+| 拖窗口只画外层框架 | `desktop_layout_resize.ResizeCoalescer(freeze=, thaw=)`；`LayoutMixin._freeze_content/_thaw_content` | 确认光标捏着外框时收起页面内容与侧栏内容（画布窗口项设 `hidden`），松手后先放回再补做整页重排；探测不到（降级路径）只合并、不收起 | `resize_quiet_ms` |
+
+不覆盖：`Text`／`Treeview`／`Listbox` 内部滚动仍按行走（它们由控件自身的 `yview_scroll` 处理）；卡片没有悬停态，不做渐变。

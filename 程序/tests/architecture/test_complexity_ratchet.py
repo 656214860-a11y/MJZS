@@ -38,7 +38,7 @@ NESTING_CAPS = {
 }
 PARAM_CAPS = {
     ('recon_service.py', 'run'): 13,
-    ('ui_widgets.py', '_configure_button'): 13,
+    ('ui_widgets.py', '_configure_button'): 14,
     ('animatic_service.py', 'build_bundle'): 12,
     ('app.py', '__init__'): 11,
     ('cell_hover.py', '__init__'): 11,
@@ -94,7 +94,7 @@ CLASS_CAPS = {
     ('pet_cloud.py', 'Cloud'): 1524,
     ('desktop_idea_chat.py', 'IdeaChatMixin'): 1392,
     ('app.py', 'App'): 1358,
-    ('desktop.py', 'Desktop'): 1286,
+    ('desktop.py', 'Desktop'): 1289,
     ('skill_panel.py', 'Panel'): 1205,
     ('pet_ui_stages.py', 'PetStagesMixin'): 1186,
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,

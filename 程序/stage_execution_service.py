@@ -1359,12 +1359,6 @@ def asset_impact(project, aid, *, episode_dir=''):
     return _impact(project, aid, episode_dir=episode_dir)
 
 
-def asset_deletion_references(project, aid, *, episode_dir=''):
-    """L3 门面：删除资产前要先看的引用清单（只读）。"""
-    from asset_plan import deletion_references as _references
-    return _references(project, aid, episode_dir=episode_dir)
-
-
 def continuity_issue_report(project, ledger=None):
     """L3 门面：连贯性问题闭环视图（只读，不落盘）。"""
     from continuity_ledger import issues, merge_issues, read_issues

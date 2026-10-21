@@ -21,13 +21,17 @@ OVERSIZE_CAPS = {
     ('app.py', '__init__'): 267,
     ('desktop_idea_chat.py', 'open_flow_agent'): 252,
     ('local_previs.py', 'show'): 252,
-    ('desktop_script_pages.py', 'script_structure'): 251,
+    ('desktop_script_pages.py', 'script_structure'): 244,
     ('asset_batch.py', 'show'): 243,
     ('desktop_asset_pages.py', 'assets'): 223,
     ('ui_theme.py', 'install_window_placement'): 224,
     ('cloud_video.py', 'settings_window'): 204,
     ('reference_wall.py', 'show'): 193,
+<<<<<<< HEAD
     ('desktop_script_pages.py', 'content_box'): 186,
+=======
+    ('desktop_script_pages.py', 'content_box'): 181,
+>>>>>>> master
     ('writing_api.py', '_preparation_step'): 181,
     ('desktop.py', '__init__'): 162,
     ('desktop_idea_chat.py', 'send_message'): 171,

@@ -23,9 +23,9 @@ from tkinter import ttk
 
 import ui_theme
 import ui_widgets
-from ui_tokens import (BUTTON_BORDER_WIDTH, COLORS, COMBOBOX_CONTROL_PADDING,
-                       CONTROL_PADDING_Y, DESKTOP_LAYOUT, DIALOG_MIN_HEIGHT,
-                       DIALOG_MIN_WIDTH)
+from ui_tokens import (COLORS, COMBOBOX_CONTROL_PADDING,
+                       CONTROL_HEIGHT, CONTROL_PADDING_Y, DESKTOP_LAYOUT,
+                       DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -105,7 +105,7 @@ class StyleSourceTests(unittest.TestCase):
 
 
 class ControlGeometryTests(unittest.TestCase):
-    """真 Tk 实测：32±2px，按当前 tk scaling 折算。"""
+    """真 Tk 实测：36±2px，按当前 tk scaling 折算。"""
 
     def setUp(self):
         self.root = tk.Tk()
@@ -117,9 +117,9 @@ class ControlGeometryTests(unittest.TestCase):
         scaling = float(self.root.tk.call("tk", "scaling"))
         # 100% DPI（96 dpi）对应 tk scaling = 96/72 = 1.333…
         factor = scaling / (96 / 72.0)
-        return 32 * factor, 2 * factor, scaling
+        return CONTROL_HEIGHT * factor, 2 * factor, scaling
 
-    def test_primary_secondary_entry_combobox_and_spinbox_request_32px(self):
+    def test_primary_secondary_entry_combobox_and_spinbox_request_36px(self):
         widgets = {
             "Primary": ui_widgets.PrimaryButton(self.root, text="主按钮"),
             "Secondary": ui_widgets.SecondaryButton(self.root, text="次按钮"),
@@ -146,16 +146,12 @@ class ControlGeometryTests(unittest.TestCase):
                 self.assertEqual(str(style.lookup(name, "focuscolor")), COLORS["focus"])
 
     def test_geometry_tokens_are_derived_from_the_4px_scale(self):
-        self.assertEqual(CONTROL_PADDING_Y, 6)
+        self.assertEqual(CONTROL_PADDING_Y, 8)
         self.assertEqual(COMBOBOX_CONTROL_PADDING[1], CONTROL_PADDING_Y)
 
 
 class FlatButtonStyleTests(unittest.TestCase):
-    """UI 批次 2 返工：导航／侧栏／主区按钮恢复改前的扁平外观。
-
-    clam 主题的 1px ``solid`` 边框用按钮自身底色作边框色，因此常态不可见；
-    焦点状态把同一边框映射到 ``color.focus``，键盘焦点环仍然保留。
-    """
+    """导航／侧栏／主区按钮：圆角图元取代 raised 边框，常态无可见边框，仅键盘焦点环。"""
 
     def setUp(self):
         self.root = tk.Tk()
@@ -167,26 +163,20 @@ class FlatButtonStyleTests(unittest.TestCase):
     def test_navigation_sidebar_and_project_buttons_have_no_visible_border(self):
         for name in FLAT_BUTTON_STYLES:
             with self.subTest(style=name):
-                background = str(self.style.lookup(name, "background"))
-                self.assertEqual(str(self.style.lookup(name, "relief")), "solid")
-                self.assertEqual(int(self.style.lookup(name, "borderwidth")),
-                                 BUTTON_BORDER_WIDTH)
-                for option in ("bordercolor", "lightcolor", "darkcolor"):
-                    self.assertEqual(str(self.style.lookup(name, option)), background,
-                                     "%s 的 %s 必须与自身底色相同，常态才不可见" % (name, option))
+                layout = self.style.layout(name)
+                self.assertTrue(layout, "%s 必须使用自定义圆角图元布局" % name)
+                element = str(layout[0][0])
+                self.assertIn("Drama.Rounded", element,
+                              "%s 必须使用圆角图元，不得退回 raised 边框" % name)
 
     def test_flat_button_focus_ring_uses_the_focus_token(self):
         for name in FLAT_BUTTON_STYLES:
             with self.subTest(style=name):
-                focus_colors = [str(value) for state, value
-                                in self.style.map(name, "bordercolor")
-                                if str(state) == "focus"]
-                self.assertIn(COLORS["focus"], focus_colors,
-                              "%s 的焦点边框必须使用 color.focus" % name)
                 self.assertEqual(str(self.style.lookup(name, "focuscolor")),
-                                 COLORS["focus"])
+                                 COLORS["focus"],
+                                 "%s 的焦点环必须使用 color.focus" % name)
 
-    def test_flat_button_styles_keep_the_32px_row_height(self):
+    def test_flat_button_styles_keep_the_36px_row_height(self):
         expected, tolerance, scaling = self._expected()
         for name in FLAT_BUTTON_STYLES:
             button = ttk.Button(self.root, text="导航", style=name)
@@ -200,7 +190,7 @@ class FlatButtonStyleTests(unittest.TestCase):
     def _expected(self):
         scaling = float(self.root.tk.call("tk", "scaling"))
         factor = scaling / (96 / 72.0)
-        return 32 * factor, 2 * factor, scaling
+        return CONTROL_HEIGHT * factor, 2 * factor, scaling
 
 
 class NotificationDefaultTests(unittest.TestCase):

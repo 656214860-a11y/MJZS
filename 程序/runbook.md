@@ -50,7 +50,7 @@
 
 **全量欠账口径（R1439，用户批准）**：唯一实现是 `run_selftests.FULL_SAFE_ROUND_INTERVAL`（8）、`source_rounds_since()`、`full_safe_required()`。只数 `last_full_safe_all_round` 之后、提交标题为 `R<n>:`／`R<n>-FAIL:` 且改过源码的轮次；纯文档、测试、`tasks_round/`、`维护记录/`、`说明/` 的轮次不计（`skills/` 下的 md 是 SKILL 源，计入）；读不出 git 历史时退回按全部轮次计。本节所列风险触发不受阈值影响：启动入口（`启动漫剧制作助手.pyw`／`启动助手.cmd`）、`storage_maintenance.py`（删除语义）、`tests/architecture/_layers.py`（层级登记表）由 `has_risk_change()` 按路径自动判定，任一轮改过就**立即触发后台补跑**，但门禁有宽限（`FULL_SAFE_RISK_GRACE`＝3）：自最早一次风险改动之后再积累 3 个源码轮次仍无凭据才报红，连续几轮改启动文件合并成一次全量（`risk_overdue()`）；Tk 控件生命周期（销毁／重建）无法静态判定，仍由执行者人工判断并手动跑全量。
 
-**后台自动补跑**（带防抖）：欠账达到门禁线前 `FULL_SAFE_AUTO_LEAD`（2）个源码轮次，master 的 git post-commit 钩子（`维护记录/基准脚本/hooks/post-commit`，由 `install_git_hooks.py` 安装）调用 `scripts/auto_full_safe.py --spawn`，先起一个后台等待者（`--wait-run`，同一时刻只有一个）：等「安静」15 分钟（期间每有新提交就重新计时）再跑一次，连续拆分系列的 N 轮只补跑 1 次；欠账已让门禁报红或等满 60 分钟则立即跑。跑时在根目录 `.wt/ci` 干净分离检出上后台跑 `--all --safe`，绿凭据写入 common-dir 的 `full-safe-receipts.json`，日志在 `程序/logs/auto_full_safe.log`。钩子失败或已有同类任务在跑都静默跳过，不阻塞提交；后台运行期间（`auto_full_running()`）架构门禁不报「欠全量」，手动 `--all --safe` 也会被拒绝并提示等待（`--force` 可强制）——**欠账红灯出现时不要立刻手动跑全量，先看后台是否已在补跑**；`scripts/auto_full_safe.py --status` 查看欠账。后台全量红了不会自动改任何文件，按 §8 失败处置人工接续；结果写入 common-dir 的 `auto-full-safe-result.json`，post-commit 钩子每次提交先跑 `--notice`，上次未通过就在提交输出里打印红的测试文件与日志路径，`--status` 也会显示。`round_claim.py next` 领号时会自检 git 钩子，缺失或与版本受控源不一致就自动安装，新克隆无需手工装钩子。
+**后台自动补跑**（带防抖）：欠账达到门禁线前 `FULL_SAFE_AUTO_LEAD`（2）个源码轮次，master 的 git post-commit 钩子（`维护记录/基准脚本/hooks/post-commit`，由 `install_git_hooks.py` 安装）调用 `scripts/auto_full_safe.py --spawn`，先起一个后台等待者（`--wait-run`，同一时刻只有一个）：等「安静」15 分钟（期间每有新提交就重新计时）再跑一次，连续拆分系列的 N 轮只补跑 1 次；欠账已让门禁报红或等满 60 分钟则立即跑。跑时在根目录 `.wt/ci` 干净分离检出上后台跑 `--all --safe`，绿凭据写入 common-dir 的 `full-safe-receipts.json`，日志在 `程序/logs/auto_full_safe.log`。钩子失败或已有同类任务在跑都静默跳过，不阻塞提交；后台运行期间（`auto_full_running()`）架构门禁不报「欠全量」，手动 `--all --safe` 也会被拒绝并提示等待（`--force` 可强制）——**欠账红灯出现时不要立刻手动跑全量，先看后台是否已在补跑**；`scripts/auto_full_safe.py --status` 查看欠账。后台全量红了不会自动改任何文件，按 §8 失败处置人工接续；**红后冷却**（R1781，`RED_COOLDOWN_SECONDS`＝4 小时）：上次后台全量是真红时，同一 HEAD 不再自动重跑，换了 HEAD 也要等冷却期过去才补跑，只有门禁已因欠账报红才越过时间冷却，避免红着不修时每次提交都白跑约 16 分钟，`--status` 显示「红后冷却」；结果写入 common-dir 的 `auto-full-safe-result.json`，post-commit 钩子每次提交先跑 `--notice`，上次未通过就在提交输出里打印红的测试文件与日志路径，`--status` 也会显示。`round_claim.py next` 领号时会自检 git 钩子，缺失或与版本受控源不一致就自动安装，新克隆无需手工装钩子。
 
 ## 5. 升级、备份与回滚
 
@@ -135,7 +135,7 @@ import 也算**；唯一放行的是只在 Blender 宿主里存在的 `bpy`）�
 
 ## 11. 覆盖率口径
 
-`维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。当前基线：生产运行时模块 292 个，其中 50 个有行覆盖（其余 242 个在这 8 组定向用例里没被碰到），测量使用 8 组定向用例，测量时刻这些用例全通过。
+`维护记录\覆盖率基线.json` 是**定向测量**，不是整仓覆盖率。当前基线：生产运行时模块 296 个，其中 50 个有行覆盖（其余 246 个在这 8 组定向用例里没被碰到），测量使用 8 组定向用例，测量时刻这些用例全通过。
 
 - 字段口径：`modules_total` ＝ 生产运行时模块总数；`modules_covered` ＝ 其中被覆盖到的模块数；`targets` ＝ 本次测量使用的定向用例组；`tests_ok` ＝ 测量时刻目标用例是否全绿。
 - 因此「240 个模块覆盖率 0」**不等于**「整仓覆盖率 7%」，也不能据此列出「未覆盖模块」清单——它只说明这 8 组定向用例碰过哪些模块。

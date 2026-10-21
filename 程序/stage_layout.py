@@ -341,14 +341,6 @@ def tree_text():
     return '\n'.join(lines) + '\n'
 
 
-def duty_rows():
-    """每个目录的职责说明（交付物 1 的表格版）。"""
-    rows = [(row[0] + '/', row[2], row[3]) for row in STAGES]
-    rows.append((SHARED + '/', '跨阶段共享', 'schema／anchors／triplets 三份公共数据'))
-    rows.append((ARCHIVE + '/', '废弃文件', '回收站与历史版本，机器不读'))
-    return rows
-
-
 def docs_rows():
     """各阶段 docs/ 目录文件清单（交付物 11）。"""
     rows = []

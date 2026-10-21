@@ -14,6 +14,7 @@ from pathlib import Path
 from projects import needs_cleanup_after_open_error
 from tkinter import ttk
 from responsive_ui import FlowBar
+from ui_motion import EmptyState, bind_row_hover
 from ui_tokens import COLORS, FONTS, SPACING, TEXT_DESC
 from ui_widgets import BaseDialog, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton
 from desktop_page_support import ContextMenu, confirm, open_path
@@ -75,6 +76,9 @@ class ProjectPagesMixin:
             tree.insert('','end',iid='group:'+state,text=f'{label}（{len(items)}）',open=bool(items),tags=() if items else ('empty-group',))
             for p in sorted(items,key=project_sort_key):
                 tree.insert('group:'+state,'end',iid=p['path'],text=self.project_row_text(p))
+        # 一个项目都没有时，列表中央给出柔和提示，而不是只留两个空分组标题。
+        empty=getattr(tree,'_empty_state',None)
+        if empty is not None:empty.show(not self.projects.info['projects'])
     def project_row_text(self,p):
         """项目行文字：当前打开的项目前加「●」，让用户随时看得出现在在哪个项目里。"""
         missing=not Path(p['path']).is_dir()
@@ -343,7 +347,9 @@ class ProjectPagesMixin:
         tree=ttk.Treeview(self.content,show='tree',height=13,selectmode='browse')
         # 动作区先占底边：矮窗口只缩短项目列表，不允许把动作按钮推出可视区。
         actions=FlowBar(self.content);actions.pack(side='bottom',fill='x',pady=SPACING['sm'])
-        tree.pack(fill='both',expand=True,pady=SPACING['md']);self.fill_projects(tree)
+        bind_row_hover(tree)
+        tree._empty_state=EmptyState(self.content,'还没有项目\n点击下方「＋ 创建新项目」，开始您的第一个故事',anchor_widget=tree)
+        tree.pack(fill='both',expand=True,pady=SPACING['lg']);self.fill_projects(tree)
         self._project_home_tree=tree
         tree.bind('<Button-3>',lambda e:self.project_menu(e,tree))
         def enter(event=None):

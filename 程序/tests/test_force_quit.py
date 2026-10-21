@@ -142,6 +142,7 @@ class QuitTests(unittest.TestCase):
         subject.cloud_monitor_busy = False; subject.video_sessions = {}; subject.previs_jobs = {}
         subject._closing = False; subject._automation_processes_stopped = False; subject.flow_processes = {}
         subject.cancel_timers = lambda: None
+        subject.close_tray = lambda: None
         subject.pet_hides_instead_of_quitting = lambda: False
         subject.flush_brief = lambda: None
         subject.finish_close = lambda: self.closed.append('收摊')

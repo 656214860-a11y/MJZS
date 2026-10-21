@@ -1148,7 +1148,7 @@ class VideoEntryTests(unittest.TestCase):
             for state in ((), ('active',), ('pressed',), ('active', 'pressed'), ('focus',)):
                 button.state(('!active', '!pressed', '!focus'))
                 button.state(state)
-                rgb = win.winfo_rgb(style.lookup(button.cget('style'), 'background', button.state()))
+                rgb = win.winfo_rgb(style.lookup(button.cget('style'), 'fill', button.state()))
                 levels = (luminance(pixel), luminance(tuple(c / 257 for c in rgb)))
                 self.assertGreaterEqual((max(levels) + .05) / (min(levels) + .05), 3,
                                         '返回箭头在正常/悬停/按下/焦点状态均须可见')

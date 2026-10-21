@@ -11,7 +11,8 @@ import pet_ui
 from desktop_layout_resize import ResizeCoalescer
 from desktop_page_registry import PAGE
 from responsive_ui import growable_extra
-from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING
+from ui_scroll import eased_scroll
+from ui_tokens import CONTROL_PADDING_Y, DESKTOP_LAYOUT, FONTS, SPACING
 
 
 class LayoutMixin:
@@ -25,9 +26,18 @@ class LayoutMixin:
         if coalescer is not None:coalescer.cancel()
     def watch_window_resize(self,win):
         """主窗口／页面画布／内容框的尺寸变化统一经合并器；子控件变化照旧立即处理。"""
-        self.resize_scheduler=ResizeCoalescer(win)
+        self.resize_scheduler=ResizeCoalescer(win,freeze=self._freeze_content,thaw=self._thaw_content)
         for widget in (win,self.canvas,self.content):
             widget.bind('<Configure>',self._on_resize_configure,add='+')
+    def _freeze_content(self):
+        """拖外框期间收起页面内容与侧栏内容，只画外层框架（标题栏、进度条、状态栏）；松手后放回。"""
+        self.canvas.itemconfigure(self.content_id,state='hidden')
+        side=getattr(self,'sidebar_scroll',None)
+        if side is not None:side.canvas.itemconfigure(side.window_id,state='hidden')
+    def _thaw_content(self):
+        self.canvas.itemconfigure(self.content_id,state='normal')
+        side=getattr(self,'sidebar_scroll',None)
+        if side is not None:side.canvas.itemconfigure(side.window_id,state='normal')
     def _own_content_configure(self,event):
         """布局刚把内容框设成这个尺寸：同尺寸 <Configure> 是自己写出的几何，不是外部变化。"""
         if event is None or getattr(event,'widget',None) is not getattr(self,'_content_applied_widget',None):return False
@@ -67,9 +77,10 @@ class LayoutMixin:
                 style.configure(name,font=font,padding=(10,1 if compact else 4))
             for name in ('Sub.Nav.TButton','Selected.Sub.Nav.TButton'):
                 style.configure(name,font=font,padding=(26,1 if compact else 4))
-            # 项目动作与全局控件同高：横向沿用侧栏紧凑内边距，纵向取 4px 刻度。
+            # 项目动作与全局控件同高（36px）：横向沿用侧栏紧凑内边距，纵向取控件标准内边距；
+            # 只有矮窗口（compact）才收到 4px 刻度，把空间让给导航行。
             style.configure('ProjectAction.TButton',font=font,
-                            padding=(DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs']))
+                            padding=(DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs'] if compact else CONTROL_PADDING_Y))
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         # 由可用像素反算最大整行数；不以 Treeview 上一次请求高度作为下一次预算。
         gap=DESKTOP_LAYOUT['row_gap']*2
@@ -298,7 +309,7 @@ class LayoutMixin:
             return 'break'
         if widget.winfo_toplevel()!=self.win:return
         if self._inside_path(widget,getattr(self,'sidebar_viewport',self.sidebar)):
-            if steps and not self.native_wheel(widget):self.sidebar_canvas.yview_scroll(steps,'units')
+            if steps and not self.native_wheel(widget):eased_scroll(self.sidebar_canvas,steps)
             return 'break'
         if not steps:return 'break'
         # This bindtag runs before native widget bindings, so one wheel event
@@ -310,7 +321,7 @@ class LayoutMixin:
                     widget.yview_scroll(steps,'units');self.clear_hover(widget);return 'break'
             widget=getattr(widget,'master',self.win)
             if widget is None:break
-        self.canvas.yview_scroll(steps,'units')
+        eased_scroll(self.canvas,steps)
         return 'break'
     def _page_scroll_target(self,widget=None):
         focus=self.win.focus_get() if widget is None else widget

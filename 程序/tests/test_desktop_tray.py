@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """桌面系统托盘（最小化到托盘 + 右键菜单）冒烟。"""
+import os
 import subprocess
 import sys
 import textwrap
@@ -9,7 +10,7 @@ from pathlib import Path
 
 from skip_reasons import PLATFORM_WINDOWS_ONLY
 
-from desktop_tray import APP_ICON, LAUNCHER, PYTHONW, TrayIcon, force_restart
+from desktop_tray import APP_ICON, LAUNCHER, PYTHONW, SUPPRESS_TRAY_ENV, TrayIcon, force_restart
 
 
 class TrayIconTests(unittest.TestCase):
@@ -178,9 +179,10 @@ class TrayMinimizeCycleTests(unittest.TestCase):
         if sys.platform != 'win32':
             self.skipTest(PLATFORM_WINDOWS_ONLY)
         program = Path(__file__).resolve().parents[1]
+        env = {key: value for key, value in os.environ.items() if key != SUPPRESS_TRAY_ENV}
         result = subprocess.run(
             [sys.executable, '-I', '-c', _CYCLE_SCRIPT, str(program)],
-            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60,
+            env=env, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60,
         )
         self.assertEqual(result.returncode, 0, result.stderr[-2000:])
         self.assertIn('STATES=withdrawn,normal,withdrawn,normal,withdrawn,normal', result.stdout)

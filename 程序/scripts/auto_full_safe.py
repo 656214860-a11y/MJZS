@@ -39,6 +39,9 @@ MAX_WAIT_SECONDS = 60 * 60
 POLL_SECONDS = 60
 WAITER_LOCK_NAME = "auto-full-waiter.lock"
 STALE_SECONDS = 3 * 3600       # 全量最长按小时计；超过即视为崩溃遗留的锁
+# 红后冷却：上次后台全量是真红（非「环境不允许」）时，同一 HEAD 不再重跑（内容没变，结果必同）；
+# 换了 HEAD 也要等这么久才自动补跑，给修复留时间。门禁已因欠账报红（required）时才越过冷却。
+RED_COOLDOWN_SECONDS = 4 * 3600
 # 「环境不允许派生工作进程」的可靠特征：沙箱会话里提交时，钩子继承了同一限制，
 # 全量会在 78 秒左右崩在进程池上。这类失败不是测试红，不能记成「未通过」。
 BLOCKED_MARKERS = ('BrokenProcessPool', 'process pool is not usable',
@@ -55,19 +58,44 @@ def repo_root() -> Path:
     return Path(_git("rev-parse", "--show-toplevel"))
 
 
+def red_cooldown(result: dict, head: str, now: float) -> str:
+    """红后冷却（纯函数）：返回 ``'head'``（同 HEAD 已红）、``'time'``（冷却期内）或空串（不冷却）。
+
+    只认真红：通过（0）、环境受阻（BLOCKED_CODE）、没跑过都不冷却。"""
+    code = result.get("returncode")
+    if not result or code in (0, BLOCKED_CODE) or not isinstance(code, int):
+        return ""
+    if head and result.get("head") == head:
+        return "head"
+    try:
+        finished = time.mktime(time.strptime(str(result.get("finished_at", "")), "%Y-%m-%dT%H:%M:%S"))
+    except (ValueError, OverflowError):
+        return ""
+    return "time" if 0 <= now - finished < RED_COOLDOWN_SECONDS else ""
+
+
 def status() -> dict:
     document = run_selftests.load_layer_document()
     last_full = int(document.get("last_full_safe_all_round", 0))
     latest = run_selftests.latest_completed_round()
     counted = run_selftests.source_rounds_since(last_full, latest)
     master = run_selftests.is_master_checkout()
+    required = run_selftests.full_safe_required(
+        latest, last_full, master, counted, run_selftests.risk_overdue_since(last_full, latest))
+    try:
+        head = _git("rev-parse", "HEAD")
+    except (OSError, subprocess.SubprocessError):
+        head = ""
+    cooling = red_cooldown(last_result(), head, time.time())
+    if required and cooling == "time":
+        cooling = ""
     return {
         "last_full": last_full, "latest": latest, "master": master,
         "source_rounds": counted,
         "gate_at": run_selftests.FULL_SAFE_ROUND_INTERVAL,
-        "auto_due": run_selftests.full_safe_auto_due(latest, last_full, master),
-        "required": run_selftests.full_safe_required(
-            latest, last_full, master, counted, run_selftests.risk_overdue_since(last_full, latest)),
+        "cooling": cooling,
+        "auto_due": not cooling and run_selftests.full_safe_auto_due(latest, last_full, master),
+        "required": required,
     }
 
 
@@ -394,7 +422,8 @@ def main(argv=None) -> int:
             return 0
     info = status()
     print("上次全量 R%(last_full)d；最新 R%(latest)d；其间改过源码的轮次 %(source_rounds)s"
-          "（门禁线 %(gate_at)d）；主干 %(master)s；后台触发 %(auto_due)s" % info)
+          "（门禁线 %(gate_at)d）；主干 %(master)s；后台触发 %(auto_due)s"
+          "；红后冷却 %(cooling)s" % dict(info, cooling=info.get("cooling") or "无"))
     print(failure_notice() or "上次后台全量：通过或尚未运行")
     return 0
 

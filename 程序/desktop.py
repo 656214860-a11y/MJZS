@@ -40,6 +40,7 @@ from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomatio
 from idea_chat_controller import IdeaChatController, speaker_name
 from ui_tokens import COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 from ui_dialogs import FileDialog
+from ui_motion import Spinner, bind_row_hover
 from ui_shortcuts import ShortcutRegistry
 from ui_widgets import (SelectBox, BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, TreeRowTooltip, EllipsisLabel, ask_confirmation, ask_string, setup_styles)
@@ -166,22 +167,23 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.settings_gear_position=(0,0)
         self.list=ttk.Treeview(side,show='tree',height=3,selectmode='browse',style='Project.Treeview');self.list.column('#0',width=136,minwidth=96,stretch=True);self.list.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         self.list.bind('<<TreeviewSelect>>',self.switch);self.list.bind('<Button-3>',self.project_menu)
+        bind_row_hover(self.list)
         self.project_tip=TreeRowTooltip(self.list,lambda item:self.list.item(item,'text'))
         self.project_buttons=(self.button(side,'+ 新建项目',self.new),self.button(side,'打开项目目录',self.open_current_project))
         for button in self.project_buttons:button.configure(style='ProjectAction.TButton')
-        ttk.Separator(side).pack(fill='x',pady=SPACING['sm'])
+        ttk.Separator(side).pack(fill='x',pady=DESKTOP_LAYOUT['section_gap'])
         self.nav=[]
         self.asset_list_button=None
         for i,title in enumerate(PAGES):
             # 第 48 期第 3 条：点「10 视频生成」的入口逻辑——本次启动第一次点先摆「选择生成方式」
             # 那一屏；之后（用户已经选过线上或线下）再点就直接回他选的那一侧，不再反复拦在选择页上。
             # 页内切分镜、刷新列表仍直接调 show()。
-            b=SecondaryButton(side,text=title,command=lambda n=i:self.go_page(n),style='Nav.TButton');b.pack(anchor='w',fill='x',pady=2);self.nav.append(b)
+            b=SecondaryButton(side,text=title,command=lambda n=i:self.go_page(n),style='Nav.TButton');b.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']));self.nav.append(b)
             if i==PAGE['assets']:
                 # 第 71 期任务 2：「05 资产管理」下面挂一级缩进的二级入口「资产清单」——
                 # 一页看完每个角色的正典板与换状态面板（见 asset_detail.show_roster）。
                 sub=SecondaryButton(side,text='资产清单',command=lambda:self.safe(self.open_asset_roster),style='Sub.Nav.TButton')
-                sub.pack(anchor='w',fill='x',pady=(0,2))
+                sub.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
                 self.asset_list_button=sub
         # 侧栏内容按自然高度依次 pack；超出视口的部分由外层 ScrollForm 滚动。
         self.sidebar_size=None
@@ -229,7 +231,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         # 最小化恢复时 Windows 可能先交付一枚滚轮事件，随后才派发画布的新尺寸。
         # 重新映射后沿用既有的合并空闲布局，确保滚动区域已按恢复后的可视高度计算。
         win.bind('<Map>',self.on_window_map,add='+')
-        self.progress=ttk.Progressbar(self.body,mode='determinate');self.progress.pack(fill='x',pady=(8,0))
+        self.progress=ttk.Progressbar(self.body,mode='determinate');self.progress.pack(fill='x',pady=(SPACING['sm'],SPACING['none']))
         # 全部阶段只保留一条绿色信息栏：操作说明与动态状态汇总在这里。
         self.status=tk.StringVar(value='就绪 · 所有项目共用一份程序')
         self.notifier=NotificationDispatcher(self.status, parent=win)
@@ -246,7 +248,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         pet_ui.watch_status(self,self.pet)
         self.status_label=ttk.Label(self.body,textvariable=self.banner_status,
                                     style='PaleGreenHint.TLabel',wraplength=700)
-        self.status_label.pack(fill='x',pady=(4,6))
+        self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+        # 忙碌时在状态栏右端转一个小圆圈（BusyState 起停）；平时不占位。
+        self.busy_state.spinner=Spinner(self.body,host=self.status_label)
         self._install_status_styles();self.status.trace_add('write',self.sync_status_style);self.sync_status_style()
         self.sizegrip=ttk.Sizegrip(win);self.sizegrip.place(relx=1.0,rely=1.0,anchor='se')
         # Timed callbacks cannot run inside the placement code's update_idletasks.
@@ -1112,7 +1116,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         if index==PAGE['video']:
             self.progress.pack_forget();self.status_label.pack_forget()
         else:
-            self.progress.pack(fill='x',pady=(8,0));self.status_label.pack(fill='x',pady=6)
+            self.progress.pack(fill='x',pady=(SPACING['sm'],SPACING['none']));self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
         if index==PAGE['video']:
             prefs_path=self.root/'ui_settings.json' if self.root else None
             prefs=_prefs(prefs_path)

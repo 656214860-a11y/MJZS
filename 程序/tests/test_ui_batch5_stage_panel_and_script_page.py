@@ -162,7 +162,7 @@ class ScriptPageLayoutTests(unittest.TestCase):
         self.assertEqual(actions.winfo_width(), source.winfo_width(),
                          '中间动作栏与卡片同宽')
         info = desktop.script_structure_info_label
-        self.assertEqual(str(info.cget('justify')), 'right')
+        self.assertEqual(str(info.cget('justify')), 'left')
         self.assertLessEqual(info.winfo_rootx() + info.winfo_width(),
                              source.winfo_rootx() + source.winfo_width() + 1,
                              '说明文字不得越出卡片右沿')

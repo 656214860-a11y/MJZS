@@ -2,6 +2,7 @@
 import app_logging
 import tkinter as tk
 from tkinter import ttk, TclError
+from ui_scroll import eased_scroll
 
 # 第 47 期第 1 条：内容框的「选中」统一口径（勾选／高亮）见下面 work_rows 那一组。
 _growables=[]
@@ -734,7 +735,7 @@ class ScrollForm:
 
     def wheel(self, event):
         steps = max(1, abs(event.delta) // 120)
-        self.canvas.yview_scroll(-steps if event.delta > 0 else steps, 'units')
+        eased_scroll(self.canvas, -steps if event.delta > 0 else steps)
         return 'break'
 
     def bind_wheel(self, widget=None):

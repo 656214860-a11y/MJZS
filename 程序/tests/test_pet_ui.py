@@ -4009,7 +4009,7 @@ class ReplyBoxTests(PetTestCase):
         try:
             ui_theme.apply(other)
             style = ttk.Style(other)
-            self.assertEqual(str(style.configure('Send.TButton', 'background')), ui_theme.ACCENT)
+            self.assertEqual(str(style.configure('Send.TButton', 'fill')), ui_theme.ACCENT)
             self.assertEqual(other.winfo_rgb(str(style.configure('Send.TButton','foreground'))), other.winfo_rgb('white'))
         finally:
             other.destroy()
