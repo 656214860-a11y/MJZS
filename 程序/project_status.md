@@ -42,7 +42,7 @@ R1610：结构治理轮·只读诊断。按规范/静态检查、接口契约、
 
 旧文首检查点已保留至.agent-handoff/history/r1606-handoff-before/project_status.md。R1606已合入主干，主干最新报告为1606，轮次头已改1607。
 
-更新：2026-10-22｜当前轮次：1843（R1842 剧本结构页同源去重、厂商命名、编辑／后退／恢复＋自动保存；R1838 提交后的后台全量改在隐藏桌面跑、不再弹窗；R1837 撤销派发规则，改为 Claude Code 自己完成全部任务、Tk 测试强制走隐藏桌面；R1826 三虎主动提问精简为一句（≤60 字）、问了没人理就翻倍退让、宽松认答、挂着的问题交给路由、云朵回答 ≤80 字；R1805 资产清单发布包内容没变就不再落盘（最重用例发布 9.9→0.9 秒，落盘 397→4 次）；R1800 收口 R1786 的 3 个全量红（空态文案“您”、按钮填充色测试读 fill）；R1796 恢复被 R1788 误删的 set_auto_submit（全自动模式按拼接名取用）；R1794 收口 R1786 遗留的 4 条架构门禁红（skip 原因常量＋覆盖率基线 294 模块）；R1788 清除全仓零引用死代码 −244 行；R1781 修后台全量红后反复重跑＝修 5 个红＋auto_full_safe 红后冷却；本批全量未跑，历史凭据仍 R1734；R1775 修托盘闪退：托盘改挂独立线程的隐藏原生窗口，不再子类化 Tk 主窗，点击入队后由 Tk 定时器分发；R1773 引入的 4 条架构门禁红同轮收口；更早各轮见 tasks_round/ 结果文件与 git log）
+更新：2026-10-22｜当前轮次：1848（R1847 补记分支 claude/project-handoff-f6eb50 的轮次记录；R1846 合并重构批次 A+B+C+D（R1776–R1845：嵌套与超长函数登记表清零、差分测试先行）；R1844 恢复 Splash；R1842 剧本结构页同源去重、厂商命名、编辑／后退／恢复＋自动保存；R1838 提交后的后台全量改在隐藏桌面跑、不再弹窗；R1837 撤销派发规则，改为 Claude Code 自己完成全部任务、Tk 测试强制走隐藏桌面；R1826 三虎主动提问精简为一句（≤60 字）、问了没人理就翻倍退让、宽松认答、挂着的问题交给路由、云朵回答 ≤80 字；R1805 资产清单发布包内容没变就不再落盘（最重用例发布 9.9→0.9 秒，落盘 397→4 次）；R1800 收口 R1786 的 3 个全量红（空态文案“您”、按钮填充色测试读 fill）；R1796 恢复被 R1788 误删的 set_auto_submit（全自动模式按拼接名取用）；R1794 收口 R1786 遗留的 4 条架构门禁红（skip 原因常量＋覆盖率基线 294 模块）；R1788 清除全仓零引用死代码 −244 行；R1781 修后台全量红后反复重跑＝修 5 个红＋auto_full_safe 红后冷却；本批全量未跑，历史凭据仍 R1734；R1775 修托盘闪退：托盘改挂独立线程的隐藏原生窗口，不再子类化 Tk 主窗，点击入队后由 Tk 定时器分发；R1773 引入的 4 条架构门禁红同轮收口；更早各轮见 tasks_round/ 结果文件与 git log）
 
 历史验收记录：更新：2026-10-10｜当前轮次：1223（R1222 文档收尾，R1219 修复阶段旧路径阻断，实现 7faa7ae。干净 master f40beb4 安全全量 --jobs 4：4304/4304、347.409 秒，含架构 311/311；前两次并发保存失败及定向复验详见 tasks_round/tasks_round_1219_result.md。正式全量 R1219，未重启或实发 API。）
 阅读索引：[当前待办](#已知阻塞与待办)｜[验证基线](#验证基线)｜[优化队列](维护记录/优化待办队列.md)｜[R504 历史快照](#r504-阻塞归类与整改路线)。带 R 编号的历史条目仅证明对应轮次；当前范围、未验收条件与后续顺序以当前待办及队列为准。
@@ -368,6 +368,88 @@ R504 当时的整改顺序为：P0 密钥迁移 → P1 Responses 协议 → P2 �
 
 Round 390 及更早的逐轮完成记录已原文迁至 [状态历史归档](维护记录/状态历史归档.md)；当前最新完成项与验证结果见文首轮次头、[验证基线](#验证基线)及[优化队列](维护记录/优化待办队列.md)。
 
+
+R1846：把重构批次 A+B+C+D 分支 claude/project-handoff-f6eb50 合并到 master，修复集成冲突（desktop_script_pages 移植 R1842 编辑控件、Splash 取 R1793 版、PetVoiceMixin 回到类上限、新模块登记与覆盖率基线刷新）。见 tasks_round/tasks_round_1846_result.md。
+
+R1845：（分支 claude/project-handoff-f6eb50，R1846 合入）同步改写成类后漏掉的 4 处源码查找测试（修复轮）
+
+R1843：（分支 claude/project-handoff-f6eb50，R1846 合入）修复改写成类引入的架构测试回归（修复轮）
+
+R1841：（分支 claude/project-handoff-f6eb50，R1846 合入）keyframe_comfy.show 改写成类（差分测试先行，整理轮）
+
+R1840：（分支 claude/project-handoff-f6eb50，R1846 合入）desktop_idea_chat.open_flow_agent 改写成类（差分测试先行，整理轮）
+
+R1836：（分支 claude/project-handoff-f6eb50，R1846 合入）local_previs.show 改写成类（差分测试先行，整理轮）
+
+R1834：（分支 claude/project-handoff-f6eb50，R1846 合入）asset_batch.show 改写成类（差分测试先行，整理轮）
+
+R1833：（分支 claude/project-handoff-f6eb50，R1846 合入）ui_theme.install_window_placement 提出模块级辅助函数（差分测试先行，整理轮）
+
+R1832：（分支 claude/project-handoff-f6eb50，R1846 合入）desktop_script_pages.content_box 改写成类（差分测试先行，整理轮）
+
+R1831：（分支 claude/project-handoff-f6eb50，R1846 合入）desktop_idea_chat.send_message 拆出回复回调（差分测试先行，整理轮）
+
+R1830：（分支 claude/project-handoff-f6eb50，R1846 合入）cloud_video.settings_window 改写成类（差分测试先行，整理轮）
+
+R1828：（分支 claude/project-handoff-f6eb50，R1846 合入）reference_wall.show 改写成类（差分测试先行，整理轮）
+
+R1827：（分支 claude/project-handoff-f6eb50，R1846 合入）native_assets.attach_controls 改写成类（差分测试先行，整理轮）
+
+R1825：（分支 claude/project-handoff-f6eb50，R1846 合入）压平 run_background 的嵌套（差分测试先行，整理轮）
+
+R1824：（分支 claude/project-handoff-f6eb50，R1846 合入）压平 run_batch 的嵌套（差分测试先行，整理轮）
+
+R1823：（分支 claude/project-handoff-f6eb50，R1846 合入）压平 App.tick 的嵌套（差分测试先行，整理轮）
+
+R1822：（分支 claude/project-handoff-f6eb50，R1846 合入）压平 _tick_async_result 的嵌套（差分测试先行，整理轮）
+
+R1821：（分支 claude/project-handoff-f6eb50，R1846 合入）压平 storage_summary 的嵌套（差分测试先行，整理轮）
+
+R1820：（分支 claude/project-handoff-f6eb50，R1846 合入）压平 flourish 与 open_cell 的嵌套（差分测试先行，整理轮）
+
+R1819：（分支 claude/project-handoff-f6eb50，R1846 合入）补三虎重试退避、参数修正与动画开关的边界测试（整理轮）
+
+R1818：（分支 claude/project-handoff-f6eb50，R1846 合入）补 _preparation_step 差分测试，并用参数对象和抽函数把它压到上限内（整理轮）
+
+R1817：（分支 claude/project-handoff-f6eb50，R1846 合入）补剧本准备页差分测试，并把 writing 改写成类（整理轮）
+
+R1816：（分支 claude/project-handoff-f6eb50，R1846 合入）补资产页与剧本结构页差分测试，并把 assets／script_structure 改写成类（整理轮）
+
+R1814：（分支 claude/project-handoff-f6eb50，R1846 合入）补首帧管理页差分测试，并把 storyboard 改写成类（整理轮）
+
+R1813：（分支 claude/project-handoff-f6eb50，R1846 合入）补整页控件树差分测试，并把 show_final／show 改写成类（整理轮）
+
+R1812：（分支 claude/project-handoff-f6eb50，R1846 合入）补 open_manager 的 Tk 差分测试并把它改写成类（整理轮）
+
+R1811：（分支 claude/project-handoff-f6eb50，R1846 合入）压平 engine_probe.main 与 iter_script_documents（差分测试先行，整理轮）
+
+R1810：（分支 claude/project-handoff-f6eb50，R1846 合入）补 source_protection 差分测试并压平它（整理轮）
+
+R1809：（分支 claude/project-handoff-f6eb50，R1846 合入）切 Desktop.show 的换页前置段为 _show_reset_page（整理轮）
+
+R1808：（分支 claude/project-handoff-f6eb50，R1846 合入）切 Desktop.__init__ 为窗口／侧栏与主体两段，并修托盘失败分支测试的环境红（整理轮）
+
+R1807：（分支 claude/project-handoff-f6eb50，R1846 合入）切 App.__init__ 为 7 个 _build_* 方法，并补回 Splash 漏掉的 APP_NAME 导入（整理轮）
+
+R1806：（分支 claude/project-handoff-f6eb50，R1846 合入）拆 IdeaChatMixin 的气泡方法集到 desktop_idea_bubbles（整理轮）
+
+R1804：（分支 claude/project-handoff-f6eb50，R1846 合入）拆 pet_cloud.Cloud 的定位几何方法集到 pet_cloud_place（整理轮）
+
+R1803：（分支 claude/project-handoff-f6eb50，R1846 合入）压平 model_router.chat 与 _read_xlsx（等价测试先行，整理轮）
+
+R1802：（分支 claude/project-handoff-f6eb50，R1846 合入）压平 5 个深嵌套函数（等价测试先行）并修复 R1801 合并遗留的冲突标记（整理轮）
+
+R1783：（分支 claude/project-handoff-f6eb50，R1846 合入）架构棘轮补强——复杂度/动态 import/布局数字冻结，基线按实测收紧，并记录审计结论（整理轮）
+
+R1782：（分支 claude/project-handoff-f6eb50，R1846 合入）重复代码合并——阶段槽位参数、缓存读取、空格勾选、阶段顶栏、DPAPI 实现各归一处（整理轮）
+
+R1779：（分支 claude/project-handoff-f6eb50，R1846 合入）剧本准备四类文件合并成一张整宽表，左侧阶段导航去掉滚动条（优化轮）
+
+R1778：（分支 claude/project-handoff-f6eb50，R1846 合入）审计健壮性整改——线程必回送结果、子进程不遗留、发布清理不误报、错误体脱敏、读取上限（修复轮）
+
+R1777：（分支 claude/project-handoff-f6eb50，R1846 合入）启动画面 step 改 update_idletasks 防吞帧，并记录各段耗时到诊断（优化轮）
+
+R1776：（分支 claude/project-handoff-f6eb50，R1846 合入）托盘窗口类名按实例唯一、回调由托盘线程持有到收摊，修测试进程池 0xC000041D 中断（修复轮）
 
 R1609：新增 usage_overview.estimate_scenario，按场景用量乘费率，缺费率／币种／版本时不给金额也不补零；场景矩阵与公式见 维护记录/成本估算与场景矩阵_20261016.md。
 
