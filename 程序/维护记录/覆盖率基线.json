@@ -386,13 +386,13 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 315,
+   "total": 333,
    "percent": 0.0
   },
   {
    "module": "desktop_layout_resize.py",
    "covered": 0,
-   "total": 187,
+   "total": 189,
    "percent": 0.0
   },
   {
@@ -422,7 +422,7 @@
   {
    "module": "desktop_project_pages.py",
    "covered": 0,
-   "total": 454,
+   "total": 456,
    "percent": 0.0
   },
   {
@@ -764,7 +764,7 @@
   {
    "module": "pet_cloud_timing.py",
    "covered": 0,
-   "total": 192,
+   "total": 193,
    "percent": 0.0
   },
   {
@@ -812,7 +812,7 @@
   {
    "module": "pet_ui.py",
    "covered": 0,
-   "total": 458,
+   "total": 459,
    "percent": 0.0
   },
   {
@@ -830,7 +830,7 @@
   {
    "module": "pet_ui_support.py",
    "covered": 0,
-   "total": 380,
+   "total": 385,
    "percent": 0.0
   },
   {
@@ -1070,7 +1070,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 1060,
+   "total": 840,
    "percent": 0.0
   },
   {
@@ -1083,6 +1083,12 @@
    "module": "skill_panel_support.py",
    "covered": 0,
    "total": 479,
+   "percent": 0.0
+  },
+  {
+   "module": "skill_panel_workflow.py",
+   "covered": 0,
+   "total": 247,
    "percent": 0.0
   },
   {
@@ -1298,7 +1304,7 @@
   {
    "module": "ui_hover_fade.py",
    "covered": 0,
-   "total": 113,
+   "total": 115,
    "percent": 0.0
   },
   {
@@ -1310,7 +1316,7 @@
   {
    "module": "ui_motion.py",
    "covered": 0,
-   "total": 126,
+   "total": 147,
    "percent": 0.0
   },
   {
@@ -1346,7 +1352,7 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 123,
+   "total": 124,
    "percent": 0.0
   },
   {
@@ -1807,5 +1813,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 299
+ "modules_total": 300
 }

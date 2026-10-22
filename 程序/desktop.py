@@ -285,8 +285,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         protect_readonly_combobox(win);protect_tk_gc(win)
         win.bind_class('DramaPageWheel','<MouseWheel>',self.scroll_page)
         win.bind_all('<MouseWheel>',self.scroll_page,add='+')
-        for key in ('<Prior>','<Next>','<Home>','<End>'):win.bind(key,self.scroll_page_key,add='+')
-        for key in ['<Control-Key-%d>'%n for n in range(10)]+['<Control-Prior>','<Control-Next>']:win.bind(key,self.page_shortcut,add='+')
+        for key,cb in [(k,self.scroll_page_key) for k in ('<Prior>','<Next>','<Home>','<End>')]+[(k,self.page_shortcut) for k in ['<Control-Key-%d>'%n for n in range(10)]+['<Control-Prior>','<Control-Next>']]:win.bind(key,cb,add='+')
         # 最小化恢复时 Windows 可能先交付一枚滚轮事件，随后才派发画布的新尺寸。
         # 重新映射后沿用既有的合并空闲布局，确保滚动区域已按恢复后的可视高度计算。
         win.bind('<Map>',self.on_window_map,add='+')
