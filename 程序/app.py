@@ -395,10 +395,21 @@ class App:
                          borderwidth=0,highlightthickness=0,padx=SPACING['sm'],pady=SPACING['xs'],yscrollcommand=log_scroll.set)
         self.log.pack(side='left',fill='both',expand=True);log_scroll.configure(command=self.log.yview)
 
-    def update_prompt_controls(self):
+    def update_prompt_controls(self,periodic=False):
         selected=self.tree.selection()
         locked=bool(selected) and prompt_locked(self,selected[0])
         optimizing=getattr(self,'optimizer_busy',False)
+        busy = getattr(self, 'busy', False)
+        checked_any = any(self.edit_checks.get(sid, False) for sid in self.tree.get_children())
+        play_ready = False
+        if self.play_button is not None and selected:
+            versions = self.studio.state()['shots'].get(selected[0], [])
+            files = [v for v in versions if v.get('file')]
+            play_ready = bool(files and (self.root / files[-1]['file']).is_file())
+        # 每秒都会进来：输入没变（含控件个数，页面重建时会变）就不再逐个改控件状态。
+        signature=(tuple(selected),locked,optimizing,busy,checked_any,play_ready,len(self.window.winfo_children()))
+        if periodic and signature==getattr(self,'_prompt_controls_signature',None):return
+        self._prompt_controls_signature=signature
         for button in self.prompt_buttons:button.state(['disabled'] if locked or optimizing else ['!disabled'])
         if hasattr(self,'agent_selector'):self.agent_selector.state(['disabled'] if locked or optimizing else ['!disabled'])
         self.prompt.configure(state='disabled' if locked or optimizing else 'normal')
@@ -411,19 +422,12 @@ class App:
         def action_state(button, enabled):
             if button is not None:
                 button.state(['!disabled'] if enabled else ['disabled'])
-        busy = getattr(self, 'busy', False)
         action_state(self.generate_button, bool(selected) and not busy and not optimizing)
-        checked_any = any(self.edit_checks.get(sid, False) for sid in self.tree.get_children())
         # 第 47 期第 1 条：批量那两颗按钮的可用状态跟 generate_checked／delete_checked_shots
         # 用同一个口径（勾选优先、高亮兜底），不然会出现「按钮是灰的但其实点了也能做」的错配。
         work_ready = bool(checked_any or self.tree.selection())
         action_state(self.generate_checked_button, work_ready and not busy and not optimizing)
         action_state(getattr(self, 'delete_checked_button', None), work_ready and not busy)
-        play_ready = False
-        if self.play_button is not None and selected:
-            versions = self.studio.state()['shots'].get(selected[0], [])
-            files = [v for v in versions if v.get('file')]
-            play_ready = bool(files and (self.root / files[-1]['file']).is_file())
         action_state(self.play_button, play_ready and not busy)
 
     # 第 48 期第 4 条：「手动提示词」下面那块提示词框按内容多少自适应高度。
@@ -839,8 +843,9 @@ class App:
         local,cloud=shared_video_snapshot(project,self.studio.episode_path)
         now=time.time()
         for sid in self.tree.get_children():
-            self.tree.set(sid,'local_progress',progress_display(local.get(sid),now))
-            self.tree.set(sid,'cloud_progress',progress_display(cloud.get(sid),now))
+            for column,rows in (('local_progress',local),('cloud_progress',cloud)):
+                text=progress_display(rows.get(sid),now)
+                if self.tree.set(sid,column)!=text:self.tree.set(sid,column,text)
         # 第 38 期第 1 条：本地工作台只报本地进度，线上工作台只报线上进度。
         self.shared_progress.set(progress_summary(local,cloud,'local' if isinstance(self.studio,LocalStudio) else 'cloud'))
 
@@ -1407,7 +1412,7 @@ class App:
             if time.monotonic()>=self.next_ui_update:
                 self.next_ui_update=time.monotonic()+1
                 try:
-                    self.update_prompt_controls()
+                    self.update_prompt_controls(periodic=True)
                     if self.window.winfo_ismapped():
                         self.update_progress();self.refresh_shared_progress()
                 except (tk.TclError,ValueError,OSError):pass

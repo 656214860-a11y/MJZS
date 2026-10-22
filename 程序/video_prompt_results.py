@@ -87,7 +87,8 @@ class PromptResults:
         if not force and now < self.next_poll: return
         self.next_poll = now + 1.2
         if app.busy or getattr(app, 'optimizer_busy', False): return
-        episode = read(app.studio.episode_path)
+        from video_progress import cached_json
+        episode = cached_json(app.studio.episode_path, read)
         for shot in episode['shots']:
             sid = shot['id']; path = app.studio.media_dir/'video_prompts'/(sid+'.json')
             if not path.is_file(): continue
