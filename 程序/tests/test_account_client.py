@@ -247,6 +247,22 @@ class AccountClientTests(unittest.TestCase):
             self.assertIsInstance(result, UserError)
             self.assertEqual(result.reason, account_client.MESSAGES[code])
 
+    def test_p2_endpoints_methods_paths_and_auth(self):
+        """P2：设备、注销、导出的方法与路径；撤销注销不带 Bearer（会话已全部吊销）。"""
+        cases = ((account_client.devices, ('L',), 'GET', '/v1/devices', None),
+                 (account_client.delete_code, ('L',), 'POST', '/v1/account/delete-code', {}),
+                 (account_client.delete_request, ('L', '123456'), 'POST', '/v1/account/delete-request', {'code': '123456'}),
+                 (account_client.delete_cancel, ('a@b.c', '654321'), 'POST', '/v1/account/delete-cancel',
+                  {'email': 'a@b.c', 'code': '654321'}),
+                 (account_client.export, ('L',), 'GET', '/v1/account/export', None))
+        for fn, args, method, path, body in cases:
+            fake, calls = self.opener({'ok': True})
+            self.assertTrue(fn(*args, opener=fake).ok)
+            url, kw = calls[0]
+            self.assertEqual((url, kw['method']), (account_client.BASE_URL + path, method))
+            self.assertEqual(None if kw['data'] is None else json.loads(kw['data']), body)
+            self.assertEqual('Authorization' in kw['headers'], fn is not account_client.delete_cancel)
+
     def test_network_failure_is_system_error(self):
         result = account_client.meta(opener=self.opener(urllib.error.URLError('down'))[0])
         self.assertIsInstance(result, SystemError)
@@ -393,6 +409,98 @@ class AccountControllerTests(unittest.TestCase):
         ctl.logout()
         account_store.save_session({'lease': old}, self.store.path)
         self.assertEqual(ctl.entitlement().state, ent.CLOCK_SUSPECT)
+
+    # ---- P2：设备、注销、导出 ----
+    def test_devices_and_unbind_other_keeps_session(self):
+        old = self._signed_in()
+        listing = {'devices': [{'id': 'd1', 'current': True}, {'id': 'd2', 'current': False}], 'unbind_left': 2, 'max': 3}
+        client = _Client(devices=success(listing), unbind_device=success({'ok': True, 'unbind_left': 1}))
+        ctl = self.controller(client)
+        self.assertTrue(ctl.devices(self.results.append))
+        self.assertEqual(self.results[-1].data, listing)
+        self.assertTrue(ctl.unbind('d2', self.results.append))
+        self.assertTrue(self.results[-1].ok)
+        self.assertEqual(client.calls, [('devices', (old,)), ('unbind_device', (old, 'd2'))])
+        self.assertEqual(ctl.session()['lease'], old)
+
+    def test_unbind_current_device_clears_session(self):
+        self._signed_in()
+        ctl = self.controller(_Client(unbind_device=success({'ok': True})))
+        ctl.unbind('d1', self.results.append, current=True)
+        self.assertTrue(self.results[-1].ok)
+        self.assertNotIn('refresh_token', ctl.session())
+        self.assertEqual(ctl.entitlement().state, ent.SIGNED_OUT)
+
+    def test_unbind_quota_exceeded_keeps_session(self):
+        old = self._signed_in()
+        ctl = self.controller(_Client(unbind_device=UserError('x', data={'code': 'unbind_quota_exceeded', 'retry_after': 60})))
+        ctl.unbind('d1', self.results.append, current=True)
+        self.assertEqual(self.results[-1].data['code'], 'unbind_quota_exceeded')
+        self.assertEqual(ctl.session()['lease'], old)
+
+    def test_lease_calls_renew_once_on_stale_lease(self):
+        self._signed_in()
+        fresh = sign(payload(nonce='f'))
+        client = _Client(devices=[UserError('x', data={'code': 'session_invalid'}), success({'devices': []})],
+                         renew=success({'refresh_token': 'r2', 'lease': fresh, 'server_time': NOW}))
+        ctl = self.controller(client)
+        ctl.devices(self.results.append)
+        self.assertTrue(self.results[-1].ok)
+        self.assertEqual([c[0] for c in client.calls], ['devices', 'renew', 'devices'])
+        self.assertEqual(client.calls[2][1], (fresh,))
+
+    def test_lease_calls_need_session(self):
+        ctl = self.controller(_Client())
+        for start in (lambda: ctl.devices(self.results.append), lambda: ctl.unbind('d', self.results.append),
+                      lambda: ctl.request_delete_code(self.results.append),
+                      lambda: ctl.request_deletion('1', self.results.append),
+                      lambda: ctl.export(Path(self.temp.name) / 'x.json', self.results.append)):
+            self.assertFalse(start())
+        self.assertEqual(self.results, [])
+
+    def test_delete_request_clears_session_and_failure_keeps_it(self):
+        old = self._signed_in()
+        ctl = self.controller(_Client(delete_code=success({'ok': True}),
+                                      delete_request=[UserError('x', data={'code': 'code_invalid'}),
+                                                      success({'ok': True, 'deletion_at': NOW + 7 * 86400})]))
+        ctl.request_delete_code(self.results.append)
+        self.assertTrue(self.results[-1].ok)
+        ctl.request_deletion(' 123456 ', self.results.append)
+        self.assertFalse(self.results[-1].ok)
+        self.assertEqual(ctl.session()['lease'], old)
+        ctl.request_deletion('123456', self.results.append)
+        self.assertEqual(self.results[-1].data['deletion_at'], NOW + 7 * 86400)
+        self.assertNotIn('lease', ctl.session())
+        self.assertEqual(ctl._client.calls[1], ('delete_request', (old, '123456')))
+
+    def test_cancel_deletion_uses_email_and_login_code_without_lease(self):
+        client = _Client(delete_cancel=success({'ok': True}))
+        ctl = self.controller(client)
+        ctl.cancel_deletion(' a@b.c ', ' 654321 ', self.results.append)
+        self.assertTrue(self.results[-1].ok)
+        self.assertEqual(client.calls, [('delete_cancel', ('a@b.c', '654321'))])
+
+    def test_export_writes_chosen_file_with_redemptions(self):
+        self._signed_in()
+        data = {'account': {'id': 'u1'}, 'redemptions': [{'plan': 'monthly', 'days': 30, 'redeemed_at': NOW}]}
+        target = Path(self.temp.name) / '导出' / 'account.json'
+        ctl = self.controller(_Client(export=success(data)))
+        self.assertTrue(ctl.export(target, self.results.append))
+        self.assertEqual(self.results[-1].data, {'path': str(target)})
+        self.assertEqual(json.loads(target.read_text(encoding='utf-8')), data)
+
+    def test_export_failure_writes_nothing(self):
+        self._signed_in()
+        target = Path(self.temp.name) / 'account.json'
+        ctl = self.controller(_Client(export=SystemError('x', data={'code': 'network'})))
+        ctl.export(target, self.results.append)
+        self.assertEqual(self.results[-1].data['code'], 'network')
+        self.assertFalse(target.exists())
+        blocked = Path(self.temp.name) / 'file'
+        blocked.write_text('x', encoding='utf-8')
+        ctl = self.controller(_Client(export=success({'redemptions': []})))
+        ctl.export(blocked / 'sub.json', self.results.append)
+        self.assertEqual(self.results[-1].data['code'], 'write_failed')
 
 
 class _Desktop:

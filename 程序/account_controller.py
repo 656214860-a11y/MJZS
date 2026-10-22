@@ -1,4 +1,4 @@
-"""L3 账号编排：登录、续签、退出与阶段闸门的状态机，不持有 Tk 控件。
+"""L3 账号编排：登录、续签、退出、兑换、设备、注销、导出与阶段闸门，不持有 Tk 控件。
 
 网络与落盘都在 ``submit`` 注入的后台任务里执行（桌面传入 ``Desktop.async_queued``，
 经 ``BackgroundTaskLifecycle`` 收尾）；完成回调由 UI 线程调用。闸门判定只读本机
@@ -6,10 +6,12 @@
 """
 import platform
 import time
+from pathlib import Path
 
 import account_client
 import account_store
 import entitlement_service
+from agent.core import save
 from service_contract import SystemError, success
 
 RENEW_INTERVAL = 12 * 3600
@@ -81,30 +83,86 @@ class AccountController:
         return True
 
     def redeem(self, code, done):
-        """用本机租约兑换；租约已过期（401）时先续签一次再重试。无会话返回 False。"""
+        """用本机租约兑换；成功后服务端返回的新租约替换本机租约。无会话返回 False。"""
+        code = str(code or '').strip()
+
+        def accept(result):
+            return self._accept(result.data, rotate=False) if result.ok else result
+        return self._lease_call(lambda lease: self._client.redeem(lease, code), done, '兑换会员', then=accept)
+
+    def devices(self, done):
+        """已绑定设备列表（含 ``current``、``unbind_left``、``next_unbind_at``）。无会话返回 False。"""
+        return self._lease_call(self._client.devices, done, '读取设备列表')
+
+    def unbind(self, device_id, done, *, current=False):
+        """解绑一台设备；解绑的是本机时服务端已吊销本机会话，这里同步清掉本机会话。"""
+        device_id = str(device_id or '').strip()
+
+        def cleared(result):
+            if result.ok and current:
+                self._store.clear_session()
+            return result
+        return self._lease_call(lambda lease: self._client.unbind_device(lease, device_id), done, '解绑设备', then=cleared)
+
+    def request_delete_code(self, done):
+        """向账号邮箱发注销用途验证码（与登录码分开，登录码不能确认注销）。"""
+        return self._lease_call(self._client.delete_code, done, '发送注销验证码')
+
+    def request_deletion(self, code, done):
+        """凭注销验证码进入 7 天冷静期；服务端吊销全部会话，成功后清本机会话。"""
+        code = str(code or '').strip()
+
+        def cleared(result):
+            if result.ok:
+                self._store.clear_session()
+            return result
+        return self._lease_call(lambda lease: self._client.delete_request(lease, code), done, '申请注销账号', then=cleared)
+
+    def cancel_deletion(self, email, code, done):
+        """冷静期内凭登录验证码撤销注销（会话已全部吊销，不带租约）；撤销后须重新登录。"""
+        email, code = str(email or '').strip(), str(code or '').strip()
+        self._submit(lambda: self._client.delete_cancel(email, code), done, '撤销注销')
+
+    def export(self, target, done):
+        """导出账号数据 JSON 到用户选定的 ``target``；内容只写这个文件，不进日志。"""
+        target = Path(target)
+
+        def written(result):
+            if not result.ok:
+                return result
+            try:
+                save(target, result.data)
+            except OSError as exc:
+                return SystemError('导出文件写不进去：%s' % exc, data={'code': 'write_failed'})
+            return success({'path': str(target)})
+        return self._lease_call(self._client.export, done, '导出账号数据', then=written)
+
+    def _lease_call(self, call, done, label, *, then=None):
+        """后台用本机租约调 ``call(lease)``；无租约返回 False，否则提交并返回 True。
+
+        租约已过期（401 ``session_invalid``）时先续签一次再重试；续签判定会话已死则清本机
+        会话。``then`` 在后台线程收尾结果（落盘等），一律返回结果、不抛异常。
+        """
         data = self.session()
         lease, token = data.get('lease'), data.get('refresh_token')
         if not lease:
             return False
-        code, device_id = str(code or '').strip(), self.device_id
+        device_id = self.device_id
 
         def work():
-            result = self._client.redeem(lease, code)
-            if result.ok:
-                return self._accept(result.data, rotate=False)
-            if (result.data or {}).get('code') != 'session_invalid' or not token:
-                return result
-            renewed = self._client.renew(token, device_id)
-            if not renewed.ok:
-                if (renewed.data or {}).get('code') in SESSION_DEAD:
-                    self._store.clear_session()
-                return renewed
-            accepted = self._accept(renewed.data)
-            if not accepted.ok:
-                return accepted
-            result = self._client.redeem(renewed.data['lease'], code)
-            return self._accept(result.data, rotate=False) if result.ok else result
-        self._submit(work, done, '兑换会员')
+            result = call(lease)
+            if not result.ok and (result.data or {}).get('code') == 'session_invalid' and token:
+                renewed = self._client.renew(token, device_id)
+                if not renewed.ok:
+                    if (renewed.data or {}).get('code') in SESSION_DEAD:
+                        self._store.clear_session()
+                    return renewed
+                accepted = self._accept(renewed.data)
+                if not accepted.ok:
+                    return accepted
+                result = call(renewed.data['lease'])
+            return then(result) if then else result
+        self._submit(work, done, label)
         return True
 
     def renew_due(self):

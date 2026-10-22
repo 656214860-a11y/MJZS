@@ -1,4 +1,4 @@
-"""「00 会员账户」页：邮箱验证码登录、授权状态与退出（L4，只放 Tk 控件与事件绑定）。
+"""「00 会员账户」页：邮箱验证码登录、授权状态、退出、兑换、设备解绑、注销与撤销、数据导出（L4，只放 Tk 控件与事件绑定）。
 
 状态机、网络与落盘都在 L3 ``account_controller.AccountController``；本 Mixin 只注入
 后台提交回调（``async_queued`` 经 ``BackgroundTaskLifecycle``）并把结果画到页面上。
@@ -12,7 +12,7 @@ import entitlement_service
 from account_controller import AccountController
 from desktop_page_registry import PAGE_ACCOUNT
 from ui_tokens import FONTS, SPACING, TEXT_DESC
-from ui_widgets import Card, LineInput, PrimaryButton, SecondaryButton
+from ui_widgets import Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation
 
 RENEW_DELAY_MS = 3000
 RENEW_CHECK_MS = 30 * 60 * 1000
@@ -25,6 +25,7 @@ STATE_TEXT = {
 }
 PLAN_TEXT = {'trial': '免费试用', 'monthly': '月度会员', 'quarterly': '季度会员', 'yearly': '年度会员'}
 REDEEM_MAX_LENGTH = 40
+EXPORT_NAME = '漫剧助手账号数据_%Y%m%d.json'
 
 
 def plan_text(payload):
@@ -36,6 +37,13 @@ def plan_text(payload):
 
 def _when(stamp):
     return time.strftime('%Y-%m-%d %H:%M', time.localtime(int(stamp))) if stamp else '—'
+
+
+def device_text(device):
+    """设备行文字：名称（系统）、本机标记、首次与最近使用时间。"""
+    mark = ' · 本机' if device.get('current') else ''
+    return '%s（%s）%s  首次 %s · 最近 %s' % (device.get('name') or '—', device.get('os') or '—', mark,
+                                         _when(device.get('first_seen')), _when(device.get('last_seen')))
 
 
 class AccountPageMixin:
@@ -98,6 +106,117 @@ class AccountPageMixin:
         PrimaryButton(actions,text='立即续签',command=renew).pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         SecondaryButton(actions,text='退出登录',command=logout).pack(side='left')
         self._account_redeem_form()
+        self._account_devices_card()
+        self._account_export_card()
+        self._account_delete_card()
+
+    def _account_confirm(self, title, message):
+        return ask_confirmation(self.win, title, message, dangerous=True)
+
+    def _account_export_path(self):
+        return self.file_dialog.save_file(title='导出账号数据', defaultextension='.json',
+                                          initialfile=time.strftime(EXPORT_NAME), filetypes=[('JSON','*.json')])
+
+    def _account_devices_card(self):
+        """已绑定设备：按需联网读取（不在每次画页时请求），可解绑；解绑本机即退出登录。"""
+        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
+        ttk.Label(card,text='已绑定设备（每个账号最多 3 台，30 天内最多解绑 2 次）').pack(anchor='w',pady=SPACING['xs'])
+        rows = ttk.Frame(card);rows.pack(fill='x')
+        message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
+        message.pack(anchor='w',pady=SPACING['xs'])
+        def listed(result):
+            if not message.winfo_exists():return
+            button.state(['!disabled'])
+            if result.ok:self._account_device_rows(rows,message,result.data or {},load)
+            else:message.configure(text=result.reason)
+        def load():
+            button.state(['disabled']);message.configure(text='正在读取设备列表…')
+            if not self.account.devices(listed):
+                button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
+        button = SecondaryButton(card,text='查看已绑定设备',command=load);button.pack(anchor='w',pady=SPACING['xs'])
+        self.account_devices_button,self.account_devices_rows,self.account_devices_message = button,rows,message
+
+    def _account_device_rows(self, rows, message, data, reload):
+        for child in rows.winfo_children():child.destroy()
+        devices = data.get('devices') or []
+        left = int(data.get('unbind_left') or 0)
+        summary = '已绑 %d/%s 台，30 天内还可解绑 %d 次'%(len(devices),data.get('max') or 3,left)
+        if not left and data.get('next_unbind_at'):summary += '（%s 起可再解绑）'%_when(data.get('next_unbind_at'))
+        message.configure(text=summary)
+        for device in devices:
+            row = ttk.Frame(rows);row.pack(fill='x',pady=SPACING['xs'])
+            ttk.Label(row,text=device_text(device)).pack(side='left')
+            unbind = SecondaryButton(row,text='解绑',command=lambda d=device:self._account_unbind(d,message,reload))
+            unbind.pack(side='right')
+            if not left:unbind.state(['disabled'])
+
+    def _account_unbind(self, device, message, reload):
+        current = bool(device.get('current'))
+        warning = '解绑本机后会退出登录，需要重新登录。' if current else '解绑后那台电脑的登录立即失效。'
+        if not self._account_confirm('解绑设备','确定解绑「%s」？%s'%(device.get('name') or '—',warning)):return
+        def unbound(result):
+            if not message.winfo_exists():return
+            if not result.ok:message.configure(text=result.reason);return
+            if current:self.show(PAGE_ACCOUNT);self.status.set('已解绑本机并退出登录');return
+            self.status.set('已解绑设备');reload()
+        message.configure(text='正在解绑…')
+        if not self.account.unbind(device.get('id'),unbound,current=current):message.configure(text='本机没有登录会话，请重新登录')
+
+    def _account_export_card(self):
+        """导出账号数据（账号、同意记录、设备、会员与兑换记录）到用户选定的 JSON 文件。"""
+        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
+        ttk.Label(card,text='导出账号数据（账号、同意记录、设备、会员与兑换记录；不含项目和素材）').pack(anchor='w',pady=SPACING['xs'])
+        message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
+        def exported(result):
+            if not message.winfo_exists():return
+            button.state(['!disabled'])
+            message.configure(text='已导出到 '+result.data['path'] if result.ok else result.reason)
+        def export():
+            target = self._account_export_path()
+            if not target:return
+            button.state(['disabled']);message.configure(text='正在导出…')
+            if not self.account.export(target,exported):
+                button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
+        button = SecondaryButton(card,text='导出账号数据',command=export);button.pack(anchor='w',pady=SPACING['xs'])
+        message.pack(anchor='w',pady=SPACING['xs'])
+        self.account_export_button,self.account_export_message = button,message
+
+    def _account_delete_card(self):
+        """注销：先发注销用途验证码，凭码进入 7 天冷静期；成功后本机退出登录。"""
+        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
+        ttk.Label(card,text='注销账号：进入 7 天冷静期，期间可在登录页用登录验证码撤销；到期后删除账号数据。本机项目和素材不受影响。',
+                  wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=SPACING['xs'])
+        code = LineInput(card,placeholder='6 位注销验证码');code.pack(fill='x',pady=SPACING['xs'])
+        message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
+        actions = ttk.Frame(card)
+        def sent(result):
+            if not message.winfo_exists():return
+            send.state(['!disabled'])
+            if result.ok:confirm.state(['!disabled']);message.configure(text='注销验证码已发送到账号邮箱')
+            else:message.configure(text=result.reason)
+        def send_code():
+            send.state(['disabled']);message.configure(text='正在发送注销验证码…')
+            if not self.account.request_delete_code(sent):
+                send.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
+        def requested(result):
+            if not message.winfo_exists():return
+            confirm.state(['!disabled'])
+            if not result.ok:message.configure(text=result.reason);return
+            self.show(PAGE_ACCOUNT);self.status.set('已申请注销，冷静期至 %s；期间可在登录页撤销'%_when((result.data or {}).get('deletion_at')))
+        def submit():
+            if not code.get().strip():
+                code.set_error('请填写注销验证码');return
+            code.clear_error()
+            if not self._account_confirm('注销账号','确定注销？7 天冷静期内可以撤销，到期后账号数据会被删除。'):return
+            confirm.state(['disabled']);message.configure(text='正在申请注销…')
+            if not self.account.request_deletion(code.get(),requested):
+                confirm.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
+        send = SecondaryButton(actions,text='发送注销验证码',command=send_code);send.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
+        confirm = PrimaryButton(actions,text='确认注销',style='Tokens.Danger.TButton',command=submit);confirm.pack(side='left')
+        confirm.state(['disabled'])              # 先发注销验证码，确认按钮才可用
+        actions.pack(anchor='w',pady=SPACING['xs']);message.pack(anchor='w',pady=SPACING['xs'])
+        self.account_delete_code_input,self.account_delete_send_button = code,send
+        self.account_delete_button,self.account_delete_message = confirm,message
 
     def _account_redeem_form(self):
         """兑换码开通或续期会员；成功后服务端返回的新租约直接替换本机租约。"""
@@ -150,7 +269,19 @@ class AccountPageMixin:
             login.state(['!disabled'])
             if result.ok:
                 self.show(PAGE_ACCOUNT);self.status.set('登录成功')
-            else:message.configure(text=result.reason)
+            else:
+                pending = (result.data or {}).get('code') == 'account_pending_deletion'
+                message.configure(text=result.reason+('。被拦下的验证码仍有效，可点「撤销注销」。' if pending else ''))
+                if pending:cancel.pack(side='left',padx=(SPACING['sm'],SPACING['none']))
+        def cancelled(result):
+            if not alive():return
+            cancel.state(['!disabled'])
+            if not result.ok:message.configure(text=result.reason);return
+            cancel.pack_forget();code.delete(0,'end')
+            message.configure(text='已撤销注销，请重新发送验证码登录')
+        def cancel_deletion():
+            cancel.state(['disabled']);message.configure(text='正在撤销注销…')
+            self.account.cancel_deletion(email.get(),code.get(),cancelled)
         def submit():
             if not code.get().strip():
                 code.set_error('请填写验证码');return
@@ -159,5 +290,7 @@ class AccountPageMixin:
         send = SecondaryButton(actions,text='发送验证码',command=send_code);send.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         login = PrimaryButton(actions,text='登录',command=submit);login.pack(side='left')
         login.state(['disabled'])                # 先发验证码，登录按钮才可用
+        cancel = SecondaryButton(actions,text='撤销注销',command=cancel_deletion)   # 冷静期内登录被拦时才显示
+        self.account_cancel_deletion_button = cancel
         self.account_email_input,self.account_code_input,self.account_login_button = email,code,login
         self.account_send_button,self.account_message = send,message

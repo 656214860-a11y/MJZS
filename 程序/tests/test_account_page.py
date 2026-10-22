@@ -118,6 +118,119 @@ class AccountPageTests(unittest.TestCase):
         self.assertEqual(d.account_message.cget('text'),'验证码不正确或已过期')
         self.assertIn('当前状态：未登录',_texts(d.content))
 
+    # ---- P2：设备、注销、导出 ----
+    def signed_in(self,client):
+        store=self.use(client)
+        import account_store
+        account_store.save_session({'email':'a@b.c','refresh_token':'r','lease':sign(payload()),'server_time':NOW},store.path)
+        self.addCleanup(account_store.clear_session,store.path)   # 会话文件各用例共用，留着会污染未登录用例
+        d=self.desktop
+        d._account_confirm=lambda title,message:True
+        self.addCleanup(d.__dict__.pop,'_account_confirm',None)
+        d.go_page(PAGE_ACCOUNT);self.pump()
+        return store
+
+    def test_devices_list_and_unbind(self):
+        d=self.desktop
+        listing=lambda left:success({'devices':[{'id':'d1','name':'本机','os':'Windows 11','current':True},
+                                                {'id':'d2','name':'笔记本','os':'Windows 10','current':False}],
+                                     'max':3,'unbind_left':left,'next_unbind_at':None if left else NOW+86400})
+        client=_Client(devices=[listing(2),listing(1)],unbind_device=success({'ok':True,'unbind_left':1}))
+        self.signed_in(client)
+        d.account_devices_button.invoke();self.pump()
+        texts=_texts(d.account_devices_rows)
+        self.assertTrue(any('本机（Windows 11） · 本机' in t for t in texts))
+        self.assertIn('还可解绑 2 次',d.account_devices_message.cget('text'))
+        unbind=[w for w in _walk(d.account_devices_rows) if _safe_text(w)=='解绑']
+        self.assertEqual(len(unbind),2)
+        unbind[1].invoke();self.pump()
+        self.assertEqual([c[0] for c in client.calls],['devices','unbind_device','devices'])
+        self.assertEqual(client.calls[1][1][1],'d2')
+        self.assertIn('当前状态：授权有效',_texts(d.content))
+        self.assertIn('还可解绑 1 次',d.account_devices_message.cget('text'))
+
+    def test_unbind_current_device_signs_out(self):
+        d=self.desktop
+        client=_Client(devices=success({'devices':[{'id':'d1','name':'本机','current':True}],'max':3,'unbind_left':1}),
+                       unbind_device=success({'ok':True}))
+        self.signed_in(client)
+        d.account_devices_button.invoke();self.pump()
+        [w for w in _walk(d.account_devices_rows) if _safe_text(w)=='解绑'][0].invoke();self.pump()
+        self.assertIn('当前状态：未登录',_texts(d.content))
+        self.assertIn('已解绑本机',d.status.get())
+
+    def test_unbind_quota_disables_buttons(self):
+        d=self.desktop
+        self.signed_in(_Client(devices=success({'devices':[{'id':'d2','name':'笔记本'}],'max':3,'unbind_left':0,
+                                                'next_unbind_at':NOW+86400})))
+        d.account_devices_button.invoke();self.pump()
+        button=[w for w in _walk(d.account_devices_rows) if _safe_text(w)=='解绑'][0]
+        self.assertIn('disabled',button.state())
+        self.assertIn('起可再解绑',d.account_devices_message.cget('text'))
+
+    def test_delete_request_flow(self):
+        d=self.desktop
+        client=_Client(delete_code=success({'ok':True}),delete_request=success({'ok':True,'deletion_at':NOW+7*86400}))
+        self.signed_in(client)
+        self.assertIn('disabled',d.account_delete_button.state())
+        d.account_delete_send_button.invoke();self.pump()
+        self.assertNotIn('disabled',d.account_delete_button.state())
+        d.account_delete_button.invoke();self.pump()
+        self.assertTrue(d.account_delete_code_input.error_message)
+        d.account_delete_code_input.insert(0,'123456');d.account_delete_button.invoke();self.pump()
+        self.assertEqual([c[0] for c in client.calls],['delete_code','delete_request'])
+        self.assertIn('当前状态：未登录',_texts(d.content))
+        self.assertIn('已申请注销',d.status.get())
+
+    def test_delete_request_cancelled_by_confirm(self):
+        d=self.desktop
+        client=_Client(delete_code=success({'ok':True}))
+        self.signed_in(client)
+        d._account_confirm=lambda title,message:False
+        d.account_delete_send_button.invoke();self.pump()
+        d.account_delete_code_input.insert(0,'123456');d.account_delete_button.invoke();self.pump()
+        self.assertEqual([c[0] for c in client.calls],['delete_code'])
+        self.assertIn('当前状态：授权有效',_texts(d.content))
+
+    def test_export_writes_chosen_file(self):
+        d=self.desktop
+        data={'account':{'id':'u1'},'redemptions':[{'plan':'monthly','days':30,'redeemed_at':NOW}]}
+        self.signed_in(_Client(export=success(data)))
+        target=Path(self.temp.name)/'export'/'account.json'
+        d._account_export_path=lambda:''
+        self.addCleanup(d.__dict__.pop,'_account_export_path',None)
+        d.account_export_button.invoke();self.pump()
+        self.assertFalse(target.exists())                     # 取消选择不导出
+        d._account_export_path=lambda:str(target)
+        d.account_export_button.invoke();self.pump()
+        import json
+        self.assertEqual(json.loads(target.read_text(encoding='utf-8')),data)
+        self.assertIn(str(target),d.account_export_message.cget('text'))
+
+    def test_pending_deletion_login_offers_cancel(self):
+        d=self.desktop
+        from service_contract import UserError
+        client=_Client(send_code=success({'ok':True}),
+                       verify_code=UserError('账号正在注销冷静期，登录前需要先撤销注销',data={'code':'account_pending_deletion'}),
+                       delete_cancel=success({'ok':True}))
+        self.use(client)
+        d.go_page(PAGE_ACCOUNT);self.pump()
+        self.assertFalse(d.account_cancel_deletion_button.winfo_ismapped())
+        d.account_email_input.insert(0,'a@b.c');d.account_send_button.invoke();self.pump()
+        d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
+        self.assertTrue(d.account_cancel_deletion_button.winfo_ismapped())
+        self.assertIn('撤销注销',d.account_message.cget('text'))
+        d.account_cancel_deletion_button.invoke();self.pump()
+        self.assertEqual(client.calls[-1],('delete_cancel',('a@b.c','123456')))
+        self.assertIn('已撤销注销',d.account_message.cget('text'))
+        self.assertFalse(d.account_cancel_deletion_button.winfo_ismapped())
+
+
+def _walk(widget):
+    for child in widget.winfo_children():
+        yield child
+        yield from _walk(child)
+
 
 def _safe_text(widget):
     try:return str(widget.cget('text'))
