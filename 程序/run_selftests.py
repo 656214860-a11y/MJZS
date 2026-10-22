@@ -201,7 +201,8 @@ def git_common_dir():
         return ''
     if not path:
         return ''
-    return path if os.path.isabs(path) else os.path.abspath(os.path.join(HERE, path))
+    # abspath 统一斜杠：git 给 D:/…，mkstemp 给 D:\…，队列按字符串比对队首。
+    return os.path.abspath(path if os.path.isabs(path) else os.path.join(HERE, path))
 
 
 def cache_path():
@@ -364,7 +365,7 @@ def release_pid_lock(path):
 
 
 def _gui_queue_dir(common_dir):
-    queue = os.path.join(common_dir, GUI_QUEUE_NAME)
+    queue = os.path.abspath(os.path.join(common_dir, GUI_QUEUE_NAME))
     os.makedirs(queue, exist_ok=True)
     return queue
 
