@@ -4897,7 +4897,7 @@ class EngineNameFallbackTests(unittest.TestCase):
     def test_the_page_asks_the_module_level_helper(self):
         source = (Path(PROGRAM) / "local_previs.py").read_text(encoding="utf-8")
         self.assertIn("def engine_name(project):", source, "取名字的容错逻辑要在模块级，自检才喂得进坏模块")
-        self.assertIn("previs_engine=engine_name(project)", source)
+        self.assertIn("previs_engine=engine_name(self.project)", source)  # R1836：show 改写成类
 
 
 
