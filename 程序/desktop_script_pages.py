@@ -139,7 +139,9 @@ def _install_script_edit_controls(page, controls, box):
 
     def sync_buttons():
         if editing['value']:
-            edit_button.state(['disabled'])
+            # 编辑态下「编辑」变成「退出」，未改动也能直接离开编辑（用户 R1864 要求）。
+            edit_button.configure(text='退出')
+            edit_button.state(['!disabled'])
             back_button.state(['!disabled'] if controller.can_undo else ['disabled'])
             restore_button.state(['!disabled'])
             save_button.state(['!disabled'] if controller.dirty else ['disabled'])
@@ -148,6 +150,38 @@ def _install_script_edit_controls(page, controls, box):
             back_button.state(['disabled'])
             restore_button.state(['disabled'])
             save_button.state(['disabled'])
+            edit_button.configure(text='编辑')
+        if delete_button is not None:
+            can_delete = not editing['value'] and active['path'] is not None
+            delete_button.state(['!disabled'] if can_delete else ['disabled'])
+
+    def toggle_edit():
+        if editing['value']:
+            exit_edit()
+        else:
+            begin_edit()
+
+    def exit_edit():
+        if controller.dirty and not page_confirm(page.win, '退出编辑', '有未保存的修改，退出将放弃这些修改。确定退出吗？'):
+            return
+        editing['value'] = False
+        suppress['value'] = True
+        try:
+            box.set_preview(loaded['raw'])
+        finally:
+            suppress['value'] = False
+        sync_buttons()
+        page.status.set('已退出' + title + '编辑。')
+
+    def delete_document():
+        if editing['value']:
+            raise ValueError('请先退出编辑，再删除。')
+        if active['path'] is None:
+            raise ValueError('当前没有可删除的' + title + '。')
+        name = Path(active['path']).name
+        if not page_confirm(page.win, '删除' + title, '将「' + name + '」移入项目回收站，确定删除吗？', dangerous=True):
+            return
+        box.delete_document()
 
     def begin_edit():
         if not editable or active['path'] is None:
@@ -199,7 +233,9 @@ def _install_script_edit_controls(page, controls, box):
         except tk.TclError as exc:
             raise ValueError('没有可恢复的删除内容。') from exc
 
-    edit_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='编辑', command=lambda: page.safe(begin_edit))
+    from desktop_page_support import confirm as page_confirm
+    delete_button = None
+    edit_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='编辑', command=lambda: page.safe(toggle_edit))
     edit_button.pack(side='left')
     back_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='后退', command=lambda: page.safe(back))
     back_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); back_button.state(['disabled'])
@@ -208,6 +244,11 @@ def _install_script_edit_controls(page, controls, box):
     save_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='保存', command=lambda: page.safe(save))
     save_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); save_button.state(['disabled'])
     setattr(page, attribute + '_save_button', save_button)
+    if kind == 'structured':
+        delete_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='删除', command=lambda: page.safe(delete_document))
+        delete_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"]))
+        setattr(page, attribute + '_delete_button', delete_button)
+        sync_buttons()
     setattr(page, attribute + '_edit_button', edit_button)
     setattr(page, attribute + '_back_button', back_button)
     setattr(page, attribute + '_restore_button', restore_button)
