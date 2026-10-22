@@ -393,10 +393,13 @@ class AccountControllerTests(unittest.TestCase):
         self.assertNotIn('lease', ctl.session())
         self.assertFalse(ctl.redeem('C', self.results.append))
 
-    def test_switch_off_only_evaluates_without_blocking(self):
-        """正式服上线前总开关默认关闭：判定照常，但不拦截付费阶段。"""
-        self.assertFalse(ent.GATE_ENFORCED)
-        ctl = account_controller.AccountController(submit=None, clock=lambda: NOW, store=self.store, client=_Client())
+    def test_switch_on_by_default_and_off_only_evaluates(self):
+        """总开关默认开启（R1913 契约变更）；显式关闭时判定照常，但不拦截付费阶段。"""
+        self.assertTrue(ent.GATE_ENFORCED)
+        self.assertTrue(account_controller.AccountController(
+            submit=None, clock=lambda: NOW, store=self.store, client=_Client()).enforce)
+        ctl = account_controller.AccountController(
+            submit=None, clock=lambda: NOW, store=self.store, client=_Client(), enforce=False)
         self.assertFalse(ctl.enforce)
         self.assertEqual(ctl.entitlement().state, ent.SIGNED_OUT)
         self.assertEqual(ctl.stage_gate(STAGES[2]), '')

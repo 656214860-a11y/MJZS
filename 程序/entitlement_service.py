@@ -24,8 +24,8 @@ USABLE = frozenset({VALID, GRACE})
 CLOCK_TOLERANCE = 300
 FREE_STAGES = tuple(STAGES[:2])
 PAID_STATES = frozenset({'trial', 'active'})
-# 总开关：测试服只有 IP 自签证书、未备案，正式服上线前闸门只判定不拦截；上线时改为 True。
-GATE_ENFORCED = False
+# 总开关：True 时付费阶段（前 2 个之外）在未登录、过期、时钟异常时拦截新生成；False 只判定不拦截。
+GATE_ENFORCED = True
 
 
 @dataclass(frozen=True)
