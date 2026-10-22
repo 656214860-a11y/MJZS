@@ -59,16 +59,16 @@ def confirm_project_removal_from_last_script(parent, files):
     names='\n'.join(str(name) for name in files)
     win=BaseDialog(parent, '危险操作：删除当前项目', modal=False, chrome=False)
     win.resizable(False,False)
-    border=tk.Frame(win,bg=COLORS['danger'],padx=2,pady=2);border.pack(fill='both',expand=True)
-    body=tk.Frame(border,bg=COLORS['danger_subtle'],padx=22,pady=18);body.pack(fill='both',expand=True)
+    border=tk.Frame(win,bg=COLORS['danger'],padx=SPACING['xs'],pady=SPACING['xs']);border.pack(fill='both',expand=True)
+    body=tk.Frame(border,bg=COLORS['danger_subtle'],padx=SPACING['xl'],pady=SPACING['lg']);body.pack(fill='both',expand=True)
     tk.Label(body,text='⚠ 将删除当前项目',bg=COLORS['danger_subtle'],fg=COLORS['danger_hover'],
              font=('Microsoft YaHei UI',15,'bold')).pack(anchor='w')
     tk.Label(body,text='这是最后一份剧本。继续后会将当前项目及其全部素材移入项目库回收站。',
              bg=COLORS['danger_subtle'],fg=COLORS['danger_text'],justify='left',wraplength=500,
-             font=('Microsoft YaHei UI',10)).pack(anchor='w',pady=(10,5))
+             font=FONTS['body']).pack(anchor='w',pady=(SPACING['sm'],SPACING['xs']))
     tk.Label(body,text=names,bg=COLORS['danger_subtle'],fg=COLORS['danger_text'],justify='left',wraplength=500).pack(anchor='w')
     result={'accepted':False}
-    buttons=tk.Frame(body,bg=COLORS['danger_subtle']);buttons.pack(anchor='e',fill='x',pady=(18,0))
+    buttons=tk.Frame(body,bg=COLORS['danger_subtle']);buttons.pack(anchor='e',fill='x',pady=(SPACING['lg'],0))
     def close(accepted=False):
         result['accepted']=accepted
         try:win.grab_release()
@@ -259,7 +259,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.app_title.bind('<Configure>',self.align_header,add='+')
         self.list.bind('<Configure>',self.schedule_sidebar_fit,add='+')
         self.title_row.bind('<Configure>',self.align_header,add='+')
-        self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(12,0))
+        self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(SPACING['md'],0))
         self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e');self.header_model.pack(side='bottom',fill='x')
         self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e',justify='right');self.header_status.pack(side='top',fill='x')
         # 第 30 期第 6／8 条：阶段配置那颗按钮从标题栏挪到「剧本准备」页的「创作入口」那一行，
@@ -325,7 +325,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         # 左上角只保留应用名；设置齿轮由 pet_ui 放在相邻的根层安全位。
         self.sidebar_head=ttk.Frame(side)
         self.app_title=ttk.Label(self.sidebar_head,text=APP_NAME,font=FONTS['heading_1'])
-        self.app_title.pack(side='left',pady=(2,4))
+        self.app_title.pack(side='left',pady=(SPACING['xs'],SPACING['xs']))
         self.sidebar_head.pack(fill='x',anchor='w')
         self.project_label=ttk.Label(side,text='我的项目')
         self.project_label.pack(anchor='w',pady=(DESKTOP_LAYOUT['row_gap'],SPACING['none']))
@@ -552,10 +552,10 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             b=button_type(parent,text=text,command=lambda:self.safe(action),
                          style='Primary.TButton' if stage_action else 'TButton',
                          width=STAGE_ACTION_WIDTH if stage_action else 0)
-            b.pack(side='left',padx=(0,6),pady=2)
+            b.pack(side='left',padx=(0,SPACING['sm']),pady=SPACING['xs'])
         else:
             b=SecondaryButton(parent,text=text,command=lambda:self.safe(action),style='Compact.TButton' if parent is self.sidebar else 'TButton')
-            b.pack(anchor='w',fill='x',pady=2 if parent is self.sidebar else 4)
+            b.pack(anchor='w',fill='x',pady=SPACING['xs'] if parent is self.sidebar else 4)
         if 'Agent' in text:
             b.bind('<Button-1>',lambda e,b=b,text=text:self._agent_disabled_hint(b,text,e),add='+')
         return b
@@ -1126,7 +1126,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             if prefs(self.root).get('adopted_storyboards')==[]:
                 message='请先在'+pet_bus.stage_step('storyboard')+'采用一份或多份分镜 JSON。'
                 # 不能只写到底部状态栏：视频工作台被阻止时，用户的视线仍在当前内容区。
-                ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'],pady=18)
+                ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['lg'])
                 self.note(message)
                 self.fit_content()
                 return
@@ -1140,7 +1140,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             # Windows 因而一直只能显示旧页。先摆出当前阶段的轻量壳，等一个
             # 确定的绘制时隙后才创建聊天、文件表和它们的绑定。
             target=self.root
-            ttk.Label(self.content,text='剧本准备',font=FONTS['heading_1']).pack(anchor='w',padx=SPACING['lg'],pady=(18,6))
+            ttk.Label(self.content,text='剧本准备',font=FONTS['heading_1']).pack(anchor='w',padx=SPACING['lg'],pady=(SPACING['lg'],SPACING['sm']))
             ttk.Label(self.content,text='正在打开剧本准备…',style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'])
             self.status.set('正在打开剧本准备…')
             self.fit_content()
@@ -1278,7 +1278,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         面板里那三块从界面上点不进去。按钮随页面重建一起销毁（见 show()）。
         """
         self.header_stage_button=ui_plugin_registry.module('skill_panel').stage_button(self.title_row,self,index)
-        self.header_stage_button.pack(side='left',padx=(12,0))
+        self.header_stage_button.pack(side='left',padx=(SPACING['md'],0))
         return self.header_stage_button
     def storyboard_creation(self):
         from storyboard_files import show

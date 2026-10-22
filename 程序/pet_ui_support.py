@@ -2,6 +2,7 @@
 
 从 ``pet_ui`` 模块级原样迁出（R1506）：被迁出的 Pet 方法用到的模块级名字都在这里，``pet_ui`` 重新导入，旧的 ``pet_ui.<名字>`` 引用不变。本模块不导入 ``pet_ui``，没有导入环。
 """
+from ui_tokens import PET_PALETTE
 import sys
 import pet_agent
 import pet_bus
@@ -14,12 +15,12 @@ SIZE = PET_LAYOUT['avatar_size']  # 显示与命中区域共用的贴片边长
 IDLE_MS = 500                    # 闲置 2fps
 ACTIVE_MS = 125                  # 忙时 8fps
 CANVAS_BG = COLORS['background_primary']
-SANHU_FUR = '#ff8a3d'             # 与桌面图标一致的虎皮橙：三虎不再因为模式切换失去识别度
-SANHU_EAR = '#ff9292'             # 桌面图标同款暖粉耳窝
-SANHU_MUZZLE = '#fff2d9'          # 桌面图标同款奶白口鼻
-SANHU_INK = '#1a1c2a'             # 厚而清晰的深蓝墨描边
-SANHU_STAR = '#22d3ee'            # 桌面图标右上角的青色星光
-SANHU_BLUSH = '#ff8d9b'           # Q 版头像的小腮红
+SANHU_FUR = PET_PALETTE['fur']             # 与桌面图标一致的虎皮橙：三虎不再因为模式切换失去识别度
+SANHU_EAR = PET_PALETTE['ear']             # 桌面图标同款暖粉耳窝
+SANHU_MUZZLE = PET_PALETTE['muzzle']          # 桌面图标同款奶白口鼻
+SANHU_INK = PET_PALETTE['ink']             # 厚而清晰的深蓝墨描边
+SANHU_STAR = PET_PALETTE['star']            # 桌面图标右上角的青色星光
+SANHU_BLUSH = PET_PALETTE['blush']           # Q 版头像的小腮红
 # 第 19 期：自动化等级搬到三虎身旁——三个猫爪按钮排成一排，点哪一档就切到哪一档。
 PAW_SIZE = PET_LAYOUT['paw_size']                  # 单个猫爪按钮的边长
 PAW_GAP = PET_LAYOUT['paw_gap']                    # 爪印之间的间距
@@ -54,8 +55,8 @@ class _BooleanFlag:
 
     def set(self, value):
         self.value = bool(value)
-PAW_IDLE = ('#e7edf5', '#a9b6c7')                 # 没选中的爪印：淡灰一只
-PAW_HOVER = ('#f4f9ff', '#6f8bab')                # 第 23 期：鼠标停在爪上时提亮一档（可点得可预期）
+PAW_IDLE = (PET_PALETTE['paw_idle_fill'], PET_PALETTE['paw_idle_line'])                 # 没选中的爪印：淡灰一只
+PAW_HOVER = (PET_PALETTE['paw_hover_fill'], PET_PALETTE['paw_hover_line'])                # 第 23 期：鼠标停在爪上时提亮一档（可点得可预期）
 PAW_GAP_Y = PET_LAYOUT['paw_gap_y']                 # 猫爪排紧贴头像下沿
 PAW_ARC = PET_LAYOUT['paw_arc']                     # 三只爪摆成一条向下的弧——
 # 切等级之后用圆形气泡说的那句话（用户第 19 期给的原话 ＋ 第 24 期第 4 条要的简单说明）。
@@ -70,7 +71,7 @@ LEVEL_SWITCH_NOTES = {
 CAPTION_RIGHT = PET_LAYOUT['caption_right']
 CAPTION_ROOM = PET_LAYOUT['caption_width']
 PATCH_X = -(CAPTION_RIGHT + CAPTION_ROOM + PET_LAYOUT['right_gap'])
-CAPTION_INK = '#000000'                           # 第 21 期：三档小字一律黑色（既有用例与用户要求都钉死这一色）
+CAPTION_INK = PET_PALETTE['caption_ink']                           # 第 21 期：三档小字一律黑色（既有用例与用户要求都钉死这一色）
 # PATCH_X 已含右侧状态字的占位；再向左让出头像／爪排宽度和标题间距即可。
 HEAD_PAD = -PATCH_X + max(SIZE, PAW_WIDTH) + PET_LAYOUT['header_gap']
 # 第 20 期：用户报「3 个猫爪型按钮被遮挡」——原来这排爪子的右沿只比贴片右沿往里 8 像素，
@@ -95,20 +96,20 @@ GEAR_TIP = '设置'
 # 配色归这里——四档心情与三档等级共用同一枚深墨描边（#101c2b 一系），色相一律压冷，
 # 冰白（ICE）只留给口鼻与眼里那一点高光。等级色仍是蓝／黄／红（用户第 20 期钉死的语义），
 # 只是把三档都往冷里压了一档，配上墨色描边看不出一点甜腻。
-ICE = '#eef5fc'                   # 冰白：口鼻底板与眼里那点高光
-INK_SOFT = '#3c526d'              # 浅一档的墨色：胡须用它，贴着深墨描边不抢脸
-TONGUE = '#c98ba4'                # 舔爪时露出的舌头：压过的冷玫瑰
-MOODS = {'idle': ('#7fb0dd', '#101c2b', '#0a1521'),
-         'busy': ('#d9a63c', '#2a1e05', '#1b1200'),
-         'worry': ('#d4645c', '#2d0d0a', '#1c0603'),
-         'paused': ('#c2c8d2', '#3a4048', '#20242a')}
+ICE = PET_PALETTE['ice']                   # 冰白：口鼻底板与眼里那点高光
+INK_SOFT = PET_PALETTE['ink_soft']              # 浅一档的墨色：胡须用它，贴着深墨描边不抢脸
+TONGUE = PET_PALETTE['tongue']                # 舔爪时露出的舌头：压过的冷玫瑰
+MOODS = {'idle': (PET_PALETTE['mood_idle'], PET_PALETTE['mood_idle_line'], PET_PALETTE['mood_idle_deep']),
+         'busy': (PET_PALETTE['mood_busy'], PET_PALETTE['mood_busy_line'], PET_PALETTE['mood_busy_deep']),
+         'worry': (PET_PALETTE['mood_worry'], PET_PALETTE['mood_worry_line'], PET_PALETTE['mood_worry_deep']),
+         'paused': (PET_PALETTE['mood_paused'], PET_PALETTE['mood_paused_line'], PET_PALETTE['mood_paused_deep'])}
 # 自动化等级 → 头像配色（身体色／描边色／高光色）。用户一眼就能从猫的颜色看出现在是哪一档。
 # 第 20 期：用户报「自动化级别显示错误」——那排猫爪按第 19 期的新配色填（正常蓝／半自动黄／全自动红），
 # 猫身子却还是第 15 期的旧配色（正常黄／半自动蓝／全自动红），同一档两个颜色（蓝爪配黄猫）。
 # 现在只留这一份：猫身子、那排猫爪、等级小字共用它；PAW_COLORS 就是它的前两项（填色／描边）。
-LEVEL_COLORS = {'hint': ('#6fb3e0', '#123a5e', '#08182a'),
-                'semi': ('#e0b13c', '#6b4a10', '#241703'),
-                'auto': ('#dd5f57', '#7c231e', '#2a0806')}
+LEVEL_COLORS = {'hint': (PET_PALETTE['level_hint'], PET_PALETTE['level_hint_line'], PET_PALETTE['level_hint_deep']),
+                'semi': (PET_PALETTE['level_semi'], PET_PALETTE['level_semi_line'], PET_PALETTE['level_semi_deep']),
+                'auto': (PET_PALETTE['level_auto'], PET_PALETTE['level_auto_line'], PET_PALETTE['level_auto_deep'])}
 PAW_COLORS = {level: colours[:2] for level, colours in LEVEL_COLORS.items()}
 # 第 18 期：等级不光靠颜色，标题行里还有一个字样（用户报「正常／半自动／全自动不显示了」）。
 # 第 21 期：字样按用户给的说法写——蓝色那只＝「只提醒」（用户原话：蓝爪→蓝猫→只提醒）。
@@ -300,6 +301,11 @@ class GearButton:
         self.canvas.bind('<Return>', self.click)
         self.canvas.bind('<Key-space>', self.click)
         self.draw()
+        # 齿轮只有图形没有字：悬停／键盘聚焦时用统一 Tooltip 说出「设置」（原来 tip_text 存了却没人显示）
+        self.tooltip = None
+        if self.tip_text:
+            from ui_widgets import Tooltip
+            self.tooltip = Tooltip(self.canvas, self.tip_text)
         return None
 
     def draw(self):
@@ -415,9 +421,9 @@ def paint(canvas, step=0, mood='idle', percent=0.0, level=None, pose='sit'):
     paused = str(mood) == 'paused'
     body = state_body if paused else SANHU_FUR
     outline = state_outline if paused else SANHU_INK
-    muzzle = '#e3e6eb' if paused else SANHU_MUZZLE
-    ear = '#c7cbd2' if paused else SANHU_EAR
-    blush = '#c0a8ac' if paused else SANHU_BLUSH
+    muzzle = PET_PALETTE['paused_muzzle'] if paused else SANHU_MUZZLE
+    ear = PET_PALETTE['paused_ear'] if paused else SANHU_EAR
+    blush = PET_PALETTE['paused_blush'] if paused else SANHU_BLUSH
     pose = str(pose or 'sit')
     ox = 0
     if pose == 'walk':
@@ -457,7 +463,7 @@ def paint(canvas, step=0, mood='idle', percent=0.0, level=None, pose='sit'):
             canvas.create_oval(cx - 4 + ox, 33 + oy, cx + 1 + ox, 38 + oy,
                                fill=ICE, outline='', tags='glint')
             canvas.create_oval(cx + 2 + ox, 39 + oy, cx + 5 + ox, 42 + oy,
-                               fill='#cfe7ff', outline='', tags='glint')
+                               fill=PET_PALETTE['glint'], outline='', tags='glint')
     # ⑤ 鼻子、笑嘴和腮红：不把动作表情画成黑洞，保持小尺寸里的亲和感。
     canvas.create_polygon(29 + ox, 46 + oy, 35 + ox, 46 + oy, 32 + ox, 50 + oy,
                           fill=outline, outline='', tags='nose')

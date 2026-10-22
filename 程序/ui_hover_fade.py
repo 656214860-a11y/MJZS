@@ -14,7 +14,8 @@ ttk 的 hover 是状态映射，一进 ``active`` 就瞬间换成悬停图。这
 """
 import tkinter as tk
 
-from ui_motion import blend
+
+from ui_motion import blend, reduce_motion
 from ui_rounded import button_specs, rounded_layout, rounded_photo
 from ui_tokens import BUTTON_RADIUS, HOVER_FADE_MS, HOVER_FADE_STEPS
 
@@ -61,6 +62,8 @@ class _Fade:
 
     def go(self, direction):
         widget = self.widget
+        if reduce_motion():
+            return                          # 减少动效：不走渐变，由 active 映射直接给出悬停色
         if direction > 0 and widget.instate(["disabled"]):
             return
         if self.job is not None:

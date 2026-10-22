@@ -380,18 +380,18 @@ def show(app,aid):
     asset=read(file)[aid]
 
     win=BaseDialog(app.win,'',modal=False,chrome=False);win.withdraw();win.title('参考图 + 提示词 · '+aid+' '+asset.get('name',aid));win.geometry('800x500');win.transient(app.win)
-    DescriptionBlock(win,text='参考图可选，可添加多张并指定用途；不添加时仅按提示词生成。支持 PNG／JPG／WebP。',wraplength=750).pack(anchor='w',padx=SPACING['md'],pady=10)
+    DescriptionBlock(win,text='参考图可选，可添加多张并指定用途；不添加时仅按提示词生成。支持 PNG／JPG／WebP。',wraplength=750).pack(anchor='w',padx=SPACING['md'],pady=SPACING['sm'])
     rolebar=FlowBar(win);rolebar.pack(fill='x',padx=SPACING['md'],pady=SPACING['xs'])
     ttk.Label(rolebar,text='参考用途').pack(side='left')
     choices=ROLE_GROUPS[aid.split('_')[0]]
     rolevar=tk.StringVar(value=choices[0])
-    SelectBox(rolebar,textvariable=rolevar,values=choices).pack(side='left',padx=6)
+    SelectBox(rolebar,textvariable=rolevar,values=choices).pack(side='left',padx=SPACING['sm'])
     def change_roles():
         nonlocal base,file
         guard();base=app.asset_write_base();file=base/'assets/资产清单/assets.json'
         set_roles(base,aid,selected_values(),rolevar.get());changed()
     SecondaryButton(rolebar,text='应用到选中参考图',command=lambda:app.safe(change_roles)).pack(side='left')
-    ttk.Label(rolebar,text='显示分类').pack(side='left',padx=(12,0))
+    ttk.Label(rolebar,text='显示分类').pack(side='left',padx=(SPACING['md'],0))
     filtervar=tk.StringVar(value='全部')
     filterbox=SelectBox(rolebar,textvariable=filtervar,values=('全部',*choices,'待分类'))
     filterbox.pack(side='left',padx=SPACING['xs'])
@@ -402,7 +402,7 @@ def show(app,aid):
     table.heading('role',text='参考用途');table.column('role',width=110,stretch=False)
     table.heading('file',text='已绑定参考图');table.column('file',width=600);table_shell.pack(fill='x',padx=SPACING['md'])
     auto_columns(table)
-    status=tk.StringVar();ProgressLabel(win,textvariable=status).pack(anchor='w',padx=SPACING['md'],pady=5)
+    status=tk.StringVar();ProgressLabel(win,textvariable=status).pack(anchor='w',padx=SPACING['md'],pady=SPACING['xs'])
 
     prompt=TextArea(win,height=9,wrap='word');prompt.insert('1.0',display_prompt(asset));prompt.configure(state='disabled');prompt.pack(fill='both',expand=True,padx=SPACING['md'])
 
@@ -456,7 +456,7 @@ def show(app,aid):
 
         guard();unbind(base,aid,selected_values());changed()
 
-    buttons=FlowBar(win);buttons.pack(fill='x',padx=SPACING['md'],pady=10)
+    buttons=FlowBar(win);buttons.pack(fill='x',padx=SPACING['md'],pady=SPACING['sm'])
 
     for label,fn,button_type in [('添加参考图',add,PrimaryButton),('查看参考图',preview,SecondaryButton),('移除绑定',remove,SecondaryButton),('打开待导入目录',lambda:open_path(inbox(base,CATEGORIES[aid.split('_')[0]])),SecondaryButton)]:
         button_type(buttons,text=label,command=lambda f=fn:app.safe(f)).pack(side='left')
@@ -482,13 +482,13 @@ def view_references(app, aid):
     asset=read(file)[aid];category=CATEGORIES.get(aid.split('_')[0],'未知')
     roles=ROLE_GROUPS.get(aid.split('_')[0],())
     win=BaseDialog(app.win,'',modal=False,chrome=False);win.withdraw();win.title(f'参考图 · {aid} {asset.get("name",aid)}');win.geometry('760x480');win.minsize(560,380);win.transient(app.win)
-    ttk.Label(win,text=f'编号：{aid}　类别：{category}　名称：{asset.get("name",aid)}',font=('Microsoft YaHei UI',11,'bold')).pack(anchor='w',padx=SPACING['md'],pady=(12,6))
-    bar=FlowBar(win);bar.pack(fill='x',padx=SPACING['md'],pady=(0,4))
+    ttk.Label(win,text=f'编号：{aid}　类别：{category}　名称：{asset.get("name",aid)}',font=('Microsoft YaHei UI',11,'bold')).pack(anchor='w',padx=SPACING['md'],pady=(SPACING['md'],SPACING['sm']))
+    bar=FlowBar(win);bar.pack(fill='x',padx=SPACING['md'],pady=(0,SPACING['xs']))
     ttk.Label(bar,text='显示分类').pack(side='left')
     filtervar=tk.StringVar(value='全部')
     filterbox=SelectBox(bar,textvariable=filtervar,values=('全部',*roles,'待分类'))
-    filterbox.pack(side='left',padx=(6,0))
-    ttk.Label(bar,text='参考图按类目归档；改类目请用「导入参考图」里的「参考分类」。',style='Muted.TLabel').pack(side='left',padx=(10,0))
+    filterbox.pack(side='left',padx=(SPACING['sm'],0))
+    ttk.Label(bar,text='参考图按类目归档；改类目请用「导入参考图」里的「参考分类」。',style='Muted.TLabel').pack(side='left',padx=(SPACING['sm'],0))
     # 第 57 期第 4 条：「分类」右边就是这一张参考图的缩略图——原来只有路径，看不出来是哪张。
     # 缩略图那一列由盖图那一层管（解不开的格式退回空白），行高也就得放到装得下一整张图。
     table_shell=DataTable(win,columns=[('role','分类',130),('thumb','缩略图',REF_THUMB+18),
@@ -569,11 +569,11 @@ def view_references(app, aid):
                       parent=win,on_saved=lambda:(refresh(),app.safe(lambda:app.show(2))))
     buttons=FlowBar(win)
     for label,fn,button_type in [('查看图片',preview,SecondaryButton),('导入参考图',add,PrimaryButton),('打开参考图目录',open_folder,SecondaryButton)]:
-        button_type(buttons,text=label,command=lambda f=fn:app.safe(f)).pack(side='left',padx=(0,4))
+        button_type(buttons,text=label,command=lambda f=fn:app.safe(f)).pack(side='left',padx=(0,SPACING['xs']))
     # 按钮与状态行先落位（bottom），内容框最后 pack 去吃掉剩下的空间：窗口再矮也是内容框
     # 先让步，不会是这三个按钮消失。
-    buttons.pack(side='bottom',fill='x',padx=SPACING['md'],pady=(0,10))
-    status_label.pack(side='bottom',anchor='w',padx=SPACING['md'],pady=6)
+    buttons.pack(side='bottom',fill='x',padx=SPACING['md'],pady=(0,SPACING['sm']))
+    status_label.pack(side='bottom',anchor='w',padx=SPACING['md'],pady=SPACING['sm'])
     table_shell.pack(fill='both',expand=True,padx=SPACING['md'])
     filterbox.bind('<<ComboboxSelected>>',lambda event:refresh())
     table.bind('<Double-1>',lambda e:app.safe(preview))

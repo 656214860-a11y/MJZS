@@ -23,6 +23,8 @@ GROW_STEPS = (0.45, 0.70, 0.88, 1.0)   # 气泡「长出来」的几档：从耳
 GROW_ROOM = 0.42                  # 起步时气泡偏向耳朵这么多比例
 
 
+from ui_motion import reduce_motion
+
 class CloudTimingMixin:
     def _fade_out(self):
         """渐隐：alpha 一档一档走到 0 再 withdraw（第 24 期：档数与间隔见 FADE_OUT_STEPS／FADE_OUT_MS）。
@@ -57,7 +59,7 @@ class CloudTimingMixin:
                 self._fade = None
             return None
 
-        step(0)
+        step(len(FADE_OUT_STEPS) if reduce_motion() else 0)   # 减少动效：直接收起
         return None
 
     def read_hold(self, text=None):
@@ -187,7 +189,7 @@ class CloudTimingMixin:
         try:
             def first_bump():
                 self._fade, self._fade_callback = None, None
-                return bump(1)
+                return bump(len(FADE_STEPS) - 1 if reduce_motion() else 1)   # 减少动效：一步到位
             self._fade_callback = first_bump
             self._fade = self.win.after(FADE_MS, first_bump)
         except Exception:

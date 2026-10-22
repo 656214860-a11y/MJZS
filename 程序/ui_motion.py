@@ -4,6 +4,8 @@
 页面通过 ``ui_widgets.DataTable`` / ``BusyState`` 间接使用，普通 ``ttk.Treeview``
 （如项目首页）可直接调用 ``bind_row_hover``。
 """
+import os
+import sys
 import tkinter as tk
 from tkinter import ttk
 
@@ -11,6 +13,31 @@ from ui_rounded import empty_icon_photo
 from ui_tokens import (COLORS, EMPTY_ICON_LINE, EMPTY_ICON_SIZE, EMPTY_TEXT_GAP, RADIUS,
                        ROW_HOVER_FRAME_MS, ROW_HOVER_STEPS, ROW_HOVER_TAG, SPINNER_EXTENT,
                        SPINNER_FRAME_MS, SPINNER_MARGIN, SPINNER_SIZE, SPINNER_STEP, SPINNER_WIDTH)
+
+
+REDUCE_MOTION_ENV = 'DRAMA_REDUCE_MOTION'   # '1' 强制减少动效，'0' 强制保留；不设则跟随系统
+_SPI_GETCLIENTAREAANIMATION = 0x1042
+_reduce_cache = None
+
+
+def reduce_motion():
+    """要不要省掉淡入淡出：环境变量优先，否则跟随 Windows「显示动画」（设置 → 辅助功能 → 视觉效果）。"""
+    global _reduce_cache
+    value = os.environ.get(REDUCE_MOTION_ENV)
+    if value in ('0', '1'):
+        return value == '1'
+    if _reduce_cache is None:
+        _reduce_cache = False
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                enabled = ctypes.c_int(1)
+                if ctypes.windll.user32.SystemParametersInfoW(_SPI_GETCLIENTAREAANIMATION, 0,
+                                                              ctypes.byref(enabled), 0):
+                    _reduce_cache = not enabled.value
+            except (AttributeError, OSError):
+                _reduce_cache = False
+    return _reduce_cache
 
 
 def blend(start, end, ratio):

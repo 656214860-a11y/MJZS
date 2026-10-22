@@ -48,5 +48,46 @@ class PageShortcutTests(unittest.TestCase):
         self.assertIn("<Control-Prior>", source)
 
 
+
+class GearTooltipTests(unittest.TestCase):
+    def test_icon_only_gear_has_a_tooltip(self):
+        import tkinter as tk
+        from pet_ui_support import GearButton, GEAR_TIP
+        root = tk.Tk(); root.withdraw()
+        try:
+            gear = GearButton(root)
+            self.assertIsNotNone(gear.tooltip)
+            self.assertEqual(gear.tooltip.text, GEAR_TIP)
+        finally:
+            root.destroy()
+
+
+class ReduceMotionTests(unittest.TestCase):
+    def setUp(self):
+        import os, ui_motion
+        self.motion = ui_motion
+        self.saved = os.environ.get(ui_motion.REDUCE_MOTION_ENV)
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        import os
+        if self.saved is None:
+            os.environ.pop(self.motion.REDUCE_MOTION_ENV, None)
+        else:
+            os.environ[self.motion.REDUCE_MOTION_ENV] = self.saved
+
+    def test_environment_switch_wins(self):
+        import os
+        os.environ[self.motion.REDUCE_MOTION_ENV] = '1'
+        self.assertTrue(self.motion.reduce_motion())
+        os.environ[self.motion.REDUCE_MOTION_ENV] = '0'
+        self.assertFalse(self.motion.reduce_motion())
+
+    def test_cloud_fade_out_skips_steps_when_reduced(self):
+        import os, inspect, pet_cloud_timing
+        source = inspect.getsource(pet_cloud_timing.CloudTimingMixin)
+        self.assertIn('reduce_motion()', source)
+
+
 if __name__ == '__main__':
     unittest.main()

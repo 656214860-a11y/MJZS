@@ -27,6 +27,7 @@
   右键「三虎设置 → 模型…」配三虎四个任务维度，「切换模型」列出池里每一条、当前那条打 ✓，
   末项「+ 新增模型…」跳模型管理；改完写盘 ＋ 就地生效，不用重启。
 """
+from ui_tokens import PET_PALETTE
 import os
 import queue
 import datetime
@@ -71,7 +72,7 @@ def should_auto_run(owner, project, stage_id):
     return bool(pet is not None and pet.should_auto_run(stage_id))
                                                   # 中间那只最低、两边各抬 PAW_ARC 像素（猫爪落地的样子）。
 KEEP = 20
-BLUSH = '#8fb6d8'                 # 撒娇时的腮红：冷玫瑰蓝，不是粉
+BLUSH = PET_PALETTE['blush_cool']                 # 撒娇时的腮红：冷玫瑰蓝，不是粉
 # 第 25 期第 3 条：三虎自己看着制作进度，到了该收尾的时候主动问一句「要不要一键自动执行」，
 # 并把选择项摆出来。问得比播报稀一点：同一批缺口最短隔 OFFER_SECONDS 才问，缺口一直不变也过
 # OFFER_REPEAT 再提一次；用户答「好」就照一键执行那条路走（会花钱的步骤照旧只由他自己按）。
