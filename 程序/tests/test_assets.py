@@ -253,7 +253,7 @@ class SafetensorsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             p = Path(td) / "m.safetensors"
             self.make_valid(p)
-            validate_safetensors(p)  # 不抛异常即通过
+            self.assertIsNone(validate_safetensors(p))  # 合法头部：不抛异常
 
     def test_invalid_safetensors(self):
         import tempfile
