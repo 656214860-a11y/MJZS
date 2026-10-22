@@ -14,6 +14,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 HERE = str(Path(__file__).resolve().parents[1])
@@ -270,6 +271,59 @@ class LedgerTests(unittest.TestCase):
 
     def test_the_ledger_lives_under_the_maintenance_folder(self):
         self.assertEqual(engine_probe.ledger_path(), Path(HERE) / '维护记录' / '引擎真机验证.json')
+
+
+class MainTests(unittest.TestCase):
+    """命令行入口：参数解析的每条退出路径，以及 main 按判定给退出码、按开关写台账和打印 JSON。"""
+
+    def _main(self, argv, verdict='ok', flags=None):
+        row = {'engine': 'claude', 'verdict': verdict, 'flags': flags or {}}
+        out, calls = [], {}
+        with mock.patch.object(engine_probe, 'probe', side_effect=lambda *a, **k: calls.update(k) or row), \
+                mock.patch.object(engine_probe, 'summary', return_value='摘要'), \
+                mock.patch.object(engine_probe, 'record', side_effect=lambda r: calls.setdefault('recorded', r) and '台账路径'), \
+                mock.patch('builtins.print', side_effect=lambda *a: out.append(' '.join(map(str, a)))):
+            code = engine_probe.main(argv)
+        return code, '\n'.join(out), calls
+
+    def test_parse_defaults_and_every_flag(self):
+        self.assertEqual(engine_probe._parse_args([]),
+                         ({'engine': 'claude', 'program': '', 'model': '', 'dry': False, 'write': True, 'show': False}, None))
+        options, code = engine_probe._parse_args(['--engine', 'codex', '--program', 'C:/x.exe', '--model', 'm',
+                                                  '--dry-run', '--no-record', '--json'])
+        self.assertIsNone(code)
+        self.assertEqual(options, {'engine': 'codex', 'program': 'C:/x.exe', 'model': 'm',
+                                   'dry': True, 'write': False, 'show': True})
+
+    def test_parse_exits(self):
+        cases = [(['--model'], 2, '--model 后面要跟一个值'), (['--engine', 'gpt'], 2, '不认识的引擎：gpt'),
+                 (['-h'], 0, '用法'), (['--help'], 0, '用法'), (['--bogus'], 2, '不认识的参数：--bogus')]
+        for argv, expected, text in cases:
+            with self.subTest(argv=argv):
+                code, out, calls = self._main(argv)
+                self.assertEqual(code, expected)
+                self.assertIn(text, out)
+                self.assertEqual(calls, {}, '解析失败不应真去验')
+
+    def test_main_records_and_reports_flags(self):
+        code, out, calls = self._main(['--engine', 'codex', '--model', 'm'], flags={'--b': False, '--a': True})
+        self.assertEqual(code, 0)
+        self.assertEqual((calls['program'], calls['model'], calls['offline']), ('', 'm', False))
+        self.assertFalse(Path(calls['workdir']).exists(), '临时目录用完即删')
+        self.assertIn('台账：台账路径', out)
+        self.assertLess(out.index('✅ --a'), out.index('❌ --b'), '开关按名字排序')
+        self.assertNotIn('"verdict"', out)
+
+    def test_dry_run_and_no_record_skip_the_ledger_and_json_prints_the_row(self):
+        for argv in (['--dry-run'], ['--no-record']):
+            code, out, calls = self._main(argv + ['--json'])
+            self.assertNotIn('recorded', calls)
+            self.assertIn('"verdict": "ok"', out)
+
+    def test_failed_verdicts_exit_one(self):
+        for verdict, expected in (('installed-switches-missing', 1), ('installed-one-shot-failed', 1),
+                                  ('not-installed', 0)):
+            self.assertEqual(self._main(['--no-record'], verdict=verdict)[0], expected, verdict)
 
 
 if __name__ == '__main__':

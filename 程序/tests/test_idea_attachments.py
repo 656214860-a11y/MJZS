@@ -130,7 +130,8 @@ class IdeaAttachmentsTests(unittest.TestCase):
         parts.update(overrides or {})
         with zipfile.ZipFile(path, 'w') as archive:
             for name, text in parts.items():
-                archive.writestr(name, text)
+                if text is not None:   # 覆盖成 None 表示这个部件不进压缩包
+                    archive.writestr(name, text)
 
     def test_xlsx_prepare_reads_strings_numbers_and_cached_formula(self):
         with tempfile.TemporaryDirectory() as td:
@@ -195,6 +196,30 @@ class IdeaAttachmentsTests(unittest.TestCase):
                 with self.assertRaises(ValueError) as error:
                     idea_attachments.prepare((source,))
                 self.assertEqual(str(error.exception), 'XLSX 无法读取：损坏.xlsx')
+
+    def test_xlsx_without_shared_strings_reads_inline_cells(self):
+        with tempfile.TemporaryDirectory() as td:
+            source = Path(td) / '无共享串.xlsx'
+            ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+            self.make_xlsx(source, {'xl/sharedStrings.xml': None,
+                                    'xl/worksheets/sheet1.xml': f'<worksheet xmlns="{ns}"><sheetData><row><c t="inlineStr"><is><t>只有内联</t></is></c><c><v>7</v></c></row></sheetData></worksheet>'})
+            self.assertIn('【工作表：创意】\n只有内联\t7',idea_attachments.prepare((source,))['context'])
+
+    def test_xlsx_bad_sheet_target_or_shared_index_counts_as_damaged(self):
+        ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+        rel = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+        sheet = '<worksheet xmlns="%s"><sheetData><row><c t="s"><v>%s</v></c></row></sheetData></worksheet>'
+        cases = {'越出工作表目录': {'xl/_rels/workbook.xml.rels': f'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId9" Type="{rel}/worksheet" Target="../../secret.xml"/></Relationships>'},
+                 '共享串越界': {'xl/worksheets/sheet1.xml': sheet % (ns, '5')},
+                 '共享串编号非数字': {'xl/worksheets/sheet1.xml': sheet % (ns, '-1')}}
+        with tempfile.TemporaryDirectory() as td:
+            source = Path(td) / '损坏.xlsx'
+            for name, overrides in cases.items():
+                with self.subTest(name):
+                    self.make_xlsx(source, overrides)
+                    with self.assertRaises(ValueError) as error:
+                        idea_attachments.prepare((source,))
+                    self.assertEqual(str(error.exception), 'XLSX 无法读取：损坏.xlsx')
 
     def test_attachment_service_reads_only_bounded_text_files(self):
         with tempfile.TemporaryDirectory() as td:

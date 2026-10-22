@@ -239,6 +239,71 @@ class StorageSafetyTests(unittest.TestCase):
             self.assertEqual(other.read_text(encoding="utf-8"), "keep")
 
 
+class SourceDeclarationErrorTests(unittest.TestCase):
+    """读坏或形状不对的来源声明都要报成错误（从而阻断自动清理），不能当作「没有引用」。"""
+
+    def _errors(self, files):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            for name, data in files.items():
+                (root / name).parent.mkdir(parents=True, exist_ok=True)
+                if isinstance(data, str):
+                    (root / name).write_text(data, encoding='utf-8')
+                else:
+                    save(root / name, data)
+            return sm.source_protection(root, 1700000000)[1]
+
+    def test_each_malformed_declaration_is_reported(self):
+        exports = '13质检交付/导出成片/'
+        cases = {
+            '来源声明不是对象或清单': {'assets.json': 5},
+            '生成版本编号无效': {'data/state.json': {'shots': {'S1': [{'version': '1', 'state': 'downloaded'}]}}},
+            '成片来源清单缺失': {exports + 'edit_bundle.json': {'manifest': 'none'}},
+            '成片来源条目无法确认': {exports + 'edit_bundle.json': {'manifest': [{'version': 1}]}},
+            '来源旁证不是对象': {'clip.mp4': 'v', 'clip.mp4.source.json': '[]', 'assets.json': {'file': 'clip.mp4'}},
+        }
+        for reason, files in cases.items():
+            with self.subTest(reason):
+                errors = self._errors(files)
+                self.assertTrue(any(reason in error for error in errors), errors)
+
+    def test_edit_sources_skip_unreadable_manifests_and_keep_digest_of_unnumbered_rows(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            folder = root / '13质检交付' / '导出成片'
+            (folder / 'a').mkdir(parents=True)
+            (folder / 'a' / 'edit_bundle.json').write_text('{bad', encoding='utf-8')
+            save(folder / 'edit_manifest.json', {'manifest': [{'shot': 'S1', 'version': 'x', 'sha256': 'ab'},
+                                                              {'shot': 'S2', 'version': 3}]})
+            self.assertEqual(sm.edit_source_versions(root), ({('S2', 3)}, {('S1', 'ab')}))
+
+
+class StorageSummaryVersionTests(unittest.TestCase):
+    def test_cleaned_versions_recycle_ledgers_and_referenced_folders(self):
+        from agent.core import save
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'project'; root.mkdir()
+            now = 1700000000
+            rows = []
+            for number in (1, 2, 3):
+                folder = root / 'data' / 'S1' / f'v{number:03}'
+                folder.mkdir(parents=True); (folder / 'video.mp4').write_bytes(b'v' * number)
+                rows.append({'version': number, 'state': 'downloaded', 'created': now - 30 * 86400})
+            rows[0]['cleaned_at'] = now   # 已清理过的版本不再盘点
+            save(root / 'data' / 'state.json', {'shots': {'S1': rows}})
+            save(root / 'assets.json', {'file': 'data/S1/v002/video.mp4'})   # 过期旧版仍被资产引用
+            stale = sm.recycle_base(root) / 'batch' / 'data'
+            stale.mkdir(parents=True)
+            save(stale / 'state.json', {'shots': {'S9': [{'version': 1, 'state': 'downloaded', 'created': 0}]}})
+            summary = sm.storage_summary(root, now)
+            self.assertFalse(summary['errors'])
+            self.assertEqual([(v['shot'], v['version'], v['reason'], v['candidate']) for v in summary['versions']],
+                             [('S1', 2, '来源或授权资料仍被引用', False), ('S1', 3, sm.RETAIN_REASONS[sm.RETAIN_LATEST], False)])
+            self.assertEqual(summary['recyclable_bytes'], 0)
+
+
 class DownloadsRootTests(unittest.TestCase):
     def test_reads_config(self):
         with tempfile.TemporaryDirectory() as td:
