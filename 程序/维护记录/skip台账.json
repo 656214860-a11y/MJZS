@@ -2288,17 +2288,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_script_structure_page_equivalence.py",
-      "test": "ScriptStructurePageEquivalence.setUp",
-      "ordinal": 1,
-      "kind": "平台限制",
-      "reason_constant": "PLATFORM_TKINTER",
-      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
-      "reference": ""
-    },
-    {
-      "file": "tests/test_asset_batch_window_equivalence.py",
-      "test": "AssetBatchWindowEquivalence.setUp",
+      "file": "tests/test_asset_batch_window.py",
+      "test": "AssetBatchWindowTests.setUp",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
