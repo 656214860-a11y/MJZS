@@ -175,5 +175,67 @@ class ResultPollingTests(unittest.TestCase):
         self.assertEqual(app.results.qsize(), 1)
 
 
+class TickBranchTests(unittest.TestCase):
+    make_app = ResultPollingTests.make_app
+
+    def test_local_messages_go_to_progress_line_or_log(self):
+        app = self.make_app()
+        app.tree = mock.Mock()
+        app.tree.selection.return_value = ('SH001',)
+        app.progress_text = mock.Mock()
+        app.local_messages.put(('SH001', '排队中'))
+        app.local_messages.put(('SH002', '下载中'))
+        app.tick()
+        app.progress_text.set.assert_called_once_with('SH001 · 排队中')
+        app.write.assert_called_once_with('后台任务 SH002 · 下载中')
+
+    def test_every_periodic_step_survives_its_own_failure(self):
+        import tkinter as tk
+        app = self.make_app()
+        app.next_ui_update = 0
+        app.auto_submit_due = 0
+        app.update_prompt_controls = mock.Mock(side_effect=tk.TclError('gone'))
+        app.prompt_results.poll.side_effect = OSError('locked')
+        app.auto_submit_scan = mock.Mock(side_effect=RuntimeError('扫描坏了'))
+        app.auto_poll.side_effect = RuntimeError('查询坏了')
+        with mock.patch('app.time.monotonic', return_value=100):
+            app.tick()
+        self.assertEqual(app.next_ui_update, 101)
+        self.assertEqual(app.auto_submit_due, 105)
+        self.assertEqual(app.next_poll, 130)
+        self.assertEqual([c.args[0] for c in app.write.call_args_list],
+                         ['无人值守自动提交检查失败：扫描坏了',
+                          '后台跟踪暂时异常，30秒后重试查询，不会重新提交生成：查询坏了'])
+        app.scheduler.after.assert_called_once_with(150, app.tick)
+        app.write.side_effect = tk.TclError('log gone')
+        app.auto_submit_due = 0
+        app.tick()
+        self.assertEqual(app.scheduler.after.call_count, 2)
+
+    def test_failed_local_submit_is_remembered_and_shown(self):
+        app = self.make_app()
+        app.local_submit_sid = 'SH009'
+        app.local_submit_error = {}
+        app.notifier = mock.Mock()
+        app.results.put((False, '额度不足'))
+        app.tick()
+        self.assertEqual(app.local_submit_error, {'SH009': '额度不足'})
+        self.assertIsNone(app.local_submit_sid)
+        app.notifier.error.assert_called_once_with('额度不足', title='操作未完成')
+        app.quiet_run = True
+        app.results.put((False, '断网'))
+        app.tick()
+        app.notifier.error.assert_called_once()
+        app.write.assert_called_with('后台查询或下载暂时中断，30秒后自动重试；不会重新提交生成。')
+
+    def test_success_callback_failure_is_logged(self):
+        app = self.make_app()
+        app.on_success = mock.Mock(side_effect=OSError('没有这个目录'))
+        app.results.put((True, '完成'))
+        app.tick()
+        self.assertEqual(app.write.call_args_list[0].args[0], '成片目录打开失败：没有这个目录')
+        app.report_done.assert_called_once_with('完成')
+
+
 if __name__ == '__main__':
     unittest.main()

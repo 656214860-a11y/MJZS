@@ -196,5 +196,50 @@ class DesktopMessageBranchTests(unittest.TestCase):
                 self.assertTrue(log_only)
 
 
+class IdeaApiReceivedTests(unittest.TestCase):
+    """直连 API 回复落地：失败文案与弹窗标题、空回复、剧本已保存后的刷新与播报。"""
+
+    def receive(self, result):
+        from unittest import mock
+        import desktop_idea_chat
+        host = mock.Mock()
+        host.idea_chat_controller.finish_request.return_value = True
+        host.idea_send.winfo_exists.return_value = True
+        host.pet.auto.active = None
+        with (patch('idea_chat.append'),
+              patch('writing_api.preparation_reply_message', return_value='')):
+            desktop_idea_chat.IdeaChatMixin._idea_api_received(
+                host, 'T', 'M', {'settings': {'skill_injection': None}}, result)
+        return host
+
+    def test_failures_pick_text_and_dialog_title_by_kind(self):
+        with self.assertLogs('desktop_idea_chat', level='WARNING'):
+            host = self.receive({'ok': False, 'error': 'e', 'kind': 'network'})
+        host.status.set.assert_called_once_with('模型暂时无法响应，请稍后重试')
+        host.notifier.error.assert_called_once_with('模型暂时无法响应，请稍后重试', title='模型调用失败')
+        with self.assertLogs('desktop_idea_chat', level='WARNING'):
+            host = self.receive({'ok': False, 'error': '超过模型上下文', 'kind': 'weird'})
+        host.notifier.error.assert_called_once_with('系统内部错误，已记录日志', title='请求校验未通过')
+
+    def test_empty_reply_explains_why(self):
+        import idea_chat
+        host = self.receive({'ok': True, 'text': '  '})
+        message = idea_chat.why_empty({'ok': True, 'text': '  '})
+        host.notifier.error.assert_called_once_with(message, title='模型调用失败')
+        host.status.set.assert_called_once_with(message)
+
+    def test_saved_script_refreshes_list_reports_and_shows_quality(self):
+        host = self.receive({'ok': True, 'text': 'x', 'script_raw_path': 'r',
+                             'natural_script_path': 'n', 'quality_summary': 'q'})
+        host.refresh_script_list.assert_called_once_with()
+        self.assertEqual('script', host.pet_report.call_args.args[0])
+        self.assertEqual(2, host.show_script_quality.call_count)
+        host.status.set.assert_not_called()
+        host = self.receive({'ok': True, 'text': 'x', 'script_raw_path': 'r', 'quality_passed': False})
+        host.pet_report.assert_not_called()
+        host = self.receive({'ok': True, 'text': 'x', 'natural_script_path': 'n'})
+        host.status.set.assert_called_once_with('自然剧本已自动保存：n')
+
+
 if __name__ == '__main__':
     unittest.main()
