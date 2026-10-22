@@ -190,17 +190,18 @@ class WritingRestartTests(unittest.TestCase):
         tree = ast.parse(source.read_text(encoding='utf-8-sig'))
         node = next(item for item in ast.walk(tree) if isinstance(item, ast.FunctionDef)
                     and item.name == 'script_menu')
-        tree = Mock()  # R1776：四类文件合并成一张表，阶段动作按所点行的类别决定
+        tree = Mock()  # 阶段动作按所点行的类别决定（R1862 复原四张表后仍按行类别）
         rows = {'row-' + name: name for name in ('setting', 'outline', 'character', 'script')}
         restart = Mock()
         menu = Mock()
         namespace = dict(script_row_category=rows, ContextMenu=Mock(return_value=menu),
                          self=SimpleNamespace(win=object(), safe=lambda call: call()),
                          restart_preparation=restart, open_script_file=Mock(), rename_script=Mock(),
-                         adopt_script=Mock(), delete_script=Mock())
+                         adopt_script=Mock(), delete_script=Mock(), keep_one_selection=Mock())
         # R1817：script_menu 成了 _WritingPage 的方法：闭包变量改由实例属性提供，桌面主窗成了 page
         page = SimpleNamespace(page=namespace.pop('self'), **{key: namespace.pop(key) for key in (
-            'script_row_category', 'restart_preparation', 'open_script_file', 'rename_script', 'adopt_script', 'delete_script')})
+            'script_row_category', 'restart_preparation', 'open_script_file', 'rename_script', 'adopt_script', 'delete_script',
+            'keep_one_selection')})
         exec(compile(ast.Module(body=[node], type_ignores=[]), str(source), 'exec'), namespace)
         script_menu = namespace['script_menu']
         namespace['script_menu'] = lambda tree, event: script_menu(page, tree, event)

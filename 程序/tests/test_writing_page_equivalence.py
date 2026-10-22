@@ -244,26 +244,31 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
             except tk.TclError:pass
         return None
     script_box.bind('<Destroy>',cancel_download_state,add='+')
-    # 四类文件合并成一张整宽的表（用户 R1776 要求）：只留一个勾选列（表头即全选），
-    # 窄「类别」列标明归属，其余宽度全给文件名，尽量显示全名。行按类别分组、组内按修改时间。
+    # R1862：四类文件复原为四张并排表（与新实现同步）。
     categories=(('setting','项目设定'),('outline','项目大纲'),('character','角色卡'),('script','项目剧本'))
     script_box.columnconfigure(0,weight=1);script_box.rowconfigure(0,weight=1)
-    table=DataTable(script_box,columns=[('kind','类别',SCRIPT_KIND_COLUMN_WIDTH),('name','文件名',180)],
-                    show='tree headings',height=1,selectmode='browse',style='Script.Treeview',
-                    auto_hide_scrollbars=True,empty_text='',horizontal=False)
-    table.grid(row=0,column=0,sticky='nsew')
-    script_tree=table.tree
-    configure_check_column(script_tree)
-    script_tree.heading('#0',anchor='center')
-    script_tree.heading('kind',text='类别',anchor='center')
-    script_tree.heading('name',text='文件名',anchor='center')
-    script_tree.column('kind',width=SCRIPT_KIND_COLUMN_WIDTH,minwidth=SCRIPT_KIND_COLUMN_WIDTH,stretch=False,anchor='center')
-    script_tree.column('name',width=180,minwidth=100,stretch=True)
+    lists=ttk.Frame(script_box);lists.grid(row=0,column=0,sticky='nsew')
+    script_trees={}
     script_row_details={}
     script_row_category={}
-    self.script_file_tips=TreeRowTooltip(script_tree,lambda item:script_row_details.get(item,''))
+    self.script_file_tips={}
+    for column,(category,title) in enumerate(categories):
+        lists.columnconfigure(column,weight=1,uniform='script-files')
+        table=DataTable(lists,columns=[('name',title,180)],show='tree headings',height=1,
+                        selectmode='browse',style='Script.Treeview',auto_hide_scrollbars=True,
+                        empty_text='',horizontal=False)
+        tree=table.tree
+        configure_check_column(tree)
+        tree.heading('#0',anchor='center')
+        tree.heading('name',text=title,anchor='center')
+        tree.column('name',width=180,minwidth=100,stretch=True)
+        self.script_file_tips[category]=TreeRowTooltip(tree,lambda item:script_row_details.get(item,''))
+        last=column==len(categories)-1
+        table.grid(row=0,column=column,sticky='nsew',padx=SPACING['none'] if last else (SPACING['none'],SPACING['xs']))
+        script_trees[category]=tree
+    self.script_trees=script_trees
+    script_tree=script_trees['script']
     self.script_tree=script_tree
-    self.script_row_category=script_row_category
     from responsive_ui import display_lines,font_linespace
     # 状态标记放在文件名前面：列窄时被截掉的是文件名尾巴，不是[已确认]/[待确认]。
     ttk.Style(script_tree).configure('Script.Treeview',font=SCRIPT_FILE_FONT)
@@ -353,7 +358,8 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
             try:self.win.after_cancel(script_load_job)
             except tk.TclError:pass
             script_load_job=None
-        script_tree.delete(*script_tree.get_children())
+        for tree in script_trees.values():
+            tree.delete(*tree.get_children())
         script_row_details.clear()
         script_row_category.clear()
         # 首批文件尚未扫描完成时也必须保留三列表的列头。此前这里先隐藏
@@ -361,7 +367,7 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
         # 消失；空列表与加载完成后也保留标题。
         keep_script_headers_visible()
         def alive():
-            return script_loader.is_current(generation) and script_tree.winfo_exists()
+            return script_loader.is_current(generation) and all(tree.winfo_exists() for tree in script_trees.values())
         def finish():
             """按修改时间恢复既有排序；每个空闲批次只调整有限条目。"""
             order=[(category,iter(rows)) for category,rows in script_loader.ordered_rows().items()]
@@ -374,15 +380,16 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
                     try:row=next(rows)
                     except StopIteration:
                         order.pop(0);continue
-                    script_tree.move(row.item_id,'','end')
+                    script_trees[category].move(row.item_id,'','end')
                     moved+=1
                 if order:
                     script_load_job=self.win.after_idle(place)
                     return
                 live=script_loader.item_ids()
                 checked_scripts.intersection_update(live)
-                script_tree.configure(height=max(1,min(SCRIPT_FILE_MAX_ROWS,len(script_tree.get_children()))))
-                script_check.refresh_header()
+                for category,tree in script_trees.items():
+                    tree.configure(height=max(1,min(SCRIPT_FILE_MAX_ROWS,len(tree.get_children()))))
+                    script_checks[category].refresh_header()
                 keep_script_headers_visible();script_load_job=None
             place()
         def load_batch():
@@ -394,9 +401,9 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
                 script_row_details[row.item_id]=row.name+'\n修改时间：'+modified
                 label=file_labels.get(str(Path(row.item_id).resolve()),file_labels.get(row.category,''))
                 script_row_category[row.item_id]=row.category
-                script_tree.insert('', 'end', iid=row.item_id, text='',
+                script_trees[row.category].insert('', 'end', iid=row.item_id, text='',
                     image=self.win._tick_images[int(row.item_id in checked_scripts)],
-                    values=(SCRIPT_KIND_LABELS.get(row.category,''),('['+label+'] ' if label else '')+row.name))
+                    values=(('['+label+'] ' if label else '')+row.name,))
             if finished:
                 finish();return
             keep_script_headers_visible()
@@ -406,7 +413,11 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
         script_load_job=self.win.after(250,load_batch)
     self.refresh_script_list=fill_script_list
     def current_script_tree():
-        return script_tree if script_tree.selection() else None
+        return next((tree for tree in script_trees.values() if tree.selection()),None)
+    def keep_one_selection(tree):
+        if not tree.selection():return
+        for other in script_trees.values():
+            if other is not tree:other.selection_remove(other.selection())
     def open_script_file(event=None):
         # 表头（分类名/全选）与列宽分隔线也在 Treeview 的 <Double-1> 范围内；
         # 此时 selection() 仍保留着上次勾选/高亮的行，不能直接拿它打开文件。
@@ -424,8 +435,10 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
         path=Path(row)
         if path.is_file():open_path(path)
     self.open_script_file=open_script_file
-    script_tree.bind('<Double-1>',open_script_file)
-    script_tree.bind('<Return>',open_script_file)
+    for tree in script_trees.values():
+        tree.bind('<Double-1>',open_script_file)
+        tree.bind('<Return>',open_script_file)
+        tree.bind('<<TreeviewSelect>>',lambda event,tree=tree:keep_one_selection(tree),add='+')
     def selected_script():
         tree=current_script_tree()
         selected=tree.selection() if tree else ()
@@ -434,7 +447,7 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
         return selected_script_paths(self.root,[selected[0]])[0]
     def selected_scripts():
         """批量删除只认勾选项；未勾选时将当前高亮行视作单项操作。"""
-        all_items=list(script_tree.get_children())
+        all_items=[item for tree in script_trees.values() for item in tree.get_children()]
         tree=current_script_tree()
         active=tree.selection() if tree else ()
         from script_workspace_service import script_deletion_selection
@@ -442,13 +455,17 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
     def selection_changed():
         count=len(checked_scripts)
         self.status.set('已勾选 '+str(count)+' 份剧本文件' if count else '已取消剧本文件勾选')
-    script_check=CheckboxColumn(script_tree,self.win._tick_images,
-                                lambda item:item in checked_scripts,
-                                lambda item,value:checked_scripts.add(item) if value else checked_scripts.discard(item),
-                                selection_changed)
-    script_tree.heading('#0',command=script_check.toggle_all)
+    script_checks={}
+    for category,tree in script_trees.items():
+        check=CheckboxColumn(tree,self.win._tick_images,
+                             lambda item:item in checked_scripts,
+                             lambda item,value:checked_scripts.add(item) if value else checked_scripts.discard(item),
+                             selection_changed)
+        tree.heading('#0',command=check.toggle_all)
+        script_checks[category]=check
     fill_script_list()
-    bind_row_toggle(script_tree,script_check.toggle)
+    for category,tree in script_trees.items():
+        bind_row_toggle(tree,script_checks[category].toggle)
     def rename_script():
         path=selected_script()
         new=ask_string(self.win,'重命名文件','新文件名：',initialvalue=path.name)
@@ -468,7 +485,7 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
         return '\n\n注意：以下是剧本准备已确认的阶段文件，删除后该阶段确认失效，需要恢复或重新确认才能继续：\n'+'\n'.join(hits)
     def delete_script():
         path=selected_script()
-        all_files=list(script_tree.get_children())
+        all_files=[item for tree in script_trees.values() for item in tree.get_children()]
         if len(all_files)==1:
             if not confirm_project_removal_from_last_script(self.win,[path.name]):return
         else:
@@ -525,12 +542,11 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
     def script_menu(tree,event):
         row=tree.identify_row(event.y)
         if not row:return
-        tree.selection_set(row)
+        tree.selection_set(row);keep_one_selection(tree)
         menu=ContextMenu(self.win)
         # 第 46 期第 1 条：内容框的右键一律是「查看／…／删除」这一套，剧本表原来只有改名与删除。
         menu.command('查看',lambda:self.safe(open_script_file))
         menu.command('重命名',lambda:self.safe(rename_script))
-        # 合并表后按所点行的类别给阶段动作，不再按「点的是哪一列表」判断。
         category=script_row_category.get(row,'script')
         if category=='script':
             menu.command('采用此剧本',lambda:self.safe(adopt_script))
@@ -542,7 +558,8 @@ LEGACY_WRITING = r'''def _legacy_writing(self):
             menu.command('设为'+stage+'定稿',lambda:self.safe(lambda:confirm_document(stage)))
         menu.command('删除',lambda:self.safe(delete_script))
         return menu.popup(event)
-    script_tree.bind('<Button-3>',lambda event:script_menu(script_tree,event))
+    for tree in script_trees.values():
+        tree.bind('<Button-3>',lambda event,tree=tree:script_menu(tree,event))
 '''
 
 PAGES = {'writing': 'script'}

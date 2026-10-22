@@ -110,9 +110,9 @@ def _reset_preview_text(preview, text, kind):
 
 
 def _install_script_edit_controls(page, controls, box):
-    """给单个剧本预览框装上「编辑／后退／恢复」按钮与无 Tk 的编辑控制器。
+    """给单个剧本预览框装上「编辑／后退／恢复／保存」按钮与无 Tk 的编辑控制器。
 
-    控制器持有撤销栈与防抖保存；本函数只把 Tk 事件与按钮接到控制器回调，不写项目
+    控制器持有撤销栈，只在点「保存」时落盘；本函数只把 Tk 事件与按钮接到控制器回调，不写项目
     数据（落盘由控制器注入的 save_document 完成）。按钮与控制器实例以
     ``attribute + '_edit_button'`` 等名登记到页面实例上，供测试与页面逻辑读取。
     """
@@ -120,7 +120,6 @@ def _install_script_edit_controls(page, controls, box):
     preview, loaded, active, kind = box.preview, box.loaded, box.active, box.kind
     title, editable, attribute = box.title, box.editable, box.attribute
     from script_structure_edit_controller import ScriptStructureEditController
-    from ui_tokens import SCRIPT_EDIT_SAVE_DEBOUNCE_MS
 
     def save_document(value):
         destination = Path(active['path'])
@@ -134,8 +133,7 @@ def _install_script_edit_controls(page, controls, box):
             from agent.core import save_text
             save_text(destination, value + '\n')
 
-    controller = ScriptStructureEditController(save=save_document,
-                                               debounce_ms=SCRIPT_EDIT_SAVE_DEBOUNCE_MS)
+    controller = ScriptStructureEditController(save=save_document)
     editing = {'value': False}
     suppress = {'value': False}
 
@@ -144,10 +142,12 @@ def _install_script_edit_controls(page, controls, box):
             edit_button.state(['disabled'])
             back_button.state(['!disabled'] if controller.can_undo else ['disabled'])
             restore_button.state(['!disabled'])
+            save_button.state(['!disabled'] if controller.dirty else ['disabled'])
         else:
             edit_button.state(['!disabled'])
             back_button.state(['disabled'])
             restore_button.state(['disabled'])
+            save_button.state(['disabled'])
 
     def begin_edit():
         if not editable or active['path'] is None:
@@ -181,7 +181,15 @@ def _install_script_edit_controls(page, controls, box):
         finally:
             suppress['value'] = False
         sync_buttons()
-        page.status.set('已后退' + title + '：' + Path(active['path']).name)
+        page.status.set('已后退' + title + '（未保存）：' + Path(active['path']).name)
+
+    def save():
+        if not editing['value'] or active['path'] is None:
+            raise ValueError('请先点击“编辑”，修改后再保存。')
+        controller.save_now()
+        loaded['raw'] = controller.current
+        sync_buttons()
+        page.status.set('已保存' + title + '：' + Path(active['path']).name)
 
     def restore_deleted():
         if not editing['value']:
@@ -197,6 +205,9 @@ def _install_script_edit_controls(page, controls, box):
     back_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); back_button.state(['disabled'])
     restore_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='恢复', command=lambda: page.safe(restore_deleted))
     restore_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); restore_button.state(['disabled'])
+    save_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='保存', command=lambda: page.safe(save))
+    save_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"])); save_button.state(['disabled'])
+    setattr(page, attribute + '_save_button', save_button)
     setattr(page, attribute + '_edit_button', edit_button)
     setattr(page, attribute + '_back_button', back_button)
     setattr(page, attribute + '_restore_button', restore_button)
@@ -561,9 +572,10 @@ class _ScriptStructurePage:
         ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
         self.page.stage_button = ui_plugin_registry.module('skill_panel').stage_button(action_group, self.page, PAGE['script_structure'])
         self.page.stage_button.pack(side='left', padx=(SPACING["sm"], SPACING["xs"]))
-        # 流程说明留在两块内容之后的右下角，避免占用顶部阅读空间。
-        info = ttk.Label(self.page.content, text=structure_note, style='Muted.TLabel', justify='left')
-        info.pack(anchor='center', pady=(SPACING["xs"], SPACING["none"]))
+        # 流程说明放到页头右上角（header_status 随宽度自动换行，换页时清空），
+        # 不再在内容框下方单占一行，把高度让给两块剧本内容（用户 R1862 要求）。
+        info = self.page.header_status
+        info.configure(text=structure_note)
         self.page.script_structure_info_label = info
         self.page.script_structure_source_directory = source_directory
         self.page.script_structure_output_directory = structure_directory

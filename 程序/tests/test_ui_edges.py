@@ -1192,28 +1192,31 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(str(d.script_box.winfo_class()), "TFrame")
             self.assertTrue(d.script_box.winfo_ismapped(),
                             "发现已有剧本文件时，三列表容器与列头必须保持可见")
-            # R1776：四类文件合并成一张表，只留一个勾选列；类别用窄列标明。
-            tree = d.script_tree
-            self.assertEqual(str(tree.heading("kind", "text")), "类别")
-            self.assertEqual(str(tree.heading("name", "text")), "文件名")
-            self.assertEqual(tuple(tree["columns"]), ("kind", "name"))
-            self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
-            self.assertEqual(int(tree.cget("height")), len(tree.get_children()),
-                             "表高按行数收紧，四类文件共用一张表")
-            self.assertEqual(int(tree.column("#0")["width"]), 28,
-                             "剧本文件表首列应复用分镜页的勾选列宽度")
-            self.assertEqual(set(d.script_row_category.values()), {"setting", "outline", "character", "script"})
-            names = {category: [] for category in ("setting", "outline", "character", "script")}
-            for item in tree.get_children():
-                names[d.script_row_category[item]].append(tree.item(item, "values")[1])
+            # R1862：四类文件复原为四张并排表，每张表头即分类名，各自一个勾选列。
+            titles = {"setting": "项目设定", "outline": "项目大纲", "character": "角色卡", "script": "项目剧本"}
+            self.assertEqual(tuple(d.script_trees), tuple(titles))
+            names = {}
+            for category, tree in d.script_trees.items():
+                self.assertEqual(str(tree.heading("name", "text")), titles[category])
+                self.assertEqual(tuple(tree["columns"]), ("name",))
+                self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
+                self.assertEqual(int(tree.cget("height")), len(tree.get_children()),
+                                 "表高按行数收紧")
+                self.assertEqual(int(tree.column("#0")["width"]), 28,
+                                 "剧本文件表首列应复用分镜页的勾选列宽度")
+                names[category] = [tree.item(item, "values")[0] for item in tree.get_children()]
+                for item in tree.get_children():
+                    self.assertEqual(d.script_row_category[item], category)
+                    self.assertEqual(len(tree.item(item, "values")), 1,
+                                     "剧本准备文件表每行只显示文件名")
+            roots = [tree.winfo_rootx() for tree in d.script_trees.values()]
+            self.assertEqual(roots, sorted(roots), "四张表从左到右并排")
+            self.assertEqual(len({tree.winfo_rooty() for tree in d.script_trees.values()}), 1, "四张表同一行")
             self.assertEqual(names["setting"], ["项目设定_测试.md"])
             self.assertEqual(names["outline"], ["项目大纲_测试.md"])
             self.assertEqual(names["character"], ["角色卡_测试.md"])
             self.assertEqual(names["script"], ["项目剧本_测试.md"])
             self.assertNotIn("script.md", names["script"], "剧本结构阶段产物不应出现在剧本准备页")
-            for item in tree.get_children():
-                self.assertEqual(len(tree.item(item, "values")), 2,
-                                 "剧本准备文件表每行只显示类别与文件名")
 
     def test_script_structure_page_shows_source_and_output_in_separate_boxes(self):
         """剧本结构页上看剧本准备来源、下看结构化输出，手动制作和阶段配置夹在中间。"""
@@ -1269,7 +1272,8 @@ class UiEdgeTests(unittest.TestCase):
                 d.script_structure_output_box.winfo_children()[0].winfo_class(),
                 "TFrame",
             )
-            self.assertEqual(str(d.script_structure_info_label.cget("justify")), "left")
+            self.assertIs(d.script_structure_info_label, d.header_status, "说明文字放在页头右上角（R1862）")
+            self.assertEqual(str(d.script_structure_info_label.cget("justify")), "right")
             self.assertIn("本地规则整理，不调用模型", str(d.script_structure_info_label.cget("text")))
             self.assertTrue(d.stage_button.winfo_exists(), "阶段配置按钮应在两内容框之间的操作行")
             output_position = d.script_structure_output_preview.yview()[0]

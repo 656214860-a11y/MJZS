@@ -13,7 +13,7 @@ import ui_plugin_registry
 from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height, row_toggle_target
 from tkinter import ttk
-from ui_tokens import COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_PADDING, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SCRIPT_KIND_COLUMN_WIDTH, SPACING
+from ui_tokens import COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_PADDING, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from desktop_page_support import ContextMenu, confirm, confirm_project_removal_from_last_script, open_path
 from ui_widgets import DataTable, EllipsisLabel, HintLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, TreeRowTooltip, ask_string
 
@@ -23,8 +23,6 @@ PAGE = pet_state.PAGE_OF
 # 字再多、窗口再高也不超过 TALK_MAX_LINES 行（一次铺满半页纸就不好操作了）；
 TALK_MIN_LINES=6
 TALK_MAX_LINES=15
-# 合并后的文件表里「类别」列的短标签（完整分类名仍在行提示和右键菜单里）。
-SCRIPT_KIND_LABELS={'setting':'设定','outline':'大纲','character':'角色卡','script':'剧本'}
 
 
 def _build_layout_scheduler(win):
@@ -196,24 +194,33 @@ class _WritingPage:
         try:self.download_state_job=self.page.win.after(250,self.refresh_download_state)
         except tk.TclError:self.download_state_job=None
         self.script_box.bind('<Destroy>',self.cancel_download_state,add='+')
-        # 四类文件合并成一张整宽的表（用户 R1776 要求）：只留一个勾选列（表头即全选），
-        # 窄「类别」列标明归属，其余宽度全给文件名，尽量显示全名。行按类别分组、组内按修改时间。
+        # 四类文件并排成四列小表（用户 R1862 要求复原）：合成一张整宽表时只有一列文件名，
+        # 横向大片留白、纵向却越排越高。每列表头即分类名，各自一个勾选列，组内按修改时间。
         categories=(('setting','项目设定'),('outline','项目大纲'),('character','角色卡'),('script','项目剧本'))
         self.script_box.columnconfigure(0,weight=1);self.script_box.rowconfigure(0,weight=1)
-        table=DataTable(self.script_box,columns=[('kind','类别',SCRIPT_KIND_COLUMN_WIDTH),('name','文件名',180)],
-                        show='tree headings',height=1,selectmode='browse',style='Script.Treeview',
-                        auto_hide_scrollbars=True,empty_text='',horizontal=False)
-        table.grid(row=0,column=0,sticky='nsew')
-        self.script_tree=table.tree
-        configure_check_column(self.script_tree)
-        self.script_tree.heading('#0',anchor='center')
-        self.script_tree.heading('kind',text='类别',anchor='center')
-        self.script_tree.heading('name',text='文件名',anchor='center')
-        self.script_tree.column('kind',width=SCRIPT_KIND_COLUMN_WIDTH,minwidth=SCRIPT_KIND_COLUMN_WIDTH,stretch=False,anchor='center')
-        self.script_tree.column('name',width=180,minwidth=100,stretch=True)
+        lists=ttk.Frame(self.script_box);lists.grid(row=0,column=0,sticky='nsew')
+        self.script_trees={}
         self.script_row_details={}
         self.script_row_category={}
-        self.page.script_file_tips=TreeRowTooltip(self.script_tree,lambda item:self.script_row_details.get(item,''))
+        tips=lambda item:self.script_row_details.get(item,'')
+        self.page.script_file_tips={}
+        for column,(category,title) in enumerate(categories):
+            lists.columnconfigure(column,weight=1,uniform='script-files')
+            table=DataTable(lists,columns=[('name',title,180)],show='tree headings',height=1,
+                            selectmode='browse',style='Script.Treeview',auto_hide_scrollbars=True,
+                            empty_text='',horizontal=False)
+            tree=table.tree
+            configure_check_column(tree)
+            tree.heading('#0',anchor='center')
+            tree.heading('name',text=title,anchor='center')
+            tree.column('name',width=180,minwidth=100,stretch=True)
+            self.page.script_file_tips[category]=TreeRowTooltip(tree,tips)
+            last=column==len(categories)-1
+            table.grid(row=0,column=column,sticky='nsew',padx=SPACING['none'] if last else (SPACING['none'],SPACING['xs']))
+            self.script_trees[category]=tree
+        self.page.script_trees=self.script_trees
+        # 测距与样式只需任取一张；旧的外部访问 script_tree 指向「项目剧本」这一列。
+        self.script_tree=self.script_trees['script']
         self.page.script_tree=self.script_tree
         self.page.script_row_category=self.script_row_category
         from responsive_ui import display_lines,font_linespace
@@ -243,16 +250,22 @@ class _WritingPage:
         self.script_box.bind('<Destroy>',self.cancel_script_load,add='+')
         self.page.refresh_script_list=self.fill_script_list
         self.page.open_script_file=self.open_script_file
-        self.script_tree.bind('<Double-1>',self.open_script_file)
-        self.script_tree.bind('<Return>',self.open_script_file)
-        self.script_check=CheckboxColumn(self.script_tree,self.page.win._tick_images,
-                                    lambda item:item in self.checked_scripts,
-                                    lambda item,value:self.checked_scripts.add(item) if value else self.checked_scripts.discard(item),
-                                    self.selection_changed)
-        self.script_tree.heading('#0',command=self.script_check.toggle_all)
+        self.script_checks={}
+        for tree in self.script_trees.values():
+            tree.bind('<Double-1>',self.open_script_file)
+            tree.bind('<Return>',self.open_script_file)
+            tree.bind('<<TreeviewSelect>>',lambda event,tree=tree:self.keep_one_selection(tree),add='+')
+        for category,tree in self.script_trees.items():
+            check=CheckboxColumn(tree,self.page.win._tick_images,
+                                 lambda item:item in self.checked_scripts,
+                                 lambda item,value:self.checked_scripts.add(item) if value else self.checked_scripts.discard(item),
+                                 self.selection_changed)
+            tree.heading('#0',command=check.toggle_all)
+            self.script_checks[category]=check
         self.fill_script_list()
-        bind_row_toggle(self.script_tree,self.script_check.toggle)
-        self.script_tree.bind('<Button-3>',lambda event:self.script_menu(self.script_tree,event))
+        for category,tree in self.script_trees.items():
+            bind_row_toggle(tree,self.script_checks[category].toggle)
+            tree.bind('<Button-3>',lambda event,tree=tree:self.script_menu(tree,event))
 
     def _build_composer(self):
         """上半区：阶段标题、文件表、想法输入框与附件区。"""
@@ -542,7 +555,8 @@ class _WritingPage:
             try:self.page.win.after_cancel(self.script_load_job)
             except tk.TclError:pass
             self.script_load_job=None
-        self.script_tree.delete(*self.script_tree.get_children())
+        for tree in self.script_trees.values():
+            tree.delete(*tree.get_children())
         self.script_row_details.clear()
         self.script_row_category.clear()
         # 首批文件尚未扫描完成时也必须保留三列表的列头。此前这里先隐藏
@@ -550,7 +564,7 @@ class _WritingPage:
         # 消失；空列表与加载完成后也保留标题。
         self.keep_script_headers_visible()
         def alive():
-            return self.script_loader.is_current(generation) and self.script_tree.winfo_exists()
+            return self.script_loader.is_current(generation) and all(tree.winfo_exists() for tree in self.script_trees.values())
         def finish():
             """按修改时间恢复既有排序；每个空闲批次只调整有限条目。"""
             order=[(category,iter(rows)) for category,rows in self.script_loader.ordered_rows().items()]
@@ -562,15 +576,16 @@ class _WritingPage:
                     try:row=next(rows)
                     except StopIteration:
                         order.pop(0);continue
-                    self.script_tree.move(row.item_id,'','end')
+                    self.script_trees[category].move(row.item_id,'','end')
                     moved+=1
                 if order:
                     self.script_load_job=self.page.win.after_idle(place)
                     return
                 live=self.script_loader.item_ids()
                 self.checked_scripts.intersection_update(live)
-                self.script_tree.configure(height=max(1,min(SCRIPT_FILE_MAX_ROWS,len(self.script_tree.get_children()))))
-                self.script_check.refresh_header()
+                for category,tree in self.script_trees.items():
+                    tree.configure(height=max(1,min(SCRIPT_FILE_MAX_ROWS,len(tree.get_children()))))
+                    self.script_checks[category].refresh_header()
                 self.keep_script_headers_visible();self.script_load_job=None
             place()
         def load_batch():
@@ -581,9 +596,9 @@ class _WritingPage:
                 self.script_row_details[row.item_id]=row.name+'\n修改时间：'+modified
                 label=file_labels.get(str(Path(row.item_id).resolve()),file_labels.get(row.category,''))
                 self.script_row_category[row.item_id]=row.category
-                self.script_tree.insert('', 'end', iid=row.item_id, text='',
+                self.script_trees[row.category].insert('', 'end', iid=row.item_id, text='',
                     image=self.page.win._tick_images[int(row.item_id in self.checked_scripts)],
-                    values=(SCRIPT_KIND_LABELS.get(row.category,''),('['+label+'] ' if label else '')+row.name))
+                    values=(('['+label+'] ' if label else '')+row.name,))
             if finished:
                 finish();return
             self.keep_script_headers_visible()
@@ -592,8 +607,17 @@ class _WritingPage:
         # update() 内被追着执行，等同又把 rglob 塞回启动回调。
         self.script_load_job=self.page.win.after(250,load_batch)
 
+    def all_script_items(self):
+        return [item for tree in self.script_trees.values() for item in tree.get_children()]
+
     def current_script_tree(self):
-        return self.script_tree if self.script_tree.selection() else None
+        return next((tree for tree in self.script_trees.values() if tree.selection()),None)
+
+    def keep_one_selection(self, tree):
+        """四张表共用一个「当前行」：选中一张表的行时清掉其余表的高亮。"""
+        if not tree.selection():return
+        for other in self.script_trees.values():
+            if other is not tree:other.selection_remove(other.selection())
 
     def open_script_file(self, event=None):
         # 表头（分类名/全选）与列宽分隔线也在 Treeview 的 <Double-1> 范围内；
@@ -621,7 +645,7 @@ class _WritingPage:
 
     def selected_scripts(self):
         """批量删除只认勾选项；未勾选时将当前高亮行视作单项操作。"""
-        all_items=list(self.script_tree.get_children())
+        all_items=self.all_script_items()
         tree=self.current_script_tree()
         active=tree.selection() if tree else ()
         from script_workspace_service import script_deletion_selection
@@ -652,7 +676,7 @@ class _WritingPage:
 
     def delete_script(self):
         path=self.selected_script()
-        all_files=list(self.script_tree.get_children())
+        all_files=self.all_script_items()
         if len(all_files)==1:
             if not confirm_project_removal_from_last_script(self.page.win,[path.name]):return
         else:
@@ -714,12 +738,11 @@ class _WritingPage:
     def script_menu(self, tree,event):
         row=tree.identify_row(event.y)
         if not row:return
-        tree.selection_set(row)
+        tree.selection_set(row);self.keep_one_selection(tree)
         menu=ContextMenu(self.page.win)
         # 第 46 期第 1 条：内容框的右键一律是「查看／…／删除」这一套，剧本表原来只有改名与删除。
         menu.command('查看',lambda:self.page.safe(self.open_script_file))
         menu.command('重命名',lambda:self.page.safe(self.rename_script))
-        # 合并表后按所点行的类别给阶段动作，不再按「点的是哪一列表」判断。
         category=self.script_row_category.get(row,'script')
         if category=='script':
             menu.command('采用此剧本',lambda:self.page.safe(self.adopt_script))

@@ -933,12 +933,13 @@ class SendMessageTests(_Harness):
             win.deiconify()
             self.settle_script_page(win, .4)
             self.assertTrue(d.script_box.winfo_ismapped(), '没有文件也保留分类标题栏')
-            tree = d.script_tree  # R1776：四类文件合并为一张表，表头只剩「类别／文件名」
-            self.assertEqual(tree.heading('kind')['text'], '类别')
-            self.assertEqual(tree.heading('name')['text'], '文件名')
-            self.assertTrue(tree.winfo_ismapped())
-            self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
-            self.assertEqual(tree.get_children(), ())
+            # R1862：四类文件复原为四张并排表，表头即分类名。
+            titles = {'setting': '项目设定', 'outline': '项目大纲', 'character': '角色卡', 'script': '项目剧本'}
+            for category, tree in d.script_trees.items():
+                self.assertEqual(tree.heading('name')['text'], titles[category])
+                self.assertTrue(tree.winfo_ismapped())
+                self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
+                self.assertEqual(tree.get_children(), ())
             self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录仍保留可用空间')
 
     def test_delayed_script_rows_are_not_covered_by_empty_state(self):
@@ -995,7 +996,7 @@ class SendMessageTests(_Harness):
             self.settle_script_page(win, .4)
             tree = d.script_tree
             self.assertIn(str(path), tree.get_children())
-            self.assertIn('内部工作稿', tree.item(str(path), 'values')[1])
+            self.assertIn('内部工作稿', tree.item(str(path), 'values')[0])
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped())
 
     def test_stage_settings_is_immediately_to_the_right_of_send(self):

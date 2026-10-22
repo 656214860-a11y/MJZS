@@ -197,9 +197,9 @@ LEGACY_SCRIPT_STRUCTURE = r'''def _legacy_script_structure(self):
     ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
     self.stage_button = ui_plugin_registry.module('skill_panel').stage_button(action_group, self, PAGE['script_structure'])
     self.stage_button.pack(side='left', padx=(SPACING["sm"], SPACING["xs"]))
-    # 流程说明留在两块内容之后的右下角，避免占用顶部阅读空间。
-    info = ttk.Label(self.content, text=structure_note, style='Muted.TLabel', justify='left')
-    info.pack(anchor='center', pady=(SPACING["xs"], SPACING["none"]))
+    # R1862：流程说明放到页头右上角（与新实现同步）。
+    info = self.header_status
+    info.configure(text=structure_note)
     self.script_structure_info_label = info
     self.script_structure_source_directory = source_directory
     self.script_structure_output_directory = structure_directory

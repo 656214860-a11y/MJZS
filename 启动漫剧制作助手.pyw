@@ -42,10 +42,11 @@ try:
     window._drama_hold_alpha=True
     import platform_tools
     def expected_rect():
-        # 与 ui_theme 首次摆放主窗口的规则一致：可用区 80%、上限 1080×740、居中。
+        # 直接复用 ui_theme 首次摆放主窗口的尺寸规则并居中；改默认尺寸时启动画面跟着变，不会揭开前突然放大。
+        from ui_theme import main_window_size
         area=platform_tools.work_area() or (0,0,window.winfo_screenwidth(),window.winfo_screenheight())
         left,top,right,bottom=area
-        width=min(1080,int((right-left)*0.80));height=min(740,int((bottom-top)*0.80))
+        width,height=main_window_size(right-left,bottom-top)
         x,y=left+(right-left-width)//2,top+(bottom-top-height)//2
         # Tk 的 +x+y 定的是外框左上角，只有宽高要加上标题栏与边框。
         _,_,outer_w,outer_h=platform_tools.outer_rect_for_client(x,y,width,height)

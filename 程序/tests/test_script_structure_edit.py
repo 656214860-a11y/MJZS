@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""REQ-S02-35：剧本结构页「编辑／后退／恢复」按钮与无 Tk 编辑控制器。
+"""REQ-S02-35：剧本结构页「编辑／后退／恢复／保存」按钮与无 Tk 编辑控制器。
 
-控制器（无 Tk）：内容快照撤销栈 + 防抖自动保存调度。真 Tk（withdraw 根窗口）：按钮
-文本、编辑后防抖落盘、两次编辑后「后退」逐级回到最初内容并落盘、无可后退时禁用。
+控制器（无 Tk）：内容快照撤销栈 + 手动保存（R1862 取消自动保存）。真 Tk（withdraw 根窗口）：
+按钮文本与顺序、编辑与后退都不落盘、点「保存」才落盘、无可后退时禁用。
 """
 import tempfile
 import types
@@ -29,69 +29,46 @@ class _FakePage:
 
 class ControllerTests(unittest.TestCase):
     def test_record_edit_pushes_prior_state_and_undo_walks_back(self):
-        """REQ-S02-35：两次编辑后后退一次回到第一次编辑，再退回到原始并禁用。"""
+        """REQ-S02-35：两次编辑后后退一次回到第一次编辑，再退回到原始并禁用；全程不落盘。"""
         saved = []
-        controller = ScriptStructureEditController(save=saved.append, debounce_ms=0)
+        controller = ScriptStructureEditController(save=saved.append)
         controller.begin_edit('原始')
         controller.record_edit('第一次编辑')
         controller.record_edit('第二次编辑')
-        self.assertEqual(saved, ['第一次编辑', '第二次编辑'])
+        self.assertEqual(saved, [], 'R1862：取消自动保存，编辑不落盘')
         self.assertTrue(controller.can_undo)
         self.assertEqual(controller.undo(), '第一次编辑')
         self.assertEqual(controller.undo(), '原始')
         self.assertFalse(controller.can_undo)
+        self.assertEqual(saved, [], '后退也不落盘')
         with self.assertRaises(ValueError):
             controller.undo()
 
-    def test_unchanged_edit_does_not_push_or_save(self):
+    def test_unchanged_edit_does_not_push_or_mark_dirty(self):
         saved = []
-        controller = ScriptStructureEditController(save=saved.append, debounce_ms=0)
+        controller = ScriptStructureEditController(save=saved.append)
         controller.begin_edit('原文')
         self.assertFalse(controller.record_edit('原文'))
         self.assertFalse(controller.can_undo)
+        self.assertFalse(controller.dirty)
         self.assertEqual(saved, [])
 
-    def test_debounce_schedules_one_save_and_flushes_on_fire(self):
+    def test_save_now_writes_current_and_clears_dirty(self):
         saved = []
-        pending = {}
-
-        def schedule(delay, callback):
-            pending['delay'] = delay
-            pending['callback'] = callback
-            return 'handle'
-
-        def cancel(handle):
-            pending['cancelled'] = handle
-
-        controller = ScriptStructureEditController(
-            save=saved.append, debounce_ms=600, schedule=schedule, cancel=cancel)
+        controller = ScriptStructureEditController(save=saved.append)
         controller.begin_edit('初始')
         controller.record_edit('改动')
-        self.assertEqual(saved, [], '防抖未触发前不得落盘')
-        self.assertTrue(controller.pending_save)
-        self.assertEqual(pending['delay'], 600)
-        pending['callback']()
+        self.assertTrue(controller.dirty)
+        controller.save_now()
         self.assertEqual(saved, ['改动'])
-        self.assertFalse(controller.pending_save)
+        self.assertFalse(controller.dirty)
+        controller.undo()
+        self.assertTrue(controller.dirty, '后退到与已保存内容不同的版本，应提示未保存')
 
-    def test_undo_cancels_pending_debounce_and_saves_immediately(self):
-        saved = []
-        scheduled = []
-
-        def schedule(delay, callback):
-            scheduled.append(callback)
-            return len(scheduled)
-
-        def cancel(handle):
-            pass
-
-        controller = ScriptStructureEditController(
-            save=saved.append, debounce_ms=600, schedule=schedule, cancel=cancel)
-        controller.begin_edit('原始')
-        controller.record_edit('改动')
-        self.assertEqual(len(scheduled), 1, '应安排一次防抖保存')
-        self.assertEqual(controller.undo(), '原始')
-        self.assertIn('原始', saved)
+    def test_save_before_edit_is_rejected(self):
+        controller = ScriptStructureEditController(save=lambda text: None)
+        with self.assertRaises(ValueError):
+            controller.save_now()
 
 
 class ScriptStructureEditButtonTests(unittest.TestCase):
@@ -117,40 +94,44 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
         _install_script_edit_controls(page, controls, box)
         return win, preview, page, target
 
-    def test_buttons_are_edit_back_restore_and_no_save(self):
-        """REQ-S02-35：按钮文本恰为「编辑」「后退」「恢复」，无「保存修改」。"""
+    def test_buttons_are_edit_back_restore_save(self):
+        """REQ-S02-35／R1862：按钮依次为「编辑」「后退」「恢复」「保存」，保存在恢复右侧。"""
         win, preview, page, target = self._setup()
-        self.assertEqual(page.box_edit_button.cget('text'), '编辑')
-        self.assertEqual(page.box_back_button.cget('text'), '后退')
-        self.assertEqual(page.box_restore_button.cget('text'), '恢复')
-        self.assertFalse(hasattr(page, 'box_save_button'), '不应再有保存修改按钮')
+        buttons = [page.box_edit_button, page.box_back_button, page.box_restore_button, page.box_save_button]
+        self.assertEqual([b.cget('text') for b in buttons], ['编辑', '后退', '恢复', '保存'])
+        self.assertEqual(list(buttons[0].master.pack_slaves()), buttons)
+        self.assertTrue(page.box_save_button.instate(['disabled']), '未编辑时保存禁用')
 
-    def test_edit_auto_saves_and_back_walks_to_original(self):
-        """REQ-S02-35：编辑后落盘；两次编辑后后退一次回第一次、再退回到原始，后退禁用。"""
+    def test_edit_saves_only_on_save_and_back_walks_to_original(self):
+        """REQ-S02-35／R1862：编辑不自动落盘；点保存才落盘；后退逐级回到原始，后退禁用。"""
         win, preview, page, target = self._setup()
-        controller = page.box_controller
         page.box_edit_button.invoke()
         win.update()
         self.assertEqual(str(preview.cget('state')), 'normal')
 
         preview.insert('end', '第一次')
         win.update()
-        controller.save_now()
+        self.assertEqual(target.read_text(encoding='utf-8').strip(), '原始内容', '编辑后不得自动保存')
+        self.assertFalse(page.box_save_button.instate(['disabled']), '有改动时保存可点')
+        page.box_save_button.invoke()
+        win.update()
         self.assertEqual(target.read_text(encoding='utf-8').strip(), '原始内容第一次')
+        self.assertTrue(page.box_save_button.instate(['disabled']), '保存后无改动，保存禁用')
 
         preview.insert('end', '第二次')
         win.update()
-        controller.save_now()
-        self.assertEqual(target.read_text(encoding='utf-8').strip(), '原始内容第一次第二次')
+        page.box_back_button.invoke()
+        win.update()
+        self.assertEqual(preview.get('1.0', 'end-1c').strip(), '原始内容第一次')
+        self.assertEqual(target.read_text(encoding='utf-8').strip(), '原始内容第一次', '后退不落盘')
 
         page.box_back_button.invoke()
         win.update()
-        self.assertEqual(target.read_text(encoding='utf-8').strip(), '原始内容第一次')
-
-        page.box_back_button.invoke()
+        self.assertEqual(preview.get('1.0', 'end-1c').strip(), '原始内容')
+        self.assertTrue(page.box_back_button.instate(['disabled']), '无可后退时后退按钮应禁用')
+        page.box_save_button.invoke()
         win.update()
         self.assertEqual(target.read_text(encoding='utf-8').strip(), '原始内容')
-        self.assertTrue(page.box_back_button.instate(['disabled']), '无可后退时后退按钮应禁用')
 
 
 if __name__ == '__main__':
