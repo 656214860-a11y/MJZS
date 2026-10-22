@@ -219,6 +219,27 @@ class DialogTests(unittest.TestCase):
             self.click_header_check(table, win)
             self.assertEqual(self.checked_states(table, win), [True])       # 部分勾选时点表头 → 全选
 
+    def test_buttons_refuse_empty_selection_and_unnamed_models(self):
+        """全部取消勾选后开工、查参考、预估费用都报「至少勾选一个」；本地模型名没填时「保存设置」拒绝落盘。"""
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        import keyframe_comfy
+        from tkinter import ttk
+        with tempfile.TemporaryDirectory() as td:
+            win, app, dialog, src = self.open_dialog(td)
+            saved = keyframe_comfy.CONFIG_FILE.read_text(encoding="utf-8")
+            buttons = {str(w.cget("text")): w for w in self.widgets(dialog, ttk.Button)}
+            buttons["保存设置"].invoke()
+            self.assertEqual(app.safe_errors[-1], "请填写图像模型、文本编码器和 VAE 名称")
+            self.assertEqual(keyframe_comfy.CONFIG_FILE.read_text(encoding="utf-8"), saved)
+            table = [w for w in self.widgets(dialog, ttk.Treeview)][0]
+            self.click_header_check(table, win)
+            self.assertEqual(self.checked_states(table, win), [False])
+            for text in ("开始逐镜生成", "检查参考资产", "预估费用"):
+                app.safe_errors.clear()
+                buttons[text].invoke()
+                self.assertEqual(app.safe_errors, ["请至少勾选一个待生成首帧的镜头"], text)
+
     def test_reference_check_stays_local(self):
         """「检查参考资产」只读本地文件：不再占用 app.async_，避免连 ComfyUI 时整机卡住。"""
         if self.tk is None:

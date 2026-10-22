@@ -150,6 +150,34 @@ class ScriptWorkspaceServiceTests(unittest.TestCase):
 
             self.assertEqual(('setting', '故事创意_20260929_120000.md'), (row.category, row.path.name))
 
+    def test_all_published_batch_layouts_and_unsafe_entries(self):
+        """历史 ``创意_*``、``Provider/创意_*``、``Provider/Model/创意_*`` 三种布局都列出；
+        同名目录、越界目录或文件、读不出文本的剧本都不抛错。"""
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temp:
+            writing = project_stages.writing(temp)
+            (writing / '输入' / '故事创意_目录.md').mkdir(parents=True)
+            top = writing / '创意_20260901' / '项目剧本' / '历史.md'
+            middle = writing / 'Provider' / '创意_20260902' / '项目设定' / '中层.md'
+            deep = writing / 'Provider' / 'Model' / '创意_20260903' / '项目剧本' / '深层.md'
+            hidden_dir = writing / 'Provider' / 'Model' / '创意_20260904' / '项目剧本' / '越界目录.md'
+            hidden_file = deep.parent / '越界文件.md'
+            for path in (top, middle, deep, hidden_dir, hidden_file):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('x', encoding='utf-8')
+            deep.write_bytes(b'\xff\xfe\xfa')
+            (writing / 'script_raw.md').write_text('场景 1：室内\n小明：开始。', encoding='utf-8')
+            original = Path.resolve
+            outside = Path(temp) / 'outside'
+
+            def resolve(path, *args, **kwargs):
+                if path in (hidden_dir.parent, hidden_file):
+                    return outside
+                return original(path, *args, **kwargs)
+            with patch.object(Path, 'resolve', resolve):
+                names = {row.path.name for row in discover_script_documents(temp)}
+            self.assertEqual({'历史.md', '中层.md', '深层.md', 'script_raw.md'}, names)
+
     def test_missing_writing_directory_is_empty(self):
         with tempfile.TemporaryDirectory() as temp:
             self.assertEqual((), discover_script_documents(Path(temp)))

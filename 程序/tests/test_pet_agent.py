@@ -625,5 +625,30 @@ class IdempotencyTests(unittest.TestCase):
                          pet_agent.idempotency_key("video", "SH001", "m", "猫 坐在 窗边"))
 
 
+class SaveSettingsTests(unittest.TestCase):
+    """设置页落盘：坏值这一把键本次不写（盘上旧值留着），未登记的键与 None 不碰。"""
+
+    def test_bad_values_keep_the_saved_ones(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = pet_agent.config_file(td)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"dnd": [22, 7], "retry_delays": [5], "max_attempts": 3,
+                                        "pool": {"keep": True}}), encoding="utf-8")
+            pet_agent.save_settings({"dnd": [1, 2, 3], "retry_delays": [], "max_attempts": 0,
+                                     "budget_limits": {"image": 5, "飞船": 9, "video": -1},
+                                     "pool": "被改", "anim": None}, program=td)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(data["dnd"], [22, 7])
+            self.assertEqual(data["retry_delays"], [5])
+            self.assertEqual(data["max_attempts"], 3)
+            self.assertEqual(data["budget_limits"], {"image": 5})
+            self.assertEqual(data["pool"], {"keep": True})
+            self.assertNotIn("anim", data)
+            pet_agent.save_settings({"retry_delays": ("10", 20), "max_attempts": "4"}, program=td)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(data["retry_delays"], [10, 20])
+            self.assertEqual(data["max_attempts"], 4)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

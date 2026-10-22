@@ -254,6 +254,15 @@
       "reference": ""
     },
     {
+      "file": "tests/test_cloud_video.py",
+      "test": "StaleSettingsWindowTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
       "file": "tests/test_column_fit.py",
       "test": "ColumnFitTests.setUp",
       "ordinal": 1,
@@ -445,6 +454,15 @@
     {
       "file": "tests/test_keyframe_comfy.py",
       "test": "DialogTests.test_header_checkbox_selects_and_clears_all",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_keyframe_comfy.py",
+      "test": "DialogTests.test_buttons_refuse_empty_selection_and_unnamed_models",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",
@@ -2270,15 +2288,6 @@
       "reference": ""
     },
     {
-      "file": "tests/test_open_manager_equivalence.py",
-      "test": "OpenManagerEquivalence.setUp",
-      "ordinal": 1,
-      "kind": "平台限制",
-      "reason_constant": "PLATFORM_TKINTER",
-      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
-      "reference": ""
-    },
-    {
       "file": "tests/test_script_structure_page_equivalence.py",
       "test": "ScriptStructurePageEquivalence.setUp",
       "ordinal": 1,
@@ -2288,26 +2297,8 @@
       "reference": ""
     },
     {
-      "file": "tests/test_cloud_settings_window_equivalence.py",
-      "test": "CloudSettingsWindowEquivalence.setUp",
-      "ordinal": 1,
-      "kind": "平台限制",
-      "reason_constant": "PLATFORM_TKINTER",
-      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
-      "reference": ""
-    },
-    {
       "file": "tests/test_asset_batch_window_equivalence.py",
       "test": "AssetBatchWindowEquivalence.setUp",
-      "ordinal": 1,
-      "kind": "平台限制",
-      "reason_constant": "PLATFORM_TKINTER",
-      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
-      "reference": ""
-    },
-    {
-      "file": "tests/test_keyframe_comfy_window_equivalence.py",
-      "test": "KeyframeComfyWindowEquivalence.setUp",
       "ordinal": 1,
       "kind": "平台限制",
       "reason_constant": "PLATFORM_TKINTER",

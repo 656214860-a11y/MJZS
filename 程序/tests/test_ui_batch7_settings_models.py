@@ -233,6 +233,23 @@ class ActionAreaTests(Batch7Case):
                                  '动作区不得掉出窗口底边')
 
 
+class ManagerHintTests(Batch7Case):
+    def test_delete_and_probe_need_a_row_and_a_model_id(self):
+        """没选行就删、没填模型 ID 就测，只写非模态提示；填了 ID 才去测并把结论写进提示。"""
+        win = self._manager_window()
+        hint = win._pet_hint
+        _button(win, '删除这条').invoke()
+        self.assertEqual(hint.get(), '先选一条。')
+        win._pet_entries['model'].delete(0, 'end')
+        _button(win, '测试连接').invoke()
+        self.assertEqual(hint.get(), '先填模型 ID。')
+        win._pet_entries['model'].insert(0, 'gpt-test')
+        with mock.patch('pet_models_ui.probe_line', return_value='连通（测试）') as probe:
+            _button(win, '测试连接').invoke()
+        self.assertEqual(probe.call_args[0][0]['model'], 'gpt-test')
+        self.assertEqual(hint.get(), '连通（测试）')
+
+
 class SaveButtonStateTests(Batch7Case):
     def test_save_button_greys_out_on_pages_with_nothing_to_save(self):
         """窗口级「保存」跟着页走：自动生效的页置灰，有 save／apply 的页恢复。"""

@@ -214,5 +214,46 @@ class KeyEntryPrivacyTests(unittest.TestCase):
             self.assertEqual(key.get(),'')
 
 
+class StaleSettingsWindowTests(unittest.TestCase):
+    """设置窗打开后项目切换或宿主正忙：删除模型、保存设置都只报错，不写任何文件。"""
+
+    def setUp(self):
+        try:
+            self.root=tk.Tk();self.root.withdraw()
+        except tk.TclError:
+            self.skipTest(PLATFORM_TKINTER)
+        self.addCleanup(self.root.destroy)
+
+    def press_all(self, desktop, change):
+        def walk(widget):
+            yield widget
+            for child in widget.winfo_children():
+                yield from walk(child)
+        settings_window(desktop);self.root.update()
+        win=desktop.cloud_settings_window
+        self.addCleanup(lambda:win.winfo_exists() and win.destroy())
+        buttons={str(w.cget('text')):w for w in walk(win) if w.winfo_class() in ('TButton','Button')}
+        change(desktop)
+        errors=[]
+        with patch('cloud_video.notify',lambda _win,text,**kw:errors.append((text,kw['level']))):
+            buttons['删除模型'].invoke();buttons['保存设置'].invoke()
+        return errors
+
+    def test_switched_project_and_busy_host_refuse_both_actions(self):
+        with tempfile.TemporaryDirectory() as td:
+            project=Path(td);source=project/'episode.json';source.write_text('{}',encoding='utf-8')
+
+            def desktop():
+                return SimpleNamespace(win=self.root,root=project,video=None,current_frame_json=lambda:source,
+                                       cloud_settings_window=None,worker=False,status=None)
+            switched=self.press_all(desktop(),lambda d:setattr(d,'root',project/'other'))
+            self.assertEqual(switched,[('项目已切换，请重新打开 API 设置','error'),
+                                       ('当前项目已切换，请关闭设置后在对应项目重新打开','error')])
+            busy=self.press_all(desktop(),lambda d:setattr(d,'worker',True))
+            self.assertEqual(busy,[('请等待当前请求结束后删除模型','error'),
+                                   ('当前任务尚未结束，请稍后保存','error')])
+            self.assertEqual(sorted(p.name for p in project.iterdir()),['episode.json'])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
