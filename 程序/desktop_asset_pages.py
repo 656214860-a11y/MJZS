@@ -16,7 +16,7 @@ from pathlib import Path
 from platform_tools import open_target
 from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_row_toggle, bind_space_toggle, bind_show_all, configure_check_column, fit_row_height, refresh_check_heading, refresh_request_width, remember_columns
 from tkinter import ttk
-from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_HINT
+from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_HINT
 from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_string
 from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_HEIGHT, ASSET_ROW_LABEL, Desktop, FileDialog, STAGE_ACTION_WIDTH, THUMB_SIZE, confirm, open_path
 
@@ -604,7 +604,7 @@ class _AssetPage:
         # 而是「几张 · 按类目各几张」——角色／场景／道具各有自己的类目（见 ROLE_GROUPS）。
         # 第 57 期第 6 条：这一栏改名「资产图片」（原来叫「导入图片」，与它上面那一行按钮同名）。
         compact=[(key,label,MIN_COL) for key,label,width in asset_columns]
-        table_shell=DataTable(table_box,columns=compact,show='tree headings',height=7,
+        table_shell=DataTable(table_box,columns=compact,show='tree headings',height=TEXT_ROWS['lg'],
                               style='Asset.Treeview',empty_text='暂无资产',
                               auto_hide_scrollbars=True)
         self.table=table_shell.tree
@@ -763,7 +763,7 @@ class _AssetPage:
         asset=self.registry[aid]
         text={'name':asset.get('name',aid),'note':asset.get('description',asset.get('reference_region',''))}.get(field,'')
         win=BaseDialog(self.page.win,aid+' · '+('名称' if field=='name' else '外观要求'),geometry='650x340',modal=False,chrome=False)
-        box=TextArea(win,wrap='word',height=10,padx=SPACING['md'],pady=SPACING['md']);box.pack(fill='both',expand=True,padx=SPACING['md'],pady=SPACING['md'])
+        box=TextArea(win,wrap='word',height=TEXT_ROWS['xl'],padx=SPACING['md'],pady=SPACING['md']);box.pack(fill='both',expand=True,padx=SPACING['md'],pady=SPACING['md'])
         box.insert('1.0',text or '暂无内容');box.configure(state='disabled');bind_show_all(box)
         if field=='name':SecondaryButton(win,text='修改名称',command=lambda:(win.destroy(),self.page.safe(lambda:self.page.rename_asset(aid)))).pack(anchor='e',padx=SPACING['md'],pady=(SPACING['none'],SPACING['md']))
         # 第 64 期任务 13（附件任务 4.1）：正典板不再嵌在主页面这个弹窗里，搬进了资产详情页。

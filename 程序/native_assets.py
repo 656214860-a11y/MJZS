@@ -18,7 +18,7 @@ from agent.core import read, save, save_bytes
 from comfy_service import Comfy
 from cloud_assets import MODELS as CLOUD_MODELS
 import tk_timers
-from ui_tokens import SPACING
+from ui_tokens import WRAPLENGTH, SPACING
 
 
 LOGGER = logging.getLogger(__name__)
@@ -371,28 +371,28 @@ class _AssetControls:
         config=Card(self.form);config.pack(fill='x',padx=SPACING['md'],pady=SPACING['sm'])
         config.columnconfigure(1,weight=1)
         ttk.Label(config,text='生图模型').grid(row=0,column=0,columnspan=4,sticky='w')
-        ttk.Label(config,text='模型').grid(row=1,column=0,sticky='w',padx=(0,SPACING['sm']))
+        ttk.Label(config,text='模型').grid(row=1,column=0,sticky='w',padx=(SPACING['none'],SPACING['sm']))
         self.selector=SelectBox(config,textvariable=self.model,values=MODELS);self.selector.grid(row=1,column=1,sticky='ew',padx=SPACING['xs'])
         ttk.Label(config,text='画幅').grid(row=1,column=2,padx=(SPACING['md'],SPACING['xs']))
         self.shape=SelectBox(config,textvariable=self.aspect,values=['1:1','9:16','16:9']);self.shape.grid(row=1,column=3,padx=SPACING['xs'])
         self.hint=tk.StringVar();self.account_text=tk.StringVar(value='云模型账号 / 密钥')
-        ProgressLabel(config,textvariable=self.hint,wraplength=730).grid(row=2,column=0,columnspan=4,sticky='w',pady=SPACING['sm'])
+        ProgressLabel(config,textvariable=self.hint,wraplength=WRAPLENGTH['xl']).grid(row=2,column=0,columnspan=4,sticky='w',pady=SPACING['sm'])
         self.selector.bind('<<ComboboxSelected>>',self.selected);self.shape.bind('<<ComboboxSelected>>',self.selected)
         SecondaryButton(config,textvariable=self.account_text,command=lambda:self.app.safe(self.account)).grid(row=3,column=0,columnspan=2,sticky='w')
         self.update_hint()
         self.check_stop=threading.Event()
         self.gen_stop=threading.Event()
         progress=ttk.Progressbar(self.form,mode='indeterminate');progress.pack(fill='x',padx=SPACING['md'],pady=SPACING['xs'])
-        ProgressLabel(self.form,textvariable=self.progress_text,wraplength=760,justify='left').pack(anchor='w',padx=SPACING['md'],pady=(0,4))
+        ProgressLabel(self.form,textvariable=self.progress_text,wraplength=WRAPLENGTH['xl'],justify='left').pack(anchor='w',padx=SPACING['md'],pady=(SPACING['none'],SPACING['xs']))
         self.busy=BusyState(self.progress_text,progress)
         tk_timers.repeat(self.win,250,self.poll)
         # 第 65 期任务 1：这一排只留「启动并检测」和「取消检测」。「手动制作资产」撤掉——检测通过就自动开跑
         # （见上面 done）；「桌面打开 ComfyUI」主界面已经有一颗；「强制关闭 ComfyUI」与「制作记录」搬到主界面
         # 「阶段配置」右边（desktop.asset_page）。同一件事只留一个入口。
-        buttons=FlowBar(self.form);buttons.pack(fill='x',padx=SPACING['md'],pady=(2,8))
+        buttons=FlowBar(self.form);buttons.pack(fill='x',padx=SPACING['md'],pady=(SPACING['xs'],SPACING['sm']))
         self.check_button=PrimaryButton(buttons,text='启动并检测',command=lambda:self.app.safe(self.check));self.check_button.pack(side='left')
-        SecondaryButton(buttons,text='预估费用',command=lambda:self.app.safe(self.preview_cost)).pack(side='left',padx=(6,0))
-        self.cancel_button=SecondaryButton(buttons,text='取消检测',command=self.cancel,state='disabled');self.cancel_button.pack(side='left',padx=(6,0))
+        SecondaryButton(buttons,text='预估费用',command=lambda:self.app.safe(self.preview_cost)).pack(side='left',padx=(SPACING['xs'],SPACING['none']))
+        self.cancel_button=SecondaryButton(buttons,text='取消检测',command=self.cancel,state='disabled');self.cancel_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
         tk_timers.repeat(self.win,250,self.update_buttons)
         tk_timers.repeat(self.win,250,self.poll)
         self.update_buttons()

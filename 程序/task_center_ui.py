@@ -6,6 +6,7 @@ import tkinter as tk
 import diagnostic_capture
 import task_center_service
 from ui_widgets import BaseDialog, TextArea, LineInput
+from ui_tokens import TEXT_ROWS
 
 
 def show(desktop):
@@ -48,7 +49,7 @@ def show(desktop):
     dialog = BaseDialog(desktop.win, '运行状况', geometry='640x520', minsize=(420, 320))
     query = LineInput(dialog.content, placeholder='镜头或资产编号（留空显示全部尝试）')
     query.pack(fill='x')
-    text = TextArea(dialog.content, wrap='word', height=20)
+    text = TextArea(dialog.content, wrap='word', height=TEXT_ROWS['4xl'])
     text.pack(fill='both', expand=True)
     text.insert('1.0', '\n'.join(task_center_service.format_lines(data)))
     text.set_readonly(True)

@@ -14,7 +14,7 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 import model_pool
-from ui_tokens import FONTS, FORM_LABEL_WIDTH, SPACING, TEXT_DESC, TEXT_HINT
+from ui_tokens import TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, SPACING, TEXT_DESC, TEXT_HINT
 from ui_dialogs import FileDialog
 from ui_widgets import (BusyState, NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
                         LineInput, PrimaryButton, SecondaryButton)
@@ -451,7 +451,7 @@ class _ModelManager:
         self.keys = [key for key, _title, _width in COLUMNS]
         # 表单行不叠加纵向外边距；控件保留自身内边距，窗口剩余高度全部交给模型列表。
         # 列宽随窗口伸展，长名称与地址可以通过滚动条查看。
-        self.table_shell = DataTable(body, columns=COLUMNS, show='headings', height=20,
+        self.table_shell = DataTable(body, columns=COLUMNS, show='headings', height=TEXT_ROWS['4xl'],
                                 empty_text='暂无模型配置')
         self.tree = self.table_shell.tree
         for key, title, width in COLUMNS:

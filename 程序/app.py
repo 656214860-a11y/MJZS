@@ -23,7 +23,7 @@ import project_settings
 import asset_thumbs
 import ui_plugin_registry
 from platform_tools import open_path
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING
 from ui_widgets import (SelectBox, BaseDialog, Card, BusyState, ContextMenu, DataTable, LineInput, NotificationDispatcher,
                         ask_confirmation, ask_string,
                         PrimaryButton, SecondaryButton, TextArea)
@@ -154,8 +154,8 @@ class App:
         # 第 33 期第 2 条：第二栏（勾选框之后那一栏）显示的就是镜头号，列头补上「镜头号」，
         # 不再是一个没有标题的空格子。
         for k,t in [('id','镜头号'),('title','内容'),(ASSET_FIELD,ASSET_TITLE),('seconds','秒数'),('frame','首帧'),('state','当前任务'),('local_progress','本地进度'),('cloud_progress','线上进度'),('review','验收'),('versions','版本数'),('white_model','白模 · 上传')]:self.tree.heading(k,text=t)
-        for k in self.tree['columns']:self.tree.column(k,width=145)
-        self.tree.column('id',width=110);table_shell.grid(row=0,column=0,sticky='ew')
+        for k in self.tree['columns']:self.tree.column(k,width=SPACING['sm'] * 18)
+        self.tree.column('id',width=SPACING['sm'] * 14);table_shell.grid(row=0,column=0,sticky='ew')
         self.tree.tag_configure('completed',background=COLORS['row_completed'],foreground=COLORS['success'])
         self.tree.bind('<<TreeviewSelect>>',lambda e:self.select())
         from shot_selection import bind_shot_checks
@@ -365,7 +365,7 @@ class App:
         # 第 46 期第 9 条：批量删除与它成对——都只认勾选行，逐个删除走内容框的右键菜单。
         self.delete_checked_button=add(secondary,'删除勾选镜头',self.delete_checked_shots)
         ttk.Label(secondary,text='验收备注：').pack(side='left',padx=(SPACING['sm'],SPACING['xs']))
-        self.note=LineInput(secondary,width=14);self.note.pack(side='left')
+        self.note=LineInput(secondary,width=CHAR_WIDTH['2xl']);self.note.pack(side='left')
         # 第 39 期第 2 条：验收那一组并进第二行（通过／需修改／验收备注），这一列只剩「自动验收」——
         # 它排在「自动提交」下面（自动提交先建、先 pack）。
         self.auto_review=tk.BooleanVar(value=False)
@@ -379,7 +379,7 @@ class App:
         # 第 35 期第 5 条：两行进度文字并成一行——「SH0XX…」在左，「本地：…／线上：…」右对齐。
         progress_line=ttk.Frame(self.footer);progress_line.pack(fill='x',padx=SPACING['sm'],pady=(SPACING['xs'],SPACING['none']))
         ttk.Label(progress_line,textvariable=self.shared_progress,style='Muted.TLabel',anchor='e').pack(side='right')
-        ttk.Label(progress_line,textvariable=self.progress_text,wraplength=700,justify='left').pack(side='left',fill='x',expand=True)
+        ttk.Label(progress_line,textvariable=self.progress_text,wraplength=WRAPLENGTH['lg'],justify='left').pack(side='left',fill='x',expand=True)
         self.task_progress=ttk.Progressbar(self.footer,mode='indeterminate');self.task_progress.pack(fill='x',padx=SPACING['sm'],pady=(SPACING['xs'],SPACING['xs']))
         self.busy_state=BusyState(self.progress_text,self.task_progress)
         log_box=tk.Frame(self.footer,bg=COLORS['background_card'],highlightthickness=1,highlightbackground=COLORS['border_default'])
@@ -642,7 +642,7 @@ class App:
         from stage_execution_service import prepare_writing_project
         win=BaseDialog(self.window,'剧本准备 · 五阶段编剧技能',geometry='780x540',modal=False,chrome=False);win.attributes('-alpha',0)
         ttk.Label(win,text='填写创意或粘贴已有剧本：').pack(anchor='w',padx=SPACING['md'],pady=SPACING['xs'])
-        brief=TextArea(win,height=15,wrap='word');brief.pack(fill='both',expand=True,padx=SPACING['md'])
+        brief=TextArea(win,height=TEXT_ROWS['3xl'],wrap='word');brief.pack(fill='both',expand=True,padx=SPACING['md'])
         # 第 45 期：这一栏里的示例以前是正常黑字，看着像用户自己写的，一按「生成编剧任务书」才发现
         # 交上去的是软件自带的那几句话。现在示例默认置灰（只是提示）：一动键盘整段让位，
         # 空着再离开焦点就把灰色的示例放回来；真拿着示例去生成会被拦下并说清。
@@ -667,7 +667,7 @@ class App:
         show_example()
         row=ttk.Frame(win);row.pack(fill='x',padx=SPACING['md'],pady=SPACING['sm'])
         stage=SelectBox(row,values=STAGES);stage.current(0);stage.pack(side='left')
-        ttk.Label(row,text='目标秒数：').pack(side='left',padx=SPACING['sm']);duration=LineInput(row,width=8);duration.insert(0,'40');duration.pack(side='left')
+        ttk.Label(row,text='目标秒数：').pack(side='left',padx=SPACING['sm']);duration=LineInput(row,width=CHAR_WIDTH['md']);duration.insert(0,'40');duration.pack(side='left')
         def generate():
             try:
                 if self.busy:raise ValueError('请等待当前操作完成')
@@ -943,12 +943,12 @@ class App:
         from responsive_ui import refresh_check_heading,row_toggle_target
         tick_images=list(getattr(self.scheduler,'_tick_images',None) or ('',''))
         win=BaseDialog(self.window,'选择资产 · '+sid,geometry='720x430',minsize=(520,340),modal=False,chrome=False);win.withdraw()
-        ttk.Label(win,wraplength=660,text=(
+        ttk.Label(win,wraplength=WRAPLENGTH['lg'],text=(
             LOCKED_NOTE if locked else
             '单击一行＝勾上／取消（勾上的随视频上传）；双击缩略图看它的图片。' if rows else
             '这一镜没有声明资产，或资产清单暂时读不出来。')).pack(anchor='w',padx=SPACING['md'],pady=(SPACING['md'],SPACING['sm']))
         note=tk.StringVar()
-        ttk.Label(win,textvariable=note,style='Muted.TLabel',wraplength=660).pack(anchor='w',padx=SPACING['md'],pady=(SPACING['none'],SPACING['sm']))
+        ttk.Label(win,textvariable=note,style='Muted.TLabel',wraplength=WRAPLENGTH['lg']).pack(anchor='w',padx=SPACING['md'],pady=(SPACING['none'],SPACING['sm']))
         table_shell=DataTable(win,columns=[
             ('thumb','缩略图',PICK_THUMB_SIZE+28),('name','资产',300),('state','图片',90),
         ],show='tree headings',height=PICK_ROWS,selectmode='browse',style='Picker.Treeview',
@@ -958,8 +958,8 @@ class App:
         configure_check_column(table)                                   # 第 59 期第 11 条：首列＝勾选框
         table.heading('thumb',text='缩略图')
         table.column('thumb',width=PICK_THUMB_SIZE+28,minwidth=PICK_THUMB_SIZE+28,stretch=False)
-        table.heading('name',text='资产');table.column('name',width=300)
-        table.heading('state',text='图片');table.column('state',width=90,stretch=False)
+        table.heading('name',text='资产');table.column('name',width=SPACING['sm'] * 38)
+        table.heading('state',text='图片');table.column('state',width=SPACING['sm'] * 11,stretch=False)
         thumbs={}
         def checked(aid):return bool(choices.get(aid) and choices[aid].get())
         def row_asset(aid):
@@ -1351,7 +1351,7 @@ class App:
         labels={'project_dir':'密钥.env所在目录','base_url':'阿里云API根地址','model':'模型ID','ffmpeg':'FFmpeg程序','ffprobe':'FFprobe程序','budget_seconds':'本地总预算秒数（含历史占用）','reserve_seconds':'备用秒数'}
         for row,(key,label) in enumerate(labels.items()):
             ttk.Label(body,text=label).grid(row=row,column=0,padx=SPACING['sm'],pady=SPACING['sm'],sticky='w')
-            e=LineInput(body,width=80);e.insert(0,str(self.studio.cfg[key]));e.grid(row=row,column=1,padx=SPACING['sm']);entries[key]=e
+            e=LineInput(body,width=CHAR_WIDTH['field_lg']);e.insert(0,str(self.studio.cfg[key]));e.grid(row=row,column=1,padx=SPACING['sm']);entries[key]=e
         live=tk.BooleanVar(value=self.studio.cfg['live_enabled']);ttk.Checkbutton(body,text='开启联网生成与查询（需手动提交）',variable=live).grid(row=len(labels),column=1,sticky='w')
         def commit():
             try:

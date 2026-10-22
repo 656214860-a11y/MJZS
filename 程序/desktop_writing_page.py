@@ -13,7 +13,7 @@ import ui_plugin_registry
 from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height, row_toggle_target
 from tkinter import ttk
-from ui_tokens import COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_PADDING, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
+from ui_tokens import CHAR_WIDTH, COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_PADDING, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from desktop_page_support import ContextMenu, confirm, confirm_project_removal_from_last_script, open_path
 from ui_widgets import DataTable, EllipsisLabel, HintLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, TreeRowTooltip, ask_string
 
@@ -213,7 +213,7 @@ class _WritingPage:
             configure_check_column(tree)
             tree.heading('#0',anchor='center')
             tree.heading('name',text=title,anchor='center')
-            tree.column('name',width=180,minwidth=100,stretch=True)
+            tree.column('name',width=SPACING['sm'] * 23,minwidth=100,stretch=True)
             self.page.script_file_tips[category]=TreeRowTooltip(tree,tips)
             last=column==len(categories)-1
             table.grid(row=0,column=column,sticky='nsew',padx=SPACING['none'] if last else (SPACING['none'],SPACING['xs']))
@@ -303,7 +303,7 @@ class _WritingPage:
         input_row=ttk.Frame(composer);input_row.pack(fill='x')
         self.input_box=TextArea(input_row,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
                           font=FONTS['body'],relief='solid',bd=1,padx=SPACING['md'],pady=SPACING['sm'])
-        attach_button=SecondaryButton(input_row,text=ICON_FOLDER,width=3,style='Tokens.Icon.TButton',
+        attach_button=SecondaryButton(input_row,text=ICON_FOLDER,width=CHAR_WIDTH['xs'],style='Tokens.Icon.TButton',
                                  command=lambda:self.page.safe(self.page.choose_idea_attachments))
         # 附件入口放在输入框左侧，先占住固定宽度；窄窗口时输入框只使用剩余空间，
         # 既方便点击，也不会把图标挤出可视区。
@@ -321,7 +321,7 @@ class _WritingPage:
                                                      style='Muted.TLabel')
         self.page.idea_uploaded_panel=ttk.Frame(composer)
         self.page.idea_attachment_delete_button=SecondaryButton(
-            self.page.idea_uploaded_panel,text=ICON_DELETE,width=3,style='Tokens.Icon.TButton',
+            self.page.idea_uploaded_panel,text=ICON_DELETE,width=CHAR_WIDTH['xs'],style='Tokens.Icon.TButton',
             command=lambda:self.page.safe(self.page.delete_uploaded_idea_attachment))
         self.page.idea_attachment_delete_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         Tooltip(self.page.idea_attachment_delete_button,'删除附件（勾选后删除，可多选）')

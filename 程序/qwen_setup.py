@@ -8,7 +8,7 @@ from tkinter import ttk
 from api_models import records,remember,remove,label,identity
 from agent.core import save
 import tk_timers
-from ui_tokens import SPACING
+from ui_tokens import WRAPLENGTH, SPACING
 from ui_widgets import (SelectBox, Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
                         ProgressLabel, SecondaryButton, ask_confirmation, notify)
 
@@ -101,14 +101,14 @@ def environment(model='',api=None):
 def show(parent,on_saved=None):
     win=FormDialog(parent,'Qwen Code · API 设置',geometry='780x480',modal=False,chrome=False)
     body=Card(win);body.pack(fill='both',expand=True,padx=SPACING['lg'],pady=SPACING['lg']);body.columnconfigure(1,weight=1)
-    DescriptionBlock(body,text='支持阿里云百炼或自定义 OpenAI 兼容接口；填写后点击保存设置。').grid(row=0,column=0,columnspan=2,sticky='w',pady=(0,SPACING['md']))
+    DescriptionBlock(body,text='支持阿里云百炼或自定义 OpenAI 兼容接口；填写后点击保存设置。').grid(row=0,column=0,columnspan=2,sticky='w',pady=(SPACING['none'],SPACING['md']))
     vars={k:tk.StringVar(value=v) for k,v in load().items() if k in ('base_url','model','api_key')}
     for row,(key,title) in enumerate([('base_url','API 根地址'),('model','默认模型'),('api_key','API Key')],1):
-        ttk.Label(body,text=title).grid(row=row,column=0,sticky='w',padx=(0,SPACING['md']))
+        ttk.Label(body,text=title).grid(row=row,column=0,sticky='w',padx=(SPACING['none'],SPACING['md']))
         LineInput(body,textvariable=vars[key]).grid(row=row,column=1,sticky='ew',pady=SPACING['sm'])
-    DescriptionBlock(body,text='自动批量制作请使用百炼按量付费通用 API；Token Plan 个人版和 Coding Plan 不适用于非交互式批量调用。\n文本和任务执行使用 Qwen；资产与首帧图片交给现有 ComfyUI 工作流。',wraplength=670).grid(row=4,column=0,columnspan=2,sticky='w',pady=SPACING['sm'])
+    DescriptionBlock(body,text='自动批量制作请使用百炼按量付费通用 API；Token Plan 个人版和 Coding Plan 不适用于非交互式批量调用。\n文本和任务执行使用 Qwen；资产与首帧图片交给现有 ComfyUI 工作流。',wraplength=WRAPLENGTH['lg']).grid(row=4,column=0,columnspan=2,sticky='w',pady=SPACING['sm'])
     status=tk.StringVar(value='尚未配置时，可继续选择 ChatGPT/Codex。')
-    ProgressLabel(body,textvariable=status,wraplength=670).grid(row=5,column=0,columnspan=2,sticky='w',pady=SPACING['sm'])
+    ProgressLabel(body,textvariable=status,wraplength=WRAPLENGTH['lg']).grid(row=5,column=0,columnspan=2,sticky='w',pady=SPACING['sm'])
     cfg=load()
     ttk.Label(body,text='已保存模型').grid(row=6,column=0,sticky='w',pady=SPACING['sm'])
     preset=tk.StringVar()

@@ -57,6 +57,13 @@ COLORS = {
 
 SPACING = {"none": 0, "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "2xl": 32}
 RADIUS = {"sm": 4, "md": 8, "lg": 12}
+# 文字单位的尺寸刻度（R1885）：控件 width 以字符计、文本区/表格 height 以行计，不是像素。
+# 业务页一律从刻度取值；旧值按「就近、平局取大」吸附（取大避免裁字）。
+CHAR_WIDTH = {"xs": 4, "sm": 6, "md": 8, "lg": 10, "xl": 12, "2xl": 14, "3xl": 16,
+              "field_sm": 48, "field_md": 64, "field_lg": 80}
+TEXT_ROWS = {"xs": 2, "sm": 4, "md": 6, "lg": 8, "xl": 10, "2xl": 12, "3xl": 16, "4xl": 20}
+# 说明/状态文字折行宽度（像素），80px 一档；旧值向下取档，保证不超出原容器。
+WRAPLENGTH = {"sm": 480, "md": 560, "lg": 640, "xl": 720, "2xl": 800, "3xl": 880, "4xl": 960}
 # 桌面密度（2026-10-21 密度放松）：按钮、输入框、下拉框的视觉高度与最小点击区 32→36px。
 CONTROL_HEIGHT = SPACING["2xl"] + SPACING["xs"]
 CONTROL_HIT_MIN = CONTROL_HEIGHT

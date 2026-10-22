@@ -8,7 +8,7 @@ from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_
 from ui_dialogs import FileDialog
 from ui_widgets import (SelectBox, BaseDialog, Card, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
-from ui_tokens import SPACING
+from ui_tokens import TEXT_ROWS, WRAPLENGTH, SPACING
 
 
 def save_images(base,aid,role,paths,active_ids,pending=False):
@@ -41,15 +41,15 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     body=Card(win,padding=16);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1);body.rowconfigure(4,weight=1)
     prefix=aid.split('_')[0] if aid in rows else {'characters':'CHAR','scenes':'LOC','props':'PROP'}.get(app.asset_kind,'CHAR')
     category=tk.StringVar(value=CATEGORIES[prefix]);purpose=tk.StringVar();asset=tk.StringVar();destination=tk.StringVar();status=tk.StringVar()
-    ttk.Label(body,text='资产类别').grid(row=0,column=0,sticky='w',padx=(0,12),pady=SPACING['xs'])
+    ttk.Label(body,text='资产类别').grid(row=0,column=0,sticky='w',padx=(SPACING['none'],SPACING['md']),pady=SPACING['xs'])
     category_box=SelectBox(body,textvariable=category,values=list(CATEGORIES.values()));category_box.grid(row=0,column=1,sticky='ew')
     ttk.Label(body,text='参考分类').grid(row=1,column=0,sticky='w',pady=SPACING['xs'])
     role_box=SelectBox(body,textvariable=purpose);role_box.grid(row=1,column=1,sticky='ew')
     ttk.Label(body,text='资产编号').grid(row=2,column=0,sticky='w',pady=SPACING['xs'])
     asset_box=SelectBox(body,textvariable=asset);asset_box.grid(row=2,column=1,sticky='ew')
     paths=[];choices={}
-    ttk.Label(body,text='参考图片').grid(row=3,column=0,sticky='w',pady=(12,5))
-    files=tk.Listbox(body,height=6);files.grid(row=4,column=0,columnspan=2,sticky='nsew',pady=SPACING['xs'])
+    ttk.Label(body,text='参考图片').grid(row=3,column=0,sticky='w',pady=(SPACING['md'],SPACING['xs']))
+    files=tk.Listbox(body,height=TEXT_ROWS['md']);files.grid(row=4,column=0,columnspan=2,sticky='nsew',pady=SPACING['xs'])
     def update_destination(event=None):
         selected=choices.get(asset.get())
         if not selected:destination.set('当前类别没有可绑定的资产');return
@@ -69,11 +69,11 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
         selected=FileDialog(win).open_files(title='选择参考图片（可多选）',initialdir=str(shared_reference_dir(app.root)),filetypes=[('参考图片',' '.join('*'+suffix for suffix in sorted(EXTENSIONS)))])
         for value in selected:
             if value not in paths:paths.append(value);files.insert('end',Path(value).name)
-    SecondaryButton(body,text='选择图片…',command=choose_files).grid(row=3,column=1,sticky='e',pady=(12,5))
+    SecondaryButton(body,text='选择图片…',command=choose_files).grid(row=3,column=1,sticky='e',pady=(SPACING['md'],SPACING['xs']))
     ttk.Label(body,text='保存目录').grid(row=5,column=0,sticky='w',pady=SPACING['xs'])
     LineInput(body,textvariable=destination,state='readonly').grid(row=5,column=1,sticky='ew',pady=SPACING['xs'])
-    ProgressLabel(body,textvariable=status,wraplength=690).grid(row=6,column=0,columnspan=2,sticky='w',pady=SPACING['xs'])
-    buttons=ttk.Frame(body);buttons.grid(row=7,column=0,columnspan=2,sticky='ew',pady=(12,0))
+    ProgressLabel(body,textvariable=status,wraplength=WRAPLENGTH['lg']).grid(row=6,column=0,columnspan=2,sticky='w',pady=SPACING['xs'])
+    buttons=ttk.Frame(body);buttons.grid(row=7,column=0,columnspan=2,sticky='ew',pady=(SPACING['md'],SPACING['none']))
     def commit():
         try:
             if Path(app.root)!=project:raise ValueError('项目已切换，请重新打开添加窗口')
@@ -111,7 +111,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
             win.destroy()
         except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='删除未完成')
     PrimaryButton(buttons,text='保存',command=commit).pack(side='left')
-    SecondaryButton(buttons,text='删除参考图',command=remove_refs).pack(side='left',padx=(8,0))
+    SecondaryButton(buttons,text='删除参考图',command=remove_refs).pack(side='left',padx=(SPACING['sm'],SPACING['none']))
     SecondaryButton(buttons,text='取消',command=win.destroy).pack(side='right')
     update_categories();win.update_idletasks()
     x=max(0,parent.winfo_rootx()+(parent.winfo_width()-win.winfo_width())//2);y=max(0,parent.winfo_rooty()+(parent.winfo_height()-win.winfo_height())//2)

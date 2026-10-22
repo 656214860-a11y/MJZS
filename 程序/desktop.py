@@ -38,7 +38,7 @@ from platform_tools import find_editor_shortcut, launch_windows_app, open_direct
 from desktop_startup_service import DesktopStartupController
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from idea_chat_controller import IdeaChatController, speaker_name
-from ui_tokens import COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
+from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 from ui_dialogs import FileDialog
 from ui_motion import Spinner, bind_row_hover
 from ui_shortcuts import ShortcutRegistry
@@ -64,18 +64,18 @@ def confirm_project_removal_from_last_script(parent, files):
     tk.Label(body,text='⚠ 将删除当前项目',bg=COLORS['danger_subtle'],fg=COLORS['danger_hover'],
              font=('Microsoft YaHei UI',15,'bold')).pack(anchor='w')
     tk.Label(body,text='这是最后一份剧本。继续后会将当前项目及其全部素材移入项目库回收站。',
-             bg=COLORS['danger_subtle'],fg=COLORS['danger_text'],justify='left',wraplength=500,
+             bg=COLORS['danger_subtle'],fg=COLORS['danger_text'],justify='left',wraplength=WRAPLENGTH['sm'],
              font=FONTS['body']).pack(anchor='w',pady=(SPACING['sm'],SPACING['xs']))
-    tk.Label(body,text=names,bg=COLORS['danger_subtle'],fg=COLORS['danger_text'],justify='left',wraplength=500).pack(anchor='w')
+    tk.Label(body,text=names,bg=COLORS['danger_subtle'],fg=COLORS['danger_text'],justify='left',wraplength=WRAPLENGTH['sm']).pack(anchor='w')
     result={'accepted':False}
-    buttons=tk.Frame(body,bg=COLORS['danger_subtle']);buttons.pack(anchor='e',fill='x',pady=(SPACING['lg'],0))
+    buttons=tk.Frame(body,bg=COLORS['danger_subtle']);buttons.pack(anchor='e',fill='x',pady=(SPACING['lg'],SPACING['none']))
     def close(accepted=False):
         result['accepted']=accepted
         try:win.grab_release()
         except tk.TclError:pass
         win.destroy()
-    SecondaryButton(buttons,text='取消',command=close,width=10).pack(side='right')
-    PrimaryButton(buttons,text='移入回收站',command=lambda:close(True),width=11,
+    SecondaryButton(buttons,text='取消',command=close,width=CHAR_WIDTH['lg']).pack(side='right')
+    PrimaryButton(buttons,text='移入回收站',command=lambda:close(True),width=CHAR_WIDTH['xl'],
                   style='Tokens.Danger.TButton').pack(side='right',padx=(SPACING['none'],SPACING['sm']))
     win.protocol('WM_DELETE_WINDOW',close)
     win.update_idletasks()
@@ -220,7 +220,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         # 实际文字尺寸决定齿轮位置；字号或显示名改变时不留旧名称的空洞。
         self.settings_gear_layer=win
         self.settings_gear_position=(0,0)
-        self.list=ttk.Treeview(side,show='tree',height=3,selectmode='browse',style='Project.Treeview');self.list.column('#0',width=136,minwidth=96,stretch=True);self.list.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        self.list=ttk.Treeview(side,show='tree',height=TEXT_ROWS['sm'],selectmode='browse',style='Project.Treeview');self.list.column('#0',width=SPACING['sm'] * 17,minwidth=96,stretch=True);self.list.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         self.list.bind('<<TreeviewSelect>>',self.switch);self.list.bind('<Button-3>',self.project_menu)
         bind_row_hover(self.list)
         self.project_tip=TreeRowTooltip(self.list,lambda item:self.list.item(item,'text'))
@@ -252,14 +252,14 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.body=ttk.Frame(win,padding=DESKTOP_LAYOUT['body_padding']);self.body.pack(side='left',fill='both',expand=True)
         self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
         self.pet_layer=self.title_row
-        self.title=ttk.Label(self.title_row,font=FONTS['heading_1']);self.title.pack(side='left',anchor='n',padx=(DESKTOP_LAYOUT['title_inset'],0))
+        self.title=ttk.Label(self.title_row,font=FONTS['heading_1']);self.title.pack(side='left',anchor='n',padx=(DESKTOP_LAYOUT['title_inset'],SPACING['none']))
         self.header_slogan=ttk.Label(self.title_row,text='✦  把灵感变成故事',
                                    style='Muted.TLabel',font=DESKTOP_LAYOUT['slogan_font'])
         self.title.bind('<Configure>',self.align_header,add='+')
         self.app_title.bind('<Configure>',self.align_header,add='+')
         self.list.bind('<Configure>',self.schedule_sidebar_fit,add='+')
         self.title_row.bind('<Configure>',self.align_header,add='+')
-        self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(SPACING['md'],0))
+        self.header_info=ttk.Frame(self.title_row);self.header_info.pack(side='right',fill='x',expand=True,padx=(SPACING['md'],SPACING['none']))
         self.header_model=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e');self.header_model.pack(side='bottom',fill='x')
         self.header_status=ttk.Label(self.header_info,style='Muted.TLabel',font=FONTS['pet_hint'],anchor='e',justify='right');self.header_status.pack(side='top',fill='x')
         # 第 30 期第 6／8 条：阶段配置那颗按钮从标题栏挪到「剧本准备」页的「创作入口」那一行，
@@ -305,7 +305,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.status.trace_add('write',refresh_banner);refresh_banner()
         pet_ui.watch_status(self,self.pet)
         self.status_label=ttk.Label(self.body,textvariable=self.banner_status,
-                                    style='PaleGreenHint.TLabel',wraplength=700)
+                                    style='PaleGreenHint.TLabel',wraplength=WRAPLENGTH['lg'])
         self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
         # 忙碌时在状态栏右端转一个小圆圈（BusyState 起停）；平时不占位。
         self.busy_state.spinner=Spinner(self.body,host=self.status_label)
@@ -551,7 +551,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             b=button_type(parent,text=text,command=lambda:self.safe(action),
                          style='Primary.TButton' if stage_action else 'TButton',
                          width=STAGE_ACTION_WIDTH if stage_action else 0)
-            b.pack(side='left',padx=(0,SPACING['sm']),pady=SPACING['xs'])
+            b.pack(side='left',padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
         else:
             b=SecondaryButton(parent,text=text,command=lambda:self.safe(action),style='Compact.TButton' if parent is self.sidebar else 'TButton')
             b.pack(anchor='w',fill='x',pady=SPACING['xs'] if parent is self.sidebar else 4)
@@ -1277,7 +1277,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         面板里那三块从界面上点不进去。按钮随页面重建一起销毁（见 show()）。
         """
         self.header_stage_button=ui_plugin_registry.module('skill_panel').stage_button(self.title_row,self,index)
-        self.header_stage_button.pack(side='left',padx=(SPACING['md'],0))
+        self.header_stage_button.pack(side='left',padx=(SPACING['md'],SPACING['none']))
         return self.header_stage_button
     def storyboard_creation(self):
         from storyboard_files import show

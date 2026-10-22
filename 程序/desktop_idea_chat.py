@@ -22,7 +22,7 @@ import ui_plugin_registry
 from desktop_idea_deferred import IdeaDeferredMixin
 from idea_chat_controller import bubble_timestamp, collapse_preview
 from platform_tools import open_target
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING
 from ui_widgets import FormDialog, TextArea
 from desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
                                   BUBBLE_PAD, BUBBLE_SLACK, BUBBLE_TIME_FONT, IdeaBubblesMixin)
@@ -191,7 +191,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         row=getattr(self,'idea_input_row',None)
         if widget is None or row is None:return
         if details:
-            if not widget.winfo_manager():widget.pack(anchor='w',pady=(1,0),after=row)
+            if not widget.winfo_manager():widget.pack(anchor='w',pady=(SPACING['none'],SPACING['none']),after=row)
         elif widget.winfo_manager():
             widget.pack_forget()
     def refresh_uploaded_idea_attachments(self):
@@ -534,8 +534,8 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 continue
             row = ttk.Frame(dialog.content)
             row.pack(fill='x', pady=SPACING['xs'])
-            ttk.Label(row, text=label).pack(side='left', padx=(0, SPACING['sm']))
-            entry = TextArea(row, height=2, width=50, wrap='word')
+            ttk.Label(row, text=label).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+            entry = TextArea(row, height=TEXT_ROWS['xs'], width=CHAR_WIDTH['field_sm'], wrap='word')
             entry.pack(side='left', fill='x', expand=True)
             entry.insert('1.0', fields.get(label, ''))
             dialog.brief_fields[label] = entry

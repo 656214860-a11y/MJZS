@@ -11,7 +11,7 @@ import re
 
 from clipboard_lock import hold as hold_clipboard
 from ui_widgets import BaseDialog, PrimaryButton, TextArea, notify
-from ui_tokens import SPACING
+from ui_tokens import WRAPLENGTH, SPACING
 
 
 _SECRET_VALUE = re.compile(r"(?i)(\b(?:api[_-]?key|secret|token|password)\s*[=:]\s*)([^\s,;]+)|\bsk-[A-Za-z0-9_-]{8,}")
@@ -44,14 +44,14 @@ def show(parent,title,text,status=None,receipt='',empty_text='',empty_hint='',so
     """弹出只读提示词窗口：复制成功写剪贴板并关窗；没有提示词时保持打开且禁用复制。"""
     win=BaseDialog(parent,title,geometry=geometry,modal=False)
     content=win.content
-    if source:ttk.Label(content,text=source,wraplength=760).pack(anchor='w',padx=SPACING['md'],pady=(8,0))
+    if source:ttk.Label(content,text=source,wraplength=WRAPLENGTH['xl']).pack(anchor='w',padx=SPACING['md'],pady=(SPACING['sm'],SPACING['none']))
     box=TextArea(content,wrap="word",padx=SPACING['md'],pady=SPACING['md'])
     if scrollbar:
         bar=ttk.Scrollbar(content,orient="vertical",command=box.yview)
         box.configure(yscrollcommand=bar.set);bar.pack(side="right",fill="y")
     box.insert("1.0",text or empty_text);box.configure(state="disabled");box.pack(fill="both",expand=True)
     hint=ttk.Label(content,text=empty_hint if not text else '',style="Muted.TLabel")
-    hint.pack(side="bottom",pady=(0,8))
+    hint.pack(side="bottom",pady=(SPACING['none'],SPACING['sm']))
     def copy():
         # 复制成功后关闭本窗口：与其他提示词复制窗口保持一致；剪贴板归主窗口所有，关窗不会丢内容。
         reason=copy_text(parent.winfo_toplevel(),text)
@@ -60,6 +60,6 @@ def show(parent,title,text,status=None,receipt='',empty_text='',empty_hint='',so
         if status is not None and receipt:status.set(receipt)
         win.destroy()
     action=PrimaryButton(win.actions,text=button,command=copy)
-    action.pack(side="right",pady=(8,2))
+    action.pack(side="right",pady=(SPACING['sm'],SPACING['xs']))
     if not text:action.configure(state="disabled")
     return win

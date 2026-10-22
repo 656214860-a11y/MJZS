@@ -462,7 +462,7 @@ def source_selector(app,index,*,select_box):
     if not sources:return
     from storyboard_source_service import source_options
     labels,sources,current_index=source_options(sources,app.asset_scope(),app.current_frame_json())
-    row=ttk.Frame(app.content);row.pack(fill='x',pady=(0,3))
+    row=ttk.Frame(app.content);row.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
     # 第 64 期任务 5：「全部分镜」这一项原来只有资产管理页有，用户要它同步到其他页面的
     # 「选择分镜」下拉框——各页本来就是同一份范围偏好（asset_scope：全部分镜 ／ 只这一份），
     # 列出来的项也该一模一样。只有一份采用清单时这一项没有意义，就照旧不列。
@@ -471,7 +471,7 @@ def source_selector(app,index,*,select_box):
         """下拉框该显示的那一条：「全部分镜」不是一个文件，只能按范围偏好判断。"""
         return source_options(adopted(app.root),app.asset_scope(),app.current_frame_json())[2]
     line=ttk.Frame(row);line.pack(fill='x',pady=SPACING['xs'])
-    ttk.Label(line,text='选择分镜').pack(side='left',padx=(0,8))
+    ttk.Label(line,text='选择分镜').pack(side='left',padx=(SPACING['none'],SPACING['sm']))
     combo=select_box(line,values=labels,width=1)
     combo.pack(side='left',fill='x',expand=True)
     combo.current(current_index)

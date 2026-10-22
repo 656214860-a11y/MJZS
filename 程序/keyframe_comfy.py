@@ -12,7 +12,7 @@ from platform_tools import open_path
 import ui_plugin_registry
 from responsive_ui import FlowBar, CHECK_COLUMN_WIDTH, configure_check_column, refresh_check_heading, scroll_form
 from storyboard_paths import media_root
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING
 from keyframe_batch import (MODE_LABELS, MODE_MISSING, MODE_RETRY, STATE_MISSING,
                             batch_plan, frame_prompt, frame_state, plan_summary)
 from production_model_contract import (LOCAL_KEYFRAME_MODEL,
@@ -412,7 +412,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         table_shell = DataTable(form, columns=[
             ('shot', '镜头号', 130), ('title', '内容', 150),
             ('references', '参考图', 70), ('prompt', '首帧提示词', 430),
-        ], show='tree headings', height=6, selectmode='extended', empty_text='暂无待制作镜头')
+        ], show='tree headings', height=TEXT_ROWS['md'], selectmode='extended', empty_text='暂无待制作镜头')
         self.table = table_shell.tree
         configure_check_column(self.table)
         for key, label, width in [('shot', '镜头号', 130), ('title', '内容', 150), ('references', '参考图', 70), ('prompt', '首帧提示词', 430)]:
@@ -509,16 +509,16 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         selector = ttk.Label(self.model_box, textvariable=self.model, anchor='w')
         selector.grid(row=1, column=1, sticky='w')
         ttk.Label(self.model_box, text='画幅').grid(row=1, column=2, padx=(SPACING['md'], SPACING['xs']))
-        self.shape = SelectBox(self.model_box, textvariable=self.aspect, values=list(ASPECTS), state='disabled', width=8)
+        self.shape = SelectBox(self.model_box, textvariable=self.aspect, values=list(ASPECTS), state='disabled', width=CHAR_WIDTH['md'])
         self.shape.grid(row=1, column=3, padx=SPACING['xs'])
         ttk.Label(self.model_box, text='批次意图').grid(row=1, column=4, padx=(SPACING['md'], SPACING['xs']))
         mode_box = SelectBox(self.model_box, textvariable=self.mode_var,
                              values=[MODE_LABELS[key] for key in (MODE_MISSING, MODE_RETRY)],
-                             state='readonly', width=10)
+                             state='readonly', width=CHAR_WIDTH['lg'])
         mode_box.grid(row=1, column=5, padx=SPACING['xs'])
         mode_box.bind('<<ComboboxSelected>>', lambda event: self.refresh())
         self.hint = tk.StringVar()
-        ttk.Label(self.model_box, textvariable=self.hint, wraplength=800, justify='left').grid(row=2, column=0, columnspan=4, sticky='w', pady=SPACING['sm'])
+        ttk.Label(self.model_box, textvariable=self.hint, wraplength=WRAPLENGTH['2xl'], justify='left').grid(row=2, column=0, columnspan=4, sticky='w', pady=SPACING['sm'])
         self.account = SecondaryButton(self.model_box, text='火山 API 设置')
         self.account.grid(row=3, column=0, sticky='w')
         self.skill_button = SecondaryButton(self.model_box, text='Skill 调用设置')
@@ -544,7 +544,7 @@ class _KeyframeComfyWindow(_KeyframeComfyRows):
         PrimaryButton(self.local_box, text='保存设置', command=lambda: self.app.safe(self.save_api)).grid(row=2, column=2, padx=SPACING['xs'])
         SecondaryButton(self.local_box, text='启动并检测', command=lambda: self.app.safe(self.detect)).grid(row=3, column=2, padx=SPACING['xs'])
         SecondaryButton(self.local_box, text='删除模型', command=lambda: self.app.safe(self.delete_model)).grid(row=4, column=2, padx=SPACING['xs'])
-        self.log = TextArea(form, height=7, wrap='word', state='disabled', bg=COLORS['background_card'], fg=COLORS['text_primary'], font=FONTS['body'], padx=SPACING['sm'], pady=SPACING['sm'])
+        self.log = TextArea(form, height=TEXT_ROWS['lg'], wrap='word', state='disabled', bg=COLORS['background_card'], fg=COLORS['text_primary'], font=FONTS['body'], padx=SPACING['sm'], pady=SPACING['sm'])
         self.log.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['xs'])
 
     def kind(self):

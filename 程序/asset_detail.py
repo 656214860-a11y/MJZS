@@ -29,7 +29,7 @@ from responsive_ui import FlowBar
 from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, Card, DescriptionBlock, HintLabel, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, ask_string, notify
 import pet_bus
-from ui_tokens import COLORS, FONTS, SPACING, TEXT_DESC, TEXT_HINT
+from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, TEXT_HINT
 
 CELL_SIZE = 48                       # 转盘图每一格的缩略图长边（第 65 期任务 4：96 → 48，缩小一倍）
 ZOOM_SIZE = 900                      # 点一下放大后的长边（不放大原图，只按原分辨率显示）
@@ -459,7 +459,7 @@ def _variants_block(desktop, aid, asset):
             label.bind('<Return>', lambda _e, button=label: (button.invoke(), 'break')[1])
         else:
             label = '（缩略图暂不可用）' if thumbnail_unavailable else '（缺缩略图）'
-            ttk.Label(line, text=label, foreground=COLORS['text_muted'], width=12).pack(
+            ttk.Label(line, text=label, foreground=COLORS['text_muted'], width=CHAR_WIDTH['xl']).pack(
                 side='left', padx=(SPACING['none'], SPACING['sm']))
         ttk.Label(line, text=item['state_id'] + ' · ' + (item['name'] or '未命名') + '：'
                            + (item['override'] or '缺覆盖描述'), wraplength=TEXT_DESC['wraplength'],
@@ -517,7 +517,7 @@ def _raw_block(desktop, aid):
         text = json.dumps(row if row is not None else {}, ensure_ascii=False, indent=2)
     except (OSError, ValueError):
         text = '（读不出来）'
-    view = TextArea(body, wrap='none', height=12, bg=COLORS['background_card'], fg=COLORS['text_primary'],
+    view = TextArea(body, wrap='none', height=TEXT_ROWS['2xl'], bg=COLORS['background_card'], fg=COLORS['text_primary'],
                     padx=SPACING['md'], pady=SPACING['md'])
     view.insert('1.0', text)
     view.configure(state='disabled')

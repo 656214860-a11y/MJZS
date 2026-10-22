@@ -9,7 +9,7 @@ from engine import Studio, REVIEW_PASS, AUTO_REVIEW_NOTE, auto_review_ready
 from agent.core import read,save,file_hash,command,fingerprint,temporary_path,replace
 from agent.media import check, png_size
 import project_settings
-from ui_tokens import SPACING
+from ui_tokens import CHAR_WIDTH, WRAPLENGTH, SPACING
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton
 import pet_bus
 
@@ -390,7 +390,7 @@ def settings_window(app):
     defaults.update(app.studio.cfg.get('local_video',{}));entries={}
     labels={'url':'本地ComfyUI地址','workflow':'API工作流','prompt':'提示词节点.字段','image':'首帧节点.字段','duration':'时长节点.字段','duration_mode':'时长格式：h3_frames / seconds','seed':'随机种子节点.字段','output':'输出视频节点ID'}
     for row,(key,label) in enumerate(labels.items()):
-        ttk.Label(body,text=label).grid(row=row,column=0,padx=SPACING['md'],pady=SPACING['sm'],sticky='w');e=LineInput(body,width=66);e.insert(0,defaults[key]);e.grid(row=row,column=1,padx=SPACING['sm']);entries[key]=e
+        ttk.Label(body,text=label).grid(row=row,column=0,padx=SPACING['md'],pady=SPACING['sm'],sticky='w');e=LineInput(body,width=CHAR_WIDTH['field_md']);e.insert(0,defaults[key]);e.grid(row=row,column=1,padx=SPACING['sm']);entries[key]=e
     def browse():
         p=FileDialog(win).open_file(initialdir=app.root/'workflows',filetypes=[('ComfyUI API JSON','*.json')])
         if p:entries['workflow'].delete(0,'end');entries['workflow'].insert(0,p)
@@ -404,6 +404,6 @@ def settings_window(app):
         LocalAPI(opts['url']);prepare_graph(app.root,cfg,{**app.studio.episode['shots'][0],'duration':5})
         publisher=getattr(__import__('stage_execution_service'), 'publish_local_video_settings')
         app.studio.cfg=publisher(app.root, app.studio.cfg, opts);win.destroy();app.refresh()
-    ttk.Label(body,text='只连接本机，不读取云端API Key。H3需完整模型；无音轨视频不会通过有声QC。',wraplength=770).grid(row=9,column=0,columnspan=2,pady=SPACING['md'])
+    ttk.Label(body,text='只连接本机，不读取云端API Key。H3需完整模型；无音轨视频不会通过有声QC。',wraplength=WRAPLENGTH['xl']).grid(row=9,column=0,columnspan=2,pady=SPACING['md'])
     SecondaryButton(body,text='检测节点与模型',command=lambda:app.safe(inspect)).grid(row=10,column=0,pady=SPACING['sm'])
     PrimaryButton(body,text='保存设置',command=lambda:app.safe(commit)).grid(row=10,column=1,sticky='w',pady=SPACING['sm'])

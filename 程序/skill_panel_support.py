@@ -15,7 +15,7 @@ import stage_config
 import stage_models
 import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
-from ui_tokens import COLORS, SPACING
+from ui_tokens import CHAR_WIDTH, COLORS, SPACING
 from ui_widgets import PrimaryButton
 
 
@@ -495,7 +495,7 @@ def stage_of_page(index, stages=None):
 
 def stage_button_for(parent, command, text='阶段配置'):
     """各阶段统一使用与发送键相同的蓝色填充「阶段配置」按钮。"""
-    button = PrimaryButton(parent, text=text, command=command, width=16)
+    button = PrimaryButton(parent, text=text, command=command, width=CHAR_WIDTH['3xl'])
     # 这是语义标记而非视觉样式；回归可据此找到入口，不再耦合已废弃的暖色样式名。
     button._stage_config_entry = True
     return button

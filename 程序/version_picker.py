@@ -5,7 +5,7 @@
 """
 import tkinter as tk
 
-from ui_tokens import SPACING
+from ui_tokens import CHAR_WIDTH, TEXT_ROWS, SPACING
 from ui_widgets import BaseDialog, DataTable, PrimaryButton, ProgressLabel, SecondaryButton, SelectBox
 
 
@@ -18,13 +18,13 @@ def open_picker(app):
     shot_var, status = tk.StringVar(value=shots[0]), tk.StringVar(value='只有已验收通过的版本可以采用；不会删除任何版本。')
     bar = tk.Frame(win.content)
     bar.pack(fill='x')
-    SelectBox(bar, textvariable=shot_var, values=shots, width=14).pack(side='left')
+    SelectBox(bar, textvariable=shot_var, values=shots, width=CHAR_WIDTH['2xl']).pack(side='left')
     table_shell = DataTable(win.content, columns=[('version', '版本', 70), ('state', '状态', 90), ('qc', '技术QC', 80),
                                                   ('review', '验收', 220), ('use', '采用', 160)],
-                            height=8, empty_text='本镜没有版本')
-    table_shell.pack(fill='both', expand=True, pady=(SPACING['sm'], 0))
+                            height=TEXT_ROWS['lg'], empty_text='本镜没有版本')
+    table_shell.pack(fill='both', expand=True, pady=(SPACING['sm'], SPACING['none']))
     table = table_shell.tree
-    ProgressLabel(win.content, textvariable=status).pack(anchor='w', pady=(SPACING['sm'], 0))
+    ProgressLabel(win.content, textvariable=status).pack(anchor='w', pady=(SPACING['sm'], SPACING['none']))
 
     def refresh(event=None):
         table.delete(*table.get_children())
@@ -61,7 +61,7 @@ def open_picker(app):
 
     shot_var.trace_add('write', lambda *_: refresh())
     PrimaryButton(win.actions, text='采用所选版本', command=adopt).pack(side='left')
-    SecondaryButton(win.actions, text='恢复为最新已验收版', command=restore).pack(side='left', padx=(SPACING['sm'], 0))
+    SecondaryButton(win.actions, text='恢复为最新已验收版', command=restore).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
     SecondaryButton(win.actions, text='关闭', command=win.destroy).pack(side='right')
     refresh()
     win._picker = {'table': table, 'status': status, 'shot': shot_var, 'adopt': adopt, 'restore': restore,

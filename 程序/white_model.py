@@ -9,7 +9,7 @@ import white_model_service as _service
 from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, PrimaryButton, SecondaryButton, TextArea, notify
 import pet_bus
-from ui_tokens import FONTS, SPACING
+from ui_tokens import TEXT_ROWS, WRAPLENGTH, FONTS, SPACING
 
 TOOLS = (
     ('打开 LensBlock 白模工作台', 'https://ilcaretz.github.io/lensblock/'),
@@ -104,7 +104,7 @@ def open_previs(desktop,sid=None):
     body = Card(win)
     body.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
     ttk.Label(body, text=sid + ' · 白模预演', font=FONTS['title']).pack(anchor='w')
-    ttk.Label(body, text='先用白模确定人物动作和镜头运动，再把预演导入当前镜头。', wraplength=710).pack(anchor='w', pady=(SPACING['xs'], SPACING['md']))
+    ttk.Label(body, text='先用白模确定人物动作和镜头运动，再把预演导入当前镜头。', wraplength=WRAPLENGTH['lg']).pack(anchor='w', pady=(SPACING['xs'], SPACING['md']))
     def codex_blender():
         save()
         source = desktop.current_frame_json()
@@ -121,11 +121,11 @@ def open_previs(desktop,sid=None):
         desktop.open_flow_agent('previs','白模预演',prompt)
     local = ttk.LabelFrame(body, text='本地 Blender · AI 制作', padding=SPACING['sm'])
     local.pack(fill='x', pady=SPACING['xs'])
-    ttk.Label(local, text='Codex 读取当前镜头分镜，制作白模场景、机位动画和预演视频。', wraplength=690).pack(anchor='w')
+    ttk.Label(local, text='Codex 读取当前镜头分镜，制作白模场景、机位动画和预演视频。', wraplength=WRAPLENGTH['lg']).pack(anchor='w')
     # 页面提示「安装后重新打开此页即可」，因此每次打开预演页都重新检测一次；
     # 页内逐镜取镜头目录仍走缓存，不会重复扫描 PATH。
     blender_exe=find_blender(refresh=True)
-    ttk.Label(local,text=('已找到 Blender：'+str(blender_exe)) if blender_exe else '尚未检测到 Blender，安装后重新打开此页即可',wraplength=690).pack(anchor='w',pady=(SPACING['none'],SPACING['none']))
+    ttk.Label(local,text=('已找到 Blender：'+str(blender_exe)) if blender_exe else '尚未检测到 Blender，安装后重新打开此页即可',wraplength=WRAPLENGTH['lg']).pack(anchor='w',pady=(SPACING['none'],SPACING['none']))
     PrimaryButton(local, text='开始白模制作', command=lambda: guarded(codex_blender)).pack(anchor='w', pady=SPACING['xs'])
     online = ttk.LabelFrame(body, text='线上白模 · 可选', padding=SPACING['sm'])
     online.pack(fill='x', pady=SPACING['xs'])
@@ -136,13 +136,13 @@ def open_previs(desktop,sid=None):
         ttk.Label(row, text=f'{number}. {title}').pack(side='left')
         SecondaryButton(row, text='打开网站', command=lambda u=url: webbrowser.open(u)).pack(side='right')
     ttk.Label(body, text='动作与机位备注（可复制到视频提示词）：').pack(anchor='w', pady=(SPACING['lg'], SPACING['xs']))
-    notes = TextArea(body, height=9, wrap='word', undo=True)
+    notes = TextArea(body, height=TEXT_ROWS['xl'], wrap='word', undo=True)
     notes.pack(fill='both', expand=True)
     notes.insert('1.0', saved.get('notes', ''))
     path_text = tk.StringVar(value=saved.get('preview') or '尚未导入预演视频')
     project_text = tk.StringVar(value=saved.get('project_file') or '尚未导入白模工程')
-    ttk.Label(body, textvariable=path_text, wraplength=710).pack(anchor='w', pady=SPACING['sm'])
-    ttk.Label(body,textvariable=project_text,wraplength=710).pack(anchor='w',pady=SPACING['none'])
+    ttk.Label(body, textvariable=path_text, wraplength=WRAPLENGTH['lg']).pack(anchor='w', pady=SPACING['sm'])
+    ttk.Label(body,textvariable=project_text,wraplength=WRAPLENGTH['lg']).pack(anchor='w',pady=SPACING['none'])
     def save():
         from white_model_persistence_controller import save_notes
         save_notes(root, sid, notes.get('1.0', 'end-1c'), saver=_service.save_previs_notes)

@@ -9,6 +9,7 @@ import pet_agent
 import token_saver
 from app_metadata import APP_NAME
 from pet_ui_support import Autostart, GearButton, PROGRAM, autostart_command
+from ui_tokens import SPACING
 
 
 class PetSettingsMixin:
@@ -147,7 +148,7 @@ class PetSettingsMixin:
                 self.gear.canvas.place(x=x, y=y, anchor='nw')
             else:
                 # 无真实 Desktop 的轻量宿主仍嵌入其标题行，方便复用与无界面自检。
-                self.gear.canvas.pack(side='right', padx=(0, 2))
+                self.gear.canvas.pack(side='right', padx=(SPACING['none'], SPACING['xs']))
         except Exception as exc:
             self.errors.append(('gear', str(exc)))
             self.gear = None

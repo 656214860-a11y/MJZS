@@ -21,7 +21,7 @@ from project_naming import dated_path
 from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, refresh_request_width, remember_columns
 from storyboard_paths import media_root
 from tkinter import ttk
-from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
+from ui_tokens import CHAR_WIDTH, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
 from ui_widgets import Card, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
 from desktop_page_support import ASSET_ROW_LABEL, FileDialog, STAGE_ACTION_WIDTH, _prefs, comfy_executable, confirm, find_editor_shortcut, open_path, open_studio
 
@@ -602,7 +602,7 @@ class MediaPagesMixin:
         facts=Card(self.content);facts.pack(fill='x',pady=(SPACING['none'],SPACING['md']))
         ttk.Label(facts,text='开工前先确认').grid(row=0,column=0,columnspan=2,sticky='w')
         for row,(label,value) in enumerate(confirm_rows(self)):
-            ttk.Label(facts,text=label,width=10).grid(row=row+1,column=0,sticky='nw',pady=SPACING['xs'])
+            ttk.Label(facts,text=label,width=CHAR_WIDTH['lg']).grid(row=row+1,column=0,sticky='nw',pady=SPACING['xs'])
             ttk.Label(facts,text=value,wraplength=TEXT_DESC['wraplength'],justify='left',style='Muted.TLabel').grid(row=row+1,column=1,sticky='w',pady=SPACING['xs'])
         local=Card(self.content);local.pack(fill='x',pady=(SPACING['none'],SPACING['md']))
         ttk.Label(local,text='本地生成').pack(anchor='w')

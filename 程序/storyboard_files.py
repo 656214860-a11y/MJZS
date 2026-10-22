@@ -42,7 +42,7 @@ import ui_plugin_registry
 from pet_state import PAGE_OF
 from responsive_ui import FlowBar, refresh_check_heading, bind_row_toggle
 from storyboard_table_ui import file_table, fit_file_columns, fit_final_columns, insert_entries, tree_columns
-from ui_tokens import COLORS, FONTS, SPACING
+from ui_tokens import WRAPLENGTH, COLORS, FONTS, SPACING
 from ui_widgets import Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_confirmation, notify
 from ui_dialogs import FileDialog
 confirm = ask_confirmation
@@ -243,7 +243,7 @@ class _FinalStoryboardPage:
         bar=ttk.Frame(self.desktop.content);bar.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
         self.status_text=tk.StringVar(value='')
         self.desktop.auto_final_banner=self.status_text                 # 页面与自检都读这一个变量
-        ttk.Label(bar,textvariable=self.status_text,style='Muted.TLabel',wraplength=700,
+        ttk.Label(bar,textvariable=self.status_text,style='Muted.TLabel',wraplength=WRAPLENGTH['lg'],
                   justify='left').pack(side='left',anchor='w')
         self.retry_button=SecondaryButton(bar,text='立即重试',command=self.retry_now)
         self.retry_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']))
@@ -290,7 +290,7 @@ class _FinalStoryboardPage:
         self.nav=ttk.Frame(right_box);self.nav.grid(row=1,column=0,sticky='ew',pady=(SPACING['none'],SPACING['xs']))
         self.nav.grid_remove()
         self.nav.columnconfigure(0,weight=1)
-        self.nav_canvas=tk.Canvas(self.nav,height=62,highlightthickness=0,bg=COLORS['background_primary'])
+        self.nav_canvas=tk.Canvas(self.nav,height=SPACING['sm'] * 8,highlightthickness=0,bg=COLORS['background_primary'])
         self.nav_canvas.grid(row=0,column=0,sticky='ew')
         nav_hbar=ttk.Scrollbar(self.nav,orient='horizontal',command=self.nav_canvas.xview)
         nav_hbar.grid(row=1,column=0,sticky='ew')
@@ -323,7 +323,7 @@ class _FinalStoryboardPage:
         self.viewer.bind('<Destroy>',self.stop_timer,add='+')          # 这一页拆了，挂着的那一次别再到期
 
         self.note=tk.StringVar(value='请选择要处理的 JSON')
-        ttk.Label(self.desktop.content,textvariable=self.note,style='Muted.TLabel',wraplength=760).pack(anchor='w',pady=SPACING['sm'])
+        ttk.Label(self.desktop.content,textvariable=self.note,style='Muted.TLabel',wraplength=WRAPLENGTH['xl']).pack(anchor='w',pady=SPACING['sm'])
 
         self.catalog_scan={'busy':False,'revision':0,'pending':False,'stopped':False,'applying':False}
         self.catalog_results=queue.Queue(maxsize=1)
@@ -766,7 +766,7 @@ class _StoryboardFilesPage:
                 label_row.pack_configure(side='bottom',before=tree.master)
             else:
                 # 第 67 期任务 2：这一行先占好自己的位置（表格再缩也不许把它挤掉，见下面 actions 那一处）。
-                note=ttk.Label(box,textvariable=self.labels[kind],style='Muted.TLabel',wraplength=850)
+                note=ttk.Label(box,textvariable=self.labels[kind],style='Muted.TLabel',wraplength=WRAPLENGTH['2xl'])
                 note.pack(side='bottom',anchor='w',pady=(SPACING['xs'], SPACING['none']),before=tree.master)
                 # 第 31 期第 5 条：手动制作与下方内容框贴紧一些。
                 center=ttk.Frame(self.desktop.content);center.pack(

@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import ttk,messagebox
 import webbrowser
 from pathlib import Path
-from ui_tokens import SPACING
+from ui_tokens import WRAPLENGTH, SPACING
 from ui_widgets import SelectBox, Card, BaseDialog, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation, notify
 from agent.core import read
 from api_models import identity,cloud_removed
@@ -97,7 +97,7 @@ class _CloudSettingsWindow:
             '全部资产上传：万相 2.7-r2v 支持首帧＋最多 5 张资产；Seedance 2.0 支持首帧构图参考＋最多 8 张资产（不严格锁定首帧）。',
             '需先在服务商开通对应模型；不会自动切换模型。1.0 无声音，1.5／万相 2.6 图生视频不支持此多资产流程。',
             '本地秒数预算不代表免费额度，调用前请核对费用。')):
-            ttk.Label(notes,text='· '+line,wraplength=740,justify='left').grid(row=index,column=0,sticky='w')
+            ttk.Label(notes,text='· '+line,wraplength=WRAPLENGTH['xl'],justify='left').grid(row=index,column=0,sticky='w')
         # ③ 服务商控制台：三个小按钮排一行（原来是一列铺满整行的按钮，看着像三件正经操作）。
         links=ttk.Frame(body);links.grid(row=8,column=0,columnspan=2,sticky='w',padx=SPACING['md'],pady=(SPACING['sm'],SPACING['md']))
         ttk.Label(links,text='服务商控制台',style='Muted.TLabel').pack(side='left',padx=(SPACING['none'],SPACING['sm']))

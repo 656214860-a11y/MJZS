@@ -15,7 +15,7 @@ from projects import needs_cleanup_after_open_error
 from tkinter import ttk
 from responsive_ui import FlowBar
 from ui_motion import EmptyState, bind_row_hover
-from ui_tokens import COLORS, FONTS, SPACING, TEXT_DESC
+from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC
 from ui_widgets import BaseDialog, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton
 from desktop_page_support import ContextMenu, confirm, open_path
 
@@ -346,7 +346,7 @@ class ProjectPagesMixin:
         popup.bind('<Escape>',lambda e:popup.destroy());popup.grab_set();tree.focus_set()
     def project_home(self):
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
-        tree=ttk.Treeview(self.content,show='tree',height=13,selectmode='browse')
+        tree=ttk.Treeview(self.content,show='tree',height=TEXT_ROWS['2xl'],selectmode='browse')
         # 动作区先占底边：矮窗口只缩短项目列表，不允许把动作按钮推出可视区。
         actions=FlowBar(self.content);actions.pack(side='bottom',fill='x',pady=SPACING['sm'])
         bind_row_hover(tree)
@@ -411,14 +411,14 @@ class ProjectPagesMixin:
             register_restored=self.projects.register_restored_projects)
         batches=[]
         ttk.Label(dialog.content,text='选择回收批次后可恢复整批，或选择下方原位置只恢复一项；目标已存在时不会覆盖。').pack(anchor='w',pady=(SPACING['none'],SPACING['xs']))
-        batch_table=DataTable(dialog.content,columns=[('scope','位置',110),('created','创建时间',155),('reason','原因',390)],show='tree headings',height=8,auto_hide_scrollbars=True)
+        batch_table=DataTable(dialog.content,columns=[('scope','位置',110),('created','创建时间',155),('reason','原因',390)],show='tree headings',height=TEXT_ROWS['lg'],auto_hide_scrollbars=True)
         batch_tree=batch_table.tree
-        batch_tree.heading('#0',text='批次');batch_tree.column('#0',width=180,stretch=False)
+        batch_tree.heading('#0',text='批次');batch_tree.column('#0',width=SPACING['sm'] * 23,stretch=False)
         batch_table.pack(fill='x',expand=False)
         ttk.Label(dialog.content,text='批次条目（原位置）').pack(anchor='w',pady=(SPACING['sm'],SPACING['xs']))
-        item_table=DataTable(dialog.content,columns=[('recycled','回收位置',420)],show='tree headings',height=9,auto_hide_scrollbars=True)
+        item_table=DataTable(dialog.content,columns=[('recycled','回收位置',420)],show='tree headings',height=TEXT_ROWS['xl'],auto_hide_scrollbars=True)
         item_tree=item_table.tree
-        item_tree.heading('#0',text='原位置');item_tree.column('#0',width=420)
+        item_tree.heading('#0',text='原位置');item_tree.column('#0',width=SPACING['sm'] * 53)
         item_table.pack(fill='both',expand=True)
         def selected_batch():
             selected=batch_tree.selection()

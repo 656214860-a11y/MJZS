@@ -10,7 +10,7 @@ import tk_timers
 import ui_plugin_registry
 from responsive_ui import FlowBar, scroll_form
 from platform_tools import open_target
-from ui_tokens import COLORS, SPACING
+from ui_tokens import TEXT_ROWS, WRAPLENGTH, COLORS, SPACING
 from ui_dialogs import FileDialog
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel, SecondaryButton, ask_confirmation
 from asset_batch_service import (
@@ -160,13 +160,13 @@ class _AssetBatchWindow:
             ttk.Checkbutton(types,text=label,style='TCheckbutton',variable=self.checks[prefix],command=lambda p=prefix:self.toggle_category(p)).pack(side='left',padx=(SPACING['none'],SPACING['md']))
         self.table_shell=DataTable(form,columns=[('name','名称',135),('references','参考图',65),
                                             ('prompt','生图提示词',450)],show='tree headings',
-                              height=8,selectmode='extended',empty_text='暂无可生成资产')
+                              height=TEXT_ROWS['lg'],selectmode='extended',empty_text='暂无可生成资产')
         self.table=self.table_shell.tree
         for key,label,width in [('#0','',120),('name','名称',135),('references','参考图',65),('prompt','生图提示词',450)]:self.table.heading(key,text=label);self.table.column(key,width=width,minwidth=36,stretch=False)
         self.table.bind('<Configure>',lambda event:self.fit_columns(event.width),add='+')
         self.table.column('#0',anchor='w')
         self.table_shell.pack(fill='x',padx=SPACING['lg'])
-        self.status=tk.StringVar();ProgressLabel(form,textvariable=self.status,wraplength=760,justify='left').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['sm'])
+        self.status=tk.StringVar();ProgressLabel(form,textvariable=self.status,wraplength=WRAPLENGTH['xl'],justify='left').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['sm'])
         self.table.heading('#0',command=self.toggle_all)
         self.table.bind('<Button-1>',self.click_check);self.table.bind('<space>',self.space_check)
         if self.engine=='workflow':
@@ -198,7 +198,7 @@ class _AssetBatchWindow:
         SecondaryButton(self.chooser,text='云模型设置',command=lambda:self.app.safe(lambda:self.cloud_settings(self.win))).pack(side='left',padx=SPACING['xs'])
         SecondaryButton(self.chooser,text='Midjourney（手动）',command=self.open_midjourney).pack(side='left',padx=SPACING['xs'])
         self.config=Card(form,padding=SPACING['sm']);self.config.pack(fill='x',padx=SPACING['lg'],pady=SPACING['sm']);self.config.columnconfigure(1,weight=1)
-        ttk.Label(self.config,text='ComfyUI 连接与本地工作流').grid(row=0,column=0,columnspan=2,sticky='w',pady=(0,SPACING['xs']))
+        ttk.Label(self.config,text='ComfyUI 连接与本地工作流').grid(row=0,column=0,columnspan=2,sticky='w',pady=(SPACING['none'],SPACING['xs']))
         self.values={key:tk.StringVar(value=value) for key,value in defaults.items()}
         for i,(key,label) in enumerate([('url','本机地址'),('model','基础模型'),('workflow','API 工作流（可选）'),('node','提示词节点编号'),('field','提示词字段')], start=1):
             ttk.Label(self.config,text=label).grid(row=i,column=0,sticky='w',padx=SPACING['xs'],pady=SPACING['xs'])
@@ -210,7 +210,7 @@ class _AssetBatchWindow:
         SecondaryButton(self.config,text='选择文件',command=lambda:self.values['workflow'].set(FileDialog(self.win).open_file(filetypes=[('ComfyUI API 工作流','*.json')]) or self.values['workflow'].get())).grid(row=2,column=2,padx=SPACING['xs'])
         SecondaryButton(self.config,text='保存设置',command=lambda:self.app.safe(self.save_api)).grid(row=0,column=2,padx=SPACING['xs'])
         self.show_backend()
-        DescriptionBlock(form,text='参考图可选：有图时按长相、服饰、画风等用途结合提示词生成；无图时只使用提示词。',wraplength=800).pack(anchor='w',padx=SPACING['lg'],pady=SPACING['xs'])
+        DescriptionBlock(form,text='参考图可选：有图时按长相、服饰、画风等用途结合提示词生成；无图时只使用提示词。',wraplength=WRAPLENGTH['2xl']).pack(anchor='w',padx=SPACING['lg'],pady=SPACING['xs'])
         self.events=queue.Queue();self.stop=threading.Event()
         tk_timers.repeat(self.win,250,self.poll)
         buttons=FlowBar(footer);buttons.pack(fill='x',padx=SPACING['lg'],pady=SPACING['sm'])

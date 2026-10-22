@@ -114,7 +114,7 @@ def show_back(desktop):
     from ui_icons import IconLoader
     box=getattr(desktop,'video_back',None)
     if box is None:
-        box=ttk.Frame(desktop.title_row,width=76,height=52)
+        box=ttk.Frame(desktop.title_row,width=SPACING['sm'] * 10,height=SPACING['sm'] * 7)
         box.pack_propagate(False)
         icon=IconLoader.return_arrow(box,color=COLORS['primary'])
         # 返回属于次要动作；主题色箭头在正常和浅色悬停背景上均可读。

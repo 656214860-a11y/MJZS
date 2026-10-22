@@ -242,7 +242,7 @@ class PanelWorkflowMixin:
             return '\n'.join(labels) or empty
         # 阶段对照表放进画布：表体超高时只在框内滚动，窗口高度不跟着长。
         table_view = ttk.Frame(body)
-        table_view.pack(fill='both', expand=True, pady=(SPACING['md'], 0))
+        table_view.pack(fill='both', expand=True, pady=(SPACING['md'], SPACING['none']))
         canvas = tk.Canvas(table_view, highlightthickness=0, bd=0,
                            bg=COLORS['background_card'])
         scrollbar = ttk.Scrollbar(table_view, orient='vertical', command=canvas.yview)
@@ -285,7 +285,7 @@ class PanelWorkflowMixin:
             headers.insert(1, '上一个总控的建议')
         for column, text in enumerate(headers):
             ttk.Label(table, text=text, style='Muted.TLabel').grid(
-                row=0, column=column, sticky='w', padx=(0, SPACING['lg']), pady=(0, SPACING['xs']))
+                row=0, column=column, sticky='w', padx=(SPACING['none'], SPACING['lg']), pady=(SPACING['none'], SPACING['xs']))
         table.columnconfigure(len(headers) - 2, weight=1)
         choices = {}
         for row, (stage, values) in enumerate(rows.items(), start=1):
@@ -298,7 +298,7 @@ class PanelWorkflowMixin:
                 cells.insert(1, shown(old_preset.get('stage_skills', {}).get(stage, ()), '（无）'))
             for column, text in enumerate(cells):
                 ttk.Label(table, text=text, justify='left').grid(
-                    row=row, column=column, sticky='nw', padx=(0, SPACING['lg']), pady=SPACING['xs'])
+                    row=row, column=column, sticky='nw', padx=(SPACING['none'], SPACING['lg']), pady=SPACING['xs'])
             same = current == suggested
             ttk.Checkbutton(table, text='已一致，无需重复套用' if same else '用建议替换',
                             variable=value).grid(row=row, column=len(cells), sticky='nw', pady=SPACING['xs'])
@@ -320,7 +320,7 @@ class PanelWorkflowMixin:
             self.state.configure(text='总控已更新；未选择的阶段勾选已保留。' + self.sync_master_skill(quiet=True))
         PrimaryButton(actions, text='确认套用', command=apply_selected).pack(side='left')
         SecondaryButton(actions, text='取消', command=dialog.close).pack(
-            side='left', padx=(SPACING['sm'], 0))
+            side='left', padx=(SPACING['sm'], SPACING['none']))
         # 先按表体自然高度量出窗口，再压到屏幕可用区内；表体差多少由滚动条补。
         dialog.update_idletasks()
         left, top, right, bottom = dialog_working_area(self.winfo_toplevel())

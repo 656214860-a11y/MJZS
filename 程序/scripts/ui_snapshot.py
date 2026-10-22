@@ -16,6 +16,7 @@ import sys
 import zlib
 from ctypes import wintypes
 from pathlib import Path
+from ui_tokens import TEXT_ROWS
 
 PROGRAM = Path(__file__).resolve().parents[1]
 BASELINES = PROGRAM / 'tests' / 'ui_baselines'
@@ -103,7 +104,7 @@ def shoot_runtime_dialog():
     root.geometry('+40+40')
     try:
         dialog = BaseDialog(root, '运行状况', geometry='640x520+60+60', minsize=(420, 320), modal=False)
-        text = TextArea(dialog.content, wrap='word', height=20)
+        text = TextArea(dialog.content, wrap='word', height=TEXT_ROWS['4xl'])
         text.pack(fill='both', expand=True)
         text.insert('1.0', '\n'.join(task_center_service.format_lines(SAMPLE_SNAPSHOT)))
         text.set_readonly(True)

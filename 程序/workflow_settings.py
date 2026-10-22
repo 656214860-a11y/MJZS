@@ -16,7 +16,7 @@ from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
 from ui_dialogs import FileDialog
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
 from ui_widgets import LineInput, TextArea
-from ui_tokens import SPACING
+from ui_tokens import TEXT_ROWS, WRAPLENGTH, SPACING
 
 ENGINES={'codex':'ChatGPT / Codex','qwen':'Qwen Code（阿里云）','claude':'Claude Code','claude-desktop-app':'Claude Desktop','desktop-app':'自定义桌面应用','client-cli':'自定义命令行客户端','opencode':'opencode CLI（自动放行权限）'}
 FLOWS={'writing':'剧本创作','storyboard':'初步分镜','assets':'资产图片制作','frames':'批量首帧','previs':'白模预演','video_prompt':'视频提示词','audio':'配音与字幕'}
@@ -1080,42 +1080,42 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
     dialogs[dialog_key]=win;desktop._flow_settings_dialogs=dialogs
     footer=ttk.Frame(win,padding=(16,8));footer.pack(side='bottom',fill='x')
     body=Card(win);body.pack(fill='both',expand=True,padx=SPACING['lg'],pady=SPACING['lg']);body.columnconfigure(1,weight=1)
-    ttk.Label(body,text='当前项目的本流程生效；保存后用于新任务，进行中的整批任务不变。',wraplength=680).grid(row=0,column=0,columnspan=3,sticky='w',pady=(0,6))
+    ttk.Label(body,text='当前项目的本流程生效；保存后用于新任务，进行中的整批任务不变。',wraplength=WRAPLENGTH['lg']).grid(row=0,column=0,columnspan=3,sticky='w',pady=(SPACING['none'],SPACING['xs']))
     # 第 63 期任务 3.1／3.2：每一次打开阶段配置都能看见「本步怎么并行」和「门禁过没过」——
     # 口径只有 stage_parallel 一处（附件那张并行配置速查表）。
     from stage_parallel import page_lines
     ttk.Label(body,text='\n'.join(page_lines(project,stage)),justify='left',
-              wraplength=680,style='Muted.TLabel').grid(row=0,column=0,columnspan=3,sticky='w',pady=(0,12))
+              wraplength=WRAPLENGTH['lg'],style='Muted.TLabel').grid(row=0,column=0,columnspan=3,sticky='w',pady=(SPACING['none'],SPACING['md']))
     chosen=tk.StringVar(value=ENGINES[saved['engine']]);active=[saved['engine']]
-    ttk.Label(body,text='制作引擎').grid(row=1,column=0,sticky='w',padx=(0,12))
+    ttk.Label(body,text='制作引擎').grid(row=1,column=0,sticky='w',padx=(SPACING['none'],SPACING['md']))
     selector=ttk.Label(body,textvariable=chosen);selector.grid(row=1,column=1,sticky='ew',pady=SPACING['xs'])
     values={key:tk.StringVar() for key in ('program','model','skill')}
     custom=ttk.LabelFrame(body,text='自定义模型 / Skill / API',padding=10)
-    custom.grid(row=3,column=0,columnspan=3,sticky='ew',pady=(8,4));custom.columnconfigure(1,weight=1)
+    custom.grid(row=3,column=0,columnspan=3,sticky='ew',pady=(SPACING['sm'],SPACING['xs']));custom.columnconfigure(1,weight=1)
     def browse(key):
         name=FileDialog(win).open_file(title='选择 '+('SKILL.md' if key=='skill' else ENGINES[active[0]]+' 命令行程序'),
             filetypes=[('Skill','SKILL.md')] if key=='skill' else [('命令行程序','*.exe')])
         if name:values[key].set(name)
     for row,key,label in [(1,'program','程序位置'),(0,'model','自定义模型 ID'),(3,'skill','Skill 文件')]:
-        ttk.Label(custom,text=label).grid(row=row,column=0,sticky='w',padx=(0,12))
+        ttk.Label(custom,text=label).grid(row=row,column=0,sticky='w',padx=(SPACING['none'],SPACING['md']))
         entry=LineInput(custom,textvariable=values[key],state='normal');entry.grid(row=row,column=1,sticky='ew',pady=SPACING['xs'])
         if key=='model':win.model_entry=entry
         if key=='skill':skill_entry=entry
-        if key!='model':SecondaryButton(custom,text='选择文件',command=lambda k=key:browse(k)).grid(row=row,column=2,padx=(8,0))
-    ttk.Label(custom,text='模型 ID 可直接填写；留空使用默认模型。保存后更新外面的 Agent 名称。',wraplength=650,style='Muted.TLabel').grid(row=4,column=0,columnspan=3,sticky='w',pady=SPACING['xs'])
+        if key!='model':SecondaryButton(custom,text='选择文件',command=lambda k=key:browse(k)).grid(row=row,column=2,padx=(SPACING['sm'],SPACING['none']))
+    ttk.Label(custom,text='模型 ID 可直接填写；留空使用默认模型。保存后更新外面的 Agent 名称。',wraplength=WRAPLENGTH['lg'],style='Muted.TLabel').grid(row=4,column=0,columnspan=3,sticky='w',pady=SPACING['xs'])
     skill_details=tk.StringVar()
     def update_skill(*_):
         value=values['skill'].get()
         skill_details.set(SKILL_DETAILS.get(preset_folder(value),'自定义文件将随任务交给所选引擎读取。' if value else '仅使用本流程的内置要求。'))
     values['skill'].trace_add('write',update_skill)
-    ttk.Label(custom,textvariable=skill_details,wraplength=650).grid(row=5,column=0,columnspan=3,sticky='w',pady=SPACING['xs'])
+    ttk.Label(custom,textvariable=skill_details,wraplength=WRAPLENGTH['lg']).grid(row=5,column=0,columnspan=3,sticky='w',pady=SPACING['xs'])
     ttk.Label(body,text='补充制作要求（可选）').grid(row=4,column=0,columnspan=2,sticky='w')
-    notes=TextArea(body,height=4,wrap='word',undo=True);notes.grid(row=5,column=0,columnspan=3,sticky='nsew',pady=SPACING['xs']);body.rowconfigure(5,weight=1)
+    notes=TextArea(body,height=TEXT_ROWS['sm'],wrap='word',undo=True);notes.grid(row=5,column=0,columnspan=3,sticky='nsew',pady=SPACING['xs']);body.rowconfigure(5,weight=1)
     feedback=tk.StringVar(value='模型与 Skill 在主页面切换；此处编辑当前配置，保存后自动关闭。')
-    ttk.Label(body,textvariable=feedback,wraplength=680).grid(row=6,column=0,columnspan=3,sticky='w',pady=SPACING['xs'])
+    ttk.Label(body,textvariable=feedback,wraplength=WRAPLENGTH['lg']).grid(row=6,column=0,columnspan=3,sticky='w',pady=SPACING['xs'])
     ttk.Label(body,text='当前 Agent').grid(row=2,column=0,sticky='w')
     agent_name=tk.StringVar()
-    ttk.Label(body,textvariable=agent_name,wraplength=540).grid(row=2,column=1,columnspan=2,sticky='w',pady=SPACING['xs'])
+    ttk.Label(body,textvariable=agent_name,wraplength=WRAPLENGTH['sm']).grid(row=2,column=1,columnspan=2,sticky='w',pady=SPACING['xs'])
     def update_agent_label(*_):
         agent_name.set(agent_label({k:v.get() for k,v in values.items()},stage,active[0],function))
     values['skill'].trace_add('write',update_agent_label)
@@ -1158,7 +1158,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
         if active[0]=='qwen':values['model'].set(model)
         feedback.set('API 设置已保存，Qwen 模型已同步。')
     api_button=SecondaryButton(custom,text='自定义 API（Qwen）',command=lambda:__import__('qwen_setup').show(win,on_saved=api_saved))
-    api_button.grid(row=0,column=2,padx=(8,0))
+    api_button.grid(row=0,column=2,padx=(SPACING['sm'],SPACING['none']))
     row=ttk.Frame(footer);row.pack(side='right')
     SecondaryButton(row,text='检查配置',command=check).pack(side='left',padx=SPACING['xs'])
     PrimaryButton(row,text='保存',command=commit).pack(side='left',padx=SPACING['xs'])

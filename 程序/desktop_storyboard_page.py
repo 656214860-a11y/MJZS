@@ -14,7 +14,7 @@ from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_row_toggle, bind_space_toggle, configure_check_column, fit_columns_by_content, fit_row_height, refresh_request_width
 from storyboard_paths import media_root
 from tkinter import ttk
-from ui_tokens import COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT
+from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT
 from ui_widgets import DataTable, SelectBox
 from desktop_page_support import ASSET_ROW_HEIGHT, FileDialog, THUMB_SIZE, confirm, open_path
 
@@ -142,7 +142,7 @@ class _FirstFramePage:
                        ('status','首帧状态',120),('file','图片文件(点击查看)',180),
                        ('prompt','首帧图片提示词(点击查看)',480)]
         table_shell=DataTable(table_box, columns=[(key,title,MIN_COL) for key,title,width in frame_columns],
-            show='tree headings', height=9, selectmode='browse', style='Frame.Treeview',
+            show='tree headings', height=TEXT_ROWS['xl'], selectmode='browse', style='Frame.Treeview',
             empty_text='暂无镜头', auto_hide_scrollbars=True)
         self.table=table_shell.tree
         _configure_table_style(self.table,'Frame.Treeview',THUMB_SIZE);refresh_request_width(self.table)

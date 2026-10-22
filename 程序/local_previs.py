@@ -12,7 +12,7 @@ import ui_plugin_registry
 from platform_tools import open_path
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
                            work_rows, work_hint, view_row)
-from ui_tokens import COLORS, SPACING
+from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, SPACING
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, PrimaryButton, ProgressLabel, SecondaryButton, TextArea, notify
 
 def engine_name(project):
@@ -38,12 +38,12 @@ def online_window(desktop, source, ids):
     win = BaseDialog(desktop.win, '线上白模 · 中等动作', geometry='740x480',
                      modal=False, chrome=False)
     body = Card(win, padding=SPACING['lg']); body.pack(fill='both', expand=True)
-    DescriptionBlock(body, text='按分镜简化制作 → 导出预演视频 → 导入对应镜头', wraplength=680).pack(anchor='w')
+    DescriptionBlock(body, text='按分镜简化制作 → 导出预演视频 → 导入对应镜头', wraplength=WRAPLENGTH['lg']).pack(anchor='w')
     selected = tk.StringVar(value=next(iter(shots)))
     combo = SelectBox(body, textvariable=selected, values=list(shots)); combo.pack(
         fill='x', pady=SPACING['sm']
     )
-    text = TextArea(body, wrap='word', height=12); text.pack(fill='both', expand=True)
+    text = TextArea(body, wrap='word', height=TEXT_ROWS['2xl']); text.pack(fill='both', expand=True)
     def update(event=None):
         shot = shots[selected.get()]
         task = f"{ep.get('episode_id', '')} / {shot['id']} · {shot.get('title', '')} · {shot.get('duration', 0)}秒\n"
@@ -103,7 +103,7 @@ class _LocalPrevisWindow:
             except Exception as exc:self.state['summary']='白模目录迁移未执行：'+str(exc)
         self.body=ttk.Frame(self.desktop.content);self.body.pack(fill='both',expand=True)
         self.decisions=previs_entries(self.project,self.source)
-        DescriptionBlock(self.body,text='简单／固定动作：无需白模；中等动作：线上简单制作；复杂动作：Agent 自动制作。',wraplength=920).pack(anchor='w')
+        DescriptionBlock(self.body,text='简单／固定动作：无需白模；中等动作：线上简单制作；复杂动作：Agent 自动制作。',wraplength=WRAPLENGTH['3xl']).pack(anchor='w')
         DescriptionBlock(self.body,text='优先读取分镜的复杂度标注；未标注时自动判断。选中镜头可手动调整。').pack(
             anchor='w', pady=SPACING['xs']
         )
@@ -112,14 +112,14 @@ class _LocalPrevisWindow:
         self.env_line=tk.StringVar(value='')
         env_row=ttk.Frame(self.body);env_row.pack(fill='x',pady=SPACING['xs'])
         SecondaryButton(env_row,text='白模环境检查',command=lambda:self.desktop.safe(self.check_environment)).pack(side='left')
-        ProgressLabel(env_row,textvariable=self.env_line,wraplength=780).pack(side='left',padx=SPACING['sm'])
+        ProgressLabel(env_row,textvariable=self.env_line,wraplength=WRAPLENGTH['xl']).pack(side='left',padx=SPACING['sm'])
         self.refresh_environment()
         tablebox=ttk.Frame(self.body);tablebox.pack(fill='both',expand=True,pady=SPACING['sm'])
         # 第 47 期第 5 条：用户点名删掉「制作进度」那一栏——进度条整列撤掉，状态那一栏照旧说事。
         table_shell=DataTable(tablebox,columns=[
             ('id','镜头',165),('title','内容',150),('duration','秒数',50),
             ('complexity','动作复杂度',120),('route','制作方式',130),('status','状态',140),
-        ],show='tree headings',height=8,selectmode='browse',empty_text='暂无镜头')
+        ],show='tree headings',height=TEXT_ROWS['lg'],selectmode='browse',empty_text='暂无镜头')
         self.tree=table_shell.tree
         self.icons=self.desktop.win._tick_images[:2]
         configure_check_column(self.tree)
@@ -160,7 +160,7 @@ class _LocalPrevisWindow:
             side='left', padx=SPACING['sm']
         )
         self.reason=tk.StringVar(value='点击一个镜头查看判断依据')
-        ProgressLabel(level_row,textvariable=self.reason,wraplength=610).pack(side='left')
+        ProgressLabel(level_row,textvariable=self.reason,wraplength=WRAPLENGTH['md']).pack(side='left')
         self.tree.bind('<<TreeviewSelect>>',self.show_decision);self.level_box.bind('<<ComboboxSelected>>',self.change_level)
         # 主动作行：开始制作 → 强制停止 → 无人值守 → 线上白模。
         buttons=FlowBar(self.body);buttons.pack(fill='x',pady=SPACING['sm'])
@@ -169,7 +169,7 @@ class _LocalPrevisWindow:
         # 第 32 期第 1 条：这颗按钮改名「手动制作白模」（与其它阶段页的「手动XX」一个写法）。
         # 第 47 期第 3 条：点「手动制作白模」先问一句模型配没配（没配就问要不要现在去「阶段配置」）。
         from stage_models import manual_command
-        self.start_button=PrimaryButton(buttons,text='手动制作白模',width=16,
+        self.start_button=PrimaryButton(buttons,text='手动制作白模',width=CHAR_WIDTH['3xl'],
                                    command=manual_command(self.desktop,'previs',self.start,self.desktop.win))
         self.start_button.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs']);ui_plugin_registry.module('stage_flow').follow(self.start_button,'previs')
         # 第 32 期第 6 条：这一页的阶段配置就挂在「手动制作白模」右边。

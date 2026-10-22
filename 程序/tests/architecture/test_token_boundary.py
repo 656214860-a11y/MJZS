@@ -39,17 +39,9 @@ PADDING_BASELINE = {
 # R1777 新增：控件 width／height／wraplength 的数字字面量（不含 0、1）。按文件冻结当前值，
 # 只许下降；迁移到 ui_tokens 的命名常量后同步下调。像素级布局数字要逐处裁定，所以不强制清零。
 LAYOUT_NUMBER_BASELINE = {
-    "agent/prompt_optimizer.py": 1, "app.py": 11, "asset_batch.py": 3, "asset_detail.py": 2,
-    "asset_reference_images.py": 8, "asset_reference_import.py": 2, "background_characters.py": 1,
-    "cloud_assets.py": 5, "cloud_video.py": 1, "comfy_service.py": 2, "desktop.py": 7,
-    "desktop_asset_pages.py": 2, "desktop_idea_chat.py": 2, "desktop_media_pages.py": 1,
-    "desktop_project_pages.py": 5, "desktop_storyboard_page.py": 1, "desktop_writing_page.py": 3,
-    "keyframe_comfy.py": 5, "local_previs.py": 7, "local_video.py": 2, "native_assets.py": 2,
-    "pet_models_ui.py": 1, "pet_ui_support.py": 13, "pet_ui_view.py": 1, "prompt_window.py": 1,
-    "qwen_setup.py": 2, "reference_wall.py": 4, "responsive_ui.py": 1, "scripts/ui_snapshot.py": 1,
-    "seedream_settings.py": 3, "skill_panel.py": 7, "skill_panel_support.py": 1,
-    "storyboard_files.py": 4, "task_center_ui.py": 1, "tts_settings.py": 2, "version_picker.py": 2,
-    "video_navigation.py": 2, "white_model.py": 6, "workflow_settings.py": 7,
+    # R1885：业务页数字 width/height/wraplength 已迁到 CHAR_WIDTH／TEXT_ROWS／WRAPLENGTH／SPACING 刻度。
+    # 剩余登记豁免——画布插画描边宽度（宠物形象几何，不是控件布局）与 ComfyUI 生成分辨率（请求参数）。
+    "comfy_service.py": 2, "pet_ui_support.py": 13, "pet_ui_view.py": 1,
 }
 
 
@@ -72,15 +64,19 @@ def hex_color_count(tree):
 
 
 def numeric_padding_count(tree):
-    """`padx/pady/ipadx/ipady` 取数字字面量的次数。"""
+    """`padx/pady/ipadx/ipady` 取数字字面量的次数（含元组元素）。"""
     total = 0
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             for keyword in node.keywords:
-                if (keyword.arg in _PADDING_ARGS
-                        and isinstance(keyword.value, ast.Constant)
-                        and isinstance(keyword.value.value, (int, float))):
-                    total += 1
+                if keyword.arg not in _PADDING_ARGS:
+                    continue
+                # R1885：元组形式 `pady=(0, 6)` 的每个数字元素同样计数。
+                value = keyword.value
+                for item in (value.elts if isinstance(value, ast.Tuple) else [value]):
+                    if (isinstance(item, ast.Constant) and isinstance(item.value, (int, float))
+                            and not isinstance(item.value, bool)):
+                        total += 1
     return total
 
 
@@ -136,3 +132,5 @@ class TokenBoundaryTests(unittest.TestCase):
     def test_padding_predicate_canary(self):
         self.assertEqual(numeric_padding_count(ast.parse('f.pack(padx=8)')), 1)
         self.assertEqual(numeric_padding_count(ast.parse('f.pack(padx=SPACING.sm)')), 0)
+        self.assertEqual(numeric_padding_count(ast.parse('f.pack(pady=(0, 6))')), 2)
+        self.assertEqual(numeric_padding_count(ast.parse("f.pack(pady=(SPACING['none'], SPACING['xs']))")), 0)

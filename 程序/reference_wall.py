@@ -14,7 +14,7 @@ from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
 from ui_dialogs import FileDialog
-from ui_tokens import SPACING
+from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, SPACING
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, notify
 
 
@@ -69,10 +69,10 @@ class _ReferenceWall:
         ttk.Label(tools, text='参考用途').pack(side='left')
         self.role_box = SelectBox(tools); self.role_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         ttk.Label(tools, text='打分阈值').pack(side='left')
-        self.threshold_box = ttk.Spinbox(tools, from_=0, to=100, width=5); self.threshold_box.set(search.DEFAULT_THRESHOLD)
+        self.threshold_box = ttk.Spinbox(tools, from_=0, to=100, width=CHAR_WIDTH['sm']); self.threshold_box.set(search.DEFAULT_THRESHOLD)
         self.threshold_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         ttk.Label(tools, text='最多显示').pack(side='left')
-        self.limit_box = ttk.Spinbox(tools, from_=1, to=24, width=5); self.limit_box.set(search.DEFAULT_LIMIT)
+        self.limit_box = ttk.Spinbox(tools, from_=1, to=24, width=CHAR_WIDTH['sm']); self.limit_box.set(search.DEFAULT_LIMIT)
         self.limit_box.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         self.status = tk.StringVar()
         table_box = ttk.Frame(body); table_box.pack(fill='both', expand=True, pady=(SPACING['sm'], SPACING['xs']))
@@ -81,7 +81,7 @@ class _ReferenceWall:
             ('title', '标题', 240), ('page', '来源页', 240), ('reasons', '打分理由', 460),
             ('license_url', '许可依据', 200), ('collected_at', '采集日期', 110),
             ('state', '状态', 190), ('alts', '同图来源', 90),
-        ], show='tree headings', height=12, selectmode='browse', empty_text='暂无参考图候选')
+        ], show='tree headings', height=TEXT_ROWS['2xl'], selectmode='browse', empty_text='暂无参考图候选')
         self.table = table_shell.tree
         configure_check_column(self.table)
         for key, title, width in [('score', '分数', 60), ('license', '许可', 150), ('commercial', '可商用', 70),
@@ -96,7 +96,7 @@ class _ReferenceWall:
                              lambda url, value: self.checked.__setitem__(url, value))
         self.table.heading('#0', command=self.box.toggle_all)
         bind_row_toggle(self.table, self.box.toggle)
-        ttk.Label(body, textvariable=self.status, wraplength=960, justify='left').pack(fill='x')
+        ttk.Label(body, textvariable=self.status, wraplength=WRAPLENGTH['4xl'], justify='left').pack(fill='x')
         bottom = ttk.Frame(body); bottom.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
         self.state = {'items': []}
         self.dropped = set()          # 第 46 期第 9 条：右键「删除」剔掉的那些候选（只影响这一批结果）

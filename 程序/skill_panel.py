@@ -98,6 +98,7 @@ from ui_widgets import (SelectBox, BaseDialog, DescriptionBlock, HintLabel, Prim
                         TextArea,
                         SecondaryButton, Tooltip, ask_confirmation, notify, _display_width)
 from ui_dialogs import FileDialog
+from ui_tokens import CHAR_WIDTH
 
 TITLE = '阶段配置'
 confirm = ask_confirmation
@@ -264,17 +265,17 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         # 800x460 时若最后才 pack 底栏，前面的表单会把它挤出可见区，用户就找不到确认按钮。
         # 底栏固定优先，其次是不可伸缩的阶段配置，最后是可伸缩的技能说明区。
         self.bottom_bar = ttk.Frame(self)
-        self.bottom_bar.pack(side='bottom', fill='x', pady=(pad, 0))
+        self.bottom_bar.pack(side='bottom', fill='x', pady=(pad, SPACING['none']))
         self.state = ProgressLabel(self.bottom_bar, text='选择预设即可套用；确认保存本页。')
         self.state.pack(side='left')
         self.preset_hint = self.state
-        self.confirm_button = PrimaryButton(self.bottom_bar, text='确认并关闭', width=12,
+        self.confirm_button = PrimaryButton(self.bottom_bar, text='确认并关闭', width=CHAR_WIDTH['xl'],
                                             command=self.confirm)
         self.confirm_button.pack(side='right')
         body = self._build_form_body()
         # 预设决定整套配置，因此置于厂商／模型之前；与下方卡片使用同一左内边距，标签对齐。
         row = WrappingActionRow(body, padding=(pad, 0))
-        row.pack(fill='x', pady=(0, section_gap))
+        row.pack(fill='x', pady=(SPACING['none'], section_gap))
         CompactLabel(row, text='预设', style='Muted.TLabel').pack(side='left')
         self.presets = SelectBox(row, textvariable=self.preset,
                                     values=[PRESET_PLACEHOLDER] + self.preset_names())
@@ -283,20 +284,20 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         self.preset_actions = SelectBox(
             row, textvariable=self.preset_action,
             values=['选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'])
-        self.preset_actions.pack(side='left', padx=(0, STAGE_PANEL_LAYOUT['field_gap']))
+        self.preset_actions.pack(side='left', padx=(SPACING['none'], STAGE_PANEL_LAYOUT['field_gap']))
         self.preset_actions.bind('<<ComboboxSelected>>', lambda event: self.run_preset_action())
-        self.restore_defaults_button = SecondaryButton(row, text='恢复默认', width=12,
+        self.restore_defaults_button = SecondaryButton(row, text='恢复默认', width=CHAR_WIDTH['xl'],
                                                        command=self.reset_defaults)
         self.restore_defaults_button.pack(side='left')
         HintLabel(row, text='勾选项与模型已自动保存').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
         row._schedule_wrap()
 
         coordinator = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
-        coordinator.pack(fill='x', pady=(0, section_gap))
+        coordinator.pack(fill='x', pady=(SPACING['none'], section_gap))
         self.build_workflow_coordinator(pad, coordinator)
 
         engine = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
-        engine.pack(fill='x', pady=(0, section_gap))
+        engine.pack(fill='x', pady=(SPACING['none'], section_gap))
         top = WrappingActionRow(engine)
         top.pack(fill='x')
         CompactLabel(top, text='厂商', style='Muted.TLabel').pack(side='left')
@@ -308,18 +309,18 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         # SKILL」里的「自定义模型」入口，现在就在挑模型的那一格旁边。
         self.models = SelectBox(top, textvariable=self.model,
                                    values=self.provider_labels() + [ADD_MODEL_LABEL])
-        self.models.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], 0))
+        self.models.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
         self.route_hint = HintLabel(engine, text='')
         specific = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
-        specific.pack(fill='x', pady=(0, section_gap))
+        specific.pack(fill='x', pady=(SPACING['none'], section_gap))
         self.build_writer_style_editor(pad, specific)
         self.build_interfaces(pad, specific)
         if not specific.winfo_children():
             specific.pack_forget()
         skill_section = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
-        skill_section.pack(fill='x', pady=(0, section_gap))
+        skill_section.pack(fill='x', pady=(SPACING['none'], section_gap))
         self.skill_content = ttk.Frame(skill_section)
         self.skill_content.pack(fill='x')
         self.build_flow_skill(self.skill_content)
@@ -340,7 +341,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         row = WrappingActionRow(parent or self)
         row.pack(fill='x', pady=(SPACING['none'], pad))
         ttk.Label(row, text='编剧风格', style='Muted.TLabel').pack(side='left')
-        self.writer_style_button = SecondaryButton(row, text='编辑编剧风格', width=14,
+        self.writer_style_button = SecondaryButton(row, text='编辑编剧风格', width=CHAR_WIDTH['2xl'],
                                                    command=self.open_writer_style_editor)
         self.writer_style_button.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         DescriptionBlock(row, text='编剧角色按此风格创作并审核五阶门控，例如参考好莱坞编剧；留空则不附加风格。').pack(
@@ -385,11 +386,11 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
             editor.delete('1.0', 'end')
             self.state.configure(text='编剧风格已清空，不再附加项目级风格。')
 
-        PrimaryButton(actions, text='保存风格', width=12,
+        PrimaryButton(actions, text='保存风格', width=CHAR_WIDTH['xl'],
                       command=save_style).pack(side='left')
-        SecondaryButton(actions, text='清空风格', width=12,
+        SecondaryButton(actions, text='清空风格', width=CHAR_WIDTH['xl'],
                         command=clear_style).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
-        SecondaryButton(actions, text='取消', width=12,
+        SecondaryButton(actions, text='取消', width=CHAR_WIDTH['xl'],
                         command=window.destroy).pack(side='right')
         return window
 
@@ -454,7 +455,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         if self.uses_skill_scrollbar(count):
             self.skill_list_outer = ttk.Frame(parent)
             self.skill_list_outer.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
-            self.skill_canvas = tk.Canvas(self.skill_list_outer, height=156, highlightthickness=0, bd=0,
+            self.skill_canvas = tk.Canvas(self.skill_list_outer, height=SPACING['sm'] * 20, highlightthickness=0, bd=0,
                                           bg=COLORS['background_card'])
             self.skill_scrollbar = ttk.Scrollbar(self.skill_list_outer, orient='vertical', command=self.skill_canvas.yview)
             self.skill_canvas.configure(yscrollcommand=self.skill_scrollbar.set)
@@ -540,7 +541,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         for widget in self.skill_controls:
             index = self.skill_controls.index(widget)
             row, column = divmod(index, columns)
-            widget.grid(row=row, column=column, sticky='w', padx=(0, SPACING['sm']), pady=(0, SPACING['xs']))
+            widget.grid(row=row, column=column, sticky='w', padx=(SPACING['none'], SPACING['sm']), pady=(SPACING['none'], SPACING['xs']))
         for column in range(columns):
             self.flow_skill_row.grid_columnconfigure(column, weight=1)
 
@@ -762,7 +763,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         for label, opener in interfaces_of(self.desktop, self.stage, self.function):
             if not self.interface_buttons:
                 line = WrappingActionRow(parent or self)
-                line.pack(fill='x', pady=(pad, 0))
+                line.pack(fill='x', pady=(pad, SPACING['none']))
                 ttk.Label(line, text='接口', style='Muted.TLabel').pack(side='left')
             button = SecondaryButton(line, text=label,
                                      command=lambda f=opener: self.open_interface(f))
@@ -790,7 +791,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         if not self.note_items:
             return None
         box = ttk.LabelFrame(self, text='技能说明', padding=pad)
-        box.pack(fill='both', expand=True, pady=(SPACING['none'], 0))
+        box.pack(fill='both', expand=True, pady=(SPACING['none'], SPACING['none']))
         # LabelFrame 默认会按子控件的请求高度收缩；锁定其几何传播后再按面板
         # 剩余高度分配，拖动阶段配置窗口才不会留下空白而说明区仍停在 12 行。
         box.grid_propagate(False)
@@ -805,7 +806,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         self.note_list.grid(row=0, column=0, sticky='ns')
         self.note_list.bind('<<ListboxSelect>>', lambda event: self.show_note())
         self.note_list_bar = ttk.Scrollbar(box, orient='vertical', command=self.note_list.yview)
-        self.note_list_bar.grid(row=0, column=1, sticky='ns', padx=(0, pad))
+        self.note_list_bar.grid(row=0, column=1, sticky='ns', padx=(SPACING['none'], pad))
         self.note_list.configure(yscrollcommand=self.note_list_bar.set)
         body = ttk.Frame(box)
         body.grid(row=0, column=2, sticky='nsew')

@@ -4,7 +4,7 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, production_lock_active
-from ui_tokens import COLORS, STAGE_PANEL_LAYOUT
+from ui_tokens import SPACING, COLORS, STAGE_PANEL_LAYOUT
 from ui_widgets import SelectBox
 
 
@@ -251,7 +251,7 @@ class ProductionLockFields(FlowFields):
         label = ttk.Label(field, text=spec['label'], style=spec.get('style', 'TLabel'))
         label.grid(row=0, column=0, sticky='w')
         entry = spec['factory'](field)
-        entry.grid(row=0, column=1, sticky='ew', padx=(STAGE_PANEL_LAYOUT['field_gap'], 0))
+        entry.grid(row=0, column=1, sticky='ew', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
         field.columnconfigure(1, weight=1)
         key = spec['key']
         self.leading_inputs[key] = entry
@@ -264,10 +264,10 @@ class ProductionLockFields(FlowFields):
         label = ttk.Label(field, text=item['label'])
         label.grid(row=0, column=0, sticky='w')
         entry = SelectBox(field, values=item.get('options') or (), state='normal', fit=True)
-        entry.grid(row=0, column=1, sticky='ew', padx=(STAGE_PANEL_LAYOUT['field_gap'], 0))
+        entry.grid(row=0, column=1, sticky='ew', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
         field.columnconfigure(1, weight=1)
         hint = ttk.Label(field, foreground=COLORS['warning_text'])
-        hint.grid(row=0, column=2, sticky='w', padx=(STAGE_PANEL_LAYOUT['field_gap'], 0))
+        hint.grid(row=0, column=2, sticky='w', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
         hint.grid_remove()
         self.inputs[key], self.hints[key] = entry, hint
         self.fields[key] = {'frame': field, 'label': label, 'entry': entry, 'hint': hint}

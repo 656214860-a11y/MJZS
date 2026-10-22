@@ -4,6 +4,7 @@ from weakref import WeakSet
 from agent.core import read, save
 from workflow_settings import (load, ENGINES, FLOWS, FLOW_SKILLS, SKILL_PRESETS, preset_skill, preset_label,
                                 settings_path, set_skills, skills_of, agent_label)
+from ui_tokens import SPACING
 
 
 def label(profile, stage, engine, function=None):
@@ -44,11 +45,11 @@ def selector(desktop,parent,stage,function=None):
     from tkinter import ttk
     from ui_widgets import SelectBox
     project=desktop.root
-    box=ttk.Frame(parent);box.pack(side='left',padx=(0,4))
+    box=ttk.Frame(parent);box.pack(side='left',padx=(SPACING['none'],SPACING['xs']))
     model=tk.StringVar();skill=tk.StringVar()
-    ttk.Label(box,text='模型').pack(side='left',padx=(4,3))
+    ttk.Label(box,text='模型').pack(side='left',padx=(SPACING['xs'],SPACING['xs']))
     models=SelectBox(box,textvariable=model);models.pack(side='left')
-    ttk.Label(box,text='Skill').pack(side='left',padx=(7,3))
+    ttk.Label(box,text='Skill').pack(side='left',padx=(SPACING['sm'],SPACING['xs']))
     skills=SelectBox(box,textvariable=skill);skills.pack(side='left')
     model_choices={};skill_choices={}
     def update():

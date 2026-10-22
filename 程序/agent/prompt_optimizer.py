@@ -10,7 +10,7 @@ from .core import read,save,fingerprint
 from api_models import records,remember,remove,label as model_label,identity
 from .shot_assets import assets
 import tk_timers
-from ui_tokens import SPACING
+from ui_tokens import WRAPLENGTH, SPACING
 from ui_widgets import (SelectBox, BaseDialog, Card, DescriptionBlock, LineInput, PrimaryButton,
                         SecondaryButton, ask_confirmation, notify)
 
@@ -125,7 +125,7 @@ def settings(app):
             app.write('API 模型已删除并保存：'+model)
         except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='优化设置')
 
-    DescriptionBlock(body,text='智谱 GLM-4.7-Flash：选择后自动填入地址与模型，请填写智谱 API Key。切换服务商保留各自配置。\n填写用于文本优化的模型与密钥，不是视频模型。支持 OpenAI 兼容接口；本地 Ollama 可填写本机地址。\n点击整理提示词时会发送本镜分镜、资产编号与名称及提示词（不上传图片），并可能产生文本模型费用。\n保存设置不会调用模型。MCP 包版本：0.1.0；来源与许可证见安装目录 README.md。',wraplength=730).grid(row=7,column=0,columnspan=2,padx=SPACING['md'],pady=SPACING['md'],sticky='w')
+    DescriptionBlock(body,text='智谱 GLM-4.7-Flash：选择后自动填入地址与模型，请填写智谱 API Key。切换服务商保留各自配置。\n填写用于文本优化的模型与密钥，不是视频模型。支持 OpenAI 兼容接口；本地 Ollama 可填写本机地址。\n点击整理提示词时会发送本镜分镜、资产编号与名称及提示词（不上传图片），并可能产生文本模型费用。\n保存设置不会调用模型。MCP 包版本：0.1.0；来源与许可证见安装目录 README.md。',wraplength=WRAPLENGTH['xl']).grid(row=7,column=0,columnspan=2,padx=SPACING['md'],pady=SPACING['md'],sticky='w')
     def commit():
         try:
             updated={k:e.get().strip() for k,e in entries.items()}
