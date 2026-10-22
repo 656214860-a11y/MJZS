@@ -7,7 +7,7 @@ import queue
 import threading
 
 import app_logging
-from desktop_page_registry import PAGES
+from desktop_page_registry import page_title
 
 
 class AsyncTasksMixin:
@@ -24,7 +24,7 @@ class AsyncTasksMixin:
                 try:
                     import diagnostic_capture
                     diagnostic_capture.record_degradation(
-                        e, page=PAGES[getattr(self,'page_index',0)],
+                        e, page=page_title(getattr(self,'page_index',0)),
                         project=str(getattr(self,'root', '') or ''),
                         automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
                 except Exception:app_logging.swallowed()

@@ -15,8 +15,9 @@ from projects import needs_cleanup_after_open_error
 from tkinter import ttk
 from responsive_ui import FlowBar
 from ui_motion import EmptyState, bind_row_hover
-from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC
-from ui_widgets import BaseDialog, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton
+from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYOUT
+from desktop_page_registry import ACCOUNT_TITLE, PAGE_ACCOUNT
+from ui_widgets import BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton
 from desktop_page_support import ContextMenu, confirm, open_path
 
 
@@ -344,6 +345,31 @@ class ProjectPagesMixin:
         SecondaryButton(actions,text='删除选中项目',command=lambda:self.safe(delete_selected_project))
         tree.bind('<Double-1>',enter);tree.bind('<Return>',enter)
         popup.bind('<Escape>',lambda e:popup.destroy());popup.grab_set();tree.focus_set()
+    def build_account_nav(self,side):
+        """「00 会员账户」排在 01 之上；它不在 self.nav 里，翻页键与阶段页序号都不受影响。"""
+        self.account_button=SecondaryButton(side,text=ACCOUNT_TITLE,command=lambda:self.go_page(PAGE_ACCOUNT),style='Nav.TButton')
+        self.account_button.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
+    def mark_nav(self,index):
+        """侧栏高亮：阶段页按钮与「00 会员账户」只亮当前那一颗。"""
+        for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
+        account_button=getattr(self,'account_button',None)
+        if account_button is not None:account_button.configure(style='Selected.Nav.TButton' if index==PAGE_ACCOUNT else 'Nav.TButton')
+    def account_page(self):
+        """「00 会员账户」页：账号状态与会员说明。登录接入（A2）完成前只读展示，不发网络请求。"""
+        self.note('账号用于试用与会员授权；项目和素材始终留在本机，不上传。')
+        status=Card(self.content);status.pack(fill='x',pady=SPACING['xs'])
+        ttk.Label(status,text='当前状态：未登录',font=FONTS['heading_2']).pack(anchor='w')
+        ttk.Label(status,text='「01 剧本准备」「02 剧本结构」不登录也能用；从「03 初步分镜」起需要试用或会员。',
+                  style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
+        plan=Card(self.content);plan.pack(fill='x',pady=SPACING['xs'])
+        for line in ('邮箱验证码登录，新账号免费试用 3 天',
+                     '每个账号最多绑定 3 台电脑',
+                     '联网续签一次可离线使用 7 天，另有 3 天宽限'):
+            ttk.Label(plan,text='· '+line).pack(anchor='w',pady=SPACING['xs'])
+        login=PrimaryButton(self.content,text='邮箱登录（即将开放）',command=lambda:None)
+        login.state(['disabled']);login.pack(anchor='w',pady=SPACING['sm'])
+        self.account_login_button=login
+
     def project_home(self):
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
         tree=ttk.Treeview(self.content,show='tree',height=TEXT_ROWS['2xl'],selectmode='browse')

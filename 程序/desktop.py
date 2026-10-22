@@ -95,11 +95,12 @@ import pet_state
 
 # 第 44 期：版本号只写这一份——系统标题栏与左上角那一行（齿轮就挨着它）都用它。
 from app_metadata import APP_NAME, VERSION
-from desktop_page_registry import CACHED_PAGES, PAGE, PAGES, PAGE_SITES
+from desktop_page_registry import CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGES, PAGE_SITES, page_title
 
 # 「页面第一次画完」按页指标名：用 PAGE 稳定键区分 14 页，不用会变的中文标题。
 _PAGE_PAINT_KEYS = {index: stage for stage, index in PAGE.items()}
 _PAGE_PAINT_KEYS[PAGE_SITES] = 'sites'
+_PAGE_PAINT_KEYS[PAGE_ACCOUNT] = 'account'
 
 def _page_paint_key(index):
     return 'page.paint.' + _PAGE_PAINT_KEYS.get(index, str(index))
@@ -228,7 +229,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         for button in self.project_buttons:button.configure(style='ProjectAction.TButton')
         ttk.Separator(side).pack(fill='x',pady=DESKTOP_LAYOUT['section_gap'])
         self.nav=[]
-        self.asset_list_button=None
+        self.asset_list_button=None;self.build_account_nav(side)
         for i,title in enumerate(PAGES):
             # 第 48 期第 3 条：点「10 视频生成」的入口逻辑——本次启动第一次点先摆「选择生成方式」
             # 那一屏；之后（用户已经选过线上或线下）再点就直接回他选的那一侧，不再反复拦在选择页上。
@@ -1032,8 +1033,8 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         mode='choose' if (index==PAGE['video'] and not getattr(self,'video_mode_picked',False)) else None
         # 即刻反馈最后一次点击，包括连续点击后又回到当前页的情况。
         try:
-            for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
-            self.title.configure(text=PAGES[index])
+            self.mark_nav(index)
+            self.title.configure(text=page_title(index))
         except (tk.TclError,IndexError,AttributeError):pass
         pending=getattr(self,'_navigation_job',None)
         if pending is not None:self.win.after_cancel(pending)
@@ -1105,8 +1106,8 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
     @_page_paint_timed
     def show(self,index,video_mode=None):
         scroll_offset, page_cache = self._show_reset_page(index, video_mode)
-        if index==PAGE_SITES:
-            self.reference_sites()
+        if index in (PAGE_SITES,PAGE_ACCOUNT):
+            (self.reference_sites if index==PAGE_SITES else self.account_page)()    # 两页都与项目无关：没打开项目也能进
             # 参考网站页和普通制作页一样会在这里新增内容；不能因为提前返回而把
             # Canvas window 留在建壳时量到的 1px 高度。
             self.fit_content()
@@ -1247,10 +1248,10 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         for c in self.content.winfo_children():
             if c in retained:c.pack_forget()
             else:c.destroy()
-        for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
+        self.mark_nav(index)
         # 第 71 期任务 2：二级入口只在它自己那一屏高亮
         if self.asset_list_button is not None:self.asset_list_button.configure(style='Selected.Sub.Nav.TButton' if (index==PAGE['assets'] and self.asset_roster) else 'Sub.Nav.TButton')
-        self.header_status.configure(text='',textvariable='');self.header_model.configure(text='');self.title.configure(text=PAGES[index]);self.status.set(str(self.root))
+        self.header_status.configure(text='',textvariable='');self.header_model.configure(text='');self.title.configure(text=page_title(index));self.status.set(str(self.root))
         self.stage_button=None                 # 那一行随页面重建：旧按钮这会儿已跟着 content 一起销毁
         if self.header_stage_button is not None:
             self.header_stage_button.destroy();self.header_stage_button=None    # 页标题旁那颗同理
