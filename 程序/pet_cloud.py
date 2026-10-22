@@ -47,6 +47,7 @@ import tkinter as tk
 from tkinter import ttk
 from ui_widgets import BaseDialog, LineInput
 
+from pet_bus import ErrorLog
 from pet_agent import PET_NAME as SPEAKER     # 猫咪的名字（三虎）：云朵里每句话都挂在它名下
 from pet_cloud_text import reply_lines as _reply_lines, tight
 from pet_cloud_geometry import inflate, inside_parts as _inside_parts, rounded_parts, shape_root as _shape_root, shift_part, square_parts as _square_parts
@@ -284,7 +285,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin):
         self.busy = False
         self.pinned = False                # 对话形态（带输入框）；False＝播报形态（到点自己收）
         self.visible = False
-        self.errors = []
+        self.errors = ErrorLog()
         self._hold = None
         self._fade = None                  # 淡入用的定时器（收窗／销毁都要收回来，见 _expire 的教训）
         self._fade_callback = None         # 与 _fade 成对持有，避免 Tk after 留下悬空 lambda

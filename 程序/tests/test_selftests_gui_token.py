@@ -84,6 +84,15 @@ r.release_gui_lock(p)
                 self.assertEqual(acquire.call_count, 2)
             runner._GUI_LOCK_DEPTH.pop('token', None)
 
+    def test_wait_succeeds_with_forward_slash_common_dir(self):
+        # git rev-parse 给的是 D:/… 正斜杠；mkstemp 返回规范化路径，两者不一致时队首永远认不出自己（R1861）。
+        with tempfile.TemporaryDirectory() as common:
+            with mock.patch.object(runner, 'acquire_pid_lock',
+                                   side_effect=[RuntimeError('PID 7'), 'token']) as acquire:
+                self.assertEqual(runner.acquire_gui_lock(common.replace('\\', '/'), wait=1), 'token')
+                self.assertEqual(acquire.call_count, 2)
+            runner._GUI_LOCK_DEPTH.pop('token', None)
+
     def test_cli_gui_timeout_lists_names_no_pass_no_cache_for_default_and_k(self):
         for args in ([], ['-k', 'example'], ['--layer', 'gui-e2e']):
             with self.subTest(args=args), contextlib.ExitStack() as stack:

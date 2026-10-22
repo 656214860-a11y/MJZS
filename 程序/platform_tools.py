@@ -176,6 +176,26 @@ def terminate_process_tree(process, *, timeout=3):
     return result.returncode == 0
 
 
+def communicate_or_kill(process, data, timeout):
+    """喂完输入并等进程退出；超过 timeout 秒就结束整棵进程树，再抛 TimeoutExpired。"""
+    try:
+        return process.communicate(data, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        terminate_process_tree(process)
+        try:
+            process.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=3)
+        raise
+
+
+def duration_text(seconds):
+    """超时提示里的时长：满一分钟按分钟说，不满按秒说。"""
+    seconds = int(seconds)
+    return '%d 分钟' % (seconds // 60) if seconds >= 60 else '%d 秒' % seconds
+
+
 def tool_path(name, fallback=''):
     """Return a cached executable path, falling back to an explicit setting.
 

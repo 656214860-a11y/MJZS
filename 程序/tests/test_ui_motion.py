@@ -144,8 +144,15 @@ class SpinnerTests(MotionBase):
         spinner = ui_motion.Spinner(self.root)
         spinner.pack()
         spinner.start()
+        job = spinner._job
+        self.assertIsNotNone(job)
+        errors = []
+        self.root.report_callback_exception = lambda *info: errors.append(info[1])
         spinner.destroy()
         self.pump(3)  # 已销毁后不得再有定时器抛 TclError
+        self.assertFalse(spinner.running)
+        self.assertNotIn(job, self.root.tk.splitlist(self.root.tk.call('after', 'info')))
+        self.assertEqual(errors, [])
 
 
 class EmptyStateTests(MotionBase):

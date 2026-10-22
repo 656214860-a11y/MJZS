@@ -105,7 +105,14 @@ class AppLoggingTests(unittest.TestCase):
 
     def test_swallowed_outside_except_is_noop(self):
         app_logging.install()
-        app_logging.swallowed()
+        app_logging._swallow_counts.clear()
+        recent = list(app_logging._recent_swallowed)
+        self.assertIsNone(app_logging.swallowed())
+        self._flush()
+        self.assertEqual(app_logging._swallow_counts, {})
+        self.assertEqual(list(app_logging._recent_swallowed), recent)
+        log = self.tmp / 'app.log'
+        self.assertNotIn('已忽略', log.read_text(encoding='utf-8') if log.exists() else '')
 
     def test_timed_records_metrics_and_warns_only_when_slow(self):
         app_logging.install()

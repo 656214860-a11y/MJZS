@@ -103,6 +103,25 @@ def event(kind, key=None, **payload):
     return {'kind': kind, 'at': time.time(), 'id': key or identify(kind, payload), **payload}
 
 
+class ErrorLog(list):
+    """界面与 Agent 的错误记录：只留最近 ERROR_LIMIT 条，total 记累计数。
+
+    150ms 心跳里一个持续的异常每秒会记好几笔；用普通 list 会一直涨到进程退出。
+    """
+
+    def __init__(self, limit=ERROR_LIMIT):
+        super().__init__()
+        self.limit = limit
+        self.total = 0
+
+    def append(self, item):
+        self.total += 1
+        super().append(item)
+        extra = len(self) - self.limit
+        if extra > 0:
+            del self[:extra]
+
+
 def emit_safe(bus, errors, kind, **payload):
     """发一条事件：没挂总线、不合契约、订阅者出错都只记一笔，绝不把界面线程带崩。
 

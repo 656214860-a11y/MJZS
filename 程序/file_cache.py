@@ -3,7 +3,7 @@
 分镜表、镜头列表、内容预览会在每次页面重排、每次选中变化、每 1.5 秒的文件轮询里
 各自读同一个 JSON；一个 60 镜的分镜稿会被解析 3 次以上。这里按文件签名缓存，
 文件一旦被 save() 覆盖（mtime/大小变化）自动失效，所以不会读到旧内容。
-返回的是共享对象，调用方只读、不得修改（需要改的用 agent.core.read 重新读）。
+每次返回一份新拷贝（只拷 dict／list 骨架，比重新解析便宜）：调用方改了也不会污染缓存。
 """
 import hashlib
 import json
@@ -58,9 +58,18 @@ def _read_through(cache, key, path, parse):
     return data
 
 
+def _json_copy(value):
+    """JSON 树的结构拷贝：叶子都是不可变的 str/数字/None，只需重建 dict 与 list。"""
+    if isinstance(value, dict):
+        return {key: _json_copy(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_copy(item) for item in value]
+    return value
+
+
 @access()
 def read_json(path):
-    return _read_through(_CACHE, _key(path), path, json.loads)
+    return _json_copy(_read_through(_CACHE, _key(path), path, json.loads))
 
 
 @access()
