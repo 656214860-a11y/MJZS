@@ -32,3 +32,9 @@
 ## 编号说明
 - 开工领号 R1877；提交时中央计数器已被另一会话领到 R1878（分支 `claude/focused-poitras-b0a70d` 的 4873a83b，同为间距令牌化方向，未合入 master），故改领 R1879。R1877 未被任何提交使用，作空号。
 - 提交 R1879 前一条命令链误把 master 先快进到 `58992276`（R1876），内容即上述已验证的 8 个提交；随后 master 再快进到本轮提交。
+
+## 收尾复核（同步轮次头后）
+- `git diff a357d9c5..HEAD -- 程序/project_status.md | grep '^-' | grep -v '^---' | grep -v '当前轮次：'`：输出为空。
+- `git show HEAD:程序/project_status.md | grep -oE '^R[0-9]+' | sort -u`：只改了表头一行，正文行首轮次号集合与合入前一致（R1873 合入时同样只改表头）。
+- `tests.architecture.test_round_baselines`：5 条 1 红。`test_round_number_continuous` 已转绿；`test_full_safe_all_is_required_after_eight_source_rounds` 红，如实反映全量欠账未清——全量有既有红，写不了绿凭据，post-commit 钩子会后台补跑。
+- 提交：`de92ca97`（合入＋修复）、随后一条 R1879 补记提交（状态页＋本节）。未推送。
