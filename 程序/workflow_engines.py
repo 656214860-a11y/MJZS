@@ -13,7 +13,7 @@ from workflow_process_registry import (register_process, forget_process, process
                                        reserve_process_slot, release_process_slot,
                                        request_process_slot, claim_process_slot,
                                        cancel_project_slot_requests, cancel_slot_request)
-from platform_tools import hidden_console_flags, launch_windows_app, terminate_process_tree
+from platform_tools import communicate_or_kill, duration_text, hidden_console_flags, launch_windows_app, terminate_process_tree
 from workflow_context_budget import ensure_request_context
 import client_profiles
 
@@ -144,13 +144,23 @@ def terminate(project):
     return killed
 
 
-def _run(args,project,prompt,stdout,stderr):
+# 一次后台制作的最长等待：CLI 卡死时到点结束进程树、让出阶段槽位；阶段配置可用 timeout_seconds 改。
+ENGINE_TIMEOUT_SECONDS = 2 * 3600
+
+
+def engine_timeout(config):
+    return config.get('timeout_seconds') or ENGINE_TIMEOUT_SECONDS
+
+
+def _run(args,project,prompt,stdout,stderr,timeout=ENGINE_TIMEOUT_SECONDS):
     """启动引擎进程并登记：只有登记过的进程才会被「强制停止制作」结束。"""
     key=str(project)
     process=subprocess.Popen(args,stdin=subprocess.PIPE,text=True,encoding='utf-8',errors='replace',
                              stdout=stdout,stderr=stderr,cwd=project,creationflags=hidden_console_flags())
     register_process(key,process)
-    try:process.communicate(prompt)
+    try:communicate_or_kill(process,prompt,timeout)
+    except subprocess.TimeoutExpired:
+        raise ValueError('引擎运行超时（%s 仍未结束），已强制结束；请查看运行日志后重试' % duration_text(timeout)) from None
     except BaseException:
         # 异常打断（含 Ctrl+C）时进程可能还在跑；先结束再注销，否则它脱离登记表后「强制停止」找不到。
         terminate_process_tree(process)
@@ -187,7 +197,7 @@ def _run_opencode(config,project,output,report,logfile,prompt):
     response_temp=temporary_path(response)
     try:
         with response_temp.open('w',encoding='utf-8') as out, Path(logfile).open('w',encoding='utf-8') as log:
-            returncode=_run(background_command(config,project,output,report,prompt_file),project,'',out,log)
+            returncode=_run(background_command(config,project,output,report,prompt_file),project,'',out,log,engine_timeout(config))
         if returncode:
             replace(response_temp,response)
             raise ValueError('OpenCode CLI 执行失败（退出码 %s），请查看运行日志（安装版本、登录、额度或权限）' % returncode)
@@ -201,13 +211,13 @@ def _run_opencode(config,project,output,report,logfile,prompt):
         if response_temp.exists():remove_temporary_file(response_temp)
 
 
-def _run_claude_json(args,project,prompt,log,report):
+def _run_claude_json(args,project,prompt,log,report,timeout=ENGINE_TIMEOUT_SECONDS):
     """Claude 以 JSON 输出运行：响应落临时文件，成功后转正并写制作报告。"""
     response=Path(report).with_suffix('.response.json')
     response_temp=temporary_path(response)
     try:
         with response_temp.open('w',encoding='utf-8') as out:
-            returncode=_run(args,project,prompt,out,log)
+            returncode=_run(args,project,prompt,out,log,timeout)
         if returncode==0:
             result=json.loads(response_temp.read_text(encoding='utf-8-sig'))
             replace(response_temp,response)
@@ -234,7 +244,7 @@ def run_background(config,project,output,report,logfile,prompt):
             item=_client_profile(config)
             try:
                 with response_temp.open('w',encoding='utf-8') as out, Path(logfile).open('w',encoding='utf-8') as log:
-                    returncode=_run(args,project,client_profiles.stdin_text(item,prompt),out,log)
+                    returncode=_run(args,project,client_profiles.stdin_text(item,prompt),out,log,engine_timeout(config))
                 text=response_temp.read_text(encoding='utf-8-sig').strip()
                 replace(response_temp,response)
                 if returncode:
@@ -254,9 +264,9 @@ def run_background(config,project,output,report,logfile,prompt):
         args=background_command(config,project,output,report)
         with Path(logfile).open('w',encoding='utf-8') as log:
             if config['engine']=='codex':
-                returncode=_run(args,project,prompt,log,log)
+                returncode=_run(args,project,prompt,log,log,engine_timeout(config))
             else:
-                returncode=_run_claude_json(args,project,prompt,log,report)
+                returncode=_run_claude_json(args,project,prompt,log,report,engine_timeout(config))
         if returncode:raise ValueError(ENGINES[config['engine']]+' 执行失败，请查看运行日志（安装版本、登录、额度或权限）')
     finally:
         release_process_slot(slot)

@@ -46,7 +46,7 @@ def load():
     value={}
     if path.is_file():
         try:
-            data=json.loads(path.read_text(encoding='utf-8'))
+            data=json.loads(path.read_text(encoding='utf-8-sig'))
             if isinstance(data,dict):
                 value=data
         except (OSError,ValueError):

@@ -52,8 +52,9 @@ class ReadJsonTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             path = write_episode(Path(td) / "a.json", "EP001", ["SH001"])
             first = file_cache.read_json(path)
-            second = file_cache.read_json(path)
-            self.assertIs(first, second)
+            with patch.object(file_cache.json, "loads", side_effect=AssertionError("重新解析了")):
+                second = file_cache.read_json(path)
+            self.assertEqual(first, second)
 
     def test_rewrite_invalidates_cache(self):
         with tempfile.TemporaryDirectory() as td:
@@ -90,7 +91,8 @@ class ReadJsonTests(unittest.TestCase):
             stamp = path.stat().st_mtime_ns
             path.write_text(json.dumps(first, ensure_ascii=False), encoding="utf-8")
             os.utime(path, ns=(stamp + 1_000_000_000, stamp + 1_000_000_000))
-            self.assertIs(file_cache.read_json(path), first)
+            with patch.object(file_cache.json, "loads", side_effect=AssertionError("重新解析了")):
+                self.assertEqual(file_cache.read_json(path), first)
 
     def test_missing_file_raises_and_drops_entry(self):
         with tempfile.TemporaryDirectory() as td:
@@ -296,7 +298,7 @@ class RepeatReadTests(unittest.TestCase):
 
 
 class SharedCacheWriteTests(unittest.TestCase):
-    """read_json 返回共享对象：读—改—写路径必须自己取副本，不能就地改缓存。"""
+    """read_json 每次返回新拷贝（R1853 起）：读—改—写路径改了也不会污染缓存。"""
 
     def setUp(self):
         file_cache.clear()
@@ -304,12 +306,13 @@ class SharedCacheWriteTests(unittest.TestCase):
     def write_prefs(self, project, data):
         (project / "ui_settings.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
 
-    def test_prefs_is_the_shared_cached_object(self):
+    def test_prefs_is_a_fresh_copy_of_the_cached_object(self):
         with tempfile.TemporaryDirectory() as td:
             project = Path(td) / "p"; project.mkdir()
             self.write_prefs(project, {"adopted_storyboards": []})
-            self.assertIs(storyboard_selection.prefs(project),
-                          file_cache.read_json(project / "ui_settings.json"))
+            first = storyboard_selection.prefs(project)
+            self.assertEqual(first, file_cache.read_json(project / "ui_settings.json"))
+            self.assertIsNot(first, file_cache.read_json(project / "ui_settings.json"))
 
     def test_remember_many_keeps_prior_snapshot_intact(self):
         with tempfile.TemporaryDirectory() as td:

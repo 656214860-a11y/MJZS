@@ -22,7 +22,7 @@ import pet_llm
 import pet_state
 import stage_parallel
 from agent.core import save
-from pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, emit_safe, read_json
+from pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json
 
 LEVELS = ('hint', 'semi', 'auto')
 # 第 23 期：三档的名字只有这一份（原来 pet_ui 另写了一份「只提醒」，同一档两个说法）。
@@ -832,7 +832,7 @@ class Agent:
         self.notifier = Notifier(self.project, clock=clock, window=self.settings['dnd'], persist=persist)
         self.failures = []
         self.decisions = []
-        self.errors = []
+        self.errors = ErrorLog()
         self.seen = []
         self._known = set()
         self.paused = False

@@ -7,6 +7,7 @@ from importlib import import_module
 from agent.core import read,save,save_text
 from pet_bus import read_json
 from pet_llm import config_path
+from platform_tools import terminate_process_tree
 from workflow_context_budget import ensure_request_context
 
 class RPC:
@@ -40,7 +41,7 @@ class RPC:
             paths=list((Path(os.environ.get('LOCALAPPDATA',''))/'OpenAI/Codex/bin').glob('*/codex.exe'))
             exe=str(max(paths,key=lambda p:p.stat().st_mtime)) if paths else None
         if not exe:raise ValueError('未找到Codex程序，请先安装并打开Codex')
-        self.process=subprocess.Popen([exe,'app-server','--stdio'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,encoding='utf-8',env=self.environment(),creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        self.process=subprocess.Popen([exe,'app-server','--stdio'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,encoding='utf-8',errors='replace',env=self.environment(),creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
         self.messages=queue.Queue();self.counter=0
         def pump():
             try:
@@ -68,9 +69,9 @@ class RPC:
             return reply['result']
     def __exit__(self,*args):
         if self.process.poll() is None:
-            self.process.terminate()
+            terminate_process_tree(self.process)
             try:self.process.wait(timeout=5)
-            except subprocess.TimeoutExpired:self.process.kill();self.process.wait()
+            except subprocess.TimeoutExpired:self.process.kill();self.process.wait(timeout=5)
         for pipe in (self.process.stdin,self.process.stdout):
             if pipe:pipe.close()
 

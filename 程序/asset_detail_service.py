@@ -2,13 +2,12 @@
 
 详情页只能选择文件并刷新；图片复制和资产清单索引必须作为一个可回滚的业务操作。
 """
-import os
 import shutil
 from pathlib import Path
 from functools import wraps
 import logging
 
-from agent.core import temporary_path
+from agent.core import replace, temporary_path
 from asset_context import library_dir
 from asset_plan import plan_file, _update_fields as update_fields
 from file_cache import remove_temporary_file
@@ -84,7 +83,7 @@ def _publish(project, episode_dir, aid, source, suffix, values, *, gateway=None,
         if copied:
             folder.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, temporary)
-            os.replace(temporary, dest)
+            replace(temporary, dest)
         update_fields(project, episode_dir, aid, values, gateway=gateway)
     except Exception:
         if copied:

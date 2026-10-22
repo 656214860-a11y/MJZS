@@ -194,7 +194,7 @@ class StageQueue:
         self.inner = inner if inner is not None else queue.Queue()
         self.stage = stage
         self.sink = sink
-        self.errors = []                  # 心跳不可中断，但失败必须留下可核记录。
+        self.errors = pet_bus.ErrorLog()  # 心跳不可中断，但失败必须留下可核记录。
 
     def get_nowait(self):
         item = self.inner.get_nowait()
@@ -351,7 +351,7 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin):
         self.desktop = desktop
         self.win = desktop.win
         self.clock = clock
-        self.errors = []
+        self.errors = pet_bus.ErrorLog()
         self.notice = ''
         self.last_status = ''
         self.frame = 0

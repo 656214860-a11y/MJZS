@@ -1,4 +1,5 @@
 """Thread-safe registry of child workflow processes, independent of adapters."""
+import os
 import threading
 
 _running = {}
@@ -6,6 +7,11 @@ _lock = threading.Lock()
 _slots = {}
 _queued = []
 _queue_counter = 0
+
+
+def _key(project):
+    """同一个项目文件夹无论写成 Path、正斜杠还是大小写不同，都落到同一个登记键。"""
+    return os.path.normcase(os.path.abspath(str(project)))
 
 
 def _reap_exited_processes():
@@ -52,7 +58,7 @@ def request_process_slot(project, stage, stage_limit=1, global_limit=8, stage_na
             _slots.setdefault(key, set()).add(token)
             return {'state': 'granted', 'slot': token, 'position': 0, 'reason': ''}
         _queue_counter += 1
-        ticket = {'id': _queue_counter, 'project': str(project), 'stage': key,
+        ticket = {'id': _queue_counter, 'project': _key(project), 'stage': key,
                   'stage_limit': int(stage_limit), 'global_limit': int(global_limit),
                   'stage_name': name}
         _queued.append(ticket)
@@ -97,7 +103,7 @@ def cancel_slot_request(ticket):
 
 def cancel_project_slot_requests(project):
     """停止项目时撤销其所有未启动的模型请求。"""
-    key = str(project)
+    key = _key(project)
     with _lock:
         before = len(_queued)
         _queued[:] = [ticket for ticket in _queued if ticket['project'] != key]
@@ -118,17 +124,17 @@ def release_process_slot(token):
 
 def register_process(project, process):
     with _lock:
-        _running.setdefault(str(project), []).append(process)
+        _running.setdefault(_key(project), []).append(process)
 
 def forget_process(project, process):
     with _lock:
-        items = _running.get(str(project))
+        items = _running.get(_key(project))
         if items and process in items:
             items.remove(process)
         if items is not None and not items:
-            _running.pop(str(project), None)
+            _running.pop(_key(project), None)
     release_process_slot(getattr(process, 'workflow_process_slot', None))
 
 def processes(project):
     with _lock:
-        return list(_running.get(str(project), []))
+        return list(_running.get(_key(project), []))

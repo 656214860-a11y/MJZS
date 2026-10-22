@@ -12,7 +12,7 @@ class _Process:
     def __init__(self, error=None):
         self.error = error
 
-    def communicate(self, prompt):
+    def communicate(self, prompt, timeout=None):
         if self.error:
             raise self.error
         self.returncode = 0

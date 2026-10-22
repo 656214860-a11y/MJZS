@@ -20,7 +20,7 @@ def _drive(get_fn, engine, code, payload):
     calls = []
     with tempfile.TemporaryDirectory() as tmp:
         report = Path(tmp) / 'r.md'
-        def fake_run(args, project, prompt, out, log):
+        def fake_run(args, project, prompt, out, log, timeout=None):
             calls.append((args, project, prompt, out is log))
             if out is not log:
                 out.write(json.dumps(payload) if payload is not None else '{bad')
