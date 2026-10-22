@@ -248,7 +248,9 @@ class AccountPageMixin:
         email = LineInput(form,placeholder='邮箱地址');email.pack(fill='x',pady=SPACING['xs'])
         code = LineInput(form,placeholder='6 位验证码');code.pack(fill='x',pady=SPACING['xs'])
         adult = tk.BooleanVar(value=False)
-        ttk.Checkbutton(form,text='我已年满 18 周岁，并同意用户协议与隐私政策（首次注册必选）',variable=adult).pack(anchor='w',pady=SPACING['xs'])
+        ttk.Checkbutton(form,text='已满 18 周岁并同意协议',variable=adult).pack(anchor='w',pady=SPACING['xs'])
+        ttk.Label(form,text='首次注册必选：确认已年满 18 周岁，并同意用户协议与隐私政策。',
+                  style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
         message = ttk.Label(form,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
         message.pack(anchor='w',pady=SPACING['xs'])
         actions = ttk.Frame(self.content);actions.pack(anchor='w',pady=SPACING['sm'])

@@ -254,7 +254,7 @@ class ProjectPagesMixin:
                 notice_label.configure(wraplength=event.width-SPACING['xl']*2)
         popup.bind('<Configure>',fit_notice,add='+')
         tree=ttk.Treeview(popup,show='tree',selectmode='browse');tree.pack(fill='both',expand=True,padx=SPACING['xl'])
-        tree._empty_state=EmptyState(popup,'还没有项目\n关闭此窗口后点「＋ 新建项目」开始',anchor_widget=tree)  # 与项目首页同一套空状态
+        tree._empty_state=EmptyState(popup,'还没有项目\n关闭此窗口后点「+ 新建项目」开始',anchor_widget=tree)  # 与项目首页同一套空状态
         self.fill_projects(tree)
         selected_path=cleanup_path or self.projects.info.get('active')
         if selected_path and tree.exists(selected_path):tree.selection_set(selected_path);tree.see(selected_path)
