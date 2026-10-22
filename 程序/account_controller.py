@@ -80,6 +80,33 @@ class AccountController:
         self._submit(work, done, '续签会员授权')
         return True
 
+    def redeem(self, code, done):
+        """用本机租约兑换；租约已过期（401）时先续签一次再重试。无会话返回 False。"""
+        data = self.session()
+        lease, token = data.get('lease'), data.get('refresh_token')
+        if not lease:
+            return False
+        code, device_id = str(code or '').strip(), self.device_id
+
+        def work():
+            result = self._client.redeem(lease, code)
+            if result.ok:
+                return self._accept(result.data, rotate=False)
+            if (result.data or {}).get('code') != 'session_invalid' or not token:
+                return result
+            renewed = self._client.renew(token, device_id)
+            if not renewed.ok:
+                if (renewed.data or {}).get('code') in SESSION_DEAD:
+                    self._store.clear_session()
+                return renewed
+            accepted = self._accept(renewed.data)
+            if not accepted.ok:
+                return accepted
+            result = self._client.redeem(renewed.data['lease'], code)
+            return self._accept(result.data, rotate=False) if result.ok else result
+        self._submit(work, done, '兑换会员')
+        return True
+
     def renew_due(self):
         return self._clock() - self.last_renew_at >= RENEW_INTERVAL
 
@@ -87,13 +114,18 @@ class AccountController:
         """只清本机会话；服务端会话由刷新令牌过期或在别处解绑本机来吊销。"""
         return self._store.clear_session()
 
-    def _accept(self, data, *, email=None):
-        """先验签再落盘：返回原结果或 SystemError，不抛异常（完成回调总能收到结果）。"""
-        fields = {'refresh_token': data.get('refresh_token'), 'lease': data.get('lease'),
-                  'server_time': data.get('server_time') or 0}
+    def _accept(self, data, *, email=None, rotate=True):
+        """先验签再落盘：返回原结果或 SystemError，不抛异常（完成回调总能收到结果）。
+
+        ``rotate=False``（兑换）只替换租约，刷新令牌不变。
+        """
+        data = data if isinstance(data, dict) else {}
+        fields = {'lease': data.get('lease'), 'server_time': data.get('server_time') or 0}
+        if rotate:
+            fields['refresh_token'] = data.get('refresh_token')
         if email is not None:
             fields['email'] = email
-        if not fields['refresh_token'] or not fields['lease']:
+        if (rotate and not fields['refresh_token']) or not fields['lease']:
             return SystemError('账号服务返回的登录结果不完整', data={'code': 'bad_response'})
         checked = entitlement_service.evaluate(fields['lease'], now=int(self._clock()), device_id=self.device_id)
         if checked.state == entitlement_service.SIGNED_OUT:

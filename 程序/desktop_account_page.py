@@ -23,7 +23,15 @@ STATE_TEXT = {
     entitlement_service.SIGNED_OUT: '未登录',
     entitlement_service.CLOCK_SUSPECT: '本机时间早于服务器时间，请校正系统时间后续签',
 }
-PLAN_TEXT = {'trial': '免费试用', 'active': '会员', 'expired': '已到期'}
+PLAN_TEXT = {'trial': '免费试用', 'monthly': '月度会员', 'quarterly': '季度会员', 'yearly': '年度会员'}
+REDEEM_MAX_LENGTH = 40
+
+
+def plan_text(payload):
+    """租约里的套餐名：到期优先显示「已到期」，未登记的 plan 按会员状态兜底。"""
+    if payload.get('state') == 'expired':
+        return '已到期'
+    return PLAN_TEXT.get(payload.get('plan')) or ('会员' if payload.get('state') == 'active' else '—')
 
 
 def _when(stamp):
@@ -76,7 +84,7 @@ class AccountPageMixin:
     def _account_signed_in(self, card, entitlement, session):
         payload = entitlement.payload or {}
         lines = ['账号：'+str(session.get('email') or '—'),
-                 '套餐：'+PLAN_TEXT.get(payload.get('state'),'—')]
+                 '套餐：'+plan_text(payload)]
         if payload.get('state') == 'trial':lines.append('试用到期：'+_when(payload.get('trial_ends_at')))
         if payload.get('state') == 'active':lines.append('会员到期：'+_when(payload.get('period_end')))
         lines.append('离线可用至：'+_when(payload.get('grace_until')))
@@ -86,9 +94,34 @@ class AccountPageMixin:
             if not self.account.renew(done=self._account_renewed):self.status.set('本机没有可续签的登录会话，请重新登录')
             else:self.status.set('正在续签会员授权…')
         def logout():
-            self.account.logout();self.status.set('已退出登录（项目和素材不受影响）');self.show(PAGE_ACCOUNT)
+            self.account.logout();self.show(PAGE_ACCOUNT);self.status.set('已退出登录（项目和素材不受影响）')
         PrimaryButton(actions,text='立即续签',command=renew).pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         SecondaryButton(actions,text='退出登录',command=logout).pack(side='left')
+        self._account_redeem_form()
+
+    def _account_redeem_form(self):
+        """兑换码开通或续期会员；成功后服务端返回的新租约直接替换本机租约。"""
+        form = Card(self.content);form.pack(fill='x',pady=SPACING['xs'])
+        ttk.Label(form,text='输入兑换码（开通或续期会员；在原到期时间上顺延）').pack(anchor='w',pady=SPACING['xs'])
+        code = LineInput(form,placeholder='XXXX-XXXX-XXXX-XXXX');code.pack(fill='x',pady=SPACING['xs'])
+        message = ttk.Label(form,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
+        message.pack(anchor='w',pady=SPACING['xs'])
+        def redeemed(result):
+            if not message.winfo_exists():return
+            button.state(['!disabled'])
+            if result.ok:
+                days = (result.data or {}).get('added_days')
+                self.show(PAGE_ACCOUNT);self.status.set('兑换成功'+('，会员增加 %s 天'%days if days else ''))
+            else:message.configure(text=result.reason)
+        def submit():
+            value = code.get().strip()
+            if not value or len(value) > REDEEM_MAX_LENGTH:
+                code.set_error('请填写兑换码');return
+            code.clear_error();button.state(['disabled']);message.configure(text='正在兑换…')
+            if not self.account.redeem(value,redeemed):
+                button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
+        button = PrimaryButton(form,text='兑换',command=submit);button.pack(anchor='w',pady=SPACING['xs'])
+        self.account_redeem_input,self.account_redeem_button,self.account_redeem_message = code,button,message
 
     def _account_login_form(self):
         form = Card(self.content);form.pack(fill='x',pady=SPACING['xs'])
@@ -116,7 +149,7 @@ class AccountPageMixin:
             if not alive():return
             login.state(['!disabled'])
             if result.ok:
-                self.status.set('登录成功');self.show(PAGE_ACCOUNT)
+                self.show(PAGE_ACCOUNT);self.status.set('登录成功')
             else:message.configure(text=result.reason)
         def submit():
             if not code.get().strip():

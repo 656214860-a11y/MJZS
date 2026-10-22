@@ -233,6 +233,20 @@ class AccountClientTests(unittest.TestCase):
         err = urllib.error.HTTPError('u', 426, 'x', {}, io.BytesIO(b'not json'))
         self.assertEqual(account_client.meta(opener=self.opener(err)[0]).data['code'], 'client_too_old')
 
+    def test_redeem_posts_raw_code_with_bearer_and_maps_used(self):
+        """R1898：码原样提交，归一化在服务端；409 redeem_used 有稳定中文提示。"""
+        fake, calls = self.opener({'lease': 'x'})
+        account_client.redeem('LEASE', 'abcd-efgh ijkl-mnop', opener=fake)
+        url, kw = calls[0]
+        self.assertEqual((url, kw['method']), (account_client.BASE_URL + '/v1/redeem', 'POST'))
+        self.assertEqual(kw['headers']['Authorization'], 'Bearer LEASE')
+        self.assertEqual(json.loads(kw['data']), {'code': 'abcd-efgh ijkl-mnop'})
+        for status, code in ((409, 'redeem_used'), (400, 'redeem_invalid')):
+            err = urllib.error.HTTPError('u', status, 'x', {}, io.BytesIO(json.dumps({'code': code}).encode()))
+            result = account_client.redeem('L', 'C', opener=self.opener(err)[0])
+            self.assertIsInstance(result, UserError)
+            self.assertEqual(result.reason, account_client.MESSAGES[code])
+
     def test_network_failure_is_system_error(self):
         result = account_client.meta(opener=self.opener(urllib.error.URLError('down'))[0])
         self.assertIsInstance(result, SystemError)
@@ -259,7 +273,8 @@ class _Client:
     def __getattr__(self, name):
         def call(*a, **kw):
             self.calls.append((name, a))
-            return self.replies[name]
+            reply = self.replies[name]
+            return reply.pop(0) if isinstance(reply, list) else reply
         return call
 
 
@@ -311,6 +326,56 @@ class AccountControllerTests(unittest.TestCase):
         self.assertNotIn('refresh_token', ctl.session())
         self.assertEqual(ctl.entitlement().state, ent.SIGNED_OUT)
         self.assertFalse(ctl.renew())                                   # 无令牌不再发请求
+
+    def _signed_in(self, **over):
+        old = sign(payload(**over))
+        account_store.save_session({'email': 'a@b.c', 'refresh_token': 'r1', 'lease': old, 'server_time': NOW}, self.store.path)
+        return old
+
+    def test_redeem_replaces_lease_and_keeps_refresh_token(self):
+        old = self._signed_in(state='expired', plan='trial')
+        new = sign(payload(state='active', plan='monthly', period_end=NOW + 30 * 86400, nonce='r'))
+        client = _Client(redeem=success({'lease': new, 'state': 'active', 'server_time': NOW + 1, 'added_days': 30}))
+        ctl = self.controller(client)
+        self.assertIn('00 会员账户', ctl.stage_gate(STAGES[2]))
+        self.assertTrue(ctl.redeem(' ABCD-EFGH-JKMN-PQRS ', self.results.append))
+        self.assertEqual(self.results[-1].data['added_days'], 30)
+        self.assertEqual(client.calls, [('redeem', (old, 'ABCD-EFGH-JKMN-PQRS'))])
+        session = ctl.session()
+        self.assertEqual((session['lease'], session['refresh_token'], session['email']), (new, 'r1', 'a@b.c'))
+        self.assertEqual(ctl.entitlement().payload['plan'], 'monthly')
+        self.assertEqual(ctl.stage_gate(STAGES[2]), '')
+
+    def test_redeem_failure_or_bad_lease_keeps_session(self):
+        old = self._signed_in()
+        for reply in (UserError('x', data={'code': 'redeem_used'}), success({'lease': old + 'x'}), success({})):
+            ctl = self.controller(_Client(redeem=reply))
+            ctl.redeem('C', self.results.append)
+            self.assertFalse(self.results[-1].ok)
+            self.assertEqual((ctl.session()['lease'], ctl.session()['refresh_token']), (old, 'r1'))
+
+    def test_redeem_with_stale_lease_renews_once_then_retries(self):
+        old = self._signed_in()
+        fresh, paid = sign(payload(nonce='f')), sign(payload(state='active', plan='yearly', nonce='p'))
+        client = _Client(redeem=[UserError('x', data={'code': 'session_invalid'}), success({'lease': paid, 'added_days': 365})],
+                         renew=success({'refresh_token': 'r2', 'lease': fresh, 'server_time': NOW}))
+        ctl = self.controller(client)
+        ctl.redeem('C', self.results.append)
+        self.assertTrue(self.results[-1].ok)
+        self.assertEqual([c[0] for c in client.calls], ['redeem', 'renew', 'redeem'])
+        self.assertEqual(client.calls[2][1], (fresh, 'C'))
+        self.assertEqual((ctl.session()['lease'], ctl.session()['refresh_token']), (paid, 'r2'))
+
+    def test_redeem_stops_when_session_is_dead_or_absent(self):
+        self._signed_in()
+        client = _Client(redeem=UserError('x', data={'code': 'session_invalid'}),
+                         renew=UserError('登录已失效', data={'code': 'session_invalid'}))
+        ctl = self.controller(client)
+        ctl.redeem('C', self.results.append)
+        self.assertEqual(self.results[-1].data['code'], 'session_invalid')
+        self.assertEqual([c[0] for c in client.calls], ['redeem', 'renew'])
+        self.assertNotIn('lease', ctl.session())
+        self.assertFalse(ctl.redeem('C', self.results.append))
 
     def test_switch_off_only_evaluates_without_blocking(self):
         """正式服上线前总开关默认关闭：判定照常，但不拦截付费阶段。"""

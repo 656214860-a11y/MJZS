@@ -88,6 +88,26 @@ class AccountPageTests(unittest.TestCase):
         logout.invoke();self.pump()
         self.assertIn('当前状态：未登录',_texts(d.content))
 
+    def test_redeem_from_signed_in_view(self):
+        d=self.desktop
+        store=self.use(_Client(redeem=success({'lease':sign(payload(state='active',plan='quarterly',nonce='q')),'added_days':90})))
+        import account_store
+        account_store.save_session({'email':'a@b.c','refresh_token':'r','lease':sign(payload()),'server_time':NOW},store.path)
+        d.go_page(PAGE_ACCOUNT);self.pump()
+        self.assertIn('套餐：免费试用',_texts(d.content))
+        d.account_redeem_button.invoke();self.pump()
+        self.assertTrue(d.account_redeem_input.error_message)
+        d.account_redeem_input.insert(0,'ABCD-EFGH-JKMN-PQRS');d.account_redeem_button.invoke();self.pump()
+        self.assertIn('套餐：季度会员',_texts(d.content))
+        self.assertIn('90 天',d.status.get())
+
+    def test_plan_text(self):
+        from desktop_account_page import plan_text
+        self.assertEqual(plan_text({'state':'active','plan':'yearly'}),'年度会员')
+        self.assertEqual(plan_text({'state':'active','plan':'lifetime'}),'会员')
+        self.assertEqual(plan_text({'state':'expired','plan':'monthly'}),'已到期')
+        self.assertEqual(plan_text({'state':'trial','plan':'trial'}),'免费试用')
+
     def test_failed_login_shows_reason_and_stays_on_form(self):
         d=self.desktop
         from service_contract import UserError

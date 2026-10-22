@@ -49,6 +49,8 @@ MESSAGES = {
     'unbind_quota_exceeded': '30 天内最多解绑 2 次，请稍后再试',
     'device_not_found': '设备不存在或已解绑',
     'not_pending_deletion': '账号不在注销冷静期',
+    'redeem_invalid': '兑换码无效（格式不对、不存在、已作废或已过兑换期）',
+    'redeem_used': '这个兑换码已经被使用过',
 }
 _context = None
 
@@ -143,6 +145,11 @@ def delete_request(lease, code, **kw):
 
 def delete_cancel(email, code, **kw):
     return request('POST', '/v1/account/delete-cancel', {'email': email, 'code': code}, **kw)
+
+
+def redeem(lease, code, **kw):
+    """兑换码开通／续期；码原样提交，空格、横杠、大小写与 O/I/L 由服务端归一。"""
+    return request('POST', '/v1/redeem', {'code': code}, token=lease, **kw)
 
 
 def export(lease, **kw):
