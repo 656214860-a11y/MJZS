@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 HERE = str(Path(__file__).resolve().parents[1])
@@ -72,8 +73,15 @@ class SessionSummaryTests(unittest.TestCase):
 
 class DesktopStatusLineTests(_Harness):
     def test_visible_label_is_compact_and_tooltip_keeps_detail(self):
+        import model_pool
+        import stage_config
+        # 不依赖本机全局模型配置：全量里其他用例留下的缓存会让默认模型解析为空。
+        self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
-            d, win = self.desktop(make_minimal_project(td))
+            proj = make_minimal_project(td)
+            stage_config.put(proj, 'script', model='deepseek-v4-flash',
+                             skills=['pipeline-script-preparation'])
+            d, win = self.desktop(proj)
             self.sync_async(d)
             d.show(0)
             self.settle_script_page(win)

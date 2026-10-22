@@ -556,7 +556,7 @@ class Desktop(AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixi
             b.pack(side='left',padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
         else:
             b=SecondaryButton(parent,text=text,command=lambda:self.safe(action),style='Compact.TButton' if parent is self.sidebar else 'TButton')
-            b.pack(anchor='w',fill='x',pady=SPACING['xs'] if parent is self.sidebar else 4)
+            b.pack(anchor='w',fill='x',pady=DESKTOP_LAYOUT['row_gap']*2 if parent is self.sidebar else SPACING['xs'])
         if 'Agent' in text:
             b.bind('<Button-1>',lambda e,b=b,text=text:self._agent_disabled_hint(b,text,e),add='+')
         return b

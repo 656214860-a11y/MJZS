@@ -1414,7 +1414,7 @@ class SendMessageTests(_Harness):
             self.settle_script_page(win, .3)
             self.assertFalse(d.idea_chat_controller.requesting)
             self.assertEqual(pending, [], '切项目必须撤销原项目排队请求')
-            self.assertFalse(any(item['project'] == str(proj) for item in registry._queued))
+            self.assertFalse(any(item['project'] == registry._key(proj) for item in registry._queued))
 
     def test_interrupt_removes_only_its_queue_ticket(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1435,7 +1435,7 @@ class SendMessageTests(_Harness):
             d, win, registry, running, pending = self.queued_api_request(proj)
             d.flow_processes = {(str(proj), 'writing'): Mock(poll=Mock(return_value=None))}
             d.poll_flow_processes()
-            self.assertTrue(any(item['project'] == str(proj) for item in registry._queued))
+            self.assertTrue(any(item['project'] == registry._key(proj) for item in registry._queued))
             d.flow_processes = {}
             d.interrupt_script_agent()
 

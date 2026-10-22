@@ -733,7 +733,7 @@ class DesktopModelPoolTests(unittest.TestCase):
                         desktop.win.after.call_args.args[1]()
                         self.assertIsNone(desktop._script_agent_queue)
                         self.assertFalse(desktop._script_agent_launching)
-                        self.assertFalse(any(item['project'] == str(proj) for item in registry._queued))
+                        self.assertFalse(any(item['project'] == registry._key(proj) for item in registry._queued))
                         self.assertEqual(registry.claim_process_slot(other['ticket'])['state'], 'queued')
                         launch.assert_not_called()
                 finally:
@@ -766,7 +766,7 @@ class DesktopModelPoolTests(unittest.TestCase):
                 self.assertTrue(desktop._script_agent_launching)
                 poll = desktop.win.after.call_args.args[1]
                 self.assertTrue(Desktop.interrupt_script_agent(desktop))
-                self.assertFalse(any(item['project'] == str(proj) for item in registry._queued))
+                self.assertFalse(any(item['project'] == registry._key(proj) for item in registry._queued))
                 registry.release_process_slot(slot)
                 poll()
                 launch.assert_not_called()
