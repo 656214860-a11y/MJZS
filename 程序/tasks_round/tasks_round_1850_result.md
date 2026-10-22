@@ -16,3 +16,11 @@
 
 ## 未结
 - test_perf_baseline 冷启动偶发超时、test_distribution_selfcheck 干净树复验：见提交后的全量结果。
+
+## 全量凭据（R1852 补记）
+`scripts/auto_full_safe.py --run`，HEAD 77f4cd4a（R1850），隐藏桌面，干净分离工作树 `.wt/ci`：
+**共 6390 条用例，1182.2 秒，0 个文件有红，ALL TESTS PASSED**，凭据已写入 `full-safe-receipts.json`。
+- 实际跳过 3 条：test_desktop_tray 2 处（PLATFORM_NO_TRAY_HOST，本轮登记）、test_core.test_stage_profile_wrong_preset_rejected（原有）。
+- test_perf_baseline 9 条本次全过（冷启动未超时；偶发性仍可能出现，未改阈值）。
+- test_distribution_selfcheck 3 条在干净树里全过，R1848 的修复复验成立。
+- 旁注：手动在新建 `git worktree` 里跑全量会因嵌套 SKILL 仓库（gitlink、无 .gitmodules）为空而红一片，须用 `auto_full_safe.py --run`，它会拷入嵌套仓库。
