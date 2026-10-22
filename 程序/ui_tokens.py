@@ -265,6 +265,21 @@ TEXT_PROGRESS = {
     "max_chars": 40,
 }
 
+# 启动画面：深色底＋播放键＋细进度条，整块盖住主窗口直到加载完成。
+SPLASH_BACKGROUND = "#0F172A"
+SPLASH_FILM = "#1E293B"
+SPLASH_ACCENT = "#38BDF8"
+SPLASH_ACCENT_ALT = "#A78BFA"
+SPLASH_TITLE = "#F8FAFC"
+SPLASH_SUBTITLE = "#94A3B8"
+SPLASH_TITLE_FONT = ("Microsoft YaHei UI", 22, "bold")
+SPLASH_SUBTITLE_FONT = ("Microsoft YaHei UI", 10)
+SPLASH_BAR_HALF = 160
+SPLASH_FRAME_MS = 33
+SPLASH_POLL_MS = 30
+SPLASH_FINISH_MS = 160
+SPLASH_CREEP = 0.12
+
 # 小图标按钮：用系统自带的线框图标字体，不用彩色表情——首次绘制表情要加载
 # Segoe UI Emoji，实测单颗按钮卡住主线程约 0.4 秒（R1415）。
 ICON_FONT = ("Segoe MDL2 Assets", 11)
