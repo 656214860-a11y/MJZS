@@ -47,5 +47,24 @@ class ScriptListLoadControllerTests(unittest.TestCase):
         )
 
 
+class CancelScriptLoadTests(unittest.TestCase):
+    def test_cancel_invalidates_batches_and_forgets_a_dead_after_job(self):
+        """页面销毁时窗口已不在，after_cancel 抛 TclError 也要把待办批次清掉。"""
+        import tkinter as tk
+        import types
+        from desktop_writing_page import _WritingPage
+
+        def dead_cancel(job):
+            raise tk.TclError('application has been destroyed')
+        page = _WritingPage.__new__(_WritingPage)
+        page.script_loader = ScriptListLoadController(('setting',))
+        generation = page.script_loader.start([])
+        page.script_load_job = 'after#1'
+        page.page = types.SimpleNamespace(win=types.SimpleNamespace(after_cancel=dead_cancel))
+        page.cancel_script_load()
+        self.assertIsNone(page.script_load_job)
+        self.assertFalse(page.script_loader.is_current(generation))
+
+
 if __name__ == '__main__':
     unittest.main()

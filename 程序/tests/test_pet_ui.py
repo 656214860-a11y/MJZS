@@ -1239,6 +1239,11 @@ class SnoozeTests(PetTestCase):
         self.assertEqual(self.pet.toggle_snooze(), 0.0)
         self.assertFalse(self.pet.snoozing())
 
+    def test_snooze_click_goes_quiet_and_says_for_how_long(self):
+        self.assertEqual(self.pet.click('snooze'), 'snooze')
+        self.assertTrue(self.pet.snoozing())
+        self.assertIn('安静 %d 分钟' % (pet_ui.SNOOZE_SECONDS // 60), self.pet.notice)
+
     def test_the_top_level_menu_offers_pause_and_snooze(self):
         """第 22 期：「暂停」改名后与「稍后再说」一起直接摆在一级栏上，不用再点进子菜单。"""
         self.assertIn(self.pet.pause_label(), self.pause_items())

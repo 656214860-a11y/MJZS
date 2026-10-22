@@ -23,6 +23,18 @@ class WritingOutputBudgetTests(unittest.TestCase):
             self.assertEqual(result['reason'], 'money_budget_exceeded')
             raw.chat.assert_not_called()
 
+    def test_transport_crash_releases_money_reservation_and_reraises(self):
+        raw = Mock()
+        raw.chat.side_effect = RuntimeError('断线')
+        ledger = Mock()
+        with tempfile.TemporaryDirectory() as td, patch('pet_llm.RequestLedger', return_value=ledger):
+            adapter = writing_api.WritingRequestAdapter(raw, {}, 'm', project=td)
+            with self.assertRaises(RuntimeError):
+                adapter.chat([{'role': 'user', 'content': 'hello'}], options={'max_tokens': 20})
+        ledger.authorize_model.assert_called_once()
+        request_id = ledger.authorize_model.call_args[0][0]
+        ledger.settle_model.assert_called_once_with(request_id, {})
+
     def test_context_budget_reserves_output_and_rejects_before_transport(self):
         raw = Mock()
         adapter = writing_api.WritingRequestAdapter(raw, {'context_length': 8000}, 'small')

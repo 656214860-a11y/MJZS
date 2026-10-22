@@ -651,5 +651,17 @@ class PetUiWiringTests(unittest.TestCase):
         self.assertEqual([name for name, _ in pet.errors][:1], ['gate'])
 
 
+class ShotFrameProblemTests(unittest.TestCase):
+    def test_unreadable_frame_keeps_found_flag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp).resolve()
+            (base / 'ok.png').write_bytes(b'x')
+
+            def boom(*a, **k):
+                raise OSError('读不出')
+            self.assertEqual(spec._shot_frame_problem('src', {}, {'id': 'S1', 'frame': 'ok.png'}, base, '9:16', boom),
+                             ('S1 的首帧路径无法读取', True))
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

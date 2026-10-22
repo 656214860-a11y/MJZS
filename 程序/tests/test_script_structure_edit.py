@@ -75,7 +75,7 @@ class ControllerTests(unittest.TestCase):
 
 
 class ScriptStructureEditButtonTests(unittest.TestCase):
-    def _setup(self, kind='natural', confirm_answer=True):
+    def _setup(self, kind='natural', confirm_answer=True, editable=True):
         self.confirm = mock.Mock(return_value=confirm_answer)
         patcher = mock.patch('desktop_page_support.confirm', self.confirm)
         patcher.start()
@@ -98,7 +98,7 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
         from desktop_script_pages import _install_script_edit_controls, _reset_preview_text
         # 合并 R1842／重构批次：入参收进内容框对象（参数个数门禁），各值不变。
         box = types.SimpleNamespace(preview=preview, loaded=loaded, active=active, kind=kind,
-                                    title='自然剧本', editable=True, attribute='box')
+                                    title='自然剧本', editable=editable, attribute='box')
         def set_preview(value):
             loaded['raw'] = value
             _reset_preview_text(preview, value, kind)
@@ -204,6 +204,25 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
     def test_natural_box_has_no_delete(self):
         win, preview, page, target = self._setup()
         self.assertFalse(hasattr(page, 'box_delete_button'))
+
+    def test_readonly_box_refuses_edit_and_empty_restore_reports(self):
+        """只读文档点「编辑」报错；编辑态没有删除可恢复时「恢复」报错，而非抛 TclError。"""
+        win, preview, page, target = self._setup(editable=False)
+        errors = []
+
+        def safe(fn):
+            try:
+                return fn()
+            except ValueError as exc:
+                errors.append(str(exc))
+        page.safe = safe
+        page.box_edit_button.invoke()
+        self.assertEqual(errors, ['当前没有可修改的剧本文档。'])
+        win2, preview2, page2, target2 = self._setup()
+        page2.safe = safe
+        page2.box_edit_button.invoke()
+        page2.box_restore_button.invoke()
+        self.assertEqual(errors[-1], '没有可恢复的删除内容。')
 
 
 if __name__ == '__main__':
