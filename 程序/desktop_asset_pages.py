@@ -613,7 +613,7 @@ class _AssetPage:
             self.table.heading(col,text=title);self.table.column(col,width=MIN_COL,minwidth=MIN_COL,stretch=col in ('note','prompt'))
         remember_columns(self.table,[(col,width) for col,title,width in asset_columns]);auto_columns(self.table)
         refresh_request_width(self.table)
-        self.table.tag_configure('completed',background=COLORS['border_default'],foreground=COLORS['success'])
+        self.table.tag_configure('completed',background=COLORS['row_completed'],foreground=COLORS['success'])
         table_shell.grid(row=0,column=0,sticky='nsew')
         from responsive_ui import auto_height
         auto_height(self.table, table_box, row_height=ASSET_ROW_HEIGHT)      # 行高了，按 80 算，别再按 34
@@ -798,4 +798,4 @@ class _AssetPage:
         return value
 
     def row_background(self, aid):
-        return COLORS['border_default'] if (self.registry.get(aid) or {}).get('status')=='已导入' else COLORS['background_card']
+        return COLORS['row_completed'] if (self.registry.get(aid) or {}).get('status')=='已导入' else COLORS['background_card']

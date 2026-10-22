@@ -7,7 +7,9 @@ COLORS = {
     "surface_hover": "#EFF3F4",
     "surface_pressed": "#DFE6E9",
     # 分隔线两档：弱分隔线（卡片/容器/tooltip 描边）与输入框描边。
-    "border_default": "#EFF3F4",
+    # 原 #EFF3F4 画在 background_primary 上对比度仅约 1.06:1，卡片边线几乎看不见
+    "border_default": "#DCE3E7",
+    "row_completed": "#EFF3F4",          # 表格「已完成」行底色（原借用 border_default）
     "border_input": "#CFD9DE",
     "border_input_hover": "#A9BAC4",
     # 文字层级：正文/次级/弱化在白底分别为 18.5/6.1/5.3:1，弱化在悬停面 4.75:1，均 ≥4.5:1；

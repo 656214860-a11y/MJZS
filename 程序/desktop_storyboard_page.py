@@ -152,7 +152,7 @@ class _FirstFramePage:
         for key,title,width in frame_columns:
             self.table.heading(key,text=title);self.table.column(key,width=MIN_COL,minwidth=MIN_COL)
         self.table.tag_configure(
-            'completed', background=COLORS['border_default'], foreground=COLORS['success']
+            'completed', background=COLORS['row_completed'], foreground=COLORS['success']
         )
         from responsive_ui import auto_height
         auto_height(self.table, table_box, row_height=ASSET_ROW_HEIGHT)   # 行高了，按 80 算，别再按 34
@@ -377,7 +377,7 @@ class _FirstFramePage:
 
     def frame_row_background(self, sid):
         try:
-            return COLORS['border_default'] if self.exists(self.shot_row(sid)) else COLORS['background_card']
+            return COLORS['row_completed'] if self.exists(self.shot_row(sid)) else COLORS['background_card']
         except (ValueError,OSError):
             return COLORS['background_card']
 

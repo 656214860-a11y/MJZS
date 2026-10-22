@@ -331,6 +331,27 @@ class LayoutMixin:
             if path and self._inside_path(focus,self.sidebar_viewport):
                 return self.sidebar_canvas
         return self.canvas
+    def page_shortcut(self,event):
+        """Ctrl+1…9／Ctrl+0 跳到第 1…10 页，Ctrl+PageUp／PageDown 前后翻页。
+
+        与侧栏点击走同一个入口 go_page；文本框里的 Ctrl+数字照样交给文本框。
+        """
+        focus=self.win.focus_get()
+        try:klass=focus.winfo_class() if focus is not None else ''
+        except tk.TclError:klass=''
+        if klass in ('Text','Entry','TEntry','Spinbox','TSpinbox'):return None
+        count=len(getattr(self,'nav',()) or ())
+        key=event.keysym
+        current=getattr(self,'page_index',None)
+        if key in ('Prior','Next'):
+            if current is None or not count:return None
+            index=(current+(-1 if key=='Prior' else 1))%count
+        elif key.isdigit():
+            index=(int(key)-1)%10
+        else:return None
+        if not 0<=index<count:return None
+        self.go_page(index)
+        return 'break'
     def scroll_page_key(self,event):
         """PageUp／PageDown／Home／End 翻主内容或侧栏，文本框与表格保留自己的按键。"""
         owned=('Text','Entry','Spinbox','TEntry','TCombobox','TSpinbox','Listbox','Treeview')

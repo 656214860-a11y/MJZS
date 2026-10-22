@@ -126,7 +126,7 @@ class _LocalPrevisWindow:
         for col,title,width in [('id','镜头',165),('title','内容',150),('duration','秒数',50),('complexity','动作复杂度',120),('route','制作方式',130),('status','状态',140)]:
             self.tree.heading(col,text=title);self.tree.column(col,width=width,stretch=col in ('title','status'))
         auto_columns(self.tree)
-        self.tree.tag_configure('completed',background=COLORS['border_default'],foreground=COLORS['success'])
+        self.tree.tag_configure('completed',background=COLORS['row_completed'],foreground=COLORS['success'])
         table_shell.grid(row=0,column=0,sticky='nsew')
         tablebox.columnconfigure(0,weight=1);tablebox.rowconfigure(0,weight=1)
         auto_height(self.tree, tablebox)

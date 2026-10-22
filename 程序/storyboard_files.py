@@ -277,7 +277,7 @@ class _FinalStoryboardPage:
         # 第 53 期第 4 条：列宽交给 fit_final_columns（内容量 ＋ 跟窗口收放，见上）——
         # 原来那个 auto_columns 只按「当前列宽」收放，窗口一变宽度几乎全被最后一列吃掉。
         table_shell.grid(row=0,column=0,sticky='nsew')
-        self.tree.tag_configure('completed',background=COLORS['border_default'],foreground=COLORS['success'])
+        self.tree.tag_configure('completed',background=COLORS['row_completed'],foreground=COLORS['success'])
 
         right_box=Card(container,padding=SPACING['sm'])
         right_box.grid(row=1,column=0,sticky='nsew')

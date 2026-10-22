@@ -156,7 +156,7 @@ class App:
         for k,t in [('id','镜头号'),('title','内容'),(ASSET_FIELD,ASSET_TITLE),('seconds','秒数'),('frame','首帧'),('state','当前任务'),('local_progress','本地进度'),('cloud_progress','线上进度'),('review','验收'),('versions','版本数'),('white_model','白模 · 上传')]:self.tree.heading(k,text=t)
         for k in self.tree['columns']:self.tree.column(k,width=145)
         self.tree.column('id',width=110);table_shell.grid(row=0,column=0,sticky='ew')
-        self.tree.tag_configure('completed',background=COLORS['border_default'],foreground=COLORS['success'])
+        self.tree.tag_configure('completed',background=COLORS['row_completed'],foreground=COLORS['success'])
         self.tree.bind('<<TreeviewSelect>>',lambda e:self.select())
         from shot_selection import bind_shot_checks
         self.tree.is_shot_checked=lambda sid:bool(self.edit_checks.get(sid,False))
@@ -200,7 +200,7 @@ class App:
             image=frame_image(sid,SHOT_THUMB_SIZE)
             return None if image is None else (image,'')
         def row_background(sid):
-            return COLORS['border_default'] if 'completed' in self.tree.item(sid,'tags') else COLORS['background_card']
+            return COLORS['row_completed'] if 'completed' in self.tree.item(sid,'tags') else COLORS['background_card']
         # 第 54 期第 3 条：refresh() 也要用它决定「这一格还写不写字」，所以挂到实例上。
         self.frame_thumb=frame_thumb
         # plain 指那份 CellHover：这一列归图这一层，别再走高亮。

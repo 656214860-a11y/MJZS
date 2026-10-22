@@ -10,7 +10,8 @@
 | `color.background.card` | `#FFFFFF` | 卡片、输入框与次按钮背景 |
 | `color.surface.hover` | `#EFF3F4` | 次按钮/文字按钮悬停面 |
 | `color.surface.pressed` | `#DFE6E9` | 次按钮/文字按钮按下 |
-| `color.border.default` | `#EFF3F4` | 弱分隔线：卡片、容器与 Tooltip 描边 |
+| `color.border.default` | `#DCE3E7` | 弱分隔线：卡片、容器与 Tooltip 描边（原 #EFF3F4 在底色上几乎不可见） |
+| `color.row.completed` | `#EFF3F4` | 表格「已完成」行底色 |
 | `color.border.input` | `#CFD9DE` | 输入框默认描边 |
 | `color.border.input.hover` | `#A9BAC4` | 输入框悬停描边 |
 | `color.text.primary` | `#0F1419` | 主文字（白底 18.5:1） |
