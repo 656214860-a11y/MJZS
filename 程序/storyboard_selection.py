@@ -8,6 +8,7 @@ from project_settings import read_prefs
 from project_context_factory import project_context
 from storyboard_adoption_contract import adopted as _adopted, problem_text, resolve_source
 import pet_bus
+from ui_tokens import SPACING
 
 
 def _asset_plan_gateway(gateway):
@@ -469,7 +470,7 @@ def source_selector(app,index,*,select_box):
     def display_index():
         """下拉框该显示的那一条：「全部分镜」不是一个文件，只能按范围偏好判断。"""
         return source_options(adopted(app.root),app.asset_scope(),app.current_frame_json())[2]
-    line=ttk.Frame(row);line.pack(fill='x',pady=3)
+    line=ttk.Frame(row);line.pack(fill='x',pady=SPACING['xs'])
     ttk.Label(line,text='选择分镜').pack(side='left',padx=(0,8))
     combo=select_box(line,values=labels,width=1)
     combo.pack(side='left',fill='x',expand=True)

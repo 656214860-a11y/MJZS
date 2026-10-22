@@ -22,7 +22,7 @@
 """
 import app_logging
 import inspect
-from ui_tokens import COLORS
+from ui_tokens import COLORS, SPACING
 import tkinter as tk
 from tkinter import ttk
 from ui_widgets import ContextMenu, LineInput
@@ -276,7 +276,7 @@ class CellHover:
         self.delete=delete
         self.active=None;self.pending=None;self.editor=None
         font=ttk.Style(tree).lookup(tree.cget('style') or 'Treeview','font') or 'TkDefaultFont'
-        self.overlay=tk.Label(tree,bg=COLORS['selection_bg'],fg=COLORS['selection_text'],font=font,anchor='w',padx=3,
+        self.overlay=tk.Label(tree,bg=COLORS['selection_bg'],fg=COLORS['selection_text'],font=font,anchor='w',padx=SPACING['xs'],
                               borderwidth=0,highlightbackground=COLORS['selection_border'],highlightthickness=1,cursor='hand2')
         for widget in (tree,self.overlay):
             widget.bind('<Motion>',self.motion,add='+')
@@ -320,9 +320,9 @@ class CellHover:
         value=tree.item(row,'text') if col=='#0' else tree.item(row,'values')[int(col[1:])-1]
         image=self.cell_image(row,col) if self.cell_image else None
         if image is not None and not str(value):
-            self.overlay.configure(text='',image=image,compound='none',anchor='center',padx=0)
+            self.overlay.configure(text='',image=image,compound='none',anchor='center',padx=SPACING['none'])
         else:
-            self.overlay.configure(text=str(value),image=image if image is not None else '',compound='left' if image is not None else 'none',anchor='w',padx=3)
+            self.overlay.configure(text=str(value),image=image if image is not None else '',compound='left' if image is not None else 'none',anchor='w',padx=SPACING['xs'])
         self.tree.configure(cursor='hand2')
         self.overlay.place(x=bounds[0],y=bounds[1],width=bounds[2],height=bounds[3])
         self.overlay.lift()
@@ -834,7 +834,7 @@ class CellImages:
         label = self.labels.get(key)
         if label is not None and label.winfo_exists():
             return label
-        label = tk.Label(self.tree, borderwidth=0, padx=3, anchor='w', compound='left',
+        label = tk.Label(self.tree, borderwidth=0, padx=SPACING['xs'], anchor='w', compound='left',
                          background=COLORS['background_card'], cursor='hand2')
         if self.plain is not None:
             # 第 55 期第 2 条：这一格上是图，不再走高亮——鼠标移上来只把可能还亮着的旧格灭掉。

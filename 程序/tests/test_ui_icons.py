@@ -31,7 +31,7 @@ class IconLoaderTests(unittest.TestCase):
         self.assertIs(themed, again)
         self.assertIsNot(themed, scaled)
         self.assertEqual(made.call_count, 3)
-        self.assertEqual({color for color, _ in white.puts}, {'#ffffff'})
+        self.assertEqual({color for color, _ in white.puts}, {COLORS['background_card']})
         self.assertEqual({color for color, _ in themed.puts}, {COLORS['primary']})
         self.assertEqual([area for _, area in white.puts],
                          [area for _, area in themed.puts])

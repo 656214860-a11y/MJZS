@@ -1098,7 +1098,7 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
         if name:values[key].set(name)
     for row,key,label in [(1,'program','程序位置'),(0,'model','自定义模型 ID'),(3,'skill','Skill 文件')]:
         ttk.Label(custom,text=label).grid(row=row,column=0,sticky='w',padx=(0,12))
-        entry=LineInput(custom,textvariable=values[key],state='normal');entry.grid(row=row,column=1,sticky='ew',pady=5)
+        entry=LineInput(custom,textvariable=values[key],state='normal');entry.grid(row=row,column=1,sticky='ew',pady=SPACING['xs'])
         if key=='model':win.model_entry=entry
         if key=='skill':skill_entry=entry
         if key!='model':SecondaryButton(custom,text='选择文件',command=lambda k=key:browse(k)).grid(row=row,column=2,padx=(8,0))
@@ -1110,12 +1110,12 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
     values['skill'].trace_add('write',update_skill)
     ttk.Label(custom,textvariable=skill_details,wraplength=650).grid(row=5,column=0,columnspan=3,sticky='w',pady=SPACING['xs'])
     ttk.Label(body,text='补充制作要求（可选）').grid(row=4,column=0,columnspan=2,sticky='w')
-    notes=TextArea(body,height=4,wrap='word',undo=True);notes.grid(row=5,column=0,columnspan=3,sticky='nsew',pady=5);body.rowconfigure(5,weight=1)
+    notes=TextArea(body,height=4,wrap='word',undo=True);notes.grid(row=5,column=0,columnspan=3,sticky='nsew',pady=SPACING['xs']);body.rowconfigure(5,weight=1)
     feedback=tk.StringVar(value='模型与 Skill 在主页面切换；此处编辑当前配置，保存后自动关闭。')
-    ttk.Label(body,textvariable=feedback,wraplength=680).grid(row=6,column=0,columnspan=3,sticky='w',pady=6)
+    ttk.Label(body,textvariable=feedback,wraplength=680).grid(row=6,column=0,columnspan=3,sticky='w',pady=SPACING['xs'])
     ttk.Label(body,text='当前 Agent').grid(row=2,column=0,sticky='w')
     agent_name=tk.StringVar()
-    ttk.Label(body,textvariable=agent_name,wraplength=540).grid(row=2,column=1,columnspan=2,sticky='w',pady=5)
+    ttk.Label(body,textvariable=agent_name,wraplength=540).grid(row=2,column=1,columnspan=2,sticky='w',pady=SPACING['xs'])
     def update_agent_label(*_):
         agent_name.set(agent_label({k:v.get() for k,v in values.items()},stage,active[0],function))
     values['skill'].trace_add('write',update_agent_label)
@@ -1160,8 +1160,8 @@ def show_settings(desktop,project,on_saved=None,stage='previs',function=None):
     api_button=SecondaryButton(custom,text='自定义 API（Qwen）',command=lambda:__import__('qwen_setup').show(win,on_saved=api_saved))
     api_button.grid(row=0,column=2,padx=(8,0))
     row=ttk.Frame(footer);row.pack(side='right')
-    SecondaryButton(row,text='检查配置',command=check).pack(side='left',padx=5)
-    PrimaryButton(row,text='保存',command=commit).pack(side='left',padx=5)
+    SecondaryButton(row,text='检查配置',command=check).pack(side='left',padx=SPACING['xs'])
+    PrimaryButton(row,text='保存',command=commit).pack(side='left',padx=SPACING['xs'])
     SecondaryButton(row,text='取消',command=win.destroy).pack(side='left')
     populate()
     def focus_model():

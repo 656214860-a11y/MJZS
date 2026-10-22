@@ -149,7 +149,7 @@ def show(desktop):
         var = tk.BooleanVar(value=True); vars_[c['aid']] = var
         used = f'{len(c["used"])} 镜' if c['used'] else '未引用'
         label = f"{c['aid']}　{str(c['name'] or '未命名')}　（命中“{c['hit']}”·{c['source']}·{used}）"
-        ttk.Checkbutton(inner, text=label, variable=var).pack(anchor='w', pady=2)
+        ttk.Checkbutton(inner, text=label, variable=var).pack(anchor='w', pady=SPACING['none'])
 
     view.bind_wheel()          # 候选多到要滚的时候，滚轮也得落在这批勾选框上
 
@@ -171,4 +171,4 @@ def show(desktop):
         desktop.status.set(f'已标记 {n} 个背景人物为不建档，并清理 {touched} 份分镜中的引用。')
 
     PrimaryButton(footer, text='标记为背景人物', command=confirm).pack(side='right')
-    SecondaryButton(footer, text='取消', command=win.destroy).pack(side='right', padx=6)
+    SecondaryButton(footer, text='取消', command=win.destroy).pack(side='right', padx=SPACING['xs'])

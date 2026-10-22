@@ -29,15 +29,11 @@ _LAYOUT_ALLOWED = (0, 1)  # 0／1 是“自动／最小”的哨兵值，不算�
 # R1389 冻结基线（R1388 审计口径，键＝相对 程序/ 的 posix 路径）。
 # R1428 统一调色板：主题与业务页迁移到 ui_tokens.COLORS；剩余为宠物插画色与监视页 HTML 样式。
 HEX_BASELINE = {
-    # R1777：按当前实测收紧（只减不增）；R1506 起 pet_ui 的 hex 分在各 Mixin／support 模块
-    "pet_ui.py": 1, "pet_ui_support.py": 39, "previs_monitor.py": 1,
+    # R1868：pet_ui／pet_ui_support 已清零；previs_monitor 余 1 处为导出 HTML 报告的 CSS（非 Tk）
+    "previs_monitor.py": 1,
 }
 PADDING_BASELINE = {
-    # R1777：按当前实测收紧（只减不增）
-    "agent/prompt_optimizer.py": 6, "asset_reference_images.py": 5, "asset_reference_import.py": 7,
-    "background_characters.py": 2, "cell_hover.py": 4, "cloud_assets.py": 5, "desktop.py": 8,
-    "native_assets.py": 6, "qwen_setup.py": 6, "seedream_settings.py": 5,
-    "shared_video_controls.py": 1, "storyboard_selection.py": 1, "workflow_settings.py": 6,
+    # R1868：剩余数字间距全部就近迁到 SPACING（等距取小档）；0 改 SPACING['none']
 }
 
 # R1777 新增：控件 width／height／wraplength 的数字字面量（不含 0、1）。按文件冻结当前值，

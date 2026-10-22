@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import tkinter as tk
 
+from ui_tokens import COLORS
+
 
 class IconLoader:
     """页面图标的唯一构建入口。
@@ -23,7 +25,7 @@ class IconLoader:
 
     @classmethod
     def return_arrow(cls, master, *, width: int = 48, height: int = 32,
-                     color: str = "#ffffff"):
+                     color: str = COLORS["background_card"]):
         """返回箭头按宿主、尺寸和颜色缓存；默认白色兼容既有深色按钮。"""
         key = ("return_arrow", int(width), int(height), color)
         cache = cls._cache(master)
@@ -43,7 +45,7 @@ class IconLoader:
 
     @classmethod
     def check_indicator(cls, master, *, size: int, selected: bool = False,
-                        disabled: bool = False, accent: str = '#2b78c5'):
+                        disabled: bool = False, accent: str = COLORS['primary']):
         """返回统一复选框图元，按宿主、状态与尺寸缓存。"""
         size = max(1, int(size))
         key = ('check_indicator', size, bool(selected), bool(disabled), accent)
@@ -51,9 +53,9 @@ class IconLoader:
         if key in cache:
             return cache[key]
         image = tk.PhotoImage(master=master, width=size, height=size)
-        border = '#aab6c6' if disabled else accent
+        border = COLORS['border_input_hover'] if disabled else accent
         image.put(border, to=(0, 0, size, size))
-        image.put('#edf1f5' if disabled else '#ffffff', to=(1, 1, size - 1, size - 1))
+        image.put(COLORS['surface_hover'] if disabled else COLORS['background_card'], to=(1, 1, size - 1, size - 1))
         if selected:
             points = [(round(size * .20), round(size * .51)),
                       (round(size * .42), round(size * .73)),

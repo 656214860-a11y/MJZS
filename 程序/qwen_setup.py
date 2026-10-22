@@ -105,7 +105,7 @@ def show(parent,on_saved=None):
     vars={k:tk.StringVar(value=v) for k,v in load().items() if k in ('base_url','model','api_key')}
     for row,(key,title) in enumerate([('base_url','API 根地址'),('model','默认模型'),('api_key','API Key')],1):
         ttk.Label(body,text=title).grid(row=row,column=0,sticky='w',padx=(0,SPACING['md']))
-        LineInput(body,textvariable=vars[key]).grid(row=row,column=1,sticky='ew',pady=7)
+        LineInput(body,textvariable=vars[key]).grid(row=row,column=1,sticky='ew',pady=SPACING['sm'])
     DescriptionBlock(body,text='自动批量制作请使用百炼按量付费通用 API；Token Plan 个人版和 Coding Plan 不适用于非交互式批量调用。\n文本和任务执行使用 Qwen；资产与首帧图片交给现有 ComfyUI 工作流。',wraplength=670).grid(row=4,column=0,columnspan=2,sticky='w',pady=SPACING['sm'])
     status=tk.StringVar(value='尚未配置时，可继续选择 ChatGPT/Codex。')
     ProgressLabel(body,textvariable=status,wraplength=670).grid(row=5,column=0,columnspan=2,sticky='w',pady=SPACING['sm'])

@@ -41,11 +41,11 @@ def show(parent,on_saved=None):
     fill()
     for row,key,label in [(1,'base_url','API 根地址'),(2,'model','模型 ID'),(3,'api_key','火山 API Key')]:
         ttk.Label(body,text=label).grid(row=row,column=0,sticky='w',padx=(0,12))
-        LineInput(body,textvariable=values[key],show='•' if key=='api_key' else '').grid(row=row,column=1,columnspan=2,sticky='ew',pady=6)
+        LineInput(body,textvariable=values[key],show='•' if key=='api_key' else '').grid(row=row,column=1,columnspan=2,sticky='ew',pady=SPACING['xs'])
     DescriptionBlock(body,text='模型 ID 填写火山控制台已开通的实际值，也支持推理接入点 ID。\n支持纯提示词或最多 10 张分类参考图；每项生成一张，批量顺序执行。',wraplength=690).grid(row=4,column=0,columnspan=3,sticky='w',pady=SPACING['sm'])
     ttk.Label(body,text='已保存模型').grid(row=5,column=0,sticky='w')
     selected=tk.StringVar();choices={}
-    dropdown=SelectBox(body,textvariable=selected);dropdown.grid(row=5,column=1,sticky='ew',pady=6)
+    dropdown=SelectBox(body,textvariable=selected);dropdown.grid(row=5,column=1,sticky='ew',pady=SPACING['xs'])
     def refresh():
         choices.clear()
         for key,value in api.read_settings().get('profiles',{}).items():
@@ -99,9 +99,9 @@ def show(parent,on_saved=None):
         threading.Thread(target=run,daemon=True).start()
         stop=tk_timers.repeat(win,150,poll);poll()
     PrimaryButton(row,text='保存',command=commit).pack(side='left')
-    SecondaryButton(row,text='检查配置',command=check).pack(side='left',padx=5)
-    SecondaryButton(row,text='测试连接',command=probe).pack(side='left',padx=5)
-    SecondaryButton(row,text='打开火山控制台',command=lambda:webbrowser.open('https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey')).pack(side='left',padx=5)
+    SecondaryButton(row,text='检查配置',command=check).pack(side='left',padx=SPACING['xs'])
+    SecondaryButton(row,text='测试连接',command=probe).pack(side='left',padx=SPACING['xs'])
+    SecondaryButton(row,text='打开火山控制台',command=lambda:webbrowser.open('https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey')).pack(side='left',padx=SPACING['xs'])
     SecondaryButton(row,text='取消',command=win.destroy).pack(side='right')
     win.update_idletasks();x=max(0,parent.winfo_rootx()+(parent.winfo_width()-win.winfo_width())//2);y=max(0,parent.winfo_rooty()+(parent.winfo_height()-win.winfo_height())//2)
     win.geometry(f'+{x}+{y}');win.deiconify()

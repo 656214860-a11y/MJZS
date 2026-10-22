@@ -368,7 +368,7 @@ class _AssetControls:
         prefs=read(self.prefsfile) if self.prefsfile.is_file() else {}
         saved=prefs.get('asset_workflow',{})
         self.model=tk.StringVar(value=saved.get('model',LOCAL));self.aspect=tk.StringVar(value=saved.get('aspect_ratio','1:1'))
-        config=Card(self.form);config.pack(fill='x',padx=14,pady=10)
+        config=Card(self.form);config.pack(fill='x',padx=SPACING['md'],pady=SPACING['sm'])
         config.columnconfigure(1,weight=1)
         ttk.Label(config,text='生图模型').grid(row=0,column=0,columnspan=4,sticky='w')
         ttk.Label(config,text='模型').grid(row=1,column=0,sticky='w',padx=(0,SPACING['sm']))
@@ -382,14 +382,14 @@ class _AssetControls:
         self.update_hint()
         self.check_stop=threading.Event()
         self.gen_stop=threading.Event()
-        progress=ttk.Progressbar(self.form,mode='indeterminate');progress.pack(fill='x',padx=14,pady=6)
-        ProgressLabel(self.form,textvariable=self.progress_text,wraplength=760,justify='left').pack(anchor='w',padx=14,pady=(0,4))
+        progress=ttk.Progressbar(self.form,mode='indeterminate');progress.pack(fill='x',padx=SPACING['md'],pady=SPACING['xs'])
+        ProgressLabel(self.form,textvariable=self.progress_text,wraplength=760,justify='left').pack(anchor='w',padx=SPACING['md'],pady=(0,4))
         self.busy=BusyState(self.progress_text,progress)
         tk_timers.repeat(self.win,250,self.poll)
         # 第 65 期任务 1：这一排只留「启动并检测」和「取消检测」。「手动制作资产」撤掉——检测通过就自动开跑
         # （见上面 done）；「桌面打开 ComfyUI」主界面已经有一颗；「强制关闭 ComfyUI」与「制作记录」搬到主界面
         # 「阶段配置」右边（desktop.asset_page）。同一件事只留一个入口。
-        buttons=FlowBar(self.form);buttons.pack(fill='x',padx=14,pady=(2,8))
+        buttons=FlowBar(self.form);buttons.pack(fill='x',padx=SPACING['md'],pady=(2,8))
         self.check_button=PrimaryButton(buttons,text='启动并检测',command=lambda:self.app.safe(self.check));self.check_button.pack(side='left')
         SecondaryButton(buttons,text='预估费用',command=lambda:self.app.safe(self.preview_cost)).pack(side='left',padx=(6,0))
         self.cancel_button=SecondaryButton(buttons,text='取消检测',command=self.cancel,state='disabled');self.cancel_button.pack(side='left',padx=(6,0))

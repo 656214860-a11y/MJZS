@@ -27,7 +27,7 @@ def settings(app):
     cfg=read(CONFIG) if CONFIG.is_file() else {}
     if not isinstance(cfg,dict):cfg={}
     win=BaseDialog(app.window,'Prompt Optimizer MCP 设置',geometry='820x560',modal=False,chrome=False);app.optimizer_settings=win;win.attributes('-alpha',0)
-    body=Card(win);body.pack(fill='both',expand=True,padx=18,pady=18);body.columnconfigure(1,weight=1)
+    body=Card(win);body.pack(fill='both',expand=True,padx=SPACING['lg'],pady=SPACING['lg']);body.columnconfigure(1,weight=1)
     entries={}
     presets={
         '智谱 GLM-4.7-Flash':('https://open.bigmodel.cn/api/paas/v4/','glm-4.7-flash'),
@@ -57,14 +57,14 @@ def settings(app):
         return model_label(record) if record else NEW_INTERFACE
 
     choice=tk.StringVar(value=name_for(cfg.get('base_url','')))
-    ttk.Label(body,text='文本模型服务商').grid(row=0,column=0,sticky='w',padx=SPACING['md'],pady=10)
+    ttk.Label(body,text='文本模型服务商').grid(row=0,column=0,sticky='w',padx=SPACING['md'],pady=SPACING['sm'])
     selector=SelectBox(body,textvariable=choice,values=interface_names())
     selector.grid(row=0,column=1,sticky='ew',padx=SPACING['md'])
     defaults={'base_url':'https://api.deepseek.com/v1','model':'',
               'python':str(HOME/'venv/Scripts/python.exe'),
               'server':str(HOME/'npm-global/node_modules/prompt-optimizer-mcp/mcp_server.py')}
     for row,(key,label) in enumerate([('base_url','优化模型 API 地址'),('model','文本模型 ID'),('api_key','API Key（留空保留）'),('python','优化服务 Python'),('server','MCP 服务文件')],start=1):
-        ttk.Label(body,text=label).grid(row=row,column=0,sticky='w',padx=SPACING['md'],pady=10)
+        ttk.Label(body,text=label).grid(row=row,column=0,sticky='w',padx=SPACING['md'],pady=SPACING['sm'])
         field=LineInput(body)
         field.grid(row=row,column=1,sticky='ew',padx=SPACING['md']);entries[key]=field
         field.insert(0,cfg.get(key,defaults.get(key,'')))
@@ -142,8 +142,8 @@ def settings(app):
             save(CONFIG,updated);win.destroy();app.write('优化服务设置已保存。点击“MCP 优化”开始优化。')
         except (ValueError,OSError) as e:notify(win, str(e), level='error', title='优化设置')
     actions=ttk.Frame(body);actions.grid(row=8,column=0,columnspan=2,pady=SPACING['md'])
-    PrimaryButton(actions,text='保存设置',command=commit).pack(side='left',padx=5)
-    SecondaryButton(actions,text='删除模型',command=delete_model).pack(side='left',padx=5)
+    PrimaryButton(actions,text='保存设置',command=commit).pack(side='left',padx=SPACING['xs'])
+    SecondaryButton(actions,text='删除模型',command=delete_model).pack(side='left',padx=SPACING['xs'])
 
 def start(app,source_prompt=None):
     from video_task_state import assert_prompt_editable,prompt_locked

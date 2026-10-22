@@ -8,6 +8,7 @@ from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_
 from ui_dialogs import FileDialog
 from ui_widgets import (SelectBox, BaseDialog, Card, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
+from ui_tokens import SPACING
 
 
 def save_images(base,aid,role,paths,active_ids,pending=False):
@@ -40,15 +41,15 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
     body=Card(win,padding=16);body.pack(fill='both',expand=True);body.columnconfigure(1,weight=1);body.rowconfigure(4,weight=1)
     prefix=aid.split('_')[0] if aid in rows else {'characters':'CHAR','scenes':'LOC','props':'PROP'}.get(app.asset_kind,'CHAR')
     category=tk.StringVar(value=CATEGORIES[prefix]);purpose=tk.StringVar();asset=tk.StringVar();destination=tk.StringVar();status=tk.StringVar()
-    ttk.Label(body,text='资产类别').grid(row=0,column=0,sticky='w',padx=(0,12),pady=5)
+    ttk.Label(body,text='资产类别').grid(row=0,column=0,sticky='w',padx=(0,12),pady=SPACING['xs'])
     category_box=SelectBox(body,textvariable=category,values=list(CATEGORIES.values()));category_box.grid(row=0,column=1,sticky='ew')
-    ttk.Label(body,text='参考分类').grid(row=1,column=0,sticky='w',pady=5)
+    ttk.Label(body,text='参考分类').grid(row=1,column=0,sticky='w',pady=SPACING['xs'])
     role_box=SelectBox(body,textvariable=purpose);role_box.grid(row=1,column=1,sticky='ew')
-    ttk.Label(body,text='资产编号').grid(row=2,column=0,sticky='w',pady=5)
+    ttk.Label(body,text='资产编号').grid(row=2,column=0,sticky='w',pady=SPACING['xs'])
     asset_box=SelectBox(body,textvariable=asset);asset_box.grid(row=2,column=1,sticky='ew')
     paths=[];choices={}
     ttk.Label(body,text='参考图片').grid(row=3,column=0,sticky='w',pady=(12,5))
-    files=tk.Listbox(body,height=6);files.grid(row=4,column=0,columnspan=2,sticky='nsew',pady=5)
+    files=tk.Listbox(body,height=6);files.grid(row=4,column=0,columnspan=2,sticky='nsew',pady=SPACING['xs'])
     def update_destination(event=None):
         selected=choices.get(asset.get())
         if not selected:destination.set('当前类别没有可绑定的资产');return
@@ -69,9 +70,9 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
         for value in selected:
             if value not in paths:paths.append(value);files.insert('end',Path(value).name)
     SecondaryButton(body,text='选择图片…',command=choose_files).grid(row=3,column=1,sticky='e',pady=(12,5))
-    ttk.Label(body,text='保存目录').grid(row=5,column=0,sticky='w',pady=5)
-    LineInput(body,textvariable=destination,state='readonly').grid(row=5,column=1,sticky='ew',pady=5)
-    ProgressLabel(body,textvariable=status,wraplength=690).grid(row=6,column=0,columnspan=2,sticky='w',pady=5)
+    ttk.Label(body,text='保存目录').grid(row=5,column=0,sticky='w',pady=SPACING['xs'])
+    LineInput(body,textvariable=destination,state='readonly').grid(row=5,column=1,sticky='ew',pady=SPACING['xs'])
+    ProgressLabel(body,textvariable=status,wraplength=690).grid(row=6,column=0,columnspan=2,sticky='w',pady=SPACING['xs'])
     buttons=ttk.Frame(body);buttons.grid(row=7,column=0,columnspan=2,sticky='ew',pady=(12,0))
     def commit():
         try:

@@ -2,9 +2,10 @@
 from responsive_ui import FlowBar
 from platform_tools import open_path
 from ui_widgets import SecondaryButton
+from ui_tokens import SPACING
 
 def build(desktop,parent,is_cloud):
-    row=FlowBar(parent);row.pack(fill='x',pady=0)
+    row=FlowBar(parent);row.pack(fill='x',pady=SPACING['none'])
     desktop.button(row,'刷新镜头',desktop.refresh_video_workspace)
     desktop.button(row,'刷新白模',lambda:desktop.video.refresh_white_model() if desktop.video else None)
     desktop.button(row,'查看首帧',lambda:desktop.video.safe(desktop.video.frame))
