@@ -898,7 +898,7 @@ class MediaPagesMixin:
         from edit_export import PLATFORMS
         for platform_key,platform in PLATFORMS.items():
             edit_button('导出%s版（%dx%d）'%(platform['label'],platform['width'],platform['height']),
-                        lambda key=platform_key:self.async_(lambda:controller.export_platform(key),
+                        lambda key=platform_key:self.account_blocked('delivery') or self.async_(lambda:controller.export_platform(key),
                                                             lambda path:self.status.set('平台版本已导出：'+str(path))))
         edit_button('启动剪映',self.launch_editor)
         edit_button('打开后期目录',lambda:open_path(edit_dir))

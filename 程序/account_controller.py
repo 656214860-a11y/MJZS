@@ -52,7 +52,7 @@ class AccountController:
 
     def request_code(self, email, done):
         email = str(email or '').strip()
-        self._submit(lambda: self._client.send_code(email), done, '发送登录验证码')
+        self._run(lambda: self._client.send_code(email), done, '发送登录验证码')
 
     def login(self, email, code, *, age_confirmed, done):
         email, code = str(email or '').strip(), str(code or '').strip()
@@ -61,7 +61,7 @@ class AccountController:
         def work():
             result = self._client.verify_code(email, code, device, age_confirmed=age_confirmed)
             return self._accept(result.data, email=email) if result.ok else result
-        self._submit(work, done, '登录账号')
+        self._run(work, done, '登录账号')
 
     def renew(self, done=None):
         """有刷新令牌才续签；网络失败保留旧租约静默等下次，会话失效则清掉。"""
@@ -79,7 +79,7 @@ class AccountController:
             if (result.data or {}).get('code') in SESSION_DEAD:
                 self._store.clear_session()
             return result
-        self._submit(work, done, '续签会员授权')
+        self._run(work, done, '续签会员授权')
         return True
 
     def redeem(self, code, done):
@@ -121,7 +121,7 @@ class AccountController:
     def cancel_deletion(self, email, code, done):
         """冷静期内凭登录验证码撤销注销（会话已全部吊销，不带租约）；撤销后须重新登录。"""
         email, code = str(email or '').strip(), str(code or '').strip()
-        self._submit(lambda: self._client.delete_cancel(email, code), done, '撤销注销')
+        self._run(lambda: self._client.delete_cancel(email, code), done, '撤销注销')
 
     def export(self, target, done):
         """导出账号数据 JSON 到用户选定的 ``target``；内容只写这个文件，不进日志。"""
@@ -162,8 +162,21 @@ class AccountController:
                     return accepted
                 result = call(renewed.data['lease'])
             return then(result) if then else result
-        self._submit(work, done, label)
+        self._run(work, done, label)
         return True
+
+    def _run(self, work, done, label):
+        """经注入的 ``submit`` 后台执行；工作函数意外抛错也收成失败结果。
+
+        异常原文可能夹带令牌、租约或邮箱，不交给后台任务的诊断记录，只留异常类型名。
+        """
+        def guarded():
+            try:
+                return work()
+            except Exception as exc:
+                return SystemError('账号操作出错（%s），请稍后重试' % type(exc).__name__,
+                                   data={'code': 'client_error'})
+        self._submit(guarded, done, label)
 
     def renew_due(self):
         return self._clock() - self.last_renew_at >= RENEW_INTERVAL

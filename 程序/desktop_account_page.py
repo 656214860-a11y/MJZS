@@ -57,6 +57,17 @@ class AccountPageMixin:
     def _account_submit(self, work, done, label):
         self.async_queued(work, done, label=label, show_progress=False)
 
+    def account_blocked(self, stage):
+        """不经 ``stage_handler_registry.start()`` 的付费动作（如成片导出）在这里过闸门。
+
+        拦截时把原因写进状态栏并返回 True；放行（含总开关关闭）返回 False。
+        """
+        reason = self.account.stage_gate(stage)
+        if isinstance(reason, str) and reason:
+            self.status.set(reason)
+            return True
+        return False
+
     def start_account_renewal(self):
         """首帧后由周期 tick 调用：到期才续签，失败静默，下一轮再试。"""
         if getattr(self, 'shutting_down', False):

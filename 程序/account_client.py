@@ -7,6 +7,7 @@
 本模块不读写本机文件、不导入 Tk；令牌只在入参和返回值里，不写日志。
 """
 import json
+import re
 import ssl
 import urllib.error
 
@@ -62,11 +63,20 @@ def _ssl_context():
     return _context
 
 
+_EMAIL = re.compile(r'[A-Za-z0-9_.+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+')
+_OPAQUE = re.compile(r'[A-Za-z0-9_\-]{24,}(?:\.[A-Za-z0-9_\-]+)*')
+
+
+def _masked(text):
+    """服务端原文提示会展示到界面：遮掉邮箱和形似令牌／租约的长串，不让凭据随提示外流。"""
+    return _OPAQUE.sub('[已隐藏]', _EMAIL.sub('[邮箱已隐藏]', text))
+
+
 def _failure(status, body):
     body = body if isinstance(body, dict) else {}
     code = str(body.get('code') or ('client_too_old' if status == 426 else 'http_%d' % status))
     data = {'code': code, 'status': status, 'retry_after': body.get('retry_after')}
-    reason = MESSAGES.get(code) or str(body.get('message') or '账号服务返回错误（%d）' % status)
+    reason = MESSAGES.get(code) or _masked(str(body.get('message') or '账号服务返回错误（%d）' % status))
     return (SystemError if status >= 500 else UserError)(reason, data=data)
 
 
