@@ -28,7 +28,30 @@
       "Bash(grep -rlE \"PetUI|pet_ui\\\\b\" tests)",
       "Bash(grep -c \"\\\\.click\\(\" tests/test_pet_ui.py)",
       "Bash(grep -rln \"\\\\.click\\('\" tests)",
-      "Bash(grep -rl \"context_guard\" ~/.claude/settings.json ~/.claude/*.js ~/.claude/hooks 2>/dev/null | head; grep -rn \"context_guard\\\\|135\\\\|THRESH\\\\|handoff\" ~/.claude/settings.json 2>/dev/null | head)"
+      "Bash(grep -rl \"context_guard\" ~/.claude/settings.json ~/.claude/*.js ~/.claude/hooks 2>/dev/null | head; grep -rn \"context_guard\\\\|135\\\\|THRESH\\\\|handoff\" ~/.claude/settings.json 2>/dev/null | head)",
+      "Bash(sed -n 1,120p 启动漫剧制作助手.pyw)",
+      "Bash(grep -rn \"Splash\" 程序/*.py)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(M=\"C:/Users/LAIBIAO/.claude/projects/D--------/memory\"; cat \"$M/context-guard-auto-handoff.md\" \"$M/compact-during-waits.md\"; echo ====; grep -rn \"context_guard\" C:/Users/LAIBIAO/.claude/settings.json \"D:/漫剧制作助手/.claude/settings.json\" \"D:/漫剧制作助手/.claude/settings.local.json\" 2>/dev/null; echo ====; grep -n -iE \"交接|handoff|compact|压缩|缓存\" \"D:/漫剧制作助手/CLAUDE.md\" | head -20)",
+      "Bash(grep -nE \"WARN|WAIT|HANDOFF|HARD|compact|压缩|clear_session|=\\\\s*[0-9_]{5,}\" C:/Users/LAIBIAO/.claude/hooks/context_guard.py)",
+      "Bash(sed 's/_.*//')",
+      "Read(//c/Users/LAIBIAO/.claude/**)",
+      "Bash(grep -n -i -E \"promptCacheTtl|CACHING|hooks|PreToolUse|PostToolUse|UserPromptSubmit|Stop\\\\\"\" settings.json)",
+      "WebFetch(domain:console.supergpt.dev)",
+      "Bash(git checkout *)",
+      "Bash(git status *)",
+      "Bash(/d/漫剧制作助手/运行环境/Python/python.exe -B 维护记录/基准脚本/round_claim.py next)",
+      "Bash(python3 -)",
+      "Bash(ls /d/漫剧制作助手/工作流任务/ | head; ls ../工作流任务 2>&1 | head -3)",
+      "Bash(git -c core.quotepath=false for-each-ref --sort=-committerdate --format='%\\(refname:short\\) %\\(committerdate:relative\\) %\\(subject\\)' refs/heads)",
+      "Bash(git -c core.quotepath=false log --all --since=1.day --format='%h %s')",
+      "Bash(git -c core.quotepath=false ls-files)",
+      "Bash(git -c core.quotepath=false show master:程序/tasks_round/tasks_round_1890_result.md)",
+      "Bash(git -c core.quotepath=false show master:程序/说明/账户会员云端设计.md)",
+      "Read(//d/漫剧服务端/**)",
+      "Bash(cat HANDOFF_AUTO_20261022_2129.md)",
+      "Bash(sed -n 1,80p README.md)"
     ]
   }
 }
