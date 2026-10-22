@@ -35,7 +35,7 @@ class FakeQwen:
         self.returncode = FakeQwen.returncode
         FakeQwen.made.append(self)
 
-    def communicate(self, prompt=None):
+    def communicate(self, prompt=None, timeout=None):
         FakeQwen.events.append(('对话', prompt))
         self.kwargs['stdout'].write(FakeQwen.raw_response if FakeQwen.raw_response is not None
                                     else json.dumps(FakeQwen.response, ensure_ascii=False))
