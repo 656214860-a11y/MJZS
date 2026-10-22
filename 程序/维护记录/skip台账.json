@@ -2234,6 +2234,15 @@
       "reference": ""
     },
     {
+      "file": "tests/test_desktop_tray.py",
+      "test": "TrayMinimizeCycleTests.test_minimize_and_click_tray_cycles_without_crash",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_NO_TRAY_HOST",
+      "reason": "当前进程不在有资源管理器任务栏的交互桌面（如隐藏测试桌面），Shell_NotifyIcon 无宿主；在默认交互桌面运行时应恢复执行（TrayIconTests.setUpClass 同条件整类跳过）",
+      "reference": "R1850"
+    },
+    {
       "file": "tests/test_skill_panel_production_locks.py",
       "test": "WorkflowLockEnablementTests.setUp",
       "ordinal": 1,

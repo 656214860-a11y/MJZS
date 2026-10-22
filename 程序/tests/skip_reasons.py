@@ -12,6 +12,7 @@ MISSING_NODE = "缺外部程序：当前机器未安装 node；安装 node 后�
 REQUIRES_BUNDLED_SKILL = "需实机复验：发行包未包含受测 bundled skill；打包产物具备该技能后应恢复执行"
 MISSING_FFMPEG = "缺外部程序：当前机器没有可用的 FFmpeg／FFprobe；装好编码器后应恢复执行"
 PLATFORM_WINDOWS_ONLY = "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行"
+PLATFORM_NO_TRAY_HOST = "平台限制：当前进程不在有资源管理器任务栏的交互桌面（如隐藏测试桌面），Shell_NotifyIcon 无宿主；在默认交互桌面运行时应恢复执行"
 
 ALL_SKIP_REASONS = {
     PLATFORM_TKINTER,
@@ -22,4 +23,5 @@ ALL_SKIP_REASONS = {
     REQUIRES_BUNDLED_SKILL,
     MISSING_FFMPEG,
     PLATFORM_WINDOWS_ONLY,
+    PLATFORM_NO_TRAY_HOST,
 }

@@ -190,6 +190,9 @@ class ResizeCoalescer:
                 return None
             if str(self.window.tk.call('wm', 'state', self.window)) == 'zoomed':
                 return False
+            # 左键没按着就不可能在拖；先看按键，光标读不到（非交互桌面、锁屏）时也不误判成「未知」。
+            if self.probe.left_button_down() is False:
+                return False
             rect = self.probe.frame_rect(handle)
             point = self.probe.cursor() if rect else None
             if rect is None or point is None:

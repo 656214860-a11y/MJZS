@@ -8,9 +8,23 @@ import time
 import unittest
 from pathlib import Path
 
-from skip_reasons import PLATFORM_WINDOWS_ONLY
+from skip_reasons import PLATFORM_NO_TRAY_HOST, PLATFORM_WINDOWS_ONLY
 
 from desktop_tray import APP_ICON, LAUNCHER, PYTHONW, SUPPRESS_TRAY_ENV, TrayIcon, force_restart
+
+
+def _on_tray_desktop():
+    """本线程是否在默认交互桌面（Default）：隐藏测试桌面上没有任务栏，托盘图标加不上。"""
+    import ctypes
+    user32 = ctypes.WinDLL('user32', use_last_error=True)
+    user32.GetThreadDesktop.restype = ctypes.c_void_p
+    desk = user32.GetThreadDesktop(ctypes.windll.kernel32.GetCurrentThreadId())
+    buf = ctypes.create_unicode_buffer(256)
+    needed = ctypes.c_ulong()
+    if not desk or not user32.GetUserObjectInformationW(ctypes.c_void_p(desk), 2, buf,
+                                                        ctypes.sizeof(buf), ctypes.byref(needed)):
+        return True  # 读不到就照常跑，不靠猜测跳过
+    return buf.value.lower() == 'default'
 
 
 class TrayIconTests(unittest.TestCase):
@@ -18,6 +32,8 @@ class TrayIconTests(unittest.TestCase):
     def setUpClass(cls):
         if sys.platform != 'win32':
             raise unittest.SkipTest(PLATFORM_WINDOWS_ONLY)
+        if not _on_tray_desktop():
+            raise unittest.SkipTest(PLATFORM_NO_TRAY_HOST)
         import tkinter as tk
         cls.win = tk.Tk()
         cls.win.withdraw()
@@ -180,6 +196,8 @@ class TrayMinimizeCycleTests(unittest.TestCase):
     def test_minimize_and_click_tray_cycles_without_crash(self):
         if sys.platform != 'win32':
             self.skipTest(PLATFORM_WINDOWS_ONLY)
+        if not _on_tray_desktop():
+            self.skipTest(PLATFORM_NO_TRAY_HOST)
         program = Path(__file__).resolve().parents[1]
         env = {key: value for key, value in os.environ.items() if key != SUPPRESS_TRAY_ENV}
         result = subprocess.run(

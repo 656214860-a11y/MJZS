@@ -21,6 +21,8 @@ ALLOWED = {
     '本地CI.cmd': '本地 CI 双击入口', 'ci_clean.cmd': '干净检出全量入口',
     'ci_targets.cmd': '指定目标 CI 入口', 'ci_unattended.cmd': '无人值守 CI 入口',
     '漫剧制作助手.ico': '程序图标',
+    'BLOCKED_ISSUES.md': '应用优化清单的跳过项与无需修改项记录',
+    'handoff-full-safe.md': '全量绿凭据交接单（已列入发布清单）',
 }
 
 
