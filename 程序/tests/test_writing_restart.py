@@ -190,17 +190,24 @@ class WritingRestartTests(unittest.TestCase):
         tree = ast.parse(source.read_text(encoding='utf-8-sig'))
         node = next(item for item in ast.walk(tree) if isinstance(item, ast.FunctionDef)
                     and item.name == 'script_menu')
-        trees = {name: Mock() for name in ('setting', 'outline', 'character', 'script')}
+        tree = Mock()  # R1776：四类文件合并成一张表，阶段动作按所点行的类别决定
+        rows = {'row-' + name: name for name in ('setting', 'outline', 'character', 'script')}
         restart = Mock()
         menu = Mock()
-        namespace = dict(script_trees=trees, ContextMenu=Mock(return_value=menu),
+        namespace = dict(script_row_category=rows, ContextMenu=Mock(return_value=menu),
                          self=SimpleNamespace(win=object(), safe=lambda call: call()),
                          restart_preparation=restart, open_script_file=Mock(), rename_script=Mock(),
                          adopt_script=Mock(), delete_script=Mock())
+        # R1817：script_menu 成了 _WritingPage 的方法：闭包变量改由实例属性提供，桌面主窗成了 page
+        page = SimpleNamespace(page=namespace.pop('self'), **{key: namespace.pop(key) for key in (
+            'script_row_category', 'restart_preparation', 'open_script_file', 'rename_script', 'adopt_script', 'delete_script')})
         exec(compile(ast.Module(body=[node], type_ignores=[]), str(source), 'exec'), namespace)
+        script_menu = namespace['script_menu']
+        namespace['script_menu'] = lambda tree, event: script_menu(page, tree, event)
         for category, stage in zip(('setting', 'outline', 'character'), writing_api.PREPARATION_STAGES):
             menu.reset_mock()
-            namespace['script_menu'](trees[category], SimpleNamespace(y=0))
+            tree.identify_row.return_value = 'row-' + category
+            namespace['script_menu'](tree, SimpleNamespace(y=0))
             actions = {call.args[0]: call.args[1] for call in menu.command.call_args_list}
             actions['重写' + stage]()
             restart.assert_called_with(stage)

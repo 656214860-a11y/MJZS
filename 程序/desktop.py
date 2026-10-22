@@ -139,6 +139,61 @@ def status_kind(message):
 
 class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,*,script_page_services=None):
+        self._init_window_and_sidebar(script_page_services, win, root)
+        self._init_body_and_status(win)
+        # Timed callbacks cannot run inside the placement code's update_idletasks.
+        # An idle modal here would block the root while it is still transparent.
+        self._initialize_automation_state()
+        self.root=None
+        self.studio=None
+        self.asset_kind='all'
+        self.asset_detail_id=None
+        self.asset_roster=False
+        self.gate_auto_due=0
+        self.gate_auto_error=''
+        self._destroy_cleanup_done=False
+        self.reload()
+        self.show(0)
+        # 只记录启动壳完成耗时；采集不遍历项目目录，也不参与启动决策。
+        import diagnostic_capture
+        diagnostic_capture.record_startup_timing('desktop_shell_ready', (time.perf_counter()-self._diagnostic_start)*1000)
+        self.shutting_down=False
+        self._tick_id=None
+        self._startup_tick_paused=True
+        self._startup_tick_resume_id=None
+        self._startup_project_page_job=None
+        self._startup_script_build_job=None
+        self._startup_project_recovery_job=None
+        self._startup_project_choice=True
+        # 窗口只提供 Tk 调度与事件绑定；无 Tk 控制器保持首帧后才选择项目的时序。
+        self._startup_timer=None
+        self.startup_controller=DesktopStartupController(
+            schedule_after=win.after, schedule_idle=win.after_idle,
+            cancel_scheduled=win.after_cancel,
+            is_stopping=lambda:getattr(self,'shutting_down',False),
+            before_project_choice=self._after_first_paint,
+            choose_project=self.choose_project,
+            remember_timer=lambda timer:setattr(self,'_startup_timer',timer),
+        )
+        # 启动画面整块盖住、主窗口仍透明时，没有白屏可防，让步只需一次消息循环。
+        self.startup_controller.start(*((10,) if self._startup_window_held() else ()))
+        self.automation_scheduler=DesktopAutomationScheduler(
+            schedule_after=win.after, cancel_scheduled=win.after_cancel,
+            is_stopping=lambda:getattr(self,'shutting_down',False))
+        self.automation_scheduler.start(
+            'idea_attachments',100,self.poll_idea_attachment_preparation,
+            on_error=lambda exc:self._set_automation_error('附档后台任务异常，已忽略：',exc),
+            remember_timer=lambda timer:setattr(self,'_idea_attachment_poll_id',timer))
+        win.bind('<Destroy>',self.on_window_destroy,add='+')
+        win.protocol('WM_DELETE_WINDOW',self.close)
+        # 第 18 期：清掉上次的对话，再让三虎用爱心框打个招呼（推迟到主循环里再冒）。
+        # 项目续开可能仍在构造剧本准备页；把首次招呼留到首帧稳定之后，
+        # 不让气泡的浮窗映射与页面回填争用同一轮 Tk 事件循环。
+        pet_ui.start(self,delay_ms=5000)
+        self.setup_tray()
+
+    def _init_window_and_sidebar(self, script_page_services, win, root):
+        """服务、窗口外观与侧栏（项目列表、导航按钮、标题行），从 __init__ 原样切出，R1808。"""
         self._diagnostic_start=time.perf_counter()
         self.script_page_services = script_page_services if script_page_services is not None else ScriptPageServices(
             open_path=lambda *args, **kwargs: open_path(*args, **kwargs),
@@ -151,7 +206,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         win._desktop_first_paint_complete=False
         win._desktop_loading_project=False
         self.video_sessions={};self.cloud_monitor_busy=False;self.cloud_monitor_due=0;self.cloud_monitor_cursor=0;self._cloud_monitor_ticket=0;self.cloud_monitor_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.cloud_monitor_result=queue.Queue()
-        self.settings_file=self.app/'desktop_settings.json';self.settings=read(self.settings_file) if self.settings_file.exists() else {'comfy_url':'http://127.0.0.1:8189','jianying':''}
+        self.settings_file=self.app/'desktop_settings.json';from desktop_settings_service import load_desktop_settings;self.settings=load_desktop_settings(self.settings_file,{'comfy_url':'http://127.0.0.1:8189','jianying':''},read=read,preserve=lambda path:shutil.copy2(path,path.with_name(path.name+'.corrupt')))
         win.title(APP_NAME+' · '+VERSION);win.state('normal')
         win.geometry('%dx%d'%(min(DESKTOP_LAYOUT['default_width'],win.winfo_screenwidth()-DESKTOP_LAYOUT['window_margin_x']),min(DESKTOP_LAYOUT['default_height'],win.winfo_screenheight()-DESKTOP_LAYOUT['window_margin_y'])))
         # 第 19 期：安装后的图标（三虎）——主窗口标题栏／任务栏都用它，拿不到就照旧用 Tk 默认图标。
@@ -191,6 +246,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.list.bind('<<TreeviewClose>>',self.schedule_sidebar_fit,add='+')
         side.bind('<Configure>',self.schedule_sidebar_fit)
         self.sidebar_canvas.bind('<Configure>',self.schedule_sidebar_fit,add='+')
+
+    def _init_body_and_status(self, win):
+        """主体区：标题行右侧信息、页面画布、进度条、状态栏与尺寸把手，从 __init__ 原样切出，R1808。"""
         self.body=ttk.Frame(win,padding=DESKTOP_LAYOUT['body_padding']);self.body.pack(side='left',fill='both',expand=True)
         self.title_row=ttk.Frame(self.body);self.title_row.pack(fill='x');self.title_row.pack_propagate(False)
         self.pet_layer=self.title_row
@@ -253,62 +311,12 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         self.busy_state.spinner=Spinner(self.body,host=self.status_label)
         self._install_status_styles();self.status.trace_add('write',self.sync_status_style);self.sync_status_style()
         self.sizegrip=ttk.Sizegrip(win);self.sizegrip.place(relx=1.0,rely=1.0,anchor='se')
-        # Timed callbacks cannot run inside the placement code's update_idletasks.
-        # An idle modal here would block the root while it is still transparent.
-        self._initialize_automation_state()
-        self.root=None
-        self.studio=None
-        self.asset_kind='all'
-        self.asset_detail_id=None
-        self.asset_roster=False
-        self.gate_auto_due=0
-        self.gate_auto_error=''
-        self._destroy_cleanup_done=False
-        self.reload()
-        self.show(0)
-        # 只记录启动壳完成耗时；采集不遍历项目目录，也不参与启动决策。
-        import diagnostic_capture
-        diagnostic_capture.record_startup_timing('desktop_shell_ready', (time.perf_counter()-self._diagnostic_start)*1000)
-        self.shutting_down=False
-        self._tick_id=None
-        self._startup_tick_paused=True
-        self._startup_tick_resume_id=None
-        self._startup_project_page_job=None
-        self._startup_script_build_job=None
-        self._startup_project_recovery_job=None
-        self._startup_project_choice=True
-        # 窗口只提供 Tk 调度与事件绑定；无 Tk 控制器保持首帧后才选择项目的时序。
-        self._startup_timer=None
-        self.startup_controller=DesktopStartupController(
-            schedule_after=win.after, schedule_idle=win.after_idle,
-            cancel_scheduled=win.after_cancel,
-            is_stopping=lambda:getattr(self,'shutting_down',False),
-            before_project_choice=self._after_first_paint,
-            choose_project=self.choose_project,
-            remember_timer=lambda timer:setattr(self,'_startup_timer',timer),
-        )
-        # 启动画面整块盖住、主窗口仍透明时，没有白屏可防，让步只需一次消息循环。
-        self.startup_controller.start(*((10,) if self._startup_window_held() else ()))
-        self.automation_scheduler=DesktopAutomationScheduler(
-            schedule_after=win.after, cancel_scheduled=win.after_cancel,
-            is_stopping=lambda:getattr(self,'shutting_down',False))
-        self.automation_scheduler.start(
-            'idea_attachments',100,self.poll_idea_attachment_preparation,
-            on_error=lambda exc:self._set_automation_error('附档后台任务异常，已忽略：',exc),
-            remember_timer=lambda timer:setattr(self,'_idea_attachment_poll_id',timer))
-        win.bind('<Destroy>',self.on_window_destroy,add='+')
-        win.protocol('WM_DELETE_WINDOW',self.close)
-        # 第 18 期：清掉上次的对话，再让三虎用爱心框打个招呼（推迟到主循环里再冒）。
-        # 项目续开可能仍在构造剧本准备页；把首次招呼留到首帧稳定之后，
-        # 不让气泡的浮窗映射与页面回填争用同一轮 Tk 事件循环。
-        pet_ui.start(self,delay_ms=5000)
-        self.setup_tray()
 
 
     def _build_sidebar(self,win):
-        """左侧阶段导航放进可滚动容器；窗口再矮也能滚到最后一项。"""
+        """左侧阶段导航放进可滚动容器；窗口再矮也能滚到最后一项（滚轮／翻页键，不显示滚动条）。"""
         sidebar_area=ttk.Frame(win,width=DESKTOP_LAYOUT['sidebar_width']);sidebar_area.pack(side='left',fill='y');sidebar_area.pack_propagate(False)
-        scroll=ScrollForm(sidebar_area,bg=COLORS['background_primary'])
+        scroll=ScrollForm(sidebar_area,bg=COLORS['background_primary'],scrollbar=False)
         self.sidebar_viewport=sidebar_area;self.sidebar_scroll=scroll;self.sidebar_canvas=scroll.canvas
         scroll.canvas.configure(takefocus=True)
         side=ttk.Frame(scroll.form,padding=DESKTOP_LAYOUT['sidebar_padding']);self.sidebar=side
@@ -600,8 +608,10 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             from stage_execution_service import project_context
             try:
                 path=idea_chat.initial_brief_document(project_context(root));error=None
-            except (OSError,ValueError,TypeError,KeyError) as exc:
+            except Exception as exc:
                 # 线程只传递结果；Tk 状态须由 _tick_async_result 在主线程更新。
+                # 任何异常都要投递结果：线程静默退出会让输入框一直处于加载态。
+                app_logging.swallowed()
                 path=None;error=str(exc)
             self._brief_load_results.put((generation,root,apply,path,error))
         threading.Thread(target=discover,daemon=True).start()
@@ -932,8 +942,9 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         target=Path(project) if project else None
         def work():
             try:result=self.sync_stage_models(target)
-            except (OSError,ValueError,TypeError,KeyError) as exc:
+            except Exception as exc:
                 # 工作线程只带错误结果回主线程；不能在这里直接操作 Tk 状态栏。
+                app_logging.swallowed()
                 result={'error':str(exc), 'kind': 'bug'}
             self._stage_model_sync_results.put((generation,target,result))
             # 总控（00全流程SKILL）有更新就自动同步各阶段；只把提示文字带回主线程。
@@ -941,7 +952,8 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
             try:
                 from master_skill import sync as sync_master_skill
                 message=sync_master_skill(target).get('message','')
-            except (OSError,ValueError,TypeError,KeyError) as exc:
+            except Exception as exc:
+                app_logging.swallowed()
                 message='总控同步未完成：%s；请打开阶段配置重试。' % exc
             if message:self._stage_model_sync_results.put((generation,target,{'master':message}))
         threading.Thread(target=work,daemon=True).start()
@@ -1092,67 +1104,7 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
     @app_logging.timed('page.show',800)
     @_page_paint_timed
     def show(self,index,video_mode=None):
-        pending=getattr(self,'_navigation_job',None)
-        if pending is not None:
-            self.win.after_cancel(pending)
-            self._navigation_job=None
-        from video_navigation import hide_back
-        hide_back(self)
-        # 同一页重建（切换分镜、刷新列表、自动流程刷新）保留原来的滚动位置：
-        # 旧行为每次都把整页拉回顶部，换文件时看起来就是「内容抖动」。换页仍回到顶部。
-        previous_index=getattr(self,'page_index',None)
-        if previous_index==PAGE['script']:
-            self._idea_brief_generation=getattr(self,'_idea_brief_generation',0)+1
-            self.preserve_idea_draft()
-        scroll_offset=self.canvas.canvasy(0) if previous_index==index else 0
-        self.page_index=index
-        # 第 71 期任务 2：资产详情页与资产清单页都是「05 资产管理」的子路由；翻到别的页就回主页面。
-        if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
-
-        if index==PAGE['video']:
-            self.progress.pack_forget();self.status_label.pack_forget()
-        else:
-            self.progress.pack(fill='x',pady=(SPACING['sm'],SPACING['none']));self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
-        if index==PAGE['video']:
-            prefs_path=self.root/'ui_settings.json' if self.root else None
-            prefs=_prefs(prefs_path)
-            # 第 32 期第 3 条：本次启动第一次进这一页，先摆「选择生成方式」；用户在这里选过一次
-            # 之后，来回切页仍按他刚选的那个模式进，不会被反复拦在选择页上。
-            if video_mode=='choose':
-                self.video_mode=None;self.video_mode_picked=False
-            elif video_mode:
-                self.video_mode=video_mode
-            else:
-                self.video_mode=prefs.get('last_video_mode') if getattr(self,'video_mode_picked',False) else None
-            if self.video_mode in ('cloud','local'):
-                self.video_mode_picked=True
-                if prefs_path and prefs.get('last_video_mode')!=self.video_mode:
-                    from stage_execution_service import publish_cloud_video_workspace_preference
-                    prefs['last_video_mode']=self.video_mode
-                    publish_cloud_video_workspace_preference(prefs_path,prefs)
-        else:self.video_mode=None
-        if self.video:
-            self.video.window.pack_forget()
-            self.video.footer.pack_forget()
-            self.video=None
-        self.flush_brief()
-        retained={v.window for v in self.video_sessions.values()}
-        page_cache=self._page_cache_for(index,same_page=previous_index==index)
-        for c in self.content.winfo_children():
-            if c in retained:c.pack_forget()
-            else:c.destroy()
-        for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
-        # 第 71 期任务 2：二级入口只在它自己那一屏高亮
-        if self.asset_list_button is not None:self.asset_list_button.configure(style='Selected.Sub.Nav.TButton' if (index==PAGE['assets'] and self.asset_roster) else 'Sub.Nav.TButton')
-        self.header_status.configure(text='',textvariable='');self.header_model.configure(text='');self.title.configure(text=PAGES[index]);self.status.set(str(self.root))
-        self.stage_button=None                 # 那一行随页面重建：旧按钮这会儿已跟着 content 一起销毁
-        if self.header_stage_button is not None:
-            self.header_stage_button.destroy();self.header_stage_button=None    # 页标题旁那颗同理
-        # 只有真正换页才回到顶部：同一页重建（切换分镜、刷新列表）保留当前位置，否则看起来就是内容抖动。
-        if not scroll_offset:
-            self._pending_scroll_restore=None
-            self._pending_scroll_layout=None
-            self.canvas.yview_moveto(0)
+        scroll_offset, page_cache = self._show_reset_page(index, video_mode)
         if index==PAGE_SITES:
             self.reference_sites()
             # 参考网站页和普通制作页一样会在这里新增内容；不能因为提前返回而把
@@ -1243,6 +1195,71 @@ class Desktop(IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin
         # 留出短暂导航稳定期；期间再次切页会取消旧播报。
         try:self._pet_stage_job=self.win.after(150,speak)
         except tk.TclError:self._pet_stage_job=None
+
+    def _show_reset_page(self, index, video_mode):
+        """换页前置：取消待办导航、记录页码与滚动位置、视频模式偏好、清掉旧内容并刷新导航高亮，从 show 原样切出，R1809。"""
+        pending=getattr(self,'_navigation_job',None)
+        if pending is not None:
+            self.win.after_cancel(pending)
+            self._navigation_job=None
+        from video_navigation import hide_back
+        hide_back(self)
+        # 同一页重建（切换分镜、刷新列表、自动流程刷新）保留原来的滚动位置：
+        # 旧行为每次都把整页拉回顶部，换文件时看起来就是「内容抖动」。换页仍回到顶部。
+        previous_index=getattr(self,'page_index',None)
+        if previous_index==PAGE['script']:
+            self._idea_brief_generation=getattr(self,'_idea_brief_generation',0)+1
+            self.preserve_idea_draft()
+        scroll_offset=self.canvas.canvasy(0) if previous_index==index else 0
+        self.page_index=index
+        # 第 71 期任务 2：资产详情页与资产清单页都是「05 资产管理」的子路由；翻到别的页就回主页面。
+        if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
+
+        if index==PAGE['video']:
+            self.progress.pack_forget();self.status_label.pack_forget()
+        else:
+            self.progress.pack(fill='x',pady=(SPACING['sm'],SPACING['none']));self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+        if index==PAGE['video']:
+            prefs_path=self.root/'ui_settings.json' if self.root else None
+            prefs=_prefs(prefs_path)
+            # 第 32 期第 3 条：本次启动第一次进这一页，先摆「选择生成方式」；用户在这里选过一次
+            # 之后，来回切页仍按他刚选的那个模式进，不会被反复拦在选择页上。
+            if video_mode=='choose':
+                self.video_mode=None;self.video_mode_picked=False
+            elif video_mode:
+                self.video_mode=video_mode
+            else:
+                self.video_mode=prefs.get('last_video_mode') if getattr(self,'video_mode_picked',False) else None
+            if self.video_mode in ('cloud','local'):
+                self.video_mode_picked=True
+                if prefs_path and prefs.get('last_video_mode')!=self.video_mode:
+                    from stage_execution_service import publish_cloud_video_workspace_preference
+                    prefs['last_video_mode']=self.video_mode
+                    publish_cloud_video_workspace_preference(prefs_path,prefs)
+        else:self.video_mode=None
+        if self.video:
+            self.video.window.pack_forget()
+            self.video.footer.pack_forget()
+            self.video=None
+        self.flush_brief()
+        retained={v.window for v in self.video_sessions.values()}
+        page_cache=self._page_cache_for(index,same_page=previous_index==index)
+        for c in self.content.winfo_children():
+            if c in retained:c.pack_forget()
+            else:c.destroy()
+        for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
+        # 第 71 期任务 2：二级入口只在它自己那一屏高亮
+        if self.asset_list_button is not None:self.asset_list_button.configure(style='Selected.Sub.Nav.TButton' if (index==PAGE['assets'] and self.asset_roster) else 'Sub.Nav.TButton')
+        self.header_status.configure(text='',textvariable='');self.header_model.configure(text='');self.title.configure(text=PAGES[index]);self.status.set(str(self.root))
+        self.stage_button=None                 # 那一行随页面重建：旧按钮这会儿已跟着 content 一起销毁
+        if self.header_stage_button is not None:
+            self.header_stage_button.destroy();self.header_stage_button=None    # 页标题旁那颗同理
+        # 只有真正换页才回到顶部：同一页重建（切换分镜、刷新列表）保留当前位置，否则看起来就是内容抖动。
+        if not scroll_offset:
+            self._pending_scroll_restore=None
+            self._pending_scroll_layout=None
+            self.canvas.yview_moveto(0)
+        return scroll_offset, page_cache
 
     def text(self,value,height=10):
         t=TextArea(self.content,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t

@@ -803,6 +803,30 @@ def batches_ready(project):
     return _result(row, False, True, '批次划分还有 %d 处问题' % len(problems), problems[:20], artifacts)
 
 
+def _shot_frame_problem(source, episode, shot, base, aspect, frame_problem):
+    """单个镜头首帧的毛病（没有则 None），以及它的首帧文件是否存在（异常前已存在也算）。"""
+    sid = shot.get('id') or '?'
+    frame = shot.get('frame')
+    if shot.get('frame_deleted'):
+        return '%s 的首帧已删除，请恢复或重新指定首帧' % sid, False
+    if not isinstance(frame, str) or not frame.strip():
+        return '%s 未配置首帧路径' % sid, False
+    found = False
+    try:
+        path = (base / frame).resolve()
+        if not path.is_relative_to(base):
+            return '%s 的首帧路径越界' % sid, False
+        if not path.is_file():
+            return '%s 缺首帧：%s' % (sid, path.name), False
+        found = True
+        if not path.stat().st_size:
+            return '%s 的首帧是空文件：%s' % (sid, path.name), True
+        problem = frame_problem(source, episode, shot, path, aspect_ratio=aspect)
+        return ('%s：%s' % (sid, problem) if problem else None), True
+    except (OSError, ValueError, RuntimeError):
+        return '%s 的首帧路径无法读取' % sid, found
+
+
 def frames_ready(project):
     """SG-04：每个镜头的首帧都在，且不是空文件。"""
     row = gate_for('previs')
@@ -826,30 +850,10 @@ def frames_ready(project):
         base = media_root(source).resolve()
         episode = read_json(source) if Path(source).is_file() else {}
         for shot in shots:
-            sid = shot.get('id') or '?'
-            frame = shot.get('frame')
-            if shot.get('frame_deleted'):
-                problems.append('%s 的首帧已删除，请恢复或重新指定首帧' % sid)
-                continue
-            if not isinstance(frame, str) or not frame.strip():
-                problems.append('%s 未配置首帧路径' % sid)
-                continue
-            try:
-                path = (base / frame).resolve()
-                if not path.is_relative_to(base):
-                    problems.append('%s 的首帧路径越界' % sid)
-                elif not path.is_file():
-                    problems.append('%s 缺首帧：%s' % (sid, path.name))
-                else:
-                    any_frame = True
-                    if not path.stat().st_size:
-                        problems.append('%s 的首帧是空文件：%s' % (sid, path.name))
-                    else:
-                        problem = frame_problem(source, episode, shot, path, aspect_ratio=aspect)
-                        if problem:
-                            problems.append('%s：%s' % (sid, problem))
-            except (OSError, ValueError, RuntimeError):
-                problems.append('%s 的首帧路径无法读取' % sid)
+            problem, found = _shot_frame_problem(source, episode, shot, base, aspect, frame_problem)
+            any_frame = any_frame or found
+            if problem:
+                problems.append(problem)
     if not total:
         return _result(row, True, False, '已采用分镜没有镜头，不能确认首帧完成', (), artifacts)
     if not problems:

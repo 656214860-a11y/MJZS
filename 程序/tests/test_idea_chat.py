@@ -933,13 +933,12 @@ class SendMessageTests(_Harness):
             win.deiconify()
             self.settle_script_page(win, .4)
             self.assertTrue(d.script_box.winfo_ismapped(), '没有文件也保留分类标题栏')
-            for category, title in (('setting', '项目设定'), ('outline', '项目大纲'),
-                                    ('character', '角色卡'), ('script', '项目剧本')):
-                tree = d.script_trees[category]
-                self.assertEqual(tree.heading('name')['text'], title)
-                self.assertTrue(tree.winfo_ismapped())
-                self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
-                self.assertEqual(tree.get_children(), ())
+            tree = d.script_tree  # R1776：四类文件合并为一张表，表头只剩「类别／文件名」
+            self.assertEqual(tree.heading('kind')['text'], '类别')
+            self.assertEqual(tree.heading('name')['text'], '文件名')
+            self.assertTrue(tree.winfo_ismapped())
+            self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
+            self.assertEqual(tree.get_children(), ())
             self.assertTrue(d.idea_log.winfo_ismapped(), '聊天记录仍保留可用空间')
 
     def test_delayed_script_rows_are_not_covered_by_empty_state(self):
@@ -951,7 +950,7 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.deiconify()
             self.settle_script_page(win, .4)
-            tree = d.script_trees['script']
+            tree = d.script_tree
             self.assertIn(str(path), tree.get_children())
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '延迟填表后不能仍显示暂无数据')
 
@@ -964,7 +963,7 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.deiconify()
             self.settle_script_page(win, .4)
-            tree = d.script_trees['script']
+            tree = d.script_tree
             item = str(path)
             self.assertIn(item, tree.get_children())
             tree.selection_set(item)
@@ -994,9 +993,9 @@ class SendMessageTests(_Harness):
             path.write_text('\n'.join('## 第%d集\n场景 1：室内\n小明：开始。' % n for n in range(1, 11)), encoding='utf-8')
             self.assertTrue(d.refresh_script_workspace())
             self.settle_script_page(win, .4)
-            tree = d.script_trees['script']
+            tree = d.script_tree
             self.assertIn(str(path), tree.get_children())
-            self.assertIn('内部工作稿', tree.item(str(path), 'values')[0])
+            self.assertIn('内部工作稿', tree.item(str(path), 'values')[1])
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped())
 
     def test_stage_settings_is_immediately_to_the_right_of_send(self):

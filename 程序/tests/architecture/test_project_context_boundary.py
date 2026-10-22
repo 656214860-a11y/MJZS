@@ -56,7 +56,7 @@ class ProjectContextBoundaryTests(unittest.TestCase):
 
     def test_previs_page_and_finalization_inject_context_at_l3(self):
         page = _tree('local_previs.py')
-        show = next(node for node in page.body if isinstance(node, ast.FunctionDef) and node.name == 'show')
+        show = next(node for node in page.body if isinstance(node, ast.ClassDef) and node.name == '_LocalPrevisWindow')  # R1836：show 改写成类
         calls = [node for node in ast.walk(show) if isinstance(node, ast.Call)]
         self.assertFalse(any(isinstance(node.func, ast.Attribute) and node.func.attr == 'shot_directory'
                              for node in calls), '页面不得把裸路径直接传给 L2 白模目录服务')

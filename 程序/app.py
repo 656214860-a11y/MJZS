@@ -121,6 +121,21 @@ class App:
         # Embedded in the shared project workspace.
         # 第 38 期第 1 条：这一行只报本页那一侧，占位文字也别把两侧都写上。
         self.status=tk.StringVar();self.notifier=NotificationDispatcher(self.status, parent=window);self.shortcuts=ShortcutRegistry();self.shared_progress=QuietVar(value='进度读取中…')
+        table_shell = self._build_shot_table(window)
+        self._build_audio_options(window)
+        prompt_box = self._build_prompt_box(window)
+        self._build_prompt_actions(window, prompt_box)
+        self._build_white_model_cells(table_shell)
+        self._build_video_actions()
+        self._build_progress_and_log()
+        from video_prompt_results import PromptResults
+        self.prompt_results=PromptResults()
+        # 第 59 期第 7 条：self.stage_button 在这里不再清空——它就是「手动制作视频」右边那一颗。
+        self.closed=False;self.window.bind('<Destroy>',self.cancel_timers,add='+')
+        self.refresh();self.timer=self.scheduler.after(150,self.tick)
+
+    def _build_shot_table(self, window):
+        """镜头表：表格、行高、勾选列、悬停与首帧缩略图（从 __init__ 原样切出，R1807）。"""
         table_box=ttk.Frame(window);table_box.pack(fill='x',padx=SPACING['lg'])
         table_shell=DataTable(table_box,columns=[
             ('id','镜头号',110),('title','内容',145),(ASSET_FIELD,ASSET_TITLE,145),('seconds','秒数',145),
@@ -195,6 +210,10 @@ class App:
                                     hover=self.tree.cell_hover,plain=self.tree.cell_hover,
                                     zoom=lambda sid,column:frame_image(sid,ZOOM_SIZE))
         self.tree.cell_images=self.cell_images
+        return table_shell
+
+    def _build_audio_options(self, window):
+        """本地生成才有的「生成声音 / 音轨」一栏与线上索引（从 __init__ 原样切出，R1807）。"""
         # 第 32 期第 4 条：这一行原本只有一颗「查看首帧」，与视频页标题旁那一行
         # （shared_video_controls）重复，整行删掉；省下的一行留给提示词与镜头表。
         self.toolbar=None
@@ -211,6 +230,9 @@ class App:
             ttk.Label(sound_item,text='生成声音 / 音轨').pack(side='left',padx=(SPACING['none'],SPACING['xs']))
             self.square_check(sound_item,self.generate_audio)
         if not isinstance(self.studio,LocalStudio):self.studio.cloud_index()
+
+    def _build_prompt_box(self, window):
+        """提示词输入框、快捷键与右键菜单（从 __init__ 原样切出，R1807）。"""
         prompt_box=ttk.Frame(window);prompt_box.pack(fill='x',padx=SPACING['lg'])
         self.prompt_box=prompt_box      # 第 58 期第 1 条：量高度要用它的位置与高度
         prompt_scroll=ttk.Scrollbar(prompt_box,orient='vertical')
@@ -238,6 +260,10 @@ class App:
                               ('全选',lambda:self.prompt.tag_add('sel','1.0','end-1c'))]:
             prompt_menu.command(title,command)
         self.prompt.bind('<Button-3>',prompt_menu.popup)
+        return prompt_box
+
+    def _build_prompt_actions(self, window, prompt_box):
+        """提示词那一行的动作按钮与阶段配置按钮（从 __init__ 原样切出，R1807）。"""
         # 第 35 期第 5 条：这行按钮的上下外边距一起收到 2／4，紧贴下面的提示词内容框。
         prompt_actions=FlowBar(window);prompt_actions.pack(fill='x',padx=SPACING['lg'],pady=(SPACING['xs'],SPACING['xs']),before=prompt_box)
         # 第 29 期第 4 条：原来这里还有一颗「设置model+skill」和一份贴在同行的 Model＋SKILL
@@ -267,6 +293,9 @@ class App:
                 self.prompt_stage_button=ui_plugin_registry.module('skill_panel').stage_button_for(
                     prompt_actions,lambda:self.safe(self.prompt_stage_callback))
                 self.prompt_stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
+
+    def _build_white_model_cells(self, table_shell):
+        """白模勾选格与镜头表滚动联动（从 __init__ 原样切出，R1807）。"""
         self.white_model_status=tk.StringVar(value='白模：未关联')
         self.white_cells={};self.white_ready={}
         self.tree.bind('<Configure>',lambda e:self.layout_white_cells(),add='+')
@@ -277,6 +306,9 @@ class App:
         def horizontal_white(first,last):
             table_shell.horizontal_scrollbar.set(first,last);self.tree.after_idle(self.layout_white_cells)
         self.tree.configure(yscrollcommand=scroll_white,xscrollcommand=horizontal_white)
+
+    def _build_video_actions(self):
+        """页脚的两行主动作按钮与验收备注（从 __init__ 原样切出，R1807）。"""
         actions=ttk.Frame(self.footer);actions.pack(fill='x',padx=SPACING['sm'],pady=SPACING['xs'])
         actions.columnconfigure(0,weight=1)
         # 第 35 期第 5 条：验收那一栏原来占着右边的整列（请求宽 575），主动作那一行只剩 208 像素，
@@ -338,6 +370,9 @@ class App:
         # 它排在「自动提交」下面（自动提交先建、先 pack）。
         self.auto_review=tk.BooleanVar(value=False)
         self.progress_text=QuietVar(value='请选择镜头')
+
+    def _build_progress_and_log(self):
+        """页脚的进度行、忙碌状态与动态日志（从 __init__ 原样切出，R1807）。"""
         # 第 39 期第 2 条：「打开剪辑成片目录」单占一行，摆在「SH0XX」那句状态的正上方（用户指的位置）。
         clip_line=ttk.Frame(self.footer);clip_line.pack(fill='x',padx=SPACING['sm'],pady=(SPACING['xs'],SPACING['none']))
         SecondaryButton(clip_line,text='打开剪辑成片目录',command=lambda:self.safe(self.open_assembled)).pack(side='left')
@@ -359,11 +394,6 @@ class App:
         self.log=TextArea(log_body,bg=COLORS['background_card'],fg=COLORS['text_secondary'],height=self.LOG_ROWS_MIN,state='disabled',wrap='word',
                          borderwidth=0,highlightthickness=0,padx=SPACING['sm'],pady=SPACING['xs'],yscrollcommand=log_scroll.set)
         self.log.pack(side='left',fill='both',expand=True);log_scroll.configure(command=self.log.yview)
-        from video_prompt_results import PromptResults
-        self.prompt_results=PromptResults()
-        # 第 59 期第 7 条：self.stage_button 在这里不再清空——它就是「手动制作视频」右边那一颗。
-        self.closed=False;self.window.bind('<Destroy>',self.cancel_timers,add='+')
-        self.refresh();self.timer=self.scheduler.after(150,self.tick)
 
     def update_prompt_controls(self):
         selected=self.tree.selection()
@@ -1373,38 +1403,7 @@ class App:
                 else:self.write('后台任务 '+sid+' · '+text)
             try:ok,value=self.results.get_nowait()
             except queue.Empty:pass
-            else:
-                self.busy=False;self.submitting_sid=None
-                if self.local_submit_sid:
-                    if not ok:self.local_submit_error[self.local_submit_sid]=str(value)
-                    self.local_submit_sid=None
-                callback=getattr(self,'on_success',None);self.on_success=None
-                if ok and callback:
-                    try:callback(value)
-                    except Exception as exc:self.write('成片目录打开失败：'+str(exc))
-                self.next_poll=(max(time.monotonic(),getattr(self,'poll_started',0)+self.poll_wait) if self.quiet_run else time.monotonic()) if ok else time.monotonic()+30
-                phase='write_result'
-                try:
-                    if not (ok and self.quiet_run and self.last_poll_messages.get(self.polling_sid)==str(value)):self.write(str(value))
-                    if ok and self.quiet_run:self.last_poll_messages[self.polling_sid]=str(value)
-                    # 第 47 期第 5 条：手动／批量提交收了尾就说一句；后台轮询的进度不报（太吵）。
-                    phase='report_done'
-                    if ok and not self.quiet_run:self.report_done(value)
-                    phase='window_state'
-                    if self.window.winfo_ismapped():
-                        phase='refresh'
-                        self.refresh()
-                        phase='update_progress'
-                        self.update_progress()
-                    phase='failure_notice'
-                    if not ok:
-                        if self.quiet_run:
-                            self.write('后台查询或下载暂时中断，30秒后自动重试；不会重新提交生成。')
-                        elif self.window.winfo_ismapped():
-                            self.notifier.error(str(value), title='操作未完成')
-                except Exception as exc:
-                    # Results/task IDs are persisted by the engine; rendering must not stop polling.
-                    self._record_result_render_failure(exc,phase)
+            else:self._tick_result(ok,value)
             if time.monotonic()>=self.next_ui_update:
                 self.next_ui_update=time.monotonic()+1
                 try:
@@ -1432,6 +1431,37 @@ class App:
                 except tk.TclError:
                     # Tk 可能在存活检查或注册下一次回调时已退出。
                     pass
+    def _tick_result(self,ok,value):
+        """收一条提交／轮询结果：复位忙碌状态、回调、写日志、刷新界面与失败提示。"""
+        self.busy=False;self.submitting_sid=None
+        if self.local_submit_sid:
+            if not ok:self.local_submit_error[self.local_submit_sid]=str(value)
+            self.local_submit_sid=None
+        callback=getattr(self,'on_success',None);self.on_success=None
+        if ok and callback:
+            try:callback(value)
+            except Exception as exc:self.write('成片目录打开失败：'+str(exc))
+        self.next_poll=(max(time.monotonic(),getattr(self,'poll_started',0)+self.poll_wait) if self.quiet_run else time.monotonic()) if ok else time.monotonic()+30
+        phase='write_result'
+        try:
+            if not (ok and self.quiet_run and self.last_poll_messages.get(self.polling_sid)==str(value)):self.write(str(value))
+            if ok and self.quiet_run:self.last_poll_messages[self.polling_sid]=str(value)
+            # 第 47 期第 5 条：手动／批量提交收了尾就说一句；后台轮询的进度不报（太吵）。
+            phase='report_done'
+            if ok and not self.quiet_run:self.report_done(value)
+            phase='window_state'
+            if self.window.winfo_ismapped():
+                phase='refresh';self.refresh()
+                phase='update_progress';self.update_progress()
+            phase='failure_notice'
+            if not ok:
+                if self.quiet_run:
+                    self.write('后台查询或下载暂时中断，30秒后自动重试；不会重新提交生成。')
+                elif self.window.winfo_ismapped():
+                    self.notifier.error(str(value), title='操作未完成')
+        except Exception as exc:
+            # Results/task IDs are persisted by the engine; rendering must not stop polling.
+            self._record_result_render_failure(exc,phase)
     def cancel_timers(self,event=None):
         # 视频页定时器挂在 Tk 主窗口上，窗口销毁后回调会报 invalid command name。
         if event is not None and event.widget is not self.window:return

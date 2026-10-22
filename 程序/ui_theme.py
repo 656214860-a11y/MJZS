@@ -147,6 +147,95 @@ def main_window_size(work_width, work_height):
     return max(1, min(width, int(work_width))), max(1, min(height, int(work_height)))
 
 
+def _grab_popup(event,window):
+    import tkinter as tk
+    # <Map> 会沿 bindtags 冒泡：子 Label／Frame 映射时也会送到
+    # Toplevel 的绑定。只能由窗口自身取得 grab，绝不能让子控件
+    # 把整个应用的输入锁走。
+    if getattr(event,'widget',None) is not window:
+        return
+    try:window.grab_set()
+    except tk.TclError:pass
+
+
+def _release_popup_on_unmap(event,window):
+    import tkinter as tk
+    # 隐藏以复用的窗口不应继续持有输入；同样只响应自身事件，避免
+    # 子控件卸载时误释放仍可见窗口的 grab。
+    if getattr(event,'widget',None) is not window:
+        return
+    try:window.grab_release()
+    except tk.TclError:pass
+
+
+def _focus_popup(window):
+
+    """弹窗摆好之后把它点活（第 59 期第 13 条）。
+
+    这些弹窗都是「置顶 ＋ 抓到手里」的（见上面的 grab_popup）：置顶窗在 Windows 上
+
+    不会自动成为活动窗，用户的第一下点击只会被系统当成「点活这扇窗」——按钮于是要
+
+    点两次才生效（用户报的「关闭按钮要点两次」就是这个）。三虎的云朵框早就单独补过
+
+    这一下（pet_cloud 的 show → focus_force），这里把同一件事做给所有居中弹出的窗口。
+
+    """
+
+    try:window.focus_force()
+
+    except Exception:app_logging.swallowed()
+
+
+def _work_area(window,root):
+
+    try:
+
+        import ctypes
+
+        from ctypes import wintypes
+
+        class MONITORINFO(ctypes.Structure):
+
+            _fields_=[('cbSize',wintypes.DWORD),('rcMonitor',wintypes.RECT),('rcWork',wintypes.RECT),('dwFlags',wintypes.DWORD)]
+
+        api=ctypes.windll.user32
+
+        api.MonitorFromWindow.argtypes=[wintypes.HWND,wintypes.DWORD]
+
+        api.MonitorFromWindow.restype=wintypes.HANDLE
+
+        api.GetMonitorInfoW.argtypes=[wintypes.HANDLE,ctypes.POINTER(MONITORINFO)]
+
+        info=MONITORINFO();info.cbSize=ctypes.sizeof(info)
+
+        monitor=api.MonitorFromWindow(window.winfo_id(),2)
+
+        if api.GetMonitorInfoW(monitor,ctypes.byref(info)):
+
+            r=info.rcWork;return r.left,r.top,r.right,r.bottom
+
+    except (AttributeError,OSError):pass
+
+    return 0,0,root.winfo_screenwidth(),root.winfo_screenheight()
+
+
+def _cancel_position_job(window,event=None):
+    """取消该窗口尚未执行的定位回调。
+
+    ``after`` 挂在 Tcl 解释器上而不是控件上；窗口先销毁时，若 Python 闭包没有持有
+    回调 id，Tcl 到时仍会尝试执行已被删除的命令并污染 stderr。回调 id 因此归窗口
+    所有，且只绑定一次自身的 ``<Destroy>``，避免子控件销毁误取消定位。
+    """
+    if event is not None and getattr(event,'widget',None) is not window:
+        return
+    job=getattr(window,'_drama_place_job',None)
+    if job is not None:
+        try:window.after_cancel(job)
+        except Exception:app_logging.swallowed()
+    window._drama_place_job=None
+
+
 def install_window_placement(root):
 
     """Center each window once; leave subsequent user moves alone."""
@@ -162,22 +251,7 @@ def install_window_placement(root):
 
         original_init=tk.Toplevel.__init__
 
-        def grab_popup(event,window):
-            # <Map> 会沿 bindtags 冒泡：子 Label／Frame 映射时也会送到
-            # Toplevel 的绑定。只能由窗口自身取得 grab，绝不能让子控件
-            # 把整个应用的输入锁走。
-            if getattr(event,'widget',None) is not window:
-                return
-            try:window.grab_set()
-            except tk.TclError:pass
 
-        def release_popup_on_unmap(event,window):
-            # 隐藏以复用的窗口不应继续持有输入；同样只响应自身事件，避免
-            # 子控件卸载时误释放仍可见窗口的 grab。
-            if getattr(event,'widget',None) is not window:
-                return
-            try:window.grab_release()
-            except tk.TclError:pass
 
         def hidden_init(window,*args,**kwargs):
 
@@ -194,9 +268,9 @@ def install_window_placement(root):
                 # patched ``hidden_init`` retains callbacks for the app lifetime;
                 # a one-off lambda can be deleted before a queued Map event runs.
                 def grab_on_own_map(event,w=window):
-                    grab_popup(event,w)
+                    _grab_popup(event,w)
                 def release_on_own_unmap(event,w=window):
-                    release_popup_on_unmap(event,w)
+                    _release_popup_on_unmap(event,w)
                 window._drama_grab_popup_callback=grab_on_own_map
                 window._drama_release_popup_callback=release_on_own_unmap
                 window.bind('<Map>',grab_on_own_map,add='+')
@@ -212,55 +286,7 @@ def install_window_placement(root):
 
     root.attributes('-alpha',0)
 
-    def focus_popup(window):
 
-        """弹窗摆好之后把它点活（第 59 期第 13 条）。
-
-        这些弹窗都是「置顶 ＋ 抓到手里」的（见上面的 grab_popup）：置顶窗在 Windows 上
-
-        不会自动成为活动窗，用户的第一下点击只会被系统当成「点活这扇窗」——按钮于是要
-
-        点两次才生效（用户报的「关闭按钮要点两次」就是这个）。三虎的云朵框早就单独补过
-
-        这一下（pet_cloud 的 show → focus_force），这里把同一件事做给所有居中弹出的窗口。
-
-        """
-
-        try:window.focus_force()
-
-        except Exception:app_logging.swallowed()
-
-    def work_area(window):
-
-        try:
-
-            import ctypes
-
-            from ctypes import wintypes
-
-            class MONITORINFO(ctypes.Structure):
-
-                _fields_=[('cbSize',wintypes.DWORD),('rcMonitor',wintypes.RECT),('rcWork',wintypes.RECT),('dwFlags',wintypes.DWORD)]
-
-            api=ctypes.windll.user32
-
-            api.MonitorFromWindow.argtypes=[wintypes.HWND,wintypes.DWORD]
-
-            api.MonitorFromWindow.restype=wintypes.HANDLE
-
-            api.GetMonitorInfoW.argtypes=[wintypes.HANDLE,ctypes.POINTER(MONITORINFO)]
-
-            info=MONITORINFO();info.cbSize=ctypes.sizeof(info)
-
-            monitor=api.MonitorFromWindow(window.winfo_id(),2)
-
-            if api.GetMonitorInfoW(monitor,ctypes.byref(info)):
-
-                r=info.rcWork;return r.left,r.top,r.right,r.bottom
-
-        except (AttributeError,OSError):pass
-
-        return 0,0,root.winfo_screenwidth(),root.winfo_screenheight()
 
     def place(window,parent=None):
 
@@ -269,7 +295,7 @@ def install_window_placement(root):
         # 主窗口的宽高由下面的工作区规则直接给出，不必先量自然尺寸；整壳布局只算一遍。
         if parent is not None:window.update_idletasks()
 
-        left,top,right,bottom=work_area(parent or window)
+        left,top,right,bottom=_work_area(parent or window,root)
 
         width=min(window.winfo_width(),right-left-24)
 
@@ -310,31 +336,17 @@ def install_window_placement(root):
         # 启动画面盖着主窗口时由启动器决定何时显形，这里只摆位置。
         if not getattr(window,'_drama_hold_alpha',False):window.attributes('-alpha',1);window.lift()
 
-        if parent:focus_popup(window)      # 第 59 期第 13 条：弹窗摆好就点活，不留一下“白点”给用户
+        if parent:_focus_popup(window)      # 第 59 期第 13 条：弹窗摆好就点活，不留一下“白点”给用户
 
-    def cancel_position_job(window,event=None):
-        """取消该窗口尚未执行的定位回调。
-
-        ``after`` 挂在 Tcl 解释器上而不是控件上；窗口先销毁时，若 Python 闭包没有持有
-        回调 id，Tcl 到时仍会尝试执行已被删除的命令并污染 stderr。回调 id 因此归窗口
-        所有，且只绑定一次自身的 ``<Destroy>``，避免子控件销毁误取消定位。
-        """
-        if event is not None and getattr(event,'widget',None) is not window:
-            return
-        job=getattr(window,'_drama_place_job',None)
-        if job is not None:
-            try:window.after_cancel(job)
-            except Exception:app_logging.swallowed()
-        window._drama_place_job=None
 
     def schedule_place(window,parent=None):
-        cancel_position_job(window)
+        _cancel_position_job(window)
         if not getattr(window,'_drama_place_cancel_bound',False):
             # Keep the callback on the widget.  Tcl may dispatch a queued Destroy
             # event after this helper has returned; an unreferenced lambda would
             # then have been deleted from Tcl before the event is handled.
             def cancel_position_on_destroy(event, w=window):
-                cancel_position_job(w,event)
+                _cancel_position_job(w,event)
             window._drama_place_destroy_callback=cancel_position_on_destroy
             window.bind('<Destroy>',cancel_position_on_destroy,add='+')
             window._drama_place_cancel_bound=True

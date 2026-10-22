@@ -853,6 +853,24 @@ def _request_headers(headers):
     return merged
 
 
+_SECRET_HEADER_HINTS = ('auth', 'key', 'token', 'secret')
+
+
+def _scrub_error_detail(detail, headers):
+    """错误体进 UI／任务 JSON 之前去掉凭据：先按请求头里的真实值替换，再过通用脱敏正则。
+
+    网关可能原样回显请求头；正则只认 ``key=``／``Bearer`` 等写法，裸 ``sk-…`` 命中不了。"""
+    for name, value in (headers or {}).items():
+        if not any(hint in str(name).lower() for hint in _SECRET_HEADER_HINTS):
+            continue
+        token = str(value).strip()
+        if token.lower().startswith('bearer '):
+            token = token[7:].strip()
+        if len(token) >= 6:
+            detail = detail.replace(token, '[已脱敏]')
+    return app_logging.redact(detail)
+
+
 def _http_transport(url, payload, headers, timeout):
     """模型供应商通用 HTTP 传输；仅在实际请求时加载网络栈。"""
     import ssl
@@ -872,7 +890,7 @@ def _http_transport(url, payload, headers, timeout):
                 return {'ok': True, 'status': getattr(response, 'status', 200),
                         'data': json.loads(raw or b'{}')}
         except urllib.error.HTTPError as exc:
-            detail = exc.read()[:400].decode('utf-8', 'replace')
+            detail = _scrub_error_detail(exc.read()[:400].decode('utf-8', 'replace'), headers)
             return {'ok': False, 'status': exc.code, 'kind': _http_error_kind(exc.code),
                     'error': 'HTTP ' + str(exc.code) + '：' + detail}
         except urllib.error.URLError as exc:

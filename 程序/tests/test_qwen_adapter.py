@@ -49,7 +49,7 @@ class InteractiveLaunchTests(unittest.TestCase):
             "threading.Thread(target=name_when_ready,args=(process,),daemon=True).start()",
             adapter)
         start = desktop.index("if key in sessions and sessions[key].poll() is None:")
-        end = desktop.index("            def launched(result):", start)
+        end = desktop.index("        def launched(result):", start)  # R1840：open_flow_agent 改写成类，缩进少一级
         continuation = desktop[start:end]
         self.assertIn("from qwen_adapter import submit_existing", continuation)
-        self.assertIn("self.async_(submit,submitted);return", continuation)
+        self.assertIn("self.host.async_(submit,submitted);return", continuation)  # R1840：经宿主调用

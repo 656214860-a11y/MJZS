@@ -1192,30 +1192,28 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(str(d.script_box.winfo_class()), "TFrame")
             self.assertTrue(d.script_box.winfo_ismapped(),
                             "发现已有剧本文件时，三列表容器与列头必须保持可见")
-            self.assertEqual(set(d.script_trees), {"setting", "outline", "character", "script"})
-            for category, title in (("setting", "项目设定"), ("outline", "项目大纲"),
-                                    ("character", "角色卡"), ("script", "项目剧本")):
-                tree = d.script_trees[category]
-                self.assertEqual(str(tree.heading("name", "text")), title)
-                self.assertEqual(tuple(tree["columns"]), ("name",))
-                self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
-                self.assertEqual(int(tree.cget("height")), 1, "每一类文件单独从上到下紧凑排列")
-                self.assertEqual(int(tree.column("#0")["width"]), 28,
-                                 "剧本文件表首列应复用分镜页的勾选列宽度")
-            names = {
-                category: [d.script_trees[category].item(item, "values")[0]
-                           for item in d.script_trees[category].get_children()]
-                for category in d.script_trees
-            }
+            # R1776：四类文件合并成一张表，只留一个勾选列；类别用窄列标明。
+            tree = d.script_tree
+            self.assertEqual(str(tree.heading("kind", "text")), "类别")
+            self.assertEqual(str(tree.heading("name", "text")), "文件名")
+            self.assertEqual(tuple(tree["columns"]), ("kind", "name"))
+            self.assertNotIn("time", tuple(tree["columns"]), "剧本准备文件表不显示修改日期列")
+            self.assertEqual(int(tree.cget("height")), len(tree.get_children()),
+                             "表高按行数收紧，四类文件共用一张表")
+            self.assertEqual(int(tree.column("#0")["width"]), 28,
+                             "剧本文件表首列应复用分镜页的勾选列宽度")
+            self.assertEqual(set(d.script_row_category.values()), {"setting", "outline", "character", "script"})
+            names = {category: [] for category in ("setting", "outline", "character", "script")}
+            for item in tree.get_children():
+                names[d.script_row_category[item]].append(tree.item(item, "values")[1])
             self.assertEqual(names["setting"], ["项目设定_测试.md"])
             self.assertEqual(names["outline"], ["项目大纲_测试.md"])
             self.assertEqual(names["character"], ["角色卡_测试.md"])
             self.assertEqual(names["script"], ["项目剧本_测试.md"])
             self.assertNotIn("script.md", names["script"], "剧本结构阶段产物不应出现在剧本准备页")
-            for tree in d.script_trees.values():
-                for item in tree.get_children():
-                    self.assertEqual(len(tree.item(item, "values")), 1,
-                                     "剧本准备文件表每行只显示文件名")
+            for item in tree.get_children():
+                self.assertEqual(len(tree.item(item, "values")), 2,
+                                 "剧本准备文件表每行只显示类别与文件名")
 
     def test_script_structure_page_shows_source_and_output_in_separate_boxes(self):
         """剧本结构页上看剧本准备来源、下看结构化输出，手动制作和阶段配置夹在中间。"""
@@ -4898,7 +4896,7 @@ class EngineNameFallbackTests(unittest.TestCase):
     def test_the_page_asks_the_module_level_helper(self):
         source = (Path(PROGRAM) / "local_previs.py").read_text(encoding="utf-8")
         self.assertIn("def engine_name(project):", source, "取名字的容错逻辑要在模块级，自检才喂得进坏模块")
-        self.assertIn("previs_engine=engine_name(project)", source)
+        self.assertIn("previs_engine=engine_name(self.project)", source)  # R1836：show 改写成类
 
 
 

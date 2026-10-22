@@ -12,26 +12,6 @@ from tests.architecture._scan import production_files
 LIMIT = 150
 SLACK = 15
 OVERSIZE_CAPS = {
-    ('keyframe_comfy.py', 'show'): 626,
-    ('desktop_writing_page.py', 'writing'): 554,
-    ('pet_models_ui.py', 'open_manager'): 497,
-    ('storyboard_files.py', 'show_final'): 401,
-    ('storyboard_files.py', 'show'): 335,
-    ('desktop_storyboard_page.py', 'storyboard'): 323,
-    ('app.py', '__init__'): 267,
-    ('desktop_idea_chat.py', 'open_flow_agent'): 254,
-    ('local_previs.py', 'show'): 252,
-    ('desktop_script_pages.py', 'script_structure'): 205,
-    ('asset_batch.py', 'show'): 243,
-    ('desktop_asset_pages.py', 'assets'): 225,
-    ('ui_theme.py', 'install_window_placement'): 224,
-    ('cloud_video.py', 'settings_window'): 204,
-    ('reference_wall.py', 'show'): 193,
-    ('writing_api.py', '_preparation_step'): 181,
-    ('desktop.py', '__init__'): 175,
-    ('desktop_idea_chat.py', 'send_message'): 171,
-    ('native_assets.py', 'attach_controls'): 167,
-    ('desktop.py', 'show'): 152,
 }
 
 

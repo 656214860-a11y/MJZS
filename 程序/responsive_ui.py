@@ -93,6 +93,18 @@ def bind_row_toggle(tree, toggle, link_columns=()):
         return 'break'
     tree.bind('<Button-1>',click,add='+')
 
+def bind_space_toggle(tree, toggle):
+    """空格键勾选／取消当前行：优先光标行，光标行失效时退到高亮行，并把高亮对齐到该行。"""
+    def press(event):
+        row=tree.focus()
+        if not row or not tree.exists(row):
+            rows=tree.selection();row=rows[0] if rows else None
+        if row:
+            if tree.selection()!=(row,):tree.selection_set(row)
+            toggle(row)
+        return 'break'
+    tree.bind('<space>',press,add='+')
+
 def checked_rows(tree, is_checked):
     """内容框里勾着的那几行（按表格里的先后次序）。
 
@@ -693,16 +705,21 @@ class ScrollForm:
 
     内容框长高了不用管滚动范围（内容框自己的 <Configure> 已经接上）；滚轮要等控件都建完再
     `bind_wheel()`——Tkinter 的 <MouseWheel> 是逐控件绑定，递归挂一次之后新加的子控件才会跟着滚。
+
+    ``scrollbar=False`` 时不建可见滚动条（``self.scroll`` 为 None），仍可用滚轮／翻页键滚动画布；
+    桌面左侧阶段导航用这种方式，省出一条竖栏的宽度。
     """
 
-    def __init__(self, parent, bg=None):
+    def __init__(self, parent, bg=None, *, scrollbar=True):
         options = {'highlightthickness': 0}
         if bg is not None:
             options['bg'] = bg
         self.canvas = tk.Canvas(parent, **options)
-        self.scroll = ttk.Scrollbar(parent, orient='vertical', command=self.canvas.yview)
-        self.canvas.configure(yscrollcommand=self.scroll.set)
-        self.scroll.pack(side='right', fill='y')
+        self.scroll = None
+        if scrollbar:
+            self.scroll = ttk.Scrollbar(parent, orient='vertical', command=self.canvas.yview)
+            self.canvas.configure(yscrollcommand=self.scroll.set)
+            self.scroll.pack(side='right', fill='y')
         self.canvas.pack(side='left', fill='both', expand=True)
         self.form = ttk.Frame(self.canvas)
         self.window_id = self.canvas.create_window((0, 0), window=self.form, anchor='nw')

@@ -2259,6 +2259,132 @@
       "reason_constant": "PLATFORM_TK_DISPLAY",
       "reason": "当前环境没有可用 Tk display；可创建窗口时应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_open_manager_equivalence.py",
+      "test": "OpenManagerEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_storyboard_files_equivalence.py",
+      "test": "StoryboardFilesEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_storyboard_page_equivalence.py",
+      "test": "StoryboardPageEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_page_equivalence.py",
+      "test": "AssetPageEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_script_structure_page_equivalence.py",
+      "test": "ScriptStructurePageEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_writing_page_equivalence.py",
+      "test": "WritingPageEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_native_asset_controls_equivalence.py",
+      "test": "AssetControlsEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_reference_wall_equivalence.py",
+      "test": "ReferenceWallEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_cloud_settings_window_equivalence.py",
+      "test": "CloudSettingsWindowEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_content_box_equivalence.py",
+      "test": "ContentBoxEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_window_placement_equivalence.py",
+      "test": "WindowPlacementEquivalence.test_matches_legacy",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_asset_batch_window_equivalence.py",
+      "test": "AssetBatchWindowEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_local_previs_page_equivalence.py",
+      "test": "LocalPrevisPageEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_keyframe_comfy_window_equivalence.py",
+      "test": "KeyframeComfyWindowEquivalence.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
     }
   ]
 }

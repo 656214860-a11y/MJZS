@@ -294,6 +294,8 @@ class PerfBaseline(unittest.TestCase):
         from desktop import Desktop
         # R1480／R1490／R1499：Desktop 方法分布在 Mixin 类里，按整个继承链取源码。
         source = ''.join(inspect.getsource(cls) for cls in Desktop.__mro__ if cls is not object)
+        import desktop_writing_page   # R1817：writing 改写成 _WritingPage，测量方法在该类里
+        source += inspect.getsource(desktop_writing_page._WritingPage)
         self.assertIn('def measure_page_fixed', source,
                       '固定高度应在空闲布局批次测量')
         start = source.index('def measure_page_fixed')

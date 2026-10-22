@@ -3,7 +3,7 @@ import hashlib,json,os,subprocess,time,uuid,re,threading
 from pathlib import Path
 from file_cache import remove_temporary_file
 from agent.core import read,save,save_text,temporary_path,replace
-from platform_tools import hidden_console_flags, launch_windows_app
+from platform_tools import hidden_console_flags, launch_windows_app, terminate_process_tree
 from workflow_context_budget import ensure_request_context
 
 def install_root():return Path(os.environ.get('LOCALAPPDATA',str(Path.home())))/'qwen-code/qwen-code'
@@ -135,6 +135,10 @@ def run_background(config,project,output,report,logfile,prompt):
             process=subprocess.Popen(args,cwd=project,env=env,stdin=subprocess.PIPE,text=True,encoding='utf-8',errors='replace',stdout=out,stderr=log,creationflags=hidden_console_flags())
             register_process(project,process)
             try:process.communicate(prompt)
+            except BaseException:
+                # 异常打断时先结束进程树再注销，否则它脱离登记表后「强制停止」找不到。
+                terminate_process_tree(process)
+                raise
             finally:forget_process(project,process)
             returncode=process.returncode
         if returncode:raise ValueError('Qwen 执行失败，请查看运行日志并检查 API、模型权限及额度')

@@ -36,7 +36,7 @@
 | `程序/logs/**`、`启动错误.log`、`程序/.*.out` | 历史运行日志与自检输出 | 正式副本不携带既有日志；运行期仍按现有行为创建日志。 |
 | `程序/private/**` | 本机私有数据 | 不得随分发副本携带私有配置或密钥副本。 |
 | `.agent-handoff/**`（含 AGENT_HANDOFF／AGENT_SESSION_PROMPTS／GLOSSARY）、`.claude/**`、`.codex/**`、`outputs/**`（本机 Agent 草稿目录，已被 .git/info/exclude 忽略） | 代理/开发产物 | 不是运行时内容，不进正式副本。 |
-| `.wt/**`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`reorganize_install.py` | 开发/代理资料 | 不是运行时内容。 |
+| `.wt/**`、`.gitattributes`、`.gitignore`、`.claudeignore`、`AGENTS.md`、`CLAUDE.md`、`BLOCKED_ISSUES.md`、`reorganize_install.py` | 开发/代理资料 | 不是运行时内容。 |
 | `程序/.*.err`、`程序/.*.out`、`程序/.*.log`、`维护记录/**` | 自检与维护产物 | 可再生成的诊断输出。 |
 | `程序/outputs/**`、`程序/工作流任务/**`、`程序/episode/**`、`程序/tasks/**`、`程序/_supervisor/**` | 本地运行产物 | 可再生产物，不随分发副本携带。 |
 | `升级备份/**` | 本机维护产物 | 不属于正式运行所需内容。 |

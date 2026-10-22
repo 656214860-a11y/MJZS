@@ -65,13 +65,14 @@ class RequestFreezeEntryTests(unittest.TestCase):
         desktop = desktop_text()
         api = (ROOT / 'writing_api.py').read_text(encoding='utf-8')
         self.assertIn('request_model = writing_api.capture_request(self.root)', desktop)
-        self.assertIn('validate_selected_skills(self.root, stage)', desktop)
-        self.assertIn('config = freeze_skills(config)', desktop)
+        self.assertIn('validate_selected_skills(self.host.root, self.stage)', desktop)
+        self.assertIn('self.config = freeze_skills(self.config)', desktop)
         self.assertIn("request['settings'] = workflow_settings.freeze_skills(settings)", api)
         # 桌面所有阶段派发都只经 open_flow_agent 这一条投递入口。
         self.assertEqual(desktop.count('launch_interactive('), 1)
-        start = desktop.index('def open_flow_agent(')
-        end = desktop.find('\n    def ', start + 5)  # R1490：它现在是 Mixin 文件的最后一个方法，后面可能没有下一个 def
+        # open_flow_agent 已改写成 _FlowAgentLaunch：build 在主线程捕获配置，prepare 在工作线程构建提示词。
+        start = desktop.index('class _FlowAgentLaunch')
+        end = desktop.find('\nclass ', start + 5)
         flow = desktop[start:end if end != -1 else len(desktop)]
-        self.assertLess(flow.index('current(self.root,stage)'), flow.index('def build():'),
+        self.assertLess(flow.index('current(self.host.root,self.stage)'), flow.index('def prepare(self):'),
                         '配置快照必须先于工作线程内的提示词构建捕获')

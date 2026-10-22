@@ -19,12 +19,15 @@ class AsyncTasksMixin:
         def run():
             try:self.q.put((ticket,True,self.background_tasks.run(ticket,fn),done))
             except Exception as e:
-                import diagnostic_capture
-                diagnostic_capture.record_degradation(
-                    e, page=PAGES[getattr(self,'page_index',0)],
-                    project=str(getattr(self,'root', '') or ''),
-                    automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
+                # 先交付失败结果：诊断记录自己抛错时，worker／忙碌态仍要靠这条结果复位。
                 self.q.put((ticket,False,str(e),None))
+                try:
+                    import diagnostic_capture
+                    diagnostic_capture.record_degradation(
+                        e, page=PAGES[getattr(self,'page_index',0)],
+                        project=str(getattr(self,'root', '') or ''),
+                        automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
+                except Exception:app_logging.swallowed()
         threading.Thread(target=run,daemon=True).start()
         self._schedule_async_result_poll(ticket)
         return ticket
@@ -89,6 +92,17 @@ class AsyncTasksMixin:
         try:
             self.status.set(prefix+str(exc))
         except Exception:app_logging.swallowed()
+    def _async_failed(self,value):
+        """主后台任务失败：恢复发送框与剧本中断按钮、清掉思考气泡、弹错误。"""
+        # 创意对话失败也要恢复发送框；否则一次网络错误会把唯一发送入口永久锁住。
+        if getattr(self,'_idea_requesting',False):
+            self.idea_chat_controller.cancel_request()
+            send=getattr(self,'idea_send',None)
+            if send is not None and send.winfo_exists():send.state(['!disabled'])
+        self._script_agent_launching=False
+        self.update_script_interrupt_button()
+        self.clear_thinking()
+        self.notifier.error(str(value), title='操作未完成')
     def _tick_async_result(self):
         """消费主后台任务结果，并恢复相关 UI 与自动链。"""
         # 首帧的创意历史发现不属于用户操作，单独回收，绝不改变 worker 状态。
@@ -112,16 +126,7 @@ class AsyncTasksMixin:
             self.worker=False;self.busy_state.set_busy(False)
             if ok and done:done(value)
             elif ok:self.status.set(str(value))
-            elif not ok:
-                # 创意对话失败也要恢复发送框；否则一次网络错误会把唯一发送入口永久锁住。
-                if getattr(self,'_idea_requesting',False):
-                    self.idea_chat_controller.cancel_request()
-                    send=getattr(self,'idea_send',None)
-                    if send is not None and send.winfo_exists():send.state(['!disabled'])
-                self._script_agent_launching=False
-                self.update_script_interrupt_button()
-                self.clear_thinking()
-                self.notifier.error(str(value), title='操作未完成')
+            elif not ok:self._async_failed(value)
             # 自动链派到结构剧本时，若恰有另一项后台工作在收尾，不能把这次
             # 暂时占用误判成永久失败。只保留一个待派发标记；当前队列清空后
             # 仍走 L3 注册器重新启动，避免在 UI 层复制派发逻辑或无限重试。

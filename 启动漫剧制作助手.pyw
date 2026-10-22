@@ -53,6 +53,11 @@ try:
     try:
         from ui_widgets import Splash
         splash=Splash(window,expected_rect())
+        def record_splash(marks):
+            import diagnostic_capture
+            for key in ('ready','total'):
+                if key in marks:diagnostic_capture.record_startup_timing('splash_'+key,marks[key])
+        splash.on_finish=record_splash
     except Exception:
         splash=None
     def step(index):

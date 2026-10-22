@@ -30,11 +30,14 @@ class StageWorkspaceBoundaryTests(unittest.TestCase):
     def test_asset_page_delegates_category_directory_initialization(self):
         tree = parse_desktop()
         desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
-        assets = next(node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'assets')
-        calls = [node.func.id for node in ast.walk(assets) if isinstance(node, ast.Call)
+        # assets 是薄方法，页面主体在 _AssetPage 类里：两处一起扫
+        scopes = [node for node in desktop.body if isinstance(node, ast.FunctionDef) and node.name == 'assets']
+        scopes += [node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == '_AssetPage']
+        self.assertEqual(len(scopes), 2)
+        calls = [node.func.id for scope in scopes for node in ast.walk(scope) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name)]
         self.assertIn('ensure_browser_directory', calls)
-        direct_mkdir = [node.lineno for node in ast.walk(assets) if isinstance(node, ast.Call)
+        direct_mkdir = [node.lineno for scope in scopes for node in ast.walk(scope) if isinstance(node, ast.Call)
                         and isinstance(node.func, ast.Attribute) and node.func.attr == 'mkdir']
         self.assertEqual([], direct_mkdir, '资产页不得直接创建分类目录: ' + str(direct_mkdir))
 

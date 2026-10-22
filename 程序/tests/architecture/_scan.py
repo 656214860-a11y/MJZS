@@ -56,7 +56,7 @@ def parse(path: Path) -> ast.Module:
 
 # R1480／R1490：Desktop 的方法分散在 desktop.py 与两个原样迁出的 Mixin 模块里；检查 Desktop 源码
 # 行为（调用、方法体）的门禁用下面两个入口，别再直接读 desktop.py，否则迁出的方法会"消失"。
-DESKTOP_PARTS = ("desktop.py", "desktop_auto_flows.py", "desktop_idea_chat.py", "desktop_writing_page.py",
+DESKTOP_PARTS = ("desktop.py", "desktop_auto_flows.py", "desktop_idea_chat.py", "desktop_idea_bubbles.py", "desktop_writing_page.py",
                  "desktop_storyboard_page.py",
                  "desktop_idea_menus.py", "desktop_asset_pages.py", "desktop_script_pages.py", "desktop_media_pages.py", "desktop_project_pages.py",
                  "desktop_layout.py", "desktop_pet_bridge.py", "desktop_async_tasks.py")
@@ -86,5 +86,24 @@ def import_rows(path: Path) -> Iterator[tuple[int, str]]:
         elif isinstance(node, ast.ImportFrom) and node.module:
             yield node.lineno, node.module.split(".", 1)[0]
 
+def dynamic_import_rows(path: Path) -> Iterator[tuple[int, str]]:
+    """产出常量字符串形式的动态导入（import_module／__import__）的顶层包名及行号。
+
+    只认第一个参数是字符串常量的调用；变量名拼出来的模块名在静态扫描里不可知，不在此列。
+    动态导入曾被用来绕开静态环检测，所以环依赖门禁要把它们并进图里。
+    """
+    for node in ast.walk(parse(path)):
+        if not isinstance(node, ast.Call) or not node.args:
+            continue
+        func = node.func
+        name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
+        first = node.args[0]
+        if name in ("import_module", "__import__") and isinstance(first, ast.Constant) and isinstance(first.value, str):
+            yield node.lineno, first.value.split(".", 1)[0]
+
 def imports_of(path: Path) -> frozenset[str]:
     return frozenset(name for _, name in import_rows(path))
+
+def imports_with_dynamic_of(path: Path) -> frozenset[str]:
+    """静态导入加常量字符串动态导入；环依赖门禁用，分层门禁仍只看静态口径。"""
+    return frozenset(name for _, name in (*import_rows(path), *dynamic_import_rows(path)))

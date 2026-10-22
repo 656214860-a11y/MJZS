@@ -18,23 +18,23 @@ from workflow_context_budget import ensure_request_context
 import client_profiles
 
 
-def reserve_stage_process_slot(project, stage):
-    """L3 在唯一并行配置上计算模型进程容量，L1 注册表只保存槽位。"""
+def _stage_slot_arguments(stage):
+    """阶段名（英文键或中文名）→ 槽位注册表要的 (键, 阶段并发上限, 全局上限, 显示名)。"""
     from pet_bus import STAGE_NAMES
     from stage_parallel import GLOBAL_LIMIT, concurrency_limit, label
     value = str(stage or '')
     key = next((name for name, text in STAGE_NAMES.items() if value in (name, text)), value)
     key = {'writing': 'script', 'frames': 'keyframe', 'video_prompt': 'video'}.get(key, key)
-    return reserve_process_slot(project, key, concurrency_limit(key), GLOBAL_LIMIT, label(key))
+    return key, concurrency_limit(key), GLOBAL_LIMIT, label(key)
+
+
+def reserve_stage_process_slot(project, stage):
+    """L3 在唯一并行配置上计算模型进程容量，L1 注册表只保存槽位。"""
+    return reserve_process_slot(project, *_stage_slot_arguments(stage))
 
 def request_stage_process_slot(project, stage):
     """申请交互模型槽位：满额时返回排队票据，调用方可在 UI 空闲时轮询。"""
-    from pet_bus import STAGE_NAMES
-    from stage_parallel import GLOBAL_LIMIT, concurrency_limit, label
-    value = str(stage or '')
-    key = next((name for name, text in STAGE_NAMES.items() if value in (name, text)), value)
-    key = {'writing': 'script', 'frames': 'keyframe', 'video_prompt': 'video'}.get(key, key)
-    return request_process_slot(project, key, concurrency_limit(key), GLOBAL_LIMIT, label(key))
+    return request_process_slot(project, *_stage_slot_arguments(stage))
 
 def claim_stage_process_slot(ticket):
     return claim_process_slot(ticket)
@@ -151,6 +151,10 @@ def _run(args,project,prompt,stdout,stderr):
                              stdout=stdout,stderr=stderr,cwd=project,creationflags=hidden_console_flags())
     register_process(key,process)
     try:process.communicate(prompt)
+    except BaseException:
+        # 异常打断（含 Ctrl+C）时进程可能还在跑；先结束再注销，否则它脱离登记表后「强制停止」找不到。
+        terminate_process_tree(process)
+        raise
     finally:forget_process(key,process)
     return process.returncode
 
@@ -197,6 +201,26 @@ def _run_opencode(config,project,output,report,logfile,prompt):
         if response_temp.exists():remove_temporary_file(response_temp)
 
 
+def _run_claude_json(args,project,prompt,log,report):
+    """Claude 以 JSON 输出运行：响应落临时文件，成功后转正并写制作报告。"""
+    response=Path(report).with_suffix('.response.json')
+    response_temp=temporary_path(response)
+    try:
+        with response_temp.open('w',encoding='utf-8') as out:
+            returncode=_run(args,project,prompt,out,log)
+        if returncode==0:
+            result=json.loads(response_temp.read_text(encoding='utf-8-sig'))
+            replace(response_temp,response)
+            report_text = str(result.get('result', '')).strip()
+            if not report_text:
+                raise ValueError('Claude 未返回制作报告正文，请查看响应记录')
+            save_text(Path(report), report_text)
+            if result.get('is_error') or result.get('permission_denials'):
+                raise ValueError('Claude 未完成任务或所需操作未获授权，请查看制作报告及响应记录')
+    finally:
+        if response_temp.exists():remove_temporary_file(response_temp)
+    return returncode
+
 def run_background(config,project,output,report,logfile,prompt):
     prompt=ensure_request_context(prompt, config.get('stage', '当前阶段'))
     slot=reserve_stage_process_slot(project, config.get('stage', '当前阶段'))
@@ -232,22 +256,7 @@ def run_background(config,project,output,report,logfile,prompt):
             if config['engine']=='codex':
                 returncode=_run(args,project,prompt,log,log)
             else:
-                response=Path(report).with_suffix('.response.json')
-                response_temp=temporary_path(response)
-                try:
-                    with response_temp.open('w',encoding='utf-8') as out:
-                        returncode=_run(args,project,prompt,out,log)
-                    if returncode==0:
-                        result=json.loads(response_temp.read_text(encoding='utf-8-sig'))
-                        replace(response_temp,response)
-                        report_text = str(result.get('result', '')).strip()
-                        if not report_text:
-                            raise ValueError('Claude 未返回制作报告正文，请查看响应记录')
-                        save_text(Path(report), report_text)
-                        if result.get('is_error') or result.get('permission_denials'):
-                            raise ValueError('Claude 未完成任务或所需操作未获授权，请查看制作报告及响应记录')
-                finally:
-                    if response_temp.exists():remove_temporary_file(response_temp)
+                returncode=_run_claude_json(args,project,prompt,log,report)
         if returncode:raise ValueError(ENGINES[config['engine']]+' 执行失败，请查看运行日志（安装版本、登录、额度或权限）')
     finally:
         release_process_slot(slot)

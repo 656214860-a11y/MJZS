@@ -39,7 +39,7 @@ class ShortcutRegistryBoundaryTests(unittest.TestCase):
 
     def test_chat_bubble_copy_is_registered_through_the_unified_registry(self):
         text = desktop_text()  # R1499：Desktop 源码分布在 desktop.py 与迁出的 Mixin 模块
-        self.assertIn('self.shortcuts.bind(box,', text)
+        self.assertIn('self.page.shortcuts.bind(self.box,', text)  # R1817：气泡框所在的 writing 改写成了 _WritingPage 类
         self.assertNotIn("box.bind('<Control-c>'", text)
         self.assertNotIn("box.bind('<Control-C>'", text)
         ast.parse(text)
@@ -47,7 +47,7 @@ class ShortcutRegistryBoundaryTests(unittest.TestCase):
     def test_existing_accelerator_pages_keep_registry_calls(self):
         for filename, marker in {
             "app.py": "self.shortcuts.bind(self.prompt,",
-            "desktop.py": "self.shortcuts.bind(box,",
+            "desktop.py": "self.page.shortcuts.bind(self.box,",  # R1817：writing 改写成 _WritingPage 类
             "storyboard_table_ui.py": "ShortcutRegistry().bind(tree,",
         }.items():
             source = desktop_text() if filename == "desktop.py" else (ROOT / filename).read_text(encoding="utf-8")

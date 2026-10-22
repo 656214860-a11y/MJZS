@@ -59,7 +59,7 @@ class WritingPublicationBoundaryTests(unittest.TestCase):
         self.assertIn('def request_stage_instruction(', controller)
         self.assertIn('def publish_writing_context(', controller)
         self.assertIn('def import_writing_project(', stage)
-        self.assertIn('request_stage_instruction(project,stage,data)', desktop)
+        self.assertIn('request_stage_instruction(self.project,self.stage,data)', desktop)  # R1840：open_flow_agent 改写成类
         self.assertIn('import_writing_project(self.root,file)', app)
 
 

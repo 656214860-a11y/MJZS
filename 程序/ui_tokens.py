@@ -228,6 +228,8 @@ STAGE_PANEL_LAYOUT = {
 }
 # 剧本准备文件列表：比正文小一档，一屏多放几个文件名，9 号雅黑仍清晰。
 SCRIPT_FILE_FONT = ("Microsoft YaHei UI", 9)
+SCRIPT_KIND_COLUMN_WIDTH = 56  # 剧本准备文件表「类别」列：容得下「角色卡」三个字
+SCRIPT_FILE_MAX_ROWS = 6  # 合并后的文件表最多同时露出的行数，再多靠滚动条
 SCRIPT_ACTION_PADDING = (SPACING["md"] // 2, SPACING["xs"])
 
 # 剧本结构页「编辑」后自动保存的防抖间隔（毫秒）：连续输入在此间隔内只落盘一次。

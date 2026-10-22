@@ -348,57 +348,86 @@ def run(project, base, items, url, report, timeout=7200, options=None, stop=None
 
 
 def attach_controls(app, win, form, footer, project, base, selection, status, reload_rows, context_matches):
-    import tkinter as tk
-    from tkinter import ttk, messagebox
-    from ui_widgets import BusyState, Card, SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
-    from responsive_ui import FlowBar
-    progress_text=tk.StringVar()
-    events=queue.Queue()
-    prefsfile=project/'ui_settings.json'
-    prefs=read(prefsfile) if prefsfile.is_file() else {}
-    saved=prefs.get('asset_workflow',{})
-    model=tk.StringVar(value=saved.get('model',LOCAL));aspect=tk.StringVar(value=saved.get('aspect_ratio','1:1'))
-    config=Card(form);config.pack(fill='x',padx=14,pady=10)
-    config.columnconfigure(1,weight=1)
-    ttk.Label(config,text='生图模型').grid(row=0,column=0,columnspan=4,sticky='w')
-    ttk.Label(config,text='模型').grid(row=1,column=0,sticky='w',padx=(0,8))
-    selector=SelectBox(config,textvariable=model,values=MODELS);selector.grid(row=1,column=1,sticky='ew',padx=SPACING['xs'])
-    ttk.Label(config,text='画幅').grid(row=1,column=2,padx=(12,4))
-    shape=SelectBox(config,textvariable=aspect,values=['1:1','9:16','16:9']);shape.grid(row=1,column=3,padx=SPACING['xs'])
-    hint=tk.StringVar();account_text=tk.StringVar(value='云模型账号 / 密钥')
-    ProgressLabel(config,textvariable=hint,wraplength=730).grid(row=2,column=0,columnspan=4,sticky='w',pady=SPACING['sm'])
-    def update_hint():
-        account_text.set('火山 API 设置' if model.get()=='Seedream 5.0 Pro' else '云模型账号 / 密钥')
-        if model.get()=='Seedream 5.0 Pro':
+    return _AssetControls(app=app, win=win, form=form, footer=footer, project=project, base=base, selection=selection, status=status, reload_rows=reload_rows, context_matches=context_matches).build()
+
+
+class _AssetControls:
+    """制图窗口的模型、检测与制图控制区；闭包状态挂在实例上。"""
+    def __init__(self, **context):
+        self.__dict__.update(context)
+
+    def build(self):
+        import tkinter as tk
+        from tkinter import ttk, messagebox
+        from ui_widgets import BusyState, Card, SelectBox, PrimaryButton, ProgressLabel, SecondaryButton, notify
+        self.notify = notify
+        from responsive_ui import FlowBar
+        self.progress_text=tk.StringVar()
+        self.events=queue.Queue()
+        self.prefsfile=self.project/'ui_settings.json'
+        prefs=read(self.prefsfile) if self.prefsfile.is_file() else {}
+        saved=prefs.get('asset_workflow',{})
+        self.model=tk.StringVar(value=saved.get('model',LOCAL));self.aspect=tk.StringVar(value=saved.get('aspect_ratio','1:1'))
+        config=Card(self.form);config.pack(fill='x',padx=14,pady=10)
+        config.columnconfigure(1,weight=1)
+        ttk.Label(config,text='生图模型').grid(row=0,column=0,columnspan=4,sticky='w')
+        ttk.Label(config,text='模型').grid(row=1,column=0,sticky='w',padx=(0,8))
+        self.selector=SelectBox(config,textvariable=self.model,values=MODELS);self.selector.grid(row=1,column=1,sticky='ew',padx=SPACING['xs'])
+        ttk.Label(config,text='画幅').grid(row=1,column=2,padx=(12,4))
+        self.shape=SelectBox(config,textvariable=self.aspect,values=['1:1','9:16','16:9']);self.shape.grid(row=1,column=3,padx=SPACING['xs'])
+        self.hint=tk.StringVar();self.account_text=tk.StringVar(value='云模型账号 / 密钥')
+        ProgressLabel(config,textvariable=self.hint,wraplength=730).grid(row=2,column=0,columnspan=4,sticky='w',pady=SPACING['sm'])
+        self.selector.bind('<<ComboboxSelected>>',self.selected);self.shape.bind('<<ComboboxSelected>>',self.selected)
+        SecondaryButton(config,textvariable=self.account_text,command=lambda:self.app.safe(self.account)).grid(row=3,column=0,columnspan=2,sticky='w')
+        self.update_hint()
+        self.check_stop=threading.Event()
+        self.gen_stop=threading.Event()
+        progress=ttk.Progressbar(self.form,mode='indeterminate');progress.pack(fill='x',padx=14,pady=6)
+        ProgressLabel(self.form,textvariable=self.progress_text,wraplength=760,justify='left').pack(anchor='w',padx=14,pady=(0,4))
+        self.busy=BusyState(self.progress_text,progress)
+        tk_timers.repeat(self.win,250,self.poll)
+        # 第 65 期任务 1：这一排只留「启动并检测」和「取消检测」。「手动制作资产」撤掉——检测通过就自动开跑
+        # （见上面 done）；「桌面打开 ComfyUI」主界面已经有一颗；「强制关闭 ComfyUI」与「制作记录」搬到主界面
+        # 「阶段配置」右边（desktop.asset_page）。同一件事只留一个入口。
+        buttons=FlowBar(self.form);buttons.pack(fill='x',padx=14,pady=(2,8))
+        self.check_button=PrimaryButton(buttons,text='启动并检测',command=lambda:self.app.safe(self.check));self.check_button.pack(side='left')
+        SecondaryButton(buttons,text='预估费用',command=lambda:self.app.safe(self.preview_cost)).pack(side='left',padx=(6,0))
+        self.cancel_button=SecondaryButton(buttons,text='取消检测',command=self.cancel,state='disabled');self.cancel_button.pack(side='left',padx=(6,0))
+        tk_timers.repeat(self.win,250,self.update_buttons)
+        tk_timers.repeat(self.win,250,self.poll)
+        self.update_buttons()
+
+    def update_hint(self):
+        self.account_text.set('火山 API 设置' if self.model.get()=='Seedream 5.0 Pro' else '云模型账号 / 密钥')
+        if self.model.get()=='Seedream 5.0 Pro':
             from seedream_api import public_profile
             try:detail='当前模型：'+public_profile()['model']
             except ValueError:detail='请保存实际模型 ID 和 API Key。'
-            hint.set('使用自己的火山 API，费用计入火山账户。'+detail)
-        else:hint.set('本地运行，无需登录。提示词与参考图直接提交 ComfyUI。' if model.get()==LOCAL else '使用 Comfy 账户余额；请在“云模型账号 / 密钥”登录并配置 Comfy API Key。')
-    def selected(event=None):
-        update_hint()
-        prefs=read(prefsfile) if prefsfile.is_file() else {}
-        prefs['asset_workflow']={'model':model.get(),'aspect_ratio':aspect.get(),'quality':'medium','seed':42};save(prefsfile,prefs)
-    selector.bind('<<ComboboxSelected>>',selected);shape.bind('<<ComboboxSelected>>',selected)
-    def account():
-        if model.get()=='Seedream 5.0 Pro':
+            self.hint.set('使用自己的火山 API，费用计入火山账户。'+detail)
+        else:self.hint.set('本地运行，无需登录。提示词与参考图直接提交 ComfyUI。' if self.model.get()==LOCAL else '使用 Comfy 账户余额；请在“云模型账号 / 密钥”登录并配置 Comfy API Key。')
+
+    def selected(self, event=None):
+        self.update_hint()
+        prefs=read(self.prefsfile) if self.prefsfile.is_file() else {}
+        prefs['asset_workflow']={'model':self.model.get(),'aspect_ratio':self.aspect.get(),'quality':'medium','seed':42};save(self.prefsfile,prefs)
+
+    def account(self):
+        if self.model.get()=='Seedream 5.0 Pro':
             from seedream_settings import show
-            show(win,on_saved=update_hint)
+            show(self.win,on_saved=self.update_hint)
         else:
             from cloud_assets import settings
-            settings(win)
-    SecondaryButton(config,textvariable=account_text,command=lambda:app.safe(account)).grid(row=3,column=0,columnspan=2,sticky='w')
-    update_hint()
-    check_stop=threading.Event()
-    gen_stop=threading.Event()
-    def cancel():
-        check_stop.set();gen_stop.set()
-    def check():
-        if app.worker:raise ValueError('请等待当前任务完成。')
-        if not app.launch_comfy():return
-        progress_text.set('正在检测本地 ComfyUI…（可取消）')
-        url=app.settings.get('comfy_url','http://127.0.0.1:8188')
-        check_stop.clear();busy.set_busy(True,progress_interval=15);cancel_button.configure(text='取消检测');cancel_button.state(['!disabled'])
+            settings(self.win)
+
+    def cancel(self):
+        self.check_stop.set();self.gen_stop.set()
+
+    def check(self):
+        if self.app.worker:raise ValueError('请等待当前任务完成。')
+        if not self.app.launch_comfy():return
+        self.progress_text.set('正在检测本地 ComfyUI…（可取消）')
+        url=self.app.settings.get('comfy_url','http://127.0.0.1:8188')
+        self.check_stop.clear();self.busy.set_busy(True,progress_interval=15);self.cancel_button.configure(text='取消检测');self.cancel_button.state(['!disabled'])
         def probe():
             from comfy_service import Comfy
             from urllib.error import HTTPError                  # 第 34 期第 9 条：HTTP 栈按需加载
@@ -407,7 +436,7 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
             except Exception as exc:
                 return 'ComfyUI 地址不可用：'+str(exc)
             deadline=time.monotonic()+75
-            while not check_stop.is_set():
+            while not self.check_stop.is_set():
                 try:
                     client.request('/system_stats',timeout=5)
                 except Exception:
@@ -428,89 +457,79 @@ def attach_controls(app, win, form, footer, project, base, selection, status, re
                 time.sleep(1)
             return '已取消检测'
         def done(result):
-            busy.set_busy(False);cancel_button.state(['disabled']);cancel_button.configure(text='取消检测');progress_text.set(result)
+            self.busy.set_busy(False);self.cancel_button.state(['disabled']);self.cancel_button.configure(text='取消检测');self.progress_text.set(result)
             if result.startswith('ComfyUI 已连接'):
-                app.safe(start)
-        app.async_(probe,done,show_progress=False)
-    progress=ttk.Progressbar(form,mode='indeterminate');progress.pack(fill='x',padx=14,pady=6)
-    ProgressLabel(form,textvariable=progress_text,wraplength=760,justify='left').pack(anchor='w',padx=14,pady=(0,4))
-    busy=BusyState(progress_text,progress)
-    def poll():
-        if not win.winfo_exists():return
+                self.app.safe(self.start)
+        self.app.async_(probe,done,show_progress=False)
+
+    def poll(self):
+        if not self.win.winfo_exists():return
         try:
-            while True:progress_text.set(events.get_nowait())
+            while True:self.progress_text.set(self.events.get_nowait())
         except queue.Empty:pass
-    tk_timers.repeat(win,250,poll)
-    def start():
-        if app.worker:raise ValueError('当前任务正在处理，请等待完成。')
-        if not context_matches():raise ValueError('项目或分镜范围已切换，请重新打开制图窗口。')
-        reload_rows();items=selection()
+
+    def start(self):
+        if self.app.worker:raise ValueError('当前任务正在处理，请等待完成。')
+        if not self.context_matches():raise ValueError('项目或分镜范围已切换，请重新打开制图窗口。')
+        self.reload_rows();items=self.selection()
         if not items:raise ValueError('请至少勾选一项待生成资产。')
-        options={'model':model.get(),'aspect_ratio':aspect.get(),'quality':'medium','seed':42};selected()
+        options={'model':self.model.get(),'aspect_ratio':self.aspect.get(),'quality':'medium','seed':42};self.selected()
         if options['model']=='Seedream 5.0 Pro':
             from seedream_api import load_profile
             try:options['seedream_profile']=load_profile()['profile_id']
             except ValueError as exc:
-                progress_text.set(str(exc));account();return
+                self.progress_text.set(str(exc));self.account();return
             from seedream_settings import confirm_unsettled
             from asset_context import generated_dir
-            confirm_unsettled(win,generated_dir(base),[aid for aid,_ in items],'资产')
-            progress_text.set(seedream_cost_preview(project, base, items, options))
+            confirm_unsettled(self.win,generated_dir(self.base),[aid for aid,_ in items],'资产')
+            self.progress_text.set(seedream_cost_preview(self.project, self.base, items, options))
         elif options['model']!=LOCAL:
             from cloud_assets import get_key
             if not get_key():
-                progress_text.set('请先保存 Comfy API Key，或切换到 Seedream 5.0 Pro（使用火山方舟 Seedream Key）。');account();return
+                self.progress_text.set('请先保存 Comfy API Key，或切换到 Seedream 5.0 Pro（使用火山方舟 Seedream Key）。');self.account();return
         if options['model']!='Seedream 5.0 Pro':
-            if not app.launch_comfy(silent=True):return             # 第 62 期任务 8：静默拉起，不弹选择框
-        progress_text.set('正在启动制图：'+options['model']);busy.set_busy(True,controls=[selector,shape],progress_interval=15)
-        gen_stop.clear();cancel_button.configure(text='停止制图');cancel_button.state(['!disabled'])
-        url=app.settings.get('comfy_url','http://127.0.0.1:8188')
+            if not self.app.launch_comfy(silent=True):return             # 第 62 期任务 8：静默拉起，不弹选择框
+        self.progress_text.set('正在启动制图：'+options['model']);self.busy.set_busy(True,controls=[self.selector,self.shape],progress_interval=15)
+        self.gen_stop.clear();self.cancel_button.configure(text='停止制图');self.cancel_button.state(['!disabled'])
+        url=self.app.settings.get('comfy_url','http://127.0.0.1:8188')
         def finished(result):
-            app.status.set(result)
+            self.app.status.set(result)
             try:
-                if win.winfo_exists():
-                    busy.set_busy(False)
-                    cancel_button.state(['disabled']);cancel_button.configure(text='取消检测')
-                    while not events.empty():events.get_nowait()
-                    reload_rows();progress_text.set(result)
+                if self.win.winfo_exists():
+                    self.busy.set_busy(False)
+                    self.cancel_button.state(['disabled']);self.cancel_button.configure(text='取消检测')
+                    while not self.events.empty():self.events.get_nowait()
+                    self.reload_rows();self.progress_text.set(result)
             except Exception:
                 app_logging.swallowed()
-            if app.root==project:app.show(2)
+            if self.app.root==self.project:self.app.show(2)
             try:
-                if win.winfo_exists():
+                if self.win.winfo_exists():
                     # 按资产库里的落盘结果判断，不靠返回文案里的关键字：取消、超时、
                     # 只导入一部分的批次都不算完成，不能弹「已自动保存」。
                     from asset_batch_service import batch_complete
-                    if batch_complete(base,[aid for aid,_ in items]):
-                        notify(win, result+'\n\n已自动保存到资产库。', title='制作完成', status=app.status)
+                    if batch_complete(self.base,[aid for aid,_ in items]):
+                        self.notify(self.win, result+'\n\n已自动保存到资产库。', title='制作完成', status=self.app.status)
                     else:
-                        notify(win, result, level='warning', title='制图提示', status=app.status)
-                    win.destroy()
+                        self.notify(self.win, result, level='warning', title='制图提示', status=self.app.status)
+                    self.win.destroy()
             except Exception:
                 app_logging.swallowed()
         def work():
-            try:return run(project,base,items,url,events.put,options=options,stop=gen_stop)
+            try:return run(self.project,self.base,items,url,self.events.put,options=options,stop=self.gen_stop)
             except Exception as exc:
                 # 第 65 期任务 1：这里原来把异常原文直接拼给用户
                 # （弹窗里那句英文「HTTP Error 500 ...」就是这么漏出来的）。
                 # 现在只报一句人话，异常原文留在终端日志里方便排查。
                 LOGGER.warning('制图未开始：%r', exc)
                 return '制图没能开始，请点「启动并检测」重试'
-        app.async_(work,finished,show_progress=False)
-    # 第 65 期任务 1：这一排只留「启动并检测」和「取消检测」。「手动制作资产」撤掉——检测通过就自动开跑
-    # （见上面 done）；「桌面打开 ComfyUI」主界面已经有一颗；「强制关闭 ComfyUI」与「制作记录」搬到主界面
-    # 「阶段配置」右边（desktop.asset_page）。同一件事只留一个入口。
-    buttons=FlowBar(form);buttons.pack(fill='x',padx=14,pady=(2,8))
-    check_button=PrimaryButton(buttons,text='启动并检测',command=lambda:app.safe(check));check_button.pack(side='left')
-    def preview_cost():
-        if not context_matches():raise ValueError('项目或分镜范围已切换，请重新打开制图窗口。')
-        if model.get() != 'Seedream 5.0 Pro':raise ValueError('当前金额预估支持 Seedream 直连，请按实际供应商核对其他模型费用。')
-        progress_text.set(seedream_cost_preview(project, base, selection(), {}))
-    SecondaryButton(buttons,text='预估费用',command=lambda:app.safe(preview_cost)).pack(side='left',padx=(6,0))
-    cancel_button=SecondaryButton(buttons,text='取消检测',command=cancel,state='disabled');cancel_button.pack(side='left',padx=(6,0))
-    def update_buttons():
-        if not win.winfo_exists():return
-        check_button.state(['!disabled'] if (not app.worker and selection()) else ['disabled'])
-    tk_timers.repeat(win,250,update_buttons)
-    tk_timers.repeat(win,250,poll)
-    update_buttons()
+        self.app.async_(work,finished,show_progress=False)
+
+    def preview_cost(self):
+        if not self.context_matches():raise ValueError('项目或分镜范围已切换，请重新打开制图窗口。')
+        if self.model.get() != 'Seedream 5.0 Pro':raise ValueError('当前金额预估支持 Seedream 直连，请按实际供应商核对其他模型费用。')
+        self.progress_text.set(seedream_cost_preview(self.project, self.base, self.selection(), {}))
+
+    def update_buttons(self):
+        if not self.win.winfo_exists():return
+        self.check_button.state(['!disabled'] if (not self.app.worker and self.selection()) else ['disabled'])

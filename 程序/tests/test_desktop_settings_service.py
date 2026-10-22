@@ -67,3 +67,42 @@ class DesktopSettingsServiceTests(unittest.TestCase):
         with patch('desktop_settings_service.publish_desktop_settings', return_value=expected) as service:
             self.assertIs(expected, publish_desktop_preferences('desktop_settings.json', {}, {'x': 1}))
         self.assertTrue(callable(service.call_args.kwargs['publish']))
+
+
+class LoadDesktopSettingsTests(unittest.TestCase):
+    """启动读取：设置文件被手改或半写，不能让应用起不来（R1777 审计）。"""
+
+    DEFAULTS = {'comfy_url': 'http://127.0.0.1:8189', 'jianying': ''}
+
+    def _load(self, text):
+        import json
+        import tempfile
+        from pathlib import Path
+        from desktop_settings_service import load_desktop_settings
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'desktop_settings.json'
+            if text is not None:
+                path.write_text(text, encoding='utf-8')
+            import shutil
+            result = load_desktop_settings(
+                path, self.DEFAULTS, read=lambda p: json.loads(p.read_text(encoding='utf-8')),
+                preserve=lambda p: shutil.copy2(p, p.with_name(p.name + '.corrupt')))
+            copy = path.with_name(path.name + '.corrupt')
+            return result, copy.read_text(encoding='utf-8') if copy.exists() else None
+
+    def test_missing_file_uses_defaults(self):
+        self.assertEqual(self._load(None), (self.DEFAULTS, None))
+
+    def test_valid_file_is_returned_as_is(self):
+        self.assertEqual(self._load('{"jianying": "x"}'), ({'jianying': 'x'}, None))
+
+    def test_broken_json_falls_back_and_keeps_a_copy(self):
+        result, copy = self._load('{"jianying": ')
+        self.assertEqual(result, self.DEFAULTS)
+        self.assertEqual(copy, '{"jianying": ')
+
+    def test_non_object_falls_back_and_keeps_a_copy(self):
+        result, copy = self._load('[1, 2]')
+        self.assertEqual(result, self.DEFAULTS)
+        self.assertEqual(copy, '[1, 2]')
+

@@ -187,16 +187,18 @@ class CompactDesktopGeometryTests(unittest.TestCase):
         self.assertIn('empty-group', d.list.item('group:completed', 'tags'))
         d.list.item('group:completed', open=True)
         self.assertTrue(d.list.item('group:completed', 'open'))
-        for category, tree in d.script_trees.items():
-            with self.subTest(category=category):
-                self.assertTrue(tree.get_children())
-                item = tree.get_children()[0]
-                details = d.script_file_tips[category].text_for(item)
+        tree = d.script_tree  # R1776：四类文件合并为一张表，行提示按行取
+        self.assertTrue(tree.get_children())
+        self.assertEqual(str(tree.heading('#0', 'anchor')), 'center')
+        self.assertEqual(str(tree.heading('name', 'anchor')), 'center')
+        self.assertEqual(set(d.script_row_category.values()), {'setting', 'outline', 'character', 'script'},
+                         '四类文件都出现在同一张表里')
+        for item in tree.get_children():
+            with self.subTest(item=item):
+                details = d.script_file_tips.text_for(item)
                 self.assertIn(Path(item).name, details)
                 expected = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(Path(item).stat().st_mtime))
                 self.assertIn(expected, details)
-                self.assertEqual(str(tree.heading('#0', 'anchor')), 'center')
-                self.assertEqual(str(tree.heading('name', 'anchor')), 'center')
 
 
 if __name__ == '__main__':unittest.main()

@@ -43,3 +43,28 @@ class CircularImportTests(unittest.TestCase):
         if cycles:
             self.fail("发现根目录模块循环依赖：\n" + "\n".join(
                 " -> ".join(cycle + [cycle[0]]) for cycle in cycles))
+
+
+# R1777 审计：常量字符串的 import_module／__import__ 曾绕开上面的静态环检测。
+# 下面 4 个环是并入动态导入后才暴露的存量，只许减少、不许新增；拆掉一个就删一行。
+KNOWN_DYNAMIC_CYCLES = (
+    ("local_video", "skill_orchestrator", "skill_tools", "stage_execution_service"),
+    ("script_contract", "script_skill_report"),
+    ("stage_models", "workflow_settings"),
+    ("white_model", "white_model_ref"),
+)
+
+
+class DynamicImportCycleRatchetTests(unittest.TestCase):
+    def test_dynamic_imports_do_not_add_import_cycles(self) -> None:
+        from tests.architecture._scan import imports_with_dynamic_of
+        paths = production_files()
+        names = {module_name(path) for path in paths}
+        graph = {module_name(path): {target for target in imports_with_dynamic_of(path)
+                                     if target in names and target != module_name(path)} for path in paths}
+        found = {tuple(component) for component in _tarjan(graph) if len(component) > 1}
+        known = set(KNOWN_DYNAMIC_CYCLES)
+        self.assertEqual(sorted(found - known), [],
+                         "并入 import_module／__import__ 后出现新的循环依赖，请拆环而不是登记：")
+        self.assertEqual(sorted(known - found), [],
+                         "下列环已不存在，请从 KNOWN_DYNAMIC_CYCLES 删除（棘轮只降不升）：")

@@ -175,7 +175,7 @@ class AssetDetailRoutingTests(_Harness):
             self.assertIsNotNone(d.asset_table, "主页面布局没变，还是那张资产表")
             self.assertIsNone(d.asset_detail_id, "没进详情时摆的是主页面")
             source = desktop_text()
-            self.assertIn("self.open_asset_detail(aid)", source, "资产编号那一格是入口")
+            self.assertIn("self.page.open_asset_detail(aid)", source, "资产编号那一格是入口")  # R1816：assets 改写成 _AssetPage
             self.assertIn("'#1'", source, "入口那一格进了可点列的清单")
 
     def test_entering_the_detail_page_swaps_the_subroute_in(self):

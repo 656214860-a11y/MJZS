@@ -105,11 +105,14 @@ class CodexSkillSyncTests(unittest.TestCase):
             self.assertIs(thread.call_args.kwargs['target'], sync.sync_codex_skills)
             thread.return_value.start.assert_called_once()
         tree = ast.parse(desktop_text())
-        dispatch = next(n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)
-                        and n.name == 'open_flow_agent')
-        build = next(n for n in ast.walk(dispatch) if isinstance(n, ast.FunctionDef) and n.name == 'build')
-        calls = [(n.func.id, n.lineno) for n in ast.walk(build)
-                 if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
+        # open_flow_agent 已改写成 _FlowAgentLaunch，工作线程里的构建步骤是 prepare；
+        # 改写后 prompt_with_settings 以 self.prompt_with_settings 调用，属性调用一并收集。
+        dispatch = next(n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)
+                        and n.name == '_FlowAgentLaunch')
+        build = next(n for n in ast.walk(dispatch) if isinstance(n, ast.FunctionDef) and n.name == 'prepare')
+        calls = [(n.func.id if isinstance(n.func, ast.Name) else n.func.attr, n.lineno) for n in ast.walk(build)
+                 if isinstance(n, ast.Call) and isinstance(n.func, (ast.Name, ast.Attribute))]
+        self.assertTrue(any(name == 'prompt_with_settings' for name, _ in calls))
         sync_line = next(line for name, line in calls if name == 'sync_codex_skills')
         self.assertTrue(all(line > sync_line for name, line in calls if name == 'prompt_with_settings'))
 

@@ -9,7 +9,7 @@ from tests.architecture._scan import ROOT, parse, parse_desktop
 
 class CardBoundaryTests(unittest.TestCase):
     def test_cloud_video_settings_uses_card_for_its_configuration_group(self):
-        self._assert_settings_card("cloud_video.py", "settings_window")
+        self._assert_settings_card("cloud_video.py", "_CloudSettingsWindow")  # settings_window 改写成类
 
     def test_local_video_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("local_video.py", "settings_window")
@@ -37,7 +37,7 @@ class CardBoundaryTests(unittest.TestCase):
         self._assert_settings_card("background_characters.py", "show")
 
     def test_reference_wall_uses_card_for_its_content(self):
-        self._assert_settings_card("reference_wall.py", "show")
+        self._assert_settings_card("reference_wall.py", "_ReferenceWall")  # R1828 show 改写成类
 
     def test_qwen_settings_uses_card_for_its_configuration_group(self):
         self._assert_settings_card("qwen_setup.py")
@@ -84,9 +84,10 @@ class CardBoundaryTests(unittest.TestCase):
     def test_keyframe_comfy_windows_use_card(self):
         """首帧 ComfyUI 窗的两个配置单元（生成模型与接口、ComfyUI 连接与模型接口）统一用 Card。"""
         tree = parse(ROOT / "keyframe_comfy.py")
-        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
-                        and node.name == "show")
-        calls = [node for node in ast.walk(function) if isinstance(node, ast.Call)
+        # R1841：show 改写成类，Card 调用位于窗口类内
+        calls = [node for cls in tree.body if isinstance(cls, ast.ClassDef)
+                 and cls.name.startswith("_KeyframeComfy")
+                 for node in ast.walk(cls) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == "Card"]
         self.assertGreaterEqual(len(calls), 2, "首帧 ComfyUI 窗的配置单元必须使用统一 Card")
 
@@ -104,7 +105,7 @@ class CardBoundaryTests(unittest.TestCase):
             and node.module == "ui_widgets" for alias in node.names
         }
         self.assertIn("Card", imported)
-        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+        function = next(node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.ClassDef))
                         and node.name == function_name)
         calls = [node for node in ast.walk(function) if isinstance(node, ast.Call)
                  and isinstance(node.func, ast.Name) and node.func.id == "Card"]

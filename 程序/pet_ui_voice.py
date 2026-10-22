@@ -35,6 +35,44 @@ def offer_verdict(word):
     return None
 
 
+def offer_sentence(parts):
+    """主动问的那一句：只说头一件缺口和一共几件，导航与花钱说明留给「查看详情」。
+
+    原来把每条缺口连同「阶段 → 手动xxx」全拼进来，再跟两段括号，用户嫌长、不合时宜。
+    """
+    heads = [re.sub(r'（[^（）]*→[^（）]*）', '', str(part)).strip() for part in parts]
+    head = heads[0] if heads else ''
+    more = '等 %d 件事' % len(heads) if len(heads) > 1 else ''
+    text = '%s：还差：%s%s。要我「一键执行」不花钱的部分吗？回「好」开工，「先不用」先放着。' % (
+        pet_agent.PET_NAME, head, more)
+    if len(text) > OFFER_MAX_CHARS:
+        text = text[:OFFER_MAX_CHARS - 1] + '…'
+    return text
+
+
+def offer_reply(verdict):
+    """认出回答后的结论：与 Agent.dispatch 同形状，动手照旧交给界面线程的 run_plan。
+
+    已经在气泡里点过头了，一键执行就不再弹第二次确认（见 one_click 的 confirm 参数）。
+    """
+    if verdict:
+        return {'reply': '好，这就一键执行。',
+                'plan': {'intent': 'oneclick', 'params': {'confirmed': True}},
+                'decision': {'run': True, 'reason': ''}}
+    return {'reply': '好，那先不动手；想收尾的时候说一句「一键执行」就行。',
+            'plan': {}, 'decision': {'run': False, 'reason': ''}}
+
+
+def offer_backoff(signature, last_signature, still_open, backoff, declined):
+    """这次要问时更新追问节奏，返回 (backoff, declined)。"""
+    if signature == last_signature and still_open:
+        # 上回问了没人理：下一次再隔久一点，最多拉到 OFFER_BACKOFF_MAX 倍
+        return min(OFFER_BACKOFF_MAX, backoff * 2), declined
+    if signature != last_signature:
+        return 1, None
+    return backoff, declined
+
+
 class PetVoiceMixin:
     """Pet 的播报与对话方法集（见模块说明）。"""
     def say(self, text):
@@ -174,18 +212,7 @@ class PetVoiceMixin:
             self.errors.append(('progress.voice', str(exc)))
             return ''
     def offer_text(self, parts):
-        """主动问的那一句：只说头一件缺口和一共几件，导航与花钱说明留给「查看详情」。
-
-        原来把每条缺口连同「阶段 → 手动xxx」全拼进来，再跟两段括号，用户嫌长、不合时宜。
-        """
-        heads = [re.sub(r'（[^（）]*→[^（）]*）', '', str(part)).strip() for part in parts]
-        head = heads[0] if heads else ''
-        more = '等 %d 件事' % len(heads) if len(heads) > 1 else ''
-        text = '%s：还差：%s%s。要我「一键执行」不花钱的部分吗？回「好」开工，「先不用」先放着。' % (
-            pet_agent.PET_NAME, head, more)
-        if len(text) > OFFER_MAX_CHARS:
-            text = text[:OFFER_MAX_CHARS - 1] + '…'
-        return text
+        return offer_sentence(parts)
     def offer_parts(self, at=None):
         """这会儿值不值得问一句：盘上的缺口 ＋ 还没确认的失败项，凑成一句句人话。"""
         parts = list(self.gaps(at=at))
@@ -232,12 +259,7 @@ class PetVoiceMixin:
                 return ''                      # 用户刚说过「先不用」：这批缺口不再追问
             if signature == self._offer_sig and waited < OFFER_REPEAT * getattr(self, '_offer_backoff', 1):
                 return ''
-            if signature == self._offer_sig and self._offer_open:
-                # 上回问了没人理：下一次再隔久一点，最多拉到 OFFER_BACKOFF_MAX 倍
-                self._offer_backoff = min(OFFER_BACKOFF_MAX, getattr(self, '_offer_backoff', 1) * 2)
-            elif signature != self._offer_sig:
-                self._offer_backoff = 1
-                self._offer_declined = None
+            self._offer_backoff, self._offer_declined = offer_backoff(signature, self._offer_sig, self._offer_open, getattr(self, '_offer_backoff', 1), getattr(self, '_offer_declined', None))
             self._offer_at = now
             self._offer_sig = signature
             self._offer_open = True
@@ -252,9 +274,7 @@ class PetVoiceMixin:
         """认下用户对那个问题的回答（第 25 期第 3 条）：还在问就当场给结论。
 
         只在这个问题挂着的时候认，而且只认几个明确的说法——「好」「1」这种短句在别的场合都是
-        没头没尾的，不能一律当成「开工」。认出来了就回一份与 Agent.dispatch 同形状的结论
-        （动手照旧交给界面线程的 run_plan）；没认出来返回 None，这句话照常走规则表。
-        已经在气泡里点过头了，一键执行就不再弹第二次确认（见 one_click 的 confirm 参数）。
+        没头没尾的，不能一律当成「开工」。结论形状见 offer_reply；没认出来返回 None，照常走规则表。
         """
         if not self._offer_open:
             return None
@@ -265,15 +285,11 @@ class PetVoiceMixin:
         self.agent.pending_offer = ''
         if verdict:
             self._offer_open = False
-            return {'reply': '好，这就一键执行。',
-                    'plan': {'intent': 'oneclick', 'params': {'confirmed': True}},
-                    'decision': {'run': True, 'reason': ''}}
-        if verdict is False:
-            self._offer_open = False
-            # 用户说了先放着：同一批缺口今天不再问（原来清空 _offer_at，反倒更快再问一遍）
-            self._offer_declined = tuple(self._offer_sig or ())
-            return {'reply': '好，那先不动手；想收尾的时候说一句「一键执行」就行。',
-                    'plan': {}, 'decision': {'run': False, 'reason': ''}}
+            return offer_reply(True)
+        self._offer_open = False
+        # 用户说了先放着：同一批缺口今天不再问（原来清空 _offer_at，反倒更快再问一遍）
+        self._offer_declined = tuple(self._offer_sig or ())
+        return offer_reply(False)
     def progress_text(self, state=None, at=None, count=0):
         """进度气泡的正文（第 21 期瘦身）：一行进度 ＋ 一行「还要多久」＋ 缺口，一段一行。
 

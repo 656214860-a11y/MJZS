@@ -5,6 +5,7 @@
 文本、编辑后防抖落盘、两次编辑后「后退」逐级回到最初内容并落盘、无可后退时禁用。
 """
 import tempfile
+import types
 import tkinter as tk
 import unittest
 from pathlib import Path
@@ -110,8 +111,10 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
         loaded = {'raw': '原始内容'}
         page = _FakePage()
         from desktop_script_pages import _install_script_edit_controls
-        _install_script_edit_controls(page, controls, preview, loaded, active, kind,
-                                      '自然剧本', True, 'box')
+        # 合并 R1842／重构批次：入参收进内容框对象（参数个数门禁），各值不变。
+        box = types.SimpleNamespace(preview=preview, loaded=loaded, active=active, kind=kind,
+                                    title='自然剧本', editable=True, attribute='box')
+        _install_script_edit_controls(page, controls, box)
         return win, preview, page, target
 
     def test_buttons_are_edit_back_restore_and_no_save(self):

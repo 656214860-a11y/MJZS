@@ -47,7 +47,7 @@ class CloudVideoSettingsBoundaryTests(unittest.TestCase):
         source = desktop_text()
         tree = ast.parse(source)
         methods = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
-                   and node.name == 'show']
+                   and node.name in ('show', '_show_reset_page')]  # R1809：show 的换页前置段切到 _show_reset_page，断言不变
         text = '\n'.join(ast.get_source_segment(source, method) for method in methods)
         self.assertIn('publish_cloud_video_workspace_preference(', text)
         self.assertNotIn('save(', text)

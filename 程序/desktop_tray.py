@@ -15,6 +15,7 @@ Windows 会在 Tcl 事件循环内部、甚至在 ``withdraw()`` 这类 Tk 调�
 from __future__ import annotations
 
 import ctypes
+import itertools
 import os
 import sys
 import threading
@@ -22,6 +23,7 @@ import tkinter as tk
 from ctypes import wintypes
 from pathlib import Path
 
+import app_logging
 import platform_tools
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -57,7 +59,6 @@ LR_LOADFROMFILE = 0x00000010
 IMAGE_ICON = 1
 LR_DEFAULTSIZE = 0x00000040
 IDI_APPLICATION = 32512
-ERROR_CLASS_ALREADY_EXISTS = 1410
 # 托盘右键菜单（Win32 TrackPopupMenu，不依赖主窗是否 withdrawn）
 MF_STRING = 0x00000000
 MF_SEPARATOR = 0x00000800
@@ -76,6 +77,9 @@ TRAY_THREAD_TIMEOUT_S = 5.0
 # 否则每次构造都往任务栏塞一个真图标，并发满载时还会因建窗超时误红。托盘自身的测试清掉该变量。
 SUPPRESS_TRAY_ENV = 'DRAMA_SUPPRESS_TRAY'
 _WINDOW_CLASS = 'DramaStudioTrayWindow'
+# 窗口类名每个实例唯一：同名类会让后建的托盘窗口沿用先建实例的 WNDPROC，
+# 先建实例一收摊，那份回调被释放，后者再收到消息就以 0xC000041D 带崩整个进程。
+_CLASS_SEQ = itertools.count(1)
 
 # WPARAM／LPARAM／LRESULT 都是指针宽度整数；WNDPROC 签名 LRESULT(HWND, UINT, WPARAM, LPARAM)。
 _PTR = ctypes.c_ssize_t
@@ -185,6 +189,7 @@ class TrayIcon:
         self._icon_handle = None
         self._wndproc = None  # 持有引用，防止 WINFUNCTYPE 被 GC 后回调段错误
         self._class_registered = False
+        self._class_name = '%s%d' % (_WINDOW_CLASS, next(_CLASS_SEQ))
         self._thread = None
         self._ready = threading.Event()
         self._error = None
@@ -192,6 +197,7 @@ class TrayIcon:
         self._pending = []  # 托盘线程产出的命令（_CMD_*），等 Tk 侧 _drain 分发
         self._poll_id = None
         self._active = False
+        self._abandoned = False
 
     # ---------------- Tk 主线程侧 ----------------
     def add(self):
@@ -199,9 +205,14 @@ class TrayIcon:
             return
         self._ready.clear()
         self._error = None
+        self._abandoned = False
         self._thread = threading.Thread(target=self._run, name='tray-icon', daemon=True)
         self._thread.start()
         if not self._ready.wait(TRAY_THREAD_TIMEOUT_S) or self._hwnd is None:
+            # 超时后托盘线程仍可能随后完成建窗；标记放弃并补一个关闭，免得留下无人管的幽灵图标。
+            self._abandoned = True
+            if self._hwnd:
+                self._user32.PostMessageW(self._hwnd, WM_CLOSE, 0, 0)
             raise RuntimeError(self._error or '托盘窗口创建超时')
         self._active = True
         self._schedule_drain()
@@ -219,7 +230,8 @@ class TrayIcon:
             thread.join(TRAY_THREAD_TIMEOUT_S)
         with self._lock:
             self._pending.clear()
-        self._wndproc = None
+        # 不在这里清 _wndproc：join 超时时托盘线程可能还在跑，回调一释放就是野指针。
+        # 线程自己收摊（_run 结尾）才放手。
         self._icon_handle = None
 
     def _schedule_drain(self):
@@ -245,7 +257,11 @@ class TrayIcon:
             pending, self._pending = self._pending, []
         try:
             for command in pending:
-                self._dispatch(command)
+                # 逐条保护：前一条回调抛错不能让同批后面的命令（如「退出」）整批丢失。
+                try:
+                    self._dispatch(command)
+                except Exception:
+                    app_logging.swallowed()
         finally:
             if self._active:
                 self._schedule_drain()
@@ -291,17 +307,17 @@ class TrayIcon:
         user32 = self._user32
         hinstance = self._kernel32.GetModuleHandleW(None)
         hwnd = None
+        # 回调对象由本线程的栈帧持有到线程结束，窗口还在时它不会被释放。
+        wndproc = self._wndproc = _WNDPROC(self._window_proc)
         try:
-            self._wndproc = _WNDPROC(self._window_proc)
             wndclass = _WNDCLASSW()
-            wndclass.lpfnWndProc = self._wndproc
+            wndclass.lpfnWndProc = wndproc
             wndclass.hInstance = hinstance
-            wndclass.lpszClassName = _WINDOW_CLASS
-            if user32.RegisterClassW(ctypes.byref(wndclass)):
-                self._class_registered = True
-            elif ctypes.get_last_error() != ERROR_CLASS_ALREADY_EXISTS:
+            wndclass.lpszClassName = self._class_name
+            if not user32.RegisterClassW(ctypes.byref(wndclass)):
                 raise ctypes.WinError(ctypes.get_last_error())
-            hwnd = user32.CreateWindowExW(0, _WINDOW_CLASS, '漫剧助手托盘', 0,
+            self._class_registered = True
+            hwnd = user32.CreateWindowExW(0, self._class_name, '漫剧助手托盘', 0,
                                           0, 0, 0, 0, None, None, hinstance, None)
             if not hwnd:
                 raise ctypes.WinError(ctypes.get_last_error())
@@ -313,15 +329,23 @@ class TrayIcon:
             self._hwnd = None
             if hwnd:
                 user32.DestroyWindow(hwnd)
+            self._release_class(hinstance)
+            self._wndproc = None
             self._ready.set()
             return
         self._ready.set()
+        if self._abandoned:  # add() 已超时放弃：自己收摊，不留图标
+            user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
         msg = wintypes.MSG()
         while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
             user32.TranslateMessage(ctypes.byref(msg))
             user32.DispatchMessageW(ctypes.byref(msg))
+        self._release_class(hinstance)
+        self._wndproc = None
+
+    def _release_class(self, hinstance):
         if self._class_registered:
-            user32.UnregisterClassW(_WINDOW_CLASS, hinstance)
+            self._user32.UnregisterClassW(self._class_name, hinstance)
             self._class_registered = False
 
     def _window_proc(self, hwnd, msg, wparam, lparam):
@@ -402,7 +426,13 @@ class TrayMixin:
             on_quit=self.close,
             on_force_restart=self._force_restart_from_tray,
         )
-        self.tray_icon.add()
+        try:
+            self.tray_icon.add()
+        except Exception:
+            # 托盘只是便利功能：建不起来（Explorer 繁忙、超时）也不能挡住应用启动。
+            app_logging.swallowed()
+            self.tray_icon = None
+            return
         self.win.bind('<Unmap>', self._on_minimize_to_tray, add='+')
         self.win.bind('<Destroy>', self._on_tray_destroy, add='+')
 

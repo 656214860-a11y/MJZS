@@ -29,6 +29,77 @@ DEFAULT_MODEL = 'deepseek-v4-flash'
 AUTO = 'auto'
 
 
+def _responses_output_text(outputs):
+    """Responses 协议 output 列表里的正文：只接受 output_text 项。"""
+    parts = []
+    for output in outputs if isinstance(outputs, list) else ():
+        content = output.get('content') if isinstance(output, dict) else None
+        for block in content if isinstance(content, list) else ():
+            # 工具调用、推理项等不是给用户看的正文，绝不能转成字符串混进剧本。
+            if isinstance(block, dict) and block.get('type') == 'output_text':
+                value = block.get('text')
+                if isinstance(value, str):
+                    parts.append(value)
+    return ''.join(parts)
+
+
+def _parse_messages(data, meta):
+    meta['finish_reason'] = str(data.get('stop_reason') or '')
+    return token_saver.anthropic_text(data)
+
+
+def _parse_responses(data, meta):
+    meta['response_shape'] = sorted(str(key) for key in data.keys())
+    meta['finish_reason'] = str(data.get('status') or '')
+    text = _responses_output_text(data.get('output'))
+    if not text and isinstance(data.get('output_text'), str):
+        text = data['output_text']
+    return text
+
+
+def _parse_completions(data, meta):
+    text = ''
+    choices = data.get('choices')
+    meta['response_shape'] = sorted(str(key) for key in data.keys())
+    if isinstance(choices, list) and choices and isinstance(choices[0], dict):
+        choice = choices[0]
+        meta['finish_reason'] = str(choice.get('finish_reason') or '')
+        message = choice.get('message') if isinstance(choice.get('message'), dict) else {}
+        meta['message_fields'] = sorted(str(key) for key in message.keys())
+        meta['reasoning_fields'] = [key for key in ('reasoning_content', 'reasoning', 'analysis')
+                                    if message.get(key) not in (None, '', [], {})]
+        meta['reasoning_lengths'] = {key: len(str(message.get(key) or '')) for key in meta['reasoning_fields']}
+        content = message.get('content')
+        if isinstance(content, str):
+            text = content
+        elif isinstance(content, list):
+            text = ''.join(str(block.get('text') or '') for block in content if isinstance(block, dict))
+    if not text:
+        text = str(data.get('output_text') or data.get('content') or '')
+    return text
+
+
+_WIRE_PARSERS = {'messages': _parse_messages, 'responses': _parse_responses}
+
+
+def _parse_response(wire_api, data, target):
+    """按协议取出正文，并给出只含协议元数据的诊断（绝不记录提示词、正文或推理正文）。
+
+    这样 DeepSeek 等推理模型返回空 content 时，界面/日志能区分「实际请求成功但没有正文」和
+    「模型 ID、协议或网络失败」，而不会泄露用户创作内容。
+    """
+    meta = {'requested_model': target, 'wire_api': wire_api,
+            'response_id': '', 'finish_reason': '', 'response_shape': [],
+            'message_fields': [], 'reasoning_fields': [], 'reasoning_lengths': {},
+            'content_length': 0}
+    text = ''
+    if isinstance(data, dict):
+        meta['response_id'] = str(data.get('id') or data.get('request_id') or '')
+        text = _WIRE_PARSERS.get(wire_api, _parse_completions)(data, meta)
+    meta['content_length'] = len(text)
+    return text, meta
+
+
 def error_class(error):
     """将可显示的失败归为稳定类别，供界面提示和无正文诊断使用。"""
     text = str(error or '').casefold()
@@ -201,62 +272,7 @@ class ModelAdapter:
             usage = {key: raw[key] for key in ('prompt_tokens', 'completion_tokens', 'cached_tokens')}
         else:
             usage = pet_llm.usage_of(result)
-        text = ''
-        # 诊断只记录协议元数据，绝不记录提示词、正文或推理正文。这样 DeepSeek 等
-        # 推理模型返回空 content 时，界面/日志能区分「实际请求成功但没有正文」和
-        # 「模型 ID、协议或网络失败」，而不会泄露用户创作内容。
-        response_meta = {'requested_model': target, 'wire_api': self.wire_api,
-                         'response_id': '', 'finish_reason': '', 'response_shape': [],
-                         'message_fields': [], 'reasoning_fields': [], 'reasoning_lengths': {},
-                         'content_length': 0}
-        if isinstance(data, dict):
-            response_meta['response_id'] = str(data.get('id') or data.get('request_id') or '')
-            if self.wire_api == 'messages':
-                response_meta['finish_reason'] = str(data.get('stop_reason') or '')
-                text = token_saver.anthropic_text(data)
-            elif self.wire_api == 'responses':
-                response_meta['response_shape'] = sorted(str(key) for key in data.keys())
-                response_meta['finish_reason'] = str(data.get('status') or '')
-                outputs = data.get('output')
-                if isinstance(outputs, list):
-                    parts = []
-                    for output in outputs:
-                        if not isinstance(output, dict):
-                            continue
-                        content = output.get('content')
-                        if not isinstance(content, list):
-                            continue
-                        for block in content:
-                            # 工具调用、推理项等不是给用户看的正文，绝不能转成字符串
-                            # 混进剧本；只接受 Responses 的 output_text 项。
-                            if isinstance(block, dict) and block.get('type') == 'output_text':
-                                value = block.get('text')
-                                if isinstance(value, str):
-                                    parts.append(value)
-                    text = ''.join(parts)
-                if not text and isinstance(data.get('output_text'), str):
-                    text = data['output_text']
-            else:
-                choices = data.get('choices')
-                response_meta['response_shape'] = sorted(str(key) for key in data.keys())
-                if isinstance(choices, list) and choices and isinstance(choices[0], dict):
-                    choice = choices[0]
-                    response_meta['finish_reason'] = str(choice.get('finish_reason') or '')
-                    message = choice.get('message') if isinstance(choice.get('message'), dict) else {}
-                    response_meta['message_fields'] = sorted(str(key) for key in message.keys())
-                    response_meta['reasoning_fields'] = [key for key in ('reasoning_content', 'reasoning', 'analysis')
-                                                         if message.get(key) not in (None, '', [], {})]
-                    response_meta['reasoning_lengths'] = {
-                        key: len(str(message.get(key) or ''))
-                        for key in response_meta['reasoning_fields']}
-                    content = message.get('content')
-                    if isinstance(content, str):
-                        text = content
-                    elif isinstance(content, list):
-                        text = ''.join(str(block.get('text') or '') for block in content if isinstance(block, dict))
-                if not text:
-                    text = str(data.get('output_text') or data.get('content') or '')
-        response_meta['content_length'] = len(text)
+        text, response_meta = _parse_response(self.wire_api, data, target)
         return {'ok': bool(result.get('ok')), 'status': result.get('status'), 'error': result.get('error'),
                 'kind': result.get('kind') or '', 'model': target, 'text': text, 'usage': usage, 'data': data,
                 'error_class': '' if result.get('ok') else error_class(result.get('error')),

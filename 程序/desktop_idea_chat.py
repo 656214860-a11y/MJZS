@@ -24,6 +24,8 @@ from idea_chat_controller import bubble_timestamp, collapse_preview
 from platform_tools import open_target
 from ui_tokens import COLORS, FONTS, SPACING
 from ui_widgets import FormDialog, TextArea
+from desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
+                                  BUBBLE_PAD, BUBBLE_SLACK, BUBBLE_TIME_FONT, IdeaBubblesMixin)
 
 ROOT = Path(__file__).resolve().parent
 LOGGER = logging.getLogger(__name__)
@@ -60,16 +62,6 @@ IDEA_FIELDS=('故事集数','单集时间','故事画风','故事主体','故事
 # 最下面留一段给您写字，DRAFT_MARK 就是「从这儿往下才是您写的」那条线。
 DRAFT_MARK='draft'
 DRAFT_HINT='─'*18+' 写您的想法，按「发送」 '
-BUBBLE_BACK=COLORS['background_card']  # 内容框的底色：气泡两边的留白用它刷，色块才贴着字
-BUBBLE_FONT=('Microsoft YaHei UI',10)
-BUBBLE_TIME_FONT=('Microsoft YaHei UI',9)
-BUBBLE_PAD=10          # 气泡里文字与色块边缘的距离
-BUBBLE_GAP=14          # 气泡离画面左右两边各留这么多
-BUBBLE_FLOOR=70        # 气泡最窄也有这么宽
-BUBBLE_LINE=13         # 量不出字宽时的兜底：一个字大约这么宽
-BUBBLE_MAX_RATIO=0.72  # 第 71 期任务 6：字再多，色块也不铺满整行，一行才看得下去
-BUBBLE_SLACK=26        # 量字宽只是估算（字号、全角半角都有出入），留一截余地，
-                       # 免得一句话末了一个字被挤到下一行
 
 
 def _deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text,
@@ -106,7 +98,7 @@ def _deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text
     host.async_(attempt,pasted)
 
 
-class IdeaChatMixin(IdeaDeferredMixin):
+class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
     """Desktop 的创意对话与 Agent 派发方法集（见模块说明）。"""
     # 这些兼容属性保留既有桌面控件与测试的访问方式；状态归属在无 Tk 控制器。
     @property
@@ -174,214 +166,6 @@ class IdeaChatMixin(IdeaDeferredMixin):
     def discard_idea_draft(self):
         """内容真正送出后，清除对应的内存草稿。"""
         if self.root:getattr(self,'_idea_drafts',{}).pop(str(Path(self.root).resolve()),None)
-    def refit_bubbles(self,event=None):
-        """第 69 期任务 1：窗口一改宽窄就重算气泡的左右边距——只动边距，
-        上面的字和您正在写的那段一个字节都不碰。"""
-        box=getattr(self,'idea_log',None)
-        if box is None or not box.winfo_exists():return
-        if event is not None and getattr(event,'widget',None) is not box:return
-        width=int(box.winfo_width() or 0)
-        if width<=1 or width==getattr(self,'_bubble_width',None):return
-        self._bubble_width=width
-        for name,text,mine in getattr(self,'_bubble_rows',[]):
-            left,right=self.bubble_margins(box,text,mine)
-            for tag in (name,name+'_time',name+'_meta',name+'_toggle',name+'_thinking'):
-                try:box.tag_configure(tag,lmargin1=left,lmargin2=left,rmargin=right)
-                except tk.TclError:pass
-    def bubble_font(self):
-        """量字宽用的字体；量不出来给 None（退回「一个字 BUBBLE_LINE 像素」的估算）。"""
-        face=getattr(self,'_bubble_font','missing')
-        if face=='missing':
-            try:
-                from tkinter import font as tkfont
-                face=tkfont.Font(font=BUBBLE_FONT)
-            except Exception:
-                face=None
-            self._bubble_font=face
-        return face
-    def bubble_margins(self,box,text,mine):
-        """第 69 期任务 1：一条气泡的左右边距——量出这段字的宽窄，把色块贴着字放，
-        于是每条气泡长短不一、左右错落，看起来才是聊天。
-
-        第 71 期任务 6：字再多，色块也不铺满整行——顶到 BUBBLE_MAX_RATIO 就换行，
-        一行到底看不下去、也不好操作。"""
-        width=max(240,int(box.winfo_width() or 0))
-        span=max(BUBBLE_FLOOR,width-2*BUBBLE_GAP)
-        span=min(span,max(BUBBLE_FLOOR,int(width*BUBBLE_MAX_RATIO)))
-        body=max(BUBBLE_FLOOR,min(span,self.text_width(text)+BUBBLE_PAD*2+BUBBLE_SLACK))
-        # 微信式对话：模型在左、用户在右，气泡仍按文字实际宽度收紧。
-        if mine:
-            return max(0,width-BUBBLE_GAP-body),BUBBLE_GAP
-        return BUBBLE_GAP,max(0,width-BUBBLE_GAP-body)
-    def bubble_time(self,at):
-        """气泡上面那一行小字（实现搬到 L3 idea_chat_controller，入口不变）。"""
-        return bubble_timestamp(at)
-    def bubble_preview(self,text):
-        """过长的消息先给紧凑预览（实现搬到 L3 idea_chat_controller，入口不变）。"""
-        return collapse_preview(text)
-    def toggle_bubble(self,box,name):
-        """点击“展开全文／收起”只改当前气泡的正文，不重建输入区。"""
-        record=getattr(self,'_bubble_full',{}).get(name)
-        if not record:return 'break'
-        ranges=box.tag_ranges(name)
-        if len(ranges)<2:return 'break'
-        was_disabled=str(box.cget('state'))=='disabled'
-        if was_disabled:box.configure(state='normal')
-        # 记住视口顶端那一行：整段先删后插会让 Text 一拍内塌缩再撑开，视口跳到空白处。
-        try:top=box.index('@0,0')
-        except tk.TclError:top=None
-        start=str(ranges[0])
-        try:
-            record['expanded']=not record['expanded']
-            shown=record['text'] if record['expanded'] else record['preview']
-            # 先插新正文再删旧正文，内容高度不会瞬间归零。
-            box.insert(ranges[-1],shown+'\n',name)
-            box.delete(start,ranges[-1])
-            toggle=name+'_toggle'
-            spans=box.tag_ranges(toggle)
-            if len(spans)>=2:
-                end=spans[-1]
-                box.insert(end,('收起' if record['expanded'] else '展开全文')+'\n',toggle)
-                box.delete(spans[0],end)
-        finally:
-            if was_disabled:box.configure(state='disabled')
-        try:
-            if record['expanded'] or top is None:
-                # 展开：视口不动，正文往下长，和微信一样原地展开。
-                if top is not None:box.yview(top)
-            elif box.compare(start,'<',top):
-                # 收起：气泡开头已滚出视口时，把视口拉回这条气泡开头，不留空白。
-                box.yview(start+' linestart -3 lines')
-            else:
-                box.yview(top)
-        except tk.TclError:
-            pass
-        return 'break'
-    def bubble_target_at(self,box,event):
-        """鼠标位置对应的真实消息；元信息和“展开全文”也归回它所属的气泡。"""
-        try:tags=box.tag_names(box.index('@%d,%d'%(event.x,event.y)))
-        except tk.TclError:return None
-        for tag in tags:
-            if str(tag)=='bubble_example':
-                return 'example','bubble_example'
-            parts=str(tag).split('_')
-            if len(parts)>=2 and parts[0]=='bubble' and parts[1].isdigit():
-                return int(parts[1]),'bubble_'+parts[1]
-        return None
-    def copy_selected_bubble_text(self,event=None):
-        """保留原生拖选体验；Ctrl+C 只复制用户实际选中的文字。"""
-        box=getattr(self,'idea_log',None)
-        if box is None:return 'break'
-        try:text=box.get('sel.first','sel.last')
-        except tk.TclError:return 'break'
-        if not text:return 'break'
-        from prompt_window import copy_text
-        reason=copy_text(box,text)
-        self.status.set('复制失败：'+reason if reason else '已复制选中文字')
-        return 'break'
-    def notice_selected_bubble_text(self,event):
-        """长按拖选到消息正文后给出明确复制提示；不改动 Tk 原生蓝色选区。"""
-        box=event.widget
-        try:
-            selected=box.tag_ranges('sel')
-            tags=box.tag_names(selected[0]) if len(selected)>=2 else ()
-        except tk.TclError:return None
-        if any(str(tag).startswith('bubble_') and str(tag).split('_')[1:2] and
-               str(tag).split('_')[1].isdigit() for tag in tags):
-            self.status.set('已选中气泡正文，按 Ctrl+C 复制。')
-        return None
-    def begin_bubble_click(self,event,index,name):
-        """记录正文按下位置；正在编辑同一气泡时交还给 Tk 原生选字。"""
-        edit=getattr(self,'_bubble_edit',None)
-        if edit and edit.get('box') is event.widget and edit.get('index')==index:
-            self._bubble_click=None
-            return None
-        self._bubble_click={'box':event.widget,'index':index,'name':name,
-                            'x':event.x,'y':event.y,'dragged':False}
-        return None
-    def track_bubble_click(self,event):
-        """鼠标移动说明用户在选字，不能误切进编辑态。"""
-        click=getattr(self,'_bubble_click',None)
-        if click and click.get('box') is event.widget:
-            if abs(event.x-click['x'])>3 or abs(event.y-click['y'])>3:
-                click['dragged']=True
-        return None
-    def finish_bubble_click(self,event):
-        """短按正文进入编辑；长按拖选继续使用原生蓝色选区。"""
-        click=getattr(self,'_bubble_click',None)
-        self._bubble_click=None
-        self.notice_selected_bubble_text(event)
-        if not click or click.get('box') is not event.widget or click.get('dragged'):
-            return None
-        try:
-            selected=event.widget.tag_ranges('sel')
-            if len(selected)>=2 and event.widget.compare(selected[0],'!=',selected[-1]):
-                return None
-        except tk.TclError:
-            return None
-        return self.safe(lambda:self.start_bubble_edit(event,click['index'],click['name']))
-    def copy_bubble_message(self,index):
-        """右键“复制整条信息”：只取持久化的正文，不把界面元信息混进去。"""
-        if index == 'example':
-            text=self.idea_example()
-            if not text:return None
-            from prompt_window import copy_text
-            reason=copy_text(self.idea_log,text)
-            self.status.set('复制失败：'+reason if reason else '已复制软件示例')
-            if reason:return None
-            return text
-        import idea_chat
-        rows=idea_chat.load(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
-        if not 0<=index<len(rows):return None
-        text=str(rows[index].get('text') or '')
-        if not text:return None
-        from prompt_window import copy_text
-        reason=copy_text(self.idea_log,text)
-        self.status.set('复制失败：'+reason if reason else '已复制整条信息')
-        if reason:return None
-        return text
-    def delete_bubble_message(self,index):
-        """右键“删除整条信息”：移出当前对话，并保留最近删除恢复记录。"""
-        import idea_chat
-        model=self.displayed_chat_model()
-        rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
-        if not 0<=index<len(rows):return None
-        idea_chat.remove(self.idea_chat_context(),index,model=model,gateway=self.idea_chat_gateway())
-        self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
-        return index
-    def restore_latest_bubble_message(self):
-        """恢复当前模型聊天页最近删除的一条完整消息。"""
-        import idea_chat
-        row=idea_chat.restore_latest_removed(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
-        self.show_conversation();self.status.set('已恢复最近删除的整条信息')
-        return row
-    def clear_bubble_view(self):
-        """压缩当前聊天的模型上下文并隐藏旧消息；刷新仅恢复原文显示。"""
-        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
-        import idea_chat
-        from collections import Counter
-        model=self.displayed_chat_model()
-        rows=idea_chat.compact_context(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway()) if self.root else []
-        hidden=getattr(self,'_idea_hidden_messages',{})
-        hidden[self.bubble_view_key(model)]=Counter(json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False) for row in rows)
-        self._idea_hidden_messages=hidden
-        box=self.idea_log
-        self._idea_view_generation=getattr(self,'_idea_view_generation',0)+1
-        for job in getattr(self,'_idea_view_after_jobs',()):
-            try:box.after_cancel(job)
-            except tk.TclError:pass
-        self._idea_view_after_jobs=[]
-        self._bubble_click=None
-        self._bubble_rows=[];self._bubble_full={}
-        box.configure(state='normal')
-        box.delete('1.0','end')
-        for name in [one for one in box.tag_names() if one.startswith('bubble_')]:
-            box.tag_delete(name)
-        self.status.set('已清屏并压缩历史上下文（本地摘录）；完整聊天已保留，点击“刷新”可重新显示。')
-    def bubble_view_key(self,model):
-        """清屏范围按项目和模型隔离，只在本次应用会话内保存。"""
-        return (str(Path(self.root).resolve()) if self.root else '',
-                getattr(model, 'model_id', '') or str(model or '').strip())
     def update_idea_attachment_status(self):
         """仅展示用户已选择的文件名；路径和正文不出现在界面或聊天记录。"""
         self.refresh_uploaded_idea_attachments()
@@ -489,174 +273,6 @@ class IdeaChatMixin(IdeaDeferredMixin):
         self.idea_chat_controller.add_attachment(value)
         box.insert('insert','@'+Path(path).name)
         self.update_idea_attachment_status()
-    def bubble_edit_position_allowed(self,box,index,selection=True):
-        """编辑态的插入点／选区只能落在正文标记内，气泡外的标题和控件永远只读。"""
-        edit=getattr(self,'_bubble_edit',None)
-        if not edit or edit.get('box') is not box:return True
-        try:
-            if selection:
-                ranges=box.tag_ranges('sel')
-                if len(ranges)>=2 and (box.compare(ranges[0],'<',edit['start']) or
-                                       box.compare(ranges[-1],'>',edit['end'])):
-                    return False
-            return not (box.compare(index,'<',edit['start']) or box.compare(index,'>',edit['end']))
-        except tk.TclError:return False
-    def guard_bubble_edit_key(self,event):
-        """聊天记录常态只读；编辑时也阻止内容越过当前气泡正文边界。"""
-        edit=getattr(self,'_bubble_edit',None)
-        if not edit or edit.get('box') is not event.widget:
-            # 只读记录区仍应保留 Tk 原生的阅读导航；普通字符才需要拦截，
-            # 防止焦点停在记录区时意外改写内容。
-            if event.keysym in {'Up','Down','Left','Right','Prior','Next',
-                                'Home','End','Tab','ISO_Left_Tab'}:
-                return None
-            return 'break'
-        box=event.widget
-        try:insert=box.index('insert')
-        except tk.TclError:return 'break'
-        if not self.bubble_edit_position_allowed(box,insert):return 'break'
-        if event.keysym=='BackSpace' and not box.tag_ranges('sel') and box.compare(insert,'<=',edit['start']):
-            return 'break'
-        if event.keysym=='Delete' and not box.tag_ranges('sel') and box.compare(insert,'>=',edit['end']):
-            return 'break'
-        return None
-    def guard_bubble_edit_pointer(self,event):
-        """只在拖选越出正文时限制边界，正文内的选择完全交给 Tk。"""
-        edit=getattr(self,'_bubble_edit',None)
-        box=event.widget
-        if not edit or edit.get('box') is not box:return None
-        try:point=box.index('@%d,%d'%(event.x,event.y))
-        except tk.TclError:return 'break'
-        if not (box.compare(point,'<',edit['start']) or box.compare(point,'>',edit['end'])):
-            return None
-        if box.compare(point,'<',edit['start']):point=edit['start']
-        else:point=edit['end']
-        box.mark_set('insert',point)
-        return None
-    def start_bubble_edit(self,event,index,name):
-        """单击消息正文后直接编辑；不再弹出编辑或删除窗口。"""
-        if not isinstance(index,int):return 'break'
-        box=event.widget
-        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
-        ranges=box.tag_ranges(name)
-        if len(ranges)<2:return 'break'
-        import idea_chat
-        model=self.displayed_chat_model()
-        rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
-        if not 0<=index<len(rows):
-            raise ValueError('这条对话已不存在，请刷新后重试')
-        # 折叠的长消息进入编辑时先还原全文，避免只修改预览那几行。
-        record=getattr(self,'_bubble_full',{}).get(name,{})
-        original=str(record.get('text') or rows[index].get('text') or '').strip()
-        box.configure(state='normal',cursor='xterm')
-        box.delete(ranges[0],ranges[-1])
-        box.insert(ranges[0],original,name)
-        body_end=box.index('%s+%dc'%(ranges[0],len(original)))
-        box.insert(body_end,'\n',name)
-        start,end='bubble_edit_start','bubble_edit_end'
-        box.mark_set(start,ranges[0]);box.mark_gravity(start,'left')
-        box.mark_set(end,body_end);box.mark_gravity(end,'right')
-        self._bubble_edit={'box':box,'index':index,'start':start,'end':end,'original':original,
-                           'model':model,'context':self.idea_chat_context()}
-        try:box.mark_set('insert',box.index('@%d,%d'%(event.x,event.y)))
-        except tk.TclError:box.mark_set('insert',start)
-        box.focus_set()
-        self.status.set('正在直接编辑消息；只能改气泡正文，删空后点击其他位置即可删除。')
-        return 'break'
-    def finish_bubble_edit(self,event=None,commit=True):
-        """把当前气泡内的直接编辑同步到对话记录；空内容表示删除该条。"""
-        edit=getattr(self,'_bubble_edit',None)
-        if not edit:return None
-        self._bubble_edit=None
-        box=edit['box']
-        try:value=box.get(edit['start'],edit['end']).strip()
-        except tk.TclError:value=edit['original']
-        try:box.mark_unset(edit['start'],edit['end'])
-        except tk.TclError:pass
-        if not commit:
-            self.show_conversation()
-            self.status.set('已取消修改这条对话')
-            return 'break'
-        if value==edit['original']:
-            self.show_conversation()
-            return 'break'
-        import idea_chat
-        model=edit['model']
-        if value:idea_chat.replace(edit['context'],edit['index'],value,model=model,gateway=self.idea_chat_gateway());notice='已修改这条对话'
-        else:idea_chat.remove(edit['context'],edit['index'],model=model,gateway=self.idea_chat_gateway());notice='已删除这条对话'
-        self.show_conversation()
-        self.status.set(notice)
-        return 'break'
-    def add_bubble(self,box,row,index):
-        """把一条对话排成微信式左右气泡，并在顶部标出说话者／模型名。"""
-        raw_text=str(row.get('text') or '')
-        # 软件示例是只读、可复制的参考文本；不能为了普通聊天气泡的排版
-        # ``strip`` 掉它首尾的换行或空格，否则展示内容已不再等于程序提供的示例。
-        # 普通消息仍沿用既有的首尾空白清理，避免空白消息生成气泡。
-        text=raw_text if index == 'example' else raw_text.strip()
-        if not text.strip():return
-        mine=str(row.get('role'))=='user'
-        left,right=self.bubble_margins(box,text,mine)
-        name='bubble_'+str(index)
-        # 页面刚建好时框子还没量过宽度，这一条要留着，等真实宽度下来再摆一次（见 refit_bubbles）。
-        getattr(self,'_bubble_rows',[]).append((name,text,mine))
-        # 用户气泡仍贴右侧；正文一律由气泡左边开始，长句更容易读。
-        align='left'
-        example=index == 'example'
-        model_back, model_meta = self.model_chat_colors(row.get('model'))
-        look=dict(justify=align,
-                  background='' if example else (COLORS['success_subtle'] if mine else model_back),
-                  foreground=COLORS['text_secondary'] if example else COLORS['text_primary'],
-                  lmargin1=left,lmargin2=left,rmargin=right,
-                  spacing1=2,spacing2=1,spacing3=4,font=BUBBLE_FONT,wrap='word')
-        # Tk 默认连边距一起刷成气泡色，那样每条都是满屏一条；把两边留白按框底的白走，
-        # 色块才贴着字（-lmargincolor／-rmargincolor，Tk 8.6 起）。
-        bubble_padding=0 if example else BUBBLE_PAD
-        margin_back=box.cget('bg') if example else BUBBLE_BACK
-        try:box.tag_configure(name,borderwidth=bubble_padding,relief='flat',
-                              lmargincolor=margin_back,rmargincolor=margin_back,**look)
-        except tk.TclError:box.tag_configure(name,**look)
-        box.tag_configure(name+'_meta',justify=align,foreground=COLORS['text_muted'] if example else (model_meta if not mine else COLORS['text_secondary']),
-                          lmargin1=left,lmargin2=left,rmargin=right,spacing1=4,spacing3=1,
-                          font=BUBBLE_TIME_FONT)
-        box.insert('end',self.model_name(row)+'\n',name+'_meta')
-        import idea_chat
-        injection = idea_chat.skill_injection_summary(row)
-        if injection:
-            box.insert('end', injection+'\n', name+'_meta')
-        stamp=self.bubble_time(row.get('at'))
-        if stamp:
-            box.tag_configure(name+'_time',justify=align,foreground=COLORS['text_muted'],
-                              lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=1,font=BUBBLE_TIME_FONT)
-            box.insert('end',stamp+'\n',name+'_time')
-        # 软件示例是用户填写前唯一的完整参考，不能被折叠；真实长对话仍保持收起功能。
-        preview,folded=(text,False) if index=='example' else self.bubble_preview(text)
-        self._bubble_full[name]={'text':text,'preview':preview,'expanded':not folded}
-        box.insert('end',preview+'\n',name)
-        if folded:
-            toggle=name+'_toggle'
-            # 操作在本条气泡的右下角，而非正文下方左侧；它属于 Text 内容，滚动时和
-            # 对应消息一起移动，不会遮住用户正在阅读的其它消息。
-            box.tag_configure(toggle,justify='right',foreground=COLORS['primary'],underline=True,
-                              lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=3,
-                              font=BUBBLE_TIME_FONT)
-            box.insert('end','展开全文\n',toggle)
-            box.tag_bind(toggle,'<Button-1>',lambda event,b=box,n=name:self.toggle_bubble(b,n))
-            box.tag_bind(toggle,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
-            box.tag_bind(toggle,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
-        if isinstance(index,int):
-            # 只允许编辑真实消息；只读软件示例仍可拖选复制。
-            box.tag_bind(name,'<Button-1>',lambda event,i=index,n=name:self.begin_bubble_click(event,i,n))
-            box.tag_bind(name,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
-            box.tag_bind(name,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
-    def show_thinking(self,model):
-        """模型正在请求时，在最近一条消息下方放临时状态；不会写入对话记录。"""
-        self._thinking_model=model if str(model or '').strip() else 'AI 助手'
-        self.show_conversation()
-    def clear_thinking(self):
-        if getattr(self,'_thinking_model',''):
-            self._thinking_model=''
-            self.show_conversation()
     def idea_chat_model(self):
         """当前剧本阶段的模型标识；它也是独立聊天页的持久化分区键。"""
         if not self.root:
@@ -1052,68 +668,7 @@ class IdeaChatMixin(IdeaDeferredMixin):
             if getattr(self,'idea_send',None) is not None:self.idea_send.state(['disabled'])
             self.update_script_interrupt_button()
             self.show_thinking(model)
-            def received(result):
-                from writing_api import preparation_reply_message
-                if not self.idea_chat_controller.finish_request(token):return
-                if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
-                self.update_script_interrupt_button()
-                self.clear_thinking()
-                visible_reply = str(result.get('response_text') or result.get('text') or '')
-                self.show_script_quality(result)
-                if visible_reply.strip():
-                    idea_chat.append(self.idea_chat_context(),'assistant',visible_reply,model=model,gateway=self.idea_chat_gateway(),
-                                     context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
-                                     skill_injection=request_model['settings']['skill_injection'])
-                    self.show_conversation()
-                if not result.get('ok'):
-                    error=str(result.get('error') or '未收到模型回复')
-                    kind=('budget' if result.get('reason') == 'context_budget_exceeded'
-                          else str(result.get('kind') or ''))
-                    if kind in ('network', 'server'):
-                        message='模型暂时无法响应，请稍后重试'
-                    elif kind in ('auth', 'budget', 'client', ''):
-                        message='模型调用未完成：'+error
-                    else:
-                        message='系统内部错误，已记录日志'
-                    if kind not in ('auth', 'budget', 'client', ''):
-                        LOGGER.warning('模型调用失败（kind=%s）：%s', kind or 'missing', error)
-                    self.status.set(preparation_reply_message(result) or message)
-                    if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
-                        self.notifier.error(message, title='请求校验未通过')
-                    else:
-                        self.notifier.error(message, title='模型调用失败')
-                    # 直接 API 模型与桌面 Agent 共用“剧本准备”这个自动阶段。
-                    # 失败若只写状态栏，三虎会一直把 script 视为 active；仅当
-                    # 自动链确实正在等待 script 时，才把可恢复的调用失败交给它。
-                    auto=getattr(getattr(self,'pet',None),'auto',None)
-                    if getattr(auto,'active',None)=='script':
-                        # 直连 API 的失败已经是终态；再让通用 Agent 重试只会留下
-                        # 一个没有新请求的 retrying 状态。因此直接发出终态失败，
-                        # 明确停在可由用户重试的剧本阶段。
-                        self.pet._emit('stage.failed',stage='script',error=message)
-                    return
-                reply=str(result.get('text') or '').strip()
-                if not reply:
-                    self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
-                    self.status.set(idea_chat.why_empty(result));return
-                self.show_conversation();self.update_script_download_button()
-                if result.get('preparation_path'):
-                    refresh=getattr(self,'refresh_script_list',None)
-                    if callable(refresh):refresh()
-                    self.status.set(preparation_reply_message(result) or (result['preparation_stage']+'已保存，请审阅后回复“确认”；需要修改请直接说明。'))
-                    return
-                if result.get('script_raw_path'):
-                    refresh=getattr(self,'refresh_script_list',None)
-                    if callable(refresh):refresh()
-                    if result.get('quality_passed') is not False:
-                        self.pet_report('script', script_raw_saved_notice(result.get('natural_script_path', '')))
-                if result.get('quality_summary'):
-                    self.show_script_quality(result)
-                    return
-                if result.get('natural_script_path'):
-                    self.status.set(preparation_reply_message(result) or ('自然剧本已自动保存：'+result['natural_script_path']))
-                else:
-                    self.status.set('已收到 '+model+' 的回复；完整剧本可下载保存。')
+            received=lambda result:self._idea_api_received(token,model,request_model,result)
             def ask():
                 from stage_execution_service import reply_to_writing
                 return reply_to_writing(
@@ -1126,6 +681,70 @@ class IdeaChatMixin(IdeaDeferredMixin):
             self.update_script_interrupt_button()
             self.status.set(prefix+'已提交创意并启动剧本 Agent；模型回复完整剧本后可下载保存。')
         self.update_script_download_button()
+    def _idea_api_received(self, token, model, request_model, result):
+        """直连 API 模型的回复落地：聊天记录、状态栏、失败提示与三虎终态。"""
+        import idea_chat
+        from writing_api import preparation_reply_message
+        if not self.idea_chat_controller.finish_request(token):return
+        if getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists():self.idea_send.state(['!disabled'])
+        self.update_script_interrupt_button()
+        self.clear_thinking()
+        visible_reply = str(result.get('response_text') or result.get('text') or '')
+        self.show_script_quality(result)
+        if visible_reply.strip():
+            idea_chat.append(self.idea_chat_context(),'assistant',visible_reply,model=model,gateway=self.idea_chat_gateway(),
+                             context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
+                             skill_injection=request_model['settings']['skill_injection'])
+            self.show_conversation()
+        if not result.get('ok'):
+            error=str(result.get('error') or '未收到模型回复')
+            kind=('budget' if result.get('reason') == 'context_budget_exceeded'
+                  else str(result.get('kind') or ''))
+            if kind in ('network', 'server'):
+                message='模型暂时无法响应，请稍后重试'
+            elif kind in ('auth', 'budget', 'client', ''):
+                message='模型调用未完成：'+error
+            else:
+                message='系统内部错误，已记录日志'
+            if kind not in ('auth', 'budget', 'client', ''):
+                LOGGER.warning('模型调用失败（kind=%s）：%s', kind or 'missing', error)
+            self.status.set(preparation_reply_message(result) or message)
+            if result.get('reason') == 'context_budget_exceeded' or '上下文超过' in error or '超过模型上下文' in error:
+                self.notifier.error(message, title='请求校验未通过')
+            else:
+                self.notifier.error(message, title='模型调用失败')
+            # 直接 API 模型与桌面 Agent 共用“剧本准备”这个自动阶段。
+            # 失败若只写状态栏，三虎会一直把 script 视为 active；仅当
+            # 自动链确实正在等待 script 时，才把可恢复的调用失败交给它。
+            auto=getattr(getattr(self,'pet',None),'auto',None)
+            if getattr(auto,'active',None)=='script':
+                # 直连 API 的失败已经是终态；再让通用 Agent 重试只会留下
+                # 一个没有新请求的 retrying 状态。因此直接发出终态失败，
+                # 明确停在可由用户重试的剧本阶段。
+                self.pet._emit('stage.failed',stage='script',error=message)
+            return
+        reply=str(result.get('text') or '').strip()
+        if not reply:
+            self.notifier.error(idea_chat.why_empty(result), title='模型调用失败')
+            self.status.set(idea_chat.why_empty(result));return
+        self.show_conversation();self.update_script_download_button()
+        if result.get('preparation_path'):
+            refresh=getattr(self,'refresh_script_list',None)
+            if callable(refresh):refresh()
+            self.status.set(preparation_reply_message(result) or (result['preparation_stage']+'已保存，请审阅后回复“确认”；需要修改请直接说明。'))
+            return
+        if result.get('script_raw_path'):
+            refresh=getattr(self,'refresh_script_list',None)
+            if callable(refresh):refresh()
+            if result.get('quality_passed') is not False:
+                self.pet_report('script', script_raw_saved_notice(result.get('natural_script_path', '')))
+        if result.get('quality_summary'):
+            self.show_script_quality(result)
+            return
+        if result.get('natural_script_path'):
+            self.status.set(preparation_reply_message(result) or ('自然剧本已自动保存：'+result['natural_script_path']))
+        else:
+            self.status.set('已收到 '+model+' 的回复；完整剧本可下载保存。')
     def submit_idea_api_request(self, project, token, cancelled, ask, received, label, async_ticket=None):
         """发送与恢复共用票据生命周期；项目切换和取消均撤销本次排队。"""
         from workflow_engines import (request_stage_process_slot, claim_stage_process_slot,
@@ -1246,255 +865,284 @@ class IdeaChatMixin(IdeaDeferredMixin):
             text='\n'.join(label+'：' for label in dict.fromkeys((*IDEA_FIELDS, *INLINE_REQUIRED_LABELS)))+'\n'
         self._idea_example=text
         return text
-    def open_flow_agent(self,stage,label,prompt,followup=None,on_receipt=None,_config=None,*,intake_only=False,new_session=False,desktop_paste=False):
+    def open_flow_agent(self, stage, label, prompt, followup=None, on_receipt=None, _config=None, *, intake_only=False, new_session=False, desktop_paste=False):
+        return _FlowAgentLaunch(self, _FlowAgentRequest(stage, label, prompt, followup, on_receipt, _config, intake_only,
+                                                       new_session, desktop_paste)).build()
+
+
+class _FlowAgentRequest:
+    """open_flow_agent 的参数对象（收拢 _FlowAgentLaunch 的入参）。"""
+    __slots__ = ('stage', 'label', 'prompt', 'followup', 'on_receipt', '_config', 'intake_only', 'new_session', 'desktop_paste')
+
+    def __init__(self, *values):
+        for name, value in zip(self.__slots__, values):
+            setattr(self, name, value)
+
+
+class _FlowAgentLaunch:
+    """一次 Agent 任务的打开流程：准备任务与上下文、去重派发，按引擎走 CLI（含排队取槽）、Claude Desktop 或 GPT 桌面粘贴。"""
+    def __init__(self, host, request):
+        self.host = host
+        for name in _FlowAgentRequest.__slots__:
+            setattr(self, name, getattr(request, name))
+
+    def build(self):
         from workflow_settings import current,writer_style_summary
+        self.writer_style_summary = writer_style_summary
         from workflow_engines import prompt_with_settings,launch_interactive
+        self.prompt_with_settings = prompt_with_settings; self.launch_interactive = launch_interactive
         from agent_dispatch import signature,claim,finish,outcome,retryable
-        if self.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
-        if stage == 'writing' and getattr(self, '_script_agent_queue', None):
+        self.signature = signature; self.claim = claim; self.finish = finish; self.outcome = outcome; self.retryable = retryable
+        if self.host.worker:raise ValueError('正在打开或发送 Agent 任务，请稍候；未重复发送。')
+        if self.stage == 'writing' and getattr(self.host, '_script_agent_queue', None):
             raise ValueError('剧本模型请求正在排队，请等待或先点击中断；未重复发送。')
         # 「发送待核实」的安全重试必须沿用第一次已经解析的引擎。原来递归重进时会重新
         # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
-        if stage == 'writing' and not intake_only and _config is None:
+        if self.stage == 'writing' and not self.intake_only and self._config is None:
             from workflow_settings import validate_selected_skills
-            validate_selected_skills(self.root, stage)
-        config=_config if _config is not None else current(self.root,stage);followup=followup if followup is not None else prompt
-        if stage == 'writing' and not intake_only:
+            validate_selected_skills(self.host.root, self.stage)
+        self.config=self._config if self._config is not None else current(self.host.root,self.stage);self.followup=self.followup if self.followup is not None else self.prompt
+        if self.stage == 'writing' and not self.intake_only:
             from workflow_settings import freeze_skills
-            config = freeze_skills(config)
-        native_claude = config['engine'] in ('claude-desktop-app', 'desktop-app')
-        bounded_writing = stage == 'writing' and config['engine'] == 'claude'
-        if stage == 'writing' and config['engine'] == 'claude' and not intake_only and not new_session:
+            self.config = freeze_skills(self.config)
+        self.native_claude = self.config['engine'] in ('claude-desktop-app', 'desktop-app')
+        self.bounded_writing = self.stage == 'writing' and self.config['engine'] == 'claude'
+        if self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only and not self.new_session:
             from workflow_engines import claude_session_stale
-            new_session = claude_session_stale(self.root, stage)
-        new_session = bool(new_session and stage == 'writing' and config['engine'] == 'claude' and not intake_only)
-        use_cli = not native_claude and (config['engine']!='codex' or config['program'] or config['model'])
+            self.new_session = claude_session_stale(self.host.root, self.stage)
+        self.new_session = bool(self.new_session and self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only)
+        self.use_cli = not self.native_claude and (self.config['engine']!='codex' or self.config['program'] or self.config['model'])
         # CLI 继续复用同一进程；提取结束后不能占住唯一槽位又排队启动剧本进程。
-        setup_key=hashlib.sha256((json.dumps(config,sort_keys=True)+('brief-intake' if intake_only and not use_cli else '')).encode()).hexdigest()
+        self.setup_key=hashlib.sha256((json.dumps(self.config,sort_keys=True)+('brief-intake' if self.intake_only and not self.use_cli else '')).encode()).hexdigest()
         from codex_tasks import prepare_task
-        project=self.root
-        name=next((p['name'] for p in self.projects.info['projects'] if Path(p['path'])==project),project.name)
-        title=name+' '+label
-        if config['engine']=='qwen':
+        self.prepare_task = prepare_task
+        self.project=self.host.root
+        name=next((p['name'] for p in self.host.projects.info['projects'] if Path(p['path'])==self.project),self.project.name)
+        self.title=name+' '+self.label
+        if self.config['engine']=='qwen':
             from qwen_adapter import window_title
-            title=window_title(name,stage,getattr(self,'page_index',None))
-        def build():
-            from workflow_context import continuation_instruction,snapshot
-            from stage_execution_service import project_context
-            from workflow_context_controller import request_stage_instruction
-            from workflow_context_budget import prepare_request_context
-            if config['engine']=='codex':
-                from codex_skill_sync import sync_codex_skills
-                sync_result=sync_codex_skills()
-                if sync_result['errors'] or sync_result['conflicts']:
-                    raise ValueError('Codex 技能同步未完成：'+ '; '.join(
-                        sync_result['errors']+sync_result['conflicts']))
-            data={} if intake_only or bounded_writing else snapshot(project_context(project))
-            receipt=claim(project,signature(stage,prompt,followup,config,data),title)
-            if on_receipt is not None:on_receipt(receipt)
-            if receipt['duplicate'] and use_cli:return {'receipt':receipt}
-            if not use_cli:receipt['duplicate']=False
-            try:
-                if stage=='previs':
-                    from native_apps import open_blender
-                    open_blender()
-                if intake_only:
-                    # 提取阶段不得附加“直接生成剧本”的 SKILL/阶段交付指令。
-                    full,budget=prepare_request_context(prompt,stage,'brief_intake',report=True)
-                    continuation,continuation_budget=prepare_request_context(followup,stage,'brief_intake',report=True)
-                elif bounded_writing:
-                    full,budget=prepare_request_context(
-                        prompt_with_settings(prompt,config,stage=stage),stage,'explicit_writing_inputs',report=True)
-                    continuation,continuation_budget=prepare_request_context(
-                        prompt_with_settings(followup,config,stage=stage),stage,'explicit_writing_inputs',report=True)
-                else:
-                    context,strategy=request_stage_instruction(project,stage,data)
-                    full,budget=prepare_request_context(
-                        prompt_with_settings(context+prompt,config,stage=stage),stage,strategy,report=True)
-                    continuation,continuation_budget=prepare_request_context(
-                        prompt_with_settings(continuation_instruction(project,stage,data)+followup,config,stage=stage),
-                        stage,'continuation_summary',report=True)
-                finish(receipt,'preparing','',skill_injection=config.get('skill_injection'),context_budget={
-                    'initial':budget,'continuation':continuation_budget})
-                if native_claude:
-                    from codex_tasks import task_file_reference
-                    from stage_execution_service import register_download_inbox
-                    # Claude Desktop 常常不能直接写本机路径、只给下载文件：要求下载件沿用目标文件名，
-                    # 并登记目标，助手会从「下载」文件夹按文件名收回到原位置。
-                    full = full + ('\n\n【交付方式】优先直接写入任务中给出的目标路径；若无法写入本机文件，'
+            self.title=window_title(name,self.stage,getattr(self.host,'page_index',None))
+        self.host.async_(self.prepare,self.dispatch)
+
+    def prepare(self):
+        from workflow_context import continuation_instruction,snapshot
+        from stage_execution_service import project_context
+        from workflow_context_controller import request_stage_instruction
+        from workflow_context_budget import prepare_request_context
+        if self.config['engine']=='codex':
+            from codex_skill_sync import sync_codex_skills
+            sync_result=sync_codex_skills()
+            if sync_result['errors'] or sync_result['conflicts']:
+                raise ValueError('Codex 技能同步未完成：'+ '; '.join(
+                    sync_result['errors']+sync_result['conflicts']))
+        data={} if self.intake_only or self.bounded_writing else snapshot(project_context(self.project))
+        receipt=self.claim(self.project,self.signature(self.stage,self.prompt,self.followup,self.config,data),self.title)
+        if self.on_receipt is not None:self.on_receipt(receipt)
+        if receipt['duplicate'] and self.use_cli:return {'receipt':receipt}
+        if not self.use_cli:receipt['duplicate']=False
+        try:
+            if self.stage=='previs':
+                from native_apps import open_blender
+                open_blender()
+            if self.intake_only:
+                # 提取阶段不得附加“直接生成剧本”的 SKILL/阶段交付指令。
+                full,budget=prepare_request_context(self.prompt,self.stage,'brief_intake',report=True)
+                continuation,continuation_budget=prepare_request_context(self.followup,self.stage,'brief_intake',report=True)
+            elif self.bounded_writing:
+                full,budget=prepare_request_context(
+                    self.prompt_with_settings(self.prompt,self.config,stage=self.stage),self.stage,'explicit_writing_inputs',report=True)
+                continuation,continuation_budget=prepare_request_context(
+                    self.prompt_with_settings(self.followup,self.config,stage=self.stage),self.stage,'explicit_writing_inputs',report=True)
+            else:
+                context,strategy=request_stage_instruction(self.project,self.stage,data)
+                full,budget=prepare_request_context(
+                    self.prompt_with_settings(context+self.prompt,self.config,stage=self.stage),self.stage,strategy,report=True)
+                continuation,continuation_budget=prepare_request_context(
+                    self.prompt_with_settings(continuation_instruction(self.project,self.stage,data)+self.followup,self.config,stage=self.stage),
+                    self.stage,'continuation_summary',report=True)
+            self.finish(receipt,'preparing','',skill_injection=self.config.get('skill_injection'),context_budget={
+                'initial':budget,'continuation':continuation_budget})
+            if self.native_claude:
+                from codex_tasks import task_file_reference
+                from stage_execution_service import register_download_inbox
+                # Claude Desktop 常常不能直接写本机路径、只给下载文件：要求下载件沿用目标文件名，
+                # 并登记目标，助手会从「下载」文件夹按文件名收回到原位置。
+                full = full + ('\n\n【交付方式】优先直接写入任务中给出的目标路径；若无法写入本机文件，'
                                    '请以可下载文件交付，文件名必须与目标路径的文件名完全一致，'
                                    '用户下载后助手会自动放回对应位置。')
-                    task_file = task_file_reference(project, stage, full)
-                    try:register_download_inbox(project, full)
-                    except (OSError, ValueError) as exc:LOGGER.warning('下载收件箱登记失败：%s', exc)
-                    reference = (f'请读取并执行本次任务文件：{task_file}\n'
+                task_file = task_file_reference(self.project, self.stage, full)
+                try:register_download_inbox(self.project, full)
+                except (OSError, ValueError) as exc:LOGGER.warning('下载收件箱登记失败：%s', exc)
+                reference = (f'请读取并执行本次任务文件：{task_file}\n'
                                  '其中引用的 SKILL 和附件按任务需要读取，不重复加载无关内容。'
                                  '若无法读取本地文件，请提示启用文件访问并授权对应目录，或请用户上传文件；不要假定已读。')
-                    return {'receipt':receipt,'prompt':reference,'task_file':str(task_file)}
-                if use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
-                                   'context_budget':{'initial':budget,'continuation':continuation_budget}}
-                result=prepare_task(project,title,stage,full,followup=continuation,setup_key=setup_key,
-                                    delivery_summary='' if intake_only else writer_style_summary(config,stage))
-                result['receipt']=receipt;result['context_budget']={
-                    'initial':budget,'continuation':continuation_budget};return result
-            except Exception as exc:finish(receipt,'failed',str(exc));raise
-        def dispatch(result):
-            receipt=result['receipt']
-            if receipt['duplicate']:
-                sessions=getattr(self,'flow_processes',{})
-                key=(str(project),stage,config['engine'],setup_key)
-                live=key in sessions and sessions[key].poll() is None
-                if retryable(receipt,live):
-                    finish(receipt,'failed','上次发送结果未确认，且对应 Agent 窗口已关闭')
-                    self.status.set('上次 Agent 发送未确认且窗口已关闭，正在自动重新启动…')
-                    self.open_flow_agent(stage,label,prompt,followup,on_receipt,_config=config,intake_only=intake_only,new_session=new_session)
-                    return
-                if not live:
-                    finish(receipt,'failed','上次 Agent 窗口已关闭，请重新点击启动')
-                    self.notifier.info('上次 Agent 窗口未在运行，任务状态已重置；请再次点击“手动制作分镜”。', title='请重新点击', modal=True);return
-                state={'preparing':'正在打开或发送','sent':'已发送','uncertain':'发送结果待核实'}[receipt['state']]
-                self.status.set('相同任务'+state+'，已复用记录，本次不重复发送。请在对应 Agent 窗口继续。');return
-            if use_cli:
-                launch_cli(result);return
-            try:done(result)
-            except Exception as exc:finish(receipt,'failed',str(exc));raise
-        def launch_cli(result):
-            receipt=result['receipt'];full=result['prompt'];continuation=result['followup']
-            sessions=getattr(self,'flow_processes',{});key=(str(project),stage,config['engine'],setup_key)
-            if key in sessions and sessions[key].poll() is None:
-                if new_session:
-                    def close_old():
-                        from workflow_engines import close_for_restart
-                        try:close_for_restart(project,sessions[key])
-                        except Exception as exc:finish(receipt,'failed',str(exc));raise
-                    def closed(_):
-                        sessions.pop(key,None)
-                        launch_cli(result)
-                    self.status.set('正在结束空闲 Claude 会话，准备以新上下文重新创作…')
-                    self.async_(close_old,closed);return
-                def submit():
-                    try:
-                        if config['engine']=='qwen':
-                            from qwen_adapter import submit_existing
-                            text=submit_existing(sessions[key],continuation,title=title)
-                            return {'ok':True,'reason':text,'send_dispatched':True}
-                        from workflow_engines import submit_existing
-                        return submit_existing(sessions[key],continuation,title=title)
-                    except Exception as exc:
-                        finish(receipt,'uncertain',str(exc));raise
-                def submitted(value):
-                    outcome(receipt,value);self.status.set(value['reason'])
-                    if not value['ok']:self.notifier.info(value['reason'], title='请检查 Agent 输入框', modal=True)
-                self.async_(submit,submitted);return
-            def launched(result):
-                sessions[key]=result['process'];self.flow_processes=sessions
-                if stage=='writing':
-                    self._script_agent_launching=False
-                    self.update_script_interrupt_button()
-                finish(receipt,'sent','启动时已传入初始任务',task_file=result['task_file'])
-                self.status.set('已启动 '+result['engine']+'，初始任务已自动提交，可在窗口继续讨论。')
-            def launch(slot=None):
-                try:return launch_interactive(project,stage,title,full,config,followup=continuation,slot=slot,
-                                              **({'new_session':True} if new_session else {}))
-                except Exception as exc:
-                    from workflow_engines import release_stage_process_slot
-                    release_stage_process_slot(slot)
-                    finish(receipt,'failed',str(exc));raise
-            from workflow_engines import request_stage_process_slot, claim_stage_process_slot
-            request=request_stage_process_slot(project,stage)
-            if request['state']=='granted':
-                self.async_(lambda:launch(request['slot']),launched);return
-            from workflow_engines import cancel_stage_slot_request
-            pending = {'timer': None, 'cancelled': False, 'started': time.monotonic()}
-            def cleanup():
-                pending['cancelled'] = True
-                cancel_stage_slot_request(request['ticket'])
-                timer, pending['timer'] = pending['timer'], None
-                if timer is not None:
-                    try:self.win.after_cancel(timer)
-                    except tk.TclError:pass
-                if getattr(self, '_script_agent_queue', None) is pending:
-                    self._script_agent_queue = None
-                    self._script_agent_launching = False
-                    self.update_script_interrupt_button()
-            def cancel():
-                cleanup()
-                finish(receipt,'failed','模型排队请求已取消，尚未启动 CLI')
-            pending['cancel'] = cancel
-            if stage == 'writing':
-                self._script_agent_queue = pending
-                self._script_agent_launching = True
-                self.update_script_interrupt_button()
-            self.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % request['position'])
-            def poll_slot():
-                pending['timer'] = None
-                if pending['cancelled']:return
-                if self.root != project or getattr(self,'shutting_down',False) or getattr(self,'_closing',False):
-                    cancel()
-                    return
-                if time.monotonic() - pending['started'] >= 120:
-                    cleanup()
-                    message = '等待模型并发名额超过 120 秒，已退出排队；请检查已有 Agent 任务后重新发送。'
-                    finish(receipt,'failed',message)
-                    self.status.set(message)
-                    return
-                claimed=claim_stage_process_slot(request['ticket'])
-                if claimed['state']=='queued':
-                    self.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % claimed['position'])
-                    pending['timer'] = self.win.after(200,poll_slot);return
-                cleanup()
-                if claimed['state']=='granted':
-                    if stage == 'writing':
-                        self._script_agent_launching = True
-                        self.update_script_interrupt_button()
-                    self.status.set('已获得模型请求槽位，正在启动…')
-                    self.async_(lambda:launch(claimed['slot']),launched);return
-                finish(receipt,'failed',claimed['reason'])
-                self.status.set(claimed['reason'])
-            pending['timer'] = self.win.after(200,poll_slot)
-        def done(result):
-            receipt=result['receipt']
-            clipboard_text=result['prompt']
-            task_file=result.get('task_file')
-            if task_file and Path(task_file).is_file():
-                try:clipboard_text=Path(task_file).read_text(encoding='utf-8')
-                except OSError:clipboard_text=result['prompt']
-            from prompt_window import copy_text
-            copy_text(self.win,clipboard_text)
-            if native_claude:
-                from workflow_settings import find_program
-                from platform_tools import launch_windows_app
-                program = find_program(config)
-                if config['engine'] == 'desktop-app':
-                    app = config.get('display_model') or '桌面模型'
-                    _deliver_desktop_app(self, finish, receipt, task_file, title,
-                                         clipboard_text, program, app, desktop_paste,
-                                         config.get('delivery') or 'paste')
-                    return
-                launch_windows_app(program, 'Claude Desktop')
-                from codex_paste import paste_existing
-                def claude_pasted(value):
-                    finish(receipt,'prepared' if value['ok'] else 'failed',value['reason'],task_file=task_file)
-                    self.status.set(value['reason'])
-                    level=getattr(self,'gate_level',None)
-                    if value['ok'] and callable(level) and level()=='auto':
-                        # 全自动不拦截 Claude Desktop：它只能由用户点发送，这里明确提示，
-                        # 避免自动链看似停住却没有说明；状态栏原文也会转给三虎。
-                        message=('三虎全自动：'+label+' 的任务已粘贴到 Claude Desktop，'
-                                 '请切到 Claude Desktop 手动点击发送；完成后产物会自动收回。')
-                        self.status.set(message)
-                        self.notifier.warning(message,title='请手动发送')
-                self.status.set('正在将本次任务粘贴到 Claude Desktop，请检查后手动发送…')
-                self.async_(lambda:paste_existing(title,clipboard_text,program=program,deadline_seconds=45),claude_pasted)
+                return {'receipt':receipt,'prompt':reference,'task_file':str(task_file)}
+            if self.use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
+                               'context_budget':{'initial':budget,'continuation':continuation_budget}}
+            result=self.prepare_task(self.project,self.title,self.stage,full,followup=continuation,setup_key=self.setup_key,
+                                delivery_summary='' if self.intake_only else self.writer_style_summary(self.config,self.stage))
+            result['receipt']=receipt;result['context_budget']={
+                'initial':budget,'continuation':continuation_budget};return result
+        except Exception as exc:self.finish(receipt,'failed',str(exc));raise
+
+    def dispatch(self, result):
+        receipt=result['receipt']
+        if receipt['duplicate']:
+            sessions=getattr(self.host,'flow_processes',{})
+            key=(str(self.project),self.stage,self.config['engine'],self.setup_key)
+            live=key in sessions and sessions[key].poll() is None
+            if self.retryable(receipt,live):
+                self.finish(receipt,'failed','上次发送结果未确认，且对应 Agent 窗口已关闭')
+                self.host.status.set('上次 Agent 发送未确认且窗口已关闭，正在自动重新启动…')
+                self.host.open_flow_agent(self.stage,self.label,self.prompt,self.followup,self.on_receipt,_config=self.config,intake_only=self.intake_only,new_session=self.new_session)
                 return
-            if config.get('desktop_program'):
-                from platform_tools import launch_windows_app
-                launch_windows_app(config['desktop_program'], 'Codex 桌面')
-            open_target(result['url'])
+            if not live:
+                self.finish(receipt,'failed','上次 Agent 窗口已关闭，请重新点击启动')
+                self.host.notifier.info('上次 Agent 窗口未在运行，任务状态已重置；请再次点击“手动制作分镜”。', title='请重新点击', modal=True);return
+            state={'preparing':'正在打开或发送','sent':'已发送','uncertain':'发送结果待核实'}[receipt['state']]
+            self.host.status.set('相同任务'+state+'，已复用记录，本次不重复发送。请在对应 Agent 窗口继续。');return
+        if self.use_cli:
+            self.launch_cli(result);return
+        try:self.done(result)
+        except Exception as exc:self.finish(receipt,'failed',str(exc));raise
+
+    def launch_cli(self, result):
+        receipt=result['receipt'];full=result['prompt'];continuation=result['followup']
+        sessions=getattr(self.host,'flow_processes',{});key=(str(self.project),self.stage,self.config['engine'],self.setup_key)
+        if key in sessions and sessions[key].poll() is None:
+            if self.new_session:
+                def close_old():
+                    from workflow_engines import close_for_restart
+                    try:close_for_restart(self.project,sessions[key])
+                    except Exception as exc:self.finish(receipt,'failed',str(exc));raise
+                def closed(_):
+                    sessions.pop(key,None)
+                    self.launch_cli(result)
+                self.host.status.set('正在结束空闲 Claude 会话，准备以新上下文重新创作…')
+                self.host.async_(close_old,closed);return
+            def submit():
+                try:
+                    if self.config['engine']=='qwen':
+                        from qwen_adapter import submit_existing
+                        text=submit_existing(sessions[key],continuation,title=self.title)
+                        return {'ok':True,'reason':text,'send_dispatched':True}
+                    from workflow_engines import submit_existing
+                    return submit_existing(sessions[key],continuation,title=self.title)
+                except Exception as exc:
+                    self.finish(receipt,'uncertain',str(exc));raise
+            def submitted(value):
+                self.outcome(receipt,value);self.host.status.set(value['reason'])
+                if not value['ok']:self.host.notifier.info(value['reason'], title='请检查 Agent 输入框', modal=True)
+            self.host.async_(submit,submitted);return
+        def launched(result):
+            sessions[key]=result['process'];self.host.flow_processes=sessions
+            if self.stage=='writing':
+                self.host._script_agent_launching=False
+                self.host.update_script_interrupt_button()
+            self.finish(receipt,'sent','启动时已传入初始任务',task_file=result['task_file'])
+            self.host.status.set('已启动 '+result['engine']+'，初始任务已自动提交，可在窗口继续讨论。')
+        def launch(slot=None):
+            try:return self.launch_interactive(self.project,self.stage,self.title,full,self.config,followup=continuation,slot=slot,
+                                          **({'new_session':True} if self.new_session else {}))
+            except Exception as exc:
+                from workflow_engines import release_stage_process_slot
+                release_stage_process_slot(slot)
+                self.finish(receipt,'failed',str(exc));raise
+        from workflow_engines import request_stage_process_slot, claim_stage_process_slot
+        request=request_stage_process_slot(self.project,self.stage)
+        if request['state']=='granted':
+            self.host.async_(lambda:launch(request['slot']),launched);return
+        from workflow_engines import cancel_stage_slot_request
+        pending = {'timer': None, 'cancelled': False, 'started': time.monotonic()}
+        def cleanup():
+            pending['cancelled'] = True
+            cancel_stage_slot_request(request['ticket'])
+            timer, pending['timer'] = pending['timer'], None
+            if timer is not None:
+                try:self.host.win.after_cancel(timer)
+                except tk.TclError:pass
+            if getattr(self.host, '_script_agent_queue', None) is pending:
+                self.host._script_agent_queue = None
+                self.host._script_agent_launching = False
+                self.host.update_script_interrupt_button()
+        def cancel():
+            cleanup()
+            self.finish(receipt,'failed','模型排队请求已取消，尚未启动 CLI')
+        pending['cancel'] = cancel
+        if self.stage == 'writing':
+            self.host._script_agent_queue = pending
+            self.host._script_agent_launching = True
+            self.host.update_script_interrupt_button()
+        self.host.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % request['position'])
+        def poll_slot():
+            pending['timer'] = None
+            if pending['cancelled']:return
+            if self.host.root != self.project or getattr(self.host,'shutting_down',False) or getattr(self.host,'_closing',False):
+                cancel()
+                return
+            if time.monotonic() - pending['started'] >= 120:
+                cleanup()
+                message = '等待模型并发名额超过 120 秒，已退出排队；请检查已有 Agent 任务后重新发送。'
+                self.finish(receipt,'failed',message)
+                self.host.status.set(message)
+                return
+            claimed=claim_stage_process_slot(request['ticket'])
+            if claimed['state']=='queued':
+                self.host.status.set('模型请求排队中（第%d位），尚未启动 CLI；可点击中断，最多等待 120 秒。' % claimed['position'])
+                pending['timer'] = self.host.win.after(200,poll_slot);return
+            cleanup()
+            if claimed['state']=='granted':
+                if self.stage == 'writing':
+                    self.host._script_agent_launching = True
+                    self.host.update_script_interrupt_button()
+                self.host.status.set('已获得模型请求槽位，正在启动…')
+                self.host.async_(lambda:launch(claimed['slot']),launched);return
+            self.finish(receipt,'failed',claimed['reason'])
+            self.host.status.set(claimed['reason'])
+        pending['timer'] = self.host.win.after(200,poll_slot)
+
+    def done(self, result):
+        receipt=result['receipt']
+        clipboard_text=result['prompt']
+        task_file=result.get('task_file')
+        if task_file and Path(task_file).is_file():
+            try:clipboard_text=Path(task_file).read_text(encoding='utf-8')
+            except OSError:clipboard_text=result['prompt']
+        from prompt_window import copy_text
+        copy_text(self.host.win,clipboard_text)
+        if self.native_claude:
+            from workflow_settings import find_program
+            from platform_tools import launch_windows_app
+            program = find_program(self.config)
+            if self.config['engine'] == 'desktop-app':
+                app = self.config.get('display_model') or '桌面模型'
+                _deliver_desktop_app(self.host, self.finish, receipt, task_file, self.title,
+                                     clipboard_text, program, app, self.desktop_paste,
+                                     self.config.get('delivery') or 'paste')
+                return
+            launch_windows_app(program, 'Claude Desktop')
             from codex_paste import paste_existing
-            def pasted(result):
-                finish(receipt,'prepared' if result['ok'] else 'failed',result['reason'])
-                self.status.set(result['reason'])
-            self.async_(lambda:paste_existing(result['title'],clipboard_text,result.get('draft_prompt',''),result.get('project',''),deadline_seconds=45 if result.get('mode')=='new' else 15),pasted)
-            self.status.set('正在将本次任务粘贴到 GPT 桌面，请在窗口中手动点击发送…')
-        self.async_(build,dispatch)
+            def claude_pasted(value):
+                self.finish(receipt,'prepared' if value['ok'] else 'failed',value['reason'],task_file=task_file)
+                self.host.status.set(value['reason'])
+                level=getattr(self.host,'gate_level',None)
+                if value['ok'] and callable(level) and level()=='auto':
+                    # 全自动不拦截 Claude Desktop：它只能由用户点发送，这里明确提示，
+                    # 避免自动链看似停住却没有说明；状态栏原文也会转给三虎。
+                    message=('三虎全自动：'+self.label+' 的任务已粘贴到 Claude Desktop，'
+                                 '请切到 Claude Desktop 手动点击发送；完成后产物会自动收回。')
+                    self.host.status.set(message)
+                    self.host.notifier.warning(message,title='请手动发送')
+            self.host.status.set('正在将本次任务粘贴到 Claude Desktop，请检查后手动发送…')
+            self.host.async_(lambda:paste_existing(self.title,clipboard_text,program=program,deadline_seconds=45),claude_pasted)
+            return
+        if self.config.get('desktop_program'):
+            from platform_tools import launch_windows_app
+            launch_windows_app(self.config['desktop_program'], 'Codex 桌面')
+        open_target(result['url'])
+        from codex_paste import paste_existing
+        def pasted(result):
+            self.finish(receipt,'prepared' if result['ok'] else 'failed',result['reason'])
+            self.host.status.set(result['reason'])
+        self.host.async_(lambda:paste_existing(result['title'],clipboard_text,result.get('draft_prompt',''),result.get('project',''),deadline_seconds=45 if result.get('mode')=='new' else 15),pasted)
+        self.host.status.set('正在将本次任务粘贴到 GPT 桌面，请在窗口中手动点击发送…')

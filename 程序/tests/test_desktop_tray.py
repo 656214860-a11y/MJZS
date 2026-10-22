@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import textwrap
+import time
 import unittest
 from pathlib import Path
 
@@ -46,6 +47,32 @@ class TrayIconTests(unittest.TestCase):
         self.assertIsNone(tray._wndproc)
         self.assertIsNone(tray._thread, '移除后托盘线程已收摊')
 
+    def test_two_trays_do_not_share_a_window_class(self):
+        """同名窗口类会让后建的托盘沿用先建实例的 WNDPROC；先建的一收摊，回调被释放，
+        后者再收到消息就以 0xC000041D 带崩整个进程（全量自检中的进程池中断）。"""
+        import desktop_tray
+        calls = []
+        first = TrayIcon(self.win, on_restore=lambda: None, on_quit=lambda: None,
+                         on_force_restart=lambda: None)
+        second = TrayIcon(self.win, on_restore=lambda: calls.append('restore'), on_quit=lambda: None,
+                          on_force_restart=lambda: None)
+        self.assertNotEqual(first._class_name, second._class_name)
+        first.add()
+        second.add()
+        try:
+            first.remove()
+            # 先建的已收摊：给后建的投一次左键单击，它自己的回调必须还活着。
+            second._user32.PostMessageW(second._hwnd, desktop_tray.WM_TRAYICON, 1,
+                                        desktop_tray.WM_LBUTTONUP)
+            deadline = time.monotonic() + 3
+            while not second._pending and time.monotonic() < deadline:
+                time.sleep(0.02)
+            second._drain()
+            self.assertEqual(calls, ['restore'])
+        finally:
+            first.remove()
+            second.remove()
+
     def test_restart_paths_are_resolved(self):
         self.assertTrue(PYTHONW.is_file(), '解释器路径存在')
         self.assertTrue(LAUNCHER.is_file(), '启动器路径存在')
@@ -79,6 +106,43 @@ class TrayIconTests(unittest.TestCase):
             tray._cancel_drain()
             tray._active = False
         self.assertEqual(calls, ['restore', 'quit'])
+
+    def test_a_failing_callback_does_not_drop_the_rest_of_the_batch(self):
+        """R1777：恢复回调抛错时，同批的「退出」不能整批丢失。"""
+        calls = []
+
+        def broken_restore():
+            raise RuntimeError('restore failed')
+
+        tray = TrayIcon(self.win, on_restore=broken_restore, on_quit=lambda: calls.append('quit'),
+                        on_force_restart=lambda: None)
+        tray._active = True
+        try:
+            tray._enqueue(1)  # 恢复（回调会抛错）
+            tray._enqueue(3)  # 退出
+            tray._drain()
+        finally:
+            tray._cancel_drain()
+            tray._active = False
+        self.assertEqual(calls, ['quit'])
+
+    def test_setup_tray_failure_does_not_block_startup(self):
+        """R1777：托盘建不起来只记日志，不让 Desktop 构造失败。"""
+        from unittest import mock
+        import desktop_tray
+
+        class Host(desktop_tray.TrayMixin):
+            win = self.win
+
+            def close(self):
+                pass
+
+        host = Host()
+        # 自检器默认设了 DRAMA_SUPPRESS_TRAY=1（setup_tray 直接返回）；这条要走真实建托盘的失败分支，所以局部清掉。
+        with mock.patch.dict(os.environ),                 mock.patch.object(desktop_tray.TrayIcon, 'add', side_effect=RuntimeError('托盘窗口创建超时')):
+            os.environ.pop(SUPPRESS_TRAY_ENV, None)
+            host.setup_tray()  # 不抛
+        self.assertIsNone(host.tray_icon)
 
 
 _CYCLE_SCRIPT = textwrap.dedent(r'''

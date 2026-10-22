@@ -11,7 +11,7 @@ class StoryboardEditBoundaryTests(unittest.TestCase):
         imported = {name.name for node in tree.body if isinstance(node, ast.ImportFrom)
                     and node.module == 'storyboard_final_controller' for name in node.names}
         self.assertIn('FinalStoryboardController', imported)
-        show_final = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'show_final')
+        show_final = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == '_FinalStoryboardPage')  # R1813：show_final 的闭包改写成了类，嵌套函数成了它的方法；断言不变
         ask_save = next(node for node in ast.walk(show_final)
                         if isinstance(node, ast.FunctionDef) and node.name == 'ask_save')
         calls = [node for node in ast.walk(ask_save) if isinstance(node, ast.Call)
