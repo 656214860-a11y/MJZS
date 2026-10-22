@@ -12,6 +12,24 @@
  "tests_ok": true,
  "modules": [
   {
+   "module": "account_client.py",
+   "covered": 0,
+   "total": 75,
+   "percent": 0.0
+  },
+  {
+   "module": "account_controller.py",
+   "covered": 0,
+   "total": 74,
+   "percent": 0.0
+  },
+  {
+   "module": "account_store.py",
+   "covered": 0,
+   "total": 62,
+   "percent": 0.0
+  },
+  {
    "module": "agent/optimizer_mcp_bridge.py",
    "covered": 0,
    "total": 37,
@@ -140,7 +158,7 @@
   {
    "module": "asset_detail_service.py",
    "covered": 0,
-   "total": 111,
+   "total": 110,
    "percent": 0.0
   },
   {
@@ -176,7 +194,7 @@
   {
    "module": "asset_reference_import.py",
    "covered": 0,
-   "total": 106,
+   "total": 107,
    "percent": 0.0
   },
   {
@@ -254,7 +272,7 @@
   {
    "module": "cloud_assets.py",
    "covered": 0,
-   "total": 108,
+   "total": 109,
    "percent": 0.0
   },
   {
@@ -284,7 +302,7 @@
   {
    "module": "codex_tasks.py",
    "covered": 0,
-   "total": 131,
+   "total": 132,
    "percent": 0.0
   },
   {
@@ -326,7 +344,13 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 1125,
+   "total": 1127,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_account_page.py",
+   "covered": 0,
+   "total": 100,
    "percent": 0.0
   },
   {
@@ -350,7 +374,7 @@
   {
    "module": "desktop_automation_tick.py",
    "covered": 0,
-   "total": 198,
+   "total": 200,
    "percent": 0.0
   },
   {
@@ -404,7 +428,7 @@
   {
    "module": "desktop_page_registry.py",
    "covered": 0,
-   "total": 7,
+   "total": 12,
    "percent": 0.0
   },
   {
@@ -422,13 +446,13 @@
   {
    "module": "desktop_project_pages.py",
    "covered": 0,
-   "total": 456,
+   "total": 466,
    "percent": 0.0
   },
   {
    "module": "desktop_script_pages.py",
    "covered": 0,
-   "total": 585,
+   "total": 631,
    "percent": 0.0
   },
   {
@@ -464,7 +488,7 @@
   {
    "module": "desktop_writing_page.py",
    "covered": 0,
-   "total": 558,
+   "total": 580,
    "percent": 0.0
   },
   {
@@ -501,6 +525,12 @@
    "module": "engine_probe.py",
    "covered": 0,
    "total": 254,
+   "percent": 0.0
+  },
+  {
+   "module": "entitlement_service.py",
+   "covered": 0,
+   "total": 48,
    "percent": 0.0
   },
   {
@@ -642,6 +672,12 @@
    "percent": 0.0
   },
   {
+   "module": "lease_verifier.py",
+   "covered": 0,
+   "total": 37,
+   "percent": 0.0
+  },
+  {
    "module": "legacy_adoption_service.py",
    "covered": 0,
    "total": 28,
@@ -722,7 +758,7 @@
   {
    "module": "pet_cloud.py",
    "covered": 0,
-   "total": 837,
+   "total": 838,
    "percent": 0.0
   },
   {
@@ -818,7 +854,7 @@
   {
    "module": "pet_ui_settings.py",
    "covered": 0,
-   "total": 294,
+   "total": 295,
    "percent": 0.0
   },
   {
@@ -914,7 +950,7 @@
   {
    "module": "qwen_adapter.py",
    "covered": 0,
-   "total": 118,
+   "total": 121,
    "percent": 0.0
   },
   {
@@ -950,7 +986,7 @@
   {
    "module": "responsive_ui.py",
    "covered": 0,
-   "total": 536,
+   "total": 537,
    "percent": 0.0
   },
   {
@@ -986,7 +1022,7 @@
   {
    "module": "script_structure_edit_controller.py",
    "covered": 0,
-   "total": 76,
+   "total": 47,
    "percent": 0.0
   },
   {
@@ -1022,7 +1058,7 @@
   {
    "module": "shared_video_controls.py",
    "covered": 0,
-   "total": 17,
+   "total": 18,
    "percent": 0.0
   },
   {
@@ -1070,7 +1106,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 840,
+   "total": 841,
    "percent": 0.0
   },
   {
@@ -1124,7 +1160,7 @@
   {
    "module": "stage_handler_registry.py",
    "covered": 0,
-   "total": 95,
+   "total": 100,
    "percent": 0.0
   },
   {
@@ -1226,7 +1262,7 @@
   {
    "module": "storyboard_selection.py",
    "covered": 0,
-   "total": 401,
+   "total": 402,
    "percent": 0.0
   },
   {
@@ -1274,7 +1310,7 @@
   {
    "module": "task_center_ui.py",
    "covered": 0,
-   "total": 63,
+   "total": 64,
    "percent": 0.0
   },
   {
@@ -1310,7 +1346,7 @@
   {
    "module": "ui_icons.py",
    "covered": 0,
-   "total": 48,
+   "total": 49,
    "percent": 0.0
   },
   {
@@ -1352,7 +1388,7 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 124,
+   "total": 125,
    "percent": 0.0
   },
   {
@@ -1430,7 +1466,7 @@
   {
    "module": "workflow_agents.py",
    "covered": 0,
-   "total": 84,
+   "total": 85,
    "percent": 0.0
   },
   {
@@ -1454,13 +1490,13 @@
   {
    "module": "workflow_engines.py",
    "covered": 0,
-   "total": 325,
+   "total": 329,
    "percent": 0.0
   },
   {
    "module": "workflow_process_registry.py",
    "covered": 0,
-   "total": 106,
+   "total": 110,
    "percent": 0.0
   },
   {
@@ -1608,16 +1644,16 @@
    "percent": 22.5
   },
   {
+   "module": "platform_tools.py",
+   "covered": 63,
+   "total": 277,
+   "percent": 22.7
+  },
+  {
    "module": "skill_budget.py",
    "covered": 39,
    "total": 171,
    "percent": 22.8
-  },
-  {
-   "module": "platform_tools.py",
-   "covered": 61,
-   "total": 261,
-   "percent": 23.4
   },
   {
    "module": "app_logging.py",
@@ -1633,9 +1669,9 @@
   },
   {
    "module": "pet_bus.py",
-   "covered": 48,
-   "total": 199,
-   "percent": 24.1
+   "covered": 52,
+   "total": 211,
+   "percent": 24.6
   },
   {
    "module": "usage_overview.py",
@@ -1729,9 +1765,9 @@
   },
   {
    "module": "file_cache.py",
-   "covered": 67,
-   "total": 135,
-   "percent": 49.6
+   "covered": 73,
+   "total": 142,
+   "percent": 51.4
   },
   {
    "module": "keyframe_evidence.py",
@@ -1813,5 +1849,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 300
+ "modules_total": 306
 }

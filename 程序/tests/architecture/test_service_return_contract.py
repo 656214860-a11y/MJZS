@@ -138,7 +138,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
             if any(isinstance(node, ast.ImportFrom) and node.module == 'service_contract'
                    for node in ast.walk(tree)):
                 adopters.add(module)
-        self.assertEqual(adopters, {'animatic_service', 'asset_batch_settings_service', 'asset_detail_service', 'asset_resume', 'asset_plan', 'storyboard_storage', 'idea_attachments', 'audio_import_service', 'delivery_import_service', 'desktop_settings_service', 'keyframe_lifecycle_service', 'projects',
+        self.assertEqual(adopters, {'account_client', 'animatic_service', 'asset_batch_settings_service', 'asset_detail_service', 'asset_resume', 'asset_plan', 'storyboard_storage', 'idea_attachments', 'audio_import_service', 'delivery_import_service', 'desktop_settings_service', 'keyframe_lifecycle_service', 'projects',
                                     'cloud_video_service', 'edit_service', 'handoff_service', 'legacy_adoption_service', 'recon_service', 'recycle_recovery_service', 'script_workspace_service', 'stage_workspace_service', 'storyboard_edit_service', 'subtitle_export_service', 'video_lifecycle_service', 'video_prompt_publication', 'workflow_context', 'writing', 'writing_tools', 'writing_quality'})
         ledger = json.loads((Path(ROOT) / '维护记录' / '架构统一基数.json').read_text(encoding='utf-8'))['第一项']
         self.assertEqual(adopters, set(ledger['adopters']))

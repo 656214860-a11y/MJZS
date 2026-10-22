@@ -330,18 +330,21 @@ def probe_http_endpoint(base_url, *, timeout=8):
         return {'reachable': False, 'code': None, 'error': f'{hint}（{detail[:160]}）'}
 
 
-def open_https(url, *, timeout=60, data=None, headers=None):
+def open_https(url, *, timeout=60, data=None, headers=None, method=None, context=None):
     """唯一出站 HTTP(S) 入口：返回已打开的响应，读取与错误分类留给调用方。
 
     与 ``run_process`` 同属宿主适配层——出站网络调用集中在此，便于统一超时、代理
-    与后续访问闸门策略；``data`` 为 None 时是 GET，否则按请求体发送。
+    与后续访问闸门策略；``data`` 为 None 时是 GET，否则按请求体发送。``method``
+    显式指定动词（如 DELETE）；``context`` 是调用方的 ``ssl.SSLContext``（如钉证书）。
     """
     import urllib.request
     control = current_execution()
     if control is not None:
         timeout = control.remaining(timeout)
-    request = urllib.request.Request(str(url), data=data, headers=dict(headers or {}))
-    return urllib.request.urlopen(request, timeout=timeout)
+    request = urllib.request.Request(str(url), data=data, headers=dict(headers or {}), method=method)
+    if context is None:
+        return urllib.request.urlopen(request, timeout=timeout)
+    return urllib.request.urlopen(request, timeout=timeout, context=context)
 
 
 def launch_windows_app(executable, feature, *, args=None, cwd=None, env=None, creationflags=0):

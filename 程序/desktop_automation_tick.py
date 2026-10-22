@@ -9,6 +9,7 @@ from desktop_automation_service import PersistentBackgroundTaskQueue
 from agent.core import read
 from desktop_page_registry import PAGE
 from desktop_tk_gc import drain_tk_gc
+from desktop_account_page import RENEW_DELAY_MS
 
 
 class AutomationTickMixin:
@@ -24,6 +25,8 @@ class AutomationTickMixin:
             self._codex_skill_sync_started=True
             start_codex_skill_sync()
         self._start_legacy_project_migration()
+        # 会员授权续签在首帧之后才排程，启动路径不等网络（设计文档 §5.4）。
+        if hasattr(self,'start_account_renewal'):self.win.after(RENEW_DELAY_MS,self.start_account_renewal)
         # 首帧通知不能覆盖用户已发起的后台操作（例如“强制关闭 ComfyUI”）；
         # 否则任务实际结束后状态栏仍停在“正在打开今日项目”。
         # 自动续开尚未选择项目时才显示这条启动提示。已有项目（含测试或

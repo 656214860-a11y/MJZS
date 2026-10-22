@@ -38,6 +38,18 @@ def _workflow_lock_error(project, stage, trigger):
     return '请先在 01 剧本准备 的发送框内写明制作锁（故事画幅／视频模型／交付形态）：' + '、'.join(missing)
 
 
+def _account_gate_error(desktop, stage):
+    """会员闸门（设计文档 §5.2）：付费阶段在未登录、过期或离线超宽限时拦截，手动与自动一致。
+
+    判定由宿主挂载的 ``account``（``account_controller.AccountController``）只读本机会话完成，
+    不联网；没有挂载账号编排的宿主（如无界面测试替身）不设闸，只有字符串才算拦截原因。
+    """
+    account = getattr(desktop, 'account', None)
+    gate = getattr(account, 'stage_gate', None)
+    reason = gate(stage) if callable(gate) else ''
+    return reason if isinstance(reason, str) else ''
+
+
 def _fail(desktop, stage, trigger, error):
     pet = getattr(desktop, 'pet', None)
     if trigger == 'auto' and pet is not None:
@@ -106,7 +118,7 @@ def poll_pet_test(session, project, at=None):
 
 def start(desktop, stage, trigger='auto', fallback=None, **options):
     """三虎唯一的 L3 启动指令入口。"""
-    error = _workflow_lock_error(getattr(desktop, 'root', None), stage, trigger)
+    error = _account_gate_error(desktop, stage) or _workflow_lock_error(getattr(desktop, 'root', None), stage, trigger)
     if error:
         # 手动路径也阻断：直接把原因交回调用方展示，不经三虎失败事件。
         return _fail(desktop, stage, trigger, error) if trigger == 'auto' else error

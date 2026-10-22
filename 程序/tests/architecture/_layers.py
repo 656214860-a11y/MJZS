@@ -56,6 +56,11 @@ _register(4, "desktop_auto_flows", "desktop_idea_bubbles", "desktop_page_registr
           "video_navigation", "video_progress", "video_prompt_results", "white_model_ref", "workflow_agents",
           "workflow_settings", "writing_page_controller", "legacy_compat")
 _register(5, "desktop_launcher")
+# R1895：账户会员客户端（设计文档 说明/账户会员云端设计.md §5.1）。
+_register(1, "lease_verifier", "account_store")
+_register(2, "entitlement_service", "account_client")
+_register(3, "account_controller")
+_register(4, "desktop_account_page")
 
 # 非运行期外围脚本：它们不会作为产品层导入；显式留名可防止新增顶层脚本绕过审计。
 TOOLS: dict[str, str] = {
