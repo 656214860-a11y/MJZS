@@ -6,7 +6,7 @@ from agent.core import read,save
 from file_cache import read_json
 from project_settings import read_prefs
 from project_context_factory import project_context
-from storyboard_adoption_contract import adopted as _adopted, problem_text, resolve_source
+from storyboard_adoption_contract import adopted as _adopted, paths, problem_text, resolve_source
 import pet_bus
 from ui_tokens import SPACING
 
@@ -93,16 +93,6 @@ def sync_structured_script(project):
     values = [script, *(path for path in selected_many(project, 'script') if path != script)]
     remember_many(project, 'script', values)
     return values
-
-
-def paths(project,values):
-    project=Path(project).resolve();result=[]
-    for value in values:
-        path=resolve_source(project,value)
-        if not path.is_relative_to(project) or not path.is_file():
-            raise ValueError('已采用的分镜不存在或不在当前项目内：'+str(path))
-        if path not in result:result.append(path)
-    return result
 
 
 def adopted(project):

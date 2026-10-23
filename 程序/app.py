@@ -73,6 +73,15 @@ def pending_checked_shots(studio, checked_ids):
         todo.append(sid)
     return todo
 
+
+def play_ready(app, selected):
+    """选中镜头最近一版的成片文件是否在盘上（播放按钮可用性）。"""
+    if app.play_button is None or not selected:
+        return False
+    versions = app.studio.state()['shots'].get(selected[0], [])
+    files = [v for v in versions if v.get('file')]
+    return bool(files and (app.root / files[-1]['file']).is_file())
+
 def work_targets(app):
     """「制作／删除」这一类动作的目标（第 47 期第 1 条）：勾选优先，兜底高亮那一行。
 
@@ -401,13 +410,8 @@ class App:
         optimizing=getattr(self,'optimizer_busy',False)
         busy = getattr(self, 'busy', False)
         checked_any = any(self.edit_checks.get(sid, False) for sid in self.tree.get_children())
-        play_ready = False
-        if self.play_button is not None and selected:
-            versions = self.studio.state()['shots'].get(selected[0], [])
-            files = [v for v in versions if v.get('file')]
-            play_ready = bool(files and (self.root / files[-1]['file']).is_file())
-        # 每秒都会进来：输入没变（含控件个数，页面重建时会变）就不再逐个改控件状态。
-        signature=(tuple(selected),locked,optimizing,busy,checked_any,play_ready,len(self.window.winfo_children()))
+        ready = play_ready(self, selected)
+        signature=(tuple(selected),locked,optimizing,busy,checked_any,ready,len(self.window.winfo_children()))
         if periodic and signature==getattr(self,'_prompt_controls_signature',None):return
         self._prompt_controls_signature=signature
         for button in self.prompt_buttons:button.state(['disabled'] if locked or optimizing else ['!disabled'])
@@ -428,7 +432,7 @@ class App:
         work_ready = bool(checked_any or self.tree.selection())
         action_state(self.generate_checked_button, work_ready and not busy and not optimizing)
         action_state(getattr(self, 'delete_checked_button', None), work_ready and not busy)
-        action_state(self.play_button, play_ready and not busy)
+        action_state(self.play_button, ready and not busy)
 
     # 第 48 期第 4 条：「手动提示词」下面那块提示词框按内容多少自适应高度。
     # 一两行字就矮一点，省下页面空间；写得长了自己长高，超过上限才用滚动条。
