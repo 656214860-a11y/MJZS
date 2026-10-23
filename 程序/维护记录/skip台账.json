@@ -2295,6 +2295,60 @@
       "reason_constant": "PLATFORM_TKINTER",
       "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
       "reference": ""
+    },
+    {
+      "file": "tests/test_page_paint_freeze.py",
+      "test": "PaintFreezeTests.setUp",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "平台限制：当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_paint_freeze.py",
+      "test": "PaintFreezeTests.setUp",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_paint_freeze.py",
+      "test": "PageSwitchFreezeTests.test_page_switch_stays_frozen_until_layout_settles",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "平台限制：当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_paint_freeze.py",
+      "test": "PageSwitchFreezeTests.test_page_switch_stays_frozen_until_layout_settles",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_paint_freeze.py",
+      "test": "PageSwitchFreezeTests.test_failed_page_build_thaws",
+      "ordinal": 1,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_TKINTER",
+      "reason": "平台限制：当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+      "reference": ""
+    },
+    {
+      "file": "tests/test_page_paint_freeze.py",
+      "test": "PageSwitchFreezeTests.test_failed_page_build_thaws",
+      "ordinal": 2,
+      "kind": "平台限制",
+      "reason_constant": "PLATFORM_WINDOWS_ONLY",
+      "reason": "平台限制：受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行",
+      "reference": ""
     }
   ]
 }

@@ -123,6 +123,7 @@ WEEKLY_FROM = 4                   # 周五（datetime.weekday：周一 0、周�
 # 第 36 期第 5／6 条：关软件那一下不再递日报（用户要「删掉关闭前的弹框」），改由三虎自己挑
 # 时机；换了阶段也主动问一句。这两件事都按钟点节流，别反复问。
 STAGE_ASK_SECONDS = 45.0          # 同一个阶段重复问一句最短隔这么久
+STAGE_TODO_STATES = ('failed', 'blocked')   # R1948：进页时算「待办」的阶段状态（其余状态换页不开口）
 REPORT_QUIET_SECONDS = 900.0      # 隔这么久没有新的制作动静＝这一波活干完了，该递日报了
 GREET_SETTLE_POLLS = 40           # 等启动页建完最多再等这么多拍（每拍 GREET_DELAY_MS），约 18 秒
 GREET_DELAY_MS = 450              # 开机招呼推迟这么久（用户嫌招呼慢，原 900）：主窗口先映射出来，云才知道往哪落

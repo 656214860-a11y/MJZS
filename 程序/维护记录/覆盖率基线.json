@@ -14,13 +14,13 @@
   {
    "module": "account_client.py",
    "covered": 0,
-   "total": 75,
+   "total": 87,
    "percent": 0.0
   },
   {
    "module": "account_controller.py",
    "covered": 0,
-   "total": 74,
+   "total": 155,
    "percent": 0.0
   },
   {
@@ -68,7 +68,7 @@
   {
    "module": "app.py",
    "covered": 0,
-   "total": 1163,
+   "total": 1170,
    "percent": 0.0
   },
   {
@@ -344,13 +344,13 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 1127,
+   "total": 1132,
    "percent": 0.0
   },
   {
    "module": "desktop_account_page.py",
    "covered": 0,
-   "total": 100,
+   "total": 298,
    "percent": 0.0
   },
   {
@@ -374,7 +374,7 @@
   {
    "module": "desktop_automation_tick.py",
    "covered": 0,
-   "total": 200,
+   "total": 201,
    "percent": 0.0
   },
   {
@@ -410,13 +410,13 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 333,
+   "total": 346,
    "percent": 0.0
   },
   {
    "module": "desktop_layout_resize.py",
    "covered": 0,
-   "total": 189,
+   "total": 247,
    "percent": 0.0
   },
   {
@@ -440,7 +440,7 @@
   {
    "module": "desktop_pet_bridge.py",
    "covered": 0,
-   "total": 92,
+   "total": 100,
    "percent": 0.0
   },
   {
@@ -530,7 +530,7 @@
   {
    "module": "entitlement_service.py",
    "covered": 0,
-   "total": 48,
+   "total": 49,
    "percent": 0.0
   },
   {
@@ -800,7 +800,7 @@
   {
    "module": "pet_cloud_timing.py",
    "covered": 0,
-   "total": 193,
+   "total": 202,
    "percent": 0.0
   },
   {
@@ -848,7 +848,13 @@
   {
    "module": "pet_ui.py",
    "covered": 0,
-   "total": 459,
+   "total": 462,
+   "percent": 0.0
+  },
+  {
+   "module": "pet_ui_popup.py",
+   "covered": 0,
+   "total": 53,
    "percent": 0.0
   },
   {
@@ -866,7 +872,7 @@
   {
    "module": "pet_ui_support.py",
    "covered": 0,
-   "total": 385,
+   "total": 387,
    "percent": 0.0
   },
   {
@@ -878,7 +884,7 @@
   {
    "module": "pet_ui_voice.py",
    "covered": 0,
-   "total": 893,
+   "total": 902,
    "percent": 0.0
   },
   {
@@ -1160,7 +1166,7 @@
   {
    "module": "stage_handler_registry.py",
    "covered": 0,
-   "total": 100,
+   "total": 101,
    "percent": 0.0
   },
   {
@@ -1262,7 +1268,7 @@
   {
    "module": "storyboard_selection.py",
    "covered": 0,
-   "total": 402,
+   "total": 394,
    "percent": 0.0
   },
   {
@@ -1370,7 +1376,7 @@
   {
    "module": "ui_scroll.py",
    "covered": 0,
-   "total": 88,
+   "total": 98,
    "percent": 0.0
   },
   {
@@ -1388,7 +1394,7 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 125,
+   "total": 133,
    "percent": 0.0
   },
   {
@@ -1412,7 +1418,7 @@
   {
    "module": "video_progress.py",
    "covered": 0,
-   "total": 105,
+   "total": 108,
    "percent": 0.0
   },
   {
@@ -1424,7 +1430,7 @@
   {
    "module": "video_prompt_results.py",
    "covered": 0,
-   "total": 112,
+   "total": 113,
    "percent": 0.0
   },
   {
@@ -1436,7 +1442,7 @@
   {
    "module": "video_task_state.py",
    "covered": 0,
-   "total": 60,
+   "total": 71,
    "percent": 0.0
   },
   {
@@ -1680,6 +1686,12 @@
    "percent": 24.9
   },
   {
+   "module": "storyboard_paths.py",
+   "covered": 11,
+   "total": 43,
+   "percent": 25.6
+  },
+  {
    "module": "token_saver.py",
    "covered": 93,
    "total": 348,
@@ -1713,12 +1725,6 @@
    "module": "model_pool.py",
    "covered": 237,
    "total": 751,
-   "percent": 31.6
-  },
-  {
-   "module": "storyboard_paths.py",
-   "covered": 6,
-   "total": 19,
    "percent": 31.6
   },
   {
@@ -1758,16 +1764,16 @@
    "percent": 43.5
   },
   {
+   "module": "file_cache.py",
+   "covered": 75,
+   "total": 155,
+   "percent": 48.4
+  },
+  {
    "module": "stage_publication.py",
    "covered": 42,
    "total": 85,
    "percent": 49.4
-  },
-  {
-   "module": "file_cache.py",
-   "covered": 73,
-   "total": 142,
-   "percent": 51.4
   },
   {
    "module": "keyframe_evidence.py",
@@ -1849,5 +1855,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 306
+ "modules_total": 307
 }

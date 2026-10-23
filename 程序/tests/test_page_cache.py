@@ -143,7 +143,8 @@ class PageCacheTests(unittest.TestCase):
         if self.tk is None:self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
             win, d = self.open_desktop(td)
-            with mock.patch.object(d, 'pet_at_stage') as announce, mock.patch.object(win, 'after', wraps=win.after) as scheduled:
+            # R1948：没有待办时换页不挂播报；这条用例只验「连续换页只播最后一页」，先让每页都有待办。
+            with mock.patch.object(d, 'pet_stage_wanted', return_value=True),                     mock.patch.object(d, 'pet_at_stage') as announce, mock.patch.object(win, 'after', wraps=win.after) as scheduled:
                 d.go_page(PAGE['script_structure']); win.update_idletasks()
                 old_job = d._pet_stage_job
                 old_speak = next(call.args[1] for call in scheduled.call_args_list

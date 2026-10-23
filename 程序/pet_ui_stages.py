@@ -1081,13 +1081,13 @@ class PetStagesMixin:
             state = '状态待读取'
         return '【阶段 %d/%d】%s：当前进度 %s' % (int(index) + 1, len(pet_bus.STAGES), name, state)
     def enter_stage(self, page=None, at=None):
-        """统一进页规则：提示档报进度，半自动征询，全自动按已选 SKILL 执行。"""
+        """统一进页规则：有待办才开口（R1948），提示档报进度，半自动征询，全自动按已选 SKILL 执行。"""
         try:
             index = int(getattr(self.desktop, 'page_index', 0) if page is None else page)
         except (TypeError, ValueError):
             return ''
         stage = self.page_stage(index)
-        if not stage:
+        if not stage or not self.stage_has_todo(index):
             return ''
         status = self.stage_entry_status(index)
         level = self.level()

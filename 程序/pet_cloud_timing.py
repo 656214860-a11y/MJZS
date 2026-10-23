@@ -96,7 +96,7 @@ class CloudTimingMixin:
         """空闲等完整十秒；交互中沿用原有 WATCH_RECHECK_MS 坐标复检。"""
         self._cancel_hold()
         self._watching = self.busy or self._interaction_paused()
-        delay = WATCH_RECHECK_MS if self._watching else PET_CLOUD_AUTO_CLOSE_MS
+        delay = WATCH_RECHECK_MS if self._watching else self._idle_close_ms()
         callback = self._recheck_hold if self._watching else self._expire
         try:
             self._hold = self.parent.after(delay, callback)
@@ -104,6 +104,17 @@ class CloudTimingMixin:
             self.errors.append(('after', str(exc)))
             self._hold = None
         return self._hold
+
+    def _idle_close_ms(self):
+        """R1948：没人看着时多久收——问三虎按用户操作疏密给的时长，问不到就按默认十秒。"""
+        dwell = getattr(getattr(self, 'pet', None), 'cloud_dwell_ms', None)
+        if not callable(dwell):
+            return PET_CLOUD_AUTO_CLOSE_MS
+        try:
+            return int(dwell())
+        except Exception:
+            app_logging.swallowed()
+            return PET_CLOUD_AUTO_CLOSE_MS
 
     def _recheck_hold(self):
         """交互持续则继续复检，结束则重新登记完整十秒，不能直接收起。"""

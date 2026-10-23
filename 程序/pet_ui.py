@@ -59,6 +59,7 @@ from pet_ui_stages import PetStagesMixin
 from pet_ui_settings import PetSettingsMixin
 from pet_ui_voice import PetVoiceMixin
 from pet_ui_view import PetViewMixin
+from pet_ui_popup import PetPopupMixin
 from pet_ui_support import ACTIVE_MS, ADVANCE_SECONDS, AUTOSTART_KEY, AUTOSTART_NAME, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, AWAY_PAUSE_SECONDS, Autostart, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, BUSY_TAPS, BUSY_WINDOW, CANVAS_BG, CAPTION_INK, CAPTION_RIGHT, CAPTION_ROOM, CAPTION_Y, CHAT_HINT, CHAT_MUTE_SECONDS, CONFIRM_NEED, CONFIRM_TITLE, DETAIL_MENU_LABEL, FALLBACK_ASK, GAP_SECONDS, GEAR_COLOR, GEAR_HOVER, GEAR_SIZE, GEAR_TIP, GREET_DELAY_MS, GREET_QUIET_SECONDS, GearButton, HEAD_PAD, ICE, IDLE_MS, INK_SOFT, LEVEL_CAPTIONS, LEVEL_COLORS, LEVEL_SWITCH_NOTES, MOODS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PANEL_SECTIONS, PATCH_ROOM, PATCH_X, PAUSED_CAPTION, PAW_ARC, PAW_COLORS, PAW_GAP, PAW_GAP_Y, PAW_HOVER, PAW_IDLE, PAW_LEVELS, PAW_ROW_X, PAW_SIZE, PAW_WIDTH, PAW_Y, PROGRAM, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, QUIT_LABEL, REPORT_QUIET_SECONDS, SANHU_BLUSH, SANHU_EAR, SANHU_FUR, SANHU_INK, SANHU_MODES, SANHU_MUZZLE, SANHU_STAR, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, STAGE_ASK_SECONDS, TONGUE, WEEKLY_FROM, _BooleanFlag, _UNSET, _settings_entries, asset_counts, autostart_command, duration, flourish, gear_parts, paint, palette, paw_dy, paw_parts, shot_stats, startup_api
 
 
@@ -345,7 +346,7 @@ _CLICK_ACTIONS = {
 }
 
 
-class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin):
+class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin, PetPopupMixin):
     """贴片宠物：画自己、说人话、把事件喂给父 Agent。界面线程独占，全部方法不抛异常。"""
 
     def __init__(self, desktop, clock=time.time, front=None):
@@ -403,7 +404,7 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin):
             schedule=lambda delay, callback: self.win.after(delay, callback),
             cancel=self._cancel_chat_click, delay=CLICK_MS,
             visible=lambda: self.cloud_visible(), open_chat=lambda: self.open_chat(),
-            close_chat=lambda: self.close_chat(), mute=lambda **kw: self.mute(**kw),
+            close_chat=lambda: self.close_chat(), mute=lambda **kw: self.dismissed(**kw),
             on_error=lambda name, message: self.errors.append((name, message)))
         self._greet_id = None             # 还没到点的开机招呼（关窗比招呼先到时必须收回来）
         self._quiet_until = None          # 招呼之后的安静期到哪一刻（第 68 期任务 11）
@@ -423,6 +424,8 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin):
         self._progress_stage = None       # 上一次冒进度气泡时的阶段：换阶段就再说一次
         self._progress_said = ''          # 上一条进度气泡的原文（第 49 期第 3 条：一字不差就不再冒）
         self._mute_until = 0.0            # 云朵框被点掉之后，安静到什么时候（别被自动播报顶回来）
+        self._activity = []               # R1948：用户最近几下动作（点按钮、切页）的钟点，定云朵停留多久
+        self._dismissals = []             # R1948：用户最近几次主动点掉云朵的钟点，定安静期多长
         self.asker = None                 # 一键执行前的确认弹窗：None＝系统 messagebox（用例可注入）
         self.recovery_asker = None        # 中断恢复选择器：None＝系统输入框（用例可注入）
         self._recovery_from = None        # 开机恢复选择的 (stage, step)，下一次同阶段执行时消费

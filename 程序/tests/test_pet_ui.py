@@ -5659,6 +5659,8 @@ class FadeAndReadTests(PetTestCase):
         original = self.win.after
         self.win.after = lambda ms, fn=None, *a: seen.append((ms, fn)) or 'job'
         self.addCleanup(setattr, self.win, 'after', original)
+        # R1948：停留随用户操作疏密伸缩；先记一笔动作，落在「正常操作」这一档（十秒）。
+        self.pet.note_activity()
         cloud.broadcast(text)
         self.assertTrue(seen, '说完要排一个「什么时候收」的定时器')
         self.assertEqual(seen[-1][0], pet_cloud.PET_CLOUD_AUTO_CLOSE_MS, '排的毫秒数＝统一十秒配置')
@@ -6306,8 +6308,13 @@ class StageEntryTests(PetTestCase):
         self.spoken = []
         self.pet.broadcast = lambda text, **_kwargs: self.spoken.append(text) or text
 
+    def pend_script_failure(self):
+        """R1948：进页只在有待办时开口——这两条用例先在剧本阶段压一条失败待确认。"""
+        self.pet.agent.failures.append({'stage': 'script', 'category': 'unknown', 'error': '待确认'})
+
     def test_hint_only_reports_the_current_script_progress(self):
         self.pet.agent.set_level('hint')
+        self.pend_script_failure()
         self.pet.run_skill = lambda *_args, **_kwargs: self.fail('提示档不能启动 SKILL')
         said = self.pet.enter_stage(page=0, at=self.now)
         self.assertIn('【阶段 1/13】', said)
@@ -6316,6 +6323,7 @@ class StageEntryTests(PetTestCase):
 
     def test_semi_auto_combines_progress_with_existing_confirmation(self):
         self.pet.agent.set_level('semi')
+        self.pend_script_failure()
         self.pet.run_skill = lambda *_args, **_kwargs: self.fail('确认前不能启动 SKILL')
         said = self.pet.enter_stage(page=0, at=self.now)
         self.assertIn('【阶段 1/13】', said)
@@ -6330,7 +6338,8 @@ class StageEntryTests(PetTestCase):
         self.assertEqual(self.pet.enter_stage(page=0, at=self.now), '完成剧本')
         self.assertIn('script', started[0][0]['stage'])
         self.assertEqual(started[0][0]['params']['template_confirmation'], '确认')
-        self.assertEqual(self.pet.enter_stage(page=0, at=self.now + 1), self.spoken[-1])
+        # R1948 契约变更：已派发、又没有失败／阻塞待办时，再进这一页一个字都不说（原断言等于最近一句进度）。
+        self.assertEqual(self.pet.enter_stage(page=0, at=self.now + 1), '')
         self.assertEqual(len(started), 1, '切页刷新不得重复派发同一阶段')
         self.assertIn('确认剧本信息', confirmations[0])
 

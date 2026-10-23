@@ -9,7 +9,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 os.chdir(HERE)
 
-from skip_reasons import PLATFORM_TKINTER, PLATFORM_WINDOWS_ONLY as PLATFORM_WINDOWS
+from skip_reasons import PLATFORM_TKINTER, PLATFORM_WINDOWS_ONLY
 from pet_state import PAGE_OF as PAGE
 
 
@@ -25,7 +25,7 @@ class PaintFreezeTests(unittest.TestCase):
         except Exception:
             self.skipTest(PLATFORM_TKINTER)
         if sys.platform != 'win32':
-            self.skipTest(PLATFORM_WINDOWS)
+            self.skipTest(PLATFORM_WINDOWS_ONLY)
         self.tk = tk
         self.root = tk.Tk(); self.root.geometry('400x300+0+0')
         self.addCleanup(self.root.destroy)
@@ -92,7 +92,7 @@ class PageSwitchFreezeTests(unittest.TestCase):
         except Exception:
             self.skipTest(PLATFORM_TKINTER)
         if sys.platform != 'win32':
-            self.skipTest(PLATFORM_WINDOWS)
+            self.skipTest(PLATFORM_WINDOWS_ONLY)
         with tempfile.TemporaryDirectory() as td:
             win, d = self.open_desktop(td)
             d.show(PAGE['assets']); win.update()
@@ -110,7 +110,7 @@ class PageSwitchFreezeTests(unittest.TestCase):
         except Exception:
             self.skipTest(PLATFORM_TKINTER)
         if sys.platform != 'win32':
-            self.skipTest(PLATFORM_WINDOWS)
+            self.skipTest(PLATFORM_WINDOWS_ONLY)
         with tempfile.TemporaryDirectory() as td:
             win, d = self.open_desktop(td)
             with mock.patch.object(d, 'asset_page', side_effect=RuntimeError('坏页')), \

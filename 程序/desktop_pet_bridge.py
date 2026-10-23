@@ -139,6 +139,15 @@ class PetBridgeMixin:
             if automatic and pet.quiet():return ''
             return pet.enter_stage(index)
         except Exception:return ''
+    def pet_stage_wanted(self,index):
+        """R1948：换页先记一笔用户动作（云朵停留按操作疏密伸缩），再问三虎这一页有没有待办；
+        没有就连进页播报的定时器都不挂。"""
+        pet=getattr(self,'pet',None)
+        if pet is None:return False
+        try:
+            pet.note_activity()
+            return bool(pet.stage_has_todo(index))
+        except Exception:return False
     def pet_hides_instead_of_quitting(self):
         """常驻模式（配置里明确开）：关主窗口＝收进宠物窗，不退出。
 

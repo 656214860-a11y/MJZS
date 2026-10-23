@@ -1191,15 +1191,15 @@ class Desktop(AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixi
         self.fit_content()
         # 第 36 期第 6 条：换阶段了，三虎主动问一句能做什么。气泡重排会强制整窗同步布局，
         # 当场播报会把新页的首帧压到它后面；等新页先画出来再说，连续换页只说最后一页。
-        job=getattr(self,'_pet_stage_job',None)
+        job=getattr(self,'_pet_stage_job',None);self._pet_stage_job=None
         if job is not None:
             try:self.win.after_cancel(job)
             except tk.TclError:pass
+        if not self.pet_stage_wanted(index):return   # R1948：没有待办就不弹，也不排播报
         def speak():
             self._pet_stage_job=None
             if self.page_index==index and not getattr(self,'shutting_down',False):self.pet_at_stage(index)
-        # 1ms 会在布局尚未结束时到期，气泡的同步重排仍抢在首帧之前。
-        # 留出短暂导航稳定期；期间再次切页会取消旧播报。
+        # 1ms 会在布局尚未结束时到期，气泡的同步重排仍抢在首帧之前；留出短暂导航稳定期，期间再次切页会取消旧播报。
         try:self._pet_stage_job=self.win.after(150,speak)
         except tk.TclError:self._pet_stage_job=None
 
