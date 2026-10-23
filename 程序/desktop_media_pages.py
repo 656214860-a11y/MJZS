@@ -638,7 +638,7 @@ class MediaPagesMixin:
         top=ttk.Frame(self.content);top.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
         heading=ttk.Frame(top);heading.pack(side='left',fill='both',expand=True)
         def header_note(text):
-            label=ttk.Label(heading,text=text,wraplength=TEXT_DESC['wraplength'],style='Muted.TLabel',font=TEXT_DESC['font']);label.pack(anchor='w',fill='x',pady=SPACING['xs'])
+            label=DescriptionBlock(heading,text=text);label.pack(anchor='w',fill='x',pady=SPACING['xs'])
             label.bind('<Configure>',lambda e,w=label:w.configure(wraplength=max(SPACING['2xl']*5,e.width)))
         prefs_path=self.root/'ui_settings.json'
         prefs=read(prefs_path) if prefs_path.is_file() else {}
