@@ -24,8 +24,10 @@ os.chdir(HERE)
 from pet_state import PAGE_OF
 from ui_widgets import DataTable
 
-FFMPEG = r"D:/Tools/ffmpeg/bin/ffmpeg.exe"
-FFPROBE = r"D:/Tools/ffmpeg/bin/ffprobe.exe"
+import integrations
+# 工具路径走统一入口：本机 PATH 里有就用，没有才退回旧的固定位置（这里只写进项目配置，不会真正调用）。
+FFMPEG = integrations.tool_path("ffmpeg", r"D:/Tools/ffmpeg/bin/ffmpeg.exe")
+FFPROBE = integrations.tool_path("ffprobe", r"D:/Tools/ffmpeg/bin/ffprobe.exe")
 
 
 def make_project(td):
