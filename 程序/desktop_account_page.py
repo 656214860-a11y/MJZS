@@ -80,7 +80,38 @@ class AccountPageMixin:
         finally:
             self.win.after(RENEW_CHECK_MS, self.start_account_renewal)
 
+    def start_update_check(self):
+        """首帧后检查一次新版本（与续签分开排程）；联网失败静默。"""
+        if not getattr(self, 'shutting_down', False):
+            self.account.check_update(self._update_checked)
+
+    def _update_checked(self, result):
+        """新版提示：账号页常驻显示；软提示每个版本只在状态栏主动提一次，强制升级每次都提。"""
+        if not result.ok or getattr(self, 'shutting_down', False):
+            return
+        notice = result.data or {}
+        self.update_notice = notice
+        if notice.get('level') == 'none':
+            return
+        if notice.get('proactive'):
+            self.status.set(notice.get('text') or '有新版本')
+        if getattr(self, 'page_index', None) == PAGE_ACCOUNT:
+            self.show(PAGE_ACCOUNT)
+
+    def _account_update_card(self):
+        notice = getattr(self, 'update_notice', None) or {}
+        if notice.get('level') not in ('soft', 'hard'):
+            return
+        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
+        title = '必须升级' if notice['level'] == 'hard' else '发现新版本'
+        ttk.Label(card,text=title,font=FONTS['heading_2']).pack(anchor='w')
+        ttk.Label(card,text=notice.get('text') or '',wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=SPACING['xs'])
+        if notice.get('url'):
+            PrimaryButton(card,text='去下载',command=lambda u=notice['url']:webbrowser.open(u)).pack(anchor='w',pady=SPACING['xs'])
+
     def _account_renewed(self, result):
+        if not result.ok and (result.data or {}).get('code') == 'client_too_old':
+            self.account.check_update(self._update_checked)
         if getattr(self, 'page_index', None) == PAGE_ACCOUNT:
             self.show(PAGE_ACCOUNT)
         if not result.ok and (result.data or {}).get('code') != 'network':
@@ -91,6 +122,7 @@ class AccountPageMixin:
         self.note('账号用于试用与会员授权；项目和素材始终留在本机，不上传。')
         entitlement = self.account.entitlement()
         session = self.account.session()
+        self._account_update_card()
         status = Card(self.content);status.pack(fill='x',pady=SPACING['xs'])
         ttk.Label(status,text='当前状态：'+STATE_TEXT.get(entitlement.state,entitlement.state),font=FONTS['heading_2']).pack(anchor='w')
         rule = '「01 剧本准备」「02 剧本结构」不登录也能用；从「03 初步分镜」起需要试用或会员。'

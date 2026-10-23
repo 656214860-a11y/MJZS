@@ -57,7 +57,7 @@ _register(4, "desktop_auto_flows", "desktop_idea_bubbles", "desktop_page_registr
           "workflow_settings", "writing_page_controller", "legacy_compat")
 _register(5, "desktop_launcher")
 # R1895：账户会员客户端（设计文档 说明/账户会员云端设计.md §5.1）。
-_register(1, "lease_verifier", "account_store")
+_register(1, "lease_verifier", "account_store", "update_notice")
 _register(2, "entitlement_service", "account_client")
 _register(3, "account_controller")
 _register(4, "desktop_account_page")

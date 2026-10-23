@@ -54,10 +54,21 @@ def note_server_time(server_time, path=None):
         _write(data, path)
 
 
+def update_seen(path=None):
+    return str(load(path).get('update_seen') or '')
+
+
+def mark_update_seen(version, path=None):
+    """记下已主动提示过的新版本号，同一版本不再重复弹提示。"""
+    data = load(path)
+    data['update_seen'] = str(version or '')
+    _write(data, path)
+
+
 def clear_session(path=None):
     """退出登录：删掉令牌与租约；保留设备种子和最近服务器时间（防回拨钟重放旧租约）。"""
     data = load(path)
-    kept = {key: data[key] for key in ('device_seed', 'server_time') if key in data}
+    kept = {key: data[key] for key in ('device_seed', 'server_time', 'update_seen') if key in data}
     if kept:
         _write(kept, path)
         return True

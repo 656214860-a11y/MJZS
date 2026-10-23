@@ -11,6 +11,7 @@ from pathlib import Path
 import account_client
 import account_store
 import entitlement_service
+import update_notice
 from agent.core import save
 from service_contract import SystemError, success
 
@@ -81,6 +82,21 @@ class AccountController:
             return result
         self._run(work, done, '续签会员授权')
         return True
+
+    def check_update(self, done):
+        """联网读 ``/v1/meta`` 判定是否有新版；结果 data 为 ``update_notice.evaluate`` 的字典，
+        另带 ``proactive``（该版本尚未主动提示过；强制升级恒为 True）。提示过的软提示版本记在本机。"""
+        def work():
+            result = self._client.meta()
+            if not result.ok:
+                return result
+            notice = update_notice.evaluate(result.data, self._client.CLIENT_VERSION)
+            notice['proactive'] = notice['level'] == update_notice.HARD or (
+                notice['level'] == update_notice.SOFT and notice['version'] != self._store.update_seen())
+            if notice['level'] == update_notice.SOFT and notice['proactive']:
+                self._store.mark_update_seen(notice['version'])
+            return success(notice)
+        self._run(work, done, '检查新版本')
 
     def redeem(self, code, done):
         """用本机租约兑换；成功后服务端返回的新租约替换本机租约。无会话返回 False。"""
