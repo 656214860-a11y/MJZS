@@ -42,6 +42,8 @@ def apply(win):
     s.configure('TLabel',background=BG,foreground=INK)
 
     s.configure('Muted.TLabel',foreground=COLORS['text_secondary'])
+    s.configure('Warn.TLabel',foreground=COLORS['warning_text'])
+    s.configure('Expired.TLabel',foreground=COLORS['danger_text'])
     # 各设置页会随操作变化的说明统一用这一档：淡绿底区别于静态说明，
     # 但仍保持深色文字，长提示与错误提示都能清楚阅读。
     s.configure('PaleGreenHint.TLabel', background=COLORS['success_subtle'], foreground=COLORS['success_text'], padding=(SPACING['sm'], SPACING['xs']))

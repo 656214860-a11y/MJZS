@@ -11,6 +11,7 @@
 免费阶段固定为 ``pet_bus.STAGES`` 的前 2 个阶段键，不按序号或中文名硬编码。
 """
 from dataclasses import dataclass
+import time
 
 import lease_verifier
 from pet_bus import STAGES, STAGE_NAMES
@@ -54,6 +55,57 @@ def evaluate(lease, *, now, device_id, last_server_time=0, keys=None):
     if payload.get('state') not in PAID_STATES or now >= grace_until:
         return Entitlement(LOCKED, payload)
     return Entitlement(VALID if now < expires_at else GRACE, payload)
+
+
+WARN_DAYS = 3
+DAY_SECONDS = 86400
+REDEEM_HINT = '输入兑换码即可续期；请联系发放兑换码的渠道获取。'
+
+
+def days_left(payload, now):
+    """试用／会员距到期的剩余天数（向上取整，已过期为 0）；无到期时间返回 None。"""
+    key = 'trial_ends_at' if (payload or {}).get('state') == 'trial' else 'period_end'
+    try:
+        end = int((payload or {})[key])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return max(0, -(-(end - int(now)) // DAY_SECONDS))
+
+
+def _date(stamp):
+    return time.strftime('%Y-%m-%d', time.localtime(int(stamp)))
+
+
+def membership_view(entitlement, now):
+    """账号页与侧栏徽标用的会员状态文案：``{lines, level, badge}``，level 为 info／warn／expired。
+
+    ``badge`` 为空串表示无需提示（长期有效的会员）。
+    """
+    free = '「%s」「%s」永久免费，已有项目和素材始终在本机。' % (
+        STAGE_NAMES.get(FREE_STAGES[0], ''), STAGE_NAMES.get(FREE_STAGES[1], ''))
+    state, payload = entitlement.state, entitlement.payload or {}
+    if state == SIGNED_OUT:
+        return {'lines': ['新账号登录即免费试用 3 天，试用期内可使用全部制作阶段。', free],
+                'level': 'info', 'badge': '未登录'}
+    if state == CLOCK_SUSPECT:
+        return {'lines': ['本机时间早于服务器时间，请校正系统时间后联网续签。', free],
+                'level': 'warn', 'badge': '时间异常'}
+    paid = payload.get('state') in PAID_STATES
+    if state == LOCKED and not paid:
+        end = payload.get('trial_ends_at') or payload.get('period_end')
+        head = '试用或会员已于 %s 到期。' % _date(end) if end else '试用或会员已到期。'
+        return {'lines': [head, free, REDEEM_HINT], 'level': 'expired', 'badge': '已到期'}
+    if state == LOCKED:
+        return {'lines': ['离线授权已超过宽限期，请联网续签。', free], 'level': 'warn', 'badge': '需续签'}
+    left = days_left(payload, now)
+    name = '试用' if payload.get('state') == 'trial' else '会员'
+    if left is None:
+        return {'lines': [], 'level': 'info', 'badge': ''}
+    lines = ['%s还剩 %d 天。' % (name, left)]
+    if left <= WARN_DAYS:
+        lines.append(REDEEM_HINT)
+        return {'lines': lines, 'level': 'warn', 'badge': '剩%d天' % left}
+    return {'lines': lines, 'level': 'info', 'badge': ''}
 
 
 def is_paid_stage(stage):

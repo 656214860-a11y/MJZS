@@ -92,6 +92,22 @@ class AccountPageTests(unittest.TestCase):
         self.assertIn('套餐：季度会员',_texts(d.content))
         self.assertIn('90 天',d.status.get())
 
+    def test_membership_visibility_logged_out_and_expired(self):
+        d=self.desktop
+        store=self.use(_Client())
+        d.go_page(PAGE_ACCOUNT);self.pump()
+        self.assertTrue(any('永久免费' in t for t in _texts(d.content)))
+        self.assertIn('（未登录）',d.account_button.cget('text'))
+        import account_store
+        account_store.save_session({'email':'a@b.c','refresh_token':'r','server_time':NOW,
+            'lease':sign(payload(state='expired',trial_ends_at=NOW-86400))},store.path)
+        d.go_page(PAGE_ACCOUNT);self.pump()
+        texts=_texts(d.content)
+        self.assertTrue(any('已于 ' in t and '到期' in t for t in texts))
+        self.assertTrue(any('请联系发放兑换码的渠道' in t for t in texts))
+        self.assertIn('（已到期）',d.account_button.cget('text'))
+        d.account.logout();d.show(PAGE_ACCOUNT);self.pump()          # 还原成未登录页，不影响后续用例
+
     def test_plan_text(self):
         from desktop_account_page import plan_text
         self.assertEqual(plan_text({'state':'active','plan':'yearly'}),'年度会员')

@@ -36,6 +36,9 @@ class AccountController:
     def session(self):
         return self._store.load()
 
+    def now(self):
+        return int(self._clock())
+
     def entitlement(self):
         data = self.session()
         return entitlement_service.evaluate(data.get('lease'), now=int(self._clock()),
