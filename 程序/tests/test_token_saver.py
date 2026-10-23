@@ -561,18 +561,10 @@ class ApplyTests(unittest.TestCase):
             self.assertIn('model_auto_compact_token_limit', path.read_text(encoding='utf-8'))
 
     def test_the_codex_home_follows_the_environment_variable(self):
-        before = os.environ.get('CODEX_HOME')
-        self.addCleanup(self.restore_home, before)
-        os.environ['CODEX_HOME'] = os.path.join(HERE, '.selftmp-token-home')
+        from env_test_support import patched_env
+        patched_env(self, CODEX_HOME=os.path.join(HERE, '.selftmp-token-home'))
         self.assertEqual(token_saver.codex_home(), Path(HERE) / '.selftmp-token-home')
         self.assertEqual(token_saver.codex_home(home='D:/elsewhere'), Path('D:/elsewhere'))
-
-    @staticmethod
-    def restore_home(before):
-        if before is None:
-            os.environ.pop('CODEX_HOME', None)
-        else:
-            os.environ['CODEX_HOME'] = before
 
     def test_the_scan_reports_what_is_still_missing(self):
         with tempfile.TemporaryDirectory() as td:

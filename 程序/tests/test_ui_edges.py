@@ -5380,12 +5380,8 @@ class EditorStartMenuScanTests(unittest.TestCase):
     def test_start_menu_worker_retains_the_existing_shortcut_rule(self):
         from desktop import Desktop
         with tempfile.TemporaryDirectory() as td:
-            old_appdata = os.environ.get('APPDATA')
-            old_programdata = os.environ.get('PROGRAMDATA')
-            self.addCleanup(lambda: os.environ.__setitem__('APPDATA', old_appdata) if old_appdata is not None else os.environ.pop('APPDATA', None))
-            self.addCleanup(lambda: os.environ.__setitem__('PROGRAMDATA', old_programdata) if old_programdata is not None else os.environ.pop('PROGRAMDATA', None))
-            os.environ['APPDATA'] = td
-            os.environ['PROGRAMDATA'] = str(Path(td) / 'programdata')
+            from env_test_support import patched_env
+            patched_env(self, APPDATA=td, PROGRAMDATA=Path(td) / 'programdata')
             folder = Path(td) / 'Microsoft/Windows/Start Menu/Programs/剪映'
             folder.mkdir(parents=True)
             ignored = folder / '剪映专业版卸载.lnk'; ignored.write_text('', encoding='utf-8')

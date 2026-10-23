@@ -3,6 +3,7 @@
 import tempfile
 import time
 import unittest
+import tk_test_support
 import tkinter as tk
 import sys
 from pathlib import Path
@@ -32,8 +33,7 @@ class AccountRegistryTests(unittest.TestCase):
 class AccountEntryTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        try:cls.win=tk.Tk()
-        except tk.TclError as exc:raise unittest.SkipTest(PLATFORM_TK_DISPLAY+': '+str(exc))
+        cls.win=tk_test_support.make_root()
         cls.temp=tempfile.TemporaryDirectory(prefix='account-entry-')
         app,_project=startup_fixtures.DesktopStartupPerfTests._startup_app(cls.temp.name,remembered=False)
         original=Desktop.choose_project
@@ -47,9 +47,7 @@ class AccountEntryTests(unittest.TestCase):
 
     @classmethod
     def pump(cls,seconds=.3):
-        end=time.monotonic()+seconds
-        while time.monotonic()<end:
-            cls.win.update_idletasks();cls.win.update();time.sleep(.005)
+        tk_test_support.pump(cls.win,seconds)
 
     @classmethod
     def tearDownClass(cls):

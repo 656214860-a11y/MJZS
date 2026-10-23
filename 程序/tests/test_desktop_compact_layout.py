@@ -2,6 +2,7 @@
 import tempfile
 import time
 import unittest
+import tk_test_support
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, font
@@ -17,8 +18,7 @@ from ui_tokens import CONTROL_HEIGHT, DESKTOP_LAYOUT
 class CompactDesktopGeometryTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        try:cls.win = tk.Tk()
-        except tk.TclError as exc:raise unittest.SkipTest(PLATFORM_TK_DISPLAY + ': ' + str(exc))
+        cls.win = tk_test_support.make_root()
         cls.temp = tempfile.TemporaryDirectory(prefix='r1446-geometry-')
         app, cls.project = startup_fixtures.DesktopStartupPerfTests._startup_app(cls.temp.name, remembered=True)
         # 每一类都放长名称文件，悬停详情必须来自既有扫描结果。
@@ -32,10 +32,7 @@ class CompactDesktopGeometryTests(unittest.TestCase):
 
     @classmethod
     def pump(cls, seconds=.2):
-        end = time.monotonic() + seconds
-        while time.monotonic() < end:
-            cls.win.update()
-            time.sleep(.005)
+        tk_test_support.pump(cls.win, seconds, idle_first=False)
 
     @classmethod
     def tearDownClass(cls):

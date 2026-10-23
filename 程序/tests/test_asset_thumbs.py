@@ -387,10 +387,8 @@ class ThumbnailTests(unittest.TestCase):
 
         asset_thumbs.subprocess.Popen = start
         self.addCleanup(setattr, asset_thumbs.subprocess, 'Popen', original)
-        old = os.environ.get('DEEPSEEK_API_KEY')
-        os.environ['DEEPSEEK_API_KEY'] = 'must-not-reach-thumbnail-worker'
-        self.addCleanup(lambda: os.environ.pop('DEEPSEEK_API_KEY', None) if old is None
-                        else os.environ.__setitem__('DEEPSEEK_API_KEY', old))
+        from env_test_support import patched_env
+        patched_env(self, DEEPSEEK_API_KEY='must-not-reach-thumbnail-worker')
         asset_thumbs.reset_worker()
         self.assertTrue(asset_thumbs._ensure_worker())
         self.assertNotIn('DEEPSEEK_API_KEY', captured)

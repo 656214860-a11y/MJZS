@@ -3,6 +3,7 @@
 import tempfile
 import time
 import unittest
+import tk_test_support
 import unittest.mock
 import tkinter as tk
 import sys
@@ -26,8 +27,7 @@ from widget_test_support import widget_texts as _texts
 class AccountPageTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        try:cls.win=tk.Tk()
-        except tk.TclError as exc:raise unittest.SkipTest(PLATFORM_TK_DISPLAY+': '+str(exc))
+        cls.win=tk_test_support.make_root()
         cls.temp=tempfile.TemporaryDirectory(prefix='account-page-')
         app,_project=startup_fixtures.DesktopStartupPerfTests._startup_app(cls.temp.name,remembered=False)
         original=Desktop.choose_project
@@ -42,9 +42,7 @@ class AccountPageTests(unittest.TestCase):
 
     @classmethod
     def pump(cls,seconds=.3):
-        end=time.monotonic()+seconds
-        while time.monotonic()<end:
-            cls.win.update_idletasks();cls.win.update();time.sleep(.005)
+        tk_test_support.pump(cls.win,seconds)
 
     @classmethod
     def tearDownClass(cls):

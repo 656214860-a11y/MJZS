@@ -148,16 +148,8 @@ class PageSwitchGrowthTests(_TkCase):
         from desktop import Desktop
         from local_video import open_studio
         # 白模页会探测结果目录的写权限；把探测目录也放进临时项目，别碰真实用户目录。
-        previous = os.environ.get(white_model_service.WORKSPACE_ENV)
-        os.environ[white_model_service.WORKSPACE_ENV] = str(Path(td) / "white-model")
-
-        def restore_workspace():
-            if previous is None:
-                os.environ.pop(white_model_service.WORKSPACE_ENV, None)
-            else:
-                os.environ[white_model_service.WORKSPACE_ENV] = previous
-
-        self.addCleanup(restore_workspace)
+        from env_test_support import patched_env
+        patched_env(self, **{white_model_service.WORKSPACE_ENV: Path(td) / "white-model"})
         app = Path(td) / "app"
         app.mkdir()
         desktop = Desktop(self.win, root=app)
