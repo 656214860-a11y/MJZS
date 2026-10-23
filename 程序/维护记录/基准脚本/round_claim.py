@@ -232,6 +232,24 @@ def require_clean_checkout(root: Path = ROOT) -> None:
                            "脏文件：%s" % ", ".join(dirty))
 
 
+def park_dirty_checkout(number: int, root: Path = ROOT) -> str | None:
+    """脏树领号：领到号后立刻 ``git switch -c codex/wip-R<号>``，改动随切换原样带走。
+
+    以前直接拒绝，而轮次号要领到才知道分支名，调用方只能手工备份再还原。
+    返回新分支名；工作树干净或切换失败（分支已存在等）返回 None。
+    """
+    status = subprocess.run(["git", "-C", str(root), "status", "--porcelain"], capture_output=True, text=True)
+    if status.returncode or not status.stdout.strip():
+        return None
+    branch = "codex/wip-R%s" % number
+    switched = subprocess.run(["git", "-C", str(root), "switch", "-c", branch], capture_output=True, text=True)
+    if switched.returncode:
+        print("未能自动切到 %s：%s" % (branch, switched.stderr.strip()), file=sys.stderr)
+        return None
+    print("工作树有未提交改动，已原样带到新分支 %s" % branch, file=sys.stderr)
+    return branch
+
+
 def _read_queue(queue_path: Path) -> dict:
     payload = json.loads(queue_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
@@ -359,11 +377,11 @@ def main(argv: list[str] | None = None) -> int:
         try:
             # 主树脚本从其他工作树调用时，也必须检查实际 cwd 所在树。
             require_branch(Path.cwd())
-            require_clean_checkout(Path.cwd())
         except (RuntimeError, subprocess.CalledProcessError) as error:
             print(str(error), file=sys.stderr)
             return 2
         number = claim_next(common_dir=common_dir, tasks_round=PROGRAM / "tasks_round", root=ROOT)
+        park_dirty_checkout(number, Path.cwd())
         ensure_hooks(common_dir)
         print(number)
     elif args.command in ("show", "validate"):

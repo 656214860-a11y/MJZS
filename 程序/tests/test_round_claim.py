@@ -168,16 +168,18 @@ class SharedWorktreeQueueTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), b"1")
 
-    def test_dirty_next_cli_refuses_without_allocating_and_suggests_wip_branch(self):
+    def test_dirty_next_cli_claims_then_parks_changes_on_wip_branch(self):
+        # 契约有意变更：脏树不再拒绝领号，而是领号后把改动原样带到 codex/wip-R<号>。
         tree = self.trees[0]
         script = tree / "程序/维护记录/基准脚本/round_claim.py"
         self.git("-C", str(tree), "switch", "-c", "codex/test-lane")
         (tree / "draft.txt").write_text("unfinished", encoding="utf-8")
         result = subprocess.run([sys.executable, str(script), "next"], cwd=script.parent,
                                 capture_output=True, timeout=20)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn(b"git switch -c codex/wip-R<", result.stderr)
-        self.assertFalse((self.common / round_claim.COUNTER_NAME).exists())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), b"1")
+        self.assertEqual(self.git("-C", str(tree), "branch", "--show-current").strip(), b"codex/wip-R1")
+        self.assertEqual((tree / "draft.txt").read_text(encoding="utf-8"), "unfinished")
 
     def test_two_worktrees_cannot_claim_same_id_and_export_is_identical(self):
         self.snapshot(self.trees[0], [{"id": "T1", "status": "pending"}])

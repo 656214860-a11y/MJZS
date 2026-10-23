@@ -31,6 +31,8 @@ Set-Location -LiteralPath 'D:\漫剧制作助手\程序'
 
 `--affected`、`--gate`、`--architecture`、`--all --safe` 等选项及触发条件见 AGENTS.md §5。
 
+提交用 `& '..\运行环境\Python\python.exe' -B scripts\dev.py commit -m "R<N>: 说明" [文件...]`：自动暂存、生成白名单，并在进程内等后台全量验收锁（失效锁自动回收），不要再手写 `sleep 20` 重试循环（实测最长卡 41 分钟）。文档轮、状态页同步轮不跑 smoke／selftest。
+
 ## 架构
 
 - 分层：`L5 入口(app) → L4 UI(desktop/pet_ui/skill_panel) → L3 编排(stage_*/skill_*/workflow_*/各 controller) → L2 业务(*_service 等) → L1 基础设施(model_pool、file_cache) → L0 契约(pet_bus、*_contract、stage_layout)`。反向 import 一律禁止，由 `tests\architecture\` 门禁自动检查；分层表以 architecture.md 第 3 节为准。

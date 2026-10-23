@@ -33,6 +33,7 @@ COMMANDS = {
     'logs': (['scripts/maintain_logs.py'], '日志维护'),
     'shots': (['scripts/ui_snapshot.py', '--check'], '界面截图基线比对（--update 重拍；手动工具）'),
     'claim': (['维护记录/基准脚本/round_claim.py', 'next'], '领取下一个轮次号'),
+    'commit': (['scripts/commit_round.py'], '暂存+白名单+等验收锁+提交（-m "R<N>: 说明" [文件...]）'),
 }
 
 
