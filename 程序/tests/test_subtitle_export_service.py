@@ -31,10 +31,16 @@ class SubtitleExportServiceTests(unittest.TestCase):
             self.assertEqual(target.read_text(encoding='utf-8'), '1\n00:00:00,000 --> 00:00:01,000\n台词\n')
 
     def test_skill_tool_delegates_srt_publication_to_service(self):
-        source = inspect.getsource(skill_tools._subtitle_generate)
-
-        self.assertIn('from subtitle_export_controller import publish_stage_srt_text', source)
-        self.assertNotIn('line_endings.write_text', source)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            target = Path(temp_dir) / 'delegated.srt'
+            publisher = Mock(return_value=success(target))
+            with patch('subtitle_export_controller.publish_stage_srt_text', publisher):
+                result = skill_tools._subtitle_generate({'subtitle_file': str(target), 'episode': EPISODE})
+            # 发布只经 service 一次，且 skill 工具自己不落盘（publisher 被替身时目标文件不该出现）。
+            publisher.assert_called_once()
+            self.assertEqual(publisher.call_args.args[0], str(target))
+            self.assertFalse(target.exists())
+            self.assertEqual(result['subtitle_file'], str(target))
 
     def test_l3_wrapper_publishes_validated_srt_text(self):
         with tempfile.TemporaryDirectory() as temp_dir:

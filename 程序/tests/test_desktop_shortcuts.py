@@ -84,9 +84,39 @@ class ReduceMotionTests(unittest.TestCase):
         self.assertFalse(self.motion.reduce_motion())
 
     def test_cloud_fade_out_skips_steps_when_reduced(self):
-        import os, inspect, pet_cloud_timing
-        source = inspect.getsource(pet_cloud_timing.CloudTimingMixin)
-        self.assertIn('reduce_motion()', source)
+        import os, pet_cloud_timing
+
+        class Cloud(pet_cloud_timing.CloudTimingMixin):
+            def __init__(self):
+                self.win = FakeWindow()
+                self.hidden = 0
+                self.visible = self.busy = True
+                self._fade = self._fade_callback = None
+
+            def _hide_now(self):
+                self.hidden += 1
+
+        class FakeWindow:
+            def __init__(self):
+                self.alphas, self.scheduled = [], []
+
+            def attributes(self, *args):
+                self.alphas.append(args)
+
+            def after(self, ms, callback):
+                self.scheduled.append((ms, callback))
+                return 'job'
+
+        os.environ[self.motion.REDUCE_MOTION_ENV] = '1'
+        cloud = Cloud()
+        cloud._fade_out()
+        self.assertEqual((cloud.hidden, cloud.win.alphas, cloud.win.scheduled), (1, [], []))
+        os.environ[self.motion.REDUCE_MOTION_ENV] = '0'
+        cloud = Cloud()
+        cloud._fade_out()
+        self.assertEqual(cloud.hidden, 0)
+        self.assertEqual(len(cloud.win.alphas), 1)
+        self.assertEqual(len(cloud.win.scheduled), 1)
 
 
 if __name__ == '__main__':
