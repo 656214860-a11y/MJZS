@@ -368,37 +368,6 @@ def launch_windows_app(executable, feature, *, args=None, cwd=None, env=None, cr
         raise ValueError('无法启动' + str(feature) + '：' + str(exc)) from exc
 
 
-def window_outer_rect(hwnd):
-    """窗口含标题栏与边框的外框 ``(x, y, w, h)``；非 Windows 或取不到时返回 ``None``。"""
-    if os.name != 'nt' or not hwnd:
-        return None
-    try:
-        import ctypes
-        from ctypes import wintypes
-        rect = wintypes.RECT()
-        if not ctypes.windll.user32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect)):
-            return None
-    except (OSError, AttributeError, ValueError):
-        return None
-    width, height = rect.right - rect.left, rect.bottom - rect.top
-    return (rect.left, rect.top, width, height) if width > 0 and height > 0 else None
-
-
-def outer_rect_for_client(x, y, width, height):
-    """按普通主窗口样式，把客户区矩形换算成含标题栏与边框的外框；失败原样返回。"""
-    if os.name != 'nt':
-        return (x, y, width, height)
-    try:
-        import ctypes
-        from ctypes import wintypes
-        rect = wintypes.RECT(x, y, x + width, y + height)
-        if not ctypes.windll.user32.AdjustWindowRectEx(ctypes.byref(rect), 0x00CF0000, False, 0):
-            return (x, y, width, height)
-    except (OSError, AttributeError, ValueError):
-        return (x, y, width, height)
-    return (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
-
-
 def work_area():
     """主显示器去掉任务栏后的可用区域 ``(left, top, right, bottom)``；取不到返回 ``None``。"""
     if os.name != 'nt':
