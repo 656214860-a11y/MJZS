@@ -41,13 +41,6 @@ class PageShortcutTests(unittest.TestCase):
         self.assertIsNone(press(stub, '8'))
         self.assertEqual(went, [])
 
-    def test_handler_is_bound_on_the_main_window(self):
-        import inspect, desktop
-        source = inspect.getsource(desktop)
-        self.assertIn("self.page_shortcut", source)
-        self.assertIn("<Control-Prior>", source)
-
-
 
 class GearTooltipTests(unittest.TestCase):
     def test_icon_only_gear_has_a_tooltip(self):

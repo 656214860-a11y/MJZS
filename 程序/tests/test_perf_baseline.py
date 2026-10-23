@@ -280,30 +280,6 @@ class PerfBaseline(unittest.TestCase):
             self.assertLess(visible, 300,
                             '后续资产行必须留给首帧之后的定时批次，不能阻塞首次绘制')
 
-    def test_page_switch_does_not_force_the_tk_idle_loop(self):
-        """切页只排合并布局，不能在主线程强制跑完整个 Tk 空闲队列。"""
-        from desktop import Desktop
-        source = inspect.getsource(Desktop.show)
-        self.assertNotIn('update_idletasks', source,
-                         '切页不得同步执行完整 Tk 空闲队列')
-        self.assertIn('self.fit_content()', source,
-                      '切页后必须安排既有的合并空闲布局')
-
-    def test_script_page_measurement_does_not_force_the_tk_idle_loop(self):
-        """剧本准备页面的尺寸测量也必须留在合并的空闲布局批次。"""
-        from desktop import Desktop
-        # R1480／R1490／R1499：Desktop 方法分布在 Mixin 类里，按整个继承链取源码。
-        source = ''.join(inspect.getsource(cls) for cls in Desktop.__mro__ if cls is not object)
-        import desktop_writing_page   # R1817：writing 改写成 _WritingPage，测量方法在该类里
-        source += inspect.getsource(desktop_writing_page._WritingPage)
-        self.assertIn('def measure_page_fixed', source,
-                      '固定高度应在空闲布局批次测量')
-        start = source.index('def measure_page_fixed')
-        measured = source[start:source.index('def fit_talk', start)]
-        self.assertNotIn('update_idletasks', measured,
-                         '剧本准备固定高度测量不得同步耗尽 Tk 空闲队列')
-
-    # ── ③ 长列表滚动 ───────────────────────────────────────────────────────
     def test_long_list_scrolling_stays_within_the_frame_budget(self):
         """300 行滚 60 帧：丢掉最慢的 10% 再取中位数；另加一条确定性的重排门禁。"""
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:

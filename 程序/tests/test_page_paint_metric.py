@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """「页面第一次画完」按页耗时指标：从 show() 开始量到 Tk 空闲布局完成。"""
-import inspect
 import json
 import os
 import sys
@@ -112,9 +111,7 @@ class PagePaintMetricTests(unittest.TestCase):
     def test_page_paint_decorator_preserves_show_identity(self):
         from desktop import Desktop
         self.assertEqual(Desktop.show.__name__, 'show')
-        self.assertIn('self.fit_content()', inspect.getsource(Desktop.show))
         self.assertTrue(hasattr(Desktop.show, '__wrapped__'))
-
 
     def test_page_paint_waits_for_layout_without_clearing_other_idle_jobs(self):
         """REQ-S01-22 回归（SLOWPAGE）：等布局时只登记定时器让位，不在 after_idle 里跑别人的空闲回调。

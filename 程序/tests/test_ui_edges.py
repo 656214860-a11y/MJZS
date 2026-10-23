@@ -1137,9 +1137,6 @@ class UiEdgeTests(unittest.TestCase):
                 d.idea_input_hint.winfo_rootx(),
                 d.idea_input.winfo_rootx() + d.idea_input.bbox('1.0')[0],
                 delta=2, msg="提示文字应沿输入框的文字内边距对齐")
-            writing_source = inspect.getsource(desktop_module.Desktop.writing)
-            self.assertNotIn('scroll_input_hint', writing_source, "输入提示不得恢复滚动实现")
-            self.assertNotIn('after(35', writing_source, "输入提示不得持续投递动画回调")
 
     def test_the_writing_page_wraps_the_box_with_buttons(self):
         """第 69 期任务 2／3：创作入口在内容框上方，「发送」在它左下角，文件操作在右下角。"""

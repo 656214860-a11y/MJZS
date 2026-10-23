@@ -69,15 +69,6 @@ assert len(tk._drama_wanted_topmost) == 0
         self.assertEqual(run_selftests.safe_full_options(True, False, False, 4, False),
                          (True, False, False, 4))
 
-    def test_serial_runner_has_recoverable_timeout(self):
-        source = inspect.getsource(run_selftests.run_serial)
-        self.assertIn('result_reader.poll(timeout)', source)
-        self.assertIn('process.terminate()', source)
-
-    def test_serial_runner_drains_result_before_waiting_for_child_exit(self):
-        source = inspect.getsource(run_selftests.run_serial)
-        self.assertLess(source.index('result_reader.poll(timeout)'), source.index('process.join(10)'))
-
     def test_serial_runner_runs_the_unit_when_windows_cannot_spawn_isolation_process(self):
         payload = ('回退单元', 'test_demo', None)
         expected = ('回退单元', 'test_demo', 1, [], '', 0.0, '')
@@ -127,18 +118,6 @@ assert len(tk._drama_wanted_topmost) == 0
         self.assertEqual(units[0][0], 'short1')
         self.assertEqual(run_selftests.prioritize_gui_units([]), [])
 
-    def test_parallel_runner_reports_heartbeat_while_waiting(self):
-        source = inspect.getsource(run_selftests.run_units)
-        self.assertIn('futures.wait(', source)
-        self.assertIn('HEARTBEAT_SECONDS', source)
-        self.assertIn('并行回归仍在执行', source)
-
-    def test_parallel_runner_recovers_after_no_progress_timeout(self):
-        source = inspect.getsource(run_selftests.run_units)
-        self.assertIn('SAFE_UNIT_TIMEOUT', source)
-        self.assertIn('process.terminate()', source)
-        self.assertIn('并行池连续', source)
-
     def test_slowest_units_are_descending_and_bounded(self):
         first = ('fast', 'test_fast', 1, [], '', 0.2, '')
         second = ('slow', 'test_slow', 1, [], '', 9.0, '')
@@ -159,11 +138,6 @@ assert len(tk._drama_wanted_topmost) == 0
         item = run_selftests._run_unit(('probe#1', 'tests.test_line_endings', None))
         self.assertEqual(len(item), 8, '工作单元结果必须带第 8 位跳过清单')
         self.assertEqual(item[7], [], '本机没有跳过时清单必须是空列表，而不是缺字段')
-
-    def test_skip_report_is_printed_in_the_summary(self):
-        source = inspect.getsource(run_selftests.main)
-        self.assertIn('skip_summary(got)', source)
-        self.assertIn('实际跳过', source)
 
     def test_large_suite_is_split_into_small_units(self):
         class Case(unittest.TestCase):
@@ -220,10 +194,6 @@ class IncrementalTests(unittest.TestCase):
                 self.assertEqual(run_selftests.participating_full_safe_run(946), expected)
             with mock.patch.object(run_selftests, '_pid_is_alive', return_value=False):
                 self.assertFalse(run_selftests.participating_full_safe_run(945))
-
-    def test_incremental_flag_is_an_explicit_cli_option(self):
-        source = inspect.getsource(run_selftests.main)
-        self.assertIn("arg == '--incremental'", source)
 
     def test_new_test_is_scheduled(self):
         with tempfile.TemporaryDirectory() as folder:

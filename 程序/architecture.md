@@ -470,6 +470,7 @@ R1305：`writing_quality`（L2）解析自然剧本附带的四项辅助质检�
 - 依赖与平台边界：`test_import_error_boundaries.py`、`test_model_provider_boundary.py`、`test_platform_opening.py`、`test_platform_process_boundary.py`、`test_migrated_ui_boundaries.py`。
 - 体验与布局：`test_responsive_layout_contract.py`、`test_combobox_boundary.py`。
 - 启动预算：`test_startup_budget.py`。
+- 源码文本契约锁：`test_source_text_contracts.py`（原散落在功能测试里的 `inspect.getsource` 断言，内容未动）。
 - 历史兼容门面：`test_legacy_facade_manifest.py`。
 - 轮次与基线／测试卫生：`test_round_baselines.py`、`test_skip_hygiene.py`、`test_silent_exception_ratchet.py`、`test_module_size_ratchet.py`、`test_todo_comment_snapshot.py`、`test_static_hygiene.py`、`test_function_size_ratchet.py`、`test_complexity_ratchet.py`、`test_print_ratchet.py`、`test_stable_registration.py`。
 - 文档先行锚定：`test_requirement_traceability.py`（`docs/stages/` 里 ✅ 须有测试锚定，历史欠账见 `维护记录/需求锚定基线.json`，只许减少）。

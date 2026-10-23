@@ -118,14 +118,6 @@ class PermanentClearIsSeparateTests(unittest.TestCase):
         self.assertNotIn('rmtree', source)
         self.assertNotIn('unlink()', source)
 
-    def test_copy_marks_recycle_as_recoverable_and_separate_from_permanent(self):
-        confirm_source = inspect.getsource(desktop.Desktop._choose_project_impl)
-        self.assertIn('不是永久清除', confirm_source)
-        self.assertIn('回收不等于释放空间', confirm_source)
-        home_source = inspect.getsource(desktop.Desktop.project_home)
-        self.assertIn('重建项目索引', home_source)
-        self.assertIn('不是永久清除', home_source)
-
 
 class DesktopRebuildIndexTests(unittest.TestCase):
     def test_rebuild_reports_counts_and_refreshes(self):

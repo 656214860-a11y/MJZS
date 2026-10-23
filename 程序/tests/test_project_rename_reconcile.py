@@ -214,11 +214,5 @@ class DesktopMissingRegistrationTests(unittest.TestCase):
         self.assertFalse(self.app.list.exists(self.old))
         self.assertEqual(self.service.refresh_registry()['projects'],[])
 
-    def test_missing_directory_notice_does_not_claim_script_or_files_were_deleted(self):
-        source=inspect.getsource(desktop.Desktop._choose_project_impl)
-        self.assertNotIn('剧本已被删除',source)
-        self.assertNotIn('清理残留文件夹',source)
-        self.assertIn('只清除登记，不动磁盘',source)
-
 
 if __name__=='__main__':unittest.main()
