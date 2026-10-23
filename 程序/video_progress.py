@@ -2,7 +2,7 @@
 import time
 from pathlib import Path
 from file_cache import read_json_shared as read_cached
-from video_task_state import ACTIVE,elapsed_text,provider_failure_reason
+from video_task_state import ACTIVE,elapsed_text,provider_failure_reason,config_listing,resolved_path
 
 LABELS={'submitting':'提交中','unknown':'待核实','queued':'排队中','running':'生成中',
         'succeeded':'下载中','downloaded':'已下载','failed':'失败','rejected':'被拒绝'}
@@ -28,15 +28,15 @@ def workspaces(project,source,skip_roots=()):
     跳过它即可。一个坏文件不能让 07 页的进度显示和无人值守的云端轮询一起失效
     ——轮询每轮都会调到这里，抛异常就等于线上任务再也没人查询、成片不会被自动下载。
     """
-    source=Path(source).resolve()
-    skip={Path(root).resolve() for root in skip_roots}
-    for cfgfile in (Path(project).resolve()/'cloud_video').glob('*/config.json'):
-        root=cfgfile.parent.resolve()
+    source=resolved_path(source)
+    skip={resolved_path(root) for root in skip_roots}
+    for cfgfile in config_listing(resolved_path(project)/'cloud_video'):
+        root=resolved_path(cfgfile.parent)
         if root in skip:continue
         try:
             cfg=read_cached(cfgfile)
             if not isinstance(cfg,dict) or not cfg.get('episode_file'):continue
-            if Path(cfg['episode_file']).resolve()!=source:continue
+            if resolved_path(cfg['episode_file'])!=source:continue
         except (OSError,ValueError,TypeError):
             continue
         yield root,cfg

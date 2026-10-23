@@ -27,21 +27,59 @@ def provider_failure_reason(version):
     return ''
 
 
-def generation_active(studio,sid):
-    versions=studio.state().get('shots',{}).get(sid,[])
-    if versions and versions[-1].get('state') in ACTIVE:return True
-    root=Path(studio.root)
-    project=project_root(root)
-    source=Path(studio.episode_path).resolve()
-    own_root=root.resolve()
-    # A different provider/session can still be generating the same shot.
-    for config_path in (project/'cloud_video').glob('*/config.json'):
-        if config_path.parent.resolve()==own_root:continue
+_OTHER_ACTIVE={}
+_RESOLVED={}
+_LISTINGS={}
+
+
+def resolved_path(path):
+    """Path.resolve() 在 Windows 上约 0.15ms；同一原始路径的结果在进程内复用。"""
+    key=str(path)
+    hit=_RESOLVED.get(key)
+    if hit is None:
+        if len(_RESOLVED)>256:_RESOLVED.clear()
+        hit=_RESOLVED[key]=Path(path).resolve()
+    return hit
+
+
+def config_listing(folder):
+    """cloud_video/*/config.json 的清单；目录自身 mtime 不变（没有工作集增删）就复用上次的 glob。"""
+    token=_signature(folder)
+    hit=_LISTINGS.get(str(folder))
+    if token is not None and hit and hit[0]==token:return hit[1]
+    configs=tuple(sorted(Path(folder).glob('*/config.json')))
+    if len(_LISTINGS)>64:_LISTINGS.clear()
+    _LISTINGS[str(folder)]=(token,configs)
+    return configs
+
+
+def _signature(path):
+    try:
+        stat=Path(path).stat()
+    except OSError:
+        return None
+    return stat.st_mtime_ns,stat.st_size
+
+
+def _other_active_ids(project,own_root,source):
+    """其他云端工作集里（同一分镜）仍在生成的镜头 id 集合。
+
+    prompt_locked 是逐镜头调用的，原来每个镜头都重新 glob、resolve 并读全部工作集；
+    这里按「工作集清单＋config／state 文件签名」缓存整个集合，签名没变就不重算。
+    """
+    configs=config_listing(project/'cloud_video')
+    signature=tuple((str(path),_signature(path),_signature(path.parent/'data/state.json')) for path in configs)
+    key=(str(project),str(own_root),str(source))
+    hit=_OTHER_ACTIVE.get(key)
+    if hit and hit[0]==signature:return hit[1]
+    active=set()
+    for config_path in configs:
+        if resolved_path(config_path.parent)==own_root:continue
         try:
             cfg=read_cached(config_path)
         except (OSError,ValueError):
             continue
-        if not isinstance(cfg,dict) or not cfg.get('episode_file') or Path(cfg['episode_file']).resolve()!=source:continue
+        if not isinstance(cfg,dict) or not cfg.get('episode_file') or resolved_path(cfg['episode_file'])!=source:continue
         state_path=config_path.parent/'data/state.json'
         if state_path.is_file():
             try:
@@ -49,9 +87,19 @@ def generation_active(studio,sid):
             except (OSError,ValueError):
                 continue
             if not isinstance(state,dict):continue
-            versions=state.get('shots',{}).get(sid,[])
-            if isinstance(versions,list) and versions and versions[-1].get('state') in ACTIVE:return True
-    return False
+            for shot_id,versions in (state.get('shots') or {}).items():
+                if isinstance(versions,list) and versions and versions[-1].get('state') in ACTIVE:active.add(shot_id)
+    if len(_OTHER_ACTIVE)>64:_OTHER_ACTIVE.clear()
+    _OTHER_ACTIVE[key]=(signature,frozenset(active))
+    return _OTHER_ACTIVE[key][1]
+
+
+def generation_active(studio,sid):
+    versions=studio.state().get('shots',{}).get(sid,[])
+    if versions and versions[-1].get('state') in ACTIVE:return True
+    root=Path(studio.root)
+    # A different provider/session can still be generating the same shot.
+    return sid in _other_active_ids(project_root(root),resolved_path(root),resolved_path(studio.episode_path))
 
 
 def prompt_locked(app,sid):
