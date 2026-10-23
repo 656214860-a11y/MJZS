@@ -54,6 +54,11 @@ def folder(context):
     return writing(_context(context).root) / FOLDER
 
 
+def has_history(context, *, gateway=None):
+    """项目里是否已有任一模型的聊天记录；只读，复用历史文件的 mtime 缓存，不做迁移。"""
+    return bool(_all_rows(_context(context), gateway=gateway))
+
+
 def skill_injection_summary(row):
     """请求记录显示已勾选与实际加载；不把历史记录伪装成有加载凭据。"""
     snapshot = row.get('skill_injection')

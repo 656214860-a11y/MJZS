@@ -348,6 +348,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         model=cached[1] if root and isinstance(cached,tuple) else ''
         from stage_execution_service import project_context
         rows=idea_chat.load(project_context(root),model=model,gateway=self.idea_chat_gateway()) if root and not resolving_model else []
+        if root and not resolving_model:self.__dict__.setdefault('_idea_history_known',{})[root]=bool(rows)
         hidden=getattr(self,'_idea_hidden_messages',{}).get(self.bubble_view_key(model))
         remaining=hidden.copy() if hidden is not None else {}
         visible=[]
@@ -405,8 +406,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 else:finish()
             idle(append_batch)
         else:
-            if hidden is None:
-                self.add_bubble(box,{'role':'assistant','model':'示例模板','text':self.idea_template},'example')
+            if hidden is None:self.show_example_bubble(loading=resolving_model and self.idea_history_expected())  # R1949：没读到≠没有，有记录就留读取提示等 resume
             finish()
         # 保持 normal 才能让 Tk 的原生鼠标拖选建立 ``sel`` 标签；只读由
         # guard_bubble_edit_key 控制，避免 disabled 状态吞掉拖选事件。
