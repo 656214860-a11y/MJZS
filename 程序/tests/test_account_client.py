@@ -426,6 +426,16 @@ class AccountControllerTests(unittest.TestCase):
         self.assertEqual(client.calls, [('devices', (old,)), ('unbind_device', (old, 'd2'))])
         self.assertEqual(ctl.session()['lease'], old)
 
+    def test_providers_use_lease_and_carry_no_key(self):
+        old = self._signed_in()
+        data = {'enabled': True, 'providers': [{'id': 'p', 'name': 'A', 'base_url': 'https://a.example/v1'}]}
+        client = _Client(providers=success(data))
+        ctl = self.controller(client)
+        self.assertTrue(ctl.providers(self.results.append))
+        self.assertEqual(self.results[-1].data, data)
+        self.assertEqual(client.calls, [('providers', (old,))])
+        self.assertIn('停用', account_client.MESSAGES['account_banned'])
+
     def test_unbind_current_device_clears_session(self):
         self._signed_in()
         ctl = self.controller(_Client(unbind_device=success({'ok': True})))

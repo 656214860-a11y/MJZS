@@ -5,6 +5,7 @@
 首帧之后才后台续签，启动路径不等网络。
 """
 import time
+import webbrowser
 import tkinter as tk
 from tkinter import ttk
 
@@ -24,6 +25,7 @@ STATE_TEXT = {
     entitlement_service.CLOCK_SUSPECT: '本机时间早于服务器时间，请校正系统时间后续签',
 }
 PLAN_TEXT = {'trial': '免费试用', 'monthly': '月度会员', 'quarterly': '季度会员', 'yearly': '年度会员'}
+PROVIDER_NOTICE = '以下为第三方服务，模型费用由对应服务商另行计费，不属于会员；使用时请遵守当地法律与服务商条款，生成内容的合规由使用者自负。软件不提供也不保管任何 Key。'
 REDEEM_MAX_LENGTH = 40
 EXPORT_NAME = '漫剧助手账号数据_%Y%m%d.json'
 
@@ -117,6 +119,7 @@ class AccountPageMixin:
         PrimaryButton(actions,text='立即续签',command=renew).pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         SecondaryButton(actions,text='退出登录',command=logout).pack(side='left')
         self._account_redeem_form()
+        self._account_providers_card()
         self._account_devices_card()
         self._account_export_card()
         self._account_delete_card()
@@ -127,6 +130,44 @@ class AccountPageMixin:
     def _account_export_path(self):
         return self.file_dialog.save_file(title='导出账号数据', defaultextension='.json',
                                           initialfile=time.strftime(EXPORT_NAME), filetypes=[('JSON','*.json')])
+
+    def _account_providers_card(self):
+        """推荐线路：只展示地址与说明，Key 由用户自己在模型设置的自定义提供方里填写；总开关关闭时不显示内容。"""
+        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
+        ttk.Label(card,text='推荐模型线路（第三方服务）').pack(anchor='w',pady=SPACING['xs'])
+        ttk.Label(card,text=PROVIDER_NOTICE,style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],
+                  justify='left').pack(anchor='w',pady=SPACING['xs'])
+        rows = ttk.Frame(card);rows.pack(fill='x')
+        message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
+        def listed(result):
+            if not message.winfo_exists():return
+            button.state(['!disabled'])
+            for child in rows.winfo_children():child.destroy()
+            if not result.ok:message.configure(text=result.reason);return
+            items = (result.data or {}).get('providers') or []
+            message.configure(text='' if items else '当前没有推荐线路')
+            for item in items:self._account_provider_row(rows,item)
+        def load():
+            button.state(['disabled']);message.configure(text='正在读取…')
+            if not self.account.providers(listed):
+                button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
+        button = SecondaryButton(card,text='查看推荐线路',command=load);button.pack(anchor='w',pady=SPACING['xs'])
+        message.pack(anchor='w',pady=SPACING['xs'])
+        self.account_providers_button,self.account_providers_rows,self.account_providers_message = button,rows,message
+
+    def _account_provider_row(self, rows, item):
+        row = ttk.Frame(rows);row.pack(fill='x',pady=SPACING['xs'])
+        lines = [str(item.get('name') or '—'),'接口地址：'+str(item.get('base_url') or '—')]
+        if item.get('models'):lines.append('模型：'+str(item['models']))
+        if item.get('note'):lines.append(str(item['note']))
+        ttk.Label(row,text=chr(10).join(lines),wraplength=TEXT_DESC['wraplength'],justify='left').pack(side='left')
+        def copy():
+            self.win.clipboard_clear();self.win.clipboard_append(str(item.get('base_url') or ''))
+            self.status.set('已复制接口地址，请到模型设置的自定义提供方里填写，并填入你自己的 Key')
+        SecondaryButton(row,text='复制地址',command=copy).pack(side='right')
+        invite = str(item.get('invite_url') or '')
+        if invite.startswith('https://'):
+            SecondaryButton(row,text='注册／邀请链接',command=lambda u=invite:webbrowser.open(u)).pack(side='right',padx=SPACING['xs'])
 
     def _account_devices_card(self):
         """已绑定设备：按需联网读取（不在每次画页时请求），可解绑；解绑本机即退出登录。"""

@@ -52,6 +52,7 @@ MESSAGES = {
     'not_pending_deletion': '账号不在注销冷静期',
     'redeem_invalid': '兑换码无效（格式不对、不存在、已作废或已过兑换期）',
     'redeem_used': '这个兑换码已经被使用过',
+    'account_banned': '账号已被停用，如有疑问请联系客服',
 }
 _context = None
 
@@ -160,6 +161,11 @@ def delete_cancel(email, code, **kw):
 def redeem(lease, code, **kw):
     """兑换码开通／续期；码原样提交，空格、横杠、大小写与 O/I/L 由服务端归一。"""
     return request('POST', '/v1/redeem', {'code': code}, token=lease, **kw)
+
+
+def providers(lease, **kw):
+    """推荐线路预设（仅地址与说明，不含 Key）；总开关关闭时服务端返回空列表。"""
+    return request('GET', '/v1/providers', token=lease, **kw)
 
 
 def export(lease, **kw):

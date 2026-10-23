@@ -94,6 +94,10 @@ class AccountController:
         """已绑定设备列表（含 ``current``、``unbind_left``、``next_unbind_at``）。无会话返回 False。"""
         return self._lease_call(self._client.devices, done, '读取设备列表')
 
+    def providers(self, done):
+        """读取推荐线路预设（不含 Key）。无会话返回 False。"""
+        return self._lease_call(self._client.providers, done, '读取推荐线路')
+
     def unbind(self, device_id, done, *, current=False):
         """解绑一台设备；解绑的是本机时服务端已吊销本机会话，这里同步清掉本机会话。"""
         device_id = str(device_id or '').strip()
