@@ -73,6 +73,8 @@ PID_REUSE_TOLERANCE_SECONDS = 120
 
 
 CACHE_NAME = 'selftest-incremental.json'
+# 依赖识别口径的版本：口径变了，台账里旧的依赖清单就不可信，旧台账整体作废（全部重跑一次）。
+INCREMENTAL_RULES = 2
 FULL_SAFE_LOCK_NAME = 'full-safe-selftest.lock'
 GUI_LOCK_NAME = 'gui-selftest.lock'
 GUI_QUEUE_NAME = 'gui-selftest.queue'
@@ -143,6 +145,13 @@ def project_modules():
     for folder in (HERE, os.path.join(HERE, 'agent')):
         for path in glob.glob(os.path.join(folder, '*.py')):
             out[os.path.basename(path)[:-3]] = path
+    # agent 包按点号路径导入（agent.core／from agent import core），包本身是 agent/__init__.py。
+    for path in glob.glob(os.path.join(HERE, 'agent', '*.py')):
+        stem = os.path.basename(path)[:-3]
+        out['agent' if stem == '__init__' else 'agent.' + stem] = path
+    # tests/ 下的共用辅助模块（widget_test_support 等）：它们变了，用到它们的测试也要重跑。
+    for path in glob.glob(os.path.join(TESTS_DIR, '*.py')):
+        out.setdefault(os.path.basename(path)[:-3], path)
     return out
 
 
@@ -157,11 +166,15 @@ def imports_of(path):
     names = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            names.update(alias.name.split('.')[0] for alias in node.names)
+            for alias in node.names:
+                names.add(alias.name.split('.')[0])
+                names.add(alias.name)              # 点号全名：agent.core 这类子包模块
         elif isinstance(node, ast.ImportFrom):
             if node.level or not node.module:
                 continue                       # 相对导入（agent 包内部）不参与
             names.add(node.module.split('.')[0])
+            names.add(node.module)
+            names.update(node.module + '.' + alias.name for alias in node.names)   # from agent import core
     # dependency_closure 会被每个测试文件调用；不缓存会重复解析同一批模块数千次，
     # 让 --all 在真正开始跑用例前就长时间占满 CPU。
     return frozenset(names)
@@ -926,6 +939,8 @@ def incremental(names, cache):
     old_modules = cache.get('modules') if isinstance(cache.get('modules'), dict) else {}
     old_data = cache.get('data') if isinstance(cache.get('data'), dict) else {}
     known = cache.get('tests') if isinstance(cache.get('tests'), dict) else {}
+    if cache.get('rules') != INCREMENTAL_RULES:
+        known = {}                             # 旧口径记下的依赖清单不可信：本趟全部照跑
     modules_now = {name: _digest(path) for name, path in project_modules().items()}
     data_now = {rel: _digest(path) for rel, path in data_files().items()}
     data_moved = sorted(rel for rel, value in data_now.items() if old_data.get(rel) != value)
@@ -952,7 +967,7 @@ def incremental(names, cache):
             todo.append(name)                  # 它依赖的模块改了
             continue
         skipped.append(name)
-    state = {'modules': modules_now, 'data': data_now, 'tests': tests_now}
+    state = {'rules': INCREMENTAL_RULES, 'modules': modules_now, 'data': data_now, 'tests': tests_now}
     return todo, skipped, state
 
 
