@@ -8,6 +8,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 os.chdir(os.path.dirname(HERE))
 
+import storyboard_paths as sp
 import video_task_state as vts
 
 
@@ -34,7 +35,7 @@ def add_workspace(project, episode, name, shots, same_episode=True):
 
 class GenerationActiveCacheTests(unittest.TestCase):
     def setUp(self):
-        vts._OTHER_ACTIVE.clear(); vts._LISTINGS.clear(); vts._RESOLVED.clear()
+        vts._OTHER_ACTIVE.clear(); sp._LISTINGS.clear(); sp._RESOLVED.clear()
 
     def test_other_workspace_active_shot_locks_and_state_change_unlocks(self):
         with tempfile.TemporaryDirectory() as td:

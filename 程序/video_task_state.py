@@ -2,7 +2,7 @@
 from pathlib import Path
 from agent.core import read
 from file_cache import read_json_shared as read_cached
-from storyboard_paths import project_root
+from storyboard_paths import project_root,resolved_path,config_listing,file_signature
 
 ACTIVE={'submitting','unknown','queued','running','succeeded'}
 VIDEO_MAX_SHOTS=100
@@ -28,39 +28,6 @@ def provider_failure_reason(version):
 
 
 _OTHER_ACTIVE={}
-_RESOLVED={}
-_LISTINGS={}
-
-
-def resolved_path(path):
-    """Path.resolve() 在 Windows 上约 0.15ms；同一原始路径的结果在进程内复用。"""
-    key=str(path)
-    hit=_RESOLVED.get(key)
-    if hit is None:
-        if len(_RESOLVED)>256:_RESOLVED.clear()
-        hit=_RESOLVED[key]=Path(path).resolve()
-    return hit
-
-
-def config_listing(folder):
-    """cloud_video/*/config.json 的清单；目录自身 mtime 不变（没有工作集增删）就复用上次的 glob。"""
-    token=_signature(folder)
-    hit=_LISTINGS.get(str(folder))
-    if token is not None and hit and hit[0]==token:return hit[1]
-    configs=tuple(sorted(Path(folder).glob('*/config.json')))
-    if len(_LISTINGS)>64:_LISTINGS.clear()
-    _LISTINGS[str(folder)]=(token,configs)
-    return configs
-
-
-def _signature(path):
-    try:
-        stat=Path(path).stat()
-    except OSError:
-        return None
-    return stat.st_mtime_ns,stat.st_size
-
-
 def _other_active_ids(project,own_root,source):
     """其他云端工作集里（同一分镜）仍在生成的镜头 id 集合。
 
@@ -68,7 +35,7 @@ def _other_active_ids(project,own_root,source):
     这里按「工作集清单＋config／state 文件签名」缓存整个集合，签名没变就不重算。
     """
     configs=config_listing(project/'cloud_video')
-    signature=tuple((str(path),_signature(path),_signature(path.parent/'data/state.json')) for path in configs)
+    signature=tuple((str(path),file_signature(path),file_signature(path.parent/'data/state.json')) for path in configs)
     key=(str(project),str(own_root),str(source))
     hit=_OTHER_ACTIVE.get(key)
     if hit and hit[0]==signature:return hit[1]
