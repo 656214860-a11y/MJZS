@@ -18,6 +18,7 @@ from skip_reasons import (
     REQUIRES_BUNDLED_SKILL,
 )
 import json, os, sys, tempfile, unittest
+from widget_test_support import widget_list as _widget_list, widget_texts as _widget_texts
 from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -45,28 +46,15 @@ def desktop(proj, win=None):
     return subject
 
 
+
+
 def widget_texts(widget, classes=('TButton', 'Button', 'TLabel', 'Label')):
-    found = []
-    try:
-        if widget.winfo_class() in classes:
-            found.append(str(widget.cget('text')))
-    except Exception:
-        pass
-    for child in widget.winfo_children():
-        found.extend(widget_texts(child, classes))
-    return found
+    return _widget_texts(widget, classes)
 
 
 def widget_list(widget, classes=('TButton', 'Button')):
-    found = []
-    try:
-        if widget.winfo_class() in classes:
-            found.append(widget)
-    except Exception:
-        pass
-    for child in widget.winfo_children():
-        found.extend(widget_list(child, classes))
-    return found
+    return _widget_list(widget, classes)
+
 
 
 class PlanTests(unittest.TestCase):

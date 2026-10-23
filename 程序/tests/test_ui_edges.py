@@ -17,6 +17,7 @@ os.chdir(HERE)
 
 import idea_chat
 from catalog_page_test_support import show_catalog_page_ready
+from widget_test_support import widget_texts as _widget_texts
 
 PROGRAM = HERE
 FFMPEG = r"D:/Tools/ffmpeg/bin/ffmpeg.exe"
@@ -45,15 +46,7 @@ def popup_windows(win, tk):
 
 def widget_texts(widget):
     """递归收起一棵控件树里所有按钮的字（按页找「还有没有那颗入口」用）。"""
-    found = []
-    if widget.winfo_class() in ("TButton", "Button"):
-        try:
-            found.append(str(widget.cget("text")))
-        except Exception:
-            pass
-    for child in widget.winfo_children():
-        found.extend(widget_texts(child))
-    return found
+    return _widget_texts(widget, ("TButton", "Button"))
 
 
 class StartupFirstPaintTests(unittest.TestCase):

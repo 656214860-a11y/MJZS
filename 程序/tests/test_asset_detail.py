@@ -29,6 +29,7 @@ import asset_plan
 import confirm_gates
 from stage_execution_service import apply_asset_plan_gate_choice as apply_gate_choice
 from test_asset_thumbs import png
+from widget_test_support import widget_list, widget_texts
 from test_ui_edges import adopt_storyboard_fixture, make_minimal_project
 
 ANGLE_LABELS = ("正面 0°", "右侧 90°", "左侧 -90°", "背面 180°", "3/4 左", "3/4 右")
@@ -100,34 +101,12 @@ class _Harness(unittest.TestCase):
             win.destroy()
         except Exception:
             pass
-
     def texts(self, widget):
-        found = []
-        for cls in (self.ttk.Label, self.ttk.LabelFrame, self.ttk.Button, self.ttk.Checkbutton):
-            if isinstance(widget, cls):
-                try:
-                    found.append(str(widget.cget("text")))
-                except Exception:
-                    pass
-                break
-        for child in widget.winfo_children():
-            found.extend(self.texts(child))
-        return found
+        return widget_texts(widget, (self.ttk.Label, self.ttk.LabelFrame, self.ttk.Button, self.ttk.Checkbutton))
 
     def buttons(self, widget, text):
-        found = []
-        for cls in (self.ttk.Button, self.tk.Button):
-            if isinstance(widget, cls):
-                try:
-                    if str(widget.cget("text")) == text:
-                        found.append(widget)
-                except Exception:
-                    pass
-                break
-        for child in widget.winfo_children():
-            found.extend(self.buttons(child, text))
-        return found
-
+        return [w for w in widget_list(widget, (self.ttk.Button, self.tk.Button))
+                if str(w.cget("text")) == text]
 
 class TextHierarchyTests(_Harness):
     def test_five_description_sites_keep_long_text_and_token_styles_at_scaling(self):

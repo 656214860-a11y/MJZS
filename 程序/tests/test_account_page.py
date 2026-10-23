@@ -19,15 +19,8 @@ from service_contract import success
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
 from test_account_client import KEYS, NOW, _Client, _Store, payload, sign
+from widget_test_support import widget_texts as _texts
 
-
-def _texts(widget):
-    out=[]
-    for child in widget.winfo_children():
-        try:out.append(str(child.cget('text')))
-        except tk.TclError:pass
-        out.extend(_texts(child))
-    return out
 
 
 class AccountPageTests(unittest.TestCase):

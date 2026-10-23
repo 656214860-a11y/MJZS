@@ -97,9 +97,12 @@ class VideoTaskIdRecoveryTests(unittest.TestCase):
         self.assertIsNone(locate_prompt(fetch, workflow=graph, attempts=1))
 
     def test_poll_recovers_persisted_identity_after_restart(self):
-        self.test_poll_recovers_missing_task_id_from_saved_graph('current')
+        self._assert_poll_recovers_task_id('current')
 
-    def test_poll_recovers_missing_task_id_from_saved_graph(self, client_id=''):
+    def test_poll_recovers_missing_task_id_from_saved_graph(self):
+        self._assert_poll_recovers_task_id('')
+
+    def _assert_poll_recovers_task_id(self, client_id):
         import contextlib
         import local_video
         with tempfile.TemporaryDirectory() as td:

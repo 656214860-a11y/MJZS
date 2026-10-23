@@ -43,6 +43,7 @@ def make_project(td):
 
 
 from ui_tokens import COLORS
+from widget_test_support import widget_texts
 
 class FlushPromptTests(unittest.TestCase):
     @classmethod
@@ -378,15 +379,6 @@ def make_adopted(proj):
         "frame_json": "storyboard/分镜拆分/episode.json"}, ensure_ascii=False), encoding="utf-8")
     return target
 
-
-def widget_texts(widget, kinds):
-    """递归收集某几类控件的 text（顺序即打包顺序）。"""
-    found = []
-    for child in widget.winfo_children():
-        if isinstance(child, kinds):
-            found.append(str(child.cget("text")))
-        found.extend(widget_texts(child, kinds))
-    return found
 
 
 class AssetCheckTableTests(unittest.TestCase):

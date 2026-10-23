@@ -286,7 +286,9 @@ class IgnoredInputTests(unittest.TestCase):
 
     def test_a_missing_input_is_tolerated(self):
         with tempfile.TemporaryDirectory() as folder:
-            auto._fill_ignored_inputs(Path(folder) / 'main', Path(folder) / 'ci')   # 不抛即可
+            auto._fill_ignored_inputs(Path(folder) / 'main', Path(folder) / 'ci')
+            # 源文件缺失：不抛，也不在目标检出里凭空建目录或空文件。
+            self.assertFalse((Path(folder) / 'ci').exists())
 
     def test_an_existing_copy_is_not_overwritten(self):
         with tempfile.TemporaryDirectory() as folder:

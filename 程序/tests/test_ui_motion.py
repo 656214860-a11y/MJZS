@@ -97,6 +97,8 @@ class RowHoverTests(MotionBase):
         self.move_to(tree, 'b')
         tree.delete('b')
         tree._row_hover._left()
+        self.assertEqual(tree._row_hover.row, "")
+        self.assertEqual(tree.get_children(), ('a', 'c'))
 
     def test_data_table_installs_hover_automatically(self):
         table = DataTable(self.root, columns=[('name', '名称', 120)])

@@ -98,6 +98,8 @@ class PagePaintMetricTests(unittest.TestCase):
             # 已销毁窗口上再调度/作废测量必须静默，不向调用方抛 TclError。
             app_logging.begin_page_paint(desktop, 'page.paint.script')
             app_logging._schedule_page_paint(desktop, 1, 0.0, 'page.paint.script')
+            # 窗口已销毁：不得记下一条虚假的绘制耗时。
+            self.assertNotIn('page.paint.script', app_logging.metrics_snapshot())
         self._cleanup(None, desktop)
 
     def test_record_elapsed_preserves_existing_shape(self):

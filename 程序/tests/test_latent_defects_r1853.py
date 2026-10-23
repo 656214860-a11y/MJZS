@@ -86,6 +86,8 @@ class CodexDecodeTests(unittest.TestCase):
              patch('codex_tasks.subprocess.Popen', FakeProcess), \
              patch.object(codex_tasks.RPC, 'environment', lambda self: {}):
             entered = client.__enter__()
+            # 乱码行被跳过后，随后的合法 id=1 应答必须被读到：initialize 成功、连接没被关闭。
+            self.assertIs(entered, client)
             entered.__exit__(None, None, None)
 
 
