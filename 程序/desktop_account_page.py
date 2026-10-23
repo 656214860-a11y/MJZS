@@ -162,8 +162,8 @@ class AccountPageMixin:
         if item.get('note'):lines.append(str(item['note']))
         ttk.Label(row,text=chr(10).join(lines),wraplength=TEXT_DESC['wraplength'],justify='left').pack(side='left')
         def copy():
-            self.win.clipboard_clear();self.win.clipboard_append(str(item.get('base_url') or ''))
-            self.status.set('已复制接口地址，请到模型设置的自定义提供方里填写，并填入你自己的 Key')
+            if not self.copy_text(str(item.get('base_url') or '')):
+                self.status.set('已复制接口地址，请到模型设置的自定义提供方里填写，并填入你自己的 Key')
         SecondaryButton(row,text='复制地址',command=copy).pack(side='right')
         invite = str(item.get('invite_url') or '')
         if invite.startswith('https://'):

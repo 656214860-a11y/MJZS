@@ -1110,8 +1110,7 @@ class Desktop(AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixi
         scroll_offset, page_cache = self._show_reset_page(index, video_mode)
         if index in (PAGE_SITES,PAGE_ACCOUNT):
             (self.reference_sites if index==PAGE_SITES else self.account_page)()    # 两页都与项目无关：没打开项目也能进
-            # 参考网站页和普通制作页一样会在这里新增内容；不能因为提前返回而把
-            # Canvas window 留在建壳时量到的 1px 高度。
+            # 与普通制作页一样会在这里新增内容；不能提前返回而把 Canvas window 留在 1px 高度。
             self.fit_content()
             return
         if self.root is None:
