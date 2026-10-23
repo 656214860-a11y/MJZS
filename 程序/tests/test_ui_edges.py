@@ -3202,6 +3202,12 @@ class UiEdgeTests(unittest.TestCase):
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None
         self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original)
+        # 本用例只验派单逻辑；会员闸门（真实账号状态）另有 test_account_* 覆盖，这里隔离，免得结果随本机登录态变化。
+        import entitlement_service
+        from unittest import mock
+        gate = mock.patch.object(entitlement_service, "GATE_ENFORCED", False)
+        gate.start()
+        self.addCleanup(gate.stop)
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
             win = self.tk.Tk(); win.geometry("1100x740+40+40")
