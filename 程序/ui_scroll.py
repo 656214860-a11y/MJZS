@@ -38,6 +38,13 @@ class EasedScroll:
             return None
         return total, view, self.canvas.yview()[0] * total
 
+    def _fits(self):
+        """滚动区已定且不高于可视区：整块内容都看得见。"""
+        region = str(self.canvas.cget('scrollregion')).split()
+        if len(region) != 4:
+            return False
+        return float(region[3]) - float(region[1]) <= float(self.canvas.winfo_height())
+
     def _unit_px(self, view):
         increment = float(self.canvas.winfo_fpixels(self.canvas.cget('yscrollincrement') or 0))
         return increment if increment > 0 else max(1.0, view / _TK_UNIT_DIVISOR)
@@ -45,6 +52,12 @@ class EasedScroll:
     def scroll(self, steps):
         """按 Tk「单位」滚 steps 格（负数向上）；能缓动就缓动，否则退回原生滚动。"""
         if not steps:
+            return
+        if self._fits():
+            # 内容比可视区矮时没有可滚的距离；Tk 原生 yview scroll 在这种画布上仍会把内容
+            # 推离顶端（侧栏标题和齿轮跟着下沉），所以钉回顶端、什么也不滚。
+            self.cancel()
+            self.canvas.yview_moveto(0.0)
             return
         geometry = self._geometry()
         if geometry is None or float(self.canvas.winfo_fpixels(self.canvas.cget('yscrollincrement') or 0)) > 0:

@@ -112,6 +112,15 @@ class EasedScrollTests(TkCase):
         self.assertAlmostEqual(self.top_px(fixed), 20, delta=1)
         self.assertFalse(fixed._eased_scroll.running)
 
+    def test_wheel_on_content_shorter_than_view_never_moves_it(self):
+        """侧栏内容比窗口矮时滚轮不能把内容推离顶端（标题与齿轮曾跟着滚轮下沉）。"""
+        short = self.make_canvas(region_height=100)
+        for steps in (-3, 3, -5):
+            ui_scroll.eased_scroll(short, steps)
+            self.root.update()
+            self.assertEqual(short.canvasy(0), 0.0)
+        self.assertFalse(short._eased_scroll.running)
+
     def test_destroy_cancels_pending_frames(self):
         canvas = self.make_canvas()
         before = self.pending_after()
