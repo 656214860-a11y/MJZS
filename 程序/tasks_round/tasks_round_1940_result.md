@@ -16,3 +16,8 @@
 - `py_compile platform_tools.py`、`run_selftests.py -k platform static_names splash startup`：50 条全绿。
 - `--layer architecture --all`：4 个文件红，**均不是本轮造成**：`test_agents_md`、`test_skill_reference_injection`（工作树缺未入库文件）；`test_complexity_ratchet`（`Desktop` 1303 行 > 上限 1302 等，来自别的会话的会员账号页改动）；`test_copy_entry_boundary`（`desktop_account_page.py` 直写剪贴板，同源）。后两条属 master 现有红，待账号页那条线处理。
 - `--all --safe` 未运行。
+
+## 防御性编程摸底（本批追加，未改）
+
+- ast 找出 26 处 `except Exception` 后只 `pass／continue／return`：集中在 `app_logging`（日志不得拖垮主程序）、`app_shortcut`、`responsive_ui`、`skill_panel_support`、`stage_flow`（Tk 控件已销毁）、`stage_parallel`（读不出的分镜跳过）、`asset_thumbs`（无桌面会话/Tk 失败）。
+- 逐类核对均为边界容错（外部文件、Tk 控件生命周期、无桌面会话、日志自保），不是“内部必有值”的多余检查；收窄异常类型会改变未预期异常下的行为，无法证明等价，**一律不动**。本维度本批无可做项。
