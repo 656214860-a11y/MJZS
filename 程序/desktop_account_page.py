@@ -2,8 +2,11 @@
 
 状态机、网络与落盘都在 L3 ``account_controller.AccountController``；本 Mixin 只注入
 后台提交回调（``async_queued`` 经 ``BackgroundTaskLifecycle``）并把结果画到页面上。
-首帧之后才后台续签，启动路径不等网络。
+首帧之后才后台续签，启动路径不等网络；自动续签与版本检查走 ``_account_background``，
+不占独占后台、不写状态栏。
 """
+import queue
+import threading
 import time
 import webbrowser
 import tkinter as tk
@@ -17,6 +20,7 @@ from ui_widgets import Card, LineInput, PrimaryButton, SecondaryButton, ask_conf
 
 RENEW_DELAY_MS = 3000
 RENEW_CHECK_MS = 30 * 60 * 1000
+BACKGROUND_POLL_MS = 100
 STATE_TEXT = {
     entitlement_service.VALID: '授权有效',
     entitlement_service.GRACE: '离线宽限期内，请尽快联网续签',
@@ -53,11 +57,35 @@ class AccountPageMixin:
     def account(self):
         controller = self.__dict__.get('_account_controller')
         if controller is None:
-            controller = self._account_controller = AccountController(submit=self._account_submit)
+            controller = self._account_controller = AccountController(
+                submit=self._account_submit, background=self._account_background)
         return controller
 
     def _account_submit(self, work, done, label):
         self.async_queued(work, done, label=label, show_progress=False)
+
+    def _account_background(self, work, done, label):
+        """自动续签／版本检查：独立线程执行，结果回 Tk 主线程交付；不置 worker、不改状态栏。"""
+        results = queue.Queue(maxsize=1)
+        threading.Thread(target=lambda: results.put(work()), name=label, daemon=True).start()
+
+        def deliver():
+            if getattr(self, 'shutting_down', False):
+                return
+            try:
+                result = results.get_nowait()
+            except queue.Empty:
+                schedule()
+                return
+            if done:
+                done(result)
+
+        def schedule():
+            try:
+                self.win.after(BACKGROUND_POLL_MS, deliver)
+            except tk.TclError:
+                pass
+        schedule()
 
     def account_blocked(self, stage):
         """不经 ``stage_handler_registry.start()`` 的付费动作（如成片导出）在这里过闸门。
@@ -76,7 +104,7 @@ class AccountPageMixin:
             return
         try:
             if self.account.renew_due():
-                self.account.renew(done=self._account_renewed)
+                self.account.renew(done=self._account_renewed, quiet=True)
         finally:
             self.win.after(RENEW_CHECK_MS, self.start_account_renewal)
 
