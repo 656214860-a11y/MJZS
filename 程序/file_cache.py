@@ -72,6 +72,29 @@ def read_json(path):
     return _json_copy(_read_through(_CACHE, _key(path), path, json.loads))
 
 
+def read_json_shared(path):
+    """同 read_json，但不拷贝：返回缓存里的共享对象，调用方只读不改。供每秒级 UI 轮询用。
+
+    文件签名（mtime＋大小）与上次加锁读取时一致，说明内容仍是当时读到的那一版，直接返回，
+    不再为每次轮询打开 writer.lock 加事务锁；签名变了才走带锁的 read_through。
+    """
+    key = _key(path)
+    hit = _CACHE.get(key)
+    if hit is not None:
+        try:
+            stat = Path(path).stat()
+        except OSError:
+            stat = None
+        if stat is not None and hit[0] == (stat.st_mtime_ns, stat.st_size):
+            return hit[2]
+    return _locked_json_shared(path, key)
+
+
+@access()
+def _locked_json_shared(path, key):
+    return _read_through(_CACHE, key, path, json.loads)
+
+
 @access()
 def read_text(path, encoding='utf-8-sig', errors=None):
     """读取用于 UI 预览的文本，并在文件未变时复用结果。"""

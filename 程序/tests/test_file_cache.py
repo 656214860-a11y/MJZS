@@ -438,5 +438,30 @@ class SharedCacheSourceGuardTests(unittest.TestCase):
         self.assertEqual(self.unsafe_writes(safe), [])
 
 
+class ReadJsonSharedTests(unittest.TestCase):
+    """read_json_shared：命中走无锁快路径，但文件一变必须读到新内容。"""
+    def setUp(self):
+        file_cache.clear()
+
+    def test_unchanged_file_skips_lock_and_changed_file_is_reread(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "a.json"
+            path.write_text(json.dumps({"v": 1}), encoding="utf-8")
+            self.assertEqual(file_cache.read_json_shared(path), {"v": 1})
+            with patch.object(file_cache, "_locked_json_shared", side_effect=AssertionError("命中不应再加锁")):
+                self.assertEqual(file_cache.read_json_shared(path), {"v": 1})
+            path.write_text(json.dumps({"v": 22}), encoding="utf-8")
+            self.assertEqual(file_cache.read_json_shared(path), {"v": 22})
+
+    def test_missing_or_broken_file_raises_like_read_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(OSError):
+                file_cache.read_json_shared(Path(td) / "none.json")
+            bad = Path(td) / "bad.json"
+            bad.write_text("{", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                file_cache.read_json_shared(bad)
+
+
 if __name__ == "__main__":
     unittest.main()

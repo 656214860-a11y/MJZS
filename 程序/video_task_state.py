@@ -1,6 +1,7 @@
 """Read task activity without starting, cancelling, or resubmitting a job."""
 from pathlib import Path
 from agent.core import read
+from file_cache import read_json_shared as read_cached
 from storyboard_paths import project_root
 
 ACTIVE={'submitting','unknown','queued','running','succeeded'}
@@ -32,18 +33,19 @@ def generation_active(studio,sid):
     root=Path(studio.root)
     project=project_root(root)
     source=Path(studio.episode_path).resolve()
+    own_root=root.resolve()
     # A different provider/session can still be generating the same shot.
     for config_path in (project/'cloud_video').glob('*/config.json'):
-        if config_path.parent.resolve()==root.resolve():continue
+        if config_path.parent.resolve()==own_root:continue
         try:
-            cfg=read(config_path)
+            cfg=read_cached(config_path)
         except (OSError,ValueError):
             continue
         if not isinstance(cfg,dict) or not cfg.get('episode_file') or Path(cfg['episode_file']).resolve()!=source:continue
         state_path=config_path.parent/'data/state.json'
         if state_path.is_file():
             try:
-                state=read(state_path)
+                state=read_cached(state_path)
             except (OSError,ValueError):
                 continue
             if not isinstance(state,dict):continue

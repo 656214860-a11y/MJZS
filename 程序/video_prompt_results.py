@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import time
 from contextlib import ExitStack
+from file_cache import read_json_shared as read_cached
 from agent.core import read, restore_bytes, save_bytes, fingerprint
 
 def parse_result(raw):
@@ -87,8 +88,7 @@ class PromptResults:
         if not force and now < self.next_poll: return
         self.next_poll = now + 1.2
         if app.busy or getattr(app, 'optimizer_busy', False): return
-        from video_progress import cached_json
-        episode = cached_json(app.studio.episode_path, read)
+        episode = read_cached(app.studio.episode_path)
         for shot in episode['shots']:
             sid = shot['id']; path = app.studio.media_dir/'video_prompts'/(sid+'.json')
             if not path.is_file(): continue

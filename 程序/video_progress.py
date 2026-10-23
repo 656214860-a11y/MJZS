@@ -1,39 +1,18 @@
 """Shared, read-only progress for local and cloud tasks of one storyboard."""
 import time
 from pathlib import Path
-from agent.core import read,read_json
+from file_cache import read_json_shared as read_cached
 from video_task_state import ACTIVE,elapsed_text,provider_failure_reason
 
 LABELS={'submitting':'提交中','unknown':'待核实','queued':'排队中','running':'生成中',
         'succeeded':'下载中','downloaded':'已下载','failed':'失败','rejected':'被拒绝'}
 
 
-_PARSED={}
-
-
-def _stat_key(path):
-    try:
-        st=Path(path).stat()
-    except OSError:
-        return None
-    return st.st_mtime_ns,st.st_size
-
-
-def cached_json(path,reader):
-    """按 mtime/size 缓存解析结果：UI 每秒调一次，文件没变就不再读盘解析。"""
-    key=_stat_key(path)
-    hit=_PARSED.get(str(path))
-    if key is not None and hit and hit[0]==key:
-        return hit[1]
-    value=reader(path)
-    if key is not None:
-        if len(_PARSED)>256:_PARSED.clear()
-        _PARSED[str(path)]=(key,value)
-    return value
-
-
 def latest(path):
-    state=cached_json(path,read_json)
+    try:
+        state=read_cached(path)
+    except (OSError,ValueError):  # 与原 read_json 一致：读不出来就当没有
+        return {}
     if not isinstance(state,dict):
         return {}
     shots=state.get('shots',{})
@@ -55,7 +34,7 @@ def workspaces(project,source,skip_roots=()):
         root=cfgfile.parent.resolve()
         if root in skip:continue
         try:
-            cfg=cached_json(cfgfile,read)
+            cfg=read_cached(cfgfile)
             if not isinstance(cfg,dict) or not cfg.get('episode_file'):continue
             if Path(cfg['episode_file']).resolve()!=source:continue
         except (OSError,ValueError,TypeError):
