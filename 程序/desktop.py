@@ -112,7 +112,13 @@ def _page_paint_timed(func):
     @functools.wraps(func)
     def wrapper(self, index, *args, **kwargs):
         app_logging.begin_page_paint(self, _page_paint_key(index))
-        return func(self, index, *args, **kwargs)
+        # 旧页留在屏幕上直到新页排好：拆旧建新、逐轮排版都在冻结期间完成，布局稳定后一次画出。
+        self.freeze_page_paint()
+        try:
+            return func(self, index, *args, **kwargs)
+        except BaseException:
+            self.thaw_page_paint()    # 建页失败不等超时：立刻放回画面，让错误提示和现场都看得见
+            raise
     return wrapper
 
 from desktop_tk_gc import (protect_readonly_combobox, protect_tk_gc, drain_tk_gc, _pin_tk_app,
@@ -314,7 +320,6 @@ class Desktop(AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixi
         self.busy_state.spinner=Spinner(self.body,host=self.status_label)
         self._install_status_styles();self.status.trace_add('write',self.sync_status_style);self.sync_status_style()
         # 不放 ttk.Sizegrip：它由 Tk 逐像素实时改窗口大小、内容跟着重排，和另三个角（系统边框缩放）表现不一致；右下角也走系统边框。
-
 
     def _build_sidebar(self,win):
         """左侧阶段导航放进可滚动容器；窗口再矮也能滚到最后一项（滚轮／翻页键，不显示滚动条）。"""

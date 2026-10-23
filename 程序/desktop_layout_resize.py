@@ -13,6 +13,8 @@
 * **降级**：非 Windows、探测失败、拿不到光标或按键状态时返回「未知」，按纯静默合并处理
   （连续尺寸变化合并成一次，静默后补做），不抛异常、不卡死。
 
+换页冻结绘制（``PaintFreeze``）也在这里：同样是 Win32 下「布局期间不让半成品上屏」。
+
 零第三方依赖。规格见 ``ui_tokens.DESKTOP_LAYOUT['resize_quiet_ms']`` 与
 ``['resize_edge_px']``。
 """
@@ -21,7 +23,7 @@ import sys
 import tkinter as tk
 
 import app_logging
-from ui_tokens import DESKTOP_LAYOUT
+from ui_tokens import DESKTOP_LAYOUT, PAGE_FREEZE_MAX_MS
 
 #: 拿不到系统边框宽时的命中圈宽度（token，不写死像素）。
 _EDGE_PX = int(DESKTOP_LAYOUT['resize_edge_px'])
@@ -259,3 +261,80 @@ class ResizeCoalescer:
             except Exception:
                 # Tk 回调里的异常会被 report_callback_exception 吞掉，补做不能因此挂丢。
                 app_logging.swallowed()
+
+
+_WM_SETREDRAW = 0x000B
+_SW_HIDE = 0
+_RDW_INVALIDATE = 0x0001
+_RDW_ALLCHILDREN = 0x0080
+_RDW_UPDATENOW = 0x0100
+
+
+class PaintFreeze:
+    """换页期间冻结一块区域的绘制：旧页像素留在屏幕上，新页排好后一次画出。
+
+    Tk 在 Windows 上边排版边直接往屏幕画：新控件先画在初始位置，请求尺寸逐层上传后又被挪动，
+    用户看到的是零件陆续冒出、位置乱跳。``WM_SETREDRAW`` 关掉后这块区域（含子窗口）的绘制
+    全被裁掉；``thaw`` 打开并整块失效重画。最长冻 ``max_ms``，超时照常解冻，异常路径不会卡住画面。
+    非 Windows、控件不可见（隐藏窗口、测试里 withdraw 的根窗口）时什么也不做。
+    """
+
+    def __init__(self, widget, max_ms=None):
+        self.widget = widget
+        self.max_ms = int(PAGE_FREEZE_MAX_MS if max_ms is None else max_ms)
+        self.frozen = False
+        self._job = None
+        self._user32 = None
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                from ctypes import wintypes
+                user32 = ctypes.windll.user32
+                user32.SendMessageW.argtypes = (wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+                user32.SendMessageW.restype = ctypes.c_ssize_t
+                user32.RedrawWindow.argtypes = (wintypes.HWND, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT)
+                user32.RedrawWindow.restype = wintypes.BOOL
+                user32.ShowWindow.argtypes = (wintypes.HWND, ctypes.c_int)
+                user32.ShowWindow.restype = wintypes.BOOL
+                self._user32 = user32
+            except Exception:
+                app_logging.swallowed()
+
+    def freeze(self):
+        if self.frozen or self._user32 is None:
+            return False
+        try:
+            if not self.widget.winfo_viewable():
+                return False
+            self._user32.SendMessageW(int(self.widget.winfo_id()), _WM_SETREDRAW, 0, 0)
+            self.frozen = True
+            self._job = self.widget.after(self.max_ms, self.thaw)
+        except tk.TclError:
+            return False
+        except Exception:
+            app_logging.swallowed()
+            return False
+        return True
+
+    def thaw(self):
+        if not self.frozen:
+            return False
+        self.frozen = False
+        job, self._job = self._job, None
+        try:
+            if job is not None:
+                self.widget.after_cancel(job)
+            if not self.widget.winfo_exists():
+                return False
+            handle = int(self.widget.winfo_id())
+            self._user32.SendMessageW(handle, _WM_SETREDRAW, 1, 0)
+            # 打开重画会把窗口标成可见；冻结期间 Tk 若已把它收起，照样收回去。
+            if not self.widget.winfo_ismapped():
+                self._user32.ShowWindow(handle, _SW_HIDE)
+                return True
+            self._user32.RedrawWindow(handle, None, None, _RDW_INVALIDATE | _RDW_ALLCHILDREN | _RDW_UPDATENOW)
+        except tk.TclError:
+            pass
+        except Exception:
+            app_logging.swallowed()
+        return True

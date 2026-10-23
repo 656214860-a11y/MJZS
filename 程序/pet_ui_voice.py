@@ -782,18 +782,10 @@ class PetVoiceMixin:
         """
         scheduled = self._greet_id is not None
         self._greet_id = None             # 到点了：这一笔定时器就算用掉了
-        if not self.window_visible() or not self.attending():
+        if not self.window_visible() or not self.attending() or (scheduled and _startup_page_busy(self)):
             if scheduled:
-                self.schedule_greet()     # 启动招呼等窗口回到前台，不让报表抢先
+                self.schedule_greet()     # 启动招呼等窗口回到前台、启动页建完，不让报表抢先
             return ''
-        # 启动页还在后台建（版面计算会占住主线程 1～3 秒）时先别冒：云朵的重绘会把它整笔吞进
-        # 揭开后的第一秒。上限 GREET_SETTLE_POLLS 拍，页面迟迟不就绪也不能让招呼永远不来。
-        if scheduled and not getattr(self.win, '_desktop_startup_settled', True):
-            waited = getattr(self, '_greet_settle_waits', 0)
-            if waited < GREET_SETTLE_POLLS:
-                self._greet_settle_waits = waited + 1
-                self.schedule_greet()
-                return ''
         cloud = self.cloud()
         if cloud is None:
             return ''
@@ -1200,3 +1192,15 @@ class PetVoiceMixin:
             self.errors.append(('caption', str(exc)))
             return None
         return value
+
+
+def _startup_page_busy(pet):
+    """启动页还在后台建（版面计算会占住主线程 1～3 秒）时先别冒：云朵的重绘会把它整笔吞进
+    揭开后的第一秒。上限 GREET_SETTLE_POLLS 拍，页面迟迟不就绪也不能让招呼永远不来。"""
+    if getattr(pet.win, '_desktop_startup_settled', True):
+        return False
+    waited = getattr(pet, '_greet_settle_waits', 0)
+    if waited >= GREET_SETTLE_POLLS:
+        return False
+    pet._greet_settle_waits = waited + 1
+    return True

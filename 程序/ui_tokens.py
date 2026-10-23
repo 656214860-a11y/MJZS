@@ -334,6 +334,9 @@ SCROLL_EASE = 0.5
 SCROLL_FRAME_MS = 16
 SCROLL_SNAP_PX = 1
 
+# 换页冻结绘制：旧页留在屏幕上，新页布局稳定后一次画出；最长冻这么久，超时照常解冻。
+PAGE_FREEZE_MAX_MS = 800
+
 # 按钮悬停渐变：总时长 HOVER_FADE_MS 分 HOVER_FADE_STEPS 档（中间 STEPS-1 档是混色底图，按需生成并缓存）。
 HOVER_FADE_MS = 100
 HOVER_FADE_STEPS = 4

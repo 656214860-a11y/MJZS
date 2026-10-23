@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import pet_ui
-from desktop_layout_resize import ResizeCoalescer
+from desktop_layout_resize import PaintFreeze, ResizeCoalescer
 from desktop_page_registry import PAGE
 from responsive_ui import growable_extra
 from ui_scroll import eased_scroll
@@ -24,6 +24,18 @@ class LayoutMixin:
     def cancel_resize(self):
         coalescer=getattr(self,'resize_scheduler',None)
         if coalescer is not None:coalescer.cancel()
+        self.thaw_page_paint()
+    def freeze_page_paint(self):
+        """换页开始：冻结内容区绘制，旧页留在屏幕上，等新页布局稳定后一次画出（见 PaintFreeze）。"""
+        freezer=getattr(self,'_page_paint_freeze',None)
+        if freezer is None:
+            canvas=getattr(self,'canvas',None)
+            if canvas is None:return False
+            freezer=self._page_paint_freeze=PaintFreeze(canvas)
+        return freezer.freeze()
+    def thaw_page_paint(self):
+        freezer=getattr(self,'_page_paint_freeze',None)
+        return freezer.thaw() if freezer is not None else False
     def watch_window_resize(self,win):
         """主窗口／页面画布／内容框的尺寸变化统一经合并器；子控件变化照旧立即处理。"""
         self.resize_scheduler=ResizeCoalescer(win,freeze=self._freeze_content,thaw=self._thaw_content)
@@ -209,6 +221,8 @@ class LayoutMixin:
                 self._pending_scroll_restore=None
                 self._pending_scroll_layout=None
                 self.restore_scroll(pending_scroll)
+            # 尺寸与滚动位置都定了：换页时冻住的内容区这会儿一次画出。
+            self.thaw_page_paint()
         try:self._fit_job=self.win.after_idle(run)
         except tk.TclError:
             self._fit_job=None
