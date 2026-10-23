@@ -23,6 +23,7 @@ import model_pool
 import model_secrets
 import pet_models_ui
 import pet_agent, pet_bus, pet_cloud, pet_report, pet_ui, stage_flow
+import pet_ui_support
 
 # 第 45 期：这些用例读的（并会写的）是全局配置目录里那一份三虎设置。原来 program 指向本机真
 # 安装目录，于是「出厂默认档是半自动」这类断言会被用户机上那份配置左右（那里存过 hint 就红）。
@@ -3163,6 +3164,34 @@ class CloudVoiceTests(PetTestCase):
         self.main_window_showing(False)
         self.assertEqual(self.pet.greet(), '', '主窗口没露出来就不冒（贴片没有真实坐标）')
         self.assertFalse(cloud.visible)
+
+    def test_the_scheduled_greeting_waits_for_the_startup_page_to_settle(self):
+        """开机招呼等启动页建完（版面计算占主线程），不撞进揭开后的第一秒；等满上限也要冒。"""
+        self.main_window_showing()
+        cloud = self.pet.cloud()
+        jobs = []
+        original = self.pet.win.after
+        self.pet.win.after = lambda ms, fn=None, *a: jobs.append((ms, fn)) or 'job'
+        self.addCleanup(setattr, self.pet.win, 'after', original)
+        self.pet.win._desktop_startup_settled = False
+        self.pet.schedule_greet()
+        self.assertEqual(self.pet.greet(), '', '启动页没建完：不冒')
+        self.assertFalse(cloud.visible)
+        self.assertIsNotNone(self.pet._greet_id, '改期而不是作废')
+        self.pet.win._desktop_startup_settled = True
+        self.assertTrue(self.pet.greet(), '启动页就绪后冒')
+        self.assertTrue(cloud.visible)
+
+    def test_the_scheduled_greeting_stops_waiting_after_the_poll_limit(self):
+        self.main_window_showing()
+        original = self.pet.win.after
+        self.pet.win.after = lambda ms, fn=None, *a: 'job'
+        self.addCleanup(setattr, self.pet.win, 'after', original)
+        self.pet.win._desktop_startup_settled = False
+        self.pet.schedule_greet()
+        for _ in range(pet_ui_support.GREET_SETTLE_POLLS):
+            self.assertEqual(self.pet.greet(), '')
+        self.assertTrue(self.pet.greet(), '页面迟迟不就绪也不能让招呼永远不来')
 
     def test_nothing_else_pops_right_after_the_greeting(self):
         """第 68 期任务 11：用户要「打招呼的聊天框关闭后，再慢慢弹出其他信息」。

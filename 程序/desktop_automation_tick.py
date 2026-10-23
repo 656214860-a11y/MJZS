@@ -49,6 +49,7 @@ class AutomationTickMixin:
         if getattr(self,'shutting_down',False):
             return
         self._startup_tick_paused=False
+        self.win._desktop_startup_settled=True
         self.automation_scheduler.start(
             'tick',150,self._tick_once,
             on_error=lambda exc:self._set_automation_error('后台任务回调异常，已忽略：',exc),

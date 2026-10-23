@@ -1441,7 +1441,7 @@ class Splash:
         # 全吞进这一次调用里，Splash 的动画帧就没机会执行，进度条冻结。加载交给主循环按拍推进。
         self.win.update_idletasks()
 
-    def wait(self, ready, done, track=None, timeout=15.0):
+    def wait(self, ready, done, track=None, timeout=T.SPLASH_MAX_SECONDS):
         """轮询 ready()；连续两拍就绪（或超时）后把进度条走满，再调 done() 并收起画面。
 
         track() 返回主窗口当前外框时，画面跟着它挪，保证始终整块盖住。"""

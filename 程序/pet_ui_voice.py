@@ -13,7 +13,7 @@ import pet_state
 from broadcaster import Broadcaster, PREFIX_PATTERNS
 from pathlib import Path
 from tkinter import TclError
-from pet_ui_support import AWAY_PAUSE_SECONDS, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, CAPTION_INK, CHAT_HINT, FALLBACK_ASK, GAP_SECONDS, GREET_DELAY_MS, GREET_QUIET_SECONDS, LEVEL_CAPTIONS, OFFER_BACKOFF_MAX, OFFER_MAX_CHARS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, PAGE_ASKS, PAUSED_CAPTION, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, REPORT_QUIET_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, WEEKLY_FROM, asset_counts, duration, shot_stats
+from pet_ui_support import AWAY_PAUSE_SECONDS, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, CAPTION_INK, CHAT_HINT, FALLBACK_ASK, GAP_SECONDS, GREET_DELAY_MS, GREET_QUIET_SECONDS, GREET_SETTLE_POLLS, LEVEL_CAPTIONS, OFFER_BACKOFF_MAX, OFFER_MAX_CHARS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, PAGE_ASKS, PAUSED_CAPTION, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, REPORT_QUIET_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, WEEKLY_FROM, asset_counts, duration, shot_stats
 
 
 
@@ -786,6 +786,14 @@ class PetVoiceMixin:
             if scheduled:
                 self.schedule_greet()     # 启动招呼等窗口回到前台，不让报表抢先
             return ''
+        # 启动页还在后台建（版面计算会占住主线程 1～3 秒）时先别冒：云朵的重绘会把它整笔吞进
+        # 揭开后的第一秒。上限 GREET_SETTLE_POLLS 拍，页面迟迟不就绪也不能让招呼永远不来。
+        if scheduled and not getattr(self.win, '_desktop_startup_settled', True):
+            waited = getattr(self, '_greet_settle_waits', 0)
+            if waited < GREET_SETTLE_POLLS:
+                self._greet_settle_waits = waited + 1
+                self.schedule_greet()
+                return ''
         cloud = self.cloud()
         if cloud is None:
             return ''

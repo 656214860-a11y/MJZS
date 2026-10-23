@@ -41,5 +41,15 @@ class SplashTimingTests(unittest.TestCase):
         splash._report()   # 不抛
 
 
+class SplashCapTests(unittest.TestCase):
+    def test_wait_caps_the_cover_time(self):
+        """启动画面最长盖 SPLASH_MAX_SECONDS：页面没建完也强制揭开，不再一路等到 15 秒。"""
+        import inspect
+        import ui_tokens
+        default = inspect.signature(Splash.wait).parameters['timeout'].default
+        self.assertEqual(default, ui_tokens.SPLASH_MAX_SECONDS)
+        self.assertLessEqual(default, 2.5)
+
+
 if __name__ == '__main__':
     unittest.main()
