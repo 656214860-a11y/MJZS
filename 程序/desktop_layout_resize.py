@@ -266,8 +266,54 @@ class ResizeCoalescer:
 _WM_SETREDRAW = 0x000B
 _SW_HIDE = 0
 _RDW_INVALIDATE = 0x0001
+_RDW_ERASE = 0x0004
 _RDW_ALLCHILDREN = 0x0080
 _RDW_UPDATENOW = 0x0100
+_USER32 = []
+
+
+def _user32():
+    """按需载入一次 user32 并声明用到的签名；非 Windows 或载入失败返回 None。"""
+    if not _USER32:
+        user32 = None
+        if sys.platform == 'win32':
+            try:
+                import ctypes
+                from ctypes import wintypes
+                user32 = ctypes.windll.user32
+                user32.SendMessageW.argtypes = (wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+                user32.SendMessageW.restype = ctypes.c_ssize_t
+                user32.RedrawWindow.argtypes = (wintypes.HWND, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT)
+                user32.RedrawWindow.restype = wintypes.BOOL
+                user32.ShowWindow.argtypes = (wintypes.HWND, ctypes.c_int)
+                user32.ShowWindow.restype = wintypes.BOOL
+            except Exception:
+                user32 = None
+                app_logging.swallowed()
+        _USER32.append(user32)
+    return _USER32[0]
+
+
+def repaint_area(widget):
+    """整块擦底重画一块区域（含子窗口）：清掉控件挪位后留在空隙里的旧像素。
+
+    Windows 上控件移动时只重画新露出的部分，框背景偶尔没被失效，旧文字会留成重影。
+    非 Windows、控件不可见时什么也不做，返回 False。
+    """
+    user32 = _user32()
+    if user32 is None:
+        return False
+    try:
+        if not widget.winfo_viewable():
+            return False
+        user32.RedrawWindow(int(widget.winfo_id()), None, None,
+                            _RDW_INVALIDATE | _RDW_ERASE | _RDW_ALLCHILDREN | _RDW_UPDATENOW)
+    except tk.TclError:
+        return False
+    except Exception:
+        app_logging.swallowed()
+        return False
+    return True
 
 
 class PaintFreeze:
@@ -284,21 +330,7 @@ class PaintFreeze:
         self.max_ms = int(PAGE_FREEZE_MAX_MS if max_ms is None else max_ms)
         self.frozen = False
         self._job = None
-        self._user32 = None
-        if sys.platform == 'win32':
-            try:
-                import ctypes
-                from ctypes import wintypes
-                user32 = ctypes.windll.user32
-                user32.SendMessageW.argtypes = (wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
-                user32.SendMessageW.restype = ctypes.c_ssize_t
-                user32.RedrawWindow.argtypes = (wintypes.HWND, ctypes.c_void_p, ctypes.c_void_p, wintypes.UINT)
-                user32.RedrawWindow.restype = wintypes.BOOL
-                user32.ShowWindow.argtypes = (wintypes.HWND, ctypes.c_int)
-                user32.ShowWindow.restype = wintypes.BOOL
-                self._user32 = user32
-            except Exception:
-                app_logging.swallowed()
+        self._user32 = _user32()
 
     def freeze(self):
         if self.frozen or self._user32 is None:

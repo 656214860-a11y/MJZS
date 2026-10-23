@@ -119,6 +119,54 @@ class PageSwitchFreezeTests(unittest.TestCase):
             self.assertFalse(d._page_paint_freeze.frozen)
             self.assertTrue(visible(d.canvas))
 
+    def test_page_switch_repaints_sidebar_once_settled(self):
+        try:
+            import tkinter  # noqa: F401
+        except Exception:
+            self.skipTest(PLATFORM_TKINTER)
+        if sys.platform != 'win32':
+            self.skipTest(PLATFORM_WINDOWS_ONLY)
+        import desktop_layout
+        with tempfile.TemporaryDirectory() as td:
+            win, d = self.open_desktop(td)
+            d.show(PAGE['assets']); win.update()
+            with mock.patch.object(desktop_layout, 'repaint_area') as repaint:
+                d.show(PAGE['script']); d.show(PAGE['video'])
+                repaint.assert_not_called()
+                win.update_idletasks()
+            repaint.assert_called_once_with(d.sidebar_canvas)
+            self.assertIsNone(d._sidebar_before_page, '落定后不再挂着上一轮的侧栏快照')
+
+    def test_sidebar_shift_during_page_switch_is_logged(self):
+        try:
+            import tkinter  # noqa: F401
+        except Exception:
+            self.skipTest(PLATFORM_TKINTER)
+        if sys.platform != 'win32':
+            self.skipTest(PLATFORM_WINDOWS_ONLY)
+        import desktop_layout
+        with tempfile.TemporaryDirectory() as td:
+            win, d = self.open_desktop(td)
+            d.show(PAGE['assets']); win.update()
+            d._sidebar_before_page = ((0.0, 0.5), 'stale', -1, 0, 0)
+            with self.assertLogs(desktop_layout.LOGGER, level='INFO') as logs:
+                d.thaw_page_paint()
+            self.assertIn('侧栏几何变化', logs.output[0])
+            d._sidebar_before_page = d._sidebar_geometry()
+            with self.assertNoLogs(desktop_layout.LOGGER, level='INFO'):
+                d.thaw_page_paint()
+
+    def test_repaint_area_skips_unviewable_widget(self):
+        try:
+            import tkinter as tk
+        except Exception:
+            self.skipTest(PLATFORM_TKINTER)
+        from desktop_layout_resize import repaint_area
+        root = tk.Tk(); self.addCleanup(root.destroy)
+        canvas = tk.Canvas(root); canvas.pack()
+        root.withdraw(); root.update()
+        self.assertFalse(repaint_area(canvas))
+
 
 if __name__ == '__main__':
     unittest.main()

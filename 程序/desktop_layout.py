@@ -4,15 +4,18 @@
 故与 desktop 同属 L4。
 """
 import app_logging
+import logging
 import tkinter as tk
 from tkinter import ttk
 
 import pet_ui
-from desktop_layout_resize import PaintFreeze, ResizeCoalescer
+from desktop_layout_resize import PaintFreeze, ResizeCoalescer, repaint_area
 from desktop_page_registry import PAGE
 from responsive_ui import growable_extra
 from ui_scroll import eased_scroll
 from ui_tokens import CONTROL_PADDING_Y, DESKTOP_LAYOUT, FONTS, SPACING
+
+LOGGER=logging.getLogger(__name__)
 
 
 class LayoutMixin:
@@ -32,10 +35,34 @@ class LayoutMixin:
             canvas=getattr(self,'canvas',None)
             if canvas is None:return False
             freezer=self._page_paint_freeze=PaintFreeze(canvas)
+        if getattr(self,'_sidebar_before_page',None) is None:
+            self._sidebar_before_page=self._sidebar_geometry()
         return freezer.freeze()
     def thaw_page_paint(self):
         freezer=getattr(self,'_page_paint_freeze',None)
-        return freezer.thaw() if freezer is not None else False
+        thawed=freezer.thaw() if freezer is not None else False
+        self._settle_sidebar_paint()
+        return thawed
+    def _sidebar_geometry(self):
+        """侧栏会挪动导航行的几个量：滚动位置、滚动区、末行纵坐标、项目列表行数与表头间距。"""
+        canvas=getattr(self,'sidebar_canvas',None)
+        nav=getattr(self,'nav',None)
+        if canvas is None or not nav:return ()
+        try:
+            return (tuple(round(v,4) for v in canvas.yview()),str(canvas.cget('scrollregion')),
+                    nav[-1].winfo_y(),int(self.list.cget('height')),getattr(self,'_header_list_gap',SPACING['none']))
+        except tk.TclError:
+            return ()
+    def _settle_sidebar_paint(self):
+        """换页落定：侧栏整块擦底重画一次，清掉导航行挪位后空隙里的旧文字；几何真变了记一条日志。"""
+        before=getattr(self,'_sidebar_before_page',None)
+        if before is None:return
+        self._sidebar_before_page=None
+        after=self._sidebar_geometry()
+        if before!=after:
+            LOGGER.info('换页时侧栏几何变化 前=%s 后=%s',before,after)
+        canvas=getattr(self,'sidebar_canvas',None)
+        if canvas is not None:repaint_area(canvas)
     def watch_window_resize(self,win):
         """主窗口／页面画布／内容框的尺寸变化统一经合并器；子控件变化照旧立即处理。"""
         self.resize_scheduler=ResizeCoalescer(win,freeze=self._freeze_content,thaw=self._thaw_content)
