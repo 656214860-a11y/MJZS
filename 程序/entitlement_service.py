@@ -77,35 +77,32 @@ def _date(stamp):
 
 
 def membership_view(entitlement, now):
-    """账号页与侧栏徽标用的会员状态文案：``{lines, level, badge}``，level 为 info／warn／expired。
-
-    ``badge`` 为空串表示无需提示（长期有效的会员）。
-    """
+    """账号页用的会员状态文案：``{lines, level}``，level 为 info／warn／expired。"""
     free = '「%s」「%s」永久免费，已有项目和素材始终在本机。' % (
         STAGE_NAMES.get(FREE_STAGES[0], ''), STAGE_NAMES.get(FREE_STAGES[1], ''))
     state, payload = entitlement.state, entitlement.payload or {}
     if state == SIGNED_OUT:
         return {'lines': ['新账号登录即免费试用 3 天，试用期内可使用全部制作阶段。', free],
-                'level': 'info', 'badge': '未登录'}
+                'level': 'info'}
     if state == CLOCK_SUSPECT:
         return {'lines': ['本机时间早于服务器时间，请校正系统时间后联网续签。', free],
-                'level': 'warn', 'badge': '时间异常'}
+                'level': 'warn'}
     paid = payload.get('state') in PAID_STATES
     if state == LOCKED and not paid:
         end = payload.get('trial_ends_at') or payload.get('period_end')
         head = '试用或会员已于 %s 到期。' % _date(end) if end else '试用或会员已到期。'
-        return {'lines': [head, free, REDEEM_HINT], 'level': 'expired', 'badge': '已到期'}
+        return {'lines': [head, free, REDEEM_HINT], 'level': 'expired'}
     if state == LOCKED:
-        return {'lines': ['离线授权已超过宽限期，请联网续签。', free], 'level': 'warn', 'badge': '需续签'}
+        return {'lines': ['离线授权已超过宽限期，请联网续签。', free], 'level': 'warn'}
     left = days_left(payload, now)
     name = '试用' if payload.get('state') == 'trial' else '会员'
     if left is None:
-        return {'lines': [], 'level': 'info', 'badge': ''}
+        return {'lines': [], 'level': 'info'}
     lines = ['%s还剩 %d 天。' % (name, left)]
     if left <= WARN_DAYS:
         lines.append(REDEEM_HINT)
-        return {'lines': lines, 'level': 'warn', 'badge': '剩%d天' % left}
-    return {'lines': lines, 'level': 'info', 'badge': ''}
+        return {'lines': lines, 'level': 'warn'}
+    return {'lines': lines, 'level': 'info'}
 
 
 def is_paid_stage(stage):

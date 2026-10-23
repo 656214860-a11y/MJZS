@@ -11,7 +11,7 @@ from tkinter import ttk
 
 import entitlement_service
 from account_controller import AccountController
-from desktop_page_registry import ACCOUNT_TITLE, PAGE_ACCOUNT
+from desktop_page_registry import PAGE_ACCOUNT
 from ui_tokens import FONTS, SPACING, TEXT_DESC
 from ui_widgets import Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation
 
@@ -67,24 +67,14 @@ class AccountPageMixin:
         reason = self.account.stage_gate(stage)
         if isinstance(reason, str) and reason:
             self.status.set(reason)
-            self.refresh_account_badge()
             return True
         return False
-
-    def refresh_account_badge(self):
-        """侧栏「00 会员账户」按钮后缀：未登录／剩 ≤3 天／已到期时带一句短标记，正常时还原。"""
-        button = getattr(self, 'account_button', None)
-        if button is None:
-            return
-        badge = entitlement_service.membership_view(self.account.entitlement(), self.account.now())['badge']
-        button.configure(text=ACCOUNT_TITLE + ('（%s）' % badge if badge else ''))
 
     def start_account_renewal(self):
         """首帧后由周期 tick 调用：到期才续签，失败静默，下一轮再试。"""
         if getattr(self, 'shutting_down', False):
             return
         try:
-            self.refresh_account_badge()
             if self.account.renew_due():
                 self.account.renew(done=self._account_renewed)
         finally:
@@ -139,7 +129,6 @@ class AccountPageMixin:
         style = {'warn': 'Warn.TLabel', 'expired': 'Expired.TLabel'}.get(view['level'], 'Muted.TLabel')
         for line in view['lines']:
             ttk.Label(status,text=line,style=style,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
-        self.refresh_account_badge()
         rule = '「01 剧本准备」「02 剧本结构」不登录也能用；从「03 初步分镜」起需要试用或会员。'
         if not self.account.enforce:rule += '（测试期暂不拦截）'
         ttk.Label(status,text=rule,

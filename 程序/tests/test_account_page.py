@@ -15,7 +15,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parent))
 import lease_verifier
 from account_controller import AccountController
 from desktop import Desktop
-from desktop_page_registry import PAGE_ACCOUNT
+from desktop_page_registry import ACCOUNT_TITLE, PAGE_ACCOUNT
 from service_contract import success
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
@@ -97,7 +97,7 @@ class AccountPageTests(unittest.TestCase):
         store=self.use(_Client())
         d.go_page(PAGE_ACCOUNT);self.pump()
         self.assertTrue(any('永久免费' in t for t in _texts(d.content)))
-        self.assertIn('（未登录）',d.account_button.cget('text'))
+        self.assertEqual(d.account_button.cget('text'),ACCOUNT_TITLE,'侧栏入口只显示名称，不带状态后缀')
         import account_store
         account_store.save_session({'email':'a@b.c','refresh_token':'r','server_time':NOW,
             'lease':sign(payload(state='expired',trial_ends_at=NOW-86400))},store.path)
@@ -105,7 +105,7 @@ class AccountPageTests(unittest.TestCase):
         texts=_texts(d.content)
         self.assertTrue(any('已于 ' in t and '到期' in t for t in texts))
         self.assertTrue(any('请联系发放兑换码的渠道' in t for t in texts))
-        self.assertIn('（已到期）',d.account_button.cget('text'))
+        self.assertEqual(d.account_button.cget('text'),ACCOUNT_TITLE)
         d.account.logout();d.show(PAGE_ACCOUNT);self.pump()          # 还原成未登录页，不影响后续用例
 
     def test_plan_text(self):

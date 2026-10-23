@@ -23,14 +23,14 @@ class MembershipViewTests(unittest.TestCase):
         text=''.join(v['lines'])
         self.assertIn('免费试用 3 天',text)
         self.assertIn('永久免费',text)
-        self.assertEqual(v['badge'],'未登录')
+        self.assertEqual(v['level'],'info')
 
     def test_trial_days_left_plain_then_warn(self):
         plain=view(trial_ends_at=NOW+5*DAY)
         self.assertEqual(plain['lines'],['试用还剩 5 天。'])
-        self.assertEqual((plain['level'],plain['badge']),('info',''))
+        self.assertEqual(plain['level'],'info')
         warn=view(trial_ends_at=NOW+2*DAY-10)
-        self.assertEqual((warn['level'],warn['badge']),('warn','剩2天'))
+        self.assertEqual(warn['level'],'warn')
         self.assertIn('兑换码',''.join(warn['lines']))
 
     def test_active_member_uses_period_end(self):
@@ -40,13 +40,12 @@ class MembershipViewTests(unittest.TestCase):
     def test_expired_shows_date_and_redeem_hint(self):
         v=view(state='expired',trial_ends_at=NOW-DAY,expires_at=NOW+DAY)
         self.assertEqual(v['level'],'expired')
-        self.assertEqual(v['badge'],'已到期')
         text=''.join(v['lines'])
         self.assertIn('已于 ',text);self.assertIn('永久免费',text);self.assertIn('请联系发放兑换码的渠道',text)
 
     def test_clock_suspect_and_days_left_edges(self):
         ent_=ent.Entitlement(ent.CLOCK_SUSPECT,payload())
-        self.assertEqual(ent.membership_view(ent_,NOW)['badge'],'时间异常')
+        self.assertEqual(ent.membership_view(ent_,NOW)['level'],'warn')
         self.assertEqual(ent.days_left({'state':'trial','trial_ends_at':NOW-5},NOW),0)
         self.assertIsNone(ent.days_left({'state':'trial'},NOW))
 
