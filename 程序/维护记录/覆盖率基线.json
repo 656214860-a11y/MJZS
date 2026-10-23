@@ -20,13 +20,13 @@
   {
    "module": "account_controller.py",
    "covered": 0,
-   "total": 155,
+   "total": 168,
    "percent": 0.0
   },
   {
    "module": "account_store.py",
    "covered": 0,
-   "total": 62,
+   "total": 69,
    "percent": 0.0
   },
   {
@@ -350,7 +350,7 @@
   {
    "module": "desktop_account_page.py",
    "covered": 0,
-   "total": 298,
+   "total": 327,
    "percent": 0.0
   },
   {
@@ -374,7 +374,7 @@
   {
    "module": "desktop_automation_tick.py",
    "covered": 0,
-   "total": 201,
+   "total": 202,
    "percent": 0.0
   },
   {
@@ -392,7 +392,7 @@
   {
    "module": "desktop_idea_deferred.py",
    "covered": 0,
-   "total": 42,
+   "total": 63,
    "percent": 0.0
   },
   {
@@ -596,7 +596,7 @@
   {
    "module": "idea_chat.py",
    "covered": 0,
-   "total": 504,
+   "total": 507,
    "percent": 0.0
   },
   {
@@ -1400,7 +1400,13 @@
   {
    "module": "ui_widgets.py",
    "covered": 0,
-   "total": 975,
+   "total": 972,
+   "percent": 0.0
+  },
+  {
+   "module": "update_notice.py",
+   "covered": 0,
+   "total": 29,
    "percent": 0.0
   },
   {
@@ -1650,12 +1656,6 @@
    "percent": 22.5
   },
   {
-   "module": "platform_tools.py",
-   "covered": 63,
-   "total": 277,
-   "percent": 22.7
-  },
-  {
    "module": "skill_budget.py",
    "covered": 39,
    "total": 171,
@@ -1672,6 +1672,12 @@
    "covered": 65,
    "total": 272,
    "percent": 23.9
+  },
+  {
+   "module": "platform_tools.py",
+   "covered": 61,
+   "total": 252,
+   "percent": 24.2
   },
   {
    "module": "pet_bus.py",
@@ -1855,5 +1861,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 307
+ "modules_total": 308
 }
