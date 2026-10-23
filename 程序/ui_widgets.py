@@ -383,7 +383,7 @@ class SelectBox(ttk.Combobox):
 
     def __init__(self, master=None, *, values=(), height=COMBOBOX_POPDOWN_HEIGHT,
                  width=None, state="readonly", fit=False, **kwargs):
-        _styles(master)
+        setup_styles(master)
         values = tuple(values)
         self._fit = bool(fit)
         if width is None:
@@ -422,7 +422,7 @@ class LineInput(ttk.Entry):
     ERROR_STYLE = "Tokens.LineInput.Error.TEntry"
 
     def __init__(self, master=None, *, placeholder="", **kwargs):
-        _styles(master)
+        setup_styles(master)
         kwargs.setdefault("style", self.NORMAL_STYLE)
         super().__init__(master, **kwargs)
         self._placeholder = placeholder
@@ -482,7 +482,7 @@ class TextArea(tk.Text):
     """多行文本入口，统一视觉、占位、只读和错误态。"""
 
     def __init__(self, master=None, *, placeholder="", **kwargs):
-        _styles(master)
+        setup_styles(master)
         options = {
             "bg": INPUT_BACKGROUND,
             "fg": INPUT_FOREGROUND,
@@ -542,11 +542,6 @@ class TextArea(tk.Text):
         self.configure(state="disabled" if readonly else "normal")
         if not readonly:
             self._restore_placeholder()
-
-
-def _styles(master):
-    """Backward-compatible private alias for component construction."""
-    setup_styles(master)
 
 
 SUPPRESS_MODAL_ENV = "DRAMA_SUPPRESS_MODAL"
@@ -757,21 +752,21 @@ class ContextMenu:
 
 class PrimaryButton(ttk.Button):
     def __init__(self, master=None, **kwargs):
-        _styles(master)
+        setup_styles(master)
         kwargs.setdefault("style", "Tokens.Primary.TButton")
         super().__init__(master, **kwargs)
 
 
 class SecondaryButton(ttk.Button):
     def __init__(self, master=None, **kwargs):
-        _styles(master)
+        setup_styles(master)
         kwargs.setdefault("style", "Tokens.Secondary.TButton")
         super().__init__(master, **kwargs)
 
 
 class Card(ttk.Frame):
     def __init__(self, master=None, **kwargs):
-        _styles(master)
+        setup_styles(master)
         kwargs.setdefault("style", "Tokens.Card.TFrame")
         kwargs.setdefault("padding", SPACING["lg"])
         super().__init__(master, **kwargs)
@@ -783,7 +778,7 @@ class BaseDialog(tk.Toplevel):
     def __init__(self, parent, title, *, geometry=None, minsize=None, modal=True,
                  on_close=None, chrome=True):
         super().__init__(parent)
-        _styles(self)
+        setup_styles(self)
         self._closed = False
         self._modal = modal
         self._chrome = chrome
@@ -1146,7 +1141,7 @@ class _TextLabel(ttk.Label):
     TOKENS = None
 
     def __init__(self, master=None, **kwargs):
-        _styles(master)
+        setup_styles(master)
         tokens = self.TOKENS
         kwargs.update(font=tokens["font"], foreground=tokens["foreground"],
                       wraplength=tokens["wraplength"], anchor=tokens["anchor"],
