@@ -15,7 +15,7 @@ from storage_maintenance import remove_private_file
 PROGRAM = Path(__file__).resolve().parent
 SESSION_FILE = ('private', '账户', 'session.json')
 # 会话字段；device_seed 只在取不到机器标识时兜底，退出登录也保留，保证同机指纹稳定。
-SESSION_KEYS = ('email', 'refresh_token', 'lease', 'server_time')
+SESSION_KEYS = ('email', 'refresh_token', 'lease', 'server_time', 'has_password')
 _FINGERPRINT_SALT = 'manju-device-v1:'
 
 

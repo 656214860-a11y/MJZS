@@ -58,11 +58,14 @@ class AccountController:
     def device(self):
         return {'id': self.device_id, 'name': platform.node()[:64], 'os': (platform.system() + ' ' + platform.release())[:64]}
 
-    def request_code(self, email, done):
+    CODE_LABELS = {'login': '发送登录验证码', 'register': '发送注册验证码', 'reset': '发送重置密码验证码'}
+
+    def request_code(self, email, done, *, purpose='login'):
         email = str(email or '').strip()
-        self._run(lambda: self._client.send_code(email), done, '发送登录验证码')
+        self._run(lambda: self._client.send_code(email, purpose), done, self.CODE_LABELS[purpose])
 
     def login(self, email, code, *, age_confirmed, done):
+        """验证码登录（邮箱未注册时服务端顺带建号）。"""
         email, code = str(email or '').strip(), str(code or '').strip()
         device = self.device()
 
@@ -70,6 +73,42 @@ class AccountController:
             result = self._client.verify_code(email, code, device, age_confirmed=age_confirmed)
             return self._accept(result.data, email=email) if result.ok else result
         self._run(work, done, '登录账号')
+
+    def password_login(self, email, password, done):
+        email, device = str(email or '').strip(), self.device()
+
+        def work():
+            result = self._client.password_login(email, password or '', device)
+            return self._accept(result.data, email=email) if result.ok else result
+        self._run(work, done, '登录账号')
+
+    def register(self, email, code, password, *, age_confirmed, done):
+        email, code, device = str(email or '').strip(), str(code or '').strip(), self.device()
+
+        def work():
+            result = self._client.register(email, code, password or '', device, age_confirmed=age_confirmed)
+            return self._accept(result.data, email=email) if result.ok else result
+        self._run(work, done, '注册账号')
+
+    def reset_password(self, email, code, password, done):
+        """凭重置验证码设新密码；服务端吊销该账号全部会话，本机若登着同一账号也一并退出。"""
+        email, code = str(email or '').strip(), str(code or '').strip()
+
+        def work():
+            result = self._client.reset_password(email, code, password or '')
+            if result.ok and str(self.session().get('email') or '').lower() == email.lower():
+                self._store.clear_session()
+            return result
+        self._run(work, done, '重置密码')
+
+    def change_password(self, password, done, *, old_password=None):
+        """已登录设置或修改密码（已有密码须带原密码）。无会话返回 False。"""
+        def saved(result):
+            if result.ok:
+                self._store.save_session({'has_password': True})
+            return result
+        return self._lease_call(lambda lease: self._client.change_password(lease, password or '', old_password),
+                                done, '设置密码', then=saved)
 
     def renew(self, done=None, *, quiet=False):
         """有刷新令牌才续签；网络失败保留旧租约静默等下次，会话失效则清掉。``quiet`` 为自动续签。"""
@@ -223,6 +262,9 @@ class AccountController:
             fields['refresh_token'] = data.get('refresh_token')
         if email is not None:
             fields['email'] = email
+        user = data.get('user')
+        if isinstance(user, dict) and 'has_password' in user:
+            fields['has_password'] = bool(user['has_password'])
         if (rotate and not fields['refresh_token']) or not fields['lease']:
             return SystemError('账号服务返回的登录结果不完整', data={'code': 'bad_response'})
         checked = entitlement_service.evaluate(fields['lease'], now=int(self._clock()), device_id=self.device_id)

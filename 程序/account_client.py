@@ -53,7 +53,12 @@ MESSAGES = {
     'redeem_invalid': '兑换码无效（格式不对、不存在、已作废或已过兑换期）',
     'redeem_used': '这个兑换码已经被使用过',
     'account_banned': '账号已被停用，如有疑问请联系客服',
+    'email_registered': '该邮箱已注册，请直接登录',
+    'password_invalid': '邮箱或密码不正确',
+    'password_not_set': '这个账号还没设置密码，请用验证码登录，或点“忘记密码”设置',
+    'weak_password': '密码须为 8–64 位，并同时包含字母和数字',
 }
+PASSWORD_MIN, PASSWORD_MAX = 8, 64
 _context = None
 
 
@@ -65,7 +70,24 @@ def _ssl_context():
 
 
 _EMAIL = re.compile(r'[A-Za-z0-9_.+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+')
+_EMAIL_FULL = re.compile(r'[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}')
 _OPAQUE = re.compile(r'[A-Za-z0-9_\-]{24,}(?:\.[A-Za-z0-9_\-]+)*')
+
+
+def valid_email(text):
+    """与服务端同一规则的格式检查，发请求前先挡住 ``656214860@qqcom`` 这类笔误。"""
+    text = (text or '').strip()
+    return len(text) <= 254 and bool(_EMAIL_FULL.fullmatch(text))
+
+
+def password_problem(password):
+    """与服务端同一强度规则；合格返回空串，否则返回给用户看的原因。"""
+    password = password or ''
+    if not PASSWORD_MIN <= len(password) <= PASSWORD_MAX:
+        return '密码须为 %d–%d 位' % (PASSWORD_MIN, PASSWORD_MAX)
+    if not (re.search(r'[A-Za-z]', password) and re.search(r'\d', password)):
+        return '密码须同时包含字母和数字'
+    return ''
 
 
 def _masked(text):
@@ -119,8 +141,30 @@ def meta(**kw):
     return request('GET', '/v1/meta', **kw)
 
 
-def send_code(email, **kw):
-    return request('POST', '/v1/auth/email/code', {'email': email}, **kw)
+def send_code(email, purpose='login', **kw):
+    """``purpose``：login（验证码登录）、register（注册，已注册返回 email_registered）、reset（忘记密码）。"""
+    return request('POST', '/v1/auth/email/code', {'email': email, 'purpose': purpose}, **kw)
+
+
+def register(email, code, password, device, *, age_confirmed, **kw):
+    return request('POST', '/v1/auth/register', {
+        'email': email, 'code': code, 'password': password, 'device': device,
+        'age_confirmed': bool(age_confirmed), 'tos_version': TOS_VERSION, 'privacy_version': PRIVACY_VERSION}, **kw)
+
+
+def password_login(email, password, device, **kw):
+    return request('POST', '/v1/auth/password/login', {'email': email, 'password': password, 'device': device}, **kw)
+
+
+def reset_password(email, code, password, **kw):
+    return request('POST', '/v1/auth/password/reset', {'email': email, 'code': code, 'password': password}, **kw)
+
+
+def change_password(lease, password, old_password=None, **kw):
+    body = {'password': password}
+    if old_password:
+        body['old_password'] = old_password
+    return request('POST', '/v1/account/password', body, token=lease, **kw)
 
 
 def verify_code(email, code, device, *, age_confirmed, **kw):

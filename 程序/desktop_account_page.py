@@ -1,4 +1,4 @@
-"""「00 会员账户」页：邮箱验证码登录、授权状态、退出、兑换、设备解绑、注销与撤销、数据导出（L4，只放 Tk 控件与事件绑定）。
+"""「00 会员账户」页：密码登录／注册／验证码登录／找回密码、设置密码、授权状态、退出、兑换、设备解绑、注销与撤销、数据导出（L4，只放 Tk 控件与事件绑定）。
 
 状态机、网络与落盘都在 L3 ``account_controller.AccountController``；本 Mixin 只注入
 后台提交回调（``async_queued`` 经 ``BackgroundTaskLifecycle``）并把结果画到页面上。
@@ -8,10 +8,12 @@
 import queue
 import threading
 import time
+from types import SimpleNamespace
 import webbrowser
 import tkinter as tk
 from tkinter import ttk
 
+import account_client
 import entitlement_service
 from account_controller import AccountController
 from desktop_page_registry import PAGE_ACCOUNT
@@ -32,6 +34,10 @@ PLAN_TEXT = {'trial': '免费试用', 'monthly': '月度会员', 'quarterly': '�
 PROVIDER_NOTICE = '以下为第三方服务，模型费用由对应服务商另行计费，不属于会员；使用时请遵守当地法律与服务商条款，生成内容的合规由使用者自负。软件不提供也不保管任何 Key。'
 REDEEM_MAX_LENGTH = 40
 EXPORT_NAME = '漫剧助手账号数据_%Y%m%d.json'
+PASSWORD_MASK = '•'
+LOGIN_VIEWS = {'pw': '邮箱密码登录（新账号免费试用 3 天，每个账号最多绑定 3 台电脑）', 'reg': '注册新账号（邮箱验证码＋密码）',
+               'code': '邮箱验证码登录', 'reset': '找回密码（用邮箱验证码设置新密码）'}
+CODE_SENT_TEXT = '验证码已发送，请查收邮件（10 分钟内有效）；几分钟没收到请看垃圾邮件箱，或稍后重发'
 
 
 def plan_text(payload):
@@ -62,7 +68,11 @@ class AccountPageMixin:
         return controller
 
     def _account_submit(self, work, done, label):
-        self.async_queued(work, done, label=label, show_progress=False)
+        """用户点的账号动作：后台空闲走独占后台；别的任务正在跑就改走独立线程，不在队列里干等。"""
+        if getattr(self, 'worker', None):
+            self._account_background(work, done, label)
+        else:
+            self.async_queued(work, done, label=label, show_progress=False)
 
     def _account_background(self, work, done, label):
         """自动续签／版本检查：独立线程执行，结果回 Tk 主线程交付；不置 worker、不改状态栏。"""
@@ -158,7 +168,7 @@ class AccountPageMixin:
             self.status.set('会员授权续签未成功：' + result.reason)
 
     def account_page(self):
-        """未登录时显示邮箱登录表单；已登录时显示授权状态、到期时间与退出。"""
+        """未登录时显示登录／注册表单；已登录时显示授权状态、到期时间与退出。"""
         self.note('账号用于试用与会员授权；项目和素材始终留在本机，不上传。')
         entitlement = self.account.entitlement()
         session = self.account.session()
@@ -194,6 +204,7 @@ class AccountPageMixin:
             self.account.logout();self.show(PAGE_ACCOUNT);self.status.set('已退出登录（项目和素材不受影响）');self._account_changed()
         PrimaryButton(actions,text='立即续签',command=renew).pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         SecondaryButton(actions,text='退出登录',command=logout).pack(side='left')
+        self._account_password_card(session)
         self._account_redeem_form()
         self._account_providers_card()
         self._account_devices_card()
@@ -346,6 +357,37 @@ class AccountPageMixin:
         self.account_delete_code_input,self.account_delete_send_button = code,send
         self.account_delete_button,self.account_delete_message = confirm,message
 
+    def _account_password_card(self, session):
+        """设置或修改登录密码：已有密码须填原密码；成功后其他电脑的登录失效，本机保留。"""
+        has_password = bool(session.get('has_password'))
+        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
+        ttk.Label(card,text='修改登录密码' if has_password else '设置登录密码（设置后可用邮箱＋密码登录）').pack(anchor='w',pady=SPACING['xs'])
+        old = LineInput(card,placeholder='原密码',mask=PASSWORD_MASK) if has_password else None
+        if old is not None:old.pack(fill='x',pady=SPACING['xs'])
+        new = LineInput(card,placeholder='新密码（8–64 位，含字母和数字）',mask=PASSWORD_MASK);new.pack(fill='x',pady=SPACING['xs'])
+        again = LineInput(card,placeholder='再次输入新密码',mask=PASSWORD_MASK);again.pack(fill='x',pady=SPACING['xs'])
+        message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
+        def say(text, error=False):message.configure(text=text,style='Expired.TLabel' if error else 'Muted.TLabel')
+        def invalid(field, text):field.set_error(text);say(text,True)
+        def saved(result):
+            if not message.winfo_exists():return
+            button.state(['!disabled'])
+            if not result.ok:say(result.reason,True);return
+            self.show(PAGE_ACCOUNT);self.status.set('密码已保存；其他电脑上的登录需要重新登录')
+        def submit():
+            if old is not None and not old.get():invalid(old,'请填写原密码');return
+            problem = account_client.password_problem(new.get())
+            if problem:invalid(new,problem);return
+            new.clear_error()
+            if again.get() != new.get():invalid(again,'两次输入的密码不一致');return
+            again.clear_error();button.state(['disabled']);say('正在保存密码…')
+            if not self.account.change_password(new.get(),saved,old_password=old.get() if old is not None else None):
+                button.state(['!disabled']);say('本机没有登录会话，请重新登录',True)
+        button = PrimaryButton(card,text='保存密码',command=submit);button.pack(anchor='w',pady=SPACING['xs'])
+        message.pack(anchor='w',pady=SPACING['xs'])
+        self.account_password_old_input,self.account_password_new_input = old,new
+        self.account_password_again_input,self.account_password_button,self.account_password_message = again,button,message
+
     def _account_redeem_form(self):
         """兑换码开通或续期会员；成功后服务端返回的新租约直接替换本机租约。"""
         form = Card(self.content);form.pack(fill='x',pady=SPACING['xs'])
@@ -373,58 +415,179 @@ class AccountPageMixin:
     def _account_login_form(self):
         self._build_login_form(self.content, lambda: (self.show(PAGE_ACCOUNT), self.status.set('登录成功')))
 
-    def _build_login_form(self, parent, on_success):
-        """邮箱验证码登录表单：账号页与启动登录闸共用；登录成功后只调 ``on_success``。"""
+    def _build_login_form(self, parent, on_success, *, wrap=None):
+        """账号页与启动登录闸共用：密码登录（默认）／注册／验证码登录／找回密码四个视图共用一个邮箱框。
+
+        发请求前先在本机查邮箱格式、密码强度与两次输入是否一致，错误标在对应输入框并用错误色提示；
+        登录或注册成功后只调 ``on_success``。
+        """
+        wrap = wrap or TEXT_DESC['wraplength']
         form = Card(parent);form.pack(fill='x',pady=SPACING['xs'])
-        ttk.Label(form,text='邮箱验证码登录（新账号免费试用 3 天，每个账号最多绑定 3 台电脑）').pack(anchor='w',pady=SPACING['xs'])
+        tabs = ttk.Frame(form);tabs.pack(anchor='w',pady=SPACING['xs'])
+        title = ttk.Label(form,text='',font=FONTS['heading_2'],wraplength=wrap,justify='left');title.pack(anchor='w',pady=SPACING['xs'])
         email = LineInput(form,placeholder='邮箱地址');email.pack(fill='x',pady=SPACING['xs'])
-        code = LineInput(form,placeholder='6 位验证码');code.pack(fill='x',pady=SPACING['xs'])
-        adult = tk.BooleanVar(value=False)
-        ttk.Checkbutton(form,text='已满 18 周岁并同意协议',variable=adult).pack(anchor='w',pady=SPACING['xs'])
-        ttk.Label(form,text='首次注册必选：确认已年满 18 周岁，并同意用户协议与隐私政策。',
-                  style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
-        message = ttk.Label(form,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
-        message.pack(anchor='w',pady=SPACING['xs'])
-        actions = ttk.Frame(parent);actions.pack(anchor='w',pady=SPACING['sm'])
+        body = ttk.Frame(form);body.pack(fill='x')
+        message = ttk.Label(form,text='',style='Muted.TLabel',wraplength=wrap,justify='left');message.pack(anchor='w',pady=SPACING['xs'])
+        views = {key:ttk.Frame(body) for key in LOGIN_VIEWS}
+        current = {'view':'pw'}
         def alive():return bool(message.winfo_exists())
-        def sent(result):
-            if not alive():return
-            send.state(['!disabled'])
-            if result.ok:
-                login.state(['!disabled']);message.configure(text='验证码已发送，请查收邮件（10 分钟内有效）')
-            else:message.configure(text=result.reason)
-        def send_code():
-            if not email.get().strip():
-                email.set_error('请填写邮箱');return
-            email.clear_error();send.state(['disabled']);message.configure(text='正在发送验证码…')
-            self.account.request_code(email.get(),sent)
-        def logged_in(result):
-            if not alive():return
-            login.state(['!disabled'])
-            if result.ok:
-                on_success()
-            else:
-                pending = (result.data or {}).get('code') == 'account_pending_deletion'
-                message.configure(text=result.reason+('。被拦下的验证码仍有效，可点「撤销注销」。' if pending else ''))
-                if pending:cancel.pack(side='left',padx=(SPACING['sm'],SPACING['none']))
-        def cancelled(result):
-            if not alive():return
-            cancel.state(['!disabled'])
-            if not result.ok:message.configure(text=result.reason);return
-            cancel.pack_forget();code.delete(0,'end')
-            message.configure(text='已撤销注销，请重新发送验证码登录')
-        def cancel_deletion():
-            cancel.state(['disabled']);message.configure(text='正在撤销注销…')
-            self.account.cancel_deletion(email.get(),code.get(),cancelled)
-        def submit():
-            if not code.get().strip():
-                code.set_error('请填写验证码');return
-            code.clear_error();login.state(['disabled']);message.configure(text='正在登录…')
-            self.account.login(email.get(),code.get(),age_confirmed=adult.get(),done=logged_in)
-        send = SecondaryButton(actions,text='发送验证码',command=send_code);send.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
-        login = PrimaryButton(actions,text='登录',command=submit);login.pack(side='left')
-        login.state(['disabled'])                # 先发验证码，登录按钮才可用
-        cancel = SecondaryButton(actions,text='撤销注销',command=cancel_deletion)   # 冷静期内登录被拦时才显示
+        def say(text, error=False):message.configure(text=text,style='Expired.TLabel' if error else 'Muted.TLabel')
+        def show_view(key, text='', error=False):
+            for frame in views.values():frame.pack_forget()
+            views[key].pack(fill='x');title.configure(text=LOGIN_VIEWS[key]);current['view'] = key
+            login_tab.state(['disabled'] if key == 'pw' else ['!disabled'])
+            register_tab.state(['disabled'] if key == 'reg' else ['!disabled'])
+            say(text,error)
+        def invalid(field, text):
+            field.set_error(text);say(text,True)
+        def checked_email():
+            value = email.get().strip()
+            if not value:invalid(email,'请填写邮箱');return None
+            if not account_client.valid_email(value):
+                invalid(email,'邮箱格式不正确，请检查是否漏了「.」或「@」（例如 name@qq.com）');return None
+            email.clear_error();return value
+        def checked_password(field, again):
+            problem = account_client.password_problem(field.get())
+            if problem:invalid(field,problem);return False
+            field.clear_error()
+            if again.get() != field.get():invalid(again,'两次输入的密码不一致');return False
+            again.clear_error();return True
+        def required(field, text):
+            if field.get().strip():field.clear_error();return True
+            invalid(field,text);return False
+        def fail(result):
+            data = result.data or {}
+            if data.get('code') == 'http_404':
+                show_view('code','账号服务暂不支持密码登录，请先用验证码登录',True);return
+            if data.get('code') == 'account_pending_deletion':
+                show_view('code',result.reason+'。请发送验证码后点「撤销注销」。',True)
+                cancel.pack(side='left',padx=(SPACING['sm'],SPACING['none']));return
+            wait = data.get('retry_after')
+            say(result.reason+('（%s 秒后可重试）'%wait if wait else ''),True)
+        def send(purpose, button, after=None):
+            value = checked_email()
+            if not value:return
+            def sent(result):
+                if not alive():return
+                button.state(['!disabled'])
+                if result.ok:
+                    if after:after()
+                    say(CODE_SENT_TEXT)
+                elif (result.data or {}).get('code') == 'email_registered':
+                    show_view('pw',result.reason+'。忘了密码或没设过密码，可点「忘记密码」。')
+                else:fail(result)
+            button.state(['disabled']);say('正在发送验证码…')
+            self.account.request_code(value,sent,purpose=purpose)
+        def finished(button, success=None):
+            def done(result):
+                if not alive():return
+                button.state(['!disabled'])
+                if not result.ok:fail(result)
+                elif success:success()
+                else:on_success()
+            return done
+        def row(view):
+            frame = ttk.Frame(views[view]);frame.pack(anchor='w',pady=SPACING['xs']);return frame
+        # 密码登录
+        password = LineInput(views['pw'],placeholder='密码',mask=PASSWORD_MASK);password.pack(fill='x',pady=SPACING['xs'])
+        def password_login():
+            value = checked_email()
+            if not value or not required(password,'请填写密码'):return
+            pw_login.state(['disabled']);say('正在登录…')
+            self.account.password_login(value,password.get(),finished(pw_login))
+        password.bind('<Return>',lambda _event:password_login())
+        actions = row('pw')
+        pw_login = PrimaryButton(actions,text='登录',command=password_login);pw_login.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
+        forgot = SecondaryButton(actions,text='忘记密码',command=lambda:show_view('reset'));forgot.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
+        use_code = SecondaryButton(actions,text='用验证码登录',command=lambda:show_view('code'));use_code.pack(side='left')
+        # 注册
+        reg_send = SecondaryButton(row('reg'),text='发送注册验证码',command=lambda:send('register',reg_send));reg_send.pack(side='left')
+        reg_code = LineInput(views['reg'],placeholder='6 位验证码');reg_code.pack(fill='x',pady=SPACING['xs'])
+        reg_password = LineInput(views['reg'],placeholder='设置密码（8–64 位，含字母和数字）',mask=PASSWORD_MASK);reg_password.pack(fill='x',pady=SPACING['xs'])
+        reg_again = LineInput(views['reg'],placeholder='再次输入密码',mask=PASSWORD_MASK);reg_again.pack(fill='x',pady=SPACING['xs'])
+        reg_adult = tk.BooleanVar(master=form,value=False)
+        ttk.Checkbutton(views['reg'],text='已满 18 周岁，并同意用户协议与隐私政策',variable=reg_adult).pack(anchor='w',pady=SPACING['xs'])
+        def register():
+            value = checked_email()
+            if not value or not required(reg_code,'请填写验证码') or not checked_password(reg_password,reg_again):return
+            if not reg_adult.get():say('请先勾选「已满 18 周岁，并同意用户协议与隐私政策」',True);return
+            reg_button.state(['disabled']);say('正在注册…')
+            self.account.register(value,reg_code.get(),reg_password.get(),age_confirmed=True,done=finished(reg_button))
+        reg_button = PrimaryButton(row('reg'),text='注册并登录',command=register);reg_button.pack(side='left')
+        kit = SimpleNamespace(view=views['code'],form=form,wrap=wrap,alive=alive,say=say,fail=fail,send=send,
+                              checked_email=checked_email,required=required,row=row,show_view=show_view,on_success=on_success)
+        code,login,code_send,cancel = _login_code_view(self.account,kit)
+        # 找回密码
+        reset_send = SecondaryButton(row('reset'),text='发送重置验证码',command=lambda:send('reset',reset_send));reset_send.pack(side='left')
+        reset_code = LineInput(views['reset'],placeholder='6 位验证码');reset_code.pack(fill='x',pady=SPACING['xs'])
+        reset_password = LineInput(views['reset'],placeholder='新密码（8–64 位，含字母和数字）',mask=PASSWORD_MASK);reset_password.pack(fill='x',pady=SPACING['xs'])
+        reset_again = LineInput(views['reset'],placeholder='再次输入新密码',mask=PASSWORD_MASK);reset_again.pack(fill='x',pady=SPACING['xs'])
+        def reset_done():
+            password.delete(0,'end');show_view('pw','密码已重置，请用新密码登录')
+        def reset():
+            value = checked_email()
+            if not value or not required(reset_code,'请填写验证码') or not checked_password(reset_password,reset_again):return
+            reset_button.state(['disabled']);say('正在重置密码…')
+            self.account.reset_password(value,reset_code.get(),reset_password.get(),finished(reset_button,reset_done))
+        reset_actions = row('reset')
+        reset_button = PrimaryButton(reset_actions,text='重置密码',command=reset);reset_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
+        SecondaryButton(reset_actions,text='返回密码登录',command=lambda:show_view('pw')).pack(side='left')
+        login_tab = SecondaryButton(tabs,text='登录',command=lambda:show_view('pw'));login_tab.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
+        register_tab = SecondaryButton(tabs,text='注册',command=lambda:show_view('reg'));register_tab.pack(side='left')
+        show_view('pw')
+        self.account_login_view,self.account_show_login_view = current,show_view
+        self.account_email_input,self.account_message = email,message
+        self.account_login_tab,self.account_register_tab = login_tab,register_tab
+        self.account_password_input,self.account_password_login_button = password,pw_login
+        self.account_forgot_button,self.account_use_code_button = forgot,use_code
+        self.account_register_send_button,self.account_register_code_input = reg_send,reg_code
+        self.account_register_password_input,self.account_register_password2_input = reg_password,reg_again
+        self.account_register_adult,self.account_register_button = reg_adult,reg_button
+        self.account_code_input,self.account_login_button,self.account_send_button = code,login,code_send
         self.account_cancel_deletion_button = cancel
-        self.account_email_input,self.account_code_input,self.account_login_button = email,code,login
-        self.account_send_button,self.account_message = send,message
+        self.account_reset_send_button,self.account_reset_code_input = reset_send,reset_code
+        self.account_reset_password_input,self.account_reset_password2_input = reset_password,reset_again
+        self.account_reset_button = reset_button
+
+
+def _login_code_view(account, kit):
+    """验证码登录视图（没设过密码的旧账号也能进；邮箱未注册时服务端顺带建号），返回 (验证码框, 登录, 发码, 撤销注销)。"""
+    code = LineInput(kit.view,placeholder='6 位验证码');code.pack(fill='x',pady=SPACING['xs'])
+    adult = tk.BooleanVar(master=kit.form,value=False)
+    ttk.Checkbutton(kit.view,text='已满 18 周岁并同意协议',variable=adult).pack(anchor='w',pady=SPACING['xs'])
+    ttk.Label(kit.view,text='邮箱未注册时会顺带建号，须勾选：确认已年满 18 周岁，并同意用户协议与隐私政策。',
+              style='Muted.TLabel',wraplength=kit.wrap,justify='left').pack(anchor='w')
+    actions = kit.row('code')
+    def logged_in(result):
+        if not kit.alive():return
+        login.state(['!disabled'])
+        if result.ok:
+            kit.on_success()
+        elif (result.data or {}).get('code') == 'account_pending_deletion':
+            kit.say(result.reason+'。被拦下的验证码仍有效，可点「撤销注销」。',True)
+            cancel.pack(side='left',padx=(SPACING['sm'],SPACING['none']))
+        else:kit.fail(result)
+    def cancelled(result):
+        if not kit.alive():return
+        cancel.state(['!disabled'])
+        if not result.ok:kit.fail(result);return
+        cancel.pack_forget();code.delete(0,'end')
+        kit.say('已撤销注销，请重新发送验证码登录')
+    def cancel_deletion():
+        value = kit.checked_email()
+        if not value or not kit.required(code,'请填写验证码'):return
+        cancel.state(['disabled']);kit.say('正在撤销注销…')
+        account.cancel_deletion(value,code.get(),cancelled)
+    def code_login():
+        value = kit.checked_email()
+        if not value or not kit.required(code,'请填写验证码'):return
+        login.state(['disabled']);kit.say('正在登录…')
+        account.login(value,code.get(),age_confirmed=adult.get(),done=logged_in)
+    code_send = SecondaryButton(actions,text='发送验证码',
+                                command=lambda:kit.send('login',code_send,after=lambda:login.state(['!disabled'])))
+    code_send.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
+    login = PrimaryButton(actions,text='登录',command=code_login);login.pack(side='left')
+    login.state(['disabled'])                # 先发验证码，登录按钮才可用
+    cancel = SecondaryButton(actions,text='撤销注销',command=cancel_deletion)   # 冷静期内登录被拦时才显示
+    SecondaryButton(kit.row('code'),text='返回密码登录',command=lambda:kit.show_view('pw')).pack(side='left')
+    return code,login,code_send,cancel
