@@ -98,6 +98,9 @@
 | --- | --- | --- |
 | `CONTROL_HEIGHT` | 36px（`space.2xl + space.xs`） | 按钮、单行输入、下拉框、数值框的视觉高度；同一行的控件必须同高 |
 | `CONTROL_PADDING_Y` | 8px（`space.sm`） | 单行输入／下拉框／数值框的上下内边距；按钮同样沿用 |
+| `BUTTON_MIN_WIDTH` | 11 字符 | 所有按钮样式显式声明的最小宽度（原 clam 隐含值）；同组要按文字自适应的按钮传 `width=0` |
+| `BUTTON_GAP` / `BUTTON_GAP_TIGHT` | 8px / 4px | 同行按钮间距；4px 仅限图标按钮与紧凑行 |
+| `NAV_PADDING_X` / `NAV_SUB_PADDING_X` / `NAV_PADDING_Y` / `NAV_PADDING_Y_COMPACT` | 10 / 26 / 4 / 1px | 侧栏导航按钮内边距；矮窗口只经 `ui_rounded.set_button_padding` 改，按下态同步 |
 | `CONTROL_HIT_MIN` | 36px | 任何可点击元素的最小点击区；小于它的图标要外扩点击区（宠物齿轮、猫爪待迁移） |
 | `BUTTON_RADIUS` | `radius.md`（8px） | 按钮圆角半径 |
 | 焦点环 | `focuscolor` = `color.focus` | 所有可操作控件必须有可见键盘焦点 |

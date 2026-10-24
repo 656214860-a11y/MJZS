@@ -9,7 +9,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        COMBOBOX_FIELD_BACKGROUND, COMBOBOX_FONT,
                        COMBOBOX_FOREGROUND, COMBOBOX_PADDING,
                        COMBOBOX_WIDTH, COMBOBOX_POPDOWN_HEIGHT, COMBOBOX_MAX_WIDTH,
-                       CONTROL_HEIGHT, CONTROL_PADDING_Y, FONTS, RADIUS, SPACING,
+                       BUTTON_MIN_WIDTH, CONTROL_HEIGHT, CONTROL_PADDING_Y, FONTS, RADIUS, SPACING,
                        TEXT_DESC, TEXT_HINT, TEXT_PROGRESS, DIALOG_ACTION_GAP,
                        DIALOG_ACTION_HEIGHT, DIALOG_CONTENT_PADDING, DIALOG_TITLE_FONT,
                        TOOLTIP_BACKGROUND, TOOLTIP_BORDER, TOOLTIP_BORDER_WIDTH, TOOLTIP_DELAY_MS,
@@ -26,7 +26,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
 from ui_motion import bind_row_hover, empty_icon
 from ui_hover_fade import install_hover_fade
-from ui_rounded import (button_specs, rounded_layout, rounded_photo as _rounded_photo,
+from ui_rounded import (button_specs, pressed_padding, rounded_layout, set_button_padding, rounded_photo as _rounded_photo,
                         rounded_png_bytes as _rounded_png_bytes)
 
 
@@ -66,7 +66,8 @@ def _configure_button(style, name, *, background, foreground,
         "border": (border_color, border_width), "size": (tile_w, tile_h)}
     options = {"font": font or FONTS["body"], "padding": padding,
                "background": CONTROL_CORNER_SURFACE, "fill": background,
-               "foreground": foreground, "focuscolor": COLORS["focus"]}
+               "foreground": foreground, "focuscolor": COLORS["focus"],
+               "width": -BUTTON_MIN_WIDTH}
     if anchor is not None:
         options["anchor"] = anchor
     style.configure(name, **options)
@@ -77,8 +78,7 @@ def _configure_button(style, name, *, background, foreground,
                     ("disabled", disabled_background)],
               foreground=[("active", active_foreground),
                           ("disabled", disabled_foreground)],
-              padding=[("pressed", (padding[0], padding[1] + 1,
-                                    padding[0], max(0, padding[1] - 1)))])
+              padding=pressed_padding(padding))
 
 
 def _install_button_styles(style, root):
