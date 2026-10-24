@@ -51,7 +51,18 @@
       "Bash(git -c core.quotepath=false show master:程序/说明/账户会员云端设计.md)",
       "Read(//d/漫剧服务端/**)",
       "Bash(cat HANDOFF_AUTO_20261022_2129.md)",
-      "Bash(sed -n 1,80p README.md)"
+      "Bash(sed -n 1,80p README.md)",
+      "Bash(cd /d/漫剧制作助手/程序 && du -sh * 2>/dev/null | sort -rh | head -8; du -sh ../工作流任务/* 2>/dev/null | sort -rh | head -5)",
+      "Bash(cd \"D:/漫剧制作助手/.claude/worktrees/task-progress-slow-694a70/程序\" && ls | head -5; ls *.py | wc -l; ls tests | head -3; ls tests/*.py tests/**/*.py 2>/dev/null | wc -l; grep -n \"add_argument\" run_selftests.py | head -20; sed -n '/2.2/,+30p' AGENTS.md | head -50)",
+      "Bash(python -I -)",
+      "Bash(grep -rlE \"STATUS_LABELS|ACTIVE_STATUS|ACTIVE_STATES\" --include=*.py .)",
+      "Bash(sort -t: -k2 -nr)",
+      "Read(//d/漫剧制作助手/**)",
+      "Bash(ls 程序)",
+      "Read(//d/漫剧制作助手/程序/**)",
+      "Bash(grep -rln -i \"client_too_old\" --include=*.py .)",
+      "Bash(cat 安装信息.json)",
+      "Bash(cd \"D:/漫剧制作助手\" && du -sh . 2>/dev/null | tail -1; du -sh --max-depth=1 . 2>/dev/null | sort -rh | head -14; echo ---; du -sh --max-depth=1 程序 2>/dev/null | sort -rh | head -14; echo ---; du -sh --max-depth=1 运行环境 2>/dev/null | sort -rh | head -6)"
     ]
   }
 }
