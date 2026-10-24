@@ -517,13 +517,17 @@ class AccountPageMixin:
                 else:fail(result)
             button.state(['disabled']);say('正在发送验证码…')
             self.account.request_code(value,sent,purpose=purpose)
+        def signed_in():
+            # R2046：只认本机会话验签后的状态；仍是未登录就留在表单上，不报「登录成功」。
+            if self.account.entitlement().state != entitlement_service.SIGNED_OUT:on_success()
+            else:say('登录没有在本机生效，请重新登录；多次失败请检查本机时间或联系客服',True)
         def finished(button, success=None):
             def done(result):
                 if not alive():return
                 button.state(['!disabled'])
                 if not result.ok:fail(result)
                 elif success:success()
-                else:on_success()
+                else:signed_in()
             return done
         def row(view):
             frame = ttk.Frame(views[view]);frame.pack(anchor='w',pady=SPACING['xs']);return frame
@@ -554,7 +558,7 @@ class AccountPageMixin:
             self.account.register(value,reg_code.get(),reg_password.get(),age_confirmed=True,done=finished(reg_button))
         reg_button = PrimaryButton(row('reg'),text='注册并登录',command=register);reg_button.pack(side='left')
         kit = SimpleNamespace(view=views['code'],form=form,wrap=wrap,alive=alive,say=say,fail=fail,send=send,
-                              checked_email=checked_email,required=required,row=row,show_view=show_view,on_success=on_success)
+                              checked_email=checked_email,required=required,row=row,show_view=show_view,on_success=signed_in)
         code,login,code_send,cancel = _login_code_view(self.account,kit)
         # 找回密码
         reset_send = SecondaryButton(row('reset'),text='发送重置验证码',command=lambda:send('reset',reset_send));reset_send.pack(side='left')

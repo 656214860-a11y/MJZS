@@ -127,6 +127,23 @@ class AccountPageTests(unittest.TestCase):
         self.assertEqual(d.account_message.cget('text'),'验证码不正确或已过期')
         self.assertIn('当前状态：未登录',_texts(d.content))
 
+    def test_login_reply_ok_but_still_signed_out_stays_on_form(self):
+        """R2046：服务端回了成功，但本机验签后仍是未登录：留在表单报错，不跳转、不报「登录成功」。"""
+        import account_store, entitlement_service
+        d=self.desktop
+        store=self.use(_Client(send_code=success({'ok':True}),
+                               verify_code=success({'refresh_token':'r1','lease':sign(payload()),'server_time':NOW})))
+        self.addCleanup(account_store.clear_session,store.path)
+        d.go_page(PAGE_ACCOUNT);self.pump()
+        d.status.set('')
+        d.account_use_code_button.invoke();self.pump()
+        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
+        with unittest.mock.patch.object(d.account,'entitlement',lambda:entitlement_service.Entitlement(entitlement_service.SIGNED_OUT)):
+            d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
+            self.assertIn('当前状态：未登录',_texts(d.content))
+            self.assertIn('登录没有在本机生效',d.account_message.cget('text'))
+            self.assertNotEqual(d.status.get(),'登录成功')
+
     # ---- P2：设备、注销、导出 ----
     def signed_in(self,client):
         store=self.use(client)

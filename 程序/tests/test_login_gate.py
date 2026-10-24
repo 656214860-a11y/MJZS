@@ -116,6 +116,27 @@ class LoginGateTests(unittest.TestCase):
         self.assertIsNone(d.login_gate)
         self.assertEqual(started,[1])
 
+    def test_gate_login_redraws_account_page_underneath(self):
+        """R2046：闸门下停着登录前画的「会员账户」页；闸门登录后须重画，不能露出旧的「未登录」。"""
+        from desktop_page_registry import PAGE_ACCOUNT
+        from widget_test_support import widget_texts
+        client=_Client(send_code=success({'ok':True}),
+                       verify_code=success({'refresh_token':'r1','server_time':NOW,
+                                            'lease':sign(payload(state='expired',trial_ends_at=NOW-DAY))}))
+        self.use(client)
+        d=self.desktop
+        d.show(PAGE_ACCOUNT);self.pump()
+        self.assertIn('当前状态：未登录',widget_texts(d.content))
+        d.begin_startup_or_login(True,lambda:None);self.pump()
+        d.account_use_code_button.invoke();self.pump()
+        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
+        d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
+        texts=widget_texts(d.content)
+        self.assertIsNone(d.login_gate)
+        self.assertIn('当前状态：授权已失效',texts)
+        self.assertNotIn('当前状态：未登录',texts)
+        d.account.logout()
+
     def test_logout_brings_gate_back(self):
         self.use(_Client(),lease=sign(payload()))
         d=self.desktop
