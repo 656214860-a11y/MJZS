@@ -11,7 +11,7 @@ from tests.architecture._scan import ROOT, parse
 SERVICES = frozenset({
     'desktop_startup_service', 'desktop_automation_service',
     'storyboard_final_controller', 'storyboard_page_controller', 'keyframe_page_controller',
-    'asset_batch_controller', 'asset_page_controller', 'editing_page_controller',
+    'asset_batch_controller', 'asset_page_controller', 'editing_page_controller', 'media_page_controller',
 })
 VIEWS = frozenset({'desktop', 'storyboard_files', 'asset_batch'})
 FORBIDDEN_VIEW_MODULES = frozenset({'socket', 'webbrowser', 'requests', 'urllib', 'http'})

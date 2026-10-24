@@ -6,14 +6,14 @@
 """
 import pet_state
 import json
-import os
 import threading
 import pet_bus
 import tkinter as tk
 import ui_plugin_registry
 from agent.core import read
 from app import App
-from engine import adopted_edit_version, adoption_summary, review_label
+import media_page_controller as media_logic
+import video_progress
 from local_video import skip_summary
 from pathlib import Path
 from platform_tools import launch_windows_app, open_target, tcp_listener
@@ -60,10 +60,8 @@ class MediaPagesMixin:
         自动粗剪和自动整理交接包共用同一次校验，避免同一批验收结果被哈希两遍。
         """
         studio=self.studio
-        st=studio.state()
-        # 签名必须带上分镜文件：两份分镜的镜头编号与版本完全相同（例如按同一模板出的两集）时，
-        # 只比镜头状态会让第二集沿用第一集的签名，从而永远跳过拼接与整理。
-        signature=(str(studio.episode_path),tuple((shot['id'],tuple((v.get('version'),v.get('review'),v.get('qc_pass'),v.get('state')) for v in st['shots'].get(shot['id']) or [])) for shot in studio.episode['shots']))
+        # 签名必须带上分镜文件（见 media_page_controller.edit_ready_signature）。
+        signature=media_logic.edit_ready_signature(studio)
         if signature!=getattr(self,'edit_ready_signature',None):
             self.edit_ready_signature=signature
             self.edit_ready_digest,_waiting=studio.auto_edit_ready()
@@ -103,21 +101,10 @@ class MediaPagesMixin:
         pending=pending_shots(read(source).get('shots'),media_root(source))
         if not pending:
             return source,[],'',True
-        if self.auto.keyframe_busy or self.worker or self.final_holding():
-            return source,pending,'已有制作任务在跑，等这一轮结束再补',False
-        if check_settings:
-            missing=self.keyframe_settings()
-            if missing:
-                return source,pending,'本地 ComfyUI 还没配好（缺 '+'、'.join(missing)+'），可到「首帧制作」窗口保存设置',True
-        # 整批镜头都会被引擎逐镜跳过时（缺参考资产、缺提示词），批次只会白跑：它要先连上、
-        # 必要时还要启动 ComfyUI，一次白等最长两分钟，最后一张也出不来。这种批次不派发，
-        # 用引擎自己的逐镜检查给出原因；资产或提示词补齐后签名变化，会自动继续。
-        try:blocked=self.batch_blockers(source,pending)
-        except (OSError,ValueError) as exc:
-            return source,pending,str(exc),True
-        if len(blocked)==len(pending):
-            return source,pending,str(len(pending))+' 镜都无法生成：'+skip_summary(blocked),True
-        return source,pending,'',True
+        reason,warn=media_logic.keyframe_batch_verdict(
+            pending,lambda:self.auto.keyframe_busy or self.worker or self.final_holding(),
+            self.keyframe_settings,lambda:self.batch_blockers(source,pending),skip_summary,check_settings)
+        return source,pending,reason,warn
     def start_keyframe_batch(self,label,check_settings=False,unless_signature=None):
         """补首帧的唯一派发实现：无人值守的定时轮询与宠物「一键执行」都走这里。
 
@@ -180,19 +167,10 @@ class MediaPagesMixin:
         self.auto.video_messages.put((ticket,str(text)))
     def continuity_ledger_data(self):
         """现场算一份连贯性台账：读当前分镜 JSON ＋ 这一集的资产清单（第 61 期 v0.8 任务 7）。"""
-        from continuity_ledger import build
-        shots=[]
-        try:
-            episode=read(self.current_frame_json())
-            if isinstance(episode,dict) and isinstance(episode.get('shots'),list):shots=episode['shots']
-        except (ValueError,OSError):shots=[]
-        try:assets=dict(self.asset_requirements())
-        except (ValueError,OSError,TypeError,AttributeError,KeyError):assets={}
-        return build(shots,assets)
+        return media_logic.build_ledger(lambda:read(self.current_frame_json()),self.asset_requirements)
     def continuity_folder(self):
         """这一阶段落盘的地方（03_continuity/output）。"""
-        import stage_layout
-        return stage_layout.paths(self.root,'03_continuity')['output']
+        return media_logic.continuity_folder(self.root)
     def write_continuity_ledger(self,ledger=None):
         """把台账落到 03_continuity（第 62 期任务 11：这一步成了独立的一页，清单由「手动生成」写）。"""
         from continuity_ledger import write
@@ -205,8 +183,7 @@ class MediaPagesMixin:
             raise ValueError('当前没有可用的分镜镜头，请先在「初步分镜」采用一份分镜再生成连贯性清单。')
         self.write_continuity_ledger(ledger)
         self.sync_continuity_issues(ledger)
-        text='镜头 %s 个 · 批次 %s 组 · %s'%(summary.get('shots',0),summary.get('batches',0),
-                                           '全部通过' if summary.get('ok') else '有待办')
+        text=media_logic.summary_text(summary)
         self.pet_report('continuity','连贯性清单已生成：'+text+'。')
         self.status.set('连贯性清单已生成并落盘：'+text)
         if getattr(self,'page_index',None)==PAGE['continuity']:self.show(PAGE['continuity'])
@@ -228,8 +205,7 @@ class MediaPagesMixin:
         summary=ledger.get('summary') or {}
         passed=bool(summary.get('ok'))
         def line():
-            return '镜头 %s 个 · 批次 %s 组 · %s'%(summary.get('shots',0),summary.get('batches',0),
-                                                 '全部通过' if passed else '有待办')
+            return media_logic.summary_text(summary)
         def make():
             self.generate_continuity_ledger(ledger)
         bar=FlowBar(self.content);bar.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
@@ -282,28 +258,12 @@ class MediaPagesMixin:
                               receipt='说明已复制',button='复制说明',scrollbar=True)
                 tree.bind('<Button-1>',open_detail,add='+')
             return tree
-        batches=ledger.get('batches') or []
+        batches=media_logic.batch_rows(ledger)
         table_of('批次与冻结锚点',
                  [('batch','批次',120),('shots','镜头',200),('seconds','秒数',70),
                   ('anchors','冻结锚点（逐字复用，机器不许改写）',620)],
-                 [(block.get('batch_id') or '','、'.join(block.get('shot_ids') or []) or '—',
-                   block.get('seconds') or 0,
-                   '；'.join('%s %s：%s'%(entry.get('kind') or '',entry.get('id') or '',entry.get('anchor') or '')
-                             for entry in block.get('frozen_anchors') or []) or '—')
-                  for block in batches],min(8,max(2,len(batches))))
-        checks=[]
-        for row in ledger.get('triplets') or []:
-            checks.append(('三元组',row.get('batch_id') or '','一致' if row.get('ok') else '不一致',
-                           row.get('detail') or ''))
-        for row in ledger.get('cross_batch') or []:
-            checks.append(('跨批次',row.get('id') or row.get('kind') or '','一致' if row.get('ok') else '不一致',
-                           row.get('detail') or ''))
-        for row in ledger.get('conflicts') or []:
-            checks.append(('参考图裁决',row.get('shot_id') or row.get('batch_id') or '',row.get('kind') or '',
-                           (row.get('resolution') or '')+(('；理由：'+str(row.get('reason'))) if row.get('reason') else '')))
-        for row in ledger.get('drift') or []:
-            checks.append(('锚点漂移',row.get('id') or '','漂移' if not row.get('ok') else '一致',
-                           row.get('detail') or ''))
+                 batches,min(8,max(2,len(batches))))
+        checks=media_logic.check_rows(ledger)
         table_of('跨批次与三元组校验',
                  [('kind','项目',110),('id','编号',150),('result','结论',100),('detail','说明',700)],
                  checks,min(8,max(2,len(checks))),detail='detail')
@@ -312,11 +272,7 @@ class MediaPagesMixin:
             table_of('问题闭环',
                      [('id','编号',130),('kind','类型',110),('severity','严重度',60),
                       ('state','状态',80),('where','涉及镜头/资产',170),('evidence','证据',560)],
-                     [(row.get('id') or '',row.get('kind_label') or '',row.get('severity') or '',
-                       row.get('state_label') or '',
-                       '、'.join([str(item) for item in (row.get('shots') or [])+(row.get('assets') or [])]) or '—',
-                       row.get('evidence') or row.get('detail') or '')
-                      for row in issue_rows],min(8,max(2,len(issue_rows))),detail='evidence')
+                     media_logic.issue_table_rows(issue_rows),min(8,max(2,len(issue_rows))),detail='evidence')
         problems=list(summary.get('problems') or [])
         foot=Card(self.content);foot.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         ttk.Label(foot,text='待办与裁决').pack(anchor='w')
@@ -339,7 +295,7 @@ class MediaPagesMixin:
                        command=lambda key=item['key'],value=choice,digest=item.get('digest',''):self.safe(
                            lambda:self.pick_gate(key,value,
                                lambda:self.show(PAGE['continuity']),digest))).pack(anchor='w')
-        for row in [item for item in issue_rows if item.get('state')=='open']:
+        for row in media_logic.open_issues(issue_rows):
             box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=SPACING['xs'])
             ttk.Label(box,text='%s %s：%s'%(row.get('severity') or '',row.get('id') or '',
                                           row.get('detail') or ''),wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
@@ -454,10 +410,8 @@ class MediaPagesMixin:
         """「首帧制作」弹窗提交后回写勾选：页面、下拉框与弹窗共用同一份状态，刷新即同步。"""
         # 第 68 期任务 12：「全部分镜」把几份分镜的行合成一屏，勾选表也合成一张（storyboard 里按行
         # 编号记）；这一页记着那张表的钥匙，弹窗回写就先认它。
-        if getattr(self,'_frame_checks_merged',False):
-            key=getattr(self,'_frame_checks_key',None) or str(Path(source).resolve())
-        else:
-            key=str(Path(source).resolve())
+        key=media_logic.frame_checks_key(getattr(self,'_frame_checks_merged',False),
+                                         getattr(self,'_frame_checks_key',None),source)
         state=self.frame_checks.get(key)
         return state.keep(ids) if state is not None else []
     def delete_keyframe(self,shot,episode=None,base=None,source=None,ask=True,rebuild=True):
@@ -586,11 +540,8 @@ class MediaPagesMixin:
     def set_video_workspace(self,folder=None,navigate=True):
         path=self.root/'ui_settings.json'
         prefs=_prefs(path)
-        if folder is None:prefs.pop('cloud_video_workspace',None)
-        else:
-            folder=Path(folder).resolve()
-            if not folder.is_relative_to((self.root/'cloud_video').resolve()):raise ValueError('云端任务目录不在当前项目内')
-            prefs['cloud_video_workspace']=folder.relative_to(self.root.resolve()).as_posix()
+        media_logic.apply_video_workspace(self.root,prefs,folder)
+        if folder is not None:folder=Path(folder).resolve()
         from stage_execution_service import publish_cloud_video_workspace_preference
         publish_cloud_video_workspace_preference(path,prefs)
         if navigate:self.show(PAGE['video'],video_mode='cloud' if folder is not None else 'local')
@@ -655,10 +606,7 @@ class MediaPagesMixin:
             label.bind('<Configure>',lambda e,w=label:w.configure(wraplength=max(SPACING['2xl']*5,e.width)))
         prefs_path=self.root/'ui_settings.json'
         prefs=read(prefs_path) if prefs_path.is_file() else {}
-        video_root=self.root
-        if mode=='cloud' and prefs.get('cloud_video_workspace'):
-            candidate=(self.root/prefs['cloud_video_workspace']).resolve()
-            if candidate.is_relative_to((self.root/'cloud_video').resolve()) and (candidate/'config.json').is_file():video_root=candidate
+        video_root=media_logic.resolve_video_root(self.root,mode,prefs)
         is_cloud=video_root!=self.root
         if is_cloud and read(video_root/'config.json').get('cloud_provider')=='openai':
             header_note('原视频服务商已移除，请重新选择服务商。历史文件仍保存在项目目录。')
@@ -773,12 +721,7 @@ class MediaPagesMixin:
         audio_dir,subtitle_dir=result.data
         self.note('可导入配音或音乐；按剧本对白时间导出整集SRT。字幕时间需在剪映中听校。')
         # 对白读不出来时不要静默禁用按钮：把原因写在页面上，用户才知道该改哪里。
-        dialogue_reason=''
-        try:
-            entries,_=self.dialogue_entries();has_dialogue=bool(entries)
-            if not has_dialogue:dialogue_reason='当前分镜没有对白，配音生成与字幕导出暂不可用。'
-        except (ValueError,OSError,TypeError) as exc:
-            has_dialogue=False;dialogue_reason='对白无法读取，配音生成与字幕导出暂不可用：'+str(exc)
+        has_dialogue,dialogue_reason=media_logic.dialogue_availability(self.dialogue_entries)
         if dialogue_reason:
             self.note(dialogue_reason)
             # 状态栏会在换页后被覆盖；在当前页面也保留原因，避免用户只看到灰按钮。
@@ -843,15 +786,7 @@ class MediaPagesMixin:
         if not result.ok:raise ValueError(result.reason)
         p,report=result.data
         # 字幕轴来自校准报告：按实际配音校准了就说清楚，仍是估算的就把未校准句数列出来。
-        if not isinstance(report,dict):
-            self.status.set('字幕时间按镜头时长估算，属草稿，请在剪映中听校。' if report else '字幕时间已按分镜时间生成。')
-        else:
-            pending=report.get('uncalibrated') or []
-            if pending:
-                basis='句长' if report.get('mode')=='length' else '镜头时长'
-                self.status.set('字幕时间暂按%s估算，还有 %d 句未按实际配音校准，导出前请先听校。'%(basis,len(pending)))
-            else:
-                self.status.set('字幕时间已按实际配音／作者标注校准，共 %d 句。'%report.get('calibrated',0))
+        self.status.set(media_logic.subtitle_status(report))
         return p
     def stage_action_bar(self,stage,manual_text):
         """后期／交付页顶部一行：「手动制作…」按钮＋该阶段的技能面板按钮（自动制作入口）。"""
@@ -923,19 +858,8 @@ class MediaPagesMixin:
         from stage_execution_service import save_stage_editing_checklist
         edit_button('保存剪辑优化清单',lambda:save_stage_editing_checklist(self.root,box.get('1.0','end-1c')),primary=True)
     def find_editor(self):
-        saved=self.settings.get('jianying','')
-        candidates=[Path(saved)] if saved else []
-        local=Path(os.environ.get('LOCALAPPDATA',''))
-        candidates.extend([
-            local/'JianyingPro/JianyingPro.exe',
-            local/'Programs/JianyingPro/JianyingPro.exe',
-            Path(os.environ.get('ProgramFiles','C:/Program Files'))/'JianyingPro/JianyingPro.exe',
-            Path(os.environ.get('ProgramFiles(x86)','C:/Program Files (x86)'))/'JianyingPro/JianyingPro.exe',
-        ])
-        candidates.extend(sorted((local/'JianyingPro/Apps').glob('*/JianyingPro.exe'),reverse=True))
-        for drive in 'CDEFG':
-            candidates.append(Path(f'{drive}:/JianyingPro/JianyingPro.exe'))
-        for executable in candidates:
+        from media_page_controller import editor_candidates;saved=self.settings.get('jianying','')
+        for executable in editor_candidates(saved):
             if executable.is_file():
                 if str(executable)!=saved:
                     from stage_execution_service import publish_desktop_preferences
@@ -962,13 +886,8 @@ class MediaPagesMixin:
         self.async_(self.find_editor_shortcut,open_shortcut,
                     label='正在在开始菜单中查找剪映专业版…')
     def handoff(self,auto=False):
-        st=self.studio.state();rows=[]
-        for s in self.studio.episode['shots']:
-            # 与自动粗剪／成片同一口径：engine.adopted_edit_version 是唯一选版规则（pinned 优先，
-            # 否则最后一条已验收版，并核文件存在与验收摘要）。取不到采用版的镜头如实不进包，
-            # 由清单声明缺镜；不退回未验收版，也不把缺失／被替换的文件塞进交接包。
-            v,_reason=adopted_edit_version(st['shots'].get(s['id']),self.root)
-            if v is not None and v.get('file'):rows.append((s,v))
+        # 选版规则见 media_page_controller.handoff_rows（engine.adopted_edit_version 是唯一口径）。
+        rows=media_logic.handoff_rows(self.root,self.studio)
         subtitle=None
         if len(rows)==len(self.studio.episode['shots']):
             try:
@@ -1011,24 +930,7 @@ class MediaPagesMixin:
             button.configure(style='Tokens.Primary.TButton' if primary else 'Tokens.Secondary.TButton')
             button.pack_configure(pady=SPACING['xs'])
             return button
-        from video_progress import LABELS, status_next
-        st=self.studio.state();lines=[]
-        for s in self.studio.episode['shots']:
-            # 采用列必须与真实成片来源同一版：最新版失败但旧版通过时，仍显示进了成片的旧版。
-            summary=adoption_summary(self.root,st['shots'][s['id']])
-            v=summary['source']
-            state=LABELS.get(v.get('state'),v.get('state') or '未提交')
-            qc={True:'通过',False:'未通过'}.get(v.get('qc_pass'),'未检查')
-            review=review_label(v)
-            if summary['adopted'] is not None:
-                adopted_text='v%s'%summary['adopted']['version']
-                if not summary['latest_is_adopted'] and summary['latest']:
-                    adopted_text+='；最新 v%s 未采用'%summary['latest'].get('version')
-                step=''
-            else:
-                adopted_text='无' if not summary['reason_text'] else '无（%s）'%summary['reason_text']
-                step=status_next(v)
-            lines.append(f'{s["id"]}  {s["title"]}  | 状态 {state} | 技术QC {qc} | 验收 {review} | 采用 {adopted_text}'+(' | 下一步 '+step if step else ''))
+        lines=media_logic.delivery_lines(self.root,self.studio,video_progress.LABELS,video_progress.status_next)
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
         from stage_completion_service import commercial_status
         self.note(commercial_status(self.root)[1])

@@ -77,7 +77,7 @@ CLASS_CAPS = {
     ('skill_panel.py', 'Panel'): 972,
     ('pet_ui_stages.py', 'PetStagesMixin'): 1186,
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,
-    ('desktop_media_pages.py', 'MediaPagesMixin'): 994,
+    ('desktop_media_pages.py', 'MediaPagesMixin'): 890,
     ('pet_ui_view.py', 'PetViewMixin'): 774,
     ('engine.py', 'Studio'): 735,
     ('skill_orchestrator.py', 'Orchestrator'): 719,
