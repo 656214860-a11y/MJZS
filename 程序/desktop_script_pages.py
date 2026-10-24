@@ -223,7 +223,8 @@ def _install_script_edit_controls(page, controls, box):
         controller.save_now()
         loaded['raw'] = controller.current
         sync_buttons()
-        page.status.set('已保存' + title + '：' + Path(active['path']).name)
+        hint = '；如要据此制作结构剧本，请重新点击“采用选中剧本”。' if kind == 'natural' else ''
+        page.status.set('已保存' + title + '：' + Path(active['path']).name + hint)
 
     def restore_deleted():
         if not editing['value']:
@@ -592,7 +593,9 @@ class _ScriptStructurePage:
             '自然剧本（采用：'+self.source.name+'）' if self.source else '自然剧本（待选择采用版本）',
             '自然剧本', structure.source_documents, self.source,
             '尚未找到剧本准备阶段的剧本。请先生成、下载或导入剧本。',
-            'script_structure_source_preview', editable=self.source is not None, kind='natural')
+            # 编辑与“采用”无关：采用记录带内容哈希，改过一次就失效，若按采用状态锁编辑，
+            # 保存一次后再也点不开（R1958）。下拉框里选中的任一份都可编辑。
+            'script_structure_source_preview', editable=True, kind='natural')
         self.page.script_structure_source_box.grid(row=0, column=0, sticky='nsew', pady=(SPACING["xs"], SPACING["none"]))
         self.page.script_structure_output_box = self.content_box(
             split_area,

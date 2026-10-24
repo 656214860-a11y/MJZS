@@ -14,8 +14,9 @@ from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height, row_toggle_target
 from tkinter import ttk
 from ui_tokens import CHAR_WIDTH, COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_PADDING, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
+from desktop_file_card import TreeRowCard, script_row_card
 from desktop_page_support import ContextMenu, confirm, confirm_project_removal_from_last_script, open_path
-from ui_widgets import DataTable, EllipsisLabel, HintLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, TreeRowTooltip, ask_string
+from ui_widgets import DataTable, EllipsisLabel, HintLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, ask_string
 
 PAGE = pet_state.PAGE_OF
 
@@ -214,7 +215,7 @@ class _WritingPage:
             tree.heading('#0',anchor='center')
             tree.heading('name',text=title,anchor='center')
             tree.column('name',width=SPACING['sm'] * 23,minwidth=100,stretch=True)
-            self.page.script_file_tips[category]=TreeRowTooltip(tree,tips)
+            self.page.script_file_tips[category]=TreeRowCard(tree,tips)
             last=column==len(categories)-1
             table.grid(row=0,column=column,sticky='nsew',padx=SPACING['none'] if last else (SPACING['none'],SPACING['xs']))
             self.script_trees[category]=tree
@@ -593,8 +594,8 @@ class _WritingPage:
             rows,finished=self.script_loader.take_batch(24)
             for row in rows:
                 modified=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(row.modified_at))
-                self.script_row_details[row.item_id]=row.name+'\n修改时间：'+modified
                 label=file_labels.get(str(Path(row.item_id).resolve()),file_labels.get(row.category,''))
+                self.script_row_details[row.item_id]=script_row_card(row,label,modified,self.page.root)
                 self.script_row_category[row.item_id]=row.category
                 self.script_trees[row.category].insert('', 'end', iid=row.item_id, text='',
                     image=self.page.win._tick_images[int(row.item_id in self.checked_scripts)],
