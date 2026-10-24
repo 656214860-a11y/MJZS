@@ -46,12 +46,12 @@ class AutoFlowsMixin:
         self._auto_edit_result_poll_id=None
         if getattr(self,'shutting_down',False) or not getattr(self,'_startup_tick_paused',False):return
         self._drain_auto_edit_result()
-        if getattr(self,'auto_edit_busy',False):self._schedule_auto_edit_result_poll()
+        if self.auto.edit_busy:self._schedule_auto_edit_result_poll()
     def _poll_auto_handoff_result(self):
         self._auto_handoff_result_poll_id=None
         if getattr(self,'shutting_down',False) or not getattr(self,'_startup_tick_paused',False):return
         self._drain_auto_handoff_result()
-        if getattr(self,'auto_handoff_busy',False):self._schedule_auto_handoff_result_poll()
+        if self.auto.handoff_busy:self._schedule_auto_handoff_result_poll()
     def _tick_download_inbox(self):
         """每 5 秒把桌面 Agent 已下载到「下载」文件夹的目标文件收回项目（只在有登记时读盘）。"""
         now=time.monotonic()
@@ -371,7 +371,7 @@ class AutoFlowsMixin:
         import project_settings
         if self.root is None:
             self.auto.adopt_signature=None;self.auto.adopt_pending=False;return
-        if getattr(self,'auto_adopt_startup',False):
+        if self.auto.adopt_startup:
             self.auto.adopt_startup=False
             self.reconcile_storyboards()
         if not self.pet.should_auto_run('auto_adopt'):

@@ -63,14 +63,14 @@ class AssetPagesMixin:
         的计数（宁可多试几次，也不把这条路弄丢）。返回「离该重试还差几秒」，没有等待中的项返回 None。
         """
         from stage_execution_service import note_asset_resume_round
-        fallback=self.auto_asset_attempt+1
+        fallback=self.auto.asset_attempt+1
         try:
             note_asset_resume_round(self.root,ids,limit=ASSET_RETRY_LIMIT)
             counted=asset_resume.attempts(self.root,ids)
             left=asset_resume.delay(self.root)
         except (OSError,ValueError,TypeError,KeyError):
             counted=0;left=None
-        self.auto_asset_attempt=max(fallback,counted)
+        self.auto.asset_attempt=max(fallback,counted)
         return left
     def clear_asset_resume(self):
         """缺图补齐了、或用户亲手关掉这一档：把跨重启台账整份删掉（第 6 轮）。"""
@@ -89,17 +89,17 @@ class AssetPagesMixin:
         换算回 monotonic 后才好排下一次）。
         """
         try:
-            self.auto_asset_attempt=asset_resume.attempts(self.root)
+            self.auto.asset_attempt=asset_resume.attempts(self.root)
             left=asset_resume.delay(self.root)
         except (OSError,ValueError,TypeError,KeyError) as exc:
-            self.auto_asset_attempt=0;left=None
+            self.auto.asset_attempt=0;left=None
             # 续跑失败可以降级为不续跑，但不能让用户误以为没有待续跑的资产任务。
             self.status.set('自动补资产续跑记录未恢复：%s；请稍后重试。' % exc)
         if left is not None:
-            self.auto_asset_due=time.monotonic()+left
+            self.auto.asset_due=time.monotonic()+left
     def auto_asset_log(self,ticket,text):
         # 工作线程回调：只入队，由主循环写状态栏，线程里不碰 Tk。
-        self.auto_asset_messages.put((ticket,str(text)))
+        self.auto.asset_messages.put((ticket,str(text)))
     def prune_asset_leftovers(self):
         """打开项目时清掉资产库里没登记过的原始取回图（第 64 期任务 1／4）。
 

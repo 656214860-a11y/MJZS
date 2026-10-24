@@ -90,7 +90,7 @@ class MediaPagesMixin:
         pending=pending_shots(read(source).get('shots'),media_root(source))
         if not pending:
             return source,[],'',True
-        if self.auto_keyframe_busy or self.worker or self.final_holding():
+        if self.auto.keyframe_busy or self.worker or self.final_holding():
             return source,pending,'已有制作任务在跑，等这一轮结束再补',False
         if check_settings:
             missing=self.keyframe_settings()
@@ -118,15 +118,15 @@ class MediaPagesMixin:
         signature=self.keyframe_signature(source,pending)
         if signature==unless_signature:return False,'',signature
         if reason:return False,'首帧未补：'+reason,signature if warn else None
-        self.auto_keyframe_blocked=None
-        self.auto_keyframe_busy=True
-        self._auto_keyframe_ticket+=1
-        ticket=self.auto_keyframe_tasks.submit(self._auto_keyframe_ticket,project=getattr(self,'root',None))
+        self.auto.keyframe_blocked=None
+        self.auto.keyframe_busy=True
+        self.auto.keyframe_ticket+=1
+        ticket=self.auto.keyframe_tasks.submit(self.auto.keyframe_ticket,project=getattr(self,'root',None))
         self.status.set(label+'：准备用本地 ComfyUI 按分镜顺序补 '+str(len(pending))+' 镜首帧…')
         def worker():
             from keyframe_comfy import auto_batch
-            try:self.auto_keyframe_queue.put((ticket,True,self.auto_keyframe_tasks.run(ticket,lambda:auto_batch(source,lambda text:self.auto_keyframe_log(ticket,text))),signature))
-            except Exception as exc:self.auto_keyframe_queue.put((ticket,False,label+'未完成：'+str(exc),signature))
+            try:self.auto.keyframe_queue.put((ticket,True,self.auto.keyframe_tasks.run(ticket,lambda:auto_batch(source,lambda text:self.auto_keyframe_log(ticket,text))),signature))
+            except Exception as exc:self.auto.keyframe_queue.put((ticket,False,label+'未完成：'+str(exc),signature))
         threading.Thread(target=worker,daemon=True).start()
         return True,'已按分镜顺序派发 '+str(len(pending))+' 镜首帧（本地 ComfyUI 免费后端，未运行会自动启动）',signature
     def pet_frame_batch(self, trigger='manual'):
@@ -161,10 +161,10 @@ class MediaPagesMixin:
         return error
     def auto_keyframe_log(self,ticket,text):
         # 工作线程回调：只入队，由主循环写状态栏，线程里不碰 Tk。
-        self.auto_keyframe_messages.put((ticket,str(text)))
+        self.auto.keyframe_messages.put((ticket,str(text)))
     def auto_video_log(self,ticket,text):
         # 工作线程回调：只入队，由主循环写状态栏，线程里不碰 Tk。
-        self.auto_video_messages.put((ticket,str(text)))
+        self.auto.video_messages.put((ticket,str(text)))
     def continuity_ledger_data(self):
         """现场算一份连贯性台账：读当前分镜 JSON ＋ 这一集的资产清单（第 61 期 v0.8 任务 7）。"""
         from continuity_ledger import build
