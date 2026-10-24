@@ -168,8 +168,6 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         self.asset_kind='all'
         self.asset_detail_id=None
         self.asset_roster=False
-        self.gate_auto_due=0
-        self.gate_auto_error=''
         self._destroy_cleanup_done=False
         self.reload()
         self.show(0)

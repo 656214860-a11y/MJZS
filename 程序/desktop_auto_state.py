@@ -94,6 +94,9 @@ class AutoState:
     handoff_signature: Any = None
     handoff_error: str = ''
 
+    gate_due: int = 0       # 半自动／全自动待办裁决（R2032：原 Desktop.gate_auto_due／gate_auto_error）
+    gate_error: str = ''
+
 
 def create_auto_state(history_path, *, stage_queue: Callable, drain: Callable) -> AutoState:
     """按原初始化顺序建好队列与任务生命周期。

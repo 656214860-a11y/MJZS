@@ -327,9 +327,9 @@ class AutoFlowsMixin:
     def _tick_auto_gates(self):
         """调度半自动/全自动模式下的待办与裁决处理。"""
         def failed(exc):
-            if self.gate_auto_error!=str(exc):
-                self.gate_auto_error=str(exc);self.status.set('自动处理待办暂缓（将在约 20 秒后重试）：'+str(exc))
-        self._poll_auto_due('gate_auto_due',20,self.auto_decide_gates,on_error=failed,
+            if self.auto.gate_error!=str(exc):
+                self.auto.gate_error=str(exc);self.status.set('自动处理待办暂缓（将在约 20 秒后重试）：'+str(exc))
+        self._poll_auto_due('gate_due',20,self.auto_decide_gates,on_error=failed,
                             errors=(OSError,ValueError,KeyError,TypeError))
     def poll_auto_final(self):
         """无人值守：当前分镜还是工作稿、且引用资产都已导入时，自动生成定稿。

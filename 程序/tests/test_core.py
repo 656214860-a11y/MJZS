@@ -261,16 +261,18 @@ class DailyProjectChoiceTests(unittest.TestCase):
         """门禁自动写入失败有明确状态，且仍沿用既有 20 秒节流重试。"""
         class Scheduler:
             def run_due(self,**kwargs):
+                kwargs['due_at']();kwargs['set_due'](1)   # R2032：真实调度器会读写 self.auto 上的到期字段
                 try:kwargs['poll']()
                 except kwargs['handled_exceptions'] as exc:
                     kwargs['on_error'](exc)
                 return False
         desk=Desktop.__new__(Desktop)
-        desk.root=Path(tempfile.gettempdir());desk.gate_auto_due=0;desk.gate_auto_error=''
+        desk.root=Path(tempfile.gettempdir())
         desk.automation_scheduler=Scheduler();desk.auto_decide_gates=mock.Mock(side_effect=OSError('磁盘已满'))
         desk.status=type('Status',(),{'set':mock.Mock()})()
         desk._tick_auto_gates()
-        self.assertEqual(desk.gate_auto_error,'磁盘已满')
+        self.assertEqual(desk.auto.gate_error,'磁盘已满')
+        self.assertEqual(desk.auto.gate_due,1)
         desk.status.set.assert_called_once_with('自动处理待办暂缓（将在约 20 秒后重试）：磁盘已满')
 
     def test_desktop_pet_report_failure_is_not_silently_swallowed(self):
