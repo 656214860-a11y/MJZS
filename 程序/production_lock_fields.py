@@ -271,7 +271,7 @@ class ProductionLockFields(FlowFields):
     def _add_leading(self, spec):
         field = ttk.Frame(self)
         label = ttk.Label(field, text=spec['label'], style=spec.get('style', 'TLabel'))
-        label.grid(row=0, column=0, sticky='w')
+        label.grid(row=0, column=0, sticky='e')  # 右对齐：文字紧贴自己的下拉框
         field.columnconfigure(0, minsize=self.label_px)
         entry = spec['factory'](field)
         entry.grid(row=0, column=1, sticky='w', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
@@ -284,7 +284,7 @@ class ProductionLockFields(FlowFields):
         key = item['key']
         field = ttk.Frame(self)
         label = ttk.Label(field, text=item['label'])
-        label.grid(row=0, column=0, sticky='w')
+        label.grid(row=0, column=0, sticky='e')  # 右对齐：文字紧贴自己的下拉框
         field.columnconfigure(0, minsize=self.label_px)
         entry = SelectBox(field, values=item.get('options') or (), state='normal',
                           width=STAGE_PANEL_LAYOUT['select_width'])

@@ -284,7 +284,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         # 预设决定整套配置，因此置于厂商／模型之前；与下方卡片使用同一左内边距，标签对齐。
         row = WrappingActionRow(body, padding=(pad, 0))
         row.pack(fill='x', pady=(SPACING['none'], section_gap))
-        CompactLabel(row, text='预设', style='Muted.TLabel', min_px=self.label_px).pack(side='left')
+        CompactLabel(row, text='预设', style='Muted.TLabel', min_px=self.label_px, anchor='e').pack(side='left')
         self.presets = SelectBox(row, textvariable=self.preset, width=select_width,
                                     values=[PRESET_PLACEHOLDER] + self.preset_names())
         self.presets.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], item_gap))
@@ -310,7 +310,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         engine.pack(fill='x', pady=(SPACING['none'], section_gap))
         top = WrappingActionRow(engine)
         top.pack(fill='x')
-        CompactLabel(top, text='厂商', style='Muted.TLabel', min_px=self.label_px).pack(side='left')
+        CompactLabel(top, text='厂商', style='Muted.TLabel', min_px=self.label_px, anchor='e').pack(side='left')
         self.providers = SelectBox(top, textvariable=self.provider, width=select_width,
                                       values=list(self.groups))
         self.providers.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], item_gap))
@@ -353,7 +353,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         row = WrappingActionRow(parent or self)
         row.pack(fill='x', pady=(SPACING['none'], pad))
         CompactLabel(row, text='编剧风格', style='Muted.TLabel',
-                     min_px=getattr(self, 'label_px', 0)).pack(side='left')
+                     min_px=getattr(self, 'label_px', 0), anchor='e').pack(side='left')
         self.writer_style_button = SecondaryButton(row, text='编辑编剧风格', width=CHAR_WIDTH['2xl'],
                                                    command=self.open_writer_style_editor)
         self.writer_style_button.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
@@ -454,7 +454,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         self.skill_action_row = FlowFields(parent, fill_last=False)
         self.skill_action_row.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.flow_skill_label = CompactLabel(self.skill_action_row, text='SKILL', style='Muted.TLabel',
-                                             min_px=getattr(self, 'label_px', 0))
+                                             min_px=getattr(self, 'label_px', 0), anchor='e')
         self.skill_action_row.add(self.flow_skill_label)
         self.skill_action = tk.StringVar(value='请选择')
         self.skill_action_box = SelectBox(
