@@ -122,8 +122,7 @@ class CloudTimingMixin:
 
     def _cancel_position(self):
         """撤销父窗口上的定位重试；先清登记，取消失败后的迟到回调也不能继续定位。"""
-        job, self._position_job = self._position_job, None
-        self._position_callback = None
+        job = self._take_position_job()
         if job is not None:
             try:
                 self.parent.after_cancel(job)

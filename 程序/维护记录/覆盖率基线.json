@@ -788,7 +788,7 @@
   {
    "module": "pet_cloud.py",
    "covered": 0,
-   "total": 841,
+   "total": 839,
    "percent": 0.0
   },
   {
@@ -812,7 +812,7 @@
   {
    "module": "pet_cloud_place.py",
    "covered": 0,
-   "total": 305,
+   "total": 317,
    "percent": 0.0
   },
   {
@@ -836,7 +836,7 @@
   {
    "module": "pet_cloud_timing.py",
    "covered": 0,
-   "total": 204,
+   "total": 203,
    "percent": 0.0
   },
   {

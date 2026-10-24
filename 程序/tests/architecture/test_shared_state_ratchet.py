@@ -18,7 +18,7 @@ from tests.architecture._scan import parse, production_files
 SHARED_STATE_CAPS = {
     'Desktop': 42,
     'Pet': 59,
-    'Cloud': 18,
+    'Cloud': 15,
     'Panel': 5,
 }
 MIXIN_BASE_THRESHOLD = 3
