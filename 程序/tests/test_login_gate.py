@@ -109,7 +109,8 @@ class LoginGateTests(unittest.TestCase):
         d=self.desktop
         d.begin_startup_or_login(True,lambda:started.append(1))
         self.pump()
-        d.account_email_input.insert(0,'a@b.c');d.account_send_button.invoke();self.pump()
+        d.account_use_code_button.invoke();self.pump()      # 默认是密码登录，先切到验证码登录
+        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
         d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
         self.assertFalse(d.login_gate_active)
         self.assertIsNone(d.login_gate)

@@ -4,15 +4,15 @@
 全屏登录页：登录成功前不选项目、不检查更新，登录后才走原来的首帧启动流程。已登录但授权失效
 （``LOCKED``／``GRACE``／``CLOCK_SUSPECT``）的账号照常进主界面，付费阶段仍由 ``stage_gate`` 拦截。
 判定只读本机会话并验签，不联网；``GATE_ENFORCED`` 关闭或不要求登录的宿主（测试）不建覆盖层。
-登录表单与「00 会员账户」页共用 ``AccountPageMixin._build_login_form``。
+登录／注册／验证码登录／找回密码表单与「00 会员账户」页共用 ``AccountPageMixin._build_login_form``。
 """
 from tkinter import ttk
 
 import entitlement_service
 from app_metadata import APP_NAME
-from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING, TEXT_DESC
+from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING
 
-LOGIN_GATE_NOTE = '请先登录账号。新账号免费试用 3 天；项目和素材始终留在本机，不上传。'
+LOGIN_GATE_NOTE = '请先登录账号；没有账号请点「注册」。新账号免费试用 3 天；项目和素材始终留在本机，不上传。'
 
 
 class LoginGateMixin:
@@ -46,11 +46,11 @@ class LoginGateMixin:
         inner = ttk.Frame(gate)
         inner.place(relx=0.5, rely=0.45, anchor='center', width=DESKTOP_LAYOUT['login_gate_width'])
         ttk.Label(inner, text=APP_NAME, font=FONTS['heading_1']).pack(anchor='w', pady=(SPACING['none'], SPACING['xs']))
-        ttk.Label(inner, text=LOGIN_GATE_NOTE, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength'],
+        ttk.Label(inner, text=LOGIN_GATE_NOTE, style='Muted.TLabel', wraplength=DESKTOP_LAYOUT['login_gate_wrap'],
                   justify='left').pack(anchor='w', pady=(SPACING['none'], SPACING['sm']))
         self.login_gate, self.login_gate_active = gate, True
         gate.lift()
-        self._build_login_form(inner, self._login_gate_passed)
+        self._build_login_form(inner, self._login_gate_passed, wrap=DESKTOP_LAYOUT['login_gate_wrap'])
 
     def _login_gate_passed(self):
         gate, self.login_gate, self.login_gate_active = self.login_gate, None, False

@@ -482,17 +482,17 @@ class SelectBox(ttk.Combobox):
 
 
 class LineInput(ttk.Entry):
-    """单行文本入口，统一占位、只读和错误态而不改变 Entry 的取值语义。"""
+    """单行文本入口，统一占位、只读和错误态；``mask``（密码）只遮输入，不遮占位文字。"""
 
     NORMAL_STYLE = "Tokens.LineInput.TEntry"
     PLACEHOLDER_STYLE = "Tokens.LineInput.Placeholder.TEntry"
     ERROR_STYLE = "Tokens.LineInput.Error.TEntry"
 
-    def __init__(self, master=None, *, placeholder="", **kwargs):
+    def __init__(self, master=None, *, placeholder="", mask="", **kwargs):
         setup_styles(master)
         kwargs.setdefault("style", self.NORMAL_STYLE)
         super().__init__(master, **kwargs)
-        self._placeholder = placeholder
+        self._placeholder, self._mask = placeholder, mask or kwargs.get("show", "")
         self._placeholder_active = False
         self.error_message = None
         self.bind("<FocusIn>", self._remove_placeholder, add="+")
@@ -500,12 +500,8 @@ class LineInput(ttk.Entry):
         self._restore_placeholder()
 
     def _set_style(self):
-        if self.error_message:
-            self.configure(style=self.ERROR_STYLE)
-        elif self._placeholder_active:
-            self.configure(style=self.PLACEHOLDER_STYLE)
-        else:
-            self.configure(style=self.NORMAL_STYLE)
+        style = self.ERROR_STYLE if self.error_message else self.PLACEHOLDER_STYLE if self._placeholder_active else self.NORMAL_STYLE
+        self.configure(style=style, show="" if self._placeholder_active else self._mask)
 
     def _remove_placeholder(self, _event=None):
         if self._placeholder_active:

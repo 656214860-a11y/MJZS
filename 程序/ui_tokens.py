@@ -232,7 +232,7 @@ DESKTOP_LAYOUT = {
     'default_width': 1280, 'default_height': 800,
     'window_margin_x': SPACING['xl'], 'window_margin_y': SPACING['xl'] * 2,
     'min_width': 800, 'min_height': 600,
-    'sidebar_width': 154, 'login_gate_width': 420, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,
+    'sidebar_width': 154, 'login_gate_width': 460, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,
     # 侧栏导航胶囊之间的垂直间距与「我的项目」「导航」两段之间的呼吸距。
     'nav_gap': SPACING['xs'], 'section_gap': SPACING['md'],
     'compact_below': 690, 'project_min_rows': 3,
@@ -249,6 +249,8 @@ DESKTOP_LAYOUT = {
     # 外框可调整区的命中宽度；同时是 Tk 数窗口尺寸时外框到工作区的内缩。
     'resize_edge_px': 4,
 }
+# 登录闸内文字的换行宽度：闸宽减去卡片左右内边距，长提示不被裁切。
+DESKTOP_LAYOUT['login_gate_wrap'] = DESKTOP_LAYOUT['login_gate_width'] - 2 * SPACING['lg']
 # 阶段配置弹窗与制作锁流式布局的规格：最小窗口尺寸、标签与下拉框间距、行间距、
 # 行尾允许空白与标签旧契约宽度。SP 批次把下拉框改成按行填满的 FlowFields，这些
 # 间距原先散落在 skill_panel.py / production_lock_fields.py 里临时挑 SPACING 档位，

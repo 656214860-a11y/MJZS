@@ -268,6 +268,44 @@ class AccountClientTests(unittest.TestCase):
         self.assertIsInstance(result, SystemError)
         self.assertEqual(result.data['code'], account_client.NETWORK)
 
+    def test_password_endpoints_paths_and_bodies(self):
+        """R2022：注册、口令登录、重置、修改口令与带用途的发码。"""
+        dev = {'id': DID}
+        cases = ((account_client.send_code, ('a@b.cn', 'register'), {}, '/v1/auth/email/code',
+                  {'email': 'a@b.cn', 'purpose': 'register'}),
+                 (account_client.register, ('a@b.cn', '123456', 'abc12345', dev), {'age_confirmed': True}, '/v1/auth/register',
+                  {'email': 'a@b.cn', 'code': '123456', 'password': 'abc12345', 'device': dev, 'age_confirmed': True,
+                   'tos_version': account_client.TOS_VERSION, 'privacy_version': account_client.PRIVACY_VERSION}),
+                 (account_client.password_login, ('a@b.cn', 'abc12345', dev), {}, '/v1/auth/password/login',
+                  {'email': 'a@b.cn', 'password': 'abc12345', 'device': dev}),
+                 (account_client.reset_password, ('a@b.cn', '654321', 'abc12345'), {}, '/v1/auth/password/reset',
+                  {'email': 'a@b.cn', 'code': '654321', 'password': 'abc12345'}),
+                 (account_client.change_password, ('L', 'abc12345'), {}, '/v1/account/password', {'password': 'abc12345'}),
+                 (account_client.change_password, ('L', 'abc12345', 'old12345'), {}, '/v1/account/password',
+                  {'password': 'abc12345', 'old_password': 'old12345'}))
+        for fn, args, extra, path, body in cases:
+            fake, calls = self.opener({'ok': True})
+            self.assertTrue(fn(*args, opener=fake, **extra).ok)
+            url, kw = calls[0]
+            self.assertEqual((url, kw['method']), (account_client.BASE_URL + path, 'POST'))
+            self.assertEqual(json.loads(kw['data']), body)
+            self.assertEqual('Authorization' in kw['headers'], fn is account_client.change_password)
+        for code in ('email_registered', 'password_invalid', 'password_not_set', 'weak_password'):
+            err = urllib.error.HTTPError('u', 401, 'x', {}, io.BytesIO(json.dumps({'code': code}).encode()))
+            self.assertEqual(account_client.password_login('a@b.cn', 'x', dev, opener=self.opener(err)[0]).reason,
+                             account_client.MESSAGES[code])
+
+    def test_valid_email_and_password_problem_match_server_rules(self):
+        for good in ('a@qq.com', ' Name.Tag+x@mail.example.cn '):
+            self.assertTrue(account_client.valid_email(good), good)
+        for bad in ('656214860@qqcom', 'a@b.c', 'a.qq.com', '', None, 'a@' + 'b' * 250 + '.com'):
+            self.assertFalse(account_client.valid_email(bad), bad)
+        self.assertEqual(account_client.password_problem('abc12345'), '')
+        self.assertIn('字母和数字', account_client.password_problem('abcdefgh'))
+        self.assertIn('字母和数字', account_client.password_problem('12345678'))
+        self.assertIn('8', account_client.password_problem('a1'))
+        self.assertIn('64', account_client.password_problem('a1' * 33))
+
 
 class _Store:
     """把 account_store 绑定到临时路径的替身。"""
@@ -492,6 +530,55 @@ class AccountControllerTests(unittest.TestCase):
         ctl.cancel_deletion(' a@b.c ', ' 654321 ', self.results.append)
         self.assertTrue(self.results[-1].ok)
         self.assertEqual(client.calls, [('delete_cancel', ('a@b.c', '654321'))])
+
+    def test_request_code_passes_purpose(self):
+        client = _Client(send_code=success({'ok': True}))
+        ctl = self.controller(client)
+        ctl.request_code(' a@b.cn ', self.results.append, purpose='register')
+        ctl.request_code('a@b.cn', self.results.append)
+        self.assertEqual(client.calls, [('send_code', ('a@b.cn', 'register')), ('send_code', ('a@b.cn', 'login'))])
+
+    def test_password_login_and_register_save_session_with_has_password(self):
+        for name, start in (('password_login', lambda ctl: ctl.password_login(' a@b.cn ', 'abc12345', self.results.append)),
+                            ('register', lambda ctl: ctl.register(' a@b.cn ', ' 123456 ', 'abc12345', age_confirmed=True,
+                                                                  done=self.results.append))):
+            self.store.clear_session()
+            reply = success({'refresh_token': 'r1', 'lease': sign(payload()), 'server_time': NOW,
+                             'user': {'id': 'u1', 'has_password': True}})
+            client = _Client(**{name: reply})
+            ctl = self.controller(client)
+            start(ctl)
+            self.assertTrue(self.results[-1].ok, name)
+            self.assertEqual(ctl.entitlement().state, ent.VALID)
+            self.assertEqual((ctl.session()['email'], ctl.session()['has_password']), ('a@b.cn', True))
+            self.assertEqual(client.calls[0][1][:3], ('a@b.cn', 'abc12345', ctl.device()) if name == 'password_login'
+                             else ('a@b.cn', '123456', 'abc12345'))
+
+    def test_password_login_failure_keeps_signed_out(self):
+        ctl = self.controller(_Client(password_login=UserError('x', data={'code': 'password_invalid'})))
+        ctl.password_login('a@b.cn', 'wrong123', self.results.append)
+        self.assertEqual(self.results[-1].data['code'], 'password_invalid')
+        self.assertEqual(ctl.entitlement().state, ent.SIGNED_OUT)
+
+    def test_reset_password_signs_out_same_account_only(self):
+        self._signed_in()
+        ctl = self.controller(_Client(reset_password=success({'ok': True})))
+        ctl.reset_password('other@b.cn', '1', 'abc12345', self.results.append)
+        self.assertIn('refresh_token', ctl.session())
+        ctl.reset_password(' A@B.C ', '1', 'abc12345', self.results.append)
+        self.assertTrue(self.results[-1].ok)
+        self.assertNotIn('refresh_token', ctl.session())
+
+    def test_change_password_uses_lease_and_marks_has_password(self):
+        self.assertFalse(self.controller(_Client()).change_password('abc12345', self.results.append))
+        old = self._signed_in()
+        client = _Client(change_password=success({'ok': True, 'has_password': True}))
+        ctl = self.controller(client)
+        self.assertTrue(ctl.change_password('abc12345', self.results.append))
+        self.assertTrue(self.results[-1].ok)
+        self.assertEqual(client.calls, [('change_password', (old, 'abc12345', None))])
+        self.assertTrue(ctl.session()['has_password'])
+        self.assertEqual(ctl.session()['lease'], old)
 
     def test_export_writes_chosen_file_with_redemptions(self):
         self._signed_in()

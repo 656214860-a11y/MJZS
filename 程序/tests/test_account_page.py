@@ -65,13 +65,14 @@ class AccountPageTests(unittest.TestCase):
         d.go_page(PAGE_ACCOUNT);self.pump()
         self.assertIn('当前状态：未登录',_texts(d.content))
         self.assertIn('disabled',d.account_login_button.state())
-        d.account_email_input.insert(0,'a@b.c');d.account_send_button.invoke();self.pump()
+        d.account_use_code_button.invoke();self.pump()      # 默认是密码登录，先切到验证码登录
+        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
         self.assertNotIn('disabled',d.account_login_button.state())
         self.assertIn('验证码已发送',d.account_message.cget('text'))
         d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
         texts=_texts(d.content)
         self.assertIn('当前状态：授权有效',texts)
-        self.assertIn('账号：a@b.c',texts)
+        self.assertIn('账号：a@b.cn',texts)
         self.assertIn('套餐：免费试用',texts)
         self.assertIn('退出登录',texts)
         self.assertEqual([c[0] for c in client.calls],['send_code','verify_code'])
@@ -120,7 +121,8 @@ class AccountPageTests(unittest.TestCase):
         from service_contract import UserError
         self.use(_Client(send_code=success({'ok':True}),verify_code=UserError('验证码不正确或已过期',data={'code':'code_invalid'})))
         d.go_page(PAGE_ACCOUNT);self.pump()
-        d.account_email_input.insert(0,'a@b.c');d.account_send_button.invoke();self.pump()
+        d.account_use_code_button.invoke();self.pump()      # 默认是密码登录，先切到验证码登录
+        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
         d.account_code_input.insert(0,'000000');d.account_login_button.invoke();self.pump()
         self.assertEqual(d.account_message.cget('text'),'验证码不正确或已过期')
         self.assertIn('当前状态：未登录',_texts(d.content))
@@ -240,14 +242,138 @@ class AccountPageTests(unittest.TestCase):
         self.use(client)
         d.go_page(PAGE_ACCOUNT);self.pump()
         self.assertFalse(d.account_cancel_deletion_button.winfo_ismapped())
-        d.account_email_input.insert(0,'a@b.c');d.account_send_button.invoke();self.pump()
+        d.account_use_code_button.invoke();self.pump()      # 默认是密码登录，先切到验证码登录
+        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
         d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
         self.assertTrue(d.account_cancel_deletion_button.winfo_ismapped())
         self.assertIn('撤销注销',d.account_message.cget('text'))
         d.account_cancel_deletion_button.invoke();self.pump()
-        self.assertEqual(client.calls[-1],('delete_cancel',('a@b.c','123456')))
+        self.assertEqual(client.calls[-1],('delete_cancel',('a@b.cn','123456')))
         self.assertIn('已撤销注销',d.account_message.cget('text'))
         self.assertFalse(d.account_cancel_deletion_button.winfo_ismapped())
+
+    # ---- R2022：密码登录、注册、找回密码、本机校验 ----
+    def signed_out_page(self, client):
+        self.use(client)
+        self.desktop.account.logout()      # 前面的用例可能在同一会话文件里留了登录态
+        self.desktop.go_page(PAGE_ACCOUNT);self.desktop.show(PAGE_ACCOUNT);self.pump()   # 同页 go_page 不重画，show 强制重画
+        return self.desktop
+
+    def signed_in_reply(self):
+        return success({'refresh_token':'r1','lease':sign(payload()),'server_time':NOW,'user':{'has_password':True}})
+
+    def sign_out(self):
+        self.desktop.account.logout();self.desktop.show(PAGE_ACCOUNT);self.pump()
+
+    def test_password_login_is_default_and_masks_input(self):
+        client=_Client(password_login=self.signed_in_reply())
+        d=self.signed_out_page(client)
+        self.assertEqual(d.account_login_view['view'],'pw')
+        self.assertTrue(d.account_password_input.winfo_ismapped())
+        self.assertFalse(d.account_code_input.winfo_ismapped())
+        self.assertEqual(str(d.account_password_input.cget('show')),'','占位文字不被遮挡')
+        d.account_email_input.insert(0,'a@b.cn');d.account_password_input.insert(0,'abc12345')
+        self.assertEqual(str(d.account_password_input.cget('show')),'•')
+        d.account_password_login_button.invoke();self.pump()
+        self.assertIn('当前状态：授权有效',_texts(d.content))
+        self.assertEqual(client.calls[0][0],'password_login')
+        self.assertEqual(client.calls[0][1][:2],('a@b.cn','abc12345'))
+        self.sign_out()
+
+    def test_malformed_email_is_rejected_locally_with_error_style(self):
+        client=_Client()
+        d=self.signed_out_page(client)
+        d.account_email_input.insert(0,'656214860@qqcom');d.account_password_input.insert(0,'abc12345')
+        d.account_password_login_button.invoke();self.pump()
+        self.assertIn('漏了',d.account_message.cget('text'))
+        self.assertEqual(str(d.account_message.cget('style')),'Expired.TLabel')
+        self.assertTrue(d.account_email_input.error_message)
+        d.account_register_tab.invoke();d.account_register_send_button.invoke();self.pump()
+        self.assertIn('漏了',d.account_message.cget('text'))
+        self.assertEqual(client.calls,[],'格式不对不发请求')
+
+    def test_login_failures_show_wait_and_fall_back_when_server_is_old(self):
+        from service_contract import UserError
+        client=_Client(password_login=[UserError('请求太频繁，请稍后再试',data={'code':'too_many_requests','retry_after':120}),
+                                       UserError('账号服务返回错误（404）',data={'code':'http_404'})])
+        d=self.signed_out_page(client)
+        d.account_email_input.insert(0,'a@b.cn');d.account_password_input.insert(0,'abc12345')
+        d.account_password_login_button.invoke();self.pump()
+        self.assertIn('120 秒后可重试',d.account_message.cget('text'))
+        self.assertEqual(str(d.account_message.cget('style')),'Expired.TLabel')
+        d.account_password_login_button.invoke();self.pump()
+        self.assertEqual(d.account_login_view['view'],'code')
+        self.assertIn('验证码登录',d.account_message.cget('text'))
+
+    def test_register_flow_checks_inputs_and_reports_duplicate(self):
+        from service_contract import UserError
+        client=_Client(send_code=[UserError('该邮箱已注册，请直接登录',data={'code':'email_registered'}),success({'ok':True})],
+                       register=self.signed_in_reply())
+        d=self.signed_out_page(client)
+        d.account_register_tab.invoke();self.pump()
+        self.assertEqual(d.account_login_view['view'],'reg')
+        d.account_email_input.insert(0,'a@b.cn');d.account_register_send_button.invoke();self.pump()
+        self.assertEqual(d.account_login_view['view'],'pw','已注册的邮箱回到密码登录')
+        self.assertIn('已注册',d.account_message.cget('text'))
+        d.account_register_tab.invoke();d.account_register_send_button.invoke();self.pump()
+        self.assertIn('验证码已发送',d.account_message.cget('text'))
+        self.assertIn('垃圾邮件',d.account_message.cget('text'))
+        d.account_register_code_input.insert(0,'123456')
+        d.account_register_password_input.insert(0,'abc12345');d.account_register_password2_input.insert(0,'abc12346')
+        d.account_register_button.invoke();self.pump()
+        self.assertIn('不一致',d.account_message.cget('text'))
+        d.account_register_password2_input.delete(0,'end');d.account_register_password2_input.insert(0,'abc12345')
+        d.account_register_button.invoke();self.pump()
+        self.assertIn('18 周岁',d.account_message.cget('text'))
+        self.assertEqual([c[0] for c in client.calls],['send_code','send_code'])
+        d.account_register_adult.set(True);d.account_register_button.invoke();self.pump()
+        self.assertIn('当前状态：授权有效',_texts(d.content))
+        self.assertEqual(client.calls[0],('send_code',('a@b.cn','register')))
+        self.assertEqual(client.calls[2][0],'register')
+        self.sign_out()
+
+    def test_weak_password_is_rejected_before_register(self):
+        client=_Client(send_code=success({'ok':True}))
+        d=self.signed_out_page(client)
+        d.account_register_tab.invoke()
+        d.account_email_input.insert(0,'a@b.cn');d.account_register_code_input.insert(0,'123456')
+        d.account_register_password_input.insert(0,'abcdefgh');d.account_register_password2_input.insert(0,'abcdefgh')
+        d.account_register_adult.set(True);d.account_register_button.invoke();self.pump()
+        self.assertIn('字母和数字',d.account_message.cget('text'))
+        self.assertTrue(d.account_register_password_input.error_message)
+        self.assertEqual(client.calls,[])
+
+    def test_reset_password_returns_to_password_view(self):
+        client=_Client(send_code=success({'ok':True}),reset_password=success({'ok':True}))
+        d=self.signed_out_page(client)
+        d.account_forgot_button.invoke();self.pump()
+        self.assertEqual(d.account_login_view['view'],'reset')
+        d.account_email_input.insert(0,'a@b.cn');d.account_reset_send_button.invoke();self.pump()
+        d.account_reset_code_input.insert(0,'654321')
+        d.account_reset_password_input.insert(0,'new12345');d.account_reset_password2_input.insert(0,'new12345')
+        d.account_reset_button.invoke();self.pump()
+        self.assertEqual(d.account_login_view['view'],'pw')
+        self.assertIn('密码已重置',d.account_message.cget('text'))
+        self.assertEqual(client.calls,[('send_code',('a@b.cn','reset')),('reset_password',('a@b.cn','654321','new12345'))])
+
+    def test_signed_in_password_card_sets_then_asks_old_password(self):
+        client=_Client(change_password=success({'ok':True,'has_password':True}))
+        store=self.use(client)
+        import account_store
+        lease=sign(payload())
+        account_store.save_session({'email':'a@b.cn','refresh_token':'r','lease':lease,'server_time':NOW},store.path)
+        d=self.desktop
+        d.go_page(PAGE_ACCOUNT);self.pump()
+        self.assertIsNone(d.account_password_old_input,'没设过密码不要原密码')
+        d.account_password_new_input.insert(0,'abc');d.account_password_button.invoke();self.pump()
+        self.assertTrue(d.account_password_new_input.error_message)
+        self.assertEqual(client.calls,[])
+        d.account_password_new_input.delete(0,'end');d.account_password_new_input.insert(0,'abc12345')
+        d.account_password_again_input.insert(0,'abc12345');d.account_password_button.invoke();self.pump()
+        self.assertEqual(client.calls,[('change_password',(lease,'abc12345',None))])
+        self.assertIn('密码已保存',d.status.get())
+        self.assertIsNotNone(d.account_password_old_input,'设过密码后改密要原密码')
+        self.sign_out()
 
 
 def _walk(widget):
