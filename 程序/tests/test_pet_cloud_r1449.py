@@ -66,14 +66,14 @@ class PopupTests(unittest.TestCase):
         self.assertIsNone(c._hold)
         c.parent.after_cancel.assert_called_with('timer')
 
-    def test_tokens_and_exact_adjacent_deduplication(self):
+    def test_tokens_and_exact_deduplication(self):
         self.assertEqual(pc.FONT, FONTS['pet_body'])
         self.assertEqual(pc.HINT_FONT, FONTS['pet_hint'])
         self.assertEqual(pc.FONT[1], FONTS['body'][1] - 1)
         c = self.cloud()
         c.shape = pc.SHAPE_CLOUD
         c.lines = ['same', 'same', 'different', 'same']
-        self.assertEqual(c._body_text().count('same'), 2)
+        self.assertEqual(c._body_text().count('same'), 1)   # 同一句不分相邻与否只露一次
         self.assertEqual(len(c.lines), 4)
 
     def test_top_alignment_and_edge_fallback(self):

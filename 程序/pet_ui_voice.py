@@ -43,7 +43,7 @@ def offer_sentence(parts):
     heads = [re.sub(r'（[^（）]*→[^（）]*）', '', str(part)).strip() for part in parts]
     head = heads[0] if heads else ''
     more = '等 %d 件事' % len(heads) if len(heads) > 1 else ''
-    text = '%s：还差：%s%s。要我「一键执行」不花钱的部分吗？回「好」开工，「先不用」先放着。' % (
+    text = '%s：还差 %s%s，要我一键执行免费的部分吗？回「好」开工／「先不用」。' % (
         pet_agent.PET_NAME, head, more)
     if len(text) > OFFER_MAX_CHARS:
         text = text[:OFFER_MAX_CHARS - 1] + '…'

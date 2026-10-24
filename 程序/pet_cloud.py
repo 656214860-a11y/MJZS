@@ -703,10 +703,9 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         """
         if self.shape == SHAPE_CLOUD:
             # 第 37 期第 5 条：空段（只剩空白的那几条）整段不排——框里一条挨着一条，中间不留空行。
-            # 只合并原始内容完全相同的相邻项，不修改历史。
-            unique = [line for index, line in enumerate(self.lines)
-                      if index == 0 or line != self.lines[index - 1]]
-            rows = [row for row in (tight(line) for line in unique) if row]
+            # 只在显示时去重（不分是否相邻），不修改历史。
+            rows = [row for row in (tight(line) for line in self.lines) if row]
+            rows = [row for index, row in enumerate(rows) if row not in rows[index + 1:]]   # 同一句只留最后一次，交替重复也折叠
             # 三虎对话框是操作入口而非历史日志，最多露出最近五步，避免遮挡用户操作。
             rows = rows[-CHAT_VISIBLE_STEPS:]
             return '\n'.join('%d.%s%s' % (index, NUMBER_GAP, row)
@@ -1007,7 +1006,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
 
         第 37 期第 5 条：存进来之前先过 tight——记录里不留空行。
         """
-        text = re.sub(r'^\s*(?:【|\[)阶段\s*(?:\d+|[Xx])\s*/\s*(?:\d+|[Xx])(?:】|\])\s*',
+        text = re.sub(r'^\s*(?:【|\[)(?:阶段|步骤)\s*(?:\d+|[Xx])\s*/\s*(?:\d+|[Xx])(?:】|\])\s*',
                       '', tight(line), count=1)
         if keep:
             self.lines.append(text)
