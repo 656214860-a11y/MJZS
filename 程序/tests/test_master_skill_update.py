@@ -145,6 +145,33 @@ class MasterSkillUpdateTests(unittest.TestCase):
         self.assertEqual(update.check(self.program, fetch=broken)['level'], update.ERROR)
 
 
+class DescribeTests(unittest.TestCase):
+    LOG = ['- **V7.4.26（2026-10-21）— 审计补丁 P1 + P4.5 交付标配/机检：修 9 处执行链缺陷——① 很长很长的说明**',
+           '- **V7.4.25（2026-10-19）— 交付层与门禁实战回写：以样本为例**',
+           '- **V7.4.24（2026-10-18）— 一个特别特别特别特别特别特别特别特别特别长的版本标题没有冒号**',
+           '- **V7.4.23（2026-10-16）— 第四条**', '- **V7.4.22（2026-10-15）— 第五条**']
+
+    def test_feature_title_keeps_version_date_and_headline_only(self):
+        self.assertEqual(update.feature_title(self.LOG[0]), 'V7.4.26（10-21） 审计补丁 P1 + P4.5 交付标配/机检')
+        self.assertTrue(update.feature_title(self.LOG[2]).endswith('…'))
+        self.assertNotIn('很长很长', update.feature_title(self.LOG[0]))
+
+    def test_new_log_lines_skip_english_duplicates(self):
+        readme = '- **V2.0 (2026-01-01) — english only entry**\n' + self.LOG[1] + '\n'
+        self.assertEqual(update.new_log_lines('', readme), [self.LOG[1]])
+
+    def test_describe_is_short_and_one_line_per_item(self):
+        result = {'old_version': 'V7.4.20', 'new_version': 'V7.4.26', 'features': self.LOG,
+                  'stages': {'storyboard': ['a', 'b'], 'delivery': ['c']}, 'common': ['x'] * 63}
+        text = update.describe(result)
+        self.assertLessEqual(len(text), 400)
+        self.assertIn('V7.4.20 → V7.4.26', text)
+        self.assertIn('· 初步分镜：2 个文件', text)
+        self.assertIn('· 另有 1 个版本的更新', text)
+        self.assertIn('63 个文件变化', text)
+        self.assertNotIn('很长很长', text)
+
+
 class _Status:
     def __init__(self):
         self.text = ''
@@ -199,9 +226,12 @@ class ManualCheckTests(unittest.TestCase):
 
     def test_manual_check_shows_notice_for_notice_only_checkout(self):
         result = {'level': update.AVAILABLE, 'can_apply': False, 'blocked_reason': '开发检出', 'counts': {}}
-        host = self.run_check(result, True)
-        self.assertEqual(host.notifier.calls[0][0], 'info')
-        self.assertIn('开发检出', host.status.text)
+        # 契约变更（R2007）：多行摘要改用 NoticeDialog 展示，不再走会压平换行的状态栏通知。
+        with mock.patch.object(desktop_master_update, 'NoticeDialog') as dialog:
+            host = self.run_check(result, True)
+        self.assertEqual(host.notifier.calls, [])
+        self.assertIn('开发检出', dialog.call_args[0][2])
+        self.assertIn('需手动更新', host.status.text)
 
     def test_busy_flag_is_released_after_check(self):
         host = self.run_check({'level': update.NONE}, True)

@@ -995,6 +995,15 @@ class ConfirmDialog(BaseDialog):
         super().close()
 
 
+class NoticeDialog(BaseDialog):
+    """只告知、不需决定的提示窗（保留换行，适合多行摘要）；只有一个“知道了”。"""
+
+    def __init__(self, parent, title, message, **kwargs):
+        super().__init__(parent, title, **kwargs)
+        DescriptionBlock(self.content, text=message).pack(fill="x")
+        self.add_action("知道了", self.close, primary=True)
+
+
 def ask_confirmation(parent, title, message, *, dangerous=False):
     """以统一确认窗提供旧式同步布尔语义。
 

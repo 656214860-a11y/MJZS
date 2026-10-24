@@ -43,6 +43,10 @@ TEXT_SUFFIXES = frozenset({'.md', '.py', '.json', '.txt', '.yml', '.yaml', '.tom
 NONE, AVAILABLE, ERROR = 'none', 'available', 'error'
 _VERSION = re.compile(r'版本-(V\d+(?:\.\d+)*)')
 _LOG_LINE = re.compile(r'^\s*-\s+\*\*V\d')
+_LOG_HEAD = re.compile(r'^\s*-\s+(V\d+(?:\.\d+)*)\s*(?:（\d{4}-(\d{2}-\d{2})）)?\s*[—-]*\s*(.*)$')
+_CJK = re.compile('[\u4e00-\u9fff]')
+TITLE_LIMIT = 28
+SHOWN_FEATURES = 4
 
 
 def state_path(program=PROGRAM):
@@ -128,8 +132,9 @@ def version_of(readme):
 def new_log_lines(old_readme, new_readme, limit=6):
     """新版 README 更新日志里本机没有的条目，就是“新功能”的原文。"""
     known = {line.strip() for line in (old_readme or '').splitlines()}
+    # README 的更新日志有中英两份，只留中文条目，避免同一个版本列两遍。
     lines = [line.strip() for line in (new_readme or '').splitlines()
-             if _LOG_LINE.match(line) and line.strip() not in known]
+             if _LOG_LINE.match(line) and line.strip() not in known and _CJK.search(line)]
     return [line[:220] for line in lines[:limit]]
 
 
@@ -213,26 +218,39 @@ def _stamp(now=None):
     return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now or time.time()))
 
 
-def describe(result, limit=1800):
-    """给确认弹窗用的中文摘要：新功能＋每个阶段的 SKILL 变化。"""
-    counts = result.get('counts') or {}
-    head = '总控包有新版本：%s → %s' % (result.get('old_version') or '本机版本', result.get('new_version') or result.get('sha', '')[:7])
-    lines = [head, '新增 %d、修改 %d、删除 %d 个文件。' % (counts.get('added', 0), counts.get('changed', 0), counts.get('removed', 0))]
-    if result.get('features'):
-        lines += ['', '新功能：'] + ['· ' + item.lstrip('- ').replace('**', '') for item in result['features']]
+def feature_title(line):
+    """更新日志一行 → “V7.4.26（10-21） 审计补丁”这样的一句话标题；说明细节一律不带。"""
+    found = _LOG_HEAD.match(line.replace('**', ''))
+    if not found:
+        return line[:TITLE_LIMIT]
+    version, day, body = found.groups()
+    title = re.split('[：:（(]', body.strip(), maxsplit=1)[0].strip()
+    if len(title) > TITLE_LIMIT:
+        title = title[:TITLE_LIMIT - 1] + '…'
+    return '%s%s %s' % (version, '（%s）' % day if day else '', title)
+
+
+def describe(result):
+    """给弹窗用的中文摘要：版本变化、新功能（每个版本一行）、各阶段变化了几个文件。"""
+    head = '总控包有新版本：%s → %s' % (result.get('old_version') or '本机版本',
+                                      result.get('new_version') or result.get('sha', '')[:7])
+    lines = [head]
+    features = result.get('features') or []
+    if features:
+        lines += ['', '新功能'] + ['· ' + feature_title(item) for item in features[:SHOWN_FEATURES]]
+        if len(features) > SHOWN_FEATURES:
+            lines.append('· 另有 %d 个版本的更新' % (len(features) - SHOWN_FEATURES))
     elif result.get('commits'):
-        lines += ['', '近期提交：'] + ['· ' + item for item in result['commits'][:6]]
+        lines += ['', '近期提交'] + ['· ' + item for item in result['commits'][:SHOWN_FEATURES]]
     if result.get('stages'):
-        lines += ['', '各阶段 SKILL 变化：']
-        for stage, files in result['stages'].items():
-            shown = '、'.join(files[:3]) + ('等 %d 个文件' % len(files) if len(files) > 3 else '')
-            lines.append('· %s：%s' % (pet_bus.STAGE_NAMES.get(stage, stage), shown))
+        lines += ['', '各阶段 SKILL 有变化']
+        lines += ['· %s：%d 个文件' % (pet_bus.STAGE_NAMES.get(stage, stage), len(files))
+                  for stage, files in result['stages'].items()]
     if result.get('common'):
-        lines += ['', '公共规则／脚本／文档共 %d 个文件有变化（如 %s）。' % (len(result['common']), result['common'][0])]
+        lines += ['', '另有公共规则／脚本／文档 %d 个文件变化。' % len(result['common'])]
     if result.get('blocked_reason'):
         lines += ['', result['blocked_reason']]
-    text = '\n'.join(lines)
-    return text if len(text) <= limit else text[:limit - 1] + '…'
+    return '\n'.join(lines)
 
 
 def apply(result, program=PROGRAM, project=None, registry=None, now=None):

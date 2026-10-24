@@ -6,7 +6,7 @@
 阶段配置页总控下拉框的“检查更新”走 ``manual=True``，无更新、失败也会明确告知。
 """
 import master_skill_update
-from ui_widgets import ask_confirmation
+from ui_widgets import NoticeDialog, ask_confirmation
 
 
 class MasterUpdateMixin:
@@ -40,10 +40,9 @@ class MasterUpdateMixin:
             return
         text = master_skill_update.describe(result)
         if not result.get('can_apply'):
-            message = '总控包有新版本，但当前环境需手动更新：' + (result.get('blocked_reason') or '')
-            self.status.set(message)
+            self.status.set('总控包有新版本，但当前环境需手动更新。')
             if manual:
-                self.notifier.info(text, title='总控包有更新')
+                NoticeDialog(self.win, '总控包有更新', text)  # 多行摘要：状态栏通知会把换行压平，读不了
             return
         self.status.set('总控包有新版本，等待确认更新。')
         if not ask_confirmation(self.win, '总控包有更新', text + '\n\n是否现在下载并更新？更新前的旧版本会进回收站。'):
