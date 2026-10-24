@@ -81,5 +81,37 @@ class ButtonRuleContractTests(unittest.TestCase):
                     self.assertIn("BUTTON_GAP", call, "取消／关闭与主操作的间距必须取 BUTTON_GAP")
 
 
+class StageDialogButtonTests(unittest.TestCase):
+    """R1974：阶段弹窗不再共用侧栏的 Compact.TButton；侧栏紧凑模式覆盖 Selected.Compact。"""
+
+    def test_stage_dialogs_do_not_use_the_sidebar_compact_style(self):
+        text = (ROOT / "ui_widgets.py").read_text(encoding="utf-8")
+        start = text.index("def _show_manual_plan")
+        self.assertNotIn("Compact.TButton", text[start:])
+        batch = text.index("handle['retry'] = lambda")
+        self.assertNotIn("Compact.TButton", text[batch - 900:batch])
+        self.assertNotIn("padx=(6, 0)", text)
+
+    def test_fit_sidebar_uses_tokens_and_covers_selected_compact(self):
+        text = (ROOT / "desktop_layout.py").read_text(encoding="utf-8")
+        body = text[text.index("def fit_sidebar"):]
+        body = body[:body.index("# 由可用像素反算")]
+        self.assertIn("'Selected.Compact.TButton'", body)
+        self.assertNotIn("20 if compact else 24", body)
+        self.assertIn("NAV_ROW_HEIGHT_COMPACT", body)
+
+    def test_selected_compact_pressed_padding_follows_set_button_padding(self):
+        root = tk.Tk()
+        root.withdraw()
+        self.addCleanup(root.destroy)
+        ui_theme.apply(root)
+        style = ttk.Style(root)
+        for pad_y in (NAV_PADDING_Y, NAV_PADDING_Y_COMPACT):
+            set_button_padding(style, "Selected.Compact.TButton", (NAV_PADDING_X, pad_y))
+            normal = [int(v) for v in str(style.lookup("Selected.Compact.TButton", "padding")).split()]
+            pressed = [int(v) for v in str(style.lookup("Selected.Compact.TButton", "padding", ["pressed"])).split()]
+            self.assertEqual(2 * normal[1], pressed[1] + pressed[3])
+
+
 if __name__ == "__main__":
     unittest.main()

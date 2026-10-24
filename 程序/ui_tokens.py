@@ -88,6 +88,8 @@ NAV_PADDING_X = 10
 NAV_SUB_PADDING_X = 26
 NAV_PADDING_Y_COMPACT = 1
 NAV_PADDING_Y = SPACING["xs"]
+NAV_ROW_HEIGHT = 24
+NAV_ROW_HEIGHT_COMPACT = 20
 FONTS = {
     "pet_body": ("Microsoft YaHei UI", 9),
     "pet_hint": ("Microsoft YaHei UI", 8),

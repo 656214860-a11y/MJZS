@@ -9,7 +9,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        COMBOBOX_FIELD_BACKGROUND, COMBOBOX_FONT,
                        COMBOBOX_FOREGROUND, COMBOBOX_PADDING,
                        COMBOBOX_WIDTH, COMBOBOX_POPDOWN_HEIGHT, COMBOBOX_MAX_WIDTH,
-                       BUTTON_MIN_WIDTH, CONTROL_HEIGHT, CONTROL_PADDING_Y, FONTS, RADIUS, SPACING,
+                       BUTTON_GAP, BUTTON_MIN_WIDTH, CONTROL_HEIGHT, CONTROL_PADDING_Y, FONTS, RADIUS, SPACING,
                        TEXT_DESC, TEXT_HINT, TEXT_PROGRESS, DIALOG_ACTION_GAP,
                        DIALOG_ACTION_HEIGHT, DIALOG_CONTENT_PADDING, DIALOG_TITLE_FONT,
                        TOOLTIP_BACKGROUND, TOOLTIP_BORDER, TOOLTIP_BORDER_WIDTH, TOOLTIP_DELAY_MS,
@@ -1258,12 +1258,11 @@ def _show_stage_execution(desktop, stage, *, parent, title, names, runner, faile
             app_logging.swallowed()
         window.destroy()
 
-    retry = ttk.Button(row, text='重试失败项', style='Compact.TButton',
-                       command=lambda: start(only=handle['failures']))
+    retry = SecondaryButton(row, text='重试失败项', command=lambda: start(only=handle['failures']))
     retry.pack(side='left')
     retry.configure(state='disabled')
-    ttk.Button(row, text='返回阶段页面', style='Compact.TButton', command=go_back).pack(side='left', padx=(6, 0))
-    ttk.Button(row, text='关闭', style='Compact.TButton', command=window.destroy).pack(side='left', padx=(6, 0))
+    SecondaryButton(row, text='返回阶段页面', command=go_back).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
+    SecondaryButton(row, text='关闭', command=window.destroy).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
     handle['retry'] = lambda: start(only=handle['failures'])
     handle['start'] = start
     handle['back'] = go_back
@@ -1292,12 +1291,12 @@ def _show_manual_plan(host, title, lines, blocked):
         choice.append(value)
         window.destroy()
 
-    ttk.Button(buttons, text='修改配置', style='Compact.TButton', command=lambda: pick('configure')).pack(side='left')
-    run_button = ttk.Button(buttons, text='直接执行', style='Primary.TButton', command=lambda: pick('run'))
-    run_button.pack(side='left', padx=(6, 0))
+    SecondaryButton(buttons, text='修改配置', command=lambda: pick('configure')).pack(side='left')
+    run_button = PrimaryButton(buttons, text='直接执行', command=lambda: pick('run'))
+    run_button.pack(side='right')
     if blocked:
         run_button.configure(state='disabled')
-    ttk.Button(buttons, text='取消', style='Compact.TButton', command=lambda: pick(None)).pack(side='left', padx=(6, 0))
+    SecondaryButton(buttons, text='取消', command=lambda: pick(None)).pack(side='right', padx=(SPACING['none'], BUTTON_GAP))
     window.protocol('WM_DELETE_WINDOW', lambda: pick(None))
     window.bind('<Escape>', lambda event: pick(None))
     try:

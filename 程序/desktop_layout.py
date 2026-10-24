@@ -14,7 +14,7 @@ from desktop_page_registry import PAGE
 from responsive_ui import growable_extra
 from ui_scroll import eased_scroll
 from ui_tokens import (CONTROL_PADDING_Y, DESKTOP_LAYOUT, FONTS, NAV_PADDING_X, NAV_PADDING_Y,
-                       NAV_PADDING_Y_COMPACT, NAV_SUB_PADDING_X, SPACING)
+                       NAV_PADDING_Y_COMPACT, NAV_ROW_HEIGHT, NAV_ROW_HEIGHT_COMPACT, NAV_SUB_PADDING_X, SPACING)
 from ui_rounded import set_button_padding
 
 LOGGER=logging.getLogger(__name__)
@@ -111,11 +111,11 @@ class LayoutMixin:
         compact=viewport.winfo_height()<DESKTOP_LAYOUT['compact_below']
         style=ttk.Style(self.win)
         font=FONTS['pet_body'] if compact else FONTS['body']
-        row_height=20 if compact else 24
+        row_height=NAV_ROW_HEIGHT_COMPACT if compact else NAV_ROW_HEIGHT
         if self.sidebar_size!=compact:
             self.sidebar_size=compact
             pad_y=NAV_PADDING_Y_COMPACT if compact else NAV_PADDING_Y
-            for name in ('Compact.TButton','Nav.TButton','Selected.Nav.TButton'):
+            for name in ('Compact.TButton','Selected.Compact.TButton','Nav.TButton','Selected.Nav.TButton'):
                 set_button_padding(style,name,(NAV_PADDING_X,pad_y),font=font)
             for name in ('Sub.Nav.TButton','Selected.Sub.Nav.TButton'):
                 set_button_padding(style,name,(NAV_SUB_PADDING_X,pad_y),font=font)
