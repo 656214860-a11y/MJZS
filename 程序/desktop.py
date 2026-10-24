@@ -323,18 +323,20 @@ class Desktop(AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixi
         # 不放 ttk.Sizegrip：它由 Tk 逐像素实时改窗口大小、内容跟着重排，和另三个角（系统边框缩放）表现不一致；右下角也走系统边框。
 
     def _build_sidebar(self,win):
-        """左侧阶段导航放进可滚动容器；窗口再矮也能滚到最后一项（滚轮／翻页键，不显示滚动条）。"""
+        """应用名做成固定浮层盖在滚动区顶；滚轮只滚下面的目录与导航，标题和齿轮不动。"""
         sidebar_area=ttk.Frame(win,width=DESKTOP_LAYOUT['sidebar_width']);sidebar_area.pack(side='left',fill='y');sidebar_area.pack_propagate(False)
         scroll=ScrollForm(sidebar_area,bg=COLORS['background_primary'],scrollbar=False)
         self.sidebar_viewport=sidebar_area;self.sidebar_scroll=scroll;self.sidebar_canvas=scroll.canvas
         scroll.canvas.configure(takefocus=True)
-        side=ttk.Frame(scroll.form,padding=DESKTOP_LAYOUT['sidebar_padding']);self.sidebar=side
-        side.pack(fill='both',expand=True)
-        # 左上角只保留应用名；设置齿轮由 pet_ui 放在相邻的根层安全位。
-        self.sidebar_head=ttk.Frame(side)
+        # 固定头是 place 浮层，不参与 pack，不改变滚动画布视口高度（避免整页布局被侧栏结构扰动）。
+        self.sidebar_head=ttk.Frame(sidebar_area,padding=(DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding'],SPACING['xs']))
         self.app_title=ttk.Label(self.sidebar_head,text=APP_NAME,font=FONTS['heading_1'])
-        self.app_title.pack(side='left',pady=(SPACING['xs'],SPACING['xs']))
-        self.sidebar_head.pack(fill='x',anchor='w')
+        self.app_title.pack(side='left')
+        self.sidebar_head.place(x=0,y=0,relwidth=1.0)
+        header_height=self.sidebar_head.winfo_reqheight()
+        # 滚动内容从浮层下沿开始，顶部留出与浮层等高的空当，标题不会盖住「我的项目」。
+        side=ttk.Frame(scroll.form,padding=(DESKTOP_LAYOUT['sidebar_padding'],header_height,DESKTOP_LAYOUT['sidebar_padding'],DESKTOP_LAYOUT['sidebar_padding']));self.sidebar=side
+        side.pack(fill='both',expand=True)
         self.project_label=ttk.Label(side,text='我的项目')
         self.project_label.pack(anchor='w',pady=(DESKTOP_LAYOUT['row_gap'],SPACING['none']))
 

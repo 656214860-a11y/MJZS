@@ -49,10 +49,10 @@ class _Event:
 
 
 class _Point:
-    """只带 x 的点击替身：猫爪按钮按 x 落在第几只爪上来选档。"""
+    """只带 y 的点击替身：猫爪按钮按 y 落在第几只爪上来选档（竖向排列）。"""
 
-    def __init__(self, x):
-        self.x = x
+    def __init__(self, y):
+        self.y = y
 
 
 class _Wheel:
@@ -195,11 +195,12 @@ class GeometryTests(PetTestCase):
                 row = self.fake.title_row
                 self.assertAlmostEqual(avatar.winfo_rooty(), row.winfo_rooty(), delta=2)
                 self.assertAlmostEqual(
-                    paws.winfo_rooty() - avatar.winfo_rooty() - avatar.winfo_height(),
-                    pet_ui.PAW_GAP_Y, delta=2)
+                    paws.winfo_rootx() - (avatar.winfo_rootx() + avatar.winfo_width()),
+                    pet_ui.PAW_COL_GAP, delta=2)
                 self.assertAlmostEqual(
-                    paws.winfo_rootx() + paws.winfo_width() / 2,
-                    avatar.winfo_rootx() + avatar.winfo_width() / 2, delta=2)
+                    paws.winfo_rooty() + paws.winfo_height() - pet_ui.PAW_ARC,
+                    avatar.winfo_rooty() + avatar.winfo_height(), delta=2,
+                    msg='猫爪列底边与头像底边对齐')
                 self.assertGreaterEqual(caption.winfo_rootx(),
                                         avatar.winfo_rootx() + avatar.winfo_width() - 2)
                 for widget in (avatar, paws, caption):
@@ -225,9 +226,9 @@ class GeometryTests(PetTestCase):
         self.pet.set_paw_level = selected.append
         for index, level in enumerate(pet_ui.PAW_LEVELS):
             box = self.pet.paws.bbox('paw-' + level)
-            x = (box[0] + box[2]) / 2
-            self.assertEqual(self.pet.paw_at(x), index)
-            self.pet.paw_click(SimpleNamespace(x=x))
+            y = (box[1] + box[3]) / 2
+            self.assertEqual(self.pet.paw_at(y), index)
+            self.pet.paw_click(SimpleNamespace(y=y))
         self.assertEqual(selected, list(pet_ui.PAW_LEVELS))
 
     def test_menu_and_cloud_follow_the_moved_and_resized_avatar(self):
@@ -2705,11 +2706,11 @@ class PetClickTests(PetTestCase):
     def test_the_paws_set_the_level_directly(self):
         """等级从菜单搬到三虎身旁的猫爪上：点哪一爪就是哪一档，一次点到位。"""
         self.assertNotIn('level', self.pet.menu_index, '菜单里不再重复一栏等级')
-        step = pet_ui.PAW_SIZE + pet_ui.PAW_GAP
-        self.pet.paw_click(_Point(step))
+        step = pet_ui.PAW_STEP
+        self.pet.paw_click(_Point(step + pet_ui.PAW_SIZE // 2))
         self.assertEqual(self.pet.agent.level, pet_agent.LEVELS[1])
         self.assertEqual(self.pet.notice, pet_ui.LEVEL_SWITCH_NOTES[pet_agent.LEVELS[1]])
-        self.pet.paw_click(_Point(0))
+        self.pet.paw_click(_Point(pet_ui.PAW_SIZE // 2))
         self.assertEqual(self.pet.agent.level, pet_agent.LEVELS[0])
         self.assertIsNone(self.pet.paw_click(_Point(10 * step)), '超出范围的点击不认领')
 
@@ -4614,7 +4615,7 @@ class PawHoverTests(PetTestCase):
         return canvas.itemcget(parts[0], 'fill')
 
     def at(self, index):
-        return _Point(index * (pet_ui.PAW_SIZE + pet_ui.PAW_GAP))
+        return _Point(index * pet_ui.PAW_STEP + pet_ui.PAW_SIZE // 2)
 
     def test_hovering_a_paw_brightens_it(self):
         self.pet.set_level('hint')              # 第 44 期：默认档已是半自动，先退到别的档再验悬停
@@ -4728,43 +4729,45 @@ class PawTests(PetTestCase):
         self.assertTrue(all(part[0] == 'oval' for part in parts))
         self.assertGreater(parts[0][3], max(part[3] for part in parts[1:]), '掌垫比脚趾大')
 
-    def test_the_paws_sit_below_the_patch(self):
-        """第 20 期用户要的：「3 个猫爪型按钮移动到三虎下方」。"""
+    def test_the_paws_sit_beside_the_patch(self):
+        """用户要求：「3 个猫爪型按钮移动到三虎图像右侧，竖向排列」。"""
         info = self.pet.paws.place_info()
         self.assertEqual(float(info['relx']), 1.0)
-        self.assertEqual(int(float(info['x'])), pet_ui.PAW_ROW_X)
-        self.assertAlmostEqual(pet_ui.PAW_ROW_X - pet_ui.PAW_WIDTH / 2,
-                               pet_ui.PATCH_X - pet_ui.SIZE / 2, delta=2,
-                               msg='猫爪排与贴片中心对齐')
-        self.assertEqual(int(float(info['y'])), pet_ui.PAW_Y)
-        self.assertGreaterEqual(pet_ui.PAW_Y, pet_ui.SIZE + pet_ui.PAW_GAP_Y, '猫爪排在三虎下方')
+        self.assertEqual(int(float(info['x'])), pet_ui.PAW_COL_X)
+        self.assertEqual(int(float(info['y'])), pet_ui.PAW_COL_Y)
+        patch = self.pet.canvas.place_info()
+        self.assertAlmostEqual(float(info['x']) - pet_ui.PAW_COL_WIDTH,
+                               float(patch['x']) + pet_ui.PAW_COL_GAP, delta=2,
+                               msg='猫爪列左沿与头像右沿只隔 PAW_COL_GAP')
         self.assertEqual(int(float(self.pet.caption.place_info()['x'])), -pet_ui.CAPTION_RIGHT)
+        self.assertGreater(int(float(self.pet.caption.place_info()['x'])),
+                           int(float(info['x'])),
+                           '等级小字仍在猫爪列右侧')
 
     def test_the_paws_and_the_patch_never_overlap(self):
-        """第 20 期用户报「三虎的头像被遮挡一半」「猫爪被遮挡」：两个画布的矩形不许相交。
-
-        改之前：猫爪排的右沿只比贴片右沿往里 8 像素，而它自己还有 PAW_WIDTH 宽——整排压在
-        猫脸上（挡住耳朵），猫脸下半张还被只有约 40 像素高的标题行裁掉。
-        """
+        """头像与猫爪列的矩形不许相交：猫爪列在头像右侧，中间隔 PAW_COL_GAP。"""
         patch = self.pet.canvas.place_info()
         paws = self.pet.paws.place_info()
-        self.assertAlmostEqual(float(paws['x']) - pet_ui.PAW_WIDTH / 2,
-                               float(patch['x']) - pet_ui.SIZE / 2, delta=2,
-                               msg='贴片与猫爪排中心对齐')
-        self.assertEqual(int(float(paws['y'])),
-                         int(float(patch['y'])) + pet_ui.SIZE + pet_ui.PAW_GAP_Y,
-                         '猫爪排从贴片底边再往下一条缝，矩形不相交')
+        self.assertAlmostEqual(float(paws['x']) - pet_ui.PAW_COL_WIDTH,
+                               float(patch['x']) + pet_ui.PAW_COL_GAP, delta=2,
+                               msg='猫爪列左沿与头像右沿只隔一条缝，矩形不相交')
+        self.assertAlmostEqual(int(float(paws['y'])) + 2 * pet_ui.PAW_STEP + pet_ui.PAW_SIZE,
+                                int(float(patch['y'])) + pet_ui.SIZE, delta=2,
+                                msg='猫爪列最下面那只爪的底边与头像底边对齐')
+        self.assertLessEqual(int(float(paws['y'])) + pet_ui.PAW_COL_HEIGHT,
+                             int(float(patch['y'])) + pet_ui.PATCH_ROOM + 2,
+                             '猫爪列整列落在标题行保留高度内')
         self.assertEqual(int(self.pet.canvas.cget('height')), pet_ui.SIZE)
-        self.assertEqual(int(self.pet.paws.cget('height')),
-                         pet_ui.PAW_SIZE + pet_ui.PAW_ARC, '弯弧也要占画布高度')
+        self.assertEqual(int(self.pet.paws.cget('height')), pet_ui.PAW_COL_HEIGHT)
+        self.assertEqual(int(self.pet.paws.cget('width')), pet_ui.PAW_COL_WIDTH)
         caption = int(float(self.pet.caption.place_info()['x']))
-        self.assertGreater(caption, int(float(patch['x'])),
-                           '等级小字落在贴片右边（第 21 期），不再占左边那一格')
-        # 标题行：按贴片＋猫爪的总高度定死，不再由两个标签撑到约 40 像素（那会把猫脸裁掉一半）
+        self.assertGreater(caption, int(float(paws['x'])),
+                           '等级小字落在猫爪列右边（第 21 期），不再占左边那一格')
+        # 标题行：按头像＋右侧猫爪命中区的高度定死，比旧的「头像＋下方猫爪」矮，内容框随之上移。
         row = self.fake.title_row
         self.assertEqual(int(row.cget('height')), pet_ui.PATCH_ROOM)
         self.assertFalse(bool(row.pack_propagate()), '标题行不再随标签收缩')
-        self.assertGreaterEqual(pet_ui.PATCH_ROOM, pet_ui.SIZE + pet_ui.PAW_SIZE, '贴片＋猫爪都要装得下')
+        self.assertGreaterEqual(pet_ui.PATCH_ROOM, pet_ui.SIZE, '头像要装得下')
 
     def test_the_selected_paw_is_filled_with_the_level_colour(self):
         self.pet.draw_paws('auto', force=True)
@@ -4790,21 +4793,22 @@ class PawTests(PetTestCase):
         self.assertEqual(pet_ui.paw_dy('不是个号'), 0)
         self.pet.draw_paws('auto', force=True)
         boxes = [self.pet.paws.bbox(item) for item in self.pet.paws.find_withtag('paw')]
-        step = pet_ui.PAW_SIZE + pet_ui.PAW_GAP
+        step = pet_ui.PAW_STEP
 
-        def lowest(index):
-            left = index * step
+        def drop(index):
+            top = index * step
             return max(box[3] for box in boxes
-                       if left <= (box[0] + box[2]) / 2.0 < left + pet_ui.PAW_SIZE)
+                       if top <= (box[1] + box[3]) / 2.0 < top + pet_ui.PAW_SIZE) - (top + pet_ui.PAW_SIZE)
 
-        self.assertGreater(lowest(1), lowest(0), '中间那只落得比左边低')
-        self.assertGreater(lowest(1), lowest(2), '中间那只落得比右边低')
+        self.assertAlmostEqual(drop(0), 0, delta=1, msg='上边那只不额外下坠')
+        self.assertAlmostEqual(drop(1), pet_ui.PAW_ARC, delta=1, msg='中间那只下坠一个弧高')
+        self.assertAlmostEqual(drop(2), 0, delta=1, msg='下边那只不额外下坠')
 
     def test_the_click_picks_the_paw_under_the_cursor(self):
-        step = pet_ui.PAW_SIZE + pet_ui.PAW_GAP
-        self.pet.paw_click(_Point(2 * step))
+        step = pet_ui.PAW_STEP
+        self.pet.paw_click(_Point(2 * step + pet_ui.PAW_SIZE // 2))
         self.assertEqual(self.pet.agent.level, pet_ui.PAW_LEVELS[2])
-        self.pet.paw_click(_Point(0))
+        self.pet.paw_click(_Point(pet_ui.PAW_SIZE // 2))
         self.assertEqual(self.pet.agent.level, pet_ui.PAW_LEVELS[0])
         self.assertIsNone(self.pet.paw_click(_Point(9 * step)), '超出范围的点击不认领')
 

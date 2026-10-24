@@ -83,12 +83,16 @@ class ShellScrollAndStatusTests(unittest.TestCase):
         for key in ('<Prior>','<Next>','<Home>','<End>'):self.assertTrue(self.win.bind(key))
         d.sidebar_canvas.yview_moveto(0);self.pump(.1)
         top=d.sidebar_canvas.yview()[0]
+        title_y=d.app_title.winfo_rooty();gear_y=d.pet.gear.canvas.winfo_rooty()
         d.nav[0].event_generate('<MouseWheel>',delta=-120);self.pump(.15)
         self.assertGreater(d.sidebar_canvas.yview()[0],top)
+        self.assertEqual(d.app_title.winfo_rooty(),title_y,'滚动侧栏时应用名固定不动')
+        self.assertEqual(d.pet.gear.canvas.winfo_rooty(),gear_y,'滚动侧栏时齿轮固定不动')
         d.nav[0].event_generate('<MouseWheel>',delta=120);self.pump(.15)
         self.assertAlmostEqual(d.sidebar_canvas.yview()[0],top,places=3)
         self.press(d.sidebar_canvas,'End');self.pump(.1)
         self.assertAlmostEqual(d.sidebar_canvas.yview()[1],1.0,places=3)
+        self.assertEqual(d.app_title.winfo_rooty(),title_y,'滚到底时应用名仍固定')
         self.press(d.sidebar_canvas,'Home');self.pump(.1)
         self.assertAlmostEqual(d.sidebar_canvas.yview()[0],0.0,places=3)
 

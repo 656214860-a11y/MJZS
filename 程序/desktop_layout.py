@@ -125,8 +125,14 @@ class LayoutMixin:
                                (DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs'] if compact else CONTROL_PADDING_Y),font=font)
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         # 由可用像素反算最大整行数；不以 Treeview 上一次请求高度作为下一次预算。
+        # 侧栏内容顶部现在让给固定标题浮层：垂直留白取自 side 的实际 padding，不再写死 sidebar_padding×2。
         gap=DESKTOP_LAYOUT['row_gap']*2
-        fixed=DESKTOP_LAYOUT['sidebar_padding']*2+getattr(self,'_header_list_gap',SPACING['none'])
+        padding=self.sidebar.cget('padding')
+        if isinstance(padding,(tuple,list)) and len(padding)==4:
+            vertical_pad=int(padding[1])+int(padding[3])
+        else:
+            vertical_pad=int(padding)*2 if str(padding).lstrip('-').isdigit() else DESKTOP_LAYOUT['sidebar_padding']*2
+        fixed=vertical_pad+getattr(self,'_header_list_gap',SPACING['none'])
         for child in self.sidebar.winfo_children():
             fixed+=gap
             if child is not self.list:
