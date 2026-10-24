@@ -1,4 +1,4 @@
-"""「00 会员账户」页：密码登录／注册／验证码登录／找回密码、设置密码、授权状态、退出、兑换、设备解绑、注销与撤销、数据导出（L4，只放 Tk 控件与事件绑定）。
+"""「00 会员账户」页：密码登录／注册／验证码登录／找回密码、设置密码、授权状态、退出、兑换、设备解绑、注销与撤销、数据导出；低频账号功能在页面底部点开弹窗（L4，只放 Tk 控件与事件绑定）。
 
 状态机、网络与落盘都在 L3 ``account_controller.AccountController``；本 Mixin 只注入
 后台提交回调（``async_queued`` 经 ``BackgroundTaskLifecycle``）并把结果画到页面上。
@@ -17,8 +17,8 @@ import account_client
 import entitlement_service
 from account_controller import AccountController
 from desktop_page_registry import PAGE_ACCOUNT
-from ui_tokens import FONTS, SPACING, TEXT_DESC
-from ui_widgets import Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation
+from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
+from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation
 
 RENEW_DELAY_MS = 3000
 RENEW_CHECK_MS = 30 * 60 * 1000
@@ -202,15 +202,50 @@ class AccountPageMixin:
             self.account.logout();self.show(PAGE_ACCOUNT);self.status.set('已退出登录（项目和素材不受影响）');self._account_changed()
         SecondaryButton(actions,text='退出登录',command=logout).pack(side='right')
         PrimaryButton(actions,text='立即续签',command=renew).pack(side='right',padx=(SPACING['none'],SPACING['sm']))
-        self._account_password_card(session)
         self._account_redeem_form()
         self._account_providers_card()
-        self._account_devices_card()
-        self._account_export_card()
-        self._account_delete_card()
+        self._account_tools_card(session)
+
+    def _account_tools_card(self, session):
+        """页面底部的低频账号功能：每项一个按钮，点开弹窗操作。
+
+        以后新增的低频账号功能也优先加到这里做成弹窗，不在页面上新开卡片。
+        """
+        password_title = '修改登录密码' if session.get('has_password') else '设置登录密码'
+        tools = (('password', password_title, lambda dialog: self._account_password_form(session, dialog)),
+                 ('devices', '已绑定设备', self._account_devices_form),
+                 ('export', '导出账号数据', self._account_export_form),
+                 ('delete', '注销账号', self._account_delete_form))
+        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
+        row = ttk.Frame(card);row.pack(fill='x')
+        ttk.Label(row,text='账号管理').pack(side='left')
+        self.account_tool_buttons = {}
+        for key, title, build in reversed(tools):
+            button = SecondaryButton(row,text=title,command=lambda t=title,b=build:self._account_open_dialog(t,b))
+            button.pack(side='right',padx=(SPACING['sm'],SPACING['none']))
+            self.account_tool_buttons[key] = button
+
+    def _account_open_dialog(self, title, build):
+        """同一时间只开一个账号弹窗；``build(dialog)`` 把控件画进 ``dialog.content``。"""
+        self._account_close_dialog()
+        dialog = BaseDialog(self.win, title, minsize=(TEXT_DESC['wraplength'] + 2*DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT),
+                            on_close=lambda: setattr(self, 'account_dialog', None))
+        self.account_dialog = dialog
+        dialog.add_action('关闭', dialog.close)
+        build(dialog)
+        return dialog
+
+    def _account_close_dialog(self):
+        dialog = getattr(self, 'account_dialog', None)
+        if dialog is not None:
+            dialog.close()
 
     def _account_confirm(self, title, message):
-        return ask_confirmation(self.win, title, message, dangerous=True)
+        dialog = getattr(self, 'account_dialog', None)
+        confirmed = ask_confirmation(dialog or self.win, title, message, dangerous=True)
+        if dialog is not None and dialog.winfo_exists():
+            dialog.grab_set()   # 确认窗关闭时会释放输入锁，收回给账号弹窗
+        return confirmed
 
     def _account_export_path(self):
         return self.file_dialog.save_file(title='导出账号数据', defaultextension='.json',
@@ -255,12 +290,10 @@ class AccountPageMixin:
         if invite.startswith('https://'):
             SecondaryButton(row,text='注册／邀请链接',command=lambda u=invite:webbrowser.open(u)).pack(side='right',padx=SPACING['xs'])
 
-    def _account_devices_card(self):
-        """已绑定设备：按需联网读取（不在每次画页时请求），可解绑；解绑本机即退出登录。"""
-        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
-        head = ttk.Frame(card);head.pack(fill='x')
-        ttk.Label(head,text='已绑定设备').pack(side='left')
-        rows = ttk.Frame(card);rows.pack(fill='x')
+    def _account_devices_form(self, dialog):
+        """已绑定设备：打开弹窗时才联网读取（不在每次画页时请求），可解绑；解绑本机即退出登录。"""
+        head = ttk.Frame(dialog.content);head.pack(fill='x')
+        rows = ttk.Frame(dialog.content);rows.pack(fill='x')
         message = ttk.Label(head,text='',style='Muted.TLabel')
         def listed(result):
             if not message.winfo_exists():return
@@ -271,9 +304,10 @@ class AccountPageMixin:
             button.state(['disabled']);message.configure(text='正在读取设备列表…')
             if not self.account.devices(listed):
                 button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
-        button = SecondaryButton(head,text='查看已绑定设备',command=load);button.pack(side='right')
-        message.pack(side='right',padx=(SPACING['none'],SPACING['sm']))
+        button = SecondaryButton(head,text='刷新',command=load);button.pack(side='right')
+        message.pack(side='left')
         self.account_devices_button,self.account_devices_rows,self.account_devices_message = button,rows,message
+        load()
 
     def _account_device_rows(self, rows, message, data, reload):
         for child in rows.winfo_children():child.destroy()
@@ -296,17 +330,16 @@ class AccountPageMixin:
         def unbound(result):
             if not message.winfo_exists():return
             if not result.ok:message.configure(text=result.reason);return
-            if current:self.show(PAGE_ACCOUNT);self.status.set('已解绑本机并退出登录');self._account_changed();return
+            if current:
+                self._account_close_dialog();self.show(PAGE_ACCOUNT);self.status.set('已解绑本机并退出登录');self._account_changed();return
             self.status.set('已解绑设备');reload()
         message.configure(text='正在解绑…')
         if not self.account.unbind(device.get('id'),unbound,current=current):message.configure(text='本机没有登录会话，请重新登录')
 
-    def _account_export_card(self):
+    def _account_export_form(self, dialog):
         """导出账号数据（账号、同意记录、设备、会员与兑换记录）到用户选定的 JSON 文件。"""
-        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
-        head = ttk.Frame(card);head.pack(fill='x')
-        ttk.Label(head,text='导出账号数据（账号、设备、会员与兑换记录；不含项目和素材）').pack(side='left')
-        message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
+        ttk.Label(dialog.content,text='导出账号、设备、会员与兑换记录（不含项目和素材）。').pack(anchor='w')
+        message = ttk.Label(dialog.content,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
         def exported(result):
             if not message.winfo_exists():return
             button.state(['!disabled'])
@@ -317,19 +350,17 @@ class AccountPageMixin:
             button.state(['disabled']);message.configure(text='正在导出…')
             if not self.account.export(target,exported):
                 button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
-        button = SecondaryButton(head,text='导出账号数据',command=export);button.pack(side='right')
-        message.pack(anchor='w')
+        button = dialog.add_action('导出',export,primary=True)
+        message.pack(anchor='w',pady=SPACING['xs'])
         self.account_export_button,self.account_export_message = button,message
 
-    def _account_delete_card(self):
+    def _account_delete_form(self, dialog):
         """注销：先发注销用途验证码，凭码进入 7 天冷静期；成功后本机退出登录。"""
-        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
-        ttk.Label(card,text='注销账号：进入 7 天冷静期，期间可在登录页用登录验证码撤销；到期后删除账号数据。本机项目和素材不受影响。',
+        ttk.Label(dialog.content,text='注销后进入 7 天冷静期，期间可在登录页用登录验证码撤销；到期后删除账号数据。本机项目和素材不受影响。',
                   wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=SPACING['xs'])
-        row = ttk.Frame(card);row.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        row = ttk.Frame(dialog.content);row.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         code = LineInput(row,placeholder='6 位注销验证码')
-        message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
-        actions = ttk.Frame(row)
+        message = ttk.Label(dialog.content,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
         def sent(result):
             if not message.winfo_exists():return
             send.state(['!disabled'])
@@ -343,7 +374,8 @@ class AccountPageMixin:
             if not message.winfo_exists():return
             confirm.state(['!disabled'])
             if not result.ok:message.configure(text=result.reason);return
-            self.show(PAGE_ACCOUNT);self.status.set('已申请注销，冷静期至 %s；期间可在登录页撤销'%_when((result.data or {}).get('deletion_at')));self._account_changed()
+            self._account_close_dialog();self.show(PAGE_ACCOUNT)
+            self.status.set('已申请注销，冷静期至 %s；期间可在登录页撤销'%_when((result.data or {}).get('deletion_at')));self._account_changed()
         def submit():
             if not code.get().strip():
                 code.set_error('请填写注销验证码');return
@@ -352,19 +384,19 @@ class AccountPageMixin:
             confirm.state(['disabled']);message.configure(text='正在申请注销…')
             if not self.account.request_deletion(code.get(),requested):
                 confirm.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
-        send = SecondaryButton(actions,text='发送注销验证码',command=send_code);send.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
-        confirm = PrimaryButton(actions,text='确认注销',style='Tokens.Danger.TButton',command=submit);confirm.pack(side='left')
+        send = SecondaryButton(row,text='发送注销验证码',command=send_code);send.pack(side='right',padx=(SPACING['sm'],SPACING['none']))
+        confirm = dialog.add_action('确认注销',submit,dangerous=True)
         confirm.state(['disabled'])              # 先发注销验证码，确认按钮才可用
-        actions.pack(side='right',padx=(SPACING['sm'],SPACING['none']));code.pack(side='left',fill='x',expand=True)
-        message.pack(anchor='w')
+        code.pack(side='left',fill='x',expand=True)
+        message.pack(anchor='w',pady=SPACING['xs'])
         self.account_delete_code_input,self.account_delete_send_button = code,send
         self.account_delete_button,self.account_delete_message = confirm,message
 
-    def _account_password_card(self, session):
+    def _account_password_form(self, session, dialog):
         """设置或修改登录密码：已有密码须填原密码；成功后其他电脑的登录失效，本机保留。"""
         has_password = bool(session.get('has_password'))
-        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
-        ttk.Label(card,text='修改登录密码' if has_password else '设置登录密码（设置后可用邮箱＋密码登录）').pack(anchor='w',pady=SPACING['xs'])
+        card = dialog.content
+        if not has_password:ttk.Label(card,text='设置后可用邮箱＋密码登录。').pack(anchor='w',pady=SPACING['xs'])
         old = LineInput(card,placeholder='原密码',mask=PASSWORD_MASK) if has_password else None
         if old is not None:old.pack(fill='x',pady=SPACING['xs'])
         new = LineInput(card,placeholder='新密码（8–64 位，含字母和数字）',mask=PASSWORD_MASK);new.pack(fill='x',pady=SPACING['xs'])
@@ -376,7 +408,7 @@ class AccountPageMixin:
             if not message.winfo_exists():return
             button.state(['!disabled'])
             if not result.ok:say(result.reason,True);return
-            self.show(PAGE_ACCOUNT);self.status.set('密码已保存；其他电脑上的登录需要重新登录')
+            self._account_close_dialog();self.show(PAGE_ACCOUNT);self.status.set('密码已保存；其他电脑上的登录需要重新登录')
         def submit():
             if old is not None and not old.get():invalid(old,'请填写原密码');return
             problem = account_client.password_problem(new.get())
@@ -386,7 +418,7 @@ class AccountPageMixin:
             again.clear_error();button.state(['disabled']);say('正在保存密码…')
             if not self.account.change_password(new.get(),saved,old_password=old.get() if old is not None else None):
                 button.state(['!disabled']);say('本机没有登录会话，请重新登录',True)
-        button = PrimaryButton(card,text='保存密码',command=submit);button.pack(anchor='w',pady=SPACING['xs'])
+        button = dialog.add_action('保存密码',submit,primary=True)
         message.pack(anchor='w',pady=SPACING['xs'])
         self.account_password_old_input,self.account_password_new_input = old,new
         self.account_password_again_input,self.account_password_button,self.account_password_message = again,button,message

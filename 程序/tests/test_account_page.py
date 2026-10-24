@@ -139,6 +139,27 @@ class AccountPageTests(unittest.TestCase):
         d.go_page(PAGE_ACCOUNT);self.pump()
         return store
 
+    def open_tool(self,key):
+        """R2040：低频账号功能改为页面底部按钮＋弹窗，先点开弹窗再操作（断言未动）。"""
+        self.desktop.account_tool_buttons[key].invoke();self.pump()
+        self.addCleanup(self.desktop._account_close_dialog)
+        return self.desktop.account_dialog
+
+    def test_low_frequency_tools_are_bottom_buttons_opening_dialogs(self):
+        d=self.desktop
+        self.signed_in(_Client(devices=success({'devices':[],'max':3,'unbind_left':3})))
+        self.assertEqual([d.account_tool_buttons[k].cget('text') for k in ('password','devices','export','delete')],
+                         ['设置登录密码','已绑定设备','导出账号数据','注销账号'])
+        texts=_texts(d.content)
+        self.assertFalse(any('冷静期' in t for t in texts),'注销说明只在弹窗里')
+        self.assertNotIn('6 位注销验证码',texts)
+        for key,title in (('password','设置登录密码'),('devices','已绑定设备'),('export','导出账号数据'),('delete','注销账号')):
+            dialog=self.open_tool(key)
+            self.assertEqual(dialog.title(),title)
+            self.assertTrue(dialog.winfo_exists())
+        d._account_close_dialog();self.pump()
+        self.assertIsNone(d.account_dialog)
+
     def test_devices_list_and_unbind(self):
         d=self.desktop
         listing=lambda left:success({'devices':[{'id':'d1','name':'本机','os':'Windows 11','current':True},
@@ -146,7 +167,7 @@ class AccountPageTests(unittest.TestCase):
                                      'max':3,'unbind_left':left,'next_unbind_at':None if left else NOW+86400})
         client=_Client(devices=[listing(2),listing(1)],unbind_device=success({'ok':True,'unbind_left':1}))
         self.signed_in(client)
-        d.account_devices_button.invoke();self.pump()
+        self.open_tool('devices')
         texts=_texts(d.account_devices_rows)
         self.assertTrue(any('本机（Windows 11） · 本机' in t for t in texts))
         self.assertIn('还可解绑 2 次',d.account_devices_message.cget('text'))
@@ -180,7 +201,7 @@ class AccountPageTests(unittest.TestCase):
         client=_Client(devices=success({'devices':[{'id':'d1','name':'本机','current':True}],'max':3,'unbind_left':1}),
                        unbind_device=success({'ok':True}))
         self.signed_in(client)
-        d.account_devices_button.invoke();self.pump()
+        self.open_tool('devices')
         [w for w in _walk(d.account_devices_rows) if _safe_text(w)=='解绑'][0].invoke();self.pump()
         self.assertIn('当前状态：未登录',_texts(d.content))
         self.assertIn('已解绑本机',d.status.get())
@@ -189,7 +210,7 @@ class AccountPageTests(unittest.TestCase):
         d=self.desktop
         self.signed_in(_Client(devices=success({'devices':[{'id':'d2','name':'笔记本'}],'max':3,'unbind_left':0,
                                                 'next_unbind_at':NOW+86400})))
-        d.account_devices_button.invoke();self.pump()
+        self.open_tool('devices')
         button=[w for w in _walk(d.account_devices_rows) if _safe_text(w)=='解绑'][0]
         self.assertIn('disabled',button.state())
         self.assertIn('起可再解绑',d.account_devices_message.cget('text'))
@@ -198,6 +219,7 @@ class AccountPageTests(unittest.TestCase):
         d=self.desktop
         client=_Client(delete_code=success({'ok':True}),delete_request=success({'ok':True,'deletion_at':NOW+7*86400}))
         self.signed_in(client)
+        self.open_tool('delete')
         self.assertIn('disabled',d.account_delete_button.state())
         d.account_delete_send_button.invoke();self.pump()
         self.assertNotIn('disabled',d.account_delete_button.state())
@@ -213,6 +235,7 @@ class AccountPageTests(unittest.TestCase):
         client=_Client(delete_code=success({'ok':True}))
         self.signed_in(client)
         d._account_confirm=lambda title,message:False
+        self.open_tool('delete')
         d.account_delete_send_button.invoke();self.pump()
         d.account_delete_code_input.insert(0,'123456');d.account_delete_button.invoke();self.pump()
         self.assertEqual([c[0] for c in client.calls],['delete_code'])
@@ -225,6 +248,7 @@ class AccountPageTests(unittest.TestCase):
         target=Path(self.temp.name)/'export'/'account.json'
         d._account_export_path=lambda:''
         self.addCleanup(d.__dict__.pop,'_account_export_path',None)
+        self.open_tool('export')
         d.account_export_button.invoke();self.pump()
         self.assertFalse(target.exists())                     # 取消选择不导出
         d._account_export_path=lambda:str(target)
@@ -364,6 +388,7 @@ class AccountPageTests(unittest.TestCase):
         account_store.save_session({'email':'a@b.cn','refresh_token':'r','lease':lease,'server_time':NOW},store.path)
         d=self.desktop
         d.go_page(PAGE_ACCOUNT);self.pump()
+        self.open_tool('password')
         self.assertIsNone(d.account_password_old_input,'没设过密码不要原密码')
         d.account_password_new_input.insert(0,'abc');d.account_password_button.invoke();self.pump()
         self.assertTrue(d.account_password_new_input.error_message)
@@ -372,6 +397,9 @@ class AccountPageTests(unittest.TestCase):
         d.account_password_again_input.insert(0,'abc12345');d.account_password_button.invoke();self.pump()
         self.assertEqual(client.calls,[('change_password',(lease,'abc12345',None))])
         self.assertIn('密码已保存',d.status.get())
+        self.assertIsNone(d.account_dialog,'保存成功后弹窗关闭')
+        self.assertEqual(d.account_tool_buttons['password'].cget('text'),'修改登录密码')
+        self.open_tool('password')
         self.assertIsNotNone(d.account_password_old_input,'设过密码后改密要原密码')
         self.sign_out()
 
