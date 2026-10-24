@@ -13,7 +13,7 @@ import ui_plugin_registry
 from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height, row_toggle_target
 from tkinter import ttk
-from ui_tokens import CHAR_WIDTH, COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_PADDING, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
+from ui_tokens import BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from desktop_file_card import TreeRowCard, script_row_card
 from desktop_page_support import ContextMenu, confirm, confirm_project_removal_from_last_script, open_path
 from ui_widgets import DataTable, EllipsisLabel, HintLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, ask_string
@@ -388,15 +388,15 @@ class _WritingPage:
         self.page.stage_button=self.panel.stage_button_for(
             foot,lambda:self.panel.open_for_page(self.page,PAGE['script'],self.holder['button']))
         self.holder['button']=self.page.stage_button
-        self.page.stage_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']),pady=SPACING['none'])
+        self.page.stage_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']),pady=SPACING['none'])
         interrupt_button=SecondaryButton(foot,text='中断',width=script_action_width,command=self.page.interrupt_script_agent)
-        interrupt_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']));interrupt_button.state(['disabled']);self.page.idea_interrupt=interrupt_button
+        interrupt_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']));interrupt_button.state(['disabled']);self.page.idea_interrupt=interrupt_button
         self.page.update_script_interrupt_button()
         refresh_button=SecondaryButton(foot,text='刷新',width=script_action_width,command=lambda:self.page.safe(self.page.refresh_script_workspace))
-        refresh_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']));self.page.idea_refresh=refresh_button
+        refresh_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']));self.page.idea_refresh=refresh_button
         # 「删除」紧跟「刷新」：动作栏按子控件创建顺序排列，所以必须在这里创建，不能放到右侧那组。
         delete_button=SecondaryButton(foot,text='删除',width=script_action_width,command=lambda:self.page.safe(self.delete_selected_scripts))
-        delete_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
+        delete_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']))
         download_button=SecondaryButton(foot,text='下载文件',width=script_action_width,command=lambda:self.page.safe(self.page.download_script))
         download_button.state(['disabled']);self.page.idea_download=download_button
         SecondaryButton(foot,text='添加剧本',width=script_action_width,
@@ -405,9 +405,10 @@ class _WritingPage:
                                       command=lambda:self.page.safe(lambda:self.page.open_folder(project_stages.writing(self.page.root))))
         open_folder_button.pack(side='right',padx=(SPACING['none'],SPACING['sm']));self.page.idea_open_folder=open_folder_button
         self.page.build_script_quality_buttons(foot)
-        download_button.pack(side='right',padx=(SPACING['none'],SPACING['xs']))
+        download_button.pack(side='right',padx=(SPACING['none'],BUTTON_GAP_TIGHT))
         for action_button in foot.winfo_children():
-            action_button.configure(width=script_action_width,padding=SCRIPT_ACTION_PADDING)
+            # 不再单独压内边距：样式层的按下态内边距会覆盖控件级 padding，按下时按钮高度会回弹。
+            action_button.configure(width=script_action_width)
         self.input_hint.bind('<Button-1>',self.focus_composer_from_hint,add='+')
         enter_hint.bind('<Button-1>',self.focus_composer_from_hint,add='+')
 

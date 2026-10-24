@@ -72,6 +72,24 @@ CONTROL_HIT_MIN = CONTROL_HEIGHT
 # 19 + 2×8 + 2×1 边框 = 37px（36±2 内）。8 = space.sm，由 4px 刻度派生，不手写魔法值。
 # 按钮沿用 CONTROL_PADDING_Y 作垂直内边距，19 + 2×8 + 焦点/圆角占位 ≈ 37px。
 CONTROL_PADDING_Y = SPACING["sm"]
+# 按钮宽度与间距规则（R1970）：
+# - 按钮最小宽度（字符）。clam 的 TButton 默认隐含 -width -11，此前无处声明；显式写出后
+#   「不设 width」的短按钮 = 11 字符，同组要自适应文字宽度的按钮传 width=0。
+# - 同一行按钮之间默认 sm(8)；图标按钮／紧凑行才用 xs(4)。
+BUTTON_MIN_WIDTH = 11
+BUTTON_GAP = SPACING["sm"]
+BUTTON_GAP_TIGHT = SPACING["xs"]
+# 同类按钮的固定字符宽（页面不再各自维护常量）：阶段主操作／阶段配置、编辑栏小按钮、确认弹窗成对按钮。
+BUTTON_WIDTH_STAGE = CHAR_WIDTH["3xl"]
+BUTTON_WIDTH_EDIT = 7
+BUTTON_WIDTH_DIALOG = CHAR_WIDTH["xl"]
+# 侧栏导航按钮横向内边距与矮窗口（compact）纵向内边距；fit_sidebar 只经这些令牌改样式。
+NAV_PADDING_X = 10
+NAV_SUB_PADDING_X = 26
+NAV_PADDING_Y_COMPACT = 1
+NAV_PADDING_Y = SPACING["xs"]
+NAV_ROW_HEIGHT = 24
+NAV_ROW_HEIGHT_COMPACT = 20
 FONTS = {
     "pet_body": ("Microsoft YaHei UI", 9),
     "pet_hint": ("Microsoft YaHei UI", 8),

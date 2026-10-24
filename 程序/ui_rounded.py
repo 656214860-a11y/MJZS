@@ -115,3 +115,18 @@ def button_specs(root):
     if specs is None:
         specs = root._drama_button_specs = {}
     return specs
+
+
+def pressed_padding(padding):
+    """按下态内边距：文字下移 1px，上下合计不变。"""
+    x, y = padding
+    return [("pressed", (x, y + 1, x, max(0, y - 1)))]
+
+
+def set_button_padding(style, name, padding, font=None):
+    """改按钮样式的内边距（如侧栏紧凑模式），按下态内边距同步重算，否则按下会回弹到旧高度。"""
+    options = {"padding": padding}
+    if font is not None:
+        options["font"] = font
+    style.configure(name, **options)
+    style.map(name, padding=pressed_padding(padding))

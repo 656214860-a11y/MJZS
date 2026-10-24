@@ -9,7 +9,7 @@ from tkinter import ttk
 import stage_config
 from pet_bus import STAGE_NAMES
 from skill_panel_support import program_of
-from ui_tokens import SPACING
+from ui_tokens import BUTTON_GAP, SPACING
 from ui_widgets import BaseDialog, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
 
 
@@ -77,8 +77,8 @@ class PresetMixin:
 
         buttons = ttk.Frame(dialog)
         buttons.pack(fill='x', padx=SPACING['lg'], pady=SPACING['md'])
-        SecondaryButton(buttons, text='取消', command=dialog.destroy).pack(side='right')
-        PrimaryButton(buttons, text='共享到所选页面', command=submit).pack(side='right', padx=(SPACING['none'], SPACING['sm']))
+        PrimaryButton(buttons, text='共享到所选页面', command=submit).pack(side='right')
+        SecondaryButton(buttons, text='取消', command=dialog.destroy).pack(side='right', padx=(SPACING['none'], BUTTON_GAP))
         dialog.resizable(False, False)
         return dialog
 

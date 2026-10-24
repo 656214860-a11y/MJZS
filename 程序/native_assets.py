@@ -18,7 +18,7 @@ from agent.core import read, save, save_bytes
 from comfy_service import Comfy
 from cloud_assets import MODELS as CLOUD_MODELS
 import tk_timers
-from ui_tokens import WRAPLENGTH, SPACING
+from ui_tokens import BUTTON_GAP_TIGHT, WRAPLENGTH, SPACING
 
 
 LOGGER = logging.getLogger(__name__)
@@ -391,8 +391,8 @@ class _AssetControls:
         # 「阶段配置」右边（desktop.asset_page）。同一件事只留一个入口。
         buttons=FlowBar(self.form);buttons.pack(fill='x',padx=SPACING['md'],pady=(SPACING['xs'],SPACING['sm']))
         self.check_button=PrimaryButton(buttons,text='启动并检测',command=lambda:self.app.safe(self.check));self.check_button.pack(side='left')
-        SecondaryButton(buttons,text='预估费用',command=lambda:self.app.safe(self.preview_cost)).pack(side='left',padx=(SPACING['xs'],SPACING['none']))
-        self.cancel_button=SecondaryButton(buttons,text='取消检测',command=self.cancel,state='disabled');self.cancel_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
+        SecondaryButton(buttons,text='预估费用',command=lambda:self.app.safe(self.preview_cost)).pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']))
+        self.cancel_button=SecondaryButton(buttons,text='取消检测',command=self.cancel,state='disabled');self.cancel_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']))
         tk_timers.repeat(self.win,250,self.update_buttons)
         tk_timers.repeat(self.win,250,self.poll)
         self.update_buttons()

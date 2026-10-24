@@ -13,7 +13,9 @@ from desktop_layout_resize import PaintFreeze, ResizeCoalescer, repaint_area
 from desktop_page_registry import PAGE
 from responsive_ui import growable_extra
 from ui_scroll import eased_scroll
-from ui_tokens import CONTROL_PADDING_Y, DESKTOP_LAYOUT, FONTS, SPACING
+from ui_tokens import (CONTROL_PADDING_Y, DESKTOP_LAYOUT, FONTS, NAV_PADDING_X, NAV_PADDING_Y,
+                       NAV_PADDING_Y_COMPACT, NAV_ROW_HEIGHT, NAV_ROW_HEIGHT_COMPACT, NAV_SUB_PADDING_X, SPACING)
+from ui_rounded import set_button_padding
 
 LOGGER=logging.getLogger(__name__)
 
@@ -109,17 +111,18 @@ class LayoutMixin:
         compact=viewport.winfo_height()<DESKTOP_LAYOUT['compact_below']
         style=ttk.Style(self.win)
         font=FONTS['pet_body'] if compact else FONTS['body']
-        row_height=20 if compact else 24
+        row_height=NAV_ROW_HEIGHT_COMPACT if compact else NAV_ROW_HEIGHT
         if self.sidebar_size!=compact:
             self.sidebar_size=compact
-            for name in ('Compact.TButton','Nav.TButton','Selected.Nav.TButton'):
-                style.configure(name,font=font,padding=(10,1 if compact else 4))
+            pad_y=NAV_PADDING_Y_COMPACT if compact else NAV_PADDING_Y
+            for name in ('Compact.TButton','Selected.Compact.TButton','Nav.TButton','Selected.Nav.TButton'):
+                set_button_padding(style,name,(NAV_PADDING_X,pad_y),font=font)
             for name in ('Sub.Nav.TButton','Selected.Sub.Nav.TButton'):
-                style.configure(name,font=font,padding=(26,1 if compact else 4))
+                set_button_padding(style,name,(NAV_SUB_PADDING_X,pad_y),font=font)
             # 项目动作与全局控件同高（36px）：横向沿用侧栏紧凑内边距，纵向取控件标准内边距；
             # 只有矮窗口（compact）才收到 4px 刻度，把空间让给导航行。
-            style.configure('ProjectAction.TButton',font=font,
-                            padding=(DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs'] if compact else CONTROL_PADDING_Y))
+            set_button_padding(style,'ProjectAction.TButton',
+                               (DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs'] if compact else CONTROL_PADDING_Y),font=font)
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         # 由可用像素反算最大整行数；不以 Treeview 上一次请求高度作为下一次预算。
         gap=DESKTOP_LAYOUT['row_gap']*2

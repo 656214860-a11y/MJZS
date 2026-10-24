@@ -9,7 +9,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        COMBOBOX_FIELD_BACKGROUND, COMBOBOX_FONT,
                        COMBOBOX_FOREGROUND, COMBOBOX_PADDING,
                        COMBOBOX_WIDTH, COMBOBOX_POPDOWN_HEIGHT, COMBOBOX_MAX_WIDTH,
-                       CONTROL_HEIGHT, CONTROL_PADDING_Y, FONTS, RADIUS, SPACING,
+                       BUTTON_GAP, BUTTON_MIN_WIDTH, CONTROL_HEIGHT, CONTROL_PADDING_Y, FONTS, RADIUS, SPACING,
                        TEXT_DESC, TEXT_HINT, TEXT_PROGRESS, DIALOG_ACTION_GAP,
                        DIALOG_ACTION_HEIGHT, DIALOG_CONTENT_PADDING, DIALOG_TITLE_FONT,
                        TOOLTIP_BACKGROUND, TOOLTIP_BORDER, TOOLTIP_BORDER_WIDTH, TOOLTIP_DELAY_MS,
@@ -26,7 +26,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
 from ui_motion import bind_row_hover, empty_icon
 from ui_hover_fade import install_hover_fade
-from ui_rounded import (button_specs, rounded_layout, rounded_photo as _rounded_photo,
+from ui_rounded import (button_specs, pressed_padding, rounded_layout, set_button_padding, rounded_photo as _rounded_photo,
                         rounded_png_bytes as _rounded_png_bytes)
 
 
@@ -66,7 +66,8 @@ def _configure_button(style, name, *, background, foreground,
         "border": (border_color, border_width), "size": (tile_w, tile_h)}
     options = {"font": font or FONTS["body"], "padding": padding,
                "background": CONTROL_CORNER_SURFACE, "fill": background,
-               "foreground": foreground, "focuscolor": COLORS["focus"]}
+               "foreground": foreground, "focuscolor": COLORS["focus"],
+               "width": -BUTTON_MIN_WIDTH}
     if anchor is not None:
         options["anchor"] = anchor
     style.configure(name, **options)
@@ -77,8 +78,7 @@ def _configure_button(style, name, *, background, foreground,
                     ("disabled", disabled_background)],
               foreground=[("active", active_foreground),
                           ("disabled", disabled_foreground)],
-              padding=[("pressed", (padding[0], padding[1] + 1,
-                                    padding[0], max(0, padding[1] - 1)))])
+              padding=pressed_padding(padding))
 
 
 def _install_button_styles(style, root):
@@ -1300,12 +1300,11 @@ def _show_stage_execution(desktop, stage, *, parent, title, names, runner, faile
             app_logging.swallowed()
         window.destroy()
 
-    retry = ttk.Button(row, text='重试失败项', style='Compact.TButton',
-                       command=lambda: start(only=handle['failures']))
+    retry = SecondaryButton(row, text='重试失败项', command=lambda: start(only=handle['failures']))
     retry.pack(side='left')
     retry.configure(state='disabled')
-    ttk.Button(row, text='返回阶段页面', style='Compact.TButton', command=go_back).pack(side='left', padx=(6, 0))
-    ttk.Button(row, text='关闭', style='Compact.TButton', command=window.destroy).pack(side='left', padx=(6, 0))
+    SecondaryButton(row, text='返回阶段页面', command=go_back).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
+    SecondaryButton(row, text='关闭', command=window.destroy).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
     handle['retry'] = lambda: start(only=handle['failures'])
     handle['start'] = start
     handle['back'] = go_back
@@ -1334,12 +1333,12 @@ def _show_manual_plan(host, title, lines, blocked):
         choice.append(value)
         window.destroy()
 
-    ttk.Button(buttons, text='修改配置', style='Compact.TButton', command=lambda: pick('configure')).pack(side='left')
-    run_button = ttk.Button(buttons, text='直接执行', style='Primary.TButton', command=lambda: pick('run'))
-    run_button.pack(side='left', padx=(6, 0))
+    SecondaryButton(buttons, text='修改配置', command=lambda: pick('configure')).pack(side='left')
+    run_button = PrimaryButton(buttons, text='直接执行', command=lambda: pick('run'))
+    run_button.pack(side='right')
     if blocked:
         run_button.configure(state='disabled')
-    ttk.Button(buttons, text='取消', style='Compact.TButton', command=lambda: pick(None)).pack(side='left', padx=(6, 0))
+    SecondaryButton(buttons, text='取消', command=lambda: pick(None)).pack(side='right', padx=(SPACING['none'], BUTTON_GAP))
     window.protocol('WM_DELETE_WINDOW', lambda: pick(None))
     window.bind('<Escape>', lambda event: pick(None))
     try:
