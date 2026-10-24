@@ -386,12 +386,35 @@ class SelectBox(ttk.Combobox):
         setup_styles(master)
         values = tuple(values)
         self._fit = bool(fit)
+        # 显式给了 width：框体宽度固定（统一尺寸），不随选项重算；弹出列表仍按最长选项加宽。
+        self._fixed_width = width is not None
         if width is None:
             width = self._fit_width(values) if (self._fit or state == "readonly") else COMBOBOX_WIDTH
         # 统一的下拉框控件样式（32±2px）；页面仍只负责选项和内容宽度。
         kwargs.setdefault("style", "Tokens.Combobox.TCombobox")
+        user_post = kwargs.pop("postcommand", None)
+
+        def post():
+            if user_post:
+                user_post()
+            self._fit_popdown()
+
         super().__init__(master, values=values, height=height, width=width,
-                         state=state, **kwargs)
+                         state=state, postcommand=post, **kwargs)
+
+    def _fit_popdown(self):
+        """弹出前把列表加宽到最长选项：ttk 的列表宽度跟随框体，靠样式 postoffset 补差。"""
+        try:
+            from tkinter import font as tkfont
+            spec = self.cget("font") or ttk.Style(self).lookup(self.cget("style") or "TCombobox", "font")
+            font = tkfont.Font(root=self, font=spec or "TkDefaultFont")
+            texts = [str(v) for v in self.cget("values")] if self.cget("values") else []
+            longest = max([font.measure(text) for text in texts] or [0])
+            extra = max(0, longest + 28 - self.winfo_width())  # 28 ≈ 内边距＋滚动条
+            ttk.Style(self).configure(self.cget("style") or "TCombobox",
+                                      postoffset=(0, 0, extra, 0))
+        except tk.TclError:
+            pass
 
     @staticmethod
     def _fit_width(values, current=''):
@@ -405,12 +428,14 @@ class SelectBox(ttk.Combobox):
 
     def refit(self):
         """按当前选项与当前值重算宽度；可编辑框在用户输入长文本后调用。"""
+        if self._fixed_width:
+            return
         self.configure(width=self._fit_width(tuple(self.cget('values')), self.get()))
 
     def set_values(self, values, *, refit=True):
         values = tuple(values)
         self.configure(values=values)
-        if refit and (self._fit or "readonly" in self.state()):
+        if refit and not self._fixed_width and (self._fit or "readonly" in self.state()):
             self.configure(width=self._fit_width(values))
 
 

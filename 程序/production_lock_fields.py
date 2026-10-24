@@ -8,18 +8,32 @@ from ui_tokens import SPACING, COLORS, STAGE_PANEL_LAYOUT
 from ui_widgets import SelectBox
 
 
-class CompactLabel(ttk.Label):
-    """保留 width=10 的旧契约，实际排版只请求文字宽度。"""
+def label_pixel_width(widget, texts, style='TLabel'):
+    """一组标签里最宽的像素宽度（含防裁字余量），用来把各行的标签列对齐。"""
+    widest = 0
+    for text in texts:
+        # 用真实标签量宽：样式查到的字体和控件实际渲染字体可能不一致，量错会裁字。
+        probe = ttk.Label(widget, text=str(text), style=style)
+        widest = max(widest, probe.winfo_reqwidth())
+        probe.destroy()
+    return widest + SPACING['sm']
 
-    def __init__(self, parent=None, **kwargs):
+
+class CompactLabel(ttk.Label):
+    """保留 width=10 的旧契约，实际排版只请求文字宽度（可用 min_px 对齐标签列）。"""
+
+    def __init__(self, parent=None, min_px=0, **kwargs):
         kwargs.setdefault('width', STAGE_PANEL_LAYOUT['label_width'])
         super().__init__(parent, **kwargs)
+        self.min_px = int(min_px)
 
     def winfo_reqwidth(self):
         style = self.cget('style') or 'TLabel'
         spec = self.cget('font') or ttk.Style(self).lookup(style, 'font')
         font = tkfont.Font(root=self, font=spec or 'TkDefaultFont')
-        return max(1, font.measure(str(self.cget('text') or '')))
+        # 多留一个 xs 的余量：按字形宽度精确请求时，部分字体渲染会被右侧裁掉半个字。
+        return max(1, self.min_px,
+                   font.measure(str(self.cget('text') or '')) + SPACING['xs'])
 
 
 class FlowFields(ttk.Frame):
@@ -226,14 +240,17 @@ class FlowFields(ttk.Frame):
 class ProductionLockFields(FlowFields):
     def __init__(self, parent, *, on_change=None, definitions=PRODUCTION_LOCK_DEFINITIONS,
                  prefix=None, horizontal=False, label_width=None, leading=(),
-                 visible_keys=None):
+                 visible_keys=None, label_px=None):
         self.definitions = tuple(definitions)
         self.on_change = on_change
         self.inputs, self.hints, self.fields = {}, {}, {}
         self.leading_inputs = {}
         self.enabled = True
         self.context_values = {}
-        super().__init__(parent)
+        super().__init__(parent, gap=STAGE_PANEL_LAYOUT['item_gap'])
+        # 所有字段等宽：标签列统一宽、下拉框统一宽，换行后各行自然上下对齐成列。
+        self.label_px = label_px if label_px is not None else label_pixel_width(
+            self, [spec['label'] for spec in leading] + [item['label'] for item in self.definitions])
         if prefix:
             prefix(self)
         for spec in leading:
@@ -250,28 +267,31 @@ class ProductionLockFields(FlowFields):
         field = ttk.Frame(self)
         label = ttk.Label(field, text=spec['label'], style=spec.get('style', 'TLabel'))
         label.grid(row=0, column=0, sticky='w')
+        field.columnconfigure(0, minsize=self.label_px)
         entry = spec['factory'](field)
-        entry.grid(row=0, column=1, sticky='ew', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
-        field.columnconfigure(1, weight=1)
+        entry.grid(row=0, column=1, sticky='w', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
         key = spec['key']
         self.leading_inputs[key] = entry
         self.fields[key] = {'frame': field, 'label': label, 'entry': entry, 'hint': None}
-        self.add(field, grow=True, key=key)
+        self.add(field, key=key)
 
     def _add_lock(self, item):
         key = item['key']
         field = ttk.Frame(self)
         label = ttk.Label(field, text=item['label'])
         label.grid(row=0, column=0, sticky='w')
-        entry = SelectBox(field, values=item.get('options') or (), state='normal', fit=True)
-        entry.grid(row=0, column=1, sticky='ew', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
-        field.columnconfigure(1, weight=1)
+        field.columnconfigure(0, minsize=self.label_px)
+        entry = SelectBox(field, values=item.get('options') or (), state='normal',
+                          width=STAGE_PANEL_LAYOUT['select_width'])
+        entry.grid(row=0, column=1, sticky='w', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
+        # 提示放在下拉框正下方：不再撑宽本字段，各字段宽度保持一致。
         hint = ttk.Label(field, foreground=COLORS['warning_text'])
-        hint.grid(row=0, column=2, sticky='w', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
+        hint.grid(row=1, column=1, sticky='w', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
         hint.grid_remove()
+        hint.configure(wraplength=entry.winfo_reqwidth(), justify='left')  # 不得撑宽本字段
         self.inputs[key], self.hints[key] = entry, hint
         self.fields[key] = {'frame': field, 'label': label, 'entry': entry, 'hint': hint}
-        self.add(field, grow=True, key=key)
+        self.add(field, key=key)
         for event in ('<Return>', '<KeyRelease>', '<FocusOut>', '<<ComboboxSelected>>'):
             entry.bind(event, self.changed)
 

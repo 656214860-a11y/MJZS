@@ -75,7 +75,7 @@ import re
 
 import tkinter as tk
 from tkinter import messagebox, ttk
-from production_lock_fields import CompactLabel, FlowFields
+from production_lock_fields import CompactLabel, FlowFields, label_pixel_width
 
 import model_pool
 import model_router
@@ -259,6 +259,14 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
     def _build(self):
         # 阶段配置以连续表单阅读为主，统一使用最小设计间距和标签宽度，避免控件跳列。
         pad = SPACING['xs']
+        # 全页统一的标签列宽：预设／厂商／总控／SKILL／各制作锁标签同宽，下拉框因此上下对齐。
+        import script_contract
+        label_texts = ['预设', '厂商', '总控', 'SKILL', '编剧风格'] + [
+            item['label'] for item in script_contract.PRODUCTION_LOCK_DEFINITIONS]
+        self.label_px = max(label_pixel_width(self, label_texts, style=name)
+                            for name in ('TLabel', 'Muted.TLabel'))
+        select_width = STAGE_PANEL_LAYOUT['select_width']
+        item_gap = STAGE_PANEL_LAYOUT['item_gap']
         # 卡片之间不留额外空隙：相邻卡片的 1px 边框就是分隔线，间距取 none 档。
         section_gap = SPACING['none']
         # 底栏（确认并关闭）先占位再排其余区域：Tk 按 pack 顺序分配空间，窗口压到
@@ -276,15 +284,17 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         # 预设决定整套配置，因此置于厂商／模型之前；与下方卡片使用同一左内边距，标签对齐。
         row = WrappingActionRow(body, padding=(pad, 0))
         row.pack(fill='x', pady=(SPACING['none'], section_gap))
-        CompactLabel(row, text='预设', style='Muted.TLabel').pack(side='left')
-        self.presets = SelectBox(row, textvariable=self.preset,
+        CompactLabel(row, text='预设', style='Muted.TLabel', min_px=self.label_px).pack(side='left')
+        self.presets = SelectBox(row, textvariable=self.preset, width=select_width,
                                     values=[PRESET_PLACEHOLDER] + self.preset_names())
-        self.presets.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], STAGE_PANEL_LAYOUT['field_gap']))
+        self.presets.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], item_gap))
+        self.presets.gap_after = item_gap
         self.presets.bind('<<ComboboxSelected>>', lambda event: self.apply_preset())
         self.preset_actions = SelectBox(
-            row, textvariable=self.preset_action,
+            row, textvariable=self.preset_action, width=select_width,
             values=['选择操作', '保存为预设', '删除预设', '重命名预设', '复制本预设到其他页面'])
-        self.preset_actions.pack(side='left', padx=(SPACING['none'], STAGE_PANEL_LAYOUT['field_gap']))
+        self.preset_actions.pack(side='left', padx=(SPACING['none'], item_gap))
+        self.preset_actions.gap_after = item_gap
         self.preset_actions.bind('<<ComboboxSelected>>', lambda event: self.run_preset_action())
         self.restore_defaults_button = SecondaryButton(row, text='恢复默认', width=CHAR_WIDTH['xl'],
                                                        command=self.reset_defaults)
@@ -300,14 +310,15 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         engine.pack(fill='x', pady=(SPACING['none'], section_gap))
         top = WrappingActionRow(engine)
         top.pack(fill='x')
-        CompactLabel(top, text='厂商', style='Muted.TLabel').pack(side='left')
-        self.providers = SelectBox(top, textvariable=self.provider,
+        CompactLabel(top, text='厂商', style='Muted.TLabel', min_px=self.label_px).pack(side='left')
+        self.providers = SelectBox(top, textvariable=self.provider, width=select_width,
                                       values=list(self.groups))
-        self.providers.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], STAGE_PANEL_LAYOUT['field_gap']))
+        self.providers.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], item_gap))
+        self.providers.gap_after = item_gap
         self.providers.bind('<<ComboboxSelected>>', lambda event: self.choose_provider())
         # 第 50 期第 1 条：最后一项是「+ 添加模型…」——原来那颗「手动配置模型与
         # SKILL」里的「自定义模型」入口，现在就在挑模型的那一格旁边。
-        self.models = SelectBox(top, textvariable=self.model,
+        self.models = SelectBox(top, textvariable=self.model, width=select_width,
                                    values=self.provider_labels() + [ADD_MODEL_LABEL])
         self.models.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
@@ -340,7 +351,8 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
             return None
         row = WrappingActionRow(parent or self)
         row.pack(fill='x', pady=(SPACING['none'], pad))
-        ttk.Label(row, text='编剧风格', style='Muted.TLabel').pack(side='left')
+        CompactLabel(row, text='编剧风格', style='Muted.TLabel',
+                     min_px=getattr(self, 'label_px', 0)).pack(side='left')
         self.writer_style_button = SecondaryButton(row, text='编辑编剧风格', width=CHAR_WIDTH['2xl'],
                                                    command=self.open_writer_style_editor)
         self.writer_style_button.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
@@ -440,11 +452,13 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
             return None
         self.skill_action_row = FlowFields(parent, fill_last=False)
         self.skill_action_row.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
-        self.flow_skill_label = CompactLabel(self.skill_action_row, text='SKILL', style='Muted.TLabel')
+        self.flow_skill_label = CompactLabel(self.skill_action_row, text='SKILL', style='Muted.TLabel',
+                                             min_px=getattr(self, 'label_px', 0))
         self.skill_action_row.add(self.flow_skill_label)
         self.skill_action = tk.StringVar(value='请选择')
         self.skill_action_box = SelectBox(
             self.skill_action_row, textvariable=self.skill_action,
+            width=STAGE_PANEL_LAYOUT['select_width'],
             values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE))
         self.skill_action_row.add(self.skill_action_box)
         self.skill_action_box.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())

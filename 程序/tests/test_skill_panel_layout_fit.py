@@ -34,21 +34,15 @@ class LockFitTests(unittest.TestCase):
         view = ProductionLockFields(self.win)
         view.pack(fill='x')
         self.win.update_idletasks()
-        # 每个可编辑锁（state='normal'）宽度 = 选项最长项显示宽度（CJK 按 2 计），封顶。
+        # 契约变更（统一下拉框尺寸）：所有锁下拉框同一固定宽度，选项长度由弹出列表自适应。
+        from ui_tokens import STAGE_PANEL_LAYOUT
         for key, entry in view.inputs.items():
-            self.assertLessEqual(int(entry.cget('width')), COMBOBOX_MAX_WIDTH, key)
-            self.assertEqual(int(entry.cget('width')),
-                             SelectBox._fit_width(tuple(entry.cget('values')), entry.get()), key)
-        # 交付形态最长项「只要 markdown 文档」显示宽 18，超出旧固定宽 12 也能完整自适应。
-        delivery = view.inputs['delivery_format']
-        self.assertEqual(int(delivery.cget('width')),
-                         SelectBox._fit_width(tuple(delivery.cget('values'))))
-        # set_values 注入超过选项的最长当前值后，宽度按当前值重算。
+            self.assertEqual(int(entry.cget('width')), STAGE_PANEL_LAYOUT['select_width'], key)
+        # set_values 注入超长当前值后，宽度仍保持统一，不被撑开。
         view.set_values({'material_source': '自定义素材来源名称比选项都长'})
         self.win.update_idletasks()
         source = view.inputs['material_source']
-        self.assertEqual(int(source.cget('width')),
-                         SelectBox._fit_width(tuple(source.cget('values')), source.get()))
+        self.assertEqual(int(source.cget('width')), STAGE_PANEL_LAYOUT['select_width'])
 
     def _build_panel(self):
         import skill_panel

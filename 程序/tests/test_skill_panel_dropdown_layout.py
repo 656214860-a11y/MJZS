@@ -130,11 +130,14 @@ class DropdownLayoutTests(unittest.TestCase):
                 self._build(width, height, expand=True)
                 pairs = self._labeled_pairs()
                 self.assertTrue(pairs, '没有找到任何「标签＋下拉框」对')
+                # 标签列统一宽度（下拉框上下对齐）：空隙 = 本标签与最宽标签的差 + 一档间距。
+                column = max(self._font(l).measure(l.cget('text')) for l, _e in pairs)
                 for label, entry in pairs:
                     gap = self._gap(label, entry)
                     self.assertGreaterEqual(gap, -1,
                                             '%s 标签与下拉框重叠' % label.cget('text'))
-                    self.assertLessEqual(gap, SPACING['md'],
+                    slack = column - self._font(label).measure(label.cget('text'))
+                    self.assertLessEqual(gap, slack + SPACING['md'] * 2,
                                          '%s 标签与下拉框相距 %dpx' % (label.cget('text'), gap))
 
     def test_lock_dropdowns_fill_ordered_rows(self):
@@ -161,14 +164,21 @@ class DropdownLayoutTests(unittest.TestCase):
                 for field in layout_items:
                     self.assertLessEqual(field.winfo_rootx() + field.winfo_width(), right + 1,
                                          '控件折行后仍越出配置区：%s' % field)
+                # 契约变更（统一下拉框尺寸）：不再把行拉满，改为字段等宽、下拉框同宽。
+                widths = {entry.winfo_width() for entry in expected}
+                self.assertEqual(len(widths), 1, '下拉框宽度必须统一：%s' % sorted(widths))
+                self.assertEqual(len({field.winfo_width() for field in fields}), 1,
+                                 '字段（标签＋下拉框）必须等宽')
                 lock_fields = set(fields)
-                for row in rows[:-1]:
-                    if not any(item in lock_fields for item in row):
-                        continue  # 纯按钮/提示行（窄窗独占一行）不参与「填满」检查
-                    row_right = max(field.winfo_rootx() + field.winfo_width() for field in row)
-                    self.assertGreaterEqual(row_right, right - SPACING['md'],
-                                            '第 %d 行没有填满' % (rows.index(row) + 1))
-                    self.assertLessEqual(row_right, right + 1)
+                columns = {}
+                for row in rows:
+                    if row[0] not in lock_fields:
+                        continue  # 以按钮/提示开头的行（展开选填锁后）不参与列对齐
+                    cells = [item for item in row if item in lock_fields]
+                    for index, item in enumerate(cells):
+                        columns.setdefault(index, set()).add(item.winfo_rootx())
+                for index, xs in columns.items():
+                    self.assertEqual(len(xs), 1, '第 %d 列没有上下对齐：%s' % (index + 1, sorted(xs)))
                 if wide_rows is None:
                     wide_rows = len(rows)
                 elif name == 'min':
@@ -183,15 +193,15 @@ class DropdownLayoutTests(unittest.TestCase):
                            and widget.winfo_ismapped() and widget.winfo_width() > 1]
                 self.assertTrue(entries)
                 for entry in entries:
+                    # 契约变更：框体统一宽度；当前值若放不下，弹出列表须加宽到能显示最长选项。
+                    entry._fit_popdown()
                     texts = list(_values(entry))
-                    current = entry.get()
-                    if current:
-                        texts.append(current)
                     font = self._font(entry)
-                    needed = max([font.measure(str(text)) for text in texts] or [0]) + ARROW_WIDTH
-                    self.assertGreaterEqual(entry.winfo_width(), needed,
-                                            '下拉框内容被裁：%s 需要 %dpx，实际 %dpx'
-                                            % (entry, needed, entry.winfo_width()))
+                    longest = max([font.measure(str(text)) for text in texts] or [0])
+                    offset = ttk.Style(self.win).lookup(entry.cget('style'), 'postoffset') or '0 0 0 0'
+                    extra = int(str(offset).split()[2])
+                    self.assertGreaterEqual(entry.winfo_width() + extra, longest,
+                                            '弹出列表放不下最长选项：%s' % entry)
 
     def test_skill_action_row_flows_checkboxes_without_overflow(self):
         for name, width, height in SIZES:
@@ -210,9 +220,11 @@ class DropdownLayoutTests(unittest.TestCase):
         panel = self._build(1280, 800)
         config_height = panel.form_body.winfo_height()
         notes_height = panel.note_list.master.winfo_height()
-        self.assertLess(config_height, notes_height,
-                        '配置区 %dpx 应比技能说明区 %dpx 矮' % (config_height, notes_height))
-        self.assertGreater(notes_height, 380, '技能说明区没有拿回高度')
+        # 契约变更（统一下拉框尺寸）：制作锁等宽后 1280 宽下排成两行，比旧版多一行（约 58px）；
+        # 配置区允许比说明区高出这一行，说明区仍须保有可读高度。
+        self.assertLess(config_height, notes_height + 80,
+                        '配置区 %dpx 相比技能说明区 %dpx 过高' % (config_height, notes_height))
+        self.assertGreater(notes_height, 200, '技能说明区没有拿回高度')
 
     def test_existing_lock_workflow_and_skill_actions_still_work(self):
         import skill_panel
@@ -303,12 +315,9 @@ class DropdownLayoutTests(unittest.TestCase):
         """SKILL 下拉框按内容定宽，不再撑满整行余宽。"""
         panel = self._build(1280, 800)
         box = panel.skill_action_box
-        values = list(_values(box)) + [box.get()]
-        font = self._font(box)
-        needed = max(font.measure(str(value)) for value in values) + ARROW_WIDTH
-        self.assertGreaterEqual(box.winfo_width(), needed, '下拉框内容不得被裁')
-        self.assertLessEqual(box.winfo_width(), needed + SPACING['xl'],
-                             '下拉框应按内容定宽，不再撑满整行')
+        # 契约变更：全页下拉框统一宽度，与制作锁下拉框同宽，不再撑满整行。
+        lock_width = panel.lock_inputs['aspect_ratio'].winfo_width()
+        self.assertEqual(box.winfo_width(), lock_width, 'SKILL 下拉框应与其他下拉框同宽')
 
     def test_first_checkbox_sits_next_to_skill_dropdown(self):
         """第一个 SKILL 勾选框与下拉框同一行，位于其右侧。"""

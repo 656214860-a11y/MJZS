@@ -120,7 +120,8 @@ class PanelWorkflowMixin:
         self._optional_lock_keys = {'reference_mode', 'splice_mode', 'style_base', 'style_directors'}
         self._optional_locks_expanded = False
         def workflow_field(field):
-            box = SelectBox(field, textvariable=self.workflow_choice, values=names)
+            box = SelectBox(field, textvariable=self.workflow_choice, values=names,
+                            width=STAGE_PANEL_LAYOUT['select_width'])
             box.bind('<<ComboboxSelected>>', lambda event: self.choose_workflow())
             return box
 
@@ -130,7 +131,8 @@ class PanelWorkflowMixin:
             leading=({'key': 'workflow', 'label': '总控', 'style': 'Muted.TLabel',
                       'factory': workflow_field},),
             visible_keys={item['key'] for item in PRODUCTION_LOCK_DEFINITIONS
-                          if item['key'] not in self._optional_lock_keys})
+                          if item['key'] not in self._optional_lock_keys},
+            label_px=getattr(self, 'label_px', None))
         self.lock_fields.pack(fill='x')
         self.workflow_box = self.lock_fields.leading_inputs['workflow']
         self.lock_inputs = dict(self.lock_fields.inputs)
