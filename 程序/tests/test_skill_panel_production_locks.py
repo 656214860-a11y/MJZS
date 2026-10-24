@@ -91,6 +91,24 @@ class WorkflowLockEnablementTests(unittest.TestCase):
         self.assertNotIn('确认套用', notice)
         self.assertTrue(notice == '' or '旧项目兼容' in notice, notice)
 
+    def test_check_update_option_runs_manual_check_and_restores_selection(self):
+        """R2002 总控下拉框的“检查更新”是动作项：触发手动检查，下拉框回到已保存的总控。"""
+        calls = []
+        self.desktop.start_master_update_check = lambda manual=False: calls.append(manual)
+        panel = self._panel()
+        self.assertIn('检查更新', panel.workflow_box.cget('values'))
+        panel.workflow_choice.set('检查更新')
+        panel.choose_workflow()
+        self.assertEqual(calls, [True])
+        self.assertEqual(panel.workflow_choice.get(), '不使用总控')
+
+    def test_check_update_option_without_desktop_support_only_informs(self):
+        panel = self._panel()
+        panel.workflow_choice.set('检查更新')
+        panel.choose_workflow()
+        self.assertEqual(panel.workflow_choice.get(), '不使用总控')
+        self.assertIn('不支持', panel.state.cget('text'))
+
     def test_confirm_master_enables_locks_and_saves_change(self):
         """REQ-S01-57 选总控→确认套用→锁可选→改画幅写回 stage_config.workflow_lock。"""
         import stage_config

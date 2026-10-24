@@ -12,6 +12,7 @@ import zipfile
 from pathlib import Path
 from unittest import mock
 
+import desktop_master_update
 import master_skill
 import master_skill_update as update
 import workflow_settings
@@ -142,6 +143,69 @@ class MasterSkillUpdateTests(unittest.TestCase):
         def broken(url, limit):
             raise OSError('offline')
         self.assertEqual(update.check(self.program, fetch=broken)['level'], update.ERROR)
+
+
+class _Status:
+    def __init__(self):
+        self.text = ''
+
+    def set(self, text):
+        self.text = text
+
+
+class _Notifier:
+    def __init__(self):
+        self.calls = []
+
+    def info(self, message, title=''):
+        self.calls.append(('info', message))
+
+    def warning(self, message, title=''):
+        self.calls.append(('warning', message))
+
+
+class _Host(desktop_master_update.MasterUpdateMixin):
+    """不带 Tk 的桌面替身：后台线程改成同步执行。"""
+    shutting_down = False
+
+    def __init__(self):
+        self.status, self.notifier = _Status(), _Notifier()
+        self.win = None
+
+    def _account_background(self, work, done, label):
+        done(work())
+
+
+class ManualCheckTests(unittest.TestCase):
+    def run_check(self, result, manual):
+        host = _Host()
+        with mock.patch.object(update, 'check', lambda *a, **k: result):
+            host.start_master_update_check(manual=manual)
+        return host
+
+    def test_manual_check_reports_up_to_date(self):
+        host = self.run_check({'level': update.NONE}, True)
+        self.assertEqual(host.notifier.calls, [('info', '总控包已是最新版本。')])
+        self.assertEqual(host.status.text, '总控包已是最新版本。')
+
+    def test_manual_check_reports_failure(self):
+        host = self.run_check({'level': update.ERROR, 'reason': 'OSError：offline'}, True)
+        self.assertEqual(host.notifier.calls[0][0], 'warning')
+        self.assertIn('offline', host.notifier.calls[0][1])
+
+    def test_automatic_check_stays_silent_when_nothing_new(self):
+        host = self.run_check({'level': update.NONE}, False)
+        self.assertEqual((host.notifier.calls, host.status.text), ([], ''))
+
+    def test_manual_check_shows_notice_for_notice_only_checkout(self):
+        result = {'level': update.AVAILABLE, 'can_apply': False, 'blocked_reason': '开发检出', 'counts': {}}
+        host = self.run_check(result, True)
+        self.assertEqual(host.notifier.calls[0][0], 'info')
+        self.assertIn('开发检出', host.status.text)
+
+    def test_busy_flag_is_released_after_check(self):
+        host = self.run_check({'level': update.NONE}, True)
+        self.assertFalse(host._master_update_busy)
 
 
 if __name__ == '__main__':

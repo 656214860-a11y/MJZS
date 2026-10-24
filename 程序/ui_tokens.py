@@ -154,6 +154,9 @@ COMBOBOX_CONTROL_PADDING = (COMBOBOX_PADDING[0], CONTROL_PADDING_Y)
 COMBOBOX_FIELD_BACKGROUND = COLORS["background_card"]
 COMBOBOX_FOREGROUND = COLORS["text_primary"]
 COMBOBOX_ARROW_COLOR = COLORS["text_secondary"]
+# 只读下拉框当前值为空时显示的占位文字与颜色（只是显示，不写入取值）。
+COMBOBOX_PLACEHOLDER = "请选择"
+COMBOBOX_PLACEHOLDER_COLOR = COLORS["text_muted"]
 
 # 表单标签列宽（字符数）：总控／厂商／制作锁等相邻表单行的标签列共用同一基准，保证纵向对齐。
 FORM_LABEL_WIDTH = 10

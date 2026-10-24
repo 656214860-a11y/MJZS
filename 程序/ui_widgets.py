@@ -8,6 +8,7 @@ from app_metadata import APP_NAME
 from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        COMBOBOX_FIELD_BACKGROUND, COMBOBOX_FONT,
                        COMBOBOX_FOREGROUND, COMBOBOX_PADDING,
+                       COMBOBOX_PLACEHOLDER, COMBOBOX_PLACEHOLDER_COLOR,
                        COMBOBOX_WIDTH, COMBOBOX_POPDOWN_HEIGHT, COMBOBOX_MAX_WIDTH,
                        BUTTON_GAP, BUTTON_MIN_WIDTH, CONTROL_HEIGHT, CONTROL_PADDING_Y, FONTS, RADIUS, SPACING,
                        TEXT_DESC, TEXT_HINT, TEXT_PROGRESS, DIALOG_ACTION_GAP,
@@ -403,8 +404,38 @@ class SelectBox(ttk.Combobox):
             if self.accent_values:
                 self.after_idle(self._accent_popdown)
 
+        if state == "readonly" and kwargs.get("textvariable") is None:
+            kwargs["textvariable"] = tk.StringVar(master)  # 占位提示要跟随取值，自管一个变量
         super().__init__(master, values=values, height=height, width=width,
                          state=state, postcommand=post, **kwargs)
+        self._hint = None
+        if state == "readonly" and hasattr(kwargs.get("textvariable"), "trace_add"):
+            self._install_placeholder(kwargs["textvariable"])
+
+    def _install_placeholder(self, variable):
+        """取值为空时在框内显示灰色“请选择”；取值本身仍是空串，页面逻辑不受影响。"""
+        self._hint = tk.Label(self, text=COMBOBOX_PLACEHOLDER, font=COMBOBOX_FONT, bd=0,
+                              fg=COMBOBOX_PLACEHOLDER_COLOR, bg=COMBOBOX_FIELD_BACKGROUND)
+        self._hint.bind("<Button-1>", lambda event: self._post_from_hint())
+        self._hint_variable = variable
+        variable.trace_add("write", lambda *args: self._sync_placeholder())
+        self.bind("<Map>", lambda event: self._sync_placeholder(), add="+")
+        self._sync_placeholder()
+
+    def _sync_placeholder(self):
+        try:
+            if str(self._hint_variable.get()) == "":
+                self._hint.place(x=COMBOBOX_PADDING[0], rely=0.5, anchor="w")
+                self._hint.lift()
+            else:
+                self._hint.place_forget()
+        except tk.TclError:
+            pass
+
+    def _post_from_hint(self):
+        if "disabled" not in self.state():
+            self.focus_set()
+            self.tk.call("ttk::combobox::Post", self)
 
     def _accent_popdown(self):
         """列表载入后把特殊项染成主色：弹出窗的列表框在 postcommand 之后才填充，故延后一拍。"""

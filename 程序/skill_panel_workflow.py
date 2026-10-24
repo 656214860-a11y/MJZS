@@ -104,6 +104,7 @@ def dialog_working_area(widget):
             max(DIALOG_SCREEN_MARGIN_TOP + DIALOG_MIN_HEIGHT, height - DIALOG_SCREEN_MARGIN_BOTTOM))
 
 NO_MASTER = '不使用总控'
+CHECK_UPDATE = '检查更新'  # 总控下拉框里的动作项：不是预设，选中后立即检查总控包并还原下拉框
 
 
 class PanelWorkflowMixin:
@@ -114,7 +115,7 @@ class PanelWorkflowMixin:
         import workflow_settings
         from production_lock_fields import ProductionLockFields, align_label_column
         from script_contract import PRODUCTION_LOCK_DEFINITIONS
-        names = list(workflow_settings.refresh_workflow_presets()) + ['浏览本地…', NO_MASTER]
+        names = list(workflow_settings.refresh_workflow_presets()) + [CHECK_UPDATE, '浏览本地…', NO_MASTER]
         coordinator = parent or self
         self.workflow_coordinator = coordinator
         self._optional_lock_keys = {'reference_mode', 'splice_mode', 'style_base', 'style_directors'}
@@ -352,6 +353,15 @@ class PanelWorkflowMixin:
         choice = self.workflow_choice.get()
         if choice == NO_MASTER:
             stage_config.clear_workflow(self.project()); self.refresh_workflow(); return
+        if choice == CHECK_UPDATE:
+            self.refresh_workflow()  # 下拉框回到已保存的总控；检查结果由桌面主窗口告知
+            check = getattr(self.desktop, 'start_master_update_check', None)
+            if check is None:
+                self.state.configure(text='当前窗口不支持检查总控包更新。')
+            else:
+                self.state.configure(text='正在检查总控包更新…')
+                check(manual=True)
+            return
         if choice == '浏览本地…':
             # 没有确认就没有写入；下拉框立即回到已保存的总控。
             self.refresh_workflow()
