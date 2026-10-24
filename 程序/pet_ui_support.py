@@ -21,10 +21,14 @@ SANHU_MUZZLE = PET_PALETTE['muzzle']          # 桌面图标同款奶白口鼻
 SANHU_INK = PET_PALETTE['ink']             # 厚而清晰的深蓝墨描边
 SANHU_STAR = PET_PALETTE['star']            # 桌面图标右上角的青色星光
 SANHU_BLUSH = PET_PALETTE['blush']           # Q 版头像的小腮红
-# 第 19 期：自动化等级搬到三虎身旁——三个猫爪按钮排成一排，点哪一档就切到哪一档。
+# 第 19 期：自动化等级搬到三虎身旁——三个猫爪按钮，点哪一档就切到哪一档。
+# 第 60+ 期：猫爪从三虎下方挪到三虎右侧竖向排列（用户要求），原 16px 图形与命中区不变。
 PAW_SIZE = PET_LAYOUT['paw_size']                  # 单个猫爪按钮的边长
 PAW_GAP = PET_LAYOUT['paw_gap']                    # 爪印之间的间距
-PAW_WIDTH = 3 * PAW_SIZE + 2 * PAW_GAP            # 一整排猫爪的宽度
+PAW_ARC = PET_LAYOUT['paw_arc']                    # 三只爪摆成一条向下的弧——
+PAW_STEP = PAW_SIZE + PAW_GAP                      # 相邻猫爪的间距（竖向）
+PAW_COL_WIDTH = PAW_SIZE                           # 竖向猫爪列的宽度
+PAW_COL_HEIGHT = 2 * PAW_STEP + PAW_SIZE + PAW_ARC  # 竖向排开后的画布高度（含最下面那爪的弯弧余量）
 PAW_HIT_SIZE = CONTROL_HIT_MIN                     # 每只猫爪的键盘／鼠标命中区
 PAW_LEVELS = ('hint', 'semi', 'auto')             # 从左到右：正常／半自动／全自动
 SANHU_MODES = ('manual', 'auto')                  # 三虎控制面的两档：手动／全自动
@@ -58,7 +62,6 @@ class _BooleanFlag:
 PAW_IDLE = (PET_PALETTE['paw_idle_fill'], PET_PALETTE['paw_idle_line'])                 # 没选中的爪印：淡灰一只
 PAW_HOVER = (PET_PALETTE['paw_hover_fill'], PET_PALETTE['paw_hover_line'])                # 第 23 期：鼠标停在爪上时提亮一档（可点得可预期）
 PAW_GAP_Y = PET_LAYOUT['paw_gap_y']                 # 猫爪排紧贴头像下沿
-PAW_ARC = PET_LAYOUT['paw_arc']                     # 三只爪摆成一条向下的弧——
 # 切等级之后用圆形气泡说的那句话（用户第 19 期给的原话 ＋ 第 24 期第 4 条要的简单说明）。
 # 光说「已切换」不够——用户按完不知道自己刚选了什么，所以每一档都补一句「这一档到底怎么干活」。
 LEVEL_SWITCH_NOTES = {
@@ -70,16 +73,20 @@ LEVEL_SWITCH_NOTES = {
 # 自己最多占 CAPTION_ROOM 宽（三个汉字够用），离猫脸还留着一条缝——标题栏文字按 HEAD_PAD 让开。
 CAPTION_RIGHT = PET_LAYOUT['caption_right']
 CAPTION_ROOM = PET_LAYOUT['caption_width']
-PATCH_X = -(CAPTION_RIGHT + CAPTION_ROOM + PET_LAYOUT['right_gap'])
+# PATCH_X 已含右侧状态字的占位；猫爪列在头像右侧，再往左让出列宽和列与头像的间距即可。
+# 36px 命中区比 16px 猫爪列每侧宽 10px：列与头像的间距必须盖过这 10px 出头，
+# 否则命中区左沿会压到头像上，重叠处的点击被头像截走。
+PAW_COL_GAP = PAW_HIT_SIZE // 2 - PAW_COL_WIDTH // 2   # 命中区每侧比列宽 10px，列两侧间距都要 ≥10 才不会压到邻居
+PAW_COL_X = -(CAPTION_RIGHT + CAPTION_ROOM + PAW_COL_GAP)  # 猫爪列右沿（anchor='ne' 的 x）：与等级小字隔 PAW_COL_GAP
+PATCH_X = PAW_COL_X - PAW_COL_GAP - PAW_COL_WIDTH   # 头像右沿：与猫爪列隔 PAW_COL_GAP
 CAPTION_INK = PET_PALETTE['caption_ink']                           # 第 21 期：三档小字一律黑色（既有用例与用户要求都钉死这一色）
-# PATCH_X 已含右侧状态字的占位；再向左让出头像／爪排宽度和标题间距即可。
-HEAD_PAD = -PATCH_X + max(SIZE, PAW_WIDTH) + PET_LAYOUT['header_gap']
-# 第 20 期：用户报「3 个猫爪型按钮被遮挡」——原来这排爪子的右沿只比贴片右沿往里 8 像素，
-# 而它自己还有 PAW_WIDTH 宽，于是整排压在猫脸上（截图里猫的耳朵被盖住、下巴被标题行裁掉）。
-# 现在挪到贴片正下方：右沿与贴片对齐，纵向从贴片底边再往下 PAW_GAP_Y。
-PAW_ROW_X = PATCH_X + (PAW_WIDTH - SIZE) // 2       # 猫爪排与头像中心对齐
-PAW_Y = PET_LAYOUT['top'] + SIZE + PAW_GAP_Y        # 猫爪排落在贴片正下方
-PATCH_ROOM = PAW_Y + max(PAW_SIZE + PAW_ARC, PAW_HIT_SIZE)  # 贴片＋猫爪命中区的总高度
+# 标题栏文字按整簇（头像＋猫爪列＋等级小字）让开。
+HEAD_PAD = -PATCH_X + max(SIZE, PAW_COL_WIDTH) + PET_LAYOUT['header_gap']
+# 猫爪列从标题行顶往下让半个命中区与半只爪的差：第一只爪的 32px 命中区上沿正好落在标题行顶，
+# 三只爪的命中区都能整块落在标题行里，不会盖到下面的内容框。
+PAW_COL_Y = PET_LAYOUT['top'] + (PAW_HIT_SIZE - PAW_SIZE) // 2
+# 标题行保留高度：命中区从 0 排到 68，比「头像＋下方猫爪」的旧布局矮一截，内容框随之上移。
+PATCH_ROOM = PAW_COL_Y + (len(PAW_LEVELS) - 1) * PAW_STEP + PAW_SIZE // 2 + PAW_HIT_SIZE // 2
 CAPTION_Y = PET_LAYOUT['top'] + max(0, (SIZE - PET_LAYOUT['caption_height']) // 2)
 # 第 44 期：设置入口做成齿轮，摆在窗口左上角标题（V0.7）旁边。用户要的是「醒目提示」——
 # 它不藏在右键菜单里：主题蓝齿身 ＋ 深色描边，鼠标停上去再加深一档；旁边那句「设置」后来删了。

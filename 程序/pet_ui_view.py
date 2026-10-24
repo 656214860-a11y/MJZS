@@ -9,7 +9,7 @@ import pet_cloud
 from tkinter import TclError
 from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, PET_LAYOUT
 from ui_widgets import ContextMenu
-from pet_ui_support import ACTIVE_MS, BUSY_TAPS, BUSY_WINDOW, CANVAS_BG, CAPTION_RIGHT, CAPTION_ROOM, CAPTION_Y, CHAT_MUTE_SECONDS, DETAIL_MENU_LABEL, HEAD_PAD, IDLE_MS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PANEL_SECTIONS, PATCH_ROOM, PATCH_X, PAW_ARC, PAW_COLORS, PAW_GAP, PAW_HOVER, PAW_IDLE, PAW_LEVELS, PAW_HIT_SIZE, PAW_ROW_X, PAW_SIZE, PAW_WIDTH, PAW_Y, QUIT_LABEL, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, paint, paw_dy, paw_parts
+from pet_ui_support import ACTIVE_MS, BUSY_TAPS, BUSY_WINDOW, CANVAS_BG, CAPTION_RIGHT, CAPTION_ROOM, CAPTION_Y, CHAT_MUTE_SECONDS, DETAIL_MENU_LABEL, HEAD_PAD, IDLE_MS, PANEL_DIVIDER, PANEL_HEAD, PANEL_MENU_LABEL, PANEL_SECTIONS, PATCH_ROOM, PATCH_X, PAW_ARC, PAW_COL_HEIGHT, PAW_COL_WIDTH, PAW_COL_X, PAW_COL_Y, PAW_COLORS, PAW_GAP, PAW_HOVER, PAW_IDLE, PAW_LEVELS, PAW_HIT_SIZE, PAW_SIZE, PAW_STEP, QUIT_LABEL, SETTINGS_ENTRIES, SETTINGS_LABEL, SIZE, SNOOZE_SECONDS, paint, paw_dy, paw_parts
 
 
 class PetViewMixin:
@@ -369,7 +369,7 @@ class PetViewMixin:
             self.errors.append(('room', str(exc)))
         return parent
     def _build_paws(self):
-        """三虎下方那排猫爪：原 16px 图形不变，每只外加 32×32 键盘／鼠标承接区。"""
+        """三虎右侧那列猫爪：原 16px 图形不变，每只外加 32×32 键盘／鼠标承接区。"""
         import tkinter as tk
         parent = (getattr(self.desktop, 'pet_layer', None)
                   or getattr(self.desktop, 'title_row', None) or self.win)
@@ -379,18 +379,18 @@ class PetViewMixin:
             except TclError:
                 pass
         self.paw_hits = []
-        step = PAW_SIZE + PAW_GAP
         ring = BUTTON_BORDER_WIDTH * 2
         for index in range(len(PAW_LEVELS)):
-            centre = index * step + PAW_SIZE // 2
-            # 承接区右沿 = 猫爪画布右沿 - 整排宽度 + 该爪中心 + 半个承接区
-            right = PAW_ROW_X - PAW_WIDTH + centre + PAW_HIT_SIZE // 2
+            centre_y = index * PAW_STEP + PAW_SIZE // 2 + paw_dy(index)
+            # 承接区上沿 = 列顶 + 该爪中心 - 半个承接区；x 全列共用，水平与列中心对齐。
+            top = PAW_COL_Y + centre_y - PAW_HIT_SIZE // 2
+            right = PAW_COL_X - PAW_COL_WIDTH // 2 + PAW_HIT_SIZE // 2
             hit = tk.Canvas(parent, width=PAW_HIT_SIZE - ring * 2,
                             height=PAW_HIT_SIZE - ring * 2, bd=0,
                             highlightthickness=ring,
                             highlightbackground=CANVAS_BG, highlightcolor=COLORS['focus'],
                             bg=CANVAS_BG, cursor='hand2', takefocus=1)
-            hit.place(relx=1.0, rely=0.0, anchor='ne', x=right, y=PAW_Y)
+            hit.place(relx=1.0, rely=0.0, anchor='ne', x=right, y=top)
             hit.bind('<Button-1>', lambda event, i=index: self.paw_choose_event(event, i))
             hit.bind('<Enter>', lambda event, i=index: self.paw_hover_at(i))
             hit.bind('<Leave>', self.paw_leave)
@@ -399,9 +399,9 @@ class PetViewMixin:
             hit.bind('<Return>', lambda event, i=index: self.paw_choose(i))
             hit.bind('<Key-space>', lambda event, i=index: self.paw_choose(i))
             self.paw_hits.append(hit)
-        self.paws = tk.Canvas(parent, width=PAW_WIDTH, height=PAW_SIZE + PAW_ARC, bd=0,
+        self.paws = tk.Canvas(parent, width=PAW_COL_WIDTH, height=PAW_COL_HEIGHT, bd=0,
                               highlightthickness=0, bg=CANVAS_BG)
-        self.paws.place(relx=1.0, rely=0.0, anchor='ne', x=PAW_ROW_X, y=PAW_Y)
+        self.paws.place(relx=1.0, rely=0.0, anchor='ne', x=PAW_COL_X, y=PAW_COL_Y)
         self.paws.bind('<Button-1>', self.paw_click)
         self.paws.bind('<Button-3>', self.popup)
         # 第 23 期：鼠标扫过哪只爪就把哪只提亮——三档点哪一档，扫一眼就知道。
@@ -429,13 +429,13 @@ class PetViewMixin:
                     fill, edge = PAW_HOVER
                 else:
                     fill, edge = PAW_IDLE
-                for part in paw_parts(index * (PAW_SIZE + PAW_GAP), paw_dy(index)):
+                for part in paw_parts(0, index * PAW_STEP + paw_dy(index)):
                     _kind, cx, cy, radius = part
                     canvas.create_oval(cx - radius, cy - radius, cx + radius, cy + radius,
                                        fill=fill, outline=edge, width=2, tags=('paw', 'paw-' + name))
             if self._paw_focus is not None:
-                left = self._paw_focus * (PAW_SIZE + PAW_GAP)
-                canvas.create_rectangle(left, 0, left + PAW_SIZE, PAW_SIZE + PAW_ARC,
+                top = self._paw_focus * PAW_STEP + paw_dy(self._paw_focus)
+                canvas.create_rectangle(0, top, PAW_SIZE, top + PAW_SIZE + PAW_ARC,
                                         outline=COLORS['focus'],
                                         width=BUTTON_BORDER_WIDTH * 2, tags=('paw-focus',))
         except Exception as exc:
@@ -456,26 +456,25 @@ class PetViewMixin:
         return self.set_paw_level(PAW_LEVELS[index])
     def paw_choose_event(self, event=None, fallback=None):
         """鼠标点击按指针位置取最近的一只爪；坐标拿不到时才退回被点控件自己的档位。"""
-        index = self.paw_nearest_at_root(getattr(event, 'x_root', None))
+        index = self.paw_nearest_at_root(getattr(event, 'y_root', None))
         if index is None:
             index = fallback
         if index is None:
             return None
         return self.paw_choose(index)
-    def paw_nearest_at_root(self, x_root):
-        """屏幕横坐标最近的猫爪序号；承接区重叠时由这里决定谁接这一下。"""
+    def paw_nearest_at_root(self, y_root):
+        """屏幕纵坐标最近的猫爪序号；承接区重叠时由这里决定谁接这一下。"""
         canvas = self.paws
         if canvas is None:
             return None
         try:
-            x_root = float(x_root)
+            y_root = float(y_root)
         except (TypeError, ValueError):
             return None
-        left = canvas.winfo_rootx()
-        step = PAW_SIZE + PAW_GAP
+        top = canvas.winfo_rooty()
         centre = PAW_SIZE / 2
         return min(range(len(PAW_LEVELS)),
-                   key=lambda index: abs(x_root - (left + index * step + centre)))
+                   key=lambda index: abs(y_root - (top + index * PAW_STEP + centre)))
     def paw_hover_at(self, index):
         """承接区悬停：与画布上的 Motion 共用同一提亮状态。"""
         if index == self._paw_hover:
@@ -493,21 +492,20 @@ class PetViewMixin:
         self._paw_focus = None
         self.draw_paws()
         return self._paw_focus
-    def paw_at(self, x):
-        """横坐标离第几只爪最近（不在整排上返回 None）。"""
+    def paw_at(self, y):
+        """纵坐标离第几只爪最近（不在整列上返回 None）。"""
         try:
-            x = float(x)
+            y = float(y)
         except (TypeError, ValueError):
             return None
-        if not 0 <= x < PAW_WIDTH:
+        if not 0 <= y < PAW_COL_HEIGHT:
             return None
-        step = PAW_SIZE + PAW_GAP
         centre = PAW_SIZE / 2
         return min(range(len(PAW_LEVELS)),
-                   key=lambda index: abs(x - (index * step + centre)))
+                   key=lambda index: abs(y - (index * PAW_STEP + centre)))
     def paw_hover(self, event=None):
         """鼠标扫过那排爪：停在谁身上就把谁提亮，扫出去了就恢复。"""
-        index = self.paw_at(getattr(event, 'x', None))
+        index = self.paw_at(getattr(event, 'y', None))
         if index == self._paw_hover:
             return index
         self._paw_hover = index
@@ -522,7 +520,7 @@ class PetViewMixin:
         return self._paw_hover
     def paw_click(self, event=None):
         """点某个猫爪＝切到那一档（一次点到位，不用一轮一轮按）。"""
-        index = self.paw_at(getattr(event, 'x', None))
+        index = self.paw_at(getattr(event, 'y', None))
         if index is None:
             return None
         return self.set_paw_level(PAW_LEVELS[index])
