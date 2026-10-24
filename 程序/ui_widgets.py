@@ -30,6 +30,22 @@ from ui_rounded import (button_specs, rounded_layout, rounded_photo as _rounded_
                         rounded_png_bytes as _rounded_png_bytes)
 
 
+def pressed_padding(padding):
+    """按下态内边距：文字下移 1px、上下合计不变（上加下减），按钮不因按下而抖动整行。"""
+    return (padding[0], padding[1] + 1, padding[0], max(0, padding[1] - 1))
+
+
+def set_button_padding(style, name, padding):
+    """改圆角按钮的常态内边距，并把按下映射一并改成同一基准。
+
+    ttk 的 padding 映射是绝对值：样式创建时登记的按下内边距不会随之后的
+    configure(padding=...) 变化。行高由常态内边距算出、按下却按旧基准排版时，
+    文字区会被挤掉——导航行内边距收到 4 后只剩 11px，点中那一行的文字被裁。
+    """
+    style.configure(name, padding=padding)
+    style.map(name, padding=[("pressed", pressed_padding(padding))])
+
+
 def _configure_button(style, name, *, background, foreground,
                       active_background, active_foreground,
                       pressed_background=None,
@@ -77,8 +93,7 @@ def _configure_button(style, name, *, background, foreground,
                     ("disabled", disabled_background)],
               foreground=[("active", active_foreground),
                           ("disabled", disabled_foreground)],
-              padding=[("pressed", (padding[0], padding[1] + 1,
-                                    padding[0], max(0, padding[1] - 1)))])
+              padding=[("pressed", pressed_padding(padding))])
 
 
 def _install_button_styles(style, root):

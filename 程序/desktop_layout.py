@@ -14,6 +14,7 @@ from desktop_page_registry import PAGE
 from responsive_ui import growable_extra
 from ui_scroll import eased_scroll
 from ui_tokens import CONTROL_PADDING_Y, DESKTOP_LAYOUT, FONTS, SPACING
+from ui_widgets import set_button_padding
 
 LOGGER=logging.getLogger(__name__)
 
@@ -112,14 +113,17 @@ class LayoutMixin:
         row_height=20 if compact else 24
         if self.sidebar_size!=compact:
             self.sidebar_size=compact
+            # 内边距必须走 ui_widgets 的同一入口：只改常态内边距会留下旧的按下映射，
+            # 按下瞬间按旧基准排版，被点的那一行文字上下被裁（「遮挡」）。
             for name in ('Compact.TButton','Nav.TButton','Selected.Nav.TButton'):
-                style.configure(name,font=font,padding=(10,1 if compact else 4))
+                style.configure(name,font=font);set_button_padding(style,name,(10,1 if compact else 4))
             for name in ('Sub.Nav.TButton','Selected.Sub.Nav.TButton'):
-                style.configure(name,font=font,padding=(26,1 if compact else 4))
+                style.configure(name,font=font);set_button_padding(style,name,(26,1 if compact else 4))
             # 项目动作与全局控件同高（36px）：横向沿用侧栏紧凑内边距，纵向取控件标准内边距；
             # 只有矮窗口（compact）才收到 4px 刻度，把空间让给导航行。
-            style.configure('ProjectAction.TButton',font=font,
-                            padding=(DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs'] if compact else CONTROL_PADDING_Y))
+            style.configure('ProjectAction.TButton',font=font)
+            set_button_padding(style,'ProjectAction.TButton',
+                               (DESKTOP_LAYOUT['project_button_padding'][0],SPACING['xs'] if compact else CONTROL_PADDING_Y))
             style.configure('Project.Treeview',font=font,rowheight=row_height)
         # 由可用像素反算最大整行数；不以 Treeview 上一次请求高度作为下一次预算。
         gap=DESKTOP_LAYOUT['row_gap']*2
