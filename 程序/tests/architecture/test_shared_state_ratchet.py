@@ -16,7 +16,7 @@ from collections import defaultdict
 from tests.architecture._scan import parse, production_files
 
 SHARED_STATE_CAPS = {
-    'Desktop': 42,
+    'Desktop': 49,  # R2029：方法拆到 PageNavMixin/LifecycleMixin 后，原先同在 Desktop 里的写入变成跨类，计数被动增加 7，属性并未新增
     'Pet': 59,
     'Cloud': 15,
     'Panel': 5,
