@@ -774,6 +774,12 @@
    "percent": 0.0
   },
   {
+   "module": "pet_broadcast_state.py",
+   "covered": 0,
+   "total": 69,
+   "percent": 0.0
+  },
+  {
    "module": "pet_chat_coordinator.py",
    "covered": 0,
    "total": 42,
@@ -878,7 +884,7 @@
   {
    "module": "pet_ui.py",
    "covered": 0,
-   "total": 462,
+   "total": 458,
    "percent": 0.0
   },
   {
@@ -908,13 +914,13 @@
   {
    "module": "pet_ui_view.py",
    "covered": 0,
-   "total": 587,
+   "total": 585,
    "percent": 0.0
   },
   {
    "module": "pet_ui_voice.py",
    "covered": 0,
-   "total": 902,
+   "total": 897,
    "percent": 0.0
   },
   {
@@ -1903,5 +1909,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 315
+ "modules_total": 316
 }

@@ -147,16 +147,14 @@ class PetViewMixin:
         """
         span = SNOOZE_SECONDS if seconds is None else max(0.0, float(seconds))
         self.snooze_until = float(self.clock()) + span
-        self._announced = ()
-        self._last_broadcast = ''
+        self.bstate.forget_spoken()
         self._busy_taps = []              # 第 60 期第 1 条：这一轮数满了，下一轮重新攒
         self.refresh_menu_labels()
         return self.snooze_left()
     def unsnooze(self):
         """立刻恢复播报；同一批失败下一轮心跳就会重新说一次（判重指纹同上一起清）。"""
         self.snooze_until = 0.0
-        self._announced = ()
-        self._last_broadcast = ''
+        self.bstate.forget_spoken()
         self._busy_taps = []              # 第 60 期第 1 条：刚恢复就别拿旧账立刻又把自己按静
         self.refresh_menu_labels()
         return self.snooze_left()
@@ -763,10 +761,10 @@ class PetViewMixin:
         用户正看着的那一朵不该被顶掉。第 59 期第 8 条：原来这里把压住的话直接丢了（那句话其实
         连记录都没进）；现在只是再等一下，下一次心跳等云收了再补说。
         """
-        text = self._held_broadcast
+        text = self.bstate.held_broadcast
         if not text or self.cloud_visible():
             return ''
-        self._held_broadcast = ''
+        self.bstate.take_held()
         return self.broadcast(text)
     def popup(self, event=None):
         """右键贴片：同一张下拉栏（左键单击也走它）。"""

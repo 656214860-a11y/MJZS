@@ -55,6 +55,7 @@ import token_saver
 from pet_settings_contract import LEVEL_NOTES
 from ui_widgets import ContextMenu, ask_confirmation
 from ui_tokens import PET_LAYOUT
+from pet_broadcast_state import PetBroadcastAliasesMixin, PetBroadcastState
 from pet_ui_stages import PetStagesMixin
 from pet_ui_settings import PetSettingsMixin
 from pet_ui_voice import PetVoiceMixin
@@ -346,7 +347,7 @@ _CLICK_ACTIONS = {
 }
 
 
-class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin, PetPopupMixin):
+class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin, PetPopupMixin):
     """贴片宠物：画自己、说人话、把事件喂给父 Agent。界面线程独占，全部方法不抛异常。"""
 
     def __init__(self, desktop, clock=time.time, front=None):
@@ -354,8 +355,7 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin, PetPopu
         self.win = desktop.win
         self.clock = clock
         self.errors = pet_bus.ErrorLog()
-        self.notice = ''
-        self.last_status = ''
+        self.bstate = PetBroadcastState()  # 播报状态六件（notice／last_status／判重／压住／推进节流）收在这里
         self.frame = 0
         self.attempts = {}
         self.canvas = None
@@ -371,7 +371,6 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin, PetPopu
         self.report_path = None
         self.weekly_path = None
         self._autostart = None
-        self._announced = ()              # 上一批已经弹过气泡的失败：同一批只弹一次
         self.snooze_until = 0.0           # 「稍后再说」到什么时候为止（时钟可注入，用例不用真等）
         self._busy_taps = []              # 第 60 期第 1 条：用户刚才那几下动作的钟点（判「人正忙」）
         self._menu_labels = {}            # 已经写进菜单的文字，避免每 150ms 白改一遍
@@ -393,9 +392,7 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin, PetPopu
         self.chat = None                  # 第 14 期云朵框：开着时是云朵对象，收起是 None
         self._cloud = None                # 云朵框实例（只建一次，收起再开保留记录）
         self._broadcast_at = None         # 上一次播报的钟点（频率控制，注入时钟可测）
-        self._last_broadcast = ''         # 上一次播报的原文（同一句话不连着说两遍）
         self._menu_open = False           # 第 47 期第 4 条：功能下拉栏正显示着（这期间不冒云朵框）
-        self._held_broadcast = ''         # 这期间被压住的那一句话（栏收起后补说）
         self._gap_sig = None              # 上一次算出来的缺口指纹：变了就立刻播报
         self._spoken = {}                 # 第 57 期第 2 条：刚说过的那几件事（key → 钟点）
         self._gap_at = None               # 上一次算缺口的钟点（读盘很贵，按 GAP_SECONDS 节流）
@@ -440,7 +437,6 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin, PetPopu
         self._away_since = None           # 第 35 期第 1 条：离开助手界面的钟点（None＝人在界面里）
         self._away_paused = False         # 上面那次离开有没有把自动执行暂停下来（只认自己停的那一次）
         self._banner_key = None           # 关软件那张标签框当天的签名：报过一次就不再弹
-        self._advance_at = None           # 上一次把「下一步」提前叫醒的钟点（推进的节流）
         self._last_advance = ''           # 上一次推进说的话：同一句不重复念
         self._notice_step = False         # notice 是不是「清一色的操作步骤」（第 24 期第 5 条）
         self._panel_at = None             # 用户上一次自己打开进度面板的钟点（第 24 期第 10 条）
