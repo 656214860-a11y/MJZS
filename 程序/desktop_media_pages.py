@@ -2,7 +2,7 @@
 
 从 ``desktop.Desktop`` 原样迁出（R1505）：方法体未改，``self`` 语义不变，``Desktop`` 通过继承
 ``MediaPagesMixin`` 获得。测试按 ``desktop.<名字>`` 打补丁的名字（confirm／open_path 等）经
-``desktop_page_support`` 的转发函数在调用时取 ``desktop`` 的当前值，补丁照常生效。
+``Desktop`` 注入的 ``MediaPageServices`` 在调用时取 ``desktop`` 的当前值，补丁照常生效（R1983 J2）。
 """
 import pet_state
 import json
@@ -23,9 +23,22 @@ from storyboard_paths import media_root
 from tkinter import ttk
 from ui_tokens import CHAR_WIDTH, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
 from ui_widgets import Card, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
-from desktop_page_support import ASSET_ROW_LABEL, FileDialog, STAGE_ACTION_WIDTH, _prefs, comfy_executable, confirm, find_editor_shortcut, open_path, open_studio
+from dataclasses import dataclass
+from typing import Callable
+from desktop_page_support import ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs
 
 PAGE = pet_state.PAGE_OF
+
+
+@dataclass(frozen=True)
+class MediaPageServices:
+    """配音／后期／交付页用到的宿主服务；``Desktop`` 注入，页面不读全局宿主。"""
+    open_path: Callable
+    file_dialog: Callable
+    confirm: Callable
+    open_studio: Callable
+    comfy_executable: Callable
+    find_editor_shortcut: Callable
 
 
 def _configure_table_style(tree):
@@ -227,7 +240,7 @@ class MediaPagesMixin:
         self.stage_button=ui_plugin_registry.module('skill_panel').stage_button(bar,self,PAGE['continuity'])
         self.stage_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']),pady=SPACING['xs'])
         SecondaryButton(bar,text='清单目录',style='Asset.TButton',
-                   command=lambda:self.safe(lambda:open_path(self.continuity_folder()))).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
+                   command=lambda:self.safe(lambda:self.media_page_services.open_path(self.continuity_folder()))).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         head=ttk.Frame(self.content);head.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
         ttk.Label(head,text=line(),foreground=COLORS['success_text'] if passed else COLORS['warning_text']).pack(side='left')
         file=self.continuity_folder()/'continuity_ledger.json'
@@ -374,12 +387,12 @@ class MediaPagesMixin:
         if self.comfy_listening():
             self.status.set('ComfyUI 已在运行，无需重复启动。')
             return True
-        exe=comfy_executable(self.settings)
+        exe=self.media_page_services.comfy_executable(self.settings)
         if exe is None:
             if silent:
                 self.status.set('没找到 ComfyUI 桌面程序，本次不启动；请点“桌面打开 ComfyUI”选一次程序。')
                 return False
-            selected=FileDialog(self.win).open_file(title='选择 ComfyUI 桌面版程序',filetypes=[('程序','*.exe')])
+            selected=self.media_page_services.file_dialog(self.win).open_file(title='选择 ComfyUI 桌面版程序',filetypes=[('程序','*.exe')])
             if not selected:return
             exe=Path(selected)
             from stage_execution_service import publish_desktop_preferences
@@ -407,7 +420,7 @@ class MediaPagesMixin:
             self.status.set('工作集未切换：'+str(exc));return False
         if source is None:return False
         if self.studio is not None and Path(self.studio.episode_path).resolve()==Path(source).resolve():return True
-        try:studio=open_studio(self.root,episode_file=source)
+        try:studio=self.media_page_services.open_studio(self.root,episode_file=source)
         except (OSError,ValueError,KeyError,TypeError) as exc:
             self.status.set('工作集未切换：'+str(exc));return False
         self.studio=studio
@@ -456,7 +469,7 @@ class MediaPagesMixin:
         episode=episode or self.studio.episode;base=Path(base or self.studio.episode_dir).resolve()
         path=(base/shot['frame']).resolve()
         if not path.is_file():raise ValueError('首帧已不存在，请刷新列表')
-        if ask and not confirm(self.win, '删除首帧', f'删除 {shot["id"]} 的首帧图片？\n{path}\n图片进首帧回收目录，可恢复；视频和记录保留。', dangerous=True):return False
+        if ask and not self.media_page_services.confirm(self.win, '删除首帧', f'删除 {shot["id"]} 的首帧图片？\n{path}\n图片进首帧回收目录，可恢复；视频和记录保留。', dangerous=True):return False
         if not path.is_relative_to(base/'frames'):raise ValueError('仅允许删除所选JSON目录下frames中的首帧')
         if any(s['id']!=shot['id'] and (base/s['frame']).resolve()==path for s in episode['shots']):raise ValueError('其他镜头也在使用此图片，请先替换它们的首帧')
         from stage_execution_service import delete_stage_keyframe
@@ -466,7 +479,7 @@ class MediaPagesMixin:
         return True
     def restore_keyframe(self,shot,episode,base,source):
         sid=shot['id']
-        if not confirm(self.win, '恢复首帧', f'将恢复 {sid} 的最近回收首帧。'):return
+        if not self.media_page_services.confirm(self.win, '恢复首帧', f'将恢复 {sid} 的最近回收首帧。'):return
         from stage_execution_service import restore_stage_keyframe
         result=restore_stage_keyframe(base,source,episode,shot)
         if not result.ok:raise ValueError(result.reason)
@@ -739,7 +752,7 @@ class MediaPagesMixin:
         if not pending:
             self.status.set('逐句配音：'+('都已有成品，无需重复合成。' if not quote['unknown'] else '')+quote['text']);return
         tip=quote['text']
-        if not confirm(self.win, '逐句配音（付费）', tip+'\n\n继续提交？', dangerous=True):
+        if not self.media_page_services.confirm(self.win, '逐句配音（付费）', tip+'\n\n继续提交？', dangerous=True):
             self.status.set('已取消逐句配音：未提交任何句子，也没有产生费用');return
         def work():
             from stage_execution_service import run_tts_lines
@@ -798,18 +811,18 @@ class MediaPagesMixin:
         audio_button(production,'配音设置',self.open_tts_settings)
         audio_button(self.content,'导入配音 / 音乐',self.import_audio)
         audio_button(self.content,'校验并确认本阶段成果',lambda:self.confirm_stage_media('audio'))
-        dialogue_buttons.append(audio_button(self.content,'导出对白字幕 SRT',lambda:open_path(self.subtitles())))
-        dialogue_buttons.append(audio_button(self.content,'导出对白脚本 TXT',lambda:open_path(self.dialogue_script())))
+        dialogue_buttons.append(audio_button(self.content,'导出对白字幕 SRT',lambda:self.media_page_services.open_path(self.subtitles())))
+        dialogue_buttons.append(audio_button(self.content,'导出对白脚本 TXT',lambda:self.media_page_services.open_path(self.dialogue_script())))
         for button in dialogue_buttons:button.configure(state='normal' if has_dialogue else 'disabled')
-        audio_button(self.content,'打开音频目录',lambda:open_path(audio_dir))
-        audio_button(self.content,'打开字幕目录',lambda:open_path(subtitle_dir))
+        audio_button(self.content,'打开音频目录',lambda:self.media_page_services.open_path(audio_dir))
+        audio_button(self.content,'打开字幕目录',lambda:self.media_page_services.open_path(subtitle_dir))
         audio_button(self.content,'打开 ElevenLabs（浏览器）',lambda:self.safe(lambda:open_target('https://elevenlabs.io/app')))
     def import_audio(self):
         from stage_workspace_service import ensure_audio_workspace
         result=ensure_audio_workspace(self.root)
         if not result.ok:raise ValueError(result.reason)
         folder,_=result.data
-        p=FileDialog(self.win).open_file(initialdir=folder,filetypes=[('音频','*.wav *.mp3 *.m4a *.aac')])
+        p=self.media_page_services.file_dialog(self.win).open_file(initialdir=folder,filetypes=[('音频','*.wav *.mp3 *.m4a *.aac')])
         if not p:return
         from stage_execution_service import import_stage_audio
         project=self.root
@@ -886,7 +899,7 @@ class MediaPagesMixin:
         transition_button.configure(command=lambda:self.safe(switch_transition))
         music_button=edit_button('背景音乐：'+controller.music_label(),lambda:None)
         def pick_music():
-            chosen=FileDialog(self.win).open_file(title='选择背景音乐',filetypes=[('音频','*.wav *.mp3 *.m4a *.aac *.flac')])
+            chosen=self.media_page_services.file_dialog(self.win).open_file(title='选择背景音乐',filetypes=[('音频','*.wav *.mp3 *.m4a *.aac *.flac')])
             if not chosen:return
             controller.set_music(chosen)
             music_button.configure(text='背景音乐：'+controller.music_label())
@@ -901,7 +914,7 @@ class MediaPagesMixin:
                         lambda key=platform_key:self.account_blocked('delivery') or self.async_(lambda:controller.export_platform(key),
                                                             lambda path:self.status.set('平台版本已导出：'+str(path))))
         edit_button('启动剪映',self.launch_editor)
-        edit_button('打开后期目录',lambda:open_path(edit_dir))
+        edit_button('打开后期目录',lambda:self.media_page_services.open_path(edit_dir))
         edit_button('校验交接包',self.verify_handoff)
         edit_button('校验并确认本阶段成果',lambda:self.confirm_stage_media('edit'))
         f=edit_dir/'剪辑优化清单.md'
@@ -933,7 +946,7 @@ class MediaPagesMixin:
         return None
     def find_editor_shortcut(self):
         """在后台查找开始菜单中的剪映快捷方式（实现搬到 L0 platform_tools，入口不变）。"""
-        return find_editor_shortcut()
+        return self.media_page_services.find_editor_shortcut()
     def launch_editor(self):
         executable=self.find_editor()
         if executable is not None:
@@ -942,7 +955,7 @@ class MediaPagesMixin:
         def open_shortcut(shortcut):
             def finish():
                 if shortcut is not None:
-                    open_path(shortcut)
+                    self.media_page_services.open_path(shortcut)
                     return
                 raise ValueError('未自动找到剪映专业版。请先安装剪映，然后重新点击“启动剪映”。')
             self.safe(finish)
@@ -970,7 +983,7 @@ class MediaPagesMixin:
                                             subtitle, auto)
     def verify_handoff(self):
         """离线校验一个已解包的交接包：选目录、照清单核对文件，如实报缺项与被改文件。"""
-        folder=FileDialog(self.win).directory(title='选择已解包的交接包目录')
+        folder=self.media_page_services.file_dialog(self.win).directory(title='选择已解包的交接包目录')
         if not folder:return
         def work():
             from stage_execution_service import verify_handoff_bundle
@@ -1024,5 +1037,5 @@ class MediaPagesMixin:
         delivery_button('生成商用待填资料',lambda:self.safe(lambda:self.commercial_delivery_review(create=True)))
         delivery_button('核验商用交付资料',lambda:self.safe(self.commercial_delivery_review))
         delivery_button('选择采用版本…',lambda:self.safe(self.open_version_picker))
-        delivery_button('打开交付目录',lambda:open_path(delivery_dir))
+        delivery_button('打开交付目录',lambda:self.media_page_services.open_path(delivery_dir))
         delivery_button('打开自动剪辑与QC报告目录',lambda:self.open_folder(export_dir))

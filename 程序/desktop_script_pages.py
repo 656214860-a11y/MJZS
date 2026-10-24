@@ -163,7 +163,7 @@ def _install_script_edit_controls(page, controls, box):
             begin_edit()
 
     def exit_edit():
-        if controller.dirty and not page_confirm(page.win, '退出编辑', '有未保存的修改，退出将放弃这些修改。确定退出吗？'):
+        if controller.dirty and not page.script_page_services.confirm(page.win, '退出编辑', '有未保存的修改，退出将放弃这些修改。确定退出吗？'):
             return
         editing['value'] = False
         suppress['value'] = True
@@ -180,7 +180,7 @@ def _install_script_edit_controls(page, controls, box):
         if active['path'] is None:
             raise ValueError('当前没有可删除的' + title + '。')
         name = Path(active['path']).name
-        if not page_confirm(page.win, '删除' + title, '将「' + name + '」移入项目回收站，确定删除吗？', dangerous=True):
+        if not page.script_page_services.confirm(page.win, '删除' + title, '将「' + name + '」移入项目回收站，确定删除吗？', dangerous=True):
             return
         box.delete_document()
 
@@ -235,7 +235,6 @@ def _install_script_edit_controls(page, controls, box):
         except tk.TclError as exc:
             raise ValueError('没有可恢复的删除内容。') from exc
 
-    from desktop_page_support import confirm as page_confirm
     delete_button = None
     edit_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='编辑', command=lambda: page.safe(toggle_edit))
     edit_button.pack(side='left')
@@ -262,6 +261,7 @@ class ScriptPageServices:
     """剧本页的外部 UI 能力；由组合入口提供，不携带全局宿主。"""
     open_path: Callable
     context_menu: Callable
+    confirm: Callable
 
 
 class ScriptPagesMixin:

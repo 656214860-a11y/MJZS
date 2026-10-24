@@ -3,11 +3,11 @@ import app_logging
 from desktop_idea_menus import IdeaMenusMixin
 from desktop_asset_pages import AssetPagesMixin, AssetPageServices
 from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
-from desktop_media_pages import MediaPagesMixin
+from desktop_media_pages import MediaPagesMixin, MediaPageServices
 from desktop_project_pages import ProjectPagesMixin, ProjectPageServices
 from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
 from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
-from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, bind_host, THUMB_SIZE, ASSET_ROW_HEIGHT
+from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
 from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
 from desktop_auto_state import AutoStateAliasesMixin, create_auto_state
 from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
@@ -110,6 +110,25 @@ def _late(name):
     return lambda *args, **kwargs: globals()[name](*args, **kwargs)
 
 
+def _page_services(given):
+    """六页服务：调用方（测试）可按 ``<页>_page_services`` 关键字替换，其余用 ``_late`` 默认实现。"""
+    page = dict(open_path=_late('open_path'), confirm=_late('confirm'))
+    ctx, dialog = dict(context_menu=_late('ContextMenu')), dict(file_dialog=_late('FileDialog'))
+    made = dict(
+        script_page_services=ScriptPageServices(**page, **ctx),
+        writing_page_services=WritingPageServices(**page, **ctx, confirm_project_removal=_late('confirm_project_removal_from_last_script')),
+        storyboard_page_services=StoryboardPageServices(**page, **dialog),
+        project_page_services=ProjectPageServices(**page, **ctx),
+        asset_page_services=AssetPageServices(**page, **dialog),
+        media_page_services=MediaPageServices(
+            **page, **dialog, open_studio=_late('open_studio'), comfy_executable=_late('comfy_executable'),
+            find_editor_shortcut=_late('find_editor_shortcut')))
+    unknown = set(given) - set(made)
+    if unknown:
+        raise TypeError(f'Desktop() 不认识的参数：{sorted(unknown)}')
+    return {**made, **{k: v for k, v in given.items() if v is not None}}
+
+
 def _page_paint_key(index):
     return 'page.paint.' + _PAGE_PAINT_KEYS.get(index, str(index))
 
@@ -136,7 +155,6 @@ from desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
 from desktop_async_tasks import AsyncTasksMixin
 from desktop_tray import TrayMixin
 
-bind_host(sys.modules[__name__])  # 剧本准备页的 confirm／ContextMenu 等转发到本模块，保持按 desktop.<名字> 打补丁有效
 
 
 STATUS_ERROR_MARKERS=('失败','错误','异常','无法','未能','未完成','未启动','出错','中断','超时','暂缓')
@@ -153,8 +171,8 @@ def status_kind(message):
     return 'ready'
 
 class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
-    def __init__(self,win,root=ROOT,*,script_page_services=None,writing_page_services=None,storyboard_page_services=None,project_page_services=None,asset_page_services=None):
-        self._init_window_and_sidebar(script_page_services, win, root, writing_page_services, storyboard_page_services, project_page_services, asset_page_services)
+    def __init__(self,win,root=ROOT,**page_services):
+        self._init_window_and_sidebar(win, root, page_services)
         self._init_body_and_status(win)
         # Timed callbacks cannot run inside the placement code's update_idletasks.
         # An idle modal here would block the root while it is still transparent.
@@ -207,20 +225,11 @@ class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPage
         pet_ui.start(self,delay_ms=5000)
         self.setup_tray()
 
-    def _init_window_and_sidebar(self, script_page_services, win, root, writing_page_services=None, storyboard_page_services=None, project_page_services=None, asset_page_services=None):
+    def _init_window_and_sidebar(self, win, root, page_services):
         """服务、窗口外观与侧栏（项目列表、导航按钮、标题行），从 __init__ 原样切出，R1808。"""
         self._diagnostic_start=time.perf_counter()
-        self.script_page_services = script_page_services if script_page_services is not None else ScriptPageServices(
-            open_path=_late('open_path'), context_menu=_late('ContextMenu'))
-        self.writing_page_services = writing_page_services if writing_page_services is not None else WritingPageServices(
-            open_path=_late('open_path'), context_menu=_late('ContextMenu'), confirm=_late('confirm'),
-            confirm_project_removal=_late('confirm_project_removal_from_last_script'))
-        self.storyboard_page_services = storyboard_page_services if storyboard_page_services is not None else StoryboardPageServices(
-            open_path=_late('open_path'), file_dialog=_late('FileDialog'), confirm=_late('confirm'))
-        self.project_page_services = project_page_services if project_page_services is not None else ProjectPageServices(
-            open_path=_late('open_path'), context_menu=_late('ContextMenu'), confirm=_late('confirm'))
-        self.asset_page_services = asset_page_services if asset_page_services is not None else AssetPageServices(
-            open_path=_late('open_path'), file_dialog=_late('FileDialog'), confirm=_late('confirm'))
+        for name, services in _page_services(page_services).items():
+            setattr(self, name, services)
         from stage_execution_service import project_registry_gateway
         self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.task_queue=PersistentBackgroundTaskQueue(self.app/'outputs'/'desktop-task-queue.json',handlers={'storage_inspect':inspect_project_storage});self.retry_registry=RetryRegistry();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0

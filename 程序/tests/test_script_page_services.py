@@ -14,11 +14,11 @@ class ScriptPageServicesTests(unittest.TestCase):
         page = Page()
         page.root = root
         page.notifier = SimpleNamespace(info=Mock())
-        page.script_page_services = ScriptPageServices(opened.append, Mock())
+        page.script_page_services = ScriptPageServices(opened.append, Mock(), Mock())
         return page
 
     def test_reports_use_instance_services_without_desktop_or_global_host(self):
-        with tempfile.TemporaryDirectory() as td, patch('desktop_page_support._host', None):
+        with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             report = root / 'report.md'
             report.write_text('quality', encoding='utf-8')

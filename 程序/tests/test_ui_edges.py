@@ -5386,7 +5386,11 @@ class EditorStartMenuScanTests(unittest.TestCase):
             folder.mkdir(parents=True)
             ignored = folder / '剪映专业版卸载.lnk'; ignored.write_text('', encoding='utf-8')
             expected = folder / '剪映专业版.lnk'; expected.write_text('', encoding='utf-8')
-            self.assertEqual(Desktop.find_editor_shortcut(object()), expected)
+            from types import SimpleNamespace
+            import desktop
+            host = SimpleNamespace(media_page_services=desktop.MediaPageServices(
+                *(None,) * 5, find_editor_shortcut=desktop._late('find_editor_shortcut')))
+            self.assertEqual(Desktop.find_editor_shortcut(host), expected)
 
     def test_missing_editor_remains_a_controlled_error_after_worker_returns(self):
         from desktop import Desktop

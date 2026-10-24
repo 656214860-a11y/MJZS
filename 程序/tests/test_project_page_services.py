@@ -24,16 +24,14 @@ class ProjectPageServicesTests(unittest.TestCase):
             project_page_services=services, win=object(), root=None, status=Mock(),
             projects=SimpleNamespace(info={'projects': [{'name': '乙', 'path': 'p/乙'}]}),
             project_switch_blocker=lambda: '', restore_project_selection=Mock())
-        with patch('desktop_page_support._host', None):
-            self.assertFalse(ProjectPagesMixin.request_project_switch(host, 'p/乙'))
+        self.assertFalse(ProjectPagesMixin.request_project_switch(host, 'p/乙'))
         self.assertEqual(services.confirm.call_args.args[:2], (host.win, '切换项目'))
         host.restore_project_selection.assert_called_once_with()
 
     def test_open_current_project_uses_injected_open_path(self):
         services = _services()
         host = SimpleNamespace(project_page_services=services, root=Path('proj'))
-        with patch('desktop_page_support._host', None):
-            ProjectPagesMixin.open_current_project(host)
+        ProjectPagesMixin.open_current_project(host)
         services.open_path.assert_called_once_with(Path('proj'))
 
     def test_project_menu_uses_injected_context_menu(self):
@@ -42,11 +40,10 @@ class ProjectPageServicesTests(unittest.TestCase):
         tree = SimpleNamespace(identify_row=lambda y: 'p/甲')
         host = SimpleNamespace(project_page_services=services, win=object(), worker=False, list=tree,
                                projects=SimpleNamespace(info={'projects': [item]}), safe=Mock())
-        with patch('desktop_page_support._host', None):
-            try:
-                ProjectPagesMixin.project_menu(host, SimpleNamespace(y=0, x_root=0, y_root=0))
-            except Exception:
-                pass  # 菜单本身是 Mock，后续弹出细节不在本用例范围
+        try:
+            ProjectPagesMixin.project_menu(host, SimpleNamespace(y=0, x_root=0, y_root=0))
+        except Exception:
+            pass  # 菜单本身是 Mock，后续弹出细节不在本用例范围
         services.context_menu.assert_called_once_with(host.win)
 
     def test_idea_attachment_delete_asks_injected_confirm(self):
@@ -55,7 +52,7 @@ class ProjectPageServicesTests(unittest.TestCase):
         path = Path('a.md')
         host = SimpleNamespace(project_page_services=services, win=object(),
                                _idea_uploaded_paths={'i': path}, _idea_uploaded_selected={path})
-        with patch('desktop_page_support._host', None), patch('idea_attachments.display_name', return_value='a'):
+        with patch('idea_attachments.display_name', return_value='a'):
             IdeaMenusMixin.delete_uploaded_idea_attachment(host)
         self.assertEqual(services.confirm.call_args.args[:2], (host.win, '删除附件'))
 

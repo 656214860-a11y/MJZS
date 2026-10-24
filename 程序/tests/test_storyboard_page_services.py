@@ -32,16 +32,14 @@ class StoryboardPageServicesTests(unittest.TestCase):
             (base / 'a.png').write_bytes(b'x')
             page = _page(services, base=base, episode={'shots': [{'id': 'S1', 'frame': 'a.png'}]},
                          exists=lambda shot: True)
-            with patch('desktop_page_support._host', None):
-                page.view_frame_image('S1')
+            page.view_frame_image('S1')
         services.open_path.assert_called_once_with((base / 'a.png').resolve())
 
     def test_replace_uses_injected_file_dialog(self):
         services = self.services()
         services.file_dialog.return_value.open_file.return_value = ''
         page = _page(services, base=Path('p'))
-        with patch('desktop_page_support._host', None):
-            page.replace({'id': 'S1'})
+        page.replace({'id': 'S1'})
         services.file_dialog.assert_called_once_with(page.page.win)
         services.file_dialog.return_value.open_file.assert_called_once()
 
@@ -51,8 +49,7 @@ class StoryboardPageServicesTests(unittest.TestCase):
         shot = {'id': 'S1'}
         page = _page(services, rows=[('i1', shot, 0, None, None)], exists=lambda s: True,
                      work_targets=lambda: (['i1'], 'checked'), work_hint=lambda w, h: '')
-        with patch('desktop_page_support._host', None):
-            result = page.delete_checked_frames()
+        result = page.delete_checked_frames()
         self.assertEqual(result, [])
         self.assertEqual(services.confirm.call_args.args[:2], (page.page.win, '批量删除首帧'))
         self.assertTrue(services.confirm.call_args.kwargs['dangerous'])

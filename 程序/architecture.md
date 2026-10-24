@@ -424,7 +424,9 @@ R1989 / J2（storyboard 页）：来源 R1983 J2。Desktop 向 StoryboardPageMix
 
 R1992 / J2（project 页，含 idea_menus）：来源 R1983 J2。Desktop 向 ProjectPagesMixin 与 IdeaMenusMixin 共同注入不可变 `ProjectPageServices`（`desktop_project_pages.py` 内定义；`open_path`、`context_menu`、`confirm` 三项），两个 Mixin 不再导入全局宿主转发。仍走全局宿主的页面：asset、media。
 
-R1993 / J2（asset 页）：来源 R1983 J2。Desktop 向 AssetPagesMixin 注入不可变 `AssetPageServices`（`desktop_asset_pages.py` 内定义；`open_path`、`file_dialog`、`confirm` 三项）；页面里对 `Desktop` 类的自引用（`Desktop.asset_write_base`／`asset_batch_gateway`）改为 `AssetPagesMixin.<同名>`，不再经全局宿主取 `Desktop`。`desktop.py` 五个默认服务统一用模块级 `_late(名字)` 在调用时取 desktop 模块当前值。仍走全局宿主的页面：media。
+R1993 / J2（asset 页）：来源 R1983 J2。Desktop 向 AssetPagesMixin 注入不可变 `AssetPageServices`（`desktop_asset_pages.py` 内定义；`open_path`、`file_dialog`、`confirm` 三项）；页面里对 `Desktop` 类的自引用（`Desktop.asset_write_base`／`asset_batch_gateway`）改为 `AssetPagesMixin.<同名>`，不再经全局宿主取 `Desktop`。`desktop.py` 五个默认服务统一用模块级 `_late(名字)` 在调用时取 desktop 模块当前值。仍走全局宿主的页面：media（R1995 已迁完）。
+
+R1995 / J2（media 页，收尾）：来源 R1983 J2。Desktop 向 MediaPagesMixin 注入不可变 `MediaPageServices`（`desktop_media_pages.py` 内定义；`open_path`、`file_dialog`、`confirm`、`open_studio`、`comfy_executable`、`find_editor_shortcut`）；剧本页 `ScriptPageServices` 增 `confirm`，取代 `page_confirm`。`Desktop.__init__` 改收 `**page_services`，六页默认服务由模块级 `_page_services()` 统一构建（调用时按名字取 desktop 模块当前值）。`desktop_page_support` 的 `bind_host`／`_HostAttribute`／转发函数全部删除，只留页面常量与 `_prefs`；全局宿主已不存在，J2 完成。
 
 剩余跨页依赖（未声称消除）：
 - 剧本页面仍通过 self 使用项目上下文、通知器、导航、safe、工作流启动及聊天状态；本轮只迁移两个外部 UI 服务，不搬业务状态。

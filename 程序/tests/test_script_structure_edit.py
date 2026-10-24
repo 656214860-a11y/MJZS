@@ -22,9 +22,10 @@ class _FakeStatus:
 
 
 class _FakePage:
-    def __init__(self):
+    def __init__(self, confirm=None):
         self.status = _FakeStatus()
         self.win = None
+        self.script_page_services = types.SimpleNamespace(confirm=confirm)
 
     def safe(self, fn):
         return fn()
@@ -77,9 +78,6 @@ class ControllerTests(unittest.TestCase):
 class ScriptStructureEditButtonTests(unittest.TestCase):
     def _setup(self, kind='natural', confirm_answer=True, editable=True):
         self.confirm = mock.Mock(return_value=confirm_answer)
-        patcher = mock.patch('desktop_page_support.confirm', self.confirm)
-        patcher.start()
-        self.addCleanup(patcher.stop)
         win = tk.Tk()
         win.withdraw()
         self.addCleanup(lambda: win.winfo_exists() and win.destroy())
@@ -93,7 +91,7 @@ class ScriptStructureEditButtonTests(unittest.TestCase):
         target.write_text('原始内容', encoding='utf-8')
         active = {'path': str(target)}
         loaded = {'raw': '原始内容'}
-        page = _FakePage()
+        page = _FakePage(self.confirm)
         page.win = win
         from desktop_script_pages import _install_script_edit_controls, _reset_preview_text
         # 合并 R1842／重构批次：入参收进内容框对象（参数个数门禁），各值不变。

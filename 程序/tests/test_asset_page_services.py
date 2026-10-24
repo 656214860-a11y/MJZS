@@ -22,8 +22,7 @@ class AssetPageServicesTests(unittest.TestCase):
         services = _services()
         services.file_dialog.return_value.open_file.return_value = ''
         host = SimpleNamespace(asset_page_services=services, win=object(), asset_base=lambda: Path('b'))
-        with patch('desktop_page_support._host', None):
-            AssetPagesMixin.asset_import(host, 'characters')
+        AssetPagesMixin.asset_import(host, 'characters')
         services.file_dialog.assert_called_once_with(host.win)
         services.file_dialog.return_value.open_file.assert_called_once()
 
@@ -36,8 +35,7 @@ class AssetPageServicesTests(unittest.TestCase):
             (base / 'assets' / '资产清单' / 'assets.json').write_text(
                 json.dumps({'CHAR_001': {'reference_images': ['r.png']}}), encoding='utf-8')
             host = SimpleNamespace(asset_page_services=services, win=object(), asset_base=lambda: base)
-            with patch('desktop_page_support._host', None):
-                AssetPagesMixin.delete_asset_references(host, 'CHAR_001')
+            AssetPagesMixin.delete_asset_references(host, 'CHAR_001')
         self.assertEqual(services.confirm.call_args.args[:2], (host.win, '删除参考图'))
 
     def test_page_preview_uses_injected_open_path(self):
@@ -50,8 +48,7 @@ class AssetPageServicesTests(unittest.TestCase):
             page.page = host
             page.table = SimpleNamespace(selection=lambda: ('CHAR_001',))
             page.registry = {'CHAR_001': {'status': '已导入', 'image': 'a.png'}}
-            with patch('desktop_page_support._host', None):
-                page.preview()
+            page.preview()
         services.open_path.assert_called_once_with((base / 'a.png').resolve())
 
 
