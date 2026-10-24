@@ -26,6 +26,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
 from ui_motion import bind_row_hover, empty_icon
 from ui_hover_fade import install_hover_fade
+from ui_popup import make_passive_popup
 from ui_rounded import (button_specs, pressed_padding, rounded_layout, set_button_padding, rounded_photo as _rounded_photo,
                         rounded_png_bytes as _rounded_png_bytes)
 
@@ -1071,6 +1072,7 @@ class Tooltip:
                 return None
             tip = tk.Toplevel(self.widget)
             tip.overrideredirect(True)
+            make_passive_popup(tip)
             tip.configure(background=TOOLTIP_BORDER)
             self._populate(tip)
             x, y = self._position or (self.widget.winfo_rootx() + TOOLTIP_OFFSET,

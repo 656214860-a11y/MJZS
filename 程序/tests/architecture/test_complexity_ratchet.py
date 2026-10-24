@@ -60,7 +60,6 @@ PARAM_CAPS = {
     ('pet_chat_coordinator.py', '__init__'): 8,
     ('pet_llm.py', 'settle'): 8,
     ('previs_automation.py', 'start'): 8,
-    ('production_lock_fields.py', '__init__'): 8,
     ('recon_service.py', '_fetch_all'): 8,
     ('recon_service.py', '_search_all'): 8,
     ('reference_wall.py', 'show'): 8,

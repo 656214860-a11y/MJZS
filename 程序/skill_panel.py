@@ -259,10 +259,9 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
     def _build(self):
         # 阶段配置以连续表单阅读为主，统一使用最小设计间距和标签宽度，避免控件跳列。
         pad = SPACING['xs']
-        # 全页统一的标签列宽：预设／厂商／总控／SKILL／各制作锁标签同宽，下拉框因此上下对齐。
-        import script_contract
-        label_texts = ['预设', '厂商', '总控', 'SKILL', '编剧风格'] + [
-            item['label'] for item in script_contract.PRODUCTION_LOCK_DEFINITIONS]
+        # 第一列标签列宽：预设／厂商／总控／SKILL／编剧风格同宽，左侧下拉框上下对齐；
+        # 制作锁其余各列按本列最宽标签收窄，第一列被撑宽时经 align_label_column 同步。
+        label_texts = ['预设', '厂商', '总控', 'SKILL', '编剧风格']
         self.label_px = max(label_pixel_width(self, label_texts, style=name)
                             for name in ('TLabel', 'Muted.TLabel'))
         select_width = STAGE_PANEL_LAYOUT['select_width']

@@ -167,18 +167,30 @@ class DropdownLayoutTests(unittest.TestCase):
                 # 契约变更（统一下拉框尺寸）：不再把行拉满，改为字段等宽、下拉框同宽。
                 widths = {entry.winfo_width() for entry in expected}
                 self.assertEqual(len(widths), 1, '下拉框宽度必须统一：%s' % sorted(widths))
-                self.assertEqual(len({field.winfo_width() for field in fields}), 1,
-                                 '字段（标签＋下拉框）必须等宽')
+                # 契约变更（R1982）：标签列按列收窄——同列字段等宽、上下对齐，
+                # 各列标签区只取本列最宽标签，短标签列的下拉框左移，不再留大片空白。
                 lock_fields = set(fields)
-                columns = {}
+                columns, widths_by_column, labels_by_column = {}, {}, {}
                 for row in rows:
                     if row[0] not in lock_fields:
                         continue  # 以按钮/提示开头的行（展开选填锁后）不参与列对齐
                     cells = [item for item in row if item in lock_fields]
                     for index, item in enumerate(cells):
                         columns.setdefault(index, set()).add(item.winfo_rootx())
+                        widths_by_column.setdefault(index, set()).add(item.winfo_width())
+                        labels_by_column.setdefault(index, []).append(item)
                 for index, xs in columns.items():
                     self.assertEqual(len(xs), 1, '第 %d 列没有上下对齐：%s' % (index + 1, sorted(xs)))
+                    self.assertEqual(len(widths_by_column[index]), 1,
+                                     '第 %d 列字段宽度不一致' % (index + 1))
+                for index, items in labels_by_column.items():
+                    if index == 0:
+                        continue  # 第一列还要和预设／厂商等行对齐，另测
+                    widest = max(item.winfo_children()[0].winfo_reqwidth() for item in items)
+                    entry_x = min(item.winfo_children()[1].winfo_rootx() - item.winfo_rootx()
+                                  for item in items)
+                    self.assertLessEqual(entry_x, widest + STAGE_PANEL_LAYOUT['field_gap'] + 1,
+                                         '第 %d 列标签区比本列最宽标签还宽' % (index + 1))
                 if wide_rows is None:
                     wide_rows = len(rows)
                 elif name == 'min':
@@ -299,6 +311,21 @@ class DropdownLayoutTests(unittest.TestCase):
             self.assertIn('STAGE_PANEL_LAYOUT', source,
                           '%s 未引用 STAGE_PANEL_LAYOUT 令牌' % module.__name__)
 
+
+    def test_first_column_dropdowns_align_and_hug_short_labels(self):
+        """R1982：第一列（预设／总控／厂商／SKILL）下拉框左缘对齐，标签区不按「视频模型版本」留宽。"""
+        for name, width, height in SIZES:
+            with self.subTest(size=name):
+                panel = self._build(width, height)
+                boxes = [panel.presets, panel.workflow_box, panel.providers, panel.skill_action_box]
+                xs = {box.winfo_rootx() for box in boxes}
+                self.assertLessEqual(max(xs) - min(xs), 1, '第一列下拉框没有左缘对齐：%s' % sorted(xs))
+                from production_lock_fields import label_pixel_width
+                long_px = label_pixel_width(panel, ['视频模型版本'], style='Muted.TLabel')
+                short_px = label_pixel_width(panel, ['编剧风格'], style='Muted.TLabel')
+                offset = panel.presets.winfo_rootx() - panel.presets.master.winfo_rootx()
+                if panel.lock_fields.column_px.get(0, 0) <= short_px:
+                    self.assertLess(offset, long_px, '第一列标签区仍按最长标签留宽')
 
     def test_more_locks_button_sits_next_to_material_source(self):
         """更多制作锁按钮紧跟素材来源，成为制作锁流式布局里的一项。"""

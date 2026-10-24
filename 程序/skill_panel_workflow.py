@@ -112,7 +112,7 @@ class PanelWorkflowMixin:
     def build_workflow_coordinator(self, pad, parent=None):
         """受控统筹入口；阶段勾选网格仍是唯一可编辑清单。"""
         import workflow_settings
-        from production_lock_fields import ProductionLockFields
+        from production_lock_fields import ProductionLockFields, align_label_column
         from script_contract import PRODUCTION_LOCK_DEFINITIONS
         names = list(workflow_settings.refresh_workflow_presets()) + ['浏览本地…', NO_MASTER]
         coordinator = parent or self
@@ -133,6 +133,7 @@ class PanelWorkflowMixin:
             visible_keys={item['key'] for item in PRODUCTION_LOCK_DEFINITIONS
                           if item['key'] not in self._optional_lock_keys},
             label_px=getattr(self, 'label_px', None))
+        self.lock_fields.on_first_column = lambda px: align_label_column(self, px)
         self.lock_fields.pack(fill='x')
         self.workflow_box = self.lock_fields.leading_inputs['workflow']
         self.lock_inputs = dict(self.lock_fields.inputs)

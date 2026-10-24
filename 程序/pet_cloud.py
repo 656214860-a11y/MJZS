@@ -58,6 +58,7 @@ from pet_cloud_tail import TAIL_BULGE, TAIL_CURVE_MAX, TAIL_STEPS, _side_curve, 
 from ui_tokens import COLORS, FONTS, SPACING, PET_LAYOUT, PET_CLOUD_AUTO_CLOSE_MS
 from pet_cloud_timing import (ALPHA, FADE_MS, FADE_OUT_MS, FADE_OUT_STEPS, FADE_STEPS, GROW_ROOM, GROW_STEPS,
                               HOLD_MS, READ_MAX_MS, READ_MS_PER_CHAR, WATCH_RECHECK_MS, CloudTimingMixin)
+from pet_cloud_move_guard import CloudMoveGuardMixin
 from pet_cloud_hint import (HINT_MS, HINT_STEP_PX, HINT_X, REPLY_HINTS, CloudHintMixin)
 from pet_cloud_place import (ANCHOR_DROP, ANCHOR_RATIO, CHEEK_X, CHEEK_Y, DOCK_TOP, EAR_RATIO, MARGIN, MAX_BODY,
                              MAX_BODY_DOWN, MAX_GAP, MIN_BODY, PET_GAP, PET_SIZE, POSITION_RETRY_MAX,
@@ -256,7 +257,7 @@ def text_box(shape, width, height, pad=PAD, long=False):
     return _shape_text_box(width, height, pad)
 
 
-class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin):
+class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMixin):
     """三虎的对话框（方框／云朵／圆／标签）：show()/close() 管浮窗，broadcast() 播报，submit()
     说一句，drain() 贴回复。"""
 
@@ -486,6 +487,8 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin):
         多久之后自己收」。hold 为 None 时按这句话要读多久算（第 24 期：read_hold，HOLD_MS 打底）。
         shape 给 puff／round／tag 时换成那三种形状（打招呼／随口一句／标签框，第 18 期）。
         """
+        if not focus and self._defer_while_moving(pinned=pinned, hold=hold, focus=focus, shape=shape):
+            return None                    # R1976：用户正拖着窗口，自动冒出来的云等松手再出
         if self.win is None and self.build() is None:
             return None
         if shape is not None:

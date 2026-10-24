@@ -36,6 +36,24 @@ class CompactLabel(ttk.Label):
                    font.measure(str(self.cget('text') or '')) + SPACING['xs'])
 
 
+def align_label_column(root, px):
+    """把 root 下按旧标签列宽（root.label_px）对齐的 CompactLabel 改到 px，并让所在行重排。"""
+    old = int(getattr(root, 'label_px', 0) or 0)
+    if not old or old == px:
+        return
+    root.label_px = px
+    pending = list(root.winfo_children())
+    while pending:
+        widget = pending.pop()
+        pending.extend(widget.winfo_children())
+        if isinstance(widget, CompactLabel) and widget.min_px == old:
+            widget.min_px = px
+            relayout = (getattr(widget.master, 'schedule', None)
+                        or getattr(widget.master, '_schedule_wrap', None))
+            if relayout:
+                relayout()
+
+
 class FlowFields(ttk.Frame):
     """标签＋控件流：按可用宽度换行，除最后一行外把行填满。"""
 
@@ -183,15 +201,17 @@ class FlowFields(ttk.Frame):
             rows, row, used = [], [], 0
             for item in visible:
                 extra = self._gap_after(row[-1]) if row else 0
-                if row and used + extra + item['natural'] > available:
+                width = self._wrap_width(item)
+                if row and used + extra + width > available:
                     rows.append(row)
                     row, used, extra = [], 0, 0
                 row.append(item)
-                used += extra + item['natural']
+                used += extra + width
             if row:
                 rows.append(row)
             self._rows = rows
             self._layout_width = available
+        self._fit_columns(rows)
         y = 0
         for index, row in enumerate(rows):
             self._place_row(row, y, available, index == len(rows) - 1)
@@ -200,6 +220,13 @@ class FlowFields(ttk.Frame):
         self._force_reflow = False
         if int(self.cget('height')) != height:
             self.configure(height=height)
+
+    def _wrap_width(self, item):
+        """折行时按多宽计算一项；默认就是自然宽度。"""
+        return item['natural']
+
+    def _fit_columns(self, rows):
+        """折行定下后、摆放前的钩子：子类可按列收窄各项（改 item['natural']）。"""
 
     def _gap_after(self, item):
         """某项之后的间距：控件可带 gap_after 属性（如下拉框后留大间距），否则用统一 gap。"""
@@ -244,7 +271,7 @@ class FlowFields(ttk.Frame):
 
 class ProductionLockFields(FlowFields):
     def __init__(self, parent, *, on_change=None, definitions=PRODUCTION_LOCK_DEFINITIONS,
-                 prefix=None, horizontal=False, label_width=None, leading=(),
+                 prefix=None, leading=(),
                  visible_keys=None, label_px=None):
         self.definitions = tuple(definitions)
         self.on_change = on_change
@@ -253,9 +280,13 @@ class ProductionLockFields(FlowFields):
         self.enabled = True
         self.context_values = {}
         super().__init__(parent, gap=STAGE_PANEL_LAYOUT['item_gap'])
-        # 所有字段等宽：标签列统一宽、下拉框统一宽，换行后各行自然上下对齐成列。
-        self.label_px = label_px if label_px is not None else label_pixel_width(
-            self, [spec['label'] for spec in leading] + [item['label'] for item in self.definitions])
+        # 折行按最宽标签算（每行放几项不随列宽抖动）；摆放时每列标签只取本列最宽，
+        # 短标签多的列下拉框随之左移。label_px 是第一列的下限（与页面其他行的标签列对齐）。
+        self.first_column_px = int(label_px or 0)
+        self.on_first_column = None  # 调用方可挂回调：第一列宽度变化时同步页面其他行
+        self.label_px = max(self.first_column_px, label_pixel_width(
+            self, [spec['label'] for spec in leading] + [item['label'] for item in self.definitions]))
+        self.column_px = {}
         if prefix:
             prefix(self)
         for spec in leading:
@@ -299,6 +330,46 @@ class ProductionLockFields(FlowFields):
         self.add(field, key=key)
         for event in ('<Return>', '<KeyRelease>', '<FocusOut>', '<<ComboboxSelected>>'):
             entry.bind(event, self.changed)
+
+    def _field_item(self, item):
+        key = item['key']
+        return key in self.fields and self.fields[key]['frame'] is item['widget']
+
+    def _entry_span(self, key):
+        entry = self.fields[key]['entry']
+        return STAGE_PANEL_LAYOUT['field_gap'] + max(1, int(entry.winfo_reqwidth()))
+
+    def _wrap_width(self, item):
+        if not self._field_item(item):
+            return item['natural']
+        return self.label_px + self._entry_span(item['key'])
+
+    def _label_req(self, item):
+        return int(self.fields[item['key']]['label'].winfo_reqwidth())
+
+    def _fit_columns(self, rows):
+        # 只有以字段开头的行才成列；以按钮／提示开头的行（展开选填锁后）各字段只按自己的标签收窄，
+        # 免得把不在同一列的标签算进某一列。
+        grid_rows = [row for row in rows if self._field_item(row[0])]
+        columns = {}
+        for row in grid_rows:
+            for index, item in enumerate(row):
+                if self._field_item(item):
+                    columns[index] = max(columns.get(index, 0), self._label_req(item))
+        if not columns:
+            return
+        columns[0] = max(columns.get(0, 0), self.first_column_px)
+        for row in rows:
+            in_grid = any(row is grid for grid in grid_rows)
+            for index, item in enumerate(row):
+                if self._field_item(item):
+                    px = columns[index] if in_grid else self._label_req(item)
+                    self.fields[item['key']]['frame'].columnconfigure(0, minsize=px)
+                    item['natural'] = px + self._entry_span(item['key'])
+        changed = columns.get(0) != self.column_px.get(0)
+        self.column_px = columns
+        if changed and self.on_first_column:
+            self.on_first_column(columns[0])
 
     def values(self):
         return {key: entry.get().strip() for key, entry in self.inputs.items()}

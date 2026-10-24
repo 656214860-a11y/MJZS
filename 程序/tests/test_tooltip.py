@@ -37,6 +37,8 @@ class _Tip:
     def configure(self, **kwargs): self.options = kwargs
     def geometry(self, value): self.geometry_value = value
     def destroy(self): self.destroyed = True
+    def unbind(self, *_args): pass
+    def attributes(self, *_args): pass
 
 
 class _Label:

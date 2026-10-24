@@ -344,7 +344,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 1133,
+   "total": 1134,
    "percent": 0.0
   },
   {
@@ -416,7 +416,7 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 372,
+   "total": 376,
    "percent": 0.0
   },
   {
@@ -764,7 +764,7 @@
   {
    "module": "pet_cloud.py",
    "covered": 0,
-   "total": 838,
+   "total": 841,
    "percent": 0.0
   },
   {
@@ -777,6 +777,12 @@
    "module": "pet_cloud_hint.py",
    "covered": 0,
    "total": 97,
+   "percent": 0.0
+  },
+  {
+   "module": "pet_cloud_move_guard.py",
+   "covered": 0,
+   "total": 60,
    "percent": 0.0
   },
   {
@@ -806,7 +812,7 @@
   {
    "module": "pet_cloud_timing.py",
    "covered": 0,
-   "total": 202,
+   "total": 204,
    "percent": 0.0
   },
   {
@@ -878,13 +884,13 @@
   {
    "module": "pet_ui_support.py",
    "covered": 0,
-   "total": 387,
+   "total": 390,
    "percent": 0.0
   },
   {
    "module": "pet_ui_view.py",
    "covered": 0,
-   "total": 589,
+   "total": 587,
    "percent": 0.0
   },
   {
@@ -932,7 +938,7 @@
   {
    "module": "production_lock_fields.py",
    "covered": 0,
-   "total": 283,
+   "total": 341,
    "percent": 0.0
   },
   {
@@ -1118,7 +1124,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 850,
+   "total": 849,
    "percent": 0.0
   },
   {
@@ -1136,7 +1142,7 @@
   {
    "module": "skill_panel_workflow.py",
    "covered": 0,
-   "total": 247,
+   "total": 248,
    "percent": 0.0
   },
   {
@@ -1374,6 +1380,12 @@
    "percent": 0.0
   },
   {
+   "module": "ui_popup.py",
+   "covered": 0,
+   "total": 7,
+   "percent": 0.0
+  },
+  {
    "module": "ui_rounded.py",
    "covered": 0,
    "total": 90,
@@ -1412,7 +1424,7 @@
   {
    "module": "ui_widgets.py",
    "covered": 0,
-   "total": 884,
+   "total": 886,
    "percent": 0.0
   },
   {
@@ -1873,5 +1885,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 310
+ "modules_total": 312
 }

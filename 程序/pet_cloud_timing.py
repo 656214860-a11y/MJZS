@@ -229,6 +229,7 @@ class CloudTimingMixin:
             return None
         self.cancel_deferred_render()
         self._cancel_position()
+        self._cancel_move_wait()
         # 第 37 期第 4 条：滚动小字的表也挂在这个窗口上，一起收回来。
         self._hint_stop()
         return self._cancel_hold(), self._cancel_fade()
@@ -242,6 +243,7 @@ class CloudTimingMixin:
         self._cancel_fade()
         self._hint_stop()
         self._cancel_position()
+        self._cancel_move_wait()
         self.win, self.canvas = None, None
         self.visible = False
         return None

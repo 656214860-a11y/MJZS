@@ -52,6 +52,22 @@ class CardWidgetTests(unittest.TestCase):
         self.root.update()
         self.assertIsNone(self.card._window)
 
+    def test_card_stays_visible_under_app_window_placement(self):
+        """R1982：真实程序给每个新窗口装 Map→grab／透明；卡片弹出后须保持显示、可见、不抢 grab。"""
+        import time
+        import ui_theme
+        ui_theme.install_window_placement(self.root)
+        self.hover()
+        shown = self.card._window
+        self.assertIsNotNone(shown)
+        end = time.monotonic() + .3
+        while time.monotonic() < end:  # 让 Map、grab 与随之补发的 Leave/Enter 都跑完
+            self.root.update()
+        self.assertIs(self.card._window, shown, '卡片弹出后被自身引发的离开事件收掉')
+        self.assertTrue(shown.winfo_exists())
+        self.assertIsNone(shown.grab_status(), '卡片不得持有 grab')
+        self.assertEqual(float(shown.attributes('-alpha')), 1.0, '卡片仍是透明的')
+
 
 class CardTextTests(unittest.TestCase):
     def card(self, row, label='', root='D:/proj'):
