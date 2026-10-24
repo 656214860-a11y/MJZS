@@ -26,7 +26,7 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
 from ui_motion import bind_row_hover, empty_icon
 from ui_hover_fade import install_hover_fade
-from ui_popup import make_passive_popup
+from ui_popup import make_passive_popup, monitor_bounds
 from ui_rounded import (button_specs, pressed_padding, rounded_layout, set_button_padding, rounded_photo as _rounded_photo,
                         rounded_png_bytes as _rounded_png_bytes)
 
@@ -1081,9 +1081,11 @@ class Tooltip:
             try:
                 tip.update_idletasks()
                 width, height = tip.winfo_reqwidth(), tip.winfo_reqheight()
-                if y + height > tip.winfo_screenheight():
-                    y = max(0, y - height - 2 * TOOLTIP_OFFSET)
-                x = max(0, min(x, tip.winfo_screenwidth() - width))
+                # 按鼠标（或控件）所在显示器钳位：软件在副屏时不能拿主屏尺寸去夹。
+                left, top, right, bottom = monitor_bounds(tip, x, y)
+                if y + height > bottom:
+                    y = max(top, y - height - 2 * TOOLTIP_OFFSET)
+                x = max(left, min(x, right - width))
             except AttributeError:
                 pass  # 测试替身不提供几何查询时保持原定位。
             tip.geometry("+%d+%d" % (x, y))

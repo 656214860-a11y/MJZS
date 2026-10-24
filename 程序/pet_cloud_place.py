@@ -3,6 +3,7 @@
 方法体未改、self 语义不变，Cloud 通过继承 CloudPlaceMixin 获得；定位用的常量与 shape_root／shape_min_body 随方法迁出，
 由 pet_cloud 按原名转回。仍与 Tk 控件紧耦合，故与 pet_cloud 同属 L4。"""
 import app_logging
+from ui_popup import monitor_bounds
 from ui_tokens import PET_LAYOUT
 from pet_cloud_shape import (SHAPES, SHAPE_CLOUD, SHAPE_PUFF, SHAPE_ROUND, SHAPE_TAG, configured_value as _configured_value)
 from pet_cloud_geometry import shape_root as _shape_root
@@ -135,12 +136,25 @@ class CloudPlaceMixin:
         # 大字的底边），用户要的「云朵框还要往下移，底部对齐左侧文字标题」。
         return top + max(8.0, height) * ANCHOR_RATIO + ANCHOR_DROP
 
+    def _monitor(self):
+        """助手主窗口所在显示器的 (left, top, right, bottom)；量不到返回全 0。
+
+        winfo_screenwidth/height 只是主屏尺寸：软件放在副屏时，拿它当边界会把云朵拽回主屏。
+        """
+        try:
+            return monitor_bounds(self.parent)
+        except Exception:
+            return (0, 0, 0, 0)
+
+    def _work_left(self):
+        return self._monitor()[0]
+
+    def _work_top(self):
+        return self._monitor()[1]
+
     def _work_right(self):
         """屏幕右边界：云可以压在主界面之外，但不许整朵跑到屏幕外面去。"""
-        try:
-            return int(self.win.winfo_screenwidth())
-        except Exception:
-            return 0
+        return self._monitor()[2]
 
     def _window_rect(self):
         """助手主窗口在屏幕上的矩形 (left, top, right, bottom)；拿不到就返回 None。"""
@@ -162,8 +176,9 @@ class CloudPlaceMixin:
         width, height = self.total_width(), self._body + TAIL
         right = self._work_right()
         screen = self._screen_height()
-        fits = (left >= MARGIN and (right <= 0 or left + width <= right - MARGIN)
-                and top >= MARGIN and (screen <= 0 or top + height <= screen - MARGIN))
+        edge_left, edge_top = self._work_left(), self._work_top()
+        fits = (left >= edge_left + MARGIN and (right <= 0 or left + width <= right - MARGIN)
+                and top >= edge_top + MARGIN and (screen <= 0 or top + height <= screen - MARGIN))
         if fits:
             return None
         rect = self._window_rect()
@@ -171,20 +186,18 @@ class CloudPlaceMixin:
             return None
         x0, y0, _x1, _y1 = rect
         limit_x = (right - width - MARGIN) if right > 0 else x0 + MARGIN
-        inner_left = max(MARGIN, min(x0 + MARGIN, max(MARGIN, limit_x)))
+        inner_left = max(edge_left + MARGIN, min(x0 + MARGIN, max(edge_left + MARGIN, limit_x)))
         limit_y = (screen - height - MARGIN) if screen > 0 else y0 + MARGIN
-        inner_top = max(0, min(y0 + MARGIN, max(0, limit_y)))
+        inner_top = max(edge_top, min(y0 + MARGIN, max(edge_top, limit_y)))
         return int(inner_left), int(inner_top)
 
     def _screen_height(self):
-        try:
-            return int(self.win.winfo_screenheight()) if self.win is not None else 0
-        except Exception:
-            return 0
+        """屏幕下边界（助手所在显示器的下沿，副屏时不是主屏高度）。"""
+        return self._monitor()[3] if self.win is not None else 0
 
     def _room_above(self):
         """三虎上方还剩多高（云身＋尾巴都得从这里排）。"""
-        return int(self._bottom() - MARGIN - TAIL)
+        return int(self._bottom() - (self._work_top() + MARGIN) - TAIL)
 
     def _room_below(self):
         """三虎下方还剩多高：上方放不下时云身翻到它下面去。"""
@@ -198,8 +211,8 @@ class CloudPlaceMixin:
             return False
         left, top, _width, _height = self._patch_rect()
         height = self._body if height is None else height
-        return (left >= self.width() + PET_GAP + MARGIN
-                and top >= MARGIN
+        return (left >= self._work_left() + self.width() + PET_GAP + MARGIN
+                and top >= self._work_top() + MARGIN
                 and top + height + TAIL <= self._screen_height() - MARGIN)
 
     def _flipped(self):
@@ -316,12 +329,13 @@ class CloudPlaceMixin:
                 or body_top + height <= patch_top or body_top >= patch_bottom):
             return (left, top)                       # 没压着：落点一个像素都不动
         left = left + (patch_left - (left + width))  # 往左让：让出的正好是压住的那一条
-        if left < MARGIN:
-            left = MARGIN
+        edge_left = self._work_left()
+        if left < edge_left + MARGIN:
+            left = edge_left + MARGIN
             if self._up():
                 top = max(top, patch_bottom - shift)     # 云身在下：往下让，从三虎下面开始
             else:
-                top = max(0, min(top, patch_top - height))   # 云身在上：左边让不开就往上让
+                top = max(self._work_top(), min(top, patch_top - height))   # 云身在上：左边让不开就往上让
         return (int(left), int(top))
 
     def _near_pet(self, left, top):
@@ -366,8 +380,9 @@ class CloudPlaceMixin:
         total = self.total_width()
         left = int(anchor_x - (total - TIP_IN))
         right = self._work_right()
-        if right > total + 2 * MARGIN:
-            left = max(MARGIN, min(left, right - total - MARGIN))
+        edge_left = self._work_left()
+        if right - edge_left > total + 2 * MARGIN:
+            left = max(edge_left + MARGIN, min(left, right - total - MARGIN))
         if self._can_align_top():
             top = int(self._patch_rect()[1])
         elif self._flipped():
