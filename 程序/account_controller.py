@@ -1,7 +1,9 @@
 """L3 账号编排：登录、续签、退出、兑换、设备、注销、导出与阶段闸门，不持有 Tk 控件。
 
 网络与落盘都在 ``submit`` 注入的后台任务里执行（桌面传入 ``Desktop.async_queued``，
-经 ``BackgroundTaskLifecycle`` 收尾）；完成回调由 UI 线程调用。闸门判定只读本机
+经 ``BackgroundTaskLifecycle`` 收尾）；完成回调由 UI 线程调用。启动后自动发起的续签与
+版本检查改走 ``background``：不占独占后台、不写状态栏，否则联网期间用户点什么都被
+“当前操作尚未结束”拦下（R1959）；不传时与 ``submit`` 相同。闸门判定只读本机
 会话并验签，不联网，启动路径与阶段启动都不等待网络（设计文档 §4.3、§5.4）。
 """
 import platform
@@ -21,8 +23,10 @@ SESSION_DEAD = frozenset({'session_invalid', 'account_pending_deletion', 'invali
 
 
 class AccountController:
-    def __init__(self, *, submit, clock=time.time, store=account_store, client=account_client, enforce=None):
+    def __init__(self, *, submit, background=None, clock=time.time, store=account_store, client=account_client,
+                 enforce=None):
         self._submit, self._clock, self._store, self._client = submit, clock, store, client
+        self._background = background or submit
         self.enforce = entitlement_service.GATE_ENFORCED if enforce is None else bool(enforce)
         self._device_id = ''
         self.last_renew_at = 0.0
@@ -67,8 +71,8 @@ class AccountController:
             return self._accept(result.data, email=email) if result.ok else result
         self._run(work, done, '登录账号')
 
-    def renew(self, done=None):
-        """有刷新令牌才续签；网络失败保留旧租约静默等下次，会话失效则清掉。"""
+    def renew(self, done=None, *, quiet=False):
+        """有刷新令牌才续签；网络失败保留旧租约静默等下次，会话失效则清掉。``quiet`` 为自动续签。"""
         data = self.session()
         token = data.get('refresh_token')
         if not token:
@@ -83,7 +87,7 @@ class AccountController:
             if (result.data or {}).get('code') in SESSION_DEAD:
                 self._store.clear_session()
             return result
-        self._run(work, done, '续签会员授权')
+        self._run(work, done, '续签会员授权', quiet=quiet)
         return True
 
     def check_update(self, done):
@@ -99,7 +103,7 @@ class AccountController:
             if notice['level'] == update_notice.SOFT and notice['proactive']:
                 self._store.mark_update_seen(notice['version'])
             return success(notice)
-        self._run(work, done, '检查新版本')
+        self._run(work, done, '检查新版本', quiet=True)
 
     def redeem(self, code, done):
         """用本机租约兑换；成功后服务端返回的新租约替换本机租约。无会话返回 False。"""
@@ -188,8 +192,8 @@ class AccountController:
         self._run(work, done, label)
         return True
 
-    def _run(self, work, done, label):
-        """经注入的 ``submit`` 后台执行；工作函数意外抛错也收成失败结果。
+    def _run(self, work, done, label, *, quiet=False):
+        """经注入的 ``submit``（``quiet`` 时经 ``background``）后台执行；工作函数意外抛错也收成失败结果。
 
         异常原文可能夹带令牌、租约或邮箱，不交给后台任务的诊断记录，只留异常类型名。
         """
@@ -199,7 +203,7 @@ class AccountController:
             except Exception as exc:
                 return SystemError('账号操作出错（%s），请稍后重试' % type(exc).__name__,
                                    data={'code': 'client_error'})
-        self._submit(guarded, done, label)
+        (self._background if quiet else self._submit)(guarded, done, label)
 
     def renew_due(self):
         return self._clock() - self.last_renew_at >= RENEW_INTERVAL

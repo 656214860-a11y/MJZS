@@ -397,16 +397,52 @@ class SelectBox(ttk.Combobox):
     """
 
     def __init__(self, master=None, *, values=(), height=COMBOBOX_POPDOWN_HEIGHT,
-                 width=None, state="readonly", fit=False, **kwargs):
+                 width=None, state="readonly", fit=False, accent_values=(), **kwargs):
         setup_styles(master)
         values = tuple(values)
         self._fit = bool(fit)
+        self.accent_values = tuple(accent_values)  # 弹出列表里用主色突出的特殊项（如「+ 添加模型…」）
+        # 显式给了 width：框体宽度固定（统一尺寸），不随选项重算；弹出列表仍按最长选项加宽。
+        self._fixed_width = width is not None
         if width is None:
             width = self._fit_width(values) if (self._fit or state == "readonly") else COMBOBOX_WIDTH
         # 统一的下拉框控件样式（32±2px）；页面仍只负责选项和内容宽度。
         kwargs.setdefault("style", "Tokens.Combobox.TCombobox")
+        user_post = kwargs.pop("postcommand", None)
+
+        def post():
+            if user_post:
+                user_post()
+            self._fit_popdown()
+            if self.accent_values:
+                self.after_idle(self._accent_popdown)
+
         super().__init__(master, values=values, height=height, width=width,
-                         state=state, **kwargs)
+                         state=state, postcommand=post, **kwargs)
+
+    def _accent_popdown(self):
+        """列表载入后把特殊项染成主色：弹出窗的列表框在 postcommand 之后才填充，故延后一拍。"""
+        try:
+            listbox = '%s.f.l' % self.tk.call('ttk::combobox::PopdownWindow', self)
+            for index, value in enumerate(self.cget('values')):
+                if value in self.accent_values:
+                    self.tk.call(listbox, 'itemconfigure', index, '-foreground', COLORS['primary'])
+        except tk.TclError:
+            pass
+
+    def _fit_popdown(self):
+        """弹出前把列表加宽到最长选项：ttk 的列表宽度跟随框体，靠样式 postoffset 补差。"""
+        try:
+            from tkinter import font as tkfont
+            spec = self.cget("font") or ttk.Style(self).lookup(self.cget("style") or "TCombobox", "font")
+            font = tkfont.Font(root=self, font=spec or "TkDefaultFont")
+            texts = [str(v) for v in self.cget("values")] if self.cget("values") else []
+            longest = max([font.measure(text) for text in texts] or [0])
+            extra = max(0, longest + 28 - self.winfo_width())  # 28 ≈ 内边距＋滚动条
+            ttk.Style(self).configure(self.cget("style") or "TCombobox",
+                                      postoffset=(0, 0, extra, 0))
+        except tk.TclError:
+            pass
 
     @staticmethod
     def _fit_width(values, current=''):
@@ -420,12 +456,14 @@ class SelectBox(ttk.Combobox):
 
     def refit(self):
         """按当前选项与当前值重算宽度；可编辑框在用户输入长文本后调用。"""
+        if self._fixed_width:
+            return
         self.configure(width=self._fit_width(tuple(self.cget('values')), self.get()))
 
     def set_values(self, values, *, refit=True):
         values = tuple(values)
         self.configure(values=values)
-        if refit and (self._fit or "readonly" in self.state()):
+        if refit and not self._fixed_width and (self._fit or "readonly" in self.state()):
             self.configure(width=self._fit_width(values))
 
 
@@ -1049,11 +1087,7 @@ class Tooltip:
             tip = tk.Toplevel(self.widget)
             tip.overrideredirect(True)
             tip.configure(background=TOOLTIP_BORDER)
-            label = tk.Label(tip, text=self.text, font=TOOLTIP_FONT,
-                             fg=TOOLTIP_FOREGROUND, bg=TOOLTIP_BACKGROUND,
-                             padx=TOOLTIP_PADDING[0], pady=TOOLTIP_PADDING[1],
-                             wraplength=TOOLTIP_WRAPLENGTH, justify="left")
-            label.pack(padx=TOOLTIP_BORDER_WIDTH, pady=TOOLTIP_BORDER_WIDTH)
+            self._populate(tip)
             x, y = self._position or (self.widget.winfo_rootx() + TOOLTIP_OFFSET,
                                       self.widget.winfo_rooty() + TOOLTIP_OFFSET)
             # 贴近屏幕底边／右边的控件（如页面底部状态栏）改向上／向左展开，浮层不出屏。
@@ -1074,6 +1108,14 @@ class Tooltip:
             except (UnboundLocalError, tk.TclError):
                 pass
             return None
+
+    def _populate(self, tip):
+        """浮层内容；子类（预览卡片）重写，边框与定位仍由 show 统一处理。"""
+        label = tk.Label(tip, text=self.text, font=TOOLTIP_FONT,
+                         fg=TOOLTIP_FOREGROUND, bg=TOOLTIP_BACKGROUND,
+                         padx=TOOLTIP_PADDING[0], pady=TOOLTIP_PADDING[1],
+                         wraplength=TOOLTIP_WRAPLENGTH, justify="left")
+        label.pack(padx=TOOLTIP_BORDER_WIDTH, pady=TOOLTIP_BORDER_WIDTH)
 
     def _cancel_job(self):
         if self._job is None:

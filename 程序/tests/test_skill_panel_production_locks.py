@@ -20,7 +20,10 @@ class ProductionLockViewTests(unittest.TestCase):
         self.win.update()
         self.assertEqual(len(view.inputs), 11)
         self.assertEqual(view.inputs['track'].get(), '')
-        self.assertEqual(view.hints['track'].cget('text'), '必选')
+        # 契约变更：必选缺失不再占一行文字提示，改为标签警示色（不占高度）。
+        from ui_tokens import COLORS
+        self.assertEqual(str(view.fields['track']['label'].cget('foreground')), COLORS['warning_text'])
+        self.assertEqual(view.hints['track'].cget('text'), '')
         self.assertTrue(view.inputs['reference_mode'].instate(['disabled']))
         view.set_values({'video_model_version': 'Seedance 2.5'})
         self.win.update()

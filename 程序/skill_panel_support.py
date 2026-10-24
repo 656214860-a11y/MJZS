@@ -123,7 +123,7 @@ class WrappingActionRow(ttk.Frame):
                 x = 0
                 row_height = 0
             child.place(x=x, y=y, width=width, height=height)
-            x += width + gap
+            x += width + getattr(child, 'gap_after', gap)  # 下拉框后留更大间距，和下一个标签分开
             row_height = max(row_height, height)
         height = y + row_height
         if int(self.cget('height')) != height:
