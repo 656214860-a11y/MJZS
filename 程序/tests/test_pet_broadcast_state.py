@@ -48,16 +48,24 @@ class StateTests(unittest.TestCase):
 
 
 class AliasTests(unittest.TestCase):
-    def test_legacy_names_forward_and_lazy_state(self):
+    def test_public_names_forward_and_lazy_state(self):
         class Holder(PetBroadcastAliasesMixin):
             pass
         holder = Holder()
-        holder._last_broadcast = 'x'
+        holder.last_status = 'x'
         holder.notice = 'n'
-        holder._advance_at = 3
-        self.assertEqual((holder.bstate.last_broadcast, holder.bstate.notice, holder.bstate.advance_at), ('x', 'n', 3))
+        self.assertEqual((holder.bstate.last_status, holder.bstate.notice), ('x', 'n'))
+        holder.bstate.notice = 'm'
+        self.assertEqual(holder.notice, 'm')
+
+    def test_retired_underscore_names_are_gone(self):
+        class Holder(PetBroadcastAliasesMixin):
+            pass
+        for name in ('_announced', '_last_broadcast', '_held_broadcast', '_advance_at'):
+            with self.subTest(name=name), self.assertRaises(AttributeError):
+                getattr(Holder(), name)
         with self.assertRaises(AttributeError):
-            holder.nothing
+            Holder().nothing
 
 
 if __name__ == '__main__':

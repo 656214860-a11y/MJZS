@@ -86,7 +86,7 @@ class PetStagesMixin:
         所以这里走 announce（与「用户按了东西」同一条出口）。
 
         「稍后再说」期间只记账不冒泡——那是用户自己点名要的安静；失败照旧由失败清单分级处理，
-        不走这里。同一句话连着说两次由 broadcast 自己挡掉（_last_broadcast）。
+        不走这里。同一句话连着说两次由 broadcast 自己挡掉（bstate.last_broadcast）。
         """
         text = ' '.join(str(text or '').split())
         if not text:

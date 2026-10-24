@@ -6,7 +6,9 @@ R1983 J5：``_advance_at``／``_announced``／``_held_broadcast``／``_last_broa
 （状态栏原文，写入面太宽，仍由旧属性名转发）外，判重、压住、节流这几类写入都改走本对象的方法，
 所以「同一句不连说两遍」「压住后补说」「推进节流」的规则只在这一处。
 
-- 旧属性名由 ``PetBroadcastAliasesMixin`` 转发到同名字段（去掉前导下划线），既有调用方与用例不用改。
+- ``notice``／``last_status`` 是 Pet 的公开属性（各 Mixin 与桌面端都在读写），由 ``PetBroadcastAliasesMixin``
+  继续转发到 ``Pet.bstate``；``_announced``／``_last_broadcast``／``_held_broadcast``／``_advance_at`` 四个下划线旧名
+  已退役（R1983 契约轮），读写一律走 ``pet.bstate.<字段>``。
 - 只放状态与纯判定，不持有 Tk 控件、不读时钟（时钟由调用方传入）。
 """
 from __future__ import annotations
@@ -75,7 +77,7 @@ class PetBroadcastState:
 
 
 class _Forward:
-    """把 ``pet.<旧名>`` 的读写转发到 ``pet.bstate.<字段>``。"""
+    """把 ``pet.<公开属性>`` 的读写转发到 ``pet.bstate.<字段>``。"""
 
     def __init__(self, state_field):
         self.state_field = state_field
@@ -90,7 +92,7 @@ class _Forward:
 
 
 class PetBroadcastAliasesMixin:
-    """旧属性名转发；``bstate`` 缺失（测试里绕过 __init__ 的 Pet.__new__）时首次访问补默认状态。"""
+    """公开属性 ``notice``／``last_status`` 的转发；``bstate`` 缺失（测试里绕过 __init__ 的 Pet.__new__）时首次访问补默认状态。"""
 
     def __getattr__(self, name):
         if name == 'bstate':
@@ -99,8 +101,6 @@ class PetBroadcastAliasesMixin:
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
 
-for _legacy, _field in (('notice', 'notice'), ('last_status', 'last_status'), ('_announced', 'announced'),
-                        ('_last_broadcast', 'last_broadcast'), ('_held_broadcast', 'held_broadcast'),
-                        ('_advance_at', 'advance_at')):
-    setattr(PetBroadcastAliasesMixin, _legacy, _Forward(_field))
-del _legacy, _field
+for _name in ('notice', 'last_status'):
+    setattr(PetBroadcastAliasesMixin, _name, _Forward(_name))
+del _name

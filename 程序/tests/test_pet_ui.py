@@ -2506,7 +2506,7 @@ class MenuFeedbackTests(PetTestCase):
             if label in self.EXCLUDED:
                 continue
             self.pet.notice = ''
-            self.pet._last_broadcast = ''
+            self.pet.bstate.last_broadcast = ''
             del cloud.lines[:]
             self.pet.menu.invoke(index)
             self.assertTrue(self.pet.notice, label + ' 没有留下提示')
@@ -2541,7 +2541,7 @@ class MenuFeedbackTests(PetTestCase):
         self.pet.popup_at(10, 20)
         self.assertEqual(seen, [True], '弹栏期间标记要是开着的')
         self.assertFalse(self.pet._menu_open, '栏收起后标记清掉')
-        self.assertFalse(self.pet._held_broadcast, '压住的那句话已经补说出去')
+        self.assertFalse(self.pet.bstate.held_broadcast, '压住的那句话已经补说出去')
         self.assertTrue(self.pet.cloud_visible(), '收起后补上那句话')
         self.assertIn('栏里冒出来的话', self.pet.cloud().transcript())
 
@@ -3253,7 +3253,7 @@ class CloudVoiceTests(PetTestCase):
         self.pet.progress_voice()
         self.pet.tune_advance()
         self.assertEqual(self.pet._progress_at, 5.0, '进度气泡的节流从安静期里重新起算')
-        self.assertEqual(self.pet._advance_at, 5.0, '自动推进的节流一样往后挪')
+        self.assertEqual(self.pet.bstate.advance_at, 5.0, '自动推进的节流一样往后挪')
         now[0] = pet_ui.GREET_QUIET_SECONDS + 1
         self.assertFalse(self.pet.quiet(), '过了这一段就不再安静')
         self.assertIsNone(self.pet._quiet_until)
@@ -6238,7 +6238,7 @@ class StageNoteTests(PetTestCase):
                          "刚问过这一页：不重复问")
         self.assertEqual(self.pet._stage_at, asked_at, "被节流的那一次不动钟点")
         self.now += pet_ui.STAGE_ASK_SECONDS + 1
-        self.pet._last_broadcast = ""                # 「同一句不连说两遍」是另一道闸：这里只看节流
+        self.pet.bstate.last_broadcast = ""                # 「同一句不连说两遍」是另一道闸：这里只看节流
         self.assertTrue(self.pet.note_stage(page=video_page, at=self.now), "过了节流窗口可以再问")
 
     def test_the_question_hands_the_task_to_the_reply_box(self):
@@ -6887,13 +6887,13 @@ class ChatUnderModalTests(PetTestCase):
         self.pet.open_chat()
         self.modal()
         self.pet.broadcast("弹窗期间的一句话")
-        self.assertEqual(self.pet._held_broadcast, "弹窗期间的一句话", "弹窗期间先压着")
+        self.assertEqual(self.pet.bstate.held_broadcast, "弹窗期间的一句话", "弹窗期间先压着")
         self.assertTrue(self.pet.guard_chat_grab(), "心跳发现有弹窗：聊天框先自己收起来")
         self.assertFalse(self.pet.cloud_visible(), "关不掉的框不该留着")
-        self.assertEqual(self.pet._held_broadcast, "弹窗期间的一句话", "压着的话不能丢")
+        self.assertEqual(self.pet.bstate.held_broadcast, "弹窗期间的一句话", "压着的话不能丢")
         self.win.grab_current = lambda: None   # 弹窗关了
         self.pet.pump()                        # 下一个心跳把它补说
-        self.assertFalse(self.pet._held_broadcast, "压不住太久：弹窗关了这一句就该说出去")
+        self.assertFalse(self.pet.bstate.held_broadcast, "压不住太久：弹窗关了这一句就该说出去")
         self.assertIn("弹窗期间的一句话", self.pet.cloud().transcript(),
                       "弹窗一关，那句话还得说出去")
 
