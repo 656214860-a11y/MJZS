@@ -125,6 +125,13 @@ class MasterSkillUpdateTests(unittest.TestCase):
         self.assertEqual([p.name for p in self.pkg.parent.iterdir() if '.new.' in p.name], [])
         self.assertNotIn('sha', update.load_state(self.program))
 
+    def test_default_fetch_stays_offline_under_the_suppress_env(self):
+        """自检环境（DRAMA_SUPPRESS_NETWORK=1）下默认联网入口不碰网络，也不写下载缓存，check 按失败返回。"""
+        with mock.patch.dict('os.environ', {update.SUPPRESS_NETWORK_ENV: '1'}),                 mock.patch.object(update.platform_tools, 'open_https', side_effect=AssertionError('不该联网')):
+            result = update.check(self.program)
+        self.assertEqual(result['level'], update.ERROR)
+        self.assertFalse((self.program / 'data').exists())
+
     def test_git_checkout_is_notice_only(self):
         (self.pkg / '.git').write_text('gitdir: ../../.git/modules/x', encoding='utf-8')
         result = self.check()

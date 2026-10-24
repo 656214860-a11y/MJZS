@@ -386,7 +386,7 @@ def _run_locked() -> int:
         return 0
     program = _sync_clean_worktree(root, head)
     # 主干检出才能产凭据；本检出是分离的，用这个变量告诉执行器「此 HEAD 取自 master」。
-    env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", PYTHONIOENCODING="utf-8", AUTO_FULL_SAFE_HEAD=head,
+    env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", DRAMA_SUPPRESS_NETWORK="1", PYTHONIOENCODING="utf-8", AUTO_FULL_SAFE_HEAD=head,
                GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="safe.directory", GIT_CONFIG_VALUE_0="*")
     with LOG.open("w", encoding="utf-8") as log:
         log.write("[自动全量] 开始 %s HEAD=%s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), head[:10]))

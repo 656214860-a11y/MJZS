@@ -1446,6 +1446,12 @@
    "percent": 0.0
   },
   {
+   "module": "ui_splash.py",
+   "covered": 0,
+   "total": 132,
+   "percent": 0.0
+  },
+  {
    "module": "ui_stage_popups.py",
    "covered": 0,
    "total": 127,
@@ -1464,9 +1470,15 @@
    "percent": 0.0
   },
   {
+   "module": "ui_tooltip.py",
+   "covered": 0,
+   "total": 101,
+   "percent": 0.0
+  },
+  {
    "module": "ui_widgets.py",
    "covered": 0,
-   "total": 886,
+   "total": 693,
    "percent": 0.0
   },
   {
@@ -1927,5 +1939,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 319
+ "modules_total": 321
 }

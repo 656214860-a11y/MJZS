@@ -65,7 +65,7 @@ def main(argv=None) -> int:
         # 定向复跑：ci_targets.txt 每行一个 unittest 目标（如 tests.test_idea_chat），逐个详细输出。
         names = [line.strip() for line in targets.read_text(encoding="utf-8").splitlines() if line.strip()]
         steps = tuple(("定向 " + name, ["-m", "unittest", "-v", name]) for name in names)
-    env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", PYTHONIOENCODING="utf-8",
+    env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", DRAMA_SUPPRESS_NETWORK="1", PYTHONIOENCODING="utf-8",
                PYTHONPATH=os.pathsep.join(filter(None, (str(PROGRAM / "tests"), str(PROGRAM),
                                                         os.environ.get("PYTHONPATH", "")))))
     LOG.parent.mkdir(parents=True, exist_ok=True)

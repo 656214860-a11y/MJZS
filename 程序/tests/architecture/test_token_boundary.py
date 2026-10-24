@@ -19,7 +19,7 @@ from tests.architecture._scan import ROOT, parse
 # 与 test_dialog_boundary / test_button_boundary 一致：测试、轮次记录与维护记录不参与生产门禁。
 EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__", "skills"}
 # 权威与豁免：token／主题／组件基类／图标调色自身即定义视觉常量的地方。
-AUTHORITY_FILES = {"ui_tokens.py", "ui_theme.py", "ui_widgets.py", "ui_icons.py"}
+AUTHORITY_FILES = {"ui_tokens.py", "ui_theme.py", "ui_widgets.py", "ui_splash.py", "ui_tooltip.py", "ui_icons.py"}  # 后二者自 ui_widgets 拆出
 
 _HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
 _PADDING_ARGS = frozenset({"padx", "pady", "ipadx", "ipady"})

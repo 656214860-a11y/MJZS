@@ -158,7 +158,13 @@ def stage_changes(changed, pkg, preset, registry=None):
     return per_stage, sorted(wanted - claimed)
 
 
+SUPPRESS_NETWORK_ENV = 'DRAMA_SUPPRESS_NETWORK'
+
+
 def _fetch(url, limit):
+    # 自检与本地 CI 设置 DRAMA_SUPPRESS_NETWORK=1：默认联网入口直接按离线处理（check 会返回 error），不碰 GitHub，也不往 data 下写下载缓存。
+    if os.environ.get(SUPPRESS_NETWORK_ENV):
+        raise OSError('自检环境不联网（%s）' % SUPPRESS_NETWORK_ENV)
     headers = {'User-Agent': 'manju-assistant', 'Accept': 'application/vnd.github+json'}
     with platform_tools.open_https(url, timeout=30, headers=headers) as response:
         data = response.read(limit + 1)

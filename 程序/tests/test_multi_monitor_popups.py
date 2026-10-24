@@ -41,7 +41,7 @@ class TooltipSecondMonitorTests(unittest.TestCase):
         tooltip._position = (x, y)
         tip = _Tip()
         with patch("ui_widgets.tk.Toplevel", return_value=tip), patch("ui_widgets.tk.Label", _Label), \
-             patch("ui_widgets.monitor_bounds", return_value=SECOND):
+             patch("ui_tooltip.monitor_bounds", return_value=SECOND):
             tooltip.show()
         return tip.geometry_value
 

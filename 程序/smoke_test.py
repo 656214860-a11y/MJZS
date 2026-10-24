@@ -626,6 +626,7 @@ def main(argv=None):
     # 自检子进程继承：通知分发器不弹系统模态框，避免无人值守时卡住（见 ui_widgets.SUPPRESS_MODAL_ENV）。
     os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
     os.environ.setdefault("DRAMA_SUPPRESS_TRAY", "1")
+    os.environ.setdefault("DRAMA_SUPPRESS_NETWORK", "1")
     os.environ.setdefault("DRAMA_REDUCE_MOTION", "0")  # 自检固定保留动效，不随本机系统设置漂移
     args = list(sys.argv[1:] if argv is None else argv)
     round_no, full, safe, skip_gate, listing, architecture, affected = ROUND, False, False, True, False, False, []

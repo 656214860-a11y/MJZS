@@ -13,7 +13,7 @@ SLACK = 100
 OVERSIZE_CAPS = {
     'app.py': 1499,
     'stage_execution_service.py': 1447,
-    'ui_widgets.py': 1425,
+    'ui_widgets.py': 1125,
     'desktop.py': 1377,
     'writing_api.py': 1373,
     'pet_cloud.py': 1357,

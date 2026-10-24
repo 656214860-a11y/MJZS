@@ -44,6 +44,8 @@ import sys
 os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
 # 同理：测试里构造 Desktop 不起真实托盘线程（见 desktop_tray.SUPPRESS_TRAY_ENV）。
 os.environ.setdefault("DRAMA_SUPPRESS_TRAY", "1")
+# 同理：首帧自动检查总控包更新不真联网，也不会因“有新版本”弹确认窗卡住（见 master_skill_update.SUPPRESS_NETWORK_ENV）。
+os.environ.setdefault("DRAMA_SUPPRESS_NETWORK", "1")
 os.environ.setdefault("DRAMA_REDUCE_MOTION", "0")  # 自检固定保留动效，不随本机系统设置漂移
 import tempfile
 import time
