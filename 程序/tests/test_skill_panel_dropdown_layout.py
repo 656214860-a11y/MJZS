@@ -174,7 +174,13 @@ class DropdownLayoutTests(unittest.TestCase):
                 for row in rows:
                     if row[0] not in lock_fields:
                         continue  # 以按钮/提示开头的行（展开选填锁后）不参与列对齐
-                    cells = [item for item in row if item in lock_fields]
+                    # 契约变更（下拉框缩短 1/3）：1280 宽一行放得下 6 项，「更多制作锁」按钮与提示
+                    # 落在行中间，其后字段的横向位置随提示宽度浮动；列对齐只比较行首连续的字段。
+                    cells = []
+                    for item in row:
+                        if item not in lock_fields:
+                            break
+                        cells.append(item)
                     for index, item in enumerate(cells):
                         columns.setdefault(index, set()).add(item.winfo_rootx())
                         widths_by_column.setdefault(index, set()).add(item.winfo_width())
@@ -322,7 +328,7 @@ class DropdownLayoutTests(unittest.TestCase):
                 self.assertLessEqual(max(xs) - min(xs), 1, '第一列下拉框没有左缘对齐：%s' % sorted(xs))
                 from production_lock_fields import label_pixel_width
                 long_px = label_pixel_width(panel, ['视频模型版本'], style='Muted.TLabel')
-                short_px = label_pixel_width(panel, ['编剧风格'], style='Muted.TLabel')
+                short_px = label_pixel_width(panel, ['风格'], style='Muted.TLabel')
                 offset = panel.presets.winfo_rootx() - panel.presets.master.winfo_rootx()
                 if panel.lock_fields.column_px.get(0, 0) <= short_px:
                     self.assertLess(offset, long_px, '第一列标签区仍按最长标签留宽')

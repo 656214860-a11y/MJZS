@@ -262,7 +262,9 @@ STAGE_PANEL_LAYOUT = {
     # CompactLabel 保留的旧 width=10 契约，真实排版按文字宽度请求。
     'label_width': 10,
     # 阶段配置页所有下拉框的统一宽度（字符）；选项更长时靠弹出列表自适应展示全名。
-    'select_width': 12,
+    'select_width': 8,
+    # 标签文字统一左对齐，左侧缩进这么多像素（含在标签请求宽度内）。
+    'label_indent': SPACING['xs'],
     # 「下拉框 → 下一个标签」之间的间距，比标签与自己下拉框的 field_gap 大，一眼分得出归属。
     'item_gap': SPACING['md'],
 }

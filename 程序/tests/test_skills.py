@@ -1750,7 +1750,7 @@ class PanelTests(unittest.TestCase):
         window.update()
         row = panel.writer_style_button.master
         label = next(child for child in row.winfo_children()
-                     if child.winfo_class() == 'TLabel' and child.cget('text') == '编剧风格')
+                     if child.winfo_class() == 'TLabel' and child.cget('text') == '风格')
         self.assertGreaterEqual(label.winfo_width(), label.winfo_reqwidth())
         self.assertLess(row.master.winfo_y(), panel.skill_content.master.winfo_y())
         hint = panel.external_package_hint

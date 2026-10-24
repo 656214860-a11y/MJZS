@@ -13,7 +13,8 @@ def label_pixel_width(widget, texts, style='TLabel'):
     widest = 0
     for text in texts:
         # 用真实标签量宽：样式查到的字体和控件实际渲染字体可能不一致，量错会裁字。
-        probe = ttk.Label(widget, text=str(text), style=style)
+        probe = ttk.Label(widget, text=str(text), style=style,
+                          padding=(STAGE_PANEL_LAYOUT['label_indent'], 0, 0, 0))
         widest = max(widest, probe.winfo_reqwidth())
         probe.destroy()
     return widest + SPACING['sm']
@@ -24,6 +25,8 @@ class CompactLabel(ttk.Label):
 
     def __init__(self, parent=None, min_px=0, **kwargs):
         kwargs.setdefault('width', STAGE_PANEL_LAYOUT['label_width'])
+        kwargs.setdefault('anchor', 'w')  # 文字左对齐，左侧缩进 label_indent
+        kwargs.setdefault('padding', (STAGE_PANEL_LAYOUT['label_indent'], 0, 0, 0))
         super().__init__(parent, **kwargs)
         self.min_px = int(min_px)
 
@@ -33,7 +36,8 @@ class CompactLabel(ttk.Label):
         font = tkfont.Font(root=self, font=spec or 'TkDefaultFont')
         # 多留一个 xs 的余量：按字形宽度精确请求时，部分字体渲染会被右侧裁掉半个字。
         return max(1, self.min_px,
-                   font.measure(str(self.cget('text') or '')) + SPACING['xs'])
+                   font.measure(str(self.cget('text') or '')) + SPACING['xs']
+                   + STAGE_PANEL_LAYOUT['label_indent'])
 
 
 def align_label_column(root, px):
@@ -301,8 +305,9 @@ class ProductionLockFields(FlowFields):
 
     def _add_leading(self, spec):
         field = ttk.Frame(self)
-        label = ttk.Label(field, text=spec['label'], style=spec.get('style', 'TLabel'))
-        label.grid(row=0, column=0, sticky='e')  # 右对齐：文字紧贴自己的下拉框
+        label = ttk.Label(field, text=spec['label'], style=spec.get('style', 'TLabel'),
+                          padding=(STAGE_PANEL_LAYOUT['label_indent'], 0, 0, 0))
+        label.grid(row=0, column=0, sticky='w')  # 左对齐缩进：同列标签起点一致
         field.columnconfigure(0, minsize=self.label_px)
         entry = spec['factory'](field)
         entry.grid(row=0, column=1, sticky='w', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
@@ -314,8 +319,9 @@ class ProductionLockFields(FlowFields):
     def _add_lock(self, item):
         key = item['key']
         field = ttk.Frame(self)
-        label = ttk.Label(field, text=item['label'])
-        label.grid(row=0, column=0, sticky='e')  # 右对齐：文字紧贴自己的下拉框
+        label = ttk.Label(field, text=item['label'],
+                          padding=(STAGE_PANEL_LAYOUT['label_indent'], 0, 0, 0))
+        label.grid(row=0, column=0, sticky='w')  # 左对齐缩进：同列标签起点一致
         field.columnconfigure(0, minsize=self.label_px)
         entry = SelectBox(field, values=item.get('options') or (), state='normal',
                           width=STAGE_PANEL_LAYOUT['select_width'])
