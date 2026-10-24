@@ -182,7 +182,7 @@ class PetVoiceMixin:
                 return ''                      # 第 59 期第 8 条：栏／弹窗抽着指针：这一拍不冒气泡
             if self.cloud_visible() or self.muted(at=at):
                 return ''                      # 第 21 期：任何对话框露着就都不再开新的（「只能有一个」）
-            if not self.attending():
+            if not self.can_pop():
                 return ''                      # 用户在别的应用里：进度气泡也不冒（第 30 期第 3 条）
             if self.panel_quiet(at=now):
                 self._progress_at = now        # 用户自己看着明细：跳过这一次，重新计时
@@ -247,7 +247,7 @@ class PetVoiceMixin:
                 return ''
             if self.cloud_visible() or self.muted(at=at) or self.snoozing() or self.agent.paused:
                 return ''
-            if not self.attending():
+            if not self.can_pop():
                 return ''                      # 用户在别的应用里：不主动问（第 30 期第 3 条）
             state = state if state else self.snapshot(at=at)
             if self.busy(state=state):
@@ -497,7 +497,7 @@ class PetVoiceMixin:
         try:
             if self.cloud_visible(sticker_only=True) or self.muted(at=at):
                 return ''                  # 贴纸正露着或用户刚点掉云朵：这一次不说
-            if not self.attending():
+            if not self.can_pop():
                 return ''                  # 用户切到别的应用上去了：这一拍不冒泡（第 30 期第 3 条）
             now = float(self.clock() if at is None else at)
             if self.quiet(at=at):
@@ -705,7 +705,7 @@ class PetVoiceMixin:
         cloud = self.cloud()
         if cloud is not None:
             try:
-                if not self.attending():
+                if not self.can_pop():
                     # 第 49 期第 1 条：用户人在别的应用里（多半是把助手最小化去忙别的）——这句话
                     # 只记进云朵记录，不把框顶出来。原来照顶：那一刻贴片量出来的坐标是假的，框
                     # 于是落到屏幕另一头（用户报的「从右边跳到左边」），而他人根本不在这软件上。
@@ -782,7 +782,7 @@ class PetVoiceMixin:
         """
         scheduled = self._greet_id is not None
         self._greet_id = None             # 到点了：这一笔定时器就算用掉了
-        if not self.window_visible() or not self.attending() or (scheduled and _startup_page_busy(self)):
+        if not self.window_visible() or not self.can_pop() or (scheduled and _startup_page_busy(self)):
             if scheduled:
                 self.schedule_greet()     # 启动招呼等窗口回到前台、启动页建完，不让报表抢先
             return ''
@@ -818,7 +818,7 @@ class PetVoiceMixin:
         text = ' '.join(str(text or '').split())
         if not text:
             return ''
-        if not self.attending():
+        if not self.can_pop():
             return ''
         cloud = self.cloud()
         if cloud is None:
@@ -837,7 +837,7 @@ class PetVoiceMixin:
             return ''
         if self.speech_blocked(text):
             return ''                      # 第 59 期第 8 条：栏／弹窗抽着指针时这张便签也先压着
-        if not self.attending():
+        if not self.can_pop():
             return ''                      # 第 60 期第 4 条：人在别的应用里，这张便签也先不递
         cloud = self.cloud()
         if cloud is None:
@@ -899,7 +899,7 @@ class PetVoiceMixin:
             return ''                                  # 这一份已经递过
         if self._work_at is not None and (now - float(self._work_at)) < REPORT_QUIET_SECONDS:
             return ''                                  # 手上还有动静：不在这时候拿报表打断
-        if self.cloud_visible() or self.muted(at=at) or not self.attending():
+        if self.cloud_visible() or self.muted(at=at) or not self.can_pop():
             return ''                                  # 有框露着／静音／人不在界面里：都不提
         if self.busy(state=self.snapshot(at=at)):
             return ''                                  # 正跑着活儿：等它跑完再递
@@ -1125,7 +1125,7 @@ class PetVoiceMixin:
             return ''                          # 第 68 期任务 11：安静期里失败提醒也缓一缓，过了再说
         if self.snoozing():
             return ''                          # 「稍后再说」期间不打扰；到点后同一批会再提醒一次
-        if not self.attending():
+        if not self.can_pop():
             return ''                          # 用户在别的应用里：失败提醒先记着，不弹（第 30 期第 3 条）
         try:
             failures = [item for item in self.agent.failures if isinstance(item, dict)]

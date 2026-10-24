@@ -396,7 +396,10 @@ def problems(project, registry=None):
 # ── 预设 ────────────────────────────────────────────────────────────────────
 # 预设按阶段分箱保存。每个页面只看自己的箱子；复制预设并不是共享同一条记录，
 # 而是把当前预设复制到用户选中的其它阶段，之后各阶段仍可独立修改。
-PRESET_VERSION = 2
+PRESET_VERSION = 3
+# 预设按创作模式分组；旧预设没有模式，归入「未分类」排在最后。
+PRESET_MODES = ('短视频', '短剧', '影视', '动画')
+PRESET_MODE_NONE = '未分类'
 
 
 def _preset_groups(program=None):
@@ -438,8 +441,25 @@ def presets(program=None, stage=None):
     return flat
 
 
-def save_preset(name, model, skills, stage=None, program=None):
-    """存一份预设（同名覆盖）。名字空着就报错——预设列表里不出现没有名字的东西。"""
+def _workflow_snapshot(workflow, lock):
+    """预设里的总控快照：名称、总控包路径与制作锁；名称为空表示「不使用总控」。"""
+    workflow = workflow if isinstance(workflow, dict) else {}
+    name = str(workflow.get('name') or '').strip()
+    if not name:
+        return {}
+    return {'name': name, 'skill_ref': str(workflow.get('skill_ref') or ''),
+            'lock': {str(key): str(value) for key, value in (lock or {}).items() if value}}
+
+
+def save_preset(name, model, skills, stage=None, program=None, extra=None):
+    """存一份预设（同名覆盖）。名字空着就报错——预设列表里不出现没有名字的东西。
+
+    整套预设 = 模型（含厂商）＋ SKILL ＋ 创作模式；传了 workflow 就连总控与制作锁一起记，
+    剧本页传了 writer_style 就连风格一起记。没传的项不写入，套用时也就不会去动它们。
+    这些可选项收在 extra 里：mode、workflow（项目总控）、lock（制作锁）、writer_style。
+    """
+    extra = extra or {}
+    mode, workflow, writer_style = extra.get('mode'), extra.get('workflow'), extra.get('writer_style')
     label = ' '.join(str(name or '').split())
     if not label:
         raise ValueError('先给预设起个名字')
@@ -449,12 +469,36 @@ def save_preset(name, model, skills, stage=None, program=None):
         stage = 'keyframe'
     if stage not in STAGES:
         raise ValueError('没有这个阶段：' + stage)
+    if mode is not None and mode not in PRESET_MODES:
+        raise ValueError('没有这个创作模式：' + str(mode))
     groups = _preset_groups(program)
     data = groups.setdefault(stage, {})
-    data[label] = {'model': clean_model(model),
-                   'skills': [str(item) for item in (skills or []) if str(item).strip()]}
+    entry = {'model': clean_model(model),
+             'skills': [str(item) for item in (skills or []) if str(item).strip()]}
+    mode = mode or (data.get(label) or {}).get('mode')
+    if mode in PRESET_MODES:
+        entry['mode'] = mode
+    if workflow is not None:
+        entry['workflow'] = _workflow_snapshot(workflow, extra.get('lock'))
+    if writer_style is not None and stage in WRITER_STYLE_STAGES:
+        entry[WRITER_STYLE] = clean_writer_style(writer_style)
+    data[label] = entry
     _save_preset_groups(groups, program)
     return data[label]
+
+
+def preset_mode(entry):
+    """一份预设所属的创作模式；缺失或不认识的都归「未分类」。"""
+    mode = (entry or {}).get('mode')
+    return mode if mode in PRESET_MODES else PRESET_MODE_NONE
+
+
+def preset_groups(program=None, stage=None):
+    """按创作模式分好组的预设名：[(模式, [名称…])…]，空组不出现，「未分类」排最后。"""
+    buckets = {}
+    for label, entry in presets(program, stage).items():
+        buckets.setdefault(preset_mode(entry), []).append(label)
+    return [(mode, buckets[mode]) for mode in (*PRESET_MODES, PRESET_MODE_NONE) if buckets.get(mode)]
 
 
 def rename_preset(old, new, program=None, stage=None):
@@ -495,12 +539,35 @@ def drop_preset(name, program=None, stage=None):
     return False
 
 
-def apply_preset(project, stage, name, program=None, registry=None):
-    """把预设套到某个阶段上：模型与 SKILL 一起写进去。"""
+def apply_preset(project, stage, name, program=None, registry=None, known_workflows=None):
+    """把预设套到某个阶段上：模型（含厂商）、SKILL、风格与总控一起写进去。
+
+    预设里没记的项（旧预设、非剧本页的风格）不动当前值；总控记成「不使用」就退出统筹；
+    known_workflows 给了就只套用其中登记过的总控，缺失的总控跳过，不写半截数据。
+    """
     entry = presets(program, stage).get(str(name))
     if not isinstance(entry, dict):
         raise ValueError('没有这个预设：' + str(name))
-    return put(project, stage, entry.get('model'), entry.get('skills'), registry)
+    style = entry.get(WRITER_STYLE) if stage in WRITER_STYLE_STAGES else None
+    result = put(project, stage, entry.get('model'), entry.get('skills'), registry, writer_style=style)
+    if isinstance(entry.get('workflow'), dict):
+        _apply_preset_workflow(project, entry['workflow'], known_workflows)
+    return result
+
+
+def _apply_preset_workflow(project, snapshot, known=None):
+    master = str(snapshot.get('name') or '').strip()
+    if not master:
+        clear_workflow(project)
+        return True
+    if known is not None and master not in known:
+        return False
+    current = current_workflow(project)
+    locks = dict(current.get('lock') or {})
+    locks[master] = dict(snapshot.get('lock') or {})
+    put_workflow(project, {**current, 'name': master, 'skill_ref': snapshot.get('skill_ref', ''),
+                           'lock': locks})
+    return True
 
 
 def share_preset(name, source_stage, target_stages, program=None):

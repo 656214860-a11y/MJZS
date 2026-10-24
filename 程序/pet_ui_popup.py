@@ -72,3 +72,29 @@ class PetPopupMixin:
         if recent >= PET_ACTIVITY_BUSY_COUNT:
             return PET_CLOUD_BUSY_CLOSE_MS
         return PET_CLOUD_AUTO_CLOSE_MS
+
+    def in_main_view(self):
+        """用户这会儿是不是在主界面里：焦点落在阶段配置、设置等子窗口里就不算。
+
+        attending() 只管「是不是本进程在前台」，子窗口开着也算在内。可用户正在子窗口里填表时
+        三虎自己冒泡、压在表单上方，等于打断操作。这里按焦点所属的顶层窗口判：不是主窗口就
+        返回 False。问不出来（没有焦点、假宿主、Tk 抛错）一律当 True，宁可多说一句。
+        main_view 可注入，自检用它摆出「人在子窗口里」。
+        """
+        judge = self.main_view
+        try:
+            if judge is not None:
+                return bool(judge())
+            focus = self.win.focus_get()
+            if focus is None:
+                return True
+            top = focus.winfo_toplevel()
+            cloud = self._cloud
+            if cloud is not None and top is getattr(cloud, 'win', None):
+                return True        # 焦点在三虎自己的对话框里：那是在跟三虎说话，不算离开主界面
+            return top is self.win
+        except Exception:
+            return True
+    def can_pop(self):
+        """三虎自己冒泡的总闸：人在本应用前台，且在主界面里（不在子窗口里填表）。"""
+        return self.attending() and self.in_main_view()
