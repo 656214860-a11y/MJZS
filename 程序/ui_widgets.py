@@ -1034,11 +1034,7 @@ class Tooltip:
             tip = tk.Toplevel(self.widget)
             tip.overrideredirect(True)
             tip.configure(background=TOOLTIP_BORDER)
-            label = tk.Label(tip, text=self.text, font=TOOLTIP_FONT,
-                             fg=TOOLTIP_FOREGROUND, bg=TOOLTIP_BACKGROUND,
-                             padx=TOOLTIP_PADDING[0], pady=TOOLTIP_PADDING[1],
-                             wraplength=TOOLTIP_WRAPLENGTH, justify="left")
-            label.pack(padx=TOOLTIP_BORDER_WIDTH, pady=TOOLTIP_BORDER_WIDTH)
+            self._populate(tip)
             x, y = self._position or (self.widget.winfo_rootx() + TOOLTIP_OFFSET,
                                       self.widget.winfo_rooty() + TOOLTIP_OFFSET)
             # 贴近屏幕底边／右边的控件（如页面底部状态栏）改向上／向左展开，浮层不出屏。
@@ -1059,6 +1055,14 @@ class Tooltip:
             except (UnboundLocalError, tk.TclError):
                 pass
             return None
+
+    def _populate(self, tip):
+        """浮层内容；子类（预览卡片）重写，边框与定位仍由 show 统一处理。"""
+        label = tk.Label(tip, text=self.text, font=TOOLTIP_FONT,
+                         fg=TOOLTIP_FOREGROUND, bg=TOOLTIP_BACKGROUND,
+                         padx=TOOLTIP_PADDING[0], pady=TOOLTIP_PADDING[1],
+                         wraplength=TOOLTIP_WRAPLENGTH, justify="left")
+        label.pack(padx=TOOLTIP_BORDER_WIDTH, pady=TOOLTIP_BORDER_WIDTH)
 
     def _cancel_job(self):
         if self._job is None:
