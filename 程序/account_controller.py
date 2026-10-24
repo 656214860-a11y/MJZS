@@ -55,6 +55,15 @@ class AccountController:
             return ''
         return entitlement_service.stage_block_message(self.entitlement(), stage)
 
+    def page_gate(self, pages):
+        """侧栏换页闸：``pages`` 为 (页序号, 阶段键或 None, 标题)；返回 {页序号: 锁定原因}，只判一次授权。"""
+        if not self.enforce:
+            return {}
+        entitlement = self.entitlement()
+        reasons = {index: entitlement_service.page_block_message(entitlement, stage, title)
+                   for index, stage, title in pages}
+        return {index: reason for index, reason in reasons.items() if reason}
+
     def device(self):
         return {'id': self.device_id, 'name': platform.node()[:64], 'os': (platform.system() + ' ' + platform.release())[:64]}
 

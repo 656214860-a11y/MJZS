@@ -111,7 +111,17 @@ def stage_block_message(entitlement, stage):
     """放行返回空串；拦截时返回给用户看的一句话。非阶段键（如三虎表演）一律放行。"""
     if not is_paid_stage(stage) or entitlement.usable:
         return ''
-    title = STAGE_NAMES.get(stage, stage)
+    return _block_text(STAGE_NAMES.get(stage, stage), entitlement)
+
+
+def page_block_message(entitlement, stage, title):
+    """侧栏换页闸：免费阶段之外的页（含与项目无关的工具页，``stage`` 为 None）在授权不可用时返回原因。"""
+    if stage in FREE_STAGES or entitlement.usable:
+        return ''
+    return _block_text(title, entitlement)
+
+
+def _block_text(title, entitlement):
     if entitlement.state == SIGNED_OUT:
         reason = '需要登录账号（新账号可免费试用 3 天）'
     elif entitlement.state == CLOCK_SUSPECT:

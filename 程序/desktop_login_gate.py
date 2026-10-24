@@ -30,6 +30,7 @@ class LoginGateMixin:
     def begin_startup_or_login(self, require_login, start_startup):
         """``Desktop.__init__`` 末段调用：需要登录就显示登录闸，否则直接启动。"""
         self._require_login = bool(require_login)
+        self._refresh_nav_locks()
         self._login_gate_start = start_startup
         if self.login_required():
             self._login_gate_startup_pending = True
@@ -57,9 +58,15 @@ class LoginGateMixin:
         if gate is not None and gate.winfo_exists():
             gate.destroy()
         self.status.set('登录成功')
+        self._refresh_nav_locks()
         if self._login_gate_startup_pending:
             self._login_gate_startup_pending = False
             self._login_gate_start()
+
+    def _refresh_nav_locks(self):
+        hook = getattr(self, 'refresh_nav_locks', None)
+        if callable(hook):
+            hook()
 
     def recheck_login_gate(self):
         """会话被清（退出登录、解绑本机、注销、续签判定会话已死）后，回到登录闸。"""
