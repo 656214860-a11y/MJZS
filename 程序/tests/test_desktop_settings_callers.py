@@ -34,8 +34,8 @@ class DesktopSettingsCallerTests(unittest.TestCase):
                     app.comfy_listening.return_value = False
                     dialog = Mock()
                     dialog.return_value.open_file.return_value = 'ComfyUI.exe'
-                    self.namespace['FileDialog'] = dialog
-                    self.namespace['comfy_executable'] = Mock(return_value=None)
+                    app.media_page_services.file_dialog = dialog          # R1995 起走注入的页面服务，不再读模块级名
+                    app.media_page_services.comfy_executable = Mock(return_value=None)
                     result = success(after) if ok else SystemError('保存失败')
                     args = {'remember_daily_project_choice': ('new',),
                             '_sync_desktop_project_paths': ('old', 'new'),
@@ -70,10 +70,10 @@ class DesktopSettingsCallerTests(unittest.TestCase):
     def test_cancelled_comfy_selection_does_not_save_or_launch(self):
         app = Mock(settings={})
         app.comfy_listening.return_value = False
-        self.namespace['comfy_executable'] = Mock(return_value=None)
+        app.media_page_services.comfy_executable = Mock(return_value=None)
         dialog = Mock()
         dialog.return_value.open_file.return_value = ''
-        self.namespace['FileDialog'] = dialog
+        app.media_page_services.file_dialog = dialog
         with patch('stage_execution_service.publish_desktop_preferences') as save, \
              patch('native_apps.open_comfy') as launch:
             self.namespace['launch_comfy'](app)
