@@ -13,10 +13,12 @@ sys.path.insert(0,HERE)
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 
 import pet_bus
+from account_controller import AccountController
 from desktop import Desktop, PAGES
 from desktop_page_registry import ACCOUNT_TITLE, PAGE, PAGE_ACCOUNT, PAGE_SITES, page_title
 from skip_reasons import PLATFORM_TK_DISPLAY
 import test_desktop_startup_perf as startup_fixtures
+from test_account_client import NOW, _Client, _Store
 
 
 class AccountRegistryTests(unittest.TestCase):
@@ -43,6 +45,10 @@ class AccountEntryTests(unittest.TestCase):
         cls.desktop.startup_controller.cancel()
         cls.desktop._startup_project_choice=False
         cls.desktop.root=None
+        # R2042：账号存储绑到临时目录，不读本机 private/账户/session.json 里的真实登录会话
+        store=_Store(Path(cls.temp.name)/'acct'/'session.json')
+        cls.desktop._account_controller=AccountController(
+            submit=lambda work,done,label:done(work()),clock=lambda:NOW,store=store,client=_Client(),enforce=True)
         cls.pump(1.0)
 
     @classmethod
