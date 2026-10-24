@@ -39,8 +39,8 @@ def _make():
 class AutoStateFactoryTests(unittest.TestCase):
     def test_field_count_and_names_are_unique(self):
         names = [f.name for f in fields(AutoState)]
-        self.assertEqual(len(names), 62)
-        self.assertEqual(len(set(names)), 62)
+        self.assertEqual(len(names), 64)   # R2032：gate_due／gate_error 从 Desktop 迁入
+        self.assertEqual(len(set(names)), 64)
 
     def test_plain_defaults_match_the_old_initializer(self):
         state, _, _ = _make()
