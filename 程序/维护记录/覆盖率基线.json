@@ -344,7 +344,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 1044,
+   "total": 741,
    "percent": 0.0
   },
   {
@@ -432,6 +432,12 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_lifecycle.py",
+   "covered": 0,
+   "total": 102,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_login_gate.py",
    "covered": 0,
    "total": 64,
@@ -447,6 +453,12 @@
    "module": "desktop_media_pages.py",
    "covered": 0,
    "total": 766,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_page_nav.py",
+   "covered": 0,
+   "total": 226,
    "percent": 0.0
   },
   {
@@ -1939,5 +1951,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 321
+ "modules_total": 323
 }

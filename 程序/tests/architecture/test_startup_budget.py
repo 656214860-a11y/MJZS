@@ -10,7 +10,8 @@ ROOT = Path(__file__).resolve().parents[2]
 FORBIDDEN_DIRECTORY_CALLS = frozenset({'rglob', 'glob', 'walk'})
 STARTUP_CHAIN = {
     'app.py': (None, ('<module>',)),
-    'desktop.py': ('Desktop', ('__init__', 'load', 'show')),
+    'desktop.py': ('Desktop', ('__init__', 'load')),
+    'desktop_page_nav.py': ('PageNavMixin', ('show',)),  # 自 desktop.py 迁出，仍在启动链上，照样受检
     # R1505：choose_project 原样迁到 ProjectPagesMixin，仍在启动链上，照样受检。
     'desktop_project_pages.py': ('ProjectPagesMixin', ('choose_project',)),
     # R1499：writing（剧本准备页构建）原样迁到 WritingPageMixin，仍在启动链上，照样受检。

@@ -60,7 +60,7 @@ _register(5, "desktop_launcher")
 _register(1, "lease_verifier", "account_store", "update_notice")
 _register(2, "entitlement_service", "account_client")
 _register(3, "account_controller")
-_register(4, "desktop_account_page", "desktop_login_gate", "desktop_master_update", "master_skill_update")
+_register(4, "desktop_account_page", "desktop_login_gate", "desktop_master_update", "desktop_page_nav", "desktop_lifecycle", "master_skill_update")
 
 # 非运行期外围脚本：它们不会作为产品层导入；显式留名可防止新增顶层脚本绕过审计。
 TOOLS: dict[str, str] = {
