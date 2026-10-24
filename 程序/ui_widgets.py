@@ -382,10 +382,11 @@ class SelectBox(ttk.Combobox):
     """
 
     def __init__(self, master=None, *, values=(), height=COMBOBOX_POPDOWN_HEIGHT,
-                 width=None, state="readonly", fit=False, **kwargs):
+                 width=None, state="readonly", fit=False, accent_values=(), **kwargs):
         setup_styles(master)
         values = tuple(values)
         self._fit = bool(fit)
+        self.accent_values = tuple(accent_values)  # 弹出列表里用主色突出的特殊项（如「+ 添加模型…」）
         # 显式给了 width：框体宽度固定（统一尺寸），不随选项重算；弹出列表仍按最长选项加宽。
         self._fixed_width = width is not None
         if width is None:
@@ -398,9 +399,21 @@ class SelectBox(ttk.Combobox):
             if user_post:
                 user_post()
             self._fit_popdown()
+            if self.accent_values:
+                self.after_idle(self._accent_popdown)
 
         super().__init__(master, values=values, height=height, width=width,
                          state=state, postcommand=post, **kwargs)
+
+    def _accent_popdown(self):
+        """列表载入后把特殊项染成主色：弹出窗的列表框在 postcommand 之后才填充，故延后一拍。"""
+        try:
+            listbox = '%s.f.l' % self.tk.call('ttk::combobox::PopdownWindow', self)
+            for index, value in enumerate(self.cget('values')):
+                if value in self.accent_values:
+                    self.tk.call(listbox, 'itemconfigure', index, '-foreground', COLORS['primary'])
+        except tk.TclError:
+            pass
 
     def _fit_popdown(self):
         """弹出前把列表加宽到最长选项：ttk 的列表宽度跟随框体，靠样式 postoffset 补差。"""

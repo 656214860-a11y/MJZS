@@ -182,7 +182,7 @@ class FlowFields(ttk.Frame):
         else:
             rows, row, used = [], [], 0
             for item in visible:
-                extra = self.gap if row else 0
+                extra = self._gap_after(row[-1]) if row else 0
                 if row and used + extra + item['natural'] > available:
                     rows.append(row)
                     row, used, extra = [], 0, 0
@@ -201,8 +201,13 @@ class FlowFields(ttk.Frame):
         if int(self.cget('height')) != height:
             self.configure(height=height)
 
+    def _gap_after(self, item):
+        """某项之后的间距：控件可带 gap_after 属性（如下拉框后留大间距），否则用统一 gap。"""
+        return int(getattr(item['widget'], 'gap_after', self.gap))
+
     def _place_row(self, row, y, available, last):
-        base = sum(item['natural'] for item in row) + self.gap * (len(row) - 1)
+        gaps = [self._gap_after(item) for item in row[:-1]]
+        base = sum(item['natural'] for item in row) + sum(gaps)
         extra = max(0, available - base) if (self.fill_last or not last) else 0
         grow_total = sum(item['natural'] for item in row if item['grow'])
         widths = []
@@ -220,7 +225,7 @@ class FlowFields(ttk.Frame):
                     cut = int(need * widths[index] / pool)
                     widths[index] = max(1, widths[index] - cut)
         if (self.fill_last or not last) and widths:
-            leftover = available - (sum(widths) + self.gap * (len(row) - 1))
+            leftover = available - (sum(widths) + sum(gaps))
             if leftover:
                 target = None
                 for index in range(len(row) - 1, -1, -1):
@@ -231,10 +236,10 @@ class FlowFields(ttk.Frame):
                     widths[target] = max(1, widths[target] + leftover)
         row_height = max(item['height'] for item in row)
         x = 0
-        for item, width in zip(row, widths):
+        for index, (item, width) in enumerate(zip(row, widths)):
             item['widget'].place(x=x, y=y, width=max(1, min(width, available)),
                                  height=row_height)
-            x += width + self.gap
+            x += width + (gaps[index] if index < len(gaps) else self.gap)
 
 
 class ProductionLockFields(FlowFields):
@@ -314,8 +319,11 @@ class ProductionLockFields(FlowFields):
             key = item['key']
             active = production_lock_active(item, values)
             self.inputs[key].configure(state='normal' if self.enabled and active else 'disabled')
-            hint = ('必选' if item.get('required_from') and not values[key] else
-                    '仅 Seedance 2.5' if key == 'reference_mode' and not active else
+            required_missing = bool(item.get('required_from') and not values[key])
+            # 「必选」不再占一行：标签标成警示色即可，省下一行高度。
+            self.fields[key]['label'].configure(
+                foreground=COLORS['warning_text'] if required_missing else '')
+            hint = ('仅 Seedance 2.5' if key == 'reference_mode' and not active else
                     '多段任务用' if key == 'splice_mode' else
                     '预设，≤4 张，逗号分隔' if key == 'style_directors' else '')
             self.hints[key].configure(text=hint)

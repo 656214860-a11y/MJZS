@@ -319,6 +319,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         # 第 50 期第 1 条：最后一项是「+ 添加模型…」——原来那颗「手动配置模型与
         # SKILL」里的「自定义模型」入口，现在就在挑模型的那一格旁边。
         self.models = SelectBox(top, textvariable=self.model, width=select_width,
+                                   accent_values=(ADD_MODEL_LABEL,),
                                    values=self.provider_labels() + [ADD_MODEL_LABEL])
         self.models.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
         self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
@@ -460,6 +461,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
             self.skill_action_row, textvariable=self.skill_action,
             width=STAGE_PANEL_LAYOUT['select_width'],
             values=(MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE))
+        self.skill_action_box.gap_after = STAGE_PANEL_LAYOUT['item_gap']  # 下拉框与首个勾选框拉开
         self.skill_action_row.add(self.skill_action_box)
         self.skill_action_box.bind('<<ComboboxSelected>>', lambda event: self.choose_skill_action())
         self.external_package_hint = HintLabel(self.skill_action_row, text='')
