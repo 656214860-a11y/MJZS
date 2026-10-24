@@ -9,6 +9,7 @@ from desktop_storyboard_page import StoryboardPageMixin
 from desktop_writing_page import WritingPageMixin, TALK_MIN_LINES, TALK_MAX_LINES
 from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, bind_host, THUMB_SIZE, ASSET_ROW_HEIGHT
 from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
+from desktop_auto_state import AutoStateAliasesMixin, create_auto_state
 from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
 import os, shutil, queue, threading, subprocess, sys, time, uuid, hashlib, re, json, logging
 from datetime import date
@@ -146,7 +147,7 @@ def status_kind(message):
     if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
     return 'ready'
 
-class Desktop(AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
+class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,*,script_page_services=None):
         self._init_window_and_sidebar(script_page_services, win, root)
         self._init_body_and_status(win)
@@ -355,58 +356,9 @@ class Desktop(AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixi
 
 
     def _initialize_automation_state(self):
-        """建立各阶段自动队列的完整初始契约，避免 UI 构造中遗漏状态。"""
-        self.auto_adopt_due=0
-        self.auto_adopt_errors={}
-        self.auto_adopt_signature=None
-        self.auto_adopt_pending=False
-        self.auto_adopt_startup=True
-        self.auto_final_due=0
-        self.auto_final_busy=False
-        self.auto_final_queue=pet_ui.StageQueue('final',self.pet.drain)
-        self.auto_final_signature=None
-        self.auto_final_notice=None
-        self.auto_final_blocked=False
-        self.auto_final_error=''
-        self.auto_edit_due=0;self._auto_edit_ticket=0;self.auto_edit_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_edit_busy=False
-        self.auto_edit_queue=pet_ui.StageQueue('edit',self.pet.drain)
-        self.auto_edit_signature=None
-        self.auto_edit_error=''
-        self.auto_keyframe_due=0;self._auto_keyframe_ticket=0;self.auto_keyframe_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_keyframe_busy=False
-        self.auto_keyframe_queue=pet_ui.StageQueue('keyframe')
-        self.auto_keyframe_messages=queue.Queue()
-        self.auto_keyframe_signature=None
-        self.auto_keyframe_blocked=None
-        self.auto_keyframe_error=''
-        self.auto_asset_due=0;self._auto_asset_ticket=0;self.auto_asset_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_asset_busy=False
-        self.auto_asset_queue=pet_ui.StageQueue('assets')
-        self.auto_asset_messages=queue.Queue()
-        self.auto_asset_signature=None
-        self.auto_asset_attempt=0
-        self.auto_asset_blocked=None
-        self.auto_asset_error=''
-        self.auto_asset_tried=None
-        self.auto_video_due=0;self._auto_video_ticket=0;self.auto_video_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_video_busy=False
-        self.auto_video_queue=pet_ui.StageQueue('video',self.pet.drain)
-        self.auto_video_messages=queue.Queue()
-        self.auto_video_signature=None
-        self.auto_video_notice=None
-        self.auto_video_error=''
-        self.auto_video_last=''
-        self.auto_previs_due=0
-        self._auto_previs_ticket=0;self.auto_previs_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_previs_signature=None
-        self.auto_previs_notice=None
-        self.auto_previs_error=''
-        self.auto_handoff_due=0;self._auto_handoff_ticket=0;self.auto_handoff_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_handoff_busy=False
-        self.auto_handoff_queue=pet_ui.StageQueue('delivery',self.pet.drain)
-        self.auto_handoff_signature=None
-        self.auto_handoff_error=''
+        """建立各阶段自动队列的完整初始契约，避免 UI 构造中遗漏状态（状态本体见 desktop_auto_state）。"""
+        self.auto=create_auto_state(self.app/'outputs'/'desktop-task-history.json',stage_queue=pet_ui.StageQueue,drain=self.pet.drain)
+
     def save_brief(self,path,value):
         path=Path(path)
         # 第 37 期第 2 条：预置示例随程序打包（默认创意示例.md），比的是程序里那一份——
@@ -920,7 +872,7 @@ class Desktop(AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixi
         self.asset_detail_id=None            # 第 64 期任务 13：换项目／换目录回到主页面
         # 第 62 期任务 7：换项目要重扫——原来跨项目沿用上一份指纹，新项目正好撞上同样的
         # （份数，最新写入时间）就会被跳过；顺手把「启动对账」重新排上。
-        self.auto_adopt_signature=None;self.auto_adopt_pending=False;self.auto_adopt_startup=True
+        self.auto.adopt_signature=None;self.auto.adopt_pending=False;self.auto.adopt_startup=True
         if path:
             self._schedule_stage_model_sync(self.root)
             if not defer_page:

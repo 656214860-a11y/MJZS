@@ -28,6 +28,7 @@ import stage_parallel
 from agent.core import file_hash, read, save
 from desktop import Desktop
 from desktop_auto_flows import AutoFlowsMixin
+from desktop_auto_state import AutoState, AutoStateAliasesMixin
 from desktop_automation_tick import AutomationTickMixin
 from stage_execution_service import asset_plan_gateway, publish_final_storyboard_bundle
 from storyboard_final import finalize
@@ -113,7 +114,7 @@ class _Status:
         self.text = value
 
 
-class _DesktopStub:
+class _DesktopStub(AutoStateAliasesMixin):
     """只带真实方法需要的属性；方法本身用 Desktop／AutoFlowsMixin 的真实现。"""
 
     apply_final = Desktop.apply_final
@@ -122,6 +123,7 @@ class _DesktopStub:
 
     def __init__(self, project, episode):
         import queue
+        self.auto = AutoState()   # R1985：自动化状态收进 desktop.auto，旧属性名经转发
         self.root = project
         self.episode = episode
         self.studio = object()

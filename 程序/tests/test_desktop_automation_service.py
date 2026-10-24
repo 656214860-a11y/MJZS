@@ -8,8 +8,20 @@ from types import SimpleNamespace
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
+from desktop_auto_state import AutoState, AutoStateAliasesMixin
 from desktop_automation_service import (BACKGROUND_TASK_MIGRATION,
                                         BackgroundTaskLifecycle, DesktopAutomationScheduler)
+
+
+class _DesktopStub(AutoStateAliasesMixin, SimpleNamespace):
+    """R1985：自动化状态收进 ``desktop.auto``，桩对象沿用旧属性名读写，经转发落到 ``AutoState``。"""
+
+
+def desktop_stub(**attrs):
+    stub = _DesktopStub(auto=AutoState())
+    for name, value in attrs.items():
+        setattr(stub, name, value)
+    return stub
 
 
 class DesktopAutomationSchedulerTests(unittest.TestCase):
@@ -107,7 +119,7 @@ class AutoVideoLifecycleDeliveryTests(unittest.TestCase):
         lifecycle.submit(1)
         lifecycle.submit(2)
         status = SimpleNamespace(values=[], set=lambda value: status.values.append(value))
-        desktop = SimpleNamespace(
+        desktop = desktop_stub(
             auto_video_tasks=lifecycle,
             auto_video_messages=queue.Queue(),
             auto_video_queue=queue.Queue(),
@@ -135,7 +147,7 @@ class AutoAssetLifecycleDeliveryTests(unittest.TestCase):
         lifecycle.submit(1)
         lifecycle.submit(2)
         status = SimpleNamespace(values=[], set=lambda value: status.values.append(value))
-        desktop = SimpleNamespace(
+        desktop = desktop_stub(
             auto_asset_tasks=lifecycle,
             auto_asset_messages=queue.Queue(),
             auto_asset_queue=queue.Queue(),
@@ -160,7 +172,7 @@ class AutoKeyframeLifecycleDeliveryTests(unittest.TestCase):
         lifecycle.submit(1)
         lifecycle.submit(2)
         status = SimpleNamespace(values=[], set=lambda value: status.values.append(value))
-        desktop = SimpleNamespace(
+        desktop = desktop_stub(
             auto_keyframe_tasks=lifecycle,
             auto_keyframe_messages=queue.Queue(),
             auto_keyframe_queue=queue.Queue(),
@@ -185,7 +197,7 @@ class CloudMonitorLifecycleDeliveryTests(unittest.TestCase):
         lifecycle.submit(1)
         lifecycle.submit(2)
         status = SimpleNamespace(values=[], set=lambda value: status.values.append(value))
-        desktop = SimpleNamespace(
+        desktop = desktop_stub(
             cloud_monitor_tasks=lifecycle,
             cloud_monitor_result=queue.Queue(),
             cloud_monitor_busy=True,
@@ -208,7 +220,7 @@ class PrevisLifecycleDeliveryTests(unittest.TestCase):
         lifecycle.submit(1)
         lifecycle.submit(2)
         reports = []
-        desktop = SimpleNamespace(
+        desktop = desktop_stub(
             auto_previs_tasks=lifecycle,
             previs_jobs={'news': queue.Queue()},
             _poll_auto_due=lambda *args, **kwargs: None,
@@ -239,7 +251,7 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
     def make_desktop(self, entry):
         effects = []
         record = lambda *args, **kwargs: effects.append((args, kwargs))
-        desktop = SimpleNamespace(
+        desktop = desktop_stub(
             win=SimpleNamespace(after_cancel=record), cancel_resize=lambda: None,
             idea_chat_controller=SimpleNamespace(cancel_request=lambda: None),
             _async_ticket=1, _brief_load_results=queue.Queue(), worker=True,

@@ -16,7 +16,7 @@ from collections import defaultdict
 from tests.architecture._scan import parse, production_files
 
 SHARED_STATE_CAPS = {
-    'Desktop': 86,
+    'Desktop': 43,
     'Pet': 64,
     'Cloud': 18,
     'Panel': 5,
