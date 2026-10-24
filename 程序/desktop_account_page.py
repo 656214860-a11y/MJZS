@@ -16,7 +16,8 @@ from tkinter import ttk
 import account_client
 import entitlement_service
 from account_controller import AccountController
-from desktop_page_registry import PAGE_ACCOUNT
+import pet_bus
+from desktop_page_registry import PAGE_ACCOUNT, PAGES
 from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation
 
@@ -56,6 +57,9 @@ def device_text(device):
     mark = ' · 本机' if device.get('current') else ''
     return '%s（%s）%s  首次 %s · 最近 %s' % (device.get('name') or '—', device.get('os') or '—', mark,
                                          _when(device.get('first_seen')), _when(device.get('last_seen')))
+
+
+NAV_LOCK_MARK = '  🔒'                        # 侧栏上未授权不能进的页
 
 
 class AccountPageMixin:
@@ -153,10 +157,38 @@ class AccountPageMixin:
 
         钩子由 ``LoginGateMixin`` 提供；没有混入它的宿主（如测试替身）直接跳过。
         """
-        for name in ('recheck_login_gate',):
+        for name in ('recheck_login_gate', 'refresh_nav_locks'):
             hook = getattr(self, name, None)
             if callable(hook):
                 hook()
+
+    def page_lock_reasons(self):
+        """页序号 → 锁定原因（只列被锁的页）。只在真实启动（要求登录）时设闸，测试宿主一律放行。"""
+        if not getattr(self, '_require_login', False):
+            return {}
+        stages = pet_bus.STAGES
+        return self.account.page_gate([(index, stages[index] if index < len(stages) else None, title.split(None, 1)[-1])
+                                       for index, title in enumerate(PAGES)])
+
+    def locked_page(self, reason):
+        """未授权时换掉整页：说明原因，给一个去「00 会员账户」的按钮。"""
+        card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
+        ttk.Label(card,text='需要登录或授权',font=FONTS['heading_2']).pack(anchor='w')
+        ttk.Label(card,text=reason,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=SPACING['xs'])
+        PrimaryButton(card,text='去会员账户',command=lambda:self.go_page(PAGE_ACCOUNT)).pack(anchor='w',pady=SPACING['xs'])
+        self.status.set(reason)
+
+    def refresh_nav_locks(self):
+        """授权变化后给侧栏被锁的页加／去锁标记；当前页的锁定状态翻转就重建这一页。"""
+        reasons = self.page_lock_reasons()
+        current, flipped = getattr(self, 'page_index', None), False
+        for index, button in enumerate(getattr(self, 'nav', ())):
+            text = PAGES[index] + (NAV_LOCK_MARK if index in reasons else '')
+            if button.cget('text') != text:
+                button.configure(text=text)
+                flipped = flipped or index == current
+        if flipped and not getattr(self, 'login_gate_active', False):
+            self.show(current)
 
     def _account_renewed(self, result):
         self._account_changed()
@@ -452,7 +484,7 @@ class AccountPageMixin:
         self.account_redeem_input,self.account_redeem_button,self.account_redeem_message = code,button,message
 
     def _account_login_form(self):
-        self._build_login_form(self.content, lambda: (self.show(PAGE_ACCOUNT), self.status.set('登录成功')))
+        self._build_login_form(self.content, lambda: (self.show(PAGE_ACCOUNT), self.status.set('登录成功'), self._account_changed()))
 
     def _build_login_form(self, parent, on_success, *, wrap=None):
         """账号页与启动登录闸共用：密码登录（默认）／注册／验证码登录／找回密码四个视图共用一个邮箱框。

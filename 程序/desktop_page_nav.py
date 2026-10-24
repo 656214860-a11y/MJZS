@@ -126,6 +126,12 @@ class PageNavMixin:
     @_page_paint_timed
     def show(self,index,video_mode=None):
         scroll_offset, page_cache = self._show_reset_page(index, video_mode)
+        locks = getattr(self, 'page_lock_reasons', None)
+        reason = locks().get(index) if callable(locks) and index != PAGE_ACCOUNT else ''
+        if reason:
+            self.locked_page(reason)       # 未登录或授权失效：免费阶段与会员页之外整页换成锁定说明
+            self.fit_content()
+            return
         if index in (PAGE_SITES,PAGE_ACCOUNT):
             (self.reference_sites if index==PAGE_SITES else self.account_page)()    # 两页都与项目无关：没打开项目也能进
             # 与普通制作页一样会在这里新增内容；不能提前返回而把 Canvas window 留在 1px 高度。
