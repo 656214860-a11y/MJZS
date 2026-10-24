@@ -103,6 +103,7 @@ class AccountPageMixin:
         if getattr(self, 'shutting_down', False):
             return
         try:
+            self._account_changed()   # 跨天后刷新到期天数；会话已失效则回登录闸
             if self.account.renew_due():
                 self.account.renew(done=self._account_renewed, quiet=True)
         finally:
@@ -137,7 +138,18 @@ class AccountPageMixin:
         if notice.get('url'):
             PrimaryButton(card,text='去下载',command=lambda u=notice['url']:webbrowser.open(u)).pack(anchor='w',pady=SPACING['xs'])
 
+    def _account_changed(self):
+        """登录、续签、兑换、退出、解绑、注销后：刷新标题栏到期提示，会话已清则回到登录闸。
+
+        两个钩子由 ``LoginGateMixin`` 提供；没有混入它的宿主（如测试替身）直接跳过。
+        """
+        for name in ('refresh_membership_badge', 'recheck_login_gate'):
+            hook = getattr(self, name, None)
+            if callable(hook):
+                hook()
+
     def _account_renewed(self, result):
+        self._account_changed()
         if not result.ok and (result.data or {}).get('code') == 'client_too_old':
             self.account.check_update(self._update_checked)
         if getattr(self, 'page_index', None) == PAGE_ACCOUNT:
@@ -157,7 +169,7 @@ class AccountPageMixin:
         style = {'warn': 'Warn.TLabel', 'expired': 'Expired.TLabel'}.get(view['level'], 'Muted.TLabel')
         for line in view['lines']:
             ttk.Label(status,text=line,style=style,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
-        rule = '「01 剧本准备」「02 剧本结构」不登录也能用；从「03 初步分镜」起需要试用或会员。'
+        rule = '需登录账号后使用。试用或会员到期后，「01 剧本准备」「02 剧本结构」仍可使用；从「03 初步分镜」起需要试用或会员。'
         if not self.account.enforce:rule += '（测试期暂不拦截）'
         ttk.Label(status,text=rule,
                   style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
@@ -179,7 +191,7 @@ class AccountPageMixin:
             if not self.account.renew(done=self._account_renewed):self.status.set('本机没有可续签的登录会话，请重新登录')
             else:self.status.set('正在续签会员授权…')
         def logout():
-            self.account.logout();self.show(PAGE_ACCOUNT);self.status.set('已退出登录（项目和素材不受影响）')
+            self.account.logout();self.show(PAGE_ACCOUNT);self.status.set('已退出登录（项目和素材不受影响）');self._account_changed()
         PrimaryButton(actions,text='立即续签',command=renew).pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         SecondaryButton(actions,text='退出登录',command=logout).pack(side='left')
         self._account_redeem_form()
@@ -273,7 +285,7 @@ class AccountPageMixin:
         def unbound(result):
             if not message.winfo_exists():return
             if not result.ok:message.configure(text=result.reason);return
-            if current:self.show(PAGE_ACCOUNT);self.status.set('已解绑本机并退出登录');return
+            if current:self.show(PAGE_ACCOUNT);self.status.set('已解绑本机并退出登录');self._account_changed();return
             self.status.set('已解绑设备');reload()
         message.configure(text='正在解绑…')
         if not self.account.unbind(device.get('id'),unbound,current=current):message.configure(text='本机没有登录会话，请重新登录')
@@ -318,7 +330,7 @@ class AccountPageMixin:
             if not message.winfo_exists():return
             confirm.state(['!disabled'])
             if not result.ok:message.configure(text=result.reason);return
-            self.show(PAGE_ACCOUNT);self.status.set('已申请注销，冷静期至 %s；期间可在登录页撤销'%_when((result.data or {}).get('deletion_at')))
+            self.show(PAGE_ACCOUNT);self.status.set('已申请注销，冷静期至 %s；期间可在登录页撤销'%_when((result.data or {}).get('deletion_at')));self._account_changed()
         def submit():
             if not code.get().strip():
                 code.set_error('请填写注销验证码');return
@@ -346,7 +358,7 @@ class AccountPageMixin:
             button.state(['!disabled'])
             if result.ok:
                 days = (result.data or {}).get('added_days')
-                self.show(PAGE_ACCOUNT);self.status.set('兑换成功'+('，会员增加 %s 天'%days if days else ''))
+                self.show(PAGE_ACCOUNT);self.status.set('兑换成功'+('，会员增加 %s 天'%days if days else ''));self._account_changed()
             else:message.configure(text=result.reason)
         def submit():
             value = code.get().strip()
@@ -359,7 +371,11 @@ class AccountPageMixin:
         self.account_redeem_input,self.account_redeem_button,self.account_redeem_message = code,button,message
 
     def _account_login_form(self):
-        form = Card(self.content);form.pack(fill='x',pady=SPACING['xs'])
+        self._build_login_form(self.content, lambda: (self.show(PAGE_ACCOUNT), self.status.set('登录成功')))
+
+    def _build_login_form(self, parent, on_success):
+        """邮箱验证码登录表单：账号页与启动登录闸共用；登录成功后只调 ``on_success``。"""
+        form = Card(parent);form.pack(fill='x',pady=SPACING['xs'])
         ttk.Label(form,text='邮箱验证码登录（新账号免费试用 3 天，每个账号最多绑定 3 台电脑）').pack(anchor='w',pady=SPACING['xs'])
         email = LineInput(form,placeholder='邮箱地址');email.pack(fill='x',pady=SPACING['xs'])
         code = LineInput(form,placeholder='6 位验证码');code.pack(fill='x',pady=SPACING['xs'])
@@ -369,7 +385,7 @@ class AccountPageMixin:
                   style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
         message = ttk.Label(form,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
         message.pack(anchor='w',pady=SPACING['xs'])
-        actions = ttk.Frame(self.content);actions.pack(anchor='w',pady=SPACING['sm'])
+        actions = ttk.Frame(parent);actions.pack(anchor='w',pady=SPACING['sm'])
         def alive():return bool(message.winfo_exists())
         def sent(result):
             if not alive():return
@@ -386,7 +402,7 @@ class AccountPageMixin:
             if not alive():return
             login.state(['!disabled'])
             if result.ok:
-                self.show(PAGE_ACCOUNT);self.status.set('登录成功')
+                on_success()
             else:
                 pending = (result.data or {}).get('code') == 'account_pending_deletion'
                 message.configure(text=result.reason+('。被拦下的验证码仍有效，可点「撤销注销」。' if pending else ''))

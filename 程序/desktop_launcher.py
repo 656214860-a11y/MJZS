@@ -24,5 +24,5 @@ def launch():
             except tk.TclError:
                 pass
     window.report_callback_exception = report_callback_exception
-    Desktop(window)
+    Desktop(window, require_login=True)
     window.mainloop()

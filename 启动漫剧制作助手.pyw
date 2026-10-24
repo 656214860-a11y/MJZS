@@ -65,7 +65,7 @@ try:
         if splash:splash.step(index)
     from desktop import Desktop
     step(1)
-    desk=Desktop(window,root=program)
+    desk=Desktop(window,root=program,require_login=True)
     step(2)
     def reveal():
         window._drama_hold_alpha=False
@@ -73,6 +73,8 @@ try:
         window.update_idletasks()
         window.attributes('-alpha',1);window.lift();window.focus_force()
     def loaded():
+        # 未登录时登录闸已盖满主窗口，首帧启动要等登录后才开始：直接揭开，让用户看到登录页。
+        if getattr(desk,'login_gate_active',False):return True
         # 首帧完成、今日项目页与剧本准备整页都在启动画面后建好才揭开（R1413 先揭外壳的做法会白屏）。
         if not getattr(window,'_desktop_first_paint_complete',False):return False
         if getattr(window,'_desktop_loading_project',False):return False

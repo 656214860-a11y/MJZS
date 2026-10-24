@@ -38,6 +38,7 @@ from platform_tools import find_editor_shortcut, launch_windows_app, open_direct
 from desktop_startup_service import DesktopStartupController
 from desktop_account_page import AccountPageMixin
 from desktop_master_update import MasterUpdateMixin
+from desktop_login_gate import LoginGateMixin
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from idea_chat_controller import IdeaChatController, speaker_name
 from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
@@ -147,8 +148,8 @@ def status_kind(message):
     if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
     return 'ready'
 
-class Desktop(AccountPageMixin, MasterUpdateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
-    def __init__(self,win,root=ROOT,*,script_page_services=None):
+class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
+    def __init__(self,win,root=ROOT,*,script_page_services=None,require_login=False):
         self._init_window_and_sidebar(script_page_services, win, root)
         self._init_body_and_status(win)
         # Timed callbacks cannot run inside the placement code's update_idletasks.
@@ -186,7 +187,7 @@ class Desktop(AccountPageMixin, MasterUpdateMixin, IdeaMenusMixin, AssetPagesMix
             remember_timer=lambda timer:setattr(self,'_startup_timer',timer),
         )
         # 启动画面整块盖住、主窗口仍透明时，没有白屏可防，让步只需一次消息循环。
-        self.startup_controller.start(*((10,) if self._startup_window_held() else ()))
+        self.begin_startup_or_login(require_login,lambda:self.startup_controller.start(*((10,) if self._startup_window_held() else ())))
         self.automation_scheduler=DesktopAutomationScheduler(
             schedule_after=win.after, cancel_scheduled=win.after_cancel,
             is_stopping=lambda:getattr(self,'shutting_down',False))
