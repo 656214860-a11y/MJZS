@@ -13,8 +13,9 @@ STARTUP_TIMER_JOBS = ('_startup_tick_resume_id', '_startup_project_page_job', '_
                       '_startup_project_recovery_job', '_legacy_project_migration_poll_id',
                       '_async_result_poll_id', '_auto_edit_result_poll_id', '_auto_handoff_result_poll_id')
 # 窗口自己的后台任务生命周期登记器；最小 Desktop 替身可能没有，取不到就跳过。
-LIFECYCLES = ('background_tasks', 'cloud_monitor_tasks', 'auto_asset_tasks', 'auto_keyframe_tasks',
-              'auto_video_tasks', 'auto_edit_tasks', 'auto_handoff_tasks', 'auto_previs_tasks')
+LIFECYCLES = ('background_tasks', 'cloud_monitor_tasks')
+# 八条自动流程的登记器挂在 ``owner.auto``（AutoState）上，顺序同原 ``auto_*_tasks`` 名单。
+AUTO_LIFECYCLES = ('asset_tasks', 'keyframe_tasks', 'video_tasks', 'edit_tasks', 'handoff_tasks', 'previs_tasks')
 
 
 def cancel_jobs(owner, names, after_cancel, tolerated):
@@ -31,8 +32,10 @@ def cancel_jobs(owner, names, after_cancel, tolerated):
 
 def cancel_lifecycles(owner):
     """取消窗口拥有的各后台任务登记器；关闭路径必须兼容尚未初始化完的窗口。"""
-    for name in LIFECYCLES:
-        lifecycle = getattr(owner, name, None)
+    auto = getattr(owner, 'auto', None)
+    registers = [getattr(owner, name, None) for name in LIFECYCLES]
+    registers += [getattr(auto, name, None) for name in AUTO_LIFECYCLES]
+    for lifecycle in registers:
         if lifecycle is not None:
             lifecycle.cancel()
 

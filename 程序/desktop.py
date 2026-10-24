@@ -10,7 +10,7 @@ from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
 from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
 from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
 from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
-from desktop_auto_state import AutoStateAliasesMixin, create_auto_state
+from desktop_auto_state import AutoStateHolderMixin, create_auto_state
 from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
 import os, shutil, queue, threading, subprocess, sys, time, uuid, hashlib, re, json, logging
 from datetime import date
@@ -171,7 +171,7 @@ def status_kind(message):
     if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
     return 'ready'
 
-class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
+class Desktop(AutoStateHolderMixin, AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
     def __init__(self,win,root=ROOT,**page_services):
         self._init_window_and_sidebar(win, root, page_services)
         self._init_body_and_status(win)

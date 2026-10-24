@@ -8,20 +8,37 @@ from types import SimpleNamespace
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from desktop_auto_state import AutoState, AutoStateAliasesMixin
+from desktop_auto_state import AutoState, AutoStateHolderMixin
 from desktop_automation_service import (BACKGROUND_TASK_MIGRATION,
                                         BackgroundTaskLifecycle, DesktopAutomationScheduler)
 
 
-class _DesktopStub(AutoStateAliasesMixin, SimpleNamespace):
-    """R1985：自动化状态收进 ``desktop.auto``，桩对象沿用旧属性名读写，经转发落到 ``AutoState``。"""
+class _DesktopStub(AutoStateHolderMixin, SimpleNamespace):
+    """R1985：自动化状态收进 ``desktop.auto``；旧属性名转发已退役，桩对象的自动化字段经 ``auto`` 参数给出。"""
 
 
-def desktop_stub(**attrs):
-    stub = _DesktopStub(auto=AutoState())
+def desktop_stub(auto=None, **attrs):
+    stub = _DesktopStub(auto=AutoState(**(auto or {})))
     for name, value in attrs.items():
         setattr(stub, name, value)
     return stub
+
+
+def slot(desktop, name):
+    """矩阵用例里的属性名 → (持有者, 属性名)：``auto_`` 开头的落在 ``desktop.auto`` 上并去掉前缀。"""
+    if name.startswith('auto_'):
+        return desktop.auto, name[len('auto_'):]
+    return desktop, name
+
+
+def read(desktop, name):
+    owner, attr = slot(desktop, name)
+    return getattr(owner, attr)
+
+
+def write(desktop, name, value):
+    owner, attr = slot(desktop, name)
+    setattr(owner, attr, value)
 
 
 class DesktopAutomationSchedulerTests(unittest.TestCase):
@@ -120,23 +137,25 @@ class AutoVideoLifecycleDeliveryTests(unittest.TestCase):
         lifecycle.submit(2)
         status = SimpleNamespace(values=[], set=lambda value: status.values.append(value))
         desktop = desktop_stub(
-            auto_video_tasks=lifecycle,
-            auto_video_messages=queue.Queue(),
-            auto_video_queue=queue.Queue(),
-            auto_video_busy=True,
-            auto_video_signature=None,
-            auto_video_due=0,
-            auto_video_last='',
-            auto_video_error='',
+            auto=dict(
+                video_tasks=lifecycle,
+                video_messages=queue.Queue(),
+                video_queue=queue.Queue(),
+                video_busy=True,
+                video_signature=None,
+                video_due=0,
+                video_last='',
+                video_error='',
+            ),
             status=status,
             _poll_auto_due=lambda *args, **kwargs: self.fail('过期结果不得继续轮询'),
         )
-        desktop.auto_video_messages.put((1, '旧进度'))
-        desktop.auto_video_queue.put((1, True, '旧结果', ('SH001',)))
+        desktop.auto.video_messages.put((1, '旧进度'))
+        desktop.auto.video_queue.put((1, True, '旧结果', ('SH001',)))
         Desktop._tick_auto_video(desktop)
         self.assertEqual(status.values, [])
-        self.assertTrue(desktop.auto_video_busy)
-        self.assertIsNone(desktop.auto_video_signature)
+        self.assertTrue(desktop.auto.video_busy)
+        self.assertIsNone(desktop.auto.video_signature)
 
 
 class AutoAssetLifecycleDeliveryTests(unittest.TestCase):
@@ -148,20 +167,22 @@ class AutoAssetLifecycleDeliveryTests(unittest.TestCase):
         lifecycle.submit(2)
         status = SimpleNamespace(values=[], set=lambda value: status.values.append(value))
         desktop = desktop_stub(
-            auto_asset_tasks=lifecycle,
-            auto_asset_messages=queue.Queue(),
-            auto_asset_queue=queue.Queue(),
-            auto_asset_busy=True,
-            auto_asset_signature=None,
+            auto=dict(
+                asset_tasks=lifecycle,
+                asset_messages=queue.Queue(),
+                asset_queue=queue.Queue(),
+                asset_busy=True,
+                asset_signature=None,
+            ),
             status=status,
             _poll_auto_due=lambda *args, **kwargs: None,
         )
-        desktop.auto_asset_messages.put((1, '旧进度'))
-        desktop.auto_asset_queue.put((1, True, '旧结果', ('asset-1',)))
+        desktop.auto.asset_messages.put((1, '旧进度'))
+        desktop.auto.asset_queue.put((1, True, '旧结果', ('asset-1',)))
         Desktop._tick_auto_asset(desktop)
         self.assertEqual(status.values, [])
-        self.assertTrue(desktop.auto_asset_busy)
-        self.assertIsNone(desktop.auto_asset_signature)
+        self.assertTrue(desktop.auto.asset_busy)
+        self.assertIsNone(desktop.auto.asset_signature)
 
 
 class AutoKeyframeLifecycleDeliveryTests(unittest.TestCase):
@@ -173,20 +194,22 @@ class AutoKeyframeLifecycleDeliveryTests(unittest.TestCase):
         lifecycle.submit(2)
         status = SimpleNamespace(values=[], set=lambda value: status.values.append(value))
         desktop = desktop_stub(
-            auto_keyframe_tasks=lifecycle,
-            auto_keyframe_messages=queue.Queue(),
-            auto_keyframe_queue=queue.Queue(),
-            auto_keyframe_busy=True,
-            auto_keyframe_signature=None,
+            auto=dict(
+                keyframe_tasks=lifecycle,
+                keyframe_messages=queue.Queue(),
+                keyframe_queue=queue.Queue(),
+                keyframe_busy=True,
+                keyframe_signature=None,
+            ),
             status=status,
             _poll_auto_due=lambda *args, **kwargs: None,
         )
-        desktop.auto_keyframe_messages.put((1, '旧进度'))
-        desktop.auto_keyframe_queue.put((1, True, '旧结果', ('SH001',)))
+        desktop.auto.keyframe_messages.put((1, '旧进度'))
+        desktop.auto.keyframe_queue.put((1, True, '旧结果', ('SH001',)))
         Desktop._tick_auto_keyframe(desktop)
         self.assertEqual(status.values, [])
-        self.assertTrue(desktop.auto_keyframe_busy)
-        self.assertIsNone(desktop.auto_keyframe_signature)
+        self.assertTrue(desktop.auto.keyframe_busy)
+        self.assertIsNone(desktop.auto.keyframe_signature)
 
 
 class CloudMonitorLifecycleDeliveryTests(unittest.TestCase):
@@ -221,11 +244,10 @@ class PrevisLifecycleDeliveryTests(unittest.TestCase):
         lifecycle.submit(2)
         reports = []
         desktop = desktop_stub(
-            auto_previs_tasks=lifecycle,
+            auto=dict(previs_tasks=lifecycle, previs_error=''),
             previs_jobs={'news': queue.Queue()},
             _poll_auto_due=lambda *args, **kwargs: None,
             poll_auto_previs=lambda: None,
-            auto_previs_error='',
             pet_report=lambda *args, **kwargs: reports.append((args, kwargs)),
         )
         desktop.previs_jobs['news'].put((1, True, '旧批次完成'))
@@ -262,18 +284,18 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
             root=object(), pet=SimpleNamespace(auto=SimpleNamespace(active=None)),
             keyframe_batch_state=lambda **kwargs: (object(), [], '', ''),
             asset_pending_ids=lambda: [], clear_asset_resume=record,
-            auto_asset_attempt=0, cloud_monitor_busy=True, cloud_monitor_due=0,
-            auto_video_last='', auto_previs_error='',
+            auto=dict(asset_attempt=0, video_last='', previs_error=''),
+            cloud_monitor_busy=True, cloud_monitor_due=0,
         )
         for name, (owner, result, _) in self.ENTRIES.items():
             lifecycle = BackgroundTaskLifecycle()
             lifecycle.submit(1)
-            setattr(desktop, owner, lifecycle)
-            setattr(desktop, result, queue.Queue())
-            setattr(desktop, name + '_busy', True)
-            setattr(desktop, name + '_signature', None)
-            setattr(desktop, name + '_due', 0)
-            setattr(desktop, name + '_error', '')
+            write(desktop, owner, lifecycle)
+            write(desktop, result, queue.Queue())
+            write(desktop, name + '_busy', True)
+            write(desktop, name + '_signature', None)
+            write(desktop, name + '_due', 0)
+            write(desktop, name + '_error', '')
             setattr(desktop, 'poll_' + name, lambda: None)
         desktop.poll_auto_previs = lambda: None
         desktop._start_next_queued = lambda: None  # R1470：结果收尾后启动排队任务；本测试不涉及排队
@@ -281,7 +303,7 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
         desktop._async_failed = lambda value: Desktop._async_failed(desktop, value)  # R1822：失败收尾抽成了方法，照样跑真的
         desktop.previs_jobs = {'news': desktop.previs_news}
         for name in ('auto_video', 'auto_asset', 'auto_keyframe'):
-            setattr(desktop, name + '_messages', queue.Queue())
+            write(desktop, name + '_messages', queue.Queue())
         return desktop, effects
 
     def enqueue(self, desktop, entry, succeeded, ticket=1):
@@ -291,7 +313,7 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
             row += (None,)
         elif entry in ('auto_handoff', 'auto_video', 'auto_asset', 'auto_keyframe'):
             row += (('signature',),)
-        getattr(desktop, result).put(row)
+        read(desktop, result).put(row)
 
     def drain(self, desktop, entry):
         from desktop import Desktop
@@ -310,7 +332,7 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
                 for succeeded in (True, False):
                     with self.subTest(entry=entry, mode=mode, succeeded=succeeded):
                         desktop, effects = self.make_desktop(entry)
-                        lifecycle = getattr(desktop, owner)
+                        lifecycle = read(desktop, owner)
                         if mode == 'replace':
                             lifecycle.submit(2)
                         elif mode == 'close':
@@ -321,7 +343,7 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
                         before = lifecycle.snapshot()
                         effects.clear()
                         if entry in ('auto_video', 'auto_asset', 'auto_keyframe'):
-                            getattr(desktop, entry + '_messages').put((1, '迟到进度'))
+                            read(desktop, entry + '_messages').put((1, '迟到进度'))
                         self.enqueue(desktop, entry, succeeded)
                         self.drain(desktop, entry)
                         self.assertEqual(effects, [])
@@ -335,7 +357,7 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
                     desktop, effects = self.make_desktop(entry)
                     self.enqueue(desktop, entry, succeeded)
                     self.drain(desktop, entry)
-                    self.assertEqual(getattr(desktop, owner).snapshot(), {
+                    self.assertEqual(read(desktop, owner).snapshot(), {
                         'ticket': 1, 'state': 'succeeded' if succeeded else 'failed'})
                     if entry != 'cloud_monitor' or not succeeded:
                         self.assertTrue(effects)
@@ -348,11 +370,11 @@ class BackgroundDeliveryMatrixTests(unittest.TestCase):
         for entry in ('auto_video', 'auto_asset', 'auto_keyframe'):
             with self.subTest(entry=entry):
                 desktop, effects = self.make_desktop(entry)
-                getattr(desktop, entry + '_messages').put((1, '当前进度'))
+                read(desktop, entry + '_messages').put((1, '当前进度'))
                 self.enqueue(desktop, entry, True)
                 self.drain(desktop, entry)
                 self.assertIn('当前进度', effects[0][0][0])
-                self.assertEqual(getattr(desktop, self.ENTRIES[entry][0]).snapshot()['state'], 'succeeded')
+                self.assertEqual(read(desktop, self.ENTRIES[entry][0]).snapshot()['state'], 'succeeded')
 
 
 if __name__ == '__main__':

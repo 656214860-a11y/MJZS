@@ -368,13 +368,13 @@
   {
    "module": "desktop_auto_flows.py",
    "covered": 0,
-   "total": 536,
+   "total": 537,
    "percent": 0.0
   },
   {
    "module": "desktop_auto_state.py",
    "covered": 0,
-   "total": 104,
+   "total": 93,
    "percent": 0.0
   },
   {
@@ -452,7 +452,7 @@
   {
    "module": "desktop_pet_bridge.py",
    "covered": 0,
-   "total": 100,
+   "total": 101,
    "percent": 0.0
   },
   {
@@ -764,7 +764,7 @@
   {
    "module": "page_navigation_controller.py",
    "covered": 0,
-   "total": 58,
+   "total": 61,
    "percent": 0.0
   },
   {

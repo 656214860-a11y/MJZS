@@ -1,4 +1,4 @@
-"""R1985 Desktop 自动化状态容器：工厂默认值、旧属性名转发、半成品对象懒建（无 Tk）。"""
+"""R1985 Desktop 自动化状态容器：工厂默认值、半成品对象懒建、旧属性名已退役（无 Tk）。"""
 import os
 import queue
 import sys
@@ -8,8 +8,7 @@ from dataclasses import fields
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from desktop_auto_state import (AutoState, AutoStateAliasesMixin, create_auto_state,
-                                legacy_name)
+from desktop_auto_state import AutoState, AutoStateHolderMixin, create_auto_state
 from desktop_automation_service import BackgroundTaskLifecycle
 
 # 原 Desktop._initialize_automation_state 中非 0／None／False／'' 的默认值。
@@ -22,7 +21,7 @@ STAGE_NAMES = {'final': 'final', 'edit': 'edit', 'keyframe': 'keyframe', 'asset'
                'video': 'video', 'handoff': 'delivery'}
 
 
-class _Host(AutoStateAliasesMixin):
+class _Host(AutoStateHolderMixin):
     pass
 
 
@@ -38,12 +37,10 @@ def _make():
 
 
 class AutoStateFactoryTests(unittest.TestCase):
-    def test_field_count_and_legacy_names_are_unique(self):
-        names = [legacy_name(f.name) for f in fields(AutoState)]
+    def test_field_count_and_names_are_unique(self):
+        names = [f.name for f in fields(AutoState)]
         self.assertEqual(len(names), 62)
         self.assertEqual(len(set(names)), 62)
-        self.assertEqual(legacy_name('final_busy'), 'auto_final_busy')
-        self.assertEqual(legacy_name('edit_ticket'), '_auto_edit_ticket')
 
     def test_plain_defaults_match_the_old_initializer(self):
         state, _, _ = _make()
@@ -86,40 +83,38 @@ class AutoStateFactoryTests(unittest.TestCase):
             self.assertEqual(getattr(state, f'{flow}_queue'), ('queue', STAGE_NAMES[flow]))
 
 
-class AutoStateAliasTests(unittest.TestCase):
-    def test_old_names_read_and_write_through_to_the_state(self):
+class AutoStateHolderTests(unittest.TestCase):
+    def test_fields_read_and_write_on_the_state(self):
         host = _Host()
         host.auto = AutoState()
-        host.auto_final_busy = True
+        host.auto.final_busy = True
         self.assertIs(host.auto.final_busy, True)
         host.auto.keyframe_error = '坏了'
-        self.assertEqual(host.auto_keyframe_error, '坏了')
-        host._auto_edit_ticket = 5
+        self.assertEqual(host.auto.keyframe_error, '坏了')
+        host.auto.edit_ticket = 5
         self.assertEqual(host.auto.edit_ticket, 5)
-        self.assertEqual(host._auto_edit_ticket, 5)
 
-    def test_every_field_has_an_alias(self):
+    def test_retired_legacy_names_are_gone(self):
+        host = _Host()
+        host.auto = AutoState()
         for item in fields(AutoState):
-            self.assertTrue(hasattr(AutoStateAliasesMixin, legacy_name(item.name)), item.name)
+            legacy = f'_auto_{item.name}' if item.name.endswith('_ticket') else f'auto_{item.name}'
+            with self.subTest(legacy):
+                self.assertFalse(hasattr(AutoStateHolderMixin, legacy))
+                self.assertFalse(hasattr(host, legacy))
 
-    def test_read_without_state_raises_attribute_error(self):
+    def test_read_of_an_unknown_name_raises_attribute_error(self):
         host = _Host()
         with self.assertRaises(AttributeError):
-            host.auto_final_busy
-        self.assertFalse(hasattr(host, 'auto_final_busy'))
-        self.assertIs(getattr(host, 'auto_final_busy', False), False)
-
-    def test_first_write_on_a_half_built_object_creates_default_state(self):
-        host = _Host.__new__(_Host)
-        host.auto_asset_busy = True
-        self.assertIsInstance(host.auto, AutoState)
-        self.assertIs(host.auto.asset_busy, True)
-        self.assertIs(host.auto_adopt_startup, True)
+            host.nothing
+        self.assertIs(getattr(host, 'nothing', False), False)
 
     def test_first_read_of_auto_on_a_half_built_object_creates_default_state(self):
         host = _Host.__new__(_Host)
+        self.assertIsInstance(host.auto, AutoState)
+        self.assertIs(host.auto.adopt_startup, True)
         host.auto.adopt_pending = True
-        self.assertIs(host.auto_adopt_pending, True)
+        self.assertIs(host.auto.adopt_pending, True)
         self.assertIs(host.auto, host.auto)
 
 

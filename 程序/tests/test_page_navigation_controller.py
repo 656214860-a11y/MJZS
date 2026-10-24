@@ -62,10 +62,15 @@ class CancelJobsTests(unittest.TestCase):
                 self.cancelled += 1
         owner = _Owner()
         owner.background_tasks = Lifecycle()
-        owner.auto_previs_tasks = Lifecycle()
-        owner.auto_edit_tasks = None
+        owner.auto = _Owner()
+        owner.auto.previs_tasks = Lifecycle()
+        owner.auto.edit_tasks = None
         nav.cancel_lifecycles(owner)
-        self.assertEqual((owner.background_tasks.cancelled, owner.auto_previs_tasks.cancelled), (1, 1))
+        self.assertEqual((owner.background_tasks.cancelled, owner.auto.previs_tasks.cancelled), (1, 1))
+
+    def test_lifecycles_tolerate_a_window_without_auto_state(self):
+        owner = _Owner()
+        nav.cancel_lifecycles(owner)
 
 
 class VideoModeTests(unittest.TestCase):

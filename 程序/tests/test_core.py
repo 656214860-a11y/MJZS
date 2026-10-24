@@ -131,7 +131,7 @@ class ResidualProjectTests(unittest.TestCase):
         desk.status=type('Status',(),{'value':'', 'set':lambda self,value:setattr(self,'value',value)})()
         with mock.patch('desktop.asset_resume.attempts',side_effect=OSError('续跑台账不可读')):
             self.assertIsNone(desk.restore_asset_resume())
-        self.assertEqual(desk.auto_asset_attempt,0)
+        self.assertEqual(desk.auto.asset_attempt,0)
         self.assertIn('自动补资产续跑记录未恢复',desk.status.value)
 
     def test_stage_model_sync_failure_is_visible_without_blocking_open(self):

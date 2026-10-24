@@ -14,6 +14,7 @@ from pathlib import Path
 import asset_resume
 import pet_state
 from agent.core import read
+from desktop_auto_state import flow_get, flow_set
 from storyboard_paths import media_root
 
 LOGGER = logging.getLogger(__name__)
@@ -39,8 +40,8 @@ ASSET_RETRY_LIMIT=3
 class AutoFlowsMixin:
     """Desktop 的无人值守流程方法集（见模块说明）。"""
     def _stop_expired_auto(self, name):
-        setattr(self,name+'_busy',False)
-        setattr(self,name+'_due',float('inf'))
+        flow_set(self,name,'_busy',False)
+        flow_set(self,name,'_due',float('inf'))
         self.status.set('本批已停止等待；请先核对运行状况和远端任务，再手动继续。')
     def _poll_auto_edit_result(self):
         self._auto_edit_result_poll_id=None
@@ -68,12 +69,12 @@ class AutoFlowsMixin:
                 if callable(refresh):refresh()
         return done
     def _poll_auto_due(self,due_name,delay,poll,*,busy_name=None,on_error,errors):
-        """把自动阶段共同的到期、节流和异常处理交给无 Tk 调度器。"""
+        """把自动阶段共同的到期、节流和异常处理交给无 Tk 调度器；``due_name``／``busy_name`` 是 ``self.auto`` 上的字段名。"""
         return self.automation_scheduler.run_due(
-            now=time.monotonic(), due_at=lambda:getattr(self,due_name),
+            now=time.monotonic(), due_at=lambda:getattr(self.auto,due_name),
             delay_seconds=delay,
-            allowed=lambda:self.root is not None and not (busy_name and getattr(self,busy_name)),
-            set_due=lambda value:setattr(self,due_name,value), poll=poll,
+            allowed=lambda:self.root is not None and not (busy_name and getattr(self.auto,busy_name)),
+            set_due=lambda value:setattr(self.auto,due_name,value), poll=poll,
             on_error=on_error, handled_exceptions=errors)
     def final_missing_assets(self,source):
         """当前分镜引用的资产里还没有图片的编号集合；空集表示可以定稿。"""
@@ -109,8 +110,8 @@ class AutoFlowsMixin:
         """
         now=time.monotonic()
         for name in UNATTENDED_NEXT.get(source,()):
-            if getattr(self,name+'_due',0)>now+UNATTENDED_BACKOFF_FLOOR:continue
-            setattr(self,name+'_due',0)
+            if flow_get(self,name,'_due',0)>now+UNATTENDED_BACKOFF_FLOOR:continue
+            flow_set(self,name,'_due',0)
     def _tick_auto_final(self):
         """处理自动定稿的后台收尾与下一轮轮询。"""
         try:
@@ -143,7 +144,7 @@ class AutoFlowsMixin:
         def failed(exc):
             if self.auto.final_error!=str(exc):
                 self.auto.final_error=str(exc);self.status.set('自动定稿暂缓：'+str(exc))
-        if self._poll_auto_due('auto_final_due',30,self.poll_auto_final,busy_name='auto_final_busy',
+        if self._poll_auto_due('final_due',30,self.poll_auto_final,busy_name='final_busy',
                                on_error=failed,errors=(OSError,ValueError,KeyError,TypeError)):
             self.auto.final_error=''
     def _drain_auto_edit_result(self):
@@ -162,7 +163,7 @@ class AutoFlowsMixin:
     def _tick_auto_edit(self):
         """处理自动粗剪的后台收尾与下一轮轮询。"""
         self._drain_auto_edit_result()
-        self._poll_auto_due('auto_edit_due',15,self.poll_auto_edit,busy_name='auto_edit_busy',
+        self._poll_auto_due('edit_due',15,self.poll_auto_edit,busy_name='edit_busy',
                             on_error=lambda exc:self.status.set('自动粗剪检查失败，稍后重试：'+str(exc)),
                             errors=(OSError,ValueError,KeyError))
     def _tick_auto_keyframe(self):
@@ -198,14 +199,14 @@ class AutoFlowsMixin:
         def failed(exc):
             if self.auto.keyframe_error!=str(exc):
                 self.auto.keyframe_error=str(exc);self.status.set('自动补首帧暂缓：'+str(exc))
-        self._poll_auto_due('auto_keyframe_due',30,self.poll_auto_keyframe,busy_name='auto_keyframe_busy',
+        self._poll_auto_due('keyframe_due',30,self.poll_auto_keyframe,busy_name='keyframe_busy',
                             on_error=failed,errors=(OSError,ValueError,KeyError))
     def _tick_auto_previs(self):
         """处理自动补白模轮询及工作线程的三虎播报。"""
         def failed(exc):
             if self.auto.previs_error!=str(exc):
                 self.auto.previs_error=str(exc);self.status.set('自动补白模暂缓：'+str(exc))
-        self._poll_auto_due('auto_previs_due',30,self.poll_auto_previs,on_error=failed,
+        self._poll_auto_due('previs_due',30,self.poll_auto_previs,on_error=failed,
                             errors=(OSError,ValueError,KeyError))
         # 工作线程只投递消息；Tk 主线程在心跳中交给三虎播报。
         previs_state=getattr(self,'previs_jobs',None)
@@ -255,7 +256,7 @@ class AutoFlowsMixin:
         def failed(exc):
             if self.auto.asset_error!=str(exc):
                 self.auto.asset_error=str(exc);self.status.set('自动补资产暂缓：'+str(exc))
-        self._poll_auto_due('auto_asset_due',60,self.poll_auto_asset,busy_name='auto_asset_busy',
+        self._poll_auto_due('asset_due',60,self.poll_auto_asset,busy_name='asset_busy',
                             on_error=failed,errors=(OSError,ValueError,KeyError))
     def _tick_auto_video(self):
         """处理自动补视频的消息、后台收尾与下一轮轮询。"""
@@ -279,7 +280,7 @@ class AutoFlowsMixin:
         def failed(exc):
             if self.auto.video_error!=str(exc):
                 self.auto.video_error=str(exc);self.status.set('自动补视频暂缓：'+str(exc))
-        self._poll_auto_due('auto_video_due',60,self.poll_auto_video,busy_name='auto_video_busy',
+        self._poll_auto_due('video_due',60,self.poll_auto_video,busy_name='video_busy',
                             on_error=failed,errors=(OSError,ValueError,KeyError))
     def _drain_auto_handoff_result(self):
         """只交付已完成的自动交接包；不在启动期偷偷触发下一轮轮询。"""
@@ -301,7 +302,7 @@ class AutoFlowsMixin:
         def failed(exc):
             if self.auto.handoff_error!=str(exc):
                 self.auto.handoff_error=str(exc);self.status.set('自动整理交接包暂缓：'+str(exc))
-        self._poll_auto_due('auto_handoff_due',60,self.poll_auto_handoff,busy_name='auto_handoff_busy',
+        self._poll_auto_due('handoff_due',60,self.poll_auto_handoff,busy_name='handoff_busy',
                             on_error=failed,errors=(OSError,ValueError,KeyError))
     def _tick_cloud_monitor(self):
         """处理云端任务监控结果与下一轮轮询。"""
@@ -320,7 +321,7 @@ class AutoFlowsMixin:
             except (OSError,ValueError):self.cloud_monitor_due=time.monotonic()+30
     def _tick_auto_adopt(self):
         """调度自动采用分镜的短周期检查。"""
-        self._poll_auto_due('auto_adopt_due',5,self.poll_auto_adopt,
+        self._poll_auto_due('adopt_due',5,self.poll_auto_adopt,
                             on_error=lambda exc:self.status.set('自动采用分镜检查失败，稍后重试：'+str(exc)),
                             errors=(OSError,ValueError,KeyError))
     def _tick_auto_gates(self):

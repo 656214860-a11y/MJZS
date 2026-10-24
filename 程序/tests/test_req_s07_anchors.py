@@ -28,7 +28,7 @@ import stage_parallel
 from agent.core import file_hash, read, save
 from desktop import Desktop
 from desktop_auto_flows import AutoFlowsMixin
-from desktop_auto_state import AutoState, AutoStateAliasesMixin
+from desktop_auto_state import AutoState, AutoStateHolderMixin
 from desktop_automation_tick import AutomationTickMixin
 from stage_execution_service import asset_plan_gateway, publish_final_storyboard_bundle
 from storyboard_final import finalize
@@ -114,7 +114,7 @@ class _Status:
         self.text = value
 
 
-class _DesktopStub(AutoStateAliasesMixin):
+class _DesktopStub(AutoStateHolderMixin):
     """只带真实方法需要的属性；方法本身用 Desktop／AutoFlowsMixin 的真实现。"""
 
     apply_final = Desktop.apply_final
@@ -132,13 +132,13 @@ class _DesktopStub(AutoStateAliasesMixin):
         self.status = _Status()
         self.pet = mock.Mock()
         self.pet.should_auto_run.return_value = True
-        self.auto_final_signature = None
-        self.auto_final_notice = None
-        self.auto_final_blocked = False
-        self.auto_final_busy = False
-        self.auto_final_due = 0.0
-        self.auto_final_error = ''
-        self.auto_final_queue = queue.Queue()
+        self.auto.final_signature = None
+        self.auto.final_notice = None
+        self.auto.final_blocked = False
+        self.auto.final_busy = False
+        self.auto.final_due = 0.0
+        self.auto.final_error = ''
+        self.auto.final_queue = queue.Queue()
         self.page_index = PAGE['final']
         self.shown = []
         self.remembered = []
@@ -180,9 +180,9 @@ class S07AnchorTests(unittest.TestCase):
             stub.auto_final_target = lambda: source
             stub.busy_production = lambda: True
             AutoFlowsMixin.poll_auto_final(stub)
-            self.assertTrue(stub.auto_final_blocked)
-            self.assertFalse(stub.auto_final_busy)
-            self.assertTrue(stub.auto_final_queue.empty())
+            self.assertTrue(stub.auto.final_blocked)
+            self.assertFalse(stub.auto.final_busy)
+            self.assertTrue(stub.auto.final_queue.empty())
 
     def test_req_s07_10_asset_names_resolve_to_ids_or_fail_loudly(self):
         """REQ-S07-10：角色／场景／道具先解析成资产编号，解析不到就报错，不静默跳过。"""
@@ -452,35 +452,35 @@ class S07AnchorTests(unittest.TestCase):
             project, episode, source = _project(Path(td) / 'p')
             off = _DesktopStub(project, episode)
             off.pet.should_auto_run.return_value = False
-            off.auto_final_signature = ('s', 'h')
-            off.auto_final_blocked = True
+            off.auto.final_signature = ('s', 'h')
+            off.auto.final_blocked = True
             AutoFlowsMixin.poll_auto_final(off)
-            self.assertIsNone(off.auto_final_signature)
-            self.assertFalse(off.auto_final_blocked)
-            self.assertFalse(off.auto_final_busy)
+            self.assertIsNone(off.auto.final_signature)
+            self.assertFalse(off.auto.final_blocked)
+            self.assertFalse(off.auto.final_busy)
 
             waiting = _DesktopStub(project, episode)
             waiting.auto_final_target = lambda: source
             waiting.busy_production = lambda: True
             AutoFlowsMixin.poll_auto_final(waiting)
-            self.assertTrue(waiting.auto_final_blocked)
-            self.assertFalse(waiting.auto_final_busy)
+            self.assertTrue(waiting.auto.final_blocked)
+            self.assertFalse(waiting.auto.final_busy)
 
             repeat = _DesktopStub(project, episode)
             repeat.auto_final_target = lambda: source
             repeat.busy_production = lambda: False
-            repeat.auto_final_signature = (str(source), file_hash(source))
-            repeat.auto_final_blocked = True
+            repeat.auto.final_signature = (str(source), file_hash(source))
+            repeat.auto.final_blocked = True
             AutoFlowsMixin.poll_auto_final(repeat)
-            self.assertFalse(repeat.auto_final_blocked)
-            self.assertFalse(repeat.auto_final_busy)             # 同一份稿不重复定稿
+            self.assertFalse(repeat.auto.final_blocked)
+            self.assertFalse(repeat.auto.final_busy)             # 同一份稿不重复定稿
 
             dispatch = _DesktopStub(project, episode)
             dispatch.auto_final_target = lambda: source
             dispatch.busy_production = lambda: False
             AutoFlowsMixin.poll_auto_final(dispatch)
-            self.assertTrue(dispatch.auto_final_busy)
-            ok, value, signature = dispatch.auto_final_queue.get(timeout=60)
+            self.assertTrue(dispatch.auto.final_busy)
+            ok, value, signature = dispatch.auto.final_queue.get(timeout=60)
             self.assertTrue(ok)
             self.assertEqual(Path(value[0]).name, 'EP001_分镜定稿_' + time.strftime('%Y%m%d'))
             self.assertFalse(source.is_file())                   # 工作稿已退役
@@ -488,16 +488,16 @@ class S07AnchorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             project, episode, source = _project(Path(td) / 'p')
             failed = _DesktopStub(project, episode)
-            failed.auto_final_busy = True
-            failed.auto_final_signature = ('s', 'h')
-            failed.auto_final_queue.put((False, '自动定稿未完成：磁盘已满', ('s', 'h')))
+            failed.auto.final_busy = True
+            failed.auto.final_signature = ('s', 'h')
+            failed.auto.final_queue.put((False, '自动定稿未完成：磁盘已满', ('s', 'h')))
             failed.apply_final = lambda project_, folder_: 'ok'
             failed.kick_unattended = lambda name: None
             failed._poll_auto_due = lambda *args, **kwargs: False
             started = time.monotonic()
             AutoFlowsMixin._tick_auto_final(failed)
-            self.assertIsNone(failed.auto_final_signature)
-            self.assertGreaterEqual(failed.auto_final_due - started, 290)
+            self.assertIsNone(failed.auto.final_signature)
+            self.assertGreaterEqual(failed.auto.final_due - started, 290)
             self.assertIn('磁盘已满', failed.status.text)
 
         with tempfile.TemporaryDirectory() as td:
