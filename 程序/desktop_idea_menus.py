@@ -2,10 +2,9 @@
 
 从 ``desktop.Desktop`` 原样迁出（R1505）：方法体未改，``self`` 语义不变，``Desktop`` 通过继承
 ``IdeaMenusMixin`` 获得。测试按 ``desktop.<名字>`` 打补丁的名字（confirm／open_path 等）经
-``desktop_page_support`` 的转发函数在调用时取 ``desktop`` 的当前值，补丁照常生效。
+``Desktop`` 注入的 ``ProjectPageServices``（定义在 ``desktop_project_pages``）在调用时取 ``desktop`` 的当前值，补丁照常生效（R1983 J2）。
 """
 import tkinter as tk
-from desktop_page_support import ContextMenu, confirm, open_path
 
 
 class IdeaMenusMixin:
@@ -17,7 +16,7 @@ class IdeaMenusMixin:
             raise ValueError('模型正在回复，请先中断或等待完成，再删除全部信息。')
         if not self.root:return
         model=self.displayed_chat_model()
-        if not confirm(self.win,'删除全部信息',
+        if not self.project_page_services.confirm(self.win,'删除全部信息',
                        '删除当前显示的 '+model+' 的全部历史对话？\n聊天记录将移入回收站，已保存的剧本和附件保留。',dangerous=True):return
         if getattr(self,'_bubble_edit',None):self.finish_bubble_edit(commit=False)
         import idea_chat
@@ -32,7 +31,7 @@ class IdeaMenusMixin:
             self.finish_bubble_edit()
             return 'break'
         target=self.bubble_target_at(event.widget,event)
-        menu=ContextMenu(event.widget)
+        menu=self.project_page_services.context_menu(event.widget)
         if target is not None:
             index,_name=target
             if index == 'example':
@@ -54,7 +53,7 @@ class IdeaMenusMixin:
         try:text=str(box.clipboard_get() or '')
         except tk.TclError:return 'break'
         if not text:return 'break'
-        menu=ContextMenu(box, menu_factory=tk.Menu).command('粘贴',lambda:box.event_generate('<<Paste>>'))
+        menu=self.project_page_services.context_menu(box, menu_factory=tk.Menu).command('粘贴',lambda:box.event_generate('<<Paste>>'))
         self._idea_paste_menu=menu
         return menu.popup(event)
     def open_uploaded_idea_attachment(self,event):
@@ -62,14 +61,14 @@ class IdeaMenusMixin:
         if path is not None:
             from idea_attachments import archive_pair
             original,_converted=archive_pair(path)
-            open_path(original if original.is_file() else path)
+            self.project_page_services.open_path(original if original.is_file() else path)
         return 'break'
     def delete_uploaded_idea_attachment(self):
         selected=[path for path in self._idea_uploaded_paths.values() if path in self._idea_uploaded_selected]
         if not selected:return
         from idea_attachments import display_name
         names='、'.join(display_name(path) for path in selected)
-        if not confirm(self.win,'删除附件',
+        if not self.project_page_services.confirm(self.win,'删除附件',
                        '确定将“%s”的项目副本移入回收站吗？\n原始文件不受影响；可从回收站恢复。' % names,
                        dangerous=True):return
         try:
@@ -83,7 +82,7 @@ class IdeaMenusMixin:
         from stage_execution_service import stage_idea_attachment_paths
         paths=stage_idea_attachment_paths(self.root)
         if not paths:return None
-        menu=ContextMenu(event.widget, menu_factory=tk.Menu)
+        menu=self.project_page_services.context_menu(event.widget, menu_factory=tk.Menu)
         for path in paths:
             menu.command(path.name,lambda item=path:self.insert_idea_reference(item))
         self._idea_reference_menu=menu

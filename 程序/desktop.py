@@ -4,7 +4,7 @@ from desktop_idea_menus import IdeaMenusMixin
 from desktop_asset_pages import AssetPagesMixin
 from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
 from desktop_media_pages import MediaPagesMixin
-from desktop_project_pages import ProjectPagesMixin
+from desktop_project_pages import ProjectPagesMixin, ProjectPageServices
 from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
 from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
 from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, bind_host, THUMB_SIZE, ASSET_ROW_HEIGHT
@@ -148,8 +148,8 @@ def status_kind(message):
     return 'ready'
 
 class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
-    def __init__(self,win,root=ROOT,*,script_page_services=None,writing_page_services=None,storyboard_page_services=None):
-        self._init_window_and_sidebar(script_page_services, win, root, writing_page_services, storyboard_page_services)
+    def __init__(self,win,root=ROOT,*,script_page_services=None,writing_page_services=None,storyboard_page_services=None,project_page_services=None):
+        self._init_window_and_sidebar(script_page_services, win, root, writing_page_services, storyboard_page_services, project_page_services)
         self._init_body_and_status(win)
         # Timed callbacks cannot run inside the placement code's update_idletasks.
         # An idle modal here would block the root while it is still transparent.
@@ -202,7 +202,7 @@ class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPage
         pet_ui.start(self,delay_ms=5000)
         self.setup_tray()
 
-    def _init_window_and_sidebar(self, script_page_services, win, root, writing_page_services=None, storyboard_page_services=None):
+    def _init_window_and_sidebar(self, script_page_services, win, root, writing_page_services=None, storyboard_page_services=None, project_page_services=None):
         """服务、窗口外观与侧栏（项目列表、导航按钮、标题行），从 __init__ 原样切出，R1808。"""
         self._diagnostic_start=time.perf_counter()
         self.script_page_services = script_page_services if script_page_services is not None else ScriptPageServices(
@@ -216,6 +216,10 @@ class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPage
         self.storyboard_page_services = storyboard_page_services if storyboard_page_services is not None else StoryboardPageServices(
             open_path=lambda *args, **kwargs: open_path(*args, **kwargs),
             file_dialog=lambda *args, **kwargs: FileDialog(*args, **kwargs),
+            confirm=lambda *args, **kwargs: confirm(*args, **kwargs))
+        self.project_page_services = project_page_services if project_page_services is not None else ProjectPageServices(
+            open_path=lambda *args, **kwargs: open_path(*args, **kwargs),
+            context_menu=lambda *args, **kwargs: ContextMenu(*args, **kwargs),
             confirm=lambda *args, **kwargs: confirm(*args, **kwargs))
         from stage_execution_service import project_registry_gateway
         self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.task_queue=PersistentBackgroundTaskQueue(self.app/'outputs'/'desktop-task-queue.json',handlers={'storage_inspect':inspect_project_storage});self.retry_registry=RetryRegistry();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None

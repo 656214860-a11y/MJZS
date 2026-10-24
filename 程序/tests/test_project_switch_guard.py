@@ -7,10 +7,15 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import desktop
+from desktop_project_pages import ProjectPageServices
 
 
 def make_app(root='D:/p/甲_20260101', projects=None, busy=''):
     app = MagicMock()
+    # 页面服务改为注入后，MagicMock 的宿主要带真服务，desktop.confirm 补丁才会生效（R1983 J2，断言未动）。
+    app.project_page_services = ProjectPageServices(open_path=lambda *a, **k: desktop.open_path(*a, **k),
+        context_menu=lambda *a, **k: desktop.ContextMenu(*a, **k),
+        confirm=lambda *a, **k: desktop.confirm(*a, **k))
     app.root = Path(root)
     app.projects.info = {'projects': projects or [
         {'name': '甲', 'path': 'D:/p/甲_20260101'}, {'name': '乙', 'path': 'D:/p/乙_20260102'}]}
