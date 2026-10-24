@@ -418,7 +418,9 @@ R1305：`writing_quality`（L2）解析自然剧本附带的四项辅助质检�
 ## R1606 / O8：剧本页面服务注入
 来源：tasks_round/tasks_round_1596_result.md 的 O8/J/K，逐页迁移策略。Desktop 在构造入口向 ScriptPagesMixin 注入不可变 ScriptPageServices，仅提供 open_path 与 context_menu。默认服务在组合入口绑定，保持现有 desktop 测试替换点；页面不再读取 desktop_page_support 的全局宿主。独立页面可注入假服务，不构建 Desktop/Tk 主窗口。
 
-R1988 / J2（writing 页）：来源 R1983 J2。Desktop 另向 WritingPageMixin 注入不可变 `WritingPageServices`（`desktop_writing_page.py` 内定义；`open_path`、`context_menu`、`confirm`、`confirm_project_removal` 四项），默认服务在 `_init_window_and_sidebar` 里按调用时取 desktop 模块名字，测试补丁点不变；`desktop_writing_page` 不再导入 `desktop_page_support` 的全局宿主转发。仍走全局宿主的页面：storyboard、project、asset、media（idea_menus 随 project）。
+R1988 / J2（writing 页）：来源 R1983 J2。Desktop 另向 WritingPageMixin 注入不可变 `WritingPageServices`（`desktop_writing_page.py` 内定义；`open_path`、`context_menu`、`confirm`、`confirm_project_removal` 四项），默认服务在 `_init_window_and_sidebar` 里按调用时取 desktop 模块名字，测试补丁点不变；`desktop_writing_page` 不再导入 `desktop_page_support` 的全局宿主转发。仍走全局宿主的页面：project、asset、media（idea_menus 随 project）。
+
+R1989 / J2（storyboard 页）：来源 R1983 J2。Desktop 向 StoryboardPageMixin 注入不可变 `StoryboardPageServices`（`desktop_storyboard_page.py` 内定义；`open_path`、`file_dialog`、`confirm` 三项），做法同 writing 页；`desktop_storyboard_page` 不再导入全局宿主转发。仍走全局宿主的页面：project、asset、media（idea_menus 随 project）。
 
 剩余跨页依赖（未声称消除）：
 - 剧本页面仍通过 self 使用项目上下文、通知器、导航、safe、工作流启动及聊天状态；本轮只迁移两个外部 UI 服务，不搬业务状态。
