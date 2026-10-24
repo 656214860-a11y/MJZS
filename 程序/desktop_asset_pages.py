@@ -2,9 +2,11 @@
 
 从 ``desktop.Desktop`` 原样迁出（R1505）：方法体未改，``self`` 语义不变，``Desktop`` 通过继承
 ``AssetPagesMixin`` 获得。测试按 ``desktop.<名字>`` 打补丁的名字（confirm／open_path 等）经
-``desktop_page_support`` 的转发函数在调用时取 ``desktop`` 的当前值，补丁照常生效。
+``Desktop`` 注入的 ``AssetPageServices`` 在调用时取 ``desktop`` 的当前值，补丁照常生效（R1983 J2）。
 """
 import pet_state
+from dataclasses import dataclass
+from typing import Callable
 import time
 import asset_resume
 import asset_thumbs
@@ -18,9 +20,17 @@ from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_r
 from tkinter import ttk
 from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_HINT
 from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_string
-from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_HEIGHT, ASSET_ROW_LABEL, Desktop, FileDialog, STAGE_ACTION_WIDTH, THUMB_SIZE, confirm, open_path
+from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_HEIGHT, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, THUMB_SIZE
 
 PAGE = pet_state.PAGE_OF
+
+
+@dataclass(frozen=True)
+class AssetPageServices:
+    """资产页用到的宿主服务；``Desktop`` 注入，页面不读全局宿主。"""
+    open_path: Callable
+    file_dialog: Callable
+    confirm: Callable
 
 
 def _configure_table_style(tree, style, thumb):
@@ -263,7 +273,7 @@ class AssetPagesMixin:
         def open_library():
             # 第 57 期第 6 条：「生成图目录」→「资产目录」，开的是上一级的 episode 根目录
             # （资产库、参考图、生成资产都在它下面）。
-            open_path(self.asset_base())
+            self.asset_page_services.open_path(self.asset_base())
         SecondaryButton(imgs,text='资产目录',command=lambda:self.safe(open_library)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         try:
             from stage_execution_service import import_pending_generated_assets
@@ -283,7 +293,7 @@ class AssetPagesMixin:
             controller=self.asset_page_controller(registry)
             selected=controller.checked_ids()
             made=controller.imported_ids(selected)
-            if made and confirm(self.win,'重新制作资产',
+            if made and self.asset_page_services.confirm(self.win,'重新制作资产',
                     '勾选的 %d 项已经做好了：%s\n\n要删掉旧图重做一遍吗？'
                     '（旧图移入项目回收站，可恢复）'%(len(made),'、'.join(made[:8])),
                     dangerous=True):
@@ -316,7 +326,7 @@ class AssetPagesMixin:
             self.async_(work,lambda text:self.status.set(str(text)),show_progress=False,label='正在强制关闭 ComfyUI…')
         SecondaryButton(production,text='强制关闭 ComfyUI',command=lambda:self.safe(kill_comfy_here)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         def asset_records():
-            folder=self.root/'workflows/Comfy资产批次';folder.mkdir(parents=True,exist_ok=True);open_path(folder)
+            folder=self.root/'workflows/Comfy资产批次';folder.mkdir(parents=True,exist_ok=True);self.asset_page_services.open_path(folder)
         SecondaryButton(production,text='制作记录',command=lambda:self.safe(asset_records)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         SecondaryButton(production,text='桌面打开 ComfyUI',command=lambda:self.safe(self.launch_comfy)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
         SecondaryButton(production,text='浏览器打开 ComfyUI',command=lambda:self.safe(self.open_comfy_browser)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
@@ -420,11 +430,11 @@ class AssetPagesMixin:
         直接拿 None 去 rstrip（崩），而且开着角色页去开道具的文件夹也不合直觉。
         """
         from asset_reference_images import CATEGORIES,prepare_folders
-        base=Desktop.asset_write_base(self);prepare_folders(base)
+        base=AssetPagesMixin.asset_write_base(self);prepare_folders(base)
         folder=base/'assets/参考图'
         category=CATEGORIES.get(str(aid or self.asset_selected() or '').split('_')[0])
         if category:folder=folder/category
-        open_path(folder)
+        self.asset_page_services.open_path(folder)
         return folder
     def asset_field_column(self,field):
         """资产表里某一栏的列号（'#4' 这种）：表没建起来或没有这一栏就是 None。
@@ -456,11 +466,11 @@ class AssetPagesMixin:
         values=[value for value in entry.get('reference_images',[]) if isinstance(value,str) and value]
         values=list(dict.fromkeys(values))
         if not values:raise ValueError(aid+' 还没有参考图')
-        if ask and not confirm(self.win,'删除参考图',
+        if ask and not self.asset_page_services.confirm(self.win,'删除参考图',
                 '%s 的 %d 张参考图将移入项目回收站，可在需要时恢复。\n是否继续？'%(aid,len(values)),
                 dangerous=True):
             return False
-        base=Desktop.asset_write_base(self)
+        base=AssetPagesMixin.asset_write_base(self)
         unbind(base,aid,values)
         self.show(2)
         self.status.set(aid+' 的 '+str(len(values))+' 张参考图已移入回收站。')
@@ -479,13 +489,13 @@ class AssetPagesMixin:
         path=(base/image).resolve()
         if not path.is_relative_to(base):raise ValueError('资产路径越界')
         if not path.is_file():raise ValueError('图片文件已不存在，请刷新列表')
-        if ask and not confirm(self.win,'删除已导入图片',
+        if ask and not self.asset_page_services.confirm(self.win,'删除已导入图片',
                 f'删除 {aid} 的已导入图片？\n{image}\n\n图片将移入项目回收站，该资产恢复为待导入。',
                 dangerous=True):
             return False
         from asset_batch_service import remove_asset_image
-        base=Desktop.asset_write_base(self)
-        remove_asset_image(base,aid,gateway=Desktop.asset_batch_gateway())
+        base=AssetPagesMixin.asset_write_base(self)
+        remove_asset_image(base,aid,gateway=AssetPagesMixin.asset_batch_gateway())
         if ask:
             self.show(2)
             self.status.set(aid+' 已导入图片已删除，恢复为待导入。')
@@ -503,7 +513,7 @@ class AssetPagesMixin:
         targets=[aid for aid in ids if assets.get(aid,{}).get('image')]
         if not targets:raise ValueError('勾选的资产都没有已导入图片')
         shown='、'.join(targets[:8])+('…' if len(targets)>8 else '')
-        if not confirm(self.win,'批量删除已导入图片',
+        if not self.asset_page_services.confirm(self.win,'批量删除已导入图片',
                 f'删除勾选的 {len(targets)} 项资产的已导入图片？\n{shown}\n\n图片将移入项目回收站，'
                 '这些资产恢复为待导入；未勾选资产不受影响。'+self.asset_work_hint(targets,how),
                 dangerous=True):
@@ -528,12 +538,12 @@ class AssetPagesMixin:
         kind={'CHAR':'characters','LOC':'scenes','PROP':'props'}.get(prefix)
         if not kind:raise ValueError('资产ID格式错误，无法确定恢复目录')
         folder=(base/'assets'/kind).resolve()
-        if ask and not confirm(self.win,'恢复资产图片',
+        if ask and not self.asset_page_services.confirm(self.win,'恢复资产图片',
                 f'恢复 {aid} 的最近删除图片？'):
             return False
         from asset_batch_service import restore_asset_image
-        base=Desktop.asset_write_base(self)
-        restore_asset_image(base,aid,gateway=Desktop.asset_batch_gateway())
+        base=AssetPagesMixin.asset_write_base(self)
+        restore_asset_image(base,aid,gateway=AssetPagesMixin.asset_batch_gateway())
         self.show(PAGE['assets'])
         self.status.set(aid+' 的资产图片已从项目回收站恢复。')
         return True
@@ -545,17 +555,17 @@ class AssetPagesMixin:
         name=name.strip()
         if not name:raise ValueError('资产名称不能为空')
         from asset_batch_service import rename_asset as _rename_asset
-        _rename_asset(Desktop.asset_write_base(self),aid,old,name,gateway=Desktop.asset_batch_gateway())
+        _rename_asset(AssetPagesMixin.asset_write_base(self),aid,old,name,gateway=AssetPagesMixin.asset_batch_gateway())
         if refresh:self.show(2)
         self.status.set('名称已保存')
     def asset_import(self,kind,initial=None,selected=None):
         base=self.asset_base()/'assets'
-        p=FileDialog(self.win).open_file(initialdir=initial or (base/kind if kind!='all' else base),filetypes=[('图片','*.png *.jpg *.jpeg *.webp')])
+        p=self.asset_page_services.file_dialog(self.win).open_file(initialdir=initial or (base/kind if kind!='all' else base),filetypes=[('图片','*.png *.jpg *.jpeg *.webp')])
         if not p:return
         aid=selected or ask_string(self.win,'资产编号','例如 CHAR_001 / LOC_001 / PROP_001')
         if not aid:return
         from asset_batch_service import import_asset_image
-        kind,result=import_asset_image(Desktop.asset_write_base(self),self.root,aid,p,self.asset_requirements(),gateway=Desktop.asset_batch_gateway())
+        kind,result=import_asset_image(AssetPagesMixin.asset_write_base(self),self.root,aid,p,self.asset_requirements(),gateway=AssetPagesMixin.asset_batch_gateway())
         self.asset_kind=kind;self.show(PAGE['assets']);self.status.set(result)
     def dialogue_assets(self):
         """角色名 → 音色／名称的对照表（资产库）；没有或读坏都当空表。"""
@@ -755,7 +765,7 @@ class _AssetPage:
         if asset['status']!='已导入':raise ValueError('该资产尚未导入图片，请先导入')
         p=(self.page.asset_base()/asset['image']).resolve()
         if not p.is_relative_to(self.page.asset_base()):raise ValueError('资产路径越界')
-        open_path(p)
+        self.page.asset_page_services.open_path(p)
 
     def selected(self):return self.table.selection()[0] if self.table.selection() else None
 

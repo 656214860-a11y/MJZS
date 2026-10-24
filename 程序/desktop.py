@@ -1,7 +1,7 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
 import app_logging
 from desktop_idea_menus import IdeaMenusMixin
-from desktop_asset_pages import AssetPagesMixin
+from desktop_asset_pages import AssetPagesMixin, AssetPageServices
 from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
 from desktop_media_pages import MediaPagesMixin
 from desktop_project_pages import ProjectPagesMixin, ProjectPageServices
@@ -105,6 +105,11 @@ _PAGE_PAINT_KEYS = {index: stage for stage, index in PAGE.items()}
 _PAGE_PAINT_KEYS[PAGE_SITES] = 'sites'
 _PAGE_PAINT_KEYS[PAGE_ACCOUNT] = 'account'
 
+def _late(name):
+    """页面服务的默认实现：调用时才按名字取本模块当前值，测试按 ``desktop.<名字>`` 打补丁照常生效。"""
+    return lambda *args, **kwargs: globals()[name](*args, **kwargs)
+
+
 def _page_paint_key(index):
     return 'page.paint.' + _PAGE_PAINT_KEYS.get(index, str(index))
 
@@ -148,8 +153,8 @@ def status_kind(message):
     return 'ready'
 
 class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
-    def __init__(self,win,root=ROOT,*,script_page_services=None,writing_page_services=None,storyboard_page_services=None,project_page_services=None):
-        self._init_window_and_sidebar(script_page_services, win, root, writing_page_services, storyboard_page_services, project_page_services)
+    def __init__(self,win,root=ROOT,*,script_page_services=None,writing_page_services=None,storyboard_page_services=None,project_page_services=None,asset_page_services=None):
+        self._init_window_and_sidebar(script_page_services, win, root, writing_page_services, storyboard_page_services, project_page_services, asset_page_services)
         self._init_body_and_status(win)
         # Timed callbacks cannot run inside the placement code's update_idletasks.
         # An idle modal here would block the root while it is still transparent.
@@ -202,25 +207,20 @@ class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPage
         pet_ui.start(self,delay_ms=5000)
         self.setup_tray()
 
-    def _init_window_and_sidebar(self, script_page_services, win, root, writing_page_services=None, storyboard_page_services=None, project_page_services=None):
+    def _init_window_and_sidebar(self, script_page_services, win, root, writing_page_services=None, storyboard_page_services=None, project_page_services=None, asset_page_services=None):
         """服务、窗口外观与侧栏（项目列表、导航按钮、标题行），从 __init__ 原样切出，R1808。"""
         self._diagnostic_start=time.perf_counter()
         self.script_page_services = script_page_services if script_page_services is not None else ScriptPageServices(
-            open_path=lambda *args, **kwargs: open_path(*args, **kwargs),
-            context_menu=lambda *args, **kwargs: ContextMenu(*args, **kwargs))
+            open_path=_late('open_path'), context_menu=_late('ContextMenu'))
         self.writing_page_services = writing_page_services if writing_page_services is not None else WritingPageServices(
-            open_path=lambda *args, **kwargs: open_path(*args, **kwargs),
-            context_menu=lambda *args, **kwargs: ContextMenu(*args, **kwargs),
-            confirm=lambda *args, **kwargs: confirm(*args, **kwargs),
-            confirm_project_removal=lambda *args, **kwargs: confirm_project_removal_from_last_script(*args, **kwargs))
+            open_path=_late('open_path'), context_menu=_late('ContextMenu'), confirm=_late('confirm'),
+            confirm_project_removal=_late('confirm_project_removal_from_last_script'))
         self.storyboard_page_services = storyboard_page_services if storyboard_page_services is not None else StoryboardPageServices(
-            open_path=lambda *args, **kwargs: open_path(*args, **kwargs),
-            file_dialog=lambda *args, **kwargs: FileDialog(*args, **kwargs),
-            confirm=lambda *args, **kwargs: confirm(*args, **kwargs))
+            open_path=_late('open_path'), file_dialog=_late('FileDialog'), confirm=_late('confirm'))
         self.project_page_services = project_page_services if project_page_services is not None else ProjectPageServices(
-            open_path=lambda *args, **kwargs: open_path(*args, **kwargs),
-            context_menu=lambda *args, **kwargs: ContextMenu(*args, **kwargs),
-            confirm=lambda *args, **kwargs: confirm(*args, **kwargs))
+            open_path=_late('open_path'), context_menu=_late('ContextMenu'), confirm=_late('confirm'))
+        self.asset_page_services = asset_page_services if asset_page_services is not None else AssetPageServices(
+            open_path=_late('open_path'), file_dialog=_late('FileDialog'), confirm=_late('confirm'))
         from stage_execution_service import project_registry_gateway
         self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.task_queue=PersistentBackgroundTaskQueue(self.app/'outputs'/'desktop-task-queue.json',handlers={'storage_inspect':inspect_project_storage});self.retry_registry=RetryRegistry();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0
