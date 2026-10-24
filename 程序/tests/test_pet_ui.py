@@ -1063,12 +1063,12 @@ class DesktopSeamTests(unittest.TestCase):
             from desktop import Desktop
             d = Desktop(win, root=PROGRAM)
             self.assertTrue(hasattr(d, "pet"))
-            for name in ("auto_final_queue", "auto_edit_queue", "auto_keyframe_queue",
-                         "auto_asset_queue", "auto_video_queue", "auto_handoff_queue"):
+            for name in ("final_queue", "edit_queue", "keyframe_queue",
+                         "asset_queue", "video_queue", "handoff_queue"):
                 with self.subTest(name=name):
-                    box = getattr(d, name)
+                    box = getattr(d.auto, name)
                     self.assertIsInstance(box, pet_ui.StageQueue)
-                    if name in ("auto_keyframe_queue", "auto_asset_queue"):
+                    if name in ("keyframe_queue", "asset_queue"):
                         # 这两类任务必须由界面线程复核真实产物后才允许发送完成事件。
                         self.assertIsNone(box.sink)
                     else:
@@ -1081,8 +1081,8 @@ class DesktopSeamTests(unittest.TestCase):
             self.assertTrue(getattr(self.tk.Variable, "_dramaGuarded", False))
             self.assertIsNotNone(d.pet.canvas)
             self.assertEqual(str(d.pet.canvas.winfo_parent()), str(d.title_row))
-            stubs = [(box.stage, box) for box in (d.auto_final_queue, d.auto_edit_queue, d.auto_keyframe_queue,
-                                                  d.auto_asset_queue, d.auto_video_queue, d.auto_handoff_queue)]
+            stubs = [(box.stage, box) for box in (d.auto.final_queue, d.auto.edit_queue, d.auto.keyframe_queue,
+                                                  d.auto.asset_queue, d.auto.video_queue, d.auto.handoff_queue)]
             self.assertEqual(sorted(stage for stage, _ in stubs),
                              sorted(["final", "edit", "keyframe", "assets", "video", "delivery"]))
         finally:
@@ -1140,9 +1140,9 @@ class DesktopSeamTests(unittest.TestCase):
         try:
             from desktop import Desktop
             d = Desktop(win, root=PROGRAM)
-            d._auto_handoff_ticket += 1
-            ticket = d.auto_handoff_tasks.submit(d._auto_handoff_ticket)
-            d.auto_handoff_queue.put((ticket, True, "自动交接包已整理：exports/MASTER.mp4", "sig"))
+            d.auto.handoff_ticket += 1
+            ticket = d.auto.handoff_tasks.submit(d.auto.handoff_ticket)
+            d.auto.handoff_queue.put((ticket, True, "自动交接包已整理：exports/MASTER.mp4", "sig"))
             d._tick_once()
             kinds = [(item["kind"], item.get("stage")) for item in d.pet.bus.history]
             self.assertIn(("stage.completed", "delivery"), kinds)
@@ -1544,7 +1544,7 @@ class FrameBatchSeamTests(unittest.TestCase):
         self.project_with_a_gap()
         self.d.keyframe_settings = lambda: []
         self.assertIn("找不到资产清单", self.d.pet_frame_batch())
-        self.assertFalse(self.d.auto_keyframe_busy)
+        self.assertFalse(self.d.auto.keyframe_busy)
 
     def test_it_names_the_missing_local_settings(self):
         self.project_with_a_gap()
@@ -1552,7 +1552,7 @@ class FrameBatchSeamTests(unittest.TestCase):
         text = self.d.pet_frame_batch()
         self.assertIn("还没配好", text)
         self.assertIn("model", text)
-        self.assertFalse(self.d.auto_keyframe_busy)
+        self.assertFalse(self.d.auto.keyframe_busy)
 
     def test_it_names_the_blocked_shots(self):
         self.project_with_a_gap()
@@ -1561,7 +1561,7 @@ class FrameBatchSeamTests(unittest.TestCase):
         text = self.d.pet_frame_batch()
         self.assertIn("2 镜都无法生成", text)
         self.assertIn("缺参考图", text)              # 原因与引擎逐镜跳过时同一句话
-        self.assertFalse(self.d.auto_keyframe_busy)
+        self.assertFalse(self.d.auto.keyframe_busy)
 
     def test_the_unattended_path_skips_a_batch_it_already_handled(self):
         """无人值守先判重再派发：同一批（同一份分镜、同样缺几张参考图）只跑一次。
@@ -1575,7 +1575,7 @@ class FrameBatchSeamTests(unittest.TestCase):
         self.d.keyframe_settings = lambda: []
         self.d.batch_blockers = lambda source, pending: []
         self.d.keyframe_signature = lambda source, pending: ("签名", len(pending))
-        self.d.auto_keyframe_signature = ("签名", 2)
+        self.d.auto.keyframe_signature = ("签名", 2)
         import keyframe_comfy
         original = keyframe_comfy.auto_batch
         started = []
@@ -1583,33 +1583,33 @@ class FrameBatchSeamTests(unittest.TestCase):
         try:
             self.d.poll_auto_keyframe()
             self.assertEqual(started, [], "这一批已经在跑了，不能再下一单")
-            self.assertFalse(self.d.auto_keyframe_busy)
+            self.assertFalse(self.d.auto.keyframe_busy)
             text = self.d.pet_frame_batch()          # 显式按下：同一批照样派发
             self.assertIn("已按分镜顺序派发 2 镜首帧", text)
-            self.assertTrue(self.d.auto_keyframe_busy)
+            self.assertTrue(self.d.auto.keyframe_busy)
         finally:
             keyframe_comfy.auto_batch = original
-            self.d.auto_keyframe_busy = False
-            while not self.d.auto_keyframe_queue.empty():
-                self.d.auto_keyframe_queue.get_nowait()
+            self.d.auto.keyframe_busy = False
+            while not self.d.auto.keyframe_queue.empty():
+                self.d.auto.keyframe_queue.get_nowait()
 
     def test_it_says_nothing_while_another_batch_runs(self):
         self.project_with_a_gap()
-        self.d.auto_keyframe_busy = True
+        self.d.auto.keyframe_busy = True
         try:
             self.assertIn("已有制作任务在跑", self.d.pet_frame_batch())
         finally:
-            self.d.auto_keyframe_busy = False
+            self.d.auto.keyframe_busy = False
 
     def test_auto_keyframe_while_busy_finishes_as_failed(self):
         self.project_with_a_gap()
-        self.d.auto_keyframe_busy = True
+        self.d.auto.keyframe_busy = True
         emitted = []
         self.d.pet._emit = lambda kind, **payload: emitted.append((kind, payload))
         try:
             text = self.d.pet_frame_batch(trigger='auto')
         finally:
-            self.d.auto_keyframe_busy = False
+            self.d.auto.keyframe_busy = False
         self.assertIn('已有制作任务在跑', text)
         self.assertEqual(emitted, [('stage.failed', {'stage': 'keyframe', 'error': text})])
 
@@ -1624,16 +1624,16 @@ class FrameBatchSeamTests(unittest.TestCase):
         try:
             text = self.d.pet_frame_batch()
             self.assertIn("已按分镜顺序派发 2 镜首帧", text)
-            self.assertTrue(self.d.auto_keyframe_busy)
-            _ticket, ok, value, signature = self.d.auto_keyframe_queue.get(timeout=20)
+            self.assertTrue(self.d.auto.keyframe_busy)
+            _ticket, ok, value, signature = self.d.auto.keyframe_queue.get(timeout=20)
             self.assertTrue(ok)
             self.assertIn("处理 2 镜", value)
             self.assertEqual(signature, ("签名", 2))
         finally:
             keyframe_comfy.auto_batch = original
-            self.d.auto_keyframe_busy = False
-            while not self.d.auto_keyframe_queue.empty():
-                self.d.auto_keyframe_queue.get_nowait()
+            self.d.auto.keyframe_busy = False
+            while not self.d.auto.keyframe_queue.empty():
+                self.d.auto.keyframe_queue.get_nowait()
 
     def test_the_shared_signature_contains_the_missing_references(self):
         """无人值守与一键执行共用同一份指纹：两条路派发的批次不会互相再触发一次。"""
@@ -2506,7 +2506,7 @@ class MenuFeedbackTests(PetTestCase):
             if label in self.EXCLUDED:
                 continue
             self.pet.notice = ''
-            self.pet._last_broadcast = ''
+            self.pet.bstate.last_broadcast = ''
             del cloud.lines[:]
             self.pet.menu.invoke(index)
             self.assertTrue(self.pet.notice, label + ' 没有留下提示')
@@ -2541,7 +2541,7 @@ class MenuFeedbackTests(PetTestCase):
         self.pet.popup_at(10, 20)
         self.assertEqual(seen, [True], '弹栏期间标记要是开着的')
         self.assertFalse(self.pet._menu_open, '栏收起后标记清掉')
-        self.assertFalse(self.pet._held_broadcast, '压住的那句话已经补说出去')
+        self.assertFalse(self.pet.bstate.held_broadcast, '压住的那句话已经补说出去')
         self.assertTrue(self.pet.cloud_visible(), '收起后补上那句话')
         self.assertIn('栏里冒出来的话', self.pet.cloud().transcript())
 
@@ -3253,7 +3253,7 @@ class CloudVoiceTests(PetTestCase):
         self.pet.progress_voice()
         self.pet.tune_advance()
         self.assertEqual(self.pet._progress_at, 5.0, '进度气泡的节流从安静期里重新起算')
-        self.assertEqual(self.pet._advance_at, 5.0, '自动推进的节流一样往后挪')
+        self.assertEqual(self.pet.bstate.advance_at, 5.0, '自动推进的节流一样往后挪')
         now[0] = pet_ui.GREET_QUIET_SECONDS + 1
         self.assertFalse(self.pet.quiet(), '过了这一段就不再安静')
         self.assertIsNone(self.pet._quiet_until)
@@ -4409,27 +4409,27 @@ class DesktopPetSeamTests(unittest.TestCase):
     # ── 提前叫醒下一步 ──────────────────────────────────────────────────────
     def test_it_moves_only_the_due_time(self):
         self.d.root = self.base
-        self.d.auto_video_due = 0
+        self.d.auto.video_due = 0
         self.assertIn("视频生成", self.d.pet_advance("video"))
-        self.assertEqual(self.d.auto_video_due, 0)
-        self.d.auto_video_due = time.monotonic() + 60      # 正常节流里还没到点的那一步
+        self.assertEqual(self.d.auto.video_due, 0)
+        self.d.auto.video_due = time.monotonic() + 60      # 正常节流里还没到点的那一步
         self.assertIn("视频生成", self.d.pet_advance("video"))
-        self.assertEqual(self.d.auto_video_due, 0, "把这一步的下一次轮询提前到现在")
+        self.assertEqual(self.d.auto.video_due, 0, "把这一步的下一次轮询提前到现在")
 
     def test_a_step_in_backoff_is_left_alone(self):
         """失败后的 5 分钟退避不能被一次推进打乱（与 kick_unattended 同一条规矩）。"""
         from desktop import UNATTENDED_BACKOFF_FLOOR
         self.d.root = self.base
         far = time.monotonic() + UNATTENDED_BACKOFF_FLOOR + 60
-        self.d.auto_keyframe_due = far
+        self.d.auto.keyframe_due = far
         self.assertEqual(self.d.pet_advance("keyframe"), "")
-        self.assertEqual(self.d.auto_keyframe_due, far)
+        self.assertEqual(self.d.auto.keyframe_due, far)
 
     def test_a_busy_step_is_left_alone(self):
         self.d.root = self.base
-        self.d.auto_asset_busy = True
+        self.d.auto.asset_busy = True
         self.assertEqual(self.d.pet_advance("assets"), "")
-        self.d.auto_asset_busy = False
+        self.d.auto.asset_busy = False
 
     def test_a_step_without_an_unattended_poll_says_nothing(self):
         self.d.root = self.base
@@ -4442,19 +4442,21 @@ class DesktopPetSeamTests(unittest.TestCase):
 
     def test_the_table_covers_exactly_the_steps_that_have_a_poll(self):
         from desktop import PET_STAGE_POLL
+        from desktop_auto_state import flow_slot
         import pet_bus
         for stage, name in PET_STAGE_POLL.items():
             self.assertIn(stage, pet_bus.STAGES)
-            self.assertTrue(hasattr(self.d, name + "_due"), name + " 必须真的有这一步的轮询")
+            owner, prefix = flow_slot(self.d, name)
+            self.assertTrue(hasattr(owner, prefix + "_due"), name + " 必须真的有这一步的轮询")
 
     # ── 自动开始某一步（第 67 期任务 5）─────────────────────────────────────
     def test_it_opens_the_unattended_switch_then_starts_the_step(self):
         import project_settings
         self.d.root = self.base
-        self.d.auto_asset_due = 0
+        self.d.auto.asset_due = 0
         self.assertIn("资产管理", self.d.pet_start("assets"))
         self.assertTrue(project_settings.auto_asset(self.base), "无人值守开关替用户打开")
-        self.assertEqual(self.d.auto_asset_due, 0, "顺手把这一步提前叫醒一轮")
+        self.assertEqual(self.d.auto.asset_due, 0, "顺手把这一步提前叫醒一轮")
 
     def test_a_step_without_an_unattended_poll_starts_nothing(self):
         self.d.root = self.base
@@ -6287,7 +6289,7 @@ class StageNoteTests(PetTestCase):
                          "刚问过这一页：不重复问")
         self.assertEqual(self.pet._stage_at, asked_at, "被节流的那一次不动钟点")
         self.now += pet_ui.STAGE_ASK_SECONDS + 1
-        self.pet._last_broadcast = ""                # 「同一句不连说两遍」是另一道闸：这里只看节流
+        self.pet.bstate.last_broadcast = ""                # 「同一句不连说两遍」是另一道闸：这里只看节流
         self.assertTrue(self.pet.note_stage(page=video_page, at=self.now), "过了节流窗口可以再问")
 
     def test_the_question_hands_the_task_to_the_reply_box(self):
@@ -6936,13 +6938,13 @@ class ChatUnderModalTests(PetTestCase):
         self.pet.open_chat()
         self.modal()
         self.pet.broadcast("弹窗期间的一句话")
-        self.assertEqual(self.pet._held_broadcast, "弹窗期间的一句话", "弹窗期间先压着")
+        self.assertEqual(self.pet.bstate.held_broadcast, "弹窗期间的一句话", "弹窗期间先压着")
         self.assertTrue(self.pet.guard_chat_grab(), "心跳发现有弹窗：聊天框先自己收起来")
         self.assertFalse(self.pet.cloud_visible(), "关不掉的框不该留着")
-        self.assertEqual(self.pet._held_broadcast, "弹窗期间的一句话", "压着的话不能丢")
+        self.assertEqual(self.pet.bstate.held_broadcast, "弹窗期间的一句话", "压着的话不能丢")
         self.win.grab_current = lambda: None   # 弹窗关了
         self.pet.pump()                        # 下一个心跳把它补说
-        self.assertFalse(self.pet._held_broadcast, "压不住太久：弹窗关了这一句就该说出去")
+        self.assertFalse(self.pet.bstate.held_broadcast, "压不住太久：弹窗关了这一句就该说出去")
         self.assertIn("弹窗期间的一句话", self.pet.cloud().transcript(),
                       "弹窗一关，那句话还得说出去")
 

@@ -264,6 +264,11 @@ class AssetDeleteTests(unittest.TestCase):
             def __init__(self):
                 self.root = Path(td); self.asset_base_dir = base; self.win = None
                 self.notes = []; self.shown = []; self.status = Status()
+                # 页面服务改为注入后，绕过 Desktop.__init__ 的桩要自带服务，desktop.confirm 补丁才生效（R1983 J2，断言未动）。
+                self.asset_page_services = desktop.AssetPageServices(
+                    open_path=lambda *a, **k: desktop.open_path(*a, **k),
+                    file_dialog=lambda *a, **k: desktop.FileDialog(*a, **k),
+                    confirm=lambda *a, **k: desktop.confirm(*a, **k))
             def asset_base(self): return self.asset_base_dir
             def note(self, text): self.notes.append(str(text))
             def show(self, index=None): self.shown.append(index)

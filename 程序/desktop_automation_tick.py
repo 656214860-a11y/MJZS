@@ -135,19 +135,19 @@ class AutomationTickMixin:
         """
         scan=self.auto_final_scan()
         if not scan['sources']:
-            self.auto_final_signature=None;self.auto_final_notice=None;return None
+            self.auto.final_signature=None;self.auto.final_notice=None;return None
         if scan['target'] is not None:
-            self.auto_final_notice=None;return scan['target']
+            self.auto.final_notice=None;return scan['target']
         missing=scan['missing']
         if missing:
             notice=(str(scan['source']),tuple(sorted(missing)))
-            if notice!=self.auto_final_notice:
-                self.auto_final_notice=notice
+            if notice!=self.auto.final_notice:
+                self.auto.final_notice=notice
                 shown='、'.join(sorted(missing)[:6])+('…' if len(missing)>6 else '')
                 self.status.set('无人值守自动定稿暂缓：还缺 '+str(len(missing))+' 项资产图片（'+shown+'）；补齐后会自动定稿')
         else:
             # 剩下的都已经定稿（或被移走）了：别再让提示条挂着上一次那句「还缺…」。
-            self.auto_final_notice=None
+            self.auto.final_notice=None
         return None
 
     def auto_final_state(self):
@@ -175,9 +175,9 @@ class AutomationTickMixin:
             return {'kind':kind,'text':text+'；'+tail,'retry':retry,'pending':len(pending),'missing':tuple(missing)}
         if not self.pet.should_auto_run('final'):
             return state('off','「自动生成定稿」没勾上：勾上之后资产一补齐就自动同步（定稿会把工作稿移入回收站，可恢复）')
-        if self.auto_final_busy:return state('busy','正在同步资产、生成定稿…')
-        if self.auto_final_blocked:return state('blocked','自动定稿在等：有制作批次正在读这份工作稿，它跑完就自动接手',retry=True)
-        if self.auto_final_error:return state('error','上一轮自动定稿失败：'+self.auto_final_error,retry=True)
+        if self.auto.final_busy:return state('busy','正在同步资产、生成定稿…')
+        if self.auto.final_blocked:return state('blocked','自动定稿在等：有制作批次正在读这份工作稿，它跑完就自动接手',retry=True)
+        if self.auto.final_error:return state('error','上一轮自动定稿失败：'+self.auto.final_error,retry=True)
         if scan['target'] is not None:
             return state('ready','资产已齐，下一轮轮询就动手（点「立即重试」可以马上做）',retry=True)
         if scan['missing']:
@@ -198,12 +198,12 @@ class AutomationTickMixin:
             if self.root is None or self.studio is None:return '请先选择项目'
             if not self.pet.should_auto_run('final'):
                 return '未开启「自动生成定稿」：勾上之后资产补齐才会自动同步。'
-            self.auto_final_signature=None;self.auto_final_notice=None;self.auto_final_error=''
-            self.auto_final_blocked=False;self.auto_final_due=0
+            self.auto.final_signature=None;self.auto.final_notice=None;self.auto.final_error=''
+            self.auto.final_blocked=False;self.auto.final_due=0
             self.poll_auto_final()
             return self.auto_final_state()['text']
         except Exception as exc:
-            self.auto_final_error=str(exc)
+            self.auto.final_error=str(exc)
             return '自动定稿重试失败：'+str(exc)
 
     def reconcile_storyboards(self):

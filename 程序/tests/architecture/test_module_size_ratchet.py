@@ -1,16 +1,32 @@
-"""单个生产模块行数上限：新模块 ≤ 1500 行；超限的老模块登记上限，只许下降。
+"""单个生产模块行数上限：新模块 ≤ 1000 行（R1983 J7 由 1500 收紧）；超限的老模块登记上限，只许下降。
 
 超限文件只能随拆分变小。登记上限比实际高出 100 行以上时必须下调（让下降固化），
-低于等于 1500 行的文件必须从登记表删除。新增功能应放进新模块或已拆出的 *_service /
+低于等于 1000 行的文件必须从登记表删除。新增功能应放进新模块或已拆出的 *_service /
 *_controller，不要继续堆进下列大文件。
 """
 import unittest
 
 from tests.architecture._scan import ROOT, production_files
 
-LIMIT = 1500
+LIMIT = 1000
 SLACK = 100
 OVERSIZE_CAPS = {
+    'app.py': 1499,
+    'stage_execution_service.py': 1447,
+    'ui_widgets.py': 1425,
+    'desktop.py': 1377,
+    'writing_api.py': 1373,
+    'pet_cloud.py': 1357,
+    'script_contract.py': 1293,
+    'skill_panel.py': 1203,
+    'pet_ui_stages.py': 1202,
+    'pet_ui_voice.py': 1201,
+    'pet_llm.py': 1197,
+    'pet_agent.py': 1182,
+    'workflow_settings.py': 1176,
+    'desktop_idea_chat.py': 1148,
+    'model_pool.py': 1117,
+    'cell_hover.py': 1016,
 }
 
 

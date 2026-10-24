@@ -166,12 +166,12 @@ def settle_workers(d, win, timeout=15):
     继续往项目目录里写文件。用例若在文件还在复制时就退出，`with tempfile.TemporaryDirectory()`
     的清理会随机撞上「目录不是空的」（WinError 145），表现为随机失败——不是功能坏了。
     """
-    flags = ("auto_asset_busy", "auto_final_busy", "auto_keyframe_busy", "auto_video_busy",
-             "auto_edit_busy", "auto_handoff_busy")
+    flags = ("asset_busy", "final_busy", "keyframe_busy", "video_busy",
+             "edit_busy", "handoff_busy")
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         win.update()
-        if not any(getattr(d, name, False) for name in flags):
+        if not any(getattr(d.auto, name, False) for name in flags):
             return True
         time.sleep(0.05)
     return False
@@ -2350,7 +2350,7 @@ class UiEdgeTests(unittest.TestCase):
             # 刚写入的分镜先等写入完成：本轮不采用，但记住它在等
             self.assertNotIn(fresh, storyboard_selection.adopted(proj))
             d.poll_auto_adopt()
-            self.assertTrue(d.auto_adopt_pending)
+            self.assertTrue(d.auto.adopt_pending)
             d.poll_auto_adopt()
             self.assertNotIn(fresh, storyboard_selection.adopted(proj))
             os.utime(fresh, (time.time() - 60, time.time() - 60))
@@ -2361,11 +2361,11 @@ class UiEdgeTests(unittest.TestCase):
             self.assertIn("重排镜头编号", d.status.get())
             # 采用之后资产已齐：状态栏必须指出下一道人工闸口（分镜定稿页），否则无人值守会静默停住
             self.assertIn("第07步", d.status.get())
-            self.assertFalse(d.auto_adopt_pending)
+            self.assertFalse(d.auto.adopt_pending)
             # 切回手动后主循环不再扫描：「手动采用分镜」保持手动。
             d.pet.set_mode('manual')
             d.poll_auto_adopt()
-            self.assertIsNone(d.auto_adopt_signature)
+            self.assertIsNone(d.auto.adopt_signature)
 
     def test_startup_reconciliation_pulls_the_working_episode_back(self):
         """第 62 期任务 7：强制关闭后重开，第一拍把已完成的分镜同步回工作集。"""
@@ -2401,9 +2401,9 @@ class UiEdgeTests(unittest.TestCase):
             d.startup_controller.cancel()
             d.root = proj
             d.studio = open_studio(proj)
-            self.assertTrue(d.auto_adopt_startup)
+            self.assertTrue(d.auto.adopt_startup)
             d.poll_auto_adopt(); win.update()
-            self.assertFalse(d.auto_adopt_startup, "对账一拍就该收工，不反复做")
+            self.assertFalse(d.auto.adopt_startup, "对账一拍就该收工，不反复做")
             self.assertEqual(json.loads(cfg.read_text(encoding="utf-8"))["episode_file"], str(target))
             self.assertIn("同步到工作集", d.status.get())
 
@@ -2457,7 +2457,7 @@ class UiEdgeTests(unittest.TestCase):
             d.poll_auto_edit()
             for _ in range(80):
                 win.update()
-                if not d.auto_edit_busy:
+                if not d.auto.edit_busy:
                     break
                 time.sleep(0.05)
             d._tick_once()
@@ -2466,7 +2466,7 @@ class UiEdgeTests(unittest.TestCase):
             marker = json.loads((editing(proj) / "自动粗剪.json").read_text(encoding="utf-8"))
             self.assertEqual(marker.get("master"), str(exports(proj) / "MASTER.mp4"))
             # 同一批验收结果只拼接一次：即便缓存被清掉，成片指纹也会拦下重复拼接
-            d.auto_edit_signature = None
+            d.auto.edit_signature = None
             d.poll_auto_edit()
             self.assertEqual(started, [1])
 
@@ -2508,7 +2508,7 @@ class UiEdgeTests(unittest.TestCase):
             def settle():
                 for _ in range(80):
                     win.update()
-                    if not d.auto_handoff_busy:
+                    if not d.auto.handoff_busy:
                         break
                     time.sleep(0.05)
             from project_stages import editing
@@ -2534,14 +2534,14 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(len(marker.get("digest")), 64)     # 成片指纹，用于「同一批验收只整理一次」
             # 同一批验收结果只整理一次：清掉签名缓存也由成片指纹拦下，目录不会被重建
             before = (folder / "镜头顺序.json").stat().st_mtime_ns
-            d.auto_handoff_signature = None
+            d.auto.handoff_signature = None
             d.poll_auto_handoff()
             settle()
             self.assertEqual((folder / "镜头顺序.json").stat().st_mtime_ns, before)
             # 同名目录不是自动生成的：报错并保留用户目录，不覆盖也不删除
             (folder / "交接包标记.json").unlink()
             (editing(proj) / "自动交接.json").unlink()
-            d.auto_handoff_signature = None
+            d.auto.handoff_signature = None
             d.poll_auto_handoff()
             settle()
             d._tick_once()
@@ -2800,7 +2800,7 @@ class UiEdgeTests(unittest.TestCase):
             d.show(PAGE["keyframe"]); win.update()
             self.assertFalse(d.pet.should_auto_run('keyframe'))
             d.poll_auto_keyframe()
-            self.assertFalse(d.auto_keyframe_busy)
+            self.assertFalse(d.auto.keyframe_busy)
             # 只通过三虎模式入口开启自动制作，不让页面组件写入变量。
             d.pet.set_level = lambda *args, **kwargs: None
             d.pet.broadcast = lambda *args, **kwargs: None
@@ -2815,12 +2815,12 @@ class UiEdgeTests(unittest.TestCase):
                 return "无人值守首帧批次结束：处理 1 镜，已生成 1 镜"
             with patch.object(keyframe_comfy, "auto_batch", fake_batch):
                 d.poll_auto_keyframe()
-                self.assertFalse(d.auto_keyframe_busy)
+                self.assertFalse(d.auto.keyframe_busy)
             self.assertEqual(started, [])
             # 签名同时记下「这一镜还缺几张参考图」：参考图补齐后清单变了，会自动再跑一轮
-            self.assertEqual(d.auto_keyframe_signature[0], str(storyboard_stage(proj) / "分镜文档" / "episode.json"))
-            self.assertEqual([sid for sid, _ in d.auto_keyframe_signature[1]], ["SH001"])
-            self.assertEqual(d.auto_keyframe_signature[1][0][1], 2)
+            self.assertEqual(d.auto.keyframe_signature[0], str(storyboard_stage(proj) / "分镜文档" / "episode.json"))
+            self.assertEqual([sid for sid, _ in d.auto.keyframe_signature[1]], ["SH001"])
+            self.assertEqual(d.auto.keyframe_signature[1][0][1], 2)
             self.assertIn("都无法生成", d.status.get())
             self.assertIn("缺少资产图片", d.status.get())      # 原因与引擎逐镜跳过时同一句话
             # 同一批缺参考资产镜头不重复提示，也不重复排队
@@ -2838,24 +2838,24 @@ class UiEdgeTests(unittest.TestCase):
                 "LOC_001": {"name": "场景", "image": "assets/characters/LOC_001.png"}}, ensure_ascii=False), encoding="utf-8")
             with patch.object(keyframe_comfy, "auto_batch", fake_batch):
                 d.poll_auto_keyframe()
-                self.assertTrue(d.auto_keyframe_busy)
-                again = d.auto_keyframe_queue.get(timeout=20)
+                self.assertTrue(d.auto.keyframe_busy)
+                again = d.auto.keyframe_queue.get(timeout=20)
             self.assertTrue(again[1]); self.assertEqual(again[3][1][0][1], 0)
             self.assertEqual(len(started), 1)     # 缺参考资产那次没派发，只在资产补齐后跑了一次
             baseline = len(started)   # 后段只关心「参考图齐了就不再空跑」
-            d.auto_keyframe_busy = False; d.auto_keyframe_signature = again[3]
+            d.auto.keyframe_busy = False; d.auto.keyframe_signature = again[3]
             frames = storyboard_stage(proj) / "frames"; frames.mkdir(exist_ok=True)
             (frames / "SH001.png").write_bytes(b"\x89PNG\r\n\x1a\n")
-            d.auto_keyframe_signature = None
+            d.auto.keyframe_signature = None
             d.poll_auto_keyframe()
-            self.assertFalse(d.auto_keyframe_busy)
+            self.assertFalse(d.auto.keyframe_busy)
             # 批次进行中（或有别的操作在跑）不重复排队
             (frames / "SH001.png").unlink()
             with patch.object(keyframe_comfy, "auto_batch", fake_batch):
-                d.auto_keyframe_busy = True
+                d.auto.keyframe_busy = True
                 d.poll_auto_keyframe()
                 self.assertEqual(len(started), baseline)
-                d.auto_keyframe_busy = False
+                d.auto.keyframe_busy = False
                 d.worker = True
                 d.poll_auto_keyframe()
                 self.assertEqual(len(started), baseline)
@@ -2863,7 +2863,7 @@ class UiEdgeTests(unittest.TestCase):
             # 三虎切回手动后轮询直接返回并清掉已跑过的清单
             d.pet.set_mode('manual')
             d.poll_auto_keyframe()
-            self.assertIsNone(d.auto_keyframe_signature)
+            self.assertIsNone(d.auto.keyframe_signature)
 
 
     def test_auto_previs_sanhu_mode_dispatches_complex_once(self):
@@ -2909,7 +2909,7 @@ class UiEdgeTests(unittest.TestCase):
             with patch.object(previs_routing, "partition", lambda project, source, ids: (dict(groups), {})), \
                  patch.object(previs_routing, "ready", lambda project, sid, source=None: ready_state["value"]), \
                  patch.object(previs_automation, "start", fake_start):
-                d.auto_previs_due = 0
+                d.auto.previs_due = 0
                 d._tick_once()                                  # 主循环必须自己把这一批派出去
                 self.assertEqual([row[2] for row in started], [["SH001"]])   # 中等动作不代办
                 self.assertTrue(d.previs_jobs["busy"])
@@ -2925,13 +2925,13 @@ class UiEdgeTests(unittest.TestCase):
                 # 全部就绪后签名清空；日后把某个镜头的白模删掉（重新变成未就绪）要能再派一次
                 ready_state["value"] = True
                 d.poll_auto_previs()
-                self.assertIsNone(d.auto_previs_signature)
+                self.assertIsNone(d.auto.previs_signature)
                 ready_state["value"] = False
                 d.poll_auto_previs()
                 self.assertEqual(len(started), 2)
             d.pet.set_mode('manual')
             d.poll_auto_previs()
-            self.assertIsNone(d.auto_previs_signature)
+            self.assertIsNone(d.auto.previs_signature)
 
 
     def test_auto_previs_waits_for_first_frame_stage(self):
@@ -2984,7 +2984,7 @@ class UiEdgeTests(unittest.TestCase):
                 self.assertEqual(started, [["SH001"]])
                 # 首帧自动变量关掉后，白模不应再被首帧阶段拦住。
                 d.pet.auto_variable('auto_first_frame_var').set(False)
-                d.auto_previs_signature = None
+                d.auto.previs_signature = None
                 d.previs_jobs["busy"] = False
                 frame_path.unlink()
                 d.poll_auto_previs()
@@ -3085,7 +3085,7 @@ class UiEdgeTests(unittest.TestCase):
             d.studio = open_studio(proj)
             d.show(PAGE["assets"]); win.update()
             d.poll_auto_asset()
-            self.assertFalse(d.auto_asset_busy)                 # 手动模式：轮询什么都不做
+            self.assertFalse(d.auto.asset_busy)                 # 手动模式：轮询什么都不做
             d.pet.set_level = lambda *args, **kwargs: None
             d.pet.broadcast = lambda *args, **kwargs: None
             d.pet.refresh_menu_labels = lambda: None
@@ -3113,21 +3113,21 @@ class UiEdgeTests(unittest.TestCase):
             import asset_auto_batch_service
             with patch.object(asset_auto_batch_service, "auto_batch", fake_batch):
                 d.poll_auto_asset()
-                self.assertTrue(d.auto_asset_busy)
+                self.assertTrue(d.auto.asset_busy)
                 self.assertIn("准备处理 1 项", d.status.get())
-                ticket, ok, value, signature = d.auto_asset_queue.get(timeout=20)
-                self.assertEqual(d.auto_asset_messages.get(timeout=20), (ticket, "批量资产日志"))
+                ticket, ok, value, signature = d.auto.asset_queue.get(timeout=20)
+                self.assertEqual(d.auto.asset_messages.get(timeout=20), (ticket, "批量资产日志"))
             self.assertTrue(ok)
             self.assertEqual(signature[0], ("CHAR_001",))
             self.assertEqual(started, ["adopted"])
             # 同一批缺图资产不再重复排队
-            d.auto_asset_busy = False; d.auto_asset_signature = signature
+            d.auto.asset_busy = False; d.auto.asset_signature = signature
             d.poll_auto_asset()
             self.assertEqual(started, ["adopted"])
             # 三虎切回手动就清掉已跑过的清单
             d.pet.set_mode('manual')
             d.poll_auto_asset()
-            self.assertIsNone(d.auto_asset_signature)
+            self.assertIsNone(d.auto.asset_signature)
 
 
     def test_unattended_asset_batch_retries_when_nothing_landed(self):
@@ -3171,20 +3171,20 @@ class UiEdgeTests(unittest.TestCase):
                 return "批量完成：成功 0，未完成 1"
             with patch.object(asset_auto_batch_service, "auto_batch", fake_batch):
                 d.poll_auto_asset()
-                self.assertTrue(d.auto_asset_busy)
-                item = d.auto_asset_queue.get(timeout=20)
+                self.assertTrue(d.auto.asset_busy)
+                item = d.auto.asset_queue.get(timeout=20)
             self.assertEqual(item[1], True)
             # 主循环收尾：把结果放回队列，让真实路径处理这一拍
             now = time.monotonic()
-            d.auto_adopt_startup = False
-            d.auto_adopt_due = d.auto_final_due = d.auto_edit_due = d.auto_keyframe_due = now + 9999
-            d.auto_previs_due = d.auto_asset_due = d.auto_video_due = d.auto_handoff_due = now + 9999
+            d.auto.adopt_startup = False
+            d.auto.adopt_due = d.auto.final_due = d.auto.edit_due = d.auto.keyframe_due = now + 9999
+            d.auto.previs_due = d.auto.asset_due = d.auto.video_due = d.auto.handoff_due = now + 9999
             d.cloud_monitor_due = now + 9999
-            d.auto_asset_queue.put(item)
+            d.auto.asset_queue.put(item)
             d._tick_once()
-            self.assertIsNone(d.auto_asset_signature, "没成果就不算完成，不能把这一批永久划掉")
-            self.assertEqual(d.auto_asset_attempt, 1)
-            self.assertGreater(d.auto_asset_due, now, "要排一次重试")
+            self.assertIsNone(d.auto.asset_signature, "没成果就不算完成，不能把这一批永久划掉")
+            self.assertEqual(d.auto.asset_attempt, 1)
+            self.assertGreater(d.auto.asset_due, now, "要排一次重试")
             self.assertIn("自动重试", d.status.get())
             # 重建页面会重置状态栏，这里只保证提示本身说清楚了。
             # 第 64 期任务 2 把这句文案统一了：「跑完没成果」与「中途出错」都走
@@ -3296,7 +3296,7 @@ class UiEdgeTests(unittest.TestCase):
             d.studio = open_studio(proj)
             d.poll_auto_edit()
             self.assertEqual(Path(d.studio.episode_path).resolve(), target.resolve())
-            project_settings.set_auto_edit(proj, False); d.auto_edit_signature = None
+            project_settings.set_auto_edit(proj, False); d.auto.edit_signature = None
             # 新分镜暂时不合规：保留原工作集并写明原因，不静默按错的分镜拼接
             broken = storyboard_stage(proj) / "分镜文档" / "episode3.json"
             broken.write_text(json.dumps(dict(second, episode_id="EP003", shots=[dict(second["shots"][0], duration=1)]), ensure_ascii=False), encoding="utf-8")
@@ -3338,7 +3338,7 @@ class UiEdgeTests(unittest.TestCase):
             self.assertIsInstance(d.studio, LocalStudio)
             d.show(PAGE["video"], video_mode="local"); win.update()
             d.poll_auto_video()
-            self.assertFalse(d.auto_video_busy)             # 手动模式：轮询什么都不做
+            self.assertFalse(d.auto.video_busy)             # 手动模式：轮询什么都不做
             d.pet.set_level = lambda *args, **kwargs: None
             d.pet.broadcast = lambda *args, **kwargs: None
             d.pet.refresh_menu_labels = lambda: None
@@ -3350,16 +3350,16 @@ class UiEdgeTests(unittest.TestCase):
                 return "无人值守本地视频：已提交 1 镜：SH001"
             with patch.object(local_video, "auto_batch", fake_batch):
                 d.poll_auto_video()
-                self.assertTrue(d.auto_video_busy)
+                self.assertTrue(d.auto.video_busy)
                 self.assertIn("准备提交 1 镜", d.status.get())
-                ticket, ok, value, signature = d.auto_video_queue.get(timeout=20)
-                log_ticket, log_text = d.auto_video_messages.get(timeout=20)
+                ticket, ok, value, signature = d.auto.video_queue.get(timeout=20)
+                log_ticket, log_text = d.auto.video_messages.get(timeout=20)
                 self.assertEqual((log_ticket, log_text), (ticket, "批量视频日志"))
                 self.assertTrue(ok)
                 self.assertEqual(signature, ("SH001",))
                 self.assertEqual(started, [str(storyboard_stage(proj) / "分镜文档" / "episode.json")])
                 # 同一批待提交镜头不再重复排队：已提交的下一轮只在待查询里出现
-                d.auto_video_busy = False; d.auto_video_signature = signature
+                d.auto.video_busy = False; d.auto.video_signature = signature
                 d.poll_auto_video()
                 self.assertEqual(len(started), 1)
             # 全部镜头都被跳过（首帧被删）时以前什么都不写：无人值守看起来像卡死，现在要写明原因。
@@ -3374,10 +3374,10 @@ class UiEdgeTests(unittest.TestCase):
             (proj / "data" / "state.json").write_text(json.dumps(
                 {"schema": 1, "shots": {"SH002": [{"version": 1, "state": "failed"}]}}, ensure_ascii=False), encoding="utf-8")
             d.studio = open_studio(proj)                      # 重新打开：新加的镜头要进工作集
-            d.auto_video_busy = False; d.auto_video_signature = None
+            d.auto.video_busy = False; d.auto.video_signature = None
             with patch.object(local_video, "auto_batch", fake_batch):
                 d.poll_auto_video()
-            self.assertFalse(d.auto_video_busy)
+            self.assertFalse(d.auto.video_busy)
             self.assertEqual(len(started), 1)                 # 没有可做的镜头就不派发
             self.assertIn("自动补视频暂缓", d.status.get())
             self.assertIn("2 镜跳过", d.status.get())
@@ -3390,7 +3390,7 @@ class UiEdgeTests(unittest.TestCase):
             # 三虎切回手动就清掉已跑过的清单
             d.pet.set_mode('manual')
             d.poll_auto_video()
-            self.assertIsNone(d.auto_video_signature)
+            self.assertIsNone(d.auto.video_signature)
 
 
     def test_per_line_tts_asks_before_paying(self):
@@ -3543,7 +3543,7 @@ class UiEdgeTests(unittest.TestCase):
             # 自动制作勾选框已从页面移除；唯一写入权归三虎的全自动模式。
             self.enable_sanhu_auto(d, "auto_final_var")
             self.assertTrue(d.pet.should_auto_run('final'))
-            d.auto_final_due = 0
+            d.auto.final_due = 0
             d.poll_auto_final()
             # 资产还没导入：不动工作稿，只说明缺什么，并留着开关等资产补齐
             self.assertIn("暂缓", d.status.get())
@@ -3557,15 +3557,15 @@ class UiEdgeTests(unittest.TestCase):
             (proj / "episode" / "assets.json").write_text(json.dumps({
                 "CHAR_001": {"name": "主角", "image": "assets/CHAR_001.png"},
                 "LOC_001": {"name": "场景", "image": "assets/LOC_001.png"}}, ensure_ascii=False), encoding="utf-8")
-            d.auto_final_due = 0
+            d.auto.final_due = 0
             d.poll_auto_final()
-            self.assertTrue(d.auto_final_busy)
+            self.assertTrue(d.auto.final_busy)
             for _ in range(200):
                 win.update(); d._tick_once()
-                if not d.auto_final_busy:
+                if not d.auto.final_busy:
                     break
                 time.sleep(0.05)
-            self.assertFalse(d.auto_final_busy)
+            self.assertFalse(d.auto.final_busy)
             finals = [p for p in final_dir.iterdir() if p.is_dir() and "定稿" in p.name]
             self.assertEqual(len(finals), 1)
             self.assertTrue((finals[0] / "episode.json").is_file())
@@ -3573,11 +3573,11 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(len(list((proj / "工作流任务" / "回收站").glob("*"))), 1)
             self.assertIn("已自动生成定稿", d.status.get())
             # 定稿接管后当前分镜就是定稿目录：轮询自然停下，不会再定一次
-            d.auto_final_signature = None
-            d.auto_final_due = 0
+            d.auto.final_signature = None
+            d.auto.final_due = 0
             d.poll_auto_final()
-            self.assertIsNone(d.auto_final_signature)
-            self.assertFalse(d.auto_final_busy)
+            self.assertIsNone(d.auto.final_signature)
+            self.assertFalse(d.auto.final_busy)
             self.assertEqual(len([p for p in final_dir.iterdir() if p.is_dir() and "定稿" in p.name]), 1)
 
 
@@ -3653,10 +3653,10 @@ class UiEdgeTests(unittest.TestCase):
             again[0].invoke()
             for _ in range(200):
                 win.update(); d._tick_once()
-                if not d.auto_final_busy:
+                if not d.auto.final_busy:
                     break
                 time.sleep(0.05)
-            self.assertFalse(d.auto_final_busy)
+            self.assertFalse(d.auto.final_busy)
             finals = final_dirs(proj)
             self.assertEqual(len(finals), 1)
             self.assertTrue((finals[0] / "episode.json").is_file())
@@ -3711,17 +3711,17 @@ class UiEdgeTests(unittest.TestCase):
             with patch.object(asset_auto_batch_service, "auto_batch", fake_batch):
                 for expected in (1, 2, 3):
                     d.poll_auto_asset()
-                    item = d.auto_asset_queue.get(timeout=20)
+                    item = d.auto.asset_queue.get(timeout=20)
                     self.assertEqual(item[1], True)
                     now = time.monotonic()
-                    d.auto_adopt_startup = False
-                    d.auto_adopt_due = d.auto_final_due = d.auto_edit_due = d.auto_keyframe_due = now + 9999
-                    d.auto_previs_due = d.auto_asset_due = d.auto_video_due = d.auto_handoff_due = now + 9999
+                    d.auto.adopt_startup = False
+                    d.auto.adopt_due = d.auto.final_due = d.auto.edit_due = d.auto.keyframe_due = now + 9999
+                    d.auto.previs_due = d.auto.asset_due = d.auto.video_due = d.auto.handoff_due = now + 9999
                     d.cloud_monitor_due = now + 9999
-                    d.auto_asset_queue.put(item)
+                    d.auto.asset_queue.put(item)
                     d._tick_once()
-                    self.assertEqual(d.auto_asset_attempt, expected)
-            self.assertIsNotNone(d.auto_asset_signature, "到顶的那一批不再自动重排")
+                    self.assertEqual(d.auto.asset_attempt, expected)
+            self.assertIsNotNone(d.auto.asset_signature, "到顶的那一批不再自动重排")
             self.assertTrue(ledger.is_file(), "次数与下次该重试的时刻要落在项目里，不能只活在内存")
             saved = json.loads(ledger.read_text(encoding="utf-8"))
             self.assertEqual(saved["CHAR_001"]["attempts"], 3)
@@ -3739,10 +3739,10 @@ class UiEdgeTests(unittest.TestCase):
             fresh.studio = open_studio(proj)
             self.enable_sanhu_auto(fresh, "auto_asset_var")
             fresh.restore_asset_resume()               # 打开项目（load）走的就是这一步
-            self.assertEqual(fresh.auto_asset_attempt, 3, "重启后接着上一次的次数，不是从 1 开始")
+            self.assertEqual(fresh.auto.asset_attempt, 3, "重启后接着上一次的次数，不是从 1 开始")
             with patch.object(asset_auto_batch_service, "auto_batch", fake_batch):
                 fresh.poll_auto_asset()
-            self.assertEqual(len(fresh.auto_asset_queue), 0, "到顶的那一批重启后不再自动重排")
+            self.assertEqual(len(fresh.auto.asset_queue), 0, "到顶的那一批重启后不再自动重排")
             self.assertIn("停下", fresh.status.get())
 
 
@@ -3814,15 +3814,15 @@ class UiEdgeTests(unittest.TestCase):
             with patch.object(asset_auto_batch_service, "auto_batch", fake_asset_batch), \
                  patch.object(keyframe_comfy, "auto_batch", fake_keyframe_batch):
                 for _ in range(400):
-                    d.auto_asset_due = d.auto_final_due = d.auto_keyframe_due = 0
+                    d.auto.asset_due = d.auto.final_due = d.auto.keyframe_due = 0
                     win.update(); d._tick_once()
-                    if frames.is_file() and not d.auto_keyframe_busy and not d.auto_asset_busy:
+                    if frames.is_file() and not d.auto.keyframe_busy and not d.auto.asset_busy:
                         break
                     time.sleep(0.03)
             # 收尾：等三个无人值守轮询都停下来再退出临时目录（后台线程还在写项目时清理会报「目录不是空的」）
             for _ in range(60):
                 win.update(); d._tick_once()
-                if not (d.auto_asset_busy or d.auto_final_busy or d.auto_keyframe_busy):
+                if not (d.auto.asset_busy or d.auto.final_busy or d.auto.keyframe_busy):
                     break
                 time.sleep(0.05)
             d.cancel_timers(); time.sleep(0.1)
@@ -3907,30 +3907,30 @@ class UiEdgeTests(unittest.TestCase):
             with patch.object(asset_auto_batch_service, "auto_batch", stalled_asset_batch), \
                  patch.object(keyframe_comfy, "auto_batch", keyframe_batch):
                 for _ in range(20):
-                    d.auto_asset_due = d.auto_final_due = d.auto_keyframe_due = 0
+                    d.auto.asset_due = d.auto.final_due = d.auto.keyframe_due = 0
                     win.update(); d._tick_once()
-                    if d.auto_asset_busy and written.is_set():
+                    if d.auto.asset_busy and written.is_set():
                         break
                     time.sleep(0.03)
-                self.assertTrue(d.auto_asset_busy, "假资产批次没被拉起来")
+                self.assertTrue(d.auto.asset_busy, "假资产批次没被拉起来")
                 self.assertIn("asset", events)
                 # 窗口里反复 tick：定稿在等这批资产收尾，首帧批次一次都不许开跑
                 for _ in range(10):
-                    d.auto_asset_due = d.auto_final_due = d.auto_keyframe_due = 0
+                    d.auto.asset_due = d.auto.final_due = d.auto.keyframe_due = 0
                     win.update(); d._tick_once()
                 self.assertEqual(events, ["asset"])
-                self.assertFalse(d.auto_keyframe_busy)
-                self.assertFalse(d.auto_final_busy)
+                self.assertFalse(d.auto.keyframe_busy)
+                self.assertFalse(d.auto.final_busy)
                 release.set()                                    # 资产批次收尾，定稿可以动手了
                 for _ in range(200):
-                    d.auto_asset_due = d.auto_final_due = d.auto_keyframe_due = 0
+                    d.auto.asset_due = d.auto.final_due = d.auto.keyframe_due = 0
                     win.update(); d._tick_once()
-                    if len(events) > 1 and not (d.auto_asset_busy or d.auto_final_busy or d.auto_keyframe_busy):
+                    if len(events) > 1 and not (d.auto.asset_busy or d.auto.final_busy or d.auto.keyframe_busy):
                         break
                     time.sleep(0.03)
             for _ in range(60):
                 win.update(); d._tick_once()
-                if not (d.auto_asset_busy or d.auto_final_busy or d.auto_keyframe_busy):
+                if not (d.auto.asset_busy or d.auto.final_busy or d.auto.keyframe_busy):
                     break
                 time.sleep(0.05)
             d.cancel_timers(); time.sleep(0.1)
@@ -4000,10 +4000,10 @@ class UiEdgeTests(unittest.TestCase):
             self.assertTrue(project_settings.set_auto_edit(proj, True))
             self.assertTrue(project_settings.set_auto_handoff(proj, True))
             folder = editing_stage(proj) / "自动交接包"
-            settled = lambda: not (d.auto_video_busy or d.auto_edit_busy or d.auto_handoff_busy)
+            settled = lambda: not (d.auto.video_busy or d.auto.edit_busy or d.auto.handoff_busy)
             with patch.object(local_video, "auto_batch", fake_video_batch):
                 for _ in range(400):
-                    d.auto_video_due = d.auto_edit_due = d.auto_handoff_due = 0
+                    d.auto.video_due = d.auto.edit_due = d.auto.handoff_due = 0
                     win.update(); d._tick_once()
                     if (folder / "镜头顺序.json").is_file() and (editing_stage(proj) / "自动粗剪.json").is_file() and settled():
                         break
@@ -4074,17 +4074,17 @@ class UiEdgeTests(unittest.TestCase):
             self.assertTrue(project_settings.set_auto_edit(proj, True))
             self.assertTrue(project_settings.set_auto_adopt(proj, True))
             batches = []; assembled = []
-            settled = lambda: not (d.auto_asset_busy or d.auto_edit_busy)
+            settled = lambda: not (d.auto.asset_busy or d.auto.edit_busy)
             with patch.object(asset_auto_batch_service, "auto_batch", lambda *a, **k: (batches.append(1), "假资产批次")[1]), \
                  patch.object(engine_module.Studio, "assemble",
                               lambda self, **kw: (assembled.append(1), str(export_stage(proj) / "MASTER.mp4"))[1]):
-                d.auto_final_busy = True                       # 定稿正在把工作稿移进回收站
+                d.auto.final_busy = True                       # 定稿正在把工作稿移进回收站
                 d.poll_auto_asset(); d.poll_auto_edit(); d.poll_auto_adopt()
                 self.assertEqual(batches, [])                  # 03 不派发批次
                 self.assertEqual(assembled, [])                # 09 不启动粗剪
-                self.assertIsNone(d.auto_adopt_signature)       # 02 连扫描都不做
-                self.assertFalse(d.auto_asset_busy or d.auto_edit_busy)
-                d.auto_final_busy = False                      # 定稿结束
+                self.assertIsNone(d.auto.adopt_signature)       # 02 连扫描都不做
+                self.assertFalse(d.auto.asset_busy or d.auto.edit_busy)
+                d.auto.final_busy = False                      # 定稿结束
                 d.poll_auto_asset(); d.poll_auto_edit()
                 # 派发为异步；等待队列收尾后断言，不能依赖新线程恰好抢先执行。
                 for _ in range(60):
@@ -4180,8 +4180,8 @@ class UiEdgeTests(unittest.TestCase):
                 self.assertTrue(getattr(project_settings, "set_" + name)(proj, True), name)
             folder = editing_stage(proj) / "自动交接包"
             def settled():
-                return not (d.auto_asset_busy or d.auto_final_busy or d.auto_keyframe_busy
-                            or d.auto_video_busy or d.auto_edit_busy or d.auto_handoff_busy)
+                return not (d.auto.asset_busy or d.auto.final_busy or d.auto.keyframe_busy
+                            or d.auto.video_busy or d.auto.edit_busy or d.auto.handoff_busy)
             with patch.object(asset_auto_batch_service, "auto_batch", fake_asset_batch), \
                  patch.object(keyframe_comfy, "auto_batch", fake_keyframe_batch), \
                  patch.object(local_video, "auto_batch", fake_video_batch), \
@@ -4236,13 +4236,13 @@ class UiEdgeTests(unittest.TestCase):
         from desktop import Desktop
         d = Desktop(win, root=PROGRAM)
         now = time.monotonic()
-        d.auto_edit_due = now + 15            # 正常节流中的下游
-        d.auto_handoff_due = now + 300        # 失败退避中的下游
-        d.auto_asset_due = now + 60           # 上游步骤
+        d.auto.edit_due = now + 15            # 正常节流中的下游
+        d.auto.handoff_due = now + 300        # 失败退避中的下游
+        d.auto.asset_due = now + 60           # 上游步骤
         d.kick_unattended("auto_video")
-        self.assertEqual(d.auto_edit_due, 0)                  # 下游立刻赶一轮
-        self.assertGreater(d.auto_handoff_due, now + 120)     # 退避不抢跑
-        self.assertGreater(d.auto_asset_due, now + 30)        # 不回头踢上游
+        self.assertEqual(d.auto.edit_due, 0)                  # 下游立刻赶一轮
+        self.assertGreater(d.auto.handoff_due, now + 120)     # 退避不抢跑
+        self.assertGreater(d.auto.asset_due, now + 30)        # 不回头踢上游
         d.cancel_timers()
 
 
@@ -4287,35 +4287,35 @@ class UiEdgeTests(unittest.TestCase):
             self.assertTrue(project_settings.set_auto_final(proj, True))
             with patch.object(keyframe_comfy, "auto_batch", blocking_batch):
                 d.poll_auto_keyframe()
-                self.assertTrue(d.auto_keyframe_busy)
+                self.assertTrue(d.auto.keyframe_busy)
                 self.assertTrue(started.wait(10))
                 # 批次还在跑：定稿必须让路，不能把批次正在读的工作稿移走
-                d.auto_final_due = 0
+                d.auto.final_due = 0
                 d.poll_auto_final()
-                self.assertFalse(d.auto_final_busy)
+                self.assertFalse(d.auto.final_busy)
                 self.assertEqual(final_dirs(proj), [])
                 self.assertTrue(source.is_file())
                 release.set()
                 for _ in range(100):
                     win.update(); d._tick_once()
-                    if not d.auto_keyframe_busy:
+                    if not d.auto.keyframe_busy:
                         break
                     time.sleep(0.03)
-                self.assertFalse(d.auto_keyframe_busy)
+                self.assertFalse(d.auto.keyframe_busy)
             # 批次结束后定稿才动手。假批次要一直挂着：定稿成功会立刻叫醒首帧轮询，
             # 一旦这里换回真批次，测试会在临时目录里对着 ComfyUI 真的跑起来。
             with patch.object(keyframe_comfy, "auto_batch", blocking_batch):
-                d.auto_final_due = 0
+                d.auto.final_due = 0
                 d.poll_auto_final()
-                self.assertTrue(d.auto_final_busy)
+                self.assertTrue(d.auto.final_busy)
                 for _ in range(200):
                     win.update(); d._tick_once()
-                    if not d.auto_final_busy:
+                    if not d.auto.final_busy:
                         break
                     time.sleep(0.03)
                 for _ in range(60):
                     win.update(); d._tick_once()
-                    if not (d.auto_final_busy or d.auto_keyframe_busy):
+                    if not (d.auto.final_busy or d.auto.keyframe_busy):
                         break
                     time.sleep(0.05)
             d.cancel_timers(); time.sleep(0.1)
@@ -5386,7 +5386,11 @@ class EditorStartMenuScanTests(unittest.TestCase):
             folder.mkdir(parents=True)
             ignored = folder / '剪映专业版卸载.lnk'; ignored.write_text('', encoding='utf-8')
             expected = folder / '剪映专业版.lnk'; expected.write_text('', encoding='utf-8')
-            self.assertEqual(Desktop.find_editor_shortcut(object()), expected)
+            from types import SimpleNamespace
+            import desktop
+            host = SimpleNamespace(media_page_services=desktop.MediaPageServices(
+                *(None,) * 5, find_editor_shortcut=desktop._late('find_editor_shortcut')))
+            self.assertEqual(Desktop.find_editor_shortcut(host), expected)
 
     def test_missing_editor_remains_a_controlled_error_after_worker_returns(self):
         from desktop import Desktop

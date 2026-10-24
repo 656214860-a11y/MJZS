@@ -88,10 +88,10 @@ class SanhuModeTests(unittest.TestCase):
         self.pet.auto = stage_flow.Auto(order=['storyboard', 'assets'])
         self.pet.auto.script_done('auto')
         self.assertEqual(self.pet.auto.next_stage(), 'storyboard')
-        self.pet._advance_at = 99
+        self.pet.bstate.advance_at = 99
 
         self.assertEqual(self.pet._auto_stage_completed({'stage': 'storyboard'}), 'assets')
-        self.assertIsNone(self.pet._advance_at)
+        self.assertIsNone(self.pet.bstate.advance_at)
         self.assertIn('【下一阶段】资产管理 - 自动开始', self.messages)
 
     def test_auto_waits_for_script_structure_completion_before_dispatching_downstream(self):

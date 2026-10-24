@@ -1,10 +1,13 @@
 """首帧管理页（阶段 keyframe）的页面构建（方法名为 ``Desktop.storyboard``，侧栏第 07 项）。
 
 从 ``desktop.Desktop`` 原样迁出（R1504 拆分步骤 3，一页一轮）：方法体未改，``self`` 语义不变，
-``Desktop`` 通过继承 ``StoryboardPageMixin`` 获得。测试按 ``desktop.<名字>`` 打补丁的名字（confirm／open_path 等）
-经 ``desktop_page_support`` 的转发函数在调用时取 ``desktop`` 的当前值，补丁照常生效。
+``Desktop`` 通过继承 ``StoryboardPageMixin`` 获得。confirm／open_path／FileDialog（R1989 J2）改由实例的
+``storyboard_page_services`` 提供，默认服务在 ``Desktop`` 组合入口按调用时取 ``desktop`` 模块的当前值，
+测试按 ``desktop.<名字>`` 打补丁照常生效；本模块只从 ``desktop_page_support`` 取页面常量。
 """
 import pet_state
+from dataclasses import dataclass
+from typing import Callable
 import asset_thumbs
 import frame_checks
 import tkinter as tk
@@ -16,7 +19,7 @@ from storyboard_paths import media_root
 from tkinter import ttk
 from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT
 from ui_widgets import DataTable, SelectBox
-from desktop_page_support import ASSET_ROW_HEIGHT, FileDialog, THUMB_SIZE, confirm, open_path
+from desktop_page_support import ASSET_ROW_HEIGHT, THUMB_SIZE
 
 PAGE = pet_state.PAGE_OF
 
@@ -28,6 +31,14 @@ def _configure_table_style(tree, style, thumb):
     current.configure(style + '.Heading', font=TABLE_HEADER_FONT,
                       foreground=COLORS['text_primary'])
     fit_row_height(tree, thumb, style=style)
+
+
+@dataclass(frozen=True)
+class StoryboardPageServices:
+    """首帧管理页的外部 UI 能力；由组合入口提供，不携带全局宿主（R1606 模式，J2）。"""
+    open_path: Callable
+    file_dialog: Callable
+    confirm: Callable
 
 
 class StoryboardPageMixin:
@@ -306,7 +317,7 @@ class _FirstFramePage:
         if self.exists(shot) and not shot.get('frame_deleted'):
             path=(self.base/shot['frame']).resolve()
             if path.is_file():
-                open_path(path);return
+                self.page.storyboard_page_services.open_path(path);return
         self.page.status.set(sid+' 尚未导入首帧图片，可先导入或生成。')
 
     def open_cell(self, sid,col):
@@ -320,7 +331,7 @@ class _FirstFramePage:
         if self.table.exists(self.target.get()):self.table.selection_set(self.target.get());self.table.see(self.target.get());self.selection_changed()
 
     def replace(self, shot=None):
-        shot=shot or self.selected();path=FileDialog(self.page.win).open_file(initialdir=self.base/'frames',filetypes=[('PNG','*.png')])
+        shot=shot or self.selected();path=self.page.storyboard_page_services.file_dialog(self.page.win).open_file(initialdir=self.base/'frames',filetypes=[('PNG','*.png')])
         if not path:return
         raw=Path(path).read_bytes()
         from stage_execution_service import replace_stage_keyframe
@@ -350,7 +361,7 @@ class _FirstFramePage:
                if iid in set(wanted) and self.exists(shot) and not shot.get('frame_deleted')]
         if not shots:raise ValueError('先在镜头内容框里勾选要删除首帧的镜头')
         listed='、'.join(shot['id'] for shot in shots[:12])+('…' if len(shots)>12 else '')
-        if not confirm(self.page.win,'批量删除首帧',
+        if not self.page.storyboard_page_services.confirm(self.page.win,'批量删除首帧',
                 f'删除勾选的 {len(shots)} 镜首帧？\n{listed}\n\n图片将移入首帧回收目录，可恢复；'
                     '镜头记录、已生成视频与未勾选的镜头不受影响。'+self.work_hint(wanted,how),
                 dangerous=True):

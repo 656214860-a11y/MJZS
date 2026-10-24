@@ -70,14 +70,14 @@ PARAM_CAPS = {
     ('workflow_tasks.py', 'script_prompt'): 8,
 }
 CLASS_CAPS = {
-    ('pet_cloud.py', 'Cloud'): 1115,
+    ('pet_cloud.py', 'Cloud'): 1113,
     ('desktop_idea_chat.py', 'IdeaChatMixin'): 770,
     ('app.py', 'App'): 1388,
-    ('desktop.py', 'Desktop'): 1302,
+    ('desktop.py', 'Desktop'): 1214,
     ('skill_panel.py', 'Panel'): 972,
     ('pet_ui_stages.py', 'PetStagesMixin'): 1186,
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,
-    ('desktop_media_pages.py', 'MediaPagesMixin'): 994,
+    ('desktop_media_pages.py', 'MediaPagesMixin'): 890,
     ('pet_ui_view.py', 'PetViewMixin'): 774,
     ('engine.py', 'Studio'): 735,
     ('skill_orchestrator.py', 'Orchestrator'): 719,

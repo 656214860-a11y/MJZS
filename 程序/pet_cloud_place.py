@@ -430,6 +430,47 @@ class CloudPlaceMixin:
         return ('poly', tail_points((root_x - half, root_y + 2.0), (root_x + half, root_y - 2.0),
                                     (float(tip_x), float(tip_y))))
 
+    def _reset_position_state(self):
+        """定位重试登记的初值（父窗口尚未完成布局时的受限延迟重试）；只有本 Mixin 写这三个字段。"""
+        self._position_job = None
+        # Tk 只保存回调对应的 Tcl 命令名；若不保留 Python 闭包，GC 会先删命令，
+        # 留下 after 队列在窗口销毁前报 ``invalid command name ...retry``。
+        self._position_callback = None
+        self._position_retries = 0
+
+    def _take_position_job(self):
+        """清掉重试登记并交出旧的 after 句柄（没有则 None）；取消由调用方做。"""
+        job, self._position_job = self._position_job, None
+        self._position_callback = None
+        return job
+
+    def _arm_position_retry(self):
+        """父窗口还没布局好：在上限内排一张延迟重试票（同一时刻最多一张）。"""
+        if self._position_retries < POSITION_RETRY_MAX and self._position_job is None:
+            try:
+                self._position_retries += 1
+                # 用闭包保持 Cloud 到回调实际执行／取消为止；直接登记绑定方法时，
+                # Cloud 先被回收会令 Tcl 留下 ``..._place_window`` 无效命令。
+                def retry(cloud=self):
+                    if cloud._position_job is None:
+                        return None
+                    # 只有这一张已排队的票真正开始执行时才清登记。同步触发的
+                    # follow/_place_window 不能清它，否则 Tcl 仍握着旧回调、
+                    # Python 却已不再持有该回调。
+                    cloud._take_position_job()
+                    try:
+                        if not cloud.parent.winfo_exists():
+                            return None
+                    except Exception:
+                        return None
+                    return cloud._place_window()
+                # after() 自身只挂 Tcl 命令名；字段持有闭包直到触发／取消，
+                # 防止局部变量离开作用域后 Tk 留下悬空命令。
+                self._position_callback = retry
+                self._position_job = self.parent.after(POSITION_RETRY_MS, retry)
+            except Exception as exc:
+                self.errors.append(('place.retry', str(exc)))
+
     def _place_window(self):
         """按三虎贴片锚点摆浮窗；父窗或贴片未映射时每 50ms 重试，最多十次。"""
         if self.win is None:
@@ -442,31 +483,7 @@ class CloudPlaceMixin:
             return None
         if (int(parent_rect[2]) <= 1 or int(parent_rect[3]) <= 1
                 or not self._position_anchor_ready()):
-            if self._position_retries < POSITION_RETRY_MAX and self._position_job is None:
-                try:
-                    self._position_retries += 1
-                    # 用闭包保持 Cloud 到回调实际执行／取消为止；直接登记绑定方法时，
-                    # Cloud 先被回收会令 Tcl 留下 ``..._place_window`` 无效命令。
-                    def retry(cloud=self):
-                        if cloud._position_job is None:
-                            return None
-                        # 只有这一张已排队的票真正开始执行时才清登记。同步触发的
-                        # follow/_place_window 不能清它，否则 Tcl 仍握着旧回调、
-                        # Python 却已不再持有该回调。
-                        cloud._position_job = None
-                        cloud._position_callback = None
-                        try:
-                            if not cloud.parent.winfo_exists():
-                                return None
-                        except Exception:
-                            return None
-                        return cloud._place_window()
-                    # after() 自身只挂 Tcl 命令名；字段持有闭包直到触发／取消，
-                    # 防止局部变量离开作用域后 Tk 留下悬空命令。
-                    self._position_callback = retry
-                    self._position_job = self.parent.after(POSITION_RETRY_MS, retry)
-                except Exception as exc:
-                    self.errors.append(('place.retry', str(exc)))
+            self._arm_position_retry()
             return None
         self._position_retries = 0
         # 云朵的语义是「三虎在说话」：落点必须来自贴片脸颊，而不能是父窗口中心。

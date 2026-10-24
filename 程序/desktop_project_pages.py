@@ -2,7 +2,7 @@
 
 从 ``desktop.Desktop`` 原样迁出（R1505）：方法体未改，``self`` 语义不变，``Desktop`` 通过继承
 ``ProjectPagesMixin`` 获得。测试按 ``desktop.<名字>`` 打补丁的名字（confirm／open_path 等）经
-``desktop_page_support`` 的转发函数在调用时取 ``desktop`` 的当前值，补丁照常生效。
+``Desktop`` 注入的 ``ProjectPageServices`` 在调用时取 ``desktop`` 的当前值，补丁照常生效（R1983 J2）。
 """
 import queue
 import threading
@@ -18,7 +18,8 @@ from ui_motion import EmptyState, bind_row_hover
 from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYOUT
 from desktop_page_registry import ACCOUNT_TITLE, PAGE_ACCOUNT
 from ui_widgets import BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton
-from desktop_page_support import ContextMenu, confirm, open_path
+from dataclasses import dataclass
+from typing import Callable
 
 
 def project_sort_key(item):
@@ -27,6 +28,14 @@ def project_sort_key(item):
     path=Path(item['path'])
     try:return path.stat().st_ctime
     except OSError:return 0
+
+
+@dataclass(frozen=True)
+class ProjectPageServices:
+    """项目页与创意对话菜单（``desktop_idea_menus``）共用的宿主服务；``Desktop`` 注入，页面不读全局宿主。"""
+    open_path: Callable
+    context_menu: Callable
+    confirm: Callable
 
 
 class ProjectPagesMixin:
@@ -163,7 +172,7 @@ class ProjectPagesMixin:
         current=project_name(self.root) if self.root is not None else ''
         message='切换到项目「'+target+'」？'
         if current:message+='\n\n当前项目：「'+current+'」。切换后所有页面、文件列表与新生成的内容都归「'+target+'」。'
-        if not confirm(self.win,'切换项目',message):
+        if not self.project_page_services.confirm(self.win,'切换项目',message):
             self.restore_project_selection()
             self.status.set('已取消切换，仍在项目「'+current+'」')
             return False
@@ -268,7 +277,7 @@ class ProjectPagesMixin:
             if item is None:
                 notice.set('该项目已不在列表中。');return
             if not Path(path).exists():
-                if not confirm(popup, '只清除登记',
+                if not self.project_page_services.confirm(popup, '只清除登记',
                         '项目目录已不存在。只清除这条项目登记，不会改动磁盘上的任何文件。是否继续？',
                         dangerous=True):return
                 if not self.clear_missing_project(item,confirmed=True):
@@ -283,7 +292,7 @@ class ProjectPagesMixin:
             message=(f"{item.get('name','项目')}\n{target}\n\n"
                      +('这是一条项目目录链接。只会删除链接和项目登记，不会删除链接指向的真实目录。是否删除？'
                        if linked else '将把这个项目文件夹及全部素材移入项目库回收站（可恢复，不是永久清除；同一块磁盘上回收不等于释放空间）。是否继续？'))
-            if not confirm(popup, '移入项目回收站',
+            if not self.project_page_services.confirm(popup, '移入项目回收站',
                     message,
                     dangerous=True):return
             notice.set('正在删除项目文件夹…');tree.state(['disabled'])
@@ -385,7 +394,7 @@ class ProjectPagesMixin:
         self.reload()
         self.load(project)
         self.remember_daily_project_choice(project)
-        open_path(sample / '开始练习.md')
+        self.project_page_services.open_path(sample / '开始练习.md')
         self.status.set('已创建独立练习项目：10镜60秒；首帧、配音与视频尚未生成，操作步骤见练习指南。')
 
     def show_project_storage(self):
@@ -414,7 +423,7 @@ class ProjectPagesMixin:
         self.canvas.yview_moveto(max(0.0,min(1.0,offset/height)))
     def open_current_project(self):
         if self.root is None:raise ValueError('请先创建项目')
-        open_path(self.root)
+        self.project_page_services.open_path(self.root)
     def open_recycle_recovery(self):
         """打开已承诺的回收站恢复入口；恢复决策与磁盘操作均留在 L2/L3。"""
         from recycle_recovery_controller import RecycleRecoveryController
@@ -475,7 +484,7 @@ class ProjectPagesMixin:
         if not path or path.startswith('group:'):return
         item=next((dict(p) for p in self.projects.info['projects'] if p['path']==path),None)
         if item is None:return
-        menu=ContextMenu(self.win)
+        menu=self.project_page_services.context_menu(self.win)
         completed=item.get('status','making')=='completed'
         menu.command('恢复为在制作项目' if completed else '标记为已完成项目',lambda:self.safe(lambda:self.set_project_status(item,'making' if completed else 'completed')))
         menu.separator()
@@ -492,7 +501,7 @@ class ProjectPagesMixin:
         path=str(item['path'])
         if Path(path).exists():
             raise ValueError('项目目录仍存在，请使用“删除项目及全部素材”移入回收站')
-        if not confirmed and not confirm(self.win,
+        if not confirmed and not self.project_page_services.confirm(self.win,
                 '只清除登记', '项目目录已不存在。只清除这条项目登记，不会改动磁盘上的任何文件。是否继续？',
                 dangerous=True):
             return False
@@ -521,7 +530,7 @@ class ProjectPagesMixin:
             target=raw_project;linked=True
         note=('这是一条项目目录链接。只会删除链接和项目登记，不会删除链接指向的真实目录。'
               if linked else '将项目的剧本、图片、音频、视频和成片移入项目库回收站；可通过“恢复回收站内容…”入口恢复。')
-        if not confirmed and not confirm(self.win,'移入项目回收站',f"{item['name']}\n{target}\n\n{note} 是否继续？",dangerous=True):return
+        if not confirmed and not self.project_page_services.confirm(self.win,'移入项目回收站',f"{item['name']}\n{target}\n\n{note} 是否继续？",dangerous=True):return
         for key,v in sessions:
             if hasattr(v,'timer'):v.scheduler.after_cancel(v.timer)
             if self.video is v:self.video=None

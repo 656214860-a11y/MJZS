@@ -344,25 +344,13 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 1134,
+   "total": 1044,
    "percent": 0.0
   },
   {
    "module": "desktop_account_page.py",
    "covered": 0,
    "total": 352,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_master_update.py",
-   "covered": 0,
-   "total": 33,
-   "percent": 0.0
-  },
-  {
-   "module": "desktop_login_gate.py",
-   "covered": 0,
-   "total": 64,
    "percent": 0.0
   },
   {
@@ -380,7 +368,13 @@
   {
    "module": "desktop_auto_flows.py",
    "covered": 0,
-   "total": 536,
+   "total": 537,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_auto_state.py",
+   "covered": 0,
+   "total": 93,
    "percent": 0.0
   },
   {
@@ -438,9 +432,21 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_login_gate.py",
+   "covered": 0,
+   "total": 64,
+   "percent": 0.0
+  },
+  {
+   "module": "desktop_master_update.py",
+   "covered": 0,
+   "total": 33,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_media_pages.py",
    "covered": 0,
-   "total": 826,
+   "total": 766,
    "percent": 0.0
   },
   {
@@ -458,7 +464,7 @@
   {
    "module": "desktop_pet_bridge.py",
    "covered": 0,
-   "total": 100,
+   "total": 101,
    "percent": 0.0
   },
   {
@@ -744,6 +750,12 @@
    "percent": 0.0
   },
   {
+   "module": "media_page_controller.py",
+   "covered": 0,
+   "total": 145,
+   "percent": 0.0
+  },
+  {
    "module": "model_diagnostics.py",
    "covered": 0,
    "total": 41,
@@ -768,9 +780,21 @@
    "percent": 0.0
   },
   {
+   "module": "page_navigation_controller.py",
+   "covered": 0,
+   "total": 61,
+   "percent": 0.0
+  },
+  {
    "module": "pet_agent.py",
    "covered": 0,
    "total": 762,
+   "percent": 0.0
+  },
+  {
+   "module": "pet_broadcast_state.py",
+   "covered": 0,
+   "total": 69,
    "percent": 0.0
   },
   {
@@ -782,7 +806,7 @@
   {
    "module": "pet_cloud.py",
    "covered": 0,
-   "total": 841,
+   "total": 839,
    "percent": 0.0
   },
   {
@@ -806,7 +830,7 @@
   {
    "module": "pet_cloud_place.py",
    "covered": 0,
-   "total": 305,
+   "total": 317,
    "percent": 0.0
   },
   {
@@ -830,7 +854,7 @@
   {
    "module": "pet_cloud_timing.py",
    "covered": 0,
-   "total": 204,
+   "total": 203,
    "percent": 0.0
   },
   {
@@ -878,7 +902,7 @@
   {
    "module": "pet_ui.py",
    "covered": 0,
-   "total": 462,
+   "total": 458,
    "percent": 0.0
   },
   {
@@ -908,13 +932,13 @@
   {
    "module": "pet_ui_view.py",
    "covered": 0,
-   "total": 587,
+   "total": 585,
    "percent": 0.0
   },
   {
    "module": "pet_ui_voice.py",
    "covered": 0,
-   "total": 902,
+   "total": 897,
    "percent": 0.0
   },
   {
@@ -1903,5 +1927,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 315
+ "modules_total": 319
 }

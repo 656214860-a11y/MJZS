@@ -7,6 +7,7 @@ UNATTENDED_SWITCH 是仅被本组方法使用的模块级对照表，随迁并�
 import time
 
 from desktop_auto_flows import UNATTENDED_BACKOFF_FLOOR
+from desktop_auto_state import flow_get, flow_set
 from desktop_page_registry import PAGES
 from storyboard_paths import media_root
 import stage_handler_registry
@@ -51,10 +52,10 @@ class PetBridgeMixin:
         """
         name=PET_STAGE_POLL.get(stage)
         if name is None or self.root is None:return ''
-        if getattr(self,name+'_busy',False):return ''
+        if flow_get(self,name,'_busy',False):return ''
         now=time.monotonic()
-        if getattr(self,name+'_due',0)>now+UNATTENDED_BACKOFF_FLOOR:return ''
-        setattr(self,name+'_due',0)
+        if flow_get(self,name,'_due',0)>now+UNATTENDED_BACKOFF_FLOOR:return ''
+        flow_set(self,name,'_due',0)
         import pet_bus
         return '已把「'+pet_bus.STAGE_NAMES.get(stage,stage)+'」这一步提前叫醒一轮'
     def pet_start(self,stage):

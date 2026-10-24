@@ -1,14 +1,16 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
 import app_logging
+import page_navigation_controller as page_nav
 from desktop_idea_menus import IdeaMenusMixin
-from desktop_asset_pages import AssetPagesMixin
+from desktop_asset_pages import AssetPagesMixin, AssetPageServices
 from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
-from desktop_media_pages import MediaPagesMixin
-from desktop_project_pages import ProjectPagesMixin
-from desktop_storyboard_page import StoryboardPageMixin
-from desktop_writing_page import WritingPageMixin, TALK_MIN_LINES, TALK_MAX_LINES
-from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, bind_host, THUMB_SIZE, ASSET_ROW_HEIGHT
+from desktop_media_pages import MediaPagesMixin, MediaPageServices
+from desktop_project_pages import ProjectPagesMixin, ProjectPageServices
+from desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
+from desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
+from desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
 from desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
+from desktop_auto_state import AutoStateHolderMixin, create_auto_state
 from desktop_auto_flows import AutoFlowsMixin, UNATTENDED_NEXT, UNATTENDED_BACKOFF_FLOOR, ASSET_RETRY_LIMIT
 import os, shutil, queue, threading, subprocess, sys, time, uuid, hashlib, re, json, logging
 from datetime import date
@@ -106,6 +108,30 @@ _PAGE_PAINT_KEYS = {index: stage for stage, index in PAGE.items()}
 _PAGE_PAINT_KEYS[PAGE_SITES] = 'sites'
 _PAGE_PAINT_KEYS[PAGE_ACCOUNT] = 'account'
 
+def _late(name):
+    """页面服务的默认实现：调用时才按名字取本模块当前值，测试按 ``desktop.<名字>`` 打补丁照常生效。"""
+    return lambda *args, **kwargs: globals()[name](*args, **kwargs)
+
+
+def _page_services(given):
+    """六页服务：调用方（测试）可按 ``<页>_page_services`` 关键字替换，其余用 ``_late`` 默认实现。"""
+    page = dict(open_path=_late('open_path'), confirm=_late('confirm'))
+    ctx, dialog = dict(context_menu=_late('ContextMenu')), dict(file_dialog=_late('FileDialog'))
+    made = dict(
+        script_page_services=ScriptPageServices(**page, **ctx),
+        writing_page_services=WritingPageServices(**page, **ctx, confirm_project_removal=_late('confirm_project_removal_from_last_script')),
+        storyboard_page_services=StoryboardPageServices(**page, **dialog),
+        project_page_services=ProjectPageServices(**page, **ctx),
+        asset_page_services=AssetPageServices(**page, **dialog),
+        media_page_services=MediaPageServices(
+            **page, **dialog, open_studio=_late('open_studio'), comfy_executable=_late('comfy_executable'),
+            find_editor_shortcut=_late('find_editor_shortcut')))
+    unknown = set(given) - set(made)
+    if unknown:
+        raise TypeError(f'Desktop() 不认识的参数：{sorted(unknown)}')
+    return {**made, **{k: v for k, v in given.items() if v is not None}}
+
+
 def _page_paint_key(index):
     return 'page.paint.' + _PAGE_PAINT_KEYS.get(index, str(index))
 
@@ -132,7 +158,6 @@ from desktop_pet_bridge import PetBridgeMixin, PET_STAGE_POLL, UNATTENDED_SWITCH
 from desktop_async_tasks import AsyncTasksMixin
 from desktop_tray import TrayMixin
 
-bind_host(sys.modules[__name__])  # 剧本准备页的 confirm／ContextMenu 等转发到本模块，保持按 desktop.<名字> 打补丁有效
 
 
 STATUS_ERROR_MARKERS=('失败','错误','异常','无法','未能','未完成','未启动','出错','中断','超时','暂缓')
@@ -148,9 +173,9 @@ def status_kind(message):
     if any(marker in text for marker in STATUS_RUNNING_MARKERS):return 'running'
     return 'ready'
 
-class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
-    def __init__(self,win,root=ROOT,*,script_page_services=None,require_login=False):
-        self._init_window_and_sidebar(script_page_services, win, root)
+class Desktop(AutoStateHolderMixin, AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixin, AssetPagesMixin, ScriptPagesMixin, MediaPagesMixin, ProjectPagesMixin, StoryboardPageMixin, WritingPageMixin, IdeaChatMixin, AutoFlowsMixin, AutomationTickMixin, LayoutMixin, PetBridgeMixin, AsyncTasksMixin, TrayMixin):
+    def __init__(self,win,root=ROOT,*,require_login=False,**page_services):
+        self._init_window_and_sidebar(win, root, page_services)
         self._init_body_and_status(win)
         # Timed callbacks cannot run inside the placement code's update_idletasks.
         # An idle modal here would block the root while it is still transparent.
@@ -203,12 +228,11 @@ class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixi
         pet_ui.start(self,delay_ms=5000)
         self.setup_tray()
 
-    def _init_window_and_sidebar(self, script_page_services, win, root):
+    def _init_window_and_sidebar(self, win, root, page_services):
         """服务、窗口外观与侧栏（项目列表、导航按钮、标题行），从 __init__ 原样切出，R1808。"""
         self._diagnostic_start=time.perf_counter()
-        self.script_page_services = script_page_services if script_page_services is not None else ScriptPageServices(
-            open_path=lambda *args, **kwargs: open_path(*args, **kwargs),
-            context_menu=lambda *args, **kwargs: ContextMenu(*args, **kwargs))
+        for name, services in _page_services(page_services).items():
+            setattr(self, name, services)
         from stage_execution_service import project_registry_gateway
         self.win=win;self.app=Path(root);self.projects=Projects(root,gateway=project_registry_gateway(),migrate_legacy=False);self.worker=False;self.q=queue.Queue();self._brief_load_results=queue.Queue();self._async_ticket=0;self.background_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json');self.task_queue=PersistentBackgroundTaskQueue(self.app/'outputs'/'desktop-task-queue.json',handlers={'storage_inspect':inspect_project_storage});self.retry_registry=RetryRegistry();self._async_result_poll_id=None;self._auto_edit_result_poll_id=None;self._auto_handoff_result_poll_id=None;self._idea_brief_generation=0;self.idea_chat_controller=IdeaChatController();self.video=None
         self._stage_model_sync_results=queue.Queue();self._stage_model_sync_generation=0
@@ -357,58 +381,9 @@ class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixi
 
 
     def _initialize_automation_state(self):
-        """建立各阶段自动队列的完整初始契约，避免 UI 构造中遗漏状态。"""
-        self.auto_adopt_due=0
-        self.auto_adopt_errors={}
-        self.auto_adopt_signature=None
-        self.auto_adopt_pending=False
-        self.auto_adopt_startup=True
-        self.auto_final_due=0
-        self.auto_final_busy=False
-        self.auto_final_queue=pet_ui.StageQueue('final',self.pet.drain)
-        self.auto_final_signature=None
-        self.auto_final_notice=None
-        self.auto_final_blocked=False
-        self.auto_final_error=''
-        self.auto_edit_due=0;self._auto_edit_ticket=0;self.auto_edit_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_edit_busy=False
-        self.auto_edit_queue=pet_ui.StageQueue('edit',self.pet.drain)
-        self.auto_edit_signature=None
-        self.auto_edit_error=''
-        self.auto_keyframe_due=0;self._auto_keyframe_ticket=0;self.auto_keyframe_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_keyframe_busy=False
-        self.auto_keyframe_queue=pet_ui.StageQueue('keyframe')
-        self.auto_keyframe_messages=queue.Queue()
-        self.auto_keyframe_signature=None
-        self.auto_keyframe_blocked=None
-        self.auto_keyframe_error=''
-        self.auto_asset_due=0;self._auto_asset_ticket=0;self.auto_asset_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_asset_busy=False
-        self.auto_asset_queue=pet_ui.StageQueue('assets')
-        self.auto_asset_messages=queue.Queue()
-        self.auto_asset_signature=None
-        self.auto_asset_attempt=0
-        self.auto_asset_blocked=None
-        self.auto_asset_error=''
-        self.auto_asset_tried=None
-        self.auto_video_due=0;self._auto_video_ticket=0;self.auto_video_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_video_busy=False
-        self.auto_video_queue=pet_ui.StageQueue('video',self.pet.drain)
-        self.auto_video_messages=queue.Queue()
-        self.auto_video_signature=None
-        self.auto_video_notice=None
-        self.auto_video_error=''
-        self.auto_video_last=''
-        self.auto_previs_due=0
-        self._auto_previs_ticket=0;self.auto_previs_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_previs_signature=None
-        self.auto_previs_notice=None
-        self.auto_previs_error=''
-        self.auto_handoff_due=0;self._auto_handoff_ticket=0;self.auto_handoff_tasks=BackgroundTaskLifecycle(self.app/'outputs'/'desktop-task-history.json')
-        self.auto_handoff_busy=False
-        self.auto_handoff_queue=pet_ui.StageQueue('delivery',self.pet.drain)
-        self.auto_handoff_signature=None
-        self.auto_handoff_error=''
+        """建立各阶段自动队列的完整初始契约，避免 UI 构造中遗漏状态（状态本体见 desktop_auto_state）。"""
+        self.auto=create_auto_state(self.app/'outputs'/'desktop-task-history.json',stage_queue=pet_ui.StageQueue,drain=self.pet.drain)
+
     def save_brief(self,path,value):
         path=Path(path)
         # 第 37 期第 2 条：预置示例随程序打包（默认创意示例.md），比的是程序里那一份——
@@ -633,62 +608,17 @@ class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixi
         # 先停掉定时器再销毁窗口：残留的 after 回调会在 Tk 里报 invalid command name。
         if event is not None and event.widget is not self.win:return
         self.shutting_down=True;self.cancel_resize()
-        for name in ('_navigation_job','_sidebar_fit_job'):
-            job=getattr(self,name,None)
-            if job is not None:
-                try:self.win.after_cancel(job)
-                except tk.TclError:pass
-            setattr(self,name,None)
+        cancel=lambda job:self.win.after_cancel(job)    # 惰性取 win：最小替身没有登记任务时不会碰它
+        page_nav.cancel_jobs(self,page_nav.NAV_TIMER_JOBS,cancel,tk.TclError)
         # 计时器回归会构造最小 Desktop 替身；真实窗口在 __init__ 中必定拥有这些
         # 生命周期登记器，但关闭路径也必须兼容尚未完成初始化的窗口。
-        for lifecycle_name in ('background_tasks','cloud_monitor_tasks','auto_asset_tasks','auto_keyframe_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks','auto_previs_tasks'):
-            lifecycle=getattr(self,lifecycle_name,None)
-            if lifecycle is not None:lifecycle.cancel()
+        page_nav.cancel_lifecycles(self)
         # ``fit_content`` 的空闲布局任务属于桌面窗口；若关闭发生在首帧／重建之间，
         # 必须在销毁 Tcl 回调前取消，否则会留下 ``...run`` 的 after 噪声。
-        fit_job=getattr(self,'_fit_job',None)
-        self._fit_job=None
+        page_nav.cancel_jobs(self,('_fit_job',),cancel,tk.TclError)
         self._fit_pending=False
         self._fit_again=False
-        if fit_job is not None:
-            try:self.win.after_cancel(fit_job)
-            except tk.TclError:pass
-        startup_tick_resume=getattr(self,'_startup_tick_resume_id',None)
-        self._startup_tick_resume_id=None
-        if startup_tick_resume is not None:
-            try:self.win.after_cancel(startup_tick_resume)
-            except tk.TclError:pass
-        startup_page=getattr(self,'_startup_project_page_job',None)
-        self._startup_project_page_job=None
-        if startup_page is not None:
-            try:self.win.after_cancel(startup_page)
-            except tk.TclError:pass
-        startup_script_build=getattr(self,'_startup_script_build_job',None)
-        self._startup_script_build_job=None
-        if startup_script_build is not None:
-            try:self.win.after_cancel(startup_script_build)
-            except tk.TclError:pass
-        startup_recovery=getattr(self,'_startup_project_recovery_job',None)
-        self._startup_project_recovery_job=None
-        if startup_recovery is not None:
-            try:self.win.after_cancel(startup_recovery)
-            except tk.TclError:pass
-        legacy_migration_poll=getattr(self,'_legacy_project_migration_poll_id',None)
-        self._legacy_project_migration_poll_id=None
-        if legacy_migration_poll is not None:
-            try:self.win.after_cancel(legacy_migration_poll)
-            except tk.TclError:pass
-        async_result_poll=getattr(self,'_async_result_poll_id',None)
-        self._async_result_poll_id=None
-        if async_result_poll is not None:
-            try:self.win.after_cancel(async_result_poll)
-            except tk.TclError:pass
-        for name in ('_auto_edit_result_poll_id','_auto_handoff_result_poll_id'):
-            result_poll=getattr(self,name,None)
-            setattr(self,name,None)
-            if result_poll is not None:
-                try:self.win.after_cancel(result_poll)
-                except tk.TclError:pass
+        page_nav.cancel_jobs(self,page_nav.STARTUP_TIMER_JOBS,cancel,tk.TclError)
         self.idea_chat_controller.cancel_request()
         # 宠物的动画循环也挂在这个窗口上（同一个 after 表）：不一起停掉，关窗后它还会到期一次，
         # 控制台就会报 invalid command name "…step" ("after" script)。
@@ -922,7 +852,7 @@ class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixi
         self.asset_detail_id=None            # 第 64 期任务 13：换项目／换目录回到主页面
         # 第 62 期任务 7：换项目要重扫——原来跨项目沿用上一份指纹，新项目正好撞上同样的
         # （份数，最新写入时间）就会被跳过；顺手把「启动对账」重新排上。
-        self.auto_adopt_signature=None;self.auto_adopt_pending=False;self.auto_adopt_startup=True
+        self.auto.adopt_signature=None;self.auto.adopt_pending=False;self.auto.adopt_startup=True
         if path:
             self._schedule_stage_model_sync(self.root)
             if not defer_page:
@@ -1042,7 +972,7 @@ class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixi
         选定之后再点就直接进那一侧；想换一侧用页里的「返回生成方式」。
         """
         if index==PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
-        mode='choose' if (index==PAGE['video'] and not getattr(self,'video_mode_picked',False)) else None
+        mode=page_nav.sidebar_video_mode(index,PAGE,getattr(self,'video_mode_picked',False))
         # 即刻反馈最后一次点击，包括连续点击后又回到当前页的情况。
         try:
             self.mark_nav(index)
@@ -1082,14 +1012,12 @@ class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixi
             self.content=base
         cache=getattr(self,'_page_cache',None)
         if cache is None:cache=self._page_cache={}
-        for key,entry in list(cache.items()):
-            stale=entry['root']!=self.root or not entry['holder'].winfo_exists()
-            if not stale and key==index==PAGE['script_structure']:
-                from script_workspace_service import script_structure_signature
-                stale=entry.get('signature')!=script_structure_signature(self.root)
-            if stale or (key==index and (same_page or not getattr(self,'_reuse_cached_page',False))):
-                cache.pop(key)
-                if entry['holder'].winfo_exists():entry['holder'].destroy()
+        from script_workspace_service import script_structure_signature
+        for key in page_nav.stale_cache_keys(cache,index,PAGE,root=self.root,
+                rebuild=same_page or not getattr(self,'_reuse_cached_page',False),
+                alive=lambda entry:entry['holder'].winfo_exists(),signature=script_structure_signature):
+            entry=cache.pop(key)
+            if entry['holder'].winfo_exists():entry['holder'].destroy()
         # 命中时直接从旧页换到目标页，避免先映射公共空框再映射缓存页的两次布局。
         if index not in cache:self.canvas.itemconfigure(self.content_id,window=base)
         return cache
@@ -1107,9 +1035,7 @@ class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixi
         self.content=holder
         self.canvas.itemconfigure(self.content_id,window=holder)
         builder()
-        note=self.status.get()
-        cache[index]={'holder':holder,'root':self.root,'stage_button':self.stage_button,
-                      'note':'' if note==str(self.root) else note}
+        cache[index]=page_nav.cache_entry(holder,self.root,self.stage_button,self.status.get(),str(self.root))
         if index==PAGE['script_structure']:
             from script_workspace_service import script_structure_signature
             cache[index]['signature']=script_structure_signature(self.root)
@@ -1131,17 +1057,18 @@ class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixi
             return
         # 第 26 期第 3 条：07 步还没选生成方式时不需要分镜——「选择分镜」下拉框与那道
         # 「先采用分镜」的闸门都留到选定方式之后，选定方式那一页本来也不挑镜头。
-        choosing_video=index==PAGE['video'] and getattr(self,'video_mode',None) not in ('local','cloud')
-        if index in (PAGE['keyframe'],PAGE['previs']) or (index==PAGE['video'] and not choosing_video):
+        choosing_video=page_nav.choosing_video(index,PAGE,getattr(self,'video_mode',None))
+        def adopted_storyboards():
             from storyboard_selection import prefs
-            if prefs(self.root).get('adopted_storyboards')==[]:
-                message='请先在'+pet_bus.stage_step('storyboard')+'采用一份或多份分镜 JSON。'
-                # 不能只写到底部状态栏：视频工作台被阻止时，用户的视线仍在当前内容区。
-                ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['lg'])
-                self.note(message)
-                self.fit_content()
-                return
-        if PAGE['assets']<=index<=PAGE['audio'] and not choosing_video and not (index==PAGE['assets'] and (getattr(self,'asset_detail_id',None) or getattr(self,'asset_roster',False))):
+            return prefs(self.root).get('adopted_storyboards')
+        if page_nav.needs_adopted_storyboard(index,PAGE,choosing_video,adopted_storyboards):
+            message='请先在'+pet_bus.stage_step('storyboard')+'采用一份或多份分镜 JSON。'
+            # 不能只写到底部状态栏：视频工作台被阻止时，用户的视线仍在当前内容区。
+            ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['lg'])
+            self.note(message)
+            self.fit_content()
+            return
+        if page_nav.needs_source_selector(index,PAGE,choosing_video,bool(getattr(self,'asset_detail_id',None) or getattr(self,'asset_roster',False))):
             from storyboard_selection import source_selector
             source_selector(self,index,select_box=SelectBox)
         # 08／09 步直接读工作集：切换分镜或自动采用后必须先让工作集跟上，否则会按旧分镜拼接和交付。
@@ -1236,18 +1163,12 @@ class Desktop(AccountPageMixin, LoginGateMixin, MasterUpdateMixin, IdeaMenusMixi
             prefs=_prefs(prefs_path)
             # 第 32 期第 3 条：本次启动第一次进这一页，先摆「选择生成方式」；用户在这里选过一次
             # 之后，来回切页仍按他刚选的那个模式进，不会被反复拦在选择页上。
-            if video_mode=='choose':
-                self.video_mode=None;self.video_mode_picked=False
-            elif video_mode:
-                self.video_mode=video_mode
-            else:
-                self.video_mode=prefs.get('last_video_mode') if getattr(self,'video_mode_picked',False) else None
-            if self.video_mode in ('cloud','local'):
-                self.video_mode_picked=True
-                if prefs_path and prefs.get('last_video_mode')!=self.video_mode:
-                    from stage_execution_service import publish_cloud_video_workspace_preference
-                    prefs['last_video_mode']=self.video_mode
-                    publish_cloud_video_workspace_preference(prefs_path,prefs)
+            self.video_mode,picked,save=page_nav.next_video_mode(video_mode,getattr(self,'video_mode_picked',False),prefs.get('last_video_mode'))
+            if picked!=getattr(self,'video_mode_picked',False):self.video_mode_picked=picked
+            if save and prefs_path:
+                from stage_execution_service import publish_cloud_video_workspace_preference
+                prefs['last_video_mode']=self.video_mode
+                publish_cloud_video_workspace_preference(prefs_path,prefs)
         else:self.video_mode=None
         if self.video:
             self.video.window.pack_forget()

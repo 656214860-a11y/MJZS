@@ -194,8 +194,10 @@ class WritingRestartTests(unittest.TestCase):
         rows = {'row-' + name: name for name in ('setting', 'outline', 'character', 'script')}
         restart = Mock()
         menu = Mock()
-        namespace = dict(script_row_category=rows, ContextMenu=Mock(return_value=menu),
-                         self=SimpleNamespace(win=object(), safe=lambda call: call()),
+        ContextMenu = Mock(return_value=menu)  # R1988：菜单经 page.writing_page_services 取，不再是模块全局
+        namespace = dict(script_row_category=rows,
+                         self=SimpleNamespace(win=object(), safe=lambda call: call(),
+                                             writing_page_services=SimpleNamespace(context_menu=ContextMenu)),
                          restart_preparation=restart, open_script_file=Mock(), rename_script=Mock(),
                          adopt_script=Mock(), delete_script=Mock(), keep_one_selection=Mock())
         # R1817：script_menu 成了 _WritingPage 的方法：闭包变量改由实例属性提供，桌面主窗成了 page

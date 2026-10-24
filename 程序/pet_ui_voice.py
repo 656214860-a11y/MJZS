@@ -78,9 +78,8 @@ class PetVoiceMixin:
     def say(self, text):
         """接缝④：状态栏原文照旧，宠物只做合并与计数（重复的一句只算一次）。"""
         text = str(text or '').strip()
-        if not text or text == self.last_status:
+        if not text or not self.bstate.remember_status(text):
             return None
-        self.last_status = text
         if text in self._tick_texts:
             return None                   # 这一轮已经从自动任务队列报过，不再重复记一笔
         self._tick_texts.add(text)
@@ -696,11 +695,11 @@ class PetVoiceMixin:
         （pet_cloud.SHAPE_CLOUD），不传就沿用当前形状。
         """
         text = ' '.join(str(text or '').split())
-        if not text or text == self._last_broadcast:
+        if not text or self.bstate.is_repeat(text):
             return ''
         if self.speech_blocked(text):
             return ''
-        self._last_broadcast = text
+        self.bstate.spoke(text)
         message = self._record_output(text)
         cloud = self.cloud()
         if cloud is not None:
@@ -747,7 +746,7 @@ class PetVoiceMixin:
             self._broadcast_at = now
             self._progress_at = now
             self._offer_at = now
-            self._advance_at = now
+            self.bstate.mark_advance(now)
             # 安静期不需要新盘点；结束时再按实际缺口对表，避免首屏心跳递归读盘。
             self._gap_sig = tuple(self._gap_cache)
             return True
@@ -794,9 +793,9 @@ class PetVoiceMixin:
             # 后续仍经 broadcast 统一加前缀、写日志和显示。
             cloud.lines = []
             cloud._scroll = 0
-            self._last_broadcast = ''
+            self.bstate.last_broadcast = ''
             message = self._record_output(pet_cloud.GREETING)
-            self._last_broadcast = pet_cloud.GREETING
+            self.bstate.spoke(pet_cloud.GREETING)
             cloud.append(message)
             cloud.show(pinned=False,
                        hold=pet_cloud.GREETING_MS,
@@ -1073,7 +1072,7 @@ class PetVoiceMixin:
         在下一个心跳补说。
         """
         if self._menu_open or self.modal_grabbed():
-            self._held_broadcast = text
+            self.bstate.hold(text)
             return True
         return False
     def modal_grabbed(self):
@@ -1134,12 +1133,8 @@ class PetVoiceMixin:
             return ''
         stamp = tuple(sorted('%s|%s' % (item.get('stage', ''), item.get('category', ''))
                              for item in failures))
-        if not stamp:
-            self._announced = ()
+        if not self.bstate.new_failure_batch(stamp):
             return ''
-        if stamp == self._announced:
-            return ''
-        self._announced = stamp
         first = failures[0]
         stage = str(first.get('stage') or '')
         # 第 71 期任务 1：原来气泡一律念那条模板 hint（「没见过的错误：停下等您确认」），

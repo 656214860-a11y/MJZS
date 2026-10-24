@@ -10,6 +10,7 @@ from tkinter import ttk
 from unittest.mock import MagicMock, patch
 
 import desktop
+from desktop_project_pages import ProjectPageServices
 
 import project_stages
 import projects as projects_mod
@@ -162,6 +163,10 @@ class DesktopMissingRegistrationTests(unittest.TestCase):
         self.win=tk.Tk();self.win.withdraw()
         self.addCleanup(self.win.destroy)
         self.app=MagicMock()
+        # 页面服务改为注入后，MagicMock 的宿主要带真服务，desktop.confirm 补丁才会生效（R1983 J2，断言未动）。
+        self.app.project_page_services=ProjectPageServices(open_path=lambda *a, **k: desktop.open_path(*a, **k),
+            context_menu=lambda *a, **k: desktop.ContextMenu(*a, **k),
+            confirm=lambda *a, **k: desktop.confirm(*a, **k))
         self.app.win=self.win;self.app.root=None;self.app.projects=self.service
         self.app.content=ttk.Frame(self.win);self.app.list=ttk.Treeview(self.win)
         self.app._project_home_tree=None

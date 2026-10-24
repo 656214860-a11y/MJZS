@@ -65,7 +65,7 @@ class PetStagesMixin:
         if not pending:
             return None
         next_stage = pending[0]
-        self._advance_at = None
+        self.bstate.reset_advance()
         name = pet_bus.STAGE_NAMES.get(next_stage, next_stage)
         self.broadcast('【下一阶段】%s - 自动开始' % name)
         return next_stage
@@ -86,7 +86,7 @@ class PetStagesMixin:
         所以这里走 announce（与「用户按了东西」同一条出口）。
 
         「稍后再说」期间只记账不冒泡——那是用户自己点名要的安静；失败照旧由失败清单分级处理，
-        不走这里。同一句话连着说两次由 broadcast 自己挡掉（_last_broadcast）。
+        不走这里。同一句话连着说两次由 broadcast 自己挡掉（bstate.last_broadcast）。
         """
         text = ' '.join(str(text or '').split())
         if not text:
@@ -129,7 +129,7 @@ class PetStagesMixin:
             now = float(self.clock() if at is None else at)
             if self.quiet(at=at):
                 return ''                  # 第 68 期任务 11：招呼刚说完，推进那一步的话也留到安静期之后
-            if self._advance_at is not None and (now - self._advance_at) < ADVANCE_SECONDS:
+            if self.bstate.advance_throttled(now, ADVANCE_SECONDS):
                 return ''
             if self.cloud_visible() or self.muted(at=at) or self.snoozing() or self.agent.paused:
                 return ''
@@ -137,8 +137,8 @@ class PetStagesMixin:
             if self.busy(state=state):
                 return ''
             stage = self.auto_stage()
-            first_beat = self._advance_at is None
-            self._advance_at = now             # 到这一拍为止都算推过：没阶段可推也别每 150ms 问一遍
+            first_beat = self.bstate.advance_at is None
+            self.bstate.mark_advance(now)             # 到这一拍为止都算推过：没阶段可推也别每 150ms 问一遍
             if not stage:
                 return self.gate_note(at=at)   # 第 63 期任务 3.2：被门禁停住就说一句
             # 第 67 期任务 5：自动档下不只把这一步叫醒——能自己派的就派下去、该打开的无人值守
@@ -853,7 +853,7 @@ class PetStagesMixin:
                 if self.arm_auto():
                     # 切到自动档是明确的「现在开始」操作，不能被上一轮心跳留下的
                     # 推进节流挡住；下一个 UI 心跳应立即派发当前待办阶段。
-                    self._advance_at = None
+                    self.bstate.reset_advance()
             except Exception as exc:
                 self.errors.append(('level.arm', str(exc)))
         else:

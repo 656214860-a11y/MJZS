@@ -290,11 +290,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         self._hold = None
         self._fade = None                  # 淡入用的定时器（收窗／销毁都要收回来，见 _expire 的教训）
         self._fade_callback = None         # 与 _fade 成对持有，避免 Tk after 留下悬空 lambda
-        self._position_job = None          # 父窗口尚未完成布局时的受限延迟重试
-        # Tk 只保存回调对应的 Tcl 命令名；若不保留 Python 闭包，GC 会先删命令，
-        # 留下 after 队列在窗口销毁前报 ``invalid command name ...retry``。
-        self._position_callback = None
-        self._position_retries = 0
+        self._reset_position_state()       # 定位重试登记（父窗口未布局好时的受限延迟重试）归 CloudPlaceMixin 管
         # 第 27 期第 2 条：鼠标在云里＝用户正在看这一条，到点也不许收（见 _expire／_pointer_inside）。
         self._watching = False
         self._body = MIN_BODY              # 当前云身高度（尾巴根按它算）

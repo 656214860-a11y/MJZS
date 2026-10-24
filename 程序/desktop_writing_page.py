@@ -1,10 +1,13 @@
 """剧本准备页（``Desktop.writing``）的页面构建。
 
 从 ``desktop.Desktop`` 原样迁出（R1499 拆分步骤 3，一页一轮）：方法体未改，``self`` 语义不变，
-``Desktop`` 通过继承 ``WritingPageMixin`` 获得。``confirm``／``open_path``／``ContextMenu`` 等测试按
-``desktop.<名字>`` 打补丁的名字经 ``desktop_page_support`` 的转发函数在调用时取 ``desktop`` 的当前值，补丁照常生效。
+``Desktop`` 通过继承 ``WritingPageMixin`` 获得。``confirm``／``open_path``／``ContextMenu`` 等外部 UI 能力
+（R1988 J2）改由实例的 ``writing_page_services`` 提供，默认服务在 ``Desktop`` 组合入口按调用时取 ``desktop`` 模块的
+当前值，测试按 ``desktop.<名字>`` 打补丁照常生效；本模块不再读取 ``desktop_page_support`` 的全局宿主。
 """
 import pet_state
+from dataclasses import dataclass
+from typing import Callable
 import time
 import app_logging
 import project_stages
@@ -15,7 +18,6 @@ from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_ch
 from tkinter import ttk
 from ui_tokens import BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from desktop_file_card import TreeRowCard, script_row_card
-from desktop_page_support import ContextMenu, confirm, confirm_project_removal_from_last_script, open_path
 from ui_widgets import DataTable, EllipsisLabel, HintLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, ask_string
 
 PAGE = pet_state.PAGE_OF
@@ -95,6 +97,15 @@ def _restart_preparation(host, stage, refresh):
     refresh()
     host.status.set(('开始重写' + stage + '：请发送创作要求，新稿定稿前原稿照常可用')
                     if stage else '已放弃重写，恢复原稿')
+
+
+@dataclass(frozen=True)
+class WritingPageServices:
+    """剧本准备页的外部 UI 能力；由组合入口提供，不携带全局宿主（R1606 模式，J2）。"""
+    open_path: Callable
+    context_menu: Callable
+    confirm: Callable
+    confirm_project_removal: Callable
 
 
 class WritingPageMixin:
@@ -636,7 +647,7 @@ class _WritingPage:
             row=selected[0] if selected else ''
         if not row:return
         path=Path(row)
-        if path.is_file():open_path(path)
+        if path.is_file():self.page.writing_page_services.open_path(path)
 
     def selected_script(self):
         tree=self.current_script_tree()
@@ -680,11 +691,11 @@ class _WritingPage:
         path=self.selected_script()
         all_files=self.all_script_items()
         if len(all_files)==1:
-            if not confirm_project_removal_from_last_script(self.page.win,[path.name]):return
+            if not self.page.writing_page_services.confirm_project_removal(self.page.win,[path.name]):return
         else:
             prompt=f'确定将 {path.name} 移入项目回收站吗？\n\n可在对应页面恢复最近删除。'+self.confirmed_note([path])
             title='移入回收站'
-            if not confirm(self.page.win,title,prompt,dangerous=True):return
+            if not self.page.writing_page_services.confirm(self.page.win,title,prompt,dangerous=True):return
         if len(all_files)==1:
             item=next((dict(p) for p in self.page.projects.info['projects'] if p['path']==str(self.page.root)),None)
             if item is None:raise ValueError('当前项目未登记，无法安全删除')
@@ -699,11 +710,11 @@ class _WritingPage:
         paths=list(selection.paths)
         names='\n'.join(path.name for path in paths)
         if selection.deletes_all:
-            if not confirm_project_removal_from_last_script(self.page.win,[path.name for path in paths]):return
+            if not self.page.writing_page_services.confirm_project_removal(self.page.win,[path.name for path in paths]):return
         else:
             title='移入回收站'
             prompt='确定将选中的 '+str(len(paths))+' 份剧本文件移入项目回收站吗？\n\n'+names+'\n\n可在对应页面恢复最近删除。'+self.confirmed_note(paths)
-            if not confirm(self.page.win,title,prompt,dangerous=True):return
+            if not self.page.writing_page_services.confirm(self.page.win,title,prompt,dangerous=True):return
         if selection.deletes_all:
             item=next((dict(p) for p in self.page.projects.info['projects'] if p['path']==str(self.page.root)),None)
             if item is None:raise ValueError('当前项目未登记，无法安全删除')
@@ -728,7 +739,7 @@ class _WritingPage:
         """把用户改过的当前文件设为该阶段定稿；之后各阶段的定稿会失效。"""
         path=self.selected_script()
         from stage_execution_service import confirm_writing_preparation
-        if not confirm(self.page.win,'设为'+stage+'定稿',
+        if not self.page.writing_page_services.confirm(self.page.win,'设为'+stage+'定稿',
                        '把这份文件设为「'+stage+'」的定稿？\n\n'+path.name+
                        '\n\n以文件当前内容为准；「'+stage+'」之后已定稿的阶段需要重新确认。'):
             return
@@ -741,7 +752,7 @@ class _WritingPage:
         row=tree.identify_row(event.y)
         if not row:return
         tree.selection_set(row);self.keep_one_selection(tree)
-        menu=ContextMenu(self.page.win)
+        menu=self.page.writing_page_services.context_menu(self.page.win)
         # 第 46 期第 1 条：内容框的右键一律是「查看／…／删除」这一套，剧本表原来只有改名与删除。
         menu.command('查看',lambda:self.page.safe(self.open_script_file))
         menu.command('重命名',lambda:self.page.safe(self.rename_script))

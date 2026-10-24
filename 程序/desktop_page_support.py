@@ -1,9 +1,8 @@
-"""页面 Mixin 共用的宿主转发与页面常量（L4）。
+"""页面 Mixin 共用的页面常量与辅助（L4）。
 
-``Desktop`` 的页面构建方法正逐页迁到 ``desktop_*_page.py`` 的 Mixin 里（R1499 起）。这些方法用到
-``confirm``／``open_path``／``ContextMenu``／``FileDialog`` 等名字，而测试按 ``desktop.<名字>`` 打补丁；
-这里的转发函数在调用时取 ``desktop`` 里的当前值，所以补丁照常生效。``desktop`` 在模块级调用
-``bind_host`` 登记自身，本模块不导入 ``desktop``，没有导入环。多页共用的缩略图／行高常量也放这里。
+多页共用的缩略图／行高常量放这里（R1499 起页面方法迁到 ``desktop_*_page.py``）。页面用到的
+``confirm``／``open_path``／``ContextMenu``／``FileDialog`` 等宿主服务不再经本模块的全局宿主转发，
+而是由 ``Desktop`` 注入各页的 ``*PageServices``（R1983 J2，media 页是最后一页，``bind_host`` 已删）。
 """
 from responsive_ui import row_height_for
 from ui_tokens import BUTTON_WIDTH_STAGE
@@ -35,62 +34,3 @@ def _prefs(path):
     # 字典再写回，共享缓存对象一旦被就地改，同一轮里其他读者就会看到没保存的值。
     from project_settings import read_prefs
     return read_prefs(path)
-
-
-_host = None
-
-
-def bind_host(module):
-    """由 ``desktop`` 在定义完 confirm／ContextMenu 等名字后调用，登记转发目标。"""
-    global _host
-    _host = module
-
-
-def confirm(*args, **kwargs):
-    return _host.confirm(*args, **kwargs)
-
-
-def open_path(*args, **kwargs):
-    return _host.open_path(*args, **kwargs)
-
-
-def ContextMenu(*args, **kwargs):  # noqa: N802 - 与原名一致，方法体未改
-    return _host.ContextMenu(*args, **kwargs)
-
-
-def FileDialog(*args, **kwargs):  # noqa: N802
-    return _host.FileDialog(*args, **kwargs)
-
-
-def confirm_project_removal_from_last_script(*args, **kwargs):
-    return _host.confirm_project_removal_from_last_script(*args, **kwargs)
-
-
-def open_studio(*args, **kwargs):
-    return _host.open_studio(*args, **kwargs)
-
-
-def open_directory(*args, **kwargs):
-    return _host.open_directory(*args, **kwargs)
-
-
-def find_editor_shortcut(*args, **kwargs):
-    return _host.find_editor_shortcut(*args, **kwargs)
-
-
-def comfy_executable(*args, **kwargs):
-    return _host.comfy_executable(*args, **kwargs)
-
-
-class _HostAttribute:
-    """按名字转发到 ``desktop`` 里的同名对象（messagebox、Desktop 类等），调用时才取值。"""
-
-    def __init__(self, name):
-        self._name = name
-
-    def __getattr__(self, attribute):
-        return getattr(getattr(_host, self._name), attribute)
-
-
-messagebox = _HostAttribute("messagebox")
-Desktop = _HostAttribute("Desktop")
