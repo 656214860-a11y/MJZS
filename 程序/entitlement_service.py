@@ -103,24 +103,6 @@ def membership_view(entitlement, now):
     return {'lines': lines, 'level': 'info'}
 
 
-def expiry_summary(entitlement, now):
-    """标题栏常驻的一行到期提示：「试用至 2026-10-28（还剩 3 天）」；未登录或拿不到到期时间返回空串。"""
-    state, payload = entitlement.state, entitlement.payload or {}
-    if state == SIGNED_OUT or not payload:
-        return ''
-    paid = payload.get('state') in PAID_STATES
-    if state == LOCKED and not paid:
-        return '试用或会员已到期，请到「00 会员账户」兑换续期'
-    key = 'trial_ends_at' if payload.get('state') == 'trial' else 'period_end'
-    left = days_left(payload, now)
-    if left is None or not payload.get(key):
-        return ''
-    name = '试用' if payload.get('state') == 'trial' else '会员'
-    if left <= 0:
-        return '%s已到期，请到「00 会员账户」兑换续期' % name
-    return '%s至 %s（还剩 %d 天）' % (name, _date(payload[key]), left)
-
-
 def is_paid_stage(stage):
     return stage in STAGES and stage not in FREE_STAGES
 

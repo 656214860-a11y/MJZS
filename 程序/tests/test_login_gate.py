@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""启动登录闸与到期摘要：未登录先盖登录页，登录后才启动；已登录（含到期）直接进；到期文案按状态给出。"""
+"""启动登录闸：未登录先盖登录页，登录后才启动；已登录（含到期）直接进。"""
 import tempfile
 import unittest
 import unittest.mock
@@ -11,38 +11,14 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 
 import account_store
-import entitlement_service as ent
 import lease_verifier
 from account_controller import AccountController
 from desktop import Desktop
 from service_contract import success
 import test_desktop_startup_perf as startup_fixtures
-from test_account_client import KEYS, NOW, _Client, _Store, payload, sign, evaluate
+from test_account_client import KEYS, NOW, _Client, _Store, payload, sign
 
 DAY=86400
-
-
-class ExpirySummaryTests(unittest.TestCase):
-    def test_trial_shows_date_and_days_left(self):
-        text=ent.expiry_summary(evaluate(sign(payload())),NOW)
-        self.assertTrue(text.startswith('试用至 '),text)
-        self.assertIn('还剩 3 天',text)
-
-    def test_active_membership(self):
-        lease=sign(payload(state='active',plan='quarterly',period_end=NOW+40*DAY,expires_at=NOW+40*DAY,grace_until=NOW+43*DAY))
-        text=ent.expiry_summary(evaluate(lease),NOW)
-        self.assertTrue(text.startswith('会员至 '),text)
-        self.assertIn('还剩 40 天',text)
-
-    def test_expired_trial_asks_for_redeem(self):
-        lease=sign(payload(state='expired',trial_ends_at=NOW-DAY))
-        self.assertIn('到期',ent.expiry_summary(evaluate(lease),NOW))
-        self.assertIn('兑换',ent.expiry_summary(evaluate(lease),NOW))
-
-    def test_signed_out_and_missing_expiry_are_blank(self):
-        self.assertEqual(ent.expiry_summary(ent.Entitlement(ent.SIGNED_OUT),NOW),'')
-        lease=sign(payload(state='active',plan='lifetime',period_end=None))
-        self.assertEqual(ent.expiry_summary(evaluate(lease),NOW),'')
 
 
 class LoginGateTests(unittest.TestCase):
@@ -138,19 +114,16 @@ class LoginGateTests(unittest.TestCase):
         self.assertFalse(d.login_gate_active)
         self.assertIsNone(d.login_gate)
         self.assertEqual(started,[1])
-        self.assertIn('试用至',d.membership_badge.cget('text'))
 
-    def test_logout_brings_gate_back_and_badge_clears(self):
+    def test_logout_brings_gate_back(self):
         self.use(_Client(),lease=sign(payload()))
         d=self.desktop
         d.begin_startup_or_login(True,lambda:None)
         self.assertIsNone(d.login_gate)
-        self.assertIn('试用至',d.membership_badge.cget('text'))
         d.account.logout()
         d._account_changed();self.pump()
         self.assertTrue(d.login_gate_active)
-        self.assertEqual(d.membership_badge.cget('text'),'')
-        self.assertFalse(d.membership_badge.winfo_manager())
+        self.assertFalse(hasattr(d,'membership_badge'))   # R2027：侧栏到期小字已删
 
 
 if __name__=='__main__':

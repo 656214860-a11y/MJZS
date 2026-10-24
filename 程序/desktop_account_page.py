@@ -139,11 +139,11 @@ class AccountPageMixin:
             PrimaryButton(card,text='去下载',command=lambda u=notice['url']:webbrowser.open(u)).pack(anchor='w',pady=SPACING['xs'])
 
     def _account_changed(self):
-        """登录、续签、兑换、退出、解绑、注销后：刷新标题栏到期提示，会话已清则回到登录闸。
+        """登录、续签、兑换、退出、解绑、注销后：会话已清则回到登录闸。
 
-        两个钩子由 ``LoginGateMixin`` 提供；没有混入它的宿主（如测试替身）直接跳过。
+        钩子由 ``LoginGateMixin`` 提供；没有混入它的宿主（如测试替身）直接跳过。
         """
-        for name in ('refresh_membership_badge', 'recheck_login_gate'):
+        for name in ('recheck_login_gate',):
             hook = getattr(self, name, None)
             if callable(hook):
                 hook()

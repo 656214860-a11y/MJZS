@@ -1,4 +1,4 @@
-"""启动登录闸与到期提示（L4，只放 Tk 控件与回调注入）。
+"""启动登录闸（L4，只放 Tk 控件与回调注入）。
 
 真实启动（``Desktop(..., require_login=True)``）时，本机没有可用登录会话（``SIGNED_OUT``）就在主窗口上盖一层
 全屏登录页：登录成功前不选项目、不检查更新，登录后才走原来的首帧启动流程。已登录但授权失效
@@ -6,7 +6,6 @@
 判定只读本机会话并验签，不联网；``GATE_ENFORCED`` 关闭或不要求登录的宿主（测试）不建覆盖层。
 登录表单与「00 会员账户」页共用 ``AccountPageMixin._build_login_form``。
 """
-import tkinter as tk
 from tkinter import ttk
 
 import entitlement_service
@@ -32,8 +31,6 @@ class LoginGateMixin:
         """``Desktop.__init__`` 末段调用：需要登录就显示登录闸，否则直接启动。"""
         self._require_login = bool(require_login)
         self._login_gate_start = start_startup
-        if self._require_login:
-            self.refresh_membership_badge()
         if self.login_required():
             self._login_gate_startup_pending = True
             self.show_login_gate()
@@ -60,7 +57,6 @@ class LoginGateMixin:
         if gate is not None and gate.winfo_exists():
             gate.destroy()
         self.status.set('登录成功')
-        self.refresh_membership_badge()
         if self._login_gate_startup_pending:
             self._login_gate_startup_pending = False
             self._login_gate_start()
@@ -70,18 +66,3 @@ class LoginGateMixin:
         if self._require_login and not getattr(self, 'shutting_down', False) and self.login_gate is None \
                 and self.login_required():
             self.show_login_gate()
-
-    def refresh_membership_badge(self):
-        """账号入口下方的一行到期提示；没有内容时不占位。"""
-        badge = getattr(self, 'membership_badge', None)
-        if badge is None:
-            return
-        try:
-            text = entitlement_service.expiry_summary(self.account.entitlement(), self.account.now())
-            badge.configure(text=text)
-            if text:
-                badge.pack(anchor='w', after=self.account_button, pady=(SPACING['none'], DESKTOP_LAYOUT['nav_gap']))
-            else:
-                badge.pack_forget()
-        except tk.TclError:
-            pass

@@ -358,8 +358,6 @@ class ProjectPagesMixin:
         """「00 会员账户」排在 01 之上；它不在 self.nav 里，翻页键与阶段页序号都不受影响。"""
         self.account_button=SecondaryButton(side,text=ACCOUNT_TITLE,command=lambda:self.go_page(PAGE_ACCOUNT),style='Nav.TButton')
         self.account_button.pack(anchor='w',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
-        # 试用／会员到期提示：常驻在账号入口下面，空文本时不占高度（由 LoginGateMixin 刷新）。
-        self.membership_badge=ttk.Label(side,text='',style='Muted.TLabel',font=FONTS['pet_hint'],wraplength=DESKTOP_LAYOUT['sidebar_badge_wrap'],justify='left')
     def mark_nav(self,index):
         """侧栏高亮：阶段页按钮与「00 会员账户」只亮当前那一颗。"""
         for i,b in enumerate(self.nav):b.configure(style='Selected.Nav.TButton' if i==index else 'Nav.TButton')
