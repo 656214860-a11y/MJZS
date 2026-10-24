@@ -41,7 +41,7 @@ class MembershipViewTests(unittest.TestCase):
         v=view(state='expired',trial_ends_at=NOW-DAY,expires_at=NOW+DAY)
         self.assertEqual(v['level'],'expired')
         text=''.join(v['lines'])
-        self.assertIn('已于 ',text);self.assertIn('永久免费',text);self.assertIn('请联系发放兑换码的渠道',text)
+        self.assertIn('已于 ',text);self.assertIn('永久免费',text);self.assertIn('输入兑换码即可续期',text)   # R2025 契约变更：去掉“请联系发放渠道”，状态文案精简
 
     def test_clock_suspect_and_days_left_edges(self):
         ent_=ent.Entitlement(ent.CLOCK_SUSPECT,payload())

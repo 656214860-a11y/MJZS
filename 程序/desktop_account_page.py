@@ -24,9 +24,9 @@ BACKGROUND_POLL_MS = 100
 STATE_TEXT = {
     entitlement_service.VALID: '授权有效',
     entitlement_service.GRACE: '离线宽限期内，请尽快联网续签',
-    entitlement_service.LOCKED: '授权已失效（试用或会员到期，或离线超过宽限期）',
+    entitlement_service.LOCKED: '授权已失效',
     entitlement_service.SIGNED_OUT: '未登录',
-    entitlement_service.CLOCK_SUSPECT: '本机时间早于服务器时间，请校正系统时间后续签',
+    entitlement_service.CLOCK_SUSPECT: '本机时间早于服务器时间',
 }
 PLAN_TEXT = {'trial': '免费试用', 'monthly': '月度会员', 'quarterly': '季度会员', 'yearly': '年度会员'}
 PROVIDER_NOTICE = '以下为第三方服务，模型费用由对应服务商另行计费，不属于会员；使用时请遵守当地法律与服务商条款，生成内容的合规由使用者自负。软件不提供也不保管任何 Key。'
@@ -147,41 +147,39 @@ class AccountPageMixin:
 
     def account_page(self):
         """未登录时显示邮箱登录表单；已登录时显示授权状态、到期时间与退出。"""
-        self.note('账号用于试用与会员授权；项目和素材始终留在本机，不上传。')
         entitlement = self.account.entitlement()
         session = self.account.session()
         self._account_update_card()
         status = Card(self.content);status.pack(fill='x',pady=SPACING['xs'])
-        ttk.Label(status,text='当前状态：'+STATE_TEXT.get(entitlement.state,entitlement.state),font=FONTS['heading_2']).pack(anchor='w')
+        head = ttk.Frame(status);head.pack(fill='x')
+        ttk.Label(head,text='当前状态：'+STATE_TEXT.get(entitlement.state,entitlement.state),font=FONTS['heading_2']).pack(side='left')
         view = entitlement_service.membership_view(entitlement, self.account.now())
         style = {'warn': 'Warn.TLabel', 'expired': 'Expired.TLabel'}.get(view['level'], 'Muted.TLabel')
-        for line in view['lines']:
+        lines = list(view['lines'])
+        if not self.account.enforce:lines.append('测试期暂不拦截。')
+        for line in lines:
             ttk.Label(status,text=line,style=style,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
-        rule = '「01 剧本准备」「02 剧本结构」不登录也能用；从「03 初步分镜」起需要试用或会员。'
-        if not self.account.enforce:rule += '（测试期暂不拦截）'
-        ttk.Label(status,text=rule,
-                  style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
         if session.get('refresh_token') or entitlement.payload:
-            self._account_signed_in(status, entitlement, session)
+            self._account_signed_in(status, head, entitlement, session)
         else:
             self._account_login_form()
 
-    def _account_signed_in(self, card, entitlement, session):
+    def _account_signed_in(self, card, head, entitlement, session):
         payload = entitlement.payload or {}
-        lines = ['账号：'+str(session.get('email') or '—'),
+        parts = ['账号：'+str(session.get('email') or '—'),
                  '套餐：'+plan_text(payload)]
-        if payload.get('state') == 'trial':lines.append('试用到期：'+_when(payload.get('trial_ends_at')))
-        if payload.get('state') == 'active':lines.append('会员到期：'+_when(payload.get('period_end')))
-        lines.append('离线可用至：'+_when(payload.get('grace_until')))
-        for line in lines:ttk.Label(card,text=line).pack(anchor='w',pady=SPACING['xs'])
-        actions = ttk.Frame(self.content);actions.pack(anchor='w',pady=SPACING['sm'])
+        if payload.get('state') == 'trial':parts.append('试用到期：'+_when(payload.get('trial_ends_at')))
+        if payload.get('state') == 'active':parts.append('会员到期：'+_when(payload.get('period_end')))
+        info = ttk.Frame(card);info.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        for part in parts:ttk.Label(info,text=part).pack(side='left',padx=(SPACING['none'],SPACING['lg']))
+        actions = ttk.Frame(head);actions.pack(side='right')
         def renew():
             if not self.account.renew(done=self._account_renewed):self.status.set('本机没有可续签的登录会话，请重新登录')
             else:self.status.set('正在续签会员授权…')
         def logout():
             self.account.logout();self.show(PAGE_ACCOUNT);self.status.set('已退出登录（项目和素材不受影响）')
-        PrimaryButton(actions,text='立即续签',command=renew).pack(side='left',padx=(SPACING['none'],SPACING['sm']))
-        SecondaryButton(actions,text='退出登录',command=logout).pack(side='left')
+        SecondaryButton(actions,text='退出登录',command=logout).pack(side='right')
+        PrimaryButton(actions,text='立即续签',command=renew).pack(side='right',padx=(SPACING['none'],SPACING['sm']))
         self._account_redeem_form()
         self._account_providers_card()
         self._account_devices_card()
@@ -198,11 +196,12 @@ class AccountPageMixin:
     def _account_providers_card(self):
         """推荐线路：只展示地址与说明，Key 由用户自己在模型设置的自定义提供方里填写；总开关关闭时不显示内容。"""
         card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
-        ttk.Label(card,text='推荐模型线路（第三方服务）').pack(anchor='w',pady=SPACING['xs'])
+        head = ttk.Frame(card);head.pack(fill='x')
+        ttk.Label(head,text='推荐模型线路（第三方服务）').pack(side='left')
         ttk.Label(card,text=PROVIDER_NOTICE,style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],
-                  justify='left').pack(anchor='w',pady=SPACING['xs'])
+                  justify='left').pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
         rows = ttk.Frame(card);rows.pack(fill='x')
-        message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
+        message = ttk.Label(head,text='',style='Muted.TLabel')
         def listed(result):
             if not message.winfo_exists():return
             button.state(['!disabled'])
@@ -215,8 +214,8 @@ class AccountPageMixin:
             button.state(['disabled']);message.configure(text='正在读取…')
             if not self.account.providers(listed):
                 button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
-        button = SecondaryButton(card,text='查看推荐线路',command=load);button.pack(anchor='w',pady=SPACING['xs'])
-        message.pack(anchor='w',pady=SPACING['xs'])
+        button = SecondaryButton(head,text='查看推荐线路',command=load);button.pack(side='right')
+        message.pack(side='right',padx=(SPACING['none'],SPACING['sm']))
         self.account_providers_button,self.account_providers_rows,self.account_providers_message = button,rows,message
 
     def _account_provider_row(self, rows, item):
@@ -236,10 +235,10 @@ class AccountPageMixin:
     def _account_devices_card(self):
         """已绑定设备：按需联网读取（不在每次画页时请求），可解绑；解绑本机即退出登录。"""
         card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
-        ttk.Label(card,text='已绑定设备（每个账号最多 3 台，30 天内最多解绑 2 次）').pack(anchor='w',pady=SPACING['xs'])
+        head = ttk.Frame(card);head.pack(fill='x')
+        ttk.Label(head,text='已绑定设备').pack(side='left')
         rows = ttk.Frame(card);rows.pack(fill='x')
-        message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
-        message.pack(anchor='w',pady=SPACING['xs'])
+        message = ttk.Label(head,text='',style='Muted.TLabel')
         def listed(result):
             if not message.winfo_exists():return
             button.state(['!disabled'])
@@ -249,7 +248,8 @@ class AccountPageMixin:
             button.state(['disabled']);message.configure(text='正在读取设备列表…')
             if not self.account.devices(listed):
                 button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
-        button = SecondaryButton(card,text='查看已绑定设备',command=load);button.pack(anchor='w',pady=SPACING['xs'])
+        button = SecondaryButton(head,text='查看已绑定设备',command=load);button.pack(side='right')
+        message.pack(side='right',padx=(SPACING['none'],SPACING['sm']))
         self.account_devices_button,self.account_devices_rows,self.account_devices_message = button,rows,message
 
     def _account_device_rows(self, rows, message, data, reload):
@@ -281,7 +281,8 @@ class AccountPageMixin:
     def _account_export_card(self):
         """导出账号数据（账号、同意记录、设备、会员与兑换记录）到用户选定的 JSON 文件。"""
         card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
-        ttk.Label(card,text='导出账号数据（账号、同意记录、设备、会员与兑换记录；不含项目和素材）').pack(anchor='w',pady=SPACING['xs'])
+        head = ttk.Frame(card);head.pack(fill='x')
+        ttk.Label(head,text='导出账号数据（账号、设备、会员与兑换记录；不含项目和素材）').pack(side='left')
         message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
         def exported(result):
             if not message.winfo_exists():return
@@ -293,8 +294,8 @@ class AccountPageMixin:
             button.state(['disabled']);message.configure(text='正在导出…')
             if not self.account.export(target,exported):
                 button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
-        button = SecondaryButton(card,text='导出账号数据',command=export);button.pack(anchor='w',pady=SPACING['xs'])
-        message.pack(anchor='w',pady=SPACING['xs'])
+        button = SecondaryButton(head,text='导出账号数据',command=export);button.pack(side='right')
+        message.pack(anchor='w')
         self.account_export_button,self.account_export_message = button,message
 
     def _account_delete_card(self):
@@ -302,9 +303,10 @@ class AccountPageMixin:
         card = Card(self.content);card.pack(fill='x',pady=SPACING['xs'])
         ttk.Label(card,text='注销账号：进入 7 天冷静期，期间可在登录页用登录验证码撤销；到期后删除账号数据。本机项目和素材不受影响。',
                   wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w',pady=SPACING['xs'])
-        code = LineInput(card,placeholder='6 位注销验证码');code.pack(fill='x',pady=SPACING['xs'])
+        row = ttk.Frame(card);row.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        code = LineInput(row,placeholder='6 位注销验证码')
         message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
-        actions = ttk.Frame(card)
+        actions = ttk.Frame(row)
         def sent(result):
             if not message.winfo_exists():return
             send.state(['!disabled'])
@@ -330,17 +332,20 @@ class AccountPageMixin:
         send = SecondaryButton(actions,text='发送注销验证码',command=send_code);send.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         confirm = PrimaryButton(actions,text='确认注销',style='Tokens.Danger.TButton',command=submit);confirm.pack(side='left')
         confirm.state(['disabled'])              # 先发注销验证码，确认按钮才可用
-        actions.pack(anchor='w',pady=SPACING['xs']);message.pack(anchor='w',pady=SPACING['xs'])
+        actions.pack(side='right',padx=(SPACING['sm'],SPACING['none']));code.pack(side='left',fill='x',expand=True)
+        message.pack(anchor='w')
         self.account_delete_code_input,self.account_delete_send_button = code,send
         self.account_delete_button,self.account_delete_message = confirm,message
 
     def _account_redeem_form(self):
         """兑换码开通或续期会员；成功后服务端返回的新租约直接替换本机租约。"""
         form = Card(self.content);form.pack(fill='x',pady=SPACING['xs'])
-        ttk.Label(form,text='输入兑换码（开通或续期会员；在原到期时间上顺延）').pack(anchor='w',pady=SPACING['xs'])
-        code = LineInput(form,placeholder='XXXX-XXXX-XXXX-XXXX');code.pack(fill='x',pady=SPACING['xs'])
-        message = ttk.Label(form,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
-        message.pack(anchor='w',pady=SPACING['xs'])
+        head = ttk.Frame(form);head.pack(fill='x')
+        ttk.Label(head,text='兑换码（开通或续期会员，到期时间顺延）').pack(side='left')
+        message = ttk.Label(head,text='',style='Muted.TLabel')
+        message.pack(side='right')
+        row = ttk.Frame(form);row.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        code = LineInput(row,placeholder='XXXX-XXXX-XXXX-XXXX')
         def redeemed(result):
             if not message.winfo_exists():return
             button.state(['!disabled'])
@@ -355,7 +360,9 @@ class AccountPageMixin:
             code.clear_error();button.state(['disabled']);message.configure(text='正在兑换…')
             if not self.account.redeem(value,redeemed):
                 button.state(['!disabled']);message.configure(text='本机没有登录会话，请重新登录')
-        button = PrimaryButton(form,text='兑换',command=submit);button.pack(anchor='w',pady=SPACING['xs'])
+        button = PrimaryButton(row,text='兑换',command=submit)
+        button.pack(side='right',padx=(SPACING['sm'],SPACING['none']))
+        code.pack(side='left',fill='x',expand=True)
         self.account_redeem_input,self.account_redeem_button,self.account_redeem_message = code,button,message
 
     def _account_login_form(self):
