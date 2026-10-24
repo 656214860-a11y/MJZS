@@ -1420,6 +1420,9 @@ class PanelTests(unittest.TestCase):
         real = skill_panel_presets.ask_string
         skill_panel_presets.ask_string = Typed.ask_string
         self.addCleanup(setattr, skill_panel_presets, 'ask_string', real)
+        real_mode = skill_panel_presets.ask_preset_mode
+        skill_panel_presets.ask_preset_mode = lambda parent, initial='': '短剧'
+        self.addCleanup(setattr, skill_panel_presets, 'ask_preset_mode', real_mode)
         panel.model.set('Qwen-Max')
         panel.preset.set('A预设')
         self.assertEqual(panel.save_preset(), 'A预设')
@@ -1427,6 +1430,42 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(stage_config.presets(self.desktop.app)['A预设']['model'], 'qwen-max')
         self.assertIn('已覆盖预设：A预设', panel.state.cget('text'))
         panel.destroy()
+
+    def test_preset_keeps_master_style_and_mode_and_groups_the_dropdown(self):
+        """预设整套：总控＋模型(厂商)＋风格＋SKILL，下拉按创作模式分组，分组标题选中不套用。"""
+        program = self.desktop.app
+        import workflow_settings
+        master = next(iter(workflow_settings.refresh_workflow_presets()))
+        stage_config.put_workflow(self.desktop.root, {'name': master, 'skill_ref': 'x/SKILL.md',
+                                                       'lock': {master: {'track': '短剧'}}})
+        stage_config.put(self.desktop.root, 'script', writer_style='好莱坞')
+        stage_config.save_preset('甲', 'qwen-max', ['pipeline-script-preparation'], stage='script',
+                                 program=program,
+                                 extra={'mode': '短剧', 'workflow': stage_config.current_workflow(self.desktop.root),
+                                        'lock': stage_config.workflow_lock(self.desktop.root),
+                                        'writer_style': '好莱坞'})
+        stage_config.save_preset('乙', 'qwen-max', [], stage='script', program=program,
+                                 extra={'mode': '动画'})
+        stage_config.save_preset('丙', 'qwen-max', [], stage='script', program=program)  # 旧式：无模式
+        stage_config.put_workflow(self.desktop.root, {})
+        stage_config.put(self.desktop.root, 'script', writer_style='')
+        panel = skill_panel.Panel(self.win, self.desktop, 'script')
+        self.addCleanup(panel.destroy)
+        values = list(panel.presets.cget('values'))
+        self.assertEqual(values, ['请选择', '—— 短剧 ——', '甲', '—— 动画 ——', '乙', '—— 未分类 ——', '丙'])
+        panel.preset.set('—— 动画 ——')
+        self.assertIsNone(panel.apply_preset())
+        self.assertEqual(panel.preset.get(), '请选择')
+        panel.preset.set('甲')
+        panel.apply_preset()
+        self.assertEqual(stage_config.current_workflow(self.desktop.root).get('name'), master)
+        self.assertEqual(stage_config.workflow_lock(self.desktop.root).get('track'), '短剧')
+        self.assertEqual(stage_config.writer_style(self.desktop.root, 'script'), '好莱坞')
+        self.assertEqual(panel.workflow_choice.get(), master)
+        panel.preset.set('丙')       # 旧式预设不带总控与风格：套用后保持原样
+        panel.apply_preset()
+        self.assertEqual(stage_config.current_workflow(self.desktop.root).get('name'), master)
+        self.assertEqual(stage_config.writer_style(self.desktop.root, 'script'), '好莱坞')
 
     def test_preset_controls_have_a_concise_green_hint(self):
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')

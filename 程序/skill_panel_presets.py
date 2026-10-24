@@ -10,11 +10,44 @@ import stage_config
 from pet_bus import STAGE_NAMES
 from skill_panel_support import program_of
 from ui_tokens import BUTTON_GAP, SPACING
-from ui_widgets import BaseDialog, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
+from ui_widgets import (BaseDialog, DescriptionBlock, FormDialog, PrimaryButton, SecondaryButton,
+                        SelectBox, ask_string)
 
 
 # 预设不是必填项；用明确的占位项避免刚打开面板就误把第一份预设当作当前选择。
 PRESET_PLACEHOLDER = '请选择'
+GROUP_MARK = '——'      # 下拉框里的创作模式分组标题：「—— 短剧 ——」，只读，选中不套用
+
+
+def group_title(mode):
+    return '%s %s %s' % (GROUP_MARK, mode, GROUP_MARK)
+
+
+class ModeDialog(FormDialog):
+    """保存预设时选创作模式；结果在 ``result``，取消保持 None。"""
+
+    def __init__(self, parent, initial):
+        self.result = None
+        super().__init__(parent, '预设的创作模式')
+        DescriptionBlock(self.content, text='预设归到哪个创作模式（下拉框按模式分组）：').pack(
+            fill='x', pady=(SPACING['none'], SPACING['md']))
+        self.choice = tk.StringVar(value=initial if initial in stage_config.PRESET_MODES
+                                   else stage_config.PRESET_MODES[0])
+        SelectBox(self.content, textvariable=self.choice, values=list(stage_config.PRESET_MODES)).pack(anchor='w')
+        self.add_form_actions('确定', self._confirm)
+
+    def _confirm(self):
+        self.result = self.choice.get()
+        self.close()
+
+
+def ask_preset_mode(parent, initial=''):
+    dialog = ModeDialog(parent, initial)
+    try:
+        dialog.wait_window()
+    except tk.TclError:
+        return None
+    return dialog.result
 
 
 class PresetMixin:
@@ -93,12 +126,22 @@ class PresetMixin:
         """把预设下拉框的选项与选中的那一份对齐（第 62 期任务 1／4：三处调用合成一处）。
 
         存／删／改名之后都要做同一件事，各写一遍迟早走偏（下拉框里留着一份已经不存在的
-        预设，或者删完了还选着它）。
+        预设，或者删完了还选着它）。选项按创作模式分组，组标题不可套用。
         """
-        names = self.preset_names()
-        self.presets.set_values([PRESET_PLACEHOLDER] + names)
+        values, names = [PRESET_PLACEHOLDER], []
+        try:
+            groups = stage_config.preset_groups(program_of(self.desktop), self.stage)
+        except Exception:
+            groups = []
+        for mode, labels in groups:
+            values.append(group_title(mode))
+            values.extend(labels)
+            names.extend(labels)
+        self.presets.set_values(values)
+        picked = str(picked or '').strip()
         self.preset.set(picked if picked in names else PRESET_PLACEHOLDER)
-        return names
+        self._preset_shown = self.preset.get()
+        return sorted(names)
 
     def save_preset(self):
         """存一份预设；默认填当前预设，保留同名即可覆盖它。"""
@@ -110,8 +153,18 @@ class PresetMixin:
         if not name:
             return ''
         replaced = name in self.preset_names()
-        stage_config.save_preset(name, self.model_id(), self.selected(),
-                                 stage=self.stage, program=program_of(self.desktop))
+        program = program_of(self.desktop)
+        known = stage_config.presets(program, self.stage).get(' '.join(name.split())) or {}
+        mode = ask_preset_mode(self.winfo_toplevel(), known.get('mode') or stage_config.preset_mode(known))
+        if mode is None:
+            return ''
+        project = self.project()
+        extra = {'mode': mode, 'workflow': stage_config.current_workflow(project),
+                 'lock': stage_config.workflow_lock(project)}
+        if self.stage in stage_config.WRITER_STYLE_STAGES:
+            extra['writer_style'] = stage_config.writer_style(project, self.stage, self.registry)
+        stage_config.save_preset(name, self.model_id(), self.selected(), stage=self.stage,
+                                 program=program, extra=extra)
         self.show_presets(name)
         self.state.configure(text=('已覆盖预设：' if replaced else '已存预设：') + name)
         return name
@@ -156,9 +209,17 @@ class PresetMixin:
         name = str(self.preset.get() or '').strip()
         if not name or name == PRESET_PLACEHOLDER:
             return None
+        if name not in self.preset_names():
+            # 选中的是分组标题：不套用，下拉框退回刚才的选择。
+            self.preset.set(getattr(self, '_preset_shown', PRESET_PLACEHOLDER))
+            return None
+        import workflow_settings
         entry = stage_config.apply_preset(self.project(), self.stage, name, registry=self.registry,
-                                          program=program_of(self.desktop))
+                                          program=program_of(self.desktop),
+                                          known_workflows=workflow_settings.refresh_workflow_presets())
         self.load()
-        self.state.configure(text='已套用预设：' + name)
+        master = (stage_config.presets(program_of(self.desktop), self.stage).get(name) or {}).get('workflow') or {}
+        missing = master.get('name') and not stage_config.current_workflow(self.project()).get('name') == master['name']
+        self.state.configure(text='已套用预设：' + name + ('（总控「%s」已不存在，未套用）' % master['name'] if missing else ''))
         self.show_desktop_route_notice()
         return entry
