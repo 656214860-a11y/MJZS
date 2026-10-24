@@ -56,7 +56,7 @@ class PetAccessibilityBatch9Tests(PetTestCase):
             self.assertEqual(str(hit.cget('highlightcolor')), COLORS['focus'])
         paws_y = self.pet.paws.winfo_rooty()
         for index, hit in enumerate(hits):
-            paw_centre = (paws_y + index * (pet_ui_support.PAW_SIZE + pet_ui_support.PAW_GAP)
+            paw_centre = (paws_y + index * pet_ui_support.PAW_STEP
                           + pet_ui_support.PAW_SIZE / 2 + pet_ui_support.paw_dy(index))
             hit_centre = hit.winfo_rooty() + hit.winfo_height() / 2
             self.assertLessEqual(abs(paw_centre - hit_centre), 1,
@@ -83,7 +83,7 @@ class PetAccessibilityBatch9Tests(PetTestCase):
     def test_clicks_across_the_paw_hit_union_pick_the_nearest_visual_centre(self):
         """重叠命中区里点哪儿，都该落在视觉中心最近的那只爪上（竖向猫爪列）。"""
         self.show_window()
-        step = pet_ui_support.PAW_SIZE + pet_ui_support.PAW_GAP
+        step = pet_ui_support.PAW_STEP
         hits = self.pet.paw_hits
         for hit in hits:
             self.assertGreaterEqual(hit.winfo_height(), CONTROL_HIT_MIN)
@@ -98,11 +98,16 @@ class PetAccessibilityBatch9Tests(PetTestCase):
 
         left = min(hit.winfo_rootx() for hit in hits)
         right = max(hit.winfo_rootx() + hit.winfo_width() for hit in hits)
+        # 猫爪列与头像底边对齐后，第一只爪的 36px 命中区会高出标题行顶：只采样可见段，
+        # 保证「重叠命中区点哪儿都落在最近那只爪上」的断言仍然覆盖整个可点区域。
+        visible_top = self.pet.paws.master.winfo_rooty() + 2
+        visible_bottom = self.pet.paws.master.winfo_rooty() + self.pet.paws.master.winfo_height() - 2
         ys = list(centres)
         for top, bottom in zip(centres, centres[1:]):
             middle = (top + bottom) / 2
             ys.extend((middle - 3, middle, middle + 3))
-        ys.extend((centres[0] - 15, centres[2] + 15))
+        ys.extend((max(centres[0] - 15, visible_top),
+                   min(centres[2] + 15, visible_bottom)))
 
         calls = []
         self.pet.set_paw_level = calls.append
