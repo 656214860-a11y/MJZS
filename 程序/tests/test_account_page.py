@@ -75,7 +75,7 @@ class AccountPageTests(unittest.TestCase):
         self.assertIn('套餐：免费试用',texts)
         self.assertIn('退出登录',texts)
         self.assertEqual([c[0] for c in client.calls],['send_code','verify_code'])
-        logout=[w for w in d.content.winfo_children() for w in [w,*w.winfo_children()] if _safe_text(w)=='退出登录'][0]
+        logout=[w for w in _walk(d.content) if _safe_text(w)=='退出登录'][0]   # R2025：按钮随状态卡标题行右移，改递归查找
         logout.invoke();self.pump()
         self.assertIn('当前状态：未登录',_texts(d.content))
 
@@ -104,7 +104,7 @@ class AccountPageTests(unittest.TestCase):
         d.go_page(PAGE_ACCOUNT);self.pump()
         texts=_texts(d.content)
         self.assertTrue(any('已于 ' in t and '到期' in t for t in texts))
-        self.assertTrue(any('请联系发放兑换码的渠道' in t for t in texts))
+        self.assertTrue(any('输入兑换码即可续期' in t for t in texts))   # R2025 契约变更：文案精简
         self.assertEqual(d.account_button.cget('text'),ACCOUNT_TITLE)
         d.account.logout();d.show(PAGE_ACCOUNT);self.pump()          # 还原成未登录页，不影响后续用例
 
