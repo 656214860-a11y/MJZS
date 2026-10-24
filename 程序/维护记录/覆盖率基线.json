@@ -354,6 +354,12 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_master_update.py",
+   "covered": 0,
+   "total": 33,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_asset_pages.py",
    "covered": 0,
    "total": 570,
@@ -723,6 +729,12 @@
    "module": "master_skill.py",
    "covered": 0,
    "total": 125,
+   "percent": 0.0
+  },
+  {
+   "module": "master_skill_update.py",
+   "covered": 0,
+   "total": 214,
    "percent": 0.0
   },
   {
@@ -1885,5 +1897,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 312
+ "modules_total": 314
 }

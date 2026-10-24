@@ -74,6 +74,21 @@ def watched_files(preset, registry=None, program=PROGRAM):
     return ordered
 
 
+def stage_skill_files(preset, registry=None):
+    """每个阶段的总控 SKILL 文件及其直接 Markdown 引用：{阶段: [绝对路径]}，供更新摘要按阶段归类。"""
+    registry = registry or skill_registry.default_registry()
+    out = {}
+    for stage, ids in (preset.get('stage_skills') or {}).items():
+        files = []
+        for sid in ids:
+            path = _skill_path(registry, sid)
+            if path is not None:
+                files.append(path.resolve())
+                files.extend(_reference_files(path))
+        out[stage] = files
+    return out
+
+
 def fingerprint(preset, registry=None, program=PROGRAM):
     digest = hashlib.sha256()
     for path in watched_files(preset, registry, program):
