@@ -10,6 +10,7 @@ from tkinter import ttk
 
 import entitlement_service
 from app_metadata import APP_NAME
+from desktop_page_registry import PAGE_ACCOUNT
 from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING
 
 LOGIN_GATE_NOTE = '请先登录账号；没有账号请点「注册」。新账号免费试用 3 天；项目和素材始终留在本机，不上传。'
@@ -60,6 +61,9 @@ class LoginGateMixin:
         if self._login_gate_startup_pending:
             self._login_gate_startup_pending = False
             self._login_gate_start()
+        # R2046：闸门下面那页是登录前画的；停在「会员账户」页就重画，否则露出过期的「未登录」画面。
+        if getattr(self, 'page_index', None) == PAGE_ACCOUNT:
+            self.show(PAGE_ACCOUNT)
 
     def recheck_login_gate(self):
         """会话被清（退出登录、解绑本机、注销、续签判定会话已死）后，回到登录闸。"""
