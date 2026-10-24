@@ -1,5 +1,6 @@
 """Shared, lazy project workspace. Standard-library-only desktop UI."""
 import app_logging
+import page_navigation_controller as page_nav
 from desktop_idea_menus import IdeaMenusMixin
 from desktop_asset_pages import AssetPagesMixin, AssetPageServices
 from desktop_script_pages import ScriptPagesMixin, ScriptPageServices
@@ -605,62 +606,17 @@ class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPage
         # 先停掉定时器再销毁窗口：残留的 after 回调会在 Tk 里报 invalid command name。
         if event is not None and event.widget is not self.win:return
         self.shutting_down=True;self.cancel_resize()
-        for name in ('_navigation_job','_sidebar_fit_job'):
-            job=getattr(self,name,None)
-            if job is not None:
-                try:self.win.after_cancel(job)
-                except tk.TclError:pass
-            setattr(self,name,None)
+        cancel=lambda job:self.win.after_cancel(job)    # 惰性取 win：最小替身没有登记任务时不会碰它
+        page_nav.cancel_jobs(self,page_nav.NAV_TIMER_JOBS,cancel,tk.TclError)
         # 计时器回归会构造最小 Desktop 替身；真实窗口在 __init__ 中必定拥有这些
         # 生命周期登记器，但关闭路径也必须兼容尚未完成初始化的窗口。
-        for lifecycle_name in ('background_tasks','cloud_monitor_tasks','auto_asset_tasks','auto_keyframe_tasks','auto_video_tasks','auto_edit_tasks','auto_handoff_tasks','auto_previs_tasks'):
-            lifecycle=getattr(self,lifecycle_name,None)
-            if lifecycle is not None:lifecycle.cancel()
+        page_nav.cancel_lifecycles(self)
         # ``fit_content`` 的空闲布局任务属于桌面窗口；若关闭发生在首帧／重建之间，
         # 必须在销毁 Tcl 回调前取消，否则会留下 ``...run`` 的 after 噪声。
-        fit_job=getattr(self,'_fit_job',None)
-        self._fit_job=None
+        page_nav.cancel_jobs(self,('_fit_job',),cancel,tk.TclError)
         self._fit_pending=False
         self._fit_again=False
-        if fit_job is not None:
-            try:self.win.after_cancel(fit_job)
-            except tk.TclError:pass
-        startup_tick_resume=getattr(self,'_startup_tick_resume_id',None)
-        self._startup_tick_resume_id=None
-        if startup_tick_resume is not None:
-            try:self.win.after_cancel(startup_tick_resume)
-            except tk.TclError:pass
-        startup_page=getattr(self,'_startup_project_page_job',None)
-        self._startup_project_page_job=None
-        if startup_page is not None:
-            try:self.win.after_cancel(startup_page)
-            except tk.TclError:pass
-        startup_script_build=getattr(self,'_startup_script_build_job',None)
-        self._startup_script_build_job=None
-        if startup_script_build is not None:
-            try:self.win.after_cancel(startup_script_build)
-            except tk.TclError:pass
-        startup_recovery=getattr(self,'_startup_project_recovery_job',None)
-        self._startup_project_recovery_job=None
-        if startup_recovery is not None:
-            try:self.win.after_cancel(startup_recovery)
-            except tk.TclError:pass
-        legacy_migration_poll=getattr(self,'_legacy_project_migration_poll_id',None)
-        self._legacy_project_migration_poll_id=None
-        if legacy_migration_poll is not None:
-            try:self.win.after_cancel(legacy_migration_poll)
-            except tk.TclError:pass
-        async_result_poll=getattr(self,'_async_result_poll_id',None)
-        self._async_result_poll_id=None
-        if async_result_poll is not None:
-            try:self.win.after_cancel(async_result_poll)
-            except tk.TclError:pass
-        for name in ('_auto_edit_result_poll_id','_auto_handoff_result_poll_id'):
-            result_poll=getattr(self,name,None)
-            setattr(self,name,None)
-            if result_poll is not None:
-                try:self.win.after_cancel(result_poll)
-                except tk.TclError:pass
+        page_nav.cancel_jobs(self,page_nav.STARTUP_TIMER_JOBS,cancel,tk.TclError)
         self.idea_chat_controller.cancel_request()
         # 宠物的动画循环也挂在这个窗口上（同一个 after 表）：不一起停掉，关窗后它还会到期一次，
         # 控制台就会报 invalid command name "…step" ("after" script)。
@@ -1014,7 +970,7 @@ class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPage
         选定之后再点就直接进那一侧；想换一侧用页里的「返回生成方式」。
         """
         if index==PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
-        mode='choose' if (index==PAGE['video'] and not getattr(self,'video_mode_picked',False)) else None
+        mode=page_nav.sidebar_video_mode(index,PAGE,getattr(self,'video_mode_picked',False))
         # 即刻反馈最后一次点击，包括连续点击后又回到当前页的情况。
         try:
             self.mark_nav(index)
@@ -1054,14 +1010,12 @@ class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPage
             self.content=base
         cache=getattr(self,'_page_cache',None)
         if cache is None:cache=self._page_cache={}
-        for key,entry in list(cache.items()):
-            stale=entry['root']!=self.root or not entry['holder'].winfo_exists()
-            if not stale and key==index==PAGE['script_structure']:
-                from script_workspace_service import script_structure_signature
-                stale=entry.get('signature')!=script_structure_signature(self.root)
-            if stale or (key==index and (same_page or not getattr(self,'_reuse_cached_page',False))):
-                cache.pop(key)
-                if entry['holder'].winfo_exists():entry['holder'].destroy()
+        from script_workspace_service import script_structure_signature
+        for key in page_nav.stale_cache_keys(cache,index,PAGE,root=self.root,
+                rebuild=same_page or not getattr(self,'_reuse_cached_page',False),
+                alive=lambda entry:entry['holder'].winfo_exists(),signature=script_structure_signature):
+            entry=cache.pop(key)
+            if entry['holder'].winfo_exists():entry['holder'].destroy()
         # 命中时直接从旧页换到目标页，避免先映射公共空框再映射缓存页的两次布局。
         if index not in cache:self.canvas.itemconfigure(self.content_id,window=base)
         return cache
@@ -1079,9 +1033,7 @@ class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPage
         self.content=holder
         self.canvas.itemconfigure(self.content_id,window=holder)
         builder()
-        note=self.status.get()
-        cache[index]={'holder':holder,'root':self.root,'stage_button':self.stage_button,
-                      'note':'' if note==str(self.root) else note}
+        cache[index]=page_nav.cache_entry(holder,self.root,self.stage_button,self.status.get(),str(self.root))
         if index==PAGE['script_structure']:
             from script_workspace_service import script_structure_signature
             cache[index]['signature']=script_structure_signature(self.root)
@@ -1103,17 +1055,18 @@ class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPage
             return
         # 第 26 期第 3 条：07 步还没选生成方式时不需要分镜——「选择分镜」下拉框与那道
         # 「先采用分镜」的闸门都留到选定方式之后，选定方式那一页本来也不挑镜头。
-        choosing_video=index==PAGE['video'] and getattr(self,'video_mode',None) not in ('local','cloud')
-        if index in (PAGE['keyframe'],PAGE['previs']) or (index==PAGE['video'] and not choosing_video):
+        choosing_video=page_nav.choosing_video(index,PAGE,getattr(self,'video_mode',None))
+        def adopted_storyboards():
             from storyboard_selection import prefs
-            if prefs(self.root).get('adopted_storyboards')==[]:
-                message='请先在'+pet_bus.stage_step('storyboard')+'采用一份或多份分镜 JSON。'
-                # 不能只写到底部状态栏：视频工作台被阻止时，用户的视线仍在当前内容区。
-                ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['lg'])
-                self.note(message)
-                self.fit_content()
-                return
-        if PAGE['assets']<=index<=PAGE['audio'] and not choosing_video and not (index==PAGE['assets'] and (getattr(self,'asset_detail_id',None) or getattr(self,'asset_roster',False))):
+            return prefs(self.root).get('adopted_storyboards')
+        if page_nav.needs_adopted_storyboard(index,PAGE,choosing_video,adopted_storyboards):
+            message='请先在'+pet_bus.stage_step('storyboard')+'采用一份或多份分镜 JSON。'
+            # 不能只写到底部状态栏：视频工作台被阻止时，用户的视线仍在当前内容区。
+            ttk.Label(self.content,text=message,style='Muted.TLabel').pack(anchor='w',padx=SPACING['lg'],pady=SPACING['lg'])
+            self.note(message)
+            self.fit_content()
+            return
+        if page_nav.needs_source_selector(index,PAGE,choosing_video,bool(getattr(self,'asset_detail_id',None) or getattr(self,'asset_roster',False))):
             from storyboard_selection import source_selector
             source_selector(self,index,select_box=SelectBox)
         # 08／09 步直接读工作集：切换分镜或自动采用后必须先让工作集跟上，否则会按旧分镜拼接和交付。
@@ -1208,18 +1161,12 @@ class Desktop(AutoStateAliasesMixin, AccountPageMixin, IdeaMenusMixin, AssetPage
             prefs=_prefs(prefs_path)
             # 第 32 期第 3 条：本次启动第一次进这一页，先摆「选择生成方式」；用户在这里选过一次
             # 之后，来回切页仍按他刚选的那个模式进，不会被反复拦在选择页上。
-            if video_mode=='choose':
-                self.video_mode=None;self.video_mode_picked=False
-            elif video_mode:
-                self.video_mode=video_mode
-            else:
-                self.video_mode=prefs.get('last_video_mode') if getattr(self,'video_mode_picked',False) else None
-            if self.video_mode in ('cloud','local'):
-                self.video_mode_picked=True
-                if prefs_path and prefs.get('last_video_mode')!=self.video_mode:
-                    from stage_execution_service import publish_cloud_video_workspace_preference
-                    prefs['last_video_mode']=self.video_mode
-                    publish_cloud_video_workspace_preference(prefs_path,prefs)
+            self.video_mode,picked,save=page_nav.next_video_mode(video_mode,getattr(self,'video_mode_picked',False),prefs.get('last_video_mode'))
+            if picked!=getattr(self,'video_mode_picked',False):self.video_mode_picked=picked
+            if save and prefs_path:
+                from stage_execution_service import publish_cloud_video_workspace_preference
+                prefs['last_video_mode']=self.video_mode
+                publish_cloud_video_workspace_preference(prefs_path,prefs)
         else:self.video_mode=None
         if self.video:
             self.video.window.pack_forget()

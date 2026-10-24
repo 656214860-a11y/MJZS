@@ -344,7 +344,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 1085,
+   "total": 1044,
    "percent": 0.0
   },
   {
@@ -734,7 +734,7 @@
   {
    "module": "media_page_controller.py",
    "covered": 0,
-   "total": 147,
+   "total": 145,
    "percent": 0.0
   },
   {
@@ -759,6 +759,12 @@
    "module": "native_assets.py",
    "covered": 0,
    "total": 437,
+   "percent": 0.0
+  },
+  {
+   "module": "page_navigation_controller.py",
+   "covered": 0,
+   "total": 58,
    "percent": 0.0
   },
   {
@@ -1897,5 +1903,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 314
+ "modules_total": 315
 }
