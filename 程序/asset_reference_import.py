@@ -8,7 +8,7 @@ from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_
 from ui_dialogs import FileDialog
 from ui_widgets import (SelectBox, BaseDialog, Card, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
-from ui_tokens import TEXT_ROWS, WRAPLENGTH, SPACING
+from ui_tokens import BUTTON_GAP, TEXT_ROWS, WRAPLENGTH, SPACING
 
 
 def save_images(base,aid,role,paths,active_ids,pending=False):
@@ -110,9 +110,9 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
             app.status.set('已解除 '+str(len(values))+' 张「'+role+'」参考图绑定，文件已移入回收站。')
             win.destroy()
         except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='删除未完成')
-    PrimaryButton(buttons,text='保存',command=commit).pack(side='left')
-    SecondaryButton(buttons,text='删除参考图',command=remove_refs).pack(side='left',padx=(SPACING['sm'],SPACING['none']))
-    SecondaryButton(buttons,text='取消',command=win.destroy).pack(side='right')
+    SecondaryButton(buttons,text='删除参考图',command=remove_refs).pack(side='left')
+    PrimaryButton(buttons,text='保存',command=commit).pack(side='right')
+    SecondaryButton(buttons,text='取消',command=win.destroy).pack(side='right',padx=(SPACING['none'],BUTTON_GAP))
     update_categories();win.update_idletasks()
     x=max(0,parent.winfo_rootx()+(parent.winfo_width()-win.winfo_width())//2);y=max(0,parent.winfo_rooty()+(parent.winfo_height()-win.winfo_height())//2)
     win.geometry(f'+{x}+{y}');win.deiconify()

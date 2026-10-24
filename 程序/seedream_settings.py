@@ -7,7 +7,7 @@ import tk_timers
 from ui_widgets import (SelectBox, Card, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
 from ui_widgets import BaseDialog
-from ui_tokens import WRAPLENGTH, SPACING
+from ui_tokens import BUTTON_GAP, WRAPLENGTH, SPACING
 
 
 def confirm_unsettled(parent,folder,values,what='镜头'):
@@ -98,10 +98,10 @@ def show(parent,on_saved=None):
             status.set(text);stop()
         threading.Thread(target=run,daemon=True).start()
         stop=tk_timers.repeat(win,150,poll);poll()
-    PrimaryButton(row,text='保存',command=commit).pack(side='left')
-    SecondaryButton(row,text='检查配置',command=check).pack(side='left',padx=SPACING['xs'])
-    SecondaryButton(row,text='测试连接',command=probe).pack(side='left',padx=SPACING['xs'])
-    SecondaryButton(row,text='打开火山控制台',command=lambda:webbrowser.open('https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey')).pack(side='left',padx=SPACING['xs'])
-    SecondaryButton(row,text='取消',command=win.destroy).pack(side='right')
+    SecondaryButton(row,text='检查配置',command=check).pack(side='left')
+    SecondaryButton(row,text='测试连接',command=probe).pack(side='left',padx=(BUTTON_GAP,SPACING['none']))
+    SecondaryButton(row,text='打开火山控制台',command=lambda:webbrowser.open('https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey')).pack(side='left',padx=(BUTTON_GAP,SPACING['none']))
+    PrimaryButton(row,text='保存',command=commit).pack(side='right')
+    SecondaryButton(row,text='取消',command=win.destroy).pack(side='right',padx=(SPACING['none'],BUTTON_GAP))
     win.update_idletasks();x=max(0,parent.winfo_rootx()+(parent.winfo_width()-win.winfo_width())//2);y=max(0,parent.winfo_rooty()+(parent.winfo_height()-win.winfo_height())//2)
     win.geometry(f'+{x}+{y}');win.deiconify()

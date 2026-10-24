@@ -7,14 +7,21 @@
 """
 from __future__ import annotations
 
+import re
 import tkinter as tk
 import unittest
+from pathlib import Path
 from tkinter import ttk
 
 import ui_theme
 from ui_rounded import set_button_padding
 from ui_tokens import (BUTTON_GAP, BUTTON_GAP_TIGHT, BUTTON_MIN_WIDTH, NAV_PADDING_X,
                        NAV_PADDING_Y, NAV_PADDING_Y_COMPACT, SPACING)
+
+ROOT = Path(__file__).resolve().parents[1]
+DIALOG_FILES = ("asset_reference_import.py", "seedream_settings.py", "reference_wall.py",
+                "background_characters.py", "skill_panel_presets.py", "skill_panel_workflow.py",
+                "pet_models_ui.py")
 
 STYLES = ("TButton", "Primary.TButton", "Tokens.Primary.TButton", "Tokens.Secondary.TButton",
           "Tokens.Danger.TButton", "Tokens.Icon.TButton", "Tokens.Text.TButton",
@@ -47,6 +54,31 @@ class ButtonConsistencyTests(unittest.TestCase):
                 self.assertEqual(2 * normal[1], pressed[1] + pressed[3],
                                  "按下态上下内边距之和必须等于常态，按下不得改变总高")
                 self.assertEqual(pressed[1], pad_y + 1, "按下态必须以新内边距为基准")
+
+
+class ButtonRuleContractTests(unittest.TestCase):
+    """R1973：页面不再各自维护按钮宽度常量；弹窗底栏「取消／关闭」紧贴主操作左侧，间距取 BUTTON_GAP。"""
+
+    def test_page_width_constants_come_from_tokens(self):
+        import desktop_page_support
+        import desktop_script_pages
+        from ui_tokens import BUTTON_WIDTH_EDIT, BUTTON_WIDTH_STAGE, CHAR_WIDTH
+        self.assertEqual(desktop_page_support.STAGE_ACTION_WIDTH, BUTTON_WIDTH_STAGE)
+        self.assertEqual(desktop_script_pages.SCRIPT_EDIT_BUTTON_WIDTH, BUTTON_WIDTH_EDIT)
+        self.assertEqual(BUTTON_WIDTH_STAGE, CHAR_WIDTH["3xl"])
+
+    def test_dialog_cancel_buttons_are_right_packed_with_the_gap_token(self):
+        pattern = re.compile(r"text='(取消|关闭)'.*pack\(")
+        for name in DIALOG_FILES:
+            text = (ROOT / name).read_text(encoding="utf-8")
+            lines = text.splitlines()
+            for index, line in enumerate(lines):
+                if not pattern.search(line):
+                    continue
+                call = " ".join(lines[index:index + 2])
+                with self.subTest(file=name, line=index + 1):
+                    self.assertIn("side='right'", call.replace('"', "'"), "取消／关闭必须靠右，紧挨主操作左侧")
+                    self.assertIn("BUTTON_GAP", call, "取消／关闭与主操作的间距必须取 BUTTON_GAP")
 
 
 if __name__ == "__main__":

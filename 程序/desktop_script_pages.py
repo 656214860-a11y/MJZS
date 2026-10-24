@@ -19,6 +19,7 @@ from pathlib import Path
 from responsive_ui import FlowBar
 from tkinter import ttk
 from ui_tokens import (
+    BUTTON_WIDTH_EDIT,
     COLORS,
     SCRIPT_VIEW_FONT,
     SCRIPT_VIEW_PADDING,
@@ -72,7 +73,7 @@ def _build_script_preview(text_area):
     return preview, horizontal
 
 
-SCRIPT_EDIT_BUTTON_WIDTH = 7  # 编辑/后退/恢复三按钮的字符宽度，给下拉框让出横向空间。
+SCRIPT_EDIT_BUTTON_WIDTH = BUTTON_WIDTH_EDIT  # 编辑/后退/恢复三按钮的字符宽度，给下拉框让出横向空间。
 
 
 class _DocumentPicker(ttk.Combobox):

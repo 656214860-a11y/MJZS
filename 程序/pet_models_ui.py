@@ -14,7 +14,7 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 import model_pool
-from ui_tokens import TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, SPACING, TEXT_DESC, TEXT_HINT
+from ui_tokens import BUTTON_GAP, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, SPACING, TEXT_DESC, TEXT_HINT
 from ui_dialogs import FileDialog
 from ui_widgets import (BusyState, NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
                         LineInput, PrimaryButton, SecondaryButton)
@@ -340,15 +340,15 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
     bar.pack(fill='x')
     SecondaryButton(bar, text='测试连接', command=probe_all).pack(side='left')
     SecondaryButton(bar, text='小样本验证',
-                    command=probe_sample).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+                    command=probe_sample).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
     # 主操作贴最右，取消（关闭）紧挨其左，重置再往左：关窗键不再压在主按钮右侧。
     if show_save:
         PrimaryButton(bar, text='保存', command=save).pack(side='right')
     if close is not None:
         SecondaryButton(bar, text='关闭', command=close).pack(
-            side='right', padx=(SPACING['none'], SPACING['sm']))
+            side='right', padx=(SPACING['none'], BUTTON_GAP))
     SecondaryButton(bar, text='重置', command=reset).pack(
-        side='right', padx=(SPACING['none'], SPACING['sm']))
+        side='right', padx=(SPACING['none'], BUTTON_GAP))
     return {'hint': hint, 'refresh': refresh, 'picked': picked, 'states': states, 'records': records,
             'choice_groups': choices, 'probe_all': probe_all, 'probe_sample': probe_sample,
             'save': save, 'reset': reset,
@@ -497,7 +497,7 @@ class _ModelManager:
         key_row.grid(row=index, column=1, sticky='w')
         self.key_entry = LineInput(key_row, width=SECRET_FIELD_WIDTH, show='*')
         self.key_entry.pack(side='left')
-        SecondaryButton(key_row, text='保存到本机', command=lambda: self.local_save()).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+        SecondaryButton(key_row, text='保存到本机', command=lambda: self.local_save()).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
         SecondaryButton(key_row, text='清除本机密钥', command=lambda: self.local_clear()).pack(side='left', padx=(SPACING['xs'], SPACING['none']))
         # 密钥状态紧跟在按钮后面，不再单独占一行。
         self.key_state = tk.StringVar(value='')
@@ -574,17 +574,17 @@ class _ModelManager:
         bar.pack(fill='x')
         SecondaryButton(bar, text='新建一条', command=self.new_one).pack(side='left')
         self.probe_button = SecondaryButton(bar, text='测试连接', command=self.probe_one)
-        self.probe_button.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+        self.probe_button.pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
         self.provider.trace_add('write', self.refresh_connection_fields)
         self.mode.trace_add('write', self.changed_identity)
         self.model_text.trace_add('write', self.changed_identity)
         self.refresh_connection_fields()
         SecondaryButton(bar, text='删除这条', command=self.delete_one).pack(
-            side='left', padx=(SPACING['sm'], SPACING['none']))
+            side='left', padx=(BUTTON_GAP, SPACING['none']))
         # 主操作贴最右，取消（关闭）紧挨其左：关窗键不再压在主按钮右侧。
         PrimaryButton(bar, text='保存这条', command=self.save_one).pack(side='right')
         SecondaryButton(bar, text='关闭', command=self.win.destroy).pack(
-            side='right', padx=(SPACING['none'], SPACING['sm']))
+            side='right', padx=(SPACING['none'], BUTTON_GAP))
         self.win._pet_api_controls = self.api_controls
         self.win._pet_program_row = self.program_row
         self.win._pet_reload = self.load_rows

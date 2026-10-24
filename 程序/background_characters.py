@@ -6,7 +6,7 @@ from pathlib import Path
 from agent.core import read, save
 from responsive_ui import scroll_form
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
-from ui_tokens import WRAPLENGTH, SPACING
+from ui_tokens import BUTTON_GAP, WRAPLENGTH, SPACING
 
 # 名称/别名匹配（高置信，命中的会展示给用户二次确认）
 NAME_KEYWORDS = (
@@ -171,4 +171,4 @@ def show(desktop):
         desktop.status.set(f'已标记 {n} 个背景人物为不建档，并清理 {touched} 份分镜中的引用。')
 
     PrimaryButton(footer, text='标记为背景人物', command=confirm).pack(side='right')
-    SecondaryButton(footer, text='取消', command=win.destroy).pack(side='right', padx=SPACING['xs'])
+    SecondaryButton(footer, text='取消', command=win.destroy).pack(side='right', padx=(SPACING['none'], BUTTON_GAP))

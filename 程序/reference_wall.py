@@ -14,7 +14,7 @@ from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
 from ui_dialogs import FileDialog
-from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, SPACING
+from ui_tokens import BUTTON_GAP, CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, SPACING
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, notify
 
 
@@ -104,8 +104,8 @@ class _ReferenceWall:
         SecondaryButton(tools, text='重新打分', command=lambda: self.safe(self.reload)).pack(side='left')
         SecondaryButton(bottom, text='打开候选清单…',
                         command=lambda: self.safe(self.pick_file)).pack(side='left')
-        PrimaryButton(bottom, text='确认入库', command=self.safe_commit).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
-        SecondaryButton(bottom, text='取消', command=self.win.destroy).pack(side='right')
+        PrimaryButton(bottom, text='确认入库', command=self.safe_commit).pack(side='right')
+        SecondaryButton(bottom, text='取消', command=self.win.destroy).pack(side='right', padx=(SPACING['none'], BUTTON_GAP))
 
         # 第 46 期第 1 条：内容框的右键菜单（查看／删除），目标永远是右键点中的那一行。
         bind_row_menu(self.table,

@@ -39,7 +39,7 @@ from desktop_startup_service import DesktopStartupController
 from desktop_account_page import AccountPageMixin
 from desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from idea_chat_controller import IdeaChatController, speaker_name
-from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
+from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 from ui_dialogs import FileDialog
 from ui_motion import Spinner, bind_row_hover
 from ui_shortcuts import ShortcutRegistry
@@ -75,9 +75,9 @@ def confirm_project_removal_from_last_script(parent, files):
         try:win.grab_release()
         except tk.TclError:pass
         win.destroy()
-    SecondaryButton(buttons,text='取消',command=close,width=CHAR_WIDTH['lg']).pack(side='right')
-    PrimaryButton(buttons,text='移入回收站',command=lambda:close(True),width=CHAR_WIDTH['xl'],
-                  style='Tokens.Danger.TButton').pack(side='right',padx=(SPACING['none'],SPACING['sm']))
+    SecondaryButton(buttons,text='取消',command=close,width=BUTTON_WIDTH_DIALOG).pack(side='right')
+    PrimaryButton(buttons,text='移入回收站',command=lambda:close(True),width=BUTTON_WIDTH_DIALOG,
+                  style='Tokens.Danger.TButton').pack(side='right',padx=(SPACING['none'],BUTTON_GAP))
     win.protocol('WM_DELETE_WINDOW',close)
     win.update_idletasks()
     x=max(0,parent.winfo_rootx()+(parent.winfo_width()-win.winfo_width())//2)

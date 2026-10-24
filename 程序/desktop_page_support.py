@@ -6,6 +6,7 @@
 ``bind_host`` 登记自身，本模块不导入 ``desktop``，没有导入环。多页共用的缩略图／行高常量也放这里。
 """
 from responsive_ui import row_height_for
+from ui_tokens import BUTTON_WIDTH_STAGE
 
 # 第 52 期第 3 条：资产管理「名称」「导入图片」两列的缩略图——长边 72 像素，行高 80（图上下留白）。
 # 第 65 期任务 4：用户要「缩略图缩小一倍」，这一档 72 → 36（行高跟着 fit_row_height 一起收）。
@@ -15,7 +16,7 @@ THUMB_SIZE = 36
 ASSET_ROW_HEIGHT = row_height_for(THUMB_SIZE)
 
 # 多个页面 Mixin 与 desktop 共用的页面常量与辅助（原在 desktop 模块级）。
-STAGE_ACTION_WIDTH=16  # 所有阶段主操作与“阶段配置”共用宽度，页面操作行左侧对齐。
+STAGE_ACTION_WIDTH=BUTTON_WIDTH_STAGE  # 所有阶段主操作与“阶段配置”共用宽度，页面操作行左侧对齐。
 
 # 第 31 期第 7 条：资产管理页「参考图」「资产图片」两行的标签宽度（字符数）——一样宽，
 # 两行按钮的左边缘才对得齐。

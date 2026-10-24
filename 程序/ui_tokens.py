@@ -79,6 +79,10 @@ CONTROL_PADDING_Y = SPACING["sm"]
 BUTTON_MIN_WIDTH = 11
 BUTTON_GAP = SPACING["sm"]
 BUTTON_GAP_TIGHT = SPACING["xs"]
+# 同类按钮的固定字符宽（页面不再各自维护常量）：阶段主操作／阶段配置、编辑栏小按钮、确认弹窗成对按钮。
+BUTTON_WIDTH_STAGE = CHAR_WIDTH["3xl"]
+BUTTON_WIDTH_EDIT = 7
+BUTTON_WIDTH_DIALOG = CHAR_WIDTH["xl"]
 # 侧栏导航按钮横向内边距与矮窗口（compact）纵向内边距；fit_sidebar 只经这些令牌改样式。
 NAV_PADDING_X = 10
 NAV_SUB_PADDING_X = 26

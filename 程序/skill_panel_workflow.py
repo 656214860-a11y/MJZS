@@ -69,7 +69,7 @@ import stage_models
 import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from storage_maintenance import recycle_paths
-from ui_tokens import (COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,
+from ui_tokens import (BUTTON_GAP, COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,
                        NOTE_HEIGHT_REGULAR, NOTE_LIST_MAX_WIDTH, NOTE_LIST_MIN_WIDTH,
                        NOTE_PADDING_X, NOTE_PADDING_Y, STAGE_PANEL_LAYOUT,
                        DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH)
@@ -318,9 +318,9 @@ class PanelWorkflowMixin:
             self.refresh_notes()
             self.refresh_external_package_hint()
             self.state.configure(text='总控已更新；未选择的阶段勾选已保留。' + self.sync_master_skill(quiet=True))
-        PrimaryButton(actions, text='确认套用', command=apply_selected).pack(side='left')
+        PrimaryButton(actions, text='确认套用', command=apply_selected).pack(side='right')
         SecondaryButton(actions, text='取消', command=dialog.close).pack(
-            side='left', padx=(SPACING['sm'], SPACING['none']))
+            side='right', padx=(SPACING['none'], BUTTON_GAP))
         # 先按表体自然高度量出窗口，再压到屏幕可用区内；表体差多少由滚动条补。
         dialog.update_idletasks()
         left, top, right, bottom = dialog_working_area(self.winfo_toplevel())
