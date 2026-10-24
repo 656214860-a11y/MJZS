@@ -5954,6 +5954,55 @@ class ForegroundTests(PetTestCase):
         self.assertEqual(self.pet.progress_voice(force=True), "", "进度气泡也不许冒")
         self.assertNotIn("进度", self.lines())
 
+    def test_nothing_pops_while_the_user_is_in_a_sub_window(self):
+        """人在阶段配置等子窗口里（本进程在前台，但不在主界面）：自动冒泡一律不弹。"""
+        self.here()
+        self.pet.main_view = lambda: False
+        self.assertFalse(self.pet.can_pop())
+        self.assertEqual(self.pet.progress_voice(force=True), "", "进度气泡不许压在子窗口上")
+        self.assertEqual(self.pet.whisper("顺手夸一句"), "")
+        self.pet.main_view = lambda: True
+        self.pet.tick_broadcast()                     # 第一拍只对表
+        self.pet.main_view = lambda: False
+        self.now += pet_ui.BROADCAST_IDLE + 1
+        self.assertEqual(self.pet.tick_broadcast(), "", "心跳播报也不冒")
+        self.assertFalse(self.pet.cloud().visible)
+        self.pet.main_view = lambda: True
+        self.assertTrue(self.pet.can_pop(), "回到主界面照常")
+        self.assertIn("分镜 JSON", self.pet.tick_broadcast())
+
+    def test_a_sub_window_does_not_pause_the_auto_run(self):
+        """子窗口不是「离开软件」：watch_focus 仍只看 attending，不因打开配置页把自动执行暂停。"""
+        self.here()
+        self.pet.main_view = lambda: False
+        self.assertTrue(self.pet.attending())
+        self.assertTrue(self.pet.watch_focus(at=self.now + 10 ** 6), "人还在软件里")
+        self.assertFalse(self.pet.agent.paused)
+
+    def test_the_main_view_judge_follows_the_focus_toplevel(self):
+        class Top:
+            def __init__(self, top):
+                self.top = top
+
+            def winfo_toplevel(self):
+                return self.top
+
+        main, other = type("Win", (), {})(), object()
+        self.addCleanup(setattr, self.pet, "win", self.pet.win)
+        self.pet.win = main
+        main.focus_get = lambda: Top(other)
+        self.assertFalse(self.pet.in_main_view(), "焦点在子窗口里")
+        main.focus_get = lambda: Top(main)
+        self.assertTrue(self.pet.in_main_view())
+        main.focus_get = lambda: None
+        self.assertTrue(self.pet.in_main_view(), "没有焦点时问不出来，当 True")
+
+        def boom():
+            raise KeyError("popdown")
+
+        main.focus_get = boom
+        self.assertTrue(self.pet.in_main_view(), "Tk 抛错也当 True，绝不抛")
+
     def test_a_line_said_while_away_goes_into_the_record_only(self):
         """第 49 期第 1 条：人切到别的应用时，这句话只进云朵记录、不把框顶出来。
 

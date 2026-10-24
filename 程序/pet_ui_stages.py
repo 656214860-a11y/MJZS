@@ -1167,7 +1167,7 @@ class PetStagesMixin:
             return ''                                  # 刚问过这一页：不重复问
         self._stage_page, self._stage_at = index, now
         try:
-            if self.muted(at=at) or not self.attending():
+            if self.muted(at=at) or not self.can_pop():
                 return ''
             if not force_prompt and not self.stage_needs_user(index, at=at):
                 return ''                  # 第 45 期：没什么非等用户点头的事，这句就咽下去

@@ -436,6 +436,7 @@ class Pet(PetStagesMixin, PetSettingsMixin, PetVoiceMixin, PetViewMixin, PetPopu
         # 说一句「缺什么、去哪儿补」；上游压根没开始时照旧往下走（第 47 期起的规矩）。
         self.auto.gate = self.gate_reason
         self._gate_said = ''              # 上一次因门禁停住时说过的那句：同一句不重复念
+        self.main_view = None             # 注入判据：True＝人在主界面（None＝按焦点所在顶层窗口判，见 in_main_view）
         self.front = front                # 第 30 期第 3 条：前台判据（None＝不设这道闸，见 attending）
         self._away_since = None           # 第 35 期第 1 条：离开助手界面的钟点（None＝人在界面里）
         self._away_paused = False         # 上面那次离开有没有把自动执行暂停下来（只认自己停的那一次）

@@ -182,7 +182,7 @@ class PetVoiceMixin:
                 return ''                      # 第 59 期第 8 条：栏／弹窗抽着指针：这一拍不冒气泡
             if self.cloud_visible() or self.muted(at=at):
                 return ''                      # 第 21 期：任何对话框露着就都不再开新的（「只能有一个」）
-            if not self.attending():
+            if not self.can_pop():
                 return ''                      # 用户在别的应用里：进度气泡也不冒（第 30 期第 3 条）
             if self.panel_quiet(at=now):
                 self._progress_at = now        # 用户自己看着明细：跳过这一次，重新计时
@@ -247,7 +247,7 @@ class PetVoiceMixin:
                 return ''
             if self.cloud_visible() or self.muted(at=at) or self.snoozing() or self.agent.paused:
                 return ''
-            if not self.attending():
+            if not self.can_pop():
                 return ''                      # 用户在别的应用里：不主动问（第 30 期第 3 条）
             state = state if state else self.snapshot(at=at)
             if self.busy(state=state):
@@ -497,7 +497,7 @@ class PetVoiceMixin:
         try:
             if self.cloud_visible(sticker_only=True) or self.muted(at=at):
                 return ''                  # 贴纸正露着或用户刚点掉云朵：这一次不说
-            if not self.attending():
+            if not self.can_pop():
                 return ''                  # 用户切到别的应用上去了：这一拍不冒泡（第 30 期第 3 条）
             now = float(self.clock() if at is None else at)
             if self.quiet(at=at):
@@ -614,6 +614,31 @@ class PetVoiceMixin:
         except Exception as exc:
             self.errors.append(('front', str(exc)))
             return True
+    def in_main_view(self):
+        """用户这会儿是不是在主界面里：焦点落在阶段配置、设置等子窗口里就不算。
+
+        attending() 只管「是不是本进程在前台」，子窗口开着也算在内。可用户正在子窗口里填表时
+        三虎自己冒泡、压在表单上方，等于打断操作。这里按焦点所属的顶层窗口判：不是主窗口就
+        返回 False。问不出来（没有焦点、假宿主、Tk 抛错）一律当 True，宁可多说一句。
+        main_view 可注入，自检用它摆出「人在子窗口里」。
+        """
+        judge = self.main_view
+        try:
+            if judge is not None:
+                return bool(judge())
+            focus = self.win.focus_get()
+            if focus is None:
+                return True
+            top = focus.winfo_toplevel()
+            cloud = self._cloud
+            if cloud is not None and top is getattr(cloud, 'win', None):
+                return True        # 焦点在三虎自己的对话框里：那是在跟三虎说话，不算离开主界面
+            return top is self.win
+        except Exception:
+            return True
+    def can_pop(self):
+        """三虎自己冒泡的总闸：人在本应用前台，且在主界面里（不在子窗口里填表）。"""
+        return self.attending() and self.in_main_view()
     def watch_focus(self, at=None):
         """用户人在不在助手界面（第 35 期第 1 条）：切出去就把自动执行暂停，回来再接着跑。
 
@@ -705,7 +730,7 @@ class PetVoiceMixin:
         cloud = self.cloud()
         if cloud is not None:
             try:
-                if not self.attending():
+                if not self.can_pop():
                     # 第 49 期第 1 条：用户人在别的应用里（多半是把助手最小化去忙别的）——这句话
                     # 只记进云朵记录，不把框顶出来。原来照顶：那一刻贴片量出来的坐标是假的，框
                     # 于是落到屏幕另一头（用户报的「从右边跳到左边」），而他人根本不在这软件上。
@@ -782,7 +807,7 @@ class PetVoiceMixin:
         """
         scheduled = self._greet_id is not None
         self._greet_id = None             # 到点了：这一笔定时器就算用掉了
-        if not self.window_visible() or not self.attending() or (scheduled and _startup_page_busy(self)):
+        if not self.window_visible() or not self.can_pop() or (scheduled and _startup_page_busy(self)):
             if scheduled:
                 self.schedule_greet()     # 启动招呼等窗口回到前台、启动页建完，不让报表抢先
             return ''
@@ -818,7 +843,7 @@ class PetVoiceMixin:
         text = ' '.join(str(text or '').split())
         if not text:
             return ''
-        if not self.attending():
+        if not self.can_pop():
             return ''
         cloud = self.cloud()
         if cloud is None:
@@ -837,7 +862,7 @@ class PetVoiceMixin:
             return ''
         if self.speech_blocked(text):
             return ''                      # 第 59 期第 8 条：栏／弹窗抽着指针时这张便签也先压着
-        if not self.attending():
+        if not self.can_pop():
             return ''                      # 第 60 期第 4 条：人在别的应用里，这张便签也先不递
         cloud = self.cloud()
         if cloud is None:
@@ -899,7 +924,7 @@ class PetVoiceMixin:
             return ''                                  # 这一份已经递过
         if self._work_at is not None and (now - float(self._work_at)) < REPORT_QUIET_SECONDS:
             return ''                                  # 手上还有动静：不在这时候拿报表打断
-        if self.cloud_visible() or self.muted(at=at) or not self.attending():
+        if self.cloud_visible() or self.muted(at=at) or not self.can_pop():
             return ''                                  # 有框露着／静音／人不在界面里：都不提
         if self.busy(state=self.snapshot(at=at)):
             return ''                                  # 正跑着活儿：等它跑完再递
@@ -1125,7 +1150,7 @@ class PetVoiceMixin:
             return ''                          # 第 68 期任务 11：安静期里失败提醒也缓一缓，过了再说
         if self.snoozing():
             return ''                          # 「稍后再说」期间不打扰；到点后同一批会再提醒一次
-        if not self.attending():
+        if not self.can_pop():
             return ''                          # 用户在别的应用里：失败提醒先记着，不弹（第 30 期第 3 条）
         try:
             failures = [item for item in self.agent.failures if isinstance(item, dict)]
