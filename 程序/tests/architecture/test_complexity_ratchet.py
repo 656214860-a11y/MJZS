@@ -45,7 +45,7 @@ PARAM_CAPS = {
     ('pet_agent.py', '__init__'): 9,
     ('pet_ui_support.py', 'flourish'): 9,
     ('stage_parallel.py', 'parallel_map'): 9,
-    ('ui_widgets.py', '_show_stage_execution'): 9,
+    ('ui_stage_popups.py', '_show_stage_execution'): 9,
     ('asset_auto_batch_service.py', 'auto_batch'): 8,
     ('asset_batch_controller.py', '__init__'): 8,
     ('asset_batch_execution.py', 'resume_record'): 8,

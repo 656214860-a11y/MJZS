@@ -85,7 +85,7 @@ class StageDialogButtonTests(unittest.TestCase):
     """R1974：阶段弹窗不再共用侧栏的 Compact.TButton；侧栏紧凑模式覆盖 Selected.Compact。"""
 
     def test_stage_dialogs_do_not_use_the_sidebar_compact_style(self):
-        text = (ROOT / "ui_widgets.py").read_text(encoding="utf-8")
+        text = (ROOT / "ui_stage_popups.py").read_text(encoding="utf-8")
         start = text.index("def _show_manual_plan")
         self.assertNotIn("Compact.TButton", text[start:])
         batch = text.index("handle['retry'] = lambda")

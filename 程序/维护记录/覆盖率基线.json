@@ -344,7 +344,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 1132,
+   "total": 1133,
    "percent": 0.0
   },
   {
@@ -416,7 +416,7 @@
   {
    "module": "desktop_layout.py",
    "covered": 0,
-   "total": 370,
+   "total": 372,
    "percent": 0.0
   },
   {
@@ -440,7 +440,7 @@
   {
    "module": "desktop_page_support.py",
    "covered": 0,
-   "total": 43,
+   "total": 44,
    "percent": 0.0
   },
   {
@@ -932,7 +932,7 @@
   {
    "module": "production_lock_fields.py",
    "covered": 0,
-   "total": 266,
+   "total": 283,
    "percent": 0.0
   },
   {
@@ -1118,7 +1118,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 841,
+   "total": 850,
    "percent": 0.0
   },
   {
@@ -1376,7 +1376,7 @@
   {
    "module": "ui_rounded.py",
    "covered": 0,
-   "total": 79,
+   "total": 90,
    "percent": 0.0
   },
   {
@@ -1392,6 +1392,12 @@
    "percent": 0.0
   },
   {
+   "module": "ui_stage_popups.py",
+   "covered": 0,
+   "total": 127,
+   "percent": 0.0
+  },
+  {
    "module": "ui_theme.py",
    "covered": 0,
    "total": 176,
@@ -1400,13 +1406,13 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 133,
+   "total": 145,
    "percent": 0.0
   },
   {
    "module": "ui_widgets.py",
    "covered": 0,
-   "total": 975,
+   "total": 884,
    "percent": 0.0
   },
   {
@@ -1867,5 +1873,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 309
+ "modules_total": 310
 }

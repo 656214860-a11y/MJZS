@@ -43,6 +43,7 @@ from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, TEXT_ROWS, WR
 from ui_dialogs import FileDialog
 from ui_motion import Spinner, bind_row_hover
 from ui_shortcuts import ShortcutRegistry
+import ui_stage_popups  # noqa: F401  导入即向 stage_exec 登记阶段弹窗呈现器
 from ui_widgets import (SelectBox, BaseDialog, BusyState, ContextMenu, Card, DataTable, NotificationDispatcher,
                         PrimaryButton, SecondaryButton, TextArea, HintLabel, Tooltip, TreeRowTooltip, EllipsisLabel, ask_confirmation, ask_string, setup_styles)
 
