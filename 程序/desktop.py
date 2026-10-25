@@ -658,7 +658,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
                 self.status.set('项目已打开，但当前项目登记未同步：%s；请稍后重新打开项目。' % exc)
             self.list.selection_set(str(self.root))
             # R2056：see 会把收起的分组展开；只在所在分组已展开时才滚到可见
-            if self.list.item(self.list.parent(str(self.root)),'open'):self.list.see(str(self.root))
+            if self.list.exists(str(self.root)) and self.list.item(self.list.parent(str(self.root)),'open'):self.list.see(str(self.root))
             self.mark_current_project()
         else:
             selected=self.list.selection()
