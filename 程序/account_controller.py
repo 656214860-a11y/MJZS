@@ -7,6 +7,7 @@
 会话并验签，不联网，启动路径与阶段启动都不等待网络（设计文档 §4.3、§5.4）。
 """
 import platform
+import threading
 import time
 from pathlib import Path
 
@@ -31,6 +32,7 @@ class AccountController:
         self.enforce = entitlement_service.GATE_ENFORCED if enforce is None else bool(enforce)
         self._device_id = ''
         self.last_renew_at = 0.0
+        self._renew_lock = threading.Lock()      # 刷新令牌一次一换：并发续签拿旧令牌会被服务端当重放吊销会话
 
     @property
     def device_id(self):
@@ -130,14 +132,25 @@ class AccountController:
         self.last_renew_at = self._clock()
 
         def work():
+            result = self._renew_once(token, device_id)
+            return success({'already_renewed': True}) if result is None else result
+        self._run(work, done, '续签会员授权', quiet=quiet)
+        return True
+
+    def _renew_once(self, token, device_id):
+        """持锁续签，返回结果；``None`` 表示别的续签已把令牌换新，本次不再用旧令牌请求。
+
+        会话失效只在本机令牌仍是本次所用令牌时才清：令牌已换新说明会话是活的。
+        """
+        with self._renew_lock:
+            if self.session().get('refresh_token') != token:
+                return None
             result = self._client.renew(token, device_id)
             if result.ok:
                 return self._accept(result.data)
             if (result.data or {}).get('code') in SESSION_DEAD:
                 self._store.clear_session()
             return result
-        self._run(work, done, '续签会员授权', quiet=quiet)
-        return True
 
     def check_update(self, done):
         """联网读 ``/v1/meta`` 判定是否有新版；结果 data 为 ``update_notice.evaluate`` 的字典，
@@ -228,15 +241,16 @@ class AccountController:
         def work():
             result = call(lease)
             if not result.ok and (result.data or {}).get('code') == 'session_invalid' and token:
-                renewed = self._client.renew(token, device_id)
-                if not renewed.ok:
-                    if (renewed.data or {}).get('code') in SESSION_DEAD:
-                        self._store.clear_session()
+                renewed = self._renew_once(token, device_id)
+                if renewed is None:             # 别处刚续过：用本机现成的新租约重试
+                    fresh = self.session().get('lease')
+                    if not fresh:
+                        return result
+                    result = call(fresh)
+                elif not renewed.ok:
                     return renewed
-                accepted = self._accept(renewed.data)
-                if not accepted.ok:
-                    return accepted
-                result = call(renewed.data['lease'])
+                else:
+                    result = call(renewed.data['lease'])
             return then(result) if then else result
         self._run(work, done, label)
         return True
