@@ -697,6 +697,7 @@ class _Harness(unittest.TestCase):
         d = Desktop(win, root=HERE)
         d.root = proj
         d.studio = open_studio(proj)
+        self._settled_desktop = d              # settle_script_page 据此等模型键解析完
         return d, win
 
     @staticmethod
@@ -722,14 +723,32 @@ class _Harness(unittest.TestCase):
         d.async_ = run
         return errors
 
-    @staticmethod
-    def settle_script_page(win, seconds=.18):
-        """首帧后的聊天模型/气泡采用后台与空闲分片，等到首批提交。"""
-        until=time.monotonic()+seconds
-        while time.monotonic()<until:
+    def settle_script_page(self, win, seconds=.18):
+        """首帧后的聊天模型/气泡采用后台与空闲分片，等到首批提交。
+
+        模型键在后台线程里解析、由 50ms 的 after 轮询接回；机器忙时固定的 0.18 秒等不到，
+        页面会停在「正在读取聊天记录…」。所以固定时长之后，只要还没拿到模型键就继续等
+        （上限 10 秒），拿到后再给分片插入一个固定时长。
+        """
+        def pump(span):
+            until = time.monotonic() + span
+            while time.monotonic() < until:
+                win.update()
+                time.sleep(.01)
             win.update()
-            time.sleep(.01)
-        win.update()
+
+        pump(seconds)
+        d = getattr(self, '_settled_desktop', None)
+
+        def resolving():
+            cache = getattr(d, '_idea_view_model_cache', None)
+            started = getattr(d, '_idea_view_model_request', 0) > 0        # 页面真请求过模型键才等
+            return started and bool(d.root) and not (isinstance(cache, tuple) and cache[0] == d.root)
+        if d is not None and resolving():
+            limit = time.monotonic() + 10
+            while resolving() and time.monotonic() < limit:
+                pump(.05)
+            pump(seconds)
 
     def log_text(self, d):
         return str(d.idea_log.get('1.0', 'end-1c'))

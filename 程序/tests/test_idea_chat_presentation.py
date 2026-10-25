@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """O46：创意对话气泡的纯展示逻辑搬到 L3 后，实现与 L4 入口都要有回归。"""
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -65,8 +66,10 @@ class DesktopDelegationTests(unittest.TestCase):
     def test_shortcut_lookup_delegates_to_the_platform_adapter(self):
         import desktop
         sentinel = Path('C:/found.lnk')
+        # R1995：入口经 media_page_services 转发；服务按名字晚绑定 desktop.find_editor_shortcut，补丁照常生效。
+        view = SimpleNamespace(media_page_services=SimpleNamespace(find_editor_shortcut=desktop._late('find_editor_shortcut')))
         with patch.object(desktop, 'find_editor_shortcut', return_value=sentinel) as find:
-            self.assertEqual(Desktop.find_editor_shortcut(self.view), sentinel)
+            self.assertEqual(Desktop.find_editor_shortcut(view), sentinel)
         find.assert_called_once_with()
 
 

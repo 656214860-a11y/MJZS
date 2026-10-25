@@ -1898,6 +1898,7 @@ class CloudTests(PetTestCase):
         """第 18 期：云身整个站在三虎左边，浮窗下沿与贴片下沿对齐；第 22 期尾巴尖指向嘴边。"""
         mouth = (1200.0, 320.0)
         cloud = self.placed_cloud(anchor=mouth, bottom=384.0)
+        cloud._work_right = lambda: 1920          # 钉死屏幕右界：否则几何结果随本机（含隐藏桌面）的显示器宽度变
         left, top = cloud._origin()
         self.assertEqual(left + cloud.total_width(), mouth[0] + pet_cloud.TIP_IN,
                          '整朵云站在三虎左边（尾巴尖往云身里缩 TIP_IN）')
@@ -4369,6 +4370,10 @@ class DesktopPetSeamTests(unittest.TestCase):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         from desktop import Desktop
+        import entitlement_service
+        from unittest.mock import patch
+        # 本组只验切页与续跑接缝；会员闸门（真实账号状态）另有 test_account_* 覆盖，隔离后结果不随本机登录态变化。
+        self.enterContext(patch.object(entitlement_service, "GATE_ENFORCED", False))
         self.win = self.tk.Tk()
         self.win.withdraw()
         self.addCleanup(self.win.destroy)
