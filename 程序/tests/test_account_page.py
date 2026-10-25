@@ -56,6 +56,7 @@ class AccountPageTests(unittest.TestCase):
         store.path.unlink(missing_ok=True)      # R2052：会话文件各用例共用；退出登录会留下 last_email，每用例从空白开始
         self.desktop._account_controller=AccountController(
             submit=lambda work,done,label:done(work()),clock=lambda:NOW,store=store,client=client,enforce=True)
+        self.desktop._account_controller.last_renew_at=NOW      # R2064：进账号页会静默续签；这里当作刚续过，各用例照旧只数自己的请求
         return store
 
     def test_login_flow_and_logout(self):

@@ -15,7 +15,7 @@ from tkinter import ttk
 
 import account_client
 import entitlement_service
-from account_controller import AccountController
+from account_controller import RENEW_VIEW_INTERVAL, AccountController
 import pet_bus
 from desktop_page_registry import PAGE_ACCOUNT, PAGES
 from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
@@ -24,6 +24,11 @@ from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButt
 
 RENEW_DELAY_MS = 3000
 RENEW_CHECK_MS = 30 * 60 * 1000
+
+
+def _expiry_key(entitlement):
+    payload = entitlement.payload or {}
+    return (entitlement.state, payload.get('state'), payload.get('trial_ends_at'), payload.get('period_end'))
 BACKGROUND_POLL_MS = 100
 STATE_TEXT = {
     entitlement_service.VALID: '授权有效',
@@ -122,6 +127,25 @@ class AccountPageMixin:
                 self.account.renew(done=self._account_renewed, quiet=True)
         finally:
             self.win.after(RENEW_CHECK_MS, self.start_account_renewal)
+
+    def refresh_membership_view(self, event=None):
+        """R2064：进账号页或窗口回到前台时静默续签一次（间隔不足一分钟则跳过），
+        后台顺延、补偿天数不必等 12 小时的定时续签；只有到期信息变了才重画账号页。"""
+        if getattr(self, 'shutting_down', False):
+            return
+        if event is not None and event.widget is not getattr(self, 'win', None):
+            return
+        account = getattr(self, 'account', None)
+        if account is None or not account.renew_due(RENEW_VIEW_INTERVAL):
+            return
+        before = _expiry_key(account.entitlement())
+
+        def done(result):
+            self._account_changed()
+            changed = _expiry_key(account.entitlement()) != before
+            if result.ok and changed and getattr(self, 'page_index', None) == PAGE_ACCOUNT:
+                self.show(PAGE_ACCOUNT)
+        account.renew(done=done, quiet=True)
 
     def start_update_check(self):
         """首帧后检查一次新版本（与续签分开排程）；联网失败静默。"""
