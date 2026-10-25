@@ -232,7 +232,7 @@ DESKTOP_LAYOUT = {
     'default_width': 1280, 'default_height': 800,
     'window_margin_x': SPACING['xl'], 'window_margin_y': SPACING['xl'] * 2,
     'min_width': 800, 'min_height': 600,
-    'sidebar_width': 154, 'login_gate_width': 460, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,
+    'sidebar_width': 154, 'sidebar_title_chars': 5, 'login_gate_width': 460, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,
     # 侧栏导航胶囊之间的垂直间距与「我的项目」「导航」两段之间的呼吸距。
     'nav_gap': SPACING['xs'], 'section_gap': SPACING['md'],
     'compact_below': 690, 'project_min_rows': 3,
