@@ -306,6 +306,7 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 最小化恢复时 Windows 可能先交付一枚滚轮事件，随后才派发画布的新尺寸。
         # 重新映射后沿用既有的合并空闲布局，确保滚动区域已按恢复后的可视高度计算。
         win.bind('<Map>',self.on_window_map,add='+')
+        win.bind('<FocusIn>',self.refresh_membership_view,add='+')    # R2064：回到前台时静默续签
         self.progress=ttk.Progressbar(self.body,mode='determinate');self.progress.pack(fill='x',pady=(SPACING['sm'],SPACING['none']))
         # 全部阶段只保留一条绿色信息栏：操作说明与动态状态汇总在这里。
         self.status=tk.StringVar(value='就绪 · 所有项目共用一份程序')

@@ -55,6 +55,7 @@ class PageNavMixin:
         选定之后再点就直接进那一侧；想换一侧用页里的「返回生成方式」。
         """
         if index==PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
+        if index==PAGE_ACCOUNT and hasattr(self,'refresh_membership_view'):self.refresh_membership_view()    # R2064：点进会员账户顺手静默续签
         mode=page_nav.sidebar_video_mode(index,PAGE,getattr(self,'video_mode_picked',False))
         # 即刻反馈最后一次点击，包括连续点击后又回到当前页的情况。
         try:

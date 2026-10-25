@@ -18,6 +18,7 @@ from agent.core import save
 from service_contract import SystemError, success
 
 RENEW_INTERVAL = 12 * 3600
+RENEW_VIEW_INTERVAL = 60      # R2064：进账号页、窗口回前台时的最短续签间隔（秒），后台改了到期日能很快看到
 # 这些错误码说明本机会话已不可能续上：删除令牌与租约，回到未登录。
 SESSION_DEAD = frozenset({'session_invalid', 'account_pending_deletion', 'invalid_device'})
 
@@ -253,8 +254,8 @@ class AccountController:
                                    data={'code': 'client_error'})
         (self._background if quiet else self._submit)(guarded, done, label)
 
-    def renew_due(self):
-        return self._clock() - self.last_renew_at >= RENEW_INTERVAL
+    def renew_due(self, interval=RENEW_INTERVAL):
+        return self._clock() - self.last_renew_at >= interval
 
     def last_email(self):
         """上次登录用的邮箱：登录框默认填它（退出登录也保留）。"""
