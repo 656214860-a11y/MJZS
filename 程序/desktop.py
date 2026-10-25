@@ -656,11 +656,14 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
                 # 打开仍可继续，但必须明确告知“本次项目未记为当前项目”，
                 # 否则下次启动回到旧项目会被误认为无响应或打开错误。
                 self.status.set('项目已打开，但当前项目登记未同步：%s；请稍后重新打开项目。' % exc)
-            self.list.selection_set(str(self.root));self.list.see(str(self.root))
+            self.list.selection_set(str(self.root))
+            # R2056：see 会把收起的分组展开；只在所在分组已展开时才滚到可见
+            if self.list.item(self.list.parent(str(self.root)),'open'):self.list.see(str(self.root))
             self.mark_current_project()
         else:
             selected=self.list.selection()
             if selected:self.list.selection_remove(*selected)
+            self.refresh_sidebar_title()
         if defer_page:
             # 先把已映射的壳交还给 Windows；剧本准备页本身控件很多，不能与
             # 自动续开项目挤在同一首帧回调里。

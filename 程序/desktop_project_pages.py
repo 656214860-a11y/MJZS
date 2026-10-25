@@ -79,16 +79,32 @@ class ProjectPagesMixin:
         if primary:button.configure(style='Tokens.Primary.TButton')
         return button
     def fill_projects(self,tree):
+        sidebar=tree is getattr(self,'list',None)
+        # R2056：侧栏的分组默认收起；用户展开过的，刷新时保持他的选择。
+        kept={g:bool(tree.item(g,'open')) for g in tree.get_children()} if sidebar else {}
         tree.delete(*tree.get_children())
         for state,label in [('making','在制作项目'),('completed','已完成项目')]:
             items=[p for p in self.projects.info['projects'] if p.get('status','making')==state]
             tree.tag_configure('empty-group',foreground=COLORS['text_muted'])
-            tree.insert('','end',iid='group:'+state,text=f'{label}（{len(items)}）',open=bool(items),tags=() if items else ('empty-group',))
+            tree.insert('','end',iid='group:'+state,text=f'{label}（{len(items)}）',open=kept.get('group:'+state,False) if sidebar else bool(items),tags=() if items else ('empty-group',))
             for p in sorted(items,key=project_sort_key):
                 tree.insert('group:'+state,'end',iid=p['path'],text=self.project_row_text(p))
         # 一个项目都没有时，列表中央给出柔和提示，而不是只留两个空分组标题。
         empty=getattr(tree,'_empty_state',None)
         if empty is not None:empty.show(not self.projects.info['projects'])
+        if sidebar:self.refresh_sidebar_title()
+    def refresh_sidebar_title(self):
+        """R2056：侧栏顶部写当前项目名（过长截断，免得把齿轮挤出侧栏）；没打开项目时仍写应用名。"""
+        title=getattr(self,'app_title',None)
+        if title is None:return
+        root=getattr(self,'root',None)
+        text=APP_NAME
+        if root is not None:
+            text=next((p['name'] for p in (getattr(self.projects,'info',None) or {}).get('projects',[])
+                       if Path(p['path'])==root),'') or Path(root).name or APP_NAME
+            limit=DESKTOP_LAYOUT['sidebar_title_chars']
+            if len(text)>limit:text=text[:limit-1]+'…'
+        if title.cget('text')!=text:title.configure(text=text)
     def project_row_text(self,p):
         """项目行文字：当前打开的项目前加「●」，让用户随时看得出现在在哪个项目里。"""
         missing=not Path(p['path']).is_dir()
@@ -103,6 +119,7 @@ class ProjectPagesMixin:
         for tree in trees:
             for p in (getattr(self.projects,'info',None) or {}).get('projects',[]):
                 if tree.exists(p['path']):tree.item(p['path'],text=self.project_row_text(p))
+        self.refresh_sidebar_title()
         title=APP_NAME+' · '+VERSION
         if self.root is not None:
             from script_contract import project_name

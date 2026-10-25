@@ -62,7 +62,7 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 self.resize(width, height)
                 # 上一档可能把侧栏留在底部；每档从顶部量起，后续断言才不受滚动位置影响。
                 d.sidebar_canvas.yview_moveto(0);d.align_header();self.pump(.05)
-                self.assertEqual(d.app_title.cget('text'), APP_NAME)
+                self.assertEqual(d.app_title.cget('text'), '性能项目')  # R2056：侧栏顶部写当前项目名
                 self.assertAlmostEqual(d.idea_log.winfo_rooty(), d.list.winfo_rooty(), delta=2)
                 self.assertLess(d.title.winfo_rooty(), d.app_title.winfo_rooty() + d.app_title.winfo_height())
                 self.assertAlmostEqual(d.title.winfo_rootx(), d.idea_log.winfo_rootx(), delta=2)
