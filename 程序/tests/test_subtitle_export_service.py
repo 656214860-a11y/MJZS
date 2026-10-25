@@ -143,7 +143,8 @@ class SubtitleExportServiceTests(unittest.TestCase):
                    and node.name in {'subtitles', 'dialogue_script'}}
         self.assertEqual(set(methods), {'subtitles', 'dialogue_script'})
         for name, node in methods.items():
-            namespace = {}
+            import media_page_controller
+            namespace = {'media_logic': media_page_controller}  # R2058：方法迁到 desktop_media_pages 后用模块级别名 media_logic
             exec(compile(ast.Module(body=[node], type_ignores=[]), str(source), 'exec'), namespace)
             app = Mock()
             target = Path('export.txt')

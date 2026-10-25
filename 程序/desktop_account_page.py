@@ -316,7 +316,7 @@ class AccountPageMixin:
         ttk.Label(row,text=chr(10).join(lines),wraplength=TEXT_DESC['wraplength'],justify='left').pack(side='left')
         def copy():
             if not self.copy_text(str(item.get('base_url') or '')):
-                self.status.set('已复制接口地址，请到模型设置的自定义提供方里填写，并填入你自己的 Key')
+                self.status.set('已复制接口地址，请到模型设置的自定义提供方里填写，并填入您自己的 Key')
         SecondaryButton(row,text='复制地址',command=copy).pack(side='right')
         invite = str(item.get('invite_url') or '')
         if invite.startswith('https://'):
@@ -583,7 +583,7 @@ class AccountPageMixin:
         reg_password = PasswordInput(views['reg'],placeholder='设置密码（8–64 位，含字母和数字）');reg_password.pack(fill='x',pady=SPACING['xs'])
         reg_again = PasswordInput(views['reg'],placeholder='再次输入密码');reg_again.pack(fill='x',pady=SPACING['xs'])
         reg_adult = tk.BooleanVar(master=form,value=False)
-        ttk.Checkbutton(views['reg'],text='已满 18 周岁，并同意用户协议与隐私政策',variable=reg_adult).pack(anchor='w',pady=SPACING['xs'])
+        ttk.Checkbutton(views['reg'],text='已满 18 周岁并同意协议',variable=reg_adult).pack(anchor='w',pady=SPACING['xs'])
         def register():
             value = checked_email()
             if not value or not required(reg_code,'请填写验证码') or not checked_password(reg_password,reg_again):return

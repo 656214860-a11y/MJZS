@@ -824,7 +824,7 @@ class MediaPagesMixin:
         import project_settings
         self.pet.auto_variable('auto_edit_var')
         self.pet.auto_variable('auto_handoff_var')
-        edit_buttons.append(edit_button('整理剪映素材交接包',lambda:self.async_(self.handoff,open_path)))
+        edit_buttons.append(edit_button('整理剪映素材交接包',lambda:self.async_(self.handoff,self.media_page_services.open_path)))
         has_downloaded=controller.has_downloaded_video()
         for button in edit_buttons:button.configure(state='normal' if has_downloaded else 'disabled')
         if not has_downloaded:self.note('还没有已下载的镜头视频，自动粗剪与交接包暂不可用；请先在'+pet_bus.stage_step('video')+'生成并下载视频。')
