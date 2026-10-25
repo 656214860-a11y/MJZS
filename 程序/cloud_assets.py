@@ -103,6 +103,7 @@ def settings(parent):
     import tkinter as tk
     import webbrowser
     from tkinter import ttk
+    from account_inputs import PasswordInput
     from ui_widgets import (Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
                             ProgressLabel, SecondaryButton, notify)
     win = FormDialog(parent, '云图片模型 · Comfy 账户', modal=False, chrome=False)
@@ -114,7 +115,7 @@ def settings(parent):
     ttk.Label(body, text='Comfy API Key（统一保存到 程序目录/private/.env，不写入工作流）').pack(anchor='w')
     saved = get_key()
     token = tk.StringVar(value=saved)
-    LineInput(body, textvariable=token, show='•', width=CHAR_WIDTH['field_md']).pack(fill='x', pady=SPACING['xs'])
+    PasswordInput(body, textvariable=token, width=CHAR_WIDTH['field_md']).pack(fill='x', pady=SPACING['xs'])
     status = tk.StringVar(value='已保存密钥（%s）' % redact(saved) if saved
                            else '尚未配置，暂不能从助手批量调用云模型')
     ProgressLabel(body, textvariable=status, wraplength=WRAPLENGTH['md']).pack(anchor='w')

@@ -519,6 +519,10 @@ class LineInput(ttk.Entry):
     def get(self):
         return "" if self._placeholder_active else super().get()
 
+    def set_mask(self, mask):
+        self._mask = mask
+        self._set_style()
+
     def insert(self, index, string):
         self._remove_placeholder()
         return super().insert(index, string)

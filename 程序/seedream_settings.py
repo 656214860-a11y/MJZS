@@ -7,6 +7,7 @@ import tk_timers
 from ui_widgets import (SelectBox, Card, DescriptionBlock, LineInput, PrimaryButton, ProgressLabel,
                         SecondaryButton, ask_confirmation, notify)
 from ui_widgets import BaseDialog
+from account_inputs import PasswordInput
 from ui_tokens import BUTTON_GAP, WRAPLENGTH, SPACING
 
 
@@ -41,7 +42,7 @@ def show(parent,on_saved=None):
     fill()
     for row,key,label in [(1,'base_url','API 根地址'),(2,'model','模型 ID'),(3,'api_key','火山 API Key')]:
         ttk.Label(body,text=label).grid(row=row,column=0,sticky='w',padx=(SPACING['none'],SPACING['md']))
-        LineInput(body,textvariable=values[key],show='•' if key=='api_key' else '').grid(row=row,column=1,columnspan=2,sticky='ew',pady=SPACING['xs'])
+        (PasswordInput if key=='api_key' else LineInput)(body,textvariable=values[key]).grid(row=row,column=1,columnspan=2,sticky='ew',pady=SPACING['xs'])
     DescriptionBlock(body,text='模型 ID 填写火山控制台已开通的实际值，也支持推理接入点 ID。\n支持纯提示词或最多 10 张分类参考图；每项生成一张，批量顺序执行。',wraplength=WRAPLENGTH['lg']).grid(row=4,column=0,columnspan=3,sticky='w',pady=SPACING['sm'])
     ttk.Label(body,text='已保存模型').grid(row=5,column=0,sticky='w')
     selected=tk.StringVar();choices={}
