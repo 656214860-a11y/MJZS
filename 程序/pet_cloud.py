@@ -483,8 +483,9 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         多久之后自己收」。hold 为 None 时按这句话要读多久算（第 24 期：read_hold，HOLD_MS 打底）。
         shape 给 puff／round／tag 时换成那三种形状（打招呼／随口一句／标签框，第 18 期）。
         """
-        if not focus and self._defer_while_moving(pinned=pinned, hold=hold, focus=focus, shape=shape):
-            return None                    # R1976：用户正拖着窗口，自动冒出来的云等松手再出
+        if getattr(self.pet, 'login_locked', lambda: False)() is True or (
+                not focus and self._defer_while_moving(pinned=pinned, hold=hold, focus=focus, shape=shape)):
+            return None                    # R2051：登录闸挡着不弹；R1976：用户正拖着窗口，自动冒出来的云等松手再出
         if self.win is None and self.build() is None:
             return None
         if shape is not None:

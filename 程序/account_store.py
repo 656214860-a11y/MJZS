@@ -43,8 +43,15 @@ def save_session(fields, path=None):
         if key in fields:
             data[key] = fields[key]
     data['server_time'] = max(known, int(fields.get('server_time') or 0))
+    if fields.get('email'):
+        data['last_email'] = str(fields['email'])      # R2052：退出登录后登录框仍默认填上次的邮箱
     _write(data, path)
     return data
+
+
+def last_email(path=None):
+    data = load(path)
+    return str(data.get('last_email') or data.get('email') or '')
 
 
 def note_server_time(server_time, path=None):
@@ -68,7 +75,9 @@ def mark_update_seen(version, path=None):
 def clear_session(path=None):
     """退出登录：删掉令牌与租约；保留设备种子和最近服务器时间（防回拨钟重放旧租约）。"""
     data = load(path)
-    kept = {key: data[key] for key in ('device_seed', 'server_time', 'update_seen') if key in data}
+    kept = {key: data[key] for key in ('device_seed', 'server_time', 'update_seen', 'last_email') if key in data}
+    if data.get('email') and 'last_email' not in kept:
+        kept['last_email'] = str(data['email'])
     if kept:
         _write(kept, path)
         return True

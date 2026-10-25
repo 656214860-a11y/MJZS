@@ -256,6 +256,11 @@ class AccountController:
     def renew_due(self):
         return self._clock() - self.last_renew_at >= RENEW_INTERVAL
 
+    def last_email(self):
+        """上次登录用的邮箱：登录框默认填它（退出登录也保留）。"""
+        getter = getattr(self._store, 'last_email', None)
+        return getter() if getter else ''
+
     def logout(self):
         """只清本机会话；服务端会话由刷新令牌过期或在别处解绑本机来吊销。"""
         return self._store.clear_session()
