@@ -52,6 +52,9 @@ class LoginGateMixin:
                   justify='left').pack(anchor='w', pady=(SPACING['none'], SPACING['sm']))
         self.login_gate, self.login_gate_active = gate, True
         gate.lift()
+        cloud = getattr(getattr(self, 'pet', None), '_cloud', None)
+        if cloud is not None and cloud.visible:
+            cloud.close()                  # R2051：闸门出现前已冒出的三虎云朵收掉
         self._build_login_form(inner, self._login_gate_passed, wrap=DESKTOP_LAYOUT['login_gate_wrap'])
 
     def _login_gate_passed(self):

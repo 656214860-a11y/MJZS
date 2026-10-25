@@ -1027,7 +1027,7 @@ class PetVoiceMixin:
         """打开云朵框（对话形态）：主窗口收起时先把它叫回来，否则云朵没地方冒。"""
         if not self.window_visible():
             self.show_main()
-        cloud = self.cloud()
+        cloud = None if self.login_locked() else self.cloud()      # R2051：登录闸挡着不开对话框
         if cloud is None:
             return None
         try:
@@ -1071,7 +1071,7 @@ class PetVoiceMixin:
         指针时同样不能冒——那时候云朵框挡路又点不动。两种情形后果一样：压住，等 say_held
         在下一个心跳补说。
         """
-        if self._menu_open or self.modal_grabbed():
+        if self._menu_open or self.modal_grabbed() or self.login_locked():
             self.bstate.hold(text)
             return True
         return False

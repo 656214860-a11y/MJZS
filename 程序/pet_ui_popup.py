@@ -97,4 +97,8 @@ class PetPopupMixin:
             return True
     def can_pop(self):
         """三虎自己冒泡的总闸：人在本应用前台，且在主界面里（不在子窗口里填表）。"""
-        return self.attending() and self.in_main_view()
+        return not self.login_locked() and self.attending() and self.in_main_view()
+
+    def login_locked(self):
+        """R2051：启动登录闸还挡着的时候，三虎一个弹窗都不出（播报、招呼、进度、对话框）。"""
+        return getattr(getattr(self, 'desktop', None), 'login_gate_active', False) is True
