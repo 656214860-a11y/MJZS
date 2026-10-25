@@ -576,7 +576,10 @@ class AccountPageMixin:
         actions = row('pw')
         pw_login = PrimaryButton(actions,text='登录',command=password_login);pw_login.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
         forgot = SecondaryButton(actions,text='忘记密码',command=lambda:show_view('reset'));forgot.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
-        use_code = SecondaryButton(actions,text='用验证码登录',command=lambda:show_view('code'));use_code.pack(side='left')
+        # 点「用验证码登录」直接发验证码：邮箱不合法就留在密码页报错，发出后才切到验证码视图并放开登录键
+        use_code = SecondaryButton(actions,text='用验证码登录',
+                                   command=lambda:send('login',use_code,after=lambda:(show_view('code'),login.state(['!disabled']))))
+        use_code.pack(side='left')
         # 注册
         reg_send = SecondaryButton(row('reg'),text='发送注册验证码',command=lambda:send('register',reg_send));reg_send.pack(side='left')
         reg_code = LineInput(views['reg'],placeholder='6 位验证码');reg_code.pack(fill='x',pady=SPACING['xs'])

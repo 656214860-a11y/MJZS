@@ -66,8 +66,7 @@ class AccountPageTests(unittest.TestCase):
         d.go_page(PAGE_ACCOUNT);self.pump()
         self.assertIn('当前状态：未登录',_texts(d.content))
         self.assertIn('disabled',d.account_login_button.state())
-        d.account_use_code_button.invoke();self.pump()      # 默认是密码登录，先切到验证码登录
-        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
+        d.account_email_input.insert(0,'a@b.cn');d.account_use_code_button.invoke();self.pump()      # 点「用验证码登录」直接发码并切到验证码视图
         self.assertNotIn('disabled',d.account_login_button.state())
         self.assertIn('验证码已发送',d.account_message.cget('text'))
         d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
@@ -122,8 +121,7 @@ class AccountPageTests(unittest.TestCase):
         from service_contract import UserError
         self.use(_Client(send_code=success({'ok':True}),verify_code=UserError('验证码不正确或已过期',data={'code':'code_invalid'})))
         d.go_page(PAGE_ACCOUNT);self.pump()
-        d.account_use_code_button.invoke();self.pump()      # 默认是密码登录，先切到验证码登录
-        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
+        d.account_email_input.insert(0,'a@b.cn');d.account_use_code_button.invoke();self.pump()      # 点「用验证码登录」直接发码并切到验证码视图
         d.account_code_input.insert(0,'000000');d.account_login_button.invoke();self.pump()
         self.assertEqual(d.account_message.cget('text'),'验证码不正确或已过期')
         self.assertIn('当前状态：未登录',_texts(d.content))
@@ -137,8 +135,7 @@ class AccountPageTests(unittest.TestCase):
         self.addCleanup(account_store.clear_session,store.path)
         d.go_page(PAGE_ACCOUNT);self.pump()
         d.status.set('')
-        d.account_use_code_button.invoke();self.pump()
-        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
+        d.account_email_input.insert(0,'a@b.cn');d.account_use_code_button.invoke();self.pump()      # 点「用验证码登录」直接发码并切到验证码视图
         with unittest.mock.patch.object(d.account,'entitlement',lambda:entitlement_service.Entitlement(entitlement_service.SIGNED_OUT)):
             d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
             self.assertIn('当前状态：未登录',_texts(d.content))
@@ -284,8 +281,7 @@ class AccountPageTests(unittest.TestCase):
         self.use(client)
         d.go_page(PAGE_ACCOUNT);self.pump()
         self.assertFalse(d.account_cancel_deletion_button.winfo_ismapped())
-        d.account_use_code_button.invoke();self.pump()      # 默认是密码登录，先切到验证码登录
-        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
+        d.account_email_input.insert(0,'a@b.cn');d.account_use_code_button.invoke();self.pump()      # 点「用验证码登录」直接发码并切到验证码视图
         d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
         self.assertTrue(d.account_cancel_deletion_button.winfo_ismapped())
         self.assertIn('撤销注销',d.account_message.cget('text'))

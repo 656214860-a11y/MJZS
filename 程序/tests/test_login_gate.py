@@ -109,8 +109,7 @@ class LoginGateTests(unittest.TestCase):
         d=self.desktop
         d.begin_startup_or_login(True,lambda:started.append(1))
         self.pump()
-        d.account_use_code_button.invoke();self.pump()      # 默认是密码登录，先切到验证码登录
-        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
+        d.account_email_input.insert(0,'a@b.cn');d.account_use_code_button.invoke();self.pump()      # 点「用验证码登录」直接发码并切到验证码视图
         d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
         self.assertFalse(d.login_gate_active)
         self.assertIsNone(d.login_gate)
@@ -128,8 +127,7 @@ class LoginGateTests(unittest.TestCase):
         d.show(PAGE_ACCOUNT);self.pump()
         self.assertIn('当前状态：未登录',widget_texts(d.content))
         d.begin_startup_or_login(True,lambda:None);self.pump()
-        d.account_use_code_button.invoke();self.pump()
-        d.account_email_input.insert(0,'a@b.cn');d.account_send_button.invoke();self.pump()
+        d.account_email_input.insert(0,'a@b.cn');d.account_use_code_button.invoke();self.pump()      # 点「用验证码登录」直接发码并切到验证码视图
         d.account_code_input.insert(0,'123456');d.account_login_button.invoke();self.pump()
         texts=widget_texts(d.content)
         self.assertIsNone(d.login_gate)
