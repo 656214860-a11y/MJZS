@@ -18,8 +18,9 @@
 - `distribution_selfcheck`：5 个散落在 `程序/` 顶层的 `tasks_round_19xx_result.md`（1925/1929/1930/1932/1941）`git mv` 到 `tasks_round/`，落入清单里已声明的 `程序/tasks_round/**`。
 
 ## 验证
-- 主目录（含 skills）无提交合并 `codex/wip-R2058` 后实跑 `idea_chat req_s01_anchors leak_teardown writing_status_line idea_inline_brief idea_local_brief idea_semantic_brief`：210 条，仅上面 desktop.py:661 一条红，已修；修后复跑见下。
+- 主目录（含 skills）无提交合并 `codex/wip-R2058` 后实跑 `idea_chat req_s01_anchors leak_teardown writing_status_line idea_inline_brief idea_local_brief idea_semantic_brief`：210 条，仅上面 desktop.py:661 一条红，已修。
 - 实跑：`run_selftests -k test_pet_ui`（605 条，0 红）、`distribution_selfcheck`（3 条，0 红）、popup_no_interrupt、copy_rules、static_names、subtitle_export_service、idea_chat_presentation、account、login_gate、pet_cloud（上述合并 222 条中仅下一条红）。
-- 未能在本 worktree 验证：`test_idea_chat`、`req_s01_anchors`、`idea_inline_brief`、`idea_local_brief`、`idea_semantic_brief`、`writing_status_line`。原因：worktree 里 `skills/00全流程SKILL/AIGC创作全流程` 是无 .gitmodules 映射的 gitlink，内容为空，发送链路报“SKILL 引用缺失”（日志逐条核对，除 `test_enter_after_model_change...` 一条为同源后果外全是该报错）。“正在读取聊天记录…”那批红在本 worktree 未再出现，settle 改动的实际效果需在带 skills 的检出（主目录或后台 CI 检出）上复验。
+- 修后在主目录无提交合并态（7d9855a4）复跑 `idea_chat req_s01_anchors leak_teardown writing_status_line idea_inline_brief idea_local_brief idea_semantic_brief sidebar_project_title project_rename desktop_compact_layout pet_cloud popup_no_interrupt`：272 条，0 红；验完 `git merge --abort`，master 未留改动。
+- 本 worktree 内无法验证（skills 子仓库为空，已由上一条主目录实跑覆盖）：`test_idea_chat`、`req_s01_anchors`、`idea_inline_brief`、`idea_local_brief`、`idea_semantic_brief`、`writing_status_line`。原因：worktree 里 `skills/00全流程SKILL/AIGC创作全流程` 是无 .gitmodules 映射的 gitlink，内容为空，发送链路报“SKILL 引用缺失”。
 - 未运行：`--all --safe`、真实界面目测。
-- `test_writing_status_line` 在本 worktree 红，未改动前同样红（已 stash 对照），同属 skills 缺失，未入本轮。
+- `test_writing_status_line` 在本 worktree 红属 skills 缺失，主目录合并态下绿。
