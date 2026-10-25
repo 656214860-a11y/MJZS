@@ -19,6 +19,7 @@ from account_controller import AccountController
 import pet_bus
 from desktop_page_registry import PAGE_ACCOUNT, PAGES
 from ui_tokens import DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
+from account_inputs import EmailInput, PASSWORD_MASK, PasswordInput
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, ask_confirmation
 
 RENEW_DELAY_MS = 3000
@@ -35,7 +36,6 @@ PLAN_TEXT = {'trial': '免费试用', 'monthly': '月度会员', 'quarterly': '�
 PROVIDER_NOTICE = '以下为第三方服务，模型费用由对应服务商另行计费，不属于会员；使用时请遵守当地法律与服务商条款，生成内容的合规由使用者自负。软件不提供也不保管任何 Key。'
 REDEEM_MAX_LENGTH = 40
 EXPORT_NAME = '漫剧助手账号数据_%Y%m%d.json'
-PASSWORD_MASK = '•'
 LOGIN_VIEWS = {'pw': '邮箱密码登录（新账号免费试用 3 天，每个账号最多绑定 3 台电脑）', 'reg': '注册新账号（邮箱验证码＋密码）',
                'code': '邮箱验证码登录', 'reset': '找回密码（用邮箱验证码设置新密码）'}
 CODE_SENT_TEXT = '验证码已发送，请查收邮件（10 分钟内有效）；几分钟没收到请看垃圾邮件箱，或稍后重发'
@@ -429,10 +429,10 @@ class AccountPageMixin:
         has_password = bool(session.get('has_password'))
         card = dialog.content
         if not has_password:ttk.Label(card,text='设置后可用邮箱＋密码登录。').pack(anchor='w',pady=SPACING['xs'])
-        old = LineInput(card,placeholder='原密码',mask=PASSWORD_MASK) if has_password else None
+        old = PasswordInput(card,placeholder='原密码') if has_password else None
         if old is not None:old.pack(fill='x',pady=SPACING['xs'])
-        new = LineInput(card,placeholder='新密码（8–64 位，含字母和数字）',mask=PASSWORD_MASK);new.pack(fill='x',pady=SPACING['xs'])
-        again = LineInput(card,placeholder='再次输入新密码',mask=PASSWORD_MASK);again.pack(fill='x',pady=SPACING['xs'])
+        new = PasswordInput(card,placeholder='新密码（8–64 位，含字母和数字）');new.pack(fill='x',pady=SPACING['xs'])
+        again = PasswordInput(card,placeholder='再次输入新密码');again.pack(fill='x',pady=SPACING['xs'])
         message = ttk.Label(card,text='',style='Muted.TLabel',wraplength=TEXT_DESC['wraplength'],justify='left')
         def say(text, error=False):message.configure(text=text,style='Expired.TLabel' if error else 'Muted.TLabel')
         def invalid(field, text):field.set_error(text);say(text,True)
@@ -496,7 +496,7 @@ class AccountPageMixin:
         form = Card(parent);form.pack(fill='x',pady=SPACING['xs'])
         tabs = ttk.Frame(form);tabs.pack(anchor='w',pady=SPACING['xs'])
         title = ttk.Label(form,text='',font=FONTS['heading_2'],wraplength=wrap,justify='left');title.pack(anchor='w',pady=SPACING['xs'])
-        email = LineInput(form,placeholder='邮箱地址');email.pack(fill='x',pady=SPACING['xs'])
+        email = EmailInput(form);email.pack(fill='x',pady=SPACING['xs'])
         remembered = self.account.last_email()
         if remembered:email.insert(0,remembered)        # R2052：默认显示上一次登录的邮箱，无需再输
         body = ttk.Frame(form);body.pack(fill='x')
@@ -566,7 +566,7 @@ class AccountPageMixin:
         def row(view):
             frame = ttk.Frame(views[view]);frame.pack(anchor='w',pady=SPACING['xs']);return frame
         # 密码登录
-        password = LineInput(views['pw'],placeholder='密码',mask=PASSWORD_MASK);password.pack(fill='x',pady=SPACING['xs'])
+        password = PasswordInput(views['pw'],placeholder='密码');password.pack(fill='x',pady=SPACING['xs'])
         def password_login():
             value = checked_email()
             if not value or not required(password,'请填写密码'):return
@@ -580,8 +580,8 @@ class AccountPageMixin:
         # 注册
         reg_send = SecondaryButton(row('reg'),text='发送注册验证码',command=lambda:send('register',reg_send));reg_send.pack(side='left')
         reg_code = LineInput(views['reg'],placeholder='6 位验证码');reg_code.pack(fill='x',pady=SPACING['xs'])
-        reg_password = LineInput(views['reg'],placeholder='设置密码（8–64 位，含字母和数字）',mask=PASSWORD_MASK);reg_password.pack(fill='x',pady=SPACING['xs'])
-        reg_again = LineInput(views['reg'],placeholder='再次输入密码',mask=PASSWORD_MASK);reg_again.pack(fill='x',pady=SPACING['xs'])
+        reg_password = PasswordInput(views['reg'],placeholder='设置密码（8–64 位，含字母和数字）');reg_password.pack(fill='x',pady=SPACING['xs'])
+        reg_again = PasswordInput(views['reg'],placeholder='再次输入密码');reg_again.pack(fill='x',pady=SPACING['xs'])
         reg_adult = tk.BooleanVar(master=form,value=False)
         ttk.Checkbutton(views['reg'],text='已满 18 周岁，并同意用户协议与隐私政策',variable=reg_adult).pack(anchor='w',pady=SPACING['xs'])
         def register():
@@ -597,8 +597,8 @@ class AccountPageMixin:
         # 找回密码
         reset_send = SecondaryButton(row('reset'),text='发送重置验证码',command=lambda:send('reset',reset_send));reset_send.pack(side='left')
         reset_code = LineInput(views['reset'],placeholder='6 位验证码');reset_code.pack(fill='x',pady=SPACING['xs'])
-        reset_password = LineInput(views['reset'],placeholder='新密码（8–64 位，含字母和数字）',mask=PASSWORD_MASK);reset_password.pack(fill='x',pady=SPACING['xs'])
-        reset_again = LineInput(views['reset'],placeholder='再次输入新密码',mask=PASSWORD_MASK);reset_again.pack(fill='x',pady=SPACING['xs'])
+        reset_password = PasswordInput(views['reset'],placeholder='新密码（8–64 位，含字母和数字）');reset_password.pack(fill='x',pady=SPACING['xs'])
+        reset_again = PasswordInput(views['reset'],placeholder='再次输入新密码');reset_again.pack(fill='x',pady=SPACING['xs'])
         def reset_done():
             password.delete(0,'end');show_view('pw','密码已重置，请用新密码登录')
         def reset():

@@ -24,6 +24,12 @@
    "percent": 0.0
   },
   {
+   "module": "account_inputs.py",
+   "covered": 0,
+   "total": 70,
+   "percent": 0.0
+  },
+  {
    "module": "account_store.py",
    "covered": 0,
    "total": 69,
@@ -1951,5 +1957,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 323
+ "modules_total": 324
 }

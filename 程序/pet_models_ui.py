@@ -16,6 +16,7 @@ from tkinter import ttk
 import model_pool
 from ui_tokens import BUTTON_GAP, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, SPACING, TEXT_DESC, TEXT_HINT
 from ui_dialogs import FileDialog
+from account_inputs import PasswordInput
 from ui_widgets import (BusyState, NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
                         LineInput, PrimaryButton, SecondaryButton)
 
@@ -495,7 +496,7 @@ class _ModelManager:
         ttk.Label(self.form, text='直接输入密钥').grid(row=index, column=0, sticky='w')
         key_row = ttk.Frame(self.form)
         key_row.grid(row=index, column=1, sticky='w')
-        self.key_entry = LineInput(key_row, width=SECRET_FIELD_WIDTH, show='*')
+        self.key_entry = PasswordInput(key_row, width=SECRET_FIELD_WIDTH, mask='*')
         self.key_entry.pack(side='left')
         SecondaryButton(key_row, text='保存到本机', command=lambda: self.local_save()).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
         SecondaryButton(key_row, text='清除本机密钥', command=lambda: self.local_clear()).pack(side='left', padx=(SPACING['xs'], SPACING['none']))
