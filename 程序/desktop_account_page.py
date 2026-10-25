@@ -497,6 +497,8 @@ class AccountPageMixin:
         tabs = ttk.Frame(form);tabs.pack(anchor='w',pady=SPACING['xs'])
         title = ttk.Label(form,text='',font=FONTS['heading_2'],wraplength=wrap,justify='left');title.pack(anchor='w',pady=SPACING['xs'])
         email = LineInput(form,placeholder='邮箱地址');email.pack(fill='x',pady=SPACING['xs'])
+        remembered = self.account.last_email()
+        if remembered:email.insert(0,remembered)        # R2052：默认显示上一次登录的邮箱，无需再输
         body = ttk.Frame(form);body.pack(fill='x')
         message = ttk.Label(form,text='',style='Muted.TLabel',wraplength=wrap,justify='left');message.pack(anchor='w',pady=SPACING['xs'])
         views = {key:ttk.Frame(body) for key in LOGIN_VIEWS}

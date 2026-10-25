@@ -174,6 +174,21 @@ class LoginGateTests(unittest.TestCase):
             d._require_login=False;d.refresh_nav_locks()
 
 
+    def test_gate_prefills_the_last_login_email_even_after_logout(self):
+        """R2052：登录框默认显示上一次登录的邮箱；退出登录后也保留，从没登录过则留空显示占位。"""
+        d=self.desktop
+        store=self.use(_Client())
+        d.begin_startup_or_login(True,lambda:None);self.pump()
+        self.assertEqual(d.account_email_input.get(),'','从没登录过：不预填')
+        d.login_gate.destroy();d.login_gate=None;d.login_gate_active=False
+        account_store.save_session({'email':'me@example.com','refresh_token':'r','lease':sign(payload()),'server_time':NOW},store.path)
+        account_store.clear_session(store.path)
+        self.assertEqual(account_store.last_email(store.path),'me@example.com')
+        self.assertEqual(account_store.load(store.path).get('refresh_token'),None)
+        d.begin_startup_or_login(True,lambda:None);self.pump()
+        self.assertEqual(d.account_email_input.get(),'me@example.com')
+
+
 def _walk(widget):
     for child in widget.winfo_children():
         yield child

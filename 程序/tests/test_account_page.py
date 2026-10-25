@@ -53,6 +53,7 @@ class AccountPageTests(unittest.TestCase):
 
     def use(self,client):
         store=_Store(Path(self.temp.name)/'acct'/'session.json')
+        store.path.unlink(missing_ok=True)      # R2052：会话文件各用例共用；退出登录会留下 last_email，每用例从空白开始
         self.desktop._account_controller=AccountController(
             submit=lambda work,done,label:done(work()),clock=lambda:NOW,store=store,client=client,enforce=True)
         return store
