@@ -104,7 +104,7 @@ def settings(parent):
     import webbrowser
     from tkinter import ttk
     from account_inputs import PasswordInput
-    from ui_widgets import (Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
+    from ui_widgets import (Card, DescriptionBlock, FormDialog, PrimaryButton,
                             ProgressLabel, SecondaryButton, notify)
     win = FormDialog(parent, '云图片模型 · Comfy 账户', modal=False, chrome=False)
     win.withdraw();win.transient(parent)

@@ -82,6 +82,16 @@ class LoginGateTests(unittest.TestCase):
         self.assertTrue(self.desktop.login_gate.winfo_exists())
         self.assertEqual(started,[])
 
+    def test_gate_closes_visible_cloud_via_public_pet_api(self):
+        class Pet:                                   # 只有公开接口，没有 _cloud
+            closed=0
+            def cloud_visible(self,sticker_only=False):return True
+            def close_chat(self,event=None):Pet.closed+=1
+        self.use(_Client())
+        with unittest.mock.patch.object(self.desktop,'pet',Pet(),create=True):
+            self.desktop.begin_startup_or_login(True,lambda:None)
+        self.assertEqual(Pet.closed,1)
+
     def test_enforce_off_never_forces_login(self):
         self.use(_Client(),enforce=False)
         started=[]
