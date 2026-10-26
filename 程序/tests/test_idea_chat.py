@@ -744,9 +744,13 @@ class _Harness(unittest.TestCase):
             cache = getattr(d, '_idea_view_model_cache', None)
             started = getattr(d, '_idea_view_model_request', 0) > 0        # 页面真请求过模型键才等
             return started and bool(d.root) and not (isinstance(cache, tuple) and cache[0] == d.root)
-        if d is not None and resolving():
+        def deferred():
+            # 首绘后的历史与状态栏回填要等布局稳定（desktop_idea_deferred，最长 2 秒）；
+            # 机器忙时固定时长等不到，状态栏会还是空的。
+            return getattr(d, '_idea_page_update_job', None) is not None
+        if d is not None and (resolving() or deferred()):
             limit = time.monotonic() + 10
-            while resolving() and time.monotonic() < limit:
+            while (resolving() or deferred()) and time.monotonic() < limit:
                 pump(.05)
             pump(seconds)
 
