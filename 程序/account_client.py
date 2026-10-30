@@ -4,9 +4,12 @@
 本体内置并用 ``ssl.create_default_context(cadata=...)`` 钉住，不关闭校验。备案后改用
 域名与系统 CA（去掉 ``PINNED_CERT``）。失败结果的 ``data`` 带服务端稳定错误码
 ``code``（网络不通时为 ``network``），调用方按 ``code`` 分支，不按文字。
+自检与本地 CI 设置 ``DRAMA_SUPPRESS_NETWORK=1`` 时，默认联网入口直接按网络不通返回：
+测试里真实 Desktop 会用本机会话续签，多进程并发续签会触发服务端令牌重用检测、吊销真实会话。
 本模块不读写本机文件、不导入 Tk；令牌只在入参和返回值里，不写日志。
 """
 import json
+import os
 import re
 import ssl
 import urllib.error
@@ -21,6 +24,7 @@ CLIENT_VERSION = VERSION.lstrip('Vv')
 TOS_VERSION = '2026-10'
 PRIVACY_VERSION = '2026-10'
 NETWORK = 'network'
+SUPPRESS_NETWORK_ENV = 'DRAMA_SUPPRESS_NETWORK'
 # 测试服 IP 自签证书（公开内容，2027-10-22 到期）；域名上线后作废。
 PINNED_CERT = '''-----BEGIN CERTIFICATE-----
 MIIBljCCATygAwIBAgIUPwWKH3MpjDD+Ty4Gn6MEdz8N+1EwCgYIKoZIzj0EAwIw
@@ -120,6 +124,8 @@ def request(method, path, body=None, *, token='', opener=None):
         headers['Content-Type'] = 'application/json'
     if token:
         headers['Authorization'] = 'Bearer ' + token
+    if opener is None and os.environ.get(SUPPRESS_NETWORK_ENV):
+        return SystemError('自检环境不联网（%s）' % SUPPRESS_NETWORK_ENV, data={'code': NETWORK, 'detail': 'suppressed'})
     opener = opener or platform_tools.open_https
     try:
         with opener(BASE_URL + path, timeout=TIMEOUT, data=data, headers=headers,
