@@ -1,11 +1,15 @@
-"""REQ-S01-71：剧本准备页语音输入的云端识别。
+"""REQ-S01-71：剧本准备页语音输入的实时云端识别（边说边出字）。
 
-默认走阿里云百炼 ``qwen3-asr-flash``（OpenAI 兼容 ``/chat/completions``，音频以 data URI 内联）。
-服务地址、模型、密钥变量名与语言都可在 ``data/语音识别.json`` 覆盖（升级保留），不改代码即可换模型；
-密钥只按变量名从模型池取，不写进设置文件、日志或异常文字。
+默认走阿里云百炼 ``qwen3-asr-flash-realtime``（WebSocket，OpenAI Realtime 风格事件）：
+录音线程每 0.1 秒推一块 16 kHz PCM，服务端按停顿断句，先回中间结果、再回整句定稿。
+服务地址、模型、密钥变量名、语言、断句静音与上限时长都可在 ``data/语音识别.json`` 覆盖
+（升级保留），不改代码即可换同协议的服务；密钥只按变量名从模型池取，不写进设置文件、
+日志或事件文字。
 """
 import base64
 import json
+import queue
+import threading
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -15,12 +19,13 @@ import platform_tools
 PROGRAM = Path(__file__).resolve().parent
 USER_FILE = PROGRAM / 'data' / '语音识别.json'
 DEFAULTS = {
-    'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-    'model': 'qwen3-asr-flash',
+    'base_url': 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime',
+    'model': 'qwen3-asr-flash-realtime',
     'key_env': 'DASHSCOPE_API_KEY',
     'language': 'zh',
-    'max_seconds': 180,          # qwen3-asr-flash 单段上限 5 分钟／10 MB，留足余量
-    'timeout': 60,
+    'silence_ms': 400,           # 停顿多久算一句说完；服务端默认 800，听写场景 400 出字更快
+    'max_seconds': 600,          # 一次开麦的上限，到了自动关麦
+    'timeout': 15,               # 建立连接与关麦后等最后一句定稿的上限（秒）
 }
 
 
@@ -42,58 +47,130 @@ def api_key(settings=None):
 
 
 def missing_reason(settings=None):
-    """能发识别请求时返回空串，否则返回一句给状态栏的原因。"""
+    """能开实时识别时返回空串，否则返回一句给状态栏的原因。"""
     settings = settings or read_settings()
     if not api_key(settings):
         return '没有配置语音识别密钥 %s：请在「模型管理」添加阿里云百炼密钥，或在 data/语音识别.json 改用其它服务' % settings['key_env']
     return ''
 
 
-def request_body(wav, settings):
-    audio = 'data:audio/wav;base64,' + base64.b64encode(bytes(wav)).decode('ascii')
-    return {'model': settings['model'], 'stream': False,
-            'messages': [{'role': 'user', 'content': [{'type': 'input_audio', 'input_audio': {'data': audio}}]}],
-            'asr_options': {'language': settings['language'], 'enable_itn': True}}
-
-
-def _endpoint(settings):
-    base = str(settings['base_url']).strip().rstrip('/')
+def endpoint(settings):
+    base = str(settings['base_url']).strip()
     parsed = urlparse(base)
-    local = parsed.scheme == 'http' and parsed.hostname in ('127.0.0.1', 'localhost', '::1')
-    if parsed.scheme != 'https' and not local:
-        raise ValueError('语音识别地址必须是 HTTPS（本机服务可用 HTTP）')
-    return base if base.endswith('/chat/completions') else base + '/chat/completions'
+    local = parsed.scheme == 'ws' and parsed.hostname in ('127.0.0.1', 'localhost', '::1')
+    if parsed.scheme != 'wss' and not local:
+        raise ValueError('语音识别地址必须是 wss://（本机服务可用 ws://）')
+    return base + ('&' if parsed.query else '?') + 'model=' + str(settings['model'])
 
 
-def _text(payload):
-    try:
-        content = payload['choices'][0]['message']['content']
-    except (KeyError, IndexError, TypeError):
-        raise ValueError('识别服务返回格式不对') from None
-    if isinstance(content, list):
-        content = ''.join(part.get('text', '') for part in content if isinstance(part, dict))
-    return str(content or '').strip()
+def session_update(settings):
+    return {'type': 'session.update', 'session': {
+        'modalities': ['text'], 'input_audio_format': 'pcm', 'sample_rate': platform_tools.RECORD_RATE,
+        'input_audio_transcription': {'language': settings['language']},
+        'turn_detection': {'type': 'server_vad', 'threshold': 0.2, 'silence_duration_ms': int(settings['silence_ms'])}}}
 
 
-def transcribe(wav, *, settings=None, key=None, opener=None):
-    """把 WAV 字节转成文字；失败抛带中文原因的 ValueError。"""
-    import urllib.error
-    settings = settings or read_settings()
-    key = key or api_key(settings)
-    if not key:
-        raise ValueError(missing_reason(settings))
-    url = _endpoint(settings)
-    data = json.dumps(request_body(wav, settings)).encode('utf-8')
-    headers = {'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'}
-    try:
-        with (opener or platform_tools.open_https)(url, timeout=settings['timeout'], data=data, headers=headers) as response:
-            payload = json.loads(response.read().decode('utf-8'))
-    except urllib.error.HTTPError as error:
-        if error.code in (401, 403):
-            raise ValueError('密钥无效或没有开通 %s（HTTP %d）' % (settings['model'], error.code)) from None
-        raise ValueError('识别服务出错（HTTP %d）' % error.code) from None
-    except (urllib.error.URLError, OSError) as error:
-        raise ValueError('连不上识别服务：%s' % (getattr(error, 'reason', '') or type(error).__name__)) from None
-    except ValueError:
-        raise ValueError('识别服务返回的不是 JSON') from None
-    return _text(payload)
+def _refused(error, settings):
+    if error.status in (401, 403):
+        return '密钥无效或没有开通 %s（HTTP %d）' % (settings['model'], error.status)
+    return '识别服务拒绝连接（HTTP %d）' % error.status
+
+
+class RealtimeSession:
+    """一次开麦对应一个会话。``send`` 与 ``finish`` 可在任意线程调用，结果从 ``events`` 取：
+
+    ``('partial', 句号, 文字)`` 当前句的中间结果（会被后续同句号的事件替换）；
+    ``('final', 句号, 文字)`` 整句定稿；``('error', '', 原因)``；最后一定有 ``('closed', '', '')``。
+    ``connect`` 是测试注入点，默认 ``platform_tools.open_websocket``。
+    """
+    def __init__(self, settings, *, key=None, connect=None):
+        self.settings, self.key = settings, key
+        self.connect = connect or platform_tools.open_websocket
+        self.events, self.audio = queue.Queue(), queue.Queue()
+        self.socket, self.cancelled, self.thread = None, False, None
+
+    def start(self):
+        self.thread = threading.Thread(target=self._run, name='voice-realtime', daemon=True)
+        self.thread.start()
+
+    def send(self, pcm):
+        self.audio.put(bytes(pcm))
+
+    def finish(self):
+        self.audio.put(None)
+
+    def cancel(self):
+        self.cancelled = True
+        self.audio.put(None)
+        if self.socket is not None:
+            self.socket.close()
+
+    def _fail(self, reason):
+        if not self.cancelled:
+            self.events.put(('error', '', reason))
+
+    def _run(self):
+        try:
+            self._converse()
+        finally:
+            self.events.put(('closed', '', ''))
+
+    def _converse(self):
+        settings = self.settings
+        key = self.key or api_key(settings)
+        if not key:
+            return self._fail(missing_reason(settings))
+        try:
+            url = endpoint(settings)
+            self.socket = self.connect(url, timeout=settings['timeout'],
+                                       headers={'Authorization': 'Bearer ' + key, 'OpenAI-Beta': 'realtime=v1'})
+        except ValueError as error:
+            return self._fail(str(error))
+        except platform_tools.WebSocketRefused as error:
+            return self._fail(_refused(error, settings))
+        except OSError as error:
+            return self._fail('连不上识别服务：%s' % (type(error).__name__ if not str(error) else str(error)[:120]))
+        if self.cancelled:
+            return self.socket.close()
+        reader = threading.Thread(target=self._read, name='voice-realtime-read', daemon=True)
+        try:
+            self.socket.send_text(json.dumps(session_update(settings)))
+            reader.start()
+            while True:
+                pcm = self.audio.get()
+                if pcm is None or self.cancelled:
+                    break
+                self.socket.send_text(json.dumps({'type': 'input_audio_buffer.append',
+                                                  'audio': base64.b64encode(pcm).decode('ascii')}))
+            if not self.cancelled:
+                self.socket.send_text(json.dumps({'type': 'session.finish'}))
+                reader.join(settings['timeout'])
+        except OSError:
+            self._fail('识别连接中断')
+        finally:
+            self.socket.close()
+
+    def _read(self):
+        try:
+            while True:
+                message = self.socket.recv_text()
+                if message is None or self._handle(message):
+                    return
+        except OSError:
+            self._fail('识别连接中断')
+
+    def _handle(self, message):
+        """把一条服务端事件转成界面事件；会话结束时返回真。"""
+        try:
+            event = json.loads(message)
+        except ValueError:
+            return False
+        kind, item = event.get('type', ''), str(event.get('item_id', ''))
+        if kind == 'conversation.item.input_audio_transcription.text':
+            self.events.put(('partial', item, str(event.get('text', '')) + str(event.get('stash', ''))))
+        elif kind == 'conversation.item.input_audio_transcription.completed':
+            self.events.put(('final', item, str(event.get('transcript', ''))))
+        elif kind == 'error':
+            detail = event.get('error') if isinstance(event.get('error'), dict) else {}
+            self._fail('识别服务报错：%s' % str(detail.get('message') or detail.get('code') or '未知')[:120])
+        return kind == 'session.finished'

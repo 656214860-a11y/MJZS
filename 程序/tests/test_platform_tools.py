@@ -227,4 +227,94 @@ class MicrophoneRecorderTests(unittest.TestCase):
         with patch.object(platform_tools.os, 'name', 'posix'):
             self.assertTrue(platform_tools.MicrophoneRecorder().start())
 
+    def test_on_chunk_streams_blocks_instead_of_buffering(self):
+        import time
+        chunks = []
+        recorder = platform_tools.MicrophoneRecorder(max_seconds=0.3, winmm=FakeWinmm(), on_chunk=chunks.append)
+        self.assertEqual(recorder.start(), '')
+        for _ in range(200):
+            if recorder.finished:break
+            time.sleep(0.01)
+        wav, peak = recorder.stop()
+        self.assertGreaterEqual(len(chunks), 3)
+        self.assertTrue(all(len(chunk) == platform_tools._RECORD_CHUNK_BYTES for chunk in chunks))
+        self.assertGreaterEqual(recorder.seconds, 0.3)
+        self.assertEqual(len(recorder.pcm), 0, '流式模式不攒整段')
+        self.assertEqual(peak, 1200)
 
+
+class WebSocketTests(unittest.TestCase):
+    """REQ-S01-71：标准库 WebSocket 客户端：握手校验、带掩码文本帧、分片、ping/pong、关闭与拒绝。"""
+    def serve(self, handler):
+        import socket
+        import threading
+        listener = socket.socket()
+        listener.bind(('127.0.0.1', 0)); listener.listen(1)
+        self.addCleanup(listener.close)
+        seen = {}
+
+        def run():
+            conn, _ = listener.accept()
+            with conn:
+                request = b''
+                while b'\r\n\r\n' not in request:
+                    request += conn.recv(4096)
+                seen['request'] = request.decode('latin-1')
+                handler(conn, seen['request'])
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 5)
+        return 'ws://127.0.0.1:%d/realtime?model=m' % listener.getsockname()[1], seen
+
+    @staticmethod
+    def accept(request):
+        import base64
+        import hashlib
+        key = [line.split(':', 1)[1].strip() for line in request.split('\r\n') if line.lower().startswith('sec-websocket-key')][0]
+        token = base64.b64encode(hashlib.sha1((key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest()).decode()
+        return ('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n'
+                'Sec-WebSocket-Accept: %s\r\n\r\n' % token).encode()
+
+    @staticmethod
+    def read_frame(conn):
+        def exact(count):
+            data = b''
+            while len(data) < count:
+                data += conn.recv(count - len(data))
+            return data
+        head = exact(2)
+        mask = exact(4) if head[1] & 0x80 else b''
+        payload = exact(head[1] & 0x7F)
+        if mask:
+            payload = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+        return head[0] & 0x0F, payload, bool(mask)
+
+    def test_handshake_text_fragments_ping_and_close(self):
+        frames = {}
+
+        def handler(conn, request):
+            conn.sendall(self.accept(request) + b'\x01\x03\xe4\xb8\xbb')        # 首片紧跟在握手响应后
+            conn.sendall(b'\x89\x02hi' + b'\x80\x03\xe8\xa7\x92')              # 中间插一个 ping，再给末片
+            frames['pong'] = self.read_frame(conn)
+            frames['text'] = self.read_frame(conn)
+            conn.sendall(b'\x88\x00')
+            frames['close'] = self.read_frame(conn)
+
+        url, seen = self.serve(handler)
+        ws = platform_tools.open_websocket(url, headers={'Authorization': 'Bearer t'}, timeout=5)
+        self.assertEqual(ws.recv_text(), '主角')
+        ws.send_text('你好')
+        self.assertIsNone(ws.recv_text())
+        self.assertIn('GET /realtime?model=m HTTP/1.1', seen['request'])
+        self.assertIn('Authorization: Bearer t', seen['request'])
+        self.assertEqual(frames['pong'], (0xA, b'hi', True))
+        self.assertEqual(frames['text'], (0x1, '你好'.encode('utf-8'), True), '客户端帧必须带掩码')
+        self.assertEqual(frames['close'][0], 0x8)
+
+    def test_refused_handshake_reports_status(self):
+        url, _ = self.serve(lambda conn, request: conn.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n'))
+        with self.assertRaises(platform_tools.WebSocketRefused) as caught:
+            platform_tools.open_websocket(url, timeout=5)
+        self.assertEqual(caught.exception.status, 401)
+        with self.assertRaises(ValueError):
+            platform_tools.open_websocket('https://example.test/')
