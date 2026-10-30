@@ -79,7 +79,7 @@ from production_lock_fields import CompactLabel, FlowFields, label_pixel_width
 
 import model_pool
 import model_router
-import skill_note_render
+import edit_habits_dialog, skill_note_render
 import skill_notes
 from tk_timers import repeat
 import skill_budget
@@ -356,8 +356,8 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         self.writer_style_button = SecondaryButton(row, text='编辑编剧风格', width=CHAR_WIDTH['2xl'],
                                                    command=self.open_writer_style_editor)
         self.writer_style_button.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
-        DescriptionBlock(row, text='编剧角色按此风格创作并审核五阶门控，例如参考好莱坞编剧；留空则不附加风格。').pack(
-            side='left', padx=(SPACING['sm'], SPACING['none']))
+        self.edit_habits_button = edit_habits_dialog.entry_button(row, self)  # REQ-S01-60：跨项目修改习惯
+        DescriptionBlock(row, text='编剧角色按此风格创作并审核五阶门控，例如参考好莱坞编剧；留空则不附加风格。').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
         row._schedule_wrap()
         return row
 

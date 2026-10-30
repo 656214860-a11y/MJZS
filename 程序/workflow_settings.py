@@ -10,7 +10,7 @@ import tkinter as tk
 from agent.core import save
 from file_cache import read_json
 import skill_registry
-import client_profiles
+import client_profiles, edit_habits
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
 from ui_dialogs import FileDialog
@@ -516,8 +516,8 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     profile['project_created_at'] = stage_config.project_created_at(project)
     if locks:
         profile['workflow_lock'] = locks
-    if stage == 'writing':
-        profile['writer_style'] = stage_config.writer_style(project, 'script')
+    profile.update(edit_habits.config_fields(stage))  # REQ-S01-61：建配置时读一次已采用的修改习惯
+    if stage == 'writing': profile['writer_style'] = stage_config.writer_style(project, 'script')
     name = str(workflow.get('name') or '').strip()
     preset = refresh_workflow_presets().get(name, {})
     if preset:

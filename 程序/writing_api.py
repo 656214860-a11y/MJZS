@@ -16,7 +16,7 @@ import model_pool
 import stage_config
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
-import writing_tools
+import edit_habits, writing_tools
 from writing_quality import enabled as quality_enabled
 from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
                                      context_budget_report, text_fingerprint)
@@ -1097,7 +1097,7 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
     stage = PREPARATION_STAGES[index]
     publish = _versioned_publisher(project, publish)
     system = (workflow_settings.skill_prompt(settings, inline=True)
-              + workflow_settings.stage_output_contract('writing')
+              + workflow_settings.stage_output_contract('writing') + edit_habits.prompt(settings, 'writing')
               + '\n阶段修订规则：若用户要求修改当前草稿，本轮答复用于修订；编号答复对应草稿中的同号问题。'
               + '用户明确的新决定优先于草稿中的旧表述，必须落实到完整正文。'
               + '不得把已经回答的问题再次列为待确认事项；用户要求补充时应实际补充，不能再次询问是否补充。'
@@ -1247,7 +1247,7 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
         task += '\n\n以下为本次对话之前已确认的信息：\n' + history
     system = (workflow_settings.skill_prompt(settings, inline=True)
               + workflow_settings.stage_output_contract('writing')
-              + workflow_settings.writer_style_prompt(settings, 'writing') + context)
+              + workflow_settings.writer_style_prompt(settings, 'writing') + edit_habits.prompt(settings, 'writing') + context)
     adapter = _writing_adapter(record, chosen, project=root, settings=settings, cancelled=cancelled)
     if adapter.wire_api == 'messages':
         system += ('\n\n本次已接入受控剧本文件工具。需要读取项目内容时先列出再读取剧本文档或项目接续 JSON；'
