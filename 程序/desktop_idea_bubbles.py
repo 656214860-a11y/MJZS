@@ -3,7 +3,7 @@
 方法体未改、self 语义不变，IdeaChatMixin 通过继承 IdeaBubblesMixin 获得；仍与 Tk 控件紧耦合，故与 desktop_idea_chat 同属 L4。"""
 import json
 import tkinter as tk
-from ui_tokens import COLORS
+from ui_tokens import COLORS, ICON_COPY, ICON_DELETE, ICON_FONT
 from pathlib import Path
 from idea_chat_controller import bubble_timestamp, collapse_preview
 
@@ -32,7 +32,7 @@ class IdeaBubblesMixin:
         self._bubble_width=width
         for name,text,mine in getattr(self,'_bubble_rows',[]):
             left,right=self.bubble_margins(box,text,mine)
-            for tag in (name,name+'_time',name+'_meta',name+'_toggle',name+'_thinking'):
+            for tag in (name,name+'_time',name+'_meta',name+'_toggle',name+'_thinking',name+'_actions'):
                 try:box.tag_configure(tag,lmargin1=left,lmargin2=left,rmargin=right)
                 except tk.TclError:pass
     def bubble_font(self):
@@ -56,10 +56,10 @@ class IdeaBubblesMixin:
         span=max(BUBBLE_FLOOR,width-2*BUBBLE_GAP)
         span=min(span,max(BUBBLE_FLOOR,int(width*BUBBLE_MAX_RATIO)))
         body=max(BUBBLE_FLOOR,min(span,self.text_width(text)+BUBBLE_PAD*2+BUBBLE_SLACK))
-        # 微信式对话：模型在左、用户在右，气泡仍按文字实际宽度收紧。
+        # Claude Code 桌面版式（REQ-S01-65）：用户在右、按字宽收紧；模型在左、按可用宽度铺开。
         if mine:
             return max(0,width-BUBBLE_GAP-body),BUBBLE_GAP
-        return BUBBLE_GAP,max(0,width-BUBBLE_GAP-body)
+        return BUBBLE_GAP,BUBBLE_GAP
     def bubble_time(self,at):
         """气泡上面那一行小字（实现搬到 L3 idea_chat_controller，入口不变）。"""
         return bubble_timestamp(at)
@@ -121,6 +121,8 @@ class IdeaBubblesMixin:
         if box is None:return 'break'
         try:text=box.get('sel.first','sel.last')
         except tk.TclError:return 'break'
+        # 悬停图标是 Text 里的占位字符，拖选复制时去掉，不把私用区字形混进正文。
+        text=''.join(char for char in text if char not in (ICON_COPY,ICON_DELETE))
         if not text:return 'break'
         from prompt_window import copy_text
         reason=copy_text(box,text)
@@ -168,7 +170,7 @@ class IdeaBubblesMixin:
             return None
         return self.safe(lambda:self.start_bubble_edit(event,click['index'],click['name']))
     def copy_bubble_message(self,index):
-        """右键“复制整条信息”：只取持久化的正文，不把界面元信息混进去。"""
+        """消息左下角「复制」图标：只取持久化的正文，不把界面元信息混进去。"""
         if index == 'example':
             text=self.idea_example()
             if not text:return None
@@ -188,7 +190,7 @@ class IdeaBubblesMixin:
         if reason:return None
         return text
     def delete_bubble_message(self,index):
-        """右键“删除整条信息”：移出当前对话，并保留最近删除恢复记录。"""
+        """消息左下角「删除」图标：移出当前对话，并保留最近删除恢复记录。"""
         import idea_chat
         model=self.displayed_chat_model()
         rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
@@ -344,9 +346,9 @@ class IdeaBubblesMixin:
         # 用户气泡仍贴右侧；正文一律由气泡左边开始，长句更容易读。
         align='left'
         example=index == 'example'
-        model_back, model_meta = self.model_chat_colors(row.get('model'))
-        look=dict(justify=align,
-                  background='' if example else (COLORS['success_subtle'] if mine else model_back),
+        _model_back, model_meta = self.model_chat_colors(row.get('model'))
+        # REQ-S01-65：与 Claude Code 桌面版一致，用户和模型的消息都不铺底色，靠左右位置区分。
+        look=dict(justify=align,background='',
                   foreground=COLORS['text_secondary'] if example else COLORS['text_primary'],
                   lmargin1=left,lmargin2=left,rmargin=right,
                   spacing1=2,spacing2=1,spacing3=4,font=BUBBLE_FONT,wrap='word')
@@ -386,10 +388,34 @@ class IdeaBubblesMixin:
             box.tag_bind(toggle,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
             box.tag_bind(toggle,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
         if isinstance(index,int):
+            self.add_bubble_actions(box,name,index,left,right)
             # 只允许编辑真实消息；只读软件示例仍可拖选复制。
             box.tag_bind(name,'<Button-1>',lambda event,i=index,n=name:self.begin_bubble_click(event,i,n))
             box.tag_bind(name,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
             box.tag_bind(name,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
+    def add_bubble_actions(self,box,name,index,left,right):
+        """REQ-S01-66：正文左下角的复制／删除图标；平时与框底同色占位，悬停这条消息才显出来。"""
+        actions=name+'_actions'
+        box.tag_configure(actions,lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=4,font=ICON_FONT)
+        for suffix,icon,handler in (('_copy',ICON_COPY,'copy_bubble_message'),
+                                    ('_delete',ICON_DELETE,'delete_bubble_message')):
+            tag=name+suffix
+            box.tag_configure(tag,foreground=box.cget('bg'))
+            box.insert('end',icon,(actions,tag))
+            box.insert('end','  ',actions)
+            box.tag_bind(tag,'<Button-1>',lambda event,i=index,h=handler:(self.safe(lambda:getattr(self,h)(i)),'break')[1])
+            box.tag_bind(tag,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'),add='+')
+            box.tag_bind(tag,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'),add='+')
+        box.insert('end','\n',actions)
+        for tag in (name,name+'_meta',name+'_time',name+'_toggle',actions):
+            box.tag_bind(tag,'<Enter>',lambda event,b=box,n=name:self.show_bubble_actions(b,n,True),add='+')
+            box.tag_bind(tag,'<Leave>',lambda event,b=box,n=name:self.show_bubble_actions(b,n,False),add='+')
+    def show_bubble_actions(self,box,name,visible):
+        """只改图标前景色，不增删字符，悬停时排版高度不跳。"""
+        color=COLORS['text_muted'] if visible else box.cget('bg')
+        for suffix in ('_copy','_delete'):
+            try:box.tag_configure(name+suffix,foreground=color)
+            except tk.TclError:pass
     def show_thinking(self,model):
         """模型正在请求时，在最近一条消息下方放临时状态；不会写入对话记录。"""
         self._thinking_model=model if str(model or '').strip() else 'AI 助手'

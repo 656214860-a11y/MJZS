@@ -37,14 +37,12 @@ class IdeaMenusMixin:
             if index == 'example':
                 menu.command('复制软件示例',lambda:self.copy_bubble_message('example'))
             else:
-                menu.command('复制整条信息',lambda i=index:self.copy_bubble_message(i))
-                menu.command('删除整条信息',lambda i=index:self.delete_bubble_message(i))
                 menu.command('删除全部信息',lambda:self.safe(self.delete_all_bubble_messages))
                 menu.command('恢复最近删除的信息',self.restore_latest_bubble_message)
             menu.separator()
         if target is None or target[0]=='example':
             menu.command('删除全部信息',lambda:self.safe(self.delete_all_bubble_messages))
-        menu.command('清屏',self.clear_bubble_view)
+        menu.command('清屏压缩',self.clear_bubble_view)
         self._bubble_menu=menu
         return menu.popup(event)
     def open_idea_paste_menu(self,event):

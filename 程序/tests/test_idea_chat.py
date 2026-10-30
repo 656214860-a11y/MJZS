@@ -1799,7 +1799,7 @@ class BubbleLayoutTests(_Harness):
             left, right = d.bubble_margins(box, '同样一句话', False)
             mine_left, mine_right = d.bubble_margins(box, '同样一句话', True)
             self.assertGreater(mine_left, left, '用户消息贴在右侧')
-            self.assertGreater(right, mine_right, '模型消息贴在左侧')
+            self.assertLess(left + right, mine_left + mine_right, '模型消息贴左铺开，比用户消息更宽（REQ-S01-65）')
 
     def test_user_bubble_uses_a_readable_light_green_surface(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1807,7 +1807,7 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'user', '这条由用户发送')
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            self.assertEqual(d.idea_log.tag_cget('bubble_0', 'background').lower(), COLORS['success_subtle'].lower())
+            self.assertEqual(str(d.idea_log.tag_cget('bubble_0', 'background')), '')  # REQ-S01-65 不铺底色
             self.assertEqual(d.idea_log.tag_cget('bubble_0', 'foreground'), COLORS['text_primary'])
 
     def test_model_chat_color_is_stable_and_distinguishes_common_models(self):
@@ -1836,7 +1836,7 @@ class BubbleLayoutTests(_Harness):
             event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
             d.start_bubble_edit(event, 0, 'bubble_0'); win.update()
             edit = d._bubble_edit
-            self.assertEqual(d.idea_log.tag_cget('bubble_0', 'background').lower(), COLORS['success_subtle'].lower())
+            self.assertEqual(str(d.idea_log.tag_cget('bubble_0', 'background')), '')  # REQ-S01-65 不铺底色
             self.assertEqual(d.idea_log.cget('selectbackground'), COLORS['primary'])
             self.assertEqual(d.idea_log.cget('selectforeground').lower(), COLORS['background_card'].lower())
             d.idea_log.tag_add('sel', '%s+1c' % edit['start'], '%s+3c' % edit['start'])
@@ -1935,7 +1935,9 @@ class BubbleLayoutTests(_Harness):
             labels = [d._bubble_menu.entrycget(i, 'label')
                       for i in range(d._bubble_menu.index('end') + 1)
                       if d._bubble_menu.type(i) != 'separator']
-            self.assertEqual(labels[labels.index('删除整条信息') + 1], '删除全部信息')
+            self.assertNotIn('复制整条信息', labels)  # REQ-S01-66 改为消息左下角图标
+            self.assertNotIn('删除整条信息', labels)
+            self.assertEqual(labels[0], '删除全部信息')
             with patch('desktop.confirm', return_value=False):
                 self.assertIsNone(d.delete_all_bubble_messages())
             self.assertEqual(len(idea_chat.load(proj, model=model)), 1)
@@ -2132,7 +2134,7 @@ class BubbleLayoutTests(_Harness):
                     self.assertEqual(d.open_bubble_menu(event), 'break')
                     menu = d._bubble_menu
                     index = menu.index('end')
-                    self.assertEqual(menu.entrycget(index, 'label'), '清屏')
+                    self.assertEqual(menu.entrycget(index, 'label'), '清屏压缩')
                     menu.invoke(index)
                     clear.assert_called_once_with()
 

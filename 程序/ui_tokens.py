@@ -337,6 +337,9 @@ ICON_SEND = "\uE74A"
 ICON_STOP = "\uE71A"
 ICON_CLOSE = "\uE711"
 ICON_DOCUMENT = "\uE8A5"
+# 对话消息悬停图标与框内麦克风（REQ-S01-66／67）。
+ICON_COPY = "\uE8C8"
+ICON_MICROPHONE = "\uE720"
 ICON_FONT_SMALL = ("Segoe MDL2 Assets", 7)
 
 # 主窗口三虎：绘图保留原坐标系，显示尺寸和命中区域共用这组紧凑布局值。

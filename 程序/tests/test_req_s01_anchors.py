@@ -30,7 +30,6 @@ from agent.core import save
 from stage_path_service import write_dir
 from tests.test_idea_chat import _Harness, idea_chat
 from tests.test_ui_edges import make_minimal_project
-from ui_tokens import COLORS
 
 RAW = (
     '第 1 集\n'
@@ -129,11 +128,11 @@ class IdeaBubbleAnchorTests(_Harness):
         # 文字完整：预览即全文（desktop_idea_chat.py:633-635）。
         self.assertEqual(str(box.get(*spans['bubble_0'])).strip(), self.USER)
         self.assertEqual(str(box.get(*spans['bubble_1'])).strip(), self.MODEL)
-        # 契约：用户气泡底色 success_subtle，模型气泡底色另取模型色（desktop_idea_chat.py:606-608）。
-        user_bg = str(box.tag_cget('bubble_0', 'background')).lower()
-        model_bg = str(box.tag_cget('bubble_1', 'background')).lower()
-        self.assertEqual(user_bg, COLORS['success_subtle'].lower())
-        self.assertNotEqual(model_bg, user_bg, '模型气泡与用户气泡的底色必须区分开')
+        # 契约（REQ-S01-65）：用户与模型消息都不铺底色，靠左右位置区分：用户靠右、模型靠左。
+        self.assertEqual(str(box.tag_cget('bubble_0', 'background')), '')
+        self.assertEqual(str(box.tag_cget('bubble_1', 'background')), '')
+        self.assertGreater(int(box.tag_cget('bubble_0', 'lmargin1')), int(box.tag_cget('bubble_1', 'lmargin1')),
+                           '用户消息必须比模型消息更靠右')
         # 契约：用户贴右（左边距更大），模型贴左（正好一个 BUBBLE_GAP）（desktop_idea_chat.py:212-215）。
         user_left = int(float(box.tag_cget('bubble_0', 'lmargin1')))
         model_left = int(float(box.tag_cget('bubble_1', 'lmargin1')))

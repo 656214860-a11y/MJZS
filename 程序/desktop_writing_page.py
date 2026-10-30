@@ -11,12 +11,13 @@ from typing import Callable
 import time
 import app_logging
 import project_stages
+import os
 import tkinter as tk
 import ui_plugin_registry
 from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height, row_toggle_target
 from tkinter import ttk
-from ui_tokens import BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, FONTS, ICON_ADD, ICON_SEND, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
+from ui_tokens import BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from desktop_file_card import TreeRowCard, script_row_card
 from ui_widgets import Card, DataTable, EllipsisLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, ask_string
 
@@ -323,6 +324,12 @@ class _WritingPage:
                                  command=lambda:self.page.safe(self.page.choose_idea_attachments))
         attach_button.pack(side='left')
         Tooltip(attach_button,'上传附件')
+        if os.name=='nt':
+            voice_button=SecondaryButton(input_row,text=ICON_MICROPHONE,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Icon.TButton',
+                                         command=lambda:self.page.safe(self.start_voice_input))
+            voice_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
+            Tooltip(voice_button,'语音输入（Win+H）：说话即自动写入输入框')
+            self.page.idea_voice_button=voice_button
         submit_button=SecondaryButton(input_row,text=ICON_SEND,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Send.TButton',
                                  command=lambda:self.page.idea_send.invoke())
         submit_button.pack(side='right')
@@ -467,6 +474,12 @@ class _WritingPage:
         self.stop_input_hint()
         return 'break'
 
+    def start_voice_input(self):
+        """REQ-S01-67：先把焦点放进输入框，再调起系统听写，文字才会落到这里。"""
+        import platform_tools
+        self.input_box.focus_force()
+        reason=platform_tools.start_voice_typing()
+        if reason:self.page.status.set('语音输入未能调起（%s）；可在输入框内手动按 Win+H。' % reason)
     def interrupt_from_input(self, event=None):
         """运行中在输入框按 Esc 等同点终止；空闲时不拦截，交给其他绑定。"""
         if not self.page.script_task_active():return None
