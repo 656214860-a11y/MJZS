@@ -237,6 +237,28 @@ def _cancel_position_job(window,event=None):
     window._drama_place_job=None
 
 
+def _fit_dialog(window,parent,width,height,limit):
+    """弹窗首次尺寸：返回 ``(宽, 高, 是否自然尺寸)``，并设好缩放范围。
+
+    主窗口仅约束首次尺寸；之后由用户自由缩放，不沿用业务页的固定尺寸。但不能小于内容的
+    请求尺寸：业务页写死的「600x400」在高 DPI 下装不下表单，主窗口偏小时也会把弹窗裁短；
+    只有工作区（``limit``）放不下时才让步。尺寸恰好等于自然尺寸（内容或声明的下限）时由
+    调用方只摆位置不定尺寸，之后才加载的内容（如联网读回的设备列表）还能把窗口撑大。
+    """
+    minw,minh=window.minsize()
+    reqw,reqh=window.winfo_reqwidth(),window.winfo_reqheight()
+    width=max(min(width,parent.winfo_width()),min(reqw,limit[0]))
+    height=max(min(height,parent.winfo_height()),min(reqh,limit[1]))
+    natural=(width,height)==(max(reqw,minw),max(reqh,minh))
+    window.resizable(True,True)
+    # 弹窗不再被压到 1×1：未声明也至少保留 240×160 的内容下限。写死尺寸的弹窗之后可由用户
+    # 随意缩小；自然尺寸的弹窗要靠声明过的下限撑住宽度，否则放开尺寸后会缩回内容宽。
+    window.minsize(*((max(DIALOG_MIN_WIDTH,minw),max(DIALOG_MIN_HEIGHT,minh)) if natural
+                     else (DIALOG_MIN_WIDTH,DIALOG_MIN_HEIGHT)))
+    window.maxsize(window.winfo_vrootwidth(),window.winfo_vrootheight())
+    return width,height,natural
+
+
 def install_window_placement(root):
 
     """Center each window once; leave subsequent user moves alone."""
@@ -302,15 +324,10 @@ def install_window_placement(root):
 
         height=min(window.winfo_height(),bottom-top-48)
 
+        natural=False
         if parent and not window.overrideredirect():
             window.transient(parent)
-            # 主窗口仅约束首次尺寸；之后由用户自由缩放，不沿用业务页的固定尺寸。
-            width=min(width,parent.winfo_width())
-            height=min(height,parent.winfo_height())
-            window.resizable(True,True)
-            # 弹窗不再被压到 1×1：未声明也至少保留 240×160 的内容下限。
-            window.minsize(DIALOG_MIN_WIDTH,DIALOG_MIN_HEIGHT)
-            window.maxsize(window.winfo_vrootwidth(),window.winfo_vrootheight())
+            width,height,natural=_fit_dialog(window,parent,width,height,(right-left-24,bottom-top-48))
 
         if parent is None:
 
@@ -332,7 +349,9 @@ def install_window_placement(root):
 
         x=max(left,min(x,right-width));y=max(top,min(y,bottom-height))
 
-        window.geometry(f'{width}x{height}+{x}+{y}');window.update_idletasks()
+        if natural:window.geometry('');window.geometry(f'+{x}+{y}')
+        else:window.geometry(f'{width}x{height}+{x}+{y}')
+        window.update_idletasks()
 
         # 启动画面盖着主窗口时由启动器决定何时显形，这里只摆位置。
         if not getattr(window,'_drama_hold_alpha',False):window.attributes('-alpha',1);window.lift()
