@@ -82,6 +82,53 @@ class DownloadInboxTests(unittest.TestCase):
         self.assertEqual(done, [target])
         self.assertEqual(target.read_text(encoding='utf-8'), '设定')
 
+    def _outline_target(self, day):
+        return (self.project / '01剧本准备' / 'Google' / 'Google Gemini 4 Argon' / ('创意_' + day)
+                / '项目大纲' / ('摄影侠_项目大纲_Google_' + day + '.md'))
+
+    def test_newer_dated_download_is_saved_as_new_batch_and_old_kept(self):
+        old = self._outline_target('20261018')
+        old.parent.mkdir(parents=True)
+        old.write_text('旧大纲', encoding='utf-8')
+        now = time.time()
+        os.utime(old, (now - 600, now - 600))
+        register_download_inbox(self.project, str(old), now=now - 60)
+        self._download('摄影侠 项目大纲 Google 20261030.md', '新大纲'.encode('utf-8'), at=now)
+        new = self._outline_target('20261030')
+        self.assertEqual(collect_download_inbox(self.project, now=now, downloads=self.downloads), [new])
+        self.assertEqual(new.read_text(encoding='utf-8'), '新大纲')
+        self.assertEqual(old.read_text(encoding='utf-8'), '旧大纲', '旧日期版本保留')
+        self.assertEqual(collect_download_inbox(self.project, now=now, downloads=self.downloads), [],
+                         '收回后登记项移除，不重复写')
+
+    def test_exact_name_wins_over_dated_download(self):
+        old = self._outline_target('20261018')
+        now = time.time()
+        register_download_inbox(self.project, str(old), now=now - 60)
+        self._download('摄影侠_项目大纲_Google_20261018.md', '同名'.encode('utf-8'), at=now)
+        self._download('摄影侠_项目大纲_Google_20261030.md', '新日期'.encode('utf-8'), at=now)
+        self.assertEqual(collect_download_inbox(self.project, now=now, downloads=self.downloads), [old])
+        self.assertFalse(self._outline_target('20261030').exists())
+
+    def test_dated_download_needs_same_name_and_newer_date(self):
+        old = self._outline_target('20261018')
+        now = time.time()
+        pending = [{'target': str(old), 'since': now - 60}]
+        for name in ('摄影侠 项目设定 Google 20261030.md', '摄影侠 项目大纲 Google 20261001.md',
+                     '摄影侠 项目大纲 Google 20261399.md'):
+            self._download(name, at=now)
+        self.assertEqual(download_inbox.match(self.downloads, pending, now), [])
+
+    def test_dated_download_skips_when_new_batch_file_is_newer(self):
+        old = self._outline_target('20261018')
+        new = self._outline_target('20261030')
+        new.parent.mkdir(parents=True)
+        new.write_text('用户已改', encoding='utf-8')
+        now = time.time()
+        self._download('摄影侠 项目大纲 Google 20261030.md', at=now - 30)
+        pending = [{'target': str(old), 'since': now - 60}]
+        self.assertEqual(download_inbox.match(self.downloads, pending, now), [])
+
     def test_expired_registrations_are_dropped(self):
         target = self.project / '05资产管理' / 'C01.png'
         now = time.time()

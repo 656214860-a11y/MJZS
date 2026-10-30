@@ -82,6 +82,20 @@ class DownloadImportTests(unittest.TestCase):
         self.assertEqual(imported[0][1].parent.name, '项目大纲')
         self.assertEqual(imported[0][1].parents[2].name, 'Claude Desktop')
 
+    def test_download_dated_after_existing_outline_is_saved_as_new_file(self):
+        old = self._saved_outline()
+        later = time.strftime('%Y%m%d', time.localtime(time.time() + 2 * 24 * 3600))
+        self._download('摄影侠 项目大纲 Anthropic ' + later + '.md', OUTLINE_NEW)
+        imported = self._import()
+        self.assertEqual([kind for kind, _path in imported], ['项目大纲'])
+        saved = imported[0][1]
+        self.assertNotEqual(saved, old)
+        self.assertEqual(saved.name, '摄影侠_项目大纲_Anthropic_' + later + '.md')
+        self.assertEqual(saved.parents[1].name, '创意_' + later)
+        self.assertEqual(saved.read_text(encoding='utf-8').strip(), OUTLINE_NEW.strip())
+        self.assertEqual(old.read_text(encoding='utf-8').strip(), OUTLINE_OLD.strip(), '旧日期版本保留')
+        self.assertEqual(self._import(), [], '再次刷新不重复导入')
+
     def test_unrelated_stale_or_mismatched_downloads_are_ignored(self):
         old = self._saved_outline()
         self._download('别的项目_项目大纲_Anthropic_20261014.md', OUTLINE_NEW)

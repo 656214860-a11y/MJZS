@@ -6,13 +6,15 @@ Claude Desktop 等桌面应用读得到任务书，却常常不能直接写入�
 
 - ``expected_targets()`` 从任务书正文里取出位于项目内、尚未存在的目标文件路径；
 - ``match()`` 在下载文件夹里为待收回目标找同名（容许浏览器追加的「 (N)」）、派发后
-  才下载的最新文件。
+  才下载的最新文件；没有同名件时，四段式文件名只差日期段且下载件日期更新的，另存到
+  新日期的文件与「创意_日期」批次，旧日期版本保留。
 
 登记表读写与复制落盘由 L3 注入，本模块不读写项目数据。
 """
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from pathlib import Path
 
 TARGET_SUFFIXES = ('md', 'json', 'png', 'jpg', 'jpeg', 'webp', 'mp4', 'mov', 'wav', 'mp3',
@@ -62,11 +64,52 @@ def _plain_name(name):
     return _SEPARATOR_RUN.sub(' ', _COPY_SUFFIX.sub('', name).strip()).casefold()
 
 
-def match(downloads, pending, now):
-    """返回 ``[(下载文件, 目标路径)]``：同名、派发后下载、比现有目标新的最新一份。
+_DATED_NAME = re.compile(r'^(.+)[ _](\d{8})(\.[^.]+)$')
 
-    同一文件名对应多个待收回目标时只认最近一次派发，避免把文件放错位置。
-    """
+
+def _dated(name):
+    """归一后的四段式文件名拆成 ``(去掉日期的名字, 日期)``；末段不是合法日期返回 ``None``。"""
+    found = _DATED_NAME.match(name)
+    if not found:
+        return None
+    try:
+        datetime.strptime(found.group(2), '%Y%m%d')
+    except ValueError:
+        return None
+    return found.group(1) + found.group(3), found.group(2)
+
+
+def dated_target(target, day):
+    """把目标文件名的日期段换成 ``day``；所在批次目录是「创意_旧日期」时一并换成新日期。"""
+    target = Path(target)
+    found = _DATED_NAME.match(target.name)
+    if not found:
+        return target
+    name = target.name[:found.start(2)] + day + target.name[found.end(2):]
+    batch = target.parent.parent
+    if batch.name == '创意_' + found.group(2):
+        return batch.parent / ('创意_' + day) / target.parent.name / name
+    return target.with_name(name)
+
+
+def _newest(files, since, accept):
+    best = None
+    for path in files:
+        if not accept(path):
+            continue
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        if mtime + 2 < since:
+            continue
+        if best is None or mtime > best[0]:
+            best = (mtime, path)
+    return best
+
+
+def match_registered(downloads, pending, now):
+    """同 ``match()``，每项另带原登记目标：``[(下载文件, 写入路径, 登记目标)]``。"""
     folder = Path(downloads)
     try:
         files = [path for path in folder.iterdir() if path.is_file()] if folder.is_dir() else []
@@ -83,29 +126,37 @@ def match(downloads, pending, now):
         key = _plain_name(target.name)
         if key not in by_name or since > by_name[key][1]:
             by_name[key] = (target, since)
-    pairs = []
+    found = []
     for key, (target, since) in by_name.items():
-        best = None
-        for path in files:
-            if _plain_name(path.name) != key:
-                continue
-            try:
-                mtime = path.stat().st_mtime
-            except OSError:
-                continue
-            if mtime + 2 < since:
-                continue
-            if best is None or mtime > best[0]:
-                best = (mtime, path)
+        written = target
+        best = _newest(files, since, lambda path: _plain_name(path.name) == key)
+        dated = _dated(key) if best is None else None
+        if dated is not None:
+            # 桌面应用常按当天日期给文件命名，不照任务书里沿用的旧日期：只差日期且更新的另存新批次。
+            stem, day = dated
+            def newer(path):
+                other = _dated(_plain_name(path.name))
+                return other is not None and other[0] == stem and other[1] > day
+            best = _newest(files, since, newer)
+            if best is not None:
+                written = dated_target(target, _dated(_plain_name(best[1].name))[1])
         if best is None:
             continue
         try:
-            if target.exists() and target.stat().st_mtime >= best[0]:
+            if written.exists() and written.stat().st_mtime >= best[0]:
                 continue
         except OSError:
             continue
-        pairs.append((best[1], target))
-    return pairs
+        found.append((best[1], written, target))
+    return found
+
+
+def match(downloads, pending, now):
+    """返回 ``[(下载文件, 写入路径)]``：同名、派发后下载、比现有目标新的最新一份。
+
+    同一文件名对应多个待收回目标时只认最近一次派发，避免把文件放错位置。
+    """
+    return [(source, written) for source, written, _target in match_registered(downloads, pending, now)]
 
 
 def remaining(pending, done, now):

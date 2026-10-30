@@ -47,7 +47,7 @@ def collect_download_inbox(project, now=None, downloads=None):
     """L3 编排：把已下载到「下载」文件夹的目标文件收回项目；返回已写入的目标路径。"""
     import time
     from agent.core import save, save_file
-    from download_inbox import match, remaining
+    from download_inbox import match_registered, remaining
     ledger = _download_inbox_path(project)
     if not ledger.is_file():
         return []
@@ -60,10 +60,11 @@ def collect_download_inbox(project, now=None, downloads=None):
     if downloads is None:
         from platform_tools import downloads_directory
         downloads = downloads_directory()
-    done = []
+    done, finished = [], []
     from agent.publication import transaction
     from platform_tools import execution_checkpoint
-    for source, target in match(downloads, pending, now):
+    # 下载件日期比登记目标新时写到新日期路径；登记表按原目标销账。
+    for source, target, registered in match_registered(downloads, pending, now):
         try:
             if not source.stat().st_size:
                 continue
@@ -77,7 +78,8 @@ def collect_download_inbox(project, now=None, downloads=None):
         except (OSError, ValueError):
             continue
         done.append(target)
-    kept = remaining(pending, done, now)
+        finished.append(registered)
+    kept = remaining(pending, finished, now)
     if kept != pending:
         save(ledger, {'version': 1, 'pending': kept})
     return done

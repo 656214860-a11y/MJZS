@@ -98,7 +98,7 @@ def usage_compact(rows):
     return '上次 输入 ' + shown(budget.get('input_tokens')) + ' token'
 
 
-def save_reply(root, text, at=None, provider='', model='', *, publish=None):
+def save_reply(root, text, at=None, provider='', model='', *, publish=None, reuse_latest=True):
     """组织确认下载的模型创意；发布由调用方注入的 L3 完成。"""
     context = _context(root)
     value = str(text or '').replace('\r\n', '\n').strip()
@@ -113,7 +113,8 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None):
         from script_contract import require_natural_script
         value = require_natural_script(value)
     from stage_path_service import write_dir
-    path = reply_document_path(context, value, at=at, provider=provider, model=model, file_type=file_type)
+    path = reply_document_path(context, value, at=at, provider=provider, model=model, file_type=file_type,
+                               reuse_latest=reuse_latest)
     # 正文与既有文件一致才复用；审阅参考稿（设定／大纲／角色卡）正文变了要覆盖写入。
     if path.is_file() and path.read_text(encoding='utf-8', errors='ignore').strip() == value:
         return path
@@ -167,6 +168,22 @@ def _same_project_name(candidate, expected):
     def normalize(value):
         return re.sub(r'\s+', ' ', str(value or '').replace('《', '').replace('》', '')).strip().casefold()
     return bool(normalize(candidate)) and normalize(candidate) == normalize(expected)
+
+
+_FILENAME_DAY = re.compile(r'[ _](\d{8})\.md$', re.I)
+
+
+def _filename_day(filename):
+    "四段式文件名末尾的日期段（去掉浏览器副本后缀；空格与下划线都认），不是合法日期返回空串。"
+    from datetime import datetime
+    found = _FILENAME_DAY.search(_DOWNLOAD_COPY_SUFFIX.sub('', Path(str(filename or '')).name))
+    if not found:
+        return ''
+    try:
+        datetime.strptime(found.group(1), '%Y%m%d')
+    except ValueError:
+        return ''
+    return found.group(1)
 
 
 _FILENAME_PROJECT_SPLIT = re.compile(r'[\s_\-—·｜|,，、;；:：()（）\[\]【】]+')
@@ -274,10 +291,19 @@ def import_downloaded_documents(root, folder, provider='', model='', *, publish=
             continue
         value = text.replace('\r\n', '\n').strip()
         try:
+            # 下载件文件名日期比已有那份新（桌面应用按当天命名）时另存到新日期批次，旧版本保留。
+            at, reuse_latest = None, True
+            day = _filename_day(path.name)
+            latest_path = reply_document_path(context, value, provider=provider, model=model, file_type=file_type)
+            if day and latest_path.is_file() and day > (_filename_day(latest_path.name) or day):
+                from datetime import datetime
+                at, reuse_latest = datetime.strptime(day + '12', '%Y%m%d%H').timestamp(), False
             # 正文与将覆盖的文件一致时 save_reply 不会重写；只报告真正更新的文件。
-            target = reply_document_path(context, value, provider=provider, model=model, file_type=file_type)
+            target = reply_document_path(context, value, at=at, provider=provider, model=model,
+                                         file_type=file_type, reuse_latest=reuse_latest)
             unchanged = target.is_file() and target.read_text(encoding='utf-8', errors='ignore').strip() == value
-            saved = save_reply(context, text, provider=provider, model=model, publish=publish)
+            saved = save_reply(context, text, at=at, provider=provider, model=model, publish=publish,
+                               reuse_latest=reuse_latest)
         except (OSError, ValueError):
             continue
         if not unchanged:
