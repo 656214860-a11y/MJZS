@@ -1320,7 +1320,7 @@ class SendMessageTests(_Harness):
             source.write_text('角色设定', encoding='utf-8')
             archived = archive_idea_attachments(proj, (source,))[0]
             d, win = self.desktop(proj)
-            d.show(0); win.update()
+            d.show(0); self.settle_script_page(win)
             chips = self.attachment_chips(d)
             self.assertEqual([chip.attachment_path for chip in chips], [archived])
             d.idea_attachment_paths = ()
