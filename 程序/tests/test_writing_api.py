@@ -681,7 +681,7 @@ class WritingApiTests(unittest.TestCase):
         import idea_chat
         from project_context_factory import project_context
         from stage_execution_service import publish_idea_creative
-        with tempfile.TemporaryDirectory() as td:
+        with tempfile.TemporaryDirectory() as td, patch('model_pool.pool', return_value=model_pool.default_pool()):
             project = make_project(td)
             text = '# 自然剧本\n场景：雨夜照相馆\n' + self.natural_script(20).strip()
             result = {'ok': True, 'text': text, 'model': 'DeepSeek V4 Flash'}
