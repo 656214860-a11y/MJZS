@@ -4,6 +4,8 @@ from unittest import mock
 
 import model_pool
 import pet_models_ui
+import speech_api
+import speech_settings_ui
 from tests.test_ui_batch7_settings_models import Batch7Case, _button, _buttons
 
 
@@ -66,6 +68,47 @@ class ManagerActionTests(Batch7Case):
         self.assertEqual(save_pool.call_args.args[0]['model'], 'kimi-k2')
         self.assertFalse(win.winfo_exists())
 
+
+class SpeechSettingsTests(Batch7Case):
+    """REQ-S01-71：模型管理底栏「语音识别…」打开设置弹窗，保存走 speech_api.save_settings。"""
+    def _dialog(self):
+        manager = self._show(pet_models_ui.open_manager(self.pet))
+        save = _button(manager, '保存这条')
+        entry = _button(manager, '语音识别…')
+        self.assertGreater(entry.winfo_rootx(), save.winfo_rootx(), '入口在左侧按钮组末尾')
+        original, opened = speech_settings_ui.open_speech_settings, []
+        opener = lambda pet, parent=None: opened.append(original(pet, parent))
+        with mock.patch.object(speech_api, 'read_settings', return_value=dict(speech_api.DEFAULTS)), \
+                mock.patch.object(speech_api, 'api_key', return_value=''), \
+                mock.patch.object(pet_models_ui, 'open_speech_settings', opener):
+            entry.invoke()
+        self.assertEqual(len(opened), 1)
+        return self._show(opened[0])
+
+    def test_fields_show_settings_and_missing_key(self):
+        win = self._dialog()
+        self.assertEqual(win._pet_speech_vars['model'].get(), 'qwen3-asr-flash-realtime')
+        self.assertEqual(win._pet_speech_vars['silence_ms'].get(), '400')
+        self.assertIn('没找到这个密钥', win._pet_speech_key_state.get())
+
+    def test_invalid_value_keeps_dialog_open_with_reason(self):
+        win = self._dialog()
+        win._pet_speech_vars['timeout'].set('0')
+        with mock.patch.object(speech_settings_ui.speech_api, 'save_settings', side_effect=ValueError('timeout 必须是 3–120 之间的整数')):
+            _button(win, '保存').invoke()
+        self.assertTrue(win.winfo_exists())
+        self.assertIn('timeout 必须是', win._pet_speech_hint.get())
+
+    def test_save_passes_form_then_closes_and_reset_restores_defaults(self):
+        win = self._dialog()
+        win._pet_speech_vars['language'].set('en')
+        _button(win, '恢复默认').invoke()
+        self.assertEqual(win._pet_speech_vars['language'].get(), 'zh')
+        win._pet_speech_vars['model'].set('qwen3-asr-flash-realtime-2026')
+        with mock.patch.object(speech_settings_ui.speech_api, 'save_settings') as save_settings:
+            _button(win, '保存').invoke()
+        self.assertEqual(save_settings.call_args.args[0]['model'], 'qwen3-asr-flash-realtime-2026')
+        self.assertFalse(win.winfo_exists())
 
 if __name__ == '__main__':
     unittest.main()
