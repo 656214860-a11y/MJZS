@@ -1,10 +1,10 @@
-"""剧本准备页输入框与对话区（仿 Claude Code 桌面版）：REQ-S01-62/63/64/65/66/67。
+"""剧本准备页输入框与对话区（仿 Claude Code 桌面版）：REQ-S01-62/63/64/65/66/67/71。
 
 - 62：发送／终止合一按钮随运行状态切换图标和命令；附件准备期间不可点。
 - 63：本轮引用的附件卡片用主色边框；× 贴在卡片右上角。
 - 64：运行中在输入框按 Esc 等同终止；空闲时不拦截。
 - 65／66：消息不铺底色；悬停才显出左下角复制／删除图标，点图标转调整条复制／删除。
-- 67：麦克风按钮先聚焦输入框再调起系统听写，失败只在状态栏说明。
+- 67／71：麦克风是听写开关，识别文字插进输入框，失败只在状态栏说明。
 """
 import tempfile
 import time
@@ -130,22 +130,52 @@ class ScriptComposerTests(unittest.TestCase):
                     box.event_generate('<Button-1>', x=x + w // 2, y=y + h // 2); win.update()
                 action.assert_called_once_with(0)
 
-    def test_microphone_focuses_input_then_starts_voice_typing(self):
+    def test_microphone_toggles_dictation_and_inserts_text(self):
         import platform_tools
-        with tempfile.TemporaryDirectory() as td:
+
+        class FakeDictation:
+            instances = []
+            def __init__(self):
+                self.running, self.reason, self.queue = False, '', []
+                FakeDictation.instances.append(self)
+            def start(self):
+                self.running = not self.reason
+                return self.reason
+            def poll(self):
+                items, self.queue = self.queue, []
+                return items
+            def stop(self):
+                self.running = False
+
+        with tempfile.TemporaryDirectory() as td, patch.object(platform_tools, 'VoiceDictation', FakeDictation):
             d, win = self.desktop(make_minimal_project(td))
             button = d.idea_voice_button
             frame = d.idea_composer_frame
             self.assertGreater(button.winfo_rootx(), d.idea_attachment_button.winfo_rootx())
             self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), frame.winfo_rooty() + frame.winfo_height())
-            with patch.object(platform_tools, 'start_voice_typing', return_value='') as voice:
-                button.invoke(); win.update()
-            voice.assert_called_once_with()
+            button.invoke(); win.update()
+            session = FakeDictation.instances[-1]
+            self.assertTrue(session.running)
+            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Send.TButton', '听写中按钮高亮')
             self.assertIs(win.focus_get(), d.idea_input)
-            with patch.object(platform_tools, 'start_voice_typing', return_value='拒绝'):
-                button.invoke(); win.update()
-            self.assertIn('Win+H', d.status.get())
-
+            d.idea_input.delete('1.0', 'end')
+            session.queue = [('ready', ''), ('text', '主角走进雨夜')]
+            d.idea_voice_input.poll(); win.update()
+            self.assertEqual(d.idea_input.get('1.0', 'end-1c'), '主角走进雨夜')
+            self.assertIn('正在听写', d.status.get())
+            button.invoke(); win.update()
+            self.assertFalse(session.running)
+            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
+            session.reason = '没有麦克风'
+            button.invoke(); win.update()
+            self.assertIn('没有麦克风', d.status.get())
+            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
+            session.reason = ''
+            button.invoke(); win.update()
+            session.queue = [('error', '听写组件不可用')]
+            d.idea_voice_input.poll(); win.update()
+            self.assertFalse(session.running)
+            self.assertIn('听写组件不可用', d.status.get())
 
 
 if __name__ == '__main__':

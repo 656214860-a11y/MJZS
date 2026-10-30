@@ -158,3 +158,41 @@ class OpenPathTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td, \
              patch.dict(os.environ, {'APPDATA': td, 'PROGRAMDATA': str(Path(td) / 'programdata')}):
             self.assertIsNone(platform_tools.find_editor_shortcut())
+
+
+class VoiceDictationTests(unittest.TestCase):
+    """REQ-S01-71：系统听写进程逐行输出 READY／TEXT／ERR，会话转成界面可取的事件。"""
+    def test_output_lines_become_events_and_stop_ends_process(self):
+        import io
+        import time
+        launched = []
+
+        class FakeProcess:
+            pid = 4321
+            def __init__(self, command, **kwargs):
+                launched.append(command)
+                self.stdout = io.BytesIO('READY\nTEXT 主角走进雨夜\nTEXT  \nERR 没有麦克风\n'.encode('utf-8'))
+                self.code = None
+            def poll(self):
+                return self.code
+
+        with patch.object(platform_tools.os, 'name', 'nt'):
+            session = platform_tools.VoiceDictation(popen=FakeProcess)
+            self.assertEqual(session.start(), '')
+        self.assertIn('-EncodedCommand', launched[0])
+        events = []
+        for _ in range(100):
+            events += session.poll()
+            if events and events[-1][0] == 'stopped':break
+            time.sleep(0.01)
+        self.assertEqual(events, [('ready', ''), ('text', '主角走进雨夜'), ('error', '没有麦克风'), ('stopped', '')])
+        with patch.object(platform_tools, 'terminate_process_tree') as killed:
+            process = session.process
+            session.stop()
+        killed.assert_called_once_with(process)
+        self.assertFalse(session.running)
+
+    def test_non_windows_reports_reason_without_launching(self):
+        with patch.object(platform_tools.os, 'name', 'posix'):
+            session = platform_tools.VoiceDictation(popen=lambda *a, **k: self.fail('不应启动进程'))
+            self.assertTrue(session.start())

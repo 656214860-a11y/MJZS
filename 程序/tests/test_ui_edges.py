@@ -1053,7 +1053,7 @@ class UiEdgeTests(unittest.TestCase):
             self.assertEqual(d.idea_log.master.master.winfo_class(), "TFrame",
                              "使用无标题容器，避免 LabelFrame 保留标题行高度")
             # REQ-S01-62：框上方标签改为框内占位提示，仍说明附件入口与 Enter 发送。
-            self.assertIn("输入想法，Enter 发送，＋ 上传附件", texts,
+            self.assertIn("输入想法，Enter 发送，点 + 上传附件", texts,
                           "输入区提示应包含附件入口以及 Enter 提交方式")
             self.assertNotIn("输入想法/上传附件---->enter/发送", texts)
             for gone in ("当前剧本目录", "创作入口", "文件操作",
