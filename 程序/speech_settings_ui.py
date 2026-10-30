@@ -8,11 +8,10 @@ from tkinter import ttk
 
 import speech_api
 from agent.core import save as save_json
-from ui_tokens import BUTTON_GAP, FONTS, SPACING, TEXT_DESC
+from ui_tokens import BUTTON_GAP, DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT, FONTS, SPACING, TEXT_DESC
 from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, SelectBox
 
 SPEECH_TITLE = '语音识别设置'
-SPEECH_GEOMETRY = '600x400'
 SPEECH_NOTE = '剧本准备页麦克风边说边出字用的实时识别服务；保存后下次开麦生效。'
 SPEECH_FIELDS = (('base_url', '服务地址（wss://）', ()), ('model', '模型', ('qwen3-asr-flash-realtime',)),
                  ('key_env', '密钥名', ()), ('language', '识别语言', ('zh', 'en', 'ja', 'ko', 'yue')),
@@ -21,10 +20,13 @@ SPEECH_FIELDS = (('base_url', '服务地址（wss://）', ()), ('model', '模型
 
 
 def open_speech_settings(pet, parent=None):
-    """``parent`` 是模型管理窗；外壳与模型管理的小窗同款：非模态、Escape 关闭、内容放进 Card。"""
+    """``parent`` 是模型管理窗；外壳与模型管理的小窗同款：非模态、Escape 关闭、内容放进 Card。
+
+    只给宽度下限、不写死尺寸：高度随内容（高 DPI、保存失败时多出的提示行）撑开。
+    """
     win = BaseDialog(parent, '', modal=False, chrome=False)
     win.title(SPEECH_TITLE)
-    win.geometry(SPEECH_GEOMETRY)
+    win.minsize(TEXT_DESC['wraplength'] + 2 * DIALOG_CONTENT_PADDING, DIALOG_MIN_HEIGHT)
     win.transient(parent or None)
     win.bind('<Escape>', lambda event: win.destroy())
     card = Card(win)

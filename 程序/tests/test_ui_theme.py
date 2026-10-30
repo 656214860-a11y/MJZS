@@ -270,5 +270,52 @@ class PopupGrabSafetyTests(unittest.TestCase):
 
 
 
+class DialogFitsContentTests(PopupGrabSafetyTests.__base__):
+    """弹窗首次摆位不得裁掉内容：写死的小尺寸要撑到内容大小，主窗口偏小也不压扁；
+    自然尺寸的弹窗只摆位置，之后才加载的内容还能把窗口撑大。"""
+
+    setUp, quietly, pump = PopupGrabSafetyTests.setUp, staticmethod(PopupGrabSafetyTests.quietly), PopupGrabSafetyTests.pump
+
+    def popup(self, geometry=None, minsize=None):
+        popup = tk.Toplevel(self.win)
+        self.addCleanup(self.quietly, popup.destroy)
+        if geometry:
+            popup.geometry(geometry)
+        if minsize:
+            popup.minsize(*minsize)
+        return popup
+
+    def assertFits(self, popup):
+        popup.update_idletasks()
+        self.assertGreaterEqual(popup.winfo_width(), popup.winfo_reqwidth())
+        self.assertGreaterEqual(popup.winfo_height(), popup.winfo_reqheight())
+
+    def test_fixed_geometry_grows_to_its_content(self):
+        popup = self.popup('200x80')
+        for index in range(10):
+            ttk.Entry(popup, width=40).pack(pady=4)
+        self.pump(120)
+        self.assertFits(popup)
+
+    def test_content_wider_than_main_window_is_not_cut(self):
+        self.win.geometry('420x300')
+        self.pump(60)
+        popup = self.popup()
+        ttk.Label(popup, text='很长的一行设备说明' * 5).pack()
+        self.pump(120)
+        self.assertGreater(popup.winfo_reqwidth(), self.win.winfo_width())
+        self.assertFits(popup)
+
+    def test_content_added_after_placement_still_widens_the_window(self):
+        popup = self.popup(minsize=(300, 120))
+        ttk.Label(popup, text='正在读取…').pack()
+        self.pump(120)
+        self.assertGreaterEqual(popup.winfo_width(), 300, '调用方声明的下限不被 240×160 覆盖')
+        ttk.Label(popup, text='赖彪的电脑（Windows 11）· 本机  首次 2026-10-23 02:03 · 最近 2026-10-31 00:40').pack()
+        self.pump(120)
+        self.assertGreater(popup.winfo_reqwidth(), 300)
+        self.assertFits(popup)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
