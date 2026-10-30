@@ -25,7 +25,7 @@ from platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING
 from ui_widgets import FormDialog, TextArea
 from desktop_idea_bubbles import (BUBBLE_BACK, BUBBLE_FLOOR, BUBBLE_FONT, BUBBLE_GAP, BUBBLE_LINE, BUBBLE_MAX_RATIO,
-                                  BUBBLE_PAD, BUBBLE_SLACK, BUBBLE_TIME_FONT, IdeaBubblesMixin)
+                                  BUBBLE_PAD, BUBBLE_SLACK, IdeaBubblesMixin)
 
 ROOT = Path(__file__).resolve().parent
 LOGGER = logging.getLogger(__name__)
@@ -343,15 +343,10 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 session_label.set_text(visible)
                 tip = getattr(self, 'idea_session_tip', None)
                 if tip is not None:tip.text = detail
+            self.drop_thinking_spinner()
             thinking=getattr(self,'_thinking_model','')
             if thinking and self.bubble_view_key(thinking) == self.bubble_view_key(self.displayed_chat_model()):
-                name='bubble_thinking'
-                left,right=self.bubble_margins(box,thinking,False)
-                self._bubble_rows.append((name,thinking,False))
-                box.tag_configure(name+'_thinking',justify='left',foreground=COLORS['text_secondary'],
-                                  lmargin1=left,lmargin2=left,rmargin=right,spacing1=2,spacing3=3,
-                                  font=BUBBLE_TIME_FONT)
-                box.insert('end',thinking+' 模型正在思考…\n',name+'_thinking')
+                self.add_thinking_line(box,thinking)
             if rows:
                 try:box.see('end')
                 except tk.TclError:pass

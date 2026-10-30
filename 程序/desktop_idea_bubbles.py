@@ -3,7 +3,8 @@
 方法体未改、self 语义不变，IdeaChatMixin 通过继承 IdeaBubblesMixin 获得；仍与 Tk 控件紧耦合，故与 desktop_idea_chat 同属 L4。"""
 import json
 import tkinter as tk
-from ui_tokens import COLORS, ICON_COPY, ICON_DELETE, ICON_FONT
+from ui_motion import Spinner
+from ui_tokens import COLORS, ICON_COPY, ICON_DELETE, ICON_FONT, SPACING
 from pathlib import Path
 from idea_chat_controller import bubble_timestamp, collapse_preview
 
@@ -423,4 +424,26 @@ class IdeaBubblesMixin:
     def clear_thinking(self):
         if getattr(self,'_thinking_model',''):
             self._thinking_model=''
+            self.drop_thinking_spinner()
             self.show_conversation()
+    def add_thinking_line(self,box,thinking):
+        """在对话末尾画「<模型> 模型正在思考…」，行首内嵌转圈（仿 Claude Code 桌面版）。"""
+        name='bubble_thinking'
+        left,right=self.bubble_margins(box,thinking,False)
+        self._bubble_rows.append((name,thinking,False))
+        box.tag_configure(name+'_thinking',justify='left',foreground=COLORS['text_secondary'],
+                          lmargin1=left,lmargin2=left,rmargin=right,spacing1=2,spacing3=3,
+                          font=BUBBLE_TIME_FONT)
+        start=box.index('end-1c')
+        spinner=Spinner(box,background=box.cget('bg'));spinner.start()
+        box.window_create('end',window=spinner,align='center',padx=SPACING['xs'])
+        self._thinking_spinner=spinner
+        box.insert('end',thinking+' 模型正在思考…\n',name+'_thinking')
+        box.tag_add(name+'_thinking',start,'end-1c')
+    def drop_thinking_spinner(self):
+        """撤掉「模型正在思考」前的转圈；重绘前与回复落地时调用，重复调用安全。"""
+        spinner=getattr(self,'_thinking_spinner',None)
+        self._thinking_spinner=None
+        if spinner is not None:
+            try:spinner.destroy()
+            except tk.TclError:pass

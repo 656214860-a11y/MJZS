@@ -28,6 +28,7 @@ from ui_widgets import (SelectBox, BaseDialog, Card, BusyState, ContextMenu, Dat
                         ask_confirmation, ask_string,
                         PrimaryButton, SecondaryButton, TextArea)
 from ui_dialogs import FileDialog
+from ui_motion import Spinner
 from ui_shortcuts import ShortcutRegistry
 
 ROOT=Path(__file__).resolve().parent
@@ -388,9 +389,8 @@ class App:
         # 第 35 期第 5 条：两行进度文字并成一行——「SH0XX…」在左，「本地：…／线上：…」右对齐。
         progress_line=ttk.Frame(self.footer);progress_line.pack(fill='x',padx=SPACING['sm'],pady=(SPACING['xs'],SPACING['none']))
         ttk.Label(progress_line,textvariable=self.shared_progress,style='Muted.TLabel',anchor='e').pack(side='right')
-        ttk.Label(progress_line,textvariable=self.progress_text,wraplength=WRAPLENGTH['lg'],justify='left').pack(side='left',fill='x',expand=True)
-        self.task_progress=ttk.Progressbar(self.footer,mode='indeterminate');self.task_progress.pack(fill='x',padx=SPACING['sm'],pady=(SPACING['xs'],SPACING['xs']))
-        self.busy_state=BusyState(self.progress_text,self.task_progress)
+        progress_label=ttk.Label(progress_line,textvariable=self.progress_text,wraplength=WRAPLENGTH['lg'],justify='left');progress_label.pack(side='left',fill='x',expand=True)
+        self.busy_state=BusyState(self.progress_text,spinner=Spinner(progress_line,host=progress_label))  # 忙碌时进度文字右端转圈，不用进度条
         log_box=tk.Frame(self.footer,bg=COLORS['background_card'],highlightthickness=1,highlightbackground=COLORS['border_default'])
         log_box.pack(fill='x',padx=SPACING['sm'],pady=SPACING['xs']);self.log_box=log_box
         log_actions=tk.Frame(log_box,bg=COLORS['background_card']);log_actions.pack(fill='x')
