@@ -168,78 +168,75 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         if self.root:getattr(self,'_idea_drafts',{}).pop(str(Path(self.root).resolve()),None)
     def update_idea_attachment_status(self):
         """仅展示用户已选择的文件名；路径和正文不出现在界面或聊天记录。"""
-        self.refresh_uploaded_idea_attachments()
         label=getattr(self,'idea_attachment_status',None)
-        if label is None:return
         prepared=getattr(self.idea_chat_controller,'attachment_details',())
         from idea_attachments import display_name
-        details=[('%s（原文件，将由 Agent 自行读取）' % display_name(name) if count is None
-                  else '%s（%d 字）' % (name, count)) for name,count in prepared]
-        if not details:
+        tips,details={},[]
+        for name,count in prepared:
+            tips[display_name(name)]=('原文件，将由 Agent 自行读取' if count is None else '%d 字' % count)
+            details.append('%s（%s）' % (display_name(name) if count is None else name, tips[display_name(name)]))
+        if not tips:
             import idea_attachments
             from stage_execution_service import idea_attachment_local_mode
             for value in getattr(self,'idea_attachment_paths',()):
                 if idea_attachment_local_mode(self.root):
-                    details.append('%s（原文件，将由 Agent 自行读取）' % display_name(value))
+                    tips[display_name(value)]='原文件，将由 Agent 自行读取'
+                    details.append('%s（%s）' % (display_name(value), tips[display_name(value)]))
                     continue
-                try:details.append('%s（%d 字）' % (Path(value).name, len(idea_attachments.read_source(Path(value)))))
+                try:tips[display_name(value)]='%d 字' % len(idea_attachments.read_source(Path(value)))
                 except (OSError, ValueError):continue
-        label.set(('已引用：'+'、'.join(details)) if details else '')
-        # 未附档时不保留一整行空白；发送／阶段配置即可紧贴输入框。选择文件后才
-        # 显示文件名，且仍不暴露本地路径。
-        widget=getattr(self,'idea_attachment_status_label',None)
-        row=getattr(self,'idea_input_row',None)
-        if widget is None or row is None:return
-        if details:
-            if not widget.winfo_manager():widget.pack(anchor='w',pady=(SPACING['none'],SPACING['none']),after=row)
-        elif widget.winfo_manager():
-            widget.pack_forget()
+                details.append('%s（%s）' % (Path(value).name, tips[display_name(value)]))
+        self._idea_attachment_tips=tips
+        # 明细不再单独占一行：本轮引用改由附件卡片主色边框表示，字数放在卡片悬停提示里。
+        if label is not None:label.set(('已引用：'+'、'.join(details)) if details else '')
+        self.refresh_uploaded_idea_attachments()
     def refresh_uploaded_idea_attachments(self):
-        """上传库与本轮引用分开显示，发送后仍可管理项目副本。"""
+        """输入框内的附件卡片：上传库全部列出，本轮会带上的卡片用主色边框高亮。"""
         panel=getattr(self,'idea_uploaded_panel',None)
         if panel is None or not panel.winfo_exists():return
         from stage_execution_service import stage_idea_attachment_paths
         from idea_attachments import archive_pair, display_name
-        from tkinter import font as tkfont
-        table=self.idea_uploaded_table
+        from ui_tokens import ICON_CLOSE, ICON_DOCUMENT
+        from ui_widgets import Tooltip
         # 原件创建时间代表入库顺序，不让转换稿后续编辑改变显示顺序。
         def upload_order(path):
             original,_converted=archive_pair(path)
             archived=original if original.is_file() else path
             return archived.stat().st_ctime_ns,path.name
+        def key(path):
+            try:return str(Path(path).resolve())
+            except OSError:return str(path)
         paths=sorted(stage_idea_attachment_paths(self.root),key=upload_order)
-        self._idea_uploaded_selected=getattr(self,'_idea_uploaded_selected',set()).intersection(paths)
-        children=table.tree.get_children()
-        if children:table.tree.delete(*children)
-        self._idea_uploaded_paths={str(index):path for index,path in enumerate(paths)}
-        table.tree.configure(columns=tuple(self._idea_uploaded_paths))
-        face=tkfont.Font(font=FONTS['body'])
-        values=[]
-        for index,path in enumerate(paths):
-            label=('☑ ' if path in self._idea_uploaded_selected else '☐ ')+display_name(path)
-            table.tree.column(str(index),width=face.measure(label)+SPACING['xl'],stretch=False)
-            values.append(label)
-        if paths:table.tree.insert('', 'end', iid='attachments', values=values)
-        table.refresh_empty_state()
-        self.idea_attachment_delete_button.state(['!disabled'] if self._idea_uploaded_selected else ['disabled'])
-        if paths:
-            if not panel.winfo_manager():panel.pack(fill='x',pady=(SPACING['xs'],SPACING['none']),after=self.idea_input_row)
-        else:panel.pack_forget()
-    def uploaded_idea_attachment_at(self,event):
-        tree=self.idea_uploaded_table.tree
-        if tree.identify_row(event.y)!='attachments':return None
-        column=tree.identify_column(event.x)
-        return str(int(column[1:])-1) if column and column!='#0' else None
-    def toggle_uploaded_idea_attachment(self,column):
-        path=self._idea_uploaded_paths.get(column)
-        if path is None:return 'break'
-        from idea_attachments import display_name
-        selected=self._idea_uploaded_selected
-        if path in selected:selected.remove(path)
-        else:selected.add(path)
-        self.idea_uploaded_table.tree.set('attachments',column,('☑ ' if path in selected else '☐ ')+display_name(path))
-        self.idea_attachment_delete_button.state(['!disabled'] if selected else ['disabled'])
-        return 'break'
+        referenced={key(path) for path in getattr(self,'idea_attachment_paths',())}
+        known={key(path) for path in paths}
+        # 引用了但不在上传库里的文件也要有一张卡片，避免本轮附件在界面上“消失”。
+        paths+=[Path(path) for path in getattr(self,'idea_attachment_paths',()) if key(path) not in known]
+        for child in panel.winfo_children():child.destroy()
+        tips=getattr(self,'_idea_attachment_tips',{})
+        for path in paths:
+            name=display_name(path)
+            selected=key(path) in referenced
+            chip=ttk.Frame(panel,style='Tokens.Chip.Selected.TFrame' if selected else 'Tokens.Chip.TFrame')
+            icon=ttk.Label(chip,text=ICON_DOCUMENT,style='Composer.Chip.Icon.TLabel')
+            icon.pack(side='left')
+            limit=CHAR_WIDTH['3xl']
+            title=ttk.Label(chip,text=name if len(name)<=limit else name[:limit-1]+'…',style='Composer.TLabel')
+            # 右侧留出 × 的位置：× 用 place 贴在右上角，不参与卡片的请求宽度。
+            title.pack(side='left',padx=(SPACING['xs'],SPACING['lg']))
+            close=ttk.Label(chip,text=ICON_CLOSE,style='Composer.Chip.Close.TLabel',cursor='hand2')
+            close.place(relx=1.0,y=SPACING['none'],anchor='ne')
+            chip.attachment_path,chip.close_button=path,close
+            tip=name+('（%s）' % tips[name] if name in tips else '')
+            tip+='\n本轮会一起发送' if selected else '\n单击打开；点 × 删除'
+            for widget in (chip,icon,title):
+                widget.bind('<Button-1>',lambda event,item=path:self.safe(lambda:self.open_uploaded_idea_attachment(item)) or 'break')
+                Tooltip(widget,tip)
+            close.bind('<Button-1>',lambda event,item=path:self.safe(lambda:self.delete_uploaded_idea_attachment(item)) or 'break')
+            for sequence,flag in (('<Enter>','active'),('<Leave>','!active')):close.bind(sequence,lambda event,flag=flag:event.widget.state([flag]),add='+')
+            Tooltip(close,'删除附件')
+        if not paths:return panel.pack_forget()
+        if not panel.winfo_manager():panel.pack(side='top',fill='x',pady=(SPACING['xs'],SPACING['xs']),before=self.idea_input)
+        panel.schedule()
     def choose_idea_attachments(self):
         """选择创意附档；分模式准入、归档和解析均在后台进行。"""
         paths=self.file_dialog.open_files(
@@ -248,7 +245,9 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                        ('所有文件', '*.*')])
         if not paths:return ()
         self.idea_chat_controller.start_attachment_preparation(self.root, paths)
-        if getattr(self,'idea_send',None) is not None:self.idea_send.state(['disabled'])
+        if getattr(self,'idea_send',None) is not None:
+            self.idea_send.state(['disabled'])
+            self.update_script_interrupt_button()
         self.status.set('正在后台入库和校验 %d 份创意文件…' % len(paths))
         return ()
     def poll_idea_attachment_preparation(self):
@@ -259,6 +258,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         if (getattr(self,'idea_send',None) is not None and self.idea_send.winfo_exists()
                 and not self.idea_chat_controller.requesting):
             self.idea_send.state(['!disabled'])
+            self.update_script_interrupt_button()
         if not result['ok']:
             self.status.set('创意文件未入库：'+str(result['value']))
             return

@@ -27,7 +27,7 @@ os.chdir(HERE)
 
 import idea_chat as _idea_chat
 import script_contract
-from ui_tokens import ICON_FOLDER
+from ui_tokens import ICON_ADD
 from stage_execution_service import idea_chat_gateway, publish_idea_creative, project_context
 from desktop import Desktop, PAGE
 from project_stages import writing as writing_dir
@@ -1033,36 +1033,40 @@ class SendMessageTests(_Harness):
                                     d.idea_send.winfo_x()+d.idea_send.winfo_width(),
                                     '阶段配置紧随发送按钮右侧')
 
-    def test_script_interrupt_is_next_to_stage_settings_and_releases_direct_chat(self):
+    def test_script_interrupt_is_merged_into_submit_and_releases_direct_chat(self):
+        # REQ-S01-62：「中断」并入输入框内的发送键，运行中切换为终止图标。
+        from ui_tokens import ICON_SEND, ICON_STOP
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            self.assertGreaterEqual(d.idea_interrupt.winfo_x(),
-                                    d.stage_button.winfo_x()+d.stage_button.winfo_width(),
-                                    '中断按钮位于阶段配置右侧')
-            self.assertEqual(d.idea_interrupt.cget('text'), '中断')
+            labels = {str(c.cget('text')) for c in d.idea_row.winfo_children() if isinstance(c, ttk.Button)}
+            self.assertNotIn('中断', labels, '底栏不再有中断按钮')
+            self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
             d._idea_requesting = True; d.worker = True
             d.update_script_interrupt_button(); win.update()
-            self.assertFalse(d.idea_interrupt.instate(['disabled']))
+            self.assertEqual(d.idea_submit.cget('text'), ICON_STOP)
+            self.assertFalse(d.idea_submit.instate(['disabled']))
             self.assertTrue(d.interrupt_script_agent())
             self.assertFalse(d._idea_requesting)
             self.assertFalse(d.worker)
-            self.assertTrue(d.idea_interrupt.instate(['disabled']))
+            self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
 
     def test_rebuilt_writing_page_keeps_queued_request_interruptible(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.update()
+            from ui_tokens import ICON_SEND, ICON_STOP
             d._script_agent_launching = True
             d.show(0); win.update()
-            self.assertFalse(d.idea_interrupt.instate(['disabled']))
+            self.assertEqual(d.idea_submit.cget('text'), ICON_STOP)
+            self.assertFalse(d.idea_submit.instate(['disabled']))
             d._script_agent_launching = False
             d.update_script_interrupt_button()
-            self.assertTrue(d.idea_interrupt.instate(['disabled']))
+            self.assertEqual(d.idea_submit.cget('text'), ICON_SEND)
 
-    def test_refresh_is_next_to_interrupt_and_repairs_old_claude_blocks(self):
+    def test_refresh_is_next_to_stage_settings_and_repairs_old_claude_blocks(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
@@ -1071,7 +1075,7 @@ class SendMessageTests(_Harness):
             idea_chat.append(proj, 'assistant', "[{'type': 'thinking', 'thinking': 'internal'}, {'type': 'text', 'text': '第一集正文'}]", model=model)
             d.show(0); win.update()
             self.assertGreaterEqual(d.idea_refresh.winfo_x(),
-                                    d.idea_interrupt.winfo_x()+d.idea_interrupt.winfo_width())
+                                    d.stage_button.winfo_x()+d.stage_button.winfo_width())
             self.assertTrue(d.refresh_script_workspace())
             self.assertEqual(idea_chat.latest_text(proj), '第一集正文')
 
@@ -1115,9 +1119,10 @@ class SendMessageTests(_Harness):
             d.show(0); win.update()
             buttons = [child for child in d.idea_row.winfo_children()
                        if isinstance(child, ttk.Button)]
-            action_labels = {'发送', '中断', '刷新', '下载文件', '下载设定', '下载大纲', '下载角色卡', '下载剧本', '剧本目录', '删除', '添加剧本'}
+            action_labels = {'发送', '刷新', '下载文件', '下载设定', '下载大纲', '下载角色卡', '下载剧本', '剧本目录', '删除', '添加剧本'}
             labels = {button.cget('text') for button in buttons}
-            self.assertTrue({'中断', '剧本目录', '删除', '添加剧本'} <= labels)
+            self.assertTrue({'发送', '剧本目录', '删除', '添加剧本'} <= labels)
+            self.assertNotIn('中断', labels)
             for button in buttons:
                 if button.cget('text') in action_labels:
                     self.assertEqual(button.cget('width'), desktop.SCRIPT_ACTION_WIDTH)
@@ -1265,7 +1270,7 @@ class SendMessageTests(_Harness):
             self.assertEqual(len(d.idea_attachment_paths), 1)
             self.assertTrue(Path(d.idea_attachment_paths[0]).is_file())
             self.assertEqual(Path(d.idea_attachment_paths[0]).parent.name, '输入')
-            self.assertEqual(d.idea_attachment_button.cget('text'), ICON_FOLDER)
+            self.assertEqual(d.idea_attachment_button.cget('text'), ICON_ADD)
             attachment_name = Path(d.idea_attachment_paths[0]).name
             self.assertRegex(attachment_name, r'^p_附件文本_角色设定_\d{8}\.md$')
             self.assertIn('已引用：' + attachment_name, d.idea_attachment_status.get())
@@ -1302,7 +1307,12 @@ class SendMessageTests(_Harness):
             self.assertNotIn('PRIVATE_BINARY_PDF', seen[0][2])
             self.assertNotIn(str(source), seen[0][2])
 
+    @staticmethod
+    def attachment_chips(d):
+        return [chip for chip in d.idea_uploaded_panel.winfo_children() if hasattr(chip, 'attachment_path')]
+
     def test_uploaded_file_list_survives_send_clear_and_deletes_only_confirmed_copy(self):
+        # REQ-S01-63：卡片右上角 × 删单个，先确认，只把项目副本移入回收站。
         from stage_execution_service import archive_idea_attachments
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
@@ -1311,32 +1321,28 @@ class SendMessageTests(_Harness):
             archived = archive_idea_attachments(proj, (source,))[0]
             d, win = self.desktop(proj)
             d.show(0); win.update()
-            tree = d.idea_uploaded_table.tree
-            self.assertEqual(tree.item(tree.get_children()[0], 'values'), ('☐ ' + source.name,))
+            chips = self.attachment_chips(d)
+            self.assertEqual([chip.attachment_path for chip in chips], [archived])
             d.idea_attachment_paths = ()
             d.update_idea_attachment_status(); win.update()
             self.assertTrue(d.idea_uploaded_panel.winfo_manager())
-            d.toggle_uploaded_idea_attachment('0'); win.update()
-            self.assertNotIn('disabled', d.idea_attachment_delete_button.state())
             with patch('desktop.confirm', return_value=False):
-                d.delete_uploaded_idea_attachment()
+                d.delete_uploaded_idea_attachment(archived)
             self.assertTrue(archived.is_file())
-            self.assertEqual(len(tree.get_children()), 1)
+            self.assertEqual(len(self.attachment_chips(d)), 1)
             with patch('desktop.confirm', return_value=True) as confirm_delete:
-                d.delete_uploaded_idea_attachment()
+                self.attachment_chips(d)[0].close_button.event_generate('<Button-1>')
             win.update()
             self.assertIn(source.name, confirm_delete.call_args.args[2])
             self.assertNotIn(str(source), confirm_delete.call_args.args[2])
             self.assertTrue(source.is_file())
             self.assertFalse(archived.exists())
-            self.assertEqual(tree.get_children(), ())
+            self.assertEqual(self.attachment_chips(d), [])
             self.assertFalse(d.idea_uploaded_panel.winfo_manager())
-            self.assertIn('disabled', d.idea_attachment_delete_button.state())
             self.assertIn('原始文件未删除', d.status.get())
 
     def test_uploaded_attachments_are_horizontal_ordered_and_openable(self):
         from stage_execution_service import archive_idea_attachments
-        from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             sources = [Path(td) / name for name in ('先传.txt', '后传.txt', '最后.txt')]
@@ -1345,37 +1351,30 @@ class SendMessageTests(_Harness):
             archived = archive_idea_attachments(proj, sources)
             d, win = self.desktop(proj)
             d.show(0); win.deiconify(); win.update()
-            tree = d.idea_uploaded_table.tree
-            self.assertEqual(tree.item('attachments', 'values'),
-                             tuple('☐ ' + source.name for source in sources))
-            self.assertEqual(len(tree.get_children()), 1)
+            self.settle_script_page(win)
+            chips = self.attachment_chips(d)
+            self.assertEqual([chip.attachment_path for chip in chips], list(archived))
             self.assertFalse(hasattr(d, 'idea_uploaded_heading'))
-            self.assertEqual(d.idea_composer_label.cget('text'), '输入想法/上传附件---->enter/发送')
-            self.assertEqual(d.idea_attachment_delete_button.winfo_rootx(),
-                             d.idea_attachment_button.winfo_rootx())
-            self.assertEqual(d.idea_attachment_delete_button.winfo_width(),
-                             d.idea_attachment_button.winfo_width())
-            self.assertEqual(d.idea_uploaded_table.winfo_rootx(), d.idea_input.winfo_rootx())
-            d.toggle_uploaded_idea_attachment('0')
-            d.toggle_uploaded_idea_attachment('2')
-            d.refresh_uploaded_idea_attachments()
-            self.assertEqual(d._idea_uploaded_selected, {archived[0], archived[2]})
-            x, y, width, height = tree.bbox('attachments', '1')
-            with patch('desktop.open_path') as opened:
-                d.open_uploaded_idea_attachment(SimpleNamespace(x=x + width // 2, y=y + height // 2))
+            self.assertFalse(hasattr(d, 'idea_composer_label'))
+            self.assertLessEqual(abs(chips[0].winfo_rooty() - chips[2].winfo_rooty()), 2, '卡片横向排在同一行')
+            self.assertLess(chips[0].winfo_rootx(), chips[1].winfo_rootx())
+            self.assertLess(chips[1].winfo_rootx(), chips[2].winfo_rootx())
+            self.assertLess(chips[0].winfo_rooty(), d.idea_input.winfo_rooty(), '附件卡片在输入区上方')
             from idea_attachments import archive_pair
+            with patch('desktop.open_path') as opened:
+                chips[1].event_generate('<Button-1>')
             opened.assert_called_once_with(archive_pair(archived[1])[0])
             with patch('desktop.confirm', return_value=True):
-                d.delete_uploaded_idea_attachment()
+                d.delete_uploaded_idea_attachment(archived[0])
+                d.delete_uploaded_idea_attachment(archived[2])
             self.assertFalse(archived[0].exists())
             self.assertTrue(archived[1].exists())
             self.assertFalse(archived[2].exists())
             self.assertTrue(all(source.exists() for source in sources))
-            self.assertEqual(tree.item('attachments', 'values'), ('☐ ' + sources[1].name,))
+            self.assertEqual([chip.attachment_path for chip in self.attachment_chips(d)], [archived[1]])
 
     def test_uploaded_legacy_text_without_original_remains_openable(self):
         from stage_execution_service import archive_idea_attachments
-        from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             source = Path(td) / '素材.txt'
@@ -1386,10 +1385,9 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); win.deiconify(); win.update()
             self.settle_script_page(win)
-            column = next(key for key, path in d._idea_uploaded_paths.items() if path == legacy)
-            x, y, width, height = d.idea_uploaded_table.tree.bbox('attachments', column)
+            chip = next(chip for chip in self.attachment_chips(d) if chip.attachment_path == legacy)
             with patch('desktop.open_path') as opened:
-                d.open_uploaded_idea_attachment(SimpleNamespace(x=x + width // 2, y=y + height // 2))
+                chip.event_generate('<Button-1>')
             opened.assert_called_once_with(legacy)
 
     def test_a_failed_workflow_keeps_the_draft_without_creating_a_submission(self):
@@ -1801,7 +1799,7 @@ class BubbleLayoutTests(_Harness):
             left, right = d.bubble_margins(box, '同样一句话', False)
             mine_left, mine_right = d.bubble_margins(box, '同样一句话', True)
             self.assertGreater(mine_left, left, '用户消息贴在右侧')
-            self.assertGreater(right, mine_right, '模型消息贴在左侧')
+            self.assertLess(left + right, mine_left + mine_right, '模型消息贴左铺开，比用户消息更宽（REQ-S01-65）')
 
     def test_user_bubble_uses_a_readable_light_green_surface(self):
         with tempfile.TemporaryDirectory() as td:
@@ -1809,7 +1807,7 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'user', '这条由用户发送')
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
-            self.assertEqual(d.idea_log.tag_cget('bubble_0', 'background').lower(), COLORS['success_subtle'].lower())
+            self.assertEqual(str(d.idea_log.tag_cget('bubble_0', 'background')), '')  # REQ-S01-65 不铺底色
             self.assertEqual(d.idea_log.tag_cget('bubble_0', 'foreground'), COLORS['text_primary'])
 
     def test_model_chat_color_is_stable_and_distinguishes_common_models(self):
@@ -1838,7 +1836,7 @@ class BubbleLayoutTests(_Harness):
             event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
             d.start_bubble_edit(event, 0, 'bubble_0'); win.update()
             edit = d._bubble_edit
-            self.assertEqual(d.idea_log.tag_cget('bubble_0', 'background').lower(), COLORS['success_subtle'].lower())
+            self.assertEqual(str(d.idea_log.tag_cget('bubble_0', 'background')), '')  # REQ-S01-65 不铺底色
             self.assertEqual(d.idea_log.cget('selectbackground'), COLORS['primary'])
             self.assertEqual(d.idea_log.cget('selectforeground').lower(), COLORS['background_card'].lower())
             d.idea_log.tag_add('sel', '%s+1c' % edit['start'], '%s+3c' % edit['start'])
@@ -1937,7 +1935,9 @@ class BubbleLayoutTests(_Harness):
             labels = [d._bubble_menu.entrycget(i, 'label')
                       for i in range(d._bubble_menu.index('end') + 1)
                       if d._bubble_menu.type(i) != 'separator']
-            self.assertEqual(labels[labels.index('删除整条信息') + 1], '删除全部信息')
+            self.assertNotIn('复制整条信息', labels)  # REQ-S01-66 改为消息左下角图标
+            self.assertNotIn('删除整条信息', labels)
+            self.assertEqual(labels[0], '删除全部信息')
             with patch('desktop.confirm', return_value=False):
                 self.assertIsNone(d.delete_all_bubble_messages())
             self.assertEqual(len(idea_chat.load(proj, model=model)), 1)
@@ -2134,7 +2134,7 @@ class BubbleLayoutTests(_Harness):
                     self.assertEqual(d.open_bubble_menu(event), 'break')
                     menu = d._bubble_menu
                     index = menu.index('end')
-                    self.assertEqual(menu.entrycget(index, 'label'), '清屏')
+                    self.assertEqual(menu.entrycget(index, 'label'), '清屏压缩')
                     menu.invoke(index)
                     clear.assert_called_once_with()
 

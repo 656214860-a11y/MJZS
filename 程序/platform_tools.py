@@ -381,3 +381,20 @@ def work_area():
     except (OSError, AttributeError, ValueError):
         return None
     return (rect.left, rect.top, rect.right, rect.bottom)
+
+
+def start_voice_typing():
+    """调起 Windows 自带语音输入（等同按 Win+H，REQ-S01-67）；成功返回空串，失败返回原因。"""
+    if os.name != 'nt':
+        return '当前系统没有 Windows 语音输入'
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        win, letter, key_up = 0x5B, 0x48, 0x0002  # VK_LWIN、H、KEYEVENTF_KEYUP
+        user32.keybd_event(win, 0, 0, 0)
+        user32.keybd_event(letter, 0, 0, 0)
+        user32.keybd_event(letter, 0, key_up, 0)
+        user32.keybd_event(win, 0, key_up, 0)
+    except (OSError, AttributeError, ValueError) as error:
+        return str(error) or '系统拒绝了按键请求'
+    return ''

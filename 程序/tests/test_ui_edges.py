@@ -1052,8 +1052,10 @@ class UiEdgeTests(unittest.TestCase):
             self.assertNotIn("对话AI", texts, "独立标题应移除，让聊天框上移")
             self.assertEqual(d.idea_log.master.master.winfo_class(), "TFrame",
                              "使用无标题容器，避免 LabelFrame 保留标题行高度")
-            self.assertIn("输入想法/上传附件---->enter/发送", texts,
-                          "输入区提示应包含附件入口以及 Enter/发送两种提交方式")
+            # REQ-S01-62：框上方标签改为框内占位提示，仍说明附件入口与 Enter 发送。
+            self.assertIn("输入想法，Enter 发送，＋ 上传附件", texts,
+                          "输入区提示应包含附件入口以及 Enter 提交方式")
+            self.assertNotIn("输入想法/上传附件---->enter/发送", texts)
             for gone in ("当前剧本目录", "创作入口", "文件操作",
                          "在下面的对话框写想法", "对话框（在这里写"):
                 self.assertNotIn(gone, joined, "这一处文字要删掉：%s" % gone)
@@ -1120,13 +1122,22 @@ class UiEdgeTests(unittest.TestCase):
             self.assertLessEqual(lines, desktop_module.TALK_MAX_LINES, "字再多也不超过上限")
             self.assertEqual(int(d.idea_input.cget("height")), 1, "空白发送框不挤占聊天区")
             self.assertEqual(str(d.idea_send.master), str(d.idea_row), "「发送」在内容框下面那一行")
-            self.assertLess(d.idea_attachment_button.winfo_rootx(), d.idea_input.winfo_rootx(),
-                            "上传文件图标应位于输入框左侧")
-            self.assertFalse(d.idea_attachment_status_label.winfo_ismapped(),
-                             "未附档时不应留下空白状态行")
-            input_bottom=d.idea_input.winfo_rooty()+d.idea_input.winfo_height()
+            # REQ-S01-62：「+」在输入区下方的框内左侧，发送／终止键在框内右侧。
+            frame=d.idea_composer_frame
+            self.assertLessEqual(abs(d.idea_attachment_button.winfo_rootx()-d.idea_input.winfo_rootx()), 2,
+                                 "上传文件图标应位于输入框内左侧")
+            self.assertGreaterEqual(d.idea_attachment_button.winfo_rooty(),
+                                    d.idea_input.winfo_rooty()+d.idea_input.winfo_height(), "「+」在输入区下方")
+            for widget in (d.idea_attachment_button, d.idea_submit):
+                self.assertGreaterEqual(widget.winfo_rootx(), frame.winfo_rootx())
+                self.assertLessEqual(widget.winfo_rootx()+widget.winfo_width(), frame.winfo_rootx()+frame.winfo_width())
+                self.assertLessEqual(widget.winfo_rooty()+widget.winfo_height(), frame.winfo_rooty()+frame.winfo_height())
+            self.assertGreater(d.idea_submit.winfo_rootx(), d.idea_attachment_button.winfo_rootx())
+            self.assertFalse(d.idea_uploaded_panel.winfo_ismapped(),
+                             "未附档时不应留下空白附件行")
+            frame_bottom=frame.winfo_rooty()+frame.winfo_height()
             from ui_tokens import SPACING
-            self.assertEqual(d.idea_send.winfo_rooty()-input_bottom, SPACING["xs"],
+            self.assertEqual(d.idea_send.winfo_rooty()-frame_bottom, SPACING["xs"],
                              "发送按钮与输入框保留设计系统规定的微小防误触间距")
             d.idea_input.event_generate('<FocusOut>'); win.update()
             hint_info = d.idea_input_hint.place_info()

@@ -11,14 +11,15 @@ from typing import Callable
 import time
 import app_logging
 import project_stages
+import os
 import tkinter as tk
 import ui_plugin_registry
 from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height, row_toggle_target
 from tkinter import ttk
-from ui_tokens import BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, FONTS, ICON_DELETE, ICON_FOLDER, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
+from ui_tokens import BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from desktop_file_card import TreeRowCard, script_row_card
-from ui_widgets import DataTable, EllipsisLabel, HintLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, ask_string
+from ui_widgets import Card, DataTable, EllipsisLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, ask_string
 
 PAGE = pet_state.PAGE_OF
 
@@ -180,8 +181,8 @@ class _WritingPage:
         result=ensure_script_workspace(self.page.root)
         if not result.ok:raise ValueError(result.reason)
         # 第 69 期任务 4：原来第一行那句「在下面的对话框写想法…」删掉——页面自己会说清怎么走。
-        brief, foot, enter_hint = self._build_composer()
-        self._build_dialog(brief, foot, enter_hint)
+        brief, foot = self._build_composer()
+        self._build_dialog(brief, foot)
         self.input_box.bind('<Button-3>',self.page.open_idea_paste_menu,add='+')
         self.input_box.bind('<Button-1>',self.expand_composer_for_click,add='+')
         self.input_box.bind('<FocusIn>',self.update_input_hint,add='+')
@@ -310,49 +311,42 @@ class _WritingPage:
         foot=FlowBar(self.talk);foot.pack(side='bottom',fill='x',pady=SPACING['none'])
         # 输入框与操作栏保留极小缓冲带，视觉仍紧凑，同时避免鼠标落点贴边误触发送。
         composer=ttk.Frame(self.talk);composer.pack(side='bottom',fill='x',pady=(SPACING['none'],SPACING['xs']))
-        self.page.idea_composer_label=ttk.Label(composer,text='输入想法/上传附件---->enter/发送',style='Muted.TLabel')
-        self.page.idea_composer_label.pack(anchor='w')
-        input_row=ttk.Frame(composer);input_row.pack(fill='x')
-        self.input_box=TextArea(input_row,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
-                          font=FONTS['body'],relief='solid',bd=1,padx=SPACING['md'],pady=SPACING['sm'])
-        attach_button=SecondaryButton(input_row,text=ICON_FOLDER,width=CHAR_WIDTH['xs'],style='Tokens.Icon.TButton',
+        # 仿 Claude Code 桌面版：附件卡片、输入区、「+」上传与发送／终止都收在同一个圆角框里。
+        frame=Card(composer,padding=(SPACING['sm'],SPACING['xs']));frame.pack(fill='x')
+        self.page.idea_composer_frame=frame
+        # 附件卡片行：有附件才 pack 到输入区上方，没有附件不占行。
+        self.page.idea_uploaded_panel=FlowBar(frame,style='Composer.TFrame')
+        self.input_box=TextArea(frame,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
+                          font=FONTS['body'],relief='flat',bd=0,highlightthickness=0,padx=SPACING['xs'],pady=SPACING['xs'],undo=True)
+        self.input_box.pack(side='top',fill='x')
+        input_row=ttk.Frame(frame,style='Composer.TFrame');input_row.pack(side='top',fill='x')
+        attach_button=SecondaryButton(input_row,text=ICON_ADD,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Icon.TButton',
                                  command=lambda:self.page.safe(self.page.choose_idea_attachments))
-        # 附件入口放在输入框左侧，先占住固定宽度；窄窗口时输入框只使用剩余空间，
-        # 既方便点击，也不会把图标挤出可视区。
-        attach_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
-        self.input_box.pack(side='left',fill='x',expand=True)
-        self.input_box.configure(padx=SPACING['2xl'])
-        enter_hint=HintLabel(self.input_box,text='↵',background=COLORS['background_card'])
-        enter_hint.place(relx=1.0,rely=0.5,x=-SPACING['sm'],anchor='e',bordermode='outside')
-        Tooltip(enter_hint,'Enter 发送；Shift+Enter 换行')
-        self.page.idea_enter_hint=enter_hint
+        attach_button.pack(side='left')
+        Tooltip(attach_button,'上传附件')
+        if os.name=='nt':
+            voice_button=SecondaryButton(input_row,text=ICON_MICROPHONE,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Icon.TButton',
+                                         command=lambda:self.page.safe(self.start_voice_input))
+            voice_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
+            Tooltip(voice_button,'语音输入（Win+H）：说话即自动写入输入框')
+            self.page.idea_voice_button=voice_button
+        submit_button=SecondaryButton(input_row,text=ICON_SEND,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Send.TButton',
+                                 command=lambda:self.page.idea_send.invoke())
+        submit_button.pack(side='right')
+        Tooltip(submit_button,'Enter 发送；Shift+Enter 换行；运行中点击或按 Esc 终止')
+        self.page.idea_submit=submit_button
         self.page.idea_attachment_button=attach_button
         self.page.idea_input_row=input_row
+        # 附件明细（字数等）只作数据：卡片悬停提示与发送前校验都读它，不再单独占一行。
         self.page.idea_attachment_status=tk.StringVar(value='')
-        self.page.idea_attachment_status_label=ttk.Label(composer,textvariable=self.page.idea_attachment_status,
-                                                     style='Muted.TLabel')
-        self.page.idea_uploaded_panel=ttk.Frame(composer)
-        self.page.idea_attachment_delete_button=SecondaryButton(
-            self.page.idea_uploaded_panel,text=ICON_DELETE,width=CHAR_WIDTH['xs'],style='Tokens.Icon.TButton',
-            command=lambda:self.page.safe(self.page.delete_uploaded_idea_attachment))
-        self.page.idea_attachment_delete_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']))
-        Tooltip(self.page.idea_attachment_delete_button,'删除附件（勾选后删除，可多选）')
-        self.page.idea_attachment_delete_button.state(['disabled'])
-        uploaded_content=ttk.Frame(self.page.idea_uploaded_panel)
-        uploaded_content.pack(side='left',fill='x',expand=True)
-        self.page.idea_uploaded_table=DataTable(
-            uploaded_content,columns=[],height=1,show='',selectmode='none',
-            style='Compact.Tokens.DataTable.Treeview',auto_hide_scrollbars=True)
-        self.page.idea_uploaded_table.pack(fill='x',expand=True)
-        self.page.idea_uploaded_table.tree.bind('<Button-1>',lambda event:self.page.toggle_uploaded_idea_attachment(self.page.uploaded_idea_attachment_at(event)))
-        self.page.idea_uploaded_table.tree.bind('<Double-Button-1>',lambda event:self.page.safe(lambda:self.page.open_uploaded_idea_attachment(event)))
-        Tooltip(self.page.idea_uploaded_table.tree,'单击勾选，可多选；双击打开附件')
-        self.input_hint=ttk.Label(composer,text='可在阶段配置中修改模型和SKILL',style='Muted.TLabel')
+        self.input_hint=ttk.Label(frame,text='输入想法，Enter 发送，＋ 上传附件',style='Composer.Muted.TLabel')
         self.page.idea_input_hint=self.input_hint
         self.input_box.bind('<Destroy>',lambda event:self.stop_input_hint() if event.widget is self.input_box else None,add='+')
-        return brief, foot, enter_hint
+        self.page.shortcuts.bind(self.input_box, ('<Escape>',), self.interrupt_from_input,
+                            scope='剧本准备·输入框', name='终止当前任务')
+        return brief, foot
 
-    def _build_dialog(self, brief, foot, enter_hint):
+    def _build_dialog(self, brief, foot):
         """对话区：聊天记录框及其快捷键与右键菜单。"""
         self.dialog=ttk.Frame(self.talk);self.dialog.pack(side='top',fill='both',expand=True,pady=SPACING['none'])
         dialog_scroll=ttk.Scrollbar(self.dialog,orient='vertical')
@@ -400,9 +394,6 @@ class _WritingPage:
             foot,lambda:self.panel.open_for_page(self.page,PAGE['script'],self.holder['button']))
         self.holder['button']=self.page.stage_button
         self.page.stage_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']),pady=SPACING['none'])
-        interrupt_button=SecondaryButton(foot,text='中断',width=script_action_width,command=self.page.interrupt_script_agent)
-        interrupt_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']));interrupt_button.state(['disabled']);self.page.idea_interrupt=interrupt_button
-        self.page.update_script_interrupt_button()
         refresh_button=SecondaryButton(foot,text='刷新',width=script_action_width,command=lambda:self.page.safe(self.page.refresh_script_workspace))
         refresh_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']));self.page.idea_refresh=refresh_button
         # 「删除」紧跟「刷新」：动作栏按子控件创建顺序排列，所以必须在这里创建，不能放到右侧那组。
@@ -421,7 +412,8 @@ class _WritingPage:
             # 不再单独压内边距：样式层的按下态内边距会覆盖控件级 padding，按下时按钮高度会回弹。
             action_button.configure(width=script_action_width)
         self.input_hint.bind('<Button-1>',self.focus_composer_from_hint,add='+')
-        enter_hint.bind('<Button-1>',self.focus_composer_from_hint,add='+')
+        # 「中断」并入框内发送键：运行中切换为终止图标，由它统一同步状态。
+        self.page.update_script_interrupt_button()
 
     def stop_input_hint(self):
         self.input_hint.place_forget()
@@ -480,6 +472,18 @@ class _WritingPage:
         # 在失焦/窗口尚未激活的一瞬间，focus_get() 可能仍不是 Text；点击本身
         # 已明确表达要编辑，因此直接撤掉提示，不能等待下一次焦点事件。
         self.stop_input_hint()
+        return 'break'
+
+    def start_voice_input(self):
+        """REQ-S01-67：先把焦点放进输入框，再调起系统听写，文字才会落到这里。"""
+        import platform_tools
+        self.input_box.focus_force()
+        reason=platform_tools.start_voice_typing()
+        if reason:self.page.status.set('语音输入未能调起（%s）；可在输入框内手动按 Win+H。' % reason)
+    def interrupt_from_input(self, event=None):
+        """运行中在输入框按 Esc 等同点终止；空闲时不拦截，交给其他绑定。"""
+        if not self.page.script_task_active():return None
+        self.page.safe(self.page.interrupt_script_agent)
         return 'break'
 
     def send_on_enter(self, event):
