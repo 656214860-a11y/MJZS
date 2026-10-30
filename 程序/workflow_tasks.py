@@ -56,6 +56,16 @@ _BOUNDED_READING_SCOPE = ('【限定输入】阶段①无需扫描已有文件�
     '不要扫描项目目录、其他模型产物、历史任务或对话日志；资料缺失时先询问用户提供，不自行搜索。')
 
 
+def creative_source(text):
+    """取回任务书里最后一段 ``<剧本正文>`` 素材（即用户本轮输入）；没有返回空串。"""
+    body = str(text or '')
+    start = body.rfind('<剧本正文>\n')
+    if start < 0:
+        return ''
+    end = body.find('\n</剧本正文>', start)
+    return body[start + len('<剧本正文>\n'):end if end >= 0 else None]
+
+
 def _episode_change_notice(project):
     """本地 Agent 的分集改动提示：只给集号，不暴露账本文件与实现细节。"""
     try:

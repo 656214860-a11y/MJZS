@@ -10,6 +10,7 @@ import tkinter as tk
 from agent.core import save
 from file_cache import read_json
 import skill_registry
+from skill_registry import nested_references as _nested_references, reference_row as _reference_row
 import client_profiles, edit_habits
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
@@ -811,45 +812,15 @@ def validate_selected_skills(project, stage):
             raise ValueError(f'已勾选的 SKILL 未加载：{name}；已阻止发送，请重新确认阶段配置。')
 
 
-def _reference_row(entry, reference, status, depth=1):
-    """引用闭包里的一行：目标、类型、结果与深度（1＝直接引用，2＝引用文件里再出现）。"""
-    row = {'kind': entry['kind'], 'status': status, 'target': entry['raw'], 'depth': depth}
-    if reference is not None:
-        row['path'] = str(reference)
-    return row
-
-
-def _nested_references(reference, body, seen, roots):
-    """引用文件里再出现的链接：只登记、不展开（明确不递归加载）。"""
-    out = []
-    for entry in skill_registry.reference_targets(body):
-        relative = entry['path']
-        if relative is None:
-            out.append(_reference_row(entry, None, entry['kind'], 2))
-            continue
-        if relative.is_absolute():
-            out.append(_reference_row(entry, relative, 'absolute', 2))
-            continue
-        target = skill_registry.resolve_reference(reference, relative)
-        if target in seen:
-            status = 'cycle'
-        elif not any(target.is_relative_to(root) for root in roots):
-            status = 'outside'
-        elif not target.is_file():
-            status = 'missing'
-        else:
-            status = 'nested'
-        out.append(_reference_row(entry, target, status, 2))
-    return out
-
-
-def _skill_blocks(path, *, strict):
+def _skill_blocks(path, *, strict, locks=None):
     """走一遍技能正文与它的直接引用；返回 (正文, 元数据, 分块, 引用闭包)。
 
     闭包是「实际发生了什么」的唯一记录：inlined（已内联）、duplicate（重复）、
     outside（越界）、missing（缺失）、resource（图片／脚本等资源）、remote（外部地址）、
     anchor（纯锚点）、absolute（绝对路径），以及 depth=2 的嵌套项：nested（未展开）、
     cycle（回指已加载文件）、outside、missing。只加载直接引用，不递归。
+    带锚点的链接只内联该节（section），锚点找不到才内联全文；给了 ``locks`` 时，
+    「仅 `锁` 为…时追加」条件不满足的链接不加载（conditional）。
     """
     path = Path(path).resolve()
     text = path.read_text(encoding='utf-8-sig')
@@ -857,7 +828,7 @@ def _skill_blocks(path, *, strict):
     if strict and not content.strip():
         raise ValueError(f'已勾选的 SKILL 内容为空，已阻止发送：{path}')
     blocks = [(path, f'<!-- 来源: {path} -->\n{text}')]
-    closure, seen = [], {path}
+    closure, seen, sections = [], {path}, set()
     roots = skill_registry.skill_roots()
     for entry in skill_registry.reference_targets(text):
         relative = entry['path']
@@ -880,15 +851,26 @@ def _skill_blocks(path, *, strict):
         if not (within_root or (strict and within_folder)):
             closure.append(_reference_row(entry, reference, 'outside'))
             continue
-        if reference in seen:
+        fragment = entry.get('fragment') or ''
+        if reference in seen or (reference, fragment) in sections:
             closure.append(_reference_row(entry, reference, 'duplicate'))
             continue
-        seen.add(reference)
+        if skill_registry.condition_unmet(text, entry.get('start', 0), locks):
+            closure.append(_reference_row(entry, reference, 'conditional'))
+            continue
         try:
             body = reference.read_text(encoding='utf-8-sig')
         except OSError as exc:
             closure.append(_reference_row(entry, reference, 'missing'))
             raise ValueError(f'SKILL 引用缺失，已阻止发送：{reference}（{exc}）') from exc
+        part = skill_registry.section(body, fragment)
+        if part is not None:
+            sections.add((reference, fragment))
+            blocks.append((reference, f'\n\n## 引用: {reference.name}#{fragment}（节选）\n{part}'))
+            closure.append(_reference_row(entry, reference, 'section'))
+            closure.extend(_nested_references(reference, part, seen | {reference}, roots))
+            continue
+        seen.add(reference)
         blocks.append((reference, f'\n\n## 引用: {reference.name}\n{body}'))
         closure.append(_reference_row(entry, reference, 'inlined'))
         closure.extend(_nested_references(reference, body, seen, roots))
@@ -932,10 +914,10 @@ def master_gate(config, stage=None, check_references=True):
     return '总控门禁已阻断：' + '；'.join(reasons)
 
 
-def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False):
+def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None):
     """内联技能正文，并给出「实际加载了什么」的引用闭包，供请求快照留凭据。"""
     from html import escape
-    _text, meta, blocks, closure = _skill_blocks(path, strict=strict)
+    _text, meta, blocks, closure = _skill_blocks(path, strict=strict, locks=locks)
     name = str(meta.get('name') or Path(path).resolve().parent.name)
     complete = (f'<skill name="{escape(name, quote=True)}">\n'
                 + ''.join(body for _, body in blocks) + '\n</skill>')
@@ -945,9 +927,9 @@ def _inline_skill_report(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False):
     return complete, closure
 
 
-def _inline_skill(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False):
+def _inline_skill(path, *, cap=REQUEST_CONTEXT_MAX_CHARS, strict=False, locks=None):
     """API 发送快照：技能及目录边界内的直接引用，不递归加载引用。"""
-    return _inline_skill_report(path, cap=cap, strict=strict)[0]
+    return _inline_skill_report(path, cap=cap, strict=strict, locks=locks)[0]
 
 
 def freeze_skills(config):
@@ -971,7 +953,7 @@ def freeze_skills(config):
         seen.add(identity)
         selected.append(str(path))
         try:
-            body, closure = _inline_skill_report(path, strict=True)
+            body, closure = _inline_skill_report(path, strict=True, locks=frozen.get('workflow_lock') or {})
         except (OSError, UnicodeError, ValueError) as exc:
             raise ValueError(f'已勾选的 SKILL 或其引用未加载：{path}；已阻止发送。{exc}') from exc
         bodies.append(body)
@@ -1037,7 +1019,7 @@ def skill_prompt(config, stage=None, inline=False):
 
 def _one_skill_prompt(config,skill,inline=False):
     if not skill:return ''
-    if inline:return _inline_skill(skill)
+    if inline:return _inline_skill(skill, locks=config.get('workflow_lock') or {})
     path=Path(skill)
     # Both engines read the same skill and its relative support files.
     adapter=''

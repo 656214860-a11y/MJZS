@@ -460,7 +460,8 @@ def reference_targets(text):
             continue
         relative = Path(unquote(parts.path))
         kind = 'markdown' if relative.suffix.lower() in REFERENCE_SUFFIXES else 'other'
-        out.append({'raw': link, 'kind': kind, 'path': relative, 'fragment': parts.fragment})
+        out.append({'raw': link, 'kind': kind, 'path': relative, 'fragment': parts.fragment,
+                    'start': match.start()})
     return out
 
 
@@ -851,3 +852,83 @@ def default_registry(program=None):
     if key not in _DEFAULTS:
         _DEFAULTS[key] = Registry(root, user_root=default_user_root(program))
     return _DEFAULTS[key]
+
+
+_CONDITION_RE = re.compile(r'仅\s*`(\w+)`\s*为\s*(.+?)\s*时追加\s*$')
+_HEADING_RE = re.compile(r'(#{1,6})\s+(.+?)\s*#*\s*$')
+
+
+def condition_unmet(text, start, locks):
+    """链接前写着「仅 `锁` 为 A／B 时追加」且项目锁不是其中之一时返回 True。
+
+    ``locks`` 为 None（门禁核验）、锁未填或链接前没有条件时一律加载，宁可多发不漏发。"""
+    if locks is None:
+        return False
+    segment = text[text.rfind('\n', 0, start) + 1:start]
+    segment = re.split(r'[；。]', segment[:segment.rfind('[')] if '[' in segment else segment)[-1]
+    match = _CONDITION_RE.search(segment)
+    value = str(locks.get(match.group(1)) or '').strip() if match else ''
+    if not value:
+        return False
+    return not any(option.strip() and option.strip() in value
+                   for option in re.split(r'[／/、]|或', match.group(2)))
+
+
+def _anchor_slug(heading):
+    """GitHub 式标题锚点：小写、去标点（保留中文、数字、下划线与连字符）、空格换连字符。"""
+    return re.sub(r'[^\w\- ]', '', heading.strip().lower()).replace(' ', '-')
+
+
+def section(body, fragment):
+    """取锚点所指标题到下一个同级或更高级标题之前的正文；代码块里的 # 不算标题，找不到返回 None。"""
+    from urllib.parse import unquote
+    wanted = unquote(str(fragment or '')).strip().lower()
+    if not wanted:
+        return None
+    lines = body.splitlines(keepends=True)
+    fence, start, level = False, None, 0
+    for index, line in enumerate(lines):
+        if line.lstrip().startswith(('```', '~~~')):
+            fence = not fence
+            continue
+        match = None if fence else _HEADING_RE.match(line)
+        if match is None:
+            continue
+        if start is None:
+            if _anchor_slug(match.group(2)) == wanted:
+                start, level = index, len(match.group(1))
+        elif len(match.group(1)) <= level:
+            return ''.join(lines[start:index])
+    return ''.join(lines[start:]) if start is not None else None
+
+
+def reference_row(entry, reference, status, depth=1):
+    """引用闭包里的一行：目标、类型、结果与深度（1＝直接引用，2＝引用文件里再出现）。"""
+    row = {'kind': entry['kind'], 'status': status, 'target': entry['raw'], 'depth': depth}
+    if reference is not None:
+        row['path'] = str(reference)
+    return row
+
+
+def nested_references(reference, body, seen, roots):
+    """引用文件里再出现的链接：只登记、不展开（明确不递归加载）。"""
+    out = []
+    for entry in reference_targets(body):
+        relative = entry['path']
+        if relative is None:
+            out.append(reference_row(entry, None, entry['kind'], 2))
+            continue
+        if relative.is_absolute():
+            out.append(reference_row(entry, relative, 'absolute', 2))
+            continue
+        target = resolve_reference(reference, relative)
+        if target in seen:
+            status = 'cycle'
+        elif not any(target.is_relative_to(root) for root in roots):
+            status = 'outside'
+        elif not target.is_file():
+            status = 'missing'
+        else:
+            status = 'nested'
+        out.append(reference_row(entry, target, status, 2))
+    return out
