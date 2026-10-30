@@ -1063,7 +1063,7 @@ class App:
         sid=selected[0];versions=self.studio.state()['shots'].get(sid,[]);v=versions[-1] if versions else {}
         self.busy_state.set_busy(False)
         if self.local_submit_sid==sid:
-            self.busy_state.set_busy(True,progress_interval=15);return
+            self.busy_state.set_busy(True);return
         if sid in self.local_submit_error and not v.get('task_id'):
             self.progress_text.set(sid+' · 提交失败：'+self.local_submit_error[sid]);return
         if v.get('state')=='downloaded' and v.get('file') and (self.root/v['file']).is_file():
@@ -1074,7 +1074,7 @@ class App:
         elif v.get('state') in ('unknown','submitting') and not v.get('task_id'):
             self.progress_text.set(sid+' · 提交结果待核实：未收到任务编号。点“恢复任务编号”，从服务商控制台粘贴编号。不会自动重发。')
         elif v.get('task_id') and v.get('state') in ('queued','running','succeeded','unknown','submitting'):
-            self.busy_state.set_busy(True,progress_interval=15)
+            self.busy_state.set_busy(True)
             self.progress_text.set(sid+' · '+{'queued':'排队中','running':'生成中','succeeded':'正在下载'}.get(v['state'],'正在恢复查询')+elapsed_text(v,time.time())+'；自动跟踪。任务编号：'+v['task_id'])
         else:
             pending=[shot_id for shot_id,records in self.studio.state()['shots'].items() if shot_id!=sid and records and records[-1].get('state') in ('queued','running','succeeded','unknown','submitting')]
@@ -1299,7 +1299,7 @@ class App:
             self.save_prompt()
         if isinstance(self.studio,LocalStudio):
             sid=self.sid();self.save_options();self.local_submit_sid=sid;self.local_submit_error.pop(sid,None)
-            self.progress_text.set(sid+' · 正在准备提交…');self.busy_state.set_busy(True,progress_interval=15)
+            self.progress_text.set(sid+' · 正在准备提交…');self.busy_state.set_busy(True)
             self.write('手动提交已锁定镜头：'+sid);studio=self.studio
             self.run(lambda sid=sid,studio=studio:studio.submit(sid,progress=lambda text:self.local_messages.put((sid,text))));return
         self.save_options()

@@ -127,7 +127,7 @@ class DownloadInboxTests(unittest.TestCase):
         for name in ('摄影侠 项目设定 Google 20261030.md', '摄影侠 项目大纲 Google 20261001.md',
                      '摄影侠 项目大纲 Google 20261399.md'):
             self._download(name, at=now)
-        self.assertEqual(download_inbox.match(self.downloads, pending, now), [])
+        self.assertEqual(download_inbox.match_registered(self.downloads, pending, now), [])
 
     def test_dated_download_skips_when_new_batch_file_is_newer(self):
         """REQ-S01-68：新日期批次里已有更新的文件时跳过，不覆盖。"""
@@ -138,7 +138,7 @@ class DownloadInboxTests(unittest.TestCase):
         now = time.time()
         self._download('摄影侠 项目大纲 Google 20261030.md', at=now - 30)
         pending = [{'target': str(old), 'since': now - 60}]
-        self.assertEqual(download_inbox.match(self.downloads, pending, now), [])
+        self.assertEqual(download_inbox.match_registered(self.downloads, pending, now), [])
 
     def test_expired_registrations_are_dropped(self):
         target = self.project / '05资产管理' / 'C01.png'

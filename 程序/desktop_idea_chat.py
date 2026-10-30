@@ -137,21 +137,21 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         label=getattr(self,'idea_attachment_status',None)
         prepared=getattr(self.idea_chat_controller,'attachment_details',())
         from idea_attachments import display_name
-        tips,details={},[]
+        tips,details,local={},[],'原文件，将由 Agent 自行读取'
+        def note(shown,key,tip):
+            tips[key]=tip;details.append('%s（%s）' % (shown,tip))
         for name,count in prepared:
-            tips[display_name(name)]=('原文件，将由 Agent 自行读取' if count is None else '%d 字' % count)
-            details.append('%s（%s）' % (display_name(name) if count is None else name, tips[display_name(name)]))
+            key=display_name(name);note(key if count is None else name,key,local if count is None else '%d 字' % count)
         if not tips:
             import idea_attachments
             from stage_execution_service import idea_attachment_local_mode
+            local_mode=idea_attachment_local_mode(self.root)
             for value in getattr(self,'idea_attachment_paths',()):
-                if idea_attachment_local_mode(self.root):
-                    tips[display_name(value)]='原文件，将由 Agent 自行读取'
-                    details.append('%s（%s）' % (display_name(value), tips[display_name(value)]))
-                    continue
-                try:tips[display_name(value)]='%d 字' % len(idea_attachments.read_source(Path(value)))
+                key=display_name(value)
+                if local_mode:note(key,key,local);continue
+                try:count=len(idea_attachments.read_source(Path(value)))
                 except (OSError, ValueError):continue
-                details.append('%s（%s）' % (Path(value).name, tips[display_name(value)]))
+                note(Path(value).name,key,'%d 字' % count)
         self._idea_attachment_tips=tips
         # 明细不再单独占一行：本轮引用改由附件卡片主色边框表示，字数放在卡片悬停提示里。
         if label is not None:label.set(('已引用：'+'、'.join(details)) if details else '')

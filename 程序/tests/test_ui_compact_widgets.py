@@ -111,25 +111,24 @@ class CompactWidgetTests(unittest.TestCase):
         for disk_call in (file_open, path_open, read_text, read_bytes, scandir, listdir):
             disk_call.assert_not_called()
 
-    def test_busy_state_restores_determinate_zero_and_controls_each_cycle(self):
+    def test_busy_state_restores_spinner_and_controls_each_cycle(self):
+        from ui_motion import Spinner
         status = tk.StringVar(self.root, value='就绪')
-        progress = ttk.Progressbar(self.root, mode='determinate', value=0)
+        spinner = Spinner(self.root)
         button = ttk.Button(self.root, text='执行')
-        progress.pack(fill='x')
         button.pack()
-        busy = BusyState(status, progress, idle_determinate=True)
+        busy = BusyState(status, spinner=spinner)
         for cycle in range(2):
             with self.subTest(cycle=cycle):
                 self.assertTrue(busy.set_busy(True, message='运行中', controls=(button,)))
                 self.root.update_idletasks()
-                self.assertEqual(str(progress.cget('mode')), 'indeterminate')
+                self.assertTrue(spinner.running)
                 self.assertEqual(status.get(), '运行中')
                 self.assertTrue(button.instate(['disabled']))
                 self.assertTrue(busy.busy)
                 self.assertFalse(busy.set_busy(False))
                 self.root.update()
-                self.assertEqual(str(progress.cget('mode')), 'determinate')
-                self.assertEqual(float(progress.cget('value')), 0.0)
+                self.assertFalse(spinner.running)
                 self.assertTrue(button.instate(['!disabled']))
                 self.assertFalse(busy.busy)
 

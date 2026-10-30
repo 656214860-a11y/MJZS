@@ -647,7 +647,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
     def delete_checked_skills(self):
         """仅回收程序 skills/ 与用户层 data/skills/ 下已勾选的 .skill.md，绝不改项目配置。"""
         program = Path(__file__).resolve().parent
-        roots = ((program / 'skills').resolve(), (program / 'data' / 'skills').resolve())
+        roots = skill_registry.skill_roots(program)
         selected = [item for item in self.skills if self.vars.get(item.name) and self.vars[item.name].get()]
         paths = []
         for item in selected:

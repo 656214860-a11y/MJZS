@@ -28,9 +28,9 @@ class _Dialogs:
         self.calls.append(("info", title, text, parent))
 
 
-class _Progress:
+class _Spinner:
     def __init__(self): self.calls = []
-    def start(self, interval): self.calls.append(("start", interval))
+    def start(self): self.calls.append(("start",))
     def stop(self): self.calls.append(("stop",))
 
 
@@ -71,13 +71,13 @@ class NotificationDispatcherTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             notifier.notify("内容", level="other")
 
-    def test_busy_state_pairs_progress_status_and_control_recovery(self):
-        status, progress, control = _Status(), _Progress(), _Control()
-        busy = BusyState(status, progress)
+    def test_busy_state_pairs_spinner_status_and_control_recovery(self):
+        status, progress, control = _Status(), _Spinner(), _Control()
+        busy = BusyState(status, spinner=progress)
         self.assertTrue(busy.set_busy(True, message="正在读取", controls=(control,)))
         self.assertTrue(busy.busy)
         self.assertEqual(status.values, ["正在读取"])
-        self.assertEqual(progress.calls, [("start", 15)])
+        self.assertEqual(progress.calls, [("start",)])
         self.assertEqual(control.calls, [("disabled",)])
         self.assertFalse(busy.set_busy(False))
         self.assertFalse(busy.busy)

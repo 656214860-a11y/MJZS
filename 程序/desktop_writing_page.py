@@ -226,7 +226,6 @@ class VoiceInput:
 
     def close(self):
         """关麦：停录、通知服务端收尾，等最后一句定稿后由 poll 结束会话。"""
-        import time
         recorder, self.recorder = self.recorder, None
         self.button.configure(style=self.IDLE_STYLE)
         recorder.stop()
@@ -253,7 +252,6 @@ class VoiceInput:
 
     def poll(self):
         import queue
-        import time
         self.pending = None
         if not self.box.winfo_exists():return self.stop()
         session = self.session
@@ -284,7 +282,7 @@ class VoiceInput:
             return self.page.status.set('语音输入已取消。')
         self.page.status.set(message)
 
-    def stop(self, message=None):
+    def stop(self):
         if self.pending is not None:
             try:self.box.after_cancel(self.pending)
             except tk.TclError:pass
@@ -300,7 +298,6 @@ class VoiceInput:
             self.button.configure(style=self.IDLE_STYLE)
         except tk.TclError:return
         finally:self.spans = {}
-        if message:self.page.status.set(message)
 
 
 class _WritingPage:

@@ -61,7 +61,6 @@ def apply(win):
 
     s.configure('TNotebook.Tab',padding=(SPACING['md'] + SPACING['xs'] // 2, SPACING['sm'] + SPACING['xs'] // 4))
 
-    s.configure('Horizontal.TProgressbar',background=COLORS['progress'],troughcolor=COLORS['trough'],borderwidth=0)
 
     s.configure('TLabelframe',background=BG,bordercolor=COLORS['border_strong'],relief='solid',borderwidth=1)
 

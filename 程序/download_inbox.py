@@ -5,7 +5,7 @@ Claude Desktop 等桌面应用读得到任务书，却常常不能直接写入�
 文件；用户点下载后文件落在「下载」文件夹，各阶段按目标路径找产物就会落空。这里只做纯计算：
 
 - ``expected_targets()`` 从任务书正文里取出位于项目内、尚未存在的目标文件路径；
-- ``match()`` 在下载文件夹里为待收回目标找同名（容许浏览器追加的「 (N)」）、派发后
+- ``match_registered()`` 在下载文件夹里为待收回目标找同名（容许浏览器追加的「 (N)」）、派发后
   才下载的最新文件；没有同名件时，四段式文件名只差日期段且下载件日期更新的，另存到
   新日期的文件与「创意_日期」批次，旧日期版本保留。
 
@@ -79,6 +79,12 @@ def _dated(name):
     return found.group(1) + found.group(3), found.group(2)
 
 
+def filename_day(name):
+    """文件名末尾的合法日期段（容许副本后缀「 (N)」，空格与下划线都认）；没有返回空串。"""
+    found = _dated(_plain_name(name))
+    return found[1] if found else ''
+
+
 def dated_target(target, day):
     """把目标文件名的日期段换成 ``day``；所在批次目录是「创意_旧日期」时一并换成新日期。"""
     target = Path(target)
@@ -109,7 +115,7 @@ def _newest(files, since, accept):
 
 
 def match_registered(downloads, pending, now):
-    """同 ``match()``，每项另带要销账的登记目标：``[(下载文件, 写入路径, (登记目标, …))]``。
+    """返回 ``[(下载文件, 写入路径, (登记目标, …))]``：同名、派发后下载、比现有目标新的最新一份。
 
     同一份下载可能同时对上几次派发的登记（如换了模型名、同名件与只差日期的旧目标），
     只写到最近一次派发的那个位置；其余登记随之销账，不再另存副本。"""
@@ -156,14 +162,6 @@ def match_registered(downloads, pending, now):
             continue
         found.append((source, written, tuple(row[4] for row in rows)))
     return found
-
-
-def match(downloads, pending, now):
-    """返回 ``[(下载文件, 写入路径)]``：同名、派发后下载、比现有目标新的最新一份。
-
-    同一文件名对应多个待收回目标时只认最近一次派发，避免把文件放错位置。
-    """
-    return [(source, written) for source, written, _targets in match_registered(downloads, pending, now)]
 
 
 def remaining(pending, done, now):

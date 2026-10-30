@@ -354,6 +354,15 @@ class WebSocketRefused(OSError):
         self.status = status
 
 
+def _apply_mask(payload, mask):
+    """RFC 6455 掩码：按 4 字节循环异或，整段一次算完。"""
+    size = len(payload)
+    if not size:
+        return b''
+    key = (mask * (size // 4 + 1))[:size]
+    return (int.from_bytes(payload, 'little') ^ int.from_bytes(key, 'little')).to_bytes(size, 'little')
+
+
 class WebSocket:
     """最小 WebSocket 客户端（RFC 6455，零第三方依赖）：只收发文本帧，自动回 pong。
 
@@ -372,7 +381,7 @@ class WebSocket:
             head = struct.pack('!BBH', 0x80 | opcode, 0x80 | 126, size)
         else:
             head = struct.pack('!BBQ', 0x80 | opcode, 0x80 | 127, size)
-        masked = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+        masked = _apply_mask(payload, mask)
         with self.lock:
             self.sock.sendall(head + mask + masked)
 
@@ -402,7 +411,7 @@ class WebSocket:
             mask = self._read(4) if second & 0x80 else b''
             payload = self._read(size)
             if mask:
-                payload = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+                payload = _apply_mask(payload, mask)
             opcode = first & 0x0F
             if opcode == 0x8:
                 self.close()

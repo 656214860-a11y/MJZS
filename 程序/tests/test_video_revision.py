@@ -304,7 +304,7 @@ class VideoRevisionTests(unittest.TestCase):
                 app = SimpleNamespace(studio=studio, sid=lambda: 'SH001', edit_checks={'SH001': True},
                     write=Mock(), ensure_frame=Mock(return_value=True), prompt=Mock(), save_options=Mock(),
                     local_submit_error={}, progress_text=Mock(), task_progress=Mock(), local_messages=Mock(),
-                    busy_state=BusyState(Mock(), Mock()))
+                    busy_state=BusyState(Mock(), spinner=Mock()))
                 app.prompt.get.return_value = 'new prompt'
                 app.run = lambda work: work()
                 with patch('app.assert_prompt_editable'):
