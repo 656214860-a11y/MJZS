@@ -172,37 +172,91 @@ class WritingPageMixin:
 
 
 class VoiceInput:
-    """REQ-S01-71：麦克风开关。系统听写逐句识别，结果插到输入框光标处；再点一次或页面销毁即停止。"""
+    """REQ-S01-71：麦克风录音开关（仿桌面微信）。点一下录音，再点一下结束并交云端识别，文字插到光标处。
+
+    三态：idle → recording → transcribing → idle。识别不走 ``Desktop.async_()``（新票号会作废
+    正在运行的剧本请求），而用本输入框自己的 ``BackgroundTaskLifecycle`` 登记代次；页面销毁时
+    停录并取消，迟到结果不进界面。
+    """
     LISTENING_STYLE, IDLE_STYLE = 'Tokens.Composer.Send.TButton', 'Tokens.Composer.Icon.TButton'
+    SILENCE_PEAK, MIN_SECONDS, LEVEL_BARS = 300, 0.5, 5
 
     def __init__(self, page, box, button):
         self.page, self.box, self.button = page, box, button
-        self.session, self.pending = None, None
+        from desktop_automation_service import BackgroundTaskLifecycle
+        self.recorder, self.result, self.settings, self.pending, self.ticket = None, None, None, None, None
+        self.tasks = BackgroundTaskLifecycle()
         box.bind('<Destroy>', lambda event: self.stop() if event.widget is box else None, add='+')
 
     @property
     def listening(self):
-        return self.session is not None and self.session.running
+        return self.recorder is not None
+
+    @property
+    def transcribing(self):
+        return self.ticket is not None
 
     def toggle(self):
-        if self.listening:return self.stop('语音输入已停止。')
+        if self.transcribing:return self.page.status.set('正在识别上一段语音，请稍候…')
+        if self.listening:return self.finish()
         import platform_tools
-        self.session = self.session or platform_tools.VoiceDictation()
-        reason = self.session.start()
+        import speech_api
+        self.settings = speech_api.read_settings()
+        reason = speech_api.missing_reason(self.settings)
         if reason:return self.page.status.set('语音输入未能启动（%s）。' % reason)
+        recorder = platform_tools.MicrophoneRecorder(max_seconds=self.settings['max_seconds'])
+        reason = recorder.start()
+        if reason:return self.page.status.set('语音输入未能启动（%s）；请检查麦克风连接与 Windows 设置「隐私和安全性 › 麦克风」。' % reason)
+        self.recorder = recorder
         self.button.configure(style=self.LISTENING_STYLE)
         self.box.focus_force()
-        self.page.status.set('正在打开麦克风…')
+        self.poll()
+
+    def finish(self):
+        """结束录音：静音或太短不发云端，否则后台识别。"""
+        recorder, self.recorder = self.recorder, None
+        self.button.configure(style=self.IDLE_STYLE)
+        wav, peak = recorder.stop()
+        if recorder.error:return self.page.status.set('录音中断（%s）。' % recorder.error)
+        if recorder.seconds < self.MIN_SECONDS:return self.page.status.set('录音太短，没有识别。')
+        if peak < self.SILENCE_PEAK:
+            return self.page.status.set('没录到声音：请检查麦克风是否静音，以及 Windows 设置「隐私和安全性 › 麦克风」是否允许桌面应用使用麦克风。')
+        self.recognize(wav)
+
+    def recognize(self, wav):
+        import threading
+        import speech_api
+        result, settings = [], self.settings
+        self.result, self.ticket = result, self.tasks.submit(object(), costly=True, label='语音识别',
+                                                             timeout=settings['timeout'] + 30)
+
+        def work():
+            try:result.append(('text', speech_api.transcribe(wav, settings=settings)))
+            except ValueError as error:result.append(('error', str(error)))
+            except Exception as error:
+                app_logging.swallowed()
+                result.append(('error', '识别出错：' + type(error).__name__))
+        threading.Thread(target=work, name='voice-transcribe', daemon=True).start()
+        self.page.status.set('正在识别语音…')
         self.poll()
 
     def poll(self):
         self.pending = None
-        if self.session is None or not self.box.winfo_exists():return self.stop()
-        for kind, text in self.session.poll():
-            if kind == 'ready':self.page.status.set('正在听写：说完一句会自动写入输入框，再点麦克风停止。')
-            elif kind == 'text':self.box.insert('insert', text);self.box.see('insert')
-            elif kind == 'error':return self.stop('语音输入不可用（%s）；请在 Windows 设置的「隐私和安全性 › 麦克风」与「时间和语言 › 语音」里检查。' % text)
-            elif kind == 'stopped':return self.stop('语音输入已结束。')
+        if not self.box.winfo_exists():return self.stop()
+        if self.recorder is not None:
+            if self.recorder.finished:return self.finish()
+            bars = min(self.LEVEL_BARS, int(self.recorder.level * self.LEVEL_BARS * 2 + 0.5))
+            self.page.status.set('正在录音 %d 秒  %s  再点麦克风结束并转成文字。' % (
+                self.recorder.seconds, '▮' * bars + '▯' * (self.LEVEL_BARS - bars)))
+        elif self.result:
+            (kind, text), ticket, self.result, self.ticket = self.result[0], self.ticket, None, None
+            if not self.tasks.finish(ticket, succeeded=kind == 'text', error=text if kind == 'error' else ''):
+                return self.page.status.set('语音识别已超时取消。')
+            if kind == 'error':return self.page.status.set('语音识别失败（%s）。' % text)
+            if not text:return self.page.status.set('没有识别出文字，请靠近麦克风再说一次。')
+            self.box.insert('insert', text);self.box.see('insert')
+            return self.page.status.set('语音已转成文字。')
+        elif self.ticket is None:return None
         self.pending = self.box.after(VOICE_POLL_MS, self.poll)
 
     def stop(self, message=None):
@@ -210,7 +264,9 @@ class VoiceInput:
             try:self.box.after_cancel(self.pending)
             except tk.TclError:pass
             self.pending = None
-        if self.session is not None:self.session.stop()
+        recorder, self.recorder, self.result, ticket, self.ticket = self.recorder, None, None, self.ticket, None
+        if recorder is not None:recorder.stop()
+        if ticket is not None:self.tasks.cancel(ticket)
         try:self.button.configure(style=self.IDLE_STYLE)
         except tk.TclError:return
         if message:self.page.status.set(message)
@@ -370,7 +426,7 @@ class _WritingPage:
         if os.name=='nt':
             voice_button=SecondaryButton(input_row,text=ICON_MICROPHONE,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Icon.TButton')
             voice_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
-            Tooltip(voice_button,'语音输入：点一下开始，说完一句自动写入输入框；再点一下停止')
+            Tooltip(voice_button,'语音输入：点一下开始录音，再点一下结束并转成文字')
             self.page.idea_voice_input=VoiceInput(self.page,self.input_box,voice_button)
             voice_button.configure(command=lambda:self.page.safe(self.page.idea_voice_input.toggle))
             self.page.idea_voice_button=voice_button

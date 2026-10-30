@@ -4,7 +4,7 @@
 - 63：本轮引用的附件卡片用主色边框；× 贴在卡片右上角。
 - 64：运行中在输入框按 Esc 等同终止；空闲时不拦截。
 - 65／66：消息不铺底色；悬停才显出左下角复制／删除图标，点图标转调整条复制／删除。
-- 67／71：麦克风是听写开关，识别文字插进输入框，失败只在状态栏说明。
+- 67／71：麦克风是录音开关，录完交云端识别，文字插进输入框；静音不发云端，失败只在状态栏说明。
 """
 import tempfile
 import time
@@ -130,52 +130,82 @@ class ScriptComposerTests(unittest.TestCase):
                     box.event_generate('<Button-1>', x=x + w // 2, y=y + h // 2); win.update()
                 action.assert_called_once_with(0)
 
-    def test_microphone_toggles_dictation_and_inserts_text(self):
+    def test_microphone_records_then_inserts_recognized_text(self):
         import platform_tools
+        import speech_api
 
-        class FakeDictation:
+        class FakeRecorder:
             instances = []
-            def __init__(self):
-                self.running, self.reason, self.queue = False, '', []
-                FakeDictation.instances.append(self)
+            def __init__(self, max_seconds=180):
+                self.reason, self.peak, self.seconds, self.level, self.error = '', 2000, 2.0, 0.3, ''
+                self.finished, self.stopped = False, False
+                FakeRecorder.instances.append(self)
             def start(self):
-                self.running = not self.reason
-                return self.reason
-            def poll(self):
-                items, self.queue = self.queue, []
-                return items
+                return FakeRecorder.next_reason
             def stop(self):
-                self.running = False
+                self.stopped = True
+                return b'RIFF', self.peak
+        FakeRecorder.next_reason = ''
+        calls = []
 
-        with tempfile.TemporaryDirectory() as td, patch.object(platform_tools, 'VoiceDictation', FakeDictation):
+        def transcribe(wav, settings=None):
+            calls.append(wav)
+            return '主角走进雨夜。'
+
+        with tempfile.TemporaryDirectory() as td, patch.object(platform_tools, 'MicrophoneRecorder', FakeRecorder), \
+                patch.object(speech_api, 'missing_reason', return_value=''), \
+                patch.object(speech_api, 'transcribe', transcribe):
             d, win = self.desktop(make_minimal_project(td))
             button = d.idea_voice_button
             frame = d.idea_composer_frame
             self.assertGreater(button.winfo_rootx(), d.idea_attachment_button.winfo_rootx())
             self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), frame.winfo_rooty() + frame.winfo_height())
-            button.invoke(); win.update()
-            session = FakeDictation.instances[-1]
-            self.assertTrue(session.running)
-            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Send.TButton', '听写中按钮高亮')
-            self.assertIs(win.focus_get(), d.idea_input)
             d.idea_input.delete('1.0', 'end')
-            session.queue = [('ready', ''), ('text', '主角走进雨夜')]
-            d.idea_voice_input.poll(); win.update()
-            self.assertEqual(d.idea_input.get('1.0', 'end-1c'), '主角走进雨夜')
-            self.assertIn('正在听写', d.status.get())
             button.invoke(); win.update()
-            self.assertFalse(session.running)
+            recorder = FakeRecorder.instances[-1]
+            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Send.TButton', '录音中按钮高亮')
+            self.assertIs(win.focus_get(), d.idea_input)
+            self.assertIn('正在录音', d.status.get())
+            button.invoke(); win.update()
+            self.assertTrue(recorder.stopped)
             self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
-            session.reason = '没有麦克风'
+            for _ in range(100):
+                d.idea_voice_input.poll(); win.update()
+                if d.idea_input.get('1.0', 'end-1c'):break
+                time.sleep(0.01)
+            self.assertEqual(d.idea_input.get('1.0', 'end-1c'), '主角走进雨夜。')
+            self.assertEqual(calls, [b'RIFF'])
+            # 静音录音不发云端，状态栏指向麦克风隐私设置。
             button.invoke(); win.update()
-            self.assertIn('没有麦克风', d.status.get())
-            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
-            session.reason = ''
+            FakeRecorder.instances[-1].peak = 0
             button.invoke(); win.update()
-            session.queue = [('error', '听写组件不可用')]
+            self.assertIn('没录到声音', d.status.get())
+            self.assertEqual(len(calls), 1)
+            # 录满上限自动收尾并识别。
+            button.invoke(); win.update()
+            FakeRecorder.instances[-1].finished = True
             d.idea_voice_input.poll(); win.update()
-            self.assertFalse(session.running)
-            self.assertIn('听写组件不可用', d.status.get())
+            self.assertTrue(FakeRecorder.instances[-1].stopped)
+            for _ in range(100):
+                d.idea_voice_input.poll(); win.update()
+                if len(calls) == 2 and not d.idea_voice_input.transcribing:break
+                time.sleep(0.01)
+            self.assertEqual(len(calls), 2)
+            FakeRecorder.next_reason = '没有找到麦克风'
+            button.invoke(); win.update()
+            self.assertIn('没有找到麦克风', d.status.get())
+            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
+
+    def test_microphone_without_key_explains_in_status(self):
+        import platform_tools
+        import speech_api
+        with tempfile.TemporaryDirectory() as td, \
+                patch.object(speech_api, 'missing_reason', return_value='没有配置语音识别密钥 DASHSCOPE_API_KEY'), \
+                patch.object(platform_tools, 'MicrophoneRecorder', side_effect=AssertionError('不应开麦')):
+            d, win = self.desktop(make_minimal_project(td))
+            d.idea_voice_button.invoke(); win.update()
+            self.assertIn('DASHSCOPE_API_KEY', d.status.get())
+            self.assertEqual(str(d.idea_voice_button.cget('style')), 'Tokens.Composer.Icon.TButton')
 
 
 if __name__ == '__main__':
