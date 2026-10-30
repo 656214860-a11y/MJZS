@@ -175,20 +175,25 @@ class WritingPageMixin:
 
 
 class VoiceInput:
-    """REQ-S01-71：麦克风录音开关（仿桌面微信）。点一下录音，再点一下结束并交云端识别，文字插到光标处。
+    """REQ-S01-71：麦克风听写开关。打开后边说边把文字写到输入框光标处，再点一下关闭。
 
-    三态：idle → recording → transcribing → idle。识别不走 ``Desktop.async_()``（新票号会作废
-    正在运行的剧本请求），而用本输入框自己的 ``BackgroundTaskLifecycle`` 登记代次；页面销毁时
-    停录并取消，迟到结果不进界面。
+    录音线程每 0.1 秒把 PCM 交给 ``speech_api.RealtimeSession``，服务端按停顿断句：
+    当前句的中间结果以浅色写在光标处、随结果替换，整句定稿后恢复正常颜色。关麦后等最后一句
+    定稿再结束（最多 ``timeout`` 秒）。会话不走 ``Desktop.async_()``（新票号会作废正在运行的
+    剧本请求），而用本输入框自己的 ``BackgroundTaskLifecycle`` 登记代次；页面销毁时停录并取消，
+    迟到事件不进界面。
     """
     LISTENING_STYLE, IDLE_STYLE = 'Tokens.Composer.Send.TButton', 'Tokens.Composer.Icon.TButton'
-    SILENCE_PEAK, MIN_SECONDS, LEVEL_BARS = 300, 0.5, 5
+    SILENCE_PEAK, SILENCE_HINT_SECONDS, LEVEL_BARS = 300, 3, 5
+    PARTIAL_TAG = 'voice_partial'
 
     def __init__(self, page, box, button):
         self.page, self.box, self.button = page, box, button
         from desktop_automation_service import BackgroundTaskLifecycle
-        self.recorder, self.result, self.settings, self.pending, self.ticket = None, None, None, None, None
+        self.recorder, self.session, self.settings, self.pending, self.ticket = None, None, None, None, None
+        self.spans, self.deadline, self.serial = {}, None, 0
         self.tasks = BackgroundTaskLifecycle()
+        box.tag_configure(self.PARTIAL_TAG, foreground=COLORS['text_muted'])
         box.bind('<Destroy>', lambda event: self.stop() if event.widget is box else None, add='+')
 
     @property
@@ -196,82 +201,105 @@ class VoiceInput:
         return self.recorder is not None
 
     @property
-    def transcribing(self):
-        return self.ticket is not None
+    def closing(self):
+        return self.session is not None and self.recorder is None
 
     def toggle(self):
-        if self.transcribing:return self.page.status.set('正在识别上一段语音，请稍候…')
-        if self.listening:return self.finish()
+        if self.closing:return self.page.status.set('正在写完最后一句，请稍候…')
+        if self.listening:return self.close()
         import platform_tools
         import speech_api
         self.settings = speech_api.read_settings()
         reason = speech_api.missing_reason(self.settings)
         if reason:return self.page.status.set('语音输入未能启动（%s）。' % reason)
-        recorder = platform_tools.MicrophoneRecorder(max_seconds=self.settings['max_seconds'])
+        session = speech_api.RealtimeSession(self.settings)
+        recorder = platform_tools.MicrophoneRecorder(max_seconds=self.settings['max_seconds'], on_chunk=session.send)
         reason = recorder.start()
         if reason:return self.page.status.set('语音输入未能启动（%s）；请检查麦克风连接与 Windows 设置「隐私和安全性 › 麦克风」。' % reason)
-        self.recorder = recorder
+        session.start()
+        self.ticket = self.tasks.submit(object(), costly=True, label='语音输入',
+                                        timeout=self.settings['max_seconds'] + self.settings['timeout'] + 30)
+        self.recorder, self.session, self.spans, self.deadline = recorder, session, {}, None
         self.button.configure(style=self.LISTENING_STYLE)
         self.box.focus_force()
         self.poll()
 
-    def finish(self):
-        """结束录音：静音或太短不发云端，否则后台识别。"""
+    def close(self):
+        """关麦：停录、通知服务端收尾，等最后一句定稿后由 poll 结束会话。"""
+        import time
         recorder, self.recorder = self.recorder, None
         self.button.configure(style=self.IDLE_STYLE)
-        wav, peak = recorder.stop()
-        if recorder.error:return self.page.status.set('录音中断（%s）。' % recorder.error)
-        if recorder.seconds < self.MIN_SECONDS:return self.page.status.set('录音太短，没有识别。')
-        if peak < self.SILENCE_PEAK:
-            return self.page.status.set('没录到声音：请检查麦克风是否静音，以及 Windows 设置「隐私和安全性 › 麦克风」是否允许桌面应用使用麦克风。')
-        self.recognize(wav)
+        recorder.stop()
+        self.session.finish()
+        self.deadline = time.monotonic() + self.settings['timeout']
+        self.page.status.set('麦克风已关闭，正在写完最后一句…')
+        if recorder.error:self.page.status.set('录音中断（%s），正在写完已说的内容…' % recorder.error)
 
-    def recognize(self, wav):
-        import threading
-        import speech_api
-        result, settings = [], self.settings
-        self.result, self.ticket = result, self.tasks.submit(object(), costly=True, label='语音识别',
-                                                             timeout=settings['timeout'] + 30)
-
-        def work():
-            try:result.append(('text', speech_api.transcribe(wav, settings=settings)))
-            except ValueError as error:result.append(('error', str(error)))
-            except Exception as error:
-                app_logging.swallowed()
-                result.append(('error', '识别出错：' + type(error).__name__))
-        threading.Thread(target=work, name='voice-transcribe', daemon=True).start()
-        self.page.status.set('正在识别语音…')
-        self.poll()
+    def write(self, item, text, final):
+        """把一句的最新结果写进它在输入框里的位置；新句子从当前光标开始。"""
+        box = self.box
+        if item not in self.spans:
+            self.serial += 1
+            marks = ('voice_start_%d' % self.serial, 'voice_end_%d' % self.serial)
+            box.mark_set(marks[0], 'insert');box.mark_gravity(marks[0], 'left')
+            box.mark_set(marks[1], 'insert');box.mark_gravity(marks[1], 'right')
+            self.spans[item] = marks
+        start, end = self.spans[item]
+        box.delete(start, end)
+        box.insert(start, text, () if final else (self.PARTIAL_TAG,))
+        if final:
+            box.mark_unset(start, end);del self.spans[item]
+        box.see('insert')
 
     def poll(self):
+        import queue
+        import time
         self.pending = None
         if not self.box.winfo_exists():return self.stop()
+        session = self.session
+        if session is None:return None
+        while True:
+            try:kind, item, text = session.events.get_nowait()
+            except queue.Empty:break
+            if kind in ('partial', 'final'):self.write(item, text, kind == 'final')
+            elif kind == 'error':return self.end(False, '语音输入中断（%s）。' % text)
+            elif kind == 'closed':return self.end(True, '语音输入已关闭。')
         if self.recorder is not None:
-            if self.recorder.finished:return self.finish()
-            bars = min(self.LEVEL_BARS, int(self.recorder.level * self.LEVEL_BARS * 2 + 0.5))
-            self.page.status.set('正在录音 %d 秒  %s  再点麦克风结束并转成文字。' % (
-                self.recorder.seconds, '▮' * bars + '▯' * (self.LEVEL_BARS - bars)))
-        elif self.result:
-            (kind, text), ticket, self.result, self.ticket = self.result[0], self.ticket, None, None
-            if not self.tasks.finish(ticket, succeeded=kind == 'text', error=text if kind == 'error' else ''):
-                return self.page.status.set('语音识别已超时取消。')
-            if kind == 'error':return self.page.status.set('语音识别失败（%s）。' % text)
-            if not text:return self.page.status.set('没有识别出文字，请靠近麦克风再说一次。')
-            self.box.insert('insert', text);self.box.see('insert')
-            return self.page.status.set('语音已转成文字。')
-        elif self.ticket is None:return None
+            if self.recorder.finished:self.close()
+            elif self.recorder.seconds >= self.SILENCE_HINT_SECONDS and self.recorder.peak < self.SILENCE_PEAK:
+                self.page.status.set('没听到声音：请检查麦克风是否静音，以及 Windows 设置「隐私和安全性 › 麦克风」是否允许桌面应用使用麦克风。')
+            else:
+                bars = min(self.LEVEL_BARS, int(self.recorder.level * self.LEVEL_BARS * 2 + 0.5))
+                self.page.status.set('正在听写 %d 秒  %s  说完再点麦克风关闭。' % (
+                    self.recorder.seconds, '▮' * bars + '▯' * (self.LEVEL_BARS - bars)))
+        elif self.deadline is not None and time.monotonic() > self.deadline:
+            return self.end(False, '识别服务没有及时返回最后一句，语音输入已关闭。')
         self.pending = self.box.after(VOICE_POLL_MS, self.poll)
+
+    def end(self, succeeded, message):
+        """会话结束（正常关闭、出错或超时）：未定稿的浅色文字原样保留为正常文字。"""
+        ticket, self.ticket = self.ticket, None
+        self.stop()
+        if not self.tasks.finish(ticket, succeeded=succeeded, error='' if succeeded else message):
+            return self.page.status.set('语音输入已取消。')
+        self.page.status.set(message)
 
     def stop(self, message=None):
         if self.pending is not None:
             try:self.box.after_cancel(self.pending)
             except tk.TclError:pass
             self.pending = None
-        recorder, self.recorder, self.result, ticket, self.ticket = self.recorder, None, None, self.ticket, None
+        recorder, session, ticket = self.recorder, self.session, self.ticket
+        self.recorder, self.session, self.ticket, self.deadline = None, None, None, None
         if recorder is not None:recorder.stop()
-        if ticket is not None:self.tasks.cancel(ticket)
-        try:self.button.configure(style=self.IDLE_STYLE)
+        if session is not None:session.cancel()
+        if ticket is not None and self.tasks.accepts(ticket):self.tasks.cancel(ticket)
+        try:
+            self.box.tag_remove(self.PARTIAL_TAG, '1.0', 'end')
+            for marks in self.spans.values():self.box.mark_unset(*marks)
+            self.button.configure(style=self.IDLE_STYLE)
         except tk.TclError:return
+        finally:self.spans = {}
         if message:self.page.status.set(message)
 
 

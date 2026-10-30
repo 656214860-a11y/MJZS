@@ -347,6 +347,136 @@ def open_https(url, *, timeout=60, data=None, headers=None, method=None, context
     return urllib.request.urlopen(request, timeout=timeout, context=context)
 
 
+class WebSocketRefused(OSError):
+    """握手没拿到 101：``status`` 是服务端返回的 HTTP 状态码。"""
+    def __init__(self, status):
+        super().__init__('WebSocket 握手被拒绝（HTTP %d）' % status)
+        self.status = status
+
+
+class WebSocket:
+    """最小 WebSocket 客户端（RFC 6455，零第三方依赖）：只收发文本帧，自动回 pong。
+
+    由 ``open_websocket`` 建立；``send_text`` 可在任意线程调用（内部加锁），``recv_text``
+    只应由一个读线程调用，对端关闭时返回 None。``close()`` 可从别的线程打断阻塞中的读。
+    """
+    def __init__(self, sock, pending=b''):
+        self.sock, self.buffer, self.lock = sock, bytearray(pending), threading.Lock()
+
+    def _frame(self, opcode, payload):
+        import struct
+        size, mask = len(payload), os.urandom(4)
+        if size < 126:
+            head = struct.pack('!BB', 0x80 | opcode, 0x80 | size)
+        elif size < 65536:
+            head = struct.pack('!BBH', 0x80 | opcode, 0x80 | 126, size)
+        else:
+            head = struct.pack('!BBQ', 0x80 | opcode, 0x80 | 127, size)
+        masked = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+        with self.lock:
+            self.sock.sendall(head + mask + masked)
+
+    def send_text(self, text):
+        self._frame(0x1, str(text).encode('utf-8'))
+
+    def _read(self, count):
+        while len(self.buffer) < count:
+            chunk = self.sock.recv(65536)
+            if not chunk:
+                raise ConnectionError('WebSocket 连接被对端断开')
+            self.buffer += chunk
+        data = bytes(self.buffer[:count])
+        del self.buffer[:count]
+        return data
+
+    def recv_text(self):
+        import struct
+        parts = []
+        while True:
+            first, second = self._read(2)
+            size = second & 0x7F
+            if size == 126:
+                size = struct.unpack('!H', self._read(2))[0]
+            elif size == 127:
+                size = struct.unpack('!Q', self._read(8))[0]
+            mask = self._read(4) if second & 0x80 else b''
+            payload = self._read(size)
+            if mask:
+                payload = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+            opcode = first & 0x0F
+            if opcode == 0x8:
+                self.close()
+                return None
+            if opcode == 0x9:
+                self._frame(0xA, payload)
+                continue
+            if opcode in (0x0, 0x1, 0x2):
+                parts.append(payload)
+                if first & 0x80:
+                    return b''.join(parts).decode('utf-8', 'replace')
+
+    def close(self):
+        try:
+            self._frame(0x8, b'')
+        except OSError:
+            pass
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+
+
+def open_websocket(url, *, headers=None, timeout=15, context=None):
+    """唯一出站 WebSocket 入口（与 ``open_https`` 同属宿主适配层）：握手成功返回 ``WebSocket``。
+
+    ``wss://`` 走 TLS 并校验证书；握手阶段受 ``timeout`` 约束，建立后读操作不再超时
+    （长连接里对端可能很久不发消息），由调用方 ``close()`` 结束。
+    """
+    import base64
+    import hashlib
+    import socket
+    import ssl
+    from urllib.parse import urlsplit
+    parts = urlsplit(str(url))
+    if parts.scheme not in ('ws', 'wss') or not parts.hostname:
+        raise ValueError('WebSocket 地址必须以 ws:// 或 wss:// 开头')
+    control = current_execution()
+    if control is not None:
+        timeout = control.remaining(timeout)
+    port = parts.port or (443 if parts.scheme == 'wss' else 80)
+    sock = socket.create_connection((parts.hostname, port), timeout=timeout)
+    try:
+        if parts.scheme == 'wss':
+            sock = (context or ssl.create_default_context()).wrap_socket(sock, server_hostname=parts.hostname)
+        key = base64.b64encode(os.urandom(16)).decode('ascii')
+        target = (parts.path or '/') + ('?' + parts.query if parts.query else '')
+        host = parts.hostname if parts.port is None else '%s:%d' % (parts.hostname, parts.port)
+        lines = ['GET %s HTTP/1.1' % target, 'Host: ' + host, 'Upgrade: websocket', 'Connection: Upgrade',
+                 'Sec-WebSocket-Key: ' + key, 'Sec-WebSocket-Version: 13']
+        lines += ['%s: %s' % item for item in dict(headers or {}).items()]
+        sock.sendall(('\r\n'.join(lines) + '\r\n\r\n').encode('utf-8'))
+        response = b''
+        while b'\r\n\r\n' not in response:
+            chunk = sock.recv(4096)
+            if not chunk or len(response) > 65536:
+                raise ConnectionError('WebSocket 握手没有完成')
+            response += chunk
+        head, pending = response.split(b'\r\n\r\n', 1)
+        status_line, *header_lines = head.decode('latin-1').split('\r\n')
+        code = (status_line.split() + ['', ''])[1]
+        if code != '101':
+            raise WebSocketRefused(int(code) if code.isdigit() else 0)
+        fields = {name.strip().lower(): value.strip() for name, _, value in (line.partition(':') for line in header_lines)}
+        expected = base64.b64encode(hashlib.sha1((key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode('ascii')).digest())
+        if fields.get('sec-websocket-accept', '').encode('ascii') != expected:
+            raise ConnectionError('WebSocket 握手校验失败')
+        sock.settimeout(None)
+        return WebSocket(sock, pending)
+    except BaseException:
+        sock.close()
+        raise
+
+
 def launch_windows_app(executable, feature, *, args=None, cwd=None, env=None, creationflags=0):
     """启动已定位的 Windows 本地程序，并把宿主失败转成可展示提示。
 
@@ -428,17 +558,18 @@ class MicrophoneRecorder:
     """录音会话：start() 打开默认麦克风，后台线程收 PCM；stop() 收尾并返回 ``(wav 字节, 全程峰值)``。
 
     ``level``（0–1，最近 0.1 秒的峰值）与 ``seconds`` 供界面显示；录满 ``max_seconds``
-    或设备出错时 ``finished`` 变真，界面据此自动收尾。``winmm`` 是测试注入点。
+    或设备出错时 ``finished`` 变真，界面据此自动收尾。给了 ``on_chunk`` 时每 0.1 秒把这一块
+    PCM 交给它（在录音线程里调用），不再攒整段，stop() 返回的 WAV 为空。``winmm`` 是测试注入点。
     """
-    def __init__(self, *, max_seconds=180, winmm=None):
-        self.max_seconds, self.winmm = max_seconds, winmm
-        self.pcm, self.peak, self.level, self.error = bytearray(), 0, 0.0, ''
+    def __init__(self, *, max_seconds=180, winmm=None, on_chunk=None):
+        self.max_seconds, self.winmm, self.on_chunk = max_seconds, winmm, on_chunk
+        self.pcm, self.recorded, self.peak, self.level, self.error = bytearray(), 0, 0, 0.0, ''
         self.handle, self.thread = None, None
         self.halt = threading.Event()
 
     @property
     def seconds(self):
-        return len(self.pcm) / (RECORD_RATE * 2)
+        return self.recorded / (RECORD_RATE * 2)
 
     @property
     def finished(self):
@@ -473,7 +604,11 @@ class MicrophoneRecorder:
     def _take(self, buffer, header):
         chunk = buffer.raw[:header.dwBytesRecorded]
         peak = _peak(chunk)
-        self.pcm += chunk
+        self.recorded += len(chunk)
+        if self.on_chunk is None:
+            self.pcm += chunk
+        elif chunk:
+            self.on_chunk(chunk)
         self.peak, self.level = max(self.peak, peak), peak / 32768
         header.dwFlags &= ~_WHDR_DONE
 

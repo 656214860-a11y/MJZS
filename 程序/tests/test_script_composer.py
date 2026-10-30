@@ -4,7 +4,7 @@
 - 63：本轮引用的附件卡片用主色边框；× 贴在卡片右上角。
 - 64：运行中在输入框按 Esc 等同终止；空闲时不拦截。
 - 65／66：消息不铺底色；悬停才显出左下角复制／删除图标，点图标转调整条复制／删除。
-- 67／71：麦克风是录音开关，录完交云端识别，文字插进输入框；静音不发云端，失败只在状态栏说明。
+- 67／71：麦克风是听写开关，打开后边说边把文字写进输入框光标处，再点关闭；失败只在状态栏说明。
 """
 import tempfile
 import time
@@ -130,67 +130,100 @@ class ScriptComposerTests(unittest.TestCase):
                     box.event_generate('<Button-1>', x=x + w // 2, y=y + h // 2); win.update()
                 action.assert_called_once_with(0)
 
-    def test_microphone_records_then_inserts_recognized_text(self):
+    def test_microphone_dictates_live_into_input(self):
+        import queue
         import platform_tools
         import speech_api
 
         class FakeRecorder:
             instances = []
-            def __init__(self, max_seconds=180):
-                self.reason, self.peak, self.seconds, self.level, self.error = '', 2000, 2.0, 0.3, ''
+            def __init__(self, max_seconds=180, on_chunk=None):
+                self.on_chunk, self.peak, self.seconds, self.level, self.error = on_chunk, 2000, 2.0, 0.3, ''
                 self.finished, self.stopped = False, False
                 FakeRecorder.instances.append(self)
             def start(self):
                 return FakeRecorder.next_reason
             def stop(self):
                 self.stopped = True
-                return b'RIFF', self.peak
+                return b'', self.peak
         FakeRecorder.next_reason = ''
-        calls = []
 
-        def transcribe(wav, settings=None):
-            calls.append(wav)
-            return '主角走进雨夜。'
+        class FakeSession:
+            instances = []
+            def __init__(self, settings):
+                self.events, self.sent, self.started, self.finished, self.cancelled = queue.Queue(), [], False, False, False
+                FakeSession.instances.append(self)
+            def start(self):
+                self.started = True
+            def send(self, pcm):
+                self.sent.append(pcm)
+            def finish(self):
+                self.finished = True
+            def cancel(self):
+                self.cancelled = True
 
         with tempfile.TemporaryDirectory() as td, patch.object(platform_tools, 'MicrophoneRecorder', FakeRecorder), \
                 patch.object(speech_api, 'missing_reason', return_value=''), \
-                patch.object(speech_api, 'transcribe', transcribe):
+                patch.object(speech_api, 'RealtimeSession', FakeSession):
             d, win = self.desktop(make_minimal_project(td))
-            button = d.idea_voice_button
+            button, box, voice = d.idea_voice_button, d.idea_input, d.idea_voice_input
             frame = d.idea_composer_frame
             self.assertGreater(button.winfo_rootx(), d.idea_attachment_button.winfo_rootx())
             self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), frame.winfo_rooty() + frame.winfo_height())
-            d.idea_input.delete('1.0', 'end')
+            box.delete('1.0', 'end'); box.insert('1.0', '开头：')
             button.invoke(); win.update()
-            recorder = FakeRecorder.instances[-1]
-            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Send.TButton', '录音中按钮高亮')
-            self.assertIs(win.focus_get(), d.idea_input)
-            self.assertIn('正在录音', d.status.get())
+            recorder, session = FakeRecorder.instances[-1], FakeSession.instances[-1]
+            self.assertTrue(session.started)
+            self.assertEqual(recorder.on_chunk, session.send, '录音块直接推给实时会话')
+            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Send.TButton', '听写中按钮高亮')
+            self.assertIs(win.focus_get(), box)
+            self.assertIn('正在听写', d.status.get())
+            # 中间结果浅色写在光标处并随结果替换，定稿后变正常文字；下一句接在后面。
+            session.events.put(('partial', 'a', '主角'))
+            voice.poll(); win.update()
+            self.assertEqual(box.get('1.0', 'end-1c'), '开头：主角')
+            self.assertTrue(box.tag_ranges(voice.PARTIAL_TAG))
+            session.events.put(('partial', 'a', '主角走进雨'))
+            session.events.put(('final', 'a', '主角走进雨夜。'))
+            session.events.put(('partial', 'b', '回头'))
+            voice.poll(); win.update()
+            self.assertEqual(box.get('1.0', 'end-1c'), '开头：主角走进雨夜。回头')
+            self.assertEqual(box.get(*box.tag_ranges(voice.PARTIAL_TAG)), '回头')
+            self.assertEqual(box.index('insert'), box.index('end-1c'), '光标跟着新字走')
+            # 再点麦克风：停录、通知收尾，等最后一句定稿和会话关闭。
             button.invoke(); win.update()
             self.assertTrue(recorder.stopped)
+            self.assertTrue(session.finished)
             self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
-            for _ in range(100):
-                d.idea_voice_input.poll(); win.update()
-                if d.idea_input.get('1.0', 'end-1c'):break
-                time.sleep(0.01)
-            self.assertEqual(d.idea_input.get('1.0', 'end-1c'), '主角走进雨夜。')
-            self.assertEqual(calls, [b'RIFF'])
-            # 静音录音不发云端，状态栏指向麦克风隐私设置。
+            self.assertTrue(voice.closing)
+            session.events.put(('final', 'b', '回头看了一眼。'))
+            session.events.put(('closed', '', ''))
+            voice.poll(); win.update()
+            self.assertEqual(box.get('1.0', 'end-1c'), '开头：主角走进雨夜。回头看了一眼。')
+            self.assertFalse(box.tag_ranges(voice.PARTIAL_TAG))
+            self.assertFalse(voice.closing)
+            self.assertIn('已关闭', d.status.get())
+            # 第二次打开照常可用；长时间没声音时状态栏指向麦克风隐私设置。
             button.invoke(); win.update()
-            FakeRecorder.instances[-1].peak = 0
-            button.invoke(); win.update()
-            self.assertIn('没录到声音', d.status.get())
-            self.assertEqual(len(calls), 1)
-            # 录满上限自动收尾并识别。
+            self.assertEqual(len(FakeSession.instances), 2)
+            FakeRecorder.instances[-1].peak, FakeRecorder.instances[-1].seconds = 0, 4.0
+            voice.poll(); win.update()
+            self.assertIn('没听到声音', d.status.get())
+            # 服务端报错：停录、说明原因、按钮复原。
+            FakeSession.instances[-1].events.put(('error', '', '密钥无效'))
+            voice.poll(); win.update()
+            self.assertTrue(FakeRecorder.instances[-1].stopped)
+            self.assertIn('密钥无效', d.status.get())
+            self.assertEqual(str(button.cget('style')), 'Tokens.Composer.Icon.TButton')
+            # 录满上限自动关麦。
             button.invoke(); win.update()
             FakeRecorder.instances[-1].finished = True
-            d.idea_voice_input.poll(); win.update()
+            voice.poll(); win.update()
             self.assertTrue(FakeRecorder.instances[-1].stopped)
-            for _ in range(100):
-                d.idea_voice_input.poll(); win.update()
-                if len(calls) == 2 and not d.idea_voice_input.transcribing:break
-                time.sleep(0.01)
-            self.assertEqual(len(calls), 2)
+            self.assertTrue(FakeSession.instances[-1].finished)
+            FakeSession.instances[-1].events.put(('closed', '', ''))
+            voice.poll(); win.update()
+            self.assertFalse(voice.closing)
             FakeRecorder.next_reason = '没有找到麦克风'
             button.invoke(); win.update()
             self.assertIn('没有找到麦克风', d.status.get())
