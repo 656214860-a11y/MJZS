@@ -20,6 +20,25 @@ def _download_inbox_path(project):
     return Path(project).resolve().joinpath(*DOWNLOAD_INBOX_LEDGER)
 
 
+def overwrite_backup_notice(backups):
+    """给状态栏的一句话：覆盖前备份放在哪；没有备份返回空串。"""
+    if not backups:
+        return ''
+    from storage_maintenance import OVERWRITE_BACKUP_DIR
+    backup = Path(backups[-1][1])
+    # 备份路径＝<项目>/工作流任务/覆盖前备份/<批次>/<原文件相对项目的路径>，提示到批次目录为止。
+    folder = next((parent for parent in backup.parents if parent.parent.name == OVERWRITE_BACKUP_DIR),
+                  backup.parent)
+    return '覆盖前的原文件已备份到「' + str(folder) + '」；'
+
+
+def _same_bytes(source, target):
+    target = Path(target)
+    if not target.is_file() or target.stat().st_size != Path(source).stat().st_size:
+        return False
+    return target.read_bytes() == Path(source).read_bytes()
+
+
 def register_download_inbox(project, prompt, now=None):
     """L3 编排：登记一次桌面 Agent 任务书里的目标文件，供之后从下载文件夹收回。"""
     import time
@@ -43,8 +62,12 @@ def register_download_inbox(project, prompt, now=None):
     return targets
 
 
-def collect_download_inbox(project, now=None, downloads=None):
-    """L3 编排：把已下载到「下载」文件夹的目标文件收回项目；返回已写入的目标路径。"""
+def collect_download_inbox(project, now=None, downloads=None, backups=None):
+    """L3 编排：把已下载到「下载」文件夹的目标文件收回项目；返回已写入的目标路径。
+
+    目标已存在且内容不同时，先把原文件复制到项目「覆盖前备份」再覆盖，备份失败就不覆盖；
+    传入 ``backups`` 列表时追加 ``(原文件, 备份副本)``。
+    """
     import time
     from agent.core import save, save_file
     from download_inbox import match, remaining
@@ -63,6 +86,7 @@ def collect_download_inbox(project, now=None, downloads=None):
     done = []
     from agent.publication import transaction
     from platform_tools import execution_checkpoint
+    from storage_maintenance import backup_before_overwrite
     for source, target in match(downloads, pending, now):
         try:
             if not source.stat().st_size:
@@ -70,12 +94,15 @@ def collect_download_inbox(project, now=None, downloads=None):
         except OSError:
             continue
         try:
+            backup = None if _same_bytes(source, target) else backup_before_overwrite(project, target)
             with transaction():
                 execution_checkpoint()
                 save_file(target, source)
                 execution_checkpoint()
         except (OSError, ValueError):
             continue
+        if backup is not None and backups is not None:
+            backups.append((target, backup))
         done.append(target)
     kept = remaining(pending, done, now)
     if kept != pending:

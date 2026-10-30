@@ -68,6 +68,43 @@ class DownloadImportTests(unittest.TestCase):
         self.assertEqual(self._import(), [])
         self.assertTrue((self.downloads / '摄影侠_项目大纲_Anthropic_20261014.md').is_file(), '下载原件保持不动')
 
+    def test_overwrite_backs_up_the_hand_edited_file_first(self):
+        """用户手改过的大纲被下载覆盖前，原内容先复制到项目「覆盖前备份」，不进同目录。"""
+        old = self._saved_outline()
+        edited = OUTLINE_OLD + '\n我手动补写的一整段。\n'
+        old.write_text(edited, encoding='utf-8')
+        stamp = time.time() - 300
+        os.utime(old, (stamp, stamp))
+        self._download('摄影侠_项目大纲_Anthropic_20261014.md', OUTLINE_NEW)
+        backups = []
+        imported = idea_chat.import_downloaded_documents(
+            self.context, self.downloads, provider='Anthropic', model='Claude Desktop',
+            publish=publish_idea_creative, backups=backups)
+        self.assertEqual(imported, [('项目大纲', old)])
+        self.assertEqual(old.read_text(encoding='utf-8').strip(), OUTLINE_NEW.strip())
+        self.assertEqual(len(backups), 1)
+        original, backup = backups[0]
+        self.assertEqual(original, old)
+        self.assertEqual(backup.read_text(encoding='utf-8'), edited)
+        self.assertTrue(backup.is_relative_to(self.project / '工作流任务' / '覆盖前备份'))
+        self.assertEqual(len(list(old.parent.glob('*.md'))), 1, '备份不放进大纲目录')
+
+    def test_failed_backup_leaves_the_original_untouched(self):
+        old = self._saved_outline()
+        self._download('摄影侠_项目大纲_Anthropic_20261014.md', OUTLINE_NEW)
+        with patch('storage_maintenance.backup_before_overwrite', side_effect=OSError('磁盘满')):
+            self.assertEqual(self._import(), [])
+        self.assertEqual(old.read_text(encoding='utf-8').strip(), OUTLINE_OLD.strip())
+
+    def test_first_download_creates_no_backup(self):
+        self._download('摄影侠_项目大纲_Anthropic_20261014.md', OUTLINE_NEW)
+        backups = []
+        idea_chat.import_downloaded_documents(
+            self.context, self.downloads, provider='Anthropic', model='Claude Desktop',
+            publish=publish_idea_creative, backups=backups)
+        self.assertEqual(backups, [])
+        self.assertFalse((self.project / '工作流任务' / '覆盖前备份').exists())
+
     def test_browser_copy_suffix_is_accepted_and_newest_download_wins(self):
         old = self._saved_outline()
         self._download('摄影侠_项目大纲_Anthropic_20261014.md', '# 剧本大纲\n\n较早下载。\n', age=60)

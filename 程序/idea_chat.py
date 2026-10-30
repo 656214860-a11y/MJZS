@@ -180,7 +180,7 @@ def _filename_names_project(filename, expected):
                for part in _FILENAME_PROJECT_SPLIT.split(name) if part)
 
 
-def import_downloaded_documents(root, folder, provider='', model='', *, publish=None, now=None):
+def import_downloaded_documents(root, folder, provider='', model='', *, publish=None, now=None, backups=None):
     """收回用户从桌面 Agent 窗口（如 Claude Desktop）下载到「下载」文件夹的创作文件。
 
     桌面窗口有时只给出下载文件而不直接写入任务书指定的路径；四段式文件名
@@ -189,7 +189,9 @@ def import_downloaded_documents(root, folder, provider='', model='', *, publish=
     项目核对；正文没写项目名时，由文件名中的完整项目名段兜底。每类只取最新一份，
     且必须比本模型该类已保存的最新文件更新；落盘复用
     ``save_reply``：设定／大纲／角色卡覆盖同一份，自然剧本同稿复用、异稿编号。
-    下载目录里的原文件保持不动。
+    下载目录里的原文件保持不动。覆盖已有且内容不同的文件前，先把原文件复制到项目
+    「覆盖前备份」（用户可能手改过它）；备份失败就不覆盖这一份。传入 ``backups``
+    列表时，追加 ``(原文件, 备份副本)``。
 
     返回 ``[(文件类型, 已写入路径), ...]``；没有可收回的文件时返回空列表。
     """
@@ -197,6 +199,7 @@ def import_downloaded_documents(root, folder, provider='', model='', *, publish=
     if not callable(publish):
         raise TypeError('收回下载文件需要由 L3 注入发布器。')
     import time
+    import storage_maintenance
     from script_contract import project_name, stage_file_info
     from stage_path_service import write_dir
     source = Path(folder)
@@ -277,9 +280,12 @@ def import_downloaded_documents(root, folder, provider='', model='', *, publish=
             # 正文与将覆盖的文件一致时 save_reply 不会重写；只报告真正更新的文件。
             target = reply_document_path(context, value, provider=provider, model=model, file_type=file_type)
             unchanged = target.is_file() and target.read_text(encoding='utf-8', errors='ignore').strip() == value
+            backup = None if unchanged else storage_maintenance.backup_before_overwrite(context.root, target)
             saved = save_reply(context, text, provider=provider, model=model, publish=publish)
         except (OSError, ValueError):
             continue
+        if backup is not None and backups is not None:
+            backups.append((target, backup))
         if not unchanged:
             imported.append((file_type, Path(saved)))
     return imported

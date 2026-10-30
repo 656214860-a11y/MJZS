@@ -405,8 +405,11 @@ class ScriptPagesMixin:
         import writing_api
         repaired = idea_chat.repair_internal_replies(self.idea_chat_context(), model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
         getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(self.idea_chat_model()),None)
-        imported = self.import_script_downloads()
-        notice = ('已从下载文件夹更新' + '、'.join(kind + '「' + path.name + '」' for kind, path in imported) + '；') if imported else ''
+        from stage_download_inbox_service import overwrite_backup_notice
+        backups = []
+        imported = self.import_script_downloads(backups)
+        notice = ('已从下载文件夹更新' + '、'.join(kind + '「' + path.name + '」' for kind, path in imported) + '；'
+                  + overwrite_backup_notice(backups)) if imported else ''
         self.show_conversation()
         refresh = getattr(self, 'refresh_script_list', None)
         if callable(refresh):
@@ -460,7 +463,7 @@ class ScriptPagesMixin:
                                      request_model=request_model),
             received, model + ' 模型正在重新生成正文…')
         return True
-    def import_script_downloads(self):
+    def import_script_downloads(self, backups=None):
         """刷新时收回 Claude Desktop 等窗口已下载到「下载」文件夹的同项目设定／大纲／角色卡／剧本：同类覆盖原文件。"""
         import idea_chat
         from stage_execution_service import import_downloaded_creatives
@@ -470,8 +473,9 @@ class ScriptPagesMixin:
         try:
             from stage_execution_service import collect_download_inbox
             # 先按任务书登记的目标文件名收回，再按剧本准备四段式文件名补收（如跨日重新生成）。
-            collected=[('文件', path) for path in collect_download_inbox(self.root)]
-            return collected+import_downloaded_creatives(self.idea_chat_context(), provider=provider, model=model)
+            collected=[('文件', path) for path in collect_download_inbox(self.root, backups=backups)]
+            return collected+import_downloaded_creatives(self.idea_chat_context(), provider=provider, model=model,
+                                                         backups=backups)
         except (OSError, ValueError) as exc:
             LOGGER.warning('收回下载文件失败：%s', exc)
             return []
