@@ -84,14 +84,30 @@ class PetSettingsMixin:
         self.speak()
         return key
     def delete_pool_model(self, model_id):
-        """模型管理里删一条：顺手把四个维度里指向它的那一项退回默认，不留死引用。"""
+        """模型管理里删一条：顺手把四个维度里指向它的那一项退回默认、SKILL 预设里指向它的模型改回「自动」，不留死引用。"""
+        import stage_config
+        names, keep = self._pool_model_names(model_id)
         data = self._prune_tasks(model_pool.remove(model_pool.raw(self.program), model_id))
         self._agent_file = model_pool.store(data, self.program)
+        released = stage_config.release_preset_model(names, keep, self.program)
         self.apply_agent_models()
         self._refresh_model_choices()
-        self.notice = '已从模型池里删掉「%s」' % str(model_id)
+        self.notice = '已从模型池里删掉「%s」' % str(model_id) + (
+            '，%d 个预设的模型已改为「自动」' % len(released) if released else '')
         self.speak()
         return model_id
+    def _pool_model_names(self, model_id):
+        """被删那条的 ID／显示名／模型名，以及池里其余各条的这三项（预设可能按任一种写）。"""
+        records = model_pool.pool(program=self.program)
+        names_of = lambda key, item: (key, (item or {}).get('label'), (item or {}).get('model'))
+        keep = [name for key, item in records.items() if key != model_id for name in names_of(key, item)]
+        return names_of(model_id, records.get(model_id)), keep
+    def pool_model_presets(self, model_id):
+        """删除前给确认框用：会改成「自动」的预设，[(阶段名, 预设名)]。"""
+        import stage_config
+        from pet_bus import STAGE_NAMES
+        found = stage_config.preset_model_references(*self._pool_model_names(model_id), program=self.program)
+        return [(STAGE_NAMES.get(stage, stage), label) for stage, label in found]
     def _refresh_model_choices(self):
         """池子变了：把还开着的「阶段配置」下拉框也刷一遍（规格：改完不用重启）。"""
         try:
