@@ -33,7 +33,7 @@ def install_composer_styles(style, root, configure_button):
                                  padding=(0, 0, 0, 0), width=1, height=1, sticky="nsew")
         style.layout(name, [(element, {"sticky": "nsew", "children": [
             ("Button.padding", {"sticky": "nsew"})]})])
-        style.configure(name, background=card, padding=(SPACING["sm"], SPACING["xs"]))
+        style.configure(name, background=card)  # 内边距写在卡片控件上（见 desktop_idea_chat），样式里的不生效
     configure_button(style, "Tokens.Composer.Icon.TButton", font=ICON_FONT,
                       background=card, foreground=COLORS["text_secondary"],
                       active_background=COLORS["surface_hover"],
