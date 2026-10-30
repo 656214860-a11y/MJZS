@@ -172,7 +172,7 @@ class WritingPageMixin:
 
 
 class VoiceInput:
-    """REQ-S01-70：麦克风开关。系统听写逐句识别，结果插到输入框光标处；再点一次或页面销毁即停止。"""
+    """REQ-S01-71：麦克风开关。系统听写逐句识别，结果插到输入框光标处；再点一次或页面销毁即停止。"""
     LISTENING_STYLE, IDLE_STYLE = 'Tokens.Composer.Send.TButton', 'Tokens.Composer.Icon.TButton'
 
     def __init__(self, page, box, button):
@@ -374,7 +374,7 @@ class _WritingPage:
             self.page.idea_voice_input=VoiceInput(self.page,self.input_box,voice_button)
             voice_button.configure(command=lambda:self.page.safe(self.page.idea_voice_input.toggle))
             self.page.idea_voice_button=voice_button
-        # REQ-S01-70：附件卡片排在麦克风右侧、发送左侧，按上传顺序从左往右，放不下自动换行；没有附件不占位。
+        # REQ-S01-71：附件卡片排在麦克风右侧、发送左侧，按上传顺序从左往右，放不下自动换行；没有附件不占位。
         self.page.idea_uploaded_panel=FlowBar(input_row,style='Composer.TFrame')
         submit_button=SecondaryButton(input_row,text=ICON_SEND,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Send.TButton',
                                  command=lambda:self.page.idea_send.invoke())

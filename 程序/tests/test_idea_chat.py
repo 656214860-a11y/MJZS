@@ -1359,7 +1359,7 @@ class SendMessageTests(_Harness):
             self.assertLessEqual(abs(chips[0].winfo_rooty() - chips[2].winfo_rooty()), 2, '卡片横向排在同一行')
             self.assertLess(chips[0].winfo_rootx(), chips[1].winfo_rootx())
             self.assertLess(chips[1].winfo_rootx(), chips[2].winfo_rootx())
-            # REQ-S01-70：卡片在输入区下方的工具行，排在麦克风（或「+」）右侧、发送键左侧。
+            # REQ-S01-71：卡片在输入区下方的工具行，排在麦克风（或「+」）右侧、发送键左侧。
             self.assertGreaterEqual(chips[0].winfo_rooty(), d.idea_input.winfo_rooty() + d.idea_input.winfo_height(), '附件卡片在输入区下方')
             left = getattr(d, 'idea_voice_button', d.idea_attachment_button)
             self.assertGreaterEqual(chips[0].winfo_rootx(), left.winfo_rootx() + left.winfo_width(), '附件卡片在麦克风右侧')

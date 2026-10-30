@@ -383,7 +383,7 @@ def work_area():
     return (rect.left, rect.top, rect.right, rect.bottom)
 
 
-# REQ-S01-70：Win+H 依赖 Windows 语音输入与 TSF，部分系统（如 LTSC）调不起或写不进 Tk。
+# REQ-S01-71：Win+H 依赖 Windows 语音输入与 TSF，部分系统（如 LTSC）调不起或写不进 Tk。
 # 改用系统自带 System.Speech 听写：隐藏的 PowerShell 逐句识别默认麦克风，一句一行写到 stdout。
 # 脚本纯 ASCII；每轮识别后核对父进程，主程序异常退出时子进程自行结束。
 _DICTATION_SCRIPT = r"""

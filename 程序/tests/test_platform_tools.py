@@ -161,7 +161,7 @@ class OpenPathTests(unittest.TestCase):
 
 
 class VoiceDictationTests(unittest.TestCase):
-    """REQ-S01-70：系统听写进程逐行输出 READY／TEXT／ERR，会话转成界面可取的事件。"""
+    """REQ-S01-71：系统听写进程逐行输出 READY／TEXT／ERR，会话转成界面可取的事件。"""
     def test_output_lines_become_events_and_stop_ends_process(self):
         import io
         import time
