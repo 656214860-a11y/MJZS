@@ -614,6 +614,8 @@ class _ModelManager:
         # 「保存这条」并入左侧条目操作；主操作「保存并关闭」贴最右。
         SecondaryButton(bar, text='保存这条', command=self.save_one).pack(
             side='left', padx=(BUTTON_GAP, SPACING['none']))
+        SecondaryButton(bar, text='语音识别…', command=lambda: open_speech_settings(self.pet, self.win)).pack(
+            side='left', padx=(BUTTON_GAP, SPACING['none']))
         PrimaryButton(bar, text='保存并关闭', command=self.save_and_close).pack(side='right')
         self.win._pet_api_controls = self.api_controls
         self.win._pet_program_row = self.program_row
@@ -981,3 +983,9 @@ class _ModelManager:
             return None
         self.hint.set(probe_line(model_pool.record(value), self.pet))
         return value
+
+
+
+def open_speech_settings(pet, parent=None):
+    import speech_settings_ui
+    return speech_settings_ui.open_speech_settings(pet, parent)

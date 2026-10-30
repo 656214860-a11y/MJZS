@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import platform_tools
 import speech_api
+from agent.core import save
 
 
 class FakeSocket:
@@ -109,6 +110,19 @@ class SpeechApiTests(unittest.TestCase):
             session.start()
             self.assertIn('DASHSCOPE_API_KEY', drain(session)[0][2])
 
+    def test_save_settings_validates_and_writes_only_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'data' / '语音识别.json'
+            merged = speech_api.save_settings({**speech_api.DEFAULTS, 'language': 'en', 'silence_ms': ' 600 '}, publish=save, path=target)
+            self.assertEqual(json.loads(target.read_text(encoding='utf-8')), {'language': 'en', 'silence_ms': 600})
+            self.assertEqual(merged['silence_ms'], 600)
+            self.assertEqual(speech_api.read_settings(target)['language'], 'en', '保存后立即读到新值')
+            for bad in ({'silence_ms': '50'}, {'timeout': 'abc'}, {'model': ' '}, {'base_url': 'https://x.test/'}):
+                with self.assertRaises(ValueError):
+                    speech_api.save_settings({**speech_api.DEFAULTS, **bad}, publish=save, path=target)
+            self.assertEqual(json.loads(target.read_text(encoding='utf-8')), {'language': 'en', 'silence_ms': 600}, '校验失败不动文件')
+            speech_api.save_settings(dict(speech_api.DEFAULTS), publish=save, path=target)
+            self.assertEqual(json.loads(target.read_text(encoding='utf-8')), {})
 
 if __name__ == '__main__':
     unittest.main()

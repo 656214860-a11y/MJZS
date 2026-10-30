@@ -3,7 +3,7 @@
 默认走阿里云百炼 ``qwen3-asr-flash-realtime``（WebSocket，OpenAI Realtime 风格事件）：
 录音线程每 0.1 秒推一块 16 kHz PCM，服务端按停顿断句，先回中间结果、再回整句定稿。
 服务地址、模型、密钥变量名、语言、断句静音与上限时长都可在 ``data/语音识别.json`` 覆盖
-（升级保留），不改代码即可换同协议的服务；密钥只按变量名从模型池取，不写进设置文件、
+（升级保留；界面入口是模型管理底栏「语音识别…」，经 ``speech_settings_ui`` 调 ``save_settings`` 写入），不改代码即可换同协议的服务；密钥只按变量名从模型池取，不写进设置文件、
 日志或事件文字。
 """
 import base64
@@ -41,6 +41,34 @@ def read_settings(path=None):
     return merged
 
 
+NUMBER_RANGES = {'silence_ms': (100, 2000), 'max_seconds': (10, 3600), 'timeout': (3, 120)}
+
+
+def save_settings(values, *, publish, path=None):
+    """模型管理 › 语音识别弹窗的保存入口：校验后只把与默认不同的字段写进设置文件。
+
+    ``publish(路径, 对象)`` 由界面层注入（如 ``agent.core.save``）。不合法时抛带中文原因的
+    ``ValueError``，文件不动；全部等于默认时写空对象。返回合并后的设置。
+    """
+    merged = dict(DEFAULTS)
+    for key in DEFAULTS:
+        value = str(values.get(key, DEFAULTS[key])).strip()
+        if key in NUMBER_RANGES:
+            low, high = NUMBER_RANGES[key]
+            if not value.isdigit() or not low <= int(value) <= high:
+                raise ValueError('%s 必须是 %d–%d 之间的整数' % (key, low, high))
+            value = int(value)
+        elif not value:
+            raise ValueError('%s 不能为空' % key)
+        merged[key] = value
+    endpoint(merged)
+    target = Path(path or USER_FILE)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    publish(target, {key: value for key, value in merged.items() if value != DEFAULTS[key]})
+    file_cache.invalidate(target)
+    return merged
+
+
 def api_key(settings=None):
     import model_pool
     return model_pool.named_key((settings or read_settings())['key_env'])
@@ -50,7 +78,7 @@ def missing_reason(settings=None):
     """能开实时识别时返回空串，否则返回一句给状态栏的原因。"""
     settings = settings or read_settings()
     if not api_key(settings):
-        return '没有配置语音识别密钥 %s：请在「模型管理」添加阿里云百炼密钥，或在 data/语音识别.json 改用其它服务' % settings['key_env']
+        return '没有配置语音识别密钥 %s：请在「模型管理」添加阿里云百炼密钥，或在「模型管理 › 语音识别…」改用其它服务' % settings['key_env']
     return ''
 
 
