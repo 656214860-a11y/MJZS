@@ -41,7 +41,7 @@
 | 阶段顺序   | `pet_bus.STAGES` / `STAGE_NAMES`                                                                   |
 | 并行与重试  | `stage_parallel.CONFIG`                                                                            |
 | 模型池    | 模型管理保存的模型池                                                                                         |
-| SKILL  | `skills/01—13 阶段目录/*.skill.md` 与 `skill_registry.py`；根目录遗留文件只在阶段配置懒迁移时按 stage 归档；阶段外部包只登记根 `SKILL.md`/README 总入口，不展开内部 SKILL |
+| SKILL  | `skills/01—13 阶段目录/*.skill.md`（内置层）＋ `data/skills/<同名阶段目录>/`（用户导入层，升级保留，同名用户优先）与 `skill_registry.py`；根目录遗留文件只在阶段配置懒迁移时按 stage 归档；阶段外部包只登记根 `SKILL.md`/README 总入口，不展开内部 SKILL |
 | 总控 SKILL（原统筹 SKILL） | 清单 `skills/00全流程SKILL/总控.json`（`workflow_settings.MASTER_MANIFEST`）；项目投影为 `skill_config.json` 顶层 `workflow` 键，同步基线在 `workflow.applied` |
 | 分层依赖   | `architecture.md` 第 3 节分层表                                                                         |
 | 路径     | `stage_layout` / `storyboard_paths` / `script_contract` / `asset_contract` / `model_pool.env_file` |

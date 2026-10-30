@@ -15,6 +15,9 @@
   试冻结失败则把新版撤回暂存区并恢复旧版，阶段目录回到导入前的样子。
 - 暂存目录以 ``.`` 开头，注册表不会在换入前把它当成 SKILL 扫进来；用完同样经回收服务收走。
 - 每次成功导入写一行导入台账（来源、内容摘要、时间），供以后检测来源是否更新。
+- R2073：用户导入落在 ``程序/data/skills/<阶段>/``（升级保留），台账也在那里；与内置
+  SKILL 同名不再硬拦，改为软提示「将覆盖内置版」，删除用户版后内置版恢复。
+  ``migrate_legacy_imports`` 把旧版导进 ``程序/skills/`` 并记在旧台账里的条目迁过去。
 """
 from __future__ import annotations
 
@@ -26,7 +29,7 @@ import uuid
 from pathlib import Path
 
 import skill_registry
-from agent.core import save
+from agent.core import replace, save
 from pet_bus import read_json
 from storage_maintenance import recycle_paths, restore_recycle_batch
 
@@ -87,12 +90,17 @@ def plan_import(source, target_dir, stage, registry):
     if declared and declared != stage:
         problems.append('frontmatter 声明阶段「%s」与本阶段不一致' % declared)
     replaced = Path(os.path.normcase(str(target.resolve())))
+    user_root = getattr(registry, 'user_root', None)
+    into_user = isinstance(user_root, (str, Path)) and target.resolve().is_relative_to(Path(user_root).resolve())
     for item in registry.getAll():
         other = getattr(item, 'path', None)
         if not name or item.name != name or other is None:
             continue
         if Path(os.path.normcase(str(Path(other).resolve()))) == replaced:
             continue                     # 重新导入同一位置＝更新，不算重名
+        if into_user and getattr(item, 'layer', '') == 'builtin':
+            problems.append('将覆盖内置 SKILL「%s」（内置版保留，删除用户版后恢复）' % name)
+            continue
         raise ImportBlocked('与已有 SKILL「%s」重名（%s）；同名 SKILL 扫描时会被丢弃。'
                             '请先改名或删除旧的那份再导入。' % (name, other))
     if target.exists():
@@ -110,21 +118,37 @@ def _verify(target):
         raise ImportBlocked('导入后试冻结失败，已撤回：%s' % exc) from exc
 
 
-def _ledger_path(program):
-    return Path(program) / 'skills' / LEDGER_NAME
+def program_of(target_dir):
+    """阶段目录 → 程序目录：用户层 程序/data/skills/<阶段>，无用户层时 程序/skills/<阶段>。"""
+    target_dir = Path(target_dir)
+    return target_dir.parents[2] if target_dir.parents[1].name == 'data' else target_dir.parents[1]
+
+
+def ledger_path(program):
+    """导入台账随用户层放在 data/skills 下，升级安装不覆盖。"""
+    return skill_registry.default_user_root(program) / LEDGER_NAME
+
+
+def _legacy_ledger_path(program):
+    return skill_registry.default_root(program) / LEDGER_NAME
+
+
+def _read_items(path):
+    data = read_json(path) if Path(path).is_file() else {}
+    data = data if isinstance(data, dict) else {}
+    return dict(data.get('items')) if isinstance(data.get('items'), dict) else {}
 
 
 def record(program, plan, digest, now=None):
     """导入台账：按目标相对路径记一行，同一目标再次导入时覆盖该行。"""
-    path = _ledger_path(program)
-    data = read_json(path) if path.is_file() else {}
-    data = data if isinstance(data, dict) else {}
-    items = data.get('items') if isinstance(data.get('items'), dict) else {}
-    target = plan['target'].parent if plan['kind'] == 'package' else plan['target']
-    try:
-        key = target.resolve().relative_to((Path(program) / 'skills').resolve()).as_posix()
-    except ValueError:
-        key = str(target)
+    path = ledger_path(program)
+    items = _read_items(path)
+    target = (plan['target'].parent if plan['kind'] == 'package' else plan['target']).resolve()
+    key = str(target)
+    for root in (skill_registry.default_user_root(program), skill_registry.default_root(program)):
+        if target.is_relative_to(root.resolve()):
+            key = target.relative_to(root.resolve()).as_posix()
+            break
     items[key] = {'source': str(plan['source'].parent if plan['kind'] == 'package' else plan['source']),
                   'kind': plan['kind'], 'name': plan['name'], 'sha256': digest,
                   'imported_at': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now or time.time()))}
@@ -175,3 +199,57 @@ def _batch_of(root, records):
     item = records[0]
     full = Path(root) / str(item['recycle_path'])
     return full.parents[len(Path(str(item['source'])).parts) - 1]
+
+
+def _legacy_key_ok(key):
+    """旧台账键必须是「阶段目录/条目」形式的相对路径，防止台账被改写后搬动任意文件。"""
+    parts = Path(str(key)).parts
+    return (len(parts) == 2 and not Path(str(key)).is_absolute() and '..' not in parts
+            and not parts[1].startswith(STAGING_PREFIX)
+            and bool(skill_registry.stage_from_path(Path(parts[0]) / parts[1])))
+
+
+def migrate_legacy_imports(program=None, now=None):
+    """把旧版导入到 ``程序/skills/`` 的 SKILL 迁到 ``程序/data/skills/``（后台维护，幂等）。
+
+    只迁旧台账里登记过的条目：用户手动放进 skills/ 的文件与内置文件分不开，留在原处。
+    每项迁移后按真实发送流程试冻结一次，失败就搬回原处并保留旧台账行；目标已存在
+    （用户层已有同名条目）时不覆盖，同样保留。全部迁完后旧台账经回收服务收走。
+    """
+    program = Path(program or Path(__file__).resolve().parent)
+    report = {'moved': [], 'kept': []}
+    old_path = _legacy_ledger_path(program)
+    old_items = _read_items(old_path)
+    if not old_items:
+        return report
+    builtin = skill_registry.default_root(program)
+    user = skill_registry.default_user_root(program)
+    remaining, moved = {}, {}
+    for key, row in old_items.items():
+        source, target = builtin / str(key), user / str(key)
+        if not _legacy_key_ok(key) or not source.exists() or target.exists():
+            remaining[key] = row
+            report['kept'].append(str(key))
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        replace(source, target)
+        skill_file = target / skill_registry.PACKAGE_SKILL_FILENAME if target.is_dir() else target
+        try:
+            _verify(skill_file)
+        except ImportBlocked:
+            replace(target, source)
+            remaining[key] = row
+            report['kept'].append(str(key))
+            continue
+        moved[key] = row
+        report['moved'].append(str(key))
+    if moved:
+        items = _read_items(ledger_path(program))
+        items.update(moved)
+        save(ledger_path(program), {'version': 1, 'items': items})
+    if remaining:
+        if moved:
+            save(old_path, {'version': 1, 'items': remaining})
+    else:
+        recycle_paths(program, [old_path], '旧导入台账已迁到 data/skills', now=now)
+    return report

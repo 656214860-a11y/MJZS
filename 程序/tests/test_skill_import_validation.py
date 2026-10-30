@@ -18,7 +18,7 @@ class SkillImportValidationTests(unittest.TestCase):
         self.target_dir = self.root / 'target' / '01剧本准备SKILL'
         self.panel = mock.Mock()
         self.panel.stage = 'script'
-        self.panel.registry._stage_directory_for.return_value = self.target_dir
+        self.panel.registry.user_stage_directory_for.return_value = self.target_dir
         self.panel.registry.getAll.return_value = [skill_registry.Skill({'name': 'known'})]
         self.panel.registry.getByStage.return_value = []
         self.panel.skill_content.winfo_children.return_value = []
@@ -103,7 +103,7 @@ class StableImportTests(unittest.TestCase):
         self.target_dir = self.program / 'skills' / '01剧本准备SKILL'
         self.panel = mock.Mock()
         self.panel.stage = 'script'
-        self.panel.registry._stage_directory_for.return_value = self.target_dir
+        self.panel.registry.user_stage_directory_for.return_value = self.target_dir
         self.panel.registry.getAll.return_value = []
         self.panel.registry.getByStage.return_value = []
         self.panel.skill_content.winfo_children.return_value = []
@@ -136,7 +136,7 @@ class StableImportTests(unittest.TestCase):
         self.assertEqual((self.target_dir / '外部包' / 'references' / 'rules.md').read_text(encoding='utf-8'), '规则正文')
         self.assertFalse((self.target_dir / '外部包' / '.git').exists())
         self.assertEqual([p.name for p in self.target_dir.iterdir()], ['外部包'], '暂存目录不得留在阶段目录里')
-        ledger = skill_import_service.read_json(self.program / 'skills' / skill_import_service.LEDGER_NAME)
+        ledger = skill_import_service.read_json(skill_import_service.ledger_path(self.program))
         row = ledger['items']['01剧本准备SKILL/外部包']
         self.assertEqual((row['kind'], row['name'], row['source']), ('package', 'ext-pack', str(source.parent)))
         self.assertEqual(len(row['sha256']), 64)
@@ -150,7 +150,7 @@ class StableImportTests(unittest.TestCase):
         self.assertIn('引用缺失', self.state_text())
         self.assertEqual(list(self.target_dir.iterdir()), [])
         self.panel.registry.scan.assert_not_called()
-        self.assertFalse((self.program / 'skills' / skill_import_service.LEDGER_NAME).exists())
+        self.assertFalse((skill_import_service.ledger_path(self.program)).exists())
 
     def test_failed_update_restores_the_previous_version(self):
         good = self.package()
