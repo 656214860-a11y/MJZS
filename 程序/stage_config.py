@@ -539,6 +539,29 @@ def drop_preset(name, program=None, stage=None):
     return False
 
 
+def _model_names(names):
+    return {str(name).strip().casefold() for name in names if str(name or '').strip()}
+
+
+def preset_model_references(names, keep=(), program=None):
+    """预设里模型指向 ``names``（ID／显示名／模型名，不分大小写）、又不指向 ``keep`` 的那些：[(阶段, 预设名)]。"""
+    gone = _model_names(names) - _model_names(keep)
+    return [(stage, label) for stage, entries in _preset_groups(program).items()
+            for label, entry in entries.items()
+            if isinstance(entry, dict) and str(entry.get('model') or '').strip().casefold() in gone]
+
+
+def release_preset_model(names, keep=(), program=None):
+    """模型从模型池删掉后，把指向它的预设模型改回「自动」；预设本身和 SKILL 勾选保留。返回改动的 [(阶段, 预设名)]。"""
+    found = preset_model_references(names, keep, program)
+    if found:
+        groups = _preset_groups(program)
+        for stage, label in found:
+            groups[stage][label] = dict(groups[stage][label], model=model_router.AUTO)
+        _save_preset_groups(groups, program)
+    return found
+
+
 def apply_preset(project, stage, name, program=None, registry=None, known_workflows=None):
     """把预设套到某个阶段上：模型（含厂商）、SKILL、风格与总控一起写进去。
 

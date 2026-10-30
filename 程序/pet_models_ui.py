@@ -958,7 +958,9 @@ class _ModelManager:
             return None
         item = self.pet.agent_model_records().get(model_id) or {}
         name = item.get('label') or model_id
-        if not self.pet.confirm_start('删除模型', '把「%s」从模型池里删掉？（.env 里的密钥不动）' % name):
+        presets = '、'.join('%s「%s」' % pair for pair in self.pet.pool_model_presets(model_id))
+        notice = '\n\n这些 SKILL 预设用的是它，删除后模型改为「自动」：' + presets if presets else ''
+        if not self.pet.confirm_start('删除模型', '把「%s」从模型池里删掉？（.env 里的密钥不动）' % name + notice):
             return None
         self.pet.delete_pool_model(model_id)
         # 保存后必须回读确认；否则表格刷新看似消失、重开又出现时用户会误以为已经删除。
