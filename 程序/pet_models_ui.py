@@ -611,10 +611,10 @@ class _ModelManager:
         self.refresh_connection_fields()
         SecondaryButton(bar, text='删除这条', command=self.delete_one).pack(
             side='left', padx=(BUTTON_GAP, SPACING['none']))
-        # 主操作贴最右，取消（关闭）紧挨其左：关窗键不再压在主按钮右侧。
-        PrimaryButton(bar, text='保存这条', command=self.save_one).pack(side='right')
-        SecondaryButton(bar, text='关闭', command=self.win.destroy).pack(
-            side='right', padx=(SPACING['none'], BUTTON_GAP))
+        # 「保存这条」并入左侧条目操作；主操作「保存并关闭」贴最右。
+        SecondaryButton(bar, text='保存这条', command=self.save_one).pack(
+            side='left', padx=(BUTTON_GAP, SPACING['none']))
+        PrimaryButton(bar, text='保存并关闭', command=self.save_and_close).pack(side='right')
         self.win._pet_api_controls = self.api_controls
         self.win._pet_program_row = self.program_row
         self.win._pet_reload = self.load_rows
@@ -762,8 +762,14 @@ class _ModelManager:
         builtins = [label for _value, label in model_pool.PROVIDERS]
         saved = {model_pool.provider_name(model_id, item)
                  for model_id, item in self.pet.agent_model_records().items()}
-        self.provider_box.configure(values=[*builtins, *sorted((item for item in saved if item and item not in builtins),
-                                                          key=str.casefold)])
+        # 本机程序记录写的厂商名（Anthropic）与内建项（anthropic）只差大小写，按 casefold 去重，保留内建项。
+        seen = {label.casefold() for label in builtins}
+        extra = []
+        for item in sorted((item for item in saved if item), key=str.casefold):
+            if item.casefold() not in seen:
+                seen.add(item.casefold())
+                extra.append(item)
+        self.provider_box.configure(values=[*builtins, *extra])
         self.tree.delete(*self.tree.get_children())
         records = self.pet.agent_model_records()
         rows = sorted(((model_pool.provider_name(model_id, item), model_id, item)
@@ -931,6 +937,16 @@ class _ModelManager:
         self.load_rows()
         self.hint.set('已保存「%s」；「切换模型」里立刻点得到。' % (self.read_form().get('label') or ''))
         return self.read_form()
+
+    def save_and_close(self):
+        """没在改任何一条时直接关；否则先保存，保存失败留在窗口里看提示。"""
+        if not self.state['id'] and not self.entries['model'].get().strip():
+            self.win.destroy()
+            return None
+        saved = self.save_one()
+        if saved is not None:
+            self.win.destroy()
+        return saved
 
     def delete_one(self):
         # 不能依赖上一次 <<TreeviewSelect>> 留下的缓存：刷新列表／点过「新建一条」后，
