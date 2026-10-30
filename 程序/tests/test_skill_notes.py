@@ -182,7 +182,7 @@ class SkillNotesTests(unittest.TestCase):
             source.write_text('Write a new story.', encoding='utf-8')
             target_dir = root / 'registered'
             registry = Mock()
-            registry._stage_directory_for.return_value = target_dir
+            registry.user_stage_directory_for.return_value = target_dir
             registry.getByStage.return_value = []
             registry.getAll.return_value = []    # R1432：外部包导入也做重名预检
             panel = SimpleNamespace(winfo_toplevel=lambda: None, registry=registry,

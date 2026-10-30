@@ -819,7 +819,7 @@ def _reference_row(entry, reference, status, depth=1):
     return row
 
 
-def _nested_references(reference, body, seen, root):
+def _nested_references(reference, body, seen, roots):
     """引用文件里再出现的链接：只登记、不展开（明确不递归加载）。"""
     out = []
     for entry in skill_registry.reference_targets(body):
@@ -830,10 +830,10 @@ def _nested_references(reference, body, seen, root):
         if relative.is_absolute():
             out.append(_reference_row(entry, relative, 'absolute', 2))
             continue
-        target = (reference.parent / relative).resolve()
+        target = skill_registry.resolve_reference(reference, relative)
         if target in seen:
             status = 'cycle'
-        elif not target.is_relative_to(root):
+        elif not any(target.is_relative_to(root) for root in roots):
             status = 'outside'
         elif not target.is_file():
             status = 'missing'
@@ -858,7 +858,7 @@ def _skill_blocks(path, *, strict):
         raise ValueError(f'已勾选的 SKILL 内容为空，已阻止发送：{path}')
     blocks = [(path, f'<!-- 来源: {path} -->\n{text}')]
     closure, seen = [], {path}
-    root = skill_registry.default_root().resolve()
+    roots = skill_registry.skill_roots()
     for entry in skill_registry.reference_targets(text):
         relative = entry['path']
         if relative is None:
@@ -867,9 +867,9 @@ def _skill_blocks(path, *, strict):
         if relative.is_absolute():
             closure.append(_reference_row(entry, relative, 'absolute'))
             continue
-        reference = (path.parent / relative).resolve()
+        reference = skill_registry.resolve_reference(path, relative)
         markdown = entry['kind'] == 'markdown'
-        within_root = reference.is_relative_to(root)
+        within_root = any(reference.is_relative_to(root) for root in roots)
         within_folder = reference.is_relative_to(path.parent)
         if markdown and strict and not (within_root or within_folder):
             closure.append(_reference_row(entry, reference, 'outside'))
@@ -891,7 +891,7 @@ def _skill_blocks(path, *, strict):
             raise ValueError(f'SKILL 引用缺失，已阻止发送：{reference}（{exc}）') from exc
         blocks.append((reference, f'\n\n## 引用: {reference.name}\n{body}'))
         closure.append(_reference_row(entry, reference, 'inlined'))
-        closure.extend(_nested_references(reference, body, seen, root))
+        closure.extend(_nested_references(reference, body, seen, roots))
     return text, meta, blocks, closure
 
 

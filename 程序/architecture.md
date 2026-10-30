@@ -68,9 +68,9 @@ R1041（J5 分轮 2）：app 日志视图清空、desktop 最后剧本回收确�
 
 R1139：L3 `codex_skill_sync` 通过注册表物化所有已登记阶段（含第 13 阶段）的 `.skill.md` 至 `CODEX_HOME/skills/<name>/SKILL.md`（默认用户 `.codex/skills`）。生成稿仅保留 name/description 元数据，正文的共享资料引用改为应用绝对路径；不复制共享包、不内联正文。首帧后后台同步，Codex 发送 worker 在构建提示词前校验；来源/产物 hash 避免无变化重写。同步器只更新本安装拥有且未被手改的技能，源删除后的同类目录经回收入口保存；手工同名、越界链接或扫描失败均不删除。
 
-注册规则：`skill_registry.py` 只递归扫描 `skills/01`—`12` 阶段目录内的 `.skill.md`，并以目录编号归类 SKILL；根目录遗留 `.skill.md` 仅在用户打开阶段配置后的懒扫描中，按 frontmatter 的 `stage` 自动移动到对应阶段目录，无法判定、目标缺失或重名时保留原文件并报告。`00全流程SKILL` 和其他根目录资料包不作为阶段候选。同时只在同一次懒扫描中，将各阶段目录下一层、根部含 `SKILL.md`（或集合包 README）的外部包注册为**一个总入口**，绝不递归展开包内子 SKILL。剧本阶段的总入口还必须登记到 L0 `script_contract.AUDIT`：它们均为支撑性技能，受控默认值不声明 output 或 manifest，不能据此虚构产物归属。`stage_config.py` 将每阶段选中的模型和 SKILL 存入项目 `skill_config.json`，读取时保留失效选择供发送校验阻断，并将错阶段项归位。
+注册规则：`skill_registry.py` 只递归扫描 `skills/01`—`12` 阶段目录内的 `.skill.md`，并以目录编号归类 SKILL；根目录遗留 `.skill.md` 仅在用户打开阶段配置后的懒扫描中，按 frontmatter 的 `stage` 自动移动到对应阶段目录，无法判定、目标缺失或重名时保留原文件并报告。`00全流程SKILL` 和其他根目录资料包不作为阶段候选。用户层（R2073）：「新增 SKILL」写入 `data/skills/<与内置同名的阶段目录>/`，注册表两层合并，同名时用户版优先并记软警告，删除用户版后内置版恢复；用户层引用 `../00全流程SKILL/…` 时由 `skill_registry.resolve_reference` 回退到内置层。旧版导进 `skills/` 且记在旧台账里的条目，首帧后由 `skill_import_service.migrate_legacy_imports` 在 Codex 同步线程里迁到用户层；台账外的手放文件不迁。同时只在同一次懒扫描中，将各阶段目录下一层、根部含 `SKILL.md`（或集合包 README）的外部包注册为**一个总入口**，绝不递归展开包内子 SKILL。剧本阶段的总入口还必须登记到 L0 `script_contract.AUDIT`：它们均为支撑性技能，受控默认值不声明 output 或 manifest，不能据此虚构产物归属。`stage_config.py` 将每阶段选中的模型和 SKILL 存入项目 `skill_config.json`，读取时保留失效选择供发送校验阻断，并将错阶段项归位。
 
-总控预设契约（原统筹预设契约，R1433）：唯一来源是 `skills/00全流程SKILL/总控.json`，形如 `{version, presets: {名称 → {package, stage_skills{阶段 → [注册id]}, locks[锁键]}}}`；`workflow_settings.refresh_workflow_presets()` 按文件指纹原地刷新 `WORKFLOW_PRESETS`（锁键换成 `PRODUCTION_LOCK_DEFINITIONS` 定义），清单缺失／损坏退回 `BUILTIN_WORKFLOW_PRESETS` 并记入 `MASTER_MANIFEST_PROBLEMS`。项目配置在 `skill_config.json` 顶层以 `workflow: {name, skill_ref, lock: {总控名称: {键: 值}}, applied: {name, fingerprint, stage_skills, problems, at}}` 投影；`lock` 按总控名称分命名空间，切换总控时不得丢弃旧值；`applied` 是 `master_skill.sync` 的同步基线。总控声明可提供锁键和默认值，但外部包 frontmatter 仍不是执行字段来源，继续遵守注册表不信任原则。`master_skill`（L4，无 Tk）：指纹、自动同步、体检与门禁；`skill_import_service`（L4，无 Tk）：阶段配置「新增 SKILL」的整包导入、预检、试冻结、旧版回收与导入台账（`skills/导入台账.json`）。
+总控预设契约（原统筹预设契约，R1433）：唯一来源是 `skills/00全流程SKILL/总控.json`，形如 `{version, presets: {名称 → {package, stage_skills{阶段 → [注册id]}, locks[锁键]}}}`；`workflow_settings.refresh_workflow_presets()` 按文件指纹原地刷新 `WORKFLOW_PRESETS`（锁键换成 `PRODUCTION_LOCK_DEFINITIONS` 定义），清单缺失／损坏退回 `BUILTIN_WORKFLOW_PRESETS` 并记入 `MASTER_MANIFEST_PROBLEMS`。项目配置在 `skill_config.json` 顶层以 `workflow: {name, skill_ref, lock: {总控名称: {键: 值}}, applied: {name, fingerprint, stage_skills, problems, at}}` 投影；`lock` 按总控名称分命名空间，切换总控时不得丢弃旧值；`applied` 是 `master_skill.sync` 的同步基线。总控声明可提供锁键和默认值，但外部包 frontmatter 仍不是执行字段来源，继续遵守注册表不信任原则。`master_skill`（L4，无 Tk）：指纹、自动同步、体检与门禁；`skill_import_service`（L4，无 Tk）：阶段配置「新增 SKILL」的整包导入、预检、试冻结、旧版回收与导入台账（`data/skills/导入台账.json`；旧路径 `skills/导入台账.json` 迁移后回收）。
 
 | 名字（文件路径）                                                                                                                                                                   | 阶段    | 一句话职责                        |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------- |
@@ -400,7 +400,7 @@ R1263：剧本准备发送边界由 `writing_api.capture_request()` 统一解析
 - 最终成片导入的字节发布唯一经 `stage_execution_service.import_delivery_master()` 注入；L2 不得保留复制回退。
 - 本地视频设置的工作流、配置及回滚发布唯一经 `stage_execution_service.publish_local_video_settings()` 注入；L2 不得直连正式发布器。
 - 本机加密密钥唯一实现入口：`model_secrets.PROTECTOR`，默认实现为同模块 `protect()`；测试替身只能替换该 L1 协议入口，不得恢复 `seedream_api` 反向密钥依赖。
-- SKILL 唯一权威：`skills/01`—`12` 阶段目录内的 `.skill.md` 与 `skill_registry.py`；根目录遗留文件仅由懒迁移归档；模型唯一权威：模型管理保存的模型池。
+- SKILL 唯一权威：`skills/01`—`12` 阶段目录内的 `.skill.md`、用户层 `data/skills/` 与 `skill_registry.py`；根目录遗留文件仅由懒迁移归档；模型唯一权威：模型管理保存的模型池。
 - `<项目>` 是用户项目根目录占位符，非 `程序/episode/` 演示目录。
 
 ### 项目回收恢复编排

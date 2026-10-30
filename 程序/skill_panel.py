@@ -587,7 +587,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
             return None
         try:
             plan = skill_import_service.plan_import(
-                source, self.registry._stage_directory_for(self.stage), self.stage, self.registry)
+                source, self.registry.user_stage_directory_for(self.stage), self.stage, self.registry)
         except skill_import_service.ImportBlocked as exc:
             self.state.configure(text='新增 SKILL 失败：' + str(exc))
             return None
@@ -597,8 +597,8 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
             if not confirm(self.winfo_toplevel(), TITLE, message, dangerous=True):
                 return None
         try:
-            # 回收站跟随程序目录：阶段目录位于 程序/skills/<阶段>/。
-            result = skill_import_service.perform_import(plan, plan['target_dir'].parents[1])
+            # 回收站跟随程序目录（R2073：用户层在 程序/data/skills/<阶段>/）。
+            result = skill_import_service.perform_import(plan, skill_import_service.program_of(plan['target_dir']))
         except (skill_import_service.ImportBlocked, OSError, ValueError) as exc:
             self.state.configure(text='新增 SKILL 失败：' + str(exc))
             return None
@@ -645,14 +645,14 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         return sorted(name for name in wanted if name in str(data))
 
     def delete_checked_skills(self):
-        """仅回收程序自带 skills/ 下已勾选的 .skill.md，绝不改项目配置。"""
+        """仅回收程序 skills/ 与用户层 data/skills/ 下已勾选的 .skill.md，绝不改项目配置。"""
         program = Path(__file__).resolve().parent
-        skills_root = (program / 'skills').resolve()
+        roots = ((program / 'skills').resolve(), (program / 'data' / 'skills').resolve())
         selected = [item for item in self.skills if self.vars.get(item.name) and self.vars[item.name].get()]
         paths = []
         for item in selected:
             path = Path(getattr(item, 'path', '')).resolve()
-            if path.suffixes[-2:] == ['.skill', '.md'] and path.is_file() and path.is_relative_to(skills_root):
+            if path.suffixes[-2:] == ['.skill', '.md'] and path.is_file() and any(path.is_relative_to(root) for root in roots):
                 paths.append((item, path))
         if not paths:
             notify(self.winfo_toplevel(), '没有可删除的程序 SKILL。', title=TITLE,

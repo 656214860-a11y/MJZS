@@ -12,6 +12,11 @@ from desktop_tk_gc import drain_tk_gc
 from desktop_account_page import RENEW_DELAY_MS
 
 
+def _migrate_imported_skills():
+    import skill_import_service
+    return skill_import_service.migrate_legacy_imports()
+
+
 class AutomationTickMixin:
     def _startup_window_held(self):
         """启动器让主窗口保持透明、由启动画面盖住时为真。"""
@@ -23,7 +28,8 @@ class AutomationTickMixin:
         if not getattr(self,'_codex_skill_sync_started',False):
             from codex_skill_sync import start_codex_skill_sync
             self._codex_skill_sync_started=True
-            start_codex_skill_sync()
+            # R2073：旧版导进 skills/ 的用户 SKILL 先迁到 data/skills/，再同步给 Codex；同一后台线程。
+            start_codex_skill_sync(before=_migrate_imported_skills)
         self._start_legacy_project_migration()
         # 会员授权续签在首帧之后才排程，启动路径不等网络（设计文档 §5.4）。
         if hasattr(self,'start_account_renewal'):self.win.after(RENEW_DELAY_MS,self.start_account_renewal)

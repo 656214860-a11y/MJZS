@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""SKILL 规范与注册表：扫描 01—12 阶段目录及阶段总入口，解析并建索引。
+"""SKILL 规范与注册表：扫描 01—13 阶段目录及阶段总入口，解析并建索引。
+
+两层目录：内置层 ``程序/skills/``（随程序分发，升级会覆盖）与用户层
+``程序/data/skills/``（「新增 SKILL」的导入目标，升级保留）。两层阶段目录同构；
+同名时用户版优先，内置版只记一条软提示，删除用户版后内置版自动恢复。
 
 用户附件（第 28 期）规定的规范：每个 SKILL 一个 Markdown 文件，YAML frontmatter 字段固定为
 name／displayName／description／stage／capabilities／preferredModels／fallbackModels／tools／
@@ -52,6 +56,31 @@ STAGE_DIRECTORY_IDS = {
 def default_root(program=None):
     """SKILL 目录：默认与程序同一个盘位下的 skills/（可用参数或参数覆盖，方便自检）。"""
     return Path(program or Path(__file__).resolve().parent) / 'skills'
+
+
+def default_user_root(program=None):
+    """用户 SKILL 目录：``程序/data/skills/``，与内置 skills/ 同构，升级安装保留。"""
+    return Path(program or Path(__file__).resolve().parent) / 'data' / 'skills'
+
+
+def skill_roots(program=None):
+    """引用允许落在的 SKILL 根目录（内置层、用户层），均为 resolve 后的绝对路径。"""
+    return (default_root(program).resolve(), default_user_root(program).resolve())
+
+
+def resolve_reference(source, relative, program=None):
+    """解析 SKILL 正文里的相对引用。
+
+    用户层与内置层同构：用户层 SKILL 引用 ``../00全流程SKILL/…`` 这类内置共享资料时，
+    用户层没有该文件就退回内置层同一相对位置；两层都没有时返回原解析结果，由调用方报缺失。
+    """
+    target = (Path(source).parent / relative).resolve()
+    builtin, user = skill_roots(program)
+    if not target.exists() and target.is_relative_to(user):
+        fallback = builtin / target.relative_to(user)
+        if fallback.exists():
+            return fallback
+    return target
 
 
 def stage_id(value):
@@ -252,10 +281,12 @@ def parse(text, source=''):
 class Skill:
     """一个 SKILL：frontmatter 的字段原样挂成属性，取值统一在 get()／列表字段上兜底。"""
 
-    def __init__(self, meta, body='', path=None):
+    def __init__(self, meta, body='', path=None, layer=''):
         self.meta = dict(meta)
         self.body = body
         self.path = Path(path) if path else None
+        # 'builtin'＝程序 skills/，'user'＝data/skills/；注册表外直接构造的为空串。
+        self.layer = layer
 
     def get(self, key, default=None):
         value = self.meta.get(key, default)
@@ -462,8 +493,11 @@ def external_references(skill, known=()):
 class Registry:
     """SKILL 注册表：扫目录 → 解析 → 校验 → 建索引；查询前自动热加载。"""
 
-    def __init__(self, root=None, clock=time.time):
+    def __init__(self, root=None, clock=time.time, user_root=None):
         self.root = Path(root) if root else default_root()
+        # 不给 root 时用户层跟随程序目录；显式给 root（自检临时目录）时只有给了 user_root 才有用户层。
+        self.user_root = (Path(user_root) if user_root else
+                          (default_user_root() if root is None else None))
         self.clock = clock
         self._skills = {}
         self._problems = []
@@ -482,10 +516,18 @@ class Registry:
         self._fresh_checked_at = 0.0
 
     # ── 扫描 ────────────────────────────────────────────────────────────────
-    def _stage_directories(self):
-        """只返回 skills/ 下直接对应 01—12 的目录，不猜测其他资料目录。"""
+    def _layers(self):
+        """``(根目录, 层名)``，用户层在前；用户层目录不存在时照常跳过。"""
+        layers = [(self.root, 'builtin')]
+        if self.user_root is not None:
+            layers.insert(0, (self.user_root, 'user'))
+        return tuple(layers)
+
+    def _stage_directories(self, root=None):
+        """只返回 SKILL 根目录下直接对应 01—13 的目录，不猜测其他资料目录。"""
+        root = self.root if root is None else root
         try:
-            entries = sorted(self.root.iterdir(), key=lambda path: str(path))
+            entries = sorted(root.iterdir(), key=lambda path: str(path))
         except OSError:
             return ()
         return tuple(path for path in entries
@@ -495,6 +537,18 @@ class Registry:
         """返回阶段 id 对应的物理归档目录；缺目录时不猜测也不新建。"""
         return next((path for path in self._stage_directories()
                      if stage_from_path(path / '__stage_probe__') == sid), None)
+
+    def user_stage_directory_for(self, sid):
+        """「新增 SKILL」的写入目录：用户层同名阶段目录（不存在时由导入方新建）。
+
+        目录名沿用内置阶段目录，保证两层同构；没有用户层的注册表（自检临时目录）退回内置目录。
+        """
+        builtin = self._stage_directory_for(sid)
+        if builtin is None or self.user_root is None:
+            return builtin
+        existing = next((path for path in self._stage_directories(self.user_root)
+                         if stage_from_path(path / '__stage_probe__') == sid), None)
+        return existing or self.user_root / builtin.name
 
     def _migrate_root_manifests(self):
         """把 skills 根目录的旧 .skill.md 移入其 frontmatter 指定的阶段目录。
@@ -547,10 +601,10 @@ class Registry:
                 continue
         return None
 
-    def _package_sources(self):
+    def _package_sources(self, root=None):
         """发现阶段目录的一层外部包，永远不递归枚举包内子 SKILL。"""
         sources = []
-        for stage_dir in self._stage_directories():
+        for stage_dir in self._stage_directories(root):
             direct_source = self._package_source(stage_dir, include_readme=False)
             if direct_source is not None:
                 sources.append((direct_source, stage_dir))
@@ -569,7 +623,7 @@ class Registry:
                     sources.append((source, package))
         return tuple(sources)
 
-    def _manifest_sources(self):
+    def _manifest_sources(self, root=None):
         """返回阶段目录直系的常规 ``.skill.md`` 文件。
 
         常规清单的归档口径就是阶段目录本身；子目录是外部包，只认由
@@ -577,7 +631,7 @@ class Registry:
         启动时也不会为阶段配置的默认值扫描整个 SKILL 树。
         """
         sources = []
-        for stage_dir in self._stage_directories():
+        for stage_dir in self._stage_directories(root):
             try:
                 entries = tuple(stage_dir.iterdir())
             except OSError:
@@ -599,7 +653,14 @@ class Registry:
             return None, ()
 
         children = []
-        for path in self._stage_directories():
+        user_directories = ()
+        if self.user_root is not None:
+            try:
+                children.append((str(self.user_root), self.user_root.stat().st_mtime_ns))
+                user_directories = self._stage_directories(self.user_root)
+            except OSError:
+                pass
+        for path in (*user_directories, *self._stage_directories()):
             try:
                 children.append((str(path), path.stat().st_mtime_ns))
                 for package in sorted(path.iterdir(), key=lambda item: str(item)):
@@ -628,18 +689,21 @@ class Registry:
 
         records = []
         if directory_mtime_ns is not None:
-            for path in self._manifest_sources():
-                try:
-                    stat = path.stat()
-                except OSError:
-                    continue
-                records.append((path, int(stat.st_mtime), int(stat.st_size), 'manifest', None))
-            for path, package in self._package_sources():
-                try:
-                    stat = path.stat()
-                except OSError:
-                    continue
-                records.append((path, int(stat.st_mtime), int(stat.st_size), 'package', package))
+            for root, layer in self._layers():
+                for path in self._manifest_sources(root):
+                    try:
+                        stat = path.stat()
+                    except OSError:
+                        continue
+                    records.append((path, int(stat.st_mtime), int(stat.st_size),
+                                    'manifest', None, layer))
+                for path, package in self._package_sources(root):
+                    try:
+                        stat = path.stat()
+                    except OSError:
+                        continue
+                    records.append((path, int(stat.st_mtime), int(stat.st_size),
+                                    'package', package, layer))
         self._directory_mtime_ns = directory_mtime_ns
         self._child_directory_mtimes = child_directory_mtimes
         self._directory_cache_key = cache_key
@@ -647,7 +711,7 @@ class Registry:
 
     def files(self):
         self._refresh_file_cache()
-        return [path for path, _, _, _, _ in self._file_records]
+        return [record[0] for record in self._file_records]
 
     def fingerprint(self, force=False):
         """返回文件指纹；热查询时间片内绝不重新枚举目录或拼接元组。"""
@@ -656,8 +720,8 @@ class Registry:
                 now - self._fingerprint_checked_at < FRESH_TTL_SECONDS):
             return self._fingerprint_cache
         self._refresh_file_cache(force=force)
-        stamp = tuple((str(path), mtime, size, source, str(package or ''))
-                      for path, mtime, size, source, package in self._file_records)
+        stamp = tuple((str(path), mtime, size, source, str(package or ''), layer)
+                      for path, mtime, size, source, package, layer in self._file_records)
         self._fingerprint_cache = stamp
         self._fingerprint_checked_at = now
         return stamp
@@ -669,8 +733,8 @@ class Registry:
             return self
         skills, problems, warnings = {}, list(self._root_migration_problems), []
         records = sorted(self._file_records,
-                         key=lambda item: (item[3] != 'manifest', str(item[0])))
-        for path, _, _, source_kind, package in records:
+                         key=lambda item: (item[5] != 'user', item[3] != 'manifest', str(item[0])))
+        for path, _, _, source_kind, package, layer in records:
             try:
                 meta, body = parse(path.read_text(encoding='utf-8-sig'), source=str(path))
             except (OSError, UnicodeError) as exc:
@@ -678,12 +742,18 @@ class Registry:
                 continue
             if source_kind == 'package':
                 meta = imported_package_meta(meta, body, package, path)
+            shadow = skills.get(str(meta.get('name') or ''))
+            if layer == 'builtin' and shadow is not None and shadow.layer == 'user':
+                warnings.append('%s：用户版 %s 覆盖内置版（删除用户版后恢复内置版）' %
+                                (shadow.name, shadow.path))
+                continue
+            if source_kind == 'package':
                 base_name = meta['name']
                 suffix = 2
                 while meta['name'] in skills:
                     meta['name'] = 'package-%s-%d' % (base_name, suffix)
                     suffix += 1
-            skill = Skill(meta, body, path)
+            skill = Skill(meta, body, path, layer=layer)
             if not skill.name:
                 problems.append('%s：frontmatter 里没有 name' % path.name)
                 continue
@@ -779,5 +849,5 @@ def default_registry(program=None):
     root = default_root(program)
     key = str(root)
     if key not in _DEFAULTS:
-        _DEFAULTS[key] = Registry(root)
+        _DEFAULTS[key] = Registry(root, user_root=default_user_root(program))
     return _DEFAULTS[key]

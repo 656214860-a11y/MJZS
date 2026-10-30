@@ -37,7 +37,7 @@ def _metadata(directory):
         return {}
 
 
-def _render(source, text):
+def _render(source, text, shared_root=None):
     meta, body = parse(text, source=str(source))
     name, description = meta.get('name'), meta.get('description')
     if not isinstance(name, str) or not _NAME.fullmatch(name):
@@ -47,7 +47,9 @@ def _render(source, text):
         raise ValueError('技能 name 为系统保留名称')
     if not isinstance(description, str) or not description.strip():
         raise ValueError('技能缺少 description')
-    shared = (source.parent.parent / '00全流程SKILL').resolve().as_posix() + '/'
+    # 共享资料只在内置层；用户层（data/skills）技能也指向内置层的 00 全流程包。
+    shared = (Path(shared_root) if shared_root else source.parent.parent)
+    shared = (shared / '00全流程SKILL').resolve().as_posix() + '/'
     body = body.replace('../00全流程SKILL/', shared)
     return name, '---\nname: %s\ndescription: %s\n---\n%s' % (
         json.dumps(name, ensure_ascii=False), json.dumps(description, ensure_ascii=False), body)
@@ -71,6 +73,7 @@ def sync_codex_skills(program=None, skill_home=None):
 def _sync(program, skill_home, report):
     registry = default_registry(program)
     root = registry.root.resolve()
+    user_root = registry.user_root.resolve() if registry.user_root is not None else None
     # Do not treat an unavailable installation as an empty, authoritative inventory.
     if not root.is_dir():
         raise ValueError('程序 skills 目录不可用，未同步或清理')
@@ -87,12 +90,14 @@ def _sync(program, skill_home, report):
         source = Path(skill.path)
         if not source.name.endswith('.skill.md') or not stage_from_path(source):
             continue
-        if not _plain(source) or not source.resolve().is_relative_to(root):
+        resolved = source.resolve()
+        if not _plain(source) or not (resolved.is_relative_to(root) or (
+                user_root is not None and resolved.is_relative_to(user_root))):
             report['errors'].append(source.name + '：来源不在程序技能目录内')
             continue
         try:
             raw = source.read_bytes()
-            name, rendered = _render(source, raw.decode('utf-8-sig'))
+            name, rendered = _render(source, raw.decode('utf-8-sig'), root)
             if name in seen:
                 raise ValueError('技能重名')
             seen.add(name)
@@ -144,9 +149,21 @@ def _sync(program, skill_home, report):
             report['recycled'].append(directory.name)
 
 
-def start_codex_skill_sync(program=None):
-    """首帧后启动独立后台维护；不占用桌面业务 worker、不访问 Tk。"""
-    worker = threading.Thread(target=sync_codex_skills, kwargs={'program': program},
-                              name='codex-skill-sync', daemon=True)
+def start_codex_skill_sync(program=None, before=None):
+    """首帧后启动独立后台维护；不占用桌面业务 worker、不访问 Tk。
+
+    ``before`` 由上层注入（如旧版导入 SKILL 迁到 data/skills），在同一后台线程里先跑，
+    保证同步看到的是迁移后的目录；它的异常不阻断同步。
+    """
+    def run(program=None):
+        try:
+            before()
+        except Exception:  # noqa: BLE001 - 维护前置步骤失败不能拖垮同步
+            import app_logging
+            app_logging.swallowed('Codex 同步前置维护失败')
+        sync_codex_skills(program=program)
+
+    worker = threading.Thread(target=run if callable(before) else sync_codex_skills,
+                              kwargs={'program': program}, name='codex-skill-sync', daemon=True)
     worker.start()
     return worker
