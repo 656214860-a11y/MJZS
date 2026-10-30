@@ -97,6 +97,26 @@ class ScriptComposerTests(unittest.TestCase):
                 self.assertLessEqual(widget.winfo_rooty() + widget.winfo_height(),
                                      frame.winfo_rooty() + frame.winfo_height())
 
+    def test_chip_content_keeps_off_the_border(self):
+        """图标和文件名不贴卡片外沿，否则白底会盖断圆角边框（选中时主色框断成几截）。"""
+        from stage_execution_service import archive_idea_attachments
+        from ui_tokens import SPACING
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            source = Path(td) / '人物.txt'
+            source.write_text('人物', encoding='utf-8')
+            archived = archive_idea_attachments(proj, [source])
+            d, win = self.desktop(proj)
+            d.idea_attachment_paths = (archived[0],)
+            d.update_idea_attachment_status(); win.update_idletasks(); win.update()
+            chip = next(chip for chip in d.idea_uploaded_panel.winfo_children()
+                        if hasattr(chip, 'attachment_path'))
+            for widget in chip.pack_slaves():
+                self.assertGreaterEqual(widget.winfo_x(), SPACING['sm'])
+                self.assertGreaterEqual(widget.winfo_y(), SPACING['xs'])
+                self.assertLessEqual(widget.winfo_y() + widget.winfo_height(),
+                                     chip.winfo_height() - SPACING['xs'])
+
     def wait_for_tag(self, win, box, tag):
         for _ in range(100):
             win.update()

@@ -182,7 +182,10 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         for path in paths:
             name=display_name(path)
             selected=key(path) in referenced
-            chip=ttk.Frame(panel,style='Tokens.Chip.Selected.TFrame' if selected else 'Tokens.Chip.TFrame')
+            # 内边距必须给控件本身：ttk.Frame 摆子控件不看样式里的 padding，写在样式上时文件名与图标
+            # 贴着外沿，白底把圆角边框盖断（选中时主色框尤其明显）。
+            chip=ttk.Frame(panel,style='Tokens.Chip.Selected.TFrame' if selected else 'Tokens.Chip.TFrame',
+                           padding=(SPACING['sm'],SPACING['xs']))
             icon=ttk.Label(chip,text=ICON_DOCUMENT,style='Composer.Chip.Icon.TLabel')
             icon.pack(side='left')
             limit=CHAR_WIDTH['3xl']
@@ -190,7 +193,8 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             close=ttk.Label(chip,text=ICON_CLOSE,style='Composer.Chip.Close.TLabel',cursor='hand2')
             # 右侧按 × 的实际宽度留位：× 用 place 贴在右上角，不参与卡片的请求宽度，否则会压住文件名末尾。
             title.pack(side='left',padx=(SPACING['xs'],close.winfo_reqwidth()+SPACING['xs']))
-            close.place(relx=1.0,y=SPACING['none'],anchor='ne')
+            # place 从内边距里侧量起：抵掉卡片内边距，× 仍贴卡片外沿右上角。
+            close.place(relx=1.0,x=SPACING['sm'],y=-SPACING['xs'],anchor='ne')
             chip.attachment_path,chip.close_button=path,close
             tip=name+('（%s）' % tips[name] if name in tips else '')
             tip+='\n本轮会一起发送' if selected else '\n单击打开；点 × 删除'
