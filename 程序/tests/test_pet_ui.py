@@ -3488,6 +3488,27 @@ class ModelPoolTests(PetTestCase):
         self.assertTrue(all(not w.winfo_manager() for w in win._pet_api_controls))
         self.assertEqual(win._pet_read_form()['call_mode'], 'CLI')
 
+    def test_manager_layout_leaves_room_for_the_model_list(self):
+        """说明与标题同一行；表单输入框纵向内边距归零；本地调用时「模型 ID」叫「程序名」。"""
+        import pet_models_ui
+        from tkinter import ttk
+        from ui_widgets import LineInput
+        win = self.pet.open_model_manager()
+        self.addCleanup(win.destroy)
+        win.update_idletasks()
+        notes = [w for w in self._walk(win, ttk.Label) if w.cget('text') == pet_models_ui.NOTE_MANAGER]
+        titles = [w for w in self._walk(win, ttk.Label) if w.cget('text') == pet_models_ui.MANAGER_TITLE]
+        self.assertEqual(len(notes), 1)
+        self.assertIn(notes[0].master, [title.master for title in titles], '说明跟在标题右侧，同一行')
+        regular = LineInput(win); self.addCleanup(regular.destroy)
+        compact = win._pet_entries['note']
+        self.assertIsInstance(compact, pet_models_ui.CompactLineInput)
+        self.assertLessEqual(compact.winfo_reqheight(), regular.winfo_reqheight() * 0.7)
+        label = win._pet_labels['model']
+        for mode, text in (('Desktop', '程序名'), ('CLI', '程序名'), ('API', '模型 ID')):
+            win._pet_mode.set(mode)
+            self.assertEqual(label.cget('text'), text, mode)
+
     def test_desktop_form_hides_api_fields_and_persists_application(self):
         from unittest.mock import patch
         win = self.pet.open_model_manager()
