@@ -3,6 +3,7 @@
 ``ScriptPagesMixin`` 通过实例的 ``script_page_services`` 使用文件打开与菜单服务。
 Desktop 在组合入口注入服务；独立页面测试不需要初始化 Desktop 或登记全局宿主。
 """
+import edit_habits
 import pet_state
 import logging
 import queue
@@ -108,6 +109,16 @@ def _reset_preview_text(preview, text, kind):
     if script_view_style.should_style(text):
         script_view_style.apply_tags(preview, text, kind)
     preview.edit_reset()
+
+
+def _record_natural_edit(page, before, after, name):
+    """REQ-S01-58：记下这次修改供「修改习惯」归纳；记录失败不影响已完成的保存。"""
+    if not getattr(page, 'root', None):
+        return
+    try:
+        edit_habits.record_edit(page.root, 'script', before, after, name)
+    except (OSError, ValueError, TypeError) as exc:
+        LOGGER.warning('修改记录未保存：%s', exc)
 
 
 def _install_script_edit_controls(page, controls, box):
@@ -221,10 +232,13 @@ def _install_script_edit_controls(page, controls, box):
     def save():
         if not editing['value'] or active['path'] is None:
             raise ValueError('请先点击“编辑”，修改后再保存。')
+        before = loaded['raw']
         controller.save_now()
         loaded['raw'] = controller.current
         sync_buttons()
         hint = '；如要据此制作结构剧本，请重新点击“采用选中剧本”。' if kind == 'natural' else ''
+        if kind == 'natural':
+            _record_natural_edit(page, before, controller.current, Path(active['path']).name)
         page.status.set('已保存' + title + '：' + Path(active['path']).name + hint)
 
     def restore_deleted():

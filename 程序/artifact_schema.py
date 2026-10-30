@@ -26,6 +26,9 @@ REGISTRY = {
     # 对标情报卡：采风产出的「来源」文件，不是阶段完成凭据（缺卡不影响 01 完成）。
     'recon_card': {'version': 1, 'required': ('target', 'sources'),
                    'owner': 'recon_service', 'legacy': None},
+    # 修改习惯：项目级修改记录与本机规则（REQ-S01-58/60）。
+    'edit_records': {'version': 1, 'required': ('records',), 'owner': 'edit_habits', 'legacy': None},
+    'edit_habit_rules': {'version': 1, 'required': ('rules',), 'owner': 'edit_habits', 'legacy': None},
 }
 
 
