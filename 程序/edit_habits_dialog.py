@@ -45,8 +45,8 @@ class HabitsDialog(BaseDialog):
         self.rows = {}
         body = ttk.Frame(self, padding=SPACING['md'])
         body.pack(fill='both', expand=True)
-        DescriptionBlock(body, text='在剧本结构页编辑并保存自然剧本时，程序会记下你的修改。攒够 %d 次后点「归纳最近修改」，'
-                                    '模型会把反复出现的改法归纳成规则；你采用的规则会用于所有项目之后的剧本创作。'
+        DescriptionBlock(body, text='在剧本结构页编辑并保存自然剧本时，程序会记下您的修改。攒够 %d 次后点「归纳最近修改」，'
+                                    '模型会把反复出现的改法归纳成规则；您采用的规则会用于所有项目之后的剧本创作。'
                          % edit_habits.MIN_RECORDS).pack(fill='x', pady=(SPACING['none'], SPACING['sm']))
         self.pending = DescriptionBlock(body, text='')
         self.pending.pack(fill='x', pady=(SPACING['none'], SPACING['sm']))
