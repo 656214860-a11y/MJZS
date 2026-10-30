@@ -29,6 +29,8 @@ REGISTRY = {
     # 修改习惯：项目级修改记录与本机规则（REQ-S01-58/60）。
     'edit_records': {'version': 1, 'required': ('records',), 'owner': 'edit_habits', 'legacy': None},
     'edit_habit_rules': {'version': 1, 'required': ('rules',), 'owner': 'edit_habits', 'legacy': None},
+    # 桌面模型续发台账（REQ-S01-69）。
+    'desktop_send_ledger': {'version': 1, 'required': ('entries',), 'owner': 'desktop_send_ledger', 'legacy': None},
 }
 
 
