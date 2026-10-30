@@ -292,10 +292,39 @@ def cache_control(ttl='5m'):
     return marker
 
 
-def anthropic_payload(model, system, messages, max_tokens=1024, ttl='5m'):
-    """Anthropic 原生请求体：system 单列 ＋ 顶层 cache_control（附件 2A）。"""
-    return {'model': str(model), 'max_tokens': int(max_tokens), 'system': str(system),
-            'messages': [dict(item) for item in messages], 'cache_control': cache_control(ttl)}
+class SplitSystem(str):
+    """拼好的 system 文本，另记下前面那段固定前缀；当普通字符串用时就是整段文本。"""
+    fixed = ''
+
+
+def split_system(fixed, variable):
+    """固定规则在前、每次变化的项目上下文在后；Claude 只在固定块上打断点。"""
+    text = SplitSystem(str(fixed or '') + str(variable or ''))
+    text.fixed = str(fixed or '')
+    return text
+
+
+def anthropic_payload(model, system, messages, max_tokens=1024, ttl='5m', keep_tail=False):
+    """Anthropic 原生请求体：system 单列 ＋ 缓存断点（附件 2A）。
+
+    普通字符串 system 用顶层 cache_control。split_system 拆过的 system 发成块列表，
+    固定块上显式打断点；单轮请求不再保留顶层断点，免得每次都变的用户消息按 1.25 倍
+    写进缓存。带工具或多轮时（keep_tail）对话尾部会被下一次复用，顶层断点照留。
+    """
+    body = {'model': str(model), 'max_tokens': int(max_tokens), 'system': str(system),
+            'messages': [dict(item) for item in messages]}
+    fixed = getattr(system, 'fixed', '')
+    if not fixed:
+        body['cache_control'] = cache_control(ttl)
+        return body
+    blocks = [{'type': 'text', 'text': fixed, 'cache_control': cache_control(ttl)}]
+    rest = str(system)[len(fixed):]
+    if rest:
+        blocks.append({'type': 'text', 'text': rest})
+    body['system'] = blocks
+    if keep_tail:
+        body['cache_control'] = cache_control(ttl)
+    return body
 
 
 def anthropic_headers(key):
@@ -303,14 +332,44 @@ def anthropic_headers(key):
     return {'Content-Type': 'application/json', 'x-api-key': str(key), 'anthropic-version': ANTHROPIC_VERSION}
 
 
+def _first(*values):
+    """第一个合法的非负整数计数；布尔、负数、字符串都当没报。"""
+    return next((value for value in values
+                 if isinstance(value, int) and not isinstance(value, bool) and value >= 0), None)
+
+
+def reported_usage(raw):
+    """服务端实际报了哪几格就给哪几格（没报的不填 0）：各家用量写法统一成一套口径。
+
+    - 命中：DeepSeek 报 prompt_cache_hit_tokens，Claude 报 cache_read_input_tokens，
+      OpenAI 兼容报 prompt_tokens_details.cached_tokens，Responses 报 input_tokens_details.cached_tokens。
+    - Claude 的 input_tokens 不含缓存读写；总输入要把 cache_read 与 cache_creation 加回去，
+      命中率才不会超过 100%。
+    """
+    raw = raw if isinstance(raw, dict) else {}
+    read = _first(raw.get('cache_read_input_tokens'))
+    claude_written = _first(raw.get('cache_creation_input_tokens'))
+    written = _first(claude_written, raw.get('cache_creation_tokens'))
+    prompt = _first(raw.get('prompt_tokens'))
+    if prompt is None:
+        prompt = _first(raw.get('input_tokens'))
+        if prompt is not None and (read is not None or claude_written is not None):
+            prompt += (read or 0) + (claude_written or 0)
+    nested = [raw[name].get('cached_tokens') for name in ('prompt_tokens_details', 'input_tokens_details')
+              if isinstance(raw.get(name), dict)]
+    usage = {'prompt_tokens': prompt,
+             'completion_tokens': _first(raw.get('completion_tokens'), raw.get('output_tokens')),
+             'cached_tokens': _first(raw.get('cached_tokens'), raw.get('prompt_cache_hit_tokens'), read, *nested),
+             'cache_creation_tokens': written,
+             'total_tokens': _first(raw.get('total_tokens'))}
+    return {key: value for key, value in usage.items() if value is not None}
+
+
 def anthropic_usage(data):
-    """Claude 的用量：读 cache_read_input_tokens／cache_creation_input_tokens（附件 2C）。"""
-    usage = data.get('usage') if isinstance(data, dict) else None
-    usage = usage if isinstance(usage, dict) else {}
-    return {'prompt_tokens': int(usage.get('input_tokens') or 0),
-            'completion_tokens': int(usage.get('output_tokens') or 0),
-            'cached_tokens': int(usage.get('cache_read_input_tokens') or 0),
-            'cache_creation_tokens': int(usage.get('cache_creation_input_tokens') or 0)}
+    """Claude 的用量：总输入＝input＋cache_read＋cache_creation（附件 2C），四格齐全。"""
+    usage = reported_usage(data.get('usage') if isinstance(data, dict) else None)
+    return {key: int(usage.get(key) or 0)
+            for key in ('prompt_tokens', 'completion_tokens', 'cached_tokens', 'cache_creation_tokens')}
 
 
 def anthropic_text(data):

@@ -266,7 +266,8 @@ class AnthropicCacheTests(unittest.TestCase):
         usage = token_saver.anthropic_usage({'usage': {'input_tokens': 12, 'output_tokens': 3,
                                                        'cache_read_input_tokens': 9,
                                                        'cache_creation_input_tokens': 4}})
-        self.assertEqual(usage, {'prompt_tokens': 12, 'completion_tokens': 3, 'cached_tokens': 9,
+        # R2119 契约变更：Claude 的总输入＝input＋cache_read＋cache_creation（12＋9＋4）。
+        self.assertEqual(usage, {'prompt_tokens': 25, 'completion_tokens': 3, 'cached_tokens': 9,
                                  'cache_creation_tokens': 4})
         self.assertEqual(token_saver.anthropic_usage(None)['cached_tokens'], 0)
 
@@ -363,7 +364,8 @@ class RouterPrefixTests(unittest.TestCase):
                                                    'cache_creation_input_tokens': 0}}}])
         result = item.chat([{'role': 'user', 'content': '做'}], model='m', system='人设')
         self.assertEqual(result['text'], '你好')
-        self.assertEqual(result['usage'], {'prompt_tokens': 10, 'completion_tokens': 2, 'cached_tokens': 8})
+        # R2119 契约变更：总输入含缓存读取（10＋8）；缓存写入为 0 时不带该格。
+        self.assertEqual(result['usage'], {'prompt_tokens': 18, 'completion_tokens': 2, 'cached_tokens': 8})
         body = item.transport.calls[0]['payload']
         self.assertEqual(body['cache_control'], {'type': 'ephemeral'})
         self.assertEqual(body['system'], '人设')
@@ -378,7 +380,8 @@ class RouterPrefixTests(unittest.TestCase):
         router = model_router.ModelRouter(adapters=[item], ledger=pet_llm.Ledger())
         choice = model_router.Choice('m', item, '用例指定', '', (), 1, 'tokens')
         router.chat(choice, [{'role': 'user', 'content': '做'}])
-        self.assertEqual(router.ledger.hit_rate(), 0.8)
+        # R2119 契约变更：分母是含缓存读取的总输入（100＋80），命中率不再超过 1。
+        self.assertEqual(router.ledger.hit_rate(), round(80 / 180, 3))
 
     def test_a_named_claude_adapter_is_available_without_the_pool(self):
         self.assertEqual(model_router.AnthropicAdapter.wire_api, 'messages')
@@ -388,7 +391,8 @@ class RouterPrefixTests(unittest.TestCase):
     def test_the_pet_client_reads_claudes_cache_field_too(self):
         usage = pet_llm.usage_of({'data': {'usage': {'input_tokens': 12, 'output_tokens': 3,
                                                      'cache_read_input_tokens': 9}}})
-        self.assertEqual(usage, {'prompt_tokens': 12, 'completion_tokens': 3, 'cached_tokens': 9})
+        # R2119 契约变更：总输入含缓存读取（12＋9）。
+        self.assertEqual(usage, {'prompt_tokens': 21, 'completion_tokens': 3, 'cached_tokens': 9})
 
 
 # ── 阶段二 · Seedance 固定前缀 ──────────────────────────────────────────────

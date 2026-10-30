@@ -905,7 +905,7 @@ def _http_transport(url, payload, headers, timeout):
 
 
 def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
-    """OpenAI 兼容 SSE 流；协议不支持或流异常由调用方回退普通请求。"""
+    """OpenAI 兼容 SSE 流（include_usage 的用量在最后一个空 choices 分片）；异常由调用方回退普通请求。"""
     import urllib.error
     import urllib.request
     from platform_tools import current_execution
@@ -915,11 +915,10 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
     if cancelled and cancelled():
         return {'ok': False, 'status': 0, 'error': '请求已取消'}
     body = dict(payload or {})
-    body['stream'] = True
+    body['stream'], body['stream_options'] = True, {'include_usage': True}
     request = urllib.request.Request(url, data=json.dumps(body, ensure_ascii=False).encode('utf-8'),
                                      headers=_request_headers(headers), method='POST')
-    parts = []
-    finish_reason = ''
+    parts, finish_reason, usage = [], '', None
     try:
         with _http_opener().open(request, timeout=timeout) as response:
             for raw in response:
@@ -935,6 +934,7 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
                     break
                 try:
                     item = json.loads(data)
+                    usage = item['usage'] if isinstance(item.get('usage'), dict) else usage
                     choice = item.get('choices', [{}])[0]
                     finish_reason = choice.get('finish_reason') or finish_reason
                     delta = choice.get('delta', {}).get('content') or ''
@@ -942,9 +942,9 @@ def http_stream(url, payload, headers, timeout, on_chunk, cancelled=None):
                     continue
                 if delta:
                     parts.append(str(delta)); on_chunk(str(delta))
-            return {'ok': True, 'status': getattr(response, 'status', 200),
-                    'data': {'choices': [{'finish_reason': finish_reason,
-                                          'message': {'content': ''.join(parts)}}]}}
+            data = {'choices': [{'finish_reason': finish_reason, 'message': {'content': ''.join(parts)}}]}
+            if usage is not None: data['usage'] = usage
+            return {'ok': True, 'status': getattr(response, 'status', 200), 'data': data}
     except (urllib.error.URLError, OSError, ValueError) as exc:
         return {'ok': False, 'status': 0, 'error': type(exc).__name__ + '：' + str(exc)}
 

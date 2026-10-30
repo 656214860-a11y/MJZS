@@ -291,17 +291,18 @@ def is_retryable(status):
     return status in RETRYABLE_STATUS
 
 
+# 用量口径的唯一实现在 token_saver；这里保留名字给台账与旧调用方。
+reported_usage = token_saver.reported_usage
+
+
 def usage_of(result):
-    """取用量：DeepSeek 用 prompt_cache_hit_tokens 报告命中缓存的部分。"""
+    """取用量：三格总有值；缓存写入只在服务端报了非零时才带 cache_creation_tokens。"""
     data = (result or {}).get('data')
-    usage = data.get('usage') if isinstance(data, dict) else None
-    usage = usage if isinstance(usage, dict) else {}
-    # 第 66 期：命中那一格两家的写法不同——DeepSeek 报 prompt_cache_hit_tokens，
-    # Claude 报 cache_read_input_tokens；口径统一成 cached_tokens，台账只认这一格。
-    cached = usage.get('prompt_cache_hit_tokens') or usage.get('cache_read_input_tokens') or 0
-    return {'prompt_tokens': int(usage.get('prompt_tokens') or usage.get('input_tokens') or 0),
-            'completion_tokens': int(usage.get('completion_tokens') or usage.get('output_tokens') or 0),
-            'cached_tokens': int(cached)}
+    reported = reported_usage(data.get('usage') if isinstance(data, dict) else None)
+    usage = {key: int(reported.get(key) or 0) for key in ('prompt_tokens', 'completion_tokens', 'cached_tokens')}
+    if reported.get('cache_creation_tokens'):
+        usage['cache_creation_tokens'] = reported['cache_creation_tokens']
+    return usage
 
 
 class Ledger:
@@ -317,6 +318,8 @@ class Ledger:
                  'prompt_tokens': int(usage.get('prompt_tokens') or 0),
                  'completion_tokens': int(usage.get('completion_tokens') or 0),
                  'cached_tokens': int(usage.get('cached_tokens') or 0)}
+        if usage.get('cache_creation_tokens'):
+            entry['cache_creation_tokens'] = int(usage['cache_creation_tokens'])
         self.entries.append(entry)
         return entry
 
@@ -439,18 +442,7 @@ class Client:
             raise
         data = result.get('data')
         raw = data.get('usage') if isinstance(data, dict) else None
-        usage = {}
-        if isinstance(raw, dict):
-            aliases = {'prompt_tokens': ('prompt_tokens', 'input_tokens'),
-                       'completion_tokens': ('completion_tokens', 'output_tokens'),
-                       'cached_tokens': ('cached_tokens', 'prompt_cache_hit_tokens', 'cache_read_input_tokens'),
-                       'total_tokens': ('total_tokens',)}
-            for key, names in aliases.items():
-                for name in names:
-                    value = raw.get(name)
-                    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
-                        usage[key] = value
-                        break
+        usage = reported_usage(raw)
         self._record_diagnostic({**result, 'model': model, 'usage': usage},
                                 task, tier, cfg, context, path)
         if ledger:
