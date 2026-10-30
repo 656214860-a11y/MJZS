@@ -87,7 +87,7 @@ def collect_download_inbox(project, now=None, downloads=None, backups=None):
     from agent.publication import transaction
     from platform_tools import execution_checkpoint
     from storage_maintenance import backup_before_overwrite
-    # 下载件日期比登记目标新时写到新日期路径；登记表按原目标销账。
+    # 下载件日期比登记目标新时写到新日期路径；登记表按原目标销账，对上同一份下载的旧登记一并销账。
     for source, target, registered in match_registered(downloads, pending, now):
         try:
             if not source.stat().st_size:
@@ -105,7 +105,7 @@ def collect_download_inbox(project, now=None, downloads=None, backups=None):
         if backup is not None and backups is not None:
             backups.append((target, backup))
         done.append(target)
-        finished.append(registered)
+        finished.extend(registered)
     kept = remaining(pending, finished, now)
     if kept != pending:
         save(ledger, {'version': 1, 'pending': kept})

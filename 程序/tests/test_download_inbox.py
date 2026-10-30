@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """桌面 Agent 下载收件箱：任务书目标文件被下载到「下载」文件夹后，按文件名放回原位置。"""
+import json
 import os
 import sys
 import tempfile
@@ -145,6 +146,41 @@ class DownloadInboxTests(unittest.TestCase):
         register_download_inbox(self.project, str(target), now=now - download_inbox.PENDING_MAX_AGE - 10)
         self._download('C01.png', at=now)
         self.assertEqual(collect_download_inbox(self.project, now=now, downloads=self.downloads), [])
+
+    def _gemini_target(self, day):
+        return (self.project / '01剧本准备' / 'Google' / 'Google Gemini' / ('创意_' + day)
+                / '项目大纲' / ('摄影侠_项目大纲_Google_' + day + '.md'))
+
+    def _pending(self):
+        from stage_download_inbox_service import _download_inbox_path
+        return json.loads(_download_inbox_path(self.project).read_text(encoding='utf-8'))['pending']
+
+    def test_req_s01_74_one_download_goes_only_to_latest_dispatch(self):
+        """REQ-S01-74：两次派发（换了模型名）都对上同一份下载时，只写最近一次派发的位置，旧登记一并销账。"""
+        old = self._outline_target('20261018')
+        latest = self._gemini_target('20261030')
+        now = time.time()
+        register_download_inbox(self.project, str(old), now=now - 6000)
+        register_download_inbox(self.project, str(latest), now=now - 60)
+        self._download('摄影侠_项目大纲_Google_20261030.md', '新大纲'.encode('utf-8'), at=now)
+        self.assertEqual(collect_download_inbox(self.project, now=now, downloads=self.downloads), [latest])
+        self.assertEqual(latest.read_text(encoding='utf-8'), '新大纲')
+        self.assertFalse(self._outline_target('20261030').exists(), '旧派发的模型目录不另存副本')
+        self.assertEqual(self._pending(), [])
+        self.assertEqual(collect_download_inbox(self.project, now=now, downloads=self.downloads), [])
+
+    def test_req_s01_74_latest_dispatch_wins_even_when_it_only_matches_by_date(self):
+        """REQ-S01-74：最近一次派发只差日期时，按它换日期另存；更早的同名登记不再写。"""
+        earlier = self._gemini_target('20261030')
+        latest = self._outline_target('20261018')
+        now = time.time()
+        register_download_inbox(self.project, str(earlier), now=now - 6000)
+        register_download_inbox(self.project, str(latest), now=now - 60)
+        self._download('摄影侠 项目大纲 Google 20261030.md', '新大纲'.encode('utf-8'), at=now)
+        written = self._outline_target('20261030')
+        self.assertEqual(collect_download_inbox(self.project, now=now, downloads=self.downloads), [written])
+        self.assertFalse(earlier.exists())
+        self.assertEqual(self._pending(), [])
 
 
 if __name__ == '__main__':
