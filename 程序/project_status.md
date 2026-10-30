@@ -42,7 +42,7 @@ R1610：结构治理轮·只读诊断。按规范/静态检查、接口契约、
 
 旧文首检查点已保留至.agent-handoff/history/r1606-handoff-before/project_status.md。R1606已合入主干，主干最新报告为1606，轮次头已改1607。
 
-更新：2026-10-31｜当前轮次：2146（R2145 合并轮：codex/wip-R2143 的 R2143（b9ac0509：/simplify 审查 10-30 当日改动，复用 skill_roots/path_key/filename_day，BusyState 去掉进度条分支，WebSocket 掩码整段异或等，不改行为）合入 master，无冲突；合并后定向自检 515 条、冒烟通过；BusyState 契约有意变更同步 3 个测试，见 tasks_round/tasks_round_2143_result.md、tasks_round_2145_result.md；未跑全量）；上一轮：2142（R2142 合并轮：codex/wip-R2141 的 R2141（54353f13：删除全部页面进度条改为转圈，主窗口在状态栏右端、视频页与资源制作窗在进度文字右端，剧本准备页等待模型回复时思考行前转圈）合入 master，无冲突；合并后定向自检 236 条、冒烟通过；断言未动，未跑全量，见 tasks_round/tasks_round_2141_result.md、tasks_round_2142_result.md）。
+更新：2026-10-31｜当前轮次：2147（R2146 合并轮：codex/wip-R2144 的 R2144（ad52913e：最小化不再收进托盘，窗口留在任务栏、图标下有白点，托盘图标与右键菜单保留）合入 master，无冲突；合并后定向自检、冒烟通过，--architecture 仅欠全量那 1 条（R2124 后已 8 个源码轮，后台补跑）；托盘最小化循环测试期望改为 iconic（契约有意变更），未跑全量，见 tasks_round/tasks_round_2144_result.md、tasks_round_2146_result.md）；上一轮：2145（R2145 合并轮：codex/wip-R2143 的 R2143（b9ac0509：/simplify 审查 10-30 当日改动，复用 skill_roots/path_key/filename_day，BusyState 去掉进度条分支，WebSocket 掩码整段异或等，不改行为）合入 master，无冲突；合并后定向自检 515 条、冒烟通过；BusyState 契约有意变更同步 3 个测试，见 tasks_round/tasks_round_2143_result.md、tasks_round_2145_result.md；未跑全量）。
 
 历史验收记录：更新：2026-10-10｜当前轮次：1223（R1222 文档收尾，R1219 修复阶段旧路径阻断，实现 7faa7ae。干净 master f40beb4 安全全量 --jobs 4：4304/4304、347.409 秒，含架构 311/311；前两次并发保存失败及定向复验详见 tasks_round/tasks_round_1219_result.md。正式全量 R1219，未重启或实发 API。）
 阅读索引：[当前待办](#已知阻塞与待办)｜[验证基线](#验证基线)｜[优化队列](维护记录/优化待办队列.md)｜[R504 历史快照](#r504-阻塞归类与整改路线)。带 R 编号的历史条目仅证明对应轮次；当前范围、未验收条件与后续顺序以当前待办及队列为准。

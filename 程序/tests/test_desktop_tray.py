@@ -188,7 +188,9 @@ _CYCLE_SCRIPT = textwrap.dedent(r'''
 
 
 class TrayMinimizeCycleTests(unittest.TestCase):
-    """R1775 回归：最小化进托盘、点托盘恢复，反复多次进程不得闪退。
+    """R1775 回归：最小化、点托盘恢复，反复多次进程不得闪退。
+
+    最小化后窗口留在任务栏（iconic），不再收进托盘（withdrawn）。
 
     放子进程里跑：旧实现在这里直接 Fatal Python error（GIL 状态错乱），会带崩测试进程。
     """
@@ -205,7 +207,7 @@ class TrayMinimizeCycleTests(unittest.TestCase):
             env=env, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60,
         )
         self.assertEqual(result.returncode, 0, result.stderr[-2000:])
-        self.assertIn('STATES=withdrawn,normal,withdrawn,normal,withdrawn,normal', result.stdout)
+        self.assertIn('STATES=iconic,normal,iconic,normal,iconic,normal', result.stdout)
 
 
 if __name__ == '__main__':
