@@ -235,7 +235,8 @@ class ModelAdapter:
             body['temperature'] = options['temperature']
         if self.wire_api == 'messages':
             payload=token_saver.anthropic_payload(str(model), system, list(messages or ()), body['max_tokens'],
-                                                  options.get('cache_ttl') or '5m')
+                                                  options.get('cache_ttl') or '5m',
+                                                  keep_tail=isinstance(options.get('tools'), list) or len(list(messages or ())) > 1)
             # 原生 Claude 工具只在 Messages 协议下有效；普通模型维持原请求格式。
             if isinstance(options.get('tools'),list):payload['tools']=options['tools']
             # 采样参数和 token 上限一样属于请求体：显式给了就不能因为换协议而悄悄丢掉。
@@ -267,11 +268,8 @@ class ModelAdapter:
             return {'ok': False, 'status': 0, 'kind': 'bug', 'error': error, 'error_class': error_class(error),
                     'model': target, 'text': '', 'usage': pet_llm.usage_of(None), 'data': None}
         data = result.get('data') if isinstance(result, dict) else None
-        if self.wire_api == 'messages':
-            raw = token_saver.anthropic_usage(data)
-            usage = {key: raw[key] for key in ('prompt_tokens', 'completion_tokens', 'cached_tokens')}
-        else:
-            usage = pet_llm.usage_of(result)
+        # 各协议共用一套口径：Claude 的总输入含缓存读写，缓存写入数随结果保留。
+        usage = pet_llm.usage_of(result)
         text, response_meta = _parse_response(self.wire_api, data, target)
         return {'ok': bool(result.get('ok')), 'status': result.get('status'), 'error': result.get('error'),
                 'kind': result.get('kind') or '', 'model': target, 'text': text, 'usage': usage, 'data': data,

@@ -14,6 +14,7 @@ from uuid import uuid4
 
 import model_pool
 import stage_config
+import token_saver
 from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
 import edit_habits, writing_tools
@@ -270,23 +271,16 @@ class WritingRequestAdapter(ModelAdapter):
         data = result.get('data')
         raw = data.get('usage') if isinstance(data, dict) else None
         raw = raw if isinstance(raw, dict) else {}
-        aliases = {'prompt_tokens': ('prompt_tokens', 'input_tokens'),
-                   'completion_tokens': ('completion_tokens', 'output_tokens'),
-                   'cached_tokens': ('cached_tokens', 'prompt_cache_hit_tokens', 'cache_read_input_tokens')}
+        # 口径与 token_saver.reported_usage 一致：嵌套命中、Claude 总输入都算；没报的格子保持缺省。
+        reported = token_saver.reported_usage(raw)
+        keys = ('prompt_tokens', 'completion_tokens', 'cached_tokens')
         if ledger:
-            reported = {}
-            for key, names in aliases.items():
-                for name in names:
-                    if type(raw.get(name)) is int and raw[name] >= 0:
-                        reported[key] = raw[name]
-                        break
-            ledger.settle_model(request_id, reported)
+            ledger.settle_model(request_id, {key: reported[key] for key in keys if key in reported})
         self.request_usage['calls'] += 1
-        for key, names in aliases.items():
-            known = any(isinstance(raw.get(name), (int, float)) for name in names)
-            value = (result.get('usage') or {}).get(key)
+        for key in keys:
+            value = reported.get(key)
             previous = self.request_usage[key]
-            self.request_usage[key] = previous + value if known and previous is not None and isinstance(value, (int, float)) else None
+            self.request_usage[key] = previous + value if value is not None and previous is not None else None
         return dict(result, context_budget=dict(self.context_budget), request_usage=dict(self.request_usage))
 
     def chat(self, messages, options=None, model='', system=''):
@@ -1096,12 +1090,12 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
         return None, dict(zip(PREPARATION_STAGES, texts))
     stage = PREPARATION_STAGES[index]
     publish = _versioned_publisher(project, publish)
-    system = (workflow_settings.skill_prompt(settings, inline=True)
+    system = token_saver.split_system(workflow_settings.skill_prompt(settings, inline=True)  # 全是固定规则，整段做缓存块
               + workflow_settings.stage_output_contract('writing') + edit_habits.prompt(settings, 'writing')
               + '\n阶段修订规则：若用户要求修改当前草稿，本轮答复用于修订；编号答复对应草稿中的同号问题。'
               + '用户明确的新决定优先于草稿中的旧表述，必须落实到完整正文。'
               + '不得把已经回答的问题再次列为待确认事项；用户要求补充时应实际补充，不能再次询问是否补充。'
-              + '只保留尚未回答或确有冲突的问题；所有问题已解决时仅在末尾保留“待确认”，等用户审阅整份文件。')
+              + '只保留尚未回答或确有冲突的问题；所有问题已解决时仅在末尾保留“待确认”，等用户审阅整份文件。', '')
     titles, pending, next_index, task = _preparation_task(request, user_message, state, documents, texts, index)
     messages = [{'role': 'user', 'content': task}]
     rejected = _context_budget_error(chosen, system, messages)
@@ -1245,14 +1239,17 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
         project_context(root), model=request_model['label'], gateway=idea_chat_gateway()))
     if history:
         task += '\n\n以下为本次对话之前已确认的信息：\n' + history
-    system = (workflow_settings.skill_prompt(settings, inline=True)
-              + workflow_settings.stage_output_contract('writing')
-              + workflow_settings.writer_style_prompt(settings, 'writing') + edit_habits.prompt(settings, 'writing') + context)
+    # 固定规则在前、项目上下文在后：Claude 只给固定块打缓存断点，换集换项目也能命中。
+    fixed = (workflow_settings.skill_prompt(settings, inline=True)
+             + workflow_settings.stage_output_contract('writing')
+             + workflow_settings.writer_style_prompt(settings, 'writing') + edit_habits.prompt(settings, 'writing'))
     adapter = _writing_adapter(record, chosen, project=root, settings=settings, cancelled=cancelled)
     if adapter.wire_api == 'messages':
-        system += ('\n\n本次已接入受控剧本文件工具。需要读取项目内容时先列出再读取剧本文档或项目接续 JSON；'
-                   '本轮成果只能写入当前项目的 writing/。资产清单属于后续资产阶段，本阶段不读取、不写入、也不报告其为空。'
-                   '仅当同一文件操作连续重复且没有新进展时才暂停。')
+        fixed += ('\n\n本次已接入受控剧本文件工具。需要读取项目内容时先列出再读取剧本文档或项目接续 JSON；'
+                  '本轮成果只能写入当前项目的 writing/。资产清单属于后续资产阶段，本阶段不读取、不写入、也不报告其为空。'
+                  '仅当同一文件操作连续重复且没有新进展时才暂停。')
+    system = token_saver.split_system(fixed, context)
+    if adapter.wire_api == 'messages':
         result = _reply_with_project_tools(adapter, chosen, system, task, root, publish=publish, cancelled=cancelled)
         _archive_then_require_active(root, result, archive, cancelled)
         return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled), quality_required=quality_enabled(system)) if auto_save_enabled else result
