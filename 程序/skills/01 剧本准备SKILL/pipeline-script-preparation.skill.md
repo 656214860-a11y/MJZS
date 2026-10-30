@@ -34,7 +34,7 @@ examples:
 - [剧本引擎：六阶段链](../00全流程SKILL/AIGC创作全流程/sd-script-engine/SKILL.md#六阶段链)
 - [剧本引擎：长剧批次合同](../00全流程SKILL/AIGC创作全流程/sd-script-engine/SKILL.md#长剧批次合同)：分集衔接与首场 10 秒、钩子的写法依据。
 - [剧本引擎：台词拟人化](../00全流程SKILL/AIGC创作全流程/sd-script-engine/references/dialogue-naturalization.md)：称呼一致、口语化与机械台词认症；由演员角色在台词定稿前自检并直接修订，不向正文追加过站卡。
-- 仅 `track` 为海外剧时追加 [海外剧本与风格保护](../00全流程SKILL/AIGC创作全流程/sd-overseas-engine/SKILL.md#六剧本层执行规则)；仅解说叙事类追加 [旁白稿写作规范](../00全流程SKILL/AIGC创作全流程/sd-jieshuo-engine/SKILL.md#六旁白稿vo-script写作规范核心)。
+- 仅 `track` 为海外剧时追加 [海外剧本与风格保护](../00全流程SKILL/AIGC创作全流程/sd-overseas-engine/SKILL.md#六剧本层执行规则)；仅 `track` 为解说叙事类时追加 [旁白稿写作规范](../00全流程SKILL/AIGC创作全流程/sd-jieshuo-engine/SKILL.md#六旁白稿vo-script写作规范核心)。
 - 仅 `material_source` 为对标爆款／热点速成时追加 [采风四步](../00全流程SKILL/AIGC创作全流程/sd-recon-engine/SKILL.md#四采风四步轻量流水线)，证据与来源随简报交接。本阶段工具 `recon.card` 执行其中的「检索 → 落卡」两步：机器读的产物是阶段 `input` 下的 `recon_card.json`，人读版是同阶段说明目录的 `intel_card.md`；卡片经用户确认后才进四步创作，且**卡是来源不是设定依据**——引用时保留来源与分级，T2 讨论不得当事实。
 - 六阶段链映射到本项目既有四步文档与确认流程；不因此额外输出下游分镜、图像或投喂稿。外部写作包只作已选用方法，不能覆盖项目锁或恢复重复询问。
 

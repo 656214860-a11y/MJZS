@@ -44,29 +44,94 @@ def load(root, program=None):
     return data if isinstance(data.get('entries'), dict) else None
 
 
-def material_targets(root, model_label):
-    """剧本准备阶段会续发的材料：(名称, 路径)，含尚未存在的目标；路径只经既有路径函数。"""
+# 剧本准备四步与材料的对应；材料按「本轮要做的那一步及之前」取，不把下游成果塞进上游任务。
+STEP_OF = {'项目设定': 0, '项目大纲': 1, '角色卡': 2, '自然剧本': 3, '当前采用的自然剧本': 3}
+PREPARATION_NAMES = {'项目设定': '项目设定', '剧本大纲': '项目大纲', '角色卡': '角色卡'}
+_STEP_WORDS = (('自然剧本', 3), ('剧本', 3), ('角色卡', 2), ('人物卡', 2), ('人物设定', 2),
+               ('大纲', 1), ('纲要', 1), ('设定', 0))
+
+
+def request_step(text):
+    """用户本轮原话点名的最靠后一步（0～3）；附档正文不算，没点名返回 None。"""
+    own = str(text or '').split('【附档：', 1)[0].replace('剧本大纲', '大纲')
+    hits = [step for word, step in _STEP_WORDS if word in own]
+    return max(hits) if hits else None
+
+
+def _confirmed_documents(root):
+    """已确认的阶段文件：材料名 → 路径（重写草稿的确认覆盖采用版本）。"""
+    from writing_api import confirmed_preparation_files
+    try:
+        found = confirmed_preparation_files(root)
+    except (OSError, ValueError, TypeError):
+        return {}
+    return {PREPARATION_NAMES[stage]: path for path, stage in found.items() if stage in PREPARATION_NAMES}
+
+
+def current_step(root, request_text=''):
+    """本轮要做的那一步：原话点名优先，否则按已确认进度的下一步；都判断不了返回 3（全部材料）。"""
+    named = request_step(request_text)
+    if named is not None:
+        return named
+    confirmed = _confirmed_documents(root)
+    done = 0
+    for name in ('项目设定', '项目大纲', '角色卡'):
+        if name not in confirmed:
+            break
+        done += 1
+    return done if done else 3
+
+
+def _latest_document(root, name):
+    """本项目任一模型交付的该类最新文件（固定深度 Provider/模型/创意_日期/类型，不递归）；没有返回 None。"""
+    from idea_document_paths import project_document_directory
+    from stage_path_service import write_dir
+    try:
+        found = [path for path in write_dir(root, 'script').glob(
+                 '*/*/创意_*/' + project_document_directory(name) + '/*.md') if path.is_file()]
+        return max(found, key=lambda path: path.stat().st_mtime) if found else None
+    except OSError:
+        return None
+
+
+def _material_path(root, name, confirmed, delivery):
+    """确认件优先；本模型交付目录里没有时取别的模型交付的最新一份（换模型或模型名识别变了也不丢材料）。"""
+    if name in confirmed:
+        return confirmed[name]
+    if Path(delivery).is_file():
+        return delivery
+    return _latest_document(root, name) or delivery
+
+
+def material_targets(root, model_label, request_text=''):
+    """剧本准备阶段会续发的材料：(名称, 路径)，含尚未存在的目标；路径只经既有路径函数。
+
+    已确认的设定／大纲／角色卡用确认那一份，其余用本模型的交付路径，本模型没有再取别的模型最新一份；
+    只取本轮那一步及之前的材料。"""
     from idea_document_paths import brief_complete_path, delivery_document_path, storage_identity
     from project_context_factory import project_context
     from script_contract import RAW_SCRIPT_NAME, script_baseline_path
     context = project_context(root)
     provider, model = storage_identity(model_label)
+    confirmed = _confirmed_documents(root)
+    step = current_step(root, request_text)
     items = [('已确认简报', brief_complete_path(context))]
-    items += [(name, delivery_document_path(context, name, provider=provider, model=model))
-              for name in MATERIAL_TYPES]
+    items += [(name, _material_path(root, name, confirmed,
+                                    delivery_document_path(context, name, provider=provider, model=model)))
+              for name in MATERIAL_TYPES if STEP_OF[name] <= step]
     try:
         adopted = script_baseline_path(root)
     except (OSError, ValueError, TypeError):
         adopted = None
-    if adopted is not None and Path(adopted).name != RAW_SCRIPT_NAME:
+    if step >= 3 and adopted is not None and Path(adopted).name != RAW_SCRIPT_NAME:
         items.append(('当前采用的自然剧本', Path(adopted)))
     return items
 
 
-def snapshot(root, model_label):
+def snapshot(root, model_label, request_text=''):
     """读取现存材料：[{name, path, sha256, text}]，同一路径只取一次。"""
     found, seen = [], set()
-    for name, path in material_targets(root, model_label):
+    for name, path in material_targets(root, model_label, request_text):
         key = str(Path(path).resolve())
         if key in seen:
             continue

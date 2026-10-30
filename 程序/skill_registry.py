@@ -460,7 +460,8 @@ def reference_targets(text):
             continue
         relative = Path(unquote(parts.path))
         kind = 'markdown' if relative.suffix.lower() in REFERENCE_SUFFIXES else 'other'
-        out.append({'raw': link, 'kind': kind, 'path': relative, 'fragment': parts.fragment})
+        out.append({'raw': link, 'kind': kind, 'path': relative, 'fragment': parts.fragment,
+                    'start': match.start()})
     return out
 
 
