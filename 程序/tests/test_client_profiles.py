@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import client_profiles
-import desktop_idea_chat
+import desktop_send_choice
 import environment_check
 import model_pool
 import workflow_engines
@@ -209,7 +209,7 @@ class DeliveryFallbackTests(unittest.TestCase):
         finish = Mock()
         with patch('platform_tools.launch_windows_app'), \
                 patch('codex_paste.paste_existing', side_effect=RuntimeError('uia failed')):
-            desktop_idea_chat._deliver_desktop_app(
+            desktop_send_choice.deliver_desktop_app(
                 host, finish, 'r', 'task.md', '任务', '正文', r'C:\Tool.exe', 'Tool')
         self.assertEqual(finish.call_args.args[1], 'failed')
         self.assertIn('剪贴板', finish.call_args.args[2])
@@ -220,7 +220,7 @@ class DeliveryFallbackTests(unittest.TestCase):
         finish = Mock()
         with patch('platform_tools.launch_windows_app'), \
                 patch('codex_paste.paste_existing') as paste:
-            desktop_idea_chat._deliver_desktop_app(
+            desktop_send_choice.deliver_desktop_app(
                 host, finish, 'r', 'task.md', '任务', '正文', r'C:\Tool.exe', 'Tool',
                 delivery='clipboard')
         paste.assert_not_called()
@@ -231,7 +231,7 @@ class DeliveryFallbackTests(unittest.TestCase):
         host = self.host()
         finish = Mock()
         with patch('platform_tools.launch_windows_app') as launch:
-            desktop_idea_chat._deliver_desktop_app(
+            desktop_send_choice.deliver_desktop_app(
                 host, finish, 'r', 'task.md', '任务', '正文', '', 'Tool')
         launch.assert_not_called()
         self.assertEqual(finish.call_args.args[1], 'prepared')

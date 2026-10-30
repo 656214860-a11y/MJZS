@@ -64,52 +64,6 @@ DRAFT_MARK='draft'
 DRAFT_HINT='─'*18+' 写您的想法，按「发送」 '
 
 
-def _attachment_hint(attachment):
-    """附件模式下手动操作的补充说明；同时打开任务文件所在文件夹供拖拽上传（REQ-S01-70）。"""
-    if not attachment:return ''
-    from platform_tools import open_path
-    try:open_path(Path(attachment).parent)
-    except OSError:pass
-    return '剪贴板里是短指令；请先把任务文件 '+str(attachment)+' 作为附件上传（已打开所在文件夹，可直接拖进对话框），再粘贴短指令。'
-
-
-def _deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text,
-                         program, app, delivery='paste', attachment=''):
-    """启动 Desktop 程序；发送入口启用时尝试粘贴，失败如实回落为手动粘贴。"""
-    from platform_tools import launch_windows_app
-    app = str(app or '桌面模型')
-    if not program:
-        message = '已复制到剪贴板；未找到 '+app+' 的程序路径，请在模型管理指定 .exe 后手动粘贴并发送。'+_attachment_hint(attachment)
-        finish(receipt,'prepared',message,task_file=task_file); host.status.set(message)
-        host.notifier.info(message,title='请手动粘贴')
-        return
-    launch_windows_app(program, app)
-    if delivery != 'paste':
-        message = '已打开 '+app+'，任务已复制到剪贴板；请切到该窗口粘贴并手动发送。'+_attachment_hint(attachment)
-        finish(receipt,'prepared',message,task_file=task_file); host.status.set(message)
-        host.notifier.info(message,title='请粘贴并发送')
-        return
-    from codex_paste import paste_attachment, paste_existing
-    def pasted(value):
-        reason = str(value.get('reason') or '')
-        if not value['ok'] and '剪贴板' not in reason: reason = '任务已复制到剪贴板；' + reason
-        if not value['ok']: reason += _attachment_hint(attachment)
-        state = 'prepared' if value['ok'] else 'failed'
-        finish(receipt,state,reason,task_file=task_file)
-        host.status.set(reason)
-        host.notifier.info(reason,title='请检查并发送' if value['ok'] else '请手动粘贴')
-    host.status.set('正在将本次任务粘贴到 '+app+'，请检查后手动发送…')
-    def attempt():
-        try:
-            if attachment:
-                return paste_attachment(title,clipboard_text,attachment,program=program,app_name=app)
-            return paste_existing(title,clipboard_text,program=program,
-                                  app_name=app,deadline_seconds=45)
-        except Exception as exc:
-            return {'ok':False,'reason':'未能自动粘贴（%s）；任务已复制到剪贴板，请手动粘贴并发送。' % exc}
-    host.async_(attempt,pasted)
-
-
 class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
     """Desktop 的创意对话与 Agent 派发方法集（见模块说明）。"""
     # 这些兼容属性保留既有桌面控件与测试的访问方式；状态归属在无 Tk 控制器。
@@ -1109,7 +1063,7 @@ class _FlowAgentLaunch:
         if task_file and Path(task_file).is_file():
             try:clipboard_text=Path(task_file).read_text(encoding='utf-8')
             except OSError:clipboard_text=result['prompt']
-        from desktop_send_choice import attachment_payload  # 长任务改附件＋短指令（REQ-S01-70）
+        from desktop_send_choice import attachment_payload, deliver_desktop_app  # 长任务改附件＋短指令（REQ-S01-70）
         clipboard_text,attachment=attachment_payload(self.config.get('engine'),task_file,clipboard_text)
         from prompt_window import copy_text
         copy_text(self.host.win,clipboard_text)
@@ -1119,7 +1073,7 @@ class _FlowAgentLaunch:
             program = find_program(self.config)
             if self.config['engine'] == 'desktop-app':
                 app = self.config.get('display_model') or '桌面模型'
-                _deliver_desktop_app(self.host, self.finish, receipt, task_file, self.title,
+                deliver_desktop_app(self.host, self.finish, receipt, task_file, self.title,
                                      clipboard_text, program, app,
                                      (self.config.get('delivery') or 'paste') if self.desktop_paste else 'clipboard',
                                      attachment)
