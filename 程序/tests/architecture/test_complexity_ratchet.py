@@ -25,7 +25,7 @@ PARAM_CAPS = {
     ('cell_hover.py', '__init__'): 11,
     ('pet_report.py', 'daily'): 11,
     ('prompt_window.py', 'show'): 11,
-    ('desktop_idea_chat.py', '_deliver_desktop_app'): 10,
+    ('desktop_send_choice.py', 'deliver_desktop_app'): 10,
     ('engine_probe.py', 'probe'): 10,
     ('environment_check.py', 'run_checks'): 10,
     ('idea_chat.py', 'receive_brief'): 10,

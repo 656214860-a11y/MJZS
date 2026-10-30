@@ -42,7 +42,7 @@ R1610：结构治理轮·只读诊断。按规范/静态检查、接口契约、
 
 旧文首检查点已保留至.agent-handoff/history/r1606-handoff-before/project_status.md。R1606已合入主干，主干最新报告为1606，轮次头已改1607。
 
-更新：2026-10-30｜当前轮次：2116（R2115 合并轮：codex/wip-R2112 的 R2112（2f266853、65d4fdd0：附件卡片移到麦克风右侧、麦克风改用系统听写，需求号 REQ-S01-71）合入 master，锚定表冲突两行都保留；合并后定向自检 303 条全通过、冒烟通过，架构门禁另有 R2110 引入的 2 项既有红：desktop_idea_chat 1152>1148、codex_paste 裸 json.loads）；上一轮：2111（R2111 合并轮：claude/distracted-gagarin-2ffc8e 的 R2110（6da8ad4a）合入 master（c5b6d2a9），无冲突；合并后定向自检 58 条 1 红（test_client_profiles 读到本机 data/客户端档案.json 的 claude-2/3，同 R2108，非本轮引入）、默认冒烟 8/8；断言未动，未跑架构门禁与全量，见 tasks_round/tasks_round_2111_result.md）。
+更新：2026-10-30｜当前轮次：2124（R2123 合并轮：codex/wip-R2117 的 R2117（245d68de：desktop_idea_chat 的两个发送函数移到 desktop_send_choice，行数 1152→1106；codex_paste 裸 json.loads 台账定位改为 _run）合入 master，无冲突，修掉 R2110 留下的两项架构红；断言未动，见 tasks_round/tasks_round_2123_result.md）；上一轮：2115（R2115 合并轮：codex/wip-R2112 的 R2112（2f266853、65d4fdd0：附件卡片移到麦克风右侧、麦克风改用系统听写，需求号 REQ-S01-71）合入 master，锚定表冲突两行都保留；合并后定向自检 303 条全通过、冒烟通过，架构门禁另有 R2110 引入的 2 项既有红：desktop_idea_chat 1152>1148、codex_paste 裸 json.loads）。
 
 历史验收记录：更新：2026-10-10｜当前轮次：1223（R1222 文档收尾，R1219 修复阶段旧路径阻断，实现 7faa7ae。干净 master f40beb4 安全全量 --jobs 4：4304/4304、347.409 秒，含架构 311/311；前两次并发保存失败及定向复验详见 tasks_round/tasks_round_1219_result.md。正式全量 R1219，未重启或实发 API。）
 阅读索引：[当前待办](#已知阻塞与待办)｜[验证基线](#验证基线)｜[优化队列](维护记录/优化待办队列.md)｜[R504 历史快照](#r504-阻塞归类与整改路线)。带 R 编号的历史条目仅证明对应轮次；当前范围、未验收条件与后续顺序以当前待办及队列为准。

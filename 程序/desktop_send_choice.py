@@ -32,6 +32,52 @@ def attachment_payload(engine, task_file, text):
     return instruction + DELIVERY, str(path)
 
 
+def attachment_hint(attachment):
+    """附件模式下手动操作的补充说明；同时打开任务文件所在文件夹供拖拽上传（REQ-S01-70）。"""
+    if not attachment:return ''
+    from platform_tools import open_path
+    try:open_path(Path(attachment).parent)
+    except OSError:pass
+    return '剪贴板里是短指令；请先把任务文件 '+str(attachment)+' 作为附件上传（已打开所在文件夹，可直接拖进对话框），再粘贴短指令。'
+
+
+def deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text,
+                        program, app, delivery='paste', attachment=''):
+    """启动 Desktop 程序；发送入口启用时尝试粘贴，失败如实回落为手动粘贴。"""
+    from platform_tools import launch_windows_app
+    app = str(app or '桌面模型')
+    if not program:
+        message = '已复制到剪贴板；未找到 '+app+' 的程序路径，请在模型管理指定 .exe 后手动粘贴并发送。'+attachment_hint(attachment)
+        finish(receipt,'prepared',message,task_file=task_file); host.status.set(message)
+        host.notifier.info(message,title='请手动粘贴')
+        return
+    launch_windows_app(program, app)
+    if delivery != 'paste':
+        message = '已打开 '+app+'，任务已复制到剪贴板；请切到该窗口粘贴并手动发送。'+attachment_hint(attachment)
+        finish(receipt,'prepared',message,task_file=task_file); host.status.set(message)
+        host.notifier.info(message,title='请粘贴并发送')
+        return
+    from codex_paste import paste_attachment, paste_existing
+    def pasted(value):
+        reason = str(value.get('reason') or '')
+        if not value['ok'] and '剪贴板' not in reason: reason = '任务已复制到剪贴板；' + reason
+        if not value['ok']: reason += attachment_hint(attachment)
+        state = 'prepared' if value['ok'] else 'failed'
+        finish(receipt,state,reason,task_file=task_file)
+        host.status.set(reason)
+        host.notifier.info(reason,title='请检查并发送' if value['ok'] else '请手动粘贴')
+    host.status.set('正在将本次任务粘贴到 '+app+'，请检查后手动发送…')
+    def attempt():
+        try:
+            if attachment:
+                return paste_attachment(title,clipboard_text,attachment,program=program,app_name=app)
+            return paste_existing(title,clipboard_text,program=program,
+                                  app_name=app,deadline_seconds=45)
+        except Exception as exc:
+            return {'ok':False,'reason':'未能自动粘贴（%s）；任务已复制到剪贴板，请手动粘贴并发送。' % exc}
+    host.async_(attempt,pasted)
+
+
 def _reference(task_file):
     return (f'请读取并执行本次任务文件：{task_file}\n'
             '其中引用的 SKILL 和附件按任务需要读取，不重复加载无关内容。'
