@@ -1,0 +1,126 @@
+"""桌面模型（Gemini、Claude Desktop 等）续发方式：续用上次对话只发增量，或新对话完整发送（REQ-S01-62）。
+
+``prepare_native()`` 在后台线程准备完整稿与增量稿并各写一份任务文件；``choose()`` 在 Tk 线程按台账计划
+弹窗二选一或直接完整发送，选定后交回 ``_FlowAgentLaunch.done()``，复制进剪贴板后立即记台账。
+台账与计划的决策在 L3 ``desktop_send_ledger``，本模块只做界面与编排。
+"""
+import logging
+
+import desktop_send_ledger as ledger
+from ui_widgets import BaseDialog, DescriptionBlock
+
+LOGGER = logging.getLogger(__name__)
+# Claude Desktop 常常不能直接写本机路径、只给下载文件：要求下载件沿用目标文件名，
+# 并登记目标，助手会从「下载」文件夹按文件名收回到原位置。
+DELIVERY = ('\n\n【交付方式】优先直接写入任务中给出的目标路径；若无法写入本机文件，'
+            '请以可下载文件交付，文件名必须与目标路径的文件名完全一致，'
+            '用户下载后助手会自动放回对应位置。')
+FULL_HEADING = '【当前项目文件（含用户手改），以本次正文为准】'
+
+
+def _reference(task_file):
+    return (f'请读取并执行本次任务文件：{task_file}\n'
+            '其中引用的 SKILL 和附件按任务需要读取，不重复加载无关内容。'
+            '若无法读取本地文件，请提示启用文件访问并授权对应目录，或请用户上传文件；不要假定已读。')
+
+
+def _resend_plan(launch, full):
+    """剧本准备的续发计划；返回 (计划, 完整稿, 增量稿)。"""
+    from workflow_settings import model_name
+    skill_hash = ledger.digest(launch.prompt_with_settings('', launch.config, stage=launch.stage))
+    materials = ledger.snapshot(launch.project, model_name(launch.project, launch.stage))
+    plan = ledger.plan(launch.project, launch.stage, launch.config, skill_hash, materials)
+    full = full + ledger.materials_block(materials, FULL_HEADING) + DELIVERY
+    incremental = ledger.incremental_text(launch.followup, plan['changed'], DELIVERY)
+    plan.update(skill_hash=skill_hash, materials=materials, full_chars=len(full),
+                incremental_chars=len(incremental), app=launch.config.get('display_model') or '桌面模型')
+    return plan, full, incremental
+
+
+def prepare_native(launch, receipt, full):
+    """后台线程：写任务文件、登记下载收件箱；剧本准备另附续发计划。"""
+    from codex_tasks import task_file_reference
+    from stage_execution_service import register_download_inbox
+    plan = None
+    if launch.stage == 'writing' and not launch.intake_only:
+        plan, full, incremental = _resend_plan(launch, full)
+        if plan['mode'] == 'choice':
+            plan['incremental_file'] = str(task_file_reference(launch.project, launch.stage, incremental))
+    else:
+        full = full + DELIVERY
+    task_file = task_file_reference(launch.project, launch.stage, full)
+    try:register_download_inbox(launch.project, full)
+    except (OSError, ValueError) as exc:LOGGER.warning('下载收件箱登记失败：%s', exc)
+    result = {'receipt': receipt, 'prompt': _reference(task_file), 'task_file': str(task_file)}
+    if plan is not None:
+        result['send_plan'] = plan
+    return result
+
+
+def choose(launch, result, done):
+    """Tk 线程：按计划完整发送、弹窗二选一或（全自动）直接完整发送。"""
+    plan = result.pop('send_plan')
+    host = launch.host
+    def send(mode):
+        if mode is None:
+            message = '已取消发送：未复制、未粘贴任何内容。'
+            launch.finish(result['receipt'], 'failed', message)
+            host.status.set(message)
+            return
+        chosen = dict(result)
+        if mode == 'incremental':
+            chosen.update(task_file=plan['incremental_file'], prompt=_reference(plan['incremental_file']))
+        done(chosen)
+        # done() 已同步复制进剪贴板；自动粘贴成功与否都算已发出，下次据此比对。
+        try:
+            ledger.record(launch.project, launch.stage, launch.config, {
+                'skill_hash': plan['skill_hash'], 'materials': plan['materials'],
+                'mode': mode, 'task_file': chosen['task_file']})
+        except (OSError, ValueError) as exc:
+            LOGGER.warning('桌面续发台账更新失败：%s', exc)
+    level = getattr(host, 'gate_level', None)
+    if plan['mode'] == 'full':
+        send('full')
+    elif callable(level) and level() == 'auto':
+        send('full')
+        host.status.set('三虎全自动：续发不弹窗，已按新对话完整发送（约 {:,} 字）；'
+                        '请切到 {} 检查后手动发送。'.format(plan['full_chars'], plan['app']))
+    else:
+        ask_send_mode(host.win, plan, send)
+
+
+def ask_send_mode(parent, plan, on_result):
+    """弹出续发方式选择；``on_result`` 收到 'incremental'／'full'／None（取消）。"""
+    return SendChoiceDialog(parent, plan, on_result)
+
+
+class SendChoiceDialog(BaseDialog):
+    """续用上次对话／新对话完整发送／取消；关闭窗口与 Esc 等同取消。"""
+
+    def __init__(self, parent, plan, on_result):
+        self.choice = None
+        self._on_result = on_result
+        super().__init__(parent, '选择发送方式')
+        names = '、'.join(dict.fromkeys(item[0] if isinstance(item, (tuple, list)) else item['name']
+                                         for item in plan.get('changed') or ()))
+        changes = ('自上次发送以来改动过：' + names + '。') if names else '自上次发送以来项目文件没有改动。'
+        DescriptionBlock(self.content, text=(
+            '上次已向 ' + str(plan.get('app') or '桌面模型') + ' 发过本阶段任务。' + changes + '\n'
+            '续用上次对话：只发本次指令和改动过的文件正文，原对话须仍开着。\n'
+            '新对话完整发送：重新发送 SKILL、规则和全部现有文件，请在新对话中粘贴。')).pack(fill='x')
+        self.add_action('取消', self.close)
+        self.add_action('新对话完整发送（约 {:,} 字）'.format(plan['full_chars']), lambda: self._pick('full'))
+        self.add_action('续用上次对话（约 {:,} 字）'.format(plan['incremental_chars']),
+                        lambda: self._pick('incremental'), primary=True)
+
+    def _pick(self, mode):
+        self.choice = mode
+        self.close()
+
+    def close(self):
+        if self._closed:
+            return
+        super().close()
+        callback, self._on_result = self._on_result, None
+        if callback:
+            callback(self.choice)

@@ -963,20 +963,8 @@ class _FlowAgentLaunch:
             self.finish(receipt,'preparing','',skill_injection=self.config.get('skill_injection'),context_budget={
                 'initial':budget,'continuation':continuation_budget})
             if self.native_claude:
-                from codex_tasks import task_file_reference
-                from stage_execution_service import register_download_inbox
-                # Claude Desktop 常常不能直接写本机路径、只给下载文件：要求下载件沿用目标文件名，
-                # 并登记目标，助手会从「下载」文件夹按文件名收回到原位置。
-                full = full + ('\n\n【交付方式】优先直接写入任务中给出的目标路径；若无法写入本机文件，'
-                                   '请以可下载文件交付，文件名必须与目标路径的文件名完全一致，'
-                                   '用户下载后助手会自动放回对应位置。')
-                task_file = task_file_reference(self.project, self.stage, full)
-                try:register_download_inbox(self.project, full)
-                except (OSError, ValueError) as exc:LOGGER.warning('下载收件箱登记失败：%s', exc)
-                reference = (f'请读取并执行本次任务文件：{task_file}\n'
-                                 '其中引用的 SKILL 和附件按任务需要读取，不重复加载无关内容。'
-                                 '若无法读取本地文件，请提示启用文件访问并授权对应目录，或请用户上传文件；不要假定已读。')
-                return {'receipt':receipt,'prompt':reference,'task_file':str(task_file)}
+                from desktop_send_choice import prepare_native  # 交付方式、任务文件、续发计划（REQ-S01-62）
+                return prepare_native(self, receipt, full)
             if self.use_cli:return {'receipt':receipt,'prompt':full,'followup':continuation,
                                'context_budget':{'initial':budget,'continuation':continuation_budget}}
             result=self.prepare_task(self.project,self.title,self.stage,full,followup=continuation,setup_key=self.setup_key,
@@ -1102,6 +1090,7 @@ class _FlowAgentLaunch:
         pending['timer'] = self.host.win.after(200,poll_slot)
 
     def done(self, result):
+        if result.get('send_plan'):from desktop_send_choice import choose;return choose(self, result, self.done)
         receipt=result['receipt']
         clipboard_text=result['prompt']
         task_file=result.get('task_file')

@@ -63,6 +63,8 @@ _register(3, "account_controller")
 _register(4, "account_inputs", "desktop_account_page", "desktop_login_gate", "desktop_master_update", "desktop_page_nav", "desktop_lifecycle", "master_skill_update")
 _register(3, "edit_habits")
 _register(4, "edit_habits_dialog")
+_register(3, "desktop_send_ledger")
+_register(4, "desktop_send_choice")
 
 # 非运行期外围脚本：它们不会作为产品层导入；显式留名可防止新增顶层脚本绕过审计。
 TOOLS: dict[str, str] = {
