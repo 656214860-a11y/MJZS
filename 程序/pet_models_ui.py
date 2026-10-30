@@ -14,7 +14,8 @@ from tkinter import font as tkfont
 from tkinter import ttk
 
 import model_pool
-from ui_tokens import BUTTON_GAP, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, SPACING, TEXT_DESC, TEXT_HINT
+from ui_tokens import (BUTTON_GAP, COMBOBOX_PADDING, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X,
+                       SPACING, TEXT_DESC, TEXT_HINT)
 from ui_dialogs import FileDialog
 from account_inputs import PasswordInput
 from ui_widgets import (BusyState, NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
@@ -66,6 +67,8 @@ MANAGER_GEOMETRY = '1180x860'
 MANAGER_RATIO = 0.9
 MANAGER_MIN = (820, 620)
 NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶段配置里选。'
+# 「模型 ID」一栏在本地调用（Desktop／CLI）时填的是程序名，API 时才是接口模型名。
+MODEL_FIELD_LOCAL, MODEL_FIELD_API = '程序名', '模型 ID'
 NOTE_MANAGER = '先选择调用方式：Desktop 配置桌面应用，API 配置接口与密钥，CLI 配置命令行程序。'
 # 列表那一行照规格那张表：显示名／Provider／模型 ID／能力标签／状态，另加两个用得上又不好猜的
 # （API 根地址、密钥名）。协议在下面表单里选，列表不再占一格。
@@ -147,11 +150,32 @@ def window(pet, title, geometry, minsize=None):
 
 
 def heading(body, title, note, columns=3):
-    ttk.Label(body, text=title, font=FONTS['title']).grid(
-        row=0, column=0, columnspan=columns, sticky='w')
-    ttk.Label(body, text=note, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
-        row=1, column=0, columnspan=columns, sticky='w', pady=(SPACING['xs'], SPACING['md']))
-    return 2
+    """标题与说明同占一行（说明跟在标题右侧），把纵向空间留给下面的模型列表。"""
+    row = ttk.Frame(body)
+    row.grid(row=0, column=0, columnspan=columns, sticky='ew', pady=(SPACING['none'], SPACING['sm']))
+    ttk.Label(row, text=title, font=FONTS['title']).pack(side='left')
+    ttk.Label(row, text=note, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).pack(
+        side='left', anchor='s', padx=(SPACING['md'], SPACING['none']))
+    return 1
+
+
+# 模型管理表单用紧凑输入框：纵向内边距归零，行高约为常规输入框一半，空出高度给模型列表。
+COMPACT_PREFIX = 'Compact.'
+COMPACT_COMBOBOX_STYLE = COMPACT_PREFIX + 'Tokens.Combobox.TCombobox'
+
+
+class CompactLineInput(LineInput):
+    NORMAL_STYLE = COMPACT_PREFIX + LineInput.NORMAL_STYLE
+    PLACEHOLDER_STYLE = COMPACT_PREFIX + LineInput.PLACEHOLDER_STYLE
+    ERROR_STYLE = COMPACT_PREFIX + LineInput.ERROR_STYLE
+
+
+def install_compact_form_styles(widget):
+    """派生样式只改 padding，其余颜色、边框与状态映射沿用父样式。"""
+    style = ttk.Style(widget)
+    for name in (CompactLineInput.NORMAL_STYLE, CompactLineInput.PLACEHOLDER_STYLE, CompactLineInput.ERROR_STYLE):
+        style.configure(name, padding=(INPUT_PADDING_X, SPACING['none']))
+    style.configure(COMPACT_COMBOBOX_STYLE, padding=(COMBOBOX_PADDING[0], SPACING['none']))
 
 
 def status_text(record, program):
@@ -429,6 +453,7 @@ class _ModelManager:
         self.win._pet_tree = self.tree
         self.win._pet_delete_one = self.delete_one
         # 自检要按的那两颗（密钥那条链只能从界面上走一遍）：本机保存／清除 ＋ 那个只写不读的输入框。
+        self.win._pet_labels = self.labels
         self.win._pet_key_entry = self.key_entry
         self.win._pet_save_key = self.local_save
         self.win._pet_save_typed = self.save_typed_key
@@ -448,7 +473,7 @@ class _ModelManager:
         body.pack(fill='both', expand=True)
         body.columnconfigure(0, weight=1)
         body.rowconfigure(2, weight=1)
-        row = heading(body, MANAGER_TITLE, NOTE_MANAGER, columns=1)
+        heading(body, MANAGER_TITLE, NOTE_MANAGER, columns=1)
         self.keys = [key for key, _title, _width in COLUMNS]
         # 表单行不叠加纵向外边距；控件保留自身内边距，窗口剩余高度全部交给模型列表。
         # 列宽随窗口伸展，长名称与地址可以通过滚动条查看。
@@ -459,11 +484,13 @@ class _ModelManager:
             self.tree.heading(key, text=title)
             self.tree.column(key, width=width, anchor='w', stretch=True)
         self.table_shell.grid(row=2, column=0, sticky='nsew')
+        install_compact_form_styles(body)
         self.form = ttk.Frame(body, padding=(SPACING['none'], SPACING['xs']))
         self.form.grid(row=3, column=0, columnspan=2, sticky='ew')
         self.form.columnconfigure(0, minsize=form_column_width(MANAGER_FORM_LABELS))
         self.form.columnconfigure(1, weight=1)
         self.entries = {}
+        self.labels = {}
         self.caps = {}
         self.provider = tk.StringVar(value=model_pool.PROVIDER_LABELS[model_pool.DEFAULT_PROVIDER])
         self.wire = tk.StringVar(value=model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
@@ -475,7 +502,8 @@ class _ModelManager:
 
     def _build_form_fields(self):
         """表单：调用方式、Provider、模型 ID／显示名／地址／密钥、协议、能力标签（从 build 原样切出，R1812）。"""
-        mode_box = SelectBox(self.form, textvariable=self.mode, values=('Desktop', 'API', 'CLI'))
+        mode_box = SelectBox(self.form, textvariable=self.mode, values=('Desktop', 'API', 'CLI'),
+                             style=COMPACT_COMBOBOX_STYLE)
         mode_box.grid(row=0, column=1, sticky='ew')
         index = 1
         ttk.Label(self.form, text='Provider').grid(row=index, column=0, sticky='w')
@@ -483,7 +511,8 @@ class _ModelManager:
         # 名字，选了「自定义」既不能写自己的服务商名、也没有自定义路径的入口。现在改成可编辑：
         # 挑现成的，或者直接敲一个名字；存的就是填进去的那个名字。
         self.provider_box = SelectBox(self.form, textvariable=self.provider, state='normal',
-                                    values=[label for _value, label in model_pool.PROVIDERS])
+                                    values=[label for _value, label in model_pool.PROVIDERS],
+                                    style=COMPACT_COMBOBOX_STYLE)
         self.provider_box.grid(row=index, column=1, sticky='ew')
         self.provider_box.bind('<<ComboboxSelected>>', self.match_wire)
         self.provider_box.bind('<<ComboboxSelected>>', lambda event: self.detect_program(), add='+')
@@ -505,7 +534,7 @@ class _ModelManager:
         ttk.Label(key_row, textvariable=self.key_state, style='Muted.TLabel').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
         index += 1
         ttk.Label(self.form, text='协议').grid(row=index, column=0, sticky='w')
-        SelectBox(self.form, textvariable=self.wire,
+        SelectBox(self.form, textvariable=self.wire, style=COMPACT_COMBOBOX_STYLE,
                      values=[label for _value, label in model_pool.WIRE_APIS]).grid(
             row=index, column=1, sticky='ew')
         index += 1
@@ -528,7 +557,7 @@ class _ModelManager:
         self.program_row = ttk.Frame(self.form)
         self.program_row.grid(row=4, column=1, sticky='ew')
         self.program_row.columnconfigure(0, weight=1)
-        self.program_entry = LineInput(self.program_row)
+        self.program_entry = CompactLineInput(self.program_row)
         self.program_entry.grid(row=0, column=0, sticky='ew')
         return mode_box
 
@@ -598,8 +627,9 @@ class _ModelManager:
 
     def text_row(self, index, key, label):
         """一行「标签 ＋ 输入框」；行号往下走，表单中间插下拉框／多选都不会错位。"""
-        ttk.Label(self.form, text=label).grid(row=index, column=0, sticky='w')
-        entry = LineInput(self.form)
+        self.labels[key] = ttk.Label(self.form, text=label)
+        self.labels[key].grid(row=index, column=0, sticky='w')
+        entry = CompactLineInput(self.form)
         entry.grid(row=index, column=1, sticky='ew')
         self.entries[key] = entry
         return index + 1
@@ -683,6 +713,7 @@ class _ModelManager:
         for widget in (self.program_label, self.program_row):
             widget.grid() if local else widget.grid_remove()
         self.program_label.configure(text='命令行程序路径' if self.mode.get() == 'CLI' else '应用安装路径')
+        self.labels['model'].configure(text=MODEL_FIELD_LOCAL if local else MODEL_FIELD_API)
         self.tree.configure(displaycolumns=(('provider', 'model', 'label', 'capabilities', 'state')
                                        if local else self.keys))
         self.probe_button.configure(text='检查程序' if local else '测试连接')

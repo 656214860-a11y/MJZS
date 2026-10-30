@@ -14,3 +14,12 @@
 - 提交后跑 `smoke_test.py --all --safe`，结果见下方补记。
 - 未运行：真实 Gemini 桌面粘贴、续发弹窗目测（R2103 遗留）。
 - `project_status.md` 只更新头部当前轮次；债务未减少。未 push。
+
+## 补记（R2107 写入）：提交后的 `--all --safe`
+
+- `auto_full_safe.py --run`，HEAD `8a330a78`，2026-10-30 13:05:40 开始，用时 567 秒，退出码 1：共 6819 条用例，4 个文件有红。
+  - `architecture.test_requirement_traceability`：REQ-S01-68 标 ✅ 但测试里没有锚定。R2098 的测试没写需求编号，R2104 合并改号后遗留。R2107 已补。
+  - `architecture.test_round_baselines::test_round_number_continuous`：状态页写 2105，规则要求 2106（最新结果文件号＋1）。本轮把状态页头写成本轮号是错的，R2107 已按 R1911 的写法改正。
+  - `test_soak_light`：最慢一轮 10.977 秒，上限 10 秒，当时有其他会话并行跑测试。
+  - `test_leak_teardown`：第 3 轮 after 回调 7，期望 6。R2080 的全量也红过。
+  - 后两条在 R2107 里经 `gui_hidden.py` 各复跑 2 次，都是 0 红。

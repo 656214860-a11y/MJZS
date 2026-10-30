@@ -93,6 +93,7 @@ class DownloadInboxTests(unittest.TestCase):
                 / '项目大纲' / ('摄影侠_项目大纲_Google_' + day + '.md'))
 
     def test_newer_dated_download_is_saved_as_new_batch_and_old_kept(self):
+        """REQ-S01-68：下载件只差日期且更新时，另存到新日期批次，旧版本保留。"""
         old = self._outline_target('20261018')
         old.parent.mkdir(parents=True)
         old.write_text('旧大纲', encoding='utf-8')
@@ -108,6 +109,7 @@ class DownloadInboxTests(unittest.TestCase):
                          '收回后登记项移除，不重复写')
 
     def test_exact_name_wins_over_dated_download(self):
+        """REQ-S01-68：有同名下载件时按同名收回，不走日期匹配。"""
         old = self._outline_target('20261018')
         now = time.time()
         register_download_inbox(self.project, str(old), now=now - 60)
@@ -117,6 +119,7 @@ class DownloadInboxTests(unittest.TestCase):
         self.assertFalse(self._outline_target('20261030').exists())
 
     def test_dated_download_needs_same_name_and_newer_date(self):
+        """REQ-S01-68：日期匹配要求去日期后名字相同，日期合法且更新。"""
         old = self._outline_target('20261018')
         now = time.time()
         pending = [{'target': str(old), 'since': now - 60}]
@@ -126,6 +129,7 @@ class DownloadInboxTests(unittest.TestCase):
         self.assertEqual(download_inbox.match(self.downloads, pending, now), [])
 
     def test_dated_download_skips_when_new_batch_file_is_newer(self):
+        """REQ-S01-68：新日期批次里已有更新的文件时跳过，不覆盖。"""
         old = self._outline_target('20261018')
         new = self._outline_target('20261030')
         new.parent.mkdir(parents=True)

@@ -120,6 +120,7 @@ class DownloadImportTests(unittest.TestCase):
         self.assertEqual(imported[0][1].parents[2].name, 'Claude Desktop')
 
     def test_download_dated_after_existing_outline_is_saved_as_new_file(self):
+        """REQ-S01-68：下载件日期比已有大纲新时另存为新文件，旧大纲保留。"""
         old = self._saved_outline()
         later = time.strftime('%Y%m%d', time.localtime(time.time() + 2 * 24 * 3600))
         self._download('摄影侠 项目大纲 Anthropic ' + later + '.md', OUTLINE_NEW)
