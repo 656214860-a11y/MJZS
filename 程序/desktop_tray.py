@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""桌面系统托盘：最小化到托盘 + 右键菜单（恢复窗口／强制重启／退出），零第三方。
+"""桌面系统托盘：托盘图标 + 右键菜单（恢复窗口／强制重启／退出），零第三方。
+
+最小化走系统默认：窗口留在任务栏（图标下有白点），不收进托盘。
 
 Tkinter 没有内置托盘支持，这里用 ctypes 调 Win32 ``Shell_NotifyIcon``。仅 Windows 生效；
 非 Windows 上 ``setup_tray`` 直接跳过。
@@ -411,15 +413,14 @@ def force_restart():
 
 
 class TrayMixin:
-    """Desktop 的最小化到托盘集成。"""
+    """Desktop 的托盘集成。"""
 
     def setup_tray(self):
-        """窗口就绪后建立托盘图标，并把最小化拦到托盘。"""
+        """窗口就绪后建立托盘图标；最小化不拦截，窗口照常留在任务栏。"""
         if sys_platform_non_windows() or os.environ.get(SUPPRESS_TRAY_ENV) == '1':
             return
         if getattr(self, 'tray_icon', None) is not None:
             return
-        self._tray_minimized = False
         self.tray_icon = TrayIcon(
             self.win,
             on_restore=self.restore_from_tray,
@@ -433,7 +434,6 @@ class TrayMixin:
             app_logging.swallowed()
             self.tray_icon = None
             return
-        self.win.bind('<Unmap>', self._on_minimize_to_tray, add='+')
         self.win.bind('<Destroy>', self._on_tray_destroy, add='+')
 
     def _force_restart_from_tray(self):
@@ -447,22 +447,7 @@ class TrayMixin:
         self.close_tray()
         return None
 
-    def _on_minimize_to_tray(self, event=None):
-        if event is not None and getattr(event, 'widget', None) is not self.win:
-            return None
-        if getattr(self, '_tray_minimized', False):
-            return None
-        try:
-            if self.win.state() == 'iconic':
-                # 标准标题栏最小化 → 收进托盘，任务栏不再显示。
-                self._tray_minimized = True
-                self.win.withdraw()
-        except tk.TclError:
-            pass
-        return None
-
     def restore_from_tray(self):
-        self._tray_minimized = False
         try:
             self.win.deiconify()
             self.win.lift()
