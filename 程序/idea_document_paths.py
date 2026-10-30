@@ -89,8 +89,10 @@ def reply_path_parts(root, at=None, provider='', model='', file_type='自然剧�
 _OVERWRITE_FILE_TYPES = frozenset(('项目设定', '项目大纲', '角色卡'))
 
 
-def reply_document_path(context, text, at=None, provider='', model='', file_type=None):
-    """自动保存与下载共用：相同正文复用；审阅参考覆盖，正式剧本异稿递增编号。"""
+def reply_document_path(context, text, at=None, provider='', model='', file_type=None, *, reuse_latest=True):
+    """自动保存与下载共用：相同正文复用；审阅参考覆盖，正式剧本异稿递增编号。
+
+    ``reuse_latest=False`` 时审阅参考稿不回到跨批次的最新一份，按 ``at`` 的日期另存。"""
     from stage_path_service import write_dir
     context = _context(context)
     file_type = file_type or _project_file_type(text)
@@ -102,7 +104,7 @@ def reply_document_path(context, text, at=None, provider='', model='', file_type
         for existing in sorted(target.parent.glob('*.md')):
             if existing.is_file() and existing.read_text(encoding='utf-8').strip() == value:
                 return existing
-    if file_type in _OVERWRITE_FILE_TYPES:
+    if file_type in _OVERWRITE_FILE_TYPES and reuse_latest:
         # 审阅参考稿放弃历史版本：始终覆盖该阶段最新一份，保持「一份＝最新」。
         # 跨 创意_日期 批次也回到同一份，不因跨天续改落到新批次产生副本。
         candidates = []

@@ -70,7 +70,7 @@ def collect_download_inbox(project, now=None, downloads=None, backups=None):
     """
     import time
     from agent.core import save, save_file
-    from download_inbox import match, remaining
+    from download_inbox import match_registered, remaining
     ledger = _download_inbox_path(project)
     if not ledger.is_file():
         return []
@@ -83,11 +83,12 @@ def collect_download_inbox(project, now=None, downloads=None, backups=None):
     if downloads is None:
         from platform_tools import downloads_directory
         downloads = downloads_directory()
-    done = []
+    done, finished = [], []
     from agent.publication import transaction
     from platform_tools import execution_checkpoint
     from storage_maintenance import backup_before_overwrite
-    for source, target in match(downloads, pending, now):
+    # 下载件日期比登记目标新时写到新日期路径；登记表按原目标销账。
+    for source, target, registered in match_registered(downloads, pending, now):
         try:
             if not source.stat().st_size:
                 continue
@@ -104,7 +105,8 @@ def collect_download_inbox(project, now=None, downloads=None, backups=None):
         if backup is not None and backups is not None:
             backups.append((target, backup))
         done.append(target)
-    kept = remaining(pending, done, now)
+        finished.append(registered)
+    kept = remaining(pending, finished, now)
     if kept != pending:
         save(ledger, {'version': 1, 'pending': kept})
     return done
