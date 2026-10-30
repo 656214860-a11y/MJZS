@@ -80,7 +80,8 @@ class ResidualProjectTests(unittest.TestCase):
             desk.flush_brief=lambda:None
             desk.projects=type('Projects',(),{'activate':lambda self,path:None})()
             desk.list=type('ProjectList',(),{'selection_set':lambda self,path:None,
-                                              'see':lambda self,path:None})()
+                                              'see':lambda self,path:None,
+                                              'exists':lambda self,path:False})()
             desk.show=lambda page:None
             desk.sync_stage_models=lambda:None
             desk._schedule_stage_model_sync=lambda project:None
