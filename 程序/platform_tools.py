@@ -383,86 +383,121 @@ def work_area():
     return (rect.left, rect.top, rect.right, rect.bottom)
 
 
-# REQ-S01-71：Win+H 依赖 Windows 语音输入与 TSF，部分系统（如 LTSC）调不起或写不进 Tk。
-# 改用系统自带 System.Speech 听写：隐藏的 PowerShell 逐句识别默认麦克风，一句一行写到 stdout。
-# 脚本纯 ASCII；每轮识别后核对父进程，主程序异常退出时子进程自行结束。
-_DICTATION_SCRIPT = r"""
-$ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [Text.Encoding]::UTF8
-try {
-  Add-Type -AssemblyName System.Speech
-  $info = [System.Speech.Recognition.SpeechRecognitionEngine]::InstalledRecognizers() |
-    Where-Object { $_.Culture.Name -eq 'zh-CN' } | Select-Object -First 1
-  if ($info) { $engine = New-Object System.Speech.Recognition.SpeechRecognitionEngine($info) }
-  else { $engine = New-Object System.Speech.Recognition.SpeechRecognitionEngine }
-  $engine.LoadGrammar((New-Object System.Speech.Recognition.DictationGrammar))
-  $engine.SetInputToDefaultAudioDevice()
-} catch { [Console]::Out.WriteLine('ERR ' + $_.Exception.Message); [Console]::Out.Flush(); exit 1 }
-[Console]::Out.WriteLine('READY'); [Console]::Out.Flush()
-while ($true) {
-  $result = $engine.Recognize([TimeSpan]::FromSeconds(3))
-  if ($result -and $result.Text) { [Console]::Out.WriteLine('TEXT ' + $result.Text); [Console]::Out.Flush() }
-  if (-not (Get-Process -Id __PARENT__ -ErrorAction SilentlyContinue)) { exit 0 }
-}
-"""
+# REQ-S01-71：麦克风录音（仿桌面微信：先录音，再交云端识别）。R2112 的 System.Speech 离线听写中文识别率低，已撤下。
+# 用 winmm 的 waveIn*（ctypes，零依赖）录默认麦克风：16 kHz、单声道、16 位，正是云端识别要的格式。
+RECORD_RATE = 16000
+_RECORD_CHUNK_BYTES = RECORD_RATE // 10 * 2      # 每块缓冲 0.1 秒
+_RECORD_BUFFERS = 8
+_WHDR_DONE = 0x1
+_WAVE_MAPPER = 0xFFFFFFFF
 
 
-class VoiceDictation:
-    """系统听写会话：start() 起后台识别，poll() 取出已识别事件，stop() 结束进程。
+def wav_bytes(pcm, rate=RECORD_RATE):
+    """16 位单声道 PCM 包成 WAV 文件字节。"""
+    import struct
+    data = bytes(pcm)
+    # 随附运行环境裁掉了标准库 wave，这里直接写 44 字节 RIFF 头。
+    return (struct.pack('<4sI4s4sIHHIIHH4sI', b'RIFF', 36 + len(data), b'WAVE', b'fmt ', 16, 1, 1,
+                        rate, rate * 2, 2, 16, b'data', len(data)) + data)
 
-    事件是 ``(kind, text)``：``ready`` 麦克风已打开、``text`` 一句识别结果、
-    ``error`` 起不来的原因、``stopped`` 进程已退出。读线程只往队列里放，
-    界面线程定时 poll()，不在后台线程碰 Tk。
+
+def _peak(chunk):
+    import array
+    samples = array.array('h', bytes(chunk[:len(chunk) // 2 * 2]))
+    return max((abs(value) for value in samples), default=0)
+
+
+def _wave_types():
+    import ctypes
+    from ctypes import wintypes
+
+    class WaveFormat(ctypes.Structure):
+        _fields_ = [('wFormatTag', wintypes.WORD), ('nChannels', wintypes.WORD),
+                    ('nSamplesPerSec', wintypes.DWORD), ('nAvgBytesPerSec', wintypes.DWORD),
+                    ('nBlockAlign', wintypes.WORD), ('wBitsPerSample', wintypes.WORD), ('cbSize', wintypes.WORD)]
+
+    class WaveHeader(ctypes.Structure):
+        _fields_ = [('lpData', ctypes.c_void_p), ('dwBufferLength', wintypes.DWORD),
+                    ('dwBytesRecorded', wintypes.DWORD), ('dwUser', ctypes.c_void_p),
+                    ('dwFlags', wintypes.DWORD), ('dwLoops', wintypes.DWORD),
+                    ('lpNext', ctypes.c_void_p), ('reserved', ctypes.c_void_p)]
+    return WaveFormat, WaveHeader
+
+
+class MicrophoneRecorder:
+    """录音会话：start() 打开默认麦克风，后台线程收 PCM；stop() 收尾并返回 ``(wav 字节, 全程峰值)``。
+
+    ``level``（0–1，最近 0.1 秒的峰值）与 ``seconds`` 供界面显示；录满 ``max_seconds``
+    或设备出错时 ``finished`` 变真，界面据此自动收尾。``winmm`` 是测试注入点。
     """
-    def __init__(self, *, popen=None):
-        import queue
-        self.events = queue.Queue()
-        self.process = None
-        self.popen = popen
+    def __init__(self, *, max_seconds=180, winmm=None):
+        self.max_seconds, self.winmm = max_seconds, winmm
+        self.pcm, self.peak, self.level, self.error = bytearray(), 0, 0.0, ''
+        self.handle, self.thread = None, None
+        self.halt = threading.Event()
 
     @property
-    def running(self):
-        return self.process is not None and self.process.poll() is None
+    def seconds(self):
+        return len(self.pcm) / (RECORD_RATE * 2)
+
+    @property
+    def finished(self):
+        return self.thread is not None and not self.thread.is_alive()
 
     def start(self):
-        """成功返回空串，失败返回原因；已在听写时什么也不做。"""
-        if os.name != 'nt':
-            return '当前系统没有 Windows 听写组件'
-        if self.running:
-            return ''
-        import base64
-        script = _DICTATION_SCRIPT.replace('__PARENT__', str(os.getpid()))
-        encoded = base64.b64encode(script.encode('utf-16-le')).decode('ascii')
-        command = ['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-                   '-EncodedCommand', encoded]
-        try:
-            self.process = launch_background(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                             stderr=subprocess.DEVNULL, popen=self.popen)
-        except OSError as error:
-            self.process = None
-            return str(error) or '无法启动 PowerShell'
-        threading.Thread(target=self._read, args=(self.process,), name='voice-dictation', daemon=True).start()
+        """成功返回空串，失败返回原因。"""
+        import ctypes
+        if os.name != 'nt' and self.winmm is None:
+            return '当前系统不支持录音'
+        winmm = self.winmm or ctypes.windll.winmm
+        if not winmm.waveInGetNumDevs():
+            return '没有找到麦克风'
+        WaveFormat, WaveHeader = _wave_types()
+        fmt = WaveFormat(1, 1, RECORD_RATE, RECORD_RATE * 2, 2, 16, 0)
+        handle = ctypes.c_void_p()
+        code = winmm.waveInOpen(ctypes.byref(handle), ctypes.c_uint(_WAVE_MAPPER), ctypes.byref(fmt), None, None, 0)
+        if code:
+            return '麦克风打不开（错误码 %d，可能被其他程序独占）' % code
+        self.handle = handle
+        buffers = [ctypes.create_string_buffer(_RECORD_CHUNK_BYTES) for _ in range(_RECORD_BUFFERS)]
+        headers = [WaveHeader(ctypes.cast(buffer, ctypes.c_void_p), _RECORD_CHUNK_BYTES) for buffer in buffers]
+        for header in headers:
+            winmm.waveInPrepareHeader(handle, ctypes.byref(header), ctypes.sizeof(header))
+            winmm.waveInAddBuffer(handle, ctypes.byref(header), ctypes.sizeof(header))
+        winmm.waveInStart(handle)
+        self.thread = threading.Thread(target=self._collect, args=(winmm, handle, buffers, headers),
+                                       name='voice-record', daemon=True)
+        self.thread.start()
         return ''
 
-    def _read(self, process):
-        for raw in iter(process.stdout.readline, b''):
-            line = raw.decode('utf-8', errors='replace').strip()
-            kind, _, text = line.partition(' ')
-            if kind == 'READY':
-                self.events.put(('ready', ''))
-            elif kind == 'TEXT' and text.strip():
-                self.events.put(('text', text.strip()))
-            elif kind == 'ERR':
-                self.events.put(('error', text.strip() or '听写组件不可用'))
-        self.events.put(('stopped', ''))
+    def _take(self, buffer, header):
+        chunk = buffer.raw[:header.dwBytesRecorded]
+        peak = _peak(chunk)
+        self.pcm += chunk
+        self.peak, self.level = max(self.peak, peak), peak / 32768
+        header.dwFlags &= ~_WHDR_DONE
 
-    def poll(self):
-        items = []
-        while not self.events.empty():
-            items.append(self.events.get_nowait())
-        return items
+    def _collect(self, winmm, handle, buffers, headers):
+        import ctypes
+        try:
+            while not self.halt.is_set() and self.seconds < self.max_seconds:
+                for buffer, header in zip(buffers, headers):
+                    if header.dwFlags & _WHDR_DONE:
+                        self._take(buffer, header)
+                        winmm.waveInAddBuffer(handle, ctypes.byref(header), ctypes.sizeof(header))
+                time.sleep(0.02)
+            winmm.waveInReset(handle)          # 交回所有缓冲，已录的那部分也收进来
+            for buffer, header in zip(buffers, headers):
+                if header.dwFlags & _WHDR_DONE and header.dwBytesRecorded:
+                    self._take(buffer, header)
+                winmm.waveInUnprepareHeader(handle, ctypes.byref(header), ctypes.sizeof(header))
+        except OSError as error:
+            self.error = str(error) or '录音中断'
+        finally:
+            winmm.waveInClose(handle)
 
     def stop(self):
-        process, self.process = self.process, None
-        if process is not None and process.poll() is None:
-            terminate_process_tree(process)
+        self.halt.set()
+        if self.thread is not None:
+            self.thread.join(timeout=2)
+        return wav_bytes(self.pcm), self.peak

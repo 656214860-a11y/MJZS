@@ -53,7 +53,7 @@
             "video_task_state": "R1578\uff1a\u4ec5\u8bfb\u53d6\u89c6\u9891\u4efb\u52a1\u72b6\u6001\u5e76\u751f\u6210\u9501\u5b9a\u3001\u7b49\u5f85\u53ca\u663e\u5f0f\u63d0\u4ea4\u963b\u65ad\u539f\u56e0\uff1bsubmission_block_reason \u4e0e provider_failure_reason \u4ec5\u5224\u65ad\u4f20\u5165\u7248\u672c\uff0c\u540e\u8005\u8fd4\u56de\u4f9b\u5e94\u5546\u7ec8\u6001\u6062\u590d\u8bf4\u660e\uff0c\u4e0d\u542f\u52a8\u3001\u53d6\u6d88\u3001\u91cd\u63d0\u6216\u5199\u5165\u4efb\u52a1\u3002",
             "storyboard_adoption_contract": "R981\uff1a\u53ea\u8bfb\u8bbe\u7f6e\u3001\u89e3\u6790\u5df2\u6709\u522b\u540d\u5e76\u6821\u9a8c\u91c7\u7528\u8def\u5f84\uff1b\u91c7\u7528\u72b6\u6001\u5199\u5165\u7531\u72ec\u7acb\u670d\u52a1\u627f\u62c5\u3002"
         },
-        "exempt_count": 44,
+        "exempt_count": 45,
         "exempt_items": [
             "video_source_evidence",
             "usage_overview",
@@ -92,6 +92,7 @@
             "storyboard_source_service",
             "subtitle_timing",
             "tts_api",
+            "speech_api",
             "video_task_state",
             "white_model_service",
             "writing_files",
@@ -1129,6 +1130,12 @@
                 "point": "retired:b793d2a8a6c11e66",
                 "disposition": "migrated",
                 "reason": "R830\uff1a\u955c\u5934\u7f16\u53f7\u91cd\u6392\u7684\u6b63\u5f0f\u5206\u955c JSON \u8bfb\u53d6\u6539\u7531 file_cache.read_json\u3002"
+            },
+            {
+                "file": "speech_api.py",
+                "point": "transcribe:json.loads:a360737c72c6503a:1",
+                "disposition": "exempt",
+                "reason": "R2136\uff1a\u8bed\u97f3\u8bc6\u522b\u670d\u52a1\u7684 HTTP \u54cd\u5e94\u4f53 JSON \u89e3\u6790\uff0c\u975e\u6587\u4ef6\u8bfb"
             },
             {
                 "file": "smoke_test.py",

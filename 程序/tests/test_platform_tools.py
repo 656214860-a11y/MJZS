@@ -160,39 +160,71 @@ class OpenPathTests(unittest.TestCase):
             self.assertIsNone(platform_tools.find_editor_shortcut())
 
 
-class VoiceDictationTests(unittest.TestCase):
-    """REQ-S01-71：系统听写进程逐行输出 READY／TEXT／ERR，会话转成界面可取的事件。"""
-    def test_output_lines_become_events_and_stop_ends_process(self):
-        import io
+class FakeWinmm:
+    """假 winmm：每次 AddBuffer 都把一块 0.1 秒、峰值固定的样本填进缓冲并标记 DONE。"""
+    def __init__(self, devices=1, open_code=0, sample=1200):
+        import array
+        self.devices, self.open_code, self.calls = devices, open_code, []
+        self.chunk = array.array('h', [sample, -sample] * (platform_tools._RECORD_CHUNK_BYTES // 4)).tobytes()
+    def waveInGetNumDevs(self):
+        return self.devices
+    def waveInOpen(self, handle, device, fmt, callback, instance, flags):
+        self.calls.append('open')
+        return self.open_code
+    def waveInPrepareHeader(self, handle, header, size):
+        return 0
+    def waveInAddBuffer(self, handle, header, size):
+        import ctypes
+        item = header._obj
+        ctypes.memmove(item.lpData, self.chunk, len(self.chunk))
+        item.dwBytesRecorded, item.dwFlags = len(self.chunk), item.dwFlags | platform_tools._WHDR_DONE
+        return 0
+    def waveInStart(self, handle):
+        return 0
+    def waveInReset(self, handle):
+        self.calls.append('reset')
+    def waveInUnprepareHeader(self, handle, header, size):
+        return 0
+    def waveInClose(self, handle):
+        self.calls.append('close')
+
+
+class MicrophoneRecorderTests(unittest.TestCase):
+    """REQ-S01-71：录音会话收集 16 kHz 单声道 PCM，录满上限自动结束，stop() 交回 WAV 与峰值。"""
+    def test_records_until_limit_and_returns_wav(self):
+        import struct
         import time
-        launched = []
-
-        class FakeProcess:
-            pid = 4321
-            def __init__(self, command, **kwargs):
-                launched.append(command)
-                self.stdout = io.BytesIO('READY\nTEXT 主角走进雨夜\nTEXT  \nERR 没有麦克风\n'.encode('utf-8'))
-                self.code = None
-            def poll(self):
-                return self.code
-
-        with patch.object(platform_tools.os, 'name', 'nt'):
-            session = platform_tools.VoiceDictation(popen=FakeProcess)
-            self.assertEqual(session.start(), '')
-        self.assertIn('-EncodedCommand', launched[0])
-        events = []
-        for _ in range(100):
-            events += session.poll()
-            if events and events[-1][0] == 'stopped':break
+        winmm = FakeWinmm(sample=1200)
+        recorder = platform_tools.MicrophoneRecorder(max_seconds=0.5, winmm=winmm)
+        self.assertEqual(recorder.start(), '')
+        for _ in range(200):
+            if recorder.finished:break
             time.sleep(0.01)
-        self.assertEqual(events, [('ready', ''), ('text', '主角走进雨夜'), ('error', '没有麦克风'), ('stopped', '')])
-        with patch.object(platform_tools, 'terminate_process_tree') as killed:
-            process = session.process
-            session.stop()
-        killed.assert_called_once_with(process)
-        self.assertFalse(session.running)
+        self.assertTrue(recorder.finished, '录满上限应自动结束')
+        wav, peak = recorder.stop()
+        self.assertEqual(peak, 1200)
+        self.assertGreaterEqual(recorder.seconds, 0.5)
+        self.assertEqual(wav[:4] + wav[8:16], b'RIFFWAVEfmt ')
+        channels, rate = struct.unpack('<HI', wav[22:28])
+        self.assertEqual((channels, rate), (1, platform_tools.RECORD_RATE))
+        self.assertEqual(struct.unpack('<I', wav[40:44])[0], len(wav) - 44)
+        self.assertEqual(winmm.calls[-2:], ['reset', 'close'])
 
-    def test_non_windows_reports_reason_without_launching(self):
+    def test_stop_ends_recording_early(self):
+        winmm = FakeWinmm()
+        recorder = platform_tools.MicrophoneRecorder(max_seconds=60, winmm=winmm)
+        self.assertEqual(recorder.start(), '')
+        recorder.stop()
+        self.assertTrue(recorder.finished)
+        self.assertLess(recorder.seconds, 60)
+        self.assertIn('close', winmm.calls)
+
+    def test_missing_or_busy_device_reports_reason(self):
+        self.assertIn('没有找到麦克风', platform_tools.MicrophoneRecorder(winmm=FakeWinmm(devices=0)).start())
+        busy = platform_tools.MicrophoneRecorder(winmm=FakeWinmm(open_code=4))
+        self.assertIn('错误码 4', busy.start())
+        self.assertFalse(busy.finished)
         with patch.object(platform_tools.os, 'name', 'posix'):
-            session = platform_tools.VoiceDictation(popen=lambda *a, **k: self.fail('不应启动进程'))
-            self.assertTrue(session.start())
+            self.assertTrue(platform_tools.MicrophoneRecorder().start())
+
+
