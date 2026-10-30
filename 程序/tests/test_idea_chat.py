@@ -1310,7 +1310,7 @@ class SendMessageTests(_Harness):
             source.write_text('角色设定', encoding='utf-8')
             archived = archive_idea_attachments(proj, (source,))[0]
             d, win = self.desktop(proj)
-            d.show(0); win.update()
+            d.show(0); self.settle_script_page(win)
             tree = d.idea_uploaded_table.tree
             self.assertEqual(tree.item(tree.get_children()[0], 'values'), ('☐ ' + source.name,))
             d.idea_attachment_paths = ()
