@@ -221,9 +221,9 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             icon.pack(side='left')
             limit=CHAR_WIDTH['3xl']
             title=ttk.Label(chip,text=name if len(name)<=limit else name[:limit-1]+'…',style='Composer.TLabel')
-            # 右侧留出 × 的位置：× 用 place 贴在右上角，不参与卡片的请求宽度。
-            title.pack(side='left',padx=(SPACING['xs'],SPACING['lg']))
             close=ttk.Label(chip,text=ICON_CLOSE,style='Composer.Chip.Close.TLabel',cursor='hand2')
+            # 右侧按 × 的实际宽度留位：× 用 place 贴在右上角，不参与卡片的请求宽度，否则会压住文件名末尾。
+            title.pack(side='left',padx=(SPACING['xs'],close.winfo_reqwidth()+SPACING['xs']))
             close.place(relx=1.0,y=SPACING['none'],anchor='ne')
             chip.attachment_path,chip.close_button=path,close
             tip=name+('（%s）' % tips[name] if name in tips else '')
@@ -235,7 +235,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             for sequence,flag in (('<Enter>','active'),('<Leave>','!active')):close.bind(sequence,lambda event,flag=flag:event.widget.state([flag]),add='+')
             Tooltip(close,'删除附件')
         if not paths:return panel.pack_forget()
-        if not panel.winfo_manager():panel.pack(side='top',fill='x',pady=(SPACING['xs'],SPACING['xs']),before=self.idea_input)
+        if not panel.winfo_manager():panel.pack(side='left',fill='x',expand=True,padx=(SPACING['xs'],SPACING['xs']))
         panel.schedule()
     def choose_idea_attachments(self):
         """选择创意附档；分模式准入、归档和解析均在后台进行。"""

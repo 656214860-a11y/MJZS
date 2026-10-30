@@ -200,6 +200,8 @@ DIALOG_MIN_HEIGHT = 160
 # Tooltip 的出现节奏和视觉只由 ui_widgets.Tooltip 消费；页面只提供说明文本，
 # 不得各自创建无边框窗口或复制 Enter/Leave 的延迟与销毁逻辑。
 TOOLTIP_DELAY_MS = 400
+# 语音输入：界面每隔这么久取一次后台听写结果。
+VOICE_POLL_MS = 150
 TOOLTIP_OFFSET = SPACING["sm"]
 TOOLTIP_PADDING = (SPACING["sm"], SPACING["xs"])
 TOOLTIP_FONT = FONTS["caption"]

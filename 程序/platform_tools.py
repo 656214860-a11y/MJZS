@@ -383,18 +383,86 @@ def work_area():
     return (rect.left, rect.top, rect.right, rect.bottom)
 
 
-def start_voice_typing():
-    """调起 Windows 自带语音输入（等同按 Win+H，REQ-S01-67）；成功返回空串，失败返回原因。"""
-    if os.name != 'nt':
-        return '当前系统没有 Windows 语音输入'
-    try:
-        import ctypes
-        user32 = ctypes.windll.user32
-        win, letter, key_up = 0x5B, 0x48, 0x0002  # VK_LWIN、H、KEYEVENTF_KEYUP
-        user32.keybd_event(win, 0, 0, 0)
-        user32.keybd_event(letter, 0, 0, 0)
-        user32.keybd_event(letter, 0, key_up, 0)
-        user32.keybd_event(win, 0, key_up, 0)
-    except (OSError, AttributeError, ValueError) as error:
-        return str(error) or '系统拒绝了按键请求'
-    return ''
+# REQ-S01-70：Win+H 依赖 Windows 语音输入与 TSF，部分系统（如 LTSC）调不起或写不进 Tk。
+# 改用系统自带 System.Speech 听写：隐藏的 PowerShell 逐句识别默认麦克风，一句一行写到 stdout。
+# 脚本纯 ASCII；每轮识别后核对父进程，主程序异常退出时子进程自行结束。
+_DICTATION_SCRIPT = r"""
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+try {
+  Add-Type -AssemblyName System.Speech
+  $info = [System.Speech.Recognition.SpeechRecognitionEngine]::InstalledRecognizers() |
+    Where-Object { $_.Culture.Name -eq 'zh-CN' } | Select-Object -First 1
+  if ($info) { $engine = New-Object System.Speech.Recognition.SpeechRecognitionEngine($info) }
+  else { $engine = New-Object System.Speech.Recognition.SpeechRecognitionEngine }
+  $engine.LoadGrammar((New-Object System.Speech.Recognition.DictationGrammar))
+  $engine.SetInputToDefaultAudioDevice()
+} catch { [Console]::Out.WriteLine('ERR ' + $_.Exception.Message); [Console]::Out.Flush(); exit 1 }
+[Console]::Out.WriteLine('READY'); [Console]::Out.Flush()
+while ($true) {
+  $result = $engine.Recognize([TimeSpan]::FromSeconds(3))
+  if ($result -and $result.Text) { [Console]::Out.WriteLine('TEXT ' + $result.Text); [Console]::Out.Flush() }
+  if (-not (Get-Process -Id __PARENT__ -ErrorAction SilentlyContinue)) { exit 0 }
+}
+"""
+
+
+class VoiceDictation:
+    """系统听写会话：start() 起后台识别，poll() 取出已识别事件，stop() 结束进程。
+
+    事件是 ``(kind, text)``：``ready`` 麦克风已打开、``text`` 一句识别结果、
+    ``error`` 起不来的原因、``stopped`` 进程已退出。读线程只往队列里放，
+    界面线程定时 poll()，不在后台线程碰 Tk。
+    """
+    def __init__(self, *, popen=None):
+        import queue
+        self.events = queue.Queue()
+        self.process = None
+        self.popen = popen
+
+    @property
+    def running(self):
+        return self.process is not None and self.process.poll() is None
+
+    def start(self):
+        """成功返回空串，失败返回原因；已在听写时什么也不做。"""
+        if os.name != 'nt':
+            return '当前系统没有 Windows 听写组件'
+        if self.running:
+            return ''
+        import base64
+        script = _DICTATION_SCRIPT.replace('__PARENT__', str(os.getpid()))
+        encoded = base64.b64encode(script.encode('utf-16-le')).decode('ascii')
+        command = ['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                   '-EncodedCommand', encoded]
+        try:
+            self.process = launch_background(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                             stderr=subprocess.DEVNULL, popen=self.popen)
+        except OSError as error:
+            self.process = None
+            return str(error) or '无法启动 PowerShell'
+        threading.Thread(target=self._read, args=(self.process,), name='voice-dictation', daemon=True).start()
+        return ''
+
+    def _read(self, process):
+        for raw in iter(process.stdout.readline, b''):
+            line = raw.decode('utf-8', errors='replace').strip()
+            kind, _, text = line.partition(' ')
+            if kind == 'READY':
+                self.events.put(('ready', ''))
+            elif kind == 'TEXT' and text.strip():
+                self.events.put(('text', text.strip()))
+            elif kind == 'ERR':
+                self.events.put(('error', text.strip() or '听写组件不可用'))
+        self.events.put(('stopped', ''))
+
+    def poll(self):
+        items = []
+        while not self.events.empty():
+            items.append(self.events.get_nowait())
+        return items
+
+    def stop(self):
+        process, self.process = self.process, None
+        if process is not None and process.poll() is None:
+            terminate_process_tree(process)

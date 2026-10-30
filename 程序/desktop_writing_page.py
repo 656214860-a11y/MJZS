@@ -17,7 +17,7 @@ import ui_plugin_registry
 from pathlib import Path
 from responsive_ui import CheckboxColumn, FlowBar, bind_row_toggle, configure_check_column, fit_row_height, row_toggle_target
 from tkinter import ttk
-from ui_tokens import BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, SCRIPT_ACTION_WIDTH, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
+from ui_tokens import BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, SCRIPT_ACTION_WIDTH, VOICE_POLL_MS, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from desktop_file_card import TreeRowCard, script_row_card
 from ui_widgets import Card, DataTable, EllipsisLabel, PrimaryButton, SecondaryButton, TextArea, Tooltip, ask_string
 
@@ -171,6 +171,51 @@ class WritingPageMixin:
         return self.status.set(text + '；卡片在 01剧本准备/input/recon_card.json')
 
 
+class VoiceInput:
+    """REQ-S01-70：麦克风开关。系统听写逐句识别，结果插到输入框光标处；再点一次或页面销毁即停止。"""
+    LISTENING_STYLE, IDLE_STYLE = 'Tokens.Composer.Send.TButton', 'Tokens.Composer.Icon.TButton'
+
+    def __init__(self, page, box, button):
+        self.page, self.box, self.button = page, box, button
+        self.session, self.pending = None, None
+        box.bind('<Destroy>', lambda event: self.stop() if event.widget is box else None, add='+')
+
+    @property
+    def listening(self):
+        return self.session is not None and self.session.running
+
+    def toggle(self):
+        if self.listening:return self.stop('语音输入已停止。')
+        import platform_tools
+        self.session = self.session or platform_tools.VoiceDictation()
+        reason = self.session.start()
+        if reason:return self.page.status.set('语音输入未能启动（%s）。' % reason)
+        self.button.configure(style=self.LISTENING_STYLE)
+        self.box.focus_force()
+        self.page.status.set('正在打开麦克风…')
+        self.poll()
+
+    def poll(self):
+        self.pending = None
+        if self.session is None or not self.box.winfo_exists():return self.stop()
+        for kind, text in self.session.poll():
+            if kind == 'ready':self.page.status.set('正在听写：说完一句会自动写入输入框，再点麦克风停止。')
+            elif kind == 'text':self.box.insert('insert', text);self.box.see('insert')
+            elif kind == 'error':return self.stop('语音输入不可用（%s）；请在 Windows 设置的「隐私和安全性 › 麦克风」与「时间和语言 › 语音」里检查。' % text)
+            elif kind == 'stopped':return self.stop('语音输入已结束。')
+        self.pending = self.box.after(VOICE_POLL_MS, self.poll)
+
+    def stop(self, message=None):
+        if self.pending is not None:
+            try:self.box.after_cancel(self.pending)
+            except tk.TclError:pass
+            self.pending = None
+        if self.session is not None:self.session.stop()
+        try:self.button.configure(style=self.IDLE_STYLE)
+        except tk.TclError:return
+        if message:self.page.status.set(message)
+
+
 class _WritingPage:
     """剧本准备页（从 WritingPageMixin.writing 的闭包原样改写成类，R1817）：共享的局部变量成了实例属性，嵌套函数成了方法；原来的 self（桌面主窗）改叫 page。"""
     def __init__(self, page):
@@ -314,8 +359,6 @@ class _WritingPage:
         # 仿 Claude Code 桌面版：附件卡片、输入区、「+」上传与发送／终止都收在同一个圆角框里。
         frame=Card(composer,padding=(SPACING['sm'],SPACING['xs']));frame.pack(fill='x')
         self.page.idea_composer_frame=frame
-        # 附件卡片行：有附件才 pack 到输入区上方，没有附件不占行。
-        self.page.idea_uploaded_panel=FlowBar(frame,style='Composer.TFrame')
         self.input_box=TextArea(frame,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
                           font=FONTS['body'],relief='flat',bd=0,highlightthickness=0,padx=SPACING['xs'],pady=SPACING['xs'],undo=True)
         self.input_box.pack(side='top',fill='x')
@@ -325,11 +368,14 @@ class _WritingPage:
         attach_button.pack(side='left')
         Tooltip(attach_button,'上传附件')
         if os.name=='nt':
-            voice_button=SecondaryButton(input_row,text=ICON_MICROPHONE,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Icon.TButton',
-                                         command=lambda:self.page.safe(self.start_voice_input))
+            voice_button=SecondaryButton(input_row,text=ICON_MICROPHONE,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Icon.TButton')
             voice_button.pack(side='left',padx=(SPACING['xs'],SPACING['none']))
-            Tooltip(voice_button,'语音输入（Win+H）：说话即自动写入输入框')
+            Tooltip(voice_button,'语音输入：点一下开始，说完一句自动写入输入框；再点一下停止')
+            self.page.idea_voice_input=VoiceInput(self.page,self.input_box,voice_button)
+            voice_button.configure(command=lambda:self.page.safe(self.page.idea_voice_input.toggle))
             self.page.idea_voice_button=voice_button
+        # REQ-S01-70：附件卡片排在麦克风右侧、发送左侧，按上传顺序从左往右，放不下自动换行；没有附件不占位。
+        self.page.idea_uploaded_panel=FlowBar(input_row,style='Composer.TFrame')
         submit_button=SecondaryButton(input_row,text=ICON_SEND,width=CHAR_WIDTH['xs'],style='Tokens.Composer.Send.TButton',
                                  command=lambda:self.page.idea_send.invoke())
         submit_button.pack(side='right')
@@ -339,7 +385,7 @@ class _WritingPage:
         self.page.idea_input_row=input_row
         # 附件明细（字数等）只作数据：卡片悬停提示与发送前校验都读它，不再单独占一行。
         self.page.idea_attachment_status=tk.StringVar(value='')
-        self.input_hint=ttk.Label(frame,text='输入想法，Enter 发送，＋ 上传附件',style='Composer.Muted.TLabel')
+        self.input_hint=ttk.Label(frame,text='输入想法，Enter 发送，点 + 上传附件',style='Composer.Muted.TLabel')
         self.page.idea_input_hint=self.input_hint
         self.input_box.bind('<Destroy>',lambda event:self.stop_input_hint() if event.widget is self.input_box else None,add='+')
         self.page.shortcuts.bind(self.input_box, ('<Escape>',), self.interrupt_from_input,
@@ -474,12 +520,6 @@ class _WritingPage:
         self.stop_input_hint()
         return 'break'
 
-    def start_voice_input(self):
-        """REQ-S01-67：先把焦点放进输入框，再调起系统听写，文字才会落到这里。"""
-        import platform_tools
-        self.input_box.focus_force()
-        reason=platform_tools.start_voice_typing()
-        if reason:self.page.status.set('语音输入未能调起（%s）；可在输入框内手动按 Win+H。' % reason)
     def interrupt_from_input(self, event=None):
         """运行中在输入框按 Esc 等同点终止；空闲时不拦截，交给其他绑定。"""
         if not self.page.script_task_active():return None
