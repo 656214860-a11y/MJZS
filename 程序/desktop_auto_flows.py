@@ -58,12 +58,12 @@ class AutoFlowsMixin:
         now=time.monotonic()
         if self.root is None or now<getattr(self,'_download_inbox_due',0):return []
         self._download_inbox_due=now+5
-        from stage_execution_service import collect_download_inbox
-        try:done=collect_download_inbox(self.root)
+        from stage_download_inbox_service import collect_download_inbox, overwrite_backup_notice
+        try:backups=[];done=collect_download_inbox(self.root,backups=backups)
         except (OSError, ValueError) as exc:
             LOGGER.warning('下载收件箱收回失败：%s', exc);return []
         if done:
-            self.status.set('已从下载文件夹放回 '+str(len(done))+' 个文件：'+'、'.join(path.name for path in done[:3])+('…' if len(done)>3 else ''))
+            self.status.set('已从下载文件夹放回 '+str(len(done))+' 个文件：'+'、'.join(path.name for path in done[:3])+('…' if len(done)>3 else '')+('；'+overwrite_backup_notice(backups).rstrip('；') if backups else ''))
             if self.page_index==PAGE['script']:
                 refresh=getattr(self,'refresh_script_list',None)
                 if callable(refresh):refresh()

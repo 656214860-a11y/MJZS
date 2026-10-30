@@ -70,8 +70,14 @@ class DownloadInboxTests(unittest.TestCase):
         os.utime(target, (now - 600, now - 600))
         register_download_inbox(self.project, str(target), now=now - 60)
         self._download(target.name, '新大纲'.encode('utf-8'), at=now)
-        self.assertEqual(collect_download_inbox(self.project, now=now, downloads=self.downloads), [target])
+        backups = []
+        self.assertEqual(collect_download_inbox(self.project, now=now, downloads=self.downloads,
+                                                backups=backups), [target])
         self.assertEqual(target.read_text(encoding='utf-8'), '新大纲')
+        # 覆盖前原文件先备份到项目「覆盖前备份」，用户手改的内容不会凭空消失。
+        self.assertEqual([original for original, _backup in backups], [target])
+        self.assertEqual(backups[0][1].read_text(encoding='utf-8'), '旧大纲')
+        self.assertTrue(backups[0][1].is_relative_to(self.project / '工作流任务' / '覆盖前备份'))
 
     def test_space_separated_download_matches_underscore_target(self):
         target = self.project / '01剧本准备' / '项目设定' / '一百块流浪记_项目设定_Google_20261021.md'

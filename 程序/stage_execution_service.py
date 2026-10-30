@@ -1409,12 +1409,12 @@ def publish_response_archive(project, text):
     return str(target)
 
 
-def import_downloaded_creatives(context, provider='', model=''):
+def import_downloaded_creatives(context, provider='', model='', backups=None):
     """L3 编排：从本机「下载」文件夹收回桌面 Agent 窗口给出的同项目创作文件并发布。"""
     from idea_chat import import_downloaded_documents
     from platform_tools import downloads_directory
     return import_downloaded_documents(context, downloads_directory(), provider=provider, model=model,
-                                       publish=publish_idea_creative)
+                                       publish=publish_idea_creative, backups=backups)
 
 
 from stage_download_inbox_service import (

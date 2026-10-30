@@ -66,6 +66,27 @@ def recycle_base(root):
     return _recycle_base(Path(root))
 
 
+OVERWRITE_BACKUP_DIR='覆盖前备份'   # 与回收站同在项目「工作流任务」下
+
+
+def backup_before_overwrite(root, path, now=None):
+    """外部来源覆盖用户可见文件前，把原文件复制到 ``root`` 的「覆盖前备份」并返回副本路径。
+
+    只复制、不移动：原文件仍在原位，调用方随后照常覆盖。文件不存在返回 None；
+    越界、链接或复制不完整一律抛错，调用方据此放弃覆盖。
+    """
+    root=Path(root).resolve(); path=Path(path)
+    if not path.is_file():return None
+    if path.is_symlink() or not _within(path,root):
+        raise ValueError('覆盖前备份只接受项目内的普通文件：'+str(path))
+    from agent.core import save_file
+    stamp=time.strftime('%Y%m%d_%H%M%S',time.localtime(now if now is not None else time.time()))
+    target=(_recycle_base(root).parent/OVERWRITE_BACKUP_DIR/(stamp+'_'+uuid.uuid4().hex[:8])
+            /path.resolve().relative_to(root))
+    save_file(target,path)   # 原子复制并核对长度；来源变化即放弃
+    return target
+
+
 def read_recycle_batch(root, batch):
     """只读一个已登记回收批次，兼容 ``items`` 与早期 ``files`` 清单。
 
