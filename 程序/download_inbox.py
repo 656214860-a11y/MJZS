@@ -109,7 +109,10 @@ def _newest(files, since, accept):
 
 
 def match_registered(downloads, pending, now):
-    """同 ``match()``，每项另带原登记目标：``[(下载文件, 写入路径, 登记目标)]``。"""
+    """同 ``match()``，每项另带要销账的登记目标：``[(下载文件, 写入路径, (登记目标, …))]``。
+
+    同一份下载可能同时对上几次派发的登记（如换了模型名、同名件与只差日期的旧目标），
+    只写到最近一次派发的那个位置；其余登记随之销账，不再另存副本。"""
     folder = Path(downloads)
     try:
         files = [path for path in folder.iterdir() if path.is_file()] if folder.is_dir() else []
@@ -126,7 +129,7 @@ def match_registered(downloads, pending, now):
         key = _plain_name(target.name)
         if key not in by_name or since > by_name[key][1]:
             by_name[key] = (target, since)
-    found = []
+    claims = {}
     for key, (target, since) in by_name.items():
         written = target
         best = _newest(files, since, lambda path: _plain_name(path.name) == key)
@@ -140,14 +143,18 @@ def match_registered(downloads, pending, now):
             best = _newest(files, since, newer)
             if best is not None:
                 written = dated_target(target, _dated(_plain_name(best[1].name))[1])
-        if best is None:
-            continue
+        if best is not None:
+            claims.setdefault(best[1], []).append((since, dated is None, best[0], written, target))
+    found = []
+    for source, rows in claims.items():
+        rows.sort(key=lambda row: row[:2], reverse=True)   # 最近一次派发优先，同一次派发同名件优先
+        _since, _exact, mtime, written, target = rows[0]
         try:
-            if written.exists() and written.stat().st_mtime >= best[0]:
+            if written.exists() and written.stat().st_mtime >= mtime:
                 continue
         except OSError:
             continue
-        found.append((best[1], written, target))
+        found.append((source, written, tuple(row[4] for row in rows)))
     return found
 
 
@@ -156,7 +163,7 @@ def match(downloads, pending, now):
 
     同一文件名对应多个待收回目标时只认最近一次派发，避免把文件放错位置。
     """
-    return [(source, written) for source, written, _target in match_registered(downloads, pending, now)]
+    return [(source, written) for source, written, _targets in match_registered(downloads, pending, now)]
 
 
 def remaining(pending, done, now):
