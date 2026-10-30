@@ -109,6 +109,11 @@ def read_bytes(path):
 
 
 @access()
+def path_key(path):
+    """路径的短指纹（resolve＋casefold 后 sha1 前 16 位），用作「每个项目一份」的本机文件名。"""
+    return hashlib.sha1(str(Path(path).resolve()).casefold().encode('utf-8')).hexdigest()[:16]
+
+
 def file_digest(path):
     """流式 sha256 校验和（十六进制），按文件签名缓存；从不把整份文件读进内存。
 

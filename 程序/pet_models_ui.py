@@ -678,7 +678,7 @@ class _ModelManager:
         results = self.Queue()
         self.hint.set('正在搜寻「%s」：检查注册表、商店安装记录和常见安装目录…' % model)
         self.search_button.configure(text='正在搜寻…')
-        self.search_busy.set_busy(True, controls=(self.search_button,), progress=False)
+        self.search_busy.set_busy(True, controls=(self.search_button,))
 
         def worker():
             try:

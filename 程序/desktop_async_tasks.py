@@ -14,8 +14,7 @@ class AsyncTasksMixin:
     def async_(self,fn,done=None,show_progress=True,label=None):
         self._async_ticket+=1;ticket=self.background_tasks.submit(self._async_ticket,label=label,project=getattr(self,'root',None))
         self.worker=True
-        self.busy_state.set_busy(True, message=label or '正在处理… 界面保持响应',
-                                 progress=show_progress)
+        self.busy_state.set_busy(True, message=label or '正在处理… 界面保持响应')
         def run():
             try:self.q.put((ticket,True,self.background_tasks.run(ticket,fn),done))
             except Exception as e:

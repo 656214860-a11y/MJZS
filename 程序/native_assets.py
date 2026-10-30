@@ -429,7 +429,7 @@ class _AssetControls:
         if not self.app.launch_comfy():return
         self.progress_text.set('正在检测本地 ComfyUI…（可取消）')
         url=self.app.settings.get('comfy_url','http://127.0.0.1:8188')
-        self.check_stop.clear();self.busy.set_busy(True,progress_interval=15);self.cancel_button.configure(text='取消检测');self.cancel_button.state(['!disabled'])
+        self.check_stop.clear();self.busy.set_busy(True);self.cancel_button.configure(text='取消检测');self.cancel_button.state(['!disabled'])
         def probe():
             from comfy_service import Comfy
             from urllib.error import HTTPError                  # 第 34 期第 9 条：HTTP 栈按需加载
@@ -491,7 +491,7 @@ class _AssetControls:
                 self.progress_text.set('请先保存 Comfy API Key，或切换到 Seedream 5.0 Pro（使用火山方舟 Seedream Key）。');self.account();return
         if options['model']!='Seedream 5.0 Pro':
             if not self.app.launch_comfy(silent=True):return             # 第 62 期任务 8：静默拉起，不弹选择框
-        self.progress_text.set('正在启动制图：'+options['model']);self.busy.set_busy(True,controls=[self.selector,self.shape],progress_interval=15)
+        self.progress_text.set('正在启动制图：'+options['model']);self.busy.set_busy(True,controls=[self.selector,self.shape])
         self.gen_stop.clear();self.cancel_button.configure(text='停止制图');self.cancel_button.state(['!disabled'])
         url=self.app.settings.get('comfy_url','http://127.0.0.1:8188')
         def finished(result):

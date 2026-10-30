@@ -11,7 +11,7 @@ from pathlib import Path
 
 import artifact_schema
 from agent.core import save
-from file_cache import read_json
+from file_cache import path_key, read_json
 
 PROGRAM = Path(__file__).resolve().parent
 MATERIAL_TYPES = ('项目设定', '项目大纲', '角色卡', '自然剧本')
@@ -21,8 +21,7 @@ UNCHANGED_NOTICE = ('【续发增量】本条接续本对话上一轮任务：�
 
 
 def ledger_path(root, program=None):
-    key = hashlib.sha1(str(Path(root).resolve()).casefold().encode('utf-8')).hexdigest()[:16]
-    return Path(program or PROGRAM) / 'private' / '桌面续发' / (key + '.json')
+    return Path(program or PROGRAM) / 'private' / '桌面续发' / (path_key(root) + '.json')
 
 
 def entry_key(stage, config):
@@ -45,7 +44,7 @@ def load(root, program=None):
 
 
 # 剧本准备四步与材料的对应；材料按「本轮要做的那一步及之前」取，不把下游成果塞进上游任务。
-STEP_OF = {'项目设定': 0, '项目大纲': 1, '角色卡': 2, '自然剧本': 3, '当前采用的自然剧本': 3}
+STEP_OF = {'项目设定': 0, '项目大纲': 1, '角色卡': 2, '自然剧本': 3}
 PREPARATION_NAMES = {'项目设定': '项目设定', '剧本大纲': '项目大纲', '角色卡': '角色卡'}
 _STEP_WORDS = (('自然剧本', 3), ('剧本', 3), ('角色卡', 2), ('人物卡', 2), ('人物设定', 2),
                ('大纲', 1), ('纲要', 1), ('设定', 0))

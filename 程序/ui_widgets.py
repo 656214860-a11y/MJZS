@@ -710,26 +710,21 @@ def notify(parent, message, *, level="info", title=None, modal=True, status=None
 
 
 class BusyState:
-    """共享主任务的忙碌／加载态，不拥有后台任务或取消语义。"""
+    """共享主任务的忙碌／加载态（状态文字、转圈、锁住的控件），不拥有后台任务或取消语义。"""
 
-    def __init__(self, status, progress=None, *, idle_determinate=False, spinner=None):
+    def __init__(self, status, *, spinner=None):
         self.status = status
-        self.progress = progress
         self.spinner = spinner  # 可选 ui_motion.Spinner：忙碌时显示并转圈
-        self.idle_determinate = idle_determinate
         self.busy = False
         self._controls = ()
 
-    def set_busy(self, busy, *, message=None, controls=(), progress=True, progress_interval=15):
-        """成对切换状态、进度条与可选控件；重复调用安全。"""
+    def set_busy(self, busy, *, message=None, controls=()):
+        """成对切换状态、转圈与可选控件；重复调用安全。"""
         if busy:
             self.busy = True
             self._controls = tuple(controls)
             for control in self._controls:
                 control.state(['disabled'])
-            if progress and self.progress is not None:
-                if self.idle_determinate:self.progress.configure(mode='indeterminate')
-                self.progress.start(progress_interval)
             if message and callable(getattr(self.status, 'set', None)):
                 self.status.set(message)
             if self.spinner is not None:
@@ -737,9 +732,6 @@ class BusyState:
             return True
         if self.spinner is not None:
             self.spinner.stop()
-        if self.progress is not None:
-            self.progress.stop()
-            if self.idle_determinate:self.progress.configure(mode='determinate', value=0)
         for control in self._controls:
             control.state(['!disabled'])
         self._controls = ()

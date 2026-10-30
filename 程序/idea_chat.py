@@ -170,20 +170,11 @@ def _same_project_name(candidate, expected):
     return bool(normalize(candidate)) and normalize(candidate) == normalize(expected)
 
 
-_FILENAME_DAY = re.compile(r'[ _](\d{8})\.md$', re.I)
-
-
 def _filename_day(filename):
-    "四段式文件名末尾的日期段（去掉浏览器副本后缀；空格与下划线都认），不是合法日期返回空串。"
-    from datetime import datetime
-    found = _FILENAME_DAY.search(_DOWNLOAD_COPY_SUFFIX.sub('', Path(str(filename or '')).name))
-    if not found:
-        return ''
-    try:
-        datetime.strptime(found.group(1), '%Y%m%d')
-    except ValueError:
-        return ''
-    return found.group(1)
+    "四段式 .md 文件名末尾的日期段（规则同下载收回），不是合法日期返回空串。"
+    from download_inbox import filename_day
+    name = Path(str(filename or '')).name
+    return filename_day(name) if name.lower().endswith('.md') else ''
 
 
 _FILENAME_PROJECT_SPLIT = re.compile(r'[\s_\-—·｜|,，、;；:：()（）\[\]【】]+')

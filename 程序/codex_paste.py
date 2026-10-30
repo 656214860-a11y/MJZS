@@ -9,17 +9,18 @@ from agent.core import save_text
 def paste_existing(title,prompt,draft='',project='',deadline_seconds=15,*,program='',app_name=''):
     payload={'title':title,'prompt':prompt,'draft':draft,'project':str(project),
              'deadline':deadline_seconds,'program':str(program),'app_name':str(app_name)}
-    return _run(payload,deadline_seconds)
+    return _run(payload)
 
 
 def paste_attachment(title,prompt,attachment,*,program,app_name,deadline_seconds=45):
     """先以文件形式粘贴任务文件作附件，再粘贴短指令（REQ-S01-70）；返回形状同 paste_existing。"""
     payload={'title':title,'prompt':prompt,'draft':'','project':'','deadline':deadline_seconds,
              'program':str(program),'app_name':str(app_name),'attachment':str(attachment)}
-    return _run(payload,deadline_seconds)
+    return _run(payload)
 
 
-def _run(payload,deadline_seconds):
+def _run(payload):
+    deadline_seconds=payload['deadline']
     script=Path(__file__).with_name('codex_paste.ps1')
     program=payload['program']
     app = payload['app_name'].strip() or ('Claude Desktop' if program else 'GPT')

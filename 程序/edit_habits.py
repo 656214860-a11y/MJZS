@@ -9,7 +9,6 @@
   首次与续发同源；手搭的配置（含测试）不会读到本机规则。
 """
 import difflib
-import hashlib
 import json
 import re
 import uuid
@@ -45,8 +44,8 @@ def _store(program=None):
 
 
 def records_path(root, program=None):
-    key = hashlib.sha1(str(Path(root).resolve()).casefold().encode('utf-8')).hexdigest()[:16]
-    return _store(program) / '修改记录' / (key + '.json')
+    from file_cache import path_key
+    return _store(program) / '修改记录' / (path_key(root) + '.json')
 
 
 def rules_path(program=None):
