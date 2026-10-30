@@ -870,7 +870,7 @@ class SendMessageTests(_Harness):
             d, win = self.desktop(proj)
             d.show(0); self.settle_script_page(win)
             d.idea_input.delete('1.0', 'end'); win.update(); d._fit_composer()
-            self.assertEqual(int(d.idea_input.cget('height')), 1, '空输入框保持紧凑')
+            self.assertEqual(int(d.idea_input.cget('height')), 2, '空输入框保持两行')
             d.idea_input.insert('1.0', '第一行创意\n第二行创意\n第三行创意')
             win.update(); d._fit_composer(); win.update()
             self.assertGreaterEqual(int(d.idea_input.cget('height')), 3, '输入框自动显示完整多行文字')
@@ -891,9 +891,9 @@ class SendMessageTests(_Harness):
             for _ in range(6):
                 win.update_idletasks(); win.update()
                 heights.append(int(d.idea_input.cget('height')))
-            self.assertEqual(heights[0], 1)
+            self.assertEqual(heights[0], 2)
             self.assertEqual(len(set(heights)), 1,
-                             '空输入框点击后必须保持一行，不能随对话区压缩来回变化')
+                             '空输入框点击后必须保持两行，不能随对话区压缩来回变化')
 
     def test_narrow_composer_keeps_the_attachment_button_visible(self):
         """缩窄窗口时先保留右侧附件入口，输入框使用剩余宽度。"""
@@ -919,7 +919,7 @@ class SendMessageTests(_Harness):
             d.idea_input.delete('1.0', 'end'); win.update()
             self.assertTrue(d.idea_input_hint.place_info(), '空输入框时提示应已显示')
             d.idea_input_hint.event_generate('<Button-1>'); win.update()
-            self.assertEqual(int(d.idea_input.cget('height')), 1, '点击提示只应聚焦，不能扩大空输入框')
+            self.assertEqual(int(d.idea_input.cget('height')), 2, '点击提示只应聚焦，不能扩大空输入框')
             self.assertFalse(d.idea_input_hint.place_info(), '取得焦点后必须撤掉提示层')
 
     def test_composer_right_click_only_offers_paste_for_text_clipboard(self):

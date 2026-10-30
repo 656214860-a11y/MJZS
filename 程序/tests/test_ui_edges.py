@@ -1116,11 +1116,11 @@ class UiEdgeTests(unittest.TestCase):
             d.show(0); win.update()
             box = d.idea_log
             d.idea_input.delete('1.0', 'end'); win.update()
-            # 聊天记录按窗口剩余空间自适应；下方发送框在空白时仅保留一行，输入后再撑开。
+            # 聊天记录按窗口剩余空间自适应；下方发送框在空白时保留两行（契约有意变更：原一行），输入后再撑开。
             lines = int(box.cget("height"))
             self.assertGreaterEqual(lines, desktop_module.TALK_MIN_LINES, "再挤也留着下限那些行")
             self.assertLessEqual(lines, desktop_module.TALK_MAX_LINES, "字再多也不超过上限")
-            self.assertEqual(int(d.idea_input.cget("height")), 1, "空白发送框不挤占聊天区")
+            self.assertEqual(int(d.idea_input.cget("height")), 2, "空白发送框两行，不再多占聊天区")
             self.assertEqual(str(d.idea_send.master), str(d.idea_row), "「发送」在内容框下面那一行")
             # REQ-S01-62：「+」在输入区下方的框内左侧，发送／终止键在框内右侧。
             frame=d.idea_composer_frame
@@ -1141,9 +1141,13 @@ class UiEdgeTests(unittest.TestCase):
                              "发送按钮与输入框保留设计系统规定的微小防误触间距")
             d.idea_input.event_generate('<FocusOut>'); win.update()
             hint_info = d.idea_input_hint.place_info()
-            self.assertEqual(hint_info.get('rely'), '0.5', "空闲提示应以输入框中线垂直居中")
+            # 契约有意变更：输入框空框两行后，提示对齐首行，不再按中线居中。
             self.assertEqual(hint_info.get('relx'), '0', "空闲提示应从输入框左侧定位")
-            self.assertEqual(hint_info.get('anchor'), 'w', "静态提示应左对齐")
+            self.assertEqual(hint_info.get('anchor'), 'nw', "静态提示应左上对齐")
+            self.assertAlmostEqual(
+                d.idea_input_hint.winfo_rooty(),
+                d.idea_input.winfo_rooty() + d.idea_input.bbox('1.0')[1],
+                delta=3, msg="提示文字应与输入框首行顶边对齐")
             self.assertAlmostEqual(
                 d.idea_input_hint.winfo_rootx(),
                 d.idea_input.winfo_rootx() + d.idea_input.bbox('1.0')[0],

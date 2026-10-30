@@ -27,6 +27,9 @@ PAGE = pet_state.PAGE_OF
 # 字再多、窗口再高也不超过 TALK_MAX_LINES 行（一次铺满半页纸就不好操作了）；
 TALK_MIN_LINES=6
 TALK_MAX_LINES=15
+# 输入框空框时的行数与按内容撑开的上限；空框两行，向上长高。
+COMPOSER_MIN_LINES=2
+COMPOSER_MAX_LINES=8
 
 
 def _build_layout_scheduler(win):
@@ -359,7 +362,7 @@ class _WritingPage:
         # 仿 Claude Code 桌面版：附件卡片、输入区、「+」上传与发送／终止都收在同一个圆角框里。
         frame=Card(composer,padding=(SPACING['sm'],SPACING['xs']));frame.pack(fill='x')
         self.page.idea_composer_frame=frame
-        self.input_box=TextArea(frame,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=1,wrap='word',
+        self.input_box=TextArea(frame,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=COMPOSER_MIN_LINES,wrap='word',
                           font=FONTS['body'],relief='flat',bd=0,highlightthickness=0,padx=SPACING['xs'],pady=SPACING['xs'],undo=True)
         self.input_box.pack(side='top',fill='x')
         input_row=ttk.Frame(frame,style='Composer.TFrame');input_row.pack(side='top',fill='x')
@@ -467,8 +470,8 @@ class _WritingPage:
     def update_input_hint(self, event=None):
         try:
             if not self.page.draft_text().strip() and self.input_box.focus_get() is not self.input_box:
-                # Text 的 inside 边界已含文字内边距，避免再次累加 padx。
-                self.input_hint.place(in_=self.input_box,x=SPACING['none'],rely=0.5,anchor='w')
+                # Text 的 inside 边界已含文字内边距，避免再次累加 padx；纵向对齐首行（框有两行，不再居中）。
+                self.input_hint.place(in_=self.input_box,x=SPACING['none'],y=SPACING['none'],anchor='nw')
             else:self.stop_input_hint()
         except tk.TclError:pass
 
@@ -491,10 +494,10 @@ class _WritingPage:
         if not self.input_box.winfo_exists():return
         try:
             logical_lines=int(self.input_box.index('end-1c').split('.')[0])
-            # 空框只保留一行。旧逻辑在点击时按聊天框高度把 Text 放大到半屏，
+            # 空框保留 COMPOSER_MIN_LINES 行。旧逻辑在点击时按聊天框高度把 Text 放大到半屏，
             # 输入框、聊天框、画布各自的 Configure 又会重新测量对方，形成持续抖动。
             # 文字需要多行时才增长，并设上限以维持操作栏和文件表可见。
-            lines=min(8,max(1,logical_lines,self.display_lines(self.input_box)))
+            lines=min(COMPOSER_MAX_LINES,max(COMPOSER_MIN_LINES,logical_lines,self.display_lines(self.input_box)))
             if int(self.input_box.cget('height'))!=lines:
                 self.input_box.configure(height=lines)
                 self.page.fit_content()
