@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""REQ-S01-72：SKILL 引用按制作锁跳过不适用的引擎、带锚点的引用只内联该节；门禁核验不跳过。"""
+"""REQ-S01-73：SKILL 引用按制作锁跳过不适用的引擎、带锚点的引用只内联该节；门禁核验不跳过。"""
 import tempfile
 import unittest
 from pathlib import Path
@@ -36,7 +36,7 @@ class SkillSlimTests(unittest.TestCase):
         body, closure = workflow_settings._inline_skill_report(self.skill, strict=True, locks=locks)
         return body, [(row['target'], row['status']) for row in closure if row['depth'] == 1]
 
-    def test_req_s01_72_unmet_lock_conditions_are_not_inlined(self):
+    def test_req_s01_73_unmet_lock_conditions_are_not_inlined(self):
         body, rows = self.report({'track': '国内剧', 'material_source': '原创'})
         self.assertNotIn('海外规则正文', body)
         self.assertNotIn('旁白全文', body)
@@ -44,7 +44,7 @@ class SkillSlimTests(unittest.TestCase):
         self.assertEqual(rows[1:4], [('overseas.md#执行规则', 'conditional'), ('voice.md', 'conditional'),
                                      ('recon.md', 'conditional')])
 
-    def test_req_s01_72_met_or_empty_lock_conditions_are_inlined(self):
+    def test_req_s01_73_met_or_empty_lock_conditions_are_inlined(self):
         body, rows = self.report({'track': '海外剧', 'material_source': '热点速成（给方向先找选题）'})
         self.assertIn('海外规则正文', body)
         self.assertNotIn('海外其他正文', body)
@@ -54,7 +54,7 @@ class SkillSlimTests(unittest.TestCase):
         for text in ('海外规则正文', '旁白全文', '采风全文'):
             self.assertIn(text, body)
 
-    def test_req_s01_72_anchor_inlines_only_that_section_and_missing_anchor_falls_back(self):
+    def test_req_s01_73_anchor_inlines_only_that_section_and_missing_anchor_falls_back(self):
         body, rows = self.report({'track': '国内剧', 'material_source': '原创'})
         self.assertEqual(rows[0], ('engine.md#四工作流程', 'section'))
         section = body.split('## 引用: engine.md#四工作流程（节选）\n', 1)[1].split('\n\n## 引用:', 1)[0]
@@ -67,7 +67,7 @@ class SkillSlimTests(unittest.TestCase):
         self.assertEqual(rows[4], ('engine.md#不存在的节', 'inlined'))
         self.assertIn('## 引用: engine.md\n' + ENGINE, body)
 
-    def test_req_s01_72_master_gate_validation_skips_nothing(self):
+    def test_req_s01_73_master_gate_validation_skips_nothing(self):
         _text, _meta, _blocks, closure = workflow_settings._skill_blocks(self.skill, strict=True)
         self.assertNotIn('conditional', [row['status'] for row in closure])
         (self.skill.parent / 'voice.md').unlink()

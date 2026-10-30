@@ -1,4 +1,4 @@
-# R2118 桌面续发材料按步骤取、SKILL 引用按需按节内联（REQ-S01-71／72）（功能轮）
+# R2118 桌面续发材料按步骤取、SKILL 引用按需按节内联（REQ-S01-72／72）（功能轮）
 
 - 本轮类型：功能轮（§3.1）。日期：2026-10-30。分支 `codex/wip-R2118`（领号时由 `claude/distracted-gagarin-2ffc8e` 带出；工作树 `happy-jennings-48da69`），起点 `878cc1d7`。
 - 测试与基线：定向测试、默认冒烟通过；受影响冒烟有 1 项并行偶发红（见下），单独复跑通过。全量未运行（分支不累计欠账）。
@@ -15,7 +15,7 @@
 
 ## 改动
 
-- 需求先行：`docs/stages/S01_剧本准备.md` 新增 REQ-S01-71／DES-S01-71、REQ-S01-72／DES-S01-72，锚定表加两行。
+- 需求先行：`docs/stages/S01_剧本准备.md` 新增 REQ-S01-72／DES-S01-72、REQ-S01-73／DES-S01-73，锚定表加两行。
 - `desktop_send_ledger.py`：新增 `STEP_OF`、`request_step()`（只看用户原话，`【附档：` 之后不算）、`current_step()`（点名优先，否则数连续已确认的准备文件，都没有按自然剧本步骤）、`_confirmed_documents()`、`_latest_document()`、`_material_path()`。`material_targets()`／`snapshot()` 增加 `request_text`，只收当前步骤及之前的材料；路径依次取确认件、本模型交付文件、本项目任一模型交付的同类最新一份。
 - `workflow_tasks.py`：新增 `creative_source()`，取任务书里最后一段 `<剧本正文>` 内的用户输入。
 - `desktop_send_choice._resend_plan()`：把本次输入传给 `snapshot()`。
@@ -23,7 +23,7 @@
 - `workflow_settings.py`：新增 `_condition_unmet()`、`_anchor_slug()`、`_section()`；`_skill_blocks()` 增加 `locks`，条件不满足记 `conditional` 不读，带锚点只内联该节记 `section`，锚点找不到仍内联全文。`_inline_skill_report()`／`_inline_skill()` 透传 `locks`；`freeze_skills()` 与 `_one_skill_prompt()` 传 `workflow_lock`；`master_gate()` 不传，照旧核验全部引用。
 - `skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md`：「仅解说叙事类追加」改为「仅 `track` 为解说叙事类时追加」，与同行海外剧条件写法一致，便于按锁判定。
 - 本轮途中误把 `desktop_send_choice.py`、`desktop_send_ledger.py`、`workflow_tasks.py` 存成 CRLF，已改回 LF，与 HEAD 一致。
-- 新测试：`tests/test_desktop_send_steps.py`（6 条，REQ-S01-71）、`tests/test_skill_conditional_sections.py`（4 条，REQ-S01-72）。既有测试断言未动。
+- 新测试：`tests/test_desktop_send_steps.py`（6 条，REQ-S01-72）、`tests/test_skill_conditional_sections.py`（4 条，REQ-S01-73）。既有测试断言未动。
 
 ## 实测（用户项目，只读）
 
@@ -46,3 +46,7 @@
 ## 提交
 
 见提交记录（`dev.py commit`）；未 push，未合入 master。
+
+## 补记：需求改号
+
+合入前发现 R2112（已合入 master 的 3498aee8）用了 REQ-S01-71／DES-S01-71。本轮需求顺延为 REQ-S01-72／DES-S01-72（材料按步骤）、REQ-S01-73／DES-S01-73（SKILL 按需按节），文档、锚定表、测试名与本文件同步改号，断言未动。
