@@ -7,10 +7,22 @@ from agent.core import save_text
 
 
 def paste_existing(title,prompt,draft='',project='',deadline_seconds=15,*,program='',app_name=''):
-    script=Path(__file__).with_name('codex_paste.ps1')
     payload={'title':title,'prompt':prompt,'draft':draft,'project':str(project),
              'deadline':deadline_seconds,'program':str(program),'app_name':str(app_name)}
-    app = str(app_name or '').strip() or ('Claude Desktop' if program else 'GPT')
+    return _run(payload,deadline_seconds)
+
+
+def paste_attachment(title,prompt,attachment,*,program,app_name,deadline_seconds=45):
+    """先以文件形式粘贴任务文件作附件，再粘贴短指令（REQ-S01-70）；返回形状同 paste_existing。"""
+    payload={'title':title,'prompt':prompt,'draft':'','project':'','deadline':deadline_seconds,
+             'program':str(program),'app_name':str(app_name),'attachment':str(attachment)}
+    return _run(payload,deadline_seconds)
+
+
+def _run(payload,deadline_seconds):
+    script=Path(__file__).with_name('codex_paste.ps1')
+    program=payload['program']
+    app = payload['app_name'].strip() or ('Claude Desktop' if program else 'GPT')
     try:
         # Full episode prompts routinely exceed Windows' command-line limit.
         # Only filenames go in argv; immutable UTF-8 data stays out of shell code.

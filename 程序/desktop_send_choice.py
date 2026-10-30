@@ -5,6 +5,7 @@
 台账与计划的决策在 L3 ``desktop_send_ledger``，本模块只做界面与编排。
 """
 import logging
+from pathlib import Path
 
 import desktop_send_ledger as ledger
 from ui_widgets import BaseDialog, DescriptionBlock
@@ -16,6 +17,19 @@ DELIVERY = ('\n\n【交付方式】优先直接写入任务中给出的目标路
             '请以可下载文件交付，文件名必须与目标路径的文件名完全一致，'
             '用户下载后助手会自动放回对应位置。')
 FULL_HEADING = '【当前项目文件（含用户手改），以本次正文为准】'
+# Gemini 等桌面程序对超长单条输入直接报错：超过此字数改为任务文件作附件、输入框只放短指令（REQ-S01-70）。
+ATTACH_THRESHOLD = 8000
+
+
+def attachment_payload(engine, task_file, text):
+    """返回 (剪贴板文本, 附件路径)；不需要附件时附件路径为空串。"""
+    path = Path(task_file) if task_file else None
+    if engine != 'desktop-app' or len(text) <= ATTACH_THRESHOLD or path is None or not path.is_file():
+        return text, ''
+    instruction = (f'请完整阅读并执行附件「{path.name}」中的任务。附件就是本次全部任务说明'
+                   '（含 SKILL、规则和项目材料），请读到结尾再动手，不要只看开头。'
+                   '若看不到这个附件，请先告诉我附件没有上传成功，不要凭空创作。')
+    return instruction + DELIVERY, str(path)
 
 
 def _reference(task_file):

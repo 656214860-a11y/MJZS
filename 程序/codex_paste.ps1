@@ -61,6 +61,7 @@ if($SelfTestTarget){
 $payload=[IO.File]::ReadAllText($PayloadFile,[Text.Encoding]::UTF8)|ConvertFrom-Json
 $prompt=[string]$payload.prompt
 $claudeProgram=[string]$payload.program
+$attachment=if($payload.attachment){[string]$payload.attachment}else{''}
 $appName=if($payload.app_name){[string]$payload.app_name}elseif($claudeProgram){'Claude Desktop'}else{'GPT 桌面'}
 if($null -ne $payload.deadline){$DeadlineSeconds=[Math]::Min(120,[Math]::Max(1,[int]$payload.deadline))}
 
@@ -105,9 +106,18 @@ try{
   $edit.SetFocus()
   Start-Sleep -Milliseconds 200
   if([PasteWindow]::GetForegroundWindow() -ne $handle -or !$edit.Current.HasKeyboardFocus){continue}
+  if($attachment){
+   # 长任务（REQ-S01-70）：先以文件形式粘贴任务文件作附件，等上传后再粘贴短指令。
+   $files=New-Object System.Collections.Specialized.StringCollection
+   [void]$files.Add($attachment)
+   [System.Windows.Forms.Clipboard]::SetFileDropList($files)
+   [System.Windows.Forms.SendKeys]::SendWait('^v')
+   Start-Sleep -Milliseconds 1500
+  }
   [System.Windows.Forms.Clipboard]::SetText($prompt)
   if(!$claudeProgram){[System.Windows.Forms.SendKeys]::SendWait('^a')}
   [System.Windows.Forms.SendKeys]::SendWait('^v')
+  if($attachment){Finish $true "已把任务文件作为附件、短指令粘贴到 $appName；请确认附件已出现再手动发送，没有出现就把 $attachment 拖进对话框。"}
   Finish $true "已粘贴到 $appName，请检查内容并手动点击发送。"
  }
  Finish $false "已复制到剪贴板；未能自动粘贴，请在 $appName 输入框中手动粘贴并发送。"
