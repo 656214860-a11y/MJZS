@@ -210,7 +210,7 @@ class DeliveryFallbackTests(unittest.TestCase):
         with patch('platform_tools.launch_windows_app'), \
                 patch('codex_paste.paste_existing', side_effect=RuntimeError('uia failed')):
             desktop_idea_chat._deliver_desktop_app(
-                host, finish, 'r', 'task.md', '任务', '正文', r'C:\Tool.exe', 'Tool', True)
+                host, finish, 'r', 'task.md', '任务', '正文', r'C:\Tool.exe', 'Tool')
         self.assertEqual(finish.call_args.args[1], 'failed')
         self.assertIn('剪贴板', finish.call_args.args[2])
         self.assertIn('手动粘贴', finish.call_args.args[2])
@@ -221,7 +221,7 @@ class DeliveryFallbackTests(unittest.TestCase):
         with patch('platform_tools.launch_windows_app'), \
                 patch('codex_paste.paste_existing') as paste:
             desktop_idea_chat._deliver_desktop_app(
-                host, finish, 'r', 'task.md', '任务', '正文', r'C:\Tool.exe', 'Tool', True,
+                host, finish, 'r', 'task.md', '任务', '正文', r'C:\Tool.exe', 'Tool',
                 delivery='clipboard')
         paste.assert_not_called()
         self.assertEqual(finish.call_args.args[1], 'prepared')
@@ -232,7 +232,7 @@ class DeliveryFallbackTests(unittest.TestCase):
         finish = Mock()
         with patch('platform_tools.launch_windows_app') as launch:
             desktop_idea_chat._deliver_desktop_app(
-                host, finish, 'r', 'task.md', '任务', '正文', '', 'Tool', True)
+                host, finish, 'r', 'task.md', '任务', '正文', '', 'Tool')
         launch.assert_not_called()
         self.assertEqual(finish.call_args.args[1], 'prepared')
         self.assertIn('.exe', finish.call_args.args[2])
