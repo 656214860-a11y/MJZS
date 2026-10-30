@@ -416,7 +416,7 @@
   {
    "module": "desktop_idea_menus.py",
    "covered": 0,
-   "total": 78,
+   "total": 77,
    "percent": 0.0
   },
   {
@@ -494,7 +494,7 @@
   {
    "module": "desktop_script_pages.py",
    "covered": 0,
-   "total": 643,
+   "total": 653,
    "percent": 0.0
   },
   {
@@ -530,7 +530,7 @@
   {
    "module": "desktop_writing_page.py",
    "covered": 0,
-   "total": 588,
+   "total": 579,
    "percent": 0.0
   },
   {
@@ -560,7 +560,7 @@
   {
    "module": "edit_habits_dialog.py",
    "covered": 0,
-   "total": 104,
+   "total": 112,
    "percent": 0.0
   },
   {
@@ -1422,6 +1422,12 @@
    "percent": 0.0
   },
   {
+   "module": "ui_composer_style.py",
+   "covered": 0,
+   "total": 26,
+   "percent": 0.0
+  },
+  {
    "module": "ui_dialogs.py",
    "covered": 0,
    "total": 35,
@@ -1496,7 +1502,7 @@
   {
    "module": "ui_tokens.py",
    "covered": 0,
-   "total": 148,
+   "total": 154,
    "percent": 0.0
   },
   {
@@ -1508,7 +1514,7 @@
   {
    "module": "ui_widgets.py",
    "covered": 0,
-   "total": 692,
+   "total": 694,
    "percent": 0.0
   },
   {
@@ -1969,5 +1975,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 326
+ "modules_total": 327
 }

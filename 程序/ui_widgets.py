@@ -17,12 +17,11 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        INPUT_BORDER_HOVER, INPUT_BORDER_WIDTH, INPUT_ERROR_BORDER,
                        INPUT_FOCUS_BORDER, INPUT_FONT, INPUT_FOREGROUND,
                        INPUT_PADDING_X, INPUT_PADDING_Y, INPUT_PLACEHOLDER_FOREGROUND,
-                       ICON_FONT, BUTTON_RADIUS, CONTROL_CORNER_SURFACE,
-                       ROUND_TILE_BUTTON, ROUND_TILE_CARD,
-                       SCROLLBAR_THUMB, SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH,
-                       SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
+                       ICON_FONT, BUTTON_RADIUS, CONTROL_CORNER_SURFACE, ROUND_TILE_BUTTON, ROUND_TILE_CARD,
+                       SCROLLBAR_THUMB, SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH, SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
 from ui_motion import bind_row_hover, empty_icon
 from ui_hover_fade import install_hover_fade
+from ui_composer_style import install_composer_styles
 from ui_rounded import (button_specs, pressed_padding, rounded_layout, set_button_padding, rounded_photo as _rounded_photo,
                         rounded_png_bytes as _rounded_png_bytes)
 from ui_splash import SPLASH_STAGES, Splash  # noqa: F401  转出，旧导入路径不变
@@ -247,6 +246,7 @@ def setup_styles(root):
     _install_button_styles(style, root)
     install_hover_fade(root)
     _install_card_style(style, root)
+    install_composer_styles(style, root, _configure_button)
     _install_input_styles(style, root)
     _install_scrollbar_styles(style)
     # 表单的普通标签、分组标题和勾选项必须与按钮／输入框同用正文 token。

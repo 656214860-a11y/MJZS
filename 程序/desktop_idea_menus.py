@@ -56,26 +56,25 @@ class IdeaMenusMixin:
         menu=self.project_page_services.context_menu(box, menu_factory=tk.Menu).command('粘贴',lambda:box.event_generate('<<Paste>>'))
         self._idea_paste_menu=menu
         return menu.popup(event)
-    def open_uploaded_idea_attachment(self,event):
-        path=self._idea_uploaded_paths.get(self.uploaded_idea_attachment_at(event))
+    def open_uploaded_idea_attachment(self,path):
+        """单击附件卡片：原件在就打开原件，否则打开项目副本。"""
         if path is not None:
             from idea_attachments import archive_pair
             original,_converted=archive_pair(path)
             self.project_page_services.open_path(original if original.is_file() else path)
         return 'break'
-    def delete_uploaded_idea_attachment(self):
-        selected=[path for path in self._idea_uploaded_paths.values() if path in self._idea_uploaded_selected]
-        if not selected:return
+    def delete_uploaded_idea_attachment(self,path):
+        """附件卡片右上角 ×：确认后把这一份项目副本移入回收站，原始文件不动。"""
+        if path is None:return
         from idea_attachments import display_name
-        names='、'.join(display_name(path) for path in selected)
+        name=display_name(path)
         if not self.project_page_services.confirm(self.win,'删除附件',
-                       '确定将“%s”的项目副本移入回收站吗？\n原始文件不受影响；可从回收站恢复。' % names,
+                       '确定将“%s”的项目副本移入回收站吗？\n原始文件不受影响；可从回收站恢复。' % name,
                        dangerous=True):return
-        try:
-            for path in selected:self.idea_chat_controller.delete_attachment(self.root,path)
+        try:self.idea_chat_controller.delete_attachment(self.root,path)
         finally:
             self.update_idea_attachment_status()
-        self.status.set('已移入回收站：'+names+'；原始文件未删除。')
+        self.status.set('已移入回收站：'+name+'；原始文件未删除。')
     def show_idea_reference_menu(self, event):
         """用户输入 @ 时仅展示当前项目已入库的创意，不访问任意本地文件。"""
         if str(getattr(event,'char',''))!='@':return None

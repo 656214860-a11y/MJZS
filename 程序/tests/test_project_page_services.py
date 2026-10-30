@@ -50,10 +50,9 @@ class ProjectPageServicesTests(unittest.TestCase):
         services = _services()
         services.confirm.return_value = False
         path = Path('a.md')
-        host = SimpleNamespace(project_page_services=services, win=object(),
-                               _idea_uploaded_paths={'i': path}, _idea_uploaded_selected={path})
+        host = SimpleNamespace(project_page_services=services, win=object())
         with patch('idea_attachments.display_name', return_value='a'):
-            IdeaMenusMixin.delete_uploaded_idea_attachment(host)
+            IdeaMenusMixin.delete_uploaded_idea_attachment(host, path)
         self.assertEqual(services.confirm.call_args.args[:2], (host.win, '删除附件'))
 
 

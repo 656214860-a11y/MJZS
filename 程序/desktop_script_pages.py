@@ -381,14 +381,24 @@ class ScriptPagesMixin:
                 if target.exists():self.status.set('剧本质检等待完整文件：' + str(exc))
             _safe_after(self.win, 2000, poll)
         _safe_after(self.win, 2000, poll)
+    def script_task_active(self):
+        """剧本 API 请求或剧本 Agent 是否在运行（排队、启动中都算）。"""
+        return bool(getattr(self,'_idea_requesting',False) or
+                    getattr(self,'_script_agent_queue',None) or
+                    getattr(self,'_script_agent_launching',False) or self.script_agent_processes())
     def update_script_interrupt_button(self):
-        """按剧本 API 请求或剧本 Agent 的运行状态更新中断按钮。"""
-        button=getattr(self,'idea_interrupt',None)
+        """输入框内发送／终止合一按钮的唯一状态入口：运行中显示终止，空闲时跟随底栏「发送」。"""
+        from ui_tokens import ICON_SEND, ICON_STOP
+        button=getattr(self,'idea_submit',None)
         if button is None or not button.winfo_exists():return
-        active=(getattr(self,'_idea_requesting',False) or
-                bool(getattr(self,'_script_agent_queue',None)) or
-                getattr(self,'_script_agent_launching',False) or bool(self.script_agent_processes()))
-        button.state(['!disabled'] if active else ['disabled'])
+        if self.script_task_active():
+            button.configure(text=ICON_STOP,command=lambda:self.safe(self.interrupt_script_agent))
+            button.state(['!disabled'])
+            return
+        send=getattr(self,'idea_send',None)
+        button.configure(text=ICON_SEND,command=lambda:send.invoke() if send is not None else None)
+        idle=send is not None and send.winfo_exists() and not send.instate(['disabled'])
+        button.state(['!disabled'] if idle else ['disabled'])
     def refresh_script_workspace(self):
         """刷新剧本聊天和文件表；旧 Claude 思考块会先清洗，必要时仅重发一次正文请求。"""
         import idea_chat
