@@ -18,6 +18,7 @@ from agent.core import read, save, save_bytes
 from comfy_service import Comfy
 from cloud_assets import MODELS as CLOUD_MODELS
 import tk_timers
+from ui_motion import Spinner
 from ui_tokens import BUTTON_GAP_TIGHT, WRAPLENGTH, SPACING
 
 
@@ -382,9 +383,10 @@ class _AssetControls:
         self.update_hint()
         self.check_stop=threading.Event()
         self.gen_stop=threading.Event()
-        progress=ttk.Progressbar(self.form,mode='indeterminate');progress.pack(fill='x',padx=SPACING['md'],pady=SPACING['xs'])
-        ProgressLabel(self.form,textvariable=self.progress_text,wraplength=WRAPLENGTH['xl'],justify='left').pack(anchor='w',padx=SPACING['md'],pady=(SPACING['none'],SPACING['xs']))
-        self.busy=BusyState(self.progress_text,progress)
+        progress_label=ProgressLabel(self.form,textvariable=self.progress_text,wraplength=WRAPLENGTH['xl'],justify='left')
+        progress_label.pack(fill='x',padx=SPACING['md'],pady=SPACING['xs'])
+        # 忙碌时在进度文字右端转圈，不再用进度条。
+        self.busy=BusyState(self.progress_text,spinner=Spinner(self.form,host=progress_label))
         tk_timers.repeat(self.win,250,self.poll)
         # 第 65 期任务 1：这一排只留「启动并检测」和「取消检测」。「手动制作资产」撤掉——检测通过就自动开跑
         # （见上面 done）；「桌面打开 ComfyUI」主界面已经有一颗；「强制关闭 ComfyUI」与「制作记录」搬到主界面

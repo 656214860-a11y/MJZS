@@ -154,6 +154,18 @@ class BusyStateBoundaryTests(unittest.TestCase):
                  and _dotted(node.target) == ['self', '_async_ticket']]
         self.assertTrue(bumps, '取消必须推进代次，使迟到结果被拒绝')
 
+    def test_production_pages_do_not_build_progressbars(self):
+        """忙碌态统一用转圈（ui_motion.Spinner），页面不再构造 ttk.Progressbar。"""
+        offenders = []
+        for path in _production_files():
+            tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and (
+                        (isinstance(node.func, ast.Attribute) and node.func.attr == 'Progressbar')
+                        or (isinstance(node.func, ast.Name) and node.func.id == 'Progressbar')):
+                    offenders.append(f'{path.relative_to(ROOT)}:{node.lineno}')
+        self.assertEqual(offenders, [])
+
     def test_interrupt_does_not_stop_the_progressbar_directly(self):
         tree = parse_desktop()
         method = next(node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)

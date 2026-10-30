@@ -541,12 +541,13 @@ class NativeAssetsGatingTests(_TkHarness):
         walk(form)
         return out
 
-    def test_progressbar_directly_above_action_buttons(self):
+    def test_progress_text_with_spinner_directly_above_action_buttons(self):
+        """进度条已改为进度文字右端的转圈（契约有意变更）。"""
         with tempfile.TemporaryDirectory() as td:
             d, proj = self.desktop(td)
             form = self.attach(d, proj, selection=lambda: [])
             kinds = [type(w).__name__ for w in form.winfo_children()]
-            self.assertEqual(kinds, ["Card", "Progressbar", "ProgressLabel", "FlowBar"])
+            self.assertEqual(kinds, ["Card", "ProgressLabel", "Spinner", "FlowBar"])
             bar = form.winfo_children()[3]
             texts = [b.cget("text") for b in bar.winfo_children()]
             self.assertEqual(texts, ["启动并检测", "预估费用", "取消检测"])
@@ -649,7 +650,7 @@ class NativeAssetsGatingTests(_TkHarness):
             work, _done, kwargs = submitted[1]
             self.assertTrue(callable(work))
             self.assertFalse(kwargs["show_progress"])
-            form.winfo_children()[1].stop()  # 本测试不交付 worker 结果，别留下 Tk 自动步进回调。
+            next(w for w in form.winfo_children() if type(w).__name__ == "Spinner").stop()  # 转圈（原进度条，契约有意变更）；本测试不交付 worker 结果，别留下 Tk 自动步进回调。
 
 
 class ForceCloseComfyTests(unittest.TestCase):

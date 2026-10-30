@@ -2233,6 +2233,28 @@ class BubbleLayoutTests(_Harness):
             d.clear_thinking(); win.update()
             self.assertNotIn('模型正在思考…', self.log_text(d))
 
+    def test_thinking_notice_spins_until_the_reply_lands(self):
+        """等待模型回复时，「模型正在思考…」前内嵌一个运行中的转圈；回复落地即销毁。"""
+        from ui_motion import Spinner
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            idea_chat.append(proj, 'user', '请帮我构思')
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            d.show_thinking(d.displayed_chat_model()); win.update()
+            spinner = d._thinking_spinner
+            self.assertIsInstance(spinner, Spinner)
+            self.assertIn(str(spinner), d.idea_log.window_names())
+            self.assertTrue(spinner.running, '转圈应在运行')
+            d.show_conversation(); win.update()
+            self.assertFalse(spinner.winfo_exists(), '重绘时旧转圈要销毁，不得累积')
+            current = d._thinking_spinner
+            self.assertIsInstance(current, Spinner)
+            d.clear_thinking(); win.update()
+            self.assertFalse(current.winfo_exists())
+            self.assertIsNone(d._thinking_spinner)
+            self.assertEqual(d.idea_log.window_names(), ())
+
     def test_only_what_you_type_below_the_line_gets_sent(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)

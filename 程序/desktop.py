@@ -307,13 +307,13 @@ class Desktop(PageNavMixin, LifecycleMixin, AutoStateHolderMixin, AccountPageMix
         # 重新映射后沿用既有的合并空闲布局，确保滚动区域已按恢复后的可视高度计算。
         win.bind('<Map>',self.on_window_map,add='+')
         win.bind('<FocusIn>',self.refresh_membership_view,add='+')    # R2064：回到前台时静默续签
-        self.progress=ttk.Progressbar(self.body,mode='determinate');self.progress.pack(fill='x',pady=(SPACING['sm'],SPACING['none']))
         # 全部阶段只保留一条绿色信息栏：操作说明与动态状态汇总在这里。
         self.status=tk.StringVar(value='就绪 · 所有项目共用一份程序')
         self.notifier=NotificationDispatcher(self.status, parent=win)
         self.file_dialog=FileDialog(win, notifier=self.notifier)
         self.shortcuts=ShortcutRegistry()
-        self.busy_state=BusyState(self.status, self.progress, idle_determinate=True)
+        # 不再用进度条：忙碌只由状态栏右端的转圈表示（spinner 在状态栏建好后挂上）。
+        self.busy_state=BusyState(self.status)
         # ui_theme 的窗口定位失败只做恢复，不另建反馈链；状态栏建好后把
         # 既有可见提示入口交给根窗口。
         win._drama_place_notice=self.status.set

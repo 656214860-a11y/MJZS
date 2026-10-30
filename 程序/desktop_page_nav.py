@@ -243,9 +243,9 @@ class PageNavMixin:
         if index!=PAGE['assets']:self.asset_detail_id=None;self.asset_roster=False
 
         if index==PAGE['video']:
-            self.progress.pack_forget();self.status_label.pack_forget()
+            self.status_label.pack_forget()
         else:
-            self.progress.pack(fill='x',pady=(SPACING['sm'],SPACING['none']));self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
+            self.status_label.pack(fill='x',pady=DESKTOP_LAYOUT['status_gap'])
         if index==PAGE['video']:
             prefs_path=self.root/'ui_settings.json' if self.root else None
             prefs=_prefs(prefs_path)
