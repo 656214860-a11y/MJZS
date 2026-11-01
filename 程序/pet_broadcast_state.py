@@ -1,4 +1,4 @@
-"""Pet 播报状态容器（L3，无 Tk）。
+"""Pet 播报状态容器与追问状态容器（L3，无 Tk）。
 
 R1983 J5：``_advance_at``／``_announced``／``_held_broadcast``／``_last_broadcast``／``last_status``／
 ``notice`` 六个属性原先散在 ``pet_ui``／``pet_ui_stages``／``pet_ui_voice``／``pet_ui_view`` 四个文件里直接读写。
@@ -76,6 +76,22 @@ class PetBroadcastState:
         self.advance_at = None
 
 
+@dataclass
+class PetOfferState:
+    """「要不要一键执行」追问的运行状态（R2281 J-Pet）：只由 ``PetVoiceMixin`` 写，``Pet.offer`` 持有。
+
+    ``at`` 上一次问的钟点；``sig`` 问的时候缺口的指纹（变了才算进度又往前走）；``open`` 那个问题
+    这会儿是否还挂着（挂着才认「好」）；``backoff`` 没人理就翻倍再问；``declined`` 用户说「先不用」
+    时的那批缺口，不再追问。默认值与原 ``Pet.__init__`` 的五个 ``_offer_*`` 逐项一致。
+    """
+
+    at: float | None = None
+    sig: tuple = ()
+    open: bool = False
+    backoff: int = 1
+    declined: tuple | None = None
+
+
 class _Forward:
     """把 ``pet.<公开属性>`` 的读写转发到 ``pet.bstate.<字段>``。"""
 
@@ -97,6 +113,9 @@ class PetBroadcastAliasesMixin:
     def __getattr__(self, name):
         if name == 'bstate':
             state = vars(self)['bstate'] = PetBroadcastState()
+            return state
+        if name == 'offer':
+            state = vars(self)['offer'] = PetOfferState()
             return state
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 

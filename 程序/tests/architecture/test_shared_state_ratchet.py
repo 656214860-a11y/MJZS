@@ -17,7 +17,7 @@ from tests.architecture._scan import parse, production_files
 
 SHARED_STATE_CAPS = {
     'Desktop': 48,  # R2029：方法拆到 PageNavMixin/LifecycleMixin 后跨类写入计数被动 +7；R2032：gate_due／gate_error 迁入 AutoState 后 -1
-    'Pet': 59,
+    'Pet': 54,    # R2281 J-Pet：_offer_* 五件收进 Pet.offer（PetOfferState）-5
     'Cloud': 15,
     'Panel': 5,
 }
