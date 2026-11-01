@@ -217,3 +217,70 @@ def request_instruction(project, stage, data=None, *, publish=None):
     if not result.ok:
         return result
     return success((continuation_instruction(project, stage, data), 'stage_summary'))
+
+
+# ── 剧本准备各阶段生成时的资料优先级（唯一权威）────────────────────────────
+# 生成链：用户附档 → 项目设定 → 项目大纲 → 角色卡 → 自然剧本。
+# 越晚确认／修改的资料优先级越高；附档最低。本模块是措辞与排序的唯一定义处，
+# API 请求正文与桌面／命令行任务书共用，不得在其他模块另写一份。
+
+PREPARATION_SOURCE_ORDER = ('附档', '项目设定', '项目大纲', '角色卡')
+
+_PREPARATION_CONFLICT_RULE = ('同一内容在不同资料间冲突时，取优先级高者；'
+                              '优先级高者未写到的内容，再参考优先级低者补充；'
+                              '不得用优先级低的资料覆盖优先级高的结论。')
+
+
+def preparation_priority_block(present, *, user_edited=()):
+    """剧本准备请求正文里的「资料优先级与冲突裁决」段（动态版）。
+
+    ``present`` 是本次实际存在的资料标签（``PREPARATION_SOURCE_ORDER`` 的子集），
+    按生成链顺序给出；为空时返回空串，不向请求塞空段。``user_edited`` 是其中
+    用户亲手修改过的标签——这些版本优先于同阶段模型原稿。
+    """
+    present = [label for label in PREPARATION_SOURCE_ORDER if label in present]
+    if not present:
+        return ''
+    lines = ['【资料优先级与冲突裁决】越晚确认或修改的资料优先级越高。',
+             '本次实际存在的资料，按优先级从低到高排列：']
+    edited = frozenset(user_edited)
+    for number, label in enumerate(present, start=1):
+        if label == '附档':
+            note = '（创作资料，不代表用户确认）'
+        elif label in edited:
+            note = '（用户已修改，以此为准，优先于同阶段模型原稿）'
+        else:
+            note = ''
+        lines.append('%d. %s%s' % (number, label, note))
+    lines.append(_PREPARATION_CONFLICT_RULE)
+    return '\n'.join(lines)
+
+
+def preparation_priority_rule():
+    """桌面／命令行任务书的静态优先级规则：列全生成链顺序，由 Agent 按实际资料取舍。"""
+    lines = ['【资料优先级与冲突裁决】越晚确认或修改的资料优先级越高。',
+             '剧本准备资料按优先级从低到高固定为：附档 ＜ 项目设定 ＜ 项目大纲 ＜ 角色卡。'
+             '用户亲手修改过的版本优先于同阶段模型原稿；附档是创作资料，不代表用户确认。',
+             _PREPARATION_CONFLICT_RULE]
+    return '\n'.join(lines)
+
+
+def preparation_source_priority(documents, creative_text=''):
+    """按已存在的准备阶段文件与附档拼动态优先级段；无任何资料时返回空串。
+
+    ``documents`` 是与生成链（项目设定、项目大纲、角色卡）同序的阶段文件记录，
+    每项是 dict，可带 ``user_edited`` 标记。``creative_text`` 是创意输入，其中
+    受控附档带 ``【附档：`` 边界。
+    """
+    present = []
+    user_edited = []
+    if '【附档：' in str(creative_text or ''):
+        present.append(PREPARATION_SOURCE_ORDER[0])
+    for position, document in enumerate(documents or ()):
+        if position + 1 >= len(PREPARATION_SOURCE_ORDER):
+            break
+        label = PREPARATION_SOURCE_ORDER[position + 1]
+        present.append(label)
+        if isinstance(document, dict) and document.get('user_edited'):
+            user_edited.append(label)
+    return preparation_priority_block(present, user_edited=user_edited)

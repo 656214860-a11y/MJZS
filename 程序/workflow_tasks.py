@@ -127,6 +127,8 @@ def script_prompt(project,script,stage,existing=None,creative_text=None,*,agent_
               + ('内部工作稿 `script_raw.md` 可继续更新，正式交付以规范路径为准，不得写入后续阶段目录。'
                  if agent_delivery else '内部工作稿 `script_raw.md` 可继续更新；回复由应用按既有分类保存规则落盘，不得写入 02剧本结构或任何后续阶段目录。') +
               '暂不调用图片、视频或分镜制作。')
+        from workflow_context import preparation_priority_rule
+        task += '\n' + preparation_priority_rule()
         # 项目级编剧风格由 prompt_with_settings 统一注入；这里不重复携带。
         if agent_delivery:
             task += '\n' + _AGENT_READING_SCOPE
