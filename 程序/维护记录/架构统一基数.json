@@ -34,7 +34,8 @@
             "account_client"
         ],
         "scope_audit_pending": [
-            "script_structure_edit_controller"
+            "script_structure_edit_controller",
+            "asset_reference_prompts"
         ],
         "historical_name_audit_pending": [],
         "historical_name_audited": [
@@ -619,24 +620,10 @@
         ]
     },
     "\u5c42\u7ea7": {
-        "count": 21,
-        "baseline_exempt": 21,
+        "count": 8,
+        "baseline_exempt": 8,
         "items": [
             {
-                "file": "asset_auto_batch_service.py",
-                "importer": "asset_auto_batch_service",
-                "imported": "cloud_assets",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "asset_batch_execution.py",
-                "importer": "asset_batch_execution",
-                "imported": "asset_prompt_rules",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
                 "file": "asset_batch_execution.py",
                 "importer": "asset_batch_execution",
                 "imported": "asset_reference_images",
@@ -644,51 +631,9 @@
                 "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
             },
             {
-                "file": "asset_batch_execution.py",
-                "importer": "asset_batch_execution",
-                "imported": "cloud_assets",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "asset_batch_service.py",
-                "importer": "asset_batch_service",
-                "imported": "asset_prompt_rules",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
                 "file": "asset_batch_service.py",
                 "importer": "asset_batch_service",
                 "imported": "asset_reference_images",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "asset_batch_service.py",
-                "importer": "asset_batch_service",
-                "imported": "asset_reference_prompts",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "asset_batch_service.py",
-                "importer": "asset_batch_service",
-                "imported": "project_settings",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "asset_batch_settings_service.py",
-                "importer": "asset_batch_settings_service",
-                "imported": "project_settings",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "asset_plan.py",
-                "importer": "asset_plan",
-                "imported": "asset_reference_prompts",
                 "disposition": "exempt",
                 "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
             },
@@ -696,13 +641,6 @@
                 "file": "confirm_gates.py",
                 "importer": "confirm_gates",
                 "imported": "legacy_compat",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "engine.py",
-                "importer": "engine",
-                "imported": "project_settings",
                 "disposition": "exempt",
                 "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
             },
@@ -738,34 +676,6 @@
                 "file": "skill_orchestrator.py",
                 "importer": "skill_orchestrator",
                 "imported": "skill_tools",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "stage_models.py",
-                "importer": "stage_models",
-                "imported": "cloud_assets",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "storyboard_adoption_contract.py",
-                "importer": "storyboard_adoption_contract",
-                "imported": "project_settings",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "storyboard_selection.py",
-                "importer": "storyboard_selection",
-                "imported": "project_settings",
-                "disposition": "exempt",
-                "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
-            },
-            {
-                "file": "workflow_tasks.py",
-                "importer": "workflow_tasks",
-                "imported": "asset_prompt_rules",
                 "disposition": "exempt",
                 "reason": "\u65e2\u5b58\u8d8a\u5c42\uff0c\u5f85\u4e13\u9879\u6536\u53e3"
             }

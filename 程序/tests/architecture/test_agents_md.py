@@ -127,7 +127,8 @@ class AgentsMdConsistencyTests(unittest.TestCase):
 
     def test_stage_step_labels_in_production_derive_from_authority(self) -> None:
         """生产文案里的「第 N 步」只能由 pet_bus.stage_step 现算；资产子步骤固定编号除外。"""
-        allowed = {'asset_prompt_rules.py', 'asset_reference_prompts.py', 'asset_batch_service.py'}
+        allowed = {'asset_prompt_rules.py', 'asset_reference_prompts.py', 'asset_batch_service.py',
+                   'asset_prompt_check_dialog.py', 'asset_reference_prompts_dialog.py'}
         pattern = re.compile(r'第\s*0?\d{1,2}\s*步')
         offenders = {}
         for path in production_files():

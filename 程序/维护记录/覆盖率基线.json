@@ -110,7 +110,7 @@
   {
    "module": "asset_batch.py",
    "covered": 0,
-   "total": 304,
+   "total": 305,
    "percent": 0.0
   },
   {
@@ -186,9 +186,15 @@
    "percent": 0.0
   },
   {
+   "module": "asset_prompt_check_dialog.py",
+   "covered": 0,
+   "total": 10,
+   "percent": 0.0
+  },
+  {
    "module": "asset_prompt_rules.py",
    "covered": 0,
-   "total": 34,
+   "total": 26,
    "percent": 0.0
   },
   {
@@ -206,7 +212,13 @@
   {
    "module": "asset_reference_prompts.py",
    "covered": 0,
-   "total": 81,
+   "total": 75,
+   "percent": 0.0
+  },
+  {
+   "module": "asset_reference_prompts_dialog.py",
+   "covered": 0,
+   "total": 8,
    "percent": 0.0
   },
   {
@@ -278,7 +290,13 @@
   {
    "module": "cloud_assets.py",
    "covered": 0,
-   "total": 110,
+   "total": 80,
+   "percent": 0.0
+  },
+  {
+   "module": "cloud_assets_dialog.py",
+   "covered": 0,
+   "total": 32,
    "percent": 0.0
   },
   {
@@ -362,7 +380,7 @@
   {
    "module": "desktop_asset_pages.py",
    "covered": 0,
-   "total": 577,
+   "total": 578,
    "percent": 0.0
   },
   {
@@ -404,7 +422,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 961,
+   "total": 956,
    "percent": 0.0
   },
   {
@@ -1029,6 +1047,12 @@
    "module": "production_model_contract.py",
    "covered": 0,
    "total": 6,
+   "percent": 0.0
+  },
+  {
+   "module": "project_settings_dialog.py",
+   "covered": 0,
+   "total": 5,
    "percent": 0.0
   },
   {
@@ -1658,7 +1682,7 @@
   {
    "module": "workflow_settings.py",
    "covered": 0,
-   "total": 789,
+   "total": 799,
    "percent": 0.0
   },
   {
@@ -1688,7 +1712,7 @@
   {
    "module": "writing_api.py",
    "covered": 0,
-   "total": 1003,
+   "total": 1001,
    "percent": 0.0
   },
   {
@@ -1903,9 +1927,9 @@
   },
   {
    "module": "project_settings.py",
-   "covered": 31,
-   "total": 81,
-   "percent": 38.3
+   "covered": 30,
+   "total": 77,
+   "percent": 39.0
   },
   {
    "module": "asset_batch_lifecycle.py",
@@ -2011,5 +2035,5 @@
   }
  ],
  "modules_covered": 50,
- "modules_total": 333
+ "modules_total": 337
 }

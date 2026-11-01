@@ -31,7 +31,7 @@ class CardBoundaryTests(unittest.TestCase):
         self._assert_settings_card("asset_reference_import.py", "show")
 
     def test_cloud_asset_settings_uses_card_for_its_configuration_group(self):
-        self._assert_settings_card("cloud_assets.py", "settings")
+        self._assert_settings_card("cloud_assets_dialog.py", "settings")
 
     def test_background_character_dialog_uses_card_for_its_content(self):
         self._assert_settings_card("background_characters.py", "show")

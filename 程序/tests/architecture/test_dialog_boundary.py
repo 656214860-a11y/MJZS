@@ -87,7 +87,7 @@ class DialogBoundaryTests(unittest.TestCase):
         self.assertIn('FormDialog', names)
 
     def test_cloud_asset_settings_uses_form_dialog_not_a_raw_toplevel(self):
-        tree = parse(ROOT / 'cloud_assets.py')
+        tree = parse(ROOT / 'cloud_assets_dialog.py')
         method = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                       and node.name == 'settings')
         self.assertEqual(_raw_toplevel_calls(method), [],

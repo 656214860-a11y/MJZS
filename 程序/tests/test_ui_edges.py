@@ -266,10 +266,10 @@ class UiEdgeTests(unittest.TestCase):
     def setUp(self):
         """第 32 期第 2 条：无人值守的勾选框现在勾上就先弹一次确认——用例里默认放行，
         确认逻辑本身由 test_unattended_switch_asks_first 单独盯着。"""
-        import project_settings
-        real = project_settings.confirm_unattended
-        self.addCleanup(setattr, project_settings, "confirm_unattended", real)
-        project_settings.confirm_unattended = lambda *a, **k: True
+        import project_settings_dialog
+        real = project_settings_dialog.confirm_unattended
+        self.addCleanup(setattr, project_settings_dialog, "confirm_unattended", real)
+        project_settings_dialog.confirm_unattended = lambda *a, **k: True
 
     def enable_sanhu_auto(self, desktop, *enabled_variables):
         """通过三虎的公开模式接口启动无人值守，避免测试绕过实际门禁。"""
@@ -1796,7 +1796,8 @@ class UiEdgeTests(unittest.TestCase):
             self.addCleanup(quiet_destroy)
             from desktop import Desktop
             from local_video import open_studio
-            from asset_reference_prompts import show_prompt, display_prompt
+            from asset_reference_prompts import display_prompt
+            from asset_reference_prompts_dialog import show_prompt
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
@@ -4833,7 +4834,7 @@ class PromptWindowSourceGuardTests(unittest.TestCase):
     def test_prompt_entries_share_one_window(self):
         """「查看首帧提示词」与资产提示词两处入口必须共用 prompt_window，不再各写一份弹窗。"""
         sources = self.program_sources()
-        for name in ("desktop.py", "asset_reference_prompts.py"):
+        for name in ("desktop.py", "asset_reference_prompts_dialog.py"):
             self.assertIn("from prompt_window import show", sources[name])
 
     def test_clipboard_writes_go_through_one_helper(self):
