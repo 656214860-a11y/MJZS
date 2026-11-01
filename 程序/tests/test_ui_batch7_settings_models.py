@@ -298,10 +298,12 @@ class FormAlignmentTests(Batch7Case):
     def test_manager_inputs_share_one_left_edge(self):
         win = self._manager_window()
         entries = win._pet_entries
-        edges = {entries[key].winfo_rootx() for key in ('model', 'label', 'base_url', 'key_env')}
+        # 调用方式｜Provider、模型 ID｜显示名各并一行后，左半边的输入列同一竖线，右半边另有一条。
+        edges = {entries[key].winfo_rootx() for key in ('model', 'base_url', 'key_env')}
         edges.add(win._pet_mode_box.winfo_rootx())
-        edges.add(win._pet_provider_box.winfo_rootx())
         self.assertEqual(len(edges), 1, '模型管理输入列必须落在同一竖线：%r' % edges)
+        right = {entries['label'].winfo_rootx(), win._pet_provider_box.winfo_rootx()}
+        self.assertEqual(len(right), 1, '右半边的 Provider、显示名必须落在同一竖线：%r' % right)
 
     def test_label_columns_use_the_same_token_width(self):
         """标签列宽来自 ui_tokens.FORM_LABEL_WIDTH（加上中文实测），不是各页手写值。"""
