@@ -234,6 +234,16 @@ class SettingsAndRoutingTests(unittest.TestCase):
                  patch('writing_api.model_label', return_value=''):
                 self.assertTrue(stage_execution_service.idea_attachment_local_mode(project))
 
+    def test_skill_panel_renders_the_opencode_engine_name(self):
+        with tempfile.TemporaryDirectory() as td, \
+             patch.object(skill_panel, 'desktop_project', return_value=Path(td)), \
+             patch.object(skill_panel.stage_config, 'get', return_value={'model': ''}), \
+             patch.object(skill_panel, 'STAGE_FLOW', {'previs': 'previs'}), \
+             patch.object(skill_panel, 'stage_for', return_value='previs'), \
+             patch.object(skill_panel, 'pool_records', return_value={}), \
+             patch('workflow_settings.current', return_value={'engine': 'opencode'}), \
+             patch('workflow_settings.effective_model', return_value='opencode/x'):
+            self.assertEqual(skill_panel.stage_button_label(object(), 'previs'), 'OpenCode')
 
 
 if __name__ == '__main__':

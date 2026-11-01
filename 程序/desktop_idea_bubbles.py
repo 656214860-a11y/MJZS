@@ -4,7 +4,7 @@
 import json
 import tkinter as tk
 from ui_motion import Spinner
-from ui_tokens import COLORS, ICON_COPY, ICON_DELETE, ICON_FONT, SPACING
+from ui_tokens import COLORS, ICON_COPY, ICON_DELETE, ICON_FONT, ICON_REWIND, SPACING
 from pathlib import Path
 from idea_chat_controller import bubble_timestamp, collapse_preview
 
@@ -16,7 +16,7 @@ BUBBLE_PAD=10          # 气泡里文字与色块边缘的距离
 BUBBLE_GAP=14          # 气泡离画面左右两边各留这么多
 BUBBLE_FLOOR=70        # 气泡最窄也有这么宽
 BUBBLE_LINE=13         # 量不出字宽时的兜底：一个字大约这么宽
-BUBBLE_MAX_RATIO=0.72  # 第 71 期任务 6：字再多，色块也不铺满整行，一行才看得下去
+BUBBLE_MAX_RATIO=0.84  # 字再多，色块也不铺满整行；比例取自用户认可的长消息气泡（占记录区约 84%）
 BUBBLE_SLACK=26        # 量字宽只是估算（字号、全角半角都有出入），留一截余地，
                        # 免得一句话末了一个字被挤到下一行
 
@@ -123,7 +123,7 @@ class IdeaBubblesMixin:
         try:text=box.get('sel.first','sel.last')
         except tk.TclError:return 'break'
         # 悬停图标是 Text 里的占位字符，拖选复制时去掉，不把私用区字形混进正文。
-        text=''.join(char for char in text if char not in (ICON_COPY,ICON_DELETE))
+        text=''.join(char for char in text if char not in (ICON_COPY,ICON_DELETE,ICON_REWIND))
         if not text:return 'break'
         from prompt_window import copy_text
         reason=copy_text(box,text)
@@ -140,36 +140,6 @@ class IdeaBubblesMixin:
                str(tag).split('_')[1].isdigit() for tag in tags):
             self.status.set('已选中气泡正文，按 Ctrl+C 复制。')
         return None
-    def begin_bubble_click(self,event,index,name):
-        """记录正文按下位置；正在编辑同一气泡时交还给 Tk 原生选字。"""
-        edit=getattr(self,'_bubble_edit',None)
-        if edit and edit.get('box') is event.widget and edit.get('index')==index:
-            self._bubble_click=None
-            return None
-        self._bubble_click={'box':event.widget,'index':index,'name':name,
-                            'x':event.x,'y':event.y,'dragged':False}
-        return None
-    def track_bubble_click(self,event):
-        """鼠标移动说明用户在选字，不能误切进编辑态。"""
-        click=getattr(self,'_bubble_click',None)
-        if click and click.get('box') is event.widget:
-            if abs(event.x-click['x'])>3 or abs(event.y-click['y'])>3:
-                click['dragged']=True
-        return None
-    def finish_bubble_click(self,event):
-        """短按正文进入编辑；长按拖选继续使用原生蓝色选区。"""
-        click=getattr(self,'_bubble_click',None)
-        self._bubble_click=None
-        self.notice_selected_bubble_text(event)
-        if not click or click.get('box') is not event.widget or click.get('dragged'):
-            return None
-        try:
-            selected=event.widget.tag_ranges('sel')
-            if len(selected)>=2 and event.widget.compare(selected[0],'!=',selected[-1]):
-                return None
-        except tk.TclError:
-            return None
-        return self.safe(lambda:self.start_bubble_edit(event,click['index'],click['name']))
     def copy_bubble_message(self,index):
         """消息左下角「复制」图标：只取持久化的正文，不把界面元信息混进去。"""
         if index == 'example':
@@ -190,6 +160,17 @@ class IdeaBubblesMixin:
         self.status.set('复制失败：'+reason if reason else '已复制整条信息')
         if reason:return None
         return text
+    def rewind_bubble_message(self,index):
+        """消息下方「回退」图标：把这条用户消息放回输入框，可改后重新发送；聊天记录不动。"""
+        import idea_chat
+        rows=idea_chat.load(self.idea_chat_context(),model=self.displayed_chat_model(),gateway=self.idea_chat_gateway())
+        if not 0<=index<len(rows):return None
+        text=str(rows[index].get('text') or '')
+        box=getattr(self,'idea_input',None)
+        if not text or box is None or not box.winfo_exists():return None
+        box.delete('1.0','end');box.insert('1.0',text);box.focus_set()
+        self.status.set('已把这条消息放回输入框，修改后可重新发送')
+        return text
     def delete_bubble_message(self,index):
         """消息左下角「删除」图标：移出当前对话，并保留最近删除恢复记录。"""
         import idea_chat
@@ -207,7 +188,6 @@ class IdeaBubblesMixin:
         return row
     def clear_bubble_view(self):
         """压缩当前聊天的模型上下文并隐藏旧消息；刷新仅恢复原文显示。"""
-        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
         import idea_chat
         from collections import Counter
         model=self.displayed_chat_model()
@@ -221,7 +201,6 @@ class IdeaBubblesMixin:
             try:box.after_cancel(job)
             except tk.TclError:pass
         self._idea_view_after_jobs=[]
-        self._bubble_click=None
         self._bubble_rows=[];self._bubble_full={}
         box.configure(state='normal')
         box.delete('1.0','end')
@@ -233,103 +212,10 @@ class IdeaBubblesMixin:
         return (str(Path(self.root).resolve()) if self.root else '',
                 getattr(model, 'model_id', '') or str(model or '').strip())
 
-    def bubble_edit_position_allowed(self,box,index,selection=True):
-        """编辑态的插入点／选区只能落在正文标记内，气泡外的标题和控件永远只读。"""
-        edit=getattr(self,'_bubble_edit',None)
-        if not edit or edit.get('box') is not box:return True
-        try:
-            if selection:
-                ranges=box.tag_ranges('sel')
-                if len(ranges)>=2 and (box.compare(ranges[0],'<',edit['start']) or
-                                       box.compare(ranges[-1],'>',edit['end'])):
-                    return False
-            return not (box.compare(index,'<',edit['start']) or box.compare(index,'>',edit['end']))
-        except tk.TclError:return False
-    def guard_bubble_edit_key(self,event):
-        """聊天记录常态只读；编辑时也阻止内容越过当前气泡正文边界。"""
-        edit=getattr(self,'_bubble_edit',None)
-        if not edit or edit.get('box') is not event.widget:
-            # 只读记录区仍应保留 Tk 原生的阅读导航；普通字符才需要拦截，
-            # 防止焦点停在记录区时意外改写内容。
-            if event.keysym in {'Up','Down','Left','Right','Prior','Next',
-                                'Home','End','Tab','ISO_Left_Tab'}:
-                return None
-            return 'break'
-        box=event.widget
-        try:insert=box.index('insert')
-        except tk.TclError:return 'break'
-        if not self.bubble_edit_position_allowed(box,insert):return 'break'
-        if event.keysym=='BackSpace' and not box.tag_ranges('sel') and box.compare(insert,'<=',edit['start']):
-            return 'break'
-        if event.keysym=='Delete' and not box.tag_ranges('sel') and box.compare(insert,'>=',edit['end']):
-            return 'break'
-        return None
-    def guard_bubble_edit_pointer(self,event):
-        """只在拖选越出正文时限制边界，正文内的选择完全交给 Tk。"""
-        edit=getattr(self,'_bubble_edit',None)
-        box=event.widget
-        if not edit or edit.get('box') is not box:return None
-        try:point=box.index('@%d,%d'%(event.x,event.y))
-        except tk.TclError:return 'break'
-        if not (box.compare(point,'<',edit['start']) or box.compare(point,'>',edit['end'])):
+    def guard_bubble_key(self,event):
+        """聊天记录只读：保留 Tk 原生的阅读导航和选字，其余按键一律拦下。"""
+        if event.keysym in {'Up','Down','Left','Right','Prior','Next','Home','End','Tab','ISO_Left_Tab'}:
             return None
-        if box.compare(point,'<',edit['start']):point=edit['start']
-        else:point=edit['end']
-        box.mark_set('insert',point)
-        return None
-    def start_bubble_edit(self,event,index,name):
-        """单击消息正文后直接编辑；不再弹出编辑或删除窗口。"""
-        if not isinstance(index,int):return 'break'
-        box=event.widget
-        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
-        ranges=box.tag_ranges(name)
-        if len(ranges)<2:return 'break'
-        import idea_chat
-        model=self.displayed_chat_model()
-        rows=idea_chat.load(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
-        if not 0<=index<len(rows):
-            raise ValueError('这条对话已不存在，请刷新后重试')
-        # 折叠的长消息进入编辑时先还原全文，避免只修改预览那几行。
-        record=getattr(self,'_bubble_full',{}).get(name,{})
-        original=str(record.get('text') or rows[index].get('text') or '').strip()
-        box.configure(state='normal',cursor='xterm')
-        box.delete(ranges[0],ranges[-1])
-        box.insert(ranges[0],original,name)
-        body_end=box.index('%s+%dc'%(ranges[0],len(original)))
-        box.insert(body_end,'\n',name)
-        start,end='bubble_edit_start','bubble_edit_end'
-        box.mark_set(start,ranges[0]);box.mark_gravity(start,'left')
-        box.mark_set(end,body_end);box.mark_gravity(end,'right')
-        self._bubble_edit={'box':box,'index':index,'start':start,'end':end,'original':original,
-                           'model':model,'context':self.idea_chat_context()}
-        try:box.mark_set('insert',box.index('@%d,%d'%(event.x,event.y)))
-        except tk.TclError:box.mark_set('insert',start)
-        box.focus_set()
-        self.status.set('正在直接编辑消息；只能改气泡正文，删空后点击其他位置即可删除。')
-        return 'break'
-    def finish_bubble_edit(self,event=None,commit=True):
-        """把当前气泡内的直接编辑同步到对话记录；空内容表示删除该条。"""
-        edit=getattr(self,'_bubble_edit',None)
-        if not edit:return None
-        self._bubble_edit=None
-        box=edit['box']
-        try:value=box.get(edit['start'],edit['end']).strip()
-        except tk.TclError:value=edit['original']
-        try:box.mark_unset(edit['start'],edit['end'])
-        except tk.TclError:pass
-        if not commit:
-            self.show_conversation()
-            self.status.set('已取消修改这条对话')
-            return 'break'
-        if value==edit['original']:
-            self.show_conversation()
-            return 'break'
-        import idea_chat
-        model=edit['model']
-        if value:idea_chat.replace(edit['context'],edit['index'],value,model=model,gateway=self.idea_chat_gateway());notice='已修改这条对话'
-        else:idea_chat.remove(edit['context'],edit['index'],model=model,gateway=self.idea_chat_gateway());notice='已删除这条对话'
-        self.show_conversation()
-        self.status.set(notice)
         return 'break'
     def add_bubble(self,box,row,index):
         """把一条对话排成微信式左右气泡，并在顶部标出说话者／模型名。"""
@@ -364,15 +250,6 @@ class IdeaBubblesMixin:
                           lmargin1=left,lmargin2=left,rmargin=right,spacing1=4,spacing3=1,
                           font=BUBBLE_TIME_FONT)
         box.insert('end',self.model_name(row)+'\n',name+'_meta')
-        import idea_chat
-        injection = idea_chat.skill_injection_summary(row)
-        if injection:
-            box.insert('end', injection+'\n', name+'_meta')
-        stamp=self.bubble_time(row.get('at'))
-        if stamp:
-            box.tag_configure(name+'_time',justify=align,foreground=COLORS['text_muted'],
-                              lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=1,font=BUBBLE_TIME_FONT)
-            box.insert('end',stamp+'\n',name+'_time')
         # 软件示例是用户填写前唯一的完整参考，不能被折叠；真实长对话仍保持收起功能。
         preview,folded=(text,False) if index=='example' else self.bubble_preview(text)
         self._bubble_full[name]={'text':text,'preview':preview,'expanded':not folded}
@@ -388,18 +265,22 @@ class IdeaBubblesMixin:
             box.tag_bind(toggle,'<Button-1>',lambda event,b=box,n=name:self.toggle_bubble(b,n))
             box.tag_bind(toggle,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
             box.tag_bind(toggle,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
+        # SKILL 注入与时间合成一行，放在这条消息的最下面（复制／删除图标之上）。
+        import idea_chat
+        footer='  '.join(part for part in (idea_chat.skill_injection_summary(row),self.bubble_time(row.get('at'))) if part)
+        if footer:
+            box.tag_configure(name+'_time',justify=align,foreground=COLORS['text_muted'],
+                              lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=1,font=BUBBLE_TIME_FONT)
+            box.insert('end',footer+'\n',name+'_time')
         if isinstance(index,int):
-            self.add_bubble_actions(box,name,index,left,right)
-            # 只允许编辑真实消息；只读软件示例仍可拖选复制。
-            box.tag_bind(name,'<Button-1>',lambda event,i=index,n=name:self.begin_bubble_click(event,i,n))
-            box.tag_bind(name,'<Enter>',lambda event,b=box:b.configure(cursor='hand2'))
-            box.tag_bind(name,'<Leave>',lambda event,b=box:b.configure(cursor='xterm'))
-    def add_bubble_actions(self,box,name,index,left,right):
-        """REQ-S01-66：正文左下角的复制／删除图标；平时与框底同色占位，悬停这条消息才显出来。"""
+            self.add_bubble_actions(box,name,index,left,right,rewindable=mine)
+    def add_bubble_actions(self,box,name,index,left,right,rewindable=False):
+        """REQ-S01-66：正文左下角的复制／删除／回退图标；平时与框底同色占位，悬停这条消息才显出来。"""
         actions=name+'_actions'
         box.tag_configure(actions,lmargin1=left,lmargin2=left,rmargin=right,spacing1=0,spacing3=4,font=ICON_FONT)
-        for suffix,icon,handler in (('_copy',ICON_COPY,'copy_bubble_message'),
-                                    ('_delete',ICON_DELETE,'delete_bubble_message')):
+        buttons=[('_copy',ICON_COPY,'copy_bubble_message'),('_delete',ICON_DELETE,'delete_bubble_message')]
+        if rewindable:buttons.append(('_rewind',ICON_REWIND,'rewind_bubble_message'))
+        for suffix,icon,handler in buttons:
             tag=name+suffix
             box.tag_configure(tag,foreground=box.cget('bg'))
             box.insert('end',icon,(actions,tag))
@@ -414,7 +295,7 @@ class IdeaBubblesMixin:
     def show_bubble_actions(self,box,name,visible):
         """只改图标前景色，不增删字符，悬停时排版高度不跳。"""
         color=COLORS['text_muted'] if visible else box.cget('bg')
-        for suffix in ('_copy','_delete'):
+        for suffix in ('_copy','_delete','_rewind'):
             try:box.tag_configure(name+suffix,foreground=color)
             except tk.TclError:pass
     def show_thinking(self,model):
@@ -424,6 +305,7 @@ class IdeaBubblesMixin:
     def clear_thinking(self):
         if getattr(self,'_thinking_model',''):
             self._thinking_model=''
+            self.end_stream()
             self.drop_thinking_spinner()
             self.show_conversation()
     def add_thinking_line(self,box,thinking):
@@ -440,6 +322,47 @@ class IdeaBubblesMixin:
         self._thinking_spinner=spinner
         box.insert('end',thinking+' 模型正在思考…\n',name+'_thinking')
         box.tag_add(name+'_thinking',start,'end-1c')
+        # 已收到的流式文字紧跟在状态行下面；重绘（例如窗口变化）时从缓冲里补回。
+        box.tag_configure('bubble_stream',justify='left',foreground=COLORS['text_primary'],font=BUBBLE_FONT,
+                          lmargin1=left,lmargin2=left,rmargin=right,spacing1=2,spacing2=1,spacing3=4,wrap='word')
+        box.mark_set('stream_start','end-1c');box.mark_gravity('stream_start','left')
+        self._stream_shown=0
+        self.refresh_stream_text(box)
+    def begin_stream(self):
+        """一次直连 API 请求开始：清空流式缓冲并开始定时把新文字画到聊天框末尾。"""
+        self._stream_parts=[];self._stream_shown=0
+        self._stream_generation=getattr(self,'_stream_generation',0)+1
+        self.poll_stream(self._stream_generation)
+    def stream_call(self,fn,*args,**kwargs):
+        """工作线程里调用 fn，期间模型返回的文字片段交给 push_stream。"""
+        import writing_stream
+        with writing_stream.stream_to(self.push_stream):return fn(*args,**kwargs)
+    def push_stream(self,chunk):
+        """工作线程调用：只往缓冲追加，不碰 Tk；界面由 poll_stream 在主线程里取。"""
+        parts=getattr(self,'_stream_parts',None)
+        if parts is not None and chunk:parts.append(str(chunk))
+    def end_stream(self):
+        self._stream_parts=None;self._stream_shown=0
+        self._stream_generation=getattr(self,'_stream_generation',0)+1
+    def poll_stream(self,generation):
+        if generation!=getattr(self,'_stream_generation',0) or getattr(self,'_stream_parts',None) is None:return
+        box=getattr(self,'idea_log',None)
+        try:
+            if box is not None and box.winfo_exists():
+                self.refresh_stream_text(box)
+                self.win.after(80,lambda:self.poll_stream(generation))
+        except tk.TclError:pass
+    def refresh_stream_text(self,box):
+        """把缓冲里新增的文字补到状态行下面；只追加新文字，不重绘整个聊天记录。"""
+        parts=getattr(self,'_stream_parts',None)
+        if not parts or 'stream_start' not in box.mark_names() or not getattr(self,'_thinking_model',''):return
+        if len(parts)==getattr(self,'_stream_shown',0) and box.compare('stream_start','!=','end-1c'):return
+        at_bottom=box.yview()[1]>=0.98
+        text=''.join(parts)
+        box.delete('stream_start','end-1c')
+        box.insert('end-1c',text,'bubble_stream')
+        self._stream_shown=len(parts)
+        if at_bottom:box.see('end')
     def drop_thinking_spinner(self):
         """撤掉「模型正在思考」前的转圈；重绘前与回复落地时调用，重复调用安全。"""
         spinner=getattr(self,'_thinking_spinner',None)

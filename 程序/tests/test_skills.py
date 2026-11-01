@@ -1151,7 +1151,7 @@ class PanelTests(unittest.TestCase):
         labels = [child for child in descendants(panel) if str(child.winfo_class()) == 'TLabel']
         widths = {label.cget('text'): label.cget('width') for label in labels}
         self.assertEqual(widths['预设'], 10)
-        self.assertNotIn('厂商', widths, '厂商／模型下拉已拆到按钮右侧的两级选择器')
+        self.assertEqual(widths['厂商'], 10)
         self.assertEqual(widths['SKILL'], 10)
         self.assertEqual(panel.state.cget('text'), '选择预设即可套用；确认保存本页。')
         self.assertEqual(skill_panel.EXTERNAL_PACKAGE_API_HINT,
@@ -1214,14 +1214,15 @@ class PanelTests(unittest.TestCase):
         """
         import stage_models
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        values = list(panel.models.cget('values'))
         import workflow_settings
         labels = [workflow_settings.desktop_model_label(model_id, item['label'])
                   for model_id, item in model_pool.pool(program=self.desktop.app).items()]
         extra = [label for _value, label in stage_models.keyframe_choices(self.desktop.root)]
         grouped_labels = [label for options in panel.groups.values() for _model, label in options]
-        self.assertFalse(hasattr(panel, 'models'), '面板里不再有模型下拉框')
+        self.assertEqual(values, [model_pool.AUTO_LABEL, skill_panel.ADD_MODEL_LABEL])
         self.assertEqual(sorted(grouped_labels), sorted(set([model_pool.AUTO_LABEL] + labels + extra)))
-        self.assertNotIn('DeepSeek Pro', grouped_labels, '写死的字面档位不该再出现在下拉里')
+        self.assertNotIn('DeepSeek Pro', values, '写死的字面档位不该再出现在下拉里')
         self.assertEqual(panel.model.get(), '自动')
         self.assertEqual(sorted(panel.vars), sorted(['firstframe-auto-fill', 'firstframe-batch', 'firstframe-quality',
                           'firstframe-retry', 'firstframe-thumbnail', 'pipeline-keyframe']))
@@ -1250,13 +1251,12 @@ class PanelTests(unittest.TestCase):
         model_pool.store(model_pool.remove(model_pool.raw(self.desktop.app), 'qwen-max'),
                          self.desktop.app)
         panel.refresh_models()
-        self.assertNotIn('Qwen-Max', [label for options in panel.groups.values() for _id, label in options])
+        self.assertNotIn('Qwen-Max', list(panel.models.cget('values')))
         self.assertEqual(panel.model.get(), model_pool.AUTO_LABEL)
 
     def test_the_dropdown_keeps_all_saved_api_models_for_every_stage(self):
         """统一配置保存的模型不因能力标签被隐藏，阶段配置都应能手动选择。"""
-        import stage_model_picker
-        previs = stage_model_picker.StageModelPicker(self.win, self.desktop, 'previs')
+        previs = skill_panel.Panel(self.win, self.desktop, 'previs')
         data = model_pool.upsert(model_pool.raw(self.desktop.app),
                                  {'label': 'GPT-6', 'model': 'gpt-6',
                                   'base_url': 'https://api.openai.com/v1',
@@ -1269,10 +1269,6 @@ class PanelTests(unittest.TestCase):
         previs.choose_provider()
         self.assertIn('GPT-6', list(previs.models.cget('values')),
                       '保存后应立刻刷新已打开的阶段配置')
-        previs.model.set('GPT-6')
-        previs.choose_model()
-        self.assertEqual(stage_config.get(self.desktop.root, 'previs')['model'], 'gpt-6',
-                         '选好立即写进项目配置')
         previs.destroy()
 
     def test_a_custom_provider_name_is_the_stage_vendor_group(self):
@@ -1291,41 +1287,30 @@ class PanelTests(unittest.TestCase):
             panel = skill_panel.Panel(self.win, self.desktop, 'script')
             self.assertEqual(notice.call_count, 0, '打开阶段配置不得扫描本机程序')
             panel.set_model('gpt-4o')
-            panel.show_desktop_route_notice()
+            panel.choose_model()
             self.assertEqual(notice.call_count, 1)
             self.assertIn('优先使用本机程序', panel.route_hint.cget('text'))
             panel.destroy()
 
-    def test_stage_button_text_is_fixed_and_picker_follows_it(self):
-        """按钮名固定为「阶段配置」，当前模型改由按钮右侧的两级选择器显示。"""
+    def test_stage_button_uses_the_confirmed_provider_or_keeps_default_for_auto(self):
+        self.assertEqual(skill_panel.stage_button_label(self.desktop, 'script'), 'Codex')
         stage_config.put(self.desktop.root, 'script', model='deepseek-v4-flash')
-        button = skill_panel.stage_button(self.win, self.desktop, 0)
-        self.addCleanup(button.destroy)
-        button.pack(side='left')
-        self.assertEqual(button.cget('text'), '阶段配置')
-        self.assertIsNotNone(button.picker)
-        self.assertEqual(button.picker.provider.get(), 'DeepSeek')
-        self.assertEqual(button.picker.model_id(), 'deepseek-v4-flash')
+        self.assertEqual(skill_panel.stage_button_label(self.desktop, 'script'), 'DeepSeek')
+        data = model_pool.upsert(model_pool.raw(self.desktop.app),
+                                 {'label': '我的写作模型', 'model': 'my-writer', 'provider': '我的厂商'})
+        model_pool.store(data, self.desktop.app)
+        stage_config.put(self.desktop.root, 'script', model='my-writer')
+        self.assertEqual(skill_panel.stage_button_label(self.desktop, 'script'), '我的厂商')
 
-    def test_picker_add_model_entry_opens_the_manager_and_reverts(self):
-        """挑了「+ 添加模型…」：开模型管理，当前那一格退回刚才选的。"""
-        import pet_models_ui, stage_model_picker
-        opened = []
-        pet = object()
-        self.desktop.pet = pet
-        real = pet_models_ui.open_manager
-        pet_models_ui.open_manager = lambda target: opened.append(target)
-        self.addCleanup(setattr, pet_models_ui, 'open_manager', real)
-        picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'keyframe')
-        self.addCleanup(picker.destroy)
-        self.assertEqual(list(picker.models.cget('values'))[-1], stage_model_picker.ADD_MODEL_LABEL)
-        picker.set_model('qwen-max')
-        picker.choose_model()
-        self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['model'], 'qwen-max')
-        picker.model.set(stage_model_picker.ADD_MODEL_LABEL)
-        picker.choose_model()
-        self.assertEqual(opened, [pet], '模型池只有模型管理这一扇门')
-        self.assertEqual(picker.model_id(), 'qwen-max')
+    def test_stage_button_exposes_a_production_model_lookup_failure(self):
+        """阶段按钮读不到生产模型时不能继续假装是普通“阶段配置”。"""
+        with mock.patch.object(skill_panel.stage_config, 'get',
+                               return_value={'model': 'local-broken'}), \
+             mock.patch.object(skill_panel.stage_models, 'production_choices',
+                               side_effect=OSError('模型清单不可读')):
+            label = skill_panel.stage_button_label(self.desktop, 'assets')
+        self.assertIn('生产模型读取失败', label)
+        self.assertIn('模型清单不可读', label)
 
     def test_confirming_script_model_saves_and_refreshes_history_without_sending(self):
         window = tk.Toplevel(self.win)
@@ -1663,6 +1648,36 @@ class PanelTests(unittest.TestCase):
         self.assertEqual([button.cget('text') for button in panel.interface_buttons], ['调用设置'])
         panel.destroy()
 
+    def test_the_model_dropdown_ends_with_the_add_model_entry(self):
+        """第 50 期第 1 条：原来那颗「手动配置模型与 SKILL」里的「自定义模型」，现在就是这一格。"""
+        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        values = list(panel.models.cget('values'))
+        self.assertEqual(values[-1], skill_panel.ADD_MODEL_LABEL)
+        self.assertEqual(values[:-1], panel.provider_labels(), '二级下拉只显示当前厂商的模型')
+        self.assertFalse(hasattr(panel, 'manual_button'),
+                         '那颗「手动配置模型与 SKILL」按钮已经拆掉，不许再回来')
+        panel.destroy()
+
+    def test_choosing_the_add_model_entry_opens_the_manager(self):
+        """挑了「+ 添加模型…」：开模型管理，当前那一格退回刚才选的，不把入口留在框里。"""
+        opened = []
+        import pet_models_ui
+        pet = object()
+        self.desktop.pet = pet
+        real = pet_models_ui.open_manager
+        pet_models_ui.open_manager = lambda target: opened.append(target)
+        self.addCleanup(setattr, pet_models_ui, 'open_manager', real)
+
+        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        panel.model.set('Qwen-Max')
+        panel.choose_model()
+        self.assertEqual(panel.model.get(), 'Qwen-Max')
+        panel.model.set(skill_panel.ADD_MODEL_LABEL)
+        panel.choose_model()
+        self.assertEqual(opened, [pet], '模型池只有模型管理这一扇门')
+        self.assertEqual(panel.model.get(), 'Qwen-Max', '退回来时得还原刚才那一档')
+        panel.destroy()
+
     def test_the_skill_manage_dropdown_has_the_single_grid_actions(self):
         """面板只有阶段注册网格；旧引擎档清单不再生成第二套勾选框。"""
         panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
@@ -1722,7 +1737,7 @@ class PanelTests(unittest.TestCase):
         self.assertEqual(skill_panel.sync_models(self.desktop.root, self.desktop.app), [],
                          '已经同步过就不再重复写一遍')
         panel = skill_panel.Panel(self.win, self.desktop, 'script')
-        self.assertIn('my-local-7b', [label for options in panel.groups.values() for _id, label in options],
+        self.assertIn('my-local-7b', list(panel.models.cget('values')),
                       '补进池子之后每个页面的下拉都点得到')
         panel.destroy()
 

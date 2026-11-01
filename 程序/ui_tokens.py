@@ -341,6 +341,7 @@ ICON_CLOSE = "\uE711"
 ICON_DOCUMENT = "\uE8A5"
 # 对话消息悬停图标与框内麦克风（REQ-S01-66／67）。
 ICON_COPY = "\uE8C8"
+ICON_REWIND = "\uE7A7"
 ICON_MICROPHONE = "\uE720"
 ICON_FONT_SMALL = ("Segoe MDL2 Assets", 7)
 

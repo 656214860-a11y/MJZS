@@ -1656,7 +1656,7 @@ class SendMessageTests(_Harness):
                 self.settle_script_page(win)
             self.assertEqual(len(pending), 1)
             import skill_panel
-            self.assertEqual(d.stage_button.cget('text'), '阶段配置')
+            self.assertEqual(d.stage_button.cget('text'), skill_panel.stage_button_label(d, 'script'))
             self.assertEqual(d.draft_text(), '')
             self.assertIn('切换模型后的新输入', idea_chat.load(proj, model=new_model)[-1]['text'])
             self.assertIn('切换模型后的新输入', self.log_text(d))
@@ -1676,18 +1676,26 @@ class SendMessageTests(_Harness):
                              skills=['pipeline-script-preparation'])
             d, win = self.desktop(proj)
             d.send_message = Mock()
+            launcher = Mock()
             for confirm_selection in (False, True):
                 window = self.tk.Toplevel(win)
                 panel = skill_panel.Panel(window, d, 'script')
+                panel.launcher_button = launcher
                 self.assertEqual(panel.model_id(), 'deepseek-v4-flash')
                 panel.set_model('qwen-max')
+                panel.choose_provider()
+                self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
+                panel.set_model('qwen-max')
+                panel.choose_model()
                 self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
                 panel.save_and_refresh_notes()
                 panel.check_all_skills(False)
                 self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
+                launcher.configure.assert_not_called()
                 if confirm_selection:
                     panel.confirm()
                     self.assertEqual(stage_config.get(proj, 'script')['model'], 'qwen-max')
+                    launcher.configure.assert_called_once_with(text=skill_panel.stage_button_label(d, 'script'))
                 else:
                     window.destroy()
                     self.assertEqual(stage_config.get(proj, 'script')['model'], 'deepseek-v4-flash')
@@ -1957,87 +1965,62 @@ class BubbleLayoutTests(_Harness):
             d.show(0); self.settle_script_page(win)
             self.assertNotIn('编辑  删除', self.log_text(d), '消息下方不再显示编辑／删除文字')
             binding=lambda event: d.idea_log.tk.call(d.idea_log._w, 'tag', 'bind', 'bubble_0', event)
-            self.assertTrue(binding('<Button-1>'), '单击消息正文编辑')
+            self.assertFalse(binding('<Button-1>'), '消息正文不再可点击编辑')
             self.assertTrue(d.idea_log.bind('<Button-3>'), '右键应打开整条消息操作菜单')
 
-    def test_single_click_edits_or_deletes_the_message_in_place(self):
-        with tempfile.TemporaryDirectory() as td:
-            proj = make_minimal_project(td)
-            idea_chat.append(proj, 'user', '原始创意')
-            d, win = self.desktop(proj)
-            d.show(0); self.settle_script_page(win)
-            event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
-            d.start_bubble_edit(event, 0, 'bubble_0'); win.update()
-            edit = d._bubble_edit
-            self.assertEqual(str(d.idea_log.tag_cget('bubble_0', 'background')), '')  # REQ-S01-65 不铺底色
-            self.assertEqual(d.idea_log.cget('selectbackground'), COLORS['primary'])
-            self.assertEqual(d.idea_log.cget('selectforeground').lower(), COLORS['background_card'].lower())
-            d.idea_log.tag_add('sel', '%s+1c' % edit['start'], '%s+3c' % edit['start'])
-            self.assertEqual(d.idea_log.get('sel.first', 'sel.last'), '始创')
-            d.idea_log.delete(edit['start'], edit['end'])
-            d.idea_log.insert(edit['start'], '直接修改后的创意')
-            d.finish_bubble_edit(); win.update()
-            self.assertEqual(idea_chat.load(proj)[0]['text'], '直接修改后的创意')
-            d.start_bubble_edit(event, 0, 'bubble_0'); win.update()
-            edit = d._bubble_edit
-            d.idea_log.delete(edit['start'], edit['end'])
-            d.finish_bubble_edit(); win.update()
-            self.assertEqual(idea_chat.load(proj), [], '删空消息正文即删除该条，不弹确认窗口')
-
-    def test_dragging_a_bubble_keeps_text_selection_instead_of_entering_edit(self):
-        with tempfile.TemporaryDirectory() as td:
-            proj = make_minimal_project(td)
-            idea_chat.append(proj, 'user', '可以复制的正文')
-            d, win = self.desktop(proj)
-            d.show(0); self.settle_script_page(win)
-            click = SimpleNamespace(widget=d.idea_log, x=8, y=8)
-            d.begin_bubble_click(click, 0, 'bubble_0')
-            d.finish_bubble_click(click); win.update()
-            self.assertEqual(d._bubble_edit['index'], 0, '短按正文进入编辑')
-            d.begin_bubble_click(click, 0, 'bubble_0')
-            d.finish_bubble_click(click); win.update()
-            self.assertEqual(d._bubble_edit['index'], 0, '编辑中再次单击不能重建气泡，保留原生选字')
-            d.finish_bubble_edit(commit=False); win.update()
-            d.begin_bubble_click(click, 0, 'bubble_0')
-            d.track_bubble_click(SimpleNamespace(widget=d.idea_log, x=16, y=8))
-            d.finish_bubble_click(click); win.update()
-            self.assertIsNone(getattr(d, '_bubble_edit', None), '拖动选字不能误进入编辑')
-            self.assertEqual(str(d.idea_log.cget('state')), 'normal', '聊天记录必须保持可拖选')
-            self.assertEqual(d.idea_log.cget('selectbackground'), COLORS['primary'])
-            self.assertEqual(d.idea_log.cget('inactiveselectbackground'), COLORS['primary'])
-            self.assertEqual(d.guard_bubble_edit_key(SimpleNamespace(
-                widget=d.idea_log, keysym='a')), 'break', '未进入编辑时不可改动聊天记录')
-            for keysym in ('Down', 'Prior', 'Up', 'Next', 'Home', 'End', 'Tab', 'ISO_Left_Tab'):
-                self.assertIsNone(d.guard_bubble_edit_key(SimpleNamespace(
-                    widget=d.idea_log, keysym=keysym)), keysym + ' 应保留只读聊天框的阅读导航')
-
-    def test_editing_cannot_cross_a_bubble_body_and_selection_can_be_copied(self):
+    def test_bubble_is_read_only_selection_copyable_and_has_no_edit_entry(self):
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             model = d.idea_chat_model()
             idea_chat.append(proj, 'assistant', '长内容' * 250, model=model)
             d.show(0); self.settle_script_page(win)
-            event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
-            d.start_bubble_edit(event, 0, 'bubble_0'); win.update()
-            edit = d._bubble_edit
-            d.idea_log.mark_set('insert', edit['start'])
-            self.assertEqual(d.guard_bubble_edit_key(SimpleNamespace(
-                widget=d.idea_log, keysym='BackSpace')), 'break')
-            d.idea_log.mark_set('insert', edit['end'])
-            self.assertEqual(d.guard_bubble_edit_key(SimpleNamespace(
-                widget=d.idea_log, keysym='Delete')), 'break')
-            self.assertIn('对话AI · ' + model, self.log_text(d))
-            self.assertIn('展开全文', self.log_text(d))
-            d.finish_bubble_edit(commit=False); win.update()
+            self.assertFalse(hasattr(d, 'start_bubble_edit'))
+            self.assertEqual(str(d.idea_log.cget('state')), 'normal', '聊天记录必须保持可拖选')
+            self.assertEqual(d.guard_bubble_key(SimpleNamespace(widget=d.idea_log, keysym='a')), 'break')
+            for keysym in ('Down', 'Prior', 'Up', 'Next', 'Home', 'End', 'Tab', 'ISO_Left_Tab'):
+                self.assertIsNone(d.guard_bubble_key(SimpleNamespace(widget=d.idea_log, keysym=keysym)), keysym)
             body = d.idea_log.tag_ranges('bubble_0')
             d.idea_log.tag_add('sel', body[0], body[1])
-            self.assertEqual(d.idea_log.cget('selectbackground'), COLORS['primary'])
-            self.assertEqual(d.idea_log.cget('selectforeground').lower(), COLORS['background_card'].lower())
             d.notice_selected_bubble_text(SimpleNamespace(widget=d.idea_log))
             self.assertIn('按 Ctrl+C 复制', d.status.get())
             self.assertEqual(d.copy_selected_bubble_text(), 'break')
             self.assertIn('长内容', win.clipboard_get())
+
+    def test_skill_and_time_share_one_footer_line_below_the_body_and_rewind_refills_input(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            idea_chat.append(proj, 'user', '第一条创意正文')
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            body = d.idea_log.tag_ranges('bubble_0')
+            footer = d.idea_log.tag_ranges('bubble_0_time')
+            self.assertTrue(footer, '时间在正文下面的页脚行')
+            self.assertTrue(d.idea_log.compare(footer[0], '>=', body[1]), '页脚在正文之后')
+            self.assertEqual(d.rewind_bubble_message(0), '第一条创意正文')
+            self.assertEqual(d.idea_input.get('1.0', 'end').strip(), '第一条创意正文')
+            self.assertEqual(len(idea_chat.load(proj)), 1, '回退只回填输入框，不改聊天记录')
+
+    def test_streamed_text_appears_under_the_thinking_line_and_vanishes_when_cleared(self):
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            idea_chat.append(proj, 'user', '第一条')
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            d.show_thinking(d.displayed_chat_model()); self.settle_script_page(win)
+            d.begin_stream()
+            d.push_stream('第一行')
+            d.push_stream('\n第二行')
+            win.update()
+            d.refresh_stream_text(d.idea_log)
+            shown = d.idea_log.get('1.0', 'end')
+            self.assertIn('模型正在思考', shown)
+            self.assertLess(shown.index('模型正在思考'), shown.index('第一行'))
+            self.assertIn('第二行', shown)
+            d.clear_thinking(); win.update()
+            self.assertNotIn('第二行', d.idea_log.get('1.0', 'end'))
+            d.push_stream('迟到的字')
+            self.assertNotIn('迟到的字', d.idea_log.get('1.0', 'end'))
 
     def test_right_click_actions_copy_or_delete_the_entire_message(self):
         with tempfile.TemporaryDirectory() as td:
@@ -2161,19 +2144,6 @@ class BubbleLayoutTests(_Harness):
             with self.assertRaisesRegex(OSError, '未能移入回收站'):
                 idea_chat.remove_all(proj, '模型甲', gateway=gateway)
             self.assertEqual(idea_chat.load(proj, model='模型甲')[0]['text'], '失败时保留')
-
-    def test_editing_right_click_finishes_edit_without_opening_clear_menu(self):
-        with tempfile.TemporaryDirectory() as td:
-            d, win = self.desktop(make_minimal_project(td))
-            d.show(0)
-            self.settle_script_page(win)
-            d._bubble_edit = {'editing': True}
-            event = SimpleNamespace(widget=d.idea_log, x=8, y=8)
-            with patch.object(d, 'finish_bubble_edit') as finish, \
-                 patch('desktop.ContextMenu') as menu:
-                self.assertEqual(d.open_bubble_menu(event), 'break')
-            finish.assert_called_once_with()
-            menu.assert_not_called()
 
     def test_clear_screen_compacts_context_and_refresh_only_restores_display(self):
         with tempfile.TemporaryDirectory() as td:
@@ -2408,7 +2378,7 @@ class ComposerLayoutTests(_Harness):
             d.show(0); win.update()
             self.assertIsNot(d.idea_input, d.idea_log)
             self.assertEqual(d.idea_log.cget('state'), 'normal', '聊天记录须保持正常状态以支持鼠标拖选')
-            self.assertEqual(d.guard_bubble_edit_key(SimpleNamespace(
+            self.assertEqual(d.guard_bubble_key(SimpleNamespace(
                 widget=d.idea_log, keysym='a')), 'break', '正常状态仍须由只读保护阻止键盘改写')
             self.assertEqual(d.idea_input.cget('state'), 'normal')
             self.assertGreater(d.idea_input.winfo_rooty(), d.idea_log.winfo_rooty(),

@@ -16,6 +16,7 @@ import stage_models
 import ui_plugin_registry
 from pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
 from ui_tokens import CHAR_WIDTH, COLORS, SPACING
+from ui_widgets import PrimaryButton
 
 
 FLOW_STAGE = {'writing': 'script', 'storyboard': 'storyboard', 'assets': 'assets',
@@ -429,6 +430,58 @@ def stage_label(stage):
     return _bus_stage_label(stage)
 
 
+def stage_button_label_for(desktop, stage, fallback='阶段配置', stage_flow=None,
+                           *, project_of=None, stage_of=None, config=None,
+                           models=None, pool=None, pool_records_of=None):
+    """阶段入口显示实际会被派发的模型／引擎，避免按钮与三虎调用目标不一致。
+
+    依赖以参数传入，调用模块可保持原有补丁点（``stage_for``、``desktop_project``、
+    ``pool_records``、``STAGE_FLOW`` 等）继续生效。
+    """
+    project_of = project_of or desktop_project
+    stage_of = stage_of or stage_for
+    config = config or stage_config
+    models = models or stage_models
+    pool = pool or model_pool
+    pool_records_of = pool_records_of or pool_records
+    project = project_of(desktop)
+    if not project:
+        return fallback
+    try:
+        chosen = str(config.get(project, stage_of(stage)).get('model') or '').strip()
+    except Exception:
+        return fallback
+    if not chosen or chosen == model_router.AUTO:
+        # 「自动」不是没有模型：三虎仍会按该流程当前有效引擎启动。按钮直接说出
+        # 实际目标，避免用户看到“阶段配置”却发现启动了 Codex／Claude。
+        flow = (stage_flow or {}).get(stage_of(stage))
+        if not flow:
+            return fallback
+        try:
+            import workflow_settings
+            current = workflow_settings.current(project, flow)
+            actual = workflow_settings.effective_model(project, flow)
+            records = pool_records_of(desktop)
+            for model_id, record in records.items():
+                if str(record.get('model') or '').strip() == str(actual).strip():
+                    return pool.provider_name(model_id, record) or fallback
+            return {'codex': 'Codex', 'claude': 'Anthropic', 'qwen': 'Qwen',
+                    'opencode': 'OpenCode'}.get(
+                current.get('engine'), fallback)
+        except Exception:
+            return fallback
+    # 资产／首帧的本地生产模型不会登记到 API 模型池；此前直接查模型池会得到空名称，
+    # 使阶段配置按钮错误回退为“阶段配置”。优先从该页面的生产模型清单取显示名。
+    try:
+        for model_id, label in models.production_choices(stage_of(stage), project):
+            if str(model_id) == chosen:
+                return str(label) or fallback
+    except Exception as exc:
+        return fallback + '（生产模型读取失败：%s）' % exc
+    record = pool_records_of(desktop).get(chosen, {})
+    return pool.provider_name(chosen, record) or fallback
+
+
 def panel_title(stage):
     """面板抬头：阶段 id → 「阶段配置 · 08 首帧管理」。"""
     return '阶段配置 · ' + stage_label(stage)
@@ -438,6 +491,14 @@ def stage_of_page(index, stages=None):
     """页序号 → 阶段 id（第 11 页参考网站没有阶段，返回空）。"""
     names = list(stages or STAGE_NAMES)
     return names[index] if 0 <= index < len(names) else ''
+
+
+def stage_button_for(parent, command, text='阶段配置'):
+    """各阶段统一使用与发送键相同的蓝色填充「阶段配置」按钮。"""
+    button = PrimaryButton(parent, text=text, command=command, width=CHAR_WIDTH['3xl'])
+    # 这是语义标记而非视觉样式；回归可据此找到入口，不再耦合已废弃的暖色样式名。
+    button._stage_config_entry = True
+    return button
 
 
 def desktop_project(desktop):

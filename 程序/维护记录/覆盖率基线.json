@@ -224,7 +224,7 @@
   {
    "module": "asset_skill_batch.py",
    "covered": 0,
-   "total": 97,
+   "total": 95,
    "percent": 0.0
   },
   {
@@ -416,7 +416,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 982,
+   "total": 978,
    "percent": 0.0
   },
   {
@@ -728,7 +728,7 @@
   {
    "module": "image_agent_runner.py",
    "covered": 0,
-   "total": 106,
+   "total": 105,
    "percent": 0.0
   },
   {
@@ -758,7 +758,7 @@
   {
    "module": "keyframe_import.py",
    "covered": 0,
-   "total": 185,
+   "total": 184,
    "percent": 0.0
   },
   {
@@ -1022,7 +1022,7 @@
   {
    "module": "previs_automation.py",
    "covered": 0,
-   "total": 160,
+   "total": 155,
    "percent": 0.0
   },
   {
@@ -1244,7 +1244,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 794,
+   "total": 850,
    "percent": 0.0
   },
   {
@@ -1256,7 +1256,7 @@
   {
    "module": "skill_panel_support.py",
    "covered": 0,
-   "total": 439,
+   "total": 480,
    "percent": 0.0
   },
   {
@@ -1311,12 +1311,6 @@
    "module": "stage_handler_registry.py",
    "covered": 0,
    "total": 101,
-   "percent": 0.0
-  },
-  {
-   "module": "stage_model_picker.py",
-   "covered": 0,
-   "total": 149,
    "percent": 0.0
   },
   {
@@ -1740,6 +1734,12 @@
    "percent": 0.0
   },
   {
+   "module": "writing_stream.py",
+   "covered": 0,
+   "total": 19,
+   "percent": 0.0
+  },
+  {
    "module": "writing_tools.py",
    "covered": 0,
    "total": 71,
@@ -1760,8 +1760,8 @@
   {
    "module": "stage_config.py",
    "covered": 61,
-   "total": 464,
-   "percent": 13.1
+   "total": 462,
+   "percent": 13.2
   },
   {
    "module": "stage_download_inbox_service.py",

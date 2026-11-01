@@ -52,8 +52,10 @@ _STEP_WORDS = (('自然剧本', 3), ('剧本', 3), ('角色卡', 2), ('人物卡
 
 def request_step(text):
     """用户本轮原话点名的最靠后一步（0～3）；附档正文不算，没点名返回 None。"""
-    own = str(text or '').split('【附档：', 1)[0].replace('剧本大纲', '大纲')
+    own = str(text or '').split('【附档：', 1)[0].replace('剧本大纲', '大纲').replace('剧本结构', '')
     hits = [step for word, step in _STEP_WORDS if word in own]
+    if 3 in hits and '自然剧本' not in own and len(set(hits)) > 1:
+        hits = [step for step in hits if step != 3]  # 点名了设定／大纲／角色卡时，泛称「剧本」只是提及参考
     return max(hits) if hits else None
 
 

@@ -30,6 +30,7 @@ from skill_panel_support import (
     stage_label,
     panel_title,
     stage_of_page,
+    stage_button_for,
     desktop_project,
     pet_of,
     status_of,
@@ -47,6 +48,7 @@ from skill_panel_support import (
     panel_window_size,
     WrappingActionRow,
     FormScrollMixin,
+    stage_button_label_for,
     refresh_all,
     register_live,
     unregister_live,
@@ -79,7 +81,6 @@ import model_pool
 import model_router
 import edit_habits_dialog, skill_note_render
 import skill_notes
-from stage_model_picker import attach_stage_pickers, stage_button_for
 from tk_timers import repeat
 import skill_budget
 import skill_orchestrator
@@ -114,6 +115,7 @@ STAGE_FLOW = {FLOW_STAGE[name]: name for name in FLOW_NAMES if name in FLOW_STAG
 # 第 50 期第 1 条：原来那颗「手动配置模型与 SKILL」拆成两个入口，直接长在两个下拉框里——
 # 「模型」那一格最后一项是「+ 添加模型…」（去模型管理里加一条自己的模型），「流程 SKILL」
 # 那一格最后一项是「+ SKILL 入口…」（自己挑一个 SKILL.md 当这一流程的 SKILL）。
+ADD_MODEL_LABEL = '+ 添加模型…'
 # 第 64 期任务 14：这颗下拉框直称「SKILL」，默认停在「全选」；原来摆在格子里让你挑的那几份
 # 常用 SKILL 挪到外面的勾选框里按顺序排（与这一步自己的 SKILL 同排），格子只留三件事：
 # 全选／取消全选／新增（新增＝原来那条「+ SKILL 入口…」，自己挑一份 SKILL.md）。
@@ -144,6 +146,18 @@ MANAGE_LABELS = (MANAGE_ALL, MANAGE_NONE, MANAGE_ADD, MANAGE_DELETE)
 # manual_entry 留着读：旧项目里手动填过的模型 ID 仍然算数（见 Panel.context）。
 
 
+def stage_button_label(desktop, stage, fallback='阶段配置'):
+    """阶段入口显示实际会被派发的模型／引擎，避免按钮与三虎调用目标不一致。
+
+    本模块既是公开入口，也是既有测试的补丁点：把当前模块全局显式传给实现，
+    对 ``STAGE_FLOW``／``stage_for``／``desktop_project``／``pool_records`` 的补丁仍然有效。
+    """
+    return stage_button_label_for(
+        desktop, stage, fallback, STAGE_FLOW,
+        project_of=desktop_project, stage_of=stage_for, config=stage_config,
+        models=stage_models, pool=model_pool, pool_records_of=pool_records)
+
+
 def stage_button(parent, desktop, index, text='阶段配置'):
     """各阶段页「手动XX」右边那颗「阶段配置」（第 32 期第 6 条）。
 
@@ -151,7 +165,7 @@ def stage_button(parent, desktop, index, text='阶段配置'):
     按页序号找阶段（stage_of_page），点开的就是这一页那一个阶段的模型与 SKILL。
     """
     stage = stage_of_page(index)
-    button = stage_button_for(parent, lambda: None, text, desktop, stage)
+    button = stage_button_for(parent, lambda: None, stage_button_label(desktop, stage, text))
     # 阶段配置只读取／编辑配置，不会启动生产任务；后台任务进行时仍须允许用户查看或调整它。
     button.configure(command=lambda: open_for_page(desktop, index, button))
     return button
@@ -181,6 +195,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         self.skills = [item for item in self.registry.getByStage(self.stage) if not item.deprecated]
         self.vars = {}
         self.model = tk.StringVar(value=model_router.AUTO)
+        self._picked = ''              # 刚才选着的那一格（点「+ 添加模型…」要退回来）
         self.preset = tk.StringVar(value=PRESET_PLACEHOLDER)
         self.preset_action = tk.StringVar(value='选择操作')
         # 下拉的选项＝模型管理里那几条（第 43 期：不写死，池子加一条这里就多一项）。
@@ -291,11 +306,25 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         self.build_workflow_coordinator(pad, coordinator)
 
         engine = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
+        engine.pack(fill='x', pady=(SPACING['none'], section_gap))
+        top = WrappingActionRow(engine)
+        top.pack(fill='x')
+        CompactLabel(top, text='厂商', style='Muted.TLabel', min_px=self.label_px).pack(side='left')
+        self.providers = SelectBox(top, textvariable=self.provider, width=select_width,
+                                      values=list(self.groups))
+        self.providers.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], item_gap))
+        self.providers.gap_after = item_gap
+        self.providers.bind('<<ComboboxSelected>>', lambda event: self.choose_provider())
+        # 第 50 期第 1 条：最后一项是「+ 添加模型…」——原来那颗「手动配置模型与
+        # SKILL」里的「自定义模型」入口，现在就在挑模型的那一格旁边。
+        self.models = SelectBox(top, textvariable=self.model, width=select_width,
+                                   accent_values=(ADD_MODEL_LABEL,),
+                                   values=self.provider_labels() + [ADD_MODEL_LABEL])
+        self.models.pack(side='left', padx=(STAGE_PANEL_LAYOUT['field_gap'], SPACING['none']))
+        self.models.bind('<<ComboboxSelected>>', lambda event: self.choose_model())
         # 只在用户改选模型后按需探测；构造／load 不调用，避免打开页面时扫描本机程序。
-        self.engine_frame = engine
         self.route_hint = HintLabel(engine, text='')
         specific = ttk.Frame(body, padding=pad, relief='solid', borderwidth=1)
-        self.route_anchor = specific
         specific.pack(fill='x', pady=(SPACING['none'], section_gap))
         self.build_writer_style_editor(pad, specific)
         self.build_interfaces(pad, specific)
@@ -655,6 +684,31 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         self.state.configure(text='已移入回收站：' + names)
         return records
 
+    def choose_model(self):
+        """模型选择仅暂存到确认；「+ 添加模型…」打开模型管理。"""
+        if self.model.get() != ADD_MODEL_LABEL:
+            self._picked = self.model.get()
+            self.show_desktop_route_notice()
+            self.refresh_external_package_hint()
+            return None
+        self.model.set(self._picked or self.model_label(model_router.AUTO))
+        return self.open_model_manager()
+
+    def provider_labels(self):
+        return [label for _model_id, label in self.groups.get(self.provider.get(), [])]
+
+    def choose_provider(self):
+        """先选供应商，再在右侧只显示该供应商的具体模型。"""
+        labels = self.provider_labels()
+        self.models.set_values(labels + [ADD_MODEL_LABEL])
+        if labels:
+            self.model.set(labels[0])
+            self._picked = labels[0]
+            self.show_desktop_route_notice()
+            self.refresh_external_package_hint()
+            return None
+        return None
+
     def show_desktop_route_notice(self):
         """模型由用户主动改选后，才按需查询本机优先路由；不改变保存或执行。"""
         notice = ''
@@ -667,31 +721,48 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
                 notice = ''
         self.route_hint.configure(text=notice)
         if notice:
-            self.engine_frame.pack(fill='x', pady=(SPACING['none'], SPACING['none']),
-                                   before=self.route_anchor)
             self.route_hint.pack(fill='x')
         else:
             self.route_hint.pack_forget()
-            self.engine_frame.pack_forget()
         return notice
 
     def set_model(self, model):
-        """按已保存的 id 记下当前模型；手填的本地 id 也必须原样保留。"""
+        """按已保存的 id 同步两级下拉；手填的本地 id 也必须原样保留。"""
         wanted = str(model or model_router.AUTO)
         for provider, options in self.groups.items():
             for model_id, label in options:
                 if model_id == wanted:
                     self.provider.set(provider)
+                    self.models.set_values([item_label for _item_id, item_label in options] + [ADD_MODEL_LABEL])
                     self.model.set(label)
+                    self._picked = label
                     return wanted
         if wanted == model_router.AUTO:
             return model_router.AUTO
         # 用户手写的本地模型尚未登记到模型池时，不替用户丢掉配置。
         provider = '自定义'
         self.groups.setdefault(provider, []).append((wanted, wanted))
+        self.providers.set_values(list(self.groups))
         self.provider.set(provider)
+        self.models.set_values([wanted, ADD_MODEL_LABEL])
         self.model.set(wanted)
+        self._picked = wanted
         return wanted
+
+    def open_model_manager(self):
+        """「+ 添加模型…」：模型池只有这一扇门（模型管理），加完这里就多一个选项。"""
+        pet = pet_of(self.desktop)
+        if pet is None:
+            self.state.configure(text='模型管理没打开：这一版没接上三虎')
+            return ''
+        import pet_models_ui
+        try:
+            result = pet_models_ui.open_manager(pet)
+        except Exception as exc:
+            self.state.configure(text='模型管理没打开：' + str(exc))
+            return ''
+        self.state.configure(text='模型管理已打开：加完一条，这里就多一个选项')
+        return result
 
     def manual(self):
         """项目里这一阶段手动配的那一档（没配过就是空的一份）。"""
@@ -886,14 +957,12 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
         return model_pool.label_of(model, pool_records(self.desktop))
 
     def refresh_models(self):
-        """模型池或阶段模型变了：换掉选项，当前这一档以项目配置为准（不在池里了就退回「自动」）。"""
-        try:
-            current = str(self.entry().get('model') or model_router.AUTO)
-        except Exception:
-            current = self.model_id()
+        """模型池变了：换掉选项，当前这一档尽量留住（不在池里了就退回「自动」）。"""
+        current = self.model_id()
         self.choices = model_choices(self.desktop, self.stage)
         self.labels = [label for _model_id, label in self.choices]
         self.groups = grouped_model_choices(self.desktop, self.stage)
+        self.providers.set_values(list(self.groups))
         kept = [model_id for model_id, _label in self.choices if model_id == current]
         self.set_model(kept[0] if kept else model_router.AUTO)
         self.refresh_external_package_hint()
@@ -977,6 +1046,13 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
     def confirm(self):
         """保存当前页面的阶段配置，再关闭该阶段配置窗口。"""
         entry = self.save(quiet=False)
+        launcher = getattr(self, 'launcher_button', None)
+        if launcher is not None:
+            try:
+                if launcher.winfo_exists():
+                    launcher.configure(text=stage_button_label(self.desktop, self.stage))
+            except tk.TclError:
+                pass
         if self.stage == 'script':
             refresh = getattr(self.desktop, 'refresh_script_chat_for_selected_model', None)
             if callable(refresh):

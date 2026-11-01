@@ -34,7 +34,8 @@
             "account_client"
         ],
         "scope_audit_pending": [
-            "script_structure_edit_controller"
+            "script_structure_edit_controller",
+            "writing_stream"
         ],
         "historical_name_audit_pending": [],
         "historical_name_audited": [

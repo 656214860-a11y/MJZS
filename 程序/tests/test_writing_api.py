@@ -13,6 +13,7 @@ os.chdir(HERE)
 
 import stage_config
 import writing_api
+import writing_stream
 import writing_tools
 import model_pool
 import script_contract
@@ -1072,6 +1073,47 @@ class WritingApiTests(unittest.TestCase):
                 'x' * (writing_api.DIRECT_REQUEST_CONTEXT_MAX_CHARS + 1), td)
         self.assertFalse(result['ok'])
         self.assertEqual(result['reason'], 'context_budget_exceeded')
+
+
+class StreamingChatTests(unittest.TestCase):
+    class Adapter:
+        wire_api = 'chat'
+
+        def __init__(self, stream_result, chunks=()):
+            self.stream_result, self.chunks, self.chat_calls = stream_result, chunks, 0
+
+        def stream(self, messages, options=None, model=None, system=None, on_chunk=None, cancelled=None):
+            for chunk in self.chunks:
+                on_chunk(chunk)
+            return self.stream_result
+
+        def chat(self, *args, **kwargs):
+            self.chat_calls += 1
+            return {'ok': True, 'text': '整段'}
+
+    def run_chat(self, adapter, sink):
+        with writing_stream.stream_to(sink):
+            return writing_stream.chat_streaming(adapter, [], {}, 'm', 's')
+
+    def test_chunks_reach_the_sink_without_a_second_request(self):
+        got = []
+        adapter = self.Adapter({'ok': True, 'text': 'ab'}, ('a', 'b'))
+        result = self.run_chat(adapter, got.append)
+        self.assertEqual((got, result['text'], adapter.chat_calls), (['a', 'b'], 'ab', 0))
+
+    def test_failure_before_any_text_falls_back_to_plain_chat(self):
+        adapter = self.Adapter({'ok': False, 'error_class': 'network'})
+        self.assertEqual(self.run_chat(adapter, lambda c: None)['text'], '整段')
+        self.assertEqual(adapter.chat_calls, 1)
+
+    def test_failure_after_text_is_not_resent(self):
+        adapter = self.Adapter({'ok': False, 'error_class': 'network'}, ('a',))
+        self.assertFalse(self.run_chat(adapter, lambda c: None)['ok'])
+        self.assertEqual(adapter.chat_calls, 0)
+
+    def test_without_a_sink_uses_plain_chat(self):
+        adapter = self.Adapter({'ok': True, 'text': 'x'}, ('x',))
+        self.assertEqual(writing_stream.chat_streaming(adapter, [], {}, 'm', 's')['text'], '整段')
 
 
 if __name__ == '__main__':

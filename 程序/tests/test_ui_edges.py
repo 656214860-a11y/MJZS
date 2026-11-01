@@ -5065,8 +5065,7 @@ class BriefTintTests(unittest.TestCase):
         self.assertTrue(box.tag_ranges('bubble_example'))
         self.assertEqual(box.tag_cget('bubble_example', 'foreground'), COLORS['text_secondary'])
         self.assertFalse(box.tk.call(box._w, 'tag', 'bind', 'bubble_example', '<Button-1>'))
-        self.assertEqual(d.start_bubble_edit(None, 'example', 'bubble_example'), 'break')
-        self.assertFalse(getattr(d, '_bubble_edit', None))
+        self.assertFalse(hasattr(d, 'start_bubble_edit'))
         self.assertEqual(idea_chat.strip_inline_required_markers(d._bubble_full['bubble_example']['text']), d.idea_example())
         self.assertEqual(d.draft_text(), original_draft)
 

@@ -19,6 +19,7 @@ from file_cache import read_json
 from model_router import ModelAdapter, PoolAdapter
 import edit_habits, writing_tools
 from writing_quality import enabled as quality_enabled
+from writing_stream import chat_streaming
 from workflow_context_budget import (REQUEST_CONTEXT_MAX_CHARS, budget_advice, budget_sections,
                                      context_budget_report, text_fingerprint)
 
@@ -1106,7 +1107,7 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
     adapter = _writing_adapter(record, chosen, project=project, settings=settings, cancelled=cancelled)
     tokens = 32768 if str(record.get('model') or chosen).lower() in (
         'deepseek-v4-flash', 'deepseek-v4-pro') else CLAUDE_VISIBLE_OUTPUT_TOKENS
-    result = adapter.chat(messages, options={'max_tokens': tokens}, model=chosen, system=system)
+    result = chat_streaming(adapter, messages, {'max_tokens': tokens}, chosen, system, cancelled)
     try:
         result = _preserve_preparation_response(project, result, response_publisher)
     except OSError as exc:
@@ -1262,8 +1263,7 @@ def reply(project, creative, cancelled=None, *, publish=None, archive=None, user
     # V4 的思考与可见正文共用额度；普通阶段对话也需沿用阶段生成的预算。
     tokens = 32768 if str(record.get('model') or chosen).lower() in (
         'deepseek-v4-flash', 'deepseek-v4-pro') else 4096
-    result = adapter.chat(messages, options={'max_tokens': tokens},
-                          model=chosen, system=system)
+    result = chat_streaming(adapter, messages, {'max_tokens': tokens}, chosen, system, cancelled)
     _archive_then_require_active(root, result, archive, cancelled)
     _record_model_diagnostic(root, result)
     return _auto_save_script_raw(root, result, model=chosen, identity=identity, publish=_cancellable_publisher(publish, cancelled), quality_required=quality_enabled(system)) if auto_save_enabled else result

@@ -286,7 +286,6 @@ class ScriptPagesMixin:
         box = getattr(self, 'idea_log', None)
         if box is None or not box.winfo_exists():
             return False
-        if getattr(self,'_bubble_edit',None):self.finish_bubble_edit()
         self._idea_view_model_request=getattr(self,'_idea_view_model_request',0)+1
         self._idea_view_model_cache=(self.root,self.idea_chat_model())
         self.show_conversation()
