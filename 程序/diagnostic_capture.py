@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 import threading
 import traceback
@@ -23,6 +24,10 @@ PROGRAM = Path(__file__).resolve().parent
 LOGS = PROGRAM / "logs"
 ERROR_LOG = LOGS / "启动错误.log"
 STATE_FILE = LOGS / "diagnostics" / "latest.json"
+# 自检与本地 CI 设置 DRAMA_SUPPRESS_DIAGNOSTICS=1：测试故意触发的报错不写进程序自己的这份
+# 记录，免得临时项目混进用户的运行状况与诊断导出；测试把 STATE_FILE 改指到临时文件时照常写。
+SUPPRESS_DIAGNOSTICS_ENV = "DRAMA_SUPPRESS_DIAGNOSTICS"
+_PROGRAM_STATE_FILE = STATE_FILE
 _SECRET = app_logging._SECRET
 _PRIVATE_NAME = re.compile(r"(?i)(?:\.env$|\.dpapi$|private|credential|secret)")
 _LOCK = threading.Lock()
@@ -41,6 +46,8 @@ def _state() -> dict:
 
 
 def _save_state(value: dict) -> None:
+    if os.environ.get(SUPPRESS_DIAGNOSTICS_ENV) == "1" and STATE_FILE == _PROGRAM_STATE_FILE:
+        return
     save_text(STATE_FILE, json.dumps(value, ensure_ascii=False, indent=2))
 
 

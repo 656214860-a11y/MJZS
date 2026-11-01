@@ -627,6 +627,7 @@ def main(argv=None):
     os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
     os.environ.setdefault("DRAMA_SUPPRESS_TRAY", "1")
     os.environ.setdefault("DRAMA_SUPPRESS_NETWORK", "1")
+    os.environ.setdefault("DRAMA_SUPPRESS_DIAGNOSTICS", "1")  # 测试报错不写程序自己的诊断记录
     os.environ.setdefault("DRAMA_REDUCE_MOTION", "0")  # 自检固定保留动效，不随本机系统设置漂移
     args = list(sys.argv[1:] if argv is None else argv)
     round_no, full, safe, skip_gate, listing, architecture, affected = ROUND, False, False, True, False, False, []

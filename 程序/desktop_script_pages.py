@@ -158,7 +158,8 @@ def _install_script_edit_controls(page, controls, box):
             restore_button.state(['!disabled'])
             save_button.state(['!disabled'] if controller.dirty else ['disabled'])
         else:
-            edit_button.state(['!disabled'])
+            # 框里没有文档就没有可编辑的对象：「编辑」直接禁用，不再点了才报错（R2168）。
+            edit_button.state(['!disabled'] if active['path'] is not None else ['disabled'])
             back_button.state(['disabled'])
             restore_button.state(['disabled'])
             save_button.state(['disabled'])
@@ -263,7 +264,7 @@ def _install_script_edit_controls(page, controls, box):
         delete_button = SecondaryButton(controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='删除', command=lambda: page.safe(delete_document))
         delete_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"]))
         setattr(page, attribute + '_delete_button', delete_button)
-        sync_buttons()
+    sync_buttons()
     setattr(page, attribute + '_edit_button', edit_button)
     setattr(page, attribute + '_back_button', back_button)
     setattr(page, attribute + '_restore_button', restore_button)
