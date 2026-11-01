@@ -114,7 +114,7 @@ class DirectApiTests(unittest.TestCase):
                                          False, False, False)
         with patch('workflow_settings.current', return_value=self.config), \
                 patch('storyboard_direct_api.direct_model', return_value=('deepseek-v4-pro', {'name': 'x'})), \
-                patch('desktop_idea_chat._run_storyboard_direct') as direct, \
+                patch('desktop_storyboard_direct.run_storyboard_direct') as direct, \
                 patch('qwen_adapter.window_title') as qwen:
             chat._FlowAgentLaunch(host, request).build()
         direct.assert_called_once()
@@ -122,7 +122,7 @@ class DirectApiTests(unittest.TestCase):
         request = chat._FlowAgentRequest('video_prompt', '视频提示词', '任务', None, None, self.config, False, False, False)
         with patch('workflow_settings.current', return_value=self.config), \
                 patch('storyboard_direct_api.direct_model', return_value=('m', {})) as model, \
-                patch('desktop_idea_chat._run_storyboard_direct') as direct, \
+                patch('desktop_storyboard_direct.run_storyboard_direct') as direct, \
                 patch('qwen_adapter.window_title', return_value='Q'):
             chat._FlowAgentLaunch(host, request).build()
         direct.assert_not_called()

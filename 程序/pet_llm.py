@@ -19,8 +19,9 @@ import time
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-import model_pool
+import model_pool, stage_layout
 import token_saver
+from model_metering import REPLAYABLE_RETRY_STATUS, metered, replayable_retry
 from app_metadata import APP_NAME
 from agent.core import save
 from pet_bus import read_json
@@ -31,7 +32,7 @@ _REQUEST_LOCK = threading.RLock()
 
 PROGRAM = Path(__file__).resolve().parent
 CONFIG_PATH = ('配置', '宠物', '配置.json')
-LEDGER_PATH = ('工作流任务', '宠物', 'Token台账.json')
+LEDGER_PATH = (stage_layout.WORKFLOW_DIR, '宠物', 'Token台账.json')
 
 DEFAULTS = {
     'base_url': 'https://api.deepseek.com',
@@ -57,7 +58,7 @@ MAX_OUTPUT_CEILING = 2048
 REQUEST_CONTEXT_MAX_CHARS = 16000
 REQUEST_DIRECTIVE_MAX_CHARS = 16000
 RETRY_DELAYS = (30, 60, 120)
-RETRYABLE_STATUS = (0, 408, 409, 425, 429, 500, 502, 503, 504)
+RETRYABLE_STATUS = REPLAYABLE_RETRY_STATUS  # 对话可重放口径；提交口径见 model_metering.submission_retryable
 
 # 固定前缀：改动它等于让所有历史缓存失效，所以只放长期稳定的内容。
 # 第 15 期把人设写进这里（名字＝pet_agent.PET_NAME，改一处要改两处，自检有用例盯着）：
@@ -287,8 +288,7 @@ def http_transport(url, payload, headers, timeout):
     return model_pool.http_transport(url, payload, headers, timeout)
 
 
-def is_retryable(status):
-    return status in RETRYABLE_STATUS
+is_retryable = replayable_retry
 
 
 # 用量口径的唯一实现在 token_saver；这里保留名字给台账与旧调用方。
@@ -426,27 +426,27 @@ class Client:
                    'error_class': 'pending'}
         path = self._record_diagnostic(pending, task, tier, cfg, context)
         ledger = RequestLedger(self.project) if self.project else None
+
+        def usage_of(result):
+            data = result.get('data')
+            return reported_usage(data.get('usage') if isinstance(data, dict) else None)
+
+        def diagnose(result, usage):
+            self._record_diagnostic({**result, 'model': model, 'usage': usage},
+                                    task, tier, cfg, context, path)
         if ledger:
             estimate = len(json.dumps(payload, ensure_ascii=False).encode('utf-8')) + 256
-            try:
-                ledger.authorize_model(context['request_id'], model, context['stage'], estimate, int(payload['max_tokens']))
-            except (ValueError, OSError) as error:
-                result = {'ok': False, 'status': 0, 'kind': 'budget', 'error': str(error), 'usage': {}}
+            result, usage, rejected = metered(
+                ledger, (context['request_id'], model, context['stage'], estimate, int(payload['max_tokens'])),
+                lambda: send(url, payload, head, timeout), usage_of, on_result=diagnose)
+            if rejected is not None:
+                result = {'ok': False, 'status': 0, 'kind': 'budget', 'error': str(rejected), 'usage': {}}
                 self._record_diagnostic({**result, 'model': model, 'error_class': 'budget'}, task, tier, cfg, {**context, 'not_submitted': True}, path)
                 return result
-        try:
+        else:
             result = send(url, payload, head, timeout)
-        except Exception:
-            if ledger:
-                ledger.settle_model(context['request_id'], {})
-            raise
-        data = result.get('data')
-        raw = data.get('usage') if isinstance(data, dict) else None
-        usage = reported_usage(raw)
-        self._record_diagnostic({**result, 'model': model, 'usage': usage},
-                                task, tier, cfg, context, path)
-        if ledger:
-            ledger.settle_model(context['request_id'], usage)
+            usage = usage_of(result)
+            diagnose(result, usage)
         if usage:
             self.ledger.record(model, usage, tier=tier, at=at)
         return result
@@ -519,7 +519,7 @@ class Client:
 # 与 Token 台账分工：Token 台账算「当天花了多少」，这里回答「这一笔请求怎么回事」——
 # 请求号、调用种类、估计还是实报、预留还是结算、关联哪个远端任务。token／秒／次数
 # 各列各的，不把它们相加成金额；价格表可选，带上版本与日期；缺 usage 记「未知」而不是 0。
-REQUEST_LEDGER_PATH = ('工作流任务', '宠物', '请求台账.json')
+REQUEST_LEDGER_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '请求台账.json')
 REQUEST_KINDS = ('tokens', 'seconds', 'images', 'videos', 'requests')
 REQUEST_STATES = ('reserved', 'settled', 'unknown', 'cancelled', 'duplicate')
 REQUEST_MODES = ('estimated', 'reported', 'unknown')

@@ -14,6 +14,7 @@ Claude Desktop 等桌面应用读得到任务书，却常常不能直接写入�
 from __future__ import annotations
 
 import re
+import stage_layout
 from datetime import datetime
 from pathlib import Path
 
@@ -30,7 +31,7 @@ _COPY_SUFFIX = re.compile(r'\s*\(\d+\)(?=\.[^.]+$)')
 
 
 # 任务书也会引用输入素材；这些目录里的文件只读，不作为收回目标。
-_INPUT_PARTS = frozenset(('输入', '工作流任务', '回收站'))
+_INPUT_PARTS = frozenset(('输入', stage_layout.WORKFLOW_DIR, '回收站'))
 
 
 def expected_targets(root, text):

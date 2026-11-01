@@ -1,7 +1,7 @@
 """无编排依赖的项目阶段模型只读访问。"""
-from pathlib import Path
 
 from file_cache import read_json
+import stage_layout
 from pet_bus import STAGES
 
 
@@ -10,7 +10,7 @@ def value(project, stage):
     if stage not in STAGES:
         raise ValueError('没登记的阶段：' + str(stage))
     try:
-        data = read_json(Path(project) / 'skill_config.json')
+        data = read_json(stage_layout.skill_config_path(project))
     except (OSError, ValueError, TypeError):
         return ''
     entry = data.get(stage) if isinstance(data, dict) else None

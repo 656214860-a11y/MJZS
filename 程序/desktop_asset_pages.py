@@ -242,7 +242,7 @@ class AssetPagesMixin:
         for label,kind in [('角色','characters'),('场景','scenes'),('道具','props')]:
             def choose(k=kind):self.asset_kind=k;self.show(PAGE['assets'])
             (PrimaryButton if self.asset_kind==kind else SecondaryButton)(toolbar,text=label,command=lambda fn=choose:self.safe(fn)).pack(side='left')
-        b=SecondaryButton(toolbar,text='检查提示词',command=lambda:self.safe(lambda:ui_plugin_registry.module('asset_prompt_rules').check(self)));b.pack(side='left')
+        b=SecondaryButton(toolbar,text='检查提示词',command=lambda:self.safe(lambda:ui_plugin_registry.module('asset_prompt_check_dialog').check(self)));b.pack(side='left')
         b=SecondaryButton(toolbar,text='识别背景人物',command=lambda:self.safe(lambda:ui_plugin_registry.module('background_characters').show(self)));b.pack(side='left')
         # 第 31 期第 7 条：参考图／资产图片这两行的按钮挪到「资产」这一行下方，两行标签给同一个
         # 宽度，按钮左边缘对齐——它们本来就是一组资产的动作，摊在表格下面白占两行高度。
@@ -598,7 +598,8 @@ class _AssetPage:
         used_label='本集' if self.page.asset_scope()=='current' else '已采用分镜'
         from storyboard_selection import summary
         self.page.note(f'{label} {count} 项 · {scope_label}')
-        from asset_reference_prompts import display_prompt,show_prompt
+        from asset_reference_prompts import display_prompt
+        from asset_reference_prompts_dialog import show_prompt
         self.display_prompt = display_prompt; self.show_prompt = show_prompt
         from asset_reference_images import role_summary
         self.role_summary = role_summary

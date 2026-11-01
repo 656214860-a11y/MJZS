@@ -20,6 +20,30 @@ from typing import Any, Callable
 from desktop_automation_service import BackgroundTaskLifecycle
 
 
+# R2230 J15：无人值守链路的三张对照表只在此一处定义（原分在 desktop_pet_bridge 与 desktop_auto_flows）。
+# 宠物「自动推进」用的对照表（第 23 期）：制作阶段 → 那一步的无人值守轮询名。
+# 只登记真的带无人值守轮询的阶段；剧本与配音没有轮询，不在表里（宠物问到时老实说没有）。
+PET_STAGE_POLL={'storyboard':'auto_adopt','assets':'auto_asset','final':'auto_final','keyframe':'auto_keyframe',
+                'previs':'auto_previs','video':'auto_video','edit':'auto_edit','delivery':'auto_handoff'}
+# 第 67 期任务 5：无人值守轮询名 → 打开它的那一把开关（project_settings 里的 set_auto_*）。
+# 用户切到自动档之后，三虎要「自动开始每个阶段的任务」：先把这一步的开关替他打开，再起跑。
+UNATTENDED_SWITCH={'auto_adopt':'set_auto_adopt','auto_asset':'set_auto_asset','auto_final':'set_auto_final',
+                   'auto_keyframe':'set_auto_keyframe','auto_previs':'set_auto_previs','auto_video':'set_auto_video',
+                   'auto_edit':'set_auto_edit','auto_handoff':'set_auto_handoff'}
+
+
+# 无人值守链路的下游关系：某一步刚成功完成时，把它的下游节流清零，链路立刻往前走一步，
+# 而不是干等各自的 15/30/60 秒轮询周期。表必须无环：回头踢上游会让视频轮询在长时间生成
+# 期间被反复叫醒，变成每 150ms 打一次 ComfyUI 接口。
+UNATTENDED_NEXT={'auto_adopt':('auto_asset','auto_final','auto_keyframe','auto_previs','auto_video'),
+                 'auto_asset':('auto_final','auto_keyframe','auto_previs','auto_video'),
+                 'auto_final':('auto_keyframe','auto_previs','auto_video'),
+                 'auto_keyframe':('auto_previs','auto_video'),
+                 'auto_previs':('auto_video',),
+                 'auto_video':('auto_edit','auto_handoff'),
+                 'auto_edit':('auto_handoff',)}
+
+
 @dataclass
 class AutoState:
     """八条自动流程的运行状态。默认值与原 ``Desktop._initialize_automation_state`` 逐项一致。"""

@@ -5,6 +5,7 @@ from pathlib import Path
 from agent.core import save
 from file_cache import read_json
 from storyboard_paths import media_root
+import stage_layout
 import white_model_service as wm
 from platform_tools import hidden_console_flags
 
@@ -109,7 +110,7 @@ def start(project,source,ids,state,monitor=False,ticket=None,is_current=None,exe
     episode=read_json(source)
     shots=[s for s in episode.get('shots',[]) if s.get('id') in ids]
     if not shots or {s['id'] for s in shots}!=set(ids):raise ValueError('镜头清单发生变化，请刷新页面')
-    batch=Path(project)/'工作流任务'/'白模自动制作'/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    batch=stage_layout.workflow_dir(project,'白模自动制作')/datetime.now().strftime('%Y%m%d_%H%M%S_%f')
     batch.mkdir(parents=True)
     snapshot=batch/'分镜快照.json'
     # 派发前冻结的输入必须完整可读；后台 Agent 不能看到被中断的半份快照或配置。

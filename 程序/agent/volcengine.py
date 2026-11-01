@@ -11,17 +11,6 @@ class ArkRejected(RuntimeError):
     pass
 
 
-def no_redirect():
-    """第 34 期第 9 条：惰性建类——只有真要发 HTTP 时才 import urllib.request。"""
-    import urllib.request
-
-    class NoRedirect(urllib.request.HTTPRedirectHandler):
-        def redirect_request(self, req, fp, code, msg, headers, newurl):
-            return None
-
-    return NoRedirect
-
-
 class VolcengineAdapter(VideoAdapter):
     def __init__(self, cfg):
         self.cfg = cfg
@@ -59,6 +48,7 @@ class VolcengineAdapter(VideoAdapter):
 
     def call(self, task_id=None, payload=None):
         import urllib.request, urllib.error, urllib.parse   # 第 34 期第 9 条：HTTP 栈按需加载
+        from api_endpoints import no_redirect
         from api_endpoints import configured_key
         from platform_tools import current_execution
         control = current_execution()

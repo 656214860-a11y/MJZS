@@ -12,6 +12,7 @@ from pathlib import Path
 from file_cache import probe_writable, read_json, remove_temporary_file
 from platform_tools import run_process
 from project_naming import dated_path
+import stage_layout
 from project_context import ProjectContext
 
 _BLENDER_CACHE = []
@@ -605,7 +606,7 @@ def migrate_legacy_directories(context, *, publish, workspace_path=None):
         if unmapped:
             raise ValueError('旧白模目录 %s 找不到对应采用分镜；为避免藏起旧成果，整批迁移未开始'
                              % '、'.join(sorted(unmapped)))
-    manifest = (project / '工作流任务' / '白模目录迁移'
+    manifest = (stage_layout.workflow_dir(project, '白模目录迁移')
                 / datetime.now().strftime('%Y%m%d_%H%M%S_%f') / '迁移清单.json')
     record = {'project_id': identity, 'generated_at': datetime.now().isoformat(timespec='seconds'),
               'items': plan, 'skipped': skipped}

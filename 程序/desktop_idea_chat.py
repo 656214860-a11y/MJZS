@@ -20,11 +20,8 @@ from tkinter import ttk
 import pet_state
 import ui_plugin_registry
 from desktop_idea_deferred import IdeaDeferredMixin
-from desktop_audio_direct import run_audio_direct as _run_audio_direct
-from desktop_storyboard_direct import run_storyboard_direct as _run_storyboard_direct
-from desktop_video_prompt_direct import run_video_prompt_direct as _run_video_prompt_direct
-from desktop_image_direct import run_image_direct as _run_image_direct
-from idea_chat_controller import bubble_timestamp, collapse_preview
+from idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
+                                  queue_notice, slot_decision)
 from platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING
 from ui_widgets import FormDialog, TextArea
@@ -728,7 +725,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 except tk.TclError:pass
         controller.set_request_cleanup(token, cleanup)
         def current():
-            return controller.request_is_current(token) and not cancelled.is_set() and self.root == project
+            return controller.accepts(token, cancelled, self.root, project)
         def receive(result):
             if current():received(result)
         def dispatch(slot):
@@ -756,19 +753,17 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
                 cleanup()
                 if controller.request_is_current(token):controller.cancel_request()
                 return
-            claimed = claim_stage_process_slot(request['ticket'])
-            if claimed['state'] == 'granted':
-                dispatch(claimed['slot'])
-            elif claimed['state'] == 'queued':
-                self.status.set('模型请求排队中（第%d位），界面保持响应。' % claimed['position'])
+            act(slot_decision(claim_stage_process_slot(request['ticket'])))
+        def act(decision):
+            action, value = decision
+            if action == 'run':
+                dispatch(value)
+            elif action == 'wait':
+                self.status.set(queue_notice(value))
                 pending['timer'] = self.win.after(200, poll_slot)
             else:
-                receive({'ok': False, 'error': claimed.get('reason', '模型请求已取消')})
-        if request['state'] == 'granted':
-            dispatch(request['slot'])
-        else:
-            self.status.set('模型请求排队中（第%d位），界面保持响应。' % request['position'])
-            pending['timer'] = self.win.after(200, poll_slot)
+                receive({'ok': False, 'error': value})
+        act(('run', request['slot']) if request['state'] == 'granted' else ('wait', request['position']))
     def script_agent_processes(self):
         """返回当前剧本阶段由本窗口启动、仍在运行的 Agent 进程。"""
         sessions=getattr(self,'flow_processes',{})
@@ -789,7 +784,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         processes=self.script_agent_processes()
         launching=getattr(self,'_script_agent_launching',False)
         queued = bool(getattr(self,'_script_agent_queue',None))
-        if not api_active and not processes and not launching and not queued:
+        if not has_interruptible(api_active,processes,launching,queued):
             self.status.set('当前没有可中断的剧本 Agent 调用。')
             return False
         if queued:self.cancel_script_agent_queue()
@@ -811,8 +806,8 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
             sessions.pop(key,None)
         self.flow_processes=sessions
         self.update_script_interrupt_button()
-        detail=('，已结束进程 '+', '.join(stopped)) if stopped else ''
-        info=self.background_tasks.cancellation_status() if api_active else None;notice=(' '+info['text']) if info is not None else '';preserved='已返回正文会归档到 responses/ 供核对；' if api_active else '';self.status.set('已中断剧本 Agent 调用'+detail+'；'+preserved+'本机不再把这次回复写入界面或正式采用，可修改创意后重新发送。'+notice)
+        info=self.background_tasks.cancellation_status() if api_active else None
+        self.status.set(interrupt_notice(stopped,api_active,info['text'] if info is not None else ''))
         return True
     def idea_example(self):
         """创意栏里那份预置示例（第 37 期第 2 条）：随程序打包，不改动就绝不进项目文件。
@@ -857,7 +852,7 @@ class _FlowAgentLaunch:
             setattr(self, name, getattr(request, name))
 
     def build(self):
-        from workflow_settings import current,writer_style_summary
+        from workflow_settings import writer_style_summary
         self.writer_style_summary = writer_style_summary
         from workflow_engines import prompt_with_settings,launch_interactive
         self.prompt_with_settings = prompt_with_settings; self.launch_interactive = launch_interactive
@@ -868,35 +863,10 @@ class _FlowAgentLaunch:
             raise ValueError('剧本模型请求正在排队，请等待或先点击中断；未重复发送。')
         # 「发送待核实」的安全重试必须沿用第一次已经解析的引擎。原来递归重进时会重新
         # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
-        if self.stage == 'writing' and not self.intake_only and self._config is None:
-            from workflow_settings import validate_selected_skills
-            validate_selected_skills(self.host.root, self.stage)
-        self.config=self._config if self._config is not None else current(self.host.root,self.stage);self.followup=self.followup if self.followup is not None else self.prompt
-        if self.stage=='storyboard' and not self.intake_only:
-            # 唯一分流点（REQ-S03-53）：选了模型池里的 API 模型就由程序直连，不再经 Qwen Code。
-            from storyboard_direct_api import direct_model
-            if direct_model(self.config):
-                _run_storyboard_direct(self.host,self.config);return
-        if self.stage=='audio' and not self.intake_only:
-            # 唯一分流点（REQ-S11-50）：选了模型池里的 API 模型就由程序直连生成音频脚本，不再经 Qwen Code。
-            from audio_direct_api import direct_model
-            if direct_model(self.config) and hasattr(self.host,'current_frame_json'):
-                _run_audio_direct(self.host,self.config);return
-        if self.stage=='video_prompt' and self.direct and not self.intake_only:
-            # 唯一分流点（REQ-S10-50）：选了模型池里的 API 模型就由程序直连整理视频提示词，不再经 Qwen Code。
-            from video_prompt_direct_api import direct_model
-            if direct_model(self.config):
-                _run_video_prompt_direct(self.host,self.config,self.direct);return
-        if self.stage=='assets' and self.direct and not self.intake_only and self.config['engine']=='qwen':
-            # 唯一分流点（REQ-S05-50／REQ-S08-52）：引擎为 qwen 的资产／首帧出图由程序直接执行 image_agent_runner，不再经 Qwen Code。
-            _run_image_direct(self.host,self.direct);return
-        if self.stage=='previs':
-            # REQ-S09-50：白模预演只走本地 Agent；API 模型（engine=qwen）不再悄悄起 Qwen Code，直接提示。
-            from previs_automation import require_local_agent
-            require_local_agent(self.config)
-        if self.stage == 'writing' and not self.intake_only:
-            from workflow_settings import freeze_skills
-            self.config = freeze_skills(self.config)
+        from workflow_settings import resolve_for_send
+        self.config=resolve_for_send(self.host.root,self.stage,config=self._config,intake_only=self.intake_only);self.followup=self.followup if self.followup is not None else self.prompt
+        from desktop_direct_dispatch import dispatch
+        if dispatch(self.host,self.stage,self.config,self.direct,self.intake_only):return
         self.native_claude = self.config['engine'] in ('claude-desktop-app', 'desktop-app')
         self.bounded_writing = self.stage == 'writing' and self.config['engine'] == 'claude'
         if self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only and not self.new_session:

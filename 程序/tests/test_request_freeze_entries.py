@@ -65,14 +65,14 @@ class RequestFreezeEntryTests(unittest.TestCase):
         desktop = desktop_text()
         api = (ROOT / 'writing_api.py').read_text(encoding='utf-8')
         self.assertIn('request_model = writing_api.capture_request(self.root)', desktop)
-        self.assertIn('validate_selected_skills(self.host.root, self.stage)', desktop)
-        self.assertIn('self.config = freeze_skills(self.config)', desktop)
-        self.assertIn("request['settings'] = workflow_settings.freeze_skills(settings)", api)
+        # R2178 J4：校验 → 取设置 → 冻结收口到 workflow_settings.resolve_for_send，三处发送入口都改调它。
+        self.assertIn('resolve_for_send(self.host.root,self.stage,config=self._config', desktop)
+        self.assertIn("request['settings'] = workflow_settings.resolve_for_send(", api)
         # 桌面所有阶段派发都只经 open_flow_agent 这一条投递入口。
         self.assertEqual(desktop.count('launch_interactive('), 1)
         # open_flow_agent 已改写成 _FlowAgentLaunch：build 在主线程捕获配置，prepare 在工作线程构建提示词。
         start = desktop.index('class _FlowAgentLaunch')
         end = desktop.find('\nclass ', start + 5)
         flow = desktop[start:end if end != -1 else len(desktop)]
-        self.assertLess(flow.index('current(self.host.root,self.stage)'), flow.index('def prepare(self):'),
+        self.assertLess(flow.index('resolve_for_send(self.host.root,self.stage'), flow.index('def prepare(self):'),
                         '配置快照必须先于工作线程内的提示词构建捕获')

@@ -6,6 +6,8 @@
 """
 from __future__ import annotations
 
+from typing import NamedTuple
+
 # 关闭窗口时要取消的 after 任务属性，按原 cancel_timers 的先后顺序分两组：
 # 第一组在各生命周期登记器取消之前，第二组在 ``_fit_job`` 之后。
 NAV_TIMER_JOBS = ('_navigation_job', '_sidebar_fit_job')
@@ -105,3 +107,43 @@ def cache_entry(holder, root, stage_button, status_text, project_text):
     """缓存项：内容框、所属项目、阶段按钮，以及离开时底栏上的那句话（等于项目路径的不留）。"""
     return {'holder': holder, 'root': root, 'stage_button': stage_button,
             'note': '' if status_text == project_text else status_text}
+
+
+class PagePlan(NamedTuple):
+    """一次换页的完整决策。``route``：locked／free／home／blocked／startup_shell／roster／detail／builder。"""
+    route: str
+    reason: str = ''
+    selector: bool = False
+    align: bool = False
+    cached: bool = False
+    choosing: bool = False
+
+
+def decide(index, page, snap, *, free_pages, cached_pages):
+    """状态快照 → 换页决策；Tk 侧只按 ``route`` 摆控件，不再自己串判定。
+
+    ``snap`` 键：lock_reason（该页被锁的原因，空为未锁）、has_root、video_mode、adopted（读已采用分镜的回调，
+    只在需要闸门的页才调用）、asset_detail、asset_roster、loading_project。判定顺序与原 ``show`` 一致。
+    """
+    if snap['lock_reason']:
+        return PagePlan('locked', reason=snap['lock_reason'])
+    if index in free_pages:
+        return PagePlan('free')
+    if not snap['has_root']:
+        return PagePlan('home')
+    choosing = choosing_video(index, page, snap['video_mode'])
+    if needs_adopted_storyboard(index, page, choosing, snap['adopted']):
+        return PagePlan('blocked', choosing=choosing)
+    roster, detail = bool(snap['asset_roster']), bool(snap['asset_detail'])
+    selector = needs_source_selector(index, page, choosing, detail or roster)
+    align = index in (page['edit'], page['delivery'])
+    if index == page['script'] and snap['loading_project']:
+        route = 'startup_shell'
+    elif index == page['assets'] and roster:
+        route = 'roster'
+    elif index == page['assets'] and detail:
+        route = 'detail'
+    else:
+        route = 'builder'
+    return PagePlan(route, selector=selector, align=align, choosing=choosing,
+                    cached=route == 'builder' and index in cached_pages)

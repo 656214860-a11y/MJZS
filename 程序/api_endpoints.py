@@ -46,6 +46,19 @@ def probe_endpoint(base_url, timeout=8):
     return probe_http_endpoint(base_url, timeout=timeout)
 
 
+def no_redirect():
+    """不跟随重定向的处理器实例（唯一实现，R2178 J13）：密钥与请求体不会被带到别处。
+
+    第 34 期第 9 条：惰性建类——只有真要发 HTTP 时才 import urllib.request。
+    """
+    from urllib.request import HTTPRedirectHandler
+
+    class NoRedirect(HTTPRedirectHandler):
+        def redirect_request(self, *args, **kwargs):
+            return None
+    return NoRedirect()
+
+
 def probe_message(base_url):
     """测试连接按钮的状态栏文案：401／403／404 说明接口在、只是要密钥；探测本身抛异常交给调用方。"""
     result = probe_endpoint(base_url)

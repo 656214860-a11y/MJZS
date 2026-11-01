@@ -237,12 +237,12 @@ class PetVoiceMixin:
                 return ''                  # 第 68 期任务 11：招呼刚说完，先不问「要不要一键执行」
             parts = self.offer_parts(at=at)
             signature = tuple(parts)
-            if self._offer_at is None:
-                self._offer_at = now           # 第一拍只对表：间隔从这一刻起算
-                self._offer_sig = signature
+            if self.offer.at is None:
+                self.offer.at = now           # 第一拍只对表：间隔从这一刻起算
+                self.offer.sig = signature
                 return ''
             if not signature:
-                self._offer_open = False
+                self.offer.open = False
                 return ''
             if self.cloud_visible() or self.muted(at=at) or self.snoozing() or self.agent.paused:
                 return ''
@@ -251,17 +251,17 @@ class PetVoiceMixin:
             state = state if state else self.snapshot(at=at)
             if self.busy(state=state):
                 return ''
-            waited = now - self._offer_at
+            waited = now - self.offer.at
             if waited < OFFER_SECONDS:
                 return ''
-            if signature == getattr(self, '_offer_declined', None):
+            if signature == self.offer.declined:
                 return ''                      # 用户刚说过「先不用」：这批缺口不再追问
-            if signature == self._offer_sig and waited < OFFER_REPEAT * getattr(self, '_offer_backoff', 1):
+            if signature == self.offer.sig and waited < OFFER_REPEAT * self.offer.backoff:
                 return ''
-            self._offer_backoff, self._offer_declined = offer_backoff(signature, self._offer_sig, self._offer_open, getattr(self, '_offer_backoff', 1), getattr(self, '_offer_declined', None))
-            self._offer_at = now
-            self._offer_sig = signature
-            self._offer_open = True
+            self.offer.backoff, self.offer.declined = offer_backoff(signature, self.offer.sig, self.offer.open, self.offer.backoff, self.offer.declined)
+            self.offer.at = now
+            self.offer.sig = signature
+            self.offer.open = True
             # 第 26 期第 5 条：这是一句「要不要办」的询问，用绿色对话框（长句子也放得下）
             text = self.offer_text(parts)
             self.agent.pending_offer = text
@@ -275,7 +275,7 @@ class PetVoiceMixin:
         只在这个问题挂着的时候认，而且只认几个明确的说法——「好」「1」这种短句在别的场合都是
         没头没尾的，不能一律当成「开工」。结论形状见 offer_reply；没认出来返回 None，照常走规则表。
         """
-        if not self._offer_open:
+        if not self.offer.open:
             return None
         word = ' '.join(str(text or '').split()).strip(' 。．，,!！?？~')
         verdict = offer_verdict(word)
@@ -283,11 +283,11 @@ class PetVoiceMixin:
             return None
         self.agent.pending_offer = ''
         if verdict:
-            self._offer_open = False
+            self.offer.open = False
             return offer_reply(True)
-        self._offer_open = False
+        self.offer.open = False
         # 用户说了先放着：同一批缺口今天不再问（原来清空 _offer_at，反倒更快再问一遍）
-        self._offer_declined = tuple(self._offer_sig or ())
+        self.offer.declined = tuple(self.offer.sig or ())
         return offer_reply(False)
     def progress_text(self, state=None, at=None, count=0):
         """进度气泡的正文（第 21 期瘦身）：一行进度 ＋ 一行「还要多久」＋ 缺口，一段一行。
@@ -745,7 +745,7 @@ class PetVoiceMixin:
         if self._greet_id is not None or now < self._quiet_until:
             self._broadcast_at = now
             self._progress_at = now
-            self._offer_at = now
+            self.offer.at = now
             self.bstate.mark_advance(now)
             # 安静期不需要新盘点；结束时再按实际缺口对表，避免首屏心跳递归读盘。
             self._gap_sig = tuple(self._gap_cache)

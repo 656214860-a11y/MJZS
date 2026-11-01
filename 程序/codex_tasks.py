@@ -1,5 +1,6 @@
 """One persisted Codex task per project/stage. Never starts a model turn."""
 import json,os,queue,shutil,subprocess,threading,time
+import stage_layout
 import token_saver
 from pathlib import Path
 from contextlib import contextmanager
@@ -98,7 +99,7 @@ def task_lock(project):
 
 def task_file_reference(project, stage, prompt):
     """保存桌面任务快照；输入框只传引用，不启动模型或 Codex RPC。"""
-    taskdir = Path(project).resolve() / '工作流任务' / stage
+    taskdir = stage_layout.workflow_dir(Path(project).resolve(), stage)
     signature = __import__('hashlib').sha256(prompt.encode('utf-8')).hexdigest()[:20]
     taskfile = taskdir / (signature + '.md')
     if not taskfile.is_file() or taskfile.read_text(encoding='utf-8') != prompt:

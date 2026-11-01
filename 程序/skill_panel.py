@@ -639,7 +639,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
     def _referenced_skills(self, items):
         """只读检查当前项目配置是否仍引用将删除的注册 id。"""
         project = self.project()
-        config = Path(project) / 'skill_config.json' if project else None
+        config = stage_config.path(project) if project else None
         data = read_json(config) if config and config.is_file() else {}
         wanted = {item.name for item in items}
         return sorted(name for name in wanted if name in str(data))
@@ -922,7 +922,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
             return
         attempts[source] = None
         self.render_note('正在生成中文说明…\n\n' + shown)
-        program = program_of(self.desktop)
+        program, project = program_of(self.desktop), desktop_project(self.desktop)
 
         def done(result):
             content = result['text']
@@ -936,7 +936,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
             if getattr(self.desktop, 'worker', False):
                 return
             stop()
-            self.desktop.async_(lambda: skill_notes.translate(source, program), done,
+            self.desktop.async_(lambda: skill_notes.translate(source, program, project=project), done,
                                 show_progress=False)
 
         stop = repeat(self, 200, start)

@@ -14,22 +14,12 @@ from pathlib import Path
 import asset_resume
 import pet_state
 from agent.core import read
-from desktop_auto_state import flow_get, flow_set
+from desktop_auto_state import UNATTENDED_NEXT, flow_get, flow_set
 from storyboard_paths import media_root
 
 LOGGER = logging.getLogger(__name__)
 PAGE = pet_state.PAGE_OF
 
-# 无人值守链路的下游关系：某一步刚成功完成时，把它的下游节流清零，链路立刻往前走一步，
-# 而不是干等各自的 15/30/60 秒轮询周期。表必须无环：回头踢上游会让视频轮询在长时间生成
-# 期间被反复叫醒，变成每 150ms 打一次 ComfyUI 接口。
-UNATTENDED_NEXT={'auto_adopt':('auto_asset','auto_final','auto_keyframe','auto_previs','auto_video'),
-                 'auto_asset':('auto_final','auto_keyframe','auto_previs','auto_video'),
-                 'auto_final':('auto_keyframe','auto_previs','auto_video'),
-                 'auto_keyframe':('auto_previs','auto_video'),
-                 'auto_previs':('auto_video',),
-                 'auto_video':('auto_edit','auto_handoff'),
-                 'auto_edit':('auto_handoff',)}
 # 正常节流最长 60 秒：due 比这个界还远只可能是失败后的 5 分钟退避，踢的时候要跳过它。
 UNATTENDED_BACKOFF_FLOOR=120
 # 第 62 期任务 10：无人值守资产「跑完却一张图都没有」时最多自动重试几次（间隔递增），

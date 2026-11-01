@@ -7,7 +7,7 @@ from importlib import import_module
 
 
 UI_PLUGINS = frozenset({
-    'agent.shot_assets', 'agent_dispatch', 'asset_batch', 'asset_skill_batch', 'asset_prompt_rules',
+    'agent.shot_assets', 'agent_dispatch', 'asset_batch', 'asset_skill_batch', 'asset_prompt_check_dialog',
     'asset_reference_images', 'asset_reference_import', 'background_characters',
     'cloud_video', 'keyframe_comfy', 'local_previs', 'native_assets', 'reference_wall',
     'skill_panel', 'stage_exec', 'stage_flow', 'pet_ui', 'previs_automation',
