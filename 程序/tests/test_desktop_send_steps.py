@@ -17,6 +17,8 @@ class RequestStepTests(unittest.TestCase):
         self.assertEqual(ledger.request_step(OUTLINE_REQUEST), 1)
         self.assertEqual(ledger.request_step('请修改剧本大纲第三集'), 1)
         self.assertEqual(ledger.request_step('角色卡里主角年龄改成 30'), 2)
+        self.assertEqual(ledger.request_step('改大纲，其他剧本里的矛盾也列出来'), 1)
+        self.assertEqual(ledger.request_step('写第 2 集剧本'), 3)
         self.assertEqual(ledger.request_step('写第 2 集自然剧本'), 3)
         self.assertEqual(ledger.request_step('先改设定'), 0)
         self.assertIsNone(ledger.request_step('请继续'))
