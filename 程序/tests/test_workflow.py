@@ -798,6 +798,82 @@ class DesktopModelPoolTests(unittest.TestCase):
             cli.assert_not_called()
             codex.assert_not_called()
 
+    def test_script_launch_flag_clears_once_task_reaches_desktop_or_live_session(self):
+        """REQ-S01-62：任务交到桌面程序或已在运行的 CLI 会话后，「终止」按钮复位。
+
+        send_message 在 open_flow_agent 返回后才把「启动中」置位，后台结果随后回到 Tk 线程；
+        这里按同样顺序排队执行回调。交给桌面程序后本机没有在途调用；续发给仍在运行的
+        CLI 会话时只由进程决定按钮，进程退出即复位。
+        """
+        from desktop import Desktop
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        import workflow_process_registry as registry
+
+        def host(proj):
+            pending = []
+            desktop = SimpleNamespace(root=proj, worker=False, win=Mock(), status=Mock(),
+                notifier=Mock(), projects=SimpleNamespace(info={'projects': []}),
+                async_=lambda fn, done=None: pending.append((fn, done)),
+                update_script_interrupt_button=Mock())
+            desktop.script_agent_processes = lambda: Desktop.script_agent_processes(desktop)
+            def send(config, claim=None):
+                with patch('agent_dispatch.claim', return_value=claim or {'duplicate': False}):
+                    Desktop.open_flow_agent(desktop, 'writing', '剧本准备', '创作要求', _config=config)
+                    desktop._script_agent_launching = True
+                    while pending:
+                        fn, done = pending.pop(0)
+                        value = fn()
+                        if done is not None:done(value)
+            return desktop, send
+
+        for config in ({'engine': 'desktop-app', 'program': 'C:/Apps/Gemini.exe', 'model': '',
+                        'display_model': 'Google Gemini'},
+                       {'engine': 'claude-desktop-app', 'program': 'C:/Apps/Claude.exe', 'model': ''},
+                       {'engine': 'codex', 'program': '', 'model': ''}):
+            with self.subTest(engine=config['engine']), tempfile.TemporaryDirectory() as td:
+                desktop, send = host(make_project(td))
+                with patch('agent_dispatch.finish'), patch('prompt_window.copy_text'), \
+                        patch('platform_tools.launch_windows_app'), \
+                        patch('workflow_settings.find_program', return_value=config['program']), \
+                        patch('codex_paste.paste_existing', return_value={'ok': True, 'reason': '已粘贴，请手动发送'}), \
+                        patch('codex_skill_sync.sync_codex_skills', return_value={'errors': [], 'conflicts': []}), \
+                        patch('codex_tasks.prepare_task',
+                              return_value={'url': 'codex://new', 'title': '任务', 'prompt': '创作要求'}), \
+                        patch('desktop_idea_chat.open_target'), \
+                        patch('workflow_engines.launch_interactive') as cli:
+                    send(dict(config, frozen_skill_prompt=''))
+                cli.assert_not_called()
+                self.assertFalse(desktop._script_agent_launching)
+                self.assertFalse(Desktop.script_task_active(desktop))
+
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_project(td)
+            desktop, send = host(proj)
+            process = Mock(pid=4321)
+            process.poll.return_value = None
+            config = {'engine': 'claude', 'program': 'claude.exe', 'model': '', 'frozen_skill_prompt': ''}
+            with patch('agent_dispatch.finish'), patch('agent_dispatch.outcome'), \
+                    patch('workflow_engines.claude_session_stale', return_value=False), \
+                    patch('workflow_engines.submit_existing',
+                          return_value={'ok': True, 'reason': '已续发到 Claude Code'}) as submit, \
+                    patch('workflow_engines.launch_interactive',
+                          return_value={'process': process, 'task_file': 'task.md', 'engine': 'Claude Code'}) as launch:
+                try:
+                    send(config)
+                    send(config)
+                    self.assertFalse(desktop._script_agent_launching, '续发给已有会话后仍卡在启动中')
+                    send(config, claim={'duplicate': True, 'state': 'sent'})
+                    self.assertFalse(desktop._script_agent_launching, '复用相同任务记录后仍卡在启动中')
+                finally:
+                    if launch.called:registry.release_process_slot(launch.call_args.kwargs['slot'])
+                    registry.cancel_project_slot_requests(proj)
+            launch.assert_called_once()
+            submit.assert_called_once()
+            self.assertTrue(Desktop.script_task_active(desktop), '会话进程仍在运行，应保持「终止」')
+            process.poll.return_value = 0
+            self.assertFalse(Desktop.script_task_active(desktop), '会话进程退出后不应再停在「终止」')
+
     def test_custom_desktop_rejects_background_and_cli_invocation(self):
         import workflow_engines
         import workflow_settings
