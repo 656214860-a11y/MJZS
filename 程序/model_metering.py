@@ -27,3 +27,32 @@ def metered(ledger, request, send, usage_of, on_result=None):
         on_result(result, usage)
     ledger.settle_model(request_id, usage)
     return result, usage, None
+
+
+def chat_metered(adapter, ledger, stage, messages, options, model, system):
+    """直连 API 文本模型的一次对话也过计量：有台账就授权／结算，没有台账（无项目）就是普通调用。
+
+    授权被拒时抛 ValueError（文案是预算原因），发送失败按未知用量结算后原样抛出；其余原样返回适配器结果。
+    """
+    import json
+    from uuid import uuid4
+
+    import token_saver
+    keys = ('prompt_tokens', 'completion_tokens', 'cached_tokens')
+
+    def send():
+        return adapter.chat(messages, options=options, model=model, system=system)
+    if ledger is None:
+        return send()
+
+    def usage_of(result):
+        data = result.get('data')
+        reported = token_saver.reported_usage(data.get('usage') if isinstance(data, dict) else {})
+        return {key: reported[key] for key in keys if key in reported}
+    estimate = len(json.dumps({'system': system, 'messages': messages, 'options': options},
+                              ensure_ascii=False).encode('utf-8')) + 256
+    result, _usage, refused = metered(ledger, (uuid4().hex, model, stage, estimate, int(options['max_tokens'])),
+                                     send, usage_of)
+    if refused is not None:
+        raise ValueError(str(refused))
+    return result

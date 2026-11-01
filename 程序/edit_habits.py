@@ -18,6 +18,8 @@ from pathlib import Path
 import artifact_schema
 import model_pool
 import model_router
+from model_metering import chat_metered
+from pet_llm import RequestLedger
 from agent.core import save
 from file_cache import read_json
 
@@ -250,7 +252,7 @@ def parse_rules(text, limit):
     return rules
 
 
-def _api_summarizer(program):
+def _api_summarizer(program, project=None):
     records = model_pool.pool(program=program)
     choice = model_router.resolve_agent_model(records=records, program=program)
     if not choice.ok or model_pool.desktop_engine(choice.model):
@@ -258,9 +260,9 @@ def _api_summarizer(program):
     adapter = model_router.PoolAdapter(choice.record, choice.model, program=program)
 
     def summarize(hunks):
-        result = adapter.chat([{'role': 'user', 'content': json.dumps(hunks, ensure_ascii=False)}],
-                              options={'max_tokens': 2000}, model=choice.record.get('model') or choice.model,
-                              system=SUMMARY_SYSTEM)
+        result = chat_metered(adapter, RequestLedger(project) if project else None, 'edit_habits',
+                              [{'role': 'user', 'content': json.dumps(hunks, ensure_ascii=False)}],
+                              {'max_tokens': 2000}, choice.record.get('model') or choice.model, SUMMARY_SYSTEM)
         if not result.get('ok'):
             raise ValueError('归纳修改习惯暂未完成，请检查模型连接后重试。')
         return result.get('text', '')
@@ -282,7 +284,7 @@ def summarize(root, stage='script', program=None, summarizer=None):
             hunks.append({'before': hunk.get('before', ''), 'after': hunk.get('after', '')})
             used += size
     try:
-        call = summarizer or _api_summarizer(program or PROGRAM)
+        call = summarizer or _api_summarizer(program or PROGRAM, root)
         rules = parse_rules(call(hunks), len(batch))
         added = add_candidates(stage, rules, Path(root).name, program)
     except OSError:

@@ -922,7 +922,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
             return
         attempts[source] = None
         self.render_note('正在生成中文说明…\n\n' + shown)
-        program = program_of(self.desktop)
+        program, project = program_of(self.desktop), desktop_project(self.desktop)
 
         def done(result):
             content = result['text']
@@ -936,7 +936,7 @@ class Panel(PanelWorkflowMixin, FormScrollMixin, PresetMixin, ttk.Frame):
             if getattr(self.desktop, 'worker', False):
                 return
             stop()
-            self.desktop.async_(lambda: skill_notes.translate(source, program), done,
+            self.desktop.async_(lambda: skill_notes.translate(source, program, project=project), done,
                                 show_progress=False)
 
         stop = repeat(self, 200, start)
