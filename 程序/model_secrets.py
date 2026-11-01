@@ -15,7 +15,7 @@ import re
 from pathlib import Path
 from storage_maintenance import remove_private_file
 from model_protocol import BytesProtector
-from agent.core import replace, temporary_path
+from agent.core import read_json, replace, save as save_json, temporary_path
 
 PROGRAM = Path(__file__).resolve().parent
 SECRET_DIR = ('private', '密钥')
@@ -160,6 +160,64 @@ def save(name, value, program=None, root=None):
     temporary.write_bytes(PROTECTOR(text.encode('utf-8'), label=LABEL))
     replace(temporary, target)
     return target
+
+
+IMPORT_MARKER = ('private', 'env_imported.json')    # 只记路径与条数，不含任何密钥
+_PLACEHOLDERS = ('replace_me', '<YOUR_API_KEY>')
+
+
+def _env_entries(text):
+    """宽松解析 .env：注释、没有等号、值为空／占位／非 ASCII／带空白的行一律跳过。"""
+    entries = {}
+    for line in text.splitlines():
+        if line.lstrip().startswith('#') or '=' not in line:
+            continue
+        name, value = line.split('=', 1)
+        name, value = name.strip(), value.strip().strip('"').strip("'")
+        if safe_name(name) and value and value not in _PLACEHOLDERS and value.isascii()                 and not any(char.isspace() for char in value):
+            entries[name] = value
+    return entries
+
+
+def _imported(folder):
+    done = read_json(Path(folder).joinpath(*IMPORT_MARKER), {})
+    return done if isinstance(done, dict) else {}
+
+
+def env_imported(env_path, program=None, root=None):
+    """这个 .env 是否已经迁过（迁过就不再读它）。"""
+    folder = Path(root) if root else Path(program or PROGRAM)
+    return str(Path(env_path).resolve()).lower() in _imported(folder)
+
+
+def import_env_keys(env_path, program=None, root=None):
+    """把项目目录 ``.env`` 里的密钥一次性迁进本机加密存储；之后不再读这个文件，文件也不删。
+
+    只补缺：同名的加密密钥已存在就不覆盖。成功后在 ``private/env_imported.json`` 记下该路径，
+    以后连文件都不打开；中途任何一步失败都不记，下次再试。返回本次迁入的条数。
+    """
+    source = Path(env_path)
+    if not source.is_file():
+        return 0
+    folder = Path(root) if root else Path(program or PROGRAM)
+    marker = folder.joinpath(*IMPORT_MARKER)
+    key = str(source.resolve()).lower()
+    done = _imported(folder)
+    if key in done:
+        return 0
+    try:
+        entries = _env_entries(source.read_text(encoding='utf-8-sig'))
+        added = 0
+        for name, value in entries.items():
+            if not path(name, root=folder).is_file():
+                save(name, value, root=folder)
+                added += 1
+        done[key] = len(entries)
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        save_json(marker, done, durable=False)
+    except Exception:
+        return 0
+    return added
 
 
 def migrate_legacy_env(legacy_path, program=None, root=None):

@@ -27,12 +27,11 @@ def configured_key(config):
         import model_secrets
         key=model_secrets.load(name)
     elif config.get('project_dir'):
-        path=Path(config['project_dir'])/'.env'
-        if path.is_file():
-            for line in path.read_text(encoding='utf-8-sig').splitlines():
-                if line.lstrip().startswith('#') or '=' not in line:continue
-                entry,value=line.split('=',1)
-                if entry.strip()==name:key=value.strip().strip('"').strip("'")
+        # 项目目录的 .env 只在第一次迁进本机加密存储（文件不删），之后一律读加密存储。
+        import model_secrets
+        root=config.get('secret_root')
+        model_secrets.import_env_keys(Path(config['project_dir'])/'.env',root=root)
+        key=model_secrets.load(name,root=root)
     else:
         key=os.environ.get(name,'').strip()
     if not key or key in ('replace_me','<YOUR_API_KEY>') or not key.isascii() or any(c.isspace() for c in key):

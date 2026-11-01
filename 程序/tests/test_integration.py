@@ -30,6 +30,25 @@ class FakeAdapter:
         return {"status": "queued", "url": None}
 
 
+_STORE = []
+
+
+def setUpModule():
+    """.env 密钥现在首次读取时迁进本机加密存储：整个模块用临时存储，绝不碰真实 private/。"""
+    from secret_store_support import isolate_secret_store
+
+    class Holder(unittest.TestCase):
+        def runTest(self):
+            pass
+    holder = Holder()
+    isolate_secret_store(holder)
+    _STORE.append(holder)
+
+
+def tearDownModule():
+    _STORE.pop().doCleanups()
+
+
 def build_project(td, budget=100, live=True):
     t = Path(td); proj = t / "p"
     (proj / "episode" / "frames").mkdir(parents=True)

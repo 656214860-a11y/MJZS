@@ -86,7 +86,7 @@
 | Blender | 可选（白模预演） | `white_model_service.find_blender` | 白模不可用 | `environment_check.check_blender` |
 | Claude Desktop / Codex / Claude Code 命令行 | 可选（手动发送与命令行模型） | `workflow_settings.find_program` | 对应入口不出现 | `environment_check.check_desktop_programs` |
 | Qwen Code | 可选 | 安装记录在 `安装信息.json`（`qwen` 字段） | 对应适配不可用 | `安装信息.json`、`qwen_adapter` |
-| 模型密钥（网络服务） | 按需 | 环境变量 → 统一 `.env` → `private/.env`；**不落库** | 对应模型不可用，报「密钥无效或没配」 | `pet_llm.credential`、`README.md` 密钥表 |
+| 模型密钥（网络服务） | 按需 | 本机加密存储（`.env` 与 `private/.env` 的密钥第一次读取时一次性迁入，文件不删、之后不再读）→ 环境变量；**不落库** | 对应模型不可用，报「密钥无效或没配」 | `pet_llm.credential`、`README.md` 密钥表 |
 
 密钥名（`README.md` 密钥表）：`DEEPSEEK_API_KEY`、`OPENAI_API_KEY`、`DASHSCOPE_API_KEY`（也认 `QWEN_API_KEY`）、
 `COMFY_API_KEY`（Comfy 云）、`TTS_API_KEY`（配音）。
