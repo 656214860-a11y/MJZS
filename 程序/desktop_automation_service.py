@@ -132,6 +132,32 @@ class BackgroundTaskQueue:
         self._items.clear()
 
 
+def _read_runtime_record(path):
+    """读本机后台排队／执行记录；读不出的坏文件改名留存，按空记录重建。
+
+    这两份记录只加锁、原子替换，不等落盘（``save(..., durable=False)``），断电后可能读出全零
+    或半份。这时把原文件改名为 ``<名>.corrupt`` 留给排查，返回空记录，不让一份坏文件挡住所有
+    后台操作；读得出但版本或结构不对的，仍由调用方报错、不覆盖。调用方须持有
+    ``agent.publication.access()``。
+    """
+    from pathlib import Path
+    from agent.core import read, replace
+    path = Path(path)
+    if not path.exists():
+        return {'version': 1, 'tasks': []}
+    try:
+        return read(path)
+    except ValueError:
+        corrupt = path.with_name(path.name + '.corrupt')
+        try:
+            replace(path, corrupt)
+        except OSError:
+            app_logging.swallowed('后台记录读不出，改名留存失败，按空记录继续')
+        else:
+            app_logging.swallowed('后台记录读不出，已改名为 %s，按空记录重建' % corrupt.name)
+        return {'version': 1, 'tasks': []}
+
+
 class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
     """描述符落盘；领取先于执行，未知在途任务只登记、不自动重提。"""
 
@@ -144,8 +170,7 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
         self.aging_seconds = max(1, aging_seconds)
 
     def _load(self):
-        from agent.core import read
-        data = read(self.path) if self.path.exists() else {'version': 1, 'tasks': []}
+        data = _read_runtime_record(self.path)
         if data.get('version') != 1 or not isinstance(data.get('tasks'), list):
             raise ValueError('排队记录损坏，未重建或重提任务')
         return data
@@ -155,7 +180,7 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
         active = [row for row in data['tasks'] if row['state'] in ('queued', 'claimed')]
         history = [row for row in data['tasks'] if row['state'] not in ('queued', 'claimed')]
         data['tasks'] = active + history[-HISTORY_LIMIT:]
-        save(self.path, data)
+        save(self.path, data, durable=False)
 
     def _expire(self, data):
         changed = False
@@ -170,9 +195,9 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
         return (-row['priority'] - age, row['created'])
 
     def enqueue(self, fn, done=None, label='', show_progress=True, retryable=False, *, priority=0):
-        from agent.publication import transaction
+        from agent.publication import access
         priority = int(priority)
-        with transaction():
+        with access():
             data = self._load()
             if self._expire(data):
                 self._save(data)
@@ -186,7 +211,7 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
         import json
         import math
         import uuid
-        from agent.publication import transaction
+        from agent.publication import access
         if kind not in self.handlers:
             raise ValueError('未注册的可恢复任务类型：' + str(kind))
         if expires_at is not None and (not isinstance(expires_at, (int, float)) or not math.isfinite(expires_at)):
@@ -197,7 +222,7 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
             raise TypeError('可恢复任务参数必须是对象')
         row = {'id': uuid.uuid4().hex, 'kind': kind, 'payload': payload, 'label': str(label),
                'priority': int(priority), 'created': self.clock(), 'expires_at': expires_at, 'state': 'queued'}
-        with transaction():
+        with access():
             data = self._load()
             self._expire(data)
             if len(self._items) + sum(item['state'] == 'queued' for item in data['tasks']) >= self._limit:
@@ -207,8 +232,8 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
         return row['id']
 
     def _finish(self, task_id, state):
-        from agent.publication import transaction
-        with transaction():
+        from agent.publication import access
+        with access():
             data = self._load()
             for row in data['tasks']:
                 if row['id'] == task_id and row['state'] == 'claimed':
@@ -217,24 +242,21 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
                     return
 
     def pop(self):
-        from agent.publication import access, transaction
+        from agent.publication import access
         with access():
-            if not self._items and not any(row["state"] == "queued" for row in self._load()["tasks"]):
+            data = self._load()
+            changed = self._expire(data)
+            choices = list(self._items) + [row for row in data['tasks'] if row['state'] == 'queued']
+            if not choices:
+                if changed: self._save(data)
                 return None
-            with transaction():
-                data = self._load()
-                changed = self._expire(data)
-                choices = list(self._items) + [row for row in data['tasks'] if row['state'] == 'queued']
-                if not choices:
-                    if changed: self._save(data)
-                    return None
-                row = min(choices, key=self._key)
-                if 'fn' in row:
-                    self._items.remove(row)
-                    if changed: self._save(data)
-                    return row
-                row['state'] = 'claimed'
-                self._save(data)
+            row = min(choices, key=self._key)
+            if 'fn' in row:
+                self._items.remove(row)
+                if changed: self._save(data)
+                return row
+            row['state'] = 'claimed'
+            self._save(data)
         def run():
             try:
                 handler = self.handlers.get(row['kind'])
@@ -263,8 +285,8 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
             return [dict(row) for row in self._load()['tasks'] if row['state'] == 'claimed']
 
     def cancel(self, task_id):
-        from agent.publication import transaction
-        with transaction():
+        from agent.publication import access
+        with access():
             data = self._load()
             for row in data['tasks']:
                 if row['id'] == task_id and row['state'] == 'queued':
@@ -274,8 +296,8 @@ class PersistentBackgroundTaskQueue(BackgroundTaskQueue):
         return False
 
     def clear(self):
-        from agent.publication import transaction
-        with transaction():
+        from agent.publication import access
+        with access():
             data = self._load()
             for row in data['tasks']:
                 if row['state'] == 'queued': row['state'] = 'cancelled'
@@ -337,11 +359,10 @@ class BackgroundTaskLifecycle:
     def _persist(self, ticket, **facts):
         if self._path is None:
             return
-        from pathlib import Path
-        from agent.core import read, save
-        from agent.publication import transaction
-        with transaction():
-            data = read(self._path) if Path(self._path).exists() else {'version': 1, 'tasks': []}
+        from agent.core import save
+        from agent.publication import access
+        with access():
+            data = _read_runtime_record(self._path)
             if data.get('version') != 1 or not isinstance(data.get('tasks'), list):
                 raise ValueError('后台执行记录损坏，无法覆盖')
             key = self._session + ':' + str(ticket)
@@ -374,16 +395,14 @@ class BackgroundTaskLifecycle:
             unresolved = [row for row in data['tasks'] if row.get('state') not in ('succeeded', 'failed')]
             history = [row for row in data['tasks'] if row.get('state') in ('succeeded', 'failed')]
             data['tasks'] = unresolved + history[-HISTORY_LIMIT:]
-            save(self._path, data)
+            save(self._path, data, durable=False)
 
     def unresolved_records(self):
         if self._path is None:
             return []
-        from pathlib import Path
-        from agent.core import read
         from agent.publication import access
         with access():
-            data = read(self._path) if Path(self._path).exists() else {'tasks': []}
+            data = _read_runtime_record(self._path)
             return [dict(row) for row in data['tasks'] if row.get('state') not in ('succeeded', 'failed')]
 
     def execution_control(self, ticket):

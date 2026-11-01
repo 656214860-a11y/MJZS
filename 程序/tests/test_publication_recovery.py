@@ -20,6 +20,7 @@ publication.ROOT = root / 'transactions'
 point = sys.argv[2]
 replace = core.replace
 write = publication._write
+commit = publication._commit
 discard = publication._discard
 os_replace = os.replace
 def crash_recovery(source, target):
@@ -35,6 +36,10 @@ def crash_write(folder, record):
     write(folder, record)
     if record['state'] == point:
         os._exit(77)
+def crash_commit(folder):
+    commit(folder)
+    if point == 'committed':
+        os._exit(77)
 def crash_discard(folder):
     if point == 'cleanup':
         (folder/'0').unlink(missing_ok=True)
@@ -42,6 +47,7 @@ def crash_discard(folder):
     discard(folder)
 core.replace = crash_replace
 publication._write = crash_write
+publication._commit = crash_commit
 publication._discard = crash_discard
 def update_index():
     core.save(root/'index.json', {'v':2})
