@@ -885,7 +885,7 @@ def invalidate_verified_tree(document, tree):
 
 def latest_completed_round():
     numbers = []
-    for path in glob.glob(os.path.join(HERE, 'tasks_round', 'tasks_round_*_result.md')):
+    for path in glob.glob(os.path.join(HERE, 'tasks_round', '**', 'tasks_round_*_result.md'), recursive=True):
         matched = re.search(r'tasks_round_(\d+)_result\.md$', path)
         if matched:
             numbers.append(int(matched.group(1)))

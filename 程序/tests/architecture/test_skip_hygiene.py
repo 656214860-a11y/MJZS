@@ -126,7 +126,7 @@ class SkipHygieneTests(unittest.TestCase):
         payload = json.loads(LEDGER.read_text(encoding="utf-8"))
         defect_ledger = ROOT / "维护记录" / "缺陷台账_20261001.md"
         defect_text = defect_ledger.read_text(encoding="utf-8") if defect_ledger.exists() else ""
-        task_text = "\n".join(path.read_text(encoding="utf-8", errors="ignore") for path in (ROOT / "tasks_round").glob("tasks_round_*_result.md"))
+        task_text = "\n".join(path.read_text(encoding="utf-8", errors="ignore") for path in (ROOT / "tasks_round").rglob("tasks_round_*_result.md"))
         for row in payload.get("entries", []):
             if row.get("kind") != "待修复缺陷":
                 continue

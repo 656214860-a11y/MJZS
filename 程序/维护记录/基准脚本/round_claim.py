@@ -133,7 +133,7 @@ def show_queue(payload: dict, now: datetime | None = None) -> None:
 
 
 def latest_result_round(tasks_round: Path = PROGRAM / "tasks_round") -> int:
-    values = [int(match.group(1)) for item in tasks_round.glob("tasks_round_*_result.md")
+    values = [int(match.group(1)) for item in tasks_round.rglob("tasks_round_*_result.md")
               if (match := RESULT_RE.search(item.name))]
     return max(values, default=0)
 
