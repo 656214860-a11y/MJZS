@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 
 import pet_llm
-import pet_state
+import pet_state, stage_layout
 import stage_parallel
 from agent.core import save
 from pet_bus import SEEN_LIMIT, STAGE_NAMES, STAGES, ErrorLog, emit_safe, read_json
@@ -45,8 +45,8 @@ BUDGET_ALIASES = {'token': 'tokens', 'tokens_per_day': 'tokens', 'keyframe': 'fi
 DEFAULT_BUDGET = {'image': 200, 'firstframe': 200, 'video': 100, 'voice': 200, 'tokens': 2000000}
 WARN_RATIO = 0.9                                # 用到九成先报一声
 MAX_ATTEMPTS = 4
-NOTICE_PATH = ('工作流任务', '宠物', '通知.json')
-JOURNAL_PATH = ('工作流任务', '宠物', '事件日志.jsonl')
+NOTICE_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '通知.json')
+JOURNAL_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '事件日志.jsonl')
 KEEP = 50
 SUMMARY_LIMIT = 4
 PROJECT_LIMIT = 12                              # 快照里最多带几个项目（第 37 期第 1 条）

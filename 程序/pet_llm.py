@@ -19,7 +19,7 @@ import time
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-import model_pool
+import model_pool, stage_layout
 import token_saver
 from model_metering import REPLAYABLE_RETRY_STATUS, metered, replayable_retry
 from app_metadata import APP_NAME
@@ -32,7 +32,7 @@ _REQUEST_LOCK = threading.RLock()
 
 PROGRAM = Path(__file__).resolve().parent
 CONFIG_PATH = ('配置', '宠物', '配置.json')
-LEDGER_PATH = ('工作流任务', '宠物', 'Token台账.json')
+LEDGER_PATH = (stage_layout.WORKFLOW_DIR, '宠物', 'Token台账.json')
 
 DEFAULTS = {
     'base_url': 'https://api.deepseek.com',
@@ -519,7 +519,7 @@ class Client:
 # 与 Token 台账分工：Token 台账算「当天花了多少」，这里回答「这一笔请求怎么回事」——
 # 请求号、调用种类、估计还是实报、预留还是结算、关联哪个远端任务。token／秒／次数
 # 各列各的，不把它们相加成金额；价格表可选，带上版本与日期；缺 usage 记「未知」而不是 0。
-REQUEST_LEDGER_PATH = ('工作流任务', '宠物', '请求台账.json')
+REQUEST_LEDGER_PATH = (stage_layout.WORKFLOW_DIR, '宠物', '请求台账.json')
 REQUEST_KINDS = ('tokens', 'seconds', 'images', 'videos', 'requests')
 REQUEST_STATES = ('reserved', 'settled', 'unknown', 'cancelled', 'duplicate')
 REQUEST_MODES = ('estimated', 'reported', 'unknown')
