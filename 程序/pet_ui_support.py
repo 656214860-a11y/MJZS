@@ -534,6 +534,19 @@ def flourish(canvas, pose, step, ox, oy, body, outline, accent, blush):
             canvas.create_oval(side + ox, 40 + oy, side + 8 + ox, 46 + oy, fill=blush,
                                outline='', tags=('pose-nuzzle', 'blush'))
     return pose
+def accepts_keyword(func, name):
+    """func 能不能按关键字收 name：先看签名，再只调一次。
+
+    不用「带上调、遇 TypeError 再不带重调」：那会把实现内部抛出的 TypeError 当成签名不符，
+    同一件事再做一遍。签名读不出来时按能收处理。"""
+    import inspect
+    try:
+        parameters = inspect.signature(func).parameters.values()
+    except (TypeError, ValueError):
+        return True
+    return any(item.kind is item.VAR_KEYWORD
+               or (item.name == name and item.kind in (item.POSITIONAL_OR_KEYWORD, item.KEYWORD_ONLY))
+               for item in parameters)
 def duration(seconds):
     """秒 → mm:ss；信息不足时不编数字。"""
     if seconds is None:
