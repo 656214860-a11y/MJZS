@@ -60,7 +60,7 @@ from ui_tokens import COLORS, FONTS, SPACING, PET_LAYOUT, PET_CLOUD_AUTO_CLOSE_M
 from pet_cloud_timing import (ALPHA, FADE_MS, FADE_OUT_MS, FADE_OUT_STEPS, FADE_STEPS, GROW_ROOM, GROW_STEPS,
                               HOLD_MS, READ_MAX_MS, READ_MS_PER_CHAR, WATCH_RECHECK_MS, CloudTimingMixin)
 from pet_cloud_move_guard import CloudMoveGuardMixin
-from pet_cloud_hint import (HINT_MS, HINT_STEP_PX, HINT_X, REPLY_HINTS, CloudHintMixin)
+from pet_cloud_hint import (HINT_MS, HINT_STEP_PX, HINT_X, REPLY_HINTS, CloudHintMixin, CloudHintState)
 from pet_cloud_place import (ANCHOR_DROP, ANCHOR_RATIO, CHEEK_X, CHEEK_Y, DOCK_TOP, EAR_RATIO, MARGIN, MAX_BODY,
                              MAX_BODY_DOWN, MAX_GAP, MIN_BODY, PET_GAP, PET_SIZE, POSITION_RETRY_MAX,
                              POSITION_RETRY_MS, SHAPE_MIN_BODY, TAIL, TAIL_BASE, TAIL_SPAN_X, TAIL_SPAN_Y, TIP_IN,
@@ -278,10 +278,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         self.chat_row = None
         self.hint = None                   # 回复框里那条滚动小字（第 37 期第 4 条）
         self.close_button = None           # 右上角那颗「关闭」（第 45 期）
-        self._hint_job = None              # 它的定时器：收窗／销毁都要收回来
-        self._hint_on = False              # 这会儿该不该露
-        self._hint_x = HINT_X              # 整句提示当前的左沿，不使用字符截断循环
-        self._hint_user_focus = False      # 用户点进提示层后才让位；程序自动聚焦仍展示说明
+        self.hint_state = CloudHintState()  # 滚动小字的定时器／开关／左沿／用户聚焦（只由 CloudHintMixin 写）
         self.lines = [WELCOME]
         self.queue = queue.Queue()
         self.busy = False
@@ -936,9 +933,9 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
                     # 第 39 期第 1 条：底跟输入框、位置贴左沿；这一行一露出来就让小字滚起来——
                     # 每一扇对话框的回复框都得有，不能只等 set_status 那一拍。
                     self.hint.configure(bg=self.field_bg())
-                    self.hint.place(relx=0.0, rely=0.5, anchor='w', x=self._hint_x)
+                    self.hint.place(relx=0.0, rely=0.5, anchor='w', x=self.hint_state.x)
                     self.hint.lift()
-                    if not self.busy and not self._hint_on:
+                    if not self.busy and not self.hint_state.on:
                         self._hint_show()
             else:
                 self.chat_row.place_forget()

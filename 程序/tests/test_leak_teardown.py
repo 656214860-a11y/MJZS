@@ -71,10 +71,8 @@ class _HintHost:
     def __init__(self, tk, parent):
         self.parent = parent
         self.hint = tk.Label(parent, text='')
-        self._hint_job = None
-        self._hint_on = True
-        self._hint_x = 0
-        self._hint_user_focus = False
+        from pet_cloud_hint import CloudHintState
+        self.hint_state = CloudHintState(on=True, x=0)
         self.reply = None
         self.chat_row = None
         self.busy = False
@@ -103,7 +101,7 @@ class HintTeardownTests(_TkCase):
         cloud = self._cloud()
         cloud.show(pinned=True, hold=10000)
         self.win.update()
-        job = cloud._hint_job
+        job = cloud.hint_state.job
         self.assertIsNotNone(job, "对话框显示后应登记滚动提示定时器")
         before = len(self.app_logging.recent_swallowed())
 
@@ -111,7 +109,7 @@ class HintTeardownTests(_TkCase):
         self.win.update()
 
         self.assertIsNone(cloud.win)
-        self.assertIsNone(cloud._hint_job)
+        self.assertIsNone(cloud.hint_state.job)
         self.assertIsNone(cloud.hint)
         self.assertNotIn(str(job), tuple(self.win.tk.call('after', 'info')))
         self.assertEqual(self.app_logging.recent_swallowed()[before:], [])

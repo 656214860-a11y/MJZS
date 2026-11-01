@@ -80,6 +80,12 @@ class AliasTests(unittest.TestCase):
         self.assertTrue(holder.offer.open)
         self.assertIs(holder.offer, holder.offer)
 
+    def test_cloud_hint_state_defaults_match_the_old_attributes(self):
+        import pet_cloud_hint
+        state = pet_cloud_hint.CloudHintState()
+        self.assertEqual((state.job, state.on, state.x, state.user_focus),
+                         (None, False, pet_cloud_hint.HINT_X, False))
+
 
 if __name__ == '__main__':
     unittest.main()

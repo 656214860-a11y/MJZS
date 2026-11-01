@@ -15,7 +15,7 @@ OVERSIZE_CAPS = {
     'stage_execution_service.py': 1442,
     'ui_widgets.py': 1125,
     'writing_api.py': 1372,
-    'pet_cloud.py': 1357,
+    'pet_cloud.py': 1353,
     'script_contract.py': 1293,
     'skill_panel.py': 1203,
     'pet_ui_stages.py': 1202,

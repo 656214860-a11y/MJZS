@@ -18,7 +18,7 @@ from tests.architecture._scan import parse, production_files
 SHARED_STATE_CAPS = {
     'Desktop': 48,  # R2029：方法拆到 PageNavMixin/LifecycleMixin 后跨类写入计数被动 +7；R2032：gate_due／gate_error 迁入 AutoState 后 -1
     'Pet': 54,    # R2281 J-Pet：_offer_* 五件收进 Pet.offer（PetOfferState）-5
-    'Cloud': 15,
+    'Cloud': 11,    # J-Cloud：_hint_* 四件收进 Cloud.hint_state（CloudHintState）-4
     'Panel': 5,
 }
 MIXIN_BASE_THRESHOLD = 3

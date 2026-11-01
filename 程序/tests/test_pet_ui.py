@@ -6546,7 +6546,7 @@ class CloudFitTests(PetTestCase):
         cloud.pin()                       # 点一下云：转成对话形态
         cloud._render()
         self.assertTrue(str(cloud.hint.cget('text')).strip(), '回复框露出来就滚起来')
-        self.assertEqual(cloud._hint_x, pet_cloud.HINT_X, '还是从最左侧起步')
+        self.assertEqual(cloud.hint_state.x, pet_cloud.HINT_X, '还是从最左侧起步')
         cloud._hint_stop()
 
     def test_the_rolling_line_gives_way_to_what_the_user_types(self):
