@@ -154,6 +154,8 @@ class ProviderKeyTests(unittest.TestCase):
         named.assert_called_once_with('DASHSCOPE_API_KEY')
 
     def test_legacy_session_key_fallback_is_read_only_and_host_bound(self):
+        from secret_store_support import isolate_secret_store
+        isolate_secret_store(self)
         for label, (kind, base, _, key_name) in PROVIDERS.items():
             if not base:
                 continue

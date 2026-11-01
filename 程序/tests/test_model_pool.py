@@ -364,9 +364,11 @@ class KeyTests(unittest.TestCase):
             (Path(td) / '.env').write_text('%s=sk-a\n' % ABSENT_KEY, encoding='utf-8')
             self.assertEqual(model_pool.key_of({'key_env': ABSENT_KEY}, td), 'sk-a')
             (Path(td) / '.env').unlink()
-            (Path(td) / 'private').mkdir()
-            (Path(td) / 'private' / '.env').write_text('%s=sk-b\n' % ABSENT_KEY, encoding='utf-8')
-            self.assertEqual(model_pool.key_of({'key_env': ABSENT_KEY}, td), 'sk-b',
+            (Path(td) / 'private').mkdir(exist_ok=True)
+            # 迁入后同名密钥以加密存储为准（不再回读 .env），所以第二处用另一个变量名。
+            second = ABSENT_KEY + '_PRIVATE'
+            (Path(td) / 'private' / '.env').write_text('%s=sk-b\n' % second, encoding='utf-8')
+            self.assertEqual(model_pool.key_of({'key_env': second}, td), 'sk-b',
                              'private/.env 也认（其余模块的密钥就放那儿）')
 
     def test_a_record_without_an_address_is_not_usable(self):

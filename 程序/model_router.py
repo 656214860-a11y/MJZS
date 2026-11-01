@@ -177,7 +177,7 @@ class ModelAdapter:
             return self.key
         for folder in (self.program,):
             try:
-                return configured_key({'key_env': self.key_env, 'project_dir': str(folder)})
+                return configured_key({'key_env': self.key_env, 'project_dir': str(folder), 'secret_root': str(self.program)})
             except ValueError:
                 pass
         return (os.environ.get(self.key_env, '') or '').strip()

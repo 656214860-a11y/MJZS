@@ -42,6 +42,10 @@ class EndpointTests(unittest.TestCase):
 
 
 class ConfiguredKeyTests(unittest.TestCase):
+    def setUp(self):
+        from secret_store_support import isolate_secret_store
+        isolate_secret_store(self)
+
     def test_model_pool_provider_reads_encrypted_record_without_env_file(self):
         with patch('model_secrets.load', return_value='sk-encrypted') as load:
             value=api_endpoints.configured_key({'key_provider':'model_pool', 'key_env':'DASHSCOPE_API_KEY'})

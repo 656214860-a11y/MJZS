@@ -381,7 +381,7 @@ def credential(name, program=None):
         return local
     for folder in (root, root / 'private'):
         try:
-            return configured_key({'key_env': key_name, 'project_dir': str(folder)})
+            return configured_key({'key_env': key_name, 'project_dir': str(folder), 'secret_root': str(root)})
         except ValueError:
             continue
     key = (os.environ.get(key_name, '') or '').strip()
