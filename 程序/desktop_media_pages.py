@@ -647,7 +647,7 @@ class MediaPagesMixin:
             return
         panel=ttk.Frame(self.content);panel.pack(fill='both',expand=True)
         from stage_models import manual_command
-        self.video=App(panel,video_root,settings_callback=(lambda:ui_plugin_registry.module('cloud_video').settings_window(self)) if is_cloud else None,prompt_callback=prepare_video_prompt,episode_file=None if is_cloud else source,missing_frame_callback=lambda sid,source=source:self.focus_missing_frame(source,sid),stage_callback=lambda:ui_plugin_registry.module('skill_panel').open_for_page(self,PAGE['video']),report_callback=self.pet_report,prompt_stage_callback=lambda:ui_plugin_registry.module('skill_panel').show(self,'final'),manual_command_factory=manual_command)
+        self.video=App(panel,video_root,settings_callback=(lambda:ui_plugin_registry.module('cloud_video').settings_window(self)) if is_cloud else None,prompt_callback=prepare_video_prompt,episode_file=None if is_cloud else source,missing_frame_callback=lambda sid,source=source:self.focus_missing_frame(source,sid),stage_callback=lambda:ui_plugin_registry.module('skill_panel').open_for_page(self,PAGE['video']),report_callback=self.pet_report,prompt_stage_callback=lambda:ui_plugin_registry.module('skill_panel').show(self,'final'),manual_command_factory=manual_command);ui_plugin_registry.module('skill_panel').attach_stage_pickers(self.video,self)
         # 视频页自己的文字框重排也听主窗口合并器：拖动时并进松手后的补做。
         self.video.resize_scheduler=self.resize_scheduler
         if is_cloud:self.header_status.configure(textvariable=self.video.status)

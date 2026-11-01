@@ -416,7 +416,7 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 970,
+   "total": 968,
    "percent": 0.0
   },
   {
@@ -470,7 +470,7 @@
   {
    "module": "desktop_media_pages.py",
    "covered": 0,
-   "total": 768,
+   "total": 769,
    "percent": 0.0
   },
   {
@@ -920,7 +920,7 @@
   {
    "module": "pet_models_ui.py",
    "covered": 0,
-   "total": 752,
+   "total": 753,
    "percent": 0.0
   },
   {
@@ -1226,7 +1226,7 @@
   {
    "module": "skill_panel.py",
    "covered": 0,
-   "total": 850,
+   "total": 794,
    "percent": 0.0
   },
   {
@@ -1238,7 +1238,7 @@
   {
    "module": "skill_panel_support.py",
    "covered": 0,
-   "total": 480,
+   "total": 439,
    "percent": 0.0
   },
   {
@@ -1293,6 +1293,12 @@
    "module": "stage_handler_registry.py",
    "covered": 0,
    "total": 101,
+   "percent": 0.0
+  },
+  {
+   "module": "stage_model_picker.py",
+   "covered": 0,
+   "total": 149,
    "percent": 0.0
   },
   {
@@ -1730,8 +1736,8 @@
   {
    "module": "stage_config.py",
    "covered": 61,
-   "total": 462,
-   "percent": 13.2
+   "total": 464,
+   "percent": 13.1
   },
   {
    "module": "stage_download_inbox_service.py",
@@ -2029,5 +2035,5 @@
   }
  ],
  "modules_covered": 52,
- "modules_total": 336
+ "modules_total": 337
 }

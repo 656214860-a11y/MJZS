@@ -519,7 +519,7 @@ class _WritingPage:
         # 中断”原有相邻顺序，也不再把 stage_config.synchronize 塞进建页回调。
         self.panel=ui_plugin_registry.module('skill_panel')
         self.holder={}
-        self.page.stage_button=self.panel.stage_button_for(foot,self.open_stage_panel)
+        self.page.stage_button=self.panel.stage_button_for(foot,self.open_stage_panel,desktop=self.page,stage='script')
         self.holder['button']=self.page.stage_button
         self.page.stage_button.pack(side='left',padx=(BUTTON_GAP_TIGHT,SPACING['none']),pady=SPACING['none'])
         refresh_button=SecondaryButton(foot,text='刷新',width=script_action_width,command=lambda:self.page.safe(self.page.refresh_script_workspace))

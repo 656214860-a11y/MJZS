@@ -560,9 +560,7 @@ class NativeAssetsGatingTests(_TkHarness):
         with tempfile.TemporaryDirectory() as td:
             d, _ = self.desktop(td)
             d.show(PAGE_OF['assets']); d.win.update_idletasks()
-            # 自动模式下按钮显示实际会调用的引擎，而非固定的“阶段配置”。
-            from skill_panel import stage_button_label
-            config_label = stage_button_label(d, 'assets')
+            config_label = '阶段配置'  # 按钮名固定，当前模型在按钮右侧的选择器里
             buttons = []
             def walk(w):
                 if isinstance(w, (self.tk.Button, self.ttk.Button)):
