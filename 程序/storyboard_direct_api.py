@@ -193,20 +193,21 @@ def _episode(batch, script, existing_board):
 class _Batch:
     """一批直连请求共用的服务：项目、适配器、模型、system 文本与取消探针。"""
 
-    def __init__(self, project, config, skill_text, adapter=None, record=None, cancelled=None):
+    def __init__(self, project, config, skill_text, adapter=None, record=None, cancelled=None, profile=None):
         from workflow_tasks import storyboard_direct_rules
+        stage, rules = profile or ('storyboard', storyboard_direct_rules())
         self.project = Path(project).resolve()
         self.chosen = str((config or {}).get('model') or '')
         self.record = record
         self.cancelled = cancelled or (lambda: False)
-        self.system = str(skill_text or '') + '\n\n' + storyboard_direct_rules()
+        self.system = str(skill_text or '') + '\n\n' + rules
         if adapter is None:
             from model_pool import PoolAdapter
             from writing_api import WritingRequestAdapter
             self.record = record or direct_model(config)[1]
             adapter = WritingRequestAdapter(PoolAdapter(self.record, self.chosen, program=Path(__file__).resolve().parent,
                                                         timeout=REQUEST_TIMEOUT), self.record, self.chosen,
-                                            project=self.project, stage='storyboard')
+                                            project=self.project, stage=stage)
         self.adapter = adapter
 
 
@@ -253,8 +254,11 @@ def run_batch(project, config, skill_text, *, scripts=(), existing=(), report=No
 class Job(threading.Thread):
     """后台线程：跑一批并登记取消句柄；结果在 results。"""
 
+    thread_name = 'storyboard-direct'
+    busy_text = '正在直连制作初步分镜，请等当前这批完成，或先点「强制停止制作」。'
+
     def __init__(self, project, config, skill_text, **kwargs):
-        super().__init__(daemon=True, name='storyboard-direct')
+        super().__init__(daemon=True, name=self.thread_name)
         from platform_tools import ExecutionControl
         self.project, self.config, self.skill_text, self.kwargs = Path(project).resolve(), config, skill_text, kwargs
         self.control = ExecutionControl(timeout=6 * 3600)
@@ -265,13 +269,15 @@ class Job(threading.Thread):
     def cancel(self):
         self.control.cancel()
 
+    def execute(self, **services):
+        return run_batch(self.project, self.config, self.skill_text, **services, **self.kwargs)
+
     def run(self):
         from platform_tools import execution_scope
         from workflow_process_registry import forget_request
         try:
             with execution_scope(self.control):
-                self.results = run_batch(self.project, self.config, self.skill_text,
-                                         cancelled=self.control.stopped.is_set, **self.kwargs)
+                self.results = self.execute(cancelled=self.control.stopped.is_set)
         except Exception as error:
             self.error = str(error)
             self.results = [{'source': '', 'ok': False, 'stopped': False, 'path': '', 'error': self.error}]
@@ -281,12 +287,12 @@ class Job(threading.Thread):
                 self.done(self)
 
 
-def launch(project, config, skill_text, *, done=None, **kwargs):
+def launch(project, config, skill_text, *, done=None, job_class=None, **kwargs):
     """启动后台直连作业；同一项目已有作业时拒绝（正在直连制作）。"""
     from workflow_process_registry import register_request
-    job = Job(project, config, skill_text, **kwargs)
+    job = (job_class or Job)(project, config, skill_text, **kwargs)
     job.done = done
     if not register_request(job.project, job):
-        raise ValueError('正在直连制作初步分镜，请等当前这批完成，或先点「强制停止制作」。')
+        raise ValueError(job.busy_text)
     job.start()
     return job
