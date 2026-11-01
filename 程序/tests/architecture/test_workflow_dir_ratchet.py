@@ -20,10 +20,7 @@ REGISTERED = {
     'download_inbox.py': 1,
     'projects.py': 4,
     'shot_numbering.py': 3,
-    'stage_download_inbox_service.py': 1,
-    'storage_maintenance.py': 1,
     'storyboard_recycle_service.py': 2,
-    'white_model_service.py': 1,
     'workflow_engines.py': 4,
 }
 

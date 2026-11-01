@@ -11,9 +11,10 @@ import time
 from pathlib import Path
 
 import file_cache
+import stage_layout
 
 
-DOWNLOAD_INBOX_LEDGER = ('工作流任务', '下载收件箱.json')
+DOWNLOAD_INBOX_LEDGER = (stage_layout.WORKFLOW_DIR, '下载收件箱.json')
 
 
 def _download_inbox_path(project):
