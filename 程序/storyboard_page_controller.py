@@ -69,7 +69,8 @@ class StoryboardPageController:
             if kind == 'script':
                 current = [entry['path'] for entry in entries if not entry.get('done')]
             else:
-                current = [path for path in self.selection(kind) if path not in used]
+                # 内存勾选可能含刚删除的文件；只留仍存在的，免得补行时读已删文件
+                current = [path for path in self.selection(kind) if path not in used and path.is_file()]
             for path in current:
                 if path not in available:
                     entries.append({
