@@ -22,6 +22,7 @@ import ui_plugin_registry
 from desktop_idea_deferred import IdeaDeferredMixin
 from desktop_audio_direct import run_audio_direct as _run_audio_direct
 from desktop_storyboard_direct import run_storyboard_direct as _run_storyboard_direct
+from desktop_video_prompt_direct import run_video_prompt_direct as _run_video_prompt_direct
 from idea_chat_controller import bubble_timestamp, collapse_preview
 from platform_tools import open_target
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, COLORS, FONTS, SPACING
@@ -832,15 +833,17 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin):
         self._idea_example=text
         return text
     def open_flow_agent(self, stage, label, prompt, followup=None, on_receipt=None, _config=None, *, intake_only=False, new_session=False, desktop_paste=False):
-        return _FlowAgentLaunch(self, _FlowAgentRequest(stage, label, prompt, followup, on_receipt, _config, intake_only,
-                                                       new_session, desktop_paste)).build()
+        return _FlowAgentLaunch(self, _FlowAgentRequest(stage, label, prompt, followup, on_receipt, _config, intake_only, new_session, desktop_paste)).build()
+    def open_direct_flow_agent(self, stage, label, prompt, direct):  # 带直连载荷：API 模型程序直连，否则同 open_flow_agent
+        return _FlowAgentLaunch(self, _FlowAgentRequest(stage, label, prompt, None, None, None, False, False, False, direct)).build()
 
 
 class _FlowAgentRequest:
     """open_flow_agent 的参数对象（收拢 _FlowAgentLaunch 的入参）。"""
-    __slots__ = ('stage', 'label', 'prompt', 'followup', 'on_receipt', '_config', 'intake_only', 'new_session', 'desktop_paste')
+    __slots__ = ('stage', 'label', 'prompt', 'followup', 'on_receipt', '_config', 'intake_only', 'new_session', 'desktop_paste', 'direct')
 
     def __init__(self, *values):
+        self.direct = None
         for name, value in zip(self.__slots__, values):
             setattr(self, name, value)
 
@@ -878,6 +881,11 @@ class _FlowAgentLaunch:
             from audio_direct_api import direct_model
             if direct_model(self.config) and hasattr(self.host,'current_frame_json'):
                 _run_audio_direct(self.host,self.config);return
+        if self.stage=='video_prompt' and self.direct and not self.intake_only:
+            # 唯一分流点（REQ-S10-50）：选了模型池里的 API 模型就由程序直连整理视频提示词，不再经 Qwen Code。
+            from video_prompt_direct_api import direct_model
+            if direct_model(self.config):
+                _run_video_prompt_direct(self.host,self.config,self.direct);return
         if self.stage == 'writing' and not self.intake_only:
             from workflow_settings import freeze_skills
             self.config = freeze_skills(self.config)
