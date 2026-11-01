@@ -251,33 +251,33 @@ class WritingRequestAdapter(ModelAdapter):
                                   '请压缩历史或缩短输入。' + budget_advice(report))}
         if rejected:
             return dict(rejected, context_budget=dict(self.context_budget), request_usage=dict(self.request_usage))
-        ledger = None
+        keys = ('prompt_tokens', 'completion_tokens', 'cached_tokens')
+        captured = {}
+
+        def usage_of(result):
+            data = result.get('data')
+            raw = data.get('usage') if isinstance(data, dict) else None
+            # 口径与 token_saver.reported_usage 一致：嵌套命中、Claude 总输入都算；没报的格子保持缺省。
+            captured['reported'] = token_saver.reported_usage(raw if isinstance(raw, dict) else {})
+            return {key: captured['reported'][key] for key in keys if key in captured['reported']}
+
+        def send():
+            return getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
         if self.project is not None:
+            from model_metering import metered
             from pet_llm import RequestLedger
             from uuid import uuid4
-            ledger = RequestLedger(self.project)
-            request_id = uuid4().hex
             estimate = len(json.dumps({'system': system, 'messages': messages, 'options': options},
                                       ensure_ascii=False).encode('utf-8')) + 256
-            try:
-                ledger.authorize_model(request_id, model or self.chosen, 'script', estimate, reserved)
-            except (ValueError, OSError) as error:
+            result, _usage, refused = metered(
+                RequestLedger(self.project), (uuid4().hex, model or self.chosen, 'script', estimate, reserved),
+                send, usage_of)
+            if refused is not None:
                 return {'ok': False, 'status': 0, 'model': model or self.chosen, 'text': '', 'usage': {},
-                        'reason': 'money_budget_exceeded', 'error': str(error)}
-        try:
-            result = getattr(self.adapter, method)(messages, options=options, model=model, system=system, **kwargs)
-        except Exception:
-            if ledger:
-                ledger.settle_model(request_id, {})
-            raise
-        data = result.get('data')
-        raw = data.get('usage') if isinstance(data, dict) else None
-        raw = raw if isinstance(raw, dict) else {}
-        # 口径与 token_saver.reported_usage 一致：嵌套命中、Claude 总输入都算；没报的格子保持缺省。
-        reported = token_saver.reported_usage(raw)
-        keys = ('prompt_tokens', 'completion_tokens', 'cached_tokens')
-        if ledger:
-            ledger.settle_model(request_id, {key: reported[key] for key in keys if key in reported})
+                        'reason': 'money_budget_exceeded', 'error': str(refused)}
+        else:
+            result = send(); usage_of(result)
+        reported = captured['reported']
         self.request_usage['calls'] += 1
         for key in keys:
             value = reported.get(key)

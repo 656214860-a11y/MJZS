@@ -21,6 +21,7 @@ from contextlib import contextmanager
 from pathlib import Path
 import model_pool
 import token_saver
+from model_metering import metered
 from app_metadata import APP_NAME
 from agent.core import save
 from pet_bus import read_json
@@ -426,27 +427,27 @@ class Client:
                    'error_class': 'pending'}
         path = self._record_diagnostic(pending, task, tier, cfg, context)
         ledger = RequestLedger(self.project) if self.project else None
+
+        def usage_of(result):
+            data = result.get('data')
+            return reported_usage(data.get('usage') if isinstance(data, dict) else None)
+
+        def diagnose(result, usage):
+            self._record_diagnostic({**result, 'model': model, 'usage': usage},
+                                    task, tier, cfg, context, path)
         if ledger:
             estimate = len(json.dumps(payload, ensure_ascii=False).encode('utf-8')) + 256
-            try:
-                ledger.authorize_model(context['request_id'], model, context['stage'], estimate, int(payload['max_tokens']))
-            except (ValueError, OSError) as error:
-                result = {'ok': False, 'status': 0, 'kind': 'budget', 'error': str(error), 'usage': {}}
+            result, usage, rejected = metered(
+                ledger, (context['request_id'], model, context['stage'], estimate, int(payload['max_tokens'])),
+                lambda: send(url, payload, head, timeout), usage_of, on_result=diagnose)
+            if rejected is not None:
+                result = {'ok': False, 'status': 0, 'kind': 'budget', 'error': str(rejected), 'usage': {}}
                 self._record_diagnostic({**result, 'model': model, 'error_class': 'budget'}, task, tier, cfg, {**context, 'not_submitted': True}, path)
                 return result
-        try:
+        else:
             result = send(url, payload, head, timeout)
-        except Exception:
-            if ledger:
-                ledger.settle_model(context['request_id'], {})
-            raise
-        data = result.get('data')
-        raw = data.get('usage') if isinstance(data, dict) else None
-        usage = reported_usage(raw)
-        self._record_diagnostic({**result, 'model': model, 'usage': usage},
-                                task, tier, cfg, context, path)
-        if ledger:
-            ledger.settle_model(context['request_id'], usage)
+            usage = usage_of(result)
+            diagnose(result, usage)
         if usage:
             self.ledger.record(model, usage, tier=tier, at=at)
         return result

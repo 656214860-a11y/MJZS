@@ -1712,7 +1712,7 @@
   {
    "module": "writing_api.py",
    "covered": 0,
-   "total": 1001,
+   "total": 998,
    "percent": 0.0
   },
   {
@@ -1738,6 +1738,12 @@
    "covered": 85,
    "total": 740,
    "percent": 11.5
+  },
+  {
+   "module": "model_metering.py",
+   "covered": 2,
+   "total": 16,
+   "percent": 12.5
   },
   {
    "module": "stage_config.py",
@@ -1969,9 +1975,9 @@
   },
   {
    "module": "pet_llm.py",
-   "covered": 581,
-   "total": 888,
-   "percent": 65.4
+   "covered": 582,
+   "total": 886,
+   "percent": 65.7
   },
   {
    "module": "project_context_factory.py",
@@ -2034,6 +2040,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 50,
- "modules_total": 337
+ "modules_covered": 51,
+ "modules_total": 338
 }

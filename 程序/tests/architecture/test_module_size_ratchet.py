@@ -20,7 +20,7 @@ OVERSIZE_CAPS = {
     'skill_panel.py': 1203,
     'pet_ui_stages.py': 1202,
     'pet_ui_voice.py': 1201,
-    'pet_llm.py': 1197,
+    'pet_llm.py': 1190,
     'pet_agent.py': 1182,
     'workflow_settings.py': 1069,
     'desktop_idea_chat.py': 1109,

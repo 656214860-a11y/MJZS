@@ -81,6 +81,8 @@ _register(3, "workflow_settings", "legacy_compat", "qwen_adapter")
 _register(1, "project_settings", "cloud_assets", "asset_prompt_rules")
 _register(2, "asset_reference_prompts")
 _register(4, "project_settings_dialog", "cloud_assets_dialog", "asset_prompt_check_dialog", "asset_reference_prompts_dialog")
+# R2203（R2178 J10）：模型调用计量序列只依赖传入的台账对象，无导入 → L1。
+_register(1, "model_metering")
 _register(3, "desktop_send_ledger")
 _register(4, "desktop_send_choice")
 
