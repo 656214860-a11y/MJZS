@@ -81,28 +81,6 @@ def _build_layout_scheduler(win):
     return schedule_layout, cancel_layout_job
 
 
-def _restart_preparation(host, stage, refresh):
-    """右键重写：API 模型写重写记录；桌面／命令行模型改为填入可识别的发送指令。"""
-    import writing_api
-    from stage_execution_service import restart_writing_preparation
-    if stage and not writing_api.selected_model(host.root)[0]:
-        command = '重新生成' + stage
-        box = getattr(host, 'idea_input', None)
-        if box is None or not box.winfo_exists():
-            raise ValueError('当前页面未找到剧本准备输入框')
-        current = box.get('1.0', 'end-1c')
-        if current.split('\n', 1)[0].strip() != command:
-            box.delete('1.0', 'end')
-            box.insert('1.0', command + ('\n' + current if current else ''))
-        box.focus_set()
-        host.status.set('已在输入框填入「' + command + '」：可在下一行补充修改要求，再点发送')
-        return
-    restart_writing_preparation(host.root, stage)
-    refresh()
-    host.status.set(('开始重写' + stage + '：请发送创作要求，新稿定稿前原稿照常可用')
-                    if stage else '已放弃重写，恢复原稿')
-
-
 @dataclass(frozen=True)
 class WritingPageServices:
     """剧本准备页的外部 UI 能力；由组合入口提供，不携带全局宿主（R1606 模式，J2）。"""
@@ -827,8 +805,27 @@ class _WritingPage:
         self.fill_script_list()
         self.page.status.set('已采用自然剧本：'+adopted.name+'；后续结构化使用此版本')
 
-    def restart_preparation(self, stage):
-        _restart_preparation(self.page,stage,self.fill_script_list)
+    def unconfirm_preparation(self, stage):
+        """右键「取消已确认」：取消该阶段确认并把准备流程回退到该阶段；只改台账、不删文件。"""
+        from writing_api import PREPARATION_STAGES
+        from writing_unconfirm import preparation_confirmed_stages
+        confirmed = preparation_confirmed_stages(self.page.root)
+        if stage not in confirmed:
+            return
+        index = PREPARATION_STAGES.index(stage)
+        downstream = tuple(s for s in confirmed if PREPARATION_STAGES.index(s) > index)
+        prompt = ('确定取消「' + stage + '」的确认吗？\n\n'
+                  '取消后剧本准备流程回到「' + stage + '」，你需要重新确认该阶段。')
+        if downstream:
+            prompt += '\n\n已确认的「' + '」「'.join(downstream) + '」会一并取消。'
+        prompt += '\n\n不会删除或覆盖任何文件，原稿保留。'
+        if not self.page.writing_page_services.confirm(self.page.win, '取消已确认', prompt):
+            return
+        from stage_execution_service import unconfirm_writing_preparation
+        invalidated = unconfirm_writing_preparation(self.page.root, stage)
+        self.fill_script_list()
+        note = ('，「' + '」「'.join(invalidated) + '」的确认一并取消' if invalidated else '')
+        self.page.status.set('已取消「' + stage + '」的确认' + note + '，当前回到「' + stage + '」')
 
     def confirm_document(self, stage):
         """把用户改过的当前文件设为该阶段定稿；之后各阶段的定稿会失效。"""
@@ -863,8 +860,9 @@ class _WritingPage:
         else:
             stages={'setting':'项目设定','outline':'剧本大纲','character':'角色卡'}
             stage=stages[category]
-            menu.command('重写'+stage,lambda:self.page.safe(lambda:self.restart_preparation(stage)))
-            menu.command('放弃重写，恢复原稿',lambda:self.page.safe(lambda:self.restart_preparation(None)))
+            from writing_unconfirm import preparation_confirmed_stages
+            if stage in preparation_confirmed_stages(self.page.root):
+                menu.command('取消已确认',lambda:self.page.safe(lambda:self.unconfirm_preparation(stage)))
             menu.command('设为'+stage+'定稿',lambda:self.page.safe(lambda:self.confirm_document(stage)))
         menu.command('删除',lambda:self.page.safe(self.delete_script))
         return menu.popup(event)
