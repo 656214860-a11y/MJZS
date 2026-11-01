@@ -20,10 +20,6 @@ from tkinter import ttk
 import pet_state
 import ui_plugin_registry
 from desktop_idea_deferred import IdeaDeferredMixin
-from desktop_audio_direct import run_audio_direct as _run_audio_direct
-from desktop_storyboard_direct import run_storyboard_direct as _run_storyboard_direct
-from desktop_video_prompt_direct import run_video_prompt_direct as _run_video_prompt_direct
-from desktop_image_direct import run_image_direct as _run_image_direct
 from idea_chat_controller import (bubble_timestamp, collapse_preview, has_interruptible, interrupt_notice,
                                   queue_notice, slot_decision)
 from platform_tools import open_target
@@ -869,28 +865,8 @@ class _FlowAgentLaunch:
         # 读取阶段配置，恰逢面板刷新／配置回退就可能把 Claude 的续发错误地交给 Codex。
         from workflow_settings import resolve_for_send
         self.config=resolve_for_send(self.host.root,self.stage,config=self._config,intake_only=self.intake_only);self.followup=self.followup if self.followup is not None else self.prompt
-        if self.stage=='storyboard' and not self.intake_only:
-            # 唯一分流点（REQ-S03-53）：选了模型池里的 API 模型就由程序直连，不再经 Qwen Code。
-            from storyboard_direct_api import direct_model
-            if direct_model(self.config):
-                _run_storyboard_direct(self.host,self.config);return
-        if self.stage=='audio' and not self.intake_only:
-            # 唯一分流点（REQ-S11-50）：选了模型池里的 API 模型就由程序直连生成音频脚本，不再经 Qwen Code。
-            from audio_direct_api import direct_model
-            if direct_model(self.config) and hasattr(self.host,'current_frame_json'):
-                _run_audio_direct(self.host,self.config);return
-        if self.stage=='video_prompt' and self.direct and not self.intake_only:
-            # 唯一分流点（REQ-S10-50）：选了模型池里的 API 模型就由程序直连整理视频提示词，不再经 Qwen Code。
-            from video_prompt_direct_api import direct_model
-            if direct_model(self.config):
-                _run_video_prompt_direct(self.host,self.config,self.direct);return
-        if self.stage=='assets' and self.direct and not self.intake_only and self.config['engine']=='qwen':
-            # 唯一分流点（REQ-S05-50／REQ-S08-52）：引擎为 qwen 的资产／首帧出图由程序直接执行 image_agent_runner，不再经 Qwen Code。
-            _run_image_direct(self.host,self.direct);return
-        if self.stage=='previs':
-            # REQ-S09-50：白模预演只走本地 Agent；API 模型（engine=qwen）不再悄悄起 Qwen Code，直接提示。
-            from previs_automation import require_local_agent
-            require_local_agent(self.config)
+        from desktop_direct_dispatch import dispatch
+        if dispatch(self.host,self.stage,self.config,self.direct,self.intake_only):return
         self.native_claude = self.config['engine'] in ('claude-desktop-app', 'desktop-app')
         self.bounded_writing = self.stage == 'writing' and self.config['engine'] == 'claude'
         if self.stage == 'writing' and self.config['engine'] == 'claude' and not self.intake_only and not self.new_session:

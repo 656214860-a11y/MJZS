@@ -120,7 +120,7 @@ class ImageDirectRoutingTests(unittest.TestCase):
                                async_=lambda *_a, **_k: None)
         request = chat._FlowAgentRequest('assets', '资产管理', 'p', None, None, None, False, False, False, direct)
         with patch('workflow_settings.current', return_value=config), \
-                patch.object(chat, '_run_image_direct') as run:
+                patch('desktop_image_direct.run_image_direct') as run:
             try:
                 chat._FlowAgentLaunch(host, request).build()
             except Exception:  # 非直连路径后续依赖真实宿主，这里只关心有没有分流

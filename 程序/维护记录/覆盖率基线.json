@@ -56,7 +56,7 @@
   {
    "module": "agent_dispatch.py",
    "covered": 0,
-   "total": 43,
+   "total": 44,
    "percent": 0.0
   },
   {
@@ -236,7 +236,7 @@
   {
    "module": "asset_skill_batch.py",
    "covered": 0,
-   "total": 95,
+   "total": 97,
    "percent": 0.0
   },
   {
@@ -332,7 +332,7 @@
   {
    "module": "codex_tasks.py",
    "covered": 0,
-   "total": 132,
+   "total": 133,
    "percent": 0.0
   },
   {
@@ -420,6 +420,12 @@
    "percent": 0.0
   },
   {
+   "module": "desktop_direct_dispatch.py",
+   "covered": 0,
+   "total": 29,
+   "percent": 0.0
+  },
+  {
    "module": "desktop_file_card.py",
    "covered": 0,
    "total": 27,
@@ -434,13 +440,13 @@
   {
    "module": "desktop_idea_chat.py",
    "covered": 0,
-   "total": 978,
+   "total": 959,
    "percent": 0.0
   },
   {
    "module": "desktop_idea_deferred.py",
    "covered": 0,
-   "total": 63,
+   "total": 60,
    "percent": 0.0
   },
   {
@@ -500,7 +506,7 @@
   {
    "module": "desktop_page_nav.py",
    "covered": 0,
-   "total": 233,
+   "total": 232,
    "percent": 0.0
   },
   {
@@ -602,7 +608,7 @@
   {
    "module": "download_inbox.py",
    "covered": 0,
-   "total": 123,
+   "total": 124,
    "percent": 0.0
   },
   {
@@ -716,7 +722,7 @@
   {
    "module": "idea_chat_controller.py",
    "covered": 0,
-   "total": 167,
+   "total": 202,
    "percent": 0.0
   },
   {
@@ -746,7 +752,7 @@
   {
    "module": "image_agent_runner.py",
    "covered": 0,
-   "total": 105,
+   "total": 106,
    "percent": 0.0
   },
   {
@@ -776,7 +782,7 @@
   {
    "module": "keyframe_import.py",
    "covered": 0,
-   "total": 184,
+   "total": 185,
    "percent": 0.0
   },
   {
@@ -878,7 +884,7 @@
   {
    "module": "page_navigation_controller.py",
    "covered": 0,
-   "total": 61,
+   "total": 92,
    "percent": 0.0
   },
   {
@@ -890,7 +896,7 @@
   {
    "module": "pet_broadcast_state.py",
    "covered": 0,
-   "total": 69,
+   "total": 79,
    "percent": 0.0
   },
   {
@@ -902,7 +908,7 @@
   {
    "module": "pet_cloud.py",
    "covered": 0,
-   "total": 838,
+   "total": 835,
    "percent": 0.0
   },
   {
@@ -914,7 +920,7 @@
   {
    "module": "pet_cloud_hint.py",
    "covered": 0,
-   "total": 97,
+   "total": 104,
    "percent": 0.0
   },
   {
@@ -962,7 +968,7 @@
   {
    "module": "pet_performance_service.py",
    "covered": 0,
-   "total": 100,
+   "total": 101,
    "percent": 0.0
   },
   {
@@ -986,19 +992,19 @@
   {
    "module": "pet_state.py",
    "covered": 0,
-   "total": 217,
+   "total": 218,
    "percent": 0.0
   },
   {
    "module": "pet_test_service.py",
    "covered": 0,
-   "total": 97,
+   "total": 98,
    "percent": 0.0
   },
   {
    "module": "pet_ui.py",
    "covered": 0,
-   "total": 459,
+   "total": 455,
    "percent": 0.0
   },
   {
@@ -1040,13 +1046,13 @@
   {
    "module": "previs_automation.py",
    "covered": 0,
-   "total": 155,
+   "total": 161,
    "percent": 0.0
   },
   {
    "module": "previs_batch_service.py",
    "covered": 0,
-   "total": 26,
+   "total": 27,
    "percent": 0.0
   },
   {
@@ -1070,7 +1076,7 @@
   {
    "module": "previs_routing.py",
    "covered": 0,
-   "total": 171,
+   "total": 172,
    "percent": 0.0
   },
   {
@@ -1112,13 +1118,19 @@
   {
    "module": "qwen_adapter.py",
    "covered": 0,
-   "total": 113,
+   "total": 114,
    "percent": 0.0
   },
   {
    "module": "qwen_setup.py",
    "covered": 0,
-   "total": 137,
+   "total": 73,
+   "percent": 0.0
+  },
+  {
+   "module": "qwen_setup_dialog.py",
+   "covered": 0,
+   "total": 66,
    "percent": 0.0
   },
   {
@@ -1232,7 +1244,7 @@
   {
    "module": "shot_numbering.py",
    "covered": 0,
-   "total": 194,
+   "total": 195,
    "percent": 0.0
   },
   {
@@ -1298,7 +1310,7 @@
   {
    "module": "skill_tools.py",
    "covered": 0,
-   "total": 416,
+   "total": 417,
    "percent": 0.0
   },
   {
@@ -1430,7 +1442,7 @@
   {
    "module": "storyboard_recycle_service.py",
    "covered": 0,
-   "total": 125,
+   "total": 121,
    "percent": 0.0
   },
   {
@@ -1676,7 +1688,7 @@
   {
    "module": "white_model_service.py",
    "covered": 0,
-   "total": 487,
+   "total": 488,
    "percent": 0.0
   },
   {
@@ -1783,15 +1795,9 @@
   },
   {
    "module": "stage_config.py",
-   "covered": 61,
-   "total": 462,
-   "percent": 13.2
-  },
-  {
-   "module": "stage_download_inbox_service.py",
-   "covered": 11,
-   "total": 80,
-   "percent": 13.8
+   "covered": 62,
+   "total": 465,
+   "percent": 13.3
   },
   {
    "module": "model_metering.py",
@@ -1803,6 +1809,12 @@
    "module": "client_profiles.py",
    "covered": 54,
    "total": 365,
+   "percent": 14.8
+  },
+  {
+   "module": "stage_download_inbox_service.py",
+   "covered": 12,
+   "total": 81,
    "percent": 14.8
   },
   {
@@ -1843,9 +1855,9 @@
   },
   {
    "module": "stage_execution_service.py",
-   "covered": 193,
-   "total": 1004,
-   "percent": 19.2
+   "covered": 195,
+   "total": 998,
+   "percent": 19.5
   },
   {
    "module": "agent/wan.py",
@@ -1861,8 +1873,8 @@
   },
   {
    "module": "platform_tools.py",
-   "covered": 96,
-   "total": 481,
+   "covered": 97,
+   "total": 485,
    "percent": 20.0
   },
   {
@@ -1885,15 +1897,21 @@
   },
   {
    "module": "skill_budget.py",
-   "covered": 39,
-   "total": 171,
-   "percent": 22.8
+   "covered": 40,
+   "total": 172,
+   "percent": 23.3
   },
   {
    "module": "app_logging.py",
    "covered": 59,
    "total": 248,
    "percent": 23.8
+  },
+  {
+   "module": "api_endpoints.py",
+   "covered": 13,
+   "total": 53,
+   "percent": 24.5
   },
   {
    "module": "pet_bus.py",
@@ -1920,12 +1938,6 @@
    "percent": 25.8
   },
   {
-   "module": "api_endpoints.py",
-   "covered": 12,
-   "total": 46,
-   "percent": 26.1
-  },
-  {
    "module": "stage_flow.py",
    "covered": 68,
    "total": 255,
@@ -1933,9 +1945,9 @@
   },
   {
    "module": "stage_layout.py",
-   "covered": 53,
-   "total": 197,
-   "percent": 26.9
+   "covered": 58,
+   "total": 205,
+   "percent": 28.3
   },
   {
    "module": "project_naming.py",
@@ -1952,8 +1964,8 @@
   {
    "module": "model_pool.py",
    "covered": 236,
-   "total": 754,
-   "percent": 31.3
+   "total": 751,
+   "percent": 31.4
   },
   {
    "module": "agent/core.py",
@@ -1963,9 +1975,9 @@
   },
   {
    "module": "storage_maintenance.py",
-   "covered": 228,
-   "total": 655,
-   "percent": 34.8
+   "covered": 229,
+   "total": 656,
+   "percent": 34.9
   },
   {
    "module": "stage_path_service.py",
@@ -1999,9 +2011,9 @@
   },
   {
    "module": "file_cache.py",
-   "covered": 76,
-   "total": 158,
-   "percent": 48.1
+   "covered": 77,
+   "total": 159,
+   "percent": 48.4
   },
   {
    "module": "stage_publication.py",
@@ -2088,6 +2100,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 52,
- "modules_total": 340
+ "modules_covered": 53,
+ "modules_total": 348
 }

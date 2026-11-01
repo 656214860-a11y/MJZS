@@ -129,7 +129,7 @@ class VideoPromptDirectTests(unittest.TestCase):
         direct = {'context': self.context, 'output': self.output, 'draft': ''}
         request = chat._FlowAgentRequest('video_prompt', '提示词渲染', 'p', None, None, None, False, False, False, direct)
         with patch('model_pool.pool', return_value=pool), patch('workflow_settings.current', return_value=self.config), \
-                patch.object(chat, '_run_video_prompt_direct') as run:
+                patch('desktop_video_prompt_direct.run_video_prompt_direct') as run:
             chat._FlowAgentLaunch(host, request).build()
         run.assert_called_once()
         self.assertEqual(direct, run.call_args.args[2])
@@ -144,7 +144,7 @@ class VideoPromptDirectTests(unittest.TestCase):
                                    async_=lambda *_a, **_k: None)
             request = chat._FlowAgentRequest('video_prompt', '提示词渲染', 'p', None, None, None, False, False, False, payload)
             with patch('model_pool.pool', return_value=pool), patch('workflow_settings.current', return_value=config), \
-                    patch.object(chat, '_run_video_prompt_direct') as run:
+                    patch('desktop_video_prompt_direct.run_video_prompt_direct') as run:
                 try:
                     chat._FlowAgentLaunch(host, request).build()
                 except Exception:  # 非直连路径后续依赖真实宿主，这里只关心没有分流
