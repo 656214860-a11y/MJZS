@@ -9,7 +9,7 @@ from agent.core import save
 from file_cache import read_json
 import skill_registry
 from skill_registry import nested_references as _nested_references, reference_row as _reference_row
-import client_profiles, edit_habits
+import client_profiles, edit_habits, stage_layout
 from script_contract import PRODUCTION_LOCK_DEFINITIONS, STAGE_LOCK_REQUIREMENTS, lock_stage
 from workflow_context_budget import REQUEST_CONTEXT_MAX_CHARS
 
@@ -232,7 +232,7 @@ def skills_for_stage(profile,stage,name='codex'):
     return picked
 
 def settings_path(project):
-    return Path(project)/'工作流任务'/'工作流调用设置.json'
+    return stage_layout.workflow_dir(project,'工作流调用设置.json')
 
 
 def shared_qwen_model(data):

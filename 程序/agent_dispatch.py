@@ -2,6 +2,7 @@
 import hashlib,json,time
 from pathlib import Path
 from agent.core import read,save
+import stage_layout
 from codex_tasks import task_lock
 
 def signature(stage,prompt,followup,config,context):
@@ -25,7 +26,7 @@ def signature(stage,prompt,followup,config,context):
     return hashlib.sha256(json.dumps(payload,ensure_ascii=False,sort_keys=True).encode('utf-8')).hexdigest()
 
 def claim(project,key,title):
-    file=Path(project)/'工作流任务/Agent发送记录'/f'{key}.json'
+    file=stage_layout.workflow_dir(project,'Agent发送记录',f'{key}.json')
     with task_lock(Path(project)):
         previous=read(file) if file.is_file() else {}
         if not isinstance(previous,dict):previous={}
