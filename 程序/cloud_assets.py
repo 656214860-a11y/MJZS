@@ -18,21 +18,24 @@ def _secret_file():
 
 
 def _unified_key():
-    """统一那份 .env（程序目录/private/.env）里的密钥；没有就是空串（第 65 期任务 1）。"""
+    """经 model_pool 的唯一取钥链（本机 DPAPI → .env → 环境变量）取密钥；没有就是空串。"""
     try:
         import model_pool
-        return model_pool.named_key(KEY_ENV)
+        return model_pool.named_key(KEY_ENV)   # 即 credential(KEY_ENV)：本机 DPAPI → .env → 环境变量
     except Exception:
         return ''
 
 
 def get_key():
-    """密钥的次序：同名环境变量 → 统一那份 .env → 老安装留在本机加密那份（只读兼容）。"""
-    if os.environ.get(KEY_ENV, '').strip():
-        return os.environ[KEY_ENV].strip()
+    """密钥的次序：model_pool.credential 那条链 → 同名环境变量（兜底）→ 老安装本机加密那份（只读兼容）。
+
+    R2178 J8：旧环境变量不再盖过用户刚保存的密钥。
+    """
     unified = _unified_key()
     if unified:
         return unified
+    if os.environ.get(KEY_ENV, '').strip():
+        return os.environ[KEY_ENV].strip()
     file = _secret_file()
     return protect(file.read_bytes(), decrypt=True, label=KEY_LABEL).decode('utf-8') if file.is_file() else ''
 

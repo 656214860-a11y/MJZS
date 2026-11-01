@@ -411,6 +411,23 @@ class CloudAssetsTests(unittest.TestCase):
             os.environ.pop("COMFY_API_KEY", None)
             self.assertEqual(get_key(), "sk-unified")
 
+    def test_a_newly_saved_key_beats_a_stale_environment_variable(self):
+        """R2178 J8：旧的同名环境变量不得盖过用户刚保存的密钥（取钥次序与 model_pool.credential 一致）。"""
+        from cloud_assets import get_key
+        from unittest.mock import patch
+        with patch.dict(os.environ, {"COMFY_API_KEY": "sk-stale"}),              patch("cloud_assets._unified_key", return_value="sk-fresh"):
+            self.assertEqual(get_key(), "sk-fresh")
+
+    def test_unified_key_reads_the_model_pool_chain(self):
+        from cloud_assets import _unified_key, KEY_ENV
+        from unittest.mock import patch
+        import model_pool
+        with patch("model_pool.credential", return_value="sk-chain") as chain:
+            self.assertEqual(model_pool.named_key(KEY_ENV), "sk-chain")
+            self.assertEqual(_unified_key(), "sk-chain")
+        with patch("model_pool.credential", side_effect=ValueError("none")):
+            self.assertEqual(_unified_key(), "")
+
     def test_save_key_goes_to_the_unified_store(self):
         """第 65 期任务 1：保存走统一那份 .env，不再另写一份本机文件。"""
         from cloud_assets import save_key, KEY_ENV
